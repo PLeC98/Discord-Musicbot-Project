@@ -1,0 +1,291 @@
+/* ── Design tokens ── */
+:root {
+  /* Backgrounds */
+  --bg-primary: #070b15;
+  --bg-secondary: rgba(14, 18, 40, 0.72);
+  --bg-tertiary: rgba(255, 255, 255, 0.07);
+
+  /* Accent — M3 Expressive indigo-purple */
+  --accent: #7c6ff6;
+  --accent-2: #b06ae9;
+  --accent-hover: #9580ff;
+  --accent-glow: rgba(124, 111, 246, 0.38);
+
+  /* Text */
+  --text-primary: #e8eaf6;
+  --text-secondary: rgba(232, 234, 246, 0.8);
+  --text-muted: rgba(232, 234, 246, 0.4);
+
+  /* Semantic */
+  --success: #4ade80;
+  --danger: #f87171;
+  --warning: #fbbf24;
+
+  /* Glass */
+  --border: rgba(255, 255, 255, 0.09);
+  --glass-blur: blur(24px) saturate(160%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+
+  /* Motion */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "gg sans", "Pretendard", "Noto Sans KR", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  background: var(--bg-primary);
+  background-image: radial-gradient(ellipse 80% 65% at 8% 12%, rgba(100, 60, 240, 0.16) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 88% 85%, rgba(50, 90, 250, 0.11) 0%, transparent 55%), radial-gradient(ellipse 50% 40% at 55% 48%, rgba(150, 60, 210, 0.07) 0%, transparent 55%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+  font-size: 14px;
+  --sb-track-color: #211e43;
+  --sb-thumb-color: #343a4f;
+  --sb-size: 10px;
+}
+
+body::-webkit-scrollbar {
+  width: var(--sb-size);
+}
+
+body::-webkit-scrollbar-track {
+  background: var(--sb-track-color);
+  border-radius: 5px;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb-color);
+  border-radius: 5px;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  body {
+    scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+  }
+}
+
+/* ── Navbar (Mica / Acrylic) ── */
+.navbar {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  height: 56px;
+  background: rgba(7, 11, 21, 0.72);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.nav-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition:
+    color 0.2s var(--ease-out),
+    background 0.2s var(--ease-out);
+}
+
+.nav-links a:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nav-links a.router-link-active {
+  color: #c4b5fd;
+  background: rgba(124, 111, 246, 0.14);
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  /* border: 2px solid rgba(255, 255, 255, 0.12); */
+  box-shadow: 0 0 0 2px rgba(124, 111, 246, 0.28);
+}
+
+/* ── Page layout ── */
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 36px 24px;
+}
+
+.page-title {
+  font-size: 1.7rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, #e8eaf6 0%, #c4b5fd 55%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.025em;
+}
+
+.page-subtitle {
+  color: var(--text-muted);
+  margin-bottom: 28px;
+  font-size: 0.9rem;
+}
+
+/* ── Card (Glassmorphic) ── */
+.card {
+  background: var(--bg-secondary);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--card-shadow), var(--glass-highlight);
+}
+
+.card-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(196, 181, 253, 0.65);
+  margin-bottom: 14px;
+}
+
+/* ── Buttons (M3 Expressive) ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition:
+    transform 0.35s var(--spring),
+    box-shadow 0.2s var(--ease-out);
+  text-decoration: none;
+  color: #fff;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.96);
+  transition-duration: 0.08s;
+}
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+  box-shadow: 0 4px 18px var(--accent-glow);
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow:
+    0 8px 32px var(--accent-glow),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  box-shadow: 0 4px 18px rgba(248, 113, 113, 0.34);
+}
+.btn-danger:hover:not(:disabled) {
+  box-shadow: 0 8px 32px rgba(248, 113, 113, 0.45);
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Badges ── */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.badge-green {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--success);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+}
+.badge-yellow {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+.badge-red {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(248, 113, 113, 0.22);
+}
+
+/* ── Misc ── */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px;
+  color: var(--text-muted);
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
