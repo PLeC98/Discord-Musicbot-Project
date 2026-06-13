@@ -5,17 +5,16 @@ This repository is a fork of [umutxyp/MusicBot](https://github.com/umutxyp/Music
 
 ## 라이선스 구조 / License Structure
 
-- **업스트림 베이스 (Upstream base)** — umutxyp/MusicBot 커밋
-  `e3c825e5ec19c8756bf6612bb7f1f7569501e526` 까지의 코드:
+- **업스트림 베이스 (Upstream base)**: umutxyp/MusicBot 커밋 `e3c825e5ec19c8756bf6612bb7f1f7569501e526` 까지의 코드 -
   Copyright (c) 2025 umutxyp, **MIT License** ([LICENSE-MIT](LICENSE-MIT) 참조)
 
-- **이 저장소의 수정·추가분 (Modifications in this repository)** — 위 커밋 이후
-  이 저장소에서 새로 작성된 모든 변경분:
+- **이 저장소의 수정·추가분 (Modifications in this repository)**: 위 커밋 이후
+  이 저장소에서 새로 작성된 모든 변경분 -
   Copyright (C) 2026 PLeC, **GNU AGPL-3.0-or-later** ([LICENSE](LICENSE) 참조)
 
-- **이후 업스트림에서 가져오는 코드 (Code later incorporated from upstream)** —
+- **이후 업스트림에서 가져오는 코드 (Code later incorporated from upstream)**:
   cherry-pick 등으로 업스트림에서 가져온 코드는 원 저작자의 MIT 라이선스를
-  유지합니다. 출처는 git 히스토리에 기록됩니다 (`git cherry-pick -x` 사용).
+  유지합니다.
 
 ## 결합 저작물 / Combined Work
 

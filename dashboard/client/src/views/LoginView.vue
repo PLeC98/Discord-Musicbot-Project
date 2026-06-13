@@ -21,9 +21,10 @@
       <p v-if="error" class="error-text">{{ errorText }}</p>
     </div>
 
-    <a v-if="sourceRepo" :href="sourceRepo" target="_blank" rel="noopener" class="source-link">
-      Source Code (AGPL-3.0)
-    </a>
+    <div class="source-links">
+      <a v-if="sourceRepo" :href="sourceRepo" target="_blank" rel="noopener" class="source-link"> Source Code (AGPL-3.0) </a>
+      <a href="https://github.com/PLeC98/Discord-Musicbot-Project" target="_blank" rel="noopener" class="source-link"> Source Code (AGPL-3.0) </a>
+    </div>
   </div>
 </template>
 
@@ -137,10 +138,17 @@ p {
 }
 
 /* 우측 하단의 은은한 소스 공개 링크 (AGPL 13조 고지) */
-.source-link {
+.source-links {
   position: fixed;
   right: 14px;
   bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.source-link {
   font-size: 0.72rem;
   color: var(--text-muted);
   opacity: 0.45;
@@ -152,5 +160,4 @@ p {
   opacity: 0.9;
   text-decoration: underline;
 }
-
 </style>

@@ -32,8 +32,7 @@ module.exports = {
     embedColor: process.env.EMBED_COLOR || "#FF6B6B",
     supportServer: process.env.SUPPORT_SERVER || "https://discord.gg/ACJQzJuckW",
     website: process.env.WEBSITE || "https://beatra.app",
-    sourceRepo: process.env.SOURCE_REPO_URL || "https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME", // AGPL 소스 제공용 공개 저장소 링크
-    upstreamRepo: "https://github.com/umutxyp/MusicBot", // Original Project Repository (MIT) - IMPORTANT: DO NOT CHANGE!
+    sourceRepo: process.env.SOURCE_REPO_URL || null,
     invite: "https://discord.com/oauth2/authorize?client_id=" + process.env.CLIENT_ID + "&permissions=8&scope=bot%20applications.commands",
     leaveDelayQueueEmptyMs: (parseInt(process.env.LEAVE_DELAY_QUEUE_EMPTY_SECONDS) || 10) * 1000,
     leaveDelayAloneMs: (parseInt(process.env.LEAVE_DELAY_ALONE_SECONDS) || 120) * 1000,
@@ -63,8 +62,8 @@ module.exports = {
     quality: "highestaudio",
     highWaterMark: 1 << 25,
     cookiesFromBrowser: process.env.COOKIES_FROM_BROWSER || null, // 'chrome', 'firefox', 'edge', 'safari'
-    cookiesFile: resolveFromRoot(process.env.COOKIES_FILE), // './cookies.txt' → 프로젝트 루트 기준 절대경로로 해석
-    poToken: process.env.YOUTUBE_PO_TOKEN || null, // YouTube PO Token (sunucu IP'leri için)
+    cookiesFile: resolveFromRoot(process.env.COOKIES_FILE),
+    poToken: process.env.YOUTUBE_PO_TOKEN || null,
   },
 
   // Dashboard Settings

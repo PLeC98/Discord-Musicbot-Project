@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
 const router = express.Router();
 
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -17,19 +18,31 @@ console.log(`[Dashboard Auth] OWNER_ID: ${OWNER_ID || '(not set)'}`);
 
 // Redirect to Discord OAuth
 router.get('/login', (req, res) => {
-    const params = new URLSearchParams({
-        client_id: CLIENT_ID,
-        redirect_uri: REDIRECT_URI,
-        response_type: 'code',
-        scope: 'identify guilds'
+    const state = crypto.randomBytes(16).toString('hex');
+    req.session.oauthState = state;
+    req.session.save(() => {
+        const params = new URLSearchParams({
+            client_id: CLIENT_ID,
+            redirect_uri: REDIRECT_URI,
+            response_type: 'code',
+            scope: 'identify guilds',
+            state,
+        });
+        res.redirect(`${DISCORD_API}/oauth2/authorize?${params}`);
     });
-    res.redirect(`${DISCORD_API}/oauth2/authorize?${params}`);
 });
 
 // OAuth2 callback
 router.get('/callback', async (req, res) => {
-    const { code } = req.query;
+    const { code, state } = req.query;
     if (!code) return res.redirect('/?error=no_code');
+
+    // Validate OAuth state to prevent Login CSRF (RFC 6749 §10.12)
+    const expectedState = req.session.oauthState;
+    delete req.session.oauthState;
+    if (!state || !expectedState || state !== expectedState) {
+        return res.redirect('/?error=auth_failed');
+    }
 
     try {
         // Exchange code for access token

@@ -1,14 +1,19 @@
 # Discord Musicbot Project
 
 한국어 UI 기반의 개인용 Discord 음악 봇.
-[umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 대폭 개조한 독립 포크입니다.
+[umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 개조한 독립 포크입니다.
 
-> **라이선스 요약** — 원본 베이스는 MIT, 이 저장소의 수정·추가분은 **AGPL-3.0-or-later**입니다.
-> 자세한 구조는 [NOTICE.md](NOTICE.md)를 참조하세요.
+![GitHub Stars](https://img.shields.io/github/stars/PLeC98/Discord-Musicbot-Project?style=social)
+![GitHub 포크](https://img.shields.io/github/forks/PLeC98/Discord-Musicbot-Project?style=social)
+![GitHub 이슈](https://img.shields.io/github/issues/PLeC98/Discord-Musicbot-Project)
+![GitHub 라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project)
+
+> **라이선스** — 원본 베이스는 MIT, 이 저장소의 수정·추가분은 **AGPL-3.0-or-later**입니다.
+> 자세한 구조는 [LICENSE-NOTICE.md](LICENSE-NOTICE.md)를 참조하세요.
 
 ## 주요 기능
 
-- **재생 소스**: YouTube(영상/재생목록), Spotify(트랙/앨범/플레이리스트/아티스트 → YouTube 변환), SoundCloud, 직접 오디오 링크
+- **재생 소스**: YouTube, Spotify, SoundCloud, 직접 오디오 링크
 - **Components V2 재생 UI**: 진행 바, 컨트롤 버튼, 대기열 점프 셀렉트 메뉴가 달린 now-playing 메시지 (웹훅 발송)
 - **SQLite 오디오 캐시**: 재생한 곡을 opus로 로컬 캐싱, 재생 빈도·최근성·용량 기반 점수형 자동 퇴거, 디스크 여유 공간 감시
 - **세션 저장/복구**: `/leave`로 대기열·재생 위치를 저장하고 `/join`으로 복구. 봇 재시작 시에도 자동 복구 (5초 주기 스냅샷)
@@ -20,13 +25,13 @@
 
 ## 명령어
 
-| 분류 | 명령어 |
-|---|---|
-| 재생 | `/play` `/playfirst` `/search` `/pause` `/seek` `/replay` `/skip` `/previous` `/stop` |
-| 대기열 | `/queue` `/shuffle` `/loop` `/move` `/remove` `/clear` `/autoplay` |
-| 채널 | `/join` `/leave` `/setchannel` |
-| 정보 | `/nowplaying` `/help` `/ping` `/system` `/cachestatus` `/dashboard` `/license` |
-| 기타 | `/volume` |
+| 분류   | 명령어                                                                                |
+| ------ | ------------------------------------------------------------------------------------- |
+| 재생   | `/play` `/playfirst` `/search` `/pause` `/seek` `/replay` `/skip` `/previous` `/stop` |
+| 대기열 | `/queue` `/shuffle` `/loop` `/move` `/remove` `/clear` `/autoplay`                    |
+| 채널   | `/join` `/leave` `/setchannel`                                                        |
+| 정보   | `/nowplaying` `/help` `/ping` `/system` `/cachestatus` `/dashboard` `/license`        |
+| 기타   | `/volume`                                                                             |
 
 ## 설치 및 실행
 
@@ -35,6 +40,8 @@
 - Node.js >= 24.11.1
 - [pnpm](https://pnpm.io/)
 - Windows / Linux (FFmpeg는 `ffmpeg-static`으로 내장, yt-dlp는 설치 시 자동 갱신)
+- 저장소 `clone`을 위한 git
+- [디스코드 개발자 포털](https://discord.com/developers/applications)에서 생성된 디스코드 어플리케이션 및 디스코드 봇
 
 ### 설정
 
@@ -47,11 +54,11 @@ cp .env.example .env   # 후 .env 편집
 
 `.env` 필수 항목:
 
-| 변수 | 설명 |
-|---|---|
-| `DISCORD_TOKEN` | 봇 토큰 |
-| `CLIENT_ID` / `CLIENT_SECRET` | Discord 애플리케이션 ID / 시크릿 (시크릿은 대시보드 OAuth용) |
-| `GUILD_ID` | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요) |
+| 변수                                          | 설명                                                                                   |
+| --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `DISCORD_TOKEN`                               | 봇 토큰                                                                                |
+| `CLIENT_ID` / `CLIENT_SECRET`                 | Discord 애플리케이션 ID / 시크릿 (시크릿은 대시보드 OAuth용)                           |
+| `GUILD_ID`                                    | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요)                |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify 링크 지원용 ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
 
 YouTube 봇 감지 차단이 발생하면 `COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은
@@ -84,10 +91,9 @@ pnpm build
 
 이 저장소는 이중 라이선스 구조입니다:
 
-- **업스트림 베이스** ([umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) 커밋 `e3c825e` 까지):
-  Copyright (c) 2025 umutxyp — [MIT License](LICENSE-MIT)
-- **이 저장소의 수정·추가분**: Copyright (C) 2026 PLeC — [GNU AGPL-3.0-or-later](LICENSE)
+- **업스트림 베이스** ([umutxyp/MusicBot](https://github.com/umutxyp/MusicBot): Copyright (c) 2025 umutxyp - [MIT License](LICENSE-MIT)
+- **이 저장소의 수정·추가분**: Copyright (C) 2026 PLeC - [GNU AGPL-3.0-or-later](LICENSE)
 
 결합 저작물 전체에는 AGPL-3.0 조건이 적용됩니다. 이 봇을 네트워크 서비스로 운영하는 경우,
 사용자에게 소스 코드를 제공해야 합니다 (`/license` 명령어가 이 역할을 합니다).
-상세한 구분 기준은 [NOTICE.md](NOTICE.md)를 참조하세요.
+상세한 구분 기준은 [LICENSE-NOTICE.md](LICENSE-NOTICE.md)를 참조하세요.
