@@ -15,16 +15,17 @@ module.exports = {
 
         const botLatency  = sent.createdTimestamp - interaction.createdTimestamp;
         const wsLatency   = Math.round(client.ws.ping);
+        const wsReady     = wsLatency >= 0;
 
-        const botStatus  = botLatency  < 100 ? '🟢' : botLatency  < 300 ? '🟡' : '🔴';
-        const wsStatus   = wsLatency   < 100 ? '🟢' : wsLatency   < 300 ? '🟡' : '🔴';
+        const botStatus  = botLatency < 100 ? '🟢' : botLatency < 300 ? '🟡' : '🔴';
+        const wsStatus   = !wsReady   ? '⚪' : wsLatency < 100 ? '🟢' : wsLatency < 300 ? '🟡' : '🔴';
 
         const embed = new EmbedBuilder()
             .setTitle('🏓 퐁!')
             .setColor(config.bot.embedColor)
             .addFields(
-                { name: `${botStatus} 봇 응답`,       value: `\`${botLatency}ms\``,  inline: true },
-                { name: `${wsStatus} Discord API`,    value: `\`${wsLatency}ms\``,   inline: true }
+                { name: `${botStatus} 봇 응답`,       value: `\`${botLatency}ms\``,           inline: true },
+                { name: `${wsStatus} Discord API`,    value: wsReady ? `\`${wsLatency}ms\`` : '`측정 중...`', inline: true }
             )
             .setTimestamp();
 
