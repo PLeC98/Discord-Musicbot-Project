@@ -35,7 +35,7 @@ module.exports = {
         },
         {
           name: "📚 라이선스 전문",
-          value: "저장소의 `LICENSE`(AGPL-3.0) / `LICENSE-MIT`(MIT) / `LICENSE-NOTICE.md`(구조 설명) 파일을 참조하세요.",
+          value: "저장소의 `LICENSE`(AGPL-3.0) / `LICENSE-MIT`(MIT) / `NOTICE.md`(구조 설명) 파일을 참조하세요.",
           inline: false,
         },
       )

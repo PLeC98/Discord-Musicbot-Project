@@ -9,7 +9,7 @@
 ![GitHub 라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project)
 
 > **라이선스** — 원본 베이스는 MIT, 이 저장소의 수정·추가분은 **AGPL-3.0-or-later**입니다.
-> 자세한 구조는 [LICENSE-NOTICE.md](LICENSE-NOTICE.md)를 참조하세요.
+> 자세한 구조는 [NOTICE.md](NOTICE.md)를 참조하세요.
 
 ## 주요 기능
 
@@ -96,4 +96,4 @@ pnpm build
 
 결합 저작물 전체에는 AGPL-3.0 조건이 적용됩니다. 이 봇을 네트워크 서비스로 운영하는 경우,
 사용자에게 소스 코드를 제공해야 합니다 (`/license` 명령어가 이 역할을 합니다).
-상세한 구분 기준은 [LICENSE-NOTICE.md](LICENSE-NOTICE.md)를 참조하세요.
+상세한 구분 기준은 [NOTICE.md](NOTICE.md)를 참조하세요.
