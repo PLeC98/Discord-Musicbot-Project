@@ -10,7 +10,8 @@ module.exports = {
         .setDescriptionLocalizations({ ko: '봇 응답 레이턴시를 확인합니다' }),
 
     async execute(interaction, client) {
-        const sent = await interaction.reply({ content: '핑 측정 중...', fetchReply: true, flags: [1 << 6] });
+        const { resource } = await interaction.reply({ content: '핑 측정 중...', withResponse: true, flags: [1 << 6] });
+        const sent = resource.message;
 
         const botLatency  = sent.createdTimestamp - interaction.createdTimestamp;
         const wsLatency   = Math.round(client.ws.ping);
