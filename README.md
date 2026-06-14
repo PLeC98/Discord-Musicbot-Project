@@ -3,10 +3,10 @@
 한국어 UI 기반의 개인용 Discord 음악 봇.
 [umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 개조한 독립 포크입니다.
 
-![GitHub Stars](https://img.shields.io/github/stars/PLeC98/Discord-Musicbot-Project?style=social)
-![GitHub 포크](https://img.shields.io/github/forks/PLeC98/Discord-Musicbot-Project?style=social)
-![GitHub 이슈](https://img.shields.io/github/issues/PLeC98/Discord-Musicbot-Project)
-![GitHub 라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project)
+![GitHub Stars](https://img.shields.io/github/stars/PLeC98/Discord-Musicbot-Project?style=flat-square)
+![GitHub 포크](https://img.shields.io/github/forks/PLeC98/Discord-Musicbot-Project?style=flat-square)
+![GitHub 이슈](https://img.shields.io/github/issues/PLeC98/Discord-Musicbot-Project?style=flat-square)
+![GitHub 라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project?style=flat-square)
 
 > **라이선스** — 원본 베이스는 MIT, 이 저장소의 수정·추가분은 **AGPL-3.0-or-later**입니다.
 > 자세한 구조는 [NOTICE.md](NOTICE.md)를 참조하세요.
