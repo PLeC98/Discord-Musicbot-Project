@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const requireAdmin = require('../middleware/requireAdmin');
 const os = require('os');
+const logManager = require('../../../src/LogManager');
 
 // Bot/Node/System/Shard status
 router.get('/status', requireAdmin, (req, res) => {
@@ -117,6 +118,11 @@ router.get('/guilds', requireAdmin, (req, res) => {
     }));
 
     res.json({ guilds });
+});
+
+// Real-time log stream (SSE)
+router.get('/logs/stream', requireAdmin, (req, res) => {
+    logManager.addClient(res);
 });
 
 module.exports = router;

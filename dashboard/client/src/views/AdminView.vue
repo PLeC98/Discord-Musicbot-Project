@@ -55,6 +55,42 @@
 
       </div>
 
+      <!-- Log viewer -->
+      <div class="card log-card">
+        <div class="log-header">
+          <span class="card-title">📋 실시간 로그</span>
+          <div class="log-controls">
+            <button
+              v-for="lvl in logLevels"
+              :key="lvl.value"
+              :class="['type-btn', { active: logFilter === lvl.value }]"
+              @click="logFilter = logFilter === lvl.value ? null : lvl.value"
+            >{{ lvl.label }}</button>
+            <button class="type-btn" :class="{ active: autoScroll }" @click="autoScroll = !autoScroll">
+              {{ autoScroll ? '⏬ 자동' : '⏸ 정지' }}
+            </button>
+            <button class="type-btn" @click="logs = []">지우기</button>
+          </div>
+        </div>
+        <div class="log-meta">
+          <span :class="['sse-dot', sseConnected ? 'on' : 'off']">●</span>
+          <span class="sse-label">{{ sseConnected ? '연결됨' : '연결 끊김' }}</span>
+          <span class="log-count">{{ filteredLogs.length }}줄</span>
+        </div>
+        <div class="log-pane" ref="logPane" @scroll="onLogScroll">
+          <div v-if="filteredLogs.length === 0" class="log-empty">로그 없음</div>
+          <div
+            v-for="(entry, i) in filteredLogs"
+            :key="i"
+            :class="['log-line', `lvl-${entry.level}`]"
+          >
+            <span class="log-ts">{{ fmtTime(entry.ts) }}</span>
+            <span class="log-lv">{{ entry.level.toUpperCase() }}</span>
+            <span class="log-txt">{{ entry.text }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Broadcast -->
       <div class="card broadcast-card">
         <div class="card-title">📢 전체 공지 발송</div>
@@ -91,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 
 const loading = ref(true)
@@ -151,9 +187,56 @@ async function broadcast() {
   finally { sending.value = false }
 }
 
+// ── Log viewer ──────────────────────────────────────────────
+const logs = ref([])
+const logFilter = ref(null)
+const autoScroll = ref(true)
+const sseConnected = ref(false)
+const logPane = ref(null)
+let sse = null
+
+const logLevels = [
+  { value: 'log',   label: 'LOG' },
+  { value: 'info',  label: 'INFO' },
+  { value: 'warn',  label: 'WARN' },
+  { value: 'error', label: 'ERROR' },
+]
+
+const filteredLogs = computed(() =>
+  logFilter.value ? logs.value.filter(e => e.level === logFilter.value) : logs.value
+)
+
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+function onLogScroll() {
+  if (!logPane.value) return
+  const { scrollTop, scrollHeight, clientHeight } = logPane.value
+  autoScroll.value = scrollHeight - scrollTop - clientHeight < 50
+}
+
+watch(() => logs.value.length, () => {
+  if (autoScroll.value) nextTick(() => {
+    if (logPane.value) logPane.value.scrollTop = logPane.value.scrollHeight
+  })
+})
+
+function connectSSE() {
+  sse = new EventSource('/api/admin/logs/stream', { withCredentials: true })
+  sse.onopen = () => { sseConnected.value = true }
+  sse.onmessage = (e) => {
+    const entry = JSON.parse(e.data)
+    logs.value.push(entry)
+    if (logs.value.length > 500) logs.value.splice(0, logs.value.length - 500)
+  }
+  sse.onerror = () => { sseConnected.value = false }
+}
+
+// ── Lifecycle ────────────────────────────────────────────────
 let timer = null
-onMounted(() => { fetchStatus(); timer = setInterval(fetchStatus, 10000) })
-onUnmounted(() => clearInterval(timer))
+onMounted(() => { fetchStatus(); timer = setInterval(fetchStatus, 10000); connectSSE() })
+onUnmounted(() => { clearInterval(timer); if (sse) sse.close() })
 </script>
 
 <style scoped>
@@ -183,6 +266,68 @@ onUnmounted(() => clearInterval(timer))
 .good { color: var(--success); }
 .ok   { color: var(--warning); }
 .bad  { color: var(--danger); }
+
+/* Log viewer */
+.log-card { margin-bottom: 14px; }
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.log-header .card-title { margin: 0; }
+
+.log-controls { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.log-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.sse-dot.on  { color: var(--success); }
+.sse-dot.off { color: var(--danger); }
+.log-count { margin-left: auto; }
+
+.log-pane {
+  height: 380px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 8px 12px;
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 0.78rem;
+}
+
+.log-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px 0;
+}
+
+.log-line {
+  display: flex;
+  gap: 8px;
+  line-height: 1.6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.log-ts  { color: #6b7280; flex-shrink: 0; }
+.log-lv  { flex-shrink: 0; width: 40px; font-weight: 700; }
+.log-txt { color: #d1d5db; word-break: break-all; white-space: pre-wrap; }
+
+.lvl-log   .log-lv { color: #9ca3af; }
+.lvl-info  .log-lv { color: #60a5fa; }
+.lvl-warn  .log-lv { color: #fbbf24; }
+.lvl-error .log-lv { color: #f87171; }
+.lvl-warn  .log-txt { color: #fef3c7; }
+.lvl-error .log-txt { color: #fecaca; }
 
 /* Broadcast */
 .broadcast-desc {

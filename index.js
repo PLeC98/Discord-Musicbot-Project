@@ -1,3 +1,4 @@
+require('./src/LogManager'); // intercept console before anything else logs
 const { Client, GatewayIntentBits, Collection, Events, ActivityType } = require('discord.js');
 const { getVoiceConnection } = require('@discordjs/voice');
 const fs = require('fs');
