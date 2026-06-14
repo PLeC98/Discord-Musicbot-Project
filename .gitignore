@@ -1,22 +1,10 @@
-# ── Secrets & credentials ──────────────────────────────
 .env
 cookies.txt
-
-# ── Runtime data (DB, cache, sessions) ─────────────────
 database/
 audio_cache/
-
-# ── Dependencies ───────────────────────────────────────
 node_modules/
-
-# ── Build artifacts ────────────────────────────────────
-# 서버에서 dist를 직접 서빙하므로, 빌드 결과물을 버전 관리하고 싶으면 아래 줄을 삭제
 dashboard/client/dist/
-
-# ── Local archive (원본 보관용) ─────────────────────────
-original_backup/
-original_docs/
-
-# ── Logs & temp ────────────────────────────────────────
 *.log
 *.tmp
+original_docs/
+notes/

@@ -1,7 +1,7 @@
 {
   "name": "musicbot",
-  "version": "16.0.0",
-  "description": "Advanced Discord v14.22 Music Bot with YouTube, Spotify, SoundCloud, and Direct Link support",
+  "private": true,
+  "version": "1.0.0",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
@@ -10,21 +10,6 @@
     "test": "node --check index.js",
     "postinstall": "node scripts/update-ytdlp.js"
   },
-  "keywords": [
-    "discord",
-    "music",
-    "bot",
-    "youtube",
-    "spotify",
-    "soundcloud",
-    "audio",
-    "umutxyp"
-  ],
-  "author": "umutxyp",
-  "contributors": [
-    "PLeC (fork modifications)"
-  ],
-  "license": "(MIT AND AGPL-3.0-or-later)",
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
     "@distube/ytdl-core": "^4.16.12",

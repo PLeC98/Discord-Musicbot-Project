@@ -9,6 +9,14 @@ class MusicEmbedManager {
     this.webhookCache = new Map(); // channelId -> WebhookClient
   }
 
+  deleteWebhookCache(channelId) {
+    const webhookClient = this.webhookCache.get(channelId);
+    if (webhookClient) {
+      try { webhookClient.destroy(); } catch (_) {}
+      this.webhookCache.delete(channelId);
+    }
+  }
+
   async getOrCreateWebhook(channel) {
     if (this.webhookCache.has(channel.id)) {
       return this.webhookCache.get(channel.id);
@@ -455,10 +463,13 @@ class MusicEmbedManager {
     const sessionId = player.sessionId;
     const requesterId = player.requesterId;
 
-    const shuffleLabel = "셔플";
-    const queueLabel = "대기열";
+    // Row 1: 이전곡 + 일시정지 + 스킵 + 정지 + 볼륨
+    const previousButton = new ButtonBuilder()
+      .setCustomId(`music_previous:${requesterId}:${sessionId}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("⏮️")
+      .setDisabled(disabled || player.previousTracks.length === 0);
 
-    // Icon-only: pause/resume, skip, stop, volume
     const pauseButton = new ButtonBuilder()
       .setCustomId(`music_pause:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
@@ -471,19 +482,26 @@ class MusicEmbedManager {
       .setEmoji("⏭️")
       .setDisabled(disabled || player.queue.length === 0);
 
-    const stopButton = new ButtonBuilder().setCustomId(`music_stop:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
+    const stopButton = new ButtonBuilder()
+      .setCustomId(`music_stop:${requesterId}:${sessionId}`)
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("⏹️")
+      .setDisabled(disabled);
 
-    const volumeButton = new ButtonBuilder().setCustomId(`music_volume:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
+    const volumeButton = new ButtonBuilder()
+      .setCustomId(`music_volume:${requesterId}:${sessionId}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("🔊")
+      .setDisabled(disabled);
 
-    // Icon + label: shuffle
+    // Row 2: 셔플(아이콘만) + 반복 + 대기열 + 자동재생
     const shuffleButton = new ButtonBuilder()
       .setCustomId(`music_shuffle:${requesterId}:${sessionId}`)
-      .setLabel(shuffleLabel)
       .setStyle(player.shuffle ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setEmoji("🔀")
       .setDisabled(disabled);
 
-    // Loop button — cycles off → track → queue (icon + label)
+    // Loop button — cycles off → track → queue
     let loopLabel, loopEmoji, loopStyle;
     if (player.loop === "track") {
       loopLabel = "반복: 트랙";
@@ -499,27 +517,29 @@ class MusicEmbedManager {
       loopStyle = ButtonStyle.Secondary;
     }
 
-    const loopButton = new ButtonBuilder().setCustomId(`music_loop:${requesterId}:${sessionId}`).setLabel(loopLabel).setStyle(loopStyle).setEmoji(loopEmoji).setDisabled(disabled);
+    const loopButton = new ButtonBuilder()
+      .setCustomId(`music_loop:${requesterId}:${sessionId}`)
+      .setLabel(loopLabel)
+      .setStyle(loopStyle)
+      .setEmoji(loopEmoji)
+      .setDisabled(disabled);
 
-    // Autoplay button (icon + label)
-    let autoplayLabel, autoplayStyle;
-    if (player.autoplay) {
-      autoplayLabel = "자동 재생: 켜짐";
-      autoplayStyle = ButtonStyle.Success;
-    } else {
-      autoplayLabel = "자동 재생: 꺼짐";
-      autoplayStyle = ButtonStyle.Secondary;
-    }
+    const queueButton = new ButtonBuilder()
+      .setCustomId(`music_queue:${requesterId}:${sessionId}`)
+      .setLabel("대기열")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("📋")
+      .setDisabled(false);
 
-    const autoplayButton = new ButtonBuilder().setCustomId(`music_autoplay:${requesterId}:${sessionId}`).setLabel(autoplayLabel).setStyle(autoplayStyle).setEmoji("🎲").setDisabled(disabled);
+    const autoplayButton = new ButtonBuilder()
+      .setCustomId(`music_autoplay:${requesterId}:${sessionId}`)
+      .setLabel("자동재생")
+      .setStyle(player.autoplay ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setEmoji("🎲")
+      .setDisabled(disabled);
 
-    const queueButton = new ButtonBuilder().setCustomId(`music_queue:${requesterId}:${sessionId}`).setLabel(queueLabel).setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(false);
-
-    // Row 1 (5): pause + skip + stop + shuffle + loop
-    const row = new ActionRowBuilder().addComponents(pauseButton, skipButton, stopButton, shuffleButton, loopButton);
-
-    // Row 2 (3): volume + queue + autoplay
-    const row2 = new ActionRowBuilder().addComponents(volumeButton, queueButton, autoplayButton);
+    const row = new ActionRowBuilder().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
+    const row2 = new ActionRowBuilder().addComponents(shuffleButton, loopButton, queueButton, autoplayButton);
 
     return [row, row2];
   }

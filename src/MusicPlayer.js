@@ -970,6 +970,18 @@ class MusicPlayer {
             console.error("❌ FFmpeg streaming error:", err.message);
           });
 
+          // Without this, ECONNRESET from the CDN mid-stream would bubble up
+          // as an uncaughtException. The AudioPlayer going Idle already triggers
+          // cache-based recovery, so we just need to absorb the error here.
+          audioStream.on("error", (err) => {
+            console.warn(`⚠️ Audio stream dropped (${err.code || err.message}), recovering from cache...`);
+          });
+
+          // ffmpegProcess is destroyed by @discordjs/voice pipeline cascade when the resource
+          // is replaced or stopped. audioStream sits outside that pipeline (connected via .pipe()),
+          // so it won't be destroyed automatically — close the HTTP connection explicitly.
+          ffmpegProcess.once("close", () => audioStream.destroy());
+
           audioStream.pipe(ffmpegProcess);
 
           this.resource = createAudioResource(ffmpegProcess, {
@@ -1598,6 +1610,7 @@ class MusicPlayer {
       }
 
       this.previousTracks.push(finishedTrack);
+      if (this.previousTracks.length > 50) this.previousTracks.shift();
 
       // Release reference (file is kept on disk — CacheManager handles eviction)
       this.currentDownloadedFile = null;
@@ -2183,9 +2196,8 @@ class MusicPlayer {
       if (!this.guild?.id) return;
 
       // Cancel pending save if this is immediate
-      if (immediate && this.pendingStateSave) {
-        clearTimeout(this.pendingStateSave);
-        this.pendingStateSave = null;
+      if (immediate) {
+        this.cancelStateSave();
       }
 
       if (!this.currentTrack && this.queue.length === 0) {
@@ -2342,6 +2354,10 @@ class MusicPlayer {
       this.nowPlayingMessage = null;
       this.requesterId = null;
       this.voiceChannel = null;
+      const embedManager = global.clients?.musicEmbedManager;
+      if (embedManager && this.textChannel?.id) {
+        embedManager.deleteWebhookCache(this.textChannel.id);
+      }
       this.textChannel = null;
 
       // Reset pause state

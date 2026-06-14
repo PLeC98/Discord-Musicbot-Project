@@ -209,7 +209,10 @@ setTimeout(() => {
 
         // Set bot activity
         const StatusManager = require('./src/StatusManager');
-        new StatusManager(client).start();
+        if (!client.statusManager) {
+            client.statusManager = new StatusManager(client);
+            client.statusManager.start();
+        }
 
         // Don't restore here in sharded mode - wait for shard manager to broadcast
         // For non-sharded mode, restore immediately

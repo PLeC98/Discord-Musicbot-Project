@@ -96,6 +96,10 @@ module.exports = {
                     await this.handleAutoplay(interaction, player, requesterId);
                     break;
 
+                case 'music_previous':
+                    await this.handlePrevious(interaction, player);
+                    break;
+
                 default:
                     await interaction.reply({
                         content: '❌ 알 수 없는 상호작용!',
