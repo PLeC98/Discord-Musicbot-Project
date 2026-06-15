@@ -1,5 +1,10 @@
+const path = require('path');
+const fs = require('fs');
 const youtubedl = require('youtube-dl-exec');
 const config = require('../config');
+
+const BGUTIL_PLUGIN_DIR = path.join(__dirname, '..', 'bgutil-ytdlp-pot-provider', 'plugin');
+const BGUTIL_AVAILABLE  = fs.existsSync(BGUTIL_PLUGIN_DIR);
 
 
 class YouTube {
@@ -10,26 +15,22 @@ class YouTube {
             noWarnings: true,
             retries: 3,
             fragmentRetries: 3,
-            sleepRequests: 1,     // 1s between internal HTTP requests (rate-limit prevention)
             jsRuntimes: `node:${process.execPath}`,
             addHeader: [
                 'referer:youtube.com',
                 'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             ],
+            ...(BGUTIL_AVAILABLE && { pluginDirs: BGUTIL_PLUGIN_DIR }),
             ...extraOptions
         };
 
-        // Auth öncelik sırası: PO Token > Browser Cookie > Cookie Dosyası > iOS client (fallback)
-        if (config.ytdl.poToken) {
-            // PO Token varsa web client'ı ile yüksek kaliteli stream
-            baseOptions.extractorArgs = `youtube:po_token=web+${config.ytdl.poToken};player_client=web`;
-        } else if (config.ytdl.cookiesFromBrowser) {
+        // 인증 우선순위: 쿠키(브라우저) > 쿠키(파일) > iOS client (fallback)
+        // POToken은 bgutil 플러그인이 자동 처리
+        if (config.ytdl.cookiesFromBrowser) {
             baseOptions.cookiesFromBrowser = config.ytdl.cookiesFromBrowser;
         } else if (config.ytdl.cookiesFile) {
             baseOptions.cookies = config.ytdl.cookiesFile;
         } else {
-            // Auth yapılandırılmamışsa iOS client kullan.
-            // Bu, VPS/sunucu IP'lerinde YouTube'un bot tespitini cookie veya token gerektirmeden atlar.
             baseOptions.extractorArgs = 'youtube:player_client=ios';
         }
 
@@ -38,8 +39,6 @@ class YouTube {
 
     static async search(query, limit = 1, guildId = null) {
         try {
-
-
             // If it's already a YouTube URL, get info directly
             if (this.isYouTubeURL(query)) {
                 const info = await this.getInfo(query, guildId);
@@ -110,7 +109,6 @@ class YouTube {
     static async getInfo(url, guildId = null) {
         try {
 
-
             const info = await youtubedl(url, this.getYtDlpOptions({
                 dumpSingleJson: true,
                 preferFreeFormats: true,
@@ -138,7 +136,6 @@ class YouTube {
                 formats: info.formats,
             };
 
-
             return track;
 
         } catch (error) {
@@ -149,7 +146,6 @@ class YouTube {
 
     static async getStream(url, guildId = null, startSeconds = 0) {
         try {
-
 
             if (!url) {
                 throw new Error('URL이 필요함');

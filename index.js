@@ -1,6 +1,7 @@
 require('./src/LogManager'); // intercept console before anything else logs
 const { Client, GatewayIntentBits, Collection, Events, ActivityType } = require('discord.js');
 const { getVoiceConnection } = require('@discordjs/voice');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
@@ -98,6 +99,48 @@ async function restoreSavedPlayers(client) {
         }
     }
 }
+
+// ── bgutil POToken server ────────────────────────────────────────────────────
+const BGUTIL_SERVER_DIR = path.join(__dirname, 'bgutil-ytdlp-pot-provider', 'server');
+const BGUTIL_ENTRY     = path.join(BGUTIL_SERVER_DIR, 'build', 'main.js');
+
+let bgutilProc        = null;
+let bgutilStopping    = false;
+
+function startBgutilServer() {
+    if (bgutilStopping) return;
+    if (!fs.existsSync(BGUTIL_ENTRY)) {
+        console.warn(chalk.yellow('⚠️  [bgutil] build/main.js 없음 — POToken provider 비활성'));
+        return;
+    }
+    bgutilProc = spawn(process.execPath, ['build/main.js'], {
+        cwd: BGUTIL_SERVER_DIR,
+        stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    bgutilProc.stdout.on('data', d =>
+        d.toString().split('\n').filter(Boolean).forEach(l => console.log(chalk.gray(`[bgutil] ${l}`))));
+    bgutilProc.stderr.on('data', d =>
+        d.toString().split('\n').filter(Boolean).forEach(l => console.warn(chalk.yellow(`[bgutil] ${l}`))));
+    bgutilProc.on('exit', (code) => {
+        bgutilProc = null;
+        if (!bgutilStopping) {
+            console.warn(chalk.yellow(`⚠️  [bgutil] 서버 종료 (code=${code}), 5초 후 재시작...`));
+            setTimeout(startBgutilServer, 5000);
+        }
+    });
+    console.log(chalk.green('✅ [bgutil] POToken 서버 시작 (port 4416)'));
+}
+
+function stopBgutilServer() {
+    bgutilStopping = true;
+    if (bgutilProc) {
+        bgutilProc.kill('SIGTERM');
+        bgutilProc = null;
+    }
+}
+
+startBgutilServer();
+// ────────────────────────────────────────────────────────────────────────────
 
 // Don't cleanup audio cache yet - wait until after we check saved states
 setTimeout(() => {
@@ -451,6 +494,7 @@ setTimeout(() => {
                     if (connection) connection.destroy();
                 });
                 client.destroy();
+                stopBgutilServer();
 
                 process.exit(0);
             };

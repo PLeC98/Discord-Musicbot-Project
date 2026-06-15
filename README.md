@@ -20,7 +20,7 @@
 - **웹 대시보드**: Express + Vue, Discord OAuth 로그인. 재생 제어·대기열 관리·곡 추가를 브라우저에서
 - **봇 전용 채널**: `/setchannel`로 지정한 채널에 곡명/링크만 입력하면 자동 재생
 - **장르 자동재생**: 대기열 소진 시 선택한 장르(K-POP, 애니, 로파이 등 18종)의 곡을 자동 탐색·재생
-- **상태 메시지 로테이션**: 시간대·양력/음력 날짜 조건부 상태 메시지 (`config/status.json`)
+- **상태 메시지 로테이션**: 시간대·양력/음력 날짜 조건부 상태 메시지 (`config/status.js`)
 - **음성 채널 상태 표시**: 재생 중인 곡 제목을 음성 채널 상태에 자동 반영
 
 ## 명령어
@@ -61,8 +61,54 @@ cp .env.example .env   # 후 .env 편집
 | `GUILD_ID`                                    | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요)                |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify 링크 지원용 ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
 
-YouTube 봇 감지 차단이 발생하면 `COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은
+### POToken 설정 (권장)
+
+YouTube 봇 감지 차단을 우회하는 POToken 공급자입니다. 설정하면 쿠키 없이도 안정적으로 재생됩니다.
+
+```bash
+# 프로젝트 루트에서
+git clone https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git bgutil-ytdlp-pot-provider
+cd bgutil-ytdlp-pot-provider/server
+npm ci
+npx tsc
+cd ../..
+```
+
+봇 실행 시 자동으로 감지하여 POToken 서버(포트 4416)를 함께 시작합니다. 별도 설정 없이 작동합니다. (`.env`, `config.js`)
+
+### 쿠키 설정 (대안)
+
+POToken을 사용하지 않는 경우, `COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은
 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
+
+### 상태 메시지 (`config/status.js`)
+
+봇의 Discord 상태 메시지를 시간대·날짜 조건에 따라 자동 전환합니다.
+
+| 필드               | 설명                                                    |
+| ------------------ | ------------------------------------------------------- |
+| `rotationInterval` | 기본 메시지 전환 주기 (초)                              |
+| `rotation`         | 기본 메시지 목록 (조건 없이 순환)                       |
+| `scheduled`        | 조건부 메시지 목록 (위에서부터 첫 번째 일치 항목 적용) |
+
+`scheduled` 각 항목에 조건과 메시지를 지정합니다:
+
+```js
+// 조건: dateRange(양력 MM-DD), lunarDateRange(음력 MM-DD), timeRange(HH:MM)
+// 메시지: text(단일) 또는 rotation(복수 순환)
+
+// 크리스마스 (12/24~26)
+{ dateRange: { start: "12-24", end: "12-26" }, text: "🎄 메리 크리스마스!" },
+
+// 야간 (22:00~06:00)
+{
+  timeRange: { start: "22:00", end: "06:00" },
+  rotation: [{ text: "🌌 별빛 아래 음악" }, { text: "🛌 잠들기 전 노래 한곡" }],
+},
+```
+
+`timeRange`는 자정을 넘는 범위(`22:00`–`06:00`)도 지원합니다.
+`scheduled` 항목이 일치하지 않으면 최상위 `rotation`으로 폴백됩니다.
 
 ### 실행
 
@@ -86,6 +132,7 @@ pnpm build
 
 봇 실행 시 대시보드 서버가 함께 시작됩니다. 리버스 프록시(HTTPS) 뒤·로컬 직접 접속 모두
 별도 설정 없이 동작합니다.
+대시보드 관련 업데이트가 있었을 시, `pnpm build`가 재차 필요할 수 있습니다.
 
 ## 라이선스
 

@@ -4,6 +4,7 @@ database/
 audio_cache/
 node_modules/
 dashboard/client/dist/
+bgutil-ytdlp-pot-provider/
 *.log
 *.tmp
 original_docs/

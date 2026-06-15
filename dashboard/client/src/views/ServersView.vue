@@ -20,7 +20,7 @@
         <div class="guild-info">
           <div class="guild-name">{{ g.name }}</div>
           <div class="guild-player" :class="g.hasPlayer ? 'active' : 'idle'">
-            {{ g.hasPlayer ? '🎵 재생 중' : '⏸ 대기 중' }}
+            {{ g.hasPlayer ? "🎵 재생 중" : "⏸ 대기 중" }}
           </div>
         </div>
         <span class="guild-arrow">›</span>
@@ -62,10 +62,12 @@ onMounted(async () => {
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 16px 18px;
+  padding: 10px 18px;
   text-decoration: none;
   color: var(--text-primary);
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 2px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition:
     border-color 0.25s var(--ease-out),
     transform 0.35s var(--spring),
@@ -75,17 +77,23 @@ onMounted(async () => {
 .guild-card:hover {
   border-color: rgba(124, 111, 246, 0.45);
   transform: translateY(-3px) scale(1.01);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(124, 111, 246, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(124, 111, 246, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-.guild-icon-wrap { flex-shrink: 0; }
+.guild-icon-wrap {
+  flex-shrink: 0;
+}
 
 .guild-icon,
 .guild-icon-fallback {
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.10);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  margin-top: 4px;
 }
 
 .guild-icon-fallback {
@@ -111,14 +119,24 @@ onMounted(async () => {
   margin-bottom: 3px;
 }
 
-.guild-player { font-size: 0.78rem; }
-.guild-player.active { color: var(--success); }
-.guild-player.idle   { color: var(--text-muted); }
+.guild-player {
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+.guild-player.active {
+  color: var(--success);
+}
+.guild-player.idle {
+  color: var(--text-muted);
+}
 
 .guild-arrow {
   color: var(--text-muted);
   font-size: 1.2rem;
-  transition: transform 0.3s var(--spring), color 0.2s;
+  margin-bottom: 6px;
+  transition:
+    transform 0.3s var(--spring),
+    color 0.2s;
 }
 
 .guild-card:hover .guild-arrow {
@@ -132,6 +150,11 @@ onMounted(async () => {
   color: var(--text-muted);
 }
 
-.empty-icon { font-size: 3rem; margin-bottom: 12px; }
-.empty-state p { margin-bottom: 6px; }
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+.empty-state p {
+  margin-bottom: 6px;
+}
 </style>

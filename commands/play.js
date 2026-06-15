@@ -37,6 +37,8 @@ module.exports = {
         });
       }
 
+      console.log(`[Play] /play | guild=${guild.id} | user=${member.user.tag} | query="${query}"`);
+
       // Music player al veya oluştur
       let player = client.players.get(guild.id);
       if (!player) {

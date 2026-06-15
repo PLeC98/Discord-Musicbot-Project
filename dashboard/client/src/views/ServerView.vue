@@ -25,17 +25,20 @@
 
           <!-- Full-width progress bar -->
           <div class="progress-row">
-            <span class="time-text">{{ fmt(localTime) }}</span>
-            <div class="progress-bar"><div class="progress-fill" :style="{ width: progressPct + '%' }"></div></div>
+            <span class="time-text">{{ fmt(displayTime) }}</span>
+            <div class="progress-bar" ref="progressBarRef" :class="{ 'is-scrubbing': isScrubbing }" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
+              <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
+              <div class="progress-handle" :style="{ left: progressPct + '%' }"></div>
+            </div>
             <span class="time-text">{{ fmt(player.currentTrack.duration) }}</span>
           </div>
 
           <!-- Controls -->
           <div class="controls">
             <div class="ctrl-row">
-              <!-- Stop -->
-              <button class="icon-btn btn-stop" @click="confirmStop" title="정지">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
+              <!-- Previous -->
+              <button class="icon-btn" @click="action('previous')" title="이전곡" :disabled="!player.hasPrevious">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
               </button>
 
               <!-- Play / Pause -->
@@ -44,8 +47,13 @@
                 <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
               </button>
 
+              <!-- Stop -->
+              <button class="icon-btn btn-stop" @click="confirmStop" title="정지">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
+              </button>
+
               <!-- Skip -->
-              <button class="icon-btn" @click="action('skip')" title="다음" :disabled="player.queue.length === 0">
+              <button class="icon-btn" @click="action('skip')" title="다음곡" :disabled="player.queue.length === 0">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
               </button>
 
@@ -62,6 +70,11 @@
 
               <div class="ctrl-sep"></div>
 
+              <!-- Shuffle -->
+              <button class="icon-btn" :class="player.shuffle ? 'btn-active' : ''" @click="action('shuffle')" title="셔플" :disabled="player.queue.length < 2">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
+              </button>
+
               <!-- Loop (cycles: off → track → queue) -->
               <button class="icon-btn" :class="player.loop ? 'btn-active' : ''" @click="cycleLoop" :title="loopTitle">
                 <svg v-if="player.loop === 'track'" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
@@ -70,11 +83,6 @@
                 <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
                 </svg>
-              </button>
-
-              <!-- Shuffle -->
-              <button class="icon-btn" :class="player.shuffle ? 'btn-active' : ''" @click="action('shuffle')" title="셔플" :disabled="player.queue.length < 2">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
               </button>
             </div>
           </div>
@@ -175,7 +183,7 @@ import axios from "axios";
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
-const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false });
+const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, hasPrevious: false });
 
 const addQuery = ref("");
 const adding = ref(false);
@@ -191,8 +199,17 @@ const isDragging = ref(false);
 let timer = null;
 let progressTimer = null;
 const localTime = ref(0);
+const progressBarRef = ref(null);
+const isScrubbing = ref(false);
+const scrubTime = ref(0);
 
 // ── Data ──────────────────────────────────────────────────────────────────────
+
+// Action responses come from playerState() which omits botInVoice/userInVoice.
+// Preserve those fields from the last full refresh so the add-notice doesn't flash.
+function applyState(data) {
+  player.value = { botInVoice: player.value.botInVoice, userInVoice: player.value.userInVoice, ...data };
+}
 
 async function refresh() {
   if (isDragging.value) return; // don't overwrite queue while user is mid-drag
@@ -210,7 +227,7 @@ async function refresh() {
 async function action(type) {
   try {
     const res = await axios.post(`/api/guilds/${guildId}/player/${type}`);
-    if (res.data && res.data.playing !== undefined) player.value = res.data;
+    if (res.data && res.data.playing !== undefined) applyState(res.data);
   } catch (e) {
     console.error(type, e.response?.data || e.message);
   }
@@ -219,7 +236,7 @@ async function action(type) {
 async function setVolume(vol) {
   try {
     const res = await axios.post(`/api/guilds/${guildId}/player/volume`, { volume: parseInt(vol) });
-    if (res.data?.volume !== undefined) player.value = res.data;
+    if (res.data?.volume !== undefined) applyState(res.data);
   } catch (e) {
     console.error("volume", e);
   }
@@ -228,7 +245,7 @@ async function setVolume(vol) {
 async function setLoop(mode) {
   try {
     const res = await axios.post(`/api/guilds/${guildId}/player/loop`, { mode });
-    if (res.data?.playing !== undefined) player.value = res.data;
+    if (res.data?.playing !== undefined) applyState(res.data);
   } catch (e) {
     console.error("loop", e);
   }
@@ -249,7 +266,7 @@ async function doStop() {
   showStopConfirm.value = false;
   try {
     await axios.post(`/api/guilds/${guildId}/player/stop`);
-    player.value = { playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false };
+    player.value = { ...player.value, playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false };
   } catch (e) {
     console.error("stop", e);
   }
@@ -261,7 +278,7 @@ async function addTrack() {
   addError.value = "";
   try {
     const res = await axios.post(`/api/guilds/${guildId}/player/queue`, { query: addQuery.value });
-    player.value = res.data;
+    applyState(res.data);
     addQuery.value = "";
   } catch (e) {
     addError.value = e.response?.data?.error || "추가에 실패했습니다.";
@@ -276,7 +293,7 @@ async function joinBot() {
   addError.value = "";
   try {
     const res = await axios.post(`/api/guilds/${guildId}/player/join`);
-    player.value = res.data;
+    applyState(res.data);
   } catch (e) {
     addError.value = e.response?.data?.error || "참가에 실패했습니다.";
   } finally {
@@ -287,7 +304,7 @@ async function joinBot() {
 async function removeTrack(index) {
   try {
     const res = await axios.delete(`/api/guilds/${guildId}/player/queue/${index}`);
-    player.value = res.data;
+    applyState(res.data);
   } catch (e) {
     console.error("remove", e);
   }
@@ -331,7 +348,7 @@ async function onDrop() {
 
   try {
     const res = await axios.post(`/api/guilds/${guildId}/player/queue/move`, { from, to });
-    player.value = res.data;
+    applyState(res.data);
   } catch (e) {
     console.error("queue move", e);
     await refresh(); // revert to server state on failure
@@ -340,10 +357,12 @@ async function onDrop() {
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 
+const displayTime = computed(() => (isScrubbing.value ? scrubTime.value : localTime.value));
+
 const progressPct = computed(() => {
   const t = player.value.currentTrack;
   if (!t?.duration) return 0;
-  return Math.min((localTime.value / t.duration) * 100, 100);
+  return Math.min((displayTime.value / t.duration) * 100, 100);
 });
 
 const loopTitle = computed(() => {
@@ -352,6 +371,48 @@ const loopTitle = computed(() => {
   if (l === "queue") return "큐 반복 중 (클릭: 반복 끄기)";
   return "반복 끄기 (클릭: 트랙 반복)";
 });
+
+// ── Seek / scrub ─────────────────────────────────────────────────────────────
+
+function getTimeFromPointer(e) {
+  const bar = progressBarRef.value;
+  if (!bar) return 0;
+  const rect = bar.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  return pct * (player.value.currentTrack?.duration ?? 0);
+}
+
+function onScrubStart(e) {
+  if (!player.value.currentTrack) return;
+  isScrubbing.value = true;
+  scrubTime.value = getTimeFromPointer(e);
+  document.addEventListener("mousemove", onScrubMove);
+  document.addEventListener("mouseup", onScrubEnd);
+  document.addEventListener("touchmove", onScrubMove, { passive: false });
+  document.addEventListener("touchend", onScrubEnd);
+}
+
+function onScrubMove(e) {
+  if (e.cancelable) e.preventDefault();
+  scrubTime.value = getTimeFromPointer(e);
+}
+
+async function onScrubEnd() {
+  if (!isScrubbing.value) return;
+  isScrubbing.value = false;
+  document.removeEventListener("mousemove", onScrubMove);
+  document.removeEventListener("mouseup", onScrubEnd);
+  document.removeEventListener("touchmove", onScrubMove);
+  document.removeEventListener("touchend", onScrubEnd);
+  const pos = scrubTime.value;
+  localTime.value = pos;
+  try {
+    await axios.post(`/api/guilds/${guildId}/player/seek`, { position: pos });
+  } catch (e) {
+    console.error("seek", e);
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -380,6 +441,10 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(timer);
   clearInterval(progressTimer);
+  document.removeEventListener("mousemove", onScrubMove);
+  document.removeEventListener("mouseup", onScrubEnd);
+  document.removeEventListener("touchmove", onScrubMove);
+  document.removeEventListener("touchend", onScrubEnd);
 });
 </script>
 
@@ -423,7 +488,7 @@ onUnmounted(() => {
 }
 
 .track-thumb {
-  width: 150px;
+  width: auto;
   height: 150px;
   border-radius: 12px;
   object-fit: cover;
@@ -476,18 +541,66 @@ onUnmounted(() => {
 
 .progress-bar {
   flex: 1;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.progress-bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
   height: 4px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
-  overflow: hidden;
+  pointer-events: none;
 }
 
 .progress-fill {
-  height: 100%;
+  position: absolute;
+  left: 0;
+  height: 4px;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   border-radius: 4px;
   transition: width 0.4s linear;
   box-shadow: 0 0 8px rgba(124, 111, 246, 0.55);
+  pointer-events: none;
+}
+
+.progress-bar.is-scrubbing .progress-fill {
+  transition: none;
+}
+
+.progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    transform 0.15s,
+    left 0.4s linear;
+}
+
+.progress-bar:hover .progress-handle,
+.progress-bar.is-scrubbing .progress-handle {
+  opacity: 1;
+}
+
+.progress-bar.is-scrubbing .progress-handle {
+  transform: translate(-50%, -50%) scale(1.2);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 /* Controls */

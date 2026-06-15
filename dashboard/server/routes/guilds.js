@@ -40,6 +40,7 @@ function playerState(player) {
                 ? { id: track.requestedBy.id, username: track.requestedBy.username }
                 : null
         } : null,
+        hasPrevious: (player.previousTracks?.length ?? 0) > 0,
         queue: (player.queue || []).map((t, i) => ({
             index: i,
             title: t.title,
@@ -165,6 +166,18 @@ router.post('/:guildId/player/pause', requireAuth, (req, res) => {
     res.json(playerState(player));
 });
 
+// Previous
+router.post('/:guildId/player/previous', requireAuth, (req, res) => {
+    const ctx = getPlayer(req, res, req.params.guildId);
+    if (!ctx) return;
+    const { player } = ctx;
+    if (!player?.currentTrack) return res.status(409).json({ error: 'Nothing playing' });
+    if (!player.previousTracks?.length) return res.status(409).json({ error: 'No previous track' });
+
+    player.previous();
+    res.json({ ok: true });
+});
+
 // Skip
 router.post('/:guildId/player/skip', requireAuth, (req, res) => {
     const ctx = getPlayer(req, res, req.params.guildId);
@@ -188,6 +201,27 @@ router.post('/:guildId/player/stop', requireAuth, (req, res) => {
     client.players.delete(guildId);
     if (client.musicEmbedManager) client.musicEmbedManager.handlePlaybackEnd(player).catch(() => {});
     res.json({ ok: true });
+});
+
+// Seek  { position: seconds }
+router.post('/:guildId/player/seek', requireAuth, async (req, res) => {
+    const ctx = getPlayer(req, res, req.params.guildId);
+    if (!ctx) return;
+    const { player } = ctx;
+    if (!player?.currentTrack) return res.status(409).json({ error: 'Nothing playing' });
+
+    const positionSec = parseFloat(req.body.position);
+    if (isNaN(positionSec) || positionSec < 0) return res.status(400).json({ error: 'Invalid position' });
+
+    const durationSec = player.currentTrack.duration ?? 0;
+    const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
+
+    try {
+        await player.play(null, Math.floor(clampedSec * 1000));
+        res.json({ ok: true, position: clampedSec });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // Volume  { volume: 0-100 }
@@ -242,6 +276,8 @@ router.post('/:guildId/player/queue', requireAuth, async (req, res) => {
 
     const query = req.body.query?.trim();
     if (!query) return res.status(400).json({ error: 'Query required' });
+
+    console.log(`[Play] Dashboard | guild=${guildId} | user=${req.session.user.globalName || req.session.user.username} | query="${query}"`);
 
     try {
         const requester = {

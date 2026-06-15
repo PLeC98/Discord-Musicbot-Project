@@ -1,5 +1,5 @@
 const ERROR_MESSAGES = {
-    youtube_bot_detection: "❌ **YouTube가 이 요청을 차단했습니다 (봇 감지)**\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** `.env` 파일에 `COOKIES_FROM_BROWSER=chrome` (또는 firefox/edge) 또는 `YOUTUBE_PO_TOKEN`을 추가하세요. 단계별 안내는 `YOUTUBE_FIX.md`를 참조하세요.",
+    youtube_bot_detection: "❌ **YouTube가 이 요청을 차단했습니다 (봇 감지)**\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** bgutil-ytdlp-pot-provider를 설치하거나, `.env` 파일에 `COOKIES_FROM_BROWSER=chrome` (또는 firefox/edge)를 추가하세요.",
     youtube_age_restricted: "❌ **연령 제한 동영상**\n이 동영상은 YouTube 계정 로그인이 필요합니다.\n\n**해결 방법:** `.env`에 `COOKIES_FROM_BROWSER=chrome`을 설정하여 봇이 브라우저의 YouTube 세션을 사용할 수 있도록 하세요.",
     youtube_unavailable: "❌ **동영상을 사용할 수 없습니다**\n이 동영상은 비공개이거나, 삭제되었거나, 이 지역에서 이용할 수 없습니다. 다른 링크나 곡을 시도해 보세요.",
     youtube_geo_blocked: "❌ **지역 차단 콘텐츠**\n이 동영상은 봇이 호스팅된 지역에서 제한되어 있습니다.\n\n**해결 방법:** 다른 링크를 시도해 보세요.",

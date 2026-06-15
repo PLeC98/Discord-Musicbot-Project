@@ -1,10 +1,5 @@
 const path = require("path");
-// Load .env from the project root regardless of the launch CWD —
-// dotenv's default lookup is CWD-relative and silently loads nothing
 require("dotenv").config({ path: path.join(__dirname, ".env") });
-
-// Resolve a possibly-relative path from .env against the project root
-// (this file's directory), so launching from any CWD behaves the same
 function resolveFromRoot(p) {
   if (!p) return null;
   return path.isAbsolute(p) ? p : path.resolve(__dirname, p);
@@ -29,9 +24,9 @@ module.exports = {
     defaultVolume: 100,
     maxQueueSize: 100,
     maxPlaylistSize: 50,
-    embedColor: process.env.EMBED_COLOR || "#FF6B6B",
-    supportServer: process.env.SUPPORT_SERVER || "https://discord.gg/ACJQzJuckW",
-    website: process.env.WEBSITE || "https://beatra.app",
+    embedColor: process.env.EMBED_COLOR || "#2743D2",
+    supportServer: process.env.SUPPORT_SERVER || "https://discord.gg/DISCORD_INVITE_CODE",
+    website: process.env.WEBSITE || "https://your.website.here",
     sourceRepo: process.env.SOURCE_REPO_URL || null,
     invite: "https://discord.com/oauth2/authorize?client_id=" + process.env.CLIENT_ID + "&permissions=8&scope=bot%20applications.commands",
     leaveDelayQueueEmptyMs: (parseInt(process.env.LEAVE_DELAY_QUEUE_EMPTY_SECONDS) || 10) * 1000,
@@ -54,7 +49,7 @@ module.exports = {
   ytdl: {
     requestOptions: {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
       },
     },
     format: "bestaudio[ext=webm+acodec=opus+asr=48000]/bestaudio",
@@ -63,7 +58,6 @@ module.exports = {
     highWaterMark: 1 << 25,
     cookiesFromBrowser: process.env.COOKIES_FROM_BROWSER || null, // 'chrome', 'firefox', 'edge', 'safari'
     cookiesFile: resolveFromRoot(process.env.COOKIES_FILE),
-    poToken: process.env.YOUTUBE_PO_TOKEN || null,
   },
 
   // Dashboard Settings
