@@ -5,5 +5,8 @@ allowBuilds:
   vue-demi: true
   youtube-dl-exec: true
 
+minimumReleaseAgeExclude:
+  - vite@8.1.0
+
 packages:
   - 'dashboard/client'

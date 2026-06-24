@@ -14,7 +14,6 @@ module.exports = {
         .setDescription("Channel to designate (defaults to current channel)")
         .setDescriptionLocalizations({
           ko: "지정할 채널 (기본값: 현재 채널)",
-          ja: "指定するチャンネル (デフォルト: 現在のチャンネル)",
         })
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(false),
@@ -25,7 +24,6 @@ module.exports = {
         .setDescription("Set or remove the bot channel")
         .setDescriptionLocalizations({
           ko: "봇 채널 설정 또는 제거",
-          ja: "ボットチャンネルを設定または削除",
         })
         .addChoices({ name: "Set", value: "set" }, { name: "Remove", value: "remove" })
         .setRequired(false),
