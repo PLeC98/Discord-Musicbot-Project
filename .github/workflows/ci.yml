@@ -4,29 +4,58 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  test-and-build:
+    name: Test and build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
-      - uses: pnpm/action-setup@v4
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    env:
+      NODE_ENV: test
+      DISCORD_TOKEN: ci-placeholder
+      CLIENT_ID: "000000000000000000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
         with:
           version: 11
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: "24"
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      # config.js는 .env 파일 존재 + DISCORD_TOKEN/CLIENT_ID를 fail-fast로 요구한다.
-      # 테스트는 Discord에 실제 접속하지 않으므로(REST/클라이언트 전부 목킹) 더미 값이면 충분.
-      - name: Create dummy .env
-        run: |
-          echo "DISCORD_TOKEN=ci-dummy-token" > .env
-          echo "CLIENT_ID=000000000000000000" >> .env
+      - name: Create test environment file
+        run: node -e "require('node:fs').writeFileSync('.env', '')"
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - run: pnpm test
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build dashboard
+        run: pnpm run build:dashboard
