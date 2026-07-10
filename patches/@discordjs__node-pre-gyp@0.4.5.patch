@@ -1,0 +1,28 @@
+diff --git a/lib/util/versioning.js b/lib/util/versioning.js
+index b78694100877350c6e246aa347ecd583afcbd4b9..577d96dde44d2b1a54c2933409d90684b8895b43 100644
+--- a/lib/util/versioning.js
++++ b/lib/util/versioning.js
+@@ -205,7 +205,12 @@ function validate_config(package_json, opts) {
+ 	}
+ 	if (o) {
+ 		// enforce https over http
+-		const { protocol } = url.parse(o.host);
++		let protocol = null;
++		try {
++			protocol = new URL(o.host).protocol;
++		} catch {
++			// 유효하지 않은 host는 protocol=null로 통과시키던 기존 url.parse 동작 유지
++		}
+ 		if (protocol === 'http:') {
+ 			throw new Error(`'host' protocol (${protocol}) is invalid - only 'https:' is accepted`);
+ 		}
+@@ -311,7 +316,7 @@ module.exports.evaluate = function (package_json, options, napi_build_version) {
+ 	const package_name = package_json.binary.package_name ? package_json.binary.package_name : default_package_name;
+ 	opts.package_name = eval_template(package_name, opts);
+ 	opts.staged_tarball = path.join('build/stage', opts.remote_path, opts.package_name);
+-	opts.hosted_path = url.resolve(opts.host, opts.remote_path);
+-	opts.hosted_tarball = url.resolve(opts.hosted_path, opts.package_name);
++	opts.hosted_path = new URL(opts.remote_path, opts.host).toString();
++	opts.hosted_tarball = new URL(opts.package_name, opts.hosted_path).toString();
+ 	return opts;
+ };

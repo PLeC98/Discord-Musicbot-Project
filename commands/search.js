@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const config = require("../config.js");
 const YouTube = require("../src/YouTube.js");
 const S = require("../src/strings");
+const { checkAdd } = require("../src/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -30,7 +31,7 @@ module.exports = {
     try {
       await interaction.deferReply();
 
-      // Temel kontroller
+      // 기본 검사
       const validationResult = await this.validateRequest(interaction, member, guild);
       if (!validationResult.success) {
         return await interaction.editReply({
@@ -38,7 +39,7 @@ module.exports = {
         });
       }
 
-      // Arama yap
+      // 검색 수행
       const results = await YouTube.search(query, 9, guildId);
 
       if (!results || results.length === 0) {
@@ -56,6 +57,15 @@ module.exports = {
   },
 
   async validateRequest(interaction, member, guild) {
+    // 검색 후 선택은 곡 추가 경로 — 전 계층 가능, 봇 동작 중에는 접속 규칙만 적용
+    const botVoiceChannel = guild.members.me.voice.channel;
+    if (botVoiceChannel) {
+      const permErr = checkAdd(member);
+      if (permErr) return { success: false, message: permErr };
+      return { success: true };
+    }
+
+    // 봇 유휴: 선택 시 요청자의 채널로 접속해야 하므로 관리자여도 음성 채널 접속 필수
     if (!member.voice.channel) {
       return { success: false, message: S.ERR_VOICE_REQUIRED };
     }
@@ -63,11 +73,6 @@ module.exports = {
     const permissions = member.voice.channel.permissionsFor(guild.members.me);
     if (!permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
       return { success: false, message: S.ERR_NO_PERMISSIONS };
-    }
-
-    const botVoiceChannel = guild.members.me.voice.channel;
-    if (botVoiceChannel && botVoiceChannel.id !== member.voice.channel.id) {
-      return { success: false, message: S.ERR_SAME_CHANNEL };
     }
 
     return { success: true };
@@ -96,11 +101,11 @@ module.exports = {
       });
     }
 
-    // Create buttons (2 rows, max 4+5 buttons)
+    // 버튼 생성 (2행, 최대 4+5개)
     const row1 = new ActionRowBuilder();
     const row2 = new ActionRowBuilder();
 
-    // 9 songs + 1 cancel = 10 buttons max
+    // 노래 9개 + 취소 1개 = 최대 버튼 10개
     let hasSecondRow = false;
 
     for (let i = 0; i < maxResults; i++) {
@@ -109,7 +114,7 @@ module.exports = {
         .setLabel(`${i + 1}`)
         .setStyle(ButtonStyle.Secondary);
 
-      // First 4 buttons in first row, rest in second row (max 5)
+      // 첫 4개 버튼은 첫 번째 행에, 나머지는 두 번째 행에 배치 (최대 5개)
       if (i < 4) {
         row1.addComponents(button);
       } else if (i < 9) {
@@ -127,7 +132,7 @@ module.exports = {
       components.push(row2);
     }
 
-    // Store search results temporarily
+    // 검색 결과를 임시 저장
     if (!global.searchResults) global.searchResults = new Map();
     global.searchResults.set(interaction.user.id, {
       query: query,
@@ -135,7 +140,7 @@ module.exports = {
       timestamp: Date.now(),
     });
 
-    // Clean up after 5 minutes
+    // 5분 후 정리
     setTimeout(
       () => {
         global.searchResults.delete(interaction.user.id);

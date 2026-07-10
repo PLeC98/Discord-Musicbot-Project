@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const S = require('../src/strings');
+const { checkControl } = require('../src/permissions');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,21 +14,16 @@ module.exports = {
     async execute(interaction, client) {
         const { guild, member } = interaction;
 
-        if (!member.voice.channel)
-            return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: [1 << 6] });
+        // 재적 규칙 + DJ 계층 (관리자는 어디서든) — 두 분기 공통이므로 선두에서 한 번만
+        const permErr = await checkControl(member);
+        if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 
         const player = client.players.get(guild.id);
 
-        // Player gone but bot still in voice (music ended, auto-leave timer not fired yet)
+        // 플레이어는 없지만 봇은 아직 음성 채널에 있음 (음악 종료 후 자동 퇴장 타이머가 아직 실행되지 않음)
         if (!player) {
-            const botVoiceChannel = guild.members.me?.voice?.channel;
-            if (!botVoiceChannel)
+            if (!guild.members.me?.voice?.channel)
                 return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-            if (botVoiceChannel.id !== member.voice.channel.id)
-                return interaction.reply({ content: S.ERR_SAME_CHANNEL, flags: [1 << 6] });
-            if (!member.permissions.has('ManageGuild') &&
-                !member.roles.cache.some(r => r.name.toLowerCase().includes('dj')))
-                return interaction.reply({ content: S.ERR_NOT_AUTHORIZED, flags: [1 << 6] });
 
             await guild.members.me.voice.disconnect();
             return interaction.reply({
@@ -36,18 +32,11 @@ module.exports = {
             });
         }
 
-        if (player.voiceChannel?.id !== member.voice.channel.id)
-            return interaction.reply({ content: S.ERR_SAME_CHANNEL, flags: [1 << 6] });
-
-        if (!member.permissions.has('ManageGuild') &&
-            !member.roles.cache.some(r => r.name.toLowerCase().includes('dj')))
-            return interaction.reply({ content: S.ERR_NOT_AUTHORIZED, flags: [1 << 6] });
-
         const currentTrack = player.currentTrack;
         const queueLength = player.queue.length;
         const positionSec = Math.floor((player.getCurrentTime?.() || 0) / 1000);
 
-        // Save state and disconnect (session preserved in DB for /join restoration)
+        // 상태를 저장하고 연결 해제 (/join 복구용 세션은 DB에 보존)
         await player.leaveAndSave();
         client.players.delete(guild.id);
 

@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const S = require('../src/strings');
+const { checkSkip } = require('../src/permissions');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,19 +14,12 @@ module.exports = {
     async execute(interaction, client) {
         const { guild, member } = interaction;
 
-        if (!member.voice.channel)
-            return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: [1 << 6] });
-
         const player = client.players.get(guild.id);
         if (!player)
             return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
 
-        if (player.voiceChannel?.id !== member.voice.channel.id)
-            return interaction.reply({ content: S.ERR_SAME_CHANNEL, flags: [1 << 6] });
-
-        if (!member.permissions.has('ManageGuild') &&
-            !member.roles.cache.some(r => r.name.toLowerCase().includes('dj')))
-            return interaction.reply({ content: S.ERR_NOT_AUTHORIZED, flags: [1 << 6] });
+        const permErr = await checkSkip(member, player);
+        if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 
         if (!player.currentTrack)
             return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });

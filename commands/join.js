@@ -8,7 +8,7 @@ const S = require("../src/strings");
 const config = require("../config");
 
 module.exports = {
-  data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel (restores previous session if available)").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시킵니다 (이전 세션이 있으면 복구)" }),
+  data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시킵니다" }),
 
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
@@ -18,7 +18,7 @@ module.exports = {
     const permissions = member.voice.channel.permissionsFor(guild.members.me);
     if (!permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: S.ERR_NO_PERMISSIONS, flags: [1 << 6] });
 
-    // Already in channel
+    // 이미 채널에 접속해 있음
     const existing = client.players.get(guild.id);
     if (existing?.connection) {
       return interaction.reply({ content: "✅ 이미 채널에 접속해 있어요.", flags: [1 << 6] });
@@ -28,7 +28,7 @@ module.exports = {
       client.musicEmbedManager = new MusicEmbedManager(client);
     }
 
-    // Check for a saved session (set by /leave)
+    // /leave에서 저장한 세션이 있는지 확인
     const savedState = CacheManager.getPlayerSession(guild.id);
     const hasSession = savedState?.currentTrack;
 
@@ -41,15 +41,15 @@ module.exports = {
         await player.restoreFromState(savedState);
 
         if (!player.currentTrack) {
-          await interaction.editReply({ content: "✅ 음성 채널에 접속했습니다. (세션 복구 실패 - 곡을 찾을 수 없음)" });
+          await interaction.editReply({ content: "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)" });
           return;
         }
 
-        // restoreFromState already sent a fresh CV2 now-playing message;
-        // a deferred reply cannot be edited into a CV2 message, so keep this plain
+        // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
+        // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
         await interaction.editReply({ content: `▶️ 이전 세션을 복구했어요! **${player.currentTrack.title}** 재생 중` });
       } catch (error) {
-        console.error("[join] Session restore failed:", error.message);
+        console.error("[join] 세션 복원 실패:", error.message);
         player.releaseResources();
         player.disconnect();
         client.players.delete(guild.id);
@@ -58,7 +58,7 @@ module.exports = {
     } else {
       await player.connect();
       player.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
-      await interaction.reply({ content: "✅ 음성 채널에 접속했습니다!", flags: [1 << 6] });
+      await interaction.reply({ content: "✅ 음성 채널에 접속했어요!", flags: [1 << 6] });
     }
   },
 };

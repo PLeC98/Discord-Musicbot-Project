@@ -1,39 +1,94 @@
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, ".env") });
+const fs = require("fs");
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ENV_PATH = path.join(__dirname, ".env");
+if (!fs.existsSync(ENV_PATH)) {
+  console.error("❌ [config] .env 파일이 없습니다.");
+  console.error("   프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
+  process.exit(1);
+}
+require("dotenv").config({ path: ENV_PATH, quiet: true });
+
+// .env 값 읽기 — 키가 없거나 공백뿐이면 def 반환
+function env(key, def = null) {
+  const v = process.env[key];
+  return v !== undefined && v.trim() !== "" ? v : def;
+}
+
+// env()의 정수 버전 — 값이 숫자가 아니면 경고 후 def 반환 (오타를 조용히 삼키지 않음)
+function envInt(key, def) {
+  const v = env(key);
+  if (v === null) return def;
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) {
+    console.warn(`⚠️  [config] ${key}=${v} 이/가 숫자가 아닙니다 — 기본값 ${def}을(를) 사용합니다.`);
+    return def;
+  }
+  return n;
+}
+
 function resolveFromRoot(p) {
   if (!p) return null;
   return path.isAbsolute(p) ? p : path.resolve(__dirname, p);
 }
 
+// ── 기동 검증: 자격증명 ───────────────────────────────────────────────────────
+// 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
+
+if (!env("DISCORD_TOKEN") || !env("CLIENT_ID")) {
+  console.error("❌ [config] DISCORD_TOKEN 또는 CLIENT_ID가 비어 있습니다.");
+  console.error("   .env.example 의 주석을 참고해 .env 에 값을 채운 뒤 다시 실행하세요.");
+  console.error("   (발급: https://discord.com/developers/applications)");
+  process.exit(1);
+}
+if (!env("CLIENT_SECRET")) {
+  console.warn("⚠️  [config] CLIENT_SECRET 미설정 — 대시보드의 Discord 로그인(OAuth)이 동작하지 않습니다.");
+}
+if (!env("SPOTIFY_CLIENT_ID") || !env("SPOTIFY_CLIENT_SECRET")) {
+  console.warn("⚠️  [config] Spotify API 키 미설정 — Spotify 검색/링크 기능이 비활성화됩니다.");
+}
+
+const dashboardPort = envInt("DASHBOARD_PORT", 33333);
+
+// 오리지널 프로젝트의 공개 저장소 — AGPL 소스 고지의 기본값 (사용자 설정 아님).
+// 코드를 수정해 운영하는 경우에만 .env의 SOURCE_REPO_URL로 수정본 저장소를 지정해 교체.
+const PROJECT_REPO = "https://github.com/PLeC98/Discord-Musicbot-Project";
+
 module.exports = {
-  // Discord Bot Settings
+  // 디스코드 봇 설정
   discord: {
-    token: process.env.DISCORD_TOKEN || "YOUR_DISCORD_BOT_TOKEN_HERE",
-    clientId: process.env.CLIENT_ID || "YOUR_CLIENT_ID_HERE",
-    guildId: process.env.GUILD_ID || null, // Leave null for global commands
+    token: env("DISCORD_TOKEN"),
+    clientId: env("CLIENT_ID"),
+    clientSecret: env("CLIENT_SECRET"),
+    guildId: env("GUILD_ID"),
   },
 
-  // Spotify API Settings
+  // 스포티파이 API 설정
   spotify: {
-    clientId: process.env.SPOTIFY_CLIENT_ID || "YOUR_SPOTIFY_CLIENT_ID",
-    clientSecret: process.env.SPOTIFY_CLIENT_SECRET || "YOUR_SPOTIFY_CLIENT_SECRET",
+    clientId: env("SPOTIFY_CLIENT_ID"),
+    clientSecret: env("SPOTIFY_CLIENT_SECRET"),
   },
 
-  // Bot Settings
+  // 봇 설정
   bot: {
     defaultVolume: 100,
     maxQueueSize: 100,
     maxPlaylistSize: 50,
-    embedColor: process.env.EMBED_COLOR || "#2743D2",
-    supportServer: process.env.SUPPORT_SERVER || "https://discord.gg/DISCORD_INVITE_CODE",
-    website: process.env.WEBSITE || "https://your.website.here",
-    sourceRepo: process.env.SOURCE_REPO_URL || null,
-    invite: "https://discord.com/oauth2/authorize?client_id=" + process.env.CLIENT_ID + "&permissions=8&scope=bot%20applications.commands",
-    leaveDelayQueueEmptyMs: (parseInt(process.env.LEAVE_DELAY_QUEUE_EMPTY_SECONDS) || 10) * 1000,
-    leaveDelayAloneMs: (parseInt(process.env.LEAVE_DELAY_ALONE_SECONDS) || 120) * 1000,
+    embedColor: env("EMBED_COLOR", "#2743D2"),
+    supportServer: env("SUPPORT_SERVER"),
+    website: env("WEBSITE"),
+    projectRepo: PROJECT_REPO,
+    sourceRepo: env("SOURCE_REPO_URL", PROJECT_REPO),
+    invite: "https://discord.com/oauth2/authorize?client_id=" + env("CLIENT_ID") + "&permissions=8&scope=bot%20applications.commands",
+    leaveDelayQueueEmptyMs: envInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS", 600) * 1000,
+    leaveDelayAloneMs: envInt("LEAVE_DELAY_ALONE_SECONDS", 120) * 1000,
   },
 
-  // Audio Settings
+  // 오디오 설정
   audio: {
     quality: "highestaudio",
     format: "mp3",
@@ -56,57 +111,56 @@ module.exports = {
     filter: "audioonly",
     quality: "highestaudio",
     highWaterMark: 1 << 25,
-    cookiesFromBrowser: process.env.COOKIES_FROM_BROWSER || null, // 'chrome', 'firefox', 'edge', 'safari'
-    cookiesFile: resolveFromRoot(process.env.COOKIES_FILE),
+    cookiesFromBrowser: env("COOKIES_FROM_BROWSER"),
+    cookiesFile: resolveFromRoot(env("COOKIES_FILE")),
   },
 
-  // Dashboard Settings
+  // 대시보드 설정
   dashboard: {
-    port: parseInt(process.env.DASHBOARD_PORT) || 33333,
-    url: process.env.DASHBOARD_URL || "http://localhost:33333",
-    sessionSecret: process.env.SESSION_SECRET || "musicbot-dashboard-secret",
-    ownerId: process.env.OWNER_ID || null,
+    port: dashboardPort,
+    url: env("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
+    ownerId: env("OWNER_ID"),
+    // 세션 쿠키 서명 비밀. 미설정 시 기동마다 랜덤 생성(보안은 유지되나 재시작 시 대시보드 로그인 풀림) — 기동 로그에 경고
+    sessionSecret: env("SESSION_SECRET"),
+    // API 요청 제한 (config.js 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을
+    // 넉넉히 넘는 값 — 도배만 차단. 값 근거는 notes/code-review §7 참조.
+    rateLimit: {
+      windowMs: envInt("RATE_LIMIT_WINDOW_SEC", 60) * 1000,
+      apiMax: envInt("RATE_LIMIT_API_MAX", 120), // 일반 인증 API (/api/*)
+      queueMax: envInt("RATE_LIMIT_QUEUE_MAX", 20), // 곡 추가 (POST /player/queue)
+      authWindowMs: envInt("RATE_LIMIT_AUTH_WINDOW_SEC", 600) * 1000,
+      authMax: envInt("RATE_LIMIT_AUTH_MAX", 30), // 로그인/OAuth (/auth/*)
+    },
+    // 실시간 갱신(SSE) — 플레이어 상태 변화 넛지. 값은 config.js 기본값 + .env 오버라이드.
+    sse: {
+      heartbeatMs: envInt("SSE_HEARTBEAT_SEC", 20) * 1000, // 유휴 연결 keepalive
+      maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5), // 세션당 동시 연결 캡
+      coalesceMs: envInt("SSE_COALESCE_MS", 300), // 길드당 넛지 합치기 창
+    },
   },
 
-  // Cache Settings
+  // 오디오 캐시 설정
   cache: {
-    maxSizeBytes: (parseInt(process.env.CACHE_MAX_SIZE_MB) || 2048) * 1024 * 1024,
-    maxFiles: parseInt(process.env.CACHE_MAX_FILES) || 500,
-    minFreeDiskBytes: (parseInt(process.env.CACHE_MIN_FREE_DISK_MB) || 2048) * 1024 * 1024,
-    evictIntervalMs: (parseInt(process.env.CACHE_EVICT_INTERVAL_HOURS) || 4) * 3600 * 1000,
+    maxSizeBytes: envInt("CACHE_MAX_SIZE_MB", 1024) * 1024 * 1024,
+    maxFiles: envInt("CACHE_MAX_FILES", 500),
+    minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048) * 1024 * 1024,
+    evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4) * 3600 * 1000,
   },
 
-  // Voice Channel Status Settings
+  // 음성 채널 상태 설정
   voiceStatus: {
-    playingPrefix: process.env.VOICE_PLAYING_PREFIX || "📻 ",
-    pausedPrefix: process.env.VOICE_PAUSED_PREFIX || "⏸ ",
-    idleText: process.env.VOICE_IDLE_STATUS || "🎵 대기 중",
+    playingPrefix: env("VOICE_PLAYING_PREFIX", ""),
+    pausedPrefix: env("VOICE_PAUSED_PREFIX", ""),
+    idleText: env("VOICE_IDLE_STATUS", ""),
   },
 
-  // Sharding Settings (for bots in 1000+ servers)
+  // 샤딩 설정 (for bots in 1000+ servers)
   sharding: {
-    // Set to 'auto' to let Discord.js calculate optimal shard count
-    // Or set a specific number (e.g., 2, 4, 8, etc.)
-    // Formula: Math.ceil(total_guilds / 1000) = recommended shards
-    totalShards: process.env.TOTAL_SHARDS || "auto",
-
-    // Shard list to spawn (default: 'auto' spawns all)
-    // Example: [0, 1, 2] to spawn specific shards
-    shardList: process.env.SHARD_LIST || "auto",
-
-    // Sharding mode: 'process' (recommended) or 'worker'
-    // 'process' = each shard runs in separate Node.js process (more stable)
-    // 'worker' = each shard runs in worker thread (less memory, experimental)
-    mode: process.env.SHARD_MODE || "process",
-
-    // Auto-respawn crashed shards (recommended: true)
-    respawn: process.env.SHARD_RESPAWN !== "false",
-
-    // Delay between spawning each shard (milliseconds)
-    // Discord recommends 5000-5500ms to avoid rate limits
-    spawnDelay: parseInt(process.env.SHARD_SPAWN_DELAY) || 5500,
-
-    // Timeout for shard ready event (milliseconds)
-    spawnTimeout: parseInt(process.env.SHARD_SPAWN_TIMEOUT) || 30000,
+    totalShards: env("TOTAL_SHARDS", "auto"),
+    shardList: env("SHARD_LIST", "auto"),
+    mode: env("SHARD_MODE", "process"),
+    respawn: env("SHARD_RESPAWN", "true") !== "false",
+    spawnDelay: envInt("SHARD_SPAWN_DELAY", 5500),
+    spawnTimeout: envInt("SHARD_SPAWN_TIMEOUT", 30000),
   },
 };

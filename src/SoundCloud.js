@@ -1,354 +1,323 @@
-const youtubedl = require('youtube-dl-exec');
-const axios = require('axios');
-const config = require('../config');
-
+const youtubedl = require("youtube-dl-exec");
+const axios = require("axios");
+const config = require("../config");
 
 class SoundCloud {
-    // SoundCloud no longer requires client ID, we'll use yt-dlp directly
+  // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용
 
-    static async search(query, limit = 1, guildId = null) {
+  static async search(query, limit = 1, guildId = null) {
+    try {
+      // 이미 SoundCloud URL이면 직접 정보 가져오기
+      if (this.isSoundCloudURL(query)) {
+        const info = await this.getInfo(query, guildId);
+        return info ? [info] : [];
+      }
+
+      // yt-dlp의 네이티브 SoundCloud 검색 접두사 사용. (ytsearch + "site:"는 YouTube 결과만 반환했고, 아래 soundcloud.com 필터가 이를 버려 항상 비어 있었음)
+      const searchQuery = `scsearch${limit}:${query}`;
+
+      const results = await youtubedl(searchQuery, {
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        noWarnings: true,
+      });
+
+      if (!results || !results.entries) {
+        return [];
+      }
+
+      const tracks = [];
+      for (const item of results.entries.slice(0, limit)) {
         try {
-
-
-            // If it's already a SoundCloud URL, get info directly
-            if (this.isSoundCloudURL(query)) {
-                const info = await this.getInfo(query, guildId);
-                return info ? [info] : [];
+          // SoundCloud 링크만 필터링
+          if (item.webpage_url && item.webpage_url.includes("soundcloud.com")) {
+            const track = await this.formatTrack(item, guildId);
+            if (track) {
+              tracks.push(track);
             }
-
-            // Use yt-dlp's native SoundCloud search prefix.
-            // (ytsearch + "site:" returned only YouTube results, which the
-            // soundcloud.com filter below then discarded — always empty)
-            const searchQuery = `scsearch${limit}:${query}`;
-
-            const results = await youtubedl(searchQuery, {
-                dumpSingleJson: true,
-                flatPlaylist: true,
-                noCheckCertificates: true,
-                noWarnings: true,
-            });
-
-            if (!results || !results.entries) {
-
-                return [];
-            }
-
-            const tracks = [];
-            for (const item of results.entries.slice(0, limit)) {
-                try {
-                    // Filter only SoundCloud links
-                    if (item.webpage_url && item.webpage_url.includes('soundcloud.com')) {
-                        const track = await this.formatTrack(item, guildId);
-                        if (track) {
-                            tracks.push(track);
-                        }
-                    }
-                } catch (error) {
-                    continue;
-                }
-            }
-
-
-            return tracks;
-
+          }
         } catch (error) {
-            return [];
+          continue;
         }
+      }
+
+      return tracks;
+    } catch (error) {
+      return [];
     }
+  }
 
-    static async getInfo(url, guildId = null) {
-        try {
+  static async getInfo(url, guildId = null) {
+    try {
+      // yt-dlp로 SoundCloud 정보 가져오기
+      const info = await youtubedl(url, {
+        dumpSingleJson: true,
+        noWarnings: true,
+      });
 
+      if (!info) {
+        throw new Error("SoundCloud에서 정보를 반환하지 않음");
+      }
 
-            // Get SoundCloud info using yt-dlp
-            const info = await youtubedl(url, {
-                dumpSingleJson: true,
-                noCheckCertificates: true,
-                noWarnings: true,
-            });
+      const track = await this.formatTrack(info, guildId);
 
-            if (!info) {
-                throw new Error('SoundCloud에서 정보를 반환하지 않음');
-            }
+      return track;
+    } catch (error) {
+      return null;
+    }
+  }
 
-            const track = await this.formatTrack(info, guildId);
+  static async getStream(url, guildId = null, startSeconds = 0) {
+    try {
+      // yt-dlp로 오디오 스트림 가져오기
+      const result = await youtubedl(url, {
+        format: "bestaudio/best",
+        getUrl: true,
+        noWarnings: true,
+      });
 
-            return track;
+      if (!result) {
+        throw new Error("스트림 URL을 찾을 수 없음");
+      }
 
-        } catch (error) {
-            return null;
+      // 참고: SoundCloud 스트림은 일반적으로 URL 매개변수를 통한 탐색을 지원하지 않음
+      // 탐색은 MusicPlayer의 FFmpeg가 처리
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getPlaylist(url, guildId = null) {
+    try {
+      // yt-dlp로 재생목록 정보 가져오기
+      const result = await youtubedl(url, {
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        noWarnings: true,
+      });
+
+      if (!result || !result.entries) {
+        throw new Error("재생목록 트랙을 찾을 수 없음");
+      }
+
+      const tracks = [];
+      for (const item of result.entries.slice(0, config.bot.maxPlaylistSize)) {
+        const formattedTrack = await this.formatTrack(item, guildId);
+        if (formattedTrack) {
+          tracks.push(formattedTrack);
         }
+      }
+
+      const unknownPlaylist = "알 수 없는 재생목록";
+
+      return {
+        title: result.title || result.playlist_title || unknownPlaylist,
+        tracks: tracks,
+        totalTracks: result.playlist_count || tracks.length,
+        url: url,
+        platform: "soundcloud",
+        type: "playlist",
+        description: result.description,
+        user: result.uploader || result.playlist_uploader,
+      };
+    } catch (error) {
+      return null;
     }
+  }
 
-    static async getStream(url, guildId = null, startSeconds = 0) {
-        try {
+  static async getUserTracks(userUrl, limit = 10, guildId = null) {
+    try {
+      // SoundCloud 사용자 프로필에 yt-dlp 사용
+      // 사용자의 최신 트랙 가져오기
+      const result = await youtubedl(userUrl, {
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        playlistEnd: limit,
+        noWarnings: true,
+      });
 
+      if (!result || !result.entries) {
+        return [];
+      }
 
-            // Get audio stream using yt-dlp
-            const result = await youtubedl(url, {
-                format: 'bestaudio/best',
-                getUrl: true,
-                noCheckCertificates: true,
-                noWarnings: true,
-            });
-
-            if (!result) {
-                throw new Error('스트림 URL을 찾을 수 없음');
-            }
-
-            // Note: SoundCloud streams typically don't support seek via URL parameters
-            // Seeking will be handled by FFmpeg in MusicPlayer
-            return result;
-
-        } catch (error) {
-            throw error;
+      const tracks = [];
+      for (const item of result.entries.slice(0, limit)) {
+        const formattedTrack = await this.formatTrack(item, guildId);
+        if (formattedTrack) {
+          tracks.push(formattedTrack);
         }
+      }
+
+      return tracks;
+    } catch (error) {
+      return [];
     }
+  }
 
-    static async getPlaylist(url, guildId = null) {
-        try {
+  static async formatTrack(soundcloudTrack, guildId = null) {
+    try {
+      const unknownTitle = "알 수 없는 제목";
+      const unknownArtist = "알 수 없는 아티스트";
 
+      const track = {
+        title: soundcloudTrack.title || soundcloudTrack.fulltitle || unknownTitle,
+        artist: soundcloudTrack.uploader || soundcloudTrack.artist || unknownArtist,
+        url: soundcloudTrack.webpage_url || soundcloudTrack.url,
+        duration: soundcloudTrack.duration || 0,
+        thumbnail: soundcloudTrack.thumbnail,
+        platform: "soundcloud",
+        type: "track",
+        id: soundcloudTrack.id,
+        description: soundcloudTrack.description,
+        uploadDate: soundcloudTrack.upload_date,
+        viewCount: soundcloudTrack.view_count,
+        likeCount: soundcloudTrack.like_count,
+        channel: soundcloudTrack.channel,
+        channelId: soundcloudTrack.channel_id,
+      };
 
-            // Get playlist info using yt-dlp
-            const result = await youtubedl(url, {
-                dumpSingleJson: true,
-                flatPlaylist: true,
-                noCheckCertificates: true,
-                noWarnings: true,
-            });
+      return track;
+    } catch (error) {
+      return null;
+    }
+  }
 
-            if (!result || !result.entries) {
-                throw new Error('재생목록 트랙을 찾을 수 없음');
-            }
+  static isSoundCloudURL(url) {
+    const patterns = [
+      /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/,
+      /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/sets\/[\w-]+/,
+      /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
+      // 모바일 앱 공유용 짧은 링크 (yt-dlp가 리디렉션을 따라감)
+      /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
+    ];
+    return patterns.some((pattern) => pattern.test(url));
+  }
 
-            const tracks = [];
-            for (const item of result.entries.slice(0, config.bot.maxPlaylistSize)) {
-                const formattedTrack = await this.formatTrack(item, guildId);
-                if (formattedTrack) {
-                    tracks.push(formattedTrack);
-                }
-            }
+  static isPlaylist(url) {
+    return url.includes("/sets/");
+  }
 
-            const unknownPlaylist = '알 수 없는 재생목록';
+  static isTrack(url) {
+    return this.isSoundCloudURL(url) && !this.isPlaylist(url) && !this.isUser(url);
+  }
 
-            return {
-                title: result.title || result.playlist_title || unknownPlaylist,
-                tracks: tracks,
-                totalTracks: result.playlist_count || tracks.length,
-                url: url,
-                platform: 'soundcloud',
-                type: 'playlist',
-                description: result.description,
-                user: result.uploader || result.playlist_uploader,
-            };
+  static isUser(url) {
+    // 사용자 프로필 URL인지 확인 (트랙 또는 재생목록 경로 없음)
+    const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/([\w-]+)$/);
+    return !!match;
+  }
 
-        } catch (error) {
-            return null;
+  static extractUsername(url) {
+    const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/([\w-]+)/);
+    return match ? match[2] : null;
+  }
+
+  static extractTrackSlug(url) {
+    const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/[\w-]+\/([\w-]+)/);
+    return match ? match[2] : null;
+  }
+
+  static extractPlaylistSlug(url) {
+    const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/[\w-]+\/sets\/([\w-]+)/);
+    return match ? match[2] : null;
+  }
+
+  static async validateUrl(url) {
+    try {
+      if (!this.isSoundCloudURL(url)) {
+        return false;
+      }
+
+      // yt-dlp로 URL 검증
+      const info = await youtubedl(url, {
+        dumpSingleJson: true,
+        noWarnings: true,
+      });
+      return !!info && !!info.title;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  static formatDuration(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      return `${hours}:${remainingMinutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
+    } else {
+      return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    }
+  }
+
+  static createTrackUrl(username, trackSlug) {
+    return `https://soundcloud.com/${username}/${trackSlug}`;
+  }
+
+  static createPlaylistUrl(username, playlistSlug) {
+    return `https://soundcloud.com/${username}/sets/${playlistSlug}`;
+  }
+
+  static createUserUrl(username) {
+    return `https://soundcloud.com/${username}`;
+  }
+
+  static async getRelatedTracks(trackUrl, limit = 5) {
+    try {
+      // 여기에 관련 트랙 가져오기 구현 가능. 복잡한 구현이 필요하므로 현재는 빈 배열 반환.
+      return [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  static async searchAdvanced(query, options = {}, guildId = null) {
+    try {
+      // yt-dlp를 사용한 고급 검색 (간소화)
+      return await this.search(query, options.limit || 20, guildId);
+
+      const {
+        limit = 20,
+        offset = 0,
+        filter = "all", // 'all', 'tracks', 'playlists', 'users' 중 하나
+        sort = "relevance", // 'relevance', 'created_at', 'hotness', 'duration' 중 하나
+      } = options;
+
+      const searchUrl = `https://api-v2.soundcloud.com/search`;
+      const params = {
+        q: query,
+        client_id: this.clientId,
+        limit: limit,
+        offset: offset,
+        filter: filter,
+        sort: sort,
+      };
+
+      const response = await axios.get(searchUrl, { params });
+
+      if (!response.data || !response.data.collection) {
+        return [];
+      }
+
+      const tracks = [];
+      for (const item of response.data.collection) {
+        if (item.kind === "track") {
+          const track = await this.formatTrack(item);
+          if (track) {
+            tracks.push(track);
+          }
         }
+      }
+
+      return tracks;
+    } catch (error) {
+      return [];
     }
-
-    static async getUserTracks(userUrl, limit = 10, guildId = null) {
-        try {
-
-            // Use yt-dlp for SoundCloud user profile
-            // Get user's latest tracks
-            const result = await youtubedl(userUrl, {
-                dumpSingleJson: true,
-                flatPlaylist: true,
-                playlistEnd: limit,
-                noCheckCertificates: true,
-                noWarnings: true,
-            });
-
-            if (!result || !result.entries) {
-                return [];
-            }
-
-            const tracks = [];
-            for (const item of result.entries.slice(0, limit)) {
-                const formattedTrack = await this.formatTrack(item, guildId);
-                if (formattedTrack) {
-                    tracks.push(formattedTrack);
-                }
-            }
-
-
-            return tracks;
-
-        } catch (error) {
-            return [];
-        }
-    }
-
-    static async formatTrack(soundcloudTrack, guildId = null) {
-        try {
-            const unknownTitle = '알 수 없는 제목';
-            const unknownArtist = '알 수 없는 아티스트';
-
-            const track = {
-                title: soundcloudTrack.title || soundcloudTrack.fulltitle || unknownTitle,
-                artist: soundcloudTrack.uploader || soundcloudTrack.artist || unknownArtist,
-                url: soundcloudTrack.webpage_url || soundcloudTrack.url,
-                duration: soundcloudTrack.duration || 0,
-                thumbnail: soundcloudTrack.thumbnail,
-                platform: 'soundcloud',
-                type: 'track',
-                id: soundcloudTrack.id,
-                description: soundcloudTrack.description,
-                uploadDate: soundcloudTrack.upload_date,
-                viewCount: soundcloudTrack.view_count,
-                likeCount: soundcloudTrack.like_count,
-                channel: soundcloudTrack.channel,
-                channelId: soundcloudTrack.channel_id,
-            };
-
-            return track;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    static isSoundCloudURL(url) {
-        const patterns = [
-            /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/,
-            /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/sets\/[\w-]+/,
-            /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
-            // Mobile-app share short links (yt-dlp follows the redirect)
-            /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
-        ];
-        return patterns.some(pattern => pattern.test(url));
-    }
-
-    static isPlaylist(url) {
-        return url.includes('/sets/');
-    }
-
-    static isTrack(url) {
-        return this.isSoundCloudURL(url) && !this.isPlaylist(url) && !this.isUser(url);
-    }
-
-    static isUser(url) {
-        // Check if it's a user profile URL (no track or playlist path)
-        const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/([\w-]+)$/);
-        return !!match;
-    }
-
-    static extractUsername(url) {
-        const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/([\w-]+)/);
-        return match ? match[2] : null;
-    }
-
-    static extractTrackSlug(url) {
-        const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/[\w-]+\/([\w-]+)/);
-        return match ? match[2] : null;
-    }
-
-    static extractPlaylistSlug(url) {
-        const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/[\w-]+\/sets\/([\w-]+)/);
-        return match ? match[2] : null;
-    }
-
-    static async validateUrl(url) {
-        try {
-            if (!this.isSoundCloudURL(url)) {
-                return false;
-            }
-
-            // URL validation with yt-dlp
-            const info = await youtubedl(url, {
-                dumpSingleJson: true,
-                noCheckCertificates: true,
-                noWarnings: true,
-            });
-            return !!info && !!info.title;
-
-        } catch (error) {
-            return false;
-        }
-    }
-
-    static formatDuration(milliseconds) {
-        const seconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-
-        if (minutes >= 60) {
-            const hours = Math.floor(minutes / 60);
-            const remainingMinutes = minutes % 60;
-            return `${hours}:${remainingMinutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        } else {
-            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-        }
-    }
-
-    static createTrackUrl(username, trackSlug) {
-        return `https://soundcloud.com/${username}/${trackSlug}`;
-    }
-
-    static createPlaylistUrl(username, playlistSlug) {
-        return `https://soundcloud.com/${username}/sets/${playlistSlug}`;
-    }
-
-    static createUserUrl(username) {
-        return `https://soundcloud.com/${username}`;
-    }
-
-    static async getRelatedTracks(trackUrl, limit = 5) {
-        try {
-
-            // This would implement getting related tracks
-            // For now, return empty array as it requires complex implementation
-            return [];
-
-        } catch (error) {
-            return [];
-        }
-    }
-
-    static async searchAdvanced(query, options = {}, guildId = null) {
-        try {
-            // Advanced search using yt-dlp (simplified)
-            return await this.search(query, options.limit || 20, guildId);
-
-            const {
-                limit = 20,
-                offset = 0,
-                filter = 'all', // 'all', 'tracks', 'playlists', 'users'
-                sort = 'relevance' // 'relevance', 'created_at', 'hotness', 'duration'
-            } = options;
-
-            const searchUrl = `https://api-v2.soundcloud.com/search`;
-            const params = {
-                q: query,
-                client_id: this.clientId,
-                limit: limit,
-                offset: offset,
-                filter: filter,
-                sort: sort,
-            };
-
-            const response = await axios.get(searchUrl, { params });
-
-            if (!response.data || !response.data.collection) {
-                return [];
-            }
-
-            const tracks = [];
-            for (const item of response.data.collection) {
-                if (item.kind === 'track') {
-                    const track = await this.formatTrack(item);
-                    if (track) {
-                        tracks.push(track);
-                    }
-                }
-            }
-
-            return tracks;
-
-        } catch (error) {
-            return [];
-        }
-    }
+  }
 }
 
 module.exports = SoundCloud;

@@ -1,13 +1,14 @@
 'use strict';
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const config = require('../config');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ping')
         .setDescription('Check bot latency')
-        .setDescriptionLocalizations({ ko: '봇 응답 레이턴시를 확인합니다' }),
+        .setDescriptionLocalizations({ ko: '봇 응답 레이턴시를 확인합니다' })
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     async execute(interaction, client) {
         const { resource } = await interaction.reply({ content: '핑 측정 중...', withResponse: true, flags: [1 << 6] });

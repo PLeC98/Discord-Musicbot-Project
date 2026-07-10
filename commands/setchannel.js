@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } = require("discord.js");
 const GuildSettingsManager = require("../src/GuildSettingsManager");
 
 module.exports = {
@@ -48,7 +48,7 @@ module.exports = {
     if (!success) {
       return await interaction.reply({
         content: "❌ 채널 설정 중 오류가 발생했어요.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 

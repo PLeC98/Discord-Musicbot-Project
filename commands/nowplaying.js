@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
 
 module.exports = {
@@ -15,14 +15,14 @@ module.exports = {
       if (!player) {
         return await interaction.reply({
           embeds: [this.createErrorEmbed("현재 재생 중인 음악이 없습니다!")],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
       if (!player.currentTrack) {
         return await interaction.reply({
           embeds: [this.createErrorEmbed("현재 재생 중인 노래가 없습니다!")],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -110,7 +110,7 @@ module.exports = {
         embed.setFooter({ text: "대기열에 더 이상 노래가 없습니다" });
       }
 
-      // Add thumbnail
+      // 썸네일 추가
       if (track.thumbnail) {
         embed.setThumbnail(track.thumbnail);
       }
@@ -121,7 +121,7 @@ module.exports = {
     } catch (error) {
       await interaction.reply({
         embeds: [this.createErrorEmbed("현재 재생 중인 정보를 가져오는 중 오류가 발생했습니다!")],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   },
@@ -131,19 +131,7 @@ module.exports = {
   },
 
   formatDuration(seconds) {
-    if (!seconds || seconds === 0) return "0:00";
-
-    // Ensure we work with integers to avoid floating point errors
-    const totalSeconds = Math.floor(Number(seconds) || 0);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const remainingSeconds = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
-    } else {
-      return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-    }
+    return require("../src/utils").formatDuration(seconds); // 공용 구현: src/utils.js
   },
 
   formatTime(milliseconds) {

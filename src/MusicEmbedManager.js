@@ -1,18 +1,22 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } = require("discord.js");
 const config = require("../config");
+const { formatDuration } = require("./utils");
+const DashboardEvents = require("./DashboardEvents");
 
 class MusicEmbedManager {
   constructor(client) {
     this.client = client;
-    this.processingQueue = new Map(); // guildId -> Promise
-    this.updateIntervals = new Map(); // guildId -> intervalId
-    this.webhookCache = new Map(); // channelId -> WebhookClient
+    this.processingQueue = new Map(); // guildId -> Promise 매핑
+    this.updateIntervals = new Map(); // guildId -> intervalId 매핑
+    this.webhookCache = new Map(); // channelId -> WebhookClient 매핑
   }
 
   deleteWebhookCache(channelId) {
     const webhookClient = this.webhookCache.get(channelId);
     if (webhookClient) {
-      try { webhookClient.destroy(); } catch (_) {}
+      try {
+        webhookClient.destroy();
+      } catch (_) {}
       this.webhookCache.delete(channelId);
     }
   }
@@ -45,35 +49,35 @@ class MusicEmbedManager {
   }
 
   /**
-   * Preloads tracks in the queue sequentially to prevent buffering
+   * 버퍼링 방지를 위해 대기열의 트랙을 순차적으로 사전 로드합니다.
    */
   async sequentialPreload(player, tracks) {
-    // Only preload the next few tracks — preloading everything at once hammers YouTube
+    // 다음 몇 곡만 사전 로드 — 한 번에 전부 사전 로드하면 YouTube에 부담을 줌
     const PRELOAD_AHEAD = 5;
     const toPreload = tracks.slice(0, PRELOAD_AHEAD);
 
     for (const track of toPreload) {
-      // Skip if already preloaded or currently being preloaded
+      // 이미 사전 로드되었거나 현재 사전 로드 중이면 건너뜀
       if (player.preloadedStreams.has(track.url) || player.preloadingQueue.includes(track.url)) {
         continue;
       }
 
       try {
         await player.preloadTrack(track);
-        // 3-second gap between preloads to avoid YouTube rate-limiting
+        // YouTube 속도 제한을 피하기 위해 사전 로드 사이에 3초 간격 유지
         await new Promise((resolve) => setTimeout(resolve, 3000));
       } catch (err) {
         console.error(`❌ Preload error for ${track.title}:`, err.message);
-        // Continue even on error
+        // 오류가 나도 계속 진행
       }
     }
   }
 
   /**
-   * Processes music data and sends/updates the appropriate embed
+   * 음악 데이터를 처리하고 적절한 임베드를 전송/갱신합니다.
    */
   async handleMusicData(guildId, trackData, member, interaction = null) {
-    // Prevent race conditions — only one operation per guild at a time
+    // 경쟁 상태 방지 — 길드당 한 번에 하나의 작업만 수행
     if (this.processingQueue.has(guildId)) {
       await this.processingQueue.get(guildId);
     }
@@ -91,7 +95,7 @@ class MusicEmbedManager {
 
   async _processMusic(guildId, trackData, member, interaction) {
     const player = this.client.players.get(guildId);
-    if (!player) return { success: false, message: "No player found" };
+    if (!player) return { success: false, message: "음악 플레이어를 찾을 수 없습니다." };
 
     const wasPlayingBefore = player.currentTrack !== null;
     const isPlaylist = trackData.isPlaylist || false;
@@ -103,17 +107,17 @@ class MusicEmbedManager {
       const wasIdle = !player.currentTrack && player.queue.length === 0;
       const tracksToQueue = [];
 
-      // Add all tracks to player (triggers preload)
+      // 모든 트랙을 플레이어에 추가 (사전 로드 트리거)
       for (let i = 0; i < tracks.length; i++) {
         const track = { ...tracks[i] };
         track.requestedBy = member;
         track.addedAt = Date.now();
 
-        // First track and player is idle — start playback
+        // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
         if (i === 0 && wasIdle) {
           player.currentTrack = track;
 
-          // Connect to voice channel and start playing
+          // 음성 채널에 연결하고 재생 시작
           let playbackStarted = false;
           try {
             if (!player.connection) {
@@ -123,13 +127,12 @@ class MusicEmbedManager {
             playbackStarted = true;
           } catch (playError) {
             console.error("Error in play process:", playError);
-            // On error, push track back to queue
+            // 오류 발생 시 트랙을 대기열에 다시 넣음
             player.currentTrack = null;
             tracksToQueue.push(track);
           }
 
-          // UI failure must not corrupt playback state — if the embed cannot
-          // be created (e.g. CV2 edit restriction), playback continues anyway
+          // UI 실패가 재생 상태를 망가뜨리면 안 됨 — 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
           if (playbackStarted) {
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, track, member, interaction);
@@ -143,64 +146,64 @@ class MusicEmbedManager {
         }
       }
 
-      // Insert collected tracks at front or back of queue
+      // 수집한 트랙을 대기열 앞이나 뒤에 삽입
       if (tracksToQueue.length > 0) {
         if (insertFirst) {
           player.queue.unshift(...tracksToQueue);
-          // Honor front placement on the next transition even when shuffle is on
+          // 셔플이 켜져 있어도 다음 전환에서 앞쪽 배치를 존중
           if (player.currentTrack) player.nextFromFront = true;
         } else {
           player.queue.push(...tracksToQueue);
         }
       }
 
-      // Trigger sequential preload for queued tracks to prevent buffering
+      // 버퍼링 방지를 위해 대기열 트랙의 순차 사전 로드 트리거
       this.sequentialPreload(player, player.queue.slice()).catch((err) => console.error("❌ Sequential preload error:", err.message));
 
-      // First track started playing and there are more tracks in the playlist
+      // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
       if (firstTrackResult && tracks.length > 1) {
-        // Show message that remaining playlist tracks were added to queue
+        // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
         await this.showPlaylistAdditionMessage(player, tracks, member, interaction, isPlaylist, insertFirst);
-        // Queue updated — refresh embed
+        // 대기열 갱신 — 임베드 새로고침
         await this.updateNowPlayingEmbed(player);
         return firstTrackResult;
       }
 
-      // Only added to queue (music was already playing)
+      // 대기열에만 추가됨 (이미 음악 재생 중)
       if (wasPlayingBefore || (!firstTrackResult && tracks.length > 0)) {
         return await this.handleQueueAddition(player, tracks, member, interaction, isPlaylist, insertFirst);
       }
 
-      // Single track started playing
+      // 단일 트랙 재생 시작
       if (firstTrackResult) {
         return firstTrackResult;
       }
 
       return { success: true, message: "Track processed successfully" };
     } catch (error) {
-      return { success: false, message: "Error processing music" };
+      return { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." };
     }
   }
 
   /**
-   * Shows a message when remaining playlist tracks are added while the first track plays
+   * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
   async showPlaylistAdditionMessage(player, tracks, member, interaction, isPlaylist, insertFirst = false) {
-    // Send info for remaining tracks (excluding the first)
+    // 첫 번째를 제외한 남은 트랙 정보 전송
     const remainingTracks = tracks.slice(1);
     const messageText = this.createQueueAdditionMessage(remainingTracks, member.guild.id, isPlaylist, insertFirst);
 
-    // Send to text channel (not via interaction)
+    // 상호작용이 아닌 텍스트 채널로 전송
     let infoMessage;
     try {
       infoMessage = await player.textChannel.send({ content: messageText });
 
-      // Delete info message after 10 seconds
+      // 10초 후 정보 메시지 삭제
       setTimeout(async () => {
         try {
           await infoMessage.delete();
         } catch (error) {
-          // Message may have already been deleted
+          // 메시지가 이미 삭제되었을 수 있음
         }
       }, 10000);
     } catch (error) {
@@ -209,7 +212,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * Creates a new music embed (when nothing is currently playing)
+   * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
   async createNewMusicEmbed(player, track, member, interaction) {
     const container = await this.createNowPlayingContainer(player, track, member.guild.id);
@@ -225,7 +228,7 @@ class MusicEmbedManager {
         message = await interaction.reply(payload);
       }
     } else {
-      // Use webhook so the message has webhook_id — required for emoji links in CV2 text displays to render correctly
+      // 메시지에 webhook_id가 붙도록 웹훅 사용 — CV2 텍스트 표시에서 이모지 링크가 올바르게 렌더링되는 데 필요
       const webhook = await this.getOrCreateWebhook(player.textChannel);
       if (webhook) {
         message = await webhook.send({
@@ -249,22 +252,21 @@ class MusicEmbedManager {
   }
 
   /**
-   * Handles the case when a song is added to the queue while music is playing
+   * 음악 재생 중 곡이 대기열에 추가되는 경우를 처리합니다.
    */
   async handleQueueAddition(player, tracks, member, interaction, isPlaylist, insertFirst = false) {
-    // Update existing embed
+    // 기존 임베드 갱신
     if (player.nowPlayingMessage && player.currentTrack) {
       await this.updateNowPlayingEmbed(player);
     }
 
-    // Send info message
+    // 정보 메시지 전송
     const messageText = this.createQueueAdditionMessage(tracks, member.guild.id, isPlaylist, insertFirst);
 
     let infoMessage;
     if (interaction) {
       if (interaction.deferred || interaction.replied) {
-        // The initial reply from /play and /playfirst is a CV2 container —
-        // CV2 messages reject the `content` field, so edit with a container
+        // /play 및 /playfirst의 초기 응답은 CV2 컨테이너이므로 — CV2 메시지는 `content` 필드를 거부하므로 컨테이너로 수정
         infoMessage = await interaction.editReply({
           components: [this.createSearchingContainer(messageText)],
           flags: MessageFlags.IsComponentsV2,
@@ -276,12 +278,12 @@ class MusicEmbedManager {
       infoMessage = await player.textChannel.send({ content: messageText });
     }
 
-    // Delete info message after 10 seconds
+    // 10초 후 정보 메시지 삭제
     setTimeout(async () => {
       try {
         await infoMessage.delete();
       } catch (error) {
-        // Message may have already been deleted
+        // 메시지가 이미 삭제되었을 수 있음
       }
     }, 10000);
 
@@ -289,7 +291,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * Builds the now playing container (Components v2)
+   * 현재 재생 컨테이너를 빌드합니다 (Components v2).
    */
   async createNowPlayingContainer(player, track, guildId, buttonsDisabled = false) {
     const nowPlayingTitle = "🎵 현재 재생 중";
@@ -310,7 +312,7 @@ class MusicEmbedManager {
       section.setThumbnailAccessory(new ThumbnailBuilder().setURL(track.thumbnail));
     }
 
-    // Status line (pause / queue count)
+    // 상태 줄 (일시정지 / 대기열 수)
     const statusParts = [];
     if (player.paused) {
       if (player.pauseReasons?.has("mute")) statusParts.push("🔇 뮤트됨");
@@ -327,21 +329,21 @@ class MusicEmbedManager {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${statusParts.join(" • ")}`));
     }
 
-    // Separator + control buttons
+    // 구분선 + 제어 버튼
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
     const buttons = await this.createControlButtons(player, buttonsDisabled);
     for (const row of buttons) {
       container.addActionRowComponents(row);
     }
 
-    // Separator + dashboard link
+    // 구분선 + 대시보드 링크
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})  |  🖥️ ${platformValue}`));
 
     return container;
   }
 
   /**
-   * Builds the progress bar string
+   * 진행 바 문자열을 빌드합니다.
    */
   buildProgressBar(currentSec, totalSec) {
     const BAR_LENGTH = 16;
@@ -359,9 +361,10 @@ class MusicEmbedManager {
   }
 
   /**
-   * Updates the now playing embed in place
+   * 현재 재생 임베드를 제자리에서 갱신합니다.
    */
   async updateNowPlayingEmbed(player) {
+    if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     if (!player.nowPlayingMessage || !player.currentTrack) return;
 
     try {
@@ -385,30 +388,13 @@ class MusicEmbedManager {
   }
 
   /**
-   * Called when a track ends
-   */
-  async handleTrackEnd(player) {
-    if (player.queue.length > 0) {
-      // Move to next track
-      const nextTrack = player.queue.shift();
-      player.currentTrack = nextTrack;
-
-      await player.play();
-      await this.updateNowPlayingEmbed(player);
-      this.startProgressUpdate(player);
-    } else {
-      // All tracks finished
-      await this.handlePlaybackEnd(player);
-    }
-  }
-
-  /**
-   * Called when all music has finished
+   * 모든 음악이 끝났을 때 호출됩니다.
    */
   async handlePlaybackEnd(player) {
+    if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (종료/정지)
     this.stopProgressUpdate(player.guild?.id);
 
-    // Disable buttons
+    // 버튼 비활성화
     if (player.nowPlayingMessage && player.currentTrack) {
       try {
         const container = await this.createNowPlayingContainer(player, player.currentTrack, player.guild?.id, true);
@@ -446,18 +432,18 @@ class MusicEmbedManager {
       try {
         await textChannel.send({ embeds: [endEmbed] });
       } catch (error) {
-        // Suppress errors when channel is unavailable or permissions are missing
+        // 채널을 사용할 수 없거나 권한이 없을 때 오류 억제
       }
     }
 
-    // Clean up player
+    // 플레이어 정리
     player.currentTrack = null;
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
   }
 
   /**
-   * Creates control buttons
+   * 제어 버튼을 생성합니다.
    */
   async createControlButtons(player, disabled = false) {
     const sessionId = player.sessionId;
@@ -482,17 +468,9 @@ class MusicEmbedManager {
       .setEmoji("⏭️")
       .setDisabled(disabled || player.queue.length === 0);
 
-    const stopButton = new ButtonBuilder()
-      .setCustomId(`music_stop:${requesterId}:${sessionId}`)
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("⏹️")
-      .setDisabled(disabled);
+    const stopButton = new ButtonBuilder().setCustomId(`music_stop:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
 
-    const volumeButton = new ButtonBuilder()
-      .setCustomId(`music_volume:${requesterId}:${sessionId}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("🔊")
-      .setDisabled(disabled);
+    const volumeButton = new ButtonBuilder().setCustomId(`music_volume:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
 
     // Row 2: 셔플(아이콘만) + 반복 + 대기열 + 자동재생
     const shuffleButton = new ButtonBuilder()
@@ -501,7 +479,7 @@ class MusicEmbedManager {
       .setEmoji("🔀")
       .setDisabled(disabled);
 
-    // Loop button — cycles off → track → queue
+    // 반복 버튼 — 꺼짐 → 트랙 → 대기열 순환
     let loopLabel, loopEmoji, loopStyle;
     if (player.loop === "track") {
       loopLabel = "반복: 트랙";
@@ -517,19 +495,9 @@ class MusicEmbedManager {
       loopStyle = ButtonStyle.Secondary;
     }
 
-    const loopButton = new ButtonBuilder()
-      .setCustomId(`music_loop:${requesterId}:${sessionId}`)
-      .setLabel(loopLabel)
-      .setStyle(loopStyle)
-      .setEmoji(loopEmoji)
-      .setDisabled(disabled);
+    const loopButton = new ButtonBuilder().setCustomId(`music_loop:${requesterId}:${sessionId}`).setLabel(loopLabel).setStyle(loopStyle).setEmoji(loopEmoji).setDisabled(disabled);
 
-    const queueButton = new ButtonBuilder()
-      .setCustomId(`music_queue:${requesterId}:${sessionId}`)
-      .setLabel("대기열")
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji("📋")
-      .setDisabled(false);
+    const queueButton = new ButtonBuilder().setCustomId(`music_queue:${requesterId}:${sessionId}`).setLabel("대기열").setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(false);
 
     const autoplayButton = new ButtonBuilder()
       .setCustomId(`music_autoplay:${requesterId}:${sessionId}`)
@@ -545,10 +513,9 @@ class MusicEmbedManager {
   }
 
   /**
-   * Builds the jump-to select menu as a standalone ActionRow.
-   * Must be placed at the top-level components array (NOT inside the Container)
-   * because Discord ignores select-menu ActionRows that are nested inside Containers.
-   * Returns null when the queue is empty or player state is missing.
+   * 대기열 이동 선택 메뉴를 독립 ActionRow로 빌드합니다.
+   * Discord가 Container 안에 중첩된 선택 메뉴 ActionRow를 무시하므로 최상위 components 배열에 배치해야 합니다 (Container 안이 아님).
+   * 대기열이 비었거나 플레이어 상태가 없으면 null을 반환합니다.
    */
   async createJumpToRow(player) {
     if (!player.requesterId || !player.sessionId || player.queue.length === 0) return null;
@@ -568,7 +535,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * Builds the queue addition message
+   * 대기열 추가 메시지를 빌드합니다.
    */
   createQueueAdditionMessage(tracks, guildId, isPlaylist, insertFirst = false) {
     if (isPlaylist) {
@@ -580,25 +547,14 @@ class MusicEmbedManager {
   }
 
   /**
-   * Formats duration seconds into H:MM:SS or M:SS
+   * 초 단위 길이를 H:MM:SS 또는 M:SS 형식으로 변환합니다. (공용 구현: src/utils.js)
    */
   formatDuration(seconds) {
-    if (!seconds || seconds === 0) return "0:00";
-
-    const totalSeconds = Math.floor(Number(seconds) || 0);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const remainingSeconds = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
-    } else {
-      return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-    }
+    return formatDuration(seconds);
   }
 
   /**
-   * Returns the platform emoji for a given platform name
+   * 플랫폼 이름에 해당하는 이모지를 반환합니다.
    */
   getPlatformEmoji(platform) {
     const emojis = {
@@ -611,7 +567,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * Starts a 5-second interval to refresh the progress bar
+   * 진행 바를 새로고침하는 5초 간격 타이머를 시작합니다.
    */
   startProgressUpdate(player) {
     this.stopProgressUpdate(player.guild.id);
@@ -630,7 +586,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * Stops the progress update interval for a guild
+   * 길드의 진행 갱신 타이머를 중지합니다.
    */
   stopProgressUpdate(guildId) {
     const id = this.updateIntervals.get(guildId);

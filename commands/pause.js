@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/strings");
+const { checkControl } = require("../src/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("pause").setDescription("Pause or resume the current track").setDescriptionLocalizations({ ko: "일시정지를 토글합니다" }),
@@ -10,13 +11,12 @@ module.exports = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
 
-    if (!member.voice.channel) return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: 64 });
-
     const player = client.players.get(guild.id);
     if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: 64 });
     if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: 64 });
 
-    if (player.voiceChannel?.id !== member.voice.channel.id) return interaction.reply({ content: S.ERR_SAME_CHANNEL, flags: 64 });
+    const permErr = await checkControl(member);
+    if (permErr) return interaction.reply({ content: permErr, flags: 64 });
 
     let result, message, emoji;
     if (player.paused) {

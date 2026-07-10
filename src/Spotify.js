@@ -14,7 +14,7 @@ class Spotify {
             });
         }
 
-        // Check if token needs refresh
+        // 토큰 갱신이 필요한지 확인
         if (Date.now() >= this.tokenExpiresAt) {
             try {
                 const data = await this.spotifyApi.clientCredentialsGrant();
@@ -31,14 +31,14 @@ class Spotify {
     static async search(query, limit = 1, type = 'track', guildId = null) {
         try {
 
-            // If it's a Spotify URL, extract ID and get info directly
+            // Spotify URL이면 ID를 추출하고 직접 정보 가져오기
             if (this.isSpotifyURL(query)) {
                 return await this.getFromURL(query);
             }
 
             await this.initializeApi();
 
-            // Search for tracks, albums, or playlists
+            // 트랙, 앨범 또는 재생목록 검색
             const searchResult = await this.spotifyApi.search(query, [type], { limit });
             const tracks = [];
 
@@ -111,7 +111,7 @@ class Spotify {
             const tracks = [];
 
             for (const track of albumInfo.body.tracks.items.slice(0, config.bot.maxPlaylistSize)) {
-                // Add album info to track
+                // 트랙에 앨범 정보 추가
                 track.album = {
                     name: albumInfo.body.name,
                     images: albumInfo.body.images,
@@ -152,7 +152,7 @@ class Spotify {
 
     static async getArtistTopTracks(artistId, guildId = null) {
         try {
-            const topTracks = await this.spotifyApi.getArtistTopTracks(artistId, 'TR'); // Turkey market
+            const topTracks = await this.spotifyApi.getArtistTopTracks(artistId, 'TR'); // 튀르키예 마켓
             const tracks = [];
 
             for (const track of topTracks.body.tracks.slice(0, 10)) {
@@ -175,7 +175,7 @@ class Spotify {
             const tracks = [];
 
             for (const track of albumTracks.body.items.slice(0, config.bot.maxPlaylistSize)) {
-                // Add album info
+                // 앨범 정보 추가
                 track.album = {
                     name: albumInfo.body.name,
                     images: albumInfo.body.images,
@@ -227,7 +227,7 @@ class Spotify {
                 title: title,
                 artist: artists,
                 album: spotifyTrack.album?.name,
-                url: spotifyTrack.external_urls?.spotify, // Store Spotify URL, YouTube conversion will be done during play
+                url: spotifyTrack.external_urls?.spotify, // Spotify URL 저장, YouTube 변환은 재생 중 수행
                 spotifyUrl: spotifyTrack.external_urls?.spotify,
                 duration: Math.floor(spotifyTrack.duration_ms / 1000),
                 thumbnail: spotifyTrack.album?.images?.[0]?.url,
@@ -238,7 +238,7 @@ class Spotify {
                 explicit: spotifyTrack.explicit,
                 popularity: spotifyTrack.popularity,
                 previewUrl: spotifyTrack.preview_url,
-                searchQuery: searchQuery, // Store for YouTube conversion
+                searchQuery: searchQuery, // YouTube 변환용으로 저장
             };
 
             return track;
@@ -256,13 +256,13 @@ class Spotify {
     }
 
     static parseSpotifyURL(url) {
-        // Handle open.spotify.com URLs
+        // open.spotify.com URL 처리
         let match = url.match(/^https?:\/\/open\.spotify\.com\/(track|album|playlist|artist)\/([a-zA-Z0-9]+)/);
         if (match) {
             return { type: match[1], id: match[2] };
         }
 
-        // Handle spotify: URIs
+        // spotify: URI 처리
         match = url.match(/^spotify:(track|album|playlist|artist):([a-zA-Z0-9]+)/);
         if (match) {
             return { type: match[1], id: match[2] };

@@ -1,343 +1,148 @@
-const axios = require('axios');
-const path = require('path');
-
+const path = require("path");
+const SafeUrl = require("./SafeUrl");
 
 class DirectLink {
-    static supportedFormats = [
-        '.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac', '.wma', '.opus',
-        '.webm', '.mp4', '.mkv', '.avi', '.mov'
-    ];
+  static supportedFormats = [".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".wma", ".opus", ".webm", ".mp4", ".mkv", ".avi", ".mov"];
 
-    static async getInfo(url, guildId = null) {
-        try {
+  /**
+   * 직접 오디오 링크의 메타데이터 조회.
+   * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다 — 성공 시 [track], 실패 시 [].
+   * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다.
+   */
+  static async getInfo(url, guildId = null) {
+    try {
+      if (!this.isDirectAudioLink(url)) {
+        return [];
+      }
 
-            if (!this.isDirectAudioLink(url)) {
-                throw new Error('지원되지 않는 직접 오디오 파일 링크');
-            }
+      // SSRF 가드된 HEAD — Content-Type/크기 검증 포함
+      const { headers } = await SafeUrl.head(url);
+      const contentType = headers["content-type"] || "";
+      const contentLength = headers["content-length"];
 
-            // Get file info from URL
-            const response = await axios.head(url, { timeout: 10000 });
-            const contentType = response.headers['content-type'] || '';
-            const contentLength = response.headers['content-length'];
+      const urlPath = new URL(url).pathname;
+      const filename = path.basename(urlPath) || "알 수 없는 파일";
+      const extension = path.extname(filename).toLowerCase();
+      const estimatedDuration = this.estimateDuration(contentLength, contentType);
 
-            // Extract filename from URL
-            const urlPath = new URL(url).pathname;
-            const filename = path.basename(urlPath) || '알 수 없는 파일';
-            const extension = path.extname(filename).toLowerCase();
+      return [
+        {
+          title: this.extractTitle(filename, guildId),
+          artist: "직접 링크",
+          url: url,
+          duration: estimatedDuration,
+          thumbnail: this.getDefaultThumbnail(extension),
+          platform: "direct",
+          type: "track",
+          id: this.generateId(url),
+          fileSize: contentLength ? parseInt(contentLength) : null,
+          contentType: contentType,
+          extension: extension,
+          filename: filename,
+        },
+      ];
+    } catch (error) {
+      // SSRF 차단 등 실패 상세는 서버 로그로만 (사용자에겐 상위에서 "결과 없음")
+      console.error("[DirectLink] getInfo() failed:", error.message || error);
+      return [];
+    }
+  }
 
-            // Estimate duration based on file size (rough estimate)
-            const estimatedDuration = this.estimateDuration(contentLength, contentType);
+  /**
+   * 재생/다운로드용 스트림 획득 — SSRF 가드된 Readable 반환.
+   * 직접 링크는 URL 기반 탐색을 지원하지 않음 — 탐색은 MusicPlayer의 FFmpeg가 처리하므로
+   * startSeconds는 여기서 무시한다.
+   */
+  static async getStream(url, guildId = null, startSeconds = 0) {
+    try {
+      if (!this.isDirectAudioLink(url)) {
+        throw new Error("지원되지 않는 직접 오디오 파일 링크");
+      }
+      return await SafeUrl.getStream(url);
+    } catch (error) {
+      // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만
+      console.error("[DirectLink] getStream() failed:", error.message || error);
+      throw new Error("재생할 수 없는 링크입니다");
+    }
+  }
 
-            const track = {
-                title: this.extractTitle(filename, guildId),
-                artist: '직접 링크',
-                url: url,
-                duration: estimatedDuration,
-                thumbnail: this.getDefaultThumbnail(extension),
-                platform: 'direct',
-                type: 'track',
-                id: this.generateId(url),
-                fileSize: contentLength ? parseInt(contentLength) : null,
-                contentType: contentType,
-                extension: extension,
-                filename: filename,
-            };
+  static isDirectAudioLink(url) {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname.toLowerCase();
 
-            return track;
+      // URL이 지원되는 오디오 형식으로 끝나는지 확인
+      const hasAudioExtension = this.supportedFormats.some((format) => pathname.endsWith(format));
 
-        } catch (error) {
-            return null;
-        }
+      // 직접 HTTP/HTTPS 링크인지 확인
+      const isHttpLink = urlObj.protocol === "http:" || urlObj.protocol === "https:";
+
+      return isHttpLink && hasAudioExtension;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // 참고: 동기 함수로 유지해야 함 — getInfo()가 반환값을
+  // track.title에 직접 할당함 (비동기 버전은 "[object Promise]"를 생성했음)
+  static extractTitle(filename, guildId = null) {
+    // 확장자를 제거하고 파일명 정리
+    const nameWithoutExt = path.parse(filename).name;
+
+    // 일반적인 구분자를 공백으로 교체
+    let title = nameWithoutExt
+      .replace(/[-_\.]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // 각 단어의 첫 글자를 대문자로 변환
+    title = title.replace(/\b\w/g, (l) => l.toUpperCase());
+
+    return title || "알 수 없는 제목";
+  }
+
+  static generateId(url) {
+    // URL 기반의 간단한 ID 생성
+    return Buffer.from(url).toString("base64").substring(0, 16);
+  }
+
+  static getDefaultThumbnail(extension) {
+    // 파일 타입에 따른 기본 썸네일 반환
+    const thumbnails = {
+      ".mp3": "https://cdn-icons-png.flaticon.com/512/2611/2611282.png",
+      ".wav": "https://cdn-icons-png.flaticon.com/512/8263/8263222.png",
+      ".flac": "https://cdn-icons-png.flaticon.com/512/8300/8300336.png",
+      ".ogg": "https://cdn-icons-png.flaticon.com/512/8744/8744689.png",
+      ".m4a": "https://cdn-icons-png.flaticon.com/512/730/730939.png",
+    };
+
+    return thumbnails[extension] || "https://cdn-icons-png.freepik.com/512/3871/3871560.png";
+  }
+
+  static estimateDuration(fileSize, contentType) {
+    if (!fileSize) return 0;
+
+    // 파일 크기와 타입을 바탕으로 대략 추정
+    // 매우 대략적인 추정값이므로 정확하지 않음
+    let estimatedBitrate = 128; // 기본 kbps
+
+    if (contentType.includes("mp3")) {
+      estimatedBitrate = 128;
+    } else if (contentType.includes("wav")) {
+      estimatedBitrate = 1411; // CD 음질
+    } else if (contentType.includes("flac")) {
+      estimatedBitrate = 1000;
+    } else if (contentType.includes("ogg")) {
+      estimatedBitrate = 160;
     }
 
-    static async getStream(url, guildId = null, startSeconds = 0) {
-        try {
+    // 파일 크기를 비트로 변환한 뒤 비트레이트로 나누어 초 단위 계산
+    const fileSizeBits = fileSize * 8;
+    const bitratePerSecond = estimatedBitrate * 1000;
+    const estimatedSeconds = Math.floor(fileSizeBits / bitratePerSecond);
 
-            if (!this.isDirectAudioLink(url)) {
-                throw new Error('지원되지 않는 직접 오디오 파일 링크');
-            }
-
-            // Create a stream from the URL
-            const response = await axios({
-                method: 'GET',
-                url: url,
-                responseType: 'stream',
-                timeout: 30000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
-            });
-
-            // Note: Direct links typically don't support seek via URL
-            // Seeking will be handled by FFmpeg in MusicPlayer
-            return response.data;
-
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    static isDirectAudioLink(url) {
-        try {
-            const urlObj = new URL(url);
-            const pathname = urlObj.pathname.toLowerCase();
-
-            // Check if URL ends with supported audio format
-            const hasAudioExtension = this.supportedFormats.some(format =>
-                pathname.endsWith(format)
-            );
-
-            // Check if it's a direct HTTP/HTTPS link
-            const isHttpLink = urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-
-            return isHttpLink && hasAudioExtension;
-
-        } catch (error) {
-            return false;
-        }
-    }
-
-    static async validateUrl(url) {
-        try {
-            if (!this.isDirectAudioLink(url)) {
-                return false;
-            }
-
-            // Try to make a HEAD request to check if the URL is accessible
-            const response = await axios.head(url, {
-                timeout: 10000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            });
-
-            // Check if response is successful and content type is audio
-            const contentType = response.headers['content-type'] || '';
-            const isAudio = contentType.startsWith('audio/') ||
-                contentType.startsWith('video/') ||
-                contentType.includes('octet-stream');
-
-            return response.status === 200 && isAudio;
-
-        } catch (error) {
-            return false;
-        }
-    }
-
-    // NOTE: must stay synchronous — getInfo() assigns the return value
-    // directly to track.title (an async version produced "[object Promise]")
-    static extractTitle(filename, guildId = null) {
-        // Remove extension and clean up filename
-        const nameWithoutExt = path.parse(filename).name;
-
-        // Replace common separators with spaces
-        let title = nameWithoutExt
-            .replace(/[-_\.]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        // Capitalize first letter of each word
-        title = title.replace(/\b\w/g, l => l.toUpperCase());
-
-        return title || '알 수 없는 제목';
-    }
-
-    static generateId(url) {
-        // Generate a simple ID based on URL
-        return Buffer.from(url).toString('base64').substring(0, 16);
-    }
-
-    static getDefaultThumbnail(extension) {
-        // Return default thumbnails based on file type
-        const thumbnails = {
-            '.mp3': 'https://cdn-icons-png.flaticon.com/512/2611/2611282.png',
-            '.wav': 'https://cdn-icons-png.flaticon.com/512/8263/8263222.png',
-            '.flac': 'https://cdn-icons-png.flaticon.com/512/8300/8300336.png',
-            '.ogg': 'https://cdn-icons-png.flaticon.com/512/8744/8744689.png',
-            '.m4a': 'https://cdn-icons-png.flaticon.com/512/730/730939.png',
-        };
-
-        return thumbnails[extension] || 'https://cdn-icons-png.freepik.com/512/3871/3871560.png';
-    }
-
-    static estimateDuration(fileSize, contentType) {
-        if (!fileSize) return 0;
-
-        // Rough estimation based on file size and type
-        // These are very rough estimates and won't be accurate
-        let estimatedBitrate = 128; // kbps default
-
-        if (contentType.includes('mp3')) {
-            estimatedBitrate = 128;
-        } else if (contentType.includes('wav')) {
-            estimatedBitrate = 1411; // CD quality
-        } else if (contentType.includes('flac')) {
-            estimatedBitrate = 1000;
-        } else if (contentType.includes('ogg')) {
-            estimatedBitrate = 160;
-        }
-
-        // Convert file size to bits, then divide by bitrate to get seconds
-        const fileSizeBits = fileSize * 8;
-        const bitratePerSecond = estimatedBitrate * 1000;
-        const estimatedSeconds = Math.floor(fileSizeBits / bitratePerSecond);
-
-        return Math.max(0, estimatedSeconds);
-    }
-
-    static async formatFileSize(bytes, guildId = null) {
-        if (!bytes) return '알 수 없음';
-
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(1024));
-        return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
-    }
-
-    static getFileExtension(url) {
-        try {
-            const urlPath = new URL(url).pathname;
-            return path.extname(urlPath).toLowerCase();
-        } catch (error) {
-            return '';
-        }
-    }
-
-    static async getFileMetadata(url) {
-        try {
-            const response = await axios.head(url, { timeout: 10000 });
-
-            return {
-                contentType: response.headers['content-type'],
-                contentLength: response.headers['content-length'],
-                lastModified: response.headers['last-modified'],
-                server: response.headers['server'],
-                acceptRanges: response.headers['accept-ranges'],
-            };
-
-        } catch (error) {
-            return null;
-        }
-    }
-
-    static async downloadAndCache(url, cacheDir) {
-        // This would implement downloading and caching files locally
-        // For now, just return the original URL
-        return url;
-    }
-
-    static isSupportedFormat(extension) {
-        return this.supportedFormats.includes(extension.toLowerCase());
-    }
-
-    static async testStreamability(url) {
-        try {
-
-            // Try to get a small chunk of the file
-            const response = await axios({
-                method: 'GET',
-                url: url,
-                headers: {
-                    'Range': 'bytes=0-1024' // Request first 1KB
-                },
-                timeout: 5000
-            });
-
-            const success = response.status === 206 || response.status === 200;
-
-            return success;
-
-        } catch (error) {
-            return false;
-        }
-    }
-
-    static extractMetadataFromUrl(url, guildId = null) {
-        try {
-            const urlObj = new URL(url);
-            const filename = path.basename(urlObj.pathname);
-            const extension = path.extname(filename);
-
-            return {
-                filename: filename,
-                extension: extension,
-                host: urlObj.hostname,
-                path: urlObj.pathname,
-                protocol: urlObj.protocol,
-                title: this.extractTitle(filename, guildId)
-            };
-
-        } catch (error) {
-            return null;
-        }
-    }
-
-    static async analyzeAudioFile(url, guildId = null) {
-        try {
-            // This would implement audio file analysis
-            // For now, return basic info
-            const metadata = await this.getFileMetadata(url);
-            const urlInfo = this.extractMetadataFromUrl(url, guildId);
-
-            return {
-                ...metadata,
-                ...urlInfo,
-                isStreamable: await this.testStreamability(url)
-            };
-
-        } catch (error) {
-            return null;
-        }
-    }
-
-    static async createFileInfoEmbed(fileInfo, guildId = null) {
-        const embed = {
-            title: '🔗 직접 오디오 링크',
-            description: `**${fileInfo.title}**`,
-            fields: [
-                {
-                    name: '📁 파일명',
-                    value: fileInfo.filename,
-                    inline: true
-                },
-                {
-                    name: '📊 파일 크기',
-                    value: this.formatFileSize(fileInfo.fileSize, guildId),
-                    inline: true
-                },
-                {
-                    name: '🎵 형식',
-                    value: fileInfo.extension.toUpperCase().replace('.', ''),
-                    inline: true
-                }
-            ]
-        };
-
-        if (fileInfo.duration > 0) {
-            embed.fields.push({
-                name: '⏱️ 재생 시간',
-                value: this.formatDuration(fileInfo.duration),
-                inline: true
-            });
-        }
-
-        return embed;
-    }
-
-    static formatDuration(seconds) {
-        if (!seconds || seconds === 0) return '0:00';
-
-        // Ensure we work with integers to avoid floating point errors
-        const totalSeconds = Math.floor(Number(seconds) || 0);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const remainingSeconds = totalSeconds % 60;
-
-        if (hours > 0) {
-            return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        } else {
-            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-        }
-    }
+    return Math.max(0, estimatedSeconds);
+  }
 }
 
 module.exports = DirectLink;

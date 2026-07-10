@@ -1,531 +1,562 @@
-require('./src/LogManager'); // intercept console before anything else logs
-const { Client, GatewayIntentBits, Collection, Events, ActivityType } = require('discord.js');
-const { getVoiceConnection } = require('@discordjs/voice');
-const { spawn } = require('child_process');
-const fs = require('fs');
-const fsPromises = require('fs').promises;
-const path = require('path');
-const config = require('./config');
-const PlayerStateManager = require('./src/PlayerStateManager');
-const CacheManager = require('./src/CacheManager');
-const MusicPlayer = require('./src/MusicPlayer');
-const chalk = require('chalk');
+require("./src/LogManager"); // intercept console before anything else logs
+const { Client, GatewayIntentBits, Collection, Events, ActivityType } = require("discord.js");
+const { getVoiceConnection } = require("@discordjs/voice");
+const { spawn } = require("child_process");
+const fs = require("fs");
+const fsPromises = require("fs").promises;
+const path = require("path");
+const config = require("./config");
+const CacheManager = require("./src/CacheManager");
+const MusicPlayer = require("./src/MusicPlayer");
+const chalk = require("chalk");
+const { isPrimaryShard } = require("./src/shardUtil");
 
-require("./src/commandLoader"); // Load and deploy commands
+// 슬래시 커맨드 배포
+if (isPrimaryShard()) {
+  const { deployCommands, deployErrorLines } = require("./src/commandLoader");
+  console.log("🚀 슬래시 커맨드 배포를 시작합니다...");
+  deployCommands().then((r) => {
+    if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 커맨드를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
+    else deployErrorLines(r).forEach((line) => console.error(chalk.red(line)));
+  });
+} else {
+  console.log("⏭️  [commandLoader] 대표 샤드가 아니므로 명령 배포를 건너뜁니다.");
+}
 
 // Initialize CacheManager DB and clean up orphaned files on startup
 async function cleanupAudioCache() {
-    try {
-        await CacheManager.onStartup();
-    } catch (error) {
-        console.error(chalk.red('❌ CacheManager startup failed:'), error.message);
-    }
+  try {
+    await CacheManager.onStartup();
+  } catch (error) {
+    console.error(chalk.red("❌ CacheManager 시작 실패:"), error.message);
+  }
 }
 
 async function restoreSavedPlayers(client) {
-    const savedStates = CacheManager.getAllPlayerSessions();
-    const entries = Object.entries(savedStates || {});
-    if (entries.length === 0) return;
+  const savedStates = CacheManager.getAllPlayerSessions();
+  const entries = Object.entries(savedStates || {});
+  if (entries.length === 0) return;
 
-    console.log(chalk.cyan(`🔄 Found ${entries.length} saved session(s) to restore...`));
+  console.log(chalk.cyan(`🔄 복원할 저장 세션 ${entries.length}개를 찾았습니다...`));
 
-    for (const [guildId, state] of entries) {
-        try {
-            // Wait for guild to be available in cache
-            let guild = client.guilds.cache.get(guildId);
-            
-            if (!guild) {
-                // Try fetching with retry logic for sharding
-                let retries = 3;
-                while (!guild && retries > 0) {
-                    try {
-                        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-                        guild = await client.guilds.fetch(guildId).catch(() => null);
-                        if (guild) break;
-                    } catch (error) {
-                        retries--;
-                    }
-                }
-            }
+  for (const [guildId, state] of entries) {
+    try {
+      // Wait for guild to be available in cache
+      let guild = client.guilds.cache.get(guildId);
 
-            if (!guild) {
-                console.log(chalk.yellow(`⚠️ Guild ${guildId} not found or not accessible, removing state...`));
-                CacheManager.removePlayerSession(guildId);
-                continue;
-            }
-
-            const voiceChannelId = state.voiceChannelId;
-            const textChannelId = state.textChannelId;
-
-            if (!voiceChannelId || !textChannelId) {
-                CacheManager.removePlayerSession(guildId);
-                continue;
-            }
-
-            let voiceChannel = guild.channels.cache.get(voiceChannelId) || null;
-            if (!voiceChannel) {
-                voiceChannel = await guild.channels.fetch(voiceChannelId).catch(() => null);
-            }
-
-            let textChannel = guild.channels.cache.get(textChannelId) || null;
-            if (!textChannel) {
-                textChannel = await guild.channels.fetch(textChannelId).catch(() => null);
-            }
-
-            const isVoiceValid = voiceChannel && typeof voiceChannel.isVoiceBased === 'function' && voiceChannel.isVoiceBased();
-            const isTextValid = textChannel && typeof textChannel.isTextBased === 'function' && textChannel.isTextBased();
-
-            if (!isVoiceValid || !isTextValid) {
-                console.log(chalk.yellow(`⚠️ Invalid channels for guild ${guild.name}, removing state...`));
-                CacheManager.removePlayerSession(guildId);
-                continue;
-            }
-
-            const player = new MusicPlayer(guild, textChannel, voiceChannel);
-            client.players.set(guildId, player);
-
-            try {
-                await player.restoreFromState(state);
-                console.log(chalk.green(`✅ Successfully restored session for guild ${guild.name}`));
-            } catch (error) {
-                console.error(chalk.red(`❌ Failed to restore music session for guild ${guild.name} (${guildId}):`), error.message);
-                client.players.delete(guildId);
-                player.cleanup();
-                CacheManager.removePlayerSession(guildId);
-            }
-        } catch (error) {
-            console.error(chalk.red(`❌ Error during session restoration for guild ${guildId}:`), error.message);
-            CacheManager.removePlayerSession(guildId);
+      if (!guild) {
+        // Try fetching with retry logic for sharding
+        let retries = 3;
+        while (!guild && retries > 0) {
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+            guild = await client.guilds.fetch(guildId).catch(() => null);
+            if (guild) break;
+          } catch (error) {
+            retries--;
+          }
         }
+      }
+
+      if (!guild) {
+        console.log(chalk.yellow(`⚠️ 서버 ${guildId}을(를) 찾을 수 없거나 접근할 수 없습니다. 상태를 제거합니다.`));
+        CacheManager.removePlayerSession(guildId);
+        continue;
+      }
+
+      const voiceChannelId = state.voiceChannelId;
+      const textChannelId = state.textChannelId;
+
+      if (!voiceChannelId || !textChannelId) {
+        CacheManager.removePlayerSession(guildId);
+        continue;
+      }
+
+      let voiceChannel = guild.channels.cache.get(voiceChannelId) || null;
+      if (!voiceChannel) {
+        voiceChannel = await guild.channels.fetch(voiceChannelId).catch(() => null);
+      }
+
+      let textChannel = guild.channels.cache.get(textChannelId) || null;
+      if (!textChannel) {
+        textChannel = await guild.channels.fetch(textChannelId).catch(() => null);
+      }
+
+      const isVoiceValid = voiceChannel && typeof voiceChannel.isVoiceBased === "function" && voiceChannel.isVoiceBased();
+      const isTextValid = textChannel && typeof textChannel.isTextBased === "function" && textChannel.isTextBased();
+
+      if (!isVoiceValid || !isTextValid) {
+        console.log(chalk.yellow(`⚠️ 서버 ${guild.name}의 채널 정보가 유효하지 않아 상태를 제거합니다.`));
+        CacheManager.removePlayerSession(guildId);
+        continue;
+      }
+
+      const player = new MusicPlayer(guild, textChannel, voiceChannel);
+      client.players.set(guildId, player);
+
+      try {
+        await player.restoreFromState(state);
+        console.log(chalk.green(`✅ 서버 ${guild.name}의 세션 복원 완료`));
+      } catch (error) {
+        console.error(chalk.red(`❌ 서버 ${guild.name} (${guildId}) 세션 복원 중 오류 발생:`), error.message);
+        client.players.delete(guildId);
+        player.cleanup();
+        CacheManager.removePlayerSession(guildId);
+      }
+    } catch (error) {
+      console.error(chalk.red(`❌ 서버 ${guildId} 세션 복원 중 오류 발생:`), error.message);
+      CacheManager.removePlayerSession(guildId);
     }
+  }
 }
 
 // ── bgutil POToken server ────────────────────────────────────────────────────
-const BGUTIL_SERVER_DIR = path.join(__dirname, 'bgutil-ytdlp-pot-provider', 'server');
-const BGUTIL_ENTRY     = path.join(BGUTIL_SERVER_DIR, 'build', 'main.js');
+const BGUTIL_SERVER_DIR = path.join(__dirname, "bgutil-ytdlp-pot-provider", "server");
+const BGUTIL_ENTRY = path.join(BGUTIL_SERVER_DIR, "build", "main.js");
+const BGUTIL_PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 
-let bgutilProc        = null;
-let bgutilStopping    = false;
+let bgutilProc = null;
+let bgutilStopping = false;
 
 function startBgutilServer() {
-    if (bgutilStopping) return;
-    if (!fs.existsSync(BGUTIL_ENTRY)) {
-        console.warn(chalk.yellow('⚠️  [bgutil] build/main.js 없음 — POToken provider 비활성'));
-        return;
+  if (bgutilStopping) return;
+  if (!fs.existsSync(BGUTIL_ENTRY)) {
+    console.warn(chalk.yellow("⚠️  [bgutil] build/main.js 없음 — POToken provider 비활성"));
+    return;
+  }
+  bgutilProc = spawn(process.execPath, ["build/main.js"], {
+    cwd: BGUTIL_SERVER_DIR,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  bgutilProc.stdout.on("data", (d) =>
+    d
+      .toString()
+      .split("\n")
+      .filter(Boolean)
+      .forEach((l) => console.log(chalk.gray(`[bgutil] ${l}`))),
+  );
+  bgutilProc.stderr.on("data", (d) =>
+    d
+      .toString()
+      .split("\n")
+      .filter(Boolean)
+      .forEach((l) => console.warn(chalk.yellow(`[bgutil] ${l}`))),
+  );
+  bgutilProc.on("exit", (code) => {
+    bgutilProc = null;
+    if (!bgutilStopping) {
+      console.warn(chalk.yellow(`⚠️  [bgutil] 서버 종료 (code=${code}), 5초 후 재시작...`));
+      setTimeout(startBgutilServer, 5000);
     }
-    bgutilProc = spawn(process.execPath, ['build/main.js'], {
-        cwd: BGUTIL_SERVER_DIR,
-        stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    bgutilProc.stdout.on('data', d =>
-        d.toString().split('\n').filter(Boolean).forEach(l => console.log(chalk.gray(`[bgutil] ${l}`))));
-    bgutilProc.stderr.on('data', d =>
-        d.toString().split('\n').filter(Boolean).forEach(l => console.warn(chalk.yellow(`[bgutil] ${l}`))));
-    bgutilProc.on('exit', (code) => {
-        bgutilProc = null;
-        if (!bgutilStopping) {
-            console.warn(chalk.yellow(`⚠️  [bgutil] 서버 종료 (code=${code}), 5초 후 재시작...`));
-            setTimeout(startBgutilServer, 5000);
-        }
-    });
-    console.log(chalk.green('✅ [bgutil] POToken 서버 시작 (port 4416)'));
+  });
+  console.log(chalk.green(`✅ [bgutil] POToken 서버 시작 (port ${BGUTIL_PORT})`));
 }
 
 function stopBgutilServer() {
-    bgutilStopping = true;
-    if (bgutilProc) {
-        bgutilProc.kill('SIGTERM');
-        bgutilProc = null;
-    }
+  bgutilStopping = true;
+  if (bgutilProc) {
+    bgutilProc.kill("SIGTERM");
+    bgutilProc = null;
+  }
 }
 
-startBgutilServer();
+// bgutil 서버가 /ping에 응답할 때까지 대기 (최대 timeoutMs) - provider 비활성이면 즉시 통과, 시간 초과 시 경고만
+async function waitForBgutilReady(timeoutMs = 15000) {
+  if (!bgutilProc) return true;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${BGUTIL_PORT}/ping`, { signal: AbortSignal.timeout(1000) });
+      if (res.ok) {
+        console.log(chalk.green("✅ [bgutil] POToken 서버 준비 완료"));
+        return true;
+      }
+    } catch {
+      /* 아직 준비 안 됨 — 재시도 */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  console.warn(chalk.yellow(`⚠️  [bgutil] ${timeoutMs / 1000}초 내 응답 없음 — POToken 없이 봇을 기동합니다.`));
+  return false;
+}
+
+// bgutil POToken 서버는 호스트 포트(127.0.0.1:4416) 1개를 점유하므로 대표 샤드에서만 기동.
+if (isPrimaryShard()) {
+  startBgutilServer();
+} else {
+  console.log(chalk.gray("⏭️  [bgutil] 대표 샤드가 아니므로 POToken 서버를 기동하지 않습니다."));
+}
 // ────────────────────────────────────────────────────────────────────────────
 
-// Don't cleanup audio cache yet - wait until after we check saved states
-setTimeout(() => {
-    const client = new Client({
-        intents: [
-            GatewayIntentBits.Guilds,
-            GatewayIntentBits.GuildMessages,
-            GatewayIntentBits.MessageContent,
-            GatewayIntentBits.GuildVoiceStates,
-            GatewayIntentBits.GuildMembers,
-        ]
-        // ShardingManager automatically sets shard ID and count via environment variables
-        // No need to specify shards/shardCount here - they are auto-injected
-    });
+// uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료) — src/resilience.js
+const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
 
-    // Collections for commands and music players
-    client.commands = new Collection();
-    client.players = new Collection();
+function startBot() {
+  const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
+    // ShardingManager automatically sets shard ID and count via environment variables
+    // No need to specify shards/shardCount here - they are auto-injected
+  });
 
-    // Initialize Music Embed Manager
-    const MusicEmbedManager = require('./src/MusicEmbedManager');
-    client.musicEmbedManager = new MusicEmbedManager(client);
+  // Collections for commands and music players
+  client.commands = new Collection();
+  client.players = new Collection();
 
-    // Start dashboard server
-    const { startDashboard } = require('./dashboard/server/index');
+  // Initialize Music Embed Manager
+  const MusicEmbedManager = require("./src/MusicEmbedManager");
+  client.musicEmbedManager = new MusicEmbedManager(client);
+
+  // Start dashboard server — 웹 포트 1개를 점유하므로 대표 샤드에서만.
+  // ⚠️ 현재 대시보드는 자기 프로세스의 client.players/guilds만 보므로, 샤딩 시 대표 샤드가 소유하지 않은 길드는 대시보드에 안 보이거나 조작이 안 된다. 차후 해결 예정.
+  if (isPrimaryShard()) {
+    const { startDashboard } = require("./dashboard/server/index");
     startDashboard(client);
+  }
 
-    // Global reference for MusicPlayer'dan erişim
-    if (!global.clients) global.clients = {};
-    global.clients.musicEmbedManager = client.musicEmbedManager;
+  // MusicPlayer에서 접근하기 위한 전역 참조
+  if (!global.clients) global.clients = {};
+  global.clients.musicEmbedManager = client.musicEmbedManager;
 
-    // Load command files
-    const loadCommands = () => {
-        const commandsPath = path.join(__dirname, 'commands');
+  // Load command files
+  const loadCommands = () => {
+    const commandsPath = path.join(__dirname, "commands");
 
-        // Create commands directory if it doesn't exist
-        if (!fs.existsSync(commandsPath)) {
-            fs.mkdirSync(commandsPath, { recursive: true });
+    // Create commands directory if it doesn't exist
+    if (!fs.existsSync(commandsPath)) {
+      fs.mkdirSync(commandsPath, { recursive: true });
+    }
+
+    try {
+      const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js"));
+
+      for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+
+        if ("data" in command && "execute" in command) {
+          client.commands.set(command.data.name, command);
+          console.log(chalk.green(`✓ 명령어 로드 완료: ${command.data.name}`));
+        } else {
+          console.log(chalk.yellow(`⚠ 경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`));
         }
+      }
+    } catch (error) {
+      console.log(chalk.yellow("⚠ 명령어 디렉토리가 없습니다. 명령어 로딩을 건너뜁니다."));
+    }
+  };
 
+  // Load event handlers
+  const loadEvents = () => {
+    const eventsPath = path.join(__dirname, "events");
+
+    // Create events directory if it doesn't exist
+    if (!fs.existsSync(eventsPath)) {
+      fs.mkdirSync(eventsPath, { recursive: true });
+    }
+
+    try {
+      const eventFiles = fs.readdirSync(eventsPath).filter((file) => file.endsWith(".js"));
+
+      for (const file of eventFiles) {
+        const filePath = path.join(eventsPath, file);
+        const event = require(filePath);
+
+        if (event.once) {
+          client.once(event.name, (...args) => event.execute(...args));
+        } else {
+          client.on(event.name, (...args) => event.execute(...args));
+        }
+        console.log(chalk.green(`✓ 이벤트 로드 완료: ${event.name}`));
+      }
+    } catch (error) {
+      console.log(chalk.yellow("⚠ 이벤트 디렉토리가 없습니다. 기본 이벤트를 사용합니다."));
+    }
+  };
+
+  // Basic ready event
+  client.once(Events.ClientReady, async () => {
+    console.log(chalk.green(`✅ [SHARD ${client.shard?.ids[0] ?? 0}] ${client.user.tag} is online and ready!`));
+    console.log(chalk.cyan(`🎵 [SHARD ${client.shard?.ids[0] ?? 0}] Music bot serving ${client.guilds.cache.size} servers on this shard!`));
+
+    // Log total guild count across all shards (only if running with sharding)
+    // Wait a bit to ensure all shards are ready before fetching
+    if (client.shard) {
+      setTimeout(() => {
+        client.shard
+          .fetchClientValues("guilds.cache.size")
+          .then((results) => {
+            const totalGuilds = results.reduce((acc, guildCount) => acc + guildCount, 0);
+            console.log(chalk.magenta(`🌐 [SHARD ${client.shard.ids[0]}] Total servers across all shards: ${totalGuilds}`));
+          })
+          .catch((err) => {
+            // Silently fail if shards are still spawning
+            if (!err.message.includes("still being spawned")) {
+              console.error(chalk.red("전체 서버 수 조회 오류:"), err);
+            }
+          });
+      }, 10000); // 다른 샤드들이 준비될 때까지 10초간 대기
+    }
+
+    // Set bot activity
+    const StatusManager = require("./src/StatusManager");
+    if (!client.statusManager) {
+      client.statusManager = new StatusManager(client);
+      client.statusManager.start();
+    }
+
+    // Don't restore here in sharded mode - wait for shard manager to broadcast
+    // For non-sharded mode, restore immediately
+    if (!client.shard) {
+      console.log(chalk.cyan("⏳ 비샤딩 모드: 서버 캐시가 준비될 때까지 기다리는 중"));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await client.restoreSessions();
+    }
+  });
+
+  // Add restore function to client for shard manager to call
+  client.restoreSessions = async function () {
+    console.log(chalk.cyan(`[SHARD ${client.shard?.ids?.[0] ?? "N/A"}] 🔄 세션 복원 시작...`));
+    await restoreSavedPlayers(client);
+    // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록
+    await cleanupAudioCache();
+    console.log(chalk.green(`[SHARD ${client.shard?.ids?.[0] ?? "N/A"}] ✅ 세션 복원 완료`));
+  };
+
+  // Handle interactions (slash commands)
+  client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    const command = client.commands.get(interaction.commandName);
+
+    if (!command) {
+      console.error(chalk.red(`❌ No command matching ${interaction.commandName} was found.`));
+      return;
+    }
+
+    try {
+      await command.execute(interaction, client);
+    } catch (error) {
+      console.error(chalk.red(`❌ ${interaction.commandName} 명령어 실행 중 오류:`), error);
+
+      const errorMessage = "❌ 명령어 실행 중 오류가 발생했습니다!";
+
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: errorMessage, ephemeral: true });
+      } else {
+        await interaction.reply({ content: errorMessage, ephemeral: true });
+      }
+    }
+  });
+
+  // Handle voice state updates for pause/resume and cleanup
+  client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
+    const guild = oldState.guild;
+    const player = client.players.get(guild.id);
+    if (!player) return;
+
+    const botMember = guild.members.me;
+    const botId = botMember?.id ?? client.user.id;
+    const involvesBot = oldState.id === botId || newState.id === botId;
+
+    if (involvesBot) {
+      const oldChannelId = oldState.channelId;
+      const newChannelId = newState.channelId;
+
+      if (oldChannelId && !newChannelId) {
         try {
-            const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+          const embedManager = client.musicEmbedManager || global.clients?.musicEmbedManager;
 
-            for (const file of commandFiles) {
-                const filePath = path.join(commandsPath, file);
-                const command = require(filePath);
+          // Mark state as ended so UI reflects the change
+          player.pendingEndReason = "forced-disconnect";
+          player.queue = [];
+          player.currentTrack = null;
 
-                if ('data' in command && 'execute' in command) {
-                    client.commands.set(command.data.name, command);
-                    console.log(chalk.green(`✓ Loaded command: ${command.data.name}`));
-                } else {
-                    console.log(chalk.yellow(`⚠ Warning: ${file} is missing required "data" or "execute" property.`));
-                }
-            }
+          if (embedManager) {
+            await embedManager.handlePlaybackEnd(player);
+          } else if (typeof player.showQueueCompleted === "function") {
+            await player.showQueueCompleted();
+          }
         } catch (error) {
-            console.log(chalk.yellow('⚠ No commands directory found, skipping command loading.'));
+          console.error("❌ Failed to update playback UI after forced disconnect:", error);
+        } finally {
+          player.cleanup();
+          client.players.delete(guild.id);
         }
-    };
+        return;
+      }
 
-    // Load event handlers
-    const loadEvents = () => {
-        const eventsPath = path.join(__dirname, 'events');
-
-        // Create events directory if it doesn't exist
-        if (!fs.existsSync(eventsPath)) {
-            fs.mkdirSync(eventsPath, { recursive: true });
+      if (newChannelId && oldChannelId !== newChannelId) {
+        if (newState.channel) {
+          await player.moveToChannel(newState.channel);
+          player.clearInactivityTimer(false);
+          if (client.musicEmbedManager) {
+            await client.musicEmbedManager.updateNowPlayingEmbed(player);
+          }
         }
+      }
 
-        try {
-            const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+      const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
+      const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
 
-            for (const file of eventFiles) {
-                const filePath = path.join(eventsPath, file);
-                const event = require(filePath);
-
-                if (event.once) {
-                    client.once(event.name, (...args) => event.execute(...args));
-                } else {
-                    client.on(event.name, (...args) => event.execute(...args));
-                }
-                console.log(chalk.green(`✓ Loaded event: ${event.name}`));
-            }
-        } catch (error) {
-            console.log(chalk.yellow('⚠ No events directory found, using default events.'));
+      if (!wasMuted && isMuted) {
+        const paused = player.pauseFor("mute");
+        if (paused && client.musicEmbedManager) {
+          await client.musicEmbedManager.updateNowPlayingEmbed(player);
         }
-    };
-
-    // Basic ready event
-    client.once(Events.ClientReady, async () => {
-        console.log(chalk.green(`✅ [SHARD ${client.shard?.ids[0] ?? 0}] ${client.user.tag} is online and ready!`));
-        console.log(chalk.cyan(`🎵 [SHARD ${client.shard?.ids[0] ?? 0}] Music bot serving ${client.guilds.cache.size} servers on this shard!`));
-        
-        // Log total guild count across all shards (only if running with sharding)
-        // Wait a bit to ensure all shards are ready before fetching
-        if (client.shard) {
-            setTimeout(() => {
-                client.shard.fetchClientValues('guilds.cache.size')
-                    .then(results => {
-                        const totalGuilds = results.reduce((acc, guildCount) => acc + guildCount, 0);
-                        console.log(chalk.magenta(`🌐 [SHARD ${client.shard.ids[0]}] Total servers across all shards: ${totalGuilds}`));
-                    })
-                    .catch(err => {
-                        // Silently fail if shards are still spawning
-                        if (!err.message.includes('still being spawned')) {
-                            console.error(chalk.red('Error fetching total guild count:'), err);
-                        }
-                    });
-            }, 10000); // Wait 10 seconds for other shards to be ready
+      } else if (wasMuted && !isMuted) {
+        const resumed = player.resumeFor("mute");
+        if (client.musicEmbedManager && (resumed || !player.pauseReasons.has("mute"))) {
+          await client.musicEmbedManager.updateNowPlayingEmbed(player);
         }
+      }
+    }
 
-        // Set bot activity
-        const StatusManager = require('./src/StatusManager');
-        if (!client.statusManager) {
-            client.statusManager = new StatusManager(client);
-            client.statusManager.start();
+    const voiceChannelId = player.voiceChannel?.id;
+    if (!voiceChannelId) return;
+
+    if (oldState.channelId === voiceChannelId || newState.channelId === voiceChannelId) {
+      const channel = guild.channels.cache.get(voiceChannelId);
+
+      if (!channel) {
+        player.cleanup();
+        client.players.delete(guild.id);
+        return;
+      }
+
+      const listeners = channel.members.filter((member) => !member.user.bot).size;
+
+      if (listeners === 0) {
+        const alreadyPaused = player.pauseReasons.has("alone");
+        player.startInactivityTimer();
+        if (!alreadyPaused && client.musicEmbedManager && player.currentTrack) {
+          await client.musicEmbedManager.updateNowPlayingEmbed(player);
         }
-
-        // Don't restore here in sharded mode - wait for shard manager to broadcast
-        // For non-sharded mode, restore immediately
-        if (!client.shard) {
-            console.log(chalk.cyan('⏳ Non-sharded mode: waiting for guilds to be fully cached...'));
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            await client.restoreSessions();
+      } else {
+        const wasPausedForAlone = player.pauseReasons.has("alone");
+        player.clearInactivityTimer(true);
+        if (wasPausedForAlone && client.musicEmbedManager && player.currentTrack) {
+          await client.musicEmbedManager.updateNowPlayingEmbed(player);
         }
-    });
+      }
+    }
+  });
 
-    // Add restore function to client for shard manager to call
-    client.restoreSessions = async function() {
-        console.log(chalk.cyan(`[SHARD ${client.shard?.ids?.[0] ?? 'N/A'}] 🔄 Starting session restore...`));
-        await restoreSavedPlayers(client);
-        await cleanupAudioCache();
-        console.log(chalk.green(`[SHARD ${client.shard?.ids?.[0] ?? 'N/A'}] ✅ Session restore complete`));
-    };
+  // 프로세스 종료는 init() 내부에 등록된 gracefulShutdown에 의해 처리
 
-    // Handle interactions (slash commands)
-    client.on(Events.InteractionCreate, async interaction => {
-        if (!interaction.isChatInputCommand()) return;
+  // 오류 처리
+  process.on("unhandledRejection", (reason, promise) => {
+    console.error(chalk.red("❌ Unhandled Rejection at:"), promise, chalk.red("reason:"), reason);
 
-        const command = client.commands.get(interaction.commandName);
+    // 디스코드 API 오류 처리
+    if (reason && reason.code) {
+      switch (reason.code) {
+        case 10062: // 알 수 없는 상호 작용 - Unknown interaction
+          console.log(chalk.yellow("ℹ️ 만료된 상호작용입니다 (10062 Unknown interaction)"));
+          return;
+        case 40060: // 이미 처리된 상호작용 - Interaction already acknowledged
+          console.log(chalk.yellow("ℹ️ 이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)"));
+          return;
+        case 50013: // 권한 부족 - Missing permissions
+          console.error(chalk.red("❌ 해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)"));
+          return;
+      }
+    }
 
-        if (!command) {
-            console.error(chalk.red(`❌ No command matching ${interaction.commandName} was found.`));
-            return;
+    // 일시적 네트워크/음성 오류(IP discovery 실패 등) — 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
+    if (isTransientNetworkError(reason)) {
+      console.log(chalk.yellow("⚠️ 네트워크/음성 오류(rejection) — 연결이 끊긴 서버만 복구합니다..."));
+      healBrokenPlayers(client).catch(() => {});
+      return;
+    }
+  });
+
+  process.on("uncaughtException", (error) => {
+    console.error(chalk.red("❌ 처리되지 않은 예외:"), error);
+
+    // Discord 상호작용 오류 — 무해, 계속
+    if (error.code === 10062 || error.code === 40060) {
+      console.log(chalk.yellow("ℹ️ Discord interaction error handled, continuing..."));
+      return;
+    }
+
+    // 일시적 네트워크 오류 — 프로세스는 살리고 "영향받은 서버만" 표적 복구. 짧은 시간에 폭주하면(빈도 가드) 시스템적 이상으로 보고 안전 종료
+    if (isTransientNetworkError(error)) {
+      if (!networkErrorFlooding()) {
+        console.log(chalk.yellow("⚠️ 네트워크 오류 — 봇은 계속 실행하고, 연결이 끊긴 서버만 복구합니다..."));
+        healBrokenPlayers(client).catch(() => {});
+        return;
+      }
+      console.error(chalk.red(`🛑 네트워크 오류가 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단합니다.`));
+    }
+
+    // 그 외(또는 네트워크 폭주) = 치명적 → 안전 종료
+    fatalShutdown(client, error);
+  });
+
+  // Initialize bot
+  const init = async () => {
+    try {
+      console.log(chalk.blue("🤖 Starting Discord Music Bot..."));
+
+      // Load commands and events
+      loadCommands();
+      loadEvents();
+
+      // Graceful shutdown handler
+      const gracefulShutdown = async (signal) => {
+        // Save all active player states before shutdown
+        const savePromises = [];
+        for (const [guildId, player] of client.players) {
+          if (player && typeof player.persistState === "function") {
+            savePromises.push(
+              player.persistState("shutdown", true).catch((err) => {
+                console.error(chalk.red(`Failed to save state for guild ${guildId}:`), err);
+              }),
+            );
+          }
         }
+        await Promise.all(savePromises);
 
-        try {
-            await command.execute(interaction, client);
-        } catch (error) {
-            console.error(chalk.red(`❌ Error executing ${interaction.commandName}:`), error);
+        // Destroy all voice connections
+        client.players.forEach((player, guildId) => {
+          const connection = getVoiceConnection(guildId);
+          if (connection) connection.destroy();
+        });
+        client.destroy();
+        stopBgutilServer();
 
-            const errorMessage = '❌ An error occurred while executing this command!';
+        process.exit(0);
+      };
 
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: errorMessage, ephemeral: true });
-            } else {
-                await interaction.reply({ content: errorMessage, ephemeral: true });
-            }
+      // Register shutdown handlers
+      process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+      process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+      process.on("SIGHUP", () => gracefulShutdown("SIGHUP")); // terminal close / SSH disconnect
+
+      // Windows specific handlers
+      if (process.platform === "win32") {
+        const readline = require("readline");
+        if (process.stdin.isTTY) {
+          readline
+            .createInterface({
+              input: process.stdin,
+              output: process.stdout,
+            })
+            .on("SIGINT", () => gracefulShutdown("SIGINT"));
         }
-    });
+      }
 
-    // Handle voice state updates for pause/resume and cleanup
-    client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
-        const guild = oldState.guild;
-        const player = client.players.get(guild.id);
-        if (!player) return;
+      // Login to Discord
+      await client.login(config.discord.token);
+    } catch (error) {
+      console.error(chalk.red("❌ Failed to start bot:"), error);
+      process.exit(1);
+    }
+  };
 
-        const botMember = guild.members.me;
-        const botId = botMember?.id ?? client.user.id;
-        const involvesBot = oldState.id === botId || newState.id === botId;
+  // Start the bot
+  init();
+}
 
-        if (involvesBot) {
-            const oldChannelId = oldState.channelId;
-            const newChannelId = newState.channelId;
-
-            if (oldChannelId && !newChannelId) {
-                try {
-                    const embedManager = client.musicEmbedManager || global.clients?.musicEmbedManager;
-
-                    // Mark state as ended so UI reflects the change
-                    player.pendingEndReason = 'forced-disconnect';
-                    player.queue = [];
-                    player.currentTrack = null;
-
-                    if (embedManager) {
-                        await embedManager.handlePlaybackEnd(player);
-                    } else if (typeof player.showQueueCompleted === 'function') {
-                        await player.showQueueCompleted();
-                    }
-                } catch (error) {
-                    console.error('❌ Failed to update playback UI after forced disconnect:', error);
-                } finally {
-                    player.cleanup();
-                    client.players.delete(guild.id);
-                }
-                return;
-            }
-
-            if (newChannelId && oldChannelId !== newChannelId) {
-                if (newState.channel) {
-                    await player.moveToChannel(newState.channel);
-                    player.clearInactivityTimer(false);
-                    if (client.musicEmbedManager) {
-                        await client.musicEmbedManager.updateNowPlayingEmbed(player);
-                    }
-                }
-            }
-
-            const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
-            const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
-
-            if (!wasMuted && isMuted) {
-                const paused = player.pauseFor('mute');
-                if (paused && client.musicEmbedManager) {
-                    await client.musicEmbedManager.updateNowPlayingEmbed(player);
-                }
-            } else if (wasMuted && !isMuted) {
-                const resumed = player.resumeFor('mute');
-                if (client.musicEmbedManager && (resumed || !player.pauseReasons.has('mute'))) {
-                    await client.musicEmbedManager.updateNowPlayingEmbed(player);
-                }
-            }
-        }
-
-        const voiceChannelId = player.voiceChannel?.id;
-        if (!voiceChannelId) return;
-
-        if (oldState.channelId === voiceChannelId || newState.channelId === voiceChannelId) {
-            const channel = guild.channels.cache.get(voiceChannelId);
-
-            if (!channel) {
-                player.cleanup();
-                client.players.delete(guild.id);
-                return;
-            }
-
-            const listeners = channel.members.filter(member => !member.user.bot).size;
-
-            if (listeners === 0) {
-                const alreadyPaused = player.pauseReasons.has('alone');
-                player.startInactivityTimer();
-                if (!alreadyPaused && client.musicEmbedManager && player.currentTrack) {
-                    await client.musicEmbedManager.updateNowPlayingEmbed(player);
-                }
-            } else {
-                const wasPausedForAlone = player.pauseReasons.has('alone');
-                player.clearInactivityTimer(true);
-                if (wasPausedForAlone && client.musicEmbedManager && player.currentTrack) {
-                    await client.musicEmbedManager.updateNowPlayingEmbed(player);
-                }
-            }
-        }
-    });
-
-    // Process termination is handled by gracefulShutdown registered inside init().
-
-    // Error handling
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error(chalk.red('❌ Unhandled Rejection at:'), promise, chalk.red('reason:'), reason);
-
-        // Discord API error handling
-        if (reason && reason.code) {
-            switch (reason.code) {
-                case 10062: // Unknown interaction
-                    console.log(chalk.yellow('ℹ️ Interaction has expired, safely ignoring...'));
-                    return;
-                case 40060: // Interaction already acknowledged
-                    console.log(chalk.yellow('ℹ️ Interaction already acknowledged, safely ignoring...'));
-                    return;
-                case 50013: // Missing permissions
-                    console.error(chalk.red('❌ Missing permissions for Discord action'));
-                    return;
-            }
-        }
-
-        // Voice connection errors
-        if (reason && reason.message && reason.message.includes('IP discovery')) {
-            // Clean up any voice connections
-            client.players.forEach(player => {
-                if (player && player.cleanup) {
-                    player.cleanup();
-                }
-            });
-            client.players.clear();
-            return;
-        }
-    });
-
-    process.on('uncaughtException', (error) => {
-        console.error(chalk.red('❌ Uncaught Exception:'), error);
-
-        // Don't exit on Discord API errors
-        if (error.code === 10062 || error.code === 40060) {
-            console.log(chalk.yellow('ℹ️ Discord interaction error handled, continuing...'));
-            return;
-        }
-
-        // Handle fetch/network termination errors - don't crash
-        if (error.message && (error.message.includes('terminated') || 
-            error.message.includes('ECONNRESET') || 
-            error.message.includes('ETIMEDOUT'))) {
-            console.log(chalk.yellow('⚠️ Network error occurred, but bot continues running...'));
-            return;
-        }
-
-        // For other critical errors, graceful shutdown
-        console.log(chalk.red('🛑 Critical error occurred, shutting down...'));
-        // Intentional policy: crashes reset saved sessions instead of restoring
-        // them on restart — if the session state itself caused the crash,
-        // auto-restore would create a crash loop. (Power loss is different:
-        // the 5s stateSync snapshots survive and restore normally.)
-        console.log(chalk.yellow('ℹ️ 크래시 종료 — 저장된 재생 세션을 초기화합니다 (재시작 시 복구 안 함)'));
-
-        // Clean up all music players
-        if (client && client.players) {
-            client.players.forEach(player => {
-                if (player && player.cleanup) {
-                    player.cleanup();
-                }
-            });
-            client.players.clear();
-        }
-
-        process.exit(1);
-    });
-
-    // Initialize bot
-    const init = async () => {
-        try {
-            console.log(chalk.blue('🤖 Starting Discord Music Bot...'));
-
-            // Load commands and events
-            loadCommands();
-            loadEvents();
-
-            // Graceful shutdown handler
-            const gracefulShutdown = async (signal) => {
-                // Save all active player states before shutdown
-                const savePromises = [];
-                for (const [guildId, player] of client.players) {
-                    if (player && typeof player.persistState === 'function') {
-                        savePromises.push(player.persistState('shutdown', true).catch(err => {
-                            console.error(chalk.red(`Failed to save state for guild ${guildId}:`), err);
-                        }));
-                    }
-                }
-                await Promise.all(savePromises);
-
-                // Destroy all voice connections
-                client.players.forEach((player, guildId) => {
-                    const connection = getVoiceConnection(guildId);
-                    if (connection) connection.destroy();
-                });
-                client.destroy();
-                stopBgutilServer();
-
-                process.exit(0);
-            };
-
-            // Register shutdown handlers
-            process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
-            process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-            process.on('SIGHUP',  () => gracefulShutdown('SIGHUP')); // terminal close / SSH disconnect
-            
-            // Windows specific handlers
-            if (process.platform === 'win32') {
-                const readline = require('readline');
-                if (process.stdin.isTTY) {
-                    readline.createInterface({
-                        input: process.stdin,
-                        output: process.stdout
-                    }).on('SIGINT', () => gracefulShutdown('SIGINT'));
-                }
-            }
-
-            // Login to Discord
-            await client.login(config.discord.token);
-
-        } catch (error) {
-            console.error(chalk.red('❌ Failed to start bot:'), error);
-            process.exit(1);
-        }
-    };
-
-    // Start the bot
-    init();
-
-    module.exports = client;
-}, 5000);
+// bgutil 준비를 확인한 뒤 기동
+waitForBgutilReady().then(startBot);

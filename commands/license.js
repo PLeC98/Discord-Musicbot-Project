@@ -8,14 +8,15 @@ module.exports = {
 
   async execute(interaction) {
     const UPSTREAM_REPO = "https://github.com/umutxyp/MusicBot";
-    const PLEC_REPO = "https://github.com/PLeC98/Discord-Musicbot-Project";
+    const projectRepo = config.bot.projectRepo;
     const sourceRepo = config.bot.sourceRepo;
 
-    let licenseValue = `• [Copyright (c) 2025 umutxyp](${UPSTREAM_REPO}), **MIT License**\n` + `• [Copyright (C) 2026 PLeC](${PLEC_REPO}), **GNU AGPL-3.0-or-later**`;
+    let licenseValue = `• [Copyright (c) 2025 umutxyp](${UPSTREAM_REPO}), **MIT License**\n` + `• [Copyright (C) 2026 PLeC](${projectRepo}), **GNU AGPL-3.0-or-later**`;
 
-    if (sourceRepo) {
-      const label = sourceRepo.match(/github\.com\/([^/]+)/)?.[1];
-      licenseValue += `\n• [${label}](${sourceRepo}) — **AGPL-3.0-or-later**`;
+    // SOURCE_REPO_URL로 개조본 저장소를 지정한 경우에만 세 번째 줄 추가 (기본값은 본 프로젝트 저장소라서 그대로 표시하면 위 줄과 중복됨)
+    if (sourceRepo !== projectRepo) {
+      const label = sourceRepo.match(/github\.com\/([^/]+)/)?.[1] || "Modified Source";
+      licenseValue += `\n• [${label}](${sourceRepo}) — **GNU AGPL-3.0-or-later**`;
     }
 
     const embed = new EmbedBuilder()

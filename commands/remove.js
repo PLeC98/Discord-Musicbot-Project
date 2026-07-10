@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/strings");
+const { checkRemoveTrack } = require("../src/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,20 +15,18 @@ module.exports = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
 
-    if (!member.voice.channel) return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: [1 << 6] });
-
     const player = client.players.get(guild.id);
     if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    if (player.voiceChannel?.id !== member.voice.channel.id) return interaction.reply({ content: S.ERR_SAME_CHANNEL, flags: [1 << 6] });
-
-    if (!member.permissions.has("ManageGuild") && !member.roles.cache.some((r) => r.name.toLowerCase().includes("dj"))) return interaction.reply({ content: S.ERR_NOT_AUTHORIZED, flags: [1 << 6] });
 
     if (player.queue.length === 0) return interaction.reply({ content: S.ERR_NO_SONGS_IN_QUEUE, flags: [1 << 6] });
 
     const position = interaction.options.getInteger("position");
 
     if (position > player.queue.length) return interaction.reply({ content: `❌ 대기열에 ${player.queue.length}개의 곡만 있습니다. (1–${player.queue.length} 범위로 입력하세요)`, flags: [1 << 6] });
+
+    // DJ 계층이 아니어도 자기가 추가한 곡은 제거 가능
+    const permErr = await checkRemoveTrack(member, player.queue[position - 1]);
+    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 
     const removed = player.removeFromQueue(position - 1);
 

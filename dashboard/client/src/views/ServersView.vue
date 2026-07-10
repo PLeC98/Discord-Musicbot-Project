@@ -1,160 +1,48 @@
 <template>
-  <div class="page">
-    <h1 class="page-title">서버 목록</h1>
-    <p class="page-subtitle">재생 상태와 재생 목록을 관리할 서버를 선택하고, Discord와 실시간 동기화하세요.</p>
+  <div class="max-w-275 mx-auto px-3 py-4.5">
+    <h1 class="pl-2 text-[1.7rem] font-extrabold mb-1.5 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">서버 목록</h1>
+    <p class="pl-2 text-muted mb-4.5 text-[0.9rem]">재생 상태와 재생 목록을 관리할 서버를 선택하고, Discord와 실시간 동기화하세요.</p>
 
-    <div v-if="loading" class="loading">불러오는 중...</div>
+    <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
-    <div v-else-if="guilds.length === 0" class="empty-state">
-      <div class="empty-icon">🎵</div>
-      <p>사용자가 참가한 서버 중에 봇이 함께 있는 서버가 없습니다.</p>
-      <p style="font-size: 0.85rem; color: var(--text-muted)">봇을 서버에 초대하거나, 봇이 있는 서버에 참여하세요.</p>
+    <div v-else-if="guilds.length === 0" class="text-center px-5 py-15 text-muted">
+      <div class="text-5xl mb-3">🎵</div>
+      <p class="mb-1.5">사용자가 참가한 서버 중에 봇이 함께 있는 서버가 없습니다.</p>
+      <p class="mb-1.5 text-[0.85rem] text-muted">봇을 서버에 초대하거나, 봇이 있는 서버에 참여하세요.</p>
     </div>
 
-    <div v-else class="guild-grid">
-      <router-link v-for="g in guilds" :key="g.id" :to="`/servers/${g.id}`" class="guild-card">
-        <div class="guild-icon-wrap">
-          <img v-if="g.icon" :src="g.icon" :alt="g.name" class="guild-icon" />
-          <div v-else class="guild-icon-fallback">{{ g.name[0] }}</div>
+    <div v-else class="grid gap-3 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
+      <router-link
+        v-for="g in guilds"
+        :key="g.id"
+        :to="`/servers/${g.id}`"
+        class="group flex items-center gap-4 rounded-2xl py-2.5 px-4.5 no-underline text-fg bg-[rgba(12,16,36,0.62)] backdrop-blur-[20px] backdrop-saturate-[1.5] border border-white/8 shadow-[0_2px_14px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,transform,box-shadow] duration-300 ease-spring hover:border-accent/45 hover:scale-[1.01] hover:shadow-[0_12px_36px_rgba(0,0,0,0.45),0_0_0_1px_rgba(124,111,246,0.18),inset_0_1px_0_rgba(255,255,255,0.07)]"
+      >
+        <div class="shrink-0">
+          <img v-if="g.icon" :src="g.icon" :alt="g.name" class="size-12.5 rounded-full border-2 border-white/10" />
+          <div v-else class="size-12.5 rounded-full border-2 border-white/10 bg-linear-135 from-accent to-accent-2 text-[1.2rem] font-bold flex items-center justify-center">{{ g.name[0] }}</div>
         </div>
-        <div class="guild-info">
-          <div class="guild-name">{{ g.name }}</div>
-          <div class="guild-player" :class="g.hasPlayer ? 'active' : 'idle'">
+        <div class="flex-1 overflow-hidden">
+          <div class="text-sm font-semibold mb-0.5 overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</div>
+          <div class="text-[0.78rem] mb-0.5" :class="g.hasPlayer ? 'text-success' : 'text-muted'">
             {{ g.hasPlayer ? "🎵 재생 중" : "⏸ 대기 중" }}
           </div>
         </div>
-        <span class="guild-arrow">›</span>
+        <span class="mb-0.5 text-muted text-[1.2rem] transition-[transform,color] duration-300 ease-spring group-hover:translate-x-1 group-hover:text-[rgba(196,181,253,0.8)]">›</span>
       </router-link>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
-import axios from "axios";
+import { computed, onMounted, onUnmounted } from "vue";
+import { useGuildsStore } from "../stores/guilds.js";
 
-const guilds = ref([]);
-const loading = ref(true);
+// 목록 데이터·SSE·폴링은 사이드바와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
+const store = useGuildsStore();
+const guilds = computed(() => store.guilds);
+const loading = computed(() => store.loading);
 
-onMounted(async () => {
-  try {
-    const res = await axios.get("/api/guilds");
-    guilds.value = res.data.guilds;
-  } finally {
-    loading.value = false;
-  }
-});
+onMounted(() => store.subscribe());
+onUnmounted(() => store.unsubscribe());
 </script>
-
-<style scoped>
-.guild-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
-}
-
-.guild-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: rgba(12, 16, 36, 0.62);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 10px 18px;
-  text-decoration: none;
-  color: var(--text-primary);
-  box-shadow:
-    0 2px 14px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition:
-    border-color 0.25s var(--ease-out),
-    transform 0.35s var(--spring),
-    box-shadow 0.25s var(--ease-out);
-}
-
-.guild-card:hover {
-  border-color: rgba(124, 111, 246, 0.45);
-  transform: translateY(-3px) scale(1.01);
-  box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(124, 111, 246, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-}
-
-.guild-icon-wrap {
-  flex-shrink: 0;
-}
-
-.guild-icon,
-.guild-icon-fallback {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  margin-top: 4px;
-}
-
-.guild-icon-fallback {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
-.guild-info {
-  flex: 1;
-  overflow: hidden;
-}
-
-.guild-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-bottom: 3px;
-}
-
-.guild-player {
-  font-size: 0.78rem;
-  margin-bottom: 4px;
-}
-.guild-player.active {
-  color: var(--success);
-}
-.guild-player.idle {
-  color: var(--text-muted);
-}
-
-.guild-arrow {
-  color: var(--text-muted);
-  font-size: 1.2rem;
-  margin-bottom: 6px;
-  transition:
-    transform 0.3s var(--spring),
-    color 0.2s;
-}
-
-.guild-card:hover .guild-arrow {
-  transform: translateX(4px);
-  color: rgba(196, 181, 253, 0.8);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-muted);
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 12px;
-}
-.empty-state p {
-  margin-bottom: 6px;
-}
-</style>

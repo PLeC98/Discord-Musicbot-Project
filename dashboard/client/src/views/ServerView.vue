@@ -1,82 +1,84 @@
 <template>
-  <div class="page">
-    <div class="back-row">
-      <router-link to="/servers" class="back-link">← 서버 목록</router-link>
+  <div class="max-w-275 mx-auto px-3 py-4.5">
+    <div class="mb-4 flex items-center justify-between">
+      <router-link to="/servers" class="text-muted no-underline text-sm px-2.5 py-1.25 rounded-lg inline-flex items-center gap-1 transition-[color,background-color] duration-200 hover:text-fg hover:bg-white/6">← 서버 목록</router-link>
+      <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" title="서버 설정" class="text-muted no-underline text-sm px-2.5 py-1.25 rounded-lg inline-flex items-center gap-1.5 transition-[color,background-color] duration-200 hover:text-fg hover:bg-white/6">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.61 3.61 0 0 1 8.4 12c0-1.98 1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" /></svg>
+        설정
+      </router-link>
     </div>
 
-    <div v-if="loading" class="loading">불러오는 중...</div>
+    <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
     <template v-else>
       <!-- ── Now Playing ── -->
-      <div class="card now-playing-card">
-        <div class="card-title">지금 재생 중</div>
-
+      <BaseCard title="지금 재생 중" class="mb-4 pb-3.75">
         <template v-if="player.currentTrack">
           <!-- Thumbnail + title/artist -->
-          <div class="track-row">
-            <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="track-thumb" />
-            <div class="track-meta-block">
-              <a :href="player.currentTrack.url" target="_blank" rel="noopener" class="track-title">
+          <div class="flex gap-4 items-center mb-4.5">
+            <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="w-auto h-[15vw] max-h-37.5 rounded-xl object-cover shrink-0 shadow-[0_4px_18px_rgba(0,0,0,0.5)]" />
+            <div class="flex-1 pt-0.5 overflow-hidden">
+              <a :href="player.currentTrack.url" target="_blank" rel="noopener" class="block text-[1.1rem] font-extrabold text-fg no-underline mb-1 overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em] hover:underline">
                 {{ player.currentTrack.title }}
               </a>
-              <div class="track-artist" v-if="player.currentTrack.artist">{{ player.currentTrack.artist }}</div>
+              <div class="text-muted text-sm mb-3" v-if="player.currentTrack.artist">{{ player.currentTrack.artist }}</div>
             </div>
           </div>
 
           <!-- Full-width progress bar -->
-          <div class="progress-row">
-            <span class="time-text">{{ fmt(displayTime) }}</span>
-            <div class="progress-bar" ref="progressBarRef" :class="{ 'is-scrubbing': isScrubbing }" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
-              <div class="progress-fill" :style="{ width: progressPct + '%' }"></div>
-              <div class="progress-handle" :style="{ left: progressPct + '%' }"></div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span :class="timeText">{{ fmt(displayTime) }}</span>
+            <div class="group relative flex flex-1 h-4 items-center cursor-pointer before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
+              <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
+              <div class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
             </div>
-            <span class="time-text">{{ fmt(player.currentTrack.duration) }}</span>
+            <span :class="timeText">{{ fmt(player.currentTrack.duration) }}</span>
           </div>
 
           <!-- Controls -->
-          <div class="controls">
-            <div class="ctrl-row">
+          <div class="flex flex-col gap-2.5">
+            <div class="flex items-center gap-1 flex-wrap">
               <!-- Previous -->
-              <button class="icon-btn" @click="action('previous')" title="이전곡" :disabled="!player.hasPrevious">
+              <button :class="iconBtn" @click="action('previous')" title="이전곡" :disabled="!player.canControl || !player.hasPrevious">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
               </button>
 
               <!-- Play / Pause -->
-              <button class="icon-btn" @click="action('pause')" :title="player.paused ? '재생' : '일시정지'">
+              <button :class="iconBtn" @click="action('pause')" :title="player.paused ? '재생' : '일시정지'" :disabled="!player.canControl">
                 <svg v-if="player.paused" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                 <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
               </button>
 
               <!-- Stop -->
-              <button class="icon-btn btn-stop" @click="confirmStop" title="정지">
+              <button :class="iconStop" @click="confirmStop" title="정지" :disabled="!player.canControl">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
               </button>
 
               <!-- Skip -->
-              <button class="icon-btn" @click="action('skip')" title="다음곡" :disabled="player.queue.length === 0">
+              <button :class="iconBtn" @click="action('skip')" title="다음곡" :disabled="!canSkip || player.queue.length === 0">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
               </button>
 
               <!-- Volume: capsule hover-expand -->
-              <div class="vol-wrap">
-                <button class="icon-btn vol-btn" :title="`볼륨: ${player.volume}%`">
+              <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
+                <button :class="volBtn" :title="`볼륨: ${player.volume}%`">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
                 </button>
-                <div class="vol-popup">
-                  <input type="range" min="0" max="100" step="5" :value="player.volume" @change="setVolume($event.target.value)" class="vol-slider" />
-                  <span class="vol-num">{{ player.volume }}%</span>
+                <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-40 group-hover/vol:opacity-100 group-focus-within/vol:max-w-40 group-focus-within/vol:opacity-100">
+                  <input type="range" min="0" max="100" step="5" :value="player.volume" @change="setVolume($event.target.value)" class="w-24 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
+                  <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ player.volume }}%</span>
                 </div>
               </div>
 
-              <div class="ctrl-sep"></div>
+              <div class="flex-1"></div>
 
               <!-- Shuffle -->
-              <button class="icon-btn" :class="player.shuffle ? 'btn-active' : ''" @click="action('shuffle')" title="셔플" :disabled="player.queue.length < 2">
+              <button :class="player.shuffle ? iconActive : iconBtn" @click="action('shuffle')" title="셔플" :disabled="!player.canControl || player.queue.length < 2">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
               </button>
 
               <!-- Loop (cycles: off → track → queue) -->
-              <button class="icon-btn" :class="player.loop ? 'btn-active' : ''" @click="cycleLoop" :title="loopTitle">
+              <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" :title="loopTitle" :disabled="!player.canControl">
                 <svg v-if="player.loop === 'track'" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 2 1 1 1-1v4h1z" />
                 </svg>
@@ -85,58 +87,60 @@
                 </svg>
               </button>
             </div>
+
+            <div v-if="!player.canControl" class="mt-2.5 text-muted text-[0.8rem]">봇과 같은 음성 채널에 참가한 DJ만 조작할 수 있어요.</div>
           </div>
         </template>
 
-        <div v-else class="no-track">⏸ 현재 재생 중인 곡이 없습니다</div>
-      </div>
+        <div v-else class="text-center p-5 text-muted text-[0.9rem]">⏸ 현재 재생 중인 곡이 없습니다</div>
+      </BaseCard>
 
       <!-- ── Add Track ── -->
-      <div class="card add-card">
-        <div class="card-title">곡 추가 - 캐시되지 않은 곡은 추가하는데에 조금 시간이 걸려요.</div>
-
+      <BaseCard title="곡 추가 - 캐시되지 않은 곡은 추가하는데에 조금 시간이 걸려요." class="mb-3">
         <!-- Case 1: both offline -->
-        <div v-if="!player.botInVoice && !player.userInVoice" class="add-notice">사용자가 음성 채널에 있어야 봇을 음성 채널에 참가시킬 수 있고, 봇이 음성 채널에 있어야 곡을 추가할 수 있어요. 먼저 Discord에서 음성 채널에 참가해 주세요.</div>
+        <div v-if="!player.botInVoice && !player.userInVoice" class="text-muted text-sm">사용자가 음성 채널에 있어야 봇을 음성 채널에 참가시킬 수 있고, 봇이 음성 채널에 있어야 곡을 추가할 수 있어요. 먼저 Discord에서 음성 채널에 참가해 주세요.</div>
 
         <!-- Case 2: user in voice, bot not -->
-        <div v-else-if="!player.botInVoice && player.userInVoice" class="add-notice add-notice-join">
+        <div v-else-if="!player.botInVoice && player.userInVoice" class="text-muted text-sm flex items-center gap-3 flex-wrap justify-between">
           <span>봇이 음성 채널에 있어야 곡을 추가할 수 있어요. 지금 참가중인 채널에 봇을 참가시킬까요?</span>
-          <button class="btn btn-primary btn-join" @click="joinBot" :disabled="joining">
+          <BaseButton variant="primary" class="whitespace-nowrap shrink-0" @click="joinBot" :disabled="joining">
             {{ joining ? "참가 중..." : "+ 참가" }}
-          </button>
+          </BaseButton>
         </div>
 
-        <!-- Case 3: bot in voice → show add form -->
-        <form v-else class="add-form" @submit.prevent="addTrack">
-          <input v-model="addQuery" class="add-input" placeholder="곡 이름, YouTube/Spotify/SoundCloud URL..." :disabled="adding" />
-          <button type="submit" class="btn btn-primary" :disabled="adding || !addQuery.trim()">
+        <!-- Case 3: bot in voice, but user elsewhere (관리자 제외) — 곡 추가는 계층 무관, 재적 규칙만 -->
+        <div v-else-if="!player.canAdd" class="text-muted text-sm">곡 추가는 봇과 같은 음성 채널에 참가한 뒤 이용할 수 있어요.</div>
+
+        <!-- Case 4: bot in voice + controllable → show add form -->
+        <form v-else class="flex gap-2" @submit.prevent="addTrack">
+          <input v-model="addQuery" class="flex-1 bg-white/6 border border-white/9 rounded-[10px] text-fg px-3.5 py-2.25 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/8" placeholder="곡 이름, YouTube/Spotify/SoundCloud URL..." :disabled="adding" />
+          <BaseButton variant="primary" type="submit" :disabled="adding || !addQuery.trim()">
             {{ adding ? "추가 중..." : "+ 추가" }}
-          </button>
+          </BaseButton>
         </form>
 
-        <div v-if="addError" class="add-error">{{ addError }}</div>
-      </div>
+        <div v-if="addError" class="mt-2 text-danger text-[0.85rem]">{{ addError }}</div>
+      </BaseCard>
 
       <!-- ── Queue ── -->
-      <div class="card" v-if="player.queue?.length > 0">
-        <div class="card-title">대기열 ({{ player.queue.length }}곡)</div>
-        <div class="queue-list">
+      <BaseCard v-if="player.queue?.length > 0" :title="`대기열 (${player.queue.length}곡)`">
+        <div class="flex flex-col gap-1 max-h-120 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
           <div
             v-for="(track, i) in player.queue"
             :key="i"
-            class="queue-item"
+            class="group/item flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] bg-white/4 border border-transparent mr-1 transition-[background-color,border-color] duration-200 hover:bg-white/7 hover:border-white/8"
             :class="{
-              'is-dragging': draggedIndex === i,
-              'drop-before': dragOverIndex === i && draggedIndex !== i,
-              'drop-after': dragOverIndex === player.queue.length && i === player.queue.length - 1,
+              'opacity-35': draggedIndex === i,
+              'border-t-2 border-t-accent -mt-px': dragOverIndex === i && draggedIndex !== i,
+              'border-b-2 border-b-accent -mb-px': dragOverIndex === player.queue.length && i === player.queue.length - 1,
             }"
-            draggable="true"
+            :draggable="player.canControl"
             @dragstart="onDragStart($event, i)"
             @dragover.prevent="onDragOver($event, i)"
             @drop.prevent="onDrop"
             @dragend="onDragEnd"
           >
-            <span class="q-handle" title="드래그하여 순서 변경">
+            <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 group-hover/item:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" title="드래그하여 순서 변경">
               <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
                 <circle cx="2" cy="3" r="1.5" />
                 <circle cx="2" cy="8" r="1.5" />
@@ -146,29 +150,29 @@
                 <circle cx="8" cy="13" r="1.5" />
               </svg>
             </span>
-            <span class="q-num">{{ i + 1 }}</span>
-            <img v-if="track.thumbnail" :src="track.thumbnail" class="q-thumb" />
-            <div class="q-info">
-              <div class="q-title">{{ track.title }}</div>
-              <div class="q-sub">
+            <span class="w-5 text-right text-muted text-[0.8rem] shrink-0 mr-1">{{ i + 1 }}</span>
+            <img v-if="track.thumbnail" :src="track.thumbnail" class="size-9 rounded-md object-cover shrink-0" />
+            <div class="flex-1 overflow-hidden">
+              <div class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap mb-0.5">{{ track.title }}</div>
+              <div class="text-[0.78rem] text-muted">
                 <span v-if="track.artist">{{ track.artist }} &bull; </span>
                 <span>{{ fmt(track.duration) }}</span>
               </div>
             </div>
-            <span class="q-platform">{{ platformIcon(track.platform) }}</span>
-            <button class="q-remove" @click="removeTrack(i)" title="제거">✕</button>
+            <span class="text-[0.9rem] shrink-0">{{ platformIcon(track.platform) }}</span>
+            <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(i)" title="제거" :disabled="!canRemove(track)">✕</button>
           </div>
         </div>
-      </div>
+      </BaseCard>
     </template>
 
     <!-- Stop confirm dialog -->
-    <div v-if="showStopConfirm" class="overlay" @click.self="showStopConfirm = false">
-      <div class="dialog">
-        <p>재생을 완전히 중지하고 대기열을 비울까요?</p>
-        <div class="dialog-btns">
-          <button class="btn btn-ghost" @click="showStopConfirm = false">취소</button>
-          <button class="btn btn-danger" @click="doStop">중지</button>
+    <div v-if="showStopConfirm" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="showStopConfirm = false">
+      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-90 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <p class="mb-5.5 text-[0.95rem] text-fg-soft">재생을 완전히 중지하고 대기열을 비울까요?</p>
+        <div class="flex gap-2.5 justify-center">
+          <BaseButton variant="ghost" @click="showStopConfirm = false">취소</BaseButton>
+          <BaseButton variant="danger" @click="doStop">중지</BaseButton>
         </div>
       </div>
     </div>
@@ -179,11 +183,24 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
+import BaseCard from "../components/BaseCard.vue";
+import BaseButton from "../components/BaseButton.vue";
+
+// ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
+const timeText = "text-muted text-[0.78rem] whitespace-nowrap tabular-nums";
+
+// 원형 아이콘 버튼 — 상태(기본/정지/활성)별로 색상군을 통째로 정의(같은 속성 유틸리티 중복 회피)
+const iconBase = "size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-[background-color,color,scale] duration-150 disabled:opacity-25 disabled:cursor-not-allowed active:not-disabled:scale-[0.88] active:not-disabled:duration-75";
+const iconBtn = `${iconBase} text-[rgba(232,234,246,0.7)] hover:not-disabled:bg-white/11 hover:not-disabled:text-fg active:not-disabled:bg-white/17`;
+const iconStop = `${iconBase} text-[rgba(232,234,246,0.7)] hover:not-disabled:bg-danger/18 hover:not-disabled:text-[#fca5a5] active:not-disabled:bg-danger/26`;
+const iconActive = `${iconBase} text-[#c4b5fd] hover:not-disabled:bg-accent/20 hover:not-disabled:text-[#ddd6fe] active:not-disabled:bg-white/17`;
+// 볼륨 캡슐 안 버튼 — 캡슐이 hover 배경을 담당하므로 버튼 자체는 투명 유지
+const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer text-[rgba(232,234,246,0.7)] group-hover/vol:text-fg";
 
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
-const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, hasPrevious: false });
+const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
 
 const addQuery = ref("");
 const adding = ref(false);
@@ -198,6 +215,8 @@ const isDragging = ref(false);
 
 let timer = null;
 let progressTimer = null;
+let eventSource = null;
+let nudgeTimer = null;
 const localTime = ref(0);
 const progressBarRef = ref(null);
 const isScrubbing = ref(false);
@@ -205,16 +224,29 @@ const scrubTime = ref(0);
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-// Action responses come from playerState() which omits botInVoice/userInVoice.
+// Action responses come from playerState() which omits botInVoice/userInVoice/canControl/canAdd/userId.
 // Preserve those fields from the last full refresh so the add-notice doesn't flash.
 function applyState(data) {
-  player.value = { botInVoice: player.value.botInVoice, userInVoice: player.value.userInVoice, ...data };
+  player.value = { botInVoice: player.value.botInVoice, userInVoice: player.value.userInVoice, canControl: player.value.canControl, canAdd: player.value.canAdd, userId: player.value.userId, ...data };
+}
+
+// 스킵은 DJ 계층이 아니어도 현재 곡의 요청자 본인이면 가능 (서버 checkSkip과 동일 규칙)
+const canSkip = computed(() => player.value.canControl || (!!player.value.currentTrack?.requestedBy?.id && player.value.currentTrack.requestedBy.id === player.value.userId));
+
+// 대기열 제거도 그 곡의 요청자 본인이면 가능 (서버 checkRemoveTrack과 동일 규칙)
+function canRemove(track) {
+  return player.value.canControl || (!!track.requestedBy?.id && track.requestedBy.id === player.value.userId);
 }
 
 async function refresh() {
   if (isDragging.value) return; // don't overwrite queue while user is mid-drag
   try {
     const res = await axios.get(`/api/guilds/${guildId}/player`);
+    // 봇 재적/추가가능 여부가 바뀌면 직전 곡 추가 오류는 더 이상 유효하지 않으므로 정리
+    // (봇이 나가 추가 폼이 참가 버튼으로 바뀌는 순간 stale 오류 제거 — 새로고침 없이 사라짐)
+    if (addError.value && (res.data.botInVoice !== player.value.botInVoice || res.data.canAdd !== player.value.canAdd)) {
+      addError.value = "";
+    }
     player.value = res.data;
     localTime.value = res.data.currentTrack?.currentTime ?? 0;
   } finally {
@@ -313,6 +345,7 @@ async function removeTrack(index) {
 // ── Drag-and-drop queue reorder ───────────────────────────────────────────────
 
 function onDragStart(e, i) {
+  if (!player.value.canControl) return;
   draggedIndex.value = i;
   isDragging.value = true;
   e.dataTransfer.effectAllowed = "move";
@@ -384,7 +417,7 @@ function getTimeFromPointer(e) {
 }
 
 function onScrubStart(e) {
-  if (!player.value.currentTrack) return;
+  if (!player.value.currentTrack || !player.value.canControl) return;
   isScrubbing.value = true;
   scrubTime.value = getTimeFromPointer(e);
   document.addEventListener("mousemove", onScrubMove);
@@ -428,9 +461,21 @@ function platformIcon(p) {
   return { youtube: "🔴", spotify: "🟢", soundcloud: "🟠", direct: "🔗" }[p] || "🎵";
 }
 
+// SSE — 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.
+// EventSource는 끊기면 자동 재연결하고, 폴백 폴링이 공백을 보전한다.
+function connectEvents() {
+  eventSource = new EventSource(`/api/guilds/${guildId}/player/events`, { withCredentials: true });
+  eventSource.onmessage = () => {
+    clearTimeout(nudgeTimer);
+    nudgeTimer = setTimeout(refresh, 150);
+  };
+}
+
 onMounted(() => {
   refresh();
-  timer = setInterval(refresh, 5000);
+  connectEvents();
+  // 폴백 폴링 — SSE가 실시간을 담당하므로 5초→30초로 완화(안전망)
+  timer = setInterval(refresh, 30000);
   progressTimer = setInterval(() => {
     const track = player.value.currentTrack;
     if (track && !player.value.paused) {
@@ -441,515 +486,11 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(timer);
   clearInterval(progressTimer);
+  if (eventSource) eventSource.close();
+  clearTimeout(nudgeTimer);
   document.removeEventListener("mousemove", onScrubMove);
   document.removeEventListener("mouseup", onScrubEnd);
   document.removeEventListener("touchmove", onScrubMove);
   document.removeEventListener("touchend", onScrubEnd);
 });
 </script>
-
-<style scoped>
-.back-row {
-  margin-bottom: 20px;
-}
-
-.back-link {
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 0.875rem;
-  padding: 5px 10px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition:
-    color 0.2s,
-    background 0.2s;
-}
-.back-link:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.now-playing-card {
-  margin-bottom: 12px;
-  padding: 20px 20px 15px 20px;
-}
-.add-card {
-  margin-bottom: 12px;
-}
-
-/* Track info */
-.track-row {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  margin-bottom: 18px;
-}
-
-.track-thumb {
-  width: auto;
-  height: 150px;
-  border-radius: 12px;
-  object-fit: cover;
-  flex-shrink: 0;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
-}
-
-.track-meta-block {
-  flex: 1;
-  overflow: hidden;
-  padding-top: 2px;
-}
-
-.track-title {
-  display: block;
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  text-decoration: none;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-}
-.track-title:hover {
-  text-decoration: underline;
-}
-
-.track-artist {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  margin-bottom: 12px;
-}
-
-/* Progress bar */
-.progress-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.time-text {
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  position: relative;
-  cursor: pointer;
-}
-
-.progress-bar::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  pointer-events: none;
-}
-
-.progress-fill {
-  position: absolute;
-  left: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  border-radius: 4px;
-  transition: width 0.4s linear;
-  box-shadow: 0 0 8px rgba(124, 111, 246, 0.55);
-  pointer-events: none;
-}
-
-.progress-bar.is-scrubbing .progress-fill {
-  transition: none;
-}
-
-.progress-handle {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    opacity 0.15s,
-    transform 0.15s,
-    left 0.4s linear;
-}
-
-.progress-bar:hover .progress-handle,
-.progress-bar.is-scrubbing .progress-handle {
-  opacity: 1;
-}
-
-.progress-bar.is-scrubbing .progress-handle {
-  transform: translate(-50%, -50%) scale(1.2);
-  transition:
-    opacity 0.15s,
-    transform 0.15s;
-}
-
-/* Controls */
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ctrl-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.ctrl-sep {
-  flex: 1;
-}
-
-/* Icon buttons */
-.icon-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: rgba(232, 234, 246, 0.7);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition:
-    background 0.18s var(--ease-out),
-    color 0.18s,
-    transform 0.15s;
-}
-.icon-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.11);
-  color: var(--text-primary);
-}
-.icon-btn:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.17);
-  transform: scale(0.88);
-  transition-duration: 0.07s;
-}
-.icon-btn:disabled {
-  opacity: 0.25;
-  cursor: not-allowed;
-}
-
-.icon-btn.btn-stop:hover:not(:disabled) {
-  background: rgba(248, 113, 113, 0.18);
-  color: #fca5a5;
-}
-.icon-btn.btn-stop:active:not(:disabled) {
-  background: rgba(248, 113, 113, 0.26);
-}
-
-.icon-btn.btn-active {
-  color: #c4b5fd;
-}
-.icon-btn.btn-active:hover:not(:disabled) {
-  background: rgba(124, 111, 246, 0.2);
-  color: #ddd6fe;
-}
-
-/* Volume capsule */
-.vol-wrap {
-  display: flex;
-  align-items: center;
-  height: 40px;
-  border-radius: 20px;
-  overflow: hidden;
-  transition: background 0.2s var(--ease-out);
-}
-.vol-wrap:hover,
-.vol-wrap:focus-within {
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.vol-wrap .icon-btn:hover,
-.vol-wrap .icon-btn:active {
-  background: transparent;
-  transform: none;
-  color: var(--text-primary);
-}
-
-.vol-popup {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition:
-    max-width 0.3s var(--ease-out),
-    opacity 0.2s;
-  white-space: nowrap;
-}
-.vol-wrap:hover .vol-popup,
-.vol-wrap:focus-within .vol-popup {
-  max-width: 160px;
-  opacity: 1;
-}
-
-.vol-slider {
-  width: 96px;
-  height: 4px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.vol-num {
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  min-width: 28px;
-  padding-right: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* No track */
-.no-track {
-  text-align: center;
-  padding: 20px;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-/* Add track */
-.add-notice {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.add-notice-join {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: space-between;
-}
-
-.btn-join {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.add-form {
-  display: flex;
-  gap: 8px;
-}
-
-.add-input {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
-  color: var(--text-primary);
-  padding: 9px 14px;
-  font-size: 0.9rem;
-  outline: none;
-  font-family: inherit;
-  transition:
-    border-color 0.2s,
-    background 0.2s;
-}
-.add-input:focus {
-  border-color: rgba(124, 111, 246, 0.55);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.add-error {
-  margin-top: 8px;
-  color: var(--danger);
-  font-size: 0.85rem;
-}
-
-/* Queue */
-.queue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 480px;
-  overflow-y: auto;
-}
-
-.queue-list::-webkit-scrollbar {
-  width: var(--sb-size);
-}
-.queue-list::-webkit-scrollbar-track {
-  background: var(--sb-track-color);
-  border-radius: 5px;
-}
-.queue-list::-webkit-scrollbar-thumb {
-  background: var(--sb-thumb-color);
-  border-radius: 5px;
-}
-
-.queue-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid transparent;
-  margin-right: 4px;
-  transition:
-    background 0.2s,
-    border-color 0.2s;
-}
-.queue-item:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.q-num {
-  width: 20px;
-  text-align: right;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  flex-shrink: 0;
-  margin-right: 4px;
-}
-
-.q-thumb {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.q-info {
-  flex: 1;
-  overflow: hidden;
-}
-
-.q-title {
-  font-size: 0.875rem;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-bottom: 2px;
-}
-
-.q-sub {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-.q-platform {
-  font-size: 0.9rem;
-  flex-shrink: 0;
-}
-
-.q-handle {
-  color: var(--text-muted);
-  cursor: grab;
-  opacity: 0.35;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 2px;
-  transition: opacity 0.15s;
-  user-select: none;
-}
-.queue-item:hover .q-handle {
-  opacity: 0.75;
-}
-.q-handle:active {
-  cursor: grabbing;
-}
-
-.queue-item.is-dragging {
-  opacity: 0.35;
-}
-
-.queue-item.drop-before {
-  border-top: 2px solid var(--accent);
-  margin-top: -1px;
-}
-.queue-item.drop-after {
-  border-bottom: 2px solid var(--accent);
-  margin-bottom: -1px;
-}
-
-.q-remove {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-.q-remove:hover {
-  background: rgba(248, 113, 113, 0.15);
-  color: var(--danger);
-}
-
-/* Stop confirm dialog */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-}
-
-.dialog {
-  background: rgba(12, 16, 36, 0.88);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 32px;
-  max-width: 360px;
-  width: 90%;
-  text-align: center;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.dialog p {
-  margin-bottom: 22px;
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-}
-
-.dialog-btns {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-</style>

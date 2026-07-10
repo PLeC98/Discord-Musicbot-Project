@@ -3,29 +3,11 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/strings");
+const { checkControl } = require("../src/permissions");
 
-const GENRES = ["pop", "rock", "hiphop", "electronic", "jazz", "classical", "metal", "country", "rnb", "indie", "kpop", "anime", "lofi", "blues", "disco", "punk", "ambient", "random"];
-
-const GENRE_LABELS = {
-  pop: "팝",
-  rock: "록",
-  hiphop: "힙합",
-  electronic: "일렉트로닉",
-  jazz: "재즈",
-  classical: "클래식",
-  metal: "메탈",
-  country: "컨트리",
-  rnb: "R&B",
-  indie: "인디",
-  kpop: "K-POP",
-  anime: "애니",
-  lofi: "로파이",
-  blues: "블루스",
-  disco: "디스코",
-  punk: "펑크",
-  ambient: "앰비언트",
-  random: "랜덤",
-};
+// 장르 정의는 config/genres.js 한 곳에서 관리
+const genres = require("../config/genres");
+const GENRE_IDS = Object.keys(genres);
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -38,20 +20,17 @@ module.exports = {
         .setDescription("Genre for autoplay recommendations (omit to toggle off if active)")
         .setDescriptionLocalizations({ ko: "자동재생 장르 (생략 시 토글, 꺼져 있으면 장르가 필요합니다)" })
         .setRequired(false)
-        .addChoices(...GENRES.map((g) => ({ name: g.charAt(0).toUpperCase() + g.slice(1), value: g }))),
+        .addChoices(...GENRE_IDS.map((g) => ({ name: g.charAt(0).toUpperCase() + g.slice(1), value: g }))),
     ),
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
 
-    if (!member.voice.channel) return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: [1 << 6] });
-
     const player = client.players.get(guild.id);
     if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
 
-    if (player.voiceChannel?.id !== member.voice.channel.id) return interaction.reply({ content: S.ERR_SAME_CHANNEL, flags: [1 << 6] });
-
-    if (!member.permissions.has("ManageGuild") && !member.roles.cache.some((r) => r.name.toLowerCase().includes("dj"))) return interaction.reply({ content: S.ERR_NOT_AUTHORIZED, flags: [1 << 6] });
+    const permErr = await checkControl(member);
+    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 
     const genre = interaction.options.getString("genre");
 
@@ -67,15 +46,24 @@ module.exports = {
     }
 
     if (!genre) {
-      const genreList = GENRES.map((g) => `\`${g}\``).join(", ");
+      const genreList = GENRE_IDS.map((g) => `\`${g}\``).join(", ");
       return interaction.reply({
         content: `자동재생이 꺼져 있습니다. \`/autoplay genre:<장르>\`로 활성화하세요.\n사용 가능한 장르: ${genreList}`,
         flags: [1 << 6],
       });
     }
 
+    // 알 수 없는 장르는 거부
+    if (!genres[genre]) {
+      const genreList = GENRE_IDS.map((g) => `\`${g}\``).join(", ");
+      return interaction.reply({
+        content: `❌ 알 수 없는 장르입니다: \`${genre}\`\n사용 가능한 장르: ${genreList}`,
+        flags: [1 << 6],
+      });
+    }
+
     player.autoplay = genre;
-    const genreName = GENRE_LABELS[genre] || genre;
+    const genreName = genres[genre].label;
 
     const embed = new EmbedBuilder()
       .setTitle("🎲 자동 재생이 활성화되었습니다")

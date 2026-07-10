@@ -1,67 +1,50 @@
-const { REST, Routes } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const config = require('../config');
+const { REST, Routes } = require("discord.js");
+const fs = require("fs");
+const path = require("path");
+const config = require("../config");
 
-// Load all command files
-const commands = [];
-const commandsPath = path.join(__dirname, '..', 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+// 모든 명령 파일을 읽어 SlashCommandBuilder JSON 배열로 변환.
+function loadCommandData() {
+  const commands = [];
+  const commandsPath = path.join(__dirname, "..", "commands");
+  const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js"));
 
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-
-    if ('data' in command && 'execute' in command) {
-        commands.push(command.data.toJSON());
-        console.log(`✅ Loaded command: ${command.data.name}`);
+  for (const file of commandFiles) {
+    const command = require(path.join(commandsPath, file));
+    if ("data" in command && "execute" in command) {
+      commands.push(command.data.toJSON());
+      console.log(`✅ Loaded command: ${command.data.name}`);
     } else {
-        console.log(`⚠️  Warning: ${file} is missing required "data" or "execute" property.`);
+      console.log(`⚠️  Warning: ${file} is missing required "data" or "execute" property.`);
     }
+  }
+  return commands;
 }
 
-// Construct and prepare an instance of the REST module
-const rest = new REST().setToken(config.discord.token);
+// 프로세스가 실행 시점에 가진 커맨드 집합(핸들러가 로드된 것과 동일). 이 배열을 그대로 등록한다.
+const commands = loadCommandData();
 
-// Deploy commands
-(async () => {
-    try {
-        console.log(`\n🚀 Started refreshing ${commands.length} application (/) commands.`);
+// 슬래시 커맨드를 Discord에 (재)배포하는 재사용 함수
+async function deployCommands() {
+  const scope = config.discord.guildId ? "guild" : "global";
+  try {
+    const rest = new REST().setToken(config.discord.token);
+    const route = config.discord.guildId ? Routes.applicationGuildCommands(config.discord.clientId, config.discord.guildId) : Routes.applicationCommands(config.discord.clientId);
+    const data = await rest.put(route, { body: commands });
+    return { ok: true, count: data.length, scope, guildId: config.discord.guildId || null, names: data.map((c) => c.name) };
+  } catch (error) {
+    return { ok: false, error, scope, guildId: config.discord.guildId || null };
+  }
+}
 
-        let data;
+// 배포 실패 로그 라인
+function deployErrorLines(result) {
+  const lines = [`❌ 커맨드 배포 실패 (${result.scope}): ${result.error?.message || result.error}`];
+  if (result.error?.code === 50001) {
+    lines.push('   → 봇이 대상 길드에 없거나 "applications.commands" 스코프로 초대되지 않았습니다.');
+    lines.push("   → .env의 GUILD_ID를 비우면 전역 배포로 전환됩니다.");
+  }
+  return lines;
+}
 
-        if (config.discord.guildId) {
-            // Deploy to specific guild (faster for testing)
-            data = await rest.put(
-                Routes.applicationGuildCommands(config.discord.clientId, config.discord.guildId),
-                { body: commands }
-            );
-            console.log(`✅ Successfully reloaded ${data.length} guild application (/) commands for guild ${config.discord.guildId}.`);
-        } else {
-            // Deploy globally (takes up to 1 hour to propagate)
-            data = await rest.put(
-                Routes.applicationCommands(config.discord.clientId),
-                { body: commands }
-            );
-            console.log(`✅ Successfully reloaded ${data.length} global application (/) commands.`);
-        }
-
-        console.log('\n📝 Deployed commands:');
-        data.forEach(command => {
-            console.log(`   • /${command.name} - ${command.description}`);
-        });
-
-    } catch (error) {
-        if (error.code === 50001) {
-            console.error('❌ Command deployment failed: Bot has no access to the target guild.');
-            console.error('   → Make sure the bot is in the server and was invited with the "applications.commands" scope.');
-            console.error('   → Use this invite URL format: https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot%20applications.commands');
-            console.error('   → Or remove GUILD_ID from .env to deploy commands globally instead.');
-        } else {
-            console.error('❌ Error deploying commands:', error);
-        }
-        // Don't call process.exit() here — let the bot client continue starting up
-    }
-})();
-
-module.exports = { commands };
+module.exports = { commands, deployCommands, loadCommandData, deployErrorLines };

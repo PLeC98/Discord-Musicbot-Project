@@ -1,4 +1,4 @@
-const { AudioPlayerStatus, createAudioPlayer, createAudioResource, VoiceConnectionStatus, joinVoiceChannel, entersState, StreamType } = require("@discordjs/voice");
+const { AudioPlayerStatus, createAudioPlayer, createAudioResource, StreamType } = require("@discordjs/voice");
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 function isBotOwnedStatus(s) {
@@ -8,43 +8,18 @@ function isBotOwnedStatus(s) {
   return [cfg.playingPrefix, cfg.pausedPrefix].some((p) => s.startsWith(p));
 }
 const config = require("../config");
-const YouTube = require("./YouTube");
-const Spotify = require("./Spotify");
-const SoundCloud = require("./SoundCloud");
-const DirectLink = require("./DirectLink");
 const ErrorHandler = require("./ErrorHandler");
-const PlayerStateManager = require("./PlayerStateManager");
+const TrackResolver = require("./TrackResolver");
+const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
+const VoiceConnectionManager = require("./VoiceConnectionManager");
+const TrackDownloader = require("./TrackDownloader");
+const SessionPersistence = require("./SessionPersistence");
 const prism = require("prism-media");
 const ffmpegPath = require("ffmpeg-static");
-const { promisify } = require("util");
-const chalk = require("chalk");
-const { pipeline, Readable } = require("stream");
-const pipelineAsync = promisify(pipeline);
-const fs = require("fs").promises;
+const { Readable } = require("stream");
 const fsSync = require("fs");
 const path = require("path");
-const crypto = require("crypto");
-
-// Cache directory for downloaded audio files
-const CACHE_DIR = path.join(__dirname, "..", "audio_cache");
-
-// Ensure cache directory exists
-if (!fsSync.existsSync(CACHE_DIR)) {
-  fsSync.mkdirSync(CACHE_DIR, { recursive: true });
-}
-
-let cachedFetch;
-async function ensureFetch() {
-  if (cachedFetch) return cachedFetch;
-  if (typeof global.fetch === "function") {
-    cachedFetch = global.fetch.bind(global);
-  } else {
-    const mod = await import("node-fetch");
-    cachedFetch = mod.default;
-  }
-  return cachedFetch;
-}
 
 class MusicPlayer {
   constructor(guild, textChannel, voiceChannel) {
@@ -52,95 +27,100 @@ class MusicPlayer {
     this.textChannel = textChannel;
     this.voiceChannel = voiceChannel;
 
-    // Audio player setup
+    // 오디오 플레이어 설정
     this.audioPlayer = createAudioPlayer();
     this.connection = null;
     this.resource = null;
 
-    // Queue management
+    // 대기열 관리
     this.queue = [];
     this.currentTrack = null;
     this.previousTracks = [];
 
-    // Player settings
+    // 플레이어 설정
     this.volume = config.bot.defaultVolume;
-    this.loop = false; // false, 'track', 'queue'
+    this.loop = false; // false, 'track', 'queue' 중 하나
     this.shuffle = false;
-    this.autoplay = false; // false or genre string: 'pop', 'rock', 'hiphop', etc.
+    this.autoplay = false; // false 또는 장르 문자열: 'pop', 'rock', 'hiphop' 등
     this.paused = false;
 
-    // Timestamps
+    // 타임스탬프
     this.startTime = null;
     this.pausedTime = 0;
 
-    // Filters
+    // 필터
     this.currentFilter = null;
 
-    // UI Management
+    // UI 관리
     this.nowPlayingMessage = null;
     this.requesterId = null;
 
-    // Session management - unique ID to prevent old button interactions
+    // 세션 관리 - 오래된 버튼 상호작용을 막기 위한 고유 ID
     this.sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-    // Preloading system - preload all queued tracks immediately
-    this.preloadedStreams = new Map(); // trackUrl -> streamInfo
-    this.preloadingQueue = []; // URLs being preloaded
+    // 사전 로드 시스템 - 대기열의 모든 트랙을 즉시 사전 로드
+    this.preloadedStreams = new Map(); // trackUrl -> streamInfo 매핑
+    this.preloadingQueue = []; // 사전 로드 중인 URL
 
-    // Voice connection recovery system
+    // 음성 연결 복구 시스템
     this.isRecovering = false;
     this.maxRecoveryAttempts = 5;
     this.recoveryAttempts = 0;
     this.recoveryInterval = null;
     this.connectionHealthCheck = null;
 
-    // Playback lifecycle state
+    // 재생 생명주기 상태
     this.trackTimer = null;
     this.isTransitioning = false;
     this.pendingEndReason = null;
     this.currentTrackRetries = 0;
     this.skipRequested = false;
     this.stopRequested = false;
-    this.nextFromFront = false; // force next track from queue front (jump-to/previous), bypassing shuffle
+    this.nextFromFront = false; // 셔플을 우회해 대기열 앞쪽에서 다음 트랙을 강제 선택 (이동/이전곡)
     this.expectedTrackEndTs = null;
     this.currentTrackCache = null;
     this.activeStreamInfo = null;
     this.lastPlaybackPosition = 0;
     this.currentTrackStartOffsetMs = 0;
 
-    // Voice channel status ownership
+    // 음성 채널 상태 소유권
     this._voiceStatusOwned = false;
 
-    // Persistence management
+    // 영속화 관리
     this.stateSyncInterval = null;
     this.stateSyncIntervalMs = 5000;
     this.stateSaveTimeout = null;
 
-    // Pause management
+    // 일시정지 관리
     this.pauseReasons = new Set();
 
-    // Inactivity timeout
+    // 비활성 타임아웃
     this.inactivityTimer = null;
     this.inactivityTimeoutMs = config.bot.leaveDelayAloneMs;
 
-    // Local file caching
-    this.currentDownloadedFile = null; // Path to currently playing downloaded file
-    this.downloadedFiles = new Set(); // Track all downloaded files for cleanup
-    this.downloadingFiles = new Set(); // Track files currently being downloaded to prevent duplicates
+    // 로컬 파일 캐싱
+    this.currentDownloadedFile = null; // 현재 재생 중인 다운로드 파일 경로
+    this.downloadedFiles = new Set(); // 정리를 위해 모든 다운로드 파일 추적
+    this.downloadingFiles = new Map(); // filepath -> 진행 중 다운로드 Promise (중복 방지 + 완료 대기, §2.5)
 
-    // Events setup
+    // 협력 모듈 — 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
+    this.voice = new VoiceConnectionManager(this);
+    this.downloader = new TrackDownloader(this);
+    this.persistence = new SessionPersistence(this);
+
+    // 이벤트 설정
     this.setupEvents();
   }
 
   setupEvents() {
-    // Audio player events
+    // 오디오 플레이어 이벤트
     this.audioPlayer.on(AudioPlayerStatus.Playing, () => {
-      // When resuming, adjust startTime to account for elapsed offset
+      // 재개 시 경과 오프셋을 반영해 startTime 조정
       if (this.paused && this.pausedTime > 0) {
-        // Resuming from pause - keep the accumulated pausedTime
+        // 일시정지에서 재개 - 누적 pausedTime 유지
         this.startTime = Date.now();
       } else if (!this.startTime) {
-        // First time playing - set start time accounting for any offset
+        // 첫 재생 - 오프셋을 반영해 시작 시간 설정
         this.startTime = Date.now();
       }
       this.paused = false;
@@ -168,325 +148,47 @@ class MusicPlayer {
     this.audioPlayer.on("error", (error) => {
       console.error("🎵 Audio player error:", error);
 
-      // If it's a stream error and we have a current track, try to recovery
+      // 스트림 오류이고 현재 트랙이 있으면 복구 시도
       if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
-        this.startConnectionRecovery();
+        this.voice.startConnectionRecovery();
       } else {
         this.handleError(error);
       }
     });
 
-    // Start connection health monitoring
-    this.startConnectionHealthCheck();
+    // 연결 상태 모니터링 시작
+    this.voice.startConnectionHealthCheck();
 
-    // Voice connection events will be set up in setupConnectionEvents()
-    this.setupConnectionEvents();
+    // 음성 연결 이벤트는 VoiceConnectionManager.setupConnectionEvents()에서 설정됨
+    this.voice.setupConnectionEvents();
   }
 
-  setupConnectionEvents() {
-    if (!this.connection) return;
+  // ── 음성 연결 — 로직은 VoiceConnectionManager, 상태 필드는 이 인스턴스에 유지 ──
 
-    this.connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
-      // Don't trigger recovery if we're already recovering or if user disconnected bot
-      if (this.isRecovering || newState.reason === "Manual disconnect") {
-        return;
-      }
-
-      // Try to auto-reconnect immediately for network disconnections
-      try {
-        await entersState(this.connection, VoiceConnectionStatus.Connecting, 5000);
-        // If we get here, Discord is trying to reconnect automatically
-        await entersState(this.connection, VoiceConnectionStatus.Ready, 10000);
-      } catch (error) {
-        // Auto-reconnect failed, start our recovery system if music is playing
-        if (this.currentTrack && !this.paused) {
-          this.startConnectionRecovery();
-        }
-      }
-    });
-
-    this.connection.on(VoiceConnectionStatus.Destroyed, () => {
-      // Only start recovery if we have music playing and we're not already recovering
-      if (this.currentTrack && !this.paused && !this.isRecovering) {
-        this.startConnectionRecovery();
-      }
-    });
-
-    this.connection.on("error", (error) => {
-      console.error("🚨 Voice connection error:", error);
-      if (this.currentTrack && !this.paused) {
-        this.startConnectionRecovery();
-      }
-    });
-
-    // Monitor connection status changes
-    this.connection.on("stateChange", (oldState, newState) => {
-      if (newState.status === VoiceConnectionStatus.Ready) {
-        // Connection recovered successfully
-        if (this.isRecovering) {
-          this.stopConnectionRecovery();
-        }
-        this.recoveryAttempts = 0;
-      }
-    });
+  connect() {
+    return this.voice.connect();
   }
 
-  startConnectionHealthCheck() {
-    // Check connection health every 30 seconds
-    this.connectionHealthCheck = setInterval(async () => {
-      try {
-        // Check connection health
-        if (!this.connection || this.connection.state.status === VoiceConnectionStatus.Destroyed) {
-          if (this.currentTrack && !this.paused && !this.isRecovering) {
-            this.startConnectionRecovery();
-          }
-        }
-
-        // Check if voice channel still exists
-        const channelId = this.voiceChannel?.id;
-        const channel = channelId ? this.guild.channels.cache.get(channelId) : null;
-        if (!channel) {
-          // Remove from the client registry too — leaving a cleaned-up player
-          // in the map produces a "ghost" that blocks all music commands
-          // for this guild until restart
-          this.cleanup();
-          const clientInstance = this.guild?.client;
-          if (clientInstance?.players?.get(this.guild.id) === this) {
-            clientInstance.players.delete(this.guild.id);
-          }
-          return;
-        }
-      } catch (error) {
-        console.error("❌ Health check error:", error);
-      }
-    }, 30000);
-  }
-
-  async startConnectionRecovery() {
-    if (this.isRecovering) return;
-
-    this.isRecovering = true;
-    this.recoveryAttempts = 0;
-
-    // Save current playback position
-    this.savePlaybackPosition();
-
-    // Start recovery attempts
-    this.recoveryInterval = setInterval(async () => {
-      this.recoveryAttempts++;
-      if (this.recoveryAttempts > this.maxRecoveryAttempts) {
-        this.stopConnectionRecovery();
-        return;
-      }
-
-      try {
-        // Check if voice channel still exists and bot is still in it
-        const channel = this.guild.channels.cache.get(this.voiceChannel.id);
-        if (!channel) {
-          this.stopConnectionRecovery();
-          return;
-        }
-
-        // Try to reconnect
-        const reconnected = await this.forceReconnect();
-
-        if (reconnected) {
-          // Resume playback from where we left off
-          await this.resumePlaybackAfterRecovery();
-          this.stopConnectionRecovery();
-        }
-      } catch (error) {
-        console.error(`❌ Recovery attempt ${this.recoveryAttempts} failed:`, error);
-      }
-    }, 3000); // Try every 3 seconds
-  }
-
-  stopConnectionRecovery() {
-    if (this.recoveryInterval) {
-      clearInterval(this.recoveryInterval);
-      this.recoveryInterval = null;
-    }
-    this.isRecovering = false;
-    this.recoveryAttempts = 0;
-  }
-
-  savePlaybackPosition() {
-    if (this.startTime && !this.paused) {
-      const elapsedMs = Date.now() - this.startTime + this.pausedTime;
-      const totalMs = this.currentTrackStartOffsetMs + elapsedMs;
-      this.lastPlaybackPosition = totalMs;
-    }
-  }
-
-  async forceReconnect() {
-    try {
-      // Destroy old connection
-      if (this.connection) {
-        this.connection.destroy();
-      }
-
-      // Create new connection
-      this.connection = joinVoiceChannel({
-        channelId: this.voiceChannel.id,
-        guildId: this.guild.id,
-        adapterCreator: this.guild.voiceAdapterCreator,
-      });
-
-      // Set up events for new connection
-      this.setupConnectionEvents();
-
-      // Subscribe audio player
-      this.connection.subscribe(this.audioPlayer);
-
-      // Wait for connection to be ready
-      await entersState(this.connection, VoiceConnectionStatus.Ready, 15000);
-      return true;
-    } catch (error) {
-      console.error("❌ Force reconnect failed:", error);
-      return false;
-    }
-  }
-
-  async resumePlaybackAfterRecovery() {
-    if (!this.currentTrack) return;
-
-    try {
-      const resumeMs = this.resource ? this.currentTrackStartOffsetMs + (this.resource.playbackDuration || 0) : this.lastPlaybackPosition || 0;
-      await this.play(null, resumeMs);
-    } catch (error) {
-      console.error("❌ Failed to resume playback:", error);
-      // Try to continue with next track
-      await this.handleTrackEnd("error");
-    }
-  }
-
-  async connect() {
-    try {
-      // Wait for guild's WebSocket to be ready (critical for sharding)
-      if (!this.guild.voiceAdapterCreator) {
-        // Wait up to 10 seconds for the adapter to become available
-        const maxWait = 10000;
-        const startTime = Date.now();
-
-        while (!this.guild.voiceAdapterCreator && Date.now() - startTime < maxWait) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          // Try to fetch the guild again to refresh its state
-          if (this.guild.client) {
-            try {
-              const freshGuild = await this.guild.client.guilds.fetch(this.guild.id);
-              if (freshGuild && freshGuild.voiceAdapterCreator) {
-                // Update our guild reference
-                Object.assign(this.guild, freshGuild);
-                break;
-              }
-            } catch (e) {
-              // Ignore fetch errors
-            }
-          }
-        }
-
-        if (!this.guild.voiceAdapterCreator) {
-          throw new Error("Guild voice adapter not ready after waiting");
-        }
-      }
-
-      this.connection = joinVoiceChannel({
-        channelId: this.voiceChannel.id,
-        guildId: this.guild.id,
-        adapterCreator: this.guild.voiceAdapterCreator,
-      });
-
-      // Set up connection events
-      this.setupConnectionEvents();
-
-      this.connection.subscribe(this.audioPlayer);
-
-      // Wait for connection to be ready
-      await entersState(this.connection, VoiceConnectionStatus.Ready, 30000);
-      return true;
-    } catch (error) {
-      console.error("❌ Failed to connect to voice channel:", error.message);
-      throw error; // Re-throw so restoreFromState can handle it
-    }
-  }
-
-  async moveToChannel(newChannel) {
-    if (!newChannel) return false;
-
-    this.voiceChannel = newChannel;
-
-    if (this.connection) {
-      try {
-        this.connection.rejoin({
-          channelId: newChannel.id,
-          selfDeaf: false,
-          selfMute: false,
-        });
-
-        await entersState(this.connection, VoiceConnectionStatus.Ready, 15000);
-        return true;
-      } catch (error) {
-        console.error("❌ Failed to rejoin new voice channel:", error);
-        try {
-          this.connection.destroy();
-        } catch (destroyError) {
-          console.error("❌ Error destroying old connection:", destroyError);
-        }
-        this.connection = null;
-      }
-    }
-
-    return await this.connect();
+  moveToChannel(newChannel) {
+    return this.voice.moveToChannel(newChannel);
   }
 
   disconnect() {
-    if (this.connection && this.connection.state && this.connection.state.status !== "destroyed") {
-      try {
-        this.connection.destroy();
-      } catch (error) {}
-    }
-    this.connection = null;
+    return this.voice.disconnect();
   }
 
-  async addTrack(query, requestedBy, platform = "auto") {
+  async addTrack(query, requestedBy) {
     try {
-      let tracks = [];
-
-      // Determine platform and get track info
-      if (platform === "auto") {
-        platform = this.detectPlatform(query);
+      // 해석(플랫폼 감지·캐시 숏컷 포함)은 TrackResolver 한 곳에서 — /play와 동일 경로
+      const resolved = await TrackResolver.resolveQuery(query, this.guild.id, "MusicPlayer.addTrack");
+      if (!resolved.success) {
+        return { success: false, message: resolved.message || "결과를 찾을 수 없습니다!" };
       }
+      const tracks = resolved.tracks;
 
-      switch (platform) {
-        case "youtube":
-          tracks = await YouTube.search(query, 1, this.guild.id);
-          break;
-        case "spotify":
-          // Check if it's a Spotify URL for consistency
-          if (Spotify.isSpotifyURL(query)) {
-            tracks = await Spotify.getFromURL(query, this.guild.id);
-          } else {
-            tracks = await Spotify.search(query, 1, "track", this.guild.id);
-          }
-          break;
-        case "soundcloud":
-          tracks = await SoundCloud.search(query, 1, this.guild.id);
-          break;
-        case "direct":
-          tracks = await DirectLink.getInfo(query);
-          break;
-        default:
-          // Default to YouTube search
-          tracks = await YouTube.search(query, 1, this.guild.id);
-      }
-
-      if (!tracks || tracks.length === 0) {
-        return { success: false, message: "결과를 찾을 수 없습니다!" };
-      }
-
-      // Add tracks to queue
+      // 트랙을 대기열에 추가
       const addedTracks = [];
-      const wasIdle = !this.currentTrack; // Remember state BEFORE modification
+      const wasIdle = !this.currentTrack; // 수정 전 상태 기억
 
       for (const track of tracks.slice(0, config.bot.maxPlaylistSize)) {
         track.requestedBy = requestedBy;
@@ -500,10 +202,10 @@ class MusicPlayer {
         addedTracks.push(track);
       }
 
-      // Sequentially preload the next few tracks (parallel would rate-limit YouTube)
+      // 다음 몇 곡을 순차적으로 사전 로드 (병렬 처리 시 YouTube 속도 제한 가능)
       const PRELOAD_AHEAD = 5;
       const toPreload = addedTracks
-        .filter((t, i) => !(wasIdle && i === 0)) // skip track about to play immediately
+        .filter((t, i) => !(wasIdle && i === 0)) // 곧바로 재생할 트랙은 건너뜀
         .slice(0, PRELOAD_AHEAD);
 
       (async () => {
@@ -518,15 +220,15 @@ class MusicPlayer {
         }
       })();
 
-      // Auto-play if not currently playing
+      // 현재 재생 중이 아니면 자동 재생
       if (wasIdle) {
-        // Player was idle, start playing the first added track from beginning
+        // 플레이어가 유휴 상태였으므로 처음 추가된 트랙을 처음부터 재생
         if (addedTracks.length > 0) {
           this.currentTrack = addedTracks[0];
           await this.play(null, 0);
         }
       } else if (this.audioPlayer.state && this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-        // Player exists but is idle (finished playing) - start next from queue
+        // 플레이어는 있지만 유휴 상태(재생 완료) - 대기열의 다음 곡 시작
         await this.play(null, 0);
       }
 
@@ -544,178 +246,15 @@ class MusicPlayer {
     }
   }
 
-  /**
-   * Downloads audio stream to a local file
-   * Works with YouTube, Spotify, SoundCloud, and DirectLink
-   */
-  async downloadTrack(track, streamUrl, streamInfo) {
-    // Derive file path from audioSourceKey (shared cache across entry platforms)
-    const audioSourceKey = track.audioSourceKey;
-    const filepath = audioSourceKey ? CacheManager.getFilePath(audioSourceKey) : path.join(CACHE_DIR, `track_${crypto.createHash("md5").update(track.url).digest("hex")}.opus`);
+  // ── 다운로드/사전 로드 — 로직은 TrackDownloader ──────────────────────────
 
-    try {
-      // Check if already downloaded (cache hit)
-      if (fsSync.existsSync(filepath)) {
-        const stats = await fs.stat(filepath);
-        if (stats.size > 0) {
-          this.downloadedFiles.add(filepath);
-          this.scheduleStatePersist("download-cache-hit", 500);
-          return filepath;
-        }
-      }
-
-      // Check if already downloading - wait for it to complete
-      if (this.downloadingFiles.has(filepath)) {
-        // Wait for the file to be downloaded (max 60 seconds)
-        for (let i = 0; i < 60; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          if (fsSync.existsSync(filepath)) {
-            const stats = await fs.stat(filepath);
-            if (stats.size > 0) {
-              this.downloadedFiles.add(filepath);
-              this.scheduleStatePersist("download-wait-complete", 500);
-              return filepath;
-            }
-          }
-        }
-
-        this.downloadingFiles.delete(filepath);
-        throw new Error("Download timeout - file not ready after 60 seconds");
-      }
-
-      // Mark as downloading
-      this.downloadingFiles.add(filepath);
-      if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
-
-      // For Spotify and SoundCloud - we need to use the YouTube URL
-      // These platforms have DRM protection and can't be downloaded directly
-      let downloadUrl = track.url;
-
-      if (track.platform === "spotify" || track.platform === "soundcloud") {
-        // For Spotify/SoundCloud, we must use the YouTube equivalent
-        if (track.youtubeUrl) {
-          downloadUrl = track.youtubeUrl;
-        } else {
-          // Search YouTube and use that URL
-          const YouTube = require("./YouTube");
-          const query = track.platform === "spotify" ? `${track.title} ${track.artist}` : track.title;
-
-          const results = await YouTube.search(query, 1, this.guild?.id);
-          if (results && results.length > 0) {
-            downloadUrl = results[0].url;
-            track.youtubeUrl = downloadUrl; // Cache for future
-          } else {
-            this.downloadingFiles.delete(filepath);
-            throw new Error("Could not find YouTube equivalent");
-          }
-        }
-      }
-
-      // For YouTube, Spotify (via YouTube), SoundCloud (via YouTube) - use youtube-dl-exec
-      if (track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
-        const youtubedl = require("youtube-dl-exec");
-
-        await youtubedl(
-          downloadUrl,
-          YouTube.getYtDlpOptions({
-            output: filepath,
-            format: "bestaudio/best",
-            preferFreeFormats: true,
-            postprocessorArgs: {
-              ffmpeg: ["-c:a", "libopus", "-b:a", "128k"],
-            },
-            extractAudio: true,
-            audioFormat: "opus",
-          }),
-        );
-      } else {
-        // For DirectLink - fetch and transcode with FFmpeg
-        const fetch = await ensureFetch();
-        const response = await fetch(streamUrl, {
-          headers: streamInfo?.httpHeaders || {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          },
-        });
-
-        if (!response.ok) {
-          this.downloadingFiles.delete(filepath);
-          throw new Error(`Failed to fetch: ${response.status}`);
-        }
-
-        let audioStream;
-        if (typeof response.body?.getReader === "function" && typeof Readable.fromWeb === "function") {
-          audioStream = Readable.fromWeb(response.body);
-        } else {
-          audioStream = response.body;
-        }
-
-        // Transcode to opus
-        const ffmpegProcess = new prism.FFmpeg({
-          command: ffmpegPath,
-          args: ["-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", filepath],
-        });
-
-        audioStream.pipe(ffmpegProcess);
-
-        await new Promise((resolve, reject) => {
-          ffmpegProcess.on("close", (code) => {
-            if (code === 0) resolve();
-            else reject(new Error(`FFmpeg exited with code ${code}`));
-          });
-          ffmpegProcess.on("error", reject);
-        });
-      }
-
-      // Verify file
-      const stats = await fs.stat(filepath);
-      if (stats.size === 0) {
-        await fs.unlink(filepath).catch(() => {});
-        this.downloadingFiles.delete(filepath);
-        throw new Error("Downloaded file is empty");
-      }
-
-      this.downloadedFiles.add(filepath);
-      this.downloadingFiles.delete(filepath);
-      // Persist completed download to DB
-      if (audioSourceKey) {
-        try {
-          const _finalSt = fsSync.statSync(filepath);
-          CacheManager.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track);
-          CacheManager.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail);
-        } catch {
-          /* ignore */
-        }
-      }
-      this.scheduleStatePersist("download-complete", 500);
-      return filepath;
-    } catch (error) {
-      this.downloadingFiles.delete(filepath);
-      console.error(`❌ Download failed for ${track.title}:`, error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Deletes a downloaded audio file
-   */
-  async deleteDownloadedFile(filepath) {
-    if (!filepath) return;
-
-    try {
-      await fs.unlink(filepath);
-      this.downloadedFiles.delete(filepath);
-      this.scheduleStatePersist("download-removed", 500);
-    } catch (error) {
-      if (error.code !== "ENOENT") {
-        console.error(`❌ Failed to delete file ${filepath}:`, error.message);
-      }
-    }
+  preloadTrack(track) {
+    return this.downloader.preloadTrack(track);
   }
 
   async play(trackIndex = null, seekMs = 0) {
     try {
-      // If no current track, get from queue
+      // 현재 트랙이 없으면 대기열에서 가져오기
       if (!this.currentTrack) {
         if (this.queue.length === 0) {
           return { success: false, message: "대기열에 트랙이 없습니다!" };
@@ -723,12 +262,12 @@ class MusicPlayer {
         this.currentTrack = this.queue.shift();
       }
 
-      // If specific track requested
+      // 특정 트랙이 요청된 경우
       if (trackIndex !== null && this.queue[trackIndex]) {
         this.currentTrack = this.queue.splice(trackIndex, 1)[0];
       }
 
-      // Connect to voice channel if not connected
+      // 연결되어 있지 않으면 음성 채널에 연결
       if (!this.connection) {
         const connected = await this.connect();
         if (!connected) {
@@ -736,7 +275,7 @@ class MusicPlayer {
         }
       }
 
-      // Reset lifecycle flags for new playback
+      // 새 재생을 위해 생명주기 플래그 재설정
       this.pendingEndReason = null;
       this.skipRequested = false;
       this.stopRequested = false;
@@ -745,27 +284,15 @@ class MusicPlayer {
       this.currentTrackStartOffsetMs = resumeFromMs;
       this.lastPlaybackPosition = resumeFromMs;
       this.pausedTime = 0;
-      this.startTime = null; // Will be set when Playing event fires
+      this.startTime = null; // Playing 이벤트 발생 시 설정됨
 
-      // Get audio stream - check preloaded first!
-      let streamUrl = this.currentTrack.url;
+      // 오디오 스트림 가져오기 - 사전 로드된 항목 먼저 확인
       let streamInfo;
 
-      // Resolve audioSourceKey early (enables file lookup before any yt-dlp calls)
-      if (!this.currentTrack.audioSourceKey) {
-        const _plat = this.currentTrack.platform;
-        if (_plat === "youtube") {
-          const _vid = this.currentTrack.id || YouTube.extractVideoId(this.currentTrack.url);
-          if (_vid) this.currentTrack.audioSourceKey = `yt:${_vid}`;
-        } else if (_plat === "soundcloud" && this.currentTrack.id) {
-          this.currentTrack.audioSourceKey = `sc:${this.currentTrack.id}`;
-        } else if (_plat === "direct") {
-          this.currentTrack.audioSourceKey = `dl:${CacheManager.md5(this.currentTrack.url)}`;
-        }
-        // spotify: resolved later after YouTube search
-      }
+      // audioSourceKey를 미리 해석 (yt-dlp 호출 전 파일 조회 가능; spotify는 YouTube 검색 후 해석)
+      TrackResolver.ensureAudioSourceKey(this.currentTrack);
 
-      // Early file check — skip yt-dlp calls entirely if file is already cached
+      // 조기 파일 확인 — 파일이 이미 캐시되어 있으면 yt-dlp 호출을 전부 건너뜀
       let downloadedFile;
       let shouldDownload = false;
 
@@ -783,7 +310,7 @@ class MusicPlayer {
         }
       }
 
-      // Try to reuse cache when resuming
+      // 재개 시 캐시 재사용 시도
       if (resumeFromMs > 0) {
         const cached = this.getCachedStreamForCurrentTrack(resumeFromSeconds);
         if (cached) {
@@ -791,70 +318,35 @@ class MusicPlayer {
         }
       }
 
-      // Check if stream is already preloaded (only for fresh playback)
+      // 스트림이 이미 사전 로드되었는지 확인 (새 재생일 때만)
       const preloaded = !streamInfo && resumeFromMs === 0 ? this.preloadedStreams.get(this.currentTrack.url) : null;
       if (!streamInfo && preloaded) {
         streamInfo = preloaded.info;
-        // Remove from cache since we're using it
+        // 사용 중이므로 캐시에서 제거
         this.preloadedStreams.delete(this.currentTrack.url);
       }
 
       if (!streamInfo && !downloadedFile) {
-        // Get stream normally
-        switch (this.currentTrack.platform) {
-          case "youtube":
-            streamInfo = await YouTube.getStream(streamUrl, this.guild.id, resumeFromSeconds);
-            break;
-
-          case "spotify":
-            // Enhanced YouTube search for Spotify tracks
-            const searchQueries = [`"${this.currentTrack.title}" "${this.currentTrack.artist}"`, `${this.currentTrack.title} ${this.currentTrack.artist}`, `${this.currentTrack.title}`];
-
-            let ytTrack = null;
-            for (const query of searchQueries) {
-              try {
-                const results = await YouTube.search(query, 3, this.guild.id);
-                if (results && results.length > 0) {
-                  ytTrack = results.find((r) => r.title.toLowerCase().includes("official") || r.title.toLowerCase().includes(this.currentTrack.title.toLowerCase())) || results[0];
-                  if (ytTrack) break;
-                }
-              } catch (e) {}
+        // spotify는 YouTube 동등물을 먼저 확보 — 검색으로 audioSourceKey가 정해지므로
+        // 캐시 파일을 한 번 더 확인해 있으면 스트림 획득을 통째로 건너뜀
+        if (this.currentTrack.platform === "spotify") {
+          const ytUrl = await TrackResolver.findYouTubeEquivalent(this.currentTrack, this.guild.id);
+          if (!ytUrl) {
+            throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
+          }
+          if (this.currentTrack.audioSourceKey) {
+            const _spotPath = CacheManager.getFilePath(this.currentTrack.audioSourceKey);
+            if (fsSync.existsSync(_spotPath) && fsSync.statSync(_spotPath).size > 0) {
+              downloadedFile = _spotPath;
+              this.downloadedFiles.add(_spotPath);
+              this.currentDownloadedFile = _spotPath;
             }
+          }
+        }
 
-            if (ytTrack && ytTrack.url) {
-              streamUrl = ytTrack.url;
-              this.currentTrack.youtubeUrl = streamUrl;
-              this.currentTrack.youtubeTitle = ytTrack.title;
-
-              // Set audioSourceKey and check for cached file before calling getStream
-              const _ytVid = YouTube.extractVideoId(streamUrl);
-              if (_ytVid) {
-                this.currentTrack.audioSourceKey = `yt:${_ytVid}`;
-                const _spotPath = CacheManager.getFilePath(this.currentTrack.audioSourceKey);
-                if (fsSync.existsSync(_spotPath) && fsSync.statSync(_spotPath).size > 0) {
-                  downloadedFile = _spotPath;
-                  this.downloadedFiles.add(_spotPath);
-                  this.currentDownloadedFile = _spotPath;
-                  break; // Skip getStream call
-                }
-              }
-
-              streamInfo = await YouTube.getStream(streamUrl, this.guild.id, resumeFromSeconds);
-            } else {
-              throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
-            }
-            break;
-
-          case "soundcloud":
-            streamInfo = await SoundCloud.getStream(streamUrl, this.guild.id, resumeFromSeconds);
-            break;
-
-          case "direct":
-            streamInfo = await DirectLink.getStream(streamUrl, resumeFromSeconds);
-            break;
-
-          default:
-            throw new Error(`지원되지 않는 플랫폼: ${this.currentTrack.platform}`);
+        // 일반 방식으로 스트림 가져오기 (플랫폼 스위치는 TrackResolver 한 곳에서)
+        if (!downloadedFile) {
+          streamInfo = await TrackResolver.getStream(this.currentTrack, this.guild.id, resumeFromSeconds);
         }
       }
 
@@ -862,7 +354,7 @@ class MusicPlayer {
         throw new Error("오디오 스트림 가져오기 실패");
       }
 
-      // Handle both old (string) and new (object) stream formats
+      // 기존(string) 및 신규(object) 스트림 형식을 모두 처리
       let streamUrl_final;
 
       if (typeof streamInfo === "string") {
@@ -877,21 +369,22 @@ class MusicPlayer {
         streamUrl_final = streamInfo;
       }
 
-      // Flag: download needed if we have a stream but no cached file
+      // 플래그: 스트림은 있지만 캐시 파일이 없으면 다운로드 필요
       if (!downloadedFile) shouldDownload = true;
 
-      // If we need to download, start streaming immediately while downloading in background
+      // 다운로드가 필요하면 백그라운드 다운로드와 동시에 즉시 스트리밍 시작
       if (shouldDownload) {
-        // Start download in background (don't await)
-        const filepath = this.currentTrack.audioSourceKey ? CacheManager.getFilePath(this.currentTrack.audioSourceKey) : path.join(CACHE_DIR, `track_${crypto.createHash("md5").update(this.currentTrack.url).digest("hex")}.opus`);
+        // 백그라운드에서 다운로드 시작 (await하지 않음)
+        const filepath = this.downloader.trackFilePath(this.currentTrack);
 
-        // Store track reference for background download (currentTrack might change)
+        // 백그라운드 다운로드용 트랙 참조 저장 (currentTrack이 바뀔 수 있음)
         const trackToDownload = this.currentTrack;
 
-        // Download in background
-        this.downloadTrack(trackToDownload, streamUrl_final, streamInfo)
+        // 백그라운드에서 다운로드
+        this.downloader
+          .downloadTrack(trackToDownload)
           .then((file) => {
-            // Only update if we're still on the same track
+            // 여전히 같은 트랙일 때만 갱신
             if (this.currentTrack && this.currentTrack.url === trackToDownload.url) {
               this.currentDownloadedFile = file;
             }
@@ -902,33 +395,40 @@ class MusicPlayer {
             }
           });
 
-        // Stream directly for immediate playback
+        // 즉시 재생을 위해 직접 스트리밍
         let audioStream;
         if (typeof streamInfo === "object" && streamInfo.stream) {
           audioStream = streamInfo.stream;
         } else if (typeof streamUrl_final === "string") {
-          const fetch = await ensureFetch();
-
           try {
-            const response = await fetch(streamUrl_final, {
-              headers: streamInfo?.httpHeaders || {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              },
-            });
+            if (this.currentTrack.platform === "direct") {
+              // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
+              audioStream = await DirectLink.getStream(streamUrl_final, this.guild.id);
+            } else {
+              const response = await fetch(streamUrl_final, {
+                headers: streamInfo?.httpHeaders || {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                },
+              });
 
-            if (!response.ok) throw new Error(`Failed to fetch stream: ${response.status}`);
+              if (!response.ok) throw new Error(`Failed to fetch stream: ${response.status}`);
 
-            audioStream = typeof response.body?.getReader === "function" && typeof Readable.fromWeb === "function" ? Readable.fromWeb(response.body) : response.body;
+              audioStream = typeof response.body?.getReader === "function" && typeof Readable.fromWeb === "function" ? Readable.fromWeb(response.body) : response.body;
+            }
           } catch (fetchError) {
-            // Wait for download to complete
-            for (let i = 0; i < 30; i++) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              if (fsSync.existsSync(filepath)) {
-                const stats = fsSync.statSync(filepath);
-                if (stats.size > 0) {
-                  shouldDownload = false; // Switch to file mode
-                  downloadedFile = filepath;
-                  break;
+            // 스트리밍 실패 — 위에서 시작한 백그라운드 다운로드로 폴백 (§2.5: 폴링 대신 promise 대기)
+            if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
+              // 이미 완료됨
+              shouldDownload = false; // 파일 모드로 전환
+              downloadedFile = filepath;
+            } else {
+              const inFlight = this.downloadingFiles.get(filepath);
+              if (inFlight) {
+                try {
+                  downloadedFile = await inFlight;
+                  shouldDownload = false; // 파일 모드로 전환
+                } catch {
+                  /* 다운로드도 실패 — 아래에서 원래 스트리밍 오류를 던짐 */
                 }
               }
             }
@@ -939,17 +439,17 @@ class MusicPlayer {
           audioStream = streamUrl_final;
         }
 
-        // If streaming failed and we got a downloaded file, skip to file playback
+        // 스트리밍에 실패했고 다운로드 파일이 있으면 파일 재생으로 건너뜀
         if (!audioStream && downloadedFile) {
-          shouldDownload = false; // Fall through to file playback
+          shouldDownload = false; // 파일 재생으로 이어서 진행
         } else if (audioStream) {
-          // Create FFmpeg process for streaming
+          // 스트리밍용 FFmpeg 프로세스 생성
           const seekArgs = resumeFromMs > 0 ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
 
           const ffmpegProcess = new prism.FFmpeg({
             command: ffmpegPath,
             args: [
-              ...seekArgs, // Add seek if resuming
+              ...seekArgs, // 재개 중이면 seek 추가
               "-analyzeduration",
               "0",
               "-loglevel",
@@ -970,16 +470,12 @@ class MusicPlayer {
             console.error("❌ FFmpeg streaming error:", err.message);
           });
 
-          // Without this, ECONNRESET from the CDN mid-stream would bubble up
-          // as an uncaughtException. The AudioPlayer going Idle already triggers
-          // cache-based recovery, so we just need to absorb the error here.
+          // 이것이 없으면 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 될 수 있음. AudioPlayer가 Idle로 전환되면 이미 캐시 기반 복구가 트리거되므로 여기서는 오류를 흡수하기만 하면 됨.
           audioStream.on("error", (err) => {
             console.warn(`⚠️ Audio stream dropped (${err.code || err.message}), recovering from cache...`);
           });
 
-          // ffmpegProcess is destroyed by @discordjs/voice pipeline cascade when the resource
-          // is replaced or stopped. audioStream sits outside that pipeline (connected via .pipe()),
-          // so it won't be destroyed automatically — close the HTTP connection explicitly.
+          // 리소스가 교체되거나 중지될 때 ffmpegProcess는 @discordjs/voice 파이프라인 연쇄 처리로 제거됨. audioStream은 그 파이프라인 밖에 있으므로(.pipe()로 연결), 자동으로 제거되지 않음 — HTTP 연결을 명시적으로 닫음.
           ffmpegProcess.once("close", () => audioStream.destroy());
 
           audioStream.pipe(ffmpegProcess);
@@ -997,7 +493,7 @@ class MusicPlayer {
         }
       }
 
-      // File playback mode (either pre-downloaded or fallback from streaming)
+      // 파일 재생 모드 (사전 다운로드 또는 스트리밍 폴백)
       if (!shouldDownload && downloadedFile) {
         console.log(`🎵 Playing from cached file: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
 
@@ -1006,7 +502,7 @@ class MusicPlayer {
         const ffmpegProcess = new prism.FFmpeg({
           command: ffmpegPath,
           args: [
-            ...seekArgs, // Add seek BEFORE input for faster seeking
+            ...seekArgs, // 더 빠른 탐색을 위해 입력 전에 seek 추가
             "-i",
             downloadedFile,
             "-analyzeduration",
@@ -1039,32 +535,32 @@ class MusicPlayer {
         });
       }
 
-      // Ensure we have a resource
+      // 리소스가 있는지 확인
       if (!this.resource) {
         throw new Error("Failed to create audio resource");
       }
 
-      // Set volume
+      // 볼륨 설정
       if (this.resource.volume) {
         this.resource.volume.setVolume(this.volume / 100);
       }
 
-      // Update track duration from stream info if available
+      // 가능하면 스트림 정보에서 트랙 길이 갱신
       if (streamInfo && streamInfo.duration && streamInfo.duration > 0) {
         this.currentTrack.duration = streamInfo.duration;
       }
 
       console.log(`▶️  Playing: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
 
-      // Protect current track from eviction while it is playing
+      // 재생 중인 현재 트랙을 제거 대상에서 보호
       if (this.currentTrack.audioSourceKey) {
         CacheManager.protect(this.currentTrack.audioSourceKey);
       }
 
-      // Play the resource
+      // 리소스 재생
       this.audioPlayer.play(this.resource);
 
-      // Record playback stats and source URL → audioSourceKey mapping in DB
+      // 재생 통계와 소스 URL → audioSourceKey 매핑을 DB에 기록
       if (this.currentTrack.audioSourceKey) {
         CacheManager.recordPlayback(this.currentTrack.audioSourceKey);
         CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail);
@@ -1075,8 +571,8 @@ class MusicPlayer {
         this.audioPlayer.pause();
       }
 
-      // Store active stream info for quick resume
-      // NOTE: typeof null === 'object' is true in JS — use null-safe guard
+      // 빠른 재개를 위해 활성 스트림 정보 저장
+      // 참고: JS에서 typeof null === 'object'는 true — null 안전 가드 사용
       const baseSourceUrl = streamInfo && typeof streamInfo === "object" ? streamInfo.rawUrl || streamInfo.url || (typeof streamUrl_final === "string" ? streamUrl_final : null) : streamUrl_final;
 
       this.activeStreamInfo = {
@@ -1088,10 +584,10 @@ class MusicPlayer {
         info: streamInfo && typeof streamInfo === "object" ? streamInfo : { url: streamUrl_final },
       };
 
-      // Cache current stream for future resume attempts
+      // 이후 재개 시도를 위해 현재 스트림 캐시
       this.currentTrackCache = this.activeStreamInfo;
 
-      // Schedule watchdog to ensure proper completion and prevent premature transitions
+      // 정상 완료를 보장하고 성급한 전환을 막기 위해 워치독 예약
       this.scheduleTrackWatchdog(streamInfo);
 
       this.startStateSync();
@@ -1115,18 +611,18 @@ class MusicPlayer {
     const durationSeconds = streamDuration || trackDuration;
 
     if (durationSeconds && durationSeconds > 0) {
-      // Calculate remaining time considering the start offset (in seconds)
+      // 시작 오프셋을 고려해 남은 시간 계산 (초)
       const startOffsetSeconds = Math.floor((this.currentTrackStartOffsetMs || 0) / 1000);
       const remainingSeconds = Math.max(1, durationSeconds - startOffsetSeconds);
 
       this.expectedTrackEndTs = Date.now() + remainingSeconds * 1000;
-      // Add 4 seconds buffer, but ensure minimum 5 seconds timeout
+      // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
       console.log(`🕒 Track watchdog: ${remainingSeconds}s remaining (${durationSeconds}s total, ${startOffsetSeconds}s offset)`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
-      // Fallback watchdog: check every 5 minutes for streams without known duration
+      // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
       this.expectedTrackEndTs = null;
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 5 * 60 * 1000);
     }
@@ -1163,7 +659,7 @@ class MusicPlayer {
 
     const isYouTubeStream = /googlevideo\.com/i.test(url);
     if (!isYouTubeStream) {
-      // TODO: add support for other providers when available
+      // TODO: 가능해지면 다른 제공자 지원 추가
       return null;
     }
 
@@ -1190,7 +686,7 @@ class MusicPlayer {
         return;
       }
 
-      // Gracefully stop to emit Idle and let lifecycle handler run
+      // Idle을 발생시키고 생명주기 핸들러가 실행되도록 정상 중지
       if (!this.pendingEndReason) {
         this.pendingEndReason = "watchdog";
       }
@@ -1200,19 +696,19 @@ class MusicPlayer {
     }
 
     if (status === AudioPlayerStatus.Idle || status === AudioPlayerStatus.AutoPaused) {
-      // Idle handler will take care, nothing to do
+      // Idle 핸들러가 처리하므로 할 일 없음
       this.trackTimer = null;
       return;
     }
 
-    // Unknown state, keep watching
+    // 알 수 없는 상태, 계속 감시
     this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 2000);
   }
 
   onPlayerIdle(trigger = "idle") {
     const reason = this.consumePendingEndReason(trigger);
 
-    // Slight delay to allow playback stats to finalize
+    // 재생 통계가 마무리되도록 약간 지연
     setTimeout(() => {
       this.handleTrackEnd(reason).catch(console.error);
     }, 60);
@@ -1353,15 +849,14 @@ class MusicPlayer {
   }
 
   /**
-   * Releases all recurring timers without touching playback state or
-   * persisted session data. Must be called whenever a player is discarded
-   * (stop/leave/failed join) — otherwise the 30s health-check interval
-   * keeps the player object alive forever.
+   * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제합니다.
+   * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 합니다.
+   * 그렇지 않으면 30초 상태 검사 interval이 플레이어 객체를 영원히 붙잡습니다.
    */
   releaseResources() {
     this.clearInactivityTimer(false);
     this.stopStateSync();
-    this.stopConnectionRecovery();
+    this.voice.stopConnectionRecovery();
 
     if (this.connectionHealthCheck) {
       clearInterval(this.connectionHealthCheck);
@@ -1404,10 +899,10 @@ class MusicPlayer {
   async leaveAndSave() {
     this.updateVoiceStatus("").catch(() => {});
 
-    // Persist full state (queue, position, settings) before disconnecting
+    // 연결 해제 전에 전체 상태(대기열, 위치, 설정) 저장
     await this.persistState("leave", true);
 
-    // Same disconnect sequence as stop() but without removePlayerSession
+    // stop()과 같은 연결 해제 절차이지만 removePlayerSession은 호출하지 않음
     this.pauseReasons.clear();
     this.paused = false;
     this.releaseResources();
@@ -1430,7 +925,7 @@ class MusicPlayer {
 
   skip() {
     if (this.currentTrack) {
-      // Clear track timer
+      // 트랙 타이머 정리
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
         this.trackTimer = null;
@@ -1447,14 +942,12 @@ class MusicPlayer {
 
   previous() {
     if (this.previousTracks.length > 0) {
-      // Queue the previous track at the front and skip to it. The current
-      // track stays as currentTrack so handleTrackEnd records it correctly;
-      // pre-assigning the previous track here would make the "ended
-      // unexpectedly" retry logic resume it mid-way through.
+      // 이전 트랙을 맨 앞에 넣고 그 곡으로 건너뜀. 현재 트랙은 currentTrack으로 남겨 handleTrackEnd가 올바르게 기록하도록 함;
+      // 여기서 이전 트랙을 미리 할당하면 "예기치 않게 종료됨"
+      // 재시도 로직이 그 곡을 중간부터 재개하게 됨.
       const prev = this.previousTracks.pop();
       this.queue.unshift(prev);
-      // Put the interrupted current track right after it so the queue
-      // continues from where it was once the previous track finishes
+      // 중단된 현재 트랙을 그 바로 뒤에 넣어 대기열이 이전 트랙 종료 후 원래 위치부터 이어지게 함
       if (this.currentTrack) {
         this.queue.splice(1, 0, this.currentTrack);
       }
@@ -1496,7 +989,7 @@ class MusicPlayer {
   }
 
   setLoop(mode) {
-    // mode: false, 'track', 'queue'
+    // 모드: false, 'track', 'queue'
     this.loop = mode;
     this.scheduleStatePersist("loop", 200);
     return this.loop;
@@ -1568,7 +1061,7 @@ class MusicPlayer {
     return this.currentTrackStartOffsetMs + (Date.now() - this.startTime) + this.pausedTime;
   }
 
-  // Timer-based track completion - no more unreliable Idle events!
+  // 타이머 기반 트랙 완료 처리
 
   async handleTrackEnd(reason = "idle") {
     if (this.isTransitioning) {
@@ -1595,7 +1088,7 @@ class MusicPlayer {
       if (endedUnexpectedly) {
         this.currentTrackRetries += 1;
         if (this.currentTrackRetries <= 2) {
-          // Attempt to resume the same track from the last known position
+          // 마지막으로 알려진 위치에서 같은 트랙 재개 시도
           await this.play(null, totalPlaybackMs);
           return;
         } else {
@@ -1612,11 +1105,11 @@ class MusicPlayer {
       this.previousTracks.push(finishedTrack);
       if (this.previousTracks.length > 50) this.previousTracks.shift();
 
-      // Release reference (file is kept on disk — CacheManager handles eviction)
+      // 참조 해제 (파일은 디스크에 유지 — 제거는 CacheManager가 처리)
       this.currentDownloadedFile = null;
 
       if (this.loop === "track" && !manualSkip) {
-        // Loop track from beginning (unless the user explicitly skipped)
+        // 트랙 반복은 처음부터 재생 (사용자가 명시적으로 스킵한 경우 제외)
         await this.play(null, 0);
         return;
       }
@@ -1635,8 +1128,7 @@ class MusicPlayer {
 
       if (this.queue.length > 0) {
         if (this.nextFromFront) {
-          // jump-to / previous / playfirst deliberately placed this track
-          // at the front — honor it even when shuffle is enabled
+          // jump-to / previous / playfirst가 이 트랙을 의도적으로 맨 앞에 두었으므로 셔플이 켜져 있어도 이를 존중
           this.nextFromFront = false;
           this.currentTrack = this.queue.shift();
         } else if (this.shuffle) {
@@ -1646,10 +1138,9 @@ class MusicPlayer {
           this.currentTrack = this.queue.shift();
         }
 
-        // Play next track from beginning
+        // 다음 트랙을 처음부터 재생
         await this.play(null, 0);
 
-        const MusicEmbedManager = require("./MusicEmbedManager");
         if (global.clients && global.clients.musicEmbedManager) {
           await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
         }
@@ -1658,9 +1149,18 @@ class MusicPlayer {
       }
 
       if (this.autoplay) {
-        this.currentTrackRetries = 0;
-        await this.handleAutoplay();
-        return;
+        const genres = require("../config/genres");
+        if (genres[this.autoplay]) {
+          this.currentTrackRetries = 0;
+          await this.handleAutoplay();
+          return;
+        }
+        // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 자동재생을 끄고 알린 뒤, 아래의 일반 대기열 종료 흐름으로 진행
+        console.warn(`⚠️ 알 수 없는 자동재생 장르 '${this.autoplay}' — 자동재생을 끕니다`);
+        if (this.textChannel) {
+          this.textChannel.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
+        }
+        this.autoplay = false;
       }
 
       this.currentTrack = null;
@@ -1669,7 +1169,6 @@ class MusicPlayer {
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
-      const MusicEmbedManager = require("./MusicEmbedManager");
       if (global.clients && global.clients.musicEmbedManager) {
         await global.clients.musicEmbedManager.handlePlaybackEnd(this);
       } else {
@@ -1702,32 +1201,14 @@ class MusicPlayer {
     if (!this.autoplay || typeof this.autoplay !== "string") return;
 
     try {
-      // Genre-specific search keywords
-      const genreKeywords = {
-        pop: ["pop music 2024", "top pop songs", "pop hits official", "best pop music"],
-        rock: ["rock music official", "rock songs 2025", "classic rock hits", "best rock music"],
-        hiphop: ["hip hop music", "rap songs official", "hip hop 2025", "best rap music"],
-        electronic: ["edm music", "electronic dance music", "house music official", "best edm"],
-        jazz: ["jazz music", "jazz standards", "smooth jazz official", "best jazz"],
-        classical: ["classical music", "classical piano", "orchestra music", "best classical"],
-        metal: ["metal music official", "heavy metal songs", "metal 2025", "best metal"],
-        country: ["country music official", "country songs 2025", "best country music"],
-        rnb: ["r&b music official", "rnb songs 2025", "soul music", "best rnb"],
-        indie: ["indie music official", "indie songs 2025", "alternative music", "best indie"],
-        kpop: ["kpop official mv", "kpop songs 2025", "korean music official", "best kpop"],
-        anime: ["アニメ オープニング 公式", "アニソン 公式", "2026 アニソン", "アニメ神曲"],
-        lofi: ["lofi hip hop music", "lofi beats official", "chill lofi music", "best lofi"],
-        blues: ["blues music official", "blues songs", "blues guitar music", "best blues"],
-        disco: ["disco music official", "disco hits", "best disco music"],
-        punk: ["punk rock official", "punk music 2025", "pop punk songs", "best punk"],
-        ambient: ["ambient music official", "ambient soundscape", "atmospheric music", "best ambient"],
-        random: ["music official video", "top songs 2025", "music video official", "best music"],
-      };
-
-      const keywords = genreKeywords[this.autoplay] || genreKeywords.random;
+      // 장르 정의는 config/genres.js 한 곳에서 관리.
+      // 알 수 없는 장르는 호출부(handleTrackEnd)에서 걸러지므로 여기서는 방어적으로 중단만 한다.
+      const genres = require("../config/genres");
+      const keywords = genres[this.autoplay]?.keywords;
+      if (!keywords) return;
       const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
 
-      // Search YouTube for random track
+      // 임의 트랙을 YouTube에서 검색
       const YouTube = require("./YouTube");
       const results = await YouTube.search(randomKeyword, 15, this.guild.id);
 
@@ -1735,24 +1216,24 @@ class MusicPlayer {
         return;
       }
 
-      // Filter out non-music content
+      // 비음악 콘텐츠 필터링
       const filteredResults = results.filter((track) => {
-        // Skip if duration is missing
+        // 길이가 없으면 건너뜀
         if (!track.duration) return false;
 
-        // Duration limits: 30 seconds to 10 minutes (600 seconds)
-        // This filters out most tutorials, lessons, podcasts, and full movies
+        // 길이 제한: 30초 ~ 10분(600초)
+        // 이를 통해 대부분의 튜토리얼, 강의, 팟캐스트 및 전체 영화를 걸러냅니다.
         if (track.duration < 30 || track.duration > 600) return false;
 
-        // Filter out common non-music keywords in title
+        // 제목에서 일반적인 비음악 키워드 필터링
         const title = (track.title || "").toLowerCase();
         const blockedKeywords = ["tutorial", "lesson", "course", "learn", "learning", "podcast", "interview", "talk", "speech", "lecture", "review", "unboxing", "reaction", "gameplay", "full movie", "full album", "full episode", "documentary", "how to", "guide", "tips", "tricks", "vlog", "practice", "exercise", "workout", "meditation", "asmr", "story", "audiobook", "mix |", "compilation"];
 
-        // Check if title contains any blocked keywords
+        // 제목에 차단 키워드가 포함되어 있는지 확인
         const hasBlockedKeyword = blockedKeywords.some((keyword) => title.includes(keyword));
         if (hasBlockedKeyword) return false;
 
-        // Filter out playlist-like content (mixes and compilations often have many emojis or brackets)
+        // 재생목록처럼 보이는 콘텐츠 필터링 (믹스와 모음은 이모지나 괄호가 많은 경우가 잦음)
         const emojiCount = (title.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
         const bracketCount = (title.match(/[\[\]【】]/g) || []).length;
         if (emojiCount > 3 || bracketCount > 4) return false;
@@ -1761,7 +1242,7 @@ class MusicPlayer {
       });
 
       if (filteredResults.length === 0) {
-        // Try again with a different keyword
+        // 다른 키워드로 다시 시도
         const fallbackKeyword = keywords[Math.floor(Math.random() * keywords.length)];
         const fallbackResults = await YouTube.search(fallbackKeyword, 10, this.guild.id);
         const fallbackFiltered = (fallbackResults || []).filter((track) => track.duration >= 30 && track.duration <= 600);
@@ -1773,27 +1254,26 @@ class MusicPlayer {
         filteredResults.push(...fallbackFiltered);
       }
 
-      // Pick random track from filtered results
+      // 필터링된 결과에서 임의 트랙 선택
       const randomTrack = filteredResults[Math.floor(Math.random() * filteredResults.length)];
       randomTrack.requestedBy = this.guild.members.me.user;
       randomTrack.addedAt = Date.now();
 
-      // Add to queue
+      // 대기열에 추가
       this.queue.push(randomTrack);
 
-      // Preload track
+      // 트랙 사전 로드
       this.preloadTrack(randomTrack).catch((err) => {
         if (err && err.message) {
           console.error(`❌ Autoplay preload failed: ${err.message}`);
         }
       });
 
-      // Start playing from beginning
+      // 처음부터 재생 시작
       this.currentTrack = this.queue.shift();
       await this.play(null, 0);
 
-      // Update now playing embed for autoplay track
-      const MusicEmbedManager = require("./MusicEmbedManager");
+      // 자동재생 트랙용 현재 재생 임베드 갱신
       if (global.clients && global.clients.musicEmbedManager) {
         await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
       }
@@ -1803,9 +1283,9 @@ class MusicPlayer {
   }
 
   async handleError(error, userMessage = null) {
-    // Try to skip to next track on error
+    // 오류 시 다음 트랙으로 스킵 시도
     if (this.queue.length > 0) {
-      // Send error to text channel before skipping
+      // 스킵 전에 오류를 텍스트 채널로 전송
       if (userMessage && this.textChannel) {
         try {
           await this.textChannel.send(userMessage);
@@ -1824,444 +1304,43 @@ class MusicPlayer {
     }
   }
 
-  detectPlatform(query) {
-    if (query.includes("youtube.com") || query.includes("youtu.be")) {
-      return "youtube";
-    } else if (query.includes("spotify.com")) {
-      return "spotify";
-    } else if (query.includes("soundcloud.com")) {
-      return "soundcloud";
-    } else if (query.match(/^https?:\/\/.*\.(mp3|wav|ogg|flac|m4a|aac|wma|opus|webm|mp4)$/i)) {
-      return "direct";
-    }
-    return "youtube"; // Default to YouTube search
-  }
-
-  // Preloading System
-  async preloadTrack(track) {
-    if (!track || !track.url) return;
-
-    // Compute audioSourceKey for file lookup
-    let _preloadKey = track.audioSourceKey;
-    if (!_preloadKey) {
-      if (track.platform === "youtube") {
-        const _vid = track.id || YouTube.extractVideoId(track.url);
-        if (_vid) {
-          _preloadKey = `yt:${_vid}`;
-          track.audioSourceKey = _preloadKey;
-        }
-      } else if (track.platform === "soundcloud" && track.id) {
-        _preloadKey = `sc:${track.id}`;
-        track.audioSourceKey = _preloadKey;
-      } else if (track.platform === "direct") {
-        _preloadKey = `dl:${CacheManager.md5(track.url)}`;
-        track.audioSourceKey = _preloadKey;
-      }
-    }
-    const filepath = _preloadKey ? CacheManager.getFilePath(_preloadKey) : path.join(CACHE_DIR, `track_${crypto.createHash("md5").update(track.url).digest("hex")}.opus`);
-
-    if (fsSync.existsSync(filepath)) {
-      const stats = fsSync.statSync(filepath);
-      if (stats.size > 0) {
-        return; // Already downloaded
-      }
-    }
-
-    // Check if already preloading/downloading (including downloadingFiles set)
-    if (this.preloadedStreams.has(track.url) || this.preloadingQueue.includes(track.url) || this.downloadingFiles.has(filepath)) {
-      return;
-    }
-
-    this.preloadingQueue.push(track.url);
-
-    try {
-      let streamUrl = track.url;
-      let streamInfo;
-
-      // Get stream URL first
-      switch (track.platform) {
-        case "youtube":
-          streamInfo = await YouTube.getStream(streamUrl, this.guild.id);
-          break;
-        case "spotify":
-          // Use cached YouTube URL if available
-          if (track.youtubeUrl) {
-            streamUrl = track.youtubeUrl;
-            streamInfo = await YouTube.getStream(streamUrl, this.guild.id);
-          } else {
-            // Quick YouTube search for Spotify
-            const query = `"${track.title}" "${track.artist}"`;
-            const results = await YouTube.search(query, 1, this.guild.id);
-            if (results && results.length > 0) {
-              streamUrl = results[0].url;
-              track.youtubeUrl = streamUrl; // Cache for future use
-              streamInfo = await YouTube.getStream(streamUrl, this.guild.id);
-            }
-          }
-          // Set audioSourceKey now that we know the YouTube video ID
-          // (was unknown before search; downloadTrack uses this for filepath)
-          if (!track.audioSourceKey && streamUrl !== track.url) {
-            const _vid = YouTube.extractVideoId(streamUrl);
-            if (_vid) {
-              _preloadKey = `yt:${_vid}`;
-              track.audioSourceKey = _preloadKey;
-            }
-          }
-          break;
-        case "soundcloud":
-          streamInfo = await SoundCloud.getStream(streamUrl, this.guild.id);
-          break;
-        case "direct":
-          streamInfo = await DirectLink.getStream(streamUrl);
-          break;
-      }
-
-      if (streamInfo) {
-        // Download track in background
-        let streamUrl_final;
-        if (typeof streamInfo === "string") {
-          streamUrl_final = streamInfo;
-        } else if (streamInfo && typeof streamInfo === "object") {
-          streamUrl_final = streamInfo.stream || streamInfo.url;
-        } else {
-          streamUrl_final = streamInfo;
-        }
-
-        await this.downloadTrack(track, streamUrl_final, streamInfo);
-
-        // Mark as preloaded
-        this.preloadedStreams.set(track.url, {
-          info: streamInfo,
-          track: track,
-          downloaded: true,
-        });
-      }
-    } catch (error) {
-      if (error && error.message) {
-        console.error(`❌ Pre-download failed for ${track.title}:`, error.message);
-      }
-    } finally {
-      // Remove from preloading queue
-      const index = this.preloadingQueue.indexOf(track.url);
-      if (index > -1) this.preloadingQueue.splice(index, 1);
-    }
-  }
-
-  getPlatformEmoji(platform) {
-    const emojis = {
-      youtube: "🔴",
-      spotify: "🟢",
-      soundcloud: "🟠",
-      direct: "🔗",
-    };
-    return emojis[platform] || "🎵";
-  }
-
   async showQueueCompleted() {
     if (!this.nowPlayingMessage || !this.textChannel) return;
 
     try {
       const embed = new EmbedBuilder().setTitle("✅ 대기열 완료").setDescription("모든 트랙이 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#00ff00").setTimestamp();
 
-      // Create disabled buttons
-      const disabledButtons = await this.createControlButtons(true);
-
+      // 존재하지 않는 this.createControlButtons 호출 제거 (2026-07-07) — 이 폴백 경로는 embedManager 부재 시에만 도달하며, 기존에는 항상 TypeError로 catch에 떨어졌음
       await this.nowPlayingMessage.edit({
         embeds: [embed],
-        components: disabledButtons,
+        components: [],
       });
     } catch (error) {
-      // Message might be deleted, clear reference
+      // 메시지가 삭제되었을 수 있으므로 참조 정리
       this.nowPlayingMessage = null;
     }
   }
 
-  serializeTrack(track) {
-    if (!track) return null;
+  // ── 세션 영속화 — 로직은 SessionPersistence ────────────────────────────────
 
-    const requester = track.requestedBy || null;
-    const requesterId = requester?.id || track.requesterId || null;
-    const requesterTag = requester?.tag || requester?.user?.tag || track.requesterTag || null;
-
-    return {
-      id: track.id || null,
-      title: track.title || null,
-      url: track.url || null,
-      duration: typeof track.duration === "number" ? track.duration : Number(track.duration) || null,
-      thumbnail: track.thumbnail || null,
-      artist: track.artist || null,
-      album: track.album || null,
-      platform: track.platform || null,
-      uploader: track.uploader || null,
-      youtubeUrl: track.youtubeUrl || null,
-      soundcloudUrl: track.soundcloudUrl || null,
-      spotifyUrl: track.spotifyUrl || null,
-      isLive: track.isLive || track.live || false,
-      addedAt: track.addedAt || Date.now(),
-      requesterId,
-      requesterTag,
-      extra: track.extra || null,
-    };
+  restoreFromState(state) {
+    return this.persistence.restoreFromState(state);
   }
 
-  deserializeTrack(data) {
-    if (!data) return null;
-
-    const track = {
-      id: data.id || null,
-      title: data.title || null,
-      url: data.url || null,
-      duration: typeof data.duration === "number" ? data.duration : Number(data.duration) || null,
-      thumbnail: data.thumbnail || null,
-      artist: data.artist || null,
-      album: data.album || null,
-      platform: data.platform || null,
-      uploader: data.uploader || null,
-      youtubeUrl: data.youtubeUrl || null,
-      soundcloudUrl: data.soundcloudUrl || null,
-      spotifyUrl: data.spotifyUrl || null,
-      isLive: Boolean(data.isLive),
-      addedAt: data.addedAt || Date.now(),
-      extra: data.extra || null,
-    };
-
-    if (data.requesterId) {
-      const cachedMember = this.guild?.members?.cache?.get?.(data.requesterId) || null;
-      track.requestedBy = cachedMember || { id: data.requesterId, tag: data.requesterTag || data.requesterId };
-      track.requesterId = data.requesterId;
-      track.requesterTag = data.requesterTag || null;
-    }
-
-    return track;
-  }
-
-  serializeState() {
-    const guildId = this.guild?.id;
-    if (!guildId) return null;
-
-    return {
-      guildId,
-      voiceChannelId: this.voiceChannel?.id || null,
-      textChannelId: this.textChannel?.id || null,
-      currentTrack: this.serializeTrack(this.currentTrack),
-      queue: this.queue.map((track) => this.serializeTrack(track)).filter(Boolean),
-      previousTracks: this.previousTracks
-        .slice(-10)
-        .map((track) => this.serializeTrack(track))
-        .filter(Boolean),
-      volume: this.volume,
-      loop: this.loop,
-      shuffle: this.shuffle,
-      autoplay: this.autoplay,
-      paused: this.paused,
-      pauseReasons: Array.from(this.pauseReasons || []),
-      playbackPositionMs: this.getCurrentTime() || 0,
-      currentTrackStartOffsetMs: this.currentTrackStartOffsetMs || 0,
-      lastPlaybackPosition: this.lastPlaybackPosition || 0,
-      requesterId: this.requesterId || null,
-      nowPlayingMessageId: this.nowPlayingMessage?.id || null,
-      nowPlayingChannelId: this.nowPlayingMessage?.channelId || this.textChannel?.id || null,
-      sessionId: this.sessionId,
-      downloadedFiles: Array.from(this.downloadedFiles || [])
-        .filter(Boolean)
-        .map((filepath) => path.resolve(filepath)),
-      currentDownloadedFile: this.currentDownloadedFile ? path.resolve(this.currentDownloadedFile) : null,
-      updatedAt: Date.now(),
-    };
-  }
-
-  async restoreFromState(state) {
-    if (!state || !this.guild?.id) return;
-    this.stopStateSync();
-    this.pauseReasons = new Set();
-    this.preloadedStreams.clear();
-    this.preloadingQueue = [];
-
-    this.volume = typeof state.volume === "number" ? state.volume : this.volume;
-    this.loop = state.loop ?? false;
-    this.shuffle = state.shuffle ?? false;
-    this.autoplay = state.autoplay ?? false;
-    this.requesterId = state.requesterId || this.requesterId;
-
-    this.previousTracks = (state.previousTracks || []).map((serialized) => this.deserializeTrack(serialized)).filter(Boolean);
-
-    const restoredQueue = (state.queue || []).map((serialized) => this.deserializeTrack(serialized)).filter(Boolean);
-
-    this.queue = restoredQueue;
-    this.currentTrack = this.deserializeTrack(state.currentTrack) || null;
-
-    if (!this.currentTrack && this.queue.length > 0) {
-      this.currentTrack = this.queue.shift();
-    }
-
-    const validDownloads = new Set();
-    for (const file of state.downloadedFiles || []) {
-      if (!file) continue;
-      try {
-        // Resolve relative paths against CACHE_DIR
-        const fullPath = path.isAbsolute(file) ? file : path.join(CACHE_DIR, file);
-        if (fsSync.existsSync(fullPath)) {
-          validDownloads.add(path.resolve(fullPath));
-        } else {
-          console.log(`❌ Missing cached file: ${path.basename(file)}`);
-        }
-      } catch (error) {
-        console.log(`⚠️ Error checking file ${path.basename(file)}: ${error.message}`);
-      }
-    }
-    this.downloadedFiles = validDownloads;
-
-    if (state.currentDownloadedFile) {
-      const fullPath = path.isAbsolute(state.currentDownloadedFile) ? state.currentDownloadedFile : path.join(CACHE_DIR, state.currentDownloadedFile);
-      if (fsSync.existsSync(fullPath)) {
-        this.currentDownloadedFile = path.resolve(fullPath);
-      } else {
-        this.currentDownloadedFile = null;
-      }
-    } else {
-      this.currentDownloadedFile = null;
-    }
-
-    const resumeMsRaw = Number(state.playbackPositionMs) || 0;
-    const trackDurationMs = this.currentTrack?.duration ? Number(this.currentTrack.duration) * 1000 : null;
-    let resumeMs = Math.max(0, resumeMsRaw);
-    if (trackDurationMs && resumeMs > Math.max(trackDurationMs - 2000, 0)) {
-      resumeMs = 0;
-    }
-
-    this.currentTrackStartOffsetMs = Math.max(Number(state.currentTrackStartOffsetMs) || 0, 0);
-    this.lastPlaybackPosition = resumeMs;
-    this.paused = false;
-
-    if (!this.connection) {
-      try {
-        const connected = await this.connect();
-        if (!connected) {
-          throw new Error("Failed to reconnect to voice channel");
-        }
-      } catch (error) {
-        console.error("❌ Failed to connect during restore:", error.message);
-        throw new Error("Failed to reconnect to voice channel");
-      }
-    }
-
-    if (!this.currentTrack) {
-      CacheManager.removePlayerSession(this.guild.id);
-      return;
-    }
-
-    await this.play(null, resumeMs);
-
-    if (this.resource?.volume) {
-      this.resource.volume.setVolume(this.volume / 100);
-    }
-
-    const embedManager = global.clients?.musicEmbedManager;
-    if (embedManager && this.textChannel) {
-      try {
-        // Remove the stale now-playing message from the previous session;
-        // it may be webhook-owned or CV2, so editing it in place is unreliable
-        if (state.nowPlayingMessageId) {
-          const oldMessage = await this.textChannel.messages.fetch(state.nowPlayingMessageId).catch(() => null);
-          if (oldMessage) await oldMessage.delete().catch(() => {});
-        }
-
-        // Send a fresh CV2 now-playing message (also starts progress updates)
-        const memberLike = { id: state.requesterId || this.guild.client.user.id, guild: this.guild };
-        await embedManager.createNewMusicEmbed(this, this.currentTrack, memberLike, null);
-      } catch (error) {
-        console.error("❌ Failed to rebuild now playing embed during restore:", error?.message || error);
-      }
-    }
-
-    if (this.textChannel && this.currentTrack) {
-      try {
-        const resumeMessage = "음악 재개됨";
-        const positionSeconds = Math.floor(resumeMs / 1000);
-        const positionFormatted = this.formatDuration(positionSeconds);
-
-        await this.textChannel.send({
-          content: `▶️ ${resumeMessage} • **${this.currentTrack.title || "Unknown"}** (${positionFormatted})`,
-        });
-      } catch (error) {
-        // Ignore if message cannot be sent
-      }
-    }
-
-    this.scheduleStatePersist("restored", 1000);
-  }
-
-  async persistState(reason = "manual", immediate = false) {
-    try {
-      if (!this.guild?.id) return;
-
-      // Cancel pending save if this is immediate
-      if (immediate) {
-        this.cancelStateSave();
-      }
-
-      if (!this.currentTrack && this.queue.length === 0) {
-        CacheManager.removePlayerSession(this.guild.id);
-        return;
-      }
-
-      const state = this.serializeState();
-      if (!state) {
-        CacheManager.removePlayerSession(this.guild.id);
-        return;
-      }
-
-      state.reason = reason;
-      CacheManager.savePlayerSession(this.guild.id, state);
-    } catch (error) {
-      console.error(`❌ Failed to persist player state for guild ${this.guild?.id}:`, error.message || error);
-    }
+  persistState(reason = "manual", immediate = false) {
+    return this.persistence.persistState(reason, immediate);
   }
 
   startStateSync() {
-    if (this.stateSyncInterval) return;
-
-    this.stateSyncInterval = setInterval(() => {
-      if (!this.guild?.id) return;
-      if (!this.currentTrack && this.queue.length === 0) return;
-
-      this.persistState("interval").catch(() => {});
-    }, this.stateSyncIntervalMs);
+    this.persistence.startStateSync();
   }
 
   stopStateSync() {
-    if (this.stateSyncInterval) {
-      clearInterval(this.stateSyncInterval);
-      this.stateSyncInterval = null;
-    }
-
-    this.cancelStateSave();
-  }
-
-  cancelStateSave() {
-    if (this.stateSaveTimeout) {
-      clearTimeout(this.stateSaveTimeout);
-      this.stateSaveTimeout = null;
-    }
+    this.persistence.stopStateSync();
   }
 
   scheduleStatePersist(reason = "update", delay = 200) {
-    this.cancelStateSave();
-    this.stateSaveTimeout = setTimeout(
-      () => {
-        this.stateSaveTimeout = null;
-        this.persistState(reason).catch(() => {});
-      },
-      Math.max(delay, 0),
-    );
-  }
-
-  formatDuration(seconds) {
-    // Ensure seconds is integer and handle floating point errors
-    const totalSeconds = Math.floor(Number(seconds) || 0);
-    const minutes = Math.floor(totalSeconds / 60);
-    const remainingSeconds = totalSeconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    this.persistence.scheduleStatePersist(reason, delay);
   }
 
   cleanup(isShutdown = false) {
@@ -2273,7 +1352,7 @@ class MusicPlayer {
       this.clearInactivityTimer(false);
       this.stopStateSync();
 
-      // During shutdown, save state before cleanup
+      // 종료 중에는 정리 전에 상태 저장
       if (isShutdown && this.guild?.id) {
         this.persistState("shutdown").catch(() => {});
       } else if (this.guild?.id) {
@@ -2285,28 +1364,28 @@ class MusicPlayer {
         this.downloadedFiles.clear();
       }
 
-      // Stop recovery system
-      this.stopConnectionRecovery();
+      // 복구 시스템 중지
+      this.voice.stopConnectionRecovery();
 
-      // Clear health check timer
+      // 상태 확인 타이머 정리
       if (this.connectionHealthCheck) {
         clearInterval(this.connectionHealthCheck);
         this.connectionHealthCheck = null;
       }
 
-      // Clear track timer
+      // 트랙 타이머 정리
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
         this.trackTimer = null;
       }
 
-      // Stop audio player
+      // 오디오 플레이어 중지
       if (this.audioPlayer) {
         this.audioPlayer.stop();
         this.audioPlayer.removeAllListeners();
       }
 
-      // Disconnect from voice channel
+      // 음성 채널 연결 해제
       if (this.connection) {
         this.connection.removeAllListeners();
         if (this.connection.state && this.connection.state.status !== "destroyed") {
@@ -2319,21 +1398,21 @@ class MusicPlayer {
         this.connection = null;
       }
 
-      // Clear resources
+      // 리소스 정리
       if (this.resource) {
         try {
           this.resource.playStream.destroy();
         } catch (e) {
-          // Stream might already be destroyed
+          // 스트림이 이미 제거되었을 수 있음
         }
         this.resource = null;
       }
 
-      // Clear preloaded streams
+      // 사전 로드된 스트림 정리
       this.preloadedStreams.clear();
       this.preloadingQueue = [];
 
-      // Clear player data
+      // 플레이어 데이터 정리
       this.queue = [];
       if (this.currentTrack?.audioSourceKey) CacheManager.unprotect(this.currentTrack.audioSourceKey);
       this.currentTrack = null;
@@ -2343,14 +1422,14 @@ class MusicPlayer {
       this.currentTrackCache = null;
       this.activeStreamInfo = null;
 
-      // Clear recovery data
+      // 복구 데이터 정리
       this.isRecovering = false;
       this.recoveryAttempts = 0;
       this.lastPlaybackPosition = 0;
       this.currentTrackStartOffsetMs = 0;
       this.nextFromFront = false;
 
-      // Clear UI references
+      // UI 참조 정리
       this.nowPlayingMessage = null;
       this.requesterId = null;
       this.voiceChannel = null;
@@ -2360,7 +1439,7 @@ class MusicPlayer {
       }
       this.textChannel = null;
 
-      // Reset pause state
+      // 일시정지 상태 재설정
       this.pauseReasons.clear();
       this.paused = false;
     } catch (error) {
@@ -2377,7 +1456,7 @@ class MusicPlayer {
       if (!perms?.has(PermissionFlagsBits.SetVoiceChannelStatus)) return;
 
       if (!this._voiceStatusOwned) {
-        // Cache is unreliable — fetch real status from API
+        // 캐시는 신뢰할 수 없음 — API에서 실제 상태 가져오기
         let currentStatus = "";
         try {
           const data = await this.guild.client.rest.get(`/channels/${channel.id}`);
@@ -2391,7 +1470,7 @@ class MusicPlayer {
       await this.guild.client.rest.put(`/channels/${channel.id}/voice-status`, { body: { status: status ?? "" } });
       this._voiceStatusOwned = !!status;
     } catch {
-      // Non-critical
+      // 중요하지 않음
     }
   }
 
@@ -2408,31 +1487,6 @@ class MusicPlayer {
       voiceChannel: this.voiceChannel?.name,
       textChannel: this.textChannel?.name,
     };
-  }
-
-  // Clean up resources when destroying the player
-  destroy() {
-    // Clear track timer
-    if (this.trackTimer) {
-      clearTimeout(this.trackTimer);
-      this.currentTrackCache = null;
-      this.activeStreamInfo = null;
-      this.lastPlaybackPosition = 0;
-    }
-
-    // Clear preloaded streams
-    if (this.preloadedStreams) {
-      this.preloadedStreams.clear();
-    }
-
-    // Stop audio and disconnect
-    if (this.audioPlayer) {
-      this.audioPlayer.stop();
-    }
-
-    if (this.connection) {
-      this.connection.destroy();
-    }
   }
 }
 

@@ -7,11 +7,9 @@ const routes = [
         component: () => import('../views/LoginView.vue')
     },
     {
+        // 로그인 직후/재방문 공통 착지점 — 관리자든 아니든 서버 목록으로 (관리자 패널은 네비바에서 진입)
         path: '/dashboard',
-        redirect: () => {
-            const user = useUserStore()
-            return user.isAdmin ? '/admin' : '/servers'
-        }
+        redirect: '/servers'
     },
     {
         path: '/servers',
@@ -21,6 +19,11 @@ const routes = [
     {
         path: '/servers/:guildId',
         component: () => import('../views/ServerView.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/servers/:guildId/settings',
+        component: () => import('../views/ServerSettingsView.vue'),
         meta: { requiresAuth: true }
     },
     {
