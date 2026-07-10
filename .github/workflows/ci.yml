@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # config.js는 .env 파일 존재 + DISCORD_TOKEN/CLIENT_ID를 fail-fast로 요구한다.
+      # 테스트는 Discord에 실제 접속하지 않으므로(REST/클라이언트 전부 목킹) 더미 값이면 충분.
+      - name: Create dummy .env
+        run: |
+          echo "DISCORD_TOKEN=ci-dummy-token" > .env
+          echo "CLIENT_ID=000000000000000000" >> .env
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
