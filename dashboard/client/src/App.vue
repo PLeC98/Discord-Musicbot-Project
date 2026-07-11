@@ -12,7 +12,7 @@
       <div class="flex items-center gap-2.5 text-fg-soft text-[0.85rem]">
         <img v-if="user.avatarUrl" :src="user.avatarUrl" class="size-7.5 rounded-full shadow-[0_0_0_2px_rgba(124,111,246,0.28)]" alt="avatar" />
         <span>{{ user.displayName }}</span>
-        <BaseButton variant="danger" size="sm" href="/auth/logout">로그아웃</BaseButton>
+        <BaseButton variant="danger" size="sm" @click="logout">로그아웃</BaseButton>
       </div>
     </nav>
     <div class="flex items-start">
@@ -28,6 +28,7 @@
 <script setup>
 import { watch } from "vue";
 import { useRoute } from "vue-router";
+import axios from "axios";
 import { useUserStore } from "./stores/user.js";
 import BaseButton from "./components/BaseButton.vue";
 import ServerSidebar from "./components/ServerSidebar.vue";
@@ -35,6 +36,14 @@ import { toggleSidebar, closeDrawer } from "./composables/sidebarState.js";
 
 const user = useUserStore();
 const route = useRoute();
+
+async function logout() {
+  try {
+    await axios.post("/auth/logout");
+  } finally {
+    window.location.assign("/");
+  }
+}
 
 // 페이지 이동 시 오버레이 드로어는 닫는다 (네비바 링크 등 드로어 밖 경로 이동 포함)
 watch(() => route.fullPath, closeDrawer);
