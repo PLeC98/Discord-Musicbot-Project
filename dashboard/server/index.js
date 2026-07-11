@@ -9,6 +9,7 @@ const chalk = require("chalk");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
 const SqliteSessionStore = require("./sessionStore");
+const { issueCsrfToken, requireCsrfToken } = require("./middleware/csrf");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const guildsRoutes = require("./routes/guilds");
@@ -66,6 +67,8 @@ function startDashboard(client) {
       },
     }),
   );
+  app.get("/api/csrf-token", issueCsrfToken);
+  app.use(requireCsrfToken);
 
   // Make Discord client available to routes
   app.locals.discordClient = client;
