@@ -14,6 +14,7 @@ const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
 const TrackDownloader = require("./TrackDownloader");
+const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./SessionPersistence");
 const prism = require("prism-media");
 const ffmpegPath = require("ffmpeg-static");
@@ -59,7 +60,7 @@ class MusicPlayer {
     this.requesterId = null;
 
     // 세션 관리 - 오래된 버튼 상호작용을 막기 위한 고유 ID
-    this.sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    this.sessionId = createPlayerSessionId();
 
     // 사전 로드 시스템 - 대기열의 모든 트랙을 즉시 사전 로드
     this.preloadedStreams = new Map(); // trackUrl -> streamInfo 매핑
