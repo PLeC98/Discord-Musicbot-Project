@@ -24,7 +24,8 @@ module.exports = {
         if (!player.currentTrack)
             return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
 
-        if (player.queue.length === 0)
+        // 한곡 반복 중에는 스킵 = 현재 곡 재시작이라 대기열이 비어도 유효
+        if (player.queue.length === 0 && player.loop !== 'track')
             return interaction.reply({ content: '❌ 건너뛸 노래가 없습니다! 대기열에 노래가 없습니다.', flags: [1 << 6] });
 
         const currentTrack = player.currentTrack;
@@ -32,6 +33,9 @@ module.exports = {
 
         if (!skipped)
             return interaction.reply({ content: '❌ 노래가 건너뛰어지지 않았습니다!', flags: [1 << 6] });
+
+        if (player.loop === 'track')
+            return interaction.reply({ content: `🔂 한곡 반복 중 — **${currentTrack.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`, flags: [1 << 6] });
 
         const embed = new EmbedBuilder()
             .setTitle('⏭️ 노래 건너뜀')

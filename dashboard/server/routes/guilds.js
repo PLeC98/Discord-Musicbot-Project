@@ -391,7 +391,8 @@ router.post("/:guildId/player/previous", requireAuth, requireControl, async (req
   if (!ctx) return;
   const { player } = ctx;
   if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-  if (!player.previousTracks?.length) return res.status(409).json({ error: "이전 곡이 없습니다." });
+  // 한곡 반복 중에는 이전곡 = 현재 곡 재시작이라 기록이 없어도 유효
+  if (!player.previousTracks?.length && player.loop !== "track") return res.status(409).json({ error: "이전 곡이 없습니다." });
 
   player.previous();
   res.json({ ok: true });

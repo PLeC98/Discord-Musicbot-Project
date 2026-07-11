@@ -452,7 +452,7 @@ class MusicEmbedManager {
       .setCustomId(`music_previous:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏮️")
-      .setDisabled(disabled || player.previousTracks.length === 0);
+      .setDisabled(disabled || (player.previousTracks.length === 0 && player.loop !== "track")); // 한곡 반복 = 재시작이라 기록 없어도 활성
 
     const pauseButton = new ButtonBuilder()
       .setCustomId(`music_pause:${requesterId}:${sessionId}`)
@@ -464,7 +464,7 @@ class MusicEmbedManager {
       .setCustomId(`music_skip:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏭️")
-      .setDisabled(disabled || player.queue.length === 0);
+      .setDisabled(disabled || (player.queue.length === 0 && player.loop !== "track")); // 한곡 반복 = 재시작이라 대기열 비어도 활성
 
     const stopButton = new ButtonBuilder().setCustomId(`music_stop:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
 

@@ -39,7 +39,8 @@
           <div class="flex flex-col gap-2.5">
             <div class="flex items-center gap-1 flex-wrap">
               <!-- Previous -->
-              <button :class="iconBtn" @click="action('previous')" title="이전곡" :disabled="!player.canControl || !player.hasPrevious">
+              <!-- 한곡 반복 중에는 이전곡/다음곡 = 현재 곡 재시작이라 기록/대기열이 없어도 활성 -->
+              <button :class="iconBtn" @click="action('previous')" title="이전곡" :disabled="!player.canControl || !(player.hasPrevious || player.loop === 'track')">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
               </button>
 
@@ -55,7 +56,7 @@
               </button>
 
               <!-- Skip -->
-              <button :class="iconBtn" @click="action('skip')" title="다음곡" :disabled="!canSkip || player.queue.length === 0">
+              <button :class="iconBtn" @click="action('skip')" title="다음곡" :disabled="!canSkip || (player.queue.length === 0 && player.loop !== 'track')">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
               </button>
 

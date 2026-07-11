@@ -178,7 +178,8 @@ module.exports = {
       });
     }
 
-    if (player.queue.length === 0) {
+    // 한곡 반복 중에는 스킵 = 현재 곡 재시작이라 대기열이 비어도 유효
+    if (player.queue.length === 0 && player.loop !== "track") {
       return await interaction.reply({
         content: "❌ 건너뛸 노래가 없습니다! 대기열에 노래가 없습니다.",
         flags: [1 << 6],
@@ -187,6 +188,13 @@ module.exports = {
 
     const currentTrack = player.currentTrack;
     const skipped = player.skip();
+
+    if (skipped && player.loop === "track") {
+      return await interaction.reply({
+        content: `🔂 한곡 반복 중 — **${currentTrack.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`,
+        flags: [1 << 6],
+      });
+    }
 
     if (skipped) {
       const embed = new EmbedBuilder()
@@ -233,7 +241,8 @@ module.exports = {
       });
     }
 
-    if (player.previousTracks.length === 0) {
+    // 한곡 반복 중에는 이전곡 = 현재 곡 재시작이라 기록이 없어도 유효
+    if (player.previousTracks.length === 0 && player.loop !== "track") {
       return await interaction.reply({
         content: "❌ 이전 노래가 없습니다!",
         flags: [1 << 6],
@@ -244,7 +253,7 @@ module.exports = {
 
     if (result) {
       await interaction.reply({
-        content: "⏮️ 이전 노래로 이동했습니다!",
+        content: player.loop === "track" ? "🔂 한곡 반복 중 — 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!",
         flags: [1 << 6],
       });
     } else {

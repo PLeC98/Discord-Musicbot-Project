@@ -103,6 +103,28 @@ test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변 (버그 3 
   assert.equal(p.previousTracks.length, 0);
 });
 
+test("한곡 반복 + 대기열 점프(jump): 재시작이 아니라 선택한 곡으로 이동", async () => {
+  const [A, B, C] = ["A", "B", "C"].map((t) => makeTrack(t));
+  // jump 핸들러가 선택곡 C를 맨 앞으로 옮기고 nextFromFront를 세운 상태
+  const p = makePlayer({ loop: "track", current: A, queue: [C, B] });
+  p.nextFromFront = true;
+
+  await handleTrackEnd.call(p, "jump");
+
+  assert.equal(p.currentTrack, C, "한곡 반복이어도 점프는 대기열 진행");
+  assert.deepEqual(titles(p.queue), ["B"]);
+  assert.deepEqual(titles(p.previousTracks), ["A"], "떠난 곡은 기록에 들어감");
+});
+
+test("skip(reason): 기본은 'skip', 점프는 'jump'를 종료 사유로 세움", () => {
+  const skip = MusicPlayer.prototype.skip;
+  const p = makePlayer({ current: makeTrack("A") });
+  skip.call(p);
+  assert.equal(p.pendingEndReason, "skip");
+  skip.call(p, "jump");
+  assert.equal(p.pendingEndReason, "jump");
+});
+
 // ── 큐 반복 ───────────────────────────────────────────────────
 
 test("큐 반복 + 이전곡: 복제 없이 총 곡 수 보존 (버그 2 회귀 — 구 코드는 3곡이 5곡으로)", async () => {
