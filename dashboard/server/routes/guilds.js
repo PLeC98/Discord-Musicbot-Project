@@ -103,6 +103,28 @@ function playerState(player) {
   };
 }
 
+// ── 입력 검증 (감사 M-07) ─────────────────────────────────────────────────────
+// 사용자 입력은 타입·범위를 먼저 확정 — 비문자열 body의 TypeError(async 핸들러라 500조차 아닌
+// unhandled rejection), parseFloat/parseInt의 느슨한 허용("Infinity", "50junk")이
+// 하위 로직·로그·yt-dlp로 흘러가지 않게 한다.
+
+const QUERY_MAX_LEN = 500;
+
+// 문자열 확인 + 제어문자(CR/LF/NUL 등) 정규화 — 로그 위조·외부 도구 인자 오염 방지.
+// 부적합 입력은 null (호출부에서 400)
+function sanitizeQuery(raw) {
+  if (typeof raw !== "string" || raw.length > QUERY_MAX_LEN) return null;
+  // eslint-disable-next-line no-control-regex
+  const query = raw.replace(/[\x00-\x1f\x7f]/g, " ").trim();
+  return query || null;
+}
+
+// 유한 정수 파싱 — parseInt와 달리 "50junk"·Infinity·소수를 전부 NaN으로 거부
+function toInt(value) {
+  const n = Number(value);
+  return Number.isInteger(n) ? n : NaN;
+}
+
 // ── Read endpoints ────────────────────────────────────────────────────────────
 
 // Mutual guilds (user + bot)
@@ -414,8 +436,9 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
   const { player } = ctx;
   if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
 
-  const positionSec = parseFloat(req.body.position);
-  if (isNaN(positionSec) || positionSec < 0) return res.status(400).json({ error: "재생 위치가 올바르지 않습니다." });
+  const positionSec = Number(req.body.position);
+  // Number.isFinite: parseFloat와 달리 "Infinity"(라이브 duration 0에서 클램프를 뚫음)·비숫자 문자열 거부
+  if (!Number.isFinite(positionSec) || positionSec < 0) return res.status(400).json({ error: "재생 위치가 올바르지 않습니다." });
 
   const durationSec = player.currentTrack.duration ?? 0;
   const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
@@ -435,7 +458,7 @@ router.post("/:guildId/player/volume", requireAuth, requireControl, async (req, 
   const { player } = ctx;
   if (!player) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
 
-  const vol = parseInt(req.body.volume);
+  const vol = toInt(req.body.volume);
   if (isNaN(vol) || vol < 0 || vol > 100) return res.status(400).json({ error: "볼륨은 0에서 100 사이여야 합니다." });
 
   player.setVolume(vol);
@@ -485,8 +508,8 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
     if (err) return res.status(403).json({ error: toApiError(err) });
   }
 
-  const query = req.body.query?.trim();
-  if (!query) return res.status(400).json({ error: "검색어를 입력해 주세요" });
+  const query = sanitizeQuery(req.body.query);
+  if (!query) return res.status(400).json({ error: `검색어를 입력해 주세요 (문자열, 최대 ${QUERY_MAX_LEN}자)` });
 
   console.log(`[Play] Dashboard | guild=${guildId} | user=${req.session.user.globalName || req.session.user.username} | query="${query}"`);
 
@@ -519,7 +542,7 @@ router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => 
   const { player } = ctx;
   if (!player) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
 
-  const index = parseInt(req.params.index);
+  const index = toInt(req.params.index);
   if (isNaN(index) || index < 0 || index >= player.queue.length) {
     return res.status(400).json({ error: "대기열 항목 번호가 올바르지 않습니다." });
   }
@@ -542,8 +565,8 @@ router.post("/:guildId/player/queue/move", requireAuth, requireControl, async (r
   const { player, client } = ctx;
   if (!player) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
 
-  const from = parseInt(req.body.from);
-  const to = parseInt(req.body.to);
+  const from = toInt(req.body.from);
+  const to = toInt(req.body.to);
 
   if (isNaN(from) || isNaN(to) || from < 0 || to < 0 || from >= player.queue.length || to >= player.queue.length) {
     return res.status(400).json({ error: "이동할 대기열 위치가 올바르지 않습니다." });
