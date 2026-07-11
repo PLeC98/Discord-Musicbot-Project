@@ -75,22 +75,23 @@ class MusicEmbedManager {
 
   /**
    * 음악 데이터를 처리하고 적절한 임베드를 전송/갱신합니다.
+   *
+   * 길드당 한 번에 하나의 작업만 — Promise tail 체인 방식.
+   * "기다렸다가 등록"(await 후 set)은 대기와 등록 사이에 끼어든 요청이 락을 놓치고,
+   * 앞 작업의 finally가 뒤 작업의 Map 항목을 지우는 경쟁이 있었다(A/B/C 동시 시나리오).
+   * 여기서는 get+set이 동기(사이에 await 없음)라 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다.
    */
-  async handleMusicData(guildId, trackData, member, interaction = null) {
-    // 경쟁 상태 방지 — 길드당 한 번에 하나의 작업만 수행
-    if (this.processingQueue.has(guildId)) {
-      await this.processingQueue.get(guildId);
-    }
-
-    const processingPromise = this._processMusic(guildId, trackData, member, interaction);
+  handleMusicData(guildId, trackData, member, interaction = null) {
+    const tail = this.processingQueue.get(guildId) || Promise.resolve();
+    // 앞 작업의 실패가 뒤 작업까지 실패시키면 안 됨 — 각 작업의 결과/오류는 자기 호출자에게만 전달
+    const processingPromise = tail.catch(() => {}).then(() => this._processMusic(guildId, trackData, member, interaction));
     this.processingQueue.set(guildId, processingPromise);
 
-    try {
-      const result = await processingPromise;
-      return result;
-    } finally {
-      this.processingQueue.delete(guildId);
-    }
+    return processingPromise.finally(() => {
+      if (this.processingQueue.get(guildId) === processingPromise) {
+        this.processingQueue.delete(guildId);
+      }
+    });
   }
 
   async _processMusic(guildId, trackData, member, interaction) {
