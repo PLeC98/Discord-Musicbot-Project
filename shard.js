@@ -61,9 +61,26 @@ manager.on("shardCreate", (shard) => {
   });
 });
 
-// Error handling
+// Error handling — 단발 rejection은 기록만 남기고 매니저를 살린다(매니저가 죽으면 샤드가
+// 감독자 없는 고아가 됨). 짧은 시간창에 반복되면 시스템적 이상으로 보고 샤드까지 정리 후 종료
+// (감사 M-09 — index.js의 unknown rejection 빈도 가드와 같은 방침, 2026-07-11 사용자 결정)
+const { makeFloodGuard, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
+const managerRejectionFlooding = makeFloodGuard();
+
 process.on("unhandledRejection", (reason, promise) => {
   console.error(chalk.red("❌ 샤드 매니저에서 처리되지 않은 거부(Unhandled Rejection) 발생:"), reason);
+
+  if (managerRejectionFlooding()) {
+    console.error(chalk.red(`🛑 매니저에서 알 수 없는 rejection이 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단, 샤드를 정리하고 종료합니다.`));
+    // 매니저만 죽으면 자식 샤드 프로세스는 고아로 계속 돌므로 반드시 먼저 내린다
+    manager.respawn = false;
+    for (const shard of manager.shards.values()) {
+      try {
+        shard.kill();
+      } catch {}
+    }
+    process.exit(1);
+  }
 });
 
 process.on("uncaughtException", (error) => {

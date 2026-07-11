@@ -5,7 +5,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { VoiceConnectionStatus } = require("@discordjs/voice");
-const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, fatalShutdown, NET_ERR_MAX } = require("../src/resilience");
+const { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, fatalShutdown, NET_ERR_MAX } = require("../src/resilience");
 
 // ── isTransientNetworkError ──────────────────────────────────
 
@@ -101,6 +101,37 @@ test(`빈도 가드: 60초 창 내 ${NET_ERR_MAX}회까지 false, 초과 시 tru
     assert.equal(networkErrorFlooding(), true, `${NET_ERR_MAX + 1}번째는 폭주 판정`);
     now += 61_000; // 창 밖으로
     assert.equal(networkErrorFlooding(), false, "창이 지나면 카운터 리셋");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("빈도 가드: 인스턴스별 독립 카운터 — 네트워크 폭주가 unknown rejection 판정을 오염시키지 않음", () => {
+  const realNow = Date.now;
+  let now = 2_000_000_000;
+  Date.now = () => now;
+  try {
+    const a = makeFloodGuard();
+    const b = makeFloodGuard();
+    for (let i = 1; i <= NET_ERR_MAX; i++) a();
+    assert.equal(a(), true, "a는 폭주 판정");
+    assert.equal(b(), false, "b의 카운터는 무영향");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("빈도 가드: unknownRejectionFlooding 인스턴스 동작 (감사 M-09 — 단발 생존, 반복 시 승격)", () => {
+  const realNow = Date.now;
+  let now = 3_000_000_000;
+  Date.now = () => now;
+  try {
+    for (let i = 1; i <= NET_ERR_MAX; i++) {
+      assert.equal(unknownRejectionFlooding(), false, `${i}번째 단발은 봇 유지`);
+    }
+    assert.equal(unknownRejectionFlooding(), true, "반복되면 안전 종료 승격");
+    now += 61_000;
+    assert.equal(unknownRejectionFlooding(), false, "창이 지나면 리셋");
   } finally {
     Date.now = realNow;
   }
