@@ -104,39 +104,52 @@ class VoiceConnectionManager {
     // 현재 재생 위치 저장
     this.savePlaybackPosition();
 
-    // 복구 시도 시작
-    player.recoveryInterval = setInterval(async () => {
-      player.recoveryAttempts++;
-      if (player.recoveryAttempts > player.maxRecoveryAttempts) {
-        this.stopConnectionRecovery();
-        return;
-      }
+    // 단일 실행 복구 루프. 구 setInterval(3초) 방식은 forceReconnect가 Ready를 최대 15초
+    // 기다리는 동안 다음 콜백이 겹쳐 서로의 새 연결을 destroy하는 경쟁이 있었다(감사 M-04).
+    // "시도 → 완료 대기 → 휴지"를 순차 반복하고, 세대 토큰으로 중단↔재시작 경쟁을 차단한다
+    // (stop 후 새 복구가 시작돼도 이전 루프의 늦은 await 복귀가 새 상태를 건드리지 못함).
+    const gen = (this._recoveryGen = (this._recoveryGen || 0) + 1);
+    const active = () => player.isRecovering && gen === this._recoveryGen;
 
-      try {
-        // 음성 채널이 아직 존재하고 봇이 그 안에 있는지 확인
-        const channel = player.guild.channels.cache.get(player.voiceChannel.id);
-        if (!channel) {
-          this.stopConnectionRecovery();
-          return;
+    try {
+      while (active()) {
+        player.recoveryAttempts++;
+        if (player.recoveryAttempts > player.maxRecoveryAttempts) break;
+
+        try {
+          // 음성 채널이 아직 존재하는지 확인
+          const channel = player.voiceChannel?.id ? player.guild.channels.cache.get(player.voiceChannel.id) : null;
+          if (!channel) break;
+
+          // 재연결 시도 — 완료(성공/실패/15초 타임아웃)까지 기다린 뒤에만 다음 단계로
+          const reconnected = await this.forceReconnect();
+          if (!active()) return; // 대기 중 중단됨 — 상태를 건드리지 않고 종료
+
+          if (reconnected) {
+            // 중단된 위치에서 재생 재개
+            await this.resumePlaybackAfterRecovery();
+            break;
+          }
+        } catch (error) {
+          console.error(`❌ Recovery attempt ${player.recoveryAttempts} failed:`, error);
         }
 
-        // 재연결 시도
-        const reconnected = await this.forceReconnect();
-
-        if (reconnected) {
-          // 중단된 위치에서 재생 재개
-          await this.resumePlaybackAfterRecovery();
-          this.stopConnectionRecovery();
-        }
-      } catch (error) {
-        console.error(`❌ Recovery attempt ${player.recoveryAttempts} failed:`, error);
+        // 다음 시도까지 휴지 (테스트에서 재정의 가능)
+        await new Promise((resolve) => setTimeout(resolve, this.recoveryRetryDelayMs ?? 3000));
       }
-    }, 3000); // 3초마다 시도
+    } catch (error) {
+      // 호출부가 await하지 않으므로(fire-and-forget) 루프는 절대 reject로 끝나면 안 됨
+      console.error("❌ Connection recovery loop error:", error);
+    } finally {
+      if (active()) this.stopConnectionRecovery();
+    }
   }
 
   stopConnectionRecovery() {
     const player = this.player;
+    this._recoveryGen = (this._recoveryGen || 0) + 1; // 진행 중인 루프 무효화 (늦은 await 복귀 차단)
     if (player.recoveryInterval) {
+      // 구 setInterval 경로의 잔재 방어 — 현재 코드는 인터벌을 만들지 않음
       clearInterval(player.recoveryInterval);
       player.recoveryInterval = null;
     }
