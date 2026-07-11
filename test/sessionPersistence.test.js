@@ -79,3 +79,77 @@ test("요청자 없는 트랙: requesterId null, 복원 후 requestedBy 없음",
   const restored = sp.deserializeTrack(data);
   assert.equal(restored.requestedBy, undefined);
 });
+
+// ── 복원 시 일시정지 유지 (감사 L-01, 2026-07-11 사용자 결정) ─
+
+function makeRestorePlayer() {
+  return {
+    guild: { id: "g1", members: { cache: new Map() } },
+    pauseReasons: new Set(),
+    preloadedStreams: new Map(),
+    preloadingQueue: [],
+    queue: [],
+    previousTracks: [],
+    downloadedFiles: new Set(),
+    currentDownloadedFile: null,
+    volume: 100,
+    connection: { state: {} }, // 연결 재수립 경로 생략
+    textChannel: null,
+    paused: false,
+    calls: [],
+    async play(_, ms) {
+      // play()는 시작 직후 pauseReasons를 보고 즉시 일시정지 — 그 시점의 사유 유무를 기록
+      this.calls.push(["play", ms, this.pauseReasons.has("manual")]);
+    },
+    pauseFor(reason) {
+      this.pauseReasons.add(reason);
+      this.paused = true;
+      this.calls.push(["pauseFor", reason]);
+    },
+  };
+}
+
+function makeState(overrides = {}) {
+  return {
+    guildId: "g1",
+    currentTrack: { title: "곡", url: "https://y/1", duration: 100 },
+    queue: [],
+    volume: 80,
+    playbackPositionMs: 30000,
+    paused: false,
+    pauseReasons: [],
+    ...overrides,
+  };
+}
+
+async function restore(state) {
+  const player = makeRestorePlayer();
+  const sp = new SessionPersistence(player);
+  await sp.restoreFromState(state);
+  sp.cancelStateSave(); // scheduleStatePersist("restored") 타이머 정리
+  return player;
+}
+
+test("복원: 수동 일시정지 세션은 멈춘 상태로 (L-01 회귀 — 구 코드는 무조건 자동 재생)", async () => {
+  const player = await restore(makeState({ paused: true, pauseReasons: ["manual"] }));
+  assert.deepEqual(player.calls[0], ["play", 30000, true], "play 시작 시점에 이미 manual 사유가 걸려 즉시 일시정지");
+  assert.equal(player.paused, true, "paused 플래그 동기화");
+  assert.ok(player.pauseReasons.has("manual"));
+});
+
+test("복원: 상황성 사유(alone/mute)만이면 재적용하지 않음 — 복원 시점 상황은 다를 수 있음", async () => {
+  const player = await restore(makeState({ paused: true, pauseReasons: ["alone"] }));
+  assert.equal(player.paused, false);
+  assert.equal(player.pauseReasons.size, 0);
+});
+
+test("복원: 사유 없는 paused(레거시 세션)는 수동으로 간주", async () => {
+  const player = await restore(makeState({ paused: true, pauseReasons: [] }));
+  assert.equal(player.paused, true);
+});
+
+test("복원: 재생 중이던 세션은 그대로 재생", async () => {
+  const player = await restore(makeState());
+  assert.deepEqual(player.calls, [["play", 30000, false]]);
+  assert.equal(player.paused, false);
+});
