@@ -224,10 +224,12 @@ const scrubTime = ref(0);
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-// Action responses come from playerState() which omits botInVoice/userInVoice/canControl/canAdd/userId.
-// Preserve those fields from the last full refresh so the add-notice doesn't flash.
+// Action responses come from playerState() which omits the GET /player extras
+// (botInVoice/userInVoice/canControl/canAdd/canManage/userId). Spread over the previous
+// full-refresh state so those flags never flash off — 명시 목록으로 관리하다 canManage가
+// 빠져 조작 직후 ⚙ 버튼이 증발했던 버그의 재발 방지.
 function applyState(data) {
-  player.value = { botInVoice: player.value.botInVoice, userInVoice: player.value.userInVoice, canControl: player.value.canControl, canAdd: player.value.canAdd, userId: player.value.userId, ...data };
+  player.value = { ...player.value, ...data };
 }
 
 // 스킵은 DJ 계층이 아니어도 현재 곡의 요청자 본인이면 가능 (서버 checkSkip과 동일 규칙)
