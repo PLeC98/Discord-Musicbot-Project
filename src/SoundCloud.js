@@ -30,7 +30,7 @@ class SoundCloud {
       for (const item of results.entries.slice(0, limit)) {
         try {
           // SoundCloud 링크만 필터링
-          if (item.webpage_url && item.webpage_url.includes("soundcloud.com")) {
+          if (item.webpage_url && this.isSoundCloudURL(item.webpage_url)) {
             const track = await this.formatTrack(item, guildId);
             if (track) {
               tracks.push(track);
