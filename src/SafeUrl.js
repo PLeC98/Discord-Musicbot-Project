@@ -80,7 +80,10 @@ async function validateAndResolve(rawUrl) {
     throw new SsrfError(`허용되지 않는 스키마: ${url.protocol}`);
   }
 
-  const host = url.hostname; // URL은 IPv6를 대괄호 제거된 형태로 준다
+  // URL.hostname은 IPv6 리터럴을 대괄호 포함으로 준다('[::1]') — net.isIP 판정 전에 벗긴다.
+  // (안 벗기면 모든 IPv6 리터럴이 DNS 경로로 빠져 공인 IPv6 주소도 사용 불가 — 감사 L-03)
+  const rawHost = url.hostname;
+  const host = rawHost.startsWith("[") && rawHost.endsWith("]") ? rawHost.slice(1, -1) : rawHost;
 
   // 호스트가 IP 리터럴이면 net이 DNS lookup을 건너뛰므로(=핀 에이전트 우회) 여기서 직접 검사
   if (net.isIP(host)) {
