@@ -93,6 +93,12 @@ module.exports = {
     leaveDelayAloneMs: envInt("LEAVE_DELAY_ALONE_SECONDS", 120, { min: 0, max: 86400 }) * 1000,
   },
 
+  // 사전 로드 설정 — MusicPlayer/MusicEmbedManager가 공유 (내부 튜닝 상수, .env 대상 아님)
+  preload: {
+    ahead: 5, // 대기열 앞쪽 몇 곡을 미리 준비할지 (한 번에 전부는 YouTube에 부담)
+    gapMs: 3000, // 사전 로드 사이 간격 (YouTube 속도 제한 회피)
+  },
+
   // 오디오 설정
   audio: {
     quality: "highestaudio",

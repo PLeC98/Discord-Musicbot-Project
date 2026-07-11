@@ -41,6 +41,8 @@ async function healBrokenPlayers(client) {
         if (player.isRecovering) continue; // 이미 자체 복구 중 — 방해 금지
         const status = player.connection && player.connection.state && player.connection.state.status;
         if (status === VoiceConnectionStatus.Ready) continue; // 정상 서버 — 무영향
+        // 수립 진행 중은 자체 완료/실패를 기다림 — 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
+        if (status === VoiceConnectionStatus.Connecting || status === VoiceConnectionStatus.Signalling) continue;
         console.log(chalk.yellow(`🔧 서버 ${guildId} 음성 연결이 끊겨 복구를 시작합니다...`));
         player.voice.startConnectionRecovery();
       } catch (e) {

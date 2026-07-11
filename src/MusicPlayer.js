@@ -206,17 +206,16 @@ class MusicPlayer {
       }
 
       // 다음 몇 곡을 순차적으로 사전 로드 (병렬 처리 시 YouTube 속도 제한 가능)
-      const PRELOAD_AHEAD = 5;
       const toPreload = addedTracks
         .filter((t, i) => !(wasIdle && i === 0)) // 곧바로 재생할 트랙은 건너뜀
-        .slice(0, PRELOAD_AHEAD);
+        .slice(0, config.preload.ahead);
 
       (async () => {
         for (const track of toPreload) {
           if (this.preloadedStreams.has(track.url) || this.preloadingQueue.includes(track.url)) continue;
           try {
             await this.preloadTrack(track);
-            await new Promise((r) => setTimeout(r, 3000));
+            await new Promise((r) => setTimeout(r, config.preload.gapMs));
           } catch (err) {
             if (err && err.message) console.error(`❌ Preload error for ${track.title}:`, err.message);
           }
@@ -603,7 +602,7 @@ class MusicPlayer {
 
       return { success: true, track: this.currentTrack };
     } catch (error) {
-      const errorMsg = await ErrorHandler.handle(error, this.guild.id, "MusicPlayer.play");
+      const errorMsg = ErrorHandler.handle(error, this.guild.id, "MusicPlayer.play");
       await this.handleError(error, errorMsg);
       return { success: false, message: errorMsg };
     }

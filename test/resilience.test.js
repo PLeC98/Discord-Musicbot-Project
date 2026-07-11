@@ -41,12 +41,12 @@ test("무관한 버그는 네트워크로 오인하지 않음 (삼킴 방지)", 
 
 // ── healBrokenPlayers ────────────────────────────────────────
 
-function fakePlayer({ track = true, paused = false, recovering = false, ready = false, throwOnRecover = false } = {}) {
+function fakePlayer({ track = true, paused = false, recovering = false, ready = false, status = null, throwOnRecover = false } = {}) {
   const p = {
     currentTrack: track ? { title: "t" } : null,
     paused,
     isRecovering: recovering,
-    connection: { state: { status: ready ? VoiceConnectionStatus.Ready : VoiceConnectionStatus.Disconnected } },
+    connection: { state: { status: status ?? (ready ? VoiceConnectionStatus.Ready : VoiceConnectionStatus.Disconnected) } },
     recovered: 0,
   };
   p.voice = {
@@ -58,14 +58,16 @@ function fakePlayer({ track = true, paused = false, recovering = false, ready = 
   return p;
 }
 
-test("표적 복구: 끊긴 플레이어만 복구, 정상·복구중·트랙없음·일시정지는 무영향", async () => {
+test("표적 복구: 끊긴 플레이어만 복구, 정상·복구중·트랙없음·일시정지·수립중은 무영향", async () => {
   const broken = fakePlayer();
   const ready = fakePlayer({ ready: true });
   const noTrack = fakePlayer({ track: false });
   const pausedP = fakePlayer({ paused: true });
   const recovering = fakePlayer({ recovering: true });
+  const connecting = fakePlayer({ status: VoiceConnectionStatus.Connecting });
+  const signalling = fakePlayer({ status: VoiceConnectionStatus.Signalling });
 
-  const client = { players: new Map([["g1", broken], ["g2", ready], ["g3", noTrack], ["g4", pausedP], ["g5", recovering]]) };
+  const client = { players: new Map([["g1", broken], ["g2", ready], ["g3", noTrack], ["g4", pausedP], ["g5", recovering], ["g6", connecting], ["g7", signalling]]) };
   await healBrokenPlayers(client);
 
   assert.equal(broken.recovered, 1, "끊긴 플레이어는 복구");
@@ -73,6 +75,8 @@ test("표적 복구: 끊긴 플레이어만 복구, 정상·복구중·트랙없
   assert.equal(noTrack.recovered, 0, "트랙 없음은 무영향");
   assert.equal(pausedP.recovered, 0, "일시정지는 무영향");
   assert.equal(recovering.recovered, 0, "자체 복구 중은 방해 금지");
+  assert.equal(connecting.recovered, 0, "연결 수립 중(Connecting)은 완료를 기다림");
+  assert.equal(signalling.recovered, 0, "연결 수립 중(Signalling)은 완료를 기다림");
 });
 
 test("한 플레이어의 복구 실패가 다른 플레이어 복구를 막지 않음", async () => {

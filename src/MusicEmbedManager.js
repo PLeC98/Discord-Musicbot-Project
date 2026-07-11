@@ -52,9 +52,7 @@ class MusicEmbedManager {
    * 버퍼링 방지를 위해 대기열의 트랙을 순차적으로 사전 로드합니다.
    */
   async sequentialPreload(player, tracks) {
-    // 다음 몇 곡만 사전 로드 — 한 번에 전부 사전 로드하면 YouTube에 부담을 줌
-    const PRELOAD_AHEAD = 5;
-    const toPreload = tracks.slice(0, PRELOAD_AHEAD);
+    const toPreload = tracks.slice(0, config.preload.ahead);
 
     for (const track of toPreload) {
       // 이미 사전 로드되었거나 현재 사전 로드 중이면 건너뜀
@@ -64,8 +62,7 @@ class MusicEmbedManager {
 
       try {
         await player.preloadTrack(track);
-        // YouTube 속도 제한을 피하기 위해 사전 로드 사이에 3초 간격 유지
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, config.preload.gapMs));
       } catch (err) {
         console.error(`❌ Preload error for ${track.title}:`, err.message);
         // 오류가 나도 계속 진행
