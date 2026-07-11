@@ -21,6 +21,7 @@ class DashboardEvents {
     this.listSubs = new Set(); // { res, guildIds:Set }   (서버 목록 페이지 — 멀티플렉스)
     this.listGuildIds = new Map(); // guildId -> 그 길드를 구독 중인 목록 구독자 수 (notify 가드 O(1))
     this.perKey = new Map(); // userKey -> 연결 수 (세션당 캡, 개별+목록 공유)
+    this._cleanups = new WeakMap(); // res -> idempotent cleanup (쓰기 실패 경로에서 호출)
     this.coalesceTimers = new Map(); // guildId -> timer
 
     // 하트비트: 유휴 연결이 프록시 타임아웃으로 끊기지 않게 주기적 주석 전송
@@ -68,11 +69,19 @@ class DashboardEvents {
     }
     set.add(res);
 
-    res.on('close', () => {
+    // idempotent cleanup — close/error/쓰기 실패 어느 경로로 와도 회계(Set·perKey 캡·빈 Set 정리)가
+    // 한 번만, 전부 정리된다. 구 방식은 쓰기 실패 시 Set에서만 빼서 close가 안 오면 캡이 영구 점유됐음(감사 L-06)
+    let done = false;
+    const cleanup = () => {
+      if (done) return;
+      done = true;
       set.delete(res);
-      if (set.size === 0) this.guilds.delete(guildId);
+      if (set.size === 0 && this.guilds.get(guildId) === set) this.guilds.delete(guildId);
       this._releaseKey(userKey);
-    });
+    };
+    this._cleanups.set(res, cleanup);
+    res.on('close', cleanup);
+    res.on('error', cleanup);
   }
 
   /** 서버 목록 페이지 구독 — guildIds(사용자의 상호+멤버 길드 집합)의 이벤트를 한 연결로 멀티플렉스. */
@@ -84,7 +93,10 @@ class DashboardEvents {
     this.listSubs.add(sub);
     for (const gid of guildIds) this.listGuildIds.set(gid, (this.listGuildIds.get(gid) || 0) + 1);
 
-    res.on('close', () => {
+    let done = false;
+    const cleanup = () => {
+      if (done) return;
+      done = true;
       this.listSubs.delete(sub);
       for (const gid of guildIds) {
         const c = (this.listGuildIds.get(gid) || 1) - 1;
@@ -92,7 +104,10 @@ class DashboardEvents {
         else this.listGuildIds.set(gid, c);
       }
       this._releaseKey(userKey);
-    });
+    };
+    sub.cleanup = cleanup;
+    res.on('close', cleanup);
+    res.on('error', cleanup);
   }
 
   /** 길드 상태 변화 알림 — coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 구독자 없으면 타이머도 안 만듦. */
@@ -116,7 +131,7 @@ class DashboardEvents {
         try {
           res.write(payload);
         } catch {
-          set.delete(res);
+          this._cleanups.get(res)?.();
         }
       }
     }
@@ -126,7 +141,7 @@ class DashboardEvents {
         try {
           sub.res.write(payload);
         } catch {
-          this.listSubs.delete(sub);
+          sub.cleanup?.();
         }
       }
     }
@@ -139,7 +154,7 @@ class DashboardEvents {
         try {
           res.write(ping);
         } catch {
-          set.delete(res);
+          this._cleanups.get(res)?.();
         }
       }
     }
@@ -147,7 +162,7 @@ class DashboardEvents {
       try {
         sub.res.write(ping);
       } catch {
-        this.listSubs.delete(sub);
+        sub.cleanup?.();
       }
     }
   }
