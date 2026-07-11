@@ -65,7 +65,7 @@ test("성공 경로: 재연결 성공 → 위치 재개 1회 → 상태 초기�
 });
 
 test("동시 실행 금지: 느린 재연결 중에도 시도는 항상 1개 이하 (M-04 회귀)", async () => {
-  const { vcm, player, stats, setReconnect } = makeVcm();
+  const { vcm, stats, setReconnect } = makeVcm();
   const gate = deferred();
   setReconnect(() => gate.p); // 첫 시도가 오래 걸림 (구 코드라면 3초마다 콜백이 겹쳤음)
 

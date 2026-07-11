@@ -1,9 +1,8 @@
 require("./src/LogManager"); // intercept console before anything else logs
-const { Client, GatewayIntentBits, Collection, Events, ActivityType } = require("discord.js");
+const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
 const { getVoiceConnection } = require("@discordjs/voice");
 const { spawn } = require("child_process");
 const fs = require("fs");
-const fsPromises = require("fs").promises;
 const path = require("path");
 const config = require("./config");
 const CacheManager = require("./src/CacheManager");
@@ -508,7 +507,7 @@ function startBot() {
       loadEvents();
 
       // Graceful shutdown handler
-      const gracefulShutdown = async (signal) => {
+      const gracefulShutdown = async (_signal) => {
         // Save all active player states before shutdown
         const savePromises = [];
         for (const [guildId, player] of client.players) {

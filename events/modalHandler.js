@@ -9,8 +9,6 @@ module.exports = {
     if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
 
     const client = interaction.client;
-    const guild = interaction.guild;
-    const member = interaction.member;
 
     try {
       // 선택 메뉴 처리
@@ -183,7 +181,7 @@ module.exports = {
       });
     }
 
-    const [, requesterId, sessionId] = interaction.customId.split(":");
+    const [, , sessionId] = interaction.customId.split(":");
 
     if (sessionId && player.sessionId && sessionId !== player.sessionId) {
       return await interaction.reply({
@@ -215,8 +213,9 @@ module.exports = {
     // 셔플이 켜져 있어도 다음 전환에서 queue[0]을 선택하도록 강제
     player.nextFromFront = true;
 
-    // 현재 곡 건너뛰기 → selectedTrack이 다음에 재생됨
-    const skipped = player.skip();
+    // 현재 곡 건너뛰기 → selectedTrack이 다음에 재생됨.
+    // "jump" 사유: 한곡 반복 중에도 재시작이 아니라 선택한 곡으로 이동해야 함
+    const skipped = player.skip("jump");
 
     if (skipped) {
       await interaction.reply({

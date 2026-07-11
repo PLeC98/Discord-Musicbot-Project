@@ -67,7 +67,7 @@ manager.on("shardCreate", (shard) => {
 const { makeFloodGuard, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
 const managerRejectionFlooding = makeFloodGuard();
 
-process.on("unhandledRejection", (reason, promise) => {
+process.on("unhandledRejection", (reason) => {
   console.error(chalk.red("❌ 샤드 매니저에서 처리되지 않은 거부(Unhandled Rejection) 발생:"), reason);
 
   if (managerRejectionFlooding()) {

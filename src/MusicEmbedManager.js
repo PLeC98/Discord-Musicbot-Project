@@ -413,7 +413,6 @@ class MusicEmbedManager {
     }
 
     let endEmbed = null;
-    const guildId = player.guild?.id;
 
     try {
       endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
@@ -452,7 +451,7 @@ class MusicEmbedManager {
       .setCustomId(`music_previous:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏮️")
-      .setDisabled(disabled || player.previousTracks.length === 0);
+      .setDisabled(disabled || (player.previousTracks.length === 0 && player.loop !== "track")); // 한곡 반복 = 재시작이라 기록 없어도 활성
 
     const pauseButton = new ButtonBuilder()
       .setCustomId(`music_pause:${requesterId}:${sessionId}`)
@@ -464,7 +463,7 @@ class MusicEmbedManager {
       .setCustomId(`music_skip:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏭️")
-      .setDisabled(disabled || player.queue.length === 0);
+      .setDisabled(disabled || (player.queue.length === 0 && player.loop !== "track")); // 한곡 반복 = 재시작이라 대기열 비어도 활성
 
     const stopButton = new ButtonBuilder().setCustomId(`music_stop:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
 

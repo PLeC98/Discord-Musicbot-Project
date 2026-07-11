@@ -29,9 +29,7 @@ class SqliteSessionStore extends Store {
     );
 
     this._getStmt = this.db.prepare("SELECT data, expires_at FROM sessions WHERE sid = ?");
-    this._setStmt = this.db.prepare(
-      "INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at",
-    );
+    this._setStmt = this.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at");
     this._touchStmt = this.db.prepare("UPDATE sessions SET expires_at = ? WHERE sid = ?");
     this._destroyStmt = this.db.prepare("DELETE FROM sessions WHERE sid = ?");
     this._pruneStmt = this.db.prepare("DELETE FROM sessions WHERE expires_at <= ?");

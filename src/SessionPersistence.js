@@ -182,7 +182,7 @@ class SessionPersistence {
         }
       } catch (error) {
         console.error("❌ Failed to connect during restore:", error.message);
-        throw new Error("Failed to reconnect to voice channel");
+        throw new Error("Failed to reconnect to voice channel", { cause: error });
       }
     }
 

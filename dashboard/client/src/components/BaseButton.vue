@@ -15,11 +15,7 @@ const props = defineProps({
   href: { type: String, default: null },
 });
 
-const base =
-  "inline-flex items-center gap-1.5 rounded-xl cursor-pointer font-semibold tracking-[-0.01em] no-underline " +
-  "transition-[transform,box-shadow] duration-[350ms] ease-spring " +
-  "hover:not-disabled:scale-[1.02] active:not-disabled:scale-[0.96] active:not-disabled:duration-75 " +
-  "disabled:opacity-40 disabled:cursor-not-allowed";
+const base = "inline-flex items-center gap-1.5 rounded-xl cursor-pointer font-semibold tracking-[-0.01em] no-underline " + "transition-[transform,box-shadow] duration-[350ms] ease-spring " + "hover:not-disabled:scale-[1.02] active:not-disabled:scale-[0.96] active:not-disabled:duration-75 " + "disabled:opacity-40 disabled:cursor-not-allowed";
 
 const sizes = {
   sm: "px-2.5 py-1 text-[0.8rem]",

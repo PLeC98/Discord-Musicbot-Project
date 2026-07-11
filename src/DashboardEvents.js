@@ -1,6 +1,6 @@
-'use strict';
+"use strict";
 
-const config = require('../config');
+const config = require("../config");
 
 const { heartbeatMs, maxPerUser, coalesceMs } = config.dashboard.sse;
 
@@ -31,20 +31,20 @@ class DashboardEvents {
 
   _sseHead(res) {
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
     });
     if (res.flushHeaders) res.flushHeaders();
-    res.write(': connected\n\n');
+    res.write(": connected\n\n");
   }
 
   /** 세션당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. */
   _capOk(res, userKey) {
     const count = this.perKey.get(userKey) || 0;
     if (count >= maxPerUser) {
-      res.status(429).json({ error: '이벤트 연결이 너무 많습니다' });
+      res.status(429).json({ error: "이벤트 연결이 너무 많습니다" });
       return false;
     }
     this.perKey.set(userKey, count + 1);
@@ -80,8 +80,8 @@ class DashboardEvents {
       this._releaseKey(userKey);
     };
     this._cleanups.set(res, cleanup);
-    res.on('close', cleanup);
-    res.on('error', cleanup);
+    res.on("close", cleanup);
+    res.on("error", cleanup);
   }
 
   /** 서버 목록 페이지 구독 — guildIds(사용자의 상호+멤버 길드 집합)의 이벤트를 한 연결로 멀티플렉스. */
@@ -106,8 +106,8 @@ class DashboardEvents {
       this._releaseKey(userKey);
     };
     sub.cleanup = cleanup;
-    res.on('close', cleanup);
-    res.on('error', cleanup);
+    res.on("close", cleanup);
+    res.on("error", cleanup);
   }
 
   /** 길드 상태 변화 알림 — coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 구독자 없으면 타이머도 안 만듦. */
@@ -148,7 +148,7 @@ class DashboardEvents {
   }
 
   _pingAll() {
-    const ping = ': ping\n\n';
+    const ping = ": ping\n\n";
     for (const set of this.guilds.values()) {
       for (const res of set) {
         try {

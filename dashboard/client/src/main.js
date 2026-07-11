@@ -1,43 +1,46 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import App from './App.vue'
-import router from './router/index.js'
-import axios from 'axios'
-import './style.css'
+import { createApp } from "vue";
+import { createPinia } from "pinia";
+import App from "./App.vue";
+import router from "./router/index.js";
+import axios from "axios";
+import "./style.css";
 
-axios.defaults.withCredentials = true
+axios.defaults.withCredentials = true;
 
-let csrfToken = null
-let csrfTokenRequest = null
-const unsafeMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+let csrfToken = null;
+let csrfTokenRequest = null;
+const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 async function getCsrfToken() {
-  if (csrfToken) return csrfToken
+  if (csrfToken) return csrfToken;
   if (!csrfTokenRequest) {
-    csrfTokenRequest = axios.get('/api/csrf-token').then((response) => {
-      csrfToken = response.data.csrfToken
-      return csrfToken
-    }).finally(() => {
-      csrfTokenRequest = null
-    })
+    csrfTokenRequest = axios
+      .get("/api/csrf-token")
+      .then((response) => {
+        csrfToken = response.data.csrfToken;
+        return csrfToken;
+      })
+      .finally(() => {
+        csrfTokenRequest = null;
+      });
   }
-  return csrfTokenRequest
+  return csrfTokenRequest;
 }
 
 axios.interceptors.request.use(async (request) => {
-  const method = (request.method || 'GET').toUpperCase()
+  const method = (request.method || "GET").toUpperCase();
   if (unsafeMethods.has(method)) {
-    request.headers['X-CSRF-Token'] = await getCsrfToken()
+    request.headers["X-CSRF-Token"] = await getCsrfToken();
   }
-  return request
-})
+  return request;
+});
 
 axios.interceptors.response.use(undefined, (error) => {
-  if (error.response?.data?.code === 'INVALID_CSRF_TOKEN') csrfToken = null
-  return Promise.reject(error)
-})
+  if (error.response?.data?.code === "INVALID_CSRF_TOKEN") csrfToken = null;
+  return Promise.reject(error);
+});
 
-const app = createApp(App)
-app.use(createPinia())
-app.use(router)
-app.mount('#app')
+const app = createApp(App);
+app.use(createPinia());
+app.use(router);
+app.mount("#app");

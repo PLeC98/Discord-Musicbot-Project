@@ -67,7 +67,17 @@ test("표적 복구: 끊긴 플레이어만 복구, 정상·복구중·트랙없
   const connecting = fakePlayer({ status: VoiceConnectionStatus.Connecting });
   const signalling = fakePlayer({ status: VoiceConnectionStatus.Signalling });
 
-  const client = { players: new Map([["g1", broken], ["g2", ready], ["g3", noTrack], ["g4", pausedP], ["g5", recovering], ["g6", connecting], ["g7", signalling]]) };
+  const client = {
+    players: new Map([
+      ["g1", broken],
+      ["g2", ready],
+      ["g3", noTrack],
+      ["g4", pausedP],
+      ["g5", recovering],
+      ["g6", connecting],
+      ["g7", signalling],
+    ]),
+  };
   await healBrokenPlayers(client);
 
   assert.equal(broken.recovered, 1, "끊긴 플레이어는 복구");
@@ -82,7 +92,12 @@ test("표적 복구: 끊긴 플레이어만 복구, 정상·복구중·트랙없
 test("한 플레이어의 복구 실패가 다른 플레이어 복구를 막지 않음", async () => {
   const bad = fakePlayer({ throwOnRecover: true });
   const good = fakePlayer();
-  const client = { players: new Map([["g1", bad], ["g2", good]]) };
+  const client = {
+    players: new Map([
+      ["g1", bad],
+      ["g2", good],
+    ]),
+  };
   await healBrokenPlayers(client);
   assert.equal(good.recovered, 1);
 });
@@ -159,7 +174,16 @@ test("안전 종료: 전 플레이어 cleanup + 맵 비움 + 주입된 exit 호�
 
 test("안전 종료: cleanup이 던져도 exit는 반드시 호출 (best-effort)", () => {
   let exited = 0;
-  const players = new Map([["g1", { cleanup: () => { throw new Error("cleanup boom"); } }]]);
+  const players = new Map([
+    [
+      "g1",
+      {
+        cleanup: () => {
+          throw new Error("cleanup boom");
+        },
+      },
+    ],
+  ]);
   fatalShutdown({ players }, new Error("fatal"), () => exited++);
   assert.equal(exited, 1);
 });

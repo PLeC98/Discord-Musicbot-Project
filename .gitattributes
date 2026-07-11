@@ -1,0 +1,7 @@
+# 줄바꿈 규약: 저장소 저장도, 체크아웃도 LF — Prettier(endOfLine: lf)와 일치.
+# eol=lf 없이 text=auto만 쓰면 Windows 체크아웃이 core.eol(native=CRLF)을 따라
+# CRLF로 풀리면서 포맷 검사가 전 파일에서 실패한다 (CI windows-latest에서 실증).
+* text=auto eol=lf
+
+# pnpm 패치 파일은 pnpm-lock.yaml에 내용 해시가 기록되므로 변환 금지
+*.patch -text

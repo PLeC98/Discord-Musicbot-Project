@@ -33,6 +33,11 @@ jobs:
       CLIENT_ID: "000000000000000000"
 
     steps:
+      # Windows 러너의 git 기본값(core.autocrlf=true)이 체크아웃 시 CRLF로 변환해
+      # Prettier(endOfLine: lf) 검사가 전 파일에서 실패함 — 저장소(LF) 그대로 받는다
+      - name: Configure git to keep LF line endings
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@v7.0.0
 
@@ -53,6 +58,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Check formatting
+        run: pnpm run format:check
 
       - name: Run tests
         run: pnpm test

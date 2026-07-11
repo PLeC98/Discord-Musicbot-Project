@@ -53,16 +53,16 @@ class DirectLink {
    * 직접 링크는 URL 기반 탐색을 지원하지 않음 — 탐색은 MusicPlayer의 FFmpeg가 처리하므로
    * startSeconds는 여기서 무시한다.
    */
-  static async getStream(url, guildId = null, startSeconds = 0) {
+  static async getStream(url, _guildId = null, _startSeconds = 0) {
     try {
       if (!this.isDirectAudioLink(url)) {
         throw new Error("지원되지 않는 직접 오디오 파일 링크");
       }
       return await SafeUrl.getStream(url);
     } catch (error) {
-      // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만
+      // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용 — 사용자 노출 없음)
       console.error("[DirectLink] getStream() failed:", error.message || error);
-      throw new Error("재생할 수 없는 링크입니다");
+      throw new Error("재생할 수 없는 링크입니다", { cause: error });
     }
   }
 
@@ -85,15 +85,12 @@ class DirectLink {
 
   // 참고: 동기 함수로 유지해야 함 — getInfo()가 반환값을
   // track.title에 직접 할당함 (비동기 버전은 "[object Promise]"를 생성했음)
-  static extractTitle(filename, guildId = null) {
+  static extractTitle(filename, _guildId = null) {
     // 확장자를 제거하고 파일명 정리
     const nameWithoutExt = path.parse(filename).name;
 
     // 일반적인 구분자를 공백으로 교체
-    let title = nameWithoutExt
-      .replace(/[-_\.]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    let title = nameWithoutExt.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim();
 
     // 각 단어의 첫 글자를 대문자로 변환
     title = title.replace(/\b\w/g, (l) => l.toUpperCase());

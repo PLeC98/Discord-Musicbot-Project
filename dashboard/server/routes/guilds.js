@@ -114,7 +114,6 @@ const QUERY_MAX_LEN = 500;
 // 부적합 입력은 null (호출부에서 400)
 function sanitizeQuery(raw) {
   if (typeof raw !== "string" || raw.length > QUERY_MAX_LEN) return null;
-  // eslint-disable-next-line no-control-regex
   const query = raw.replace(/[\x00-\x1f\x7f]/g, " ").trim();
   return query || null;
 }
@@ -391,7 +390,8 @@ router.post("/:guildId/player/previous", requireAuth, requireControl, async (req
   if (!ctx) return;
   const { player } = ctx;
   if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-  if (!player.previousTracks?.length) return res.status(409).json({ error: "이전 곡이 없습니다." });
+  // 한곡 반복 중에는 이전곡 = 현재 곡 재시작이라 기록이 없어도 유효
+  if (!player.previousTracks?.length && player.loop !== "track") return res.status(409).json({ error: "이전 곡이 없습니다." });
 
   player.previous();
   res.json({ ok: true });

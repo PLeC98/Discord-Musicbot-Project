@@ -29,7 +29,7 @@ function resolveSessionSecret() {
   }
   console.warn(chalk.yellow("⚠️  [Dashboard] .env에 SESSION_SECRET이 없어 임시 랜덤 비밀로 대체합니다."));
   console.warn(chalk.yellow("   → 봇을 재시작할 때마다 대시보드 로그인이 전부 풀립니다."));
-  console.warn(chalk.yellow('   → 생성 예: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))" 결과를 SESSION_SECRET=에 넣으세요.'));
+  console.warn(chalk.yellow("   → 생성 예: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\" 결과를 SESSION_SECRET=에 넣으세요."));
   return crypto.randomBytes(32).toString("hex");
 }
 

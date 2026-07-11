@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 // 샤드 판별 유틸.
 //
@@ -10,7 +10,7 @@
 // 샤드 0(또는 비샤딩)에서만 실행해야 한다. 아니면 샤드 수만큼 중복 배포/포트 충돌이 난다.
 
 function isSharded() {
-  return process.env.SHARDING_MANAGER === 'true' || process.env.SHARDS !== undefined;
+  return process.env.SHARDING_MANAGER === "true" || process.env.SHARDS !== undefined;
 }
 
 // 이 프로세스가 "대표 샤드"인가?
@@ -26,7 +26,7 @@ function isPrimaryShard() {
 function shardId() {
   const raw = process.env.SHARDS;
   if (raw === undefined) return null;
-  const first = String(raw).split(',')[0].trim();
+  const first = String(raw).split(",")[0].trim();
   const n = Number(first);
   return Number.isInteger(n) ? n : null;
 }

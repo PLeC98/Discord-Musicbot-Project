@@ -1,6 +1,6 @@
 "use strict";
 
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const MusicPlayer = require("../src/MusicPlayer");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
 const CacheManager = require("../src/CacheManager");

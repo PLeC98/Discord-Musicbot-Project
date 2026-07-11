@@ -98,7 +98,7 @@ class YouTube {
     }
   }
 
-  static async getInfo(url, guildId = null) {
+  static async getInfo(url, _guildId = null) {
     try {
       const info = await youtubedl(
         url,
@@ -137,7 +137,7 @@ class YouTube {
     }
   }
 
-  static async getStream(url, guildId = null, startSeconds = 0) {
+  static async getStream(url, _guildId = null, startSeconds = 0) {
     try {
       if (!url) {
         throw new Error("URL이 필요함");
@@ -178,11 +178,12 @@ class YouTube {
         httpHeaders: info.http_headers || {},
       };
     } catch (error) {
+      console.error("[YouTube] getStream() failed:", error.message || error);
       throw error;
     }
   }
 
-  static async getPlaylist(url, guildId = null) {
+  static async getPlaylist(url, _guildId = null) {
     try {
       const info = await youtubedl(
         url,
@@ -295,7 +296,7 @@ class YouTube {
     const parsed = this._parseYouTubeURL(value);
     if (!parsed) return null;
     const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
-    let videoId = null;
+    let videoId;
     if (hostname === "youtu.be") {
       videoId = parsed.pathname.split("/").filter(Boolean)[0] || null;
     } else if (parsed.pathname === "/watch") {

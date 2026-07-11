@@ -28,7 +28,7 @@ function usageBar(used, max, width = 12) {
 module.exports = {
   data: new SlashCommandBuilder().setName("cachestatus").setDescription("Show audio cache statistics").setDescriptionLocalizations({ ko: "오디오 캐시 통계를 표시합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
-  async execute(interaction, client) {
+  async execute(interaction, _client) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const CacheManager = require("../src/CacheManager");

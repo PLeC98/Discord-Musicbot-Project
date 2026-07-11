@@ -939,7 +939,8 @@ class MusicPlayer {
     this.disconnect();
   }
 
-  skip() {
+  // reason: "skip"(기본) 또는 "jump"(대기열 점프 — 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
+  skip(reason = "skip") {
     if (this.currentTrack) {
       // 트랙 타이머 정리
       if (this.trackTimer) {
@@ -947,7 +948,7 @@ class MusicPlayer {
         this.trackTimer = null;
       }
 
-      this.pendingEndReason = "skip";
+      this.pendingEndReason = reason;
       this.skipRequested = true;
       this.audioPlayer.stop(true);
       this.scheduleStatePersist("skip", 0);
@@ -957,6 +958,21 @@ class MusicPlayer {
   }
 
   previous() {
+    // 한곡 반복 중 이전곡 = 현재 곡 재시작 (2026-07-11 사용자 결정 — 대기열·기록 불변.
+    // 기존처럼 대기열 앞에 곡을 끼워 넣으면 반복 재생이 대기열을 소비하지 않아 곡이 증식했음)
+    if (this.loop === "track") {
+      if (!this.currentTrack) return false;
+      if (this.trackTimer) {
+        clearTimeout(this.trackTimer);
+        this.trackTimer = null;
+      }
+      this.pendingEndReason = "previous";
+      this.skipRequested = true;
+      this.audioPlayer.stop(true);
+      this.scheduleStatePersist("previous", 0);
+      return true;
+    }
+
     if (this.previousTracks.length > 0) {
       // 이전 트랙을 맨 앞에 넣고 그 곡으로 건너뜀. 현재 트랙은 currentTrack으로 남겨 handleTrackEnd가 올바르게 기록하도록 함;
       // 여기서 이전 트랙을 미리 할당하면 "예기치 않게 종료됨"
@@ -1098,7 +1114,7 @@ class MusicPlayer {
       const totalPlaybackMs = this.currentTrackStartOffsetMs + playbackMs;
       this.lastPlaybackPosition = totalPlaybackMs;
       const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
-      const manualSkip = reason === "skip" || reason === "stop" || reason === "previous";
+      const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump";
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
 
       if (endedUnexpectedly) {
@@ -1107,7 +1123,6 @@ class MusicPlayer {
           // 마지막으로 알려진 위치에서 같은 트랙 재개 시도
           await this.play(null, totalPlaybackMs);
           return;
-        } else {
         }
       } else {
         this.currentTrackRetries = 0;
@@ -1118,20 +1133,26 @@ class MusicPlayer {
         return;
       }
 
-      this.previousTracks.push(finishedTrack);
-      if (this.previousTracks.length > 50) this.previousTracks.shift();
-
       // 참조 해제 (파일은 디스크에 유지 — 제거는 CacheManager가 처리)
       this.currentDownloadedFile = null;
 
-      if (this.loop === "track" && !manualSkip) {
-        // 트랙 반복은 처음부터 재생 (사용자가 명시적으로 스킵한 경우 제외)
+      if (this.loop === "track" && reason !== "stop" && reason !== "jump") {
+        // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생 (2026-07-11 사용자 결정).
+        // 대기열·이전 곡 기록은 불변 — 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
+        // (기록을 여기서 쌓으면 반복 1회마다 히스토리가 오염되어 이전곡 시 곡 증식의 씨앗이 됐음)
         await this.play(null, 0);
         return;
       }
 
-      if (this.loop === "queue") {
-        this.queue.push(finishedTrack);
+      // 이전곡(previous)은 중단된 현재 곡을 이미 대기열 앞쪽에 되돌려 놓았다 — 아직 끝난 곡이
+      // 아니므로 기록하지 않고, 큐 반복 재삽입도 하지 않는다 (하면 대기열에 복제가 쌓임)
+      if (reason !== "previous") {
+        this.previousTracks.push(finishedTrack);
+        if (this.previousTracks.length > 50) this.previousTracks.shift();
+
+        if (this.loop === "queue") {
+          this.queue.push(finishedTrack);
+        }
       }
 
       this.resource = null;
@@ -1251,7 +1272,7 @@ class MusicPlayer {
 
         // 재생목록처럼 보이는 콘텐츠 필터링 (믹스와 모음은 이모지나 괄호가 많은 경우가 잦음)
         const emojiCount = (title.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
-        const bracketCount = (title.match(/[\[\]【】]/g) || []).length;
+        const bracketCount = (title.match(/[[\]【】]/g) || []).length;
         if (emojiCount > 3 || bracketCount > 4) return false;
 
         return true;

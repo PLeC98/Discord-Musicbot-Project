@@ -131,7 +131,12 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
   try {
     await CacheManager.evict(); // 비보호 10개 중 상위 20% = 2개 제거
 
-    const remaining = new Set(CacheManager.db.prepare("SELECT audio_source_key FROM audio_cache").all().map((r) => r.audio_source_key));
+    const remaining = new Set(
+      CacheManager.db
+        .prepare("SELECT audio_source_key FROM audio_cache")
+        .all()
+        .map((r) => r.audio_source_key),
+    );
     assert.ok(!remaining.has("bad1"), "미재생·고령·대용량이 최우선 퇴거");
     assert.ok(!remaining.has("bad2"), "미재생·고령·대용량이 최우선 퇴거");
     assert.ok(remaining.has("protected1"), "보호 키는 조건이 나빠도 생존");

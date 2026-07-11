@@ -1,5 +1,4 @@
 const youtubedl = require("youtube-dl-exec");
-const axios = require("axios");
 const config = require("../config");
 
 class SoundCloud {
@@ -67,25 +66,21 @@ class SoundCloud {
     }
   }
 
-  static async getStream(url, guildId = null, startSeconds = 0) {
-    try {
-      // yt-dlp로 오디오 스트림 가져오기
-      const result = await youtubedl(url, {
-        format: "bestaudio/best",
-        getUrl: true,
-        noWarnings: true,
-      });
+  static async getStream(url, _guildId = null, _startSeconds = 0) {
+    // yt-dlp로 오디오 스트림 가져오기
+    const result = await youtubedl(url, {
+      format: "bestaudio/best",
+      getUrl: true,
+      noWarnings: true,
+    });
 
-      if (!result) {
-        throw new Error("스트림 URL을 찾을 수 없음");
-      }
-
-      // 참고: SoundCloud 스트림은 일반적으로 URL 매개변수를 통한 탐색을 지원하지 않음
-      // 탐색은 MusicPlayer의 FFmpeg가 처리
-      return result;
-    } catch (error) {
-      throw error;
+    if (!result) {
+      throw new Error("스트림 URL을 찾을 수 없음");
     }
+
+    // 참고: SoundCloud 스트림은 일반적으로 URL 매개변수를 통한 탐색을 지원하지 않음
+    // 탐색은 MusicPlayer의 FFmpeg가 처리
+    return result;
   }
 
   static async getPlaylist(url, guildId = null) {
@@ -155,7 +150,7 @@ class SoundCloud {
     }
   }
 
-  static async formatTrack(soundcloudTrack, guildId = null) {
+  static async formatTrack(soundcloudTrack, _guildId = null) {
     try {
       const unknownTitle = "알 수 없는 제목";
       const unknownArtist = "알 수 없는 아티스트";
@@ -266,54 +261,16 @@ class SoundCloud {
     return `https://soundcloud.com/${username}`;
   }
 
-  static async getRelatedTracks(trackUrl, limit = 5) {
-    try {
-      // 여기에 관련 트랙 가져오기 구현 가능. 복잡한 구현이 필요하므로 현재는 빈 배열 반환.
-      return [];
-    } catch (error) {
-      return [];
-    }
+  static async getRelatedTracks(_trackUrl, _limit = 5) {
+    // 여기에 관련 트랙 가져오기 구현 가능. 복잡한 구현이 필요하므로 현재는 빈 배열 반환.
+    return [];
   }
 
   static async searchAdvanced(query, options = {}, guildId = null) {
+    // yt-dlp를 사용한 고급 검색 (간소화).
+    // 구 api-v2 직접 호출 구현은 도달 불가 죽은 코드였음(미존재 this.clientId 참조) — 제거 (§3.7 조사에서 확인)
     try {
-      // yt-dlp를 사용한 고급 검색 (간소화)
       return await this.search(query, options.limit || 20, guildId);
-
-      const {
-        limit = 20,
-        offset = 0,
-        filter = "all", // 'all', 'tracks', 'playlists', 'users' 중 하나
-        sort = "relevance", // 'relevance', 'created_at', 'hotness', 'duration' 중 하나
-      } = options;
-
-      const searchUrl = `https://api-v2.soundcloud.com/search`;
-      const params = {
-        q: query,
-        client_id: this.clientId,
-        limit: limit,
-        offset: offset,
-        filter: filter,
-        sort: sort,
-      };
-
-      const response = await axios.get(searchUrl, { params });
-
-      if (!response.data || !response.data.collection) {
-        return [];
-      }
-
-      const tracks = [];
-      for (const item of response.data.collection) {
-        if (item.kind === "track") {
-          const track = await this.formatTrack(item);
-          if (track) {
-            tracks.push(track);
-          }
-        }
-      }
-
-      return tracks;
     } catch (error) {
       return [];
     }
