@@ -213,10 +213,6 @@ function startBot() {
     startDashboard(client);
   }
 
-  // MusicPlayer에서 접근하기 위한 전역 참조
-  if (!global.clients) global.clients = {};
-  global.clients.musicEmbedManager = client.musicEmbedManager;
-
   // Load command files
   const loadCommands = () => {
     const commandsPath = path.join(__dirname, "commands");
@@ -364,7 +360,7 @@ function startBot() {
 
       if (oldChannelId && !newChannelId) {
         try {
-          const embedManager = client.musicEmbedManager || global.clients?.musicEmbedManager;
+          const embedManager = client.musicEmbedManager;
 
           // Mark state as ended so UI reflects the change
           player.pendingEndReason = "forced-disconnect";

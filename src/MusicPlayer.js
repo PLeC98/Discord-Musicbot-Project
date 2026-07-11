@@ -798,8 +798,9 @@ class MusicPlayer {
 
         if (hasListeners) {
           this.resumeFor("alone");
-          if (global.clients?.musicEmbedManager) {
-            await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
+          const embedManager = this.guild?.client?.musicEmbedManager;
+          if (embedManager) {
+            await embedManager.updateNowPlayingEmbed(this);
           }
           return;
         }
@@ -810,7 +811,7 @@ class MusicPlayer {
         this.currentTrack = null;
 
         try {
-          const embedManager = global.clients?.musicEmbedManager;
+          const embedManager = this.guild?.client?.musicEmbedManager;
           if (embedManager) {
             await embedManager.handlePlaybackEnd(this);
           } else if (typeof this.showQueueCompleted === "function") {
@@ -1141,8 +1142,8 @@ class MusicPlayer {
         // 다음 트랙을 처음부터 재생
         await this.play(null, 0);
 
-        if (global.clients && global.clients.musicEmbedManager) {
-          await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
+        if (this.guild?.client?.musicEmbedManager) {
+          await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
         }
 
         return;
@@ -1169,8 +1170,8 @@ class MusicPlayer {
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
-      if (global.clients && global.clients.musicEmbedManager) {
-        await global.clients.musicEmbedManager.handlePlaybackEnd(this);
+      if (this.guild?.client?.musicEmbedManager) {
+        await this.guild.client.musicEmbedManager.handlePlaybackEnd(this);
       } else {
         await this.showQueueCompleted();
       }
@@ -1274,8 +1275,8 @@ class MusicPlayer {
       await this.play(null, 0);
 
       // 자동재생 트랙용 현재 재생 임베드 갱신
-      if (global.clients && global.clients.musicEmbedManager) {
-        await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
+      if (this.guild?.client?.musicEmbedManager) {
+        await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
       }
     } catch (error) {
       console.error("❌ Autoplay error:", error.message);
@@ -1433,7 +1434,7 @@ class MusicPlayer {
       this.nowPlayingMessage = null;
       this.requesterId = null;
       this.voiceChannel = null;
-      const embedManager = global.clients?.musicEmbedManager;
+      const embedManager = this.guild?.client?.musicEmbedManager;
       if (embedManager && this.textChannel?.id) {
         embedManager.deleteWebhookCache(this.textChannel.id);
       }

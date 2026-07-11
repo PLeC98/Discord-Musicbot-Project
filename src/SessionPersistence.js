@@ -197,7 +197,7 @@ class SessionPersistence {
       player.resource.volume.setVolume(player.volume / 100);
     }
 
-    const embedManager = global.clients?.musicEmbedManager;
+    const embedManager = player.guild?.client?.musicEmbedManager;
     if (embedManager && player.textChannel) {
       try {
         // 이전 세션의 오래된 현재 재생 메시지 제거;
