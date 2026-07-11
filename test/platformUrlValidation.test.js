@@ -37,8 +37,5 @@ test("recognizes canonical YouTube playlists and video IDs", () => {
 test("cache normalization only canonicalizes genuine YouTube URLs", () => {
   const disguised = "https://evil.example/youtube.com/watch?v=dQw4w9WgXcQ";
   assert.equal(CacheManager._normalizeSourceUrl(disguised), disguised);
-  assert.equal(
-    CacheManager._normalizeSourceUrl("https://youtu.be/dQw4w9WgXcQ"),
-    "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-  );
+  assert.equal(CacheManager._normalizeSourceUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 });

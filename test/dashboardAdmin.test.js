@@ -85,7 +85,13 @@ const client = {
   isReady: () => true,
   user: { tag: "TestBot#1", id: "bot1" },
   ws: { ping: 42, status: 0 },
-  guilds: { cache: new Map([[g1.id, g1], [g2.id, g2], [gStuck.id, gStuck]]) },
+  guilds: {
+    cache: new Map([
+      [g1.id, g1],
+      [g2.id, g2],
+      [gStuck.id, gStuck],
+    ]),
+  },
   players: new Map([[g1.id, playerG1]]),
   musicEmbedManager: {
     endedPlayers: [],
