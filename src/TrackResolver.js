@@ -21,9 +21,9 @@ const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = {
   /** 쿼리 문자열의 플랫폼 판별 — direct 판정은 DirectLink.isDirectAudioLink 한 곳 기준 */
   detectPlatform(query) {
-    if (query.includes("youtube.com") || query.includes("youtu.be")) return "youtube";
-    if (query.includes("spotify.com")) return "spotify";
-    if (query.includes("soundcloud.com")) return "soundcloud";
+    if (YouTube.isYouTubeURL(query)) return "youtube";
+    if (Spotify.isSpotifyURL(query)) return "spotify";
+    if (SoundCloud.isSoundCloudURL(query)) return "soundcloud";
     if (DirectLink.isDirectAudioLink(query)) return "direct";
     return "youtube"; // 기본값은 YouTube 검색
   },

@@ -247,13 +247,34 @@ class YouTube {
     }
   }
 
-  static isYouTubeURL(url) {
-    const patterns = [/^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/playlist\?list=)/, /^https?:\/\/(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]+/, /^https?:\/\/(www\.)?youtube\.com\/v\/[a-zA-Z0-9_-]+/, /^https?:\/\/(www\.)?youtube\.com\/shorts\/[a-zA-Z0-9_-]+/];
-    return patterns.some((pattern) => pattern.test(url));
+  static _parseYouTubeURL(value) {
+    if (typeof value !== "string") return null;
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+      const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+      if (!["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(hostname)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
   }
 
-  static isPlaylist(url) {
-    return url.includes("list=") && (url.includes("youtube.com/playlist") || url.includes("youtube.com/watch") || url.includes("youtu.be"));
+  static isYouTubeURL(value) {
+    const parsed = this._parseYouTubeURL(value);
+    if (!parsed) return false;
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+    if (hostname === "youtu.be") return /^\/[a-zA-Z0-9_-]+/.test(parsed.pathname);
+    if (parsed.pathname === "/watch") return /^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("v") || "");
+    if (parsed.pathname === "/playlist") return /^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("list") || "");
+    return /^\/(embed|v|shorts)\/[a-zA-Z0-9_-]+/.test(parsed.pathname);
+  }
+
+  static isPlaylist(value) {
+    const parsed = this._parseYouTubeURL(value);
+    if (!parsed || !/^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("list") || "")) return false;
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+    return hostname === "youtu.be" || parsed.pathname === "/playlist" || parsed.pathname === "/watch";
   }
 
   static parseDuration(durationString) {
@@ -270,15 +291,20 @@ class YouTube {
     return seconds;
   }
 
-  static extractVideoId(url) {
-    const patterns = [/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/, /youtube\.com\/embed\/([a-zA-Z0-9_-]+)/, /youtube\.com\/v\/([a-zA-Z0-9_-]+)/, /youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/];
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) return match[1];
+  static extractVideoId(value) {
+    const parsed = this._parseYouTubeURL(value);
+    if (!parsed) return null;
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+    let videoId = null;
+    if (hostname === "youtu.be") {
+      videoId = parsed.pathname.split("/").filter(Boolean)[0] || null;
+    } else if (parsed.pathname === "/watch") {
+      videoId = parsed.searchParams.get("v");
+    } else {
+      const match = parsed.pathname.match(/^\/(?:embed|v|shorts)\/([a-zA-Z0-9_-]+)/);
+      videoId = match?.[1] || null;
     }
-
-    return null;
+    return /^[a-zA-Z0-9_-]+$/.test(videoId || "") ? videoId : null;
   }
 
   static extractPlaylistId(url) {

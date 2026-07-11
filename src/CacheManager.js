@@ -144,7 +144,6 @@ class CacheManager {
    */
   _normalizeSourceUrl(sourceUrl) {
     if (typeof sourceUrl !== "string") return sourceUrl;
-    if (!sourceUrl.includes("youtube.com") && !sourceUrl.includes("youtu.be")) return sourceUrl;
     // 순환 의존성 문제를 피하기 위해 지연 require
     const YouTube = require("./YouTube");
     const videoId = YouTube.extractVideoId(sourceUrl);
