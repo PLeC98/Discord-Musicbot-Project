@@ -1,4 +1,4 @@
-const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const config = require("../config");
 const MusicPlayer = require("../src/MusicPlayer");
 const S = require("../src/strings");
@@ -12,7 +12,6 @@ module.exports = {
 
     const client = interaction.client;
     const guild = interaction.guild;
-    const member = interaction.member;
 
     // DJ 역할 설정 UI 버튼은 전용 핸들러(djRoleConfigHandler.js)가 처리
     if (interaction.customId.startsWith("djrole:")) return;
@@ -108,7 +107,7 @@ module.exports = {
     }
   },
 
-  async handlePause(interaction, player, requesterId) {
+  async handlePause(interaction, player, _requesterId) {
     const permErr = await checkControl(interaction.member);
     if (permErr) {
       return await interaction.reply({
@@ -161,7 +160,7 @@ module.exports = {
     }
   },
 
-  async handleSkip(interaction, player, requesterId) {
+  async handleSkip(interaction, player, _requesterId) {
     // DJ 계층 또는 현재 곡의 요청자 본인은 스킵 가능
     const permErr = await checkSkip(interaction.member, player);
     if (permErr) {
@@ -264,7 +263,7 @@ module.exports = {
     }
   },
 
-  async handleStop(interaction, player, client, requesterId) {
+  async handleStop(interaction, player, client, _requesterId) {
     const permErr = await checkControl(interaction.member);
     if (permErr) {
       return await interaction.reply({
@@ -346,7 +345,7 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 
-  async handleShuffle(interaction, player, requesterId) {
+  async handleShuffle(interaction, player, _requesterId) {
     const permErr = await checkControl(interaction.member);
     if (permErr) {
       return await interaction.reply({
@@ -387,7 +386,7 @@ module.exports = {
     }
   },
 
-  async handleVolumeModal(interaction, player, requesterId) {
+  async handleVolumeModal(interaction, _player, _requesterId) {
     const permErr = await checkControl(interaction.member);
     if (permErr) {
       return await interaction.reply({
@@ -406,7 +405,7 @@ module.exports = {
     await interaction.showModal(modal);
   },
 
-  async handleLoop(interaction, player, requesterId) {
+  async handleLoop(interaction, player, _requesterId) {
     const permErr = await checkControl(interaction.member);
     if (permErr) {
       return await interaction.reply({

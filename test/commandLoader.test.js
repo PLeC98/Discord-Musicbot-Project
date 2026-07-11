@@ -27,7 +27,7 @@ after(() => {
   REST.prototype.put = realPut;
 });
 
-const { commands, deployCommands, loadCommandData, deployErrorLines } = require("../src/commandLoader");
+const { commands, deployCommands, deployErrorLines } = require("../src/commandLoader");
 const config = require("../config");
 
 test("loadCommandData: commands/*.js 전부가 유효한 정의(name/description)로 로드됨", () => {

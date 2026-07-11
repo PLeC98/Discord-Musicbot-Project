@@ -1123,7 +1123,6 @@ class MusicPlayer {
           // 마지막으로 알려진 위치에서 같은 트랙 재개 시도
           await this.play(null, totalPlaybackMs);
           return;
-        } else {
         }
       } else {
         this.currentTrackRetries = 0;
@@ -1273,7 +1272,7 @@ class MusicPlayer {
 
         // 재생목록처럼 보이는 콘텐츠 필터링 (믹스와 모음은 이모지나 괄호가 많은 경우가 잦음)
         const emojiCount = (title.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
-        const bracketCount = (title.match(/[\[\]【】]/g) || []).length;
+        const bracketCount = (title.match(/[[\]【】]/g) || []).length;
         if (emojiCount > 3 || bracketCount > 4) return false;
 
         return true;

@@ -413,7 +413,6 @@ class MusicEmbedManager {
     }
 
     let endEmbed = null;
-    const guildId = player.guild?.id;
 
     try {
       endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();

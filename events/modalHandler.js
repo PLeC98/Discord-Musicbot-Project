@@ -9,8 +9,6 @@ module.exports = {
     if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
 
     const client = interaction.client;
-    const guild = interaction.guild;
-    const member = interaction.member;
 
     try {
       // 선택 메뉴 처리
@@ -183,7 +181,7 @@ module.exports = {
       });
     }
 
-    const [, requesterId, sessionId] = interaction.customId.split(":");
+    const [, , sessionId] = interaction.customId.split(":");
 
     if (sessionId && player.sessionId && sessionId !== player.sessionId) {
       return await interaction.reply({

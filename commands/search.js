@@ -26,7 +26,6 @@ module.exports = {
     const guildId = interaction.guild.id;
     const member = interaction.member;
     const guild = interaction.guild;
-    const channel = interaction.channel;
 
     try {
       await interaction.deferReply();

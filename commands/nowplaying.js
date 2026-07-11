@@ -9,7 +9,6 @@ module.exports = {
   async execute(interaction, client) {
     try {
       const guild = interaction.guild;
-      const guildId = guild.id;
 
       const player = client.players.get(guild.id);
       if (!player) {

@@ -20,7 +20,7 @@ class Spotify {
         this.spotifyApi.setAccessToken(data.body.access_token);
         this.tokenExpiresAt = Date.now() + data.body.expires_in * 1000;
       } catch (error) {
-        throw new Error("Spotify API authentication failed");
+        throw new Error("Spotify API authentication failed", { cause: error });
       }
     }
 
@@ -211,7 +211,7 @@ class Spotify {
     }
   }
 
-  static async formatTrack(spotifyTrack, guildId = null) {
+  static async formatTrack(spotifyTrack, _guildId = null) {
     try {
       const unknownArtist = "알 수 없는 아티스트";
       const unknownTitle = "알 수 없는 제목";

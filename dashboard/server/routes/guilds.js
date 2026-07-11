@@ -114,7 +114,6 @@ const QUERY_MAX_LEN = 500;
 // 부적합 입력은 null (호출부에서 400)
 function sanitizeQuery(raw) {
   if (typeof raw !== "string" || raw.length > QUERY_MAX_LEN) return null;
-  // eslint-disable-next-line no-control-regex
   const query = raw.replace(/[\x00-\x1f\x7f]/g, " ").trim();
   return query || null;
 }
