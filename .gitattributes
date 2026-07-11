@@ -1,0 +1,6 @@
+# 줄바꿈 규약: 저장소에는 LF로 정규화해 저장 (체크아웃은 각자의 core.autocrlf 설정을 따름)
+# — Windows/Linux 혼용 개발에서 커밋마다 뜨던 CRLF 변환 경고 제거
+* text=auto
+
+# pnpm 패치 파일은 pnpm-lock.yaml에 내용 해시가 기록되므로 변환 금지
+*.patch -text
