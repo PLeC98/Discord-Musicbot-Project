@@ -36,6 +36,9 @@ class MusicPlayer {
     this.queue = [];
     this.currentTrack = null;
     this.previousTracks = [];
+    // 캐시 퇴거 보호 중인 audioSourceKey — currentTrack과 별도로 기억해, 종료 경로가
+    // currentTrack을 먼저 null해도 해제가 누락되지 않게 한다 (감사 L-02)
+    this._protectedAudioKey = null;
 
     // 플레이어 설정
     this.volume = config.bot.defaultVolume;
@@ -552,9 +555,14 @@ class MusicPlayer {
 
       console.log(`▶️  Playing: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
 
-      // 재생 중인 현재 트랙을 제거 대상에서 보호
+      // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
+      if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
+        CacheManager.unprotect(this._protectedAudioKey);
+        this._protectedAudioKey = null;
+      }
       if (this.currentTrack.audioSourceKey) {
-        CacheManager.protect(this.currentTrack.audioSourceKey);
+        this._protectedAudioKey = this.currentTrack.audioSourceKey;
+        CacheManager.protect(this._protectedAudioKey);
       }
 
       // 리소스 재생
@@ -870,6 +878,13 @@ class MusicPlayer {
     }
   }
 
+  // 재생 중 트랙의 캐시 퇴거 보호 해제 — currentTrack이 이미 null이어도 기억된 키로 해제
+  releaseAudioProtection() {
+    const key = this._protectedAudioKey || this.currentTrack?.audioSourceKey;
+    if (key) CacheManager.unprotect(key);
+    this._protectedAudioKey = null;
+  }
+
   stop() {
     this.updateVoiceStatus("").catch(() => {});
 
@@ -881,7 +896,7 @@ class MusicPlayer {
       CacheManager.removePlayerSession(this.guild.id);
     }
 
-    if (this.currentTrack?.audioSourceKey) CacheManager.unprotect(this.currentTrack.audioSourceKey);
+    this.releaseAudioProtection();
 
     this.currentDownloadedFile = null;
     this.downloadedFiles.clear();
@@ -908,7 +923,7 @@ class MusicPlayer {
     this.paused = false;
     this.releaseResources();
 
-    if (this.currentTrack?.audioSourceKey) CacheManager.unprotect(this.currentTrack.audioSourceKey);
+    this.releaseAudioProtection();
 
     this.currentDownloadedFile = null;
     this.downloadedFiles.clear();
@@ -1078,7 +1093,7 @@ class MusicPlayer {
       }
 
       const finishedTrack = this.currentTrack;
-      if (finishedTrack?.audioSourceKey) CacheManager.unprotect(finishedTrack.audioSourceKey);
+      this.releaseAudioProtection();
       const playbackMs = this.resource?.playbackDuration || 0;
       const totalPlaybackMs = this.currentTrackStartOffsetMs + playbackMs;
       this.lastPlaybackPosition = totalPlaybackMs;
@@ -1415,7 +1430,7 @@ class MusicPlayer {
 
       // 플레이어 데이터 정리
       this.queue = [];
-      if (this.currentTrack?.audioSourceKey) CacheManager.unprotect(this.currentTrack.audioSourceKey);
+      this.releaseAudioProtection();
       this.currentTrack = null;
       this.previousTracks = [];
       this.startTime = null;
