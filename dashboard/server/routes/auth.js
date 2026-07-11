@@ -97,9 +97,9 @@ router.get("/callback", async (req, res) => {
   }
 });
 
-// Logout
-router.get("/logout", (req, res) => {
-  req.session.destroy(() => res.redirect("/"));
+// Logout is state-changing and is protected by the global CSRF middleware.
+router.post("/logout", (req, res) => {
+  req.session.destroy(() => res.status(204).end());
 });
 
 module.exports = router;
