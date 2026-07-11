@@ -8,6 +8,7 @@ const fs = require("fs");
 const chalk = require("chalk");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
+const { createCorsOptions } = require("./cors");
 const SqliteSessionStore = require("./sessionStore");
 const { issueCsrfToken, requireCsrfToken } = require("./middleware/csrf");
 const authRoutes = require("./routes/auth");
@@ -42,12 +43,7 @@ function startDashboard(client) {
   app.set("trust proxy", "loopback, linklocal, uniquelocal");
 
   app.use(express.json());
-  app.use(
-    cors({
-      origin: [DASHBOARD_URL, "http://localhost:5173"],
-      credentials: true,
-    }),
-  );
+  app.use(cors(createCorsOptions(DASHBOARD_URL)));
   app.use(
     session({
       secret: SESSION_SECRET,
