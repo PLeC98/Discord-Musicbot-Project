@@ -8,7 +8,7 @@ const { deployCommands, commands, deployErrorLines } = require('../src/commandLo
 
 (async () => {
     console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);
-    const r = await deployCommands();
+    const r = await deployCommands({ force: true }); // 수동 스크립트 = 명시적 재배포 의도 — 지문 무시
 
     if (r.ok) {
         const where = r.scope === 'guild' ? `길드 ${r.guildId}에` : '전역으로';

@@ -16,7 +16,8 @@ if (isPrimaryShard()) {
   const { deployCommands, deployErrorLines } = require("./src/commandLoader");
   console.log("🚀 슬래시 커맨드 배포를 시작합니다...");
   deployCommands().then((r) => {
-    if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 커맨드를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
+    if (r.ok && r.skipped) console.log(chalk.gray(`⏭️  커맨드 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
+    else if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 커맨드를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
     else deployErrorLines(r).forEach((line) => console.error(chalk.red(line)));
   });
 } else {
