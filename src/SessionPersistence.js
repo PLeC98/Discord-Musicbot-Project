@@ -191,13 +191,22 @@ class SessionPersistence {
       return;
     }
 
+    // 재시작 전 수동 일시정지는 멈춘 상태로 복원 (감사 L-01, 2026-07-11 사용자 결정 — 갑자기
+    // 재생되지 않게). alone/mute 같은 상황성 사유는 복원 시점의 실제 상황이 다를 수 있어
+    // 재적용하지 않음 — 해당 조건이면 voiceStateUpdate/자리비움 로직이 다시 걸어준다.
+    // 사유 없는 paused(레거시 세션)도 수동으로 간주.
+    const savedReasons = Array.isArray(state.pauseReasons) ? state.pauseReasons : [];
+    const restoreManualPause = Boolean(state.paused) && (savedReasons.includes("manual") || savedReasons.length === 0);
+    if (restoreManualPause) player.pauseReasons.add("manual"); // play()가 시작 직후 즉시 일시정지
+
     await player.play(null, resumeMs);
+    if (restoreManualPause) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
 
     if (player.resource?.volume) {
       player.resource.volume.setVolume(player.volume / 100);
     }
 
-    const embedManager = global.clients?.musicEmbedManager;
+    const embedManager = player.guild?.client?.musicEmbedManager;
     if (embedManager && player.textChannel) {
       try {
         // 이전 세션의 오래된 현재 재생 메시지 제거;

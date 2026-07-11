@@ -163,7 +163,7 @@ router.post("/guilds/:guildId/leave", requireAdmin, async (req, res) => {
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
 router.post("/redeploy-commands", requireAdmin, async (req, res) => {
   const { deployCommands } = require("../../../src/commandLoader");
-  const r = await deployCommands();
+  const r = await deployCommands({ force: true }); // 대시보드 버튼 = 명시적 재배포 의도 — 지문 무시
   if (r.ok) {
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
   }

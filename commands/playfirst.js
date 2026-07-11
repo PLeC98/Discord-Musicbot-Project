@@ -76,7 +76,7 @@ module.exports = {
         });
       }
     } catch (error) {
-      const errorMsg = await ErrorHandler.handle(error, interaction.guild?.id, "playfirst.execute");
+      const errorMsg = ErrorHandler.handle(error, interaction.guild?.id, "playfirst.execute");
 
       try {
         if (interaction.replied || interaction.deferred) {

@@ -75,7 +75,7 @@ const TrackResolver = {
 
       return { success: true, isPlaylist, tracks };
     } catch (error) {
-      const errorMsg = await ErrorHandler.handle(error, guildId, context);
+      const errorMsg = ErrorHandler.handle(error, guildId, context);
       return { success: false, message: errorMsg };
     }
   },

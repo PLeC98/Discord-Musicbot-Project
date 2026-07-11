@@ -1,7 +1,8 @@
 # Discord Musicbot Project
 
-한국어 UI 기반의 개인용 Discord 음악 봇.
-[umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 개조한 독립 포크입니다.
+[umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 개조한 한국어 UI 기반의 개인용 Discord 음악 봇.
+
+몇몇 음악 봇들과 달리 **음악 봇**임에 집중하며, yt-dlp를 기반으로 사용자가 직접 호스팅하기에 대형 클라우드 서비스 봇에 비해 안정적입니다.
 
 [![discord.js](https://img.shields.io/badge/discord.js-14-blue?style=flat-square&logo=discord.js)](https://discord.js.org/)
 [![Node.js](https://img.shields.io/badge/24.11%2B-x?logo=Node.js&logoColor=green&label=Node.js&color=green&style=flat-square)](https://nodejs.org/)
@@ -15,16 +16,28 @@
 
 ## 주요 기능
 
+### 음악 플레이어
+
 - **재생 소스**: YouTube, Spotify, SoundCloud, 직접 오디오 링크
-- **Components V2 재생 UI**: 진행 바, 컨트롤 버튼, 대기열 점프 셀렉트 메뉴가 달린 now-playing 메시지 (웹훅 발송)
-- **SQLite 오디오 캐시**: 재생한 곡을 opus로 로컬 캐싱, 재생 빈도·최근성·용량 기반 점수형 자동 퇴거, 디스크 여유 공간 감시
-- **세션 저장/복구**: `/leave`로 대기열·재생 위치를 저장하고 `/join`으로 복구. 봇 재시작 시에도 자동 복구 (5초 주기 스냅샷)
-- **웹 대시보드**: Express + Vue, Discord OAuth 로그인. 재생 제어·대기열 관리·곡 추가를 브라우저에서
+- **대기열 관리**: 우선 재생, 섞기, 반복, 순서 변경, 건너뛰기, 이전 곡, 일시 정지/재개
+- **Components V2 재생 UI**: 진행 바, 컨트롤 버튼, 대기열 점프 셀렉트 메뉴가 달린 now-playing 메시지 (웹훅)
+- **SQLite 오디오 캐시**: 재생한 곡을 로컬 캐싱, 캐시를 활용한 오류 복구·빠른 다회 재생 반응성 등 확보, 재생 빈도·최근성·전체 캐시 용량·디스크 여유 공간 기반 자동 정리
+- **세션 저장/복구**: `/leave`로 대기열·재생 위치를 저장하고 `/join`으로 복구. 봇 재시작 시에도 자동 복구
 - **봇 전용 채널**: `/setchannel`로 지정한 채널에 곡명/링크만 입력하면 자동 재생
 - **장르 자동재생**: 대기열 소진 시 선택한 장르(`config/genres.js`에서 추가/삭제, 검색 키워드 변경 가능)의 곡을 자동 탐색·재생
-- **상태 메시지 로테이션**: 시간대·양력/음력 날짜 조건부 상태 메시지 (`config/status.js`)
-- **음성 채널 상태 표시**: 재생 중인 곡 제목을 음성 채널 상태에 자동 반영
 - **DJ 역할 지정**: `/setdjrole`로 역할을 지정 가능. 권한이 없다면, 곡 추가와 자기가 추가한 곡의 스킵 / 제거, 조회만 가능.
+
+### 웹 대시보드
+
+- **Discord OAuth 로그인**: 안전하고, 권한 기반의 접근 제어를 제공
+- **음악 제어**: 디스코드 내에서 할 수 있는 모든 기능을 더 편리하게
+- **채널 설정 관리**: DJ 역할, 전용 채널 설정
+- **봇 운영자 용 패널**: 봇 상태, WebSocket 핑, 운영 시스템 상태, 전체 공지, 터미널 로그, 봇이 참여중인 서버 관리, 커맨드 재배포
+
+### 비주얼
+
+- **상태 메시지 로테이션**: 시간대·양력/음력 날짜 조건부 봇 상태 메시지 (`config/status.js`)
+- **음성 채널 상태 표시**: 재생 중인 곡 제목을 음성 채널 상태에 자동 반영
 
 ## 명령어
 
@@ -122,7 +135,7 @@ pnpm run shard    # 1000+ 서버용 샤딩 실행 (샤딩 설정 필요)
 
 ## 대시보드
 
-1. `.env`에 `DASHBOARD_URL`(외부 공개 주소 — 로컬 접속만 쓰면 비워둠), `OWNER_ID` 설정
+1. `.env`에 `DASHBOARD_URL`(외부 공개 주소 — 로컬 접속만 쓰면 비워둠), `OWNER_ID`, `SESSION_SECRET` 설정
 2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에
    `{DASHBOARD_URL}/auth/callback` 추가
 3. 클라이언트 빌드:
@@ -146,7 +159,10 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 | `pnpm run build:dashboard` | 대시보드(Vue) 변경분 재빌드                               |
 | `pnpm run update:bgutil`   | bgutil POToken 공급자 `git pull` + 재빌드                 |
 | `pnpm run update:ytdlp`    | yt-dlp 바이너리 최신화                                    |
-| `pnpm run cmddeploy`       | 슬래시 커맨드 재배포                                      |
+| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                 |
+
+**슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
+Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 관리자 페이지의 재배포 버튼으로 강제 배포하세요.
 
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
 기동 시 자동 체크는 하지 않으므로, YouTube 추출이 갑자기 막히면(YouTube가 API를 자주 바꿈) 봇 재시작 전에 `pnpm run update:ytdlp`로 갱신하세요.

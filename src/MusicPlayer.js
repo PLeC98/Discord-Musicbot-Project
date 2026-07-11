@@ -36,6 +36,9 @@ class MusicPlayer {
     this.queue = [];
     this.currentTrack = null;
     this.previousTracks = [];
+    // 캐시 퇴거 보호 중인 audioSourceKey — currentTrack과 별도로 기억해, 종료 경로가
+    // currentTrack을 먼저 null해도 해제가 누락되지 않게 한다 (감사 L-02)
+    this._protectedAudioKey = null;
 
     // 플레이어 설정
     this.volume = config.bot.defaultVolume;
@@ -203,17 +206,16 @@ class MusicPlayer {
       }
 
       // 다음 몇 곡을 순차적으로 사전 로드 (병렬 처리 시 YouTube 속도 제한 가능)
-      const PRELOAD_AHEAD = 5;
       const toPreload = addedTracks
         .filter((t, i) => !(wasIdle && i === 0)) // 곧바로 재생할 트랙은 건너뜀
-        .slice(0, PRELOAD_AHEAD);
+        .slice(0, config.preload.ahead);
 
       (async () => {
         for (const track of toPreload) {
           if (this.preloadedStreams.has(track.url) || this.preloadingQueue.includes(track.url)) continue;
           try {
             await this.preloadTrack(track);
-            await new Promise((r) => setTimeout(r, 3000));
+            await new Promise((r) => setTimeout(r, config.preload.gapMs));
           } catch (err) {
             if (err && err.message) console.error(`❌ Preload error for ${track.title}:`, err.message);
           }
@@ -552,9 +554,14 @@ class MusicPlayer {
 
       console.log(`▶️  Playing: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
 
-      // 재생 중인 현재 트랙을 제거 대상에서 보호
+      // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
+      if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
+        CacheManager.unprotect(this._protectedAudioKey);
+        this._protectedAudioKey = null;
+      }
       if (this.currentTrack.audioSourceKey) {
-        CacheManager.protect(this.currentTrack.audioSourceKey);
+        this._protectedAudioKey = this.currentTrack.audioSourceKey;
+        CacheManager.protect(this._protectedAudioKey);
       }
 
       // 리소스 재생
@@ -595,7 +602,7 @@ class MusicPlayer {
 
       return { success: true, track: this.currentTrack };
     } catch (error) {
-      const errorMsg = await ErrorHandler.handle(error, this.guild.id, "MusicPlayer.play");
+      const errorMsg = ErrorHandler.handle(error, this.guild.id, "MusicPlayer.play");
       await this.handleError(error, errorMsg);
       return { success: false, message: errorMsg };
     }
@@ -798,8 +805,9 @@ class MusicPlayer {
 
         if (hasListeners) {
           this.resumeFor("alone");
-          if (global.clients?.musicEmbedManager) {
-            await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
+          const embedManager = this.guild?.client?.musicEmbedManager;
+          if (embedManager) {
+            await embedManager.updateNowPlayingEmbed(this);
           }
           return;
         }
@@ -810,7 +818,7 @@ class MusicPlayer {
         this.currentTrack = null;
 
         try {
-          const embedManager = global.clients?.musicEmbedManager;
+          const embedManager = this.guild?.client?.musicEmbedManager;
           if (embedManager) {
             await embedManager.handlePlaybackEnd(this);
           } else if (typeof this.showQueueCompleted === "function") {
@@ -869,6 +877,13 @@ class MusicPlayer {
     }
   }
 
+  // 재생 중 트랙의 캐시 퇴거 보호 해제 — currentTrack이 이미 null이어도 기억된 키로 해제
+  releaseAudioProtection() {
+    const key = this._protectedAudioKey || this.currentTrack?.audioSourceKey;
+    if (key) CacheManager.unprotect(key);
+    this._protectedAudioKey = null;
+  }
+
   stop() {
     this.updateVoiceStatus("").catch(() => {});
 
@@ -880,7 +895,7 @@ class MusicPlayer {
       CacheManager.removePlayerSession(this.guild.id);
     }
 
-    if (this.currentTrack?.audioSourceKey) CacheManager.unprotect(this.currentTrack.audioSourceKey);
+    this.releaseAudioProtection();
 
     this.currentDownloadedFile = null;
     this.downloadedFiles.clear();
@@ -907,7 +922,7 @@ class MusicPlayer {
     this.paused = false;
     this.releaseResources();
 
-    if (this.currentTrack?.audioSourceKey) CacheManager.unprotect(this.currentTrack.audioSourceKey);
+    this.releaseAudioProtection();
 
     this.currentDownloadedFile = null;
     this.downloadedFiles.clear();
@@ -1077,7 +1092,7 @@ class MusicPlayer {
       }
 
       const finishedTrack = this.currentTrack;
-      if (finishedTrack?.audioSourceKey) CacheManager.unprotect(finishedTrack.audioSourceKey);
+      this.releaseAudioProtection();
       const playbackMs = this.resource?.playbackDuration || 0;
       const totalPlaybackMs = this.currentTrackStartOffsetMs + playbackMs;
       this.lastPlaybackPosition = totalPlaybackMs;
@@ -1141,8 +1156,8 @@ class MusicPlayer {
         // 다음 트랙을 처음부터 재생
         await this.play(null, 0);
 
-        if (global.clients && global.clients.musicEmbedManager) {
-          await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
+        if (this.guild?.client?.musicEmbedManager) {
+          await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
         }
 
         return;
@@ -1169,8 +1184,8 @@ class MusicPlayer {
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
-      if (global.clients && global.clients.musicEmbedManager) {
-        await global.clients.musicEmbedManager.handlePlaybackEnd(this);
+      if (this.guild?.client?.musicEmbedManager) {
+        await this.guild.client.musicEmbedManager.handlePlaybackEnd(this);
       } else {
         await this.showQueueCompleted();
       }
@@ -1274,8 +1289,8 @@ class MusicPlayer {
       await this.play(null, 0);
 
       // 자동재생 트랙용 현재 재생 임베드 갱신
-      if (global.clients && global.clients.musicEmbedManager) {
-        await global.clients.musicEmbedManager.updateNowPlayingEmbed(this);
+      if (this.guild?.client?.musicEmbedManager) {
+        await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
       }
     } catch (error) {
       console.error("❌ Autoplay error:", error.message);
@@ -1414,7 +1429,7 @@ class MusicPlayer {
 
       // 플레이어 데이터 정리
       this.queue = [];
-      if (this.currentTrack?.audioSourceKey) CacheManager.unprotect(this.currentTrack.audioSourceKey);
+      this.releaseAudioProtection();
       this.currentTrack = null;
       this.previousTracks = [];
       this.startTime = null;
@@ -1433,7 +1448,7 @@ class MusicPlayer {
       this.nowPlayingMessage = null;
       this.requesterId = null;
       this.voiceChannel = null;
-      const embedManager = global.clients?.musicEmbedManager;
+      const embedManager = this.guild?.client?.musicEmbedManager;
       if (embedManager && this.textChannel?.id) {
         embedManager.deleteWebhookCache(this.textChannel.id);
       }

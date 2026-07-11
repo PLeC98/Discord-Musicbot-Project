@@ -132,26 +132,31 @@ module.exports = {
       components.push(row2);
     }
 
-    // 검색 결과를 임시 저장
-    if (!global.searchResults) global.searchResults = new Map();
-    global.searchResults.set(interaction.user.id, {
+    const message = await interaction.editReply({
+      embeds: [embed],
+      components: components,
+    });
+
+    // 검색 결과를 메시지 ID로 키잉해 임시 저장 — 사용자 ID 키는 같은 사용자의
+    // 재검색이 이전 메시지의 버튼과 뒤섞이는 문제가 있었음(감사 M-08).
+    // userId는 버튼 처리에서 요청자 본인 확인용
+    const client = interaction.client;
+    if (!client.searchResults) client.searchResults = new Map();
+    client.searchResults.set(message.id, {
+      userId: interaction.user.id,
       query: query,
       results: results,
       timestamp: Date.now(),
     });
 
-    // 5분 후 정리
-    setTimeout(
+    // 5분 후 정리 — 메시지별 키라 다른 검색의 타이머와 간섭하지 않음
+    const timer = setTimeout(
       () => {
-        global.searchResults.delete(interaction.user.id);
+        client.searchResults.delete(message.id);
       },
       5 * 60 * 1000,
     );
-
-    await interaction.editReply({
-      embeds: [embed],
-      components: components,
-    });
+    timer.unref?.();
   },
 
   formatDuration(seconds, unknownLabel = "알 수 없음") {

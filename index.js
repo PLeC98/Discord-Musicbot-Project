@@ -16,7 +16,8 @@ if (isPrimaryShard()) {
   const { deployCommands, deployErrorLines } = require("./src/commandLoader");
   console.log("🚀 슬래시 커맨드 배포를 시작합니다...");
   deployCommands().then((r) => {
-    if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 커맨드를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
+    if (r.ok && r.skipped) console.log(chalk.gray(`⏭️  커맨드 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
+    else if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 커맨드를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
     else deployErrorLines(r).forEach((line) => console.error(chalk.red(line)));
   });
 } else {
@@ -189,7 +190,7 @@ if (isPrimaryShard()) {
 // ────────────────────────────────────────────────────────────────────────────
 
 // uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료) — src/resilience.js
-const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
+const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
 
 function startBot() {
   const client = new Client({
@@ -212,10 +213,6 @@ function startBot() {
     const { startDashboard } = require("./dashboard/server/index");
     startDashboard(client);
   }
-
-  // MusicPlayer에서 접근하기 위한 전역 참조
-  if (!global.clients) global.clients = {};
-  global.clients.musicEmbedManager = client.musicEmbedManager;
 
   // Load command files
   const loadCommands = () => {
@@ -364,7 +361,7 @@ function startBot() {
 
       if (oldChannelId && !newChannelId) {
         try {
-          const embedManager = client.musicEmbedManager || global.clients?.musicEmbedManager;
+          const embedManager = client.musicEmbedManager;
 
           // Mark state as ended so UI reflects the change
           player.pendingEndReason = "forced-disconnect";
@@ -467,6 +464,14 @@ function startBot() {
       console.log(chalk.yellow("⚠️ 네트워크/음성 오류(rejection) — 연결이 끊긴 서버만 복구합니다..."));
       healBrokenPlayers(client).catch(() => {});
       return;
+    }
+
+    // 알 수 없는 rejection — 단발은 위 로그만 남기고 계속(사소한 catch 누락이 봇 전체 다운으로
+    // 번지지 않게). 짧은 시간창에 반복되면 좀비 루프/시스템적 이상으로 보고 안전 종료
+    // (감사 M-09 — uncaughtException의 네트워크 폭주 가드와 같은 방침, 2026-07-11 사용자 결정)
+    if (unknownRejectionFlooding()) {
+      console.error(chalk.red(`🛑 알 수 없는 rejection이 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단합니다.`));
+      fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)));
     }
   });
 

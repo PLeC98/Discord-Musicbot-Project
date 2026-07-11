@@ -568,17 +568,24 @@ module.exports = {
       });
     }
 
-    if (!global.searchResults || !global.searchResults.has(interaction.user.id)) {
+    // 메시지 ID로 키잉 — 같은 사용자의 재검색/다른 길드의 검색과 섞이지 않음 (감사 M-08)
+    const userSearchData = client.searchResults?.get(interaction.message.id);
+    if (!userSearchData) {
       return await interaction.reply({
         content: "❌ 검색 결과를 찾을 수 없거나 만료되었습니다! 다시 검색해 주세요.",
         flags: [1 << 6],
       });
     }
 
-    const userSearchData = global.searchResults.get(interaction.user.id);
+    if (userSearchData.userId !== interaction.user.id) {
+      return await interaction.reply({
+        content: "❌ 검색을 요청한 사용자만 선택할 수 있습니다!",
+        flags: [1 << 6],
+      });
+    }
 
     if (interaction.customId === "search_cancel") {
-      global.searchResults.delete(interaction.user.id);
+      client.searchResults.delete(interaction.message.id);
 
       const embed = new EmbedBuilder().setTitle("❌ 검색 취소됨").setDescription("검색이 취소되었습니다.").setColor("#FF0000").setTimestamp();
 
@@ -627,7 +634,7 @@ module.exports = {
       // interaction=null 전달: 검색 메시지는 일반 임베드 - Components V2 현재 재생 메시지로 수정할 수 없음. 임베드 매니저가 텍스트 채널에 새 메시지를 보냄
       const result = await client.musicEmbedManager.handleMusicData(guild.id, { isPlaylist: false, tracks: [selectedTrack] }, member, null);
 
-      global.searchResults.delete(interaction.user.id);
+      client.searchResults.delete(interaction.message.id);
 
       if (!result.success) {
         const errorEmbed = new EmbedBuilder().setTitle("❌ 오류").setDescription(result.message).setColor("#FF0000").setTimestamp();

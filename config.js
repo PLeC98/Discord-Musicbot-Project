@@ -19,13 +19,18 @@ function env(key, def = null) {
   return v !== undefined && v.trim() !== "" ? v : def;
 }
 
-// env()의 정수 버전 — 값이 숫자가 아니면 경고 후 def 반환 (오타를 조용히 삼키지 않음)
-function envInt(key, def) {
+// env()의 정수 버전 — 값이 숫자가 아니거나 허용 범위를 벗어나면 경고 후 def 반환
+// (오타를 조용히 삼키지 않음 — 1ms급 타이머·무효 포트·음수 캐시 한도 같은 오설정 방지)
+function envInt(key, def, { min, max } = {}) {
   const v = env(key);
   if (v === null) return def;
   const n = parseInt(v, 10);
   if (Number.isNaN(n)) {
     console.warn(`⚠️  [config] ${key}=${v} 이/가 숫자가 아닙니다 — 기본값 ${def}을(를) 사용합니다.`);
+    return def;
+  }
+  if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
+    console.warn(`⚠️  [config] ${key}=${n} 이/가 허용 범위(${min ?? "-∞"}~${max ?? "∞"})를 벗어납니다 — 기본값 ${def}을(를) 사용합니다.`);
     return def;
   }
   return n;
@@ -52,7 +57,7 @@ if (!env("SPOTIFY_CLIENT_ID") || !env("SPOTIFY_CLIENT_SECRET")) {
   console.warn("⚠️  [config] Spotify API 키 미설정 — Spotify 검색/링크 기능이 비활성화됩니다.");
 }
 
-const dashboardPort = envInt("DASHBOARD_PORT", 33333);
+const dashboardPort = envInt("DASHBOARD_PORT", 33333, { min: 1, max: 65535 });
 
 // 오리지널 프로젝트의 공개 저장소 — AGPL 소스 고지의 기본값 (사용자 설정 아님).
 // 코드를 수정해 운영하는 경우에만 .env의 SOURCE_REPO_URL로 수정본 저장소를 지정해 교체.
@@ -84,8 +89,14 @@ module.exports = {
     projectRepo: PROJECT_REPO,
     sourceRepo: env("SOURCE_REPO_URL", PROJECT_REPO),
     invite: "https://discord.com/oauth2/authorize?client_id=" + env("CLIENT_ID") + "&permissions=8&scope=bot%20applications.commands",
-    leaveDelayQueueEmptyMs: envInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS", 600) * 1000,
-    leaveDelayAloneMs: envInt("LEAVE_DELAY_ALONE_SECONDS", 120) * 1000,
+    leaveDelayQueueEmptyMs: envInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS", 600, { min: 0, max: 86400 }) * 1000,
+    leaveDelayAloneMs: envInt("LEAVE_DELAY_ALONE_SECONDS", 120, { min: 0, max: 86400 }) * 1000,
+  },
+
+  // 사전 로드 설정 — MusicPlayer/MusicEmbedManager가 공유 (내부 튜닝 상수, .env 대상 아님)
+  preload: {
+    ahead: 5, // 대기열 앞쪽 몇 곡을 미리 준비할지 (한 번에 전부는 YouTube에 부담)
+    gapMs: 3000, // 사전 로드 사이 간격 (YouTube 속도 제한 회피)
   },
 
   // 오디오 설정
@@ -125,26 +136,26 @@ module.exports = {
     // API 요청 제한 (config.js 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을
     // 넉넉히 넘는 값 — 도배만 차단. 값 근거는 notes/code-review §7 참조.
     rateLimit: {
-      windowMs: envInt("RATE_LIMIT_WINDOW_SEC", 60) * 1000,
-      apiMax: envInt("RATE_LIMIT_API_MAX", 120), // 일반 인증 API (/api/*)
-      queueMax: envInt("RATE_LIMIT_QUEUE_MAX", 20), // 곡 추가 (POST /player/queue)
-      authWindowMs: envInt("RATE_LIMIT_AUTH_WINDOW_SEC", 600) * 1000,
-      authMax: envInt("RATE_LIMIT_AUTH_MAX", 30), // 로그인/OAuth (/auth/*)
+      windowMs: envInt("RATE_LIMIT_WINDOW_SEC", 60, { min: 1, max: 3600 }) * 1000,
+      apiMax: envInt("RATE_LIMIT_API_MAX", 120, { min: 1 }), // 일반 인증 API (/api/*)
+      queueMax: envInt("RATE_LIMIT_QUEUE_MAX", 20, { min: 1 }), // 곡 추가 (POST /player/queue)
+      authWindowMs: envInt("RATE_LIMIT_AUTH_WINDOW_SEC", 600, { min: 1, max: 86400 }) * 1000,
+      authMax: envInt("RATE_LIMIT_AUTH_MAX", 30, { min: 1 }), // 로그인/OAuth (/auth/*)
     },
     // 실시간 갱신(SSE) — 플레이어 상태 변화 넛지. 값은 config.js 기본값 + .env 오버라이드.
     sse: {
-      heartbeatMs: envInt("SSE_HEARTBEAT_SEC", 20) * 1000, // 유휴 연결 keepalive
-      maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5), // 세션당 동시 연결 캡
-      coalesceMs: envInt("SSE_COALESCE_MS", 300), // 길드당 넛지 합치기 창
+      heartbeatMs: envInt("SSE_HEARTBEAT_SEC", 20, { min: 5, max: 300 }) * 1000, // 유휴 연결 keepalive
+      maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5, { min: 1, max: 100 }), // 세션당 동시 연결 캡
+      coalesceMs: envInt("SSE_COALESCE_MS", 300, { min: 0, max: 5000 }), // 길드당 넛지 합치기 창
     },
   },
 
   // 오디오 캐시 설정
   cache: {
-    maxSizeBytes: envInt("CACHE_MAX_SIZE_MB", 1024) * 1024 * 1024,
-    maxFiles: envInt("CACHE_MAX_FILES", 500),
-    minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048) * 1024 * 1024,
-    evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4) * 3600 * 1000,
+    maxSizeBytes: envInt("CACHE_MAX_SIZE_MB", 1024, { min: 1 }) * 1024 * 1024,
+    maxFiles: envInt("CACHE_MAX_FILES", 500, { min: 1 }),
+    minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048, { min: 0 }) * 1024 * 1024,
+    evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
   },
 
   // 음성 채널 상태 설정
@@ -160,7 +171,7 @@ module.exports = {
     shardList: env("SHARD_LIST", "auto"),
     mode: env("SHARD_MODE", "process"),
     respawn: env("SHARD_RESPAWN", "true") !== "false",
-    spawnDelay: envInt("SHARD_SPAWN_DELAY", 5500),
-    spawnTimeout: envInt("SHARD_SPAWN_TIMEOUT", 30000),
+    spawnDelay: envInt("SHARD_SPAWN_DELAY", 5500, { min: 0, max: 60000 }),
+    spawnTimeout: envInt("SHARD_SPAWN_TIMEOUT", 30000, { min: -1, max: 600000 }), // -1 = 무제한 (discord.js)
   },
 };

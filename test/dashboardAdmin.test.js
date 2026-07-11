@@ -3,9 +3,13 @@
 // dashboard/server/routes/admin.js — 관리자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
 // 실 라우터 + fake client. GSM은 require.cache 모킹, REST.put은 프로토타입 패치(실 배포·실 DB 없음).
 
+const os = require("node:os");
 const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
+
+// 재배포 경로가 운영 배포 지문(database/deployed-commands.json)을 기록하지 않도록 임시 경로로 우회
+process.env.DEPLOYED_COMMANDS_HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
 
 // ── 모킹: GuildSettingsManager (공지 발송이 봇 채널 조회 시 실 DB를 열지 않도록) ──
 const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));

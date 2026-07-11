@@ -68,7 +68,7 @@ router.get("/callback", async (req, res) => {
 
     const user = userRes.data;
 
-    req.session.user = {
+    const sessionUser = {
       id: user.id,
       username: user.username,
       globalName: user.global_name || user.username,
@@ -77,7 +77,16 @@ router.get("/callback", async (req, res) => {
       guilds: guildsRes.data,
     };
 
-    req.session.save(() => res.redirect("/dashboard"));
+    // 로그인 성공 시 세션 ID 재발급 — session fixation 방어 (감사 M-02).
+    // 로그인 전 세션(oauthState 등)은 폐기되고 새 sid로 사용자 정보만 담는다.
+    req.session.regenerate((err) => {
+      if (err) {
+        console.error("❌ Session regenerate error:", err);
+        return res.redirect("/?error=auth_failed");
+      }
+      req.session.user = sessionUser;
+      req.session.save(() => res.redirect("/dashboard"));
+    });
   } catch (error) {
     const discordErr = error.response?.data;
     console.error("❌ OAuth callback error:");
