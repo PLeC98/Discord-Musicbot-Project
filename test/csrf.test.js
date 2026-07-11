@@ -2,7 +2,9 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { issueCsrfToken, requireCsrfToken } = require("../dashboard/server/middleware/csrf");
+const express = require("express");
+const session = require("express-session");
+const { issueCsrfToken, requireCsrfToken, csrfTokensEqual } = require("../dashboard/server/middleware/csrf");
 
 function response() {
   return {
@@ -52,7 +54,7 @@ test("allows safe methods without a token", () => {
 });
 
 test("rejects unsafe methods with a missing or incorrect token", () => {
-  for (const supplied of [undefined, "wrong"]) {
+  for (const supplied of [undefined, "wrong", "expectec"]) {
     const res = response();
     let called = false;
     requireCsrfToken(
@@ -86,4 +88,59 @@ test("allows unsafe methods with the session CSRF token", () => {
     },
   );
   assert.equal(called, true);
+});
+
+test("compares equal-length CSRF tokens without accepting a mismatch", () => {
+  assert.equal(csrfTokensEqual("expected", "expected"), true);
+  assert.equal(csrfTokensEqual("expected", "expectec"), false);
+  assert.equal(csrfTokensEqual(undefined, "expected"), false);
+});
+
+test("protects unsafe Express routes with a session-bound token", async (t) => {
+  const app = express();
+  app.use(
+    session({
+      secret: "test-only-session-secret-at-least-32-bytes",
+      resave: false,
+      saveUninitialized: false,
+    }),
+  );
+  app.use((req, _res, next) => {
+    req.session.user = { id: "1" };
+    next();
+  });
+  app.get("/api/csrf-token", issueCsrfToken);
+  app.use(requireCsrfToken);
+  app.post("/api/change", (_req, res) => res.status(204).end());
+
+  const server = await new Promise((resolve, reject) => {
+    const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+    instance.once("error", reject);
+  });
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const tokenResponse = await fetch(`${base}/api/csrf-token`);
+  assert.equal(tokenResponse.status, 200);
+  const cookie = tokenResponse.headers.get("set-cookie").split(";", 1)[0];
+  const { csrfToken } = await tokenResponse.json();
+
+  const request = (token) =>
+    fetch(`${base}/api/change`, {
+      method: "POST",
+      headers: {
+        cookie,
+        ...(token === undefined ? {} : { "x-csrf-token": token }),
+      },
+    });
+
+  let response = await request();
+  assert.equal(response.status, 403);
+
+  const wrongToken = `${csrfToken.slice(0, -1)}${csrfToken.endsWith("A") ? "B" : "A"}`;
+  response = await request(wrongToken);
+  assert.equal(response.status, 403);
+
+  response = await request(csrfToken);
+  assert.equal(response.status, 204);
 });
