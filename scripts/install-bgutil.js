@@ -29,6 +29,8 @@ try {
     if (isUpdate) console.log("ℹ️  bgutil 디렉터리가 없어 새로 clone합니다.");
     run(`git clone ${REPO} bgutil-ytdlp-pot-provider`, ROOT);
   } else if (isUpdate) {
+    // npm audit fix가 server/package-lock.json을 로컬 변경하므로, pull 전에 원복해야 --ff-only가 통과한다
+    run("git checkout -- .", DIR);
     run("git pull --ff-only", DIR);
   } else {
     console.log("ℹ️  bgutil 디렉터리가 이미 있습니다. 의존성 설치 + 빌드만 진행합니다. (업데이트는 pnpm run update:bgutil)");
@@ -43,6 +45,15 @@ try {
     console.warn("⚠️  npm ci 실패 → npm install로 폴백합니다.");
     run("npm install", SERVER);
   }
+
+  // upstream 잠금 파일의 알려진 취약 전이 의존성을 semver 범위 내에서 교체 (예: form-data GHSA-hmw2-7cc7-3qxx).
+  // 로컬 변경분은 다음 update 때 원복 후 재적용 — upstream이 잠금을 고치면 자연히 no-op.
+  try {
+    run("npm audit fix", SERVER);
+  } catch {
+    console.warn("⚠️  npm audit fix 실패(네트워크/레지스트리 문제일 수 있음) — 설치는 계속 진행합니다. 나중에 bgutil-ytdlp-pot-provider/server에서 직접 실행해 주세요.");
+  }
+
   run("npx tsc", SERVER); // build/main.js 생성 (tsconfig outDir=./build)
 
   console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 포트 4416에서 함께 시작됩니다.");
