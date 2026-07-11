@@ -8,6 +8,7 @@ const fs = require("fs");
 const chalk = require("chalk");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
+const SqliteSessionStore = require("./sessionStore");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const guildsRoutes = require("./routes/guilds");
@@ -49,6 +50,9 @@ function startDashboard(client) {
   app.use(
     session({
       secret: SESSION_SECRET,
+      // SQLite 영속 스토어 — 재시작해도 로그인 유지 (SESSION_SECRET이 .env에 고정일 때.
+      // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림 — resolveSessionSecret 경고 참조)
+      store: new SqliteSessionStore(),
       resave: false,
       saveUninitialized: false,
       cookie: {
