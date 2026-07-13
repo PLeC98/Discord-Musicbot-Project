@@ -2,7 +2,7 @@
 
 // src/VoiceConnectionManager.js — 연결 복구 루프의 단일 실행 계약.
 // forceReconnect/resumePlaybackAfterRecovery는 스텁 — 루프 구조(중첩 금지·중단·상한)만 검증.
-// 회귀 대상: 구 setInterval(3초) 방식의 콜백 중첩 (forceReconnect 15초 대기와 겹침 — 감사 M-04)
+// 회귀 대상: 구 setInterval(3초) 방식의 콜백 중첩 (forceReconnect 15초 대기와 겹침)
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

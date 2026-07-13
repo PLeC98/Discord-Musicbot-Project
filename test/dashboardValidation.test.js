@@ -1,6 +1,6 @@
 "use strict";
 
-// dashboard/server/routes/guilds.js — 플레이어 조작 API의 입력 검증 (감사 M-07).
+// dashboard/server/routes/guilds.js — 플레이어 조작 API의 입력 검증
 // 회귀 대상: 비문자열 query의 TypeError(async 핸들러라 응답 없는 unhandled rejection),
 // parseFloat("Infinity")·parseInt("50junk")의 느슨한 통과, 제어문자의 로그/yt-dlp 유입.
 // 실 라우터 + fake client/player, isAdmin 세션으로 권한 게이트를 우회해 검증 로직만 조준.

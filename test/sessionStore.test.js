@@ -1,6 +1,6 @@
 "use strict";
 
-// dashboard/server/sessionStore.js — SQLite 세션 스토어 (감사 M-02 잔여 / 구 리뷰 §4.2).
+// dashboard/server/sessionStore.js — SQLite 세션 스토어
 // 회귀 대상: MemoryStore의 재시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
 
 const fs = require("node:fs");

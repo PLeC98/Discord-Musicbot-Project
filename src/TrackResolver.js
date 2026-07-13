@@ -1,15 +1,6 @@
 "use strict";
 
-/**
- * TrackResolver — 쿼리/트랙의 플랫폼 감지, 메타데이터 조회, 스트림 해석의 단일 원천.
- *
- * 기존에 흩어져 있던 중복 구현을 통합 (2026-07-07 리팩토링):
- *  - detectPlatform: play.js / playfirst.js / MusicPlayer 3벌 (direct 판정 확장자가 3·9·13종으로 제각각 — §3.2)
- *  - getTrackData: play.js / playfirst.js 복붙 2벌 + MusicPlayer.addTrack의 축소판
- *  - 캐시 숏컷: play.js / playfirst.js / messageHandler 3벌
- *  - Spotify→YouTube 검색 폴백: play() / preloadTrack() / downloadTrack() 3벌 (전략 상이 → play()의 다중 쿼리 + official 우선으로 통일)
- *  - 스트림 획득 플랫폼 스위치: play() / preloadTrack() 2벌
- */
+// TrackResolver — 쿼리/트랙의 플랫폼 감지, 메타데이터 조회, 스트림 해석
 
 const YouTube = require("./YouTube");
 const Spotify = require("./Spotify");
@@ -19,7 +10,7 @@ const CacheManager = require("./CacheManager");
 const ErrorHandler = require("./ErrorHandler");
 
 const TrackResolver = {
-  /** 쿼리 문자열의 플랫폼 판별 — direct 판정은 DirectLink.isDirectAudioLink 한 곳 기준 */
+  // 쿼리 문자열의 플랫폼 판별 — direct 판정은 DirectLink.isDirectAudioLink 한 곳 기준
   detectPlatform(query) {
     if (YouTube.isYouTubeURL(query)) return "youtube";
     if (Spotify.isSpotifyURL(query)) return "spotify";
@@ -28,7 +19,7 @@ const TrackResolver = {
     return "youtube"; // 기본값은 YouTube 검색
   },
 
-  /** 쿼리 → { success, isPlaylist, tracks } 또는 { success: false, message } */
+  // 쿼리 → { success, isPlaylist, tracks } 또는 { success: false, message }
   async getTrackData(query, guildId, context = "TrackResolver.getTrackData") {
     try {
       let tracks = [];
@@ -82,8 +73,7 @@ const TrackResolver = {
 
   /**
    * 캐시 숏컷 포함 해석 — 캐시된 단일 곡은 yt-dlp 호출 없이 즉시 반환.
-   * 재생목록 URL은 캐시를 우회: URL 정규화가 list=를 제거하므로 캐시된 단일 영상이
-   * 재생목록 전체를 가릴 수 있음.
+   * 재생목록 URL은 캐시를 우회: URL 정규화가 list=를 제거하므로 캐시된 단일 영상이 재생목록 전체를 가릴 수 있음.
    */
   async resolveQuery(query, guildId, context) {
     const cacheHit = YouTube.isPlaylist(query) ? { hit: false } : CacheManager.resolveFromCache(query);
@@ -94,8 +84,7 @@ const TrackResolver = {
   },
 
   /**
-   * 트랙의 공유 캐시 키(audioSourceKey) 산출 — yt/sc/direct는 즉시,
-   * spotify는 YouTube 동등물이 정해진 뒤에만 가능(findYouTubeEquivalent가 설정).
+   * 트랙의 공유 캐시 키(audioSourceKey) 산출 — yt/sc/direct는 즉시, spotify는 YouTube 동등물이 정해진 뒤에만 가능(findYouTubeEquivalent가 설정).
    * 이미 키가 있으면 그대로 둔다.
    */
   ensureAudioSourceKey(track) {
@@ -142,7 +131,7 @@ const TrackResolver = {
           }
         }
       } catch (e) {
-        /* 다음 쿼리로 계속 */
+        // 다음 쿼리로 계속
       }
     }
     return null;
