@@ -19,14 +19,15 @@ class YouTube {
       ...extraOptions,
     };
 
-    // 인증 우선순위: 쿠키(브라우저) > 쿠키(파일) > iOS client (fallback)
-    // POToken은 bgutil 플러그인이 자동 처리
+    // 인증: 쿠키(브라우저) > 쿠키(파일) > 없음(yt-dlp 기본 클라이언트 + bgutil POT).
+    // ⚠️ 과거의 "쿠키 없으면 player_client=ios 강제" 폴백은 금지 — ios 클라이언트는 자체
+    // PO Token 없이는 포맷을 전혀 주지 않고 bgutil도 ios용 POT은 못 만들어서, 쿠키 없는
+    // 환경(리눅스 서버)에서 전 영상이 "Requested format is not available"로 재생 불능이 됐다
+    // (2026-07-11 실증: ios 강제=실패, 기본 클라이언트=성공 — bgutil 유무 무관하게 재현).
     if (config.ytdl.cookiesFromBrowser) {
       baseOptions.cookiesFromBrowser = config.ytdl.cookiesFromBrowser;
     } else if (config.ytdl.cookiesFile) {
       baseOptions.cookies = config.ytdl.cookiesFile;
-    } else {
-      baseOptions.extractorArgs = "youtube:player_client=ios";
     }
 
     return baseOptions;
