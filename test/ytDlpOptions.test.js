@@ -1,8 +1,7 @@
 "use strict";
 
 // src/YouTube.js getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
-// 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백 — ios는 자체 PO Token 없이는
-// 포맷을 전혀 주지 않아(bgutil도 ios용 POT 불가) 리눅스 서버에서 전 영상 재생 불능이 됐음.
+// 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백
 // dotenv는 기설정 process.env를 덮지 않으므로 require 전에 세팅한 빈 값이 .env보다 우선.
 
 process.env.COOKIES_FROM_BROWSER = "";

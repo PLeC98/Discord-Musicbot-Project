@@ -1,6 +1,6 @@
 "use strict";
 
-// config.js envInt 범위 검증 (감사 L-05) — "오타는 경고 + 기본값" 원칙의 연장.
+// config.js envInt 범위 검증
 // dotenv는 이미 설정된 process.env를 덮어쓰지 않으므로, require 전에 세팅한 값이
 // .env보다 우선한다 — 파일별 자식 프로세스라 다른 테스트에 영향 없음.
 

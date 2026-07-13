@@ -1,7 +1,7 @@
 "use strict";
 
-// ESLint flat config — 목적은 버그 탐지(미사용 변수·미정의 참조·await 실수 등).
-// 코드 모양은 Prettier 담당이라 eslint-config-prettier로 스타일 규칙을 전부 끈다.
+// ESLint flat config — 목적은 버그 탐지(미사용 변수·미정의 참조·await 실수 등)
+// 코드 모양은 Prettier 담당 - eslint-config-prettier로 스타일 규칙을 전부 끔
 
 const js = require("@eslint/js");
 const globals = require("globals");
@@ -22,7 +22,7 @@ module.exports = [
 
   js.configs.recommended,
 
-  // 봇 본체 — Node CommonJS
+  // 봇 본체 - Node CommonJS
   {
     files: ["**/*.js"],
     languageOptions: {
@@ -32,7 +32,7 @@ module.exports = [
     },
   },
 
-  // 대시보드 클라이언트 — Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)
+  // 대시보드 클라이언트 - Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)
   ...pluginVue.configs["flat/essential"],
   {
     files: ["dashboard/client/src/**/*.{js,vue}"],
