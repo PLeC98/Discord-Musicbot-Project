@@ -44,7 +44,9 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11
+          # 정확 버전 핀 — 범위(11)는 action-setup 자체 설치기의 버전 해석이
+          # 레지스트리 메타데이터에 따라 깨질 수 있음 ("Cannot use 'in' operator ... 'integrity'", 2026-07-13 발생)
+          version: 11.12.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
