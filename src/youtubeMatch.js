@@ -1,27 +1,9 @@
 "use strict";
 
 // youtubeMatch — Spotify/외부 트랙의 YouTube 동등물을 "점수제"로 고르는 순수 로직 + 쿼리 구성.
-//
-// 배경(두 가지 문제):
-//  (1) 검색 쿼리를 `"제목" "아티스트"` 따옴표로 던져 유튜브가 과도하게 좁게/엉뚱하게 검색 →
-//      정답이 아예 후보에 안 들어옴 (heiakim Remix·Chocolate Cream·U.N.Owen 등에서 실증).
-//  (2) 옛 선택 로직이 "제목에 곡명 포함 or 'official' 포함하는 첫 결과"로 유튜브 순위를 뒤엎음
-//      (Azari - Shadow Shadow: 본인 채널 업로드가 제목이 비어 있어 제목매칭 실패 → 커버가 선택됨).
-//
-// 개선:
-//  - 쿼리: 사람이 검색하듯 따옴표 없이. `제목 아티스트`(주) + `제목`(보조)를 병합해 후보 폭을 넓힌다.
-//  - 선택: 유튜브 순위를 강한 기준선으로 신뢰하되, 채널↔아티스트 일치·길이·정크 감점으로 재정렬.
-//    약한 제목 부분일치만으로는 순위를 뒤집지 못한다. 길이는 "명백히 틀린 것"을 거르는 음성 필터.
-//
-// rankCandidates/scoreCandidate는 순수 함수(네트워크 없음) — 오프라인 테스트 가능.
 // 실제 검색(YouTube.search)은 호출측(probe/TrackResolver)이 하고, 결과 병합은 mergeCandidateLists로.
 
 // ── 튜닝 가능한 가중치 ─────────────────────────────────────────────────────
-//
-// 철학(실측 7케이스로 확인): 정답은 항상 `제목 아티스트` 검색의 #0 + 길이 정확 일치였다.
-// → "유튜브 순위(아티스트 쿼리)"와 "스포티파이 길이와의 일치"가 가장 믿을 만한 두 신호.
-//   채널명 일치/정크는 오탐이 있어(흔한 이름의 우연한 채널일치, 로마자↔원어 불일치, 우타이테의
-//   歌ってみた) 약한 타이브레이커로만 둔다 — 순위+길이를 뒤집지 못하게.
 const RANK_BASE = 8; // 순위 점수 = max(0, RANK_BASE - rank) * rankPerPosition
 const SECONDARY_OFFSET = 8; // 보조 쿼리(제목만)에서만 나온 후보는 순위를 이만큼 뒤로 밀어 오염을 억제
 const W = {
@@ -122,7 +104,7 @@ function analyzeChannel(channel, artist) {
   let match = false;
   let exact = false;
   if (nc) {
-    // 아티스트 전체(분해 전) 붙여쓰기 정확 일치 — "AC/DC" 등 구분자로 쪼개지는 이름 대응
+    // 아티스트 전체(분해 전) 붙여쓰기 정확 일치 — 등 구분자로 쪼개지는 이름 대응
     const fullTight = despace(normLoose(artist));
     if (fullTight.length >= 2 && ncTight === fullTight) {
       match = true;
@@ -176,8 +158,7 @@ function durationScore(candSec, targetSec) {
 const OFFICIAL_TAG = /official\s*(?:video|audio|music\s*video|mv|m\/v|hd)|\bm\/v\b/i;
 
 // 스포티파이 제목의 "버전 태그" 감지 — 괄호/대시로 감쌌거나 size/ver가 붙은 형태만(오탐 방지).
-// 애니송 TV size/short는 공식이 유튜브에 다른 표기(로마자 "Zankyosanka -TV version-",
-// "TVサイズ" 등)로 올리는 일이 많아, 스포티파이 제목 그대로 검색하면 못 찾는다 → 동의어 확장 대상.
+// 애니송 TV size/short는 공식이 유튜브에 다른 표기로 올리는 일이 많아, 스포티파이 제목 그대로 검색하면 못 찾는다 → 동의어 확장 대상.
 function detectVersionKind(title) {
   const t = String(title || "");
   if (/[-–—([（【\s]\s*tv\s*(?:size|ver\.?|version|anime|edit)?\s*[-–—)\]）】]/i.test(t) || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
@@ -273,12 +254,6 @@ function scoreCandidate(candidate, target) {
   const d = durationScore(candidate.durationSec, target.durationSec);
   b.duration = d.score;
   const durNear = d.label.startsWith("near");
-
-  // 정크(cover/remix 등) 감점의 목적은 "남의 파생 버전 거르기". 다음이면 그 라벨은 원곡과의
-  // 관계 설명일 뿐 스포티파이 링크가 가리키는 바로 그 녹음이므로 감점하지 않는다:
-  //  - 업로더가 타겟 아티스트 본인(채널 일치) 또는 공식 아트트랙(Topic/VEVO)
-  //  - 길이가 스포티파이와 거의 정확히 일치(같은 마스터) — 채널명이 로마자로 안 맞는 우타이테의
-  //    歌ってみた도 이걸로 구제 (예: 96猫=Kuroneko, 채널 96NEKO-CHANNEL)
   const junk = countJunk(candidate.title, target.title);
   const junkWaived = (officialUploader || durNear) && junk > 0;
   b.junk = junkWaived ? 0 : junk * W.junkEach;
