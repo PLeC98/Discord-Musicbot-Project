@@ -5,7 +5,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { rankCandidates, _internal } = require("../src/youtubeMatch");
+const { rankCandidates, buildSearchQueries, mergeCandidateLists, _internal } = require("../src/youtubeMatch");
 
 // 실측 캡처: YouTube.search('"Shadow Shadow" "Azari"', 6)
 const SHADOW_CANDIDATES = [
@@ -89,4 +89,61 @@ test("곡 제목 자체에 'remix'가 있으면 정크로 감점하지 않음", 
 test("다중 아티스트: 채널이 그중 하나와만 일치해도 인정", () => {
   const r = _internal.analyzeChannel("Bruno Mars", "Mark Ronson, Bruno Mars");
   assert.equal(r.match, true);
+});
+
+// ── 쿼리 구성 + 병합 ─────────────────────────────────────────
+
+test("buildSearchQueries: 따옴표 없이 제목+아티스트, 제목 (중복 제거)", () => {
+  assert.deepEqual(buildSearchQueries({ title: "Bunny Girl", artist: "AKASAKI" }), ["Bunny Girl AKASAKI", "Bunny Girl"]);
+  assert.deepEqual(buildSearchQueries({ title: "Song", artist: "" }), ["Song"]);
+});
+
+test("mergeCandidateLists: id 중복 제거 + 최고 순위(min index) 채택", () => {
+  const merged = mergeCandidateLists([
+    [{ id: "a" }, { id: "b" }, { id: "c" }], // 쿼리1
+    [{ id: "b" }, { id: "d" }], // 쿼리2: b는 여기서 #0
+  ]);
+  const byId = Object.fromEntries(merged.map((m) => [m.id, m.rank]));
+  assert.equal(byId.a, 0);
+  assert.equal(byId.b, 0, "b는 두 번째 쿼리에서 #0이므로 rank 0");
+  assert.equal(byId.c, 2);
+  assert.equal(byId.d, 1);
+});
+
+// ── 실측 캡처 회귀: 따옴표 쿼리가 못 넣던 정답을 병합 검색이 넣으면 올바로 선택하는가 ──
+// (2026-07-20 캡처. 병합 후보에 rank를 부여한 형태로 재구성)
+
+test("heiakim Remix: 공식 리믹스(채널 AKASAKI, 곡명에 remix라 정크 아님) 선택", () => {
+  const target = { title: "Bunny Girl - heiakim Remix", artist: "AKASAKI, Heiakim", durationSec: 191 };
+  const candidates = [
+    { id: "f4Yg08QcSaE", rank: 0, title: "【AKASAKI】Bunny Girl - heiakim Remix (Lyric Video)", channel: "AKASAKI (19)", durationSec: 192 },
+    { id: "RCltAg_iK0E", rank: 1, title: "【AKASAKI】Bunny Girl（Lyric Video）", channel: "AKASAKI (19)", durationSec: 217 }, // 원곡
+    { id: "HTw-k_jPbJA", rank: 2, title: "Pavolia Reine & Iida Pochi - Bunny Girl Heiakim-Remix [AKASAKI]", channel: "Anonymous of Suomus", durationSec: 198 },
+  ];
+  const { best } = rankCandidates(candidates, target);
+  assert.equal(best.id, "f4Yg08QcSaE", "리믹스를 찾을 땐 원곡이 아니라 리믹스를");
+});
+
+test("Chocolate Cream: 아티스트 채널(Laysha)의 자막 영상 선택 (MMD/직캠 아님)", () => {
+  const target = { title: "Chocolate Cream (feat. Nassun)", artist: "Laysha, Nassun", durationSec: 188 };
+  const candidates = [
+    { id: "DGIRdBEdeBY", rank: 0, title: "Chocolate Cream (feat. Nassun) (Chocolate Cream (Feat. 낯선))", channel: "Laysha", durationSec: 189 },
+    { id: "M6fwRL0Tpgw", rank: 1, title: "LAYSHA feat. NASSUN - Chocolate Cream [Han/Rom/En]", channel: "klyrical", durationSec: 188 },
+    { id: "g0PqOuf2390", rank: 5, title: "LAYSHA - Chocolate Cream (feat NASSUN) / Wenjing Choreography", channel: "XY STUDIO", durationSec: 28 }, // 28초 짤
+  ];
+  const { best } = rankCandidates(candidates, target);
+  assert.equal(best.id, "DGIRdBEdeBY");
+});
+
+test("U.N.Owen: 채널명이 다른 스크립트여도 '- Topic' 공식 아트트랙 + 길이정확이면 선택", () => {
+  // artist 上海アリス幻樂団 ↔ channel "Team Shanghai Alice - Topic" (이름 불일치, 로마자 vs 일본어)
+  const target = { title: "U.N.Owen WA KANOJO NANOKA?", artist: "上海アリス幻樂団", durationSec: 270 };
+  const candidates = [
+    { id: "zPDQu-_KZBw", rank: 0, title: "U.N.オーエンは彼女なのか？", channel: "Team Shanghai Alice - Topic", durationSec: 271 },
+    { id: "ssdcX1vVBTo", rank: 1, title: "東方原曲 紅魔郷 EXTRAボス U.N.オーエンは彼女なのか？", channel: "katukunazawa", durationSec: 250 },
+    { id: "JnQoKy0V4NY", rank: 3, title: "U.N.オーエンは彼女なのか？", channel: "zun", durationSec: 288 },
+  ];
+  const { best, confidence } = rankCandidates(candidates, target);
+  assert.equal(best.id, "zPDQu-_KZBw", "Topic 아트트랙 + 271s(정확)");
+  assert.equal(confidence, "high");
 });

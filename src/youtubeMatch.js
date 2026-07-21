@@ -1,30 +1,32 @@
 "use strict";
 
-// youtubeMatch — Spotify/외부 트랙의 YouTube 동등물을 "점수제"로 고르는 순수 로직.
+// youtubeMatch — Spotify/외부 트랙의 YouTube 동등물을 "점수제"로 고르는 순수 로직 + 쿼리 구성.
 //
-// 배경: 유튜브 검색 자체는 정답을 대체로 1등으로 준다. 문제는 옛 선택 로직이
-// "제목에 곡명 포함 or 'official' 포함하는 첫 결과"로 그 순위를 뒤엎던 것.
-// (Azari - Shadow Shadow: 본인 채널 업로드가 제목이 비어 있어 제목매칭에 실패 →
-//  커버/MV가 대신 선택됨.)
+// 배경(두 가지 문제):
+//  (1) 검색 쿼리를 `"제목" "아티스트"` 따옴표로 던져 유튜브가 과도하게 좁게/엉뚱하게 검색 →
+//      정답이 아예 후보에 안 들어옴 (heiakim Remix·Chocolate Cream·U.N.Owen 등에서 실증).
+//  (2) 옛 선택 로직이 "제목에 곡명 포함 or 'official' 포함하는 첫 결과"로 유튜브 순위를 뒤엎음
+//      (Azari - Shadow Shadow: 본인 채널 업로드가 제목이 비어 있어 제목매칭 실패 → 커버가 선택됨).
 //
-// 개선 원칙:
-//  1) 유튜브 순위를 강한 기준선(prior)으로 신뢰한다.
-//  2) 약한 신호(제목 부분일치)만으로는 순위를 뒤집지 못한다.
-//  3) 채널↔아티스트 일치는 강한 양성 신호(순위를 뒤집을 수 있음).
-//  4) 길이는 "명백히 틀린 것"을 걸러내는 음성 필터로 쓴다(정밀 판정용 아님).
-//  5) 커버/리믹스/instrumental 등은 강하게 감점.
+// 개선:
+//  - 쿼리: 사람이 검색하듯 따옴표 없이. `제목 아티스트`(주) + `제목`(보조)를 병합해 후보 폭을 넓힌다.
+//  - 선택: 유튜브 순위를 강한 기준선으로 신뢰하되, 채널↔아티스트 일치·길이·정크 감점으로 재정렬.
+//    약한 제목 부분일치만으로는 순위를 뒤집지 못한다. 길이는 "명백히 틀린 것"을 거르는 음성 필터.
 //
-// 순수 함수 — 네트워크 없음. 후보 메타데이터만 받아 점수화하므로 오프라인 테스트 가능.
+// rankCandidates/scoreCandidate는 순수 함수(네트워크 없음) — 오프라인 테스트 가능.
+// 실제 검색(YouTube.search)은 호출측(probe/TrackResolver)이 하고, 결과 병합은 mergeCandidateLists로.
 
-// ── 튜닝 가능한 가중치 (한곳에 모아 조정 용이) ──────────────────────────────
+// ── 튜닝 가능한 가중치 ─────────────────────────────────────────────────────
+const RANK_BASE = 6; // 순위 점수 = max(0, RANK_BASE - rank) * rankPerPosition (병합 후 절대 순위 기준)
 const W = {
-  rankPerPosition: 10, // 유튜브 순위 기준선: (N - index) * 이 값
+  rankPerPosition: 10, // 유튜브 순위 1칸당
   channelMatch: 45, // 채널명이 아티스트와 일치
-  channelOfficialBonus: 15, // 그 채널이 "- Topic"/VEVO/공식 계열이면 추가
+  channelOfficialBonus: 15, // 일치 + "- Topic"/VEVO면 추가
+  channelOfficialStandalone: 20, // 이름 불일치여도 "- Topic"/VEVO(공식 아트트랙 계열)면 가점 (스크립트/로마자 차이 대응)
   durNear: 14, // 길이 차 ≤ 4초 (같은 마스터일 가능성 높음)
   durClose: 6, // 길이 차 ≤ 12초 (MV 인트로/아웃트로 여유)
   durLoose: 0, // 길이 차 ≤ 30초 (중립)
-  durFar: -12, // 그 이상 (의심스럽지만 실격은 아님)
+  durFar: -12, // 그 이상 (의심스럽지만 실격 아님)
   durGross: -300, // 명백한 불일치(1시간 루프/확장본/짤) → 사실상 실격
   junkEach: -50, // 커버/리믹스 등 정크 용어 1개당
   titleHasTrack: 6, // 후보 제목에 곡 제목 포함
@@ -70,7 +72,7 @@ const JUNK_TERMS = [
   "노래방",
 ];
 
-const ZERO_WIDTH = /\p{Cf}/gu;
+const ZERO_WIDTH = /\p{Cf}/gu; // 제로폭·서식 문자(U+200B 등)는 전부 유니코드 카테고리 Cf
 
 // 느슨한 정규화 — 소문자화, 제로폭·괄호·구두점을 공백으로, 유니코드 글자/숫자는 보존(일본어/한국어).
 function normLoose(s) {
@@ -99,7 +101,7 @@ function splitArtists(artist) {
 
 const despace = (s) => s.replace(/\s+/g, "");
 
-// 채널이 아티스트를 나타내는가 + 공식 계열(topic/vevo/artist 본인) 여부.
+// 채널이 아티스트를 나타내는가 + 공식 계열(topic/vevo) 여부.
 function analyzeChannel(channel, artist) {
   const raw = normLoose(channel);
   const isTopic = /(?:^|\s)topic$/.test(raw) || raw.endsWith(" topic");
@@ -156,17 +158,53 @@ function durationScore(candSec, targetSec) {
 const OFFICIAL_TAG = /official\s*(?:video|audio|music\s*video|mv|m\/v|hd)|\bm\/v\b/i;
 
 /**
- * 후보 하나 채점.
- * candidate: { id, url, title, channel, durationSec }
- * target:    { title, artist, durationSec }
- * index:     유튜브 검색 순위(0=1등), poolSize: 후보 총수
+ * 사람이 검색하듯 따옴표 없는 쿼리들. 병합 검색용(전부 실행해 후보를 합침).
+ * 따옴표 쿼리는 유튜브에서 과도하게 좁아져 정답을 누락시키므로 쓰지 않는다.
  */
-function scoreCandidate(candidate, target, index, poolSize) {
-  const b = {}; // 신호별 breakdown
-  b.rank = (poolSize - index) * W.rankPerPosition;
+function buildSearchQueries(target) {
+  const title = String(target.title || "").trim();
+  const artist = String(target.artist || "").trim();
+  const queries = [];
+  if (title && artist) queries.push(`${title} ${artist}`);
+  if (title) queries.push(title);
+  return [...new Set(queries.filter(Boolean))];
+}
+
+/**
+ * 여러 검색 결과 리스트를 하나로 병합(id로 중복 제거). rank는 어느 쿼리에서든 가장 높았던 순위(min index).
+ * 각 리스트는 유튜브 순위 순서라고 가정. lists 순서 = 쿼리 우선순위(동순위 tiebreak용).
+ */
+function mergeCandidateLists(lists) {
+  const byId = new Map();
+  (lists || []).forEach((list, listOrder) => {
+    (list || []).forEach((c, i) => {
+      if (!c || !c.id) return;
+      const ex = byId.get(c.id);
+      if (!ex) {
+        byId.set(c.id, { ...c, rank: i, listOrder });
+      } else if (i < ex.rank) {
+        ex.rank = i;
+        ex.listOrder = listOrder;
+      }
+    });
+  });
+  return [...byId.values()];
+}
+
+/**
+ * 후보 하나 채점.
+ * candidate: { id, url, title, channel, durationSec, rank? }  (rank 없으면 0)
+ * target:    { title, artist, durationSec }
+ */
+function scoreCandidate(candidate, target) {
+  const rank = Number.isInteger(candidate.rank) ? candidate.rank : 0;
+  const b = {};
+  b.rank = Math.max(0, RANK_BASE - rank) * W.rankPerPosition;
 
   const ch = analyzeChannel(candidate.channel, target.artist);
-  b.channel = ch.match ? W.channelMatch + (ch.isTopic || ch.isVevo ? W.channelOfficialBonus : 0) : 0;
+  if (ch.match) b.channel = W.channelMatch + (ch.isTopic || ch.isVevo ? W.channelOfficialBonus : 0);
+  else if (ch.isTopic || ch.isVevo) b.channel = W.channelOfficialStandalone;
+  else b.channel = 0;
 
   const d = durationScore(candidate.durationSec, target.durationSec);
   b.duration = d.score;
@@ -184,35 +222,39 @@ function scoreCandidate(candidate, target, index, poolSize) {
 
   return {
     candidate,
-    index,
+    rank,
     score,
     breakdown: b,
-    flags: {
-      channelMatch: ch.match,
-      channelExact: ch.exact,
-      official: ch.isTopic || ch.isVevo,
-      junk,
-      duration: d.label,
-    },
+    flags: { channelMatch: ch.match, channelExact: ch.exact, official: ch.isTopic || ch.isVevo, junk, duration: d.label },
   };
 }
 
 /**
- * 후보 배열을 점수순으로 정렬해 반환(각 항목에 breakdown 포함). 동점은 유튜브 순위 우선.
- * confidence: 최상위 후보의 신뢰도 라벨.
+ * 후보 배열을 점수순으로 정렬(각 항목에 breakdown 포함). 동점은 순위→리스트 우선순위 순.
+ * candidate.rank가 있으면 그걸(병합 결과) 순위로, 없으면 배열 인덱스를 순위로 사용.
  */
 function rankCandidates(candidates, target) {
-  const scored = candidates.map((c, i) => scoreCandidate(c, target, i, candidates.length));
-  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  const withRank = candidates.map((c, i) => (Number.isInteger(c.rank) ? c : { ...c, rank: i }));
+  const scored = withRank.map((c) => scoreCandidate(c, target));
+  scored.sort((a, b) => b.score - a.score || a.rank - b.rank || (a.candidate.listOrder ?? 0) - (b.candidate.listOrder ?? 0));
 
   let confidence = "low";
   const top = scored[0];
   if (top) {
     if (top.flags.channelMatch && top.flags.junk === 0) confidence = "high";
+    else if (top.flags.official && top.flags.duration.startsWith("near")) confidence = "high";
     else if (top.flags.duration.startsWith("near") && top.flags.junk === 0) confidence = "high";
-    else if (top.breakdown.junk === 0 && top.index === 0) confidence = "medium";
+    else if (top.breakdown.junk === 0 && top.rank === 0) confidence = "medium";
   }
   return { ranked: scored, best: top ? top.candidate : null, confidence };
 }
 
-module.exports = { rankCandidates, scoreCandidate, W, JUNK_TERMS, _internal: { normLoose, normChannel, analyzeChannel, durationScore, countJunk, splitArtists } };
+module.exports = {
+  buildSearchQueries,
+  mergeCandidateLists,
+  rankCandidates,
+  scoreCandidate,
+  W,
+  JUNK_TERMS,
+  _internal: { normLoose, normChannel, analyzeChannel, durationScore, countJunk, splitArtists },
+};

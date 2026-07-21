@@ -14,12 +14,7 @@
 
 const Spotify = require("../src/Spotify");
 const YouTube = require("../src/YouTube");
-const { rankCandidates } = require("../src/youtubeMatch");
-
-// 실제 재생 경로가 쓰는 검색 쿼리 사다리 (첫 결과가 나오는 쿼리에서 멈춤)
-function buildQueries(title, artist) {
-  return [`"${title}" "${artist}"`, `${title} ${artist}`, `${title}`];
-}
+const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("../src/youtubeMatch");
 
 function bar(n) {
   const v = Math.round(n);
@@ -53,18 +48,17 @@ async function probeOne(input, expectId) {
   console.log(`입력: ${input}`);
   console.log(`타겟: title="${target.title}"  artist="${target.artist}"  duration=${target.durationSec}s  ${target.isrc ? "isrc=" + target.isrc : ""}`);
 
-  // 검색 사다리: 첫 결과 나오는 쿼리 채택
-  let candidates = [];
-  let usedQuery = null;
-  for (const q of buildQueries(target.title, target.artist)) {
+  // 병합 검색: 여러 쿼리(따옴표 없이)를 전부 돌려 후보를 합침(id 중복 제거, 최고 순위 채택)
+  const queries = buildSearchQueries(target);
+  const lists = [];
+  for (const q of queries) {
     const results = await YouTube.search(q, 6);
-    if (results && results.length) {
-      usedQuery = q;
-      candidates = results.map((r) => ({ id: r.id, url: r.url, title: r.title, channel: r.artist, durationSec: r.duration }));
-      break;
-    }
+    const mapped = (results || []).map((r) => ({ id: r.id, url: r.url, title: r.title, channel: r.artist, durationSec: r.duration }));
+    lists.push(mapped);
+    console.log(`  쿼리 ${JSON.stringify(q)} → ${mapped.length}개: ${mapped.map((m, i) => `#${i} ${m.id}`).join(", ")}`);
   }
-  console.log(`검색 쿼리: ${JSON.stringify(usedQuery)}  → 후보 ${candidates.length}개\n`);
+  const candidates = mergeCandidateLists(lists);
+  console.log(`  병합 후보 ${candidates.length}개\n`);
 
   if (!candidates.length) {
     console.log("  (결과 없음)");
@@ -80,7 +74,7 @@ async function probeOne(input, expectId) {
     const isPick = c.id === pickedId;
     const marker = isPick ? "▶" : " ";
     const expectMark = expectId && c.id === expectId ? " ★기대정답" : "";
-    console.log(`${marker} [점수 ${String(Math.round(r.score)).padStart(4)}] yt#${r.index} id=${c.id}${expectMark}`);
+    console.log(`${marker} [점수 ${String(Math.round(r.score)).padStart(4)}] yt#${r.rank} id=${c.id}${expectMark}`);
     console.log(`    제목: "${c.title}"`);
     console.log(`    채널: "${c.channel}"  길이: ${c.durationSec}s  ${r.flags.channelMatch ? "채널일치" + (r.flags.channelExact ? "(정확)" : "") : ""} ${r.flags.official ? "공식계열" : ""} ${r.flags.junk ? "정크x" + r.flags.junk : ""}`.trimEnd());
     console.log(`    ${fmtBreakdown(r.breakdown)}`);
