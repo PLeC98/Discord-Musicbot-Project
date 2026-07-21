@@ -135,6 +135,30 @@ test("Chocolate Cream: 아티스트 채널(Laysha)의 자막 영상 선택 (MMD/
   assert.equal(best.id, "DGIRdBEdeBY");
 });
 
+test("커버 링크(ヒバナ by Araki): 본인 채널의 커버 영상은 정크 감점 억제 → 원곡 대신 커버 선택", () => {
+  // 커버 곡의 스포티파이 링크 → 그 아티스트가 올린 커버 영상을 골라야 함 (원곡 X)
+  const target = { title: "ヒバナ", artist: "Araki", durationSec: 204 };
+  const candidates = [
+    { id: "araki_cover", rank: 0, title: "ヒバナ　Covered by あらき", channel: "あらき-ARAKI Official", durationSec: 203 }, // 채널일치 + cover×2
+    { id: "deco_original", rank: 0, title: "DECO*27 - ヒバナ feat. 初音ミク", channel: "DECO*27", durationSec: 203 }, // 원곡(다른 아티스트)
+    { id: "ado_cover", rank: 1, title: "【Ado】ヒバナ 歌いました", channel: "Ado", durationSec: 206 }, // 제3자 커버
+  ];
+  const { ranked, best, confidence } = rankCandidates(candidates, target);
+  assert.equal(best.id, "araki_cover", "본인 채널 커버가 원곡·제3자커버를 이겨야 함");
+  assert.equal(confidence, "high");
+  const araki = ranked.find((r) => r.candidate.id === "araki_cover");
+  assert.equal(araki.breakdown.junk, 0, "채널 일치로 cover 정크 감점 억제");
+  assert.ok(araki.flags.junkSuppressed, "억제 플래그 표시");
+});
+
+test("제3자 커버는 여전히 정크 감점 (채널 불일치)", () => {
+  const target = { title: "Shadow Shadow", artist: "Azari", durationSec: 141 };
+  const wills = { id: "w", title: "Shadow Shadow (English Cover)【Will Stetson】", channel: "Will Stetson", durationSec: 146 };
+  const { ranked } = rankCandidates([wills], target);
+  assert.ok(ranked[0].breakdown.junk < 0, "타 채널 커버는 감점 유지");
+  assert.equal(ranked[0].flags.junkSuppressed, false);
+});
+
 test("U.N.Owen: 채널명이 다른 스크립트여도 '- Topic' 공식 아트트랙 + 길이정확이면 선택", () => {
   // artist 上海アリス幻樂団 ↔ channel "Team Shanghai Alice - Topic" (이름 불일치, 로마자 vs 일본어)
   const target = { title: "U.N.Owen WA KANOJO NANOKA?", artist: "上海アリス幻樂団", durationSec: 270 };

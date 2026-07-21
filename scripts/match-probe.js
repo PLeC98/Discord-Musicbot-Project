@@ -76,7 +76,7 @@ async function probeOne(input, expectId) {
     const expectMark = expectId && c.id === expectId ? " ★기대정답" : "";
     console.log(`${marker} [점수 ${String(Math.round(r.score)).padStart(4)}] yt#${r.rank} id=${c.id}${expectMark}`);
     console.log(`    제목: "${c.title}"`);
-    console.log(`    채널: "${c.channel}"  길이: ${c.durationSec}s  ${r.flags.channelMatch ? "채널일치" + (r.flags.channelExact ? "(정확)" : "") : ""} ${r.flags.official ? "공식계열" : ""} ${r.flags.junk ? "정크x" + r.flags.junk : ""}`.trimEnd());
+    console.log(`    채널: "${c.channel}"  길이: ${c.durationSec}s  ${r.flags.channelMatch ? "채널일치" + (r.flags.channelExact ? "(정확)" : "") : ""} ${r.flags.official ? "공식계열" : ""} ${r.flags.junk ? "정크x" + r.flags.junk + (r.flags.junkSuppressed ? "(억제:본인채널)" : "") : ""}`.trimEnd());
     console.log(`    ${fmtBreakdown(r.breakdown)}`);
   });
 

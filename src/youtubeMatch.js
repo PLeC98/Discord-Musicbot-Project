@@ -202,6 +202,7 @@ function scoreCandidate(candidate, target) {
   b.rank = Math.max(0, RANK_BASE - rank) * W.rankPerPosition;
 
   const ch = analyzeChannel(candidate.channel, target.artist);
+  const officialUploader = ch.match || ch.isTopic || ch.isVevo;
   if (ch.match) b.channel = W.channelMatch + (ch.isTopic || ch.isVevo ? W.channelOfficialBonus : 0);
   else if (ch.isTopic || ch.isVevo) b.channel = W.channelOfficialStandalone;
   else b.channel = 0;
@@ -209,8 +210,13 @@ function scoreCandidate(candidate, target) {
   const d = durationScore(candidate.durationSec, target.durationSec);
   b.duration = d.score;
 
+  // 정크(cover/remix 등) 감점의 목적은 "남의 파생 버전 거르기". 업로더가 타겟 아티스트 본인
+  // (채널 일치) 또는 공식 아트트랙(Topic/VEVO)이면 그 라벨은 원곡과의 관계 설명일 뿐 —
+  // 스포티파이 링크가 가리키는 바로 그 녹음이므로 감점하지 않는다.
+  // (커버 곡의 스포티파이 링크 → 그 아티스트 채널의 커버 영상을 골라야 하는 대칭성 확보)
   const junk = countJunk(candidate.title, target.title);
-  b.junk = junk * W.junkEach;
+  const junkSuppressed = officialUploader && junk > 0;
+  b.junk = officialUploader ? 0 : junk * W.junkEach;
 
   const nTitle = normLoose(candidate.title);
   const nTrack = normLoose(target.title);
@@ -225,7 +231,7 @@ function scoreCandidate(candidate, target) {
     rank,
     score,
     breakdown: b,
-    flags: { channelMatch: ch.match, channelExact: ch.exact, official: ch.isTopic || ch.isVevo, junk, duration: d.label },
+    flags: { channelMatch: ch.match, channelExact: ch.exact, official: ch.isTopic || ch.isVevo, junk, junkSuppressed, duration: d.label },
   };
 }
 
@@ -241,9 +247,10 @@ function rankCandidates(candidates, target) {
   let confidence = "low";
   const top = scored[0];
   if (top) {
-    if (top.flags.channelMatch && top.flags.junk === 0) confidence = "high";
+    // 적용된 감점 기준(breakdown.junk) — 채널 일치로 정크가 억제된 경우도 0으로 취급
+    if (top.flags.channelMatch && top.breakdown.junk === 0) confidence = "high";
     else if (top.flags.official && top.flags.duration.startsWith("near")) confidence = "high";
-    else if (top.flags.duration.startsWith("near") && top.flags.junk === 0) confidence = "high";
+    else if (top.flags.duration.startsWith("near") && top.breakdown.junk === 0) confidence = "high";
     else if (top.breakdown.junk === 0 && top.rank === 0) confidence = "medium";
   }
   return { ranked: scored, best: top ? top.candidate : null, confidence };
