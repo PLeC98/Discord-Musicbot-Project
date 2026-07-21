@@ -175,40 +175,82 @@ function durationScore(candSec, targetSec) {
 
 const OFFICIAL_TAG = /official\s*(?:video|audio|music\s*video|mv|m\/v|hd)|\bm\/v\b/i;
 
+// 스포티파이 제목의 "버전 태그" 감지 — 괄호/대시로 감쌌거나 size/ver가 붙은 형태만(오탐 방지).
+// 애니송 TV size/short는 공식이 유튜브에 다른 표기(로마자 "Zankyosanka -TV version-",
+// "TVサイズ" 등)로 올리는 일이 많아, 스포티파이 제목 그대로 검색하면 못 찾는다 → 동의어 확장 대상.
+function detectVersionKind(title) {
+  const t = String(title || "");
+  if (/[-–—([（【\s]\s*tv\s*(?:size|ver\.?|version|anime|edit)?\s*[-–—)\]）】]/i.test(t) || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
+  if (/[-–—([（【\s]\s*short\s*(?:size|ver\.?|version|edit)?\s*[-–—)\]）】]/i.test(t) || /ショート(?:サイズ|バージョン|ver)?/.test(t)) return "short";
+  return null;
+}
+
+// 버전 태그를 제거한 기본 제목 (동의어 확장 쿼리의 베이스).
+function stripVersionTag(title) {
+  return String(title || "")
+    .replace(/[([（【]\s*(?:tv|short|テレビ|ショート)[^)\]）】]*[)\]）】]/gi, " ") // (TV size), 【TVサイズ】
+    .replace(/[-–—]\s*(?:tv|short|テレビ|ショート)[^-–—]*[-–—]?/gi, " ") // -TV ver.-, - Short version -
+    .replace(/\btvサイズ\b|テレビサイズ|ショート(?:サイズ|バージョン)?/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const dedupe = (arr) => [...new Set(arr.filter(Boolean))];
+
 /**
- * 사람이 검색하듯 따옴표 없는 쿼리들. 병합 검색용(전부 실행해 후보를 합침).
+ * 사람이 검색하듯 따옴표 없는 쿼리들. { primary, secondary }로 반환한다.
+ *  - primary: `제목 아티스트` + (버전 태그면) 동의어 확장 쿼리 — 병합 시 뒤로 밀지 않음
+ *  - secondary: `제목`만 — 동명 다른 곡·우연 채널 오염을 막으려 병합 시 뒤로 밈
  * 따옴표 쿼리는 유튜브에서 과도하게 좁아져 정답을 누락시키므로 쓰지 않는다.
  */
 function buildSearchQueries(target) {
   const title = String(target.title || "").trim();
   const artist = String(target.artist || "").trim();
-  const queries = [];
-  if (title && artist) queries.push(`${title} ${artist}`);
-  if (title) queries.push(title);
-  return [...new Set(queries.filter(Boolean))];
+  const primary = [];
+  const secondary = [];
+
+  if (title && artist) primary.push(`${title} ${artist}`);
+
+  // 버전 태그 동의어 확장 (TV/Short 한정) — 공식이 다른 표기로 올린 경우를 잡는다
+  const vkind = detectVersionKind(title);
+  if (vkind === "tv") {
+    const base = stripVersionTag(title) || title;
+    if (artist) primary.push(`${base} ${artist} tv size`);
+    primary.push(`${base} tv size`);
+    if (artist) primary.push(`${base} ${artist} tvサイズ`);
+  } else if (vkind === "short") {
+    const base = stripVersionTag(title) || title;
+    if (artist) primary.push(`${base} ${artist} short ver`);
+    primary.push(`${base} short version`);
+  }
+
+  if (title) secondary.push(title);
+  return { primary: dedupe(primary), secondary: dedupe(secondary) };
 }
 
 /**
- * 여러 검색 결과 리스트를 하나로 병합(id로 중복 제거). rank는 어느 쿼리에서든 가장 높았던 순위(min index).
- * 각 리스트는 유튜브 순위 순서라고 가정. lists 순서 = 쿼리 우선순위(동순위 tiebreak용).
+ * 검색 결과 리스트들을 병합(id로 중복 제거). rank = 어느 쿼리에서든 가장 높았던 순위.
+ * primaryLists(주 쿼리들): 그대로. secondaryLists(제목만 쿼리): 오프셋만큼 뒤로 밀어 오염 억제.
  */
-function mergeCandidateLists(lists) {
+function mergeCandidateLists(primaryLists, secondaryLists = []) {
   const byId = new Map();
-  (lists || []).forEach((list, listOrder) => {
-    // 유효 순위 = 쿼리 내 위치 + (보조 쿼리면 오프셋). 주 쿼리(아티스트 포함, listOrder 0)에서
-    // 나온 후보를 우선하고, 제목만 쿼리에서만 나온 후보(동명 다른 곡·우연 채널)는 뒤로 민다.
-    (list || []).forEach((c, i) => {
-      if (!c || !c.id) return;
-      const rank = i + listOrder * SECONDARY_OFFSET;
-      const ex = byId.get(c.id);
-      if (!ex) {
-        byId.set(c.id, { ...c, rank, listOrder });
-      } else if (rank < ex.rank) {
-        ex.rank = rank;
-        ex.listOrder = listOrder;
-      }
+  const absorb = (lists, isSecondary) => {
+    (lists || []).forEach((list) => {
+      (list || []).forEach((c, i) => {
+        if (!c || !c.id) return;
+        const rank = i + (isSecondary ? SECONDARY_OFFSET : 0);
+        const listOrder = isSecondary ? 1 : 0;
+        const ex = byId.get(c.id);
+        if (!ex) byId.set(c.id, { ...c, rank, listOrder });
+        else if (rank < ex.rank) {
+          ex.rank = rank;
+          ex.listOrder = listOrder;
+        }
+      });
     });
-  });
+  };
+  absorb(primaryLists, false);
+  absorb(secondaryLists, true);
   return [...byId.values()];
 }
 
@@ -286,5 +328,5 @@ module.exports = {
   scoreCandidate,
   W,
   JUNK_TERMS,
-  _internal: { normLoose, normChannel, analyzeChannel, durationScore, countJunk, splitArtists },
+  _internal: { normLoose, normChannel, analyzeChannel, durationScore, countJunk, splitArtists, detectVersionKind, stripVersionTag },
 };

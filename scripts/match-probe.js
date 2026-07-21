@@ -48,16 +48,21 @@ async function probeOne(input, expectId) {
   console.log(`입력: ${input}`);
   console.log(`타겟: title="${target.title}"  artist="${target.artist}"  duration=${target.durationSec}s  ${target.isrc ? "isrc=" + target.isrc : ""}`);
 
-  // 병합 검색: 여러 쿼리(따옴표 없이)를 전부 돌려 후보를 합침(id 중복 제거, 최고 순위 채택)
-  const queries = buildSearchQueries(target);
-  const lists = [];
-  for (const q of queries) {
-    const results = await YouTube.search(q, 6);
-    const mapped = (results || []).map((r) => ({ id: r.id, url: r.url, title: r.title, channel: r.artist, durationSec: r.duration }));
-    lists.push(mapped);
-    console.log(`  쿼리 ${JSON.stringify(q)} → ${mapped.length}개: ${mapped.map((m, i) => `#${i} ${m.id}`).join(", ")}`);
-  }
-  const candidates = mergeCandidateLists(lists);
+  // 병합 검색: 주/보조 쿼리(따옴표 없이)를 순차로 돌려 후보를 합침(id 중복 제거, 최고 순위 채택)
+  const { primary, secondary } = buildSearchQueries(target);
+  const runGroup = async (queries, tag) => {
+    const lists = [];
+    for (const q of queries) {
+      const results = await YouTube.search(q, 6);
+      const mapped = (results || []).map((r) => ({ id: r.id, url: r.url, title: r.title, channel: r.artist, durationSec: r.duration }));
+      lists.push(mapped);
+      console.log(`  [${tag}] ${JSON.stringify(q)} → ${mapped.length}개: ${mapped.map((m, i) => `#${i} ${m.id}`).join(", ")}`);
+    }
+    return lists;
+  };
+  const primaryLists = await runGroup(primary, "주");
+  const secondaryLists = await runGroup(secondary, "보조");
+  const candidates = mergeCandidateLists(primaryLists, secondaryLists);
   console.log(`  병합 후보 ${candidates.length}개\n`);
 
   if (!candidates.length) {

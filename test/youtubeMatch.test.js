@@ -101,21 +101,49 @@ test("짧은 채널명('a.')은 긴 아티스트명의 부분으로 우연 일�
 
 // ── 쿼리 구성 + 병합 ─────────────────────────────────────────
 
-test("buildSearchQueries: 따옴표 없이 제목+아티스트, 제목 (중복 제거)", () => {
-  assert.deepEqual(buildSearchQueries({ title: "Bunny Girl", artist: "AKASAKI" }), ["Bunny Girl AKASAKI", "Bunny Girl"]);
-  assert.deepEqual(buildSearchQueries({ title: "Song", artist: "" }), ["Song"]);
+test("buildSearchQueries: 따옴표 없이 제목+아티스트(주) / 제목(보조)", () => {
+  assert.deepEqual(buildSearchQueries({ title: "Bunny Girl", artist: "AKASAKI" }), { primary: ["Bunny Girl AKASAKI"], secondary: ["Bunny Girl"] });
+  assert.deepEqual(buildSearchQueries({ title: "Song", artist: "" }), { primary: [], secondary: ["Song"] });
 });
 
-test("mergeCandidateLists: 주 쿼리 순위 우선, 보조 쿼리 전용 후보는 오프셋만큼 뒤로", () => {
-  const merged = mergeCandidateLists([
-    [{ id: "a" }, { id: "b" }, { id: "c" }], // 주 쿼리(아티스트 포함)
-    [{ id: "b" }, { id: "d" }], // 보조 쿼리(제목만): d는 여기서만 등장
-  ]);
+test("buildSearchQueries: TV 버전 태그면 tv size/tvサイズ 동의어 확장 추가", () => {
+  const q = buildSearchQueries({ title: "残響散歌 -TV ver.-", artist: "Aimer" });
+  assert.ok(q.primary.includes("残響散歌 Aimer tv size"), "베이스+아티스트+tv size");
+  assert.ok(q.primary.includes("残響散歌 tv size"), "베이스+tv size");
+  assert.ok(q.primary.includes("残響散歌 Aimer tvサイズ"), "베이스+아티스트+tvサイズ");
+  assert.equal(q.primary[0], "残響散歌 -TV ver.- Aimer", "원 제목 쿼리도 유지");
+});
+
+test("detectVersionKind / stripVersionTag", () => {
+  assert.equal(_internal.detectVersionKind("残響散歌 -TV ver.-"), "tv");
+  assert.equal(_internal.detectVersionKind("MUKANJYO (TV size)"), "tv");
+  assert.equal(_internal.detectVersionKind("紅蓮華 -Short ver.-"), "short");
+  assert.equal(_internal.detectVersionKind("Normal Song"), null);
+  assert.equal(_internal.detectVersionKind("TV Girl - Song"), null, "버전 문맥 아니면 감지 안 함");
+  assert.equal(_internal.stripVersionTag("残響散歌 -TV ver.-"), "残響散歌");
+  assert.equal(_internal.stripVersionTag("MUKANJYO (TV size)"), "MUKANJYO");
+});
+
+test("mergeCandidateLists: 주 쿼리 순위 우선, 보조 쿼리 후보는 오프셋만큼 뒤로", () => {
+  const merged = mergeCandidateLists(
+    [[{ id: "a" }, { id: "b" }, { id: "c" }]], // 주 쿼리
+    [[{ id: "b" }, { id: "d" }]], // 보조 쿼리: d는 여기서만
+  );
   const byId = Object.fromEntries(merged.map((m) => [m.id, m.rank]));
   assert.equal(byId.a, 0);
   assert.equal(byId.b, 1, "b는 주 쿼리 #1이 보조 쿼리 #0(+오프셋)보다 앞서므로 rank 1");
   assert.equal(byId.c, 2);
-  assert.equal(byId.d, 9, "d는 보조 쿼리 전용 → #1 + 오프셋8 = 9 (동명 다른 곡·우연 채널 억제)");
+  assert.equal(byId.d, 9, "d는 보조 쿼리 전용 → #1 + 오프셋8 = 9");
+});
+
+test("mergeCandidateLists: 여러 주 쿼리는 뒤로 밀지 않고 최고 순위 채택", () => {
+  const merged = mergeCandidateLists([
+    [{ id: "x" }, { id: "y" }], // 주 쿼리1
+    [{ id: "z" }, { id: "y" }], // 주 쿼리2(확장): y는 여기서도 #1, z는 #0
+  ]);
+  const byId = Object.fromEntries(merged.map((m) => [m.id, m.rank]));
+  assert.equal(byId.z, 0, "확장 쿼리 후보도 뒤로 밀리지 않음");
+  assert.equal(byId.y, 1, "y는 두 주 쿼리 모두 #1 → rank 1");
 });
 
 // ── 실측 캡처 회귀: 따옴표 쿼리가 못 넣던 정답을 병합 검색이 넣으면 올바로 선택하는가 ──
