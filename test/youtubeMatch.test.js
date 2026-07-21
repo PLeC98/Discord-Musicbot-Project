@@ -91,6 +91,14 @@ test("다중 아티스트: 채널이 그중 하나와만 일치해도 인정", (
   assert.equal(r.match, true);
 });
 
+test("짧은 채널명('a.')은 긴 아티스트명의 부분으로 우연 일치하지 않음", () => {
+  assert.equal(_internal.analyzeChannel("a.", "Survive Said The Prophet").match, false);
+  assert.equal(_internal.analyzeChannel("A", "Ado").match, false); // 'a'가 'ado'에 들어가도 매칭 금지
+  // 정당한 부분일치(3자 이상)는 유지
+  assert.equal(_internal.analyzeChannel("AKASAKI (19)", "AKASAKI").match, true);
+  assert.equal(_internal.analyzeChannel("Ado", "Ado").match, true); // 정확 일치는 길이 무관
+});
+
 // ── 쿼리 구성 + 병합 ─────────────────────────────────────────
 
 test("buildSearchQueries: 따옴표 없이 제목+아티스트, 제목 (중복 제거)", () => {

@@ -107,6 +107,10 @@ function splitArtists(artist) {
 
 const despace = (s) => s.replace(/\s+/g, "");
 
+// 부분 포함 최소 길이 — "찾는 문자열(needle)"이 이보다 짧으면 부분일치로 인정하지 않는다.
+// ('a'·'the' 같은 짧은 조각이 긴 아티스트명에 우연히 들어가 매칭되는 오탐 방지. 예: 채널 "a." → "a")
+const CH_SUBSTR_MIN = 3;
+
 // 채널이 아티스트를 나타내는가 + 공식 계열(topic/vevo) 여부.
 function analyzeChannel(channel, artist) {
   const raw = normLoose(channel);
@@ -118,17 +122,25 @@ function analyzeChannel(channel, artist) {
   let match = false;
   let exact = false;
   if (nc) {
+    // 아티스트 전체(분해 전) 붙여쓰기 정확 일치 — "AC/DC" 등 구분자로 쪼개지는 이름 대응
+    const fullTight = despace(normLoose(artist));
+    if (fullTight.length >= 2 && ncTight === fullTight) {
+      match = true;
+      exact = true;
+    }
     for (const part of splitArtists(artist)) {
+      if (match && exact) break;
       const pTight = despace(part);
       if (nc === part || ncTight === pTight) {
         match = true;
         exact = true;
         break;
       }
-      // 부분 포함(양방향) — 공백 유무 모두 대조 (VEVO/붙여쓰기 채널 대응)
-      if (nc.includes(part) || part.includes(nc) || ncTight.includes(pTight) || pTight.includes(ncTight)) {
-        match = true;
-      }
+      // 부분 포함(양방향, 공백 유무 모두) — 단, "찾는 문자열"이 3자 이상일 때만 (짧은 조각 우연일치 방지)
+      if (part.length >= CH_SUBSTR_MIN && nc.includes(part)) match = true;
+      if (nc.length >= CH_SUBSTR_MIN && part.includes(nc)) match = true;
+      if (pTight.length >= CH_SUBSTR_MIN && ncTight.includes(pTight)) match = true;
+      if (ncTight.length >= CH_SUBSTR_MIN && pTight.includes(ncTight)) match = true;
     }
   }
   return { match, exact, isTopic, isVevo };
