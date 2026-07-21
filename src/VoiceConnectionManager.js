@@ -169,9 +169,15 @@ class VoiceConnectionManager {
   async forceReconnect() {
     const player = this.player;
     try {
-      // 기존 연결 제거
-      if (player.connection) {
-        player.connection.destroy();
+      // 기존 연결 제거 — 이미 파괴된 연결에 destroy()를 다시 부르면 예외가 난다.
+      // 복구 트리거 자체가 "연결이 Destroyed됨"(헬스체크/Destroyed 이벤트)인 경우가 많으므로
+      // 상태를 확인하고, 그래도 남은 경쟁은 try로 삼켜 새 연결 생성으로 넘어간다.
+      if (player.connection && player.connection.state.status !== VoiceConnectionStatus.Destroyed) {
+        try {
+          player.connection.destroy();
+        } catch {
+          // 이미 파괴됨 등 — 무시하고 새 연결로 진행
+        }
       }
 
       // 새 연결 생성

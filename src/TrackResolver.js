@@ -8,6 +8,7 @@ const SoundCloud = require("./SoundCloud");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const ErrorHandler = require("./ErrorHandler");
+const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./youtubeMatch");
 
 const TrackResolver = {
   // 쿼리 문자열의 플랫폼 판별 — direct 판정은 DirectLink.isDirectAudioLink 한 곳 기준
@@ -106,8 +107,10 @@ const TrackResolver = {
   },
 
   /**
-   * Spotify/SoundCloud 트랙의 YouTube 동등물 검색.
-   * 성공 시 track.youtubeUrl(및 가능하면 audioSourceKey)을 설정하고 URL 반환, 실패 시 null.
+   * Spotify/SoundCloud 트랙의 YouTube 동등물 검색 — 점수제 선택(src/youtubeMatch.js).
+   * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치·정크를 타이브레이커로 삼아
+   * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.youtubeUrl(및 audioSourceKey)을
+   * 설정하고 URL 반환, 실패 시 null.
    */
   async findYouTubeEquivalent(track, guildId) {
     if (track.youtubeUrl) {
@@ -115,26 +118,41 @@ const TrackResolver = {
       return track.youtubeUrl;
     }
 
-    const queries = track.platform === "spotify" ? [`"${track.title}" "${track.artist}"`, `${track.title} ${track.artist}`, `${track.title}`] : [`${track.title}`];
+    // 타겟: 스포티파이 duration(초)을 durationSec로 넘겨야 길이 신호가 동작한다
+    const target = { title: track.title, artist: track.artist, durationSec: Number(track.duration) || 0 };
+    const { primary, secondary } = buildSearchQueries(target);
 
-    for (const query of queries) {
-      try {
-        const results = await YouTube.search(query, 3, guildId);
-        if (results && results.length > 0) {
-          const titleLower = (track.title || "").toLowerCase();
-          const picked = results.find((r) => r.title.toLowerCase().includes("official") || r.title.toLowerCase().includes(titleLower)) || results[0];
-          if (picked && picked.url) {
-            track.youtubeUrl = picked.url;
-            track.youtubeTitle = picked.title;
-            this.ensureAudioSourceKey(track);
-            return track.youtubeUrl;
-          }
+    const runGroup = async (queries) => {
+      const lists = [];
+      for (const query of queries) {
+        try {
+          const results = await YouTube.search(query, 6, guildId);
+          lists.push(
+            (results || []).map((r) => ({
+              id: r.id,
+              url: r.url || (r.id ? `https://www.youtube.com/watch?v=${r.id}` : null),
+              title: r.title,
+              channel: r.artist, // YouTube.search는 채널명을 artist 필드에 담는다
+              durationSec: r.duration,
+            })),
+          );
+        } catch {
+          lists.push([]); // 한 쿼리 실패가 전체를 막지 않게
         }
-      } catch (e) {
-        // 다음 쿼리로 계속
       }
-    }
-    return null;
+      return lists;
+    };
+
+    const candidates = mergeCandidateLists(await runGroup(primary), await runGroup(secondary)).filter((c) => c.url);
+    if (!candidates.length) return null;
+
+    const { best } = rankCandidates(candidates, target);
+    if (!best || !best.url) return null;
+
+    track.youtubeUrl = best.url;
+    track.youtubeTitle = best.title;
+    this.ensureAudioSourceKey(track);
+    return track.youtubeUrl;
   },
 
   /**

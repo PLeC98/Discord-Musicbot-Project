@@ -39,10 +39,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.0
 
-      # pnpm/action-setup@v6 자체 설치기가 레지스트리 메타데이터 문제로 지속 실패
-      # ("Cannot use 'in' operator ... 'integrity'" — 범위/정확 버전 모두, 2026-07-13) → npm 전역 설치로 대체
       - name: Set up pnpm
-        run: npm install -g pnpm@11.12.0
+        run: npm install -g pnpm@11.13.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
