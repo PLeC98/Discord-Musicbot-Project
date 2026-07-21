@@ -98,16 +98,16 @@ test("buildSearchQueries: 따옴표 없이 제목+아티스트, 제목 (중복 �
   assert.deepEqual(buildSearchQueries({ title: "Song", artist: "" }), ["Song"]);
 });
 
-test("mergeCandidateLists: id 중복 제거 + 최고 순위(min index) 채택", () => {
+test("mergeCandidateLists: 주 쿼리 순위 우선, 보조 쿼리 전용 후보는 오프셋만큼 뒤로", () => {
   const merged = mergeCandidateLists([
-    [{ id: "a" }, { id: "b" }, { id: "c" }], // 쿼리1
-    [{ id: "b" }, { id: "d" }], // 쿼리2: b는 여기서 #0
+    [{ id: "a" }, { id: "b" }, { id: "c" }], // 주 쿼리(아티스트 포함)
+    [{ id: "b" }, { id: "d" }], // 보조 쿼리(제목만): d는 여기서만 등장
   ]);
   const byId = Object.fromEntries(merged.map((m) => [m.id, m.rank]));
   assert.equal(byId.a, 0);
-  assert.equal(byId.b, 0, "b는 두 번째 쿼리에서 #0이므로 rank 0");
+  assert.equal(byId.b, 1, "b는 주 쿼리 #1이 보조 쿼리 #0(+오프셋)보다 앞서므로 rank 1");
   assert.equal(byId.c, 2);
-  assert.equal(byId.d, 1);
+  assert.equal(byId.d, 9, "d는 보조 쿼리 전용 → #1 + 오프셋8 = 9 (동명 다른 곡·우연 채널 억제)");
 });
 
 // ── 실측 캡처 회귀: 따옴표 쿼리가 못 넣던 정답을 병합 검색이 넣으면 올바로 선택하는가 ──
@@ -157,6 +157,20 @@ test("제3자 커버는 여전히 정크 감점 (채널 불일치)", () => {
   const { ranked } = rankCandidates([wills], target);
   assert.ok(ranked[0].breakdown.junk < 0, "타 채널 커버는 감점 유지");
   assert.equal(ranked[0].flags.junkSuppressed, false);
+});
+
+test("シャルル/Kuroneko(96猫): 흔한 이름의 우연 채널일치보다 순위#0+길이정확이 우선", () => {
+  // 우타이테 96猫(=Kuroneko)의 커버가 스포티파이에 "Kuroneko"로 등재. 채널은 96NEKO-CHANNEL(로마자 불일치),
+  // 정답 제목엔 歌ってみた. 반면 무관한 클립/타 채널이 우연히 "kuroneko"로 명명돼 가짜 채널일치.
+  const target = { title: "シャルル", artist: "Kuroneko", durationSec: 229 };
+  const candidates = [
+    { id: "j_wZxkqrYoE", rank: 0, title: "【96猫】シャルルを歌ってみた", channel: "【MAIN】96NEKO-CHANNEL", durationSec: 230 }, // 정답: 순위#0 + 길이정확
+    { id: "A4oNim8Hu_8", rank: 1, title: "Nekomata Okayu - シャルル / balloon | HOLOLIVE", channel: "kuroneko", durationSec: 235 }, // 우연 채널일치(클립)
+    { id: "8O-dx8NGLDg", rank: 2, title: "『シャルル』歌ってみた", channel: "KURONEKO", durationSec: 233 }, // 우연 채널일치(타 채널)
+    { id: "TA5OFS_xX0c", rank: 8, title: "シャルル／flower", channel: "SudaKeina Balloon", durationSec: 229 }, // 원곡(보조 쿼리 전용, 뒤로 밀림)
+  ];
+  const { best } = rankCandidates(candidates, target);
+  assert.equal(best.id, "j_wZxkqrYoE", "길이 정확(정크 면제) + #0가 우연 채널일치를 이겨야 함");
 });
 
 test("U.N.Owen: 채널명이 다른 스크립트여도 '- Topic' 공식 아트트랙 + 길이정확이면 선택", () => {

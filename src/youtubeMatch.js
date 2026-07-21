@@ -17,21 +17,27 @@
 // 실제 검색(YouTube.search)은 호출측(probe/TrackResolver)이 하고, 결과 병합은 mergeCandidateLists로.
 
 // ── 튜닝 가능한 가중치 ─────────────────────────────────────────────────────
-const RANK_BASE = 6; // 순위 점수 = max(0, RANK_BASE - rank) * rankPerPosition (병합 후 절대 순위 기준)
+//
+// 철학(실측 7케이스로 확인): 정답은 항상 `제목 아티스트` 검색의 #0 + 길이 정확 일치였다.
+// → "유튜브 순위(아티스트 쿼리)"와 "스포티파이 길이와의 일치"가 가장 믿을 만한 두 신호.
+//   채널명 일치/정크는 오탐이 있어(흔한 이름의 우연한 채널일치, 로마자↔원어 불일치, 우타이테의
+//   歌ってみた) 약한 타이브레이커로만 둔다 — 순위+길이를 뒤집지 못하게.
+const RANK_BASE = 8; // 순위 점수 = max(0, RANK_BASE - rank) * rankPerPosition
+const SECONDARY_OFFSET = 8; // 보조 쿼리(제목만)에서만 나온 후보는 순위를 이만큼 뒤로 밀어 오염을 억제
 const W = {
-  rankPerPosition: 10, // 유튜브 순위 1칸당
-  channelMatch: 45, // 채널명이 아티스트와 일치
-  channelOfficialBonus: 15, // 일치 + "- Topic"/VEVO면 추가
-  channelOfficialStandalone: 20, // 이름 불일치여도 "- Topic"/VEVO(공식 아트트랙 계열)면 가점 (스크립트/로마자 차이 대응)
-  durNear: 14, // 길이 차 ≤ 4초 (같은 마스터일 가능성 높음)
-  durClose: 6, // 길이 차 ≤ 12초 (MV 인트로/아웃트로 여유)
+  rankPerPosition: 12, // 유튜브 순위 1칸당 (지배적 신호)
+  channelMatch: 12, // 채널명이 아티스트와 일치 (타이브레이커 — 흔한 이름의 우연 일치가 순위를 못 뒤집게)
+  channelOfficialBonus: 4, // 일치 + "- Topic"/VEVO면 추가
+  channelOfficialStandalone: 12, // 이름 불일치여도 "- Topic"/VEVO(공식 아트트랙 계열)면 가점 (스크립트/로마자 차이)
+  durNear: 22, // 길이 차 ≤ 4초 (같은 마스터 — 강한 신호, 정크 면제까지)
+  durClose: 8, // 길이 차 ≤ 12초 (MV 인트로/아웃트로 여유)
   durLoose: 0, // 길이 차 ≤ 30초 (중립)
-  durFar: -12, // 그 이상 (의심스럽지만 실격 아님)
-  durGross: -300, // 명백한 불일치(1시간 루프/확장본/짤) → 사실상 실격
-  junkEach: -50, // 커버/리믹스 등 정크 용어 1개당
-  titleHasTrack: 6, // 후보 제목에 곡 제목 포함
-  titleHasArtist: 4, // 후보 제목에 아티스트명 포함
-  titleOfficialTag: 8, // 후보 제목에 "official video/audio/mv" 등
+  durFar: -20, // 그 이상 (의심스럽지만 실격 아님)
+  durGross: -400, // 명백한 불일치(1시간 루프/확장본/짤) → 사실상 실격
+  junkEach: -12, // 커버/리믹스 등 정크 용어 1개당 (약한 타이브레이커; 길이 정확/본인채널이면 면제)
+  titleHasTrack: 3, // 후보 제목에 곡 제목 포함
+  titleHasArtist: 3, // 후보 제목에 아티스트명 포함
+  titleOfficialTag: 4, // 후보 제목에 "official video/audio/mv" 등
 };
 
 // 커버·리믹스·비원본 마커 (곡 제목 자체에 들어 있으면 감점하지 않음)
@@ -177,13 +183,16 @@ function buildSearchQueries(target) {
 function mergeCandidateLists(lists) {
   const byId = new Map();
   (lists || []).forEach((list, listOrder) => {
+    // 유효 순위 = 쿼리 내 위치 + (보조 쿼리면 오프셋). 주 쿼리(아티스트 포함, listOrder 0)에서
+    // 나온 후보를 우선하고, 제목만 쿼리에서만 나온 후보(동명 다른 곡·우연 채널)는 뒤로 민다.
     (list || []).forEach((c, i) => {
       if (!c || !c.id) return;
+      const rank = i + listOrder * SECONDARY_OFFSET;
       const ex = byId.get(c.id);
       if (!ex) {
-        byId.set(c.id, { ...c, rank: i, listOrder });
-      } else if (i < ex.rank) {
-        ex.rank = i;
+        byId.set(c.id, { ...c, rank, listOrder });
+      } else if (rank < ex.rank) {
+        ex.rank = rank;
         ex.listOrder = listOrder;
       }
     });
@@ -209,14 +218,16 @@ function scoreCandidate(candidate, target) {
 
   const d = durationScore(candidate.durationSec, target.durationSec);
   b.duration = d.score;
+  const durNear = d.label.startsWith("near");
 
-  // 정크(cover/remix 등) 감점의 목적은 "남의 파생 버전 거르기". 업로더가 타겟 아티스트 본인
-  // (채널 일치) 또는 공식 아트트랙(Topic/VEVO)이면 그 라벨은 원곡과의 관계 설명일 뿐 —
-  // 스포티파이 링크가 가리키는 바로 그 녹음이므로 감점하지 않는다.
-  // (커버 곡의 스포티파이 링크 → 그 아티스트 채널의 커버 영상을 골라야 하는 대칭성 확보)
+  // 정크(cover/remix 등) 감점의 목적은 "남의 파생 버전 거르기". 다음이면 그 라벨은 원곡과의
+  // 관계 설명일 뿐 스포티파이 링크가 가리키는 바로 그 녹음이므로 감점하지 않는다:
+  //  - 업로더가 타겟 아티스트 본인(채널 일치) 또는 공식 아트트랙(Topic/VEVO)
+  //  - 길이가 스포티파이와 거의 정확히 일치(같은 마스터) — 채널명이 로마자로 안 맞는 우타이테의
+  //    歌ってみた도 이걸로 구제 (예: 96猫=Kuroneko, 채널 96NEKO-CHANNEL)
   const junk = countJunk(candidate.title, target.title);
-  const junkSuppressed = officialUploader && junk > 0;
-  b.junk = officialUploader ? 0 : junk * W.junkEach;
+  const junkWaived = (officialUploader || durNear) && junk > 0;
+  b.junk = junkWaived ? 0 : junk * W.junkEach;
 
   const nTitle = normLoose(candidate.title);
   const nTrack = normLoose(target.title);
@@ -231,7 +242,7 @@ function scoreCandidate(candidate, target) {
     rank,
     score,
     breakdown: b,
-    flags: { channelMatch: ch.match, channelExact: ch.exact, official: ch.isTopic || ch.isVevo, junk, junkSuppressed, duration: d.label },
+    flags: { channelMatch: ch.match, channelExact: ch.exact, official: ch.isTopic || ch.isVevo, junk, junkSuppressed: junkWaived, duration: d.label },
   };
 }
 
