@@ -15,9 +15,9 @@ packages:
 patchedDependencies:
   "@discordjs/node-pre-gyp@0.4.5": patches/@discordjs__node-pre-gyp@0.4.5.patch
 
-# 이행 의존성 보안 강제 상향 (2026-07-07):
-# tar: CVE 픽스가 7.5.x에만 존재. 방치된 @discordjs/node-pre-gyp의 ^6 범위로는 도달 불가, 포크 스코프로 상향 (포크의 사용부는 고수준 tar.extract 하나 — 활성 업스트림 mapbox 2.x가 같은 계보 코드를 tar 7로 실운용 중).
-# undici: @discordjs/rest가 6.24.1 고정, 픽스는 >=6.27.0. 7/8은 discord.js 스테이블이 공식 지원할 때 승계 (dev 라인은 7.x 확인).
+# 이행 의존성 보안 강제 상향 (2026-08-17):
+# tar: 픽스가 7.5.x에만 존재, node-pre-gyp의 ^6로는 도달 불가라 포크 스코프로 상향 (>=7.5.21).
+# undici: @discordjs/rest 고정 버전이 취약, 픽스는 >=6.28.0. 7/8은 discord.js 스테이블 지원 시 승계.
 overrides:
-  "@discordjs/node-pre-gyp>tar": ^7.5.19
-  undici: ^6.27.0
+  "@discordjs/node-pre-gyp>tar": ^7.5.21
+  undici: ^6.28.0
