@@ -80,7 +80,7 @@ test("요청자 없는 트랙: requesterId null, 복원 후 requestedBy 없음",
   assert.equal(restored.requestedBy, undefined);
 });
 
-// ── 복원 시 일시정지 유지 (감사 L-01, 2026-07-11 사용자 결정) ─
+// 복원 시 일시정지 유지
 
 function makeRestorePlayer() {
   return {

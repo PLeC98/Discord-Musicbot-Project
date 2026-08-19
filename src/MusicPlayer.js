@@ -37,8 +37,8 @@ class MusicPlayer {
     this.queue = [];
     this.currentTrack = null;
     this.previousTracks = [];
-    // 캐시 퇴거 보호 중인 audioSourceKey — currentTrack과 별도로 기억해, 종료 경로가
-    // currentTrack을 먼저 null해도 해제가 누락되지 않게 한다 (감사 L-02)
+    // 캐시 퇴거 보호 중인 audioSourceKey — currentTrack과 별도로 기억,
+    // 종료 경로가 currentTrack을 먼저 null해도 해제가 누락되지 않게
     this._protectedAudioKey = null;
 
     // 플레이어 설정
@@ -105,7 +105,7 @@ class MusicPlayer {
     // 로컬 파일 캐싱
     this.currentDownloadedFile = null; // 현재 재생 중인 다운로드 파일 경로
     this.downloadedFiles = new Set(); // 정리를 위해 모든 다운로드 파일 추적
-    this.downloadingFiles = new Map(); // filepath -> 진행 중 다운로드 Promise (중복 방지 + 완료 대기, §2.5)
+    this.downloadingFiles = new Map(); // filepath -> 진행 중 다운로드 Promise (중복 방지 + 완료 대기)
 
     // 협력 모듈 — 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
     this.voice = new VoiceConnectionManager(this);
@@ -419,7 +419,7 @@ class MusicPlayer {
               audioStream = typeof response.body?.getReader === "function" && typeof Readable.fromWeb === "function" ? Readable.fromWeb(response.body) : response.body;
             }
           } catch (fetchError) {
-            // 스트리밍 실패 — 위에서 시작한 백그라운드 다운로드로 폴백 (§2.5: 폴링 대신 promise 대기)
+            // 스트리밍 실패 — 위에서 시작한 백그라운드 다운로드로 폴백
             if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
               // 이미 완료됨
               shouldDownload = false; // 파일 모드로 전환
@@ -858,8 +858,8 @@ class MusicPlayer {
   }
 
   /**
-   * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제합니다.
-   * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 합니다.
+   * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제.
+   * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 함.
    * 그렇지 않으면 30초 상태 검사 interval이 플레이어 객체를 영원히 붙잡습니다.
    */
   releaseResources() {
@@ -958,8 +958,7 @@ class MusicPlayer {
   }
 
   previous() {
-    // 한곡 반복 중 이전곡 = 현재 곡 재시작 (2026-07-11 사용자 결정 — 대기열·기록 불변.
-    // 기존처럼 대기열 앞에 곡을 끼워 넣으면 반복 재생이 대기열을 소비하지 않아 곡이 증식했음)
+    // 한곡 반복 중 이전곡 = 현재 곡 재시작 — 대기열·기록 불변.
     if (this.loop === "track") {
       if (!this.currentTrack) return false;
       if (this.trackTimer) {
@@ -1137,15 +1136,11 @@ class MusicPlayer {
       this.currentDownloadedFile = null;
 
       if (this.loop === "track" && reason !== "stop" && reason !== "jump") {
-        // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생 (2026-07-11 사용자 결정).
+        // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생
         // 대기열·이전 곡 기록은 불변 — 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
-        // (기록을 여기서 쌓으면 반복 1회마다 히스토리가 오염되어 이전곡 시 곡 증식의 씨앗이 됐음)
         await this.play(null, 0);
         return;
       }
-
-      // 이전곡(previous)은 중단된 현재 곡을 이미 대기열 앞쪽에 되돌려 놓았다 — 아직 끝난 곡이
-      // 아니므로 기록하지 않고, 큐 반복 재삽입도 하지 않는다 (하면 대기열에 복제가 쌓임)
       if (reason !== "previous") {
         this.previousTracks.push(finishedTrack);
         if (this.previousTracks.length > 50) this.previousTracks.shift();
@@ -1346,8 +1341,6 @@ class MusicPlayer {
 
     try {
       const embed = new EmbedBuilder().setTitle("✅ 대기열 완료").setDescription("모든 트랙이 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#00ff00").setTimestamp();
-
-      // 존재하지 않는 this.createControlButtons 호출 제거 (2026-07-07) — 이 폴백 경로는 embedManager 부재 시에만 도달하며, 기존에는 항상 TypeError로 catch에 떨어졌음
       await this.nowPlayingMessage.edit({
         embeds: [embed],
         components: [],

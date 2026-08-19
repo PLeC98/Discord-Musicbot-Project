@@ -13,7 +13,7 @@ const { heartbeatMs, maxPerUser, coalesceMs } = config.dashboard.sse;
  *    → 목록마다 길드 수만큼 연결을 여는 폭발을 피함.
  *
  * 페이로드는 "변화 발생" 최소 신호(`{"t":"changed"}`, 민감정보 없음) — 클라이언트가 받으면 GET으로 재조회.
- * per-user 권한/범위 지정은 GET 경로(§4.2① 신선 게이트)가 담당하고, 이 모듈은 "누가 무엇을 구독 중인가"만 관리한다.
+ * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 무엇을 구독 중인가"만 관리.
  */
 class DashboardEvents {
   constructor() {
@@ -69,8 +69,7 @@ class DashboardEvents {
     }
     set.add(res);
 
-    // idempotent cleanup — close/error/쓰기 실패 어느 경로로 와도 회계(Set·perKey 캡·빈 Set 정리)가
-    // 한 번만, 전부 정리된다. 구 방식은 쓰기 실패 시 Set에서만 빼서 close가 안 오면 캡이 영구 점유됐음(감사 L-06)
+    // idempotent cleanup — close/error/쓰기 실패 어느 경로로 와도 회계(Set·perKey 캡·빈 Set 정리)가 한 번만, 전부 정리.
     let done = false;
     const cleanup = () => {
       if (done) return;

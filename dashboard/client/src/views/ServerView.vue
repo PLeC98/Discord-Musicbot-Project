@@ -469,20 +469,52 @@ function platformIcon(p) {
 }
 
 // SSE — 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.
-// EventSource는 끊기면 자동 재연결하고, 폴백 폴링이 공백을 보전한다.
-function connectEvents() {
+// 폴링은 SSE가 끊겼을 때만 도는 진짜 폴백(기존엔 SSE 정상 여부와 무관하게 30초마다 /player를 무조건 호출).
+function startFallback() {
+  if (!timer) timer = setInterval(refresh, 30000);
+}
+function stopFallback() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+function openEvents() {
+  if (eventSource) return;
   eventSource = new EventSource(`/api/guilds/${guildId}/player/events`, { withCredentials: true });
+  eventSource.onopen = () => {
+    if (timer) refresh(); // 끊긴 동안 놓친 변화 재동기화 후 폴백 중지
+    stopFallback();
+  };
   eventSource.onmessage = () => {
     clearTimeout(nudgeTimer);
     nudgeTimer = setTimeout(refresh, 150);
   };
+  eventSource.onerror = () => startFallback(); // SSE 끊김 → 폴백 폴링 시작 (재연결 시 onopen에서 중지)
+}
+function closeEvents() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+  stopFallback();
+  clearTimeout(nudgeTimer);
 }
 
+let visHandler = null;
 onMounted(() => {
   refresh();
-  connectEvents();
-  // 폴백 폴링 — SSE가 실시간을 담당하므로 5초→30초로 완화(안전망)
-  timer = setInterval(refresh, 30000);
+  // 탭이 숨으면 SSE·폴링을 모두 접어 백그라운드 무음, 다시 보이면 재개 + 즉시 동기화
+  visHandler = () => {
+    if (document.hidden) closeEvents();
+    else {
+      refresh();
+      openEvents();
+    }
+  };
+  document.addEventListener("visibilitychange", visHandler);
+  if (!document.hidden) openEvents();
+  // 로컬 진행바 틱(네트워크 아님) — 넛지/refresh가 currentTime을 서버 기준으로 재동기화
   progressTimer = setInterval(() => {
     const track = player.value.currentTrack;
     if (track && !player.value.paused) {
@@ -491,9 +523,15 @@ onMounted(() => {
   }, 1000);
 });
 onUnmounted(() => {
+  if (visHandler) {
+    document.removeEventListener("visibilitychange", visHandler);
+    visHandler = null;
+  }
   clearInterval(timer);
+  timer = null;
   clearInterval(progressTimer);
   if (eventSource) eventSource.close();
+  eventSource = null;
   clearTimeout(nudgeTimer);
   document.removeEventListener("mousemove", onScrubMove);
   document.removeEventListener("mouseup", onScrubEnd);

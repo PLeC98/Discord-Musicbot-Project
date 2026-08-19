@@ -48,7 +48,7 @@ module.exports = {
         client.players.set(guild.id, player);
       }
 
-      // 봇이 유휴 상태에서 소환될 때만 음성 대상을 갱신 — 재생 중 다른 채널 참조로 오염 방지 (§3.5)
+      // 봇이 유휴 상태에서 소환될 때만 음성 대상을 갱신 — 재생 중 다른 채널 참조로 오염 방지
       if (!guild.members.me?.voice?.channel && member.voice.channel) {
         player.voiceChannel = member.voice.channel;
       }

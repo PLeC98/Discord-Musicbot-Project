@@ -140,7 +140,7 @@ test("빈도 가드: 인스턴스별 독립 카운터 — 네트워크 폭주가
   }
 });
 
-test("빈도 가드: unknownRejectionFlooding 인스턴스 동작 (감사 M-09 — 단발 생존, 반복 시 승격)", () => {
+test("빈도 가드: unknownRejectionFlooding 인스턴스 동작", () => {
   const realNow = Date.now;
   let now = 3_000_000_000;
   Date.now = () => now;

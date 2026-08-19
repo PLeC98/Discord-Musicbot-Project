@@ -268,7 +268,6 @@ class SoundCloud {
 
   static async searchAdvanced(query, options = {}, guildId = null) {
     // yt-dlp를 사용한 고급 검색 (간소화).
-    // 구 api-v2 직접 호출 구현은 도달 불가 죽은 코드였음(미존재 this.clientId 참조) — 제거 (§3.7 조사에서 확인)
     try {
       return await this.search(query, options.limit || 20, guildId);
     } catch (error) {

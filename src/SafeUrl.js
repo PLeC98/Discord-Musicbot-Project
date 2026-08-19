@@ -81,7 +81,7 @@ async function validateAndResolve(rawUrl) {
   }
 
   // URL.hostname은 IPv6 리터럴을 대괄호 포함으로 준다('[::1]') — net.isIP 판정 전에 벗긴다.
-  // (안 벗기면 모든 IPv6 리터럴이 DNS 경로로 빠져 공인 IPv6 주소도 사용 불가 — 감사 L-03)
+  // (안 벗기면 모든 IPv6 리터럴이 DNS 경로로 빠져 공인 IPv6 주소도 사용 불가)
   const rawHost = url.hostname;
   const host = rawHost.startsWith("[") && rawHost.endsWith("]") ? rawHost.slice(1, -1) : rawHost;
 

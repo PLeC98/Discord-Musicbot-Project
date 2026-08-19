@@ -67,7 +67,7 @@ function makeFloodGuard(windowMs = NET_ERR_WINDOW_MS, max = NET_ERR_MAX) {
 }
 
 const networkErrorFlooding = makeFloodGuard();
-// 알 수 없는 unhandledRejection용 — 단발은 봇을 살리고, 반복(좀비 루프)만 안전 종료로 승격 (감사 M-09)
+// 알 수 없는 unhandledRejection용 — 단발은 봇을 살리고, 반복(좀비 루프)만 안전 종료로 승격
 const unknownRejectionFlooding = makeFloodGuard();
 
 // 치명적 오류: 안전하게 정리하고 종료 — 운영자 확인 후 수동 재시작을 기다린다.

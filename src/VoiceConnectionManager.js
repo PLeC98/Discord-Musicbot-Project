@@ -104,9 +104,8 @@ class VoiceConnectionManager {
     // 현재 재생 위치 저장
     this.savePlaybackPosition();
 
-    // 단일 실행 복구 루프. 구 setInterval(3초) 방식은 forceReconnect가 Ready를 최대 15초
-    // 기다리는 동안 다음 콜백이 겹쳐 서로의 새 연결을 destroy하는 경쟁이 있었다(감사 M-04).
-    // "시도 → 완료 대기 → 휴지"를 순차 반복하고, 세대 토큰으로 중단↔재시작 경쟁을 차단한다
+    // 단일 실행 복구 루프.
+    // "시도 → 완료 대기 → 휴지"를 순차 반복하고, 세대 토큰으로 중단↔재시작 경쟁을 차단
     // (stop 후 새 복구가 시작돼도 이전 루프의 늦은 await 복귀가 새 상태를 건드리지 못함).
     const gen = (this._recoveryGen = (this._recoveryGen || 0) + 1);
     const active = () => player.isRecovering && gen === this._recoveryGen;
