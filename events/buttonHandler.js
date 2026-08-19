@@ -576,7 +576,7 @@ module.exports = {
       });
     }
 
-    // 메시지 ID로 키잉 — 같은 사용자의 재검색/다른 길드의 검색과 섞이지 않음 (감사 M-08)
+    // 메시지 ID로 키잉 — 같은 사용자의 재검색/다른 길드의 검색과 섞이지 않음
     const userSearchData = client.searchResults?.get(interaction.message.id);
     if (!userSearchData) {
       return await interaction.reply({

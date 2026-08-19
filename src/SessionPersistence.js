@@ -191,9 +191,9 @@ class SessionPersistence {
       return;
     }
 
-    // 재시작 전 수동 일시정지는 멈춘 상태로 복원 (감사 L-01, 2026-07-11 사용자 결정 — 갑자기
-    // 재생되지 않게). alone/mute 같은 상황성 사유는 복원 시점의 실제 상황이 다를 수 있어
-    // 재적용하지 않음 — 해당 조건이면 voiceStateUpdate/자리비움 로직이 다시 걸어준다.
+    // 재시작 전 수동 일시정지는 멈춘 상태로 복원
+    // alone/mute 같은 상황성 사유는 복원 시점의 실제 상황이 다를 수 있어 재적용하지 않음
+    // 해당 조건이면 voiceStateUpdate/자리비움 로직이 다시 걸어준다.
     // 사유 없는 paused(레거시 세션)도 수동으로 간주.
     const savedReasons = Array.isArray(state.pauseReasons) ? state.pauseReasons : [];
     const restoreManualPause = Boolean(state.paused) && (savedReasons.includes("manual") || savedReasons.length === 0);

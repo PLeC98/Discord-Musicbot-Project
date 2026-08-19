@@ -53,7 +53,7 @@ async function getPlayer(req, res, guildId) {
     return null;
   }
 
-  // 조회 인가는 세션의 굳은 길드 목록이 아니라 실멤버십으로 판정 (§4.2① — 추방 즉시 차단).
+  // 조회 인가는 세션의 굳은 길드 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단).
   // 관리자(봇 소유자)는 멤버십과 무관하게 통과. member는 후속 권한 계산에 재사용.
   let member = null;
   try {
@@ -103,7 +103,7 @@ function playerState(player) {
   };
 }
 
-// ── 입력 검증 (감사 M-07) ─────────────────────────────────────────────────────
+// ── 입력 검증 ─────────────────────────────────────────────────────────────────
 // 사용자 입력은 타입·범위를 먼저 확정 — 비문자열 body의 TypeError(async 핸들러라 500조차 아닌
 // unhandled rejection), parseFloat/parseInt의 느슨한 허용("Infinity", "50junk")이
 // 하위 로직·로그·yt-dlp로 흘러가지 않게 한다.
@@ -131,7 +131,7 @@ router.get("/", requireAuth, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
 
-  // 후보는 세션의 길드 목록이지만 표시는 실멤버십으로 필터 (§4.2① — 추방된 길드는 목록에서 제외).
+  // 후보는 세션의 길드 목록이지만 표시는 실멤버십으로 필터 (추방된 길드는 목록에서 제외).
   const candidates = (req.session.user.guilds || []).filter((g) => client.guilds.cache.has(g.id));
   const verified = await Promise.all(
     candidates.map(async (g) => {
@@ -162,7 +162,7 @@ router.get("/events", requireAuth, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
 
-  // 구독할 길드 집합 = 상호 길드 중 실멤버십 확인된 것 (§4.2① 게이트와 동일 기준)
+  // 구독할 길드 집합 = 상호 길드 중 실멤버십 확인된 것
   const candidates = (req.session.user.guilds || []).filter((g) => client.guilds.cache.has(g.id));
   const guildIds = new Set();
   await Promise.all(
@@ -208,7 +208,7 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
 
 // SSE — 플레이어 상태 변화 넛지 (하이브리드: 넛지 받으면 클라이언트가 GET /player 재호출)
 router.get("/:guildId/player/events", requireAuth, async (req, res) => {
-  const ctx = await getPlayer(req, res, req.params.guildId); // §4.2① 신선 멤버십 게이트 재사용 (비멤버 403 / 봇 미참여 404)
+  const ctx = await getPlayer(req, res, req.params.guildId); // 비멤버 403 / 봇 미참여 404
   if (!ctx) return;
   DashboardEvents.addClient(req.params.guildId, res, req.session.user.id);
 });

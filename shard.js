@@ -63,7 +63,7 @@ manager.on("shardCreate", (shard) => {
 
 // Error handling — 단발 rejection은 기록만 남기고 매니저를 살린다(매니저가 죽으면 샤드가
 // 감독자 없는 고아가 됨). 짧은 시간창에 반복되면 시스템적 이상으로 보고 샤드까지 정리 후 종료
-// (감사 M-09 — index.js의 unknown rejection 빈도 가드와 같은 방침, 2026-07-11 사용자 결정)
+// (index.js의 unknown rejection 빈도 가드와 같은 방침)
 const { makeFloodGuard, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
 const managerRejectionFlooding = makeFloodGuard();
 

@@ -467,7 +467,7 @@ function startBot() {
 
     // 알 수 없는 rejection — 단발은 위 로그만 남기고 계속(사소한 catch 누락이 봇 전체 다운으로
     // 번지지 않게). 짧은 시간창에 반복되면 좀비 루프/시스템적 이상으로 보고 안전 종료
-    // (감사 M-09 — uncaughtException의 네트워크 폭주 가드와 같은 방침, 2026-07-11 사용자 결정)
+    // (uncaughtException의 네트워크 폭주 가드와 같은 방침)
     if (unknownRejectionFlooding()) {
       console.error(chalk.red(`🛑 알 수 없는 rejection이 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단합니다.`));
       fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)));

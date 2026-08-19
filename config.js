@@ -134,7 +134,7 @@ module.exports = {
     // 세션 쿠키 서명 비밀. 미설정 시 기동마다 랜덤 생성(보안은 유지되나 재시작 시 대시보드 로그인 풀림) — 기동 로그에 경고
     sessionSecret: env("SESSION_SECRET"),
     // API 요청 제한 (config.js 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을
-    // 넉넉히 넘는 값 — 도배만 차단. 값 근거는 notes/code-review §7 참조.
+    // 넉넉히 넘는 값 — 도배만 차단.
     rateLimit: {
       windowMs: envInt("RATE_LIMIT_WINDOW_SEC", 60, { min: 1, max: 3600 }) * 1000,
       apiMax: envInt("RATE_LIMIT_API_MAX", 120, { min: 1 }), // 일반 인증 API (/api/*)

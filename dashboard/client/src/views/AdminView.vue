@@ -363,18 +363,42 @@ function connectSSE() {
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
+// status는 실시간 값(uptime·메모리·ping)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
+// 다만 탭이 숨으면(아무도 안 보면) 폴링을 멈추고, 다시 보이면 즉시 1회 갱신 후 재개한다.
 let timer = null;
-onMounted(() => {
+let visHandler = null;
+function poll() {
   fetchStatus();
   fetchGuilds();
-  timer = setInterval(() => {
-    fetchStatus();
-    fetchGuilds();
-  }, 10000);
-  connectSSE();
+}
+function startPoll() {
+  if (!timer) timer = setInterval(poll, 10000);
+}
+function stopPoll() {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+}
+onMounted(() => {
+  poll();
+  visHandler = () => {
+    if (document.hidden) stopPoll();
+    else {
+      poll();
+      startPoll();
+    }
+  };
+  document.addEventListener("visibilitychange", visHandler);
+  if (!document.hidden) startPoll();
+  connectSSE(); // 로그 스트림은 백그라운드에서도 유지 — 폴링이 아니라 이벤트 발생 시에만 전송
 });
 onUnmounted(() => {
-  clearInterval(timer);
+  if (visHandler) {
+    document.removeEventListener("visibilitychange", visHandler);
+    visHandler = null;
+  }
+  stopPoll();
   if (sse) sse.close();
 });
 </script>

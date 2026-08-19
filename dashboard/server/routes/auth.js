@@ -39,7 +39,7 @@ router.get("/callback", async (req, res) => {
   const { code, state } = req.query;
   if (!code) return res.redirect("/?error=no_code");
 
-  // Validate OAuth state to prevent Login CSRF (RFC 6749 §10.12)
+  // Validate OAuth state to prevent Login CSRF (RFC 6749)
   const expectedState = req.session.oauthState;
   delete req.session.oauthState;
   if (!state || !expectedState || state !== expectedState) {
@@ -77,8 +77,8 @@ router.get("/callback", async (req, res) => {
       guilds: guildsRes.data,
     };
 
-    // 로그인 성공 시 세션 ID 재발급 — session fixation 방어 (감사 M-02).
-    // 로그인 전 세션(oauthState 등)은 폐기되고 새 sid로 사용자 정보만 담는다.
+    // 로그인 성공 시 세션 ID 재발급 — session fixation 방어.
+    // 로그인 전 세션(oauthState 등)은 폐기, 새 sid로 사용자 정보만
     req.session.regenerate((err) => {
       if (err) {
         console.error("❌ Session regenerate error:", err);
