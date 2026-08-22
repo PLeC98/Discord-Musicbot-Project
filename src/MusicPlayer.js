@@ -1169,7 +1169,9 @@ class MusicPlayer {
       this.lastPlaybackPosition = totalPlaybackMs;
       const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
       const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump";
-      const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
+      // SponsorBlock 아웃트로 종료는 재생 위치가 전체 길이보다 앞이어도 "조기 드롭"이 아니라 트랙 완료다.
+      // 이걸 endedUnexpectedly로 오판하면 같은 곡을 그 위치에서 재개해 아웃트로를 계속 재생하게 됨.
+      const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && reason !== "sponsorblock" && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
 
       if (endedUnexpectedly) {
         this.currentTrackRetries += 1;
