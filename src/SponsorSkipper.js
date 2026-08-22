@@ -73,8 +73,10 @@ class SponsorSkipper {
     this._prevSec = d.prevSec;
 
     if (d.action === "end") {
+      console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 종료 구간 도달, 다음 곡으로`);
       p.handleTrackEnd("sponsorblock").catch(() => {});
     } else if (d.action === "seek") {
+      console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
       p.play(null, Math.round(d.toSec * 1000)).catch(() => {});
     }
