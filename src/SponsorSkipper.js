@@ -81,7 +81,7 @@ class SponsorSkipper {
 
     if (d.action === "end") {
       console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 종료 구간 도달, 트랙 종료`);
-      p.endCurrentTrackNaturally("sponsorblock"); // 오디오 정지→Idle→handleTrackEnd (루프 존중)
+      p.skip("sponsorblock"); // 스킵 버튼과 동일 처리 (다음 곡/루프 존중)
     } else if (d.action === "seek") {
       console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.

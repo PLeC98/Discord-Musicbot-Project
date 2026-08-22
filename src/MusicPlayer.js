@@ -649,19 +649,6 @@ class MusicPlayer {
     return intro && intro.end > 0 ? Math.round(intro.end * 1000) : 0;
   }
 
-  // SponsorBlock 아웃트로 등으로 현재 트랙을 자연 종료 — audioPlayer 정지가 Idle→handleTrackEnd를
-  // 유발한다. skip과 달리 skipRequested를 세우지 않아 루프(track/queue) 설정을 그대로 존중한다.
-  endCurrentTrackNaturally(reason = "sponsorblock") {
-    if (!this.currentTrack) return false;
-    if (this.trackTimer) {
-      clearTimeout(this.trackTimer);
-      this.trackTimer = null;
-    }
-    this.pendingEndReason = reason;
-    this.audioPlayer?.stop();
-    return true;
-  }
-
   scheduleTrackWatchdog(streamInfo = null) {
     if (this.trackTimer) {
       clearTimeout(this.trackTimer);
@@ -1168,10 +1155,9 @@ class MusicPlayer {
       const totalPlaybackMs = this.currentTrackStartOffsetMs + playbackMs;
       this.lastPlaybackPosition = totalPlaybackMs;
       const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
-      const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump";
-      // SponsorBlock 아웃트로 종료는 재생 위치가 전체 길이보다 앞이어도 "조기 드롭"이 아니라 트랙 완료다.
-      // 이걸 endedUnexpectedly로 오판하면 같은 곡을 그 위치에서 재개해 아웃트로를 계속 재생하게 됨.
-      const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && reason !== "sponsorblock" && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
+      // "sponsorblock"(아웃트로 종료)은 스킵 버튼과 동일하게 트랙 완료로 취급 — 조기 드롭 복구 대상 아님.
+      const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump" || reason === "sponsorblock";
+      const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
 
       if (endedUnexpectedly) {
         this.currentTrackRetries += 1;
