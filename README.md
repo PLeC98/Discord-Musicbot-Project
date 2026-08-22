@@ -26,6 +26,7 @@
 - **봇 전용 채널**: `/setchannel`로 지정한 채널에 곡명/링크만 입력하면 자동 재생
 - **장르 자동재생**: 대기열 소진 시 선택한 장르(`config/genres.js`에서 추가/삭제, 검색 키워드 변경 가능)의 곡을 자동 탐색·재생
 - **DJ 역할 지정**: `/setdjrole`로 역할을 지정 가능. 권한이 없다면, 곡 추가와 자기가 추가한 곡의 스킵 / 제거, 조회만 가능.
+- **SponsorBlock 자동 스킵**: 뮤직비디오의 인트로·최종 화면·음악이 아닌 구간 등을 [SponsorBlock](https://sponsor.ajay.app/) 데이터로 자동 건너뜀. `/sponsorblock` 또는 웹 대시보드에서 서버별로 사용 여부·건너뛸 카테고리를 지정. 커뮤니티 하이라이트 지점으로 점프하는 `/highlight`도 제공. (동작·라이선스는 아래 [SponsorBlock](#sponsorblock) 참조)
 
 ### 웹 대시보드
 
@@ -41,13 +42,13 @@
 
 ## 명령어
 
-| 분류   | 명령어                                                                                |
-| ------ | ------------------------------------------------------------------------------------- |
-| 재생   | `/play` `/playfirst` `/search` `/pause` `/seek` `/replay` `/skip` `/previous` `/stop` |
-| 대기열 | `/queue` `/shuffle` `/loop` `/move` `/remove` `/clear` `/autoplay`                    |
-| 채널   | `/join` `/leave` `/setchannel` `/setdjrole`                                           |
-| 정보   | `/nowplaying` `/help` `/ping` `/system` `/cachestatus` `/dashboard` `/license`        |
-| 기타   | `/volume`                                                                             |
+| 분류   | 명령어                                                                                             |
+| ------ | -------------------------------------------------------------------------------------------------- |
+| 재생   | `/play` `/playfirst` `/search` `/pause` `/seek` `/replay` `/skip` `/previous` `/stop` `/highlight` |
+| 대기열 | `/queue` `/shuffle` `/loop` `/move` `/remove` `/clear` `/autoplay`                                 |
+| 채널   | `/join` `/leave` `/setchannel` `/setdjrole` `/sponsorblock`                                        |
+| 정보   | `/nowplaying` `/help` `/ping` `/system` `/cachestatus` `/dashboard` `/license`                     |
+| 기타   | `/volume`                                                                                          |
 
 ## 설치 및 실행
 
@@ -166,6 +167,20 @@ Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는
 
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
 기동 시 자동 체크는 하지 않으므로, YouTube 추출이 갑자기 막히면(YouTube가 API를 자주 바꿈) 봇 재시작 전에 `pnpm run update:ytdlp`로 갱신하세요.
+
+## SponsorBlock
+
+뮤직비디오의 비음악 구간(인트로·인터미션·최종 화면 등)을 [SponsorBlock](https://sponsor.ajay.app/) API로 조회해 재생 중 자동으로 건너뜁니다.
+
+- **동작**: 영상별 구간 데이터를 프라이버시 해시 엔드포인트로 조회(어떤 영상을 트는지 서버에 노출하지 않음). 인트로는 재생 시작 오프셋으로, 중간/아웃트로는 재생 중 자동 스킵으로 처리합니다. 조회 실패·타임아웃 시에는 원본을 그대로 재생합니다(fail-open).
+- **캐싱**: 받은 구간 데이터는 **서버 다운 등으로 조회가 안 될 때를 대비한 내부 폴백 용도로만** 로컬 캐싱합니다.
+- **설정**: 기본 활성 카테고리는 비음악 구간·인트로·아웃트로이며, `/sponsorblock`(서버 관리 권한) 또는 웹 대시보드의 서버 설정에서 사용 여부와 카테고리를 조정할 수 있습니다.
+- **하이라이트**: `/highlight` 명령이나 대시보드 버튼으로 커뮤니티가 뽑은 하이라이트 지점으로 점프할 수 있습니다.
+
+구간 데이터 제공: SponsorBlock (https://sponsor.ajay.app/).
+Uses SponsorBlock data licensed under CC BY-NC-SA 4.0 from https://sponsor.ajay.app/.
+
+> **상업적 이용 안내**: 캐싱되는 SponsorBlock 데이터는 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)(비상업) 라이선스입니다. 이 봇을 **상업적 목적으로 운영**하려면 `.env`에서 `SPONSORBLOCK_ENABLED=false`로 기능을 꺼 주세요 (API 호출·캐싱이 전부 중단됩니다).
 
 ## 라이선스
 
