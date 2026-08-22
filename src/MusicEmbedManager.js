@@ -320,6 +320,9 @@ class MusicEmbedManager {
     if (player.queue.length > 0) {
       statusParts.push(`대기열에 ${player.queue.length}개의 노래가 더 있습니다`);
     }
+    if (track.sponsor?.skipSegments?.length) {
+      statusParts.push(`⏭️ 비음악 구간 ${track.sponsor.skipSegments.length}개 자동 건너뜀 (SponsorBlock)`);
+    }
 
     const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor)).addSectionComponents(section).addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar));
 

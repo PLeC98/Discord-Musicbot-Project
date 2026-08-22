@@ -34,6 +34,10 @@
             <span :class="timeText">{{ fmt(displayTime) }}</span>
             <div class="group relative flex flex-1 h-4 items-center cursor-pointer before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
               <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
+              <!-- SponsorBlock 자동 스킵 구간 마커 -->
+              <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm bg-amber-400/70 pointer-events-none" :style="{ left: m.left + '%', width: m.width + '%' }" title="자동 건너뛰기 구간 (SponsorBlock)"></div>
+              <!-- 하이라이트 지점 -->
+              <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 bg-emerald-400 rounded pointer-events-none" :style="{ left: highlightMarker + '%' }" title="하이라이트"></div>
               <div class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
             </div>
             <span :class="timeText">{{ fmt(player.currentTrack.duration) }}</span>
@@ -403,6 +407,25 @@ const progressPct = computed(() => {
   const t = player.value.currentTrack;
   if (!t?.duration) return 0;
   return Math.min((displayTime.value / t.duration) * 100, 100);
+});
+
+// SponsorBlock 자동 스킵 구간 → 진행바 상 위치(%). 하이라이트 지점도 %로.
+const sponsorMarkers = computed(() => {
+  const t = player.value.currentTrack;
+  const dur = t?.duration || 0;
+  if (!dur || !Array.isArray(t?.sponsorSegments)) return [];
+  return t.sponsorSegments.map((s) => {
+    const left = Math.max(0, Math.min(100, (s.start / dur) * 100));
+    const right = Math.max(0, Math.min(100, (s.end / dur) * 100));
+    return { left, width: Math.max(0.4, right - left) };
+  });
+});
+const highlightMarker = computed(() => {
+  const t = player.value.currentTrack;
+  const dur = t?.duration || 0;
+  const h = t?.highlightAt;
+  if (!dur || h === null || h === undefined) return null;
+  return Math.max(0, Math.min(100, (h / dur) * 100));
 });
 
 const loopTitle = computed(() => {
