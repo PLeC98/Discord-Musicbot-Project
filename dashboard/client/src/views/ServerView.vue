@@ -43,6 +43,11 @@
             <span :class="timeText">{{ fmt(player.currentTrack.duration) }}</span>
           </div>
 
+          <!-- SponsorBlock 하이라이트 점프 -->
+          <div v-if="highlightMarker !== null" class="flex justify-center -mt-0.5 mb-1.5">
+            <button @click="jumpToHighlight" class="text-[0.78rem] text-emerald-300/90 hover:text-emerald-200 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-emerald-400/10 transition-colors">✨ 하이라이트로 점프</button>
+          </div>
+
           <!-- Controls -->
           <div class="flex flex-col gap-2.5">
             <div class="flex items-center gap-1 flex-wrap">
@@ -474,6 +479,17 @@ async function onScrubEnd() {
     await axios.post(`/api/guilds/${guildId}/player/seek`, { position: pos });
   } catch (e) {
     console.error("seek", e);
+  }
+}
+
+async function jumpToHighlight() {
+  const h = player.value.currentTrack?.highlightAt;
+  if (h === null || h === undefined) return;
+  localTime.value = h;
+  try {
+    await axios.post(`/api/guilds/${guildId}/player/seek`, { position: h });
+  } catch (e) {
+    console.error("highlight", e);
   }
 }
 
