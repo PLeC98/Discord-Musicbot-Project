@@ -15,6 +15,8 @@ module.exports = {
 
     // DJ 역할 설정 UI 버튼은 전용 핸들러(djRoleConfigHandler.js)가 처리
     if (interaction.customId.startsWith("djrole:")) return;
+    // SponsorBlock 설정 UI 버튼은 전용 핸들러(sponsorConfigHandler.js)가 처리
+    if (interaction.customId.startsWith("sb:")) return;
 
     // 검색 버튼용 특수 제어
     if (interaction.customId.startsWith("search_")) {
