@@ -480,8 +480,11 @@ class MusicPlayer {
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
         } else if (audioStream) {
-          // 스트리밍용 FFmpeg 프로세스 생성
-          const seekArgs = resumeFromMs > 0 ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
+          // 스트리밍용 FFmpeg 프로세스 생성.
+          // getStream이 googlevideo begin= 파라미터로 스트림을 이미 오프셋부터 시작시킨 경우(canSeek),
+          // 여기서 -ss를 또 걸면 이중 seek가 된다(파이프 입력은 seek도 불가). 사전 seek된 스트림엔 -ss 생략.
+          const streamPreSeeked = resumeFromMs > 0 && streamInfo?.canSeek;
+          const seekArgs = resumeFromMs > 0 && !streamPreSeeked ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
 
           const ffmpegProcess = new prism.FFmpeg({
             command: ffmpegPath,
