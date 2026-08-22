@@ -432,9 +432,15 @@ class MusicPlayer {
             }
           });
 
-        // 즉시 재생을 위해 직접 스트리밍
+        // 즉시 재생을 위해 직접 스트리밍.
+        // 오프셋 재생이고 seekable(googlevideo)이면 URL을 ffmpeg에 직접 입력해 HTTP range seek 한다.
+        // (실측: begin= 파라미터는 서버가 무시하고, pipe 입력은 -ss가 안 먹혀 오디오/시계가 desync됨.
+        //  ffmpeg -ss 입력전 + URL 직접입력만이 정확·신속하게 seek됨.)
+        const useUrlSeek = resumeFromMs > 0 && !!streamInfo?.canSeek && !!(streamInfo?.rawUrl || streamInfo?.url);
         let audioStream;
-        if (typeof streamInfo === "object" && streamInfo.stream) {
+        if (useUrlSeek) {
+          // audioStream 없이 아래 ffmpeg가 URL을 직접 입력받는다
+        } else if (typeof streamInfo === "object" && streamInfo.stream) {
           audioStream = streamInfo.stream;
         } else if (typeof streamUrl_final === "string") {
           try {
@@ -479,30 +485,14 @@ class MusicPlayer {
         // 스트리밍에 실패했고 다운로드 파일이 있으면 파일 재생으로 건너뜀
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
-        } else if (audioStream) {
-          // 스트리밍용 FFmpeg 프로세스 생성.
-          // getStream이 googlevideo begin= 파라미터로 스트림을 이미 오프셋부터 시작시킨 경우(canSeek),
-          // 여기서 -ss를 또 걸면 이중 seek가 된다(파이프 입력은 seek도 불가). 사전 seek된 스트림엔 -ss 생략.
-          const streamPreSeeked = resumeFromMs > 0 && streamInfo?.canSeek;
-          const seekArgs = resumeFromMs > 0 && !streamPreSeeked ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
+        } else if (audioStream || useUrlSeek) {
+          // 스트리밍용 FFmpeg. useUrlSeek면 URL을 직접 입력(-ss 입력전, HTTP range seek), 아니면 pipe 입력.
+          const seekUrl = streamInfo.rawUrl || streamInfo.url;
+          const inputArgs = useUrlSeek ? ["-ss", (resumeFromMs / 1000).toFixed(3), "-i", seekUrl] : ["-i", "pipe:0"];
 
           const ffmpegProcess = new prism.FFmpeg({
             command: ffmpegPath,
-            args: [
-              ...seekArgs, // 재개 중이면 seek 추가
-              "-analyzeduration",
-              "0",
-              "-loglevel",
-              "0",
-              "-i",
-              "pipe:0",
-              "-f",
-              "s16le",
-              "-ar",
-              "48000",
-              "-ac",
-              "2",
-            ],
+            args: ["-analyzeduration", "0", "-loglevel", "0", ...inputArgs, "-f", "s16le", "-ar", "48000", "-ac", "2"],
           });
 
           ffmpegProcess.on("error", (err) => {
@@ -510,15 +500,16 @@ class MusicPlayer {
             console.error("❌ FFmpeg streaming error:", err.message);
           });
 
-          // 이것이 없으면 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 될 수 있음. AudioPlayer가 Idle로 전환되면 이미 캐시 기반 복구가 트리거되므로 여기서는 오류를 흡수하기만 하면 됨.
-          audioStream.on("error", (err) => {
-            console.warn(`⚠️ Audio stream dropped (${err.code || err.message}), recovering from cache...`);
-          });
-
-          // 리소스가 교체되거나 중지될 때 ffmpegProcess는 @discordjs/voice 파이프라인 연쇄 처리로 제거됨. audioStream은 그 파이프라인 밖에 있으므로(.pipe()로 연결), 자동으로 제거되지 않음 — HTTP 연결을 명시적으로 닫음.
-          ffmpegProcess.once("close", () => audioStream.destroy());
-
-          audioStream.pipe(ffmpegProcess);
+          if (audioStream) {
+            // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
+            // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
+            audioStream.on("error", (err) => {
+              console.warn(`⚠️ Audio stream dropped (${err.code || err.message}), recovering from cache...`);
+            });
+            // ffmpegProcess는 @discordjs/voice 파이프라인이 정리하지만 audioStream은 그 밖(.pipe)이라 명시적으로 닫는다.
+            ffmpegProcess.once("close", () => audioStream.destroy());
+            audioStream.pipe(ffmpegProcess);
+          }
 
           this.resource = createAudioResource(ffmpegProcess, {
             inputType: StreamType.Raw,
