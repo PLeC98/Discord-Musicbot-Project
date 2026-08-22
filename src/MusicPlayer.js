@@ -285,6 +285,23 @@ class MusicPlayer {
         }
       }
 
+      // 신규 재생(seek 아님)이면, 스트림 셋업 전에 videoId+SponsorBlock을 먼저 확보해
+      // 인트로 구간을 초기 오프셋으로 반영한다(무갭 — 0부터 틀고 seek하는 이중재생 회피).
+      // 흐름: (spotify면) youtube 해석 → SponsorBlock 조회 → 인트로 있으면 오프셋, 없으면 그대로.
+      if ((Number(seekMs) || 0) === 0) {
+        try {
+          await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
+          if (!this.currentTrack._sponsorResolved && this.currentTrack.platform === "spotify") {
+            await TrackResolver.findYouTubeEquivalent(this.currentTrack, this.guild.id); // 멱등 — videoId 확정
+            await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
+          }
+          const introEnd = this._introOffsetMs(this.currentTrack);
+          if (introEnd > 0) seekMs = introEnd;
+        } catch {
+          /* 조회 실패는 무시(fail-open) — 오프셋 없이 재생 */
+        }
+      }
+
       // 새 재생을 위해 생명주기 플래그 재설정
       this.pendingEndReason = null;
       this.skipRequested = false;
@@ -626,6 +643,16 @@ class MusicPlayer {
     } finally {
       this.isPlayStarting = false;
     }
+  }
+
+  // 트랙 시작(0 부근)에서 시작하는 인트로 스킵 구간의 끝(ms). 없으면 0.
+  // 이 값을 신규 재생의 초기 오프셋으로 써서 인트로를 무갭으로 건너뛴다.
+  _introOffsetMs(track) {
+    const segs = track?.sponsor?.skipSegments;
+    if (!segs || !segs.length) return 0;
+    const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하면 인트로로 간주
+    const intro = segs.find((s) => s.start <= INTRO_START_TOL_SEC);
+    return intro && intro.end > 0 ? Math.round(intro.end * 1000) : 0;
   }
 
   // SponsorBlock 아웃트로 등으로 현재 트랙을 자연 종료 — audioPlayer 정지가 Idle→handleTrackEnd를
