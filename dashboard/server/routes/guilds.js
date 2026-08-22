@@ -6,7 +6,21 @@ const { resolveMember, toApiError } = requireControl;
 const { checkControl, checkAdd, checkSkip, checkRemoveTrack, isModerator } = require("../../../src/permissions");
 const { ChannelType } = require("discord.js");
 const GuildSettingsManager = require("../../../src/GuildSettingsManager");
+const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
+
+// SponsorBlock 카테고리 라벨 (대시보드 표시용) — SKIP_CATEGORIES와 키 일치
+const SB_CATEGORY_LABELS = {
+  music_offtopic: "음악이 아닌 구간",
+  intro: "인트로/무음 구간",
+  outro: "최종 화면 구간",
+  sponsor: "후원이나 협찬 구간",
+  selfpromo: "무대가 홍보 구간",
+  interaction: "상호작용 알림 구간",
+  preview: "미리보기/요약 구간",
+  hook: "후킹/인사말",
+  filler: "잡담/농담",
+};
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const DashboardEvents = require("../../../src/DashboardEvents");
 
@@ -246,7 +260,16 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
     .sort((a, b) => a.rawPosition - b.rawPosition)
     .map((c) => ({ id: c.id, name: c.name }));
 
-  res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels });
+  // SponsorBlock 서버별 설정 (유효값 + 마스터 상태 + 카테고리 목록)
+  const sbEff = GuildSettingsManager.resolveSponsorBlock(guild.id);
+  const sponsorblock = {
+    masterEnabled: config.sponsorblock.enabled, // 전역 off면 서버 설정 무의미
+    enabled: sbEff.enabled,
+    categories: sbEff.categories,
+    available: SponsorBlock.SKIP_CATEGORIES.map((id) => ({ id, label: SB_CATEGORY_LABELS[id] || id })),
+  };
+
+  res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock });
 });
 
 // 서버 설정 변경 — 모더레이터(서버 관리층)/봇 소유자만. /setdjrole·/setchannel과 동일 기준.
@@ -260,7 +283,25 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     return res.status(403).json({ error: "서버 설정을 변경할 권한이 없습니다 (서버 관리 권한 필요)" });
   }
 
-  const { djRoleIds, botChannelId } = req.body || {};
+  const { djRoleIds, botChannelId, sponsorblock } = req.body || {};
+
+  // SponsorBlock 검증 (선택적) — enabled(bool)·categories(유효 카테고리 배열)
+  let nextSponsor; // undefined=변경 없음
+  if (sponsorblock !== undefined) {
+    if (typeof sponsorblock !== "object" || sponsorblock === null) {
+      return res.status(400).json({ error: "sponsorblock 설정 형식이 올바르지 않습니다" });
+    }
+    const enabled = typeof sponsorblock.enabled === "boolean" ? sponsorblock.enabled : null;
+    let categories = null;
+    if (sponsorblock.categories !== undefined) {
+      if (!Array.isArray(sponsorblock.categories) || sponsorblock.categories.some((c) => typeof c !== "string")) {
+        return res.status(400).json({ error: "sponsorblock.categories는 문자열 배열이어야 합니다" });
+      }
+      const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
+      categories = [...new Set(sponsorblock.categories.filter((c) => valid.has(c)))];
+    }
+    nextSponsor = { enabled, categories };
+  }
 
   // 검증
   let nextRoles = null;
@@ -296,6 +337,9 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
   if (nextChannel !== undefined) {
     if (nextChannel) await GuildSettingsManager.setBotChannel(guild.id, nextChannel);
     else await GuildSettingsManager.clearBotChannel(guild.id);
+  }
+  if (nextSponsor !== undefined) {
+    await GuildSettingsManager.setSponsorBlock(guild.id, nextSponsor);
   }
 
   console.log(`[Dashboard] 서버 설정 변경: ${guild.name} (${guild.id}) by ${req.session.user.username || req.session.user.id}`);

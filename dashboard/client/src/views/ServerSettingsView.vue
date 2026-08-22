@@ -44,6 +44,28 @@
         </select>
       </BaseCard>
 
+      <!-- SponsorBlock -->
+      <BaseCard title="⏭️ SponsorBlock 자동 스킵" class="mb-3">
+        <p class="text-muted text-sm mb-3.5">뮤직비디오의 인트로·최종 화면·음악이 아닌 구간 등을 SponsorBlock 데이터로 자동 건너뜁니다.</p>
+
+        <div v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" class="text-warning text-sm mb-1">봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 서버 설정은 적용되지 않습니다.</div>
+
+        <template v-if="s.sponsorblock">
+          <label class="flex items-center gap-2.5 py-1.5 text-sm" :class="s.canEdit ? 'cursor-pointer' : 'opacity-60'">
+            <input type="checkbox" class="size-4 accent-accent shrink-0" v-model="sbEnabled" :disabled="!s.canEdit" />
+            <span>이 서버에서 자동 스킵 사용</span>
+          </label>
+
+          <div class="text-muted text-[0.8rem] mt-2 mb-1.5">건너뛸 구간 종류</div>
+          <div class="rounded-xl border border-white/7 p-1.5 flex flex-col gap-0.5" :class="sbEnabled ? '' : 'opacity-40 pointer-events-none'">
+            <label v-for="c in s.sponsorblock.available" :key="c.id" class="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg text-sm transition-[background-color] duration-150" :class="s.canEdit ? 'cursor-pointer hover:bg-white/5' : 'opacity-60'">
+              <input type="checkbox" class="size-4 accent-accent shrink-0" :checked="sbCategories.includes(c.id)" :disabled="!s.canEdit" @change="toggleSbCategory(c.id)" />
+              <span>{{ c.label }}</span>
+            </label>
+          </div>
+        </template>
+      </BaseCard>
+
       <!-- Save / revert -->
       <div class="flex items-center gap-2.5 flex-wrap">
         <BaseButton variant="primary" :disabled="!s.canEdit || !dirty || saving" @click="save">{{ saving ? "저장 중..." : "저장" }}</BaseButton>
@@ -70,12 +92,14 @@ const guildId = route.params.guildId;
 
 const loading = ref(true);
 const loadError = ref(null);
-const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [] });
+const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null });
 
 // 편집 폼 상태 (서버 값과 분리 — 저장 전까지 반영 안 됨)
 const selectedRoles = ref([]);
 const selectedChannel = ref(null);
 const roleFilter = ref("");
+const sbEnabled = ref(true);
+const sbCategories = ref([]);
 const saving = ref(false);
 const result = ref(null);
 
@@ -84,7 +108,19 @@ const filteredRoles = computed(() => {
   return q ? s.value.roles.filter((r) => r.name.toLowerCase().includes(q)) : s.value.roles;
 });
 
-const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()));
+const sbDirty = computed(() => {
+  const sb = s.value.sponsorblock;
+  if (!sb) return false;
+  return sbEnabled.value !== sb.enabled || JSON.stringify([...sbCategories.value].sort()) !== JSON.stringify([...(sb.categories || [])].sort());
+});
+
+const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()) || sbDirty.value);
+
+function toggleSbCategory(id) {
+  const i = sbCategories.value.indexOf(id);
+  if (i >= 0) sbCategories.value.splice(i, 1);
+  else sbCategories.value.push(id);
+}
 
 function resultMsg(ok) {
   const base = "mt-3 px-4 py-2.5 rounded-[10px] text-sm border";
@@ -97,9 +133,16 @@ function toggleRole(id) {
   else if (selectedRoles.value.length < 25) selectedRoles.value.push(id); // 디스코드 셀렉트 메뉴 한계와 정합
 }
 
+function syncSbForm() {
+  const sb = s.value.sponsorblock;
+  sbEnabled.value = sb ? sb.enabled : true;
+  sbCategories.value = sb ? [...(sb.categories || [])] : [];
+}
+
 function revert() {
   selectedRoles.value = [...s.value.djRoleIds];
   selectedChannel.value = s.value.botChannelId;
+  syncSbForm();
   result.value = null;
 }
 
@@ -109,6 +152,7 @@ async function load() {
     s.value = res.data;
     selectedRoles.value = [...res.data.djRoleIds];
     selectedChannel.value = res.data.botChannelId;
+    syncSbForm();
   } catch (e) {
     loadError.value = e.response?.data?.error || "설정을 불러오지 못했습니다";
   } finally {
@@ -121,7 +165,11 @@ async function save() {
   saving.value = true;
   result.value = null;
   try {
-    await axios.put(`/api/guilds/${guildId}/settings`, { djRoleIds: selectedRoles.value, botChannelId: selectedChannel.value });
+    await axios.put(`/api/guilds/${guildId}/settings`, {
+      djRoleIds: selectedRoles.value,
+      botChannelId: selectedChannel.value,
+      sponsorblock: { enabled: sbEnabled.value, categories: sbCategories.value },
+    });
     result.value = { success: true };
     await load(); // 서버가 확정한 값(삭제 역할 정리 등)으로 동기화
   } catch (e) {
