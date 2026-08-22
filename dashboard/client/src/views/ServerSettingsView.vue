@@ -38,10 +38,13 @@
       <!-- Bot channel -->
       <BaseCard title="📌 봇 전용 채널" class="mb-3">
         <p class="text-muted text-sm mb-3.5">지정 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지 발송도 이 채널을 우선합니다.</p>
-        <select v-model="selectedChannel" :disabled="!s.canEdit" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2.5 text-[0.9rem] outline-none font-[inherit] cursor-pointer scheme-dark transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40 disabled:cursor-not-allowed">
-          <option :value="null">지정 안 함</option>
-          <option v-for="c in s.channels" :key="c.id" :value="c.id"># {{ c.name }}</option>
-        </select>
+        <div class="relative">
+          <select v-model="selectedChannel" :disabled="!s.canEdit" class="w-full appearance-none bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-10 py-2.5 text-[0.9rem] outline-none font-[inherit] cursor-pointer scheme-dark transition-[border-color,background-color] duration-200 hover:border-white/15 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40 disabled:cursor-not-allowed">
+            <option :value="null" style="background-color: #0e1228; color: #e8eaf6">지정 안 함</option>
+            <option v-for="c in s.channels" :key="c.id" :value="c.id" style="background-color: #0e1228; color: #e8eaf6"># {{ c.name }}</option>
+          </select>
+          <svg class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+        </div>
       </BaseCard>
 
       <!-- SponsorBlock -->
@@ -56,7 +59,21 @@
             <span>이 서버에서 자동 스킵 사용</span>
           </label>
 
-          <div class="text-muted text-[0.8rem] mt-2 mb-1.5">건너뛸 구간 종류</div>
+          <div class="flex items-center gap-1.5 mt-2 mb-1.5">
+            <span class="text-muted text-[0.8rem]">건너뛸 구간 종류</span>
+            <button type="button" @click="sbHelpOpen = !sbHelpOpen" class="text-muted hover:text-fg transition-colors" :title="sbHelpOpen ? '설명 닫기' : '각 구간 설명 보기'" aria-label="각 구간 설명">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" /></svg>
+            </button>
+          </div>
+
+          <!-- 구간 설명 패널 (내용은 SB_DESCRIPTIONS에 작성) -->
+          <div v-if="sbHelpOpen" class="rounded-xl border border-white/7 bg-white/3 p-2.5 mb-1.5 flex flex-col gap-1.5 text-[0.8rem]">
+            <div v-for="c in s.sponsorblock.available" :key="'help' + c.id" class="flex gap-2">
+              <span class="text-fg-soft font-medium shrink-0 min-w-24">{{ c.label }}</span>
+              <span class="text-muted">{{ sbDescriptions[c.id] || "" }}</span>
+            </div>
+          </div>
+
           <div class="rounded-xl border border-white/7 p-1.5 flex flex-col gap-0.5" :class="sbEnabled ? '' : 'opacity-40 pointer-events-none'">
             <label v-for="c in s.sponsorblock.available" :key="c.id" class="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg text-sm transition-[background-color] duration-150" :class="s.canEdit ? 'cursor-pointer hover:bg-white/5' : 'opacity-60'">
               <input type="checkbox" class="size-4 accent-accent shrink-0" :checked="sbCategories.includes(c.id)" :disabled="!s.canEdit" @change="toggleSbCategory(c.id)" />
@@ -100,6 +117,20 @@ const selectedChannel = ref(null);
 const roleFilter = ref("");
 const sbEnabled = ref(true);
 const sbCategories = ref([]);
+const sbHelpOpen = ref(false);
+
+// 각 SponsorBlock 구간 종류 설명 — 내용은 여기에 작성 (키 = 카테고리 id)
+const sbDescriptions = {
+  music_offtopic: "",
+  intro: "",
+  outro: "",
+  sponsor: "",
+  selfpromo: "",
+  interaction: "",
+  preview: "",
+  hook: "",
+  filler: "",
+};
 const saving = ref(false);
 const result = ref(null);
 

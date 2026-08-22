@@ -64,6 +64,20 @@
   /* 모션 */
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* SponsorBlock 카테고리 색상 (공식 확장 기본값) */
+  --category-sponsor-color: #00d400;
+  --category-selfpromo-color: #ffff00;
+  --category-exclusive_access-color: #008a5c;
+  --category-interaction_reminder-color: #cc00ff;
+  --category-intro-color: #00ffff;
+  --category-endcards-color: #0202ed;
+  --category-preview-color: #008fd6;
+  --category-hook-color: #395699;
+  --category-nonmusic-color: #ff9900;
+  --category-highlight-color: #ff1684;
+  --category-tangents-color: #7300ff;
+  --category-chapter-color: #ffd983;
 }
 
 html {

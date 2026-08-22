@@ -34,18 +34,13 @@
             <span :class="timeText">{{ fmt(displayTime) }}</span>
             <div class="group relative flex flex-1 h-4 items-center cursor-pointer before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
               <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
-              <!-- SponsorBlock 자동 스킵 구간 마커 -->
-              <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm bg-amber-400/70 pointer-events-none" :style="{ left: m.left + '%', width: m.width + '%' }" title="자동 건너뛰기 구간 (SponsorBlock)"></div>
+              <!-- SponsorBlock 자동 스킵 구간 마커 (카테고리별 공식 색상) -->
+              <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm pointer-events-none opacity-80" :style="{ left: m.left + '%', width: m.width + '%', backgroundColor: m.color }" title="자동 건너뛰기 구간 (SponsorBlock)"></div>
               <!-- 하이라이트 지점 -->
-              <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 bg-emerald-400 rounded pointer-events-none" :style="{ left: highlightMarker + '%' }" title="하이라이트"></div>
+              <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 rounded pointer-events-none" :style="{ left: highlightMarker + '%', backgroundColor: 'var(--category-highlight-color)' }" title="하이라이트"></div>
               <div class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
             </div>
             <span :class="timeText">{{ fmt(player.currentTrack.duration) }}</span>
-          </div>
-
-          <!-- SponsorBlock 하이라이트 점프 -->
-          <div v-if="highlightMarker !== null" class="flex justify-center -mt-0.5 mb-1.5">
-            <button @click="jumpToHighlight" class="text-[0.78rem] text-emerald-300/90 hover:text-emerald-200 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-emerald-400/10 transition-colors">✨ 하이라이트로 점프</button>
           </div>
 
           <!-- Controls -->
@@ -89,6 +84,11 @@
               <!-- Shuffle -->
               <button :class="player.shuffle ? iconActive : iconBtn" @click="action('shuffle')" title="셔플" :disabled="!player.canControl || player.queue.length < 2">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
+              </button>
+
+              <!-- SponsorBlock 하이라이트 점프 -->
+              <button v-if="highlightMarker !== null" :class="iconBtn" @click="jumpToHighlight" title="하이라이트로 점프" :disabled="!player.canControl">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M5.59 7.41 10.17 12l-4.58 4.59L7 18l6-6-6-6zm6 0L16.17 12l-4.58 4.59L13 18l6-6-6-6z" /></svg>
               </button>
 
               <!-- Loop (cycles: off → track → queue) -->
@@ -414,7 +414,20 @@ const progressPct = computed(() => {
   return Math.min((displayTime.value / t.duration) * 100, 100);
 });
 
-// SponsorBlock 자동 스킵 구간 → 진행바 상 위치(%). 하이라이트 지점도 %로.
+// 카테고리 → SponsorBlock 공식 색상 CSS 변수명 매핑
+const SB_COLOR_VAR = {
+  sponsor: "sponsor",
+  selfpromo: "selfpromo",
+  interaction: "interaction_reminder",
+  intro: "intro",
+  outro: "endcards",
+  preview: "preview",
+  hook: "hook",
+  music_offtopic: "nonmusic",
+  filler: "tangents",
+};
+
+// SponsorBlock 자동 스킵 구간 → 진행바 상 위치(%) + 카테고리별 공식 색상. 하이라이트 지점도 %로.
 const sponsorMarkers = computed(() => {
   const t = player.value.currentTrack;
   const dur = t?.duration || 0;
@@ -422,7 +435,8 @@ const sponsorMarkers = computed(() => {
   return t.sponsorSegments.map((s) => {
     const left = Math.max(0, Math.min(100, (s.start / dur) * 100));
     const right = Math.max(0, Math.min(100, (s.end / dur) * 100));
-    return { left, width: Math.max(0.4, right - left) };
+    const cat = (s.categories && s.categories[0]) || "music_offtopic";
+    return { left, width: Math.max(0.4, right - left), color: `var(--category-${SB_COLOR_VAR[cat] || "nonmusic"}-color)` };
   });
 });
 const highlightMarker = computed(() => {

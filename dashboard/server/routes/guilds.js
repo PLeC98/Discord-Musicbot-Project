@@ -102,8 +102,8 @@ function playerState(player) {
           platform: track.platform,
           currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
           requestedBy: track.requestedBy ? { id: track.requestedBy.id, username: track.requestedBy.username } : null,
-          // SponsorBlock 자동 스킵 구간(초) + 하이라이트 지점 — 대시보드 진행바 마커용
-          sponsorSegments: (track.sponsor?.skipSegments || []).map((s) => ({ start: s.start, end: s.end })),
+          // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점 — 대시보드 진행바 마커용
+          sponsorSegments: (track.sponsor?.skipSegments || []).map((s) => ({ start: s.start, end: s.end, categories: s.categories || [] })),
           highlightAt: track.sponsor?.highlightAt ?? null,
         }
       : null,
