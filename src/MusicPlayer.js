@@ -11,6 +11,7 @@ const config = require("../config");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./TrackResolver");
 const SponsorBlock = require("./SponsorBlock");
+const SponsorSkipper = require("./SponsorSkipper");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
@@ -112,6 +113,7 @@ class MusicPlayer {
     this.voice = new VoiceConnectionManager(this);
     this.downloader = new TrackDownloader(this);
     this.persistence = new SessionPersistence(this);
+    this.sponsorSkipper = new SponsorSkipper(this);
 
     // 이벤트 설정
     this.setupEvents();
@@ -365,6 +367,8 @@ class MusicPlayer {
       } catch {
         /* 무시 */
       }
+      // 자동 스킵 워처 가동 — 구간 있으면 시작, seek면 기준점을 seek 지점으로 리셋(수동 진입 허용)
+      this.sponsorSkipper.onPlayStart(resumeFromMs);
 
       // 기존(string) 및 신규(object) 스트림 형식을 모두 처리
       let streamUrl_final;
@@ -897,6 +901,7 @@ class MusicPlayer {
   stop() {
     this.updateVoiceStatus("").catch(() => {});
 
+    this.sponsorSkipper?.stop();
     this.pauseReasons.clear();
     this.paused = false;
 
@@ -1109,6 +1114,7 @@ class MusicPlayer {
     }
 
     this.isTransitioning = true;
+    this.sponsorSkipper?.stop(); // 다음 트랙 play()가 onPlayStart로 다시 가동
 
     try {
       if (this.trackTimer) {
@@ -1388,6 +1394,7 @@ class MusicPlayer {
         this.updateVoiceStatus("").catch(() => {});
       }
 
+      this.sponsorSkipper?.stop();
       this.clearInactivityTimer(false);
       this.stopStateSync();
 
