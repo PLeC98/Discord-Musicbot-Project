@@ -174,3 +174,81 @@ test("lookup: videoId 없으면 none", async () => {
   const r = await SponsorBlock.lookup("");
   assert.equal(r.source, "none");
 });
+
+// ── 서버별 유효 설정 해석 ─────────────────────────────────────────────────────
+
+test("resolveSponsorBlock: 마스터 off면 서버 설정 무관 하드 off", () => {
+  const GSM = require("../src/GuildSettingsManager");
+  config.sponsorblock.enabled = false;
+  CacheManager.setGuildSponsorBlock("gMasterOff", { enabled: true, categories: ["filler"] });
+  const eff = GSM.resolveSponsorBlock("gMasterOff");
+  assert.equal(eff.enabled, false);
+  assert.deepEqual(eff.categories, []);
+});
+
+test("resolveSponsorBlock: 마스터 on + 서버 미설정 → 기본 on + 전역 카테고리", () => {
+  const GSM = require("../src/GuildSettingsManager");
+  config.sponsorblock.enabled = true;
+  const eff = GSM.resolveSponsorBlock("gUnset");
+  assert.equal(eff.enabled, true);
+  assert.deepEqual(eff.categories, config.sponsorblock.categories);
+});
+
+test("resolveSponsorBlock: 서버가 enabled=false로 오버라이드", () => {
+  const GSM = require("../src/GuildSettingsManager");
+  config.sponsorblock.enabled = true;
+  CacheManager.setGuildSponsorBlock("gOff", { enabled: false, categories: null });
+  const eff = GSM.resolveSponsorBlock("gOff");
+  assert.equal(eff.enabled, false);
+});
+
+test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
+  const GSM = require("../src/GuildSettingsManager");
+  config.sponsorblock.enabled = true;
+  CacheManager.setGuildSponsorBlock("gCats", { enabled: null, categories: ["sponsor", "filler"] });
+  const eff = GSM.resolveSponsorBlock("gCats");
+  assert.equal(eff.enabled, true);
+  assert.deepEqual(eff.categories, ["sponsor", "filler"]);
+});
+
+// ── ensureForTrack (트랙 글루) ────────────────────────────────────────────────
+
+test("ensureForTrack: youtube 트랙에 sponsor 데이터 확보 + 멱등", async () => {
+  config.sponsorblock.enabled = true;
+  stubFetch("ytVid1", [seg("music_offtopic", 0, 8, "skip")]);
+  const track = { platform: "youtube", id: "ytVid1", url: "https://youtu.be/ytVid1" };
+  const r = await SponsorBlock.ensureForTrack(track, "gEnsure");
+  assert.ok(r);
+  assert.equal(track._sponsorResolved, true);
+  assert.equal(track.sponsor.skipSegments.length, 1);
+
+  // 멱등 — 두 번째 호출은 재조회하지 않음(네트워크 끊겨도 저장값 반환)
+  global.fetch = async () => {
+    throw new Error("should not be called");
+  };
+  const r2 = await SponsorBlock.ensureForTrack(track, "gEnsure");
+  assert.equal(r2, track.sponsor);
+});
+
+test("ensureForTrack: 서버 비활성이면 sponsor=null, 조회 안 함", async () => {
+  config.sponsorblock.enabled = true;
+  CacheManager.setGuildSponsorBlock("gEnsureOff", { enabled: false, categories: null });
+  let called = false;
+  global.fetch = async () => {
+    called = true;
+    return { status: 200, json: async () => [] };
+  };
+  const track = { platform: "youtube", id: "ytVid2", url: "https://youtu.be/ytVid2" };
+  const r = await SponsorBlock.ensureForTrack(track, "gEnsureOff");
+  assert.equal(r, null);
+  assert.equal(track._sponsorResolved, true);
+  assert.equal(called, false);
+});
+
+test("ensureForTrack: videoId 미확정이면 null, 미해결 상태 유지", async () => {
+  config.sponsorblock.enabled = true;
+  const track = { platform: "spotify", title: "x" }; // youtubeUrl/audioSourceKey 없음
+  const r = await SponsorBlock.ensureForTrack(track, "gEnsure");
+  assert.equal(r, null);
+  assert.notEqual(track._sponsorResolved, true); // 다음에 재시도 가능
+});

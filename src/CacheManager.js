@@ -84,10 +84,12 @@ class CacheManager {
             );
 
             CREATE TABLE IF NOT EXISTS guild_settings (
-                guild_id        TEXT PRIMARY KEY,
-                bot_channel_id  TEXT,
-                dj_role_ids     TEXT,
-                updated_at      INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+                guild_id                 TEXT PRIMARY KEY,
+                bot_channel_id           TEXT,
+                dj_role_ids              TEXT,
+                sponsorblock_enabled     INTEGER,   -- NULL=상속(전역 기본), 0/1
+                sponsorblock_categories  TEXT,       -- NULL=상속, JSON 배열
+                updated_at               INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
             -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용 — 라이브 조회 실패 시 사용).
@@ -120,6 +122,14 @@ class CacheManager {
         if (rows.length) console.log(`[CacheManager] DJ 역할 설정 ${rows.length}건을 복수 역할 형식(dj_role_ids)으로 이관`);
       }
     }
+
+    // SponsorBlock 컬럼 추가 (컬럼 도입 이전 DB 대응 — CREATE IF NOT EXISTS는 컬럼을 안 만듦)
+    const gsCols2 = this.db
+      .prepare("PRAGMA table_info(guild_settings)")
+      .all()
+      .map((c) => c.name);
+    if (!gsCols2.includes("sponsorblock_enabled")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_enabled INTEGER");
+    if (!gsCols2.includes("sponsorblock_categories")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_categories TEXT");
   }
 
   // 정적 헬퍼
@@ -432,6 +442,40 @@ class CacheManager {
   clearDjRoles(guildId) {
     if (!this._initialized) this.initialize();
     this.db.prepare("UPDATE guild_settings SET dj_role_ids = NULL, updated_at = ? WHERE guild_id = ?").run(Date.now(), guildId);
+  }
+
+  /** 서버별 SponsorBlock 설정 — { enabled: null|bool, categories: null|string[] } (null=전역 상속) */
+  getGuildSponsorBlock(guildId) {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT sponsorblock_enabled, sponsorblock_categories FROM guild_settings WHERE guild_id = ?").get(guildId);
+    if (!row) return { enabled: null, categories: null };
+    let categories = null;
+    if (row.sponsorblock_categories) {
+      try {
+        const p = JSON.parse(row.sponsorblock_categories);
+        if (Array.isArray(p)) categories = p;
+      } catch {
+        /* 손상 값은 상속 취급 */
+      }
+    }
+    const enabled = row.sponsorblock_enabled === null || row.sponsorblock_enabled === undefined ? null : !!row.sponsorblock_enabled;
+    return { enabled, categories };
+  }
+
+  /** 서버별 SponsorBlock 설정 저장. enabled/categories 각각 null이면 "상속"으로 기록. */
+  setGuildSponsorBlock(guildId, { enabled, categories }) {
+    if (!this._initialized) this.initialize();
+    const encEnabled = enabled === null || enabled === undefined ? null : enabled ? 1 : 0;
+    const encCats = Array.isArray(categories) ? JSON.stringify(categories) : null;
+    this.db
+      .prepare(
+        `INSERT INTO guild_settings (guild_id, sponsorblock_enabled, sponsorblock_categories, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(guild_id) DO UPDATE SET
+             sponsorblock_enabled    = excluded.sponsorblock_enabled,
+             sponsorblock_categories = excluded.sponsorblock_categories,
+             updated_at              = excluded.updated_at`,
+      )
+      .run(guildId, encEnabled, encCats, Date.now());
   }
 
   // 시작 시 정리

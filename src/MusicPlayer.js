@@ -10,6 +10,7 @@ function isBotOwnedStatus(s) {
 const config = require("../config");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./TrackResolver");
+const SponsorBlock = require("./SponsorBlock");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
@@ -355,6 +356,14 @@ class MusicPlayer {
 
       if (!streamInfo && !downloadedFile) {
         throw new Error("오디오 스트림 가져오기 실패");
+      }
+
+      // SponsorBlock 구간 데이터 확보 (첫곡/캐시곡 포함 — preload를 거치지 않았을 수 있음).
+      // 이 시점엔 videoId가 확정(youtube id / 해석된 youtubeUrl / audioSourceKey yt:)됨. 실패해도 재생 진행.
+      try {
+        await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
+      } catch {
+        /* 무시 */
       }
 
       // 기존(string) 및 신규(object) 스트림 형식을 모두 처리

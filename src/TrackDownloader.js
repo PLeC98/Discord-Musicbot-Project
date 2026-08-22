@@ -8,6 +8,7 @@ const YouTube = require("./YouTube");
 const TrackResolver = require("./TrackResolver");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
+const SponsorBlock = require("./SponsorBlock");
 
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
@@ -83,6 +84,14 @@ class TrackDownloader {
         if (!downloadUrl) {
           throw new Error("Could not find YouTube equivalent");
         }
+      }
+
+      // videoId가 확정된 지점(preload 경로) — SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
+      // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
+      try {
+        await SponsorBlock.ensureForTrack(track, player.guild?.id);
+      } catch {
+        /* 무시 */
       }
 
       // YouTube, Spotify(YouTube 경유), SoundCloud(YouTube 경유)는 youtube-dl-exec 사용

@@ -120,6 +120,44 @@ const SponsorBlock = {
     }
     return { ...normalize(raw, categories), source };
   },
+
+  /** 트랙에서 YouTube videoId 추출 — 캐시키(yt:) 우선, 그다음 native/해석된 URL */
+  _trackVideoId(track) {
+    if (!track) return null;
+    if (typeof track.audioSourceKey === "string" && track.audioSourceKey.startsWith("yt:")) {
+      return track.audioSourceKey.slice(3);
+    }
+    const YouTube = require("./YouTube");
+    if (track.platform === "youtube") return track.id || YouTube.extractVideoId(track.url);
+    if (track.youtubeUrl) return YouTube.extractVideoId(track.youtubeUrl);
+    return null;
+  },
+
+  /**
+   * 트랙에 SponsorBlock 데이터(track.sponsor)를 확보 — 재생 근접(preload)·재생 직전에 호출.
+   * 서버별 유효 설정으로 조회하며, 한 번 확보하면 재조회하지 않는다(멱등). 실패해도 예외를 던지지 않음.
+   * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:string}|null>}
+   */
+  async ensureForTrack(track, guildId) {
+    if (!track) return null;
+    if (track._sponsorResolved) return track.sponsor || null;
+
+    const videoId = this._trackVideoId(track);
+    if (!videoId) return null; // videoId 미확정 — 다음 호출 시 재시도
+
+    const GuildSettingsManager = require("./GuildSettingsManager");
+    const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
+    if (!eff.enabled) {
+      track._sponsorResolved = true;
+      track.sponsor = null;
+      return null;
+    }
+
+    const res = await this.lookup(videoId, { categories: eff.categories });
+    track.sponsor = res;
+    track._sponsorResolved = true;
+    return res;
+  },
 };
 
 module.exports = SponsorBlock;
