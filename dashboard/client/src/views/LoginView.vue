@@ -3,7 +3,7 @@
     <div class="text-center rounded-3xl bg-[rgba(12,16,36,0.78)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/10 pt-8 px-11 pb-10.5 w-95 shadow-[0_8px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]">
       <div class="text-[3.5rem] mb-5 flex justify-center drop-shadow-[0_0_20px_rgba(124,111,246,0.45)]">
         <img v-if="botAvatar" :src="botAvatar" :alt="botName" class="size-32 rounded-full border-[3px] border-white/14 shadow-[0_0_0_4px_rgba(124,111,246,0.28),0_8px_28px_rgba(0,0,0,0.45)]" />
-        <span v-else>🎵</span>
+        <Icon v-else name="music" :size="56" class="text-accent" />
       </div>
       <h1 class="text-[1.6rem] mb-2 font-extrabold tracking-[-0.02em] bg-linear-135 from-[#e8eaf6] to-[#c4b5fd] bg-clip-text text-transparent">{{ botName || "MusicBot" }} 대시보드</h1>
       <p class="text-muted mb-8 text-[0.9rem]">Discord 계정으로 로그인하세요</p>
@@ -36,6 +36,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "../stores/user.js";
+import Icon from "../components/BaseIcon.vue";
 import axios from "axios";
 import BaseButton from "../components/BaseButton.vue";
 

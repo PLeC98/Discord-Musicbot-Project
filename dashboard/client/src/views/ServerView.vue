@@ -88,7 +88,7 @@
 
               <!-- SponsorBlock 하이라이트 점프 -->
               <button v-if="highlightMarker !== null" :class="iconBtn" @click="jumpToHighlight" title="하이라이트로 점프" :disabled="!player.canControl">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M5.59 7.41 10.17 12l-4.58 4.59L7 18l6-6-6-6zm6 0L16.17 12l-4.58 4.59L13 18l6-6-6-6z" /></svg>
+                <svg width="17" height="17" viewBox="0 -960 960 960" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M442-480 287-697q-14-20-3.5-41.5T319-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Zm238 0L525-697q-14-20-3.5-41.5T557-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Z" /></svg>
               </button>
 
               <!-- Loop (cycles: off → track → queue) -->
@@ -106,7 +106,7 @@
           </div>
         </template>
 
-        <div v-else class="text-center p-5 text-muted text-[0.9rem]">⏸ 현재 재생 중인 곡이 없습니다</div>
+        <div v-else class="text-center p-5 text-muted text-[0.9rem] flex items-center justify-center gap-1.5"><Icon name="pause" :size="16" /><span>현재 재생 중인 곡이 없습니다</span></div>
       </BaseCard>
 
       <!-- ── Add Track ── -->
@@ -173,8 +173,8 @@
                 <span>{{ fmt(track.duration) }}</span>
               </div>
             </div>
-            <span class="text-[0.9rem] shrink-0">{{ platformIcon(track.platform) }}</span>
-            <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(i)" title="제거" :disabled="!canRemove(track)">✕</button>
+            <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" :title="track.platform"></span>
+            <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(i)" title="제거" :disabled="!canRemove(track)"><Icon name="close" :size="14" /></button>
           </div>
         </div>
       </BaseCard>
@@ -199,6 +199,7 @@ import { useRoute } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
+import Icon from "../components/BaseIcon.vue";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
 const timeText = "text-muted text-[0.78rem] whitespace-nowrap tabular-nums";
@@ -517,8 +518,8 @@ function fmt(sec) {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function platformIcon(p) {
-  return { youtube: "🔴", spotify: "🟢", soundcloud: "🟠", direct: "🔗" }[p] || "🎵";
+function platformColor(p) {
+  return { youtube: "#ff0000", spotify: "#1db954", soundcloud: "#ff5500", direct: "var(--accent)" }[p] || "#8b93a7";
 }
 
 // SSE — 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.

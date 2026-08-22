@@ -13,13 +13,13 @@
     <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
     <div v-else-if="loadError" class="text-center px-5 py-15 text-muted">
-      <div class="text-5xl mb-3">⚠️</div>
+      <Icon name="warning" :size="48" class="mb-3 text-warning" />
       <p>{{ loadError }}</p>
     </div>
 
     <template v-else>
       <!-- DJ roles -->
-      <BaseCard title="🎧 DJ 역할" class="mb-3">
+      <BaseCard icon="headphones" title="DJ 역할" class="mb-3">
         <p class="text-muted text-sm mb-3.5">지정하면 재생 제어를 역할 보유자와 모더레이터만 사용할 수 있어요. 지정하지 않으면 모든 유저가 제어할 수 있습니다.</p>
 
         <input v-model="roleFilter" :disabled="!s.canEdit" placeholder="역할 검색..." class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none mb-2.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40" />
@@ -36,7 +36,7 @@
       </BaseCard>
 
       <!-- Bot channel -->
-      <BaseCard title="📌 봇 전용 채널" class="mb-3">
+      <BaseCard icon="pin" title="봇 전용 채널" class="mb-3">
         <p class="text-muted text-sm mb-3.5">지정 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지 발송도 이 채널을 우선합니다.</p>
         <div class="relative">
           <select v-model="selectedChannel" :disabled="!s.canEdit" class="w-full appearance-none bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-10 py-2.5 text-[0.9rem] outline-none font-[inherit] cursor-pointer scheme-dark transition-[border-color,background-color] duration-200 hover:border-white/15 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -48,7 +48,7 @@
       </BaseCard>
 
       <!-- SponsorBlock -->
-      <BaseCard title="⏭️ SponsorBlock 자동 스킵" class="mb-3">
+      <BaseCard icon="skip" title="SponsorBlock 자동 스킵" class="mb-3">
         <p class="text-muted text-sm mb-3.5">뮤직비디오의 인트로·최종 화면·음악이 아닌 구간 등을 SponsorBlock 데이터로 자동 건너뜁니다.</p>
 
         <div v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" class="text-warning text-sm mb-1">봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 서버 설정은 적용되지 않습니다.</div>
@@ -90,8 +90,9 @@
         <span v-if="dirty" class="text-warning text-[0.8rem]">저장되지 않은 변경이 있습니다</span>
       </div>
 
-      <div v-if="result" :class="resultMsg(result.success)">
-        {{ result.success ? "✅ 설정이 저장됐습니다" : `❌ 저장 실패: ${result.error}` }}
+      <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
+        <Icon :name="result.success ? 'check' : 'error'" :size="16" />
+        <span>{{ result.success ? "설정이 저장됐습니다" : `저장 실패: ${result.error}` }}</span>
       </div>
     </template>
   </div>
@@ -103,6 +104,7 @@ import { useRoute } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
+import Icon from "../components/BaseIcon.vue";
 
 const route = useRoute();
 const guildId = route.params.guildId;
