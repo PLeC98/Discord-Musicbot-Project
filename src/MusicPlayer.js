@@ -82,6 +82,7 @@ class MusicPlayer {
     this.currentTrackRetries = 0;
     this.skipRequested = false;
     this.stopRequested = false;
+    this.isPlayStarting = false; // play() 셋업 진행 중 — 워처 자동 스킵 재진입 방지
     this.nextFromFront = false; // 셔플을 우회해 대기열 앞쪽에서 다음 트랙을 강제 선택 (이동/이전곡)
     this.expectedTrackEndTs = null;
     this.currentTrackCache = null;
@@ -259,6 +260,9 @@ class MusicPlayer {
   }
 
   async play(trackIndex = null, seekMs = 0) {
+    // 재진입 가드 — play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
+    // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). isPlayStarting 동안 워처는 발동을 미룬다.
+    this.isPlayStarting = true;
     try {
       // 현재 트랙이 없으면 대기열에서 가져오기
       if (!this.currentTrack) {
@@ -619,7 +623,22 @@ class MusicPlayer {
       const errorMsg = ErrorHandler.handle(error, this.guild.id, "MusicPlayer.play");
       await this.handleError(error, errorMsg);
       return { success: false, message: errorMsg };
+    } finally {
+      this.isPlayStarting = false;
     }
+  }
+
+  // SponsorBlock 아웃트로 등으로 현재 트랙을 자연 종료 — audioPlayer 정지가 Idle→handleTrackEnd를
+  // 유발한다. skip과 달리 skipRequested를 세우지 않아 루프(track/queue) 설정을 그대로 존중한다.
+  endCurrentTrackNaturally(reason = "sponsorblock") {
+    if (!this.currentTrack) return false;
+    if (this.trackTimer) {
+      clearTimeout(this.trackTimer);
+      this.trackTimer = null;
+    }
+    this.pendingEndReason = reason;
+    this.audioPlayer?.stop();
+    return true;
   }
 
   scheduleTrackWatchdog(streamInfo = null) {

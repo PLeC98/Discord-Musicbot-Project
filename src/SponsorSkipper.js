@@ -1,5 +1,7 @@
 "use strict";
 
+const { AudioPlayerStatus } = require("@discordjs/voice");
+
 // SponsorSkipper — 재생 중 SponsorBlock 구간을 자동 스킵.
 //
 // 핵심: "구간 시작 경계를 자연 재생으로 넘어설 때만" 발동(§계획 5). prevSec→curSec 사이에
@@ -66,6 +68,11 @@ class SponsorSkipper {
   async _tick() {
     const p = this.player;
     if (!p.currentTrack || p.paused || !this.segments.length) return;
+    // 셋업(play 진행) 중이거나 아직 실제 Playing이 아니면 발동 보류 — 비캐시 곡의 초반
+    // 스킵이 셋업 중인 play()에 재진입해 재생을 깨는 것을 방지(버그 수정).
+    if (p.isPlayStarting) return;
+    if (p.audioPlayer?.state?.status !== AudioPlayerStatus.Playing) return;
+
     const curSec = p.getCurrentTime() / 1000;
     const durationSec = Number(p.currentTrack.duration) || 0;
 
@@ -73,8 +80,8 @@ class SponsorSkipper {
     this._prevSec = d.prevSec;
 
     if (d.action === "end") {
-      console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 종료 구간 도달, 다음 곡으로`);
-      p.handleTrackEnd("sponsorblock").catch(() => {});
+      console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 종료 구간 도달, 트랙 종료`);
+      p.endCurrentTrackNaturally("sponsorblock"); // 오디오 정지→Idle→handleTrackEnd (루프 존중)
     } else if (d.action === "seek") {
       console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.

@@ -63,6 +63,57 @@ test("decide: 구간 없으면 null + prevSec 전진", () => {
   assert.equal(d.prevSec, 6);
 });
 
+function fakePlayer({ status = "playing", isPlayStarting = false, paused = false, curSec = 0, duration = 200 } = {}) {
+  const calls = { play: [], end: [] };
+  return {
+    currentTrack: { title: "t", duration },
+    paused,
+    isPlayStarting,
+    audioPlayer: { state: { status } },
+    getCurrentTime: () => curSec * 1000,
+    play: async (_i, ms) => calls.play.push(ms),
+    endCurrentTrackNaturally: (r) => calls.end.push(r),
+    _calls: calls,
+  };
+}
+
+test("_tick: isPlayStarting 중엔 발동 보류(재진입 방지)", async () => {
+  const p = fakePlayer({ isPlayStarting: true, curSec: 5 });
+  const sk = new SponsorSkipper(p);
+  sk.segments = segs([0, 10]);
+  sk._prevSec = -1;
+  await sk._tick();
+  assert.equal(p._calls.play.length, 0);
+});
+
+test("_tick: 실제 Playing 아니면 보류", async () => {
+  const p = fakePlayer({ status: "buffering", curSec: 5 });
+  const sk = new SponsorSkipper(p);
+  sk.segments = segs([0, 10]);
+  sk._prevSec = -1;
+  await sk._tick();
+  assert.equal(p._calls.play.length, 0);
+});
+
+test("_tick: Playing + 인트로 교차 → play(seek)", async () => {
+  const p = fakePlayer({ curSec: 0.5, duration: 200 });
+  const sk = new SponsorSkipper(p);
+  sk.segments = segs([0, 8]);
+  sk._prevSec = -1;
+  await sk._tick();
+  assert.deepEqual(p._calls.play, [8000]);
+});
+
+test("_tick: 아웃트로 → endCurrentTrackNaturally(핸들트랙엔드 직접호출 아님)", async () => {
+  const p = fakePlayer({ curSec: 231, duration: 240 });
+  const sk = new SponsorSkipper(p);
+  sk.segments = segs([230, 240]);
+  sk._prevSec = 229;
+  await sk._tick();
+  assert.deepEqual(p._calls.end, ["sponsorblock"]);
+  assert.equal(p._calls.play.length, 0);
+});
+
 test("onPlayStart: 구간 있으면 워처 시작, 없으면 정지 (인터벌 핸들 검증)", () => {
   const fakePlayer = { currentTrack: { sponsor: { skipSegments: segs([0, 5]) }, duration: 100 }, paused: false, getCurrentTime: () => 0 };
   const sk = new SponsorSkipper(fakePlayer);
