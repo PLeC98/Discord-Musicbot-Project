@@ -41,6 +41,21 @@ function resolveFromRoot(p) {
   return path.isAbsolute(p) ? p : path.resolve(__dirname, p);
 }
 
+// SponsorBlock skip 지원 카테고리 (권위 목록 — src/SponsorBlock.js의 SKIP_CATEGORIES와 동기 유지)
+const SB_SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
+// 콤마 구분 문자열 → 유효 카테고리 배열 (오타·미지원 값은 조용히 제거, 원칙 4: 형식 오류는 걸러냄)
+function parseSbCategories(raw) {
+  const valid = new Set(SB_SKIP_CATEGORIES);
+  return [
+    ...new Set(
+      String(raw)
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => valid.has(s)),
+    ),
+  ];
+}
+
 // ── 기동 검증: 자격증명 ───────────────────────────────────────────────────────
 // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
 
@@ -156,6 +171,17 @@ module.exports = {
     maxFiles: envInt("CACHE_MAX_FILES", 500, { min: 1 }),
     minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048, { min: 0 }) * 1024 * 1024,
     evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
+  },
+
+  // SponsorBlock — 비음악 구간 자동 스킵 (src/SponsorBlock.js). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
+  // enabled=false 면 API 호출·캐싱이 전부 무동작 — 상업적 이용 시 데이터 라이선스(비상업)를 피하는 마스터 스위치.
+  sponsorblock: {
+    enabled: env("SPONSORBLOCK_ENABLED", "true") !== "false",
+    apiBase: (env("SPONSORBLOCK_API_BASE", "https://sponsor.ajay.app") || "").replace(/\/+$/, ""),
+    hashPrefixLen: envInt("SPONSORBLOCK_HASH_PREFIX", 5, { min: 4, max: 32 }),
+    timeoutMs: envInt("SPONSORBLOCK_TIMEOUT_MS", 1000, { min: 100, max: 10000 }),
+    // 서버별 미설정 시 기본으로 자동 스킵할 카테고리 (서버별 설정이 오버라이드 — 후속 PR)
+    categories: parseSbCategories(env("SPONSORBLOCK_CATEGORIES", "music_offtopic,intro,outro")),
   },
 
   // 음성 채널 상태 설정

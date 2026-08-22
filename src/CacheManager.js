@@ -90,6 +90,14 @@ class CacheManager {
                 updated_at      INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
+            -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용 — 라이브 조회 실패 시 사용).
+            -- data_json = 정규화 이전 원시 배열(카테고리 전부). 정규화/필터는 SponsorBlock.js가 읽을 때 수행.
+            CREATE TABLE IF NOT EXISTS sponsorblock_cache (
+                video_id    TEXT PRIMARY KEY,
+                data_json   TEXT NOT NULL,
+                fetched_at  INTEGER NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
             CREATE INDEX IF NOT EXISTS idx_tl_audio_key   ON track_lookup(audio_source_key);
@@ -633,6 +641,31 @@ class CacheManager {
       topTracks,
       recentTracks,
     };
+  }
+
+  // ── SponsorBlock 세그먼트 캐시 (폴백 전용) ─────────────────────────────────
+
+  /** videoId의 캐시된 원시 세그먼트 반환 — { segments: [...], fetchedAt } 또는 null */
+  getSponsorSegments(videoId) {
+    if (!videoId) return null;
+    const row = this.db.prepare("SELECT data_json, fetched_at FROM sponsorblock_cache WHERE video_id = ?").get(videoId);
+    if (!row) return null;
+    try {
+      return { segments: JSON.parse(row.data_json), fetchedAt: row.fetched_at };
+    } catch {
+      return null; // 손상된 캐시는 무시 (다음 라이브 조회가 덮어씀)
+    }
+  }
+
+  /** videoId의 원시 세그먼트 write-through 저장 (빈 배열도 저장 — "구간 없음" 네거티브 캐시) */
+  setSponsorSegments(videoId, segments) {
+    if (!videoId || !Array.isArray(segments)) return;
+    this.db
+      .prepare(
+        `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at) VALUES (?, ?, ?)
+         ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at`,
+      )
+      .run(videoId, JSON.stringify(segments), Date.now());
   }
 
   // 생명주기
