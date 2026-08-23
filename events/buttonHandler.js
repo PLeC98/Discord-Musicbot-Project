@@ -74,6 +74,10 @@ module.exports = {
           await this.handleShuffle(interaction, player, requesterId);
           break;
 
+        case "music_highlight":
+          await this.handleHighlight(interaction, player);
+          break;
+
         case "music_volume":
           await this.handleVolumeModal(interaction, player, requesterId);
           break;
@@ -341,6 +345,26 @@ module.exports = {
     });
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+  },
+
+  async handleHighlight(interaction, player) {
+    const permErr = await checkControl(interaction.member);
+    if (permErr) {
+      return await interaction.reply({ content: permErr, flags: [1 << 6] });
+    }
+
+    const highlightAt = player.currentTrack?.sponsor?.highlightAt;
+    if (highlightAt === null || highlightAt === undefined) {
+      return await interaction.reply({ content: "❌ 이 곡에는 SponsorBlock 하이라이트 지점이 없어요.", flags: [1 << 6] });
+    }
+
+    await interaction.deferReply({ flags: [1 << 6] });
+    await player.play(null, Math.max(0, Math.floor(highlightAt * 1000)));
+    await interaction.editReply({ content: "✨ 하이라이트 지점으로 이동했어요." });
+
+    if (interaction.client.musicEmbedManager) {
+      await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
+    }
   },
 
   async handleShuffle(interaction, player, _requesterId) {

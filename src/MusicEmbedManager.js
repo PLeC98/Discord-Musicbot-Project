@@ -318,10 +318,10 @@ class MusicEmbedManager {
       else statusParts.push("⏸️ 일시정지");
     }
     if (player.queue.length > 0) {
-      statusParts.push(`대기열에 ${player.queue.length}개의 노래가 더 있습니다`);
+      statusParts.push(`${player.queue.length}개의 노래 대기 중`);
     }
     if (track.sponsor?.skipSegments?.length) {
-      statusParts.push(`⏭️ 비음악 구간 ${track.sponsor.skipSegments.length}개 자동 건너뜀 (SponsorBlock)`);
+      statusParts.push(`건너 뛸 구간 ${track.sponsor.skipSegments.length}개`);
     }
 
     const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor)).addSectionComponents(section).addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar));
@@ -506,8 +506,15 @@ class MusicEmbedManager {
       .setEmoji("🎲")
       .setDisabled(disabled);
 
+    // SponsorBlock 하이라이트 점프 — 현재 곡에 하이라이트 지점이 있을 때만 노출(셔플 옆)
+    const highlightAt = player.currentTrack?.sponsor?.highlightAt;
+    const highlightButton = highlightAt !== null && highlightAt !== undefined ? new ButtonBuilder().setCustomId(`music_highlight:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("✨").setDisabled(disabled) : null;
+
     const row = new ActionRowBuilder().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
-    const row2 = new ActionRowBuilder().addComponents(shuffleButton, loopButton, queueButton, autoplayButton);
+    const row2Components = [shuffleButton];
+    if (highlightButton) row2Components.push(highlightButton);
+    row2Components.push(loopButton, queueButton, autoplayButton);
+    const row2 = new ActionRowBuilder().addComponents(...row2Components);
 
     return [row, row2];
   }
