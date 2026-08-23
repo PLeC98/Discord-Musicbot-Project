@@ -2,13 +2,14 @@ const path = require("path");
 const fs = require("fs");
 const youtubedl = require("youtube-dl-exec");
 const config = require("../config");
+const CacheManager = require("./CacheManager");
 
 const BGUTIL_PLUGIN_DIR = path.join(__dirname, "..", "bgutil-ytdlp-pot-provider", "plugin");
 const BGUTIL_AVAILABLE = fs.existsSync(BGUTIL_PLUGIN_DIR);
 
 class YouTube {
   // yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
-  static getYtDlpOptions(extraOptions = {}) {
+  static getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
     const baseOptions = {
       noWarnings: true,
       retries: 3,
@@ -19,18 +20,64 @@ class YouTube {
       ...extraOptions,
     };
 
-    // 인증: 쿠키(브라우저) > 쿠키(파일) > 없음(yt-dlp 기본 클라이언트 + bgutil POT).
-    // ⚠️ 과거의 "쿠키 없으면 player_client=ios 강제" 폴백은 금지 — ios 클라이언트는 자체
-    // PO Token 없이는 포맷을 전혀 주지 않고 bgutil도 ios용 POT은 못 만들어서, 쿠키 없는
-    // 환경(리눅스 서버)에서 전 영상이 "Requested format is not available"로 재생 불능이 됐다
-    // (2026-07-11 실증: ios 강제=실패, 기본 클라이언트=성공 — bgutil 유무 무관하게 재현).
-    if (config.ytdl.cookiesFromBrowser) {
-      baseOptions.cookiesFromBrowser = config.ytdl.cookiesFromBrowser;
-    } else if (config.ytdl.cookiesFile) {
-      baseOptions.cookies = config.ytdl.cookiesFile;
+    // 인증 모델:
+    //  - bgutil(POToken) 사용 가능 시: 평상시 쿠키 없이 bgutil 기본 클라이언트로 처리(계정 노출 최소화).
+    //    연령 제한 등으로 실패하면 forceCookies=true로 재시도해 쿠키를 사용(runYtDlp의 폴백).
+    //  - bgutil 미사용 시: 쿠키가 있으면 그대로 1차 인증으로 사용(기존 동작).
+    // ⚠️ 과거의 "쿠키 없으면 player_client=ios 강제" 폴백은 금지 — ios는 자체 POT 없이 포맷을
+    //    안 주고 bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다(2026-07-11 실증).
+    if (forceCookies || !BGUTIL_AVAILABLE) {
+      if (config.ytdl.cookiesFromBrowser) {
+        baseOptions.cookiesFromBrowser = config.ytdl.cookiesFromBrowser;
+      } else if (config.ytdl.cookiesFile) {
+        baseOptions.cookies = config.ytdl.cookiesFile;
+      }
     }
 
     return baseOptions;
+  }
+
+  /** 쿠키(브라우저/파일)가 설정돼 있는가 — 연령 제한 폴백 가능 여부 */
+  static cookiesConfigured() {
+    return !!(config.ytdl.cookiesFromBrowser || config.ytdl.cookiesFile);
+  }
+
+  /** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별 */
+  static isAgeRestrictedError(error) {
+    const msg = (error && (error.stderr || error.message)) || String(error || "");
+    return /confirm your age|inappropriate for some users/i.test(msg);
+  }
+
+  /**
+   * yt-dlp 호출을 연령 제한 폴백과 함께 실행.
+   *  - 해당 videoId가 이미 연령 제한으로 알려져 있으면 처음부터 쿠키 사용(실패 시도 생략 → 영상당 실패 1회 보장).
+   *  - 평상시(bgutil) 시도가 연령 제한으로 실패하면 videoId를 기록하고 쿠키로 1회 재시도.
+   * @param {string} url
+   * @param {(forceCookies:boolean)=>object} buildOptions  forceCookies를 받아 yt-dlp 옵션을 만드는 함수
+   */
+  static async runYtDlp(url, buildOptions) {
+    const videoId = this.extractVideoId(url);
+    let known = false;
+    try {
+      known = videoId ? CacheManager.isAgeRestricted(videoId) : false;
+    } catch {
+      /* 캐시 미초기화 등 — 기본값 false */
+    }
+
+    try {
+      return await youtubedl(url, buildOptions(known));
+    } catch (error) {
+      if (!known && videoId && this.isAgeRestrictedError(error) && this.cookiesConfigured()) {
+        try {
+          CacheManager.markAgeRestricted(videoId);
+        } catch {
+          /* 기록 실패는 무시 */
+        }
+        console.warn(`[YouTube] 연령 제한 감지 (${videoId}) — 쿠키로 폴백 재시도`);
+        return await youtubedl(url, buildOptions(true));
+      }
+      throw error;
+    }
   }
 
   static async search(query, limit = 1, guildId = null) {
@@ -101,12 +148,14 @@ class YouTube {
 
   static async getInfo(url, _guildId = null) {
     try {
-      const info = await youtubedl(
-        url,
-        this.getYtDlpOptions({
-          dumpSingleJson: true,
-          preferFreeFormats: true,
-        }),
+      const info = await this.runYtDlp(url, (forceCookies) =>
+        this.getYtDlpOptions(
+          {
+            dumpSingleJson: true,
+            preferFreeFormats: true,
+          },
+          { forceCookies },
+        ),
       );
 
       if (!info) {
@@ -145,12 +194,14 @@ class YouTube {
       }
 
       // 단순 형식으로 스트림 URL 가져오기
-      const info = await youtubedl(
-        url,
-        this.getYtDlpOptions({
-          dumpSingleJson: true,
-          format: "bestaudio/best",
-        }),
+      const info = await this.runYtDlp(url, (forceCookies) =>
+        this.getYtDlpOptions(
+          {
+            dumpSingleJson: true,
+            format: "bestaudio/best",
+          },
+          { forceCookies },
+        ),
       );
 
       if (!info || !info.url) {

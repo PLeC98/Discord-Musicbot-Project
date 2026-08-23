@@ -96,20 +96,21 @@ class TrackDownloader {
 
       // YouTube, Spotify(YouTube 경유), SoundCloud(YouTube 경유)는 youtube-dl-exec 사용
       if (track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
-        const youtubedl = require("youtube-dl-exec");
-
-        await youtubedl(
-          downloadUrl,
-          YouTube.getYtDlpOptions({
-            output: filepath,
-            format: "bestaudio/best",
-            preferFreeFormats: true,
-            postprocessorArgs: {
-              ffmpeg: ["-c:a", "libopus", "-b:a", "128k"],
+        // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
+        await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
+          YouTube.getYtDlpOptions(
+            {
+              output: filepath,
+              format: "bestaudio/best",
+              preferFreeFormats: true,
+              postprocessorArgs: {
+                ffmpeg: ["-c:a", "libopus", "-b:a", "128k"],
+              },
+              extractAudio: true,
+              audioFormat: "opus",
             },
-            extractAudio: true,
-            audioFormat: "opus",
-          }),
+            { forceCookies },
+          ),
         );
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.

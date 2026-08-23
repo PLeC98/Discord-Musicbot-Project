@@ -100,6 +100,13 @@ class CacheManager {
                 fetched_at  INTEGER NOT NULL
             );
 
+            -- 연령 제한 확인된 videoId — 재조회 시 bgutil 실패를 건너뛰고 바로 쿠키 폴백에 사용.
+            -- 캐시 퇴거에서도 이 영상들은 더 오래 잔존시킨다(재취득이 느리고 쿠키가 필요하므로).
+            CREATE TABLE IF NOT EXISTS age_restricted (
+                video_id    TEXT PRIMARY KEY,
+                marked_at   INTEGER NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
             CREATE INDEX IF NOT EXISTS idx_tl_audio_key   ON track_lookup(audio_source_key);
@@ -594,6 +601,14 @@ class CacheManager {
 
     const now = Date.now();
 
+    // 연령 제한 영상은 재취득이 느리고 쿠키가 필요하므로 퇴거에서 더 오래 잔존시킨다(점수↓).
+    const ageSet = new Set(
+      this.db
+        .prepare("SELECT video_id FROM age_restricted")
+        .all()
+        .map((r) => r.video_id),
+    );
+
     const scored = rows
       .map((r) => {
         const ageDays = (now - (r.last_played_at || r.downloaded_at || r.created_at || now)) / 86_400_000;
@@ -612,7 +627,11 @@ class CacheManager {
         const neverPlayed = (r.play_count || 0) === 0 ? 0.15 : 0;
 
         // 점수가 높을수록 더 먼저 제거
-        const score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
+        let score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
+
+        // 연령 제한 영상: 점수를 크게 낮춰 잔존 우선순위를 높임 (재취득 비용↑)
+        const vid = typeof r.audio_source_key === "string" && r.audio_source_key.startsWith("yt:") ? r.audio_source_key.slice(3) : null;
+        if (vid && ageSet.has(vid)) score *= 0.35;
 
         return { ...r, _score: score };
       })
@@ -710,6 +729,22 @@ class CacheManager {
          ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at`,
       )
       .run(videoId, JSON.stringify(segments), Date.now());
+  }
+
+  // ── 연령 제한 videoId 레지스트리 ───────────────────────────────────────────
+
+  /** videoId를 연령 제한으로 기록 (재조회 시 쿠키 폴백 직행 + 퇴거 잔존용) */
+  markAgeRestricted(videoId) {
+    if (!videoId) return;
+    if (!this._initialized) this.initialize();
+    this.db.prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES (?, ?) ON CONFLICT(video_id) DO NOTHING").run(videoId, Date.now());
+  }
+
+  /** videoId가 연령 제한으로 알려져 있는가 */
+  isAgeRestricted(videoId) {
+    if (!videoId) return false;
+    if (!this._initialized) this.initialize();
+    return !!this.db.prepare("SELECT 1 FROM age_restricted WHERE video_id = ?").get(videoId);
   }
 
   // 생명주기

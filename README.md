@@ -2,7 +2,7 @@
 
 [umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 개조한 한국어 UI 기반의 개인용 Discord 음악 봇.
 
-몇몇 음악 봇들과 달리 **음악 봇**임에 집중하며, yt-dlp를 기반으로 사용자가 직접 호스팅하기에 대형 클라우드 서비스 봇에 비해 안정적입니다.
+일부 봇들과 달리 **음악 봇**임에 집중하여 불필요한 기능을 줄였으며, yt-dlp를 기반으로 사용자가 직접 호스팅하기에 대형 클라우드 서비스 봇에 비해 안정적입니다.
 
 [![discord.js](https://img.shields.io/badge/discord.js-14-blue?style=flat-square&logo=discord.js)](https://discord.js.org/)
 [![Node.js](https://img.shields.io/badge/24.11%2B-x?logo=Node.js&logoColor=green&label=Node.js&color=green&style=flat-square)](https://nodejs.org/)
@@ -26,13 +26,13 @@
 - **봇 전용 채널**: `/setchannel`로 지정한 채널에 곡명/링크만 입력하면 자동 재생
 - **장르 자동재생**: 대기열 소진 시 선택한 장르(`config/genres.js`에서 추가/삭제, 검색 키워드 변경 가능)의 곡을 자동 탐색·재생
 - **DJ 역할 지정**: `/setdjrole`로 역할을 지정 가능. 권한이 없다면, 곡 추가와 자기가 추가한 곡의 스킵 / 제거, 조회만 가능.
-- **SponsorBlock 자동 스킵**: 뮤직비디오의 인트로·최종 화면·음악이 아닌 구간 등을 [SponsorBlock](https://sponsor.ajay.app/) 데이터로 자동 건너뜀. `/sponsorblock` 또는 웹 대시보드에서 서버별로 사용 여부·건너뛸 카테고리를 지정. 커뮤니티 하이라이트 지점으로 점프하는 `/highlight`도 제공. (동작·라이선스는 아래 [SponsorBlock](#sponsorblock) 참조)
+- **SponsorBlock 자동 스킵**: 음악이 아닌 구간을 [SponsorBlock](https://sponsor.ajay.app/) 데이터로 자동 건너뜀. `/sponsorblock` 또는 웹 대시보드에서 서버별로 사용 여부·건너뛸 카테고리를 지정. 커뮤니티 하이라이트 지점으로 점프하는 `/highlight`도 제공. (동작·라이선스는 아래 [SponsorBlock](#sponsorblock) 참조)
 
 ### 웹 대시보드
 
-- **Discord OAuth 로그인**: 안전하고, 권한 기반의 접근 제어를 제공
+- **Discord OAuth 로그인**: 안전한 권한 기반의 접근 제어 제공
 - **음악 제어**: 디스코드 내에서 할 수 있는 모든 기능을 더 편리하게
-- **채널 설정 관리**: DJ 역할, 전용 채널 설정
+- **채널 설정 관리**: DJ 역할, 전용 채널 설정, SponsorBlock 설정
 - **봇 운영자 용 패널**: 봇 상태, WebSocket 핑, 운영 시스템 상태, 전체 공지, 터미널 로그, 봇이 참여중인 서버 관리, 커맨드 재배포
 
 ### 비주얼
@@ -46,9 +46,9 @@
 | ------ | -------------------------------------------------------------------------------------------------- |
 | 재생   | `/play` `/playfirst` `/search` `/pause` `/seek` `/replay` `/skip` `/previous` `/stop` `/highlight` |
 | 대기열 | `/queue` `/shuffle` `/loop` `/move` `/remove` `/clear` `/autoplay`                                 |
-| 채널   | `/join` `/leave` `/setchannel` `/setdjrole` `/sponsorblock`                                        |
+| 채널   | `/join` `/leave` `/setchannel` `/setdjrole`                                                        |
 | 정보   | `/nowplaying` `/help` `/ping` `/system` `/cachestatus` `/dashboard` `/license`                     |
-| 기타   | `/volume`                                                                                          |
+| 기타   | `/volume` `/sponsorblock`                                                                          |
 
 ## 설치 및 실행
 
@@ -94,9 +94,17 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 
 봇 실행 시 자동으로 감지하여 POToken 서버(포트 4416)를 함께 실행하며, 별도 설정 없이 작동합니다.
 
-### 쿠키 설정 (대안)
+### 쿠키 설정 (대안 / 연령 제한 폴백)
 
 POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
+
+**연령 제한 영상 폴백**: 연령 제한 영상은 POToken(bgutil)만으로는 접근이 불가능하고 **인증된 쿠키가 필수**입니다. bgutil을 쓰더라도 위 `COOKIES_FROM_BROWSER`/`COOKIES_FILE` 중 하나를 설정해 두면, **평상시엔 bgutil로(쿠키 없이) 재생하고 연령 제한 영상을 만났을 때만 쿠키로 폴백**합니다.
+
+- 쿠키 계정은 **연령 인증이 완료**돼 있어야 합니다.
+- **헤드리스 서버(Ubuntu 등)** 는 브라우저가 없으므로 `COOKIES_FROM_BROWSER` 대신 내보낸 `COOKIES_FILE`을 사용하세요.
+- 한 영상당 **첫 재생 때 1회만** bgutil 실패(≈3초)를 거쳐 쿠키로 전환하며(같은 영상의 이후 호출·재생은 곧바로 쿠키/캐시 사용), 재생된 영상은 캐시되므로 재생부턴 지연이 없습니다.
+- 쿠키가 연령 제한 영상에만 사용되므로 평상시 계정 노출이 최소화됩니다. 연령 제한 영상은 재취득 비용이 커서 캐시에서 더 오래 보존됩니다.
+- 쿠키를 설정하지 않으면 연령 제한 영상은 재생되지 않습니다(일반 영상은 정상).
 
 ### 상태 메시지 (`config/status.js`)
 
@@ -149,10 +157,11 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 
 > [!CAUTION]
 > 현재 샤딩 구동 시 0번 샤드를 제외한 샤드가 소유한 길드는 대시보드에 안 보이고 조작도 불가한 문제가 있습니다.
+> 개발자의 샤딩 미 사용 및 테스트 어려움으로 인해 개선 우선순위가 매우 낮습니다.
 
 ## 업데이트 / 유지보수
 
-`git pull`로 코드를 갱신한 뒤, 상황에 따라:
+`git pull`로 코드를 갱신한 뒤, 갱신 내용에 따라:
 
 | 명령                       | 용도                                                      |
 | -------------------------- | --------------------------------------------------------- |
@@ -168,25 +177,29 @@ Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
 기동 시 자동 체크는 하지 않으므로, YouTube 추출이 갑자기 막히면(YouTube가 API를 자주 바꿈) 봇 재시작 전에 `pnpm run update:ytdlp`로 갱신하세요.
 
+> [!NOTE]
+> 업데이트 내용에 따라 기능이 추가되면 `.env`파일의 수정이 필요할 수 있습니다.
+
 ## SponsorBlock
 
-뮤직비디오의 비음악 구간(인트로·인터미션·최종 화면 등)을 [SponsorBlock](https://sponsor.ajay.app/) API로 조회해 재생 중 자동으로 건너뜁니다.
+음악이 아닌 구간을 [SponsorBlock](https://sponsor.ajay.app/) API로 조회해 재생 중 자동으로 건너뜁니다.
 
-- **동작**: 영상별 구간 데이터를 프라이버시 해시 엔드포인트로 조회(어떤 영상을 트는지 서버에 노출하지 않음). 인트로는 재생 시작 오프셋으로, 중간/아웃트로는 재생 중 자동 스킵으로 처리합니다. 조회 실패·타임아웃 시에는 원본을 그대로 재생합니다(fail-open).
-- **캐싱**: 받은 구간 데이터는 **서버 다운 등으로 조회가 안 될 때를 대비한 내부 폴백 용도로만** 로컬 캐싱합니다.
-- **설정**: 기본 활성 카테고리는 비음악 구간·인트로·아웃트로이며, `/sponsorblock`(서버 관리 권한) 또는 웹 대시보드의 서버 설정에서 사용 여부와 카테고리를 조정할 수 있습니다.
-- **하이라이트**: `/highlight` 명령이나 대시보드 버튼으로 커뮤니티가 뽑은 하이라이트 지점으로 점프할 수 있습니다.
+- **캐싱**: 받은 구간 데이터는 SponsorBlock 서버 다운 등으로 조회가 안 될 때를 대비하여 로컬 캐싱합니다. 실시간 조회가 되지 않으면 캐싱된 데이터로 구간을 스킵합니다.
+- **설정**: 기본 활성 카테고리는 비음악 구간·인트로·최종 화면 구간이며, `.env` 파일 내 설정 (봇 전역 기본 설정), `/sponsorblock` 명령어 또는 웹 대시보드의 서버 설정(서버별 설정/서버 관리 권한 필요)에서 사용 여부와 건너 뛸 카테고리를 조정할 수 있습니다.
+- **하이라이트**: `/highlight` 명령이나 대시보드 버튼으로 SponsorBlock에 등록된 하이라이트 지점으로 점프할 수 있습니다.
 
-구간 데이터 제공: SponsorBlock (https://sponsor.ajay.app/).
-Uses SponsorBlock data licensed under CC BY-NC-SA 4.0 from https://sponsor.ajay.app/.
+> [!IMPORTANT]
+> https://sponsor.ajay.app/의 CC BY-NC-SA 4.0 라이선스에 따라 제공되는 SponsorBlock 데이터를 사용합니다.
+> Uses SponsorBlock data licensed under CC BY-NC-SA 4.0 from https://sponsor.ajay.app/.
 
-> **상업적 이용 안내**: 캐싱되는 SponsorBlock 데이터는 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)(비상업) 라이선스입니다. 이 봇을 **상업적 목적으로 운영**하려면 `.env`에서 `SPONSORBLOCK_ENABLED=false`로 기능을 꺼 주세요 (API 호출·캐싱이 전부 중단됩니다).
+> [!WARNING]
+> **상업적 이용시 주의**: SponsorBlock 데이터는 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)(비상업) 라이선스입니다. 이 봇을 **상업적 목적으로 운영**하려면 `.env`에서 `SPONSORBLOCK_ENABLED=false`로 기능을 끄거나 코드를 수정하여 SponsorBlock 기능을 수정/제거해 주세요.
 
 ## 라이선스
 
 이 저장소는 이중 라이선스 구조입니다:
 
-- **업스트림 베이스** ([umutxyp/MusicBot](https://github.com/umutxyp/MusicBot): Copyright (c) 2025 umutxyp - [MIT License](LICENSE-MIT)
+- **업스트림 베이스** ([umutxyp/MusicBot](https://github.com/umutxyp/MusicBot)): Copyright (c) 2025 umutxyp - [MIT License](LICENSE-MIT)
 - **이 저장소의 수정·추가분**: Copyright (C) 2026 PLeC - [GNU AGPL-3.0-or-later](LICENSE)
 
 결합 저작물 전체에는 AGPL-3.0 조건이 적용됩니다. 이 봇을 네트워크 서비스로 운영하는 경우, 사용자에게 소스 코드를 제공해야 합니다 (`/license` 명령어가 이 역할을 합니다).
