@@ -1,7 +1,7 @@
 <template>
   <div>
     <nav v-if="user.isLoggedIn" class="flex items-center px-4 h-14 gap-2 sticky top-0 z-100 bg-[rgba(7,11,21,0.72)] backdrop-blur-2xl backdrop-saturate-[1.8] border-b border-white/7">
-      <button class="size-9 -ml-2 rounded-lg text-fg-soft cursor-pointer flex items-center justify-center transition-[background-color,color] duration-200 hover:bg-white/6 hover:text-fg" title="사이드바" @click="toggleSidebar">
+      <button class="size-9 -ml-2 rounded-lg text-fg-soft cursor-pointer flex items-center justify-center transition-[background-color,color] duration-200 hover:bg-white/6 hover:text-fg" v-tooltip="'사이드바'" @click="toggleSidebar">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
       </button>
       <router-link to="/servers" class="flex items-center gap-1.5 font-bold text-fg no-underline tracking-[-0.01em] pr-2"><Icon name="music" :size="18" class="text-accent" />MusicBot</router-link>

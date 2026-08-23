@@ -7,11 +7,11 @@
     <div class="shrink-0" :class="collapsed ? 'h-3' : 'h-3 lg:hidden'"></div>
 
     <nav class="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-3 flex flex-col gap-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[3px]">
-      <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" :title="g.name" :class="[linkClass(g.id), collapsed ? 'justify-center' : 'max-lg:justify-center']">
+      <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" v-tooltip="g.name" :class="[linkClass(g.id), collapsed ? 'justify-center' : 'max-lg:justify-center']">
         <span class="relative shrink-0">
           <img v-if="g.icon" :src="g.icon" :alt="g.name" class="size-9 rounded-full border border-white/10 block" />
           <span v-else class="size-9 rounded-full border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold text-white flex items-center justify-center">{{ g.name[0] }}</span>
-          <span v-if="g.hasPlayer" class="absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full bg-success border-2 border-[#070b15]" title="재생 중"></span>
+          <span v-if="g.hasPlayer" class="absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full bg-success border-2 border-[#070b15]" v-tooltip="'재생 중'"></span>
         </span>
         <span v-if="!collapsed" class="max-lg:hidden flex-1 text-[0.85rem] font-medium overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</span>
       </router-link>
@@ -33,7 +33,7 @@
         <span class="relative shrink-0">
           <img v-if="g.icon" :src="g.icon" :alt="g.name" class="size-9 rounded-full border border-white/10 block" />
           <span v-else class="size-9 rounded-full border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold text-white flex items-center justify-center">{{ g.name[0] }}</span>
-          <span v-if="g.hasPlayer" class="absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full bg-success border-2 border-[#070b15]" title="재생 중"></span>
+          <span v-if="g.hasPlayer" class="absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full bg-success border-2 border-[#070b15]" v-tooltip="'재생 중'"></span>
         </span>
         <span class="flex-1 text-[0.85rem] font-medium overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</span>
       </router-link>

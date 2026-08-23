@@ -61,7 +61,7 @@
 
           <div class="flex items-center gap-1.5 mt-2 mb-1.5">
             <span class="text-muted text-[0.8rem]">건너뛸 구간 종류</span>
-            <button type="button" @click="sbHelpOpen = !sbHelpOpen" class="text-muted hover:text-fg transition-colors" :title="sbHelpOpen ? '설명 닫기' : '각 구간 설명 보기'" aria-label="각 구간 설명">
+            <button type="button" @click="sbHelpOpen = !sbHelpOpen" class="text-muted hover:text-fg transition-colors" v-tooltip="sbHelpOpen ? '설명 닫기' : '각 구간 설명 보기'" aria-label="각 구간 설명">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" /></svg>
             </button>
           </div>
@@ -123,15 +123,15 @@ const sbHelpOpen = ref(false);
 
 // 각 SponsorBlock 구간 종류 설명 — 내용은 여기에 작성 (키 = 카테고리 id)
 const sbDescriptions = {
-  music_offtopic: "",
-  intro: "",
-  outro: "",
-  sponsor: "",
-  selfpromo: "",
-  interaction: "",
-  preview: "",
-  hook: "",
-  filler: "",
+  music_offtopic: "이 구간은 뮤직비디오에서만 해당합니다.",
+  intro: "반복되는 애니메이션이나 정적 프레임과 같은 내용을 포함하는 구간",
+  outro: "최종 화면이나 크레딧 내용을 포함하는 구간",
+  sponsor: "유료 광고, 유료 협찬과 같은 직접적인 광고 내용을 포함하는 구간",
+  selfpromo: '"후원이나 협찬 구간"과 유사하지만, 자발적으로 홍보하는 내용을 포함하는 구간',
+  interaction: "좋아요, 구독, 팔로우를 요청하는 구간",
+  preview: "동영상의 뒷부분에서 반복되는 현재 동영상 또는 시리즈의 다른 동영상에 나온 정보를 보여주는 구간",
+  hook: "후속 편에 대한 내용이나, 인사말이 있는 구간",
+  filler: "전반적인 동영상의 주제를 이해하는 데 필요 없는 잡담이나 농담이 포함되는 구간",
 };
 const saving = ref(false);
 const result = ref(null);
