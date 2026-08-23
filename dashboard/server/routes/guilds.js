@@ -567,7 +567,8 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
     };
 
     // 플레이어가 유휴 상태이면 addTrack()이 직접 재생을 시작하므로, 여기서 play()를 다시 호출하면 곡이 처음부터 재시작된다.
-    const result = await player.addTrack(query, requester);
+    // single=true(재생목록에서 첫 곡만) 옵션 지원.
+    const result = await player.addTrack(query, requester, { single: req.body.single === true });
 
     if (!result.success) return res.status(400).json({ error: result.message });
 

@@ -185,7 +185,7 @@ class MusicPlayer {
     return this.voice.disconnect();
   }
 
-  async addTrack(query, requestedBy) {
+  async addTrack(query, requestedBy, { single = false } = {}) {
     try {
       // 해석(플랫폼 감지·캐시 숏컷 포함)은 TrackResolver 한 곳에서 — /play와 동일 경로
       const resolved = await TrackResolver.resolveQuery(query, this.guild.id, "MusicPlayer.addTrack");
@@ -194,11 +194,12 @@ class MusicPlayer {
       }
       const tracks = resolved.tracks;
 
-      // 트랙을 대기열에 추가
+      // 트랙을 대기열에 추가 (single이면 재생목록이라도 첫 곡만)
       const addedTracks = [];
       const wasIdle = !this.currentTrack; // 수정 전 상태 기억
+      const limit = single ? 1 : config.bot.maxPlaylistSize;
 
-      for (const track of tracks.slice(0, config.bot.maxPlaylistSize)) {
+      for (const track of tracks.slice(0, limit)) {
         track.requestedBy = requestedBy;
         track.addedAt = Date.now();
 

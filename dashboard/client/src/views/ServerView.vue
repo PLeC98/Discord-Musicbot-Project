@@ -126,11 +126,12 @@
         <div v-else-if="!player.canAdd" class="text-muted text-sm">곡 추가는 봇과 같은 음성 채널에 참가한 뒤 이용할 수 있어요.</div>
 
         <!-- Case 4: bot in voice + controllable → show add form -->
-        <form v-else class="flex gap-2" @submit.prevent="addTrack">
+        <form v-else class="flex gap-2" @submit.prevent="addTrack(false)">
           <input v-model="addQuery" class="flex-1 bg-white/6 border border-white/9 rounded-[10px] text-fg px-3.5 py-2.25 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/8" placeholder="곡 이름, YouTube/Spotify/SoundCloud URL..." :disabled="adding" />
           <BaseButton variant="primary" type="submit" :disabled="adding || !addQuery.trim()">
             {{ adding ? "추가 중..." : "+ 추가" }}
           </BaseButton>
+          <BaseButton v-if="isPlaylistQuery" variant="ghost" type="button" :disabled="adding || !addQuery.trim()" @click="addTrack(true)" v-tooltip="'재생목록에서 첫 곡만 추가'">한 곡만 추가</BaseButton>
         </form>
 
         <div v-if="addError" class="mt-2 text-danger text-[0.85rem]">{{ addError }}</div>
@@ -321,12 +322,18 @@ async function doStop() {
   }
 }
 
-async function addTrack() {
+// 입력이 YouTube 재생목록(list= 포함)인지 — "한 곡만 추가" 버튼 노출 조건
+const isPlaylistQuery = computed(() => {
+  const q = addQuery.value.trim();
+  return /(?:youtube\.com|youtu\.be)/i.test(q) && /[?&]list=/i.test(q);
+});
+
+async function addTrack(single = false) {
   if (!addQuery.value.trim() || adding.value) return;
   adding.value = true;
   addError.value = "";
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue`, { query: addQuery.value });
+    const res = await axios.post(`/api/guilds/${guildId}/player/queue`, { query: addQuery.value, single: single === true });
     applyState(res.data);
     addQuery.value = "";
   } catch (e) {
@@ -430,13 +437,13 @@ const SB_COLOR_VAR = {
 
 // 카테고리 → 한국어 라벨 (툴팁용)
 const SB_LABEL = {
-  music_offtopic: "비음악 구간",
-  intro: "인트로/인터미션",
-  outro: "아웃트로/엔드카드",
-  sponsor: "스폰서",
-  selfpromo: "자기홍보",
-  interaction: "상호작용(구독 유도)",
-  preview: "프리뷰/요약",
+  music_offtopic: "음악이 아님",
+  intro: "인트로/무음",
+  outro: "최종 화면",
+  sponsor: "후원이나 협찬",
+  selfpromo: "무대가 홍보",
+  interaction: "상호작용 알림",
+  preview: "미리보기/요약",
   hook: "후킹/인사말",
   filler: "잡담/농담",
 };
