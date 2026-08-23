@@ -506,15 +506,17 @@ class MusicEmbedManager {
       .setEmoji("🎲")
       .setDisabled(disabled);
 
-    // SponsorBlock 하이라이트 점프 — 현재 곡에 하이라이트 지점이 있을 때만 노출(셔플 옆)
+    // SponsorBlock 하이라이트 점프 — 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
     const highlightAt = player.currentTrack?.sponsor?.highlightAt;
-    const highlightButton = highlightAt !== null && highlightAt !== undefined ? new ButtonBuilder().setCustomId(`music_highlight:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("✨").setDisabled(disabled) : null;
+    const hasHighlight = highlightAt !== null && highlightAt !== undefined;
+    const highlightButton = new ButtonBuilder()
+      .setCustomId(`music_highlight:${requesterId}:${sessionId}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("⏩")
+      .setDisabled(disabled || !hasHighlight);
 
     const row = new ActionRowBuilder().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
-    const row2Components = [shuffleButton];
-    if (highlightButton) row2Components.push(highlightButton);
-    row2Components.push(loopButton, queueButton, autoplayButton);
-    const row2 = new ActionRowBuilder().addComponents(...row2Components);
+    const row2 = new ActionRowBuilder().addComponents(highlightButton, shuffleButton, loopButton, queueButton, autoplayButton);
 
     return [row, row2];
   }

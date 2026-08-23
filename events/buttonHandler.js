@@ -353,9 +353,11 @@ module.exports = {
       return await interaction.reply({ content: permErr, flags: [1 << 6] });
     }
 
+    // 버튼은 하이라이트가 없으면 비활성이라 정상적으론 여기 도달 안 함.
+    // 곡 전환 직전 stale 클릭 대비로만 조용히 무시(0초 재시작 방지).
     const highlightAt = player.currentTrack?.sponsor?.highlightAt;
     if (highlightAt === null || highlightAt === undefined) {
-      return await interaction.reply({ content: "❌ 이 곡에는 SponsorBlock 하이라이트 지점이 없어요.", flags: [1 << 6] });
+      return interaction.deferUpdate();
     }
 
     await interaction.deferReply({ flags: [1 << 6] });
