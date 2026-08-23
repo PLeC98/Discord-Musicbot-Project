@@ -131,7 +131,7 @@
           <BaseButton variant="primary" type="submit" :disabled="adding || !addQuery.trim()">
             {{ adding ? "추가 중..." : "+ 추가" }}
           </BaseButton>
-          <BaseButton v-if="isPlaylistQuery" variant="ghost" type="button" :disabled="adding || !addQuery.trim()" @click="addTrack(true)" v-tooltip="'재생목록에서 첫 곡만 추가'">한 곡만 추가</BaseButton>
+          <BaseButton v-if="isPlaylistQuery" variant="secondary" type="button" :disabled="adding || !addQuery.trim()" @click="addTrack(true)" v-tooltip="'재생목록 첫 곡만 추가'">한 곡만</BaseButton>
         </form>
 
         <div v-if="addError" class="mt-2 text-danger text-[0.85rem]">{{ addError }}</div>
@@ -328,12 +328,31 @@ const isPlaylistQuery = computed(() => {
   return /(?:youtube\.com|youtu\.be)/i.test(q) && /[?&]list=/i.test(q);
 });
 
+// "한 곡만 추가"의 실제 요청 payload — 영상 ID가 링크에 노출돼 있으면(watch?v=, youtu.be/ID)
+// 재생목록 조회 없이 링크를 그 영상만 가리키게 절삭(빠름). 그 외(playlist?list=만)는 single=true로 첫 곡.
+function singlePayload(raw) {
+  try {
+    const u = new URL(raw.trim());
+    if (/(?:^|\.)youtube\.com$/i.test(u.hostname)) {
+      const v = u.searchParams.get("v");
+      if (v) return { query: `https://www.youtube.com/watch?v=${v}`, single: false };
+    } else if (/(?:^|\.)youtu\.be$/i.test(u.hostname)) {
+      const id = u.pathname.replace(/^\/+/, "").split("/")[0];
+      if (id) return { query: `https://www.youtube.com/watch?v=${id}`, single: false };
+    }
+  } catch {
+    /* URL 아님 — 원본 그대로 */
+  }
+  return { query: raw.trim(), single: true };
+}
+
 async function addTrack(single = false) {
   if (!addQuery.value.trim() || adding.value) return;
   adding.value = true;
   addError.value = "";
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue`, { query: addQuery.value, single: single === true });
+    const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
+    const res = await axios.post(`/api/guilds/${guildId}/player/queue`, payload);
     applyState(res.data);
     addQuery.value = "";
   } catch (e) {

@@ -10,7 +10,7 @@ import { computed } from "vue";
 // 공용 버튼 — 구 .btn/.btn-primary/.btn-danger/.btn-ghost (M3 Expressive).
 // href를 주면 <a>, 아니면 <button>으로 렌더된다. 크기 변형은 size prop으로.
 const props = defineProps({
-  variant: { type: String, default: "primary" }, // primary | danger | ghost
+  variant: { type: String, default: "primary" }, // primary | secondary | danger | ghost
   size: { type: String, default: "md" }, // sm | md | lg
   href: { type: String, default: null },
 });
@@ -25,6 +25,7 @@ const sizes = {
 
 const variants = {
   primary: "text-white bg-linear-135 from-accent to-accent-2 shadow-[0_4px_18px_var(--accent-glow)] hover:not-disabled:shadow-[0_8px_32px_var(--accent-glow),0_0_0_1px_rgba(255,255,255,0.1)]",
+  secondary: "text-white bg-linear-135 from-[#2dd4bf] to-[#3b82f6] shadow-[0_4px_18px_rgba(45,212,191,0.32)] hover:not-disabled:shadow-[0_8px_32px_rgba(45,212,191,0.44),0_0_0_1px_rgba(255,255,255,0.1)]",
   danger: "text-white bg-linear-135 from-[#f87171] to-[#ef4444] shadow-[0_4px_18px_rgba(248,113,113,0.34)] hover:not-disabled:shadow-[0_8px_32px_rgba(248,113,113,0.45)]",
   ghost: "text-fg bg-white/6 border border-line hover:not-disabled:bg-white/10",
 };
