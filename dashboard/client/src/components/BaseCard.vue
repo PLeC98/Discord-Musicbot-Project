@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-surface backdrop-blur-xl backdrop-saturate-[1.6] border border-line rounded-2xl p-5 shadow-card inset-shadow-glass">
+  <div class="bg-surface backdrop-blur-xl backdrop-saturate-[1.6] border border-line rounded-2xl px-5 py-4 shadow-card inset-shadow-glass">
     <div v-if="title || icon" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
       <Icon v-if="icon" :name="icon" :size="15" />
       <span v-if="title">{{ title }}</span>

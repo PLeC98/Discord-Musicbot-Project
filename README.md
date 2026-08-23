@@ -98,13 +98,19 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 
 POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
 
-**연령 제한 영상 폴백**: 연령 제한 영상은 POToken(bgutil)만으로는 접근이 불가능하고 **인증된 쿠키가 필수**입니다. bgutil을 쓰더라도 위 `COOKIES_FROM_BROWSER`/`COOKIES_FILE` 중 하나를 설정해 두면, **평상시엔 bgutil로(쿠키 없이) 재생하고 연령 제한 영상을 만났을 때만 쿠키로 폴백**합니다.
+> [!IMPORTANT]
+> 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. `COOKIES_FROM_BROWSER`를 시도해 보고, 문제가 발생하면 `COOKIES_FILE`을 사용하시기 바랍니다.
+>
+> 크롬/엣지: [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
+>
+> 파이어폭스: [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
 
-- 쿠키 계정은 **연령 인증이 완료**돼 있어야 합니다.
-- **헤드리스 서버(Ubuntu 등)** 는 브라우저가 없으므로 `COOKIES_FROM_BROWSER` 대신 내보낸 `COOKIES_FILE`을 사용하세요.
-- 한 영상당 **첫 재생 때 1회만** bgutil 실패(≈3초)를 거쳐 쿠키로 전환하며(같은 영상의 이후 호출·재생은 곧바로 쿠키/캐시 사용), 재생된 영상은 캐시되므로 재생부턴 지연이 없습니다.
-- 쿠키가 연령 제한 영상에만 사용되므로 평상시 계정 노출이 최소화됩니다. 연령 제한 영상은 재취득 비용이 커서 캐시에서 더 오래 보존됩니다.
-- 쿠키를 설정하지 않으면 연령 제한 영상은 재생되지 않습니다(일반 영상은 정상).
+**연령 제한 영상 재생**: 연령 제한 영상은 POToken(bgutil)만으로는 접근이 불가능하기에 **인증된 쿠키가 필수**입니다. bgutil을 쓰더라도 위 `COOKIES_FROM_BROWSER`/`COOKIES_FILE` 중 하나를 설정해 두면, **평상시엔 bgutil로(쿠키 없이) 재생하고 연령 제한 영상을 만났을 때만 쿠키로 폴백**합니다.
+
+- 연령 인증이 된 계정의 쿠키여야 합니다.
+- 쿠키를 설정하지 않으면 연령 제한 영상은 재생이 불가능합니다.
+- bgutil 사용시, 영상의 초회 재생 시도 (캐시되지 않은 영상)에서 연령 제한으로 인한 실패(≈3초)를 수신하면 쿠키로 전환하여 재생을 시도합니다. 이후의 호출·재생은 bgutil 사용 시도 없이 쿠키/캐시를 사용합니다.
+- 연령 제한 영상은 재취득 비용이 크기에 오디오 캐시를 더 오래 보존합니다.
 
 ### 상태 메시지 (`config/status.js`)
 
@@ -190,6 +196,7 @@ Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는
 
 > [!IMPORTANT]
 > https://sponsor.ajay.app/의 CC BY-NC-SA 4.0 라이선스에 따라 제공되는 SponsorBlock 데이터를 사용합니다.
+>
 > Uses SponsorBlock data licensed under CC BY-NC-SA 4.0 from https://sponsor.ajay.app/.
 
 > [!WARNING]

@@ -89,12 +89,12 @@
 
       <!-- Log viewer -->
       <BaseCard class="mb-3">
-        <div class="flex justify-between items-center flex-wrap gap-2.5 mb-2.5">
+        <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
           <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
           <div class="flex gap-1.5 flex-wrap">
             <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(logFilter === lvl.value)" @click="logFilter = logFilter === lvl.value ? null : lvl.value">{{ lvl.label }}</button>
             <button :class="typeBtn(autoScroll)" @click="autoScroll = !autoScroll">
-              <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="13" />{{ autoScroll ? "자동" : "정지" }}</span>
+              <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="15" />{{ autoScroll ? "자동" : "정지" }}</span>
             </button>
             <button :class="typeBtn(false)" @click="logs = []">지우기</button>
           </div>
@@ -212,9 +212,9 @@ const result = ref(null);
 
 const types = [
   { value: "maintenance", label: "점검" },
-  { value: "update", label: "🆕 업데이트" },
+  { value: "update", label: "업데이트" },
   { value: "alert", label: "긴급" },
-  { value: "info", label: "ℹ️ 공지" },
+  { value: "info", label: "공지" },
 ];
 
 function pingClass(p) {

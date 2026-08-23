@@ -512,7 +512,7 @@ class MusicEmbedManager {
     const highlightButton = new ButtonBuilder()
       .setCustomId(`music_highlight:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji("⏩")
+      .setEmoji("💡")
       .setDisabled(disabled || !hasHighlight);
 
     const row = new ActionRowBuilder().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
