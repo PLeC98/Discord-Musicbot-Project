@@ -3,7 +3,6 @@ const config = require("../config");
 const MusicPlayer = require("../src/MusicPlayer");
 const S = require("../src/strings");
 const { checkControl, checkSkip, checkAdd } = require("../src/permissions");
-const { formatDuration } = require("../src/utils");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -311,12 +310,9 @@ module.exports = {
     const embed = new EmbedBuilder().setTitle("📝 재생 대기열").setColor(config.bot.embedColor).setTimestamp();
 
     if (queueInfo.current) {
-      const currentTime = player.getCurrentTime ? player.getCurrentTime() : 0;
-      const progress = this.createProgressBar(currentTime, queueInfo.current.duration);
-
       embed.addFields({
         name: "🎵 현재 재생 중",
-        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**\n${progress}`,
+        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**`,
         inline: false,
       });
     }
@@ -496,20 +492,6 @@ module.exports = {
     const embed = new EmbedBuilder().setTitle("🎲 🎵 음악 장르 선택").setDescription("대기열이 끝나면 어떤 장르를 재생할까요?").setColor(config.bot.embedColor);
 
     await interaction.reply({ embeds: [embed], components: [row], flags: [1 << 6] });
-  },
-
-  createProgressBar(current, total) {
-    if (!total || total === 0) return "0:00 / 0:00";
-
-    const currentSeconds = Math.floor(current / 1000);
-    const totalSeconds = Math.floor(total);
-    const progress = Math.floor((currentSeconds / totalSeconds) * 20);
-
-    return `${this.formatTime(currentSeconds)} [${"▓".repeat(progress)}${"░".repeat(20 - progress)}] ${this.formatTime(totalSeconds)}`;
-  },
-
-  formatTime(seconds) {
-    return formatDuration(seconds); // 공용 구현: src/utils.js
   },
 
   async handleHelpRefresh(interaction) {
