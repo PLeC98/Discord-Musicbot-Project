@@ -629,9 +629,9 @@ class CacheManager {
         // 점수가 높을수록 더 먼저 제거
         let score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
 
-        // 연령 제한 영상: 점수를 크게 낮춰 잔존 우선순위를 높임 (재취득 비용↑)
+        // 연령 제한 영상: 점수를 낮춰 잔존 우선순위를 높임 (재취득 비용↑). 절대 임계값이 아닌 상대 랭킹이라 영구보존은 아님.
         const vid = typeof r.audio_source_key === "string" && r.audio_source_key.startsWith("yt:") ? r.audio_source_key.slice(3) : null;
-        if (vid && ageSet.has(vid)) score *= 0.35;
+        if (vid && ageSet.has(vid)) score *= 0.5;
 
         return { ...r, _score: score };
       })
