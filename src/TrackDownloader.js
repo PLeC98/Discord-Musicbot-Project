@@ -8,6 +8,7 @@ const YouTube = require("./YouTube");
 const TrackResolver = require("./TrackResolver");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
+const SponsorBlock = require("./SponsorBlock");
 
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
@@ -85,22 +86,31 @@ class TrackDownloader {
         }
       }
 
+      // videoId가 확정된 지점(preload 경로) — SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
+      // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
+      try {
+        await SponsorBlock.ensureForTrack(track, player.guild?.id);
+      } catch {
+        /* 무시 */
+      }
+
       // YouTube, Spotify(YouTube 경유), SoundCloud(YouTube 경유)는 youtube-dl-exec 사용
       if (track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
-        const youtubedl = require("youtube-dl-exec");
-
-        await youtubedl(
-          downloadUrl,
-          YouTube.getYtDlpOptions({
-            output: filepath,
-            format: "bestaudio/best",
-            preferFreeFormats: true,
-            postprocessorArgs: {
-              ffmpeg: ["-c:a", "libopus", "-b:a", "128k"],
+        // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
+        await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
+          YouTube.getYtDlpOptions(
+            {
+              output: filepath,
+              format: "bestaudio/best",
+              preferFreeFormats: true,
+              postprocessorArgs: {
+                ffmpeg: ["-c:a", "libopus", "-b:a", "128k"],
+              },
+              extractAudio: true,
+              audioFormat: "opus",
             },
-            extractAudio: true,
-            audioFormat: "opus",
-          }),
+            { forceCookies },
+          ),
         );
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.

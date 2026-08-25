@@ -35,11 +35,9 @@ module.exports = {
     const embed = new EmbedBuilder().setTitle("📝 재생 대기열").setColor(config.bot.embedColor).setTimestamp();
 
     if (queueInfo.current && page === 1) {
-      const currentTime = player.getCurrentTime ? player.getCurrentTime() : 0;
-      const progress = createProgressBar(currentTime, queueInfo.current.duration);
       embed.addFields({
         name: "🎵 현재 재생 중",
-        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**\n${progress}`,
+        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**`,
         inline: false,
       });
     }
@@ -65,16 +63,3 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 };
-
-function createProgressBar(currentMs, totalSeconds) {
-  if (!totalSeconds || totalSeconds === 0) return "0:00 / 0:00";
-  const current = Math.floor(currentMs / 1000);
-  const total = Math.floor(totalSeconds);
-  const progress = Math.floor((current / total) * 20);
-  const fmt = (s) => {
-    const m = Math.floor(s / 60),
-      sec = s % 60;
-    return `${m}:${String(sec).padStart(2, "0")}`;
-  };
-  return `${fmt(current)} [${"▓".repeat(progress)}${"░".repeat(20 - progress)}] ${fmt(total)}`;
-}

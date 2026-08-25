@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 
 // ── GuildSettingsManager 모킹 (라우터 require 전에) ──────────
 const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
-const store = { djRoles: new Map(), botChannel: new Map() };
+const store = { djRoles: new Map(), botChannel: new Map(), sponsorblock: new Map() };
 const gsmCalls = [];
 require.cache[gsmPath] = {
   id: gsmPath,
@@ -35,6 +35,12 @@ require.cache[gsmPath] = {
     clearBotChannel: async (g) => {
       gsmCalls.push(["clearBotChannel", g]);
       store.botChannel.delete(g);
+    },
+    resolveSponsorBlock: (g) => store.sponsorblock.get(g) || { enabled: true, categories: ["music_offtopic", "intro", "outro"] },
+    setSponsorBlock: async (g, patch) => {
+      gsmCalls.push(["setSponsorBlock", g, patch]);
+      store.sponsorblock.set(g, patch);
+      return true;
     },
   },
 };
@@ -204,6 +210,22 @@ test("PUT settings: 빈 배열 = DJ 해제, null = 채널 해제", async () => {
   r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { botChannelId: null });
   assert.equal(r.status, 200);
   assert.equal(store.botChannel.has(GUILD_ID), false);
+});
+
+test("PUT settings: SponsorBlock 저장 — 유효 카테고리만 통과", async () => {
+  currentMember = modMember();
+  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { sponsorblock: { enabled: false, categories: ["intro", "outro", "bogus"] } });
+  assert.equal(r.status, 200);
+  assert.deepEqual(store.sponsorblock.get(GUILD_ID), { enabled: false, categories: ["intro", "outro"] });
+});
+
+test("GET settings: SponsorBlock 유효값·카테고리 목록 포함", async () => {
+  currentMember = modMember();
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+  assert.equal(r.status, 200);
+  assert.ok(r.json.sponsorblock);
+  assert.equal(typeof r.json.sponsorblock.masterEnabled, "boolean");
+  assert.ok(Array.isArray(r.json.sponsorblock.available) && r.json.sponsorblock.available.length === 9);
 });
 
 test("PUT settings: 검증 실패 시 아무것도 적용하지 않음 (부분 저장 방지)", async () => {

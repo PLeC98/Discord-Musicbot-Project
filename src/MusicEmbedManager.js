@@ -318,7 +318,10 @@ class MusicEmbedManager {
       else statusParts.push("⏸️ 일시정지");
     }
     if (player.queue.length > 0) {
-      statusParts.push(`대기열에 ${player.queue.length}개의 노래가 더 있습니다`);
+      statusParts.push(`${player.queue.length}개의 노래 대기 중`);
+    }
+    if (track.sponsor?.skipSegments?.length) {
+      statusParts.push(`건너 뛸 구간 ${track.sponsor.skipSegments.length}개`);
     }
 
     const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor)).addSectionComponents(section).addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar));
@@ -503,8 +506,17 @@ class MusicEmbedManager {
       .setEmoji("🎲")
       .setDisabled(disabled);
 
+    // SponsorBlock 하이라이트 점프 — 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
+    const highlightAt = player.currentTrack?.sponsor?.highlightAt;
+    const hasHighlight = highlightAt !== null && highlightAt !== undefined;
+    const highlightButton = new ButtonBuilder()
+      .setCustomId(`music_highlight:${requesterId}:${sessionId}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("💡")
+      .setDisabled(disabled || !hasHighlight);
+
     const row = new ActionRowBuilder().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
-    const row2 = new ActionRowBuilder().addComponents(shuffleButton, loopButton, queueButton, autoplayButton);
+    const row2 = new ActionRowBuilder().addComponents(highlightButton, shuffleButton, loopButton, queueButton, autoplayButton);
 
     return [row, row2];
   }
