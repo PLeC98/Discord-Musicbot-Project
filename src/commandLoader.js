@@ -18,18 +18,18 @@ function loadCommandData() {
     const command = require(path.join(commandsPath, file));
     if ("data" in command && "execute" in command) {
       commands.push(command.data.toJSON());
-      console.log(`✅ Loaded command: ${command.data.name}`);
+      console.log(`📋  명령어 정의 불러옴: ${command.data.name}`);
     } else {
-      console.log(`⚠️  Warning: ${file} is missing required "data" or "execute" property.`);
+      console.log(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`);
     }
   }
   return commands;
 }
 
-// 프로세스가 실행 시점에 가진 커맨드 집합(핸들러가 로드된 것과 동일). 이 배열을 그대로 등록한다.
+// 프로세스가 실행 시점에 가진 명령어 집합(핸들러가 로드된 것과 동일). 이 배열을 그대로 등록한다.
 const commands = loadCommandData();
 
-// 현재 커맨드 세트 + 배포 대상의 지문 — 어느 하나라도 바뀌면 재배포 대상
+// 현재 명령어 세트 + 배포 대상의 지문 — 어느 하나라도 바뀌면 재배포 대상
 function deployFingerprint(scope, guildId) {
   const src = JSON.stringify({ clientId: config.discord.clientId, scope, guildId, commands });
   return crypto.createHash("sha256").update(src).digest("hex");
@@ -52,7 +52,7 @@ function writeDeployedFingerprint(hashPath, fingerprint) {
   }
 }
 
-// 슬래시 커맨드를 Discord에 (재)배포하는 재사용 함수.
+// 슬래시 명령어를 Discord에 (재)배포하는 재사용 함수.
 // 기동 경로는 정의 무변경이면 PUT 생략(지문 비교), 대시보드 재배포·수동 스크립트는 force로 항상 PUT.
 // hashPath는 테스트 시임 (임시 파일 — 운영 지문 미접촉).
 async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
@@ -77,7 +77,7 @@ async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
 
 // 배포 실패 로그 라인
 function deployErrorLines(result) {
-  const lines = [`❌ 커맨드 배포 실패 (${result.scope}): ${result.error?.message || result.error}`];
+  const lines = [`❌ 명령어 배포 실패 (${result.scope}): ${result.error?.message || result.error}`];
   if (result.error?.code === 50001) {
     lines.push('   → 봇이 대상 길드에 없거나 "applications.commands" 스코프로 초대되지 않았습니다.');
     lines.push("   → .env의 GUILD_ID를 비우면 전역 배포로 전환됩니다.");
