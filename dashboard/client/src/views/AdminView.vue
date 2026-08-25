@@ -8,7 +8,7 @@
     <template v-else>
       <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3 gap-y-3 mb-3">
         <!-- Bot -->
-        <BaseCard title="🤖 봇 상태">
+        <BaseCard icon="robot" title="봇 상태">
           <div :class="statRow">
             <span>태그</span><span>{{ s.bot.tag }}</span>
           </div>
@@ -27,7 +27,7 @@
         </BaseCard>
 
         <!-- Node.js -->
-        <BaseCard title="⚙️ Node.js">
+        <BaseCard icon="gear" title="Node.js">
           <div :class="statRow">
             <span>버전</span><span>{{ s.node.version }}</span>
           </div>
@@ -43,7 +43,7 @@
         </BaseCard>
 
         <!-- System -->
-        <BaseCard title="🖥️ 시스템">
+        <BaseCard icon="desktop" title="시스템">
           <div :class="statRow">
             <span>CPU 코어</span><span>{{ s.system.cpus }} 코어</span>
           </div>
@@ -57,7 +57,7 @@
         </BaseCard>
 
         <!-- Shard -->
-        <BaseCard v-if="s.shards" title="🔀 샤드">
+        <BaseCard v-if="s.shards" icon="shuffle" title="샤드">
           <div :class="statRow">
             <span>샤드 ID</span><span>{{ s.shards.ids?.join(", ") }}</span>
           </div>
@@ -68,7 +68,7 @@
       </div>
 
       <!-- Broadcast -->
-      <BaseCard title="📢 전체 공지 발송" class="mb-3">
+      <BaseCard icon="campaign" title="전체 공지 발송" class="mb-3">
         <p class="text-muted text-sm mb-4">봇이 들어간 모든 서버에 공지 메시지를 보냅니다.</p>
 
         <div class="flex gap-2 mb-3.5 flex-wrap">
@@ -81,19 +81,20 @@
           {{ sending ? "발송 중..." : "전체 발송" }}
         </BaseButton>
 
-        <div v-if="result" :class="resultMsg(result.success)">
-          {{ result.success ? `✅ ${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : "❌ 발송 실패" }}
+        <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
+          <Icon :name="result.success ? 'check' : 'error'" :size="16" />
+          <span>{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : "발송 실패" }}</span>
         </div>
       </BaseCard>
 
       <!-- Log viewer -->
       <BaseCard class="mb-3">
-        <div class="flex justify-between items-center flex-wrap gap-2.5 mb-2.5">
-          <span :class="cardTitle" class="mb-0!">📋 실시간 로그</span>
+        <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
+          <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
           <div class="flex gap-1.5 flex-wrap">
             <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(logFilter === lvl.value)" @click="logFilter = logFilter === lvl.value ? null : lvl.value">{{ lvl.label }}</button>
             <button :class="typeBtn(autoScroll)" @click="autoScroll = !autoScroll">
-              {{ autoScroll ? "⏬ 자동" : "⏸ 정지" }}
+              <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="15" />{{ autoScroll ? "자동" : "정지" }}</span>
             </button>
             <button :class="typeBtn(false)" @click="logs = []">지우기</button>
           </div>
@@ -114,7 +115,7 @@
       </BaseCard>
 
       <!-- Guild management -->
-      <BaseCard title="🌐 참가 서버 관리" class="mb-3">
+      <BaseCard icon="globe" title="참가 서버 관리" class="mb-3">
         <p class="text-muted text-sm mb-4">봇이 참가 중인 서버 목록입니다. 나가기는 되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.</p>
 
         <div v-if="guilds.length === 0" class="text-muted text-sm">참가 중인 서버가 없습니다.</div>
@@ -124,27 +125,31 @@
             <div v-else class="size-9 rounded-full border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold flex items-center justify-center shrink-0">{{ g.name[0] }}</div>
             <div class="flex-1 overflow-hidden">
               <div class="text-sm font-semibold overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</div>
-              <div class="text-[0.78rem] text-muted">멤버 {{ g.memberCount }}명<span v-if="g.hasPlayer" class="text-success"> · 🎵 재생 중</span></div>
+              <div class="text-[0.78rem] text-muted">
+                멤버 {{ g.memberCount }}명<span v-if="g.hasPlayer" class="text-success"> · <Icon name="music" :size="12" class="inline" /> 재생 중</span>
+              </div>
             </div>
             <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">나가기</BaseButton>
           </div>
         </div>
 
-        <div v-if="leaveResult" :class="resultMsg(leaveResult.success)">
-          {{ leaveResult.success ? `✅ "${leaveResult.name}" 서버에서 나갔습니다` : `❌ 나가기 실패: ${leaveResult.error}` }}
+        <div v-if="leaveResult" :class="resultMsg(leaveResult.success)" class="flex items-center gap-1.5">
+          <Icon :name="leaveResult.success ? 'check' : 'error'" :size="16" />
+          <span>{{ leaveResult.success ? `"${leaveResult.name}" 서버에서 나갔습니다` : `나가기 실패: ${leaveResult.error}` }}</span>
         </div>
       </BaseCard>
 
       <!-- Command redeploy -->
-      <BaseCard title="🔁 슬래시 커맨드 재배포">
+      <BaseCard icon="repeat" title="슬래시 커맨드 재배포">
         <p class="text-muted text-sm mb-4">현재 로드된 슬래시 커맨드를 Discord에 다시 등록합니다. 봇 재시작 없이 실행됩니다.</p>
 
         <BaseButton variant="primary" @click="redeploy" :disabled="redeploying">
           {{ redeploying ? "재배포 중..." : "커맨드 재배포" }}
         </BaseButton>
 
-        <div v-if="redeployResult" :class="resultMsg(redeployResult.success)">
-          {{ redeployResult.success ? `✅ ${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "길드" : "전역"} 배포 완료` : `❌ 재배포 실패: ${redeployResult.error || ""}` }}
+        <div v-if="redeployResult" :class="resultMsg(redeployResult.success)" class="flex items-center gap-1.5">
+          <Icon :name="redeployResult.success ? 'check' : 'error'" :size="16" />
+          <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "길드" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
         </div>
       </BaseCard>
     </template>
@@ -156,7 +161,7 @@
           <strong class="text-fg">{{ leaveTarget.name }}</strong> 서버에서 나갈까요?
         </p>
         <p class="mb-5.5 text-[0.82rem] text-muted">
-          되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.<span v-if="leaveTarget.hasPlayer"><br />🎵 이 서버는 현재 재생 중이며, 재생이 중단됩니다.</span>
+          되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.<span v-if="leaveTarget.hasPlayer"><br /><Icon name="music" :size="13" class="inline" /> 이 서버는 현재 재생 중이며, 재생이 중단됩니다.</span>
         </p>
         <div class="flex gap-2.5 justify-center">
           <BaseButton variant="ghost" :disabled="leaving" @click="leaveTarget = null">취소</BaseButton>
@@ -174,6 +179,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
+import Icon from "../components/BaseIcon.vue";
 
 // ── 반복 유틸리티 클래스 ─────────────────────────────────────
 const statRow = "flex justify-between items-center py-2.5 border-b border-white/7 text-sm last:border-b-0 last:pb-0 [&>span:first-child]:text-muted [&>strong]:font-semibold [&>span:last-child]:font-semibold";
@@ -205,10 +211,10 @@ const sending = ref(false);
 const result = ref(null);
 
 const types = [
-  { value: "maintenance", label: "🔧 점검" },
-  { value: "update", label: "🆕 업데이트" },
-  { value: "alert", label: "⚠️ 긴급" },
-  { value: "info", label: "ℹ️ 공지" },
+  { value: "maintenance", label: "점검" },
+  { value: "update", label: "업데이트" },
+  { value: "alert", label: "긴급" },
+  { value: "info", label: "공지" },
 ];
 
 function pingClass(p) {

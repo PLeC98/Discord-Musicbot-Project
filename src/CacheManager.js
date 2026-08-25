@@ -84,10 +84,27 @@ class CacheManager {
             );
 
             CREATE TABLE IF NOT EXISTS guild_settings (
-                guild_id        TEXT PRIMARY KEY,
-                bot_channel_id  TEXT,
-                dj_role_ids     TEXT,
-                updated_at      INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+                guild_id                 TEXT PRIMARY KEY,
+                bot_channel_id           TEXT,
+                dj_role_ids              TEXT,
+                sponsorblock_enabled     INTEGER,   -- NULL=상속(전역 기본), 0/1
+                sponsorblock_categories  TEXT,       -- NULL=상속, JSON 배열
+                updated_at               INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+            );
+
+            -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용 — 라이브 조회 실패 시 사용).
+            -- data_json = 정규화 이전 원시 배열(카테고리 전부). 정규화/필터는 SponsorBlock.js가 읽을 때 수행.
+            CREATE TABLE IF NOT EXISTS sponsorblock_cache (
+                video_id    TEXT PRIMARY KEY,
+                data_json   TEXT NOT NULL,
+                fetched_at  INTEGER NOT NULL
+            );
+
+            -- 연령 제한 확인된 videoId — 재조회 시 bgutil 실패를 건너뛰고 바로 쿠키 폴백에 사용.
+            -- 캐시 퇴거에서도 이 영상들은 더 오래 잔존시킨다(재취득이 느리고 쿠키가 필요하므로).
+            CREATE TABLE IF NOT EXISTS age_restricted (
+                video_id    TEXT PRIMARY KEY,
+                marked_at   INTEGER NOT NULL
             );
 
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
@@ -112,6 +129,14 @@ class CacheManager {
         if (rows.length) console.log(`[CacheManager] DJ 역할 설정 ${rows.length}건을 복수 역할 형식(dj_role_ids)으로 이관`);
       }
     }
+
+    // SponsorBlock 컬럼 추가 (컬럼 도입 이전 DB 대응 — CREATE IF NOT EXISTS는 컬럼을 안 만듦)
+    const gsCols2 = this.db
+      .prepare("PRAGMA table_info(guild_settings)")
+      .all()
+      .map((c) => c.name);
+    if (!gsCols2.includes("sponsorblock_enabled")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_enabled INTEGER");
+    if (!gsCols2.includes("sponsorblock_categories")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_categories TEXT");
   }
 
   // 정적 헬퍼
@@ -426,6 +451,40 @@ class CacheManager {
     this.db.prepare("UPDATE guild_settings SET dj_role_ids = NULL, updated_at = ? WHERE guild_id = ?").run(Date.now(), guildId);
   }
 
+  /** 서버별 SponsorBlock 설정 — { enabled: null|bool, categories: null|string[] } (null=전역 상속) */
+  getGuildSponsorBlock(guildId) {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT sponsorblock_enabled, sponsorblock_categories FROM guild_settings WHERE guild_id = ?").get(guildId);
+    if (!row) return { enabled: null, categories: null };
+    let categories = null;
+    if (row.sponsorblock_categories) {
+      try {
+        const p = JSON.parse(row.sponsorblock_categories);
+        if (Array.isArray(p)) categories = p;
+      } catch {
+        /* 손상 값은 상속 취급 */
+      }
+    }
+    const enabled = row.sponsorblock_enabled === null || row.sponsorblock_enabled === undefined ? null : !!row.sponsorblock_enabled;
+    return { enabled, categories };
+  }
+
+  /** 서버별 SponsorBlock 설정 저장. enabled/categories 각각 null이면 "상속"으로 기록. */
+  setGuildSponsorBlock(guildId, { enabled, categories }) {
+    if (!this._initialized) this.initialize();
+    const encEnabled = enabled === null || enabled === undefined ? null : enabled ? 1 : 0;
+    const encCats = Array.isArray(categories) ? JSON.stringify(categories) : null;
+    this.db
+      .prepare(
+        `INSERT INTO guild_settings (guild_id, sponsorblock_enabled, sponsorblock_categories, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(guild_id) DO UPDATE SET
+             sponsorblock_enabled    = excluded.sponsorblock_enabled,
+             sponsorblock_categories = excluded.sponsorblock_categories,
+             updated_at              = excluded.updated_at`,
+      )
+      .run(guildId, encEnabled, encCats, Date.now());
+  }
+
   // 시작 시 정리
 
   async onStartup() {
@@ -542,6 +601,14 @@ class CacheManager {
 
     const now = Date.now();
 
+    // 연령 제한 영상은 재취득이 느리고 쿠키가 필요하므로 퇴거에서 더 오래 잔존시킨다(점수↓).
+    const ageSet = new Set(
+      this.db
+        .prepare("SELECT video_id FROM age_restricted")
+        .all()
+        .map((r) => r.video_id),
+    );
+
     const scored = rows
       .map((r) => {
         const ageDays = (now - (r.last_played_at || r.downloaded_at || r.created_at || now)) / 86_400_000;
@@ -560,7 +627,11 @@ class CacheManager {
         const neverPlayed = (r.play_count || 0) === 0 ? 0.15 : 0;
 
         // 점수가 높을수록 더 먼저 제거
-        const score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
+        let score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
+
+        // 연령 제한 영상: 점수를 낮춰 잔존 우선순위를 높임 (재취득 비용↑). 절대 임계값이 아닌 상대 랭킹이라 영구보존은 아님.
+        const vid = typeof r.audio_source_key === "string" && r.audio_source_key.startsWith("yt:") ? r.audio_source_key.slice(3) : null;
+        if (vid && ageSet.has(vid)) score *= 0.5;
 
         return { ...r, _score: score };
       })
@@ -633,6 +704,47 @@ class CacheManager {
       topTracks,
       recentTracks,
     };
+  }
+
+  // ── SponsorBlock 세그먼트 캐시 (폴백 전용) ─────────────────────────────────
+
+  /** videoId의 캐시된 원시 세그먼트 반환 — { segments: [...], fetchedAt } 또는 null */
+  getSponsorSegments(videoId) {
+    if (!videoId) return null;
+    const row = this.db.prepare("SELECT data_json, fetched_at FROM sponsorblock_cache WHERE video_id = ?").get(videoId);
+    if (!row) return null;
+    try {
+      return { segments: JSON.parse(row.data_json), fetchedAt: row.fetched_at };
+    } catch {
+      return null; // 손상된 캐시는 무시 (다음 라이브 조회가 덮어씀)
+    }
+  }
+
+  /** videoId의 원시 세그먼트 write-through 저장 (빈 배열도 저장 — "구간 없음" 네거티브 캐시) */
+  setSponsorSegments(videoId, segments) {
+    if (!videoId || !Array.isArray(segments)) return;
+    this.db
+      .prepare(
+        `INSERT INTO sponsorblock_cache (video_id, data_json, fetched_at) VALUES (?, ?, ?)
+         ON CONFLICT(video_id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at`,
+      )
+      .run(videoId, JSON.stringify(segments), Date.now());
+  }
+
+  // ── 연령 제한 videoId 레지스트리 ───────────────────────────────────────────
+
+  /** videoId를 연령 제한으로 기록 (재조회 시 쿠키 폴백 직행 + 퇴거 잔존용) */
+  markAgeRestricted(videoId) {
+    if (!videoId) return;
+    if (!this._initialized) this.initialize();
+    this.db.prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES (?, ?) ON CONFLICT(video_id) DO NOTHING").run(videoId, Date.now());
+  }
+
+  /** videoId가 연령 제한으로 알려져 있는가 */
+  isAgeRestricted(videoId) {
+    if (!videoId) return false;
+    if (!this._initialized) this.initialize();
+    return !!this.db.prepare("SELECT 1 FROM age_restricted WHERE video_id = ?").get(videoId);
   }
 
   // 생명주기

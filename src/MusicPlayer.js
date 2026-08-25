@@ -10,6 +10,8 @@ function isBotOwnedStatus(s) {
 const config = require("../config");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./TrackResolver");
+const SponsorBlock = require("./SponsorBlock");
+const SponsorSkipper = require("./SponsorSkipper");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
@@ -80,6 +82,7 @@ class MusicPlayer {
     this.currentTrackRetries = 0;
     this.skipRequested = false;
     this.stopRequested = false;
+    this.isPlayStarting = false; // play() 셋업 진행 중 — 워처 자동 스킵 재진입 방지
     this.nextFromFront = false; // 셔플을 우회해 대기열 앞쪽에서 다음 트랙을 강제 선택 (이동/이전곡)
     this.expectedTrackEndTs = null;
     this.currentTrackCache = null;
@@ -111,6 +114,7 @@ class MusicPlayer {
     this.voice = new VoiceConnectionManager(this);
     this.downloader = new TrackDownloader(this);
     this.persistence = new SessionPersistence(this);
+    this.sponsorSkipper = new SponsorSkipper(this);
 
     // 이벤트 설정
     this.setupEvents();
@@ -181,7 +185,7 @@ class MusicPlayer {
     return this.voice.disconnect();
   }
 
-  async addTrack(query, requestedBy) {
+  async addTrack(query, requestedBy, { single = false } = {}) {
     try {
       // 해석(플랫폼 감지·캐시 숏컷 포함)은 TrackResolver 한 곳에서 — /play와 동일 경로
       const resolved = await TrackResolver.resolveQuery(query, this.guild.id, "MusicPlayer.addTrack");
@@ -190,11 +194,12 @@ class MusicPlayer {
       }
       const tracks = resolved.tracks;
 
-      // 트랙을 대기열에 추가
+      // 트랙을 대기열에 추가 (single이면 재생목록이라도 첫 곡만)
       const addedTracks = [];
       const wasIdle = !this.currentTrack; // 수정 전 상태 기억
+      const limit = single ? 1 : config.bot.maxPlaylistSize;
 
-      for (const track of tracks.slice(0, config.bot.maxPlaylistSize)) {
+      for (const track of tracks.slice(0, limit)) {
         track.requestedBy = requestedBy;
         track.addedAt = Date.now();
 
@@ -256,6 +261,9 @@ class MusicPlayer {
   }
 
   async play(trackIndex = null, seekMs = 0) {
+    // 재진입 가드 — play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
+    // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). isPlayStarting 동안 워처는 발동을 미룬다.
+    this.isPlayStarting = true;
     try {
       // 현재 트랙이 없으면 대기열에서 가져오기
       if (!this.currentTrack) {
@@ -275,6 +283,23 @@ class MusicPlayer {
         const connected = await this.connect();
         if (!connected) {
           return { success: false, message: "음성 채널에 연결하지 못했습니다!" };
+        }
+      }
+
+      // 신규 재생(seek 아님)이면, 스트림 셋업 전에 videoId+SponsorBlock을 먼저 확보해
+      // 인트로 구간을 초기 오프셋으로 반영한다(무갭 — 0부터 틀고 seek하는 이중재생 회피).
+      // 흐름: (spotify면) youtube 해석 → SponsorBlock 조회 → 인트로 있으면 오프셋, 없으면 그대로.
+      if ((Number(seekMs) || 0) === 0) {
+        try {
+          await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
+          if (!this.currentTrack._sponsorResolved && this.currentTrack.platform === "spotify") {
+            await TrackResolver.findYouTubeEquivalent(this.currentTrack, this.guild.id); // 멱등 — videoId 확정
+            await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
+          }
+          const introEnd = this._introOffsetMs(this.currentTrack);
+          if (introEnd > 0) seekMs = introEnd;
+        } catch {
+          /* 조회 실패는 무시(fail-open) — 오프셋 없이 재생 */
         }
       }
 
@@ -357,6 +382,16 @@ class MusicPlayer {
         throw new Error("오디오 스트림 가져오기 실패");
       }
 
+      // SponsorBlock 구간 데이터 확보 (첫곡/캐시곡 포함 — preload를 거치지 않았을 수 있음).
+      // 이 시점엔 videoId가 확정(youtube id / 해석된 youtubeUrl / audioSourceKey yt:)됨. 실패해도 재생 진행.
+      try {
+        await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
+      } catch {
+        /* 무시 */
+      }
+      // 자동 스킵 워처 가동 — 구간 있으면 시작, seek면 기준점을 seek 지점으로 리셋(수동 진입 허용)
+      this.sponsorSkipper.onPlayStart(resumeFromMs);
+
       // 기존(string) 및 신규(object) 스트림 형식을 모두 처리
       let streamUrl_final;
 
@@ -398,9 +433,15 @@ class MusicPlayer {
             }
           });
 
-        // 즉시 재생을 위해 직접 스트리밍
+        // 즉시 재생을 위해 직접 스트리밍.
+        // 오프셋 재생이고 seekable(googlevideo)이면 URL을 ffmpeg에 직접 입력해 HTTP range seek 한다.
+        // (실측: begin= 파라미터는 서버가 무시하고, pipe 입력은 -ss가 안 먹혀 오디오/시계가 desync됨.
+        //  ffmpeg -ss 입력전 + URL 직접입력만이 정확·신속하게 seek됨.)
+        const useUrlSeek = resumeFromMs > 0 && !!streamInfo?.canSeek && !!(streamInfo?.rawUrl || streamInfo?.url);
         let audioStream;
-        if (typeof streamInfo === "object" && streamInfo.stream) {
+        if (useUrlSeek) {
+          // audioStream 없이 아래 ffmpeg가 URL을 직접 입력받는다
+        } else if (typeof streamInfo === "object" && streamInfo.stream) {
           audioStream = streamInfo.stream;
         } else if (typeof streamUrl_final === "string") {
           try {
@@ -445,27 +486,14 @@ class MusicPlayer {
         // 스트리밍에 실패했고 다운로드 파일이 있으면 파일 재생으로 건너뜀
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
-        } else if (audioStream) {
-          // 스트리밍용 FFmpeg 프로세스 생성
-          const seekArgs = resumeFromMs > 0 ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
+        } else if (audioStream || useUrlSeek) {
+          // 스트리밍용 FFmpeg. useUrlSeek면 URL을 직접 입력(-ss 입력전, HTTP range seek), 아니면 pipe 입력.
+          const seekUrl = streamInfo.rawUrl || streamInfo.url;
+          const inputArgs = useUrlSeek ? ["-ss", (resumeFromMs / 1000).toFixed(3), "-i", seekUrl] : ["-i", "pipe:0"];
 
           const ffmpegProcess = new prism.FFmpeg({
             command: ffmpegPath,
-            args: [
-              ...seekArgs, // 재개 중이면 seek 추가
-              "-analyzeduration",
-              "0",
-              "-loglevel",
-              "0",
-              "-i",
-              "pipe:0",
-              "-f",
-              "s16le",
-              "-ar",
-              "48000",
-              "-ac",
-              "2",
-            ],
+            args: ["-analyzeduration", "0", "-loglevel", "0", ...inputArgs, "-f", "s16le", "-ar", "48000", "-ac", "2"],
           });
 
           ffmpegProcess.on("error", (err) => {
@@ -473,15 +501,16 @@ class MusicPlayer {
             console.error("❌ FFmpeg streaming error:", err.message);
           });
 
-          // 이것이 없으면 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 될 수 있음. AudioPlayer가 Idle로 전환되면 이미 캐시 기반 복구가 트리거되므로 여기서는 오류를 흡수하기만 하면 됨.
-          audioStream.on("error", (err) => {
-            console.warn(`⚠️ Audio stream dropped (${err.code || err.message}), recovering from cache...`);
-          });
-
-          // 리소스가 교체되거나 중지될 때 ffmpegProcess는 @discordjs/voice 파이프라인 연쇄 처리로 제거됨. audioStream은 그 파이프라인 밖에 있으므로(.pipe()로 연결), 자동으로 제거되지 않음 — HTTP 연결을 명시적으로 닫음.
-          ffmpegProcess.once("close", () => audioStream.destroy());
-
-          audioStream.pipe(ffmpegProcess);
+          if (audioStream) {
+            // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
+            // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
+            audioStream.on("error", (err) => {
+              console.warn(`⚠️ Audio stream dropped (${err.code || err.message}), recovering from cache...`);
+            });
+            // ffmpegProcess는 @discordjs/voice 파이프라인이 정리하지만 audioStream은 그 밖(.pipe)이라 명시적으로 닫는다.
+            ffmpegProcess.once("close", () => audioStream.destroy());
+            audioStream.pipe(ffmpegProcess);
+          }
 
           this.resource = createAudioResource(ffmpegProcess, {
             inputType: StreamType.Raw,
@@ -606,7 +635,19 @@ class MusicPlayer {
       const errorMsg = ErrorHandler.handle(error, this.guild.id, "MusicPlayer.play");
       await this.handleError(error, errorMsg);
       return { success: false, message: errorMsg };
+    } finally {
+      this.isPlayStarting = false;
     }
+  }
+
+  // 트랙 시작(0 부근)에서 시작하는 인트로 스킵 구간의 끝(ms). 없으면 0.
+  // 이 값을 신규 재생의 초기 오프셋으로 써서 인트로를 무갭으로 건너뛴다.
+  _introOffsetMs(track) {
+    const segs = track?.sponsor?.skipSegments;
+    if (!segs || !segs.length) return 0;
+    const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하면 인트로로 간주
+    const intro = segs.find((s) => s.start <= INTRO_START_TOL_SEC);
+    return intro && intro.end > 0 ? Math.round(intro.end * 1000) : 0;
   }
 
   scheduleTrackWatchdog(streamInfo = null) {
@@ -888,6 +929,7 @@ class MusicPlayer {
   stop() {
     this.updateVoiceStatus("").catch(() => {});
 
+    this.sponsorSkipper?.stop();
     this.pauseReasons.clear();
     this.paused = false;
 
@@ -1100,6 +1142,7 @@ class MusicPlayer {
     }
 
     this.isTransitioning = true;
+    this.sponsorSkipper?.stop(); // 다음 트랙 play()가 onPlayStart로 다시 가동
 
     try {
       if (this.trackTimer) {
@@ -1113,7 +1156,8 @@ class MusicPlayer {
       const totalPlaybackMs = this.currentTrackStartOffsetMs + playbackMs;
       this.lastPlaybackPosition = totalPlaybackMs;
       const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
-      const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump";
+      // "sponsorblock"(아웃트로 종료)은 스킵 버튼과 동일하게 트랙 완료로 취급 — 조기 드롭 복구 대상 아님.
+      const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump" || reason === "sponsorblock";
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
 
       if (endedUnexpectedly) {
@@ -1379,6 +1423,7 @@ class MusicPlayer {
         this.updateVoiceStatus("").catch(() => {});
       }
 
+      this.sponsorSkipper?.stop();
       this.clearInactivityTimer(false);
       this.stopStateSync();
 

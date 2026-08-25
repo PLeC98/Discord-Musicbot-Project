@@ -3,7 +3,6 @@ const config = require("../config");
 const MusicPlayer = require("../src/MusicPlayer");
 const S = require("../src/strings");
 const { checkControl, checkSkip, checkAdd } = require("../src/permissions");
-const { formatDuration } = require("../src/utils");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -15,6 +14,8 @@ module.exports = {
 
     // DJ 역할 설정 UI 버튼은 전용 핸들러(djRoleConfigHandler.js)가 처리
     if (interaction.customId.startsWith("djrole:")) return;
+    // SponsorBlock 설정 UI 버튼은 전용 핸들러(sponsorConfigHandler.js)가 처리
+    if (interaction.customId.startsWith("sb:")) return;
 
     // 검색 버튼용 특수 제어
     if (interaction.customId.startsWith("search_")) {
@@ -71,6 +72,10 @@ module.exports = {
 
         case "music_shuffle":
           await this.handleShuffle(interaction, player, requesterId);
+          break;
+
+        case "music_highlight":
+          await this.handleHighlight(interaction, player);
           break;
 
         case "music_volume":
@@ -309,12 +314,9 @@ module.exports = {
     const embed = new EmbedBuilder().setTitle("📝 재생 대기열").setColor(config.bot.embedColor).setTimestamp();
 
     if (queueInfo.current) {
-      const currentTime = player.getCurrentTime ? player.getCurrentTime() : 0;
-      const progress = this.createProgressBar(currentTime, queueInfo.current.duration);
-
       embed.addFields({
         name: "🎵 현재 재생 중",
-        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**\n${progress}`,
+        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**`,
         inline: false,
       });
     }
@@ -343,6 +345,28 @@ module.exports = {
     });
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+  },
+
+  async handleHighlight(interaction, player) {
+    const permErr = await checkControl(interaction.member);
+    if (permErr) {
+      return await interaction.reply({ content: permErr, flags: [1 << 6] });
+    }
+
+    // 버튼은 하이라이트가 없으면 비활성이라 정상적으론 여기 도달 안 함.
+    // 곡 전환 직전 stale 클릭 대비로만 조용히 무시(0초 재시작 방지).
+    const highlightAt = player.currentTrack?.sponsor?.highlightAt;
+    if (highlightAt === null || highlightAt === undefined) {
+      return interaction.deferUpdate();
+    }
+
+    await interaction.deferReply({ flags: [1 << 6] });
+    await player.play(null, Math.max(0, Math.floor(highlightAt * 1000)));
+    await interaction.editReply({ content: "✨ 하이라이트 지점으로 이동했어요." });
+
+    if (interaction.client.musicEmbedManager) {
+      await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
+    }
   },
 
   async handleShuffle(interaction, player, _requesterId) {
@@ -494,20 +518,6 @@ module.exports = {
     const embed = new EmbedBuilder().setTitle("🎲 🎵 음악 장르 선택").setDescription("대기열이 끝나면 어떤 장르를 재생할까요?").setColor(config.bot.embedColor);
 
     await interaction.reply({ embeds: [embed], components: [row], flags: [1 << 6] });
-  },
-
-  createProgressBar(current, total) {
-    if (!total || total === 0) return "0:00 / 0:00";
-
-    const currentSeconds = Math.floor(current / 1000);
-    const totalSeconds = Math.floor(total);
-    const progress = Math.floor((currentSeconds / totalSeconds) * 20);
-
-    return `${this.formatTime(currentSeconds)} [${"▓".repeat(progress)}${"░".repeat(20 - progress)}] ${this.formatTime(totalSeconds)}`;
-  },
-
-  formatTime(seconds) {
-    return formatDuration(seconds); // 공용 구현: src/utils.js
   },
 
   async handleHelpRefresh(interaction) {

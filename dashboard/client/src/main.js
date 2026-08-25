@@ -3,6 +3,7 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import router from "./router/index.js";
 import axios from "axios";
+import tooltip from "./directives/tooltip.js";
 import "./style.css";
 
 axios.defaults.withCredentials = true;
@@ -43,4 +44,5 @@ axios.interceptors.response.use(undefined, (error) => {
 const app = createApp(App);
 app.use(createPinia());
 app.use(router);
+app.directive("tooltip", tooltip);
 app.mount("#app");

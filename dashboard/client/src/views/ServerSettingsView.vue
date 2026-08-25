@@ -13,13 +13,13 @@
     <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
     <div v-else-if="loadError" class="text-center px-5 py-15 text-muted">
-      <div class="text-5xl mb-3">⚠️</div>
+      <Icon name="warning" :size="48" class="mb-3 text-warning" />
       <p>{{ loadError }}</p>
     </div>
 
     <template v-else>
       <!-- DJ roles -->
-      <BaseCard title="🎧 DJ 역할" class="mb-3">
+      <BaseCard icon="headphones" title="DJ 역할" class="mb-3">
         <p class="text-muted text-sm mb-3.5">지정하면 재생 제어를 역할 보유자와 모더레이터만 사용할 수 있어요. 지정하지 않으면 모든 유저가 제어할 수 있습니다.</p>
 
         <input v-model="roleFilter" :disabled="!s.canEdit" placeholder="역할 검색..." class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none mb-2.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40" />
@@ -36,12 +36,51 @@
       </BaseCard>
 
       <!-- Bot channel -->
-      <BaseCard title="📌 봇 전용 채널" class="mb-3">
+      <BaseCard icon="pin" title="봇 전용 채널" class="mb-3">
         <p class="text-muted text-sm mb-3.5">지정 채널에서는 명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지 발송도 이 채널을 우선합니다.</p>
-        <select v-model="selectedChannel" :disabled="!s.canEdit" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2.5 text-[0.9rem] outline-none font-[inherit] cursor-pointer scheme-dark transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40 disabled:cursor-not-allowed">
-          <option :value="null">지정 안 함</option>
-          <option v-for="c in s.channels" :key="c.id" :value="c.id"># {{ c.name }}</option>
-        </select>
+        <div class="relative">
+          <select v-model="selectedChannel" :disabled="!s.canEdit" class="w-full appearance-none bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-10 py-2.5 text-[0.9rem] outline-none font-[inherit] cursor-pointer scheme-dark transition-[border-color,background-color] duration-200 hover:border-white/15 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40 disabled:cursor-not-allowed">
+            <option :value="null" style="background-color: #0e1228; color: #e8eaf6">지정 안 함</option>
+            <option v-for="c in s.channels" :key="c.id" :value="c.id" style="background-color: #0e1228; color: #e8eaf6"># {{ c.name }}</option>
+          </select>
+          <svg class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+        </div>
+      </BaseCard>
+
+      <!-- SponsorBlock -->
+      <BaseCard icon="skip" title="SponsorBlock 자동 스킵" class="mb-3">
+        <p class="text-muted text-sm mb-3.5">뮤직비디오의 인트로·최종 화면·음악이 아닌 구간 등을 SponsorBlock 데이터로 자동 건너뜁니다.</p>
+
+        <div v-if="s.sponsorblock && !s.sponsorblock.masterEnabled" class="text-warning text-sm mb-1">봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 서버 설정은 적용되지 않습니다.</div>
+
+        <template v-if="s.sponsorblock">
+          <label class="flex items-center gap-2.5 py-1.5 text-sm" :class="s.canEdit ? 'cursor-pointer' : 'opacity-60'">
+            <input type="checkbox" class="size-4 accent-accent shrink-0" v-model="sbEnabled" :disabled="!s.canEdit" />
+            <span>이 서버에서 자동 스킵 사용</span>
+          </label>
+
+          <div class="flex items-center gap-1.5 mt-2 mb-1.5">
+            <span class="text-muted text-[0.8rem]">건너뛸 구간 종류</span>
+            <button type="button" @click="sbHelpOpen = !sbHelpOpen" class="text-muted hover:text-fg transition-colors" v-tooltip="sbHelpOpen ? '설명 닫기' : '각 구간 설명 보기'" aria-label="각 구간 설명">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2v2h-2V7zm0 4h2v6h-2v-6zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" /></svg>
+            </button>
+          </div>
+
+          <!-- 구간 설명 패널 (내용은 SB_DESCRIPTIONS에 작성) -->
+          <div v-if="sbHelpOpen" class="rounded-xl border border-white/7 bg-white/3 p-2.5 mb-1.5 flex flex-col gap-1.5 text-[0.8rem]">
+            <div v-for="c in s.sponsorblock.available" :key="'help' + c.id" class="flex gap-2">
+              <span class="text-fg-soft font-medium shrink-0 min-w-24">{{ c.label }}</span>
+              <span class="text-muted">{{ sbDescriptions[c.id] || "" }}</span>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-white/7 p-1.5 flex flex-col gap-0.5" :class="sbEnabled ? '' : 'opacity-40 pointer-events-none'">
+            <label v-for="c in s.sponsorblock.available" :key="c.id" class="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg text-sm transition-[background-color] duration-150" :class="s.canEdit ? 'cursor-pointer hover:bg-white/5' : 'opacity-60'">
+              <input type="checkbox" class="size-4 accent-accent shrink-0" :checked="sbCategories.includes(c.id)" :disabled="!s.canEdit" @change="toggleSbCategory(c.id)" />
+              <span>{{ c.label }}</span>
+            </label>
+          </div>
+        </template>
       </BaseCard>
 
       <!-- Save / revert -->
@@ -51,8 +90,9 @@
         <span v-if="dirty" class="text-warning text-[0.8rem]">저장되지 않은 변경이 있습니다</span>
       </div>
 
-      <div v-if="result" :class="resultMsg(result.success)">
-        {{ result.success ? "✅ 설정이 저장됐습니다" : `❌ 저장 실패: ${result.error}` }}
+      <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
+        <Icon :name="result.success ? 'check' : 'error'" :size="16" />
+        <span>{{ result.success ? "설정이 저장됐습니다" : `저장 실패: ${result.error}` }}</span>
       </div>
     </template>
   </div>
@@ -64,18 +104,35 @@ import { useRoute } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
+import Icon from "../components/BaseIcon.vue";
 
 const route = useRoute();
 const guildId = route.params.guildId;
 
 const loading = ref(true);
 const loadError = ref(null);
-const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [] });
+const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null });
 
 // 편집 폼 상태 (서버 값과 분리 — 저장 전까지 반영 안 됨)
 const selectedRoles = ref([]);
 const selectedChannel = ref(null);
 const roleFilter = ref("");
+const sbEnabled = ref(true);
+const sbCategories = ref([]);
+const sbHelpOpen = ref(false);
+
+// 각 SponsorBlock 구간 종류 설명 — 내용은 여기에 작성 (키 = 카테고리 id)
+const sbDescriptions = {
+  music_offtopic: "이 구간은 뮤직비디오에서만 해당합니다.",
+  intro: "반복되는 애니메이션이나 정적 프레임과 같은 내용을 포함하는 구간",
+  outro: "최종 화면이나 크레딧 내용을 포함하는 구간",
+  sponsor: "유료 광고, 유료 협찬과 같은 직접적인 광고 내용을 포함하는 구간",
+  selfpromo: '"후원이나 협찬 구간"과 유사하지만, 자발적으로 홍보하는 내용을 포함하는 구간',
+  interaction: "좋아요, 구독, 팔로우를 요청하는 구간",
+  preview: "동영상의 뒷부분에서 반복되는 현재 동영상 또는 시리즈의 다른 동영상에 나온 정보를 보여주는 구간",
+  hook: "후속 편에 대한 내용이나, 인사말이 있는 구간",
+  filler: "전반적인 동영상의 주제를 이해하는 데 필요 없는 잡담이나 농담이 포함되는 구간",
+};
 const saving = ref(false);
 const result = ref(null);
 
@@ -84,7 +141,19 @@ const filteredRoles = computed(() => {
   return q ? s.value.roles.filter((r) => r.name.toLowerCase().includes(q)) : s.value.roles;
 });
 
-const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()));
+const sbDirty = computed(() => {
+  const sb = s.value.sponsorblock;
+  if (!sb) return false;
+  return sbEnabled.value !== sb.enabled || JSON.stringify([...sbCategories.value].sort()) !== JSON.stringify([...(sb.categories || [])].sort());
+});
+
+const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()) || sbDirty.value);
+
+function toggleSbCategory(id) {
+  const i = sbCategories.value.indexOf(id);
+  if (i >= 0) sbCategories.value.splice(i, 1);
+  else sbCategories.value.push(id);
+}
 
 function resultMsg(ok) {
   const base = "mt-3 px-4 py-2.5 rounded-[10px] text-sm border";
@@ -97,9 +166,16 @@ function toggleRole(id) {
   else if (selectedRoles.value.length < 25) selectedRoles.value.push(id); // 디스코드 셀렉트 메뉴 한계와 정합
 }
 
+function syncSbForm() {
+  const sb = s.value.sponsorblock;
+  sbEnabled.value = sb ? sb.enabled : true;
+  sbCategories.value = sb ? [...(sb.categories || [])] : [];
+}
+
 function revert() {
   selectedRoles.value = [...s.value.djRoleIds];
   selectedChannel.value = s.value.botChannelId;
+  syncSbForm();
   result.value = null;
 }
 
@@ -109,6 +185,7 @@ async function load() {
     s.value = res.data;
     selectedRoles.value = [...res.data.djRoleIds];
     selectedChannel.value = res.data.botChannelId;
+    syncSbForm();
   } catch (e) {
     loadError.value = e.response?.data?.error || "설정을 불러오지 못했습니다";
   } finally {
@@ -121,7 +198,11 @@ async function save() {
   saving.value = true;
   result.value = null;
   try {
-    await axios.put(`/api/guilds/${guildId}/settings`, { djRoleIds: selectedRoles.value, botChannelId: selectedChannel.value });
+    await axios.put(`/api/guilds/${guildId}/settings`, {
+      djRoleIds: selectedRoles.value,
+      botChannelId: selectedChannel.value,
+      sponsorblock: { enabled: sbEnabled.value, categories: sbCategories.value },
+    });
     result.value = { success: true };
     await load(); // 서버가 확정한 값(삭제 역할 정리 등)으로 동기화
   } catch (e) {
