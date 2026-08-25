@@ -10,17 +10,17 @@ const MusicPlayer = require("./src/MusicPlayer");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
 
-// 슬래시 커맨드 배포
+// 슬래시 명령어 배포
 if (isPrimaryShard()) {
   const { deployCommands, deployErrorLines } = require("./src/commandLoader");
-  console.log("🚀 슬래시 커맨드 배포를 시작합니다...");
+  console.log("🚀 슬래시 명령어 배포를 시작합니다.");
   deployCommands().then((r) => {
-    if (r.ok && r.skipped) console.log(chalk.gray(`⏭️  커맨드 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
-    else if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 커맨드를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
+    if (r.ok && r.skipped) console.log(chalk.gray(`⏭️  명령어 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
+    else if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
     else deployErrorLines(r).forEach((line) => console.error(chalk.red(line)));
   });
 } else {
-  console.log("⏭️  [commandLoader] 대표 샤드가 아니므로 명령 배포를 건너뜁니다.");
+  console.log("⏭️  [commandLoader] 대표 샤드가 아니므로 명령어 배포를 건너뜁니다.");
 }
 
 // Initialize CacheManager DB and clean up orphaned files on startup
@@ -37,7 +37,7 @@ async function restoreSavedPlayers(client) {
   const entries = Object.entries(savedStates || {});
   if (entries.length === 0) return;
 
-  console.log(chalk.cyan(`🔄 복원할 저장 세션 ${entries.length}개를 찾았습니다...`));
+  console.log(chalk.cyan(`🔄 복원할 저장 세션 ${entries.length}개를 찾았습니다.`));
 
   for (const [guildId, state] of entries) {
     try {
@@ -121,7 +121,7 @@ let bgutilStopping = false;
 function startBgutilServer() {
   if (bgutilStopping) return;
   if (!fs.existsSync(BGUTIL_ENTRY)) {
-    console.warn(chalk.yellow("⚠️  [bgutil] build/main.js 없음 — POToken provider 비활성"));
+    console.warn(chalk.yellow("⚠️  [bgutil] build/main.js 없음: POToken provider 비활성"));
     return;
   }
   bgutilProc = spawn(process.execPath, ["build/main.js"], {
@@ -176,7 +176,7 @@ async function waitForBgutilReady(timeoutMs = 15000) {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  console.warn(chalk.yellow(`⚠️  [bgutil] ${timeoutMs / 1000}초 내 응답 없음 — POToken 없이 봇을 기동합니다.`));
+  console.warn(chalk.yellow(`⚠️  [bgutil] ${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.`));
   return false;
 }
 
@@ -231,13 +231,13 @@ function startBot() {
 
         if ("data" in command && "execute" in command) {
           client.commands.set(command.data.name, command);
-          console.log(chalk.green(`✓ 명령어 로드 완료: ${command.data.name}`));
+          console.log(chalk.green(`✅  명령어 준비 완료: ${command.data.name}`));
         } else {
-          console.log(chalk.yellow(`⚠ 경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`));
+          console.log(chalk.yellow(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`));
         }
       }
     } catch (error) {
-      console.log(chalk.yellow("⚠ 명령어 디렉토리가 없습니다. 명령어 로딩을 건너뜁니다."));
+      console.log(chalk.yellow("⚠️  명령어 디렉토리가 없습니다. 명령어 로딩을 건너뜁니다."));
     }
   };
 
@@ -460,7 +460,7 @@ function startBot() {
 
     // 일시적 네트워크/음성 오류(IP discovery 실패 등) — 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
     if (isTransientNetworkError(reason)) {
-      console.log(chalk.yellow("⚠️ 네트워크/음성 오류(rejection) — 연결이 끊긴 서버만 복구합니다..."));
+      console.log(chalk.yellow("⚠️ 네트워크/음성 오류(rejection): 연결이 끊긴 서버만 복구합니다."));
       healBrokenPlayers(client).catch(() => {});
       return;
     }
@@ -486,11 +486,11 @@ function startBot() {
     // 일시적 네트워크 오류 — 프로세스는 살리고 "영향받은 서버만" 표적 복구. 짧은 시간에 폭주하면(빈도 가드) 시스템적 이상으로 보고 안전 종료
     if (isTransientNetworkError(error)) {
       if (!networkErrorFlooding()) {
-        console.log(chalk.yellow("⚠️ 네트워크 오류 — 봇은 계속 실행하고, 연결이 끊긴 서버만 복구합니다..."));
+        console.log(chalk.yellow("⚠️ 네트워크 오류: 봇은 계속 실행하고, 연결이 끊긴 서버만 복구합니다."));
         healBrokenPlayers(client).catch(() => {});
         return;
       }
-      console.error(chalk.red(`🛑 네트워크 오류가 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단합니다.`));
+      console.error(chalk.red(`🛑 네트워크 오류: ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과. 시스템적 이상으로 판단합니다.`));
     }
 
     // 그 외(또는 네트워크 폭주) = 치명적 → 안전 종료

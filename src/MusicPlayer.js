@@ -505,7 +505,7 @@ class MusicPlayer {
             // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
             // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
             audioStream.on("error", (err) => {
-              console.warn(`⚠️ Audio stream dropped (${err.code || err.message}), recovering from cache...`);
+              console.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구 합니다.`);
             });
             // ffmpegProcess는 @discordjs/voice 파이프라인이 정리하지만 audioStream은 그 밖(.pipe)이라 명시적으로 닫는다.
             ffmpegProcess.once("close", () => audioStream.destroy());
@@ -527,7 +527,7 @@ class MusicPlayer {
 
       // 파일 재생 모드 (사전 다운로드 또는 스트리밍 폴백)
       if (!shouldDownload && downloadedFile) {
-        console.log(`🎵 Playing from cached file: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
+        console.log(`🎵 오디오 캐시에서 재생: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
 
         const seekArgs = resumeFromMs > 0 ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
 
@@ -582,7 +582,7 @@ class MusicPlayer {
         this.currentTrack.duration = streamInfo.duration;
       }
 
-      console.log(`▶️  Playing: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
+      console.log(`▶️  재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
 
       // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
       if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
@@ -604,7 +604,7 @@ class MusicPlayer {
       }
 
       if (this.pauseReasons.size > 0) {
-        console.log(`⏸️  Paused due to: ${Array.from(this.pauseReasons).join(", ")}`);
+        console.log(`⏸️  일시정지 사유: ${Array.from(this.pauseReasons).join(", ")}`);
         this.audioPlayer.pause();
       }
 
@@ -668,7 +668,7 @@ class MusicPlayer {
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
-      console.log(`🕒 Track watchdog: ${remainingSeconds}s remaining (${durationSeconds}s total, ${startOffsetSeconds}s offset)`);
+      console.log(`🕒 트랙 워치독: ${remainingSeconds}초 남음 (총 ${durationSeconds}초, ${startOffsetSeconds}초 오프셋)`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
       // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인

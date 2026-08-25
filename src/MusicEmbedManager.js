@@ -218,26 +218,36 @@ class MusicEmbedManager {
     const components = jumpToRow ? [container, jumpToRow] : [container];
     const payload = { components, flags: MessageFlags.IsComponentsV2 };
 
+    // 지속되는 now-playing 메시지는 상호작용 유무와 무관하게 항상 채널 웹훅(실패 시 일반 채널 메시지)으로 보낸다.
+    // 상호작용 응답(@original)으로 보내면 이후 편집이 상호작용 토큰을 사용하는데, 이 토큰은 생성 15분 뒤 만료되어
+    // 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
+    // (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
     let message;
-    if (interaction) {
-      if (interaction.deferred || interaction.replied) {
-        message = await interaction.editReply({ content: null, ...payload });
-      } else {
-        message = await interaction.reply(payload);
-      }
+    const webhook = await this.getOrCreateWebhook(player.textChannel);
+    if (webhook) {
+      message = await webhook.send({
+        ...payload,
+        username: this.client.user.displayName || this.client.user.username,
+        avatarURL: this.client.user.displayAvatarURL(),
+      });
+      player.nowPlayingWebhook = webhook;
     } else {
-      // 메시지에 webhook_id가 붙도록 웹훅 사용 — CV2 텍스트 표시에서 이모지 링크가 올바르게 렌더링되는 데 필요
-      const webhook = await this.getOrCreateWebhook(player.textChannel);
-      if (webhook) {
-        message = await webhook.send({
-          ...payload,
-          username: this.client.user.displayName || this.client.user.username,
-          avatarURL: this.client.user.displayAvatarURL(),
-        });
-        player.nowPlayingWebhook = webhook;
-      } else {
-        message = await player.textChannel.send(payload);
-        player.nowPlayingWebhook = null;
+      message = await player.textChannel.send(payload);
+      player.nowPlayingWebhook = null;
+    }
+
+    // 상호작용의 초기 응답("검색 중..." 등)은 이제 불필요 — 제거해 채널에 중복/정지 메시지를 남기지 않는다.
+    if (interaction) {
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.deleteReply();
+        } else {
+          // 아직 응답하지 않은 상호작용(예: /dashboard)은 조용히 확인만 하고 제거
+          await interaction.reply({ content: "▶️", flags: MessageFlags.Ephemeral });
+          await interaction.deleteReply();
+        }
+      } catch {
+        /* 이미 만료/삭제됐을 수 있음 — 무시 */
       }
     }
 
