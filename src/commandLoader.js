@@ -1,4 +1,5 @@
 const { REST, Routes } = require("discord.js");
+const log = require("./logger").child({ category: "commands" });
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -18,9 +19,9 @@ function loadCommandData() {
     const command = require(path.join(commandsPath, file));
     if ("data" in command && "execute" in command) {
       commands.push(command.data.toJSON());
-      console.log(`📋  명령어 정의 불러옴: ${command.data.name}`);
+      log.info(`📋  명령어 정의 불러옴: ${command.data.name}`);
     } else {
-      console.log(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`);
+      log.info(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`);
     }
   }
   return commands;

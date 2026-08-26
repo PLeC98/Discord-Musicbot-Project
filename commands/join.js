@@ -1,6 +1,7 @@
 "use strict";
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+const log = require("../src/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
 const CacheManager = require("../src/CacheManager");
@@ -49,7 +50,7 @@ module.exports = {
         // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
         await interaction.editReply({ content: `▶️ 이전 세션을 복구했어요! **${player.currentTrack.title}** 재생 중` });
       } catch (error) {
-        console.error("[join] 세션 복원 실패:", error.message);
+        log.error({ sub: "join" }, "세션 복원 실패:", error.message);
         player.releaseResources();
         player.disconnect();
         client.players.delete(guild.id);

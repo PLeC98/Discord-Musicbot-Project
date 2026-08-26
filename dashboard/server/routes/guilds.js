@@ -1,4 +1,5 @@
 const express = require("express");
+const log = require("../../../src/logger").child({ category: "dashboard" });
 const router = express.Router();
 const requireAuth = require("../middleware/requireAuth");
 const requireControl = require("../middleware/requireControl");
@@ -342,7 +343,7 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     await GuildSettingsManager.setSponsorBlock(guild.id, nextSponsor);
   }
 
-  console.log(`[Dashboard] 서버 설정 변경: ${guild.name} (${guild.id}) by ${req.session.user.username || req.session.user.id}`);
+  log.info(`서버 설정 변경: ${guild.name} (${guild.id}) by ${req.session.user.username || req.session.user.id}`);
   res.json({ success: true });
 });
 
@@ -558,7 +559,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
   const query = sanitizeQuery(req.body.query);
   if (!query) return res.status(400).json({ error: `검색어를 입력해 주세요 (문자열, 최대 ${QUERY_MAX_LEN}자)` });
 
-  console.log(`[Play] Dashboard | guild=${guildId} | user=${req.session.user.globalName || req.session.user.username} | query="${query}"`);
+  log.info({ sub: "play" }, `Dashboard | guild=${guildId} | user=${req.session.user.globalName || req.session.user.username} | query="${query}"`);
 
   try {
     const requester = {
@@ -578,7 +579,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
 
     res.json(playerState(player));
   } catch (err) {
-    console.error("Dashboard addTrack error:", err);
+    log.error("Dashboard addTrack error:", err);
     res.status(500).json({ error: "곡 추가에 실패했습니다" });
   }
 });

@@ -1,4 +1,5 @@
 const { AudioPlayerStatus, createAudioPlayer, createAudioResource, StreamType } = require("@discordjs/voice");
+const log = require("./logger").child({ category: "player" });
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 function isBotOwnedStatus(s) {
@@ -154,7 +155,7 @@ class MusicPlayer {
     });
 
     this.audioPlayer.on("error", (error) => {
-      console.error("🎵 Audio player error:", error);
+      log.error("🎵 Audio player error:", error);
 
       // 스트림 오류이고 현재 트랙이 있으면 복구 시도
       if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
@@ -223,7 +224,7 @@ class MusicPlayer {
             await this.preloadTrack(track);
             await new Promise((r) => setTimeout(r, config.preload.gapMs));
           } catch (err) {
-            if (err && err.message) console.error(`❌ Preload error for ${track.title}:`, err.message);
+            if (err && err.message) log.error(`❌ Preload error for ${track.title}:`, err.message);
           }
         }
       })();
@@ -246,6 +247,9 @@ class MusicPlayer {
         isPlaylist: tracks.length > 1,
         position: this.queue.length,
       };
+
+      const who = requestedBy?.tag || requestedBy?.username || requestedBy?.displayName || (typeof requestedBy === "string" ? requestedBy : null);
+      log.info(`➕ 큐 추가: "${addedTracks[0]?.title ?? "?"}"${addedTracks.length > 1 ? ` 외 ${addedTracks.length - 1}곡` : ""} [${result.isPlaylist ? "재생목록" : "단일"}]${who ? ` — ${who}` : ""} (대기열 ${this.queue.length})`);
 
       await this.persistState("queue-update");
       return result;
@@ -429,7 +433,7 @@ class MusicPlayer {
           })
           .catch((err) => {
             if (err && err.message) {
-              console.error(`⚠️ Background download failed: ${err.message}`);
+              log.error(`⚠️ Background download failed: ${err.message}`);
             }
           });
 
@@ -498,14 +502,14 @@ class MusicPlayer {
 
           ffmpegProcess.on("error", (err) => {
             if (err.message && err.message.includes("Premature close")) return;
-            console.error("❌ FFmpeg streaming error:", err.message);
+            log.error("❌ FFmpeg streaming error:", err.message);
           });
 
           if (audioStream) {
             // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
             // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
             audioStream.on("error", (err) => {
-              console.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구 합니다.`);
+              log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구 합니다.`);
             });
             // ffmpegProcess는 @discordjs/voice 파이프라인이 정리하지만 audioStream은 그 밖(.pipe)이라 명시적으로 닫는다.
             ffmpegProcess.once("close", () => audioStream.destroy());
@@ -527,7 +531,7 @@ class MusicPlayer {
 
       // 파일 재생 모드 (사전 다운로드 또는 스트리밍 폴백)
       if (!shouldDownload && downloadedFile) {
-        console.log(`🎵 오디오 캐시에서 재생: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
+        log.info(`🎵 오디오 캐시에서 재생: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
 
         const seekArgs = resumeFromMs > 0 ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
 
@@ -552,7 +556,7 @@ class MusicPlayer {
 
         ffmpegProcess.on("error", (err) => {
           if (err.message && err.message.includes("Premature close")) return;
-          console.error("❌ FFmpeg playback error:", err.message);
+          log.error("❌ FFmpeg playback error:", err.message);
         });
 
         this.resource = createAudioResource(ffmpegProcess, {
@@ -582,7 +586,7 @@ class MusicPlayer {
         this.currentTrack.duration = streamInfo.duration;
       }
 
-      console.log(`▶️  재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
+      log.info(`▶️  재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
 
       // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
       if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
@@ -604,7 +608,7 @@ class MusicPlayer {
       }
 
       if (this.pauseReasons.size > 0) {
-        console.log(`⏸️  일시정지 사유: ${Array.from(this.pauseReasons).join(", ")}`);
+        log.info(`⏸️  일시정지 사유: ${Array.from(this.pauseReasons).join(", ")}`);
         this.audioPlayer.pause();
       }
 
@@ -668,7 +672,7 @@ class MusicPlayer {
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
-      console.log(`🕒 트랙 워치독: ${remainingSeconds}초 남음 (총 ${durationSeconds}초, ${startOffsetSeconds}초 오프셋)`);
+      log.info(`🕒 트랙 워치독: ${remainingSeconds}초 남음 (총 ${durationSeconds}초, ${startOffsetSeconds}초 오프셋)`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
       // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
@@ -869,7 +873,7 @@ class MusicPlayer {
 
           await this.persistState("inactivity-timeout");
         } catch (error) {
-          console.error("❌ Failed to update playback UI after inactivity timeout:", error);
+          log.error("❌ Failed to update playback UI after inactivity timeout:", error);
         } finally {
           try {
             this.cleanup();
@@ -1232,7 +1236,7 @@ class MusicPlayer {
           return;
         }
         // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 자동재생을 끄고 알린 뒤, 아래의 일반 대기열 종료 흐름으로 진행
-        console.warn(`⚠️ 알 수 없는 자동재생 장르 '${this.autoplay}' — 자동재생을 끕니다`);
+        log.warn(`⚠️ 알 수 없는 자동재생 장르 '${this.autoplay}' — 자동재생을 끕니다`);
         if (this.textChannel) {
           this.textChannel.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
         }
@@ -1341,7 +1345,7 @@ class MusicPlayer {
       // 트랙 사전 로드
       this.preloadTrack(randomTrack).catch((err) => {
         if (err && err.message) {
-          console.error(`❌ Autoplay preload failed: ${err.message}`);
+          log.error(`❌ Autoplay preload failed: ${err.message}`);
         }
       });
 
@@ -1354,7 +1358,7 @@ class MusicPlayer {
         await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
       }
     } catch (error) {
-      console.error("❌ Autoplay error:", error.message);
+      log.error("❌ Autoplay error:", error.message);
     }
   }
 
@@ -1467,7 +1471,7 @@ class MusicPlayer {
           try {
             this.connection.destroy();
           } catch (error) {
-            console.error("Error destroying connection:", error);
+            log.error("Error destroying connection:", error);
           }
         }
         this.connection = null;
@@ -1518,7 +1522,7 @@ class MusicPlayer {
       this.pauseReasons.clear();
       this.paused = false;
     } catch (error) {
-      console.error("❌ Error during cleanup:", error);
+      log.error("❌ Error during cleanup:", error);
     }
   }
 

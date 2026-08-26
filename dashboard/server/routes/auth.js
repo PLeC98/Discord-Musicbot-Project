@@ -1,4 +1,5 @@
 const express = require("express");
+const log = require("../../../src/logger").child({ category: "dashboard" });
 const axios = require("axios");
 const crypto = require("crypto");
 const router = express.Router();
@@ -15,8 +16,8 @@ const DISCORD_API = "https://discord.com/api/v10";
 // Log OAuth config at startup — 리다이렉트 불일치 디버깅용 REDIRECT_URI만.
 // CLIENT_ID는 config에서 필수 검증되므로(없으면 기동 실패) 출력 불필요하고,
 // OWNER_ID는 소유자 신원이라 원시 ID를 로그(=admin SSE 로그 스트림)에 남기지 않는다.
-console.log(`[Dashboard Auth] REDIRECT_URI: ${REDIRECT_URI}`);
-console.log(`[Dashboard Auth] OWNER_ID: ${OWNER_ID ? "(set)" : "(not set)"}`);
+log.info({ sub: "auth" }, `REDIRECT_URI: ${REDIRECT_URI}`);
+log.info({ sub: "auth" }, `OWNER_ID: ${OWNER_ID ? "(set)" : "(not set)"}`);
 
 // Redirect to Discord OAuth
 router.get("/login", (req, res) => {
@@ -81,7 +82,7 @@ router.get("/callback", async (req, res) => {
     // 로그인 전 세션(oauthState 등)은 폐기, 새 sid로 사용자 정보만
     req.session.regenerate((err) => {
       if (err) {
-        console.error("❌ Session regenerate error:", err);
+        log.error("❌ Session regenerate error:", err);
         return res.redirect("/?error=auth_failed");
       }
       req.session.user = sessionUser;
@@ -89,10 +90,10 @@ router.get("/callback", async (req, res) => {
     });
   } catch (error) {
     const discordErr = error.response?.data;
-    console.error("❌ OAuth callback error:");
-    console.error("  Status:", error.response?.status);
-    console.error("  Body:", JSON.stringify(discordErr));
-    console.error("  REDIRECT_URI used:", REDIRECT_URI);
+    log.error("❌ OAuth callback error:");
+    log.error("  Status:", error.response?.status);
+    log.error("  Body:", JSON.stringify(discordErr));
+    log.error("  REDIRECT_URI used:", REDIRECT_URI);
     res.redirect("/?error=auth_failed");
   }
 });

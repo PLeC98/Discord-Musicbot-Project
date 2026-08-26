@@ -99,6 +99,21 @@
             <button :class="typeBtn(false)" @click="logs = []">지우기</button>
           </div>
         </div>
+        <div v-if="logCategories.length" class="flex gap-1.5 flex-wrap mb-2">
+          <button
+            v-for="cat in logCategories"
+            :key="cat"
+            class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200"
+            :style="
+              catFilter === cat
+                ? { color: catColor(cat), borderColor: catColor(cat) + '88', backgroundColor: catColor(cat) + '22' }
+                : { color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.03)' }
+            "
+            @click="catFilter = catFilter === cat ? null : cat"
+          >
+            {{ cat }}
+          </button>
+        </div>
         <div class="flex items-center gap-1.5 text-[0.8rem] text-muted mb-2">
           <span :class="sseConnected ? 'text-success' : 'text-danger'">●</span>
           <span>{{ sseConnected ? "연결됨" : "연결 끊김" }}</span>
@@ -109,6 +124,18 @@
           <div v-for="(entry, i) in filteredLogs" :key="i" class="flex gap-2 leading-relaxed border-b border-white/3">
             <span class="text-[#6b7280] shrink-0">{{ fmtTime(entry.ts) }}</span>
             <span class="shrink-0 w-10 font-bold" :class="lvColor(entry.level)">{{ entry.level.toUpperCase() }}</span>
+            <span
+              v-if="entry.category || entry.sub"
+              class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight"
+              :style="{ color: catColor(entry.category || entry.sub), backgroundColor: catColor(entry.category || entry.sub) + '22' }"
+              >{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span
+            >
+            <span
+              v-for="t in entry.tags"
+              :key="t"
+              class="shrink-0 self-center px-1.5 rounded text-[0.64rem] font-medium leading-tight text-[#9ca3af] bg-white/6"
+              >#{{ t }}</span
+            >
             <span class="break-all whitespace-pre-wrap" :class="txtColor(entry.level)">{{ entry.text }}</span>
           </div>
         </div>
@@ -311,6 +338,7 @@ async function redeploy() {
 // ── Log viewer ──────────────────────────────────────────────
 const logs = ref([]);
 const logFilter = ref(null);
+const catFilter = ref(null);
 const autoScroll = ref(true);
 const sseConnected = ref(false);
 const logPane = ref(null);
@@ -331,7 +359,18 @@ function txtColor(level) {
   return { warn: "text-[#fef3c7]", error: "text-[#fecaca]" }[level] || "text-[#d1d5db]";
 }
 
-const filteredLogs = computed(() => (logFilter.value ? logs.value.filter((e) => e.level === logFilter.value) : logs.value));
+// 카테고리: 지금까지 흘러온 로그에서 실제로 본 것만 필터 알약으로 노출(고정 목록 아님)
+const logCategories = computed(() => [...new Set(logs.value.map((e) => e.category).filter(Boolean))].sort());
+const CAT_PALETTE = ["#f472b6", "#60a5fa", "#34d399", "#fbbf24", "#a78bfa", "#22d3ee", "#fb923c", "#4ade80", "#e879f9", "#38bdf8"];
+function catColor(cat) {
+  let h = 0;
+  for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) >>> 0;
+  return CAT_PALETTE[h % CAT_PALETTE.length];
+}
+
+const filteredLogs = computed(() =>
+  logs.value.filter((e) => (!logFilter.value || e.level === logFilter.value) && (!catFilter.value || e.category === catFilter.value)),
+);
 
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });

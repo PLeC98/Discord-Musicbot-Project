@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("fs").promises;
+const log = require("./logger").child({ category: "track" });
 const fsSync = require("fs");
 const prism = require("prism-media");
 const ffmpegPath = require("ffmpeg-static");
@@ -65,7 +66,7 @@ class TrackDownloader {
         // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
         // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
-          console.warn(`⚠️ 캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
+          log.warn(`⚠️ 캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
           const fresh = await TrackResolver.reresolveYouTube(track, player.guild?.id);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
@@ -165,10 +166,11 @@ class TrackDownloader {
           /* 무시 */
         }
       }
+      log.info(`💾 캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
       player.scheduleStatePersist("download-complete", 500);
       return filepath;
     } catch (error) {
-      console.error(`❌ Download failed for ${track.title}:`, error.message);
+      log.error(`❌ Download failed for ${track.title}:`, error.message);
       throw error;
     }
   }
@@ -186,7 +188,7 @@ class TrackDownloader {
       player.scheduleStatePersist("download-removed", 500);
     } catch (error) {
       if (error.code !== "ENOENT") {
-        console.error(`❌ Failed to delete file ${filepath}:`, error.message);
+        log.error(`❌ Failed to delete file ${filepath}:`, error.message);
       }
     }
   }
@@ -233,7 +235,7 @@ class TrackDownloader {
       }
     } catch (error) {
       if (error && error.message) {
-        console.error(`❌ Pre-download failed for ${track.title}:`, error.message);
+        log.error(`❌ Pre-download failed for ${track.title}:`, error.message);
       }
     } finally {
       // 사전 로드 대기열에서 제거

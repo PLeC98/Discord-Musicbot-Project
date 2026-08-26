@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
+const log = require("../src/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
 const ErrorHandler = require("../src/ErrorHandler");
@@ -39,7 +40,7 @@ module.exports = {
         });
       }
 
-      console.log(`[Play] /play | 서버=${guild.id} | 사용자=${member.user.tag} | 검색어="${query}"`);
+      log.info({ sub: "play" }, `/play | 서버=${guild.id} | 사용자=${member.user.tag} | 검색어="${query}"`);
 
       // 음악 플레이어를 가져오거나 생성 — 봇이 이미 접속 중이면 그 채널을 기준으로 (관리자 원격 추가 대응)
       let player = client.players.get(guild.id);
@@ -93,7 +94,7 @@ module.exports = {
           await interaction.reply({ content: errorMsg, flags: MessageFlags.Ephemeral });
         }
       } catch (responseError) {
-        console.error("오류 응답 전송 중 오류:", responseError);
+        log.error("오류 응답 전송 중 오류:", responseError);
       }
     }
   },

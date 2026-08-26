@@ -1,6 +1,7 @@
 "use strict";
 
 const { VoiceConnectionStatus, joinVoiceChannel, entersState } = require("@discordjs/voice");
+const log = require("./logger").child({ category: "voice" });
 
 /**
  * VoiceConnectionManager — 음성 연결/자동 복구/헬스체크
@@ -43,7 +44,7 @@ class VoiceConnectionManager {
     });
 
     player.connection.on("error", (error) => {
-      console.error("🚨 Voice connection error:", error);
+      log.error("🚨 Voice connection error:", error);
       if (player.currentTrack && !player.paused) {
         this.startConnectionRecovery();
       }
@@ -89,7 +90,7 @@ class VoiceConnectionManager {
           return;
         }
       } catch (error) {
-        console.error("❌ Health check error:", error);
+        log.error("❌ Health check error:", error);
       }
     }, 30000);
   }
@@ -130,7 +131,7 @@ class VoiceConnectionManager {
             break;
           }
         } catch (error) {
-          console.error(`❌ Recovery attempt ${player.recoveryAttempts} failed:`, error);
+          log.error(`❌ Recovery attempt ${player.recoveryAttempts} failed:`, error);
         }
 
         // 다음 시도까지 휴지 (테스트에서 재정의 가능)
@@ -138,7 +139,7 @@ class VoiceConnectionManager {
       }
     } catch (error) {
       // 호출부가 await하지 않으므로(fire-and-forget) 루프는 절대 reject로 끝나면 안 됨
-      console.error("❌ Connection recovery loop error:", error);
+      log.error("❌ Connection recovery loop error:", error);
     } finally {
       if (active()) this.stopConnectionRecovery();
     }
@@ -196,7 +197,7 @@ class VoiceConnectionManager {
       await entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
       return true;
     } catch (error) {
-      console.error("❌ Force reconnect failed:", error);
+      log.error("❌ Force reconnect failed:", error);
       return false;
     }
   }
@@ -209,7 +210,7 @@ class VoiceConnectionManager {
       const resumeMs = player.resource ? player.currentTrackStartOffsetMs + (player.resource.playbackDuration || 0) : player.lastPlaybackPosition || 0;
       await player.play(null, resumeMs);
     } catch (error) {
-      console.error("❌ Failed to resume playback:", error);
+      log.error("❌ Failed to resume playback:", error);
       // 다음 트랙으로 계속 진행 시도
       await player.handleTrackEnd("error");
     }
@@ -261,9 +262,10 @@ class VoiceConnectionManager {
 
       // 연결 준비 대기
       await entersState(player.connection, VoiceConnectionStatus.Ready, 30000);
+      log.info(`🔊 음성 채널 참가: "${player.voiceChannel?.name ?? player.voiceChannel?.id}" (${player.guild?.name ?? player.guild?.id})`);
       return true;
     } catch (error) {
-      console.error("❌ Failed to connect to voice channel:", error.message);
+      log.error("❌ Failed to connect to voice channel:", error.message);
       throw error; // restoreFromState가 처리할 수 있도록 다시 던짐
     }
   }
@@ -285,11 +287,11 @@ class VoiceConnectionManager {
         await entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
         return true;
       } catch (error) {
-        console.error("❌ Failed to rejoin new voice channel:", error);
+        log.error("❌ Failed to rejoin new voice channel:", error);
         try {
           player.connection.destroy();
         } catch (destroyError) {
-          console.error("❌ Error destroying old connection:", destroyError);
+          log.error("❌ Error destroying old connection:", destroyError);
         }
         player.connection = null;
       }
@@ -303,6 +305,7 @@ class VoiceConnectionManager {
     if (player.connection && player.connection.state && player.connection.state.status !== "destroyed") {
       try {
         player.connection.destroy();
+        log.info(`🔇 음성 채널 떠남: "${player.voiceChannel?.name ?? player.voiceChannel?.id}" (${player.guild?.name ?? player.guild?.id})`);
       } catch (error) {}
     }
     player.connection = null;
