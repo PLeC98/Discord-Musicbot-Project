@@ -47,7 +47,10 @@ class MusicEmbedManager {
   }
 
   createErrorContainer(msg) {
-    return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(`❌ ${msg}`));
+    // 넘어오는 메시지(ERROR_MESSAGES/resolveQuery)는 이미 "❌ …"로 시작하므로 중복 접두 방지.
+    // (messageHandler·대시보드도 메시지의 ❌를 그대로 한 번만 표시한다.)
+    const content = String(msg ?? "").trimStart().startsWith("❌") ? msg : `❌ ${msg}`;
+    return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
   }
 
   /**
@@ -182,7 +185,7 @@ class MusicEmbedManager {
         }
       }
 
-      // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답이 사용자에게 표기).
+      // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
       if (startFailure && !firstTrackResult) {
         return { success: false, message: startFailure };
       }
