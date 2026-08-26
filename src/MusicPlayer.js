@@ -234,7 +234,13 @@ class MusicPlayer {
         // 플레이어가 유휴 상태였으므로 처음 추가된 트랙을 처음부터 재생
         if (addedTracks.length > 0) {
           this.currentTrack = addedTracks[0];
-          await this.play(null, 0);
+          const playResult = await this.play(null, 0);
+          // play()는 실패를 {success:false}로 반환(throw 아님) — 무시하면 대시보드가 성공으로 오인하고
+          // 유령 상태가 남는다. (재생목록이면 play() 내부 handleError가 다음 곡으로 스킵하므로 여기 안 옴.)
+          if (playResult && playResult.success === false) {
+            this.currentTrack = null;
+            return { success: false, message: playResult.message || "재생을 시작할 수 없습니다." };
+          }
         }
       } else if (this.audioPlayer.state && this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
         // 플레이어는 있지만 유휴 상태(재생 완료) - 대기열의 다음 곡 시작
@@ -1375,12 +1381,12 @@ class MusicPlayer {
       await this.play(null, 0);
     } else {
       this.currentTrack = null;
-      const msg = userMessage || "❌ 오류가 발생하여 재생목록이 중지되었습니다.";
-      if (this.textChannel) {
-        try {
-          await this.textChannel.send(msg);
-        } catch (_) {}
-      }
+      // 시작/마지막 곡 실패 정리: 오디오플레이어를 정지해 '말하는 중'(speaking) 상태·유령 재생을 해제.
+      // 사용자 알림은 호출자(명령 editReply / 대시보드 응답)가 play() 반환값으로 처리 —
+      // 여기서 textChannel로 또 보내면 중복이 되므로 전송하지 않는다.
+      try {
+        this.audioPlayer.stop(true);
+      } catch (_) {}
     }
   }
 

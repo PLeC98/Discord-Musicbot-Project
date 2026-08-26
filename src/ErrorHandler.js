@@ -45,7 +45,7 @@ class ErrorHandler {
     if (msg.includes("429") || msg.includes("too many requests") || msg.includes("rate limit") || msg.includes("quota")) return "rate_limited";
 
     // Spotify 트랙을 YouTube에서 찾을 수 없음
-    if (msg.includes("youtube equivalent not found") || msg.includes("no youtube match") || msg.includes("could not find youtube")) return "spotify_no_match";
+    if (msg.includes("youtube equivalent not found") || msg.includes("no youtube match") || msg.includes("could not find youtube") || msg.includes("동등물")) return "spotify_no_match";
 
     // 결과 없음
     if (msg.includes("no results") || msg.includes("not found") || msg.includes("no entries") || msg.includes("no tracks")) return "no_results";
