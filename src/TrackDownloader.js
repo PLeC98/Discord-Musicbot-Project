@@ -10,6 +10,7 @@ const TrackResolver = require("./TrackResolver");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const SponsorBlock = require("./SponsorBlock");
+const procRegistry = require("./ChildProcessRegistry");
 
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
@@ -108,6 +109,12 @@ class TrackDownloader {
         /* 무시 */
       }
 
+      // ⚠️ 라이브 스트림은 캐시 다운로드 대상이 아니다 — 끝이 없어서 yt-dlp가 ffmpeg를 외부 다운로더로
+      //    띄운 뒤 무한히 파일을 불린다. 재생(스트리밍)은 정상 진행되므로 여기서만 끊는다.
+      if (track.isLive) {
+        throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
+      }
+
       // YouTube, Spotify(YouTube 경유), SoundCloud(YouTube 경유)는 youtube-dl-exec 사용
       if (track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
         // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
@@ -117,6 +124,9 @@ class TrackDownloader {
               output: filepath,
               format: "bestaudio/best",
               preferFreeFormats: true,
+              // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
+              // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
+              matchFilter: "!is_live",
               postprocessorArgs: {
                 ffmpeg: ["-c:a", "libopus", "-b:a", "128k"],
               },
@@ -126,6 +136,12 @@ class TrackDownloader {
             { forceCookies },
           ),
         );
+
+        // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
+        // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
+        if (!fsSync.existsSync(filepath)) {
+          throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등) — 캐시 다운로드 불가");
+        }
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
@@ -137,15 +153,20 @@ class TrackDownloader {
           args: ["-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", filepath],
         });
 
+        const release = procRegistry.register(ffmpegProcess.process, "ffmpeg:download");
         audioStream.pipe(ffmpegProcess);
 
-        await new Promise((resolve, reject) => {
-          ffmpegProcess.on("close", (code) => {
-            if (code === 0) resolve();
-            else reject(new Error(`FFmpeg exited with code ${code}`));
+        try {
+          await new Promise((resolve, reject) => {
+            ffmpegProcess.on("close", (code) => {
+              if (code === 0) resolve();
+              else reject(new Error(`FFmpeg exited with code ${code}`));
+            });
+            ffmpegProcess.on("error", reject);
           });
-          ffmpegProcess.on("error", reject);
-        });
+        } finally {
+          release();
+        }
       }
 
       // 파일 검증
@@ -170,6 +191,17 @@ class TrackDownloader {
       player.scheduleStatePersist("download-complete", 500);
       return filepath;
     } catch (error) {
+      // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다.
+      // (지금까지 아무도 안 치웠다 — _cleanOrphanFiles는 .opus만 훑어서 부스러기가 영구 잔류했다.)
+      // 그리고 recordDownloadStart로 'downloading'이 된 DB 행을 'error'로 되돌린다.
+      // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
+      try {
+        const removed = CacheManager.cleanPartials(filepath);
+        if (removed > 0) log.debug(`중단된 다운로드 잔해 ${removed}개 정리: ${track.title}`);
+        if (audioSourceKey) CacheManager.recordError(audioSourceKey);
+      } catch {
+        /* 정리 실패는 원래 오류를 가리면 안 된다 */
+      }
       log.error(`❌ Download failed for ${track.title}:`, error.message);
       throw error;
     }

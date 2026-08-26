@@ -145,3 +145,65 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
     CacheManager.unprotect("protected1");
   }
 });
+
+// ── 중단된 다운로드 잔해 정리 ──────────────────────────────────────
+// 회귀 대상: 라이브 매칭 등으로 다운로드가 중단되면 yt-dlp가 track_<md5>.opus.part 등을 남기는데,
+// _cleanOrphanFiles가 .opus만 훑어서 이 부스러기들이 영구 잔류하고 용량만 먹던 문제.
+
+const crypto = require("node:crypto");
+
+function makeCacheDir() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-partials-"));
+  const md5 = crypto.createHash("md5").update("k").digest("hex");
+  return { dir, opus: path.join(dir, `track_${md5}.opus`), stem: `track_${md5}` };
+}
+
+test("cleanPartials: 같은 트랙의 부스러기만 지우고 완성본·남의 파일은 남긴다", () => {
+  const { dir, opus, stem } = makeCacheDir();
+  const other = `track_${"a".repeat(32)}`;
+  const files = [`${stem}.opus`, `${stem}.opus.part`, `${stem}.opus.part-Frag0`, `${stem}.opus.ytdl`, `${stem}.webm`, `${other}.opus`, `${other}.opus.part`, "unrelated.txt"];
+  for (const f of files) fs.writeFileSync(path.join(dir, f), "x");
+
+  const removed = CacheManager.cleanPartials(opus);
+  assert.equal(removed, 4, "부스러기 4개(.part/.part-Frag0/.ytdl/.webm)만 삭제");
+
+  const left = new Set(fs.readdirSync(dir));
+  assert.ok(left.has(`${stem}.opus`), "완성본은 남긴다 — 퇴거/고아정리가 따로 관리");
+  assert.ok(left.has(`${other}.opus`) && left.has(`${other}.opus.part`), "다른 트랙은 건드리지 않는다");
+  assert.ok(left.has("unrelated.txt"), "캐시 명명 규칙 밖의 파일은 건드리지 않는다");
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("cleanPartials: 캐시 명명 규칙에 맞지 않는 경로는 무시 (오삭제 방지)", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-partials-"));
+  fs.writeFileSync(path.join(dir, "important.db"), "x");
+  fs.writeFileSync(path.join(dir, "important.db.part"), "x");
+
+  assert.equal(CacheManager.cleanPartials(path.join(dir, "important.db")), 0);
+  assert.equal(CacheManager.cleanPartials(""), 0);
+  assert.equal(CacheManager.cleanPartials(null), 0);
+  assert.equal(fs.readdirSync(dir).length, 2, "아무것도 지우면 안 된다");
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치운다", () => {
+  const { dir, stem } = makeCacheDir();
+  for (const f of [`${stem}.opus.part`, `${stem}.opus.ytdl`, `${stem}.opus`]) {
+    fs.writeFileSync(path.join(dir, f), "x");
+  }
+
+  const prevDir = CacheManager._cacheDir;
+  CacheManager._cacheDir = dir;
+  try {
+    CacheManager._cleanOrphanFiles();
+  } finally {
+    CacheManager._cacheDir = prevDir;
+  }
+
+  const left = fs.readdirSync(dir);
+  assert.deepEqual(left, [], "DB에 없는 .opus 고아 + 잔해가 모두 정리되어야 함");
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});

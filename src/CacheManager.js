@@ -158,6 +158,37 @@ class CacheManager {
     return path.join(CACHE_DIR, `track_${CacheManager.md5(audioSourceKey)}.opus`);
   }
 
+  /**
+   * 중단된 다운로드가 남긴 부스러기를 지운다 — `track_<md5>.opus.part`, `.part-Frag0`, `.ytdl`,
+   * 트랜스코딩 전 중간 파일 등. yt-dlp의 임시 파일 이름 규칙에 기대지 않도록,
+   * "완성본(.opus)과 같은 basename으로 시작하되 완성본은 아닌 파일"을 전부 대상으로 삼는다.
+   *
+   * 중단된 다운로드는 지금까지 아무도 치우지 않아 영구 잔류했다(_cleanOrphanFiles는 .opus만 훑는다).
+   * @param {string} filepath 완성본 경로(track_<md5>.opus)
+   * @returns {number} 삭제한 파일 수
+   */
+  cleanPartials(filepath) {
+    if (!filepath) return 0;
+    const dir = path.dirname(filepath);
+    const base = path.basename(filepath); // track_<md5>.opus
+    if (!/^track_[0-9a-f]{32}\.opus$/.test(base)) return 0; // 우리가 만든 경로가 아니면 손대지 않는다
+    if (!fs.existsSync(dir)) return 0;
+
+    const stem = base.slice(0, -".opus".length); // track_<md5>
+    let removed = 0;
+    for (const name of fs.readdirSync(dir)) {
+      if (name === base) continue; // 완성본은 별도 관리(_cleanOrphanFiles/evict)
+      if (!name.startsWith(`${stem}.`)) continue; // 같은 트랙의 부스러기만
+      try {
+        fs.unlinkSync(path.join(dir, name));
+        removed++;
+      } catch {
+        /* 아직 잠겨 있거나 이미 없음 — 다음 startup 스윕이 처리 */
+      }
+    }
+    return removed;
+  }
+
   // 라이브 보호 (재생 중/사전 캐시된 트랙)
 
   /** 키를 사용 중으로 표시 — 제거 대상에서 건너뜀 */
@@ -556,9 +587,24 @@ class CacheManager {
     const allProtected = new Set([...sessionFiles, ...liveFiles]);
 
     let cleaned = 0;
+    let partials = 0;
     for (const file of fs.readdirSync(cacheDir)) {
-      if (!file.endsWith(".opus")) continue;
       const full = path.resolve(path.join(cacheDir, file));
+
+      // 중단된 다운로드의 부스러기(track_<md5>.opus.part, .part-FragN, .ytdl, 트랜스코딩 전 중간 파일).
+      // 부팅 시점에는 진행 중인 다운로드가 없으므로 무조건 지워도 안전하다.
+      // (봇을 강제 종료하면 ffmpeg가 파일 핸들을 물고 남는데, 프로세스를 정리한 뒤 남는 잔해가 이것들이다.)
+      if (/^track_[0-9a-f]{32}\./.test(file) && !file.endsWith(".opus")) {
+        try {
+          fs.unlinkSync(full);
+          partials++;
+        } catch {
+          /* 무시 */
+        }
+        continue;
+      }
+
+      if (!file.endsWith(".opus")) continue;
       if (!dbPaths.has(full) && !allProtected.has(full)) {
         try {
           fs.unlinkSync(full);
@@ -569,6 +615,7 @@ class CacheManager {
       }
     }
     if (cleaned > 0) log.info(`고아 파일 ${cleaned}개 삭제`);
+    if (partials > 0) log.info(`중단된 다운로드 잔해 ${partials}개 삭제`);
   }
 
   // 제거

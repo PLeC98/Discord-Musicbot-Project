@@ -1,4 +1,5 @@
-const youtubedl = require("youtube-dl-exec");
+// youtube-dl-exec 직접 호출 금지 — spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
+const youtubedl = require("./ytdlp");
 const config = require("../config");
 
 class SoundCloud {
