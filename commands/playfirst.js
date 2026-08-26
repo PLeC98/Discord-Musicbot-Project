@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
+const log = require("../src/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
 const ErrorHandler = require("../src/ErrorHandler");
@@ -88,7 +89,7 @@ module.exports = {
           await interaction.reply({ content: errorMsg, flags: MessageFlags.Ephemeral });
         }
       } catch (responseError) {
-        console.error("오류 응답 전송 중 오류:", responseError);
+        log.error("오류 응답 전송 중 오류:", responseError);
       }
     }
   },

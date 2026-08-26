@@ -1,4 +1,5 @@
 const path = require("path");
+const log = require("./logger").child({ category: "link" });
 const SafeUrl = require("./SafeUrl");
 
 class DirectLink {
@@ -43,7 +44,7 @@ class DirectLink {
       ];
     } catch (error) {
       // SSRF 차단 등 실패 상세는 서버 로그로만 (사용자에겐 상위에서 "결과 없음")
-      console.error("[DirectLink] getInfo() failed:", error.message || error);
+      log.error("getInfo() failed:", error.message || error);
       return [];
     }
   }
@@ -61,7 +62,7 @@ class DirectLink {
       return await SafeUrl.getStream(url);
     } catch (error) {
       // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용 — 사용자 노출 없음)
-      console.error("[DirectLink] getStream() failed:", error.message || error);
+      log.error("getStream() failed:", error.message || error);
       throw new Error("재생할 수 없는 링크입니다", { cause: error });
     }
   }

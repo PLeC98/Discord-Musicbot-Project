@@ -6,6 +6,7 @@
 //       진짜 치명적 오류는 안전하게 종료해 운영자(봇 관리자)의 확인·수동 재시작을 대기.
 
 const chalk = require("chalk");
+const log = require("./logger").child({ category: "voice" });
 const { VoiceConnectionStatus } = require("@discordjs/voice");
 
 // 네트워크 오류 폭주 판정용 시간창
@@ -43,10 +44,10 @@ async function healBrokenPlayers(client) {
         if (status === VoiceConnectionStatus.Ready) continue; // 정상 서버 — 무영향
         // 수립 진행 중은 자체 완료/실패를 기다림 — 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
         if (status === VoiceConnectionStatus.Connecting || status === VoiceConnectionStatus.Signalling) continue;
-        console.log(chalk.yellow(`🔧 서버 ${guildId} 음성 연결이 끊겨 복구를 시작합니다...`));
+        log.info(chalk.yellow(`🔧 서버 ${guildId} 음성 연결이 끊겨 복구를 시작합니다...`));
         player.voice.startConnectionRecovery();
       } catch (e) {
-        console.error(chalk.red(`❌ 플레이어 자가치유 실패 (guild ${guildId}):`), e.message);
+        log.error(chalk.red(`❌ 플레이어 자가치유 실패 (guild ${guildId}):`), e.message);
       }
     }
   } finally {
@@ -85,10 +86,10 @@ function fatalShutdown(client, error, exit = () => process.exit(1)) {
   } catch {
     /* best-effort 정리 — 종료 중이므로 실패해도 계속 */
   }
-  console.error(chalk.red("════════════════════════════════════════════════════════"));
-  console.error(chalk.red("💀 치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다."));
-  console.error(chalk.red(String((error && error.stack) || error)));
-  console.error(chalk.red("════════════════════════════════════════════════════════"));
+  log.error(chalk.red("════════════════════════════════════════════════════════"));
+  log.error(chalk.red("💀 치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다."));
+  log.error(chalk.red(String((error && error.stack) || error)));
+  log.error(chalk.red("════════════════════════════════════════════════════════"));
   exit();
 }
 

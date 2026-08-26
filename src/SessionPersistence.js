@@ -1,6 +1,7 @@
 "use strict";
 
 const path = require("path");
+const log = require("./logger").child({ category: "session" });
 const fsSync = require("fs");
 const CacheManager = require("./CacheManager");
 const { formatDuration } = require("./utils");
@@ -144,10 +145,10 @@ class SessionPersistence {
         if (fsSync.existsSync(fullPath)) {
           validDownloads.add(path.resolve(fullPath));
         } else {
-          console.log(`❌ Missing cached file: ${path.basename(file)}`);
+          log.info(`❌ Missing cached file: ${path.basename(file)}`);
         }
       } catch (error) {
-        console.log(`⚠️ Error checking file ${path.basename(file)}: ${error.message}`);
+        log.info(`⚠️ Error checking file ${path.basename(file)}: ${error.message}`);
       }
     }
     player.downloadedFiles = validDownloads;
@@ -181,7 +182,7 @@ class SessionPersistence {
           throw new Error("Failed to reconnect to voice channel");
         }
       } catch (error) {
-        console.error("❌ Failed to connect during restore:", error.message);
+        log.error("❌ Failed to connect during restore:", error.message);
         throw new Error("Failed to reconnect to voice channel", { cause: error });
       }
     }
@@ -220,7 +221,7 @@ class SessionPersistence {
         const memberLike = { id: state.requesterId || player.guild.client.user.id, guild: player.guild };
         await embedManager.createNewMusicEmbed(player, player.currentTrack, memberLike, null);
       } catch (error) {
-        console.error("❌ Failed to rebuild now playing embed during restore:", error?.message || error);
+        log.error("❌ Failed to rebuild now playing embed during restore:", error?.message || error);
       }
     }
 
@@ -265,7 +266,7 @@ class SessionPersistence {
       state.reason = reason;
       CacheManager.savePlayerSession(player.guild.id, state);
     } catch (error) {
-      console.error(`❌ Failed to persist player state for guild ${player.guild?.id}:`, error.message || error);
+      log.error(`❌ Failed to persist player state for guild ${player.guild?.id}:`, error.message || error);
     }
   }
 

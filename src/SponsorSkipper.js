@@ -1,6 +1,7 @@
 "use strict";
 
 const { AudioPlayerStatus } = require("@discordjs/voice");
+const log = require("./logger").child({ category: "sponsor" });
 
 // SponsorSkipper — 재생 중 SponsorBlock 구간을 자동 스킵.
 //
@@ -80,10 +81,10 @@ class SponsorSkipper {
     this._prevSec = d.prevSec;
 
     if (d.action === "end") {
-      console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 종료 구간 도달, 트랙 종료`);
+      log.info(`${p.currentTrack?.title ?? ""} — 종료 구간 도달, 트랙 종료`);
       p.skip("sponsorblock"); // 스킵 버튼과 동일 처리 (다음 곡/루프 존중)
     } else if (d.action === "seek") {
-      console.log(`[SponsorBlock] ${p.currentTrack?.title ?? ""} — 구간 건너뜀 → ${Math.round(d.toSec)}s`);
+      log.info(`${p.currentTrack?.title ?? ""} — 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
       p.play(null, Math.round(d.toSec * 1000)).catch(() => {});
     }

@@ -1,4 +1,5 @@
 const config = require("../../config");
+const log = require("../../src/logger").child({ category: "dashboard" });
 const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");
@@ -23,13 +24,13 @@ const DASHBOARD_URL = config.dashboard.url;
 function resolveSessionSecret() {
   if (config.dashboard.sessionSecret) {
     if (config.dashboard.sessionSecret.length < 32) {
-      console.warn(chalk.yellow("⚠️  [Dashboard] SESSION_SECRET이 너무 짧습니다 (32자 미만) — 64자 이상 랜덤 문자열을 권장합니다."));
+      log.warn(chalk.yellow("⚠️  SESSION_SECRET이 너무 짧습니다 (32자 미만) — 64자 이상 랜덤 문자열을 권장합니다."));
     }
     return config.dashboard.sessionSecret;
   }
-  console.warn(chalk.yellow("⚠️  [Dashboard] .env에 SESSION_SECRET이 없어 임시 랜덤 비밀로 대체합니다."));
-  console.warn(chalk.yellow("   → 봇을 재시작할 때마다 대시보드 로그인이 전부 풀립니다."));
-  console.warn(chalk.yellow("   → 생성 예: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\" 결과를 SESSION_SECRET=에 넣으세요."));
+  log.warn(chalk.yellow("⚠️  .env에 SESSION_SECRET이 없어 임시 랜덤 비밀로 대체합니다."));
+  log.warn(chalk.yellow("   → 봇을 재시작할 때마다 대시보드 로그인이 전부 풀립니다."));
+  log.warn(chalk.yellow("   → 생성 예: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\" 결과를 SESSION_SECRET=에 넣으세요."));
   return crypto.randomBytes(32).toString("hex");
 }
 
@@ -139,7 +140,7 @@ function startDashboard(client) {
   }
 
   app.listen(PORT, () => {
-    console.log(chalk.green(`🌐 Dashboard: http://localhost:${PORT}`));
+    log.info(chalk.green(`🌐 Dashboard: http://localhost:${PORT}`));
   });
 
   return app;

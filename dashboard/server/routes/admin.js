@@ -1,4 +1,5 @@
 const express = require("express");
+const log = require("../../../src/logger").child({ category: "dashboard" });
 const router = express.Router();
 const requireAdmin = require("../middleware/requireAdmin");
 const os = require("os");
@@ -151,10 +152,10 @@ router.post("/guilds/:guildId/leave", requireAdmin, async (req, res) => {
     const DashboardEvents = require("../../../src/DashboardEvents");
     DashboardEvents.notify(guild.id);
 
-    console.log(`[Admin] 대시보드에서 서버 나가기 실행: ${name} (${guild.id})`);
+    log.info({ sub: "admin" }, `대시보드에서 서버 나가기 실행: ${name} (${guild.id})`);
     res.json({ success: true, name });
   } catch (error) {
-    console.error("❌ [Admin] 서버 나가기 실패:", error);
+    log.error({ sub: "admin" }, "❌ 서버 나가기 실패:", error);
     res.status(502).json({ error: error.message || "서버 나가기에 실패했습니다" });
   }
 });

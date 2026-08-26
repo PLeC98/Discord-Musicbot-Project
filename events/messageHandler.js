@@ -1,4 +1,5 @@
 const { Events, MessageFlags } = require("discord.js");
+const log = require("../src/logger").child({ category: "events" });
 const GuildSettingsManager = require("../src/GuildSettingsManager");
 const { checkAdd } = require("../src/permissions");
 const MusicPlayer = require("../src/MusicPlayer");
@@ -86,7 +87,7 @@ module.exports = {
 
       await client.musicEmbedManager.handleMusicData(guildId, trackData, member, null);
     } catch (error) {
-      console.error("❌ [messageHandler] error:", error);
+      log.error({ sub: "message" }, "❌ error:", error);
       await loadingMsg.delete().catch(() => {});
       const errMsg = await message.channel.send({ content: "❌ 처리 중 오류가 발생했어요." });
       setTimeout(() => errMsg.delete().catch(() => {}), 8000);

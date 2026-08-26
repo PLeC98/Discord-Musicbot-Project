@@ -1,4 +1,5 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const log = require("../src/logger").child({ category: "events" });
 const config = require("../config");
 const MusicPlayer = require("../src/MusicPlayer");
 const S = require("../src/strings");
@@ -527,7 +528,7 @@ module.exports = {
       const { embed, row } = await helpCommand.buildHelpEmbed(interaction.client);
       await interaction.editReply({ embeds: [embed], components: [row] });
     } catch (error) {
-      console.error("Error refreshing help:", error);
+      log.error("Error refreshing help:", error);
       try {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({ content: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
@@ -535,7 +536,7 @@ module.exports = {
           await interaction.followUp({ content: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
         }
       } catch (err) {
-        console.error("Failed to send error message:", err);
+        log.error("Failed to send error message:", err);
       }
     }
   },
@@ -552,7 +553,7 @@ module.exports = {
       const { embed, row } = systemCommand.buildSystemEmbed(interaction.client);
       await interaction.editReply({ embeds: [embed], components: [row] });
     } catch (error) {
-      console.error("Error refreshing system:", error);
+      log.error("Error refreshing system:", error);
       try {
         if (!interaction.replied && !interaction.deferred) {
           await interaction.reply({ content: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
@@ -560,7 +561,7 @@ module.exports = {
           await interaction.followUp({ content: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
         }
       } catch (err) {
-        console.error("Failed to send error message:", err);
+        log.error("Failed to send error message:", err);
       }
     }
   },

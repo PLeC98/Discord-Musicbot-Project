@@ -1,6 +1,7 @@
 "use strict";
 
 const Database = require("better-sqlite3");
+const log = require("./logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -41,7 +42,7 @@ class CacheManager {
     this._createTables();
     this._initialized = true;
     this._startPeriodicEviction();
-    console.log("[CacheManager] SQLite DB 초기화 완료");
+    log.info("SQLite DB 초기화 완료");
   }
 
   _createTables() {
@@ -134,7 +135,7 @@ class CacheManager {
         const rows = this.db.prepare("SELECT guild_id, dj_role_id FROM guild_settings WHERE dj_role_id IS NOT NULL").all();
         const upd = this.db.prepare("UPDATE guild_settings SET dj_role_ids = ? WHERE guild_id = ?");
         for (const r of rows) upd.run(JSON.stringify([r.dj_role_id]), r.guild_id);
-        if (rows.length) console.log(`[CacheManager] DJ 역할 설정 ${rows.length}건을 복수 역할 형식(dj_role_ids)으로 이관`);
+        if (rows.length) log.info(`DJ 역할 설정 ${rows.length}건을 복수 역할 형식(dj_role_ids)으로 이관`);
       }
     }
 
@@ -517,7 +518,7 @@ class CacheManager {
 
     // 1. 다운로드 중 중단된 행 재설정
     const resetCount = this.db.prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
-    if (resetCount > 0) console.log(`[CacheManager] 인터럽트된 다운로드 ${resetCount}건 초기화`);
+    if (resetCount > 0) log.info(`인터럽트된 다운로드 ${resetCount}건 초기화`);
 
     // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
     const cachedRows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache WHERE status = 'cached'").all();
@@ -529,7 +530,7 @@ class CacheManager {
         orphanDbCount++;
       }
     }
-    if (orphanDbCount > 0) console.log(`[CacheManager] DB에서 파일 없는 항목 ${orphanDbCount}건 마킹`);
+    if (orphanDbCount > 0) log.info(`DB에서 파일 없는 항목 ${orphanDbCount}건 마킹`);
 
     // 3. DB에서 추적하지 않는 오디오 파일 삭제
     this._cleanOrphanFiles();
@@ -567,7 +568,7 @@ class CacheManager {
         }
       }
     }
-    if (cleaned > 0) console.log(`[CacheManager] 고아 파일 ${cleaned}개 삭제`);
+    if (cleaned > 0) log.info(`고아 파일 ${cleaned}개 삭제`);
   }
 
   // 제거
@@ -605,9 +606,9 @@ class CacheManager {
     if (!overSize && !overFiles && !lowDisk) return;
 
     if (lowDisk) {
-      console.warn(`[CacheManager] ⚠️  디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음), 강제 퇴거`);
+      log.warn(`⚠️  디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음), 강제 퇴거`);
     } else {
-      console.log(`[CacheManager] 캐시 한도 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개), 퇴거 시작...`);
+      log.info(`캐시 한도 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개), 퇴거 시작...`);
     }
 
     await this.evict();
@@ -675,7 +676,7 @@ class CacheManager {
       this.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(row.audio_source_key);
       evicted++;
     }
-    if (evicted > 0) console.log(`[CacheManager] ${evicted}개 파일 퇴거 완료`);
+    if (evicted > 0) log.info(`${evicted}개 파일 퇴거 완료`);
   }
 
   /** 백그라운드 주기적 제거 타이머 시작 */
@@ -683,7 +684,7 @@ class CacheManager {
     const cfg = require("../config").cache;
     if (this._evictInterval) clearInterval(this._evictInterval);
     this._evictInterval = setInterval(() => {
-      this.evictIfNeeded().catch((err) => console.error("[CacheManager] 주기적 퇴거 오류:", err.message));
+      this.evictIfNeeded().catch((err) => log.error("주기적 퇴거 오류:", err.message));
     }, cfg.evictIntervalMs);
     this._evictInterval.unref(); // 프로세스 종료를 막지 않음
   }

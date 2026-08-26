@@ -1,4 +1,5 @@
 const path = require("path");
+const log = require("./logger").child({ category: "youtube" });
 const fs = require("fs");
 const youtubedl = require("youtube-dl-exec");
 const config = require("../config");
@@ -98,7 +99,7 @@ class YouTube {
         } catch {
           /* 기록 실패는 무시 */
         }
-        console.warn(`[YouTube] 연령 제한 감지 (${videoId}) — 쿠키로 폴백 재시도`);
+        log.warn(`연령 제한 감지 (${videoId}) — 쿠키로 폴백 재시도`);
         return await youtubedl(url, buildOptions(true));
       }
       throw error;
@@ -169,7 +170,7 @@ class YouTube {
 
       return tracks;
     } catch (error) {
-      console.error("[YouTube] search() failed:", error.message || error);
+      log.error("search() failed:", error.message || error);
       return [];
     }
   }
@@ -210,7 +211,7 @@ class YouTube {
 
       return track;
     } catch (error) {
-      console.error("[YouTube] getInfo() failed:", error.message || error);
+      log.error("getInfo() failed:", error.message || error);
       return null;
     }
   }
@@ -258,7 +259,7 @@ class YouTube {
         httpHeaders: info.http_headers || {},
       };
     } catch (error) {
-      console.error("[YouTube] getStream() failed:", error.message || error);
+      log.error("getStream() failed:", error.message || error);
       throw error;
     }
   }
@@ -323,7 +324,7 @@ class YouTube {
         type: "playlist",
       };
     } catch (error) {
-      console.error("[YouTube] getPlaylist() failed:", error.message || error);
+      log.error("getPlaylist() failed:", error.message || error);
       return null;
     }
   }

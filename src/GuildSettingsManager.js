@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("fs");
+const log = require("./logger").child({ category: "guild" });
 const path = require("path");
 const CacheManager = require("./CacheManager");
 const config = require("../config");
@@ -33,9 +34,9 @@ class GuildSettingsManager {
       } catch (error) {
         if (error.code !== "ENOENT") throw error;
       }
-      console.log(`[GuildSettings] settings.json → SQLite 마이그레이션 완료 (${migrated}건, 원본은 settings.json.bak 보존)`);
+      log.info(`settings.json → SQLite 마이그레이션 완료 (${migrated}건, 원본은 settings.json.bak 보존)`);
     } catch (error) {
-      console.error("❌ [GuildSettings] settings.json 마이그레이션 실패:", error.message);
+      log.error("❌ settings.json 마이그레이션 실패:", error.message);
     }
   }
 
@@ -45,7 +46,7 @@ class GuildSettingsManager {
       this.cache.set(`${guildId}_botChannel`, channelId);
       return true;
     } catch (error) {
-      console.error("❌ [GuildSettings] setBotChannel failed:", error);
+      log.error("❌ setBotChannel failed:", error);
       return false;
     }
   }
@@ -76,7 +77,7 @@ class GuildSettingsManager {
       this.cache.set(`${guildId}_djRoles`, roleIds);
       return true;
     } catch (error) {
-      console.error("❌ [GuildSettings] setDjRoles failed:", error);
+      log.error("❌ setDjRoles failed:", error);
       return false;
     }
   }
@@ -130,7 +131,7 @@ class GuildSettingsManager {
       this.cache.set(`${guildId}_sb`, next);
       return true;
     } catch (error) {
-      console.error("❌ [GuildSettings] setSponsorBlock failed:", error);
+      log.error("❌ setSponsorBlock failed:", error);
       return false;
     }
   }

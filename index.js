@@ -1,4 +1,5 @@
 require("./src/LogManager"); // intercept console before anything else logs
+const log = require("./src/logger").child({ category: "core" });
 const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
 const { getVoiceConnection } = require("@discordjs/voice");
 const { spawn } = require("child_process");
@@ -13,14 +14,14 @@ const { isPrimaryShard } = require("./src/shardUtil");
 // 슬래시 명령어 배포
 if (isPrimaryShard()) {
   const { deployCommands, deployErrorLines } = require("./src/commandLoader");
-  console.log("🚀 슬래시 명령어 배포를 시작합니다.");
+  log.info("🚀 슬래시 명령어 배포를 시작합니다.");
   deployCommands().then((r) => {
-    if (r.ok && r.skipped) console.log(chalk.gray(`⏭️  명령어 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
-    else if (r.ok) console.log(chalk.green(`✅ ${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
-    else deployErrorLines(r).forEach((line) => console.error(chalk.red(line)));
+    if (r.ok && r.skipped) log.info(chalk.gray(`⏭️  명령어 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
+    else if (r.ok) log.info(chalk.green(`✅ ${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
+    else deployErrorLines(r).forEach((line) => log.error(chalk.red(line)));
   });
 } else {
-  console.log("⏭️  [commandLoader] 대표 샤드가 아니므로 명령어 배포를 건너뜁니다.");
+  log.info({ sub: "commands" }, "⏭️  대표 샤드가 아니므로 명령어 배포를 건너뜁니다.");
 }
 
 // Initialize CacheManager DB and clean up orphaned files on startup
@@ -28,7 +29,7 @@ async function cleanupAudioCache() {
   try {
     await CacheManager.onStartup();
   } catch (error) {
-    console.error(chalk.red("❌ CacheManager 시작 실패:"), error.message);
+    log.error(chalk.red("❌ CacheManager 시작 실패:"), error.message);
   }
 }
 
@@ -37,7 +38,7 @@ async function restoreSavedPlayers(client) {
   const entries = Object.entries(savedStates || {});
   if (entries.length === 0) return;
 
-  console.log(chalk.cyan(`🔄 복원할 저장 세션 ${entries.length}개를 찾았습니다.`));
+  log.info(chalk.cyan(`🔄 복원할 저장 세션 ${entries.length}개를 찾았습니다.`));
 
   for (const [guildId, state] of entries) {
     try {
@@ -59,7 +60,7 @@ async function restoreSavedPlayers(client) {
       }
 
       if (!guild) {
-        console.log(chalk.yellow(`⚠️ 서버 ${guildId}을(를) 찾을 수 없거나 접근할 수 없습니다. 상태를 제거합니다.`));
+        log.info(chalk.yellow(`⚠️ 서버 ${guildId}을(를) 찾을 수 없거나 접근할 수 없습니다. 상태를 제거합니다.`));
         CacheManager.removePlayerSession(guildId);
         continue;
       }
@@ -86,7 +87,7 @@ async function restoreSavedPlayers(client) {
       const isTextValid = textChannel && typeof textChannel.isTextBased === "function" && textChannel.isTextBased();
 
       if (!isVoiceValid || !isTextValid) {
-        console.log(chalk.yellow(`⚠️ 서버 ${guild.name}의 채널 정보가 유효하지 않아 상태를 제거합니다.`));
+        log.info(chalk.yellow(`⚠️ 서버 ${guild.name}의 채널 정보가 유효하지 않아 상태를 제거합니다.`));
         CacheManager.removePlayerSession(guildId);
         continue;
       }
@@ -96,15 +97,15 @@ async function restoreSavedPlayers(client) {
 
       try {
         await player.restoreFromState(state);
-        console.log(chalk.green(`✅ 서버 ${guild.name}의 세션 복원 완료`));
+        log.info(chalk.green(`✅ 서버 ${guild.name}의 세션 복원 완료`));
       } catch (error) {
-        console.error(chalk.red(`❌ 서버 ${guild.name} (${guildId}) 세션 복원 중 오류 발생:`), error.message);
+        log.error(chalk.red(`❌ 서버 ${guild.name} (${guildId}) 세션 복원 중 오류 발생:`), error.message);
         client.players.delete(guildId);
         player.cleanup();
         CacheManager.removePlayerSession(guildId);
       }
     } catch (error) {
-      console.error(chalk.red(`❌ 서버 ${guildId} 세션 복원 중 오류 발생:`), error.message);
+      log.error(chalk.red(`❌ 서버 ${guildId} 세션 복원 중 오류 발생:`), error.message);
       CacheManager.removePlayerSession(guildId);
     }
   }
@@ -121,7 +122,7 @@ let bgutilStopping = false;
 function startBgutilServer() {
   if (bgutilStopping) return;
   if (!fs.existsSync(BGUTIL_ENTRY)) {
-    console.warn(chalk.yellow("⚠️  [bgutil] build/main.js 없음: POToken provider 비활성"));
+    log.warn(chalk.yellow("⚠️  [bgutil] build/main.js 없음: POToken provider 비활성"));
     return;
   }
   bgutilProc = spawn(process.execPath, ["build/main.js"], {
@@ -133,23 +134,23 @@ function startBgutilServer() {
       .toString()
       .split("\n")
       .filter(Boolean)
-      .forEach((l) => console.log(chalk.gray(`[bgutil] ${l}`))),
+      .forEach((l) => log.info(chalk.gray(`[bgutil] ${l}`))),
   );
   bgutilProc.stderr.on("data", (d) =>
     d
       .toString()
       .split("\n")
       .filter(Boolean)
-      .forEach((l) => console.warn(chalk.yellow(`[bgutil] ${l}`))),
+      .forEach((l) => log.warn(chalk.yellow(`[bgutil] ${l}`))),
   );
   bgutilProc.on("exit", (code) => {
     bgutilProc = null;
     if (!bgutilStopping) {
-      console.warn(chalk.yellow(`⚠️  [bgutil] 서버 종료 (code=${code}), 5초 후 재시작...`));
+      log.warn(chalk.yellow(`⚠️  [bgutil] 서버 종료 (code=${code}), 5초 후 재시작...`));
       setTimeout(startBgutilServer, 5000);
     }
   });
-  console.log(chalk.green(`✅ [bgutil] POToken 서버 시작 (port ${BGUTIL_PORT})`));
+  log.info(chalk.green(`✅ [bgutil] POToken 서버 시작 (port ${BGUTIL_PORT})`));
 }
 
 function stopBgutilServer() {
@@ -168,7 +169,7 @@ async function waitForBgutilReady(timeoutMs = 15000) {
     try {
       const res = await fetch(`http://127.0.0.1:${BGUTIL_PORT}/ping`, { signal: AbortSignal.timeout(1000) });
       if (res.ok) {
-        console.log(chalk.green("✅ [bgutil] POToken 서버 준비 완료"));
+        log.info(chalk.green("✅ [bgutil] POToken 서버 준비 완료"));
         return true;
       }
     } catch {
@@ -176,7 +177,7 @@ async function waitForBgutilReady(timeoutMs = 15000) {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  console.warn(chalk.yellow(`⚠️  [bgutil] ${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.`));
+  log.warn(chalk.yellow(`⚠️  [bgutil] ${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.`));
   return false;
 }
 
@@ -184,7 +185,7 @@ async function waitForBgutilReady(timeoutMs = 15000) {
 if (isPrimaryShard()) {
   startBgutilServer();
 } else {
-  console.log(chalk.gray("⏭️  [bgutil] 대표 샤드가 아니므로 POToken 서버를 기동하지 않습니다."));
+  log.info(chalk.gray("⏭️  [bgutil] 대표 샤드가 아니므로 POToken 서버를 기동하지 않습니다."));
 }
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -231,13 +232,13 @@ function startBot() {
 
         if ("data" in command && "execute" in command) {
           client.commands.set(command.data.name, command);
-          console.log(chalk.green(`✅  명령어 준비 완료: ${command.data.name}`));
+          log.info(chalk.green(`✅  명령어 준비 완료: ${command.data.name}`));
         } else {
-          console.log(chalk.yellow(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`));
+          log.info(chalk.yellow(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`));
         }
       }
     } catch (error) {
-      console.log(chalk.yellow("⚠️  명령어 디렉토리가 없습니다. 명령어 로딩을 건너뜁니다."));
+      log.info(chalk.yellow("⚠️  명령어 디렉토리가 없습니다. 명령어 로딩을 건너뜁니다."));
     }
   };
 
@@ -262,17 +263,17 @@ function startBot() {
         } else {
           client.on(event.name, (...args) => event.execute(...args));
         }
-        console.log(chalk.green(`✓ 이벤트 로드 완료: ${event.name}`));
+        log.info(chalk.green(`✓ 이벤트 로드 완료: ${event.name}`));
       }
     } catch (error) {
-      console.log(chalk.yellow("⚠ 이벤트 디렉토리가 없습니다. 기본 이벤트를 사용합니다."));
+      log.info(chalk.yellow("⚠ 이벤트 디렉토리가 없습니다. 기본 이벤트를 사용합니다."));
     }
   };
 
   // Basic ready event
   client.once(Events.ClientReady, async () => {
-    console.log(chalk.green(`✅ [SHARD ${client.shard?.ids[0] ?? 0}] ${client.user.tag} is online and ready!`));
-    console.log(chalk.cyan(`🎵 [SHARD ${client.shard?.ids[0] ?? 0}] Music bot serving ${client.guilds.cache.size} servers on this shard!`));
+    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? 0}`] }, chalk.green(`✅ ${client.user.tag} is online and ready!`));
+    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? 0}`] }, chalk.cyan(`🎵 Music bot serving ${client.guilds.cache.size} servers on this shard!`));
 
     // Log total guild count across all shards (only if running with sharding)
     // Wait a bit to ensure all shards are ready before fetching
@@ -282,12 +283,12 @@ function startBot() {
           .fetchClientValues("guilds.cache.size")
           .then((results) => {
             const totalGuilds = results.reduce((acc, guildCount) => acc + guildCount, 0);
-            console.log(chalk.magenta(`🌐 [SHARD ${client.shard.ids[0]}] Total servers across all shards: ${totalGuilds}`));
+            log.info({ tags: [`shard${client.shard.ids[0]}`] }, chalk.magenta(`🌐 Total servers across all shards: ${totalGuilds}`));
           })
           .catch((err) => {
             // Silently fail if shards are still spawning
             if (!err.message.includes("still being spawned")) {
-              console.error(chalk.red("전체 서버 수 조회 오류:"), err);
+              log.error(chalk.red("전체 서버 수 조회 오류:"), err);
             }
           });
       }, 10000); // 다른 샤드들이 준비될 때까지 10초간 대기
@@ -303,7 +304,7 @@ function startBot() {
     // Don't restore here in sharded mode - wait for shard manager to broadcast
     // For non-sharded mode, restore immediately
     if (!client.shard) {
-      console.log(chalk.cyan("⏳ 비샤딩 모드: 서버 캐시가 준비될 때까지 기다리는 중"));
+      log.info(chalk.cyan("⏳ 비샤딩 모드: 서버 캐시가 준비될 때까지 기다리는 중"));
       await new Promise((resolve) => setTimeout(resolve, 5000));
       await client.restoreSessions();
     }
@@ -311,11 +312,11 @@ function startBot() {
 
   // Add restore function to client for shard manager to call
   client.restoreSessions = async function () {
-    console.log(chalk.cyan(`[SHARD ${client.shard?.ids?.[0] ?? "N/A"}] 🔄 세션 복원 시작...`));
+    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? "N/A"}`] }, chalk.cyan("🔄 세션 복원 시작..."));
     await restoreSavedPlayers(client);
     // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록
     await cleanupAudioCache();
-    console.log(chalk.green(`[SHARD ${client.shard?.ids?.[0] ?? "N/A"}] ✅ 세션 복원 완료`));
+    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? "N/A"}`] }, chalk.green("✅ 세션 복원 완료"));
   };
 
   // Handle interactions (slash commands)
@@ -325,14 +326,14 @@ function startBot() {
     const command = client.commands.get(interaction.commandName);
 
     if (!command) {
-      console.error(chalk.red(`❌ No command matching ${interaction.commandName} was found.`));
+      log.error(chalk.red(`❌ No command matching ${interaction.commandName} was found.`));
       return;
     }
 
     try {
       await command.execute(interaction, client);
     } catch (error) {
-      console.error(chalk.red(`❌ ${interaction.commandName} 명령어 실행 중 오류:`), error);
+      log.error(chalk.red(`❌ ${interaction.commandName} 명령어 실행 중 오류:`), error);
 
       const errorMessage = "❌ 명령어 실행 중 오류가 발생했습니다!";
 
@@ -373,7 +374,7 @@ function startBot() {
             await player.showQueueCompleted();
           }
         } catch (error) {
-          console.error("❌ Failed to update playback UI after forced disconnect:", error);
+          log.error("❌ Failed to update playback UI after forced disconnect:", error);
         } finally {
           player.cleanup();
           client.players.delete(guild.id);
@@ -441,26 +442,26 @@ function startBot() {
 
   // 오류 처리
   process.on("unhandledRejection", (reason, promise) => {
-    console.error(chalk.red("❌ Unhandled Rejection at:"), promise, chalk.red("reason:"), reason);
+    log.error(chalk.red("❌ Unhandled Rejection at:"), promise, chalk.red("reason:"), reason);
 
     // 디스코드 API 오류 처리
     if (reason && reason.code) {
       switch (reason.code) {
         case 10062: // 알 수 없는 상호 작용 - Unknown interaction
-          console.log(chalk.yellow("ℹ️ 만료된 상호작용입니다 (10062 Unknown interaction)"));
+          log.info(chalk.yellow("ℹ️ 만료된 상호작용입니다 (10062 Unknown interaction)"));
           return;
         case 40060: // 이미 처리된 상호작용 - Interaction already acknowledged
-          console.log(chalk.yellow("ℹ️ 이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)"));
+          log.info(chalk.yellow("ℹ️ 이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)"));
           return;
         case 50013: // 권한 부족 - Missing permissions
-          console.error(chalk.red("❌ 해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)"));
+          log.error(chalk.red("❌ 해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)"));
           return;
       }
     }
 
     // 일시적 네트워크/음성 오류(IP discovery 실패 등) — 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
     if (isTransientNetworkError(reason)) {
-      console.log(chalk.yellow("⚠️ 네트워크/음성 오류(rejection): 연결이 끊긴 서버만 복구합니다."));
+      log.info(chalk.yellow("⚠️ 네트워크/음성 오류(rejection): 연결이 끊긴 서버만 복구합니다."));
       healBrokenPlayers(client).catch(() => {});
       return;
     }
@@ -469,28 +470,28 @@ function startBot() {
     // 번지지 않게). 짧은 시간창에 반복되면 좀비 루프/시스템적 이상으로 보고 안전 종료
     // (uncaughtException의 네트워크 폭주 가드와 같은 방침)
     if (unknownRejectionFlooding()) {
-      console.error(chalk.red(`🛑 알 수 없는 rejection이 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단합니다.`));
+      log.error(chalk.red(`🛑 알 수 없는 rejection이 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단합니다.`));
       fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)));
     }
   });
 
   process.on("uncaughtException", (error) => {
-    console.error(chalk.red("❌ 처리되지 않은 예외:"), error);
+    log.error(chalk.red("❌ 처리되지 않은 예외:"), error);
 
     // Discord 상호작용 오류 — 무해, 계속
     if (error.code === 10062 || error.code === 40060) {
-      console.log(chalk.yellow("ℹ️ Discord interaction error handled, continuing..."));
+      log.info(chalk.yellow("ℹ️ Discord interaction error handled, continuing..."));
       return;
     }
 
     // 일시적 네트워크 오류 — 프로세스는 살리고 "영향받은 서버만" 표적 복구. 짧은 시간에 폭주하면(빈도 가드) 시스템적 이상으로 보고 안전 종료
     if (isTransientNetworkError(error)) {
       if (!networkErrorFlooding()) {
-        console.log(chalk.yellow("⚠️ 네트워크 오류: 봇은 계속 실행하고, 연결이 끊긴 서버만 복구합니다."));
+        log.info(chalk.yellow("⚠️ 네트워크 오류: 봇은 계속 실행하고, 연결이 끊긴 서버만 복구합니다."));
         healBrokenPlayers(client).catch(() => {});
         return;
       }
-      console.error(chalk.red(`🛑 네트워크 오류: ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과. 시스템적 이상으로 판단합니다.`));
+      log.error(chalk.red(`🛑 네트워크 오류: ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과. 시스템적 이상으로 판단합니다.`));
     }
 
     // 그 외(또는 네트워크 폭주) = 치명적 → 안전 종료
@@ -500,7 +501,7 @@ function startBot() {
   // Initialize bot
   const init = async () => {
     try {
-      console.log(chalk.blue("🤖 Starting Discord Music Bot..."));
+      log.info(chalk.blue("🤖 Starting Discord Music Bot..."));
 
       // Load commands and events
       loadCommands();
@@ -514,7 +515,7 @@ function startBot() {
           if (player && typeof player.persistState === "function") {
             savePromises.push(
               player.persistState("shutdown", true).catch((err) => {
-                console.error(chalk.red(`Failed to save state for guild ${guildId}:`), err);
+                log.error(chalk.red(`Failed to save state for guild ${guildId}:`), err);
               }),
             );
           }
@@ -553,7 +554,7 @@ function startBot() {
       // Login to Discord
       await client.login(config.discord.token);
     } catch (error) {
-      console.error(chalk.red("❌ Failed to start bot:"), error);
+      log.error(chalk.red("❌ Failed to start bot:"), error);
       process.exit(1);
     }
   };

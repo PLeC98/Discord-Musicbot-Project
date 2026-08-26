@@ -1,4 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } = require("discord.js");
+const log = require("./logger").child({ category: "player" });
 const config = require("../config");
 const { formatDuration } = require("./utils");
 const DashboardEvents = require("./DashboardEvents");
@@ -35,7 +36,7 @@ class MusicEmbedManager {
       this.webhookCache.set(channel.id, client);
       return client;
     } catch (error) {
-      console.error("Webhook get/create failed:", error.message);
+      log.error("Webhook get/create failed:", error.message);
       return null;
     }
   }
@@ -64,7 +65,7 @@ class MusicEmbedManager {
         await player.preloadTrack(track);
         await new Promise((resolve) => setTimeout(resolve, config.preload.gapMs));
       } catch (err) {
-        console.error(`❌ Preload error for ${track.title}:`, err.message);
+        log.error(`❌ Preload error for ${track.title}:`, err.message);
         // 오류가 나도 계속 진행
       }
     }
@@ -124,7 +125,7 @@ class MusicEmbedManager {
             await player.play();
             playbackStarted = true;
           } catch (playError) {
-            console.error("Error in play process:", playError);
+            log.error("Error in play process:", playError);
             // 오류 발생 시 트랙을 대기열에 다시 넣음
             player.currentTrack = null;
             tracksToQueue.push(track);
@@ -135,7 +136,7 @@ class MusicEmbedManager {
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, track, member, interaction);
             } catch (embedError) {
-              console.error("Error creating now playing embed:", embedError);
+              log.error("Error creating now playing embed:", embedError);
               firstTrackResult = { success: true, message: "Now playing", isNewEmbed: false };
             }
           }
@@ -156,7 +157,7 @@ class MusicEmbedManager {
       }
 
       // 버퍼링 방지를 위해 대기열 트랙의 순차 사전 로드 트리거
-      this.sequentialPreload(player, player.queue.slice()).catch((err) => console.error("❌ Sequential preload error:", err.message));
+      this.sequentialPreload(player, player.queue.slice()).catch((err) => log.error("❌ Sequential preload error:", err.message));
 
       // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
       if (firstTrackResult && tracks.length > 1) {
@@ -205,7 +206,7 @@ class MusicEmbedManager {
         }
       }, 10000);
     } catch (error) {
-      console.error("Error sending playlist addition message:", error);
+      log.error("Error sending playlist addition message:", error);
     }
   }
 
@@ -394,7 +395,7 @@ class MusicEmbedManager {
         });
       }
     } catch (error) {
-      console.error("Error updating now playing embed:", error);
+      log.error("Error updating now playing embed:", error);
     }
   }
 
@@ -421,7 +422,7 @@ class MusicEmbedManager {
           });
         }
       } catch (error) {
-        console.error("Error disabling buttons:", error);
+        log.error("Error disabling buttons:", error);
       }
     }
 
@@ -430,7 +431,7 @@ class MusicEmbedManager {
     try {
       endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
     } catch (error) {
-      console.error("Error preparing playback end embed:", error);
+      log.error("Error preparing playback end embed:", error);
     }
 
     if (!endEmbed) {
