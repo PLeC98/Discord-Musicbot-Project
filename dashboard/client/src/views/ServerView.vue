@@ -611,7 +611,9 @@ onMounted(() => {
   // 로컬 진행바 틱(네트워크 아님) — 넛지/refresh가 currentTime을 서버 기준으로 재동기화
   progressTimer = setInterval(() => {
     const track = player.value.currentTrack;
-    if (track && !player.value.paused) {
+    // 실제 재생 중일 때만 전진 — playing 없이 currentTrack만 보면, 곡 해석(YouTube 검색) 중
+    // 아직 재생 전인데도 바가 움직여 '유령 재생'처럼 보인다.
+    if (track && player.value.playing && !player.value.paused) {
       localTime.value = Math.min(localTime.value + 1, track.duration);
     }
   }, 1000);
