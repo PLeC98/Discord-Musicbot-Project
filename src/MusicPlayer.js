@@ -515,7 +515,7 @@ class MusicPlayer {
             // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
             // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
             audioStream.on("error", (err) => {
-              log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구 합니다.`);
+              log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구합니다.`);
             });
             // ffmpegProcess는 @discordjs/voice 파이프라인이 정리하지만 audioStream은 그 밖(.pipe)이라 명시적으로 닫는다.
             ffmpegProcess.once("close", () => audioStream.destroy());
@@ -1572,6 +1572,13 @@ class MusicPlayer {
       voiceChannel: this.voiceChannel?.name,
       textChannel: this.textChannel?.name,
     };
+  }
+
+  // 실제 재생이 시작됐는지(오디오 리소스가 물린 상태) — Idle이면 아직 해석/셋업 중이거나 정지.
+  // 대시보드가 '재생 시작 전'에는 currentTrack을 노출하지 않도록 게이팅하는 데 쓴다(유령 재생 방지).
+  isPlaybackActive() {
+    const status = this.audioPlayer?.state?.status;
+    return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
 }
 
