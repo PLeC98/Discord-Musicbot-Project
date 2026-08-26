@@ -148,7 +148,10 @@ test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {
   lm._renderTerminal = () => {};
   for (let i = 0; i < 5; i++) lm.record({ level: 30, time: i, msg: `m${i}` });
   assert.equal(lm.buffer.length, 3);
-  assert.deepEqual(lm.buffer.map((e) => e.text), ["m2", "m3", "m4"]);
+  assert.deepEqual(
+    lm.buffer.map((e) => e.text),
+    ["m2", "m3", "m4"],
+  );
 });
 
 test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송", () => {

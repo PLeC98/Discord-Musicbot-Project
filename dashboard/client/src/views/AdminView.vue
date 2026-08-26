@@ -100,17 +100,7 @@
           </div>
         </div>
         <div v-if="logCategories.length" class="flex gap-1.5 flex-wrap mb-2">
-          <button
-            v-for="cat in logCategories"
-            :key="cat"
-            class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200"
-            :style="
-              catFilter === cat
-                ? { color: catColor(cat), borderColor: catColor(cat) + '88', backgroundColor: catColor(cat) + '22' }
-                : { color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.03)' }
-            "
-            @click="catFilter = catFilter === cat ? null : cat"
-          >
+          <button v-for="cat in logCategories" :key="cat" class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200" :style="catFilter === cat ? { color: catColor(cat), borderColor: catColor(cat) + '88', backgroundColor: catColor(cat) + '22' } : { color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.03)' }" @click="catFilter = catFilter === cat ? null : cat">
             {{ cat }}
           </button>
         </div>
@@ -124,18 +114,8 @@
           <div v-for="(entry, i) in filteredLogs" :key="i" class="flex gap-2 leading-relaxed border-b border-white/3">
             <span class="text-[#6b7280] shrink-0">{{ fmtTime(entry.ts) }}</span>
             <span class="shrink-0 w-10 font-bold" :class="lvColor(entry.level)">{{ entry.level.toUpperCase() }}</span>
-            <span
-              v-if="entry.category || entry.sub"
-              class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight"
-              :style="{ color: catColor(entry.category || entry.sub), backgroundColor: catColor(entry.category || entry.sub) + '22' }"
-              >{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span
-            >
-            <span
-              v-for="t in entry.tags"
-              :key="t"
-              class="shrink-0 self-center px-1.5 rounded text-[0.64rem] font-medium leading-tight text-[#9ca3af] bg-white/6"
-              >#{{ t }}</span
-            >
+            <span v-if="entry.category || entry.sub" class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight" :style="{ color: catColor(entry.category || entry.sub), backgroundColor: catColor(entry.category || entry.sub) + '22' }">{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span>
+            <span v-for="t in entry.tags" :key="t" class="shrink-0 self-center px-1.5 rounded text-[0.64rem] font-medium leading-tight text-[#9ca3af] bg-white/6">#{{ t }}</span>
             <span class="break-all whitespace-pre-wrap" :class="txtColor(entry.level)">{{ entry.text }}</span>
           </div>
         </div>
@@ -368,9 +348,7 @@ function catColor(cat) {
   return CAT_PALETTE[h % CAT_PALETTE.length];
 }
 
-const filteredLogs = computed(() =>
-  logs.value.filter((e) => (!logFilter.value || e.level === logFilter.value) && (!catFilter.value || e.category === catFilter.value)),
-);
+const filteredLogs = computed(() => logs.value.filter((e) => (!logFilter.value || e.level === logFilter.value) && (!catFilter.value || e.category === catFilter.value)));
 
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
