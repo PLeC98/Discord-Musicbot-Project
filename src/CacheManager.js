@@ -107,6 +107,14 @@ class CacheManager {
                 marked_at   INTEGER NOT NULL
             );
 
+            -- Spotify 익명 웹플레이어 상태(secret 목록/GraphQL 해시/clientVersion) 캐시.
+            -- 번들에서 추출한 값을 보관하고 TTL·실패 시 재추출로 갱신(자가치유). 단일 행(id=1) JSON 블롭.
+            CREATE TABLE IF NOT EXISTS spotify_anon (
+                id          INTEGER PRIMARY KEY CHECK (id = 1),
+                data_json   TEXT NOT NULL,
+                fetched_at  INTEGER NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
             CREATE INDEX IF NOT EXISTS idx_tl_audio_key   ON track_lookup(audio_source_key);
@@ -310,6 +318,23 @@ class CacheManager {
         `,
       )
       .run(sourceUrl, audioSourceKey, platform, displayTitle || null, displayArtist || null, displayThumbnail || null, now, now);
+  }
+
+  /**
+   * 매핑만 조회 (파일 검증 없음) — 유튜브 재검색 스킵용(Tier-1).
+   * resolveFromCache와 달리 오디오 파일 존재를 요구하지 않으므로, 파일이 퇴거됐어도
+   * "이 소스가 어느 audio_source_key인가"를 알려준다. 반환: audioSourceKey 또는 null.
+   */
+  getResolvedKey(sourceUrl) {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT audio_source_key FROM track_lookup WHERE source_url = ?").get(this._normalizeSourceUrl(sourceUrl));
+    return row ? row.audio_source_key : null;
+  }
+
+  /** 스테일 매핑 삭제 — 캐시된 영상이 내려간 경우 재검색 전에 호출. */
+  removeResolution(sourceUrl) {
+    if (!this._initialized) this.initialize();
+    this.db.prepare("DELETE FROM track_lookup WHERE source_url = ?").run(this._normalizeSourceUrl(sourceUrl));
   }
 
   // 검증 정책
@@ -745,6 +770,26 @@ class CacheManager {
     if (!videoId) return false;
     if (!this._initialized) this.initialize();
     return !!this.db.prepare("SELECT 1 FROM age_restricted WHERE video_id = ?").get(videoId);
+  }
+
+  // Spotify 익명 웹플레이어 상태 (secret/해시/clientVersion) — 자가치유 캐시
+
+  /** 저장된 익명 상태 반환 (없으면 null). `{ ...data, fetchedAt }` */
+  getSpotifyAnonState() {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT data_json, fetched_at FROM spotify_anon WHERE id = 1").get();
+    if (!row) return null;
+    try {
+      return { ...JSON.parse(row.data_json), fetchedAt: row.fetched_at };
+    } catch {
+      return null;
+    }
+  }
+
+  /** 익명 상태 저장(단일 행 upsert). data는 JSON 직렬화 가능한 객체. */
+  setSpotifyAnonState(data) {
+    if (!this._initialized) this.initialize();
+    this.db.prepare("INSERT INTO spotify_anon (id, data_json, fetched_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at").run(JSON.stringify(data), Date.now());
   }
 
   // 생명주기

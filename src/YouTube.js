@@ -49,6 +49,31 @@ class YouTube {
   }
 
   /**
+   * yt-dlp 오류가 "영상 자체가 내려감/삭제/비공개"인지 판별.
+   * 캐시된 매핑의 영상이 사라진 경우 재검색으로 보내기 위한 신호.
+   * ⚠️ 일시적 네트워크·봇 감지·연령 제한과는 구별(그것들은 재검색 대상 아님).
+   */
+  static isVideoUnavailableError(error) {
+    const msg = (error && (error.stderr || error.message)) || String(error || "");
+    return /video unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
+  }
+
+  /**
+   * ytsearch 결과 항목이 "재생 가능한 단일 비디오"인지 판별.
+   * yt-dlp flat 검색은 채널/재생목록/핸들을 섞어 반환하므로 이들을 제외한다.
+   * 비디오 id는 11자, 채널은 UC…(24자)·/channel//@handle//playlist 형태.
+   */
+  static _isVideoEntry(item) {
+    if (!item) return false;
+    if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
+    const u = item.webpage_url || item.url || "";
+    if (/youtube\.com\/(channel\/|@|playlist|user\/|results)/i.test(u)) return false;
+    if (item.id && /^[A-Za-z0-9_-]{11}$/.test(item.id)) return true; // 비디오 id
+    if (/[?&]v=[A-Za-z0-9_-]{11}/.test(u)) return true; // watch?v= URL
+    return false;
+  }
+
+  /**
    * yt-dlp 호출을 연령 제한 폴백과 함께 실행.
    *  - 해당 videoId가 이미 연령 제한으로 알려져 있으면 처음부터 쿠키 사용(실패 시도 생략 → 영상당 실패 1회 보장).
    *  - 평상시(bgutil) 시도가 연령 제한으로 실패하면 videoId를 기록하고 쿠키로 1회 재시도.
@@ -104,7 +129,10 @@ class YouTube {
       }
 
       const tracks = [];
-      for (const item of results.entries.slice(0, limit)) {
+      // 비디오가 아닌 검색 결과(채널·재생목록·핸들)를 제외 — ytsearch가 이들을 섞어 반환하는데,
+      // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 순위로 우승).
+      const videoEntries = results.entries.filter((e) => YouTube._isVideoEntry(e)).slice(0, limit);
+      for (const item of videoEntries) {
         try {
           // 디버그: 항목 구조 기록
 

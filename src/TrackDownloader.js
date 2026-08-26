@@ -58,7 +58,20 @@ class TrackDownloader {
       return file;
     }
 
-    const downloadPromise = this._performDownload(track, filepath);
+    const downloadPromise = (async () => {
+      try {
+        return await this._performDownload(track, filepath);
+      } catch (err) {
+        // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
+        // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
+        if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
+          console.warn(`⚠️ 캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
+          const fresh = await TrackResolver.reresolveYouTube(track, player.guild?.id);
+          if (fresh) return await this._performDownload(track, this.trackFilePath(track));
+        }
+        throw err;
+      }
+    })();
     player.downloadingFiles.set(filepath, downloadPromise);
 
     try {
