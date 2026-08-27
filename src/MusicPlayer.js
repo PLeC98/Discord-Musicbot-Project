@@ -17,6 +17,7 @@ const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
 const TrackDownloader = require("./TrackDownloader");
+const procRegistry = require("./ChildProcessRegistry");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./SessionPersistence");
 const prism = require("prism-media");
@@ -506,6 +507,10 @@ class MusicPlayer {
             args: ["-analyzeduration", "0", "-loglevel", "0", ...inputArgs, "-f", "s16le", "-ar", "48000", "-ac", "2"],
           });
 
+          // 봇이 강제 종료돼도 이 ffmpeg가 고아로 남지 않도록 등록(특히 라이브 스트리밍은 스스로 끝나지 않는다).
+          const releaseFfmpeg = procRegistry.register(ffmpegProcess.process, "ffmpeg:stream");
+          ffmpegProcess.once("close", releaseFfmpeg);
+
           ffmpegProcess.on("error", (err) => {
             if (err.message && err.message.includes("Premature close")) return;
             log.error("❌ FFmpeg streaming error:", err.message);
@@ -559,6 +564,9 @@ class MusicPlayer {
             "2",
           ],
         });
+
+        const releaseFfmpeg = procRegistry.register(ffmpegProcess.process, "ffmpeg:playback");
+        ffmpegProcess.once("close", releaseFfmpeg);
 
         ffmpegProcess.on("error", (err) => {
           if (err.message && err.message.includes("Premature close")) return;

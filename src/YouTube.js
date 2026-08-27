@@ -1,7 +1,8 @@
 const path = require("path");
 const log = require("./logger").child({ category: "youtube" });
 const fs = require("fs");
-const youtubedl = require("youtube-dl-exec");
+// youtube-dl-exec 직접 호출 금지 — spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
+const youtubedl = require("./ytdlp");
 const config = require("../config");
 const CacheManager = require("./CacheManager");
 
@@ -64,6 +65,16 @@ class YouTube {
    * yt-dlp flat 검색은 채널/재생목록/핸들을 섞어 반환하므로 이들을 제외한다.
    * 비디오 id는 11자, 채널은 UC…(24자)·/channel//@handle//playlist 형태.
    */
+  /**
+   * yt-dlp 응답이 "지금 진행 중이거나 예정된 라이브"인지 판별.
+   * 라이브는 끝이 없어 캐시 다운로드가 무한히 커지고(yt-dlp가 ffmpeg를 외부 다운로더로 띄운다),
+   * Spotify 동등물 후보로서는 언제나 오답이다. flat 검색 항목/상세 정보 양쪽에 같은 필드가 온다.
+   */
+  static _detectLive(item) {
+    if (!item) return false;
+    return Boolean(item.is_live) || item.live_status === "is_live" || item.live_status === "is_upcoming";
+  }
+
   static _isVideoEntry(item) {
     if (!item) return false;
     if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
@@ -152,13 +163,18 @@ class YouTube {
             views: item.view_count,
             uploadDate: item.upload_date,
             description: item.description,
+            isLive: YouTube._detectLive(item),
           };
 
           // 검색 결과에 길이가 없으면 getInfo에서 가져오기 시도
+          // (라이브는 여기서 duration이 늘 0이라 이 분기를 타고, 상세 정보로 isLive가 확정된다.)
           if (!track.duration || track.duration === 0) {
             const detailedInfo = await this.getInfo(track.url, guildId);
             if (detailedInfo && detailedInfo.duration) {
               track.duration = detailedInfo.duration;
+            }
+            if (detailedInfo && detailedInfo.isLive) {
+              track.isLive = true;
             }
           }
 
@@ -207,6 +223,7 @@ class YouTube {
         uploadDate: info.upload_date,
         description: info.description,
         formats: info.formats,
+        isLive: YouTube._detectLive(info),
       };
 
       return track;
@@ -257,6 +274,7 @@ class YouTube {
         canSeek,
         format: info.format,
         httpHeaders: info.http_headers || {},
+        isLive: YouTube._detectLive(info),
       };
     } catch (error) {
       log.error("getStream() failed:", error.message || error);

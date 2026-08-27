@@ -147,6 +147,7 @@ const TrackResolver = {
               title: r.title,
               channel: r.artist, // YouTube.search는 채널명을 artist 필드에 담는다
               durationSec: r.duration,
+              isLive: r.isLive,
             })),
           );
         } catch {
@@ -156,7 +157,10 @@ const TrackResolver = {
       return lists;
     };
 
-    const candidates = mergeCandidateLists(await runGroup(primary), await runGroup(secondary)).filter((c) => c.url);
+    // 라이브 방송은 후보에서 제외한다. 동등물로서 언제나 오답인 데다(원곡이 라이브일 리 없다),
+    // 일단 선택되면 캐시 다운로드가 끝나지 않아 ffmpeg가 무한히 파일을 불린다.
+    // 제목이 기호뿐인 곡처럼 신호가 약한 경우 duration 0인 라이브가 우승하는 일이 실제로 있었다.
+    const candidates = mergeCandidateLists(await runGroup(primary), await runGroup(secondary)).filter((c) => c.url && !c.isLive);
     if (!candidates.length) return null;
 
     const { best } = rankCandidates(candidates, target);

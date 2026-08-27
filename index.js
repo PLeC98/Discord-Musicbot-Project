@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const config = require("./config");
 const CacheManager = require("./src/CacheManager");
+const procRegistry = require("./src/ChildProcessRegistry");
 const MusicPlayer = require("./src/MusicPlayer");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
@@ -508,7 +509,7 @@ function startBot() {
       loadEvents();
 
       // Graceful shutdown handler
-      const gracefulShutdown = async (_signal) => {
+      const gracefulShutdown = async (signal) => {
         // Save all active player states before shutdown
         const savePromises = [];
         for (const [guildId, player] of client.players) {
@@ -529,6 +530,10 @@ function startBot() {
         });
         client.destroy();
         stopBgutilServer();
+
+        // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
+        // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
+        procRegistry.killAll(signal || "shutdown");
 
         process.exit(0);
       };
