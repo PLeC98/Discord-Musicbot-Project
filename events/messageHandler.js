@@ -85,7 +85,12 @@ module.exports = {
         return;
       }
 
-      await client.musicEmbedManager.handleMusicData(guildId, trackData, member, null);
+      const embedResult = await client.musicEmbedManager.handleMusicData(guildId, trackData, member, null);
+      // 재생 시작 실패(예: YouTube 동등물 못 찾음)를 사용자에게 알림 — 기존엔 반환값 무시로 완전 침묵이었음
+      if (embedResult && embedResult.success === false) {
+        const errMsg = await message.channel.send({ content: embedResult.message || "❌ 재생을 시작할 수 없어요." });
+        setTimeout(() => errMsg.delete().catch(() => {}), 8000);
+      }
     } catch (error) {
       log.error({ sub: "message" }, "❌ error:", error);
       await loadingMsg.delete().catch(() => {});

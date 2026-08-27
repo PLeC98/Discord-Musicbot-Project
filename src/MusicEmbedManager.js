@@ -3,6 +3,7 @@ const log = require("./logger").child({ category: "player" });
 const config = require("../config");
 const { formatDuration } = require("./utils");
 const DashboardEvents = require("./DashboardEvents");
+const ErrorHandler = require("./ErrorHandler");
 
 class MusicEmbedManager {
   constructor(client) {
@@ -46,7 +47,11 @@ class MusicEmbedManager {
   }
 
   createErrorContainer(msg) {
-    return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(`❌ ${msg}`));
+    // 넘어오는 메시지(ERROR_MESSAGES/resolveQuery)는 이미 "❌ …"로 시작하므로 중복 접두 방지.
+    // (messageHandler·대시보드도 메시지의 ❌를 그대로 한 번만 표시한다.)
+    const text = String(msg ?? "");
+    const content = text.trimStart().startsWith("❌") ? text : `❌ ${text}`;
+    return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
   }
 
   /**
@@ -103,6 +108,7 @@ class MusicEmbedManager {
 
     try {
       let firstTrackResult = null;
+      let startFailure = null; // 첫 곡 재생 시작 실패 메시지(있으면 유령 임베드 안 만들고 실패 전파)
       const wasIdle = !player.currentTrack && player.queue.length === 0;
       const tracksToQueue = [];
 
@@ -122,17 +128,24 @@ class MusicEmbedManager {
             if (!player.connection) {
               await player.connect();
             }
-            await player.play();
-            playbackStarted = true;
+            const playResult = await player.play();
+            // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
+            // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.
+            if (playResult && playResult.success === false) {
+              startFailure = playResult.message || "재생을 시작할 수 없습니다.";
+            } else {
+              playbackStarted = true;
+            }
           } catch (playError) {
             log.error("Error in play process:", playError);
-            // 오류 발생 시 트랙을 대기열에 다시 넣음
-            player.currentTrack = null;
-            tracksToQueue.push(track);
+            startFailure = ErrorHandler.getMessage(playError);
           }
 
-          // UI 실패가 재생 상태를 망가뜨리면 안 됨 — 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
-          if (playbackStarted) {
+          if (startFailure) {
+            // 시작 실패 — 유령 임베드 만들지 않음. 실패한 곡은 큐에 넣지 않는다(재시도해도 실패).
+            player.currentTrack = null;
+          } else if (playbackStarted) {
+            // UI 실패가 재생 상태를 망가뜨리면 안 됨 — 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, track, member, interaction);
             } catch (embedError) {
@@ -154,6 +167,28 @@ class MusicEmbedManager {
         } else {
           player.queue.push(...tracksToQueue);
         }
+      }
+
+      // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
+      if (startFailure && !player.currentTrack && player.queue.length > 0) {
+        try {
+          const nextResult = await player.play(null, 0);
+          if (nextResult && nextResult.success !== false && player.currentTrack) {
+            startFailure = null;
+            try {
+              firstTrackResult = await this.createNewMusicEmbed(player, player.currentTrack, member, interaction);
+            } catch {
+              firstTrackResult = { success: true, isNewEmbed: false };
+            }
+          }
+        } catch (e) {
+          log.error("Error starting next track after first-track failure:", e?.message || e);
+        }
+      }
+
+      // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
+      if (startFailure && !firstTrackResult) {
+        return { success: false, message: startFailure };
       }
 
       // 버퍼링 방지를 위해 대기열 트랙의 순차 사전 로드 트리거

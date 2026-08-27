@@ -86,7 +86,9 @@ async function getPlayer(req, res, guildId) {
 function playerState(player) {
   if (!player) return { playing: false, paused: false, queue: [], currentTrack: null };
   const status = player.getStatus();
-  const track = player.currentTrack;
+  // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다 — 그래야
+  // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다. isPlaybackActive: 리소스가 물린 상태.
+  const track = player.isPlaybackActive() ? player.currentTrack : null;
   return {
     playing: status.playing,
     paused: status.paused,
@@ -483,6 +485,9 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
   if (!ctx) return;
   const { player } = ctx;
   if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
+  // 곡 해석/스트림 셋업 중(play() 진행 중)엔 seek 금지 — 동시 play() 레이스로 currentTrack이
+  // 중간에 null 돼 크래시하던 문제 방지. 아직 실제 재생 전이므로 seek 대상 자체가 없다.
+  if (player.isPlayStarting) return res.status(409).json({ error: "재생을 준비 중입니다. 잠시 후 다시 시도해 주세요." });
 
   const positionSec = Number(req.body.position);
   // Number.isFinite: parseFloat와 달리 "Infinity"(라이브 duration 0에서 클램프를 뚫음)·비숫자 문자열 거부
