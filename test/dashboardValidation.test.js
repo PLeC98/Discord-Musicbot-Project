@@ -44,6 +44,7 @@ function makePlayer() {
     getStatus() {
       return { playing: true, paused: false, volume: this.volume, loop: false, shuffle: false };
     },
+    isPlaybackActive: () => true,
     getCurrentTime: () => 0,
     async play(_, ms) {
       this.calls.push(["play", ms]);
