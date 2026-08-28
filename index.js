@@ -8,6 +8,7 @@ const path = require("path");
 const config = require("./config");
 const CacheManager = require("./src/CacheManager");
 const procRegistry = require("./src/ChildProcessRegistry");
+const { logResolved: logResolvedFfmpeg } = require("./src/ffmpegPath");
 const MusicPlayer = require("./src/MusicPlayer");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
@@ -503,6 +504,15 @@ function startBot() {
   const init = async () => {
     try {
       log.info(chalk.blue("🤖 Starting Discord Music Bot..."));
+
+      // 재생·캐시 변환이 모두 ffmpeg에 의존하므로 여기서 확정하고 기록한다.
+      // 못 찾으면 여기서 기동을 멈춘다
+      try {
+        logResolvedFfmpeg();
+      } catch (error) {
+        log.error(chalk.red(`❌ ${error.message}`));
+        process.exit(1);
+      }
 
       // Load commands and events
       loadCommands();

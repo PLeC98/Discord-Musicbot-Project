@@ -3,14 +3,12 @@
 const fs = require("fs").promises;
 const log = require("./logger").child({ category: "track" });
 const fsSync = require("fs");
-const prism = require("prism-media");
-const ffmpegPath = require("ffmpeg-static");
+const { spawnFfmpeg } = require("./ffmpegProcess");
 const YouTube = require("./YouTube");
 const TrackResolver = require("./TrackResolver");
 const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const SponsorBlock = require("./SponsorBlock");
-const procRegistry = require("./ChildProcessRegistry");
 
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
@@ -147,26 +145,18 @@ class TrackDownloader {
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
         const audioStream = await DirectLink.getStream(track.url, player.guild?.id);
 
-        // opus로 트랜스코딩
-        const ffmpegProcess = new prism.FFmpeg({
-          command: ffmpegPath,
-          args: ["-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", filepath],
-        });
+        // opus로 트랜스코딩. 출력이 파일이므로 stdout을 소비하지 않는다(killOnStdoutClose 해제).
+        const ffmpeg = spawnFfmpeg(["-loglevel", "error", "-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", filepath], "download", { killOnStdoutClose: false });
 
-        const release = procRegistry.register(ffmpegProcess.process, "ffmpeg:download");
-        audioStream.pipe(ffmpegProcess);
+        audioStream.pipe(ffmpeg.stdin);
 
-        try {
-          await new Promise((resolve, reject) => {
-            ffmpegProcess.on("close", (code) => {
-              if (code === 0) resolve();
-              else reject(new Error(`FFmpeg exited with code ${code}`));
-            });
-            ffmpegProcess.on("error", reject);
+        await new Promise((resolve, reject) => {
+          ffmpeg.on("exit", (code, signal) => {
+            if (code === 0) resolve();
+            else reject(new Error(`FFmpeg 종료 (code=${code}, signal=${signal})`));
           });
-        } finally {
-          release();
-        }
+          ffmpeg.on("error", reject);
+        });
       }
 
       // 파일 검증
