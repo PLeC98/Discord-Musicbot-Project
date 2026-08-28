@@ -1,5 +1,7 @@
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
 const { spawnSync } = require("child_process");
 const config = require("../config");
 const log = require("./logger").child({ category: "ffmpeg" });
@@ -8,7 +10,7 @@ const log = require("./logger").child({ category: "ffmpeg" });
  * ffmpeg 실행 파일 경로의 단일 출처. 재생(spawnFfmpeg)과 캐시 변환(yt-dlp --ffmpeg-location)이
  * 같은 바이너리를 쓰도록 여기서만 결정한다.
  *
- * 해석 순서: FFMPEG_PATH(.env) → ffmpeg-static → PATH의 ffmpeg. 전부 실패하면 던진다.
+ * 해석 순서: FFMPEG_PATH(.env) → bin/의 번들 → PATH의 ffmpeg. 전부 실패하면 던진다.
  * FFMPEG_PATH가 유효하지 않으면 다음 후보로 넘어가지 않고 즉시 실패한다.
  */
 
@@ -27,15 +29,10 @@ function probe(candidate) {
   }
 }
 
-/** ffmpeg-static이 설치돼 있으면 그 경로. 제거된 뒤에는 조용히 null. */
-function fromStaticPackage() {
-  try {
-    const mod = require("ffmpeg-static");
-    const p = (mod && mod.path) || mod;
-    return typeof p === "string" && p ? p : null;
-  } catch {
-    return null; // 패키지가 없는 것은 오류가 아니다
-  }
+/** scripts/install-ffmpeg.js가 내려받아 두는 위치. 미지원 플랫폼에서는 없다. */
+function fromBundle() {
+  const p = path.join(__dirname, "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  return fs.existsSync(p) ? p : null;
 }
 
 /**
@@ -59,7 +56,7 @@ function resolve() {
   }
 
   const candidates = [
-    { path: fromStaticPackage(), source: "ffmpeg-static" },
+    { path: fromBundle(), source: "번들" },
     { path: "ffmpeg", source: "PATH" },
   ];
   for (const candidate of candidates) {
@@ -71,7 +68,7 @@ function resolve() {
     }
   }
 
-  throw new Error("ffmpeg를 찾을 수 없습니다. .env의 FFMPEG_PATH로 경로를 지정하거나, ffmpeg를 설치해 PATH에 두세요 (macOS: brew install ffmpeg).");
+  throw new Error("ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 내려받거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
 }
 
 /** 해석된 실행 파일 경로만 반환 — 실행 지점에서 쓰는 기본 접근자. */
@@ -92,4 +89,4 @@ function _reset() {
   resolved = null;
 }
 
-module.exports = { ffmpegPath, resolve, logResolved, _internals: { probe, fromStaticPackage, _reset } };
+module.exports = { ffmpegPath, resolve, logResolved, _internals: { probe, fromBundle, _reset } };

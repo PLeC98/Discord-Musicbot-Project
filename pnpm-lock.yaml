@@ -17,16 +17,13 @@ importers:
     dependencies:
       '@discordjs/opus':
         specifier: ^0.10.0
-        version: 0.10.0
+        version: 0.10.0(supports-color@7.2.0)
       '@discordjs/voice':
         specifier: ^0.19.2
-        version: 0.19.2(@discordjs/opus@0.10.0)(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(ffmpeg-static@5.3.0)
-      '@snazzah/davey':
-        specifier: ^0.1.12
-        version: 0.1.12(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+        version: 0.19.2(@discordjs/opus@0.10.0(supports-color@7.2.0))(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(ffmpeg-static@5.3.0(supports-color@7.2.0))
       axios:
         specifier: ^1.19.0
-        version: 1.19.0(debug@4.4.3)
+        version: 1.19.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3
@@ -44,41 +41,35 @@ importers:
         version: 17.4.2
       express:
         specifier: ^5.2.1
-        version: 5.2.1
+        version: 5.2.1(supports-color@7.2.0)
       express-rate-limit:
         specifier: ^8.6.2
-        version: 8.6.2(express@5.2.1)
+        version: 8.6.2(express@5.2.1(supports-color@7.2.0))(supports-color@7.2.0)
       express-session:
         specifier: ^1.19.0
-        version: 1.19.0
-      ffmpeg-static:
-        specifier: ^5.3.0
-        version: 5.3.0
+        version: 1.19.0(supports-color@7.2.0)
       ipaddr.js:
         specifier: ^2.5.0
         version: 2.5.0
       korean-lunar-calendar:
         specifier: ^0.4.0
         version: 0.4.0
-      prism-media:
-        specifier: ^1.3.5
-        version: 1.3.5(@discordjs/opus@0.10.0)(ffmpeg-static@5.3.0)
       youtube-dl-exec:
         specifier: ^3.1.12
-        version: 3.1.12(debug@4.4.3)
+        version: 3.1.12(debug@4.4.3(supports-color@7.2.0))
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
-        version: 10.0.1(eslint@10.9.0(jiti@2.7.0))
+        version: 10.0.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))
       eslint:
         specifier: ^10.9.0
-        version: 10.9.0(jiti@2.7.0)
+        version: 10.9.0(jiti@2.7.0)(supports-color@7.2.0)
       eslint-config-prettier:
         specifier: ^10.1.8
-        version: 10.1.8(eslint@10.9.0(jiti@2.7.0))
+        version: 10.1.8(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))
       eslint-plugin-vue:
         specifier: ^10.10.0
-        version: 10.10.0(eslint@10.9.0(jiti@2.7.0))(vue-eslint-parser@10.4.1(eslint@10.9.0(jiti@2.7.0)))
+        version: 10.10.0(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))(vue-eslint-parser@10.4.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0))
       globals:
         specifier: ^17.11.0
         version: 17.11.0
@@ -90,7 +81,7 @@ importers:
     dependencies:
       axios:
         specifier: ^1.19.0
-        version: 1.19.0(debug@4.4.3)
+        version: 1.19.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
       pinia:
         specifier: ^4.0.3
         version: 4.0.3(@vue/devtools-api@8.1.5)(vue@3.5.41)
@@ -2235,6 +2226,7 @@ snapshots:
       concat-stream: 2.0.0
       http-response-object: 3.0.2
       parse-cache-control: 1.0.1
+    optional: true
 
   '@discordjs/builders@1.14.1':
     dependencies:
@@ -2254,10 +2246,10 @@ snapshots:
     dependencies:
       discord-api-types: 0.38.50
 
-  '@discordjs/node-pre-gyp@0.4.5(patch_hash=fc9a96c76864dc1ae320a2ac2646b5922d9eee06683ebb28534e2232cd25339d)':
+  '@discordjs/node-pre-gyp@0.4.5(patch_hash=fc9a96c76864dc1ae320a2ac2646b5922d9eee06683ebb28534e2232cd25339d)(supports-color@7.2.0)':
     dependencies:
       detect-libc: 2.1.2
-      https-proxy-agent: 5.0.1
+      https-proxy-agent: 5.0.1(supports-color@7.2.0)
       make-dir: 3.1.0
       node-fetch: 2.7.0
       nopt: 5.0.0
@@ -2269,9 +2261,9 @@ snapshots:
       - encoding
       - supports-color
 
-  '@discordjs/opus@0.10.0':
+  '@discordjs/opus@0.10.0(supports-color@7.2.0)':
     dependencies:
-      '@discordjs/node-pre-gyp': 0.4.5(patch_hash=fc9a96c76864dc1ae320a2ac2646b5922d9eee06683ebb28534e2232cd25339d)
+      '@discordjs/node-pre-gyp': 0.4.5(patch_hash=fc9a96c76864dc1ae320a2ac2646b5922d9eee06683ebb28534e2232cd25339d)(supports-color@7.2.0)
       node-addon-api: 8.9.0
     transitivePeerDependencies:
       - encoding
@@ -2293,12 +2285,12 @@ snapshots:
     dependencies:
       discord-api-types: 0.38.50
 
-  '@discordjs/voice@0.19.2(@discordjs/opus@0.10.0)(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(ffmpeg-static@5.3.0)':
+  '@discordjs/voice@0.19.2(@discordjs/opus@0.10.0(supports-color@7.2.0))(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(ffmpeg-static@5.3.0(supports-color@7.2.0))':
     dependencies:
       '@snazzah/davey': 0.1.12(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
       '@types/ws': 8.18.1
       discord-api-types: 0.38.49
-      prism-media: 1.3.5(@discordjs/opus@0.10.0)(ffmpeg-static@5.3.0)
+      prism-media: 1.3.5(@discordjs/opus@0.10.0(supports-color@7.2.0))(ffmpeg-static@5.3.0(supports-color@7.2.0))
       tslib: 2.8.1
       ws: 8.21.0
     transitivePeerDependencies:
@@ -2342,22 +2334,22 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@eslint-community/eslint-utils@4.10.1(eslint@10.9.0(jiti@2.7.0))':
+  '@eslint-community/eslint-utils@4.10.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))':
     dependencies:
-      eslint: 10.9.0(jiti@2.7.0)
+      eslint: 10.9.0(jiti@2.7.0)(supports-color@7.2.0)
       eslint-visitor-keys: 3.4.3
 
-  '@eslint-community/eslint-utils@4.9.1(eslint@10.9.0(jiti@2.7.0))':
+  '@eslint-community/eslint-utils@4.9.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))':
     dependencies:
-      eslint: 10.9.0(jiti@2.7.0)
+      eslint: 10.9.0(jiti@2.7.0)(supports-color@7.2.0)
       eslint-visitor-keys: 3.4.3
 
   '@eslint-community/regexpp@4.12.2': {}
 
-  '@eslint/config-array@0.23.5':
+  '@eslint/config-array@0.23.5(supports-color@7.2.0)':
     dependencies:
       '@eslint/object-schema': 3.0.5
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       minimatch: 10.2.6
     transitivePeerDependencies:
       - supports-color
@@ -2370,9 +2362,9 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
 
-  '@eslint/js@10.0.1(eslint@10.9.0(jiti@2.7.0))':
+  '@eslint/js@10.0.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))':
     optionalDependencies:
-      eslint: 10.9.0(jiti@2.7.0)
+      eslint: 10.9.0(jiti@2.7.0)(supports-color@7.2.0)
 
   '@eslint/object-schema@3.0.5': {}
 
@@ -2635,7 +2627,8 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/node@10.17.60': {}
+  '@types/node@10.17.60':
+    optional: true
 
   '@types/node@26.0.0':
     dependencies:
@@ -2743,9 +2736,9 @@ snapshots:
 
   acorn@8.18.0: {}
 
-  agent-base@6.0.2:
+  agent-base@6.0.2(supports-color@7.2.0):
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -2782,11 +2775,11 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.19.0(debug@4.4.3):
+  axios@1.19.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
-      follow-redirects: 1.16.0(debug@4.4.3)
+      follow-redirects: 1.16.0(debug@4.4.3(supports-color@7.2.0))
       form-data: 4.0.6
-      https-proxy-agent: 5.0.1
+      https-proxy-agent: 5.0.1(supports-color@7.2.0)
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
@@ -2813,11 +2806,11 @@ snapshots:
 
   birpc@2.9.0: {}
 
-  body-parser@2.3.0:
+  body-parser@2.3.0(supports-color@7.2.0):
     dependencies:
       bytes: 3.1.2
       content-type: 2.0.0
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       http-errors: 2.0.1
       iconv-lite: 0.7.2
       on-finished: 2.4.1
@@ -2838,7 +2831,8 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
-  buffer-from@1.1.2: {}
+  buffer-from@1.1.2:
+    optional: true
 
   bytes@3.1.2: {}
 
@@ -2852,7 +2846,8 @@ snapshots:
       call-bind-apply-helpers: 1.0.2
       get-intrinsic: 1.3.0
 
-  caseless@0.12.0: {}
+  caseless@0.12.0:
+    optional: true
 
   chalk@4.1.2:
     dependencies:
@@ -2885,6 +2880,7 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
       typedarray: 0.0.6
+    optional: true
 
   confbox@0.1.8: {}
 
@@ -2923,20 +2919,24 @@ snapshots:
 
   dargs@7.0.0: {}
 
-  debug-logfmt@1.4.15(debug@4.4.3):
+  debug-logfmt@1.4.15(debug@4.4.3(supports-color@7.2.0)):
     dependencies:
       '@kikobeats/time-span': 1.0.13
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       null-prototype-object: 1.2.7
       pretty-ms: 7.0.1
 
-  debug@2.6.9:
+  debug@2.6.9(supports-color@7.2.0):
     dependencies:
       ms: 2.0.0
+    optionalDependencies:
+      supports-color: 7.2.0
 
-  debug@4.4.3:
+  debug@4.4.3(supports-color@7.2.0):
     dependencies:
       ms: 2.1.3
+    optionalDependencies:
+      supports-color: 7.2.0
 
   deep-is@0.1.4: {}
 
@@ -2992,7 +2992,8 @@ snapshots:
 
   entities@7.0.1: {}
 
-  env-paths@2.2.1: {}
+  env-paths@2.2.1:
+    optional: true
 
   es-define-property@1.0.1: {}
 
@@ -3013,19 +3014,19 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-config-prettier@10.1.8(eslint@10.9.0(jiti@2.7.0)):
+  eslint-config-prettier@10.1.8(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0)):
     dependencies:
-      eslint: 10.9.0(jiti@2.7.0)
+      eslint: 10.9.0(jiti@2.7.0)(supports-color@7.2.0)
 
-  eslint-plugin-vue@10.10.0(eslint@10.9.0(jiti@2.7.0))(vue-eslint-parser@10.4.1(eslint@10.9.0(jiti@2.7.0))):
+  eslint-plugin-vue@10.10.0(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))(vue-eslint-parser@10.4.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)):
     dependencies:
-      '@eslint-community/eslint-utils': 4.9.1(eslint@10.9.0(jiti@2.7.0))
-      eslint: 10.9.0(jiti@2.7.0)
+      '@eslint-community/eslint-utils': 4.9.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))
+      eslint: 10.9.0(jiti@2.7.0)(supports-color@7.2.0)
       natural-compare: 1.4.0
       nth-check: 2.1.1
       postcss-selector-parser: 7.1.4
       semver: 7.8.5
-      vue-eslint-parser: 10.4.1(eslint@10.9.0(jiti@2.7.0))
+      vue-eslint-parser: 10.4.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)
       xml-name-validator: 5.0.0
 
   eslint-scope@9.1.2:
@@ -3039,11 +3040,11 @@ snapshots:
 
   eslint-visitor-keys@5.0.1: {}
 
-  eslint@10.9.0(jiti@2.7.0):
+  eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0):
     dependencies:
-      '@eslint-community/eslint-utils': 4.10.1(eslint@10.9.0(jiti@2.7.0))
+      '@eslint-community/eslint-utils': 4.10.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))
       '@eslint-community/regexpp': 4.12.2
-      '@eslint/config-array': 0.23.5
+      '@eslint/config-array': 0.23.5(supports-color@7.2.0)
       '@eslint/config-helpers': 0.7.0
       '@eslint/core': 1.2.1
       '@eslint/plugin-kit': 0.7.2
@@ -3053,7 +3054,7 @@ snapshots:
       '@types/estree': 1.0.9
       ajv: 6.15.0
       cross-spawn: 7.0.6
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       escape-string-regexp: 4.0.0
       eslint-scope: 9.1.2
       eslint-visitor-keys: 5.0.1
@@ -3110,19 +3111,19 @@ snapshots:
       signal-exit: 4.1.0
       strip-final-newline: 3.0.0
 
-  express-rate-limit@8.6.2(express@5.2.1):
+  express-rate-limit@8.6.2(express@5.2.1(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
-      debug: 4.4.3
-      express: 5.2.1
+      debug: 4.4.3(supports-color@7.2.0)
+      express: 5.2.1(supports-color@7.2.0)
       ip-address: 10.4.0
     transitivePeerDependencies:
       - supports-color
 
-  express-session@1.19.0:
+  express-session@1.19.0(supports-color@7.2.0):
     dependencies:
       cookie: 0.7.2
       cookie-signature: 1.0.7
-      debug: 2.6.9
+      debug: 2.6.9(supports-color@7.2.0)
       depd: 2.0.0
       on-headers: 1.1.0
       parseurl: 1.3.3
@@ -3131,20 +3132,20 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  express@5.2.1:
+  express@5.2.1(supports-color@7.2.0):
     dependencies:
       accepts: 2.0.0
-      body-parser: 2.3.0
+      body-parser: 2.3.0(supports-color@7.2.0)
       content-disposition: 1.1.0
       content-type: 1.0.5
       cookie: 0.7.2
       cookie-signature: 1.2.2
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       depd: 2.0.0
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
-      finalhandler: 2.1.1
+      finalhandler: 2.1.1(supports-color@7.2.0)
       fresh: 2.0.0
       http-errors: 2.0.1
       merge-descriptors: 2.0.0
@@ -3155,9 +3156,9 @@ snapshots:
       proxy-addr: 2.0.7
       qs: 6.15.2
       range-parser: 1.2.1
-      router: 2.2.0
-      send: 1.2.1
-      serve-static: 2.2.1
+      router: 2.2.0(supports-color@7.2.0)
+      send: 1.2.1(supports-color@7.2.0)
+      serve-static: 2.2.1(supports-color@7.2.0)
       statuses: 2.0.2
       type-is: 2.1.0
       vary: 1.1.2
@@ -3176,22 +3177,23 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.5
 
-  ffmpeg-static@5.3.0:
+  ffmpeg-static@5.3.0(supports-color@7.2.0):
     dependencies:
       '@derhuerst/http-basic': 8.2.4
       env-paths: 2.2.1
-      https-proxy-agent: 5.0.1
+      https-proxy-agent: 5.0.1(supports-color@7.2.0)
       progress: 2.0.3
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   file-entry-cache@8.0.0:
     dependencies:
       flat-cache: 4.0.1
 
-  finalhandler@2.1.1:
+  finalhandler@2.1.1(supports-color@7.2.0):
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       encodeurl: 2.0.0
       escape-html: 1.0.3
       on-finished: 2.4.1
@@ -3217,9 +3219,9 @@ snapshots:
 
   flatted@3.4.4: {}
 
-  follow-redirects@1.16.0(debug@4.4.3):
+  follow-redirects@1.16.0(debug@4.4.3(supports-color@7.2.0)):
     optionalDependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
 
   form-data@4.0.6:
     dependencies:
@@ -3320,11 +3322,12 @@ snapshots:
   http-response-object@3.0.2:
     dependencies:
       '@types/node': 10.17.60
+    optional: true
 
-  https-proxy-agent@5.0.1:
+  https-proxy-agent@5.0.1(supports-color@7.2.0):
     dependencies:
-      agent-base: 6.0.2
-      debug: 4.4.3
+      agent-base: 6.0.2(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -3649,7 +3652,8 @@ snapshots:
 
   p-timeout@6.1.4: {}
 
-  parse-cache-control@1.0.1: {}
+  parse-cache-control@1.0.1:
+    optional: true
 
   parse-ms@2.1.0: {}
 
@@ -3710,12 +3714,13 @@ snapshots:
     dependencies:
       parse-ms: 2.1.0
 
-  prism-media@1.3.5(@discordjs/opus@0.10.0)(ffmpeg-static@5.3.0):
+  prism-media@1.3.5(@discordjs/opus@0.10.0(supports-color@7.2.0))(ffmpeg-static@5.3.0(supports-color@7.2.0)):
     optionalDependencies:
-      '@discordjs/opus': 0.10.0
-      ffmpeg-static: 5.3.0
+      '@discordjs/opus': 0.10.0(supports-color@7.2.0)
+      ffmpeg-static: 5.3.0(supports-color@7.2.0)
 
-  progress@2.0.3: {}
+  progress@2.0.3:
+    optional: true
 
   proxy-addr@2.0.7:
     dependencies:
@@ -3776,9 +3781,9 @@ snapshots:
       '@rolldown/binding-win32-arm64-msvc': 1.2.5
       '@rolldown/binding-win32-x64-msvc': 1.2.5
 
-  router@2.2.0:
+  router@2.2.0(supports-color@7.2.0):
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       depd: 2.0.0
       is-promise: 4.0.0
       parseurl: 1.3.3
@@ -3802,9 +3807,9 @@ snapshots:
 
   semver@7.8.5: {}
 
-  send@1.2.1:
+  send@1.2.1(supports-color@7.2.0):
     dependencies:
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@7.2.0)
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
@@ -3818,12 +3823,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  serve-static@2.2.1:
+  serve-static@2.2.1(supports-color@7.2.0):
     dependencies:
       encodeurl: 2.0.0
       escape-html: 1.0.3
       parseurl: 1.3.3
-      send: 1.2.1
+      send: 1.2.1(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -3942,7 +3947,8 @@ snapshots:
       media-typer: 1.1.0
       mime-types: 3.0.2
 
-  typedarray@0.0.6: {}
+  typedarray@0.0.6:
+    optional: true
 
   ufo@1.6.4: {}
 
@@ -3991,10 +3997,10 @@ snapshots:
       jiti: 2.7.0
       yaml: 2.9.0
 
-  vue-eslint-parser@10.4.1(eslint@10.9.0(jiti@2.7.0)):
+  vue-eslint-parser@10.4.1(eslint@10.9.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
-      debug: 4.4.3
-      eslint: 10.9.0(jiti@2.7.0)
+      debug: 4.4.3(supports-color@7.2.0)
+      eslint: 10.9.0(jiti@2.7.0)(supports-color@7.2.0)
       eslint-scope: 9.1.2
       eslint-visitor-keys: 5.0.1
       espree: 11.2.0
@@ -4081,11 +4087,11 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  youtube-dl-exec@3.1.12(debug@4.4.3):
+  youtube-dl-exec@3.1.12(debug@4.4.3(supports-color@7.2.0)):
     dependencies:
       binary-version-check: 6.1.0
       dargs: 7.0.0
-      debug-logfmt: 1.4.15(debug@4.4.3)
+      debug-logfmt: 1.4.15(debug@4.4.3(supports-color@7.2.0))
       is-unix: 2.0.14
       tinyspawn: 1.5.9
     transitivePeerDependencies:

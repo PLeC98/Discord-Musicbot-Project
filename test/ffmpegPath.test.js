@@ -17,7 +17,7 @@ test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 뽑아낸다", () => 
   const info = resolve();
   assert.ok(info.path, "경로가 있어야 함");
   assert.ok(info.version && info.version !== "unknown", `버전 파싱: ${info.version}`);
-  assert.ok(["FFMPEG_PATH", "ffmpeg-static", "PATH"].includes(info.source), `출처: ${info.source}`);
+  assert.ok(["FFMPEG_PATH", "번들", "PATH"].includes(info.source), `출처: ${info.source}`);
 });
 
 test("resolve: 결과를 캐시한다 — 매 호출마다 프로세스를 띄우지 않는다", () => {
