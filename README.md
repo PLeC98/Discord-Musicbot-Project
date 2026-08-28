@@ -63,6 +63,10 @@
     - Ubuntu 24.04 이상은 `sudo apt install -y build-essential python3`로 충족. 기본 gcc가 12 미만인 배포판(Ubuntu 22.04 = gcc 11 등)은 `g++-12` 이상을 별도 설치. 시스템 libopus 패키지는 불필요. (opus 소스가 번들되어 함께 컴파일됨)
 - [pnpm](https://pnpm.io/)
 - 저장소 `clone`을 위한 [git](https://git-scm.com/)
+- ffmpeg: Windows / Linux(x64·arm64)는 `pnpm install` 시 [BtbN 빌드](https://github.com/BtbN/FFmpeg-Builds)를 `bin/`에 자동으로 내려받습니다. **별도 설치가 필요 없습니다**.
+  - Linux의 `.tar.xz` 해제에 `xz-utils`가 필요합니다 (대부분의 배포판에 기본 포함).
+  - **macOS는 자동 설치 대상이 아닙니다** (BtbN이 macOS 빌드를 제공하지 않음). `brew install ffmpeg`로 설치해 PATH에 두거나 `.env`의 `FFMPEG_PATH`로 지정하세요.
+  - 시스템에 이미 쓰던 ffmpeg가 있으면 `.env`의 `FFMPEG_PATH`로 지정할 수 있고, 그러면 자동 다운로드를 건너뜁니다.
 - [디스코드 개발자 포털](https://discord.com/developers/applications)에서 생성된 디스코드 어플리케이션 및 디스코드 봇
 
 ### 설정
@@ -169,16 +173,20 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 
 `git pull`로 코드를 갱신한 뒤, 갱신 내용에 따라:
 
-| 명령                       | 용도                                                      |
-| -------------------------- | --------------------------------------------------------- |
-| `pnpm install`             | 루트 의존성 갱신 (+ `postinstall`로 yt-dlp 자동 업데이트) |
-| `pnpm run build:dashboard` | 대시보드(Vue) 변경분 재빌드                               |
-| `pnpm run update:bgutil`   | bgutil POToken 공급자 `git pull` + 재빌드                 |
-| `pnpm run update:ytdlp`    | yt-dlp 바이너리 최신화                                    |
-| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                 |
+| 명령                       | 용도                                                                   |
+| -------------------------- | ---------------------------------------------------------------------- |
+| `pnpm install`             | 루트 의존성 갱신 (+ `postinstall`로 ffmpeg 설치, yt-dlp 자동 업데이트) |
+| `pnpm run build:dashboard` | 대시보드(Vue) 변경분 재빌드                                            |
+| `pnpm run update:bgutil`   | bgutil POToken 공급자 `git pull` + 재빌드                              |
+| `pnpm run update:ytdlp`    | yt-dlp 바이너리 최신화                                                 |
+| `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                   |
+| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                              |
 
 **슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 관리자 페이지의 재배포 버튼으로 강제 배포하세요.
+
+**ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `bin/`의 바이너리가 없어졌을 때만 쓰세요.
+내려받는 릴리스는 `scripts/install-ffmpeg.js` 상단의 `RELEASE`/`VERSION` 상수로 고정되어 있고 sha256으로 검증합니다. 버전을 올리려면 두 값을 함께 바꾸면 되고, 다음 `pnpm install`에서 자동으로 새로 받습니다(`--force`는 같은 버전을 다시 받을 때만 필요).
 
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
 기동 시 자동 체크는 하지 않으므로, YouTube 추출이 갑자기 막히면(YouTube가 API를 자주 바꿈) 봇 재시작 전에 `pnpm run update:ytdlp`로 갱신하세요.

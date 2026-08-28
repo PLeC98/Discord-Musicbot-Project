@@ -9,3 +9,6 @@ bgutil-ytdlp-pot-provider/
 *.tmp
 original_docs/
 notes/
+
+# 내려받은 ffmpeg 바이너리 (scripts/install-ffmpeg.js)
+bin/
