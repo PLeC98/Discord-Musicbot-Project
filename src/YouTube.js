@@ -5,6 +5,7 @@ const fs = require("fs");
 const youtubedl = require("./ytdlp");
 const config = require("../config");
 const CacheManager = require("./CacheManager");
+const { ffmpegPath } = require("./ffmpegPath");
 
 const BGUTIL_PLUGIN_DIR = path.join(__dirname, "..", "bgutil-ytdlp-pot-provider", "plugin");
 const BGUTIL_AVAILABLE = fs.existsSync(BGUTIL_PLUGIN_DIR);
@@ -16,6 +17,9 @@ class YouTube {
       noWarnings: true,
       retries: 3,
       fragmentRetries: 3,
+      // 재생과 같은 ffmpeg를 쓰게 한다. 지정하지 않으면 yt-dlp가 PATH에서 제멋대로 찾아
+      // 재생(ffmpegPath 해석기)과 캐시 변환이 서로 다른 바이너리를 쓰게 된다 — 실제로 그래왔다.
+      ffmpegLocation: ffmpegPath(),
       jsRuntimes: `node:${process.execPath}`,
       addHeader: ["referer:youtube.com", "user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"],
       ...(BGUTIL_AVAILABLE && { pluginDirs: BGUTIL_PLUGIN_DIR }),

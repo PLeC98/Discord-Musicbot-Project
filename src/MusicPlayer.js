@@ -17,11 +17,9 @@ const DirectLink = require("./DirectLink");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
 const TrackDownloader = require("./TrackDownloader");
-const procRegistry = require("./ChildProcessRegistry");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./SessionPersistence");
-const prism = require("prism-media");
-const ffmpegPath = require("ffmpeg-static");
+const { spawnFfmpeg } = require("./ffmpegProcess");
 const { Readable } = require("stream");
 const fsSync = require("fs");
 const path = require("path");
@@ -444,17 +442,9 @@ class MusicPlayer {
             }
           });
 
-        // 즉시 재생을 위해 직접 스트리밍 — 네트워크는 **항상 Node가** 담당하고 ffmpeg에는 pipe로만 넣는다.
-        // ffmpeg에 URL을 직접 물리면 (1) yt-dlp가 준 httpHeaders가 빠지고 (2) 아래 실패 폴백(진행 중인
-        // 다운로드로 전환)을 건너뛰며 (3) 재생이 ffmpeg 빌드의 네트워크 스택에 의존하게 된다.
-        // (3)은 실제로 터졌다 — ffmpeg-static의 리눅스 빌드는 URL 입력만으로 SIGSEGV로 죽는다.
-        // 상세: notes/ffmpeg-url-input-crash-2026-08-28.md
-        //
-        // seek은 `-ss`를 `-i` **뒤**(출력측)에 둔다. `-ss`는 위치에 따라 다른 옵션이다:
-        //  - `-i` 앞(입력측) + pipe : 컨테이너 seek이 불가능해 출력이 잘린다 ← 옛 주석의 실측이 이것
-        //  - `-i` 뒤(출력측) + pipe : 파일 입력과 **바이트 단위로 동일**하고 샘플 정확
-        //    (실측 2026-08-28: 파일/pipe 출력측 seek 결과 md5 일치. 입력측 파일 seek은 패킷 경계로 0.34초 일찍 착지)
-        //  비용은 오프셋까지 디코드 후 폐기 — 오디오 1초당 약 2.6ms(인트로 30초면 +150ms).
+        // 다운로드 완료를 기다리지 않고 즉시 스트리밍. 네트워크는 항상 Node가 담당하고 ffmpeg에는
+        // pipe로만 넣는다 — ffmpeg에 URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패 폴백을
+        // 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 링크 빌드는 여기서 SIGSEGV로 죽는다).
         let audioStream;
         if (typeof streamInfo === "object" && streamInfo.stream) {
           audioStream = streamInfo.stream;
@@ -504,31 +494,18 @@ class MusicPlayer {
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
         } else if (audioStream) {
-          const ffmpegProcess = new prism.FFmpeg({
-            // ⚠️ prism은 이 command를 무시하고 자체 탐색 결과를 쓴다(FFmpeg.create가 구조분해조차 안 함).
-            //    지금은 탐색 1순위가 ffmpeg-static이라 우연히 일치. 상세: notes/ffmpeg-url-input-crash-2026-08-28.md
-            command: ffmpegPath,
-            args: MusicPlayer.buildFfmpegArgs({ seekMs: resumeFromMs }),
+          const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ seekMs: resumeFromMs }), "stream");
+
+          // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
+          // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
+          audioStream.on("error", (err) => {
+            log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구합니다.`);
           });
-          this._watchFfmpeg(ffmpegProcess, "stream");
+          // ffmpeg가 끝나면 입력 스트림도 닫는다 — .pipe 바깥이라 자동 정리 대상이 아니다.
+          ffmpeg.once("exit", () => audioStream.destroy());
+          audioStream.pipe(ffmpeg.stdin);
 
-          ffmpegProcess.on("error", (err) => {
-            if (err.message && err.message.includes("Premature close")) return;
-            log.error("❌ FFmpeg streaming error:", err.message);
-          });
-
-          if (audioStream) {
-            // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
-            // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
-            audioStream.on("error", (err) => {
-              log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구합니다.`);
-            });
-            // ffmpegProcess는 @discordjs/voice 파이프라인이 정리하지만 audioStream은 그 밖(.pipe)이라 명시적으로 닫는다.
-            ffmpegProcess.once("close", () => audioStream.destroy());
-            audioStream.pipe(ffmpegProcess);
-          }
-
-          this.resource = createAudioResource(ffmpegProcess, {
+          this.resource = createAudioResource(ffmpeg.stdout, {
             inputType: StreamType.Raw,
             inlineVolume: true,
             metadata: {
@@ -545,19 +522,9 @@ class MusicPlayer {
       if (!shouldDownload && downloadedFile) {
         log.info(`🎵 오디오 캐시에서 재생: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
 
-        const ffmpegProcess = new prism.FFmpeg({
-          command: ffmpegPath, // ⚠️ prism이 무시함 — buildFfmpegArgs 주석 참고
-          args: MusicPlayer.buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }),
-        });
+        const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }), "playback");
 
-        this._watchFfmpeg(ffmpegProcess, "playback");
-
-        ffmpegProcess.on("error", (err) => {
-          if (err.message && err.message.includes("Premature close")) return;
-          log.error("❌ FFmpeg playback error:", err.message);
-        });
-
-        this.resource = createAudioResource(ffmpegProcess, {
+        this.resource = createAudioResource(ffmpeg.stdout, {
           inputType: StreamType.Raw,
           inlineVolume: true,
           metadata: {
@@ -653,63 +620,19 @@ class MusicPlayer {
   }
 
   /**
-   * ffmpeg 인자 구성 — 두 호출부(스트리밍/파일)의 단일 출처. 불변식을 테스트로 고정하려고 순수 함수로 뺐다.
+   * 재생용 ffmpeg 인자 구성. 출력 대상(`pipe:1`)까지 포함한 완전한 인자를 돌려준다.
    *
-   * 불변식 둘:
-   *  1. **스트리밍 입력은 언제나 `pipe:0`.** ffmpeg에 URL을 주면 네트워크를 ffmpeg가 직접 하게 되어
-   *     yt-dlp 헤더가 빠지고, 실패 폴백을 건너뛰고, 재생이 ffmpeg 빌드에 종속된다.
-   *  2. **`-ss` 위치는 입력 종류에 따라 다르다.** 파일은 `-i` 앞(seek 가능해 빠름),
-   *     pipe는 `-i` 뒤(입력측은 pipe에서 출력이 잘린다 — 2026-08-28 실측).
+   * 지켜야 할 것 둘:
+   *  1. 스트리밍 입력은 언제나 `pipe:0`. URL을 직접 주면 안 된다.
+   *  2. `-ss` 위치가 입력 종류에 따라 다르다. 파일은 `-i` 앞(seek 가능해 빠름),
+   *     pipe는 `-i` 뒤 — pipe에서 입력측 `-ss`는 출력을 잘라먹는다.
    *
    * @param {{file?: string|null, seekMs?: number}} opts file이 없으면 pipe 입력(스트리밍)
    */
   static buildFfmpegArgs({ file = null, seekMs = 0 } = {}) {
     const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];
-    const output = ["-f", "s16le", "-ar", "48000", "-ac", "2"];
+    const output = ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"];
     return file ? [...seek, "-i", file, "-analyzeduration", "0", "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
-  }
-
-  /**
-   * ffmpeg 자식 프로세스 감시 — 종료 시 레지스트리 해제, stderr 배수, 비정상 종료 로깅.
-   *
-   * prism 우회가 두 군데 필요하다(prism-media@1.3.5 src/core/FFmpeg.js):
-   *  1. prism의 on/once는 EVENTS 매핑에 없는 이벤트를 Duplex로 넘긴다. 'close'가 거기 없어서
-   *     `ffmpegProcess.once("close", ...)`는 **프로세스 종료와 어긋난다** → ChildProcess에 직접 붙는다.
-   *  2. prism은 stderr를 아무도 읽지 않는 pipe로 연다. 로그를 켠 채 배수하지 않으면
-   *     파이프 버퍼가 차서 ffmpeg가 멈춘다 → 여기서 반드시 읽어 비운다.
-   *
-   * 시그널 종료를 찍는 게 핵심이다. 이게 없어서 리눅스의 SIGSEGV가 'Premature close'로 위장돼
-   * 아무 단서 없이 묻혔다(notes/ffmpeg-url-input-crash-2026-08-28.md).
-   */
-  _watchFfmpeg(ffmpegProcess, label) {
-    const child = ffmpegProcess.process; // prism의 _cleanup()이 null로 바꾸므로 미리 잡아둔다
-    if (!child) return;
-
-    const release = procRegistry.register(child, `ffmpeg:${label}`);
-
-    // 정상 운용에서는 조용하도록 모아두기만 하고, 비정상 종료일 때만 함께 내보낸다.
-    let stderrTail = "";
-    if (child.stderr) {
-      child.stderr.on("data", (chunk) => {
-        stderrTail = (stderrTail + chunk.toString()).slice(-1000);
-      });
-      child.stderr.on("error", () => {
-        /* 종료 중 파이프 오류는 무시 */
-      });
-    }
-
-    child.on("exit", (code, signal) => {
-      release();
-      const detail = stderrTail.trim() ? ` — ${stderrTail.trim()}` : "";
-      if (MusicPlayer.FFMPEG_CRASH_SIGNALS.has(signal)) {
-        log.error(`❌ ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
-      } else if (signal) {
-        // SIGKILL/SIGTERM은 prism의 _cleanup()이 스킵·정지에서 정상적으로 보내는 것이다.
-        log.debug(`ffmpeg(${label}) 종료 시그널 ${signal}`);
-      } else if (code !== 0) {
-        log.warn(`⚠️ ffmpeg(${label}) 종료 코드 ${code}${detail}`);
-      }
-    });
   }
 
   scheduleTrackWatchdog(streamInfo = null) {
@@ -1633,9 +1556,5 @@ class MusicPlayer {
     return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
 }
-
-// 프로세스가 죽은 것과 우리가 정상적으로 끝낸 것을 구분한다.
-// SIGKILL/SIGTERM은 스킵·정지에서 prism이 정상적으로 보내므로 크래시가 아니다.
-MusicPlayer.FFMPEG_CRASH_SIGNALS = new Set(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
 
 module.exports = MusicPlayer;

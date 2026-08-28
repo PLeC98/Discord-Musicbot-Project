@@ -128,6 +128,12 @@ module.exports = {
     },
   },
 
+  // ffmpeg 실행 파일 — 미지정이면 src/ffmpegPath.js가 자동 탐색(ffmpeg-static → PATH).
+  // macOS는 자동 다운로드 대상이 아니므로 여기로 지정하거나 PATH에 두어야 한다(brew install ffmpeg).
+  ffmpeg: {
+    path: resolveFromRoot(env("FFMPEG_PATH")),
+  },
+
   ytdl: {
     requestOptions: {
       headers: {
