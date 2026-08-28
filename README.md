@@ -185,7 +185,8 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 **슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 관리자 페이지의 재배포 버튼으로 강제 배포하세요.
 
-**ffmpeg 버전 고정**: 내려받는 릴리스는 `scripts/install-ffmpeg.js` 상단의 `RELEASE`/`VERSION` 상수로 고정되어 있고, sha256으로 검증합니다. 올리려면 두 값을 함께 바꾸세요.
+**ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `bin/`의 바이너리가 없어졌을 때만 쓰세요.
+내려받는 릴리스는 `scripts/install-ffmpeg.js` 상단의 `RELEASE`/`VERSION` 상수로 고정되어 있고 sha256으로 검증합니다. 버전을 올리려면 두 값을 함께 바꾸면 되고, 다음 `pnpm install`에서 자동으로 새로 받습니다(`--force`는 같은 버전을 다시 받을 때만 필요).
 
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
 기동 시 자동 체크는 하지 않으므로, YouTube 추출이 갑자기 막히면(YouTube가 API를 자주 바꿈) 봇 재시작 전에 `pnpm run update:ytdlp`로 갱신하세요.
