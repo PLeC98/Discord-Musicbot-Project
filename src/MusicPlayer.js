@@ -444,15 +444,19 @@ class MusicPlayer {
             }
           });
 
-        // 즉시 재생을 위해 직접 스트리밍.
-        // 오프셋 재생이고 seekable(googlevideo)이면 URL을 ffmpeg에 직접 입력해 HTTP range seek 한다.
-        // (실측: begin= 파라미터는 서버가 무시하고, pipe 입력은 -ss가 안 먹혀 오디오/시계가 desync됨.
-        //  ffmpeg -ss 입력전 + URL 직접입력만이 정확·신속하게 seek됨.)
-        const useUrlSeek = resumeFromMs > 0 && !!streamInfo?.canSeek && !!(streamInfo?.rawUrl || streamInfo?.url);
+        // 즉시 재생을 위해 직접 스트리밍 — 네트워크는 **항상 Node가** 담당하고 ffmpeg에는 pipe로만 넣는다.
+        // ffmpeg에 URL을 직접 물리면 (1) yt-dlp가 준 httpHeaders가 빠지고 (2) 아래 실패 폴백(진행 중인
+        // 다운로드로 전환)을 건너뛰며 (3) 재생이 ffmpeg 빌드의 네트워크 스택에 의존하게 된다.
+        // (3)은 실제로 터졌다 — ffmpeg-static의 리눅스 빌드는 URL 입력만으로 SIGSEGV로 죽는다.
+        // 상세: notes/ffmpeg-url-input-crash-2026-08-28.md
+        //
+        // seek은 `-ss`를 `-i` **뒤**(출력측)에 둔다. `-ss`는 위치에 따라 다른 옵션이다:
+        //  - `-i` 앞(입력측) + pipe : 컨테이너 seek이 불가능해 출력이 잘린다 ← 옛 주석의 실측이 이것
+        //  - `-i` 뒤(출력측) + pipe : 파일 입력과 **바이트 단위로 동일**하고 샘플 정확
+        //    (실측 2026-08-28: 파일/pipe 출력측 seek 결과 md5 일치. 입력측 파일 seek은 패킷 경계로 0.34초 일찍 착지)
+        //  비용은 오프셋까지 디코드 후 폐기 — 오디오 1초당 약 2.6ms(인트로 30초면 +150ms).
         let audioStream;
-        if (useUrlSeek) {
-          // audioStream 없이 아래 ffmpeg가 URL을 직접 입력받는다
-        } else if (typeof streamInfo === "object" && streamInfo.stream) {
+        if (typeof streamInfo === "object" && streamInfo.stream) {
           audioStream = streamInfo.stream;
         } else if (typeof streamUrl_final === "string") {
           try {
@@ -460,7 +464,9 @@ class MusicPlayer {
               // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
               audioStream = await DirectLink.getStream(streamUrl_final, this.guild.id);
             } else {
-              const response = await fetch(streamUrl_final, {
+              // 오프셋 재생이면 begin= 없는 원본 URL을 받아 `-ss`가 단독으로 위치를 정하게 한다(이중 seek 방지).
+              const fetchUrl = resumeFromMs > 0 && streamInfo?.rawUrl ? streamInfo.rawUrl : streamUrl_final;
+              const response = await fetch(fetchUrl, {
                 headers: streamInfo?.httpHeaders || {
                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 },
@@ -497,19 +503,14 @@ class MusicPlayer {
         // 스트리밍에 실패했고 다운로드 파일이 있으면 파일 재생으로 건너뜀
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
-        } else if (audioStream || useUrlSeek) {
-          // 스트리밍용 FFmpeg. useUrlSeek면 URL을 직접 입력(-ss 입력전, HTTP range seek), 아니면 pipe 입력.
-          const seekUrl = streamInfo.rawUrl || streamInfo.url;
-          const inputArgs = useUrlSeek ? ["-ss", (resumeFromMs / 1000).toFixed(3), "-i", seekUrl] : ["-i", "pipe:0"];
-
+        } else if (audioStream) {
           const ffmpegProcess = new prism.FFmpeg({
+            // ⚠️ prism은 이 command를 무시하고 자체 탐색 결과를 쓴다(FFmpeg.create가 구조분해조차 안 함).
+            //    지금은 탐색 1순위가 ffmpeg-static이라 우연히 일치. 상세: notes/ffmpeg-url-input-crash-2026-08-28.md
             command: ffmpegPath,
-            args: ["-analyzeduration", "0", "-loglevel", "0", ...inputArgs, "-f", "s16le", "-ar", "48000", "-ac", "2"],
+            args: MusicPlayer.buildFfmpegArgs({ seekMs: resumeFromMs }),
           });
-
-          // 봇이 강제 종료돼도 이 ffmpeg가 고아로 남지 않도록 등록(특히 라이브 스트리밍은 스스로 끝나지 않는다).
-          const releaseFfmpeg = procRegistry.register(ffmpegProcess.process, "ffmpeg:stream");
-          ffmpegProcess.once("close", releaseFfmpeg);
+          this._watchFfmpeg(ffmpegProcess, "stream");
 
           ffmpegProcess.on("error", (err) => {
             if (err.message && err.message.includes("Premature close")) return;
@@ -544,29 +545,12 @@ class MusicPlayer {
       if (!shouldDownload && downloadedFile) {
         log.info(`🎵 오디오 캐시에서 재생: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
 
-        const seekArgs = resumeFromMs > 0 ? ["-ss", (resumeFromMs / 1000).toFixed(3)] : [];
-
         const ffmpegProcess = new prism.FFmpeg({
-          command: ffmpegPath,
-          args: [
-            ...seekArgs, // 더 빠른 탐색을 위해 입력 전에 seek 추가
-            "-i",
-            downloadedFile,
-            "-analyzeduration",
-            "0",
-            "-loglevel",
-            "0",
-            "-f",
-            "s16le",
-            "-ar",
-            "48000",
-            "-ac",
-            "2",
-          ],
+          command: ffmpegPath, // ⚠️ prism이 무시함 — buildFfmpegArgs 주석 참고
+          args: MusicPlayer.buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }),
         });
 
-        const releaseFfmpeg = procRegistry.register(ffmpegProcess.process, "ffmpeg:playback");
-        ffmpegProcess.once("close", releaseFfmpeg);
+        this._watchFfmpeg(ffmpegProcess, "playback");
 
         ffmpegProcess.on("error", (err) => {
           if (err.message && err.message.includes("Premature close")) return;
@@ -666,6 +650,66 @@ class MusicPlayer {
     const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하면 인트로로 간주
     const intro = segs.find((s) => s.start <= INTRO_START_TOL_SEC);
     return intro && intro.end > 0 ? Math.round(intro.end * 1000) : 0;
+  }
+
+  /**
+   * ffmpeg 인자 구성 — 두 호출부(스트리밍/파일)의 단일 출처. 불변식을 테스트로 고정하려고 순수 함수로 뺐다.
+   *
+   * 불변식 둘:
+   *  1. **스트리밍 입력은 언제나 `pipe:0`.** ffmpeg에 URL을 주면 네트워크를 ffmpeg가 직접 하게 되어
+   *     yt-dlp 헤더가 빠지고, 실패 폴백을 건너뛰고, 재생이 ffmpeg 빌드에 종속된다.
+   *  2. **`-ss` 위치는 입력 종류에 따라 다르다.** 파일은 `-i` 앞(seek 가능해 빠름),
+   *     pipe는 `-i` 뒤(입력측은 pipe에서 출력이 잘린다 — 2026-08-28 실측).
+   *
+   * @param {{file?: string|null, seekMs?: number}} opts file이 없으면 pipe 입력(스트리밍)
+   */
+  static buildFfmpegArgs({ file = null, seekMs = 0 } = {}) {
+    const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];
+    const output = ["-f", "s16le", "-ar", "48000", "-ac", "2"];
+    return file ? [...seek, "-i", file, "-analyzeduration", "0", "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
+  }
+
+  /**
+   * ffmpeg 자식 프로세스 감시 — 종료 시 레지스트리 해제, stderr 배수, 비정상 종료 로깅.
+   *
+   * prism 우회가 두 군데 필요하다(prism-media@1.3.5 src/core/FFmpeg.js):
+   *  1. prism의 on/once는 EVENTS 매핑에 없는 이벤트를 Duplex로 넘긴다. 'close'가 거기 없어서
+   *     `ffmpegProcess.once("close", ...)`는 **프로세스 종료와 어긋난다** → ChildProcess에 직접 붙는다.
+   *  2. prism은 stderr를 아무도 읽지 않는 pipe로 연다. 로그를 켠 채 배수하지 않으면
+   *     파이프 버퍼가 차서 ffmpeg가 멈춘다 → 여기서 반드시 읽어 비운다.
+   *
+   * 시그널 종료를 찍는 게 핵심이다. 이게 없어서 리눅스의 SIGSEGV가 'Premature close'로 위장돼
+   * 아무 단서 없이 묻혔다(notes/ffmpeg-url-input-crash-2026-08-28.md).
+   */
+  _watchFfmpeg(ffmpegProcess, label) {
+    const child = ffmpegProcess.process; // prism의 _cleanup()이 null로 바꾸므로 미리 잡아둔다
+    if (!child) return;
+
+    const release = procRegistry.register(child, `ffmpeg:${label}`);
+
+    // 정상 운용에서는 조용하도록 모아두기만 하고, 비정상 종료일 때만 함께 내보낸다.
+    let stderrTail = "";
+    if (child.stderr) {
+      child.stderr.on("data", (chunk) => {
+        stderrTail = (stderrTail + chunk.toString()).slice(-1000);
+      });
+      child.stderr.on("error", () => {
+        /* 종료 중 파이프 오류는 무시 */
+      });
+    }
+
+    child.on("exit", (code, signal) => {
+      release();
+      const detail = stderrTail.trim() ? ` — ${stderrTail.trim()}` : "";
+      if (MusicPlayer.FFMPEG_CRASH_SIGNALS.has(signal)) {
+        log.error(`❌ ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
+      } else if (signal) {
+        // SIGKILL/SIGTERM은 prism의 _cleanup()이 스킵·정지에서 정상적으로 보내는 것이다.
+        log.debug(`ffmpeg(${label}) 종료 시그널 ${signal}`);
+      } else if (code !== 0) {
+        log.warn(`⚠️ ffmpeg(${label}) 종료 코드 ${code}${detail}`);
+      }
+    });
   }
 
   scheduleTrackWatchdog(streamInfo = null) {
@@ -1589,5 +1633,9 @@ class MusicPlayer {
     return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
 }
+
+// 프로세스가 죽은 것과 우리가 정상적으로 끝낸 것을 구분한다.
+// SIGKILL/SIGTERM은 스킵·정지에서 prism이 정상적으로 보내므로 크래시가 아니다.
+MusicPlayer.FFMPEG_CRASH_SIGNALS = new Set(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
 
 module.exports = MusicPlayer;
