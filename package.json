@@ -26,25 +26,25 @@
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.2",
-    "axios": "^1.19.0",
+    "axios": "^1.20.0",
     "better-sqlite3": "^13.0.3",
     "chalk": "^4.1.2",
     "cors": "^2.8.6",
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.6.2",
+    "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "ipaddr.js": "^2.5.0",
     "korean-lunar-calendar": "^0.4.0",
-    "youtube-dl-exec": "^3.1.12"
+    "youtube-dl-exec": "^3.1.13"
   },
   "engines": {
     "node": ">=24.11.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.9.0",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.10.0",
     "globals": "^17.11.0",
