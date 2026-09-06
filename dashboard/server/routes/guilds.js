@@ -576,7 +576,8 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
     // single=true(재생목록에서 첫 곡만) 옵션 지원.
     const result = await player.addTrack(query, requester, { single: req.body.single === true });
 
-    if (!result.success) return res.status(400).json({ error: result.message });
+    // addTrack은 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
+    if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
 
     if (client.musicEmbedManager && player.currentTrack) {
       client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});

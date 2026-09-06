@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const config = require("../config.js");
 const YouTube = require("../src/YouTube.js");
 const S = require("../src/strings");
-const { checkAdd } = require("../src/permissions");
+const { checkAdd, checkSummon } = require("../src/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -25,13 +25,12 @@ module.exports = {
     const query = interaction.options.getString("query");
     const guildId = interaction.guild.id;
     const member = interaction.member;
-    const guild = interaction.guild;
 
     try {
       await interaction.deferReply();
 
       // 기본 검사
-      const validationResult = await this.validateRequest(interaction, member, guild);
+      const validationResult = await this.validateRequest(member);
       if (!validationResult.success) {
         return await interaction.editReply({
           content: validationResult.message,
@@ -55,25 +54,10 @@ module.exports = {
     }
   },
 
-  async validateRequest(interaction, member, guild) {
-    // 검색 후 선택은 곡 추가 경로 — 전 계층 가능, 봇 동작 중에는 접속 규칙만 적용
-    const botVoiceChannel = guild.members.me.voice.channel;
-    if (botVoiceChannel) {
-      const permErr = checkAdd(member);
-      if (permErr) return { success: false, message: permErr };
-      return { success: true };
-    }
-
-    // 봇 유휴: 선택 시 요청자의 채널로 접속해야 하므로 관리자여도 음성 채널 접속 필수
-    if (!member.voice.channel) {
-      return { success: false, message: S.ERR_VOICE_REQUIRED };
-    }
-
-    const permissions = member.voice.channel.permissionsFor(guild.members.me);
-    if (!permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-      return { success: false, message: S.ERR_NO_PERMISSIONS };
-    }
-
+  async validateRequest(member) {
+    // 검색 후 선택은 곡 추가 경로 — 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
+    const permErr = checkAdd(member) || checkSummon(member);
+    if (permErr) return { success: false, message: permErr };
     return { success: true };
   },
 

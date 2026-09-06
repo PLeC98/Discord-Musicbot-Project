@@ -1,9 +1,11 @@
 const { Events, MessageFlags } = require("discord.js");
 const log = require("../src/logger").child({ category: "events" });
 const GuildSettingsManager = require("../src/GuildSettingsManager");
-const { checkAdd } = require("../src/permissions");
+const { checkAdd, checkSummon } = require("../src/permissions");
 const MusicPlayer = require("../src/MusicPlayer");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
+const TrackResolver = require("../src/TrackResolver");
+const S = require("../src/strings");
 
 module.exports = {
   name: Events.MessageCreate,
@@ -23,14 +25,9 @@ module.exports = {
     const client = message.client;
     const member = message.member;
 
-    // 곡 추가 권한: 봇 동작 중에는 재적 규칙(관리자 면제), 유휴 시에는 소환을 위해 본인 접속 필수
+    // 곡 추가 권한: 봇 동작 중에는 재적 규칙(관리자 면제), 유휴 시에는 소환 가능 여부 — /play와 동일 기준
     const botVoiceChannel = message.guild.members.me?.voice?.channel;
-    let permError = null;
-    if (botVoiceChannel) {
-      permError = checkAdd(member);
-    } else if (!member.voice.channel) {
-      permError = "🔇 음성 채널에 먼저 접속해주세요!";
-    }
+    const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
       const reply = await message.reply(permError);
       setTimeout(() => {
@@ -74,13 +71,12 @@ module.exports = {
 
     try {
       // 캐시 숏컷 포함 해석 (플랫폼 감지·메타데이터 조회는 TrackResolver 한 곳에서)
-      const TrackResolver = require("../src/TrackResolver");
       const trackData = await TrackResolver.resolveQuery(content, guildId, "messageHandler.getTrackData");
 
       await loadingMsg.delete().catch(() => {});
 
       if (!trackData.success) {
-        const errMsg = await message.channel.send({ content: `❌ ${trackData.message}` });
+        const errMsg = await message.channel.send({ content: S.withErrorMark(trackData.message) });
         setTimeout(() => errMsg.delete().catch(() => {}), 8000);
         return;
       }
@@ -88,7 +84,7 @@ module.exports = {
       const embedResult = await client.musicEmbedManager.handleMusicData(guildId, trackData, member, null);
       // 재생 시작 실패(예: YouTube 동등물 못 찾음)를 사용자에게 알림 — 기존엔 반환값 무시로 완전 침묵이었음
       if (embedResult && embedResult.success === false) {
-        const errMsg = await message.channel.send({ content: embedResult.message || "❌ 재생을 시작할 수 없어요." });
+        const errMsg = await message.channel.send({ content: S.withErrorMark(embedResult.message || "재생을 시작할 수 없어요.") });
         setTimeout(() => errMsg.delete().catch(() => {}), 8000);
       }
     } catch (error) {
