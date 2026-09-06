@@ -2,9 +2,8 @@ const { Events, MessageFlags } = require("discord.js");
 const log = require("../src/logger").child({ category: "events" });
 const GuildSettingsManager = require("../src/GuildSettingsManager");
 const { checkAdd, checkSummon } = require("../src/permissions");
-const MusicPlayer = require("../src/MusicPlayer");
-const MusicEmbedManager = require("../src/MusicEmbedManager");
-const TrackResolver = require("../src/TrackResolver");
+const { requestPlayback } = require("../src/playRequest");
+const { channelResponder } = require("../src/playbackResponder");
 const S = require("../src/strings");
 
 module.exports = {
@@ -26,7 +25,6 @@ module.exports = {
     const member = message.member;
 
     // 곡 추가 권한: 봇 동작 중에는 재적 규칙(관리자 면제), 유휴 시에는 소환 가능 여부 — /play와 동일 기준
-    const botVoiceChannel = message.guild.members.me?.voice?.channel;
     const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
       const reply = await message.reply(permError);
@@ -40,56 +38,35 @@ module.exports = {
     // 채널을 깔끔하게 유지하기 위해 사용자 메시지 삭제
     await message.delete().catch(() => {});
 
-    // 음악 플레이어를 가져오거나 생성 — 봇이 이미 접속 중이면 그 채널 기준 (관리자 원격 추가 대응)
-    let player = client.players.get(guildId);
-    if (!player) {
-      player = new MusicPlayer(message.guild, message.channel, member.voice.channel ?? botVoiceChannel ?? null);
-      client.players.set(guildId, player);
-    } else {
-      // 플레이어 출력을 봇 채널로 리디렉션
-      player.textChannel = message.channel;
-    }
-
-    // 봇이 유휴 상태에서 소환될 때만 음성 대상을 갱신 — 재생 중 다른 채널 참조로 오염 방지
-    if (!botVoiceChannel && member.voice.channel) {
-      player.voiceChannel = member.voice.channel;
-    }
-
-    // 임베드 매니저가 준비되지 않았으면 초기화
-    if (!client.musicEmbedManager) {
-      client.musicEmbedManager = new MusicEmbedManager(client);
-    }
-
-    // 초기 CV2 검색 자리표시자 전송 — 생성 시점부터 CV2여야 IS_COMPONENTS_V2
-    // 플래그가 현재 재생 메시지 수정 전에 설정되어 /play 상호작용 응답 흐름과 맞음
-    const query = content.length > 60 ? content.slice(0, 60) + "…" : content;
-    const searchingContainer = client.musicEmbedManager.createSearchingContainer(`🔍 **${query}** 검색 중...`);
+    // 초기 CV2 검색 자리표시자 — 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
+    const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send({
-      components: [searchingContainer],
+      components: [client.musicEmbedManager.createSearchingContainer(`🔍 **${preview}** 검색 중...`)],
       flags: MessageFlags.IsComponentsV2,
     });
 
+    const responder = channelResponder(message.channel, () => loadingMsg.delete().catch(() => {}));
+
     try {
-      // 캐시 숏컷 포함 해석 (플랫폼 감지·메타데이터 조회는 TrackResolver 한 곳에서)
-      const trackData = await TrackResolver.resolveQuery(content, guildId, "messageHandler.getTrackData");
+      const result = await requestPlayback(client, {
+        guild: message.guild,
+        requester: member,
+        query: content,
+        textChannel: message.channel,
+        voiceChannel: member.voice.channel ?? null,
+        responder,
+        source: "전용채널",
+      });
 
-      await loadingMsg.delete().catch(() => {});
-
-      if (!trackData.success) {
-        const errMsg = await message.channel.send({ content: S.withErrorMark(trackData.message) });
-        setTimeout(() => errMsg.delete().catch(() => {}), 8000);
-        return;
-      }
-
-      const embedResult = await client.musicEmbedManager.handleMusicData(guildId, trackData, member, null);
-      // 재생 시작 실패(예: YouTube 동등물 못 찾음)를 사용자에게 알림 — 기존엔 반환값 무시로 완전 침묵이었음
-      if (embedResult && embedResult.success === false) {
-        const errMsg = await message.channel.send({ content: S.withErrorMark(embedResult.message || "재생을 시작할 수 없어요.") });
+      // 해석 실패·재생 시작 실패를 사용자에게 알림 — 침묵하면 왜 안 되는지 알 수 없다
+      if (!result.success) {
+        await responder.dismissPlaceholder();
+        const errMsg = await message.channel.send({ content: S.withErrorMark(result.message || "재생을 시작할 수 없어요.") });
         setTimeout(() => errMsg.delete().catch(() => {}), 8000);
       }
     } catch (error) {
       log.error({ sub: "message" }, "❌ error:", error);
-      await loadingMsg.delete().catch(() => {});
+      await responder.dismissPlaceholder();
       const errMsg = await message.channel.send({ content: "❌ 처리 중 오류가 발생했어요." });
       setTimeout(() => errMsg.delete().catch(() => {}), 8000);
     }

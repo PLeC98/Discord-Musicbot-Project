@@ -3,7 +3,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const log = require("../src/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
-const MusicEmbedManager = require("../src/MusicEmbedManager");
 const CacheManager = require("../src/CacheManager");
 const S = require("../src/strings");
 const config = require("../config");
@@ -25,13 +24,17 @@ module.exports = {
       return interaction.reply({ content: "✅ 이미 채널에 접속해 있어요.", flags: [1 << 6] });
     }
 
-    if (!client.musicEmbedManager) {
-      client.musicEmbedManager = new MusicEmbedManager(client);
-    }
-
     // /leave에서 저장한 세션이 있는지 확인
     const savedState = CacheManager.getPlayerSession(guild.id);
     const hasSession = savedState?.currentTrack;
+
+    // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로
+    // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라 그냥 버리면 새 플레이어와
+    // 같은 길드 키를 두고 경쟁한다. (대기열 승계 문제는 notes/issues-backlog.md 참조)
+    if (existing) {
+      existing.releaseResources();
+      existing.releaseAudioProtection();
+    }
 
     const player = new MusicPlayer(guild, channel, member.voice.channel);
     client.players.set(guild.id, player);

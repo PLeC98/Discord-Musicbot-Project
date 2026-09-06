@@ -7,6 +7,7 @@ const { resolveMember, toApiError } = requireControl;
 const { checkControl, checkAdd, checkSkip, checkRemoveTrack, isModerator } = require("../../../src/permissions");
 const { ChannelType } = require("discord.js");
 const GuildSettingsManager = require("../../../src/GuildSettingsManager");
+const { requestPlayback } = require("../../../src/playRequest");
 const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
 
@@ -386,10 +387,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   let player = client.players.get(guildId);
   if (!player) {
     const MusicPlayer = require("../../../src/MusicPlayer");
-    const MusicEmbedManager = require("../../../src/MusicEmbedManager");
-    if (!client.musicEmbedManager) {
-      client.musicEmbedManager = new MusicEmbedManager(client);
-    }
+    // textChannel은 여기서 정하지 않는다 — 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
     player = new MusicPlayer(guild, null, voiceChannel);
     client.players.set(guildId, player);
   } else {
@@ -550,7 +548,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
   const { guildId } = req.params;
   const ctx = await getPlayer(req, res, guildId);
   if (!ctx) return;
-  const { player, client } = ctx;
+  const { player, client, guild } = ctx;
 
   if (!player) return res.status(409).json({ error: "봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요" });
 
@@ -564,28 +562,26 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
   const query = sanitizeQuery(req.body.query);
   if (!query) return res.status(400).json({ error: `검색어를 입력해 주세요 (문자열, 최대 ${QUERY_MAX_LEN}자)` });
 
-  log.info({ sub: "play" }, `Dashboard | guild=${guildId} | user=${req.session.user.globalName || req.session.user.username} | query="${query}"`);
-
   try {
-    const requester = {
-      id: req.session.user.id,
-      username: req.session.user.globalName || req.session.user.username,
-    };
+    // responder를 주지 않으면 무동작 — 디스코드에는 알리지 않고 결과를 이 응답으로만 전달한다.
+    // 재생 시작·임베드·로깅은 슬래시 명령과 같은 코어를 지난다.
+    const result = await requestPlayback(client, {
+      guild,
+      requester: {
+        id: req.session.user.id,
+        username: req.session.user.globalName || req.session.user.username,
+      },
+      query,
+      single: req.body.single === true,
+      source: "대시보드",
+    });
 
-    // 플레이어가 유휴 상태이면 addTrack()이 직접 재생을 시작하므로, 여기서 play()를 다시 호출하면 곡이 처음부터 재시작된다.
-    // single=true(재생목록에서 첫 곡만) 옵션 지원.
-    const result = await player.addTrack(query, requester, { single: req.body.single === true });
-
-    // addTrack은 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
+    // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
     if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
-
-    if (client.musicEmbedManager && player.currentTrack) {
-      client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-    }
 
     res.json(playerState(player));
   } catch (err) {
-    log.error("Dashboard addTrack error:", err);
+    log.error("Dashboard 곡 추가 오류:", err);
     res.status(500).json({ error: "곡 추가에 실패했습니다" });
   }
 });
