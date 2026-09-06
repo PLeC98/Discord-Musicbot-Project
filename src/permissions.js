@@ -62,6 +62,27 @@ function checkAdd(member) {
   return checkVoice(member);
 }
 
+/**
+ * 봇이 유휴 상태일 때 소환 가능한지 — 요청자의 채널로 들어가야 하므로 관리자여도 본인 접속 필수이며,
+ * 봇에게 그 채널의 Connect/Speak 권한이 있어야 한다. 봇이 이미 음성 채널에 있으면 검사 불필요(null).
+ *
+ * 재적 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
+ * 이 검사를 이어 붙여야 두 상태가 모두 덮인다.
+ */
+function checkSummon(member) {
+  const me = member.guild.members.me;
+  if (me?.voice?.channel) return null;
+
+  const target = member.voice.channel;
+  if (!target) return S.ERR_VOICE_REQUIRED;
+
+  const permissions = target.permissionsFor(me);
+  if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
+    return S.ERR_NO_PERMISSIONS;
+  }
+  return null;
+}
+
 /** 스킵: DJ 계층이거나, 현재 곡의 요청자 본인 (요청자도 재적 규칙은 적용) */
 async function checkSkip(member, player) {
   const controlErr = await checkControl(member);
@@ -84,4 +105,4 @@ async function checkRemoveTrack(member, track) {
   return controlErr;
 }
 
-module.exports = { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSkip, checkRemoveTrack };
+module.exports = { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };

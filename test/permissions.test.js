@@ -13,12 +13,13 @@ let mockDjRoles = [];
 const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => mockDjRoles } };
 
-const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkSkip, checkRemoveTrack } = require("../src/permissions");
+const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = require("../src/permissions");
 const S = require("../src/strings");
 
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id
-function fakeMember({ perms = [], roles = [], guildRoles = ["r1", "r2"], voice = null, botVoice = null } = {}) {
+// botChannelPerms: 유저의 음성 채널에서 봇이 가지는 권한 (checkSummon 검사 대상)
+function fakeMember({ perms = [], roles = [], guildRoles = ["r1", "r2"], voice = null, botVoice = null, botChannelPerms = [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] } = {}) {
   return {
     permissions: { has: (p) => perms.includes(p) },
     guild: {
@@ -27,7 +28,9 @@ function fakeMember({ perms = [], roles = [], guildRoles = ["r1", "r2"], voice =
       members: { me: { voice: { channel: botVoice ? { id: botVoice } : null } } },
     },
     roles: { cache: { has: (id) => roles.includes(id) } },
-    voice: { channel: voice ? { id: voice } : null },
+    voice: {
+      channel: voice ? { id: voice, permissionsFor: () => (botChannelPerms === null ? null : { has: (p) => botChannelPerms.includes(p) }) } : null,
+    },
   };
 }
 
@@ -140,4 +143,46 @@ test("대기열 제거: 비-DJ여도 그 곡 요청자 본인은 가능", async 
   const other = fakeMember({ voice: "vc1", botVoice: "vc1" });
   other.id = "u2";
   assert.equal(await checkRemoveTrack(other, track), S.ERR_NOT_AUTHORIZED);
+});
+
+// ── checkSummon (봇 유휴 시 소환 가능 여부) ─────────────────
+
+test("소환: 봇이 이미 음성 채널에 있으면 검사하지 않는다", () => {
+  assert.equal(checkSummon(fakeMember({ botVoice: "vc1" })), null);
+  assert.equal(checkSummon(fakeMember({ botVoice: "vc1", botChannelPerms: [] })), null, "봇이 접속 중이면 채널 권한을 보지 않음");
+});
+
+test("소환: 봇 유휴 + 요청자 음성 미참가는 거부", () => {
+  assert.equal(checkSummon(fakeMember()), S.ERR_VOICE_REQUIRED);
+});
+
+test("소환: 관리자여도 본인이 음성 채널에 있어야 한다 (재적 규칙과 달리 면제 없음)", () => {
+  assert.equal(checkSummon(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), S.ERR_VOICE_REQUIRED);
+});
+
+test("소환: 봇에게 Connect/Speak가 없으면 거부", () => {
+  assert.equal(checkSummon(fakeMember({ voice: "vc1", botChannelPerms: [PermissionFlagsBits.Speak] })), S.ERR_NO_PERMISSIONS, "Connect 없음");
+  assert.equal(checkSummon(fakeMember({ voice: "vc1", botChannelPerms: [PermissionFlagsBits.Connect] })), S.ERR_NO_PERMISSIONS, "Speak 없음");
+  assert.equal(checkSummon(fakeMember({ voice: "vc1", botChannelPerms: null })), S.ERR_NO_PERMISSIONS, "권한 조회 실패");
+});
+
+test("소환: 요청자가 음성에 있고 봇 권한이 갖춰지면 통과", () => {
+  assert.equal(checkSummon(fakeMember({ voice: "vc1" })), null);
+});
+
+// 곡 추가 진입점(/play·/playfirst·전용 채널)은 재적 규칙과 소환 검사를 이어 붙인다.
+// 둘 중 하나만 쓰면 한쪽 상태가 빈다 — checkAdd는 봇 유휴 시 항상 통과, checkSummon은 봇 접속 시 항상 통과.
+test("진입점 조합: checkAdd + checkSummon이 봇의 두 상태를 모두 덮는다", () => {
+  // 봇 유휴 → 소환 검사가 담당
+  assert.equal(checkAdd(fakeMember()), null, "checkAdd 단독은 봇 유휴 시 통과시킨다");
+  assert.equal(checkAdd(fakeMember()) || checkSummon(fakeMember()), S.ERR_VOICE_REQUIRED);
+
+  // 봇 접속 중 → 재적 규칙이 담당
+  const other = { voice: "vc2", botVoice: "vc1" };
+  assert.equal(checkSummon(fakeMember(other)), null, "checkSummon 단독은 봇 접속 시 통과시킨다");
+  assert.equal(checkAdd(fakeMember(other)) || checkSummon(fakeMember(other)), S.ERR_SAME_CHANNEL);
+
+  // 정상 경로
+  const ok = { voice: "vc1", botVoice: "vc1" };
+  assert.equal(checkAdd(fakeMember(ok)) || checkSummon(fakeMember(ok)), null);
 });

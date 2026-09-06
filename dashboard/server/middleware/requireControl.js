@@ -1,11 +1,10 @@
 "use strict";
 
 const { checkControl } = require("../../../src/permissions");
+const S = require("../../../src/strings");
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리
-function toApiError(msg) {
-  return msg.replace(/^❌\s*/, "");
-}
+const toApiError = S.withoutErrorMark;
 
 // 세션 사용자를 실제 길드 멤버로 해석 — 세션에 캐시된 길드 목록 대신 실멤버십 기준.
 // 실패 시 res에 응답을 쓰고 null 반환.

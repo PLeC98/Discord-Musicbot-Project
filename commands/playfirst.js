@@ -1,11 +1,10 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
+const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const log = require("../src/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
 const ErrorHandler = require("../src/ErrorHandler");
 const TrackResolver = require("../src/TrackResolver");
-const S = require("../src/strings");
-const { checkControl } = require("../src/permissions");
+const { checkControl, checkSummon } = require("../src/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -31,7 +30,7 @@ module.exports = {
       const guild = interaction.guild;
       const channel = interaction.channel;
 
-      const validationResult = await this.validateRequest(interaction, member, guild);
+      const validationResult = await this.validateRequest(member);
       if (!validationResult.success) {
         return await interaction.reply({ content: validationResult.message, flags: MessageFlags.Ephemeral });
       }
@@ -94,24 +93,10 @@ module.exports = {
     }
   },
 
-  async validateRequest(interaction, member, guild) {
+  async validateRequest(member) {
     // 우선 추가(대기열 맨 앞 삽입)는 재생 순서를 바꾸는 조작 — DJ 계층 필요
-    const permErr = await checkControl(member);
+    const permErr = (await checkControl(member)) || checkSummon(member);
     if (permErr) return { success: false, message: permErr };
-
-    // 봇 유휴: 요청자의 채널로 접속해야 하므로 관리자여도 음성 채널 접속 필수
-    const botVoiceChannel = guild.members.me.voice.channel;
-    if (!botVoiceChannel) {
-      if (!member.voice.channel) {
-        return { success: false, message: S.ERR_VOICE_REQUIRED };
-      }
-
-      const permissions = member.voice.channel.permissionsFor(guild.members.me);
-      if (!permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-        return { success: false, message: S.ERR_NO_PERMISSIONS };
-      }
-    }
-
     return { success: true };
   },
 };

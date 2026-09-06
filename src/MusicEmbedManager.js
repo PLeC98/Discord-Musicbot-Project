@@ -4,6 +4,7 @@ const config = require("../config");
 const { formatDuration } = require("./utils");
 const DashboardEvents = require("./DashboardEvents");
 const ErrorHandler = require("./ErrorHandler");
+const S = require("./strings");
 
 class MusicEmbedManager {
   constructor(client) {
@@ -47,11 +48,7 @@ class MusicEmbedManager {
   }
 
   createErrorContainer(msg) {
-    // 넘어오는 메시지(ERROR_MESSAGES/resolveQuery)는 이미 "❌ …"로 시작하므로 중복 접두 방지.
-    // (messageHandler·대시보드도 메시지의 ❌를 그대로 한 번만 표시한다.)
-    const text = String(msg ?? "");
-    const content = text.trimStart().startsWith("❌") ? text : `❌ ${text}`;
-    return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
+    return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(S.withErrorMark(msg)));
   }
 
   /**

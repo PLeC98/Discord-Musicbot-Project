@@ -1,11 +1,10 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
+const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const log = require("../src/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
 const ErrorHandler = require("../src/ErrorHandler");
 const TrackResolver = require("../src/TrackResolver");
-const S = require("../src/strings");
-const { checkAdd } = require("../src/permissions");
+const { checkAdd, checkSummon } = require("../src/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -32,7 +31,7 @@ module.exports = {
       const channel = interaction.channel;
 
       // 응답 전 검증 (빠른 동기 확인)
-      const validationResult = await this.validateRequest(interaction, member, guild);
+      const validationResult = await this.validateRequest(member);
       if (!validationResult.success) {
         return await interaction.reply({
           content: validationResult.message,
@@ -99,25 +98,10 @@ module.exports = {
     }
   },
 
-  async validateRequest(interaction, member, guild) {
-    // 곡 추가는 전 계층 가능 — 봇 동작 중에는 접속 규칙만 적용 (관리자 면제는 checkAdd 내부)
-    const botVoiceChannel = guild.members.me.voice.channel;
-    if (botVoiceChannel) {
-      const permErr = checkAdd(member);
-      if (permErr) return { success: false, message: permErr };
-      return { success: true };
-    }
-
-    // 봇 유휴: 요청자의 채널로 접속해야 하므로 관리자여도 음성 채널 접속 필수
-    if (!member.voice.channel) {
-      return { success: false, message: S.ERR_VOICE_REQUIRED };
-    }
-
-    const permissions = member.voice.channel.permissionsFor(guild.members.me);
-    if (!permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-      return { success: false, message: S.ERR_NO_PERMISSIONS };
-    }
-
+  async validateRequest(member) {
+    // 곡 추가는 전 계층 가능 — 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
+    const permErr = checkAdd(member) || checkSummon(member);
+    if (permErr) return { success: false, message: permErr };
     return { success: true };
   },
 };
