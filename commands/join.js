@@ -29,8 +29,8 @@ module.exports = {
     const hasSession = savedState?.currentTrack;
 
     // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로
-    // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라 그냥 버리면 새 플레이어와
-    // 같은 길드 키를 두고 경쟁한다. (대기열 승계 문제는 notes/issues-backlog.md 참조)
+    // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라, 그냥 버리면 새 플레이어와
+    // 같은 길드 키를 두고 경쟁한다. 살아 있던 대기열은 승계하지 않는다(미해결).
     if (existing) {
       existing.releaseResources();
       existing.releaseAudioProtection();
