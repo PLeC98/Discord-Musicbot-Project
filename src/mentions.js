@@ -13,9 +13,20 @@ const { escapeMarkdown } = require("discord.js");
 const ALLOWED_MENTIONS = { parse: [], repliedUser: false };
 
 /** 외부 문자열을 마크다운 문맥(**굵게** 등)에 넣을 때 — 서식이 깨지지 않게. */
-const escapeMd = (text) => escapeMarkdown(String(text ?? ""));
+const escapeMd = (text) => escapeMarkdown(String(text ?? ""), { maskedLink: true });
 
-/** 링크 라벨용 — 대괄호가 남으면 [라벨](url) 구조 자체가 깨진다. */
-const escapeMdLink = (text) => escapeMd(text).replace(/([[\]])/g, "\\$1");
+/**
+ * 링크 라벨용 — 대괄호가 남으면 [라벨](url) 구조를 탈출해 임의 URL로 링크를 걸 수 있다.
+ *
+ * 백슬래시로는 못 막는다: escapeMarkdown이 백슬래시를 다시 이스케이프해 `\]`의 짝이 깨진다.
+ * maskedLink 옵션도 완전한 `[x](y)` 패턴만 잡고 홑 `]`는 통과시킨다.
+ * 그래서 전각으로 치환한다 — 라벨 안에 ASCII 대괄호가 아예 남지 않는다.
+ */
+const escapeMdLink = (text) =>
+  escapeMd(
+    String(text ?? "")
+      .replace(/\[/g, "［")
+      .replace(/\]/g, "］"),
+  );
 
 module.exports = { ALLOWED_MENTIONS, escapeMd, escapeMdLink };

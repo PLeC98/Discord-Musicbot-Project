@@ -37,13 +37,28 @@ test("마크다운 이스케이프: 서식 문자가 문자 그대로 남는다"
   assert.ok(escaped.includes("@everyone"), "텍스트 자체는 보존 — 차단은 allowedMentions가 한다");
 });
 
-test("링크 라벨 이스케이프: 대괄호가 [라벨](url) 구조를 깨지 못한다", () => {
-  const label = escapeMdLink("정상곡](http://evil.example) 클릭");
-  assert.ok(!/(?<!\\)[[\]]/.test(label), "이스케이프되지 않은 대괄호가 남으면 링크가 탈출된다");
+// 백슬래시 이스케이프로는 막히지 않는다 — escapeMarkdown이 백슬래시를 다시 이스케이프해
+// `\]`의 짝이 깨진다. 아래 입력들은 그 방식에서 전부 탈출에 성공했다.
+test("링크 라벨: 어떤 입력에도 ASCII 대괄호가 남지 않는다", () => {
+  const BS = String.fromCharCode(92);
+  const attacks = [
+    "정상곡](http://evil.example) 클릭",
+    "곡" + BS + "](http://evil.example)", // 백슬래시로 우리 이스케이프를 무력화
+    "]" + BS + "](http://evil.example)",
+    "[a](http://evil.example)",
+  ];
 
-  // 실제 사용 형태로 조립했을 때 링크 대상이 우리가 준 URL 하나뿐인지
-  const rendered = `[${label}](https://ok.example)`;
-  assert.equal(rendered.match(/(?<!\\)\]\(/g).length, 1);
+  for (const raw of attacks) {
+    const label = escapeMdLink(raw);
+    assert.ok(!/[[\]]/.test(label), `대괄호가 남았다: ${JSON.stringify(raw)}`);
+    // 조립했을 때 링크 대상이 우리가 준 URL 하나뿐
+    assert.equal(`[${label}](https://ok.example)`.split("](").length - 1, 1);
+  }
+});
+
+test("링크 라벨: 정상 제목의 대괄호는 전각으로 남아 읽을 수 있다", () => {
+  // 트랙 제목에 [Official MV] 같은 표기가 흔하다 — 지워버리면 정보가 사라진다
+  assert.equal(escapeMdLink("곡 제목 [Official MV]"), "곡 제목 ［Official MV］");
 });
 
 test("이스케이프는 빈 값·비문자열에도 안전하다", () => {
