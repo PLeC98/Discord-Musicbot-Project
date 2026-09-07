@@ -1,8 +1,9 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const log = require("../src/logger").child({ category: "events" });
 const config = require("../config");
-const MusicPlayer = require("../src/MusicPlayer");
 const S = require("../src/strings");
+const { requestPlayback } = require("../src/playRequest");
+const { channelResponder } = require("../src/playbackResponder");
 const { checkControl, checkSkip, checkAdd } = require("../src/permissions");
 
 module.exports = {
@@ -627,31 +628,20 @@ module.exports = {
 
     await interaction.editReply({ embeds: [processingEmbed], components: [] });
 
+    // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답 —
+    // 검색 메시지는 일반 임베드라 CV2 현재 재생 메시지로 수정할 수 없다.
+    const responder = channelResponder(interaction.channel, () => interaction.deleteReply().catch(() => {}));
+
     try {
-      const MusicEmbedManager = require("../src/MusicEmbedManager");
-      if (!client.musicEmbedManager) {
-        client.musicEmbedManager = new MusicEmbedManager(client);
-      }
-
-      if (!client.players) {
-        client.players = new Map();
-      }
-
-      // 봇이 이미 접속 중이면 그 채널 기준 (관리자 원격 추가 대응)
-      let player = client.players.get(guild.id);
-      if (!player) {
-        player = new MusicPlayer(guild, interaction.channel, member.voice.channel ?? botVoiceChannel ?? null);
-        client.players.set(guild.id, player);
-      }
-
-      // 봇이 유휴 상태에서 소환될 때만 음성 대상을 갱신 — 재생 중 다른 채널 참조로 오염 방지
-      if (!botVoiceChannel && member.voice.channel) {
-        player.voiceChannel = member.voice.channel;
-      }
-      player.textChannel = interaction.channel;
-
-      // interaction=null 전달: 검색 메시지는 일반 임베드 - Components V2 현재 재생 메시지로 수정할 수 없음. 임베드 매니저가 텍스트 채널에 새 메시지를 보냄
-      const result = await client.musicEmbedManager.handleMusicData(guild.id, { isPlaylist: false, tracks: [selectedTrack] }, member, null);
+      const result = await requestPlayback(client, {
+        guild,
+        requester: member,
+        tracks: [selectedTrack],
+        textChannel: interaction.channel,
+        voiceChannel: member.voice.channel ?? null,
+        responder,
+        source: "/search",
+      });
 
       client.searchResults.delete(interaction.message.id);
 
@@ -662,7 +652,7 @@ module.exports = {
       }
 
       // 검색 결과 메시지 제거 — 현재 재생/대기열 정보는 별도로 전송됨
-      await interaction.deleteReply().catch(() => {});
+      await responder.dismissPlaceholder();
     } catch (error) {
       const errorEmbed = new EmbedBuilder().setTitle("❌ 오류").setDescription(S.ERR_PROCESSING).setColor("#FF0000").setTimestamp();
 

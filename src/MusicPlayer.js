@@ -185,84 +185,6 @@ class MusicPlayer {
     return this.voice.disconnect();
   }
 
-  async addTrack(query, requestedBy, { single = false } = {}) {
-    try {
-      // 해석(플랫폼 감지·캐시 숏컷 포함)은 TrackResolver 한 곳에서 — /play와 동일 경로
-      const resolved = await TrackResolver.resolveQuery(query, this.guild.id, "MusicPlayer.addTrack");
-      if (!resolved.success) {
-        return { success: false, message: resolved.message || "결과를 찾을 수 없습니다!" };
-      }
-      const tracks = resolved.tracks;
-
-      // 트랙을 대기열에 추가 (single이면 재생목록이라도 첫 곡만)
-      const addedTracks = [];
-      const wasIdle = !this.currentTrack; // 수정 전 상태 기억
-      const limit = single ? 1 : config.bot.maxPlaylistSize;
-
-      for (const track of tracks.slice(0, limit)) {
-        track.requestedBy = requestedBy;
-        track.addedAt = Date.now();
-
-        if (this.currentTrack) {
-          this.queue.push(track);
-        } else {
-          this.currentTrack = track;
-        }
-        addedTracks.push(track);
-      }
-
-      // 다음 몇 곡을 순차적으로 사전 로드 (병렬 처리 시 YouTube 속도 제한 가능)
-      const toPreload = addedTracks
-        .filter((t, i) => !(wasIdle && i === 0)) // 곧바로 재생할 트랙은 건너뜀
-        .slice(0, config.preload.ahead);
-
-      (async () => {
-        for (const track of toPreload) {
-          if (this.preloadedStreams.has(track.url) || this.preloadingQueue.includes(track.url)) continue;
-          try {
-            await this.preloadTrack(track);
-            await new Promise((r) => setTimeout(r, config.preload.gapMs));
-          } catch (err) {
-            if (err && err.message) log.error(`❌ Preload error for ${track.title}:`, err.message);
-          }
-        }
-      })();
-
-      // 현재 재생 중이 아니면 자동 재생
-      if (wasIdle) {
-        // 플레이어가 유휴 상태였으므로 처음 추가된 트랙을 처음부터 재생
-        if (addedTracks.length > 0) {
-          this.currentTrack = addedTracks[0];
-          const playResult = await this.play(null, 0);
-          // play()는 실패를 {success:false}로 반환(throw 아님) — 무시하면 대시보드가 성공으로 오인하고
-          // 유령 상태가 남는다. (재생목록이면 play() 내부 handleError가 다음 곡으로 스킵하므로 여기 안 옴.)
-          if (playResult && playResult.success === false) {
-            this.currentTrack = null;
-            return { success: false, message: playResult.message || "재생을 시작할 수 없습니다." };
-          }
-        }
-      } else if (this.audioPlayer.state && this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-        // 플레이어는 있지만 유휴 상태(재생 완료) - 대기열의 다음 곡 시작
-        await this.play(null, 0);
-      }
-
-      const result = {
-        success: true,
-        tracks: addedTracks,
-        isPlaylist: tracks.length > 1,
-        position: this.queue.length,
-      };
-
-      const who = requestedBy?.tag || requestedBy?.username || requestedBy?.displayName || (typeof requestedBy === "string" ? requestedBy : null);
-      log.info(`➕ 큐 추가: "${addedTracks[0]?.title ?? "?"}"${addedTracks.length > 1 ? ` 외 ${addedTracks.length - 1}곡` : ""} [${result.isPlaylist ? "재생목록" : "단일"}]${who ? ` — ${who}` : ""} (대기열 ${this.queue.length})`);
-
-      await this.persistState("queue-update");
-      return result;
-    } catch (error) {
-      return { success: false, message: "트랙 추가 중 오류!" };
-    }
-  }
-
   // ── 다운로드/사전 로드 — 로직은 TrackDownloader ──────────────────────────
 
   preloadTrack(track) {
@@ -1219,7 +1141,7 @@ class MusicPlayer {
         // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 자동재생을 끄고 알린 뒤, 아래의 일반 대기열 종료 흐름으로 진행
         log.warn(`⚠️ 알 수 없는 자동재생 장르 '${this.autoplay}' — 자동재생을 끕니다`);
         if (this.textChannel) {
-          this.textChannel.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
+          this.textChannel?.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
         }
         this.autoplay = false;
       }

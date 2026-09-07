@@ -7,6 +7,7 @@ import { computed } from "vue";
 
 // Material Symbols 경로 모음 (24x24, fill=currentColor). 대시보드 이모지 아이콘 대체용.
 const PATHS = {
+  "audio-file": "M8 20q-.825 0-1.412-.587Q6 18.825 6 18t.588-1.413Q7.175 16 8 16q.213 0 .412.037.2.038.388.113V12h3v2H10v4q0 .825-.588 1.413Q8.825 20 8 20Zm-4 2q-.825 0-1.412-.587Q2 20.825 2 20V4q0-.825.588-1.413Q3.175 2 4 2h9l5 5v13q0 .825-.587 1.413Q16.825 22 16 22Zm8-14V4H4v16h12V8Z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z",
   pause: "M6 19h4V5H6v14zm8-14v14h4V5h-4z",
   play: "M8 5v14l11-7z",
