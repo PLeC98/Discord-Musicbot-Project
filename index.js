@@ -13,6 +13,7 @@ const MusicPlayer = require("./src/MusicPlayer");
 const { resolveGuildForRestore } = require("./src/sessionRestore");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
+const { ALLOWED_MENTIONS } = require("./src/mentions");
 
 // 슬래시 명령어 배포
 if (isPrimaryShard()) {
@@ -20,7 +21,7 @@ if (isPrimaryShard()) {
   log.info("🚀 슬래시 명령어 배포를 시작합니다.");
   deployCommands().then((r) => {
     if (r.ok && r.skipped) log.info(chalk.gray(`⏭️  명령어 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
-    else if (r.ok) log.info(chalk.green(`✅ ${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `길드 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
+    else if (r.ok) log.info(chalk.green(`✅ ${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
     else deployErrorLines(r).forEach((line) => log.error(chalk.red(line)));
   });
 } else {
@@ -186,6 +187,8 @@ const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknow
 function startBot() {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
+    // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/mentions.js)
+    allowedMentions: ALLOWED_MENTIONS,
     // ShardingManager automatically sets shard ID and count via environment variables
     // No need to specify shards/shardCount here - they are auto-injected
   });
@@ -199,7 +202,7 @@ function startBot() {
   client.musicEmbedManager = new MusicEmbedManager(client);
 
   // Start dashboard server — 웹 포트 1개를 점유하므로 대표 샤드에서만.
-  // ⚠️ 현재 대시보드는 자기 프로세스의 client.players/guilds만 보므로, 샤딩 시 대표 샤드가 소유하지 않은 길드는 대시보드에 안 보이거나 조작이 안 된다. 차후 해결 예정.
+  // ⚠️ 현재 대시보드는 자기 프로세스의 client.players/guilds만 보므로, 샤딩 시 대표 샤드가 소유하지 않은 서버는 대시보드에 안 보이거나 조작이 안 된다. 차후 해결 예정.
   if (isPrimaryShard()) {
     const { startDashboard } = require("./dashboard/server/index");
     startDashboard(client);

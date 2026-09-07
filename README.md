@@ -33,7 +33,7 @@
 - **Discord OAuth 로그인**: 안전한 권한 기반의 접근 제어 제공
 - **음악 제어**: 디스코드 내에서 할 수 있는 모든 기능을 더 편리하게
 - **채널 설정 관리**: DJ 역할, 전용 채널 설정, SponsorBlock 설정
-- **봇 운영자 용 패널**: 봇 상태, WebSocket 핑, 운영 시스템 상태, 전체 공지, 터미널 로그, 봇이 참여중인 서버 관리, 커맨드 재배포
+- **봇 운영자 패널**: 봇 상태, WebSocket 핑, 운영 시스템 상태, 전체 공지, 터미널 로그, 봇이 참여중인 서버 관리, 커맨드 재배포
 
 ### 비주얼
 
@@ -154,7 +154,7 @@ pnpm run shard    # 1000+ 서버용 샤딩 실행 (샤딩 설정 필요)
 
 ## 대시보드
 
-1. `.env`에 `DASHBOARD_URL`(외부 공개 주소 — 로컬 접속만 쓰면 비워둠), `OWNER_ID`, `SESSION_SECRET` 설정
+1. `.env`에 `DASHBOARD_HOST`, `DASHBOARD_URL`, `OWNER_ID`, `SESSION_SECRET`을 본인 환경에 맞게 설정
 2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에
    `{DASHBOARD_URL}/auth/callback` 추가
 3. 클라이언트 빌드:
@@ -166,7 +166,7 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 봇 실행 시 대시보드 서버가 함께 시작됩니다.
 
 > [!CAUTION]
-> 현재 샤딩 구동 시 0번 샤드를 제외한 샤드가 소유한 길드는 대시보드에 안 보이고 조작도 불가한 문제가 있습니다.
+> 현재 샤딩 구동 시 0번 샤드를 제외한 샤드가 소유한 서버는 대시보드에 안 보이고 조작도 불가한 문제가 있습니다.
 > 개발자의 샤딩 미 사용 및 테스트 어려움으로 인해 개선 우선순위가 매우 낮습니다.
 
 ## 업데이트 / 유지보수
@@ -183,7 +183,7 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 | `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                              |
 
 **슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
-Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 관리자 페이지의 재배포 버튼으로 강제 배포하세요.
+Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.
 
 **ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `bin/`의 바이너리가 없어졌을 때만 쓰세요.
 내려받는 릴리스는 `scripts/install-ffmpeg.js` 상단의 `RELEASE`/`VERSION` 상수로 고정되어 있고 sha256으로 검증합니다. 버전을 올리려면 두 값을 함께 바꾸면 되고, 다음 `pnpm install`에서 자동으로 새로 받습니다(`--force`는 같은 버전을 다시 받을 때만 필요).

@@ -447,7 +447,7 @@ class CacheManager {
     return files;
   }
 
-  // 길드 설정
+  // 서버 설정
 
   getBotChannel(guildId) {
     if (!this._initialized) this.initialize();

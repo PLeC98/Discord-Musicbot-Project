@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-275 mx-auto px-3 py-4.5">
-    <h1 class="pl-2 text-[1.7rem] font-extrabold mb-1.5 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">관리자 패널</h1>
+    <h1 class="pl-2 text-[1.7rem] font-extrabold mb-1.5 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">운영자 패널</h1>
     <p class="pl-2 text-muted mb-4.5 text-[0.9rem]">10초마다 자동 갱신</p>
 
     <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
@@ -156,7 +156,7 @@
 
         <div v-if="redeployResult" :class="resultMsg(redeployResult.success)" class="flex items-center gap-1.5">
           <Icon :name="redeployResult.success ? 'check' : 'error'" :size="16" />
-          <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "길드" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
+          <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
         </div>
       </BaseCard>
     </template>

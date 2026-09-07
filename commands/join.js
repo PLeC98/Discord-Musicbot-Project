@@ -4,6 +4,7 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const log = require("../src/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
 const CacheManager = require("../src/CacheManager");
+const { escapeMd } = require("../src/mentions");
 const S = require("../src/strings");
 const config = require("../config");
 
@@ -30,7 +31,7 @@ module.exports = {
 
     // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로
     // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라, 그냥 버리면 새 플레이어와
-    // 같은 길드 키를 두고 경쟁한다. 살아 있던 대기열은 승계하지 않는다(미해결).
+    // 같은 서버 키를 두고 경쟁한다. 살아 있던 대기열은 승계하지 않는다(미해결).
     if (existing) {
       existing.releaseResources();
       existing.releaseAudioProtection();
@@ -51,7 +52,7 @@ module.exports = {
 
         // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
         // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
-        await interaction.editReply({ content: `▶️ 이전 세션을 복구했어요! **${player.currentTrack.title}** 재생 중` });
+        await interaction.editReply({ content: `▶️ 이전 세션을 복구했어요! **${escapeMd(player.currentTrack.title)}** 재생 중` });
       } catch (error) {
         log.error({ sub: "join" }, "세션 복원 실패:", error.message);
         player.releaseResources();

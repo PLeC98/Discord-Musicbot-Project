@@ -156,7 +156,7 @@ test("소환: 봇 유휴 + 요청자 음성 미참가는 거부", () => {
   assert.equal(checkSummon(fakeMember()), S.ERR_VOICE_REQUIRED);
 });
 
-test("소환: 관리자여도 본인이 음성 채널에 있어야 한다 (재적 규칙과 달리 면제 없음)", () => {
+test("소환: 모더레이터여도 본인이 음성 채널에 있어야 한다 (재적 규칙과 달리 면제 없음)", () => {
   assert.equal(checkSummon(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), S.ERR_VOICE_REQUIRED);
 });
 

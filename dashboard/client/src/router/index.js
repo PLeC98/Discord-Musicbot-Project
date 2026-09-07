@@ -7,7 +7,7 @@ const routes = [
     component: () => import("../views/LoginView.vue"),
   },
   {
-    // 로그인 직후/재방문 공통 착지점 — 관리자든 아니든 서버 목록으로 (관리자 패널은 네비바에서 진입)
+    // 로그인 직후/재방문 공통 착지점 — 운영자든 아니든 서버 목록으로 (운영자 패널은 네비바에서 진입)
     path: "/dashboard",
     redirect: "/servers",
   },
@@ -29,7 +29,7 @@ const routes = [
   {
     path: "/admin",
     component: () => import("../views/AdminView.vue"),
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true, requiresOwner: true },
   },
 ];
 
@@ -43,7 +43,7 @@ router.beforeEach(async (to) => {
   if (!user.fetched) await user.fetchMe();
 
   if (to.meta.requiresAuth && !user.isLoggedIn) return "/";
-  if (to.meta.requiresAdmin && !user.isAdmin) return "/servers";
+  if (to.meta.requiresOwner && !user.isOwner) return "/servers";
 });
 
 export default router;

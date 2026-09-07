@@ -571,7 +571,7 @@ module.exports = {
     const member = interaction.member;
     const guild = interaction.guild;
 
-    // 곡 추가 경로 — 봇 동작 중에는 재적 규칙만(관리자 면제), 유휴 시에는 소환 대상이 필요하므로 본인 재적 필수
+    // 곡 추가 경로 — 봇 동작 중에는 재적 규칙만(모더레이터 면제), 유휴 시에는 소환 대상이 필요하므로 본인 재적 필수
     const botVoiceChannel = guild.members.me?.voice?.channel;
     if (botVoiceChannel) {
       const permErr = checkAdd(member);
@@ -588,7 +588,7 @@ module.exports = {
       });
     }
 
-    // 메시지 ID로 키잉 — 같은 사용자의 재검색/다른 길드의 검색과 섞이지 않음
+    // 메시지 ID로 키잉 — 같은 사용자의 재검색/다른 서버의 검색과 섞이지 않음
     const userSearchData = client.searchResults?.get(interaction.message.id);
     if (!userSearchData) {
       return await interaction.reply({

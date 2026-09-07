@@ -81,7 +81,7 @@ class VoiceConnectionManager {
         if (!channel) {
           // 클라이언트 레지스트리에서도 제거 — 정리된 플레이어를
           // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
-          // 이 길드는 재시작 전까지 계속 막힘
+          // 이 서버는 재시작 전까지 계속 막힘
           player.cleanup();
           const clientInstance = player.guild?.client;
           if (clientInstance?.players?.get(player.guild.id) === player) {
@@ -219,7 +219,7 @@ class VoiceConnectionManager {
   async connect() {
     const player = this.player;
     try {
-      // 길드 WebSocket 준비 대기 (샤딩에 중요)
+      // 서버 WebSocket 준비 대기 (샤딩에 중요)
       if (!player.guild.voiceAdapterCreator) {
         // 어댑터 사용 가능 상태를 최대 10초 대기
         const maxWait = 10000;
@@ -227,12 +227,12 @@ class VoiceConnectionManager {
 
         while (!player.guild.voiceAdapterCreator && Date.now() - startTime < maxWait) {
           await new Promise((resolve) => setTimeout(resolve, 500));
-          // 상태 갱신을 위해 길드 다시 가져오기 시도
+          // 상태 갱신을 위해 서버 다시 가져오기 시도
           if (player.guild.client) {
             try {
               const freshGuild = await player.guild.client.guilds.fetch(player.guild.id);
               if (freshGuild && freshGuild.voiceAdapterCreator) {
-                // 길드 참조 갱신 — 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
+                // 서버 참조 갱신 — 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
                 // 신선 참조로 재할당. fetch()는 캐시된 동일 인스턴스를 갱신해 돌려주므로
                 // 재할당이 안전하고, 공유 객체의 내부 상태를 덮어쓸 위험이 없다.
                 player.guild = freshGuild;

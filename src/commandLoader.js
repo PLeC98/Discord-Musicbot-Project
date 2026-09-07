@@ -80,7 +80,7 @@ async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
 function deployErrorLines(result) {
   const lines = [`❌ 명령어 배포 실패 (${result.scope}): ${result.error?.message || result.error}`];
   if (result.error?.code === 50001) {
-    lines.push('   → 봇이 대상 길드에 없거나 "applications.commands" 스코프로 초대되지 않았습니다.');
+    lines.push('   → 봇이 대상 서버에 없거나 "applications.commands" 스코프로 초대되지 않았습니다.');
     lines.push("   → .env의 GUILD_ID를 비우면 전역 배포로 전환됩니다.");
   }
   return lines;

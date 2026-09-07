@@ -15,7 +15,7 @@ const DISCORD_API = "https://discord.com/api/v10";
 
 // Log OAuth config at startup — 리다이렉트 불일치 디버깅용 REDIRECT_URI만.
 // CLIENT_ID는 config에서 필수 검증되므로(없으면 기동 실패) 출력 불필요하고,
-// OWNER_ID는 소유자 신원이라 원시 ID를 로그(=admin SSE 로그 스트림)에 남기지 않는다.
+// OWNER_ID는 봇 운영자의 신원이라 원시 ID를 로그(=운영자 SSE 로그 스트림)에 남기지 않는다.
 log.info({ sub: "auth" }, `REDIRECT_URI: ${REDIRECT_URI}`);
 log.info({ sub: "auth" }, `OWNER_ID: ${OWNER_ID ? "(set)" : "(not set)"}`);
 
@@ -74,7 +74,6 @@ router.get("/callback", async (req, res) => {
       username: user.username,
       globalName: user.global_name || user.username,
       avatar: user.avatar,
-      isAdmin: user.id === OWNER_ID,
       guilds: guildsRes.data,
     };
 

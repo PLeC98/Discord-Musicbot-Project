@@ -10,6 +10,7 @@ const GuildSettingsManager = require("../../../src/GuildSettingsManager");
 const { requestPlayback } = require("../../../src/playRequest");
 const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
+const { isOwner } = require("../owner");
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용) — SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS = {
@@ -38,7 +39,7 @@ const queueLimiter = rateLimit({
   message: { error: "곡 추가 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
 });
 
-// 대시보드발 상태 변경(비-GET 성공) → 해당 길드 SSE 구독자에게 넛지.
+// 대시보드발 상태 변경(비-GET 성공) → 해당 서버 SSE 구독자에게 넛지.
 // req.params는 스택이 풀리면 복원되므로, 요청 시작 시점의 라우터-상대 URL 첫 세그먼트(=guildId)를
 // 클로저로 잡아 finish에서 사용. (Discord측/내부 변화는 MusicEmbedManager 훅이 담당)
 router.use((req, res, next) => {
@@ -69,13 +70,13 @@ async function getPlayer(req, res, guildId) {
     return null;
   }
 
-  // 조회 인가는 세션의 굳은 길드 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단).
-  // 관리자(봇 소유자)는 멤버십과 무관하게 통과. member는 후속 권한 계산에 재사용.
+  // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단).
+  // 봇 운영자(OWNER_ID)는 멤버십과 무관하게 통과. member는 후속 권한 계산에 재사용.
   let member = null;
   try {
     member = await guild.members.fetch(req.session.user.id); // 캐시 우선, 미스 시 REST 1회
   } catch {
-    if (!req.session.user.isAdmin) {
+    if (!isOwner(req)) {
       res.status(403).json({ error: "접근 권한이 없습니다" });
       return null;
     }
@@ -152,11 +153,11 @@ router.get("/", requireAuth, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
 
-  // 후보는 세션의 길드 목록이지만 표시는 실멤버십으로 필터 (추방된 길드는 목록에서 제외).
+  // 후보는 세션의 서버 목록이지만 표시는 실멤버십으로 필터 (추방된 서버는 목록에서 제외).
   const candidates = (req.session.user.guilds || []).filter((g) => client.guilds.cache.has(g.id));
   const verified = await Promise.all(
     candidates.map(async (g) => {
-      if (req.session.user.isAdmin) return g; // 봇 소유자는 실멤버십과 무관
+      if (isOwner(req)) return g; // 봇 운영자는 실멤버십과 무관
       try {
         await client.guilds.cache.get(g.id).members.fetch(req.session.user.id); // 캐시 우선
         return g;
@@ -170,7 +171,7 @@ router.get("/", requireAuth, async (req, res) => {
     id: g.id,
     name: g.name,
     icon: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.webp?size=64` : null,
-    isAdmin: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD,
+    canManageGuild: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD, // 그 서버의 "서버 관리" 권한 — 봇 운영자(isOwner)와 무관
     hasPlayer: client.players?.has(g.id) || false,
     memberCount: client.guilds.cache.get(g.id).memberCount,
   }));
@@ -178,17 +179,17 @@ router.get("/", requireAuth, async (req, res) => {
   res.json({ guilds: mutual });
 });
 
-// SSE — 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 길드 전체를 한 연결로).
+// SSE — 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 서버 전체를 한 연결로).
 router.get("/events", requireAuth, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
 
-  // 구독할 길드 집합 = 상호 길드 중 실멤버십 확인된 것
+  // 구독할 서버 집합 = 상호 서버 중 실멤버십 확인된 것
   const candidates = (req.session.user.guilds || []).filter((g) => client.guilds.cache.has(g.id));
   const guildIds = new Set();
   await Promise.all(
     candidates.map(async (g) => {
-      if (req.session.user.isAdmin) {
+      if (isOwner(req)) {
         guildIds.add(g.id);
         return;
       }
@@ -214,15 +215,15 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
   const userInVoice = !!member?.voice?.channel;
 
   // 제어/추가 가능 여부 — UI 표시용 (실제 강제는 각 엔드포인트가 담당). member는 getPlayer가 실멤버십으로 확보.
-  let controllable = !!req.session.user.isAdmin;
+  let controllable = isOwner(req);
   let addable = controllable;
   if (!controllable && member) {
     controllable = !(await checkControl(member));
     addable = !checkAdd(member);
   }
 
-  // 서버 설정(⚙) 진입 가능 여부 — 모더레이터/봇 소유자만 (설정 화면 GET 게이트와 동일 기준)
-  const manageable = !!req.session.user.isAdmin || (member ? isModerator(member) : false);
+  // 서버 설정(⚙) 진입 가능 여부 — 모더레이터/봇 운영자만 (설정 화면 GET 게이트와 동일 기준)
+  const manageable = isOwner(req) || (member ? isModerator(member) : false);
 
   res.json({ ...playerState(ctx.player), botInVoice, userInVoice, canControl: controllable, canAdd: addable, canManage: manageable, userId: req.session.user.id });
 });
@@ -237,13 +238,13 @@ router.get("/:guildId/player/events", requireAuth, async (req, res) => {
 // ── Settings endpoints ────────────────────────────────────────────────────────
 
 // 서버 설정 조회 — DJ 역할·봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
-// 조회·변경 모두 모더레이터(서버 관리층)/봇 소유자 전용 (사용자 결정 — 일반 멤버는 ⚙ 진입 자체 불가).
+// 조회·변경 모두 모더레이터/봇 운영자 전용 (사용자 결정 — 일반 멤버는 ⚙ 진입 자체 불가).
 router.get("/:guildId/settings", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
   const { guild, member } = ctx;
 
-  const canEdit = !!req.session.user.isAdmin || (member ? isModerator(member) : false);
+  const canEdit = isOwner(req) || (member ? isModerator(member) : false);
   if (!canEdit) {
     return res.status(403).json({ error: "서버 설정은 모더레이터(서버 관리 권한)만 볼 수 있습니다" });
   }
@@ -252,7 +253,7 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
   const rawChannelId = await GuildSettingsManager.getBotChannel(guild.id);
   const botChannelId = rawChannelId && guild.channels.cache.has(rawChannelId) ? rawChannelId : null;
 
-  // @everyone(길드 ID와 동일)은 제외 — "전원 DJ"는 미설정이 이미 그 의미
+  // @everyone(서버 ID와 동일)은 제외 — "전원 DJ"는 미설정이 이미 그 의미
   const roles = [...guild.roles.cache.values()]
     .filter((r) => r.id !== guild.id)
     .sort((a, b) => b.position - a.position)
@@ -276,14 +277,14 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
   res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock });
 });
 
-// 서버 설정 변경 — 모더레이터(서버 관리층)/봇 소유자만. /setdjrole·/setchannel과 동일 기준.
+// 서버 설정 변경 — 모더레이터/봇 운영자만. /setdjrole·/setchannel과 동일 기준.
 // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
 router.put("/:guildId/settings", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
   const { guild, member } = ctx;
 
-  if (!req.session.user.isAdmin && !(member && isModerator(member))) {
+  if (!isOwner(req) && !(member && isModerator(member))) {
     return res.status(403).json({ error: "서버 설정을 변경할 권한이 없습니다 (서버 관리 권한 필요)" });
   }
 
@@ -378,7 +379,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   }
 
   // Discord 쪽 /join과 동일 — 봇이 이미 다른 채널에서 사용 중이면 이동 불가.
-  // (관리자의 봇 이동은 Discord 네이티브 드래그 기능으로 충분 — API 이동 미지원, 사용자 결정)
+  // (모더레이터의 봇 이동은 Discord 네이티브 드래그 기능으로 충분 — API 이동 미지원, 사용자 결정)
   const botChannel = guild.members.me?.voice?.channel;
   if (botChannel && botChannel.id !== voiceChannel.id) {
     return res.status(403).json({ error: "봇이 이미 다른 음성 채널에서 사용 중입니다" });
@@ -410,8 +411,8 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   const botInVoice = !!guild?.members?.me?.voice?.channel;
   const userInVoice = !!member?.voice?.channel;
   // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과 — 계층(DJ 여부)만 판정에 반영됨
-  const controllable = req.session.user.isAdmin || !(await checkControl(member));
-  const addable = req.session.user.isAdmin || !checkAdd(member);
+  const controllable = isOwner(req) || !(await checkControl(member));
+  const addable = isOwner(req) || !checkAdd(member);
   res.json({ ...playerState(player), botInVoice, userInVoice, canControl: controllable, canAdd: addable, userId: req.session.user.id });
 });
 
@@ -452,7 +453,7 @@ router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
   const { player } = ctx;
   if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
 
-  if (!req.session.user.isAdmin) {
+  if (!isOwner(req)) {
     const mctx = await resolveMember(req, res);
     if (!mctx) return;
     const err = await checkSkip(mctx.member, player);
@@ -552,7 +553,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
 
   if (!player) return res.status(409).json({ error: "봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요" });
 
-  if (!req.session.user.isAdmin) {
+  if (!isOwner(req)) {
     const mctx = await resolveMember(req, res);
     if (!mctx) return;
     const err = checkAdd(mctx.member);
@@ -598,7 +599,7 @@ router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => 
     return res.status(400).json({ error: "대기열 항목 번호가 올바르지 않습니다." });
   }
 
-  if (!req.session.user.isAdmin) {
+  if (!isOwner(req)) {
     const mctx = await resolveMember(req, res);
     if (!mctx) return;
     const err = await checkRemoveTrack(mctx.member, player.queue[index]);

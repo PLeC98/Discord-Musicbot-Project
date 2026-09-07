@@ -3,6 +3,10 @@
 // dashboard/server/routes/guilds.js — 서버 설정 GET/PUT + /player 플래그 통합 테스트.
 // 실 라우터 + fake Discord client. GuildSettingsManager는 require.cache 주입으로 모킹(실 SQLite 미접촉).
 
+// 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
+// dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
+process.env.OWNER_ID = "owner";
+
 const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -100,7 +104,7 @@ let server;
 let base;
 
 before(async () => {
-  currentUser = { id: "u1", username: "tester", isAdmin: false, guilds: [] };
+  currentUser = { id: "u1", username: "tester", guilds: [] };
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => {
@@ -160,16 +164,26 @@ test("GET settings: 일반 멤버는 조회도 403 (모더레이터 전용)", as
   assert.equal(r.status, 403);
 });
 
-test("GET settings: 비멤버 403 / 봇 소유자는 비멤버여도 200", async () => {
+test("GET settings: 비멤버 403 / 봇 운영자는 비멤버여도 200", async () => {
   currentMember = null;
   let r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 403);
 
-  currentUser = { id: "owner", username: "owner", isAdmin: true, guilds: [] };
+  currentUser = { id: "owner", username: "owner", guilds: [] };
   r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
   assert.equal(r.json.canEdit, true);
-  currentUser = { id: "u1", username: "tester", isAdmin: false, guilds: [] };
+  currentUser = { id: "u1", username: "tester", guilds: [] };
+});
+
+// guilds.js의 운영자 우회 분기도 세션 값이 아니라 현재 OWNER_ID로 판정한다
+test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 되지 않는다", async () => {
+  currentMember = null;
+  currentUser = { id: "former-owner", username: "이전 운영자", isAdmin: true, guilds: [] };
+
+  assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).status, 403);
+
+  currentUser = { id: "u1", username: "tester", guilds: [] };
 });
 
 // ── GET /player의 canManage (⚙ 버튼 표시 기준) ───────────────

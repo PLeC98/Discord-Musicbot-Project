@@ -2,11 +2,12 @@
 
 const { checkControl } = require("../../../src/permissions");
 const S = require("../../../src/strings");
+const { isOwner } = require("../owner");
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리
 const toApiError = S.withoutErrorMark;
 
-// 세션 사용자를 실제 길드 멤버로 해석 — 세션에 캐시된 길드 목록 대신 실멤버십 기준.
+// 세션 사용자를 실제 서버 멤버로 해석 — 세션에 캐시된 서버 목록 대신 실멤버십 기준.
 // 실패 시 res에 응답을 쓰고 null 반환.
 async function resolveMember(req, res) {
   const client = req.app.locals.discordClient;
@@ -33,7 +34,7 @@ async function resolveMember(req, res) {
 
 // 재생 조작 엔드포인트 공통 가드
 async function requireControl(req, res, next) {
-  if (req.session.user.isAdmin) return next();
+  if (isOwner(req)) return next();
 
   const ctx = await resolveMember(req, res);
   if (!ctx) return;

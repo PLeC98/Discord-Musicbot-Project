@@ -8,9 +8,9 @@ const { heartbeatMs, maxPerUser, coalesceMs } = config.dashboard.sse;
  * DashboardEvents — 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
  *
  * 두 종류의 구독:
- *  - 개별 서버(플레이어) 페이지: 길드 1개 구독 (this.guilds: guildId -> Set<res>)
- *  - 서버 목록 페이지: 사용자의 상호+멤버 길드 전체를 한 연결로 멀티플렉스 (this.listSubs)
- *    → 목록마다 길드 수만큼 연결을 여는 폭발을 피함.
+ *  - 개별 서버(플레이어) 페이지: 서버 1개 구독 (this.guilds: guildId -> Set<res>)
+ *  - 서버 목록 페이지: 사용자의 상호+멤버 서버 전체를 한 연결로 멀티플렉스 (this.listSubs)
+ *    → 목록마다 서버 수만큼 연결을 여는 폭발을 피함.
  *
  * 페이로드는 "변화 발생" 최소 신호(`{"t":"changed"}`, 민감정보 없음) — 클라이언트가 받으면 GET으로 재조회.
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 무엇을 구독 중인가"만 관리.
@@ -19,7 +19,7 @@ class DashboardEvents {
   constructor() {
     this.guilds = new Map(); // guildId -> Set<res>       (개별 서버 페이지)
     this.listSubs = new Set(); // { res, guildIds:Set }   (서버 목록 페이지 — 멀티플렉스)
-    this.listGuildIds = new Map(); // guildId -> 그 길드를 구독 중인 목록 구독자 수 (notify 가드 O(1))
+    this.listGuildIds = new Map(); // guildId -> 그 서버를 구독 중인 목록 구독자 수 (notify 가드 O(1))
     this.perKey = new Map(); // userKey -> 연결 수 (세션당 캡, 개별+목록 공유)
     this._cleanups = new WeakMap(); // res -> idempotent cleanup (쓰기 실패 경로에서 호출)
     this.coalesceTimers = new Map(); // guildId -> timer
@@ -83,7 +83,7 @@ class DashboardEvents {
     res.on("error", cleanup);
   }
 
-  /** 서버 목록 페이지 구독 — guildIds(사용자의 상호+멤버 길드 집합)의 이벤트를 한 연결로 멀티플렉스. */
+  /** 서버 목록 페이지 구독 — guildIds(사용자의 상호+멤버 서버 집합)의 이벤트를 한 연결로 멀티플렉스. */
   addListClient(res, guildIds, userKey) {
     if (!this._capOk(res, userKey)) return;
     this._sseHead(res);
@@ -109,10 +109,10 @@ class DashboardEvents {
     res.on("error", cleanup);
   }
 
-  /** 길드 상태 변화 알림 — coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 구독자 없으면 타이머도 안 만듦. */
+  /** 서버 상태 변화 알림 — coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 구독자 없으면 타이머도 안 만듦. */
   notify(guildId) {
     if (!guildId) return;
-    if (!this.guilds.has(guildId) && !this.listGuildIds.has(guildId)) return; // 이 길드를 보는 구독자 없음
+    if (!this.guilds.has(guildId) && !this.listGuildIds.has(guildId)) return; // 이 서버를 보는 구독자 없음
     if (this.coalesceTimers.has(guildId)) return; // 이미 예약됨
     const t = setTimeout(() => {
       this.coalesceTimers.delete(guildId);
@@ -134,7 +134,7 @@ class DashboardEvents {
         }
       }
     }
-    // 목록 구독자: 자기 길드 집합에 든 길드의 이벤트만 (스코핑)
+    // 목록 구독자: 자기 서버 집합에 든 서버의 이벤트만 (스코핑)
     for (const sub of this.listSubs) {
       if (sub.guildIds.has(guildId)) {
         try {

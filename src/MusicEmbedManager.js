@@ -5,6 +5,7 @@ const { formatDuration } = require("./utils");
 const DashboardEvents = require("./DashboardEvents");
 const ErrorHandler = require("./ErrorHandler");
 const S = require("./strings");
+const { ALLOWED_MENTIONS, escapeMd, escapeMdLink } = require("./mentions");
 const { silentResponder } = require("./playbackResponder");
 
 class MusicEmbedManager {
@@ -35,7 +36,7 @@ class MusicEmbedManager {
       if (!webhook) {
         webhook = await channel.createWebhook({ name: "Music Now Playing" });
       }
-      const client = new WebhookClient({ id: webhook.id, token: webhook.token });
+      const client = new WebhookClient({ id: webhook.id, token: webhook.token }, { allowedMentions: ALLOWED_MENTIONS });
       this.webhookCache.set(channel.id, client);
       return client;
     } catch (error) {
@@ -77,7 +78,7 @@ class MusicEmbedManager {
   /**
    * 음악 데이터를 처리하고 적절한 임베드를 전송/갱신합니다.
    *
-   * 길드당 한 번에 하나의 작업만 — Promise tail 체인 방식.
+   * 서버당 한 번에 하나의 작업만 — Promise tail 체인 방식.
    * "기다렸다가 등록"(await 후 set)은 대기와 등록 사이에 끼어든 요청이 락을 놓치고,
    * 앞 작업의 finally가 뒤 작업의 Map 항목을 지우는 경쟁이 있었다(A/B/C 동시 시나리오).
    * 여기서는 get+set이 동기(사이에 await 없음)라 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다.
@@ -316,8 +317,8 @@ class MusicEmbedManager {
     const artistValue = track.artist || "-";
     const platformValue = track.platform ? track.platform.charAt(0).toUpperCase() + track.platform.slice(1) : "-";
 
-    const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${artistValue}` : "";
-    const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.url})**${artistLine}`;
+    const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
+    const linkText = `### ${nowPlayingTitle}\n**[${escapeMdLink(track.title)}](${track.url})**${artistLine}`;
 
     const section = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText));
     if (track.thumbnail) {
@@ -564,7 +565,7 @@ class MusicEmbedManager {
     if (isPlaylist) {
       return insertFirst ? `⏫ 재생목록의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ 재생목록의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
     } else {
-      const title = tracks[0]?.title || "알 수 없는 트랙";
+      const title = escapeMd(tracks[0]?.title || "알 수 없는 트랙");
       return insertFirst ? `⏫ **${title}**가 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**가 대기열에 추가되었습니다!`;
     }
   }
@@ -609,7 +610,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * 길드의 진행 갱신 타이머를 중지합니다.
+   * 서버의 진행 갱신 타이머를 중지합니다.
    */
   stopProgressUpdate(guildId) {
     const id = this.updateIntervals.get(guildId);

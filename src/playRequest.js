@@ -29,7 +29,7 @@ function toRequester(source) {
 }
 
 /**
- * 길드의 플레이어를 확보한다. 이미 있으면 재사용하고 채널만 갱신.
+ * 서버의 플레이어를 확보한다. 이미 있으면 재사용하고 채널만 갱신.
  *
  * voiceChannel은 봇이 유휴일 때만 갱신한다 — 재생 중 다른 채널 참조로 오염되면
  * 이후 재연결이 엉뚱한 채널로 간다. textChannel은 null로 덮어쓰지 않는다(대시보드).
@@ -69,7 +69,7 @@ async function resolveFallbackTextChannel(guild) {
  *
  * @param {object} client 디스코드 클라이언트
  * @param {object} options
- * @param {object} options.guild            길드
+ * @param {object} options.guild            서버(길드) 객체
  * @param {object} options.requester        요청자 (GuildMember 또는 { id, username })
  * @param {string} [options.query]          검색어/URL — tracks를 주지 않으면 필수
  * @param {Array}  [options.tracks]         이미 해석된 트랙 (검색 선택 경로)

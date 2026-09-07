@@ -51,7 +51,7 @@ test("요청자: 직렬화 시 id/tag 추출, 복원 시 폴백 객체 생성", 
   assert.deepEqual(restored.requestedBy, { id: "u1", tag: "user#1" }, "캐시 미스 시 {id,tag} 폴백");
 });
 
-test("요청자: 길드 멤버 캐시에 있으면 실제 멤버 객체로 복원", () => {
+test("요청자: 서버 멤버 캐시에 있으면 실제 멤버 객체로 복원", () => {
   const cachedMember = { id: "u1", tag: "user#1", displayName: "유저" };
   const sp = makeSP(new Map([["u1", cachedMember]]));
   const restored = sp.deserializeTrack(sp.serializeTrack(FULL_TRACK));

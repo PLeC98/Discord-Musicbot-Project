@@ -126,7 +126,7 @@
           </BaseButton>
         </div>
 
-        <!-- Case 3: bot in voice, but user elsewhere (관리자 제외) — 곡 추가는 계층 무관, 재적 규칙만 -->
+        <!-- Case 3: bot in voice, but user elsewhere (모더레이터 제외) — 곡 추가는 계층 무관, 재적 규칙만 -->
         <div v-else-if="!player.canAdd" class="text-muted text-sm">곡 추가는 봇과 같은 음성 채널에 참가한 뒤 이용할 수 있어요.</div>
 
         <!-- Case 4: bot in voice + controllable → show add form -->
