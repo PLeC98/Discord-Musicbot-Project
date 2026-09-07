@@ -5,6 +5,7 @@ const { formatDuration } = require("./utils");
 const DashboardEvents = require("./DashboardEvents");
 const ErrorHandler = require("./ErrorHandler");
 const S = require("./strings");
+const { silentResponder } = require("./playbackResponder");
 
 class MusicEmbedManager {
   constructor(client) {
@@ -81,10 +82,10 @@ class MusicEmbedManager {
    * 앞 작업의 finally가 뒤 작업의 Map 항목을 지우는 경쟁이 있었다(A/B/C 동시 시나리오).
    * 여기서는 get+set이 동기(사이에 await 없음)라 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다.
    */
-  handleMusicData(guildId, trackData, member, interaction = null) {
+  handleMusicData(guildId, trackData, requester, responder = silentResponder) {
     const tail = this.processingQueue.get(guildId) || Promise.resolve();
     // 앞 작업의 실패가 뒤 작업까지 실패시키면 안 됨 — 각 작업의 결과/오류는 자기 호출자에게만 전달
-    const processingPromise = tail.catch(() => {}).then(() => this._processMusic(guildId, trackData, member, interaction));
+    const processingPromise = tail.catch(() => {}).then(() => this._processMusic(guildId, trackData, requester, responder));
     this.processingQueue.set(guildId, processingPromise);
 
     return processingPromise.finally(() => {
@@ -94,7 +95,7 @@ class MusicEmbedManager {
     });
   }
 
-  async _processMusic(guildId, trackData, member, interaction) {
+  async _processMusic(guildId, trackData, requester, responder) {
     const player = this.client.players.get(guildId);
     if (!player) return { success: false, message: "음악 플레이어를 찾을 수 없습니다." };
 
@@ -112,7 +113,7 @@ class MusicEmbedManager {
       // 모든 트랙을 플레이어에 추가 (사전 로드 트리거)
       for (let i = 0; i < tracks.length; i++) {
         const track = { ...tracks[i] };
-        track.requestedBy = member;
+        track.requestedBy = requester;
         track.addedAt = Date.now();
 
         // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
@@ -144,7 +145,7 @@ class MusicEmbedManager {
           } else if (playbackStarted) {
             // UI 실패가 재생 상태를 망가뜨리면 안 됨 — 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
             try {
-              firstTrackResult = await this.createNewMusicEmbed(player, track, member, interaction);
+              firstTrackResult = await this.createNewMusicEmbed(player, track, requester, responder);
             } catch (embedError) {
               log.error("Error creating now playing embed:", embedError);
               firstTrackResult = { success: true, message: "Now playing", isNewEmbed: false };
@@ -173,7 +174,7 @@ class MusicEmbedManager {
           if (nextResult && nextResult.success !== false && player.currentTrack) {
             startFailure = null;
             try {
-              firstTrackResult = await this.createNewMusicEmbed(player, player.currentTrack, member, interaction);
+              firstTrackResult = await this.createNewMusicEmbed(player, player.currentTrack, requester, responder);
             } catch {
               firstTrackResult = { success: true, isNewEmbed: false };
             }
@@ -194,7 +195,7 @@ class MusicEmbedManager {
       // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
       if (firstTrackResult && tracks.length > 1) {
         // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
-        await this.showPlaylistAdditionMessage(player, tracks, member, interaction, isPlaylist, insertFirst);
+        await this.showPlaylistAdditionMessage(player, tracks, isPlaylist, insertFirst);
         // 대기열 갱신 — 임베드 새로고침
         await this.updateNowPlayingEmbed(player);
         return firstTrackResult;
@@ -202,7 +203,7 @@ class MusicEmbedManager {
 
       // 대기열에만 추가됨 (이미 음악 재생 중)
       if (wasPlayingBefore || (!firstTrackResult && tracks.length > 0)) {
-        return await this.handleQueueAddition(player, tracks, member, interaction, isPlaylist, insertFirst);
+        return await this.handleQueueAddition(player, tracks, responder, isPlaylist, insertFirst);
       }
 
       // 단일 트랙 재생 시작
@@ -219,12 +220,14 @@ class MusicEmbedManager {
   /**
    * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
-  async showPlaylistAdditionMessage(player, tracks, member, interaction, isPlaylist, insertFirst = false) {
+  async showPlaylistAdditionMessage(player, tracks, isPlaylist, insertFirst = false) {
     // 첫 번째를 제외한 남은 트랙 정보 전송
     const remainingTracks = tracks.slice(1);
-    const messageText = this.createQueueAdditionMessage(remainingTracks, member.guild.id, isPlaylist, insertFirst);
+    const messageText = this.createQueueAdditionMessage(remainingTracks, isPlaylist, insertFirst);
 
-    // 상호작용이 아닌 텍스트 채널로 전송
+    // 진입점의 응답이 아니라 항상 텍스트 채널로 — 채널이 없는 경로(대시보드)는 생략
+    if (!player.textChannel || typeof player.textChannel.send !== "function") return;
+
     let infoMessage;
     try {
       infoMessage = await player.textChannel.send({ content: messageText });
@@ -245,8 +248,13 @@ class MusicEmbedManager {
   /**
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
-  async createNewMusicEmbed(player, track, member, interaction) {
-    const container = await this.createNowPlayingContainer(player, track, member.guild.id);
+  async createNewMusicEmbed(player, track, requester, responder = silentResponder) {
+    // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
+    if (!player.textChannel || typeof player.textChannel.send !== "function") {
+      return { success: true, message: "Now playing", isNewEmbed: false };
+    }
+
+    const container = await this.createNowPlayingContainer(player, track);
     const jumpToRow = await this.createJumpToRow(player);
     const components = jumpToRow ? [container, jumpToRow] : [container];
     const payload = { components, flags: MessageFlags.IsComponentsV2 };
@@ -269,23 +277,11 @@ class MusicEmbedManager {
       player.nowPlayingWebhook = null;
     }
 
-    // 상호작용의 초기 응답("검색 중..." 등)은 이제 불필요 — 제거해 채널에 중복/정지 메시지를 남기지 않는다.
-    if (interaction) {
-      try {
-        if (interaction.deferred || interaction.replied) {
-          await interaction.deleteReply();
-        } else {
-          // 아직 응답하지 않은 상호작용(예: /dashboard)은 조용히 확인만 하고 제거
-          await interaction.reply({ content: "▶️", flags: MessageFlags.Ephemeral });
-          await interaction.deleteReply();
-        }
-      } catch {
-        /* 이미 만료/삭제됐을 수 있음 — 무시 */
-      }
-    }
+    // 진입점이 띄운 "검색 중…" 자리표시자 제거 — 채널에 중복/정지 메시지를 남기지 않는다
+    await responder.dismissPlaceholder();
 
     player.nowPlayingMessage = message;
-    player.requesterId = member.id;
+    player.requesterId = requester?.id ?? null;
 
     this.startProgressUpdate(player);
 
@@ -295,38 +291,13 @@ class MusicEmbedManager {
   /**
    * 음악 재생 중 곡이 대기열에 추가되는 경우를 처리합니다.
    */
-  async handleQueueAddition(player, tracks, member, interaction, isPlaylist, insertFirst = false) {
+  async handleQueueAddition(player, tracks, responder, isPlaylist, insertFirst = false) {
     // 기존 임베드 갱신
     if (player.nowPlayingMessage && player.currentTrack) {
       await this.updateNowPlayingEmbed(player);
     }
 
-    // 정보 메시지 전송
-    const messageText = this.createQueueAdditionMessage(tracks, member.guild.id, isPlaylist, insertFirst);
-
-    let infoMessage;
-    if (interaction) {
-      if (interaction.deferred || interaction.replied) {
-        // /play 및 /playfirst의 초기 응답은 CV2 컨테이너이므로 — CV2 메시지는 `content` 필드를 거부하므로 컨테이너로 수정
-        infoMessage = await interaction.editReply({
-          components: [this.createSearchingContainer(messageText)],
-          flags: MessageFlags.IsComponentsV2,
-        });
-      } else {
-        infoMessage = await interaction.reply({ content: messageText, flags: [1 << 6] });
-      }
-    } else {
-      infoMessage = await player.textChannel.send({ content: messageText });
-    }
-
-    // 10초 후 정보 메시지 삭제
-    setTimeout(async () => {
-      try {
-        await infoMessage.delete();
-      } catch (error) {
-        // 메시지가 이미 삭제되었을 수 있음
-      }
-    }, 10000);
+    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, isPlaylist, insertFirst));
 
     return { success: true, message: "Added to queue", isNewEmbed: false };
   }
@@ -334,7 +305,7 @@ class MusicEmbedManager {
   /**
    * 현재 재생 컨테이너를 빌드합니다 (Components v2).
    */
-  async createNowPlayingContainer(player, track, guildId, buttonsDisabled = false) {
+  async createNowPlayingContainer(player, track, buttonsDisabled = false) {
     const nowPlayingTitle = "🎵 현재 재생 중";
 
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
@@ -412,7 +383,7 @@ class MusicEmbedManager {
     if (!player.nowPlayingMessage || !player.currentTrack) return;
 
     try {
-      const container = await this.createNowPlayingContainer(player, player.currentTrack, player.guild.id);
+      const container = await this.createNowPlayingContainer(player, player.currentTrack);
       const jumpToRow = await this.createJumpToRow(player);
       const components = jumpToRow ? [container, jumpToRow] : [container];
       if (player.nowPlayingWebhook) {
@@ -441,7 +412,7 @@ class MusicEmbedManager {
     // 버튼 비활성화
     if (player.nowPlayingMessage && player.currentTrack) {
       try {
-        const container = await this.createNowPlayingContainer(player, player.currentTrack, player.guild?.id, true);
+        const container = await this.createNowPlayingContainer(player, player.currentTrack, true);
         if (player.nowPlayingWebhook) {
           await player.nowPlayingWebhook.editMessage(player.nowPlayingMessage.id, {
             components: [container],
@@ -589,7 +560,7 @@ class MusicEmbedManager {
   /**
    * 대기열 추가 메시지를 빌드합니다.
    */
-  createQueueAdditionMessage(tracks, guildId, isPlaylist, insertFirst = false) {
+  createQueueAdditionMessage(tracks, isPlaylist, insertFirst = false) {
     if (isPlaylist) {
       return insertFirst ? `⏫ 재생목록의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ 재생목록의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
     } else {

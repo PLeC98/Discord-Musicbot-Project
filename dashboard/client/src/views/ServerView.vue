@@ -21,6 +21,10 @@
           <!-- Thumbnail + title/artist -->
           <div class="flex gap-4 items-center mb-4.5 mt-3.5">
             <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="w-auto h-[15vw] max-h-37.5 rounded-xl object-cover shrink-0 shadow-[0_4px_18px_rgba(0,0,0,0.5)]" />
+            <!-- 직접 링크는 앨범아트를 알 수 없다 — 파일 아이콘으로 대체 -->
+            <div v-else class="h-[15vw] max-h-37.5 aspect-square rounded-xl bg-white/6 flex items-center justify-center shrink-0 text-muted">
+              <Icon name="audio-file" :size="44" />
+            </div>
             <div class="flex-1 pt-0.5 overflow-hidden">
               <a :href="player.currentTrack.url" target="_blank" rel="noopener" class="block text-[1.1rem] font-extrabold text-fg no-underline mb-1 overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em] hover:underline">
                 {{ player.currentTrack.title }}
@@ -167,6 +171,7 @@
             </span>
             <span class="w-5 text-right text-muted text-[0.8rem] shrink-0 mr-1">{{ i + 1 }}</span>
             <img v-if="track.thumbnail" :src="track.thumbnail" class="size-9 rounded-md object-cover shrink-0" />
+            <div v-else class="size-9 rounded-md bg-white/6 flex items-center justify-center shrink-0 text-muted"><Icon name="audio-file" :size="18" /></div>
             <div class="flex-1 overflow-hidden">
               <div class="text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap mb-0.5">{{ track.title }}</div>
               <div class="text-[0.78rem] text-muted">

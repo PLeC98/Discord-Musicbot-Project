@@ -217,9 +217,9 @@ class SessionPersistence {
           if (oldMessage) await oldMessage.delete().catch(() => {});
         }
 
-        // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작)
-        const memberLike = { id: state.requesterId || player.guild.client.user.id, guild: player.guild };
-        await embedManager.createNewMusicEmbed(player, player.currentTrack, memberLike, null);
+        // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 복구에는 진입점 자리표시자가 없다.
+        const requester = { id: state.requesterId || player.guild.client.user.id, username: null, tag: null };
+        await embedManager.createNewMusicEmbed(player, player.currentTrack, requester);
       } catch (error) {
         log.error("❌ Failed to rebuild now playing embed during restore:", error?.message || error);
       }

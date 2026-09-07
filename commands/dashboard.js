@@ -2,6 +2,8 @@
 
 const { SlashCommandBuilder } = require("discord.js");
 const S = require("../src/strings");
+const { toRequester } = require("../src/playRequest");
+const { interactionResponder } = require("../src/playbackResponder");
 const GuildSettingsManager = require("../src/GuildSettingsManager");
 const { checkControl } = require("../src/permissions");
 
@@ -42,6 +44,6 @@ module.exports = {
 
     player.textChannel = channel;
 
-    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, member, interaction);
+    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager));
   },
 };

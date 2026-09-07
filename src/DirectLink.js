@@ -32,7 +32,8 @@ class DirectLink {
           artist: "직접 링크",
           url: url,
           duration: estimatedDuration,
-          thumbnail: this.getDefaultThumbnail(extension),
+          // 임의의 오디오 URL이라 앨범아트를 알 방법이 없다. 대시보드가 파일 아이콘으로 대체 표시한다.
+          thumbnail: null,
           platform: "direct",
           type: "track",
           id: this.generateId(url),
@@ -102,19 +103,6 @@ class DirectLink {
   static generateId(url) {
     // URL 기반의 간단한 ID 생성
     return Buffer.from(url).toString("base64").substring(0, 16);
-  }
-
-  static getDefaultThumbnail(extension) {
-    // 파일 타입에 따른 기본 썸네일 반환
-    const thumbnails = {
-      ".mp3": "https://cdn-icons-png.flaticon.com/512/2611/2611282.png",
-      ".wav": "https://cdn-icons-png.flaticon.com/512/8263/8263222.png",
-      ".flac": "https://cdn-icons-png.flaticon.com/512/8300/8300336.png",
-      ".ogg": "https://cdn-icons-png.flaticon.com/512/8744/8744689.png",
-      ".m4a": "https://cdn-icons-png.flaticon.com/512/730/730939.png",
-    };
-
-    return thumbnails[extension] || "https://cdn-icons-png.freepik.com/512/3871/3871560.png";
   }
 
   static estimateDuration(fileSize, contentType) {

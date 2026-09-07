@@ -25,6 +25,21 @@ require.cache[gsmPath] = {
   },
 };
 
+// ── TrackResolver 모킹 (코어가 실 해석/네트워크를 타지 않게) ──────────────
+const resolverCalls = [];
+const trPath = require.resolve(path.join(__dirname, "..", "src", "TrackResolver.js"));
+require.cache[trPath] = {
+  id: trPath,
+  filename: trPath,
+  loaded: true,
+  exports: {
+    async resolveQuery(query) {
+      resolverCalls.push(query);
+      return { success: true, isPlaylist: false, tracks: [makeTrack("추가곡")] };
+    },
+  },
+};
+
 const express = require("express");
 
 // ── Fake client/player ───────────────────────────────────────
@@ -53,10 +68,6 @@ function makePlayer() {
       this.calls.push(["setVolume", v]);
       this.volume = v;
     },
-    async addTrack(query) {
-      this.calls.push(["addTrack", query]);
-      return { success: true };
-    },
     removeFromQueue(i) {
       this.calls.push(["removeFromQueue", i]);
       this.queue.splice(i, 1);
@@ -80,10 +91,18 @@ const guild = {
     me: null,
   },
 };
+const embedCalls = [];
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
   players: new Map(),
+  musicEmbedManager: {
+    async handleMusicData(guildId, trackData) {
+      embedCalls.push([guildId, trackData]);
+      return { success: true };
+    },
+    updateNowPlayingEmbed: async () => {},
+  },
 };
 
 let server;
@@ -121,6 +140,8 @@ async function req(method, urlPath, body) {
 function freshPlayer() {
   player = makePlayer();
   client.players.set(GUILD_ID, player);
+  resolverCalls.length = 0;
+  embedCalls.length = 0;
   return player;
 }
 
@@ -130,7 +151,7 @@ test("queue add: 비문자열 query(배열/객체/숫자)는 400 — 구 코드�
     const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query });
     assert.equal(r.status, 400, JSON.stringify(query));
   }
-  assert.equal(player.calls.length, 0, "addTrack 미호출");
+  assert.equal(resolverCalls.length, 0, "검증 실패 시 해석까지 가지 않음");
 });
 
 test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 후 전달", async () => {
@@ -140,9 +161,10 @@ test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 �
 
   const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "hello\r\nworld\x00!" });
   assert.equal(r.status, 200);
-  const [, sent] = player.calls.find(([name]) => name === "addTrack");
+  const sent = resolverCalls.at(-1);
   assert.doesNotMatch(sent, /[\x00-\x1f\x7f]/, "제어문자가 yt-dlp/로그로 흘러가지 않음");
   assert.match(sent, /hello +world +!/);
+  assert.equal(embedCalls.length, 1, "대시보드도 슬래시 명령과 같은 코어를 지난다");
 });
 
 test("seek: Infinity/비숫자/음수는 400 (라이브 duration 0 클램프 우회 차단), 정상값은 ms로 재생", async () => {
