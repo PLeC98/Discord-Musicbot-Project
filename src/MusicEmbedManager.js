@@ -5,7 +5,7 @@ const { formatDuration } = require("./utils");
 const DashboardEvents = require("./DashboardEvents");
 const ErrorHandler = require("./ErrorHandler");
 const S = require("./strings");
-const { ALLOWED_MENTIONS, escapeMd, escapeMdLink } = require("./mentions");
+const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
 const { silentResponder } = require("./playbackResponder");
 
 class MusicEmbedManager {
@@ -318,7 +318,8 @@ class MusicEmbedManager {
     const platformValue = track.platform ? track.platform.charAt(0).toUpperCase() + track.platform.slice(1) : "-";
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
-    const linkText = `### ${nowPlayingTitle}\n**[${escapeMdLink(track.title)}](${track.url})**${artistLine}`;
+    // 제목은 이스케이프하지 않는다 — 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
+    const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.url})**${artistLine}`;
 
     const section = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText));
     if (track.thumbnail) {
