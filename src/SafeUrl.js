@@ -145,6 +145,8 @@ async function guardedRequest(method, rawUrl, { responseType } = {}) {
         responseType,
         timeout: method === "head" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS,
         maxRedirects: 0, // 리다이렉트는 홉별 재검증을 위해 수동 처리
+        // axios는 HTTP_PROXY/HTTPS_PROXY를 자동 사용한다. 프록시가 목적지를 다시 해석하면 핀 접속이 무의미해진다.
+        proxy: false,
         maxContentLength: responseType === "stream" ? Infinity : MAX_BYTES,
         maxBodyLength: MAX_BYTES,
         validateStatus: (s) => s >= 200 && s < 400, // 3xx도 우리가 읽어야 함
