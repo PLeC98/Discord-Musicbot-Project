@@ -1,5 +1,5 @@
 // 봇 운영자(OWNER_ID) 전용 라우터 — 모든 엔드포인트가 requireOwner를 지난다.
-// 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 길드의 "서버 관리" 권한과는 무관하다.
+// 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
 const express = require("express");
 const log = require("../../../src/logger").child({ category: "dashboard" });
@@ -127,7 +127,7 @@ router.get("/guilds", requireOwner, (req, res) => {
 
 // Force-leave a guild (owner-triggered from dashboard).
 // 재생 중이면 플레이어를 먼저 정리해 음성 연결/타이머가 남지 않게 한다.
-// guild.leave() 이후에는 길드 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
+// guild.leave() 이후에는 서버 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
 router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });

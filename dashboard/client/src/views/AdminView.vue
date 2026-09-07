@@ -156,7 +156,7 @@
 
         <div v-if="redeployResult" :class="resultMsg(redeployResult.success)" class="flex items-center gap-1.5">
           <Icon :name="redeployResult.success ? 'check' : 'error'" :size="16" />
-          <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "길드" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
+          <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
         </div>
       </BaseCard>
     </template>

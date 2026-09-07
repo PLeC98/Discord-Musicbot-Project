@@ -1,6 +1,6 @@
 "use strict";
 
-// src/MusicEmbedManager.js — 길드별 음악 처리 락 (Promise tail 체인).
+// src/MusicEmbedManager.js — 서버별 음악 처리 락 (Promise tail 체인).
 // 실제 처리(_processMusic)는 스텁하고 직렬화 계약만 검증한다.
 // 회귀 대상: 구 "await 후 set" 방식의 A/B/C 경쟁 (앞 작업 finally가 뒤 작업 락을 삭제 → 동시 실행)
 
@@ -47,7 +47,7 @@ function makeManager() {
 
 const tick = () => new Promise((r) => setImmediate(r));
 
-test("같은 길드 동시 3건(A/B/C)은 항상 순차 실행 — 구 락 경쟁 회귀 방지", async () => {
+test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행 — 구 락 경쟁 회귀 방지", async () => {
   const { mem, stats } = makeManager();
 
   // 동기적으로 연속 진입 (실사용: 동시 /play + 메시지 추가 + 검색 선택)
@@ -98,14 +98,14 @@ test("앞 작업 실패가 뒤 작업을 막지 않음 — 오류는 자기 호�
   assert.equal(mem.processingQueue.size, 0);
 });
 
-test("다른 길드는 직렬화되지 않음 — 길드 간 병렬", async () => {
+test("다른 서버는 직렬화되지 않음 — 서버 간 병렬", async () => {
   const { mem, stats } = makeManager();
 
   const p1 = mem.handleMusicData("g1", { id: "G1" }, null);
   const p2 = mem.handleMusicData("g2", { id: "G2" }, null);
 
   await tick();
-  assert.ok(stats.events.includes("start:G1") && stats.events.includes("start:G2"), "두 길드 모두 즉시 시작");
+  assert.ok(stats.events.includes("start:G1") && stats.events.includes("start:G2"), "두 서버 모두 즉시 시작");
 
   stats.gates.get("G2").resolve();
   assert.equal(await p2, "G2", "g1이 진행 중이어도 g2는 완료 가능");

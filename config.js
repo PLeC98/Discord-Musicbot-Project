@@ -171,7 +171,7 @@ module.exports = {
     sse: {
       heartbeatMs: envInt("SSE_HEARTBEAT_SEC", 20, { min: 5, max: 300 }) * 1000, // 유휴 연결 keepalive
       maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5, { min: 1, max: 100 }), // 세션당 동시 연결 캡
-      coalesceMs: envInt("SSE_COALESCE_MS", 300, { min: 0, max: 5000 }), // 길드당 넛지 합치기 창
+      coalesceMs: envInt("SSE_COALESCE_MS", 300, { min: 0, max: 5000 }), // 서버당 넛지 합치기 창
     },
   },
 

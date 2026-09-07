@@ -154,7 +154,7 @@ pnpm run shard    # 1000+ 서버용 샤딩 실행 (샤딩 설정 필요)
 
 ## 대시보드
 
-1. `.env`에 `DASHBOARD_HOST`, `DASHBOARD_URL`(외부 공개 주소 — 로컬 접속만 쓰면 비워둠), `OWNER_ID`, `SESSION_SECRET` 설정
+1. `.env`에 `DASHBOARD_HOST`, `DASHBOARD_URL`, `OWNER_ID`, `SESSION_SECRET`을 본인 환경에 맞게 설정
 2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에
    `{DASHBOARD_URL}/auth/callback` 추가
 3. 클라이언트 빌드:
@@ -166,7 +166,7 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 봇 실행 시 대시보드 서버가 함께 시작됩니다.
 
 > [!CAUTION]
-> 현재 샤딩 구동 시 0번 샤드를 제외한 샤드가 소유한 길드는 대시보드에 안 보이고 조작도 불가한 문제가 있습니다.
+> 현재 샤딩 구동 시 0번 샤드를 제외한 샤드가 소유한 서버는 대시보드에 안 보이고 조작도 불가한 문제가 있습니다.
 > 개발자의 샤딩 미 사용 및 테스트 어려움으로 인해 개선 우선순위가 매우 낮습니다.
 
 ## 업데이트 / 유지보수

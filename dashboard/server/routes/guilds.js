@@ -39,7 +39,7 @@ const queueLimiter = rateLimit({
   message: { error: "곡 추가 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
 });
 
-// 대시보드발 상태 변경(비-GET 성공) → 해당 길드 SSE 구독자에게 넛지.
+// 대시보드발 상태 변경(비-GET 성공) → 해당 서버 SSE 구독자에게 넛지.
 // req.params는 스택이 풀리면 복원되므로, 요청 시작 시점의 라우터-상대 URL 첫 세그먼트(=guildId)를
 // 클로저로 잡아 finish에서 사용. (Discord측/내부 변화는 MusicEmbedManager 훅이 담당)
 router.use((req, res, next) => {
@@ -70,7 +70,7 @@ async function getPlayer(req, res, guildId) {
     return null;
   }
 
-  // 조회 인가는 세션의 굳은 길드 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단).
+  // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단).
   // 봇 운영자(OWNER_ID)는 멤버십과 무관하게 통과. member는 후속 권한 계산에 재사용.
   let member = null;
   try {
@@ -153,7 +153,7 @@ router.get("/", requireAuth, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
 
-  // 후보는 세션의 길드 목록이지만 표시는 실멤버십으로 필터 (추방된 길드는 목록에서 제외).
+  // 후보는 세션의 서버 목록이지만 표시는 실멤버십으로 필터 (추방된 서버는 목록에서 제외).
   const candidates = (req.session.user.guilds || []).filter((g) => client.guilds.cache.has(g.id));
   const verified = await Promise.all(
     candidates.map(async (g) => {
@@ -171,7 +171,7 @@ router.get("/", requireAuth, async (req, res) => {
     id: g.id,
     name: g.name,
     icon: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.webp?size=64` : null,
-    canManageGuild: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD, // 그 길드의 "서버 관리" 권한 — 봇 운영자(isOwner)와 무관
+    canManageGuild: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD, // 그 서버의 "서버 관리" 권한 — 봇 운영자(isOwner)와 무관
     hasPlayer: client.players?.has(g.id) || false,
     memberCount: client.guilds.cache.get(g.id).memberCount,
   }));
@@ -179,12 +179,12 @@ router.get("/", requireAuth, async (req, res) => {
   res.json({ guilds: mutual });
 });
 
-// SSE — 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 길드 전체를 한 연결로).
+// SSE — 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 서버 전체를 한 연결로).
 router.get("/events", requireAuth, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
 
-  // 구독할 길드 집합 = 상호 길드 중 실멤버십 확인된 것
+  // 구독할 서버 집합 = 상호 서버 중 실멤버십 확인된 것
   const candidates = (req.session.user.guilds || []).filter((g) => client.guilds.cache.has(g.id));
   const guildIds = new Set();
   await Promise.all(
@@ -253,7 +253,7 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
   const rawChannelId = await GuildSettingsManager.getBotChannel(guild.id);
   const botChannelId = rawChannelId && guild.channels.cache.has(rawChannelId) ? rawChannelId : null;
 
-  // @everyone(길드 ID와 동일)은 제외 — "전원 DJ"는 미설정이 이미 그 의미
+  // @everyone(서버 ID와 동일)은 제외 — "전원 DJ"는 미설정이 이미 그 의미
   const roles = [...guild.roles.cache.values()]
     .filter((r) => r.id !== guild.id)
     .sort((a, b) => b.position - a.position)
