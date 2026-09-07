@@ -1,12 +1,15 @@
+// 봇 운영자(OWNER_ID) 전용 라우터 — 모든 엔드포인트가 requireOwner를 지난다.
+// 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 길드의 "서버 관리" 권한과는 무관하다.
+
 const express = require("express");
 const log = require("../../../src/logger").child({ category: "dashboard" });
 const router = express.Router();
-const requireAdmin = require("../middleware/requireAdmin");
+const requireOwner = require("../middleware/requireOwner");
 const os = require("os");
 const logManager = require("../../../src/LogManager");
 
 // Bot/Node/System/Shard status
-router.get("/status", requireAdmin, (req, res) => {
+router.get("/status", requireOwner, (req, res) => {
   const client = req.app.locals.discordClient;
   const uptime = process.uptime();
   const mem = process.memoryUsage();
@@ -52,7 +55,7 @@ router.get("/status", requireAdmin, (req, res) => {
 });
 
 // 전체 서버 공지
-router.post("/broadcast", requireAdmin, async (req, res) => {
+router.post("/broadcast", requireOwner, async (req, res) => {
   const { message, type = "maintenance" } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: "공지 내용을 입력해 주세요." });
 
@@ -69,7 +72,7 @@ router.post("/broadcast", requireAdmin, async (req, res) => {
   };
   const cfg = types[type] || types.info;
 
-  const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(message.trim()).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 관리자" });
+  const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(message.trim()).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 운영자" });
 
   const GuildSettingsManager = require("../../../src/GuildSettingsManager");
   let sent = 0,
@@ -107,7 +110,7 @@ router.post("/broadcast", requireAdmin, async (req, res) => {
 });
 
 // List all guilds bot is in
-router.get("/guilds", requireAdmin, (req, res) => {
+router.get("/guilds", requireOwner, (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
 
@@ -125,7 +128,7 @@ router.get("/guilds", requireAdmin, (req, res) => {
 // Force-leave a guild (owner-triggered from dashboard).
 // 재생 중이면 플레이어를 먼저 정리해 음성 연결/타이머가 남지 않게 한다.
 // guild.leave() 이후에는 길드 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
-router.post("/guilds/:guildId/leave", requireAdmin, async (req, res) => {
+router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
 
@@ -162,7 +165,7 @@ router.post("/guilds/:guildId/leave", requireAdmin, async (req, res) => {
 
 // Re-register slash commands with Discord (owner-triggered from dashboard).
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
-router.post("/redeploy-commands", requireAdmin, async (req, res) => {
+router.post("/redeploy-commands", requireOwner, async (req, res) => {
   const { deployCommands } = require("../../../src/commandLoader");
   const r = await deployCommands({ force: true }); // 대시보드 버튼 = 명시적 재배포 의도 — 지문 무시
   if (r.ok) {
@@ -172,7 +175,7 @@ router.post("/redeploy-commands", requireAdmin, async (req, res) => {
 });
 
 // Real-time log stream (SSE)
-router.get("/logs/stream", requireAdmin, (req, res) => {
+router.get("/logs/stream", requireOwner, (req, res) => {
   logManager.addClient(res);
 });
 

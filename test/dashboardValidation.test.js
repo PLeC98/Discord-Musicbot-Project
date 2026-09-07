@@ -3,7 +3,11 @@
 // dashboard/server/routes/guilds.js — 플레이어 조작 API의 입력 검증
 // 회귀 대상: 비문자열 query의 TypeError(async 핸들러라 응답 없는 unhandled rejection),
 // parseFloat("Infinity")·parseInt("50junk")의 느슨한 통과, 제어문자의 로그/yt-dlp 유입.
-// 실 라우터 + fake client/player, isAdmin 세션으로 권한 게이트를 우회해 검증 로직만 조준.
+// 실 라우터 + fake client/player, 봇 운영자 세션으로 권한 게이트를 우회해 검증 로직만 조준.
+
+// 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
+// dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
+process.env.OWNER_ID = "owner";
 
 const path = require("node:path");
 const { test, before, after } = require("node:test");
@@ -86,7 +90,7 @@ const guild = {
   channels: { cache: new Map() },
   members: {
     fetch: async () => {
-      throw new Error("Unknown Member"); // isAdmin 세션이라 비멤버여도 통과해야 함
+      throw new Error("Unknown Member"); // 운영자 세션이라 비멤버여도 통과해야 함
     },
     me: null,
   },
@@ -112,7 +116,7 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => {
-    req.session = { user: { id: "owner", username: "owner", isAdmin: true, guilds: [] } };
+    req.session = { user: { id: "owner", username: "owner", guilds: [] } };
     next();
   });
   app.locals.discordClient = client;

@@ -2,6 +2,7 @@
 
 const { checkControl } = require("../../../src/permissions");
 const S = require("../../../src/strings");
+const { isOwner } = require("../owner");
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리
 const toApiError = S.withoutErrorMark;
@@ -33,7 +34,7 @@ async function resolveMember(req, res) {
 
 // 재생 조작 엔드포인트 공통 가드
 async function requireControl(req, res, next) {
-  if (req.session.user.isAdmin) return next();
+  if (isOwner(req)) return next();
 
   const ctx = await resolveMember(req, res);
   if (!ctx) return;

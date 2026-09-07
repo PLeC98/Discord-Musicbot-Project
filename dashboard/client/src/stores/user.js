@@ -8,7 +8,7 @@ export const useUserStore = defineStore("user", {
   }),
   getters: {
     isLoggedIn: (s) => !!s.data,
-    isAdmin: (s) => s.data?.isAdmin ?? false,
+    isOwner: (s) => s.data?.isOwner ?? false,
     displayName: (s) => s.data?.globalName || s.data?.username || "",
     avatarUrl: (s) => (s.data?.avatar ? `https://cdn.discordapp.com/avatars/${s.data.id}/${s.data.avatar}.webp?size=64` : null),
   },

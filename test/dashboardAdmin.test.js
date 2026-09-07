@@ -1,7 +1,11 @@
 "use strict";
 
-// dashboard/server/routes/admin.js — 관리자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
+// dashboard/server/routes/admin.js — 봇 운영자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
 // 실 라우터 + fake client. GSM은 require.cache 모킹, REST.put은 프로토타입 패치(실 배포·실 DB 없음).
+
+// 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
+// dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
+process.env.OWNER_ID = "owner";
 
 const os = require("node:os");
 const path = require("node:path");
@@ -107,7 +111,7 @@ let server;
 let base;
 
 before(() => {
-  currentUser = { id: "owner", username: "owner", isAdmin: true };
+  currentUser = { id: "owner", username: "owner" };
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => {
@@ -137,14 +141,26 @@ async function req(method, urlPath, body) {
 
 // ── 인가 ─────────────────────────────────────────────────────
 
-test("requireAdmin: 비로그인 401 / 비관리자 403", async () => {
+test("requireOwner: 비로그인 401 / 운영자 아님 403", async () => {
   currentUser = null;
   assert.equal((await req("GET", "/api/admin/status")).status, 401);
 
-  currentUser = { id: "u1", isAdmin: false };
+  currentUser = { id: "u1" };
   assert.equal((await req("GET", "/api/admin/status")).status, 403);
 
-  currentUser = { id: "owner", username: "owner", isAdmin: true };
+  currentUser = { id: "owner", username: "owner" };
+});
+
+// OWNER_ID를 바꿔도 SQLite에 남은 기존 세션이 그대로 통과하던 회귀.
+// 구버전 세션에 남아 있는 isAdmin 필드는 인가에 쓰이지 않는다.
+test("requireOwner: 구버전 세션의 isAdmin=true는 인가에 쓰이지 않는다", async () => {
+  currentUser = { id: "former-owner", username: "이전 운영자", isAdmin: true };
+  assert.equal((await req("GET", "/api/admin/status")).status, 403);
+
+  currentUser = { id: "owner", username: "owner", isAdmin: false };
+  assert.equal((await req("GET", "/api/admin/status")).status, 200, "현재 OWNER_ID면 세션 값과 무관하게 통과");
+
+  currentUser = { id: "owner", username: "owner" };
 });
 
 // ── 상태 / 서버 목록 ─────────────────────────────────────────

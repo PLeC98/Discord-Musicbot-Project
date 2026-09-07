@@ -36,7 +36,7 @@ function makeSession(user, expiresInMs = 60_000) {
 
 test("set/get 라운드트립: 세션 객체 보존", async () => {
   const store = makeStore("roundtrip.db");
-  const session = makeSession({ id: "u1", username: "tester", isAdmin: false, guilds: [{ id: "g1" }] });
+  const session = makeSession({ id: "u1", username: "tester", guilds: [{ id: "g1" }] });
   store.set("sid1", session);
 
   const loaded = await getAsync(store, "sid1");

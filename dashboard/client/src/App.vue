@@ -7,7 +7,7 @@
       <router-link to="/servers" class="flex items-center gap-1.5 font-bold text-fg no-underline tracking-[-0.01em] pr-2"><Icon name="music" :size="18" class="text-accent" />MusicBot</router-link>
       <div class="flex gap-1.5 flex-1 mb-0.5">
         <router-link to="/servers" :class="navLink">서버 목록</router-link>
-        <router-link v-if="user.isAdmin" to="/admin" :class="navLink">관리자</router-link>
+        <router-link v-if="user.isOwner" to="/admin" :class="navLink">운영자</router-link>
       </div>
       <div class="flex items-center gap-2.5 text-fg-soft text-[0.85rem]">
         <img v-if="user.avatarUrl" :src="user.avatarUrl" class="size-7.5 rounded-full shadow-[0_0_0_2px_rgba(124,111,246,0.28)]" alt="avatar" />

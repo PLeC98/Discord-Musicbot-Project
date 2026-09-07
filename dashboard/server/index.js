@@ -15,6 +15,7 @@ const { issueCsrfToken, requireCsrfToken } = require("./middleware/csrf");
 const { securityHeaders } = require("./middleware/securityHeaders");
 const { errorHandler, notFoundJson } = require("./middleware/errorHandler");
 const { isLoopbackHost, describeBinding } = require("./binding");
+const { isOwner } = require("./owner");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const guildsRoutes = require("./routes/guilds");
@@ -149,9 +150,10 @@ function createApp(client) {
   app.use("/api/guilds", guildsRoutes);
 
   // Current user endpoint
+  // isOwner는 세션에 저장하지 않고 여기서 파생한다 — UI 표시용이고 권한 판정은 서버가 매번 다시 한다
   app.get("/api/me", (req, res) => {
     if (!req.session.user) return res.status(401).json({ error: "로그인이 필요합니다." });
-    res.json(req.session.user);
+    res.json({ ...req.session.user, isOwner: isOwner(req) });
   });
 
   // Public bot info (used on login page before auth)
