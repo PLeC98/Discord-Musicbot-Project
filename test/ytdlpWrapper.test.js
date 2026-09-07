@@ -9,6 +9,9 @@
 // 회귀 위험: 우회 과정에서 반환/오류 모양을 직접 재구현했다 — 원본과 어긋나면
 // isAgeRestrictedError/isVideoUnavailableError(error.stderr를 읽는다)가 조용히 오작동한다.
 // 그래서 원본과 나란히 돌려 동등성을 확인한다. 네트워크 없이 yt-dlp 바이너리만 사용.
+//
+// 검사용 인자는 url이 아니라 flags로 넘긴다. youtube-dl-exec는 url을 `--` 뒤 positional로
+// 두므로(3.1.14+), url 자리에 플래그를 넣으면 yt-dlp가 리터럴 URL로 해석한다.
 
 const fs = require("node:fs");
 const { test } = require("node:test");
@@ -24,7 +27,7 @@ const opts = { skip: hasBinary ? false : `yt-dlp 바이너리 없음 (${BINARY})
 
 test("성공 계약: 원본과 같은 값을 돌려주고 프로세스 등록을 해제한다", opts, async () => {
   const before = registry.size();
-  const [mine, theirs] = await Promise.all([run("--version"), youtubedl("--version")]);
+  const [mine, theirs] = await Promise.all([run("", { version: true }), youtubedl("", { version: true })]);
 
   assert.equal(mine, theirs, "원본과 동일한 반환값");
   assert.match(String(mine), /^\d{4}\.\d{2}\.\d{2}/, "yt-dlp 버전 문자열");
@@ -34,11 +37,11 @@ test("성공 계약: 원본과 같은 값을 돌려주고 프로세스 등록을
 test("실패 계약: stderr를 담은 Error — 연령제한/삭제영상 판별이 이걸 읽는다", opts, async () => {
   const before = registry.size();
 
-  const mine = await run("--definitely-bogus-flag").then(
+  const mine = await run("", { definitelyBogusFlag: true }).then(
     () => null,
     (e) => e,
   );
-  const theirs = await youtubedl("--definitely-bogus-flag").then(
+  const theirs = await youtubedl("", { definitelyBogusFlag: true }).then(
     () => null,
     (e) => e,
   );
@@ -54,7 +57,7 @@ test("실패 계약: stderr를 담은 Error — 연령제한/삭제영상 판별
 
 test("실행 중에는 레지스트리가 프로세스를 추적한다", opts, async () => {
   const before = registry.size();
-  const pending = run("--version");
+  const pending = run("", { version: true });
   assert.equal(registry.size(), before + 1, "실행 중에는 추적되어야 종료 시 정리할 수 있다");
   await pending.catch(() => {});
   assert.equal(registry.size(), before);
