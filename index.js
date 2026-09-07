@@ -10,6 +10,7 @@ const CacheManager = require("./src/CacheManager");
 const procRegistry = require("./src/ChildProcessRegistry");
 const { logResolved: logResolvedFfmpeg } = require("./src/ffmpegPath");
 const MusicPlayer = require("./src/MusicPlayer");
+const { resolveGuildForRestore } = require("./src/sessionRestore");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
@@ -45,26 +46,14 @@ async function restoreSavedPlayers(client) {
 
   for (const [guildId, state] of entries) {
     try {
-      // Wait for guild to be available in cache
-      let guild = client.guilds.cache.get(guildId);
+      const { guild, gone } = await resolveGuildForRestore(client, guildId);
 
       if (!guild) {
-        // Try fetching with retry logic for sharding
-        let retries = 3;
-        while (!guild && retries > 0) {
-          try {
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
-            guild = await client.guilds.fetch(guildId).catch(() => null);
-            if (guild) break;
-          } catch (error) {
-            retries--;
-          }
+        // 일시적 조회 실패면 세션을 남긴다 — 다음 기동에서 다시 시도한다
+        if (gone) {
+          log.info(chalk.yellow(`⚠️ 서버 ${guildId}을(를) 찾을 수 없거나 접근할 수 없습니다. 상태를 제거합니다.`));
+          CacheManager.removePlayerSession(guildId);
         }
-      }
-
-      if (!guild) {
-        log.info(chalk.yellow(`⚠️ 서버 ${guildId}을(를) 찾을 수 없거나 접근할 수 없습니다. 상태를 제거합니다.`));
-        CacheManager.removePlayerSession(guildId);
         continue;
       }
 
