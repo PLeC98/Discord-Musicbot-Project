@@ -12,11 +12,15 @@ const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const { createCorsOptions } = require("./cors");
 const SqliteSessionStore = require("./sessionStore");
 const { issueCsrfToken, requireCsrfToken } = require("./middleware/csrf");
+const { securityHeaders } = require("./middleware/securityHeaders");
+const { errorHandler, notFoundJson } = require("./middleware/errorHandler");
+const { isLoopbackHost, describeBinding } = require("./binding");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const guildsRoutes = require("./routes/guilds");
 
 const PORT = config.dashboard.port;
+const HOST = config.dashboard.host;
 const DASHBOARD_URL = config.dashboard.url;
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백 —
@@ -34,7 +38,25 @@ function resolveSessionSecret() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-function startDashboard(client) {
+// 평문 접속 감지 — 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
+// 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 그물.
+function plaintextAccessWarner(host) {
+  if (isLoopbackHost(host)) return (req, res, next) => next();
+
+  let warned = false;
+  return (req, res, next) => {
+    if (!warned && !req.secure) {
+      warned = true;
+      log.warn(chalk.yellow("⚠️  [dashboard] 평문 HTTP 연결로 접속됨 — 세션 쿠키가 암호화 없이 오갔습니다."));
+      log.warn(chalk.yellow("   HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요."));
+    }
+    next();
+  };
+}
+
+// 미들웨어 등록만 하고 listen은 하지 않는다 — 등록 순서 자체가 회귀 대상이라(정적 자산이
+// 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
+function createApp(client) {
   const app = express();
   const SESSION_SECRET = resolveSessionSecret();
 
@@ -42,6 +64,25 @@ function startDashboard(client) {
   // (Caddy on the same machine or on the LAN). Headers arriving directly
   // from public addresses are ignored, so clients cannot spoof them.
   app.set("trust proxy", "loopback, linklocal, uniquelocal");
+  app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
+
+  app.use(securityHeaders);
+  app.use(plaintextAccessWarner(HOST));
+
+  // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
+  // 오류를 화면에 표시할 수 있어야 한다 — 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
+  const clientDist = path.join(__dirname, "../client/dist");
+  if (fs.existsSync(clientDist)) {
+    app.use(express.static(clientDist));
+    app.get("/{*path}", (req, res, next) => {
+      if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();
+      res.sendFile(path.join(clientDist, "index.html"));
+    });
+  } else {
+    app.get("/", (req, res) => {
+      res.send("<h2>Dashboard client not built yet.<br>Run: <code>cd dashboard/client && pnpm install && pnpm build</code></h2>");
+    });
+  }
 
   app.use(express.json());
   app.use(cors(createCorsOptions(DASHBOARD_URL)));
@@ -125,25 +166,22 @@ function startDashboard(client) {
     });
   });
 
-  // Serve built Vue app
-  const clientDist = path.join(__dirname, "../client/dist");
-  if (fs.existsSync(clientDist)) {
-    app.use(express.static(clientDist));
-    app.get("/{*path}", (req, res, next) => {
-      if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();
-      res.sendFile(path.join(clientDist, "index.html"));
-    });
-  } else {
-    app.get("/", (req, res) => {
-      res.send("<h2>Dashboard client not built yet.<br>Run: <code>cd dashboard/client && pnpm install && pnpm build</code></h2>");
-    });
-  }
+  app.use(notFoundJson);
+  app.use(errorHandler);
 
-  app.listen(PORT, () => {
-    log.info(chalk.green(`🌐 Dashboard: http://localhost:${PORT}`));
+  return app;
+}
+
+function startDashboard(client) {
+  const app = createApp(client);
+
+  const { line, warnings } = describeBinding(HOST, PORT, DASHBOARD_URL);
+  app.listen(PORT, HOST, () => {
+    log.info(chalk.green(line));
+    for (const w of warnings) log.warn(chalk.yellow(w));
   });
 
   return app;
 }
 
-module.exports = { startDashboard };
+module.exports = { startDashboard, createApp };

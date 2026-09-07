@@ -151,6 +151,9 @@ module.exports = {
   // 대시보드 설정
   dashboard: {
     port: dashboardPort,
+    // 바인딩 주소. 기본은 루프백 — 모르는 사이에 외부로 열려 있는 상태를 만들지 않는다.
+    // 다른 기기에서 접속하려면 0.0.0.0 (HTTPS 리버스 프록시 뒤에 두는 것을 전제).
+    host: env("DASHBOARD_HOST", "127.0.0.1"),
     url: env("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
     ownerId: env("OWNER_ID"),
     // 세션 쿠키 서명 비밀. 미설정 시 기동마다 랜덤 생성(보안은 유지되나 재시작 시 대시보드 로그인 풀림) — 기동 로그에 경고
