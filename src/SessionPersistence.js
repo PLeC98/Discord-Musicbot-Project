@@ -5,6 +5,7 @@ const log = require("./logger").child({ category: "session" });
 const fsSync = require("fs");
 const CacheManager = require("./CacheManager");
 const { formatDuration } = require("./utils");
+const { escapeMd } = require("./mentions");
 
 /**
  * SessionPersistence — 플레이어 상태의 직렬화/복원/주기 저장
@@ -232,7 +233,7 @@ class SessionPersistence {
         const positionFormatted = formatDuration(positionSeconds);
 
         await player.textChannel.send({
-          content: `▶️ ${resumeMessage} • **${player.currentTrack.title || "Unknown"}** (${positionFormatted})`,
+          content: `▶️ ${resumeMessage} • **${escapeMd(player.currentTrack.title || "Unknown")}** (${positionFormatted})`,
         });
       } catch (error) {
         // 메시지를 보낼 수 없으면 무시
