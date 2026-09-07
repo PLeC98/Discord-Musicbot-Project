@@ -164,7 +164,7 @@ function stopBgutilServer() {
 }
 
 // bgutil 서버가 /ping에 응답할 때까지 대기 (최대 timeoutMs) - provider 비활성이면 즉시 통과, 시간 초과 시 경고만
-async function waitForBgutilReady(timeoutMs = 15000) {
+async function waitForBgutilReady(timeoutMs = 30000) {
   if (!bgutilProc) return true;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
