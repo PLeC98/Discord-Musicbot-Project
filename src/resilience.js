@@ -3,7 +3,7 @@
 // 프로세스 레벨 오류 복원력 헬퍼 (index.js의 uncaughtException 핸들러에서 사용).
 //
 // 방침: 일시적 네트워크 오류는 프로세스를 살린 채 "영향받은 서버만" 표적 복구하고,
-//       진짜 치명적 오류는 안전하게 종료해 운영자(봇 관리자)의 확인·수동 재시작을 대기.
+//       진짜 치명적 오류는 안전하게 종료해 봇 운영자의 확인·수동 재시작을 대기.
 
 const chalk = require("chalk");
 const log = require("./logger").child({ category: "voice" });

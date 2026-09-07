@@ -60,7 +60,7 @@ module.exports = {
       });
     }
 
-    // 자동재생 설정은 재생 조작 — DJ 계층 + 재적 규칙 (관리자 면제)
+    // 자동재생 설정은 재생 조작 — DJ 계층 + 재적 규칙 (모더레이터 면제)
     const permErr = await checkControl(member);
     if (permErr) {
       return await interaction.reply({
@@ -116,7 +116,7 @@ module.exports = {
       });
     }
 
-    // 볼륨 변경은 재생 조작 — DJ 계층 + 접속 규칙 (관리자 면제)
+    // 볼륨 변경은 재생 조작 — DJ 계층 + 접속 규칙 (모더레이터 면제)
     const permErr = await checkControl(member);
     if (permErr) {
       return await interaction.reply({

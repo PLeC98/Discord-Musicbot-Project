@@ -11,7 +11,7 @@ module.exports = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
 
-    // 재적 규칙 + DJ 계층 (관리자는 어디서든) — 두 분기 공통이므로 선두에서 한 번만
+    // 재적 규칙 + DJ 계층 (모더레이터는 어디서든) — 두 분기 공통이므로 선두에서 한 번만
     const permErr = await checkControl(member);
     if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 

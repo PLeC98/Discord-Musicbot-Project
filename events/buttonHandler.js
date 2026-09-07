@@ -571,7 +571,7 @@ module.exports = {
     const member = interaction.member;
     const guild = interaction.guild;
 
-    // 곡 추가 경로 — 봇 동작 중에는 재적 규칙만(관리자 면제), 유휴 시에는 소환 대상이 필요하므로 본인 재적 필수
+    // 곡 추가 경로 — 봇 동작 중에는 재적 규칙만(모더레이터 면제), 유휴 시에는 소환 대상이 필요하므로 본인 재적 필수
     const botVoiceChannel = guild.members.me?.voice?.channel;
     if (botVoiceChannel) {
       const permErr = checkAdd(member);
