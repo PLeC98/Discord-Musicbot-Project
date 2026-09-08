@@ -214,6 +214,7 @@ import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
+import { fmtTime } from "../utils/time.js";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
 const timeText = "text-muted text-[0.78rem] whitespace-nowrap tabular-nums";
@@ -567,13 +568,7 @@ async function jumpToHighlight() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmt(sec) {
-  if (!sec && sec !== 0) return "0:00";
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
-}
+const fmt = fmtTime;
 
 function platformColor(p) {
   return { youtube: "#ff0000", spotify: "#1db954", soundcloud: "#ff5500", direct: "var(--accent)" }[p] || "#8b93a7";

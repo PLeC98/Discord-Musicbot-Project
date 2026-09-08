@@ -1,7 +1,8 @@
 <template>
-  <!-- --chrome = 화면 위쪽을 차지하는 고정 높이(배너). 사이드바 높이와 sticky 오프셋이 이 값을
-       빼고 계산되므로, 배너가 생겨도 문서가 뷰포트보다 길어지지 않는다(= 스크롤바가 안 생긴다). -->
-  <div :class="user.viewAs ? '[--chrome:1.75rem]' : '[--chrome:0px]'">
+  <!-- --chrome = 위쪽 고정 높이(오버라이드 배너), --player = 아래쪽 고정 높이(전역 재생 바).
+       사이드바 높이와 본문 여백이 둘을 빼고 계산되므로, 어느 쪽이 생겨도 문서가 뷰포트보다
+       길어지지 않고(스크롤바가 안 생기고) 사이드바 하단 계정이 바에 가리지 않는다. -->
+  <div :class="[user.viewAs ? '[--chrome:1.75rem]' : '[--chrome:0px]', nowPlaying.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]']">
     <!-- 권한 수준 오버라이드 중임을 계속 알린다 — 낮춘 계층에서 막히는 동작을 버그로 오해하지 않도록 -->
     <div v-if="user.viewAs" class="sticky top-0 z-200 flex items-center gap-2 h-7 px-3 text-[0.8rem] bg-[rgba(251,191,36,0.13)] border-b border-[rgba(251,191,36,0.28)] text-[#fcd34d]">
       <Icon name="warning" :size="14" />
@@ -22,11 +23,13 @@
 
     <div class="flex items-start">
       <ServerSidebar v-if="user.isLoggedIn" />
-      <main class="flex-1 min-w-0">
+      <main class="flex-1 min-w-0 pb-[var(--player)]">
         <!-- :key — /servers/A → /servers/B처럼 같은 컴포넌트 간 이동에서도 리마운트해 onMounted(SSE/폴링) 재초기화 -->
         <router-view :key="$route.fullPath" />
       </main>
     </div>
+
+    <NowPlayingBar v-if="user.isLoggedIn" />
   </div>
 </template>
 
@@ -36,9 +39,12 @@ import { useRoute, useRouter } from "vue-router";
 import Icon from "./components/BaseIcon.vue";
 import { useUserStore } from "./stores/user.js";
 import ServerSidebar from "./components/ServerSidebar.vue";
+import NowPlayingBar from "./components/NowPlayingBar.vue";
+import { useNowPlayingStore } from "./stores/nowPlaying.js";
 import { toggleSidebar, closeDrawer } from "./composables/sidebarState.js";
 
 const user = useUserStore();
+const nowPlaying = useNowPlayingStore();
 const route = useRoute();
 const router = useRouter();
 
