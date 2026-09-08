@@ -266,3 +266,73 @@ test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () 
   r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: many });
   assert.equal(r.status, 400, "디스코드 셀렉트 메뉴 25개 한계와 정합");
 });
+
+// ── GET /player의 음성 재적 플래그 ───────────────────────────
+// 회귀 대상: botInVoice/userInVoice만 보면 "같은 서버 다른 채널"을 구분하지 못한다.
+// 조작 가능 여부(checkVoice)의 실제 기준은 채널 일치라, 대시보드가 그걸 그대로 표현해야 한다.
+
+// 앞선 PUT 테스트가 DJ 역할을 남겨두면 "전원 DJ" 전제가 깨진다 — 이 절은 매번 초기화하고 시작한다.
+const noDjRoles = () => store.djRoles.delete(GUILD_ID);
+
+// 실 VoiceState는 channelId와 channel을 모두 갖는다 — 한쪽만 두면 라우터와 permissions.js 중
+// 하나만 만족시켜 통과 여부가 뒤바뀐다.
+const voiceState = (channelId) => (channelId ? { channelId, channel: { id: channelId } } : { channelId: null, channel: null });
+
+function inVoice(channelId) {
+  return { permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: voiceState(channelId) };
+}
+
+test("GET player: 봇이 음성에 없으면 sameVoice는 거짓", async () => {
+  noDjRoles();
+  guild.members.me = null;
+  currentMember = inVoice("v1");
+
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.botInVoice, false);
+  assert.equal(r.json.userInVoice, true);
+  assert.equal(r.json.sameVoice, false);
+});
+
+test("GET player: 같은 서버 다른 채널은 sameVoice가 거짓이고 조작이 막힌다", async () => {
+  noDjRoles();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = inVoice("v2");
+
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.botInVoice, true);
+  assert.equal(r.json.userInVoice, true, "둘 다 참이라 이 둘만으로는 구분되지 않는다");
+  assert.equal(r.json.sameVoice, false);
+  assert.equal(r.json.canControl, false);
+  assert.equal(r.json.canAdd, false);
+});
+
+test("GET player: 같은 채널이면 sameVoice가 참이고 조작이 열린다", async () => {
+  noDjRoles();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = inVoice("v1");
+
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.sameVoice, true);
+  assert.equal(r.json.canControl, true, "DJ 역할 미설정 서버는 전원 DJ");
+  assert.equal(r.json.canAdd, true);
+});
+
+test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래도 조작 가능", async () => {
+  noDjRoles();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = plainMember();
+
+  let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.userInVoice, false);
+  assert.equal(r.json.sameVoice, false);
+  assert.equal(r.json.canControl, false);
+
+  // 모더레이터는 checkVoice 면제 — 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
+  currentMember = modMember();
+  r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.sameVoice, false);
+  assert.equal(r.json.canControl, true);
+
+  guild.members.me = null;
+  currentMember = plainMember();
+});

@@ -17,98 +17,106 @@
     <template v-else>
       <!-- ── Now Playing ── -->
       <BaseCard title="지금 재생 중" class="mb-4 pb-3.75">
-        <template v-if="player.currentTrack">
-          <!-- Thumbnail + title/artist -->
-          <div class="flex gap-4 items-center mb-4.5 mt-3.5">
-            <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="w-auto h-[15vw] max-h-37.5 rounded-xl object-cover shrink-0 shadow-[0_4px_18px_rgba(0,0,0,0.5)]" />
-            <!-- 직접 링크는 앨범아트를 알 수 없다 — 파일 아이콘으로 대체 -->
-            <div v-else class="h-[15vw] max-h-37.5 aspect-square rounded-xl bg-white/6 flex items-center justify-center shrink-0 text-muted">
-              <Icon name="audio-file" :size="44" />
+        <div v-if="player.currentTrack" class="relative">
+          <div :class="channelLocked && 'blur-[5px] saturate-50 pointer-events-none select-none'">
+            <!-- Thumbnail + title/artist -->
+            <div class="flex gap-4 items-center mb-4.5 mt-3.5">
+              <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="w-auto h-[15vw] max-h-37.5 rounded-xl object-cover shrink-0 shadow-[0_4px_18px_rgba(0,0,0,0.5)]" />
+              <!-- 직접 링크는 앨범아트를 알 수 없다 — 파일 아이콘으로 대체 -->
+              <div v-else class="h-[15vw] max-h-37.5 aspect-square rounded-xl bg-white/6 flex items-center justify-center shrink-0 text-muted">
+                <Icon name="audio-file" :size="44" />
+              </div>
+              <div class="flex-1 pt-0.5 overflow-hidden">
+                <a :href="player.currentTrack.url" target="_blank" rel="noopener" class="block text-[1.1rem] font-extrabold text-fg no-underline mb-1 overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em] hover:underline">
+                  {{ player.currentTrack.title }}
+                </a>
+                <div class="text-muted text-sm mb-3" v-if="player.currentTrack.artist">{{ player.currentTrack.artist }}</div>
+              </div>
             </div>
-            <div class="flex-1 pt-0.5 overflow-hidden">
-              <a :href="player.currentTrack.url" target="_blank" rel="noopener" class="block text-[1.1rem] font-extrabold text-fg no-underline mb-1 overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em] hover:underline">
-                {{ player.currentTrack.title }}
-              </a>
-              <div class="text-muted text-sm mb-3" v-if="player.currentTrack.artist">{{ player.currentTrack.artist }}</div>
+
+            <!-- Full-width progress bar -->
+            <div class="flex items-center gap-2 mb-1.5">
+              <span :class="timeText">{{ fmt(displayTime) }}</span>
+              <div class="group relative flex flex-1 h-4 items-center cursor-pointer before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
+                <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
+                <!-- SponsorBlock 자동 스킵 구간 마커 (카테고리별 공식 색상). 호버 시 카테고리 툴팁 -->
+                <!-- mousedown은 부모로 버블링돼 스크럽 시작에 영향 없음 -->
+                <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm opacity-80 hover:opacity-100 hover:h-1.5" :style="{ left: m.left + '%', width: m.width + '%', backgroundColor: m.color }" v-tooltip="m.label"></div>
+                <!-- 하이라이트 지점 -->
+                <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 rounded" :style="{ left: highlightMarker + '%', backgroundColor: 'var(--category-highlight-color)' }" v-tooltip="'하이라이트'"></div>
+                <div class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
+              </div>
+              <span :class="timeText">{{ fmt(player.currentTrack.duration) }}</span>
             </div>
-          </div>
 
-          <!-- Full-width progress bar -->
-          <div class="flex items-center gap-2 mb-1.5">
-            <span :class="timeText">{{ fmt(displayTime) }}</span>
-            <div class="group relative flex flex-1 h-4 items-center cursor-pointer before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
-              <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
-              <!-- SponsorBlock 자동 스킵 구간 마커 (카테고리별 공식 색상). 호버 시 카테고리 툴팁 -->
-              <!-- mousedown은 부모로 버블링돼 스크럽 시작에 영향 없음 -->
-              <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm opacity-80 hover:opacity-100 hover:h-1.5" :style="{ left: m.left + '%', width: m.width + '%', backgroundColor: m.color }" v-tooltip="m.label"></div>
-              <!-- 하이라이트 지점 -->
-              <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 rounded" :style="{ left: highlightMarker + '%', backgroundColor: 'var(--category-highlight-color)' }" v-tooltip="'하이라이트'"></div>
-              <div class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
-            </div>
-            <span :class="timeText">{{ fmt(player.currentTrack.duration) }}</span>
-          </div>
-
-          <!-- Controls -->
-          <div class="flex flex-col gap-2.5">
-            <div class="flex items-center gap-1 flex-wrap">
-              <!-- Previous -->
-              <!-- 한곡 반복 중에는 이전곡/다음곡 = 현재 곡 재시작이라 기록/대기열이 없어도 활성 -->
-              <button :class="iconBtn" @click="action('previous')" v-tooltip="'이전곡'" :disabled="!player.canControl || !(player.hasPrevious || player.loop === 'track')">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
-              </button>
-
-              <!-- Play / Pause -->
-              <button :class="iconBtn" @click="action('pause')" v-tooltip="player.paused ? '재생' : '일시정지'" :disabled="!player.canControl">
-                <svg v-if="player.paused" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
-              </button>
-
-              <!-- Stop -->
-              <button :class="iconStop" @click="confirmStop" v-tooltip="'정지'" :disabled="!player.canControl">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
-              </button>
-
-              <!-- Skip -->
-              <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || (player.queue.length === 0 && player.loop !== 'track')">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-              </button>
-
-              <!-- Volume: capsule hover-expand -->
-              <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
-                <button :class="volBtn" v-tooltip="`볼륨: ${player.volume}%`">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
+            <!-- Controls -->
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center gap-1 flex-wrap">
+                <!-- Previous -->
+                <!-- 한곡 반복 중에는 이전곡/다음곡 = 현재 곡 재시작이라 기록/대기열이 없어도 활성 -->
+                <button :class="iconBtn" @click="action('previous')" v-tooltip="'이전곡'" :disabled="!player.canControl || !(player.hasPrevious || player.loop === 'track')">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
                 </button>
-                <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-40 group-hover/vol:opacity-100 group-focus-within/vol:max-w-40 group-focus-within/vol:opacity-100">
-                  <input type="range" min="0" max="100" step="5" :value="player.volume" @change="setVolume($event.target.value)" class="w-24 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
-                  <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ player.volume }}%</span>
+
+                <!-- Play / Pause -->
+                <button :class="iconBtn" @click="action('pause')" v-tooltip="player.paused ? '재생' : '일시정지'" :disabled="!player.canControl">
+                  <svg v-if="player.paused" width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                </button>
+
+                <!-- Stop -->
+                <button :class="iconStop" @click="confirmStop" v-tooltip="'정지'" :disabled="!player.canControl">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2.5" /></svg>
+                </button>
+
+                <!-- Skip -->
+                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || (player.queue.length === 0 && player.loop !== 'track')">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
+                </button>
+
+                <!-- Volume: capsule hover-expand -->
+                <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
+                  <button :class="volBtn" v-tooltip="`볼륨: ${player.volume}%`">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
+                  </button>
+                  <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-40 group-hover/vol:opacity-100 group-focus-within/vol:max-w-40 group-focus-within/vol:opacity-100">
+                    <input type="range" min="0" max="100" step="5" :value="player.volume" @change="setVolume($event.target.value)" class="w-24 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
+                    <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ player.volume }}%</span>
+                  </div>
                 </div>
+
+                <div class="flex-1"></div>
+
+                <!-- SponsorBlock 하이라이트 점프 -->
+                <button v-if="highlightMarker !== null" :class="iconBtn" @click="jumpToHighlight" v-tooltip="'하이라이트로 점프'" :disabled="!player.canControl">
+                  <svg width="17" height="17" viewBox="0 -960 960 960" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M442-480 287-697q-14-20-3.5-41.5T319-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Zm238 0L525-697q-14-20-3.5-41.5T557-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Z" /></svg>
+                </button>
+
+                <!-- Shuffle -->
+                <button :class="player.shuffle ? iconActive : iconBtn" @click="action('shuffle')" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
+                </button>
+                <!-- Loop (cycles: off → track → queue) -->
+                <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" v-tooltip="loopTitle" :disabled="!player.canControl">
+                  <svg v-if="player.loop === 'track'" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 2 1 1 1-1v4h1z" />
+                  </svg>
+                  <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
+                  </svg>
+                </button>
               </div>
 
-              <div class="flex-1"></div>
-
-              <!-- SponsorBlock 하이라이트 점프 -->
-              <button v-if="highlightMarker !== null" :class="iconBtn" @click="jumpToHighlight" v-tooltip="'하이라이트로 점프'" :disabled="!player.canControl">
-                <svg width="17" height="17" viewBox="0 -960 960 960" fill="currentColor" style="color: var(--category-highlight-color)"><path d="M442-480 287-697q-14-20-3.5-41.5T319-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Zm238 0L525-697q-14-20-3.5-41.5T557-760q10 0 19 4.5t14 12.5l188 263-188 263q-5 8-14 12.5t-19 4.5q-24 0-35-21.5t3-41.5l155-217Z" /></svg>
-              </button>
-
-              <!-- Shuffle -->
-              <button :class="player.shuffle ? iconActive : iconBtn" @click="action('shuffle')" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
-              </button>
-              <!-- Loop (cycles: off → track → queue) -->
-              <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" v-tooltip="loopTitle" :disabled="!player.canControl">
-                <svg v-if="player.loop === 'track'" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 2 1 1 1-1v4h1z" />
-                </svg>
-                <svg v-else width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
-                </svg>
-              </button>
+              <div v-if="!player.canControl && player.sameVoice" class="mt-2.5 text-muted text-[0.8rem]">DJ 역할이 있어야 재생을 조작할 수 있어요.</div>
             </div>
-
-            <div v-if="!player.canControl" class="mt-2.5 text-muted text-[0.8rem]">봇과 같은 음성 채널에 참가한 DJ만 조작할 수 있어요.</div>
           </div>
-        </template>
+
+          <!-- 봇이 있는 채널 밖에서는 서버가 조작을 막는다(checkVoice). 버튼을 하나씩 비활성으로 두는 대신
+               카드를 통째로 가려 이유를 한 번에 알린다. 모더레이터는 면제라 여기 걸리지 않는다. -->
+          <div v-if="channelLocked" class="absolute inset-0 flex items-center justify-center p-3">
+            <span class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-[0.85rem] font-semibold text-fg text-center bg-[rgba(12,16,36,0.92)] backdrop-blur-sm border border-white/12 shadow-card"> <Icon name="headphones" :size="17" class="shrink-0 text-[#c4b5fd]" />봇과 같은 음성 채널에 참가해야 조작할 수 있어요 </span>
+          </div>
+        </div>
 
         <div v-else class="text-center p-5 text-muted text-[0.9rem] flex items-center justify-center gap-1.5"><Icon name="pause" :size="16" /><span>현재 재생 중인 곡이 없습니다</span></div>
       </BaseCard>
@@ -221,7 +229,7 @@ const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 c
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
-const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
+const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, sameVoice: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
 
 const addQuery = ref("");
 const adding = ref(false);
@@ -252,6 +260,10 @@ const scrubTime = ref(0);
 function applyState(data) {
   player.value = { ...player.value, ...data };
 }
+
+// 봇과 다른 채널(또는 음성 밖)이면 서버가 조작을 전부 막는다 — 카드를 가려 이유를 먼저 보여준다.
+// 모더레이터는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
+const channelLocked = computed(() => !player.value.canControl && player.value.botInVoice && !player.value.sameVoice);
 
 // 스킵은 DJ 계층이 아니어도 현재 곡의 요청자 본인이면 가능 (서버 checkSkip과 동일 규칙)
 const canSkip = computed(() => player.value.canControl || (!!player.value.currentTrack?.requestedBy?.id && player.value.currentTrack.requestedBy.id === player.value.userId));
