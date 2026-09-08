@@ -90,11 +90,14 @@ async function getPlayer(req, res, guildId) {
 
 // 음성 재적 상태 — 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
 // botInVoice/userInVoice를 따로 보면 같은 서버 다른 채널을 구분하지 못한다.
-function voiceFlags(guild, member) {
+function voiceFlags(guild, userId) {
   // channelId가 아니라 channel?.id로 읽는다 — permissions.js의 checkVoice와 같은 경로여야
   // 채널이 캐시에 없을 때 "화면은 조작 가능이라는데 서버는 막는" 어긋남이 생기지 않는다.
+  //
+  // 멤버가 아니라 voiceStates에서 읽는 이유: 멤버 캐시는 비어 있을 수 있지만 음성 상태는
+  // 게이트웨이가 항상 채워둔다(GUILD_CREATE + VOICE_STATE_UPDATE). member.voice도 결국 이걸 본다.
   const botChannelId = guild?.members?.me?.voice?.channel?.id ?? null;
-  const userChannelId = member?.voice?.channel?.id ?? null;
+  const userChannelId = (userId && guild?.voiceStates?.cache?.get(userId)?.channel?.id) || null;
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };
 }
 
@@ -180,14 +183,20 @@ router.get("/", requireAuth, async (req, res) => {
     }),
   );
 
-  const mutual = verified.filter(Boolean).map((g) => ({
-    id: g.id,
-    name: g.name,
-    icon: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.webp?size=64` : null,
-    canManageGuild: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD, // 그 서버의 "서버 관리" 권한 — 봇 운영자(isOwner)와 무관
-    hasPlayer: client.players?.has(g.id) || false,
-    memberCount: client.guilds.cache.get(g.id).memberCount,
-  }));
+  const mutual = verified.filter(Boolean).map((g) => {
+    const guild = client.guilds.cache.get(g.id);
+    return {
+      id: g.id,
+      name: g.name,
+      icon: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.webp?size=64` : null,
+      canManageGuild: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD, // 그 서버의 "서버 관리" 권한 — 봇 운영자(isOwner)와 무관
+      hasPlayer: client.players?.has(g.id) || false,
+      memberCount: guild.memberCount,
+      // 전역 재생 바가 대상 서버를 찾는 기준. 동시 음성 참여는 불가능하므로 참인 서버는 많아야 하나다.
+      // 캐시된 음성 상태만 읽으므로 REST 호출이 늘지 않는다.
+      listening: voiceFlags(guild, req.session.user.id).sameVoice,
+    };
+  });
 
   res.json({ guilds: mutual });
 });
@@ -224,7 +233,7 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
   if (!ctx) return;
   const { guild, member } = ctx;
 
-  const voice = voiceFlags(guild, member);
+  const voice = voiceFlags(guild, req.session.user.id);
 
   // 제어/추가 가능 여부 — UI 표시용 (실제 강제는 각 엔드포인트가 담당). member는 getPlayer가 실멤버십으로 확보.
   let controllable = isOwner(req);
@@ -423,7 +432,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과 — 계층(DJ 여부)만 판정에 반영됨
   const controllable = isOwner(req) || !(await checkControl(member));
   const addable = isOwner(req) || !checkAdd(member);
-  res.json({ ...playerState(player), ...voiceFlags(guild, member), canControl: controllable, canAdd: addable, userId: req.session.user.id });
+  res.json({ ...playerState(player), ...voiceFlags(guild, req.session.user.id), canControl: controllable, canAdd: addable, userId: req.session.user.id });
 });
 
 // Toggle pause / resume

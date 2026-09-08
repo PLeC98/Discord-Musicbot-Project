@@ -72,11 +72,13 @@ const channels = new Map([
 ]);
 
 let currentMember; // 테스트마다 교체 (null = 비멤버)
+const voiceStates = new Map(); // userId -> VoiceState (게이트웨이가 채우는 캐시 흉내)
 const guild = {
   id: GUILD_ID,
   name: "TestGuild",
   roles: { cache: roles },
   channels: { cache: channels },
+  voiceStates: { cache: voiceStates },
   members: {
     fetch: async () => {
       if (!currentMember) throw new Error("Unknown Member");
@@ -273,17 +275,22 @@ test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () 
 
 // 앞선 PUT 테스트가 DJ 역할을 남겨두면 "전원 DJ" 전제가 깨진다 — 이 절은 매번 초기화하고 시작한다.
 const noDjRoles = () => store.djRoles.delete(GUILD_ID);
+const noVoice = () => voiceStates.clear();
 
 // 실 VoiceState는 channelId와 channel을 모두 갖는다 — 한쪽만 두면 라우터와 permissions.js 중
 // 하나만 만족시켜 통과 여부가 뒤바뀐다.
 const voiceState = (channelId) => (channelId ? { channelId, channel: { id: channelId } } : { channelId: null, channel: null });
 
-function inVoice(channelId) {
-  return { permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: voiceState(channelId) };
+// 라우터는 guild.voiceStates에서, permissions.js는 member.voice에서 읽는다. 실제로는 같은 출처이므로
+// 픽스처도 반드시 함께 맞춘다 — 한쪽만 두면 통과 여부가 갈려 테스트가 거짓말을 한다.
+function inVoice(channelId, userId = "u1") {
+  voiceStates.set(userId, voiceState(channelId));
+  return { id: userId, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: voiceState(channelId) };
 }
 
 test("GET player: 봇이 음성에 없으면 sameVoice는 거짓", async () => {
   noDjRoles();
+  noVoice();
   guild.members.me = null;
   currentMember = inVoice("v1");
 
@@ -295,6 +302,7 @@ test("GET player: 봇이 음성에 없으면 sameVoice는 거짓", async () => {
 
 test("GET player: 같은 서버 다른 채널은 sameVoice가 거짓이고 조작이 막힌다", async () => {
   noDjRoles();
+  noVoice();
   guild.members.me = { voice: voiceState("v1") };
   currentMember = inVoice("v2");
 
@@ -308,6 +316,7 @@ test("GET player: 같은 서버 다른 채널은 sameVoice가 거짓이고 조�
 
 test("GET player: 같은 채널이면 sameVoice가 참이고 조작이 열린다", async () => {
   noDjRoles();
+  noVoice();
   guild.members.me = { voice: voiceState("v1") };
   currentMember = inVoice("v1");
 
@@ -319,6 +328,7 @@ test("GET player: 같은 채널이면 sameVoice가 참이고 조작이 열린다
 
 test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래도 조작 가능", async () => {
   noDjRoles();
+  noVoice();
   guild.members.me = { voice: voiceState("v1") };
   currentMember = plainMember();
 
@@ -335,4 +345,49 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래�
 
   guild.members.me = null;
   currentMember = plainMember();
+  noVoice();
+});
+
+// ── GET /api/guilds의 listening (전역 재생 바가 대상 서버를 찾는 기준) ──
+
+test("GET guilds: listening — 봇과 같은 채널일 때만 참", async () => {
+  currentMember = plainMember();
+  currentUser = { id: "u1", username: "tester", guilds: [{ id: GUILD_ID, name: "TestGuild", permissions: "0" }] };
+
+  // 봇이 음성에 없음
+  noVoice();
+  guild.members.me = null;
+  let r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, false);
+
+  // 봇은 v1, 사용자는 v2
+  guild.members.me = { voice: voiceState("v1") };
+  voiceStates.set("u1", voiceState("v2"));
+  r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, false, "같은 서버라도 다른 채널이면 거짓");
+
+  // 둘 다 v1
+  voiceStates.set("u1", voiceState("v1"));
+  r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, true);
+
+  noVoice();
+  guild.members.me = null;
+  currentUser = { id: "u1", username: "tester", guilds: [] };
+});
+
+// 멤버 캐시는 비어 있을 수 있지만 음성 상태는 게이트웨이가 항상 채운다 —
+// 목록 라우트가 members.cache에 의존하면 여기서 조용히 거짓이 된다.
+test("GET guilds: listening은 멤버 캐시가 비어 있어도 판정된다", async () => {
+  currentMember = plainMember(); // members.fetch만 성공, members.cache에는 없음
+  currentUser = { id: "u1", username: "tester", guilds: [{ id: GUILD_ID, name: "TestGuild", permissions: "0" }] };
+  guild.members.me = { voice: voiceState("v1") };
+  voiceStates.set("u1", voiceState("v1"));
+
+  const r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, true);
+
+  noVoice();
+  guild.members.me = null;
+  currentUser = { id: "u1", username: "tester", guilds: [] };
 });

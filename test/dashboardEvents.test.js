@@ -91,3 +91,31 @@ test("연결 캡: 초과분은 429, 정리 후 재접속 가능", () => {
   retry.emit("close");
   assert.equal(DashboardEvents.perKey.has("evU4"), false);
 });
+
+// 목록 구독은 여러 서버를 한 연결로 받는다. 어느 서버의 변화인지 없으면 전부 다시 조회해야 하고,
+// 전역 재생 바가 자기 대상 서버만 골라낼 수 없다.
+test("넛지 페이로드에 guildId가 실린다", () => {
+  const res = makeRes();
+  DashboardEvents.addListClient(res, new Set(["evG9", "evG8"]), "evU9");
+  res.writes.length = 0;
+
+  DashboardEvents._emit("evG9");
+
+  assert.equal(res.writes.length, 1);
+  const [head, body] = res.writes[0].split("data: ");
+  assert.equal(head, "", "SSE data: 필드 하나여야 한다");
+  assert.deepEqual(JSON.parse(body.trim()), { t: "changed", g: "evG9" });
+
+  res.emit("close");
+});
+
+test("구독하지 않은 서버의 넛지는 받지 않는다 (guildId 스코핑 유지)", () => {
+  const res = makeRes();
+  DashboardEvents.addListClient(res, new Set(["evG7"]), "evU7");
+  res.writes.length = 0;
+
+  DashboardEvents._emit("evG6");
+  assert.equal(res.writes.length, 0);
+
+  res.emit("close");
+});
