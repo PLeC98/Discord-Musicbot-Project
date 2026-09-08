@@ -321,10 +321,9 @@ class MusicEmbedManager {
     // 제목은 이스케이프하지 않는다 — 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
     const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.url})**${artistLine}`;
 
-    const section = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText));
-    if (track.thumbnail) {
-      section.setThumbnailAccessory(new ThumbnailBuilder().setURL(track.thumbnail));
-    }
+    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
+    // 직접 링크는 썸네일이 없으므로(임의 URL이라 앨범아트를 알 수 없다) 텍스트만 넣는다.
+    const titleComponent = track.thumbnail ? new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(track.thumbnail)) : null;
 
     // 상태 줄 (일시정지 / 대기열 수)
     const statusParts = [];
@@ -340,7 +339,10 @@ class MusicEmbedManager {
       statusParts.push(`건너 뛸 구간 ${track.sponsor.skipSegments.length}개`);
     }
 
-    const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor)).addSectionComponents(section).addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar));
+    const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor));
+    if (titleComponent) container.addSectionComponents(titleComponent);
+    else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar));
 
     if (statusParts.length > 0) {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${statusParts.join(" • ")}`));

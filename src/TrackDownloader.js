@@ -3,7 +3,7 @@
 const fs = require("fs").promises;
 const log = require("./logger").child({ category: "track" });
 const fsSync = require("fs");
-const { spawnFfmpeg } = require("./ffmpegProcess");
+const { spawnFfmpeg, probeDurationSec } = require("./ffmpegProcess");
 const YouTube = require("./YouTube");
 const TrackResolver = require("./TrackResolver");
 const DirectLink = require("./DirectLink");
@@ -157,6 +157,11 @@ class TrackDownloader {
           });
           ffmpeg.on("error", reject);
         });
+
+        // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다 — 받아둔 파일에서 실제 길이로 교정.
+        // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
+        const probed = await probeDurationSec(filepath);
+        if (probed) track.duration = probed;
       }
 
       // 파일 검증

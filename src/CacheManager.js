@@ -148,14 +148,14 @@ class CacheManager {
     if (!gsCols2.includes("sponsorblock_categories")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_categories TEXT");
   }
 
-  // 정적 헬퍼
-  static md5(str) {
+  // 이 모듈은 인스턴스를 내보내므로 static이면 외부에서 닿지 않는다
+  md5(str) {
     return crypto.createHash("md5").update(String(str)).digest("hex");
   }
 
   /** audio_source_key에 대한 결정적 파일 경로 */
   getFilePath(audioSourceKey) {
-    return path.join(CACHE_DIR, `track_${CacheManager.md5(audioSourceKey)}.opus`);
+    return path.join(CACHE_DIR, `track_${this.md5(audioSourceKey)}.opus`);
   }
 
   /**
