@@ -575,11 +575,12 @@ class MusicPlayer {
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
-      log.info(`🕒 트랙 워치독: ${remainingSeconds}초 남음 (총 ${durationSeconds}초, ${startOffsetSeconds}초 오프셋)`);
+      log.info(`🕒 워치독 예약: ${this._trackLabel()} | 길이 ${durationSeconds}s(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}s | ${Math.round(timeoutMs / 1000)}s 뒤 확인`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
       // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
       this.expectedTrackEndTs = null;
+      log.warn(`🕒 워치독 예약: ${this._trackLabel()} | 길이 모름 → 5분 폴백 (이 경로는 깨어나는 즉시 정지시킨다)`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 5 * 60 * 1000);
     }
   }
@@ -624,6 +625,25 @@ class MusicPlayer {
     return `${url}${separator}begin=${startMs}`;
   }
 
+  // 워치독 로그용 — 트랙 식별과 길이 출처
+  _trackLabel() {
+    const t = this.currentTrack;
+    return `"${t?.title ?? "?"}" (${t?.platform ?? "?"})`;
+  }
+
+  _durationSource() {
+    const t = this.currentTrack;
+    if (!(Number(t?.duration) > 0)) return "없음";
+    return t?.durationSource || "제공값";
+  }
+
+  // 2초 폴링이 같은 줄을 도배하지 않게, 직전과 다를 때만 남긴다
+  _logWatchdogOnce(line) {
+    if (this._lastWatchdogLine === line) return;
+    this._lastWatchdogLine = line;
+    log.info(line);
+  }
+
   ensureTrackCompletion() {
     if (!this.currentTrack) {
       this.trackTimer = null;
@@ -631,6 +651,7 @@ class MusicPlayer {
     }
 
     const status = this.audioPlayer.state?.status;
+    const playedSec = ((this.resource?.playbackDuration || 0) / 1000).toFixed(1);
 
     if (status === AudioPlayerStatus.Playing) {
       const playbackMs = this.resource?.playbackDuration || 0;
@@ -638,9 +659,13 @@ class MusicPlayer {
 
       if (durationMs > 0 && playbackMs + 1500 < durationMs) {
         const remainingMs = Math.max(durationMs - playbackMs, 2000);
+        log.info(`👁 워치독 확인: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs / 1000}s → 아직 남음, ${Math.round(remainingMs / 1000)}s 뒤 재확인`);
         this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), remainingMs);
         return;
       }
+
+      // 여기서 stop()을 부르면 Idle이 발생해 다음 곡으로 넘어간다. 워치독이 실제로 "일을 한" 유일한 지점.
+      log.warn(`⛔ 워치독이 트랙을 정지시킴: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"} | 길이출처=${this._durationSource()}`);
 
       // Idle을 발생시키고 생명주기 핸들러가 실행되도록 정상 중지
       if (!this.pendingEndReason) {
@@ -653,11 +678,13 @@ class MusicPlayer {
 
     if (status === AudioPlayerStatus.Idle || status === AudioPlayerStatus.AutoPaused) {
       // Idle 핸들러가 처리하므로 할 일 없음
+      log.info(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} → Idle 핸들러에 맡기고 종료`);
       this.trackTimer = null;
       return;
     }
 
-    // 알 수 없는 상태, 계속 감시
+    // 알 수 없는 상태, 계속 감시 (일시정지 등) — 2초마다 도므로 상태가 바뀔 때만 남긴다
+    this._logWatchdogOnce(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} | 재생 ${playedSec}s → 2s 간격 감시 중`);
     this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 2000);
   }
 
@@ -1066,6 +1093,8 @@ class MusicPlayer {
       // "sponsorblock"(아웃트로 종료)은 스킵 버튼과 동일하게 트랙 완료로 취급 — 조기 드롭 복구 대상 아님.
       const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump" || reason === "sponsorblock";
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
+
+      log.info(`⏭️ 트랙 종료: "${finishedTrack?.title ?? "?"}" (${finishedTrack?.platform ?? "?"}) | 사유=${reason} | 재생 ${(totalPlaybackMs / 1000).toFixed(1)}s / 길이 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"}${endedUnexpectedly ? " | 조기종료로 판정 → 복구 시도" : ""}`);
 
       if (endedUnexpectedly) {
         this.currentTrackRetries += 1;

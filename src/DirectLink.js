@@ -32,6 +32,8 @@ class DirectLink {
           artist: "직접 링크",
           url: url,
           duration: estimatedDuration,
+          // Content-Length 기반 추정. 다운로드 후 probeDurationSec가 실측으로 교체한다.
+          durationSource: "추정",
           // 임의의 오디오 URL이라 앨범아트를 알 방법이 없다. 대시보드가 파일 아이콘으로 대체 표시한다.
           thumbnail: null,
           platform: "direct",
