@@ -1,193 +1,205 @@
 <template>
   <div class="max-w-275 mx-auto px-3 py-4.5">
-    <h1 class="pl-2 text-[1.7rem] font-extrabold mb-1.5 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">운영자 패널</h1>
-    <p class="pl-2 text-muted mb-4.5 text-[0.9rem]">10초마다 자동 갱신</p>
+    <h1 class="pl-2 text-[1.7rem] font-extrabold mb-4 tracking-tight bg-linear-135 from-[#e8eaf6] via-[#c4b5fd] via-55% to-[#a78bfa] bg-clip-text text-transparent">운영자 패널</h1>
 
     <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
     <template v-else>
-      <!-- 권한 수준 오버라이드 — 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
-      <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
-        <p class="text-muted text-[0.82rem] mt-1 mb-3">선택한 계층으로 대시보드를 사용합니다. 화면 표시뿐 아니라 서버가 실제로 허용하는 동작까지 그 계층을 따릅니다. 이 패널은 오버라이드와 무관하게 계속 열 수 있습니다.</p>
+      <!-- 탭 — 카드가 늘어나 한 화면에 다 두면 찾기 어렵다.
+           v-if가 아니라 v-show인 이유: 로그 뷰어의 누적 로그와 스크롤 위치가 탭을 오갈 때 날아가면 안 된다. -->
+      <div class="flex gap-1 mb-4 border-b border-white/8 overflow-x-auto">
+        <button v-for="t in TABS" :key="t.id" type="button" :class="[tabBtn, tab === t.id ? tabOn : tabOff]" @click="setTab(t.id)"><Icon :name="t.icon" :size="15" />{{ t.label }}</button>
+      </div>
 
-        <div class="flex flex-col gap-1.5">
-          <button v-for="t in VIEW_AS_TIERS" :key="t.id" type="button" :class="[tierRow, user.viewAs === t.id ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(t.id)">
-            <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === t.id ? 'border-[#c4b5fd]' : 'border-white/25'">
-              <span v-if="user.viewAs === t.id" class="size-2 rounded-full bg-[#c4b5fd]"></span>
-            </span>
-            <span class="min-w-0">
-              <span class="block text-[0.85rem] font-semibold">{{ t.label }}</span>
-              <span class="block text-[0.78rem] text-muted">{{ t.desc }}</span>
-            </span>
-          </button>
+      <div v-show="tab === 'status'">
+        <p class="pl-2 text-muted mb-3 text-[0.85rem]">10초마다 자동 갱신</p>
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3 gap-y-3 mb-3">
+          <!-- Bot -->
+          <BaseCard icon="robot" title="봇 상태">
+            <div :class="statRow">
+              <span>태그</span><span>{{ s.bot.tag }}</span>
+            </div>
+            <div :class="statRow">
+              <span>서버 수</span><strong>{{ s.bot.guilds }}</strong>
+            </div>
+            <div :class="statRow">
+              <span>활성 플레이어</span><strong>{{ s.activePlayers }}</strong>
+            </div>
+            <div :class="statRow">
+              <span>WebSocket 핑</span><span :class="pingClass(s.bot.ping)">{{ s.bot.ping }} ms</span>
+            </div>
+            <div :class="statRow">
+              <span>업타임</span><span>{{ uptimeStr }}</span>
+            </div>
+          </BaseCard>
 
-          <button type="button" :class="[tierRow, user.viewAs === null ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(null)">
-            <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === null ? 'border-[#c4b5fd]' : 'border-white/25'">
-              <span v-if="user.viewAs === null" class="size-2 rounded-full bg-[#c4b5fd]"></span>
-            </span>
-            <span class="min-w-0">
-              <span class="block text-[0.85rem] font-semibold">오버라이드 하지 않음</span>
-              <span class="block text-[0.78rem] text-muted">평소 상태로 되돌립니다.</span>
-            </span>
-          </button>
+          <!-- Node.js -->
+          <BaseCard icon="gear" title="Node.js">
+            <div :class="statRow">
+              <span>버전</span><span>{{ s.node.version }}</span>
+            </div>
+            <div :class="statRow">
+              <span>플랫폼</span><span>{{ s.node.platform }} / {{ s.node.arch }}</span>
+            </div>
+            <div :class="statRow">
+              <span>Heap 사용</span><span>{{ s.node.memory.heapUsed }} MB / {{ s.node.memory.heapTotal }} MB</span>
+            </div>
+            <div :class="statRow">
+              <span>RSS</span><span>{{ s.node.memory.rss }} MB</span>
+            </div>
+          </BaseCard>
+
+          <!-- System -->
+          <BaseCard icon="desktop" title="시스템">
+            <div :class="statRow">
+              <span>CPU 코어</span><span>{{ s.system.cpus }} 코어</span>
+            </div>
+            <div :class="statRow">
+              <span>여유 메모리</span><span>{{ s.system.freeMem }} MB / {{ s.system.totalMem }} MB</span>
+            </div>
+            <div :class="statRow" v-if="s.system.loadAvg">
+              <span>로드 평균</span>
+              <span>{{ s.system.loadAvg.map((n) => n.toFixed(2)).join(" · ") }}</span>
+            </div>
+          </BaseCard>
+
+          <!-- Shard -->
+          <BaseCard v-if="s.shards" icon="shuffle" title="샤드">
+            <div :class="statRow">
+              <span>샤드 ID</span><span>{{ s.shards.ids?.join(", ") }}</span>
+            </div>
+            <div :class="statRow">
+              <span>총 샤드 수</span><span>{{ s.shards.count }}</span>
+            </div>
+          </BaseCard>
         </div>
 
-        <p v-if="tierError" class="text-[#f87171] text-[0.8rem] mt-2.5">{{ tierError }}</p>
-      </BaseCard>
-
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3 gap-y-3 mb-3">
-        <!-- Bot -->
-        <BaseCard icon="robot" title="봇 상태">
-          <div :class="statRow">
-            <span>태그</span><span>{{ s.bot.tag }}</span>
+        <!-- Log viewer -->
+        <BaseCard class="mb-3">
+          <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
+            <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
+            <div class="flex gap-1.5 flex-wrap">
+              <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(logFilter === lvl.value)" @click="logFilter = logFilter === lvl.value ? null : lvl.value">{{ lvl.label }}</button>
+              <button :class="typeBtn(autoScroll)" @click="autoScroll = !autoScroll">
+                <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="15" />{{ autoScroll ? "자동" : "정지" }}</span>
+              </button>
+              <button :class="typeBtn(false)" @click="logs = []">지우기</button>
+            </div>
           </div>
-          <div :class="statRow">
-            <span>서버 수</span><strong>{{ s.bot.guilds }}</strong>
+          <div v-if="logCategories.length" class="flex gap-1.5 flex-wrap mb-2">
+            <button v-for="cat in logCategories" :key="cat" class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200" :style="catFilter === cat ? { color: catColor(cat), borderColor: catColor(cat) + '88', backgroundColor: catColor(cat) + '22' } : { color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.03)' }" @click="catFilter = catFilter === cat ? null : cat">
+              {{ cat }}
+            </button>
           </div>
-          <div :class="statRow">
-            <span>활성 플레이어</span><strong>{{ s.activePlayers }}</strong>
+          <div class="flex items-center gap-1.5 text-[0.8rem] text-muted mb-2">
+            <span :class="sseConnected ? 'text-success' : 'text-danger'">●</span>
+            <span>{{ sseConnected ? "연결됨" : "연결 끊김" }}</span>
+            <span class="ml-auto">{{ filteredLogs.length }}줄</span>
           </div>
-          <div :class="statRow">
-            <span>WebSocket 핑</span><span :class="pingClass(s.bot.ping)">{{ s.bot.ping }} ms</span>
-          </div>
-          <div :class="statRow">
-            <span>업타임</span><span>{{ uptimeStr }}</span>
-          </div>
-        </BaseCard>
-
-        <!-- Node.js -->
-        <BaseCard icon="gear" title="Node.js">
-          <div :class="statRow">
-            <span>버전</span><span>{{ s.node.version }}</span>
-          </div>
-          <div :class="statRow">
-            <span>플랫폼</span><span>{{ s.node.platform }} / {{ s.node.arch }}</span>
-          </div>
-          <div :class="statRow">
-            <span>Heap 사용</span><span>{{ s.node.memory.heapUsed }} MB / {{ s.node.memory.heapTotal }} MB</span>
-          </div>
-          <div :class="statRow">
-            <span>RSS</span><span>{{ s.node.memory.rss }} MB</span>
-          </div>
-        </BaseCard>
-
-        <!-- System -->
-        <BaseCard icon="desktop" title="시스템">
-          <div :class="statRow">
-            <span>CPU 코어</span><span>{{ s.system.cpus }} 코어</span>
-          </div>
-          <div :class="statRow">
-            <span>여유 메모리</span><span>{{ s.system.freeMem }} MB / {{ s.system.totalMem }} MB</span>
-          </div>
-          <div :class="statRow" v-if="s.system.loadAvg">
-            <span>로드 평균</span>
-            <span>{{ s.system.loadAvg.map((n) => n.toFixed(2)).join(" · ") }}</span>
-          </div>
-        </BaseCard>
-
-        <!-- Shard -->
-        <BaseCard v-if="s.shards" icon="shuffle" title="샤드">
-          <div :class="statRow">
-            <span>샤드 ID</span><span>{{ s.shards.ids?.join(", ") }}</span>
-          </div>
-          <div :class="statRow">
-            <span>총 샤드 수</span><span>{{ s.shards.count }}</span>
+          <div class="h-95 overflow-y-auto bg-black/35 rounded-[10px] border border-white/7 px-3 py-2 font-mono text-[0.78rem]" ref="logPane" @scroll="onLogScroll">
+            <div v-if="filteredLogs.length === 0" class="text-muted text-center py-10">로그 없음</div>
+            <div v-for="(entry, i) in filteredLogs" :key="i" class="flex gap-2 leading-relaxed border-b border-white/3">
+              <span class="text-[#6b7280] shrink-0">{{ fmtTime(entry.ts) }}</span>
+              <span class="shrink-0 w-10 font-bold" :class="lvColor(entry.level)">{{ entry.level.toUpperCase() }}</span>
+              <span v-if="entry.category || entry.sub" class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight" :style="{ color: catColor(entry.category || entry.sub), backgroundColor: catColor(entry.category || entry.sub) + '22' }">{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span>
+              <span v-for="t in entry.tags" :key="t" class="shrink-0 self-center px-1.5 rounded text-[0.64rem] font-medium leading-tight text-[#9ca3af] bg-white/6">#{{ t }}</span>
+              <span class="break-all whitespace-pre-wrap" :class="txtColor(entry.level)">{{ entry.text }}</span>
+            </div>
           </div>
         </BaseCard>
       </div>
 
-      <!-- Broadcast -->
-      <BaseCard icon="campaign" title="전체 공지 발송" class="mb-3">
-        <p class="text-muted text-sm mb-4">봇이 들어간 모든 서버에 공지 메시지를 보냅니다.</p>
+      <div v-show="tab === 'guilds'">
+        <!-- Broadcast -->
+        <BaseCard icon="campaign" title="전체 공지 발송" class="mb-3">
+          <p class="text-muted text-sm mb-4">봇이 들어간 모든 서버에 공지 메시지를 보냅니다.</p>
 
-        <div class="flex gap-2 mb-3.5 flex-wrap">
-          <button v-for="type in types" :key="type.value" :class="typeBtn(bType === type.value)" @click="bType = type.value">{{ type.label }}</button>
-        </div>
-
-        <textarea v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-3 text-[0.9rem] resize-y outline-none mb-3.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7"></textarea>
-
-        <BaseButton variant="primary" @click="broadcast" :disabled="sending || !bMsg.trim()">
-          {{ sending ? "발송 중..." : "전체 발송" }}
-        </BaseButton>
-
-        <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
-          <Icon :name="result.success ? 'check' : 'error'" :size="16" />
-          <span>{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : "발송 실패" }}</span>
-        </div>
-      </BaseCard>
-
-      <!-- Log viewer -->
-      <BaseCard class="mb-3">
-        <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
-          <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
-          <div class="flex gap-1.5 flex-wrap">
-            <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(logFilter === lvl.value)" @click="logFilter = logFilter === lvl.value ? null : lvl.value">{{ lvl.label }}</button>
-            <button :class="typeBtn(autoScroll)" @click="autoScroll = !autoScroll">
-              <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="15" />{{ autoScroll ? "자동" : "정지" }}</span>
-            </button>
-            <button :class="typeBtn(false)" @click="logs = []">지우기</button>
+          <div class="flex gap-2 mb-3.5 flex-wrap">
+            <button v-for="type in types" :key="type.value" :class="typeBtn(bType === type.value)" @click="bType = type.value">{{ type.label }}</button>
           </div>
-        </div>
-        <div v-if="logCategories.length" class="flex gap-1.5 flex-wrap mb-2">
-          <button v-for="cat in logCategories" :key="cat" class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200" :style="catFilter === cat ? { color: catColor(cat), borderColor: catColor(cat) + '88', backgroundColor: catColor(cat) + '22' } : { color: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.09)', backgroundColor: 'rgba(255,255,255,0.03)' }" @click="catFilter = catFilter === cat ? null : cat">
-            {{ cat }}
-          </button>
-        </div>
-        <div class="flex items-center gap-1.5 text-[0.8rem] text-muted mb-2">
-          <span :class="sseConnected ? 'text-success' : 'text-danger'">●</span>
-          <span>{{ sseConnected ? "연결됨" : "연결 끊김" }}</span>
-          <span class="ml-auto">{{ filteredLogs.length }}줄</span>
-        </div>
-        <div class="h-95 overflow-y-auto bg-black/35 rounded-[10px] border border-white/7 px-3 py-2 font-mono text-[0.78rem]" ref="logPane" @scroll="onLogScroll">
-          <div v-if="filteredLogs.length === 0" class="text-muted text-center py-10">로그 없음</div>
-          <div v-for="(entry, i) in filteredLogs" :key="i" class="flex gap-2 leading-relaxed border-b border-white/3">
-            <span class="text-[#6b7280] shrink-0">{{ fmtTime(entry.ts) }}</span>
-            <span class="shrink-0 w-10 font-bold" :class="lvColor(entry.level)">{{ entry.level.toUpperCase() }}</span>
-            <span v-if="entry.category || entry.sub" class="shrink-0 self-center px-1.5 rounded text-[0.66rem] font-semibold leading-tight" :style="{ color: catColor(entry.category || entry.sub), backgroundColor: catColor(entry.category || entry.sub) + '22' }">{{ entry.category }}{{ entry.sub ? "/" + entry.sub : "" }}</span>
-            <span v-for="t in entry.tags" :key="t" class="shrink-0 self-center px-1.5 rounded text-[0.64rem] font-medium leading-tight text-[#9ca3af] bg-white/6">#{{ t }}</span>
-            <span class="break-all whitespace-pre-wrap" :class="txtColor(entry.level)">{{ entry.text }}</span>
+
+          <textarea v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-3 text-[0.9rem] resize-y outline-none mb-3.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7"></textarea>
+
+          <BaseButton variant="primary" @click="broadcast" :disabled="sending || !bMsg.trim()">
+            {{ sending ? "발송 중..." : "전체 발송" }}
+          </BaseButton>
+
+          <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
+            <Icon :name="result.success ? 'check' : 'error'" :size="16" />
+            <span>{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : "발송 실패" }}</span>
           </div>
-        </div>
-      </BaseCard>
+        </BaseCard>
 
-      <!-- Guild management -->
-      <BaseCard icon="globe" title="참가 서버 관리" class="mb-3">
-        <p class="text-muted text-sm mb-4">봇이 참가 중인 서버 목록입니다. 나가기는 되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.</p>
+        <!-- Guild management -->
+        <BaseCard icon="globe" title="참가 서버 관리" class="mb-3">
+          <p class="text-muted text-sm mb-4">봇이 참가 중인 서버 목록입니다. 나가기는 되돌릴 수 없으며, 다시 사용하려면 재초대해야 합니다.</p>
 
-        <div v-if="guilds.length === 0" class="text-muted text-sm">참가 중인 서버가 없습니다.</div>
-        <div v-else class="flex flex-col max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
-          <div v-for="g in guilds" :key="g.id" class="flex items-center gap-3 py-2.5 pr-2 border-b border-white/7 last:border-b-0 last:pb-0">
-            <img v-if="g.icon" :src="g.icon" :alt="g.name" class="size-9 rounded-full border border-white/10 shrink-0" />
-            <div v-else class="size-9 rounded-full border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold flex items-center justify-center shrink-0">{{ g.name[0] }}</div>
-            <div class="flex-1 overflow-hidden">
-              <div class="text-sm font-semibold overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</div>
-              <div class="text-[0.78rem] text-muted">
-                멤버 {{ g.memberCount }}명<span v-if="g.hasPlayer" class="text-success"> · <Icon name="music" :size="12" class="inline" /> 재생 중</span>
+          <div v-if="guilds.length === 0" class="text-muted text-sm">참가 중인 서버가 없습니다.</div>
+          <div v-else class="flex flex-col max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
+            <div v-for="g in guilds" :key="g.id" class="flex items-center gap-3 py-2.5 pr-2 border-b border-white/7 last:border-b-0 last:pb-0">
+              <img v-if="g.icon" :src="g.icon" :alt="g.name" class="size-9 rounded-full border border-white/10 shrink-0" />
+              <div v-else class="size-9 rounded-full border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold flex items-center justify-center shrink-0">{{ g.name[0] }}</div>
+              <div class="flex-1 overflow-hidden">
+                <div class="text-sm font-semibold overflow-hidden whitespace-nowrap text-ellipsis">{{ g.name }}</div>
+                <div class="text-[0.78rem] text-muted">
+                  멤버 {{ g.memberCount }}명<span v-if="g.hasPlayer" class="text-success"> · <Icon name="music" :size="12" class="inline" /> 재생 중</span>
+                </div>
               </div>
+              <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">나가기</BaseButton>
             </div>
-            <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">나가기</BaseButton>
           </div>
-        </div>
 
-        <div v-if="leaveResult" :class="resultMsg(leaveResult.success)" class="flex items-center gap-1.5">
-          <Icon :name="leaveResult.success ? 'check' : 'error'" :size="16" />
-          <span>{{ leaveResult.success ? `"${leaveResult.name}" 서버에서 나갔습니다` : `나가기 실패: ${leaveResult.error}` }}</span>
-        </div>
-      </BaseCard>
+          <div v-if="leaveResult" :class="resultMsg(leaveResult.success)" class="flex items-center gap-1.5">
+            <Icon :name="leaveResult.success ? 'check' : 'error'" :size="16" />
+            <span>{{ leaveResult.success ? `"${leaveResult.name}" 서버에서 나갔습니다` : `나가기 실패: ${leaveResult.error}` }}</span>
+          </div>
+        </BaseCard>
+      </div>
 
-      <!-- Command redeploy -->
-      <BaseCard icon="repeat" title="슬래시 커맨드 재배포">
-        <p class="text-muted text-sm mb-4">현재 로드된 슬래시 커맨드를 Discord에 다시 등록합니다. 봇 재시작 없이 실행됩니다.</p>
+      <div v-show="tab === 'dev'">
+        <!-- 권한 수준 오버라이드 — 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
+        <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
+          <p class="text-muted text-[0.82rem] mt-1 mb-3">선택한 계층으로 대시보드를 사용합니다. 화면 표시뿐 아니라 서버가 실제로 허용하는 동작까지 그 계층을 따릅니다. 이 패널은 오버라이드와 무관하게 계속 열 수 있습니다.</p>
 
-        <BaseButton variant="primary" @click="redeploy" :disabled="redeploying">
-          {{ redeploying ? "재배포 중..." : "커맨드 재배포" }}
-        </BaseButton>
+          <div class="flex flex-col gap-1.5">
+            <button v-for="t in VIEW_AS_TIERS" :key="t.id" type="button" :class="[tierRow, user.viewAs === t.id ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(t.id)">
+              <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === t.id ? 'border-[#c4b5fd]' : 'border-white/25'">
+                <span v-if="user.viewAs === t.id" class="size-2 rounded-full bg-[#c4b5fd]"></span>
+              </span>
+              <span class="min-w-0">
+                <span class="block text-[0.85rem] font-semibold">{{ t.label }}</span>
+                <span class="block text-[0.78rem] text-muted">{{ t.desc }}</span>
+              </span>
+            </button>
 
-        <div v-if="redeployResult" :class="resultMsg(redeployResult.success)" class="flex items-center gap-1.5">
-          <Icon :name="redeployResult.success ? 'check' : 'error'" :size="16" />
-          <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
-        </div>
-      </BaseCard>
+            <button type="button" :class="[tierRow, user.viewAs === null ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(null)">
+              <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === null ? 'border-[#c4b5fd]' : 'border-white/25'">
+                <span v-if="user.viewAs === null" class="size-2 rounded-full bg-[#c4b5fd]"></span>
+              </span>
+              <span class="min-w-0">
+                <span class="block text-[0.85rem] font-semibold">오버라이드 하지 않음</span>
+                <span class="block text-[0.78rem] text-muted">평소 상태로 되돌립니다.</span>
+              </span>
+            </button>
+          </div>
+
+          <p v-if="tierError" class="text-[#f87171] text-[0.8rem] mt-2.5">{{ tierError }}</p>
+        </BaseCard>
+
+        <!-- Command redeploy -->
+        <BaseCard icon="repeat" title="슬래시 커맨드 재배포">
+          <p class="text-muted text-sm mb-4">현재 로드된 슬래시 커맨드를 Discord에 다시 등록합니다. 봇 재시작 없이 실행됩니다.</p>
+
+          <BaseButton variant="primary" @click="redeploy" :disabled="redeploying">
+            {{ redeploying ? "재배포 중..." : "커맨드 재배포" }}
+          </BaseButton>
+
+          <div v-if="redeployResult" :class="resultMsg(redeployResult.success)" class="flex items-center gap-1.5">
+            <Icon :name="redeployResult.success ? 'check' : 'error'" :size="16" />
+            <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
+          </div>
+        </BaseCard>
+      </div>
     </template>
 
     <!-- Leave confirm dialog -->
@@ -217,6 +229,27 @@ import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
+
+// ── 탭 ────────────────────────────────────────────────────────────────────────
+// 선택은 새로고침을 넘겨 유지한다 — 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
+// 첫 탭으로 튕기면 쓰기 나쁘다.
+const TABS = [
+  { id: "status", label: "봇 상태", icon: "robot" },
+  { id: "guilds", label: "서버 관리", icon: "globe" },
+  { id: "dev", label: "개발자", icon: "wrench" },
+];
+const TAB_KEY = "admin:tab";
+const savedTab = localStorage.getItem(TAB_KEY);
+const tab = ref(TABS.some((t) => t.id === savedTab) ? savedTab : "status");
+
+function setTab(id) {
+  tab.value = id;
+  localStorage.setItem(TAB_KEY, id);
+}
+
+const tabBtn = "flex items-center gap-1.5 shrink-0 px-3.5 py-2 -mb-px border-b-2 cursor-pointer text-[0.85rem] font-semibold transition-[color,border-color] duration-200";
+const tabOn = "text-[#c4b5fd] border-[#c4b5fd]";
+const tabOff = "text-muted border-transparent hover:text-fg";
 
 // ── 권한 수준 오버라이드 ──────────────────────────────────────────────────────
 // 계층을 바꾸면 스토어가 페이지를 다시 읽는다 — 서버 목록·플레이어 권한이 통째로 달라지기 때문.
@@ -412,15 +445,24 @@ function onLogScroll() {
   autoScroll.value = scrollHeight - scrollTop - clientHeight < 50;
 }
 
+function scrollLogsToEnd() {
+  nextTick(() => {
+    if (logPane.value) logPane.value.scrollTop = logPane.value.scrollHeight;
+  });
+}
+
 watch(
   () => logs.value.length,
   () => {
-    if (autoScroll.value)
-      nextTick(() => {
-        if (logPane.value) logPane.value.scrollTop = logPane.value.scrollHeight;
-      });
+    if (autoScroll.value) scrollLogsToEnd();
   },
 );
+
+// 다른 탭에 있는 동안 로그 뷰어는 display:none이라 scrollTop 지정이 먹지 않는다(scrollHeight가 0).
+// 그동안 쌓인 만큼은 돌아왔을 때 다시 맞춰준다.
+watch(tab, (t) => {
+  if (t === "status" && autoScroll.value) scrollLogsToEnd();
+});
 
 function connectSSE() {
   sse = new EventSource("/api/admin/logs/stream", { withCredentials: true });

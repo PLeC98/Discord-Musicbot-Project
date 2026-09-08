@@ -1,7 +1,9 @@
 <template>
-  <div>
+  <!-- --chrome = 화면 위쪽을 차지하는 고정 높이(배너). 사이드바 높이와 sticky 오프셋이 이 값을
+       빼고 계산되므로, 배너가 생겨도 문서가 뷰포트보다 길어지지 않는다(= 스크롤바가 안 생긴다). -->
+  <div :class="user.viewAs ? '[--chrome:1.75rem]' : '[--chrome:0px]'">
     <!-- 권한 수준 오버라이드 중임을 계속 알린다 — 낮춘 계층에서 막히는 동작을 버그로 오해하지 않도록 -->
-    <div v-if="user.viewAs" class="flex items-center gap-2 px-3 py-1.5 text-[0.8rem] bg-[rgba(251,191,36,0.13)] border-b border-[rgba(251,191,36,0.28)] text-[#fcd34d]">
+    <div v-if="user.viewAs" class="sticky top-0 z-200 flex items-center gap-2 h-7 px-3 text-[0.8rem] bg-[rgba(251,191,36,0.13)] border-b border-[rgba(251,191,36,0.28)] text-[#fcd34d]">
       <Icon name="warning" :size="14" />
       <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
         ><strong>{{ user.viewAsLabel }}</strong> 권한으로 보는 중</span
@@ -11,7 +13,7 @@
 
     <!-- 좁은 화면 전용 헤더 — md 이상은 사이드바가 로고·탐색·계정을 전부 가지므로 상단바가 없다.
          md 미만은 레일 자체가 없어서 드로어를 열 통로가 필요하다. 항목을 둘로 줄여 넘칠 여지를 없앤다. -->
-    <header v-if="user.isLoggedIn" class="md:hidden flex items-center px-2 h-12 gap-1 sticky top-0 z-100 bg-[rgba(7,11,21,0.72)] backdrop-blur-2xl backdrop-saturate-[1.8] border-b border-white/7">
+    <header v-if="user.isLoggedIn" class="md:hidden flex items-center px-2 h-12 gap-1 sticky top-[var(--chrome)] z-100 bg-[rgba(7,11,21,0.72)] backdrop-blur-2xl backdrop-saturate-[1.8] border-b border-white/7">
       <button class="size-9 shrink-0 rounded-lg text-fg-soft cursor-pointer flex items-center justify-center transition-[background-color,color] duration-200 hover:bg-white/6 hover:text-fg" v-tooltip="'메뉴'" @click="toggleSidebar">
         <Icon name="menu" :size="20" />
       </button>

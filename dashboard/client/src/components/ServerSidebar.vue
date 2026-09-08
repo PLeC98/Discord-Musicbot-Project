@@ -1,7 +1,7 @@
 <template>
   <!-- 인라인 레일 — md 미만 없음 / md~lg 항상 미니 / lg+ 접힘 설정에 따라 미니·펼침 (콘텐츠를 밀어냄).
        md 이상에는 상단바가 없으므로 로고·토글·계정을 전부 레일이 갖는다. -->
-  <aside class="hidden md:flex shrink-0 sticky top-0 h-dvh flex-col border-r border-white/7 bg-[rgba(7,11,21,0.45)] backdrop-blur-[20px] transition-[width] duration-300 ease-smooth overflow-hidden" :class="collapsed ? 'w-16' : 'w-16 lg:w-60'">
+  <aside class="hidden md:flex shrink-0 sticky top-[var(--chrome)] h-[calc(100dvh_-_var(--chrome))] flex-col border-r border-white/7 bg-[rgba(7,11,21,0.45)] backdrop-blur-[20px] transition-[width] duration-300 ease-smooth overflow-hidden" :class="collapsed ? 'w-16' : 'w-16 lg:w-60'">
     <div class="flex items-center h-14 shrink-0 px-2 gap-1" :class="collapsed ? 'justify-center' : 'max-lg:justify-center'">
       <button :class="iconBtn" v-tooltip="'사이드바'" @click="toggleSidebar">
         <Icon name="menu" :size="20" />
@@ -34,10 +34,10 @@
   </aside>
 
   <!-- 오버레이 드로어 — lg 미만 전용: 배경 딤 + 왼쪽에서 슬라이드 인 (콘텐츠 위에 겹침).
-       상단 오프셋이 구간마다 다르다 — md 미만은 상단바(h-12) 아래, md~lg는 상단바가 없으니 화면 끝까지. -->
-  <div class="lg:hidden fixed inset-x-0 top-12 md:top-0 bottom-0 z-140 bg-black/55 transition-opacity duration-300" :class="drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeDrawer"></div>
+       상단 오프셋이 구간마다 다르다 — md 미만은 상단바(h-12) 아래, md~lg는 상단바가 없으니 배너 바로 아래. -->
+  <div class="lg:hidden fixed inset-x-0 top-[calc(var(--chrome)_+_3rem)] md:top-[var(--chrome)] bottom-0 z-140 bg-black/55 transition-opacity duration-300" :class="drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeDrawer"></div>
 
-  <aside class="lg:hidden fixed left-0 top-12 md:top-0 bottom-0 z-150 w-60 flex flex-col bg-[rgba(7,11,21,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border-r border-white/10 transition-transform duration-300 ease-smooth" :class="drawerOpen ? 'translate-x-0' : '-translate-x-full'">
+  <aside class="lg:hidden fixed left-0 top-[calc(var(--chrome)_+_3rem)] md:top-[var(--chrome)] bottom-0 z-150 w-60 flex flex-col bg-[rgba(7,11,21,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border-r border-white/10 transition-transform duration-300 ease-smooth" :class="drawerOpen ? 'translate-x-0' : '-translate-x-full'">
     <div class="flex items-center h-14 shrink-0 pl-3.5 pr-2 gap-1">
       <router-link to="/servers" class="flex items-center gap-1.5 flex-1 font-bold text-fg no-underline tracking-[-0.01em]"><Icon name="music" :size="18" class="text-accent" />MusicBot</router-link>
       <button :class="iconBtn" v-tooltip="'닫기'" @click="closeDrawer"><Icon name="close" :size="19" /></button>
