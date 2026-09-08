@@ -11,8 +11,7 @@
 
     <div class="flex items-start">
       <ServerSidebar v-if="user.isLoggedIn" />
-      <!-- md 이상은 위에 상단바가 없어 본문이 화면 끝에 붙는다 — 그만큼만 띄운다 -->
-      <main class="flex-1 min-w-0 md:pt-2.5">
+      <main class="flex-1 min-w-0">
         <!-- :key — /servers/A → /servers/B처럼 같은 컴포넌트 간 이동에서도 리마운트해 onMounted(SSE/폴링) 재초기화 -->
         <router-view :key="$route.fullPath" />
       </main>
