@@ -1160,7 +1160,7 @@ class MusicPlayer {
       const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump" || reason === "sponsorblock";
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
 
-      const endedLabel = finishedTrack ? `"${finishedTrack.title ?? "?"}" (${finishedTrack.platform ?? "?"})` : this._endingLabel || '"?" (?)';
+      const endedLabel = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
       this._endingLabel = null;
       log.info(`⏭️ 트랙 종료: ${endedLabel} | 사유=${reason} | 재생 ${(totalPlaybackMs / 1000).toFixed(1)}s / 길이 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"}${endedUnexpectedly ? " | 조기종료로 판정 → 복구 시도" : ""}`);
 
