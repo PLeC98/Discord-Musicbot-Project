@@ -246,7 +246,9 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
   // 서버 설정(⚙) 진입 가능 여부 — 모더레이터/봇 운영자만 (설정 화면 GET 게이트와 동일 기준)
   const manageable = isOwner(req) || (member ? isModerator(member) : false);
 
-  res.json({ ...playerState(ctx.player), ...voice, canControl: controllable, canAdd: addable, canManage: manageable, userId: req.session.user.id });
+  // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
+  // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
+  res.json({ ...playerState(ctx.player), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId: req.session.user.id });
 });
 
 // SSE — 플레이어 상태 변화 넛지 (하이브리드: 넛지 받으면 클라이언트가 GET /player 재호출)
@@ -432,7 +434,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과 — 계층(DJ 여부)만 판정에 반영됨
   const controllable = isOwner(req) || !(await checkControl(member));
   const addable = isOwner(req) || !checkAdd(member);
-  res.json({ ...playerState(player), ...voiceFlags(guild, req.session.user.id), canControl: controllable, canAdd: addable, userId: req.session.user.id });
+  res.json({ ...playerState(player), ...voiceFlags(guild, req.session.user.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: req.session.user.id });
 });
 
 // Toggle pause / resume

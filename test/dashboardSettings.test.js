@@ -391,3 +391,27 @@ test("GET guilds: listening은 멤버 캐시가 비어 있어도 판정된다", 
   guild.members.me = null;
   currentUser = { id: "u1", username: "tester", guilds: [] };
 });
+
+// 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
+// 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 곡 추가 폼을 열면 409가 난다.
+test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () => {
+  noDjRoles();
+  noVoice();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = inVoice("v1");
+  client.players.delete(GUILD_ID);
+
+  let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.botInVoice, true, "디스코드는 봇이 음성에 있다고 본다");
+  assert.equal(r.json.hasPlayer, false, "그런데 플레이어는 없다 — 조작은 전부 409");
+  assert.equal(r.json.canAdd, true, "권한은 통과하므로 이것만 보면 폼이 열린다");
+
+  client.players.set(GUILD_ID, { getStatus: () => ({ playing: false, paused: false, volume: 100, loop: false, shuffle: false }), isPlaybackActive: () => false, currentTrack: null, previousTracks: [], queue: [] });
+  r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.hasPlayer, true);
+
+  client.players.delete(GUILD_ID);
+  noVoice();
+  guild.members.me = null;
+  currentMember = plainMember();
+});

@@ -134,10 +134,15 @@
           </BaseButton>
         </div>
 
-        <!-- Case 3: bot in voice, but user elsewhere (모더레이터 제외) — 곡 추가는 계층 무관, 재적 규칙만 -->
+        <!-- Case 3: 봇은 음성에 있는데 서버에 플레이어가 없다 — 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우.
+             폼을 열어봤자 409이므로 잠근다. 되살릴 방법은 아직 모른다(원인 미규명) — 참가를 권하지 않는다.
+             이 상태에서도 봇이 소리를 내고 있을 수 있어, 새 플레이어를 만들면 그쪽이 끊긴다. -->
+        <div v-else-if="!player.hasPlayer" class="text-muted text-sm">봇이 음성 채널에 있지만 재생 상태를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.</div>
+
+        <!-- Case 4: bot in voice, but user elsewhere (모더레이터 제외) — 곡 추가는 계층 무관, 재적 규칙만 -->
         <div v-else-if="!player.canAdd" class="text-muted text-sm">곡 추가는 봇과 같은 음성 채널에 참가한 뒤 이용할 수 있어요.</div>
 
-        <!-- Case 4: bot in voice + controllable → show add form -->
+        <!-- Case 5: bot in voice + controllable → show add form -->
         <form v-else class="flex gap-2" @submit.prevent="addTrack(false)">
           <input v-model="addQuery" class="flex-1 bg-white/6 border border-white/9 rounded-[10px] text-fg px-3.5 py-2.25 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/8" placeholder="곡 이름, YouTube/Spotify/SoundCloud URL..." :disabled="adding" />
           <BaseButton variant="primary" type="submit" :disabled="adding || !addQuery.trim()">
@@ -230,7 +235,7 @@ const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 c
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
-const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, sameVoice: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
+const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
 
 const addQuery = ref("");
 const adding = ref(false);
