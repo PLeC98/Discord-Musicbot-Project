@@ -78,6 +78,7 @@ class MusicPlayer {
     this.recoveryAttempts = 0;
     this.recoveryInterval = null;
     this.connectionHealthCheck = null;
+    this.queueEmptyTimer = null;
 
     // 재생 생명주기 상태
     this.trackTimer = null;
@@ -857,12 +858,16 @@ class MusicPlayer {
         } catch (error) {
           log.error("❌ Failed to update playback UI after inactivity timeout:", error);
         } finally {
-          try {
-            this.cleanup(false, "비활성 타임아웃");
-          } finally {
-            const client = this.guild?.client;
-            if (client?.players) {
-              client.players.delete(this.guild.id);
+          // 교체된 뒤 남은 타이머가 현행 플레이어의 연결을 끊지 않도록 (대기열 소진 타이머와 같은 사고)
+          if (!this._isActivePlayer()) {
+            log.info(`🧹 교체된 플레이어의 비활성 타이머 — 자기 자원만 정리 (${this.guild?.name ?? this.guild?.id})`);
+            this.releaseResources();
+            this.releaseAudioProtection();
+          } else {
+            try {
+              this.cleanup(false, "비활성 타임아웃");
+            } finally {
+              this.guild?.client?.players?.delete(this.guild.id);
             }
           }
         }
@@ -889,6 +894,17 @@ class MusicPlayer {
    * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 함.
    * 그렇지 않으면 30초 상태 검사 interval이 플레이어 객체를 영원히 붙잡습니다.
    */
+  /**
+   * 이 플레이어가 아직 이 서버의 현행 플레이어인가.
+   *
+   * 교체되고도 남아 있던 타이머가 뒤늦게 깨어나 **다른 플레이어의 등록과 음성 연결을**
+   * 건드리는 사고가 있었다(대기열 소진 타이머가 재생 중인 새 플레이어를 레지스트리에서
+   * 지움). 지연 실행되는 정리 경로는 반드시 이걸로 자기 차례인지 확인한다.
+   */
+  _isActivePlayer() {
+    return this.guild?.client?.players?.get(this.guild.id) === this;
+  }
+
   releaseResources() {
     this.clearInactivityTimer(false);
     this.stopStateSync();
@@ -902,6 +918,11 @@ class MusicPlayer {
     if (this.trackTimer) {
       clearTimeout(this.trackTimer);
       this.trackTimer = null;
+    }
+
+    if (this.queueEmptyTimer) {
+      clearTimeout(this.queueEmptyTimer);
+      this.queueEmptyTimer = null;
     }
 
     this._clearBufferingWatch();
@@ -980,6 +1001,11 @@ class MusicPlayer {
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
         this.trackTimer = null;
+      }
+
+      if (this.queueEmptyTimer) {
+        clearTimeout(this.queueEmptyTimer);
+        this.queueEmptyTimer = null;
       }
 
       this.pendingEndReason = reason;
@@ -1260,14 +1286,20 @@ class MusicPlayer {
         CacheManager.removePlayerSession(this.guild.id);
       }
 
-      setTimeout(() => {
-        if (this.queue.length === 0 && !this.currentTrack) {
-          this.cleanup(false, "대기열 소진");
-          const clientInstance = this.guild?.client;
-          if (clientInstance?.players) {
-            clientInstance.players.delete(this.guild.id);
-          }
+      // 트랙이 끝날 때마다 새로 예약되므로 이전 것을 반드시 지운다 — 쌓아두면 이 플레이어가
+      // 교체된 뒤에도 하나씩 깨어나 남의 플레이어를 정리한다.
+      if (this.queueEmptyTimer) clearTimeout(this.queueEmptyTimer);
+      this.queueEmptyTimer = setTimeout(() => {
+        this.queueEmptyTimer = null;
+        if (this.queue.length !== 0 || this.currentTrack) return;
+        if (!this._isActivePlayer()) {
+          log.info(`🧹 교체된 플레이어의 대기열 소진 타이머 — 자기 자원만 정리 (${this.guild?.name ?? this.guild?.id})`);
+          this.releaseResources();
+          this.releaseAudioProtection();
+          return;
         }
+        this.cleanup(false, "대기열 소진");
+        this.guild.client.players.delete(this.guild.id);
       }, config.bot.leaveDelayQueueEmptyMs);
     } finally {
       this.isTransitioning = false;
