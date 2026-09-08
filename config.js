@@ -202,6 +202,14 @@ module.exports = {
   },
 
   // 샤딩 설정 (for bots in 1000+ servers)
+  // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다 — 사후 분석용.
+  logging: {
+    fileEnabled: env("LOG_FILE_ENABLED", "true") !== "false",
+    file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
+    maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 1, max: 10240 }) * 1024 * 1024,
+    keep: envInt("LOG_FILE_KEEP", 5, { min: 0, max: 100 }),
+  },
+
   sharding: {
     totalShards: env("TOTAL_SHARDS", "auto"),
     shardList: env("SHARD_LIST", "auto"),

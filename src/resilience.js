@@ -70,6 +70,25 @@ function makeFloodGuard(windowMs = NET_ERR_WINDOW_MS, max = NET_ERR_MAX) {
 const networkErrorFlooding = makeFloodGuard();
 // 알 수 없는 unhandledRejection용 — 단발은 봇을 살리고, 반복(좀비 루프)만 안전 종료로 승격
 const unknownRejectionFlooding = makeFloodGuard();
+// discord.js client "error"용 — 리스너 rejection과 내부 오류가 같이 들어오므로 별도 카운터
+const unknownClientErrorFlooding = makeFloodGuard();
+
+// 재시도해도 결과가 같은 Discord API 오류 — 로그만 남기고 흘려보낸다(프로세스를 흔들 이유가 없음).
+const IGNORABLE_DISCORD_ERRORS = {
+  10062: { level: "info", message: "ℹ️ 만료된 상호작용입니다 (10062 Unknown interaction)" },
+  40060: { level: "info", message: "ℹ️ 이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)" },
+  50013: { level: "error", message: "❌ 해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)" },
+};
+
+function ignorableDiscordError(err) {
+  return (err && IGNORABLE_DISCORD_ERRORS[err.code]) || null;
+}
+
+// 상호작용 토큰이 죽은 경우. 응답 경로 자체가 닫혀서 reply도 followUp도 다시 같은 오류다 —
+// 오류 안내를 시도하는 것이 곧 두 번째 오류가 된다.
+function isDeadInteraction(err) {
+  return !!err && (err.code === 10062 || err.code === 40060);
+}
 
 // 치명적 오류: 안전하게 정리하고 종료 — 운영자 확인 후 수동 재시작을 기다린다.
 // 저장 세션은 초기화한다: 세션 상태 자체가 원인이면 재시작 시 크래시 루프가 되므로.
@@ -99,6 +118,9 @@ module.exports = {
   makeFloodGuard,
   networkErrorFlooding,
   unknownRejectionFlooding,
+  unknownClientErrorFlooding,
+  ignorableDiscordError,
+  isDeadInteraction,
   fatalShutdown,
   NET_ERR_WINDOW_MS,
   NET_ERR_MAX,
