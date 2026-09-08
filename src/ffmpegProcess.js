@@ -71,4 +71,34 @@ function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
   return child;
 }
 
-module.exports = { spawnFfmpeg, _internals: { CRASH_SIGNALS } };
+/**
+ * 로컬 오디오 파일의 실제 길이(초). 알아낼 수 없으면 null.
+ *
+ * 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다
+ * (실측: 241초 파일이 비트레이트에 따라 137초 또는 509초로 나왔다).
+ * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다.
+ */
+function probeDurationSec(file) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawnFfmpeg(["-hide_banner", "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
+    } catch {
+      return resolve(null);
+    }
+
+    let out = "";
+    child.stderr.on("data", (chunk) => {
+      out = (out + chunk.toString()).slice(-4000);
+    });
+    child.on("error", () => resolve(null));
+    child.on("exit", () => {
+      const m = out.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
+      if (!m) return resolve(null);
+      const sec = Number(m[1]) * 3600 + Number(m[2]) * 60 + parseFloat(m[3]);
+      resolve(Number.isFinite(sec) && sec > 0 ? Math.round(sec) : null);
+    });
+  });
+}
+
+module.exports = { spawnFfmpeg, probeDurationSec, _internals: { CRASH_SIGNALS } };
