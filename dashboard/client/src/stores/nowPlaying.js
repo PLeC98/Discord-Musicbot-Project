@@ -25,7 +25,9 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const track = computed(() => data.value?.currentTrack ?? null);
   // 그 서버의 화면은 전체화면 역할을 하므로 거기서는 숨긴다(D-4). 다른 서버 화면에서는 뜬다.
   const onTargetPage = computed(() => !!guildId.value && router.currentRoute.value.params.guildId === guildId.value);
-  const visible = computed(() => !!guildId.value && !onTargetPage.value && !!track.value);
+  // 곡이 없어도 봇과 같은 채널이면 빈 셸로 남긴다 — 볼륨은 조작할 수 있고, 재생이 시작될 때
+  // 레이아웃이 튀지 않는다. 채널이 다르거나 봇이 없으면(guildId null) 통째로 사라진다.
+  const visible = computed(() => !!guildId.value && !onTargetPage.value && !!data.value);
 
   const canControl = computed(() => data.value?.canControl ?? false);
   const canSkip = computed(() => canControl.value || (!!track.value?.requestedBy?.id && track.value.requestedBy.id === data.value?.userId));

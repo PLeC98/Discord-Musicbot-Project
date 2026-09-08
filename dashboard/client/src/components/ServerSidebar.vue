@@ -1,7 +1,8 @@
 <template>
   <!-- 인라인 레일 — md 미만 없음 / md~lg 항상 미니 / lg+ 접힘 설정에 따라 미니·펼침 (콘텐츠를 밀어냄).
-       md 이상에는 상단바가 없으므로 로고·토글·계정을 전부 레일이 갖는다. -->
-  <aside class="hidden md:flex shrink-0 sticky top-[var(--chrome)] h-[calc(100dvh_-_var(--chrome))] flex-col border-r border-white/7 bg-[rgba(7,11,21,0.45)] backdrop-blur-[20px] transition-[width] duration-300 ease-smooth overflow-hidden" :class="collapsed ? 'w-16' : 'w-16 lg:w-60'">
+       md 이상에는 상단바가 없으므로 로고·토글·계정을 전부 레일이 갖는다.
+       z-135: 재생 바(130)의 위쪽 그림자가 레일로 번지는 것을 덮되, 드로어 딤(140)보다는 아래. -->
+  <aside class="hidden md:flex shrink-0 sticky z-135 top-[var(--chrome)] h-[calc(100dvh_-_var(--chrome))] flex-col border-r border-white/7 bg-[rgba(7,11,21,0.45)] backdrop-blur-[20px] transition-[width] duration-300 ease-smooth overflow-hidden" :class="collapsed ? 'w-16' : 'w-16 lg:w-60'">
     <div class="flex items-center h-14 shrink-0 px-2 gap-1" :class="collapsed ? 'justify-center' : 'max-lg:justify-center'">
       <button :class="iconBtn" v-tooltip="'사이드바'" @click="toggleSidebar">
         <Icon name="menu" :size="20" />
