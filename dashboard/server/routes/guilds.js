@@ -11,6 +11,7 @@ const { requestPlayback } = require("../../../src/playRequest");
 const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
+const { shadowMember } = require("../viewAs");
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용) — SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS = {
@@ -82,7 +83,9 @@ async function getPlayer(req, res, guildId) {
     }
   }
 
-  return { client, guild, player: client.players?.get(guildId) || null, member };
+  // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다 — 이 한 곳이면 아래의
+  // checkControl/checkAdd/isModerator가 전부 그 계층으로 판정된다.
+  return { client, guild, player: client.players?.get(guildId) || null, member: shadowMember(req, member) };
 }
 
 function playerState(player) {
@@ -365,7 +368,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
 
   let member;
   try {
-    member = await guild.members.fetch(req.session.user.id);
+    member = shadowMember(req, await guild.members.fetch(req.session.user.id));
   } catch (e) {
     return res.status(400).json({ error: "서버에서 사용자를 찾을 수 없습니다" });
   }

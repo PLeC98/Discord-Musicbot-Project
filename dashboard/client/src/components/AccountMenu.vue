@@ -18,10 +18,13 @@
       <div class="px-2.5 pt-1.5 pb-2.5">
         <div class="text-[0.85rem] font-semibold text-fg overflow-hidden whitespace-nowrap text-ellipsis">{{ user.displayName }}</div>
         <div v-if="handle" class="text-[0.75rem] text-muted overflow-hidden whitespace-nowrap text-ellipsis">@{{ handle }}</div>
+        <div v-if="user.viewAs" class="mt-1.5 inline-block px-1.5 py-0.5 rounded-md text-[0.7rem] font-semibold bg-[rgba(251,191,36,0.15)] text-[#fcd34d]">{{ user.viewAsLabel }} 권한으로 보는 중</div>
       </div>
       <div class="mx-1 mb-1 h-px bg-white/8"></div>
 
       <router-link v-if="user.isOwner" to="/admin" role="menuitem" :class="[item, 'text-fg-soft hover:bg-white/8 hover:text-fg']" @click="open = false"> <Icon name="wrench" :size="16" />운영자 패널 </router-link>
+      <!-- 오버라이드로 isOwner가 꺼지면 위 항목이 사라지므로, 되돌아갈 길을 여기 남긴다 -->
+      <router-link v-if="user.viewAs && user.isRealOwner" to="/admin" role="menuitem" :class="[item, 'text-[#fcd34d] hover:bg-[rgba(251,191,36,0.14)]']" @click="open = false"> <Icon name="wrench" :size="16" />운영자 패널 (오버라이드 중) </router-link>
       <button type="button" role="menuitem" :class="[item, 'w-full text-[#f87171] hover:bg-[rgba(248,113,113,0.13)]']" @click="logout"><Icon name="logout" :size="16" />로그아웃</button>
     </div>
   </Teleport>

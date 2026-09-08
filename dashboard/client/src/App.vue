@@ -1,5 +1,14 @@
 <template>
   <div>
+    <!-- 권한 수준 오버라이드 중임을 계속 알린다 — 낮춘 계층에서 막히는 동작을 버그로 오해하지 않도록 -->
+    <div v-if="user.viewAs" class="flex items-center gap-2 px-3 py-1.5 text-[0.8rem] bg-[rgba(251,191,36,0.13)] border-b border-[rgba(251,191,36,0.28)] text-[#fcd34d]">
+      <Icon name="warning" :size="14" />
+      <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+        ><strong>{{ user.viewAsLabel }}</strong> 권한으로 보는 중</span
+      >
+      <button class="ml-auto shrink-0 px-2 py-0.5 rounded-lg font-semibold cursor-pointer bg-[rgba(251,191,36,0.16)] hover:bg-[rgba(251,191,36,0.28)] transition-[background-color] duration-200" @click="clearViewAs">해제</button>
+    </div>
+
     <!-- 좁은 화면 전용 헤더 — md 이상은 사이드바가 로고·탐색·계정을 전부 가지므로 상단바가 없다.
          md 미만은 레일 자체가 없어서 드로어를 열 통로가 필요하다. 항목을 둘로 줄여 넘칠 여지를 없앤다. -->
     <header v-if="user.isLoggedIn" class="md:hidden flex items-center px-2 h-12 gap-1 sticky top-0 z-100 bg-[rgba(7,11,21,0.72)] backdrop-blur-2xl backdrop-saturate-[1.8] border-b border-white/7">
@@ -21,7 +30,7 @@
 
 <script setup>
 import { watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import Icon from "./components/BaseIcon.vue";
 import { useUserStore } from "./stores/user.js";
 import ServerSidebar from "./components/ServerSidebar.vue";
@@ -29,6 +38,16 @@ import { toggleSidebar, closeDrawer } from "./composables/sidebarState.js";
 
 const user = useUserStore();
 const route = useRoute();
+const router = useRouter();
+
+// 해제에 실패하면 오류를 제대로 보여주는 운영자 패널로 넘긴다
+async function clearViewAs() {
+  try {
+    await user.setViewAs(null);
+  } catch {
+    router.push("/admin");
+  }
+}
 
 // 페이지 이동 시 오버레이 드로어는 닫는다 (드로어 밖 경로 이동 포함)
 watch(() => route.fullPath, closeDrawer);

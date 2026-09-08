@@ -7,6 +7,7 @@ const router = express.Router();
 const requireOwner = require("../middleware/requireOwner");
 const os = require("os");
 const logManager = require("../../../src/LogManager");
+const { TIERS, getViewAs } = require("../viewAs");
 
 // Bot/Node/System/Shard status
 router.get("/status", requireOwner, (req, res) => {
@@ -177,6 +178,21 @@ router.post("/redeploy-commands", requireOwner, async (req, res) => {
 // Real-time log stream (SSE)
 router.get("/logs/stream", requireOwner, (req, res) => {
   logManager.addClient(res);
+});
+
+// 권한 수준 오버라이드 — { tier: "owner"|"moderator"|"dj"|"user"|null }. null이면 해제.
+// requireOwner가 오버라이드를 무시하므로(실 운영자 기준) 낮춘 뒤에도 여기로 되돌아올 수 있다.
+router.post("/view-as", requireOwner, (req, res) => {
+  const { tier } = req.body || {};
+  if (tier !== null && !TIERS.includes(tier)) {
+    return res.status(400).json({ error: "권한 수준이 올바르지 않습니다" });
+  }
+
+  if (tier === null) delete req.session.viewAs;
+  else req.session.viewAs = tier;
+
+  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"} by ${req.session.user.username || req.session.user.id}`);
+  res.json({ viewAs: getViewAs(req) });
 });
 
 module.exports = router;

@@ -6,6 +6,35 @@
     <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
     <template v-else>
+      <!-- 권한 수준 오버라이드 — 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
+      <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
+        <p class="text-muted text-[0.82rem] mt-1 mb-3">선택한 계층으로 대시보드를 사용합니다. 화면 표시뿐 아니라 서버가 실제로 허용하는 동작까지 그 계층을 따릅니다. 이 패널은 오버라이드와 무관하게 계속 열 수 있습니다.</p>
+
+        <div class="flex flex-col gap-1.5">
+          <button v-for="t in VIEW_AS_TIERS" :key="t.id" type="button" :class="[tierRow, user.viewAs === t.id ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(t.id)">
+            <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === t.id ? 'border-[#c4b5fd]' : 'border-white/25'">
+              <span v-if="user.viewAs === t.id" class="size-2 rounded-full bg-[#c4b5fd]"></span>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[0.85rem] font-semibold">{{ t.label }}</span>
+              <span class="block text-[0.78rem] text-muted">{{ t.desc }}</span>
+            </span>
+          </button>
+
+          <button type="button" :class="[tierRow, user.viewAs === null ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(null)">
+            <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === null ? 'border-[#c4b5fd]' : 'border-white/25'">
+              <span v-if="user.viewAs === null" class="size-2 rounded-full bg-[#c4b5fd]"></span>
+            </span>
+            <span class="min-w-0">
+              <span class="block text-[0.85rem] font-semibold">오버라이드 하지 않음</span>
+              <span class="block text-[0.78rem] text-muted">평소 상태로 되돌립니다.</span>
+            </span>
+          </button>
+        </div>
+
+        <p v-if="tierError" class="text-[#f87171] text-[0.8rem] mt-2.5">{{ tierError }}</p>
+      </BaseCard>
+
       <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3 gap-y-3 mb-3">
         <!-- Bot -->
         <BaseCard icon="robot" title="봇 상태">
@@ -187,6 +216,29 @@ import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
+import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
+
+// ── 권한 수준 오버라이드 ──────────────────────────────────────────────────────
+// 계층을 바꾸면 스토어가 페이지를 다시 읽는다 — 서버 목록·플레이어 권한이 통째로 달라지기 때문.
+const user = useUserStore();
+const switchingTier = ref(false);
+const tierError = ref("");
+
+const tierRow = "flex items-start gap-2.5 text-left rounded-xl px-3 py-2.5 cursor-pointer border transition-[background-color,border-color] duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+const tierOn = "bg-accent/14 border-accent/45 text-fg";
+const tierOff = "bg-white/4 border-white/8 text-fg-soft hover:not-disabled:bg-white/8";
+
+async function pickTier(tier) {
+  if (switchingTier.value || user.viewAs === tier) return;
+  switchingTier.value = true;
+  tierError.value = "";
+  try {
+    await user.setViewAs(tier); // 성공하면 새로고침되므로 아래로 돌아오지 않는다
+  } catch (e) {
+    tierError.value = e.response?.data?.error || "권한 수준을 바꾸지 못했습니다";
+    switchingTier.value = false;
+  }
+}
 
 // ── 반복 유틸리티 클래스 ─────────────────────────────────────
 const statRow = "flex justify-between items-center py-2.5 border-b border-white/7 text-sm last:border-b-0 last:pb-0 [&>span:first-child]:text-muted [&>strong]:font-semibold [&>span:last-child]:font-semibold";
