@@ -162,6 +162,13 @@ test("Location 없는 3xx는 오류로 끊는다", async () => {
   await rejects(head("https://1.1.1.1/x.mp3"), /Location/);
 });
 
+test("어댑터를 고정한다 — fetch 어댑터는 핀 에이전트를 무시한다", async () => {
+  // axios 기본값은 ["xhr","http","fetch"] 중 첫 지원 어댑터. Node에서는 http가 이기지만,
+  // fetch로 넘어가면 httpAgent/httpsAgent가 무시돼 IP 핀이 조용히 사라진다(실측).
+  await head("https://1.1.1.1/x.mp3");
+  assert.equal(calls[0].adapter, "http");
+});
+
 test("리다이렉트를 axios에 맡기지 않는다 (홉별 재검증의 전제)", async () => {
   // maxRedirects가 0이 아니면 axios가 내부적으로 따라가버려 위 재검증이 전부 무의미해진다.
   // axios를 모킹한 상태에서는 동작으로 드러나지 않으므로 설정 자체를 고정한다.
