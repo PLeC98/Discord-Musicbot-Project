@@ -12,7 +12,7 @@ const { heartbeatMs, maxPerUser, coalesceMs } = config.dashboard.sse;
  *  - 서버 목록 페이지: 사용자의 상호+멤버 서버 전체를 한 연결로 멀티플렉스 (this.listSubs)
  *    → 목록마다 서버 수만큼 연결을 여는 폭발을 피함.
  *
- * 페이로드는 "변화 발생" 최소 신호(`{"t":"changed"}`, 민감정보 없음) — 클라이언트가 받으면 GET으로 재조회.
+ * 페이로드는 "어느 서버에 변화 발생"이라는 최소 신호(`{"t":"changed","g":"<guildId>"}`) — 받으면 GET으로 재조회.
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 무엇을 구독 중인가"만 관리.
  */
 class DashboardEvents {
@@ -123,7 +123,10 @@ class DashboardEvents {
   }
 
   _emit(guildId) {
-    const payload = 'data: {"t":"changed"}\n\n';
+    // guildId를 함께 보낸다 — 목록 구독자는 여러 서버를 한 연결로 받으므로, 이게 없으면
+    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(전역 재생 바가 자기 대상만 고르는 근거).
+    // 구독자는 이미 그 서버 멤버로 검증된 뒤라 ID 노출 문제는 없다.
+    const payload = `data: {"t":"changed","g":${JSON.stringify(guildId)}}\n\n`;
     const set = this.guilds.get(guildId);
     if (set) {
       for (const res of set) {

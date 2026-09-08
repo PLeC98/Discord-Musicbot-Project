@@ -3,6 +3,16 @@ import axios from "axios";
 
 // SSE/타이머 핸들은 반응성이 필요 없으므로 모듈 스코프에 둔다
 let subscribers = 0;
+
+// 이 연결 하나로 사용자의 모든 상호 서버를 받는다. 세션당 SSE 연결 캡(기본 5)이 있어
+// 다른 화면이 자기 연결을 새로 열면 안 되므로, 넛지를 나눠 쓸 수 있게 열어둔다.
+// 핸들러는 변화가 일어난 guildId를 받는다.
+const nudgeHandlers = new Set();
+
+export function onGuildNudge(fn) {
+  nudgeHandlers.add(fn);
+  return () => nudgeHandlers.delete(fn);
+}
 let timer = null;
 let eventSource = null;
 let nudgeTimer = null;
@@ -52,7 +62,16 @@ export const useGuildsStore = defineStore("guilds", {
           if (timer) this.refresh(); // 끊긴 동안 놓친 변화 재동기화 후 폴백 중지
           stopFallback();
         };
-        eventSource.onmessage = () => {
+        eventSource.onmessage = (e) => {
+          // 페이로드: {"t":"changed","g":"<guildId>"} — 구독자별로 관심 서버가 다르므로 그대로 넘긴다
+          let guildId = null;
+          try {
+            guildId = JSON.parse(e.data)?.g ?? null;
+          } catch {
+            // 형식이 바뀌었더라도 "뭔가 바뀜"이라는 신호는 살린다
+          }
+          for (const fn of nudgeHandlers) fn(guildId);
+
           clearTimeout(nudgeTimer);
           nudgeTimer = setTimeout(() => this.refresh(), 150);
         };

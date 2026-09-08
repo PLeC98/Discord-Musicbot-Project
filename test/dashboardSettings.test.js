@@ -72,11 +72,13 @@ const channels = new Map([
 ]);
 
 let currentMember; // 테스트마다 교체 (null = 비멤버)
+const voiceStates = new Map(); // userId -> VoiceState (게이트웨이가 채우는 캐시 흉내)
 const guild = {
   id: GUILD_ID,
   name: "TestGuild",
   roles: { cache: roles },
   channels: { cache: channels },
+  voiceStates: { cache: voiceStates },
   members: {
     fetch: async () => {
       if (!currentMember) throw new Error("Unknown Member");
@@ -265,4 +267,151 @@ test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () 
   });
   r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: many });
   assert.equal(r.status, 400, "디스코드 셀렉트 메뉴 25개 한계와 정합");
+});
+
+// ── GET /player의 음성 재적 플래그 ───────────────────────────
+// 회귀 대상: botInVoice/userInVoice만 보면 "같은 서버 다른 채널"을 구분하지 못한다.
+// 조작 가능 여부(checkVoice)의 실제 기준은 채널 일치라, 대시보드가 그걸 그대로 표현해야 한다.
+
+// 앞선 PUT 테스트가 DJ 역할을 남겨두면 "전원 DJ" 전제가 깨진다 — 이 절은 매번 초기화하고 시작한다.
+const noDjRoles = () => store.djRoles.delete(GUILD_ID);
+const noVoice = () => voiceStates.clear();
+
+// 실 VoiceState는 channelId와 channel을 모두 갖는다 — 한쪽만 두면 라우터와 permissions.js 중
+// 하나만 만족시켜 통과 여부가 뒤바뀐다.
+const voiceState = (channelId) => (channelId ? { channelId, channel: { id: channelId } } : { channelId: null, channel: null });
+
+// 라우터는 guild.voiceStates에서, permissions.js는 member.voice에서 읽는다. 실제로는 같은 출처이므로
+// 픽스처도 반드시 함께 맞춘다 — 한쪽만 두면 통과 여부가 갈려 테스트가 거짓말을 한다.
+function inVoice(channelId, userId = "u1") {
+  voiceStates.set(userId, voiceState(channelId));
+  return { id: userId, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: voiceState(channelId) };
+}
+
+test("GET player: 봇이 음성에 없으면 sameVoice는 거짓", async () => {
+  noDjRoles();
+  noVoice();
+  guild.members.me = null;
+  currentMember = inVoice("v1");
+
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.botInVoice, false);
+  assert.equal(r.json.userInVoice, true);
+  assert.equal(r.json.sameVoice, false);
+});
+
+test("GET player: 같은 서버 다른 채널은 sameVoice가 거짓이고 조작이 막힌다", async () => {
+  noDjRoles();
+  noVoice();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = inVoice("v2");
+
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.botInVoice, true);
+  assert.equal(r.json.userInVoice, true, "둘 다 참이라 이 둘만으로는 구분되지 않는다");
+  assert.equal(r.json.sameVoice, false);
+  assert.equal(r.json.canControl, false);
+  assert.equal(r.json.canAdd, false);
+});
+
+test("GET player: 같은 채널이면 sameVoice가 참이고 조작이 열린다", async () => {
+  noDjRoles();
+  noVoice();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = inVoice("v1");
+
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.sameVoice, true);
+  assert.equal(r.json.canControl, true, "DJ 역할 미설정 서버는 전원 DJ");
+  assert.equal(r.json.canAdd, true);
+});
+
+test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래도 조작 가능", async () => {
+  noDjRoles();
+  noVoice();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = plainMember();
+
+  let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.userInVoice, false);
+  assert.equal(r.json.sameVoice, false);
+  assert.equal(r.json.canControl, false);
+
+  // 모더레이터는 checkVoice 면제 — 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
+  currentMember = modMember();
+  r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.sameVoice, false);
+  assert.equal(r.json.canControl, true);
+
+  guild.members.me = null;
+  currentMember = plainMember();
+  noVoice();
+});
+
+// ── GET /api/guilds의 listening (전역 재생 바가 대상 서버를 찾는 기준) ──
+
+test("GET guilds: listening — 봇과 같은 채널일 때만 참", async () => {
+  currentMember = plainMember();
+  currentUser = { id: "u1", username: "tester", guilds: [{ id: GUILD_ID, name: "TestGuild", permissions: "0" }] };
+
+  // 봇이 음성에 없음
+  noVoice();
+  guild.members.me = null;
+  let r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, false);
+
+  // 봇은 v1, 사용자는 v2
+  guild.members.me = { voice: voiceState("v1") };
+  voiceStates.set("u1", voiceState("v2"));
+  r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, false, "같은 서버라도 다른 채널이면 거짓");
+
+  // 둘 다 v1
+  voiceStates.set("u1", voiceState("v1"));
+  r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, true);
+
+  noVoice();
+  guild.members.me = null;
+  currentUser = { id: "u1", username: "tester", guilds: [] };
+});
+
+// 멤버 캐시는 비어 있을 수 있지만 음성 상태는 게이트웨이가 항상 채운다 —
+// 목록 라우트가 members.cache에 의존하면 여기서 조용히 거짓이 된다.
+test("GET guilds: listening은 멤버 캐시가 비어 있어도 판정된다", async () => {
+  currentMember = plainMember(); // members.fetch만 성공, members.cache에는 없음
+  currentUser = { id: "u1", username: "tester", guilds: [{ id: GUILD_ID, name: "TestGuild", permissions: "0" }] };
+  guild.members.me = { voice: voiceState("v1") };
+  voiceStates.set("u1", voiceState("v1"));
+
+  const r = await req("GET", "/api/guilds");
+  assert.equal(r.json.guilds[0].listening, true);
+
+  noVoice();
+  guild.members.me = null;
+  currentUser = { id: "u1", username: "tester", guilds: [] };
+});
+
+// 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
+// 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 곡 추가 폼을 열면 409가 난다.
+test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () => {
+  noDjRoles();
+  noVoice();
+  guild.members.me = { voice: voiceState("v1") };
+  currentMember = inVoice("v1");
+  client.players.delete(GUILD_ID);
+
+  let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.botInVoice, true, "디스코드는 봇이 음성에 있다고 본다");
+  assert.equal(r.json.hasPlayer, false, "그런데 플레이어는 없다 — 조작은 전부 409");
+  assert.equal(r.json.canAdd, true, "권한은 통과하므로 이것만 보면 폼이 열린다");
+
+  client.players.set(GUILD_ID, { getStatus: () => ({ playing: false, paused: false, volume: 100, loop: false, shuffle: false }), isPlaybackActive: () => false, currentTrack: null, previousTracks: [], queue: [] });
+  r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.hasPlayer, true);
+
+  client.players.delete(GUILD_ID);
+  noVoice();
+  guild.members.me = null;
+  currentMember = plainMember();
 });

@@ -3,6 +3,7 @@
 const { checkControl } = require("../../../src/permissions");
 const S = require("../../../src/strings");
 const { isOwner } = require("../owner");
+const { shadowMember } = require("../viewAs");
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리
 const toApiError = S.withoutErrorMark;
@@ -24,7 +25,8 @@ async function resolveMember(req, res) {
 
   let member;
   try {
-    member = await guild.members.fetch(req.session.user.id); // 캐시 우선, 미스 시에만 REST 1회
+    // 캐시 우선, 미스 시에만 REST 1회. 권한 수준 오버라이드는 여기서 반영된다.
+    member = shadowMember(req, await guild.members.fetch(req.session.user.id));
   } catch {
     res.status(403).json({ error: "서버 멤버가 아닙니다" });
     return null;

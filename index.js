@@ -11,6 +11,7 @@ const procRegistry = require("./src/ChildProcessRegistry");
 const { logResolved: logResolvedFfmpeg } = require("./src/ffmpegPath");
 const MusicPlayer = require("./src/MusicPlayer");
 const { resolveGuildForRestore } = require("./src/sessionRestore");
+const DashboardEvents = require("./src/DashboardEvents");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
@@ -342,6 +343,12 @@ function startBot() {
   // Handle voice state updates for pause/resume and cleanup
   client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     const guild = oldState.guild;
+
+    // 채널 이동은 대시보드의 "봇 부르기 / 곡 추가 / 재생 조작" 노출 조건을 바꾼다.
+    // 이 알림이 없으면 재생 중일 때만 우연히 갱신된다 — 아래 임베드 갱신 훅에 묻어가기 때문에.
+    // 마이크 음소거·화면 공유 등도 같은 이벤트로 오지만 노출 조건과 무관하므로 채널이 바뀔 때만.
+    if (oldState.channelId !== newState.channelId) DashboardEvents.notify(guild.id);
+
     const player = client.players.get(guild.id);
     if (!player) return;
 
