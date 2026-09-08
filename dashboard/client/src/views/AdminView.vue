@@ -6,9 +6,15 @@
 
     <template v-else>
       <!-- 탭 — 카드가 늘어나 한 화면에 다 두면 찾기 어렵다.
-           v-if가 아니라 v-show인 이유: 로그 뷰어의 누적 로그와 스크롤 위치가 탭을 오갈 때 날아가면 안 된다. -->
-      <div class="flex gap-1 mb-4 border-b border-white/8 overflow-x-auto">
-        <button v-for="t in TABS" :key="t.id" type="button" :class="[tabBtn, tab === t.id ? tabOn : tabOff]" @click="setTab(t.id)"><Icon :name="t.icon" :size="15" />{{ t.label }}</button>
+           v-if가 아니라 v-show인 이유: 로그 뷰어의 누적 로그와 스크롤 위치가 탭을 오갈 때 날아가면 안 된다.
+
+           바깥이 스크롤러, 안쪽 줄이 경계선을 갖는다. 경계선을 스크롤러에 두면 가로 스크롤바가
+           그 안쪽(선 위)에 그려진다. overflow-y를 명시하지 않으면 visible이 auto로 바뀌어,
+           버튼의 -mb-px 1px 때문에 모든 해상도에서 세로 스크롤바가 상시로 생긴다. -->
+      <div :class="tabScroller">
+        <div class="flex gap-1 min-w-max border-b border-white/8">
+          <button v-for="t in TABS" :key="t.id" type="button" :class="[tabBtn, tab === t.id ? tabOn : tabOff]" @click="setTab(t.id)"><Icon :name="t.icon" :size="15" />{{ t.label }}</button>
+        </div>
       </div>
 
       <div v-show="tab === 'status'">
@@ -160,18 +166,7 @@
         <!-- 권한 수준 오버라이드 — 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
         <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
           <p class="text-muted text-[0.82rem] mt-1 mb-3">선택한 계층으로 대시보드를 사용합니다. 화면 표시뿐 아니라 서버가 실제로 허용하는 동작까지 그 계층을 따릅니다. 이 패널은 오버라이드와 무관하게 계속 열 수 있습니다.</p>
-
           <div class="flex flex-col gap-1.5">
-            <button v-for="t in VIEW_AS_TIERS" :key="t.id" type="button" :class="[tierRow, user.viewAs === t.id ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(t.id)">
-              <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === t.id ? 'border-[#c4b5fd]' : 'border-white/25'">
-                <span v-if="user.viewAs === t.id" class="size-2 rounded-full bg-[#c4b5fd]"></span>
-              </span>
-              <span class="min-w-0">
-                <span class="block text-[0.85rem] font-semibold">{{ t.label }}</span>
-                <span class="block text-[0.78rem] text-muted">{{ t.desc }}</span>
-              </span>
-            </button>
-
             <button type="button" :class="[tierRow, user.viewAs === null ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(null)">
               <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === null ? 'border-[#c4b5fd]' : 'border-white/25'">
                 <span v-if="user.viewAs === null" class="size-2 rounded-full bg-[#c4b5fd]"></span>
@@ -179,6 +174,16 @@
               <span class="min-w-0">
                 <span class="block text-[0.85rem] font-semibold">오버라이드 하지 않음</span>
                 <span class="block text-[0.78rem] text-muted">평소 상태로 되돌립니다.</span>
+              </span>
+            </button>
+
+            <button v-for="t in VIEW_AS_TIERS" :key="t.id" type="button" :class="[tierRow, user.viewAs === t.id ? tierOn : tierOff]" :disabled="switchingTier" @click="pickTier(t.id)">
+              <span class="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center" :class="user.viewAs === t.id ? 'border-[#c4b5fd]' : 'border-white/25'">
+                <span v-if="user.viewAs === t.id" class="size-2 rounded-full bg-[#c4b5fd]"></span>
+              </span>
+              <span class="min-w-0">
+                <span class="block text-[0.85rem] font-semibold">{{ t.label }}</span>
+                <span class="block text-[0.78rem] text-muted">{{ t.desc }}</span>
               </span>
             </button>
           </div>
@@ -247,6 +252,8 @@ function setTab(id) {
   localStorage.setItem(TAB_KEY, id);
 }
 
+// 스크롤바는 사이드바(ServerSidebar navClass)와 같은 토큰을 쓴다 — 가로라 w 대신 h.
+const tabScroller = "mb-4 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[3px]";
 const tabBtn = "flex items-center gap-1.5 shrink-0 px-3.5 py-2 -mb-px border-b-2 cursor-pointer text-[0.85rem] font-semibold transition-[color,border-color] duration-200";
 const tabOn = "text-[#c4b5fd] border-[#c4b5fd]";
 const tabOff = "text-muted border-transparent hover:text-fg";
