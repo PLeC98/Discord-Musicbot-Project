@@ -79,7 +79,7 @@ function fatalShutdown(client, error, exit = () => process.exit(1)) {
   try {
     if (client && client.players) {
       client.players.forEach((player) => {
-        if (player && player.cleanup) player.cleanup();
+        if (player && player.cleanup) player.cleanup(false, "치명적 오류로 종료");
       });
       client.players.clear();
     }

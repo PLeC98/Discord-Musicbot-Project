@@ -848,7 +848,7 @@ class MusicPlayer {
           log.error("❌ Failed to update playback UI after inactivity timeout:", error);
         } finally {
           try {
-            this.cleanup();
+            this.cleanup(false, "비활성 타임아웃");
           } finally {
             const client = this.guild?.client;
             if (client?.players) {
@@ -1242,7 +1242,7 @@ class MusicPlayer {
 
       setTimeout(() => {
         if (this.queue.length === 0 && !this.currentTrack) {
-          this.cleanup();
+          this.cleanup(false, "대기열 소진");
           const clientInstance = this.guild?.client;
           if (clientInstance?.players) {
             clientInstance.players.delete(this.guild.id);
@@ -1401,7 +1401,7 @@ class MusicPlayer {
     this.persistence.scheduleStatePersist(reason, delay);
   }
 
-  cleanup(isShutdown = false) {
+  cleanup(isShutdown = false, reason = null) {
     try {
       if (!isShutdown) {
         this.updateVoiceStatus("").catch(() => {});
@@ -1444,12 +1444,15 @@ class MusicPlayer {
         this.audioPlayer.removeAllListeners();
       }
 
-      // 음성 채널 연결 해제
+      // 음성 채널 연결 해제.
+      // 여기서 나가는 경우가 무음이면 "왜 나갔는지"를 사후에 알 수 없다 —
+      // 비활성 타임아웃·헬스체크·대기열 소진이 전부 이 경로를 지난다.
       if (this.connection) {
         this.connection.removeAllListeners();
         if (this.connection.state && this.connection.state.status !== "destroyed") {
           try {
             this.connection.destroy();
+            log.info(`🔇 음성 채널 떠남: "${this.voiceChannel?.name ?? this.voiceChannel?.id ?? "?"}" (${this.guild?.name ?? this.guild?.id}) | 사유=${reason ?? (isShutdown ? "종료" : "정리")}`);
           } catch (error) {
             log.error("Error destroying connection:", error);
           }

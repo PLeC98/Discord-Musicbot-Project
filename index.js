@@ -1,7 +1,7 @@
 require("./src/LogManager"); // intercept console before anything else logs
 const log = require("./src/logger").child({ category: "core" });
 const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
-const { getVoiceConnection } = require("@discordjs/voice");
+const { getVoiceConnections } = require("@discordjs/voice");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -12,6 +12,7 @@ const { logResolved: logResolvedFfmpeg } = require("./src/ffmpegPath");
 const MusicPlayer = require("./src/MusicPlayer");
 const { resolveGuildForRestore } = require("./src/sessionRestore");
 const DashboardEvents = require("./src/DashboardEvents");
+const PlayerRegistry = require("./src/playerRegistry");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
@@ -94,7 +95,7 @@ async function restoreSavedPlayers(client) {
       } catch (error) {
         log.error(chalk.red(`❌ 서버 ${guild.name} (${guildId}) 세션 복원 중 오류 발생:`), error.message);
         client.players.delete(guildId);
-        player.cleanup();
+        player.cleanup(false, "세션 복원 실패");
         CacheManager.removePlayerSession(guildId);
       }
     } catch (error) {
@@ -196,7 +197,7 @@ function startBot() {
 
   // Collections for commands and music players
   client.commands = new Collection();
-  client.players = new Collection();
+  client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
 
   // Initialize Music Embed Manager
   const MusicEmbedManager = require("./src/MusicEmbedManager");
@@ -377,7 +378,7 @@ function startBot() {
         } catch (error) {
           log.error("❌ Failed to update playback UI after forced disconnect:", error);
         } finally {
-          player.cleanup();
+          player.cleanup(false, "봇이 음성에서 강제 퇴장됨");
           client.players.delete(guild.id);
         }
         return;
@@ -416,7 +417,7 @@ function startBot() {
       const channel = guild.channels.cache.get(voiceChannelId);
 
       if (!channel) {
-        player.cleanup();
+        player.cleanup(false, "봇의 음성 채널이 사라짐");
         client.players.delete(guild.id);
         return;
       }
@@ -532,11 +533,19 @@ function startBot() {
         }
         await Promise.all(savePromises);
 
-        // Destroy all voice connections
-        client.players.forEach((player, guildId) => {
-          const connection = getVoiceConnection(guildId);
-          if (connection) connection.destroy();
-        });
+        // 실제 음성 연결을 기준으로 정리한다.
+        // client.players를 돌면 레지스트리에 없는 연결이 그대로 남아, 프로세스가 죽은 뒤에도
+        // 봇이 음성 채널에 유령으로 남는다 — 재시작하면 "봇은 음성에 있는데 플레이어가 없는" 상태가 된다.
+        for (const [guildId, connection] of getVoiceConnections()) {
+          const name = client.guilds.cache.get(guildId)?.name ?? guildId;
+          const orphan = client.players.has(guildId) ? "" : " | 레지스트리에 없던 연결";
+          try {
+            connection.destroy();
+            log.info(`🔇 음성 채널 떠남: ${name} | 사유=프로세스 종료(${signal})${orphan}`);
+          } catch (error) {
+            log.error(`❌ 음성 연결 정리 실패: ${name}`, error);
+          }
+        }
         client.destroy();
         stopBgutilServer();
 

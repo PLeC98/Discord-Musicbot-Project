@@ -82,7 +82,7 @@ class VoiceConnectionManager {
           // 클라이언트 레지스트리에서도 제거 — 정리된 플레이어를
           // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
           // 이 서버는 재시작 전까지 계속 막힘
-          player.cleanup();
+          player.cleanup(false, "헬스체크: 음성 채널을 찾을 수 없음");
           const clientInstance = player.guild?.client;
           if (clientInstance?.players?.get(player.guild.id) === player) {
             clientInstance.players.delete(player.guild.id);
