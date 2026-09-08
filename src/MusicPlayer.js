@@ -626,9 +626,8 @@ class MusicPlayer {
   }
 
   // 워치독 로그용 — 트랙 식별과 길이 출처
-  _trackLabel() {
-    const t = this.currentTrack;
-    return `"${t?.title ?? "?"}" (${t?.platform ?? "?"})`;
+  _trackLabel(track = this.currentTrack) {
+    return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
   }
 
   _durationSource() {
@@ -878,6 +877,8 @@ class MusicPlayer {
     this.downloadedFiles.clear();
 
     this.queue = [];
+    // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
+    this._endingLabel = `"${this.currentTrack?.title ?? "?"}" (${this.currentTrack?.platform ?? "?"})`;
     this.currentTrack = null;
     this.pendingEndReason = "stop";
     this.stopRequested = true;
@@ -1094,7 +1095,9 @@ class MusicPlayer {
       const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump" || reason === "sponsorblock";
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
 
-      log.info(`⏭️ 트랙 종료: "${finishedTrack?.title ?? "?"}" (${finishedTrack?.platform ?? "?"}) | 사유=${reason} | 재생 ${(totalPlaybackMs / 1000).toFixed(1)}s / 길이 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"}${endedUnexpectedly ? " | 조기종료로 판정 → 복구 시도" : ""}`);
+      const endedLabel = finishedTrack ? `"${finishedTrack.title ?? "?"}" (${finishedTrack.platform ?? "?"})` : this._endingLabel || '"?" (?)';
+      this._endingLabel = null;
+      log.info(`⏭️ 트랙 종료: ${endedLabel} | 사유=${reason} | 재생 ${(totalPlaybackMs / 1000).toFixed(1)}s / 길이 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"}${endedUnexpectedly ? " | 조기종료로 판정 → 복구 시도" : ""}`);
 
       if (endedUnexpectedly) {
         this.currentTrackRetries += 1;
