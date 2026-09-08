@@ -1,10 +1,10 @@
 import { ref } from "vue";
 
-// 사이드바 상태 — 네비바의 햄버거 버튼(App.vue)과 사이드바(ServerSidebar.vue)가 공유.
+// 사이드바 상태 — 햄버거 버튼과 사이드바(ServerSidebar.vue)가 공유.
 // 유튜브식 3단계:
-//   좁음(<md)   : 레일 없음, 햄버거 → 오버레이 드로어
-//   중간(md~lg) : 미니 레일 상주, 햄버거 → 오버레이 드로어
-//   넓음(lg+)   : 햄버거 → 인라인 접힘/펼침 (콘텐츠를 밀어냄), localStorage로 영속
+//   좁음(<md)   : 레일 없음, 상단바(App.vue)의 햄버거 → 오버레이 드로어
+//   중간(md~lg) : 미니 레일 상주, 레일 안 햄버거 → 오버레이 드로어
+//   넓음(lg+)   : 레일 안 햄버거 → 인라인 접힘/펼침 (콘텐츠를 밀어냄), localStorage로 영속
 const STORAGE_KEY = "sidebar:collapsed";
 const WIDE = "(min-width: 64rem)"; // Tailwind lg
 
