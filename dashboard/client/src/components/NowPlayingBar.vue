@@ -14,7 +14,7 @@
         </span>
       </button>
 
-      <div class="flex flex-col items-center gap-1 min-w-0 w-full">
+      <div class="flex flex-col items-center min-w-0 w-full pt-1">
         <div class="flex items-center gap-0.5">
           <button :class="iconBtn" v-tooltip="'이전곡'" :disabled="!np.canControl || !np.track || !(np.data.hasPrevious || np.data.loop === 'track')" @click="np.action('previous')"><Icon name="prev" :size="17" /></button>
           <button :class="iconMain" v-tooltip="np.track && !np.data.paused ? '일시정지' : '재생'" :disabled="!np.canControl || !np.track" @click="np.action('pause')"><Icon :name="np.track && !np.data.paused ? 'pause' : 'play'" :size="19" /></button>
@@ -101,7 +101,7 @@ onUnmounted(() => {
   np.stop();
 });
 
-const metaBtn = "flex items-center gap-3 min-w-0 rounded-xl p-1 cursor-pointer transition-[background-color] duration-200 hover:bg-white/6";
+const metaBtn = "flex items-center gap-3 min-w-0 rounded-xl cursor-pointer transition-[background-color] duration-200 hover:bg-white/6";
 const iconBase = "size-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-[background-color,color,scale] duration-150 disabled:opacity-25 disabled:cursor-not-allowed active:not-disabled:scale-[0.88] active:not-disabled:duration-75";
 const iconBtn = `${iconBase} text-[rgba(232,234,246,0.7)] hover:not-disabled:bg-white/11 hover:not-disabled:text-fg`;
 const iconMain = `${iconBase} text-fg bg-white/10 hover:not-disabled:bg-white/17`;
