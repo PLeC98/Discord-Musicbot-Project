@@ -1,8 +1,11 @@
 <template>
-  <!-- --chrome = 위쪽 고정 높이(오버라이드 배너), --player = 아래쪽 고정 높이(전역 재생 바).
-       사이드바 높이와 본문 여백이 둘을 빼고 계산되므로, 어느 쪽이 생겨도 문서가 뷰포트보다
-       길어지지 않고(스크롤바가 안 생기고) 사이드바 하단 계정이 바에 가리지 않는다. -->
-  <div :class="[user.viewAs ? '[--chrome:1.75rem]' : '[--chrome:0px]', nowPlaying.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]']">
+  <!-- 레이아웃 상수 세 개.
+       --chrome = 위쪽 고정 높이(오버라이드 배너)
+       --player = 아래쪽 고정 높이(전역 재생 바). 사이드바 하단 계정 블록(h-16)과 같은 값이라
+                  둘이 한 줄로 이어져 보인다.
+       --rail   = 사이드바 폭. 바가 사이드바를 덮지 않고 그 옆에서 시작하도록.
+       사이드바 높이와 본문 여백이 이 값들을 빼고 계산되므로 문서가 뷰포트보다 길어지지 않는다. -->
+  <div :class="[user.viewAs ? '[--chrome:1.75rem]' : '[--chrome:0px]', nowPlaying.visible ? '[--player:3.5rem] md:[--player:4rem]' : '[--player:0px]', railVars]">
     <!-- 권한 수준 오버라이드 중임을 계속 알린다 — 낮춘 계층에서 막히는 동작을 버그로 오해하지 않도록 -->
     <div v-if="user.viewAs" class="sticky top-0 z-200 flex items-center gap-2 h-7 px-3 text-[0.8rem] bg-[rgba(251,191,36,0.13)] border-b border-[rgba(251,191,36,0.28)] text-[#fcd34d]">
       <Icon name="warning" :size="14" />
@@ -34,14 +37,14 @@
 </template>
 
 <script setup>
-import { watch } from "vue";
+import { computed, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Icon from "./components/BaseIcon.vue";
 import { useUserStore } from "./stores/user.js";
 import ServerSidebar from "./components/ServerSidebar.vue";
 import NowPlayingBar from "./components/NowPlayingBar.vue";
 import { useNowPlayingStore } from "./stores/nowPlaying.js";
-import { toggleSidebar, closeDrawer } from "./composables/sidebarState.js";
+import { sidebarCollapsed, toggleSidebar, closeDrawer } from "./composables/sidebarState.js";
 
 const user = useUserStore();
 const nowPlaying = useNowPlayingStore();
@@ -56,6 +59,13 @@ async function clearViewAs() {
     router.push("/admin");
   }
 }
+
+// 사이드바 폭 — ServerSidebar의 `collapsed ? 'w-16' : 'w-16 lg:w-60'`과 같은 규칙이어야
+// 재생 바 왼쪽 끝이 레일 오른쪽 경계에 정확히 붙는다. md 미만은 레일이 없으므로 0.
+const railVars = computed(() => {
+  if (!user.isLoggedIn) return "[--rail:0px]";
+  return sidebarCollapsed.value ? "[--rail:0px] md:[--rail:4rem]" : "[--rail:0px] md:[--rail:4rem] lg:[--rail:15rem]";
+});
 
 // 페이지 이동 시 오버레이 드로어는 닫는다 (드로어 밖 경로 이동 포함)
 watch(() => route.fullPath, closeDrawer);

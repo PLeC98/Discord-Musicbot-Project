@@ -1,6 +1,7 @@
 <template>
   <!-- 사이드바 하단 계정 영역 — 클릭하면 위로 펼쳐지는 메뉴 (Discord/ChatGPT식) -->
-  <div class="shrink-0 border-t border-white/7 p-2">
+  <!-- 재생 바와 같은 높이(h-16 = --player)·배경·그림자. 나란히 놓여 한 줄로 이어져 보이게. -->
+  <div class="shrink-0 h-16 flex items-center px-2 border-t border-white/7 bg-[rgba(9,13,26,0.9)] shadow-[0_-8px_32px_rgba(0,0,0,0.45)]">
     <button ref="triggerEl" type="button" aria-haspopup="menu" :aria-expanded="open" v-tooltip="rail ? user.displayName : null" :class="[triggerBase, open ? 'bg-white/8 text-fg' : 'text-muted hover:bg-white/6 hover:text-fg', iconOnly ? 'justify-center' : rail ? 'max-lg:justify-center' : '']" @click="toggle">
       <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="size-9 rounded-full shrink-0 border border-white/10" />
       <span v-else class="size-9 rounded-full shrink-0 border border-white/10 bg-linear-135 from-accent to-accent-2 text-sm font-bold text-white flex items-center justify-center">{{ initial }}</span>

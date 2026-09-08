@@ -1,7 +1,9 @@
 <template>
   <!-- 전역 재생 바 — 내가 있는 음성 채널에 봇이 있고 재생 중일 때만 뜬다.
-       재생 중인 서버의 화면에서는 숨는다(그 화면이 전체화면 역할). z는 드로어(150)보다 아래에 둔다. -->
-  <div v-if="np.visible" class="fixed inset-x-0 bottom-0 z-130 h-[var(--player)] border-t border-white/9 bg-[rgba(9,13,26,0.9)] backdrop-blur-2xl backdrop-saturate-[1.7] shadow-[0_-8px_32px_rgba(0,0,0,0.45)]">
+       재생 중인 서버의 화면에서는 숨는다(그 화면이 전체화면 역할). z는 드로어(150)보다 아래에 둔다.
+       사이드바를 덮지 않고 그 옆(--rail)에서 시작한다 — 사이드바 하단 계정 블록과 한 줄로 이어진다.
+       레일 폭 전환이 300ms라 left도 같은 시간으로 따라간다. -->
+  <div v-if="np.visible" class="fixed left-[var(--rail)] right-0 bottom-0 z-130 h-[var(--player)] border-t border-white/9 bg-[rgba(9,13,26,0.9)] backdrop-blur-2xl backdrop-saturate-[1.7] shadow-[0_-8px_32px_rgba(0,0,0,0.45)] transition-[left] duration-300 ease-smooth">
     <!-- ── 데스크탑 ── -->
     <div class="hidden md:grid h-full items-center gap-4 px-4 grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)_minmax(0,1fr)]">
       <button type="button" :class="metaBtn" v-tooltip="'이 서버 화면으로'" @click="openServer">
