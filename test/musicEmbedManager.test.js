@@ -113,3 +113,28 @@ test("다른 서버는 직렬화되지 않음 — 서버 간 병렬", async () =
   assert.equal(await p1, "G1");
   assert.equal(mem.processingQueue.size, 0);
 });
+
+// CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
+// 직접 링크는 thumbnail이 null이라 now-playing 갱신이 매번 CombinedError로 죽었다
+// (2026-09-08 실사용 발견 — 재생은 되는데 임베드만 계속 실패).
+test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능한 형태여야 한다", async () => {
+  const mem = new MusicEmbedManager({ players: new Map() });
+  const player = {
+    getCurrentTime: () => 0,
+    queue: [],
+    previousTracks: [],
+    loop: false,
+    shuffle: false,
+    paused: false,
+    isPlaybackActive: () => true,
+    getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false, shuffle: false }),
+  };
+  const base = { title: "Test", url: "https://example.org/a.mp3", duration: 127, platform: "direct" };
+
+  for (const thumbnail of [null, undefined, "", "https://example.org/t.jpg"]) {
+    const container = await mem.createNowPlayingContainer(player, { ...base, thumbnail });
+    // toJSON이 실제 전송 시 도는 검증 — 썸네일이 없을 때 여기서 터졌다
+    const json = container.toJSON();
+    assert.ok(JSON.stringify(json).includes("Test"), `제목이 담겨야 한다 (thumbnail=${thumbnail})`);
+  }
+});
