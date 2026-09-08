@@ -46,6 +46,8 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     played: [],
     releaseAudioProtection() {},
     scheduleStatePersist() {},
+    // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)
+    _trackLabel: MusicPlayer.prototype._trackLabel,
     audioPlayer: { stop() {} },
     async play(_, ms) {
       this.played.push({ title: this.currentTrack?.title, ms });

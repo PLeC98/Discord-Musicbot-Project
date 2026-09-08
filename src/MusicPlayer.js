@@ -6,12 +6,6 @@ const wlog = require("./logger").child({ category: "watchdog" });
 const clog = require("./logger").child({ category: "control" });
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
-// 프로토타입 밖에 둔다 — skip/previous/stop은 테스트가 부분 목에 .call()로 부르므로
-// this의 헬퍼 메서드에 의존하면 깨진다.
-function trackLabel(track) {
-  return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
-}
-
 function isBotOwnedStatus(s) {
   if (!s) return true;
   const cfg = require("../config").voiceStatus;
@@ -678,7 +672,7 @@ class MusicPlayer {
 
   // 워치독 로그용 — 트랙 식별과 길이 출처
   _trackLabel(track = this.currentTrack) {
-    return trackLabel(track);
+    return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
   }
 
   _durationSource() {
@@ -764,7 +758,7 @@ class MusicPlayer {
   pauseFor(reason = null) {
     if (reason) {
       if (!this.pauseReasons.has(reason)) {
-        log.info(`⏸️  일시정지: 사유=${reason} | 누적=[${[...this.pauseReasons, reason].join(", ")}] | ${trackLabel(this.currentTrack)}`);
+        log.info(`⏸️  일시정지: 사유=${reason} | 누적=[${[...this.pauseReasons, reason].join(", ")}] | ${this._trackLabel()}`);
       }
       this.pauseReasons.add(reason);
       this.scheduleStatePersist("pause-update", 200);
@@ -792,7 +786,7 @@ class MusicPlayer {
   resumeFor(reason = null) {
     if (reason) {
       if (this.pauseReasons.has(reason)) {
-        log.info(`▶️  일시정지 해제: 사유=${reason} | 남은 사유=[${[...this.pauseReasons].filter((r) => r !== reason).join(", ") || "없음"}] | ${trackLabel(this.currentTrack)}`);
+        log.info(`▶️  일시정지 해제: 사유=${reason} | 남은 사유=[${[...this.pauseReasons].filter((r) => r !== reason).join(", ") || "없음"}] | ${this._trackLabel()}`);
       }
       this.pauseReasons.delete(reason);
       this.scheduleStatePersist("resume-update", 200);
@@ -825,7 +819,7 @@ class MusicPlayer {
   startInactivityTimer() {
     if (this.inactivityTimer) return;
 
-    log.info(`⏳ 청취자 없음: ${Math.round(this.inactivityTimeoutMs / 1000)}초 뒤 정리 예약 | ${trackLabel(this.currentTrack)}`);
+    log.info(`⏳ 청취자 없음: ${Math.round(this.inactivityTimeoutMs / 1000)}초 뒤 정리 예약 | ${this._trackLabel()}`);
     this.pauseFor("alone");
 
     this.inactivityTimer = setTimeout(
@@ -921,7 +915,7 @@ class MusicPlayer {
   }
 
   stop() {
-    clog.info(`⏹️  정지: ${trackLabel(this.currentTrack)} | 대기열 ${this.queue?.length ?? 0}곡 폐기`);
+    clog.info(`⏹️  정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 폐기`);
     this.updateVoiceStatus("").catch(() => {});
 
     this.sponsorSkipper?.stop();
@@ -981,7 +975,7 @@ class MusicPlayer {
   // reason: "skip"(기본) 또는 "jump"(대기열 점프 — 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
   skip(reason = "skip") {
     if (this.currentTrack) {
-      clog.info(`⏭️  스킵: ${trackLabel(this.currentTrack)} | 사유=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
+      clog.info(`⏭️  스킵: ${this._trackLabel()} | 사유=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
       // 트랙 타이머 정리
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
@@ -998,7 +992,7 @@ class MusicPlayer {
   }
 
   previous() {
-    clog.info(`⏮️  이전곡: ${trackLabel(this.currentTrack)} | 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
+    clog.info(`⏮️  이전곡: ${this._trackLabel()} | 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
     // 한곡 반복 중 이전곡 = 현재 곡 재시작 — 대기열·기록 불변.
     if (this.loop === "track") {
       if (!this.currentTrack) return false;
