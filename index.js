@@ -1,4 +1,4 @@
-require("./src/LogManager"); // intercept console before anything else logs
+const logSink = require("./src/LogManager"); // intercept console before anything else logs
 const log = require("./src/logger").child({ category: "core" });
 const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
 const { getVoiceConnection } = require("@discordjs/voice");
@@ -15,6 +15,15 @@ const DashboardEvents = require("./src/DashboardEvents");
 const chalk = require("chalk");
 const { isPrimaryShard } = require("./src/shardUtil");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
+const { createFileDestination } = require("./src/logFile");
+
+// 파일 로그 마운트 — config를 읽은 직후, 기동 로그가 쏟아지기 전에.
+// 이 지점보다 앞선 레코드(config 검증 경고 등)는 sink가 모아뒀다가 여기서 재생한다.
+const logFile = config.logging.fileEnabled ? createFileDestination(config.logging) : null;
+if (logFile) {
+  logSink.addDestination(logFile.write);
+  log.info(chalk.gray(`🗒️  로그 파일: ${logFile.path}`));
+}
 
 // 슬래시 명령어 배포
 if (isPrimaryShard()) {
@@ -556,6 +565,7 @@ function startBot() {
         // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
         procRegistry.killAll(signal || "shutdown");
 
+        if (logFile) logFile.close();
         process.exit(0);
       };
 

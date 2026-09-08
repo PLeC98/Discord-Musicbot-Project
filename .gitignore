@@ -6,6 +6,7 @@ node_modules/
 dashboard/client/dist/
 bgutil-ytdlp-pot-provider/
 *.log
+logs/
 *.tmp
 original_docs/
 notes/

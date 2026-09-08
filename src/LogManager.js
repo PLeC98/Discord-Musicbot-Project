@@ -45,7 +45,11 @@ class LogManager {
     this.maxLines = maxLines;
     this.buffer = [];
     this.clients = new Set();
-    this.destinations = []; // 미래: file 스트림, 샤드 ipc-forward 등 (레코드를 받는 함수)
+    this.destinations = []; // file(logFile.js), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
+    // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
+    // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다 — 그게 파일에서
+    // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.
+    this.earlyRecords = [];
 
     // 터미널 사정(코드페이지·색·TTY)의 단일 홈.
     this.isTTY = !!process.stdout.isTTY;
@@ -91,11 +95,31 @@ class LogManager {
       }
     }
 
-    for (const dest of this.destinations) {
+    if (this.destinations.length === 0) {
+      if (this.earlyRecords.length < this.maxLines) this.earlyRecords.push(safe);
+    } else {
+      for (const dest of this.destinations) {
+        try {
+          dest(safe); // destinations는 리치 레코드를 받음(구조화 소비 대비 — ANSI도 그대로)
+        } catch {
+          /* destination 오류가 로깅을 막지 않도록 삼킴 */
+        }
+      }
+    }
+  }
+
+  // destination 등록. 첫 등록에 한해 그 이전 레코드를 재생한다(위 earlyRecords 설명).
+  addDestination(dest) {
+    const first = this.destinations.length === 0;
+    this.destinations.push(dest);
+    if (!first) return;
+    const replay = this.earlyRecords;
+    this.earlyRecords = [];
+    for (const rec of replay) {
       try {
-        dest(safe); // destinations는 리치 레코드를 받음(구조화 소비 대비)
+        dest(rec);
       } catch {
-        /* destination 오류가 로깅을 막지 않도록 삼킴 */
+        /* 재생 실패가 기동을 막지 않도록 삼킴 */
       }
     }
   }
