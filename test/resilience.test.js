@@ -5,7 +5,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { VoiceConnectionStatus } = require("@discordjs/voice");
-const { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, fatalShutdown, NET_ERR_MAX } = require("../src/resilience");
+const { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_MAX } = require("../src/resilience");
 
 // ── isTransientNetworkError ──────────────────────────────────
 
@@ -192,4 +192,32 @@ test("안전 종료: client 없음도 exit 호출", () => {
   let exited = 0;
   fatalShutdown(null, new Error("fatal"), () => exited++);
   assert.equal(exited, 1);
+});
+
+// ── Discord API 오류 분류 ─────────────────────────────────────
+
+test("무해한 Discord 오류: 코드별 안내와 로그 등급", () => {
+  assert.equal(ignorableDiscordError({ code: 10062 }).level, "info");
+  assert.equal(ignorableDiscordError({ code: 40060 }).level, "info");
+  assert.equal(ignorableDiscordError({ code: 50013 }).level, "error");
+  assert.match(ignorableDiscordError({ code: 10062 }).message, /10062/);
+});
+
+test("무해한 Discord 오류: 그 외에는 null (알 수 없는 오류로 넘긴다)", () => {
+  assert.equal(ignorableDiscordError({ code: 50035 }), null);
+  assert.equal(ignorableDiscordError(new Error("boom")), null);
+  assert.equal(ignorableDiscordError(null), null);
+  assert.equal(ignorableDiscordError(undefined), null);
+});
+
+test("죽은 상호작용: 토큰 만료·중복 응답만 참", () => {
+  assert.equal(isDeadInteraction({ code: 10062 }), true);
+  assert.equal(isDeadInteraction({ code: 40060 }), true);
+  assert.equal(isDeadInteraction({ code: 50013 }), false);
+  assert.equal(isDeadInteraction(new Error("boom")), false);
+  assert.equal(isDeadInteraction(null), false);
+});
+
+test("빈도 가드는 오류 종류별로 서로 다른 인스턴스다 (카운터 오염 방지)", () => {
+  assert.equal(new Set([networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding]).size, 3);
 });
