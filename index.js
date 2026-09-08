@@ -183,7 +183,7 @@ if (isPrimaryShard()) {
 // ────────────────────────────────────────────────────────────────────────────
 
 // uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료) — src/resilience.js
-const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
+const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
 
 function startBot() {
   const client = new Client({
@@ -330,13 +330,13 @@ function startBot() {
     } catch (error) {
       log.error(chalk.red(`❌ ${interaction.commandName} 명령어 실행 중 오류:`), error);
 
-      const errorMessage = "❌ 명령어 실행 중 오류가 발생했습니다!";
+      // 토큰이 죽었으면(10062/40060) 안내 시도가 곧 두 번째 같은 오류다 — 아무 데도 닿지 않는다.
+      if (isDeadInteraction(error)) return;
 
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: errorMessage, ephemeral: true });
-      } else {
-        await interaction.reply({ content: errorMessage, ephemeral: true });
-      }
+      const payload = { content: "❌ 명령어 실행 중 오류가 발생했습니다!", flags: [1 << 6] };
+      const sending = interaction.replied || interaction.deferred ? interaction.followUp(payload) : interaction.reply(payload);
+      // 안내 실패는 여기서 끝낸다. 리스너 밖으로 던지면 client "error"를 거쳐 uncaughtException이 된다.
+      await sending.catch((err) => log.error(chalk.red("❌ 오류 안내 전송 실패:"), err.message));
     }
   });
 
@@ -441,31 +441,43 @@ function startBot() {
 
   // 프로세스 종료는 init() 내부에 등록된 gracefulShutdown에 의해 처리
 
+  // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정 — client "error"와 unhandledRejection이 같은 기준을 쓴다.
+  // true = 알려진 오류라 처리 완료, false = 알 수 없음(호출부가 빈도 가드로 판단).
+  const handleLooseError = (error, source) => {
+    const known = ignorableDiscordError(error);
+    if (known) {
+      if (known.level === "error") log.error(chalk.red(known.message));
+      else log.info(chalk.yellow(known.message));
+      return true;
+    }
+
+    // 일시적 네트워크/음성 오류(IP discovery 실패 등) — 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
+    if (isTransientNetworkError(error)) {
+      log.info(chalk.yellow(`⚠️ 네트워크/음성 오류(${source}): 연결이 끊긴 서버만 복구합니다.`));
+      healBrokenPlayers(client).catch(() => {});
+      return true;
+    }
+    return false;
+  };
+
+  // discord.js v14의 AsyncEventEmitter는 async 리스너의 rejection을 잡아 client "error"로 다시 던진다.
+  // 리스너가 없으면 그 throw가 타이머 콜백에서 터져 unhandledRejection이 아니라 uncaughtException이 되고,
+  // 알 수 없는 오류는 곧바로 안전 종료로 간다 — 리스너 하나의 사소한 rejection이 봇 전체를 내린다.
+  client.on(Events.Error, (error) => {
+    log.error(chalk.red("❌ 클라이언트 오류:"), error);
+    if (handleLooseError(error, "client")) return;
+
+    if (unknownClientErrorFlooding()) {
+      log.error(chalk.red(`🛑 알 수 없는 클라이언트 오류가 ${NET_ERR_WINDOW_MS / 1000}초 내 ${NET_ERR_MAX}회 초과 — 시스템적 이상으로 판단합니다.`));
+      fatalShutdown(client, error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+
   // 오류 처리
   process.on("unhandledRejection", (reason, promise) => {
     log.error(chalk.red("❌ Unhandled Rejection at:"), promise, chalk.red("reason:"), reason);
 
-    // 디스코드 API 오류 처리
-    if (reason && reason.code) {
-      switch (reason.code) {
-        case 10062: // 알 수 없는 상호 작용 - Unknown interaction
-          log.info(chalk.yellow("ℹ️ 만료된 상호작용입니다 (10062 Unknown interaction)"));
-          return;
-        case 40060: // 이미 처리된 상호작용 - Interaction already acknowledged
-          log.info(chalk.yellow("ℹ️ 이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)"));
-          return;
-        case 50013: // 권한 부족 - Missing permissions
-          log.error(chalk.red("❌ 해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)"));
-          return;
-      }
-    }
-
-    // 일시적 네트워크/음성 오류(IP discovery 실패 등) — 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
-    if (isTransientNetworkError(reason)) {
-      log.info(chalk.yellow("⚠️ 네트워크/음성 오류(rejection): 연결이 끊긴 서버만 복구합니다."));
-      healBrokenPlayers(client).catch(() => {});
-      return;
-    }
+    if (handleLooseError(reason, "rejection")) return;
 
     // 알 수 없는 rejection — 단발은 위 로그만 남기고 계속(사소한 catch 누락이 봇 전체 다운으로
     // 번지지 않게). 짧은 시간창에 반복되면 좀비 루프/시스템적 이상으로 보고 안전 종료
@@ -480,7 +492,7 @@ function startBot() {
     log.error(chalk.red("❌ 처리되지 않은 예외:"), error);
 
     // Discord 상호작용 오류 — 무해, 계속
-    if (error.code === 10062 || error.code === 40060) {
+    if (isDeadInteraction(error)) {
       log.info(chalk.yellow("ℹ️ Discord interaction error handled, continuing..."));
       return;
     }
