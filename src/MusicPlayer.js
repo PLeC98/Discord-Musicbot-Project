@@ -1,5 +1,7 @@
 const { AudioPlayerStatus, createAudioPlayer, createAudioResource, StreamType } = require("@discordjs/voice");
 const log = require("./logger").child({ category: "player" });
+// 워치독·상태 전이는 재생 로그와 섞이면 묻힌다 — 대시보드에서도 별도 필터가 생긴다
+const wlog = require("./logger").child({ category: "watchdog" });
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
 function isBotOwnedStatus(s) {
@@ -151,6 +153,27 @@ class MusicPlayer {
 
     this.audioPlayer.on(AudioPlayerStatus.Idle, () => {
       this.onPlayerIdle("idle");
+    });
+
+    // 내장 방어(maxMissedFrames)는 Playing 중에만 돈다. Buffering에서 데이터도 오류도 끝도
+    // 오지 않으면 아무도 깨우지 않는다 — 지금 그 구간에 대한 가시성이 0이라 관측만 붙인다.
+    this.audioPlayer.on("stateChange", (oldState, newState) => {
+      if (oldState.status === newState.status) return;
+
+      if (oldState.status === AudioPlayerStatus.Buffering) {
+        const heldMs = this._bufferingSince ? Date.now() - this._bufferingSince : null;
+        this._clearBufferingWatch();
+        if (heldMs !== null) {
+          const line = `🎚 상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
+          if (heldMs >= 3000) wlog.warn(`${line} ← 오래 걸림`);
+          else wlog.info(line);
+        }
+        return;
+      }
+
+      wlog.info(`🎚 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
+
+      if (newState.status === AudioPlayerStatus.Buffering) this._startBufferingWatch();
     });
 
     this.audioPlayer.on("error", (error) => {
@@ -575,12 +598,12 @@ class MusicPlayer {
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
-      log.info(`🕒 워치독 예약: ${this._trackLabel()} | 길이 ${durationSeconds}s(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}s | ${Math.round(timeoutMs / 1000)}s 뒤 확인`);
+      wlog.info(`🕒 워치독 예약: ${this._trackLabel()} | 길이 ${durationSeconds}s(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}s | ${Math.round(timeoutMs / 1000)}s 뒤 확인`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
       // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
       this.expectedTrackEndTs = null;
-      log.warn(`🕒 워치독 예약: ${this._trackLabel()} | 길이 모름 → 5분 폴백 (이 경로는 깨어나는 즉시 정지시킨다)`);
+      wlog.warn(`🕒 워치독 예약: ${this._trackLabel()} | 길이 모름 → 5분 폴백 (이 경로는 깨어나는 즉시 정지시킨다)`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 5 * 60 * 1000);
     }
   }
@@ -625,6 +648,26 @@ class MusicPlayer {
     return `${url}${separator}begin=${startMs}`;
   }
 
+  // Buffering이 안 끝나면 아무 이벤트도 안 온다 — 경과만 주기적으로 남긴다(동작 없음)
+  _startBufferingWatch() {
+    this._clearBufferingWatch();
+    this._bufferingSince = Date.now();
+    let logged = 0;
+    this._bufferingTimer = setInterval(() => {
+      const sec = ((Date.now() - this._bufferingSince) / 1000).toFixed(0);
+      wlog.warn(`⏳ 버퍼링 지속 ${sec}s: ${this._trackLabel()} | 아직 Playing에 못 들어감`);
+      if (++logged >= 20) this._clearBufferingWatch(); // 무한 도배 방지
+    }, 15000);
+    this._bufferingTimer.unref?.();
+  }
+
+  _clearBufferingWatch() {
+    if (this._bufferingTimer) {
+      clearInterval(this._bufferingTimer);
+      this._bufferingTimer = null;
+    }
+  }
+
   // 워치독 로그용 — 트랙 식별과 길이 출처
   _trackLabel(track = this.currentTrack) {
     return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
@@ -640,7 +683,7 @@ class MusicPlayer {
   _logWatchdogOnce(line) {
     if (this._lastWatchdogLine === line) return;
     this._lastWatchdogLine = line;
-    log.info(line);
+    wlog.info(line);
   }
 
   ensureTrackCompletion() {
@@ -658,13 +701,13 @@ class MusicPlayer {
 
       if (durationMs > 0 && playbackMs + 1500 < durationMs) {
         const remainingMs = Math.max(durationMs - playbackMs, 2000);
-        log.info(`👁 워치독 확인: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs / 1000}s → 아직 남음, ${Math.round(remainingMs / 1000)}s 뒤 재확인`);
+        wlog.info(`👁 워치독 확인: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs / 1000}s → 아직 남음, ${Math.round(remainingMs / 1000)}s 뒤 재확인`);
         this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), remainingMs);
         return;
       }
 
       // 여기서 stop()을 부르면 Idle이 발생해 다음 곡으로 넘어간다. 워치독이 실제로 "일을 한" 유일한 지점.
-      log.warn(`⛔ 워치독이 트랙을 정지시킴: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"} | 길이출처=${this._durationSource()}`);
+      wlog.warn(`⛔ 워치독이 트랙을 정지시킴: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"} | 길이출처=${this._durationSource()}`);
 
       // Idle을 발생시키고 생명주기 핸들러가 실행되도록 정상 중지
       if (!this.pendingEndReason) {
@@ -677,7 +720,7 @@ class MusicPlayer {
 
     if (status === AudioPlayerStatus.Idle || status === AudioPlayerStatus.AutoPaused) {
       // Idle 핸들러가 처리하므로 할 일 없음
-      log.info(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} → Idle 핸들러에 맡기고 종료`);
+      wlog.info(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} → Idle 핸들러에 맡기고 종료`);
       this.trackTimer = null;
       return;
     }
@@ -850,6 +893,8 @@ class MusicPlayer {
       clearTimeout(this.trackTimer);
       this.trackTimer = null;
     }
+
+    this._clearBufferingWatch();
   }
 
   // 재생 중 트랙의 캐시 퇴거 보호 해제 — currentTrack이 이미 null이어도 기억된 키로 해제
