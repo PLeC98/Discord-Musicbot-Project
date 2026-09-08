@@ -207,3 +207,15 @@ test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치�
 
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+// 이 모듈은 `module.exports = new CacheManager()`로 인스턴스를 내보낸다. static 메서드는
+// 인스턴스에 없으므로 외부 호출자에게 undefined다 — md5가 static이라 직접 링크 재생이
+// "CacheManager.md5 is not a function"으로 통째로 죽어 있었다(2026-09-08 실사용 발견).
+test("외부 호출자가 쓰는 메서드는 내보낸 인스턴스에서 호출 가능해야 한다", () => {
+  for (const name of ["md5", "getFilePath", "resolveFromCache", "getResolvedKey", "removeResolution"]) {
+    assert.equal(typeof CacheManager[name], "function", `CacheManager.${name}`);
+  }
+
+  assert.equal(CacheManager.md5("x"), "9dd4e461268c8034f5c8564e155c67a6");
+  assert.match(CacheManager.getFilePath("dl:abc"), /track_[0-9a-f]{32}\.opus$/);
+});
