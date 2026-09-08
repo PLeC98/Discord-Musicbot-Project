@@ -18,6 +18,7 @@ const TrackResolver = require("./TrackResolver");
 const SponsorBlock = require("./SponsorBlock");
 const SponsorSkipper = require("./SponsorSkipper");
 const DirectLink = require("./DirectLink");
+const { openChunkedStream, contentLengthFromUrl } = require("./chunkedStream");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
 const TrackDownloader = require("./TrackDownloader");
@@ -404,15 +405,23 @@ class MusicPlayer {
             } else {
               // 오프셋 재생이면 begin= 없는 원본 URL을 받아 `-ss`가 단독으로 위치를 정하게 한다(이중 seek 방지).
               const fetchUrl = resumeFromMs > 0 && streamInfo?.rawUrl ? streamInfo.rawUrl : streamUrl_final;
-              const response = await fetch(fetchUrl, {
-                headers: streamInfo?.httpHeaders || {
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                },
-              });
+              const reqHeaders = streamInfo?.httpHeaders || {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              };
 
-              if (!response.ok) throw new Error(`Failed to fetch stream: ${response.status}`);
+              // 전체 길이를 알면 Range로 나눠 받는다 — 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
+              // 길이를 모르는 입력(라이브 스트림 등)은 나눌 수가 없으므로 예전 방식 그대로.
+              const totalBytes = config.stream.chunked ? contentLengthFromUrl(fetchUrl) : null;
+              if (totalBytes) {
+                // await로 첫 요청까지 여기서 끝낸다 — 실패가 아래 catch의 캐시 폴백으로 가도록
+                audioStream = await openChunkedStream({ url: fetchUrl, headers: reqHeaders, totalBytes, chunkSize: config.stream.chunkBytes });
+              } else {
+                const response = await fetch(fetchUrl, { headers: reqHeaders });
 
-              audioStream = typeof response.body?.getReader === "function" && typeof Readable.fromWeb === "function" ? Readable.fromWeb(response.body) : response.body;
+                if (!response.ok) throw new Error(`Failed to fetch stream: ${response.status}`);
+
+                audioStream = typeof response.body?.getReader === "function" && typeof Readable.fromWeb === "function" ? Readable.fromWeb(response.body) : response.body;
+              }
             }
           } catch (fetchError) {
             // 스트리밍 실패 — 위에서 시작한 백그라운드 다운로드로 폴백

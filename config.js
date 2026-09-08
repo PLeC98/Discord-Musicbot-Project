@@ -202,6 +202,12 @@ module.exports = {
   },
 
   // 샤딩 설정 (for bots in 1000+ servers)
+  // 재생 스트림 수신 — googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/chunkedStream.js).
+  stream: {
+    chunked: env("STREAM_CHUNKED", "true") !== "false",
+    chunkBytes: envInt("STREAM_CHUNK_KB", 1024, { min: 64, max: 65536 }) * 1024,
+  },
+
   // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다 — 사후 분석용.
   logging: {
     fileEnabled: env("LOG_FILE_ENABLED", "true") !== "false",
