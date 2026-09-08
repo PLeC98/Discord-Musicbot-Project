@@ -2,7 +2,15 @@ const { AudioPlayerStatus, createAudioPlayer, createAudioResource, StreamType } 
 const log = require("./logger").child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다 — 대시보드에서도 별도 필터가 생긴다
 const wlog = require("./logger").child({ category: "watchdog" });
+// 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
+const clog = require("./logger").child({ category: "control" });
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+
+// 프로토타입 밖에 둔다 — skip/previous/stop은 테스트가 부분 목에 .call()로 부르므로
+// this의 헬퍼 메서드에 의존하면 깨진다.
+function trackLabel(track) {
+  return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
+}
 
 function isBotOwnedStatus(s) {
   if (!s) return true;
@@ -670,7 +678,7 @@ class MusicPlayer {
 
   // 워치독 로그용 — 트랙 식별과 길이 출처
   _trackLabel(track = this.currentTrack) {
-    return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
+    return trackLabel(track);
   }
 
   _durationSource() {
@@ -755,6 +763,9 @@ class MusicPlayer {
 
   pauseFor(reason = null) {
     if (reason) {
+      if (!this.pauseReasons.has(reason)) {
+        log.info(`⏸️  일시정지: 사유=${reason} | 누적=[${[...this.pauseReasons, reason].join(", ")}] | ${trackLabel(this.currentTrack)}`);
+      }
       this.pauseReasons.add(reason);
       this.scheduleStatePersist("pause-update", 200);
     }
@@ -780,6 +791,9 @@ class MusicPlayer {
 
   resumeFor(reason = null) {
     if (reason) {
+      if (this.pauseReasons.has(reason)) {
+        log.info(`▶️  일시정지 해제: 사유=${reason} | 남은 사유=[${[...this.pauseReasons].filter((r) => r !== reason).join(", ") || "없음"}] | ${trackLabel(this.currentTrack)}`);
+      }
       this.pauseReasons.delete(reason);
       this.scheduleStatePersist("resume-update", 200);
     }
@@ -811,6 +825,7 @@ class MusicPlayer {
   startInactivityTimer() {
     if (this.inactivityTimer) return;
 
+    log.info(`⏳ 청취자 없음: ${Math.round(this.inactivityTimeoutMs / 1000)}초 뒤 정리 예약 | ${trackLabel(this.currentTrack)}`);
     this.pauseFor("alone");
 
     this.inactivityTimer = setTimeout(
@@ -822,6 +837,7 @@ class MusicPlayer {
         const hasListeners = channel ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
 
         if (hasListeners) {
+          log.info("⏳ 청취자 복귀 — 정리 취소");
           this.resumeFor("alone");
           const embedManager = this.guild?.client?.musicEmbedManager;
           if (embedManager) {
@@ -905,6 +921,7 @@ class MusicPlayer {
   }
 
   stop() {
+    clog.info(`⏹️  정지: ${trackLabel(this.currentTrack)} | 대기열 ${this.queue?.length ?? 0}곡 폐기`);
     this.updateVoiceStatus("").catch(() => {});
 
     this.sponsorSkipper?.stop();
@@ -964,6 +981,7 @@ class MusicPlayer {
   // reason: "skip"(기본) 또는 "jump"(대기열 점프 — 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
   skip(reason = "skip") {
     if (this.currentTrack) {
+      clog.info(`⏭️  스킵: ${trackLabel(this.currentTrack)} | 사유=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
       // 트랙 타이머 정리
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
@@ -980,6 +998,7 @@ class MusicPlayer {
   }
 
   previous() {
+    clog.info(`⏮️  이전곡: ${trackLabel(this.currentTrack)} | 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
     // 한곡 반복 중 이전곡 = 현재 곡 재시작 — 대기열·기록 불변.
     if (this.loop === "track") {
       if (!this.currentTrack) return false;
@@ -1021,7 +1040,9 @@ class MusicPlayer {
   }
 
   setVolume(volume) {
+    const before = this.volume;
     this.volume = Math.max(0, Math.min(100, volume));
+    if (before !== this.volume) clog.info(`🔊 볼륨: ${before} → ${this.volume}`);
     if (this.resource && this.resource.volume) {
       this.resource.volume.setVolume(this.volume / 100);
     }
@@ -1031,6 +1052,7 @@ class MusicPlayer {
 
   shuffleQueue() {
     if (this.queue.length > 1) {
+      clog.info(`🔀 대기열 섞음: ${this.queue.length}곡`);
       for (let i = this.queue.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
@@ -1043,6 +1065,7 @@ class MusicPlayer {
 
   setLoop(mode) {
     // 모드: false, 'track', 'queue'
+    if (this.loop !== mode) clog.info(`🔁 반복: ${this.loop || "off"} → ${mode || "off"}`);
     this.loop = mode;
     this.scheduleStatePersist("loop", 200);
     return this.loop;
@@ -1056,6 +1079,7 @@ class MusicPlayer {
 
   clearQueue() {
     const cleared = this.queue.length;
+    if (cleared) clog.info(`🗑  대기열 비움: ${cleared}곡`);
     this.queue = [];
     this.scheduleStatePersist("clear-queue", 0);
     return cleared;
@@ -1064,6 +1088,7 @@ class MusicPlayer {
   removeFromQueue(index) {
     if (index >= 0 && index < this.queue.length) {
       const removed = this.queue.splice(index, 1)[0];
+      clog.info(`➖ 대기열 제거: [${index}] "${removed?.title ?? "?"}" | 남은 ${this.queue.length}곡`);
       this.scheduleStatePersist("queue-remove", 200);
       return removed;
     }
@@ -1074,6 +1099,7 @@ class MusicPlayer {
     if (from >= 0 && from < this.queue.length && to >= 0 && to < this.queue.length) {
       const track = this.queue.splice(from, 1)[0];
       this.queue.splice(to, 0, track);
+      clog.info(`↕️  대기열 이동: ${from} → ${to} "${track?.title ?? "?"}"`);
       this.scheduleStatePersist("queue-move", 200);
       return true;
     }

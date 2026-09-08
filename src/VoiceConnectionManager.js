@@ -17,20 +17,27 @@ class VoiceConnectionManager {
     const player = this.player;
     if (!player.connection) return;
 
+    const label = () => `"${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id})`;
+
     player.connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
       // 이미 복구 중이거나 사용자가 봇 연결을 끊은 경우 복구를 트리거하지 않음
       if (player.isRecovering || newState.reason === "Manual disconnect") {
+        log.info(`🔌 연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 복구 안 함 (${player.isRecovering ? "이미 복구 중" : "수동 해제"})`);
         return;
       }
 
       // 네트워크 연결 끊김에는 즉시 자동 재연결 시도
+      log.warn(`🔌 연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 자동 재연결 대기`);
       try {
         await entersState(player.connection, VoiceConnectionStatus.Connecting, 5000);
         // 여기에 도달하면 Discord가 자동 재연결을 시도 중임
         await entersState(player.connection, VoiceConnectionStatus.Ready, 10000);
+        log.info(`🔌 자동 재연결 성공: ${label()}`);
       } catch (error) {
         // 자동 재연결 실패, 음악 재생 중이면 자체 복구 시스템 시작
-        if (player.currentTrack && !player.paused) {
+        const willRecover = !!player.currentTrack && !player.paused;
+        log.warn(`🔌 자동 재연결 실패: ${label()} | ${willRecover ? "자체 복구 시작" : "재생 중이 아니라 복구 안 함"}`);
+        if (willRecover) {
           this.startConnectionRecovery();
         }
       }
@@ -38,7 +45,9 @@ class VoiceConnectionManager {
 
     player.connection.on(VoiceConnectionStatus.Destroyed, () => {
       // 음악이 재생 중이고 아직 복구 중이 아닐 때만 복구 시작
-      if (player.currentTrack && !player.paused && !player.isRecovering) {
+      const willRecover = !!player.currentTrack && !player.paused && !player.isRecovering;
+      log.info(`🔌 연결 파기됨: ${label()}${willRecover ? " | 재생 중이라 복구 시작" : ""}`);
+      if (willRecover) {
         this.startConnectionRecovery();
       }
     });
@@ -50,11 +59,15 @@ class VoiceConnectionManager {
       }
     });
 
-    // 연결 상태 변경 모니터링
+    // 연결 상태 변경 모니터링. 전이를 남겨야 "언제 왜 끊겼는지"를 사후에 따라갈 수 있다.
     player.connection.on("stateChange", (oldState, newState) => {
+      if (oldState.status !== newState.status) {
+        log.info(`🔗 연결 상태: ${oldState.status} → ${newState.status} | ${label()}`);
+      }
       if (newState.status === VoiceConnectionStatus.Ready) {
         // 연결 복구 성공
         if (player.isRecovering) {
+          log.info(`✅ 연결 복구 완료: ${label()} | 시도 ${player.recoveryAttempts}회`);
           this.stopConnectionRecovery();
         }
         player.recoveryAttempts = 0;
@@ -82,6 +95,7 @@ class VoiceConnectionManager {
           // 클라이언트 레지스트리에서도 제거 — 정리된 플레이어를
           // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
           // 이 서버는 재시작 전까지 계속 막힘
+          log.warn(`🩺 헬스체크: 음성 채널을 찾을 수 없어 플레이어를 정리합니다 (${player.guild?.name ?? player.guild?.id})`);
           player.cleanup(false, "헬스체크: 음성 채널을 찾을 수 없음");
           const clientInstance = player.guild?.client;
           if (clientInstance?.players?.get(player.guild.id) === player) {
@@ -102,6 +116,8 @@ class VoiceConnectionManager {
     player.isRecovering = true;
     player.recoveryAttempts = 0;
 
+    log.warn(`🛠 연결 복구 시작: "${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id}) | 최대 ${player.maxRecoveryAttempts}회`);
+
     // 현재 재생 위치 저장
     this.savePlaybackPosition();
 
@@ -114,12 +130,18 @@ class VoiceConnectionManager {
     try {
       while (active()) {
         player.recoveryAttempts++;
-        if (player.recoveryAttempts > player.maxRecoveryAttempts) break;
+        if (player.recoveryAttempts > player.maxRecoveryAttempts) {
+          log.error(`🛠 연결 복구 포기: 최대 시도(${player.maxRecoveryAttempts})를 넘었습니다`);
+          break;
+        }
 
         try {
           // 음성 채널이 아직 존재하는지 확인
           const channel = player.voiceChannel?.id ? player.guild.channels.cache.get(player.voiceChannel.id) : null;
-          if (!channel) break;
+          if (!channel) {
+            log.warn("🛠 연결 복구 중단: 음성 채널을 찾을 수 없음");
+            break;
+          }
 
           // 재연결 시도 — 완료(성공/실패/15초 타임아웃)까지 기다린 뒤에만 다음 단계로
           const reconnected = await this.forceReconnect();
@@ -285,6 +307,7 @@ class VoiceConnectionManager {
         });
 
         await entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
+        log.info(`🔀 음성 채널 이동: "${newChannel.name ?? newChannel.id}" (${player.guild?.name ?? player.guild?.id})`);
         return true;
       } catch (error) {
         log.error("❌ Failed to rejoin new voice channel:", error);
