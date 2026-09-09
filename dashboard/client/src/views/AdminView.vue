@@ -18,7 +18,7 @@
       </div>
 
       <div v-show="tab === 'status'">
-        <p class="pl-2 text-muted mb-3 text-[0.85rem]">10초마다 자동 갱신</p>
+        <p class="pl-2 text-muted mb-3 text-[0.85rem]">3초마다 자동 갱신 · 탭을 벗어나면 멈춤</p>
         <!-- auto-fill은 중간 폭에서 2/1로 갈라져 빈칸이 남는다. 카드가 4개이므로 2열로 못박아 2/2, 좁으면 1열. -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-3 mb-3">
           <!-- Bot -->
@@ -559,7 +559,8 @@ watch(
 // 다른 탭에 있는 동안 로그 뷰어는 display:none이라 scrollTop 지정이 먹지 않는다(scrollHeight가 0).
 // 그동안 쌓인 만큼은 돌아왔을 때 다시 맞춰준다.
 watch(tab, (t) => {
-  if (t === "status" && autoScroll.value) scrollLogsToEnd();
+  if (t === "logs" && autoScroll.value) scrollLogsToEnd();
+  poll(); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
 });
 
 function connectSSE() {
@@ -578,16 +579,21 @@ function connectSSE() {
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
-// status는 실시간 값(uptime·메모리·ping)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
-// 다만 탭이 숨으면(아무도 안 보면) 폴링을 멈추고, 다시 보이면 즉시 1회 갱신 후 재개한다.
+// status는 실시간 값(uptime·메모리·자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
+// 디스코드 rate limit과 무관하고(우리 Express만 친다) 보는 사람이 운영자 한 명이라 주기를
+// 좁혀도 부담이 없다 — 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
+//
+// 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
+// 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
+const POLL_MS = 3000;
 let timer = null;
 let visHandler = null;
 function poll() {
-  fetchStatus();
-  fetchGuilds();
+  if (tab.value === "status") fetchStatus();
+  else if (tab.value === "guilds") fetchGuilds();
 }
 function startPoll() {
-  if (!timer) timer = setInterval(poll, 10000);
+  if (!timer) timer = setInterval(poll, POLL_MS);
 }
 function stopPoll() {
   if (timer) {
@@ -596,7 +602,9 @@ function stopPoll() {
   }
 }
 onMounted(() => {
-  poll();
+  // 첫 진입만은 탭과 무관하게 둘 다 받는다 — 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
+  fetchStatus();
+  fetchGuilds();
   visHandler = () => {
     if (document.hidden) stopPoll();
     else {
