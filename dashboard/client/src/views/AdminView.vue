@@ -19,7 +19,8 @@
 
       <div v-show="tab === 'status'">
         <p class="pl-2 text-muted mb-3 text-[0.85rem]">10초마다 자동 갱신</p>
-        <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3 gap-y-3 mb-3">
+        <!-- auto-fill은 중간 폭에서 2/1로 갈라져 빈칸이 남는다. 카드가 4개이므로 2열로 못박아 2/2, 좁으면 1열. -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-3 mb-3">
           <!-- Bot -->
           <BaseCard icon="robot" title="봇 상태">
             <div :class="statRow">
@@ -70,6 +71,29 @@
           </BaseCard>
 
           <!-- Shard -->
+          <!-- 자식 프로세스 — 재생 ffmpeg는 곡이 끝나면 사라져야 한다.
+               오래 남아 있으면 정리 사슬이 끊긴 것이므로 나이를 강조해서 보여준다. -->
+          <BaseCard icon="terminal" title="자식 프로세스">
+            <div :class="statRow">
+              <span>총 개수</span><strong>{{ s.processes.total }}</strong>
+            </div>
+            <div v-for="p in s.processes.byLabel" :key="p.label" :class="statRow">
+              <span>{{ p.label }}</span
+              ><strong>{{ p.count }}</strong>
+            </div>
+            <div v-if="s.processes.total === 0" :class="statRow">
+              <span class="text-muted">떠 있는 프로세스 없음</span>
+            </div>
+            <div v-if="s.processes.oldest.length" class="mt-2 pt-2 border-t border-white/7">
+              <div v-for="p in s.processes.oldest" :key="p.pid" :class="statRow">
+                <span class="font-mono text-[0.78rem]"
+                  >{{ p.label }}<span class="text-muted"> #{{ p.pid }}</span></span
+                >
+                <span :class="procAgeClass(p.ageMs)">{{ fmtAge(p.ageMs) }}</span>
+              </div>
+            </div>
+          </BaseCard>
+
           <BaseCard v-if="s.shards" icon="shuffle" title="샤드">
             <div :class="statRow">
               <span>샤드 ID</span><span>{{ s.shards.ids?.join(", ") }}</span>
@@ -79,7 +103,9 @@
             </div>
           </BaseCard>
         </div>
+      </div>
 
+      <div v-show="tab === 'logs'">
         <!-- Log viewer -->
         <BaseCard class="mb-3">
           <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
@@ -240,6 +266,7 @@ import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
 // 첫 탭으로 튕기면 쓰기 나쁘다.
 const TABS = [
   { id: "status", label: "봇 상태", icon: "robot" },
+  { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
@@ -302,6 +329,7 @@ const s = ref({
   system: { cpus: 0, totalMem: 0, freeMem: 0, loadAvg: [] },
   shards: null,
   activePlayers: 0,
+  processes: { total: 0, byLabel: [], oldest: [] },
 });
 
 const bType = ref("maintenance");
@@ -315,6 +343,21 @@ const types = [
   { value: "alert", label: "긴급" },
   { value: "info", label: "공지" },
 ];
+
+// 재생 ffmpeg는 곡 길이를 넘기지 않아야 한다. 그보다 오래 살아 있으면 정리가 안 된 것.
+function procAgeClass(ms) {
+  if (ms > 30 * 60 * 1000) return "text-danger";
+  if (ms > 10 * 60 * 1000) return "text-warning";
+  return "text-muted";
+}
+
+function fmtAge(ms) {
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}초`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}분 ${sec % 60}초`;
+  return `${Math.floor(min / 60)}시간 ${min % 60}분`;
+}
 
 function pingClass(p) {
   if (p < 100) return "text-success";

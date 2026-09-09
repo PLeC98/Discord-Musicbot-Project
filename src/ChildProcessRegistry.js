@@ -52,7 +52,7 @@ function register(child, label = "child", { group = false } = {}) {
   const pid = child && child.pid;
   if (!Number.isInteger(pid) || pid <= 1) return () => {};
   install();
-  active.set(pid, { pid, label, group, child });
+  active.set(pid, { pid, label, group, child, startedAt: Date.now() });
   return () => active.delete(pid);
 }
 
@@ -120,4 +120,17 @@ function size() {
   return active.size;
 }
 
-module.exports = { register, killAll, size, install, _internals: { active, killTree, _isAlive } };
+/**
+ * 지금 살아 있는 자식 프로세스 목록 — 운영자 패널 모니터링용.
+ * 오래 살아 있는 항목이 곧 새는 신호다(재생 ffmpeg는 곡 길이를 넘기지 않아야 한다).
+ * @returns {Array<{pid:number,label:string,ageMs:number}>} 오래된 것부터
+ */
+function list() {
+  const now = Date.now();
+  return [...active.values()]
+    .filter((e) => _isAlive(e.child))
+    .map((e) => ({ pid: e.pid, label: e.label, ageMs: now - e.startedAt }))
+    .sort((a, b) => b.ageMs - a.ageMs);
+}
+
+module.exports = { register, killAll, size, list, install, _internals: { active, killTree, _isAlive } };

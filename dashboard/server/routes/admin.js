@@ -7,6 +7,7 @@ const router = express.Router();
 const requireOwner = require("../middleware/requireOwner");
 const os = require("os");
 const logManager = require("../../../src/LogManager");
+const procRegistry = require("../../../src/ChildProcessRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
 
 // Bot/Node/System/Shard status
@@ -52,6 +53,20 @@ router.get("/status", requireOwner, (req, res) => {
         }
       : null,
     activePlayers: client?.players?.size || 0,
+    // 자식 프로세스(ffmpeg/yt-dlp) — 오래 살아 있는 항목이 새는 신호다.
+    // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.
+    processes: (() => {
+      const all = procRegistry.list();
+      const byLabel = {};
+      for (const p of all) byLabel[p.label] = (byLabel[p.label] || 0) + 1;
+      return {
+        total: all.length,
+        byLabel: Object.entries(byLabel)
+          .map(([label, count]) => ({ label, count }))
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+        oldest: all.slice(0, 8),
+      };
+    })(),
   });
 });
 
