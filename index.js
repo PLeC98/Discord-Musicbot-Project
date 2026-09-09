@@ -14,7 +14,6 @@ const { resolveGuildForRestore } = require("./src/sessionRestore");
 const DashboardEvents = require("./src/DashboardEvents");
 const PlayerRegistry = require("./src/playerRegistry");
 const chalk = require("chalk");
-const { isPrimaryShard } = require("./src/shardUtil");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/logFile");
 
@@ -27,7 +26,7 @@ if (logFile) {
 }
 
 // 슬래시 명령어 배포
-if (isPrimaryShard()) {
+{
   const { deployCommands, deployErrorLines } = require("./src/commandLoader");
   log.info("🚀 슬래시 명령어 배포를 시작합니다.");
   deployCommands().then((r) => {
@@ -35,8 +34,6 @@ if (isPrimaryShard()) {
     else if (r.ok) log.info(chalk.green(`✅ ${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
     else deployErrorLines(r).forEach((line) => log.error(chalk.red(line)));
   });
-} else {
-  log.info({ sub: "commands" }, "⏭️  대표 샤드가 아니므로 명령어 배포를 건너뜁니다.");
 }
 
 // Initialize CacheManager DB and clean up orphaned files on startup
@@ -184,12 +181,7 @@ async function waitForBgutilReady(timeoutMs = 30000) {
   return false;
 }
 
-// bgutil POToken 서버는 호스트 포트(127.0.0.1:4416) 1개를 점유하므로 대표 샤드에서만 기동.
-if (isPrimaryShard()) {
-  startBgutilServer();
-} else {
-  log.info(chalk.gray("⏭️  [bgutil] 대표 샤드가 아니므로 POToken 서버를 기동하지 않습니다."));
-}
+startBgutilServer();
 // ────────────────────────────────────────────────────────────────────────────
 
 // uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료) — src/resilience.js
@@ -200,8 +192,6 @@ function startBot() {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
     // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/mentions.js)
     allowedMentions: ALLOWED_MENTIONS,
-    // ShardingManager automatically sets shard ID and count via environment variables
-    // No need to specify shards/shardCount here - they are auto-injected
   });
 
   // Collections for commands and music players
@@ -212,9 +202,8 @@ function startBot() {
   const MusicEmbedManager = require("./src/MusicEmbedManager");
   client.musicEmbedManager = new MusicEmbedManager(client);
 
-  // Start dashboard server — 웹 포트 1개를 점유하므로 대표 샤드에서만.
-  // ⚠️ 현재 대시보드는 자기 프로세스의 client.players/guilds만 보므로, 샤딩 시 대표 샤드가 소유하지 않은 서버는 대시보드에 안 보이거나 조작이 안 된다. 차후 해결 예정.
-  if (isPrimaryShard()) {
+  // Start dashboard server
+  {
     const { startDashboard } = require("./dashboard/server/index");
     startDashboard(client);
   }
@@ -277,27 +266,8 @@ function startBot() {
 
   // Basic ready event
   client.once(Events.ClientReady, async () => {
-    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? 0}`] }, chalk.green(`✅ ${client.user.tag} is online and ready!`));
-    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? 0}`] }, chalk.cyan(`🎵 Music bot serving ${client.guilds.cache.size} servers on this shard!`));
-
-    // Log total guild count across all shards (only if running with sharding)
-    // Wait a bit to ensure all shards are ready before fetching
-    if (client.shard) {
-      setTimeout(() => {
-        client.shard
-          .fetchClientValues("guilds.cache.size")
-          .then((results) => {
-            const totalGuilds = results.reduce((acc, guildCount) => acc + guildCount, 0);
-            log.info({ tags: [`shard${client.shard.ids[0]}`] }, chalk.magenta(`🌐 Total servers across all shards: ${totalGuilds}`));
-          })
-          .catch((err) => {
-            // Silently fail if shards are still spawning
-            if (!err.message.includes("still being spawned")) {
-              log.error(chalk.red("전체 서버 수 조회 오류:"), err);
-            }
-          });
-      }, 10000); // 다른 샤드들이 준비될 때까지 10초간 대기
-    }
+    log.info(chalk.green(`✅ ${client.user.tag} is online and ready!`));
+    log.info(chalk.cyan(`🎵 Music bot serving ${client.guilds.cache.size} servers!`));
 
     // Set bot activity
     const StatusManager = require("./src/StatusManager");
@@ -306,22 +276,17 @@ function startBot() {
       client.statusManager.start();
     }
 
-    // Don't restore here in sharded mode - wait for shard manager to broadcast
-    // For non-sharded mode, restore immediately
-    if (!client.shard) {
-      log.info(chalk.cyan("⏳ 비샤딩 모드: 서버 캐시가 준비될 때까지 기다리는 중"));
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      await client.restoreSessions();
-    }
+    log.info(chalk.cyan("⏳ 서버 캐시가 준비될 때까지 기다리는 중"));
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await client.restoreSessions();
   });
 
-  // Add restore function to client for shard manager to call
   client.restoreSessions = async function () {
-    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? "N/A"}`] }, chalk.cyan("🔄 세션 복원 시작..."));
+    log.info(chalk.cyan("🔄 세션 복원 시작..."));
     await restoreSavedPlayers(client);
     // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록
     await cleanupAudioCache();
-    log.info({ tags: [`shard${client.shard?.ids?.[0] ?? "N/A"}`] }, chalk.green("✅ 세션 복원 완료"));
+    log.info(chalk.green("✅ 세션 복원 완료"));
   };
 
   // Handle interactions (slash commands)

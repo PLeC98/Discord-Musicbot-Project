@@ -10,7 +10,7 @@ const logManager = require("../../../src/LogManager");
 const procRegistry = require("../../../src/ChildProcessRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
 
-// Bot/Node/System/Shard status
+// Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
   const client = req.app.locals.discordClient;
   const uptime = process.uptime();
@@ -46,12 +46,6 @@ router.get("/status", requireOwner, (req, res) => {
       freeMem: Math.round(os.freemem() / 1024 / 1024),
       loadAvg: os.loadavg(),
     },
-    shards: client?.shard
-      ? {
-          ids: client.shard.ids,
-          count: client.shard.count,
-        }
-      : null,
     activePlayers: client?.players?.size || 0,
     // 자식 프로세스(ffmpeg/yt-dlp) — 오래 살아 있는 항목이 새는 신호다.
     // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.

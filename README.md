@@ -149,7 +149,6 @@ POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 fire
 
 ```bash
 pnpm run start    # 일반 실행
-pnpm run shard    # 1000+ 서버용 샤딩 실행 (샤딩 설정 필요)
 ```
 
 ## 대시보드

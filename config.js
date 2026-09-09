@@ -217,13 +217,4 @@ module.exports = {
     maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 1, max: 10240 }) * 1024 * 1024,
     keep: envInt("LOG_FILE_KEEP", 5, { min: 0, max: 100 }),
   },
-
-  sharding: {
-    totalShards: env("TOTAL_SHARDS", "auto"),
-    shardList: env("SHARD_LIST", "auto"),
-    mode: env("SHARD_MODE", "process"),
-    respawn: env("SHARD_RESPAWN", "true") !== "false",
-    spawnDelay: envInt("SHARD_SPAWN_DELAY", 5500, { min: 0, max: 60000 }),
-    spawnTimeout: envInt("SHARD_SPAWN_TIMEOUT", 30000, { min: -1, max: 600000 }), // -1 = 무제한 (discord.js)
-  },
 };

@@ -70,7 +70,6 @@
             </div>
           </BaseCard>
 
-          <!-- Shard -->
           <!-- 자식 프로세스 — 재생 ffmpeg는 곡이 끝나면 사라져야 한다.
                오래 남아 있으면 정리 사슬이 끊긴 것이므로 나이를 강조해서 보여준다. -->
           <BaseCard icon="terminal" title="자식 프로세스">
@@ -91,15 +90,6 @@
                 >
                 <span :class="procAgeClass(p.ageMs)">{{ fmtAge(p.ageMs) }}</span>
               </div>
-            </div>
-          </BaseCard>
-
-          <BaseCard v-if="s.shards" icon="shuffle" title="샤드">
-            <div :class="statRow">
-              <span>샤드 ID</span><span>{{ s.shards.ids?.join(", ") }}</span>
-            </div>
-            <div :class="statRow">
-              <span>총 샤드 수</span><span>{{ s.shards.count }}</span>
             </div>
           </BaseCard>
         </div>
@@ -327,7 +317,6 @@ const s = ref({
   bot: { tag: "", guilds: 0, ping: 0, status: 0, uptime: { days: 0, hours: 0, minutes: 0, seconds: 0 } },
   node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, rss: 0 } },
   system: { cpus: 0, totalMem: 0, freeMem: 0, loadAvg: [] },
-  shards: null,
   activePlayers: 0,
   processes: { total: 0, byLabel: [], oldest: [] },
 });
