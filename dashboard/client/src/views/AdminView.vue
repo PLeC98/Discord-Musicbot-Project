@@ -101,7 +101,7 @@
           <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
             <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
             <div class="flex gap-1.5 flex-wrap">
-              <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(logFilter === lvl.value)" @click="logFilter = logFilter === lvl.value ? null : lvl.value">{{ lvl.label }}</button>
+              <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(levelsOn.has(lvl.value))" @click="toggleLevel(lvl.value)">{{ lvl.label }}</button>
               <button :class="typeBtn(autoScroll)" @click="autoScroll = !autoScroll">
                 <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="15" />{{ autoScroll ? "자동" : "정지" }}</span>
               </button>
@@ -120,7 +120,7 @@
           <div class="flex items-center gap-1.5 text-[0.8rem] text-muted mb-2">
             <span :class="sseConnected ? 'text-success' : 'text-danger'">●</span>
             <span>{{ sseConnected ? "연결됨" : "연결 끊김" }}</span>
-            <span v-if="logFilter" class="text-[#c4b5fd]">{{ logFilter.toUpperCase() }} 이상</span>
+            <span v-if="levelsOn.size < logLevels.length" class="text-[#c4b5fd]">{{ [...levelsOn].map((l) => l.toUpperCase()).join(" · ") || "레벨 전부 꺼짐" }}</span>
             <span class="ml-auto">{{ filteredLogs.length }}줄</span>
           </div>
           <div class="h-95 overflow-y-auto bg-black/35 rounded-[10px] border border-white/7 px-3 py-2 font-mono text-[0.78rem]" ref="logPane" @scroll="onLogScroll">
@@ -404,6 +404,7 @@ async function fetchStatus() {
   try {
     const res = await axios.get("/api/admin/status");
     s.value = res.data;
+    syncLevelsWithServer(res.data?.logLevel);
     loading.value = false;
   } catch {
     loading.value = false;
@@ -505,7 +506,6 @@ async function redeploy() {
 
 // ── Log viewer ──────────────────────────────────────────────
 const logs = ref([]);
-const logFilter = ref(null);
 const catFilter = ref(null);
 const tagFilter = ref(null);
 const autoScroll = ref(true);
@@ -513,15 +513,36 @@ const sseConnected = ref(false);
 const logPane = ref(null);
 let sse = null;
 
-// 레벨 필터는 **"이상"**이다 — 조사할 때 실제로 원하는 건 "warn 이상 보여줘"지 "warn만"이 아니다.
-// 순서가 곧 심각도(왼쪽이 낮음). "log"는 옛 와이어 포맷 잔재라 trace/debug와 함께 최하로 친다.
+// 레벨 필터는 **다중 토글**이다 — "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
+// 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
 const LEVEL_ORDER = { trace: 10, log: 20, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const logLevels = [
   { value: "debug", label: "DEBUG" },
   { value: "info", label: "INFO" },
   { value: "warn", label: "WARN" },
   { value: "error", label: "ERROR" },
+  { value: "fatal", label: "FATAL" },
 ];
+
+// 초기 상태는 서버의 LOG_LEVEL을 따른다. 서버가 debug를 아예 안 보내고 있으면 그 알약이
+// 켜져 있어도 보여줄 것이 없으므로, 꺼진 채로 시작해 "지금 흐르고 있는 것"과 맞춘다.
+// 꺼진 알약도 눌러서 켤 수 있다 — 서버 레벨을 낮추면 그때부터 오는 것이 보인다.
+const levelsOn = ref(new Set(["info", "warn", "error", "fatal"]));
+let levelsInitialized = false;
+function syncLevelsWithServer(serverLevel) {
+  if (levelsInitialized || !serverLevel) return;
+  levelsInitialized = true;
+  const min = LEVEL_ORDER[serverLevel] ?? 30;
+  levelsOn.value = new Set(logLevels.filter((l) => LEVEL_ORDER[l.value] >= min).map((l) => l.value));
+}
+function toggleLevel(v) {
+  const next = new Set(levelsOn.value); // Set은 제자리 변경으로 반응하지 않는다
+  if (next.has(v)) next.delete(v);
+  else next.add(v);
+  levelsOn.value = next;
+}
+// 와이어의 "log"·"trace"는 DEBUG 알약이 담당한다(같은 심각도 칸).
+const levelBucket = (lv) => (LEVEL_ORDER[lv] <= 20 ? "debug" : lv);
 
 function lvColor(level) {
   return (
@@ -552,10 +573,7 @@ function catColor(cat) {
 // 태그: 카테고리와 같은 방식으로, 흘러온 로그에서 실제로 본 것만 노출한다(고정 목록 아님)
 const logTags = computed(() => [...new Set(logs.value.flatMap((e) => e.tags || []))].sort());
 
-const filteredLogs = computed(() => {
-  const min = logFilter.value ? LEVEL_ORDER[logFilter.value] : 0;
-  return logs.value.filter((e) => (LEVEL_ORDER[e.level] ?? 30) >= min && (!catFilter.value || e.category === catFilter.value) && (!tagFilter.value || (e.tags || []).includes(tagFilter.value)));
-});
+const filteredLogs = computed(() => logs.value.filter((e) => levelsOn.value.has(levelBucket(e.level)) && (!catFilter.value || e.category === catFilter.value) && (!tagFilter.value || (e.tags || []).includes(tagFilter.value))));
 
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
