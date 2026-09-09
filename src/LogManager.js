@@ -18,8 +18,10 @@ const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 // pino와 동일한 레벨 체계
 const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const LEVEL_NAMES = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
-// SSE 와이어 하위호환: 대시보드가 아는 옛 칩 이름(log/info/warn/error)으로 역매핑
-const WIRE_LEVEL = { 10: "log", 20: "log", 30: "info", 40: "warn", 50: "error", 60: "error" };
+// SSE 와이어 레벨 = 실제 레벨 이름. 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로
+// 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 **대시보드가 영영 못 가른다.**
+// 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
+const WIRE_LEVEL = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // 브리지: 레거시 console 메서드 → pino 레벨(숫자)
 const CONSOLE_LEVEL = { log: 30, info: 30, warn: 40, error: 50 };
 
@@ -43,6 +45,9 @@ const MSG_PATTERNS = [
 class LogManager {
   constructor({ maxLines = 500, intercept = true } = {}) {
     this.maxLines = maxLines;
+    // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다 —
+    // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
+    this.consoleLevel = 0;
     this.buffer = [];
     this.clients = new Set();
     this.destinations = []; // file(logFile.js), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
@@ -80,7 +85,7 @@ class LogManager {
   // facade와 브리지가 공통으로 부르는 입구.
   record(rec) {
     const safe = this._redact(rec);
-    this._renderTerminal(safe);
+    if (safe.level >= this.consoleLevel) this._renderTerminal(safe);
 
     const entry = this._toWire(safe);
     this.buffer.push(entry);
@@ -137,6 +142,11 @@ class LogManager {
       for (const { re, repl } of MSG_PATTERNS) out.msg = out.msg.replace(re, repl);
     }
     return out;
+  }
+
+  /** 터미널 출력 하한 설정. 이름(info 등)이나 빈 값(=제한 없음). */
+  setConsoleLevel(name) {
+    this.consoleLevel = LEVELS[name] ?? 0;
   }
 
   _renderTerminal(rec) {

@@ -17,6 +17,11 @@ const chalk = require("chalk");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/logFile");
 
+// 로그 레벨 적용 — config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
+// 기본 레벨(info)로 이미 기록됐다. 그것들은 어차피 warn 이상이라 잘려나갈 일이 없다.
+require("./src/logger").level = config.logging.level;
+if (config.logging.consoleLevel) logSink.setConsoleLevel(config.logging.consoleLevel);
+
 // 파일 로그 마운트 — config를 읽은 직후, 기동 로그가 쏟아지기 전에.
 // 이 지점보다 앞선 레코드(config 검증 경고 등)는 sink가 모아뒀다가 여기서 재생한다.
 const logFile = config.logging.fileEnabled ? createFileDestination(config.logging) : null;

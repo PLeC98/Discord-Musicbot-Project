@@ -134,13 +134,29 @@ test("와이어 하위호환: wireLevel이 대시보드 칩 이름을 그대로 
   assert.equal(lm.buffer[0].level, "log");
 });
 
-test("와이어 매핑: facade 레벨 → 옛 칩(trace/debug→log, fatal→error)", () => {
+// 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로 접어서 보냈다. 그러면 debug와 trace가,
+// fatal과 error가 합쳐져 대시보드가 영영 못 가른다 — 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
+test("와이어 레벨은 실제 이름을 그대로 보낸다 (접지 않는다)", () => {
   const lm = new LogManager({ intercept: false });
   lm._renderTerminal = () => {};
-  lm.record({ level: 10, time: 1, msg: "t" });
-  lm.record({ level: 60, time: 2, msg: "f" });
-  assert.equal(lm.buffer[0].level, "log"); // trace
-  assert.equal(lm.buffer[1].level, "error"); // fatal
+  for (const [i, lv] of [10, 20, 30, 40, 50, 60].entries()) lm.record({ level: lv, time: i, msg: "m" });
+  assert.deepEqual(
+    lm.buffer.map((e) => e.level),
+    ["trace", "debug", "info", "warn", "error", "fatal"],
+  );
+});
+
+test("터미널 하한은 파일·대시보드에 영향을 주지 않는다", () => {
+  const lm = new LogManager({ intercept: false });
+  const printed = [];
+  lm._renderTerminal = (rec) => printed.push(rec.level);
+  lm.setConsoleLevel("info");
+
+  lm.record({ level: 20, time: 1, msg: "debug" });
+  lm.record({ level: 30, time: 2, msg: "info" });
+
+  assert.deepEqual(printed, [30], "터미널엔 info부터");
+  assert.equal(lm.buffer.length, 2, "버퍼(=대시보드·파일 경로)는 둘 다 받는다");
 });
 
 test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {

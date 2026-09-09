@@ -22,6 +22,15 @@ function env(key, def = null) {
 
 // env()의 정수 버전 — 값이 숫자가 아니거나 허용 범위를 벗어나면 경고 후 def 반환
 // (오타를 조용히 삼키지 않음 — 1ms급 타이머·무효 포트·음수 캐시 한도 같은 오설정 방지)
+function envEnum(key, def, allowed) {
+  const v = env(key);
+  if (v === null) return def;
+  const lower = String(v).trim().toLowerCase();
+  if (allowed.includes(lower)) return lower;
+  log.warn(`⚠️  [config] ${key}=${v} 은(는) 허용값이 아닙니다(${allowed.filter(Boolean).join("/")}) — 기본값 ${def || "(자동)"}을(를) 사용합니다.`);
+  return def;
+}
+
 function envInt(key, def, { min, max } = {}) {
   const v = env(key);
   if (v === null) return def;
@@ -213,6 +222,12 @@ module.exports = {
 
   // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다 — 사후 분석용.
   logging: {
+    // 무엇을 기록할 것인가 (터미널·파일·대시보드 전부의 상한).
+    // 조사용 로그를 지우지 않고 debug로 내려둔 뒤, 필요할 때만 이걸 낮춰 되살린다.
+    level: envEnum("LOG_LEVEL", "info", ["trace", "debug", "info", "warn", "error", "fatal"]),
+    // 그중 터미널에 **찍을** 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info 로 두면
+    // 파일·대시보드는 debug를 받고 터미널만 조용하다.
+    consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", "trace", "debug", "info", "warn", "error", "fatal"]),
     fileEnabled: env("LOG_FILE_ENABLED", "true") !== "false",
     file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
     maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 1, max: 10240 }) * 1024 * 1024,

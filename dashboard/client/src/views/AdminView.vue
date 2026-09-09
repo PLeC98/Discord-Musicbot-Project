@@ -113,9 +113,14 @@
               {{ cat }}
             </button>
           </div>
+          <!-- 태그: 카테고리와 같은 규칙(흘러온 것에서 파생). 태그를 단 로그가 없으면 줄 자체가 없다. -->
+          <div v-if="logTags.length" class="flex gap-1.5 flex-wrap mb-2">
+            <button v-for="t in logTags" :key="t" class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200" :class="tagFilter === t ? 'text-fg border-white/35 bg-white/12' : 'text-[rgba(255,255,255,0.5)] border-white/9 bg-white/3'" @click="tagFilter = tagFilter === t ? null : t">#{{ t }}</button>
+          </div>
           <div class="flex items-center gap-1.5 text-[0.8rem] text-muted mb-2">
             <span :class="sseConnected ? 'text-success' : 'text-danger'">●</span>
             <span>{{ sseConnected ? "연결됨" : "연결 끊김" }}</span>
+            <span v-if="logFilter" class="text-[#c4b5fd]">{{ logFilter.toUpperCase() }} 이상</span>
             <span class="ml-auto">{{ filteredLogs.length }}줄</span>
           </div>
           <div class="h-95 overflow-y-auto bg-black/35 rounded-[10px] border border-white/7 px-3 py-2 font-mono text-[0.78rem]" ref="logPane" @scroll="onLogScroll">
@@ -502,24 +507,37 @@ async function redeploy() {
 const logs = ref([]);
 const logFilter = ref(null);
 const catFilter = ref(null);
+const tagFilter = ref(null);
 const autoScroll = ref(true);
 const sseConnected = ref(false);
 const logPane = ref(null);
 let sse = null;
 
+// 레벨 필터는 **"이상"**이다 — 조사할 때 실제로 원하는 건 "warn 이상 보여줘"지 "warn만"이 아니다.
+// 순서가 곧 심각도(왼쪽이 낮음). "log"는 옛 와이어 포맷 잔재라 trace/debug와 함께 최하로 친다.
+const LEVEL_ORDER = { trace: 10, log: 20, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const logLevels = [
-  { value: "log", label: "LOG" },
+  { value: "debug", label: "DEBUG" },
   { value: "info", label: "INFO" },
   { value: "warn", label: "WARN" },
   { value: "error", label: "ERROR" },
 ];
 
-// 로그 레벨별 색 (구 .lvl-* .log-lv / .log-txt)
 function lvColor(level) {
-  return { log: "text-[#9ca3af]", info: "text-[#60a5fa]", warn: "text-[#fbbf24]", error: "text-[#f87171]" }[level] || "text-[#9ca3af]";
+  return (
+    {
+      trace: "text-[#6b7280]",
+      log: "text-[#9ca3af]",
+      debug: "text-[#9ca3af]",
+      info: "text-[#60a5fa]",
+      warn: "text-[#fbbf24]",
+      error: "text-[#f87171]",
+      fatal: "text-[#fca5a5]",
+    }[level] || "text-[#9ca3af]"
+  );
 }
 function txtColor(level) {
-  return { warn: "text-[#fef3c7]", error: "text-[#fecaca]" }[level] || "text-[#d1d5db]";
+  return { debug: "text-[#9ca3af]", warn: "text-[#fef3c7]", error: "text-[#fecaca]", fatal: "text-[#fecaca] font-bold" }[level] || "text-[#d1d5db]";
 }
 
 // 카테고리: 지금까지 흘러온 로그에서 실제로 본 것만 필터 알약으로 노출(고정 목록 아님)
@@ -531,7 +549,13 @@ function catColor(cat) {
   return CAT_PALETTE[h % CAT_PALETTE.length];
 }
 
-const filteredLogs = computed(() => logs.value.filter((e) => (!logFilter.value || e.level === logFilter.value) && (!catFilter.value || e.category === catFilter.value)));
+// 태그: 카테고리와 같은 방식으로, 흘러온 로그에서 실제로 본 것만 노출한다(고정 목록 아님)
+const logTags = computed(() => [...new Set(logs.value.flatMap((e) => e.tags || []))].sort());
+
+const filteredLogs = computed(() => {
+  const min = logFilter.value ? LEVEL_ORDER[logFilter.value] : 0;
+  return logs.value.filter((e) => (LEVEL_ORDER[e.level] ?? 30) >= min && (!catFilter.value || e.category === catFilter.value) && (!tagFilter.value || (e.tags || []).includes(tagFilter.value)));
+});
 
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
