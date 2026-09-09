@@ -6,7 +6,9 @@
 //       진짜 치명적 오류는 안전하게 종료해 봇 운영자의 확인·수동 재시작을 대기.
 
 const chalk = require("chalk");
-const log = require("./logger").child({ category: "voice" });
+const log = require("./logger").child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
+// 프로세스를 내리는 것은 음성 관심사가 아니다 — 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
+const flog = require("./logger").child({ category: "core", sub: "fatal" });
 const { VoiceConnectionStatus } = require("@discordjs/voice");
 
 // 네트워크 오류 폭주 판정용 시간창
@@ -105,10 +107,12 @@ function fatalShutdown(client, error, exit = () => process.exit(1)) {
   } catch {
     /* best-effort 정리 — 종료 중이므로 실패해도 계속 */
   }
-  log.error(chalk.red("════════════════════════════════════════════════════════"));
-  log.error(chalk.red("💀 치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다."));
-  log.error(chalk.red(String((error && error.stack) || error)));
-  log.error(chalk.red("════════════════════════════════════════════════════════"));
+  // 이 줄 다음에 프로세스가 죽는다 — 레벨 판정의 fatal 정의 그대로다.
+  // 레벨로 거를 때 "봇이 죽은 순간"만 뽑아낼 수 있어야 한다.
+  flog.fatal(chalk.red("════════════════════════════════════════════════════════"));
+  flog.fatal(chalk.red("💀 치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다."));
+  flog.fatal(chalk.red(String((error && error.stack) || error)));
+  flog.fatal(chalk.red("════════════════════════════════════════════════════════"));
   exit();
 }
 

@@ -76,7 +76,7 @@ module.exports = {
 
     await interaction.deferReply({ flags: [1 << 6] });
 
-    await player.play(null, seekMs);
+    await player.seek(seekMs, "seek");
 
     const embed = new EmbedBuilder()
       .setTitle("⏩ 시간 이동")

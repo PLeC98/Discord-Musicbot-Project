@@ -91,12 +91,11 @@ class QueueWarmer {
     // 아직 캐시가 없는 키까지 넣는다 — 해당 행이 없으면 퇴거 쪽에서 무해하게 무시된다.
     const guildId = this.player.guild?.id;
     if (guildId) {
-      this.setProtection(
-        guildId,
-        this.targets()
-          .map((t) => this.keyOf(t))
-          .filter(Boolean),
-      );
+      const keys = this.targets()
+        .map((t) => this.keyOf(t))
+        .filter(Boolean);
+      log.debug(`🛡 퇴거 보호 갱신: ${keys.length}곡`);
+      this.setProtection(guildId, keys);
     }
 
     this._run().catch((err) => log.error(`❌ 대기열 예열 실패: ${err?.message || err}`));
@@ -156,6 +155,9 @@ class QueueWarmer {
         if (!track) return;
 
         try {
+          // 예열은 조용히 도는 배경 작업이라, 이게 없으면 "왜 지금 이 곡을 받고 있나"를
+          // 사후에 알 방법이 없다. 다운로드 완료는 track 카테고리가 따로 남긴다.
+          log.debug(`🔥 예열: "${track.title}" | 대상 ${this.targets().length}곡`);
           await this.warm(track);
         } catch (err) {
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,

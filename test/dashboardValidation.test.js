@@ -68,6 +68,11 @@ function makePlayer() {
     async play(_, ms) {
       this.calls.push(["play", ms]);
     },
+    // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다 — 진입점마다 로그를 다는 대신
+    // 통로를 하나로 뒀다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 갈라야 한다).
+    async seek(ms, reason) {
+      this.calls.push(["seek", ms, reason]);
+    },
     setVolume(v) {
       this.calls.push(["setVolume", v]);
       this.volume = v;
@@ -181,7 +186,7 @@ test("seek: Infinity/비숫자/음수는 400 (라이브 duration 0 클램프 우
 
   const ok = await req("POST", `/api/guilds/${GUILD_ID}/player/seek`, { position: 30 });
   assert.equal(ok.status, 200);
-  assert.deepEqual(player.calls[0], ["play", 30000]);
+  assert.deepEqual(player.calls[0], ["seek", 30000, "dashboard"]);
 });
 
 test("volume: '50junk'/소수는 400 — 구 parseInt는 50으로 통과", async () => {

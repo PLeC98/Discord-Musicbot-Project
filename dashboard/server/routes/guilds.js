@@ -517,7 +517,7 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
   const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
   try {
-    await player.play(null, Math.floor(clampedSec * 1000));
+    await player.seek(Math.floor(clampedSec * 1000), "dashboard");
     res.json({ ok: true, position: clampedSec });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -36,7 +36,7 @@ module.exports = {
 
     const seekMs = Math.max(0, Math.floor(highlightAt * 1000));
     await interaction.deferReply({ flags: [1 << 6] });
-    await player.play(null, seekMs);
+    await player.seek(seekMs, "highlight");
 
     const embed = new EmbedBuilder()
       .setTitle("✨ 하이라이트로 이동")

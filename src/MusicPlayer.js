@@ -171,6 +171,10 @@ class MusicPlayer {
 
     // 내장 방어(maxMissedFrames)는 Playing 중에만 돈다. Buffering에서 데이터도 오류도 끝도
     // 오지 않으면 아무도 깨우지 않는다 — 지금 그 구간에 대한 가시성이 0이라 관측만 붙인다.
+    //
+    // 전이 자체는 정상 동작이라 debug다(트랙당 3회, 전체 로그의 21%였다). 사건은 두 가지뿐이고
+    // 그것만 warn으로 남는다: 버퍼링이 3초를 넘김, 워치독이 트랙을 정지시킴.
+    // 다시 관측하려면 LOG_LEVEL=debug.
     this.audioPlayer.on("stateChange", (oldState, newState) => {
       if (oldState.status === newState.status) return;
 
@@ -180,12 +184,12 @@ class MusicPlayer {
         if (heldMs !== null) {
           const line = `🎚 상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
           if (heldMs >= 3000) wlog.warn(`${line} ← 오래 걸림`);
-          else wlog.info(line);
+          else wlog.debug(line);
         }
         return;
       }
 
-      wlog.info(`🎚 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
+      wlog.debug(`🎚 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
 
       if (newState.status === AudioPlayerStatus.Buffering) this._startBufferingWatch();
     });
@@ -397,7 +401,7 @@ class MusicPlayer {
           })
           .catch((err) => {
             if (err && err.message) {
-              log.error(`⚠️ Background download failed: ${err.message}`);
+              log.warn(`⚠️ 배경 다운로드 실패: ${err.message} — 재생은 스트림으로 계속됩니다.`);
             }
           });
 
@@ -668,7 +672,7 @@ class MusicPlayer {
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
-      wlog.info(`🕒 워치독 예약: ${this._trackLabel()} | 길이 ${durationSeconds}s(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}s | ${Math.round(timeoutMs / 1000)}s 뒤 확인`);
+      wlog.debug(`🕒 워치독 예약: ${this._trackLabel()} | 길이 ${durationSeconds}s(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}s | ${Math.round(timeoutMs / 1000)}s 뒤 확인`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
       // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
@@ -753,7 +757,7 @@ class MusicPlayer {
   _logWatchdogOnce(line) {
     if (this._lastWatchdogLine === line) return;
     this._lastWatchdogLine = line;
-    wlog.info(line);
+    wlog.debug(line);
   }
 
   ensureTrackCompletion() {
@@ -771,7 +775,7 @@ class MusicPlayer {
 
       if (durationMs > 0 && playbackMs + 1500 < durationMs) {
         const remainingMs = Math.max(durationMs - playbackMs, 2000);
-        wlog.info(`👁 워치독 확인: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs / 1000}s → 아직 남음, ${Math.round(remainingMs / 1000)}s 뒤 재확인`);
+        wlog.debug(`👁 워치독 확인: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs / 1000}s → 아직 남음, ${Math.round(remainingMs / 1000)}s 뒤 재확인`);
         this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), remainingMs);
         return;
       }
@@ -790,7 +794,7 @@ class MusicPlayer {
 
     if (status === AudioPlayerStatus.Idle || status === AudioPlayerStatus.AutoPaused) {
       // Idle 핸들러가 처리하므로 할 일 없음
-      wlog.info(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} → Idle 핸들러에 맡기고 종료`);
+      wlog.debug(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} → Idle 핸들러에 맡기고 종료`);
       this.trackTimer = null;
       return;
     }
@@ -1058,6 +1062,22 @@ class MusicPlayer {
     this.disconnect();
   }
 
+  /**
+   * 재생 위치 이동. `/seek`·`/replay`·`/highlight`·대시보드가 전부 여기를 지난다.
+   *
+   * 각 진입점이 `play(null, ms)`를 직접 부르면 **로그에는 새 곡이 시작된 것과 똑같이 보인다.**
+   * 사람이 위치를 옮긴 것과 봇이 다음 곡으로 넘어간 것을 가릴 수 없어지는데, `control`
+   * 카테고리를 따로 가른 이유가 정확히 그것이다. 진입점마다 로그를 다는 대신 통로를 하나로 둔다.
+   *
+   * @param {number} seekMs  이동할 위치(ms)
+   * @param {string} reason  누가 시켰나 — "seek" | "replay" | "highlight" | "dashboard"
+   */
+  seek(seekMs, reason = "seek") {
+    const from = Math.round((this.lastPlaybackPosition || 0) / 1000);
+    clog.info(`⏩ 위치 이동: ${this._trackLabel()} | ${from}s → ${Math.round(seekMs / 1000)}s | 사유=${reason}`);
+    return this.play(null, seekMs);
+  }
+
   // reason: "skip"(기본) 또는 "jump"(대기열 점프 — 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
   skip(reason = "skip") {
     if (this.currentTrack) {
@@ -1154,6 +1174,19 @@ class MusicPlayer {
     this.loop = mode;
     this.scheduleStatePersist("loop", 200);
     return this.loop;
+  }
+
+  /**
+   * 자동재생 장르 설정(false면 끔). 진입점들이 `player.autoplay`에 직접 대입하고 있었는데,
+   * 그러면 **대기열이 저절로 늘어난 이유를 로그에서 찾을 수 없다** — 곡이 붙는 것만 보이고
+   * 누가 켰는지가 없다. 반복·볼륨과 같은 조작이므로 같은 자리에 둔다.
+   */
+  setAutoplay(genre) {
+    const next = genre || false;
+    if (this.autoplay !== next) clog.info(`🎲 자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
+    this.autoplay = next;
+    this.scheduleStatePersist("autoplay", 200);
+    return this.autoplay;
   }
 
   setShuffle(enabled) {
