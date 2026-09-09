@@ -282,3 +282,50 @@ test("대기열이 같아도 현재 곡이 바뀌면 서명이 달라진다 (이
   player.currentTrack = track("other");
   assert.notEqual(warmer.signature(), before);
 });
+
+// ── 늦게 정해지는 캐시 키 (스포티파이) ───────────────────────
+// 실사용 회귀: 스포티파이 재생목록에서 2번째 곡부터 전부 두 번씩 받았다.
+// 키가 곧 파일 경로인데 그 키가 다운로드 '안'에서 정해져, 첫 번째는 URL 해시 경로로 저장되고
+// 키가 생긴 다음 틱에는 키 경로가 비어 있어 또 받았다.
+
+test("키가 늦게 정해져도 지문은 흔들리지 않는다", () => {
+  const spotify = { title: "s", url: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const { warmer } = makeWarmer({ queue: [spotify] });
+
+  const before = warmer.signature();
+  spotify.audioSourceKey = "yt:resolved"; // 받는 도중에 동등물이 정해졌다
+  assert.equal(warmer.signature(), before, "대기열은 그대로이므로 지문도 그대로여야 한다");
+});
+
+test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
+  const spotify = { title: "s", url: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const cached = new Set();
+  const warmed = [];
+
+  const player = { queue: [spotify], currentTrack: null, loop: false, guild: { id: "g1" } };
+  const warmer = new QueueWarmer(player, {
+    ahead: 5,
+    gapMs: 0,
+    intervalMs: 1000,
+    keyOf: (t) => t?.audioSourceKey || null,
+    // 파일 경로는 키에서 나온다 — 키가 없으면 URL 해시로 갈라진다(실제 trackFilePath와 같은 규칙)
+    isCached: (t) => cached.has(t.audioSourceKey || t.url),
+    isBusy: () => false,
+    warm: async (t) => {
+      warmed.push(t.url);
+      t.audioSourceKey = "yt:resolved"; // warm이 받기 전에 키를 확정한다
+      cached.add(t.audioSourceKey);
+    },
+    setProtection: () => {},
+  });
+
+  warmer.tick();
+  warmer.tick();
+  await settle();
+
+  warmer.tick();
+  warmer.tick();
+  await settle();
+
+  assert.deepEqual(warmed, ["https://open.spotify.com/track/x"], "두 번 받지 않는다");
+});

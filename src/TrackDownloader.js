@@ -215,13 +215,20 @@ class TrackDownloader {
   /**
    * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
    *
-   * 캐시 키를 먼저 확정해야 재생 경로와 같은 파일 경로가 나온다(없으면 URL 해시로 갈라진다).
-   * 나머지 판정 — 이미 받았는가 / 받는 중인가 / 스포티파이 동등물 검색 — 은 downloadTrack이
-   * 전부 갖고 있으므로 여기서 다시 하지 않는다. 실패는 그대로 던져 호출자가 판단하게 둔다.
+   * **받기 전에 캐시 키를 반드시 확정해야 한다.** 키가 곧 파일 경로이고, downloadTrack은
+   * 진입 시점의 경로로 파일을 쓰기 때문이다. 스포티파이 트랙은 유튜브 동등물을 찾아야 키가
+   * 정해지는데, 그 검색이 다운로드 '안'에서 일어나면 파일은 스포티파이 URL 해시 경로에
+   * 저장되고 DB 행도 남지 않는다(키가 그 시점에 null이라). 그러면 키가 생긴 다음 번에
+   * 같은 곡을 한 번 더 받는다.
+   *
+   * 나머지 판정 — 이미 받았는가 / 받는 중인가 — 은 downloadTrack이 갖고 있으므로 여기서
+   * 다시 하지 않는다. 실패는 그대로 던져 호출자가 판단하게 둔다.
    */
   async warm(track) {
     if (!track || !track.url) return;
-    TrackResolver.ensureAudioSourceKey(track);
+    if (!TrackResolver.ensureAudioSourceKey(track)) {
+      await TrackResolver.findYouTubeEquivalent(track, this.player.guild?.id);
+    }
     await this.downloadTrack(track);
   }
 }

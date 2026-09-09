@@ -122,10 +122,15 @@ class QueueWarmer {
   /**
    * 대기열 앞부분의 지문. 순서가 바뀌면 달라져야 하므로 이어붙인다.
    * 현재 곡도 넣는다 — 대기열은 그대로인데 현재 곡만 바뀌는 경로(이전곡)가 있다.
+   *
+   * 캐시 키가 아니라 URL을 쓴다. 키는 스포티파이 트랙에서 받는 도중에 정해지므로, 키로 지문을
+   * 만들면 곡을 하나 받을 때마다 대기열이 바뀐 것처럼 보여 루프가 매번 끊긴다. 여기서 봐야
+   * 하는 것은 대기열이 바뀌었는가지 해석이 얼마나 진행됐는가가 아니다.
    */
   signature() {
-    const parts = [this.keyOf(this.player.currentTrack) || this.player.currentTrack?.url || "-"];
-    for (const track of this.targets()) parts.push(this.keyOf(track) || track.url || "?");
+    const idOf = (track) => track?.url || this.keyOf(track) || "-";
+    const parts = [idOf(this.player.currentTrack)];
+    for (const track of this.targets()) parts.push(idOf(track));
     return parts.join("\n");
   }
 
