@@ -230,6 +230,20 @@ test("전환을 두 번 예약하지 않는다", async () => {
   sp.resume();
 });
 
+test("굶었다 깨어나기를 반복해도 리스너가 쌓이지 않는다", async () => {
+  // _await가 한쪽으로 깨어날 때 반대쪽을 안 떼면 매번 하나씩 남아 MaxListeners 경고가 난다.
+  const src = new PassThrough();
+  const sp = new AudioSplicer(src);
+  sp.on("data", () => {});
+  for (let i = 0; i < 30; i++) {
+    src.write(pcm(20, 1));
+    await new Promise((r) => setImmediate(r));
+  }
+  assert.ok(src.listenerCount("end") <= 2, `end 리스너 ${src.listenerCount("end")}개`);
+  assert.ok(src.listenerCount("readable") <= 2, `readable 리스너 ${src.listenerCount("readable")}개`);
+  sp.destroy();
+});
+
 test("파괴하면 두 소스도 파괴된다 (ffmpeg 좀비 방지)", () => {
   // voice가 리소스를 버릴 때 pipeline이 파괴를 역전파하는데, 그 사슬이 여기서 끊기면
   // ffmpeg의 stdout이 닫히지 않아 spawnFfmpeg의 killOnStdoutClose가 안 걸린다.

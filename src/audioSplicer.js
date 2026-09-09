@@ -203,7 +203,13 @@ class AudioSplicer extends Readable {
     this.faded = this.fadeBytes;
     const old = this.a;
     this.a = this.b;
-    old.pause();
+    // 옛 소스는 더 볼 일이 없다. 바로 파괴해야 그 뒤의 ffmpeg가 파이프에 막힌 채
+    // 트랙 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
+    try {
+      old.destroy();
+    } catch {
+      /* 이미 정리됨 */
+    }
     this.emit("switched", this.emittedMs);
   }
 
@@ -215,7 +221,11 @@ class AudioSplicer extends Readable {
     }
     if (this.waiting === s) return;
     this.waiting = s;
+    // 둘 중 하나가 깨우면 나머지도 반드시 뗀다. 안 그러면 굶었다 깨어날 때마다 리스너가
+    // 하나씩 쌓여 MaxListenersExceededWarning이 나고, 긴 트랙에서 계속 누적된다.
     const again = () => {
+      s.off("readable", again);
+      s.off("end", again);
       if (this.waiting === s) this.waiting = null;
       this._kick();
     };

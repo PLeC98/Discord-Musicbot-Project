@@ -206,6 +206,8 @@ module.exports = {
   stream: {
     chunked: env("STREAM_CHUNKED", "true") !== "false",
     chunkBytes: envInt("STREAM_CHUNK_KB", 1024, { min: 64, max: 65536 }) * 1024,
+    // 스트림이 끊기면 캐시 파일로 소리 없이 갈아탄다(src/audioSplicer.js). 문제 시 되돌릴 손잡이.
+    seamless: env("STREAM_SEAMLESS", "true") !== "false",
   },
 
   // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다 — 사후 분석용.

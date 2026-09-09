@@ -19,6 +19,7 @@ const SponsorBlock = require("./SponsorBlock");
 const SponsorSkipper = require("./SponsorSkipper");
 const DirectLink = require("./DirectLink");
 const { openChunkedStream, contentLengthFromUrl } = require("./chunkedStream");
+const { AudioSplicer } = require("./audioSplicer");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
 const TrackDownloader = require("./TrackDownloader");
@@ -28,6 +29,11 @@ const { spawnFfmpeg } = require("./ffmpegProcess");
 const { Readable } = require("stream");
 const fsSync = require("fs");
 const path = require("path");
+
+// 무이음 전환 상수 — .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
+// 사용자가 조정해서 나아질 여지가 없다. 끄는 손잡이(STREAM_SEAMLESS)만 설정으로 둔다.
+const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가 (캐시 디코더 기동 실측 43ms)
+const SWITCH_FADE_MS = 40; // 등출력 크로스페이드 길이
 
 class MusicPlayer {
   constructor(guild, textChannel, voiceChannel) {
@@ -453,16 +459,21 @@ class MusicPlayer {
         } else if (audioStream) {
           const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ seekMs: resumeFromMs }), "stream");
 
+          // 소스를 갈아끼울 수 있게 리소스 아래에 Splicer를 둔다. 스트림이 죽으면 AudioPlayer를
+          // 거치지 않고 캐시 파일로 넘어가므로 공백이 들리지 않는다(_planCacheSwitch).
+          const playSource = config.stream.seamless ? new AudioSplicer(ffmpeg.stdout, { fadeMs: SWITCH_FADE_MS }) : ffmpeg.stdout;
+
           // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
           // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
           audioStream.on("error", (err) => {
             log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구합니다.`);
+            if (playSource !== ffmpeg.stdout) this._planCacheSwitch(playSource);
           });
           // ffmpeg가 끝나면 입력 스트림도 닫는다 — .pipe 바깥이라 자동 정리 대상이 아니다.
           ffmpeg.once("exit", () => audioStream.destroy());
           audioStream.pipe(ffmpeg.stdin);
 
-          this.resource = createAudioResource(ffmpeg.stdout, {
+          this.resource = createAudioResource(playSource, {
             inputType: StreamType.Raw,
             inlineVolume: true,
             metadata: {
@@ -590,6 +601,45 @@ class MusicPlayer {
     const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];
     const output = ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"];
     return file ? [...seek, "-i", file, "-analyzeduration", "0", "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
+  }
+
+  /**
+   * 스트림이 죽었을 때 캐시 파일로 소리 없이 갈아탄다.
+   *
+   * 캐시가 아직 없으면 아무것도 하지 않는다 — 기존 경로(Idle → play(위치))가 그 상황을 이미
+   * 처리한다. 그 경로는 캐시가 끝났으면 파일로, 아니면 스트림을 다시 여니 재시도와 대기가
+   * 둘 다 들어 있다. 여기서 다운로드를 기다리는 코드를 따로 만들 이유가 없다.
+   */
+  _planCacheSwitch(splicer) {
+    if (!splicer || splicer.destroyed || splicer.switchPending) return;
+
+    const file = this.currentDownloadedFile;
+    try {
+      if (!file || !fsSync.existsSync(file) || fsSync.statSync(file).size === 0) return;
+    } catch {
+      return; // 파일 조회 실패 — 기존 경로로 넘긴다
+    }
+
+    // 전환 지점은 스플라이서 출력 기준이다. 리소스는 그보다 뒤처져 있으므로
+    // resource.playbackDuration을 쓰면 자기 정합적이지 않다.
+    const atMs = splicer.emittedMs + SWITCH_LEAD_MS;
+    const seekMs = this.currentTrackStartOffsetMs + atMs; // 캐시 파일 안에서의 절대 위치
+
+    let decoder;
+    try {
+      decoder = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file, seekMs }), "switch");
+    } catch (error) {
+      log.warn(`⚠️ 캐시 디코더를 띄우지 못했습니다: ${error.message}`);
+      return;
+    }
+
+    if (!splicer.planSwitch(decoder.stdout, atMs)) {
+      decoder.kill("SIGKILL");
+      return;
+    }
+    splicer.once("switched", (ms) => {
+      log.info(`🔀 캐시로 무이음 전환: ${this._trackLabel()} | ${(ms / 1000).toFixed(1)}s 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
+    });
   }
 
   scheduleTrackWatchdog(streamInfo = null) {
