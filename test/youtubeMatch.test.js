@@ -1,46 +1,16 @@
 "use strict";
 
-// src/youtubeMatch.js — Spotify 트랙의 YouTube 동등물 선택
+// src/youtubeMatch.js — 후보 채점의 순수 로직 계약.
 //
-// 회귀 코퍼스(test/fixtures/youtube-match-corpus.json)는 실제 유튜브 검색 결과를 그대로 얼린
-// 것이다. 기대값은 사용자가 지정한 정답이거나, 이전 조사에서 정답으로 확인된 것이다.
-// 네트워크를 타지 않으므로 결과가 흔들리지 않고, 가중치를 만질 때 무엇이 깨지는지 바로 보인다.
+// 유튜브 검색 결과로 실제 선택을 검증하는 회귀 코퍼스는 여기 두지 않는다.
+// 그건 외부 서비스의 현재 순위를 얼린 데이터라 CI가 매번 확인할 성질이 아니다
+// (로컬 전용: `node notes/match-corpus/check.js`).
 //
-// 코퍼스가 잡는 것(전부 실제로 틀렸던 사례):
-//  - 공식 채널의 영어판/라이브가 원곡을 이기던 것 (버전 감점 · 면제 제외)
-//  - 가사·자막 재업로드가 길이만으로 공식 MV를 이기던 것 (재배포 감점 · 공식이면 면제)
-//  - 공식 MV의 인트로/아웃트로가 길이 감점을 받던 것 (긴 쪽 완화)
+// 여기 남은 것은 네트워크도 외부 데이터도 타지 않는, 코드 자체의 계약이다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const path = require("node:path");
-const { mergeCandidateLists, rankCandidates, scoreCandidate, W, _internal: I } = require("../src/youtubeMatch");
-
-const corpus = require(path.join(__dirname, "fixtures", "youtube-match-corpus.json"));
-
-function choose(entry) {
-  const cands = mergeCandidateLists(entry.lists.primary, entry.lists.secondary).filter((c) => c.url && !c.isLive);
-  return rankCandidates(cands, entry.target);
-}
-
-// ── 회귀 코퍼스 ──────────────────────────────────────────────
-
-for (const entry of corpus.filter((e) => e.expect)) {
-  test(`코퍼스: ${entry.note}`, () => {
-    const { best, ranked } = choose(entry);
-    assert.ok(best, "후보가 있어야 한다");
-    const chosen = ranked[0];
-    const want = ranked.find((r) => r.candidate.id === entry.expect);
-    assert.equal(best.id, entry.expect, `\n  기대: ${entry.expect} (${want ? want.score + "점" : "후보에 없음"})` + `\n  실제: ${best.id} (${chosen.score}점) "${best.title}"`);
-  });
-}
-
-test("정답이 존재하지 않는 곡도 던지지 않고 무언가를 고른다", () => {
-  const entry = corpus.find((e) => !e.expect);
-  const { best, confidence } = choose(entry);
-  assert.ok(best === null || typeof best.url === "string");
-  assert.ok(["low", "medium", "high"].includes(confidence));
-});
+const { rankCandidates, scoreCandidate, W, _internal: I } = require("../src/youtubeMatch");
 
 // ── 용어 판정 ────────────────────────────────────────────────
 
