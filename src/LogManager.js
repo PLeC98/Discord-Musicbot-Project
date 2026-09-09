@@ -14,6 +14,8 @@ const chalk = require("chalk");
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
 
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+// 위 정규식은 /g라 test()가 lastIndex를 들고 다닌다(호출마다 결과가 달라진다) — 검사용은 따로.
+const HAS_ANSI = /\x1B\[/;
 
 // pino와 동일한 레벨 체계
 const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
@@ -25,6 +27,7 @@ const WIRE_LEVEL = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "erro
 // 브리지: 레거시 console 메서드 → pino 레벨(숫자)
 const CONSOLE_LEVEL = { log: 30, info: 30, warn: 40, error: 50 };
 
+// 레벨 라벨 색.
 const LEVEL_COLOR = {
   trace: chalk.gray,
   debug: chalk.gray,
@@ -33,6 +36,28 @@ const LEVEL_COLOR = {
   error: chalk.red,
   fatal: chalk.bgRed.white,
 };
+
+// **본문 색도 sink가 칠한다.** 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
+// 79%가 흰 글씨였다(실측 86건 중 68건). 색이 위험도가 아니라 "그 줄을 쓴 사람이 chalk를 썼는지"를
+// 나타내던 셈이다. sink는 레벨을 알고 있으니 여기서 일관되게 칠한다.
+const TEXT_COLOR = {
+  trace: chalk.gray,
+  debug: chalk.gray,
+  info: (s) => s,
+  warn: chalk.yellow,
+  error: chalk.red,
+  fatal: chalk.red.bold,
+};
+
+// 카테고리 배지 색 — 이름 해시로 고른다(대시보드 뷰어의 catColor와 같은 방식).
+// 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 가르는 편이
+// 이모지로 가르는 것보다 확실하고, cmd에서 깨지지도 않는다.
+const CAT_COLORS = [chalk.magenta, chalk.blue, chalk.green, chalk.yellow, chalk.cyan, chalk.redBright, chalk.blueBright, chalk.greenBright];
+function catColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return CAT_COLORS[h % CAT_COLORS.length];
+}
 
 // 레드액션(민감정보 마스킹) — 레코드가 버퍼/터미널/SSE로 나가기 직전 단일 지점.
 // Phase 0은 "최소 규칙"만. 본격 경로기반 redact는 pino 도입(Phase 3)에서 승계.
@@ -151,17 +176,21 @@ class LogManager {
 
   _renderTerminal(rec) {
     const name = LEVEL_NAMES[rec.level] || "info";
-    const label = name.toUpperCase().padEnd(5);
-    const tag = this.useColor && LEVEL_COLOR[name] ? LEVEL_COLOR[name](label) : label;
+    const paint = (fn, text) => (this.useColor && fn ? fn(text) : text);
+
+    const tag = paint(LEVEL_COLOR[name], name.toUpperCase().padEnd(5));
     // 카테고리 배지: sub 바인딩(하위 카테고리, pino child) 있으면 [category/sub]
     const catLabel = rec.category ? (rec.sub ? `${rec.category}/${rec.sub}` : rec.category) : rec.sub || "";
-    const cat = catLabel ? (this.useColor ? chalk.gray(` [${catLabel}]`) : ` [${catLabel}]`) : "";
+    const cat = catLabel ? paint(catColor(rec.category || rec.sub || ""), ` [${catLabel}]`) : "";
     // 태그: 교차 성질(직교) 라벨 집합 → 배지 뒤 #tag
     const tagsRaw = Array.isArray(rec.tags) && rec.tags.length ? " " + rec.tags.map((t) => `#${t}`).join(" ") : "";
-    const tags = tagsRaw ? (this.useColor ? chalk.gray(tagsRaw) : tagsRaw) : "";
-    const msg = typeof rec.msg === "string" ? rec.msg : String(rec.msg ?? "");
-    const line = `${tag}${cat}${tags} ${msg}`;
-    (rec.level >= LEVELS.error ? REAL.error : REAL.log)(line);
+    const tags = tagsRaw ? paint(chalk.gray, tagsRaw) : "";
+
+    const raw = typeof rec.msg === "string" ? rec.msg : String(rec.msg ?? "");
+    // 호출부가 이미 색을 넣었으면 덧칠하지 않는다(ANSI가 겹치면 리셋 위치가 어긋난다).
+    const msg = HAS_ANSI.test(raw) ? raw : paint(TEXT_COLOR[name], raw);
+
+    (rec.level >= LEVELS.error ? REAL.error : REAL.log)(`${tag}${cat}${tags} ${msg}`);
   }
 
   _toWire(rec) {

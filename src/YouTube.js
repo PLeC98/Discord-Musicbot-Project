@@ -114,7 +114,7 @@ class YouTube {
         } catch {
           /* 기록 실패는 무시 */
         }
-        log.warn(`연령 제한 감지 (${videoId}) — 쿠키로 재시도합니다`);
+        log.warn({ tags: ["retry", "fallback"] }, `연령 제한 감지 (${videoId}) — 쿠키로 재시도합니다`);
         return await youtubedl(url, buildOptions(true));
       }
       throw error;

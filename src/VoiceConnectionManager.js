@@ -32,7 +32,7 @@ class VoiceConnectionManager {
         await entersState(player.connection, VoiceConnectionStatus.Connecting, 5000);
         // 여기에 도달하면 Discord가 자동 재연결을 시도 중임
         await entersState(player.connection, VoiceConnectionStatus.Ready, 10000);
-        log.info(`자동 재연결 성공: ${label()}`);
+        log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${label()}`);
       } catch (error) {
         // 자동 재연결 실패, 음악 재생 중이면 자체 복구 시스템 시작
         const willRecover = !!player.currentTrack && !player.paused;
@@ -67,7 +67,7 @@ class VoiceConnectionManager {
       if (newState.status === VoiceConnectionStatus.Ready) {
         // 연결 복구 성공
         if (player.isRecovering) {
-          log.info(`연결 복구 완료: ${label()} | 시도 ${player.recoveryAttempts}회`);
+          log.info({ tags: ["recovered"] }, `연결 복구 완료: ${label()} | 시도 ${player.recoveryAttempts}회`);
           this.stopConnectionRecovery();
         }
         player.recoveryAttempts = 0;

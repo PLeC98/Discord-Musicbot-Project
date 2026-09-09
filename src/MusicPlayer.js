@@ -477,7 +477,7 @@ class MusicPlayer {
           // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
           // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
           audioStream.on("error", (err) => {
-            log.warn(`오디오 스트림 중단됨: ${err.code || err.message} — 캐시로 복구를 시도합니다.`);
+            log.warn({ tags: ["fallback"] }, `오디오 스트림 중단됨: ${err.code || err.message} — 캐시로 복구를 시도합니다.`);
             if (playSource !== ffmpeg.stdout) this._planCacheSwitch(playSource, playingTrack);
           });
           // ffmpeg가 끝나면 입력 스트림도 닫는다 — .pipe 바깥이라 자동 정리 대상이 아니다.
@@ -656,7 +656,7 @@ class MusicPlayer {
       return;
     }
     splicer.once("switched", (ms) => {
-      log.info(`오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
+      log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
       // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
       wlog.debug(`무지연 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
     });

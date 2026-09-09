@@ -80,7 +80,7 @@ function ffmpegPath() {
 function logResolved() {
   const info = resolve();
   const shown = info.source === "PATH" ? "PATH의 ffmpeg" : info.path;
-  log.info(`ffmpeg ${info.version} (${info.source}: ${shown})`);
+  log.info({ tags: ["startup"] }, `ffmpeg ${info.version} (${info.source}: ${shown})`);
   return info;
 }
 

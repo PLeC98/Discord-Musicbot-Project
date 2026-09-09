@@ -230,7 +230,7 @@ const graphql = {
       this._state = { ...extracted, fetchedAt: Date.now() };
       CacheManager.setSpotifyAnonState(extracted);
     } catch (e) {
-      log.warn(`익명 상태 추출 실패: ${e.message} — 저장값/시드값 사용`);
+      log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${e.message} — 저장값/시드값 사용`);
       this._state = this._state || CacheManager.getSpotifyAnonState() || { ...SEED, fetchedAt: 0 };
     }
     return this._state;
@@ -287,7 +287,7 @@ const graphql = {
       j = await this._mintToken();
     } catch (e) {
       if (e.status === 400 || e.status === 403) {
-        log.warn(`익명 토큰 오류 ${e.status} — secret을 다시 추출해 재시도합니다`);
+        log.warn({ tags: ["retry"] }, `익명 토큰 오류 ${e.status} — secret을 다시 추출해 재시도합니다`);
         await this._ensureState(true);
         j = await this._mintToken();
       } else throw e;
@@ -320,7 +320,7 @@ const graphql = {
       return await run();
     } catch (e) {
       if (e.persistedNotFound) {
-        log.warn("저장된 해시 만료 — 다시 추출해 재시도합니다");
+        log.warn({ tags: ["retry"] }, "저장된 해시 만료 — 다시 추출해 재시도합니다");
         await this._ensureState(true);
         return run();
       }

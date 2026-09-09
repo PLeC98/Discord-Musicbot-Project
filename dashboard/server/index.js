@@ -6,7 +6,6 @@ const session = require("express-session");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
-const chalk = require("chalk");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
 const { createCorsOptions } = require("./cors");
@@ -30,11 +29,11 @@ const DASHBOARD_URL = config.dashboard.url;
 function resolveSessionSecret() {
   if (config.dashboard.sessionSecret) {
     if (config.dashboard.sessionSecret.length < 32) {
-      log.warn(chalk.yellow("SESSION_SECRET이 너무 짧습니다 (32자 미만) — 64자 이상 랜덤 문자열을 권장합니다."));
+      log.warn("SESSION_SECRET이 너무 짧습니다 (32자 미만) — 64자 이상 랜덤 문자열을 권장합니다.");
     }
     return config.dashboard.sessionSecret;
   }
-  log.warn(chalk.yellow("SESSION_SECRET이 없어 랜덤 값을 사용합니다. 봇을 재시작할 때마다 대시보드 로그인이 전부 풀립니다."));
+  log.warn("SESSION_SECRET이 없어 랜덤 값을 사용합니다. 봇을 재시작할 때마다 대시보드 로그인이 전부 풀립니다.");
   return crypto.randomBytes(32).toString("hex");
 }
 
@@ -47,7 +46,7 @@ function plaintextAccessWarner(host) {
   return (req, res, next) => {
     if (!warned && !req.secure) {
       warned = true;
-      log.warn(chalk.yellow("평문 HTTP 연결로 접속됨 — 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요."));
+      log.warn("평문 HTTP 연결로 접속됨 — 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
     }
     next();
   };
@@ -179,8 +178,8 @@ function startDashboard(client) {
 
   const { line, warnings } = describeBinding(HOST, PORT, DASHBOARD_URL);
   app.listen(PORT, HOST, () => {
-    log.info(chalk.green(line));
-    for (const w of warnings) log.warn(chalk.yellow(w));
+    log.info(line);
+    for (const w of warnings) log.warn(w);
   });
 
   return app;

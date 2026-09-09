@@ -45,7 +45,7 @@ class CacheManager {
     this._createTables();
     this._initialized = true;
     this._startPeriodicEviction();
-    log.info("캐시 데이터베이스 준비 완료");
+    log.info({ tags: ["startup"] }, "SQLite 캐시 DB 준비 완료");
   }
 
   _createTables() {
@@ -605,7 +605,7 @@ class CacheManager {
 
     // 1. 다운로드 중 중단된 행 재설정
     const resetCount = this.db.prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
-    if (resetCount > 0) log.info(`지난 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
+    if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
     // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
     const cachedRows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache WHERE status = 'cached'").all();
@@ -719,7 +719,7 @@ class CacheManager {
         }
       }
     }
-    if (cleaned > 0) log.info(`어디에도 연결되지 않은 고아 파일 ${cleaned}개 삭제 완료`);
+    if (cleaned > 0) log.info(`고아 오디오 캐시 파일 ${cleaned}개 삭제 완료`);
     if (partials > 0) log.info(`캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
   }
 
