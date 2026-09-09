@@ -272,6 +272,9 @@ class YouTube {
       return {
         url: finalUrl,
         rawUrl: baseUrl,
+        // 영상 자체의 제목. 재생목록 페이지가 주는 제목과 다를 수 있고, 이쪽이 정본이다
+        // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
+        title: typeof info.title === "string" && info.title.trim() ? info.title : null,
         type: info.acodec && info.acodec.includes("opus") ? "opus" : "arbitrary",
         duration: info.duration || 0,
         bitrate: info.abr || info.tbr || 0,
@@ -322,7 +325,16 @@ class YouTube {
               id: entry.id,
             };
 
+            // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
+            // 재생목록 페이지의 제목은 낡을 수 있어서, 이게 없으면 곡이 재생되기 전까지 대기열에
+            // 낡은 제목이 그대로 보인다.
             if (track.url) {
+              try {
+                const known = CacheManager.getVerifiedTitle(track.url);
+                if (known) track.title = known;
+              } catch {
+                /* DB 미초기화 등 — 재생목록 제목 그대로 간다 */
+              }
               tracks.push(track);
             }
           } catch (entryError) {

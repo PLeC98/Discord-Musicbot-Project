@@ -82,6 +82,7 @@ class TrackDownloader {
   async _performDownload(track, filepath) {
     const player = this.player;
     const audioSourceKey = track.audioSourceKey;
+    let verifiedTitle = null;
 
     try {
       if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
@@ -118,6 +119,11 @@ class TrackDownloader {
           YouTube.getYtDlpOptions(
             {
               output: filepath,
+              // 이 다운로드에 곁들여 메타데이터를 파일로 받는다 — 왕복이 늘지 않는다.
+              // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
+              // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
+              // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
+              writeInfoJson: true,
               format: "bestaudio/best",
               preferFreeFormats: true,
               // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
@@ -138,6 +144,8 @@ class TrackDownloader {
         if (!fsSync.existsSync(filepath)) {
           throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등) — 캐시 다운로드 불가");
         }
+
+        verifiedTitle = this._takeInfoJsonTitle(filepath);
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
@@ -172,12 +180,19 @@ class TrackDownloader {
         throw new Error("Downloaded file is empty");
       }
 
+      // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
+      // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
+      if (verifiedTitle && track.platform === "youtube" && verifiedTitle !== track.title) {
+        log.debug(`제목 교정: "${track.title}" → "${verifiedTitle}"`);
+        track.title = verifiedTitle;
+      }
+
       // 완료된 다운로드를 DB에 저장
       if (audioSourceKey) {
         try {
           const _finalSt = fsSync.statSync(filepath);
           CacheManager.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track);
-          CacheManager.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail);
+          CacheManager.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail, { verified: !!verifiedTitle && track.platform === "youtube" });
         } catch {
           /* 무시 */
         }
@@ -200,6 +215,32 @@ class TrackDownloader {
       log.error(`❌ Download failed for ${track.title}:`, error.message);
       throw error;
     }
+  }
+
+  /**
+   * 다운로드가 곁들여 남긴 info.json에서 제목을 꺼내고 파일을 치운다.
+   *
+   * yt-dlp는 출력 템플릿의 확장자를 벗기지 않고 `.info.json`을 덧붙이므로 `<파일>.info.json`이
+   * 되지만, 버전에 따라 확장자를 바꾼 형태로 쓸 수도 있어 둘 다 본다.
+   * 실패해도 다운로드 자체는 성공한 것이므로 조용히 null을 돌려준다.
+   */
+  _takeInfoJsonTitle(filepath) {
+    const candidates = [`${filepath}.info.json`, filepath.replace(/\.opus$/, "") + ".info.json"];
+    for (const p of candidates) {
+      try {
+        if (!fsSync.existsSync(p)) continue;
+        const title = JSON.parse(fsSync.readFileSync(p, "utf8"))?.title;
+        fsSync.unlinkSync(p);
+        if (typeof title === "string" && title.trim()) return title;
+      } catch {
+        try {
+          fsSync.unlinkSync(p);
+        } catch {
+          /* 남아도 부팅 스윕이 치운다 */
+        }
+      }
+    }
+    return null;
   }
 
   /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */

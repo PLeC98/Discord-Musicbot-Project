@@ -75,6 +75,9 @@ class CacheManager {
                 display_title       TEXT,
                 display_artist      TEXT,
                 display_thumbnail   TEXT,
+                -- 제목의 출처: 1=영상 자체에서 확인, 0=재생목록 페이지 등 간접 출처.
+                -- 재생목록이 주는 제목은 낡을 수 있어(같은 영상인데 다르다), 확인된 제목을 덮으면 안 된다.
+                title_verified      INTEGER NOT NULL DEFAULT 0,
                 created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
                 updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
                 FOREIGN KEY (audio_source_key)
@@ -149,6 +152,13 @@ class CacheManager {
       .map((c) => c.name);
     if (!gsCols2.includes("sponsorblock_enabled")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_enabled INTEGER");
     if (!gsCols2.includes("sponsorblock_categories")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_categories TEXT");
+
+    // 제목 출처 표시 추가. 기존 행은 전부 0(미확인) — 다음에 그 영상을 받거나 재생할 때 확인된다.
+    const tlCols = this.db
+      .prepare("PRAGMA table_info(track_lookup)")
+      .all()
+      .map((c) => c.name);
+    if (!tlCols.includes("title_verified")) this.db.exec("ALTER TABLE track_lookup ADD COLUMN title_verified INTEGER NOT NULL DEFAULT 0");
   }
 
   // 이 모듈은 인스턴스를 내보내므로 static이면 외부에서 닿지 않는다
@@ -361,26 +371,47 @@ class CacheManager {
 
   // 쓰기 — track_lookup
 
-  recordTrackLookup(sourceUrl, platform, audioSourceKey, displayTitle, displayArtist, displayThumbnail) {
+  /**
+   * 소스 URL → 캐시 키 매핑과 표시용 메타데이터 기록.
+   *
+   * `verified`는 "제목을 영상 자체에서 확인했는가"다. 재생목록 페이지가 주는 제목은 같은 영상인데도
+   * 다를 수 있어(실측: 같은 영상인데 재생목록은 앞에 전각 공백이 붙은 축약 제목을, 영상 자체는
+   * 정식 제목을 준다), 그걸로 확인된
+   * 제목을 덮으면 한 번 고친 것이 도로 낡은 값으로 돌아간다. 그래서 **확인된 제목은 확인된
+   * 제목으로만 갱신한다.** 매핑(audio_source_key)은 출처와 무관하게 항상 갱신한다.
+   */
+  recordTrackLookup(sourceUrl, platform, audioSourceKey, displayTitle, displayArtist, displayThumbnail, { verified = false } = {}) {
     if (!this._initialized) this.initialize();
     sourceUrl = this._normalizeSourceUrl(sourceUrl);
     const now = Date.now();
+    const v = verified ? 1 : 0;
     this.db
       .prepare(
         `
             INSERT INTO track_lookup
                 (source_url, audio_source_key, platform, display_title, display_artist, display_thumbnail,
-                 created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 title_verified, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(source_url) DO UPDATE SET
                 audio_source_key  = excluded.audio_source_key,
-                display_title     = excluded.display_title,
-                display_artist    = excluded.display_artist,
-                display_thumbnail = excluded.display_thumbnail,
+                display_title     = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
+                                         THEN excluded.display_title ELSE track_lookup.display_title END,
+                display_artist    = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
+                                         THEN excluded.display_artist ELSE track_lookup.display_artist END,
+                display_thumbnail = CASE WHEN excluded.display_thumbnail IS NOT NULL
+                                         THEN excluded.display_thumbnail ELSE track_lookup.display_thumbnail END,
+                title_verified    = MAX(track_lookup.title_verified, excluded.title_verified),
                 updated_at        = excluded.updated_at
         `,
       )
-      .run(sourceUrl, audioSourceKey, platform, displayTitle || null, displayArtist || null, displayThumbnail || null, now, now);
+      .run(sourceUrl, audioSourceKey, platform, displayTitle || null, displayArtist || null, displayThumbnail || null, v, now, now);
+  }
+
+  /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null — 재생목록이 준 제목은 여기 안 걸린다. */
+  getVerifiedTitle(sourceUrl) {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT display_title FROM track_lookup WHERE source_url = ? AND title_verified = 1").get(this._normalizeSourceUrl(sourceUrl));
+    return row?.display_title || null;
   }
 
   /**

@@ -337,6 +337,20 @@ class MusicPlayer {
         throw new Error("오디오 스트림 가져오기 실패");
       }
 
+      // 재생목록으로 담은 곡은 재생목록 페이지가 준 제목을 쓰고 있는데, 같은 영상인데도 다를 수 있다.
+      // 스트림을 가져왔다면 그 응답에 영상 자체의 제목이 실려 있으므로 왕복 없이 고칠 수 있다.
+      // (캐시로 재생하는 곡은 여기를 지나지 않는다 — 그쪽은 받을 때 고친다.)
+      // 스포티파이 트랙은 제외한다: 유튜브 동등물의 제목은 다른 문자열이고, 사용자가 넣은 것은
+      // 스포티파이 곡이므로 표시는 그쪽이 맞다.
+      let titleVerified = false;
+      if (this.currentTrack.platform === "youtube" && streamInfo && typeof streamInfo === "object" && streamInfo.title) {
+        titleVerified = true;
+        if (streamInfo.title !== this.currentTrack.title) {
+          log.debug(`제목 교정: "${this.currentTrack.title}" → "${streamInfo.title}"`);
+          this.currentTrack.title = streamInfo.title;
+        }
+      }
+
       // SponsorBlock 구간 데이터 확보 (첫곡/캐시곡 포함 — preload를 거치지 않았을 수 있음).
       // 이 시점엔 videoId가 확정(youtube id / 해석된 youtubeUrl / audioSourceKey yt:)됨. 실패해도 재생 진행.
       try {
@@ -531,7 +545,7 @@ class MusicPlayer {
       // 재생 통계와 소스 URL → audioSourceKey 매핑을 DB에 기록
       if (this.currentTrack.audioSourceKey) {
         CacheManager.recordPlayback(this.currentTrack.audioSourceKey);
-        CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail);
+        CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
       }
 
       if (this.pauseReasons.size > 0) {
