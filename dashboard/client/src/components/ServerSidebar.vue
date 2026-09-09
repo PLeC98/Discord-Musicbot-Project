@@ -39,12 +39,9 @@
   <div class="lg:hidden fixed inset-x-0 top-[calc(var(--chrome)_+_3rem)] md:top-[var(--chrome)] bottom-0 z-140 bg-black/55 transition-opacity duration-300" :class="drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeDrawer"></div>
 
   <aside class="lg:hidden fixed left-0 top-[calc(var(--chrome)_+_3rem)] md:top-[var(--chrome)] bottom-0 z-150 w-60 flex flex-col bg-[rgba(7,11,21,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border-r border-white/10 transition-transform duration-300 ease-smooth" :class="drawerOpen ? 'translate-x-0' : '-translate-x-full'">
-    <div class="flex items-center h-14 shrink-0 pl-3.5 pr-2 gap-1">
-      <router-link to="/servers" class="flex items-center gap-1.5 flex-1 font-bold text-fg no-underline tracking-[-0.01em]"><Icon name="music" :size="18" class="text-accent" />MusicBot</router-link>
-      <button :class="iconBtn" v-tooltip="'닫기'" @click="closeDrawer"><Icon name="close" :size="19" /></button>
-    </div>
-
-    <div class="px-2 shrink-0">
+    <!-- 로고·닫기를 두지 않는다. 드로어는 상단바 아래에서 시작하고 딤도 상단바를 덮지 않아
+         상단바의 로고와 메뉴 버튼이 그대로 살아 있다(딤을 눌러도 닫힌다). 중복이다. -->
+    <div class="px-2 pt-2 shrink-0">
       <router-link to="/servers" :class="itemClass(isHome)" @click="closeDrawer">
         <span class="size-9 shrink-0 flex items-center justify-center"><Icon name="list" :size="19" /></span>
         <span class="flex-1 text-[0.85rem] font-medium">서버 목록</span>
