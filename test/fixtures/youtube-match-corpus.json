@@ -1,0 +1,1643 @@
+[
+ {
+  "spId": "0msE3v0pQgGttnlZjrLzWj",
+  "expect": "xfG6L9I7N8I",
+  "note": "閃光 일본어판",
+  "target": {
+   "title": "閃光",
+   "artist": "[Alexandros]",
+   "durationSec": 262
+  },
+  "queries": {
+   "primary": [
+    "閃光 [Alexandros]"
+   ],
+   "secondary": [
+    "閃光"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "xfG6L9I7N8I",
+      "url": "https://www.youtube.com/watch?v=xfG6L9I7N8I",
+      "title": "[Alexandros] - Senkou",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 309,
+      "isLive": false
+     },
+     {
+      "id": "h1n6kPZhmOc",
+      "url": "https://www.youtube.com/watch?v=h1n6kPZhmOc",
+      "title": "[Alexandros] - 閃光 (English ver.) - Animation MV",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 273,
+      "isLive": false
+     },
+     {
+      "id": "nw15v6TGSZ8",
+      "url": "https://www.youtube.com/watch?v=nw15v6TGSZ8",
+      "title": "[Alexandros] - 閃光 (Live)『機動戦士ガンダム 閃光のハサウェイ』主題歌",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 304,
+      "isLive": false
+     },
+     {
+      "id": "9VnXWplsukk",
+      "url": "https://www.youtube.com/watch?v=9VnXWplsukk",
+      "title": "閃光 - [Alexandros] // covered by 暁月蒼依",
+      "channel": "暁月 蒼依",
+      "durationSec": 250,
+      "isLive": false
+     },
+     {
+      "id": "reDH_iY1aOA",
+      "url": "https://www.youtube.com/watch?v=reDH_iY1aOA",
+      "title": "Senkou (English Version)",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 266,
+      "isLive": false
+     },
+     {
+      "id": "olo1s2Gsp0k",
+      "url": "https://www.youtube.com/watch?v=olo1s2Gsp0k",
+      "title": "機動戦士ガンダム 閃光のハサウェイ OP 閃光 中日字幕 (MAD·AMV) (回憶系列404)",
+      "channel": "沙理戰-MAD·AMV G",
+      "durationSec": 264,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "h1n6kPZhmOc",
+      "url": "https://www.youtube.com/watch?v=h1n6kPZhmOc",
+      "title": "[Alexandros] - 閃光 (English ver.) - Animation MV",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 273,
+      "isLive": false
+     },
+     {
+      "id": "xfG6L9I7N8I",
+      "url": "https://www.youtube.com/watch?v=xfG6L9I7N8I",
+      "title": "[Alexandros] - Senkou",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 309,
+      "isLive": false
+     },
+     {
+      "id": "WyTRg-DJ99M",
+      "url": "https://www.youtube.com/watch?v=WyTRg-DJ99M",
+      "title": "閃光",
+      "channel": "Masashi Hamauzu - Topic",
+      "durationSec": 175,
+      "isLive": false
+     },
+     {
+      "id": "olo1s2Gsp0k",
+      "url": "https://www.youtube.com/watch?v=olo1s2Gsp0k",
+      "title": "機動戦士ガンダム 閃光のハサウェイ OP 閃光 中日字幕 (MAD·AMV) (回憶系列404)",
+      "channel": "沙理戰-MAD·AMV G",
+      "durationSec": 264,
+      "isLive": false
+     },
+     {
+      "id": "R51GAyxPKtU",
+      "url": "https://www.youtube.com/watch?v=R51GAyxPKtU",
+      "title": "[Alexandros] 閃光 (Senkou)┃Cover by Raon Lee",
+      "channel": "Raon",
+      "durationSec": 289,
+      "isLive": false
+     },
+     {
+      "id": "9VnXWplsukk",
+      "url": "https://www.youtube.com/watch?v=9VnXWplsukk",
+      "title": "閃光 - [Alexandros] // covered by 暁月蒼依",
+      "channel": "暁月 蒼依",
+      "durationSec": 250,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "3qDky2Jzzp4MQ2dKTNfVLe",
+  "expect": "h1n6kPZhmOc",
+  "note": "閃光 영어판",
+  "target": {
+   "title": "閃光 - English ver.",
+   "artist": "[Alexandros]",
+   "durationSec": 265
+  },
+  "queries": {
+   "primary": [
+    "閃光 - English ver. [Alexandros]"
+   ],
+   "secondary": [
+    "閃光 - English ver."
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "reDH_iY1aOA",
+      "url": "https://www.youtube.com/watch?v=reDH_iY1aOA",
+      "title": "Senkou (English Version)",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 266,
+      "isLive": false
+     },
+     {
+      "id": "h1n6kPZhmOc",
+      "url": "https://www.youtube.com/watch?v=h1n6kPZhmOc",
+      "title": "[Alexandros] - 閃光 (English ver.) - Animation MV",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 273,
+      "isLive": false
+     },
+     {
+      "id": "xfG6L9I7N8I",
+      "url": "https://www.youtube.com/watch?v=xfG6L9I7N8I",
+      "title": "[Alexandros] - Senkou",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 309,
+      "isLive": false
+     },
+     {
+      "id": "gm9aidVrmzM",
+      "url": "https://www.youtube.com/watch?v=gm9aidVrmzM",
+      "title": "[Alexandros] Senkou 閃光 (English Ver.) Lyrics",
+      "channel": "Red Brave",
+      "durationSec": 267,
+      "isLive": false
+     },
+     {
+      "id": "ywb_kfJO4jI",
+      "url": "https://www.youtube.com/watch?v=ywb_kfJO4jI",
+      "title": "【机动战士高达 闪光的哈萨维】［Alexandros］ - 閃光 (English ver.) - (SARAH cover) / Mobile Suit Gundam Hathaway FULL",
+      "channel": "Nine Universe",
+      "durationSec": 282,
+      "isLive": false
+     },
+     {
+      "id": "pR3w2F7LCIg",
+      "url": "https://www.youtube.com/watch?v=pR3w2F7LCIg",
+      "title": "「機動戦士ガンダム 閃光のハサウェイ」主題歌 Alexandros - 閃光 - English Lyrics Cover Song",
+      "channel": "ジミー・ペンタトニック Music",
+      "durationSec": 276,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "reDH_iY1aOA",
+      "url": "https://www.youtube.com/watch?v=reDH_iY1aOA",
+      "title": "Senkou (English Version)",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 266,
+      "isLive": false
+     },
+     {
+      "id": "h1n6kPZhmOc",
+      "url": "https://www.youtube.com/watch?v=h1n6kPZhmOc",
+      "title": "[Alexandros] - 閃光 (English ver.) - Animation MV",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 273,
+      "isLive": false
+     },
+     {
+      "id": "Qw7_ABPkigM",
+      "url": "https://www.youtube.com/watch?v=Qw7_ABPkigM",
+      "title": "[Alexandros] - 閃光 (English ver.) 日本語訳",
+      "channel": "サブ垢太郎",
+      "durationSec": 262,
+      "isLive": false
+     },
+     {
+      "id": "xfG6L9I7N8I",
+      "url": "https://www.youtube.com/watch?v=xfG6L9I7N8I",
+      "title": "[Alexandros] - Senkou",
+      "channel": "ALEXANDROSchannel",
+      "durationSec": 309,
+      "isLive": false
+     },
+     {
+      "id": "gm9aidVrmzM",
+      "url": "https://www.youtube.com/watch?v=gm9aidVrmzM",
+      "title": "[Alexandros] Senkou 閃光 (English Ver.) Lyrics",
+      "channel": "Red Brave",
+      "durationSec": 267,
+      "isLive": false
+     },
+     {
+      "id": "pR3w2F7LCIg",
+      "url": "https://www.youtube.com/watch?v=pR3w2F7LCIg",
+      "title": "「機動戦士ガンダム 閃光のハサウェイ」主題歌 Alexandros - 閃光 - English Lyrics Cover Song",
+      "channel": "ジミー・ペンタトニック Music",
+      "durationSec": 276,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "5NxmDq0yXBYGfCbMqvIXuv",
+  "expect": "Jj1_mfUzjOs",
+  "note": "UNDEAD 일본어판",
+  "target": {
+   "title": "UNDEAD",
+   "artist": "YOASOBI",
+   "durationSec": 182
+  },
+  "queries": {
+   "primary": [
+    "UNDEAD YOASOBI"
+   ],
+   "secondary": [
+    "UNDEAD"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "Jj1_mfUzjOs",
+      "url": "https://www.youtube.com/watch?v=Jj1_mfUzjOs",
+      "title": "YOASOBI「UNDEAD」 Official Music Video／『〈物語〉シリーズ オフ&モンスターシーズン』主題歌",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "8ZN40f8R7eg",
+      "url": "https://www.youtube.com/watch?v=8ZN40f8R7eg",
+      "title": "YOASOBI「UNDEAD」 from 『YOASOBI 5th ANNIVERSARY DOME LIVE 2024 \"超現実\"』2024.11.10@東京ドーム",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 215,
+      "isLive": false
+     },
+     {
+      "id": "shvREThhgbI",
+      "url": "https://www.youtube.com/watch?v=shvREThhgbI",
+      "title": "요아소비 (YOASOBI) - UNDEAD : 모노가타리 OST [가사/해석/발음]",
+      "channel": "츠요 [J-POP]",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "9KFsI34I1bs",
+      "url": "https://www.youtube.com/watch?v=9KFsI34I1bs",
+      "title": "UNDEAD (YOASOBI) / 텐코 시부키(Tenko Shibuki) cover",
+      "channel": "텐코 시부키 TENKO SHIBUKI",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "RsOfhSibWFA",
+      "url": "https://www.youtube.com/watch?v=RsOfhSibWFA",
+      "title": "YOASOBI - UNDEAD Lyrics Video [Kan/Rom/Eng]",
+      "channel": "mimanimi",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "51qnz7pJzRg",
+      "url": "https://www.youtube.com/watch?v=51qnz7pJzRg",
+      "title": "UNDEAD / YOASOBI (Official instrumental)",
+      "channel": "Instrumental of music",
+      "durationSec": 185,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "Jj1_mfUzjOs",
+      "url": "https://www.youtube.com/watch?v=Jj1_mfUzjOs",
+      "title": "YOASOBI「UNDEAD」 Official Music Video／『〈物語〉シリーズ オフ&モンスターシーズン』主題歌",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "shvREThhgbI",
+      "url": "https://www.youtube.com/watch?v=shvREThhgbI",
+      "title": "요아소비 (YOASOBI) - UNDEAD : 모노가타리 OST [가사/해석/발음]",
+      "channel": "츠요 [J-POP]",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "uQw6LHv46Pk",
+      "url": "https://www.youtube.com/watch?v=uQw6LHv46Pk",
+      "title": "Undead - Broadcast Version",
+      "channel": "Hollywood Undead",
+      "durationSec": 194,
+      "isLive": false
+     },
+     {
+      "id": "IOjzS0axfMw",
+      "url": "https://www.youtube.com/watch?v=IOjzS0axfMw",
+      "title": "Hollywood Undead - Undead [Lyrics Video]",
+      "channel": "TheExtremeUndead",
+      "durationSec": 263,
+      "isLive": false
+     },
+     {
+      "id": "9KFsI34I1bs",
+      "url": "https://www.youtube.com/watch?v=9KFsI34I1bs",
+      "title": "UNDEAD (YOASOBI) / 텐코 시부키(Tenko Shibuki) cover",
+      "channel": "텐코 시부키 TENKO SHIBUKI",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "8ZN40f8R7eg",
+      "url": "https://www.youtube.com/watch?v=8ZN40f8R7eg",
+      "title": "YOASOBI「UNDEAD」 from 『YOASOBI 5th ANNIVERSARY DOME LIVE 2024 \"超現実\"』2024.11.10@東京ドーム",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 215,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "6OjOhAEAIToQ4VrJxrNvLS",
+  "expect": "tEelcVZ4Q7Y",
+  "note": "UNDEAD 영어판",
+  "target": {
+   "title": "UNDEAD - English Version",
+   "artist": "YOASOBI",
+   "durationSec": 182
+  },
+  "queries": {
+   "primary": [
+    "UNDEAD - English Version YOASOBI"
+   ],
+   "secondary": [
+    "UNDEAD - English Version"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "tEelcVZ4Q7Y",
+      "url": "https://www.youtube.com/watch?v=tEelcVZ4Q7Y",
+      "title": "YOASOBI / UNDEAD (English Version) Official Music Video",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "fJieaXOep1A",
+      "url": "https://www.youtube.com/watch?v=fJieaXOep1A",
+      "title": "YOASOBI - UNDEAD (English Version) Lyrics Video",
+      "channel": "mimanimi",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "RsOfhSibWFA",
+      "url": "https://www.youtube.com/watch?v=RsOfhSibWFA",
+      "title": "YOASOBI - UNDEAD Lyrics Video [Kan/Rom/Eng]",
+      "channel": "mimanimi",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "ui7QyWBGxIw",
+      "url": "https://www.youtube.com/watch?v=ui7QyWBGxIw",
+      "title": "【帰国子女のIfが】UNDEAD English ver. / YOASOBI様【英語で歌ってみた】【いれいす】",
+      "channel": "If Voice Channel",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "N0Zq0sBFL2g",
+      "url": "https://www.youtube.com/watch?v=N0Zq0sBFL2g",
+      "title": "Kronii, Gigi & Ceci Sing UNDEAD (English Version) - YOASOBI 【Kronii 3DLIVE 2026】",
+      "channel": " The Icy Panda ʕ •ᴥ•ʔ ",
+      "durationSec": 191,
+      "isLive": false
+     },
+     {
+      "id": "PY-IfEY-2Ug",
+      "url": "https://www.youtube.com/watch?v=PY-IfEY-2Ug",
+      "title": "YOASOBI / ADRENA (「アドレナ」English Ver.) Official Music Video",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 189,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "tEelcVZ4Q7Y",
+      "url": "https://www.youtube.com/watch?v=tEelcVZ4Q7Y",
+      "title": "YOASOBI / UNDEAD (English Version) Official Music Video",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "ui7QyWBGxIw",
+      "url": "https://www.youtube.com/watch?v=ui7QyWBGxIw",
+      "title": "【帰国子女のIfが】UNDEAD English ver. / YOASOBI様【英語で歌ってみた】【いれいす】",
+      "channel": "If Voice Channel",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "fJieaXOep1A",
+      "url": "https://www.youtube.com/watch?v=fJieaXOep1A",
+      "title": "YOASOBI - UNDEAD (English Version) Lyrics Video",
+      "channel": "mimanimi",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "Jj1_mfUzjOs",
+      "url": "https://www.youtube.com/watch?v=Jj1_mfUzjOs",
+      "title": "YOASOBI「UNDEAD」 Official Music Video／『〈物語〉シリーズ オフ&モンスターシーズン』主題歌",
+      "channel": "YOASOBI and Echoes",
+      "durationSec": 187,
+      "isLive": false
+     },
+     {
+      "id": "RsOfhSibWFA",
+      "url": "https://www.youtube.com/watch?v=RsOfhSibWFA",
+      "title": "YOASOBI - UNDEAD Lyrics Video [Kan/Rom/Eng]",
+      "channel": "mimanimi",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "JwIGmU_09Ds",
+      "url": "https://www.youtube.com/watch?v=JwIGmU_09Ds",
+      "title": "Undead Alice ♡ English Cover 【rachie】アンデッドアリス",
+      "channel": "rachie 🎀💌",
+      "durationSec": 223,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "0PAyiPTz8gL0udQnSasc5G",
+  "expect": "t35H2BVq490",
+  "note": "TT 일본어판",
+  "target": {
+   "title": "TT - Japanese ver.",
+   "artist": "TWICE",
+   "durationSec": 212
+  },
+  "queries": {
+   "primary": [
+    "TT - Japanese ver. TWICE"
+   ],
+   "secondary": [
+    "TT - Japanese ver."
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "t35H2BVq490",
+      "url": "https://www.youtube.com/watch?v=t35H2BVq490",
+      "title": "TWICE「TT -Japanese ver.-」Music Video",
+      "channel": "TWICE JAPAN OFFICIAL YouTube Channel",
+      "durationSec": 251,
+      "isLive": false
+     },
+     {
+      "id": "9NETD6ok8hY",
+      "url": "https://www.youtube.com/watch?v=9NETD6ok8hY",
+      "title": "TWICE (트와이스) - TT (Japanese ver.) [Color Coded Lyrics/JAPAN/ROM/ENG]",
+      "channel": "Lemoring",
+      "durationSec": 223,
+      "isLive": false
+     },
+     {
+      "id": "W3Dj4-k77go",
+      "url": "https://www.youtube.com/watch?v=W3Dj4-k77go",
+      "title": "【日本語字幕/歌詞】TT Japanese ver - TWICE (トゥワイス)",
+      "channel": "てらKPOP",
+      "durationSec": 216,
+      "isLive": false
+     },
+     {
+      "id": "vrUVGPJIxrI",
+      "url": "https://www.youtube.com/watch?v=vrUVGPJIxrI",
+      "title": "TT-Japanese Ver- TWICE [TGC Stage]",
+      "channel": "きつね",
+      "durationSec": 216,
+      "isLive": false
+     },
+     {
+      "id": "FkehxY3xDe0",
+      "url": "https://www.youtube.com/watch?v=FkehxY3xDe0",
+      "title": "【1時間耐久】TT(Japanese ver.) - TWICE【作業用BGM】",
+      "channel": "ねこもち",
+      "durationSec": 3615,
+      "isLive": false
+     },
+     {
+      "id": "_1rqxcxHLIw",
+      "url": "https://www.youtube.com/watch?v=_1rqxcxHLIw",
+      "title": "TT -Japanese Ver. -/ TWICE 【歌詞・日本語字幕】",
+      "channel": "きつね",
+      "durationSec": 215,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "t35H2BVq490",
+      "url": "https://www.youtube.com/watch?v=t35H2BVq490",
+      "title": "TWICE「TT -Japanese ver.-」Music Video",
+      "channel": "TWICE JAPAN OFFICIAL YouTube Channel",
+      "durationSec": 251,
+      "isLive": false
+     },
+     {
+      "id": "9NETD6ok8hY",
+      "url": "https://www.youtube.com/watch?v=9NETD6ok8hY",
+      "title": "TWICE (트와이스) - TT (Japanese ver.) [Color Coded Lyrics/JAPAN/ROM/ENG]",
+      "channel": "Lemoring",
+      "durationSec": 223,
+      "isLive": false
+     },
+     {
+      "id": "W3Dj4-k77go",
+      "url": "https://www.youtube.com/watch?v=W3Dj4-k77go",
+      "title": "【日本語字幕/歌詞】TT Japanese ver - TWICE (トゥワイス)",
+      "channel": "てらKPOP",
+      "durationSec": 216,
+      "isLive": false
+     },
+     {
+      "id": "ya5eqUhmGkk",
+      "url": "https://www.youtube.com/watch?v=ya5eqUhmGkk",
+      "title": "TWICE (トゥワイス) TT (Japanese Ver.) Color Coded Lyrics (Kan/Rom/Eng)",
+      "channel": "fairyoons",
+      "durationSec": 214,
+      "isLive": false
+     },
+     {
+      "id": "HVjW5MuvH48",
+      "url": "https://www.youtube.com/watch?v=HVjW5MuvH48",
+      "title": "03. TT (Japanese version) [TWICE – #TWICE] mp3 audio",
+      "channel": "B B",
+      "durationSec": 214,
+      "isLive": false
+     },
+     {
+      "id": "kOORdBw1zf4",
+      "url": "https://www.youtube.com/watch?v=kOORdBw1zf4",
+      "title": "TWICE -「TT -Japanese ver.-」1st Arena Tour 2018 \"BDZ\"",
+      "channel": "TWICE World",
+      "durationSec": 214,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "7b6WvfgtlRNR8PmHfNhWl5",
+  "expect": "ePpPVE-GGJw",
+  "note": "TT 한국어판",
+  "target": {
+   "title": "TT",
+   "artist": "TWICE",
+   "durationSec": 212
+  },
+  "queries": {
+   "primary": [
+    "TT TWICE"
+   ],
+   "secondary": [
+    "TT"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "ePpPVE-GGJw",
+      "url": "https://www.youtube.com/watch?v=ePpPVE-GGJw",
+      "title": "TWICE(트와이스) \"TT(티티)\" M/V",
+      "channel": "JYP Entertainment",
+      "durationSec": 254,
+      "isLive": false
+     },
+     {
+      "id": "0kFysgVv9ZQ",
+      "url": "https://www.youtube.com/watch?v=0kFysgVv9ZQ",
+      "title": "【TVPP】 Twice – TT, 트와이스 – 티티 @Show Music Core",
+      "channel": "TV-People",
+      "durationSec": 214,
+      "isLive": false
+     },
+     {
+      "id": "J9b7gveF_tQ",
+      "url": "https://www.youtube.com/watch?v=J9b7gveF_tQ",
+      "title": "TWICE (트와이스) - TT [HAN|ROM|ENG Color Coded Lyrics]",
+      "channel": "krystalized",
+      "durationSec": 213,
+      "isLive": false
+     },
+     {
+      "id": "9uypQGzzhns",
+      "url": "https://www.youtube.com/watch?v=9uypQGzzhns",
+      "title": "TWICE(트와이스) \"TT\" Dance Practice Video",
+      "channel": "TWICE",
+      "durationSec": 218,
+      "isLive": false
+     },
+     {
+      "id": "Ur2Uva68jKg",
+      "url": "https://www.youtube.com/watch?v=Ur2Uva68jKg",
+      "title": "[Show Champion] 트와이스 - TT (TWICE - TT) l EP.206",
+      "channel": "MBC every1",
+      "durationSec": 224,
+      "isLive": false
+     },
+     {
+      "id": "bYbKeCBzajQ",
+      "url": "https://www.youtube.com/watch?v=bYbKeCBzajQ",
+      "title": "TWICE 'TT' - Dance Practice Mirrored",
+      "channel": "soulchangbin",
+      "durationSec": 214,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "ePpPVE-GGJw",
+      "url": "https://www.youtube.com/watch?v=ePpPVE-GGJw",
+      "title": "TWICE(트와이스) \"TT(티티)\" M/V",
+      "channel": "JYP Entertainment",
+      "durationSec": 254,
+      "isLive": false
+     },
+     {
+      "id": "J9b7gveF_tQ",
+      "url": "https://www.youtube.com/watch?v=J9b7gveF_tQ",
+      "title": "TWICE (트와이스) - TT [HAN|ROM|ENG Color Coded Lyrics]",
+      "channel": "krystalized",
+      "durationSec": 213,
+      "isLive": false
+     },
+     {
+      "id": "9uypQGzzhns",
+      "url": "https://www.youtube.com/watch?v=9uypQGzzhns",
+      "title": "TWICE(트와이스) \"TT\" Dance Practice Video",
+      "channel": "TWICE",
+      "durationSec": 218,
+      "isLive": false
+     },
+     {
+      "id": "bYbKeCBzajQ",
+      "url": "https://www.youtube.com/watch?v=bYbKeCBzajQ",
+      "title": "TWICE 'TT' - Dance Practice Mirrored",
+      "channel": "soulchangbin",
+      "durationSec": 214,
+      "isLive": false
+     },
+     {
+      "id": "0kFysgVv9ZQ",
+      "url": "https://www.youtube.com/watch?v=0kFysgVv9ZQ",
+      "title": "【TVPP】 Twice – TT, 트와이스 – 티티 @Show Music Core",
+      "channel": "TV-People",
+      "durationSec": 214,
+      "isLive": false
+     },
+     {
+      "id": "pqM9nI0z48c",
+      "url": "https://www.youtube.com/watch?v=pqM9nI0z48c",
+      "title": "NCT WISH - TT (원곡: TWICE)♬",
+      "channel": "SBS Entertainment",
+      "durationSec": 142,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "4BextT5enhIcj9Loj170rK",
+  "expect": "2ZoIHGC-xZU",
+  "note": "Azari 제목공란(하드)",
+  "target": {
+   "title": "Shadow Shadow",
+   "artist": "Azari",
+   "durationSec": 141
+  },
+  "queries": {
+   "primary": [
+    "Shadow Shadow Azari"
+   ],
+   "secondary": [
+    "Shadow Shadow"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "2ZoIHGC-xZU",
+      "url": "https://www.youtube.com/watch?v=2ZoIHGC-xZU",
+      "title": "​",
+      "channel": "Azari",
+      "durationSec": 141,
+      "isLive": false
+     },
+     {
+      "id": "5OZIbZO2tIw",
+      "url": "https://www.youtube.com/watch?v=5OZIbZO2tIw",
+      "title": "Shadow Shadow / 宵崎奏（アナザーボーカル Full ver.）",
+      "channel": "プロジェクトセカイ カラフルステージ! feat. 初音ミク",
+      "durationSec": 148,
+      "isLive": false
+     },
+     {
+      "id": "oOUw68yWKO8",
+      "url": "https://www.youtube.com/watch?v=oOUw68yWKO8",
+      "title": "『 Shadow Shadow 』 歌ってみた ／ Dear:",
+      "channel": "Dear:",
+      "durationSec": 142,
+      "isLive": false
+     },
+     {
+      "id": "0wlO4fkF3VU",
+      "url": "https://www.youtube.com/watch?v=0wlO4fkF3VU",
+      "title": "Shadow Shadow / 25時、ナイトコードで。 × 鏡音レン【3DMV】",
+      "channel": "プロジェクトセカイ カラフルステージ! feat. 初音ミク",
+      "durationSec": 130,
+      "isLive": false
+     },
+     {
+      "id": "f8TOY2PLfaE",
+      "url": "https://www.youtube.com/watch?v=f8TOY2PLfaE",
+      "title": "ㅤ",
+      "channel": "LOLUET",
+      "durationSec": 147,
+      "isLive": false
+     },
+     {
+      "id": "nyTLvnO0snk",
+      "url": "https://www.youtube.com/watch?v=nyTLvnO0snk",
+      "title": "Shadow Shadow (feat. 宵崎奏 & 朝比奈まふゆ & 東雲絵名 & 暁山瑞希 & 鏡音レン)",
+      "channel": "Nightcord at 25:00 - Topic",
+      "durationSec": 145,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "5OZIbZO2tIw",
+      "url": "https://www.youtube.com/watch?v=5OZIbZO2tIw",
+      "title": "Shadow Shadow / 宵崎奏（アナザーボーカル Full ver.）",
+      "channel": "プロジェクトセカイ カラフルステージ! feat. 初音ミク",
+      "durationSec": 148,
+      "isLive": false
+     },
+     {
+      "id": "2ZoIHGC-xZU",
+      "url": "https://www.youtube.com/watch?v=2ZoIHGC-xZU",
+      "title": "​",
+      "channel": "Azari",
+      "durationSec": 141,
+      "isLive": false
+     },
+     {
+      "id": "zM2xBtnv7XM",
+      "url": "https://www.youtube.com/watch?v=zM2xBtnv7XM",
+      "title": "[FULL VER] Shadow Shadow — 25時、ナイトコードで。 × 鏡音レン [プロセカ Color Coded Lyrics 歌詞]",
+      "channel": "Yan☆",
+      "durationSec": 142,
+      "isLive": false
+     },
+     {
+      "id": "oOUw68yWKO8",
+      "url": "https://www.youtube.com/watch?v=oOUw68yWKO8",
+      "title": "『 Shadow Shadow 』 歌ってみた ／ Dear:",
+      "channel": "Dear:",
+      "durationSec": 142,
+      "isLive": false
+     },
+     {
+      "id": "0wlO4fkF3VU",
+      "url": "https://www.youtube.com/watch?v=0wlO4fkF3VU",
+      "title": "Shadow Shadow / 25時、ナイトコードで。 × 鏡音レン【3DMV】",
+      "channel": "プロジェクトセカイ カラフルステージ! feat. 初音ミク",
+      "durationSec": 130,
+      "isLive": false
+     },
+     {
+      "id": "V5MayJ9qvzc",
+      "url": "https://www.youtube.com/watch?v=V5MayJ9qvzc",
+      "title": "[프로세카] Shadow Shadow - 25시, 나이트코드에서.(니고) × 카가미네 렌 파트별가사 Color Coded Lyrics",
+      "channel": "DAILY SEKAI",
+      "durationSec": 127,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "3CeUMk1K4RPOpyzxn7JKZV",
+  "expect": "RCltAg_iK0E",
+  "note": "Bunny Girl 공식 Lyric Video",
+  "target": {
+   "title": "Bunny Girl",
+   "artist": "AKASAKI",
+   "durationSec": 217
+  },
+  "queries": {
+   "primary": [
+    "Bunny Girl AKASAKI"
+   ],
+   "secondary": [
+    "Bunny Girl"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "RCltAg_iK0E",
+      "url": "https://www.youtube.com/watch?v=RCltAg_iK0E",
+      "title": "【AKASAKI】Bunny Girl（Lyric Video）",
+      "channel": "AKASAKI",
+      "durationSec": 217,
+      "isLive": false
+     },
+     {
+      "id": "eQndIPCv4Z0",
+      "url": "https://www.youtube.com/watch?v=eQndIPCv4Z0",
+      "title": "【AKASAKI】Bunny Girl - Natural（Music Video）",
+      "channel": "AKASAKI",
+      "durationSec": 227,
+      "isLive": false
+     },
+     {
+      "id": "eGf_usx37VQ",
+      "url": "https://www.youtube.com/watch?v=eGf_usx37VQ",
+      "title": "AKASAKI - Bunny Girl [가사/발음/해석]",
+      "channel": "지구의 가사집 [J-POP]",
+      "durationSec": 218,
+      "isLive": false
+     },
+     {
+      "id": "JjdiGHMHd9o",
+      "url": "https://www.youtube.com/watch?v=JjdiGHMHd9o",
+      "title": "AKASAKI - Bunny Girl | Shania Yan Cover",
+      "channel": "Shania Yan",
+      "durationSec": 216,
+      "isLive": false
+     },
+     {
+      "id": "h0mr52MvVig",
+      "url": "https://www.youtube.com/watch?v=h0mr52MvVig",
+      "title": "1時間耐久　Bunny Girl/ AKASAKI",
+      "channel": "耐久channel",
+      "durationSec": 3898,
+      "isLive": false
+     },
+     {
+      "id": "tCWD1x_w5YQ",
+      "url": "https://www.youtube.com/watch?v=tCWD1x_w5YQ",
+      "title": "🐰밤의 시작이야 bunny girl : AKASAKI - bunny girl [AMV/가사/해석/lyrics]",
+      "channel": "뮤틸 Music that I like",
+      "durationSec": 215,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "RCltAg_iK0E",
+      "url": "https://www.youtube.com/watch?v=RCltAg_iK0E",
+      "title": "【AKASAKI】Bunny Girl（Lyric Video）",
+      "channel": "AKASAKI",
+      "durationSec": 217,
+      "isLive": false
+     },
+     {
+      "id": "eGf_usx37VQ",
+      "url": "https://www.youtube.com/watch?v=eGf_usx37VQ",
+      "title": "AKASAKI - Bunny Girl [가사/발음/해석]",
+      "channel": "지구의 가사집 [J-POP]",
+      "durationSec": 218,
+      "isLive": false
+     },
+     {
+      "id": "eQndIPCv4Z0",
+      "url": "https://www.youtube.com/watch?v=eQndIPCv4Z0",
+      "title": "【AKASAKI】Bunny Girl - Natural（Music Video）",
+      "channel": "AKASAKI",
+      "durationSec": 227,
+      "isLive": false
+     },
+     {
+      "id": "HsNmKTG-VSc",
+      "url": "https://www.youtube.com/watch?v=HsNmKTG-VSc",
+      "title": "「Cover」Bunny Girl / バニーガール - Kaela Kovalskia & Ouro Kronii",
+      "channel": "Kaela Kovalskia Ch. hololive",
+      "durationSec": 217,
+      "isLive": false
+     },
+     {
+      "id": "xd5MxXS-edA",
+      "url": "https://www.youtube.com/watch?v=xd5MxXS-edA",
+      "title": "𝐁𝐮𝐧𝐧𝐲 𝐆𝐢𝐫𝐥 𝐒𝐞𝐧𝐩𝐚𝐢 ~ 𝑙𝑜𝑓𝑖 ℎ𝑖𝑝ℎ𝑜𝑝 𝑎𝑛𝑑 𝑙𝑜𝑓𝑖 𝑟𝑒𝑚𝑖𝑥",
+      "channel": "Zaky",
+      "durationSec": 1175,
+      "isLive": false
+     },
+     {
+      "id": "YuaRcvmtmgQ",
+      "url": "https://www.youtube.com/watch?v=YuaRcvmtmgQ",
+      "title": "BunnyGirl  COVER cover.urei",
+      "channel": "urei",
+      "durationSec": 217,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "2tpWsVSb9UEmDRxAl1zhX1",
+  "expect": "hT_nvWreIhg",
+  "note": "Counting Stars",
+  "target": {
+   "title": "Counting Stars",
+   "artist": "OneRepublic",
+   "durationSec": 257
+  },
+  "queries": {
+   "primary": [
+    "Counting Stars OneRepublic"
+   ],
+   "secondary": [
+    "Counting Stars"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "hT_nvWreIhg",
+      "url": "https://www.youtube.com/watch?v=hT_nvWreIhg",
+      "title": "OneRepublic - Counting Stars",
+      "channel": "OneRepublic",
+      "durationSec": 284,
+      "isLive": false
+     },
+     {
+      "id": "yY3wc58yo2A",
+      "url": "https://www.youtube.com/watch?v=yY3wc58yo2A",
+      "title": "OneRepublic - Counting Stars (Lyrics)",
+      "channel": "Dan Music",
+      "durationSec": 260,
+      "isLive": false
+     },
+     {
+      "id": "9w33PUyfJHE",
+      "url": "https://www.youtube.com/watch?v=9w33PUyfJHE",
+      "title": "⭐10년이 지나도 띵곡인 레전드 노래 : OneRepublic - Counting Stars [가사 해석/lyrics]",
+      "channel": "리아 PLAYLIST",
+      "durationSec": 258,
+      "isLive": false
+     },
+     {
+      "id": "k03uV71OP8E",
+      "url": "https://www.youtube.com/watch?v=k03uV71OP8E",
+      "title": "🌠 노래, 가사 모든 게 완벽한 노래 🌠 OneRepublic - Counting Stars [가사/해석/lyrics]",
+      "channel": "라플",
+      "durationSec": 255,
+      "isLive": false
+     },
+     {
+      "id": "tzMGDIU_-ow",
+      "url": "https://www.youtube.com/watch?v=tzMGDIU_-ow",
+      "title": "OneRepublic - Counting Stars (Lyrics)",
+      "channel": "Taj Tracks",
+      "durationSec": 257,
+      "isLive": false
+     },
+     {
+      "id": "A6pftd25oSc",
+      "url": "https://www.youtube.com/watch?v=A6pftd25oSc",
+      "title": "OneRepublic - Counting Stars (Vevo Presents: Live at Festhalle, Frankfurt)",
+      "channel": "OneRepublic",
+      "durationSec": 311,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "yY3wc58yo2A",
+      "url": "https://www.youtube.com/watch?v=yY3wc58yo2A",
+      "title": "OneRepublic - Counting Stars (Lyrics)",
+      "channel": "Dan Music",
+      "durationSec": 260,
+      "isLive": false
+     },
+     {
+      "id": "hT_nvWreIhg",
+      "url": "https://www.youtube.com/watch?v=hT_nvWreIhg",
+      "title": "OneRepublic - Counting Stars",
+      "channel": "OneRepublic",
+      "durationSec": 284,
+      "isLive": false
+     },
+     {
+      "id": "9w33PUyfJHE",
+      "url": "https://www.youtube.com/watch?v=9w33PUyfJHE",
+      "title": "⭐10년이 지나도 띵곡인 레전드 노래 : OneRepublic - Counting Stars [가사 해석/lyrics]",
+      "channel": "리아 PLAYLIST",
+      "durationSec": 258,
+      "isLive": false
+     },
+     {
+      "id": "tzMGDIU_-ow",
+      "url": "https://www.youtube.com/watch?v=tzMGDIU_-ow",
+      "title": "OneRepublic - Counting Stars (Lyrics)",
+      "channel": "Taj Tracks",
+      "durationSec": 257,
+      "isLive": false
+     },
+     {
+      "id": "mLCsbacHxA8",
+      "url": "https://www.youtube.com/watch?v=mLCsbacHxA8",
+      "title": "BE'O (비오) - Counting Stars (Feat. Beenzino) Official MV",
+      "channel": "STONE MUSIC",
+      "durationSec": 167,
+      "isLive": false
+     },
+     {
+      "id": "9uxYuIpvsjw",
+      "url": "https://www.youtube.com/watch?v=9uxYuIpvsjw",
+      "title": "BE'O (비오) - Counting Stars (Feat. Beenzino) [Counting Stars]ㅣLyrics/가사",
+      "channel": "알파",
+      "durationSec": 152,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "3BjAH27a3hZLdAH3kgGY37",
+  "expect": "zIh5AHxh-Ok",
+  "note": "Party Rock Anthem",
+  "target": {
+   "title": "Party Rock Anthem",
+   "artist": "LMFAO, Lauren Bennett, GoonRock",
+   "durationSec": 262
+  },
+  "queries": {
+   "primary": [
+    "Party Rock Anthem LMFAO, Lauren Bennett, GoonRock"
+   ],
+   "secondary": [
+    "Party Rock Anthem"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "KQ6zr6kCPj8",
+      "url": "https://www.youtube.com/watch?v=KQ6zr6kCPj8",
+      "title": "LMFAO - Party Rock Anthem ft. Lauren Bennett, GoonRock",
+      "channel": "LMFAOVEVO",
+      "durationSec": 376,
+      "isLive": false
+     },
+     {
+      "id": "zIh5AHxh-Ok",
+      "url": "https://www.youtube.com/watch?v=zIh5AHxh-Ok",
+      "title": "LMFAO - Party Rock Anthem (Audio) ft. Lauren Bennett, GoonRock",
+      "channel": "LMFAOVEVO",
+      "durationSec": 265,
+      "isLive": false
+     },
+     {
+      "id": "GvuSYrQGLNE",
+      "url": "https://www.youtube.com/watch?v=GvuSYrQGLNE",
+      "title": "LMFAO - Party Rock Anthem (Lyrics) ft. Lauren Bennett, GoonRock",
+      "channel": "7clouds",
+      "durationSec": 261,
+      "isLive": false
+     },
+     {
+      "id": "6F4BBXAhkBc",
+      "url": "https://www.youtube.com/watch?v=6F4BBXAhkBc",
+      "title": "LMFAO - Party Rock Anthem (feat. Lauren Bennett & GoonRock) [Official Audio]",
+      "channel": "Charted",
+      "durationSec": 264,
+      "isLive": false
+     },
+     {
+      "id": "Ye6r1OCWrW4",
+      "url": "https://www.youtube.com/watch?v=Ye6r1OCWrW4",
+      "title": "LMFAO - Party Rock Anthem ft. Lauren Bennett, GoonRock // Lyrics + Español // Video Oficial",
+      "channel": "BrunoTraductor Official",
+      "durationSec": 279,
+      "isLive": false
+     },
+     {
+      "id": "5Nl6qoIvpCU",
+      "url": "https://www.youtube.com/watch?v=5Nl6qoIvpCU",
+      "title": "LMFAO ft. Lauren Bennett & GoonRock - Party Rock Anthem (Radio Edit)",
+      "channel": "Oscar",
+      "durationSec": 212,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "KQ6zr6kCPj8",
+      "url": "https://www.youtube.com/watch?v=KQ6zr6kCPj8",
+      "title": "LMFAO - Party Rock Anthem ft. Lauren Bennett, GoonRock",
+      "channel": "LMFAOVEVO",
+      "durationSec": 376,
+      "isLive": false
+     },
+     {
+      "id": "BHzBNSYtuFw",
+      "url": "https://www.youtube.com/watch?v=BHzBNSYtuFw",
+      "title": "LMFAO - Party Rock Anthem (Lyrics) ft. Lauren Bennett, GoonRock",
+      "channel": "Aura Serenity",
+      "durationSec": 261,
+      "isLive": false
+     },
+     {
+      "id": "zIh5AHxh-Ok",
+      "url": "https://www.youtube.com/watch?v=zIh5AHxh-Ok",
+      "title": "LMFAO - Party Rock Anthem (Audio) ft. Lauren Bennett, GoonRock",
+      "channel": "LMFAOVEVO",
+      "durationSec": 265,
+      "isLive": false
+     },
+     {
+      "id": "HnhGU-J5MxE",
+      "url": "https://www.youtube.com/watch?v=HnhGU-J5MxE",
+      "title": "Party Rock Anthem/Sexy And I Know It (With Keenan Cahill, LMFAO, Justin Bieber & David Hasselhoff)",
+      "channel": "Keenan Cahill",
+      "durationSec": 440,
+      "isLive": false
+     },
+     {
+      "id": "-qUBON5EV_w",
+      "url": "https://www.youtube.com/watch?v=-qUBON5EV_w",
+      "title": "LMFAO - Party Rock Anthem (Lyrics) ft. Lauren Bennett, GoonRock",
+      "channel": "Gseven Records",
+      "durationSec": 263,
+      "isLive": false
+     },
+     {
+      "id": "Ye6r1OCWrW4",
+      "url": "https://www.youtube.com/watch?v=Ye6r1OCWrW4",
+      "title": "LMFAO - Party Rock Anthem ft. Lauren Bennett, GoonRock // Lyrics + Español // Video Oficial",
+      "channel": "BrunoTraductor Official",
+      "durationSec": 279,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "2ebZ1Em8I9EbYy1dBdtUL8",
+  "expect": "C-o8pTi6vd8",
+  "note": "Kyouran Hey Kids!!",
+  "target": {
+   "title": "Kyouran Hey Kids!!",
+   "artist": "THE ORAL CIGARETTES",
+   "durationSec": 253
+  },
+  "queries": {
+   "primary": [
+    "Kyouran Hey Kids!! THE ORAL CIGARETTES"
+   ],
+   "secondary": [
+    "Kyouran Hey Kids!!"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "C-o8pTi6vd8",
+      "url": "https://www.youtube.com/watch?v=C-o8pTi6vd8",
+      "title": "〈NORAGAMI ARAGOTO〉OP THEME SONG  THE ORAL CIGARETTES 「Kyouran Hey Kids!!」Music Video",
+      "channel": "THE ORAL CIGARETTES",
+      "durationSec": 267,
+      "isLive": false
+     },
+     {
+      "id": "aZenmeRytEM",
+      "url": "https://www.youtube.com/watch?v=aZenmeRytEM",
+      "title": "Noragami Aragoto - Official Opening - Kyouran Hey Kids!!",
+      "channel": "animelab",
+      "durationSec": 90,
+      "isLive": false
+     },
+     {
+      "id": "KVcWoDB35Bg",
+      "url": "https://www.youtube.com/watch?v=KVcWoDB35Bg",
+      "title": "Kyouran Hey Kids!!",
+      "channel": "THE ORAL CIGARETTES",
+      "durationSec": 252,
+      "isLive": false
+     },
+     {
+      "id": "t74f3E2Dwd0",
+      "url": "https://www.youtube.com/watch?v=t74f3E2Dwd0",
+      "title": "Kyouran Hey Kids!! - THE ORAL CIGARETTES ( 1 hour loop )",
+      "channel": "Royal Part",
+      "durationSec": 3949,
+      "isLive": false
+     },
+     {
+      "id": "S9mgDX3Gj1E",
+      "url": "https://www.youtube.com/watch?v=S9mgDX3Gj1E",
+      "title": "The Oral Cigarettes - Hey Kids",
+      "channel": "DarkDeathSpectrum",
+      "durationSec": 260,
+      "isLive": false
+     },
+     {
+      "id": "7aIwcTBidjs",
+      "url": "https://www.youtube.com/watch?v=7aIwcTBidjs",
+      "title": "단돈 5엔으로 소원을 들어주는 신 : THE ORAL CIGARETTES - 狂乱(광란) Hey kids!! [노라가미 2기 OP] (가사/해석)",
+      "channel": "보끔밥",
+      "durationSec": 248,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "C-o8pTi6vd8",
+      "url": "https://www.youtube.com/watch?v=C-o8pTi6vd8",
+      "title": "〈NORAGAMI ARAGOTO〉OP THEME SONG  THE ORAL CIGARETTES 「Kyouran Hey Kids!!」Music Video",
+      "channel": "THE ORAL CIGARETTES",
+      "durationSec": 267,
+      "isLive": false
+     },
+     {
+      "id": "aZenmeRytEM",
+      "url": "https://www.youtube.com/watch?v=aZenmeRytEM",
+      "title": "Noragami Aragoto - Official Opening - Kyouran Hey Kids!!",
+      "channel": "animelab",
+      "durationSec": 90,
+      "isLive": false
+     },
+     {
+      "id": "KVcWoDB35Bg",
+      "url": "https://www.youtube.com/watch?v=KVcWoDB35Bg",
+      "title": "Kyouran Hey Kids!!",
+      "channel": "THE ORAL CIGARETTES",
+      "durationSec": 252,
+      "isLive": false
+     },
+     {
+      "id": "S9mgDX3Gj1E",
+      "url": "https://www.youtube.com/watch?v=S9mgDX3Gj1E",
+      "title": "The Oral Cigarettes - Hey Kids",
+      "channel": "DarkDeathSpectrum",
+      "durationSec": 260,
+      "isLive": false
+     },
+     {
+      "id": "sP86J1InpFY",
+      "url": "https://www.youtube.com/watch?v=sP86J1InpFY",
+      "title": "(Noragami Aragoto OP FULL) Kyouran Hey Kids - THE ORAL CIGARETTES [Romaji, Español, English, Lyrics]",
+      "channel": "Wooby",
+      "durationSec": 250,
+      "isLive": false
+     },
+     {
+      "id": "7aIwcTBidjs",
+      "url": "https://www.youtube.com/watch?v=7aIwcTBidjs",
+      "title": "단돈 5엔으로 소원을 들어주는 신 : THE ORAL CIGARETTES - 狂乱(광란) Hey kids!! [노라가미 2기 OP] (가사/해석)",
+      "channel": "보끔밥",
+      "durationSec": 248,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ },
+ {
+  "spId": "4EFzPkuqujpyksaprpREC0",
+  "expect": null,
+  "note": "残響散歌 -TV ver.- (정답 부재)",
+  "target": {
+   "title": "残響散歌 -TV ver.-",
+   "artist": "Aimer",
+   "durationSec": 91
+  },
+  "queries": {
+   "primary": [
+    "残響散歌 -TV ver.- Aimer",
+    "残響散歌 Aimer tv size",
+    "残響散歌 tv size",
+    "残響散歌 Aimer tvサイズ"
+   ],
+   "secondary": [
+    "残響散歌 -TV ver.-"
+   ]
+  },
+  "lists": {
+   "primary": [
+    [
+     {
+      "id": "eX-8tYiS57k",
+      "url": "https://www.youtube.com/watch?v=eX-8tYiS57k",
+      "title": "残響散歌 - Aimer ｜歌詞あり",
+      "channel": "J -KARAOKE",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "5G0RHm4H92k",
+      "url": "https://www.youtube.com/watch?v=5G0RHm4H92k",
+      "title": "【ライブ音響】残響散歌/Aimer   ※イヤホン・大音量推奨",
+      "channel": "りっきー Ricky🐓🎮",
+      "durationSec": 185,
+      "isLive": false
+     },
+     {
+      "id": "kaqOTwggZ64",
+      "url": "https://www.youtube.com/watch?v=kaqOTwggZ64",
+      "title": "残響散歌 Zankyosanka｜Aimer（中日歌詞+Eng lyrics）【Enna Alouette/Karaoke/NijisanjiEN】",
+      "channel": "FONG Ch.",
+      "durationSec": 184,
+      "isLive": false
+     },
+     {
+      "id": "K_3SFUg_DII",
+      "url": "https://www.youtube.com/watch?v=K_3SFUg_DII",
+      "title": "Aimer - 残響散歌 // Funk Remix 鬼滅の刃遊郭編OP",
+      "channel": "MACH STUDIO",
+      "durationSec": 185,
+      "isLive": false
+     },
+     {
+      "id": "7TIFu8-Gb74",
+      "url": "https://www.youtube.com/watch?v=7TIFu8-Gb74",
+      "title": "残響散歌 / Aimer (1987年) | Zankyosanka - Aimer (80s Retro Anime Style)",
+      "channel": "裏・名曲選",
+      "durationSec": 230,
+      "isLive": false
+     },
+     {
+      "id": "628zd_UJYLI",
+      "url": "https://www.youtube.com/watch?v=628zd_UJYLI",
+      "title": "Aimer「残響散歌」｜Drum cover【鬼滅の刃 遊郭編 OP】",
+      "channel": "かじ / Kaji",
+      "durationSec": 191,
+      "isLive": false
+     }
+    ],
+    [
+     {
+      "id": "n2ZS_k4ua1o",
+      "url": "https://www.youtube.com/watch?v=n2ZS_k4ua1o",
+      "title": "Zankyosanka -TV version-",
+      "channel": "Aimer Official YouTube Channel",
+      "durationSec": 91,
+      "isLive": false
+     },
+     {
+      "id": "2M9tUx9UrnM",
+      "url": "https://www.youtube.com/watch?v=2M9tUx9UrnM",
+      "title": "Aimer - 残響散歌 (TV Size) [Expert ★5.31] (HD)",
+      "channel": "CandleTeaCats",
+      "durationSec": 107,
+      "isLive": false
+     },
+     {
+      "id": "PCDkPHg9PfI",
+      "url": "https://www.youtube.com/watch?v=PCDkPHg9PfI",
+      "title": "【MAD】「鬼滅の刃 遊郭編」後半OPver.  残響散歌/Aimer",
+      "channel": "てるねこ先生/Telneko",
+      "durationSec": 91,
+      "isLive": false
+     },
+     {
+      "id": "uRDZoH7_kCc",
+      "url": "https://www.youtube.com/watch?v=uRDZoH7_kCc",
+      "title": "Kimetsu no Yaiba Opening (TV Size) - Zankyou Sanka by Aimer",
+      "channel": "The Uploaded Music",
+      "durationSec": 89,
+      "isLive": false
+     },
+     {
+      "id": "u0IT8x6xqWU",
+      "url": "https://www.youtube.com/watch?v=u0IT8x6xqWU",
+      "title": "Zankyou Sanka - Aimer Tv Size. [ ภาษาไทย ]",
+      "channel": "アルト [อารูโตะ]",
+      "durationSec": 87,
+      "isLive": false
+     },
+     {
+      "id": "d6NPs3OQIAU",
+      "url": "https://www.youtube.com/watch?v=d6NPs3OQIAU",
+      "title": "Zankyosanka",
+      "channel": "Aimer Official YouTube Channel",
+      "durationSec": 185,
+      "isLive": false
+     }
+    ],
+    [
+     {
+      "id": "n2ZS_k4ua1o",
+      "url": "https://www.youtube.com/watch?v=n2ZS_k4ua1o",
+      "title": "Zankyosanka -TV version-",
+      "channel": "Aimer Official YouTube Channel",
+      "durationSec": 91,
+      "isLive": false
+     },
+     {
+      "id": "PCDkPHg9PfI",
+      "url": "https://www.youtube.com/watch?v=PCDkPHg9PfI",
+      "title": "【MAD】「鬼滅の刃 遊郭編」後半OPver.  残響散歌/Aimer",
+      "channel": "てるねこ先生/Telneko",
+      "durationSec": 91,
+      "isLive": false
+     },
+     {
+      "id": "4uhGlHdtI_U",
+      "url": "https://www.youtube.com/watch?v=4uhGlHdtI_U",
+      "title": "YOASOBI「Biri-Biri」MV x 鬼滅の刃「残響散歌」(TV Size)",
+      "channel": "貓滴督督♓",
+      "durationSec": 87,
+      "isLive": false
+     },
+     {
+      "id": "2M9tUx9UrnM",
+      "url": "https://www.youtube.com/watch?v=2M9tUx9UrnM",
+      "title": "Aimer - 残響散歌 (TV Size) [Expert ★5.31] (HD)",
+      "channel": "CandleTeaCats",
+      "durationSec": 107,
+      "isLive": false
+     },
+     {
+      "id": "d6NPs3OQIAU",
+      "url": "https://www.youtube.com/watch?v=d6NPs3OQIAU",
+      "title": "Zankyosanka",
+      "channel": "Aimer Official YouTube Channel",
+      "durationSec": 185,
+      "isLive": false
+     },
+     {
+      "id": "PEftA7pGcuc",
+      "url": "https://www.youtube.com/watch?v=PEftA7pGcuc",
+      "title": "「殘響散歌-Aimer」鬼滅の刃-遊郭編-残響散歌/鬼滅之刃遊郭篇[中文歌詞]Demon Slayer: Kimetsu No Yaiba season 2 OP 一半版本",
+      "channel": "黑山",
+      "durationSec": 88,
+      "isLive": false
+     }
+    ],
+    [
+     {
+      "id": "n2ZS_k4ua1o",
+      "url": "https://www.youtube.com/watch?v=n2ZS_k4ua1o",
+      "title": "Zankyosanka -TV version-",
+      "channel": "Aimer Official YouTube Channel",
+      "durationSec": 91,
+      "isLive": false
+     },
+     {
+      "id": "tLQLa6lM3Us",
+      "url": "https://www.youtube.com/watch?v=tLQLa6lM3Us",
+      "title": "Aimer「残響散歌」MUSIC VIDEO（テレビアニメ「鬼滅の刃」遊郭編オープニングテーマ）",
+      "channel": "Aimer Official YouTube Channel",
+      "durationSec": 182,
+      "isLive": false
+     },
+     {
+      "id": "bnzPJhW9XQg",
+      "url": "https://www.youtube.com/watch?v=bnzPJhW9XQg",
+      "title": "Aimer - Zankyosanka / THE FIRST TAKE",
+      "channel": "THE FIRST TAKE and Aimer Official YouTube Channel",
+      "durationSec": 223,
+      "isLive": false
+     },
+     {
+      "id": "2M9tUx9UrnM",
+      "url": "https://www.youtube.com/watch?v=2M9tUx9UrnM",
+      "title": "Aimer - 残響散歌 (TV Size) [Expert ★5.31] (HD)",
+      "channel": "CandleTeaCats",
+      "durationSec": 107,
+      "isLive": false
+     },
+     {
+      "id": "rmznfoAr7Do",
+      "url": "https://www.youtube.com/watch?v=rmznfoAr7Do",
+      "title": "Aimer - 残響散歌 (TV Size) [Expert ★5.31]",
+      "channel": "CandleTeaCats",
+      "durationSec": 100,
+      "isLive": false
+     },
+     {
+      "id": "PCDkPHg9PfI",
+      "url": "https://www.youtube.com/watch?v=PCDkPHg9PfI",
+      "title": "【MAD】「鬼滅の刃 遊郭編」後半OPver.  残響散歌/Aimer",
+      "channel": "てるねこ先生/Telneko",
+      "durationSec": 91,
+      "isLive": false
+     }
+    ]
+   ],
+   "secondary": [
+    [
+     {
+      "id": "eX-8tYiS57k",
+      "url": "https://www.youtube.com/watch?v=eX-8tYiS57k",
+      "title": "残響散歌 - Aimer ｜歌詞あり",
+      "channel": "J -KARAOKE",
+      "durationSec": 183,
+      "isLive": false
+     },
+     {
+      "id": "kaqOTwggZ64",
+      "url": "https://www.youtube.com/watch?v=kaqOTwggZ64",
+      "title": "残響散歌 Zankyosanka｜Aimer（中日歌詞+Eng lyrics）【Enna Alouette/Karaoke/NijisanjiEN】",
+      "channel": "FONG Ch.",
+      "durationSec": 184,
+      "isLive": false
+     },
+     {
+      "id": "PtNEhOQo1Hc",
+      "url": "https://www.youtube.com/watch?v=PtNEhOQo1Hc",
+      "title": "【MAD】残響散歌【鬼滅の刃遊郭編】",
+      "channel": "KO-KIch",
+      "durationSec": 184,
+      "isLive": false
+     },
+     {
+      "id": "_PZpb8mc7eY",
+      "url": "https://www.youtube.com/watch?v=_PZpb8mc7eY",
+      "title": "【鬼滅の刃】『残響散歌／Aimer』をバイリンガルで歌ってみました。【Zankyo Sanka cover by NANO】",
+      "channel": "ナノ / NANO",
+      "durationSec": 184,
+      "isLive": false
+     },
+     {
+      "id": "pOrl98iWQzk",
+      "url": "https://www.youtube.com/watch?v=pOrl98iWQzk",
+      "title": "残響散歌 -「鬼滅の刃」遊郭編 - Aimer",
+      "channel": "加藤梨菜MasaP ファミーユ",
+      "durationSec": 192,
+      "isLive": false
+     },
+     {
+      "id": "7TIFu8-Gb74",
+      "url": "https://www.youtube.com/watch?v=7TIFu8-Gb74",
+      "title": "残響散歌 / Aimer (1987年) | Zankyosanka - Aimer (80s Retro Anime Style)",
+      "channel": "裏・名曲選",
+      "durationSec": 230,
+      "isLive": false
+     }
+    ]
+   ]
+  }
+ }
+]
