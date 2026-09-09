@@ -54,28 +54,6 @@ class MusicEmbedManager {
   }
 
   /**
-   * 버퍼링 방지를 위해 대기열의 트랙을 순차적으로 사전 로드합니다.
-   */
-  async sequentialPreload(player, tracks) {
-    const toPreload = tracks.slice(0, config.preload.ahead);
-
-    for (const track of toPreload) {
-      // 이미 사전 로드되었거나 현재 사전 로드 중이면 건너뜀
-      if (player.preloadedStreams.has(track.url) || player.preloadingQueue.includes(track.url)) {
-        continue;
-      }
-
-      try {
-        await player.preloadTrack(track);
-        await new Promise((resolve) => setTimeout(resolve, config.preload.gapMs));
-      } catch (err) {
-        log.error(`❌ Preload error for ${track.title}:`, err.message);
-        // 오류가 나도 계속 진행
-      }
-    }
-  }
-
-  /**
    * 음악 데이터를 처리하고 적절한 임베드를 전송/갱신합니다.
    *
    * 서버당 한 번에 하나의 작업만 — Promise tail 체인 방식.
@@ -189,9 +167,6 @@ class MusicEmbedManager {
       if (startFailure && !firstTrackResult) {
         return { success: false, message: startFailure };
       }
-
-      // 버퍼링 방지를 위해 대기열 트랙의 순차 사전 로드 트리거
-      this.sequentialPreload(player, player.queue.slice()).catch((err) => log.error("❌ Sequential preload error:", err.message));
 
       // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
       if (firstTrackResult && tracks.length > 1) {

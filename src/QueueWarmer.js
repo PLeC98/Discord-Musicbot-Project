@@ -1,0 +1,180 @@
+"use strict";
+
+const log = require("./logger").child({ category: "track" });
+const config = require("../config");
+
+/**
+ * QueueWarmer — 대기열 앞부분을 캐시에 올려둔 상태로 "유지"한다.
+ *
+ * 조작 지점마다 알리는 대신 주기적으로 대기열을 직접 본다. 큐를 변형하는 지점이 수십 곳이라
+ * 알림 방식은 하나만 빠뜨려도 그 경로가 조용히 예열되지 않는데, 실제로 그렇게 되어 있었다
+ * (트리거가 곡 추가 흐름 한 곳뿐이라 셔플·이동·삭제·다음 곡으로는 아무 일도 일어나지 않았다).
+ * 직접 보면 최악이 "몇 초 늦음"이고, 앞으로 큐 조작이 늘어도 여기를 고칠 필요가 없다.
+ *
+ * 앞 N곡의 서명이 **연속 두 틱 같을 때만** 움직인다. 셔플 버튼을 누르고 있는 동안에는 매 틱
+ * 목표가 바뀌므로, 그때 받기 시작하면 곧 쓸모없어질 곡을 계속 받게 된다(한 곡에 2~5초라
+ * 틱 하나로는 끝나지도 않는다). 조작이 멎기를 기다렸다가 한 번만 움직인다.
+ *
+ * 예열 루프는 하나뿐이고 매 반복마다 목표를 대기열에서 다시 계산한다. 도중에 순서가 바뀌어도
+ * 다음 반복이 새 목표를 따라가므로 진행 중인 루프를 무효화하거나 세대를 셀 필요가 없고,
+ * 루프가 하나라는 사실만으로 동시 다운로드가 1로 묶인다.
+ */
+class QueueWarmer {
+  /**
+   * @param {object} player  MusicPlayer (queue / currentTrack / loop / guild 를 읽는다)
+   * @param {object} deps    협력자 주입 — 생략하면 실제 모듈을 쓴다
+   */
+  constructor(player, deps = {}) {
+    this.player = player;
+
+    this.intervalMs = deps.intervalMs ?? config.preload.tickMs;
+    this.ahead = deps.ahead ?? config.preload.ahead;
+    this.gapMs = deps.gapMs ?? config.preload.gapMs;
+
+    // 한 곡을 캐시에 올린다. 실패는 던진다.
+    this.warm = deps.warm;
+    // 캐시 파일이 이미 있는가 / 지금 받는 중인가 — 이 둘만이 "받을 필요가 없다"의 근거다.
+    this.isCached = deps.isCached;
+    this.isBusy = deps.isBusy;
+    // 트랙 → 캐시 키(없을 수 있다: 아직 유튜브 동등물을 못 찾은 스포티파이 트랙)
+    this.keyOf = deps.keyOf;
+    // 길드의 보호 키 집합을 통째로 교체한다
+    this.setProtection = deps.setProtection;
+
+    this._timer = null;
+    this._sleepTimer = null;
+    this._lastSeen = null; // 직전 틱의 서명 — 안정 여부 판정용
+    this._applied = null; // 실제로 반영한 서명
+    this._running = false;
+    this._stopped = false;
+    this._failed = new Set(); // 이번 서명에서 실패한 트랙 — 같은 곡을 무한히 재시도하지 않는다
+  }
+
+  start() {
+    if (this._timer) return;
+    this._stopped = false;
+    this._timer = setInterval(() => this.tick(), this.intervalMs);
+    if (typeof this._timer.unref === "function") this._timer.unref();
+  }
+
+  stop() {
+    this._stopped = true;
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
+    if (this._sleepTimer) {
+      clearTimeout(this._sleepTimer);
+      this._sleepTimer = null;
+    }
+    this._lastSeen = null;
+    this._applied = null;
+    this._failed = new Set();
+    const guildId = this.player.guild?.id;
+    if (guildId) this.setProtection(guildId, []);
+  }
+
+  /** 한 박자. 서명이 안정됐고 아직 반영하지 않았을 때만 움직인다. */
+  tick() {
+    if (this._stopped) return;
+
+    const signature = this.signature();
+    const stable = signature === this._lastSeen;
+    this._lastSeen = signature;
+
+    if (!stable) return; // 아직 조작 중 — 목표가 확정되길 기다린다
+    if (signature === this._applied) return;
+    this._applied = signature;
+    this._failed = new Set();
+
+    // 보호를 먼저 건다. 예열이 끝나기 전에 퇴거가 돌아 방금 받은 파일을 가져가면 안 된다.
+    // 아직 캐시가 없는 키까지 넣는다 — 해당 행이 없으면 퇴거 쪽에서 무해하게 무시된다.
+    const guildId = this.player.guild?.id;
+    if (guildId) {
+      this.setProtection(
+        guildId,
+        this.targets()
+          .map((t) => this.keyOf(t))
+          .filter(Boolean),
+      );
+    }
+
+    this._run().catch((err) => log.error(`❌ 대기열 예열 실패: ${err?.message || err}`));
+  }
+
+  /**
+   * 예열 대상 — 대기열 앞 N곡.
+   *
+   * 현재 곡은 제외한다(재생 경로가 이미 받고 있다). 라이브는 끝이 없어 캐시 대상이 아니다.
+   * 한곡 반복 중에는 다음 곡이 현재 곡이므로 앞을 받아둘 이유가 없다.
+   */
+  targets() {
+    if (this.player.loop === "track") return [];
+    const out = [];
+    for (const track of this.player.queue) {
+      if (out.length >= this.ahead) break;
+      if (!track || track.isLive) continue;
+      out.push(track);
+    }
+    return out;
+  }
+
+  /**
+   * 대기열 앞부분의 지문. 순서가 바뀌면 달라져야 하므로 이어붙인다.
+   * 현재 곡도 넣는다 — 대기열은 그대로인데 현재 곡만 바뀌는 경로(이전곡)가 있다.
+   */
+  signature() {
+    const parts = [this.keyOf(this.player.currentTrack) || this.player.currentTrack?.url || "-"];
+    for (const track of this.targets()) parts.push(this.keyOf(track) || track.url || "?");
+    return parts.join("\n");
+  }
+
+  /** 아직 받지 않았고 받는 중도 아닌 첫 목표. 없으면 null. */
+  nextTarget() {
+    for (const track of this.targets()) {
+      if (this.isCached(track) || this.isBusy(track) || this._failed.has(track)) continue;
+      return track;
+    }
+    return null;
+  }
+
+  async _run() {
+    if (this._running) return; // 루프는 언제나 하나
+    this._running = true;
+    try {
+      for (;;) {
+        if (this._stopped) return;
+        // 도중에 대기열이 흔들렸으면 멈춘다. 다음 안정된 틱이 새 목표로 다시 깨운다.
+        if (this.signature() !== this._applied) return;
+
+        const track = this.nextTarget();
+        if (!track) return;
+
+        try {
+          await this.warm(track);
+        } catch (err) {
+          // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
+          // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
+          log.warn(`⚠️ 예열 실패 (${track.title}): ${err?.message || err}`);
+          this._failed.add(track);
+        }
+
+        if (this.gapMs > 0) await this._sleep(this.gapMs);
+      }
+    } finally {
+      this._running = false;
+    }
+  }
+
+  _sleep(ms) {
+    return new Promise((resolve) => {
+      this._sleepTimer = setTimeout(() => {
+        this._sleepTimer = null;
+        resolve();
+      }, ms);
+      if (typeof this._sleepTimer.unref === "function") this._sleepTimer.unref();
+    });
+  }
+}
+
+module.exports = QueueWarmer;

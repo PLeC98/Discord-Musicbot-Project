@@ -35,3 +35,53 @@ test("둘 다 없으면 no-op — 다른 보호 키에 무영향", () => {
   assert.equal(isProtected("k3"), true, "무관한 키는 유지");
   CacheManager.unprotect("k3");
 });
+
+// ── 대기열 보호 (길드별, 통째로 교체) ────────────────────────
+
+test("대기열 보호는 통째로 교체된다 — 해제를 따로 부르지 않는다", () => {
+  CacheManager.setQueuedKeys("g1", ["a", "b", "c"]);
+  assert.deepEqual([...CacheManager._liveKeys()].sort(), ["a", "b", "c"]);
+
+  CacheManager.setQueuedKeys("g1", ["b"]); // a, c가 대기열에서 빠짐
+  assert.deepEqual([...CacheManager._liveKeys()], ["b"]);
+
+  CacheManager.setQueuedKeys("g1", []);
+  assert.equal(CacheManager._liveKeys().size, 0);
+});
+
+test("한 길드의 교체가 다른 길드의 보호를 건드리지 않는다", () => {
+  CacheManager.setQueuedKeys("g1", ["shared", "only1"]);
+  CacheManager.setQueuedKeys("g2", ["shared", "only2"]);
+
+  CacheManager.setQueuedKeys("g1", []); // g1이 대기열을 비움
+
+  const live = CacheManager._liveKeys();
+  assert.equal(live.has("shared"), true, "g2가 아직 쓰고 있으므로 유지");
+  assert.equal(live.has("only2"), true);
+  assert.equal(live.has("only1"), false);
+
+  CacheManager.clearQueuedKeys("g2");
+  assert.equal(CacheManager._liveKeys().size, 0);
+});
+
+test("재생 중 보호와 대기열 보호는 합쳐진다", () => {
+  CacheManager.protect("playing");
+  CacheManager.setQueuedKeys("g1", ["queued"]);
+
+  assert.deepEqual([...CacheManager._liveKeys()].sort(), ["playing", "queued"]);
+
+  CacheManager.unprotect("playing");
+  assert.deepEqual([...CacheManager._liveKeys()], ["queued"], "대기열 보호는 남는다");
+
+  CacheManager.clearQueuedKeys("g1");
+});
+
+test("빈 값·falsy 키는 보호에 들어가지 않는다", () => {
+  CacheManager.setQueuedKeys("g1", ["ok", null, undefined, ""]);
+  assert.deepEqual([...CacheManager._liveKeys()], ["ok"]);
+
+  CacheManager.setQueuedKeys(null, ["ignored"]); // guildId 없음 — 무시
+  assert.deepEqual([...CacheManager._liveKeys()], ["ok"]);
+
+  CacheManager.clearQueuedKeys("g1");
+});

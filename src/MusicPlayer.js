@@ -25,6 +25,7 @@ const VoiceConnectionManager = require("./VoiceConnectionManager");
 const TrackDownloader = require("./TrackDownloader");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./SessionPersistence");
+const QueueWarmer = require("./QueueWarmer");
 const { spawnFfmpeg } = require("./ffmpegProcess");
 const { Readable } = require("stream");
 const fsSync = require("fs");
@@ -76,8 +77,6 @@ class MusicPlayer {
     this.sessionId = createPlayerSessionId();
 
     // 사전 로드 시스템 - 대기열의 모든 트랙을 즉시 사전 로드
-    this.preloadedStreams = new Map(); // trackUrl -> streamInfo 매핑
-    this.preloadingQueue = []; // 사전 로드 중인 URL
 
     // 음성 연결 복구 시스템
     this.isRecovering = false;
@@ -119,13 +118,19 @@ class MusicPlayer {
 
     // 로컬 파일 캐싱
     this.currentDownloadedFile = null; // 현재 재생 중인 다운로드 파일 경로
-    this.downloadedFiles = new Set(); // 정리를 위해 모든 다운로드 파일 추적
     this.downloadingFiles = new Map(); // filepath -> 진행 중 다운로드 Promise (중복 방지 + 완료 대기)
 
     // 협력 모듈 — 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
     this.voice = new VoiceConnectionManager(this);
     this.downloader = new TrackDownloader(this);
     this.persistence = new SessionPersistence(this);
+    this.warmer = new QueueWarmer(this, {
+      warm: (track) => this.downloader.warm(track),
+      isCached: (track) => this.downloader.isCached(track),
+      isBusy: (track) => this.downloadingFiles.has(this.downloader.trackFilePath(track)),
+      keyOf: (track) => TrackResolver.ensureAudioSourceKey(track),
+      setProtection: (guildId, keys) => CacheManager.setQueuedKeys(guildId, keys),
+    });
     this.sponsorSkipper = new SponsorSkipper(this);
 
     // 이벤트 설정
@@ -220,10 +225,6 @@ class MusicPlayer {
 
   // ── 다운로드/사전 로드 — 로직은 TrackDownloader ──────────────────────────
 
-  preloadTrack(track) {
-    return this.downloader.preloadTrack(track);
-  }
-
   async play(trackIndex = null, seekMs = 0) {
     // 재진입 가드 — play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). isPlayStarting 동안 워처는 발동을 미룬다.
@@ -296,7 +297,6 @@ class MusicPlayer {
           const _earlyStats = fsSync.statSync(_earlyPath);
           if (_earlyStats.size > 0) {
             downloadedFile = _earlyPath;
-            this.downloadedFiles.add(_earlyPath);
             this.currentDownloadedFile = _earlyPath;
           }
         }
@@ -308,14 +308,6 @@ class MusicPlayer {
         if (cached) {
           streamInfo = cached;
         }
-      }
-
-      // 스트림이 이미 사전 로드되었는지 확인 (새 재생일 때만)
-      const preloaded = !streamInfo && resumeFromMs === 0 ? this.preloadedStreams.get(this.currentTrack.url) : null;
-      if (!streamInfo && preloaded) {
-        streamInfo = preloaded.info;
-        // 사용 중이므로 캐시에서 제거
-        this.preloadedStreams.delete(this.currentTrack.url);
       }
 
       if (!streamInfo && !downloadedFile) {
@@ -330,7 +322,6 @@ class MusicPlayer {
             const _spotPath = CacheManager.getFilePath(this.currentTrack.audioSourceKey);
             if (fsSync.existsSync(_spotPath) && fsSync.statSync(_spotPath).size > 0) {
               downloadedFile = _spotPath;
-              this.downloadedFiles.add(_spotPath);
               this.currentDownloadedFile = _spotPath;
             }
           }
@@ -568,6 +559,7 @@ class MusicPlayer {
       this.scheduleTrackWatchdog(streamInfo);
 
       this.startStateSync();
+      this.warmer.start();
       await this.persistState(resumeFromMs > 0 ? "resume-playback" : "play");
 
       return { success: true, track: this.currentTrack };
@@ -1015,7 +1007,6 @@ class MusicPlayer {
     this.releaseAudioProtection();
 
     this.currentDownloadedFile = null;
-    this.downloadedFiles.clear();
 
     this.queue = [];
     // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
@@ -1044,7 +1035,6 @@ class MusicPlayer {
     this.releaseAudioProtection();
 
     this.currentDownloadedFile = null;
-    this.downloadedFiles.clear();
 
     this.queue = [];
     this.currentTrack = null;
@@ -1438,13 +1428,6 @@ class MusicPlayer {
       // 대기열에 추가
       this.queue.push(randomTrack);
 
-      // 트랙 사전 로드
-      this.preloadTrack(randomTrack).catch((err) => {
-        if (err && err.message) {
-          log.error(`❌ Autoplay preload failed: ${err.message}`);
-        }
-      });
-
       // 처음부터 재생 시작
       this.currentTrack = this.queue.shift();
       await this.play(null, 0);
@@ -1510,6 +1493,7 @@ class MusicPlayer {
   }
 
   stopStateSync() {
+    this.warmer.stop();
     this.persistence.stopStateSync();
   }
 
@@ -1536,7 +1520,6 @@ class MusicPlayer {
 
       if (!isShutdown) {
         this.currentDownloadedFile = null;
-        this.downloadedFiles.clear();
       }
 
       // 복구 시스템 중지
@@ -1585,10 +1568,6 @@ class MusicPlayer {
         }
         this.resource = null;
       }
-
-      // 사전 로드된 스트림 정리
-      this.preloadedStreams.clear();
-      this.preloadingQueue = [];
 
       // 플레이어 데이터 정리
       this.queue = [];

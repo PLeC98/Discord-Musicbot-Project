@@ -20,7 +20,8 @@ class CacheManager {
   constructor() {
     this.db = null;
     this._initialized = false;
-    this._protectedKeys = new Set(); // 현재 재생 중이거나 사전 캐시된 audio_source_key
+    this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
+    this._queuedKeys = new Map(); // guildId -> Set<audio_source_key> — 대기열 앞부분
     this._evictInterval = null;
     this._cacheDir = CACHE_DIR; // 테스트에서 재정의 가능
   }
@@ -199,6 +200,34 @@ class CacheManager {
   /** 더 이상 필요하지 않은 키 해제 */
   unprotect(audioSourceKey) {
     if (audioSourceKey) this._protectedKeys.delete(audioSourceKey);
+  }
+
+  /**
+   * 길드의 대기열 보호 집합을 통째로 교체한다.
+   *
+   * 추가·삭제를 개별로 추적하지 않는 것이 요점이다. 대기열이 바뀔 때마다 전체를 다시 계산해
+   * 넘기므로 해제를 빠뜨려 보호가 남는 누수가 생기지 않는다.
+   *
+   * 길드별로 나누는 이유: 두 길드가 같은 곡을 대기열에 두었을 때 한쪽이 비운다고
+   * 다른 쪽 보호까지 풀리면 안 된다.
+   */
+  setQueuedKeys(guildId, keys) {
+    if (!guildId) return;
+    const set = new Set((keys || []).filter(Boolean));
+    if (set.size === 0) this._queuedKeys.delete(guildId);
+    else this._queuedKeys.set(guildId, set);
+  }
+
+  /** 길드가 떠날 때 — 남은 보호를 놓는다 */
+  clearQueuedKeys(guildId) {
+    if (guildId) this._queuedKeys.delete(guildId);
+  }
+
+  /** 재생 중 + 모든 길드의 대기열 — 퇴거에서 제외할 키 전부 */
+  _liveKeys() {
+    const keys = new Set(this._protectedKeys);
+    for (const set of this._queuedKeys.values()) for (const k of set) keys.add(k);
+    return keys;
   }
 
   // 조회 (읽기)
@@ -435,12 +464,17 @@ class CacheManager {
   }
 
   /** 저장된 세션에서 참조하는 파일 경로 — 시작 시 고아 파일 정리용 */
+  /**
+   * 저장된 세션에서 지켜야 할 캐시 파일 — 기동 시 고아 파일 청소가 쓴다.
+   * 그 시점엔 플레이어가 아직 없으므로 대기열이 유일한 근거다.
+   */
   getProtectedCacheFiles() {
     const sessions = this.getAllPlayerSessions();
     const files = new Set();
     for (const state of Object.values(sessions)) {
-      for (const f of state.downloadedFiles || []) {
-        if (f) files.add(path.resolve(f));
+      for (const track of [state.currentTrack, ...(state.queue || [])]) {
+        const key = track?.audioSourceKey;
+        if (key) files.add(path.resolve(this.getFilePath(key)));
       }
       if (state.currentDownloadedFile) files.add(path.resolve(state.currentDownloadedFile));
     }
@@ -583,7 +617,7 @@ class CacheManager {
 
     // 보호 대상: 저장된 세션 + 실시간 재생/사전 캐시 키
     const sessionFiles = this.getProtectedCacheFiles();
-    const liveFiles = new Set([...this._protectedKeys].map((k) => path.resolve(this.getFilePath(k))));
+    const liveFiles = new Set([...this._liveKeys()].map((k) => path.resolve(this.getFilePath(k))));
     const allProtected = new Set([...sessionFiles, ...liveFiles]);
 
     let cleaned = 0;
@@ -664,11 +698,13 @@ class CacheManager {
   async evict() {
     if (!this._initialized) this.initialize();
 
-    // 현재 보호 중인 키 제외 (재생 중/사전 캐시됨)
+    // 보호 중인 키 제외 — 재생 중인 곡과 각 길드의 대기열 앞부분.
+    // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
+    const live = this._liveKeys();
     const rows = this.db
       .prepare("SELECT * FROM audio_cache WHERE status = 'cached'")
       .all()
-      .filter((r) => !this._protectedKeys.has(r.audio_source_key));
+      .filter((r) => !live.has(r.audio_source_key));
 
     if (rows.length === 0) return;
 
@@ -773,7 +809,7 @@ class CacheManager {
       lookupCount,
       neverPlayed,
       platforms: { youtube: ytCount, soundcloud: scCount, direct: dlCount },
-      protectedCount: this._protectedKeys.size,
+      protectedCount: this._liveKeys().size,
       topTracks,
       recentTracks,
     };

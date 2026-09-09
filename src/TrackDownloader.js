@@ -13,7 +13,7 @@ const SponsorBlock = require("./SponsorBlock");
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
  *
- * 상태 필드(downloadedFiles, downloadingFiles, preloadedStreams, preloadingQueue)는 기존 외부 참조를 깨지 않도록 player 인스턴스에 유지.
+ * 진행 중인 다운로드(downloadingFiles)만 player에 둔다 — 재생 경로와 예열이 같은 맵을 봐야 같은 곡을 두 번 받지 않는다.
  *
  * downloadingFiles는 Map<filepath, Promise<filepath>> — 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 기존의 1초×60회 파일 존재 폴링과 타임아웃 경계 조건이 필요 없다.
  */
@@ -43,7 +43,6 @@ class TrackDownloader {
     if (fsSync.existsSync(filepath)) {
       const stats = await fs.stat(filepath);
       if (stats.size > 0) {
-        player.downloadedFiles.add(filepath);
         player.scheduleStatePersist("download-cache-hit", 500);
         return filepath;
       }
@@ -53,7 +52,6 @@ class TrackDownloader {
     const inFlight = player.downloadingFiles.get(filepath);
     if (inFlight) {
       const file = await inFlight;
-      player.downloadedFiles.add(file);
       player.scheduleStatePersist("download-wait-complete", 500);
       return file;
     }
@@ -174,7 +172,6 @@ class TrackDownloader {
         throw new Error("Downloaded file is empty");
       }
 
-      player.downloadedFiles.add(filepath);
       // 완료된 다운로드를 DB에 저장
       if (audioSourceKey) {
         try {
@@ -205,73 +202,27 @@ class TrackDownloader {
     }
   }
 
-  /**
-   * 다운로드한 오디오 파일을 삭제합니다.
-   */
-  async deleteDownloadedFile(filepath) {
-    const player = this.player;
-    if (!filepath) return;
-
+  /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */
+  isCached(track) {
     try {
-      await fs.unlink(filepath);
-      player.downloadedFiles.delete(filepath);
-      player.scheduleStatePersist("download-removed", 500);
-    } catch (error) {
-      if (error.code !== "ENOENT") {
-        log.error(`❌ Failed to delete file ${filepath}:`, error.message);
-      }
+      const filepath = this.trackFilePath(track);
+      return fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0;
+    } catch {
+      return false;
     }
   }
 
   /**
-   * 트랙을 사전 로드합니다 — 스트림 해석 후 백그라운드 다운로드까지 완료.
+   * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
+   *
+   * 캐시 키를 먼저 확정해야 재생 경로와 같은 파일 경로가 나온다(없으면 URL 해시로 갈라진다).
+   * 나머지 판정 — 이미 받았는가 / 받는 중인가 / 스포티파이 동등물 검색 — 은 downloadTrack이
+   * 전부 갖고 있으므로 여기서 다시 하지 않는다. 실패는 그대로 던져 호출자가 판단하게 둔다.
    */
-  async preloadTrack(track) {
-    const player = this.player;
+  async warm(track) {
     if (!track || !track.url) return;
-
-    // 파일 조회용 audioSourceKey 계산 (spotify는 YouTube 검색 후 getStream 내부에서 해석됨)
     TrackResolver.ensureAudioSourceKey(track);
-    const filepath = this.trackFilePath(track);
-
-    if (fsSync.existsSync(filepath)) {
-      const stats = fsSync.statSync(filepath);
-      if (stats.size > 0) {
-        return; // 이미 다운로드됨
-      }
-    }
-
-    // 이미 사전 로드/다운로드 중인지 확인 (downloadingFiles 맵 포함)
-    if (player.preloadedStreams.has(track.url) || player.preloadingQueue.includes(track.url) || player.downloadingFiles.has(filepath)) {
-      return;
-    }
-
-    player.preloadingQueue.push(track.url);
-
-    try {
-      // 스트림 획득 (플랫폼 스위치·Spotify→YouTube 변환은 TrackResolver 한 곳에서)
-      const streamInfo = await TrackResolver.getStream(track, player.guild.id);
-
-      if (streamInfo) {
-        // 백그라운드에서 트랙 다운로드 (다운로드 URL은 track에서 파생 — streamInfo는 프리로드 캐시용)
-        await this.downloadTrack(track);
-
-        // 사전 로드됨으로 표시
-        player.preloadedStreams.set(track.url, {
-          info: streamInfo,
-          track: track,
-          downloaded: true,
-        });
-      }
-    } catch (error) {
-      if (error && error.message) {
-        log.error(`❌ Pre-download failed for ${track.title}:`, error.message);
-      }
-    } finally {
-      // 사전 로드 대기열에서 제거
-      const index = player.preloadingQueue.indexOf(track.url);
-      if (index > -1) player.preloadingQueue.splice(index, 1);
-    }
+    await this.downloadTrack(track);
   }
 }
 
