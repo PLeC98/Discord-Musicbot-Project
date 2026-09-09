@@ -27,7 +27,7 @@ if (config.logging.consoleLevel) logSink.setConsoleLevel(config.logging.consoleL
 const logFile = config.logging.fileEnabled ? createFileDestination(config.logging) : null;
 if (logFile) {
   logSink.addDestination(logFile.write);
-  log.info(chalk.gray(`🗒️  로그 파일: ${logFile.path}`));
+  log.info(chalk.gray(`🗒️ 로그 파일: ${logFile.path}`));
 }
 
 // 슬래시 명령어 배포
@@ -35,7 +35,7 @@ if (logFile) {
   const { deployCommands, deployErrorLines } = require("./src/commandLoader");
   log.info("🚀 슬래시 명령어 배포를 시작합니다.");
   deployCommands().then((r) => {
-    if (r.ok && r.skipped) log.info(chalk.gray(`⏭️  명령어 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
+    if (r.ok && r.skipped) log.info(chalk.gray(`⏭️ 명령어 정의 무변경 — 등록 PUT을 건너뜁니다 (${r.count}개, 강제 재배포: pnpm run cmddeploy)`));
     else if (r.ok) log.info(chalk.green(`✅ ${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 배포했습니다.`));
     else deployErrorLines(r).forEach((line) => log.error(chalk.red(line)));
   });
@@ -127,7 +127,7 @@ let bgutilStopping = false;
 function startBgutilServer() {
   if (bgutilStopping) return;
   if (!fs.existsSync(BGUTIL_ENTRY)) {
-    log.warn(chalk.yellow("⚠️  [bgutil] build/main.js 없음: POToken provider 비활성"));
+    log.warn(chalk.yellow("⚠️ [bgutil] build/main.js 없음: POToken provider 비활성"));
     return;
   }
   bgutilProc = spawn(process.execPath, ["build/main.js"], {
@@ -151,7 +151,7 @@ function startBgutilServer() {
   bgutilProc.on("exit", (code) => {
     bgutilProc = null;
     if (!bgutilStopping) {
-      log.warn(chalk.yellow(`⚠️  [bgutil] 서버 종료 (code=${code}), 5초 후 재시작...`));
+      log.warn(chalk.yellow(`⚠️ [bgutil] 서버 종료 (code=${code}), 5초 후 재시작...`));
       setTimeout(startBgutilServer, 5000);
     }
   });
@@ -182,7 +182,7 @@ async function waitForBgutilReady(timeoutMs = 30000) {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  log.warn(chalk.yellow(`⚠️  [bgutil] ${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.`));
+  log.warn(chalk.yellow(`⚠️ [bgutil] ${timeoutMs / 1000}초 내 응답 없음: POToken 없이 봇을 기동합니다.`));
   return false;
 }
 
@@ -225,19 +225,23 @@ function startBot() {
     try {
       const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js"));
 
+      // 개별 성공은 세기만 한다 — 30개면 30줄이 되고, 그 30줄이 말하는 것은 "30개 다 됐다"뿐이다.
+      // 실패한 것만 이름을 남긴다. 그게 실제로 찾아봐야 하는 정보다.
+      let ok = 0;
       for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
 
         if ("data" in command && "execute" in command) {
           client.commands.set(command.data.name, command);
-          log.info(chalk.green(`✅  명령어 준비 완료: ${command.data.name}`));
+          ok++;
         } else {
-          log.info(chalk.yellow(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`));
+          log.warn(chalk.yellow(`⚠️ ${file}: data 또는 execute 속성이 없어 건너뜁니다.`));
         }
       }
+      log.info(chalk.green(`✅ 슬래시 명령어 ${ok}개 준비 완료`));
     } catch (error) {
-      log.info(chalk.yellow("⚠️  명령어 디렉토리가 없습니다. 명령어 로딩을 건너뜁니다."));
+      log.warn(chalk.yellow("⚠️ 명령어 디렉토리가 없습니다. 명령어 로딩을 건너뜁니다."));
     }
   };
 

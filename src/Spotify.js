@@ -230,7 +230,7 @@ const graphql = {
       this._state = { ...extracted, fetchedAt: Date.now() };
       CacheManager.setSpotifyAnonState(extracted);
     } catch (e) {
-      log.warn(`⚠️  익명 상태 추출 실패: ${e.message} — 저장값/씨앗값 사용`);
+      log.warn(`⚠️ 익명 상태 추출 실패: ${e.message} — 저장값/씨앗값 사용`);
       this._state = this._state || CacheManager.getSpotifyAnonState() || { ...SEED, fetchedAt: 0 };
     }
     return this._state;
@@ -287,7 +287,7 @@ const graphql = {
       j = await this._mintToken();
     } catch (e) {
       if (e.status === 400 || e.status === 403) {
-        log.warn(`⚠️  익명 토큰 ${e.status} — secret 재추출 후 재시도`);
+        log.warn(`⚠️ 익명 토큰 ${e.status} — secret 재추출 후 재시도`);
         await this._ensureState(true);
         j = await this._mintToken();
       } else throw e;
@@ -320,7 +320,7 @@ const graphql = {
       return await run();
     } catch (e) {
       if (e.persistedNotFound) {
-        log.warn("⚠️  persisted hash 만료 — 재추출 후 재시도");
+        log.warn("⚠️ persisted hash 만료 — 재추출 후 재시도");
         await this._ensureState(true);
         return run();
       }
@@ -379,7 +379,7 @@ async function resolveType(type, id) {
       if ((tracks && tracks.length) || last) return tracks || [];
       // 빈 결과 + 폴백 남음 → 다음 시도
     } catch (e) {
-      log.warn({ sub: type }, `⚠️  ${i === 0 ? "주 경로" : "폴백"} 실패: ${e.message}${last ? "" : " — 폴백 전환"}`);
+      log.warn({ sub: type }, `⚠️ ${i === 0 ? "주 경로" : "폴백"} 실패: ${e.message}${last ? "" : " — 폴백 전환"}`);
       if (last) return [];
     }
   }
@@ -401,7 +401,7 @@ async function search(query, limit = 1, _type = "track") {
   try {
     return await official.search(query, limit);
   } catch (e) {
-    log.warn(`⚠️  검색 실패: ${e.message}`);
+    log.warn(`⚠️ 검색 실패: ${e.message}`);
     return [];
   }
 }

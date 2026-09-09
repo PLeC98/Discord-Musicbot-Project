@@ -29,7 +29,6 @@ const QueueWarmer = require("./QueueWarmer");
 const { spawnFfmpeg } = require("./ffmpegProcess");
 const { Readable } = require("stream");
 const fsSync = require("fs");
-const path = require("path");
 
 // 무이음 전환 상수 — .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다. 끄는 손잡이(STREAM_SEAMLESS)만 설정으로 둔다.
@@ -496,8 +495,6 @@ class MusicPlayer {
 
       // 파일 재생 모드 (사전 다운로드 또는 스트리밍 폴백)
       if (!shouldDownload && downloadedFile) {
-        log.info(`🎵 오디오 캐시에서 재생: ${path.basename(downloadedFile)} (seek: ${resumeFromMs}ms)`);
-
         const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }), "playback");
 
         this.resource = createAudioResource(ffmpeg.stdout, {
@@ -527,7 +524,7 @@ class MusicPlayer {
         this.currentTrack.duration = streamInfo.duration;
       }
 
-      log.info(`▶️  재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms)`);
+      log.info(`▶️ 재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms, 출처=${downloadedFile ? "캐시" : "스트림"})`);
 
       // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
       if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
@@ -549,7 +546,7 @@ class MusicPlayer {
       }
 
       if (this.pauseReasons.size > 0) {
-        log.info(`⏸️  일시정지 사유: ${Array.from(this.pauseReasons).join(", ")}`);
+        log.info(`⏸️ 일시정지 사유: ${Array.from(this.pauseReasons).join(", ")}`);
         this.audioPlayer.pause();
       }
 
@@ -829,7 +826,7 @@ class MusicPlayer {
   pauseFor(reason = null) {
     if (reason) {
       if (!this.pauseReasons.has(reason)) {
-        log.info(`⏸️  일시정지: 사유=${reason} | 누적=[${[...this.pauseReasons, reason].join(", ")}] | ${this._trackLabel()}`);
+        log.info(`⏸️ 일시정지: 사유=${reason} | 누적=[${[...this.pauseReasons, reason].join(", ")}] | ${this._trackLabel()}`);
       }
       this.pauseReasons.add(reason);
       this.scheduleStatePersist("pause-update", 200);
@@ -857,7 +854,7 @@ class MusicPlayer {
   resumeFor(reason = null) {
     if (reason) {
       if (this.pauseReasons.has(reason)) {
-        log.info(`▶️  일시정지 해제: 사유=${reason} | 남은 사유=[${[...this.pauseReasons].filter((r) => r !== reason).join(", ") || "없음"}] | ${this._trackLabel()}`);
+        log.info(`▶️ 일시정지 해제: 사유=${reason} | 남은 사유=[${[...this.pauseReasons].filter((r) => r !== reason).join(", ") || "없음"}] | ${this._trackLabel()}`);
       }
       this.pauseReasons.delete(reason);
       this.scheduleStatePersist("resume-update", 200);
@@ -1006,7 +1003,7 @@ class MusicPlayer {
   }
 
   stop() {
-    clog.info(`⏹️  정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 폐기`);
+    clog.info(`⏹️ 정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 폐기`);
     this.updateVoiceStatus("").catch(() => {});
 
     this.sponsorSkipper?.stop();
@@ -1064,7 +1061,7 @@ class MusicPlayer {
   // reason: "skip"(기본) 또는 "jump"(대기열 점프 — 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
   skip(reason = "skip") {
     if (this.currentTrack) {
-      clog.info(`⏭️  스킵: ${this._trackLabel()} | 사유=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
+      clog.info(`⏭️ 스킵: ${this._trackLabel()} | 사유=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
       // 트랙 타이머 정리
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
@@ -1086,7 +1083,7 @@ class MusicPlayer {
   }
 
   previous() {
-    clog.info(`⏮️  이전곡: ${this._trackLabel()} | 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
+    clog.info(`⏮️ 이전곡: ${this._trackLabel()} | 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
     // 한곡 반복 중 이전곡 = 현재 곡 재시작 — 대기열·기록 불변.
     if (this.loop === "track") {
       if (!this.currentTrack) return false;
@@ -1187,7 +1184,7 @@ class MusicPlayer {
     if (from >= 0 && from < this.queue.length && to >= 0 && to < this.queue.length) {
       const track = this.queue.splice(from, 1)[0];
       this.queue.splice(to, 0, track);
-      clog.info(`↕️  대기열 이동: ${from} → ${to} "${track?.title ?? "?"}"`);
+      clog.info(`↕️ 대기열 이동: ${from} → ${to} "${track?.title ?? "?"}"`);
       this.scheduleStatePersist("queue-move", 200);
       return true;
     }
