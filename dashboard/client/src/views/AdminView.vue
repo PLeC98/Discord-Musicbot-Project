@@ -208,7 +208,7 @@
         </BaseCard>
 
         <!-- Command redeploy -->
-        <BaseCard icon="repeat" title="슬래시 커맨드 재배포">
+        <BaseCard icon="repeat" title="슬래시 커맨드 재배포" class="mb-3">
           <p class="text-muted text-sm mb-4">현재 로드된 슬래시 커맨드를 Discord에 다시 등록합니다. 봇 재시작 없이 실행됩니다.</p>
 
           <BaseButton variant="primary" @click="redeploy" :disabled="redeploying">
@@ -223,7 +223,7 @@
 
         <!-- Cache reset -->
         <BaseCard icon="trash" title="캐시 초기화">
-          <p class="text-muted text-sm mb-4">받아둔 오디오 파일과 조회 기록을 전부 지웁니다. 전용 채널·DJ 역할·SponsorBlock 설정은 <strong class="text-fg-soft">남습니다</strong>.</p>
+          <p class="text-muted text-sm mb-4">받아둔 오디오 파일과 조회 기록을 전부 지웁니다. 전용 채널·DJ 역할·SponsorBlock 설정은 남습니다.</p>
 
           <BaseButton variant="danger" @click="confirmReset = true" :disabled="resetting">
             {{ resetting ? "초기화 중..." : "캐시 초기화" }}
