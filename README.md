@@ -1,6 +1,6 @@
 # Discord Musicbot Project
 
-[umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 개조한 한국어 UI 기반의 개인용 Discord 음악 봇.
+한국어 UI 기반의 개인용 Discord 음악 봇.
 
 일부 봇들과 달리 **음악 봇**임에 집중하여 불필요한 기능을 줄였으며, yt-dlp를 기반으로 사용자가 직접 호스팅하기에 대형 클라우드 서비스 봇에 비해 안정적입니다.
 
@@ -10,9 +10,6 @@
 [![Vite](https://img.shields.io/badge/vite-8-blueviolet?logo=vite&style=flat-square)](https://vite.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwindcss-4-%2306B6D4?logo=tailwindcss&style=flat-square)](https://tailwindcss.com/)
 ![라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project?style=flat-square)
-
-> **라이선스** — 원본 베이스는 MIT, 이 저장소의 수정·추가분은 **AGPL-3.0-or-later**입니다.
-> 자세한 구조는 [NOTICE.md](NOTICE.md)를 참조하세요.
 
 ## 주요 기능
 
@@ -164,10 +161,6 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 
 봇 실행 시 대시보드 서버가 함께 시작됩니다.
 
-> [!CAUTION]
-> 현재 샤딩 구동 시 0번 샤드를 제외한 샤드가 소유한 서버는 대시보드에 안 보이고 조작도 불가한 문제가 있습니다.
-> 개발자의 샤딩 미 사용 및 테스트 어려움으로 인해 개선 우선순위가 매우 낮습니다.
-
 ## 업데이트 / 유지보수
 
 `git pull`로 코드를 갱신한 뒤, 갱신 내용에 따라:
@@ -212,6 +205,9 @@ Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는
 ## 라이선스
 
 이 저장소는 이중 라이선스 구조입니다:
+
+> 많은 부분이 변경·추가·삭제 되었으나, 본 프로젝트의 출발점은 [umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)입니다.
+> 잔류한 원본 코드는 MIT, 이 저장소에서 수정·추가된 코드는 **AGPL-3.0-or-later**를 따릅니다.
 
 - **업스트림 베이스** ([umutxyp/MusicBot](https://github.com/umutxyp/MusicBot)): Copyright (c) 2025 umutxyp - [MIT License](LICENSE-MIT)
 - **이 저장소의 수정·추가분**: Copyright (C) 2026 PLeC - [GNU AGPL-3.0-or-later](LICENSE)
