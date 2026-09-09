@@ -15,7 +15,8 @@ const DB_PATH = path.join(os.tmpdir(), `musicbot-cachemanager-test-${process.pid
 let CacheManager;
 
 before(() => {
-  // 구(단일 DJ 역할) 스키마 DB를 미리 만들어 레거시 마이그레이션까지 함께 검증
+  // 구(단일 DJ 역할) 스키마 DB를 미리 만들어, 컬럼이 없는 DB를 열어도 기동하는지 검증.
+  // 값 이관은 하지 않는다 — 상류 봇과의 호환을 만드는 일이라 걷어냈다(2026-09-10).
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
   const pre = new Database(DB_PATH);
   pre.exec(`
@@ -42,17 +43,17 @@ after(() => {
   } catch {}
 });
 
-// ── guild_settings: 레거시 마이그레이션 ──────────────────────
+// ── guild_settings: 구 스키마 DB 호환 ────────────────────────
+// dj_role_ids 컬럼이 없는 DB를 열면 ALTER TABLE로 추가만 하고 기동한다.
+// 구 dj_role_id 값을 옮기지는 않는다 — DJ 역할은 다시 설정하면 되는 값이고,
+// 이관을 남겨두면 상류 봇의 DB를 그대로 받아 쓸 수 있게 되는 셈이라 걷어냈다.
 
-test("마이그레이션: 구 dj_role_id 단일 값 → dj_role_ids JSON 배열", () => {
-  assert.deepEqual(CacheManager.getDjRoles("legacy1"), ["role111"]);
-});
-
-test("마이그레이션: 미설정 행은 그대로 미설정", () => {
+test("구 스키마 DB도 열린다 — DJ 역할은 미설정으로 시작", () => {
+  assert.deepEqual(CacheManager.getDjRoles("legacy1"), []);
   assert.deepEqual(CacheManager.getDjRoles("legacy2"), []);
 });
 
-test("마이그레이션: bot_channel_id 무손상", () => {
+test("구 스키마의 bot_channel_id는 보존된다 (같은 컬럼을 계속 쓴다)", () => {
   assert.equal(CacheManager.getBotChannel("legacy1"), "ch1");
   assert.equal(CacheManager.getBotChannel("legacy2"), "ch2");
 });

@@ -45,7 +45,7 @@ class CacheManager {
     this._createTables();
     this._initialized = true;
     this._startPeriodicEviction();
-    log.info("SQLite DB 초기화 완료");
+    log.info("💾 캐시 데이터베이스 준비 완료");
   }
 
   _createTables() {
@@ -132,18 +132,7 @@ class CacheManager {
       .prepare("PRAGMA table_info(guild_settings)")
       .all()
       .map((c) => c.name);
-    if (!gsCols.includes("dj_role_ids")) {
-      this.db.exec("ALTER TABLE guild_settings ADD COLUMN dj_role_ids TEXT");
-
-      // 구 단일 역할 컬럼(dj_role_id) → 복수 역할(JSON 배열) 1회 이관.
-      // 구 컬럼은 롤백 대비 보존하되 이후 코드는 참조하지 않는다.
-      if (gsCols.includes("dj_role_id")) {
-        const rows = this.db.prepare("SELECT guild_id, dj_role_id FROM guild_settings WHERE dj_role_id IS NOT NULL").all();
-        const upd = this.db.prepare("UPDATE guild_settings SET dj_role_ids = ? WHERE guild_id = ?");
-        for (const r of rows) upd.run(JSON.stringify([r.dj_role_id]), r.guild_id);
-        if (rows.length) log.info(`DJ 역할 설정 ${rows.length}건을 복수 역할 형식(dj_role_ids)으로 이관`);
-      }
-    }
+    if (!gsCols.includes("dj_role_ids")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN dj_role_ids TEXT");
 
     // SponsorBlock 컬럼 추가 (컬럼 도입 이전 DB 대응 — CREATE IF NOT EXISTS는 컬럼을 안 만듦)
     const gsCols2 = this.db
@@ -616,7 +605,7 @@ class CacheManager {
 
     // 1. 다운로드 중 중단된 행 재설정
     const resetCount = this.db.prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
-    if (resetCount > 0) log.info(`인터럽트된 다운로드 ${resetCount}건 초기화`);
+    if (resetCount > 0) log.info(`⏹ 지난 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
     // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
     const cachedRows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache WHERE status = 'cached'").all();
@@ -628,7 +617,7 @@ class CacheManager {
         orphanDbCount++;
       }
     }
-    if (orphanDbCount > 0) log.info(`DB에서 파일 없는 항목 ${orphanDbCount}건 마킹`);
+    if (orphanDbCount > 0) log.info(`🗂 오디오 캐시 파일이 누락된 항목 ${orphanDbCount}건 기록 완료`);
 
     // 3. DB에서 추적하지 않는 오디오 파일 삭제
     this._cleanOrphanFiles();
@@ -682,7 +671,7 @@ class CacheManager {
       /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
     }
 
-    log.warn(`🧹 캐시 초기화: 파일 ${removed}개 삭제${kept > 0 ? `, ${kept}개는 사용 중이라 유지` : ""} (${Math.round(before.bytes / 1024 / 1024)}MB)`);
+    log.warn(`🧹 오디오 캐시 초기화: ${removed}개 삭제(${Math.round(before.bytes / 1024 / 1024)}MB)${kept > 0 ? `, ${kept}개는 재생 중이라 남겨둠` : ""}`);
     return { removed, kept, freedBytes: before.bytes, fileCountBefore: before.files };
   }
 
@@ -730,8 +719,8 @@ class CacheManager {
         }
       }
     }
-    if (cleaned > 0) log.info(`고아 파일 ${cleaned}개 삭제`);
-    if (partials > 0) log.info(`중단된 다운로드 잔해 ${partials}개 삭제`);
+    if (cleaned > 0) log.info(`🧹 어디에도 연결되지 않은 고아 파일 ${cleaned}개 삭제 완료`);
+    if (partials > 0) log.info(`🧹 캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
   }
 
   // 제거
@@ -769,9 +758,9 @@ class CacheManager {
     if (!overSize && !overFiles && !lowDisk) return;
 
     if (lowDisk) {
-      log.warn(`⚠️ 디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음), 강제 퇴거`);
+      log.warn(`⚠️ 디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음) — 오디오 캐시를 즉시 정리합니다.`);
     } else {
-      log.info(`캐시 한도 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개), 퇴거 시작...`);
+      log.info(`📦 오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개) — 오래된 파일부터 정리합니다.`);
     }
 
     await this.evict();
@@ -841,7 +830,7 @@ class CacheManager {
       this.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(row.audio_source_key);
       evicted++;
     }
-    if (evicted > 0) log.info(`${evicted}개 파일 퇴거 완료`);
+    if (evicted > 0) log.info(`🧹 ${evicted}개의 오디오 캐시 파일 삭제 완료`);
   }
 
   /** 백그라운드 주기적 제거 타이머 시작 */
@@ -849,7 +838,7 @@ class CacheManager {
     const cfg = require("../config").cache;
     if (this._evictInterval) clearInterval(this._evictInterval);
     this._evictInterval = setInterval(() => {
-      this.evictIfNeeded().catch((err) => log.error("주기적 퇴거 오류:", err.message));
+      this.evictIfNeeded().catch((err) => log.error("❌ 정기적 오디오 캐시 자동 정리 중 오류:", err.message));
     }, cfg.evictIntervalMs);
     this._evictInterval.unref(); // 프로세스 종료를 막지 않음
   }

@@ -1,43 +1,12 @@
 "use strict";
 
-const fs = require("fs");
 const log = require("./logger").child({ category: "guild" });
-const path = require("path");
 const CacheManager = require("./CacheManager");
 const config = require("../config");
-
-// 구 node-json-db 시절의 저장 파일 — 발견 시 1회 SQLite로 이관 후 .bak으로 보존
-const LEGACY_JSON = path.join(__dirname, "..", "database", "settings.json");
 
 class GuildSettingsManager {
   constructor() {
     this.cache = new Map();
-    this._migrateLegacyJson();
-  }
-
-  _migrateLegacyJson() {
-    try {
-      if (!fs.existsSync(LEGACY_JSON)) return;
-
-      const data = JSON.parse(fs.readFileSync(LEGACY_JSON, "utf8"));
-      let migrated = 0;
-      for (const [guildId, settings] of Object.entries(data?.guilds || {})) {
-        if (settings?.botChannel) {
-          CacheManager.setBotChannel(guildId, settings.botChannel);
-          migrated++;
-        }
-      }
-
-      // 샤딩 시 다른 프로세스가 먼저 리네임했을 수 있음 — ENOENT는 무시
-      try {
-        fs.renameSync(LEGACY_JSON, LEGACY_JSON + ".bak");
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
-      log.info(`settings.json → SQLite 마이그레이션 완료 (${migrated}건, 원본은 settings.json.bak 보존)`);
-    } catch (error) {
-      log.error("❌ settings.json 마이그레이션 실패:", error.message);
-    }
   }
 
   async setBotChannel(guildId, channelId) {
