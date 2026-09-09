@@ -183,19 +183,19 @@ class MusicPlayer {
         this._clearBufferingWatch();
         if (heldMs !== null) {
           const line = `🎚 상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
-          if (heldMs >= 3000) wlog.warn(`${line} ← 오래 걸림`);
+          if (heldMs >= 3000) wlog.warn(`${line} 오래 걸림`);
           else wlog.debug(line);
         }
         return;
       }
 
-      wlog.debug(`🎚 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
+      wlog.debug(`재생 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
 
       if (newState.status === AudioPlayerStatus.Buffering) this._startBufferingWatch();
     });
 
     this.audioPlayer.on("error", (error) => {
-      log.error("❌ 오디오 플레이어 오류:", error);
+      log.error("오디오 플레이어 오류:", error);
 
       // 스트림 오류이고 현재 트랙이 있으면 복구 시도
       if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
@@ -401,7 +401,7 @@ class MusicPlayer {
           })
           .catch((err) => {
             if (err && err.message) {
-              log.warn(`⚠️ 배경 다운로드 실패: ${err.message} — 재생은 스트림으로 계속됩니다.`);
+              log.warn(`백그라운드 캐시 다운로드 실패: ${err.message} — 재생은 스트림으로 계속됩니다.`);
             }
           });
 
@@ -477,7 +477,7 @@ class MusicPlayer {
           // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
           // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
           audioStream.on("error", (err) => {
-            log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구합니다.`);
+            log.warn(`오디오 스트림 중단됨: ${err.code || err.message} — 캐시로 복구를 시도합니다.`);
             if (playSource !== ffmpeg.stdout) this._planCacheSwitch(playSource, playingTrack);
           });
           // ffmpeg가 끝나면 입력 스트림도 닫는다 — .pipe 바깥이라 자동 정리 대상이 아니다.
@@ -528,7 +528,7 @@ class MusicPlayer {
         this.currentTrack.duration = streamInfo.duration;
       }
 
-      log.info(`▶️ 재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms, 출처=${downloadedFile ? "캐시" : "스트림"})`);
+      log.info(`재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms, 출처=${downloadedFile ? "캐시" : "스트림"})`);
 
       // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
       if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
@@ -550,7 +550,7 @@ class MusicPlayer {
       }
 
       if (this.pauseReasons.size > 0) {
-        log.info(`⏸️ 일시정지 사유: ${Array.from(this.pauseReasons).join(", ")}`);
+        log.info(`일시정지 상태로 재생 시작: 원인=${Array.from(this.pauseReasons).join(", ")}`);
         this.audioPlayer.pause();
       }
 
@@ -621,15 +621,21 @@ class MusicPlayer {
    * 둘 다 들어 있다. 여기서 다운로드를 기다리는 코드를 따로 만들 이유가 없다.
    */
   _planCacheSwitch(splicer, track) {
-    if (!splicer || splicer.destroyed || splicer.switchPending) return;
+    // 포기하는 경로가 넷인데 전부 무음이었다. 그러면 "스트림이 끊겼다"는 줄 뒤에 아무것도
+    // 안 남아, 무지연 전환을 시도했는지조차 알 수 없다(실측: 중단 48건 중 9건이 후속 줄 없음).
+    const giveUp = (why) => {
+      wlog.debug(`무지연 전환 포기: ${this._trackLabel()} — ${why}`);
+    };
+
+    if (!splicer || splicer.destroyed || splicer.switchPending) return giveUp("전환할 수 있는 상태가 아님");
     // 늦게 도착한 오류가 다음 곡의 재생을 건드리지 않도록
-    if (!track || this.currentTrack !== track) return;
+    if (!track || this.currentTrack !== track) return giveUp("이미 다른 곡으로 넘어감");
 
     const file = this.currentDownloadedFile;
     try {
-      if (!file || !fsSync.existsSync(file) || fsSync.statSync(file).size === 0) return;
+      if (!file || !fsSync.existsSync(file) || fsSync.statSync(file).size === 0) return giveUp("쓸 수 있는 캐시 파일이 없음");
     } catch {
-      return; // 파일 조회 실패 — 기존 경로로 넘긴다
+      return giveUp("캐시 파일 조회 실패"); // 기존 경로로 넘긴다
     }
 
     // 전환 지점은 스플라이서 출력 기준이다. 리소스는 그보다 뒤처져 있으므로
@@ -641,7 +647,7 @@ class MusicPlayer {
     try {
       decoder = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file, seekMs }), "switch");
     } catch (error) {
-      log.warn(`⚠️ 캐시 디코더를 띄우지 못했습니다: ${error.message}`);
+      log.warn(`캐시 재생용 ffmpeg를 띄우지 못했습니다: ${error.message}`);
       return;
     }
 
@@ -650,7 +656,9 @@ class MusicPlayer {
       return;
     }
     splicer.once("switched", (ms) => {
-      log.info(`🔀 캐시로 무이음 전환: ${this._trackLabel()} | ${(ms / 1000).toFixed(1)}s 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
+      log.info(`오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
+      // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
+      wlog.debug(`무지연 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
     });
   }
 
@@ -672,12 +680,12 @@ class MusicPlayer {
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
-      wlog.debug(`🕒 워치독 예약: ${this._trackLabel()} | 길이 ${durationSeconds}s(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}s | ${Math.round(timeoutMs / 1000)}s 뒤 확인`);
+      wlog.debug(`종료 감시 예약: ${this._trackLabel()} | 길이 ${durationSeconds}초(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}초 | ${Math.round(timeoutMs / 1000)}초 뒤 확인`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
       // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
       this.expectedTrackEndTs = null;
-      wlog.warn(`🕒 워치독 예약: ${this._trackLabel()} | 길이 모름 → 5분 폴백 (이 경로는 깨어나는 즉시 정지시킨다)`);
+      wlog.warn(`종료 감시 예약: ${this._trackLabel()} | 길이를 몰라 5분 뒤 강제 종료합니다`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 5 * 60 * 1000);
     }
   }
@@ -729,7 +737,7 @@ class MusicPlayer {
     let logged = 0;
     this._bufferingTimer = setInterval(() => {
       const sec = ((Date.now() - this._bufferingSince) / 1000).toFixed(0);
-      wlog.warn(`⏳ 버퍼링 지속 ${sec}s: ${this._trackLabel()} | 아직 Playing에 못 들어감`);
+      wlog.warn(`버퍼링 ${sec}초 지속: ${this._trackLabel()} — 아직 재생이 시작되지 않았습니다`);
       if (++logged >= 20) this._clearBufferingWatch(); // 무한 도배 방지
     }, 15000);
     this._bufferingTimer.unref?.();
@@ -775,13 +783,13 @@ class MusicPlayer {
 
       if (durationMs > 0 && playbackMs + 1500 < durationMs) {
         const remainingMs = Math.max(durationMs - playbackMs, 2000);
-        wlog.debug(`👁 워치독 확인: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs / 1000}s → 아직 남음, ${Math.round(remainingMs / 1000)}s 뒤 재확인`);
+        wlog.debug(`종료 감시: ${this._trackLabel()} | 재생 ${playedSec}초 / 예상 ${durationMs / 1000}초 — 아직 남음, ${Math.round(remainingMs / 1000)}초 뒤 재확인`);
         this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), remainingMs);
         return;
       }
 
       // 여기서 stop()을 부르면 Idle이 발생해 다음 곡으로 넘어간다. 워치독이 실제로 "일을 한" 유일한 지점.
-      wlog.warn(`⛔ 워치독이 트랙을 정지시킴: ${this._trackLabel()} | 재생 ${playedSec}s / 예상 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"} | 길이출처=${this._durationSource()}`);
+      wlog.warn(`종료 감시가 트랙을 정지시킴: ${this._trackLabel()} | 재생 ${playedSec}초 / 예상 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"} | 길이출처=${this._durationSource()}`);
 
       // Idle을 발생시키고 생명주기 핸들러가 실행되도록 정상 중지
       if (!this.pendingEndReason) {
@@ -794,7 +802,7 @@ class MusicPlayer {
 
     if (status === AudioPlayerStatus.Idle || status === AudioPlayerStatus.AutoPaused) {
       // Idle 핸들러가 처리하므로 할 일 없음
-      wlog.debug(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} → Idle 핸들러에 맡기고 종료`);
+      wlog.debug(`종료 감시: ${this._trackLabel()} | 상태=${status} — 종료 처리에 맡기고 감시를 끝냅니다`);
       this.trackTimer = null;
       return;
     }
@@ -830,7 +838,7 @@ class MusicPlayer {
   pauseFor(reason = null) {
     if (reason) {
       if (!this.pauseReasons.has(reason)) {
-        log.info(`⏸️ 일시정지: 사유=${reason} | 누적=[${[...this.pauseReasons, reason].join(", ")}] | ${this._trackLabel()}`);
+        log.info(`일시정지: 원인=${reason} | ${this._trackLabel()}`);
       }
       this.pauseReasons.add(reason);
       this.scheduleStatePersist("pause-update", 200);
@@ -858,7 +866,7 @@ class MusicPlayer {
   resumeFor(reason = null) {
     if (reason) {
       if (this.pauseReasons.has(reason)) {
-        log.info(`▶️ 일시정지 해제: 사유=${reason} | 남은 사유=[${[...this.pauseReasons].filter((r) => r !== reason).join(", ") || "없음"}] | ${this._trackLabel()}`);
+        log.info(`일시정지 해제: 원인=${reason} | ${this._trackLabel()}`);
       }
       this.pauseReasons.delete(reason);
       this.scheduleStatePersist("resume-update", 200);
@@ -891,7 +899,7 @@ class MusicPlayer {
   startInactivityTimer() {
     if (this.inactivityTimer) return;
 
-    log.info(`⏳ 청취자 없음: ${Math.round(this.inactivityTimeoutMs / 1000)}초 뒤 정리 예약 | ${this._trackLabel()}`);
+    log.info(`서버 ${this.guild?.name ?? this.guild?.id}의 채널 ${this.voiceChannel?.name ?? this.voiceChannel?.id}에 사람이 없습니다. ${Math.round(this.inactivityTimeoutMs / 1000)}초 뒤 정리합니다`);
     this.pauseFor("alone");
 
     this.inactivityTimer = setTimeout(
@@ -903,7 +911,6 @@ class MusicPlayer {
         const hasListeners = channel ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
 
         if (hasListeners) {
-          log.info("⏳ 청취자 복귀 — 정리 취소");
           this.resumeFor("alone");
           const embedManager = this.guild?.client?.musicEmbedManager;
           if (embedManager) {
@@ -927,11 +934,11 @@ class MusicPlayer {
 
           await this.persistState("inactivity-timeout");
         } catch (error) {
-          log.error("❌ 비활성 정리 후 재생 UI 갱신 실패:", error);
+          log.error("비활성 정리 후 재생 UI 갱신 실패:", error);
         } finally {
           // 교체된 뒤 남은 타이머가 현행 플레이어의 연결을 끊지 않도록 (대기열 소진 타이머와 같은 사고)
           if (!this._isActivePlayer()) {
-            log.info(`🧹 교체된 플레이어의 비활성 타이머 — 자기 자원만 정리 (${this.guild?.name ?? this.guild?.id})`);
+            log.info(`밀려난 플레이어의 비활성 타이머 — 자기 자원만 정리합니다 (${this.guild?.name ?? this.guild?.id})`);
             this.releaseResources();
             this.releaseAudioProtection();
           } else {
@@ -951,6 +958,10 @@ class MusicPlayer {
     if (this.inactivityTimer) {
       clearTimeout(this.inactivityTimer);
       this.inactivityTimer = null;
+      // 여기가 "정리 예약이 취소된다"는 상태 변화가 실제로 일어나는 지점이다.
+      // 예약을 건 타이머 콜백 안에도 같은 로그가 있었는데, 사람이 돌아오면 음성 상태 이벤트가
+      // 이 함수를 먼저 불러 타이머를 지우므로 그 콜백은 아예 실행되지 않았다 — 거의 안 찍혔다.
+      if (shouldResume) log.info(`서버 ${this.guild?.name ?? this.guild?.id}의 채널 ${this.voiceChannel?.name ?? this.voiceChannel?.id}에 사람이 복귀하여 정리를 취소합니다`);
     }
 
     if (shouldResume) {
@@ -1007,7 +1018,7 @@ class MusicPlayer {
   }
 
   stop() {
-    clog.info(`⏹️ 정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 폐기`);
+    clog.info(`정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 비움`);
     this.updateVoiceStatus("").catch(() => {});
 
     this.sponsorSkipper?.stop();
@@ -1074,14 +1085,14 @@ class MusicPlayer {
    */
   seek(seekMs, reason = "seek") {
     const from = Math.round((this.lastPlaybackPosition || 0) / 1000);
-    clog.info(`⏩ 위치 이동: ${this._trackLabel()} | ${from}s → ${Math.round(seekMs / 1000)}s | 사유=${reason}`);
+    clog.info(`위치 이동: ${this._trackLabel()} | ${from}초 → ${Math.round(seekMs / 1000)}초 | 원인=${reason}`);
     return this.play(null, seekMs);
   }
 
   // reason: "skip"(기본) 또는 "jump"(대기열 점프 — 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
   skip(reason = "skip") {
     if (this.currentTrack) {
-      clog.info(`⏭️ 스킵: ${this._trackLabel()} | 사유=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
+      clog.info(`스킵: ${this._trackLabel()} | 원인=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
       // 트랙 타이머 정리
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
@@ -1103,7 +1114,7 @@ class MusicPlayer {
   }
 
   previous() {
-    clog.info(`⏮️ 이전곡: ${this._trackLabel()} | 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
+    clog.info(`이전곡: ${this._trackLabel()} | 이전 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
     // 한곡 반복 중 이전곡 = 현재 곡 재시작 — 대기열·기록 불변.
     if (this.loop === "track") {
       if (!this.currentTrack) return false;
@@ -1147,7 +1158,7 @@ class MusicPlayer {
   setVolume(volume) {
     const before = this.volume;
     this.volume = Math.max(0, Math.min(100, volume));
-    if (before !== this.volume) clog.info(`🔊 볼륨: ${before} → ${this.volume}`);
+    if (before !== this.volume) clog.info(`볼륨: ${before}% → ${this.volume}%`);
     if (this.resource && this.resource.volume) {
       this.resource.volume.setVolume(this.volume / 100);
     }
@@ -1157,7 +1168,7 @@ class MusicPlayer {
 
   shuffleQueue() {
     if (this.queue.length > 1) {
-      clog.info(`🔀 대기열 섞음: ${this.queue.length}곡`);
+      clog.info(`대기열 섞음: ${this.queue.length}곡`);
       for (let i = this.queue.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
@@ -1170,7 +1181,7 @@ class MusicPlayer {
 
   setLoop(mode) {
     // 모드: false, 'track', 'queue'
-    if (this.loop !== mode) clog.info(`🔁 반복: ${this.loop || "off"} → ${mode || "off"}`);
+    if (this.loop !== mode) clog.info(`반복: ${this.loop || "off"} → ${mode || "off"}`);
     this.loop = mode;
     this.scheduleStatePersist("loop", 200);
     return this.loop;
@@ -1183,7 +1194,7 @@ class MusicPlayer {
    */
   setAutoplay(genre) {
     const next = genre || false;
-    if (this.autoplay !== next) clog.info(`🎲 자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
+    if (this.autoplay !== next) clog.info(`자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
     this.autoplay = next;
     this.scheduleStatePersist("autoplay", 200);
     return this.autoplay;
@@ -1197,7 +1208,7 @@ class MusicPlayer {
 
   clearQueue() {
     const cleared = this.queue.length;
-    if (cleared) clog.info(`🗑  대기열 비움: ${cleared}곡`);
+    if (cleared) clog.info(`대기열 비움: ${cleared}곡`);
     this.queue = [];
     this.scheduleStatePersist("clear-queue", 0);
     return cleared;
@@ -1206,7 +1217,7 @@ class MusicPlayer {
   removeFromQueue(index) {
     if (index >= 0 && index < this.queue.length) {
       const removed = this.queue.splice(index, 1)[0];
-      clog.info(`➖ 대기열 제거: [${index}] "${removed?.title ?? "?"}" | 남은 ${this.queue.length}곡`);
+      clog.info(`대기열 제거: [${index}] "${removed?.title ?? "?"}" | 남은 ${this.queue.length}곡`);
       this.scheduleStatePersist("queue-remove", 200);
       return removed;
     }
@@ -1217,7 +1228,7 @@ class MusicPlayer {
     if (from >= 0 && from < this.queue.length && to >= 0 && to < this.queue.length) {
       const track = this.queue.splice(from, 1)[0];
       this.queue.splice(to, 0, track);
-      clog.info(`↕️ 대기열 이동: ${from} → ${to} "${track?.title ?? "?"}"`);
+      clog.info(`대기열 이동: "${track?.title ?? "?"}" ${from}번 → ${to}번`);
       this.scheduleStatePersist("queue-move", 200);
       return true;
     }
@@ -1286,7 +1297,9 @@ class MusicPlayer {
 
       const endedLabel = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
       this._endingLabel = null;
-      log.info(`⏭️ 트랙 종료: ${endedLabel} | 사유=${reason} | 재생 ${(totalPlaybackMs / 1000).toFixed(1)}s / 길이 ${durationMs > 0 ? durationMs / 1000 + "s" : "모름"}${endedUnexpectedly ? " | 조기종료로 판정 → 복구 시도" : ""}`);
+      log.info(`트랙 종료: ${endedLabel} | 원인=${reason}${endedUnexpectedly ? " | 조기종료로 판정 → 복구 시도" : ""}`);
+      // 재생/길이 대조는 종료 감시 판정용 수치라 조사할 때만 본다.
+      wlog.debug(`트랙 종료 상세: 재생 ${(totalPlaybackMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}`);
 
       if (endedUnexpectedly) {
         this.currentTrackRetries += 1;
@@ -1360,7 +1373,7 @@ class MusicPlayer {
           return;
         }
         // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 자동재생을 끄고 알린 뒤, 아래의 일반 대기열 종료 흐름으로 진행
-        log.warn(`⚠️ 알 수 없는 자동재생 장르 '${this.autoplay}' — 자동재생을 끕니다`);
+        log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
         if (this.textChannel) {
           this.textChannel?.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
         }
@@ -1391,7 +1404,7 @@ class MusicPlayer {
         this.queueEmptyTimer = null;
         if (this.queue.length !== 0 || this.currentTrack) return;
         if (!this._isActivePlayer()) {
-          log.info(`🧹 교체된 플레이어의 대기열 소진 타이머 — 자기 자원만 정리 (${this.guild?.name ?? this.guild?.id})`);
+          log.info(`밀려난 플레이어의 대기열 소진 타이머 — 자기 자원만 정리합니다 (${this.guild?.name ?? this.guild?.id})`);
           this.releaseResources();
           this.releaseAudioProtection();
           return;
@@ -1481,7 +1494,7 @@ class MusicPlayer {
         await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
       }
     } catch (error) {
-      log.error("❌ 자동재생 오류:", error.message);
+      log.error("자동재생 오류:", error.message);
     }
   }
 
@@ -1595,9 +1608,9 @@ class MusicPlayer {
         if (this.connection.state && this.connection.state.status !== "destroyed") {
           try {
             this.connection.destroy();
-            log.info(`🔇 음성 채널 떠남: "${this.voiceChannel?.name ?? this.voiceChannel?.id ?? "?"}" (${this.guild?.name ?? this.guild?.id}) | 사유=${reason ?? (isShutdown ? "종료" : "정리")}`);
+            log.info(`음성 채널 떠남: "${this.voiceChannel?.name ?? this.voiceChannel?.id ?? "?"}" (${this.guild?.name ?? this.guild?.id}) | 원인=${reason ?? (isShutdown ? "종료" : "정리")}`);
           } catch (error) {
-            log.error("❌ 연결 파기 실패:", error);
+            log.error("음성 연결 종료 실패:", error);
           }
         }
         this.connection = null;
@@ -1644,7 +1657,7 @@ class MusicPlayer {
       this.pauseReasons.clear();
       this.paused = false;
     } catch (error) {
-      log.error("❌ 정리 중 오류:", error);
+      log.error("정리 중 오류:", error);
     }
   }
 

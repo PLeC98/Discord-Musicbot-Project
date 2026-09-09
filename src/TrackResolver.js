@@ -202,7 +202,7 @@ const TrackResolver = {
         } catch (err) {
           // 캐시 매핑의 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
           if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
-            log.warn(`⚠️ 캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
+            log.warn(`캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
             ytUrl = await this.reresolveYouTube(track, guildId);
             if (ytUrl) return await YouTube.getStream(ytUrl, guildId, seekSeconds);
           }

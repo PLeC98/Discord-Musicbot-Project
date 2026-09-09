@@ -65,7 +65,7 @@ module.exports = {
         setTimeout(() => errMsg.delete().catch(() => {}), 8000);
       }
     } catch (error) {
-      log.error({ sub: "message" }, "❌ 메시지 처리 오류:", error);
+      log.error({ sub: "message" }, "메시지 처리 오류:", error);
       await responder.dismissPlaceholder();
       const errMsg = await message.channel.send({ content: "❌ 처리 중 오류가 발생했어요." });
       setTimeout(() => errMsg.delete().catch(() => {}), 8000);

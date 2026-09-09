@@ -168,10 +168,10 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     const DashboardEvents = require("../../../src/DashboardEvents");
     DashboardEvents.notify(guild.id);
 
-    log.info({ sub: "admin" }, `대시보드에서 서버 나가기 실행: ${name} (${guild.id})`);
+    log.info({ sub: "admin" }, `대시보드 운영자 패널에서 서버 나가기: ${name} (${guild.id})`);
     res.json({ success: true, name });
   } catch (error) {
-    log.error({ sub: "admin" }, "❌ 서버 나가기 실패:", error);
+    log.error({ sub: "admin" }, "서버 나가기 실패:", error);
     res.status(502).json({ error: error.message || "서버 나가기에 실패했습니다" });
   }
 });
@@ -193,10 +193,10 @@ router.post("/reset-cache", requireOwner, (req, res) => {
   const CacheManager = require("../../../src/CacheManager");
   try {
     const result = CacheManager.resetCache();
-    log.warn({ sub: "admin" }, `대시보드에서 캐시 초기화 실행 (파일 ${result.removed}개 삭제)`);
+    log.warn({ sub: "admin" }, `대시보드 운영자 패널에서 캐시 초기화: 파일 ${result.removed}개 삭제`);
     res.json({ success: true, ...result });
   } catch (error) {
-    log.error({ sub: "admin" }, "❌ 캐시 초기화 실패:", error);
+    log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
     res.status(500).json({ error: error.message || "캐시 초기화에 실패했습니다" });
   }
 });
@@ -217,7 +217,7 @@ router.post("/view-as", requireOwner, (req, res) => {
   if (tier === null) delete req.session.viewAs;
   else req.session.viewAs = tier;
 
-  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"} by ${req.session.user.username || req.session.user.id}`);
+  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"} — 실행 ${req.session.user.username || req.session.user.id}`);
   res.json({ viewAs: getViewAs(req) });
 });
 

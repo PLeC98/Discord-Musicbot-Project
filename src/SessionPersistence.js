@@ -165,7 +165,7 @@ class SessionPersistence {
           throw new Error("Failed to reconnect to voice channel");
         }
       } catch (error) {
-        log.error("❌ 세션 복원 중 음성 연결 실패:", error.message);
+        log.error("세션 복원 중 음성 연결 실패:", error.message);
         throw new Error("Failed to reconnect to voice channel", { cause: error });
       }
     }
@@ -204,7 +204,7 @@ class SessionPersistence {
         const requester = { id: state.requesterId || player.guild.client.user.id, username: null, tag: null };
         await embedManager.createNewMusicEmbed(player, player.currentTrack, requester);
       } catch (error) {
-        log.error("❌ 세션 복원 중 재생 임베드 복구 실패:", error?.message || error);
+        log.error("세션 복원 중 재생 임베드 복구 실패:", error?.message || error);
       }
     }
 
@@ -249,7 +249,7 @@ class SessionPersistence {
       state.reason = reason;
       CacheManager.savePlayerSession(player.guild.id, state);
     } catch (error) {
-      log.error(`❌ 세션 저장 실패 (서버 ${player.guild?.id}):`, error.message || error);
+      log.error(`세션 저장 실패 (서버 ID ${player.guild?.id}):`, error.message || error);
     }
   }
 

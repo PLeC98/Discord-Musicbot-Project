@@ -114,7 +114,7 @@ class YouTube {
         } catch {
           /* 기록 실패는 무시 */
         }
-        log.warn(`연령 제한 감지 (${videoId}) — 쿠키로 폴백 재시도`);
+        log.warn(`연령 제한 감지 (${videoId}) — 쿠키로 재시도합니다`);
         return await youtubedl(url, buildOptions(true));
       }
       throw error;
@@ -190,7 +190,7 @@ class YouTube {
 
       return tracks;
     } catch (error) {
-      log.error("❌ 유튜브 검색 실패:", error.message || error);
+      log.error("유튜브 검색 실패:", error.message || error);
       return [];
     }
   }
@@ -232,7 +232,7 @@ class YouTube {
 
       return track;
     } catch (error) {
-      log.error("❌ 영상 정보 조회 실패:", error.message || error);
+      log.error("영상 정보 조회 실패:", error.message || error);
       return null;
     }
   }
@@ -284,7 +284,7 @@ class YouTube {
         isLive: YouTube._detectLive(info),
       };
     } catch (error) {
-      log.error("❌ 스트림 URL 획득 실패:", error.message || error);
+      log.error("스트림 URL 획득 실패:", error.message || error);
       throw error;
     }
   }
@@ -358,7 +358,7 @@ class YouTube {
         type: "playlist",
       };
     } catch (error) {
-      log.error("❌ 재생목록 조회 실패:", error.message || error);
+      log.error("재생목록 조회 실패:", error.message || error);
       return null;
     }
   }

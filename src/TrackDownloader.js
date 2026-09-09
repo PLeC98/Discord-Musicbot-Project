@@ -63,7 +63,7 @@ class TrackDownloader {
         // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
         // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
-          log.warn(`⚠️ 캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
+          log.warn(`캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
           const fresh = await TrackResolver.reresolveYouTube(track, player.guild?.id);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
@@ -197,7 +197,7 @@ class TrackDownloader {
           /* 무시 */
         }
       }
-      log.info(`💾 캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
+      log.info(`캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
       player.scheduleStatePersist("download-complete", 500);
       return filepath;
     } catch (error) {
@@ -207,12 +207,12 @@ class TrackDownloader {
       // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
       try {
         const removed = CacheManager.cleanPartials(filepath);
-        if (removed > 0) log.debug(`중단된 다운로드 잔해 ${removed}개 정리: ${track.title}`);
+        if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${track.title}`);
         if (audioSourceKey) CacheManager.recordError(audioSourceKey);
       } catch {
         /* 정리 실패는 원래 오류를 가리면 안 된다 */
       }
-      log.error(`❌ 캐시 다운로드 실패 ("${track.title}"):`, error.message);
+      log.error(`캐시 다운로드 실패 ("${track.title}"):`, error.message);
       throw error;
     }
   }

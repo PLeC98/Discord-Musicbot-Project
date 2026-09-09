@@ -55,16 +55,16 @@ function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
 
   child.on("error", (err) => {
     release();
-    log.error(`❌ ffmpeg(${label}) 실행 실패: ${err.message} (경로: ${bin})`);
+    log.error(`ffmpeg(${label}) 실행 실패: ${err.message} (경로: ${bin})`);
   });
 
   child.on("exit", (code, signal) => {
     release();
     const detail = stderrTail.trim() ? ` — ${stderrTail.trim()}` : "";
     if (CRASH_SIGNALS.has(signal)) {
-      log.error(`❌ ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
+      log.error(`ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
     } else if (code !== 0 && code !== null) {
-      log.warn(`⚠️ ffmpeg(${label}) 종료 코드 ${code}${detail}`);
+      log.warn(`ffmpeg(${label}) 종료 코드 ${code}${detail}`);
     }
   });
 

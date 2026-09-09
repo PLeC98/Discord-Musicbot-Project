@@ -21,9 +21,9 @@ function loadCommandData() {
     const command = require(path.join(commandsPath, file));
     if ("data" in command && "execute" in command) {
       commands.push(command.data.toJSON());
-      log.debug(`📋 명령어 정의 불러옴: ${command.data.name}`);
+      log.debug(`명령어 정의 불러옴: ${command.data.name}`);
     } else {
-      log.warn(`⚠️ ${file}: data 또는 execute 속성이 없어 건너뜁니다.`);
+      log.warn(`${file}: 슬래시 명령어 형식이 아니어서 건너뜁니다.`);
     }
   }
   return commands;

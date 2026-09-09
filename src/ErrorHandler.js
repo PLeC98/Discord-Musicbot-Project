@@ -83,7 +83,7 @@ class ErrorHandler {
   static handle(error, _guildId = null, context = "") {
     const category = this.classify(error);
     // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
-    log.error({ sub: context || undefined, kind: category }, `❌ ${error?.message || error}`);
+    log.error({ sub: context || undefined, kind: category }, `${error?.message || error}`);
     return this.getMessage(error);
   }
 }

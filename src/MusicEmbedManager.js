@@ -40,7 +40,7 @@ class MusicEmbedManager {
       this.webhookCache.set(channel.id, client);
       return client;
     } catch (error) {
-      log.error("❌ 웹훅 조회/생성 실패:", error.message);
+      log.error("웹훅 조회/생성 실패:", error.message);
       return null;
     }
   }
@@ -114,7 +114,7 @@ class MusicEmbedManager {
               playbackStarted = true;
             }
           } catch (playError) {
-            log.error("❌ 재생 처리 중 오류:", playError);
+            log.error("재생 처리 중 오류:", playError);
             startFailure = ErrorHandler.getMessage(playError);
           }
 
@@ -126,7 +126,7 @@ class MusicEmbedManager {
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, track, requester, responder);
             } catch (embedError) {
-              log.error("❌ 재생 중 임베드 생성 실패:", embedError);
+              log.error("재생 중 임베드 생성 실패:", embedError);
               firstTrackResult = { success: true, message: "Now playing", isNewEmbed: false };
             }
           }
@@ -159,7 +159,7 @@ class MusicEmbedManager {
             }
           }
         } catch (e) {
-          log.error("❌ 첫 곡 실패 후 다음 곡 시작 실패:", e?.message || e);
+          log.error("첫 곡 실패 후 다음 곡 시작 실패:", e?.message || e);
         }
       }
 
@@ -217,7 +217,7 @@ class MusicEmbedManager {
         }
       }, 10000);
     } catch (error) {
-      log.error("❌ 재생목록 추가 안내 전송 실패:", error);
+      log.error("재생목록 추가 안내 전송 실패:", error);
     }
   }
 
@@ -377,7 +377,7 @@ class MusicEmbedManager {
         });
       }
     } catch (error) {
-      log.error("❌ 재생 중 임베드 갱신 실패:", error);
+      log.error("재생 중 임베드 갱신 실패:", error);
     }
   }
 
@@ -404,7 +404,7 @@ class MusicEmbedManager {
           });
         }
       } catch (error) {
-        log.error("❌ 버튼 비활성화 실패:", error);
+        log.error("버튼 비활성화 실패:", error);
       }
     }
 
@@ -413,7 +413,7 @@ class MusicEmbedManager {
     try {
       endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
     } catch (error) {
-      log.error("❌ 재생 종료 임베드 준비 실패:", error);
+      log.error("재생 종료 임베드 준비 실패:", error);
     }
 
     if (!endEmbed) {

@@ -86,7 +86,7 @@ module.exports = {
           await interaction.reply({ embeds: [errorEmbed], flags: [1 << 6] });
         }
       } catch (responseError) {
-        log.error("❌ 도움말 오류 응답 전송 중 오류:", responseError);
+        log.error("명령어 도움말 오류 안내 전송 실패:", responseError);
       }
     }
   },

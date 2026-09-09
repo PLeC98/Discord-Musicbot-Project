@@ -45,7 +45,7 @@ class CacheManager {
     this._createTables();
     this._initialized = true;
     this._startPeriodicEviction();
-    log.info("💾 캐시 데이터베이스 준비 완료");
+    log.info("캐시 데이터베이스 준비 완료");
   }
 
   _createTables() {
@@ -605,7 +605,7 @@ class CacheManager {
 
     // 1. 다운로드 중 중단된 행 재설정
     const resetCount = this.db.prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
-    if (resetCount > 0) log.info(`⏹ 지난 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
+    if (resetCount > 0) log.info(`지난 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
     // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
     const cachedRows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache WHERE status = 'cached'").all();
@@ -617,7 +617,7 @@ class CacheManager {
         orphanDbCount++;
       }
     }
-    if (orphanDbCount > 0) log.info(`🗂 오디오 캐시 파일이 누락된 항목 ${orphanDbCount}건 기록 완료`);
+    if (orphanDbCount > 0) log.info(`오디오 캐시 파일이 누락된 항목 ${orphanDbCount}건 기록 완료`);
 
     // 3. DB에서 추적하지 않는 오디오 파일 삭제
     this._cleanOrphanFiles();
@@ -671,7 +671,7 @@ class CacheManager {
       /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
     }
 
-    log.warn(`🧹 오디오 캐시 초기화: ${removed}개 삭제(${Math.round(before.bytes / 1024 / 1024)}MB)${kept > 0 ? `, ${kept}개는 재생 중이라 남겨둠` : ""}`);
+    log.warn(`오디오 캐시 초기화: ${removed}개 삭제(${Math.round(before.bytes / 1024 / 1024)}MB)${kept > 0 ? `, ${kept}개는 재생 중이라 남겨둠` : ""}`);
     return { removed, kept, freedBytes: before.bytes, fileCountBefore: before.files };
   }
 
@@ -719,8 +719,8 @@ class CacheManager {
         }
       }
     }
-    if (cleaned > 0) log.info(`🧹 어디에도 연결되지 않은 고아 파일 ${cleaned}개 삭제 완료`);
-    if (partials > 0) log.info(`🧹 캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
+    if (cleaned > 0) log.info(`어디에도 연결되지 않은 고아 파일 ${cleaned}개 삭제 완료`);
+    if (partials > 0) log.info(`캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
   }
 
   // 제거
@@ -758,9 +758,9 @@ class CacheManager {
     if (!overSize && !overFiles && !lowDisk) return;
 
     if (lowDisk) {
-      log.warn(`⚠️ 디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음) — 오디오 캐시를 즉시 정리합니다.`);
+      log.warn(`디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음) — 오디오 캐시를 즉시 정리합니다.`);
     } else {
-      log.info(`📦 오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개) — 오래된 파일부터 정리합니다.`);
+      log.info(`오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개) — 오래된 파일부터 정리합니다.`);
     }
 
     await this.evict();
@@ -830,7 +830,7 @@ class CacheManager {
       this.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(row.audio_source_key);
       evicted++;
     }
-    if (evicted > 0) log.info(`🧹 ${evicted}개의 오디오 캐시 파일 삭제 완료`);
+    if (evicted > 0) log.info(`${evicted}개의 오디오 캐시 파일 삭제 완료`);
   }
 
   /** 백그라운드 주기적 제거 타이머 시작 */
@@ -838,7 +838,7 @@ class CacheManager {
     const cfg = require("../config").cache;
     if (this._evictInterval) clearInterval(this._evictInterval);
     this._evictInterval = setInterval(() => {
-      this.evictIfNeeded().catch((err) => log.error("❌ 정기적 오디오 캐시 자동 정리 중 오류:", err.message));
+      this.evictIfNeeded().catch((err) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", err.message));
     }, cfg.evictIntervalMs);
     this._evictInterval.unref(); // 프로세스 종료를 막지 않음
   }

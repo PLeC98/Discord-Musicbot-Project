@@ -111,7 +111,7 @@ function killAll(reason = "shutdown") {
       /* 종료 경로에서는 실패해도 더 할 수 있는 일이 없다 */
     }
   }
-  if (killed.length) log.warn(`🧹 외부 프로세스 ${killed.length}개 정리 (${reason}): ${killed.join(", ")}`);
+  if (killed.length) log.warn(`외부 프로세스 ${killed.length}개 정리 (${reason}): ${killed.join(", ")}`);
   return killed.length;
 }
 

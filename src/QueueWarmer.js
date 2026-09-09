@@ -94,11 +94,11 @@ class QueueWarmer {
       const keys = this.targets()
         .map((t) => this.keyOf(t))
         .filter(Boolean);
-      log.debug(`🛡 퇴거 보호 갱신: ${keys.length}곡`);
+      log.debug(`사전 캐싱 보호 갱신: ${keys.length}곡`);
       this.setProtection(guildId, keys);
     }
 
-    this._run().catch((err) => log.error(`❌ 대기열 예열 실패: ${err?.message || err}`));
+    this._run().catch((err) => log.error(`사전 캐싱 실패: ${err?.message || err}`));
   }
 
   /**
@@ -157,12 +157,12 @@ class QueueWarmer {
         try {
           // 예열은 조용히 도는 배경 작업이라, 이게 없으면 "왜 지금 이 곡을 받고 있나"를
           // 사후에 알 방법이 없다. 다운로드 완료는 track 카테고리가 따로 남긴다.
-          log.debug(`🔥 예열: "${track.title}" | 대상 ${this.targets().length}곡`);
+          log.debug(`사전 캐싱: "${track.title}" | 대상 ${this.targets().length}곡`);
           await this.warm(track);
         } catch (err) {
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
           // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
-          log.warn(`⚠️ 예열 실패 (${track.title}): ${err?.message || err}`);
+          log.warn(`사전 캐싱 실패 (${track.title}): ${err?.message || err}`);
           this._failed.add(track);
         }
 

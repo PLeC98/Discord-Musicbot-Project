@@ -46,10 +46,10 @@ async function healBrokenPlayers(client) {
         if (status === VoiceConnectionStatus.Ready) continue; // 정상 서버 — 무영향
         // 수립 진행 중은 자체 완료/실패를 기다림 — 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
         if (status === VoiceConnectionStatus.Connecting || status === VoiceConnectionStatus.Signalling) continue;
-        log.info(chalk.yellow(`🔧 서버 ${guildId} 음성 연결이 끊겨 복구를 시작합니다...`));
+        log.info(chalk.yellow(`서버 ID ${guildId}의 음성 연결이 끊겨 복구를 시작합니다`));
         player.voice.startConnectionRecovery();
       } catch (e) {
-        log.error(chalk.red(`❌ 플레이어 자가치유 실패 (guild ${guildId}):`), e.message);
+        log.error(chalk.red(`플레이어 자가치유 실패 (서버 ID ${guildId}):`), e.message);
       }
     }
   } finally {
@@ -109,10 +109,11 @@ function fatalShutdown(client, error, exit = () => process.exit(1)) {
   }
   // 이 줄 다음에 프로세스가 죽는다 — 레벨 판정의 fatal 정의 그대로다.
   // 레벨로 거를 때 "봇이 죽은 순간"만 뽑아낼 수 있어야 한다.
-  flog.fatal(chalk.red("════════════════════════════════════════════════════════"));
-  flog.fatal(chalk.red("💀 치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다."));
-  flog.fatal(chalk.red(String((error && error.stack) || error)));
-  flog.fatal(chalk.red("════════════════════════════════════════════════════════"));
+  // 구분선 두 줄은 뺐다 — fatal 레벨과 색이 이미 눈에 띄고, 한 사건에 네 줄을 찍을 이유가 없다.
+  flog.fatal(
+    chalk.red(`치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다.
+${String((error && error.stack) || error)}`),
+  );
   exit();
 }
 

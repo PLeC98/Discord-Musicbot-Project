@@ -8,8 +8,7 @@ const fs = require("fs");
 
 const ENV_PATH = path.join(__dirname, ".env");
 if (!fs.existsSync(ENV_PATH)) {
-  log.error("❌ [config] .env 파일이 없습니다.");
-  log.error("   프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
+  log.error(".env 파일이 없습니다. 프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
   process.exit(1);
 }
 require("dotenv").config({ path: ENV_PATH, quiet: true });
@@ -27,7 +26,7 @@ function envEnum(key, def, allowed) {
   if (v === null) return def;
   const lower = String(v).trim().toLowerCase();
   if (allowed.includes(lower)) return lower;
-  log.warn(`⚠️  [config] ${key}=${v} 은(는) 허용값이 아닙니다(${allowed.filter(Boolean).join("/")}) — 기본값 ${def || "(자동)"}을(를) 사용합니다.`);
+  log.warn(`${key}에 허용되지 않는 값(${v})이(가) 입력되었습니다. 기본값이 적용됩니다: ${def || "(자동)"}`);
   return def;
 }
 
@@ -36,11 +35,11 @@ function envInt(key, def, { min, max } = {}) {
   if (v === null) return def;
   const n = parseInt(v, 10);
   if (Number.isNaN(n)) {
-    log.warn(`⚠️  [config] ${key}=${v} 이/가 숫자가 아닙니다 — 기본값 ${def}을(를) 사용합니다.`);
+    log.warn(`${key}에 숫자가 아닌 값(${v})이(가) 입력되었습니다. 기본값이 적용됩니다: ${def}`);
     return def;
   }
   if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
-    log.warn(`⚠️  [config] ${key}=${n} 이/가 허용 범위(${min ?? "-∞"}~${max ?? "∞"})를 벗어납니다 — 기본값 ${def}을(를) 사용합니다.`);
+    log.warn(`${key}의 값(${n})이(가) 허용 범위(${min ?? "-∞"}~${max ?? "∞"})를 벗어납니다. 기본값이 적용됩니다: ${def}`);
     return def;
   }
   return n;
@@ -70,16 +69,14 @@ function parseSbCategories(raw) {
 // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
 
 if (!env("DISCORD_TOKEN") || !env("CLIENT_ID")) {
-  log.error("❌ [config] DISCORD_TOKEN 또는 CLIENT_ID가 비어 있습니다.");
-  log.error("   .env.example 의 주석을 참고해 .env 에 값을 채운 뒤 다시 실행하세요.");
-  log.error("   (발급: https://discord.com/developers/applications)");
+  log.error("DISCORD_TOKEN 또는 CLIENT_ID가 비어 있습니다. .env.example 의 주석을 참고해 .env 에 값을 채운 뒤 다시 실행하세요.");
   process.exit(1);
 }
 if (!env("CLIENT_SECRET")) {
-  log.warn("⚠️  [config] CLIENT_SECRET 미설정 — 대시보드의 Discord 로그인(OAuth)이 동작하지 않습니다.");
+  log.warn("CLIENT_SECRET 미설정 — 대시보드의 Discord 로그인(OAuth)이 동작하지 않습니다.");
 }
 if (!env("SPOTIFY_CLIENT_ID") || !env("SPOTIFY_CLIENT_SECRET")) {
-  log.warn("⚠️  [config] Spotify API 키 미설정 — 트랙/앨범/검색은 비활성, 재생목록/아티스트는 자격증명 없이 동작합니다.");
+  log.warn("Spotify API 키 미설정 — 트랙/앨범/검색은 비활성, 재생목록/아티스트는 자격증명 없이 동작합니다.");
 }
 
 const dashboardPort = envInt("DASHBOARD_PORT", 33333, { min: 1, max: 65535 });

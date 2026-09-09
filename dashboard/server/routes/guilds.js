@@ -370,7 +370,7 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     await GuildSettingsManager.setSponsorBlock(guild.id, nextSponsor);
   }
 
-  log.info(`서버 설정 변경: ${guild.name} (${guild.id}) by ${req.session.user.username || req.session.user.id}`);
+  log.info(`서버 설정 변경: ${guild.name} (${guild.id}) — 실행 ${req.session.user.username || req.session.user.id}`);
   res.json({ success: true });
 });
 
@@ -603,7 +603,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
 
     res.json(playerState(player));
   } catch (err) {
-    log.error("Dashboard 곡 추가 오류:", err);
+    log.error("대시보드에서 곡 추가 실패:", err);
     res.status(500).json({ error: "곡 추가에 실패했습니다" });
   }
 });

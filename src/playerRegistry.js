@@ -29,7 +29,7 @@ const label = (player, guildId) => `${player?.guild?.name ?? "?"} (${guildId})`;
 
 class PlayerRegistry extends Collection {
   set(guildId, player) {
-    log.info(`➕ 등록: ${label(player, guildId)}${this.has(guildId) ? " | 기존 항목 교체" : ""} | ${caller()}`);
+    log.debug(`등록: ${label(player, guildId)}${this.has(guildId) ? " | 기존 항목 교체" : ""} | ${caller()}`);
     return super.set(guildId, player);
   }
 
@@ -38,7 +38,7 @@ class PlayerRegistry extends Collection {
     if (prev) {
       const track = prev.currentTrack ? `"${prev.currentTrack.title}"` : "없음";
       const conn = prev.connection?.state?.status ?? "없음";
-      log.info(`➖ 해제: ${label(prev, guildId)} | 재생중=${track} | 연결=${conn} | ${caller()}`);
+      log.debug(`해제: ${label(prev, guildId)} | 재생중=${track} | 연결=${conn} | ${caller()}`);
     }
     return super.delete(guildId);
   }
