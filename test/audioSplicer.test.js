@@ -104,14 +104,55 @@ test("크로스페이드가 끝난 뒤 구간은 새 소스와 바이트 단위�
   const sp = new AudioSplicer(src, { fadeMs });
   src.writeAll(pcm(400, 1));
   const switchAt = 200;
-  sp.planSwitch(nxt, switchAt);
   const b = pcm(400, 2);
-  nxt.writeAll(b);
+  nxt.writeAll(b); // 미리 채워둔다 — 늦지 않으므로 전환 지점을 밀 일이 없다
+  sp.planSwitch(nxt, switchAt);
 
   const out = await collect(sp);
+  assert.equal(sp.slips, 0, "새 소스가 준비돼 있으면 밀지 않는다");
   const after = (switchAt + fadeMs) * BYTES_PER_MS;
   const tail = out.subarray(after, after + 50 * BYTES_PER_MS);
   assert.deepEqual(tail, b.subarray(fadeMs * BYTES_PER_MS, (fadeMs + 50) * BYTES_PER_MS));
+});
+
+test("새 소스가 늦으면 전환 지점을 뒤로 밀되 되풀이를 만들지 않는다", async () => {
+  // 새 소스는 고정 위치로 seek돼 있고 우리 시계만 흐른다. 민 만큼 새 소스 앞을 버리지 않으면
+  // 민 길이가 그대로 되풀이해 들린다.
+  const src = new PassThrough();
+  const nxt = new PassThrough();
+  const sp = new AudioSplicer(src, { fadeMs: 40 });
+  const cueAt = 200; // nxt는 200ms 지점부터의 오디오
+  const b = pcm(600, 2);
+  src.end(pcm(600, 1));
+
+  let switchedAt = null;
+  sp.on("switched", (ms) => (switchedAt = ms));
+  sp.planSwitch(nxt, cueAt); // 이 시점에 nxt는 비어 있다 → 민다
+
+  const out = [];
+  sp.on("data", (c) => out.push(c));
+  await new Promise((r) => setTimeout(r, 30));
+  nxt.end(b); // 뒤늦게 도착
+  await new Promise((r) => sp.on("end", r));
+
+  assert.ok(sp.slips > 0, "실제로 밀렸다");
+  assert.equal(sp.bDebt, 0, "민 만큼 전부 갚았다");
+
+  // 불변식: 전환 뒤 출력 위치 P의 내용 == 새 소스의 (P - cueAt) 위치
+  const merged = Buffer.concat(out);
+  for (const p of [switchedAt + 60, switchedAt + 120]) {
+    const got = merged.subarray(p * BYTES_PER_MS, (p + 40) * BYTES_PER_MS);
+    const exp = b.subarray((p - cueAt) * BYTES_PER_MS, (p - cueAt + 40) * BYTES_PER_MS);
+    assert.deepEqual(got, exp, `${p}ms 지점이 어긋났다 — 민 만큼 되풀이됐다는 뜻`);
+  }
+});
+
+test("전환 예약을 밀지 않으면 slips는 0이다", async () => {
+  const src = feed();
+  const sp = new AudioSplicer(src);
+  src.writeAll(pcm(100, 1));
+  await collect(sp);
+  assert.equal(sp.slips, 0);
 });
 
 test("크로스페이드는 볼륨 딥을 만들지 않는다 (등출력)", async () => {
@@ -187,6 +228,18 @@ test("전환을 두 번 예약하지 않는다", async () => {
   assert.equal(sp.switchPending, true);
   src.writeAll(pcm(50, 1));
   sp.resume();
+});
+
+test("파괴하면 두 소스도 파괴된다 (ffmpeg 좀비 방지)", () => {
+  // voice가 리소스를 버릴 때 pipeline이 파괴를 역전파하는데, 그 사슬이 여기서 끊기면
+  // ffmpeg의 stdout이 닫히지 않아 spawnFfmpeg의 killOnStdoutClose가 안 걸린다.
+  const src = new PassThrough();
+  const nxt = new PassThrough();
+  const sp = new AudioSplicer(src);
+  sp.planSwitch(nxt, 1000);
+  sp.destroy();
+  assert.equal(src.destroyed, true, "첫 소스");
+  assert.equal(nxt.destroyed, true, "갈아탈 소스");
 });
 
 test("소스 오류는 이 스트림의 오류가 된다 (기존 캐시 폴백이 받도록)", async () => {
