@@ -41,9 +41,14 @@ class AudioSplicer extends Readable {
     this.waiting = null;
     this._slips = 0; // 전환 지점을 뒤로 민 횟수(관측용)
     this.bDebt = 0; // 민 만큼 새 소스에서 버려야 할 바이트
+    this._ended = false;
 
+    // 소스 오류는 이 스트림의 오류가 된다. 참조를 고정해 둬야 나중에 뗄 수 있다 —
+    // 전환을 마치고 옛 소스를 파괴할 때 이 핸들러가 붙어 있으면, 그 파괴가 오류를 내는 순간
+    // 방금 성공한 전환까지 같이 죽는다.
+    this._failFrom = (err) => this.destroy(err);
     source.pause();
-    source.on("error", (err) => this.destroy(err));
+    source.on("error", this._failFrom);
   }
 
   /** 지금까지 내보낸 오디오 길이(ms). 전환 지점을 잡는 기준. */
@@ -67,11 +72,13 @@ class AudioSplicer extends Readable {
    * @returns {boolean} 예약 성공 여부
    */
   planSwitch(next, atMs) {
-    if (this.b || this.destroyed) return false;
+    // 이미 끝났으면 받지 않는다. destroyed만 보면 'end'와 autoDestroy 사이의 한 틱이 비어,
+    // 그 사이에 예약되면 EOF 뒤에 push가 일어나 던진다.
+    if (this.b || this.destroyed || this._ended) return false;
     this.b = next;
     this.switchAtBytes = Math.max(this.emitted, Math.round(atMs * BYTES_PER_MS));
     next.pause();
-    next.on("error", (err) => this.destroy(err));
+    next.on("error", this._failFrom);
     this._kick();
     return true;
   }
@@ -205,18 +212,20 @@ class AudioSplicer extends Readable {
     this.a = this.b;
     // 옛 소스는 더 볼 일이 없다. 바로 파괴해야 그 뒤의 ffmpeg가 파이프에 막힌 채
     // 트랙 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
-    try {
-      old.destroy();
-    } catch {
-      /* 이미 정리됨 */
-    }
+    // 버린 소스의 오류는 이제 이 재생과 무관하다. 그런데 핸들러를 그냥 떼면 듣는 사람이
+    // 없어져 uncaughtException이 되므로, 떼는 게 아니라 흡수기로 갈아끼운다.
+    // 안 갈아끼우면 이 파괴가 방금 성공한 전환을 도로 죽인다.
+    this._discard(old);
     this.emit("switched", this.emittedMs);
   }
 
   // 소스에 아직 데이터가 없다. endWhenDone이면 소스가 끝났을 때 이 스트림도 끝낸다.
   _await(s, endWhenDone) {
     if (isEnded(s) && s.readableLength === 0) {
-      if (endWhenDone) this.push(null);
+      if (endWhenDone) {
+        this._ended = true;
+        this.push(null);
+      }
       return;
     }
     if (this.waiting === s) return;
@@ -239,14 +248,21 @@ class AudioSplicer extends Readable {
   // 레지스트리는 종료 백스톱이라 그때까지 좀비가 쌓인다 — 곡을 넘길 때마다 하나씩.
   _destroy(err, cb) {
     this.waiting = null;
-    for (const s of [this.a, this.b]) {
-      try {
-        s?.destroy();
-      } catch {
-        /* 이미 정리됨 */
-      }
-    }
+    for (const s of [this.a, this.b]) this._discard(s);
     cb(err);
+  }
+
+  // 더 쓰지 않을 소스를 손에서 놓는다. 오류 핸들러를 흡수기로 갈아끼운 뒤 파괴한다 —
+  // 그냥 떼면 듣는 사람이 없어 uncaughtException, 그냥 두면 이 파괴가 우리를 죽인다.
+  _discard(s) {
+    if (!s) return;
+    try {
+      s.off("error", this._failFrom);
+      s.on("error", () => {});
+      s.destroy();
+    } catch {
+      /* 이미 정리됨 */
+    }
   }
 }
 

@@ -458,6 +458,9 @@ class MusicPlayer {
           shouldDownload = false; // 파일 재생으로 이어서 진행
         } else if (audioStream) {
           const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ seekMs: resumeFromMs }), "stream");
+          // 오류는 트랙이 바뀐 뒤에 도착할 수 있다 — 그때 이 핸들러가 현재 트랙을 보면 엉뚱한 곡의
+          // 캐시로 전환한다. 이 재생이 어느 트랙의 것이었는지 붙잡아 둔다.
+          const playingTrack = this.currentTrack;
 
           // 소스를 갈아끼울 수 있게 리소스 아래에 Splicer를 둔다. 스트림이 죽으면 AudioPlayer를
           // 거치지 않고 캐시 파일로 넘어가므로 공백이 들리지 않는다(_planCacheSwitch).
@@ -467,7 +470,7 @@ class MusicPlayer {
           // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
           audioStream.on("error", (err) => {
             log.warn(`⚠️ 오디오 스트림 중단됨: ${err.code || err.message}. 캐시에서 복구합니다.`);
-            if (playSource !== ffmpeg.stdout) this._planCacheSwitch(playSource);
+            if (playSource !== ffmpeg.stdout) this._planCacheSwitch(playSource, playingTrack);
           });
           // ffmpeg가 끝나면 입력 스트림도 닫는다 — .pipe 바깥이라 자동 정리 대상이 아니다.
           ffmpeg.once("exit", () => audioStream.destroy());
@@ -610,8 +613,10 @@ class MusicPlayer {
    * 처리한다. 그 경로는 캐시가 끝났으면 파일로, 아니면 스트림을 다시 여니 재시도와 대기가
    * 둘 다 들어 있다. 여기서 다운로드를 기다리는 코드를 따로 만들 이유가 없다.
    */
-  _planCacheSwitch(splicer) {
+  _planCacheSwitch(splicer, track) {
     if (!splicer || splicer.destroyed || splicer.switchPending) return;
+    // 늦게 도착한 오류가 다음 곡의 재생을 건드리지 않도록
+    if (!track || this.currentTrack !== track) return;
 
     const file = this.currentDownloadedFile;
     try {

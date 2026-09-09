@@ -256,6 +256,39 @@ test("파괴하면 두 소스도 파괴된다 (ffmpeg 좀비 방지)", () => {
   assert.equal(nxt.destroyed, true, "갈아탈 소스");
 });
 
+test("전환을 마친 뒤 옛 소스가 오류를 내도 재생이 죽지 않는다", async () => {
+  // _completeSwitch가 옛 소스를 파괴하는데, 오류 핸들러가 붙은 채면 그 파괴가
+  // 방금 성공한 전환을 같이 죽인다.
+  const src = new PassThrough();
+  const nxt = new PassThrough();
+  const sp = new AudioSplicer(src, { fadeMs: 40 });
+  src.write(pcm(400, 1));
+  nxt.write(pcm(400, 2));
+  sp.on("data", () => {});
+  sp.planSwitch(nxt, 100);
+  await new Promise((r) => setTimeout(r, 20));
+
+  // 핸들러를 떼기만 하면 듣는 사람이 없어져 uncaughtException이 된다 — 흡수기로 갈아끼워야 한다
+  assert.ok(src.listenerCount("error") > 0, "흡수기가 남아 있다");
+  src.emit("error", new Error("늦게 터진 옛 소스")); // 던지지 않아야 한다
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(sp.destroyed, false, "전환된 재생은 살아 있어야 한다");
+  sp.destroy();
+});
+
+test("이미 끝난 뒤의 전환 예약은 거절한다 (EOF 뒤 push 방지)", async () => {
+  const src = new PassThrough();
+  const sp = new AudioSplicer(src);
+  src.end(pcm(40, 1));
+  await collect(sp);
+
+  const nxt = feed();
+  nxt.writeAll(pcm(40, 2));
+  assert.equal(sp.planSwitch(nxt, 0), false);
+  assert.equal(sp.switchPending, false);
+  await new Promise((r) => setTimeout(r, 20)); // 던지지 않는다
+});
+
 test("소스 오류는 이 스트림의 오류가 된다 (기존 캐시 폴백이 받도록)", async () => {
   const src = new PassThrough();
   const sp = new AudioSplicer(src);
