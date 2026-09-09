@@ -23,7 +23,9 @@ class CacheManager {
     this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
     this._queuedKeys = new Map(); // guildId -> Set<audio_source_key> — 대기열 앞부분
     this._evictInterval = null;
-    this._cacheDir = CACHE_DIR; // 테스트에서 재정의 가능
+    // 캐시 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 폴더를 건드리지 않는다 —
+    // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
+    this._cacheDir = CACHE_DIR;
   }
 
   // 초기화 — dbPath는 테스트 주입용(임시 DB), 운영은 항상 기본 경로
@@ -32,7 +34,7 @@ class CacheManager {
 
     const dbDir = path.dirname(dbPath);
     if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-    if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+    if (!fs.existsSync(this._cacheDir)) fs.mkdirSync(this._cacheDir, { recursive: true });
 
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
@@ -156,7 +158,7 @@ class CacheManager {
 
   /** audio_source_key에 대한 결정적 파일 경로 */
   getFilePath(audioSourceKey) {
-    return path.join(CACHE_DIR, `track_${this.md5(audioSourceKey)}.opus`);
+    return path.join(this._cacheDir, `track_${this.md5(audioSourceKey)}.opus`);
   }
 
   /**
@@ -604,6 +606,55 @@ class CacheManager {
     await this.evictIfNeeded();
   }
 
+  /**
+   * 캐시를 초기 상태로 되돌린다 — 오디오 파일 전부와 파생 데이터 테이블.
+   *
+   * `guild_settings`(전용 채널·DJ 역할·SponsorBlock 설정)는 남긴다. 사용자가 손으로 넣은
+   * 유일한 값이라 다시 만들 수 없고, 나머지는 전부 다시 받거나 다시 계산할 수 있다.
+   *
+   * 재생 중인 파일은 열려 있어 지워지지 않을 수 있다(윈도우). 실패해도 멈추지 않고 세어서
+   * 돌려준다 — 재생은 이미 연 핸들로 계속되므로 끊기지 않는다.
+   */
+  resetCache() {
+    if (!this._initialized) this.initialize();
+
+    const before = { files: this._cacheCount(), bytes: this._cacheSize() };
+
+    // 파생 데이터만 비운다. track_lookup은 CASCADE 대상이지만 명시해 순서를 못박는다.
+    const tables = ["track_lookup", "audio_cache", "sponsorblock_cache", "age_restricted", "spotify_anon", "player_sessions"];
+    const wipe = this.db.transaction(() => {
+      for (const t of tables) this.db.prepare(`DELETE FROM ${t}`).run();
+    });
+    wipe();
+
+    let removed = 0;
+    let kept = 0;
+    if (fs.existsSync(this._cacheDir)) {
+      for (const file of fs.readdirSync(this._cacheDir)) {
+        try {
+          fs.unlinkSync(path.join(this._cacheDir, file));
+          removed++;
+        } catch {
+          kept++; // 재생 중이라 잠긴 파일
+        }
+      }
+    }
+
+    // 보호 집합은 사라진 행을 가리키게 되므로 함께 비운다. 재생 중인 곡은 다음 예열 틱이 다시 채운다.
+    this._protectedKeys.clear();
+    this._queuedKeys.clear();
+
+    try {
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
+      this.db.exec("VACUUM");
+    } catch {
+      /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
+    }
+
+    log.warn(`🧹 캐시 초기화: 파일 ${removed}개 삭제${kept > 0 ? `, ${kept}개는 사용 중이라 유지` : ""} (${Math.round(before.bytes / 1024 / 1024)}MB)`);
+    return { removed, kept, freedBytes: before.bytes, fileCountBefore: before.files };
+  }
+
   _cleanOrphanFiles() {
     const cacheDir = this._cacheDir;
     if (!fs.existsSync(cacheDir)) return;
@@ -657,7 +708,7 @@ class CacheManager {
   /** CACHE_DIR 파일시스템의 디스크 여유 공간(바이트). 오류 시 Infinity 반환. */
   _diskFree() {
     try {
-      const stat = fs.statfsSync(CACHE_DIR);
+      const stat = fs.statfsSync(this._cacheDir);
       return stat.bavail * stat.bsize;
     } catch {
       return Infinity;

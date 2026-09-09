@@ -220,8 +220,39 @@
             <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
           </div>
         </BaseCard>
+
+        <!-- Cache reset -->
+        <BaseCard icon="trash" title="캐시 초기화">
+          <p class="text-muted text-sm mb-4">받아둔 오디오 파일과 조회 기록을 전부 지웁니다. 전용 채널·DJ 역할·SponsorBlock 설정은 <strong class="text-fg-soft">남습니다</strong>.</p>
+
+          <BaseButton variant="danger" @click="confirmReset = true" :disabled="resetting">
+            {{ resetting ? "초기화 중..." : "캐시 초기화" }}
+          </BaseButton>
+
+          <div v-if="resetResult" :class="resultMsg(resetResult.success)" class="flex items-center gap-1.5">
+            <Icon :name="resetResult.success ? 'check' : 'error'" :size="16" />
+            <span>{{ resetResult.success ? resetSummary : `초기화 실패: ${resetResult.error || ""}` }}</span>
+          </div>
+        </BaseCard>
       </div>
     </template>
+
+    <!-- Cache reset confirm dialog -->
+    <div v-if="confirmReset" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="confirmReset = false">
+      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-95 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <p class="mb-2 text-[0.95rem] text-fg-soft">캐시를 전부 지울까요?</p>
+        <p class="mb-5.5 text-[0.82rem] text-muted">
+          되돌릴 수 없습니다. 오디오 파일·조회 기록·SponsorBlock 구간 캐시가 사라지고, 다음 재생부터 다시 받습니다.<br />
+          서버 설정(전용 채널·DJ 역할·SponsorBlock)은 그대로 남습니다.
+        </p>
+        <div class="flex gap-2.5 justify-center">
+          <BaseButton variant="ghost" :disabled="resetting" @click="confirmReset = false">취소</BaseButton>
+          <BaseButton variant="danger" :disabled="resetting" @click="resetCache">
+            {{ resetting ? "지우는 중..." : "전부 지우기" }}
+          </BaseButton>
+        </div>
+      </div>
+    </div>
 
     <!-- Leave confirm dialog -->
     <div v-if="leaveTarget" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="leaveTarget = null">
@@ -418,6 +449,34 @@ async function leaveGuild() {
   } finally {
     leaving.value = false;
     leaveTarget.value = null;
+  }
+}
+
+// ── 캐시 초기화 ───────────────────────────────────────────────
+const confirmReset = ref(false);
+const resetting = ref(false);
+const resetResult = ref(null);
+
+const resetSummary = computed(() => {
+  const r = resetResult.value;
+  if (!r) return "";
+  const mb = Math.round((r.freedBytes || 0) / 1024 / 1024);
+  const kept = r.kept > 0 ? `, ${r.kept}개는 재생 중이라 남음` : "";
+  return `파일 ${r.removed}개 삭제 (${mb}MB)${kept}`;
+});
+
+async function resetCache() {
+  if (resetting.value) return;
+  resetting.value = true;
+  resetResult.value = null;
+  try {
+    const res = await axios.post("/api/admin/reset-cache");
+    resetResult.value = res.data;
+  } catch (e) {
+    resetResult.value = { success: false, error: e.response?.data?.error || "요청 실패" };
+  } finally {
+    resetting.value = false;
+    confirmReset.value = false;
   }
 }
 

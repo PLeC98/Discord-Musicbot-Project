@@ -184,6 +184,20 @@ router.post("/redeploy-commands", requireOwner, async (req, res) => {
   return res.status(502).json({ success: false, error: r.error?.message || "배포에 실패했습니다", code: r.error?.code || null });
 });
 
+// 캐시 초기화 — 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
+// 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
+router.post("/reset-cache", requireOwner, (req, res) => {
+  const CacheManager = require("../../../src/CacheManager");
+  try {
+    const result = CacheManager.resetCache();
+    log.warn({ sub: "admin" }, `대시보드에서 캐시 초기화 실행 (파일 ${result.removed}개 삭제)`);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    log.error({ sub: "admin" }, "❌ 캐시 초기화 실패:", error);
+    res.status(500).json({ error: error.message || "캐시 초기화에 실패했습니다" });
+  }
+});
+
 // Real-time log stream (SSE)
 router.get("/logs/stream", requireOwner, (req, res) => {
   logManager.addClient(res);

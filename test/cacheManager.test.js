@@ -219,3 +219,61 @@ test("외부 호출자가 쓰는 메서드는 내보낸 인스턴스에서 호�
   assert.equal(CacheManager.md5("x"), "9dd4e461268c8034f5c8564e155c67a6");
   assert.match(CacheManager.getFilePath("dl:abc"), /track_[0-9a-f]{32}\.opus$/);
 });
+
+// ── 캐시 초기화 ──────────────────────────────────────────────
+// 핵심은 "무엇이 남는가"다. 서버 설정은 사용자가 손으로 넣은 유일한 값이라 다시 만들 수 없다.
+
+// 실제 audio_cache/를 지우지 않도록 반드시 임시 디렉터리로 갈아끼운다.
+// (resetCache는 _cacheDir 안의 파일을 전부 지우고, getFilePath는 모듈 상수 CACHE_DIR를 쓴다.)
+function withTempCacheDir(fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-reset-"));
+  const prevDir = CacheManager._cacheDir;
+  CacheManager._cacheDir = dir;
+  try {
+    return fn(dir);
+  } finally {
+    CacheManager._cacheDir = prevDir;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다", () => {
+  withTempCacheDir((dir) => {
+    fs.writeFileSync(path.join(dir, "track_deadbeef.opus"), "x");
+    runResetChecks();
+    assert.equal(fs.readdirSync(dir).length, 0, "캐시 폴더가 비워진다");
+  });
+});
+
+function runResetChecks() {
+  CacheManager.setBotChannel("keepme", "ch-keep");
+  CacheManager.setDjRoles("keepme", ["role-keep"]);
+
+  CacheManager.recordDownloadStart("yt:reset1", { title: "t", duration: 10 });
+  CacheManager.recordDownloadComplete("yt:reset1", CacheManager.getFilePath("yt:reset1"), 1234, { title: "t" });
+  CacheManager.recordTrackLookup("https://y/reset1", "youtube", "yt:reset1", "t", null, null);
+  CacheManager.markAgeRestricted("reset1");
+  CacheManager.savePlayerSession("g-reset", { queue: [] });
+
+  const result = CacheManager.resetCache();
+
+  assert.equal(typeof result.removed, "number");
+  assert.equal(CacheManager._cacheCount(), 0, "audio_cache 비움");
+  assert.equal(CacheManager.getAllPlayerSessions()["g-reset"], undefined, "세션 비움");
+  assert.equal(CacheManager.isAgeRestricted("reset1"), false, "연령제한 표시 비움");
+  assert.equal(CacheManager.resolveFromCache("https://y/reset1").hit, false, "조회 기록 비움");
+
+  assert.equal(CacheManager.getBotChannel("keepme"), "ch-keep", "전용 채널은 남는다");
+  assert.deepEqual(CacheManager.getDjRoles("keepme"), ["role-keep"], "DJ 역할은 남는다");
+}
+
+test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌다)", () => {
+  withTempCacheDir(() => {
+    CacheManager.protect("yt:live");
+    CacheManager.setQueuedKeys("g1", ["yt:queued"]);
+
+    CacheManager.resetCache();
+
+    assert.equal(CacheManager._liveKeys().size, 0);
+  });
+});
