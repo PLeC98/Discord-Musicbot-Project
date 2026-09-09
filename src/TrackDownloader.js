@@ -212,7 +212,7 @@ class TrackDownloader {
       } catch {
         /* 정리 실패는 원래 오류를 가리면 안 된다 */
       }
-      log.error(`❌ Download failed for ${track.title}:`, error.message);
+      log.error(`❌ 캐시 다운로드 실패 ("${track.title}"):`, error.message);
       throw error;
     }
   }

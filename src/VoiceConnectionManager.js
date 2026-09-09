@@ -53,7 +53,7 @@ class VoiceConnectionManager {
     });
 
     player.connection.on("error", (error) => {
-      log.error("🚨 Voice connection error:", error);
+      log.error("❌ 음성 연결 오류:", error);
       if (player.currentTrack && !player.paused) {
         this.startConnectionRecovery();
       }
@@ -104,7 +104,7 @@ class VoiceConnectionManager {
           return;
         }
       } catch (error) {
-        log.error("❌ Health check error:", error);
+        log.error("❌ 연결 헬스체크 오류:", error);
       }
     }, 30000);
   }
@@ -153,7 +153,7 @@ class VoiceConnectionManager {
             break;
           }
         } catch (error) {
-          log.error(`❌ Recovery attempt ${player.recoveryAttempts} failed:`, error);
+          log.error(`❌ 연결 복구 ${player.recoveryAttempts}회차 실패:`, error);
         }
 
         // 다음 시도까지 휴지 (테스트에서 재정의 가능)
@@ -161,7 +161,7 @@ class VoiceConnectionManager {
       }
     } catch (error) {
       // 호출부가 await하지 않으므로(fire-and-forget) 루프는 절대 reject로 끝나면 안 됨
-      log.error("❌ Connection recovery loop error:", error);
+      log.error("❌ 연결 복구 루프 오류:", error);
     } finally {
       if (active()) this.stopConnectionRecovery();
     }
@@ -219,7 +219,7 @@ class VoiceConnectionManager {
       await entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
       return true;
     } catch (error) {
-      log.error("❌ Force reconnect failed:", error);
+      log.error("❌ 강제 재연결 실패:", error);
       return false;
     }
   }
@@ -232,7 +232,7 @@ class VoiceConnectionManager {
       const resumeMs = player.resource ? player.currentTrackStartOffsetMs + (player.resource.playbackDuration || 0) : player.lastPlaybackPosition || 0;
       await player.play(null, resumeMs);
     } catch (error) {
-      log.error("❌ Failed to resume playback:", error);
+      log.error("❌ 재생 재개 실패:", error);
       // 다음 트랙으로 계속 진행 시도
       await player.handleTrackEnd("error");
     }
@@ -287,7 +287,7 @@ class VoiceConnectionManager {
       log.info(`🔊 음성 채널 참가: "${player.voiceChannel?.name ?? player.voiceChannel?.id}" (${player.guild?.name ?? player.guild?.id})`);
       return true;
     } catch (error) {
-      log.error("❌ Failed to connect to voice channel:", error.message);
+      log.error("❌ 음성 채널 연결 실패:", error.message);
       throw error; // restoreFromState가 처리할 수 있도록 다시 던짐
     }
   }
@@ -310,11 +310,11 @@ class VoiceConnectionManager {
         log.info(`🔀 음성 채널 이동: "${newChannel.name ?? newChannel.id}" (${player.guild?.name ?? player.guild?.id})`);
         return true;
       } catch (error) {
-        log.error("❌ Failed to rejoin new voice channel:", error);
+        log.error("❌ 새 음성 채널 재참가 실패:", error);
         try {
           player.connection.destroy();
         } catch (destroyError) {
-          log.error("❌ Error destroying old connection:", destroyError);
+          log.error("❌ 옛 연결 파기 실패:", destroyError);
         }
         player.connection = null;
       }

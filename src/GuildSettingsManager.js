@@ -46,7 +46,7 @@ class GuildSettingsManager {
       this.cache.set(`${guildId}_botChannel`, channelId);
       return true;
     } catch (error) {
-      log.error("❌ setBotChannel failed:", error);
+      log.error("❌ 전용 채널 저장 실패:", error);
       return false;
     }
   }
@@ -77,7 +77,7 @@ class GuildSettingsManager {
       this.cache.set(`${guildId}_djRoles`, roleIds);
       return true;
     } catch (error) {
-      log.error("❌ setDjRoles failed:", error);
+      log.error("❌ DJ 역할 저장 실패:", error);
       return false;
     }
   }
@@ -131,7 +131,7 @@ class GuildSettingsManager {
       this.cache.set(`${guildId}_sb`, next);
       return true;
     } catch (error) {
-      log.error("❌ setSponsorBlock failed:", error);
+      log.error("❌ SponsorBlock 설정 저장 실패:", error);
       return false;
     }
   }

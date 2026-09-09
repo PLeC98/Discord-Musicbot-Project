@@ -275,8 +275,8 @@ function startBot() {
 
   // Basic ready event
   client.once(Events.ClientReady, async () => {
-    log.info(chalk.green(`✅ ${client.user.tag} is online and ready!`));
-    log.info(chalk.cyan(`🎵 Music bot serving ${client.guilds.cache.size} servers!`));
+    log.info(chalk.green(`✅ ${client.user.tag} 준비 완료`));
+    log.info(chalk.cyan(`🎵 서버 ${client.guilds.cache.size}개에서 대기 중`));
 
     // Set bot activity
     const StatusManager = require("./src/StatusManager");
@@ -305,7 +305,7 @@ function startBot() {
     const command = client.commands.get(interaction.commandName);
 
     if (!command) {
-      log.error(chalk.red(`❌ No command matching ${interaction.commandName} was found.`));
+      log.error(chalk.red(`❌ 등록되지 않은 명령어: ${interaction.commandName}`));
       return;
     }
 
@@ -359,7 +359,7 @@ function startBot() {
             await player.showQueueCompleted();
           }
         } catch (error) {
-          log.error("❌ Failed to update playback UI after forced disconnect:", error);
+          log.error("❌ 강제 연결 해제 후 재생 UI 갱신 실패:", error);
         } finally {
           player.cleanup(false, "봇이 음성에서 강제 퇴장됨");
           client.players.delete(guild.id);
@@ -458,8 +458,8 @@ function startBot() {
   });
 
   // 오류 처리
-  process.on("unhandledRejection", (reason, promise) => {
-    log.error(chalk.red("❌ Unhandled Rejection at:"), promise, chalk.red("reason:"), reason);
+  process.on("unhandledRejection", (reason) => {
+    log.error(chalk.red("❌ 처리되지 않은 rejection:"), reason);
 
     if (handleLooseError(reason, "rejection")) return;
 
@@ -477,7 +477,7 @@ function startBot() {
 
     // Discord 상호작용 오류 — 무해, 계속
     if (isDeadInteraction(error)) {
-      log.info(chalk.yellow("ℹ️ Discord interaction error handled, continuing..."));
+      log.info(chalk.yellow("ℹ️ 디스코드 상호작용 오류를 처리하고 계속합니다."));
       return;
     }
 
@@ -498,7 +498,7 @@ function startBot() {
   // Initialize bot
   const init = async () => {
     try {
-      log.info(chalk.blue("🤖 Starting Discord Music Bot..."));
+      log.info(chalk.blue("🤖 음악봇을 시작합니다."));
 
       // 재생·캐시 변환이 모두 ffmpeg에 의존하므로 여기서 확정하고 기록한다.
       // 못 찾으면 여기서 기동을 멈춘다
@@ -521,7 +521,7 @@ function startBot() {
           if (player && typeof player.persistState === "function") {
             savePromises.push(
               player.persistState("shutdown", true).catch((err) => {
-                log.error(chalk.red(`Failed to save state for guild ${guildId}:`), err);
+                log.error(chalk.red(`❌ 세션 저장 실패 (서버 ${guildId}):`), err);
               }),
             );
           }
@@ -573,7 +573,7 @@ function startBot() {
       // Login to Discord
       await client.login(config.discord.token);
     } catch (error) {
-      log.error(chalk.red("❌ Failed to start bot:"), error);
+      log.error(chalk.red("❌ 봇 기동 실패:"), error);
       process.exit(1);
     }
   };

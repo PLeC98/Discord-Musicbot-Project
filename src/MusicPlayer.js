@@ -195,7 +195,7 @@ class MusicPlayer {
     });
 
     this.audioPlayer.on("error", (error) => {
-      log.error("🎵 Audio player error:", error);
+      log.error("❌ 오디오 플레이어 오류:", error);
 
       // 스트림 오류이고 현재 트랙이 있으면 복구 시도
       if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
@@ -927,7 +927,7 @@ class MusicPlayer {
 
           await this.persistState("inactivity-timeout");
         } catch (error) {
-          log.error("❌ Failed to update playback UI after inactivity timeout:", error);
+          log.error("❌ 비활성 정리 후 재생 UI 갱신 실패:", error);
         } finally {
           // 교체된 뒤 남은 타이머가 현행 플레이어의 연결을 끊지 않도록 (대기열 소진 타이머와 같은 사고)
           if (!this._isActivePlayer()) {
@@ -1481,7 +1481,7 @@ class MusicPlayer {
         await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
       }
     } catch (error) {
-      log.error("❌ Autoplay error:", error.message);
+      log.error("❌ 자동재생 오류:", error.message);
     }
   }
 
@@ -1597,7 +1597,7 @@ class MusicPlayer {
             this.connection.destroy();
             log.info(`🔇 음성 채널 떠남: "${this.voiceChannel?.name ?? this.voiceChannel?.id ?? "?"}" (${this.guild?.name ?? this.guild?.id}) | 사유=${reason ?? (isShutdown ? "종료" : "정리")}`);
           } catch (error) {
-            log.error("Error destroying connection:", error);
+            log.error("❌ 연결 파기 실패:", error);
           }
         }
         this.connection = null;
@@ -1644,7 +1644,7 @@ class MusicPlayer {
       this.pauseReasons.clear();
       this.paused = false;
     } catch (error) {
-      log.error("❌ Error during cleanup:", error);
+      log.error("❌ 정리 중 오류:", error);
     }
   }
 
