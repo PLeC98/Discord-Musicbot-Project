@@ -101,6 +101,28 @@ class YouTube {
     }
   }
 
+  /**
+   * 대시보드용 — 지금 유튜브에 어떻게 붙고 있고, 어느 경로가 살아 있나.
+   * 기동 로그는 시작 시점의 설정만 보여주지만 여기는 **실행 중 바뀌는 상태**(제외된 경로)를 담는다.
+   */
+  static statusSnapshot() {
+    const snap = playerClients.snapshot();
+    const fails = (h) => (h || []).filter((x) => x === "ng").length;
+    return {
+      pot: this.potEnabled() ? "on" : config.bgutil.enabled ? "missing" : "off",
+      cookies: config.ytdl.cookiesFromBrowser ? "browser" : config.ytdl.cookiesFile ? "file" : "none",
+      configured: snap.order.length > 0,
+      clients: snap.order.map((name) => ({
+        name,
+        excluded: snap.excluded.includes(name),
+        tried: (snap.history[name] || []).length,
+        failed: fails(snap.history[name]),
+        needsPot: NEEDS_POT.includes(name),
+        known: KNOWN.includes(name),
+      })),
+    };
+  }
+
   /** 쿠키(브라우저/파일)가 설정돼 있는가 — 연령 제한 폴백 가능 여부 */
   static cookiesConfigured() {
     return !!(config.ytdl.cookiesFromBrowser || config.ytdl.cookiesFile);

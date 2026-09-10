@@ -61,6 +61,8 @@ router.get("/status", requireOwner, (req, res) => {
         oldest: all.slice(0, 8),
       };
     })(),
+    // 유튜브 접속 경로 — 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
+    youtube: require("../../../src/YouTube").statusSnapshot(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
     logLevel: require("../../../config").logging.level,

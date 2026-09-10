@@ -102,3 +102,22 @@ test("연령 제한은 포맷 오류 문구가 섞여 있어도 클라이언트 
   const e = new Error("Sign in to confirm your age. Requested format is not available");
   assert.equal(YouTube.isClientFault(e), false, "영상 문제 판정이 먼저다");
 });
+
+// ── 대시보드 계약 ────────────────────────────────────────────────────────────
+
+test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
+  const s = YouTube.statusSnapshot();
+  assert.deepEqual(Object.keys(s).sort(), ["clients", "configured", "cookies", "pot"]);
+  assert.ok(["on", "off", "missing"].includes(s.pot));
+  assert.ok(["browser", "file", "none"].includes(s.cookies));
+  assert.equal(typeof s.configured, "boolean");
+  assert.ok(Array.isArray(s.clients));
+  assert.equal(s.configured, s.clients.length > 0);
+});
+
+test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종류만 알린다", () => {
+  // 대시보드는 운영자 전용이지만, 파일 경로는 알려야 할 이유가 없다.
+  const raw = JSON.stringify(YouTube.statusSnapshot());
+  const cookiePath = require("../config").ytdl.cookiesFile;
+  if (cookiePath) assert.ok(!raw.includes(cookiePath), "설정된 쿠키 경로가 응답에 실리면 안 된다");
+});

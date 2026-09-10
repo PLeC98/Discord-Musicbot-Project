@@ -92,6 +92,30 @@
               </div>
             </div>
           </BaseCard>
+
+          <!-- 유튜브 접속 경로 — 어느 것이 실행 중 제외됐는지는 여기서만 보인다.
+               기동 로그는 시작 시점의 설정만 보여주므로 도중에 막힌 경로를 알 수 없다. -->
+          <BaseCard icon="globe" title="유튜브 접속 경로">
+            <div :class="statRow">
+              <span>POToken</span><span :class="s.youtube.pot === 'missing' ? 'text-danger' : ''">{{ potLabel(s.youtube.pot) }}</span>
+            </div>
+            <div :class="statRow">
+              <span>쿠키</span><span>{{ cookieLabel(s.youtube.cookies) }}</span>
+            </div>
+            <div v-if="!s.youtube.configured" :class="statRow">
+              <span class="text-muted">경로 미지정 — yt-dlp 기본값을 따릅니다</span>
+            </div>
+            <div v-else class="mt-2 pt-2 border-t border-white/7">
+              <div v-for="(c, i) in s.youtube.clients" :key="c.name" :class="statRow">
+                <span class="font-mono text-[0.78rem]">
+                  <span class="text-muted">{{ i + 1 }}.</span> {{ c.name }}
+                  <span v-if="c.needsPot" class="text-muted text-[0.7rem]"> POT</span>
+                  <span v-if="!c.known" class="text-warning text-[0.7rem]"> 미확인</span>
+                </span>
+                <span :class="clientClass(c)">{{ clientLabel(c) }}</span>
+              </div>
+            </div>
+          </BaseCard>
         </div>
       </div>
 
@@ -355,7 +379,25 @@ const s = ref({
   system: { cpus: 0, totalMem: 0, freeMem: 0, loadAvg: [] },
   activePlayers: 0,
   processes: { total: 0, byLabel: [], oldest: [] },
+  youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
 });
+
+const potLabels = { on: "사용 중", off: "사용 안 함", missing: "켜져 있으나 설치 없음" };
+const cookieLabels = { browser: "브라우저 (연령 제한 전용)", file: "파일 (연령 제한 전용)", none: "없음" };
+const potLabel = (v) => potLabels[v] ?? v;
+const cookieLabel = (v) => cookieLabels[v] ?? v;
+
+// 경로 상태: 제외된 것 > 실패가 섞인 것 > 아직 안 써 본 것 > 정상
+function clientLabel(c) {
+  if (c.excluded) return `제외됨 (${c.tried}회 중 ${c.failed}회 실패)`;
+  if (!c.tried) return "미사용";
+  return c.failed ? `${c.tried}회 중 ${c.failed}회 실패` : `정상 (${c.tried}회)`;
+}
+function clientClass(c) {
+  if (c.excluded) return "text-danger";
+  if (c.failed) return "text-warning";
+  return c.tried ? "text-success" : "text-muted";
+}
 
 const bType = ref("maintenance");
 const bMsg = ref("");
