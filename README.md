@@ -150,7 +150,7 @@ pnpm run start    # 일반 실행
 
 ## 대시보드
 
-1. `.env`에 `DASHBOARD_HOST`, `DASHBOARD_URL`, `OWNER_ID`, `SESSION_SECRET`을 본인 환경에 맞게 설정
+1. `.env`에 대시보드 설정 값들을 본인 환경에 맞게 설정
 2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에
    `{DASHBOARD_URL}/auth/callback` 추가
 3. 클라이언트 빌드:
@@ -159,7 +159,15 @@ pnpm run start    # 일반 실행
 pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm install이 워크스페이스로 이미 설치)
 ```
 
-봇 실행 시 대시보드 서버가 함께 시작됩니다.
+4. 봇 실행 시 대시보드 서버가 함께 시작됩니다.
+
+### `SESSION_SECRET` 생성 방법 예시
+
+- node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+- 외부 랜덤 문자열 생성기를 사용해도 됩니다.
+
+> [!IMPORTANT]
+> `SESSION_SECRET` 값은 최소 64자 이상 랜덤 문자열을 권장합니다.
 
 ## 업데이트 / 유지보수
 
