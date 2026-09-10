@@ -120,6 +120,14 @@ const BGUTIL_SERVER_DIR = path.join(__dirname, "bgutil-ytdlp-pot-provider", "ser
 const BGUTIL_ENTRY = path.join(BGUTIL_SERVER_DIR, "build", "main.js");
 const BGUTIL_PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 
+// bgutil이 발급한 토큰을 그대로 로그에 남기지 않는다 — 세션 자격증명이다.
+// (sink의 레드액션은 access_token 계열 이름만 알아서 poToken은 그냥 통과한다.)
+function scrubBgutilLine(line) {
+  return String(line)
+    .replace(/(Generated IntegrityToken:\s*).*/i, "$1[REDACTED]")
+    .replace(/((?:poToken|integrityToken)"?\s*[:=]\s*"?)[A-Za-z0-9._~+/=-]{8,}/gi, "$1[REDACTED]");
+}
+
 let bgutilProc = null;
 let bgutilStopping = false;
 
@@ -133,20 +141,25 @@ function startBgutilServer() {
     cwd: BGUTIL_SERVER_DIR,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  bgutilProc.stdout.on("data", (d) =>
-    d
+  // 남의 프로세스라 레벨을 직접 붙일 수 없다 — 스트림(stdout/stderr)과 문구로 가른다.
+  // bgutil의 stdout은 전량 요청 단위 상세(POT 생성·챌린지)라 debug로 내린다. 수명주기(시작·준비
+  // 완료·비정상 종료)는 아래 우리 코드가 따로 남기므로 여기서 info로 올릴 것이 없다.
+  const emit = (chunk, stream) =>
+    chunk
       .toString()
       .split("\n")
       .filter(Boolean)
-      .forEach((l) => log.info({ sub: "bgutil" }, l)),
-  );
-  bgutilProc.stderr.on("data", (d) =>
-    d
-      .toString()
-      .split("\n")
-      .filter(Boolean)
-      .forEach((l) => log.warn({ sub: "bgutil" }, l)),
-  );
+      .forEach((raw) => {
+        const line = scrubBgutilLine(raw);
+        if (stream === "err") {
+          if (/could not listen|EADDRINUSE|^\s+at /i.test(line)) log.error({ sub: "bgutil" }, line);
+          else log.warn({ sub: "bgutil" }, line);
+        } else {
+          log.debug({ sub: "bgutil" }, line);
+        }
+      });
+  bgutilProc.stdout.on("data", (d) => emit(d, "out"));
+  bgutilProc.stderr.on("data", (d) => emit(d, "err"));
   bgutilProc.on("exit", (code) => {
     bgutilProc = null;
     if (!bgutilStopping) {
