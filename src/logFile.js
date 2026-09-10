@@ -22,10 +22,25 @@ const path = require("path");
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
-// logs/bot.log → logs/bot.3.log (확장자가 없으면 뒤에 붙인다)
-function backupPath(file, n) {
+// 파일명에 박을 시각. 로컬 시간이고 파일명에 못 쓰는 `:`는 `-`로 바꾼다.
+//   2026-09-10T14-23-05.123
+function stamp(d = new Date()) {
+  const p = (n, w = 2) => String(n).padStart(w, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+}
+
+// logs/bot.log → logs/bot-2026-09-10T14-23-05.123.log (확장자가 없으면 뒤에 붙인다)
+//
+// 번호(bot.1.log)가 아니라 시각을 박는 이유:
+//  - 번호는 회전할 때마다 **파일 전부를 rename**해야 한다(1→2, 2→3 …). 시각은 rename 한 번이다.
+//  - 파일명만 보고 언제 것인지 안다. 번호는 열어봐야 알고, 회전할 때마다 뜻이 바뀐다.
+//  - 이름순 정렬이 곧 시간순이다.
+// 박는 값은 **분리한 시각**이다. "언제부터 기록했는지"는 재시작 후 기존 파일에 이어 쓸 때
+// 알 수가 없지만(첫 줄을 읽어야 한다), 분리 시각은 그 순간 확실하다.
+function backupPath(file, at = new Date()) {
   const ext = path.extname(file);
-  return ext ? `${file.slice(0, -ext.length)}.${n}${ext}` : `${file}.${n}`;
+  const tag = typeof at === "string" ? at : stamp(at);
+  return ext ? `${file.slice(0, -ext.length)}-${tag}${ext}` : `${file}-${tag}`;
 }
 
 function stripAnsi(s) {
@@ -37,9 +52,9 @@ function stripAnsi(s) {
  *
  *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(개수 설정은 의미 없음)
  *   keep     = 0  → 회전은 하되 오래된 것을 지우지 않는다. 파일이 계속 쌓인다
- *   둘 다 >0      → maxBytes에서 회전하고 bot.<keep>.log를 넘어가는 것은 버린다
+ *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 지운다
  *
- * 번호는 항상 **1이 가장 최근 백업**이다(회전할 때마다 뒤로 한 칸씩 민다).
+ * 분리된 파일에는 **분리한 시각**이 붙는다 (bot-2026-09-10T14-23-05.123.log).
  *
  * @param {string} file      기록할 파일 경로(절대)
  * @param {number} maxBytes  이 크기를 넘으면 회전. 0이면 회전 안 함
@@ -73,41 +88,50 @@ function createFileDestination({ file, maxBytes, keep }) {
     }
   }
 
-  // 이번 회전에서 밀어 올릴 가장 높은 번호.
-  // keep>0이면 그 번호가 상한이고, 거기 있던 파일은 덮여서 사라진다(가장 오래된 것을 버린다).
-  // keep=0(제한 없음)이면 지금 있는 것 중 가장 높은 번호 + 1 — 아무것도 덮지 않는다.
-  function topIndex() {
-    if (keep > 0) return keep;
+  // 지금까지 분리해 둔 파일들 — 이름순이 곧 시간순이다(파일명이 로컬 시각이라).
+  function rotatedFiles() {
     const base = path.basename(file);
     const ext = path.extname(base);
     const stem = ext ? base.slice(0, -ext.length) : base;
     const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`^${esc(stem)}\\.(\\d+)${esc(ext)}$`);
-    let max = 0;
+    const re = new RegExp(`^${esc(stem)}-\\d{4}-\\d{2}-\\d{2}T[\\d.-]+${esc(ext)}$`);
     try {
-      for (const name of fs.readdirSync(path.dirname(file))) {
-        const m = re.exec(name);
-        if (m) max = Math.max(max, Number(m[1]));
-      }
+      return fs
+        .readdirSync(path.dirname(file))
+        .filter((n) => re.test(n))
+        .sort();
     } catch {
-      /* 디렉터리를 못 읽으면 1부터 — 최악이라도 기존 백업 하나를 덮을 뿐이다 */
+      return []; // 디렉터리를 못 읽으면 정리를 건너뛴다 — 기록은 계속되어야 한다
     }
-    return max + 1;
+  }
+
+  // keep을 넘는 오래된 파일 삭제. keep=0이면 제한이 없으므로 아무것도 지우지 않는다.
+  function prune() {
+    if (keep <= 0) return;
+    const old = rotatedFiles();
+    for (const name of old.slice(0, Math.max(0, old.length - keep))) {
+      try {
+        fs.unlinkSync(path.join(path.dirname(file), name));
+      } catch {
+        /* 지우지 못해도 기록은 계속한다 — 다음 회전에서 다시 시도한다 */
+      }
+    }
   }
 
   // 회전: fd를 먼저 닫는다 — Windows는 열려 있는 파일을 rename하지 못한다.
+  // 번호 방식과 달리 rename은 한 번뿐이다(파일 전부를 밀어 올리지 않는다).
   function rotate() {
-    const top = topIndex();
     try {
       fs.closeSync(fd);
       fd = null;
-      for (let n = top; n >= 1; n--) {
-        const from = n === 1 ? file : backupPath(file, n - 1);
-        if (fs.existsSync(from)) fs.renameSync(from, backupPath(file, n));
-      }
+      let target = backupPath(file);
+      // 같은 밀리초에 두 번 회전하는 일은 사실상 없지만, 있으면 덮어쓰지 않고 비켜 간다.
+      for (let i = 2; fs.existsSync(target); i++) target = backupPath(file, `${stamp()}-${i}`);
+      fs.renameSync(file, target);
     } catch (err) {
       return giveUp("로그 회전 실패", err);
     }
+    prune();
     open();
   }
 
@@ -143,4 +167,4 @@ function createFileDestination({ file, maxBytes, keep }) {
   return { write, close, path: file };
 }
 
-module.exports = { createFileDestination, backupPath, stripAnsi };
+module.exports = { createFileDestination, backupPath, stripAnsi, stamp };

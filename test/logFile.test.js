@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { createFileDestination, backupPath, stripAnsi } = require("../src/logFile");
+const { createFileDestination, backupPath, stripAnsi, stamp } = require("../src/logFile");
 
 function tmpdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
@@ -59,51 +59,69 @@ test("이어 쓰기 — 재시작해도 기존 내용을 덮지 않는다", () =
   );
 });
 
-test("크기를 넘으면 회전하고, keep 개수만 남긴다", () => {
-  const file = path.join(tmpdir(), "bot.log");
+// 분리된 파일에는 번호가 아니라 **분리한 시각**이 붙는다 (bot-2026-09-10T14-23-05.123.log).
+// 번호 방식은 회전마다 파일 전부를 rename해야 하고, 번호의 뜻이 회전할 때마다 바뀐다.
+// 이름순 정렬이 곧 시간순이라는 것이 이 방식의 계약이다.
+const rotated = (dir) =>
+  fs
+    .readdirSync(dir)
+    .filter((n) => /^bot-\d{4}-\d{2}-\d{2}T/.test(n))
+    .sort();
+
+test("크기를 넘으면 분리하고, keep 개수만 남긴다", () => {
+  const dir = tmpdir();
+  const file = path.join(dir, "bot.log");
   const dest = createFileDestination({ file, maxBytes: 120, keep: 2 });
-  for (let i = 0; i < 12; i++) dest.write(rec(`줄 ${i} ${"x".repeat(50)}`));
+  for (let i = 0; i < 5; i++) dest.write(rec(`줄 ${i} ${"x".repeat(100)}`));
   dest.close();
 
-  assert.ok(fs.existsSync(file), "현재 파일은 항상 bot.log");
-  assert.ok(fs.existsSync(backupPath(file, 1)));
-  assert.ok(fs.existsSync(backupPath(file, 2)));
-  assert.equal(fs.existsSync(backupPath(file, 3)), false, "keep을 넘는 회전본은 남기지 않는다");
+  assert.equal(rotated(dir).length, 2, "keep을 넘는 것은 오래된 것부터 지운다");
 });
 
-test("회전 후에도 최신 줄은 bot.log에 있다", () => {
-  const file = path.join(tmpdir(), "bot.log");
-  const dest = createFileDestination({ file, maxBytes: 100, keep: 2 });
-  dest.write(rec(`오래된 ${"x".repeat(60)}`)); // 여기서 회전
-  dest.write(rec("가장 최근"));
+test("분리된 파일 이름은 시간순으로 정렬된다", () => {
+  const dir = tmpdir();
+  const file = path.join(dir, "bot.log");
+  const dest = createFileDestination({ file, maxBytes: 120, keep: 0 });
+  for (let i = 0; i < 4; i++) dest.write(rec(`줄 ${i} ${"x".repeat(100)}`));
   dest.close();
 
-  assert.equal(lines(file).at(-1).msg, "가장 최근");
+  const names = rotated(dir);
+  assert.ok(names.length >= 3, `분리본이 쌓여야 한다 (${names.join(", ")})`);
+  // 이름순 = 시간순이면, 첫 파일이 가장 먼저 쓴 줄을 담고 있어야 한다.
+  assert.match(lines(path.join(dir, names[0]))[0].msg, /줄 0/);
+  assert.deepEqual(names, [...names].sort(), "이름순이 곧 시간순");
 });
 
-// 두 설정은 서로 다른 축이고 각각의 0이 "그 축에 제한 없음"이다.
-// 예전엔 keep=0이 "회전 자체를 안 함"이라 크기 설정이 통째로 무시됐다 — 직관에 어긋난다.
+test("분리 후에도 최신 줄은 bot.log에 있다", () => {
+  const dir = tmpdir();
+  const file = path.join(dir, "bot.log");
+  const dest = createFileDestination({ file, maxBytes: 200, keep: 2 });
+  dest.write(rec(`오래된 ${"x".repeat(150)}`)); // 여기서 분리
+  dest.write(rec("최신"));
+  dest.close();
 
-test("maxBytes=0이면 회전하지 않고 한 파일에 계속 쓴다", () => {
-  const file = path.join(tmpdir(), "bot.log");
+  assert.match(lines(file).at(-1).msg, /최신/);
+});
+
+test("maxBytes=0이면 분리하지 않고 한 파일에 계속 쓴다", () => {
+  const dir = tmpdir();
+  const file = path.join(dir, "bot.log");
   const dest = createFileDestination({ file, maxBytes: 0, keep: 5 });
   for (let i = 0; i < 5; i++) dest.write(rec(`줄 ${i} ${"x".repeat(40)}`));
   dest.close();
 
   assert.equal(lines(file).length, 5);
-  assert.equal(fs.existsSync(backupPath(file, 1)), false, "회전본이 생기면 안 된다");
+  assert.equal(rotated(dir).length, 0, "분리본이 생기면 안 된다");
 });
 
-test("keep=0이면 회전은 하되 오래된 것을 지우지 않는다", () => {
-  const file = path.join(tmpdir(), "bot.log");
+test("keep=0이면 분리는 하되 오래된 것을 지우지 않는다", () => {
+  const dir = tmpdir();
+  const file = path.join(dir, "bot.log");
   const dest = createFileDestination({ file, maxBytes: 50, keep: 0 });
   for (let i = 0; i < 5; i++) dest.write(rec(`줄 ${i} ${"x".repeat(40)}`));
   dest.close();
 
-  // 매 줄이 상한을 넘으므로 줄마다 회전한다 — 앞선 것들이 전부 번호를 달고 남아 있어야 한다.
-  assert.ok(fs.existsSync(backupPath(file, 5)), "keep 상한이 없으므로 5번까지 쌓인다");
-  assert.match(lines(backupPath(file, 1))[0].msg, /줄 4/, "1번이 가장 최근 백업이다");
-  assert.match(lines(backupPath(file, 5))[0].msg, /줄 0/, "번호가 클수록 오래된 것이다");
+  assert.ok(rotated(dir).length >= 4, "제한이 없으므로 계속 쌓인다");
 });
 
 test("직렬화 불가(순환 참조)여도 던지지 않고 메시지는 남긴다", () => {
@@ -131,9 +149,14 @@ test("파일을 못 열면 던지지 않고 조용히 중단한다 (로깅이 �
   }
 });
 
-test("backupPath: 확장자 유지, 없으면 뒤에 붙임", () => {
-  assert.equal(backupPath("/a/bot.log", 3), "/a/bot.3.log");
-  assert.equal(backupPath("/a/bot", 3), "/a/bot.3");
+test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤에 붙인다", () => {
+  const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터 — 9월
+  assert.equal(backupPath("/a/bot.log", at), "/a/bot-2026-09-10T14-23-05.123.log");
+  assert.equal(backupPath("/a/bot", at), "/a/bot-2026-09-10T14-23-05.123");
+});
+
+test("stamp: 파일명에 못 쓰는 `:`를 쓰지 않는다", () => {
+  assert.equal(stamp(new Date(2026, 0, 2, 3, 4, 5, 6)), "2026-01-02T03-04-05.006");
 });
 
 test("stripAnsi: 문자열이 아니면 그대로 통과", () => {
