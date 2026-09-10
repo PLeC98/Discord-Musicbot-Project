@@ -182,7 +182,7 @@ class MusicPlayer {
         const heldMs = this._bufferingSince ? Date.now() - this._bufferingSince : null;
         this._clearBufferingWatch();
         if (heldMs !== null) {
-          const line = `🎚 상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
+          const line = `상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
           if (heldMs >= 3000) wlog.warn(`${line} 오래 걸림`);
           else wlog.debug(line);
         }
