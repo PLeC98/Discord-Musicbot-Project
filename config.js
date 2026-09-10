@@ -228,7 +228,8 @@ module.exports = {
     // 기본은 끔. 모든 운영자가 파일 로그를 원하지는 않는다 — 필요한 사람이 켠다.
     fileEnabled: env("LOG_FILE_ENABLED", "false") === "true",
     file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
-    maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 1, max: 10240 }) * 1024 * 1024,
-    keep: envInt("LOG_FILE_KEEP", 5, { min: 0, max: 100 }),
+    // 두 값 모두 0 = "그 축에는 제한 없음". 크기 0이면 회전하지 않고, 개수 0이면 지우지 않는다.
+    maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 0, max: 10240 }) * 1024 * 1024,
+    keep: envInt("LOG_FILE_KEEP", 5, { min: 0, max: 1000 }),
   },
 };

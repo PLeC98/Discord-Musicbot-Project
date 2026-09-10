@@ -81,14 +81,29 @@ test("회전 후에도 최신 줄은 bot.log에 있다", () => {
   assert.equal(lines(file).at(-1).msg, "가장 최근");
 });
 
-test("keep=0이면 회전하지 않는다 (무한 증가는 사용자 선택)", () => {
+// 두 설정은 서로 다른 축이고 각각의 0이 "그 축에 제한 없음"이다.
+// 예전엔 keep=0이 "회전 자체를 안 함"이라 크기 설정이 통째로 무시됐다 — 직관에 어긋난다.
+
+test("maxBytes=0이면 회전하지 않고 한 파일에 계속 쓴다", () => {
+  const file = path.join(tmpdir(), "bot.log");
+  const dest = createFileDestination({ file, maxBytes: 0, keep: 5 });
+  for (let i = 0; i < 5; i++) dest.write(rec(`줄 ${i} ${"x".repeat(40)}`));
+  dest.close();
+
+  assert.equal(lines(file).length, 5);
+  assert.equal(fs.existsSync(backupPath(file, 1)), false, "회전본이 생기면 안 된다");
+});
+
+test("keep=0이면 회전은 하되 오래된 것을 지우지 않는다", () => {
   const file = path.join(tmpdir(), "bot.log");
   const dest = createFileDestination({ file, maxBytes: 50, keep: 0 });
   for (let i = 0; i < 5; i++) dest.write(rec(`줄 ${i} ${"x".repeat(40)}`));
   dest.close();
 
-  assert.equal(lines(file).length, 5);
-  assert.equal(fs.existsSync(backupPath(file, 1)), false);
+  // 매 줄이 상한을 넘으므로 줄마다 회전한다 — 앞선 것들이 전부 번호를 달고 남아 있어야 한다.
+  assert.ok(fs.existsSync(backupPath(file, 5)), "keep 상한이 없으므로 5번까지 쌓인다");
+  assert.match(lines(backupPath(file, 1))[0].msg, /줄 4/, "1번이 가장 최근 백업이다");
+  assert.match(lines(backupPath(file, 5))[0].msg, /줄 0/, "번호가 클수록 오래된 것이다");
 });
 
 test("직렬화 불가(순환 참조)여도 던지지 않고 메시지는 남긴다", () => {

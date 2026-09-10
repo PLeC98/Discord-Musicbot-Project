@@ -33,9 +33,17 @@ function stripAnsi(s) {
 }
 
 /**
+ * 두 설정은 서로 다른 축이고, **각각의 0은 "그 축에 제한 없음"**을 뜻한다.
+ *
+ *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(개수 설정은 의미 없음)
+ *   keep     = 0  → 회전은 하되 오래된 것을 지우지 않는다. 파일이 계속 쌓인다
+ *   둘 다 >0      → maxBytes에서 회전하고 bot.<keep>.log를 넘어가는 것은 버린다
+ *
+ * 번호는 항상 **1이 가장 최근 백업**이다(회전할 때마다 뒤로 한 칸씩 민다).
+ *
  * @param {string} file      기록할 파일 경로(절대)
- * @param {number} maxBytes  이 크기를 넘으면 회전
- * @param {number} keep      보관할 회전본 개수 (bot.1.log ~ bot.<keep>.log). 0이면 회전 없이 이어 씀
+ * @param {number} maxBytes  이 크기를 넘으면 회전. 0이면 회전 안 함
+ * @param {number} keep      보관할 회전본 개수. 0이면 제한 없이 쌓음
  * @returns {{write:(rec:object)=>void, close:()=>void, path:string}}
  */
 function createFileDestination({ file, maxBytes, keep }) {
@@ -65,12 +73,35 @@ function createFileDestination({ file, maxBytes, keep }) {
     }
   }
 
+  // 이번 회전에서 밀어 올릴 가장 높은 번호.
+  // keep>0이면 그 번호가 상한이고, 거기 있던 파일은 덮여서 사라진다(가장 오래된 것을 버린다).
+  // keep=0(제한 없음)이면 지금 있는 것 중 가장 높은 번호 + 1 — 아무것도 덮지 않는다.
+  function topIndex() {
+    if (keep > 0) return keep;
+    const base = path.basename(file);
+    const ext = path.extname(base);
+    const stem = ext ? base.slice(0, -ext.length) : base;
+    const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`^${esc(stem)}\\.(\\d+)${esc(ext)}$`);
+    let max = 0;
+    try {
+      for (const name of fs.readdirSync(path.dirname(file))) {
+        const m = re.exec(name);
+        if (m) max = Math.max(max, Number(m[1]));
+      }
+    } catch {
+      /* 디렉터리를 못 읽으면 1부터 — 최악이라도 기존 백업 하나를 덮을 뿐이다 */
+    }
+    return max + 1;
+  }
+
   // 회전: fd를 먼저 닫는다 — Windows는 열려 있는 파일을 rename하지 못한다.
   function rotate() {
+    const top = topIndex();
     try {
       fs.closeSync(fd);
       fd = null;
-      for (let n = keep; n >= 1; n--) {
+      for (let n = top; n >= 1; n--) {
         const from = n === 1 ? file : backupPath(file, n - 1);
         if (fs.existsSync(from)) fs.renameSync(from, backupPath(file, n));
       }
@@ -95,7 +126,7 @@ function createFileDestination({ file, maxBytes, keep }) {
       return giveUp("기록 실패", err);
     }
     size += Buffer.byteLength(line);
-    if (keep > 0 && size >= maxBytes) rotate();
+    if (maxBytes > 0 && size >= maxBytes) rotate();
   }
 
   function close() {
