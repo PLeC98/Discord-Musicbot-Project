@@ -225,7 +225,8 @@ module.exports = {
     // 그중 터미널에 **찍을** 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info 로 두면
     // 파일·대시보드는 debug를 받고 터미널만 조용하다.
     consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", "trace", "debug", "info", "warn", "error", "fatal"]),
-    fileEnabled: env("LOG_FILE_ENABLED", "true") !== "false",
+    // 기본은 끔. 모든 운영자가 파일 로그를 원하지는 않는다 — 필요한 사람이 켠다.
+    fileEnabled: env("LOG_FILE_ENABLED", "false") === "true",
     file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
     maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 1, max: 10240 }) * 1024 * 1024,
     keep: envInt("LOG_FILE_KEEP", 5, { min: 0, max: 100 }),
