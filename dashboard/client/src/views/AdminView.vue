@@ -102,10 +102,10 @@
             <div :class="statRow">
               <span>쿠키</span><span>{{ cookieLabel(s.youtube.cookies) }}</span>
             </div>
-            <div v-if="!s.youtube.configured" :class="statRow">
-              <span class="text-muted">경로 미지정 — yt-dlp 기본값을 따릅니다</span>
+            <div :class="statRow">
+              <span>클라이언트 경로</span><span>{{ s.youtube.configured ? `${s.youtube.clients.length}개 지정` : "미지정 (yt-dlp 기본값)" }}</span>
             </div>
-            <div v-else class="mt-2 pt-2 border-t border-white/7">
+            <div v-if="s.youtube.configured" class="mt-2 pt-2 border-t border-white/7">
               <div v-for="(c, i) in s.youtube.clients" :key="c.name" :class="statRow">
                 <span class="font-mono text-[0.78rem]">
                   <span class="text-muted">{{ i + 1 }}.</span> {{ c.name }}
