@@ -83,7 +83,7 @@
             <div v-if="s.processes.total === 0" :class="statRow">
               <span class="text-muted">떠 있는 프로세스 없음</span>
             </div>
-            <div v-if="s.processes.oldest.length" class="mt-2 pt-2 border-t border-white/7">
+            <div v-if="s.processes.oldest.length" class="mt-2">
               <div v-for="p in s.processes.oldest" :key="p.pid" :class="statRow">
                 <span class="font-mono text-[0.78rem]"
                   >{{ p.label }}<span class="text-muted"> #{{ p.pid }}</span></span
@@ -105,7 +105,7 @@
             <div :class="statRow">
               <span>클라이언트 경로</span><span>{{ s.youtube.configured ? `${s.youtube.clients.length}개 지정` : "미지정 (yt-dlp 기본값)" }}</span>
             </div>
-            <div v-if="s.youtube.configured" class="mt-2 pt-2 border-t border-white/7">
+            <div v-if="s.youtube.configured" class="mt-2">
               <div v-for="(c, i) in s.youtube.clients" :key="c.name" :class="statRow">
                 <span class="font-mono text-[0.78rem]">
                   <span class="text-muted">{{ i + 1 }}.</span> {{ c.name }}
