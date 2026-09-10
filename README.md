@@ -84,20 +84,64 @@ cp .env.example .env   # 이후 .env 편집
 | `GUILD_ID`                                    | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요)                |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify 링크 지원용 ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
 
-### POToken 설정 (권장)
+### 유튜브 접속 클라이언트 경로 (선택)
+
+`.env`의 `YTDLP_PLAYER_CLIENTS` 옵션으로 유튜브 영상 스트림/다운로드에 사용할 클라이언트를 지정할 수 있습니다.
+지정하지 않으면 yt-dlp의 기본 값을 사용합니다.
+
+다만 yt-dlp의 기본 후보는 `web`과 `visionos`두 개뿐이고 그중 `web`은 현재 막혀 있어, 사실상 한 갈래에 의존합니다.
+
+여러 클라이언트를 적어 예비를 둘 수 있습니다. 앞에서부터 시도하고 실패하면 다음으로 폴백하며, 자주 실패하는 갈래는 접근이 차단된 클라이언트로 판단하여 해당 실행 세션 중에는 건너뜁니다.
+
+예시:
+
+```
+YTDLP_PLAYER_CLIENTS=visionos,web_embedded,tv_embedded
+```
+
+#### 클라이언트별 사용 가능 여부
+
+| 클라이언트    | 사용 가능 | 비고                                                       |
+| ------------- | :-------: | ---------------------------------------------------------- |
+| web           |     X     | SABR 형식만 가능 (yt-dlp 미지원)                           |
+| web_safari    |     X     | web과 동일함                                               |
+| web_embedded  |     ○     | 임베드 가능한 영상만 사용 가능                             |
+| web_music     |     X     |                                                            |
+| web_creator   |     X     | 계정 쿠키 필요                                             |
+| mweb          |    POT    |                                                            |
+| android       |     △     | 계정 쿠키 미지원 / 오디오만 수신 불가 - 360p 영상을 받음   |
+| android_vr    |     △     | 어린이용 영상 불가 / 오디오만 수신 불가 - 360p 영상을 받음 |
+| ios           |     X     | iOS용 POT가 별도로 필요 (bgutil 미지원)                    |
+| visionos      |     ○     | yt-dlp 기본값                                              |
+| tv            |     X     | 쿠키 없으면 DRM / 일부 경우 SABR.                          |
+| tv_downgraded |     X     |                                                            |
+| tv_simply     |    POT    | 계정 쿠키 미지원                                           |
+
+- 이 내용은 2026/09/11을 기준으로 작성되었으며, 날짜, 환경, 계정 상태 등에 따라 다를 수 있습니다.
+- bgutil은 웹 계열 POT 제공자이므로 Android/iOS용 DroidGuard·iOSGuard POT를 발급하지 않습니다.
+- 일부 클라이언트는 오디오만 수신이 불가능하여 360p 영상을 통째로 받습니다. 통신량 및 캐시 용량이 약 2.4배 증가하기에 권장하지 않습니다.
+
+### POToken 설정 (선택)
 
 [Brainicism/bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) 를 사용합니다.
-YouTube 봇 감지 차단을 우회하는 POToken 공급자입니다. 설정하면 쿠키 없이도 안정적으로 재생됩니다.
+
+**하는 일**: 쓸 수 있는 접속 경로를 2개(`mweb`, `tv_simply`) 늘려줍니다. 이 두 클라이언트는 POToken 없이는 저화질 코덱 하나만을 제공합니다. 이 클라이언트들을 사용하는게 아니라면 실익은 없습니다.
 
 ```bash
 pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 ```
 
-봇 실행 시 자동으로 감지하여 POToken 서버(포트 4416)를 함께 실행하며, 별도 설정 없이 작동합니다.
+설치한 뒤 `.env`에서 `BGUTIL_ENABLED=true`로 켜야 동작합니다. 켜면 봇 실행 시 POToken 서버(포트 4416)를 함께 띄웁니다. 켜두고 설치를 안 했으면 오류를 남기고 POToken 없이 진행합니다.
 
-### 쿠키 설정 (대안 / 연령 제한 폴백)
+### 쿠키 설정 (연령 제한 영상 전용)
 
-POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
+`COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
+
+> [!CAUTION]
+> **쿠키는 연령 제한 영상에만 사용합니다.**
+> 유튜브는 요청에 제한을 두고 있으며, 과다 사용 시 **계정이 (일시적 또는 영구적으로) 정지될 수 있습니다.** 요청 빈도와 다운로드 양에 주의하세요. 사용은 전적으로 운영자의 책임입니다.
+>
+> ([yt-dlp 문서](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies): 계정 기준 시간당 약 2000영상)
 
 > [!IMPORTANT]
 > 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. `COOKIES_FROM_BROWSER`를 시도해 보고, 문제가 발생하면 `COOKIES_FILE`을 사용하시기 바랍니다.
@@ -106,11 +150,12 @@ POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 fire
 >
 > 파이어폭스: [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
 
-**연령 제한 영상 재생**: 연령 제한 영상은 POToken(bgutil)만으로는 접근이 불가능하기에 **인증된 쿠키가 필수**입니다. bgutil을 쓰더라도 위 `COOKIES_FROM_BROWSER`/`COOKIES_FILE` 중 하나를 설정해 두면, **평상시엔 bgutil로(쿠키 없이) 재생하고 연령 제한 영상을 만났을 때만 쿠키로 폴백**합니다.
+**연령 제한 영상 재생**: 연령 제한 영상은 **인증된 쿠키가 필수**입니다.
 
 - 연령 인증이 된 계정의 쿠키여야 합니다.
 - 쿠키를 설정하지 않으면 연령 제한 영상은 재생이 불가능합니다.
-- bgutil 사용시, 영상의 초회 재생 시도 (캐시되지 않은 영상)에서 연령 제한으로 인한 실패(≈3초)를 수신하면 쿠키로 전환하여 재생을 시도합니다. 이후의 호출·재생은 bgutil 사용 시도 없이 쿠키/캐시를 사용합니다.
+- 캐시되지 않은 영상의 초회 시도에서 연령 제한 실패(≈3초)를 받으면 쿠키로 전환해 다시 시도합니다.
+- 연령 제한 영상 여부는 캐싱되어, 오디오 캐시가 정리되어도 이후에는 처음부터 쿠키로 접근합니다.
 - 연령 제한 영상은 재취득 비용이 크기에 오디오 캐시를 더 오래 보존합니다.
 
 ### 상태 메시지 (`config/status.js`)

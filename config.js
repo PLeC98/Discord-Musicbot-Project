@@ -1,6 +1,7 @@
 const path = require("path");
 const log = require("./src/logger").child({ category: "config" });
 const fs = require("fs");
+const { parseClients } = require("./src/PlayerClients");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
@@ -153,6 +154,20 @@ module.exports = {
     highWaterMark: 1 << 25,
     cookiesFromBrowser: env("COOKIES_FROM_BROWSER"),
     cookiesFile: resolveFromRoot(env("COOKIES_FILE")),
+
+    // 재생용 player_client 순서. 비우면 지정하지 않는다 = yt-dlp 기본값 그대로.
+    // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/YouTube.js).
+    playerClients: parseClients(env("YTDLP_PLAYER_CLIENTS")),
+    // "최근 window회 중 fails회 실패"면 그 클라이언트를 이번 실행 동안 제외한다.
+    // 연속 실패로 세지 않는 이유는 src/PlayerClients.js 머리말 참조.
+    clientWindow: envInt("YTDLP_CLIENT_WINDOW", 5, { min: 2, max: 50 }),
+    clientFails: envInt("YTDLP_CLIENT_FAILS", 3, { min: 1, max: 50 }),
+  },
+
+  // POToken 공급자(bgutil). 설치돼 있어도 이 값이 true일 때만 띄운다 —
+  // 쓰지 않을 서버를 상시 띄울 이유가 없다(인증 없는 로컬 HTTP 서버라 표면도 는다).
+  bgutil: {
+    enabled: env("BGUTIL_ENABLED", "false") === "true",
   },
 
   // 대시보드 설정
@@ -208,7 +223,6 @@ module.exports = {
     idleText: env("VOICE_IDLE_STATUS", ""),
   },
 
-  // 샤딩 설정 (for bots in 1000+ servers)
   // 재생 스트림 수신 — googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/chunkedStream.js).
   stream: {
     chunked: env("STREAM_CHUNKED", "true") !== "false",

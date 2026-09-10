@@ -31,11 +31,16 @@ function findPluginRoot(dir) {
 const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 
+const { PlayerClients, NEEDS_POT, KNOWN } = require("./PlayerClients");
+const playerClients = new PlayerClients(config.ytdl.playerClients, { window: config.ytdl.clientWindow, fails: config.ytdl.clientFails });
+
 class YouTube {
   // yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
   static getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
     const baseOptions = {
-      noWarnings: true,
+      // noWarnings를 켜지 않는다. yt-dlp의 경고에는 우리가 봐야 할 것이 섞여 있다
+      // ("이 클라이언트는 POToken이 필요하다" 등). 평상시 경고량은 0건으로 실측했다
+      // (2026-09-11, 제목조회·스트림URL·검색·실다운로드 13회). ERROR는 원래 이 옵션과 무관하다.
       retries: 3,
       fragmentRetries: 3,
       // 재생과 같은 ffmpeg를 쓰게 한다. 지정하지 않으면 yt-dlp가 PATH에서 제멋대로 찾아
@@ -43,17 +48,18 @@ class YouTube {
       ffmpegLocation: ffmpegPath(),
       jsRuntimes: `node:${process.execPath}`,
       addHeader: ["referer:youtube.com", "user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"],
-      ...(BGUTIL_AVAILABLE && { pluginDirs: BGUTIL_DIR }),
+      ...(YouTube.potEnabled() && { pluginDirs: BGUTIL_DIR }),
       ...extraOptions,
     };
 
-    // 인증 모델:
-    //  - bgutil(POToken) 사용 가능 시: 평상시 쿠키 없이 bgutil 기본 클라이언트로 처리(계정 노출 최소화).
-    //    연령 제한 등으로 실패하면 forceCookies=true로 재시도해 쿠키를 사용(runYtDlp의 폴백).
-    //  - bgutil 미사용 시: 쿠키가 있으면 그대로 1차 인증으로 사용(기존 동작).
+    // 인증 모델: **평상시 쿠키 없이, 연령 제한에만 쿠키.** bgutil 유무와 무관하다.
+    // 예전엔 "bgutil이 없으면 쿠키를 1차 인증으로"였는데, bgutil이 3개월간 로드조차 안 된 채
+    // 무쿠키로 멀쩡히 돌았다 — 무쿠키 운용은 bgutil 덕이 아니었다(2026-09-10 규명).
+    // 게다가 쿠키는 계정 밴 위험이 있다(yt-dlp 문서: 게스트 ~300영상/시간, 계정 ~2000영상/시간,
+    // 과다 사용 시 밴 경고). 노출 지점을 연령 제한 한 곳으로 묶는다.
     // ⚠️ 과거의 "쿠키 없으면 player_client=ios 강제" 폴백은 금지 — ios는 자체 POT 없이 포맷을
     //    안 주고 bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다(2026-07-11 실증).
-    if (forceCookies || !BGUTIL_AVAILABLE) {
+    if (forceCookies) {
       if (config.ytdl.cookiesFromBrowser) {
         baseOptions.cookiesFromBrowser = config.ytdl.cookiesFromBrowser;
       } else if (config.ytdl.cookiesFile) {
@@ -62,6 +68,37 @@ class YouTube {
     }
 
     return baseOptions;
+  }
+
+  /** POToken 공급자를 실제로 쓰는가 — 설치돼 있고 + 켜져 있을 때만 */
+  static potEnabled() {
+    return BGUTIL_AVAILABLE && config.bgutil.enabled;
+  }
+
+  /**
+   * 기동 시 한 줄로 인증 상태를 남긴다 — "지금 무엇으로 유튜브에 붙고 있나"를 한눈에.
+   * 이걸 안 남겨서 bgutil이 3개월간 죽어 있는 것을 아무도 몰랐다.
+   */
+  static logAuthMode() {
+    const clients = config.ytdl.playerClients;
+    const pot = this.potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
+    const cookie = config.ytdl.cookiesFromBrowser ? `브라우저(${config.ytdl.cookiesFromBrowser})` : config.ytdl.cookiesFile ? "파일" : "없음";
+    log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}${cookie === "없음" ? "" : "(연령 제한 폴백 전용)"}`);
+
+    // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.
+    // 막지는 않는다 — 이 표는 오늘의 유튜브일 뿐이고, 진짜 판정은 실행이 한다.
+    const needy = clients.filter((c) => NEEDS_POT.includes(c));
+    if (needy.length && !this.potEnabled()) {
+      log.warn(`${needy.join(", ")} 은(는) POToken이 있어야 제대로 동작합니다. BGUTIL_ENABLED=true로 켜거나 목록에서 빼세요`);
+    }
+
+    // 우리가 아는 목록에 없는 이름. **걸러내지 않는다** — yt-dlp가 새로 추가한 것일 수 있고,
+    // 유효한지는 yt-dlp가 판단한다. 알고 넣은 사람은 이 줄을 무시하면 되고,
+    // 오타였다면 "넣으라는 대로 넣었는데 왜?"의 답이 여기 있다.
+    const unknown = clients.filter((c) => !KNOWN.includes(c));
+    if (unknown.length) {
+      log.warn(`${unknown.join(", ")} 은(는) 확인된 클라이언트 목록에 없습니다. yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 뜹니다`);
+    }
   }
 
   /** 쿠키(브라우저/파일)가 설정돼 있는가 — 연령 제한 폴백 가능 여부 */
@@ -127,7 +164,7 @@ class YouTube {
     }
 
     try {
-      return await youtubedl(url, buildOptions(known));
+      return await this._runWithClients(url, buildOptions, known);
     } catch (error) {
       if (!known && videoId && this.isAgeRestrictedError(error) && this.cookiesConfigured()) {
         try {
@@ -136,10 +173,102 @@ class YouTube {
           /* 기록 실패는 무시 */
         }
         log.warn({ tags: ["retry", "fallback"] }, `연령 제한 감지 (${videoId}) — 쿠키로 재시도합니다`);
-        return await youtubedl(url, buildOptions(true));
+        return await this._runWithClients(url, buildOptions, true);
       }
       throw error;
     }
+  }
+
+  /**
+   * player_client를 순서대로 시도한다. 지정이 없으면 **호출 한 번으로 끝** — 기존과 동일하다.
+   *
+   * 클라이언트 탓으로 보이는 실패에서만 다음으로 넘어가고 빈도를 기록한다. 영상이 없어졌거나
+   * 연령 제한이거나 네트워크가 끊긴 것은 클라이언트 잘못이 아니므로 그대로 위로 던진다 —
+   * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다.
+   */
+  static async _runWithClients(url, buildOptions, forceCookies) {
+    const clients = playerClients.idle ? [] : playerClients.list();
+
+    if (clients.length === 0) {
+      if (!playerClients.idle) playerClients.noteExhausted(); // 지정은 했는데 전부 제외됨
+      return this._runOnce(url, buildOptions(forceCookies), null);
+    }
+
+    let lastError = null;
+    for (let i = 0; i < clients.length; i++) {
+      const client = clients[i];
+      try {
+        const result = await this._runOnce(url, buildOptions(forceCookies), client);
+        playerClients.record(client, true);
+        return result;
+      } catch (error) {
+        if (!this.isClientFault(error)) throw error; // 영상·네트워크 문제 — 클라이언트 바꿔봐야 소용없다
+        lastError = error;
+        playerClients.record(client, false);
+        const next = clients[i + 1];
+        log.warn({ tags: ["fallback"] }, `${client} 실패 (${this._faultReason(error)})${next ? ` — ${next} 로 전환합니다` : ""}`);
+      }
+    }
+
+    // 지정한 것이 다 안 됐다. yt-dlp 기본값에 한 번 맡겨 본다 — 유지보수되는 쪽이 더 나을 수 있다.
+    log.warn({ tags: ["fallback"] }, `지정한 클라이언트를 모두 시도했습니다. yt-dlp 기본값으로 마지막 시도를 합니다`);
+    try {
+      return await this._runOnce(url, buildOptions(forceCookies), null);
+    } catch {
+      throw lastError; // 원인 파악에는 클라이언트별 실패가 더 유용하다
+    }
+  }
+
+  /**
+   * 한 번 호출 + 경고 훑기.
+   * 호출부가 extractorArgs를 직접 넘겼으면 그쪽이 이긴다 — 명시적 지정을 폴백이 덮지 않는다.
+   * 클라이언트를 하나씩만 넘기는 이유는 _runWithClients 머리말 참조.
+   */
+  static async _runOnce(url, options, client) {
+    const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
+    const result = await youtubedl(url, opts);
+    this._inspectWarnings(result?._stderr, client);
+    return result;
+  }
+
+  /**
+   * 성공했어도 경고는 볼 값어치가 있다. 특히 "POToken이 필요하다"는, 안 쓰던 클라이언트가
+   * 쓰기 시작했다는 신호다 — 유튜브가 조이는 것을 우리가 제일 먼저 아는 지점이다.
+   */
+  static _inspectWarnings(stderr, client) {
+    if (!stderr) return;
+    for (const line of String(stderr).split("\n")) {
+      if (!/^WARNING/i.test(line)) continue;
+      // yt-dlp가 모르는 이름은 **실패가 아니라 기본 클라이언트로 조용히 떨어져 성공한다.**
+      // 그러면 우리 폴백 루프가 첫 항목에서 끝나 뒤 목록이 통째로 사문화된다 — 이건 알려야 한다.
+      const skipped = line.match(/Skipping unsupported client "?([\w-]+)"?/i);
+      if (skipped) {
+        log.warn(`${skipped[1]} 은(는) 이 yt-dlp가 모르는 클라이언트입니다. 건너뛰고 yt-dlp 기본값으로 재생했습니다 — .env에서 고쳐 주세요`);
+        continue;
+      }
+      if (/require[sd]? a .*PO Token|PO Token which was not provided/i.test(line)) {
+        const who = client || "기본 클라이언트";
+        if (NEEDS_POT.includes(client)) log.debug(`${who}: POToken을 요구했습니다 (알려진 특성)`);
+        else log.warn({ tags: ["youtube-change"] }, `${who}가 POToken을 요구했습니다. 유튜브 정책이 바뀐 것으로 보입니다`);
+        continue;
+      }
+      log.debug(`yt-dlp 경고${client ? ` (${client})` : ""}: ${line.replace(/^WARNING:\s*/i, "").trim()}`);
+    }
+  }
+
+  /** 이 실패가 클라이언트 탓으로 보이는가 (영상·네트워크 문제와 구별) */
+  static isClientFault(error) {
+    const msg = (error && (error.stderr || error.message)) || String(error || "");
+    if (this.isVideoUnavailableError(error) || this.isAgeRestrictedError(error)) return false;
+    return /requested format is not available|only images are available|no video formats found|PO Token|nsig extraction failed/i.test(msg);
+  }
+
+  static _faultReason(error) {
+    const msg = (error && (error.stderr || error.message)) || String(error || "");
+    if (/PO Token/i.test(msg)) return "POToken 필요";
+    if (/only images are available/i.test(msg)) return "재생 가능한 포맷 없음";
+    if (/requested format is not available/i.test(msg)) return "요청한 포맷 없음";
+    return "포맷 획득 실패";
   }
 
   static async search(query, limit = 1, guildId = null) {
@@ -479,6 +608,6 @@ class YouTube {
   }
 }
 
-YouTube._internals = { BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
+YouTube._internals = { BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot, playerClients };
 
 module.exports = YouTube;

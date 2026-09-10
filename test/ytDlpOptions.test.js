@@ -21,7 +21,8 @@ test("쿠키 미설정이어도 player_client를 강제하지 않음 (우분투 
 test("기본 옵션 유지 + 추가 옵션 병합", () => {
   const opts = YouTube.getYtDlpOptions({ dumpSingleJson: true });
   assert.equal(opts.dumpSingleJson, true);
-  assert.equal(opts.noWarnings, true);
+  // noWarnings는 켜지 않는다 — yt-dlp 경고에 "이 클라이언트는 POToken이 필요하다"가 섞여 온다
+  assert.equal(opts.noWarnings, undefined);
   assert.match(opts.jsRuntimes, /^node:/, "JS 런타임은 자기 node 실행 파일 (deno 불필요)");
   assert.ok(Array.isArray(opts.addHeader));
 });
@@ -63,11 +64,41 @@ test("설치되지 않은 경로는 조용히 null", () => {
   assert.equal(findPluginRoot(path.join(os.tmpdir(), "존재하지-않는-경로-plugroot")), null);
 });
 
-test("bgutil이 설치돼 있으면 pluginDirs가 실제 탐지된 루트의 부모를 가리킨다", (t) => {
-  const { BGUTIL_DIR, BGUTIL_AVAILABLE, BGUTIL_PLUGIN_ROOT } = YouTube._internals;
+test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (t) => {
+  const { BGUTIL_AVAILABLE, BGUTIL_PLUGIN_ROOT } = YouTube._internals;
   if (!BGUTIL_AVAILABLE) return t.skip("bgutil 미설치 (gitignore 대상)");
-  const opts = YouTube.getYtDlpOptions();
-  assert.equal(opts.pluginDirs, BGUTIL_DIR);
   assert.ok(fs.existsSync(BGUTIL_PLUGIN_ROOT), "탐지된 yt_dlp_plugins가 실제로 존재해야 한다");
   assert.equal(path.basename(BGUTIL_PLUGIN_ROOT), "yt_dlp_plugins");
+});
+
+test("BGUTIL_ENABLED=false면 설치돼 있어도 pluginDirs를 넘기지 않는다", () => {
+  // 설치 여부와 무관하게, 끄기로 했으면 안 쓴다
+  const opts = YouTube.getYtDlpOptions();
+  assert.equal(YouTube.potEnabled(), false, "이 테스트는 BGUTIL_ENABLED 기본값(false) 기준");
+  assert.equal(opts.pluginDirs, undefined);
+});
+
+// ── 실패 분류 ────────────────────────────────────────────────────────────────
+// 클라이언트를 바꿔서 나아질 실패와, 바꿔봐야 소용없는 실패를 가른다.
+// 잘못 가르면 멀쩡한 클라이언트가 제외되거나(영상 문제를 클라 탓으로), 헛돈다.
+
+const clientFaults = ["ERROR: [youtube] abc: Requested format is not available. Use --list-formats", "WARNING: Only images are available for download", "mweb client https formats require a GVS PO Token which was not provided", "ERROR: [youtube] abc: No video formats found!"];
+
+const notClientFaults = ["ERROR: [youtube] abc: Video unavailable", "ERROR: [youtube] abc: Private video. Sign in if you've been granted access", "ERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users", "ERROR: unable to download video data: <urlopen error timed out>", "ERROR: [youtube] abc: This video is not available"];
+
+test("클라이언트를 바꿔볼 만한 실패를 알아본다", () => {
+  for (const msg of clientFaults) {
+    assert.equal(YouTube.isClientFault(new Error(msg)), true, msg.slice(0, 50));
+  }
+});
+
+test("영상 문제·네트워크는 클라이언트 탓이 아니다", () => {
+  for (const msg of notClientFaults) {
+    assert.equal(YouTube.isClientFault(new Error(msg)), false, msg.slice(0, 50));
+  }
+});
+
+test("연령 제한은 포맷 오류 문구가 섞여 있어도 클라이언트 탓이 아니다", () => {
+  const e = new Error("Sign in to confirm your age. Requested format is not available");
+  assert.equal(YouTube.isClientFault(e), false, "영상 문제 판정이 먼저다");
 });

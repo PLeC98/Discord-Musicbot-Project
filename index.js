@@ -133,8 +133,17 @@ let bgutilStopping = false;
 
 function startBgutilServer() {
   if (bgutilStopping) return;
-  if (!fs.existsSync(BGUTIL_ENTRY)) {
-    log.warn({ sub: "bgutil" }, "build/main.js 없음: POToken 제공자 비활성");
+  const installed = fs.existsSync(BGUTIL_ENTRY);
+
+  // 쓰지 않겠다고 했으면 조용히 넘어간다. 안 쓸 서버가 없다고 떠들어봐야 의미가 없고,
+  // 인증 없는 로컬 HTTP 서버를 상시 띄우지 않는 것 자체가 이 토글의 목적이다.
+  if (!config.bgutil.enabled) {
+    if (installed) log.debug({ sub: "bgutil" }, "설치돼 있지만 BGUTIL_ENABLED=false — 띄우지 않습니다");
+    return;
+  }
+  // 반대로 쓰겠다고 했는데 없으면 시끄럽게 군다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
+  if (!installed) {
+    log.error({ sub: "bgutil" }, "BGUTIL_ENABLED=true인데 설치돼 있지 않습니다 (pnpm run install:bgutil). POToken 없이 진행합니다");
     return;
   }
   bgutilProc = spawn(process.execPath, ["build/main.js"], {
@@ -514,7 +523,7 @@ function startBot() {
   // Initialize bot
   const init = async () => {
     try {
-      log.info({ tags: ["startup"] }, "음악봇을 시작합니다.");
+      log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
 
       // 재생·캐시 변환이 모두 ffmpeg에 의존하므로 여기서 확정하고 기록한다.
       // 못 찾으면 여기서 기동을 멈춘다
@@ -524,6 +533,9 @@ function startBot() {
         log.error(`${error.message}`);
         process.exit(1);
       }
+
+      // 지금 무엇으로 유튜브에 붙는지 한 줄. 이걸 안 남겨서 bgutil이 3개월간 죽어 있는 걸 몰랐다.
+      require("./src/YouTube").logAuthMode();
 
       // Load commands and events
       loadCommands();
