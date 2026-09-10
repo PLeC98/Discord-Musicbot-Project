@@ -7,8 +7,13 @@ const config = require("../config");
 const CacheManager = require("./CacheManager");
 const { ffmpegPath } = require("./ffmpegPath");
 
-const BGUTIL_PLUGIN_DIR = path.join(__dirname, "..", "bgutil-ytdlp-pot-provider", "plugin");
-const BGUTIL_AVAILABLE = fs.existsSync(BGUTIL_PLUGIN_DIR);
+// yt-dlp의 --plugin-dirs는 **하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트**를 기대한다
+// (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
+// 한 단계 더 들어가 찾다가 아무것도 못 찾고 조용히 넘어간다 — 오류도 경고도 없다.
+// 그래서 plugin/ 이 아니라 그 부모인 저장소 루트를 넘긴다.
+const BGUTIL_DIR = path.join(__dirname, "..", "bgutil-ytdlp-pot-provider");
+// 존재 확인은 실제로 로드될 경로로 한다 — 루트만 보면 clone만 되고 빌드 안 된 상태도 통과한다.
+const BGUTIL_AVAILABLE = fs.existsSync(path.join(BGUTIL_DIR, "plugin", "yt_dlp_plugins"));
 
 class YouTube {
   // yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
@@ -22,7 +27,7 @@ class YouTube {
       ffmpegLocation: ffmpegPath(),
       jsRuntimes: `node:${process.execPath}`,
       addHeader: ["referer:youtube.com", "user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"],
-      ...(BGUTIL_AVAILABLE && { pluginDirs: BGUTIL_PLUGIN_DIR }),
+      ...(BGUTIL_AVAILABLE && { pluginDirs: BGUTIL_DIR }),
       ...extraOptions,
     };
 
