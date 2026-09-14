@@ -548,6 +548,13 @@ class YouTube {
     }
   }
 
+  /** 유튜브 호스트이기만 하면 참 — 재생 가능한 형태인지는 보지 않는다(isYouTubeURL이 본다). */
+  static isYouTubeHost(value) {
+    return this._parseYouTubeURL(value) !== null;
+  }
+
+  // /live/ID는 라이브였던 영상의 링크일 뿐 다른 형태와 같은 영상 ID를 쓴다.
+  // 지금 라이브인지는 URL이 아니라 메타데이터(is_live)가 정한다 — 방송이 끝나면 같은 링크가 VOD가 된다.
   static isYouTubeURL(value) {
     const parsed = this._parseYouTubeURL(value);
     if (!parsed) return false;
@@ -555,7 +562,7 @@ class YouTube {
     if (hostname === "youtu.be") return /^\/[a-zA-Z0-9_-]+/.test(parsed.pathname);
     if (parsed.pathname === "/watch") return /^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("v") || "");
     if (parsed.pathname === "/playlist") return /^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("list") || "");
-    return /^\/(embed|v|shorts)\/[a-zA-Z0-9_-]+/.test(parsed.pathname);
+    return /^\/(embed|v|shorts|live)\/[a-zA-Z0-9_-]+/.test(parsed.pathname);
   }
 
   static isPlaylist(value) {
@@ -589,7 +596,7 @@ class YouTube {
     } else if (parsed.pathname === "/watch") {
       videoId = parsed.searchParams.get("v");
     } else {
-      const match = parsed.pathname.match(/^\/(?:embed|v|shorts)\/([a-zA-Z0-9_-]+)/);
+      const match = parsed.pathname.match(/^\/(?:embed|v|shorts|live)\/([a-zA-Z0-9_-]+)/);
       videoId = match?.[1] || null;
     }
     return /^[a-zA-Z0-9_-]+$/.test(videoId || "") ? videoId : null;
