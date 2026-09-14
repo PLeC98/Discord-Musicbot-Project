@@ -2,16 +2,8 @@
 
 // 재생을 끊지 않고 오디오 소스를 갈아끼우는 스트림.
 //
-// 왜: 스트림이 죽으면 지금은 AudioPlayer가 Idle로 가고 play()를 다시 타 새 리소스를 만든다.
-// 그 사이가 공백으로 들린다. 대신 ffmpeg와 createAudioResource '사이'에 이걸 두면
-// AudioPlayer는 소스가 바뀐 줄도 모르고, playbackDuration도 끊기지 않는다.
-//
-// 서두를 필요가 없다는 게 핵심이다. 청크 수신(src/chunkedStream.js)은 ffmpeg에 청크 하나를
-// 통째로 밀어넣으므로 연결이 죽어도 ffmpeg에 수십 초가 남는다. 그 활주로 동안 캐시 디코더를
-// 띄우고(실측 43ms) 넉넉히 앞선 지점을 전환 지점으로 잡으면 공백이 0이 된다.
-//
-// 이음매는 등출력(equal-power) 크로스페이드로 덮는다. 선형으로 섞으면 교차점에서 -6dB
-// 볼륨 딥이 생기지만 cos/sin은 -3dB로 평탄하다.
+// ffmpeg와 createAudioResource 사이에 두면 AudioPlayer는 소스가 바뀐 줄 모르고 playbackDuration도 이어진다.
+// 이음매는 등출력(cos/sin) 크로스페이드로 덮는다 — 선형으로 섞으면 교차점에서 -6dB 딥이 생긴다.
 //
 // 입출력 모두 s16le 48kHz 스테레오 PCM (MusicPlayer.buildFfmpegArgs의 출력 형식).
 

@@ -155,6 +155,22 @@ test("큐 반복: 자연 종료/스킵은 끝난 곡을 대기열 끝으로 (기
   assert.deepEqual(titles(p.previousTracks), ["A"]);
 });
 
+// ── 조기 종료 재시도 ──────────────────────────────────────────
+
+test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
+  const [A, B] = ["A", "B"].map((t) => makeTrack(t));
+  const p = makePlayer({ current: A, queue: [B] });
+  p.resource = { playbackDuration: 0 }; // 곡 길이보다 한참 덜 재생 = 조기 종료
+
+  for (let i = 0; i < 4; i++) await handleTrackEnd.call(p, "idle");
+
+  assert.deepEqual(
+    p.played.map((x) => x.title),
+    ["A", "A", "B", "B"],
+    "앞 곡의 소진된 카운터를 물려받으면 B는 재시도 없이 넘어간다",
+  );
+});
+
 // ── 반복 없음 ─────────────────────────────────────────────────
 
 test("반복 없음: 스킵은 다음 곡 진행 + 기록 (기존 동작 보존)", async () => {

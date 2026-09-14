@@ -115,3 +115,15 @@ test("캐시가 있으면 현재 위치보다 앞선 지점에 예약한다", ()
   next.destroy?.();
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("예약했는지를 돌려준다 — 청크 스트림이 이어받을지 이걸로 정한다", () => {
+  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK, file: null }), fakeSplicer(), TRACK), false);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
+  const file = path.join(dir, "c.opus");
+  fs.writeFileSync(file, Buffer.alloc(4096));
+  const sp = fakeSplicer();
+  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK, file }), sp, TRACK), true);
+  sp.calls[0].next.destroy?.();
+  fs.rmSync(dir, { recursive: true, force: true });
+});

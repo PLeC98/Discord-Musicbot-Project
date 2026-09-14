@@ -220,6 +220,16 @@ test("옛 소스가 전환 전에 말라도 공백 없이 새 소스로 넘어�
   assert.ok(out.length > 100 * BYTES_PER_MS, "옛 소스가 끝난 뒤에도 계속 나왔다");
 });
 
+test("한 바이트도 못 내보낸 채 옛 소스가 끝나도 예약된 소스로 넘어간다 (재생 시작 전 끊김)", async () => {
+  const src = new PassThrough();
+  const nxt = feed();
+  const sp = new AudioSplicer(src, { fadeMs: 40 });
+  sp.planSwitch(nxt, 2000);
+  nxt.writeAll(pcm(200, 2));
+  src.end();
+  assert.deepEqual(await collect(sp), pcm(200, 2));
+});
+
 test("전환을 두 번 예약하지 않는다", async () => {
   const src = feed();
   const sp = new AudioSplicer(src);

@@ -18,7 +18,7 @@ const TrackResolver = require("./TrackResolver");
 const SponsorBlock = require("./SponsorBlock");
 const SponsorSkipper = require("./SponsorSkipper");
 const DirectLink = require("./DirectLink");
-const { openChunkedStream, contentLengthFromUrl } = require("./chunkedStream");
+const { openChunkedStream, contentLengthFromUrl, describeStreamError } = require("./chunkedStream");
 const { AudioSplicer } = require("./audioSplicer");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
@@ -34,6 +34,10 @@ const fsSync = require("fs");
 // 사용자가 조정해서 나아질 여지가 없다. 끄는 손잡이(STREAM_SEAMLESS)만 설정으로 둔다.
 const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가 (캐시 디코더 기동 실측 43ms)
 const SWITCH_FADE_MS = 40; // 등출력 크로스페이드 길이
+const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
+const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
+
+const sec = (ms) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 class MusicPlayer {
   constructor(guild, textChannel, voiceChannel) {
@@ -169,12 +173,8 @@ class MusicPlayer {
       this.onPlayerIdle("idle");
     });
 
-    // 내장 방어(maxMissedFrames)는 Playing 중에만 돈다. Buffering에서 데이터도 오류도 끝도
-    // 오지 않으면 아무도 깨우지 않는다 — 지금 그 구간에 대한 가시성이 0이라 관측만 붙인다.
-    //
-    // 전이 자체는 정상 동작이라 debug다(트랙당 3회, 전체 로그의 21%였다). 사건은 두 가지뿐이고
-    // 그것만 warn으로 남는다: 버퍼링이 3초를 넘김, 워치독이 트랙을 정지시킴.
-    // 다시 관측하려면 LOG_LEVEL=debug.
+    // 내장 방어(maxMissedFrames)는 Playing 중에만 돈다. Buffering에서 멈추면 시작 워치독이 깨운다.
+    // 전이 자체는 정상 동작이라 debug, 버퍼링이 3초를 넘기면 warn.
     this.audioPlayer.on("stateChange", (oldState, newState) => {
       if (oldState.status === newState.status) return;
 
@@ -409,6 +409,8 @@ class MusicPlayer {
         // pipe로만 넣는다 — ffmpeg에 URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패 폴백을
         // 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 링크 빌드는 여기서 SIGSEGV로 죽는다).
         let audioStream;
+        // 청크 스트림이 끊겼을 때 부를 훅 — 스플라이서가 아래에서 만들어진 뒤 채운다
+        const streamHooks = { interrupt: () => false, resumed: () => {} };
         if (typeof streamInfo === "object" && streamInfo.stream) {
           audioStream = streamInfo.stream;
         } else if (typeof streamUrl_final === "string") {
@@ -428,7 +430,14 @@ class MusicPlayer {
               const totalBytes = config.stream.chunked ? contentLengthFromUrl(fetchUrl) : null;
               if (totalBytes) {
                 // await로 첫 요청까지 여기서 끝낸다 — 실패가 아래 catch의 캐시 폴백으로 가도록
-                audioStream = await openChunkedStream({ url: fetchUrl, headers: reqHeaders, totalBytes, chunkSize: config.stream.chunkBytes });
+                audioStream = await openChunkedStream({
+                  url: fetchUrl,
+                  headers: reqHeaders,
+                  totalBytes,
+                  chunkSize: config.stream.chunkBytes,
+                  onInterrupt: (err) => streamHooks.interrupt(err),
+                  onResumed: (info) => streamHooks.resumed(info),
+                });
               } else {
                 const response = await fetch(fetchUrl, { headers: reqHeaders });
 
@@ -461,6 +470,9 @@ class MusicPlayer {
           audioStream = streamUrl_final;
         }
 
+        this._inputToken = null;
+        this._inputProgressAt = null;
+
         // 스트리밍에 실패했고 다운로드 파일이 있으면 파일 재생으로 건너뜀
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
@@ -474,15 +486,35 @@ class MusicPlayer {
           // 거치지 않고 캐시 파일로 넘어가므로 공백이 들리지 않는다(_planCacheSwitch).
           const playSource = config.stream.seamless ? new AudioSplicer(ffmpeg.stdout, { fadeMs: SWITCH_FADE_MS }) : ffmpeg.stdout;
 
-          // pipe 입력 경로: 스트림 중간의 CDN ECONNRESET이 위로 전파되어 uncaughtException이 되는 걸 막고,
-          // AudioPlayer가 Idle로 전환되면 캐시 기반 복구가 트리거되므로 여기선 오류를 흡수만 한다.
+          const streamDetail = () => {
+            const st = audioStream.stats?.();
+            return st ? `청크 #${st.requests} · ${st.received}/${st.totalBytes}B · 마지막 수신 ${sec(st.idleMs)}초 전 · URL 만료 ${st.expiresInS ?? "?"}초 후` : "단일 GET";
+          };
+          // 끊기면 캐시 전환을 먼저 시도한다. 예약되면 청크 스트림은 이어받지 않고 받아 둔 데까지만 흘린다
+          streamHooks.interrupt = (err) => {
+            log.debug(`스트림 중단: ${describeStreamError(err)} | ${streamDetail()}`);
+            return playSource !== ffmpeg.stdout && this._planCacheSwitch(playSource, playingTrack);
+          };
+          streamHooks.resumed = ({ attempts, downtimeMs, starvedMs }) => {
+            const line = `스트림 이어받음: ${this._trackLabel(playingTrack)} | 재시도 ${attempts}회, ${sec(downtimeMs)}초`;
+            if (starvedMs > 0) log.warn({ tags: ["retry"] }, `${line} — 그동안 공급이 ${sec(starvedMs)}초 끊겼습니다`);
+            else log.info({ tags: ["retry", "recovered"] }, line);
+          };
+          // 이어받기로도 못 살렸다. ffmpeg 입력을 닫아야 출력이 끝나 예약된 전환이나 Idle(→ 끊긴 위치부터 재개)로 넘어간다
           audioStream.on("error", (err) => {
-            log.warn({ tags: ["fallback"] }, `오디오 스트림 중단됨: ${err.code || err.message} — 캐시로 복구를 시도합니다.`);
+            log.debug(`스트림 중단(복구 불가): ${describeStreamError(err)} | ${streamDetail()}`);
             if (playSource !== ffmpeg.stdout) this._planCacheSwitch(playSource, playingTrack);
+            if (!ffmpeg.stdin.destroyed && !ffmpeg.stdin.writableEnded) ffmpeg.stdin.end();
           });
           // ffmpeg가 끝나면 입력 스트림도 닫는다 — .pipe 바깥이라 자동 정리 대상이 아니다.
           ffmpeg.once("exit", () => audioStream.destroy());
           audioStream.pipe(ffmpeg.stdin);
+          // pipe 뒤에 붙인다 — 먼저 붙이면 흐르기 시작한 데이터가 목적지 없이 버려진다
+          const inputToken = {};
+          this._inputToken = inputToken;
+          audioStream.on("data", () => {
+            if (this._inputToken === inputToken) this._inputProgressAt = Date.now();
+          });
 
           this.resource = createAudioResource(playSource, {
             inputType: StreamType.Raw,
@@ -614,17 +646,13 @@ class MusicPlayer {
   }
 
   /**
-   * 스트림이 죽었을 때 캐시 파일로 소리 없이 갈아탄다.
-   *
-   * 캐시가 아직 없으면 아무것도 하지 않는다 — 기존 경로(Idle → play(위치))가 그 상황을 이미
-   * 처리한다. 그 경로는 캐시가 끝났으면 파일로, 아니면 스트림을 다시 여니 재시도와 대기가
-   * 둘 다 들어 있다. 여기서 다운로드를 기다리는 코드를 따로 만들 이유가 없다.
+   * 스트림이 죽었을 때 캐시 파일로 소리 없이 갈아탄다. 예약했으면 true.
+   * 캐시가 아직 없으면 하지 않는다 — 스트림이 이어받거나, Idle → play(위치)가 받는다.
    */
   _planCacheSwitch(splicer, track) {
-    // 포기하는 경로가 넷인데 전부 무음이었다. 그러면 "스트림이 끊겼다"는 줄 뒤에 아무것도
-    // 안 남아, 무지연 전환을 시도했는지조차 알 수 없다(실측: 중단 48건 중 9건이 후속 줄 없음).
     const giveUp = (why) => {
       wlog.debug(`무지연 전환 포기: ${this._trackLabel()} — ${why}`);
+      return false;
     };
 
     if (!splicer || splicer.destroyed || splicer.switchPending) return giveUp("전환할 수 있는 상태가 아님");
@@ -648,18 +676,19 @@ class MusicPlayer {
       decoder = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file, seekMs }), "switch");
     } catch (error) {
       log.warn(`캐시 재생용 ffmpeg를 띄우지 못했습니다: ${error.message}`);
-      return;
+      return false;
     }
 
     if (!splicer.planSwitch(decoder.stdout, atMs)) {
       decoder.kill("SIGKILL");
-      return;
+      return false;
     }
     splicer.once("switched", (ms) => {
       log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
       // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
       wlog.debug(`무지연 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
     });
+    return true;
   }
 
   scheduleTrackWatchdog(streamInfo = null) {
@@ -730,17 +759,24 @@ class MusicPlayer {
     return `${url}${separator}begin=${startMs}`;
   }
 
-  // Buffering이 안 끝나면 아무 이벤트도 안 온다 — 경과만 주기적으로 남긴다(동작 없음)
+  // Buffering이 안 끝나면 voice는 아무 이벤트도 내지 않는다
   _startBufferingWatch() {
     this._clearBufferingWatch();
     this._bufferingSince = Date.now();
-    let logged = 0;
-    this._bufferingTimer = setInterval(() => {
-      const sec = ((Date.now() - this._bufferingSince) / 1000).toFixed(0);
-      wlog.warn(`버퍼링 ${sec}초 지속: ${this._trackLabel()} — 아직 재생이 시작되지 않았습니다`);
-      if (++logged >= 20) this._clearBufferingWatch(); // 무한 도배 방지
-    }, 15000);
+    this._bufferingTimer = setInterval(() => this._checkBufferingStall(), 1000);
     this._bufferingTimer.unref?.();
+  }
+
+  // 입력이 조금씩이라도 들어오면 정체가 아니다 — Range를 못 쓰는 입력의 위치 재개는 앞부분을 읽어 넘기느라 오래 걸린다
+  _checkBufferingStall(now = Date.now()) {
+    if (this.audioPlayer?.state?.status !== AudioPlayerStatus.Buffering) return this._clearBufferingWatch();
+    const quietSince = Math.max(this._bufferingSince ?? now, this._inputProgressAt ?? 0);
+    if (now - quietSince < BUFFERING_STALL_MS) return;
+    this._clearBufferingWatch();
+    wlog.warn(`재생이 시작되지 않아 다시 시도합니다: ${this._trackLabel()} | 버퍼링 ${sec(now - this._bufferingSince)}초, 입력 없음 ${sec(now - quietSince)}초`);
+    if (!this.pendingEndReason) this.pendingEndReason = "buffering-stall";
+    // force 없이는 무음 패딩만 예약되고 Buffering에서 벗어나지 않는다(패딩은 Playing에서만 소비된다)
+    this.audioPlayer.stop(true);
   }
 
   _clearBufferingWatch() {
@@ -1297,17 +1333,24 @@ class MusicPlayer {
 
       const endedLabel = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
       this._endingLabel = null;
-      log.info(`트랙 종료: ${endedLabel} | 원인=${reason}${endedUnexpectedly ? " | 조기종료로 판정 → 복구 시도" : ""}`);
+      log.info(`트랙 종료: ${endedLabel} | 원인=${reason}`);
       // 재생/길이 대조는 종료 감시 판정용 수치라 조사할 때만 본다.
       wlog.debug(`트랙 종료 상세: 재생 ${(totalPlaybackMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}`);
 
       if (endedUnexpectedly) {
+        // 곡이 바뀌는 경로가 여기만이 아니라서, 포기할 때 비우는 대신 곡으로 가른다
+        if (this._retryTrack !== finishedTrack) {
+          this._retryTrack = finishedTrack;
+          this.currentTrackRetries = 0;
+        }
         this.currentTrackRetries += 1;
-        if (this.currentTrackRetries <= 2) {
-          // 마지막으로 알려진 위치에서 같은 트랙 재개 시도
+        const at = `${sec(totalPlaybackMs)}초`;
+        if (this.currentTrackRetries <= MAX_TRACK_RETRIES) {
+          log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${endedLabel} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
           await this.play(null, totalPlaybackMs);
           return;
         }
+        log.error(`재생을 복구하지 못해 다음 곡으로 넘깁니다: ${endedLabel} | ${at} 지점, 재시도 ${MAX_TRACK_RETRIES}회 소진`);
       } else {
         this.currentTrackRetries = 0;
       }

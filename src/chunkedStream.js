@@ -2,62 +2,102 @@
 
 // Range 요청으로 나눠 받는 읽기 스트림.
 //
-// 왜: googlevideo는 순차 GET을 재생시간의 약 2배속(30~33 KB/s)으로 조인다. 실측에서 영상 4개가
-// 전부 같았고, Range 요청은 이 페이싱을 우회한다(수백~수천 배). yt-dlp의 --http-chunk-size,
-// ytdl-core의 dlChunkSize가 같은 방식이다.
-//
-// 증상: 오프셋 재생이 "오프셋 ÷ 2"초를 기다린다(SponsorBlock으로 37초를 건너뛰면 버퍼링 17초).
-// 건너뛸 구간의 바이트가 도착하기를 기다리는 시간이지, 디코드 비용이 아니다(그건 0.1초다).
-//
-// ffmpeg에도 같은 목적의 request_size 옵션이 있지만 ffmpeg가 직접 HTTP를 할 때만 먹는다.
-// 이 프로젝트는 ffmpeg에 URL을 주지 않으므로(정적 링크 빌드가 주소 해석에서 죽는다) Node가 한다.
-//
-// 응답 본문을 통째로 메모리에 올리지 않고 조각째 밀어낸다. arrayBuffer()로 받으면 메모리가
-// 청크 크기에 비례하지만(1MB 청크에 서버당 5MB), 이렇게 하면 청크 크기와 무관하게 평탄하다.
+// googlevideo는 순차 GET을 재생 속도의 약 2배로 조이고(Range는 우회한다), 재생 속도 이하로 읽히는
+// 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
+// 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 
 const { Readable } = require("stream");
 
+const RETRY_DELAYS_MS = [500, 1000, 2000];
+const STALL_MS = 10_000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 다시 요청해도 결과가 같은 실패 — 4xx(만료·차단)와 구간 어긋남
+function permanent(message) {
+  return Object.assign(new Error(message), { permanent: true });
+}
+
+function httpError(status) {
+  const message = `Range 요청 실패: HTTP ${status}`;
+  return status >= 500 ? Object.assign(new Error(message), { status }) : Object.assign(permanent(message), { status });
+}
+
 /**
- * @param {string}   url         받을 주소 (서명된 미디어 URL)
- * @param {object}   headers     yt-dlp가 준 요청 헤더
- * @param {number}   totalBytes  전체 길이. googlevideo는 URL의 clen 파라미터로 준다
- * @param {number}   chunkSize   요청 하나가 가져올 최대 바이트
- * @param {Function} fetchImpl   테스트 주입용 — 기본은 전역 fetch
- * @returns {Readable} `on("error")` / `destroy()` / `pipe()` 계약을 만족하는 스트림
+ * @param {string}   url          받을 주소 (서명된 미디어 URL)
+ * @param {object}   headers      yt-dlp가 준 요청 헤더
+ * @param {number}   totalBytes   전체 길이. googlevideo는 URL의 clen 파라미터로 준다
+ * @param {number}   chunkSize    요청 하나의 크기 = 미리 받아 두는 양의 단위
+ * @param {(err: Error) => boolean} [onInterrupt]
+ *   재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것 — 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
+ * @param {(info: {attempts: number, downtimeMs: number, starvedMs: number}) => void} [onResumed]
+ *   끊긴 뒤 다시 받기 시작했을 때. starvedMs는 그동안 내보낼 것이 없어 소비자가 기다린 시간이다.
+ * @param {Function} fetchImpl    테스트 주입용 — 기본은 전역 fetch
+ * @returns {Readable}
  */
-function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, fetchImpl = fetch }) {
+function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }) {
   if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않습니다: ${totalBytes}`);
   if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않습니다: ${chunkSize}`);
 
-  let pos = 0;
-  let pumping = false;
-  let reader = null;
-  let aborter = null;
-  let requests = 0;
+  // 남은 양이 이 아래로 떨어지면 다음 청크를 받는다
+  const lowWater = Math.max(1, Math.floor(chunkSize / 4));
 
-  // 첫 요청의 성패를 밖에서 기다릴 수 있게 한다(openChunkedStream 참조).
-  // 이게 없으면 만료된 URL 같은 실패가 호출부의 try/catch를 지나쳐 재생 시작 뒤에야 드러난다.
-  let settleReady;
+  let pos = 0; // 받은 바이트 = 다음 요청의 시작 위치
+  let target = 0; // 지금 받는 청크의 끝(미포함)
+  const queue = [];
+  let queued = 0;
+  let wanting = false;
+  let fetching = false;
+  let ended = false;
+  let handedOff = false;
+  let aborter = null;
+  let stallTimer = null;
+  let wakeRoom = null;
+
+  let primed = false;
+  let settleReady = null;
   let ready = null;
+
+  let failures = 0; // 연속 실패. 바이트를 받으면 0
+  let interruptedAt = 0;
+  let starvedSince = 0;
+
+  let requests = 0;
+  let chunkStart = 0;
+  let openedAt = 0;
+  let lastReadAt = 0;
 
   const stream = new Readable({
     read() {
-      pump();
+      wanting = true;
+      drain();
     },
     destroy(err, cb) {
-      abort();
+      clearTimeout(stallTimer);
+      aborter?.abort();
+      wakeRoom?.();
       cb(err);
     },
   });
 
-  function abort() {
-    try {
-      aborter?.abort();
-    } catch {
-      /* 이미 끝난 요청 */
+  function drain() {
+    while (wanting && queue.length > 0 && !stream.destroyed) {
+      const chunk = queue.shift();
+      queued -= chunk.length;
+      wanting = stream.push(chunk);
     }
-    aborter = null;
-    reader = null;
+    if (wakeRoom && queued < chunkSize) {
+      wakeRoom();
+      wakeRoom = null;
+    }
+    if (stream.destroyed || ended) return;
+    if (queue.length === 0 && !fetching && (handedOff || pos >= totalBytes)) {
+      ended = true;
+      stream.push(null);
+      return;
+    }
+    if (wanting && queue.length === 0 && interruptedAt && !starvedSince) starvedSince = Date.now();
+    if (!fetching && !handedOff && pos < totalBytes && queued < lowWater) fill();
   }
 
   // Content-Range: "bytes <start>-<end>/<total>" — 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
@@ -66,58 +106,107 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, fetchIm
     if (!cr) return;
     const start = Number(/bytes\s+(\d+)-/i.exec(cr)?.[1]);
     if (Number.isFinite(start) && start !== expected) {
-      throw new Error(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
+      throw permanent(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
     }
   }
 
-  async function openNext() {
-    const end = Math.min(pos + chunkSize, totalBytes) - 1;
+  function armStall() {
+    clearTimeout(stallTimer);
+    const request = aborter;
+    stallTimer = setTimeout(() => request?.abort(Object.assign(new Error(`${stallMs / 1000}초 동안 받은 데이터가 없습니다`), { code: "STREAM_STALL" })), stallMs);
+    stallTimer.unref?.();
+  }
+
+  function resumed(attempts) {
+    const now = Date.now();
+    const info = { attempts, downtimeMs: now - interruptedAt, starvedMs: starvedSince ? now - starvedSince : 0 };
+    interruptedAt = 0;
+    starvedSince = 0;
+    onResumed?.(info);
+  }
+
+  async function receive() {
     aborter = new AbortController();
     requests++;
-    const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=${pos}-${end}` }, signal: aborter.signal });
-
-    if (res.status === 206) {
-      assertRangeStart(res, pos);
-    } else if (res.status === 200 && pos === 0) {
-      // 서버가 Range를 무시했다. 첫 요청이라 본문이 곧 전체 파일이므로 그대로 다 읽으면 된다
-      // (페이싱 우회는 못 하지만 재생은 정상). 두 번째 요청부터의 200은 구간이 어긋나므로 오류다.
-      chunkSize = totalBytes;
-    } else {
-      throw new Error(`Range 요청 실패: HTTP ${res.status}`);
-    }
-
-    if (!res.body) throw new Error("응답 본문이 없습니다");
-    settleReady?.(null);
-    return res.body.getReader();
-  }
-
-  async function pump() {
-    if (pumping || stream.destroyed) return;
-    pumping = true;
+    chunkStart = pos;
+    openedAt = lastReadAt = Date.now();
+    armStall();
     try {
-      while (!stream.destroyed) {
-        if (!reader) {
-          if (pos >= totalBytes) break;
-          reader = await openNext();
+      const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=${pos}-${target - 1}` }, signal: aborter.signal });
+
+      if (res.status === 206) {
+        assertRangeStart(res, pos);
+      } else if (res.status === 200 && pos === 0) {
+        // Range를 무시했다. 첫 요청이면 본문이 곧 전체 파일이다(조임은 못 피해도 재생은 된다)
+        target = totalBytes;
+      } else {
+        throw httpError(res.status);
+      }
+      if (!res.body) throw permanent("응답 본문이 없습니다");
+
+      if (!primed) {
+        primed = true;
+        settleReady?.(null);
+      }
+
+      const reader = res.body.getReader();
+      while (pos < target) {
+        if (queued >= chunkSize + lowWater) {
+          // Range를 무시한 200 응답에서만 걸린다 — 파일 전체를 메모리에 올리지 않도록
+          clearTimeout(stallTimer);
+          await new Promise((resolve) => (wakeRoom = resolve));
           if (stream.destroyed) return;
+          armStall();
         }
         const { done, value } = await reader.read();
-        if (done) {
-          reader = null;
-          aborter = null;
-          continue;
-        }
+        if (done) break;
+        queue.push(Buffer.from(value));
+        queued += value.length;
         pos += value.length;
-        // push가 false면 소비 측이 포화된 것 — 다음 _read()가 이어서 부른다(백프레셔)
-        if (!stream.push(Buffer.from(value))) return;
+        lastReadAt = Date.now();
+        armStall();
+        if (interruptedAt) resumed(failures);
+        failures = 0;
+        drain();
       }
-      if (pos >= totalBytes) stream.push(null);
+      if (pos < target) throw new Error(`응답이 일찍 끝났습니다 (${pos}/${target}B)`);
     } catch (err) {
-      if (err?.name === "AbortError" || stream.destroyed) return;
+      aborter?.abort(); // 버린 요청이 열린 채 남지 않게
+      throw err;
+    } finally {
+      clearTimeout(stallTimer);
+      aborter = null;
+    }
+  }
+
+  async function fill() {
+    fetching = true;
+    target = Math.min(pos + chunkSize, totalBytes);
+    try {
+      for (;;) {
+        try {
+          await receive();
+          return;
+        } catch (err) {
+          if (stream.destroyed) return;
+          if (primed && !interruptedAt) {
+            interruptedAt = Date.now();
+            if (onInterrupt?.(err)) {
+              handedOff = true;
+              return;
+            }
+          }
+          if (err.permanent || failures >= retryDelaysMs.length) throw err;
+          await sleep(retryDelaysMs[failures++]);
+          if (stream.destroyed) return;
+        }
+      }
+    } catch (err) {
       settleReady?.(err);
       stream.destroy(err);
     } finally {
-      pumping = false;
+      fetching = false;
+      drain();
     }
   }
 
@@ -131,24 +220,36 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, fetchIm
           else resolve();
         };
       });
-      pump();
+      if (primed) settleReady(null);
+      else if (!fetching) fill();
     }
     return ready;
   };
 
-  // 관측용 — 로그·테스트에서 요청 횟수와 진행 위치를 볼 때
-  stream.stats = () => ({ requests, received: pos, totalBytes });
+  const expire = Number(new URL(url, "http://_").searchParams.get("expire"));
+  stream.stats = () => {
+    const now = Date.now();
+    return {
+      requests,
+      received: pos,
+      totalBytes,
+      queued,
+      chunkStart,
+      chunkReceived: pos - chunkStart,
+      sinceOpenMs: openedAt ? now - openedAt : null,
+      idleMs: lastReadAt ? now - lastReadAt : null,
+      expiresInS: expire > 0 ? expire - Math.floor(now / 1000) : null,
+    };
+  };
   return stream;
 }
 
 /**
  * createChunkedStream + 첫 요청 대기. 실패하면 여기서 던지므로 호출부의 폴백이 그대로 동작한다.
- * (단일 GET 시절 `await fetch(...)`가 서 있던 자리와 같은 의미)
  */
 async function openChunkedStream(opts) {
   const stream = createChunkedStream(opts);
-  // 오류는 prime()의 거부로도 전달되므로, 스트림 자신의 error 이벤트가 듣는 사람 없이 떠서
-  // uncaughtException이 되는 것만 막는다. 리스너가 여럿이어도 호출부 핸들러는 그대로 불린다 —
+  // 오류는 prime()의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException이 되는 것만 막는다 —
   // 호출부는 여전히 자기 on("error")를 붙여야 한다.
   stream.on("error", () => {});
   try {
@@ -160,8 +261,7 @@ async function openChunkedStream(opts) {
   return stream;
 }
 
-// googlevideo URL은 전체 길이를 clen 파라미터로 들고 있다. HEAD 요청이 필요 없다.
-// 값이 없으면(라이브 스트림 등) null — 호출부는 이때 단일 GET으로 돌아간다.
+// googlevideo URL은 전체 길이를 clen 파라미터로 들고 있다. 값이 없으면(라이브 스트림 등) null.
 function contentLengthFromUrl(url) {
   try {
     const clen = Number(new URL(url).searchParams.get("clen"));
@@ -171,4 +271,18 @@ function contentLengthFromUrl(url) {
   }
 }
 
-module.exports = { createChunkedStream, openChunkedStream, contentLengthFromUrl };
+// undici fetch는 소켓 오류를 "terminated"로 감싸고 진짜 사유는 cause에 둔다
+function describeStreamError(err) {
+  const parts = [];
+  for (let e = err, depth = 0; e != null && depth < 4; e = e.cause, depth++) {
+    if (typeof e !== "object") {
+      parts.push(String(e));
+      break;
+    }
+    const msg = e.message || String(e);
+    parts.push(e.code && !msg.includes(e.code) ? `${e.code} ${msg}` : msg);
+  }
+  return parts.join(" ← ");
+}
+
+module.exports = { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError };
