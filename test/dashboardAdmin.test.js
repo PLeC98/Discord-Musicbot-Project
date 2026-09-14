@@ -234,6 +234,39 @@ test("POST broadcast: 빈 내용 400", async () => {
   assert.equal(r.status, 400);
 });
 
+// 회귀: message가 객체면 `message?.trim()`에서 TypeError가 나 500이 됐다. 길이·종류도 안 봤다.
+test("POST broadcast: 문자열·길이·종류를 검증한다", async () => {
+  for (const body of [{ message: { evil: 1 } }, { message: 42 }, {}]) {
+    const r = await req("POST", "/api/admin/broadcast", body);
+    assert.equal(r.status, 400, JSON.stringify(body));
+  }
+
+  const tooLong = await req("POST", "/api/admin/broadcast", { message: "가".repeat(4097) });
+  assert.equal(tooLong.status, 400, "embed description 상한(4096)");
+  assert.match(tooLong.json.error, /4096/);
+
+  const badType = await req("POST", "/api/admin/broadcast", { message: "안내", type: "없는종류" });
+  assert.equal(badType.status, 400, "모르는 종류를 info로 조용히 바꾸지 않는다");
+
+  const ok = await req("POST", "/api/admin/broadcast", { message: "가".repeat(4096) });
+  assert.equal(ok.status, 200, "상한 경계는 통과");
+});
+
+test("POST broadcast: 한 곳도 못 보내면 성공으로 돌려주지 않는다", async () => {
+  const saved = botChannelOf;
+  const guilds = client.guilds.cache;
+  client.guilds.cache = new Map(); // 보낼 서버가 없는 상태
+  try {
+    const r = await req("POST", "/api/admin/broadcast", { message: "아무도 못 받음" });
+    assert.equal(r.status, 502);
+    assert.equal(r.json.success, false);
+    assert.equal(r.json.sent, 0);
+  } finally {
+    client.guilds.cache = guilds;
+    botChannelOf = saved;
+  }
+});
+
 test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
   botChannelOf = (guildId) => (guildId === "300" ? null : `bc-${guildId}`);
   for (const g of [g1, g2, gStuck]) g.botChannel.sent.length = 0;

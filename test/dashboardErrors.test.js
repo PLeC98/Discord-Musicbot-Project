@@ -110,6 +110,21 @@ test("분류: SQLITE_*·I/O 오류는 503, 4xx는 그대로, 나머지는 500", 
   assert.equal(c(Object.assign(new Error("x"), { status: 502 })), 500);
 });
 
+// 2026-09-15 사용자 보고: 긴 공지를 보내면 대시보드에 "발송 실패"만 떠 무엇을 고칠지 알 수 없었다.
+// 내부 사정은 감추되 **무엇을 고쳐야 하는지**는 알려 준다.
+test("분류: 413·429는 고칠 방법이 드러나는 문구를 준다", () => {
+  const tooLarge = _internals.classify(Object.assign(new Error("request entity too large"), { status: 413, type: "entity.too.large" }));
+  assert.equal(tooLarge.status, 413);
+  assert.match(tooLarge.message, /너무 깁니다/);
+  assert.ok(!tooLarge.message.includes("entity"), "내부 용어는 내보내지 않는다");
+
+  const tooMany = _internals.classify(Object.assign(new Error("x"), { status: 429 }));
+  assert.match(tooMany.message, /잦습니다/);
+
+  // 나머지 4xx는 그대로 일반 문구
+  assert.match(_internals.classify(Object.assign(new Error("x"), { status: 400 })).message, /형식/);
+});
+
 test("분류: 어떤 경우에도 err.message를 사용자 문구로 쓰지 않는다", () => {
   const { message } = _internals.classify(Object.assign(new Error("database disk image is malformed"), { code: "SQLITE_CORRUPT" }));
   assert.ok(!message.includes("malformed"));

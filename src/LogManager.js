@@ -75,6 +75,7 @@ class LogManager {
     this.consoleLevel = 0;
     this.buffer = [];
     this.clients = new Set();
+    this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
     this.destinations = []; // file(logFile.js), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
     // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다 — 그게 파일에서
@@ -119,9 +120,14 @@ class LogManager {
     const payload = `data: ${JSON.stringify(entry)}\n\n`;
     for (const res of this.clients) {
       try {
-        res.write(payload);
+        // write가 false면 커널 버퍼가 찼다는 뜻 — 읽지 않는 소비자를 붙들고 있으면 메모리가 는다.
+        // 로그는 지나간 것을 되돌려 줄 성질이 아니므로 기다리지 않고 끊는다(다시 열면 버퍼부터 받는다).
+        if (res.write(payload) === false) {
+          res.end();
+          this._dropClient(res);
+        }
       } catch {
-        this.clients.delete(res);
+        this._dropClient(res);
       }
     }
 
@@ -209,7 +215,19 @@ class LogManager {
     return typeof s === "string" ? s.replace(ANSI_RE, "") : String(s ?? "");
   }
 
+  /**
+   * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
+   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`) — "SSE 연결을 몇 개까지 두느냐"는 한 가지 질문이다.
+   *
+   * 상한을 넘으면 429. 느린 소비자는 _record가 정리한다(아래 write 반환값 확인).
+   */
   addClient(res) {
+    const { maxPerUser, heartbeatMs } = require("../config").dashboard.sse;
+    if (this.clients.size >= maxPerUser) {
+      res.status(429).json({ error: "로그 연결이 너무 많습니다" });
+      return;
+    }
+
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -222,8 +240,35 @@ class LogManager {
       res.write(`data: ${JSON.stringify(entry)}\n\n`);
     }
 
+    // 유휴 연결이 프록시 타임아웃에 끊기지 않게 주석 프레임을 보낸다(대시보드 SSE와 같은 방식).
+    const ping = setInterval(() => {
+      try {
+        res.write(": ping\n\n");
+      } catch {
+        cleanup();
+      }
+    }, heartbeatMs);
+    if (ping.unref) ping.unref();
+
+    let done = false;
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      clearInterval(ping);
+      this.clients.delete(res);
+    };
+
     this.clients.add(res);
-    res.on("close", () => this.clients.delete(res));
+    this._cleanups.set(res, cleanup);
+    res.on("close", cleanup);
+    res.on("error", cleanup);
+  }
+
+  /** 연결 정리 — 쓰기 실패 경로에서도 하트비트까지 함께 걷는다. */
+  _dropClient(res) {
+    const cleanup = this._cleanups.get(res);
+    if (cleanup) cleanup();
+    else this.clients.delete(res);
   }
 }
 

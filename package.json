@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
+    "dev": "node scripts/dev.js",
     "cmddeploy": "node scripts/deploy-commands.js",
     "install:bgutil": "node scripts/install-bgutil.js",
     "update:bgutil": "node scripts/install-bgutil.js --update",

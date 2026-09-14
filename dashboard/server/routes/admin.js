@@ -70,24 +70,30 @@ router.get("/status", requireOwner, (req, res) => {
 });
 
 // 전체 서버 공지
+const ANNOUNCE_TYPES = {
+  maintenance: { color: "#FFA500", emoji: "🔧", title: "봇 점검 안내" },
+  update: { color: "#57F287", emoji: "🆕", title: "봇 업데이트 안내" },
+  alert: { color: "#ED4245", emoji: "⚠️", title: "긴급 공지" },
+  info: { color: "#5865F2", emoji: "ℹ️", title: "공지사항" },
+};
+const ANNOUNCE_MAX = 4096; // 디스코드 embed description 상한
+
 router.post("/broadcast", requireOwner, async (req, res) => {
-  const { message, type = "maintenance" } = req.body;
-  if (!message?.trim()) return res.status(400).json({ error: "공지 내용을 입력해 주세요." });
+  const { message, type = "maintenance" } = req.body ?? {};
+
+  // 문자열인지 먼저 본다 — 객체가 오면 message.trim()에서 TypeError가 나 500이 됐다
+  if (typeof message !== "string" || !message.trim()) return res.status(400).json({ error: "공지 내용을 입력해 주세요." });
+  const body = message.trim();
+  if (body.length > ANNOUNCE_MAX) return res.status(400).json({ error: `공지는 ${ANNOUNCE_MAX}자까지 보낼 수 있습니다 (지금 ${body.length}자).` });
+  if (typeof type !== "string" || !Object.hasOwn(ANNOUNCE_TYPES, type)) return res.status(400).json({ error: "공지 종류가 올바르지 않습니다." });
 
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
 
   const { EmbedBuilder } = require("discord.js");
+  const cfg = ANNOUNCE_TYPES[type];
 
-  const types = {
-    maintenance: { color: "#FFA500", emoji: "🔧", title: "봇 점검 안내" },
-    update: { color: "#57F287", emoji: "🆕", title: "봇 업데이트 안내" },
-    alert: { color: "#ED4245", emoji: "⚠️", title: "긴급 공지" },
-    info: { color: "#5865F2", emoji: "ℹ️", title: "공지사항" },
-  };
-  const cfg = types[type] || types.info;
-
-  const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(message.trim()).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 운영자" });
+  const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(body).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 운영자" });
 
   const GuildSettingsManager = require("../../../src/GuildSettingsManager");
   let sent = 0,
@@ -121,7 +127,10 @@ router.post("/broadcast", requireOwner, async (req, res) => {
     }
   }
 
-  res.json({ success: true, sent, failed, total: client.guilds.cache.size });
+  // 한 곳도 못 보낸 것을 성공으로 돌려주면 운영자가 보냈다고 믿는다. 일부 실패도 구분해 알린다.
+  const total = client.guilds.cache.size;
+  if (sent === 0) return res.status(502).json({ success: false, sent, failed, total, error: total === 0 ? "봇이 들어가 있는 서버가 없습니다." : "어느 서버에도 보내지 못했습니다 (보낼 수 있는 채널이 없거나 권한이 없습니다)." });
+  return res.json({ success: true, sent, failed, total, partial: failed > 0 });
 });
 
 // List all guilds bot is in
