@@ -83,6 +83,7 @@ class TrackDownloader {
     const player = this.player;
     const audioSourceKey = track.audioSourceKey;
     let verifiedTitle = null;
+    let audioDurationSec = null; // 캐시에 남길 오디오 길이 — track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
 
     try {
       if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
@@ -145,7 +146,9 @@ class TrackDownloader {
           throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등) — 캐시 다운로드 불가");
         }
 
-        verifiedTitle = this._takeInfoJsonTitle(filepath);
+        const info = this._takeInfoJson(filepath);
+        verifiedTitle = info.title;
+        audioDurationSec = info.durationSec;
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
@@ -170,6 +173,7 @@ class TrackDownloader {
         if (probed) {
           track.duration = probed;
           track.durationSource = "실측";
+          audioDurationSec = probed;
         }
       }
 
@@ -191,7 +195,7 @@ class TrackDownloader {
       if (audioSourceKey) {
         try {
           const _finalSt = fsSync.statSync(filepath);
-          CacheManager.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track);
+          CacheManager.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
           CacheManager.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail, { verified: !!verifiedTitle && track.platform === "youtube" });
         } catch {
           /* 무시 */
@@ -218,20 +222,24 @@ class TrackDownloader {
   }
 
   /**
-   * 다운로드가 곁들여 남긴 info.json에서 제목을 꺼내고 파일을 치운다.
+   * 다운로드가 곁들여 남긴 info.json에서 제목과 오디오 길이를 꺼내고 파일을 치운다.
    *
    * yt-dlp는 출력 템플릿의 확장자를 벗기지 않고 `.info.json`을 덧붙이므로 `<파일>.info.json`이
    * 되지만, 버전에 따라 확장자를 바꾼 형태로 쓸 수도 있어 둘 다 본다.
-   * 실패해도 다운로드 자체는 성공한 것이므로 조용히 null을 돌려준다.
+   * 실패해도 다운로드 자체는 성공한 것이므로 모르는 값은 null로 돌려준다.
+   * @returns {{title: string|null, durationSec: number|null}}
    */
-  _takeInfoJsonTitle(filepath) {
+  _takeInfoJson(filepath) {
     const candidates = [`${filepath}.info.json`, filepath.replace(/\.opus$/, "") + ".info.json"];
     for (const p of candidates) {
       try {
         if (!fsSync.existsSync(p)) continue;
-        const title = JSON.parse(fsSync.readFileSync(p, "utf8"))?.title;
+        const info = JSON.parse(fsSync.readFileSync(p, "utf8"));
         fsSync.unlinkSync(p);
-        if (typeof title === "string" && title.trim()) return title;
+        return {
+          title: typeof info?.title === "string" && info.title.trim() ? info.title : null,
+          durationSec: Number(info?.duration) > 0 ? Number(info.duration) : null,
+        };
       } catch {
         try {
           fsSync.unlinkSync(p);
@@ -240,7 +248,7 @@ class TrackDownloader {
         }
       }
     }
-    return null;
+    return { title: null, durationSec: null };
   }
 
   /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */

@@ -555,10 +555,8 @@ class MusicPlayer {
         this.resource.volume.setVolume(this.volume / 100);
       }
 
-      // 가능하면 스트림 정보에서 트랙 길이 갱신
-      if (streamInfo && streamInfo.duration && streamInfo.duration > 0) {
-        this.currentTrack.duration = streamInfo.duration;
-      }
+      const audioDurationSec = this._audioDurationSec(streamInfo, downloadedFile);
+      if (audioDurationSec) this.currentTrack.duration = audioDurationSec;
 
       log.info(`재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms, 출처=${downloadedFile ? "캐시" : "스트림"})`);
 
@@ -627,6 +625,15 @@ class MusicPlayer {
     const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하면 인트로로 간주
     const intro = segs.find((s) => s.start <= INTRO_START_TOL_SEC);
     return intro && intro.end > 0 ? Math.round(intro.end * 1000) : 0;
+  }
+
+  // 조기 종료·SponsorBlock 곡 끝 판정에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
+  _audioDurationSec(streamInfo, downloadedFile) {
+    if (downloadedFile && this.currentTrack?.audioSourceKey) {
+      const cached = CacheManager.lookupByAudioKey(this.currentTrack.audioSourceKey)?.duration_sec;
+      if (cached > 0) return cached;
+    }
+    return streamInfo?.duration > 0 ? streamInfo.duration : null;
   }
 
   /**
@@ -811,14 +818,15 @@ class MusicPlayer {
     }
 
     const status = this.audioPlayer.state?.status;
-    const playedSec = ((this.resource?.playbackDuration || 0) / 1000).toFixed(1);
+    // playbackDuration은 이 리소스가 낸 양이라 시작 오프셋을 더해야 곡 안의 위치가 된다
+    const playedMs = (this.currentTrackStartOffsetMs || 0) + (this.resource?.playbackDuration || 0);
+    const playedSec = (playedMs / 1000).toFixed(1);
 
     if (status === AudioPlayerStatus.Playing) {
-      const playbackMs = this.resource?.playbackDuration || 0;
       const durationMs = (Number(this.currentTrack.duration) || 0) * 1000;
 
-      if (durationMs > 0 && playbackMs + 1500 < durationMs) {
-        const remainingMs = Math.max(durationMs - playbackMs, 2000);
+      if (durationMs > 0 && playedMs + 1500 < durationMs) {
+        const remainingMs = Math.max(durationMs - playedMs, 2000);
         wlog.debug(`종료 감시: ${this._trackLabel()} | 재생 ${playedSec}초 / 예상 ${durationMs / 1000}초 — 아직 남음, ${Math.round(remainingMs / 1000)}초 뒤 재확인`);
         this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), remainingMs);
         return;

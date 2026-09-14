@@ -323,3 +323,26 @@ test("매핑(audio_source_key)은 출처와 무관하게 항상 갱신된다", (
 test("행이 없는 URL은 getVerifiedTitle이 null", () => {
   assert.equal(CacheManager.getVerifiedTitle("https://www.youtube.com/watch?v=nosuch"), null);
 });
+
+// ── 오디오 길이 (duration_sec) ───────────────────────────────
+// 이 행은 영상 하나를 여러 요청(스포티파이·유튜브 링크)이 공유한다. 요청 쪽 메타데이터가 아니라 오디오의 길이를 담는다.
+
+test("다운로드 완료는 받은 오디오의 실제 길이를 요청 쪽 길이보다 우선 저장한다", () => {
+  CacheManager.recordDownloadStart("yt:dur1", { title: "곡", duration: 314 });
+  CacheManager.recordDownloadComplete("yt:dur1", CacheManager.getFilePath("yt:dur1"), 100, { title: "곡", duration: 314 }, { durationSec: 312 });
+  assert.equal(CacheManager.lookupByAudioKey("yt:dur1").duration_sec, 312);
+});
+
+test("실제 길이를 모르면 요청 쪽 길이로 채운다", () => {
+  CacheManager.recordDownloadStart("yt:dur2", { title: "곡", duration: 200 });
+  CacheManager.recordDownloadComplete("yt:dur2", CacheManager.getFilePath("yt:dur2"), 100, { title: "곡", duration: 200 });
+  assert.equal(CacheManager.lookupByAudioKey("yt:dur2").duration_sec, 200);
+});
+
+test("같은 오디오를 다시 받으면 앞선 요청이 남긴 길이를 실제 길이로 고친다", () => {
+  CacheManager.recordDownloadStart("yt:dur3", { title: "곡", duration: 314 });
+  CacheManager.recordDownloadComplete("yt:dur3", CacheManager.getFilePath("yt:dur3"), 100, { title: "곡", duration: 314 });
+  CacheManager.recordDownloadStart("yt:dur3", { title: "곡", duration: 314 });
+  CacheManager.recordDownloadComplete("yt:dur3", CacheManager.getFilePath("yt:dur3"), 100, { title: "곡", duration: 314 }, { durationSec: 312 });
+  assert.equal(CacheManager.lookupByAudioKey("yt:dur3").duration_sec, 312);
+});

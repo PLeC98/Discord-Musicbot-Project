@@ -314,7 +314,8 @@ class CacheManager {
       .run(audioSourceKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, this._verificationPolicy(audioSourceKey), now, now);
   }
 
-  recordDownloadComplete(audioSourceKey, filePath, fileSizeBytes, track) {
+  // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
+  recordDownloadComplete(audioSourceKey, filePath, fileSizeBytes, track, { durationSec = null } = {}) {
     if (!this._initialized) this.initialize();
     const now = Date.now();
     this.db
@@ -334,7 +335,7 @@ class CacheManager {
             WHERE audio_source_key = ?
         `,
       )
-      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, track?.duration || null, `size:${fileSizeBytes}`, now, now, now, audioSourceKey);
+      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, `size:${fileSizeBytes}`, now, now, now, audioSourceKey);
 
     // 다운로드 후 제거 검사 (논블로킹)
     setImmediate(() => this.evictIfNeeded().catch(() => {}));
