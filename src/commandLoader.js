@@ -1,36 +1,31 @@
 const { REST, Routes } = require("discord.js");
-const log = require("./logger").child({ category: "commands" });
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { loadModules } = require("./moduleLoader");
 const config = require("../config");
 
 // 배포 지문 저장 파일 — 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
 // env 오버라이드는 테스트 시임 (임시 파일 — 운영 지문 미접촉)
 const HASH_PATH = process.env.DEPLOYED_COMMANDS_HASH_PATH || path.join(__dirname, "..", "database", "deployed-commands.json");
 
-// 모든 명령 파일을 읽어 SlashCommandBuilder JSON 배열로 변환.
-function loadCommandData() {
-  const commands = [];
-  const commandsPath = path.join(__dirname, "..", "commands");
-  const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js"));
+// 명령 파일을 읽어 { file, command } 목록과 실패 목록으로 나눈다.
+// 등록(index.js)과 배포 정의가 같은 결과를 쓴다 — 두 곳이 따로 읽으면 서로 다른 집합이 될 수 있다.
+function loadCommandModules(dir = path.join(__dirname, "..", "commands")) {
+  const { modules, failures, missing } = loadModules(dir);
 
-  // 개별 성공은 debug로. 실패는 이름을 남긴다 — 커맨드 하나가 조용히 빠지면 그것만이 단서다.
-  // (index.js가 같은 디렉터리를 읽어 핸들러를 등록하며 개수를 요약한다. 여기서 또 세지 않는다.)
-  for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, file));
-    if ("data" in command && "execute" in command) {
-      commands.push(command.data.toJSON());
-      log.debug(`명령어 정의 불러옴: ${command.data.name}`);
-    } else {
-      log.warn(`${file}: 슬래시 명령어 형식이 아니어서 건너뜁니다.`);
-    }
+  const commands = [];
+  for (const { file, module } of modules) {
+    if ("data" in module && "execute" in module) commands.push({ file, command: module });
+    else failures.push({ file, error: new Error("슬래시 명령 형식이 아닙니다 (data·execute 없음)") });
   }
-  return commands;
+  return { commands, failures, missing };
 }
 
-// 프로세스가 실행 시점에 가진 명령어 집합(핸들러가 로드된 것과 동일). 이 배열을 그대로 등록한다.
-const commands = loadCommandData();
+const loaded = loadCommandModules();
+
+// 배포용 JSON — 핸들러로 등록되는 것과 같은 집합이다.
+const commands = loaded.commands.map(({ command }) => command.data.toJSON());
 
 // 현재 명령어 세트 + 배포 대상의 지문 — 어느 하나라도 바뀌면 재배포 대상
 function deployFingerprint(scope, guildId) {
@@ -88,4 +83,4 @@ function deployErrorLines(result) {
   return lines;
 }
 
-module.exports = { commands, deployCommands, loadCommandData, deployErrorLines };
+module.exports = { commands, loaded, deployCommands, loadCommandModules, deployErrorLines };

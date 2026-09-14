@@ -13,6 +13,7 @@ const MusicPlayer = require("./src/MusicPlayer");
 const { resolveGuildForRestore } = require("./src/sessionRestore");
 const DashboardEvents = require("./src/DashboardEvents");
 const voiceChannelStatus = require("./src/voiceChannelStatus");
+const { loadModules } = require("./src/moduleLoader");
 const PlayerRegistry = require("./src/playerRegistry");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/logFile");
@@ -235,68 +236,33 @@ function startBot() {
     startDashboard(client);
   }
 
-  // Load command files
-  const loadCommands = () => {
-    const commandsPath = path.join(__dirname, "commands");
-
-    // Create commands directory if it doesn't exist
-    if (!fs.existsSync(commandsPath)) {
-      fs.mkdirSync(commandsPath, { recursive: true });
-    }
-
-    try {
-      const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js"));
-
-      // 개별 성공은 세기만 한다 — 30개면 30줄이 되고, 그 30줄이 말하는 것은 "30개 다 됐다"뿐이다.
-      // 실패한 것만 이름을 남긴다. 그게 실제로 찾아봐야 하는 정보다.
-      let ok = 0;
-      for (const file of commandFiles) {
-        const filePath = path.join(commandsPath, file);
-        const command = require(filePath);
-
-        if ("data" in command && "execute" in command) {
-          client.commands.set(command.data.name, command);
-          ok++;
-        } else {
-          log.warn(`${file}: 슬래시 명령어 형식이 아니어서 건너뜁니다.`);
-        }
-      }
-      log.info({ tags: ["startup"] }, `슬래시 명령어 ${ok}개 준비 완료`);
-    } catch (error) {
-      log.warn("명령어 디렉터리가 없어 명령어 로딩을 건너뜁니다.");
-    }
+  // 로딩 실패는 기동을 멈춘다 — 핸들러가 빠진 채로 로그인하면 운영자는 그걸 정상으로 본다.
+  const abortOnLoadFailure = (what, failures) => {
+    if (failures.length === 0) return;
+    for (const { file, error } of failures) log.error(`${what} 로딩 실패: ${file}`, error?.stack || error?.message || error);
+    log.error(`${what} ${failures.length}개를 불러오지 못해 기동을 멈춥니다.`);
+    process.exit(1);
   };
 
-  // Load event handlers
+  const loadCommands = () => {
+    const { commands, failures, missing } = require("./src/commandLoader").loaded;
+    if (missing) return log.warn("commands 디렉터리가 없어 명령어 로딩을 건너뜁니다.");
+
+    abortOnLoadFailure("슬래시 명령어", failures);
+    for (const { command } of commands) client.commands.set(command.data.name, command);
+    log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
+  };
+
   const loadEvents = () => {
-    const eventsPath = path.join(__dirname, "events");
+    const { modules, failures, missing } = loadModules(path.join(__dirname, "events"));
+    if (missing) return log.warn("events 디렉터리가 없어 기본 이벤트로 진행합니다.");
 
-    // Create events directory if it doesn't exist
-    if (!fs.existsSync(eventsPath)) {
-      fs.mkdirSync(eventsPath, { recursive: true });
+    abortOnLoadFailure("이벤트 핸들러", failures);
+    for (const { module: event } of modules) {
+      if (event.once) client.once(event.name, (...args) => event.execute(...args));
+      else client.on(event.name, (...args) => event.execute(...args));
     }
-
-    try {
-      const eventFiles = fs.readdirSync(eventsPath).filter((file) => file.endsWith(".js"));
-
-      // 개별 등록은 debug로 — 파일마다 한 줄이면 부팅당 다섯 줄이고, 그 다섯 줄이 말하는 것은 "다 됐다"뿐이다.
-      let loaded = 0;
-      for (const file of eventFiles) {
-        const filePath = path.join(eventsPath, file);
-        const event = require(filePath);
-
-        if (event.once) {
-          client.once(event.name, (...args) => event.execute(...args));
-        } else {
-          client.on(event.name, (...args) => event.execute(...args));
-        }
-        log.debug(`이벤트 정의 불러옴: ${event.name}`);
-        loaded++;
-      }
-      log.info({ tags: ["startup"] }, `이벤트 핸들러 ${loaded}개 등록 완료`);
-    } catch (error) {
-      log.warn("이벤트 디렉터리가 없어 기본 이벤트로 진행합니다.");
-    }
+    log.info({ tags: ["startup"] }, `이벤트 핸들러 ${modules.length}개 등록 완료`);
   };
 
   // Basic ready event

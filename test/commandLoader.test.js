@@ -27,10 +27,10 @@ after(() => {
   REST.prototype.put = realPut;
 });
 
-const { commands, deployCommands, deployErrorLines } = require("../src/commandLoader");
+const { commands, loaded, deployCommands, deployErrorLines } = require("../src/commandLoader");
 const config = require("../config");
 
-test("loadCommandData: commands/*.js 전부가 유효한 정의(name/description)로 로드됨", () => {
+test("commands/*.js 전부가 유효한 정의(name/description)로 로드됨", () => {
   const fileCount = fs.readdirSync(path.join(__dirname, "..", "commands")).filter((f) => f.endsWith(".js")).length;
   assert.equal(commands.length, fileCount, "data/execute 누락으로 스킵되는 커맨드 파일이 없어야 함");
   for (const c of commands) {
@@ -40,7 +40,12 @@ test("loadCommandData: commands/*.js 전부가 유효한 정의(name/description
   }
 });
 
-test("loadCommandData: 커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", () => {
+test("등록용 목록과 배포용 정의가 같은 집합이다", () => {
+  assert.equal(loaded.failures.length, 0, `로딩 실패: ${loaded.failures.map((f) => f.file).join(", ")}`);
+  assert.equal(loaded.commands.length, commands.length);
+});
+
+test("커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", () => {
   const names = commands.map((c) => c.name);
   assert.equal(new Set(names).size, names.length, `중복: ${names.filter((n, i) => names.indexOf(n) !== i)}`);
 });
