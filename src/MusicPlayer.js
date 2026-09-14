@@ -6,11 +6,14 @@ const wlog = require("./logger").child({ category: "watchdog" });
 const clog = require("./logger").child({ category: "control" });
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
+// 빈 prefix는 비교에서 뺀다 — `"아무 상태".startsWith("")`는 언제나 참이라,
+// prefix를 설정하지 않은 기본 상태(둘 다 빈 문자열)에서는 사람이 적어 둔 채널 상태까지
+// 봇 것으로 판정해 덮어썼다.
 function isBotOwnedStatus(s) {
   if (!s) return true;
   const cfg = require("../config").voiceStatus;
-  if (s === cfg.idleText) return true;
-  return [cfg.playingPrefix, cfg.pausedPrefix].some((p) => s.startsWith(p));
+  if (cfg.idleText && s === cfg.idleText) return true;
+  return [cfg.playingPrefix, cfg.pausedPrefix].filter(Boolean).some((p) => s.startsWith(p));
 }
 const config = require("../config");
 const ErrorHandler = require("./ErrorHandler");
@@ -1761,5 +1764,7 @@ class MusicPlayer {
     return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
 }
+
+MusicPlayer._internals = { isBotOwnedStatus };
 
 module.exports = MusicPlayer;

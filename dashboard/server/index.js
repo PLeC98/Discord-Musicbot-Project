@@ -82,7 +82,8 @@ function createApp(client) {
     });
   }
 
-  app.use(express.json());
+  // 본문 크기 상한을 명시한다. 여기로 오는 것은 설정 몇 줄과 공지문(4096자)뿐이라 32kb면 넉넉하다.
+  app.use(express.json({ limit: "32kb" }));
   app.use(cors(createCorsOptions(DASHBOARD_URL)));
   app.use(
     session({

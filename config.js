@@ -20,30 +20,53 @@ function env(key, def = null) {
   return v !== undefined && v.trim() !== "" ? v : def;
 }
 
-// env()의 정수 버전 — 값이 숫자가 아니거나 허용 범위를 벗어나면 경고 후 def 반환
-// (오타를 조용히 삼키지 않음 — 1ms급 타이머·무효 포트·음수 캐시 한도 같은 오설정 방지)
+/**
+ * 잘못 적은 설정값은 기동을 멈춘다.
+ *
+ * 조용히 기본값으로 돌면 "왜 내가 설정한 값이 안 먹지"가 되고, 경고만 남기면 로그를 보지 않는
+ * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
+ */
+function invalid(key, value, reason) {
+  log.error(`.env의 ${key} 값이 잘못됐습니다 (${value}) — ${reason}. 고친 뒤 다시 실행하세요.`);
+  process.exit(1);
+}
+
 function envEnum(key, def, allowed) {
   const v = env(key);
   if (v === null) return def;
   const lower = String(v).trim().toLowerCase();
   if (allowed.includes(lower)) return lower;
-  log.warn(`${key}에 허용되지 않는 값(${v})이(가) 입력되었습니다. 기본값이 적용됩니다: ${def || "(자동)"}`);
-  return def;
+  invalid(key, v, `${allowed.join("·")} 중 하나여야 합니다`);
 }
 
+// parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
 function envInt(key, def, { min, max } = {}) {
   const v = env(key);
   if (v === null) return def;
-  const n = parseInt(v, 10);
-  if (Number.isNaN(n)) {
-    log.warn(`${key}에 숫자가 아닌 값(${v})이(가) 입력되었습니다. 기본값이 적용됩니다: ${def}`);
-    return def;
-  }
-  if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
-    log.warn(`${key}의 값(${n})이(가) 허용 범위(${min ?? "-∞"}~${max ?? "∞"})를 벗어납니다. 기본값이 적용됩니다: ${def}`);
-    return def;
-  }
+
+  const raw = String(v).trim();
+  if (!/^-?\d+$/.test(raw)) invalid(key, v, "정수만 쓸 수 있습니다");
+
+  const n = Number(raw);
+  if (!Number.isSafeInteger(n)) invalid(key, v, "다룰 수 있는 범위를 넘는 수입니다");
+  if (min !== undefined && n < min) invalid(key, v, `${min} 이상이어야 합니다`);
+  if (max !== undefined && n > max) invalid(key, v, `${max} 이하여야 합니다`);
   return n;
+}
+
+// 링크로 내보내는 주소 — 형식이 깨졌거나 javascript: 같은 스킴이면 기동을 멈춘다.
+function envUrl(key, def = null) {
+  const v = env(key);
+  if (v === null) return def;
+
+  let parsed;
+  try {
+    parsed = new URL(v);
+  } catch {
+    invalid(key, v, "주소 형식이 아닙니다 (예: https://example.com)");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") invalid(key, v, "http·https 주소만 쓸 수 있습니다");
+  return v;
 }
 
 function resolveFromRoot(p) {
@@ -107,10 +130,10 @@ module.exports = {
     maxQueueSize: 100,
     maxPlaylistSize: 50,
     embedColor: env("EMBED_COLOR", "#2743D2"),
-    supportServer: env("SUPPORT_SERVER"),
-    website: env("WEBSITE"),
+    supportServer: envUrl("SUPPORT_SERVER"),
+    website: envUrl("WEBSITE"),
     projectRepo: PROJECT_REPO,
-    sourceRepo: env("SOURCE_REPO_URL", PROJECT_REPO),
+    sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
     invite: "https://discord.com/oauth2/authorize?client_id=" + env("CLIENT_ID") + "&permissions=8&scope=bot%20applications.commands",
     leaveDelayQueueEmptyMs: envInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS", 600, { min: 0, max: 86400 }) * 1000,
     leaveDelayAloneMs: envInt("LEAVE_DELAY_ALONE_SECONDS", 120, { min: 0, max: 86400 }) * 1000,
@@ -176,7 +199,7 @@ module.exports = {
     // 바인딩 주소. 기본은 루프백 — 모르는 사이에 외부로 열려 있는 상태를 만들지 않는다.
     // 다른 기기에서 접속하려면 0.0.0.0 (HTTPS 리버스 프록시 뒤에 두는 것을 전제).
     host: env("DASHBOARD_HOST", "127.0.0.1"),
-    url: env("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
+    url: envUrl("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
     ownerId: env("OWNER_ID"),
     // 세션 쿠키 서명 비밀. 미설정 시 기동마다 랜덤 생성(보안은 유지되나 재시작 시 대시보드 로그인 풀림) — 기동 로그에 경고
     sessionSecret: env("SESSION_SECRET"),
@@ -184,10 +207,10 @@ module.exports = {
     // 넉넉히 넘는 값 — 도배만 차단.
     rateLimit: {
       windowMs: envInt("RATE_LIMIT_WINDOW_SEC", 60, { min: 1, max: 3600 }) * 1000,
-      apiMax: envInt("RATE_LIMIT_API_MAX", 120, { min: 1 }), // 일반 인증 API (/api/*)
-      queueMax: envInt("RATE_LIMIT_QUEUE_MAX", 20, { min: 1 }), // 곡 추가 (POST /player/queue)
+      apiMax: envInt("RATE_LIMIT_API_MAX", 120, { min: 1, max: 100000 }), // 일반 인증 API (/api/*)
+      queueMax: envInt("RATE_LIMIT_QUEUE_MAX", 20, { min: 1, max: 100000 }), // 곡 추가 (POST /player/queue)
       authWindowMs: envInt("RATE_LIMIT_AUTH_WINDOW_SEC", 600, { min: 1, max: 86400 }) * 1000,
-      authMax: envInt("RATE_LIMIT_AUTH_MAX", 30, { min: 1 }), // 로그인/OAuth (/auth/*)
+      authMax: envInt("RATE_LIMIT_AUTH_MAX", 30, { min: 1, max: 100000 }), // 로그인/OAuth (/auth/*)
     },
     // 실시간 갱신(SSE) — 플레이어 상태 변화 넛지. 값은 config.js 기본값 + .env 오버라이드.
     sse: {
@@ -199,9 +222,9 @@ module.exports = {
 
   // 오디오 캐시 설정
   cache: {
-    maxSizeBytes: envInt("CACHE_MAX_SIZE_MB", 1024, { min: 1 }) * 1024 * 1024,
-    maxFiles: envInt("CACHE_MAX_FILES", 500, { min: 1 }),
-    minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048, { min: 0 }) * 1024 * 1024,
+    maxSizeBytes: envInt("CACHE_MAX_SIZE_MB", 1024, { min: 1, max: 1048576 }) * 1024 * 1024,
+    maxFiles: envInt("CACHE_MAX_FILES", 500, { min: 1, max: 1000000 }),
+    minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048, { min: 0, max: 1048576 }) * 1024 * 1024,
     evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
   },
 

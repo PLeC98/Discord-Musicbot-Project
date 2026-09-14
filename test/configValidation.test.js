@@ -1,31 +1,64 @@
 "use strict";
 
-// config.js envInt 범위 검증
-// dotenv는 이미 설정된 process.env를 덮어쓰지 않으므로, require 전에 세팅한 값이
-// .env보다 우선한다 — 파일별 자식 프로세스라 다른 테스트에 영향 없음.
-
-process.env.DASHBOARD_PORT = "99999"; // 포트 범위 초과
-process.env.RATE_LIMIT_API_MAX = "-5"; // 음수 상한
-process.env.SSE_HEARTBEAT_SEC = "0"; // 0초 하트비트 (1ms급 타이머 계열)
-process.env.CACHE_MAX_FILES = "abc"; // 숫자 아님 (기존 동작 회귀)
-process.env.CACHE_EVICT_INTERVAL_HOURS = "2"; // 범위 내 정상값
+// config.js — 잘못 적은 설정값은 기동을 멈춘다 (2026-09-15 사용자 결정).
+//
+// 회귀 대상: `parseInt`가 "120junk"를 120으로 삼켜, 오타가 조용히 다른 값으로 돌던 것.
+// 예전에는 경고 후 기본값이었다 — 로그를 보지 않는 사이 의도하지 않은 값으로 운영됐다.
+//
+// config는 require 시점에 검증하고 process.exit(1)을 부르므로 자식 프로세스로 확인한다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const config = require("../config");
+const path = require("path");
+const { spawnSync } = require("child_process");
 
-test("범위 초과 값은 기본값으로 폴백 (포트/음수/0초 타이머)", () => {
-  assert.equal(config.dashboard.port, 33333, "99999 포트 → 기본값");
-  assert.equal(config.dashboard.rateLimit.apiMax, 120, "음수 상한 → 기본값");
-  assert.equal(config.dashboard.sse.heartbeatMs, 20000, "0초 하트비트 → 기본값");
+const ROOT = path.join(__dirname, "..");
+
+/** 주어진 .env 값으로 config를 읽는 자식 프로세스 — { code, output } */
+function loadConfig(env) {
+  const probe = "const c = require('./config'); console.log('CFG:' + JSON.stringify({ port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website }));";
+  const r = spawnSync(process.execPath, ["-e", probe], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: { ...process.env, DISCORD_TOKEN: "t", CLIENT_ID: "1", ...env },
+  });
+  const output = `${r.stdout}${r.stderr}`;
+  // config는 기동 로그도 함께 뱉는다 — 표식을 붙여 그 줄만 집는다
+  const marked = /CFG:(\{.*\})/.exec(output);
+  return { code: r.status, output, cfg: marked ? JSON.parse(marked[1]) : null };
+}
+
+test("숫자 뒤에 글자가 붙으면 기동을 멈춘다 (parseInt가 삼키던 것)", () => {
+  const { code, output } = loadConfig({ RATE_LIMIT_API_MAX: "120junk" });
+  assert.equal(code, 1);
+  assert.match(output, /RATE_LIMIT_API_MAX/);
+  assert.match(output, /정수/);
 });
 
-test("숫자 아님은 기존대로 기본값 (회귀)", () => {
-  assert.equal(config.cache.maxFiles, 500);
+test("허용 범위를 벗어나면 기동을 멈춘다 — 조용히 기본값으로 돌지 않는다", () => {
+  const port = loadConfig({ DASHBOARD_PORT: "99999" });
+  assert.equal(port.code, 1);
+  assert.match(port.output, /DASHBOARD_PORT/);
+
+  const heartbeat = loadConfig({ SSE_HEARTBEAT_SEC: "0" });
+  assert.equal(heartbeat.code, 1, "0초 하트비트 같은 1ms급 타이머도 막는다");
 });
 
-// 샤딩 제거로 min:-1을 쓰는 설정이 남지 않아 "특수 허용값" 단언은 대상이 없어졌다.
-// envInt의 음수 허용 자체는 min을 음수로 주는 설정이 다시 생길 때 함께 되살릴 것.
-test("범위 내 값은 그대로 통과", () => {
-  assert.equal(config.cache.evictIntervalMs, 2 * 3600 * 1000);
+test("주소 설정은 형식과 스킴을 본다", () => {
+  assert.equal(loadConfig({ WEBSITE: "그냥 글자" }).code, 1);
+  assert.equal(loadConfig({ WEBSITE: "javascript:alert(1)" }).code, 1, "http·https만");
+  assert.equal(loadConfig({ WEBSITE: "https://example.com" }).code, 0);
+});
+
+test("비워 두는 것은 기본값을 쓰겠다는 뜻이라 통과한다", () => {
+  const { code, cfg } = loadConfig({ DASHBOARD_PORT: "", WEBSITE: "", RATE_LIMIT_API_MAX: "  " });
+  assert.equal(code, 0);
+  assert.deepEqual(cfg, { port: 33333, apiMax: 120, website: null });
+});
+
+test("범위 안의 값은 그대로 쓴다", () => {
+  const { code, cfg } = loadConfig({ DASHBOARD_PORT: "40000", RATE_LIMIT_API_MAX: "300" });
+  assert.equal(code, 0);
+  assert.equal(cfg.port, 40000);
+  assert.equal(cfg.apiMax, 300);
 });

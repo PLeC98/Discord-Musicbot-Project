@@ -170,6 +170,80 @@ test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {
   );
 });
 
+// 관리자 로그 스트림에는 연결 상한도 느린 소비자 처리도 없었다(감사 L-04).
+// 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다.
+function fakeRes({ writeResult = true } = {}) {
+  const res = {
+    writes: [],
+    ended: false,
+    statusCode: null,
+    body: null,
+    handlers: {},
+    writeHead() {},
+    flushHeaders() {},
+    write(p) {
+      res.writes.push(p);
+      return writeResult;
+    },
+    end() {
+      res.ended = true;
+    },
+    status(code) {
+      res.statusCode = code;
+      return res;
+    },
+    json(b) {
+      res.body = b;
+      return res;
+    },
+    on(event, fn) {
+      res.handlers[event] = fn;
+    },
+  };
+  return res;
+}
+
+test("관리자 SSE: 연결 상한을 넘으면 429 — 무한정 받지 않는다", () => {
+  const lm = new LogManager({ intercept: false });
+  lm._renderTerminal = () => {};
+  const { maxPerUser } = require("../config").dashboard.sse;
+
+  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes());
+  assert.equal(lm.clients.size, maxPerUser);
+
+  const over = fakeRes();
+  lm.addClient(over);
+  assert.equal(over.statusCode, 429);
+  assert.equal(lm.clients.size, maxPerUser, "상한을 넘는 연결은 등록하지 않는다");
+});
+
+test("관리자 SSE: 읽지 않는 소비자는 끊는다 — 버퍼가 쌓이게 두지 않는다", () => {
+  const lm = new LogManager({ intercept: false });
+  lm._renderTerminal = () => {};
+
+  const slow = fakeRes({ writeResult: false }); // write가 false = 커널 버퍼가 참
+  lm.addClient(slow);
+  assert.equal(lm.clients.size, 1);
+
+  lm.record({ level: 30, time: 1, msg: "한 줄" });
+  assert.equal(slow.ended, true);
+  assert.equal(lm.clients.size, 0, "정리까지 되어야 다음 기록에서 다시 만나지 않는다");
+});
+
+test("관리자 SSE: 연결이 닫히면 하트비트도 함께 걷는다", () => {
+  const lm = new LogManager({ intercept: false });
+  lm._renderTerminal = () => {};
+
+  const res = fakeRes();
+  lm.addClient(res);
+  assert.equal(typeof res.handlers.close, "function");
+  assert.equal(typeof res.handlers.error, "function");
+
+  res.handlers.close();
+  res.handlers.close(); // 두 번 와도 한 번만
+  assert.equal(lm.clients.size, 0);
+});
+
 test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송", () => {
   const lm = new LogManager({ intercept: false });
   lm._renderTerminal = () => {};

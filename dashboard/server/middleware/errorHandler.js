@@ -52,13 +52,15 @@ function notFoundJson(req, res, next) {
 }
 
 function errorHandler(err, req, res, next) {
-  // SSE처럼 헤더가 이미 나간 응답에 다시 쓰면 ERR_HTTP_HEADERS_SENT로 사고가 커진다.
-  if (res.headersSent) return next(err);
-
   const errorId = crypto.randomBytes(4).toString("hex");
   const { status, message } = classify(err);
 
+  // 로그는 응답을 쓸 수 있든 없든 남긴다 — 헤더가 이미 나간 응답(SSE)에서 나는 오류가
+  // 기록조차 안 되면 사후에 존재 자체를 알 수 없다.
   log.error(`[${errorId}] ${req.method} ${req.originalUrl} → ${status}`, err?.stack || err?.message || err);
+
+  // 헤더가 나간 뒤에 또 쓰면 ERR_HTTP_HEADERS_SENT로 사고가 커진다. 연결 정리는 express에 맡긴다.
+  if (res.headersSent) return next(err);
 
   res.status(status);
   if (wantsJson(req)) return res.json({ error: message, errorId });

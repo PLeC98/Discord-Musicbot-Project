@@ -206,6 +206,28 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 
 4. 봇 실행 시 대시보드 서버가 함께 시작됩니다.
 
+### 다른 기기에서 접속하기
+
+기본값은 **같은 PC에서만** 열립니다 — `DASHBOARD_HOST`가 `127.0.0.1`이라 다른 기기에서는 보이지 않습니다.
+의도치 않게 외부로 열려 있는 상태를 만들지 않으려는 기본값이므로, 원격 접속이 필요할 때만 바꾸세요.
+
+바꿔야 하는 값은 둘입니다.
+
+| 값               | 뜻                                                   |
+| ---------------- | ---------------------------------------------------- |
+| `DASHBOARD_HOST` | 서버가 **귀 기울일 주소**. 외부에 열려면 `0.0.0.0`   |
+| `DASHBOARD_URL`  | 브라우저로 **접속하는 주소**. OAuth 콜백·CORS의 기준 |
+
+`DASHBOARD_URL`을 바꿨다면 Discord Developer Portal의 Redirects도 `{DASHBOARD_URL}/auth/callback`으로 함께 고쳐야 합니다.
+
+> [!WARNING]
+> **HTTPS 없이 외부에 열지 마세요.** 로그인 세션 쿠키가 평문으로 오갑니다.
+> 리버스 프록시(nginx·Caddy 등)를 앞에 두고 거기서 HTTPS를 끝내는 구성을 권장합니다.
+> 그 경우 프록시가 `X-Forwarded-*` 헤더를 넘겨야 쿠키의 Secure 판정과 요청 제한이 제대로 동작합니다.
+
+운영 실행 시에는 `NODE_ENV=production`을 권장합니다. 오류 응답에 내부 정보가 실리지 않게 하는
+미들웨어가 이미 있어 필수는 아니지만, Express의 기본 동작까지 함께 맞춰 둡니다.
+
 ### `SESSION_SECRET` 생성 방법 예시
 
 - node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
