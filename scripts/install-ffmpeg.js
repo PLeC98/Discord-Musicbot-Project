@@ -1,11 +1,15 @@
 /**
  * ffmpeg 바이너리 설치 — BtbN/FFmpeg-Builds 릴리스에서 받아 `bin/`에 둔다.
  *
- * 릴리스는 움직이지 않는 autobuild 태그로 고정한다. `latest` 같은 태그는 이름이 같은 채로
- * 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
+ * 릴리스는 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀌어
+ * 환경마다 다른 바이너리가 깔린다.
  *
- * 업그레이드하려면 아래 RELEASE/VERSION을 함께 바꾼다(자산 이름에 버전이 박혀 있다).
- * 새 값은 https://github.com/BtbN/FFmpeg-Builds/releases 에서 확인.
+ * **월말 빌드로 고정한다.** BtbN은 일반 autobuild를 2주만 보관하고 지우므로(고정해 두면 404가 난다),
+ * 2년간 남는 각 달 마지막 빌드만 안전한 고정 대상이다.
+ *
+ * 다른 릴리스를 쓰려면 .env의 FFMPEG_RELEASE에 태그를 적는다 — 자산 이름은 그 릴리스의
+ * checksums.sha256에서 찾으므로 버전 문자열을 따로 맞출 필요가 없다.
+ * 태그 목록은 https://github.com/BtbN/FFmpeg-Builds/releases 에서 확인.
  *
  * macOS와 미지원 아키텍처는 건너뛴다 — BtbN이 빌드를 제공하지 않는다.
  * 그 환경에서는 PATH의 ffmpeg나 .env의 FFMPEG_PATH를 쓴다.
@@ -18,12 +22,10 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 
-const RELEASE = "autobuild-2026-08-27-16-45";
-const VERSION = "n9.0.1-9-gfa97c9f046";
-const BRANCH = "9.0"; // 자산 이름 꼬리표
+const DEFAULT_RELEASE = "autobuild-2026-08-31-13-27"; // 월말 빌드 (2년 보관)
 const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)은 불필요
 
-const BASE_URL = `https://github.com/BtbN/FFmpeg-Builds/releases/download/${RELEASE}`;
+const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
 const ROOT = path.join(__dirname, "..");
 const BIN_DIR = path.join(ROOT, "bin");
 
@@ -42,19 +44,36 @@ function skip(reason) {
   process.exit(0);
 }
 
-/** .env의 FFMPEG_PATH를 가볍게 읽는다 — 이 스크립트는 .env가 없을 수도 있는 시점에 돈다. */
-function configuredPath() {
-  if (process.env.FFMPEG_PATH && process.env.FFMPEG_PATH.trim()) return process.env.FFMPEG_PATH.trim();
-  try {
-    const line = fs
-      .readFileSync(path.join(ROOT, ".env"), "utf8")
-      .split(/\r?\n/)
-      .find((l) => /^\s*FFMPEG_PATH\s*=/.test(l));
-    const value = line ? line.split("=").slice(1).join("=").trim() : "";
-    return value || null;
-  } catch {
-    return null;
+/**
+ * .env 값 하나를 가볍게 읽는다 — 이 스크립트는 .env가 없을 수도 있는 시점(postinstall)에 돌아
+ * dotenv를 쓸 수 없다. 그래서 dotenv의 규칙 중 필요한 것만 흉내 낸다.
+ *
+ * **인라인 주석을 떼는 것이 핵심이다.** `FFMPEG_PATH=   # 설명`처럼 값이 비고 주석만 있는 줄을
+ * 그대로 읽으면 설명문이 경로가 되어, 설정한 적 없는 사용자가 내려받기를 영영 건너뛴다.
+ */
+function readEnvValue(name, source = null) {
+  const fromProcess = process.env[name];
+  if (fromProcess && fromProcess.trim()) return fromProcess.trim();
+
+  let text = source;
+  if (text == null) {
+    try {
+      text = fs.readFileSync(path.join(ROOT, ".env"), "utf8");
+    } catch {
+      return null;
+    }
   }
+
+  const line = text.split(/\r?\n/).find((l) => new RegExp(`^\\s*(export\\s+)?${name}\\s*=`).test(l));
+  if (!line) return null;
+
+  let value = line.slice(line.indexOf("=") + 1).trim();
+  const quoted = /^(['"])([\s\S]*?)\1/.exec(value);
+  if (quoted) return quoted[2].trim() || null;
+
+  value = value.replace(/\s+#.*$/, "").trim(); // 값 뒤의 주석 (dotenv와 같은 규칙)
+  if (value.startsWith("#")) return null; // 값이 비고 주석만 있는 줄
+  return value || null;
 }
 
 async function download(url) {
@@ -63,14 +82,40 @@ async function download(url) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-/** 체크섬 파일에서 해당 자산의 sha256을 찾는다. */
-async function expectedSha(assetName) {
-  const text = (await download(`${BASE_URL}/checksums.sha256`)).toString("utf8");
-  for (const line of text.split(/\r?\n/)) {
+/**
+ * 릴리스의 checksums.sha256에서 이 플랫폼이 쓸 자산을 고른다.
+ *
+ * 한 릴리스에는 ffmpeg 브랜치가 여럿 들어 있다(예: 8.1 · 9.0 · N-master). 그중
+ * **릴리스 브랜치의 가장 높은 버전**을 쓴다 — N-master(`ffmpeg-N-126342-…`)는 이름에 브랜치가
+ * 없어 제외되고, `-shared-`는 실행에 별도 라이브러리가 필요해 제외한다.
+ *
+ * 자산 이름을 코드에 박지 않는 이유: 이름에 커밋 해시가 들어가 릴리스마다 달라진다.
+ * 태그 하나만 바꾸면 되도록 이름은 릴리스가 알려주는 것을 쓴다.
+ *
+ * @returns {{assetName: string, sha256: string, version: string, branch: string}}
+ */
+function resolveAsset(checksumsText, key) {
+  const target = TARGETS[key];
+  if (!target) return null;
+
+  const pattern = new RegExp(`^ffmpeg-(n\\d[^\\s]*?)-${target.slug}-${VARIANT}-(\\d+\\.\\d+)\\.${target.ext.replace(".", "\\.")}$`);
+
+  let best = null;
+  for (const line of checksumsText.split(/\r?\n/)) {
     const [hash, name] = line.trim().split(/\s+/);
-    if (name === assetName) return hash;
+    if (!hash || !name) continue;
+
+    const match = pattern.exec(name);
+    if (!match) continue;
+
+    const branch = match[2].split(".").map(Number);
+    if (!best || branch[0] > best.order[0] || (branch[0] === best.order[0] && branch[1] > best.order[1])) {
+      best = { assetName: name, sha256: hash, version: match[1], branch: match[2], order: branch };
+    }
   }
-  throw new Error(`checksums.sha256에 ${assetName} 항목이 없습니다`);
+
+  if (!best) throw new Error(`이 릴리스에 ${key}용 ${VARIANT} 빌드가 없습니다`);
+  return { assetName: best.assetName, sha256: best.sha256, version: best.version, branch: best.branch };
 }
 
 /**
@@ -116,8 +161,9 @@ function extractBinary(archiveName, binName, cwd) {
 }
 
 async function main() {
-  const configured = configuredPath();
-  if (configured) skip(`.env의 FFMPEG_PATH가 설정돼 있어 내려받지 않습니다 (${configured})`);
+  // --force는 FFMPEG_PATH가 있어도 내려받는다 — 명시적으로 요청한 갱신을 설정이 막으면 안 된다.
+  const configured = readEnvValue("FFMPEG_PATH");
+  if (configured && !force) skip(`.env의 FFMPEG_PATH가 설정돼 있어 내려받지 않습니다 (${configured}) — 그래도 받으려면 --force`);
 
   const key = `${process.platform}-${process.arch}`;
   const target = TARGETS[key];
@@ -125,21 +171,25 @@ async function main() {
     skip(`${key}용 빌드가 제공되지 않습니다 — ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${process.platform === "darwin" ? " (brew install ffmpeg)" : ""}.`);
   }
 
-  const assetName = assetNameFor(key);
+  const release = readEnvValue("FFMPEG_RELEASE") || DEFAULT_RELEASE;
+  const baseUrl = `${RELEASES_URL}/${release}`;
   const binPath = path.join(BIN_DIR, target.bin);
   const stampPath = path.join(BIN_DIR, ".ffmpeg-version.json");
 
   if (!force && fs.existsSync(binPath) && fs.existsSync(stampPath)) {
     try {
       const stamp = JSON.parse(fs.readFileSync(stampPath, "utf8"));
-      if (stamp.asset === assetName) skip(`이미 설치됨 (${VERSION})`);
+      if (stamp.release === release) skip(`이미 설치됨 (${stamp.version || stamp.asset})`);
     } catch {
       /* 스탬프가 깨졌으면 다시 받는다 */
     }
   }
 
+  const checksums = (await download(`${baseUrl}/checksums.sha256`)).toString("utf8");
+  const { assetName, sha256: wantSha, version } = resolveAsset(checksums, key);
+
   console.log(`🔄 [ffmpeg] 내려받는 중: ${assetName}`);
-  const [archiveBuf, wantSha] = await Promise.all([download(`${BASE_URL}/${assetName}`), expectedSha(assetName)]);
+  const archiveBuf = await download(`${baseUrl}/${assetName}`);
 
   const gotSha = crypto.createHash("sha256").update(archiveBuf).digest("hex");
   if (gotSha !== wantSha) throw new Error(`체크섬 불일치\n  기대: ${wantSha}\n  실제: ${gotSha}`);
@@ -153,7 +203,7 @@ async function main() {
     fs.copyFileSync(extracted, binPath);
     if (process.platform !== "win32") fs.chmodSync(binPath, 0o755);
 
-    fs.writeFileSync(stampPath, JSON.stringify({ asset: assetName, release: RELEASE, sha256: wantSha }, null, 2));
+    fs.writeFileSync(stampPath, JSON.stringify({ asset: assetName, release, version, sha256: wantSha }, null, 2));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -162,12 +212,6 @@ async function main() {
   const reported = /ffmpeg version (\S+)/i.exec(probe.stdout || "");
   if (!reported) throw new Error("설치한 바이너리를 실행할 수 없습니다");
   console.log(`✅ [ffmpeg] ${reported[1]} → ${path.relative(ROOT, binPath)}`);
-}
-
-/** 플랫폼 키(`${platform}-${arch}`)에 해당하는 자산 이름. 미지원이면 null. */
-function assetNameFor(key) {
-  const target = TARGETS[key];
-  return target ? `ffmpeg-${VERSION}-${target.slug}-${VARIANT}-${BRANCH}.${target.ext}` : null;
 }
 
 if (require.main === module) {
@@ -180,4 +224,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { RELEASE, VERSION, BRANCH, VARIANT, TARGETS, BASE_URL, assetNameFor };
+module.exports = { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue };
