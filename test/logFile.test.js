@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { createFileDestination, backupPath, stripAnsi, stamp } = require("../src/logFile");
+const { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } = require("../src/logFile");
 
 function tmpdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
@@ -153,6 +153,22 @@ test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤�
   const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터 — 9월
   assert.equal(backupPath("/a/bot.log", at), "/a/bot-2026-09-10T14-23-05.123.log");
   assert.equal(backupPath("/a/bot", at), "/a/bot-2026-09-10T14-23-05.123");
+});
+
+// 회귀: 같은 밀리초에 두 번 회전할 때 번호를 덧붙이면(`…407-2.log`) `-`가 `.`보다 작아
+// 번호 붙은 쪽이 원본보다 앞으로 정렬됐다. 빠른 러너에서만 드러나던 실패다(2026-09-15 CI).
+test("이름이 겹치면 시각을 밀어서 비운다 — 이름순이 곧 시간순이어야 한다", () => {
+  const at = new Date(2026, 8, 10, 14, 23, 5, 123);
+  const taken = new Set(["/a/bot-2026-09-10T14-23-05.123.log", "/a/bot-2026-09-10T14-23-05.124.log"]);
+
+  const first = nextBackupPath("/a/bot.log", (p) => taken.has(p), at);
+  assert.equal(first, "/a/bot-2026-09-10T14-23-05.125.log");
+  assert.deepEqual([...taken, first].sort(), [...taken].sort().concat(first), "나중 것이 이름순으로도 뒤");
+  assert.equal(
+    nextBackupPath("/a/bot.log", () => false, at),
+    backupPath("/a/bot.log", at),
+    "안 겹치면 그대로",
+  );
 });
 
 test("stamp: 파일명에 못 쓰는 `:`를 쓰지 않는다", () => {

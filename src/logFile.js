@@ -43,6 +43,23 @@ function backupPath(file, at = new Date()) {
   return ext ? `${file.slice(0, -ext.length)}-${tag}${ext}` : `${file}-${tag}`;
 }
 
+/**
+ * 비어 있는 분리본 경로. 같은 밀리초에 두 번 회전하면 이름이 겹치므로 **시각을 1ms씩 민다.**
+ *
+ * 번호를 덧붙이는 방법(`…407-2.log`)은 쓸 수 없다 — `-`(0x2D)가 `.`(0x2E)보다 작아서
+ * 번호가 붙은 쪽이 원본보다 **앞으로** 정렬되고, 이름순=시간순 계약이 깨진다.
+ * 시각을 미는 쪽은 이름 모양이 하나로 유지된다.
+ */
+function nextBackupPath(file, exists = fs.existsSync, at = new Date()) {
+  let when = at;
+  let target = backupPath(file, when);
+  while (exists(target)) {
+    when = new Date(when.getTime() + 1);
+    target = backupPath(file, when);
+  }
+  return target;
+}
+
 function stripAnsi(s) {
   return typeof s === "string" ? s.replace(ANSI_RE, "") : s;
 }
@@ -124,10 +141,7 @@ function createFileDestination({ file, maxBytes, keep }) {
     try {
       fs.closeSync(fd);
       fd = null;
-      let target = backupPath(file);
-      // 같은 밀리초에 두 번 회전하는 일은 사실상 없지만, 있으면 덮어쓰지 않고 비켜 간다.
-      for (let i = 2; fs.existsSync(target); i++) target = backupPath(file, `${stamp()}-${i}`);
-      fs.renameSync(file, target);
+      fs.renameSync(file, nextBackupPath(file));
     } catch (err) {
       return giveUp("로그 회전 실패", err);
     }
@@ -167,4 +181,4 @@ function createFileDestination({ file, maxBytes, keep }) {
   return { write, close, path: file };
 }
 
-module.exports = { createFileDestination, backupPath, stripAnsi, stamp };
+module.exports = { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp };
