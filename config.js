@@ -201,6 +201,8 @@ module.exports = {
     host: env("DASHBOARD_HOST", "127.0.0.1"),
     url: envUrl("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
     ownerId: env("OWNER_ID"),
+    // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다 — 평상시 실행은 닫힌다.
+    devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
     // 세션 쿠키 서명 비밀. 미설정 시 기동마다 랜덤 생성(보안은 유지되나 재시작 시 대시보드 로그인 풀림) — 기동 로그에 경고
     sessionSecret: env("SESSION_SECRET"),
     // API 요청 제한 (config.js 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을

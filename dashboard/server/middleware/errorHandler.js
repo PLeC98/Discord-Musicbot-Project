@@ -15,6 +15,8 @@ const log = require("../../../src/logger").child({ category: "dashboard" });
 // 진단 가능성은 오류 ID로 유지한다 — 응답에는 ID만, 서버 로그에는 ID + 전체 스택.
 
 const MSG_BAD_REQUEST = "요청 형식이 올바르지 않습니다.";
+const MSG_TOO_LARGE = "보낸 내용이 너무 깁니다. 줄여서 다시 시도해 주세요.";
+const MSG_TOO_MANY = "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.";
 const MSG_UNAVAILABLE = "일시적으로 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const MSG_INTERNAL = "요청을 처리하지 못했습니다.";
 const MSG_NOT_FOUND = "요청한 경로를 찾을 수 없습니다.";
@@ -30,10 +32,16 @@ function isUnavailable(err) {
 }
 
 // err.message는 절대 내보내지 않는다 — "database disk image is malformed"도 내부 정보다.
+// 다만 **무엇을 고쳐야 하는지**는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
+// 내용이 길어서 막힌 사람이 무엇을 줄여야 할지 알 수 없다.
 function classify(err) {
   const status = err?.status ?? err?.statusCode;
-  // express.json()이 잘못된 본문에 400을 붙여 던진다 — 500으로 뭉개면 안 된다.
-  if (Number.isInteger(status) && status >= 400 && status < 500) return { status, message: MSG_BAD_REQUEST };
+  // express.json()이 잘못된 본문에 400을, 한도를 넘은 본문에 413을 붙여 던진다.
+  if (Number.isInteger(status) && status >= 400 && status < 500) {
+    if (status === 413) return { status, message: MSG_TOO_LARGE };
+    if (status === 429) return { status, message: MSG_TOO_MANY };
+    return { status, message: MSG_BAD_REQUEST };
+  }
   if (isUnavailable(err)) return { status: 503, message: MSG_UNAVAILABLE };
   return { status: 500, message: MSG_INTERNAL };
 }
@@ -57,7 +65,12 @@ function errorHandler(err, req, res, next) {
 
   // 로그는 응답을 쓸 수 있든 없든 남긴다 — 헤더가 이미 나간 응답(SSE)에서 나는 오류가
   // 기록조차 안 되면 사후에 존재 자체를 알 수 없다.
-  log.error(`[${errorId}] ${req.method} ${req.originalUrl} → ${status}`, err?.stack || err?.message || err);
+  //
+  // 4xx는 **보낸 쪽이 잘못한 것**이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
+  // PayloadTooLargeError 스택이 쌓이면 그게 곧 도배다. 한 줄로 사실만 남긴다.
+  const line = `[${errorId}] ${req.method} ${req.originalUrl} → ${status}`;
+  if (status >= 500) log.error(line, err?.stack || err?.message || err);
+  else log.warn(`${line} ${err?.type || err?.code || err?.name || ""}`.trimEnd());
 
   // 헤더가 나간 뒤에 또 쓰면 ERR_HTTP_HEADERS_SENT로 사고가 커진다. 연결 정리는 express에 맡긴다.
   if (res.headersSent) return next(err);

@@ -169,15 +169,21 @@
             <button v-for="type in types" :key="type.value" :class="typeBtn(bType === type.value)" @click="bType = type.value">{{ type.label }}</button>
           </div>
 
-          <textarea v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-3 text-[0.9rem] resize-y outline-none mb-3.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7"></textarea>
+          <textarea v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-3 text-[0.9rem] resize-y outline-none mb-1.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7"></textarea>
 
-          <BaseButton variant="primary" @click="broadcast" :disabled="sending || !bMsg.trim()">
+          <div class="flex items-center justify-between mb-3.5 text-xs">
+            <span v-if="tooLong" class="text-danger">{{ bMsg.length - BROADCAST_MAX }}자를 줄여 주세요.</span>
+            <span v-else></span>
+            <span :class="tooLong ? 'text-danger' : 'text-muted'">{{ bMsg.length.toLocaleString() }} / {{ BROADCAST_MAX.toLocaleString() }}</span>
+          </div>
+
+          <BaseButton variant="primary" @click="broadcast" :disabled="sending || !bMsg.trim() || tooLong">
             {{ sending ? "발송 중..." : "전체 발송" }}
           </BaseButton>
 
           <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
             <Icon :name="result.success ? 'check' : 'error'" :size="16" />
-            <span>{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : "발송 실패" }}</span>
+            <span>{{ result.success ? `${result.sent}개 서버 발송 완료 (실패: ${result.failed})` : result.error || "발송하지 못했습니다." }}</span>
           </div>
         </BaseCard>
 
@@ -404,6 +410,10 @@ const bMsg = ref("");
 const sending = ref(false);
 const result = ref(null);
 
+// 디스코드 embed description 상한. 서버도 같은 값으로 막지만, 다 쓰고 나서야 막히면 늦다.
+const BROADCAST_MAX = 4096;
+const tooLong = computed(() => bMsg.value.length > BROADCAST_MAX);
+
 const types = [
   { value: "maintenance", label: "점검" },
   { value: "update", label: "업데이트" },
@@ -461,8 +471,9 @@ async function broadcast() {
     const res = await axios.post("/api/admin/broadcast", { message: bMsg.value, type: bType.value });
     result.value = res.data;
     if (res.data.success) bMsg.value = "";
-  } catch {
-    result.value = { success: false };
+  } catch (e) {
+    // 서버가 알려 준 이유를 그대로 보여 준다 — "발송 실패"만으로는 무엇을 고쳐야 할지 알 수 없다
+    result.value = { success: false, error: e.response?.data?.error };
   } finally {
     sending.value = false;
   }

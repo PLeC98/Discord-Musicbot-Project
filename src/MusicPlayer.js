@@ -6,15 +6,6 @@ const wlog = require("./logger").child({ category: "watchdog" });
 const clog = require("./logger").child({ category: "control" });
 const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
 
-// 빈 prefix는 비교에서 뺀다 — `"아무 상태".startsWith("")`는 언제나 참이라,
-// prefix를 설정하지 않은 기본 상태(둘 다 빈 문자열)에서는 사람이 적어 둔 채널 상태까지
-// 봇 것으로 판정해 덮어썼다.
-function isBotOwnedStatus(s) {
-  if (!s) return true;
-  const cfg = require("../config").voiceStatus;
-  if (cfg.idleText && s === cfg.idleText) return true;
-  return [cfg.playingPrefix, cfg.pausedPrefix].filter(Boolean).some((p) => s.startsWith(p));
-}
 const config = require("../config");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./TrackResolver");
@@ -23,6 +14,7 @@ const SponsorSkipper = require("./SponsorSkipper");
 const DirectLink = require("./DirectLink");
 const { openChunkedStream, contentLengthFromUrl, describeStreamError } = require("./chunkedStream");
 const { AudioSplicer } = require("./audioSplicer");
+const voiceChannelStatus = require("./voiceChannelStatus");
 const CacheManager = require("./CacheManager");
 const VoiceConnectionManager = require("./VoiceConnectionManager");
 const TrackDownloader = require("./TrackDownloader");
@@ -108,7 +100,6 @@ class MusicPlayer {
     this.currentTrackStartOffsetMs = 0;
 
     // 음성 채널 상태 소유권
-    this._voiceStatusOwned = false;
 
     // 영속화 관리
     this.stateSyncInterval = null;
@@ -1723,20 +1714,11 @@ class MusicPlayer {
       const perms = channel.permissionsFor(this.guild.members.me);
       if (!perms?.has(PermissionFlagsBits.SetVoiceChannelStatus)) return;
 
-      if (!this._voiceStatusOwned) {
-        // 캐시는 신뢰할 수 없음 — API에서 실제 상태 가져오기
-        let currentStatus = "";
-        try {
-          const data = await this.guild.client.rest.get(`/channels/${channel.id}`);
-          currentStatus = typeof data.status === "string" ? data.status : "";
-        } catch {
-          return;
-        }
-        if (!isBotOwnedStatus(currentStatus)) return;
-      }
+      // 사람이 적어 둔 상태는 건드리지 않는다. 현재 값은 게이트웨이로만 알 수 있다(voiceChannelStatus).
+      if (!voiceChannelStatus.canWrite(channel.id)) return;
 
       await this.guild.client.rest.put(`/channels/${channel.id}/voice-status`, { body: { status: status ?? "" } });
-      this._voiceStatusOwned = !!status;
+      voiceChannelStatus.mark(channel.id, status ?? "");
     } catch {
       // 중요하지 않음
     }
@@ -1764,7 +1746,5 @@ class MusicPlayer {
     return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
 }
-
-MusicPlayer._internals = { isBotOwnedStatus };
 
 module.exports = MusicPlayer;

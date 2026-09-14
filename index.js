@@ -12,6 +12,7 @@ const { logResolved: logResolvedFfmpeg } = require("./src/ffmpegPath");
 const MusicPlayer = require("./src/MusicPlayer");
 const { resolveGuildForRestore } = require("./src/sessionRestore");
 const DashboardEvents = require("./src/DashboardEvents");
+const voiceChannelStatus = require("./src/voiceChannelStatus");
 const PlayerRegistry = require("./src/playerRegistry");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/logFile");
@@ -348,6 +349,10 @@ function startBot() {
       await sending.catch((err) => log.error("오류 안내 전송 실패:", err.message));
     }
   });
+
+  // 음성 채널 상태는 REST로 읽을 수 없다 — 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
+  // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
+  client.on(Events.Raw, (packet) => voiceChannelStatus.consumePacket(packet));
 
   // Handle voice state updates for pause/resume and cleanup
   client.on(Events.VoiceStateUpdate, async (oldState, newState) => {

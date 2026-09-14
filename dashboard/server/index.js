@@ -84,7 +84,7 @@ function createApp(client) {
 
   // 본문 크기 상한을 명시한다. 여기로 오는 것은 설정 몇 줄과 공지문(4096자)뿐이라 32kb면 넉넉하다.
   app.use(express.json({ limit: "32kb" }));
-  app.use(cors(createCorsOptions(DASHBOARD_URL)));
+  app.use(cors(createCorsOptions(DASHBOARD_URL, { allowDevOrigin: config.dashboard.devOrigin })));
   app.use(
     session({
       secret: SESSION_SECRET,
@@ -181,6 +181,8 @@ function startDashboard(client) {
   app.listen(PORT, HOST, () => {
     log.info(line);
     for (const w of warnings) log.warn(w);
+    // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
+    if (config.dashboard.devOrigin) log.warn("개발 모드 — Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
   });
 
   return app;
