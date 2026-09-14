@@ -25,8 +25,8 @@
     <div class="fixed right-3.5 bottom-2.5 flex flex-col items-end gap-0.5">
       <a v-if="!sourceRepo || projectRepo === sourceRepo" :href="sourceRepo" target="_blank" rel="noopener" :class="sourceLink">Source Code (AGPL-3.0)</a>
       <template v-else>
-        <a :href="projectRepo" target="_blank" rel="noopener" :class="sourceLink"> Modified Source Code (AGPL-3.0) </a>
-        <a :href="sourceRepo" target="_blank" rel="noopener" :class="sourceLink"> Original Source Code (AGPL-3.0) </a>
+        <a :href="sourceRepo" target="_blank" rel="noopener" :class="sourceLink"> Modified Source Code (AGPL-3.0) </a>
+        <a :href="projectRepo" target="_blank" rel="noopener" :class="sourceLink"> Original Source Code (AGPL-3.0) </a>
       </template>
     </div>
   </div>
