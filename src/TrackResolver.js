@@ -21,11 +21,13 @@ const TrackResolver = {
     return "youtube"; // 기본값은 YouTube 검색
   },
 
-  // 쿼리 → { success, isPlaylist, tracks } 또는 { success: false, message }
+  // 쿼리 → { success, isPlaylist, collection, tracks } 또는 { success: false, message }
+  // collection: 여러 곡을 담은 출처의 종류 — "playlist" | "album" | "artist", 한 곡이면 null
   async getTrackData(query, guildId, context = "TrackResolver.getTrackData") {
     try {
       let tracks = [];
       let isPlaylist = false;
+      let collection = null;
 
       switch (this.detectPlatform(query)) {
         case "youtube":
@@ -34,6 +36,7 @@ const TrackResolver = {
             if (playlistData && playlistData.tracks && playlistData.tracks.length > 0) {
               tracks = playlistData.tracks;
               isPlaylist = true;
+              collection = "playlist";
             } else {
               // 재생목록을 불러오지 못하면 일반 검색 수행
               tracks = await YouTube.search(query, 1, guildId);
@@ -48,6 +51,7 @@ const TrackResolver = {
             tracks = (await Spotify.getFromURL(query, guildId)) || [];
             const { type } = Spotify.parseSpotifyURL(query);
             isPlaylist = type === "playlist" || type === "album" || type === "artist";
+            if (isPlaylist) collection = type;
           } else {
             tracks = (await Spotify.search(query, 1, "track", guildId)) || [];
           }
@@ -66,7 +70,7 @@ const TrackResolver = {
         return { success: false, message: "❌ 결과를 찾을 수 없습니다!" };
       }
 
-      return { success: true, isPlaylist, tracks };
+      return { success: true, isPlaylist, collection, tracks };
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, guildId, context);
       return { success: false, message: errorMsg };

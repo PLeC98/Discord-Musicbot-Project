@@ -79,7 +79,8 @@ class MusicEmbedManager {
     if (!player) return { success: false, message: "음악 플레이어를 찾을 수 없습니다." };
 
     const wasPlayingBefore = player.currentTrack !== null;
-    const isPlaylist = trackData.isPlaylist || false;
+    // 여러 곡을 담았으면 그 출처의 표시 이름(재생목록·앨범 등), 한 곡이면 null
+    const sourceLabel = trackData.isPlaylist ? S.collectionLabel(trackData.collection) : null;
     const insertFirst = trackData.insertFirst || false;
     const tracks = trackData.tracks;
 
@@ -171,7 +172,7 @@ class MusicEmbedManager {
       // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
       if (firstTrackResult && tracks.length > 1) {
         // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
-        await this.showPlaylistAdditionMessage(player, tracks, isPlaylist, insertFirst);
+        await this.showPlaylistAdditionMessage(player, tracks, sourceLabel, insertFirst);
         // 대기열 갱신 — 임베드 새로고침
         await this.updateNowPlayingEmbed(player);
         return firstTrackResult;
@@ -179,7 +180,7 @@ class MusicEmbedManager {
 
       // 대기열에만 추가됨 (이미 음악 재생 중)
       if (wasPlayingBefore || (!firstTrackResult && tracks.length > 0)) {
-        return await this.handleQueueAddition(player, tracks, responder, isPlaylist, insertFirst);
+        return await this.handleQueueAddition(player, tracks, responder, sourceLabel, insertFirst);
       }
 
       // 단일 트랙 재생 시작
@@ -196,10 +197,10 @@ class MusicEmbedManager {
   /**
    * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
-  async showPlaylistAdditionMessage(player, tracks, isPlaylist, insertFirst = false) {
+  async showPlaylistAdditionMessage(player, tracks, sourceLabel, insertFirst = false) {
     // 첫 번째를 제외한 남은 트랙 정보 전송
     const remainingTracks = tracks.slice(1);
-    const messageText = this.createQueueAdditionMessage(remainingTracks, isPlaylist, insertFirst);
+    const messageText = this.createQueueAdditionMessage(remainingTracks, sourceLabel, insertFirst);
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로 — 채널이 없는 경로(대시보드)는 생략
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
@@ -267,13 +268,13 @@ class MusicEmbedManager {
   /**
    * 음악 재생 중 곡이 대기열에 추가되는 경우를 처리합니다.
    */
-  async handleQueueAddition(player, tracks, responder, isPlaylist, insertFirst = false) {
+  async handleQueueAddition(player, tracks, responder, sourceLabel, insertFirst = false) {
     // 기존 임베드 갱신
     if (player.nowPlayingMessage && player.currentTrack) {
       await this.updateNowPlayingEmbed(player);
     }
 
-    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, isPlaylist, insertFirst));
+    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, sourceLabel, insertFirst));
 
     return { success: true, message: "Added to queue", isNewEmbed: false };
   }
@@ -538,10 +539,11 @@ class MusicEmbedManager {
 
   /**
    * 대기열 추가 메시지를 빌드합니다.
+   * @param {string|null} sourceLabel 여러 곡을 담은 출처의 표시 이름(재생목록·앨범 등). 없으면 한 곡 안내
    */
-  createQueueAdditionMessage(tracks, isPlaylist, insertFirst = false) {
-    if (isPlaylist) {
-      return insertFirst ? `⏫ 재생목록의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ 재생목록의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
+  createQueueAdditionMessage(tracks, sourceLabel, insertFirst = false) {
+    if (sourceLabel) {
+      return insertFirst ? `⏫ ${sourceLabel}의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ ${sourceLabel}의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
     } else {
       const title = escapeMd(tracks[0]?.title || "알 수 없는 트랙");
       return insertFirst ? `⏫ **${title}**가 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**가 대기열에 추가되었습니다!`;
