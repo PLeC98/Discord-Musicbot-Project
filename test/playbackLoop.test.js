@@ -46,6 +46,8 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     played: [],
     releaseAudioProtection() {},
     scheduleStatePersist() {},
+    // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)
+    _trackLabel: MusicPlayer.prototype._trackLabel,
     audioPlayer: { stop() {} },
     async play(_, ms) {
       this.played.push({ title: this.currentTrack?.title, ms });
@@ -151,6 +153,22 @@ test("큐 반복: 자연 종료/스킵은 끝난 곡을 대기열 끝으로 (기
   assert.equal(p.currentTrack, B);
   assert.deepEqual(titles(p.queue), ["A"], "끝난 A가 대기열 끝으로 순환");
   assert.deepEqual(titles(p.previousTracks), ["A"]);
+});
+
+// ── 조기 종료 재시도 ──────────────────────────────────────────
+
+test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
+  const [A, B] = ["A", "B"].map((t) => makeTrack(t));
+  const p = makePlayer({ current: A, queue: [B] });
+  p.resource = { playbackDuration: 0 }; // 곡 길이보다 한참 덜 재생 = 조기 종료
+
+  for (let i = 0; i < 4; i++) await handleTrackEnd.call(p, "idle");
+
+  assert.deepEqual(
+    p.played.map((x) => x.title),
+    ["A", "A", "B", "B"],
+    "앞 곡의 소진된 카운터를 물려받으면 B는 재시도 없이 넘어간다",
+  );
 });
 
 // ── 반복 없음 ─────────────────────────────────────────────────

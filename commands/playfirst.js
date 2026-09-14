@@ -67,7 +67,7 @@ module.exports = {
           await interaction.reply({ content: errorMsg, flags: MessageFlags.Ephemeral });
         }
       } catch (responseError) {
-        log.error("오류 응답 전송 중 오류:", responseError);
+        log.error("오류 안내 전송 실패:", responseError);
       }
     }
   },

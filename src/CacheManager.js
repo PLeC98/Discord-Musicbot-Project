@@ -20,9 +20,12 @@ class CacheManager {
   constructor() {
     this.db = null;
     this._initialized = false;
-    this._protectedKeys = new Set(); // 현재 재생 중이거나 사전 캐시된 audio_source_key
+    this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
+    this._queuedKeys = new Map(); // guildId -> Set<audio_source_key> — 대기열 앞부분
     this._evictInterval = null;
-    this._cacheDir = CACHE_DIR; // 테스트에서 재정의 가능
+    // 캐시 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 폴더를 건드리지 않는다 —
+    // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
+    this._cacheDir = CACHE_DIR;
   }
 
   // 초기화 — dbPath는 테스트 주입용(임시 DB), 운영은 항상 기본 경로
@@ -31,7 +34,7 @@ class CacheManager {
 
     const dbDir = path.dirname(dbPath);
     if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-    if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+    if (!fs.existsSync(this._cacheDir)) fs.mkdirSync(this._cacheDir, { recursive: true });
 
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
@@ -42,7 +45,7 @@ class CacheManager {
     this._createTables();
     this._initialized = true;
     this._startPeriodicEviction();
-    log.info("SQLite DB 초기화 완료");
+    log.info({ tags: ["startup"] }, "SQLite 캐시 DB 준비 완료");
   }
 
   _createTables() {
@@ -72,6 +75,9 @@ class CacheManager {
                 display_title       TEXT,
                 display_artist      TEXT,
                 display_thumbnail   TEXT,
+                -- 제목의 출처: 1=영상 자체에서 확인, 0=재생목록 페이지 등 간접 출처.
+                -- 재생목록이 주는 제목은 낡을 수 있어(같은 영상인데 다르다), 확인된 제목을 덮으면 안 된다.
+                title_verified      INTEGER NOT NULL DEFAULT 0,
                 created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
                 updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
                 FOREIGN KEY (audio_source_key)
@@ -126,18 +132,7 @@ class CacheManager {
       .prepare("PRAGMA table_info(guild_settings)")
       .all()
       .map((c) => c.name);
-    if (!gsCols.includes("dj_role_ids")) {
-      this.db.exec("ALTER TABLE guild_settings ADD COLUMN dj_role_ids TEXT");
-
-      // 구 단일 역할 컬럼(dj_role_id) → 복수 역할(JSON 배열) 1회 이관.
-      // 구 컬럼은 롤백 대비 보존하되 이후 코드는 참조하지 않는다.
-      if (gsCols.includes("dj_role_id")) {
-        const rows = this.db.prepare("SELECT guild_id, dj_role_id FROM guild_settings WHERE dj_role_id IS NOT NULL").all();
-        const upd = this.db.prepare("UPDATE guild_settings SET dj_role_ids = ? WHERE guild_id = ?");
-        for (const r of rows) upd.run(JSON.stringify([r.dj_role_id]), r.guild_id);
-        if (rows.length) log.info(`DJ 역할 설정 ${rows.length}건을 복수 역할 형식(dj_role_ids)으로 이관`);
-      }
-    }
+    if (!gsCols.includes("dj_role_ids")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN dj_role_ids TEXT");
 
     // SponsorBlock 컬럼 추가 (컬럼 도입 이전 DB 대응 — CREATE IF NOT EXISTS는 컬럼을 안 만듦)
     const gsCols2 = this.db
@@ -146,6 +141,13 @@ class CacheManager {
       .map((c) => c.name);
     if (!gsCols2.includes("sponsorblock_enabled")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_enabled INTEGER");
     if (!gsCols2.includes("sponsorblock_categories")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_categories TEXT");
+
+    // 제목 출처 표시 추가. 기존 행은 전부 0(미확인) — 다음에 그 영상을 받거나 재생할 때 확인된다.
+    const tlCols = this.db
+      .prepare("PRAGMA table_info(track_lookup)")
+      .all()
+      .map((c) => c.name);
+    if (!tlCols.includes("title_verified")) this.db.exec("ALTER TABLE track_lookup ADD COLUMN title_verified INTEGER NOT NULL DEFAULT 0");
   }
 
   // 이 모듈은 인스턴스를 내보내므로 static이면 외부에서 닿지 않는다
@@ -155,7 +157,7 @@ class CacheManager {
 
   /** audio_source_key에 대한 결정적 파일 경로 */
   getFilePath(audioSourceKey) {
-    return path.join(CACHE_DIR, `track_${this.md5(audioSourceKey)}.opus`);
+    return path.join(this._cacheDir, `track_${this.md5(audioSourceKey)}.opus`);
   }
 
   /**
@@ -199,6 +201,34 @@ class CacheManager {
   /** 더 이상 필요하지 않은 키 해제 */
   unprotect(audioSourceKey) {
     if (audioSourceKey) this._protectedKeys.delete(audioSourceKey);
+  }
+
+  /**
+   * 길드의 대기열 보호 집합을 통째로 교체한다.
+   *
+   * 추가·삭제를 개별로 추적하지 않는 것이 요점이다. 대기열이 바뀔 때마다 전체를 다시 계산해
+   * 넘기므로 해제를 빠뜨려 보호가 남는 누수가 생기지 않는다.
+   *
+   * 길드별로 나누는 이유: 두 길드가 같은 곡을 대기열에 두었을 때 한쪽이 비운다고
+   * 다른 쪽 보호까지 풀리면 안 된다.
+   */
+  setQueuedKeys(guildId, keys) {
+    if (!guildId) return;
+    const set = new Set((keys || []).filter(Boolean));
+    if (set.size === 0) this._queuedKeys.delete(guildId);
+    else this._queuedKeys.set(guildId, set);
+  }
+
+  /** 길드가 떠날 때 — 남은 보호를 놓는다 */
+  clearQueuedKeys(guildId) {
+    if (guildId) this._queuedKeys.delete(guildId);
+  }
+
+  /** 재생 중 + 모든 길드의 대기열 — 퇴거에서 제외할 키 전부 */
+  _liveKeys() {
+    const keys = new Set(this._protectedKeys);
+    for (const set of this._queuedKeys.values()) for (const k of set) keys.add(k);
+    return keys;
   }
 
   // 조회 (읽기)
@@ -284,7 +314,8 @@ class CacheManager {
       .run(audioSourceKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, this._verificationPolicy(audioSourceKey), now, now);
   }
 
-  recordDownloadComplete(audioSourceKey, filePath, fileSizeBytes, track) {
+  // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
+  recordDownloadComplete(audioSourceKey, filePath, fileSizeBytes, track, { durationSec = null } = {}) {
     if (!this._initialized) this.initialize();
     const now = Date.now();
     this.db
@@ -304,7 +335,7 @@ class CacheManager {
             WHERE audio_source_key = ?
         `,
       )
-      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, track?.duration || null, `size:${fileSizeBytes}`, now, now, now, audioSourceKey);
+      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, `size:${fileSizeBytes}`, now, now, now, audioSourceKey);
 
     // 다운로드 후 제거 검사 (논블로킹)
     setImmediate(() => this.evictIfNeeded().catch(() => {}));
@@ -330,26 +361,47 @@ class CacheManager {
 
   // 쓰기 — track_lookup
 
-  recordTrackLookup(sourceUrl, platform, audioSourceKey, displayTitle, displayArtist, displayThumbnail) {
+  /**
+   * 소스 URL → 캐시 키 매핑과 표시용 메타데이터 기록.
+   *
+   * `verified`는 "제목을 영상 자체에서 확인했는가"다. 재생목록 페이지가 주는 제목은 같은 영상인데도
+   * 다를 수 있어(실측: 같은 영상인데 재생목록은 앞에 전각 공백이 붙은 축약 제목을, 영상 자체는
+   * 정식 제목을 준다), 그걸로 확인된
+   * 제목을 덮으면 한 번 고친 것이 도로 낡은 값으로 돌아간다. 그래서 **확인된 제목은 확인된
+   * 제목으로만 갱신한다.** 매핑(audio_source_key)은 출처와 무관하게 항상 갱신한다.
+   */
+  recordTrackLookup(sourceUrl, platform, audioSourceKey, displayTitle, displayArtist, displayThumbnail, { verified = false } = {}) {
     if (!this._initialized) this.initialize();
     sourceUrl = this._normalizeSourceUrl(sourceUrl);
     const now = Date.now();
+    const v = verified ? 1 : 0;
     this.db
       .prepare(
         `
             INSERT INTO track_lookup
                 (source_url, audio_source_key, platform, display_title, display_artist, display_thumbnail,
-                 created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 title_verified, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(source_url) DO UPDATE SET
                 audio_source_key  = excluded.audio_source_key,
-                display_title     = excluded.display_title,
-                display_artist    = excluded.display_artist,
-                display_thumbnail = excluded.display_thumbnail,
+                display_title     = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
+                                         THEN excluded.display_title ELSE track_lookup.display_title END,
+                display_artist    = CASE WHEN excluded.title_verified = 1 OR track_lookup.title_verified = 0
+                                         THEN excluded.display_artist ELSE track_lookup.display_artist END,
+                display_thumbnail = CASE WHEN excluded.display_thumbnail IS NOT NULL
+                                         THEN excluded.display_thumbnail ELSE track_lookup.display_thumbnail END,
+                title_verified    = MAX(track_lookup.title_verified, excluded.title_verified),
                 updated_at        = excluded.updated_at
         `,
       )
-      .run(sourceUrl, audioSourceKey, platform, displayTitle || null, displayArtist || null, displayThumbnail || null, now, now);
+      .run(sourceUrl, audioSourceKey, platform, displayTitle || null, displayArtist || null, displayThumbnail || null, v, now, now);
+  }
+
+  /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null — 재생목록이 준 제목은 여기 안 걸린다. */
+  getVerifiedTitle(sourceUrl) {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT display_title FROM track_lookup WHERE source_url = ? AND title_verified = 1").get(this._normalizeSourceUrl(sourceUrl));
+    return row?.display_title || null;
   }
 
   /**
@@ -435,12 +487,17 @@ class CacheManager {
   }
 
   /** 저장된 세션에서 참조하는 파일 경로 — 시작 시 고아 파일 정리용 */
+  /**
+   * 저장된 세션에서 지켜야 할 캐시 파일 — 기동 시 고아 파일 청소가 쓴다.
+   * 그 시점엔 플레이어가 아직 없으므로 대기열이 유일한 근거다.
+   */
   getProtectedCacheFiles() {
     const sessions = this.getAllPlayerSessions();
     const files = new Set();
     for (const state of Object.values(sessions)) {
-      for (const f of state.downloadedFiles || []) {
-        if (f) files.add(path.resolve(f));
+      for (const track of [state.currentTrack, ...(state.queue || [])]) {
+        const key = track?.audioSourceKey;
+        if (key) files.add(path.resolve(this.getFilePath(key)));
       }
       if (state.currentDownloadedFile) files.add(path.resolve(state.currentDownloadedFile));
     }
@@ -549,7 +606,7 @@ class CacheManager {
 
     // 1. 다운로드 중 중단된 행 재설정
     const resetCount = this.db.prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
-    if (resetCount > 0) log.info(`인터럽트된 다운로드 ${resetCount}건 초기화`);
+    if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
     // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
     const cachedRows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache WHERE status = 'cached'").all();
@@ -561,13 +618,62 @@ class CacheManager {
         orphanDbCount++;
       }
     }
-    if (orphanDbCount > 0) log.info(`DB에서 파일 없는 항목 ${orphanDbCount}건 마킹`);
+    if (orphanDbCount > 0) log.info(`오디오 캐시 파일이 누락된 항목 ${orphanDbCount}건 기록 완료`);
 
     // 3. DB에서 추적하지 않는 오디오 파일 삭제
     this._cleanOrphanFiles();
 
     // 4. 제한 초과 시 제거
     await this.evictIfNeeded();
+  }
+
+  /**
+   * 캐시를 초기 상태로 되돌린다 — 오디오 파일 전부와 파생 데이터 테이블.
+   *
+   * `guild_settings`(전용 채널·DJ 역할·SponsorBlock 설정)는 남긴다. 사용자가 손으로 넣은
+   * 유일한 값이라 다시 만들 수 없고, 나머지는 전부 다시 받거나 다시 계산할 수 있다.
+   *
+   * 재생 중인 파일은 열려 있어 지워지지 않을 수 있다(윈도우). 실패해도 멈추지 않고 세어서
+   * 돌려준다 — 재생은 이미 연 핸들로 계속되므로 끊기지 않는다.
+   */
+  resetCache() {
+    if (!this._initialized) this.initialize();
+
+    const before = { files: this._cacheCount(), bytes: this._cacheSize() };
+
+    // 파생 데이터만 비운다. track_lookup은 CASCADE 대상이지만 명시해 순서를 못박는다.
+    const tables = ["track_lookup", "audio_cache", "sponsorblock_cache", "age_restricted", "spotify_anon", "player_sessions"];
+    const wipe = this.db.transaction(() => {
+      for (const t of tables) this.db.prepare(`DELETE FROM ${t}`).run();
+    });
+    wipe();
+
+    let removed = 0;
+    let kept = 0;
+    if (fs.existsSync(this._cacheDir)) {
+      for (const file of fs.readdirSync(this._cacheDir)) {
+        try {
+          fs.unlinkSync(path.join(this._cacheDir, file));
+          removed++;
+        } catch {
+          kept++; // 재생 중이라 잠긴 파일
+        }
+      }
+    }
+
+    // 보호 집합은 사라진 행을 가리키게 되므로 함께 비운다. 재생 중인 곡은 다음 예열 틱이 다시 채운다.
+    this._protectedKeys.clear();
+    this._queuedKeys.clear();
+
+    try {
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
+      this.db.exec("VACUUM");
+    } catch {
+      /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
+    }
+
+    log.warn(`오디오 캐시 초기화: ${removed}개 삭제(${Math.round(before.bytes / 1024 / 1024)}MB)${kept > 0 ? `, ${kept}개는 재생 중이라 남겨둠` : ""}`);
+    return { removed, kept, freedBytes: before.bytes, fileCountBefore: before.files };
   }
 
   _cleanOrphanFiles() {
@@ -583,7 +689,7 @@ class CacheManager {
 
     // 보호 대상: 저장된 세션 + 실시간 재생/사전 캐시 키
     const sessionFiles = this.getProtectedCacheFiles();
-    const liveFiles = new Set([...this._protectedKeys].map((k) => path.resolve(this.getFilePath(k))));
+    const liveFiles = new Set([...this._liveKeys()].map((k) => path.resolve(this.getFilePath(k))));
     const allProtected = new Set([...sessionFiles, ...liveFiles]);
 
     let cleaned = 0;
@@ -614,8 +720,8 @@ class CacheManager {
         }
       }
     }
-    if (cleaned > 0) log.info(`고아 파일 ${cleaned}개 삭제`);
-    if (partials > 0) log.info(`중단된 다운로드 잔해 ${partials}개 삭제`);
+    if (cleaned > 0) log.info(`고아 오디오 캐시 파일 ${cleaned}개 삭제 완료`);
+    if (partials > 0) log.info(`캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
   }
 
   // 제거
@@ -623,7 +729,7 @@ class CacheManager {
   /** CACHE_DIR 파일시스템의 디스크 여유 공간(바이트). 오류 시 Infinity 반환. */
   _diskFree() {
     try {
-      const stat = fs.statfsSync(CACHE_DIR);
+      const stat = fs.statfsSync(this._cacheDir);
       return stat.bavail * stat.bsize;
     } catch {
       return Infinity;
@@ -653,9 +759,9 @@ class CacheManager {
     if (!overSize && !overFiles && !lowDisk) return;
 
     if (lowDisk) {
-      log.warn(`⚠️  디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음), 강제 퇴거`);
+      log.warn(`디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음) — 오디오 캐시를 즉시 정리합니다.`);
     } else {
-      log.info(`캐시 한도 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개), 퇴거 시작...`);
+      log.info(`오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개) — 오래된 파일부터 정리합니다.`);
     }
 
     await this.evict();
@@ -664,11 +770,13 @@ class CacheManager {
   async evict() {
     if (!this._initialized) this.initialize();
 
-    // 현재 보호 중인 키 제외 (재생 중/사전 캐시됨)
+    // 보호 중인 키 제외 — 재생 중인 곡과 각 길드의 대기열 앞부분.
+    // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
+    const live = this._liveKeys();
     const rows = this.db
       .prepare("SELECT * FROM audio_cache WHERE status = 'cached'")
       .all()
-      .filter((r) => !this._protectedKeys.has(r.audio_source_key));
+      .filter((r) => !live.has(r.audio_source_key));
 
     if (rows.length === 0) return;
 
@@ -723,7 +831,7 @@ class CacheManager {
       this.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(row.audio_source_key);
       evicted++;
     }
-    if (evicted > 0) log.info(`${evicted}개 파일 퇴거 완료`);
+    if (evicted > 0) log.info(`${evicted}개의 오디오 캐시 파일 삭제 완료`);
   }
 
   /** 백그라운드 주기적 제거 타이머 시작 */
@@ -731,7 +839,7 @@ class CacheManager {
     const cfg = require("../config").cache;
     if (this._evictInterval) clearInterval(this._evictInterval);
     this._evictInterval = setInterval(() => {
-      this.evictIfNeeded().catch((err) => log.error("주기적 퇴거 오류:", err.message));
+      this.evictIfNeeded().catch((err) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", err.message));
     }, cfg.evictIntervalMs);
     this._evictInterval.unref(); // 프로세스 종료를 막지 않음
   }
@@ -773,7 +881,7 @@ class CacheManager {
       lookupCount,
       neverPlayed,
       platforms: { youtube: ytCount, soundcloud: scCount, direct: dlCount },
-      protectedCount: this._protectedKeys.size,
+      protectedCount: this._liveKeys().size,
       topTracks,
       recentTracks,
     };

@@ -16,8 +16,8 @@ const DISCORD_API = "https://discord.com/api/v10";
 // Log OAuth config at startup — 리다이렉트 불일치 디버깅용 REDIRECT_URI만.
 // CLIENT_ID는 config에서 필수 검증되므로(없으면 기동 실패) 출력 불필요하고,
 // OWNER_ID는 봇 운영자의 신원이라 원시 ID를 로그(=운영자 SSE 로그 스트림)에 남기지 않는다.
-log.info({ sub: "auth" }, `REDIRECT_URI: ${REDIRECT_URI}`);
-log.info({ sub: "auth" }, `OWNER_ID: ${OWNER_ID ? "(set)" : "(not set)"}`);
+log.debug({ sub: "auth" }, `리디렉션 URI: ${REDIRECT_URI}`);
+log.debug({ sub: "auth" }, `운영자 ID: ${OWNER_ID ? "설정됨" : "미설정"}`);
 
 // Redirect to Discord OAuth
 router.get("/login", (req, res) => {
@@ -81,7 +81,7 @@ router.get("/callback", async (req, res) => {
     // 로그인 전 세션(oauthState 등)은 폐기, 새 sid로 사용자 정보만
     req.session.regenerate((err) => {
       if (err) {
-        log.error("❌ Session regenerate error:", err);
+        log.error("세션 재생성 실패:", err);
         return res.redirect("/?error=auth_failed");
       }
       req.session.user = sessionUser;
@@ -89,10 +89,8 @@ router.get("/callback", async (req, res) => {
     });
   } catch (error) {
     const discordErr = error.response?.data;
-    log.error("❌ OAuth callback error:");
-    log.error("  Status:", error.response?.status);
-    log.error("  Body:", JSON.stringify(discordErr));
-    log.error("  REDIRECT_URI used:", REDIRECT_URI);
+    // 한 실패에 네 줄을 찍고 있었다 — 상태·본문은 구조화 필드로 싣고 줄은 하나만 남긴다.
+    log.error({ status: error.response?.status, body: JSON.stringify(discordErr), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: 상태 코드 ${error.response?.status ?? "?"}`);
     res.redirect("/?error=auth_failed");
   }
 });

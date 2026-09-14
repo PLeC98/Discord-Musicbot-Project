@@ -32,6 +32,8 @@ class DirectLink {
           artist: "직접 링크",
           url: url,
           duration: estimatedDuration,
+          // Content-Length 기반 추정. 다운로드 후 probeDurationSec가 실측으로 교체한다.
+          durationSource: "추정",
           // 임의의 오디오 URL이라 앨범아트를 알 방법이 없다. 대시보드가 파일 아이콘으로 대체 표시한다.
           thumbnail: null,
           platform: "direct",
@@ -45,7 +47,7 @@ class DirectLink {
       ];
     } catch (error) {
       // SSRF 차단 등 실패 상세는 서버 로그로만 (사용자에겐 상위에서 "결과 없음")
-      log.error("getInfo() failed:", error.message || error);
+      log.error("직접 링크 정보 조회 실패:", error.message || error);
       return [];
     }
   }
@@ -63,7 +65,7 @@ class DirectLink {
       return await SafeUrl.getStream(url);
     } catch (error) {
       // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용 — 사용자 노출 없음)
-      log.error("getStream() failed:", error.message || error);
+      log.error("직접 링크 스트림 실패:", error.message || error);
       throw new Error("재생할 수 없는 링크입니다", { cause: error });
     }
   }

@@ -9,7 +9,6 @@ process.env.RATE_LIMIT_API_MAX = "-5"; // 음수 상한
 process.env.SSE_HEARTBEAT_SEC = "0"; // 0초 하트비트 (1ms급 타이머 계열)
 process.env.CACHE_MAX_FILES = "abc"; // 숫자 아님 (기존 동작 회귀)
 process.env.CACHE_EVICT_INTERVAL_HOURS = "2"; // 범위 내 정상값
-process.env.SHARD_SPAWN_TIMEOUT = "-1"; // -1 = 무제한 (discord.js 관례) — 허용
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
@@ -25,7 +24,8 @@ test("숫자 아님은 기존대로 기본값 (회귀)", () => {
   assert.equal(config.cache.maxFiles, 500);
 });
 
-test("범위 내 값과 특수 허용값(-1 무제한)은 그대로 통과", () => {
+// 샤딩 제거로 min:-1을 쓰는 설정이 남지 않아 "특수 허용값" 단언은 대상이 없어졌다.
+// envInt의 음수 허용 자체는 min을 음수로 주는 설정이 다시 생길 때 함께 되살릴 것.
+test("범위 내 값은 그대로 통과", () => {
   assert.equal(config.cache.evictIntervalMs, 2 * 3600 * 1000);
-  assert.equal(config.sharding.spawnTimeout, -1);
 });

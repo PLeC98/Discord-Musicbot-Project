@@ -7,6 +7,16 @@ const ErrorHandler = require("./ErrorHandler");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
 const { silentResponder } = require("./playbackResponder");
+const GuildSettingsManager = require("./GuildSettingsManager");
+
+// 편집 대상이 사라진 경우 — 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
+const UNKNOWN_MESSAGE = 10008;
+const UNKNOWN_WEBHOOK = 10015;
+const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNKNOWN_WEBHOOK;
+
+// 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
+// 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(playbackResponder.AUTO_DELETE_MS).
+const PIN_SETTLE_MS = 12000;
 
 class MusicEmbedManager {
   constructor(client) {
@@ -14,6 +24,7 @@ class MusicEmbedManager {
     this.processingQueue = new Map(); // guildId -> Promise 매핑
     this.updateIntervals = new Map(); // guildId -> intervalId 매핑
     this.webhookCache = new Map(); // channelId -> WebhookClient 매핑
+    this.reposting = new Set(); // 현재 재생 메시지를 다시 올리는 중인 guildId
   }
 
   deleteWebhookCache(channelId) {
@@ -40,7 +51,7 @@ class MusicEmbedManager {
       this.webhookCache.set(channel.id, client);
       return client;
     } catch (error) {
-      log.error("Webhook get/create failed:", error.message);
+      log.error("웹훅 조회/생성 실패:", error.message);
       return null;
     }
   }
@@ -51,28 +62,6 @@ class MusicEmbedManager {
 
   createErrorContainer(msg) {
     return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(S.withErrorMark(msg)));
-  }
-
-  /**
-   * 버퍼링 방지를 위해 대기열의 트랙을 순차적으로 사전 로드합니다.
-   */
-  async sequentialPreload(player, tracks) {
-    const toPreload = tracks.slice(0, config.preload.ahead);
-
-    for (const track of toPreload) {
-      // 이미 사전 로드되었거나 현재 사전 로드 중이면 건너뜀
-      if (player.preloadedStreams.has(track.url) || player.preloadingQueue.includes(track.url)) {
-        continue;
-      }
-
-      try {
-        await player.preloadTrack(track);
-        await new Promise((resolve) => setTimeout(resolve, config.preload.gapMs));
-      } catch (err) {
-        log.error(`❌ Preload error for ${track.title}:`, err.message);
-        // 오류가 나도 계속 진행
-      }
-    }
   }
 
   /**
@@ -101,7 +90,8 @@ class MusicEmbedManager {
     if (!player) return { success: false, message: "음악 플레이어를 찾을 수 없습니다." };
 
     const wasPlayingBefore = player.currentTrack !== null;
-    const isPlaylist = trackData.isPlaylist || false;
+    // 여러 곡을 담았으면 그 출처의 표시 이름(재생목록·앨범 등), 한 곡이면 null
+    const sourceLabel = trackData.isPlaylist ? S.collectionLabel(trackData.collection) : null;
     const insertFirst = trackData.insertFirst || false;
     const tracks = trackData.tracks;
 
@@ -136,7 +126,7 @@ class MusicEmbedManager {
               playbackStarted = true;
             }
           } catch (playError) {
-            log.error("Error in play process:", playError);
+            log.error("재생 처리 중 오류:", playError);
             startFailure = ErrorHandler.getMessage(playError);
           }
 
@@ -148,7 +138,7 @@ class MusicEmbedManager {
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, track, requester, responder);
             } catch (embedError) {
-              log.error("Error creating now playing embed:", embedError);
+              log.error("재생 중 임베드 생성 실패:", embedError);
               firstTrackResult = { success: true, message: "Now playing", isNewEmbed: false };
             }
           }
@@ -181,7 +171,7 @@ class MusicEmbedManager {
             }
           }
         } catch (e) {
-          log.error("Error starting next track after first-track failure:", e?.message || e);
+          log.error("첫 곡 실패 후 다음 곡 시작 실패:", e?.message || e);
         }
       }
 
@@ -190,13 +180,10 @@ class MusicEmbedManager {
         return { success: false, message: startFailure };
       }
 
-      // 버퍼링 방지를 위해 대기열 트랙의 순차 사전 로드 트리거
-      this.sequentialPreload(player, player.queue.slice()).catch((err) => log.error("❌ Sequential preload error:", err.message));
-
       // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
       if (firstTrackResult && tracks.length > 1) {
         // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
-        await this.showPlaylistAdditionMessage(player, tracks, isPlaylist, insertFirst);
+        await this.showPlaylistAdditionMessage(player, tracks, sourceLabel, insertFirst);
         // 대기열 갱신 — 임베드 새로고침
         await this.updateNowPlayingEmbed(player);
         return firstTrackResult;
@@ -204,7 +191,7 @@ class MusicEmbedManager {
 
       // 대기열에만 추가됨 (이미 음악 재생 중)
       if (wasPlayingBefore || (!firstTrackResult && tracks.length > 0)) {
-        return await this.handleQueueAddition(player, tracks, responder, isPlaylist, insertFirst);
+        return await this.handleQueueAddition(player, tracks, responder, sourceLabel, insertFirst);
       }
 
       // 단일 트랙 재생 시작
@@ -221,10 +208,10 @@ class MusicEmbedManager {
   /**
    * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
-  async showPlaylistAdditionMessage(player, tracks, isPlaylist, insertFirst = false) {
+  async showPlaylistAdditionMessage(player, tracks, sourceLabel, insertFirst = false) {
     // 첫 번째를 제외한 남은 트랙 정보 전송
     const remainingTracks = tracks.slice(1);
-    const messageText = this.createQueueAdditionMessage(remainingTracks, isPlaylist, insertFirst);
+    const messageText = this.createQueueAdditionMessage(remainingTracks, sourceLabel, insertFirst);
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로 — 채널이 없는 경로(대시보드)는 생략
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
@@ -242,7 +229,7 @@ class MusicEmbedManager {
         }
       }, 10000);
     } catch (error) {
-      log.error("Error sending playlist addition message:", error);
+      log.error("재생목록 추가 안내 전송 실패:", error);
     }
   }
 
@@ -255,28 +242,8 @@ class MusicEmbedManager {
       return { success: true, message: "Now playing", isNewEmbed: false };
     }
 
-    const container = await this.createNowPlayingContainer(player, track);
-    const jumpToRow = await this.createJumpToRow(player);
-    const components = jumpToRow ? [container, jumpToRow] : [container];
-    const payload = { components, flags: MessageFlags.IsComponentsV2 };
-
-    // 지속되는 now-playing 메시지는 상호작용 유무와 무관하게 항상 채널 웹훅(실패 시 일반 채널 메시지)으로 보낸다.
-    // 상호작용 응답(@original)으로 보내면 이후 편집이 상호작용 토큰을 사용하는데, 이 토큰은 생성 15분 뒤 만료되어
-    // 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
-    // (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
-    let message;
-    const webhook = await this.getOrCreateWebhook(player.textChannel);
-    if (webhook) {
-      message = await webhook.send({
-        ...payload,
-        username: this.client.user.displayName || this.client.user.username,
-        avatarURL: this.client.user.displayAvatarURL(),
-      });
-      player.nowPlayingWebhook = webhook;
-    } else {
-      message = await player.textChannel.send(payload);
-      player.nowPlayingWebhook = null;
-    }
+    const { message, webhook } = await this._sendNowPlaying(player, track);
+    player.nowPlayingWebhook = webhook;
 
     // 진입점이 띄운 "검색 중…" 자리표시자 제거 — 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
@@ -292,15 +259,105 @@ class MusicEmbedManager {
   /**
    * 음악 재생 중 곡이 대기열에 추가되는 경우를 처리합니다.
    */
-  async handleQueueAddition(player, tracks, responder, isPlaylist, insertFirst = false) {
+  async handleQueueAddition(player, tracks, responder, sourceLabel, insertFirst = false) {
     // 기존 임베드 갱신
     if (player.nowPlayingMessage && player.currentTrack) {
       await this.updateNowPlayingEmbed(player);
     }
 
-    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, isPlaylist, insertFirst));
+    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, sourceLabel, insertFirst));
 
     return { success: true, message: "Added to queue", isNewEmbed: false };
+  }
+
+  /**
+   * 현재 재생 메시지를 채널에 보냅니다. 참조 갱신은 호출자 몫.
+   *
+   * 지속되는 now-playing 메시지는 상호작용 유무와 무관하게 항상 채널 웹훅(실패 시 일반 채널 메시지)으로 보낸다.
+   * 상호작용 응답(@original)으로 보내면 이후 편집이 상호작용 토큰을 사용하는데, 이 토큰은 생성 15분 뒤 만료되어
+   * 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
+   * (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
+   */
+  async _sendNowPlaying(player, track) {
+    const container = await this.createNowPlayingContainer(player, track);
+    const jumpToRow = await this.createJumpToRow(player);
+    const components = jumpToRow ? [container, jumpToRow] : [container];
+    const payload = { components, flags: MessageFlags.IsComponentsV2 };
+
+    const webhook = await this.getOrCreateWebhook(player.textChannel);
+    if (!webhook) return { message: await player.textChannel.send(payload), webhook: null };
+
+    const message = await webhook.send({
+      ...payload,
+      username: this.client.user.displayName || this.client.user.username,
+      avatarURL: this.client.user.displayAvatarURL(),
+    });
+    return { message, webhook };
+  }
+
+  /** 현재 재생 메시지를 지웁니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
+  async _removeNowPlaying(channel, webhook, messageId) {
+    if (!messageId) return;
+    try {
+      if (webhook) await webhook.deleteMessage(messageId);
+      else await channel?.messages?.delete(messageId);
+    } catch {
+      /* 이미 지워졌거나 지울 권한이 없음 */
+    }
+  }
+
+  /**
+   * 현재 재생 메시지를 채널 맨 아래에 다시 올립니다 (기존 것은 제거).
+   * 사용자가 지웠을 때의 자가 복구와, 전용 채널에서 묻혔을 때의 재고정이 같은 경로를 씁니다.
+   *
+   * 서버당 한 번만 — 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
+   * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 지운다.
+   */
+  async _repostNowPlaying(player, reason) {
+    const guildId = player.guild?.id;
+    if (!guildId || this.reposting.has(guildId)) return;
+    if (!player.currentTrack || typeof player.textChannel?.send !== "function") return;
+
+    this.reposting.add(guildId);
+    const previous = player.nowPlayingMessage;
+    const previousWebhook = player.nowPlayingWebhook;
+    try {
+      const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack);
+
+      if (player.nowPlayingMessage !== previous || !player.currentTrack) {
+        await this._removeNowPlaying(player.textChannel, webhook, message?.id);
+        return;
+      }
+
+      player.nowPlayingMessage = message;
+      player.nowPlayingWebhook = webhook;
+      await this._removeNowPlaying(player.textChannel, previousWebhook, previous?.id);
+      log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
+    } catch (error) {
+      // 다시 올리지 못하면 참조를 버린다 — 5초마다 같은 실패를 반복하면 그게 도배다
+      player.nowPlayingMessage = null;
+      this.stopProgressUpdate(guildId);
+      log.error("재생 중 임베드 다시 올리기 실패:", error?.message || error);
+    } finally {
+      this.reposting.delete(guildId);
+    }
+  }
+
+  /**
+   * 전용 채널에서 현재 재생 메시지가 다른 메시지 밑에 묻혔는지 봅니다.
+   *
+   * 채널 캐시만 읽는다(추가 API 호출 없음) — 삭제된 메시지는 캐시에서도 빠지므로
+   * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
+   */
+  async _isBuried(player, now = Date.now()) {
+    const channel = player.textChannel;
+    const currentId = player.nowPlayingMessage?.id;
+    if (!currentId || !channel?.messages?.cache) return false;
+    if (!player.guild?.id) return false;
+    if ((await GuildSettingsManager.getBotChannel(player.guild.id)) !== channel.id) return false;
+
+    const cutoff = now - PIN_SETTLE_MS;
+    return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(currentId));
   }
 
   /**
@@ -385,6 +442,7 @@ class MusicEmbedManager {
   async updateNowPlayingEmbed(player) {
     if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     if (!player.nowPlayingMessage || !player.currentTrack) return;
+    if (this.reposting.has(player.guild?.id)) return; // 다시 올리는 중 — 그쪽이 최신 내용으로 보낸다
 
     try {
       const container = await this.createNowPlayingContainer(player, player.currentTrack);
@@ -402,7 +460,16 @@ class MusicEmbedManager {
         });
       }
     } catch (error) {
-      log.error("Error updating now playing embed:", error);
+      // 편집 대상이 없어졌다 — 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
+      if (isGone(error)) {
+        if (error.code === UNKNOWN_WEBHOOK && player.textChannel?.id) {
+          this.deleteWebhookCache(player.textChannel.id);
+          player.nowPlayingWebhook = null;
+        }
+        await this._repostNowPlaying(player, "메시지가 지워짐");
+        return;
+      }
+      log.error("재생 중 임베드 갱신 실패:", error);
     }
   }
 
@@ -429,7 +496,8 @@ class MusicEmbedManager {
           });
         }
       } catch (error) {
-        log.error("Error disabling buttons:", error);
+        // 이미 지워진 메시지의 버튼을 못 껐다는 것은 알릴 일이 아니다
+        if (!isGone(error)) log.error("버튼 비활성화 실패:", error);
       }
     }
 
@@ -438,7 +506,7 @@ class MusicEmbedManager {
     try {
       endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
     } catch (error) {
-      log.error("Error preparing playback end embed:", error);
+      log.error("재생 종료 임베드 준비 실패:", error);
     }
 
     if (!endEmbed) {
@@ -563,10 +631,11 @@ class MusicEmbedManager {
 
   /**
    * 대기열 추가 메시지를 빌드합니다.
+   * @param {string|null} sourceLabel 여러 곡을 담은 출처의 표시 이름(재생목록·앨범 등). 없으면 한 곡 안내
    */
-  createQueueAdditionMessage(tracks, isPlaylist, insertFirst = false) {
-    if (isPlaylist) {
-      return insertFirst ? `⏫ 재생목록의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ 재생목록의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
+  createQueueAdditionMessage(tracks, sourceLabel, insertFirst = false) {
+    if (sourceLabel) {
+      return insertFirst ? `⏫ ${sourceLabel}의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ ${sourceLabel}의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
     } else {
       const title = escapeMd(tracks[0]?.title || "알 수 없는 트랙");
       return insertFirst ? `⏫ **${title}**가 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**가 대기열에 추가되었습니다!`;
@@ -604,7 +673,8 @@ class MusicEmbedManager {
         return;
       }
       try {
-        await this.updateNowPlayingEmbed(player);
+        if (await this._isBuried(player)) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+        else await this.updateNowPlayingEmbed(player);
       } catch {
         this.stopProgressUpdate(player.guild.id);
       }

@@ -21,11 +21,23 @@ const TrackResolver = {
     return "youtube"; // 기본값은 YouTube 검색
   },
 
-  // 쿼리 → { success, isPlaylist, tracks } 또는 { success: false, message }
+  /**
+   * 유튜브 링크이긴 한데 우리가 아는 형태가 아닌가 (클립·채널·검색 결과 페이지 등).
+   *
+   * 이런 주소를 검색으로 흘리면 URL 문자열 자체가 검색어가 되어 **엉뚱한 영상이 재생**되기에 재생을 거절한다.
+   * (클립은 2026년 유튜브가 기능을 없앴다 — 지원 대상이 아니다.)
+   */
+  isUnsupportedYouTubeLink(query) {
+    return YouTube.isYouTubeHost(query) && !YouTube.isYouTubeURL(query);
+  },
+
+  // 쿼리 → { success, isPlaylist, collection, tracks } 또는 { success: false, message }
+  // collection: 여러 곡을 담은 출처의 종류 — "playlist" | "album" | "artist", 한 곡이면 null
   async getTrackData(query, guildId, context = "TrackResolver.getTrackData") {
     try {
       let tracks = [];
       let isPlaylist = false;
+      let collection = null;
 
       switch (this.detectPlatform(query)) {
         case "youtube":
@@ -34,10 +46,13 @@ const TrackResolver = {
             if (playlistData && playlistData.tracks && playlistData.tracks.length > 0) {
               tracks = playlistData.tracks;
               isPlaylist = true;
+              collection = "playlist";
             } else {
               // 재생목록을 불러오지 못하면 일반 검색 수행
               tracks = await YouTube.search(query, 1, guildId);
             }
+          } else if (this.isUnsupportedYouTubeLink(query)) {
+            return { success: false, message: "❌ 재생할 수 없는 유튜브 주소입니다." };
           } else {
             tracks = await YouTube.search(query, 1, guildId);
           }
@@ -48,6 +63,7 @@ const TrackResolver = {
             tracks = (await Spotify.getFromURL(query, guildId)) || [];
             const { type } = Spotify.parseSpotifyURL(query);
             isPlaylist = type === "playlist" || type === "album" || type === "artist";
+            if (isPlaylist) collection = type;
           } else {
             tracks = (await Spotify.search(query, 1, "track", guildId)) || [];
           }
@@ -66,7 +82,7 @@ const TrackResolver = {
         return { success: false, message: "❌ 결과를 찾을 수 없습니다!" };
       }
 
-      return { success: true, isPlaylist, tracks };
+      return { success: true, isPlaylist, collection, tracks };
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, guildId, context);
       return { success: false, message: errorMsg };
@@ -76,9 +92,12 @@ const TrackResolver = {
   /**
    * 캐시 숏컷 포함 해석 — 캐시된 단일 곡은 yt-dlp 호출 없이 즉시 반환.
    * 재생목록 URL은 캐시를 우회: URL 정규화가 list=를 제거하므로 캐시된 단일 영상이 재생목록 전체를 가릴 수 있음.
+   * 지원하지 않는 형태의 유튜브 링크도 우회한다 — 예전에 검색으로 흘러 잘못 맺힌 매핑이 남아 있으면
+   * 캐시가 그 엉뚱한 영상을 그대로 돌려준다.
    */
   async resolveQuery(query, guildId, context) {
-    const cacheHit = YouTube.isPlaylist(query) ? { hit: false } : CacheManager.resolveFromCache(query);
+    const skipCache = YouTube.isPlaylist(query) || this.isUnsupportedYouTubeLink(query);
+    const cacheHit = skipCache ? { hit: false } : CacheManager.resolveFromCache(query);
     if (cacheHit.hit) {
       return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
     }
@@ -202,7 +221,7 @@ const TrackResolver = {
         } catch (err) {
           // 캐시 매핑의 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
           if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
-            log.warn(`⚠️ 캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
+            log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
             ytUrl = await this.reresolveYouTube(track, guildId);
             if (ytUrl) return await YouTube.getStream(ytUrl, guildId, seekSeconds);
           }

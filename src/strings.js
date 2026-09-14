@@ -11,9 +11,14 @@ const withErrorMark = (msg) => {
 };
 const withoutErrorMark = (msg) => String(msg ?? "").replace(/^\s*❌\s*/, "");
 
+// 여러 곡을 한 번에 담은 출처의 표시 이름 (TrackResolver의 collection 값). 모르면 재생목록
+const COLLECTION_LABELS = { playlist: "재생목록", album: "앨범", artist: "아티스트 인기곡" };
+const collectionLabel = (collection) => COLLECTION_LABELS[collection] || COLLECTION_LABELS.playlist;
+
 module.exports = {
   withErrorMark,
   withoutErrorMark,
+  collectionLabel,
 
   ERR_VOICE_REQUIRED: "❌ 음성 채널에 있어야 합니다!",
   ERR_NO_MUSIC: "❌ 현재 재생 중인 음악이 없습니다!",

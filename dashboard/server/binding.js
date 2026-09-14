@@ -26,7 +26,7 @@ function describeBinding(host, port, dashboardUrl) {
   const scope = WILDCARD.has(String(host ?? "")) ? "모든 인터페이스" : "외부 접속 허용";
   const warnings = [];
   if (String(dashboardUrl ?? "").startsWith("http://")) {
-    warnings.push("⚠️  [dashboard] 평문 HTTP로 외부에 열려 있습니다 — HTTPS 프록시 뒤에 두세요.");
+    warnings.push("⚠️ [dashboard] 평문 HTTP로 외부에 열려 있습니다 — HTTPS 프록시 뒤에 두세요.");
   }
   return { line: `🌐 Dashboard: ${host}:${port} (${scope})`, warnings };
 }

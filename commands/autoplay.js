@@ -35,7 +35,7 @@ module.exports = {
     const genre = interaction.options.getString("genre");
 
     if (player.autoplay && !genre) {
-      player.autoplay = false;
+      player.setAutoplay(false);
 
       const embed = new EmbedBuilder().setTitle("🎲 자동 재생이 비활성화되었습니다").setDescription("자동 재생 기능이 꺼졌습니다.").setColor(config.bot.embedColor).setTimestamp();
 
@@ -62,7 +62,7 @@ module.exports = {
       });
     }
 
-    player.autoplay = genre;
+    player.setAutoplay(genre);
     const genreName = genres[genre].label;
 
     const embed = new EmbedBuilder()

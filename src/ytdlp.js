@@ -27,8 +27,13 @@ async function run(url, flags = {}, opts = {}) {
   const sub = youtubedl.exec(url, flags, { ...SPAWN_OPTS, ...opts });
   const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN });
   try {
-    const stdout = (await sub).stdout;
-    return youtubedl.isJSON(stdout) ? JSON.parse(stdout) : stdout;
+    const { stdout, stderr } = await sub;
+    const out = youtubedl.isJSON(stdout) ? JSON.parse(stdout) : stdout;
+    // 성공해도 stderr에 경고가 실려 온다("이 클라이언트는 POToken이 필요하다" 등).
+    // 지금까지는 여기서 버려져 아무도 못 봤다. 호출부가 훑을 수 있게 얹어 준다 —
+    // 객체면 속성으로(열거 불가라 JSON 직렬화·스프레드에 안 섞인다), 문자열이면 못 얹으므로 포기.
+    if (stderr && out && typeof out === "object") Object.defineProperty(out, "_stderr", { value: stderr, enumerable: false });
+    return out;
   } catch (error) {
     // tinyspawn의 ChildProcessError를 youtube-dl-exec와 같은 모양(message = stderr)으로 정규화.
     // spawn 자체가 실패한 경우(ENOENT 등)는 stderr가 없으므로 원래 message를 쓴다.

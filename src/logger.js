@@ -53,24 +53,34 @@ function buildRecord(levelNum, bindings, args) {
   return rec;
 }
 
-function createLogger(bindings = {}, levelName = "info") {
-  let levelNum = LEVELS[levelName] ?? LEVELS.info;
+// 루트 레벨은 **공유 상태**다. 각 파일이 require 시점에 `child()`로 로거를 만들어 두는데,
+// 레벨을 그때 복사해 버리면 나중에(config를 읽은 뒤) 루트 레벨을 바꿔도 이미 만들어진
+// 자식들에게 닿지 않는다 — 설정이 아무 효과가 없어진다. pino의 자식도 부모 레벨을 따른다.
+let rootLevelNum = LEVELS.info;
+
+function createLogger(bindings = {}, ownLevel = null) {
+  let ownLevelNum = ownLevel != null ? (LEVELS[ownLevel] ?? null) : null;
+  const isRoot = arguments.length === 0;
+  const effective = () => ownLevelNum ?? rootLevelNum;
 
   const api = {
     get level() {
-      return LEVEL_NAMES[levelNum];
+      return LEVEL_NAMES[effective()];
     },
     set level(v) {
-      if (LEVELS[v] != null) levelNum = LEVELS[v];
+      if (LEVELS[v] == null) return;
+      // 루트에 설정하면 전체 기본이 바뀐다. 자식에 설정하면 그 자식만 따로 논다.
+      if (isRoot) rootLevelNum = LEVELS[v];
+      else ownLevelNum = LEVELS[v];
     },
     child(childBindings) {
-      return createLogger({ ...bindings, ...childBindings }, LEVEL_NAMES[levelNum]);
+      return createLogger({ ...bindings, ...childBindings }, ownLevelNum != null ? LEVEL_NAMES[ownLevelNum] : null);
     },
   };
 
   for (const [name, num] of Object.entries(LEVELS)) {
     api[name] = (...args) => {
-      if (num < levelNum) return; // 레벨 게이팅
+      if (num < effective()) return; // 레벨 게이팅
       sink.record(buildRecord(num, bindings, args));
     };
   }

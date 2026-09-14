@@ -5,8 +5,9 @@
 // 방침: 일시적 네트워크 오류는 프로세스를 살린 채 "영향받은 서버만" 표적 복구하고,
 //       진짜 치명적 오류는 안전하게 종료해 봇 운영자의 확인·수동 재시작을 대기.
 
-const chalk = require("chalk");
-const log = require("./logger").child({ category: "voice" });
+const log = require("./logger").child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
+// 프로세스를 내리는 것은 음성 관심사가 아니다 — 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
+const flog = require("./logger").child({ category: "core", sub: "fatal" });
 const { VoiceConnectionStatus } = require("@discordjs/voice");
 
 // 네트워크 오류 폭주 판정용 시간창
@@ -44,10 +45,10 @@ async function healBrokenPlayers(client) {
         if (status === VoiceConnectionStatus.Ready) continue; // 정상 서버 — 무영향
         // 수립 진행 중은 자체 완료/실패를 기다림 — 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
         if (status === VoiceConnectionStatus.Connecting || status === VoiceConnectionStatus.Signalling) continue;
-        log.info(chalk.yellow(`🔧 서버 ${guildId} 음성 연결이 끊겨 복구를 시작합니다...`));
+        log.info(`서버 ID ${guildId}의 음성 연결이 끊겨 복구를 시작합니다`);
         player.voice.startConnectionRecovery();
       } catch (e) {
-        log.error(chalk.red(`❌ 플레이어 자가치유 실패 (guild ${guildId}):`), e.message);
+        log.error(`플레이어 자가치유 실패 (서버 ID ${guildId}):`, e.message);
       }
     }
   } finally {
@@ -98,17 +99,20 @@ function fatalShutdown(client, error, exit = () => process.exit(1)) {
   try {
     if (client && client.players) {
       client.players.forEach((player) => {
-        if (player && player.cleanup) player.cleanup();
+        if (player && player.cleanup) player.cleanup(false, "치명적 오류로 종료");
       });
       client.players.clear();
     }
   } catch {
     /* best-effort 정리 — 종료 중이므로 실패해도 계속 */
   }
-  log.error(chalk.red("════════════════════════════════════════════════════════"));
-  log.error(chalk.red("💀 치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다."));
-  log.error(chalk.red(String((error && error.stack) || error)));
-  log.error(chalk.red("════════════════════════════════════════════════════════"));
+  // 이 줄 다음에 프로세스가 죽는다 — 레벨 판정의 fatal 정의 그대로다.
+  // 레벨로 거를 때 "봇이 죽은 순간"만 뽑아낼 수 있어야 한다.
+  // 구분선 두 줄은 뺐다 — fatal 레벨과 색이 이미 눈에 띄고, 한 사건에 네 줄을 찍을 이유가 없다.
+  flog.fatal(
+    `치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다.
+${String((error && error.stack) || error)}`,
+  );
   exit();
 }
 

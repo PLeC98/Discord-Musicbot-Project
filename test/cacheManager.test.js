@@ -15,7 +15,8 @@ const DB_PATH = path.join(os.tmpdir(), `musicbot-cachemanager-test-${process.pid
 let CacheManager;
 
 before(() => {
-  // 구(단일 DJ 역할) 스키마 DB를 미리 만들어 레거시 마이그레이션까지 함께 검증
+  // 구(단일 DJ 역할) 스키마 DB를 미리 만들어, 컬럼이 없는 DB를 열어도 기동하는지 검증.
+  // 값 이관은 하지 않는다 — 상류 봇과의 호환을 만드는 일이라 걷어냈다(2026-09-10).
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
   const pre = new Database(DB_PATH);
   pre.exec(`
@@ -42,17 +43,17 @@ after(() => {
   } catch {}
 });
 
-// ── guild_settings: 레거시 마이그레이션 ──────────────────────
+// ── guild_settings: 구 스키마 DB 호환 ────────────────────────
+// dj_role_ids 컬럼이 없는 DB를 열면 ALTER TABLE로 추가만 하고 기동한다.
+// 구 dj_role_id 값을 옮기지는 않는다 — DJ 역할은 다시 설정하면 되는 값이고,
+// 이관을 남겨두면 상류 봇의 DB를 그대로 받아 쓸 수 있게 되는 셈이라 걷어냈다.
 
-test("마이그레이션: 구 dj_role_id 단일 값 → dj_role_ids JSON 배열", () => {
-  assert.deepEqual(CacheManager.getDjRoles("legacy1"), ["role111"]);
-});
-
-test("마이그레이션: 미설정 행은 그대로 미설정", () => {
+test("구 스키마 DB도 열린다 — DJ 역할은 미설정으로 시작", () => {
+  assert.deepEqual(CacheManager.getDjRoles("legacy1"), []);
   assert.deepEqual(CacheManager.getDjRoles("legacy2"), []);
 });
 
-test("마이그레이션: bot_channel_id 무손상", () => {
+test("구 스키마의 bot_channel_id는 보존된다 (같은 컬럼을 계속 쓴다)", () => {
   assert.equal(CacheManager.getBotChannel("legacy1"), "ch1");
   assert.equal(CacheManager.getBotChannel("legacy2"), "ch2");
 });
@@ -218,4 +219,130 @@ test("외부 호출자가 쓰는 메서드는 내보낸 인스턴스에서 호�
 
   assert.equal(CacheManager.md5("x"), "9dd4e461268c8034f5c8564e155c67a6");
   assert.match(CacheManager.getFilePath("dl:abc"), /track_[0-9a-f]{32}\.opus$/);
+});
+
+// ── 캐시 초기화 ──────────────────────────────────────────────
+// 핵심은 "무엇이 남는가"다. 서버 설정은 사용자가 손으로 넣은 유일한 값이라 다시 만들 수 없다.
+
+// 실제 audio_cache/를 지우지 않도록 반드시 임시 디렉터리로 갈아끼운다.
+// (resetCache는 _cacheDir 안의 파일을 전부 지우고, getFilePath는 모듈 상수 CACHE_DIR를 쓴다.)
+function withTempCacheDir(fn) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-reset-"));
+  const prevDir = CacheManager._cacheDir;
+  CacheManager._cacheDir = dir;
+  try {
+    return fn(dir);
+  } finally {
+    CacheManager._cacheDir = prevDir;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다", () => {
+  withTempCacheDir((dir) => {
+    fs.writeFileSync(path.join(dir, "track_deadbeef.opus"), "x");
+    runResetChecks();
+    assert.equal(fs.readdirSync(dir).length, 0, "캐시 폴더가 비워진다");
+  });
+});
+
+function runResetChecks() {
+  CacheManager.setBotChannel("keepme", "ch-keep");
+  CacheManager.setDjRoles("keepme", ["role-keep"]);
+
+  CacheManager.recordDownloadStart("yt:reset1", { title: "t", duration: 10 });
+  CacheManager.recordDownloadComplete("yt:reset1", CacheManager.getFilePath("yt:reset1"), 1234, { title: "t" });
+  CacheManager.recordTrackLookup("https://y/reset1", "youtube", "yt:reset1", "t", null, null);
+  CacheManager.markAgeRestricted("reset1");
+  CacheManager.savePlayerSession("g-reset", { queue: [] });
+
+  const result = CacheManager.resetCache();
+
+  assert.equal(typeof result.removed, "number");
+  assert.equal(CacheManager._cacheCount(), 0, "audio_cache 비움");
+  assert.equal(CacheManager.getAllPlayerSessions()["g-reset"], undefined, "세션 비움");
+  assert.equal(CacheManager.isAgeRestricted("reset1"), false, "연령제한 표시 비움");
+  assert.equal(CacheManager.resolveFromCache("https://y/reset1").hit, false, "조회 기록 비움");
+
+  assert.equal(CacheManager.getBotChannel("keepme"), "ch-keep", "전용 채널은 남는다");
+  assert.deepEqual(CacheManager.getDjRoles("keepme"), ["role-keep"], "DJ 역할은 남는다");
+}
+
+test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌다)", () => {
+  withTempCacheDir(() => {
+    CacheManager.protect("yt:live");
+    CacheManager.setQueuedKeys("g1", ["yt:queued"]);
+
+    CacheManager.resetCache();
+
+    assert.equal(CacheManager._liveKeys().size, 0);
+  });
+});
+
+// ── 제목 출처 (title_verified) ───────────────────────────────
+// 재생목록 페이지가 주는 제목은 같은 영상인데도 다를 수 있다. 그걸로 확인된 제목을 덮으면
+// 한 번 고친 것이 도로 낡은 값으로 돌아간다 — 이 왕복이 실제 증상이었다.
+
+const TL_URL = "https://www.youtube.com/watch?v=titletest";
+
+// track_lookup은 audio_cache를 외래키로 참조한다 — 캐시 행이 먼저 있어야 한다.
+const withCacheRow = (key) => CacheManager.recordDownloadStart(key, { title: "x", duration: 1 });
+
+test("확인되지 않은 제목은 확인된 제목을 덮지 못한다", () => {
+  withCacheRow("yt:titletest");
+  CacheManager.recordTrackLookup(TL_URL, "youtube", "yt:titletest", "정식 제목", "채널", null, { verified: true });
+  assert.equal(CacheManager.getVerifiedTitle(TL_URL), "정식 제목");
+
+  CacheManager.recordTrackLookup(TL_URL, "youtube", "yt:titletest", "낡은 재생목록 제목", "채널", null);
+  assert.equal(CacheManager.getVerifiedTitle(TL_URL), "정식 제목", "재생목록 제목이 덮으면 안 된다");
+});
+
+test("확인된 제목은 확인된 제목으로 갱신된다 (영상 제목이 실제로 바뀐 경우)", () => {
+  CacheManager.recordTrackLookup(TL_URL, "youtube", "yt:titletest", "새 정식 제목", "채널", null, { verified: true });
+  assert.equal(CacheManager.getVerifiedTitle(TL_URL), "새 정식 제목");
+});
+
+test("확인된 적 없는 URL은 getVerifiedTitle이 null", () => {
+  const url = "https://www.youtube.com/watch?v=unverif";
+  withCacheRow("yt:unverif");
+  CacheManager.recordTrackLookup(url, "youtube", "yt:unverif", "첫 제목", null, null);
+  CacheManager.recordTrackLookup(url, "youtube", "yt:unverif", "둘째 제목", null, null);
+  assert.equal(CacheManager.getVerifiedTitle(url), null, "미확인 제목은 여기 안 걸린다");
+});
+
+test("매핑(audio_source_key)은 출처와 무관하게 항상 갱신된다", () => {
+  const url = "https://www.youtube.com/watch?v=remap";
+  withCacheRow("yt:old");
+  withCacheRow("yt:new");
+  CacheManager.recordTrackLookup(url, "youtube", "yt:old", "제목", null, null, { verified: true });
+  CacheManager.recordTrackLookup(url, "youtube", "yt:new", "낡은 제목", null, null);
+  assert.equal(CacheManager.getResolvedKey(url), "yt:new", "재검색 결과가 매핑을 갱신해야 한다");
+  assert.equal(CacheManager.getVerifiedTitle(url), "제목", "제목은 지켜진다");
+});
+
+test("행이 없는 URL은 getVerifiedTitle이 null", () => {
+  assert.equal(CacheManager.getVerifiedTitle("https://www.youtube.com/watch?v=nosuch"), null);
+});
+
+// ── 오디오 길이 (duration_sec) ───────────────────────────────
+// 이 행은 영상 하나를 여러 요청(스포티파이·유튜브 링크)이 공유한다. 요청 쪽 메타데이터가 아니라 오디오의 길이를 담는다.
+
+test("다운로드 완료는 받은 오디오의 실제 길이를 요청 쪽 길이보다 우선 저장한다", () => {
+  CacheManager.recordDownloadStart("yt:dur1", { title: "곡", duration: 314 });
+  CacheManager.recordDownloadComplete("yt:dur1", CacheManager.getFilePath("yt:dur1"), 100, { title: "곡", duration: 314 }, { durationSec: 312 });
+  assert.equal(CacheManager.lookupByAudioKey("yt:dur1").duration_sec, 312);
+});
+
+test("실제 길이를 모르면 요청 쪽 길이로 채운다", () => {
+  CacheManager.recordDownloadStart("yt:dur2", { title: "곡", duration: 200 });
+  CacheManager.recordDownloadComplete("yt:dur2", CacheManager.getFilePath("yt:dur2"), 100, { title: "곡", duration: 200 });
+  assert.equal(CacheManager.lookupByAudioKey("yt:dur2").duration_sec, 200);
+});
+
+test("같은 오디오를 다시 받으면 앞선 요청이 남긴 길이를 실제 길이로 고친다", () => {
+  CacheManager.recordDownloadStart("yt:dur3", { title: "곡", duration: 314 });
+  CacheManager.recordDownloadComplete("yt:dur3", CacheManager.getFilePath("yt:dur3"), 100, { title: "곡", duration: 314 });
+  CacheManager.recordDownloadStart("yt:dur3", { title: "곡", duration: 314 });
+  CacheManager.recordDownloadComplete("yt:dur3", CacheManager.getFilePath("yt:dur3"), 100, { title: "곡", duration: 314 }, { durationSec: 312 });
+  assert.equal(CacheManager.lookupByAudioKey("yt:dur3").duration_sec, 312);
 });

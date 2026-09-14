@@ -33,6 +33,8 @@ class SessionPersistence {
       album: track.album || null,
       platform: track.platform || null,
       uploader: track.uploader || null,
+      // 캐시 키 — 기동 시 퇴거 보호가 대기열에서 이걸 읽는다(그때는 플레이어가 아직 없다)
+      audioSourceKey: track.audioSourceKey || null,
       youtubeUrl: track.youtubeUrl || null,
       soundcloudUrl: track.soundcloudUrl || null,
       spotifyUrl: track.spotifyUrl || null,
@@ -57,6 +59,7 @@ class SessionPersistence {
       album: data.album || null,
       platform: data.platform || null,
       uploader: data.uploader || null,
+      audioSourceKey: data.audioSourceKey || null,
       youtubeUrl: data.youtubeUrl || null,
       soundcloudUrl: data.soundcloudUrl || null,
       spotifyUrl: data.spotifyUrl || null,
@@ -103,9 +106,6 @@ class SessionPersistence {
       nowPlayingMessageId: player.nowPlayingMessage?.id || null,
       nowPlayingChannelId: player.nowPlayingMessage?.channelId || player.textChannel?.id || null,
       sessionId: player.sessionId,
-      downloadedFiles: Array.from(player.downloadedFiles || [])
-        .filter(Boolean)
-        .map((filepath) => path.resolve(filepath)),
       currentDownloadedFile: player.currentDownloadedFile ? path.resolve(player.currentDownloadedFile) : null,
       updatedAt: Date.now(),
     };
@@ -116,8 +116,6 @@ class SessionPersistence {
     if (!state || !player.guild?.id) return;
     this.stopStateSync();
     player.pauseReasons = new Set();
-    player.preloadedStreams.clear();
-    player.preloadingQueue = [];
 
     player.volume = typeof state.volume === "number" ? state.volume : player.volume;
     player.loop = state.loop ?? false;
@@ -137,22 +135,6 @@ class SessionPersistence {
     }
 
     const cacheDir = CacheManager._cacheDir;
-    const validDownloads = new Set();
-    for (const file of state.downloadedFiles || []) {
-      if (!file) continue;
-      try {
-        // 상대 경로를 캐시 디렉터리 기준으로 해석
-        const fullPath = path.isAbsolute(file) ? file : path.join(cacheDir, file);
-        if (fsSync.existsSync(fullPath)) {
-          validDownloads.add(path.resolve(fullPath));
-        } else {
-          log.info(`❌ Missing cached file: ${path.basename(file)}`);
-        }
-      } catch (error) {
-        log.info(`⚠️ Error checking file ${path.basename(file)}: ${error.message}`);
-      }
-    }
-    player.downloadedFiles = validDownloads;
 
     if (state.currentDownloadedFile) {
       const fullPath = path.isAbsolute(state.currentDownloadedFile) ? state.currentDownloadedFile : path.join(cacheDir, state.currentDownloadedFile);
@@ -183,7 +165,7 @@ class SessionPersistence {
           throw new Error("Failed to reconnect to voice channel");
         }
       } catch (error) {
-        log.error("❌ Failed to connect during restore:", error.message);
+        log.error("세션 복원 중 음성 연결 실패:", error.message);
         throw new Error("Failed to reconnect to voice channel", { cause: error });
       }
     }
@@ -222,7 +204,7 @@ class SessionPersistence {
         const requester = { id: state.requesterId || player.guild.client.user.id, username: null, tag: null };
         await embedManager.createNewMusicEmbed(player, player.currentTrack, requester);
       } catch (error) {
-        log.error("❌ Failed to rebuild now playing embed during restore:", error?.message || error);
+        log.error("세션 복원 중 재생 임베드 복구 실패:", error?.message || error);
       }
     }
 
@@ -267,7 +249,7 @@ class SessionPersistence {
       state.reason = reason;
       CacheManager.savePlayerSession(player.guild.id, state);
     } catch (error) {
-      log.error(`❌ Failed to persist player state for guild ${player.guild?.id}:`, error.message || error);
+      log.error(`세션 저장 실패 (서버 ID ${player.guild?.id}):`, error.message || error);
     }
   }
 

@@ -8,26 +8,9 @@ module.exports = {
   data: new SlashCommandBuilder().setName("help").setDescription("Show all commands").setDescriptionLocalizations({ ko: "모든 명령어를 표시합니다" }),
 
   async buildHelpEmbed(client) {
-    let guilds, users, activeServers;
-
-    if (client.shard) {
-      try {
-        const guildCounts = await client.shard.fetchClientValues("guilds.cache.size");
-        guilds = guildCounts.reduce((acc, count) => acc + count, 0);
-        const memberCounts = await client.shard.broadcastEval((c) => c.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0));
-        users = memberCounts.reduce((acc, count) => acc + count, 0);
-        const activePlayers = await client.shard.broadcastEval((c) => c.players.size);
-        activeServers = activePlayers.reduce((acc, count) => acc + count, 0);
-      } catch (error) {
-        guilds = client.guilds.cache.size;
-        users = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
-        activeServers = client.players.size;
-      }
-    } else {
-      guilds = client.guilds.cache.size;
-      users = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
-      activeServers = client.players.size;
-    }
+    const guilds = client.guilds.cache.size;
+    const users = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
+    const activeServers = client.players.size;
 
     const embed = new EmbedBuilder().setTitle("🎵 도움말").setDescription("🔒 표시 명령어는 **봇과 같은 음성 채널에 있는 DJ**부터 사용할 수 있습니다. 모더레이터는 채널에 없어도 사용 가능해요.\nDJ 역할이 설정되지 않은 서버에서는 전원이 DJ로 취급됩니다. (`/setdjrole`)").setColor(config.bot.embedColor).setThumbnail(client.user.displayAvatarURL()).setTimestamp();
     embed.addFields({
@@ -103,7 +86,7 @@ module.exports = {
           await interaction.reply({ embeds: [errorEmbed], flags: [1 << 6] });
         }
       } catch (responseError) {
-        log.error("❌ 도움말 오류 응답 전송 중 오류:", responseError);
+        log.error("명령어 도움말 오류 안내 전송 실패:", responseError);
       }
     }
   },

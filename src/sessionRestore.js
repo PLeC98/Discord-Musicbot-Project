@@ -34,7 +34,7 @@ async function resolveGuildForRestore(client, guildId, { attempts = ATTEMPTS, de
     }
   }
 
-  log.warn(`서버 ${guildId} 조회에 ${attempts}회 실패 — 세션을 보존한 채 건너뜁니다: ${lastError?.message ?? "길드를 받지 못함"}`);
+  log.warn(`서버 ID ${guildId} 조회를 ${attempts}회 실패 — 세션을 지우지 않고 다음 기동에서 다시 시도합니다: ${lastError?.message ?? "길드를 받지 못함"}`);
   return { guild: null, gone: false };
 }
 

@@ -1,6 +1,6 @@
 # Discord Musicbot Project
 
-[umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)을 베이스로 개조한 한국어 UI 기반의 개인용 Discord 음악 봇.
+한국어 UI 기반의 개인용 Discord 음악 봇.
 
 일부 봇들과 달리 **음악 봇**임에 집중하여 불필요한 기능을 줄였으며, yt-dlp를 기반으로 사용자가 직접 호스팅하기에 대형 클라우드 서비스 봇에 비해 안정적입니다.
 
@@ -10,9 +10,6 @@
 [![Vite](https://img.shields.io/badge/vite-8-blueviolet?logo=vite&style=flat-square)](https://vite.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwindcss-4-%2306B6D4?logo=tailwindcss&style=flat-square)](https://tailwindcss.com/)
 ![라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project?style=flat-square)
-
-> **라이선스** — 원본 베이스는 MIT, 이 저장소의 수정·추가분은 **AGPL-3.0-or-later**입니다.
-> 자세한 구조는 [NOTICE.md](NOTICE.md)를 참조하세요.
 
 ## 주요 기능
 
@@ -87,20 +84,64 @@ cp .env.example .env   # 이후 .env 편집
 | `GUILD_ID`                                    | 테스트 서버 ID (즉시 커맨드 배포). 비우면 글로벌 배포 (최대 1시간 소요)                |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify 링크 지원용 ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
 
-### POToken 설정 (권장)
+### 유튜브 접속 클라이언트 경로 (선택)
+
+`.env`의 `YTDLP_PLAYER_CLIENTS` 옵션으로 유튜브 영상 스트림/다운로드에 사용할 클라이언트를 지정할 수 있습니다.
+지정하지 않으면 yt-dlp의 기본 값을 사용합니다.
+
+다만 yt-dlp의 기본 후보는 `web`과 `visionos`두 개뿐이고 그중 `web`은 현재 막혀 있어, 사실상 한 갈래에 의존합니다.
+
+여러 클라이언트를 적어 예비를 둘 수 있습니다. 앞에서부터 시도하고 실패하면 다음으로 폴백하며, 자주 실패하는 갈래는 접근이 차단된 클라이언트로 판단하여 해당 실행 세션 중에는 건너뜁니다.
+
+예시:
+
+```
+YTDLP_PLAYER_CLIENTS=visionos,web_embedded,tv_embedded
+```
+
+#### 클라이언트별 사용 가능 여부
+
+| 클라이언트    | 사용 가능 | 비고                                                       |
+| ------------- | :-------: | ---------------------------------------------------------- |
+| web           |     X     | SABR 형식만 가능 (yt-dlp 미지원)                           |
+| web_safari    |     X     | web과 동일함                                               |
+| web_embedded  |     ○     | 임베드 가능한 영상만 사용 가능                             |
+| web_music     |     X     |                                                            |
+| web_creator   |     X     | 계정 쿠키 필요                                             |
+| mweb          |    POT    |                                                            |
+| android       |     △     | 계정 쿠키 미지원 / 오디오만 수신 불가 - 360p 영상을 받음   |
+| android_vr    |     △     | 어린이용 영상 불가 / 오디오만 수신 불가 - 360p 영상을 받음 |
+| ios           |     X     | iOS용 POT가 별도로 필요 (bgutil 미지원)                    |
+| visionos      |     ○     | yt-dlp 기본값                                              |
+| tv            |     X     | 쿠키 없으면 DRM / 일부 경우 SABR.                          |
+| tv_downgraded |     X     |                                                            |
+| tv_simply     |    POT    | 계정 쿠키 미지원                                           |
+
+- 이 내용은 2026/09/11을 기준으로 작성되었으며, 날짜, 환경, 계정 상태 등에 따라 다를 수 있습니다.
+- bgutil은 웹 계열 POT 제공자이므로 Android/iOS용 DroidGuard·iOSGuard POT를 발급하지 않습니다.
+- 일부 클라이언트는 오디오만 수신이 불가능하여 360p 영상을 통째로 받습니다. 통신량 및 캐시 용량이 약 2.4배 증가하기에 권장하지 않습니다.
+
+### POToken 설정 (선택)
 
 [Brainicism/bgutil-ytdlp-pot-provider](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) 를 사용합니다.
-YouTube 봇 감지 차단을 우회하는 POToken 공급자입니다. 설정하면 쿠키 없이도 안정적으로 재생됩니다.
+
+**하는 일**: 쓸 수 있는 접속 경로를 2개(`mweb`, `tv_simply`) 늘려줍니다. 이 두 클라이언트는 POToken 없이는 저화질 코덱 하나만을 제공합니다. 이 클라이언트들을 사용하는게 아니라면 실익은 없습니다.
 
 ```bash
 pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 ```
 
-봇 실행 시 자동으로 감지하여 POToken 서버(포트 4416)를 함께 실행하며, 별도 설정 없이 작동합니다.
+설치한 뒤 `.env`에서 `BGUTIL_ENABLED=true`로 켜야 동작합니다. 켜면 봇 실행 시 POToken 서버(포트 4416)를 함께 띄웁니다. 켜두고 설치를 안 했으면 오류를 남기고 POToken 없이 진행합니다.
 
-### 쿠키 설정 (대안 / 연령 제한 폴백)
+### 쿠키 설정 (연령 제한 영상 전용)
 
-POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
+`COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
+
+> [!CAUTION]
+> **쿠키는 연령 제한 영상에만 사용합니다.**
+> 유튜브는 요청에 제한을 두고 있으며, 과다 사용 시 **계정이 (일시적 또는 영구적으로) 정지될 수 있습니다.** 요청 빈도와 다운로드 양에 주의하세요. 사용은 전적으로 운영자의 책임입니다.
+>
+> ([yt-dlp 문서](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies): 계정 기준 시간당 약 2000영상)
 
 > [!IMPORTANT]
 > 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. `COOKIES_FROM_BROWSER`를 시도해 보고, 문제가 발생하면 `COOKIES_FILE`을 사용하시기 바랍니다.
@@ -109,11 +150,12 @@ POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 fire
 >
 > 파이어폭스: [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
 
-**연령 제한 영상 재생**: 연령 제한 영상은 POToken(bgutil)만으로는 접근이 불가능하기에 **인증된 쿠키가 필수**입니다. bgutil을 쓰더라도 위 `COOKIES_FROM_BROWSER`/`COOKIES_FILE` 중 하나를 설정해 두면, **평상시엔 bgutil로(쿠키 없이) 재생하고 연령 제한 영상을 만났을 때만 쿠키로 폴백**합니다.
+**연령 제한 영상 재생**: 연령 제한 영상은 **인증된 쿠키가 필수**입니다.
 
 - 연령 인증이 된 계정의 쿠키여야 합니다.
 - 쿠키를 설정하지 않으면 연령 제한 영상은 재생이 불가능합니다.
-- bgutil 사용시, 영상의 초회 재생 시도 (캐시되지 않은 영상)에서 연령 제한으로 인한 실패(≈3초)를 수신하면 쿠키로 전환하여 재생을 시도합니다. 이후의 호출·재생은 bgutil 사용 시도 없이 쿠키/캐시를 사용합니다.
+- 캐시되지 않은 영상의 초회 시도에서 연령 제한 실패(≈3초)를 받으면 쿠키로 전환해 다시 시도합니다.
+- 연령 제한 영상 여부는 캐싱되어, 오디오 캐시가 정리되어도 이후에는 처음부터 쿠키로 접근합니다.
 - 연령 제한 영상은 재취득 비용이 크기에 오디오 캐시를 더 오래 보존합니다.
 
 ### 상태 메시지 (`config/status.js`)
@@ -149,12 +191,11 @@ POToken을 사용하지 않을 경우, `COOKIES_FROM_BROWSER=chrome`(또는 fire
 
 ```bash
 pnpm run start    # 일반 실행
-pnpm run shard    # 1000+ 서버용 샤딩 실행 (샤딩 설정 필요)
 ```
 
 ## 대시보드
 
-1. `.env`에 `DASHBOARD_HOST`, `DASHBOARD_URL`, `OWNER_ID`, `SESSION_SECRET`을 본인 환경에 맞게 설정
+1. `.env`에 대시보드 설정 값들을 본인 환경에 맞게 설정
 2. [Discord Developer Portal](https://discord.com/developers/applications) → OAuth2 → Redirects에
    `{DASHBOARD_URL}/auth/callback` 추가
 3. 클라이언트 빌드:
@@ -163,11 +204,15 @@ pnpm run shard    # 1000+ 서버용 샤딩 실행 (샤딩 설정 필요)
 pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm install이 워크스페이스로 이미 설치)
 ```
 
-봇 실행 시 대시보드 서버가 함께 시작됩니다.
+4. 봇 실행 시 대시보드 서버가 함께 시작됩니다.
 
-> [!CAUTION]
-> 현재 샤딩 구동 시 0번 샤드를 제외한 샤드가 소유한 서버는 대시보드에 안 보이고 조작도 불가한 문제가 있습니다.
-> 개발자의 샤딩 미 사용 및 테스트 어려움으로 인해 개선 우선순위가 매우 낮습니다.
+### `SESSION_SECRET` 생성 방법 예시
+
+- node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+- 외부 랜덤 문자열 생성기를 사용해도 됩니다.
+
+> [!IMPORTANT]
+> `SESSION_SECRET` 값은 최소 64자 이상 랜덤 문자열을 권장합니다.
 
 ## 업데이트 / 유지보수
 
@@ -186,7 +231,8 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.
 
 **ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `bin/`의 바이너리가 없어졌을 때만 쓰세요.
-내려받는 릴리스는 `scripts/install-ffmpeg.js` 상단의 `RELEASE`/`VERSION` 상수로 고정되어 있고 sha256으로 검증합니다. 버전을 올리려면 두 값을 함께 바꾸면 되고, 다음 `pnpm install`에서 자동으로 새로 받습니다(`--force`는 같은 버전을 다시 받을 때만 필요).
+내려받는 릴리스는 `scripts/install-ffmpeg.js`의 기본값으로 고정되어 있고 sha256으로 검증합니다. 다른 버전을 쓰려면 `.env`의 `FFMPEG_RELEASE`에 태그를 적고 `pnpm run install:ffmpeg --force`로 다시 받으세요.
+**각 달의 마지막 빌드만 쓸 수 있습니다** — BtbN은 그 외 autobuild를 2주 뒤 삭제하므로, 중간 날짜로 고정하면 얼마 못 가 내려받기가 404가 됩니다(월말 빌드는 2년 보존).
 
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
 기동 시 자동 체크는 하지 않으므로, YouTube 추출이 갑자기 막히면(YouTube가 API를 자주 바꿈) 봇 재시작 전에 `pnpm run update:ytdlp`로 갱신하세요.
@@ -213,6 +259,9 @@ Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는
 ## 라이선스
 
 이 저장소는 이중 라이선스 구조입니다:
+
+> 많은 부분이 변경·추가·삭제 되었으나, 본 프로젝트의 출발점은 [umutxyp/MusicBot](https://github.com/umutxyp/MusicBot) (MIT)입니다.
+> 잔류한 원본 코드는 MIT, 이 저장소에서 수정·추가된 코드는 **AGPL-3.0-or-later**를 따릅니다.
 
 - **업스트림 베이스** ([umutxyp/MusicBot](https://github.com/umutxyp/MusicBot)): Copyright (c) 2025 umutxyp - [MIT License](LICENSE-MIT)
 - **이 저장소의 수정·추가분**: Copyright (C) 2026 PLeC - [GNU AGPL-3.0-or-later](LICENSE)

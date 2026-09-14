@@ -22,7 +22,7 @@ module.exports = {
     const track = player.currentTrack;
 
     await interaction.deferReply({ flags: [1 << 6] });
-    await player.play(null, 0);
+    await player.seek(0, "replay");
 
     const embed = new EmbedBuilder()
       .setTitle("🔄 처음부터 다시 재생")

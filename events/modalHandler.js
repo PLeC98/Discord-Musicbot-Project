@@ -81,7 +81,7 @@ module.exports = {
     }
 
     // 선택한 장르로 자동재생 활성화
-    player.autoplay = selectedGenre;
+    player.setAutoplay(selectedGenre);
 
     const genreName = genres[selectedGenre].label;
     const embed = new EmbedBuilder()

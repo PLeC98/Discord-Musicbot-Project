@@ -15,13 +15,15 @@ function loadCommandData() {
   const commandsPath = path.join(__dirname, "..", "commands");
   const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js"));
 
+  // 개별 성공은 debug로. 실패는 이름을 남긴다 — 커맨드 하나가 조용히 빠지면 그것만이 단서다.
+  // (index.js가 같은 디렉터리를 읽어 핸들러를 등록하며 개수를 요약한다. 여기서 또 세지 않는다.)
   for (const file of commandFiles) {
     const command = require(path.join(commandsPath, file));
     if ("data" in command && "execute" in command) {
       commands.push(command.data.toJSON());
-      log.info(`📋  명령어 정의 불러옴: ${command.data.name}`);
+      log.debug(`명령어 정의 불러옴: ${command.data.name}`);
     } else {
-      log.info(`⚠️  경고: ${file} 파일에 필수 data 또는 execute 속성이 없습니다.`);
+      log.warn(`${file}: 슬래시 명령어 형식이 아니어서 건너뜁니다.`);
     }
   }
   return commands;

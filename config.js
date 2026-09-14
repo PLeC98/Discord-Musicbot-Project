@@ -1,6 +1,7 @@
 const path = require("path");
 const log = require("./src/logger").child({ category: "config" });
 const fs = require("fs");
+const { parseClients } = require("./src/PlayerClients");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
@@ -8,8 +9,7 @@ const fs = require("fs");
 
 const ENV_PATH = path.join(__dirname, ".env");
 if (!fs.existsSync(ENV_PATH)) {
-  log.error("❌ [config] .env 파일이 없습니다.");
-  log.error("   프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
+  log.error(".env 파일이 없습니다. 프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
   process.exit(1);
 }
 require("dotenv").config({ path: ENV_PATH, quiet: true });
@@ -22,16 +22,25 @@ function env(key, def = null) {
 
 // env()의 정수 버전 — 값이 숫자가 아니거나 허용 범위를 벗어나면 경고 후 def 반환
 // (오타를 조용히 삼키지 않음 — 1ms급 타이머·무효 포트·음수 캐시 한도 같은 오설정 방지)
+function envEnum(key, def, allowed) {
+  const v = env(key);
+  if (v === null) return def;
+  const lower = String(v).trim().toLowerCase();
+  if (allowed.includes(lower)) return lower;
+  log.warn(`${key}에 허용되지 않는 값(${v})이(가) 입력되었습니다. 기본값이 적용됩니다: ${def || "(자동)"}`);
+  return def;
+}
+
 function envInt(key, def, { min, max } = {}) {
   const v = env(key);
   if (v === null) return def;
   const n = parseInt(v, 10);
   if (Number.isNaN(n)) {
-    log.warn(`⚠️  [config] ${key}=${v} 이/가 숫자가 아닙니다 — 기본값 ${def}을(를) 사용합니다.`);
+    log.warn(`${key}에 숫자가 아닌 값(${v})이(가) 입력되었습니다. 기본값이 적용됩니다: ${def}`);
     return def;
   }
   if ((min !== undefined && n < min) || (max !== undefined && n > max)) {
-    log.warn(`⚠️  [config] ${key}=${n} 이/가 허용 범위(${min ?? "-∞"}~${max ?? "∞"})를 벗어납니다 — 기본값 ${def}을(를) 사용합니다.`);
+    log.warn(`${key}의 값(${n})이(가) 허용 범위(${min ?? "-∞"}~${max ?? "∞"})를 벗어납니다. 기본값이 적용됩니다: ${def}`);
     return def;
   }
   return n;
@@ -61,16 +70,14 @@ function parseSbCategories(raw) {
 // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
 
 if (!env("DISCORD_TOKEN") || !env("CLIENT_ID")) {
-  log.error("❌ [config] DISCORD_TOKEN 또는 CLIENT_ID가 비어 있습니다.");
-  log.error("   .env.example 의 주석을 참고해 .env 에 값을 채운 뒤 다시 실행하세요.");
-  log.error("   (발급: https://discord.com/developers/applications)");
+  log.error("DISCORD_TOKEN 또는 CLIENT_ID가 비어 있습니다. .env.example 의 주석을 참고해 .env 에 값을 채운 뒤 다시 실행하세요.");
   process.exit(1);
 }
 if (!env("CLIENT_SECRET")) {
-  log.warn("⚠️  [config] CLIENT_SECRET 미설정 — 대시보드의 Discord 로그인(OAuth)이 동작하지 않습니다.");
+  log.warn("CLIENT_SECRET 미설정 — 대시보드의 Discord 로그인(OAuth)이 동작하지 않습니다.");
 }
 if (!env("SPOTIFY_CLIENT_ID") || !env("SPOTIFY_CLIENT_SECRET")) {
-  log.warn("⚠️  [config] Spotify API 키 미설정 — 트랙/앨범/검색은 비활성, 재생목록/아티스트는 자격증명 없이 동작합니다.");
+  log.warn("Spotify API 키 미설정 — 트랙/앨범/검색은 비활성, 재생목록/아티스트는 자격증명 없이 동작합니다.");
 }
 
 const dashboardPort = envInt("DASHBOARD_PORT", 33333, { min: 1, max: 65535 });
@@ -113,6 +120,7 @@ module.exports = {
   preload: {
     ahead: 5, // 대기열 앞쪽 몇 곡을 미리 준비할지 (한 번에 전부는 YouTube에 부담)
     gapMs: 3000, // 사전 로드 사이 간격 (YouTube 속도 제한 회피)
+    tickMs: 3000, // 대기열 점검 주기. 실제 반응은 최대 2틱 — 조작이 멎은 뒤에 움직이므로
   },
 
   // 오디오 설정
@@ -146,6 +154,20 @@ module.exports = {
     highWaterMark: 1 << 25,
     cookiesFromBrowser: env("COOKIES_FROM_BROWSER"),
     cookiesFile: resolveFromRoot(env("COOKIES_FILE")),
+
+    // 재생용 player_client 순서. 비우면 지정하지 않는다 = yt-dlp 기본값 그대로.
+    // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/YouTube.js).
+    playerClients: parseClients(env("YTDLP_PLAYER_CLIENTS")),
+    // "최근 window회 중 fails회 실패"면 그 클라이언트를 이번 실행 동안 제외한다.
+    // 연속 실패로 세지 않는 이유는 src/PlayerClients.js 머리말 참조.
+    clientWindow: envInt("YTDLP_CLIENT_WINDOW", 5, { min: 2, max: 50 }),
+    clientFails: envInt("YTDLP_CLIENT_FAILS", 3, { min: 1, max: 50 }),
+  },
+
+  // POToken 공급자(bgutil). 설치돼 있어도 이 값이 true일 때만 띄운다 —
+  // 쓰지 않을 서버를 상시 띄울 이유가 없다(인증 없는 로컬 HTTP 서버라 표면도 는다).
+  bgutil: {
+    enabled: env("BGUTIL_ENABLED", "false") === "true",
   },
 
   // 대시보드 설정
@@ -201,21 +223,24 @@ module.exports = {
     idleText: env("VOICE_IDLE_STATUS", ""),
   },
 
-  // 샤딩 설정 (for bots in 1000+ servers)
-  // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다 — 사후 분석용.
-  logging: {
-    fileEnabled: env("LOG_FILE_ENABLED", "true") !== "false",
-    file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
-    maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 1, max: 10240 }) * 1024 * 1024,
-    keep: envInt("LOG_FILE_KEEP", 5, { min: 0, max: 100 }),
+  // 재생 스트림 수신 — googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/chunkedStream.js).
+  stream: {
+    chunkBytes: envInt("STREAM_CHUNK_KB", 1024, { min: 64, max: 65536 }) * 1024,
   },
 
-  sharding: {
-    totalShards: env("TOTAL_SHARDS", "auto"),
-    shardList: env("SHARD_LIST", "auto"),
-    mode: env("SHARD_MODE", "process"),
-    respawn: env("SHARD_RESPAWN", "true") !== "false",
-    spawnDelay: envInt("SHARD_SPAWN_DELAY", 5500, { min: 0, max: 60000 }),
-    spawnTimeout: envInt("SHARD_SPAWN_TIMEOUT", 30000, { min: -1, max: 600000 }), // -1 = 무제한 (discord.js)
+  // 로그 파일 (NDJSON). 터미널·대시보드와 별개로 디스크에 남긴다 — 사후 분석용.
+  logging: {
+    // 무엇을 기록할 것인가 (터미널·파일·대시보드 전부의 상한).
+    // 조사용 로그를 지우지 않고 debug로 내려둔 뒤, 필요할 때만 이걸 낮춰 되살린다.
+    level: envEnum("LOG_LEVEL", "info", ["trace", "debug", "info", "warn", "error", "fatal"]),
+    // 그중 터미널에 **찍을** 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info 로 두면
+    // 파일·대시보드는 debug를 받고 터미널만 조용하다.
+    consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", "trace", "debug", "info", "warn", "error", "fatal"]),
+    // 기본은 끔. 모든 운영자가 파일 로그를 원하지는 않는다 — 필요한 사람이 켠다.
+    fileEnabled: env("LOG_FILE_ENABLED", "false") === "true",
+    file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
+    // 두 값 모두 0 = "그 축에는 제한 없음". 크기 0이면 회전하지 않고, 개수 0이면 지우지 않는다.
+    maxBytes: envInt("LOG_FILE_MAX_MB", 20, { min: 0, max: 10240 }) * 1024 * 1024,
+    keep: envInt("LOG_FILE_KEEP", 5, { min: 0, max: 1000 }),
   },
 };

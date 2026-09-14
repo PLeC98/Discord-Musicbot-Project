@@ -7,9 +7,10 @@ const router = express.Router();
 const requireOwner = require("../middleware/requireOwner");
 const os = require("os");
 const logManager = require("../../../src/LogManager");
+const procRegistry = require("../../../src/ChildProcessRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
 
-// Bot/Node/System/Shard status
+// Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
   const client = req.app.locals.discordClient;
   const uptime = process.uptime();
@@ -45,13 +46,26 @@ router.get("/status", requireOwner, (req, res) => {
       freeMem: Math.round(os.freemem() / 1024 / 1024),
       loadAvg: os.loadavg(),
     },
-    shards: client?.shard
-      ? {
-          ids: client.shard.ids,
-          count: client.shard.count,
-        }
-      : null,
     activePlayers: client?.players?.size || 0,
+    // 자식 프로세스(ffmpeg/yt-dlp) — 오래 살아 있는 항목이 새는 신호다.
+    // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.
+    processes: (() => {
+      const all = procRegistry.list();
+      const byLabel = {};
+      for (const p of all) byLabel[p.label] = (byLabel[p.label] || 0) + 1;
+      return {
+        total: all.length,
+        byLabel: Object.entries(byLabel)
+          .map(([label, count]) => ({ label, count }))
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+        oldest: all.slice(0, 8),
+      };
+    })(),
+    // 유튜브 접속 경로 — 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
+    youtube: require("../../../src/YouTube").statusSnapshot(),
+    // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
+    // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
+    logLevel: require("../../../config").logging.level,
   });
 });
 
@@ -147,7 +161,7 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
       if (client.musicEmbedManager) {
         await client.musicEmbedManager.handlePlaybackEnd(player).catch(() => {});
       }
-      player.cleanup();
+      player.cleanup(false, "운영자 패널에서 서버 나가기");
       client.players.delete(guild.id);
     }
     await guild.leave();
@@ -156,10 +170,10 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     const DashboardEvents = require("../../../src/DashboardEvents");
     DashboardEvents.notify(guild.id);
 
-    log.info({ sub: "admin" }, `대시보드에서 서버 나가기 실행: ${name} (${guild.id})`);
+    log.info({ sub: "admin" }, `대시보드 운영자 패널에서 서버 나가기: ${name} (${guild.id})`);
     res.json({ success: true, name });
   } catch (error) {
-    log.error({ sub: "admin" }, "❌ 서버 나가기 실패:", error);
+    log.error({ sub: "admin" }, "서버 나가기 실패:", error);
     res.status(502).json({ error: error.message || "서버 나가기에 실패했습니다" });
   }
 });
@@ -173,6 +187,20 @@ router.post("/redeploy-commands", requireOwner, async (req, res) => {
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
   }
   return res.status(502).json({ success: false, error: r.error?.message || "배포에 실패했습니다", code: r.error?.code || null });
+});
+
+// 캐시 초기화 — 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
+// 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
+router.post("/reset-cache", requireOwner, (req, res) => {
+  const CacheManager = require("../../../src/CacheManager");
+  try {
+    const result = CacheManager.resetCache();
+    log.warn({ sub: "admin" }, `대시보드 운영자 패널에서 캐시 초기화: 파일 ${result.removed}개 삭제`);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
+    res.status(500).json({ error: error.message || "캐시 초기화에 실패했습니다" });
+  }
 });
 
 // Real-time log stream (SSE)
@@ -191,7 +219,7 @@ router.post("/view-as", requireOwner, (req, res) => {
   if (tier === null) delete req.session.viewAs;
   else req.session.viewAs = tier;
 
-  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"} by ${req.session.user.username || req.session.user.id}`);
+  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"} — 실행 ${req.session.user.username || req.session.user.id}`);
   res.json({ viewAs: getViewAs(req) });
 });
 

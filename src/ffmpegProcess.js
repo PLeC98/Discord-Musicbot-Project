@@ -47,24 +47,35 @@ function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
   // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남는다 —
   // prism의 _cleanup()이 하던 일을 여기서 대신한다.
   // 파일로 출력하는 캐시 변환 경로는 stdout을 소비하지 않으므로 이 정리를 걸지 않는다(조기 종료 방지).
+  // 우리가 손을 떼서 죽인 것인지 표시. 프로세스가 아직 살아 있는데 stdout이 닫혔다면
+  // 닫은 쪽은 소비자, 즉 우리다(무지연 전환에서 옛 소스를 버릴 때가 그렇다).
+  // 이때 ffmpeg는 파이프 쓰기가 실패해 스스로 죽는데(Windows에서는 EINVAL → 종료 코드 -22),
+  // 그건 사고가 아니라 우리가 시킨 정리다 — 경고로 올리면 안 된다.
+  let closedByUs = false;
   if (killOnStdoutClose) {
     child.stdout.on("close", () => {
-      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      if (child.exitCode === null && child.signalCode === null) {
+        closedByUs = true;
+        child.kill("SIGKILL");
+      }
     });
   }
 
   child.on("error", (err) => {
     release();
-    log.error(`❌ ffmpeg(${label}) 실행 실패: ${err.message} (경로: ${bin})`);
+    log.error(`ffmpeg(${label}) 실행 실패: ${err.message} (경로: ${bin})`);
   });
 
   child.on("exit", (code, signal) => {
     release();
     const detail = stderrTail.trim() ? ` — ${stderrTail.trim()}` : "";
     if (CRASH_SIGNALS.has(signal)) {
-      log.error(`❌ ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
+      log.error(`ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
+    } else if (closedByUs) {
+      // 종료 코드는 남긴다 — 조사할 때 "정리로 죽은 것"과 "정리 직전에 이미 이상했던 것"을 가른다.
+      log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${code ?? signal})`);
     } else if (code !== 0 && code !== null) {
-      log.warn(`⚠️ ffmpeg(${label}) 종료 코드 ${code}${detail}`);
+      log.warn(`ffmpeg(${label}) 종료 코드 ${code}${detail}`);
     }
   });
 

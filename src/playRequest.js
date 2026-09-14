@@ -96,18 +96,28 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   if (tracks) {
     trackData = { success: true, isPlaylist: tracks.length > 1, tracks };
   } else {
-    log.info({ sub: "play" }, `${source} | 서버=${guildId} | 사용자=${who?.tag ?? who?.username ?? who?.id ?? "?"} | 검색어="${query}"`);
+    log.debug({ sub: "play" }, `${source} | 서버=${guildId} | 검색어="${query}"`);
     trackData = await TrackResolver.resolveQuery(query, guildId, `${source}.resolveQuery`);
     if (!trackData.success) return trackData;
   }
 
   // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)
   if (single && trackData.tracks.length > 1) {
-    trackData = { ...trackData, isPlaylist: false, tracks: trackData.tracks.slice(0, 1) };
+    trackData = { ...trackData, isPlaylist: false, collection: null, tracks: trackData.tracks.slice(0, 1) };
   }
   if (insertFirst) trackData.insertFirst = true;
 
   const result = await client.musicEmbedManager.handleMusicData(guildId, trackData, who, responder);
+
+  // 조작 하나에 한 줄. 요청(위 debug)과 결과를 따로 남기면 조작당 두 줄이 되는데,
+  // 운영상 필요한 것은 "누가 무엇을 넣었나"라 결과 줄에 요청자를 함께 싣는다.
+  // 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
+  const first = trackData.tracks?.[0];
+  const count = trackData.tracks?.length ?? 0;
+  const what = trackData.isPlaylist ? `${require("./strings").collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
+  const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
+  log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}`);
+
   return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player };
 }
 

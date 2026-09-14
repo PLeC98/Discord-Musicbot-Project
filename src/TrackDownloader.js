@@ -13,7 +13,7 @@ const SponsorBlock = require("./SponsorBlock");
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
  *
- * 상태 필드(downloadedFiles, downloadingFiles, preloadedStreams, preloadingQueue)는 기존 외부 참조를 깨지 않도록 player 인스턴스에 유지.
+ * 진행 중인 다운로드(downloadingFiles)만 player에 둔다 — 재생 경로와 예열이 같은 맵을 봐야 같은 곡을 두 번 받지 않는다.
  *
  * downloadingFiles는 Map<filepath, Promise<filepath>> — 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 기존의 1초×60회 파일 존재 폴링과 타임아웃 경계 조건이 필요 없다.
  */
@@ -43,7 +43,6 @@ class TrackDownloader {
     if (fsSync.existsSync(filepath)) {
       const stats = await fs.stat(filepath);
       if (stats.size > 0) {
-        player.downloadedFiles.add(filepath);
         player.scheduleStatePersist("download-cache-hit", 500);
         return filepath;
       }
@@ -53,7 +52,6 @@ class TrackDownloader {
     const inFlight = player.downloadingFiles.get(filepath);
     if (inFlight) {
       const file = await inFlight;
-      player.downloadedFiles.add(file);
       player.scheduleStatePersist("download-wait-complete", 500);
       return file;
     }
@@ -65,7 +63,7 @@ class TrackDownloader {
         // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
         // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
-          log.warn(`⚠️ 캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
+          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
           const fresh = await TrackResolver.reresolveYouTube(track, player.guild?.id);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
@@ -84,6 +82,8 @@ class TrackDownloader {
   async _performDownload(track, filepath) {
     const player = this.player;
     const audioSourceKey = track.audioSourceKey;
+    let verifiedTitle = null;
+    let audioDurationSec = null; // 캐시에 남길 오디오 길이 — track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
 
     try {
       if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
@@ -120,6 +120,11 @@ class TrackDownloader {
           YouTube.getYtDlpOptions(
             {
               output: filepath,
+              // 이 다운로드에 곁들여 메타데이터를 파일로 받는다 — 왕복이 늘지 않는다.
+              // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
+              // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
+              // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
+              writeInfoJson: true,
               format: "bestaudio/best",
               preferFreeFormats: true,
               // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
@@ -140,6 +145,10 @@ class TrackDownloader {
         if (!fsSync.existsSync(filepath)) {
           throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등) — 캐시 다운로드 불가");
         }
+
+        const info = this._takeInfoJson(filepath);
+        verifiedTitle = info.title;
+        audioDurationSec = info.durationSec;
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
@@ -161,7 +170,11 @@ class TrackDownloader {
         // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다 — 받아둔 파일에서 실제 길이로 교정.
         // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
         const probed = await probeDurationSec(filepath);
-        if (probed) track.duration = probed;
+        if (probed) {
+          track.duration = probed;
+          track.durationSource = "실측";
+          audioDurationSec = probed;
+        }
       }
 
       // 파일 검증
@@ -171,18 +184,24 @@ class TrackDownloader {
         throw new Error("Downloaded file is empty");
       }
 
-      player.downloadedFiles.add(filepath);
+      // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
+      // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
+      if (verifiedTitle && track.platform === "youtube" && verifiedTitle !== track.title) {
+        log.debug(`제목 교정: "${track.title}" → "${verifiedTitle}"`);
+        track.title = verifiedTitle;
+      }
+
       // 완료된 다운로드를 DB에 저장
       if (audioSourceKey) {
         try {
           const _finalSt = fsSync.statSync(filepath);
-          CacheManager.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track);
-          CacheManager.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail);
+          CacheManager.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
+          CacheManager.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail, { verified: !!verifiedTitle && track.platform === "youtube" });
         } catch {
           /* 무시 */
         }
       }
-      log.info(`💾 캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
+      log.info(`캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
       player.scheduleStatePersist("download-complete", 500);
       return filepath;
     } catch (error) {
@@ -192,83 +211,74 @@ class TrackDownloader {
       // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
       try {
         const removed = CacheManager.cleanPartials(filepath);
-        if (removed > 0) log.debug(`중단된 다운로드 잔해 ${removed}개 정리: ${track.title}`);
+        if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${track.title}`);
         if (audioSourceKey) CacheManager.recordError(audioSourceKey);
       } catch {
         /* 정리 실패는 원래 오류를 가리면 안 된다 */
       }
-      log.error(`❌ Download failed for ${track.title}:`, error.message);
+      log.error(`캐시 다운로드 실패 ("${track.title}"):`, error.message);
       throw error;
     }
   }
 
   /**
-   * 다운로드한 오디오 파일을 삭제합니다.
+   * 다운로드가 곁들여 남긴 info.json에서 제목과 오디오 길이를 꺼내고 파일을 치운다.
+   *
+   * yt-dlp는 출력 템플릿의 확장자를 벗기지 않고 `.info.json`을 덧붙이므로 `<파일>.info.json`이
+   * 되지만, 버전에 따라 확장자를 바꾼 형태로 쓸 수도 있어 둘 다 본다.
+   * 실패해도 다운로드 자체는 성공한 것이므로 모르는 값은 null로 돌려준다.
+   * @returns {{title: string|null, durationSec: number|null}}
    */
-  async deleteDownloadedFile(filepath) {
-    const player = this.player;
-    if (!filepath) return;
-
-    try {
-      await fs.unlink(filepath);
-      player.downloadedFiles.delete(filepath);
-      player.scheduleStatePersist("download-removed", 500);
-    } catch (error) {
-      if (error.code !== "ENOENT") {
-        log.error(`❌ Failed to delete file ${filepath}:`, error.message);
+  _takeInfoJson(filepath) {
+    const candidates = [`${filepath}.info.json`, filepath.replace(/\.opus$/, "") + ".info.json"];
+    for (const p of candidates) {
+      try {
+        if (!fsSync.existsSync(p)) continue;
+        const info = JSON.parse(fsSync.readFileSync(p, "utf8"));
+        fsSync.unlinkSync(p);
+        return {
+          title: typeof info?.title === "string" && info.title.trim() ? info.title : null,
+          durationSec: Number(info?.duration) > 0 ? Number(info.duration) : null,
+        };
+      } catch {
+        try {
+          fsSync.unlinkSync(p);
+        } catch {
+          /* 남아도 부팅 스윕이 치운다 */
+        }
       }
+    }
+    return { title: null, durationSec: null };
+  }
+
+  /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */
+  isCached(track) {
+    try {
+      const filepath = this.trackFilePath(track);
+      return fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0;
+    } catch {
+      return false;
     }
   }
 
   /**
-   * 트랙을 사전 로드합니다 — 스트림 해석 후 백그라운드 다운로드까지 완료.
+   * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
+   *
+   * **받기 전에 캐시 키를 반드시 확정해야 한다.** 키가 곧 파일 경로이고, downloadTrack은
+   * 진입 시점의 경로로 파일을 쓰기 때문이다. 스포티파이 트랙은 유튜브 동등물을 찾아야 키가
+   * 정해지는데, 그 검색이 다운로드 '안'에서 일어나면 파일은 스포티파이 URL 해시 경로에
+   * 저장되고 DB 행도 남지 않는다(키가 그 시점에 null이라). 그러면 키가 생긴 다음 번에
+   * 같은 곡을 한 번 더 받는다.
+   *
+   * 나머지 판정 — 이미 받았는가 / 받는 중인가 — 은 downloadTrack이 갖고 있으므로 여기서
+   * 다시 하지 않는다. 실패는 그대로 던져 호출자가 판단하게 둔다.
    */
-  async preloadTrack(track) {
-    const player = this.player;
+  async warm(track) {
     if (!track || !track.url) return;
-
-    // 파일 조회용 audioSourceKey 계산 (spotify는 YouTube 검색 후 getStream 내부에서 해석됨)
-    TrackResolver.ensureAudioSourceKey(track);
-    const filepath = this.trackFilePath(track);
-
-    if (fsSync.existsSync(filepath)) {
-      const stats = fsSync.statSync(filepath);
-      if (stats.size > 0) {
-        return; // 이미 다운로드됨
-      }
+    if (!TrackResolver.ensureAudioSourceKey(track)) {
+      await TrackResolver.findYouTubeEquivalent(track, this.player.guild?.id);
     }
-
-    // 이미 사전 로드/다운로드 중인지 확인 (downloadingFiles 맵 포함)
-    if (player.preloadedStreams.has(track.url) || player.preloadingQueue.includes(track.url) || player.downloadingFiles.has(filepath)) {
-      return;
-    }
-
-    player.preloadingQueue.push(track.url);
-
-    try {
-      // 스트림 획득 (플랫폼 스위치·Spotify→YouTube 변환은 TrackResolver 한 곳에서)
-      const streamInfo = await TrackResolver.getStream(track, player.guild.id);
-
-      if (streamInfo) {
-        // 백그라운드에서 트랙 다운로드 (다운로드 URL은 track에서 파생 — streamInfo는 프리로드 캐시용)
-        await this.downloadTrack(track);
-
-        // 사전 로드됨으로 표시
-        player.preloadedStreams.set(track.url, {
-          info: streamInfo,
-          track: track,
-          downloaded: true,
-        });
-      }
-    } catch (error) {
-      if (error && error.message) {
-        log.error(`❌ Pre-download failed for ${track.title}:`, error.message);
-      }
-    } finally {
-      // 사전 로드 대기열에서 제거
-      const index = player.preloadingQueue.indexOf(track.url);
-      if (index > -1) player.preloadingQueue.splice(index, 1);
-    }
+    await this.downloadTrack(track);
   }
 }
 

@@ -86,11 +86,8 @@ function makeRestorePlayer() {
   return {
     guild: { id: "g1", members: { cache: new Map() } },
     pauseReasons: new Set(),
-    preloadedStreams: new Map(),
-    preloadingQueue: [],
     queue: [],
     previousTracks: [],
-    downloadedFiles: new Set(),
     currentDownloadedFile: null,
     volume: 100,
     connection: { state: {} }, // 연결 재수립 경로 생략

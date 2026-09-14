@@ -173,6 +173,9 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.equal(r.json.activePlayers, 1);
   assert.equal(typeof r.json.node.version, "string");
   assert.equal(typeof r.json.system.cpus, "number");
+  // 로그 뷰어의 레벨 토글 초기 상태가 이 값을 따른다 — 없으면 서버가 debug를 안 보내는데도
+  // DEBUG 알약이 켜진 채로 시작해, 아무것도 안 나오는 필터가 켜져 있는 것처럼 보인다.
+  assert.ok(["trace", "debug", "info", "warn", "error", "fatal"].includes(r.json.logLevel), `logLevel=${r.json.logLevel}`);
 });
 
 test("GET guilds: 참가 서버 목록 + 재생 여부", async () => {

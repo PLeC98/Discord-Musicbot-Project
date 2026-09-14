@@ -18,8 +18,9 @@
       </div>
 
       <div v-show="tab === 'status'">
-        <p class="pl-2 text-muted mb-3 text-[0.85rem]">10초마다 자동 갱신</p>
-        <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-3 gap-y-3 mb-3">
+        <p class="pl-2 text-muted mb-3 text-[0.85rem]">3초마다 자동 갱신 · 탭을 벗어나면 멈춤</p>
+        <!-- auto-fill은 중간 폭에서 2/1로 갈라져 빈칸이 남는다. 카드가 4개이므로 2열로 못박아 2/2, 좁으면 1열. -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-3 mb-3">
           <!-- Bot -->
           <BaseCard icon="robot" title="봇 상태">
             <div :class="statRow">
@@ -69,23 +70,62 @@
             </div>
           </BaseCard>
 
-          <!-- Shard -->
-          <BaseCard v-if="s.shards" icon="shuffle" title="샤드">
+          <!-- 자식 프로세스 — 재생 ffmpeg는 곡이 끝나면 사라져야 한다.
+               오래 남아 있으면 정리 사슬이 끊긴 것이므로 나이를 강조해서 보여준다. -->
+          <BaseCard icon="terminal" title="자식 프로세스">
             <div :class="statRow">
-              <span>샤드 ID</span><span>{{ s.shards.ids?.join(", ") }}</span>
+              <span>총 개수</span><strong>{{ s.processes.total }}</strong>
+            </div>
+            <div v-for="p in s.processes.byLabel" :key="p.label" :class="statRow">
+              <span>{{ p.label }}</span
+              ><strong>{{ p.count }}</strong>
+            </div>
+            <div v-if="s.processes.total === 0" :class="statRow">
+              <span class="text-muted">떠 있는 프로세스 없음</span>
+            </div>
+            <div v-if="s.processes.oldest.length" class="mt-2">
+              <div v-for="p in s.processes.oldest" :key="p.pid" :class="statRow">
+                <span class="font-mono text-[0.78rem]"
+                  >{{ p.label }}<span class="text-muted"> #{{ p.pid }}</span></span
+                >
+                <span :class="procAgeClass(p.ageMs)">{{ fmtAge(p.ageMs) }}</span>
+              </div>
+            </div>
+          </BaseCard>
+
+          <!-- 유튜브 접속 경로 — 어느 것이 실행 중 제외됐는지는 여기서만 보인다.
+               기동 로그는 시작 시점의 설정만 보여주므로 도중에 막힌 경로를 알 수 없다. -->
+          <BaseCard icon="globe" title="유튜브 접속 경로">
+            <div :class="statRow">
+              <span>POToken</span><span :class="s.youtube.pot === 'missing' ? 'text-danger' : ''">{{ potLabel(s.youtube.pot) }}</span>
             </div>
             <div :class="statRow">
-              <span>총 샤드 수</span><span>{{ s.shards.count }}</span>
+              <span>쿠키</span><span>{{ cookieLabel(s.youtube.cookies) }}</span>
+            </div>
+            <div :class="statRow">
+              <span>클라이언트 경로</span><span>{{ s.youtube.configured ? `${s.youtube.clients.length}개 지정` : "미지정 (yt-dlp 기본값)" }}</span>
+            </div>
+            <div v-if="s.youtube.configured" class="mt-2">
+              <div v-for="(c, i) in s.youtube.clients" :key="c.name" :class="statRow">
+                <span class="font-mono text-[0.78rem]">
+                  <span class="text-muted">{{ i + 1 }}.</span> {{ c.name }}
+                  <span v-if="c.needsPot" class="text-muted text-[0.7rem]"> POT</span>
+                  <span v-if="!c.known" class="text-warning text-[0.7rem]"> 미확인</span>
+                </span>
+                <span :class="clientClass(c)">{{ clientLabel(c) }}</span>
+              </div>
             </div>
           </BaseCard>
         </div>
+      </div>
 
+      <div v-show="tab === 'logs'">
         <!-- Log viewer -->
         <BaseCard class="mb-3">
           <div class="flex justify-between items-start flex-wrap gap-2.5 mb-2.5">
             <span :class="cardTitle" class="mb-0! inline-flex items-center gap-1.5"><Icon name="list" :size="15" /><span>실시간 로그</span></span>
             <div class="flex gap-1.5 flex-wrap">
-              <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(logFilter === lvl.value)" @click="logFilter = logFilter === lvl.value ? null : lvl.value">{{ lvl.label }}</button>
+              <button v-for="lvl in logLevels" :key="lvl.value" :class="typeBtn(levelsOn.has(lvl.value))" @click="toggleLevel(lvl.value)">{{ lvl.label }}</button>
               <button :class="typeBtn(autoScroll)" @click="autoScroll = !autoScroll">
                 <span class="inline-flex items-center gap-1"><Icon :name="autoScroll ? 'scroll-down' : 'pause'" :size="15" />{{ autoScroll ? "자동" : "정지" }}</span>
               </button>
@@ -97,9 +137,14 @@
               {{ cat }}
             </button>
           </div>
+          <!-- 태그: 카테고리와 같은 규칙(흘러온 것에서 파생). 태그를 단 로그가 없으면 줄 자체가 없다. -->
+          <div v-if="logTags.length" class="flex gap-1.5 flex-wrap mb-2">
+            <button v-for="t in logTags" :key="t" class="px-2.5 py-1 rounded-[20px] border cursor-pointer text-[0.76rem] font-medium transition-[background-color,border-color] duration-200" :class="tagFilter === t ? 'text-fg border-white/35 bg-white/12' : 'text-[rgba(255,255,255,0.5)] border-white/9 bg-white/3'" @click="tagFilter = tagFilter === t ? null : t">#{{ t }}</button>
+          </div>
           <div class="flex items-center gap-1.5 text-[0.8rem] text-muted mb-2">
             <span :class="sseConnected ? 'text-success' : 'text-danger'">●</span>
             <span>{{ sseConnected ? "연결됨" : "연결 끊김" }}</span>
+            <span v-if="levelsOn.size < logLevels.length" class="text-[#c4b5fd]">{{ [...levelsOn].map((l) => l.toUpperCase()).join(" · ") || "레벨 전부 꺼짐" }}</span>
             <span class="ml-auto">{{ filteredLogs.length }}줄</span>
           </div>
           <div class="h-95 overflow-y-auto bg-black/35 rounded-[10px] border border-white/7 px-3 py-2 font-mono text-[0.78rem]" ref="logPane" @scroll="onLogScroll">
@@ -192,7 +237,7 @@
         </BaseCard>
 
         <!-- Command redeploy -->
-        <BaseCard icon="repeat" title="슬래시 커맨드 재배포">
+        <BaseCard icon="repeat" title="슬래시 커맨드 재배포" class="mb-3">
           <p class="text-muted text-sm mb-4">현재 로드된 슬래시 커맨드를 Discord에 다시 등록합니다. 봇 재시작 없이 실행됩니다.</p>
 
           <BaseButton variant="primary" @click="redeploy" :disabled="redeploying">
@@ -204,8 +249,39 @@
             <span>{{ redeployResult.success ? `${redeployResult.count}개 커맨드 ${redeployResult.scope === "guild" ? "서버" : "전역"} 배포 완료` : `재배포 실패: ${redeployResult.error || ""}` }}</span>
           </div>
         </BaseCard>
+
+        <!-- Cache reset -->
+        <BaseCard icon="trash" title="캐시 초기화">
+          <p class="text-muted text-sm mb-4">받아둔 오디오 파일과 조회 기록을 전부 지웁니다. 전용 채널·DJ 역할·SponsorBlock 설정은 남습니다.</p>
+
+          <BaseButton variant="danger" @click="confirmReset = true" :disabled="resetting">
+            {{ resetting ? "초기화 중..." : "캐시 초기화" }}
+          </BaseButton>
+
+          <div v-if="resetResult" :class="resultMsg(resetResult.success)" class="flex items-center gap-1.5">
+            <Icon :name="resetResult.success ? 'check' : 'error'" :size="16" />
+            <span>{{ resetResult.success ? resetSummary : `초기화 실패: ${resetResult.error || ""}` }}</span>
+          </div>
+        </BaseCard>
       </div>
     </template>
+
+    <!-- Cache reset confirm dialog -->
+    <div v-if="confirmReset" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="confirmReset = false">
+      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-95 w-[90%] text-center shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <p class="mb-2 text-[0.95rem] text-fg-soft">캐시를 전부 지울까요?</p>
+        <p class="mb-5.5 text-[0.82rem] text-muted">
+          되돌릴 수 없습니다. 오디오 파일·조회 기록·SponsorBlock 구간 캐시가 사라지고, 다음 재생부터 다시 받습니다.<br />
+          서버 설정(전용 채널·DJ 역할·SponsorBlock)은 그대로 남습니다.
+        </p>
+        <div class="flex gap-2.5 justify-center">
+          <BaseButton variant="ghost" :disabled="resetting" @click="confirmReset = false">취소</BaseButton>
+          <BaseButton variant="danger" :disabled="resetting" @click="resetCache">
+            {{ resetting ? "지우는 중..." : "전부 지우기" }}
+          </BaseButton>
+        </div>
+      </div>
+    </div>
 
     <!-- Leave confirm dialog -->
     <div v-if="leaveTarget" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200" @click.self="leaveTarget = null">
@@ -240,6 +316,7 @@ import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
 // 첫 탭으로 튕기면 쓰기 나쁘다.
 const TABS = [
   { id: "status", label: "봇 상태", icon: "robot" },
+  { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
@@ -300,9 +377,27 @@ const s = ref({
   bot: { tag: "", guilds: 0, ping: 0, status: 0, uptime: { days: 0, hours: 0, minutes: 0, seconds: 0 } },
   node: { version: "", platform: "", arch: "", memory: { heapUsed: 0, heapTotal: 0, rss: 0 } },
   system: { cpus: 0, totalMem: 0, freeMem: 0, loadAvg: [] },
-  shards: null,
   activePlayers: 0,
+  processes: { total: 0, byLabel: [], oldest: [] },
+  youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
 });
+
+const potLabels = { on: "사용 중", off: "사용 안 함", missing: "켜져 있으나 설치 없음" };
+const cookieLabels = { browser: "브라우저 (연령 제한 전용)", file: "파일 (연령 제한 전용)", none: "없음" };
+const potLabel = (v) => potLabels[v] ?? v;
+const cookieLabel = (v) => cookieLabels[v] ?? v;
+
+// 경로 상태: 제외된 것 > 실패가 섞인 것 > 아직 안 써 본 것 > 정상
+function clientLabel(c) {
+  if (c.excluded) return `제외됨 (${c.tried}회 중 ${c.failed}회 실패)`;
+  if (!c.tried) return "미사용";
+  return c.failed ? `${c.tried}회 중 ${c.failed}회 실패` : `정상 (${c.tried}회)`;
+}
+function clientClass(c) {
+  if (c.excluded) return "text-danger";
+  if (c.failed) return "text-warning";
+  return c.tried ? "text-success" : "text-muted";
+}
 
 const bType = ref("maintenance");
 const bMsg = ref("");
@@ -315,6 +410,21 @@ const types = [
   { value: "alert", label: "긴급" },
   { value: "info", label: "공지" },
 ];
+
+// 재생 ffmpeg는 곡 길이를 넘기지 않아야 한다. 그보다 오래 살아 있으면 정리가 안 된 것.
+function procAgeClass(ms) {
+  if (ms > 30 * 60 * 1000) return "text-danger";
+  if (ms > 10 * 60 * 1000) return "text-warning";
+  return "text-muted";
+}
+
+function fmtAge(ms) {
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}초`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}분 ${sec % 60}초`;
+  return `${Math.floor(min / 60)}시간 ${min % 60}분`;
+}
 
 function pingClass(p) {
   if (p < 100) return "text-success";
@@ -336,6 +446,7 @@ async function fetchStatus() {
   try {
     const res = await axios.get("/api/admin/status");
     s.value = res.data;
+    syncLevelsWithServer(res.data?.logLevel);
     loading.value = false;
   } catch {
     loading.value = false;
@@ -389,6 +500,34 @@ async function leaveGuild() {
   }
 }
 
+// ── 캐시 초기화 ───────────────────────────────────────────────
+const confirmReset = ref(false);
+const resetting = ref(false);
+const resetResult = ref(null);
+
+const resetSummary = computed(() => {
+  const r = resetResult.value;
+  if (!r) return "";
+  const mb = Math.round((r.freedBytes || 0) / 1024 / 1024);
+  const kept = r.kept > 0 ? `, ${r.kept}개는 재생 중이라 남음` : "";
+  return `파일 ${r.removed}개 삭제 (${mb}MB)${kept}`;
+});
+
+async function resetCache() {
+  if (resetting.value) return;
+  resetting.value = true;
+  resetResult.value = null;
+  try {
+    const res = await axios.post("/api/admin/reset-cache");
+    resetResult.value = res.data;
+  } catch (e) {
+    resetResult.value = { success: false, error: e.response?.data?.error || "요청 실패" };
+  } finally {
+    resetting.value = false;
+    confirmReset.value = false;
+  }
+}
+
 // ── Command redeploy ─────────────────────────────────────────
 const redeploying = ref(false);
 const redeployResult = ref(null);
@@ -409,26 +548,59 @@ async function redeploy() {
 
 // ── Log viewer ──────────────────────────────────────────────
 const logs = ref([]);
-const logFilter = ref(null);
 const catFilter = ref(null);
+const tagFilter = ref(null);
 const autoScroll = ref(true);
 const sseConnected = ref(false);
 const logPane = ref(null);
 let sse = null;
 
+// 레벨 필터는 **다중 토글**이다 — "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
+// 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
+const LEVEL_ORDER = { trace: 10, log: 20, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const logLevels = [
-  { value: "log", label: "LOG" },
+  { value: "debug", label: "DEBUG" },
   { value: "info", label: "INFO" },
   { value: "warn", label: "WARN" },
   { value: "error", label: "ERROR" },
+  { value: "fatal", label: "FATAL" },
 ];
 
-// 로그 레벨별 색 (구 .lvl-* .log-lv / .log-txt)
+// 초기 상태는 서버의 LOG_LEVEL을 따른다. 서버가 debug를 아예 안 보내고 있으면 그 알약이
+// 켜져 있어도 보여줄 것이 없으므로, 꺼진 채로 시작해 "지금 흐르고 있는 것"과 맞춘다.
+// 꺼진 알약도 눌러서 켤 수 있다 — 서버 레벨을 낮추면 그때부터 오는 것이 보인다.
+const levelsOn = ref(new Set(["info", "warn", "error", "fatal"]));
+let levelsInitialized = false;
+function syncLevelsWithServer(serverLevel) {
+  if (levelsInitialized || !serverLevel) return;
+  levelsInitialized = true;
+  const min = LEVEL_ORDER[serverLevel] ?? 30;
+  levelsOn.value = new Set(logLevels.filter((l) => LEVEL_ORDER[l.value] >= min).map((l) => l.value));
+}
+function toggleLevel(v) {
+  const next = new Set(levelsOn.value); // Set은 제자리 변경으로 반응하지 않는다
+  if (next.has(v)) next.delete(v);
+  else next.add(v);
+  levelsOn.value = next;
+}
+// 와이어의 "log"·"trace"는 DEBUG 알약이 담당한다(같은 심각도 칸).
+const levelBucket = (lv) => (LEVEL_ORDER[lv] <= 20 ? "debug" : lv);
+
 function lvColor(level) {
-  return { log: "text-[#9ca3af]", info: "text-[#60a5fa]", warn: "text-[#fbbf24]", error: "text-[#f87171]" }[level] || "text-[#9ca3af]";
+  return (
+    {
+      trace: "text-[#6b7280]",
+      log: "text-[#9ca3af]",
+      debug: "text-[#9ca3af]",
+      info: "text-[#60a5fa]",
+      warn: "text-[#fbbf24]",
+      error: "text-[#f87171]",
+      fatal: "text-[#fca5a5]",
+    }[level] || "text-[#9ca3af]"
+  );
 }
 function txtColor(level) {
-  return { warn: "text-[#fef3c7]", error: "text-[#fecaca]" }[level] || "text-[#d1d5db]";
+  return { debug: "text-[#9ca3af]", warn: "text-[#fef3c7]", error: "text-[#fecaca]", fatal: "text-[#fecaca] font-bold" }[level] || "text-[#d1d5db]";
 }
 
 // 카테고리: 지금까지 흘러온 로그에서 실제로 본 것만 필터 알약으로 노출(고정 목록 아님)
@@ -440,7 +612,10 @@ function catColor(cat) {
   return CAT_PALETTE[h % CAT_PALETTE.length];
 }
 
-const filteredLogs = computed(() => logs.value.filter((e) => (!logFilter.value || e.level === logFilter.value) && (!catFilter.value || e.category === catFilter.value)));
+// 태그: 카테고리와 같은 방식으로, 흘러온 로그에서 실제로 본 것만 노출한다(고정 목록 아님)
+const logTags = computed(() => [...new Set(logs.value.flatMap((e) => e.tags || []))].sort());
+
+const filteredLogs = computed(() => logs.value.filter((e) => levelsOn.value.has(levelBucket(e.level)) && (!catFilter.value || e.category === catFilter.value) && (!tagFilter.value || (e.tags || []).includes(tagFilter.value))));
 
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -468,7 +643,8 @@ watch(
 // 다른 탭에 있는 동안 로그 뷰어는 display:none이라 scrollTop 지정이 먹지 않는다(scrollHeight가 0).
 // 그동안 쌓인 만큼은 돌아왔을 때 다시 맞춰준다.
 watch(tab, (t) => {
-  if (t === "status" && autoScroll.value) scrollLogsToEnd();
+  if (t === "logs" && autoScroll.value) scrollLogsToEnd();
+  poll(); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
 });
 
 function connectSSE() {
@@ -487,16 +663,21 @@ function connectSSE() {
 }
 
 // ── Lifecycle ────────────────────────────────────────────────
-// status는 실시간 값(uptime·메모리·ping)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
-// 다만 탭이 숨으면(아무도 안 보면) 폴링을 멈추고, 다시 보이면 즉시 1회 갱신 후 재개한다.
+// status는 실시간 값(uptime·메모리·자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
+// 디스코드 rate limit과 무관하고(우리 Express만 친다) 보는 사람이 운영자 한 명이라 주기를
+// 좁혀도 부담이 없다 — 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
+//
+// 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
+// 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
+const POLL_MS = 3000;
 let timer = null;
 let visHandler = null;
 function poll() {
-  fetchStatus();
-  fetchGuilds();
+  if (tab.value === "status") fetchStatus();
+  else if (tab.value === "guilds") fetchGuilds();
 }
 function startPoll() {
-  if (!timer) timer = setInterval(poll, 10000);
+  if (!timer) timer = setInterval(poll, POLL_MS);
 }
 function stopPoll() {
   if (timer) {
@@ -505,7 +686,9 @@ function stopPoll() {
   }
 }
 onMounted(() => {
-  poll();
+  // 첫 진입만은 탭과 무관하게 둘 다 받는다 — 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
+  fetchStatus();
+  fetchGuilds();
   visHandler = () => {
     if (document.hidden) stopPoll();
     else {
