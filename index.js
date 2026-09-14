@@ -138,12 +138,12 @@ function startBgutilServer() {
   // 쓰지 않겠다고 했으면 조용히 넘어간다. 안 쓸 서버가 없다고 떠들어봐야 의미가 없고,
   // 인증 없는 로컬 HTTP 서버를 상시 띄우지 않는 것 자체가 이 토글의 목적이다.
   if (!config.bgutil.enabled) {
-    if (installed) log.debug({ sub: "bgutil" }, "설치돼 있지만 BGUTIL_ENABLED=false — 띄우지 않습니다");
+    if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 BGUTIL_ENABLED가 false입니다. POToken 서버를 실행하지 않고 진행합니다.");
     return;
   }
   // 반대로 쓰겠다고 했는데 없으면 시끄럽게 군다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
   if (!installed) {
-    log.error({ sub: "bgutil" }, "BGUTIL_ENABLED=true인데 설치돼 있지 않습니다 (pnpm run install:bgutil). POToken 없이 진행합니다");
+    log.error({ sub: "bgutil" }, "BGUTIL_ENABLED가 true로 설정되어 있으나, 설치되어 있지 않습니다! (pnpm run install:bgutil). POToken 없이 진행합니다");
     return;
   }
   bgutilProc = spawn(process.execPath, ["build/main.js"], {

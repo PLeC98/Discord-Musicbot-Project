@@ -31,7 +31,7 @@ const { Readable } = require("stream");
 const fsSync = require("fs");
 
 // 무이음 전환 상수 — .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
-// 사용자가 조정해서 나아질 여지가 없다. 끄는 손잡이(STREAM_SEAMLESS)만 설정으로 둔다.
+// 사용자가 조정해서 나아질 여지가 없다.
 const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가 (캐시 디코더 기동 실측 43ms)
 const SWITCH_FADE_MS = 40; // 등출력 크로스페이드 길이
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
@@ -427,7 +427,7 @@ class MusicPlayer {
 
               // 전체 길이를 알면 Range로 나눠 받는다 — 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
               // 길이를 모르는 입력(라이브 스트림 등)은 나눌 수가 없으므로 예전 방식 그대로.
-              const totalBytes = config.stream.chunked ? contentLengthFromUrl(fetchUrl) : null;
+              const totalBytes = contentLengthFromUrl(fetchUrl);
               if (totalBytes) {
                 // await로 첫 요청까지 여기서 끝낸다 — 실패가 아래 catch의 캐시 폴백으로 가도록
                 audioStream = await openChunkedStream({
@@ -484,7 +484,7 @@ class MusicPlayer {
 
           // 소스를 갈아끼울 수 있게 리소스 아래에 Splicer를 둔다. 스트림이 죽으면 AudioPlayer를
           // 거치지 않고 캐시 파일로 넘어가므로 공백이 들리지 않는다(_planCacheSwitch).
-          const playSource = config.stream.seamless ? new AudioSplicer(ffmpeg.stdout, { fadeMs: SWITCH_FADE_MS }) : ffmpeg.stdout;
+          const playSource = new AudioSplicer(ffmpeg.stdout, { fadeMs: SWITCH_FADE_MS });
 
           const streamDetail = () => {
             const st = audioStream.stats?.();

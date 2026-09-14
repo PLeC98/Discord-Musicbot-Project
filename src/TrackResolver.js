@@ -52,7 +52,7 @@ const TrackResolver = {
               tracks = await YouTube.search(query, 1, guildId);
             }
           } else if (this.isUnsupportedYouTubeLink(query)) {
-            return { success: false, message: "❌ 재생할 수 없는 유튜브 주소예요. 영상이나 재생목록 링크를 넣어 주세요." };
+            return { success: false, message: "❌ 재생할 수 없는 유튜브 주소입니다." };
           } else {
             tracks = await YouTube.search(query, 1, guildId);
           }
