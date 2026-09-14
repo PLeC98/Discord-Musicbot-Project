@@ -7,6 +7,16 @@ const ErrorHandler = require("./ErrorHandler");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
 const { silentResponder } = require("./playbackResponder");
+const GuildSettingsManager = require("./GuildSettingsManager");
+
+// 편집 대상이 사라진 경우 — 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
+const UNKNOWN_MESSAGE = 10008;
+const UNKNOWN_WEBHOOK = 10015;
+const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNKNOWN_WEBHOOK;
+
+// 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
+// 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(playbackResponder.AUTO_DELETE_MS).
+const PIN_SETTLE_MS = 12000;
 
 class MusicEmbedManager {
   constructor(client) {
@@ -14,6 +24,7 @@ class MusicEmbedManager {
     this.processingQueue = new Map(); // guildId -> Promise 매핑
     this.updateIntervals = new Map(); // guildId -> intervalId 매핑
     this.webhookCache = new Map(); // channelId -> WebhookClient 매핑
+    this.reposting = new Set(); // 현재 재생 메시지를 다시 올리는 중인 guildId
   }
 
   deleteWebhookCache(channelId) {
@@ -231,28 +242,8 @@ class MusicEmbedManager {
       return { success: true, message: "Now playing", isNewEmbed: false };
     }
 
-    const container = await this.createNowPlayingContainer(player, track);
-    const jumpToRow = await this.createJumpToRow(player);
-    const components = jumpToRow ? [container, jumpToRow] : [container];
-    const payload = { components, flags: MessageFlags.IsComponentsV2 };
-
-    // 지속되는 now-playing 메시지는 상호작용 유무와 무관하게 항상 채널 웹훅(실패 시 일반 채널 메시지)으로 보낸다.
-    // 상호작용 응답(@original)으로 보내면 이후 편집이 상호작용 토큰을 사용하는데, 이 토큰은 생성 15분 뒤 만료되어
-    // 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
-    // (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
-    let message;
-    const webhook = await this.getOrCreateWebhook(player.textChannel);
-    if (webhook) {
-      message = await webhook.send({
-        ...payload,
-        username: this.client.user.displayName || this.client.user.username,
-        avatarURL: this.client.user.displayAvatarURL(),
-      });
-      player.nowPlayingWebhook = webhook;
-    } else {
-      message = await player.textChannel.send(payload);
-      player.nowPlayingWebhook = null;
-    }
+    const { message, webhook } = await this._sendNowPlaying(player, track);
+    player.nowPlayingWebhook = webhook;
 
     // 진입점이 띄운 "검색 중…" 자리표시자 제거 — 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
@@ -277,6 +268,96 @@ class MusicEmbedManager {
     await responder.notifyQueued(this.createQueueAdditionMessage(tracks, sourceLabel, insertFirst));
 
     return { success: true, message: "Added to queue", isNewEmbed: false };
+  }
+
+  /**
+   * 현재 재생 메시지를 채널에 보냅니다. 참조 갱신은 호출자 몫.
+   *
+   * 지속되는 now-playing 메시지는 상호작용 유무와 무관하게 항상 채널 웹훅(실패 시 일반 채널 메시지)으로 보낸다.
+   * 상호작용 응답(@original)으로 보내면 이후 편집이 상호작용 토큰을 사용하는데, 이 토큰은 생성 15분 뒤 만료되어
+   * 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
+   * (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
+   */
+  async _sendNowPlaying(player, track) {
+    const container = await this.createNowPlayingContainer(player, track);
+    const jumpToRow = await this.createJumpToRow(player);
+    const components = jumpToRow ? [container, jumpToRow] : [container];
+    const payload = { components, flags: MessageFlags.IsComponentsV2 };
+
+    const webhook = await this.getOrCreateWebhook(player.textChannel);
+    if (!webhook) return { message: await player.textChannel.send(payload), webhook: null };
+
+    const message = await webhook.send({
+      ...payload,
+      username: this.client.user.displayName || this.client.user.username,
+      avatarURL: this.client.user.displayAvatarURL(),
+    });
+    return { message, webhook };
+  }
+
+  /** 현재 재생 메시지를 지웁니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
+  async _removeNowPlaying(channel, webhook, messageId) {
+    if (!messageId) return;
+    try {
+      if (webhook) await webhook.deleteMessage(messageId);
+      else await channel?.messages?.delete(messageId);
+    } catch {
+      /* 이미 지워졌거나 지울 권한이 없음 */
+    }
+  }
+
+  /**
+   * 현재 재생 메시지를 채널 맨 아래에 다시 올립니다 (기존 것은 제거).
+   * 사용자가 지웠을 때의 자가 복구와, 전용 채널에서 묻혔을 때의 재고정이 같은 경로를 씁니다.
+   *
+   * 서버당 한 번만 — 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
+   * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 지운다.
+   */
+  async _repostNowPlaying(player, reason) {
+    const guildId = player.guild?.id;
+    if (!guildId || this.reposting.has(guildId)) return;
+    if (!player.currentTrack || typeof player.textChannel?.send !== "function") return;
+
+    this.reposting.add(guildId);
+    const previous = player.nowPlayingMessage;
+    const previousWebhook = player.nowPlayingWebhook;
+    try {
+      const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack);
+
+      if (player.nowPlayingMessage !== previous || !player.currentTrack) {
+        await this._removeNowPlaying(player.textChannel, webhook, message?.id);
+        return;
+      }
+
+      player.nowPlayingMessage = message;
+      player.nowPlayingWebhook = webhook;
+      await this._removeNowPlaying(player.textChannel, previousWebhook, previous?.id);
+      log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
+    } catch (error) {
+      // 다시 올리지 못하면 참조를 버린다 — 5초마다 같은 실패를 반복하면 그게 도배다
+      player.nowPlayingMessage = null;
+      this.stopProgressUpdate(guildId);
+      log.error("재생 중 임베드 다시 올리기 실패:", error?.message || error);
+    } finally {
+      this.reposting.delete(guildId);
+    }
+  }
+
+  /**
+   * 전용 채널에서 현재 재생 메시지가 다른 메시지 밑에 묻혔는지 봅니다.
+   *
+   * 채널 캐시만 읽는다(추가 API 호출 없음) — 삭제된 메시지는 캐시에서도 빠지므로
+   * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
+   */
+  async _isBuried(player, now = Date.now()) {
+    const channel = player.textChannel;
+    const currentId = player.nowPlayingMessage?.id;
+    if (!currentId || !channel?.messages?.cache) return false;
+    if (!player.guild?.id) return false;
+    if ((await GuildSettingsManager.getBotChannel(player.guild.id)) !== channel.id) return false;
+
+    const cutoff = now - PIN_SETTLE_MS;
+    return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(currentId));
   }
 
   /**
@@ -361,6 +442,7 @@ class MusicEmbedManager {
   async updateNowPlayingEmbed(player) {
     if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     if (!player.nowPlayingMessage || !player.currentTrack) return;
+    if (this.reposting.has(player.guild?.id)) return; // 다시 올리는 중 — 그쪽이 최신 내용으로 보낸다
 
     try {
       const container = await this.createNowPlayingContainer(player, player.currentTrack);
@@ -378,6 +460,15 @@ class MusicEmbedManager {
         });
       }
     } catch (error) {
+      // 편집 대상이 없어졌다 — 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
+      if (isGone(error)) {
+        if (error.code === UNKNOWN_WEBHOOK && player.textChannel?.id) {
+          this.deleteWebhookCache(player.textChannel.id);
+          player.nowPlayingWebhook = null;
+        }
+        await this._repostNowPlaying(player, "메시지가 지워짐");
+        return;
+      }
       log.error("재생 중 임베드 갱신 실패:", error);
     }
   }
@@ -405,7 +496,8 @@ class MusicEmbedManager {
           });
         }
       } catch (error) {
-        log.error("버튼 비활성화 실패:", error);
+        // 이미 지워진 메시지의 버튼을 못 껐다는 것은 알릴 일이 아니다
+        if (!isGone(error)) log.error("버튼 비활성화 실패:", error);
       }
     }
 
@@ -581,7 +673,8 @@ class MusicEmbedManager {
         return;
       }
       try {
-        await this.updateNowPlayingEmbed(player);
+        if (await this._isBuried(player)) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+        else await this.updateNowPlayingEmbed(player);
       } catch {
         this.stopProgressUpdate(player.guild.id);
       }
