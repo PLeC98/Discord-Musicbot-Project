@@ -151,6 +151,8 @@ class MusicEmbedManager {
       // 상한은 여기서 판정한다 — 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
       const queued = tracksToQueue.slice(0, trackState.roomLeft(player, config.bot.maxQueueSize));
       const dropped = tracksToQueue.length - queued.length;
+      // 안내에 붙일 것 — 전체 곡 수는 받은 것보다 많을 때만
+      const notice = { dropped, total: trackData.total > tracks.length ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) };
       trackState.enqueue(player, queued, { front: insertFirst });
 
       // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
@@ -178,16 +180,16 @@ class MusicEmbedManager {
       // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
       if (firstTrackResult && tracks.length > 1) {
         // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
-        await this.showPlaylistAdditionMessage(player, queued, sourceLabel, insertFirst, dropped);
+        await this.showPlaylistAdditionMessage(player, queued, sourceLabel, insertFirst, notice);
         // 대기열 갱신 — 임베드 새로고침
         await this.updateNowPlayingEmbed(player);
-        return { ...firstTrackResult, dropped };
+        return { ...firstTrackResult, dropped, queueLimited: notice.queueLimited };
       }
 
       // 대기열에만 추가됨 (이미 음악 재생 중)
       if (wasPlayingBefore || (!firstTrackResult && tracks.length > 0)) {
         if (queued.length === 0 && dropped > 0) return { success: false, message: this.queueFullMessage(), dropped };
-        return await this.handleQueueAddition(player, queued, responder, sourceLabel, insertFirst, dropped);
+        return await this.handleQueueAddition(player, queued, responder, sourceLabel, insertFirst, notice);
       }
 
       // 단일 트랙 재생 시작
@@ -204,8 +206,8 @@ class MusicEmbedManager {
   /**
    * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
-  async showPlaylistAdditionMessage(player, queued, sourceLabel, insertFirst = false, dropped = 0) {
-    const messageText = this.createQueueAdditionMessage(queued, sourceLabel, insertFirst, dropped);
+  async showPlaylistAdditionMessage(player, queued, sourceLabel, insertFirst = false, notice = {}) {
+    const messageText = this.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice);
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로 — 채널이 없는 경로(대시보드)는 생략
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
@@ -253,15 +255,15 @@ class MusicEmbedManager {
   /**
    * 음악 재생 중 곡이 대기열에 추가되는 경우를 처리합니다.
    */
-  async handleQueueAddition(player, tracks, responder, sourceLabel, insertFirst = false, dropped = 0) {
+  async handleQueueAddition(player, tracks, responder, sourceLabel, insertFirst = false, notice = {}) {
     // 기존 임베드 갱신
     if (player.nowPlayingMessage && player.currentTrack) {
       await this.updateNowPlayingEmbed(player);
     }
 
-    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, sourceLabel, insertFirst, dropped));
+    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, sourceLabel, insertFirst, notice));
 
-    return { success: true, message: "Added to queue", isNewEmbed: false, dropped };
+    return { success: true, message: "Added to queue", isNewEmbed: false, dropped: notice.dropped ?? 0, queueLimited: Boolean(notice.queueLimited) };
   }
 
   /**
@@ -623,7 +625,8 @@ class MusicEmbedManager {
    * 대기열 추가 메시지를 빌드합니다.
    * @param {string|null} sourceLabel 여러 곡을 담은 출처의 표시 이름(재생목록·앨범 등). 없으면 한 곡 안내
    */
-  createQueueAdditionMessage(tracks, sourceLabel, insertFirst = false, dropped = 0) {
+  // notice: { dropped 상한으로 뺀 곡 수, total 받은 것보다 많은 전체 곡 수, queueLimited 자리가 모자라 덜 받음 }
+  createQueueAdditionMessage(tracks, sourceLabel, insertFirst = false, { dropped = 0, total = null, queueLimited = false } = {}) {
     let text;
     if (sourceLabel) {
       text = insertFirst ? `⏫ ${sourceLabel}의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ ${sourceLabel}의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
@@ -631,7 +634,9 @@ class MusicEmbedManager {
       const title = escapeMd(tracks[0]?.title || "알 수 없는 트랙");
       text = insertFirst ? `⏫ **${title}**가 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**가 대기열에 추가되었습니다!`;
     }
+    if (sourceLabel && total) text += ` (전체 ${total.toLocaleString("ko-KR")}곡)`;
     if (dropped > 0) text += `\n⚠️ 대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${config.bot.maxQueueSize}곡)`;
+    else if (queueLimited) text += `\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`;
     return text;
   }
 

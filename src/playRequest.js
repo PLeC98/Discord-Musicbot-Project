@@ -5,6 +5,8 @@ const TrackResolver = require("./TrackResolver");
 const GuildSettingsManager = require("./GuildSettingsManager");
 const { silentResponder } = require("./playbackResponder");
 const log = require("./logger").child({ category: "player" });
+const config = require("../config");
+const trackState = require("./trackState");
 
 /**
  * 곡 추가 경로의 단일 코어. 진입점(슬래시 명령/전용 채널/검색 선택/대시보드)은
@@ -97,8 +99,16 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     trackData = { success: true, isPlaylist: tracks.length > 1, tracks };
   } else {
     log.debug({ sub: "play" }, `${source} | 서버=${guildId} | 검색어="${query}"`);
-    trackData = await TrackResolver.resolveQuery(query, guildId, `${source}.resolveQuery`);
+    // 받을 곡 수 — 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
+    // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
+    const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
+    const limit = single ? 1 : Math.max(1, Math.min(config.bot.maxPlaylistSize, room));
+    trackData = await TrackResolver.resolveQuery(query, guildId, `${source}.resolveQuery`, { limit });
     if (!trackData.success) return trackData;
+
+    // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
+    const more = trackData.total == null ? trackData.tracks.length >= limit : trackData.total > trackData.tracks.length;
+    if (!single && trackData.isPlaylist && room < config.bot.maxPlaylistSize && more) trackData = { ...trackData, queueLimited: true };
   }
 
   // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)
@@ -116,7 +126,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   const count = trackData.tracks?.length ?? 0;
   const what = trackData.isPlaylist ? `${require("./strings").collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
   const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
-  log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}`);
+  log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}${trackData.queueLimited ? " | 자리가 모자라 일부만 받음" : ""}`);
 
   return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player };
 }

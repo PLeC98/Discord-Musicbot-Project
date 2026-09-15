@@ -22,8 +22,8 @@ require.cache[trPath] = {
   filename: trPath,
   loaded: true,
   exports: {
-    async resolveQuery(query, guildId, context) {
-      resolverCalls.push({ query, guildId, context });
+    async resolveQuery(query, guildId, context, range) {
+      resolverCalls.push({ query, guildId, context, range });
       return mockResolve(query);
     },
   },
@@ -294,3 +294,54 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given });
   assert.equal(client.players.get(GUILD_ID).textChannel, given);
 });
+
+// ── 받을 곡 수 (해석기에 넘기는 어림값) ──────────────────────
+
+async function withLimits(queueMax, playlistMax, fn) {
+  const config = require("../config");
+  const saved = [config.bot.maxQueueSize, config.bot.maxPlaylistSize];
+  config.bot.maxQueueSize = queueMax;
+  config.bot.maxPlaylistSize = playlistMax;
+  try {
+    await fn();
+  } finally {
+    [config.bot.maxQueueSize, config.bot.maxPlaylistSize] = saved;
+  }
+}
+
+async function requestWith({ queued = 0, playing = false, single = false, resolve = () => ok("곡A") }) {
+  mockResolve = resolve;
+  const client = makeClient();
+  const args = baseArgs(client, makeGuild(), { query: "목록", single });
+  const player = client.players.get(GUILD_ID);
+  player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
+  if (playing) player.currentTrack = track("now");
+  await requestPlayback(client, args);
+  return { limit: resolverCalls.at(-1).range.limit, trackData: client.embedCalls[0]?.trackData };
+}
+
+test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽", () =>
+  withLimits(30, 50, async () => {
+    assert.equal((await requestWith({ playing: true })).limit, 30);
+    assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
+    assert.equal((await requestWith({ playing: false })).limit, 31, "비어 있으면 첫 곡은 현재곡이 되니 한 자리 더");
+    assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
+    assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
+  }));
+
+test("받을 곡 수: 상한이 꺼져 있으면 묶음 크기", () =>
+  withLimits(0, 50, async () => {
+    assert.equal((await requestWith({ playing: true, queued: 400 })).limit, 50);
+  }));
+
+test("자리가 모자라 덜 받았고 뒤에 곡이 더 있을 때만 queueLimited", () =>
+  withLimits(30, 50, async () => {
+    const five = () => ({ ...ok("1", "2", "3", "4", "5"), total: 80 });
+    assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData.queueLimited, true);
+
+    const fifty = () => ({ ...ok(...Array.from({ length: 30 }, (_, i) => `s${i}`)), total: 80 });
+    assert.equal((await requestWith({ playing: true, resolve: fifty })).trackData.queueLimited, true, "상한 30이 묶음 50보다 작다");
+
+    const whole = () => ({ ...ok("1", "2", "3"), total: 3 });
+    assert.equal((await requestWith({ playing: true, queued: 25, resolve: whole })).trackData.queueLimited, undefined, "목록을 다 받았으면 아니다");
+  }));

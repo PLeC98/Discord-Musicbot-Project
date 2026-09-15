@@ -184,20 +184,22 @@ const official = {
     return n ? [n] : [];
   },
 
-  async album(id) {
-    const a = await this._get(`/albums/${id}`);
+  async album(id, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+    const a = await this._get(`/albums/${id}`); // 앨범 이름·표지는 여기에만 있다
     const albumMeta = { name: a.name, images: a.images };
-    let items = a.tracks?.items || [];
-    let next = a.tracks?.next;
-    while (next && items.length < config.bot.maxPlaylistSize) {
+    let items = offset === 0 ? a.tracks?.items || [] : [];
+    let next = offset === 0 ? a.tracks?.next : `/albums/${id}/tracks?offset=${offset}&limit=50`;
+    while (next && items.length < limit) {
       const p = await this._get(next);
       items = items.concat(p.items || []);
       next = p.next;
     }
-    return items
-      .slice(0, config.bot.maxPlaylistSize)
-      .map((t) => normApiTrack(t, albumMeta))
-      .filter(Boolean);
+    const part = items.slice(0, limit);
+    return {
+      tracks: part.map((t) => normApiTrack(t, albumMeta)).filter(Boolean),
+      total: a.tracks?.total ?? null,
+      nextOffset: offset + part.length,
+    };
   },
 
   async artist(id) {
@@ -331,14 +333,16 @@ const graphql = {
     }
   },
 
-  async playlist(id) {
-    const limit = 100;
-    const MAX_PAGES = 200; // 무한루프 가드(상한 없음: 전곡 수신)
+  // offset부터 재생 가능한 곡을 limit개까지. 원본 위치는 임의 접근이라 어느 구간이든 요청 비용이 같다.
+  async playlist(id, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+    const PAGE = 100;
+    const MAX_PAGES = 200; // 무한루프 가드
     const out = [];
-    let offset = 0;
+    let cursor = offset;
     let total = null;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const data = await this._query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset, limit, enableWatchFeedEntrypoint: false });
+    for (let page = 0; page < MAX_PAGES && out.length < limit; page++) {
+      const want = Math.min(PAGE, limit - out.length);
+      const data = await this._query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset: cursor, limit: want, enableWatchFeedEntrypoint: false });
       const pl = data?.playlistV2;
       if (!pl || pl.__typename === "NotFound") throw new Error("플레이리스트 접근 불가(NotFound)");
       const items = pl.content?.items || [];
@@ -349,11 +353,12 @@ const graphql = {
           if (n) out.push(n);
         }
       }
-      offset += limit;
-      if (items.length < limit) break;
-      if (total != null && offset >= total) break;
+      // 재생할 수 없는 곡은 건너뛰므로 받은 곡 수와 원본 위치가 어긋난다 — 다음 위치는 원본 기준으로 센다
+      cursor += items.length;
+      if (items.length < want) break;
+      if (total != null && cursor >= total) break;
     }
-    return out;
+    return { tracks: out, total, nextOffset: cursor };
   },
 
   async artist(id) {
@@ -365,38 +370,54 @@ const graphql = {
 
 // ── 라우팅 정책 (유일한 정책 지점) ──
 // 각 타입 → 시도할 백엔드 순서. 앞이 실패/빈결과면 다음으로 폴백.
+// 모든 경로는 { tracks, total(모르면 null), nextOffset(원본 목록 기준 다음 위치) }를 돌려준다.
+// 인기곡처럼 통째로만 오는 목록은 받은 뒤 구간을 자른다.
+function sliceWhole(tracks, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+  const part = tracks.slice(offset, offset + limit);
+  return { tracks: part, total: tracks.length, nextOffset: offset + part.length };
+}
+
 const ROUTES = {
-  track: [(id) => official.track(id)],
-  album: [(id) => official.album(id)],
-  artist: [(id) => official.artist(id), (id) => graphql.artist(id)],
-  playlist: [(id) => graphql.playlist(id)],
+  track: [async (id) => ({ tracks: await official.track(id), total: null, nextOffset: null })],
+  album: [(id, o) => official.album(id, o)],
+  artist: [async (id, o) => sliceWhole(await official.artist(id), o), async (id, o) => sliceWhole(await graphql.artist(id), o)],
+  playlist: [(id, o) => graphql.playlist(id, o)],
 };
 
-async function resolveType(type, id) {
+async function resolveType(type, id, options) {
+  const empty = { tracks: [], total: null, nextOffset: null };
   const chain = ROUTES[type];
-  if (!chain) return [];
+  if (!chain) return empty;
   for (let i = 0; i < chain.length; i++) {
     const last = i === chain.length - 1;
     try {
-      const tracks = await chain[i](id);
-      if ((tracks && tracks.length) || last) return tracks || [];
+      const result = await chain[i](id, options);
+      if (result.tracks.length || last) return result;
       // 빈 결과 + 폴백 남음 → 다음 시도
     } catch (e) {
       log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${e.message}${last ? "" : " — 폴백 전환"}`);
-      if (last) return [];
+      if (last) return empty;
     }
   }
-  return [];
+  return empty;
 }
 
-// ── 외부 계약 (TrackResolver가 쓰는 4개) ──
-async function getFromURL(url) {
+// ── 외부 계약 (TrackResolver가 쓰는 것) ──
+
+// 여러 곡 출처는 필요한 구간만 받는다
+async function getCollection(url, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
   const { type, id } = parseSpotifyURL(url);
-  if (!type || !id) return [];
-  const tracks = await resolveType(type, id);
+  if (!type || !id) return { tracks: [], total: null, nextOffset: null };
+  const result = await resolveType(type, id, { offset, limit });
+  const { tracks, total } = result;
   const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
-  log.info(`${type} ${id} → ${tracks.length}곡: ${head}`);
-  return tracks;
+  const range = total != null && total > tracks.length ? ` (전체 ${total}곡 중 ${offset + 1}번째부터)` : "";
+  log.info(`${type} ${id} → ${tracks.length}곡${range}: ${head}`);
+  return result;
+}
+
+async function getFromURL(url) {
+  return (await getCollection(url)).tracks;
 }
 
 async function search(query, limit = 1, _type = "track") {
@@ -409,7 +430,7 @@ async function search(query, limit = 1, _type = "track") {
   }
 }
 
-module.exports = { isSpotifyURL, parseSpotifyURL, getFromURL, search };
+module.exports = { isSpotifyURL, parseSpotifyURL, getCollection, getFromURL, search };
 
-// 테스트용 순수 함수 노출 (네트워크 없음)
-module.exports._internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets };
+// 테스트용 노출 — 프로바이더는 요청 함수(_query/_get)를 바꿔 끼워 네트워크 없이 검증한다
+module.exports._internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };

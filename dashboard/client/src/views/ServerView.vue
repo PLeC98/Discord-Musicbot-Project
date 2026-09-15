@@ -421,10 +421,11 @@ async function addTrack(single = false) {
   try {
     const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
     const res = await axios.post(`/api/guilds/${guildId}/player/queue${qs()}`, payload);
-    const { dropped = 0, queueMax, ...state } = res.data;
+    const { dropped = 0, queueLimited = false, queueMax, ...state } = res.data;
     applyState(state);
     addQuery.value = "";
     if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${queueMax}곡)`;
+    else if (queueLimited) addNotice.value = `대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${queueMax}곡)`;
   } catch (e) {
     addError.value = e.response?.data?.error || "추가에 실패했습니다.";
   } finally {

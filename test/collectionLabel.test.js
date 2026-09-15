@@ -19,7 +19,7 @@ function stub(obj, key, fn) {
 const songs = (n) => Array.from({ length: n }, (_, i) => ({ title: `곡${i}` }));
 
 test("스포티파이 링크의 종류가 collection으로 실린다", async () => {
-  const restore = stub(Spotify, "getFromURL", async () => songs(3));
+  const restore = stub(Spotify, "getCollection", async () => ({ tracks: songs(3), total: 3, nextOffset: 3 }));
   try {
     for (const [url, expected] of [
       ["https://open.spotify.com/album/1IugbCvkbYTkcCcD0WbQHe", "album"],
@@ -54,4 +54,12 @@ test("안내 문구가 출처 이름을 따른다", () => {
   assert.equal(mem.createQueueAdditionMessage(songs(10), collectionLabel("artist"), true), "⏫ 아티스트 인기곡의 10개 노래가 대기열 맨 앞에 추가되었습니다!");
   assert.equal(mem.createQueueAdditionMessage(songs(5), collectionLabel(undefined)), "✅ 재생목록의 5개 노래가 대기열에 추가되었습니다!", "종류를 모르면 재생목록");
   assert.match(mem.createQueueAdditionMessage([{ title: "곡" }], null), /\*\*곡\*\*가 대기열에 추가/, "한 곡이면 제목 안내");
+});
+
+test("안내 문구: 받은 것보다 목록이 크면 전체 곡 수를, 자리가 모자라 덜 받았으면 그 사실을 붙인다", () => {
+  const mem = new MusicEmbedManager({ players: new Map() });
+  const label = collectionLabel("playlist");
+  assert.equal(mem.createQueueAdditionMessage(songs(50), label, false, { total: 9946 }), "✅ 재생목록의 50개 노래가 대기열에 추가되었습니다! (전체 9,946곡)");
+  assert.match(mem.createQueueAdditionMessage(songs(5), label, false, { queueLimited: true }), /\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다/);
+  assert.doesNotMatch(mem.createQueueAdditionMessage([{ title: "곡" }], null, false, { total: 9946 }), /전체/, "한 곡 안내에는 붙이지 않는다");
 });

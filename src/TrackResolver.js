@@ -31,22 +31,27 @@ const TrackResolver = {
     return YouTube.isYouTubeHost(query) && !YouTube.isYouTubeURL(query);
   },
 
-  // 쿼리 → { success, isPlaylist, collection, tracks } 또는 { success: false, message }
+  // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, message }
   // collection: 여러 곡을 담은 출처의 종류 — "playlist" | "album" | "artist", 한 곡이면 null
-  async getTrackData(query, guildId, context = "TrackResolver.getTrackData") {
+  // range: 여러 곡 출처에서 받을 구간 { offset, limit } — 한 곡이면 무시. total은 모르면 null.
+  async getTrackData(query, guildId, context = "TrackResolver.getTrackData", { offset = 0, limit } = {}) {
     try {
       let tracks = [];
       let isPlaylist = false;
       let collection = null;
+      let total = null;
+      let nextOffset = null;
 
       switch (this.detectPlatform(query)) {
         case "youtube":
           if (YouTube.isPlaylist(query)) {
-            const playlistData = await YouTube.getPlaylist(query, guildId);
+            const playlistData = await YouTube.getPlaylist(query, guildId, { offset, limit });
             if (playlistData && playlistData.tracks && playlistData.tracks.length > 0) {
               tracks = playlistData.tracks;
               isPlaylist = true;
               collection = "playlist";
+              total = playlistData.total ?? null;
+              nextOffset = playlistData.nextOffset ?? null;
             } else {
               // 재생목록을 불러오지 못하면 일반 검색 수행
               tracks = await YouTube.search(query, 1, guildId);
@@ -60,10 +65,15 @@ const TrackResolver = {
 
         case "spotify":
           if (Spotify.isSpotifyURL(query)) {
-            tracks = (await Spotify.getFromURL(query, guildId)) || [];
+            const part = await Spotify.getCollection(query, { offset, limit });
+            tracks = part.tracks || [];
             const { type } = Spotify.parseSpotifyURL(query);
             isPlaylist = type === "playlist" || type === "album" || type === "artist";
-            if (isPlaylist) collection = type;
+            if (isPlaylist) {
+              collection = type;
+              total = part.total ?? null;
+              nextOffset = part.nextOffset ?? null;
+            }
           } else {
             tracks = (await Spotify.search(query, 1, "track", guildId)) || [];
           }
@@ -82,7 +92,7 @@ const TrackResolver = {
         return { success: false, message: "❌ 결과를 찾을 수 없습니다!" };
       }
 
-      return { success: true, isPlaylist, collection, tracks };
+      return { success: true, isPlaylist, collection, tracks, total, nextOffset };
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, guildId, context);
       return { success: false, message: errorMsg };
@@ -95,13 +105,13 @@ const TrackResolver = {
    * 지원하지 않는 형태의 유튜브 링크도 우회한다 — 예전에 검색으로 흘러 잘못 맺힌 매핑이 남아 있으면
    * 캐시가 그 엉뚱한 영상을 그대로 돌려준다.
    */
-  async resolveQuery(query, guildId, context) {
+  async resolveQuery(query, guildId, context, range = {}) {
     const skipCache = YouTube.isPlaylist(query) || this.isUnsupportedYouTubeLink(query);
     const cacheHit = skipCache ? { hit: false } : CacheManager.resolveFromCache(query);
     if (cacheHit.hit) {
       return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
     }
-    return this.getTrackData(query, guildId, context);
+    return this.getTrackData(query, guildId, context, range);
   },
 
   /**

@@ -461,13 +461,16 @@ class YouTube {
     }
   }
 
-  static async getPlaylist(url, _guildId = null) {
+  // offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
+  // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
+  static async getPlaylist(url, _guildId = null, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
     try {
       const info = await youtubedl(
         url,
         this.getYtDlpOptions({
           dumpSingleJson: true,
           flatPlaylist: true,
+          playlistItems: `${offset + 1}:${offset + limit}`,
         }),
       );
 
@@ -483,7 +486,7 @@ class YouTube {
       const unknownArtist = "알 수 없는 아티스트";
 
       const tracks = [];
-      for (const entry of info.entries.slice(0, config.bot.maxPlaylistSize)) {
+      for (const entry of info.entries) {
         if (entry && (entry.id || entry.url)) {
           try {
             const track = {
@@ -524,7 +527,8 @@ class YouTube {
       return {
         title: info.title || unknownPlaylist,
         tracks: tracks,
-        totalTracks: info.playlist_count || tracks.length,
+        total: info.playlist_count ?? null,
+        nextOffset: offset + info.entries.length,
         url: url,
         platform: "youtube",
         type: "playlist",

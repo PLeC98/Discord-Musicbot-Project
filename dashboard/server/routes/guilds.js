@@ -630,7 +630,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
     // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
     if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
 
-    res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueMax: config.bot.maxQueueSize });
+    res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), queueMax: config.bot.maxQueueSize });
   } catch (err) {
     log.error("대시보드에서 곡 추가 실패:", err);
     res.status(500).json({ error: "곡 추가에 실패했습니다" });
