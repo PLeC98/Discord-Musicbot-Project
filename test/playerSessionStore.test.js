@@ -45,6 +45,9 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
   const { store } = open();
   const p = {};
   trackState.init(p);
+  // 이전곡은 사본 위치를 trackState가 알려 준다 — 그 알림만 받아 저장소로 옮긴다
+  const onRewind = (track, copy, current) => store.rewind(G, track, { copy, current });
+  p.trackSink = new Proxy({ onRewind }, { get: (sink, name) => sink[name] ?? (() => {}) });
   const pick = rng(20260915);
 
   const ops = [
@@ -83,6 +86,10 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
       const i = pick(p.queue.length);
       trackState.removeAt(p, i);
       store.removeAt(G, i);
+    },
+    () => {
+      p.loop = pick(2) === 0 ? "queue" : false;
+      trackState.rewind(p);
     },
     () => {
       if (p.queue.length < 2) return;

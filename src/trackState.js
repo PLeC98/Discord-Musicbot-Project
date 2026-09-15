@@ -49,8 +49,9 @@ function rewind(player) {
   const copy = requeuedCopyOf(player, prev);
   if (copy >= 0) player.queue.splice(copy, 1);
   player.queue.unshift(prev);
-  if (player.currentTrack) player.queue.splice(1, 0, player.currentTrack);
-  sinkOf(player)?.onReplace();
+  const current = player.currentTrack;
+  if (current) player.queue.splice(1, 0, current);
+  sinkOf(player)?.onRewind(prev, copy, current);
   return prev;
 }
 
@@ -105,11 +106,12 @@ function reset(player, { history = false } = {}) {
   sinkOf(player)?.onReset(history);
 }
 
-function restore(player, { current = null, queue = [], history = [] }) {
+// persisted: 저장소에서 막 읽은 그대로라 다시 쓰지 않는다 — 수천 곡이면 되쓰기가 다른 서버의 재생까지 멈춘다
+function restore(player, { current = null, queue = [], history = [] }, { persisted = false } = {}) {
   player.currentTrack = current ?? null;
   player.queue = queue;
   player.previousTracks = history.slice(-HISTORY_MAX);
-  sinkOf(player)?.onReplace();
+  if (!persisted) sinkOf(player)?.onReplace();
 }
 
 module.exports = {

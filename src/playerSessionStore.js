@@ -135,6 +135,7 @@ class PlayerSessionStore {
       maxSeq: q("SELECT MAX(seq) AS v FROM session_tracks WHERE guild_id = ? AND slot = ?"),
       count: q("SELECT COUNT(*) AS n FROM session_tracks WHERE guild_id = ? AND slot = ?"),
       rowidAt: q("SELECT rowid FROM session_tracks WHERE guild_id = ? AND slot = ? ORDER BY seq LIMIT 1 OFFSET ?"),
+      lastRowid: q("SELECT rowid FROM session_tracks WHERE guild_id = ? AND slot = ? ORDER BY seq DESC LIMIT 1"),
       deleteRow: q("DELETE FROM session_tracks WHERE rowid = ?"),
       deleteSlot: q("DELETE FROM session_tracks WHERE guild_id = ? AND slot = ?"),
       toCurrent: q("UPDATE session_tracks SET slot = 'current', seq = 0 WHERE rowid = ?"),
@@ -307,6 +308,20 @@ class PlayerSessionStore {
     });
   }
 
+  // 이전곡 — 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 큐 반복 사본(copy번째)은 먼저 뺀다.
+  rewind(guildId, track, { copy = -1, current = null } = {}) {
+    return this._tx(() => {
+      const last = this.q.lastRowid.get(guildId, "history");
+      const copyRow = copy >= 0 ? this.q.rowidAt.get(guildId, "queue", copy) : null;
+      if (!last || (copy >= 0 && !copyRow)) return false;
+      if (copyRow) this.q.deleteRow.run(copyRow.rowid);
+      this.q.deleteRow.run(last.rowid);
+      if (current) this._insert(guildId, "queue", this._seqBeforeFirst(guildId, "queue"), current);
+      this._insert(guildId, "queue", this._seqBeforeFirst(guildId, "queue"), track);
+      return true;
+    });
+  }
+
   clearQueue(guildId) {
     this.q.deleteSlot.run(guildId, "queue");
   }
@@ -319,7 +334,7 @@ class PlayerSessionStore {
     });
   }
 
-  // ── 트랙 행 (통째로) — 셔플·이전곡·복원처럼 드문 것, 그리고 어긋났을 때 ──
+  // ── 트랙 행 (통째로) — 셔플처럼 드문 것, 그리고 어긋났을 때 ──
 
   replaceTracks(guildId, { current = null, queue = [], history = [] }) {
     this._tx(() => {

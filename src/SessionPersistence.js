@@ -90,6 +90,10 @@ class SessionPersistence {
     this._mirror((s, g) => s.retire(g, track, { requeue }));
   }
 
+  onRewind(track, copy, current) {
+    this._mirror((s, g) => s.rewind(g, track, { copy, current }));
+  }
+
   onRemoveAt(index) {
     this._mirror((s, g) => s.removeAt(g, index));
   }
@@ -215,11 +219,15 @@ class SessionPersistence {
     player.autoplay = session.autoplay || false;
     player.requesterId = session.requesterId || player.requesterId;
 
-    trackState.restore(player, {
-      current: this.reviveTrack(record.current),
-      queue: record.queue.map((t) => this.reviveTrack(t)),
-      history: record.history.map((t) => this.reviveTrack(t)),
-    });
+    trackState.restore(
+      player,
+      {
+        current: this.reviveTrack(record.current),
+        queue: record.queue.map((t) => this.reviveTrack(t)),
+        history: record.history.map((t) => this.reviveTrack(t)),
+      },
+      { persisted: true },
+    );
 
     if (!player.currentTrack && player.queue.length > 0) {
       trackState.shiftNext(player);

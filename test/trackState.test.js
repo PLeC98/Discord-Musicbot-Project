@@ -134,14 +134,15 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.removeAt(p, 99);
   trackState.removeAt(p, 0);
   trackState.move(p, 0, 1);
+  trackState.rewind(p); // 큐 반복으로 끝에 들어간 E(3번째)를 빼고 앞으로 — 현재곡 E도 그 뒤에
   trackState.shuffle(p);
-  trackState.rewind(p);
   trackState.clearQueue(p);
   trackState.setCurrent(p, null);
   trackState.reset(p, { history: true });
   trackState.rewind(p);
+  trackState.restore(p, { current: t("R") }, { persisted: true }); // 저장소에서 읽은 그대로 — 알리지 않는다
 
-  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onReplace"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
+  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "E", 3, "E"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });
 
 const song = (title) => ({ title, url: `https://y/${title}` });
