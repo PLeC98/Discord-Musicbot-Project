@@ -168,3 +168,14 @@ test("끝난 패널이 묻히면 기억해 둔 문구로 맨 아래에 다시 �
   assert.ok(calls.deleted.includes(`${BOT}:900`));
   assert.equal(records.get("g1").messageId, calls.sent[0].id);
 });
+
+test("전용 채널이 있는 서버에서 다른 채널로 틀고 끝나도 종료 메시지는 요청한 채널에 가지 않는다", async () => {
+  const { mem, guild, channels, calls } = setup({ record: { channelId: BOT, messageId: "900" } });
+  const player = makePlayer(guild, channels.get("general"));
+
+  await play(mem, player); // 전용 채널의 끝난 패널을 고쳐 쓴다
+  await mem.handlePlaybackEnd(player, { reason: "queue-end" });
+
+  assert.equal(calls.edited.at(-1).id, "900", "패널은 전용 채널에서 종료 모양으로");
+  assert.equal(calls.sent.filter((s) => s.channel === "general").length, 0);
+});

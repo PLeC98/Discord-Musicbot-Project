@@ -335,7 +335,7 @@ class MusicEmbedManager {
     if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
     // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다
     const edited = await this.panel.edit(player.guild, { ...(await this._playingPayload(player, track)), attachments: [] });
-    return edited ? { message: { id: edited.messageId }, webhook: edited.webhook } : null;
+    return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
   /** 현재 재생 메시지를 지웁니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
@@ -558,7 +558,8 @@ class MusicEmbedManager {
 
     const live = player.nowPlayingMessage;
     const textChannel = player.textChannel;
-    const panelChannelId = live ? (live.channel_id ?? live.channelId ?? textChannel?.id) : guild?.id && (await this.panel.store.getPanel(guild.id))?.channelId;
+    // 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다 — textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다
+    const panelChannelId = live ? (live.channel_id ?? live.channelId ?? (await this._panelChannel(player))?.id) : guild?.id && (await this.panel.store.getPanel(guild.id))?.channelId;
     const botChannelId = guild?.id ? await GuildSettingsManager.getBotChannel(guild.id) : null;
     const dedicated = Boolean(panelChannelId) && panelChannelId === botChannelId;
 
