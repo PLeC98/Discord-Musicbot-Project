@@ -11,8 +11,9 @@ const assert = require("node:assert/strict");
 
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
 let mockBotChannelId = null;
+let mockBatch = 50;
 const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async () => mockBotChannelId } };
+require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async () => mockBotChannelId, resolvePlaylistAddMax: () => mockBatch } };
 
 let mockResolve = null;
 const resolverCalls = [];
@@ -306,13 +307,13 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
 
 async function withLimits(queueMax, playlistMax, fn) {
   const config = require("../config");
-  const saved = [config.bot.maxQueueSize, config.bot.maxPlaylistSize];
+  const saved = [config.bot.maxQueueSize, mockBatch];
   config.bot.maxQueueSize = queueMax;
-  config.bot.maxPlaylistSize = playlistMax;
+  mockBatch = playlistMax;
   try {
     await fn();
   } finally {
-    [config.bot.maxQueueSize, config.bot.maxPlaylistSize] = saved;
+    [config.bot.maxQueueSize, mockBatch] = saved;
   }
 }
 

@@ -184,7 +184,7 @@ const official = {
     return n ? [n] : [];
   },
 
-  async album(id, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+  async album(id, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
     const a = await this._get(`/albums/${id}`); // 앨범 이름·표지는 여기에만 있다
     const albumMeta = { name: a.name, images: a.images };
     let items = offset === 0 ? a.tracks?.items || [] : [];
@@ -334,7 +334,7 @@ const graphql = {
   },
 
   // offset부터 재생 가능한 곡을 limit개까지. 원본 위치는 임의 접근이라 어느 구간이든 요청 비용이 같다.
-  async playlist(id, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+  async playlist(id, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
     const PAGE = 100;
     const MAX_PAGES = 200; // 무한루프 가드
     const out = [];
@@ -372,7 +372,7 @@ const graphql = {
 // 각 타입 → 시도할 백엔드 순서. 앞이 실패/빈결과면 다음으로 폴백.
 // 모든 경로는 { tracks, total(모르면 null), nextOffset(원본 목록 기준 다음 위치) }를 돌려준다.
 // 인기곡처럼 통째로만 오는 목록은 받은 뒤 구간을 자른다.
-function sliceWhole(tracks, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+function sliceWhole(tracks, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
   const part = tracks.slice(offset, offset + limit);
   return { tracks: part, total: tracks.length, nextOffset: offset + part.length };
 }
@@ -405,7 +405,7 @@ async function resolveType(type, id, options) {
 // ── 외부 계약 (TrackResolver가 쓰는 것) ──
 
 // 여러 곡 출처는 필요한 구간만 받는다
-async function getCollection(url, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+async function getCollection(url, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
   const { type, id } = parseSpotifyURL(url);
   if (!type || !id) return { tracks: [], total: null, nextOffset: null };
   const result = await resolveType(type, id, { offset, limit });

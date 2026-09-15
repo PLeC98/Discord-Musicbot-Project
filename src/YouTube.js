@@ -463,7 +463,7 @@ class YouTube {
 
   // offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
   // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-  static async getPlaylist(url, _guildId = null, { offset = 0, limit = config.bot.maxPlaylistSize } = {}) {
+  static async getPlaylist(url, _guildId = null, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
     try {
       const info = await youtubedl(
         url,

@@ -13,7 +13,7 @@ const assert = require("node:assert/strict");
 
 // ── GuildSettingsManager 모킹 (라우터 require 전에) ──────────
 const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
-const store = { djRoles: new Map(), botChannel: new Map(), sponsorblock: new Map() };
+const store = { djRoles: new Map(), botChannel: new Map(), sponsorblock: new Map(), playlistAdd: new Map() };
 const gsmCalls = [];
 require.cache[gsmPath] = {
   id: gsmPath,
@@ -44,6 +44,14 @@ require.cache[gsmPath] = {
     setSponsorBlock: async (g, patch) => {
       gsmCalls.push(["setSponsorBlock", g, patch]);
       store.sponsorblock.set(g, patch);
+      return true;
+    },
+    playlistAddLimits: () => ({ min: 1, max: 250, default: 50 }),
+    getPlaylistAddMax: async (g) => store.playlistAdd.get(g) ?? null,
+    resolvePlaylistAddMax: (g) => store.playlistAdd.get(g) ?? 50,
+    setPlaylistAddMax: async (g, n) => {
+      gsmCalls.push(["setPlaylistAddMax", g, n]);
+      store.playlistAdd.set(g, n);
       return true;
     },
   },
@@ -267,6 +275,32 @@ test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () 
   });
   r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: many });
   assert.equal(r.status, 400, "디스코드 셀렉트 메뉴 25개 한계와 정합");
+});
+
+test("GET settings: 재생목록 한 번에 넣는 곡 수 — 저장값·실제값·범위", async () => {
+  currentMember = modMember();
+  store.playlistAdd.delete(GUILD_ID);
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.playlistAdd, { value: null, effective: 50, min: 1, max: 250, default: 50 });
+});
+
+test("PUT settings: 재생목록 한 번에 넣는 곡 수 — 저장 / null은 기본값 / 범위 밖·소수는 400", async () => {
+  currentMember = modMember();
+  let r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 120 });
+  assert.equal(r.status, 200);
+  assert.equal(store.playlistAdd.get(GUILD_ID), 120);
+
+  r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: null });
+  assert.equal(r.status, 200);
+  assert.equal(store.playlistAdd.get(GUILD_ID), null);
+
+  gsmCalls.length = 0;
+  for (const bad of [0, 251, 12.5, "50"]) {
+    r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: bad, botChannelId: "c2" });
+    assert.equal(r.status, 400, `거부: ${JSON.stringify(bad)}`);
+  }
+  assert.equal(gsmCalls.length, 0, "다른 설정도 함께 미반영");
 });
 
 // ── GET /player의 음성 재적 플래그 ───────────────────────────

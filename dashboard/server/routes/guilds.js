@@ -327,7 +327,14 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
     available: SponsorBlock.SKIP_CATEGORIES.map((id) => ({ id, label: SB_CATEGORY_LABELS[id] || id })),
   };
 
-  res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock });
+  // 재생목록 한 번에 넣는 곡 수 — 저장값(null=기본), 실제 값, 설정할 수 있는 범위
+  const playlistAdd = {
+    value: await GuildSettingsManager.getPlaylistAddMax(guild.id),
+    effective: GuildSettingsManager.resolvePlaylistAddMax(guild.id),
+    ...GuildSettingsManager.playlistAddLimits(),
+  };
+
+  res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd });
 });
 
 // 서버 설정 변경 — 모더레이터/봇 운영자만. /setdjrole·/setchannel과 동일 기준.
@@ -341,7 +348,17 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     return res.status(403).json({ error: "서버 설정을 변경할 권한이 없습니다 (서버 관리 권한 필요)" });
   }
 
-  const { djRoleIds, botChannelId, sponsorblock } = req.body || {};
+  const { djRoleIds, botChannelId, sponsorblock, playlistAddMax } = req.body || {};
+
+  // 재생목록 한 번에 넣는 곡 수 (선택적) — null이면 기본값으로
+  let nextPlaylistAdd; // undefined=변경 없음
+  if (playlistAddMax !== undefined) {
+    const { min, max } = GuildSettingsManager.playlistAddLimits();
+    if (playlistAddMax !== null && !(Number.isSafeInteger(playlistAddMax) && playlistAddMax >= min && playlistAddMax <= max)) {
+      return res.status(400).json({ error: `재생목록 한 번에 넣는 곡 수는 ${min}~${max} 사이의 정수여야 합니다` });
+    }
+    nextPlaylistAdd = playlistAddMax;
+  }
 
   // SponsorBlock 검증 (선택적) — enabled(bool)·categories(유효 카테고리 배열)
   let nextSponsor; // undefined=변경 없음
@@ -398,6 +415,9 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
   }
   if (nextSponsor !== undefined) {
     await GuildSettingsManager.setSponsorBlock(guild.id, nextSponsor);
+  }
+  if (nextPlaylistAdd !== undefined) {
+    await GuildSettingsManager.setPlaylistAddMax(guild.id, nextPlaylistAdd);
   }
 
   log.info(`서버 설정 변경: ${guild.name} (${guild.id}) — 실행 ${req.session.user.username || req.session.user.id}`);
@@ -638,8 +658,8 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
   }
 });
 
-// 이어 넣기 상태를 화면에 — 선택지 단위(한 번에 넣는 묶음)를 함께 싣는다
-const moreView = (more) => (more ? { ...more, requesterId: undefined, batch: config.bot.maxPlaylistSize } : null);
+// 이어 넣기 상태를 화면에 — 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
+const moreView = (more) => (more ? { ...more, requesterId: undefined } : null);
 
 // Continue a playlist  POST /:guildId/player/queue/more — 곡 추가와 같은 권한·제한
 router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req, res) => {

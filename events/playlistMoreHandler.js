@@ -6,6 +6,7 @@ const { Events, MessageFlags } = require("discord.js");
 const log = require("../src/logger").child({ category: "events" });
 const S = require("../src/strings");
 const { checkAdd } = require("../src/permissions");
+const GuildSettingsManager = require("../src/GuildSettingsManager");
 const { continueCollection } = require("../src/playRequest");
 const More = require("../src/playlistMore");
 
@@ -40,7 +41,7 @@ module.exports = {
       if (value === "custom") {
         const room = More.roomFor(player);
         if (room <= 0) return refuse("대기열이 가득 차 지금은 더 넣을 수 없어요.");
-        return interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : More.MAX_COUNT));
+        return interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : More.MAX_COUNT, GuildSettingsManager.resolvePlaylistAddMax(interaction.guild.id)));
       }
       count = More.parseCount(value);
     } else {

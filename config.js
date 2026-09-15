@@ -136,7 +136,7 @@ module.exports = {
   bot: {
     defaultVolume: 100,
     maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", 250), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
-    maxPlaylistSize: 50,
+    playlistAddDefault: 50, // 재생목록을 넣을 때 한 번에 들어가는 곡 수 — 서버 설정(/setplaylistlimit)이 없을 때
     embedColor: env("EMBED_COLOR", "#2743D2"),
     supportServer: envUrl("SUPPORT_SERVER"),
     website: envUrl("WEBSITE"),

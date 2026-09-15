@@ -95,6 +95,8 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   }
 
   const player = ensurePlayer(client, { guild, textChannel: resolvedTextChannel, voiceChannel });
+  // 재생목록을 넣을 때 한 번에 들어가는 곡 수 — 서버 설정, 더 넣기 선택지 단위이기도 하다
+  const batch = GuildSettingsManager.resolvePlaylistAddMax(guildId);
 
   let trackData;
   if (tracks) {
@@ -104,13 +106,13 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     // 받을 곡 수 — 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
     // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
     const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
-    const limit = single ? 1 : Math.max(1, Math.min(config.bot.maxPlaylistSize, room));
+    const limit = single ? 1 : Math.max(1, Math.min(batch, room));
     trackData = await TrackResolver.resolveQuery(query, guildId, `${source}.resolveQuery`, { limit });
     if (!trackData.success) return trackData;
 
     // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
     const more = trackData.total == null ? trackData.tracks.length >= limit : trackData.total > trackData.tracks.length;
-    if (!single && trackData.isPlaylist && room < config.bot.maxPlaylistSize && more) trackData = { ...trackData, queueLimited: true };
+    if (!single && trackData.isPlaylist && room < batch && more) trackData = { ...trackData, queueLimited: true };
   }
 
   // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)
@@ -133,7 +135,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
 
   // 목록이 더 남았으면 이어 받을 상태 — 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
   const more = result?.success && !result.dropped ? continuation(query, trackData, { insertFirst }) : null;
-  return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player, more };
+  return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player, more: more && { ...more, batch } };
 }
 
 const MORE_BATCH = 100;
@@ -188,7 +190,7 @@ async function continueCollection(client, { guild, requester, state, count, text
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
   const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1).id }) : null;
-  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && { ...next, total, remaining } };
+  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } };
 }
 
 module.exports = { requestPlayback, continueCollection, toRequester, ensurePlayer, _internals: { resolveFallbackTextChannel } };

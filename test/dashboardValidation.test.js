@@ -26,6 +26,7 @@ require.cache[gsmPath] = {
     getBotChannel: async () => null,
     setBotChannel: async () => true,
     clearBotChannel: async () => {},
+    resolvePlaylistAddMax: () => 50,
   },
 };
 

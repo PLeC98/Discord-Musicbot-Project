@@ -77,7 +77,7 @@ function roomFor(player) {
 }
 
 // 선택지 — 한 번에 넣는 묶음 단위로, 남은 곡과 남은 자리 중 작은 쪽(cap)을 넘지 않게
-function moreChoices({ remaining, room, batch = config.bot.maxPlaylistSize }) {
+function moreChoices({ remaining, room, batch }) {
   const cap = Math.max(0, Math.min(remaining, room));
   return { cap, steps: cap > 0 ? [batch, batch * 2].filter((n) => n < cap) : [] };
 }
@@ -96,8 +96,8 @@ function parseCount(raw) {
   return n >= 1 && n <= MAX_COUNT ? n : null;
 }
 
-function menuMessage(head, state, { remaining, room }) {
-  const { cap, steps } = moreChoices({ remaining, room });
+function menuMessage(head, state, { remaining, room, batch = config.bot.playlistAddDefault }) {
+  const { cap, steps } = moreChoices({ remaining, room, batch });
   if (cap === 0) return { content: `${head}\n대기열이 가득 차 지금은 더 넣을 수 없어요.`, components: [] };
   // 모달 ID가 한 글자 더 길다 — 둘 다 100자 안이어야 한다
   if (encodeState(MODAL_PREFIX, state).length > 100) return { content: head, components: [] };
@@ -111,7 +111,7 @@ function menuMessage(head, state, { remaining, room }) {
 
 function offerMessage(more, room) {
   const label = collectionLabel(KINDS[more.kind].collection);
-  return menuMessage(`📃 ${label}은 전체 ${fmt(more.total)}곡이에요. 앞 ${fmt(more.offset)}곡까지 넣었어요.`, more, { remaining: more.remaining, room });
+  return menuMessage(`📃 ${label}은 전체 ${fmt(more.total)}곡이에요. 앞 ${fmt(more.offset)}곡까지 넣었어요.`, more, { remaining: more.remaining, room, batch: more.batch });
 }
 
 function resultMessage(state, result, room) {
@@ -119,10 +119,10 @@ function resultMessage(state, result, room) {
   let head = `✅ ${label}에서 ${fmt(result.added)}곡을 더 넣었어요.`;
   if (result.dropped > 0) head += ` 대기열이 가득 차 ${fmt(result.dropped)}곡은 빠졌어요.`;
   if (!result.next) return { content: result.remaining > 0 ? head : `${head} 목록을 끝까지 넣었어요.`, components: [] };
-  return menuMessage(`${head} (전체 ${fmt(result.total)}곡 중 ${fmt(result.next.offset)}곡까지)`, result.next, { remaining: result.remaining, room });
+  return menuMessage(`${head} (전체 ${fmt(result.total)}곡 중 ${fmt(result.next.offset)}곡까지)`, result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }
 
-function countModal(state, cap) {
+function countModal(state, cap, batch = config.bot.playlistAddDefault) {
   const max = Math.min(cap, MAX_COUNT);
   const input = new TextInputBuilder()
     .setCustomId("count")
@@ -130,7 +130,7 @@ function countModal(state, cap) {
     .setStyle(TextInputStyle.Short)
     .setMinLength(1)
     .setMaxLength(5)
-    .setPlaceholder(String(Math.min(max, config.bot.maxPlaylistSize)))
+    .setPlaceholder(String(Math.min(max, batch)))
     .setRequired(true);
   return new ModalBuilder().setCustomId(encodeState(MODAL_PREFIX, state)).setTitle("더 넣기").addComponents(new ActionRowBuilder().addComponents(input));
 }

@@ -83,9 +83,43 @@
         </template>
       </BaseCard>
 
+      <!-- Playlist add batch -->
+      <BaseCard v-if="s.playlistAdd" icon="list" title="재생목록 한 번에 넣는 곡 수" class="mb-3">
+        <p class="text-muted text-sm mb-3.5">긴 재생목록을 넣으면 이만큼만 먼저 들어가고, 남은 곡은 "더 넣기"로 이어 넣을 수 있어요. 더 넣기 메뉴의 선택지도 이 단위로 나옵니다.</p>
+
+        <div class="flex flex-wrap gap-1.5 mb-3" role="radiogroup" aria-label="곡 수 선택">
+          <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="chip(paUseDefault)">기본값 · {{ s.playlistAdd.default }}곡</button>
+          <button v-for="n in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" :disabled="!s.canEdit" @click="pickPreset(n)" :class="chip(!paUseDefault && paCount === n)">{{ n }}곡</button>
+        </div>
+
+        <label class="flex items-center gap-2.5 text-sm" :class="s.canEdit ? '' : 'opacity-60'">
+          <span class="text-muted">직접 입력</span>
+          <input
+            type="number"
+            inputmode="numeric"
+            :min="s.playlistAdd.min"
+            :max="s.playlistAdd.max"
+            step="1"
+            :value="paUseDefault ? '' : paCount"
+            :placeholder="String(s.playlistAdd.default)"
+            :disabled="!s.canEdit"
+            @input="onPaInput"
+            class="w-28 bg-white/5 border border-white/9 rounded-xl text-fg px-3 py-1.75 text-[0.9rem] outline-none font-[inherit] tabular-nums transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7 disabled:opacity-40"
+            :class="paInvalid ? 'border-danger/60' : ''"
+          />
+          <span class="text-muted">곡</span>
+        </label>
+        <div class="text-[0.8rem] mt-2" :class="paInvalid ? 'text-danger' : 'text-muted'">
+          <template v-if="paInvalid">{{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 사이의 정수로 정해 주세요.</template>
+          <template v-else
+            >재생목록을 넣으면 한 번에 <strong class="text-fg-soft">{{ paEffective }}곡</strong>씩 들어가요 · {{ s.playlistAdd.min }}~{{ s.playlistAdd.max }}곡 · 디스코드에서는 <code>/setplaylistlimit</code></template
+          >
+        </div>
+      </BaseCard>
+
       <!-- Save / revert -->
       <div class="flex items-center gap-2.5 flex-wrap">
-        <BaseButton variant="primary" :disabled="!s.canEdit || !dirty || saving" @click="save">{{ saving ? "저장 중..." : "저장" }}</BaseButton>
+        <BaseButton variant="primary" :disabled="!s.canEdit || !dirty || saving || paInvalid" @click="save">{{ saving ? "저장 중..." : "저장" }}</BaseButton>
         <BaseButton variant="ghost" :disabled="!s.canEdit || !dirty || saving" @click="revert">되돌리기</BaseButton>
         <span v-if="dirty" class="text-warning text-[0.8rem]">저장되지 않은 변경이 있습니다</span>
       </div>
@@ -111,7 +145,7 @@ const guildId = route.params.guildId;
 
 const loading = ref(true);
 const loadError = ref(null);
-const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null });
+const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null });
 
 // 편집 폼 상태 (서버 값과 분리 — 저장 전까지 반영 안 됨)
 const selectedRoles = ref([]);
@@ -147,7 +181,49 @@ const sbDirty = computed(() => {
   return sbEnabled.value !== sb.enabled || JSON.stringify([...sbCategories.value].sort()) !== JSON.stringify([...(sb.categories || [])].sort());
 });
 
-const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()) || sbDirty.value);
+// 재생목록 한 번에 넣는 곡 수 — 기본값(null) 또는 직접 정한 값
+const paUseDefault = ref(true);
+const paCount = ref(null);
+const paPresets = computed(() => {
+  const pa = s.value.playlistAdd;
+  return pa ? [25, 50, 100, 200].filter((n) => n >= pa.min && n <= pa.max && n !== pa.default) : [];
+});
+const paValue = computed(() => (paUseDefault.value ? null : paCount.value));
+const paInvalid = computed(() => {
+  const pa = s.value.playlistAdd;
+  return Boolean(pa) && !paUseDefault.value && !(Number.isInteger(paCount.value) && paCount.value >= pa.min && paCount.value <= pa.max);
+});
+const paEffective = computed(() => paValue.value ?? s.value.playlistAdd?.default);
+const paDirty = computed(() => Boolean(s.value.playlistAdd) && paValue.value !== s.value.playlistAdd.value);
+
+function pickPreset(n) {
+  paUseDefault.value = false;
+  paCount.value = n;
+}
+
+function onPaInput(e) {
+  const raw = e.target.value.trim();
+  if (raw === "") {
+    paUseDefault.value = true;
+    paCount.value = null;
+    return;
+  }
+  paUseDefault.value = false;
+  paCount.value = Number(raw);
+}
+
+function chip(active) {
+  const base = "px-3 py-1.5 rounded-full text-[0.85rem] border transition-[background-color,border-color,color] duration-150 disabled:opacity-40 disabled:cursor-not-allowed";
+  return active ? `${base} bg-accent/20 border-accent/55 text-fg` : `${base} bg-white/4 border-white/9 text-muted hover:text-fg hover:border-white/18`;
+}
+
+function syncPaForm() {
+  const v = s.value.playlistAdd?.value ?? null;
+  paUseDefault.value = v === null;
+  paCount.value = v;
+}
+
+const dirty = computed(() => selectedChannel.value !== s.value.botChannelId || JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.djRoleIds].sort()) || sbDirty.value || paDirty.value);
 
 function toggleSbCategory(id) {
   const i = sbCategories.value.indexOf(id);
@@ -176,6 +252,7 @@ function revert() {
   selectedRoles.value = [...s.value.djRoleIds];
   selectedChannel.value = s.value.botChannelId;
   syncSbForm();
+  syncPaForm();
   result.value = null;
 }
 
@@ -186,6 +263,7 @@ async function load() {
     selectedRoles.value = [...res.data.djRoleIds];
     selectedChannel.value = res.data.botChannelId;
     syncSbForm();
+    syncPaForm();
   } catch (e) {
     loadError.value = e.response?.data?.error || "설정을 불러오지 못했습니다";
   } finally {
@@ -202,6 +280,7 @@ async function save() {
       djRoleIds: selectedRoles.value,
       botChannelId: selectedChannel.value,
       sponsorblock: { enabled: sbEnabled.value, categories: sbCategories.value },
+      ...(s.value.playlistAdd && { playlistAddMax: paValue.value }),
     });
     result.value = { success: true };
     await load(); // 서버가 확정한 값(삭제 역할 정리 등)으로 동기화
