@@ -42,7 +42,7 @@ function setup({ record = null } = {}) {
   ]);
   const guild = { id: "g1", channels: { cache: channels } };
   const players = new Map();
-  const mem = new MusicEmbedManager({ players, user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" } });
+  const mem = new MusicEmbedManager({ players, guilds: { cache: new Collection([["g1", guild]]) }, user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" } });
   mem.getOrCreateWebhook = async (channel) => ({
     async send(payload) {
       const id = String(next++);
@@ -50,6 +50,7 @@ function setup({ record = null } = {}) {
       return { id, channel_id: channel.id };
     },
     async editMessage(id, payload) {
+      if (calls.editError) throw calls.editError;
       calls.edited.push({ channel: channel.id, id, payload });
       return { id };
     },
@@ -178,4 +179,80 @@ test("전용 채널이 있는 서버에서 다른 채널로 틀고 끝나도 종
 
   assert.equal(calls.edited.at(-1).id, "900", "패널은 전용 채널에서 종료 모양으로");
   assert.equal(calls.sent.filter((s) => s.channel === "general").length, 0);
+});
+
+test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다 — 새로 올리지 않는다", async () => {
+  const { mem, calls } = setup({ record: { channelId: BOT, messageId: "900" } });
+  await mem.restorePanels();
+  assert.equal(calls.sent.length, 0);
+  assert.equal(calls.edited.length, 1);
+  assert.match(textOf(calls.edited[0].payload), /쉬는 중이에요.*곡을 입력하면/);
+});
+
+test("기동: 전용 채널 패널이 없거나 지워졌으면 새로 올린다", async () => {
+  const fresh = setup();
+  await fresh.mem.restorePanels();
+  assert.equal(fresh.calls.sent.length, 1);
+  assert.equal(fresh.calls.sent[0].channel, BOT);
+  assert.equal(fresh.records.get("g1").messageId, fresh.calls.sent[0].id);
+
+  const gone = setup({ record: { channelId: BOT, messageId: "900" } });
+  gone.calls.editError = Object.assign(new Error("Unknown Message"), { code: 10008 });
+  await gone.mem.restorePanels();
+  assert.equal(gone.calls.sent.length, 1);
+  assert.equal(gone.records.get("g1").messageId, gone.calls.sent[0].id);
+});
+
+test("기동: 세션을 복원해 패널을 올린 서버는 건너뛰고, 전용 채널이 없으면 기록된 패널만 고친다", async () => {
+  const restored = setup({ record: { channelId: BOT, messageId: "900" } });
+  restored.players.set("g1", { nowPlayingMessage: { id: "900" } });
+  await restored.mem.restorePanels();
+  assert.equal(restored.calls.edited.length + restored.calls.sent.length, 0);
+
+  botChannelId = null;
+  const plain = setup({ record: { channelId: "general", messageId: "800" } });
+  await plain.mem.restorePanels();
+  assert.equal(plain.calls.sent.length, 0);
+  assert.equal(plain.calls.edited[0].id, "800");
+  assert.match(textOf(plain.calls.edited[0].payload), /\/play/);
+});
+
+test("전용 채널을 정하면 끝난 패널을 그 채널에 올리고 옛 패널을 지운다 — 풀면 지운다", async () => {
+  const { mem, guild, calls, records } = setup({ record: { channelId: "general", messageId: "800" } });
+  await mem.onBotChannelChanged(guild);
+  assert.equal(calls.sent[0].channel, BOT);
+  assert.ok(calls.deleted.includes("general:800"));
+
+  botChannelId = null;
+  const current = records.get("g1").messageId;
+  await mem.onBotChannelChanged(guild);
+  assert.ok(calls.deleted.includes(`${BOT}:${current}`));
+  assert.equal(records.get("g1"), null);
+});
+
+test("재생 중에 전용 채널을 정하면 재생 패널을 옮기고, 풀면 그대로 둔다", async () => {
+  const { mem, guild, channels, calls, players } = setup({ record: { channelId: "general", messageId: "800" } });
+  const player = makePlayer(guild, channels.get("general"), { nowPlayingMessage: { id: "800", channel_id: "general" } });
+  players.set("g1", player);
+
+  await mem.onBotChannelChanged(guild);
+  assert.equal(calls.sent.length, 1);
+  assert.equal(calls.sent[0].channel, BOT);
+  assert.match(textOf(calls.sent[0].payload), /현재 재생 중/);
+  assert.ok(calls.deleted.includes("general:800"));
+
+  botChannelId = null;
+  const deletedBefore = calls.deleted.length;
+  await mem.onBotChannelChanged(guild);
+  assert.equal(calls.sent.length, 1);
+  assert.equal(calls.deleted.length, deletedBefore);
+});
+
+test("곡이 없을 때 /dashboard는 끝난 패널을 그 채널에 다시 올린다", async () => {
+  const { mem, guild, channels, calls, records } = setup({ record: { channelId: BOT, messageId: "900" } });
+  await mem.repostIdlePanel(guild, channels.get(BOT));
+  assert.equal(calls.sent[0].channel, BOT);
+  assert.match(textOf(calls.sent[0].payload), /곡을 입력하면/);
+  assert.ok(calls.deleted.includes(`${BOT}:900`));
+  assert.equal(records.get("g1").messageId, calls.sent[0].id);
 });

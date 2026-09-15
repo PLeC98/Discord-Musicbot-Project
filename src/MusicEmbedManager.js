@@ -609,9 +609,54 @@ class MusicEmbedManager {
     const record = await this.panel.store.getPanel(guild.id);
     if (record?.channelId !== channel.id || !this._buriedAt(channel, record.messageId, now)) return;
 
+    await this._postIdle(guild, channel);
+  }
+
+  // 끝난 패널을 이 채널 맨 아래에 올리고 이 서버의 패널로 삼는다
+  async _postIdle(guild, channel, { dedicated = true } = {}) {
     const view = this.idleViews.get(guild.id) ?? { reason: "stop" }; // 재시작 뒤라면 음성 밖이다
-    const { message, webhook } = await this._sendPanel(channel, { ...(await this.createIdleContainer({ ...view, dedicated: true })), flags: MessageFlags.IsComponentsV2 });
+    const payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
+    const { message, webhook } = await this._sendPanel(channel, payload);
     await this.panel.commit(guild, channel, message, webhook);
+  }
+
+  /** 전용 채널을 정했거나 바꿨거나 풀었을 때 — 재생 중이면 패널을 옮기고, 아니면 끝난 패널을 새 채널에 올리거나 치운다 */
+  async onBotChannelChanged(guild) {
+    const channel = await this._dedicatedChannel(guild);
+    const player = this.client.players.get(guild.id);
+    if (player?.currentTrack && player.nowPlayingMessage) {
+      if (channel) await this._repostNowPlaying(player, "전용 채널 변경");
+      return; // 풀었으면 재생 중인 패널은 그 자리에 둔다 — 끝나면 전용 채널 밖 규칙을 따른다
+    }
+    if (channel) await this._postIdle(guild, channel);
+    else await this.panel.remove(guild);
+  }
+
+  /** 곡이 없을 때 /dashboard — 끝난 패널을 이 채널에 다시 올린다 */
+  async repostIdlePanel(guild, channel) {
+    const dedicated = (await this._dedicatedChannel(guild))?.id === channel.id;
+    await this._postIdle(guild, channel, { dedicated });
+  }
+
+  /**
+   * 기동 때 한 번 — 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
+   * 전용 채널에 패널이 없으면 올린다. 세션을 복원해 새 패널을 올린 서버는 건너뛴다.
+   */
+  async restorePanels() {
+    for (const guild of this.client.guilds?.cache?.values() ?? []) {
+      try {
+        if (this.client.players.get(guild.id)?.nowPlayingMessage) continue;
+        const channel = await this._dedicatedChannel(guild);
+        const record = await this.panel.store.getPanel(guild.id);
+        if (record && (!channel || record.channelId === channel.id)) {
+          const payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
+          if (await this.panel.edit(guild, payload)) continue;
+        }
+        if (typeof channel?.send === "function") await this._postIdle(guild, channel);
+      } catch (error) {
+        log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${error?.message || error}`);
+      }
+    }
   }
 
   /**

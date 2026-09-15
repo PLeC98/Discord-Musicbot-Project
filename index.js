@@ -285,6 +285,8 @@ function startBot() {
   client.restoreSessions = async function () {
     log.debug("세션 복원 시작");
     await restoreSavedPlayers(client);
+    // 기록된 패널을 지금 상태로 — 세션을 복원한 서버는 이미 새로 올렸다
+    await client.musicEmbedManager?.restorePanels();
     // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록
     await cleanupAudioCache();
     log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");

@@ -55,6 +55,17 @@ class NowPlayingPanel {
     });
   }
 
+  /** 패널을 지우고 기록을 비운다 — 전용 채널을 풀었을 때 */
+  remove(guild) {
+    if (!guild?.id) return Promise.resolve();
+    return this._serial(guild.id, async () => {
+      const old = await this.store.getPanel(guild.id);
+      if (!old) return;
+      await this.store.setPanel(guild.id, null, null);
+      await this._delete(guild, old, {});
+    });
+  }
+
   async _channel(guild, channelId) {
     return guild.channels?.cache?.get(channelId) ?? (await guild.channels?.fetch?.(channelId).catch(() => null)) ?? null;
   }

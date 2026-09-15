@@ -342,7 +342,7 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
 router.put("/:guildId/settings", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { guild, member } = ctx;
+  const { guild, member, client } = ctx;
 
   if (!isOwner(req) && !(member && isModerator(member))) {
     return res.status(403).json({ error: "서버 설정을 변경할 권한이 없습니다 (서버 관리 권한 필요)" });
@@ -409,7 +409,10 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     if (nextRoles.length) await GuildSettingsManager.setDjRoles(guild.id, nextRoles);
     else await GuildSettingsManager.clearDjRoles(guild.id);
   }
+  // 화면은 저장할 때마다 전용 채널을 함께 보낸다 — 실제로 바뀌었을 때만 패널을 옮긴다
+  let channelChanged = false;
   if (nextChannel !== undefined) {
+    channelChanged = nextChannel !== (await GuildSettingsManager.getBotChannel(guild.id));
     if (nextChannel) await GuildSettingsManager.setBotChannel(guild.id, nextChannel);
     else await GuildSettingsManager.clearBotChannel(guild.id);
   }
@@ -418,6 +421,9 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
   }
   if (nextPlaylistAdd !== undefined) {
     await GuildSettingsManager.setPlaylistAddMax(guild.id, nextPlaylistAdd);
+  }
+  if (channelChanged) {
+    client?.musicEmbedManager?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
   }
 
   log.info(`서버 설정 변경: ${guild.name} (${guild.id}) — 실행 ${req.session.user.username || req.session.user.id}`);

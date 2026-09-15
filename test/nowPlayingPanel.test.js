@@ -118,3 +118,14 @@ test("기록된 패널을 제자리에서 고친다 — 지워졌으면 기록�
   assert.equal(store.records.get("g1"), null, "다음 게시가 새로 올리도록 기록을 비운다");
   assert.equal(await panel.edit(guild, {}), null, "기록이 없으면 할 일이 없다");
 });
+
+test("패널을 지우고 기록을 비운다", async () => {
+  const log = [];
+  const { guild, store, panel } = setup({ record: { channelId: "c2", messageId: "old" }, webhooks: { c2: fakeWebhook(log) } });
+  await panel.remove(guild);
+  assert.deepEqual(log, ["webhook:old"]);
+  assert.equal(store.records.get("g1"), null);
+
+  await panel.remove(guild);
+  assert.deepEqual(log, ["webhook:old"], "기록이 없으면 할 일이 없다");
+});
