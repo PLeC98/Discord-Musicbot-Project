@@ -3,6 +3,7 @@ const log = require("../src/logger").child({ category: "commands" });
 const ErrorHandler = require("../src/ErrorHandler");
 const { requestPlayback } = require("../src/playRequest");
 const { interactionResponder } = require("../src/playbackResponder");
+const { offerOnInteraction } = require("../src/playlistMore");
 const { checkAdd, checkSummon } = require("../src/permissions");
 
 module.exports = {
@@ -54,6 +55,7 @@ module.exports = {
           flags: MessageFlags.IsComponentsV2,
         });
       }
+      if (result.more) await offerOnInteraction(interaction, result.more, result.player);
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, interaction.guild?.id, "play.execute");
 

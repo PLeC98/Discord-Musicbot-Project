@@ -7,6 +7,8 @@ const { silentResponder } = require("./playbackResponder");
 const log = require("./logger").child({ category: "player" });
 const config = require("../config");
 const trackState = require("./trackState");
+const S = require("./strings");
+const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
 
 /**
  * 곡 추가 경로의 단일 코어. 진입점(슬래시 명령/전용 채널/검색 선택/대시보드)은
@@ -83,7 +85,7 @@ async function resolveFallbackTextChannel(guild) {
  * @param {string} options.source           로그 라벨
  * @returns {Promise<{success: boolean, message?: string, isPlaylist?: boolean, tracks?: Array}>}
  */
-async function requestPlayback(client, { guild, requester, query = null, tracks = null, textChannel = null, voiceChannel = null, insertFirst = false, single = false, responder = silentResponder, source = "play" }) {
+async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play" }) {
   const guildId = guild.id;
   const who = toRequester(requester);
 
@@ -96,7 +98,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
 
   let trackData;
   if (tracks) {
-    trackData = { success: true, isPlaylist: tracks.length > 1, tracks };
+    trackData = { success: true, isPlaylist: tracks.length > 1, collection, tracks };
   } else {
     log.debug({ sub: "play" }, `${source} | 서버=${guildId} | 검색어="${query}"`);
     // 받을 곡 수 — 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
@@ -116,6 +118,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     trackData = { ...trackData, isPlaylist: false, collection: null, tracks: trackData.tracks.slice(0, 1) };
   }
   if (insertFirst) trackData.insertFirst = true;
+  if (insertAfterId) trackData.insertAfterId = insertAfterId;
 
   const result = await client.musicEmbedManager.handleMusicData(guildId, trackData, who, responder);
 
@@ -128,7 +131,64 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
   log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}${trackData.queueLimited ? " | 자리가 모자라 일부만 받음" : ""}`);
 
-  return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player };
+  // 목록이 더 남았으면 이어 받을 상태 — 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
+  const more = result?.success && !result.dropped ? continuation(query, trackData, { insertFirst }) : null;
+  return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player, more };
 }
 
-module.exports = { requestPlayback, toRequester, ensurePlayer, _internals: { resolveFallbackTextChannel } };
+const MORE_BATCH = 100;
+
+/**
+ * 재생목록 이어 넣기 — 디스코드 메뉴와 대시보드가 같이 쓴다.
+ *
+ * 받는 곡 수는 누른 시점의 남은 자리로 다시 자른다. 앵커(직전 마지막 곡)를 찾으려고 LOOKBACK만큼 앞에서부터
+ * 받고, 찾으면 그 뒤부터, 못 찾으면 요청 위치부터 넣는다. 맨 앞에 넣었던 목록이면 앵커 곡 바로 뒤에 넣는다.
+ * 곡은 묶음으로 나눠 받으며 onProgress(받은 수, 받을 수)를 부른다 — 대기열에는 다 받은 뒤 한 번에 넣는다.
+ */
+async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {} }) {
+  const player = client.players.get(guild.id);
+  if (!player) return { success: false, message: S.ERR_NO_MUSIC };
+  const want = Math.min(count, roomFor(player));
+  if (want <= 0) return { success: false, message: client.musicEmbedManager.queueFullMessage() };
+
+  const url = KINDS[state.kind].url(state.listId);
+  const found = [];
+  let cursor = state.offset;
+  let anchor = state.anchorId;
+  let total = null;
+  while (found.length < want) {
+    const back = Math.min(LOOKBACK, cursor);
+    const limit = Math.min(MORE_BATCH, want - found.length) + back;
+    const part = await TrackResolver.getCollection(url, guild.id, { offset: cursor - back, limit });
+    if (part.total != null) total = part.total;
+    const hit = part.tracks.findIndex((t) => t.id === anchor);
+    const fresh = hit >= 0 ? part.tracks.slice(hit + 1) : part.tracks.slice(back);
+    found.push(...fresh);
+    if (fresh.length > 0) anchor = fresh.at(-1).id;
+    const advanced = part.nextOffset != null && part.nextOffset > cursor;
+    if (advanced) cursor = part.nextOffset;
+    onProgress(Math.min(found.length, want), want);
+    if (fresh.length === 0 || !advanced || (total != null && cursor >= total)) break;
+  }
+
+  // 앵커가 앞당겨져 더 받았으면 넘친 만큼 되돌린다 — 다음 이어 받기는 앵커가 바로잡는다
+  const tracks = found.slice(0, want);
+  if (tracks.length === 0) return { success: false, message: "더 넣을 곡을 찾지 못했어요." };
+  const nextOffset = cursor - (found.length - tracks.length);
+
+  const result = await requestPlayback(client, {
+    guild,
+    requester,
+    tracks,
+    collection: KINDS[state.kind].collection,
+    textChannel,
+    voiceChannel,
+    insertAfterId: state.insertFirst ? state.anchorId : null,
+    source,
+  });
+  const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
+  const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1).id }) : null;
+  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && { ...next, total, remaining } };
+}
+
+module.exports = { requestPlayback, continueCollection, toRequester, ensurePlayer, _internals: { resolveFallbackTextChannel } };

@@ -7,7 +7,8 @@ const { resolveMember, toApiError } = requireControl;
 const { checkControl, checkAdd, checkSkip, checkRemoveTrack, isModerator } = require("../../../src/permissions");
 const { ChannelType } = require("discord.js");
 const GuildSettingsManager = require("../../../src/GuildSettingsManager");
-const { requestPlayback } = require("../../../src/playRequest");
+const { requestPlayback, continueCollection } = require("../../../src/playRequest");
+const { validState, MAX_COUNT } = require("../../../src/playlistMore");
 const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
@@ -630,9 +631,50 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
     // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
     if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
 
-    res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), queueMax: config.bot.maxQueueSize });
+    res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize });
   } catch (err) {
     log.error("대시보드에서 곡 추가 실패:", err);
+    res.status(500).json({ error: "곡 추가에 실패했습니다" });
+  }
+});
+
+// 이어 넣기 상태를 화면에 — 선택지 단위(한 번에 넣는 묶음)를 함께 싣는다
+const moreView = (more) => (more ? { ...more, requesterId: undefined, batch: config.bot.maxPlaylistSize } : null);
+
+// Continue a playlist  POST /:guildId/player/queue/more — 곡 추가와 같은 권한·제한
+router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req, res) => {
+  const { guildId } = req.params;
+  const ctx = await getPlayer(req, res, guildId);
+  if (!ctx) return;
+  const { player, client, guild } = ctx;
+
+  if (!player) return res.status(409).json({ error: "봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요" });
+
+  if (!isOwner(req)) {
+    const mctx = await resolveMember(req, res);
+    if (!mctx) return;
+    const err = checkAdd(mctx.member);
+    if (err) return res.status(403).json({ error: toApiError(err) });
+  }
+
+  // 대시보드는 맨 앞에 넣는 경로가 없다 — 요청 본문의 insertFirst는 믿지 않는다
+  const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });
+  const count = Number.isSafeInteger(req.body?.count) && req.body.count >= 1 && req.body.count <= MAX_COUNT ? req.body.count : null;
+  if (!state || !count) return res.status(400).json({ error: "더 넣을 목록 정보가 올바르지 않습니다" });
+
+  try {
+    const result = await continueCollection(client, {
+      guild,
+      requester: { id: req.session.user.id, username: req.session.user.globalName || req.session.user.username },
+      state,
+      count,
+      source: "대시보드 더 넣기",
+    });
+    if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
+
+    res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, more: moreView(result.next), queueMax: config.bot.maxQueueSize });
+  } catch (err) {
+    log.error("대시보드에서 재생목록 더 넣기 실패:", err);
     res.status(500).json({ error: "곡 추가에 실패했습니다" });
   }
 });

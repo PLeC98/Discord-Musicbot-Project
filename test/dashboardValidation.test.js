@@ -41,6 +41,10 @@ require.cache[trPath] = {
       resolverCalls.push(query);
       return { success: true, isPlaylist: false, tracks: [makeTrack("추가곡")] };
     },
+    async getCollection(_url, _guildId, { offset, limit }) {
+      const tracks = Array.from({ length: limit }, (_, k) => ({ ...makeTrack(`c${offset + k}`), id: `c${String(offset + k).padStart(21, "0")}` }));
+      return { tracks, total: 1000, nextOffset: offset + limit };
+    },
   },
 };
 
@@ -219,4 +223,27 @@ test("queue delete/move: '1junk'·소수 인덱스는 400, 정수만 통과", as
     ["moveInQueue", 0, 2],
     ["removeFromQueue", 1],
   ]);
+});
+
+test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400, 본문의 맨 앞 넣기는 무시한다", async () => {
+  freshPlayer();
+  const state = { kind: "spp", listId: "37i9dQZF1E3aglU7q0y10F", offset: 50, anchorId: `c${String(49).padStart(21, "0")}` };
+  for (const body of [
+    { ...state, kind: "xx", count: 10 },
+    { ...state, listId: "../../x", count: 10 },
+    { ...state, count: 0 },
+    { ...state, count: "10" },
+    { ...state, count: 10.5 },
+  ]) {
+    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/more`, body);
+    assert.equal(r.status, 400, JSON.stringify(body));
+  }
+  assert.equal(embedCalls.length, 0);
+
+  const ok = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/more`, { ...state, count: 10, insertFirst: true });
+  assert.equal(ok.status, 200);
+  assert.equal(embedCalls.at(-1)[1].tracks.length, 10);
+  assert.equal(embedCalls.at(-1)[1].insertAfterId, undefined, "대시보드는 맨 앞에 넣는 경로가 없다");
+  assert.equal(ok.json.more.offset, 60);
+  assert.equal(ok.json.more.requesterId, undefined);
 });

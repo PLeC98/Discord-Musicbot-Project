@@ -69,6 +69,16 @@ test("맨 앞에 넣을 때도 새 목록의 앞부분이 들어간다", async (
   assert.deepEqual(titles(player.queue.slice(0, 3)), ["new0", "new1", "old0"]);
 });
 
+test("이어 넣기: 앵커 곡 뒤에 들어가고, 넘치면 역시 뒤쪽이 빠진다", async () => {
+  const { player, add } = setup({ max: 30 });
+  // 맨 앞에 넣었던 목록(p0, p1) 뒤에 기존 대기열이 있는 모양
+  trackState.enqueue(player, [{ title: "p0", id: "p0" }, { title: "p1", id: "p1" }, ...many("old", 26)]);
+  const result = await add(many("new", 5), { insertAfterId: "p1" });
+
+  assert.equal(result.dropped, 3);
+  assert.deepEqual(titles(player.queue.slice(0, 5)), ["p0", "p1", "new0", "new1", "old0"]);
+});
+
 test("현재곡은 세지 않는다 — 비어 있을 때 넣으면 첫 곡은 재생되고 대기열이 상한만큼 찬다", async () => {
   const { player, add } = setup({ max: 25, playing: false });
   const result = await add(many("new", 26));

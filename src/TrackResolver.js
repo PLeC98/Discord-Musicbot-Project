@@ -99,6 +99,18 @@ const TrackResolver = {
     }
   },
 
+  // 여러 곡 출처의 구간만 — 이어 넣기용. getTrackData와 달리 못 받으면 검색으로 넘어가지 않는다
+  // (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다).
+  async getCollection(url, guildId, range) {
+    const none = { tracks: [], total: null, nextOffset: null };
+    if (YouTube.isPlaylist(url)) {
+      const r = await YouTube.getPlaylist(url, guildId, range);
+      return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null } : none;
+    }
+    if (Spotify.isSpotifyURL(url)) return Spotify.getCollection(url, range);
+    return none;
+  },
+
   /**
    * 캐시 숏컷 포함 해석 — 캐시된 단일 곡은 yt-dlp 호출 없이 즉시 반환.
    * 재생목록 URL은 캐시를 우회: URL 정규화가 list=를 제거하므로 캐시된 단일 영상이 재생목록 전체를 가릴 수 있음.

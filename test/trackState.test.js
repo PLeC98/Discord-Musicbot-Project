@@ -37,6 +37,15 @@ test("enqueue: 뒤에 붙이거나 앞에 넣는다", () => {
   assert.deepEqual(titles(p.queue), ["X", "Y", "B", "C", "D"]);
 });
 
+test("insertAfter: 앵커 곡 바로 뒤에, 그 곡이 없으면 맨 앞에", () => {
+  const p = make({ current: t("X"), queue: ["a", "b", "c"].map((id) => ({ title: id.toUpperCase(), id })) });
+  trackState.insertAfter(p, "b", [t("N1"), t("N2")]);
+  assert.deepEqual(titles(p.queue), ["A", "B", "N1", "N2", "C"]);
+
+  trackState.insertAfter(p, "gone", [t("M")]);
+  assert.equal(p.queue[0].title, "M");
+});
+
 test("shiftNext: 맨 앞을 현재곡으로, 비었으면 현재곡을 건드리지 않는다", () => {
   const p = make({ queue: [t("A"), t("B")] });
   assert.equal(trackState.shiftNext(p).title, "A");

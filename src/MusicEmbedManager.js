@@ -153,7 +153,8 @@ class MusicEmbedManager {
       const dropped = tracksToQueue.length - queued.length;
       // 안내에 붙일 것 — 전체 곡 수는 받은 것보다 많을 때만
       const notice = { dropped, total: trackData.total > tracks.length ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) };
-      trackState.enqueue(player, queued, { front: insertFirst });
+      if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
+      else trackState.enqueue(player, queued, { front: insertFirst });
 
       // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
       if (startFailure && !player.currentTrack && player.queue.length > 0) {

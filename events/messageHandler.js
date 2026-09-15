@@ -4,6 +4,7 @@ const GuildSettingsManager = require("../src/GuildSettingsManager");
 const { checkAdd, checkSummon } = require("../src/permissions");
 const { requestPlayback } = require("../src/playRequest");
 const { channelResponder } = require("../src/playbackResponder");
+const { offerOnChannel } = require("../src/playlistMore");
 const S = require("../src/strings");
 
 module.exports = {
@@ -63,6 +64,8 @@ module.exports = {
         await responder.dismissPlaceholder();
         const errMsg = await message.channel.send({ content: S.withErrorMark(result.message || "재생을 시작할 수 없어요.") });
         setTimeout(() => errMsg.delete().catch(() => {}), 8000);
+      } else if (result.more) {
+        await offerOnChannel(message.channel, result.more, result.player, member.id);
       }
     } catch (error) {
       log.error({ sub: "message" }, "메시지 처리 오류:", error);

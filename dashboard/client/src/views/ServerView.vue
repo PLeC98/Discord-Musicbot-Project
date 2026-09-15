@@ -153,6 +153,8 @@
 
         <div v-if="addError" class="mt-2 text-danger text-[0.85rem]">{{ addError }}</div>
         <div v-else-if="addNotice" class="mt-2 text-warning text-[0.85rem]">{{ addNotice }}</div>
+        <div v-else-if="addInfo" class="mt-2 text-success text-[0.85rem]">{{ addInfo }}</div>
+        <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
       </BaseCard>
 
       <!-- ── Queue ── -->
@@ -225,6 +227,7 @@ import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
+import PlaylistMore from "../components/PlaylistMore.vue";
 import { fmtTime } from "../utils/time.js";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
@@ -255,6 +258,11 @@ const addQuery = ref("");
 const adding = ref(false);
 const addError = ref("");
 const addNotice = ref("");
+const addInfo = ref("");
+// 이어 넣을 수 있는 재생목록 — 서버가 준 상태를 그대로 되돌려 보낸다
+const more = ref(null);
+const moreBusy = ref(false);
+const queueMax = ref(0);
 const joining = ref(false);
 const showStopConfirm = ref(false);
 
@@ -418,18 +426,43 @@ async function addTrack(single = false) {
   adding.value = true;
   addError.value = "";
   addNotice.value = "";
+  addInfo.value = "";
+  more.value = null;
   try {
     const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
     const res = await axios.post(`/api/guilds/${guildId}/player/queue${qs()}`, payload);
-    const { dropped = 0, queueLimited = false, queueMax, ...state } = res.data;
+    const { dropped = 0, queueLimited = false, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     applyState(state);
+    queueMax.value = max;
+    more.value = nextMore;
     addQuery.value = "";
-    if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${queueMax}곡)`;
-    else if (queueLimited) addNotice.value = `대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${queueMax}곡)`;
+    if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${max}곡)`;
+    else if (queueLimited) addNotice.value = `대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${max}곡)`;
   } catch (e) {
     addError.value = e.response?.data?.error || "추가에 실패했습니다.";
   } finally {
     adding.value = false;
+  }
+}
+
+async function addMore(count) {
+  if (!more.value || moreBusy.value) return;
+  moreBusy.value = true;
+  addError.value = "";
+  addNotice.value = "";
+  addInfo.value = "";
+  try {
+    const res = await axios.post(`/api/guilds/${guildId}/player/queue/more${qs()}`, { ...more.value, count });
+    const { added = 0, dropped = 0, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
+    applyState(state);
+    queueMax.value = max;
+    more.value = nextMore;
+    if (dropped > 0) addNotice.value = `대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${max}곡)`;
+    else addInfo.value = nextMore ? `${added.toLocaleString()}곡을 더 넣었습니다` : `${added.toLocaleString()}곡을 더 넣어 목록을 끝까지 넣었습니다`;
+  } catch (e) {
+    addError.value = e.response?.data?.error || "추가에 실패했습니다.";
+  } finally {
+    moreBusy.value = false;
   }
 }
 

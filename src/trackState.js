@@ -30,6 +30,14 @@ function enqueue(player, tracks, { front = false } = {}) {
   sinkOf(player)?.onEnqueue(tracks, front);
 }
 
+// anchorId 곡 바로 뒤에 넣는다 — 맨 앞에 넣은 목록을 이어 넣을 때. 그 곡이 이미 재생돼 없으면 맨 앞.
+function insertAfter(player, anchorId, tracks) {
+  if (tracks.length === 0) return;
+  const at = player.queue.findIndex((t) => t.id === anchorId) + 1;
+  player.queue.splice(at, 0, ...tracks);
+  sinkOf(player)?.onReplace();
+}
+
 // 맨 앞 곡을 현재곡으로 — 다음 곡은 언제나 맨 앞이다(셔플은 대기열을 한 번 섞을 뿐이다).
 function shiftNext(player) {
   if (player.queue.length === 0) return null;
@@ -125,6 +133,7 @@ module.exports = {
   init,
   setCurrent,
   enqueue,
+  insertAfter,
   shiftNext,
   retire,
   rewind,
