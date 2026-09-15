@@ -21,7 +21,8 @@ require.cache[gsmPath] = {
 const express = require("express");
 
 const GUILD_ID = "100";
-const QUEUE_LEN = 57;
+const QUEUE_LEN = 257;
+const PAGE = 100; // guilds.js QUEUE_PAGE
 
 function makeTrack(title) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };
@@ -89,18 +90,18 @@ async function get(urlPath, method = "GET") {
 test("기본 응답은 한 묶음만 싣고 총 개수를 따로 알린다", async () => {
   const { status, json } = await get(`/api/guilds/${GUILD_ID}/player`);
   assert.equal(status, 200);
-  assert.equal(json.queue.length, 10);
+  assert.equal(json.queue.length, PAGE);
   assert.equal(json.queueTotal, QUEUE_LEN);
   assert.equal(json.queue[0].index, 0);
 });
 
 test("?queue=n이면 펼쳐 둔 만큼 돌려준다 — 조작 응답도 같다", async () => {
-  const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=30`);
-  assert.equal(json.queue.length, 30);
+  const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=150`);
+  assert.equal(json.queue.length, 150);
 
-  const removed = await get(`/api/guilds/${GUILD_ID}/player/queue/0?queue=30`, "DELETE");
+  const removed = await get(`/api/guilds/${GUILD_ID}/player/queue/0?queue=150`, "DELETE");
   assert.equal(removed.status, 200);
-  assert.equal(removed.json.queue.length, 30, "조작 응답이 첫 묶음으로 접히면 화면이 되감긴다");
+  assert.equal(removed.json.queue.length, 150, "조작 응답이 첫 묶음으로 접히면 화면이 되감긴다");
   assert.equal(removed.json.queueTotal, QUEUE_LEN - 1);
 });
 
@@ -110,19 +111,19 @@ test("창 크기는 상한을 넘지 못하고, 이상한 값은 기본값으로
 
   for (const bad of ["0", "-5", "abc", "1.5"]) {
     const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=${bad}`);
-    assert.equal(json.queue.length, 10, `?queue=${bad}`);
+    assert.equal(json.queue.length, PAGE, `?queue=${bad}`);
   }
 });
 
 test("더 보기는 이어지는 구간을 실제 위치와 함께 준다", async () => {
-  const { status, json } = await get(`/api/guilds/${GUILD_ID}/player/queue?offset=10&limit=10`);
+  const { status, json } = await get(`/api/guilds/${GUILD_ID}/player/queue?offset=100&limit=100`);
   assert.equal(status, 200);
-  assert.equal(json.items.length, 10);
-  assert.equal(json.items[0].index, 10, "화면이 이 번호로 제거·이동을 요청한다");
+  assert.equal(json.items.length, 100);
+  assert.equal(json.items[0].index, 100, "화면이 이 번호로 제거·이동을 요청한다");
   assert.equal(json.total, QUEUE_LEN - 1);
 
-  const tail = await get(`/api/guilds/${GUILD_ID}/player/queue?offset=50&limit=10`);
-  assert.equal(tail.json.items.length, QUEUE_LEN - 1 - 50, "끝을 넘겨 요청해도 있는 만큼만");
+  const tail = await get(`/api/guilds/${GUILD_ID}/player/queue?offset=200&limit=100`);
+  assert.equal(tail.json.items.length, QUEUE_LEN - 1 - 200, "끝을 넘겨 요청해도 있는 만큼만");
 });
 
 test("더 보기의 잘못된 범위는 400", async () => {

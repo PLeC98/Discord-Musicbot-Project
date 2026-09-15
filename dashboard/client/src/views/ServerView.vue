@@ -243,7 +243,7 @@ const loading = ref(true);
 const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
 
 // 대기열은 앞에서부터 한 묶음씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
-const QUEUE_PAGE = 10;
+const QUEUE_PAGE = 100;
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
 const queueBoxRef = ref(null);
@@ -641,7 +641,7 @@ function openEvents() {
   };
   eventSource.onmessage = () => {
     clearTimeout(nudgeTimer);
-    nudgeTimer = setTimeout(refresh, 150);
+    nudgeTimer = setTimeout(refresh, 600); // 연달아 조작하면 넛지도 연달아 온다 — 합쳐서 한 번만 다시 읽는다
   };
   eventSource.onerror = () => startFallback(); // SSE 끊김 → 폴백 폴링 시작 (재연결 시 onopen에서 중지)
 }

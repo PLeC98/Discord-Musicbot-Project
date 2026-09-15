@@ -102,7 +102,7 @@ function voiceFlags(guild, userId) {
 }
 
 // 대기열은 앞에서부터 이만큼만 실어 보낸다 — 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.
-const QUEUE_PAGE = 10;
+const QUEUE_PAGE = 100;
 const QUEUE_WINDOW_MAX = 1000;
 
 function queueTrack(t, i) {

@@ -87,6 +87,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   let ticker = null;
   let offNudge = null;
   let stopWatch = null;
+  let stopPageWatch = null;
   let started = 0;
 
   function start() {
@@ -99,7 +100,13 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     // guildId가 null이면(어느 서버인지 모르는 페이로드) 안전하게 갱신한다.
     offNudge = onGuildNudge((changedGuildId) => {
       if (!guildId.value) return;
+      if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다 — 넛지마다 둘이 각각 조회하면 요청이 배로 든다
       if (!changedGuildId || changedGuildId === guildId.value) refresh();
+    });
+
+    // 그 화면을 벗어나는 순간 한 번 따라잡는다 — 머무는 동안 건너뛴 변화가 있다.
+    stopPageWatch = watch(onTargetPage, (on) => {
+      if (!on) refresh();
     });
 
     // 갱신 사이 진행 위치 보간 — 재생 중이고 스크럽하지 않을 때만
@@ -113,9 +120,10 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   function stop() {
     if (--started > 0) return;
     stopWatch?.();
+    stopPageWatch?.();
     offNudge?.();
     clearInterval(ticker);
-    stopWatch = offNudge = ticker = null;
+    stopWatch = stopPageWatch = offNudge = ticker = null;
     data.value = null;
   }
 
