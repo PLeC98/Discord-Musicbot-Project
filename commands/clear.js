@@ -20,7 +20,7 @@ module.exports = {
     const count = player.queue.length;
     if (count === 0) return interaction.reply({ content: S.ERR_NO_SONGS_IN_QUEUE, flags: [1 << 6] });
 
-    player.queue = [];
+    player.clearQueue();
 
     const embed = new EmbedBuilder()
       .setTitle("🗑️ 대기열 비워짐")

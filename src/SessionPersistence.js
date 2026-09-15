@@ -4,6 +4,7 @@ const path = require("path");
 const log = require("./logger").child({ category: "session" });
 const fsSync = require("fs");
 const CacheManager = require("./CacheManager");
+const trackState = require("./trackState");
 const { formatDuration } = require("./utils");
 const { escapeMd } = require("./mentions");
 
@@ -123,15 +124,15 @@ class SessionPersistence {
     player.autoplay = state.autoplay ?? false;
     player.requesterId = state.requesterId || player.requesterId;
 
-    player.previousTracks = (state.previousTracks || []).map((serialized) => this.deserializeTrack(serialized)).filter(Boolean);
-
-    const restoredQueue = (state.queue || []).map((serialized) => this.deserializeTrack(serialized)).filter(Boolean);
-
-    player.queue = restoredQueue;
-    player.currentTrack = this.deserializeTrack(state.currentTrack) || null;
+    const revive = (list) => (list || []).map((serialized) => this.deserializeTrack(serialized)).filter(Boolean);
+    trackState.restore(player, {
+      current: this.deserializeTrack(state.currentTrack),
+      queue: revive(state.queue),
+      history: revive(state.previousTracks),
+    });
 
     if (!player.currentTrack && player.queue.length > 0) {
-      player.currentTrack = player.queue.shift();
+      trackState.shiftNext(player);
     }
 
     const cacheDir = CacheManager._cacheDir;

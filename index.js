@@ -17,6 +17,7 @@ const { loadModules } = require("./src/moduleLoader");
 const PlayerRegistry = require("./src/playerRegistry");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/logFile");
+const trackState = require("./src/trackState");
 
 // 로그 레벨 적용 — config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
 // 기본 레벨(info)로 이미 기록됐다. 그것들은 어차피 warn 이상이라 잘려나갈 일이 없다.
@@ -346,8 +347,7 @@ function startBot() {
 
           // Mark state as ended so UI reflects the change
           player.pendingEndReason = "forced-disconnect";
-          player.queue = [];
-          player.currentTrack = null;
+          trackState.reset(player);
 
           if (embedManager) {
             await embedManager.handlePlaybackEnd(player);

@@ -2,6 +2,7 @@ const { Events, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
 const S = require("../src/strings");
 const { checkControl } = require("../src/permissions");
+const trackState = require("../src/trackState");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -207,11 +208,7 @@ module.exports = {
       });
     }
 
-    // 현재 위치에서 꺼내 맨 앞으로 이동
-    const [selectedTrack] = player.queue.splice(selectedIndex, 1);
-    player.queue.unshift(selectedTrack);
-    // 셔플이 켜져 있어도 다음 전환에서 queue[0]을 선택하도록 강제
-    player.nextFromFront = true;
+    const selectedTrack = trackState.promote(player, selectedIndex);
 
     // 현재 곡 건너뛰기 → selectedTrack이 다음에 재생됨.
     // "jump" 사유: 한곡 반복 중에도 재시작이 아니라 선택한 곡으로 이동해야 함
@@ -223,10 +220,7 @@ module.exports = {
         flags: [1 << 6],
       });
     } else {
-      // 스킵 실패 시 롤백
-      player.nextFromFront = false;
-      player.queue.shift();
-      player.queue.splice(selectedIndex, 0, selectedTrack);
+      trackState.cancelPromote(player, selectedIndex);
       await interaction.reply({
         content: "❌ 곡으로 이동하지 못했습니다!",
         flags: [1 << 6],

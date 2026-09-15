@@ -9,6 +9,7 @@ const os = require("os");
 const logManager = require("../../../src/LogManager");
 const procRegistry = require("../../../src/ChildProcessRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
+const trackState = require("../../../src/trackState");
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
@@ -165,8 +166,7 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     if (player) {
       // 강제 연결 해제와 동일한 마감 절차 (index.js VoiceStateUpdate 참조)
       player.pendingEndReason = "forced-disconnect";
-      player.queue = [];
-      player.currentTrack = null;
+      trackState.reset(player);
       if (client.musicEmbedManager) {
         await client.musicEmbedManager.handlePlaybackEnd(player).catch(() => {});
       }
