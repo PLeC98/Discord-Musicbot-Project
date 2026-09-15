@@ -569,7 +569,7 @@ class MusicPlayer {
 
       if (this.pauseReasons.size > 0) {
         // 멈추는 건 Playing 리스너다 — 지금은 아직 버퍼링이라 pause()가 먹지 않는다
-        log.info(`일시정지 상태로 재생 시작: 원인=${Array.from(this.pauseReasons).join(", ")}`);
+        log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${Array.from(this.pauseReasons).join(", ")}`);
         this.paused = true;
       }
 

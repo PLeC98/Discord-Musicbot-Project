@@ -6,7 +6,7 @@
 const os = require("node:os");
 const path = require("node:path");
 const fs = require("node:fs");
-const { test, before, after } = require("node:test");
+const { test, before, after, mock } = require("node:test");
 const assert = require("node:assert/strict");
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-session-test-${process.pid}.db`);
@@ -274,4 +274,49 @@ test("복원: 요청자는 멤버 캐시에 있으면 그 멤버, 없으면 id�
 test("복원: 곡 길이 끝에 거의 닿은 위치는 처음부터", async () => {
   const p = await restore(makeRecord({ positionMs: 99_500 }));
   assert.deepEqual(p.calls[0], ["play", 0, false]);
+});
+
+function fakeChannel() {
+  const sent = [];
+  return {
+    id: "c1",
+    sent,
+    async send({ content }) {
+      const message = {
+        content,
+        deleted: false,
+        async delete() {
+          this.deleted = true;
+        },
+      };
+      sent.push(message);
+      return message;
+    },
+  };
+}
+
+test("복원 안내: 멈춘 채 되살렸으면 재개됐다고 하지 않는다", async () => {
+  const paused = fakeChannel();
+  await restore(makeRecord({ pausedManual: true }), (p) => (p.textChannel = paused));
+  assert.equal(paused.sent.length, 1);
+  assert.ok(paused.sent[0].content.startsWith("⏸️ 일시정지 상태로 복원됨"), paused.sent[0].content);
+
+  const playing = fakeChannel();
+  await restore(makeRecord(), (p) => (p.textChannel = playing));
+  assert.ok(playing.sent[0].content.startsWith("▶️ 음악 재개됨"), playing.sent[0].content);
+});
+
+test("복원 안내는 잠시 뒤 지운다", async () => {
+  const { AUTO_DELETE_MS } = require("../src/playbackResponder");
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const channel = fakeChannel();
+    await restore(makeRecord(), (p) => (p.textChannel = channel));
+    assert.equal(channel.sent[0].deleted, false);
+
+    mock.timers.tick(AUTO_DELETE_MS);
+    assert.equal(channel.sent[0].deleted, true);
+  } finally {
+    mock.timers.reset();
+  }
 });

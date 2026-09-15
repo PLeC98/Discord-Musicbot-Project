@@ -109,4 +109,4 @@ const silentResponder = {
   async dismissPlaceholder() {},
 };
 
-module.exports = { interactionResponder, channelResponder, silentResponder, AUTO_DELETE_MS, _internals: { scheduleDelete, onceDismiss } };
+module.exports = { interactionResponder, channelResponder, silentResponder, scheduleDelete, AUTO_DELETE_MS, _internals: { scheduleDelete, onceDismiss } };

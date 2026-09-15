@@ -6,6 +6,7 @@ const CacheManager = require("./CacheManager");
 const trackState = require("./trackState");
 const { formatDuration } = require("./utils");
 const { escapeMd } = require("./mentions");
+const { scheduleDelete } = require("./playbackResponder");
 
 const HEARTBEAT_MS = 5000;
 
@@ -286,10 +287,10 @@ class SessionPersistence {
 
     if (player.textChannel && player.currentTrack) {
       try {
-        const positionFormatted = formatDuration(Math.floor(resumeMs / 1000));
-        await player.textChannel.send({
-          content: `▶️ 음악 재개됨 • **${escapeMd(player.currentTrack.title || "Unknown")}** (${positionFormatted})`,
-        });
+        const title = escapeMd(player.currentTrack.title || "Unknown");
+        const at = formatDuration(Math.floor(resumeMs / 1000));
+        const content = player.paused ? `⏸️ 일시정지 상태로 복원됨 • **${title}** (${at})` : `▶️ 음악 재개됨 • **${title}** (${at})`;
+        scheduleDelete(await player.textChannel.send({ content }));
       } catch {
         // 메시지를 보낼 수 없으면 무시
       }
