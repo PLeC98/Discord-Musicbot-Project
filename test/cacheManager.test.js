@@ -314,3 +314,11 @@ test("같은 오디오를 다시 받으면 앞선 요청이 남긴 길이를 실
   CacheManager.recordDownloadComplete("yt:dur3", CacheManager.getFilePath("yt:dur3"), 100, { title: "곡", duration: 314 }, { durationSec: 312 });
   assert.equal(CacheManager.lookupByAudioKey("yt:dur3").duration_sec, 312);
 });
+
+// 반드시 마지막 — DB를 닫는다
+test("다운로드 기록 직후 닫혀도 예약된 캐시 정리가 DB를 다시 열지 않는다", async () => {
+  CacheManager.recordDownloadComplete("yt:closed1", CacheManager.getFilePath("yt:closed1"), 100, { title: "t" });
+  CacheManager.close();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(CacheManager._initialized, false, "닫힌 DB를 기본 경로(운영 DB)로 다시 열면 안 된다");
+});

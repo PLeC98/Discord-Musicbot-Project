@@ -329,8 +329,10 @@ class CacheManager {
       )
       .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, `size:${fileSizeBytes}`, now, now, now, audioSourceKey);
 
-    // 다운로드 후 제거 검사 (논블로킹)
-    setImmediate(() => this.evictIfNeeded().catch(() => {}));
+    // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다 — evictIfNeeded는 닫힌 DB를 기본 경로로 다시 연다
+    setImmediate(() => {
+      if (this._initialized) this.evictIfNeeded().catch(() => {});
+    });
   }
 
   recordError(audioSourceKey) {
