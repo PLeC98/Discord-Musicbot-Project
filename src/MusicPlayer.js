@@ -99,11 +99,6 @@ class MusicPlayer {
 
     // 음성 채널 상태 소유권
 
-    // 영속화 관리
-    this.stateSyncInterval = null;
-    this.stateSyncIntervalMs = 5000;
-    this.stateSaveTimeout = null;
-
     // 일시정지 관리
     this.pauseReasons = new Set();
 
@@ -119,6 +114,7 @@ class MusicPlayer {
     this.voice = new VoiceConnectionManager(this);
     this.downloader = new TrackDownloader(this);
     this.persistence = new SessionPersistence(this);
+    this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
     this.warmer = new QueueWarmer(this, {
       warm: (track) => this.downloader.warm(track),
       isCached: (track) => this.downloader.isCached(track),
@@ -1056,9 +1052,7 @@ class MusicPlayer {
     this.paused = false;
 
     this.releaseResources();
-    if (this.guild?.id) {
-      CacheManager.removePlayerSession(this.guild.id);
-    }
+    this.persistence?.removeSession();
 
     this.releaseAudioProtection();
 
@@ -1081,7 +1075,7 @@ class MusicPlayer {
     // 연결 해제 전에 전체 상태(대기열, 위치, 설정) 저장
     await this.persistState("leave", true);
 
-    // stop()과 같은 연결 해제 절차이지만 removePlayerSession은 호출하지 않음
+    // stop()과 같은 연결 해제 절차이지만 세션은 지우지 않는다
     this.pauseReasons.clear();
     this.paused = false;
     this.releaseResources();
@@ -1401,9 +1395,7 @@ class MusicPlayer {
       }
 
       this.clearInactivityTimer(false);
-      if (this.guild?.id) {
-        CacheManager.removePlayerSession(this.guild.id);
-      }
+      this.persistence?.removeSession();
 
       // 트랙이 끝날 때마다 새로 예약되므로 이전 것을 반드시 지운다 — 쌓아두면 이 플레이어가
       // 교체된 뒤에도 하나씩 깨어나 남의 플레이어를 정리한다.
@@ -1575,10 +1567,10 @@ class MusicPlayer {
       this.stopStateSync();
 
       // 종료 중에는 정리 전에 상태 저장
-      if (isShutdown && this.guild?.id) {
+      if (isShutdown) {
         this.persistState("shutdown").catch(() => {});
-      } else if (this.guild?.id) {
-        CacheManager.removePlayerSession(this.guild.id);
+      } else {
+        this.persistence?.removeSession();
       }
 
       if (!isShutdown) {

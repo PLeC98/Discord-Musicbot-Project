@@ -233,9 +233,10 @@ class PlayerSessionStore {
 
   setCurrent(guildId, track) {
     this._tx(() => {
-      this._ensure(guildId);
       this.q.deleteSlot.run(guildId, "current");
-      if (track) this._insert(guildId, "current", 0, track);
+      if (!track) return; // 비우기만 할 때는 세션 행을 새로 만들지 않는다
+      this._ensure(guildId);
+      this._insert(guildId, "current", 0, track);
     });
   }
 

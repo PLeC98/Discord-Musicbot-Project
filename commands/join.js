@@ -26,8 +26,8 @@ module.exports = {
     }
 
     // /leave에서 저장한 세션이 있는지 확인
-    const savedState = CacheManager.getPlayerSession(guild.id);
-    const hasSession = savedState?.currentTrack;
+    const savedState = CacheManager.sessions.load(guild.id);
+    const hasSession = savedState?.current;
 
     // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로
     // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라, 그냥 버리면 새 플레이어와

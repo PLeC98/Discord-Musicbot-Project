@@ -43,7 +43,6 @@ class TrackDownloader {
     if (fsSync.existsSync(filepath)) {
       const stats = await fs.stat(filepath);
       if (stats.size > 0) {
-        player.scheduleStatePersist("download-cache-hit", 500);
         return filepath;
       }
     }
@@ -52,7 +51,6 @@ class TrackDownloader {
     const inFlight = player.downloadingFiles.get(filepath);
     if (inFlight) {
       const file = await inFlight;
-      player.scheduleStatePersist("download-wait-complete", 500);
       return file;
     }
 
@@ -202,7 +200,6 @@ class TrackDownloader {
         }
       }
       log.info(`캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
-      player.scheduleStatePersist("download-complete", 500);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다.

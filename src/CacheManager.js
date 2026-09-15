@@ -5,9 +5,13 @@ const log = require("./logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const { PlayerSessionStore, createTables: createSessionTables } = require("./playerSessionStore");
 
 const DB_PATH = path.join(__dirname, "..", "database", "cache.db");
 const CACHE_DIR = path.join(__dirname, "..", "audio_cache");
+
+// DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
+const SCHEMA_VERSION = 2;
 
 // 제거 점수 가중치
 const W_RECENCY = 0.4;
@@ -23,6 +27,7 @@ class CacheManager {
     this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
     this._queuedKeys = new Map(); // guildId -> Set<audio_source_key> — 대기열 앞부분
     this._evictInterval = null;
+    this._sessions = null;
     // 캐시 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 폴더를 건드리지 않는다 —
     // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
     this._cacheDir = CACHE_DIR;
@@ -42,7 +47,17 @@ class CacheManager {
     this.db.pragma("foreign_keys = ON");
     this.db.pragma("busy_timeout = 5000");
 
+    const hasTables = this.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'").get().n > 0;
+    const version = this.db.pragma("user_version", { simple: true });
+    if (hasTables && version !== SCHEMA_VERSION) {
+      this.db.close();
+      this.db = null;
+      const message = `캐시 DB 구조가 이 버전과 맞지 않습니다 (DB v${version}, 필요 v${SCHEMA_VERSION}). 봇을 끄고 ${dbPath} (-wal, -shm 포함)와 ${this._cacheDir} 폴더를 지운 뒤 다시 실행하세요. 서버별 설정(전용 채널·DJ 역할·SponsorBlock)은 다시 해야 합니다.`;
+      throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
+    }
+
     this._createTables();
+    if (!hasTables) this.db.pragma(`user_version = ${SCHEMA_VERSION}`);
     this._initialized = true;
     this._startPeriodicEviction();
     log.info({ tags: ["startup"] }, "SQLite 캐시 DB 준비 완료");
@@ -84,12 +99,6 @@ class CacheManager {
                     REFERENCES audio_cache(audio_source_key) ON DELETE CASCADE
             );
 
-            CREATE TABLE IF NOT EXISTS player_sessions (
-                guild_id    TEXT PRIMARY KEY,
-                state_json  TEXT NOT NULL,
-                updated_at  INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
-            );
-
             CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id                 TEXT PRIMARY KEY,
                 bot_channel_id           TEXT,
@@ -127,27 +136,7 @@ class CacheManager {
             CREATE INDEX IF NOT EXISTS idx_tl_audio_key   ON track_lookup(audio_source_key);
         `);
 
-    // 컬럼 추가 이전에 만들어진 기존 DB 마이그레이션 (CREATE IF NOT EXISTS는 컬럼을 추가하지 않음)
-    const gsCols = this.db
-      .prepare("PRAGMA table_info(guild_settings)")
-      .all()
-      .map((c) => c.name);
-    if (!gsCols.includes("dj_role_ids")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN dj_role_ids TEXT");
-
-    // SponsorBlock 컬럼 추가 (컬럼 도입 이전 DB 대응 — CREATE IF NOT EXISTS는 컬럼을 안 만듦)
-    const gsCols2 = this.db
-      .prepare("PRAGMA table_info(guild_settings)")
-      .all()
-      .map((c) => c.name);
-    if (!gsCols2.includes("sponsorblock_enabled")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_enabled INTEGER");
-    if (!gsCols2.includes("sponsorblock_categories")) this.db.exec("ALTER TABLE guild_settings ADD COLUMN sponsorblock_categories TEXT");
-
-    // 제목 출처 표시 추가. 기존 행은 전부 0(미확인) — 다음에 그 영상을 받거나 재생할 때 확인된다.
-    const tlCols = this.db
-      .prepare("PRAGMA table_info(track_lookup)")
-      .all()
-      .map((c) => c.name);
-    if (!tlCols.includes("title_verified")) this.db.exec("ALTER TABLE track_lookup ADD COLUMN title_verified INTEGER NOT NULL DEFAULT 0");
+    createSessionTables(this.db);
   }
 
   // 이 모듈은 인스턴스를 내보내므로 static이면 외부에서 닿지 않는다
@@ -442,64 +431,23 @@ class CacheManager {
     return false;
   }
 
-  // 플레이어 세션
+  // 플레이어 세션 — 행 구조와 쓰기는 playerSessionStore
 
-  savePlayerSession(guildId, state) {
+  get sessions() {
     if (!this._initialized) this.initialize();
-    this.db
-      .prepare(
-        `
-            INSERT INTO player_sessions (guild_id, state_json, updated_at) VALUES (?, ?, ?)
-            ON CONFLICT(guild_id) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at
-        `,
-      )
-      .run(guildId, JSON.stringify(state), Date.now());
+    if (!this._sessions) this._sessions = new PlayerSessionStore(this.db);
+    return this._sessions;
   }
 
-  getPlayerSession(guildId) {
-    if (!this._initialized) this.initialize();
-    const row = this.db.prepare("SELECT state_json FROM player_sessions WHERE guild_id = ?").get(guildId);
-    if (!row) return null;
-    try {
-      return JSON.parse(row.state_json);
-    } catch {
-      return null;
-    }
-  }
-
-  removePlayerSession(guildId) {
-    if (!this._initialized) this.initialize();
-    this.db.prepare("DELETE FROM player_sessions WHERE guild_id = ?").run(guildId);
-  }
-
-  getAllPlayerSessions() {
-    if (!this._initialized) this.initialize();
-    const rows = this.db.prepare("SELECT guild_id, state_json FROM player_sessions").all();
-    const result = {};
-    for (const row of rows) {
-      try {
-        result[row.guild_id] = JSON.parse(row.state_json);
-      } catch {
-        /* 건너뜀 */
-      }
-    }
-    return result;
-  }
-
-  /** 저장된 세션에서 참조하는 파일 경로 — 시작 시 고아 파일 정리용 */
   /**
    * 저장된 세션에서 지켜야 할 캐시 파일 — 기동 시 고아 파일 청소가 쓴다.
-   * 그 시점엔 플레이어가 아직 없으므로 대기열이 유일한 근거다.
+   * 그 시점엔 플레이어가 아직 없으므로 저장된 현재곡·대기열이 유일한 근거다.
    */
   getProtectedCacheFiles() {
-    const sessions = this.getAllPlayerSessions();
     const files = new Set();
-    for (const state of Object.values(sessions)) {
-      for (const track of [state.currentTrack, ...(state.queue || [])]) {
-        const key = track?.audioSourceKey;
-        if (key) files.add(path.resolve(this.getFilePath(key)));
-      }
-      if (state.currentDownloadedFile) files.add(path.resolve(state.currentDownloadedFile));
+    for (const { audioSourceKey, url } of this.sessions.liveTrackRefs()) {
+      const key = audioSourceKey || url;
+      if (key) files.add(path.resolve(this.getFilePath(key)));
     }
     return files;
   }
@@ -642,7 +590,7 @@ class CacheManager {
     const before = { files: this._cacheCount(), bytes: this._cacheSize() };
 
     // 파생 데이터만 비운다. track_lookup은 CASCADE 대상이지만 명시해 순서를 못박는다.
-    const tables = ["track_lookup", "audio_cache", "sponsorblock_cache", "age_restricted", "spotify_anon", "player_sessions"];
+    const tables = ["track_lookup", "audio_cache", "sponsorblock_cache", "age_restricted", "spotify_anon", "session_tracks", "player_sessions"];
     const wipe = this.db.transaction(() => {
       for (const t of tables) this.db.prepare(`DELETE FROM ${t}`).run();
     });
@@ -958,9 +906,11 @@ class CacheManager {
     if (this.db) {
       this.db.close();
       this.db = null;
+      this._sessions = null;
       this._initialized = false;
     }
   }
 }
 
 module.exports = new CacheManager();
+module.exports.SCHEMA_VERSION = SCHEMA_VERSION;

@@ -53,13 +53,13 @@ async function cleanupAudioCache() {
 }
 
 async function restoreSavedPlayers(client) {
-  const savedStates = CacheManager.getAllPlayerSessions();
-  const entries = Object.entries(savedStates || {});
-  if (entries.length === 0) return;
+  const saved = CacheManager.sessions.loadAll();
+  if (saved.length === 0) return;
 
-  log.info(`저장된 재생 세션 ${entries.length}개를 복원합니다`);
+  log.info(`저장된 재생 세션 ${saved.length}개를 복원합니다`);
 
-  for (const [guildId, state] of entries) {
+  for (const record of saved) {
+    const { guildId } = record;
     try {
       const { guild, gone } = await resolveGuildForRestore(client, guildId);
 
@@ -67,16 +67,15 @@ async function restoreSavedPlayers(client) {
         // 일시적 조회 실패면 세션을 남긴다 — 다음 기동에서 다시 시도한다
         if (gone) {
           log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
-          CacheManager.removePlayerSession(guildId);
+          CacheManager.sessions.removeSession(guildId);
         }
         continue;
       }
 
-      const voiceChannelId = state.voiceChannelId;
-      const textChannelId = state.textChannelId;
+      const { voiceChannelId, textChannelId } = record.session;
 
       if (!voiceChannelId || !textChannelId) {
-        CacheManager.removePlayerSession(guildId);
+        CacheManager.sessions.removeSession(guildId);
         continue;
       }
 
@@ -95,7 +94,7 @@ async function restoreSavedPlayers(client) {
 
       if (!isVoiceValid || !isTextValid) {
         log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
-        CacheManager.removePlayerSession(guildId);
+        CacheManager.sessions.removeSession(guildId);
         continue;
       }
 
@@ -103,17 +102,17 @@ async function restoreSavedPlayers(client) {
       client.players.set(guildId, player);
 
       try {
-        await player.restoreFromState(state);
+        await player.restoreFromState(record);
         log.info(`서버 ${guild.name}의 세션 복원 완료`);
       } catch (error) {
         log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, error.message);
         client.players.delete(guildId);
         player.cleanup(false, "세션 복원 실패");
-        CacheManager.removePlayerSession(guildId);
+        CacheManager.sessions.removeSession(guildId);
       }
     } catch (error) {
       log.error(`서버 ID ${guildId} 세션 복원 중 오류:`, error.message);
-      CacheManager.removePlayerSession(guildId);
+      CacheManager.sessions.removeSession(guildId);
     }
   }
 }
@@ -502,6 +501,14 @@ function startBot() {
         logResolvedFfmpeg();
       } catch (error) {
         log.error(`${error.message}`);
+        process.exit(1);
+      }
+
+      // 캐시 DB 구조가 이 버전과 맞지 않으면 여기서 멈춘다
+      try {
+        CacheManager.initialize();
+      } catch (error) {
+        log.error(error.message);
         process.exit(1);
       }
 

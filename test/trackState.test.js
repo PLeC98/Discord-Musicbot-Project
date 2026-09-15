@@ -164,3 +164,40 @@ test("restore: 기록이 상한보다 길면 최근 것만 남긴다", () => {
   assert.equal(p.previousTracks.length, trackState.HISTORY_MAX);
   assert.equal(p.previousTracks.at(-1).title, `h${trackState.HISTORY_MAX + 4}`);
 });
+
+test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라가는 통로", () => {
+  const calls = [];
+  const brief = (a) => (Array.isArray(a) ? titles(a) : (a?.title ?? a));
+  const sink = new Proxy(
+    {},
+    {
+      get:
+        (_, name) =>
+        (...args) =>
+          calls.push([name, ...args.map(brief)]),
+    },
+  );
+  const p = make({ current: t("X"), queue: [t("A"), t("B"), t("C")], history: [t("H")] });
+  p.trackSink = sink;
+
+  trackState.enqueue(p, [t("D")]);
+  trackState.enqueue(p, [t("E")], { front: true });
+  trackState.shiftNext(p);
+  trackState.pickNext(p); // 앞에 넣은 고정이 남아 있다 → 맨 앞
+  p.shuffle = true;
+  withRandom(0.99, () => trackState.pickNext(p));
+  trackState.retire(p, p.currentTrack, { requeue: true });
+  trackState.removeAt(p, 99);
+  trackState.removeAt(p, 0);
+  trackState.move(p, 0, 1);
+  trackState.shuffle(p);
+  trackState.rewind(p);
+  trackState.promote(p, 1);
+  trackState.cancelPromote(p, 1);
+  trackState.clearQueue(p);
+  trackState.setCurrent(p, null);
+  trackState.reset(p, { history: true });
+  trackState.rewind(p);
+
+  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onTake", 0], ["onTake", 2], ["onRetire", "D", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onReplace"], ["onReplace"], ["onReplace"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
+});
