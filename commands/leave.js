@@ -36,7 +36,7 @@ module.exports = {
     await player.leaveAndSave();
     client.players.delete(guild.id);
 
-    if (client.musicEmbedManager) await client.musicEmbedManager.handlePlaybackEnd(player);
+    if (client.musicEmbedManager) await client.musicEmbedManager.handlePlaybackEnd(player, { reason: currentTrack ? "leave" : "disconnected" });
 
     const embed = new EmbedBuilder()
       .setTitle("👋 채널에서 나갔습니다")

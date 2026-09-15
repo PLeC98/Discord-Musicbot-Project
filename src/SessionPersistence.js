@@ -130,7 +130,6 @@ class SessionPersistence {
       positionMs: p.getCurrentTime?.() || 0,
       startOffsetMs: p.currentTrackStartOffsetMs || 0,
       requesterId: p.requesterId || null,
-      nowPlayingMessageId: p.nowPlayingMessage?.id || null,
     };
   }
 
@@ -282,14 +281,7 @@ class SessionPersistence {
     const embedManager = player.guild?.client?.musicEmbedManager;
     if (embedManager && player.textChannel) {
       try {
-        // 이전 세션의 오래된 현재 재생 메시지 제거;
-        // 웹훅 소유이거나 CV2일 수 있어 제자리 수정은 신뢰할 수 없음
-        if (session.nowPlayingMessageId) {
-          const oldMessage = await player.textChannel.messages.fetch(session.nowPlayingMessageId).catch(() => null);
-          if (oldMessage) await oldMessage.delete().catch(() => {});
-        }
-
-        // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 복구에는 진입점 자리표시자가 없다.
+        // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
         const requester = { id: session.requesterId || player.guild.client.user.id };
         await embedManager.createNewMusicEmbed(player, player.currentTrack, requester);
       } catch (error) {

@@ -4,7 +4,7 @@ const log = require("./logger").child({ category: "player" });
 const wlog = require("./logger").child({ category: "watchdog" });
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
 const clog = require("./logger").child({ category: "control" });
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../config");
 const ErrorHandler = require("./ErrorHandler");
@@ -964,11 +964,7 @@ class MusicPlayer {
 
         try {
           const embedManager = this.guild?.client?.musicEmbedManager;
-          if (embedManager) {
-            await embedManager.handlePlaybackEnd(this);
-          } else if (typeof this.showQueueCompleted === "function") {
-            await this.showQueueCompleted();
-          }
+          await embedManager?.handlePlaybackEnd(this, { reason: "disconnected" });
 
           await this.persistState("inactivity-timeout");
         } catch (error) {
@@ -1394,36 +1390,41 @@ class MusicPlayer {
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
-      if (this.guild?.client?.musicEmbedManager) {
-        await this.guild.client.musicEmbedManager.handlePlaybackEnd(this);
-      } else {
-        await this.showQueueCompleted();
-      }
+      await this.guild?.client?.musicEmbedManager?.handlePlaybackEnd(this, { reason: "queue-end" });
 
       this.clearInactivityTimer(false);
       this.persistence?.removeSession();
 
-      // 트랙이 끝날 때마다 새로 예약되므로 이전 것을 반드시 지운다 — 쌓아두면 이 플레이어가
-      // 교체된 뒤에도 하나씩 깨어나 남의 플레이어를 정리한다.
-      if (this.queueEmptyTimer) clearTimeout(this.queueEmptyTimer);
-      this.queueEmptyTimer = setTimeout(() => {
-        this.queueEmptyTimer = null;
-        if (this.queue.length !== 0 || this.currentTrack) return;
-        if (!this._isActivePlayer()) {
-          log.info(`밀려난 플레이어의 대기열 소진 타이머 — 자기 자원만 정리합니다 (${this.guild?.name ?? this.guild?.id})`);
-          this.releaseResources();
-          this.releaseAudioProtection();
-          return;
-        }
-        this.cleanup(false, "대기열 소진");
-        this.guild.client.players.delete(this.guild.id);
-      }, config.bot.leaveDelayQueueEmptyMs);
+      this.scheduleIdleLeave();
     } finally {
       this.isTransitioning = false;
       this.skipRequested = false;
       this.stopRequested = false;
       this.pendingEndReason = null;
     }
+  }
+
+  /**
+   * 틀 것 없이 음성에 남아 있으면 잠시 뒤 나간다 — 대기열이 끝났을 때와 /join만 했을 때.
+   * 다시 예약할 때 이전 것을 반드시 지운다 — 쌓아두면 이 플레이어가 교체된 뒤에도 하나씩 깨어나 남의 플레이어를 정리한다.
+   * 그 사이 곡을 틀었으면 깨어나도 아무것도 하지 않는다.
+   */
+  scheduleIdleLeave(reason = "대기열 소진") {
+    if (this.queueEmptyTimer) clearTimeout(this.queueEmptyTimer);
+    this.queueEmptyTimer = setTimeout(() => {
+      this.queueEmptyTimer = null;
+      if (this.queue.length !== 0 || this.currentTrack) return;
+      if (!this._isActivePlayer()) {
+        log.info(`밀려난 플레이어의 대기열 소진 타이머 — 자기 자원만 정리합니다 (${this.guild?.name ?? this.guild?.id})`);
+        this.releaseResources();
+        this.releaseAudioProtection();
+        return;
+      }
+      this.cleanup(false, reason);
+      this.guild.client.players.delete(this.guild.id);
+      // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
+      this.guild.client.musicEmbedManager?.handlePlaybackEnd(this, { reason: "disconnected" }).catch(() => {});
+    }, config.bot.leaveDelayQueueEmptyMs);
   }
 
   async handleAutoplay() {
@@ -1521,21 +1522,6 @@ class MusicPlayer {
       try {
         this.audioPlayer.stop(true);
       } catch (_) {}
-    }
-  }
-
-  async showQueueCompleted() {
-    if (!this.nowPlayingMessage || !this.textChannel) return;
-
-    try {
-      const embed = new EmbedBuilder().setTitle("✅ 대기열 완료").setDescription("모든 트랙이 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#00ff00").setTimestamp();
-      await this.nowPlayingMessage.edit({
-        embeds: [embed],
-        components: [],
-      });
-    } catch (error) {
-      // 메시지가 삭제되었을 수 있으므로 참조 정리
-      this.nowPlayingMessage = null;
     }
   }
 

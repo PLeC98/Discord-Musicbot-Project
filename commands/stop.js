@@ -33,6 +33,6 @@ module.exports = {
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 
-    if (client.musicEmbedManager) await client.musicEmbedManager.handlePlaybackEnd(player);
+    if (client.musicEmbedManager) await client.musicEmbedManager.handlePlaybackEnd(player, { reason: "stop" });
   },
 };

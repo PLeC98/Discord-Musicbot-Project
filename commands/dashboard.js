@@ -1,7 +1,6 @@
 "use strict";
 
 const { SlashCommandBuilder } = require("discord.js");
-const S = require("../src/strings");
 const { toRequester } = require("../src/playRequest");
 const { interactionResponder } = require("../src/playbackResponder");
 const GuildSettingsManager = require("../src/GuildSettingsManager");
@@ -26,24 +25,21 @@ module.exports = {
     }
 
     const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
-
-    if (player.nowPlayingMessage) {
-      try {
-        await player.nowPlayingMessage.delete();
-      } catch {
-        /* 이미 삭제되었거나 권한 없음 */
-      }
-      player.nowPlayingMessage = null;
-      player.nowPlayingWebhook = null;
+    // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다
+    if (!player?.currentTrack) {
+      await interaction.deferReply({ flags: [1 << 6] });
+      await client.musicEmbedManager.repostIdlePanel(guild, channel);
+      return interaction.deleteReply().catch(() => {});
     }
+
+    // 옛 패널은 새로 올릴 때 기록을 보고 치운다
+    player.nowPlayingMessage = null;
+    player.nowPlayingWebhook = null;
 
     client.musicEmbedManager.stopProgressUpdate(guild.id);
 
     player.textChannel = channel;
 
-    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager));
+    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager), { reuse: false });
   },
 };

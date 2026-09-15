@@ -65,3 +65,19 @@ test("버전이 다른 DB도 같다", () => {
   CacheManager.close();
   assert.throws(() => CacheManager.initialize(other), { code: "SCHEMA_MISMATCH" });
 });
+
+test("현재 재생 패널 자리: 쓰고 읽고 비운다 — 같은 행의 서버 설정은 그대로", () => {
+  open("panel.db");
+  assert.equal(CacheManager.getPanelRecord("g"), null);
+
+  CacheManager.setBotChannel("g", "c-bot");
+  CacheManager.setPanelRecord("g", "c-bot", "m1");
+  assert.deepEqual(CacheManager.getPanelRecord("g"), { channelId: "c-bot", messageId: "m1" });
+
+  CacheManager.setPanelRecord("g", "c-other", "m2");
+  assert.deepEqual(CacheManager.getPanelRecord("g"), { channelId: "c-other", messageId: "m2" }, "서버당 한 행을 덮어쓴다");
+  assert.equal(CacheManager.getBotChannel("g"), "c-bot");
+
+  CacheManager.setPanelRecord("g", "c-other", null);
+  assert.equal(CacheManager.getPanelRecord("g"), null);
+});

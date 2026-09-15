@@ -227,7 +227,7 @@ function makeRestorePlayer(overrides = {}) {
 
 function makeRecord(sessionOverrides = {}, current = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
   return {
-    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, startOffsetMs: 0, requesterId: null, nowPlayingMessageId: null, ...sessionOverrides },
+    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, startOffsetMs: 0, requesterId: null, ...sessionOverrides },
     current,
     queue: [],
     history: [],

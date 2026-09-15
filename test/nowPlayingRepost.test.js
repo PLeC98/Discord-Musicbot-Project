@@ -10,6 +10,9 @@ const MusicEmbedManager = require("../src/MusicEmbedManager");
 const GuildSettingsManager = require("../src/GuildSettingsManager");
 
 const BOT_CHANNEL = "chan-1";
+
+// 패널 채널을 정할 때 전용 채널을 묻는다 — 실제 설정 DB를 열지 않게 기본은 "전용 채널 없음"
+GuildSettingsManager.getBotChannel = async () => null;
 const gone = () => Object.assign(new Error("Unknown Message"), { code: 10008 });
 
 function stub(obj, key, fn) {
@@ -45,6 +48,9 @@ function makeSetup(state = {}) {
     user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" },
   });
   mem.getOrCreateWebhook = async () => webhook;
+  // 패널 자리 기록은 메모리로 — 실제 DB를 열지 않는다
+  const records = new Map([["g1", { channelId: BOT_CHANNEL, messageId: "100" }]]);
+  mem.panel.store = { getPanel: async (g) => records.get(g) ?? null, setPanel: async (g, channelId, messageId) => records.set(g, messageId ? { channelId, messageId } : null) };
 
   const player = {
     guild: { id: "g1" },

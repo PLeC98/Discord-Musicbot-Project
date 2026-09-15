@@ -137,3 +137,93 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
     assert.ok(JSON.stringify(json).includes("Test"), `제목이 담겨야 한다 (thumbnail=${thumbnail})`);
   }
 });
+
+// ── 끝난 패널 ──
+// 부르는 곳이 전부 현재 곡을 먼저 비워, 버튼 끄기가 한 번도 돌지 않았다(2026-09-16).
+
+const GuildSettingsManager = require("../src/GuildSettingsManager");
+
+function panelPlayer(over = {}) {
+  return {
+    guild: { id: "g1" },
+    sessionId: "s1",
+    requesterId: "u1",
+    getCurrentTime: () => 0,
+    queue: [],
+    previousTracks: [],
+    loop: false,
+    paused: false,
+    currentTrack: null,
+    ...over,
+  };
+}
+const shape = (json) => json.components.map((c) => c.type);
+const buttonsOf = (json) => json.components.filter((c) => c.type === 1).flatMap((row) => row.components);
+
+test("종료 모양: 재생 화면과 구성이 같고, 버튼은 전부 꺼지고, 썸네일 자리는 첨부한 투명 이미지다", async () => {
+  const mem = new MusicEmbedManager({ players: new Map() });
+  const player = panelPlayer();
+  const playing = (await mem.createNowPlayingContainer(player, { title: "곡", url: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" })).toJSON();
+  const { components, files } = await mem.createIdleContainer({ reason: "stop" });
+  const idle = components[0].toJSON();
+
+  assert.deepEqual(shape(idle), shape(playing));
+  assert.equal(buttonsOf(idle).length, buttonsOf(playing).length);
+  assert.ok(
+    buttonsOf(idle).every((b) => b.disabled),
+    "대기열 버튼까지 전부 꺼진다",
+  );
+  assert.equal(idle.components[0].accessory.media.url, "attachment://blank.png");
+  assert.equal(files[0].name, "blank.png");
+});
+
+test("종료 모양의 문구는 사유를 따른다", async () => {
+  const mem = new MusicEmbedManager({ players: new Map() });
+  const text = async (opts) => JSON.stringify((await mem.createIdleContainer(opts)).components[0].toJSON());
+
+  const waiting = await text({ reason: "queue-end", leavesAt: 1_600_000 });
+  assert.match(waiting, /재생 대기 중/);
+  assert.match(waiting, /재생이 끝났어요/);
+  assert.match(waiting, /<t:\d+:R> 쉬러 갈게요/);
+  assert.match(await text({ reason: "leave" }), /듣고 있던 곡이 있어요.*\/join/);
+  assert.match(await text({ reason: "stop", dedicated: true }), /쉬는 중이에요.*곡을 입력하면/);
+  assert.match(await text({ reason: "disconnected" }), /쉬는 중이에요.*\/play/);
+});
+
+test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다 — 종료 메시지는 전용 채널 밖에서만", async () => {
+  const restore = GuildSettingsManager.getBotChannel;
+  try {
+    for (const [botChannel, expectNotice] of [
+      ["chan-1", false],
+      [null, true],
+    ]) {
+      GuildSettingsManager.getBotChannel = async () => botChannel;
+      const mem = new MusicEmbedManager({ players: new Map() });
+      const edits = [];
+      const sent = [];
+      const player = panelPlayer({
+        nowPlayingMessage: { id: "100" },
+        nowPlayingWebhook: { editMessage: async (id, payload) => edits.push({ id, payload }) },
+        textChannel: { id: "chan-1", send: async (payload) => sent.push(payload) },
+      });
+
+      await mem.handlePlaybackEnd(player, { reason: "stop" });
+
+      assert.equal(edits.length, 1, `패널을 고친다 (전용 채널=${botChannel})`);
+      assert.equal(edits[0].id, "100");
+      assert.ok(buttonsOf(edits[0].payload.components[0].toJSON()).every((b) => b.disabled));
+      assert.equal(edits[0].payload.files[0].name, "blank.png");
+      assert.equal(sent.length, expectNotice ? 1 : 0, `종료 메시지 (전용 채널=${botChannel})`);
+      assert.equal(player.nowPlayingMessage, null);
+    }
+  } finally {
+    GuildSettingsManager.getBotChannel = restore;
+  }
+});
+
+test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {
+  const mem = new MusicEmbedManager({ players: new Map() });
+  const json = JSON.stringify((await mem.createIdleContainer({ reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());
+  assert.match(json, /곡을 기다리고 있어요/);
+  assert.match(json, /<t:1600:R> 쉬러 갈게요/);
+});

@@ -14,6 +14,7 @@ const { resolveGuildForRestore } = require("./src/sessionRestore");
 const DashboardEvents = require("./src/DashboardEvents");
 const voiceChannelStatus = require("./src/voiceChannelStatus");
 const { loadModules } = require("./src/moduleLoader");
+const { scheduleReplyCleanup } = require("./src/replyLifetime");
 const PlayerRegistry = require("./src/playerRegistry");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/logFile");
@@ -253,14 +254,25 @@ function startBot() {
     log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
   };
 
+  // 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/replyLifetime.js). 핸들러의 결과·오류는 그대로 돌려준다.
+  const withReplyCleanup =
+    (execute) =>
+    (interaction, ...rest) => {
+      const done = execute(interaction, ...rest);
+      const schedule = () => scheduleReplyCleanup(interaction);
+      Promise.resolve(done).then(schedule, schedule);
+      return done;
+    };
+
   const loadEvents = () => {
     const { modules, failures, missing } = loadModules(path.join(__dirname, "events"));
     if (missing) return log.warn("events 디렉터리가 없어 기본 이벤트로 진행합니다.");
 
     abortOnLoadFailure("이벤트 핸들러", failures);
     for (const { module: event } of modules) {
-      if (event.once) client.once(event.name, (...args) => event.execute(...args));
-      else client.on(event.name, (...args) => event.execute(...args));
+      const run = event.name === Events.InteractionCreate ? withReplyCleanup(event.execute.bind(event)) : (...args) => event.execute(...args);
+      if (event.once) client.once(event.name, run);
+      else client.on(event.name, run);
     }
     log.info({ tags: ["startup"] }, `이벤트 핸들러 ${modules.length}개 등록 완료`);
   };
@@ -285,6 +297,8 @@ function startBot() {
   client.restoreSessions = async function () {
     log.debug("세션 복원 시작");
     await restoreSavedPlayers(client);
+    // 기록된 패널을 지금 상태로 — 세션을 복원한 서버는 이미 새로 올렸다
+    await client.musicEmbedManager?.restorePanels();
     // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록
     await cleanupAudioCache();
     log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
@@ -313,6 +327,8 @@ function startBot() {
       const sending = interaction.replied || interaction.deferred ? interaction.followUp(payload) : interaction.reply(payload);
       // 안내 실패는 여기서 끝낸다. 리스너 밖으로 던지면 client "error"를 거쳐 uncaughtException이 된다.
       await sending.catch((err) => log.error("오류 안내 전송 실패:", err.message));
+    } finally {
+      scheduleReplyCleanup(interaction);
     }
   });
 
@@ -348,11 +364,7 @@ function startBot() {
           player.pendingEndReason = "forced-disconnect";
           trackState.reset(player);
 
-          if (embedManager) {
-            await embedManager.handlePlaybackEnd(player);
-          } else if (typeof player.showQueueCompleted === "function") {
-            await player.showQueueCompleted();
-          }
+          await embedManager?.handlePlaybackEnd(player, { reason: "disconnected" });
         } catch (error) {
           log.error("강제 연결 해제 후 재생 UI 갱신 실패:", error);
         } finally {

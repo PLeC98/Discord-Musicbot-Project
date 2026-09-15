@@ -75,6 +75,32 @@ class GuildSettingsManager {
     this.cache.delete(`${guildId}_djRoles`);
   }
 
+  // ── 현재 재생 패널 자리 — 사용자 설정이 아니라 옛 패널을 치우는 기준 ─────────
+
+  /** { channelId, messageId } 또는 null */
+  async getPanel(guildId) {
+    const key = `${guildId}_panel`;
+    if (this.cache.has(key)) return this.cache.get(key);
+    let record = null;
+    try {
+      record = CacheManager.getPanelRecord(guildId);
+    } catch {
+      /* 읽지 못하면 옛 패널을 못 치울 뿐이다 */
+    }
+    this.cache.set(key, record);
+    return record;
+  }
+
+  /** messageId가 null이면 비운다 */
+  async setPanel(guildId, channelId, messageId) {
+    try {
+      CacheManager.setPanelRecord(guildId, channelId, messageId);
+      this.cache.set(`${guildId}_panel`, messageId ? { channelId, messageId } : null);
+    } catch (error) {
+      log.error("현재 재생 패널 자리 저장 실패:", error);
+    }
+  }
+
   // ── 재생목록 한 번에 넣는 곡 수 ─────────────────────────────────────────────
   // 첫 묶음과 "더 넣기" 선택지 단위를 정한다. 더 넣기 자체는 대기열 상한만 본다.
 

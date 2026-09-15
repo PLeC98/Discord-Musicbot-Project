@@ -23,7 +23,6 @@ const SCHEMA = `
     position_ms            INTEGER NOT NULL DEFAULT 0,
     start_offset_ms        INTEGER NOT NULL DEFAULT 0,
     requester_id           TEXT,
-    now_playing_message_id TEXT,
     updated_at             INTEGER NOT NULL
   );
 
@@ -104,7 +103,6 @@ function sessionFromRow(row) {
     positionMs: row.position_ms,
     startOffsetMs: row.start_offset_ms,
     requesterId: row.requester_id,
-    nowPlayingMessageId: row.now_playing_message_id,
     updatedAt: row.updated_at,
   };
 }
@@ -119,14 +117,14 @@ class PlayerSessionStore {
       ensure: q("INSERT OR IGNORE INTO player_sessions (guild_id, updated_at) VALUES (?, ?)"),
       upsert: q(`
         INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, autoplay,
-                                     paused_manual, position_ms, start_offset_ms, requester_id, now_playing_message_id, updated_at)
+                                     paused_manual, position_ms, start_offset_ms, requester_id, updated_at)
         VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @autoplay,
-                @paused_manual, @position_ms, @start_offset_ms, @requester_id, @now_playing_message_id, @updated_at)
+                @paused_manual, @position_ms, @start_offset_ms, @requester_id, @updated_at)
         ON CONFLICT(guild_id) DO UPDATE SET
           voice_channel_id = excluded.voice_channel_id, text_channel_id = excluded.text_channel_id,
           volume = excluded.volume, loop_mode = excluded.loop_mode, autoplay = excluded.autoplay,
           paused_manual = excluded.paused_manual, position_ms = excluded.position_ms, start_offset_ms = excluded.start_offset_ms,
-          requester_id = excluded.requester_id, now_playing_message_id = excluded.now_playing_message_id, updated_at = excluded.updated_at`),
+          requester_id = excluded.requester_id, updated_at = excluded.updated_at`),
       position: q("UPDATE player_sessions SET position_ms = ?, start_offset_ms = ?, updated_at = ? WHERE guild_id = ?"),
       deleteSession: q("DELETE FROM player_sessions WHERE guild_id = ?"),
       deleteGuildTracks: q("DELETE FROM session_tracks WHERE guild_id = ?"),
@@ -207,7 +205,6 @@ class PlayerSessionStore {
       position_ms: Math.max(0, Math.round(s.positionMs ?? 0)),
       start_offset_ms: Math.max(0, Math.round(s.startOffsetMs ?? 0)),
       requester_id: s.requesterId ?? null,
-      now_playing_message_id: s.nowPlayingMessageId ?? null,
       updated_at: Date.now(),
     });
   }

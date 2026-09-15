@@ -1,5 +1,8 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } = require("discord.js");
 const GuildSettingsManager = require("../src/GuildSettingsManager");
+const log = require("../src/logger").child({ category: "commands" });
+
+const movePanel = (interaction) => interaction.client.musicEmbedManager?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -36,6 +39,7 @@ module.exports = {
 
     if (action === "remove") {
       await GuildSettingsManager.clearBotChannel(guildId);
+      await movePanel(interaction);
 
       return await interaction.reply({
         embeds: [new EmbedBuilder().setTitle("🔧 봇 채널 제거됨").setDescription("봇 전용 채널 설정이 해제됐어요.\n이제 `/play` 명령어로만 음악을 요청할 수 있어요.").setColor("#FF6B6B").setTimestamp()],
@@ -66,5 +70,7 @@ module.exports = {
           .setTimestamp(),
       ],
     });
+    // 안내 뒤에 올려야 패널이 맨 아래에 온다
+    await movePanel(interaction);
   },
 };
