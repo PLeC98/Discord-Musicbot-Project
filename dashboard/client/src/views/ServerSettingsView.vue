@@ -88,7 +88,7 @@
         <p class="text-muted text-sm mb-3.5">긴 재생목록을 넣으면 이만큼만 먼저 들어가고, 남은 곡은 "더 넣기"로 이어 넣을 수 있어요. 더 넣기 메뉴의 선택지도 이 단위로 나옵니다.</p>
 
         <div class="flex flex-wrap gap-1.5 mb-3" role="radiogroup" aria-label="곡 수 선택">
-          <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="chip(paUseDefault)">기본값 · {{ s.playlistAdd.default }}곡</button>
+          <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="chip(paUseDefault)">기본값 · {{ paClamp(s.playlistAdd.default) }}곡</button>
           <button v-for="n in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" :disabled="!s.canEdit" @click="pickPreset(n)" :class="chip(!paUseDefault && paCount === n)">{{ n }}곡</button>
         </div>
 
@@ -193,7 +193,9 @@ const paInvalid = computed(() => {
   const pa = s.value.playlistAdd;
   return Boolean(pa) && !paUseDefault.value && !(Number.isInteger(paCount.value) && paCount.value >= pa.min && paCount.value <= pa.max);
 });
-const paEffective = computed(() => paValue.value ?? s.value.playlistAdd?.default);
+// 대기열 상한이 기본값보다 작으면 서버도 상한으로 자른다 — 보이는 값을 맞춘다
+const paClamp = (n) => Math.min(s.value.playlistAdd.max, Math.max(s.value.playlistAdd.min, n));
+const paEffective = computed(() => paClamp(paValue.value ?? s.value.playlistAdd.default));
 const paDirty = computed(() => Boolean(s.value.playlistAdd) && paValue.value !== s.value.playlistAdd.value);
 
 function pickPreset(n) {

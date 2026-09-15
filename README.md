@@ -17,6 +17,7 @@
 
 - **재생 소스**: YouTube, Spotify, SoundCloud, 직접 오디오 링크
 - **대기열 관리**: 우선 재생, 섞기, 반복, 순서 변경, 건너뛰기, 이전 곡, 일시 정지/재개
+- **긴 재생목록 나눠 넣기**: 재생목록은 한 번에 정해진 곡 수(기본 50, `/setplaylistlimit`로 서버별 지정)만 넣고, 남은 곡은 "더 넣기" 메뉴로 이어 넣음. 대기열 총량은 `.env` `QUEUE_MAX_TRACKS`(기본 250)로 제한
 - **Components V2 재생 UI**: 진행 바, 컨트롤 버튼, 대기열 점프 셀렉트 메뉴가 달린 now-playing 메시지 (웹훅)
 - **SQLite 오디오 캐시**: 재생한 곡을 로컬 캐싱, 캐시를 활용한 오류 복구·빠른 다회 재생 반응성 등 확보, 재생 빈도·최근성·전체 캐시 용량·디스크 여유 공간 기반 자동 정리
 - **세션 저장/복구**: `/leave`로 대기열·재생 위치를 저장하고 `/join`으로 복구. 봇 재시작 시에도 자동 복구
@@ -29,7 +30,7 @@
 
 - **Discord OAuth 로그인**: 안전한 권한 기반의 접근 제어 제공
 - **음악 제어**: 디스코드 내에서 할 수 있는 모든 기능을 더 편리하게
-- **채널 설정 관리**: DJ 역할, 전용 채널 설정, SponsorBlock 설정
+- **채널 설정 관리**: DJ 역할, 전용 채널 설정, SponsorBlock 설정, 재생목록 한 번에 넣는 곡 수
 - **봇 운영자 패널**: 봇 상태, WebSocket 핑, 운영 시스템 상태, 전체 공지, 터미널 로그, 봇이 참여중인 서버 관리, 커맨드 재배포
 
 ### 비주얼
@@ -43,7 +44,7 @@
 | ------ | -------------------------------------------------------------------------------------------------- |
 | 재생   | `/play` `/playfirst` `/search` `/pause` `/seek` `/replay` `/skip` `/previous` `/stop` `/highlight` |
 | 대기열 | `/queue` `/shuffle` `/loop` `/move` `/remove` `/clear` `/autoplay`                                 |
-| 채널   | `/join` `/leave` `/setchannel` `/setdjrole`                                                        |
+| 채널   | `/join` `/leave` `/setchannel` `/setdjrole` `/setplaylistlimit`                                    |
 | 정보   | `/nowplaying` `/help` `/ping` `/system` `/cachestatus` `/dashboard` `/license`                     |
 | 기타   | `/volume` `/sponsorblock`                                                                          |
 
