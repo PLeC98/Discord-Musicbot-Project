@@ -11,8 +11,9 @@ const assert = require("node:assert/strict");
 
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
 let mockBotChannelId = null;
+let mockBatch = 50;
 const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async () => mockBotChannelId } };
+require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async () => mockBotChannelId, resolvePlaylistAddMax: () => mockBatch } };
 
 let mockResolve = null;
 const resolverCalls = [];
@@ -22,14 +23,20 @@ require.cache[trPath] = {
   filename: trPath,
   loaded: true,
   exports: {
-    async resolveQuery(query, guildId, context) {
-      resolverCalls.push({ query, guildId, context });
+    async resolveQuery(query, guildId, context, range) {
+      resolverCalls.push({ query, guildId, context, range });
       return mockResolve(query);
+    },
+    async getCollection(url, guildId, range) {
+      collectionCalls.push({ url, range });
+      return mockCollection(range);
     },
   },
 };
+let mockCollection = null;
+const collectionCalls = [];
 
-const { requestPlayback, toRequester, ensurePlayer } = require("../src/playRequest");
+const { requestPlayback, continueCollection, toRequester, ensurePlayer } = require("../src/playRequest");
 
 // ── 하네스 ───────────────────────────────────────────────────
 const GUILD_ID = "g1";
@@ -53,6 +60,7 @@ function makeClient({ handleMusicData } = {}) {
         embedCalls.push({ guildId, trackData, requester, responder });
         return handleMusicData ? handleMusicData(trackData) : { success: true };
       },
+      queueFullMessage: () => "대기열이 가득 찼습니다",
     },
   };
 }
@@ -293,4 +301,159 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
 
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given });
   assert.equal(client.players.get(GUILD_ID).textChannel, given);
+});
+
+// ── 받을 곡 수 (해석기에 넘기는 어림값) ──────────────────────
+
+async function withLimits(queueMax, playlistMax, fn) {
+  const config = require("../config");
+  const saved = [config.bot.maxQueueSize, mockBatch];
+  config.bot.maxQueueSize = queueMax;
+  mockBatch = playlistMax;
+  try {
+    await fn();
+  } finally {
+    [config.bot.maxQueueSize, mockBatch] = saved;
+  }
+}
+
+async function requestWith({ queued = 0, playing = false, single = false, resolve = () => ok("곡A") }) {
+  mockResolve = resolve;
+  const client = makeClient();
+  const args = baseArgs(client, makeGuild(), { query: "목록", single });
+  const player = client.players.get(GUILD_ID);
+  player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
+  if (playing) player.currentTrack = track("now");
+  await requestPlayback(client, args);
+  return { limit: resolverCalls.at(-1).range.limit, trackData: client.embedCalls[0]?.trackData };
+}
+
+test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽", () =>
+  withLimits(30, 50, async () => {
+    assert.equal((await requestWith({ playing: true })).limit, 30);
+    assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
+    assert.equal((await requestWith({ playing: false })).limit, 31, "비어 있으면 첫 곡은 현재곡이 되니 한 자리 더");
+    assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
+    assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
+  }));
+
+test("받을 곡 수: 상한이 꺼져 있으면 묶음 크기", () =>
+  withLimits(0, 50, async () => {
+    assert.equal((await requestWith({ playing: true, queued: 400 })).limit, 50);
+  }));
+
+test("자리가 모자라 덜 받았고 뒤에 곡이 더 있을 때만 queueLimited", () =>
+  withLimits(30, 50, async () => {
+    const five = () => ({ ...ok("1", "2", "3", "4", "5"), total: 80 });
+    assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData.queueLimited, true);
+
+    const fifty = () => ({ ...ok(...Array.from({ length: 30 }, (_, i) => `s${i}`)), total: 80 });
+    assert.equal((await requestWith({ playing: true, resolve: fifty })).trackData.queueLimited, true, "상한 30이 묶음 50보다 작다");
+
+    const whole = () => ({ ...ok("1", "2", "3"), total: 3 });
+    assert.equal((await requestWith({ playing: true, queued: 25, resolve: whole })).trackData.queueLimited, undefined, "목록을 다 받았으면 아니다");
+  }));
+
+// ── 재생목록 이어 넣기 ───────────────────────────────────────
+
+const SP = "37i9dQZF1E3aglU7q0y10F";
+const idOf = (i) => `t${String(i).padStart(21, "0")}`; // 22자 트랙 ID
+
+// 원본 목록 — shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 자리)
+function listSource(size, { shift = 0 } = {}) {
+  return ({ offset, limit }) => {
+    const tracks = [];
+    for (let raw = offset; raw < Math.min(size + shift, offset + limit); raw++) {
+      const i = raw - shift;
+      tracks.push(i < 0 ? { title: `new${raw}`, id: `n${String(raw).padStart(21, "0")}` } : { title: `s${i}`, id: idOf(i) });
+    }
+    return { tracks, total: size + shift, nextOffset: offset + tracks.length };
+  };
+}
+
+function stateAt(offset, extra = {}) {
+  return { kind: "spp", listId: SP, offset, anchorId: idOf(offset - 1), insertFirst: false, requesterId: null, ...extra };
+}
+
+async function continueWith({ state, count, size = 300, shift = 0, queued = 0 }) {
+  mockCollection = listSource(size, { shift });
+  collectionCalls.length = 0;
+  const client = makeClient();
+  const guild = makeGuild();
+  baseArgs(client, guild);
+  const player = client.players.get(GUILD_ID);
+  player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
+  player.currentTrack = track("now");
+  const progress = [];
+  const result = await continueCollection(client, { guild, requester: { id: "u1" }, state, count, onProgress: (done, want) => progress.push([done, want]) });
+  return { result, progress, added: client.embedCalls[0]?.trackData };
+}
+
+const addedTitles = (trackData) => trackData.tracks.map((t) => t.title);
+
+test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡을 넘겨준다", () =>
+  withLimits(250, 50, async () => {
+    const { result, added } = await continueWith({ state: stateAt(50), count: 50 });
+    assert.deepEqual(collectionCalls[0].range, { offset: 45, limit: 55 }, "앵커를 찾으려고 앞으로 더 받는다");
+    assert.deepEqual(addedTitles(added).slice(0, 2), ["s50", "s51"]);
+    assert.equal(added.tracks.length, 50);
+    assert.equal(result.added, 50);
+    assert.deepEqual({ offset: result.next.offset, anchorId: result.next.anchorId, remaining: result.next.remaining }, { offset: 100, anchorId: idOf(99), remaining: 200 });
+  }));
+
+test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준다 — 빠지거나 겹치는 곡이 없다", () =>
+  withLimits(250, 50, async () => {
+    const { added } = await continueWith({ state: stateAt(50), count: 50, shift: 2 });
+    assert.deepEqual(
+      addedTitles(added),
+      Array.from({ length: 50 }, (_, i) => `s${50 + i}`),
+    );
+  }));
+
+test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없으면 받지도 않는다", () =>
+  withLimits(30, 50, async () => {
+    const some = await continueWith({ state: stateAt(50), count: 100, queued: 25 });
+    assert.equal(some.added.tracks.length, 5);
+
+    const full = await continueWith({ state: stateAt(50), count: 100, queued: 30 });
+    assert.equal(full.result.success, false);
+    assert.equal(collectionCalls.length, 0);
+  }));
+
+test("이어 넣기: 여러 묶음으로 받으며 진행을 알린다", () =>
+  withLimits(0, 50, async () => {
+    const { progress, added } = await continueWith({ state: stateAt(50), count: 250, size: 1000 });
+    assert.equal(collectionCalls.length, 3);
+    assert.deepEqual(progress, [
+      [100, 250],
+      [200, 250],
+      [250, 250],
+    ]);
+    assert.equal(added.tracks.length, 250);
+  }));
+
+test("이어 넣기: 목록 끝이면 넣을 수 있는 만큼 넣고 다음 상태가 없다", () =>
+  withLimits(250, 50, async () => {
+    const { result, added } = await continueWith({ state: stateAt(50), count: 50, size: 80 });
+    assert.equal(added.tracks.length, 30);
+    assert.equal(result.next, null);
+    assert.equal(result.remaining, 0);
+  }));
+
+test("이어 넣기: 맨 앞에 넣었던 목록은 앵커 곡 바로 뒤에 넣게 한다", () =>
+  withLimits(250, 50, async () => {
+    const front = await continueWith({ state: stateAt(50, { insertFirst: true }), count: 10 });
+    assert.equal(front.added.insertAfterId, idOf(49));
+    assert.equal(front.result.next.insertFirst, true, "다음 묶음도 같은 자리 규칙을 잇는다");
+
+    const back = await continueWith({ state: stateAt(50), count: 10 });
+    assert.equal(back.added.insertAfterId, undefined);
+  }));
+
+test("재생목록을 넣으면 이어 받을 상태를 결과에 싣는다", async () => {
+  mockResolve = () => ({ ...ok("1", "2"), collection: "playlist", total: 120, nextOffset: 2, tracks: [track("1"), { ...track("2"), id: idOf(1) }] });
+  const client = makeClient();
+  const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: `https://open.spotify.com/playlist/${SP}` }));
+  assert.equal(result.more.offset, 2);
+  assert.equal(result.more.remaining, 118);
 });

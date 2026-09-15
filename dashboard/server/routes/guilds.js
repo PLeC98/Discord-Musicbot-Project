@@ -7,7 +7,8 @@ const { resolveMember, toApiError } = requireControl;
 const { checkControl, checkAdd, checkSkip, checkRemoveTrack, isModerator } = require("../../../src/permissions");
 const { ChannelType } = require("discord.js");
 const GuildSettingsManager = require("../../../src/GuildSettingsManager");
-const { requestPlayback } = require("../../../src/playRequest");
+const { requestPlayback, continueCollection } = require("../../../src/playRequest");
+const { validState, MAX_COUNT, LIFETIME_MS } = require("../../../src/playlistMore");
 const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
@@ -326,7 +327,14 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
     available: SponsorBlock.SKIP_CATEGORIES.map((id) => ({ id, label: SB_CATEGORY_LABELS[id] || id })),
   };
 
-  res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock });
+  // 재생목록 한 번에 넣는 곡 수 — 저장값(null=기본), 실제 값, 설정할 수 있는 범위
+  const playlistAdd = {
+    value: await GuildSettingsManager.getPlaylistAddMax(guild.id),
+    effective: GuildSettingsManager.resolvePlaylistAddMax(guild.id),
+    ...GuildSettingsManager.playlistAddLimits(),
+  };
+
+  res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd });
 });
 
 // 서버 설정 변경 — 모더레이터/봇 운영자만. /setdjrole·/setchannel과 동일 기준.
@@ -340,7 +348,17 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     return res.status(403).json({ error: "서버 설정을 변경할 권한이 없습니다 (서버 관리 권한 필요)" });
   }
 
-  const { djRoleIds, botChannelId, sponsorblock } = req.body || {};
+  const { djRoleIds, botChannelId, sponsorblock, playlistAddMax } = req.body || {};
+
+  // 재생목록 한 번에 넣는 곡 수 (선택적) — null이면 기본값으로
+  let nextPlaylistAdd; // undefined=변경 없음
+  if (playlistAddMax !== undefined) {
+    const { min, max } = GuildSettingsManager.playlistAddLimits();
+    if (playlistAddMax !== null && !(Number.isSafeInteger(playlistAddMax) && playlistAddMax >= min && playlistAddMax <= max)) {
+      return res.status(400).json({ error: `재생목록 한 번에 넣는 곡 수는 ${min}~${max} 사이의 정수여야 합니다` });
+    }
+    nextPlaylistAdd = playlistAddMax;
+  }
 
   // SponsorBlock 검증 (선택적) — enabled(bool)·categories(유효 카테고리 배열)
   let nextSponsor; // undefined=변경 없음
@@ -397,6 +415,9 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
   }
   if (nextSponsor !== undefined) {
     await GuildSettingsManager.setSponsorBlock(guild.id, nextSponsor);
+  }
+  if (nextPlaylistAdd !== undefined) {
+    await GuildSettingsManager.setPlaylistAddMax(guild.id, nextPlaylistAdd);
   }
 
   log.info(`서버 설정 변경: ${guild.name} (${guild.id}) — 실행 ${req.session.user.username || req.session.user.id}`);
@@ -630,9 +651,50 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
     // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
     if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
 
-    res.json(playerState(player, queueWindow(req)));
+    res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize });
   } catch (err) {
     log.error("대시보드에서 곡 추가 실패:", err);
+    res.status(500).json({ error: "곡 추가에 실패했습니다" });
+  }
+});
+
+// 이어 넣기 상태를 화면에 — 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
+const moreView = (more) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS } : null);
+
+// Continue a playlist  POST /:guildId/player/queue/more — 곡 추가와 같은 권한·제한
+router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req, res) => {
+  const { guildId } = req.params;
+  const ctx = await getPlayer(req, res, guildId);
+  if (!ctx) return;
+  const { player, client, guild } = ctx;
+
+  if (!player) return res.status(409).json({ error: "봇이 음성 채널에 없습니다. 먼저 봇을 참가시켜 주세요" });
+
+  if (!isOwner(req)) {
+    const mctx = await resolveMember(req, res);
+    if (!mctx) return;
+    const err = checkAdd(mctx.member);
+    if (err) return res.status(403).json({ error: toApiError(err) });
+  }
+
+  // 대시보드는 맨 앞에 넣는 경로가 없다 — 요청 본문의 insertFirst는 믿지 않는다
+  const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });
+  const count = Number.isSafeInteger(req.body?.count) && req.body.count >= 1 && req.body.count <= MAX_COUNT ? req.body.count : null;
+  if (!state || !count) return res.status(400).json({ error: "더 넣을 목록 정보가 올바르지 않습니다" });
+
+  try {
+    const result = await continueCollection(client, {
+      guild,
+      requester: { id: req.session.user.id, username: req.session.user.globalName || req.session.user.username },
+      state,
+      count,
+      source: "대시보드 더 넣기",
+    });
+    if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
+
+    res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, more: moreView(result.next), queueMax: config.bot.maxQueueSize });
+  } catch (err) {
+    log.error("대시보드에서 재생목록 더 넣기 실패:", err);
     res.status(500).json({ error: "곡 추가에 실패했습니다" });
   }
 });

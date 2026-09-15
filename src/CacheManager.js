@@ -11,7 +11,7 @@ const DB_PATH = path.join(__dirname, "..", "database", "cache.db");
 const CACHE_DIR = path.join(__dirname, "..", "audio_cache");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 // 제거 점수 가중치
 const W_RECENCY = 0.4;
@@ -52,7 +52,7 @@ class CacheManager {
     if (hasTables && version !== SCHEMA_VERSION) {
       this.db.close();
       this.db = null;
-      const message = `캐시 DB 구조가 이 버전과 맞지 않습니다 (DB v${version}, 필요 v${SCHEMA_VERSION}). 봇을 끄고 ${dbPath} (-wal, -shm 포함)와 ${this._cacheDir} 폴더를 지운 뒤 다시 실행하세요. 서버별 설정(전용 채널·DJ 역할·SponsorBlock)은 다시 해야 합니다.`;
+      const message = `캐시 DB 구조가 이 버전과 맞지 않습니다 (DB v${version}, 필요 v${SCHEMA_VERSION}). 봇을 끄고 ${dbPath} (-wal, -shm 포함)와 ${this._cacheDir} 폴더를 지운 뒤 다시 실행하세요. 서버별 설정(전용 채널·DJ 역할·SponsorBlock·재생목록 한 번에 넣는 곡 수)은 다시 해야 합니다.`;
       throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
     }
 
@@ -105,6 +105,7 @@ class CacheManager {
                 dj_role_ids              TEXT,
                 sponsorblock_enabled     INTEGER,   -- NULL=상속(전역 기본), 0/1
                 sponsorblock_categories  TEXT,       -- NULL=상속, JSON 배열
+                playlist_add_max         INTEGER,    -- NULL=기본값, 재생목록을 넣을 때 한 번에 들어가는 곡 수
                 updated_at               INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
@@ -545,6 +546,26 @@ class CacheManager {
              updated_at              = excluded.updated_at`,
       )
       .run(guildId, encEnabled, encCats, Date.now());
+  }
+
+  /** 재생목록을 넣을 때 한 번에 들어가는 곡 수 — 미설정이면 null */
+  getPlaylistAddMax(guildId) {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT playlist_add_max FROM guild_settings WHERE guild_id = ?").get(guildId);
+    return row?.playlist_add_max ?? null;
+  }
+
+  /** null이면 기본값으로 되돌린다 */
+  setPlaylistAddMax(guildId, count) {
+    if (!this._initialized) this.initialize();
+    this.db
+      .prepare(
+        `INSERT INTO guild_settings (guild_id, playlist_add_max, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(guild_id) DO UPDATE SET
+             playlist_add_max = excluded.playlist_add_max,
+             updated_at       = excluded.updated_at`,
+      )
+      .run(guildId, count ?? null, Date.now());
   }
 
   // 시작 시 정리

@@ -22,12 +22,28 @@ test("init: 비어 있다", () => {
   assert.deepEqual(p, { currentTrack: null, queue: [], previousTracks: [] });
 });
 
+test("roomLeft: 대기열만 세고, 넘쳐 있어도 음수가 아니며, 0이면 끔", () => {
+  const p = make({ current: t("X"), queue: [t("A"), t("B")] });
+  assert.equal(trackState.roomLeft(p, 5), 3, "현재곡은 세지 않는다");
+  assert.equal(trackState.roomLeft(p, 1), 0);
+  assert.equal(trackState.roomLeft(p, 0), Infinity);
+});
+
 test("enqueue: 뒤에 붙이거나 앞에 넣는다", () => {
   const p = make({ current: t("A"), queue: [t("B")] });
   trackState.enqueue(p, [t("C"), t("D")]);
   assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
   trackState.enqueue(p, [t("X"), t("Y")], { front: true });
   assert.deepEqual(titles(p.queue), ["X", "Y", "B", "C", "D"]);
+});
+
+test("insertAfter: 앵커 곡 바로 뒤에, 그 곡이 없으면 맨 앞에", () => {
+  const p = make({ current: t("X"), queue: ["a", "b", "c"].map((id) => ({ title: id.toUpperCase(), id })) });
+  trackState.insertAfter(p, "b", [t("N1"), t("N2")]);
+  assert.deepEqual(titles(p.queue), ["A", "B", "N1", "N2", "C"]);
+
+  trackState.insertAfter(p, "gone", [t("M")]);
+  assert.equal(p.queue[0].title, "M");
 });
 
 test("shiftNext: 맨 앞을 현재곡으로, 비었으면 현재곡을 건드리지 않는다", () => {
@@ -134,14 +150,15 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.removeAt(p, 99);
   trackState.removeAt(p, 0);
   trackState.move(p, 0, 1);
+  trackState.rewind(p); // 큐 반복으로 끝에 들어간 E(3번째)를 빼고 앞으로 — 현재곡 E도 그 뒤에
   trackState.shuffle(p);
-  trackState.rewind(p);
   trackState.clearQueue(p);
   trackState.setCurrent(p, null);
   trackState.reset(p, { history: true });
   trackState.rewind(p);
+  trackState.restore(p, { current: t("R") }, { persisted: true }); // 저장소에서 읽은 그대로 — 알리지 않는다
 
-  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onReplace"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
+  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "E", 3, "E"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });
 
 const song = (title) => ({ title, url: `https://y/${title}` });

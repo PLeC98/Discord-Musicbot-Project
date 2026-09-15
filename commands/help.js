@@ -35,7 +35,7 @@ module.exports = {
     });
     embed.addFields({
       name: "📡 채널 & 세션",
-      value: ["`/join` — 음성 채널 입장 (이전 세션 복구)", "`/leave` — 퇴장 및 세션 저장 🔒", "`/setchannel` — 전용 채널 지정 (서버 관리 권한)", "`/setdjrole` — DJ 역할 지정 (서버 관리 권한)", "`/dashboard` — 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"].join("\n"),
+      value: ["`/join` — 음성 채널 입장 (이전 세션 복구)", "`/leave` — 퇴장 및 세션 저장 🔒", "`/setchannel` — 전용 채널 지정 (서버 관리 권한)", "`/setdjrole` — DJ 역할 지정 (서버 관리 권한)", "`/setplaylistlimit [곡 수]` — 재생목록을 한 번에 넣는 곡 수 (서버 관리 권한)", "`/dashboard` — 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"].join("\n"),
       inline: false,
     });
     embed.addFields({

@@ -90,10 +90,14 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
     () => trackState.enqueue(p, [t()], { front: true }),
     () => trackState.shiftNext(p),
     () => p.currentTrack && trackState.retire(p, p.currentTrack, { requeue: pick(2) === 0 }),
-    () => trackState.rewind(p),
+    () => {
+      p.loop = pick(2) === 0 ? "queue" : false;
+      trackState.rewind(p);
+    },
     () => trackState.removeAt(p, pick(p.queue.length + 1)),
     () => trackState.move(p, pick(p.queue.length + 1), pick(p.queue.length + 1)),
     () => trackState.shuffle(p),
+    () => p.queue.length > 0 && trackState.insertAfter(p, p.queue[pick(p.queue.length)].title, [t(), t()]),
     () => trackState.setCurrent(p, pick(3) === 0 ? null : t()),
   ];
   const rare = [() => trackState.clearQueue(p), () => trackState.reset(p, { history: pick(2) === 0 }), () => trackState.restore(p, { current: t(), queue: [t(), t()], history: [t()] })];
@@ -207,8 +211,8 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 
 // ── 복원 ──
 
-function makeRestorePlayer() {
-  const { p, sp } = makePlayer({ connection: { state: {} }, calls: [] }); // 연결 재수립 경로 생략
+function makeRestorePlayer(overrides = {}) {
+  const { p, sp } = makePlayer({ connection: { state: {} }, calls: [], ...overrides }); // 연결 재수립 경로 생략
   p.play = async function (_, ms) {
     // play()는 시작 직후 pauseReasons를 보고 즉시 일시정지 — 그 시점의 사유 유무를 기록
     this.calls.push(["play", ms, this.pauseReasons.has("manual")]);
@@ -258,6 +262,63 @@ test("복원: 요청자는 id만 되살린다", async () => {
   const p = await restore(makeRecord());
   assert.deepEqual(p.currentTrack.requestedBy, { id: "u1" });
   assert.equal("requesterId" in p.currentTrack, false, "저장용 필드를 트랙에 남기지 않는다");
+});
+
+test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변경은 증분으로 그대로 맞는다", async () => {
+  const { p: saved } = makePlayer();
+  trackState.enqueue(saved, [t("a"), t("b"), t("c"), t("d")]);
+  trackState.setCurrent(saved, t("now"));
+  trackState.retire(saved, t("old"), { requeue: true });
+  const record = CacheManager.sessions.load(saved.guild.id);
+
+  const store = CacheManager.sessions;
+  const real = store.replaceTracks;
+  let rewrites = 0;
+  store.replaceTracks = (...args) => {
+    rewrites++;
+    return real.apply(store, args);
+  };
+  try {
+    const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } });
+    await sp.restoreFromState(record);
+    sp.cancelStateSave();
+    assert.deepEqual(stored(p.guild.id), memory(p));
+
+    p.loop = "queue";
+    trackState.removeAt(p, 1);
+    trackState.rewind(p);
+    trackState.shiftNext(p);
+    assert.deepEqual(stored(p.guild.id), memory(p));
+    assert.equal(rewrites, 0, "복원도 이전곡도 통째로 다시 쓰지 않는다 (어긋나 되맞췄어도 여기서 잡힌다)");
+  } finally {
+    store.replaceTracks = real;
+  }
+});
+
+test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다", async () => {
+  const config = require("../config");
+  const realMax = config.bot.maxQueueSize;
+  const { p: saved } = makePlayer();
+  trackState.setCurrent(saved, t("now"));
+  trackState.enqueue(
+    saved,
+    Array.from({ length: 30 }, () => t()),
+  );
+  const record = CacheManager.sessions.load(saved.guild.id);
+
+  config.bot.maxQueueSize = 25;
+  try {
+    const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } });
+    await sp.restoreFromState(record);
+    sp.cancelStateSave();
+    assert.equal(p.queue.length, 25);
+    assert.deepEqual(stored(p.guild.id), memory(p), "메모리만 자르면 넘친 행이 DB에 남아 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
+
+    trackState.removeAt(p, 24);
+    assert.deepEqual(stored(p.guild.id), memory(p));
+  } finally {
+    config.bot.maxQueueSize = realMax;
+  }
 });
 
 test("복원: 곡 길이 끝에 거의 닿은 위치는 처음부터", async () => {

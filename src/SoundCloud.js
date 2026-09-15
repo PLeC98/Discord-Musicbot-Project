@@ -98,7 +98,7 @@ class SoundCloud {
       }
 
       const tracks = [];
-      for (const item of result.entries.slice(0, config.bot.maxPlaylistSize)) {
+      for (const item of result.entries.slice(0, config.bot.playlistAddDefault)) {
         const formattedTrack = await this.formatTrack(item, guildId);
         if (formattedTrack) {
           tracks.push(formattedTrack);

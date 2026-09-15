@@ -4,6 +4,7 @@ const fsSync = require("fs");
 const log = require("./logger").child({ category: "session" });
 const CacheManager = require("./CacheManager");
 const trackState = require("./trackState");
+const config = require("../config");
 const { formatDuration } = require("./utils");
 const { escapeMd } = require("./mentions");
 const { scheduleDelete } = require("./playbackResponder");
@@ -88,6 +89,10 @@ class SessionPersistence {
 
   onRetire(track, requeue) {
     this._mirror((s, g) => s.retire(g, track, { requeue }));
+  }
+
+  onRewind(track, copy, current) {
+    this._mirror((s, g) => s.rewind(g, track, { copy, current }));
   }
 
   onRemoveAt(index) {
@@ -215,11 +220,19 @@ class SessionPersistence {
     player.autoplay = session.autoplay || false;
     player.requesterId = session.requesterId || player.requesterId;
 
-    trackState.restore(player, {
-      current: this.reviveTrack(record.current),
-      queue: record.queue.map((t) => this.reviveTrack(t)),
-      history: record.history.map((t) => this.reviveTrack(t)),
-    });
+    // 상한을 줄인 뒤 재시작하면 저장된 대기열이 넘친다 — 잘라낸다. 잘랐으면 DB도 맞춰야 하니 다시 쓴다.
+    const max = config.bot.maxQueueSize;
+    const cut = max > 0 && record.queue.length > max;
+    if (cut) log.info(`복원한 대기열이 상한을 넘어 잘라냄: ${record.queue.length}곡 → ${max}곡 (서버 ID ${player.guild.id})`);
+    trackState.restore(
+      player,
+      {
+        current: this.reviveTrack(record.current),
+        queue: (cut ? record.queue.slice(0, max) : record.queue).map((t) => this.reviveTrack(t)),
+        history: record.history.map((t) => this.reviveTrack(t)),
+      },
+      { persisted: !cut },
+    );
 
     if (!player.currentTrack && player.queue.length > 0) {
       trackState.shiftNext(player);

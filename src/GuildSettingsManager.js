@@ -4,6 +4,9 @@ const log = require("./logger").child({ category: "guild" });
 const CacheManager = require("./CacheManager");
 const config = require("../config");
 
+// 재생목록 한 번에 넣는 곡 수의 위쪽 끝 — 대기열 상한이 더 작으면 그쪽을 따른다
+const PLAYLIST_ADD_CEILING = 1000;
+
 class GuildSettingsManager {
   constructor() {
     this.cache = new Map();
@@ -70,6 +73,60 @@ class GuildSettingsManager {
       CacheManager.clearDjRoles(guildId);
     } catch {}
     this.cache.delete(`${guildId}_djRoles`);
+  }
+
+  // ── 재생목록 한 번에 넣는 곡 수 ─────────────────────────────────────────────
+  // 첫 묶음과 "더 넣기" 선택지 단위를 정한다. 더 넣기 자체는 대기열 상한만 본다.
+
+  /** 설정할 수 있는 범위와 기본값 */
+  playlistAddLimits() {
+    const queueMax = config.bot.maxQueueSize;
+    return { min: 1, max: queueMax > 0 ? Math.min(PLAYLIST_ADD_CEILING, queueMax) : PLAYLIST_ADD_CEILING, default: config.bot.playlistAddDefault };
+  }
+
+  /** 서버가 정한 값 — 미설정이면 null */
+  async getPlaylistAddMax(guildId) {
+    const key = `${guildId}_playlistAdd`;
+    if (this.cache.has(key)) return this.cache.get(key);
+    let value = null;
+    try {
+      value = CacheManager.getPlaylistAddMax(guildId);
+    } catch {
+      /* 읽지 못하면 기본값 */
+    }
+    this.cache.set(key, value);
+    return value;
+  }
+
+  /** null이면 기본값으로 되돌린다. 범위 검증은 호출자 몫(명령·대시보드가 사용자에게 알린다). */
+  async setPlaylistAddMax(guildId, count) {
+    try {
+      CacheManager.setPlaylistAddMax(guildId, count);
+      this.cache.set(`${guildId}_playlistAdd`, count ?? null);
+      return true;
+    } catch (error) {
+      log.error("재생목록 한 번에 넣는 곡 수 저장 실패:", error);
+      return false;
+    }
+  }
+
+  /**
+   * 실제로 쓸 값 — 읽을 때마다 범위로 자른다. 서버가 200을 정한 뒤 운영자가 대기열 상한을 줄일 수 있어서다.
+   * DB가 열린 뒤에만 읽는다 — 열지 않은 채 부르는 테스트가 운영 DB를 건드리지 않게.
+   */
+  resolvePlaylistAddMax(guildId) {
+    const { min, max, default: fallback } = this.playlistAddLimits();
+    const key = `${guildId}_playlistAdd`;
+    let stored = this.cache.get(key);
+    if (stored === undefined && CacheManager._initialized) {
+      try {
+        stored = CacheManager.getPlaylistAddMax(guildId);
+        this.cache.set(key, stored);
+      } catch {
+        stored = null;
+      }
+    }
+    return Math.max(min, Math.min(max, stored ?? fallback));
   }
 
   // ── SponsorBlock 서버별 설정 ────────────────────────────────────────────────

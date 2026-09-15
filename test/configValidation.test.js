@@ -16,7 +16,7 @@ const ROOT = path.join(__dirname, "..");
 
 /** 주어진 .env 값으로 config를 읽는 자식 프로세스 — { code, output } */
 function loadConfig(env) {
-  const probe = "const c = require('./config'); console.log('CFG:' + JSON.stringify({ port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website }));";
+  const probe = "const c = require('./config'); console.log('CFG:' + JSON.stringify({ port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize }));";
   const r = spawnSync(process.execPath, ["-e", probe], {
     cwd: ROOT,
     encoding: "utf8",
@@ -51,9 +51,19 @@ test("주소 설정은 형식과 스킴을 본다", () => {
 });
 
 test("비워 두는 것은 기본값을 쓰겠다는 뜻이라 통과한다", () => {
-  const { code, cfg } = loadConfig({ DASHBOARD_PORT: "", WEBSITE: "", RATE_LIMIT_API_MAX: "  " });
+  const { code, cfg } = loadConfig({ DASHBOARD_PORT: "", WEBSITE: "", RATE_LIMIT_API_MAX: "  ", QUEUE_MAX_TRACKS: "" });
   assert.equal(code, 0);
-  assert.deepEqual(cfg, { port: 33333, apiMax: 120, website: null });
+  assert.deepEqual(cfg, { port: 33333, apiMax: 120, website: null, queueMax: 250 });
+});
+
+test("대기열 상한은 0(끔)이거나 25 이상이다", () => {
+  const tooSmall = loadConfig({ QUEUE_MAX_TRACKS: "10" });
+  assert.equal(tooSmall.code, 1, "사전 캐싱 버퍼보다 작은 대기열은 막는다");
+  assert.match(tooSmall.output, /QUEUE_MAX_TRACKS/);
+
+  assert.equal(loadConfig({ QUEUE_MAX_TRACKS: "0" }).cfg.queueMax, 0);
+  assert.equal(loadConfig({ QUEUE_MAX_TRACKS: "25" }).cfg.queueMax, 25);
+  assert.equal(loadConfig({ QUEUE_MAX_TRACKS: "-1" }).code, 1);
 });
 
 test("범위 안의 값은 그대로 쓴다", () => {

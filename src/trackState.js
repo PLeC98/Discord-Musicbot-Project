@@ -13,6 +13,11 @@ function init(player) {
   player.previousTracks = [];
 }
 
+// 상한까지 대기열에 더 넣을 수 있는 곡 수. 현재곡은 세지 않는다. max가 0이면 끔.
+function roomLeft(player, max) {
+  return max > 0 ? Math.max(0, max - player.queue.length) : Infinity;
+}
+
 function setCurrent(player, track) {
   player.currentTrack = track ?? null;
   sinkOf(player)?.onSetCurrent(player.currentTrack);
@@ -23,6 +28,14 @@ function enqueue(player, tracks, { front = false } = {}) {
   if (front) player.queue.unshift(...tracks);
   else player.queue.push(...tracks);
   sinkOf(player)?.onEnqueue(tracks, front);
+}
+
+// anchorId 곡 바로 뒤에 넣는다 — 맨 앞에 넣은 목록을 이어 넣을 때. 그 곡이 이미 재생돼 없으면 맨 앞.
+function insertAfter(player, anchorId, tracks) {
+  if (tracks.length === 0) return;
+  const at = player.queue.findIndex((t) => t.id === anchorId) + 1;
+  player.queue.splice(at, 0, ...tracks);
+  sinkOf(player)?.onReplace();
 }
 
 // 맨 앞 곡을 현재곡으로 — 다음 곡은 언제나 맨 앞이다(셔플은 대기열을 한 번 섞을 뿐이다).
@@ -49,8 +62,9 @@ function rewind(player) {
   const copy = requeuedCopyOf(player, prev);
   if (copy >= 0) player.queue.splice(copy, 1);
   player.queue.unshift(prev);
-  if (player.currentTrack) player.queue.splice(1, 0, player.currentTrack);
-  sinkOf(player)?.onReplace();
+  const current = player.currentTrack;
+  if (current) player.queue.splice(1, 0, current);
+  sinkOf(player)?.onRewind(prev, copy, current);
   return prev;
 }
 
@@ -105,18 +119,21 @@ function reset(player, { history = false } = {}) {
   sinkOf(player)?.onReset(history);
 }
 
-function restore(player, { current = null, queue = [], history = [] }) {
+// persisted: 저장소에서 막 읽은 그대로라 다시 쓰지 않는다 — 수천 곡이면 되쓰기가 다른 서버의 재생까지 멈춘다
+function restore(player, { current = null, queue = [], history = [] }, { persisted = false } = {}) {
   player.currentTrack = current ?? null;
   player.queue = queue;
   player.previousTracks = history.slice(-HISTORY_MAX);
-  sinkOf(player)?.onReplace();
+  if (!persisted) sinkOf(player)?.onReplace();
 }
 
 module.exports = {
   HISTORY_MAX,
+  roomLeft,
   init,
   setCurrent,
   enqueue,
+  insertAfter,
   shiftNext,
   retire,
   rewind,

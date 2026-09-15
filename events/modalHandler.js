@@ -8,6 +8,7 @@ module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
+    if (/^plmm?:/.test(interaction.customId)) return; // 재생목록 더 넣기 — playlistMoreHandler.js
 
     const client = interaction.client;
 
