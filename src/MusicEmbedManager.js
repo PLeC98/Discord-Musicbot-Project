@@ -18,6 +18,7 @@ const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNK
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(playbackResponder.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
+const { markTransient, isTransient } = require("./transientMessages");
 
 class MusicEmbedManager {
   constructor(client) {
@@ -216,6 +217,7 @@ class MusicEmbedManager {
     let infoMessage;
     try {
       infoMessage = await player.textChannel.send({ content: messageText });
+      markTransient(infoMessage?.id, 10000);
 
       // 10초 후 정보 메시지 삭제
       setTimeout(async () => {
@@ -354,7 +356,8 @@ class MusicEmbedManager {
     if ((await GuildSettingsManager.getBotChannel(player.guild.id)) !== channel.id) return false;
 
     const cutoff = now - PIN_SETTLE_MS;
-    return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(currentId));
+    // 스스로 지워질 봇 메시지(더 넣기 메뉴 등)는 세지 않는다 — 조작 중에 위치가 바뀌면 거슬린다
+    return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(currentId) && !isTransient(m.id, now));
   }
 
   /**

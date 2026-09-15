@@ -25,6 +25,15 @@ module.exports = {
     if (!state) return refuse("알 수 없는 메뉴예요.");
 
     const message = interaction.message;
+
+    // 그만 넣기 — 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
+    if (isSelect && interaction.values[0] === "stop") {
+      if (state.requesterId && state.requesterId !== interaction.user.id) return refuse("목록을 넣은 사람만 닫을 수 있어요.");
+      if (message) More.clearExpiry(message.id);
+      await interaction.deferUpdate().catch(() => {});
+      return interaction.deleteReply().catch(() => {});
+    }
+
     const lastTouched = message?.editedTimestamp ?? message?.createdTimestamp ?? 0;
     const clickErr = More.clickError(state, { userId: interaction.user.id, lastTouched });
     if (clickErr) return refuse(clickErr);

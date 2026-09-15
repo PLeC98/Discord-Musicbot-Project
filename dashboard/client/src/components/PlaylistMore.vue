@@ -33,8 +33,8 @@
 
       <div class="flex items-center gap-3">
         <input v-model.number="amount" type="range" min="1" :max="cap" class="flex-1 h-1 accent-accent cursor-pointer disabled:cursor-not-allowed" :disabled="busy" aria-label="넣을 곡 수" />
-        <input v-model.number="amount" type="text" inputmode="numeric" maxlength="5" class="w-15 bg-white/6 border border-white/9 rounded-[10px] text-fg px-2 py-1.5 text-[0.85rem] text-right tabular-nums outline-none transition-[border-color] duration-200 focus:border-accent/55" :class="!valid && 'border-danger/60'" :disabled="busy" aria-label="넣을 곡 수 직접 입력" @keydown.enter="valid && !busy && $emit('add', amount)" />
-        <BaseButton size="sm" type="button" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? "넣는 중..." : "추가" }}</BaseButton>
+        <input v-model.number="amount" type="text" inputmode="numeric" maxlength="5" class="w-13 bg-white/6 border border-white/9 rounded-[10px] text-fg px-2 py-1.5 text-[0.85rem] text-right tabular-nums outline-none transition-[border-color] duration-200 focus:border-accent/55" :class="!valid && 'border-danger/60'" :disabled="busy" aria-label="넣을 곡 수 직접 입력" @keydown.enter="valid && !busy && $emit('add', amount)" />
+        <BaseButton size="sm" type="button" class="px-3! py-2! whitespace-nowrap" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? "넣는 중..." : "추가" }}</BaseButton>
       </div>
 
       <div class="text-muted text-[0.76rem]">
@@ -78,7 +78,7 @@ const valid = computed(() => Number.isInteger(amount.value) && amount.value >= 1
 
 // ── 수명 — 디스코드 메뉴와 같다: 가만두면 사라지고, 이어 넣으면 다시 센다. 넣는 동안은 멈춘다.
 const RING = 2 * Math.PI * 14;
-const lifetime = computed(() => props.more.lifetimeMs || 60000);
+const lifetime = computed(() => props.more.lifetimeMs || 30000);
 const timerKey = ref(0);
 const secondsLeft = ref(Math.ceil(lifetime.value / 1000));
 let deadline = 0;

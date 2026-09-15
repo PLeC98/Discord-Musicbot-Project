@@ -2,6 +2,7 @@
 
 const { MessageFlags } = require("discord.js");
 const log = require("./logger").child({ category: "player" });
+const { markTransient } = require("./transientMessages");
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -23,6 +24,7 @@ const AUTO_DELETE_MS = 10000;
 // 안내 메시지는 채널에 쌓이지 않게 잠시 뒤 지운다. 이미 지워졌을 수 있으므로 실패는 무시.
 function scheduleDelete(message, ms = AUTO_DELETE_MS) {
   if (!message || typeof message.delete !== "function") return;
+  markTransient(message.id, ms);
   setTimeout(() => {
     Promise.resolve(message.delete()).catch(() => {});
   }, ms);

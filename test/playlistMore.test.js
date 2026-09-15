@@ -46,12 +46,12 @@ test("메뉴: 자리가 없으면 메뉴를 붙이지 않고, 있으면 선택�
   const menu = More.offerMessage(more, 120).components[0].components[0].toJSON();
   assert.deepEqual(
     menu.options.map((o) => o.value),
-    ["50", "100", "120", "custom"],
+    ["50", "100", "120", "custom", "stop"],
   );
   assert.match(menu.options[2].label, /넣을 수 있는 만큼/);
 });
 
-test("누를 때: 전용 채널 메뉴는 넣은 사람만, 1분이 지나면 닫힌다", () => {
+test("누를 때: 전용 채널 메뉴는 넣은 사람만, 30초가 지나면 닫힌다", () => {
   const now = 1_000_000;
   const mine = { requesterId: "12345678901234567" };
   assert.match(More.clickError(mine, { userId: "99999999999999999", lastTouched: now, now }), /넣은 사람만/);

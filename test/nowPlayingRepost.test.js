@@ -143,6 +143,10 @@ test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
     cache.set("150", { id: "150", createdTimestamp: now - 3000 });
     assert.equal(await mem._isBuried(player, now), false, "곧 스스로 지워질 안내는 쫓지 않는다");
 
+    cache.set("155", { id: "155", createdTimestamp: now - 20000 });
+    require("../src/transientMessages").markTransient("155", 30000, now - 20000);
+    assert.equal(await mem._isBuried(player, now), false, "오래 떠 있어도 스스로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
+
     cache.set("160", { id: "160", createdTimestamp: now - 30000 });
     assert.equal(await mem._isBuried(player, now), true, "남아 있는 새 메시지 밑이면 묻힌 것");
 

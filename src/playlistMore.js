@@ -10,8 +10,9 @@ const YouTube = require("./YouTube");
 const Spotify = require("./Spotify");
 const trackState = require("./trackState");
 const { collectionLabel } = require("./strings");
+const { markTransient } = require("./transientMessages");
 
-const LIFETIME_MS = 60_000;
+const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭 — 그 사이 목록이 이만큼 편집돼도 이어진다
 const LOOKBACK = 5;
 const MAX_COUNT = 10_000;
@@ -105,7 +106,7 @@ function menuMessage(head, state, { remaining, room, batch = config.bot.playlist
   const menu = new StringSelectMenuBuilder()
     .setCustomId(encodeState(SELECT_PREFIX, state))
     .setPlaceholder(`더 넣기 — 남은 ${fmt(remaining)}곡`)
-    .addOptions(...steps.map((n) => ({ label: `${fmt(n)}곡 더`, value: String(n) })), { label: cap < remaining ? `넣을 수 있는 만큼 (${fmt(cap)}곡)` : `남은 곡 전부 (${fmt(cap)}곡)`, value: String(cap) }, { label: "직접 입력…", value: "custom" });
+    .addOptions(...steps.map((n) => ({ label: `${fmt(n)}곡 더`, value: String(n) })), { label: cap < remaining ? `넣을 수 있는 만큼 (${fmt(cap)}곡)` : `남은 곡 전부 (${fmt(cap)}곡)`, value: String(cap) }, { label: "직접 입력…", value: "custom" }, { label: "그만 넣기", value: "stop" });
   return { content: head, components: [new ActionRowBuilder().addComponents(menu)] };
 }
 
@@ -146,6 +147,7 @@ function clearExpiry(messageId) {
 
 function expireLater(messageId, remove, ms = LIFETIME_MS) {
   clearExpiry(messageId);
+  markTransient(messageId, ms); // 조작하는 동안 현재 재생 메시지가 이 밑으로 내려오지 않게
   const timer = setTimeout(() => {
     expiries.delete(messageId);
     Promise.resolve()
