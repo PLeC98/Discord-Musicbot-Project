@@ -113,7 +113,7 @@ function queueTrack(t, i) {
     duration: t.duration,
     thumbnail: t.thumbnail,
     platform: t.platform,
-    requestedBy: t.requestedBy ? { id: t.requestedBy.id, username: t.requestedBy.username } : null,
+    requestedBy: t.requestedBy ? { id: t.requestedBy.id } : null,
   };
 }
 
@@ -135,7 +135,6 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
     paused: status.paused,
     volume: status.volume,
     loop: status.loop,
-    shuffle: status.shuffle,
     currentTrack: track
       ? {
           title: track.title,
@@ -145,7 +144,7 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
           url: track.url,
           platform: track.platform,
           currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
-          requestedBy: track.requestedBy ? { id: track.requestedBy.id, username: track.requestedBy.username } : null,
+          requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,
           // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점 — 대시보드 진행바 마커용
           sponsorSegments: (track.sponsor?.skipSegments || []).map((s) => ({ start: s.start, end: s.end, categories: s.categories || [] })),
           highlightAt: track.sponsor?.highlightAt ?? null,

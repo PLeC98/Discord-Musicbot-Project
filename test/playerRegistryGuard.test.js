@@ -46,8 +46,6 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     currentDownloadedFile: null,
     loop: false,
     queue: [],
-    shuffle: false,
-    nextFromFront: false,
     autoplay: false,
     startTime: null,
     pausedTime: 0,

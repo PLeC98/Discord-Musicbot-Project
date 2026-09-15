@@ -1,6 +1,6 @@
 "use strict";
 
-// src/CacheManager.js — 임시 DB로 실 SQLite 경로 검증 (guild_settings 마이그레이션/라운드트립, 퇴거 스코어링)
+// src/CacheManager.js — 임시 DB로 실 SQLite 경로 검증 (guild_settings 라운드트립, 퇴거 스코어링)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 const os = require("node:os");
@@ -8,30 +8,13 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
-const Database = require("better-sqlite3");
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-cachemanager-test-${process.pid}.db`);
 
 let CacheManager;
 
 before(() => {
-  // 구(단일 DJ 역할) 스키마 DB를 미리 만들어, 컬럼이 없는 DB를 열어도 기동하는지 검증.
-  // 값 이관은 하지 않는다 — 상류 봇과의 호환을 만드는 일이라 걷어냈다(2026-09-10).
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  const pre = new Database(DB_PATH);
-  pre.exec(`
-    CREATE TABLE guild_settings (
-      guild_id        TEXT PRIMARY KEY,
-      bot_channel_id  TEXT,
-      dj_role_id      TEXT,
-      updated_at      INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
-    );
-    INSERT INTO guild_settings (guild_id, bot_channel_id, dj_role_id) VALUES
-      ('legacy1', 'ch1', 'role111'),
-      ('legacy2', 'ch2', NULL);
-  `);
-  pre.close();
-
   CacheManager = require("../src/CacheManager");
   CacheManager.initialize(DB_PATH);
 });
@@ -41,21 +24,6 @@ after(() => {
   try {
     fs.unlinkSync(DB_PATH);
   } catch {}
-});
-
-// ── guild_settings: 구 스키마 DB 호환 ────────────────────────
-// dj_role_ids 컬럼이 없는 DB를 열면 ALTER TABLE로 추가만 하고 기동한다.
-// 구 dj_role_id 값을 옮기지는 않는다 — DJ 역할은 다시 설정하면 되는 값이고,
-// 이관을 남겨두면 상류 봇의 DB를 그대로 받아 쓸 수 있게 되는 셈이라 걷어냈다.
-
-test("구 스키마 DB도 열린다 — DJ 역할은 미설정으로 시작", () => {
-  assert.deepEqual(CacheManager.getDjRoles("legacy1"), []);
-  assert.deepEqual(CacheManager.getDjRoles("legacy2"), []);
-});
-
-test("구 스키마의 bot_channel_id는 보존된다 (같은 컬럼을 계속 쓴다)", () => {
-  assert.equal(CacheManager.getBotChannel("legacy1"), "ch1");
-  assert.equal(CacheManager.getBotChannel("legacy2"), "ch2");
 });
 
 // ── guild_settings: DJ 역할 라운드트립 ───────────────────────
@@ -254,13 +222,13 @@ function runResetChecks() {
   CacheManager.recordDownloadComplete("yt:reset1", CacheManager.getFilePath("yt:reset1"), 1234, { title: "t" });
   CacheManager.recordTrackLookup("https://y/reset1", "youtube", "yt:reset1", "t", null, null);
   CacheManager.markAgeRestricted("reset1");
-  CacheManager.savePlayerSession("g-reset", { queue: [] });
+  CacheManager.sessions.append("g-reset", [{ title: "t", url: "https://y/reset1" }]);
 
   const result = CacheManager.resetCache();
 
   assert.equal(typeof result.removed, "number");
   assert.equal(CacheManager._cacheCount(), 0, "audio_cache 비움");
-  assert.equal(CacheManager.getAllPlayerSessions()["g-reset"], undefined, "세션 비움");
+  assert.equal(CacheManager.sessions.load("g-reset"), null, "세션 비움");
   assert.equal(CacheManager.isAgeRestricted("reset1"), false, "연령제한 표시 비움");
   assert.equal(CacheManager.resolveFromCache("https://y/reset1").hit, false, "조회 기록 비움");
 

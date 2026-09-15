@@ -32,8 +32,6 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     currentDownloadedFile: null,
     loop,
     queue,
-    shuffle: false,
-    nextFromFront: false,
     autoplay: false,
     startTime: null,
     pausedTime: 0,
@@ -107,9 +105,8 @@ test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변 (버그 3 
 
 test("한곡 반복 + 대기열 점프(jump): 재시작이 아니라 선택한 곡으로 이동", async () => {
   const [A, B, C] = ["A", "B", "C"].map((t) => makeTrack(t));
-  // jump 핸들러가 선택곡 C를 맨 앞으로 옮기고 nextFromFront를 세운 상태
+  // jump 핸들러가 선택곡 C를 맨 앞으로 옮긴 상태
   const p = makePlayer({ loop: "track", current: A, queue: [C, B] });
-  p.nextFromFront = true;
 
   await handleTrackEnd.call(p, "jump");
 
@@ -153,6 +150,32 @@ test("큐 반복: 자연 종료/스킵은 끝난 곡을 대기열 끝으로 (기
   assert.equal(p.currentTrack, B);
   assert.deepEqual(titles(p.queue), ["A"], "끝난 A가 대기열 끝으로 순환");
   assert.deepEqual(titles(p.previousTracks), ["A"]);
+});
+
+// 위의 "복제 없이" 테스트는 기록의 곡이 대기열에 없는 상태에서 시작해 이 경우를 못 잡았다.
+// 큐 반복 중에는 끝난 곡이 기록과 대기열 끝 양쪽에 들어가 있는 게 정상 상태다.
+test("큐 반복 + 이전곡: 끝난 곡이 대기열 끝에 다시 들어가 있어도 곡 수가 그대로다", async () => {
+  const [A, B, C] = ["A", "B", "C"].map((t) => makeTrack(t));
+  const p = makePlayer({ loop: "queue", current: A, queue: [B, C] });
+
+  await handleTrackEnd.call(p, "idle");
+  assert.deepEqual(titles(p.queue), ["C", "A"], "A가 끝나 대기열 끝으로");
+
+  previous.call(p);
+  await handleTrackEnd.call(p, "previous");
+
+  assert.equal(p.currentTrack, A);
+  assert.deepEqual(titles(p.queue), ["B", "C"], "A가 앞과 끝에 두 번 있으면 안 된다");
+});
+
+test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)에도 곡 수가 그대로다", async () => {
+  const p = makePlayer({ loop: "queue", current: makeTrack("B"), queue: [makeTrack("C"), makeTrack("A")], history: [makeTrack("A")] });
+
+  previous.call(p);
+  await handleTrackEnd.call(p, "previous");
+
+  assert.equal(p.currentTrack.title, "A");
+  assert.deepEqual(titles(p.queue), ["B", "C"]);
 });
 
 // ── 조기 종료 재시도 ──────────────────────────────────────────

@@ -1,160 +1,242 @@
 "use strict";
 
-const path = require("path");
-const log = require("./logger").child({ category: "session" });
 const fsSync = require("fs");
+const log = require("./logger").child({ category: "session" });
 const CacheManager = require("./CacheManager");
+const trackState = require("./trackState");
 const { formatDuration } = require("./utils");
 const { escapeMd } = require("./mentions");
+const { scheduleDelete } = require("./playbackResponder");
 
-/**
- * SessionPersistence — 플레이어 상태의 직렬화/복원/주기 저장
- * 타이머 필드(stateSyncInterval, stateSaveTimeout)는 기존 cleanup 경로를 깨지 않도록 player 인스턴스에 유지.
- */
+const HEARTBEAT_MS = 5000;
+
+// 저장한 직후 메모리를 비우는 경로다. 거울을 붙인 채 비우면 방금 저장한 트랙이 DB에서 지워진다.
+const FINAL_REASONS = new Set(["leave", "shutdown"]);
+
+// 기동이 DB를 연 뒤에만 쓴다 — DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
+const liveStore = () => (CacheManager._initialized ? CacheManager.sessions : null);
+
+// 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
+const active = new Set();
+let heartbeat = null;
+
+function beat() {
+  const store = liveStore();
+  if (!store) return;
+  const entries = [];
+  for (const sp of active) {
+    const p = sp.player;
+    if (sp.frozen || !p.guild?.id || !p.currentTrack || p.paused) continue;
+    if (sp.dirty) sp.resync(store);
+    entries.push({ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0, startOffsetMs: p.currentTrackStartOffsetMs || 0 });
+  }
+  if (entries.length === 0) return;
+  try {
+    store.savePositions(entries);
+  } catch (error) {
+    log.error("재생 위치 저장 실패:", error.message);
+  }
+}
+
 class SessionPersistence {
   constructor(player) {
     this.player = player;
+    this.frozen = false; // 마지막 저장 뒤 — 이후의 트랙 변경은 DB에 옮기지 않는다
+    this.dirty = false; // 증분 쓰기가 실패해 DB가 메모리와 어긋났을 수 있다
+    this.saveTimer = null;
   }
 
-  serializeTrack(track) {
-    if (!track) return null;
+  // ── 트랙 거울 (trackState가 부른다) ──
 
-    const requester = track.requestedBy || null;
-    const requesterId = requester?.id || track.requesterId || null;
-    const requesterTag = requester?.tag || requester?.user?.tag || track.requesterTag || null;
-
-    return {
-      id: track.id || null,
-      title: track.title || null,
-      url: track.url || null,
-      duration: typeof track.duration === "number" ? track.duration : Number(track.duration) || null,
-      thumbnail: track.thumbnail || null,
-      artist: track.artist || null,
-      album: track.album || null,
-      platform: track.platform || null,
-      uploader: track.uploader || null,
-      // 캐시 키 — 기동 시 퇴거 보호가 대기열에서 이걸 읽는다(그때는 플레이어가 아직 없다)
-      audioSourceKey: track.audioSourceKey || null,
-      youtubeUrl: track.youtubeUrl || null,
-      soundcloudUrl: track.soundcloudUrl || null,
-      spotifyUrl: track.spotifyUrl || null,
-      isLive: track.isLive || track.live || false,
-      addedAt: track.addedAt || Date.now(),
-      requesterId,
-      requesterTag,
-      extra: track.extra || null,
-    };
-  }
-
-  deserializeTrack(data) {
-    if (!data) return null;
-
-    const track = {
-      id: data.id || null,
-      title: data.title || null,
-      url: data.url || null,
-      duration: typeof data.duration === "number" ? data.duration : Number(data.duration) || null,
-      thumbnail: data.thumbnail || null,
-      artist: data.artist || null,
-      album: data.album || null,
-      platform: data.platform || null,
-      uploader: data.uploader || null,
-      audioSourceKey: data.audioSourceKey || null,
-      youtubeUrl: data.youtubeUrl || null,
-      soundcloudUrl: data.soundcloudUrl || null,
-      spotifyUrl: data.spotifyUrl || null,
-      isLive: Boolean(data.isLive),
-      addedAt: data.addedAt || Date.now(),
-      extra: data.extra || null,
-    };
-
-    if (data.requesterId) {
-      const cachedMember = this.player.guild?.members?.cache?.get?.(data.requesterId) || null;
-      track.requestedBy = cachedMember || { id: data.requesterId, tag: data.requesterTag || data.requesterId };
-      track.requesterId = data.requesterId;
-      track.requesterTag = data.requesterTag || null;
+  _mirror(write) {
+    const guildId = this.player.guild?.id;
+    const store = liveStore();
+    if (this.frozen || !guildId || !store) return;
+    if (this.dirty) return this.resync(store);
+    try {
+      // 옮길 행이 없었다 = 이미 어긋나 있었다
+      if (write(store, guildId) === false) this.resync(store);
+    } catch (error) {
+      this.dirty = true;
+      log.warn(`세션 트랙 저장 실패 — 다음 변경에서 통째로 다시 씁니다 (서버 ID ${guildId}): ${error.message}`);
     }
+  }
 
+  resync(store = liveStore()) {
+    const p = this.player;
+    if (this.frozen || !store || !p.guild?.id) return;
+    try {
+      store.replaceTracks(p.guild.id, { current: p.currentTrack, queue: p.queue, history: p.previousTracks });
+      this.dirty = false;
+    } catch (error) {
+      this.dirty = true;
+      log.error(`세션 트랙 재기록 실패 (서버 ID ${p.guild.id}): ${error.message}`);
+    }
+  }
+
+  onSetCurrent(track) {
+    this._mirror((s, g) => s.setCurrent(g, track));
+  }
+
+  onEnqueue(tracks, front) {
+    this._mirror((s, g) => s.append(g, tracks, { front }));
+  }
+
+  onTake(index) {
+    this._mirror((s, g) => s.take(g, index));
+  }
+
+  onRetire(track, requeue) {
+    this._mirror((s, g) => s.retire(g, track, { requeue }));
+  }
+
+  onRemoveAt(index) {
+    this._mirror((s, g) => s.removeAt(g, index));
+  }
+
+  onMove(from, to) {
+    this._mirror((s, g) => s.move(g, from, to));
+  }
+
+  onClearQueue() {
+    this._mirror((s, g) => s.clearQueue(g));
+  }
+
+  onReset(history) {
+    this._mirror((s, g) => s.reset(g, { history }));
+  }
+
+  onReplace() {
+    this.resync();
+  }
+
+  // ── 세션 행 ──
+
+  sessionFields() {
+    const p = this.player;
+    return {
+      voiceChannelId: p.voiceChannel?.id || null,
+      textChannelId: p.textChannel?.id || null,
+      volume: p.volume,
+      loopMode: p.loop === "track" || p.loop === "queue" ? p.loop : "off",
+      autoplay: p.autoplay || null,
+      // 복원하는 건 수동 일시정지뿐이다 — 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
+      pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
+      positionMs: p.getCurrentTime?.() || 0,
+      startOffsetMs: p.currentTrackStartOffsetMs || 0,
+      requesterId: p.requesterId || null,
+      nowPlayingMessageId: p.nowPlayingMessage?.id || null,
+    };
+  }
+
+  async persistState(reason = "manual", immediate = false) {
+    const p = this.player;
+    if (immediate) this.cancelStateSave();
+    const store = liveStore();
+    if (this.frozen || !p.guild?.id || !store) return;
+    try {
+      if (!p.currentTrack && p.queue.length === 0) {
+        store.removeSession(p.guild.id);
+      } else {
+        if (this.dirty) this.resync(store);
+        store.saveSession(p.guild.id, this.sessionFields());
+      }
+    } catch (error) {
+      log.error(`세션 저장 실패 (서버 ID ${p.guild.id}):`, error.message || error);
+    }
+    if (FINAL_REASONS.has(reason)) this.frozen = true;
+  }
+
+  removeSession() {
+    const store = liveStore();
+    const guildId = this.player.guild?.id;
+    if (!store || !guildId) return;
+    try {
+      store.removeSession(guildId);
+    } catch (error) {
+      log.error(`세션 삭제 실패 (서버 ID ${guildId}):`, error.message);
+    }
+  }
+
+  startStateSync() {
+    active.add(this);
+    if (!heartbeat) {
+      heartbeat = setInterval(beat, HEARTBEAT_MS);
+      heartbeat.unref?.();
+    }
+  }
+
+  stopStateSync() {
+    active.delete(this);
+    if (active.size === 0 && heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = null;
+    }
+    this.cancelStateSave();
+  }
+
+  cancelStateSave() {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+  }
+
+  scheduleStatePersist(reason = "update", delay = 200) {
+    this.cancelStateSave();
+    this.saveTimer = setTimeout(
+      () => {
+        this.saveTimer = null;
+        this.persistState(reason).catch(() => {});
+      },
+      Math.max(delay, 0),
+    );
+  }
+
+  // ── 복원 ──
+
+  reviveTrack(data) {
+    if (!data) return null;
+    const { requesterId, ...track } = data;
+    // 요청자는 권한 판정과 멘션에 id만 쓰인다
+    if (requesterId) track.requestedBy = { id: requesterId };
     return track;
   }
 
-  serializeState() {
+  async restoreFromState(record) {
     const player = this.player;
-    const guildId = player.guild?.id;
-    if (!guildId) return null;
-
-    return {
-      guildId,
-      voiceChannelId: player.voiceChannel?.id || null,
-      textChannelId: player.textChannel?.id || null,
-      currentTrack: this.serializeTrack(player.currentTrack),
-      queue: player.queue.map((track) => this.serializeTrack(track)).filter(Boolean),
-      previousTracks: player.previousTracks
-        .slice(-10)
-        .map((track) => this.serializeTrack(track))
-        .filter(Boolean),
-      volume: player.volume,
-      loop: player.loop,
-      shuffle: player.shuffle,
-      autoplay: player.autoplay,
-      paused: player.paused,
-      pauseReasons: Array.from(player.pauseReasons || []),
-      playbackPositionMs: player.getCurrentTime() || 0,
-      currentTrackStartOffsetMs: player.currentTrackStartOffsetMs || 0,
-      lastPlaybackPosition: player.lastPlaybackPosition || 0,
-      requesterId: player.requesterId || null,
-      nowPlayingMessageId: player.nowPlayingMessage?.id || null,
-      nowPlayingChannelId: player.nowPlayingMessage?.channelId || player.textChannel?.id || null,
-      sessionId: player.sessionId,
-      currentDownloadedFile: player.currentDownloadedFile ? path.resolve(player.currentDownloadedFile) : null,
-      updatedAt: Date.now(),
-    };
-  }
-
-  async restoreFromState(state) {
-    const player = this.player;
-    if (!state || !player.guild?.id) return;
+    if (!record || !player.guild?.id) return;
+    const { session } = record;
     this.stopStateSync();
     player.pauseReasons = new Set();
 
-    player.volume = typeof state.volume === "number" ? state.volume : player.volume;
-    player.loop = state.loop ?? false;
-    player.shuffle = state.shuffle ?? false;
-    player.autoplay = state.autoplay ?? false;
-    player.requesterId = state.requesterId || player.requesterId;
+    player.volume = typeof session.volume === "number" ? session.volume : player.volume;
+    player.loop = session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false;
+    player.autoplay = session.autoplay || false;
+    player.requesterId = session.requesterId || player.requesterId;
 
-    player.previousTracks = (state.previousTracks || []).map((serialized) => this.deserializeTrack(serialized)).filter(Boolean);
-
-    const restoredQueue = (state.queue || []).map((serialized) => this.deserializeTrack(serialized)).filter(Boolean);
-
-    player.queue = restoredQueue;
-    player.currentTrack = this.deserializeTrack(state.currentTrack) || null;
+    trackState.restore(player, {
+      current: this.reviveTrack(record.current),
+      queue: record.queue.map((t) => this.reviveTrack(t)),
+      history: record.history.map((t) => this.reviveTrack(t)),
+    });
 
     if (!player.currentTrack && player.queue.length > 0) {
-      player.currentTrack = player.queue.shift();
+      trackState.shiftNext(player);
     }
 
-    const cacheDir = CacheManager._cacheDir;
+    // 받아 둔 파일 경로는 저장하지 않는다 — 내려받을 때와 같은 식으로 캐시 키에서 다시 구한다
+    const key = player.currentTrack?.audioSourceKey || player.currentTrack?.url;
+    const file = key ? CacheManager.getFilePath(key) : null;
+    player.currentDownloadedFile = file && fsSync.existsSync(file) ? file : null;
 
-    if (state.currentDownloadedFile) {
-      const fullPath = path.isAbsolute(state.currentDownloadedFile) ? state.currentDownloadedFile : path.join(cacheDir, state.currentDownloadedFile);
-      if (fsSync.existsSync(fullPath)) {
-        player.currentDownloadedFile = path.resolve(fullPath);
-      } else {
-        player.currentDownloadedFile = null;
-      }
-    } else {
-      player.currentDownloadedFile = null;
-    }
-
-    const resumeMsRaw = Number(state.playbackPositionMs) || 0;
     const trackDurationMs = player.currentTrack?.duration ? Number(player.currentTrack.duration) * 1000 : null;
-    let resumeMs = Math.max(0, resumeMsRaw);
+    let resumeMs = Math.max(0, Number(session.positionMs) || 0);
     if (trackDurationMs && resumeMs > Math.max(trackDurationMs - 2000, 0)) {
       resumeMs = 0;
     }
 
-    player.currentTrackStartOffsetMs = Math.max(Number(state.currentTrackStartOffsetMs) || 0, 0);
+    player.currentTrackStartOffsetMs = Math.max(Number(session.startOffsetMs) || 0, 0);
     player.lastPlaybackPosition = resumeMs;
     player.paused = false;
 
@@ -171,20 +253,14 @@ class SessionPersistence {
     }
 
     if (!player.currentTrack) {
-      CacheManager.removePlayerSession(player.guild.id);
+      this.removeSession();
       return;
     }
 
-    // 재시작 전 수동 일시정지는 멈춘 상태로 복원
-    // alone/mute 같은 상황성 사유는 복원 시점의 실제 상황이 다를 수 있어 재적용하지 않음
-    // 해당 조건이면 voiceStateUpdate/자리비움 로직이 다시 걸어준다.
-    // 사유 없는 paused(레거시 세션)도 수동으로 간주.
-    const savedReasons = Array.isArray(state.pauseReasons) ? state.pauseReasons : [];
-    const restoreManualPause = Boolean(state.paused) && (savedReasons.includes("manual") || savedReasons.length === 0);
-    if (restoreManualPause) player.pauseReasons.add("manual"); // play()가 시작 직후 즉시 일시정지
+    if (session.pausedManual) player.pauseReasons.add("manual"); // play()가 시작 직후 즉시 일시정지
 
     await player.play(null, resumeMs);
-    if (restoreManualPause) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
+    if (session.pausedManual) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
 
     if (player.resource?.volume) {
       player.resource.volume.setVolume(player.volume / 100);
@@ -195,13 +271,13 @@ class SessionPersistence {
       try {
         // 이전 세션의 오래된 현재 재생 메시지 제거;
         // 웹훅 소유이거나 CV2일 수 있어 제자리 수정은 신뢰할 수 없음
-        if (state.nowPlayingMessageId) {
-          const oldMessage = await player.textChannel.messages.fetch(state.nowPlayingMessageId).catch(() => null);
+        if (session.nowPlayingMessageId) {
+          const oldMessage = await player.textChannel.messages.fetch(session.nowPlayingMessageId).catch(() => null);
           if (oldMessage) await oldMessage.delete().catch(() => {});
         }
 
         // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 복구에는 진입점 자리표시자가 없다.
-        const requester = { id: state.requesterId || player.guild.client.user.id, username: null, tag: null };
+        const requester = { id: session.requesterId || player.guild.client.user.id };
         await embedManager.createNewMusicEmbed(player, player.currentTrack, requester);
       } catch (error) {
         log.error("세션 복원 중 재생 임베드 복구 실패:", error?.message || error);
@@ -210,90 +286,18 @@ class SessionPersistence {
 
     if (player.textChannel && player.currentTrack) {
       try {
-        const resumeMessage = "음악 재개됨";
-        const positionSeconds = Math.floor(resumeMs / 1000);
-        const positionFormatted = formatDuration(positionSeconds);
-
-        await player.textChannel.send({
-          content: `▶️ ${resumeMessage} • **${escapeMd(player.currentTrack.title || "Unknown")}** (${positionFormatted})`,
-        });
-      } catch (error) {
+        const title = escapeMd(player.currentTrack.title || "Unknown");
+        const at = formatDuration(Math.floor(resumeMs / 1000));
+        const content = player.paused ? `⏸️ 일시정지 상태로 복원됨 • **${title}** (${at})` : `▶️ 음악 재개됨 • **${title}** (${at})`;
+        scheduleDelete(await player.textChannel.send({ content }));
+      } catch {
         // 메시지를 보낼 수 없으면 무시
       }
     }
 
     this.scheduleStatePersist("restored", 1000);
   }
-
-  async persistState(reason = "manual", immediate = false) {
-    const player = this.player;
-    try {
-      if (!player.guild?.id) return;
-
-      // 즉시 저장이면 대기 중인 저장 취소
-      if (immediate) {
-        this.cancelStateSave();
-      }
-
-      if (!player.currentTrack && player.queue.length === 0) {
-        CacheManager.removePlayerSession(player.guild.id);
-        return;
-      }
-
-      const state = this.serializeState();
-      if (!state) {
-        CacheManager.removePlayerSession(player.guild.id);
-        return;
-      }
-
-      state.reason = reason;
-      CacheManager.savePlayerSession(player.guild.id, state);
-    } catch (error) {
-      log.error(`세션 저장 실패 (서버 ID ${player.guild?.id}):`, error.message || error);
-    }
-  }
-
-  startStateSync() {
-    const player = this.player;
-    if (player.stateSyncInterval) return;
-
-    player.stateSyncInterval = setInterval(() => {
-      if (!player.guild?.id) return;
-      if (!player.currentTrack && player.queue.length === 0) return;
-
-      this.persistState("interval").catch(() => {});
-    }, player.stateSyncIntervalMs);
-  }
-
-  stopStateSync() {
-    const player = this.player;
-    if (player.stateSyncInterval) {
-      clearInterval(player.stateSyncInterval);
-      player.stateSyncInterval = null;
-    }
-
-    this.cancelStateSave();
-  }
-
-  cancelStateSave() {
-    const player = this.player;
-    if (player.stateSaveTimeout) {
-      clearTimeout(player.stateSaveTimeout);
-      player.stateSaveTimeout = null;
-    }
-  }
-
-  scheduleStatePersist(reason = "update", delay = 200) {
-    const player = this.player;
-    this.cancelStateSave();
-    player.stateSaveTimeout = setTimeout(
-      () => {
-        player.stateSaveTimeout = null;
-        this.persistState(reason).catch(() => {});
-      },
-      Math.max(delay, 0),
-    );
-  }
 }
 
 module.exports = SessionPersistence;
+module.exports._beat = beat;

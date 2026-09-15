@@ -124,10 +124,9 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
     queue: [],
     previousTracks: [],
     loop: false,
-    shuffle: false,
     paused: false,
     isPlaybackActive: () => true,
-    getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false, shuffle: false }),
+    getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }),
   };
   const base = { title: "Test", url: "https://example.org/a.mp3", duration: 127, platform: "direct" };
 

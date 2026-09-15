@@ -61,7 +61,7 @@ function makePlayer() {
     previousTracks: [],
     volume: 50,
     getStatus() {
-      return { playing: true, paused: false, volume: this.volume, loop: false, shuffle: false };
+      return { playing: true, paused: false, volume: this.volume, loop: false };
     },
     isPlaybackActive: () => true,
     getCurrentTime: () => 0,

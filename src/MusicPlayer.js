@@ -21,6 +21,7 @@ const TrackDownloader = require("./TrackDownloader");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./SessionPersistence");
 const QueueWarmer = require("./QueueWarmer");
+const trackState = require("./trackState");
 const { spawnFfmpeg } = require("./ffmpegProcess");
 const { Readable } = require("stream");
 const fsSync = require("fs");
@@ -45,10 +46,8 @@ class MusicPlayer {
     this.connection = null;
     this.resource = null;
 
-    // 대기열 관리
-    this.queue = [];
-    this.currentTrack = null;
-    this.previousTracks = [];
+    // 대기열 관리 — 현재곡·대기열·기록은 trackState로만 바꾼다
+    trackState.init(this);
     // 캐시 퇴거 보호 중인 audioSourceKey — currentTrack과 별도로 기억,
     // 종료 경로가 currentTrack을 먼저 null해도 해제가 누락되지 않게
     this._protectedAudioKey = null;
@@ -56,7 +55,6 @@ class MusicPlayer {
     // 플레이어 설정
     this.volume = config.bot.defaultVolume;
     this.loop = false; // false, 'track', 'queue' 중 하나
-    this.shuffle = false;
     this.autoplay = false; // false 또는 장르 문자열: 'pop', 'rock', 'hiphop' 등
     this.paused = false;
 
@@ -92,7 +90,6 @@ class MusicPlayer {
     this.skipRequested = false;
     this.stopRequested = false;
     this.isPlayStarting = false; // play() 셋업 진행 중 — 워처 자동 스킵 재진입 방지
-    this.nextFromFront = false; // 셔플을 우회해 대기열 앞쪽에서 다음 트랙을 강제 선택 (이동/이전곡)
     this.expectedTrackEndTs = null;
     this.currentTrackCache = null;
     this.activeStreamInfo = null;
@@ -100,11 +97,6 @@ class MusicPlayer {
     this.currentTrackStartOffsetMs = 0;
 
     // 음성 채널 상태 소유권
-
-    // 영속화 관리
-    this.stateSyncInterval = null;
-    this.stateSyncIntervalMs = 5000;
-    this.stateSaveTimeout = null;
 
     // 일시정지 관리
     this.pauseReasons = new Set();
@@ -121,6 +113,7 @@ class MusicPlayer {
     this.voice = new VoiceConnectionManager(this);
     this.downloader = new TrackDownloader(this);
     this.persistence = new SessionPersistence(this);
+    this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
     this.warmer = new QueueWarmer(this, {
       warm: (track) => this.downloader.warm(track),
       isCached: (track) => this.downloader.isCached(track),
@@ -137,6 +130,11 @@ class MusicPlayer {
   setupEvents() {
     // 오디오 플레이어 이벤트
     this.audioPlayer.on(AudioPlayerStatus.Playing, () => {
+      // pause()는 재생 중일 때만 먹는다. 버퍼링 중에 걸린 일시정지는 재생으로 넘어오는 이 순간에 건다.
+      if (this.pauseReasons.size > 0) {
+        this.audioPlayer.pause();
+        return;
+      }
       // 재개 시 경과 오프셋을 반영해 startTime 조정
       if (this.paused && this.pausedTime > 0) {
         // 일시정지에서 재개 - 누적 pausedTime 유지
@@ -222,7 +220,7 @@ class MusicPlayer {
 
   // ── 다운로드/사전 로드 — 로직은 TrackDownloader ──────────────────────────
 
-  async play(trackIndex = null, seekMs = 0) {
+  async play(_trackIndex = null, seekMs = 0) {
     // 재진입 가드 — play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). isPlayStarting 동안 워처는 발동을 미룬다.
     this.isPlayStarting = true;
@@ -232,12 +230,7 @@ class MusicPlayer {
         if (this.queue.length === 0) {
           return { success: false, message: "대기열에 트랙이 없습니다!" };
         }
-        this.currentTrack = this.queue.shift();
-      }
-
-      // 특정 트랙이 요청된 경우
-      if (trackIndex !== null && this.queue[trackIndex]) {
-        this.currentTrack = this.queue.splice(trackIndex, 1)[0];
+        trackState.shiftNext(this);
       }
 
       // 연결되어 있지 않으면 음성 채널에 연결
@@ -574,8 +567,9 @@ class MusicPlayer {
       }
 
       if (this.pauseReasons.size > 0) {
-        log.info(`일시정지 상태로 재생 시작: 원인=${Array.from(this.pauseReasons).join(", ")}`);
-        this.audioPlayer.pause();
+        // 멈추는 건 Playing 리스너다 — 지금은 아직 버퍼링이라 pause()가 먹지 않는다
+        log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${Array.from(this.pauseReasons).join(", ")}`);
+        this.paused = true;
       }
 
       // 빠른 재개를 위해 활성 스트림 정보 저장
@@ -898,6 +892,13 @@ class MusicPlayer {
       }
     }
 
+    // 버퍼링 중이면 의도만 받아 둔다 — 재생으로 넘어오는 순간 Playing 리스너가 멈춘다
+    if (status === AudioPlayerStatus.Buffering && this.pauseReasons.size > 0) {
+      this.paused = true;
+      this.scheduleStatePersist("pause", 0);
+      return true;
+    }
+
     return false;
   }
 
@@ -925,7 +926,7 @@ class MusicPlayer {
       return false;
     }
 
-    if (status === AudioPlayerStatus.Playing) {
+    if (status === AudioPlayerStatus.Playing || status === AudioPlayerStatus.Buffering) {
       this.paused = false;
       this.scheduleStatePersist("resume", 0);
       return true;
@@ -959,8 +960,7 @@ class MusicPlayer {
 
         this.pauseReasons.clear();
         this.pendingEndReason = "inactivity-timeout";
-        this.queue = [];
-        this.currentTrack = null;
+        trackState.reset(this);
 
         try {
           const embedManager = this.guild?.client?.musicEmbedManager;
@@ -1064,21 +1064,17 @@ class MusicPlayer {
     this.paused = false;
 
     this.releaseResources();
-    if (this.guild?.id) {
-      CacheManager.removePlayerSession(this.guild.id);
-    }
+    this.persistence?.removeSession();
 
     this.releaseAudioProtection();
 
     this.currentDownloadedFile = null;
 
-    this.queue = [];
     // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
     this._endingLabel = `"${this.currentTrack?.title ?? "?"}" (${this.currentTrack?.platform ?? "?"})`;
-    this.currentTrack = null;
+    trackState.reset(this);
     this.pendingEndReason = "stop";
     this.stopRequested = true;
-    this.nextFromFront = false;
     this.currentTrackStartOffsetMs = 0;
     this.lastPlaybackPosition = 0;
     this.audioPlayer.stop(true);
@@ -1091,7 +1087,7 @@ class MusicPlayer {
     // 연결 해제 전에 전체 상태(대기열, 위치, 설정) 저장
     await this.persistState("leave", true);
 
-    // stop()과 같은 연결 해제 절차이지만 removePlayerSession은 호출하지 않음
+    // stop()과 같은 연결 해제 절차이지만 세션은 지우지 않는다
     this.pauseReasons.clear();
     this.paused = false;
     this.releaseResources();
@@ -1100,11 +1096,9 @@ class MusicPlayer {
 
     this.currentDownloadedFile = null;
 
-    this.queue = [];
-    this.currentTrack = null;
+    trackState.reset(this);
     this.pendingEndReason = "stop";
     this.stopRequested = true;
-    this.nextFromFront = false;
     this.currentTrackStartOffsetMs = 0;
     this.lastPlaybackPosition = 0;
     this.audioPlayer.stop(true);
@@ -1168,16 +1162,9 @@ class MusicPlayer {
     }
 
     if (this.previousTracks.length > 0) {
-      // 이전 트랙을 맨 앞에 넣고 그 곡으로 건너뜀. 현재 트랙은 currentTrack으로 남겨 handleTrackEnd가 올바르게 기록하도록 함;
-      // 여기서 이전 트랙을 미리 할당하면 "예기치 않게 종료됨"
-      // 재시도 로직이 그 곡을 중간부터 재개하게 됨.
-      const prev = this.previousTracks.pop();
-      this.queue.unshift(prev);
-      // 중단된 현재 트랙을 그 바로 뒤에 넣어 대기열이 이전 트랙 종료 후 원래 위치부터 이어지게 함
-      if (this.currentTrack) {
-        this.queue.splice(1, 0, this.currentTrack);
-      }
-      this.nextFromFront = true;
+      // 현재 트랙은 currentTrack으로 남겨 handleTrackEnd가 기록하게 한다. 여기서 이전 트랙을
+      // 미리 할당하면 "예기치 않게 종료됨" 재시도 로직이 그 곡을 중간부터 재개한다.
+      trackState.rewind(this);
 
       if (this.trackTimer) {
         clearTimeout(this.trackTimer);
@@ -1207,10 +1194,7 @@ class MusicPlayer {
   shuffleQueue() {
     if (this.queue.length > 1) {
       clog.info(`대기열 섞음: ${this.queue.length}곡`);
-      for (let i = this.queue.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
-      }
+      trackState.shuffle(this);
       this.scheduleStatePersist("shuffle-queue", 200);
       return true;
     }
@@ -1238,23 +1222,17 @@ class MusicPlayer {
     return this.autoplay;
   }
 
-  setShuffle(enabled) {
-    this.shuffle = enabled;
-    this.scheduleStatePersist("shuffle-toggle", 200);
-    return this.shuffle;
-  }
-
   clearQueue() {
     const cleared = this.queue.length;
     if (cleared) clog.info(`대기열 비움: ${cleared}곡`);
-    this.queue = [];
+    trackState.clearQueue(this);
     this.scheduleStatePersist("clear-queue", 0);
     return cleared;
   }
 
   removeFromQueue(index) {
-    if (index >= 0 && index < this.queue.length) {
-      const removed = this.queue.splice(index, 1)[0];
+    const removed = trackState.removeAt(this, index);
+    if (removed) {
       clog.info(`대기열 제거: [${index}] "${removed?.title ?? "?"}" | 남은 ${this.queue.length}곡`);
       this.scheduleStatePersist("queue-remove", 200);
       return removed;
@@ -1263,9 +1241,8 @@ class MusicPlayer {
   }
 
   moveInQueue(from, to) {
-    if (from >= 0 && from < this.queue.length && to >= 0 && to < this.queue.length) {
-      const track = this.queue.splice(from, 1)[0];
-      this.queue.splice(to, 0, track);
+    const track = trackState.move(this, from, to);
+    if (track) {
       clog.info(`대기열 이동: "${track?.title ?? "?"}" ${from}번 → ${to}번`);
       this.scheduleStatePersist("queue-move", 200);
       return true;
@@ -1372,12 +1349,7 @@ class MusicPlayer {
         return;
       }
       if (reason !== "previous") {
-        this.previousTracks.push(finishedTrack);
-        if (this.previousTracks.length > 50) this.previousTracks.shift();
-
-        if (this.loop === "queue") {
-          this.queue.push(finishedTrack);
-        }
+        trackState.retire(this, finishedTrack, { requeue: this.loop === "queue" });
       }
 
       this.resource = null;
@@ -1389,16 +1361,7 @@ class MusicPlayer {
       this.currentTrackCache = null;
 
       if (this.queue.length > 0) {
-        if (this.nextFromFront) {
-          // jump-to / previous / playfirst가 이 트랙을 의도적으로 맨 앞에 두었으므로 셔플이 켜져 있어도 이를 존중
-          this.nextFromFront = false;
-          this.currentTrack = this.queue.shift();
-        } else if (this.shuffle) {
-          const randomIndex = Math.floor(Math.random() * this.queue.length);
-          this.currentTrack = this.queue.splice(randomIndex, 1)[0];
-        } else {
-          this.currentTrack = this.queue.shift();
-        }
+        trackState.shiftNext(this);
 
         // 다음 트랙을 처음부터 재생
         await this.play(null, 0);
@@ -1425,7 +1388,7 @@ class MusicPlayer {
         this.autoplay = false;
       }
 
-      this.currentTrack = null;
+      trackState.setCurrent(this, null);
       this.currentTrackCache = null;
       this.currentTrackStartOffsetMs = 0;
 
@@ -1438,9 +1401,7 @@ class MusicPlayer {
       }
 
       this.clearInactivityTimer(false);
-      if (this.guild?.id) {
-        CacheManager.removePlayerSession(this.guild.id);
-      }
+      this.persistence?.removeSession();
 
       // 트랙이 끝날 때마다 새로 예약되므로 이전 것을 반드시 지운다 — 쌓아두면 이 플레이어가
       // 교체된 뒤에도 하나씩 깨어나 남의 플레이어를 정리한다.
@@ -1527,11 +1488,9 @@ class MusicPlayer {
       randomTrack.requestedBy = this.guild.members.me.user;
       randomTrack.addedAt = Date.now();
 
-      // 대기열에 추가
-      this.queue.push(randomTrack);
-
-      // 처음부터 재생 시작
-      this.currentTrack = this.queue.shift();
+      // 끝에 넣고 맨 앞을 꺼낸다 — 검색하는 사이 사용자가 곡을 넣었으면 그 곡이 먼저다
+      trackState.enqueue(this, [randomTrack]);
+      trackState.shiftNext(this);
       await this.play(null, 0);
 
       // 자동재생 트랙용 현재 재생 임베드 갱신
@@ -1552,10 +1511,10 @@ class MusicPlayer {
           await this.textChannel.send(userMessage);
         } catch (_) {}
       }
-      this.currentTrack = this.queue.shift();
+      trackState.shiftNext(this);
       await this.play(null, 0);
     } else {
-      this.currentTrack = null;
+      trackState.setCurrent(this, null);
       // 시작/마지막 곡 실패 정리: 오디오플레이어를 정지해 '말하는 중'(speaking) 상태·유령 재생을 해제.
       // 사용자 알림은 호출자(명령 editReply / 대시보드 응답)가 play() 반환값으로 처리 —
       // 여기서 textChannel로 또 보내면 중복이 되므로 전송하지 않는다.
@@ -1614,10 +1573,10 @@ class MusicPlayer {
       this.stopStateSync();
 
       // 종료 중에는 정리 전에 상태 저장
-      if (isShutdown && this.guild?.id) {
+      if (isShutdown) {
         this.persistState("shutdown").catch(() => {});
-      } else if (this.guild?.id) {
-        CacheManager.removePlayerSession(this.guild.id);
+      } else {
+        this.persistence?.removeSession();
       }
 
       if (!isShutdown) {
@@ -1671,11 +1630,9 @@ class MusicPlayer {
         this.resource = null;
       }
 
-      // 플레이어 데이터 정리
-      this.queue = [];
+      // 플레이어 데이터 정리 — 보호 해제가 currentTrack을 읽으므로 먼저
       this.releaseAudioProtection();
-      this.currentTrack = null;
-      this.previousTracks = [];
+      trackState.reset(this, { history: true });
       this.startTime = null;
       this.pausedTime = 0;
       this.currentTrackCache = null;
@@ -1686,7 +1643,6 @@ class MusicPlayer {
       this.recoveryAttempts = 0;
       this.lastPlaybackPosition = 0;
       this.currentTrackStartOffsetMs = 0;
-      this.nextFromFront = false;
 
       // UI 참조 정리
       this.nowPlayingMessage = null;
@@ -1732,7 +1688,6 @@ class MusicPlayer {
       queue: this.queue.length,
       volume: this.volume,
       loop: this.loop,
-      shuffle: this.shuffle,
       currentTrack: this.currentTrack,
       voiceChannel: this.voiceChannel?.name,
       textChannel: this.textChannel?.name,

@@ -26,8 +26,8 @@ module.exports = {
     }
 
     // /leave에서 저장한 세션이 있는지 확인
-    const savedState = CacheManager.getPlayerSession(guild.id);
-    const hasSession = savedState?.currentTrack;
+    const savedState = CacheManager.sessions.load(guild.id);
+    const hasSession = savedState?.current;
 
     // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로
     // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라, 그냥 버리면 새 플레이어와
@@ -52,7 +52,8 @@ module.exports = {
 
         // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
         // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
-        await interaction.editReply({ content: `▶️ 이전 세션을 복구했어요! **${escapeMd(player.currentTrack.title)}** 재생 중` });
+        const title = escapeMd(player.currentTrack.title);
+        await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}** — 일시정지 상태예요` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
       } catch (error) {
         log.error({ sub: "join" }, "세션 복원 실패:", error.message);
         player.releaseResources();

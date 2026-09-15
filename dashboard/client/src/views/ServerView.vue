@@ -93,7 +93,7 @@
                 </button>
 
                 <!-- Shuffle -->
-                <button :class="player.shuffle ? iconActive : iconBtn" @click="action('shuffle')" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2">
+                <button :class="iconBtn" @click="action('shuffle')" v-tooltip="'셔플'" :disabled="!player.canControl || player.queue.length < 2">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
                 </button>
                 <!-- Loop (cycles: off → track → queue) -->
@@ -240,7 +240,7 @@ const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 c
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
-const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
+const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
 
 // 대기열은 앞에서부터 한 묶음씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
 const QUEUE_PAGE = 100;
@@ -381,7 +381,7 @@ async function doStop() {
   showStopConfirm.value = false;
   try {
     await axios.post(`/api/guilds/${guildId}/player/stop`);
-    player.value = { ...player.value, playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false };
+    player.value = { ...player.value, playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false };
   } catch (e) {
     console.error("stop", e);
   }

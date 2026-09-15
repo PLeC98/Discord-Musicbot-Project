@@ -8,6 +8,7 @@ const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
 const { silentResponder } = require("./playbackResponder");
 const GuildSettingsManager = require("./GuildSettingsManager");
+const trackState = require("./trackState");
 
 // 편집 대상이 사라진 경우 — 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
 const UNKNOWN_MESSAGE = 10008;
@@ -109,7 +110,7 @@ class MusicEmbedManager {
 
         // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
         if (i === 0 && wasIdle) {
-          player.currentTrack = track;
+          trackState.setCurrent(player, track);
 
           // 음성 채널에 연결하고 재생 시작
           let playbackStarted = false;
@@ -132,7 +133,7 @@ class MusicEmbedManager {
 
           if (startFailure) {
             // 시작 실패 — 유령 임베드 만들지 않음. 실패한 곡은 큐에 넣지 않는다(재시도해도 실패).
-            player.currentTrack = null;
+            trackState.setCurrent(player, null);
           } else if (playbackStarted) {
             // UI 실패가 재생 상태를 망가뜨리면 안 됨 — 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
             try {
@@ -148,15 +149,7 @@ class MusicEmbedManager {
       }
 
       // 수집한 트랙을 대기열 앞이나 뒤에 삽입
-      if (tracksToQueue.length > 0) {
-        if (insertFirst) {
-          player.queue.unshift(...tracksToQueue);
-          // 셔플이 켜져 있어도 다음 전환에서 앞쪽 배치를 존중
-          if (player.currentTrack) player.nextFromFront = true;
-        } else {
-          player.queue.push(...tracksToQueue);
-        }
-      }
+      trackState.enqueue(player, tracksToQueue, { front: insertFirst });
 
       // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
       if (startFailure && !player.currentTrack && player.queue.length > 0) {
@@ -523,7 +516,7 @@ class MusicEmbedManager {
     }
 
     // 플레이어 정리
-    player.currentTrack = null;
+    trackState.setCurrent(player, null);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
   }
@@ -559,11 +552,7 @@ class MusicEmbedManager {
     const volumeButton = new ButtonBuilder().setCustomId(`music_volume:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
 
     // Row 2: 셔플(아이콘만) + 반복 + 대기열 + 자동재생
-    const shuffleButton = new ButtonBuilder()
-      .setCustomId(`music_shuffle:${requesterId}:${sessionId}`)
-      .setStyle(player.shuffle ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setEmoji("🔀")
-      .setDisabled(disabled);
+    const shuffleButton = new ButtonBuilder().setCustomId(`music_shuffle:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
 
     // 반복 버튼 — 꺼짐 → 트랙 → 대기열 순환
     let loopLabel, loopEmoji, loopStyle;
