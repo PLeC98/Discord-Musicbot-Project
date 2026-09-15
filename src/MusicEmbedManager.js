@@ -20,6 +20,7 @@ const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNK
 const PIN_SETTLE_MS = 12000;
 const { markTransient, isTransient } = require("./transientMessages");
 const blankThumbnail = require("./blankThumbnail");
+const NowPlayingPanel = require("./NowPlayingPanel");
 
 const BAR_LENGTH = 16;
 
@@ -30,6 +31,7 @@ class MusicEmbedManager {
     this.updateIntervals = new Map(); // guildId -> intervalId 매핑
     this.webhookCache = new Map(); // channelId -> WebhookClient 매핑
     this.reposting = new Set(); // 현재 재생 메시지를 다시 올리는 중인 guildId
+    this.panel = new NowPlayingPanel(this);
   }
 
   deleteWebhookCache(channelId) {
@@ -246,6 +248,7 @@ class MusicEmbedManager {
 
     const { message, webhook } = await this._sendNowPlaying(player, track);
     player.nowPlayingWebhook = webhook;
+    await this.panel.commit(player.guild, player.textChannel, message, webhook); // 지난 재생·세션의 패널을 치운다
 
     // 진입점이 띄운 "검색 중…" 자리표시자 제거 — 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
@@ -322,7 +325,6 @@ class MusicEmbedManager {
 
     this.reposting.add(guildId);
     const previous = player.nowPlayingMessage;
-    const previousWebhook = player.nowPlayingWebhook;
     try {
       const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack);
 
@@ -333,7 +335,7 @@ class MusicEmbedManager {
 
       player.nowPlayingMessage = message;
       player.nowPlayingWebhook = webhook;
-      await this._removeNowPlaying(player.textChannel, previousWebhook, previous?.id);
+      await this.panel.commit(player.guild, player.textChannel, message, webhook);
       log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다 — 5초마다 같은 실패를 반복하면 그게 도배다

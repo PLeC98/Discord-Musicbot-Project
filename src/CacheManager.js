@@ -11,7 +11,7 @@ const DB_PATH = path.join(__dirname, "..", "database", "cache.db");
 const CACHE_DIR = path.join(__dirname, "..", "audio_cache");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 // 제거 점수 가중치
 const W_RECENCY = 0.4;
@@ -106,6 +106,8 @@ class CacheManager {
                 sponsorblock_enabled     INTEGER,   -- NULL=상속(전역 기본), 0/1
                 sponsorblock_categories  TEXT,       -- NULL=상속, JSON 배열
                 playlist_add_max         INTEGER,    -- NULL=기본값, 재생목록을 넣을 때 한 번에 들어가는 곡 수
+                now_playing_channel_id   TEXT,       -- 서버당 하나뿐인 현재 재생 패널의 자리
+                now_playing_message_id   TEXT,
                 updated_at               INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
@@ -566,6 +568,27 @@ class CacheManager {
              updated_at       = excluded.updated_at`,
       )
       .run(guildId, count ?? null, Date.now());
+  }
+
+  /** 이 서버의 현재 재생 패널 자리 — 없으면 null */
+  getPanelRecord(guildId) {
+    if (!this._initialized) this.initialize();
+    const row = this.db.prepare("SELECT now_playing_channel_id AS channelId, now_playing_message_id AS messageId FROM guild_settings WHERE guild_id = ?").get(guildId);
+    return row?.messageId ? { channelId: row.channelId, messageId: row.messageId } : null;
+  }
+
+  /** messageId가 null이면 비운다 */
+  setPanelRecord(guildId, channelId, messageId) {
+    if (!this._initialized) this.initialize();
+    this.db
+      .prepare(
+        `INSERT INTO guild_settings (guild_id, now_playing_channel_id, now_playing_message_id, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(guild_id) DO UPDATE SET
+             now_playing_channel_id = excluded.now_playing_channel_id,
+             now_playing_message_id = excluded.now_playing_message_id,
+             updated_at             = excluded.updated_at`,
+      )
+      .run(guildId, messageId ? channelId : null, messageId ?? null, Date.now());
   }
 
   // 시작 시 정리

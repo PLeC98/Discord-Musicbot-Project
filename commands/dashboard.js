@@ -30,15 +30,9 @@ module.exports = {
 
     if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
 
-    if (player.nowPlayingMessage) {
-      try {
-        await player.nowPlayingMessage.delete();
-      } catch {
-        /* 이미 삭제되었거나 권한 없음 */
-      }
-      player.nowPlayingMessage = null;
-      player.nowPlayingWebhook = null;
-    }
+    // 옛 패널은 새로 올릴 때 기록을 보고 치운다
+    player.nowPlayingMessage = null;
+    player.nowPlayingWebhook = null;
 
     client.musicEmbedManager.stopProgressUpdate(guild.id);
 

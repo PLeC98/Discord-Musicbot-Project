@@ -45,6 +45,9 @@ function makeSetup(state = {}) {
     user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" },
   });
   mem.getOrCreateWebhook = async () => webhook;
+  // 패널 자리 기록은 메모리로 — 실제 DB를 열지 않는다
+  const records = new Map([["g1", { channelId: BOT_CHANNEL, messageId: "100" }]]);
+  mem.panel.store = { getPanel: async (g) => records.get(g) ?? null, setPanel: async (g, channelId, messageId) => records.set(g, messageId ? { channelId, messageId } : null) };
 
   const player = {
     guild: { id: "g1" },
