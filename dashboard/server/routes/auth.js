@@ -12,6 +12,8 @@ const REDIRECT_URI = `${DASHBOARD_URL}/auth/callback`;
 const OWNER_ID = config.dashboard.ownerId;
 
 const DISCORD_API = "https://discord.com/api/v10";
+// 응답 없는 요청이 로그인 콜백을 붙잡지 않도록. Discord 호출은 모두 이 인스턴스로 나간다.
+const http = axios.create({ timeout: 10000 });
 
 // Log OAuth config at startup — 리다이렉트 불일치 디버깅용 REDIRECT_URI만.
 // CLIENT_ID는 config에서 필수 검증되므로(없으면 기동 실패) 출력 불필요하고,
@@ -49,7 +51,7 @@ router.get("/callback", async (req, res) => {
 
   try {
     // Exchange code for access token
-    const tokenRes = await axios.post(
+    const tokenRes = await http.post(
       `${DISCORD_API}/oauth2/token`,
       new URLSearchParams({
         client_id: CLIENT_ID,
@@ -64,8 +66,9 @@ router.get("/callback", async (req, res) => {
     const { access_token, token_type } = tokenRes.data;
     const authHeader = `${token_type} ${access_token}`;
 
-    // Fetch user + guilds in parallel
-    const [userRes, guildsRes] = await Promise.all([axios.get(`${DISCORD_API}/users/@me`, { headers: { Authorization: authHeader } }), axios.get(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: authHeader } })]);
+    // 사용자 및 길드 정보를 병렬로 Fetch
+    const opts = { headers: { Authorization: authHeader } };
+    const [userRes, guildsRes] = await Promise.all([http.get(`${DISCORD_API}/users/@me`, opts), http.get(`${DISCORD_API}/users/@me/guilds`, opts)]);
 
     const user = userRes.data;
 
@@ -89,8 +92,8 @@ router.get("/callback", async (req, res) => {
     });
   } catch (error) {
     const discordErr = error.response?.data;
-    // 한 실패에 네 줄을 찍고 있었다 — 상태·본문은 구조화 필드로 싣고 줄은 하나만 남긴다.
-    log.error({ status: error.response?.status, body: JSON.stringify(discordErr), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: 상태 코드 ${error.response?.status ?? "?"}`);
+    const what = error.response ? `상태 코드 ${error.response.status}` : error.code || error.message; // 응답 없는 실패(타임아웃 등)도 읽히게
+    log.error({ status: error.response?.status, body: JSON.stringify(discordErr), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: ${what}`);
     res.redirect("/?error=auth_failed");
   }
 });
