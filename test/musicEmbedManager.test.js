@@ -220,3 +220,10 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
     GuildSettingsManager.getBotChannel = restore;
   }
 });
+
+test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {
+  const mem = new MusicEmbedManager({ players: new Map() });
+  const json = JSON.stringify((await mem.createIdleContainer({ reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());
+  assert.match(json, /곡을 기다리고 있어요/);
+  assert.match(json, /<t:1600:R> 쉬러 갈게요/);
+});

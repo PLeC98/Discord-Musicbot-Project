@@ -522,14 +522,14 @@ class MusicEmbedManager {
   /**
    * 끝난 패널 — 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 자리는 투명 이미지로 채워 줄 구성을 맞춘다.
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
-   * reason: queue-end(음성에 잠시 남음) | stop · disconnected(나감) | leave(세션 저장됨)
+   * reason: queue-end(음성에 잠시 남음) | stop · disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
    */
   async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null } = {}) {
     let title, status;
     if (reason === "leave") {
       [title, status] = ["듣고 있던 곡이 있어요", "💾 `/join`으로 이어 들을 수 있어요"];
     } else if (leavesAt) {
-      [title, status] = ["재생이 끝났어요", `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
+      [title, status] = [reason === "joined" ? "곡을 기다리고 있어요" : "재생이 끝났어요", `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
     } else {
       [title, status] = ["쉬는 중이에요", dedicated ? "👋 곡을 입력하면 다시 올게요" : "👋 `/play`로 부르면 다시 올게요"];
     }
@@ -564,7 +564,7 @@ class MusicEmbedManager {
     const dedicated = Boolean(panelChannelId) && panelChannelId === botChannelId;
 
     const leaveMs = config.bot.leaveDelayQueueEmptyMs;
-    const view = { reason, leavesAt: reason === "queue-end" && leaveMs > 0 ? Date.now() + leaveMs : null };
+    const view = { reason, leavesAt: (reason === "queue-end" || reason === "joined") && leaveMs > 0 ? Date.now() + leaveMs : null };
     if (guild?.id) this.idleViews.set(guild.id, view);
 
     try {

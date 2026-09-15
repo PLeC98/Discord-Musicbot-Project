@@ -59,6 +59,7 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     releasedResources: 0,
     _trackLabel: MusicPlayer.prototype._trackLabel,
     _isActivePlayer: MusicPlayer.prototype._isActivePlayer,
+    scheduleIdleLeave: MusicPlayer.prototype.scheduleIdleLeave,
     _clearBufferingWatch() {},
     releaseAudioProtection() {},
     scheduleStatePersist() {},
@@ -105,6 +106,18 @@ test("현행 플레이어의 타이머는 정상적으로 정리·해제한다 (
 
   assert.deepEqual(p.cleanupCalls, ["대기열 소진"]);
   assert.equal(players.has(GUILD), false, "봇이 나가고 레지스트리에서 빠진다");
+});
+
+test("/join만 하고 틀지 않아도 같은 타이머로 나간다", async () => {
+  const players = new Map();
+  const p = makePlayer(players, null);
+  players.set(GUILD, p);
+
+  p.scheduleIdleLeave("곡 없이 대기");
+  await sleep(DELAY * 3);
+
+  assert.deepEqual(p.cleanupCalls, ["곡 없이 대기"]);
+  assert.equal(players.has(GUILD), false);
 });
 
 test("타이머가 깨어났을 때 다시 재생 중이면 아무것도 하지 않는다", async () => {
