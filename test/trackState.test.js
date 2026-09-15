@@ -22,6 +22,13 @@ test("init: 비어 있다", () => {
   assert.deepEqual(p, { currentTrack: null, queue: [], previousTracks: [] });
 });
 
+test("roomLeft: 대기열만 세고, 넘쳐 있어도 음수가 아니며, 0이면 끔", () => {
+  const p = make({ current: t("X"), queue: [t("A"), t("B")] });
+  assert.equal(trackState.roomLeft(p, 5), 3, "현재곡은 세지 않는다");
+  assert.equal(trackState.roomLeft(p, 1), 0);
+  assert.equal(trackState.roomLeft(p, 0), Infinity);
+});
+
 test("enqueue: 뒤에 붙이거나 앞에 넣는다", () => {
   const p = make({ current: t("A"), queue: [t("B")] });
   trackState.enqueue(p, [t("C"), t("D")]);

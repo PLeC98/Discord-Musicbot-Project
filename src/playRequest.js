@@ -116,7 +116,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   const count = trackData.tracks?.length ?? 0;
   const what = trackData.isPlaylist ? `${require("./strings").collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
   const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
-  log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}`);
+  log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}`);
 
   return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player };
 }

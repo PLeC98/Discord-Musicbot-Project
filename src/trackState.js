@@ -13,6 +13,11 @@ function init(player) {
   player.previousTracks = [];
 }
 
+// 상한까지 대기열에 더 넣을 수 있는 곡 수. 현재곡은 세지 않는다. max가 0이면 끔.
+function roomLeft(player, max) {
+  return max > 0 ? Math.max(0, max - player.queue.length) : Infinity;
+}
+
 function setCurrent(player, track) {
   player.currentTrack = track ?? null;
   sinkOf(player)?.onSetCurrent(player.currentTrack);
@@ -116,6 +121,7 @@ function restore(player, { current = null, queue = [], history = [] }, { persist
 
 module.exports = {
   HISTORY_MAX,
+  roomLeft,
   init,
   setCurrent,
   enqueue,

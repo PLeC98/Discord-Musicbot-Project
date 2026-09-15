@@ -294,6 +294,32 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   }
 });
 
+test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다", async () => {
+  const config = require("../config");
+  const realMax = config.bot.maxQueueSize;
+  const { p: saved } = makePlayer();
+  trackState.setCurrent(saved, t("now"));
+  trackState.enqueue(
+    saved,
+    Array.from({ length: 30 }, () => t()),
+  );
+  const record = CacheManager.sessions.load(saved.guild.id);
+
+  config.bot.maxQueueSize = 25;
+  try {
+    const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } });
+    await sp.restoreFromState(record);
+    sp.cancelStateSave();
+    assert.equal(p.queue.length, 25);
+    assert.deepEqual(stored(p.guild.id), memory(p), "메모리만 자르면 넘친 행이 DB에 남아 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
+
+    trackState.removeAt(p, 24);
+    assert.deepEqual(stored(p.guild.id), memory(p));
+  } finally {
+    config.bot.maxQueueSize = realMax;
+  }
+});
+
 test("복원: 곡 길이 끝에 거의 닿은 위치는 처음부터", async () => {
   const p = await restore(makeRecord({ positionMs: 99_500 }));
   assert.deepEqual(p.calls[0], ["play", 0, false]);

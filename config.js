@@ -69,6 +69,14 @@ function envUrl(key, def = null) {
   return v;
 }
 
+// 대기열 상한 — 0이면 끔. 켜면 하한이 있다: 그 아래는 사전 캐싱(앞 5곡) 버퍼밖에 안 된다
+const QUEUE_MAX_FLOOR = 25;
+function envQueueMax(key, def) {
+  const n = envInt(key, def, { min: 0 });
+  if (n !== 0 && n < QUEUE_MAX_FLOOR) invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 합니다`);
+  return n;
+}
+
 function resolveFromRoot(p) {
   if (!p) return null;
   return path.isAbsolute(p) ? p : path.resolve(__dirname, p);
@@ -127,7 +135,7 @@ module.exports = {
   // 봇 설정
   bot: {
     defaultVolume: 100,
-    maxQueueSize: 100,
+    maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", 250), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
     maxPlaylistSize: 50,
     embedColor: env("EMBED_COLOR", "#2743D2"),
     supportServer: envUrl("SUPPORT_SERVER"),
