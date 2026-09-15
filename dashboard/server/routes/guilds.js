@@ -8,7 +8,7 @@ const { checkControl, checkAdd, checkSkip, checkRemoveTrack, isModerator } = req
 const { ChannelType } = require("discord.js");
 const GuildSettingsManager = require("../../../src/GuildSettingsManager");
 const { requestPlayback, continueCollection } = require("../../../src/playRequest");
-const { validState, MAX_COUNT } = require("../../../src/playlistMore");
+const { validState, MAX_COUNT, LIFETIME_MS } = require("../../../src/playlistMore");
 const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
@@ -659,7 +659,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
 });
 
 // 이어 넣기 상태를 화면에 — 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
-const moreView = (more) => (more ? { ...more, requesterId: undefined } : null);
+const moreView = (more) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS } : null);
 
 // Continue a playlist  POST /:guildId/player/queue/more — 곡 추가와 같은 권한·제한
 router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req, res) => {

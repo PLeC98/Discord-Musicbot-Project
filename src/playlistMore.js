@@ -156,8 +156,10 @@ function expireLater(messageId, remove, ms = LIFETIME_MS) {
   expiries.set(messageId, timer);
 }
 
-// 슬래시 명령 — 요청자에게만 보이는 후속 메시지라 누를 사람을 따로 가를 필요가 없다
+// 슬래시 명령 — 일반 채널 메시지로 띄운다. 상호작용 후속 메시지는 디스코드가 원래 응답에 답장 모양으로 붙이는데,
+// 그 응답이 지워지면 "메시지를 불러올 수 없어요"에 매달린다. 채널에 쓸 권한이 없을 때만 본인 전용 후속 메시지로.
 async function offerOnInteraction(interaction, more, player) {
+  if (await offerOnChannel(interaction.channel, more, player, interaction.user.id, { quiet: true })) return;
   const payload = offerMessage(more, roomFor(player));
   if (payload.components.length === 0) return;
   try {
@@ -168,15 +170,18 @@ async function offerOnInteraction(interaction, more, player) {
   }
 }
 
-// 전용 채널 — 상호작용이 없어 공개 메시지다. 누를 수 있는 사람은 custom_id의 요청자로 가른다.
-async function offerOnChannel(channel, more, player, requesterId) {
+// 공개 메시지 — 누를 수 있는 사람은 custom_id의 요청자로 가른다. 띄웠거나 띄울 것이 없으면 true.
+async function offerOnChannel(channel, more, player, requesterId, { quiet = false } = {}) {
   const payload = offerMessage({ ...more, requesterId }, roomFor(player));
-  if (payload.components.length === 0 || typeof channel?.send !== "function") return;
+  if (payload.components.length === 0) return true;
+  if (typeof channel?.send !== "function") return false;
   try {
     const message = await channel.send(payload);
     expireLater(message.id, () => message.delete());
+    return true;
   } catch (error) {
-    log.warn(`더 넣기 메뉴 전송 실패: ${error.message}`);
+    if (!quiet) log.warn(`더 넣기 메뉴 전송 실패: ${error.message}`);
+    return false;
   }
 }
 

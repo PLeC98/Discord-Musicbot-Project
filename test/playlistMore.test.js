@@ -63,3 +63,31 @@ test("곡 수 입력: 1 이상의 정수만", () => {
   assert.equal(More.parseCount(" 120 "), 120);
   for (const bad of ["0", "-5", "1.5", "abc", "", "123456"]) assert.equal(More.parseCount(bad), null, bad);
 });
+
+test("슬래시 명령 메뉴: 채널 메시지로 띄우고(요청자 기록), 채널에 못 쓰면 본인 전용 후속 메시지로", async () => {
+  const more = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, total: 9945, remaining: 9895, batch: 50 };
+  const player = { queue: [] };
+  const sent = [];
+  const followUps = [];
+  const interaction = (channel) => ({ channel, user: { id: "12345678901234567" }, followUp: async (p) => (followUps.push(p), { id: "f1" }), deleteReply: async () => {} });
+
+  await More.offerOnInteraction(interaction({ send: async (p) => (sent.push(p), { id: "m1", delete: async () => {} }) }), more, player);
+  assert.equal(sent.length, 1);
+  assert.equal(followUps.length, 0);
+  assert.equal(sent[0].flags, undefined, "공개 메시지");
+  assert.equal(More.decodeState(sent[0].components[0].components[0].toJSON().custom_id).requesterId, "12345678901234567");
+  More.clearExpiry("m1");
+
+  await More.offerOnInteraction(
+    interaction({
+      send: async () => {
+        throw new Error("Missing Permissions");
+      },
+    }),
+    more,
+    player,
+  );
+  assert.equal(followUps.length, 1);
+  assert.ok(followUps[0].flags, "본인 전용");
+  More.clearExpiry("f1");
+});
