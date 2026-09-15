@@ -91,10 +91,6 @@ module.exports = {
         statusText += " • 🔁 대기열 반복";
       }
 
-      if (status.shuffle) {
-        statusText += " • 🔀 셔플";
-      }
-
       embed.addFields({ name: "📊 상태", value: statusText, inline: false });
 
       if (player.queue.length > 0) {

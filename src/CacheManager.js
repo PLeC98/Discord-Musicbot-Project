@@ -11,7 +11,7 @@ const DB_PATH = path.join(__dirname, "..", "database", "cache.db");
 const CACHE_DIR = path.join(__dirname, "..", "audio_cache");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 // 제거 점수 가중치
 const W_RECENCY = 0.4;

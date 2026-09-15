@@ -552,11 +552,7 @@ class MusicEmbedManager {
     const volumeButton = new ButtonBuilder().setCustomId(`music_volume:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
 
     // Row 2: 셔플(아이콘만) + 반복 + 대기열 + 자동재생
-    const shuffleButton = new ButtonBuilder()
-      .setCustomId(`music_shuffle:${requesterId}:${sessionId}`)
-      .setStyle(player.shuffle ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setEmoji("🔀")
-      .setDisabled(disabled);
+    const shuffleButton = new ButtonBuilder().setCustomId(`music_shuffle:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
 
     // 반복 버튼 — 꺼짐 → 트랙 → 대기열 순환
     let loopLabel, loopEmoji, loopStyle;

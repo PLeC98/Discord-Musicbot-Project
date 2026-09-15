@@ -9,74 +9,35 @@ const trackState = require("../src/trackState");
 const t = (title) => ({ title });
 const titles = (arr) => arr.map((x) => x.title);
 
-function make({ current = null, queue = [], history = [], shuffle = false } = {}) {
-  const p = { shuffle };
+function make({ current = null, queue = [], history = [] } = {}) {
+  const p = {};
   trackState.init(p);
   trackState.restore(p, { current, queue: [...queue], history: [...history] });
   return p;
 }
 
-function withRandom(value, fn) {
-  const real = Math.random;
-  Math.random = () => value;
-  try {
-    return fn();
-  } finally {
-    Math.random = real;
-  }
-}
-
-test("init: 비어 있고 고정 없음", () => {
+test("init: 비어 있다", () => {
   const p = {};
   trackState.init(p);
-  assert.deepEqual(p, { currentTrack: null, queue: [], previousTracks: [], nextFromFront: false });
+  assert.deepEqual(p, { currentTrack: null, queue: [], previousTracks: [] });
 });
 
-test("enqueue: 뒤에 붙이기는 고정을 세우지 않는다", () => {
+test("enqueue: 뒤에 붙이거나 앞에 넣는다", () => {
   const p = make({ current: t("A"), queue: [t("B")] });
   trackState.enqueue(p, [t("C"), t("D")]);
   assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
-  assert.equal(p.nextFromFront, false);
-});
-
-test("enqueue: 앞에 넣기는 재생 중일 때만 고정을 세운다", () => {
-  const playing = make({ current: t("A"), queue: [t("B")] });
-  trackState.enqueue(playing, [t("X")], { front: true });
-  assert.deepEqual(titles(playing.queue), ["X", "B"]);
-  assert.equal(playing.nextFromFront, true);
-
-  const idle = make({ queue: [t("B")] });
-  trackState.enqueue(idle, [t("X")], { front: true });
-  assert.equal(idle.nextFromFront, false, "재생 중이 아니면 고정할 다음 전환이 없다");
+  trackState.enqueue(p, [t("X"), t("Y")], { front: true });
+  assert.deepEqual(titles(p.queue), ["X", "Y", "B", "C", "D"]);
 });
 
 test("shiftNext: 맨 앞을 현재곡으로, 비었으면 현재곡을 건드리지 않는다", () => {
-  const p = make({ queue: [t("A"), t("B")], shuffle: true });
-  assert.equal(trackState.shiftNext(p).title, "A", "셔플과 무관");
+  const p = make({ queue: [t("A"), t("B")] });
+  assert.equal(trackState.shiftNext(p).title, "A");
   assert.deepEqual(titles(p.queue), ["B"]);
 
   const empty = make({ current: t("Z") });
   assert.equal(trackState.shiftNext(empty), null);
   assert.equal(empty.currentTrack.title, "Z");
-});
-
-test("pickNext: 고정 → 맨 앞을 쓰고 고정을 푼다 (셔플이어도)", () => {
-  const p = make({ queue: [t("A"), t("B"), t("C")], shuffle: true });
-  p.nextFromFront = true;
-  withRandom(0.99, () => trackState.pickNext(p));
-  assert.equal(p.currentTrack.title, "A");
-  assert.equal(p.nextFromFront, false);
-});
-
-test("pickNext: 셔플이면 무작위, 아니면 맨 앞", () => {
-  const shuffled = make({ queue: [t("A"), t("B"), t("C")], shuffle: true });
-  withRandom(0.99, () => trackState.pickNext(shuffled));
-  assert.equal(shuffled.currentTrack.title, "C");
-  assert.deepEqual(titles(shuffled.queue), ["A", "B"]);
-
-  const plain = make({ queue: [t("A"), t("B")] });
-  trackState.pickNext(plain);
-  assert.equal(plain.currentTrack.title, "A");
 });
 
 test("retire: 기록에 남기고, 큐 반복이면 대기열 끝으로 — 현재곡은 그대로", () => {
@@ -95,27 +56,15 @@ test("retire: 기록은 상한을 넘으면 가장 오래된 것부터 버린다
   assert.equal(p.previousTracks[0].title, "t3");
 });
 
-test("rewind: 이전 곡을 맨 앞에, 중단된 현재곡을 그 뒤에 두고 고정", () => {
+test("rewind: 이전 곡을 맨 앞에, 중단된 현재곡을 그 뒤에 둔다", () => {
   const p = make({ current: t("C"), queue: [t("D")], history: [t("A"), t("B")] });
   assert.equal(trackState.rewind(p).title, "B");
   assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
   assert.deepEqual(titles(p.previousTracks), ["A"]);
-  assert.equal(p.nextFromFront, true);
 
   const none = make({ current: t("C"), queue: [t("D")] });
   assert.equal(trackState.rewind(none), null);
   assert.deepEqual(titles(none.queue), ["D"], "기록이 없으면 아무것도 바꾸지 않는다");
-});
-
-test("promote → cancelPromote: 원래 순서와 고정 상태로 되돌아온다", () => {
-  const p = make({ current: t("X"), queue: [t("A"), t("B"), t("C")] });
-  assert.equal(trackState.promote(p, 2).title, "C");
-  assert.deepEqual(titles(p.queue), ["C", "A", "B"]);
-  assert.equal(p.nextFromFront, true);
-
-  trackState.cancelPromote(p, 2);
-  assert.deepEqual(titles(p.queue), ["A", "B", "C"]);
-  assert.equal(p.nextFromFront, false);
 });
 
 test("removeAt·move: 범위 밖이면 null이고 아무것도 바꾸지 않는다", () => {
@@ -146,11 +95,9 @@ test("clearQueue: 비운 개수를 돌려주고 현재곡·기록은 남긴다",
 
 test("reset: 기록은 요청할 때만 비운다", () => {
   const keep = make({ current: t("X"), queue: [t("A")], history: [t("H")] });
-  keep.nextFromFront = true;
   trackState.reset(keep);
   assert.equal(keep.currentTrack, null);
   assert.deepEqual(keep.queue, []);
-  assert.equal(keep.nextFromFront, false);
   assert.equal(keep.previousTracks.length, 1);
 
   const all = make({ history: [t("H")] });
@@ -183,23 +130,18 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.enqueue(p, [t("D")]);
   trackState.enqueue(p, [t("E")], { front: true });
   trackState.shiftNext(p);
-  trackState.pickNext(p); // 앞에 넣은 고정이 남아 있다 → 맨 앞
-  p.shuffle = true;
-  withRandom(0.99, () => trackState.pickNext(p));
   trackState.retire(p, p.currentTrack, { requeue: true });
   trackState.removeAt(p, 99);
   trackState.removeAt(p, 0);
   trackState.move(p, 0, 1);
   trackState.shuffle(p);
   trackState.rewind(p);
-  trackState.promote(p, 1);
-  trackState.cancelPromote(p, 1);
   trackState.clearQueue(p);
   trackState.setCurrent(p, null);
   trackState.reset(p, { history: true });
   trackState.rewind(p);
 
-  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onTake", 0], ["onTake", 2], ["onRetire", "D", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onReplace"], ["onReplace"], ["onReplace"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
+  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onReplace"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });
 
 const song = (title) => ({ title, url: `https://y/${title}` });

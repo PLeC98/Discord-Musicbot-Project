@@ -33,7 +33,7 @@ function makePlayer() {
     currentTrack: makeTrack("현재곡"),
     queue: Array.from({ length: QUEUE_LEN }, (_, i) => makeTrack(`q${i}`)),
     previousTracks: [],
-    getStatus: () => ({ playing: true, paused: false, volume: 50, loop: false, shuffle: false }),
+    getStatus: () => ({ playing: true, paused: false, volume: 50, loop: false }),
     isPlaybackActive: () => true,
     getCurrentTime: () => 0,
     removeFromQueue(i) {

@@ -119,7 +119,6 @@ class SessionPersistence {
       textChannelId: p.textChannel?.id || null,
       volume: p.volume,
       loopMode: p.loop === "track" || p.loop === "queue" ? p.loop : "off",
-      shuffle: Boolean(p.shuffle),
       autoplay: p.autoplay || null,
       // 복원하는 건 수동 일시정지뿐이다 — 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
       pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
@@ -199,7 +198,8 @@ class SessionPersistence {
   reviveTrack(data) {
     if (!data) return null;
     const { requesterId, ...track } = data;
-    if (requesterId) track.requestedBy = this.player.guild?.members?.cache?.get?.(requesterId) || { id: requesterId };
+    // 요청자는 권한 판정과 멘션에 id만 쓰인다
+    if (requesterId) track.requestedBy = { id: requesterId };
     return track;
   }
 
@@ -212,7 +212,6 @@ class SessionPersistence {
 
     player.volume = typeof session.volume === "number" ? session.volume : player.volume;
     player.loop = session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false;
-    player.shuffle = Boolean(session.shuffle);
     player.autoplay = session.autoplay || false;
     player.requesterId = session.requesterId || player.requesterId;
 
@@ -278,7 +277,7 @@ class SessionPersistence {
         }
 
         // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 복구에는 진입점 자리표시자가 없다.
-        const requester = { id: session.requesterId || player.guild.client.user.id, username: null, tag: null };
+        const requester = { id: session.requesterId || player.guild.client.user.id };
         await embedManager.createNewMusicEmbed(player, player.currentTrack, requester);
       } catch (error) {
         log.error("세션 복원 중 재생 임베드 복구 실패:", error?.message || error);

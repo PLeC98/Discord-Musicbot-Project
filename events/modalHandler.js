@@ -208,7 +208,7 @@ module.exports = {
       });
     }
 
-    const selectedTrack = trackState.promote(player, selectedIndex);
+    const selectedTrack = trackState.move(player, selectedIndex, 0);
 
     // 현재 곡 건너뛰기 → selectedTrack이 다음에 재생됨.
     // "jump" 사유: 한곡 반복 중에도 재시작이 아니라 선택한 곡으로 이동해야 함
@@ -220,7 +220,7 @@ module.exports = {
         flags: [1 << 6],
       });
     } else {
-      trackState.cancelPromote(player, selectedIndex);
+      trackState.move(player, 0, selectedIndex);
       await interaction.reply({
         content: "❌ 곡으로 이동하지 못했습니다!",
         flags: [1 << 6],

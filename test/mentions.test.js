@@ -74,7 +74,7 @@ test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않
 test("now-playing 제목은 원문 그대로 라벨에 들어간다", async () => {
   const mem = new MusicEmbedManager({ players: new Map() });
   const track = { title: "게임 실황 [Official] my_song_name", url: "https://ok.example", duration: 100, platform: "youtube", thumbnail: null, artist: "아티스트" };
-  const player = { getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, shuffle: false, isPlaybackActive: () => true, getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false, shuffle: false }) };
+  const player = { getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, isPlaybackActive: () => true, getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }) };
 
   const container = await mem.createNowPlayingContainer(player, track);
   const json = JSON.stringify(container.toJSON());

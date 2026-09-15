@@ -406,7 +406,7 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   assert.equal(r.json.hasPlayer, false, "그런데 플레이어는 없다 — 조작은 전부 409");
   assert.equal(r.json.canAdd, true, "권한은 통과하므로 이것만 보면 폼이 열린다");
 
-  client.players.set(GUILD_ID, { getStatus: () => ({ playing: false, paused: false, volume: 100, loop: false, shuffle: false }), isPlaybackActive: () => false, currentTrack: null, previousTracks: [], queue: [] });
+  client.players.set(GUILD_ID, { getStatus: () => ({ playing: false, paused: false, volume: 100, loop: false }), isPlaybackActive: () => false, currentTrack: null, previousTracks: [], queue: [] });
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.hasPlayer, true);
 

@@ -55,7 +55,6 @@ class MusicPlayer {
     // 플레이어 설정
     this.volume = config.bot.defaultVolume;
     this.loop = false; // false, 'track', 'queue' 중 하나
-    this.shuffle = false;
     this.autoplay = false; // false 또는 장르 문자열: 'pop', 'rock', 'hiphop' 등
     this.paused = false;
 
@@ -1223,12 +1222,6 @@ class MusicPlayer {
     return this.autoplay;
   }
 
-  setShuffle(enabled) {
-    this.shuffle = enabled;
-    this.scheduleStatePersist("shuffle-toggle", 200);
-    return this.shuffle;
-  }
-
   clearQueue() {
     const cleared = this.queue.length;
     if (cleared) clog.info(`대기열 비움: ${cleared}곡`);
@@ -1368,7 +1361,7 @@ class MusicPlayer {
       this.currentTrackCache = null;
 
       if (this.queue.length > 0) {
-        trackState.pickNext(this);
+        trackState.shiftNext(this);
 
         // 다음 트랙을 처음부터 재생
         await this.play(null, 0);
@@ -1695,7 +1688,6 @@ class MusicPlayer {
       queue: this.queue.length,
       volume: this.volume,
       loop: this.loop,
-      shuffle: this.shuffle,
       currentTrack: this.currentTrack,
       voiceChannel: this.voiceChannel?.name,
       textChannel: this.textChannel?.name,

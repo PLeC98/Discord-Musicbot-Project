@@ -31,12 +31,11 @@ after(() => {
 let guildSerial = 0;
 function makePlayer(overrides = {}) {
   const p = {
-    guild: { id: `g${guildSerial++}`, members: { cache: new Map() } },
+    guild: { id: `g${guildSerial++}` },
     voiceChannel: { id: "v1" },
     textChannel: null,
     volume: 100,
     loop: false,
-    shuffle: false,
     autoplay: false,
     paused: false,
     pauseReasons: new Set(),
@@ -90,14 +89,8 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
       ),
     () => trackState.enqueue(p, [t()], { front: true }),
     () => trackState.shiftNext(p),
-    () => {
-      p.shuffle = pick(2) === 0;
-      trackState.pickNext(p);
-    },
     () => p.currentTrack && trackState.retire(p, p.currentTrack, { requeue: pick(2) === 0 }),
     () => trackState.rewind(p),
-    () => p.queue.length > 1 && trackState.promote(p, pick(p.queue.length)),
-    () => p.queue.length > 1 && trackState.cancelPromote(p, pick(p.queue.length)),
     () => trackState.removeAt(p, pick(p.queue.length + 1)),
     () => trackState.move(p, pick(p.queue.length + 1), pick(p.queue.length + 1)),
     () => trackState.shuffle(p),
@@ -230,7 +223,7 @@ function makeRestorePlayer() {
 
 function makeRecord(sessionOverrides = {}, current = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
   return {
-    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", shuffle: false, autoplay: null, pausedManual: false, positionMs: 30_000, startOffsetMs: 0, requesterId: null, nowPlayingMessageId: null, ...sessionOverrides },
+    session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, startOffsetMs: 0, requesterId: null, nowPlayingMessageId: null, ...sessionOverrides },
     current,
     queue: [],
     history: [],
@@ -261,14 +254,10 @@ test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 되살
   assert.equal(p.autoplay, "rock");
 });
 
-test("복원: 요청자는 멤버 캐시에 있으면 그 멤버, 없으면 id만", async () => {
-  const member = { id: "u1", displayName: "유저" };
-  const cached = await restore(makeRecord(), (p) => p.guild.members.cache.set("u1", member));
-  assert.equal(cached.currentTrack.requestedBy, member);
-
-  const missing = await restore(makeRecord());
-  assert.deepEqual(missing.currentTrack.requestedBy, { id: "u1" });
-  assert.equal("requesterId" in missing.currentTrack, false, "저장용 필드를 트랙에 남기지 않는다");
+test("복원: 요청자는 id만 되살린다", async () => {
+  const p = await restore(makeRecord());
+  assert.deepEqual(p.currentTrack.requestedBy, { id: "u1" });
+  assert.equal("requesterId" in p.currentTrack, false, "저장용 필드를 트랙에 남기지 않는다");
 });
 
 test("복원: 곡 길이 끝에 거의 닿은 위치는 처음부터", async () => {

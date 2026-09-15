@@ -11,8 +11,6 @@ function init(player) {
   player.currentTrack = null;
   player.queue = [];
   player.previousTracks = [];
-  // 맨 앞에 일부러 둔 곡이 있다(점프·이전곡·앞에 추가) — 셔플이 켜져 있어도 다음은 그 곡
-  player.nextFromFront = false;
 }
 
 function setCurrent(player, track) {
@@ -22,34 +20,17 @@ function setCurrent(player, track) {
 
 function enqueue(player, tracks, { front = false } = {}) {
   if (tracks.length === 0) return;
-  if (front) {
-    player.queue.unshift(...tracks);
-    if (player.currentTrack) player.nextFromFront = true;
-  } else {
-    player.queue.push(...tracks);
-  }
+  if (front) player.queue.unshift(...tracks);
+  else player.queue.push(...tracks);
   sinkOf(player)?.onEnqueue(tracks, front);
 }
 
-function takeAt(player, index) {
-  player.currentTrack = player.queue.splice(index, 1)[0];
-  sinkOf(player)?.onTake(index);
-  return player.currentTrack;
-}
-
-// 맨 앞 곡을 현재곡으로. 셔플·고정과 무관하다.
+// 맨 앞 곡을 현재곡으로 — 다음 곡은 언제나 맨 앞이다(셔플은 대기열을 한 번 섞을 뿐이다).
 function shiftNext(player) {
   if (player.queue.length === 0) return null;
-  return takeAt(player, 0);
-}
-
-// 곡이 끝난 뒤의 다음 곡 — 고정이 있으면 그것, 셔플이면 무작위, 아니면 맨 앞.
-function pickNext(player) {
-  if (player.queue.length === 0) return null;
-  let index = 0;
-  if (player.nextFromFront) player.nextFromFront = false;
-  else if (player.shuffle) index = Math.floor(Math.random() * player.queue.length);
-  return takeAt(player, index);
+  player.currentTrack = player.queue.shift();
+  sinkOf(player)?.onTake(0);
+  return player.currentTrack;
 }
 
 // 끝난 곡을 기록에 남기고 큐 반복이면 대기열 끝으로. 현재곡은 비우지 않는다 — 다음 곡이 덮는다.
@@ -69,7 +50,6 @@ function rewind(player) {
   if (copy >= 0) player.queue.splice(copy, 1);
   player.queue.unshift(prev);
   if (player.currentTrack) player.queue.splice(1, 0, player.currentTrack);
-  player.nextFromFront = true;
   sinkOf(player)?.onReplace();
   return prev;
 }
@@ -83,21 +63,6 @@ function requeuedCopyOf(player, track) {
     if (player.queue[i].url === track.url) return i;
   }
   return -1;
-}
-
-function promote(player, index) {
-  const [track] = player.queue.splice(index, 1);
-  player.queue.unshift(track);
-  player.nextFromFront = true;
-  sinkOf(player)?.onReplace();
-  return track;
-}
-
-function cancelPromote(player, index) {
-  const [track] = player.queue.splice(0, 1);
-  player.queue.splice(index, 0, track);
-  player.nextFromFront = false;
-  sinkOf(player)?.onReplace();
 }
 
 function removeAt(player, index) {
@@ -136,7 +101,6 @@ function clearQueue(player) {
 function reset(player, { history = false } = {}) {
   player.queue = [];
   player.currentTrack = null;
-  player.nextFromFront = false;
   if (history) player.previousTracks = [];
   sinkOf(player)?.onReset(history);
 }
@@ -145,7 +109,6 @@ function restore(player, { current = null, queue = [], history = [] }) {
   player.currentTrack = current ?? null;
   player.queue = queue;
   player.previousTracks = history.slice(-HISTORY_MAX);
-  player.nextFromFront = false;
   sinkOf(player)?.onReplace();
 }
 
@@ -155,11 +118,8 @@ module.exports = {
   setCurrent,
   enqueue,
   shiftNext,
-  pickNext,
   retire,
   rewind,
-  promote,
-  cancelPromote,
   removeAt,
   move,
   shuffle,

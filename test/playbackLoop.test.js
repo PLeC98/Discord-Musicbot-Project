@@ -32,8 +32,6 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     currentDownloadedFile: null,
     loop,
     queue,
-    shuffle: false,
-    nextFromFront: false,
     autoplay: false,
     startTime: null,
     pausedTime: 0,
@@ -107,9 +105,8 @@ test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변 (버그 3 
 
 test("한곡 반복 + 대기열 점프(jump): 재시작이 아니라 선택한 곡으로 이동", async () => {
   const [A, B, C] = ["A", "B", "C"].map((t) => makeTrack(t));
-  // jump 핸들러가 선택곡 C를 맨 앞으로 옮기고 nextFromFront를 세운 상태
+  // jump 핸들러가 선택곡 C를 맨 앞으로 옮긴 상태
   const p = makePlayer({ loop: "track", current: A, queue: [C, B] });
-  p.nextFromFront = true;
 
   await handleTrackEnd.call(p, "jump");
 

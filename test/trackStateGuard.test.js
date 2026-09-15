@@ -11,7 +11,7 @@ const ROOT = path.join(__dirname, "..");
 const DIRS = ["src", "commands", "events", path.join("dashboard", "server")];
 const OWNER = path.join("src", "trackState.js");
 
-const FORBIDDEN = [/\.queue\s*=(?!=)/, /\.queue\.(push|unshift|splice|shift|pop|sort|reverse|fill|copyWithin)\(/, /\.queue\[[^\]]*\]\]?\s*=(?!=)/, /\.currentTrack\s*=(?!=)/, /\.previousTracks\s*=(?!=)/, /\.previousTracks\.(push|unshift|splice|shift|pop)\(/, /\.nextFromFront\s*=(?!=)/];
+const FORBIDDEN = [/\.queue\s*=(?!=)/, /\.queue\.(push|unshift|splice|shift|pop|sort|reverse|fill|copyWithin)\(/, /\.queue\[[^\]]*\]\]?\s*=(?!=)/, /\.currentTrack\s*=(?!=)/, /\.previousTracks\s*=(?!=)/, /\.previousTracks\.(push|unshift|splice|shift|pop)\(/];
 
 function jsFiles(dir) {
   const out = [];

@@ -18,7 +18,6 @@ const SCHEMA = `
     text_channel_id        TEXT,
     volume                 INTEGER NOT NULL DEFAULT 100,
     loop_mode              TEXT    NOT NULL DEFAULT 'off' CHECK (loop_mode IN ('off', 'track', 'queue')),
-    shuffle                INTEGER NOT NULL DEFAULT 0,
     autoplay               TEXT,
     paused_manual          INTEGER NOT NULL DEFAULT 0,
     position_ms            INTEGER NOT NULL DEFAULT 0,
@@ -100,7 +99,6 @@ function sessionFromRow(row) {
     textChannelId: row.text_channel_id,
     volume: row.volume,
     loopMode: row.loop_mode,
-    shuffle: Boolean(row.shuffle),
     autoplay: row.autoplay,
     pausedManual: Boolean(row.paused_manual),
     positionMs: row.position_ms,
@@ -120,13 +118,13 @@ class PlayerSessionStore {
     this.q = {
       ensure: q("INSERT OR IGNORE INTO player_sessions (guild_id, updated_at) VALUES (?, ?)"),
       upsert: q(`
-        INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, shuffle, autoplay,
+        INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, autoplay,
                                      paused_manual, position_ms, start_offset_ms, requester_id, now_playing_message_id, updated_at)
-        VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @shuffle, @autoplay,
+        VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @autoplay,
                 @paused_manual, @position_ms, @start_offset_ms, @requester_id, @now_playing_message_id, @updated_at)
         ON CONFLICT(guild_id) DO UPDATE SET
           voice_channel_id = excluded.voice_channel_id, text_channel_id = excluded.text_channel_id,
-          volume = excluded.volume, loop_mode = excluded.loop_mode, shuffle = excluded.shuffle, autoplay = excluded.autoplay,
+          volume = excluded.volume, loop_mode = excluded.loop_mode, autoplay = excluded.autoplay,
           paused_manual = excluded.paused_manual, position_ms = excluded.position_ms, start_offset_ms = excluded.start_offset_ms,
           requester_id = excluded.requester_id, now_playing_message_id = excluded.now_playing_message_id, updated_at = excluded.updated_at`),
       position: q("UPDATE player_sessions SET position_ms = ?, start_offset_ms = ?, updated_at = ? WHERE guild_id = ?"),
@@ -203,7 +201,6 @@ class PlayerSessionStore {
       text_channel_id: s.textChannelId ?? null,
       volume: s.volume ?? 100,
       loop_mode: s.loopMode ?? "off",
-      shuffle: s.shuffle ? 1 : 0,
       autoplay: s.autoplay || null,
       paused_manual: s.pausedManual ? 1 : 0,
       position_ms: Math.max(0, Math.round(s.positionMs ?? 0)),
@@ -322,7 +319,7 @@ class PlayerSessionStore {
     });
   }
 
-  // ── 트랙 행 (통째로) — 셔플·이전곡·점프·복원처럼 드문 것, 그리고 어긋났을 때 ──
+  // ── 트랙 행 (통째로) — 셔플·이전곡·복원처럼 드문 것, 그리고 어긋났을 때 ──
 
   replaceTracks(guildId, { current = null, queue = [], history = [] }) {
     this._tx(() => {

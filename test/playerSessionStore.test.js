@@ -43,7 +43,7 @@ function rng(seed) {
 
 test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 순서가 같다", () => {
   const { store } = open();
-  const p = { shuffle: false };
+  const p = {};
   trackState.init(p);
   const pick = rng(20260915);
 
@@ -64,10 +64,10 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
       store.take(G, 0);
     },
     () => {
-      // 셔플 선택과 같은 모양 — 아무 위치의 곡이 현재곡이 된다
+      // 점프와 같은 모양 — 아무 위치의 곡이 현재곡이 된다
       if (p.queue.length === 0) return;
       const i = pick(p.queue.length);
-      trackState.promote(p, i);
+      trackState.move(p, i, 0);
       trackState.shiftNext(p);
       store.move(G, i, 0);
       store.take(G, 0);
@@ -208,7 +208,6 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
     textChannelId: "c1",
     volume: 40,
     loopMode: "queue",
-    shuffle: true,
     autoplay: "kpop",
     pausedManual: true,
     positionMs: 12_345.6,
@@ -221,7 +220,7 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
   const { session } = store.load(G);
   assert.equal(session.positionMs, 99_000);
   assert.equal(session.startOffsetMs, 0);
-  assert.deepEqual({ ...session, positionMs: undefined, startOffsetMs: undefined, updatedAt: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", shuffle: true, autoplay: "kpop", pausedManual: true, positionMs: undefined, startOffsetMs: undefined, requesterId: "u1", nowPlayingMessageId: "m1", updatedAt: undefined });
+  assert.deepEqual({ ...session, positionMs: undefined, startOffsetMs: undefined, updatedAt: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", pausedManual: true, positionMs: undefined, startOffsetMs: undefined, requesterId: "u1", nowPlayingMessageId: "m1", updatedAt: undefined });
 });
 
 test("반복 모드는 세 값만 받는다", () => {
