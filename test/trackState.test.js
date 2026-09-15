@@ -201,3 +201,28 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
 
   assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onTake", 0], ["onTake", 2], ["onRetire", "D", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onReplace"], ["onReplace"], ["onReplace"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });
+
+const song = (title) => ({ title, url: `https://y/${title}` });
+
+test("rewind: 큐 반복으로 대기열 끝에 들어간 사본은 빼고 앞으로 가져온다 — 곡 수가 그대로다", () => {
+  const A = song("A");
+  const p = make({ current: song("B"), queue: [song("C")] });
+  p.loop = "queue";
+  trackState.retire(p, A, { requeue: true }); // A가 끝나 기록과 대기열 끝 양쪽에 들어간 상태
+
+  trackState.rewind(p);
+  assert.deepEqual(titles(p.queue), ["A", "B", "C"], "구 코드는 A가 앞과 끝에 두 번 있었다");
+});
+
+test("rewind: 복원 뒤처럼 기록과 대기열이 서로 다른 객체여도 큐 반복이면 주소로 사본을 찾는다", () => {
+  const p = make({ current: song("B"), queue: [song("C"), song("A")], history: [song("A")] });
+  p.loop = "queue";
+  trackState.rewind(p);
+  assert.deepEqual(titles(p.queue), ["A", "B", "C"]);
+});
+
+test("rewind: 반복이 아니면 같은 곡이 대기열에 있어도 건드리지 않는다 — 사용자가 일부러 넣은 곡이다", () => {
+  const p = make({ current: song("B"), queue: [song("A")], history: [song("A")] });
+  trackState.rewind(p);
+  assert.deepEqual(titles(p.queue), ["A", "B", "A"]);
+});

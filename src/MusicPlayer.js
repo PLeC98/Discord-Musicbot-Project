@@ -131,6 +131,11 @@ class MusicPlayer {
   setupEvents() {
     // 오디오 플레이어 이벤트
     this.audioPlayer.on(AudioPlayerStatus.Playing, () => {
+      // pause()는 재생 중일 때만 먹는다. 버퍼링 중에 걸린 일시정지는 재생으로 넘어오는 이 순간에 건다.
+      if (this.pauseReasons.size > 0) {
+        this.audioPlayer.pause();
+        return;
+      }
       // 재개 시 경과 오프셋을 반영해 startTime 조정
       if (this.paused && this.pausedTime > 0) {
         // 일시정지에서 재개 - 누적 pausedTime 유지
@@ -563,8 +568,9 @@ class MusicPlayer {
       }
 
       if (this.pauseReasons.size > 0) {
+        // 멈추는 건 Playing 리스너다 — 지금은 아직 버퍼링이라 pause()가 먹지 않는다
         log.info(`일시정지 상태로 재생 시작: 원인=${Array.from(this.pauseReasons).join(", ")}`);
-        this.audioPlayer.pause();
+        this.paused = true;
       }
 
       // 빠른 재개를 위해 활성 스트림 정보 저장
@@ -887,6 +893,13 @@ class MusicPlayer {
       }
     }
 
+    // 버퍼링 중이면 의도만 받아 둔다 — 재생으로 넘어오는 순간 Playing 리스너가 멈춘다
+    if (status === AudioPlayerStatus.Buffering && this.pauseReasons.size > 0) {
+      this.paused = true;
+      this.scheduleStatePersist("pause", 0);
+      return true;
+    }
+
     return false;
   }
 
@@ -914,7 +927,7 @@ class MusicPlayer {
       return false;
     }
 
-    if (status === AudioPlayerStatus.Playing) {
+    if (status === AudioPlayerStatus.Playing || status === AudioPlayerStatus.Buffering) {
       this.paused = false;
       this.scheduleStatePersist("resume", 0);
       return true;
