@@ -65,7 +65,6 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     scheduleStatePersist() {},
     clearInactivityTimer() {},
     async persistState() {},
-    async showQueueCompleted() {},
     async play() {},
     async updateVoiceStatus() {},
     audioPlayer: { stop() {} },

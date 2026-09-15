@@ -350,11 +350,7 @@ function startBot() {
           player.pendingEndReason = "forced-disconnect";
           trackState.reset(player);
 
-          if (embedManager) {
-            await embedManager.handlePlaybackEnd(player, { reason: "disconnected" });
-          } else if (typeof player.showQueueCompleted === "function") {
-            await player.showQueueCompleted();
-          }
+          await embedManager?.handlePlaybackEnd(player, { reason: "disconnected" });
         } catch (error) {
           log.error("강제 연결 해제 후 재생 UI 갱신 실패:", error);
         } finally {

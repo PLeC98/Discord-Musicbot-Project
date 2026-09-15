@@ -4,7 +4,7 @@ const log = require("./logger").child({ category: "player" });
 const wlog = require("./logger").child({ category: "watchdog" });
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
 const clog = require("./logger").child({ category: "control" });
-const { EmbedBuilder, PermissionFlagsBits } = require("discord.js");
+const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../config");
 const ErrorHandler = require("./ErrorHandler");
@@ -964,11 +964,7 @@ class MusicPlayer {
 
         try {
           const embedManager = this.guild?.client?.musicEmbedManager;
-          if (embedManager) {
-            await embedManager.handlePlaybackEnd(this, { reason: "disconnected" });
-          } else if (typeof this.showQueueCompleted === "function") {
-            await this.showQueueCompleted();
-          }
+          await embedManager?.handlePlaybackEnd(this, { reason: "disconnected" });
 
           await this.persistState("inactivity-timeout");
         } catch (error) {
@@ -1394,11 +1390,7 @@ class MusicPlayer {
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
-      if (this.guild?.client?.musicEmbedManager) {
-        await this.guild.client.musicEmbedManager.handlePlaybackEnd(this, { reason: "queue-end" });
-      } else {
-        await this.showQueueCompleted();
-      }
+      await this.guild?.client?.musicEmbedManager?.handlePlaybackEnd(this, { reason: "queue-end" });
 
       this.clearInactivityTimer(false);
       this.persistence?.removeSession();
@@ -1530,21 +1522,6 @@ class MusicPlayer {
       try {
         this.audioPlayer.stop(true);
       } catch (_) {}
-    }
-  }
-
-  async showQueueCompleted() {
-    if (!this.nowPlayingMessage || !this.textChannel) return;
-
-    try {
-      const embed = new EmbedBuilder().setTitle("✅ 대기열 완료").setDescription("모든 트랙이 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#00ff00").setTimestamp();
-      await this.nowPlayingMessage.edit({
-        embeds: [embed],
-        components: [],
-      });
-    } catch (error) {
-      // 메시지가 삭제되었을 수 있으므로 참조 정리
-      this.nowPlayingMessage = null;
     }
   }
 
