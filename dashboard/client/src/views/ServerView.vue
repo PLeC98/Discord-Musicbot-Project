@@ -70,7 +70,7 @@
                 </button>
 
                 <!-- Skip -->
-                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || (player.queue.length === 0 && player.loop !== 'track')">
+                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || ((player.queueTotal ?? player.queue.length) === 0 && player.loop !== 'track')">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
                 </button>
 
@@ -155,8 +155,8 @@
       </BaseCard>
 
       <!-- ── Queue ── -->
-      <BaseCard v-if="player.queue?.length > 0" :title="`대기열 (${player.queue.length}곡)`">
-        <div class="flex flex-col gap-1 max-h-120 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
+      <BaseCard v-if="player.queue?.length > 0" :title="`대기열 (${(player.queueTotal ?? player.queue.length).toLocaleString()}곡)`">
+        <div ref="queueBoxRef" @scroll.passive="onQueueScroll" class="flex flex-col gap-1 max-h-120 overflow-y-auto [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]">
           <div
             v-for="(track, i) in player.queue"
             :key="i"
@@ -194,6 +194,11 @@
             </div>
             <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" v-tooltip="track.platform"></span>
             <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(i)" v-tooltip="'제거'" :disabled="!canRemove(track)"><Icon name="close" :size="14" /></button>
+          </div>
+
+          <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-3 text-muted text-[0.82rem]">
+            <span class="size-3.5 rounded-full border-2 border-white/15 border-t-accent animate-spin"></span>
+            {{ (player.queueTotal - player.queue.length).toLocaleString() }}곡 더
           </div>
         </div>
       </BaseCard>
@@ -235,7 +240,15 @@ const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 c
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
-const player = ref({ playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
+const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, shuffle: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
+
+// 대기열은 앞에서부터 한 묶음씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
+const QUEUE_PAGE = 100;
+const loadedCount = ref(QUEUE_PAGE);
+const loadingMore = ref(false);
+const queueBoxRef = ref(null);
+// 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다 — 안 그러면 목록이 접힌다.
+const qs = () => `?queue=${loadedCount.value}`;
 
 const addQuery = ref("");
 const adding = ref(false);
@@ -265,6 +278,34 @@ const scrubTime = ref(0);
 // 빠져 조작 직후 ⚙ 버튼이 증발했던 버그의 재발 방지.
 function applyState(data) {
   player.value = { ...player.value, ...data };
+  syncLoaded();
+}
+
+// 곡이 빠져 큐가 줄면 펼쳐 둔 창도 같이 줄인다 — 안 그러면 바닥에 닿아도 더 받을 게 없다고 판단한다.
+function syncLoaded() {
+  loadedCount.value = Math.max(QUEUE_PAGE, player.value.queue?.length || 0);
+}
+
+async function loadMore() {
+  const total = player.value.queueTotal ?? 0;
+  if (loadingMore.value || player.value.queue.length >= total) return;
+  loadingMore.value = true;
+  try {
+    const res = await axios.get(`/api/guilds/${guildId}/player/queue`, { params: { offset: player.value.queue.length, limit: QUEUE_PAGE } });
+    // 받는 사이에 큐가 바뀌었을 수 있다 — 지금 길이보다 뒤에 있는 것만 이어 붙인다.
+    const fresh = (res.data.items || []).filter((t) => t.index >= player.value.queue.length);
+    player.value = { ...player.value, queue: [...player.value.queue, ...fresh], queueTotal: res.data.total };
+    syncLoaded();
+  } catch (e) {
+    console.error("queue page", e);
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+function onQueueScroll(e) {
+  const el = e.target;
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) loadMore();
 }
 
 // 봇과 다른 채널(또는 음성 밖)이면 서버가 조작을 전부 막는다 — 카드를 가려 이유를 먼저 보여준다.
@@ -282,13 +323,14 @@ function canRemove(track) {
 async function refresh() {
   if (isDragging.value) return; // don't overwrite queue while user is mid-drag
   try {
-    const res = await axios.get(`/api/guilds/${guildId}/player`);
+    const res = await axios.get(`/api/guilds/${guildId}/player${qs()}`);
     // 봇 재적/추가가능 여부가 바뀌면 직전 곡 추가 오류는 더 이상 유효하지 않으므로 정리
     // (봇이 나가 추가 폼이 참가 버튼으로 바뀌는 순간 stale 오류 제거 — 새로고침 없이 사라짐)
     if (addError.value && (res.data.botInVoice !== player.value.botInVoice || res.data.canAdd !== player.value.canAdd)) {
       addError.value = "";
     }
     player.value = res.data;
+    syncLoaded();
     localTime.value = res.data.currentTrack?.currentTime ?? 0;
   } finally {
     loading.value = false;
@@ -299,7 +341,7 @@ async function refresh() {
 
 async function action(type) {
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/${type}`);
+    const res = await axios.post(`/api/guilds/${guildId}/player/${type}${qs()}`);
     if (res.data && res.data.playing !== undefined) applyState(res.data);
   } catch (e) {
     console.error(type, e.response?.data || e.message);
@@ -308,7 +350,7 @@ async function action(type) {
 
 async function setVolume(vol) {
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/volume`, { volume: parseInt(vol) });
+    const res = await axios.post(`/api/guilds/${guildId}/player/volume${qs()}`, { volume: parseInt(vol) });
     if (res.data?.volume !== undefined) applyState(res.data);
   } catch (e) {
     console.error("volume", e);
@@ -317,7 +359,7 @@ async function setVolume(vol) {
 
 async function setLoop(mode) {
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/loop`, { mode });
+    const res = await axios.post(`/api/guilds/${guildId}/player/loop${qs()}`, { mode });
     if (res.data?.playing !== undefined) applyState(res.data);
   } catch (e) {
     console.error("loop", e);
@@ -375,7 +417,7 @@ async function addTrack(single = false) {
   addError.value = "";
   try {
     const payload = single === true ? singlePayload(addQuery.value) : { query: addQuery.value.trim(), single: false };
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue`, payload);
+    const res = await axios.post(`/api/guilds/${guildId}/player/queue${qs()}`, payload);
     applyState(res.data);
     addQuery.value = "";
   } catch (e) {
@@ -390,7 +432,7 @@ async function joinBot() {
   joining.value = true;
   addError.value = "";
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/join`);
+    const res = await axios.post(`/api/guilds/${guildId}/player/join${qs()}`);
     applyState(res.data);
   } catch (e) {
     addError.value = e.response?.data?.error || "참가에 실패했습니다.";
@@ -401,7 +443,7 @@ async function joinBot() {
 
 async function removeTrack(index) {
   try {
-    const res = await axios.delete(`/api/guilds/${guildId}/player/queue/${index}`);
+    const res = await axios.delete(`/api/guilds/${guildId}/player/queue/${index}${qs()}`);
     applyState(res.data);
   } catch (e) {
     console.error("remove", e);
@@ -446,7 +488,7 @@ async function onDrop() {
   player.value = { ...player.value, queue: q };
 
   try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/queue/move`, { from, to });
+    const res = await axios.post(`/api/guilds/${guildId}/player/queue/move${qs()}`, { from, to });
     applyState(res.data);
   } catch (e) {
     console.error("queue move", e);
@@ -599,7 +641,7 @@ function openEvents() {
   };
   eventSource.onmessage = () => {
     clearTimeout(nudgeTimer);
-    nudgeTimer = setTimeout(refresh, 150);
+    nudgeTimer = setTimeout(refresh, 600); // 연달아 조작하면 넛지도 연달아 온다 — 합쳐서 한 번만 다시 읽는다
   };
   eventSource.onerror = () => startFallback(); // SSE 끊김 → 폴백 폴링 시작 (재연결 시 onopen에서 중지)
 }

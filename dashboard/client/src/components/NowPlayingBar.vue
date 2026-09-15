@@ -18,7 +18,7 @@
         <div class="flex items-center gap-0.5">
           <button :class="iconBtn" v-tooltip="'이전곡'" :disabled="!np.canControl || !np.track || !(np.data.hasPrevious || np.data.loop === 'track')" @click="np.action('previous')"><Icon name="prev" :size="17" /></button>
           <button :class="iconMain" v-tooltip="np.track && !np.data.paused ? '일시정지' : '재생'" :disabled="!np.canControl || !np.track" @click="np.action('pause')"><Icon :name="np.track && !np.data.paused ? 'pause' : 'play'" :size="19" /></button>
-          <button :class="iconBtn" v-tooltip="'다음곡'" :disabled="!np.canSkip || !np.track || (np.data.queue.length === 0 && np.data.loop !== 'track')" @click="np.action('skip')"><Icon name="skip" :size="17" /></button>
+          <button :class="iconBtn" v-tooltip="'다음곡'" :disabled="!np.canSkip || !np.track || ((np.data.queueTotal ?? np.data.queue.length) === 0 && np.data.loop !== 'track')" @click="np.action('skip')"><Icon name="skip" :size="17" /></button>
         </div>
 
         <div class="flex items-center gap-2 w-full">
@@ -47,7 +47,7 @@
         </span>
       </button>
       <button :class="iconMain" :disabled="!np.canControl || !np.track" @click="np.action('pause')"><Icon :name="np.track && !np.data.paused ? 'pause' : 'play'" :size="19" /></button>
-      <button :class="iconBtn" :disabled="!np.canSkip || !np.track || (np.data.queue.length === 0 && np.data.loop !== 'track')" @click="np.action('skip')"><Icon name="skip" :size="17" /></button>
+      <button :class="iconBtn" :disabled="!np.canSkip || !np.track || ((np.data.queueTotal ?? np.data.queue.length) === 0 && np.data.loop !== 'track')" @click="np.action('skip')"><Icon name="skip" :size="17" /></button>
     </div>
 
     <div class="md:hidden absolute inset-x-0 bottom-0 h-0.5 bg-white/12">

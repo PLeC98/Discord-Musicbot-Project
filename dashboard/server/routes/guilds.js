@@ -101,8 +101,31 @@ function voiceFlags(guild, userId) {
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };
 }
 
-function playerState(player) {
-  if (!player) return { playing: false, paused: false, queue: [], currentTrack: null };
+// 대기열은 앞에서부터 이만큼만 실어 보낸다 — 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.
+const QUEUE_PAGE = 100;
+const QUEUE_WINDOW_MAX = 1000;
+
+function queueTrack(t, i) {
+  return {
+    index: i,
+    title: t.title,
+    artist: t.artist,
+    duration: t.duration,
+    thumbnail: t.thumbnail,
+    platform: t.platform,
+    requestedBy: t.requestedBy ? { id: t.requestedBy.id, username: t.requestedBy.username } : null,
+  };
+}
+
+// 화면이 이미 펼쳐 둔 만큼을 그대로 돌려줘야 조작 직후 목록이 접히지 않는다.
+function queueWindow(req) {
+  const n = toInt(req.query?.queue);
+  if (isNaN(n) || n <= 0) return QUEUE_PAGE;
+  return Math.min(n, QUEUE_WINDOW_MAX);
+}
+
+function playerState(player, queueLimit = QUEUE_PAGE) {
+  if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null };
   const status = player.getStatus();
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다 — 그래야
   // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다. isPlaybackActive: 리소스가 물린 상태.
@@ -129,15 +152,8 @@ function playerState(player) {
         }
       : null,
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
-    queue: (player.queue || []).map((t, i) => ({
-      index: i,
-      title: t.title,
-      artist: t.artist,
-      duration: t.duration,
-      thumbnail: t.thumbnail,
-      platform: t.platform,
-      requestedBy: t.requestedBy ? { id: t.requestedBy.id, username: t.requestedBy.username } : null,
-    })),
+    queue: (player.queue || []).slice(0, queueLimit).map(queueTrack),
+    queueTotal: player.queue?.length ?? 0,
   };
 }
 
@@ -248,7 +264,21 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
 
   // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
   // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
-  res.json({ ...playerState(ctx.player), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId: req.session.user.id });
+  res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId: req.session.user.id });
+});
+
+// 대기열 더 보기 — 화면이 바닥에 닿았을 때 다음 구간만 받아 간다.
+router.get("/:guildId/player/queue", requireAuth, async (req, res) => {
+  const ctx = await getPlayer(req, res, req.params.guildId);
+  if (!ctx) return;
+  const queue = ctx.player?.queue || [];
+
+  const offset = toInt(req.query.offset);
+  const limit = toInt(req.query.limit);
+  if (isNaN(offset) || offset < 0) return res.status(400).json({ error: "대기열 시작 위치가 올바르지 않습니다." });
+  if (isNaN(limit) || limit <= 0 || limit > QUEUE_WINDOW_MAX) return res.status(400).json({ error: "대기열 요청 개수가 올바르지 않습니다." });
+
+  res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(t, offset + i)), total: queue.length });
 });
 
 // SSE — 플레이어 상태 변화 넛지 (하이브리드: 넛지 받으면 클라이언트가 GET /player 재호출)
@@ -434,7 +464,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과 — 계층(DJ 여부)만 판정에 반영됨
   const controllable = isOwner(req) || !(await checkControl(member));
   const addable = isOwner(req) || !checkAdd(member);
-  res.json({ ...playerState(player), ...voiceFlags(guild, req.session.user.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: req.session.user.id });
+  res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, req.session.user.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: req.session.user.id });
 });
 
 // Toggle pause / resume
@@ -451,7 +481,7 @@ router.post("/:guildId/player/pause", requireAuth, requireControl, async (req, r
   }
 
   if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player));
+  res.json(playerState(player, queueWindow(req)));
 });
 
 // Previous
@@ -535,7 +565,7 @@ router.post("/:guildId/player/volume", requireAuth, requireControl, async (req, 
   if (isNaN(vol) || vol < 0 || vol > 100) return res.status(400).json({ error: "볼륨은 0에서 100 사이여야 합니다." });
 
   player.setVolume(vol);
-  res.json(playerState(player));
+  res.json(playerState(player, queueWindow(req)));
 });
 
 // Loop  { mode: 'off' | 'track' | 'queue' }
@@ -550,7 +580,7 @@ router.post("/:guildId/player/loop", requireAuth, requireControl, async (req, re
 
   player.loop = mode === "off" ? false : mode;
   if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player));
+  res.json(playerState(player, queueWindow(req)));
 });
 
 // Shuffle
@@ -562,7 +592,7 @@ router.post("/:guildId/player/shuffle", requireAuth, requireControl, async (req,
 
   player.shuffleQueue();
   if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player));
+  res.json(playerState(player, queueWindow(req)));
 });
 
 // Add track to queue  { query: string } — 곡 추가는 전 계층 가능, 재적 규칙만 적용
@@ -601,7 +631,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
     // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
     if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
 
-    res.json(playerState(player));
+    res.json(playerState(player, queueWindow(req)));
   } catch (err) {
     log.error("대시보드에서 곡 추가 실패:", err);
     res.status(500).json({ error: "곡 추가에 실패했습니다" });
@@ -628,7 +658,7 @@ router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => 
   }
 
   player.removeFromQueue(index);
-  res.json(playerState(player));
+  res.json(playerState(player, queueWindow(req)));
 });
 
 // Move track in queue  { from: number, to: number }
@@ -647,7 +677,7 @@ router.post("/:guildId/player/queue/move", requireAuth, requireControl, async (r
 
   player.moveInQueue(from, to);
   if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player));
+  res.json(playerState(player, queueWindow(req)));
 });
 
 module.exports = router;
