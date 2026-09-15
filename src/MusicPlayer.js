@@ -1417,6 +1417,8 @@ class MusicPlayer {
         }
         this.cleanup(false, "대기열 소진");
         this.guild.client.players.delete(this.guild.id);
+        // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
+        this.guild.client.musicEmbedManager?.handlePlaybackEnd(this, { reason: "disconnected" }).catch(() => {});
       }, config.bot.leaveDelayQueueEmptyMs);
     } finally {
       this.isTransitioning = false;

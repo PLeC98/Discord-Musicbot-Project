@@ -38,6 +38,6 @@ module.exports = {
 
     player.textChannel = channel;
 
-    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager));
+    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager), { reuse: false });
   },
 };

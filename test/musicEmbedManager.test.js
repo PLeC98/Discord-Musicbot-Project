@@ -164,7 +164,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 버튼은 전부 꺼지�
   const mem = new MusicEmbedManager({ players: new Map() });
   const player = panelPlayer();
   const playing = (await mem.createNowPlayingContainer(player, { title: "곡", url: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" })).toJSON();
-  const { components, files } = await mem.createIdleContainer(player, { reason: "stop" });
+  const { components, files } = await mem.createIdleContainer({ reason: "stop" });
   const idle = components[0].toJSON();
 
   assert.deepEqual(shape(idle), shape(playing));
@@ -179,9 +179,9 @@ test("종료 모양: 재생 화면과 구성이 같고, 버튼은 전부 꺼지�
 
 test("종료 모양의 문구는 사유를 따른다", async () => {
   const mem = new MusicEmbedManager({ players: new Map() });
-  const text = async (opts) => JSON.stringify((await mem.createIdleContainer(panelPlayer(), { now: 1_000_000, ...opts })).components[0].toJSON());
+  const text = async (opts) => JSON.stringify((await mem.createIdleContainer(opts)).components[0].toJSON());
 
-  const waiting = await text({ reason: "queue-end" });
+  const waiting = await text({ reason: "queue-end", leavesAt: 1_600_000 });
   assert.match(waiting, /재생 대기 중/);
   assert.match(waiting, /재생이 끝났어요/);
   assert.match(waiting, /<t:\d+:R> 쉬러 갈게요/);

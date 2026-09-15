@@ -5,6 +5,8 @@
 
 const GuildSettingsManager = require("./GuildSettingsManager");
 
+const UNKNOWN_MESSAGE = 10008;
+
 class NowPlayingPanel {
   /**
    * @param {{ getOrCreateWebhook(channel): Promise<object|null> }} embeds 웹훅을 다시 찾는 쪽(MusicEmbedManager)
@@ -34,10 +36,33 @@ class NowPlayingPanel {
     });
   }
 
+  /** 기록된 패널을 제자리에서 고친다. 고쳤으면 { channel, webhook, messageId }, 없거나 못 고치면 null. */
+  edit(guild, payload) {
+    if (!guild?.id) return Promise.resolve(null);
+    return this._serial(guild.id, async () => {
+      const record = await this.store.getPanel(guild.id);
+      if (!record) return null;
+      const channel = await this._channel(guild, record.channelId);
+      const webhook = channel && (await this.embeds.getOrCreateWebhook(channel));
+      if (!webhook) return null;
+      try {
+        await webhook.editMessage(record.messageId, payload);
+        return { channel, webhook, messageId: record.messageId };
+      } catch (error) {
+        if (error?.code === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 지워졌다 — 다음 게시가 새로 올린다
+        return null;
+      }
+    });
+  }
+
+  async _channel(guild, channelId) {
+    return guild.channels?.cache?.get(channelId) ?? (await guild.channels?.fetch?.(channelId).catch(() => null)) ?? null;
+  }
+
   // 웹훅으로 지우면 권한이 필요 없다. 웹훅이 없어졌거나 일반 메시지로 보냈으면 채널 권한으로 — 안 되면 둔다.
   async _delete(guild, { channelId, messageId }, hint) {
     const sameChannel = hint.channel?.id === channelId;
-    const channel = sameChannel ? hint.channel : (guild.channels?.cache?.get(channelId) ?? (await guild.channels?.fetch?.(channelId).catch(() => null)));
+    const channel = sameChannel ? hint.channel : await this._channel(guild, channelId);
     if (!channel) return;
     const webhook = sameChannel && hint.webhook ? hint.webhook : await this.embeds.getOrCreateWebhook(channel);
     try {

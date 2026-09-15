@@ -24,6 +24,9 @@ const NowPlayingPanel = require("./NowPlayingPanel");
 
 const BAR_LENGTH = 16;
 
+// 끝난 패널의 버튼 — 플레이어가 없어도 같은 모양을 그린다. 전부 비활성이라 custom_id는 쓰이지 않는다.
+const IDLE_CONTROLS = { sessionId: "idle", requesterId: "0", previousTracks: [], queue: [], loop: "off", paused: false, autoplay: false, currentTrack: null };
+
 class MusicEmbedManager {
   constructor(client) {
     this.client = client;
@@ -32,6 +35,8 @@ class MusicEmbedManager {
     this.webhookCache = new Map(); // channelId -> WebhookClient 매핑
     this.reposting = new Set(); // 현재 재생 메시지를 다시 올리는 중인 guildId
     this.panel = new NowPlayingPanel(this);
+    this.idleViews = new Map(); // guildId → 끝난 패널의 문구 { reason, leavesAt } — 맨 아래로 다시 올릴 때 같은 모양으로
+    this.repinTimers = new Map(); // guildId → 전용 채널 재고정 디바운스
   }
 
   deleteWebhookCache(channelId) {
@@ -240,21 +245,26 @@ class MusicEmbedManager {
   /**
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
-  async createNewMusicEmbed(player, track, requester, responder = silentResponder) {
+  async createNewMusicEmbed(player, track, requester, responder = silentResponder, { reuse = true } = {}) {
+    const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
-    if (!player.textChannel || typeof player.textChannel.send !== "function") {
+    if (typeof channel?.send !== "function") {
       return { success: true, message: "Now playing", isNewEmbed: false };
     }
 
-    const { message, webhook } = await this._sendNowPlaying(player, track);
+    player.requesterId = requester?.id ?? null; // 버튼 custom_id가 쓴다 — 그리기 전에
+    this.idleViews.delete(player.guild?.id);
+
+    // 전용 채널 맨 아래의 끝난 패널은 그 자리를 재생 화면으로 고친다. 아니면 새로 올리고 지난 패널을 치운다.
+    const reused = reuse ? await this._reuseIdlePanel(player, channel, track) : null;
+    const { message, webhook } = reused ?? (await this._sendNowPlaying(player, track, channel));
     player.nowPlayingWebhook = webhook;
-    await this.panel.commit(player.guild, player.textChannel, message, webhook); // 지난 재생·세션의 패널을 치운다
+    if (!reused) await this.panel.commit(player.guild, channel, message, webhook);
 
     // 진입점이 띄운 "검색 중…" 자리표시자 제거 — 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
 
     player.nowPlayingMessage = message;
-    player.requesterId = requester?.id ?? null;
 
     this.startProgressUpdate(player);
 
@@ -283,14 +293,13 @@ class MusicEmbedManager {
    * 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
    * (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
    */
-  async _sendNowPlaying(player, track) {
-    const container = await this.createNowPlayingContainer(player, track);
-    const jumpToRow = await this.createJumpToRow(player);
-    const components = jumpToRow ? [container, jumpToRow] : [container];
-    const payload = { components, flags: MessageFlags.IsComponentsV2 };
+  async _sendNowPlaying(player, track, channel = player.textChannel) {
+    return this._sendPanel(channel, await this._playingPayload(player, track));
+  }
 
-    const webhook = await this.getOrCreateWebhook(player.textChannel);
-    if (!webhook) return { message: await player.textChannel.send(payload), webhook: null };
+  async _sendPanel(channel, payload) {
+    const webhook = await this.getOrCreateWebhook(channel);
+    if (!webhook) return { message: await channel.send(payload), webhook: null };
 
     const message = await webhook.send({
       ...payload,
@@ -298,6 +307,35 @@ class MusicEmbedManager {
       avatarURL: this.client.user.displayAvatarURL(),
     });
     return { message, webhook };
+  }
+
+  async _playingPayload(player, track) {
+    const container = await this.createNowPlayingContainer(player, track);
+    const jumpToRow = await this.createJumpToRow(player);
+    return { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
+  }
+
+  /** 이 서버의 전용 채널 — 설정돼 있고 찾을 수 있을 때만 */
+  async _dedicatedChannel(guild, fallback = null) {
+    if (!guild?.id) return null;
+    const id = await GuildSettingsManager.getBotChannel(guild.id);
+    if (!id) return null;
+    return guild.channels?.cache?.get(id) ?? (fallback?.id === id ? fallback : null);
+  }
+
+  /** 패널을 둘 채널 — 전용 채널이 있으면 늘 거기, 없으면 요청한 채널 */
+  async _panelChannel(player) {
+    return (await this._dedicatedChannel(player.guild, player.textChannel)) ?? player.textChannel;
+  }
+
+  // 전용 채널 맨 아래에 끝난 패널이 있으면 재생 화면으로 고친다. 고쳤으면 { message, webhook }
+  async _reuseIdlePanel(player, channel, track) {
+    if ((await this._dedicatedChannel(player.guild, channel))?.id !== channel.id) return null;
+    const record = await this.panel.store.getPanel(player.guild.id);
+    if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
+    // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다
+    const edited = await this.panel.edit(player.guild, { ...(await this._playingPayload(player, track)), attachments: [] });
+    return edited ? { message: { id: edited.messageId }, webhook: edited.webhook } : null;
   }
 
   /** 현재 재생 메시지를 지웁니다. 이미 없거나 권한이 없으면 그냥 넘어갑니다. */
@@ -320,22 +358,23 @@ class MusicEmbedManager {
    */
   async _repostNowPlaying(player, reason) {
     const guildId = player.guild?.id;
-    if (!guildId || this.reposting.has(guildId)) return;
-    if (!player.currentTrack || typeof player.textChannel?.send !== "function") return;
+    if (!guildId || this.reposting.has(guildId) || !player.currentTrack) return;
 
     this.reposting.add(guildId);
     const previous = player.nowPlayingMessage;
     try {
-      const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack);
+      const channel = await this._panelChannel(player);
+      if (typeof channel?.send !== "function") return;
+      const { message, webhook } = await this._sendNowPlaying(player, player.currentTrack, channel);
 
       if (player.nowPlayingMessage !== previous || !player.currentTrack) {
-        await this._removeNowPlaying(player.textChannel, webhook, message?.id);
+        await this._removeNowPlaying(channel, webhook, message?.id);
         return;
       }
 
       player.nowPlayingMessage = message;
       player.nowPlayingWebhook = webhook;
-      await this.panel.commit(player.guild, player.textChannel, message, webhook);
+      await this.panel.commit(player.guild, channel, message, webhook);
       log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다 — 5초마다 같은 실패를 반복하면 그게 도배다
@@ -354,15 +393,17 @@ class MusicEmbedManager {
    * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
    */
   async _isBuried(player, now = Date.now()) {
-    const channel = player.textChannel;
-    const currentId = player.nowPlayingMessage?.id;
-    if (!currentId || !channel?.messages?.cache) return false;
-    if (!player.guild?.id) return false;
-    if ((await GuildSettingsManager.getBotChannel(player.guild.id)) !== channel.id) return false;
+    const channel = await this._dedicatedChannel(player.guild, player.textChannel);
+    return Boolean(channel) && this._buriedAt(channel, player.nowPlayingMessage?.id, now);
+  }
+
+  // 채널 캐시만 읽는다 — 12초 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
+  _buriedAt(channel, messageId, now = Date.now()) {
+    if (!messageId || !channel?.messages?.cache) return false;
 
     const cutoff = now - PIN_SETTLE_MS;
     // 스스로 지워질 봇 메시지(더 넣기 메뉴 등)는 세지 않는다 — 조작 중에 위치가 바뀌면 거슬린다
-    return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(currentId) && !isTransient(m.id, now));
+    return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
   /**
@@ -466,8 +507,9 @@ class MusicEmbedManager {
     } catch (error) {
       // 편집 대상이 없어졌다 — 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
       if (isGone(error)) {
-        if (error.code === UNKNOWN_WEBHOOK && player.textChannel?.id) {
-          this.deleteWebhookCache(player.textChannel.id);
+        if (error.code === UNKNOWN_WEBHOOK) {
+          const channel = await this._panelChannel(player);
+          if (channel?.id) this.deleteWebhookCache(channel.id);
           player.nowPlayingWebhook = null;
         }
         await this._repostNowPlaying(player, "메시지가 지워짐");
@@ -482,13 +524,12 @@ class MusicEmbedManager {
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
    * reason: queue-end(음성에 잠시 남음) | stop · disconnected(나감) | leave(세션 저장됨)
    */
-  async createIdleContainer(player, { reason = "stop", dedicated = false, now = Date.now() } = {}) {
-    const leaveMs = config.bot.leaveDelayQueueEmptyMs;
+  async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null } = {}) {
     let title, status;
     if (reason === "leave") {
       [title, status] = ["듣고 있던 곡이 있어요", "💾 `/join`으로 이어 들을 수 있어요"];
-    } else if (reason === "queue-end" && leaveMs > 0) {
-      [title, status] = ["재생이 끝났어요", `🌙 <t:${Math.round((now + leaveMs) / 1000)}:R> 쉬러 갈게요`];
+    } else if (leavesAt) {
+      [title, status] = ["재생이 끝났어요", `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
     } else {
       [title, status] = ["쉬는 중이에요", dedicated ? "👋 곡을 입력하면 다시 올게요" : "👋 `/play`로 부르면 다시 올게요"];
     }
@@ -500,36 +541,43 @@ class MusicEmbedManager {
       .addSectionComponents(heading)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(`\`--:--\` ●${"▬".repeat(BAR_LENGTH)} \`--:--\``))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    for (const row of await this.createControlButtons(player, true)) container.addActionRowComponents(row);
+    for (const row of await this.createControlButtons(IDLE_CONTROLS, true)) container.addActionRowComponents(row);
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})`));
 
     return { components: [container], files: [blankThumbnail.file()] };
   }
 
   /**
-   * 재생이 끝났을 때 — 패널을 종료 모양으로 바꾸고, 전용 채널 밖이면 종료 메시지를 올린다.
-   * 전용 채널에서는 패널이 맨 아래에서 종료 모양을 보여 주므로 따로 알리지 않는다.
+   * 재생이 끝났을 때 — 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 끝난 패널의 문구만 고친다
+   * (대기 중에 음성에서 나감 등). 종료 메시지는 전용 채널 밖에서, 방금까지 재생하던 때만 올린다.
    */
   async handlePlaybackEnd(player, { reason = "stop" } = {}) {
-    if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (종료/정지)
-    this.stopProgressUpdate(player.guild?.id);
+    const guild = player.guild;
+    if (guild?.id) DashboardEvents.notify(guild.id); // 대시보드 SSE 넛지 (종료/정지)
+    this.stopProgressUpdate(guild?.id);
 
+    const live = player.nowPlayingMessage;
     const textChannel = player.textChannel;
-    const dedicated = Boolean(textChannel?.id && player.guild?.id) && (await GuildSettingsManager.getBotChannel(player.guild.id)) === textChannel.id;
+    const panelChannelId = live ? (live.channel_id ?? live.channelId ?? textChannel?.id) : guild?.id && (await this.panel.store.getPanel(guild.id))?.channelId;
+    const botChannelId = guild?.id ? await GuildSettingsManager.getBotChannel(guild.id) : null;
+    const dedicated = Boolean(panelChannelId) && panelChannelId === botChannelId;
 
-    if (player.nowPlayingMessage) {
-      try {
-        const payload = { ...(await this.createIdleContainer(player, { reason, dedicated })), flags: MessageFlags.IsComponentsV2 };
-        if (player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(player.nowPlayingMessage.id, payload);
-        else await player.nowPlayingMessage.edit(payload);
-      } catch (error) {
-        // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
-        if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
-      }
+    const leaveMs = config.bot.leaveDelayQueueEmptyMs;
+    const view = { reason, leavesAt: reason === "queue-end" && leaveMs > 0 ? Date.now() + leaveMs : null };
+    if (guild?.id) this.idleViews.set(guild.id, view);
+
+    try {
+      const payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
+      if (live && player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(live.id, payload);
+      else if (live) await live.edit(payload);
+      else if (guild?.id) await this.panel.edit(guild, payload);
+    } catch (error) {
+      // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
+      if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
     }
 
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다
-    if (!dedicated && typeof textChannel?.send === "function") {
+    if (live && !dedicated && typeof textChannel?.send === "function") {
       const endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
       await textChannel.send({ embeds: [endEmbed] }).catch(() => {}); // 채널을 쓸 수 없거나 권한이 없음
     }
@@ -538,6 +586,31 @@ class MusicEmbedManager {
     trackState.setCurrent(player, null);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
+  }
+
+  /** 전용 채널에 메시지가 올라오면 끝난 패널이 묻혔는지 잠시 뒤에 본다. 재생 중인 패널은 5초 갱신이 맡는다. */
+  async scheduleIdleRepin(guild, channelId) {
+    if (!guild?.id || (await GuildSettingsManager.getBotChannel(guild.id)) !== channelId) return;
+    clearTimeout(this.repinTimers.get(guild.id));
+    const timer = setTimeout(() => {
+      this.repinTimers.delete(guild.id);
+      this.repinIdlePanel(guild, channelId).catch((error) => log.warn(`끝난 패널을 맨 아래로 올리지 못함: ${error?.message || error}`));
+    }, PIN_SETTLE_MS + 1000);
+    timer.unref?.();
+    this.repinTimers.set(guild.id, timer);
+  }
+
+  async repinIdlePanel(guild, channelId, now = Date.now()) {
+    const player = this.client.players.get(guild.id);
+    if (player?.currentTrack && player.nowPlayingMessage) return;
+    const channel = await this._dedicatedChannel(guild);
+    if (!channel || channel.id !== channelId || typeof channel.send !== "function") return;
+    const record = await this.panel.store.getPanel(guild.id);
+    if (record?.channelId !== channel.id || !this._buriedAt(channel, record.messageId, now)) return;
+
+    const view = this.idleViews.get(guild.id) ?? { reason: "stop" }; // 재시작 뒤라면 음성 밖이다
+    const { message, webhook } = await this._sendPanel(channel, { ...(await this.createIdleContainer({ ...view, dedicated: true })), flags: MessageFlags.IsComponentsV2 });
+    await this.panel.commit(guild, channel, message, webhook);
   }
 
   /**

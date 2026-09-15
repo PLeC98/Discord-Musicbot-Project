@@ -96,3 +96,25 @@ test("동시에 올라온 두 패널은 줄을 서서 — 마지막 것만 남�
   assert.equal(store.records.get("g1").messageId, "m2");
   assert.equal(panel.chains.size, 0);
 });
+
+test("기록된 패널을 제자리에서 고친다 — 지워졌으면 기록을 비운다", async () => {
+  const edits = [];
+  let fail = null;
+  const webhook = {
+    deleteMessage: async () => {},
+    editMessage: async (id) => {
+      if (fail) throw fail;
+      edits.push(id);
+    },
+  };
+  const { guild, store, panel } = setup({ record: { channelId: "c1", messageId: "m1" }, webhooks: { c1: webhook } });
+
+  const done = await panel.edit(guild, { components: [] });
+  assert.equal(done.messageId, "m1");
+  assert.deepEqual(edits, ["m1"]);
+
+  fail = Object.assign(new Error("Unknown Message"), { code: 10008 });
+  assert.equal(await panel.edit(guild, {}), null);
+  assert.equal(store.records.get("g1"), null, "다음 게시가 새로 올리도록 기록을 비운다");
+  assert.equal(await panel.edit(guild, {}), null, "기록이 없으면 할 일이 없다");
+});
