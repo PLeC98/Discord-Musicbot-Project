@@ -26,12 +26,12 @@
     <div v-if="cap === 0" class="mt-3 text-warning text-[0.82rem]">대기열이 가득 차 지금은 더 넣을 수 없어요. 곡이 빠지면 바로 이어서 넣을 수 있어요.</div>
 
     <div v-else class="mt-3.5 flex flex-col">
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-2 py-1">
         <button v-for="n in steps" :key="n" type="button" :class="chip" :disabled="busy" @click="$emit('add', n)">+{{ fmt(n) }}곡</button>
         <button type="button" :class="chip" :disabled="busy" @click="$emit('add', cap)">{{ cap < more.remaining ? `넣을 수 있는 만큼 · ${fmt(cap)}곡` : `남은 곡 전부 · ${fmt(cap)}곡` }}</button>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 py-1">
         <input v-model.number="amount" type="range" min="1" :max="cap" class="flex-1 h-1 accent-accent cursor-pointer disabled:cursor-not-allowed" :disabled="busy" aria-label="넣을 곡 수" />
         <input v-model.number="amount" type="text" inputmode="numeric" maxlength="5" class="w-13 bg-white/6 border border-white/9 rounded-[10px] text-fg px-2 py-1.5 text-[0.85rem] text-right tabular-nums outline-none transition-[border-color] duration-200 focus:border-accent/55" :class="!valid && 'border-danger/60'" :disabled="busy" aria-label="넣을 곡 수 직접 입력" @keydown.enter="valid && !busy && $emit('add', amount)" />
         <BaseButton size="sm" type="button" class="px-3! py-2! whitespace-nowrap" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? "넣는 중..." : "추가" }}</BaseButton>
