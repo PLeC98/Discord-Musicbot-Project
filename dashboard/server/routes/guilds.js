@@ -545,7 +545,7 @@ router.post("/:guildId/player/stop", requireAuth, requireControl, async (req, re
 
   player.stop();
   client.players.delete(guildId);
-  if (client.musicEmbedManager) client.musicEmbedManager.handlePlaybackEnd(player).catch(() => {});
+  if (client.musicEmbedManager) client.musicEmbedManager.handlePlaybackEnd(player, { reason: "stop" }).catch(() => {});
   res.json({ ok: true });
 });
 

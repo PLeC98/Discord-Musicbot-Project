@@ -349,7 +349,7 @@ function startBot() {
           trackState.reset(player);
 
           if (embedManager) {
-            await embedManager.handlePlaybackEnd(player);
+            await embedManager.handlePlaybackEnd(player, { reason: "disconnected" });
           } else if (typeof player.showQueueCompleted === "function") {
             await player.showQueueCompleted();
           }

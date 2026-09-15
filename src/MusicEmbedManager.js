@@ -19,6 +19,9 @@ const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNK
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(playbackResponder.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
 const { markTransient, isTransient } = require("./transientMessages");
+const blankThumbnail = require("./blankThumbnail");
+
+const BAR_LENGTH = 16;
 
 class MusicEmbedManager {
   constructor(client) {
@@ -422,7 +425,6 @@ class MusicEmbedManager {
    * 진행 바 문자열을 빌드합니다.
    */
   buildProgressBar(currentSec, totalSec) {
-    const BAR_LENGTH = 16;
     const currentStr = this.formatDuration(currentSec);
     const totalStr = this.formatDuration(totalSec);
 
@@ -474,52 +476,60 @@ class MusicEmbedManager {
   }
 
   /**
-   * 모든 음악이 끝났을 때 호출됩니다.
+   * 끝난 패널 — 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 자리는 투명 이미지로 채워 줄 구성을 맞춘다.
+   * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
+   * reason: queue-end(음성에 잠시 남음) | stop · disconnected(나감) | leave(세션 저장됨)
    */
-  async handlePlaybackEnd(player) {
+  async createIdleContainer(player, { reason = "stop", dedicated = false, now = Date.now() } = {}) {
+    const leaveMs = config.bot.leaveDelayQueueEmptyMs;
+    let title, status;
+    if (reason === "leave") {
+      [title, status] = ["듣고 있던 곡이 있어요", "💾 `/join`으로 이어 들을 수 있어요"];
+    } else if (reason === "queue-end" && leaveMs > 0) {
+      [title, status] = ["재생이 끝났어요", `🌙 <t:${Math.round((now + leaveMs) / 1000)}:R> 쉬러 갈게요`];
+    } else {
+      [title, status] = ["쉬는 중이에요", dedicated ? "👋 곡을 입력하면 다시 올게요" : "👋 `/play`로 부르면 다시 올게요"];
+    }
+
+    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`### 💤 재생 대기 중\n**${title}**\n-# ${status}`)).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
+
+    const container = new ContainerBuilder()
+      .setAccentColor(resolveColor(config.bot.embedColor))
+      .addSectionComponents(heading)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`\`--:--\` ●${"▬".repeat(BAR_LENGTH)} \`--:--\``))
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+    for (const row of await this.createControlButtons(player, true)) container.addActionRowComponents(row);
+    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})`));
+
+    return { components: [container], files: [blankThumbnail.file()] };
+  }
+
+  /**
+   * 재생이 끝났을 때 — 패널을 종료 모양으로 바꾸고, 전용 채널 밖이면 종료 메시지를 올린다.
+   * 전용 채널에서는 패널이 맨 아래에서 종료 모양을 보여 주므로 따로 알리지 않는다.
+   */
+  async handlePlaybackEnd(player, { reason = "stop" } = {}) {
     if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (종료/정지)
     this.stopProgressUpdate(player.guild?.id);
 
-    // 버튼 비활성화
-    if (player.nowPlayingMessage && player.currentTrack) {
-      try {
-        const container = await this.createNowPlayingContainer(player, player.currentTrack, true);
-        if (player.nowPlayingWebhook) {
-          await player.nowPlayingWebhook.editMessage(player.nowPlayingMessage.id, {
-            components: [container],
-            flags: MessageFlags.IsComponentsV2,
-          });
-        } else {
-          await player.nowPlayingMessage.edit({
-            components: [container],
-            flags: MessageFlags.IsComponentsV2,
-          });
-        }
-      } catch (error) {
-        // 이미 지워진 메시지의 버튼을 못 껐다는 것은 알릴 일이 아니다
-        if (!isGone(error)) log.error("버튼 비활성화 실패:", error);
-      }
-    }
-
-    let endEmbed = null;
-
-    try {
-      endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
-    } catch (error) {
-      log.error("재생 종료 임베드 준비 실패:", error);
-    }
-
-    if (!endEmbed) {
-      endEmbed = new EmbedBuilder().setDescription("🎵 음악 종료됨").setColor("#FF6B6B").setTimestamp();
-    }
-
     const textChannel = player.textChannel;
-    if (textChannel && typeof textChannel.send === "function") {
+    const dedicated = Boolean(textChannel?.id && player.guild?.id) && (await GuildSettingsManager.getBotChannel(player.guild.id)) === textChannel.id;
+
+    if (player.nowPlayingMessage) {
       try {
-        await textChannel.send({ embeds: [endEmbed] });
+        const payload = { ...(await this.createIdleContainer(player, { reason, dedicated })), flags: MessageFlags.IsComponentsV2 };
+        if (player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(player.nowPlayingMessage.id, payload);
+        else await player.nowPlayingMessage.edit(payload);
       } catch (error) {
-        // 채널을 사용할 수 없거나 권한이 없을 때 오류 억제
+        // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
+        if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
       }
+    }
+
+    // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다
+    if (!dedicated && typeof textChannel?.send === "function") {
+      const endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
+      await textChannel.send({ embeds: [endEmbed] }).catch(() => {}); // 채널을 쓸 수 없거나 권한이 없음
     }
 
     // 플레이어 정리
@@ -579,7 +589,7 @@ class MusicEmbedManager {
 
     const loopButton = new ButtonBuilder().setCustomId(`music_loop:${requesterId}:${sessionId}`).setLabel(loopLabel).setStyle(loopStyle).setEmoji(loopEmoji).setDisabled(disabled);
 
-    const queueButton = new ButtonBuilder().setCustomId(`music_queue:${requesterId}:${sessionId}`).setLabel("대기열").setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(false);
+    const queueButton = new ButtonBuilder().setCustomId(`music_queue:${requesterId}:${sessionId}`).setLabel("대기열").setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(disabled);
 
     const autoplayButton = new ButtonBuilder()
       .setCustomId(`music_autoplay:${requesterId}:${sessionId}`)

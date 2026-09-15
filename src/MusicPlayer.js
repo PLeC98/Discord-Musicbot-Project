@@ -965,7 +965,7 @@ class MusicPlayer {
         try {
           const embedManager = this.guild?.client?.musicEmbedManager;
           if (embedManager) {
-            await embedManager.handlePlaybackEnd(this);
+            await embedManager.handlePlaybackEnd(this, { reason: "disconnected" });
           } else if (typeof this.showQueueCompleted === "function") {
             await this.showQueueCompleted();
           }
@@ -1395,7 +1395,7 @@ class MusicPlayer {
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
       if (this.guild?.client?.musicEmbedManager) {
-        await this.guild.client.musicEmbedManager.handlePlaybackEnd(this);
+        await this.guild.client.musicEmbedManager.handlePlaybackEnd(this, { reason: "queue-end" });
       } else {
         await this.showQueueCompleted();
       }
