@@ -15,7 +15,7 @@ const OFF_MENU_MS = 30_000;
  */
 function genreSelect(requesterId, sessionId, placeholder) {
   // 장르 정의는 config/genres.js 한 곳에서 관리 — 부를 때마다 읽는다(편집 반영 대비)
-  const genres = require("../config/genres");
+  const { genres } = require("../config/genres");
 
   return new StringSelectMenuBuilder()
     .setCustomId(`autoplay_genre:${requesterId}:${sessionId}`)

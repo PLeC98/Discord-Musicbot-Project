@@ -75,9 +75,16 @@ function ok(...titles) {
 
 // ── toRequester ──────────────────────────────────────────────
 
-test("toRequester: GuildMember의 username은 user.username에서 온다 (GuildMember엔 username이 없다)", () => {
+// 표시에 쓰는 이름은 **그 서버에서 보이는 이름**이다. GuildMember에는 username이 없어
+// 전역 계정명(user.username)이 먼저 잡히면 닉네임이 영영 쓰이지 않는다 — displayName을 먼저 본다.
+test("toRequester: GuildMember는 서버 닉네임(displayName)을 쓴다", () => {
   const member = { id: "u1", user: { username: "carl", tag: "carl#0" }, displayName: "칼" };
-  assert.deepEqual(toRequester(member), { id: "u1", username: "carl", tag: "carl#0" });
+  assert.deepEqual(toRequester(member), { id: "u1", username: "칼", tag: "carl#0" });
+});
+
+test("toRequester: 닉네임이 없으면 전역 계정명으로 떨어진다", () => {
+  const member = { id: "u1", user: { username: "carl", tag: "carl#0" } };
+  assert.equal(toRequester(member).username, "carl");
 });
 
 test("toRequester: 대시보드 세션 사용자와 세션 복구 스텁도 같은 모양이 된다", () => {

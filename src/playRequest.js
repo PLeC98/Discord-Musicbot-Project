@@ -27,7 +27,9 @@ function toRequester(source) {
 
   return {
     id: source.id ?? null,
-    username: source.username ?? source.user?.username ?? source.displayName ?? null,
+    // displayName을 먼저 본다 — GuildMember에는 username이 없어 전역 계정명이 먼저 잡히면
+    // 서버 닉네임이 영영 쓰이지 않는다. displayName은 닉네임이 있으면 닉네임, 없으면 표시 이름이다.
+    username: source.displayName ?? source.username ?? source.user?.displayName ?? source.user?.username ?? null,
     tag: source.tag ?? source.user?.tag ?? null,
   };
 }

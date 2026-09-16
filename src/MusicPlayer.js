@@ -1387,7 +1387,7 @@ class MusicPlayer {
       }
 
       if (this.autoplay) {
-        const genres = require("../config/genres");
+        const { genres } = require("../config/genres");
         if (!genres[this.autoplay]) {
           // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
           log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
@@ -1457,14 +1457,13 @@ class MusicPlayer {
     if (!this.autoplay || typeof this.autoplay !== "string") return null;
 
     try {
-      // 장르 정의는 config/genres.js 한 곳에서 관리.
-      const genres = require("../config/genres");
-      const genre = genres[this.autoplay];
-      const keywords = genre?.keywords;
+      // 장르 정의와 기준값은 config/genres.js 한 곳에서 관리. 장르가 기준값을 덮어쓴다.
+      const cfg = this._autoplayConfig();
+      const keywords = cfg?.keywords;
       if (!keywords) return null;
-      // 길이 제한은 장르가 정한다. 상한은 기본 없음 — 로파이처럼 긴 영상이 정상인 장르가 있다.
-      const minSec = Number(genre.minDurationSec ?? 30);
-      const maxSec = Number(genre.maxDurationSec ?? Infinity);
+      const minSec = Number(cfg.minDurationSec ?? 0);
+      const maxSec = cfg.maxDurationSec == null ? Infinity : Number(cfg.maxDurationSec);
+      const blockedKeywords = cfg.blockedKeywords || [];
       const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
 
       // 임의 트랙을 YouTube에서 검색
@@ -1484,11 +1483,8 @@ class MusicPlayer {
         // 길이 제한 — config/genres.js에서 장르별로 정한다(minDurationSec·maxDurationSec)
         if (track.duration < minSec || track.duration > maxSec) return false;
 
-        // 제목에서 일반적인 비음악 키워드 필터링
+        // 제목에 차단어가 들어갔는지 — 목록은 config/genres.js의 defaults.blockedKeywords
         const title = (track.title || "").toLowerCase();
-        const blockedKeywords = ["tutorial", "lesson", "course", "learn", "learning", "podcast", "interview", "talk", "speech", "lecture", "review", "unboxing", "reaction", "gameplay", "full movie", "full album", "full episode", "documentary", "how to", "guide", "tips", "tricks", "vlog", "practice", "exercise", "workout", "meditation", "asmr", "story", "audiobook", "mix |", "compilation"];
-
-        // 제목에 차단 키워드가 포함되어 있는지 확인
         const hasBlockedKeyword = blockedKeywords.some((keyword) => title.includes(keyword));
         if (hasBlockedKeyword) return false;
 
@@ -1576,12 +1572,20 @@ class MusicPlayer {
     }
   }
 
+  // 지금 장르의 자동재생 설정 — 기준값 위에 장르 설정을 얹는다. 모르는 장르면 null.
+  _autoplayConfig() {
+    const { defaults, genres } = require("../config/genres");
+    const genre = genres[this.autoplay];
+    return genre ? { ...defaults, ...genre } : null;
+  }
+
   // 미리 뽑아 둘 수 있는 상태인가 — 고르기 전과 넣기 직전에 같은 것을 본다.
   _canPrefetchAutoplay() {
     if (!this.autoplay || typeof this.autoplay !== "string") return false;
     if (!this.currentTrack) return false; // 틀고 있는 게 없으면 미리 둘 이유가 없다
     if (this.loop === "track") return false; // 한곡 반복이면 다음 곡으로 넘어가지 않는다
-    return this.queue.length === 0;
+    const want = Number(this._autoplayConfig()?.prefetchCount ?? 1);
+    return this.queue.length < Math.max(1, want);
   }
 
   async handleError(error, userMessage = null) {

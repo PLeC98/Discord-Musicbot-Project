@@ -4,81 +4,101 @@
 //  - label: 버튼 메뉴와 확인 메시지에 쓰이는 한국어 표기
 //  - emoji: 버튼 메뉴 아이콘
 //  - keywords: YouTube 검색어 후보 — 자동재생 시 매번 무작위로 1개 선택
-//  - minDurationSec / maxDurationSec (선택): 자동재생이 고를 곡의 길이 범위. 기본 30초 ~ 제한 없음.
+//  - defaults: 자동재생 동작의 기준값(미리 뽑을 곡 수·길이 범위·차단어). 장르에서 같은 이름으로 덮어쓴다.
 //      너무 좁히면 후보가 0이 되어 자동재생이 그냥 넘어간다(로파이·애니 키워드는 한 시간짜리 믹스가 대부분이다).
+//      그때는 먹통이 되지 않고 조용히 대기열 소진으로 넘어가며 경고 로그를 남긴다.
 //
 //  주의:
 //  - Discord 한도로 UI(셀렉트 메뉴/choices) 노출은 최대 25개까지만 가능
 //  - 슬래시 커맨드 choices는 기동 시 등록되므로 변경 후 봇 재시작 필요
 module.exports = {
-  pop: {
-    label: "팝",
-    emoji: "🎤",
-    keywords: ["pop music 2024", "top pop songs", "pop hits official", "best pop music"],
+  // 자동재생이 곡을 고를 때의 기준. 장르에서 같은 이름으로 덮어쓸 수 있다.
+  defaults: {
+    // 미리 뽑아 대기열에 둘 곡 수. 예열(QueueWarmer)은 자동재생과 무관하게 대기열 앞쪽을 받아 두므로,
+    // 공백을 없애는 데는 1곡이면 충분하다. 늘리면 검색이 그만큼 더 나가고 가짜 대기열이 길어진다.
+    prefetchCount: 1,
+
+    // 고를 곡의 길이(초). maxDurationSec이 null이면 상한 없음.
+    // 상한을 두면 한 시간짜리 믹스가 걸러지지만, 로파이처럼 긴 영상이 정상인 장르는 후보가 0이 된다.
+    minDurationSec: 30,
+    maxDurationSec: null,
+
+    // 제목에 이 말이 들어가면 고르지 않는다(소문자로 비교).
+    // 원류에서 내려온 목록이라 영어 전용이고, 곡 제목에 흔한 말(story·talk 등)이 섞여 있어
+    // 멀쩡한 곡도 걸러낸다. 실제 결과를 보며 다듬을 것 — 계획서 6단계.
+    blockedKeywords: ["tutorial", "lesson", "course", "learn", "learning", "podcast", "interview", "talk", "speech", "lecture", "review", "unboxing", "reaction", "gameplay", "full movie", "full album", "full episode", "documentary", "how to", "guide", "tips", "tricks", "vlog", "practice", "exercise", "workout", "meditation", "asmr", "story", "audiobook", "mix |", "compilation"],
   },
-  rock: {
-    label: "록",
-    emoji: "🎸",
-    keywords: ["rock music official", "rock songs 2025", "classic rock hits", "best rock music"],
-  },
-  hiphop: {
-    label: "힙합",
-    emoji: "🎧",
-    keywords: ["hip hop music", "rap songs official", "hip hop 2025", "best rap music"],
-  },
-  electronic: {
-    label: "일렉트로닉",
-    emoji: "🎛️",
-    keywords: ["edm music", "electronic dance music", "house music official", "best edm"],
-  },
-  jazz: {
-    label: "재즈",
-    emoji: "🎷",
-    keywords: ["jazz music", "jazz standards", "smooth jazz official", "best jazz"],
-  },
-  classical: {
-    label: "클래식",
-    emoji: "🎻",
-    keywords: ["classical music", "classical piano", "orchestra music", "best classical"],
-  },
-  metal: {
-    label: "메탈",
-    emoji: "🤘",
-    keywords: ["metal music official", "heavy metal songs", "metal 2025", "best metal"],
-  },
-  country: {
-    label: "컨트리",
-    emoji: "🤠",
-    keywords: ["country music official", "country songs 2025", "best country music"],
-  },
-  rnb: {
-    label: "R&B",
-    emoji: "💃",
-    keywords: ["r&b music official", "rnb songs 2025", "soul music", "best rnb"],
-  },
-  indie: {
-    label: "인디",
-    emoji: "🌿",
-    keywords: ["indie music official", "indie songs 2025", "alternative music", "best indie"],
-  },
-  kpop: {
-    label: "K-POP",
-    emoji: "🇰🇷",
-    keywords: ["kpop official mv", "kpop songs 2025", "korean music official", "best kpop"],
-  },
-  anime: {
-    label: "애니메",
-    emoji: "🎌",
-    keywords: ["アニメ オープニング 公式", "アニソン 公式", "2026 アニソン", "アニメ神曲"],
-  },
-  lofi: {
-    label: "로파이",
-    emoji: "🌙",
-    keywords: ["lofi hip hop music", "lofi beats official", "chill lofi music", "best lofi"],
-  },
-  random: {
-    label: "랜덤",
-    emoji: "🎲",
-    keywords: ["music official video", "top songs 2025", "music video official", "best music"],
+
+  genres: {
+    pop: {
+      label: "팝",
+      emoji: "🎤",
+      keywords: ["pop music 2024", "top pop songs", "pop hits official", "best pop music"],
+    },
+    rock: {
+      label: "록",
+      emoji: "🎸",
+      keywords: ["rock music official", "rock songs 2025", "classic rock hits", "best rock music"],
+    },
+    hiphop: {
+      label: "힙합",
+      emoji: "🎧",
+      keywords: ["hip hop music", "rap songs official", "hip hop 2025", "best rap music"],
+    },
+    electronic: {
+      label: "일렉트로닉",
+      emoji: "🎛️",
+      keywords: ["edm music", "electronic dance music", "house music official", "best edm"],
+    },
+    jazz: {
+      label: "재즈",
+      emoji: "🎷",
+      keywords: ["jazz music", "jazz standards", "smooth jazz official", "best jazz"],
+    },
+    classical: {
+      label: "클래식",
+      emoji: "🎻",
+      keywords: ["classical music", "classical piano", "orchestra music", "best classical"],
+    },
+    metal: {
+      label: "메탈",
+      emoji: "🤘",
+      keywords: ["metal music official", "heavy metal songs", "metal 2025", "best metal"],
+    },
+    country: {
+      label: "컨트리",
+      emoji: "🤠",
+      keywords: ["country music official", "country songs 2025", "best country music"],
+    },
+    rnb: {
+      label: "R&B",
+      emoji: "💃",
+      keywords: ["r&b music official", "rnb songs 2025", "soul music", "best rnb"],
+    },
+    indie: {
+      label: "인디",
+      emoji: "🌿",
+      keywords: ["indie music official", "indie songs 2025", "alternative music", "best indie"],
+    },
+    kpop: {
+      label: "K-POP",
+      emoji: "🇰🇷",
+      keywords: ["kpop official mv", "kpop songs 2025", "korean music official", "best kpop"],
+    },
+    anime: {
+      label: "애니메",
+      emoji: "🎌",
+      keywords: ["アニメ オープニング 公式", "アニソン 公式", "2026 アニソン", "アニメ神曲"],
+    },
+    lofi: {
+      label: "로파이",
+      emoji: "🌙",
+      keywords: ["lofi hip hop music", "lofi beats official", "chill lofi music", "best lofi"],
+    },
+    random: {
+      label: "랜덤",
+      emoji: "🎲",
+      keywords: ["music official video", "top songs 2025", "music video official", "best music"],
+    },
   },
 };
