@@ -129,7 +129,9 @@ async function main() {
 
       const label = clean(info?.label) || code.replace(/_/g, " ");
       const tags = clean([...new Set(info?.tags || [])].join(" "));
-      rows.push([char, label, `${tags} ${code}`.trim()].join("|"));
+      // 단축명은 콜론째로 담는다 — 디스코드에서 복사하면 ":thinking:" 꼴로 딸려오는데,
+      // 부분 일치로 찾으므로 콜론이 있으면 "thinking"도 ":thinking:"도 걸린다.
+      rows.push([char, label, `${tags} :${code}:`.trim()].join("|"));
     }
     groups.push([section.name, rows]);
   }

@@ -29,7 +29,11 @@
         </div>
 
         <div :class="scroller">
-          <p v-if="!groups.length" class="text-muted text-[0.82rem] text-center py-8">불러오는 중...</p>
+          <div v-if="loadError" class="px-4 py-8 text-center">
+            <p class="text-[0.82rem] text-[#f87171] mb-3">{{ loadError }}</p>
+            <button type="button" :class="retryBtn" @click="load">다시 시도</button>
+          </div>
+          <p v-else-if="!groups.length" class="text-muted text-[0.82rem] text-center py-8">불러오는 중...</p>
 
           <!-- 찾는 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
           <div v-else-if="results" class="px-2 py-2">
@@ -77,6 +81,7 @@ const popoverStyle = ref({});
 const query = ref("");
 const groups = shallowRef([]);
 const collapsed = ref({});
+const loadError = ref("");
 
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 
@@ -95,7 +100,17 @@ function toggle(name) {
 
 async function load() {
   if (groups.value.length) return;
-  const module = await import("../emojiList.js");
+  loadError.value = "";
+
+  let module;
+  try {
+    module = await import("../emojiList.js");
+  } catch {
+    // 목록은 따로 받아오므로 못 받아올 수가 있다 — 특히 대시보드를 다시 빌드하면 파일 이름이
+    // 바뀌어서, 열어 둔 화면이 없어진 파일을 찾는다. 새로고침하면 풀린다.
+    loadError.value = "목록을 불러오지 못했습니다. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
+    return;
+  }
   groups.value = module.EMOJI_GROUPS;
 
   let saved;
@@ -178,6 +193,7 @@ const searchCls = "w-full bg-white/5 border border-white/9 rounded-lg text-fg px
 const scroller = "h-[300px] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]";
 const header = "sticky top-0 z-10 w-full flex items-center gap-1.5 bg-[rgba(18,22,42,0.97)] px-2.5 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[rgba(196,181,253,0.7)] cursor-pointer transition-colors duration-150 hover:text-[rgba(196,181,253,0.95)]";
 const clearBtn = "absolute right-4 top-1/2 -translate-y-1/2 size-5 rounded-full flex items-center justify-center text-muted cursor-pointer transition-colors duration-150 hover:bg-white/12 hover:text-fg";
+const retryBtn = "px-3 py-1.5 rounded-lg border border-white/12 bg-white/5 text-fg-soft text-[0.8rem] cursor-pointer transition-colors duration-150 hover:bg-white/10";
 const grid = "grid grid-cols-8 gap-0.5";
 const cell = "size-[34px] rounded-lg text-[1.15rem] leading-none flex items-center justify-center cursor-pointer transition-colors duration-100 hover:bg-white/12";
 </script>

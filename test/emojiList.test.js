@@ -50,8 +50,11 @@ test("디스코드에서 복사한 이름으로 찾을 수 있다", async () => 
   const flat = (await groups()).flatMap((g) => g.emoji);
   const find = (q) => flat.find((e) => e.search.includes(q))?.char;
 
+  // 콜론째로 붙여넣는 쪽이 흔하므로 그게 먼저다. 부분 일치라 콜론 없는 꼴도 같이 걸린다.
+  assert.equal(find(":shushing_face:"), "🤫");
   assert.equal(find("shushing_face"), "🤫");
-  assert.equal(find("flag_kr"), "🇰🇷");
+  assert.equal(find(":thinking:"), "🤔");
+  assert.equal(find(":flag_kr:"), "🇰🇷");
   assert.equal(find("guitar"), "🎸");
   assert.equal(find("기타"), "🎸", "한국어 이름으로도 찾아진다");
 });
