@@ -568,7 +568,7 @@ let sse = null;
 
 // 레벨 필터는 **다중 토글**이다 — "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
 // 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
-const LEVEL_ORDER = { trace: 10, log: 20, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
+const LEVEL_ORDER = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const logLevels = [
   { value: "debug", label: "DEBUG" },
   { value: "info", label: "INFO" },
@@ -594,7 +594,7 @@ function toggleLevel(v) {
   else next.add(v);
   levelsOn.value = next;
 }
-// 와이어의 "log"·"trace"는 DEBUG 알약이 담당한다(같은 심각도 칸).
+// 와이어의 "trace"는 DEBUG 알약이 담당한다(같은 심각도 칸).
 const levelBucket = (lv) => (LEVEL_ORDER[lv] <= 20 ? "debug" : lv);
 
 function lvColor(level) {

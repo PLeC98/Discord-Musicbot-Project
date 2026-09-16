@@ -3,9 +3,8 @@
 // LogSink — 로그 레코드의 "진짜 매니저".
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
-//   - 브리지 레거시 레코드는 wireLevel(원본 console 메서드명)을 실어 대시보드 칩 하위호환 유지
 // 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
-// 생산자는 두 갈래: (1) src/logger.js facade  (2) 아래 console 브리지(레거시 console.* 흡수)
+// 생산자는 두 갈래: (1) src/logger.js facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
 const util = require("util");
 const chalk = require("chalk");
@@ -24,8 +23,9 @@ const LEVEL_NAMES = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "err
 // 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 **대시보드가 영영 못 가른다.**
 // 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
 const WIRE_LEVEL = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
-// 브리지: 레거시 console 메서드 → pino 레벨(숫자)
-const CONSOLE_LEVEL = { log: 30, info: 30, warn: 40, error: 50 };
+// 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다 — 여기 걸리는 건 전부 서드파티라
+// info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
+const CONSOLE_LEVEL = { log: 20, info: 30, warn: 40, error: 50 };
 
 // 레벨 라벨 색.
 const LEVEL_COLOR = {
@@ -101,7 +101,6 @@ class LogManager {
           level: CONSOLE_LEVEL[method],
           time: Date.now(),
           msg: util.format(...args), // console 시맨틱(%s, 객체 inspect, Error stack) 보존
-          wireLevel: method, // 대시보드 칩 하위호환
           category: "external",
         });
       };
@@ -163,7 +162,7 @@ class LogManager {
   _redact(rec) {
     const out = {};
     for (const [k, v] of Object.entries(rec)) {
-      if (k === "msg" || k === "level" || k === "time" || k === "wireLevel") {
+      if (k === "msg" || k === "level" || k === "time") {
         out[k] = v;
         continue;
       }
@@ -202,10 +201,10 @@ class LogManager {
   _toWire(rec) {
     const entry = {
       ts: rec.time,
-      level: rec.wireLevel || WIRE_LEVEL[rec.level] || "info",
+      level: WIRE_LEVEL[rec.level] || "info",
       text: this._strip(rec.msg),
     };
-    if (rec.category) entry.category = rec.category; // 있을 때만(레거시 브리지 로그엔 없음)
+    if (rec.category) entry.category = rec.category; // 있을 때만
     if (rec.sub) entry.sub = rec.sub; // 하위 카테고리(pino child 바인딩)
     if (Array.isArray(rec.tags) && rec.tags.length) entry.tags = rec.tags; // 교차 태그
     return entry;
