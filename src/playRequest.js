@@ -115,6 +115,14 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     if (!single && trackData.isPlaylist && room < batch && more) trackData = { ...trackData, queueLimited: true };
   }
 
+  // 라이브는 끝이 없어 이 구조가 다루지 못한다 — 길이 기반 종료 감시도, 캐시도, "다음 곡"도 성립하지 않는다.
+  // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
+  if (trackData.tracks?.some((t) => t.isLive)) {
+    const playable = trackData.tracks.filter((t) => !t.isLive);
+    if (playable.length === 0) return { success: false, message: S.ERR_LIVE_NOT_SUPPORTED };
+    trackData = { ...trackData, tracks: playable };
+  }
+
   // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)
   if (single && trackData.tracks.length > 1) {
     trackData = { ...trackData, isPlaylist: false, collection: null, tracks: trackData.tracks.slice(0, 1) };

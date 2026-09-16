@@ -160,6 +160,40 @@ function baseArgs(client, guild, extra = {}) {
   return { guild, requester: { id: "u1", user: { username: "carl" } }, ...extra };
 }
 
+// 라이브는 끝이 없어 이 구조가 다루지 못한다(길이 기반 종료 감시·캐시·"다음 곡"이 모두 성립하지 않는다).
+// 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
+test("라이브 링크는 거절하고 이유를 알린다", async () => {
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true }] });
+  const client = makeClient();
+  const guild = makeGuild();
+
+  const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play" }));
+
+  assert.equal(result.success, false);
+  assert.match(result.message, /라이브/);
+  assert.equal(client.embedCalls.length, 0, "코어까지 가지 않는다");
+});
+
+// 재생목록에 라이브가 섞여 있으면 그것만 빼고 나머지는 넣는다.
+test("재생목록의 라이브만 걸러내고 나머지는 넣는다", async () => {
+  mockResolve = () => ({
+    success: true,
+    isPlaylist: true,
+    collection: "playlist",
+    tracks: [
+      { title: "라이브", url: "https://y/live", duration: 0, isLive: true },
+      { title: "보통곡", url: "https://y/ok", duration: 100 },
+    ],
+  });
+  const client = makeClient();
+  const guild = makeGuild();
+
+  await requestPlayback(client, baseArgs(client, guild, { query: "https://y/list", source: "/play" }));
+
+  const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
+  assert.deepEqual(sent, ["보통곡"]);
+});
+
 test("query 경로: 해석 결과를 코어에 그대로 넘긴다", async () => {
   mockResolve = () => ok("곡A");
   const client = makeClient();

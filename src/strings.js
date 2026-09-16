@@ -29,4 +29,5 @@ module.exports = {
   ERR_NO_SONGS_IN_QUEUE: "❌ 대기열에 노래가 없습니다!",
   ERR_SESSION_INVALID: "❌ 이 버튼은 더 이상 유효하지 않습니다! 음악 시스템이 재시작되었습니다.",
   ERR_PROCESSING: "❌ 처리 중 오류가 발생했습니다!",
+  ERR_LIVE_NOT_SUPPORTED: "❌ 라이브 방송은 재생할 수 없어요. 다시보기(VOD)나 일반 영상 링크를 넣어 주세요!",
 };

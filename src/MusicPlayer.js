@@ -559,10 +559,15 @@ class MusicPlayer {
       // 리소스 재생
       this.audioPlayer.play(this.resource);
 
-      // 재생 통계와 소스 URL → audioSourceKey 매핑을 DB에 기록
+      // 재생 통계와 소스 URL → audioSourceKey 매핑을 DB에 기록.
+      // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다 — 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
       if (this.currentTrack.audioSourceKey) {
-        CacheManager.recordPlayback(this.currentTrack.audioSourceKey);
-        CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
+        try {
+          CacheManager.recordPlayback(this.currentTrack.audioSourceKey);
+          CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
+        } catch (error) {
+          log.warn(`캐시 장부 기록 실패(재생은 계속): ${error?.message || error}`);
+        }
       }
 
       if (this.pauseReasons.size > 0) {
@@ -1370,17 +1375,20 @@ class MusicPlayer {
 
       if (this.autoplay) {
         const genres = require("../config/genres");
-        if (genres[this.autoplay]) {
+        if (!genres[this.autoplay]) {
+          // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
+          log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
+          if (this.textChannel) {
+            this.textChannel?.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
+          }
+          this.autoplay = false;
+        } else {
           this.currentTrackRetries = 0;
-          await this.handleAutoplay();
-          return;
+          // 틀었을 때만 여기서 끝낸다. 못 골랐으면 아래 대기열 소진 흐름으로 떨어진다 —
+          // 그냥 return하면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가·스킵이 전부 먹통이 된다.
+          // 이때 자동재생은 켜 둔 채로 둔다. 후보를 한 번 못 찾은 것이 장르를 끌 이유는 아니다.
+          if (await this.handleAutoplay()) return;
         }
-        // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 자동재생을 끄고 알린 뒤, 아래의 일반 대기열 종료 흐름으로 진행
-        log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
-        if (this.textChannel) {
-          this.textChannel?.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
-        }
-        this.autoplay = false;
       }
 
       trackState.setCurrent(this, null);
@@ -1427,14 +1435,18 @@ class MusicPlayer {
   }
 
   async handleAutoplay() {
-    if (!this.autoplay || typeof this.autoplay !== "string") return;
+    if (!this.autoplay || typeof this.autoplay !== "string") return false;
 
     try {
       // 장르 정의는 config/genres.js 한 곳에서 관리.
       // 알 수 없는 장르는 호출부(handleTrackEnd)에서 걸러지므로 여기서는 방어적으로 중단만 한다.
       const genres = require("../config/genres");
-      const keywords = genres[this.autoplay]?.keywords;
-      if (!keywords) return;
+      const genre = genres[this.autoplay];
+      const keywords = genre?.keywords;
+      if (!keywords) return false;
+      // 길이 제한은 장르가 정한다. 상한은 기본 없음 — 로파이처럼 긴 영상이 정상인 장르가 있다.
+      const minSec = Number(genre.minDurationSec ?? 30);
+      const maxSec = Number(genre.maxDurationSec ?? Infinity);
       const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
 
       // 임의 트랙을 YouTube에서 검색
@@ -1442,7 +1454,8 @@ class MusicPlayer {
       const results = await YouTube.search(randomKeyword, 15);
 
       if (!results || results.length === 0) {
-        return;
+        log.warn(`자동재생: 검색 결과가 없어 넘어갑니다 (장르 ${this.autoplay}, 검색어 "${randomKeyword}")`);
+        return false;
       }
 
       // 비음악 콘텐츠 필터링
@@ -1450,9 +1463,8 @@ class MusicPlayer {
         // 길이가 없으면 건너뜀
         if (!track.duration) return false;
 
-        // 길이 제한: 30초 ~ 10분(600초)
-        // 이를 통해 대부분의 튜토리얼, 강의, 팟캐스트 및 전체 영화를 걸러냅니다.
-        if (track.duration < 30 || track.duration > 600) return false;
+        // 길이 제한 — config/genres.js에서 장르별로 정한다(minDurationSec·maxDurationSec)
+        if (track.duration < minSec || track.duration > maxSec) return false;
 
         // 제목에서 일반적인 비음악 키워드 필터링
         const title = (track.title || "").toLowerCase();
@@ -1474,10 +1486,11 @@ class MusicPlayer {
         // 다른 키워드로 다시 시도
         const fallbackKeyword = keywords[Math.floor(Math.random() * keywords.length)];
         const fallbackResults = await YouTube.search(fallbackKeyword, 10);
-        const fallbackFiltered = (fallbackResults || []).filter((track) => track.duration >= 30 && track.duration <= 600);
+        const fallbackFiltered = (fallbackResults || []).filter((track) => track.duration >= minSec && track.duration <= maxSec);
 
         if (fallbackFiltered.length === 0) {
-          return;
+          log.warn(`자동재생: 조건에 맞는 곡을 찾지 못해 넘어갑니다 (장르 ${this.autoplay}, 후보 ${results.length}곡)`);
+          return false;
         }
 
         filteredResults.push(...fallbackFiltered);
@@ -1497,8 +1510,10 @@ class MusicPlayer {
       if (this.guild?.client?.musicEmbedManager) {
         await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
       }
+      return true;
     } catch (error) {
       log.error("자동재생 오류:", error.message);
+      return false;
     }
   }
 
