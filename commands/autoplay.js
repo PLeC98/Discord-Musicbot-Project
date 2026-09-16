@@ -1,11 +1,10 @@
 "use strict";
 
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
+const { SlashCommandBuilder } = require("discord.js");
 const S = require("../src/strings");
 const { checkControl } = require("../src/permissions");
-const { buildGenreMenu } = require("../src/genreMenu");
-const { keepReply } = require("../src/replyLifetime");
+const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
+const { keepReply, expireReply } = require("../src/replyLifetime");
 
 // 장르는 옵션으로 받지 않는다 — 자동재생 버튼과 같은 선택 화면을 띄운다.
 // 옵션으로 받으면 목록이 기동 시점에 굳고(choices), 명령 정의가 config/genres.js의 label 대신
@@ -26,9 +25,9 @@ module.exports = {
     if (player.autoplay) {
       player.setAutoplay(false);
 
-      const embed = new EmbedBuilder().setTitle("🎲 자동 재생이 비활성화되었습니다").setDescription("자동 재생 기능이 꺼졌습니다.").setColor(config.bot.embedColor).setTimestamp();
-
-      await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+      // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다 — 고르면 변경, 두면 종료.
+      expireReply(interaction, OFF_MENU_MS);
+      await interaction.reply(buildAutoplayOffMenu(member.id, player.sessionId));
 
       if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
       return;

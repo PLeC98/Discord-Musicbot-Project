@@ -5,8 +5,8 @@ const S = require("../src/strings");
 const { requestPlayback } = require("../src/playRequest");
 const { channelResponder } = require("../src/playbackResponder");
 const { checkControl, checkSkip, checkAdd } = require("../src/permissions");
-const { buildGenreMenu } = require("../src/genreMenu");
-const { keepReply } = require("../src/replyLifetime");
+const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
+const { keepReply, expireReply } = require("../src/replyLifetime");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -211,17 +211,6 @@ module.exports = {
         .setColor(config.bot.embedColor)
         .setTimestamp()
         .addFields({ name: "👤 건너뛴 사람", value: `${interaction.member}`, inline: true });
-
-      if (player.queue.length > 0) {
-        embed.addFields({
-          name: "🔜 다음 노래",
-          value: `[${player.queue[0].title}](${player.queue[0].url})`,
-          inline: false,
-        });
-        embed.setFooter({ text: `대기열에 ${player.queue.length}개의 노래가 더 있습니다` });
-      } else {
-        embed.setFooter({ text: "대기열에 더 이상 노래가 없습니다" });
-      }
 
       if (currentTrack.thumbnail) {
         embed.setThumbnail(currentTrack.thumbnail);
@@ -488,9 +477,9 @@ module.exports = {
     if (player.autoplay) {
       player.setAutoplay(false);
 
-      const embed = new EmbedBuilder().setTitle("🎲 자동 재생이 비활성화되었습니다").setDescription("자동 재생 기능이 꺼졌습니다.").setColor(config.bot.embedColor).setTimestamp();
-
-      await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+      // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다 — 고르면 변경, 두면 종료.
+      expireReply(interaction, OFF_MENU_MS);
+      await interaction.reply(buildAutoplayOffMenu(requesterId, player.sessionId));
 
       if (interaction.client.musicEmbedManager) {
         await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
