@@ -8,10 +8,9 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 
 /* 디스코드와 같은 Twemoji. Windows에는 국기 글리프가 아예 없어 "🇰🇷"가 "KR"로 보이는데,
-   OS에 없는 그림은 폰트 스택으로 못 부르므로 직접 들고 온다.
-   이름이 "Twemoji Mozilla"인 건 emoji-picker-element가 그 이름을 먼저 찾기 때문이다. */
+   OS에 없는 그림은 폰트 스택으로 못 부르므로 직접 들고 온다. */
 @font-face {
-  font-family: "Twemoji Mozilla";
+  font-family: "Twemoji";
   src: url("twemoji-colr-font/twemoji.woff2") format("woff2");
   font-display: swap;
 }
@@ -98,7 +97,7 @@ body {
 
   /* Twemoji가 맨 앞이어야 한다 — OS 이모지 폰트가 앞에 있으면 국기 자리를 먼저 가져가
      글리프가 없는 채로 글자를 그려 버린다(그게 "KR"로 보이는 이유다). */
-  --font-emoji: "Twemoji Mozilla", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  --font-emoji: "Twemoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   background: var(--bg-primary);
   background-image: radial-gradient(ellipse 80% 65% at 8% 12%, rgba(100, 60, 240, 0.16) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 88% 85%, rgba(50, 90, 250, 0.11) 0%, transparent 55%), radial-gradient(ellipse 50% 40% at 55% 48%, rgba(150, 60, 210, 0.07) 0%, transparent 55%);
   background-attachment: fixed;

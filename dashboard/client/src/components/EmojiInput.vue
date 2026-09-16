@@ -1,44 +1,52 @@
 <!--
   이모지 한 글자만 받는 입력칸.
 
-  환경에 따라 이모지를 직접 치기 어렵거나 불가능해서 선택기를 붙인다. 그리고 그냥 입력칸이면
-  이모지가 아닌 글자도 들어가 버리므로(선택 메뉴가 거부한다), 한 글자짜리 이모지만 받는다.
+  칸에 직접 쳐 넣거나 붙여넣을 수 있고(디스코드에서 복사해 오는 길), 칸을 누르면 고르는 판이 열린다
+  — 환경에 따라 이모지를 직접 입력하기 어렵거나 불가능하기 때문이다.
+  이모지가 아닌 글자는 애초에 남지 않는다. 선택 메뉴가 그런 값을 거부한다.
 -->
 <template>
   <div class="relative shrink-0">
-    <button ref="anchor" type="button" :class="[box, 'emoji']" v-tooltip="modelValue ? '이모지 바꾸기' : '이모지 고르기'" @click="open = !open">
-      <span v-if="modelValue">{{ modelValue }}</span>
-      <Icon v-else name="add" :size="15" class="opacity-45" />
-    </button>
+    <input ref="anchor" :value="modelValue" placeholder="🎵" :class="[box, 'emoji']" v-tooltip="'이모지 — 직접 입력하거나 눌러서 고르기'" @input="onInput" @focus="open = true" @keydown.esc="open = false" />
 
     <Teleport to="body">
-      <div v-if="open" class="fixed inset-0 z-190" @click="open = false"></div>
-      <div v-if="open" class="fixed z-200 rounded-2xl overflow-hidden shadow-card border border-white/12" :style="popoverStyle">
-        <!-- emoji-version을 못 박으면 선택기가 "이 환경에서 안 보이는 이모지"를 스스로 감지해
-             숨기는 일을 그만둔다. 웹폰트가 늦게 도착하면 그 감지가 국기를 없는 것으로 판정한다.
-             15.0은 twemoji-colr-font 15.x가 담고 있는 범위다(16.0 이모지는 폰트에 없다). -->
-        <emoji-picker ref="picker" class="dark" emoji-version="15.0"></emoji-picker>
-        <button v-if="modelValue" class="w-full bg-[rgba(12,16,36,0.92)] text-muted text-[0.8rem] py-2 cursor-pointer hover:text-danger" @click="pick('')">비우기</button>
+      <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
+      <div v-if="open" class="fixed z-200 rounded-2xl overflow-hidden shadow-card border border-white/12 bg-[rgba(12,16,36,0.96)] backdrop-blur-sm" :style="popoverStyle">
+        <!-- CSP(style-src 'self')가 인라인 style= 속성을 막는다 — 높이도 유틸리티로 준다.
+             :style 바인딩은 CSSOM이라 대상이 아니지만, 정적 속성은 마크업에 그대로 남는다. -->
+        <div class="h-[310px] overflow-y-auto overscroll-contain p-2">
+          <section v-for="group in EMOJI_GROUPS" :key="group.name">
+            <h4 class="sticky top-0 z-10 bg-[rgba(12,16,36,0.96)] text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[rgba(196,181,253,0.65)] px-1 py-1.5">{{ group.name }}</h4>
+            <div class="grid grid-cols-8 gap-0.5">
+              <button v-for="e in group.emoji" :key="e" type="button" :class="[cell, 'emoji']" :title="e" @click="pick(e)">{{ e }}</button>
+            </div>
+          </section>
+        </div>
+
+        <button v-if="modelValue" type="button" class="w-full border-t border-white/10 text-muted text-[0.8rem] py-2 cursor-pointer hover:text-danger" @click="pick('')">비우기</button>
       </div>
     </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onBeforeUnmount } from "vue";
-import Icon from "./BaseIcon.vue";
-import "emoji-picker-element";
+import { ref, watch } from "vue";
+import { EMOJI_GROUPS } from "../emojiList.js";
 
 defineProps({ modelValue: { type: String, default: "" } });
 const emit = defineEmits(["update:modelValue"]);
 
 const open = ref(false);
 const anchor = ref(null);
-const picker = ref(null);
 const popoverStyle = ref({});
 
-function onPick(event) {
-  pick(event.detail.unicode);
+// 친 것·붙여넣은 것에서 이모지 한 글자만 남긴다. 국기·키캡처럼 코드포인트가 여럿인 것도 한 덩이로 잡힌다.
+const RGI = /\p{RGI_Emoji}/gv;
+
+function onInput(event) {
+  const next = event.target.value.match(RGI)?.[0] || "";
+  event.target.value = next; // 걸러낸 결과와 화면을 맞춘다 — 안 맞추면 거른 글자가 칸에 남는다
+  emit("update:modelValue", next);
 }
 
 function pick(value) {
@@ -46,47 +54,19 @@ function pick(value) {
   open.value = false;
 }
 
-// 선택기를 띄울 자리 — 버튼 아래가 화면을 넘치면 위로 올린다.
+// 고르는 판을 띄울 자리 — 칸 아래가 화면을 넘치면 위로 올린다.
 function place() {
   const rect = anchor.value?.getBoundingClientRect();
   if (!rect) return;
-  const width = 340;
-  const height = 400;
+  const width = 316;
+  const height = 350;
   const below = rect.bottom + 6;
   const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 6) : below;
   popoverStyle.value = { top: `${top}px`, left: `${Math.min(Math.max(8, rect.left), window.innerWidth - width - 8)}px`, width: `${width}px` };
 }
 
-watch(open, async (isOpen) => {
-  if (!isOpen) {
-    picker.value?.removeEventListener("emoji-click", onPick);
-    return;
-  }
-  place();
-  await nextTick();
-  picker.value?.addEventListener("emoji-click", onPick);
-});
+watch(open, (isOpen) => isOpen && place());
 
-onBeforeUnmount(() => picker.value?.removeEventListener("emoji-click", onPick));
-
-const box = "h-[38px] w-[38px] rounded-xl border border-white/9 bg-white/5 text-[1.05rem] leading-none flex items-center justify-center cursor-pointer transition-[background-color,border-color] duration-150 hover:bg-white/8";
+const box = "h-[38px] w-[38px] rounded-xl border border-white/9 bg-white/5 text-fg text-[1.05rem] leading-none text-center outline-none transition-[background-color,border-color] duration-150 focus:border-accent/55 focus:bg-white/7";
+const cell = "size-[34px] rounded-lg text-[1.15rem] leading-none flex items-center justify-center cursor-pointer transition-colors duration-100 hover:bg-white/12";
 </script>
-
-<style scoped>
-/* 선택기 자체 테마 — 대시보드의 유리 느낌에 맞춘다 */
-emoji-picker {
-  /* 선택기 격자도 입력칸과 같은 폰트로 — 기본값도 "Twemoji Mozilla"를 먼저 찾지만,
-     출처를 하나로 두어 스택을 고칠 때 둘이 어긋나지 않게 한다. */
-  --emoji-font-family: var(--font-emoji);
-  --background: rgba(12, 16, 36, 0.96);
-  --border-color: transparent;
-  --input-border-color: rgba(255, 255, 255, 0.12);
-  --input-font-color: #e7e9f3;
-  --input-placeholder-color: rgba(231, 233, 243, 0.45);
-  --category-font-color: rgba(196, 181, 253, 0.8);
-  --button-hover-background: rgba(255, 255, 255, 0.08);
-  --button-active-background: rgba(255, 255, 255, 0.12);
-  width: 100%;
-  height: 400px;
-}
-</style>
