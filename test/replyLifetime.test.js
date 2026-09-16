@@ -4,7 +4,7 @@
 
 const { test, mock } = require("node:test");
 const assert = require("node:assert/strict");
-const { scheduleReplyCleanup, lifetimeOf, DEFAULT_MS } = require("../src/replyLifetime");
+const { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS } = require("../src/replyLifetime");
 
 function command(name, over = {}) {
   const calls = [];
@@ -24,6 +24,28 @@ test("수명 표: 기본값, 명령 예외, 버튼 예외", () => {
   assert.equal(lifetimeOf(component("music_queue:u1:s1")), null);
   assert.equal(lifetimeOf(component("help_refresh")), null);
   assert.equal(lifetimeOf(component("volume_modal")), DEFAULT_MS);
+});
+
+// 자동재생 버튼은 끄기(결과)와 켜기(선택 메뉴) 두 가지를 한다. 표에 null을 걸면 선택 메뉴는 남지만
+// 끄기 결과까지 남는다(실제로 그랬다) — 그래서 표가 아니라 핸들러가 선언한다.
+test("한 버튼의 두 분기: 표는 기본값을 주고, 남길 쪽만 핸들러가 선언한다", () => {
+  assert.equal(lifetimeOf(component("music_autoplay:u1:s1")), DEFAULT_MS, "끄기 결과는 지워진다");
+
+  const menu = component("music_autoplay:u1:s1");
+  keepReply(menu);
+  assert.equal(lifetimeOf(menu), null, "선택 메뉴는 남는다");
+});
+
+// update()는 ephemeral을 기록하지 않아 기본 규칙이 거른다. 선택 메뉴를 결과로 덮은 자리는 지워야 한다.
+test("expireReply: update로 답한 응답도 선언하면 지운다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const interaction = component("autoplay_genre:u1:s1", { ephemeral: null });
+  expireReply(interaction);
+  scheduleReplyCleanup(interaction);
+
+  t.mock.timers.tick(DEFAULT_MS);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(interaction.calls, ["deleted"]);
 });
 
 test("본인에게만 보이는 응답은 수명이 지나면 지운다 — 한 번만 예약한다", async (t) => {

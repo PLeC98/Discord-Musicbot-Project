@@ -2,6 +2,7 @@ const { Events, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
 const S = require("../src/strings");
 const { checkControl } = require("../src/permissions");
+const { expireReply } = require("../src/replyLifetime");
 const trackState = require("../src/trackState");
 
 module.exports = {
@@ -97,7 +98,10 @@ module.exports = {
         inline: true,
       });
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    // 선택 메뉴를 결과로 덮는다 — reply로 새 메시지를 만들면 고른 뒤에도 선택 화면이 남는다.
+    // update는 ephemeral을 기록하지 않아 정리에서 빠지므로, 지우라고 선언해 둔다.
+    expireReply(interaction);
+    await interaction.update({ embeds: [embed], components: [] });
 
     // 자동재생이 활성화되었음을 표시하도록 메인 임베드 갱신
     if (client.musicEmbedManager) {

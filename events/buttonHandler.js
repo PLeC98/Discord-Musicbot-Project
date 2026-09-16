@@ -5,6 +5,8 @@ const S = require("../src/strings");
 const { requestPlayback } = require("../src/playRequest");
 const { channelResponder } = require("../src/playbackResponder");
 const { checkControl, checkSkip, checkAdd } = require("../src/permissions");
+const { buildGenreMenu } = require("../src/genreMenu");
+const { keepReply } = require("../src/replyLifetime");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -396,15 +398,6 @@ module.exports = {
       .setTimestamp()
       .addFields({ name: "👤 셔플한 사람", value: `${interaction.member}`, inline: true });
 
-    if (player.queue.length > 0) {
-      const nextTracks = player.queue.slice(0, 3);
-      let trackList = "";
-      nextTracks.forEach((track, index) => {
-        trackList += `${index + 1}. **[${track.title}](${track.url})**\n`;
-      });
-      embed.addFields({ name: "🔜 다음 노래들", value: trackList, inline: false });
-    }
-
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 
     if (interaction.client.musicEmbedManager) {
@@ -484,8 +477,6 @@ module.exports = {
   },
 
   async handleAutoplay(interaction, player, requesterId) {
-    const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder } = require("discord.js");
-
     const permErr = await checkControl(interaction.member);
     if (permErr) {
       return await interaction.reply({
@@ -507,19 +498,9 @@ module.exports = {
       return;
     }
 
-    // 장르 정의는 config/genres.js
-    const genres = require("../config/genres");
-
-    const select = new StringSelectMenuBuilder()
-      .setCustomId(`autoplay_genre:${requesterId}:${player.sessionId}`)
-      .setPlaceholder("음악 장르를 선택하세요...")
-      .addOptions(Object.entries(genres).map(([value, g]) => new StringSelectMenuOptionBuilder().setLabel(g.label).setValue(value).setEmoji(g.emoji)));
-
-    const row = new ActionRowBuilder().addComponents(select);
-
-    const embed = new EmbedBuilder().setTitle("🎲 🎵 음악 장르 선택").setDescription("대기열이 끝나면 어떤 장르를 재생할까요?").setColor(config.bot.embedColor);
-
-    await interaction.reply({ embeds: [embed], components: [row], flags: [1 << 6] });
+    // 고르는 동안 떠 있어야 한다 — 수명 표는 이 버튼의 분기를 가르지 못하므로 여기서 선언한다
+    keepReply(interaction);
+    await interaction.reply(buildGenreMenu(requesterId, player.sessionId));
   },
 
   async handleHelpRefresh(interaction) {
