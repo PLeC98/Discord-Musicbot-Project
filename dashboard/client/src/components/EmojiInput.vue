@@ -14,7 +14,10 @@
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @click="open = false"></div>
       <div v-if="open" class="fixed z-200 rounded-2xl overflow-hidden shadow-card border border-white/12" :style="popoverStyle">
-        <emoji-picker ref="picker" class="dark"></emoji-picker>
+        <!-- emoji-version을 못 박으면 선택기가 "이 환경에서 안 보이는 이모지"를 스스로 감지해
+             숨기는 일을 그만둔다. 웹폰트가 늦게 도착하면 그 감지가 국기를 없는 것으로 판정한다.
+             15.0은 twemoji-colr-font 15.x가 담고 있는 범위다(16.0 이모지는 폰트에 없다). -->
+        <emoji-picker ref="picker" class="dark" emoji-version="15.0"></emoji-picker>
         <button v-if="modelValue" class="w-full bg-[rgba(12,16,36,0.92)] text-muted text-[0.8rem] py-2 cursor-pointer hover:text-danger" @click="pick('')">비우기</button>
       </div>
     </Teleport>
@@ -72,6 +75,9 @@ const box = "h-[38px] w-[38px] rounded-xl border border-white/9 bg-white/5 text-
 <style scoped>
 /* 선택기 자체 테마 — 대시보드의 유리 느낌에 맞춘다 */
 emoji-picker {
+  /* 선택기 격자도 입력칸과 같은 폰트로 — 기본값도 "Twemoji Mozilla"를 먼저 찾지만,
+     출처를 하나로 두어 스택을 고칠 때 둘이 어긋나지 않게 한다. */
+  --emoji-font-family: var(--font-emoji);
   --background: rgba(12, 16, 36, 0.96);
   --border-color: transparent;
   --input-border-color: rgba(255, 255, 255, 0.12);
