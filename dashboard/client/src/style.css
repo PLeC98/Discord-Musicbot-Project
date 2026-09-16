@@ -7,8 +7,9 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* 디스코드와 같은 Twemoji. Windows에는 국기 글리프가 아예 없어 "🇰🇷"가 "KR"로 보이는데,
-   OS에 없는 그림은 폰트 스택으로 못 부르므로 직접 들고 온다. */
+/* 이모지는 Twemoji 그림(TwemojiImage.vue)으로 그린다. 이 폰트는 그림을 못 받아왔을 때의 대비다
+   — Windows에는 국기 글리프가 아예 없어 그냥 두면 "🇰🇷"가 "KR"로 보인다.
+   @font-face는 .emoji가 실제로 그려질 때만 내려받으므로 평소에는 값이 들지 않는다. */
 @font-face {
   font-family: "Twemoji";
   src: url("twemoji-colr-font/twemoji.woff2") format("woff2");

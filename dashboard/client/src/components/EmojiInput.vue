@@ -10,8 +10,8 @@
 -->
 <template>
   <div class="relative shrink-0">
-    <button ref="anchor" type="button" :class="[box, 'emoji']" v-tooltip="modelValue ? '이모지 바꾸기' : '이모지 고르기'" @click="open = !open">
-      <span v-if="modelValue">{{ modelValue }}</span>
+    <button ref="anchor" type="button" :class="box" v-tooltip="modelValue ? '이모지 바꾸기' : '이모지 고르기'" @click="open = !open">
+      <Twemoji v-if="modelValue" :char="modelValue" :size="20" />
       <Icon v-else name="add" :size="15" class="opacity-45" />
     </button>
 
@@ -35,14 +35,14 @@
           <div v-else-if="results" class="px-2 py-2">
             <p v-if="!results.length" class="text-muted text-[0.82rem] text-center py-6">찾는 이모지가 없습니다.</p>
             <div v-else :class="grid">
-              <button v-for="e in results" :key="e.char" type="button" :class="[cell, 'emoji']" v-tooltip="e.label" @click="pick(e.char)">{{ e.char }}</button>
+              <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="pick(e.char)"><Twemoji :char="e.char" :size="22" /></button>
             </div>
           </div>
 
           <!-- content-visibility: 화면 밖 분류는 그리지 않는다 — 1900여 개를 한 번에 펼쳐 두기 때문 -->
           <section v-for="group in groups" v-else :key="group.name" class="[content-visibility:auto] [contain-intrinsic-size:auto_200px]">
             <!-- 배경을 판과 같은 색으로 둬야 접히는 자리에 틈이 비치지 않는다 -->
-            <button type="button" :class="header" @click="collapsed[group.name] = !collapsed[group.name]">
+            <button type="button" :class="header" @click="toggle(group.name)">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" class="transition-transform duration-150 shrink-0" :class="collapsed[group.name] ? '-rotate-90' : ''">
                 <path d="M0 2h8L4 7z" />
               </svg>
@@ -51,7 +51,7 @@
             </button>
 
             <div v-if="!collapsed[group.name]" :class="[grid, 'px-2 pb-2']">
-              <button v-for="e in group.emoji" :key="e.char" type="button" :class="[cell, 'emoji']" v-tooltip="e.label" @click="pick(e.char)">{{ e.char }}</button>
+              <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="pick(e.char)"><Twemoji :char="e.char" :size="22" /></button>
             </div>
           </section>
         </div>
@@ -65,6 +65,7 @@
 <script setup>
 import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount } from "vue";
 import Icon from "./BaseIcon.vue";
+import Twemoji from "./TwemojiImage.vue";
 
 defineProps({ modelValue: { type: String, default: "" } });
 const emit = defineEmits(["update:modelValue"]);
@@ -79,10 +80,33 @@ const collapsed = ref({});
 
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 
+// 어느 분류를 접어 뒀는지는 브라우저가 기억한다. 못 읽거나 못 쓰는 환경(사생활 보호 창 등)에서도
+// 그냥 다 펼친 채로 동작해야 하므로 실패는 삼킨다.
+const STORE_KEY = "emojiPicker.collapsed";
+
+function toggle(name) {
+  collapsed.value[name] = !collapsed.value[name];
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(Object.keys(collapsed.value).filter((k) => collapsed.value[k])));
+  } catch {
+    // 기억하지 못해도 고르는 데는 지장이 없다
+  }
+}
+
 async function load() {
   if (groups.value.length) return;
   const module = await import("../emojiList.js");
   groups.value = module.EMOJI_GROUPS;
+
+  let saved;
+  try {
+    saved = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+  } catch {
+    saved = null; // 못 읽는 환경이면 그냥 다 펼친다
+  }
+  // 저장된 이름 중 지금도 있는 것만 본다 — 분류가 바뀌어도 엉뚱하게 접히지 않는다
+  const names = new Set(Array.isArray(saved) ? saved : []);
+  collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group) => [group.name, names.has(group.name)]));
 }
 
 function clearQuery() {
