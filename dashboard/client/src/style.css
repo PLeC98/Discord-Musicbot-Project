@@ -7,11 +7,9 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
-/* 이모지 폰트 — 디스코드가 쓰는 Twemoji를 COLR/CPAL로 빌드한 것(466KB, 파일 하나).
-   Windows에는 국기 글리프가 아예 없어서 "🇰🇷"가 "KR" 글자로 보인다. 폰트 스택을 어떻게 짜도
-   OS에 없는 그림은 나오지 않으므로, 그림을 직접 들고 온다.
-   이름이 "Twemoji Mozilla"인 건 emoji-picker-element가 그 이름을 먼저 찾도록 박아 뒀기 때문이다
-   — 이 이름을 쓰면 선택기의 렌더와 "이 이모지가 보이는 환경인가" 판정이 모두 이 폰트를 탄다. */
+/* 디스코드와 같은 Twemoji. Windows에는 국기 글리프가 아예 없어 "🇰🇷"가 "KR"로 보이는데,
+   OS에 없는 그림은 폰트 스택으로 못 부르므로 직접 들고 온다.
+   이름이 "Twemoji Mozilla"인 건 emoji-picker-element가 그 이름을 먼저 찾기 때문이다. */
 @font-face {
   font-family: "Twemoji Mozilla";
   src: url("twemoji-colr-font/twemoji.woff2") format("woff2");

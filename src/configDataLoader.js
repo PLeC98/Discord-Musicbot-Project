@@ -23,6 +23,10 @@ let configDir = path.join(__dirname, "..", "config");
 // name -> { mtimeMs, value }
 const cache = new Map();
 
+// 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 코드포인트가 여럿인 것도 한 덩이로 센다.
+// g 플래그가 없어 test()에 상태가 남지 않는다.
+const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
+
 const fileOf = (name) => path.join(configDir, `${name}.yaml`);
 const exampleOf = (name) => path.join(configDir, `${name}.example.yaml`);
 
@@ -85,6 +89,14 @@ function genres() {
     // 따옴표를 써도 파싱 뒤에는 같은 문자열이라 구분할 수 없다 — 아예 못 쓰는 이름으로 못박는다.
     throw Object.assign(new Error(`장르 이름으로 쓸 수 없습니다: ${shown}\n   true·false·null 은 YAML이 값으로 읽습니다. 다른 이름을 쓰세요.`), { code: "CONFIG_INVALID" });
   }
+  // 이모지가 아닌 값이 하나라도 있으면 디스코드가 선택 메뉴 전체를 거부한다.
+  // 손으로 고친 파일이 /autoplay에서 터지지 않도록 읽는 자리에서 먼저 잡는다.
+  const badEmoji = Object.entries(data.genres || {}).filter(([, g]) => g?.emoji != null && g.emoji !== "" && !ONE_EMOJI.test(String(g.emoji)));
+  if (badEmoji.length) {
+    const shown = badEmoji.map(([k, g]) => `${k}: ${g.emoji}`).join(", ");
+    throw Object.assign(new Error(`이모지가 아닌 값이 있습니다: ${shown}\n   emoji는 비우거나 이모지 한 글자만 적을 수 있습니다.`), { code: "CONFIG_INVALID" });
+  }
+
   return { defaults: data.defaults || {}, genres: data.genres || {} };
 }
 
@@ -163,10 +175,6 @@ function save(name, data) {
  * 장르 설정이 쓸 만한 모양인지 본다. 저장 전에 부른다 — 깨진 값을 파일에 남기지 않는다.
  * 반환: 문제 문구 배열(비어 있으면 통과).
  */
-// 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 여러 코드포인트로 된 것도 한 덩이로 센다.
-// g 플래그가 없어 test()에 상태가 남지 않는다.
-const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
-
 function validateGenres(data) {
   const problems = [];
   const ids = Object.keys(data?.genres || {});

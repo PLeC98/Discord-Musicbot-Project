@@ -84,6 +84,23 @@ test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 
   }
 });
 
+test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
+  // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 읽을 때 잡지 않으면
+  // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 자리에서 죽는다.
+  const load = (emoji) => {
+    write("genres", `defaults: {}\ngenres:\n  팝:\n    emoji: ${emoji}\n    keywords:\n      - pop\n`);
+    fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
+    return loader.genres();
+  };
+
+  assert.equal(load("🇰🇷").genres.팝.emoji, "🇰🇷", "국기처럼 코드포인트가 여럿인 것도 한 글자다");
+  assert.equal(load('""').genres.팝.emoji, "", "비워 두는 것은 괜찮다");
+
+  const err = thrown(() => load("abc"));
+  assert.equal(err.code, "CONFIG_INVALID");
+  assert.match(err.message, /이모지/);
+});
+
 test("no·on 같은 말은 그냥 장르 키가 된다 — 따옴표가 필요 없다", () => {
   write("genres", "defaults: {}\ngenres:\n  no:\n    label: 노\n  on:\n    label: 온\n");
   fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
