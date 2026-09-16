@@ -127,6 +127,7 @@ class TrackDownloader {
     let verifiedTitle = null;
     let audioDurationSec = null; // 캐시에 남길 오디오 길이 — track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
+    CacheManager.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
     try {
       if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
@@ -261,6 +262,8 @@ class TrackDownloader {
       }
       log.error(`캐시 다운로드 실패 ("${track.title}"):`, error.message);
       throw error;
+    } finally {
+      CacheManager.unprotectFile(tempPath);
     }
   }
 
