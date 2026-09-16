@@ -43,8 +43,10 @@
             </div>
           </div>
 
-          <!-- content-visibility: 화면 밖 분류는 그리지 않는다 — 1900여 개를 한 번에 펼쳐 두기 때문 -->
-          <section v-for="group in groups" v-else :key="group.name" class="[content-visibility:auto] [contain-intrinsic-size:auto_200px]">
+          <!-- content-visibility로 화면 밖 분류를 건너뛰게 했다가 걷어냈다: 짐작한 높이와 실제 높이의
+               차이가 소수점으로 남아 붙어 있는 분류 머리 위에 틈이 비쳤다. 그림은 어차피 lazy라
+               화면 밖은 받아오지도 않고, DOM은 어느 쪽이든 다 만들므로 얻는 것도 크지 않았다. -->
+          <section v-for="group in groups" v-else :key="group.name">
             <!-- 배경을 판과 같은 색으로 둬야 접히는 자리에 틈이 비치지 않는다 -->
             <button type="button" :class="header" @click="toggle(group.name)">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" class="transition-transform duration-150 shrink-0" :class="collapsed[group.name] ? '-rotate-90' : ''">
@@ -160,7 +162,9 @@ function place() {
   const height = 372;
   const below = rect.bottom + 6;
   const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 6) : below;
-  popoverStyle.value = { top: `${top}px`, left: `${Math.min(Math.max(8, rect.left), window.innerWidth - width - 8)}px`, width: `${width}px` };
+  // 정수로 떨어뜨린다 — 소수점 좌표에 놓이면 안에서 붙어 있는 분류 머리 위에 1픽셀 틈이 비친다
+  const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+  popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
 }
 
 // 판은 화면 기준으로 놓이므로, 페이지가 움직이면 다시 놓아야 칸을 따라간다.
