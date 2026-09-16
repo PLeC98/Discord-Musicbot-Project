@@ -1,72 +1,148 @@
 <!--
-  이모지 한 글자만 받는 입력칸.
+  이모지 한 글자를 고르는 칸.
 
-  칸에 직접 쳐 넣거나 붙여넣을 수 있고(디스코드에서 복사해 오는 길), 칸을 누르면 고르는 판이 열린다
-  — 환경에 따라 이모지를 직접 입력하기 어렵거나 불가능하기 때문이다.
-  이모지가 아닌 글자는 애초에 남지 않는다. 선택 메뉴가 그런 값을 거부한다.
+  환경에 따라 이모지를 직접 입력하기 어렵거나 불가능해서 고르는 판을 붙인다.
+  검색칸에는 이름으로 찾아도 되고 이모지를 붙여넣어도 된다 — 붙여넣은 것이 목록에 없더라도
+  이모지 한 글자이기만 하면 고를 수 있게 맨 앞에 내놓는다.
+
+  목록(1700여 개)은 처음 열 때 따로 받아온다. 대시보드를 열 때마다 들고 다닐 것이 아니다.
 -->
 <template>
   <div class="relative shrink-0">
-    <input ref="anchor" :value="modelValue" placeholder="🎵" :class="[box, 'emoji']" v-tooltip="'이모지 — 직접 입력하거나 눌러서 고르기'" @input="onInput" @focus="open = true" @keydown.esc="open = false" />
+    <button ref="anchor" type="button" :class="[box, 'emoji']" v-tooltip="modelValue ? '이모지 바꾸기' : '이모지 고르기'" @click="open = !open">
+      <span v-if="modelValue">{{ modelValue }}</span>
+      <Icon v-else name="add" :size="15" class="opacity-45" />
+    </button>
 
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
-      <div v-if="open" class="fixed z-200 rounded-2xl overflow-hidden shadow-card border border-white/12 bg-[rgba(12,16,36,0.96)] backdrop-blur-sm" :style="popoverStyle">
-        <!-- CSP(style-src 'self')가 인라인 style= 속성을 막는다 — 높이도 유틸리티로 준다.
-             :style 바인딩은 CSSOM이라 대상이 아니지만, 정적 속성은 마크업에 그대로 남는다. -->
-        <div class="h-[310px] overflow-y-auto overscroll-contain p-2">
-          <section v-for="group in EMOJI_GROUPS" :key="group.name">
-            <h4 class="sticky top-0 z-10 bg-[rgba(12,16,36,0.96)] text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[rgba(196,181,253,0.65)] px-1 py-1.5">{{ group.name }}</h4>
-            <div class="grid grid-cols-8 gap-0.5">
-              <button v-for="e in group.emoji" :key="e" type="button" :class="[cell, 'emoji']" :title="e" @click="pick(e)">{{ e }}</button>
+
+      <div v-if="open" :class="panel" :style="popoverStyle">
+        <div class="p-2 border-b border-white/8">
+          <input ref="searchBox" v-model="query" placeholder="이름으로 찾기 · 이모지 붙여넣기" :class="searchCls" @keydown.esc="open = false" />
+        </div>
+
+        <div :class="scroller">
+          <p v-if="!groups.length" class="text-muted text-[0.82rem] text-center py-8">불러오는 중...</p>
+
+          <!-- 찾는 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
+          <div v-else-if="results" class="px-2 py-2">
+            <p v-if="!results.length" class="text-muted text-[0.82rem] text-center py-6">찾는 이모지가 없습니다.</p>
+            <div v-else :class="grid">
+              <button v-for="e in results" :key="e.char" type="button" :class="[cell, 'emoji']" v-tooltip="e.label" @click="pick(e.char)">{{ e.char }}</button>
+            </div>
+          </div>
+
+          <section v-for="group in groups" v-else :key="group.name">
+            <!-- 배경을 판과 같은 색으로 둬야 접히는 자리에 틈이 비치지 않는다 -->
+            <button type="button" :class="header" @click="collapsed[group.name] = !collapsed[group.name]">
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" class="transition-transform duration-150 shrink-0" :class="collapsed[group.name] ? '-rotate-90' : ''">
+                <path d="M0 2h8L4 7z" />
+              </svg>
+              <span class="truncate">{{ group.name }}</span>
+              <span class="ml-auto opacity-40 tabular-nums">{{ group.emoji.length }}</span>
+            </button>
+
+            <div v-if="!collapsed[group.name]" :class="[grid, 'px-2 pb-2']">
+              <button v-for="e in group.emoji" :key="e.char" type="button" :class="[cell, 'emoji']" v-tooltip="e.label" @click="pick(e.char)">{{ e.char }}</button>
             </div>
           </section>
         </div>
 
-        <button v-if="modelValue" type="button" class="w-full border-t border-white/10 text-muted text-[0.8rem] py-2 cursor-pointer hover:text-danger" @click="pick('')">비우기</button>
+        <button v-if="modelValue" type="button" class="w-full border-t border-white/8 text-muted text-[0.8rem] py-2 cursor-pointer hover:text-danger" @click="pick('')">비우기</button>
       </div>
     </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
-import { EMOJI_GROUPS } from "../emojiList.js";
+import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount } from "vue";
+import Icon from "./BaseIcon.vue";
 
 defineProps({ modelValue: { type: String, default: "" } });
 const emit = defineEmits(["update:modelValue"]);
 
 const open = ref(false);
 const anchor = ref(null);
+const searchBox = ref(null);
 const popoverStyle = ref({});
+const query = ref("");
+const groups = shallowRef([]);
+const collapsed = ref({});
 
-// 친 것·붙여넣은 것에서 이모지 한 글자만 남긴다. 국기·키캡처럼 코드포인트가 여럿인 것도 한 덩이로 잡힌다.
-const RGI = /\p{RGI_Emoji}/gv;
+const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 
-function onInput(event) {
-  const next = event.target.value.match(RGI)?.[0] || "";
-  event.target.value = next; // 걸러낸 결과와 화면을 맞춘다 — 안 맞추면 거른 글자가 칸에 남는다
-  emit("update:modelValue", next);
+async function load() {
+  if (groups.value.length) return;
+  const module = await import("../emojiList.js");
+  // 처음엔 첫 분류만 펼친다 — 1700개를 한 번에 그리면 여는 순간 버벅인다
+  collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group, i) => [group.name, i > 0]));
+  groups.value = module.EMOJI_GROUPS;
 }
+
+const results = computed(() => {
+  const typed = query.value.trim();
+  if (!typed) return null;
+
+  const found = [];
+  // 붙여넣은 이모지는 목록에 없더라도 고를 수 있어야 한다 — 폰트가 모르는 새 이모지일 수도 있다
+  if (ONE_EMOJI.test(typed)) found.push({ char: typed, label: typed });
+
+  const needle = typed.toLowerCase();
+  for (const group of groups.value) {
+    for (const e of group.emoji) {
+      if (found.length >= 120) return found; // 다 그려 봐야 눈에 안 들어온다
+      if (e.char !== typed && e.search.includes(needle)) found.push(e);
+    }
+  }
+  return found;
+});
 
 function pick(value) {
   emit("update:modelValue", value);
   open.value = false;
 }
 
-// 고르는 판을 띄울 자리 — 칸 아래가 화면을 넘치면 위로 올린다.
+// 판을 띄울 자리 — 칸 아래가 화면을 넘치면 위로 올린다.
 function place() {
   const rect = anchor.value?.getBoundingClientRect();
   if (!rect) return;
-  const width = 316;
-  const height = 350;
+  const width = 320;
+  const height = 372;
   const below = rect.bottom + 6;
   const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 6) : below;
   popoverStyle.value = { top: `${top}px`, left: `${Math.min(Math.max(8, rect.left), window.innerWidth - width - 8)}px`, width: `${width}px` };
 }
 
-watch(open, (isOpen) => isOpen && place());
+// 판은 화면 기준으로 놓이므로, 페이지가 움직이면 다시 놓아야 칸을 따라간다.
+// capture로 잡아야 안쪽 스크롤 상자가 움직일 때도 걸린다.
+const listen = (add) => {
+  const fn = add ? window.addEventListener : window.removeEventListener;
+  fn.call(window, "scroll", place, { capture: true, passive: true });
+  fn.call(window, "resize", place);
+};
 
-const box = "h-[38px] w-[38px] rounded-xl border border-white/9 bg-white/5 text-fg text-[1.05rem] leading-none text-center outline-none transition-[background-color,border-color] duration-150 focus:border-accent/55 focus:bg-white/7";
+watch(open, async (isOpen) => {
+  if (!isOpen) {
+    listen(false);
+    query.value = "";
+    return;
+  }
+  place();
+  listen(true);
+  await load();
+  await nextTick();
+  searchBox.value?.focus();
+});
+
+onBeforeUnmount(() => listen(false));
+
+const box = "h-[38px] w-[38px] rounded-xl border border-white/9 bg-white/5 text-[1.05rem] leading-none flex items-center justify-center cursor-pointer transition-[background-color,border-color] duration-150 hover:bg-white/8";
+const panel = "fixed z-200 rounded-2xl overflow-hidden bg-[rgba(18,22,42,0.97)] backdrop-blur-2xl backdrop-saturate-[1.6] border border-white/11 shadow-[0_12px_40px_rgba(0,0,0,0.55)] inset-shadow-glass";
+const searchCls = "w-full bg-white/5 border border-white/9 rounded-lg text-fg px-3 py-1.5 text-[0.84rem] outline-none font-[inherit] transition-[border-color,background-color] duration-150 focus:border-accent/55 focus:bg-white/7";
+// 스크롤 상자에는 안쪽 여백을 주지 않는다 — 여백을 주면 붙어 있는 분류 머리가 그만큼 내려와 틈이 생긴다
+const scroller = "h-[300px] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]";
+const header = "sticky top-0 z-10 w-full flex items-center gap-1.5 bg-[rgba(18,22,42,0.97)] px-2.5 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[rgba(196,181,253,0.7)] cursor-pointer transition-colors duration-150 hover:text-[rgba(196,181,253,0.95)]";
+const grid = "grid grid-cols-8 gap-0.5";
 const cell = "size-[34px] rounded-lg text-[1.15rem] leading-none flex items-center justify-center cursor-pointer transition-colors duration-100 hover:bg-white/12";
 </script>

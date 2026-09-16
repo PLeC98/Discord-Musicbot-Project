@@ -1,24 +1,24 @@
 "use strict";
 
-// 고를 수 있는데 안 보이는 칸이 생기지 않게 한다.
+// 대시보드 이모지 고르기 목록을 만든다. **손으로 실행한다** — postinstall이나 빌드에 걸려 있지 않다.
+//   node scripts/build-emoji-list.js
 //
-// 대시보드는 이모지를 OS 폰트가 아니라 Twemoji 웹폰트로 그린다(Windows에 국기 글리프가 없어서다).
-// 목록에 폰트가 모르는 글자를 넣으면 그 칸만 두부처럼 보이는데, 화면을 열어 보기 전에는 모른다.
-// 폰트를 올릴 때 이 테스트가 먼저 걸린다.
+// 이름·분류는 emojibase(ko)에서, "그릴 수 있는가"는 대시보드가 쓰는 Twemoji 폰트에서 가져온다.
+// 폰트에 없는 글자를 목록에 넣으면 그 칸만 두부로 보이므로 미리 걸러낸다.
+// 실행에는 인터넷이 필요하다(emojibase를 내려받는다). 결과물은 저장소에 넣는다.
 
-const test = require("node:test");
-const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
 
+const EMOJIBASE = "17.0.0"; // 올릴 때는 이 값만 고친다
+const OUT = path.join(__dirname, "..", "dashboard", "client", "src", "emojiList.js");
 const FONT = path.join(__dirname, "..", "dashboard", "client", "node_modules", "twemoji-colr-font", "twemoji.woff2");
-const LIST = path.join(__dirname, "..", "dashboard", "client", "src", "emojiList.js");
 
 // woff2 표준 태그표 — 테이블 디렉터리가 이름 대신 이 번호를 쓴다
 const KNOWN = "cmap head hhea hmtx maxp name OS/2 post cvt fpgm glyf loca prep CFF VORG EBDT EBLC gasp hdmx kern LTSH PCLT VDMX vhea vmtx BASE GDEF GPOS GSUB EBSC JSTF MATH CBDT CBLC COLR CPAL SVG sbix acnt avar bdat bloc bsln cvar fdsc feat fmtx fvar gvar hsty just lcar mort morx opbd prop trak Zapf Silf Glat Gloc Feat Sill".split(" ");
 
-// 폰트에서 "이 글자를 그릴 수 있는가"에 필요한 것만 읽는다: 코드포인트→글리프(cmap)와 두 글자 합자(GSUB).
+// 폰트에서 "이 글자를 그릴 수 있는가"에 필요한 것만 읽는다: 코드포인트→글리프(cmap)와 합자(GSUB).
 function readFont() {
   const buf = fs.readFileSync(FONT);
   let p = 48; // woff2 헤더는 고정 48바이트
@@ -65,7 +65,7 @@ function readFont() {
     }
   }
 
-  // GSUB 합자 — 국기(regional indicator 두 글자)나 ZWJ 조합이 한 글리프로 합쳐진 것이다
+  // 합자 — 국기나 ZWJ 조합은 여러 글리프가 하나로 합쳐진 것이다
   const ligatures = new Set();
   const gsub = tables.find((t) => t.tag === "GSUB");
   const lookupList = gsub.offset + font.readUInt16BE(gsub.offset + 8);
@@ -100,7 +100,7 @@ function readFont() {
     }
   }
 
-  // VS16(FE0F)은 글리프가 아니라 "그림으로 그려 달라"는 표시다 — 있는 쪽·없는 쪽 모두 본다
+  // VS16(FE0F)은 "그림으로 그려 달라"는 표시라 글리프가 있을 수도, 없을 수도 있다 — 양쪽으로 본다
   return (str) => {
     const cps = [...str].map((c) => c.codePointAt(0));
     for (const attempt of [cps, cps.filter((c) => c !== 0xfe0f)]) {
@@ -112,42 +112,72 @@ function readFont() {
   };
 }
 
-const groups = () => import("file://" + LIST.replace(/\\/g, "/")).then((m) => m.EMOJI_GROUPS);
-const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.name, e.char, e]));
+async function get(file) {
+  const url = `https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJIBASE}/ko/${file}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+  return res.json();
+}
 
-test("고르기 목록의 이모지는 전부 폰트에 있다", async () => {
+// 구분자로 쓰는 글자가 값에 들어 있으면 줄이 깨진다
+const clean = (s) =>
+  String(s || "")
+    .replace(/[|\n\r]+/g, " ")
+    .trim();
+
+async function main() {
   const drawable = readFont();
-  const missing = (await all()).filter(([, char]) => !drawable(char)).map(([group, char]) => `${group} ${char}`);
-  assert.deepEqual(missing, [], "폰트에 없는 이모지는 두부로 보인다");
-});
+  const [compact, messages] = await Promise.all([get("compact.json"), get("messages.json")]);
+  const groupName = new Map(messages.groups.map((g) => [Number(g.order ?? g.key), g.message]));
 
-test("고르기 목록은 이모지 한 글자씩만 담는다", async () => {
-  // 선택 메뉴가 거부하는 값을 고를 수 있게 두면 안 된다 — 저장 검사와 같은 잣대를 쓴다.
-  const one = /^\p{RGI_Emoji}$/v;
-  const bad = (await all()).filter(([, char]) => !one.test(char)).map(([group, char]) => `${group} ${char}`);
-  assert.deepEqual(bad, []);
-});
+  const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
+  const groups = new Map();
+  let skipped = 0;
 
-test("고르기 목록에 같은 이모지가 두 번 나오지 않는다", async () => {
-  const seen = new Map();
-  const dupes = [];
-  for (const [group, char] of await all()) {
-    if (seen.has(char)) dupes.push(`${char} — ${seen.get(char)}, ${group}`);
-    else seen.set(char, group);
+  for (const e of [...compact].sort((a, b) => a.order - b.order)) {
+    // 2 = 구성 요소(피부색 조절자 등). 그 자체로 고를 것이 아니다.
+    if (e.group == null || e.group === 2) continue;
+    if (!e.unicode || !ONE_EMOJI.test(e.unicode) || !drawable(e.unicode)) {
+      skipped++;
+      continue;
+    }
+    const name = groupName.get(e.group) ?? `그룹 ${e.group}`;
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push([e.unicode, clean(e.label), clean([...new Set(e.tags || [])].join(" "))].join("|"));
   }
-  assert.deepEqual(dupes, []);
-});
 
-test("항목마다 이름과 검색어가 있다", async () => {
-  // 이름은 툴팁으로 보이고 검색어는 찾기에 쓰인다 — 비면 그 칸은 찾을 수도, 뭔지 알 수도 없다.
-  const bad = (await all()).filter(([, , e]) => !e.label?.trim() || !e.search?.trim()).map(([group, char]) => `${group} ${char}`);
-  assert.deepEqual(bad, []);
-});
+  const body = [...groups].map(([name, rows]) => `  [${JSON.stringify(name)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n");
+  const total = [...groups.values()].reduce((sum, rows) => sum + rows.length, 0);
 
-test("분류는 디스코드와 같은 유니코드 묶음이다", async () => {
-  // 고르는 사람이 디스코드에서 보던 자리에서 찾을 수 있어야 한다. 피부색 조절자(구성 요소)는 뺀다.
-  assert.deepEqual(
-    (await groups()).map((g) => g.name),
-    ["웃는 얼굴과 감정", "사람과 몸", "동물과 자연", "음식 및 음료", "여행 및 장소", "액티비티", "사물", "기호", "플래그"],
+  fs.writeFileSync(
+    OUT,
+    [
+      "// 자동 생성물 — 손으로 고치지 않는다. scripts/build-emoji-list.js를 고치고 다시 만든다.",
+      `// 이름·분류: emojibase-data@${EMOJIBASE} (MIT, ko) / 그릴 수 있는지: twemoji-colr-font`,
+      "//",
+      "// 한 그룹을 한 줄짜리 문자열로 담는다 — 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
+      "// 줄은 줄바꿈으로, 칸은 |로 나뉜다: 이모지|이름|검색어",
+      "const RAW = [",
+      body,
+      "];",
+      "",
+      "export const EMOJI_GROUPS = RAW.map(([name, rows]) => ({",
+      "  name,",
+      '  emoji: rows.split("\\n").map((row) => {',
+      '    const [char, label, tags] = row.split("|");',
+      "    return { char, label, search: `${label} ${tags} ${char}`.toLowerCase() };",
+      "  }),",
+      "}));",
+      "",
+    ].join("\n"),
   );
+
+  console.log([...groups].map(([n, r]) => `${n}(${r.length})`).join(" "));
+  console.log(`총 ${total}개 · 폰트에 없어 제외 ${skipped}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB`);
+  console.log(`→ ${path.relative(process.cwd(), OUT)}`);
+}
+
+main().catch((error) => {
+  console.error(error.message);
+  process.exit(1);
 });
