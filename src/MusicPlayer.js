@@ -107,7 +107,6 @@ class MusicPlayer {
 
     // 로컬 파일 캐싱
     this.currentDownloadedFile = null; // 현재 재생 중인 다운로드 파일 경로
-    this.downloadingFiles = new Map(); // filepath -> 진행 중 다운로드 Promise (중복 방지 + 완료 대기)
 
     // 협력 모듈 — 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
     this.voice = new VoiceConnectionManager(this);
@@ -117,7 +116,7 @@ class MusicPlayer {
     this.warmer = new QueueWarmer(this, {
       warm: (track) => this.downloader.warm(track),
       isCached: (track) => this.downloader.isCached(track),
-      isBusy: (track) => this.downloadingFiles.has(this.downloader.trackFilePath(track)),
+      isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),
       keyOf: (track) => TrackResolver.ensureAudioSourceKey(track),
       setProtection: (guildId, keys) => CacheManager.setQueuedKeys(guildId, keys),
     });
@@ -279,11 +278,11 @@ class MusicPlayer {
       let downloadedFile;
       let shouldDownload = false;
 
-      if (this.currentDownloadedFile && fsSync.existsSync(this.currentDownloadedFile) && !this.downloadingFiles.has(this.currentDownloadedFile)) {
+      if (this.currentDownloadedFile && fsSync.existsSync(this.currentDownloadedFile) && !TrackDownloader.isDownloading(this.currentDownloadedFile)) {
         downloadedFile = this.currentDownloadedFile;
       } else if (this.currentTrack.audioSourceKey) {
         const _earlyPath = this.currentTrack._cachedFilePath || CacheManager.getFilePath(this.currentTrack.audioSourceKey);
-        if (fsSync.existsSync(_earlyPath) && !this.downloadingFiles.has(_earlyPath)) {
+        if (fsSync.existsSync(_earlyPath) && !TrackDownloader.isDownloading(_earlyPath)) {
           const _earlyStats = fsSync.statSync(_earlyPath);
           if (_earlyStats.size > 0) {
             downloadedFile = _earlyPath;
@@ -440,7 +439,7 @@ class MusicPlayer {
               shouldDownload = false; // 파일 모드로 전환
               downloadedFile = filepath;
             } else {
-              const inFlight = this.downloadingFiles.get(filepath);
+              const inFlight = TrackDownloader.waitFor(filepath);
               if (inFlight) {
                 try {
                   downloadedFile = await inFlight;
