@@ -30,32 +30,60 @@
       </div>
     </BaseCard>
 
-    <BaseCard icon="music" :title="`장르 (${rows.length}/25)`">
-      <p class="text-muted text-[0.82rem] mt-1 mb-3">자동 재생은 지정한 키워드들 중 하나를 무작위로 선택해 검색에 사용합니다.</p>
+    <BaseCard>
+      <div class="flex items-start gap-3 mb-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
+            <Icon name="music" :size="15" />
+            <span>장르 ({{ rows.length }}/25)</span>
+          </div>
+          <p class="text-muted text-[0.82rem]">자동 재생은 지정한 키워드들 중 하나를 무작위로 선택해 검색에 사용합니다. 드래그해 순서를 바꿀 수 있습니다.</p>
+        </div>
+        <button :class="addBtn" :disabled="rows.length >= 25" v-tooltip="rows.length >= 25 ? '25개까지만 추가할 수 있습니다' : '장르 추가'" @click="addRow"><Icon name="add" :size="18" /></button>
+      </div>
 
-      <div v-for="(row, i) in rows" :key="row.key" class="border border-white/8 rounded-xl p-3 mb-2.5 bg-white/3">
+      <div
+        v-for="(row, i) in rows"
+        :key="row.key"
+        class="border border-white/8 rounded-xl p-3 mb-2.5 bg-white/3 transition-[border-color,opacity] duration-150"
+        :class="{
+          'opacity-35': draggedIndex === i,
+          'border-t-2 border-t-accent': dragOverIndex === i && draggedIndex !== i,
+          'border-b-2 border-b-accent': dragOverIndex === rows.length && i === rows.length - 1,
+        }"
+        draggable="true"
+        @dragstart="onDragStart($event, i)"
+        @dragover.prevent="onDragOver($event, i)"
+        @drop.prevent="onDrop"
+        @dragend="onDragEnd"
+      >
         <div class="flex items-center gap-2 mb-2">
+          <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2" cy="3" r="1.5" />
+              <circle cx="2" cy="8" r="1.5" />
+              <circle cx="2" cy="13" r="1.5" />
+              <circle cx="8" cy="3" r="1.5" />
+              <circle cx="8" cy="8" r="1.5" />
+              <circle cx="8" cy="13" r="1.5" />
+            </svg>
+          </span>
           <input v-model="row.emoji" placeholder="🎵" :class="[inputCls, 'w-11! px-2! text-center']" />
           <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
-          <button :class="removeBtn" v-tooltip="'이 장르 삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="14" /></button>
+          <button :class="removeBtn" v-tooltip="'이 장르 삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
         <ChipInput v-model="row.keywords" placeholder="검색어를 적고 Enter" />
       </div>
-
-      <BaseButton variant="ghost" :disabled="rows.length >= 25" @click="addRow">장르 추가</BaseButton>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
         <div v-for="p in problems" :key="p">· {{ p }}</div>
       </div>
 
-      <div class="flex gap-2.5 mt-4">
-        <BaseButton variant="primary" :disabled="!dirty || saving || problems.length > 0" @click="save">{{ saving ? "저장 중..." : "저장" }}</BaseButton>
-        <BaseButton variant="ghost" :disabled="!dirty || saving" @click="revert">되돌리기</BaseButton>
-        <span v-if="savedAt" class="self-center text-muted text-[0.8rem]">저장됨 — 다음 자동재생부터 반영됩니다</span>
-      </div>
-
+      <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장됨 — 다음 자동재생부터 반영됩니다</p>
       <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
     </BaseCard>
+
+    <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
   </div>
 </template>
 
@@ -63,13 +91,15 @@
 import { ref, computed, watch, onMounted } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
-import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
+import SaveDock from "./SaveDock.vue";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
-const removeBtn = "size-8 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-danger/15 hover:text-danger";
+// 옆 입력칸과 같은 높이로 — py-2 + text-[0.9rem] 입력이 38px이다
+const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
+const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,opacity] duration-150 hover:not-disabled:bg-white/10 disabled:opacity-35 disabled:cursor-not-allowed";
 
 const draft = ref({ defaults: {}, genres: {} });
 const rows = ref([]);
@@ -115,6 +145,35 @@ watch(payload, () => {
   savedAt.value = null;
   serverProblems.value = [];
 });
+
+// ── 순서 바꾸기 — 대기열 목록과 같은 방식 ─────────────────────────────────
+const draggedIndex = ref(null);
+const dragOverIndex = ref(null);
+
+function onDragStart(e, i) {
+  draggedIndex.value = i;
+  e.dataTransfer.effectAllowed = "move";
+}
+
+function onDragOver(e, i) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
+}
+
+function onDrop() {
+  const from = draggedIndex.value;
+  const to = dragOverIndex.value;
+  if (from == null || to == null) return;
+  const [moved] = rows.value.splice(from, 1);
+  // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
+  rows.value.splice(to > from ? to - 1 : to, 0, moved);
+  onDragEnd();
+}
+
+function onDragEnd() {
+  draggedIndex.value = null;
+  dragOverIndex.value = null;
+}
 
 function addRow() {
   rows.value.push({ key: ++serial, name: "", emoji: "", keywords: [] });
