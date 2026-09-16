@@ -3,15 +3,21 @@
 // 대시보드 이모지 고르기 목록을 만든다. **손으로 실행한다** — postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.js
 //
-// 이름·분류는 emojibase(ko)에서, "그릴 수 있는가"는 대시보드가 쓰는 Twemoji 폰트에서 가져온다.
-// 폰트에 없는 글자를 목록에 넣으면 그 칸만 두부로 보이므로 미리 걸러낸다.
-// 실행에는 인터넷이 필요하다(emojibase를 내려받는다). 결과물은 저장소에 넣는다.
+// 목록의 원본은 notes/디스코드 이모지 카테고리 및 목록.md 다. 분류와 순서를 디스코드 선택기에서
+// 그대로 옮겨 적은 파일이라, 고르는 사람이 디스코드에서 보던 자리에서 찾을 수 있다.
+// 여기서는 거기에 두 가지를 붙인다.
+//   · 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 꼴로 붙는다.
+//   · 한국어 이름·검색어. emojibase에서 가져온다.
+//
+// 실행에는 인터넷이 필요하다(대응표를 내려받는다). 결과물은 저장소에 넣는다.
 
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
 
-const EMOJIBASE = "17.0.0"; // 올릴 때는 이 값만 고친다
+const EMOJIBASE = "17.0.0";
+const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
+const NOTES = path.join(__dirname, "..", "notes", "디스코드 이모지 카테고리 및 목록.md");
 const OUT = path.join(__dirname, "..", "dashboard", "client", "src", "emojiList.js");
 const FONT = path.join(__dirname, "..", "dashboard", "client", "node_modules", "twemoji-colr-font", "twemoji.woff2");
 
@@ -112,69 +118,131 @@ function readFont() {
   };
 }
 
-async function get(file) {
-  const url = `https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJIBASE}/ko/${file}`;
+const json = async (url) => {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
   return res.json();
-}
+};
+const base = (file) => json(`https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJIBASE}/${file}`);
 
+// 출처마다 VS16(FE0F)과 ZWJ(200D)를 붙이기도 빼기도 한다 — 뺀 꼴을 열쇠로 삼아 짝을 찾는다.
+// 특히 지스트는 ZWJ를 흘려서 :woman_police_officer:를 1F46E 2640(= 두 글자)으로 준다.
+// emojibase 쪽 표기가 표준이므로 그쪽으로 바로잡는다. 이 열쇠로는 겹치는 항목이 없다.
+const key = (s) => [...s].filter((c) => c !== "️" && c !== "‍").join("");
+
+// 저장 검사와 같은 잣대 — 고를 수는 있는데 저장이 안 되는 칸을 만들지 않는다
+const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
+// 군더더기 VS16만 뗀다(ZWJ는 두어야 조합이 유지된다)
+const bare = (s) => [...s].filter((c) => c !== "️").join("");
 // 구분자로 쓰는 글자가 값에 들어 있으면 줄이 깨진다
 const clean = (s) =>
   String(s || "")
     .replace(/[|\n\r]+/g, " ")
     .trim();
 
+function readNotes() {
+  return fs
+    .readFileSync(NOTES, "utf8")
+    .split(/^# /m)
+    .slice(1)
+    .filter((section) => !section.startsWith("비고"))
+    .map((section) => ({
+      name: section.split("\n")[0].trim(),
+      codes: (section.match(/:([a-z0-9_+-]+):/g) || []).map((c) => c.slice(1, -1)),
+    }));
+}
+
 async function main() {
   const drawable = readFont();
-  const [compact, messages] = await Promise.all([get("compact.json"), get("messages.json")]);
-  const groupName = new Map(messages.groups.map((g) => [Number(g.order ?? g.key), g.message]));
+  const notes = readNotes();
 
-  const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
-  const groups = new Map();
-  let skipped = 0;
+  // 단축명 → 이모지.
+  // emojibase를 먼저 믿는다 — 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
+  // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다). 지스트는 emojibase에 없는
+  // 디스코드 고유 이름을 메우는 데만 쓴다.
+  const [gist, ko, ...sets] = await Promise.all([json(GIST), base("ko/compact.json"), ...["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map(base)]);
 
-  for (const e of [...compact].sort((a, b) => a.order - b.order)) {
-    // 2 = 구성 요소(피부색 조절자 등). 그 자체로 고를 것이 아니다.
-    if (e.group == null || e.group === 2) continue;
-    if (!e.unicode || !ONE_EMOJI.test(e.unicode) || !drawable(e.unicode)) {
-      skipped++;
-      continue;
+  const charOfHex = new Map(ko.map((e) => [e.hexcode, e.unicode]));
+  const charOfCode = new Map();
+  for (const set of sets) {
+    for (const [hex, codes] of Object.entries(set)) {
+      const char = charOfHex.get(hex);
+      if (!char) continue;
+      for (const code of [].concat(codes)) {
+        const name = String(code).replace(/:/g, "");
+        if (!charOfCode.has(name)) charOfCode.set(name, char);
+      }
     }
-    const name = groupName.get(e.group) ?? `그룹 ${e.group}`;
-    if (!groups.has(name)) groups.set(name, []);
-    groups.get(name).push([e.unicode, clean(e.label), clean([...new Set(e.tags || [])].join(" "))].join("|"));
+  }
+  for (const [code, char] of Object.entries(gist)) {
+    const name = code.replace(/:/g, "");
+    if (!charOfCode.has(name)) charOfCode.set(name, char);
   }
 
-  const body = [...groups].map(([name, rows]) => `  [${JSON.stringify(name)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n");
-  const total = [...groups.values()].reduce((sum, rows) => sum + rows.length, 0);
+  const korean = new Map(ko.map((e) => [key(e.unicode), e]));
+
+  const groups = [];
+  const unresolved = [];
+  const tofu = [];
+
+  for (const section of notes) {
+    const rows = [];
+    for (const code of section.codes) {
+      const found = charOfCode.get(code);
+      if (!found) {
+        unresolved.push(`${section.name}:${code}`);
+        continue;
+      }
+
+      const info = korean.get(key(found));
+      // 표준 표기로 바로잡는다. emojibase는 ⌚처럼 이미 그림으로 보이는 글자에도 VS16을 붙여 주는데,
+      // 그 꼴은 RGI가 아니라 저장 검사(/^\p{RGI_Emoji}$/v)가 거부한다 — 고를 수는 있는데 저장은
+      // 안 되는 칸이 생기므로, 통과하는 쪽을 골라 담는다.
+      const standard = info?.unicode || found;
+      const char = [standard, bare(standard)].find((c) => ONE_EMOJI.test(c));
+      if (!char) {
+        unresolved.push(`${section.name}:${code} (RGI 아님)`);
+        continue;
+      }
+      if (!drawable(char)) tofu.push(`${section.name}:${code} ${char}`);
+
+      const label = clean(info?.label) || code.replace(/_/g, " ");
+      const tags = clean([...new Set(info?.tags || [])].join(" "));
+      rows.push([char, label, `${tags} ${code}`.trim()].join("|"));
+    }
+    groups.push([section.name, rows]);
+  }
+
+  const total = groups.reduce((sum, [, rows]) => sum + rows.length, 0);
 
   fs.writeFileSync(
     OUT,
     [
       "// 자동 생성물 — 손으로 고치지 않는다. scripts/build-emoji-list.js를 고치고 다시 만든다.",
-      `// 이름·분류: emojibase-data@${EMOJIBASE} (MIT, ko) / 그릴 수 있는지: twemoji-colr-font`,
+      "// 분류·순서: notes/디스코드 이모지 카테고리 및 목록.md (디스코드 선택기 그대로)",
+      `// 이름·검색어: emojibase-data@${EMOJIBASE} (MIT, ko) + 디스코드 단축명`,
       "//",
-      "// 한 그룹을 한 줄짜리 문자열로 담는다 — 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
+      "// 한 분류를 한 줄짜리 문자열로 담는다 — 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
       "// 줄은 줄바꿈으로, 칸은 |로 나뉜다: 이모지|이름|검색어",
       "const RAW = [",
-      body,
+      groups.map(([name, rows]) => `  [${JSON.stringify(name)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n"),
       "];",
       "",
       "export const EMOJI_GROUPS = RAW.map(([name, rows]) => ({",
       "  name,",
       '  emoji: rows.split("\\n").map((row) => {',
       '    const [char, label, tags] = row.split("|");',
-      "    return { char, label, search: `${label} ${tags} ${char}`.toLowerCase() };",
+      "    return { char, label, search: `${label} ${tags}`.toLowerCase() };",
       "  }),",
       "}));",
       "",
     ].join("\n"),
   );
 
-  console.log([...groups].map(([n, r]) => `${n}(${r.length})`).join(" "));
-  console.log(`총 ${total}개 · 폰트에 없어 제외 ${skipped}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB`);
-  console.log(`→ ${path.relative(process.cwd(), OUT)}`);
+  console.log(groups.map(([n, r]) => `${n}(${r.length})`).join(" "));
+  console.log(`총 ${total}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB`);
+  if (unresolved.length) console.log(`대응 안 된 단축명 ${unresolved.length}개: ${unresolved.slice(0, 10).join(" ")}`);
+  console.log(`폰트가 못 그리는 것 ${tofu.length}개${tofu.length ? ": " + tofu.slice(0, 8).join(" ") : ""}`);
 }
 
 main().catch((error) => {

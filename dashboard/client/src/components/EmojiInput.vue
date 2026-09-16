@@ -5,7 +5,8 @@
   검색칸에는 이름으로 찾아도 되고 이모지를 붙여넣어도 된다 — 붙여넣은 것이 목록에 없더라도
   이모지 한 글자이기만 하면 고를 수 있게 맨 앞에 내놓는다.
 
-  목록(1700여 개)은 처음 열 때 따로 받아온다. 대시보드를 열 때마다 들고 다닐 것이 아니다.
+  분류와 순서는 디스코드 선택기 그대로다. 목록(1900여 개)은 처음 열 때 따로 받아온다
+  — 대시보드를 열 때마다 들고 다닐 것이 아니다.
 -->
 <template>
   <div class="relative shrink-0">
@@ -18,8 +19,13 @@
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
       <div v-if="open" :class="panel" :style="popoverStyle">
-        <div class="p-2 border-b border-white/8">
-          <input ref="searchBox" v-model="query" placeholder="이름으로 찾기 · 이모지 붙여넣기" :class="searchCls" @keydown.esc="open = false" />
+        <div class="p-2 border-b border-white/8 relative">
+          <!-- v-model을 쓰지 않는다: v-model은 한글·일본어처럼 조합해서 만드는 글자를 다 만들 때까지
+               input을 흘려보내서, 한 글자를 완성해도 다음 글자를 치기 전까지 검색이 안 먹는다. -->
+          <input ref="searchBox" :value="query" placeholder="이름 · 디스코드 이름 · 이모지 붙여넣기" :class="searchCls" @input="query = $event.target.value" @keydown.esc="open = false" />
+          <button v-if="query" type="button" :class="clearBtn" v-tooltip="'검색어 지우기'" @click="clearQuery">
+            <Icon name="close" :size="12" />
+          </button>
         </div>
 
         <div :class="scroller">
@@ -33,7 +39,8 @@
             </div>
           </div>
 
-          <section v-for="group in groups" v-else :key="group.name">
+          <!-- content-visibility: 화면 밖 분류는 그리지 않는다 — 1900여 개를 한 번에 펼쳐 두기 때문 -->
+          <section v-for="group in groups" v-else :key="group.name" class="[content-visibility:auto] [contain-intrinsic-size:auto_200px]">
             <!-- 배경을 판과 같은 색으로 둬야 접히는 자리에 틈이 비치지 않는다 -->
             <button type="button" :class="header" @click="collapsed[group.name] = !collapsed[group.name]">
               <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" class="transition-transform duration-150 shrink-0" :class="collapsed[group.name] ? '-rotate-90' : ''">
@@ -75,9 +82,12 @@ const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 async function load() {
   if (groups.value.length) return;
   const module = await import("../emojiList.js");
-  // 처음엔 첫 분류만 펼친다 — 1700개를 한 번에 그리면 여는 순간 버벅인다
-  collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group, i) => [group.name, i > 0]));
   groups.value = module.EMOJI_GROUPS;
+}
+
+function clearQuery() {
+  query.value = "";
+  searchBox.value?.focus();
 }
 
 const results = computed(() => {
@@ -143,6 +153,7 @@ const searchCls = "w-full bg-white/5 border border-white/9 rounded-lg text-fg px
 // 스크롤 상자에는 안쪽 여백을 주지 않는다 — 여백을 주면 붙어 있는 분류 머리가 그만큼 내려와 틈이 생긴다
 const scroller = "h-[300px] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]";
 const header = "sticky top-0 z-10 w-full flex items-center gap-1.5 bg-[rgba(18,22,42,0.97)] px-2.5 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[rgba(196,181,253,0.7)] cursor-pointer transition-colors duration-150 hover:text-[rgba(196,181,253,0.95)]";
+const clearBtn = "absolute right-4 top-1/2 -translate-y-1/2 size-5 rounded-full flex items-center justify-center text-muted cursor-pointer transition-colors duration-150 hover:bg-white/12 hover:text-fg";
 const grid = "grid grid-cols-8 gap-0.5";
 const cell = "size-[34px] rounded-lg text-[1.15rem] leading-none flex items-center justify-center cursor-pointer transition-colors duration-100 hover:bg-white/12";
 </script>
