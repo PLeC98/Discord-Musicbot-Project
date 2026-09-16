@@ -4,7 +4,8 @@ const config = require("../config");
 const S = require("../src/strings");
 const { requestPlayback } = require("../src/playRequest");
 const { channelResponder } = require("../src/playbackResponder");
-const { checkControl, checkSkip, checkAdd } = require("../src/permissions");
+const { checkControl, checkSkip, checkAdd, checkSummon } = require("../src/permissions");
+const { ensurePlayer } = require("../src/playRequest");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
 const { keepReply, expireReply } = require("../src/replyLifetime");
 const { queueLine } = require("../src/queueDisplay");
@@ -33,6 +34,12 @@ module.exports = {
     }
     if (interaction.customId === "system_refresh") {
       return await this.handleSystemRefresh(interaction);
+    }
+
+    // 자동재생은 놀고 있을 때도 켤 수 있다(3단계) — 끝난 패널의 버튼이 여기로 온다.
+    // 아래의 "플레이어 없으면 거절"과 세션 검증을 지나면 눌리지 않으므로 앞에서 받는다.
+    if (interaction.customId.startsWith("music_autoplay:")) {
+      return await this.handleAutoplayButton(interaction, client);
     }
 
     // 음악 플레이어 가져오기 (음악 버튼은 현재 재생 패널에만 존재)
@@ -89,10 +96,6 @@ module.exports = {
 
         case "music_loop":
           await this.handleLoop(interaction, player, requesterId);
-          break;
-
-        case "music_autoplay":
-          await this.handleAutoplay(interaction, player, requesterId);
           break;
 
         case "music_previous":
@@ -466,15 +469,20 @@ module.exports = {
     }
   },
 
-  async handleAutoplay(interaction, player, requesterId) {
-    const permErr = await checkControl(interaction.member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
+  // 끝난 패널·재생 중 패널 양쪽에서 온다. 플레이어가 없으면 만든다 — /autoplay와 같은 길.
+  async handleAutoplayButton(interaction, client) {
+    const { guild, member, channel } = interaction;
 
+    // 재생 조작이므로 DJ 계층. 봇이 유휴면 재적 검사가 통과해 버리므로 소환 가능 여부를 이어 붙인다.
+    const permErr = (await checkControl(member)) || checkSummon(member);
+    if (permErr) return await interaction.reply({ content: permErr, flags: [1 << 6] });
+
+    const player = client.players.get(guild.id) ?? ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice?.channel ?? null });
+    return await this.handleAutoplay(interaction, player, member.id);
+  },
+
+  // 권한은 handleAutoplayButton이 이미 봤다.
+  async handleAutoplay(interaction, player, requesterId) {
     if (player.autoplay) {
       player.setAutoplay(false);
 

@@ -25,7 +25,8 @@ const NowPlayingPanel = require("./NowPlayingPanel");
 
 const BAR_LENGTH = 16;
 
-// 끝난 패널의 버튼 — 플레이어가 없어도 같은 모양을 그린다. 전부 비활성이라 custom_id는 쓰이지 않는다.
+// 끝난 패널의 버튼 — 플레이어가 없어도 같은 모양을 그린다.
+// 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
 const IDLE_CONTROLS = { sessionId: "idle", requesterId: "0", previousTracks: [], queue: [], loop: "off", paused: false, autoplay: false, currentTrack: null };
 
 class MusicEmbedManager {
@@ -544,7 +545,7 @@ class MusicEmbedManager {
       .addSectionComponents(heading)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(`\`--:--\` ●${"▬".repeat(BAR_LENGTH)} \`--:--\``))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    for (const row of await this.createControlButtons(IDLE_CONTROLS, true)) container.addActionRowComponents(row);
+    for (const row of await this.createControlButtons(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})`));
 
     return { components: [container], files: [blankThumbnail.file()] };
@@ -665,7 +666,8 @@ class MusicEmbedManager {
   /**
    * 제어 버튼을 생성합니다.
    */
-  async createControlButtons(player, disabled = false) {
+  // keepAutoplay: 나머지를 죽여도 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
+  async createControlButtons(player, disabled = false, { keepAutoplay = false } = {}) {
     const sessionId = player.sessionId;
     const requesterId = player.requesterId;
 
@@ -720,7 +722,7 @@ class MusicEmbedManager {
       .setLabel("자동재생")
       .setStyle(player.autoplay ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setEmoji("🎲")
-      .setDisabled(disabled);
+      .setDisabled(disabled && !keepAutoplay);
 
     // SponsorBlock 하이라이트 점프 — 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
     const highlightAt = player.currentTrack?.sponsor?.highlightAt;
