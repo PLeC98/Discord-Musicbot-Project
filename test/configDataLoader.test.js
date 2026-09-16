@@ -172,6 +172,26 @@ test("차례가 그대로면 파일을 건드리지 않는다", () => {
   assert.equal(fs.readFileSync(path.join(DIR, "genres.yaml"), "utf8"), before, "고칠 것이 없으면 서식도 그대로여야 한다");
 });
 
+// 회귀 대상: 목록을 통째로 갈아끼워서, 한 줄만 고쳐도 그 목록 안의 주석이 전부 날아갔다.
+// status.yaml은 내용이 거의 다 목록이라 이게 곧 "손으로 적은 메모가 사라진다"였다.
+test("목록을 고쳐도 그 안의 주석이 남는다", () => {
+  write("sample", ["messages:", "  # 평소 문구", "  - 첫째", "  - 둘째", ""].join("\n"));
+
+  const data = loader.load("sample");
+  data.messages[1] = "고친 둘째";
+  loader.save("sample", data);
+  assert.match(fs.readFileSync(path.join(DIR, "sample.yaml"), "utf8"), /# 평소 문구/, "고칠 때");
+
+  const grown = loader.load("sample");
+  grown.messages.push("셋째");
+  loader.save("sample", grown);
+
+  const text = fs.readFileSync(path.join(DIR, "sample.yaml"), "utf8");
+  assert.match(text, /# 평소 문구/, "늘릴 때");
+  assert.match(text, /셋째/);
+  assert.match(text, /고친 둘째/);
+});
+
 test("사라진 키는 지워진다", () => {
   write("genres", "defaults: {}\ngenres:\n  pop:\n    label: 팝\n  rock:\n    label: 록\n");
   const data = loader.load("genres");

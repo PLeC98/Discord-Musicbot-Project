@@ -218,7 +218,9 @@ router.post("/reset-cache", requireOwner, (req, res) => {
 // 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와 여기. 그래서 통째로 덮어쓰지 않고
 // 바뀐 자리만 고친다(configDataLoader.save가 주석·빈 줄을 보존한다).
 
-const CONFIG_NAMES = ["genres", "status"];
+// 검사기가 있는 것만 고칠 수 있다 — 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
+const VALIDATORS = { genres: configData.validateGenres, status: configData.validateStatus };
+const CONFIG_NAMES = Object.keys(VALIDATORS);
 
 router.get("/config/:name", requireOwner, (req, res) => {
   const { name } = req.params;
@@ -240,10 +242,8 @@ router.put("/config/:name", requireOwner, (req, res) => {
   if (!data || typeof data !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
 
   // 저장 전에 본다 — 깨진 값을 파일에 남기느니 거절한다. 봇이 그 파일로 돌기 때문이다.
-  if (name === "genres") {
-    const problems = configData.validateGenres(data);
-    if (problems.length) return res.status(400).json({ error: problems[0], problems });
-  }
+  const problems = VALIDATORS[name](data);
+  if (problems.length) return res.status(400).json({ error: problems[0], problems });
 
   try {
     const saved = configData.save(name, data);
