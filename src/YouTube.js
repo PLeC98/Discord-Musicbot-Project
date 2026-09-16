@@ -293,11 +293,11 @@ class YouTube {
     return "포맷 획득 실패";
   }
 
-  static async search(query, limit = 1, guildId = null) {
+  static async search(query, limit = 1) {
     try {
       // 이미 YouTube URL인 경우 직접 정보를 가져옴
       if (this.isYouTubeURL(query)) {
-        const info = await this.getInfo(query, guildId);
+        const info = await this.getInfo(query);
         return info ? [info] : [];
       }
 
@@ -345,7 +345,7 @@ class YouTube {
           // 검색 결과에 길이가 없으면 getInfo에서 가져오기 시도
           // (라이브는 여기서 duration이 늘 0이라 이 분기를 타고, 상세 정보로 isLive가 확정된다.)
           if (!track.duration || track.duration === 0) {
-            const detailedInfo = await this.getInfo(track.url, guildId);
+            const detailedInfo = await this.getInfo(track.url);
             if (detailedInfo && detailedInfo.duration) {
               track.duration = detailedInfo.duration;
             }
@@ -367,7 +367,7 @@ class YouTube {
     }
   }
 
-  static async getInfo(url, _guildId = null) {
+  static async getInfo(url) {
     try {
       const info = await this.runYtDlp(url, (forceCookies) =>
         this.getYtDlpOptions(
@@ -409,7 +409,7 @@ class YouTube {
     }
   }
 
-  static async getStream(url, _guildId = null, startSeconds = 0) {
+  static async getStream(url, startSeconds = 0) {
     try {
       if (!url) {
         throw new Error("URL이 필요함");
@@ -463,7 +463,7 @@ class YouTube {
 
   // offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
   // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-  static async getPlaylist(url, _guildId = null, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
+  static async getPlaylist(url, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
     try {
       const info = await youtubedl(
         url,

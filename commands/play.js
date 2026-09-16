@@ -57,7 +57,7 @@ module.exports = {
       }
       if (result.more) await offerOnInteraction(interaction, result.more, result.player);
     } catch (error) {
-      const errorMsg = ErrorHandler.handle(error, interaction.guild?.id, "play.execute");
+      const errorMsg = ErrorHandler.handle(error, "play.execute");
 
       try {
         if (interaction.replied || interaction.deferred) {

@@ -23,7 +23,6 @@ module.exports = {
 
   async execute(interaction) {
     const query = interaction.options.getString("query");
-    const guildId = interaction.guild.id;
     const member = interaction.member;
 
     try {
@@ -38,7 +37,7 @@ module.exports = {
       }
 
       // 검색 수행
-      const results = await YouTube.search(query, 9, guildId);
+      const results = await YouTube.search(query, 9);
 
       if (!results || results.length === 0) {
         return await interaction.editReply({

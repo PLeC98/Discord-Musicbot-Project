@@ -42,7 +42,7 @@ require.cache[trPath] = {
       resolverCalls.push(query);
       return { success: true, isPlaylist: false, tracks: [makeTrack("추가곡")] };
     },
-    async getCollection(_url, _guildId, { offset, limit }) {
+    async getCollection(_url, { offset, limit }) {
       const tracks = Array.from({ length: limit }, (_, k) => ({ ...makeTrack(`c${offset + k}`), id: `c${String(offset + k).padStart(21, "0")}` }));
       return { tracks, total: 1000, nextOffset: offset + limit };
     },

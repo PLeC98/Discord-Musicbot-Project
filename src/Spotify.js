@@ -420,7 +420,7 @@ async function getFromURL(url) {
   return (await getCollection(url)).tracks;
 }
 
-async function search(query, limit = 1, _type = "track") {
+async function search(query, limit = 1) {
   if (isSpotifyURL(query)) return getFromURL(query);
   try {
     return await official.search(query, limit);

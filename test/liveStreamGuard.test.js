@@ -62,7 +62,7 @@ test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있�
   try {
     const TrackResolver = require(resolverPath);
     const track = { title: "''''''", artist: "x0o0x_", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/abc" };
-    const result = await TrackResolver.findYouTubeEquivalent(track, null);
+    const result = await TrackResolver.findYouTubeEquivalent(track);
     assert.equal(result, null, "라이브만 남으면 매칭 실패로 끝나야 한다 — 라이브를 골라선 안 된다");
     assert.equal(track.youtubeUrl, undefined);
   } finally {
@@ -84,7 +84,7 @@ test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보�
   try {
     const TrackResolver = require(resolverPath);
     const track = { title: "테스트곡", artist: "테스트가수", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/def" };
-    const result = await TrackResolver.findYouTubeEquivalent(track, null);
+    const result = await TrackResolver.findYouTubeEquivalent(track);
     assert.equal(result, "https://www.youtube.com/watch?v=VVVVVVVVVVV");
   } finally {
     YouTube.search = originalSearch;

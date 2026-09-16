@@ -23,11 +23,11 @@ require.cache[trPath] = {
   filename: trPath,
   loaded: true,
   exports: {
-    async resolveQuery(query, guildId, context, range) {
-      resolverCalls.push({ query, guildId, context, range });
+    async resolveQuery(query, context, range) {
+      resolverCalls.push({ query, context, range });
       return mockResolve(query);
     },
-    async getCollection(url, guildId, range) {
+    async getCollection(url, range) {
       collectionCalls.push({ url, range });
       return mockCollection(range);
     },

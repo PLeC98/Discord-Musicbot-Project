@@ -89,7 +89,6 @@ class TrackDownloader {
    * YouTube, Spotify, SoundCloud, DirectLink를 지원합니다.
    */
   async downloadTrack(track) {
-    const player = this.player;
     const filepath = this.trackFilePath(track);
 
     // 이미 다운로드되었는지 확인 (캐시 적중)
@@ -112,7 +111,7 @@ class TrackDownloader {
         // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
-          const fresh = await TrackResolver.reresolveYouTube(track, player.guild?.id);
+          const fresh = await TrackResolver.reresolveYouTube(track);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
         throw err;
@@ -143,7 +142,7 @@ class TrackDownloader {
       let downloadUrl = track.url;
 
       if (track.platform === "spotify" || track.platform === "soundcloud") {
-        downloadUrl = await TrackResolver.findYouTubeEquivalent(track, player.guild?.id);
+        downloadUrl = await TrackResolver.findYouTubeEquivalent(track);
         if (!downloadUrl) {
           throw new Error("Could not find YouTube equivalent");
         }
@@ -202,7 +201,7 @@ class TrackDownloader {
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
-        const audioStream = await DirectLink.getStream(track.url, player.guild?.id);
+        const audioStream = await DirectLink.getStream(track.url);
 
         // opus로 트랜스코딩. 출력이 파일이므로 stdout을 소비하지 않는다(killOnStdoutClose 해제).
         const ffmpeg = spawnFfmpeg(["-loglevel", "error", "-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", tempPath], "download", { killOnStdoutClose: false });
@@ -330,7 +329,7 @@ class TrackDownloader {
   async warm(track) {
     if (!track || !track.url) return;
     if (!TrackResolver.ensureAudioSourceKey(track)) {
-      await TrackResolver.findYouTubeEquivalent(track, this.player.guild?.id);
+      await TrackResolver.findYouTubeEquivalent(track);
     }
     await this.downloadTrack(track);
   }

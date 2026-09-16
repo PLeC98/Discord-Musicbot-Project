@@ -63,7 +63,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
     assert.equal(YouTube.isYouTubeURL(url), false, url);
     assert.equal(TrackResolver.isUnsupportedYouTubeLink(url), true, url);
 
-    const result = await TrackResolver.getTrackData(url, "g1");
+    const result = await TrackResolver.getTrackData(url);
     assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
     assert.match(result.message, /유튜브 주소/);
   }

@@ -107,7 +107,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
     const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
     const limit = single ? 1 : Math.max(1, Math.min(batch, room));
-    trackData = await TrackResolver.resolveQuery(query, guildId, `${source}.resolveQuery`, { limit });
+    trackData = await TrackResolver.resolveQuery(query, `${source}.resolveQuery`, { limit });
     if (!trackData.success) return trackData;
 
     // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
@@ -161,7 +161,7 @@ async function continueCollection(client, { guild, requester, state, count, text
   while (found.length < want) {
     const back = Math.min(LOOKBACK, cursor);
     const limit = Math.min(MORE_BATCH, want - found.length) + back;
-    const part = await TrackResolver.getCollection(url, guild.id, { offset: cursor - back, limit });
+    const part = await TrackResolver.getCollection(url, { offset: cursor - back, limit });
     if (part.total != null) total = part.total;
     const hit = part.tracks.findIndex((t) => t.id === anchor);
     const fresh = hit >= 0 ? part.tracks.slice(hit + 1) : part.tracks.slice(back);

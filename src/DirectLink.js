@@ -10,7 +10,7 @@ class DirectLink {
    * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다 — 성공 시 [track], 실패 시 [].
    * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다.
    */
-  static async getInfo(url, guildId = null) {
+  static async getInfo(url) {
     try {
       if (!this.isDirectAudioLink(url)) {
         return [];
@@ -28,7 +28,7 @@ class DirectLink {
 
       return [
         {
-          title: this.extractTitle(filename, guildId),
+          title: this.extractTitle(filename),
           artist: "직접 링크",
           url: url,
           duration: estimatedDuration,
@@ -57,7 +57,7 @@ class DirectLink {
    * 직접 링크는 URL 기반 탐색을 지원하지 않음 — 탐색은 MusicPlayer의 FFmpeg가 처리하므로
    * startSeconds는 여기서 무시한다.
    */
-  static async getStream(url, _guildId = null, _startSeconds = 0) {
+  static async getStream(url) {
     try {
       if (!this.isDirectAudioLink(url)) {
         throw new Error("지원되지 않는 직접 오디오 파일 링크");
@@ -89,7 +89,7 @@ class DirectLink {
 
   // 참고: 동기 함수로 유지해야 함 — getInfo()가 반환값을
   // track.title에 직접 할당함 (비동기 버전은 "[object Promise]"를 생성했음)
-  static extractTitle(filename, _guildId = null) {
+  static extractTitle(filename) {
     // 확장자를 제거하고 파일명 정리
     const nameWithoutExt = path.parse(filename).name;
 

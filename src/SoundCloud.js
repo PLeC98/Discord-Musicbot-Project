@@ -5,11 +5,11 @@ const config = require("../config");
 class SoundCloud {
   // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용
 
-  static async search(query, limit = 1, guildId = null) {
+  static async search(query, limit = 1) {
     try {
       // 이미 SoundCloud URL이면 직접 정보 가져오기
       if (this.isSoundCloudURL(query)) {
-        const info = await this.getInfo(query, guildId);
+        const info = await this.getInfo(query);
         return info ? [info] : [];
       }
 
@@ -31,7 +31,7 @@ class SoundCloud {
         try {
           // SoundCloud 링크만 필터링
           if (item.webpage_url && this.isSoundCloudURL(item.webpage_url)) {
-            const track = await this.formatTrack(item, guildId);
+            const track = await this.formatTrack(item);
             if (track) {
               tracks.push(track);
             }
@@ -47,7 +47,7 @@ class SoundCloud {
     }
   }
 
-  static async getInfo(url, guildId = null) {
+  static async getInfo(url) {
     try {
       // yt-dlp로 SoundCloud 정보 가져오기
       const info = await youtubedl(url, {
@@ -59,7 +59,7 @@ class SoundCloud {
         throw new Error("SoundCloud에서 정보를 반환하지 않음");
       }
 
-      const track = await this.formatTrack(info, guildId);
+      const track = await this.formatTrack(info);
 
       return track;
     } catch (error) {
@@ -67,7 +67,7 @@ class SoundCloud {
     }
   }
 
-  static async getStream(url, _guildId = null, _startSeconds = 0) {
+  static async getStream(url) {
     // yt-dlp로 오디오 스트림 가져오기
     const result = await youtubedl(url, {
       format: "bestaudio/best",
@@ -84,7 +84,7 @@ class SoundCloud {
     return result;
   }
 
-  static async getPlaylist(url, guildId = null) {
+  static async getPlaylist(url) {
     try {
       // yt-dlp로 재생목록 정보 가져오기
       const result = await youtubedl(url, {
@@ -99,7 +99,7 @@ class SoundCloud {
 
       const tracks = [];
       for (const item of result.entries.slice(0, config.bot.playlistAddDefault)) {
-        const formattedTrack = await this.formatTrack(item, guildId);
+        const formattedTrack = await this.formatTrack(item);
         if (formattedTrack) {
           tracks.push(formattedTrack);
         }
@@ -122,7 +122,7 @@ class SoundCloud {
     }
   }
 
-  static async getUserTracks(userUrl, limit = 10, guildId = null) {
+  static async getUserTracks(userUrl, limit = 10) {
     try {
       // SoundCloud 사용자 프로필에 yt-dlp 사용
       // 사용자의 최신 트랙 가져오기
@@ -139,7 +139,7 @@ class SoundCloud {
 
       const tracks = [];
       for (const item of result.entries.slice(0, limit)) {
-        const formattedTrack = await this.formatTrack(item, guildId);
+        const formattedTrack = await this.formatTrack(item);
         if (formattedTrack) {
           tracks.push(formattedTrack);
         }
@@ -151,7 +151,7 @@ class SoundCloud {
     }
   }
 
-  static async formatTrack(soundcloudTrack, _guildId = null) {
+  static async formatTrack(soundcloudTrack) {
     try {
       const unknownTitle = "알 수 없는 제목";
       const unknownArtist = "알 수 없는 아티스트";
@@ -252,28 +252,6 @@ class SoundCloud {
 
   static createTrackUrl(username, trackSlug) {
     return `https://soundcloud.com/${username}/${trackSlug}`;
-  }
-
-  static createPlaylistUrl(username, playlistSlug) {
-    return `https://soundcloud.com/${username}/sets/${playlistSlug}`;
-  }
-
-  static createUserUrl(username) {
-    return `https://soundcloud.com/${username}`;
-  }
-
-  static async getRelatedTracks(_trackUrl, _limit = 5) {
-    // 여기에 관련 트랙 가져오기 구현 가능. 복잡한 구현이 필요하므로 현재는 빈 배열 반환.
-    return [];
-  }
-
-  static async searchAdvanced(query, options = {}, guildId = null) {
-    // yt-dlp를 사용한 고급 검색 (간소화).
-    try {
-      return await this.search(query, options.limit || 20, guildId);
-    } catch (error) {
-      return [];
-    }
   }
 }
 
