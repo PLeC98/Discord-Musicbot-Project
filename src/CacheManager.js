@@ -623,6 +623,7 @@ class CacheManager {
     // 보호 집합은 사라진 행을 가리키게 되므로 함께 비운다. 재생 중인 곡은 다음 예열 틱이 다시 채운다.
     this._protectedKeys.clear();
     this._queuedKeys.clear();
+    this._protectedFiles.clear(); // 받는 중인 임시 파일 보호도 함께 — 파일은 위에서 지웠다
 
     try {
       this.db.pragma("wal_checkpoint(TRUNCATE)");
