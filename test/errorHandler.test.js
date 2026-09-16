@@ -48,6 +48,6 @@ test("getMessage: 모든 범주가 한국어 안내 문자열을 반환", () => 
 });
 
 test("handle: 던지지 않고 사용자 메시지 반환 (catch 블록 계약)", () => {
-  const out = ErrorHandler.handle(new Error("read ECONNRESET"), null, "test-context");
+  const out = ErrorHandler.handle(new Error("read ECONNRESET"), "test-context");
   assert.equal(out, ErrorHandler.getMessage(new Error("read ECONNRESET")));
 });

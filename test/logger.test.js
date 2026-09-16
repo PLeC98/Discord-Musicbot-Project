@@ -117,7 +117,7 @@ test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
   assert.doesNotMatch(got[0].msg, /abcDEF123456/);
 });
 
-// ── sink: 와이어 투영 / 버퍼 / 하위호환 ─────────────────────
+// ── sink: 와이어 투영 / 버퍼 ────────────────────────────────
 test("와이어 투영: {ts,level,text} + ANSI 스트립", () => {
   const lm = new LogManager({ intercept: false });
   lm._renderTerminal = () => {};
@@ -126,12 +126,13 @@ test("와이어 투영: {ts,level,text} + ANSI 스트립", () => {
   assert.deepEqual(entry, { ts: 123, level: "warn", text: "노랑" });
 });
 
-test("와이어 하위호환: wireLevel이 대시보드 칩 이름을 그대로 유지", () => {
+// 브리지에 걸리는 console.log은 전부 서드파티다 — info로 올리면 우리 로그가 묻힌다.
+test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 나간다", () => {
+  assert.equal(sink._internals.CONSOLE_LEVEL.log, 20);
   const lm = new LogManager({ intercept: false });
   lm._renderTerminal = () => {};
-  // 브리지 레거시 console.log → level 30이지만 wireLevel "log"로 옛 칩 보존
-  lm.record({ level: 30, time: 1, msg: "x", wireLevel: "log" });
-  assert.equal(lm.buffer[0].level, "log");
+  lm.record({ level: sink._internals.CONSOLE_LEVEL.log, time: 1, msg: "x", category: "external" });
+  assert.equal(lm.buffer[0].level, "debug");
 });
 
 // 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로 접어서 보냈다. 그러면 debug와 trace가,

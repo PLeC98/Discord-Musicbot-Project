@@ -154,7 +154,7 @@ test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기�
   const restores = [swap(YouTube, "getYtDlpOptions", (o) => o), swap(CacheManager, "getVerifiedTitle", () => null)];
   try {
     ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
-    const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", null, { offset: 50, limit: 3 });
+    const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3 });
     assert.equal(ytCalls.at(-1).options.playlistItems, "51:53");
     assert.equal(r.tracks.length, 2);
     assert.equal(r.total, 98);
@@ -178,12 +178,12 @@ test("해석기는 구간을 어댑터에 넘기고 총 곡 수·다음 위치�
     return { tracks: [{ title: "a" }], total: 9946, nextOffset: 1 };
   });
   try {
-    const r = await TrackResolver.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "g1", "ctx", { limit: 7 });
+    const r = await TrackResolver.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 });
     assert.deepEqual(seen[0], { offset: 0, limit: 7 });
     assert.equal(r.total, 9946);
     assert.equal(r.nextOffset, 1);
 
-    const single = await TrackResolver.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", "g1");
+    const single = await TrackResolver.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa");
     assert.equal(single.total, null, "한 곡이면 총 곡 수가 없다");
   } finally {
     restore();

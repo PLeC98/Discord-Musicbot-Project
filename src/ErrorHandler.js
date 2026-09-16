@@ -76,11 +76,10 @@ class ErrorHandler {
    * 실제 오류를 전체 상세 정보와 함께 콘솔에 기록한 뒤 사용자 표시용 메시지를 반환
    * catch 블록에서 바로 사용할 수 있음
    * @param {Error|string} error
-   * @param {string|null} _guildId  — API 호환성을 위해 유지, 미사용
    * @param {string} context  — 예: 'play.js search', 'MusicPlayer.play'
    * @returns {string}
    */
-  static handle(error, _guildId = null, context = "") {
+  static handle(error, context = "") {
     const category = this.classify(error);
     // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
     log.error({ sub: context || undefined, kind: category }, `${error?.message || error}`);

@@ -247,7 +247,7 @@ class MusicPlayer {
         try {
           await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
           if (!this.currentTrack._sponsorResolved && this.currentTrack.platform === "spotify") {
-            await TrackResolver.findYouTubeEquivalent(this.currentTrack, this.guild.id); // 멱등 — videoId 확정
+            await TrackResolver.findYouTubeEquivalent(this.currentTrack); // 멱등 — videoId 확정
             await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
           }
           const introEnd = this._introOffsetMs(this.currentTrack);
@@ -303,7 +303,7 @@ class MusicPlayer {
         // spotify는 YouTube 동등물을 먼저 확보 — 검색으로 audioSourceKey가 정해지므로
         // 캐시 파일을 한 번 더 확인해 있으면 스트림 획득을 통째로 건너뜀
         if (this.currentTrack.platform === "spotify") {
-          const ytUrl = await TrackResolver.findYouTubeEquivalent(this.currentTrack, this.guild.id);
+          const ytUrl = await TrackResolver.findYouTubeEquivalent(this.currentTrack);
           if (!ytUrl) {
             throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
           }
@@ -318,7 +318,7 @@ class MusicPlayer {
 
         // 일반 방식으로 스트림 가져오기 (플랫폼 스위치는 TrackResolver 한 곳에서)
         if (!downloadedFile) {
-          streamInfo = await TrackResolver.getStream(this.currentTrack, this.guild.id, resumeFromSeconds);
+          streamInfo = await TrackResolver.getStream(this.currentTrack, resumeFromSeconds);
         }
       }
 
@@ -403,7 +403,7 @@ class MusicPlayer {
           try {
             if (this.currentTrack.platform === "direct") {
               // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
-              audioStream = await DirectLink.getStream(streamUrl_final, this.guild.id);
+              audioStream = await DirectLink.getStream(streamUrl_final);
             } else {
               // 오프셋 재생이면 begin= 없는 원본 URL을 받아 `-ss`가 단독으로 위치를 정하게 한다(이중 seek 방지).
               const fetchUrl = resumeFromMs > 0 && streamInfo?.rawUrl ? streamInfo.rawUrl : streamUrl_final;
@@ -596,7 +596,7 @@ class MusicPlayer {
 
       return { success: true, track: this.currentTrack };
     } catch (error) {
-      const errorMsg = ErrorHandler.handle(error, this.guild.id, "MusicPlayer.play");
+      const errorMsg = ErrorHandler.handle(error, "MusicPlayer.play");
       await this.handleError(error, errorMsg);
       return { success: false, message: errorMsg };
     } finally {
@@ -1439,7 +1439,7 @@ class MusicPlayer {
 
       // 임의 트랙을 YouTube에서 검색
       const YouTube = require("./YouTube");
-      const results = await YouTube.search(randomKeyword, 15, this.guild.id);
+      const results = await YouTube.search(randomKeyword, 15);
 
       if (!results || results.length === 0) {
         return;
@@ -1473,7 +1473,7 @@ class MusicPlayer {
       if (filteredResults.length === 0) {
         // 다른 키워드로 다시 시도
         const fallbackKeyword = keywords[Math.floor(Math.random() * keywords.length)];
-        const fallbackResults = await YouTube.search(fallbackKeyword, 10, this.guild.id);
+        const fallbackResults = await YouTube.search(fallbackKeyword, 10);
         const fallbackFiltered = (fallbackResults || []).filter((track) => track.duration >= 30 && track.duration <= 600);
 
         if (fallbackFiltered.length === 0) {

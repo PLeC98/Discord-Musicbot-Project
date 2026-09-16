@@ -394,7 +394,10 @@ class CacheManager {
 
   // 검증 정책
 
-  // 정책 값은 행에 남겨 두지만 읽는 곳은 아직 없다 — 재검증을 실제로 넣을 때 쓴다(백로그 B-41)
+  // 포크 초기의 "재생 전 캐시 재검증" 설계 잔재 — 원류에는 SQLite 캐시가 아예 없다(audio_cache는 폴더 이름이었다).
+  // 이 값과 content_fingerprint·last_verified_at 셋 다 쓰기 전용이다. 재검증은 채우지 않기로 했다 —
+  // 키가 videoId·트랙ID라 원본이 변할 수 없고, 파일 손상은 존재·크기 검사와 임시 파일 rename이 이미 막는다.
+  // 다음 스키마 변경 때 세 열을 함께 지운다.
   _verificationPolicy(audioSourceKey) {
     if (audioSourceKey.startsWith("sc:")) return "periodic"; // 24시간
     if (audioSourceKey.startsWith("dl:")) return "always"; // 매 재생
