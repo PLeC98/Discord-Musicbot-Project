@@ -1387,7 +1387,7 @@ class MusicPlayer {
       }
 
       if (this.autoplay) {
-        const { genres } = require("../config/genres");
+        const { genres } = require("./configDataLoader").genres();
         if (!genres[this.autoplay]) {
           // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
           log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
@@ -1457,7 +1457,7 @@ class MusicPlayer {
     if (!this.autoplay || typeof this.autoplay !== "string") return null;
 
     try {
-      // 장르 정의와 기준값은 config/genres.js 한 곳에서 관리. 장르가 기준값을 덮어쓴다.
+      // 장르 정의와 기준값은 config/genres.yaml 한 곳에서 관리. 장르가 기준값을 덮어쓴다.
       const cfg = this._autoplayConfig();
       const keywords = cfg?.keywords;
       if (!keywords) return null;
@@ -1480,10 +1480,10 @@ class MusicPlayer {
         // 길이가 없으면 건너뜀
         if (!track.duration) return false;
 
-        // 길이 제한 — config/genres.js에서 장르별로 정한다(minDurationSec·maxDurationSec)
+        // 길이 제한 — config/genres.yaml에서 장르별로 정한다(minDurationSec·maxDurationSec)
         if (track.duration < minSec || track.duration > maxSec) return false;
 
-        // 제목에 차단어가 들어갔는지 — 목록은 config/genres.js의 defaults.blockedKeywords
+        // 제목에 차단어가 들어갔는지 — 목록은 config/genres.yaml의 defaults.blockedKeywords
         const title = (track.title || "").toLowerCase();
         const hasBlockedKeyword = blockedKeywords.some((keyword) => title.includes(keyword));
         if (hasBlockedKeyword) return false;
@@ -1578,7 +1578,7 @@ class MusicPlayer {
 
   // 지금 장르의 자동재생 설정 — 기준값 위에 장르 설정을 얹는다. 모르는 장르면 null.
   _autoplayConfig() {
-    const { defaults, genres } = require("../config/genres");
+    const { defaults, genres } = require("./configDataLoader").genres();
     const genre = genres[this.autoplay];
     return genre ? { ...defaults, ...genre } : null;
   }

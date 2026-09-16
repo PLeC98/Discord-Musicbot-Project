@@ -2,13 +2,13 @@
 
 // src/genreMenu.js — 자동재생 장르 선택 화면.
 //
-// 회귀 대상: 켜기(버튼)와 끄기·명령이 각자 화면을 만들던 시절, 명령 쪽만 config/genres.js의
+// 회귀 대상: 켜기(버튼)와 끄기·명령이 각자 화면을 만들던 시절, 명령 쪽만 config/genres.yaml의
 // label이 아니라 영문 키를 보여줬다. 두 화면이 한 빌더를 지나는지 잠가 둔다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
-const { genres } = require("../config/genres");
+const { genres } = require("../src/configDataLoader").genres();
 
 const ids = Object.keys(genres);
 const selectOf = (payload) => payload.components[0].toJSON().components[0];

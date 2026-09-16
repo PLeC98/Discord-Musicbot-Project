@@ -1,0 +1,78 @@
+# 봇 상태 메시지 — 디스코드 프로필에 뜨는 "게임 중/듣는 중" 문구입니다.
+# 봇을 켜 둔 채로 고쳐도 됩니다(저장하면 다음 회전부터 적용).
+
+# rotation        : 평소에 번갈아 보여줄 문구들
+# rotationInterval: 문구를 바꾸는 간격(초). 최소 10초.
+# scheduled       : 특정 기간·시간대에만 쓰는 문구. 위에서부터 먼저 맞는 것 하나를 씁니다.
+#     dateRange     양력 MM-DD 범위 (연말을 걸쳐도 됩니다: 12-28 ~ 01-05)
+#     lunarDateRange 음력 MM-DD 범위
+#     timeRange     HH:MM 범위 (자정을 걸쳐도 됩니다: 22:00 ~ 06:00)
+#     text 하나만 쓰거나, rotation으로 여러 개를 번갈아 쓸 수 있습니다.
+
+# 들여쓰기는 공백 두 칸. 탭을 쓰면 파일을 읽지 못합니다.
+
+rotationInterval: 60
+rotation:
+  - text: 🎵 /play
+  - text: 🎶 음악으로 하루를 채워봐요
+# 기간·시간대 문구. 맞는 것이 없으면 위의 rotation을 씁니다.
+scheduled:
+  - dateRange:
+      start: 12-24
+      end: 12-26
+    text: 🎄 메리 크리스마스!
+  - timeRange:
+      start: 22:00
+      end: 06:00
+    rotation:
+      - text: 🌌 별빛 아래 음악
+      - text: 🛌 잠들기 전 노래 한곡
+      - text: 🌑 달빛 아래 음악
+      - text: 💤 졸려...
+      - text: 🌃 밤새 함께해요
+  - dateRange:
+      start: 01-01
+      end: 01-02
+    rotation:
+      - text: 🎉 새해 복 많이 받으세요!
+      - text: 🥳 올해에도 좋은 음악과 함께!
+  - lunarDateRange:
+      start: 01-01
+      end: 01-15
+    rotation:
+      - text: 🌕 설날 맞이 음악
+      - text: 🐉 새해 복 많이 받으세요!
+  - dateRange:
+      start: 10-31
+      end: 11-02
+    rotation:
+      - text: 🎃 할로윈 분위기
+      - text: 👻 무서운 음악 모드
+  - dateRange:
+      start: 02-14
+      end: 02-15
+    rotation:
+      - text: 💖 발렌타인 데이 스페셜
+      - text: 🌹 사랑이 가득한 음악
+  - dateRange:
+      start: 03-01
+      end: 03-31
+    rotation:
+      - text: 🌸 흩날리는 벚꽃 잎이♪
+      - text: 🌼 봄바람 휘날리며♪
+  - dateRange:
+      start: 07-20
+      end: 08-10
+    text: 🏖️ 어디로 떠날까요?
+  - dateRange:
+      start: 09-01
+      end: 09-30
+    rotation:
+      - text: 🍂 너를 닮은 이 시린 가을이 오면♪
+      - text: 🍁 낙엽과 함께하는 음악
+  - dateRange:
+      start: 12-01
+      end: 12-31
+    rotation:
+      - text: ❄️ 눈꽃이 피어나 또 빛이 나♪
+      - text: ⛄ 내 맘을 다 아나봐 하늘에서도♪

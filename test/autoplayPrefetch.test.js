@@ -79,19 +79,19 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
   }
 });
 
-// 미리 뽑을 곡 수는 config/genres.js의 prefetchCount가 정한다(장르가 덮어쓴다).
+// 미리 뽑을 곡 수는 config/genres.yaml의 prefetchCount가 정한다(장르가 덮어쓴다).
 // 기본 1곡만 덮으면 값을 키워도 한 곡만 들어가는 회귀를 놓친다.
 test("prefetchCount만큼 채운다 — 설정 값이 실제로 쓰인다", async () => {
-  const genres = require("../config/genres");
-  const realDefault = genres.defaults.prefetchCount;
-  genres.defaults.prefetchCount = 3;
+  const { defaults } = require("../src/configDataLoader").genres();
+  const realDefault = defaults.prefetchCount;
+  defaults.prefetchCount = 3;
   try {
     const p = makePlayer();
     for (let i = 0; i < 4; i++) await ensureAutoplayNext.call(p);
 
     assert.deepEqual(titles(p.queue), ["자동1", "자동2", "자동3"], "세 곡까지만 채우고 멈춘다");
   } finally {
-    genres.defaults.prefetchCount = realDefault;
+    defaults.prefetchCount = realDefault;
   }
 });
 

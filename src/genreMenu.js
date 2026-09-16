@@ -14,8 +14,8 @@ const OFF_MENU_MS = 30_000;
  * 고른 결과는 events/modalHandler.js의 autoplay_genre 처리가 받는다.
  */
 function genreSelect(requesterId, sessionId, placeholder) {
-  // 장르 정의는 config/genres.js 한 곳에서 관리 — 부를 때마다 읽는다(편집 반영 대비)
-  const { genres } = require("../config/genres");
+  // 장르 정의는 config/genres.yaml 한 곳에서 관리 — 부를 때마다 읽는다(파일이 바뀌면 곧바로 반영)
+  const { genres } = require("./configDataLoader").genres();
 
   return new StringSelectMenuBuilder()
     .setCustomId(`autoplay_genre:${requesterId}:${sessionId}`)
