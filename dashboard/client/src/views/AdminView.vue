@@ -216,6 +216,8 @@
       <div v-show="tab === 'config'">
         <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
         <ConfigGenres v-if="tab === 'config'" />
+
+        <p v-if="tab === 'config'" class="text-muted text-[0.75rem] mt-4 px-1 opacity-60">이모지 그림 <a href="https://github.com/twitter/twemoji" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">Twemoji</a> ⓒ Twitter, Inc — <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">CC-BY 4.0</a></p>
       </div>
 
       <div v-show="tab === 'dev'">

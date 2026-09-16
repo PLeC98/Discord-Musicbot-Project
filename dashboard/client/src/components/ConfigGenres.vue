@@ -68,7 +68,7 @@
               <circle cx="8" cy="13" r="1.5" />
             </svg>
           </span>
-          <input v-model="row.emoji" placeholder="🎵" :class="[inputCls, 'w-11! px-2! text-center']" />
+          <EmojiInput v-model="row.emoji" />
           <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
           <button :class="removeBtn" v-tooltip="'이 장르 삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
@@ -93,6 +93,7 @@ import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
+import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
@@ -128,6 +129,8 @@ const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
+// 선택기로만 넣으니 여기서 걸릴 일은 없고, 파일을 손으로 고쳐 둔 경우를 잡는다.
+const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 const problems = computed(() => {
   const found = [];
   const names = rows.value.map((r) => r.name.trim());
@@ -137,6 +140,7 @@ const problems = computed(() => {
   if (names.some((name) => ["true", "false", "null"].includes(name))) found.push("true·false·null 은 이름으로 쓸 수 없습니다.");
   for (const r of rows.value) {
     if (r.name.trim() && !r.keywords.length) found.push(`${r.name}: 검색어가 하나는 있어야 합니다.`);
+    if (r.emoji && !ONE_EMOJI.test(r.emoji)) found.push(`${r.name || "이름 없는 장르"}: 이모지가 아닌 값이 들어 있습니다.`);
   }
   return [...found, ...serverProblems.value];
 });

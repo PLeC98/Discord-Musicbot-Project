@@ -163,6 +163,10 @@ function save(name, data) {
  * 장르 설정이 쓸 만한 모양인지 본다. 저장 전에 부른다 — 깨진 값을 파일에 남기지 않는다.
  * 반환: 문제 문구 배열(비어 있으면 통과).
  */
+// 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 여러 코드포인트로 된 것도 한 덩이로 센다.
+// g 플래그가 없어 test()에 상태가 남지 않는다.
+const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
+
 function validateGenres(data) {
   const problems = [];
   const ids = Object.keys(data?.genres || {});
@@ -174,6 +178,9 @@ function validateGenres(data) {
   for (const id of ids) {
     // 키가 곧 이름이다. YAML이 값으로 읽어 버리는 말은 이름으로 쓸 수 없다.
     if (id === "true" || id === "false" || id === "" || id === "null") problems.push(`"${id || "null"}"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).`);
+    // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다 — 파일을 손으로 고칠 수도 있어서 여기서 막는다.
+    const emoji = (data.genres[id] || {}).emoji;
+    if (emoji != null && emoji !== "" && !ONE_EMOJI.test(String(emoji))) problems.push(`${id}: emoji는 이모지 한 글자여야 합니다.`);
     const keywords = (data.genres[id] || {}).keywords;
     if (!Array.isArray(keywords) || keywords.length === 0) problems.push(`${id}: 검색어(keywords)가 하나는 있어야 합니다.`);
     else if (keywords.some((k) => typeof k !== "string" || !k.trim())) problems.push(`${id}: 빈 검색어가 있습니다.`);

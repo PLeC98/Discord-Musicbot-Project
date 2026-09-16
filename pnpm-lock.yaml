@@ -85,9 +85,15 @@ importers:
       axios:
         specifier: ^1.20.0
         version: 1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
+      emoji-picker-element:
+        specifier: ^1.29.1
+        version: 1.29.1
       pinia:
         specifier: ^4.0.3
         version: 4.0.3(@vue/devtools-api@8.2.1)(vue@3.5.42)
+      twemoji-colr-font:
+        specifier: ^15.0.3
+        version: 15.0.3
       vue:
         specifier: ^3.5.42
         version: 3.5.42
@@ -925,6 +931,9 @@ packages:
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
+
+  emoji-picker-element@1.29.1:
+    resolution: {integrity: sha512-TOiHzu9Dqib3x4MwcAi3wi3RdyT4SoeB4b15AvH1ks4SBwTl7DeebhZ0d3x6dNi4XfNU7IGRZ7NBQllj0RqwrQ==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -1930,6 +1939,10 @@ packages:
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  twemoji-colr-font@15.0.3:
+    resolution: {integrity: sha512-UsK4JUpaczeVoMGeYMnKaMTxKt7fujg1nQOk4NaC0teZmdOo+uAai0DIuaSzsMkShtG4J75F0OEsVdGJ+Q1pHQ==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -2957,6 +2970,8 @@ snapshots:
 
   ee-first@1.1.1: {}
 
+  emoji-picker-element@1.29.1: {}
+
   emoji-regex@8.0.0: {}
 
   encodeurl@2.0.0: {}
@@ -3918,6 +3933,8 @@ snapshots:
   ts-mixer@6.0.4: {}
 
   tslib@2.8.1: {}
+
+  twemoji-colr-font@15.0.3: {}
 
   type-check@0.4.0:
     dependencies:

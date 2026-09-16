@@ -158,6 +158,19 @@ test("검사: 검색어가 비면 걸린다", () => {
   assert.match(problems.join(" "), /빈 검색어/);
 });
 
+test("검사: 이모지 자리에 이모지가 아닌 값이 있으면 걸린다", () => {
+  // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 여기서 막지 않으면
+  // 디스코드 선택 메뉴가 원인에서 한참 떨어진 자리에서 거부한다.
+  const of = (emoji) => loader.validateGenres({ genres: { 팝: { emoji, keywords: ["a"] } } });
+
+  assert.deepEqual(of("🇰🇷"), [], "국기처럼 코드포인트가 여럿인 것도 한 글자다");
+  assert.deepEqual(of("1️⃣"), [], "키캡도 한 글자다");
+  assert.deepEqual(of(""), [], "비워 두는 것은 괜찮다");
+  assert.deepEqual(of(undefined), [], "없는 것도 괜찮다");
+  assert.match(of("abc").join(" "), /이모지 한 글자/);
+  assert.match(of("🎤🎸").join(" "), /이모지 한 글자/, "두 개는 안 된다");
+});
+
 test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   const problems = loader.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { keywords: ["a"] } } });
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
