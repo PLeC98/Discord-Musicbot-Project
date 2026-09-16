@@ -193,11 +193,6 @@ class CacheManager {
     else this._queuedKeys.set(guildId, set);
   }
 
-  /** 길드가 떠날 때 — 남은 보호를 놓는다 */
-  clearQueuedKeys(guildId) {
-    if (guildId) this._queuedKeys.delete(guildId);
-  }
-
   /** 재생 중 + 모든 길드의 대기열 — 퇴거에서 제외할 키 전부 */
   _liveKeys() {
     const keys = new Set(this._protectedKeys);
@@ -399,23 +394,11 @@ class CacheManager {
 
   // 검증 정책
 
+  // 정책 값은 행에 남겨 두지만 읽는 곳은 아직 없다 — 재검증을 실제로 넣을 때 쓴다(백로그 B-41)
   _verificationPolicy(audioSourceKey) {
     if (audioSourceKey.startsWith("sc:")) return "periodic"; // 24시간
     if (audioSourceKey.startsWith("dl:")) return "always"; // 매 재생
     return "infrequent"; // 30일 (yt:*)
-  }
-
-  /** 재생 전에 캐시 항목을 재검증해야 하면 true 반환 */
-  shouldVerify(cacheRow) {
-    if (!cacheRow) return true;
-    const policy = cacheRow.verification_policy;
-    const lastVerified = cacheRow.last_verified_at || 0;
-    const age = Date.now() - lastVerified;
-
-    if (policy === "always") return true;
-    if (policy === "periodic") return age > 24 * 60 * 60 * 1000;
-    if (policy === "infrequent") return age > 30 * 24 * 60 * 60 * 1000;
-    return false;
   }
 
   // 플레이어 세션 — 행 구조와 쓰기는 playerSessionStore
