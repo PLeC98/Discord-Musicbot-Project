@@ -45,7 +45,7 @@
         @dragend="onDragEnd"
       >
         <div class="flex items-center gap-2 mb-2">
-          <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'">
+          <span data-drag-handle class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'">
             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
               <circle cx="2" cy="3" r="1.5" />
               <circle cx="2" cy="8" r="1.5" />
@@ -192,6 +192,12 @@ const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
 
 function onDragStart(e, i) {
+  // 카드 전체가 draggable이라, 막지 않으면 입력칸의 글자를 끌어 고르려 할 때 카드가 따라 움직인다.
+  // 손잡이에서 시작한 것만 받는다.
+  if (!e.target.closest?.("[data-drag-handle]")) {
+    e.preventDefault();
+    return;
+  }
   draggedIndex.value = i;
   e.dataTransfer.effectAllowed = "move";
 }

@@ -216,9 +216,13 @@
       <div v-show="tab === 'config'">
         <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
         <ConfigGenres v-if="tab === 'config'" />
-        <ConfigStatus v-if="tab === 'config'" class="mt-3" />
 
         <p v-if="tab === 'config'" class="text-muted text-[0.75rem] mt-4 px-1 opacity-60">이모지 그림 <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">Twemoji</a> ⓒ Twitter, Inc 및 기여자 — <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">CC-BY 4.0</a></p>
+      </div>
+
+      <div v-show="tab === 'presence'">
+        <!-- 파일(config/status.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
+        <ConfigStatus v-if="tab === 'presence'" />
       </div>
 
       <div v-show="tab === 'dev'">
@@ -335,6 +339,8 @@ const TABS = [
   { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
   { id: "config", label: "자동재생 설정", icon: "music" },
+  // id를 "status"로 못 쓴다 — 맨 위 "봇 상태" 탭이 이미 쓰고 있다
+  { id: "presence", label: "상태 문구", icon: "headphones" },
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
 const TAB_KEY = "admin:tab";
