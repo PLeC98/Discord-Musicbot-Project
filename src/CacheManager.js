@@ -394,8 +394,8 @@ class CacheManager {
 
   // 검증 정책
 
-  // 상류의 "재생 전 캐시 재검증" 설계 잔재. 이 값과 content_fingerprint·last_verified_at 셋 다 쓰기 전용이다 —
-  // 재검증을 실제로 넣을 때 쓰거나, 다음 스키마 변경 때 세 열을 함께 지운다.
+  // 포크 초기의 "재생 전 캐시 재검증" 설계 잔재 — 원류에는 SQLite 캐시가 아예 없다(audio_cache는 폴더 이름이었다).
+  // 이 값과 content_fingerprint·last_verified_at 셋 다 쓰기 전용이다. 재검증을 넣을 때 쓰거나, 다음 스키마 변경 때 함께 지운다.
   _verificationPolicy(audioSourceKey) {
     if (audioSourceKey.startsWith("sc:")) return "periodic"; // 24시간
     if (audioSourceKey.startsWith("dl:")) return "always"; // 매 재생
