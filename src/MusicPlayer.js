@@ -599,6 +599,9 @@ class MusicPlayer {
       this.warmer.start();
       await this.persistState(resumeFromMs > 0 ? "resume-playback" : "play");
 
+      // 다음 자동재생 곡을 미리 뽑아 둔다(B-50). 기다리지 않는다 — 재생 시작을 늦추면 안 된다.
+      this.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 뽑기 실패: ${error?.message || error}`));
+
       return { success: true, track: this.currentTrack };
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, "MusicPlayer.play");
@@ -1216,8 +1219,18 @@ class MusicPlayer {
    */
   setAutoplay(genre) {
     const next = genre || false;
-    if (this.autoplay !== next) clog.info(`자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
+    const changed = this.autoplay !== next;
+    if (changed) clog.info(`자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
     this.autoplay = next;
+
+    // 미리 뽑아 둔 곡은 껐으면 남을 이유가 없고, 장르를 바꿨으면 이전 장르의 곡이다.
+    // 사용자가 넣은 곡은 건드리지 않는다.
+    if (changed) {
+      const dropped = trackState.dropAutoplay(this);
+      if (dropped > 0) clog.info(`미리 뽑아 둔 자동재생 곡 ${dropped}곡을 대기열에서 뺐습니다`);
+      if (next) this.ensureAutoplayNext().catch(() => {});
+    }
+
     this.scheduleStatePersist("autoplay", 200);
     return this.autoplay;
   }
@@ -1434,16 +1447,21 @@ class MusicPlayer {
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 
-  async handleAutoplay() {
-    if (!this.autoplay || typeof this.autoplay !== "string") return false;
+  /**
+   * 자동재생 후보 한 곡을 고른다. 못 고르면 null.
+   *
+   * 고르기만 한다 — 대기열도 재생도 건드리지 않는다. 부르는 쪽이 지금 틀지(handleAutoplay)
+   * 미리 대기열에 둘지(ensureAutoplayNext) 정한다.
+   */
+  async pickAutoplayTrack() {
+    if (!this.autoplay || typeof this.autoplay !== "string") return null;
 
     try {
       // 장르 정의는 config/genres.js 한 곳에서 관리.
-      // 알 수 없는 장르는 호출부(handleTrackEnd)에서 걸러지므로 여기서는 방어적으로 중단만 한다.
       const genres = require("../config/genres");
       const genre = genres[this.autoplay];
       const keywords = genre?.keywords;
-      if (!keywords) return false;
+      if (!keywords) return null;
       // 길이 제한은 장르가 정한다. 상한은 기본 없음 — 로파이처럼 긴 영상이 정상인 장르가 있다.
       const minSec = Number(genre.minDurationSec ?? 30);
       const maxSec = Number(genre.maxDurationSec ?? Infinity);
@@ -1455,7 +1473,7 @@ class MusicPlayer {
 
       if (!results || results.length === 0) {
         log.warn(`자동재생: 검색 결과가 없어 넘어갑니다 (장르 ${this.autoplay}, 검색어 "${randomKeyword}")`);
-        return false;
+        return null;
       }
 
       // 비음악 콘텐츠 필터링
@@ -1490,31 +1508,80 @@ class MusicPlayer {
 
         if (fallbackFiltered.length === 0) {
           log.warn(`자동재생: 조건에 맞는 곡을 찾지 못해 넘어갑니다 (장르 ${this.autoplay}, 후보 ${results.length}곡)`);
-          return false;
+          return null;
         }
 
         filteredResults.push(...fallbackFiltered);
       }
 
-      // 필터링된 결과에서 임의 트랙 선택
-      const randomTrack = filteredResults[Math.floor(Math.random() * filteredResults.length)];
-      randomTrack.requestedBy = this.guild.members.me.user;
-      randomTrack.addedAt = Date.now();
+      // 최근에 나온 곡은 뺀다. 추가 검색 없이 후보 안에서만 거른다 — 다시 검색하면 그만큼 또 기다린다.
+      // 전부 걸리면 거르지 않는다(후보가 적은 장르에서 아무것도 못 고르는 것보다 낫다).
+      const recent = new Set([this.currentTrack, ...this.previousTracks.slice(-20)].filter(Boolean).map((t) => t.url));
+      const fresh = filteredResults.filter((t) => !recent.has(t.url));
+      const pool = fresh.length > 0 ? fresh : filteredResults;
 
-      // 끝에 넣고 맨 앞을 꺼낸다 — 검색하는 사이 사용자가 곡을 넣었으면 그 곡이 먼저다
-      trackState.enqueue(this, [randomTrack]);
-      trackState.shiftNext(this);
-      await this.play(null, 0);
-
-      // 자동재생 트랙용 현재 재생 임베드 갱신
-      if (this.guild?.client?.musicEmbedManager) {
-        await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
-      }
-      return true;
+      const picked = pool[Math.floor(Math.random() * pool.length)];
+      picked.requestedBy = this.guild.members.me.user;
+      picked.addedAt = Date.now();
+      picked.autoplay = true; // 대기열 표시·정리에서 사용자 곡과 가른다
+      return picked;
     } catch (error) {
       log.error("자동재생 오류:", error.message);
-      return false;
+      return null;
     }
+  }
+
+  /** 대기열이 빈 채로 곡이 끝났을 때 — 지금 골라서 바로 튼다. 틀었으면 true. */
+  async handleAutoplay() {
+    const picked = await this.pickAutoplayTrack();
+    if (!picked) return false;
+
+    trackState.enqueue(this, [picked]);
+    trackState.shiftNext(this);
+    await this.play(null, 0);
+
+    if (this.guild?.client?.musicEmbedManager) {
+      await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
+    }
+    return true;
+  }
+
+  /**
+   * 곡이 시작될 때 다음 자동재생 곡을 **미리** 대기열에 둔다.
+   *
+   * 그래야 QueueWarmer가 평소처럼 받아 두고 전환이 즉시가 된다. 지금까지는 곡이 끝난 뒤에야
+   * 검색을 시작해 그만큼 소리가 비었다(B-50) — 자동재생 곡이 대기열에 머무는 시간이 0이었다.
+   *
+   * 부르는 쪽은 기다리지 않는다. 검색에 몇 초가 걸리는데 그걸 기다리면 재생 시작이 늦어진다.
+   */
+  async ensureAutoplayNext() {
+    if (this._autoplayPicking) return false; // 고르는 중 — 겹쳐 부르면 두 곡이 들어간다
+    if (!this._canPrefetchAutoplay()) return false;
+
+    this._autoplayPicking = true;
+    try {
+      const picked = await this.pickAutoplayTrack();
+      if (!picked) return false;
+      // 고르는 사이 대기열이 변했을 수 있다 — 사용자가 곡을 넣었으면 미리 뽑기는 취소한다.
+      if (!this._canPrefetchAutoplay()) return false;
+
+      trackState.enqueue(this, [picked]);
+      clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay})`);
+      if (this.guild?.client?.musicEmbedManager) {
+        await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this).catch(() => {});
+      }
+      return true;
+    } finally {
+      this._autoplayPicking = false;
+    }
+  }
+
+  // 미리 뽑아 둘 수 있는 상태인가 — 고르기 전과 넣기 직전에 같은 것을 본다.
+  _canPrefetchAutoplay() {
+    if (!this.autoplay || typeof this.autoplay !== "string") return false;
+    if (!this.currentTrack) return false; // 틀고 있는 게 없으면 미리 둘 이유가 없다
+    if (this.loop === "track") return false; // 한곡 반복이면 다음 곡으로 넘어가지 않는다
+    return this.queue.length === 0;
   }
 
   async handleError(error, userMessage = null) {

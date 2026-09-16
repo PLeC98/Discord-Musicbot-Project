@@ -30,6 +30,25 @@ function enqueue(player, tracks, { front = false } = {}) {
   sinkOf(player)?.onEnqueue(tracks, front);
 }
 
+// 사용자가 넣은 곡은 자동재생이 미리 뽑아 둔 곡보다 앞에 선다.
+// 미리 뽑기가 켜지면 대기열이 비어 있지 않은 것이 기본이라, 그냥 뒤에 붙이면 사용자 곡이 뒤로 밀린다.
+function enqueueAheadOfAutoplay(player, tracks) {
+  if (tracks.length === 0) return;
+  const at = player.queue.findIndex((t) => t?.autoplay);
+  if (at < 0) return enqueue(player, tracks);
+  player.queue.splice(at, 0, ...tracks);
+  sinkOf(player)?.onReplace();
+}
+
+// 자동재생이 미리 뽑아 둔 곡만 걷는다 — 사용자가 넣은 곡은 그대로 둔다. 반환: 걷어낸 수
+function dropAutoplay(player) {
+  const before = player.queue.length;
+  player.queue = player.queue.filter((t) => !t?.autoplay);
+  const removed = before - player.queue.length;
+  if (removed > 0) sinkOf(player)?.onReplace();
+  return removed;
+}
+
 // anchorId 곡 바로 뒤에 넣는다 — 맨 앞에 넣은 목록을 이어 넣을 때. 그 곡이 이미 재생돼 없으면 맨 앞.
 function insertAfter(player, anchorId, tracks) {
   if (tracks.length === 0) return;
@@ -133,6 +152,8 @@ module.exports = {
   init,
   setCurrent,
   enqueue,
+  enqueueAheadOfAutoplay,
+  dropAutoplay,
   insertAfter,
   shiftNext,
   retire,

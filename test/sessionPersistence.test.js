@@ -295,6 +295,37 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   }
 });
 
+// 미리 뽑아 둔 자동재생 곡은 되살리지 않는다 — 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
+// 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 뽑힌다. 요청자가 봇인 행으로 가른다.
+test("복원: 자동재생이 미리 뽑아 둔 곡은 되살리지 않고 DB도 맞춘다", async () => {
+  const BOT = "bot1";
+  const { p: saved } = makePlayer();
+  trackState.setCurrent(saved, t("now"));
+  trackState.enqueue(saved, [t("내곡1"), { ...t("자동곡"), requestedBy: { id: BOT } }, t("내곡2")]);
+  const record = CacheManager.sessions.load(saved.guild.id);
+
+  const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id, client: { user: { id: BOT } } } });
+  await sp.restoreFromState(record);
+  sp.cancelStateSave();
+
+  assert.deepEqual(titles(p.queue), ["내곡1", "내곡2"]);
+  assert.deepEqual(stored(p.guild.id), memory(p), "걸러낸 뒤 DB를 맞추지 않으면 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
+});
+
+// 봇 id를 모르면(클라이언트가 아직 없음) 거르지 않는다 — 사용자 곡을 실수로 버리는 쪽이 더 나쁘다.
+test("복원: 봇 id를 알 수 없으면 대기열을 그대로 되살린다", async () => {
+  const { p: saved } = makePlayer();
+  trackState.setCurrent(saved, t("now"));
+  trackState.enqueue(saved, [t("내곡"), { ...t("자동곡"), requestedBy: { id: "bot1" } }]);
+  const record = CacheManager.sessions.load(saved.guild.id);
+
+  const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } }); // client 없음
+  await sp.restoreFromState(record);
+  sp.cancelStateSave();
+
+  assert.deepEqual(titles(p.queue), ["내곡", "자동곡"]);
+});
+
 test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다", async () => {
   const config = require("../config");
   const realMax = config.bot.maxQueueSize;

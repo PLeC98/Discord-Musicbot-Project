@@ -165,7 +165,9 @@ class MusicEmbedManager {
       // 안내에 붙일 것 — 전체 곡 수는 받은 것보다 많을 때만
       const notice = { dropped, total: trackData.total > tracks.length ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) };
       if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
-      else trackState.enqueue(player, queued, { front: insertFirst });
+      else if (insertFirst) trackState.enqueue(player, queued, { front: true });
+      // 자동재생이 미리 뽑아 둔 곡보다는 앞에 — 사용자가 고른 곡이 먼저다
+      else trackState.enqueueAheadOfAutoplay(player, queued);
 
       // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
       if (startFailure && !player.currentTrack && player.queue.length > 0) {
