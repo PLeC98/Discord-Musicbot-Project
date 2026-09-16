@@ -67,7 +67,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
 }
 
 test("자동재생이 곡을 못 고르면 대기열 소진 흐름으로 떨어진다 (회귀: 좀비 상태)", async () => {
-  const p = makePlayer({ autoplay: "lofi", picked: false });
+  const p = makePlayer({ autoplay: "로파이", picked: false });
 
   await handleTrackEnd.call(p, "idle");
 
@@ -75,11 +75,11 @@ test("자동재생이 곡을 못 고르면 대기열 소진 흐름으로 떨어�
   assert.equal(p.currentTrack, null, "구 코드는 끝난 곡을 그대로 들고 있었다 — 그래서 전부 먹통이 됐다");
   assert.equal(p.calls.idleLeave, 1, "퇴장 예약까지 정상 종료 경로를 탄다");
   assert.equal(p.calls.voiceStatus, 1);
-  assert.equal(p.autoplay, "lofi", "한 번 못 찾았다고 장르를 꺼버리면 안 된다 — 다음 곡에서 다시 시도한다");
+  assert.equal(p.autoplay, "로파이", "한 번 못 찾았다고 장르를 꺼버리면 안 된다 — 다음 곡에서 다시 시도한다");
 });
 
 test("자동재생이 곡을 고르면 종료 흐름을 타지 않는다", async () => {
-  const p = makePlayer({ autoplay: "pop", picked: true });
+  const p = makePlayer({ autoplay: "팝", picked: true });
 
   await handleTrackEnd.call(p, "idle");
 

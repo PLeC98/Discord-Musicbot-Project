@@ -86,7 +86,7 @@ module.exports = {
     // 선택한 장르로 자동재생 활성화
     player.setAutoplay(selectedGenre);
 
-    const genreName = genres[selectedGenre].label;
+    const genreName = selectedGenre; // 키가 곧 이름
     const embed = new EmbedBuilder()
       .setTitle("🎲 자동 재생이 활성화되었습니다")
       .setDescription(`**${genreName}** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.`)

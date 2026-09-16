@@ -20,7 +20,7 @@ const user = (title) => ({ title, url: `https://y/${title}` });
 const auto = (title) => ({ title, url: `https://y/${title}`, autoplay: true });
 const titles = (arr) => arr.map((t) => t.title);
 
-function makePlayer({ autoplay = "pop", current = user("현재곡"), queue = [], loop = false, pick } = {}) {
+function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [], loop = false, pick } = {}) {
   const calls = { picks: 0 };
   return {
     calls,
@@ -136,7 +136,7 @@ function makeNowPlayer({ nowPlayingMessage = null } = {}) {
   const calls = { updated: 0, created: [] };
   return {
     calls,
-    autoplay: "pop",
+    autoplay: "팝",
     queue: [],
     currentTrack: null,
     previousTracks: [],
@@ -202,16 +202,16 @@ test("자동재생을 끄면 미리 뽑아 둔 곡만 빠진다", () => {
 });
 
 test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 뽑는다", () => {
-  const p = makePlayer({ autoplay: "pop", queue: [auto("팝곡")] });
+  const p = makePlayer({ autoplay: "팝", queue: [auto("팝곡")] });
   let refetched = 0;
   p.ensureAutoplayNext = async () => {
     refetched++;
     return true;
   };
 
-  setAutoplay.call(p, "jazz");
+  setAutoplay.call(p, "재즈");
 
-  assert.equal(p.autoplay, "jazz");
+  assert.equal(p.autoplay, "재즈");
   assert.deepEqual(titles(p.queue), []);
   assert.equal(refetched, 1);
 });

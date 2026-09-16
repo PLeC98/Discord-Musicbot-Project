@@ -11,7 +11,7 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label class="block">
-          <span :class="labelCls">미리 뽑을 곡 수</span>
+          <span :class="labelCls">대기열에 준비해 둘 곡 수</span>
           <input v-model.number="draft.defaults.prefetchCount" type="number" min="1" :class="inputCls" />
         </label>
         <label class="block">
@@ -25,19 +25,18 @@
       </div>
 
       <div class="mt-4">
-        <span :class="labelCls">차단어 — 제목에 들어가면 고르지 않습니다</span>
+        <span :class="labelCls">차단어 - 제목에 해당 단어가 포함되면 선택하지 않습니다</span>
         <ChipInput v-model="draft.defaults.blockedKeywords" placeholder="차단할 말을 적고 Enter" />
       </div>
     </BaseCard>
 
     <BaseCard icon="music" :title="`장르 (${rows.length}/25)`">
-      <p class="text-muted text-[0.82rem] mt-1 mb-3">검색어는 자동재생 때마다 무작위로 하나가 쓰입니다. 결과가 마음에 들지 않으면 검색어부터 손보세요.</p>
+      <p class="text-muted text-[0.82rem] mt-1 mb-3">자동 재생은 지정한 키워드들 중 하나를 무작위로 선택해 검색에 사용합니다.</p>
 
       <div v-for="(row, i) in rows" :key="row.key" class="border border-white/8 rounded-xl p-3 mb-2.5 bg-white/3">
         <div class="flex items-center gap-2 mb-2">
-          <input v-model="row.emoji" placeholder="🎵" :class="[inputCls, 'w-14 text-center']" />
-          <input v-model="row.label" placeholder="표시 이름" :class="[inputCls, 'flex-1']" />
-          <input v-model="row.id" placeholder="id" :class="[inputCls, 'w-32 font-mono text-[0.82rem]']" />
+          <input v-model="row.emoji" placeholder="🎵" :class="[inputCls, 'w-11! px-2! text-center']" />
+          <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
           <button :class="removeBtn" v-tooltip="'이 장르 삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="14" /></button>
         </div>
         <ChipInput v-model="row.keywords" placeholder="검색어를 적고 Enter" />
@@ -80,10 +79,11 @@ const savedAt = ref(null);
 const loadError = ref("");
 const serverProblems = ref([]);
 
-// 편집 중에는 배열로 다룬다 — 맵으로 두면 id를 고치는 순간 키가 바뀌어 입력이 튄다.
+// 편집 중에는 배열로 다룬다 — 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
+// 이름이 곧 키다. 따로 id를 두지 않는다.
 let serial = 0;
-const toRows = (genres) => Object.entries(genres || {}).map(([id, g]) => ({ key: ++serial, id, label: g.label || "", emoji: g.emoji || "", keywords: [...(g.keywords || [])] }));
-const toMap = (list) => Object.fromEntries(list.map((r) => [r.id.trim(), { label: r.label, emoji: r.emoji, keywords: r.keywords }]));
+const toRows = (genres) => Object.entries(genres || {}).map(([name, g]) => ({ key: ++serial, name, emoji: g.emoji || "", keywords: [...(g.keywords || [])] }));
+const toMap = (list) => Object.fromEntries(list.map((r) => [r.name.trim(), { emoji: r.emoji, keywords: r.keywords }]));
 
 // 상한은 비울 수 있다(제한 없음) — 빈 칸과 0을 가르려고 문자열로 다룬다.
 const maxDurationText = computed({
@@ -100,14 +100,13 @@ const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 const problems = computed(() => {
   const found = [];
-  const ids = rows.value.map((r) => r.id.trim());
+  const names = rows.value.map((r) => r.name.trim());
   if (rows.value.length > 25) found.push("장르는 25개까지만 메뉴에 나옵니다.");
-  if (ids.some((id) => !id)) found.push("id가 빈 장르가 있습니다.");
-  if (new Set(ids).size !== ids.length) found.push("id가 겹칩니다.");
-  if (ids.some((id) => ["true", "false", "null"].includes(id))) found.push("true·false·null 은 id로 쓸 수 없습니다.");
+  if (names.some((name) => !name)) found.push("이름이 빈 장르가 있습니다.");
+  if (new Set(names).size !== names.length) found.push("이름이 겹칩니다.");
+  if (names.some((name) => ["true", "false", "null"].includes(name))) found.push("true·false·null 은 이름으로 쓸 수 없습니다.");
   for (const r of rows.value) {
-    if (!r.label.trim()) found.push(`${r.id || "이름 없는 장르"}: 표시 이름이 비었습니다.`);
-    if (!r.keywords.length) found.push(`${r.id || "이름 없는 장르"}: 검색어가 하나는 있어야 합니다.`);
+    if (r.name.trim() && !r.keywords.length) found.push(`${r.name}: 검색어가 하나는 있어야 합니다.`);
   }
   return [...found, ...serverProblems.value];
 });
@@ -118,7 +117,7 @@ watch(payload, () => {
 });
 
 function addRow() {
-  rows.value.push({ key: ++serial, id: "", label: "", emoji: "", keywords: [] });
+  rows.value.push({ key: ++serial, name: "", emoji: "", keywords: [] });
 }
 
 function apply(data) {

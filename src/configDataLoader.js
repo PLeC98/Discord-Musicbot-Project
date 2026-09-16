@@ -73,7 +73,7 @@ function load(name) {
 /**
  * 자동재생 장르 설정 — { defaults, genres }.
  *
- * 장르 키는 문자열이어야 한다. 이 라이브러리(YAML 1.2)에서 no·yes·on·off는 그냥 문자열이지만,
+ * 장르 키는 곧 이름이며 문자열이어야 한다. 이 라이브러리(YAML 1.2)에서 no·yes·on·off는 그냥 문자열이지만,
  * `true`/`false`/`null`은 값으로 읽혀 id가 조용히 뒤바뀐다(null 키는 빈 문자열이 된다).
  * 흔한 실수는 아니지만, 조용히 틀리는 종류라 거절하고 무엇을 고칠지 알린다.
  */
@@ -83,7 +83,7 @@ function genres() {
   if (bad.length) {
     const shown = bad.map((k) => (k === "" ? "null" : k)).join(", ");
     // 따옴표를 써도 파싱 뒤에는 같은 문자열이라 구분할 수 없다 — 아예 못 쓰는 이름으로 못박는다.
-    throw Object.assign(new Error(`장르 id로 쓸 수 없는 이름입니다: ${shown}\n   true·false·null 은 YAML이 값으로 읽습니다. 다른 이름을 쓰세요.`), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(`장르 이름으로 쓸 수 없습니다: ${shown}\n   true·false·null 은 YAML이 값으로 읽습니다. 다른 이름을 쓰세요.`), { code: "CONFIG_INVALID" });
   }
   return { defaults: data.defaults || {}, genres: data.genres || {} };
 }
@@ -172,10 +172,9 @@ function validateGenres(data) {
   if (ids.length > 25) problems.push(`장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다.`);
 
   for (const id of ids) {
-    if (id === "true" || id === "false" || id === "" || id === "null") problems.push(`"${id || "null"}"는 장르 id로 쓸 수 없습니다(YAML이 값으로 읽습니다).`);
-    const genre = data.genres[id] || {};
-    if (!genre.label) problems.push(`${id}: 표시 이름(label)이 비었습니다.`);
-    const keywords = genre.keywords;
+    // 키가 곧 이름이다. YAML이 값으로 읽어 버리는 말은 이름으로 쓸 수 없다.
+    if (id === "true" || id === "false" || id === "" || id === "null") problems.push(`"${id || "null"}"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).`);
+    const keywords = (data.genres[id] || {}).keywords;
     if (!Array.isArray(keywords) || keywords.length === 0) problems.push(`${id}: 검색어(keywords)가 하나는 있어야 합니다.`);
     else if (keywords.some((k) => typeof k !== "string" || !k.trim())) problems.push(`${id}: 빈 검색어가 있습니다.`);
   }

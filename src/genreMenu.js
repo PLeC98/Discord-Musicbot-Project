@@ -17,10 +17,13 @@ function genreSelect(requesterId, sessionId, placeholder) {
   // 장르 정의는 config/genres.yaml 한 곳에서 관리 — 부를 때마다 읽는다(파일이 바뀌면 곧바로 반영)
   const { genres } = require("./configDataLoader").genres();
 
-  return new StringSelectMenuBuilder()
-    .setCustomId(`autoplay_genre:${requesterId}:${sessionId}`)
-    .setPlaceholder(placeholder)
-    .addOptions(Object.entries(genres).map(([value, g]) => new StringSelectMenuOptionBuilder().setLabel(g.label).setValue(value).setEmoji(g.emoji)));
+  return (
+    new StringSelectMenuBuilder()
+      .setCustomId(`autoplay_genre:${requesterId}:${sessionId}`)
+      .setPlaceholder(placeholder)
+      // 키가 곧 이름이다 — 따로 표시용 이름을 두지 않는다
+      .addOptions(Object.entries(genres).map(([name, g]) => new StringSelectMenuOptionBuilder().setLabel(name).setValue(name).setEmoji(g.emoji)))
+  );
 }
 
 /** 켤 때 — 장르를 고르면 그 장르로 켜진다. 고르는 동안 떠 있어야 한다(keepReply). */

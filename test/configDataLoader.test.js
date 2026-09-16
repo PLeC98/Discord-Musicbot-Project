@@ -80,7 +80,7 @@ test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 
     fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
     const err = thrown(() => loader.genres());
     assert.equal(err.code, "CONFIG_INVALID", key);
-    assert.match(err.message, /쓸 수 없는 이름/);
+    assert.match(err.message, /쓸 수 없습니다/);
   }
 });
 
@@ -141,25 +141,24 @@ test("저장하면 다음 읽기가 새 값을 가져온다", () => {
 // ── 저장 전 검사 ──────────────────────────────────────────────────────────
 
 test("검사: 쓸 만하면 아무 말이 없다", () => {
-  assert.deepEqual(loader.validateGenres({ defaults: { prefetchCount: 1 }, genres: { pop: { label: "팝", keywords: ["a"] } } }), []);
+  assert.deepEqual(loader.validateGenres({ defaults: { prefetchCount: 1 }, genres: { 팝: { keywords: ["a"] } } }), []);
 });
 
 test("검사: 장르가 없거나 25개를 넘으면 걸린다", () => {
   assert.match(loader.validateGenres({ genres: {} }).join(" "), /하나도 없습니다/);
 
   const many = {};
-  for (let i = 0; i < 26; i++) many["g" + i] = { label: "ㄱ", keywords: ["a"] };
+  for (let i = 0; i < 26; i++) many["장르" + i] = { keywords: ["a"] };
   assert.match(loader.validateGenres({ genres: many }).join(" "), /25개까지/);
 });
 
-test("검사: 이름·검색어가 비면 걸린다", () => {
-  const problems = loader.validateGenres({ genres: { pop: { label: "", keywords: [] }, rock: { label: "록", keywords: ["  "] } } });
-  assert.match(problems.join(" "), /표시 이름/);
+test("검사: 검색어가 비면 걸린다", () => {
+  const problems = loader.validateGenres({ genres: { 팝: { keywords: [] }, 록: { keywords: ["  "] } } });
   assert.match(problems.join(" "), /검색어/);
   assert.match(problems.join(" "), /빈 검색어/);
 });
 
 test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
-  const problems = loader.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { pop: { label: "팝", keywords: ["a"] } } });
+  const problems = loader.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { keywords: ["a"] } } });
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });

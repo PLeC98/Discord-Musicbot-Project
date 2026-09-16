@@ -2,8 +2,8 @@
 
 // src/genreMenu.js — 자동재생 장르 선택 화면.
 //
-// 회귀 대상: 켜기(버튼)와 끄기·명령이 각자 화면을 만들던 시절, 명령 쪽만 config/genres.yaml의
-// label이 아니라 영문 키를 보여줬다. 두 화면이 한 빌더를 지나는지 잠가 둔다.
+// 회귀 대상: 켜기(버튼)와 끄기·명령이 각자 화면을 만들던 시절, 명령 쪽만 영문 키를 보여줬다.
+// 두 화면이 한 빌더를 지나는지 잠가 둔다. 지금은 키가 곧 이름이라 그 자리에 쓰인다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
@@ -24,8 +24,8 @@ test("켜기·끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () 
     );
     assert.deepEqual(
       menu.options.map((o) => o.label),
-      ids.map((id) => genres[id].label),
-      "라벨은 config의 label — 영문 키를 노출하지 않는다",
+      ids,
+      "키가 곧 이름이다 — 따로 표시용 이름을 두지 않는다",
     );
   }
 
