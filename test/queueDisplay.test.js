@@ -26,9 +26,15 @@ test("대기열 줄: 요청자를 모르면 제목만", () => {
   assert.equal(queueLine(song(), 2), "`2.` **[곡](https://y/1)**\n");
 });
 
-test("점프 설명: 아티스트 | 길이 | 요청자", () => {
-  assert.equal(jumpDescription(song({ requestedBy: { id: "u1" } })), "가수 | 1:40 | <@u1>");
+// 셀렉트 메뉴 설명은 멘션을 렌더링하지 않는다(<@id>가 그대로 보인다) — 이름을 쓴다.
+test("점프 설명: 아티스트 | 길이 | 요청자 이름", () => {
+  assert.equal(jumpDescription(song({ requestedBy: { id: "u1", username: "PLeC" } })), "가수 | 1:40 | PLeC");
   assert.equal(jumpDescription(song({ autoplay: true })), `가수 | 1:40 | ${AUTOPLAY_MARK}`);
+});
+
+// 복원된 곡은 세션에 id만 남아 이름을 모른다 — 멘션을 날것으로 보이느니 적지 않는다.
+test("점프 설명: 이름을 모르면 요청자를 적지 않는다", () => {
+  assert.equal(jumpDescription(song({ requestedBy: { id: "u1" } })), "가수 | 1:40");
 });
 
 test("점프 설명: 아티스트가 없으면 나머지만, 아무것도 없으면 undefined", () => {
@@ -38,8 +44,8 @@ test("점프 설명: 아티스트가 없으면 나머지만, 아무것도 없으
 
 // 디스코드는 설명이 100자를 넘으면 메뉴 자체를 거부한다 — 길이·요청자를 지키고 아티스트부터 줄인다.
 test("점프 설명: 100자를 넘지 않는다", () => {
-  const long = jumpDescription(song({ artist: "가".repeat(300), requestedBy: { id: "123456789012345678" } }));
+  const long = jumpDescription(song({ artist: "가".repeat(300), requestedBy: { id: "u1", username: "아주긴이름".repeat(4) } }));
   assert.ok(long.length <= 100, `${long.length}자`);
-  assert.ok(long.endsWith("| 1:40 | <@123456789012345678>"), "뒤쪽 정보는 남는다");
+  assert.ok(long.endsWith("| 1:40 | 아주긴이름아주긴이름아주긴이름아주긴이름"), "뒤쪽 정보는 남는다");
   assert.ok(long.includes("…"), "아티스트가 잘렸음을 보인다");
 });
