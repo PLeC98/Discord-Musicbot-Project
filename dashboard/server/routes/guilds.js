@@ -114,6 +114,7 @@ function queueTrack(t, i) {
     duration: t.duration,
     thumbnail: t.thumbnail,
     platform: t.platform,
+    autoplay: Boolean(t.autoplay), // 자동재생이 미리 뽑아 둔 곡 — 화면에서 사용자 곡과 가른다
     requestedBy: t.requestedBy ? { id: t.requestedBy.id } : null,
   };
 }

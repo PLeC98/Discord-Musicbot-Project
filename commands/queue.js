@@ -3,6 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/strings");
+const { queueLine } = require("../src/queueDisplay");
 
 const PAGE_SIZE = 10;
 
@@ -46,7 +47,7 @@ module.exports = {
       const tracks = queueInfo.queue.slice(offset, offset + PAGE_SIZE);
       let queueText = "";
       tracks.forEach((track, i) => {
-        queueText += `\`${offset + i + 1}.\` **[${track.title}](${track.url})**\n`;
+        queueText += queueLine(track, offset + i + 1);
       });
 
       embed.addFields({

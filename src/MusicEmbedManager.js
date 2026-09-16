@@ -20,6 +20,7 @@ const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNK
 const PIN_SETTLE_MS = 12000;
 const { markTransient, isTransient } = require("./transientMessages");
 const blankThumbnail = require("./blankThumbnail");
+const { jumpDescription } = require("./queueDisplay");
 const NowPlayingPanel = require("./NowPlayingPanel");
 
 const BAR_LENGTH = 16;
@@ -748,7 +749,8 @@ class MusicEmbedManager {
     const options = tracks.map((track, i) => {
       const label = `${i + 1}. ${track.title}`.slice(0, 100);
       const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(String(i));
-      if (track.artist) opt.setDescription(track.artist.slice(0, 100));
+      const description = jumpDescription(track);
+      if (description) opt.setDescription(description);
       return opt;
     });
 

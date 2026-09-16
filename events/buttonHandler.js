@@ -7,6 +7,7 @@ const { channelResponder } = require("../src/playbackResponder");
 const { checkControl, checkSkip, checkAdd } = require("../src/permissions");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
 const { keepReply, expireReply } = require("../src/replyLifetime");
+const { queueLine } = require("../src/queueDisplay");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -319,7 +320,7 @@ module.exports = {
       const tracks = queueInfo.queue.slice(0, 10);
 
       tracks.forEach((track, index) => {
-        queueText += `\`${index + 1}.\` **[${track.title}](${track.url})**\n`;
+        queueText += queueLine(track, index + 1);
       });
 
       if (queueInfo.queue.length > 10) {
