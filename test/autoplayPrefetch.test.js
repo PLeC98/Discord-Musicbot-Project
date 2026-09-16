@@ -128,6 +128,67 @@ test("겹쳐 불려도 한 곡만 들어간다", async () => {
   assert.deepEqual(titles(p.queue), ["자동"]);
 });
 
+// ── 지금 바로 틀기 ────────────────────────────────────────────────────────
+
+const handleAutoplay = MusicPlayer.prototype.handleAutoplay;
+
+function makeNowPlayer({ nowPlayingMessage = null } = {}) {
+  const calls = { updated: 0, created: [] };
+  return {
+    calls,
+    autoplay: "pop",
+    queue: [],
+    currentTrack: null,
+    previousTracks: [],
+    nowPlayingMessage,
+    guild: {
+      id: "g1",
+      members: { me: { user: { id: "bot", username: "봇" } } },
+      client: {
+        musicEmbedManager: {
+          async updateNowPlayingEmbed() {
+            calls.updated++;
+          },
+          async createNewMusicEmbed(player, track) {
+            calls.created.push(track.title);
+          },
+        },
+      },
+    },
+    async pickAutoplayTrack() {
+      return auto("첫곡");
+    },
+    async play() {},
+  };
+}
+
+// 아무것도 틀지 않던 서버에서 /autoplay로 켜는 길 — 이 경로에는 고칠 패널이 없다.
+test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
+  const p = makeNowPlayer();
+
+  assert.equal(await handleAutoplay.call(p), true);
+  assert.equal(p.currentTrack.title, "첫곡");
+  assert.deepEqual(p.calls.created, ["첫곡"], "빠뜨리면 소리만 나고 화면이 없다");
+  assert.equal(p.calls.updated, 0);
+});
+
+test("패널이 이미 있으면 고쳐 쓴다 — 새로 올리지 않는다", async () => {
+  const p = makeNowPlayer({ nowPlayingMessage: { id: "m1" } });
+
+  assert.equal(await handleAutoplay.call(p), true);
+  assert.equal(p.calls.updated, 1);
+  assert.deepEqual(p.calls.created, []);
+});
+
+test("고를 곡이 없으면 아무것도 올리지 않고 false", async () => {
+  const p = makeNowPlayer();
+  p.pickAutoplayTrack = async () => null;
+
+  assert.equal(await handleAutoplay.call(p), false);
+  assert.equal(p.calls.updated, 0);
+  assert.deepEqual(p.calls.created, []);
+});
+
 // ── 끄기·장르 변경 ────────────────────────────────────────────────────────
 
 test("자동재생을 끄면 미리 뽑아 둔 곡만 빠진다", () => {

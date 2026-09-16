@@ -1527,7 +1527,7 @@ class MusicPlayer {
     }
   }
 
-  /** 대기열이 빈 채로 곡이 끝났을 때 — 지금 골라서 바로 튼다. 틀었으면 true. */
+  /** 지금 골라서 바로 튼다 — 곡이 끝났을 때와, 아무것도 안 틀고 있을 때 켠 경우. 틀었으면 true. */
   async handleAutoplay() {
     const picked = await this.pickAutoplayTrack();
     if (!picked) return false;
@@ -1536,8 +1536,12 @@ class MusicPlayer {
     trackState.shiftNext(this);
     await this.play(null, 0);
 
-    if (this.guild?.client?.musicEmbedManager) {
-      await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
+    const embeds = this.guild?.client?.musicEmbedManager;
+    if (embeds) {
+      // 패널이 없을 수 있다 — 아무것도 안 틀던 서버에서 자동재생으로 처음 트는 길.
+      // updateNowPlayingEmbed는 있는 패널을 고칠 뿐이라, 그대로 두면 소리만 나고 화면이 없다.
+      if (this.nowPlayingMessage) await embeds.updateNowPlayingEmbed(this);
+      else await embeds.createNewMusicEmbed(this, this.currentTrack, this.guild.members.me.user);
     }
     return true;
   }

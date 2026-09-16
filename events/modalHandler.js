@@ -103,6 +103,13 @@ module.exports = {
     expireReply(interaction);
     await interaction.update({ embeds: [embed], components: [] });
 
+    // 아무것도 틀고 있지 않으면 그 자리에서 첫 곡을 뽑아 재생한다. 틀고 있으면 지금 곡이 끝난 뒤에
+    // 이어지므로 건드리지 않는다(다음 곡은 play()가 미리 뽑아 둔다).
+    if (!player.currentTrack) {
+      await player.handleAutoplay();
+      return;
+    }
+
     // 자동재생이 활성화되었음을 표시하도록 메인 임베드 갱신
     if (client.musicEmbedManager) {
       await client.musicEmbedManager.updateNowPlayingEmbed(player);

@@ -1,8 +1,8 @@
 "use strict";
 
 const { SlashCommandBuilder } = require("discord.js");
-const S = require("../src/strings");
-const { checkControl } = require("../src/permissions");
+const { checkControl, checkSummon } = require("../src/permissions");
+const { ensurePlayer } = require("../src/playRequest");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
 const { keepReply, expireReply } = require("../src/replyLifetime");
 
@@ -14,13 +14,14 @@ module.exports = {
   data: new SlashCommandBuilder().setName("autoplay").setDescription("Toggle autoplay. Pick a genre when turning it on.").setDescriptionLocalizations({ ko: "자동재생을 토글합니다" }),
 
   async execute(interaction, client) {
-    const { guild, member } = interaction;
+    const { guild, member, channel } = interaction;
 
-    const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    const permErr = await checkControl(member);
+    // 재생 조작이므로 DJ 계층. 봇이 유휴면 재적 검사가 통과해 버리므로 소환 가능 여부를 이어 붙인다.
+    const permErr = (await checkControl(member)) || checkSummon(member);
     if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
+
+    // 틀고 있지 않아도 켤 수 있다 — 장르를 고르면 그 자리에서 첫 곡을 뽑아 재생한다.
+    const player = client.players.get(guild.id) ?? ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice?.channel ?? null });
 
     if (player.autoplay) {
       player.setAutoplay(false);
