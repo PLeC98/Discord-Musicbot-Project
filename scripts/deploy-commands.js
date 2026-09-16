@@ -15,9 +15,8 @@ const { deployCommands, commands, deployErrorLines } = require("../src/commandLo
     console.log(`✅ ${r.count}개 커맨드를 ${where} 배포했습니다.`);
     console.log("   " + r.names.map((n) => `/${n}`).join(", "));
     if (r.scope === "global") console.log("ℹ️  전역 배포는 반영에 최대 1시간(보통 수분) 걸릴 수 있습니다.");
-    process.exit(0);
   } else {
     deployErrorLines(r).forEach((line) => console.error(line));
-    process.exit(1);
+    process.exitCode = 1;
   }
 })();
