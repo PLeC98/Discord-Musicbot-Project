@@ -213,6 +213,11 @@
         </BaseCard>
       </div>
 
+      <div v-show="tab === 'config'">
+        <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
+        <ConfigGenres v-if="tab === 'config'" />
+      </div>
+
       <div v-show="tab === 'dev'">
         <!-- 권한 수준 오버라이드 — 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
         <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
@@ -315,6 +320,7 @@ import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
+import ConfigGenres from "../components/ConfigGenres.vue";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
@@ -324,6 +330,7 @@ const TABS = [
   { id: "status", label: "봇 상태", icon: "robot" },
   { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
+  { id: "config", label: "자동재생 설정", icon: "music" },
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
 const TAB_KEY = "admin:tab";
