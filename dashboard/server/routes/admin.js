@@ -10,6 +10,7 @@ const logManager = require("../../../src/LogManager");
 const procRegistry = require("../../../src/ChildProcessRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
 const trackState = require("../../../src/trackState");
+const configData = require("../../../src/configDataLoader");
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
@@ -209,6 +210,48 @@ router.post("/reset-cache", requireOwner, (req, res) => {
   } catch (error) {
     log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
     res.status(500).json({ error: error.message || "캐시 초기화에 실패했습니다" });
+  }
+});
+
+// ── 설정 파일 (config/*.yaml) ─────────────────────────────────────────────
+//
+// 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와 여기. 그래서 통째로 덮어쓰지 않고
+// 바뀐 자리만 고친다(configDataLoader.save가 주석·빈 줄을 보존한다).
+
+const CONFIG_NAMES = ["genres", "status"];
+
+router.get("/config/:name", requireOwner, (req, res) => {
+  const { name } = req.params;
+  if (!CONFIG_NAMES.includes(name)) return res.status(404).json({ error: "그런 설정이 없습니다." });
+
+  try {
+    res.json({ name, data: configData.load(name) });
+  } catch (error) {
+    // 파일이 없거나 문법이 깨졌다 — 화면이 이유를 그대로 보여줄 수 있게 넘긴다
+    res.status(409).json({ error: error.message, code: error.code || null });
+  }
+});
+
+router.put("/config/:name", requireOwner, (req, res) => {
+  const { name } = req.params;
+  if (!CONFIG_NAMES.includes(name)) return res.status(404).json({ error: "그런 설정이 없습니다." });
+
+  const data = req.body?.data;
+  if (!data || typeof data !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
+
+  // 저장 전에 본다 — 깨진 값을 파일에 남기느니 거절한다. 봇이 그 파일로 돌기 때문이다.
+  if (name === "genres") {
+    const problems = configData.validateGenres(data);
+    if (problems.length) return res.status(400).json({ error: problems[0], problems });
+  }
+
+  try {
+    const saved = configData.save(name, data);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml — 실행 ${req.session.user.username || req.session.user.id}`);
+    res.json({ success: true, data: saved });
+  } catch (error) {
+    log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${error.message}`);
+    res.status(409).json({ error: error.message, code: error.code || null });
   }
 });
 

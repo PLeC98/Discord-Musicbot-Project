@@ -8,6 +8,7 @@
 process.env.OWNER_ID = "owner";
 
 const os = require("node:os");
+const fs = require("node:fs");
 const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
@@ -278,4 +279,67 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
   assert.equal(r.json.sent, 3, "봇 채널 2 + 폴백 채널 1");
   assert.equal(g1.botChannel.sent.length, 1);
   assert.equal(g1.botChannel.sent[0].embeds.length, 1);
+});
+
+// ── 설정 파일 (config/*.yaml) ────────────────────────────────
+//
+// 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
+// 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
+
+const configData = require("../src/configDataLoader");
+const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
+
+before(() => {
+  configData._setConfigDir(CONFIG_DIR);
+  fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  pop:", "    label: 팝", "    keywords:", "      - pop music", ""].join("\n"));
+});
+
+after(() => {
+  configData._setConfigDir(path.join(__dirname, "..", "config"));
+  fs.rmSync(CONFIG_DIR, { recursive: true, force: true });
+});
+
+test("설정: 운영자가 아니면 읽지도 쓰지도 못한다", async () => {
+  currentUser = { id: "u1" };
+  assert.equal((await req("GET", "/api/admin/config/genres")).status, 403);
+  assert.equal((await req("PUT", "/api/admin/config/genres", { data: { genres: {} } })).status, 403);
+  currentUser = { id: "owner", username: "owner" };
+});
+
+test("설정: 모르는 이름은 404", async () => {
+  assert.equal((await req("GET", "/api/admin/config/secrets")).status, 404);
+  assert.equal((await req("PUT", "/api/admin/config/secrets", { data: {} })).status, 404);
+});
+
+test("설정: 읽으면 현재 값이 온다", async () => {
+  const { status, json } = await req("GET", "/api/admin/config/genres");
+  assert.equal(status, 200);
+  assert.equal(json.data.genres.pop.label, "팝");
+});
+
+test("설정: 저장하면 값이 바뀌고 주석은 남는다", async () => {
+  const { json: before } = await req("GET", "/api/admin/config/genres");
+  before.data.genres.pop.label = "팝송";
+
+  const { status } = await req("PUT", "/api/admin/config/genres", { data: before.data });
+  assert.equal(status, 200);
+
+  const text = fs.readFileSync(path.join(CONFIG_DIR, "genres.yaml"), "utf8");
+  assert.match(text, /label: 팝송/);
+  assert.match(text, /# 손으로 적은 메모/, "대시보드가 저장해도 손으로 적은 주석은 남아야 한다");
+});
+
+// 깨진 값을 파일에 남기느니 거절한다 — 봇이 그 파일로 돈다.
+test("설정: 쓸 수 없는 값은 저장 전에 거절한다", async () => {
+  const bad = { defaults: {}, genres: { pop: { label: "", keywords: [] } } };
+  const { status, json } = await req("PUT", "/api/admin/config/genres", { data: bad });
+  assert.equal(status, 400);
+  assert.ok(json.problems.length >= 2, "무엇이 문제인지 모두 알려준다");
+
+  const text = fs.readFileSync(path.join(CONFIG_DIR, "genres.yaml"), "utf8");
+  assert.match(text, /label: 팝송/, "거절된 저장은 파일을 건드리지 않는다");
+});
+
+test("설정: 내용이 없으면 400", async () => {
+  assert.equal((await req("PUT", "/api/admin/config/genres", {})).status, 400);
 });

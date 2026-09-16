@@ -93,10 +93,106 @@ function status() {
   return load("status");
 }
 
+// ── 쓰기 (대시보드) ───────────────────────────────────────────────────────
+
+/**
+ * 받은 데이터를 문서에 **덮어쓰지 않고 맞춘다** — 바뀐 자리만 고친다.
+ *
+ * 통째로 다시 쓰면 사람이 적은 주석이 전부 날아간다. 손대지 않은 항목은 원문 그대로 두어야
+ * 이 파일의 두 주인(운영자·대시보드)이 공존할 수 있다.
+ *
+ * 배열은 통째로 바꾼다 — 항목 사이 주석은 보존되지 않는다(검색어 목록에 주석을 다는 일은 드물다).
+ */
+function syncMap(doc, node, data, pathArr) {
+  const keys = new Set(Object.keys(data));
+
+  // 사라진 키 제거 — 그 키에 달린 주석도 함께 간다
+  for (const item of [...(node?.items || [])]) {
+    const key = String(item.key?.value ?? item.key);
+    if (!keys.has(key)) doc.deleteIn([...pathArr, key]);
+  }
+
+  for (const [key, value] of Object.entries(data)) {
+    const here = [...pathArr, key];
+    const current = doc.getIn(here, true);
+    const isPlainObject = value && typeof value === "object" && !Array.isArray(value);
+
+    // 양쪽 다 맵이면 한 단계 더 들어가 바뀐 것만 고친다(안쪽 주석 보존)
+    if (isPlainObject && YAML.isMap(current)) {
+      syncMap(doc, current, value, here);
+      continue;
+    }
+
+    // 값이 같으면 건드리지 않는다 — 손대면 서식만 바뀐다
+    if (JSON.stringify(doc.getIn(here)) === JSON.stringify(value)) continue;
+
+    doc.setIn(here, value);
+  }
+}
+
+/**
+ * 설정 파일을 고쳐 쓴다. 주석·빈 줄은 그대로 남는다.
+ *
+ * 임시 파일에 쓰고 원자적으로 옮긴다 — 반쯤 쓰인 파일을 로더가 읽는 일이 없어야 한다.
+ */
+function save(name, data) {
+  if (!data || typeof data !== "object") throw Object.assign(new Error("저장할 내용이 없습니다"), { code: "CONFIG_INVALID" });
+
+  const file = fileOf(name);
+  const doc = YAML.parseDocument(fs.readFileSync(file, "utf8"));
+  if (doc.errors?.length) {
+    throw Object.assign(new Error(`설정 파일을 읽지 못해 저장할 수 없습니다: ${doc.errors[0].message}`), { code: "CONFIG_INVALID" });
+  }
+
+  syncMap(doc, doc.contents, data, []);
+
+  const text = doc.toString({ lineWidth: 0 });
+  // 쓴 것을 도로 읽어 확인한다 — 깨진 파일을 남기느니 저장을 거절한다
+  const check = YAML.parse(text);
+  if (!check || typeof check !== "object") throw Object.assign(new Error("저장 결과가 올바르지 않습니다"), { code: "CONFIG_INVALID" });
+
+  const tmp = `${file}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, file);
+  cache.delete(name); // 다음 읽기가 새 내용을 가져간다
+  log.info(`설정을 저장했습니다: ${path.basename(file)}`);
+  return check;
+}
+
+/**
+ * 장르 설정이 쓸 만한 모양인지 본다. 저장 전에 부른다 — 깨진 값을 파일에 남기지 않는다.
+ * 반환: 문제 문구 배열(비어 있으면 통과).
+ */
+function validateGenres(data) {
+  const problems = [];
+  const ids = Object.keys(data?.genres || {});
+
+  if (ids.length === 0) problems.push("장르가 하나도 없습니다.");
+  // 디스코드 선택 메뉴는 25개까지만 받는다 — 넘기면 메뉴가 거부된다
+  if (ids.length > 25) problems.push(`장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다.`);
+
+  for (const id of ids) {
+    if (id === "true" || id === "false" || id === "" || id === "null") problems.push(`"${id || "null"}"는 장르 id로 쓸 수 없습니다(YAML이 값으로 읽습니다).`);
+    const genre = data.genres[id] || {};
+    if (!genre.label) problems.push(`${id}: 표시 이름(label)이 비었습니다.`);
+    const keywords = genre.keywords;
+    if (!Array.isArray(keywords) || keywords.length === 0) problems.push(`${id}: 검색어(keywords)가 하나는 있어야 합니다.`);
+    else if (keywords.some((k) => typeof k !== "string" || !k.trim())) problems.push(`${id}: 빈 검색어가 있습니다.`);
+  }
+
+  const d = data?.defaults || {};
+  if (d.prefetchCount != null && !(Number(d.prefetchCount) >= 1)) problems.push("prefetchCount는 1 이상이어야 합니다.");
+  if (d.minDurationSec != null && !(Number(d.minDurationSec) >= 0)) problems.push("minDurationSec은 0 이상이어야 합니다.");
+  if (d.maxDurationSec != null && !(Number(d.maxDurationSec) > 0)) problems.push("maxDurationSec은 비우거나 0보다 커야 합니다.");
+  if (d.minDurationSec != null && d.maxDurationSec != null && Number(d.minDurationSec) > Number(d.maxDurationSec)) problems.push("minDurationSec이 maxDurationSec보다 큽니다.");
+
+  return problems;
+}
+
 // 테스트 시임 — 폴더를 바꾸면 읽어 둔 것도 버린다(다른 파일을 같은 이름으로 읽게 되므로).
 function _setConfigDir(dir) {
   configDir = dir;
   cache.clear();
 }
 
-module.exports = { load, genres, status, fileOf, exampleOf, _setConfigDir, _cache: cache };
+module.exports = { load, genres, status, save, validateGenres, fileOf, exampleOf, _setConfigDir, _cache: cache };
