@@ -54,12 +54,18 @@ function cleanTemp(tempPath) {
   return removed;
 }
 
-/** 다 받은 임시 파일을 최종 경로로 올린다. 그 사이 다른 쪽이 먼저 끝냈으면 내 것을 버린다. */
+/**
+ * 다 받은 임시 파일을 최종 경로로 올린다. 그 사이 다른 쪽이 먼저 끝냈으면 내 것을 버린다.
+ *
+ * 올리기 전에 최종 경로를 보호한다 — 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
+ * 그 순간 기동 스윕이 돌면 고아로 보고 지운다. 푸는 것은 받기가 끝날 때(_performDownload의 finally).
+ */
 async function publish(tempPath, filepath) {
   if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
     await fs.unlink(tempPath).catch(() => {});
     return false;
   }
+  CacheManager.protectFile(filepath);
   await fs.rename(tempPath, filepath);
   return true;
 }
@@ -227,7 +233,8 @@ class TrackDownloader {
         await fs.unlink(tempPath).catch(() => {});
         throw new Error("Downloaded file is empty");
       }
-      await publish(tempPath, filepath);
+      const mine = await publish(tempPath, filepath);
+      if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${track.title}"`);
 
       // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
       // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
@@ -264,6 +271,7 @@ class TrackDownloader {
       throw error;
     } finally {
       CacheManager.unprotectFile(tempPath);
+      CacheManager.unprotectFile(filepath);
     }
   }
 

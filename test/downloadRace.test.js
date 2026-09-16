@@ -11,6 +11,7 @@ const fs = require("node:fs");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 const TrackDownloader = require("../src/TrackDownloader");
+const CacheManager = require("../src/CacheManager");
 
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;
 
@@ -111,6 +112,9 @@ test("게시: 최종 경로로 옮긴다 — 먼저 끝난 쪽이 있으면 내 
   assert.equal(await publish(mine, finalPath), true);
   assert.equal(fs.existsSync(mine), false);
   assert.equal(fs.readFileSync(finalPath, "utf8"), "내 파일");
+  // 옮긴 직후에는 DB에 아직 없다 — 그 사이 기동 스윕이 돌아도 지우지 않게 보호가 걸려 있어야 한다
+  assert.equal(CacheManager._protectedFiles.has(path.resolve(finalPath)), true);
+  CacheManager.unprotectFile(finalPath);
 
   const later = tempPathFor(finalPath);
   fs.writeFileSync(later, "늦게 받은 파일");
