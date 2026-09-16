@@ -4,28 +4,22 @@
 //  - label: 버튼 메뉴와 확인 메시지에 쓰이는 한국어 표기
 //  - emoji: 버튼 메뉴 아이콘
 //  - keywords: YouTube 검색어 후보 — 자동재생 시 매번 무작위로 1개 선택
-//  - defaults: 자동재생 동작의 기준값(미리 뽑을 곡 수·길이 범위·차단어). 장르에서 같은 이름으로 덮어쓴다.
-//      너무 좁히면 후보가 0이 되어 자동재생이 그냥 넘어간다(로파이·애니 키워드는 한 시간짜리 믹스가 대부분이다).
-//      그때는 먹통이 되지 않고 조용히 대기열 소진으로 넘어가며 경고 로그를 남긴다.
 //
 //  주의:
 //  - Discord 한도로 UI(셀렉트 메뉴/choices) 노출은 최대 25개까지만 가능
 //  - 슬래시 커맨드 choices는 기동 시 등록되므로 변경 후 봇 재시작 필요
+
 module.exports = {
-  // 자동재생이 곡을 고를 때의 기준. 장르에서 같은 이름으로 덮어쓸 수 있다.
+  // 전역 설정. 장르에도 같은 옵션을 적용하여 덮어 쓸 수 있음.
   defaults: {
-    // 미리 뽑아 대기열에 둘 곡 수. 예열(QueueWarmer)은 자동재생과 무관하게 대기열 앞쪽을 받아 두므로,
-    // 공백을 없애는 데는 1곡이면 충분하다. 늘리면 검색이 그만큼 더 나가고 가짜 대기열이 길어진다.
+    // 미리 뽑아 대기열에 둘 곡 수. 사전 캐싱 수와는 무관.
     prefetchCount: 1,
 
-    // 고를 곡의 길이(초). maxDurationSec이 null이면 상한 없음.
-    // 상한을 두면 한 시간짜리 믹스가 걸러지지만, 로파이처럼 긴 영상이 정상인 장르는 후보가 0이 된다.
+    // 선택할 곡의 길이 제한(초). maxDurationSec이 null이면 상한 없음.
     minDurationSec: 30,
     maxDurationSec: null,
 
-    // 제목에 이 말이 들어가면 고르지 않는다(소문자로 비교).
-    // 원류에서 내려온 목록이라 영어 전용이고, 곡 제목에 흔한 말(story·talk 등)이 섞여 있어
-    // 멀쩡한 곡도 걸러낸다. 실제 결과를 보며 다듬을 것 — 계획서 6단계.
+    // 제목에 이 단어가 포함되면 선택하지 않음 (블록리스트, 소문자로 비교)
     blockedKeywords: ["tutorial", "lesson", "course", "learn", "learning", "podcast", "interview", "talk", "speech", "lecture", "review", "unboxing", "reaction", "gameplay", "full movie", "full album", "full episode", "documentary", "how to", "guide", "tips", "tricks", "vlog", "practice", "exercise", "workout", "meditation", "asmr", "story", "audiobook", "mix |", "compilation"],
   },
 
