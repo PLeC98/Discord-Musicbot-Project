@@ -27,6 +27,10 @@ const cache = new Map();
 // g 플래그가 없어 test()에 상태가 남지 않는다.
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 
+// 숫자만으로 된 이름 — JavaScript 객체가 정수처럼 생긴 키를 앞으로 당기는 탓에 장르 차례가
+// 조용히 어긋난다("재즈 80 팝"이 "80 재즈 팝"이 된다). 차례는 선택 메뉴에 그대로 나오므로 막는다.
+const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
+
 const fileOf = (name) => path.join(configDir, `${name}.yaml`);
 const exampleOf = (name) => path.join(configDir, `${name}.example.yaml`);
 
@@ -89,6 +93,11 @@ function genres() {
     // 따옴표를 써도 파싱 뒤에는 같은 문자열이라 구분할 수 없다 — 아예 못 쓰는 이름으로 못박는다.
     throw Object.assign(new Error(`장르 이름으로 쓸 수 없습니다: ${shown}\n   true·false·null 은 YAML이 값으로 읽습니다. 다른 이름을 쓰세요.`), { code: "CONFIG_INVALID" });
   }
+  const numeric = Object.keys(data.genres || {}).filter((k) => NUMERIC_NAME.test(k));
+  if (numeric.length) {
+    throw Object.assign(new Error(`장르 이름으로 쓸 수 없습니다: ${numeric.join(", ")}\n   숫자만으로 된 이름은 차례가 어긋납니다. "80년대"처럼 글자를 붙여 주세요.`), { code: "CONFIG_INVALID" });
+  }
+
   // 이모지가 아닌 값이 하나라도 있으면 디스코드가 선택 메뉴 전체를 거부한다.
   // 손으로 고친 파일이 /autoplay에서 터지지 않도록 읽는 자리에서 먼저 잡는다.
   const badEmoji = Object.entries(data.genres || {}).filter(([, g]) => g?.emoji != null && g.emoji !== "" && !ONE_EMOJI.test(String(g.emoji)));
@@ -140,6 +149,18 @@ function syncMap(doc, node, data, pathArr) {
 
     doc.setIn(here, value);
   }
+
+  // 차례 맞추기 — 키도 값도 그대로인 채 순서만 바뀔 수 있다(대시보드에서 끌어 옮긴다).
+  // 장르 차례는 선택 메뉴에 그대로 나오므로 저장되어야 한다.
+  // 쌍을 통째로 옮기는 것이라 거기 달린 주석도 함께 간다.
+  // 고치는 동안 갈아끼워졌을 수 있어 다시 집는다
+  const target = pathArr.length ? doc.getIn(pathArr, true) : doc.contents;
+  if (!YAML.isMap(target)) return;
+
+  const order = [...keys];
+  const keyOf = (item) => String(item.key?.value ?? item.key);
+  const sorted = [...target.items].sort((a, b) => order.indexOf(keyOf(a)) - order.indexOf(keyOf(b)));
+  if (sorted.some((item, i) => item !== target.items[i])) target.items = sorted;
 }
 
 /**
@@ -186,6 +207,7 @@ function validateGenres(data) {
   for (const id of ids) {
     // 키가 곧 이름이다. YAML이 값으로 읽어 버리는 말은 이름으로 쓸 수 없다.
     if (id === "true" || id === "false" || id === "" || id === "null") problems.push(`"${id || "null"}"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).`);
+    if (NUMERIC_NAME.test(id)) problems.push(`"${id}": 숫자만으로 된 이름은 차례가 어긋납니다. "${id}년대"처럼 글자를 붙여 주세요.`);
     // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다 — 파일을 손으로 고칠 수도 있어서 여기서 막는다.
     const emoji = (data.genres[id] || {}).emoji;
     if (emoji != null && emoji !== "" && !ONE_EMOJI.test(String(emoji))) problems.push(`${id}: emoji는 이모지 한 글자여야 합니다.`);

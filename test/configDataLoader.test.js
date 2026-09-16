@@ -84,6 +84,19 @@ test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 
   }
 });
 
+test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
+  // JavaScript 객체가 정수처럼 생긴 키를 앞으로 당겨서, 끌어 옮긴 차례가 조용히 어긋난다.
+  write("genres", "defaults: {}\ngenres:\n  80:\n    keywords:\n      - pop\n");
+  fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
+
+  const err = thrown(() => loader.genres());
+  assert.equal(err.code, "CONFIG_INVALID");
+  assert.match(err.message, /차례가 어긋납니다/);
+
+  assert.match(loader.validateGenres({ genres: { 80: { keywords: ["a"] } } }).join(" "), /차례가 어긋납니다/);
+  assert.deepEqual(loader.validateGenres({ genres: { "80년대": { keywords: ["a"] } } }), [], "글자가 붙으면 괜찮다");
+});
+
 test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
   // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 읽을 때 잡지 않으면
   // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 자리에서 죽는다.
@@ -133,6 +146,30 @@ test("저장해도 사람이 적은 주석이 남는다 — 값이 바뀐 자리
   assert.match(text, /# 손으로 적은 메모/, "값이 바뀐 자리의 주석도 남아야 한다");
   assert.match(text, /label: 팝송/);
   assert.match(text, /rock:/);
+});
+
+// 회귀 대상: 값은 그대로 두고 차례만 바꾸면 고칠 것이 없다고 보고 아무것도 쓰지 않았다.
+// 대시보드는 저장이 됐다고 여기고 파일을 다시 읽어, 바꾼 차례가 도로 돌아갔다.
+test("차례만 바꿔도 저장된다 — 주석은 쌍을 따라간다", () => {
+  write("genres", ["defaults: {}", "genres:", "  팝:", "    keywords: [pop]", "  # 록 메모", "  록:", "    keywords: [rock]", "  재즈:", "    keywords: [jazz]", ""].join("\n"));
+
+  const data = loader.load("genres");
+  // 재즈를 맨 앞으로 — 값은 하나도 건드리지 않는다
+  data.genres = { 재즈: data.genres.재즈, 팝: data.genres.팝, 록: data.genres.록 };
+  loader.save("genres", data);
+
+  assert.deepEqual(Object.keys(loader.load("genres").genres), ["재즈", "팝", "록"]);
+
+  const text = fs.readFileSync(path.join(DIR, "genres.yaml"), "utf8");
+  assert.match(text, /# 록 메모[\s\S]*록:/, "쌍을 옮겨도 그 위 주석은 붙어 있어야 한다");
+});
+
+test("차례가 그대로면 파일을 건드리지 않는다", () => {
+  const before = ["# 머리말", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    keywords:", "      - pop", "  록:", "    keywords:", "      - rock", ""].join("\n");
+  write("genres", before);
+
+  loader.save("genres", loader.load("genres"));
+  assert.equal(fs.readFileSync(path.join(DIR, "genres.yaml"), "utf8"), before, "고칠 것이 없으면 서식도 그대로여야 한다");
 });
 
 test("사라진 키는 지워진다", () => {

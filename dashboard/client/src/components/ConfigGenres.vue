@@ -138,6 +138,8 @@ const problems = computed(() => {
   if (names.some((name) => !name)) found.push("이름이 빈 장르가 있습니다.");
   if (new Set(names).size !== names.length) found.push("이름이 겹칩니다.");
   if (names.some((name) => ["true", "false", "null"].includes(name))) found.push("true·false·null 은 이름으로 쓸 수 없습니다.");
+  // 숫자만으로 된 이름은 끌어 옮긴 차례가 조용히 어긋난다 — 서버도 같은 것을 막는다
+  for (const name of names.filter((n) => /^(0|[1-9][0-9]*)$/.test(n))) found.push(`"${name}": 숫자만으로 된 이름은 차례가 어긋납니다. "${name}년대"처럼 글자를 붙여 주세요.`);
   for (const r of rows.value) {
     if (r.name.trim() && !r.keywords.length) found.push(`${r.name}: 검색어가 하나는 있어야 합니다.`);
     if (r.emoji && !ONE_EMOJI.test(r.emoji)) found.push(`${r.name || "이름 없는 장르"}: 이모지가 아닌 값이 들어 있습니다.`);
