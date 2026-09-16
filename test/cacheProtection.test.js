@@ -60,7 +60,7 @@ test("한 길드의 교체가 다른 길드의 보호를 건드리지 않는다"
   assert.equal(live.has("only2"), true);
   assert.equal(live.has("only1"), false);
 
-  CacheManager.clearQueuedKeys("g2");
+  CacheManager.setQueuedKeys("g2", []);
   assert.equal(CacheManager._liveKeys().size, 0);
 });
 
@@ -73,7 +73,7 @@ test("재생 중 보호와 대기열 보호는 합쳐진다", () => {
   CacheManager.unprotect("playing");
   assert.deepEqual([...CacheManager._liveKeys()], ["queued"], "대기열 보호는 남는다");
 
-  CacheManager.clearQueuedKeys("g1");
+  CacheManager.setQueuedKeys("g1", []);
 });
 
 test("빈 값·falsy 키는 보호에 들어가지 않는다", () => {
@@ -83,5 +83,5 @@ test("빈 값·falsy 키는 보호에 들어가지 않는다", () => {
   CacheManager.setQueuedKeys(null, ["ignored"]); // guildId 없음 — 무시
   assert.deepEqual([...CacheManager._liveKeys()], ["ok"]);
 
-  CacheManager.clearQueuedKeys("g1");
+  CacheManager.setQueuedKeys("g1", []);
 });

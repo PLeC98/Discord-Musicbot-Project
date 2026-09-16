@@ -604,7 +604,7 @@ router.post("/:guildId/player/loop", requireAuth, requireControl, async (req, re
   const mode = req.body.mode;
   if (!["off", "track", "queue"].includes(mode)) return res.status(400).json({ error: "반복 모드가 올바르지 않습니다." });
 
-  player.loop = mode === "off" ? false : mode;
+  player.setLoop(mode === "off" ? false : mode);
   if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
   res.json(playerState(player, queueWindow(req)));
 });

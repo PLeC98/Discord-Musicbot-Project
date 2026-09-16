@@ -127,36 +127,6 @@ function makeCacheDir() {
   return { dir, opus: path.join(dir, `track_${md5}.opus`), stem: `track_${md5}` };
 }
 
-test("cleanPartials: 같은 트랙의 부스러기만 지우고 완성본·남의 파일은 남긴다", () => {
-  const { dir, opus, stem } = makeCacheDir();
-  const other = `track_${"a".repeat(32)}`;
-  const files = [`${stem}.opus`, `${stem}.opus.part`, `${stem}.opus.part-Frag0`, `${stem}.opus.ytdl`, `${stem}.webm`, `${other}.opus`, `${other}.opus.part`, "unrelated.txt"];
-  for (const f of files) fs.writeFileSync(path.join(dir, f), "x");
-
-  const removed = CacheManager.cleanPartials(opus);
-  assert.equal(removed, 4, "부스러기 4개(.part/.part-Frag0/.ytdl/.webm)만 삭제");
-
-  const left = new Set(fs.readdirSync(dir));
-  assert.ok(left.has(`${stem}.opus`), "완성본은 남긴다 — 퇴거/고아정리가 따로 관리");
-  assert.ok(left.has(`${other}.opus`) && left.has(`${other}.opus.part`), "다른 트랙은 건드리지 않는다");
-  assert.ok(left.has("unrelated.txt"), "캐시 명명 규칙 밖의 파일은 건드리지 않는다");
-
-  fs.rmSync(dir, { recursive: true, force: true });
-});
-
-test("cleanPartials: 캐시 명명 규칙에 맞지 않는 경로는 무시 (오삭제 방지)", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-partials-"));
-  fs.writeFileSync(path.join(dir, "important.db"), "x");
-  fs.writeFileSync(path.join(dir, "important.db.part"), "x");
-
-  assert.equal(CacheManager.cleanPartials(path.join(dir, "important.db")), 0);
-  assert.equal(CacheManager.cleanPartials(""), 0);
-  assert.equal(CacheManager.cleanPartials(null), 0);
-  assert.equal(fs.readdirSync(dir).length, 2, "아무것도 지우면 안 된다");
-
-  fs.rmSync(dir, { recursive: true, force: true });
-});
-
 test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치운다", () => {
   const { dir, stem } = makeCacheDir();
   for (const f of [`${stem}.opus.part`, `${stem}.opus.ytdl`, `${stem}.opus`]) {
@@ -175,6 +145,27 @@ test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치�
   assert.deepEqual(left, [], "DB에 없는 .opus 고아 + 잔해가 모두 정리되어야 함");
 
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", () => {
+  const { dir, stem } = makeCacheDir();
+  const temp = path.join(dir, `${stem}.tmp-1234-abcd.opus`);
+  fs.writeFileSync(temp, "받는 중");
+
+  const prevDir = CacheManager._cacheDir;
+  CacheManager._cacheDir = dir;
+  try {
+    CacheManager.protectFile(temp);
+    CacheManager._cleanOrphanFiles();
+    assert.equal(fs.existsSync(temp), true, "받는 중인 파일은 고아가 아니다 — DB에도 없고 캐시 키로도 유도되지 않는다");
+
+    CacheManager.unprotectFile(temp);
+    CacheManager._cleanOrphanFiles();
+    assert.equal(fs.existsSync(temp), false, "받기가 끝났거나 죽은 뒤 남은 것은 정리된다");
+  } finally {
+    CacheManager._cacheDir = prevDir;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // 이 모듈은 `module.exports = new CacheManager()`로 인스턴스를 내보낸다. static 메서드는

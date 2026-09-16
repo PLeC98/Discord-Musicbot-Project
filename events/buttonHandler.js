@@ -463,7 +463,7 @@ module.exports = {
       modeEmoji = "➡️";
     }
 
-    player.loop = newLoopMode;
+    player.setLoop(newLoopMode);
 
     const embed = new EmbedBuilder()
       .setTitle(`${modeEmoji} 🔁 반복 모드 변경됨`)

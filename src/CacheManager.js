@@ -25,6 +25,7 @@ class CacheManager {
     this.db = null;
     this._initialized = false;
     this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
+    this._protectedFiles = new Set(); // 지금 받고 있는 임시 파일 경로 — 기동 스윕이 건드리면 안 된다
     this._queuedKeys = new Map(); // guildId -> Set<audio_source_key> — 대기열 앞부분
     this._evictInterval = null;
     this._sessions = null;
@@ -152,37 +153,6 @@ class CacheManager {
     return path.join(this._cacheDir, `track_${this.md5(audioSourceKey)}.opus`);
   }
 
-  /**
-   * 중단된 다운로드가 남긴 부스러기를 지운다 — `track_<md5>.opus.part`, `.part-Frag0`, `.ytdl`,
-   * 트랜스코딩 전 중간 파일 등. yt-dlp의 임시 파일 이름 규칙에 기대지 않도록,
-   * "완성본(.opus)과 같은 basename으로 시작하되 완성본은 아닌 파일"을 전부 대상으로 삼는다.
-   *
-   * 중단된 다운로드는 지금까지 아무도 치우지 않아 영구 잔류했다(_cleanOrphanFiles는 .opus만 훑는다).
-   * @param {string} filepath 완성본 경로(track_<md5>.opus)
-   * @returns {number} 삭제한 파일 수
-   */
-  cleanPartials(filepath) {
-    if (!filepath) return 0;
-    const dir = path.dirname(filepath);
-    const base = path.basename(filepath); // track_<md5>.opus
-    if (!/^track_[0-9a-f]{32}\.opus$/.test(base)) return 0; // 우리가 만든 경로가 아니면 손대지 않는다
-    if (!fs.existsSync(dir)) return 0;
-
-    const stem = base.slice(0, -".opus".length); // track_<md5>
-    let removed = 0;
-    for (const name of fs.readdirSync(dir)) {
-      if (name === base) continue; // 완성본은 별도 관리(_cleanOrphanFiles/evict)
-      if (!name.startsWith(`${stem}.`)) continue; // 같은 트랙의 부스러기만
-      try {
-        fs.unlinkSync(path.join(dir, name));
-        removed++;
-      } catch {
-        /* 아직 잠겨 있거나 이미 없음 — 다음 startup 스윕이 처리 */
-      }
-    }
-    return removed;
-  }
-
   // 라이브 보호 (재생 중/사전 캐시된 트랙)
 
   /** 키를 사용 중으로 표시 — 제거 대상에서 건너뜀 */
@@ -193,6 +163,18 @@ class CacheManager {
   /** 더 이상 필요하지 않은 키 해제 */
   unprotect(audioSourceKey) {
     if (audioSourceKey) this._protectedKeys.delete(audioSourceKey);
+  }
+
+  /**
+   * 파일 하나를 정리 대상에서 뺀다 — 받는 중인 임시 파일용.
+   * 키가 아니라 경로로 보호하는 이유: 임시 파일은 DB에도 없고 캐시 키로도 유도되지 않는다.
+   */
+  protectFile(filepath) {
+    if (filepath) this._protectedFiles.add(path.resolve(filepath));
+  }
+
+  unprotectFile(filepath) {
+    if (filepath) this._protectedFiles.delete(path.resolve(filepath));
   }
 
   /**
@@ -209,11 +191,6 @@ class CacheManager {
     const set = new Set((keys || []).filter(Boolean));
     if (set.size === 0) this._queuedKeys.delete(guildId);
     else this._queuedKeys.set(guildId, set);
-  }
-
-  /** 길드가 떠날 때 — 남은 보호를 놓는다 */
-  clearQueuedKeys(guildId) {
-    if (guildId) this._queuedKeys.delete(guildId);
   }
 
   /** 재생 중 + 모든 길드의 대기열 — 퇴거에서 제외할 키 전부 */
@@ -417,23 +394,11 @@ class CacheManager {
 
   // 검증 정책
 
+  // 정책 값은 행에 남겨 두지만 읽는 곳은 아직 없다 — 재검증을 실제로 넣을 때 쓴다(백로그 B-41)
   _verificationPolicy(audioSourceKey) {
     if (audioSourceKey.startsWith("sc:")) return "periodic"; // 24시간
     if (audioSourceKey.startsWith("dl:")) return "always"; // 매 재생
     return "infrequent"; // 30일 (yt:*)
-  }
-
-  /** 재생 전에 캐시 항목을 재검증해야 하면 true 반환 */
-  shouldVerify(cacheRow) {
-    if (!cacheRow) return true;
-    const policy = cacheRow.verification_policy;
-    const lastVerified = cacheRow.last_verified_at || 0;
-    const age = Date.now() - lastVerified;
-
-    if (policy === "always") return true;
-    if (policy === "periodic") return age > 24 * 60 * 60 * 1000;
-    if (policy === "infrequent") return age > 30 * 24 * 60 * 60 * 1000;
-    return false;
   }
 
   // 플레이어 세션 — 행 구조와 쓰기는 playerSessionStore
@@ -658,6 +623,7 @@ class CacheManager {
     // 보호 집합은 사라진 행을 가리키게 되므로 함께 비운다. 재생 중인 곡은 다음 예열 틱이 다시 채운다.
     this._protectedKeys.clear();
     this._queuedKeys.clear();
+    this._protectedFiles.clear(); // 받는 중인 임시 파일 보호도 함께 — 파일은 위에서 지웠다
 
     try {
       this.db.pragma("wal_checkpoint(TRUNCATE)");
@@ -684,7 +650,7 @@ class CacheManager {
     // 보호 대상: 저장된 세션 + 실시간 재생/사전 캐시 키
     const sessionFiles = this.getProtectedCacheFiles();
     const liveFiles = new Set([...this._liveKeys()].map((k) => path.resolve(this.getFilePath(k))));
-    const allProtected = new Set([...sessionFiles, ...liveFiles]);
+    const allProtected = new Set([...sessionFiles, ...liveFiles, ...this._protectedFiles]); // 마지막은 받는 중인 임시 파일
 
     let cleaned = 0;
     let partials = 0;

@@ -1,6 +1,8 @@
 "use strict";
 
 const fs = require("fs").promises;
+const path = require("path");
+const crypto = require("crypto");
 const log = require("./logger").child({ category: "track" });
 const fsSync = require("fs");
 const { spawnFfmpeg, probeDurationSec } = require("./ffmpegProcess");
@@ -13,10 +15,61 @@ const SponsorBlock = require("./SponsorBlock");
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
  *
- * 진행 중인 다운로드(downloadingFiles)만 player에 둔다 — 재생 경로와 예열이 같은 맵을 봐야 같은 곡을 두 번 받지 않는다.
+ * 진행 중인 다운로드는 **프로세스 전역**으로 모은다(inFlight). 재생 경로와 예열뿐 아니라 서버끼리도 같은 맵을 봐야
+ * 같은 곡을 두 번 받지 않는다 — 캐시 파일 경로는 서버와 무관한 전역 경로다.
  *
- * downloadingFiles는 Map<filepath, Promise<filepath>> — 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 기존의 1초×60회 파일 존재 폴링과 타임아웃 경계 조건이 필요 없다.
+ * Map<최종 경로, Promise<최종 경로>> — 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 파일 존재 폴링이 필요 없다.
+ *
+ * 받는 동안에는 자기 임시 파일에만 쓰고 끝난 뒤 최종 경로로 옮긴다. 그래야 같은 곡이 어찌어찌 겹쳐도
+ * 서로의 작업 파일에 쓰지 않고, 실패 정리가 남의 파일을 지우지 않는다.
  */
+const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역 — 서버가 달라도 같은 곡은 한 번만 받는다.
+
+/** 내 임시 경로 — 같은 폴더여야 옮기기가 원자적이고, .opus여야 yt-dlp가 확장자를 바꾸지 않는다 */
+function tempPathFor(filepath) {
+  const stem = path.basename(filepath, ".opus");
+  return path.join(path.dirname(filepath), `${stem}.tmp-${process.pid}-${crypto.randomBytes(4).toString("hex")}.opus`);
+}
+
+/** 내 임시 파일과 그 부스러기(.part·조각·info.json)만 지운다 — 남이 받는 중인 파일은 건드리지 않는다 */
+function cleanTemp(tempPath) {
+  const dir = path.dirname(tempPath);
+  const stem = path.basename(tempPath, ".opus");
+  let removed = 0;
+  let names;
+  try {
+    names = fsSync.readdirSync(dir);
+  } catch {
+    return 0;
+  }
+  for (const name of names) {
+    if (name !== path.basename(tempPath) && !name.startsWith(`${stem}.`)) continue;
+    try {
+      fsSync.unlinkSync(path.join(dir, name));
+      removed++;
+    } catch {
+      /* 아직 잠겨 있거나 이미 없음 — 기동 스윕이 처리 */
+    }
+  }
+  return removed;
+}
+
+/**
+ * 다 받은 임시 파일을 최종 경로로 올린다. 그 사이 다른 쪽이 먼저 끝냈으면 내 것을 버린다.
+ *
+ * 올리기 전에 최종 경로를 보호한다 — 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
+ * 그 순간 기동 스윕이 돌면 고아로 보고 지운다. 푸는 것은 받기가 끝날 때(_performDownload의 finally).
+ */
+async function publish(tempPath, filepath) {
+  if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
+    await fs.unlink(tempPath).catch(() => {});
+    return false;
+  }
+  CacheManager.protectFile(filepath);
+  await fs.rename(tempPath, filepath);
+  return true;
+}
+
 class TrackDownloader {
   constructor(player) {
     this.player = player;
@@ -48,11 +101,8 @@ class TrackDownloader {
     }
 
     // 이미 다운로드 중이면 그 promise를 그대로 대기 — 폴링 불필요, 실패도 즉시 전파
-    const inFlight = player.downloadingFiles.get(filepath);
-    if (inFlight) {
-      const file = await inFlight;
-      return file;
-    }
+    const running = inFlight.get(filepath);
+    if (running) return await running;
 
     const downloadPromise = (async () => {
       try {
@@ -68,12 +118,12 @@ class TrackDownloader {
         throw err;
       }
     })();
-    player.downloadingFiles.set(filepath, downloadPromise);
+    inFlight.set(filepath, downloadPromise);
 
     try {
       return await downloadPromise;
     } finally {
-      player.downloadingFiles.delete(filepath);
+      if (inFlight.get(filepath) === downloadPromise) inFlight.delete(filepath);
     }
   }
 
@@ -82,6 +132,8 @@ class TrackDownloader {
     const audioSourceKey = track.audioSourceKey;
     let verifiedTitle = null;
     let audioDurationSec = null; // 캐시에 남길 오디오 길이 — track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
+    const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
+    CacheManager.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
     try {
       if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
@@ -117,7 +169,7 @@ class TrackDownloader {
         await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
           YouTube.getYtDlpOptions(
             {
-              output: filepath,
+              output: tempPath,
               // 이 다운로드에 곁들여 메타데이터를 파일로 받는다 — 왕복이 늘지 않는다.
               // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
               // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
@@ -140,11 +192,11 @@ class TrackDownloader {
 
         // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
         // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
-        if (!fsSync.existsSync(filepath)) {
+        if (!fsSync.existsSync(tempPath)) {
           throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등) — 캐시 다운로드 불가");
         }
 
-        const info = this._takeInfoJson(filepath);
+        const info = this._takeInfoJson(tempPath);
         verifiedTitle = info.title;
         audioDurationSec = info.durationSec;
       } else {
@@ -153,7 +205,7 @@ class TrackDownloader {
         const audioStream = await DirectLink.getStream(track.url, player.guild?.id);
 
         // opus로 트랜스코딩. 출력이 파일이므로 stdout을 소비하지 않는다(killOnStdoutClose 해제).
-        const ffmpeg = spawnFfmpeg(["-loglevel", "error", "-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", filepath], "download", { killOnStdoutClose: false });
+        const ffmpeg = spawnFfmpeg(["-loglevel", "error", "-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", tempPath], "download", { killOnStdoutClose: false });
 
         audioStream.pipe(ffmpeg.stdin);
 
@@ -167,7 +219,7 @@ class TrackDownloader {
 
         // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다 — 받아둔 파일에서 실제 길이로 교정.
         // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
-        const probed = await probeDurationSec(filepath);
+        const probed = await probeDurationSec(tempPath);
         if (probed) {
           track.duration = probed;
           track.durationSource = "실측";
@@ -175,12 +227,14 @@ class TrackDownloader {
         }
       }
 
-      // 파일 검증
-      const stats = await fs.stat(filepath);
+      // 파일 검증 — 최종 경로로 올리기 전에
+      const stats = await fs.stat(tempPath);
       if (stats.size === 0) {
-        await fs.unlink(filepath).catch(() => {});
+        await fs.unlink(tempPath).catch(() => {});
         throw new Error("Downloaded file is empty");
       }
+      const mine = await publish(tempPath, filepath);
+      if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${track.title}"`);
 
       // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
       // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
@@ -202,12 +256,12 @@ class TrackDownloader {
       log.info(`캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
       return filepath;
     } catch (error) {
-      // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다.
-      // (지금까지 아무도 안 치웠다 — _cleanOrphanFiles는 .opus만 훑어서 부스러기가 영구 잔류했다.)
+      // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다 — **내 임시 파일만**.
+      // (같은 곡의 부스러기를 전부 훑으면 다른 쪽이 받는 중인 작업 파일을 지운다.)
       // 그리고 recordDownloadStart로 'downloading'이 된 DB 행을 'error'로 되돌린다.
       // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
       try {
-        const removed = CacheManager.cleanPartials(filepath);
+        const removed = cleanTemp(tempPath);
         if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${track.title}`);
         if (audioSourceKey) CacheManager.recordError(audioSourceKey);
       } catch {
@@ -215,6 +269,9 @@ class TrackDownloader {
       }
       log.error(`캐시 다운로드 실패 ("${track.title}"):`, error.message);
       throw error;
+    } finally {
+      CacheManager.unprotectFile(tempPath);
+      CacheManager.unprotectFile(filepath);
     }
   }
 
@@ -279,4 +336,11 @@ class TrackDownloader {
   }
 }
 
+/** 이 경로를 지금 받고 있는가 — 서버와 무관하다 */
+TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
+
+/** 받는 중이면 그 promise, 아니면 null */
+TrackDownloader.waitFor = (filepath) => inFlight.get(filepath) ?? null;
+
 module.exports = TrackDownloader;
+module.exports._internals = { inFlight, tempPathFor, cleanTemp, publish };
