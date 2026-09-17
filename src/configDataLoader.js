@@ -18,6 +18,9 @@ const log = require("./logger").child({ category: "config" });
 // 설정 검증과 실제 실행이 **같은 표**를 봐야 한다 — 어긋나면 저장은 되는데 재생이 안 된다
 const sources = require("./autoplaySources");
 
+// 같은 말을 되풀이하지 않는다 — genres()는 곡을 고를 때마다 불린다
+let warnedKeys = "";
+
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
 // (CacheManager._cacheDir와 같은 방식 — 파일을 만지는 코드는 반드시 이 값을 거친다).
 let configDir = path.join(__dirname, "..", "config");
@@ -128,6 +131,7 @@ function genres() {
 function checkSourceKeys(genres) {
   // 같은 키가 빠진 장르를 묶어 한 줄로 알린다 — 장르마다 한 줄이면 기동 로그가 경고로 덮인다
   const grouped = new Map();
+  const lines = [];
 
   for (const [name, genre] of Object.entries(genres)) {
     const list = Array.isArray(genre?.sources) ? genre.sources : [];
@@ -156,8 +160,14 @@ function checkSourceKeys(genres) {
   }
 
   for (const [missing, names] of grouped) {
-    log.warn(`자동재생 장르 ${names.join(", ")}에 사용되는 소스 중 ${missing}의 키가 .env에 존재하지 않습니다. 지정된 다른 소스만을 이용합니다.`);
+    lines.push(`자동재생 장르 ${names.join(", ")}에 사용되는 소스 중 ${missing}의 키가 .env에 존재하지 않습니다. 지정된 다른 소스만을 이용합니다.`);
   }
+
+  // 이 함수는 곡을 고를 때마다 불린다(MusicPlayer._autoplayConfig). 그대로 남기면 같은 경고가
+  // 몇 분마다 되풀이되므로, 내용이 달라졌을 때만 남긴다 — status()가 쓰는 것과 같은 손이다.
+  const key = lines.join("|");
+  if (lines.length && key !== warnedKeys) for (const line of lines) log.warn(line);
+  warnedKeys = key;
 }
 
 /** 봇 상태 메시지 설정 */

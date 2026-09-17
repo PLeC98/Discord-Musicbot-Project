@@ -189,14 +189,25 @@ test("앞 소스가 빈 손이면 다음 소스로 넘어간다", async () => {
     minDurationSec: 60,
     maxDurationSec: 3600,
     blockedKeywords: [],
-    // keyword는 위에서 갈아 끼운 YouTube.search를 타므로 곡이 나온다.
-    // 앞의 lastfm은 키가 없어 usable이 false라 아예 후보에서 빠진다.
+    // 검색어가 없는 keyword 소스는 반드시 빈 손으로 온다. .env에 무엇이 있든 결과가 같아야
+    // 하므로 키가 필요한 소스는 쓰지 않는다 — 키가 있으면 진짜 호출이 나간다.
     sources: [
-      { type: "lastfm", tags: ["pop"], weight: 9 },
+      { type: "keyword", keywords: [], weight: 9 },
       { type: "keyword", keywords: ["아무거나"] },
     ],
   };
   const track = await route.pickTrack(cfg, []);
-  assert.ok(track, "키가 없는 소스는 건너뛰고 남은 소스로 골라야 한다");
+  assert.ok(track, "앞이 비어도 뒤 소스로 골라야 한다");
   assert.equal(track.platform, "youtube");
+});
+
+test("키가 없는 소스는 아예 후보에서 빠진다", () => {
+  const sources = require("../src/autoplaySources");
+  // 키가 필요한 소스는 SPEC에 has()가 있고, 그 결과가 곧 쓸 수 있는지다
+  for (const type of sources.TYPES) {
+    const need = sources.needsOf(type);
+    if (!need) assert.equal(sources.usable(type), true, `${type}는 키가 필요 없으니 늘 쓸 수 있다`);
+    else assert.equal(typeof need.env, "string", `${type}는 무엇이 필요한지 말할 수 있어야 한다`);
+  }
+  assert.equal(sources.usable("없는소스"), false);
 });

@@ -527,6 +527,17 @@ function startBot() {
       // 지금 무엇으로 유튜브에 붙는지 한 줄. 이걸 안 남겨서 bgutil이 3개월간 죽어 있는 걸 몰랐다.
       require("./src/YouTube").logAuthMode();
 
+      // 자동재생 설정을 여기서 한 번 읽는다. 읽는 쪽이 자동재생을 쓸 때뿐이라 그대로 두면
+      // 잘못된 설정이 "켰더니 아무 일도 안 일어난다"로 나타나고, 키가 빠진 소스 경고도
+      // 그때서야 나와 기동 로그에 안 남는다.
+      try {
+        require("./src/configDataLoader").genres();
+      } catch (error) {
+        log.error(error.message);
+        log.error("config/genres.yaml 을 고친 뒤 다시 실행하세요.");
+        process.exit(1);
+      }
+
       // Load commands and events
       loadCommands();
       loadEvents();
