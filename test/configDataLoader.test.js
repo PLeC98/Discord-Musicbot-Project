@@ -249,6 +249,22 @@ test("검사: 맨 위 keywords: 는 옮기라고 알려 준다", () => {
   assert.match(problems, /sources: 로 옮겨/);
 });
 
+// 값이 정해져 있는 칸은 오타를 여기서 잡는다. 안 잡으면 저쪽이 422를 주고 그 소스가 조용히
+// 빈손이 되어, 설정은 멀쩡해 보이는데 그 소스만 안 쓰이는 꼴이 된다.
+test("검사: 정해진 값이 아닌 것은 무엇을 쓸 수 있는지 알려 준다", () => {
+  const of = (source) => loader.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
+
+  assert.match(of({ type: "animethemes", mediaFormat: ["TVShort"] }), /TV Short/, "띄어쓰기를 빠뜨린 것을 잡아야 한다");
+  assert.match(of({ type: "animethemes", themeType: "OP1" }), /themeType/);
+  assert.match(of({ type: "animethemes", seasonFrom: "가을" }), /Winter, Spring, Summer, Fall/);
+  assert.match(of({ type: "lbradio", tags: ["pop"], mode: "normal" }), /easy, medium, hard/);
+  assert.match(of({ type: "touhoudb", songTypes: ["編曲"] }), /Arrangement/, "일본어 표기는 못 쓴다");
+  assert.match(of({ type: "vocadb", sort: "Popularity" }), /RatingScore/);
+
+  assert.equal(of({ type: "animethemes", mediaFormat: ["TV", "TV Short"], themeType: "OP", seasonFrom: "Fall" }), "");
+  assert.equal(of({ type: "touhoudb", songTypes: ["Arrangement", "Rearrangement"] }), "");
+});
+
 test("검사: weight와 연도 범위도 본다", () => {
   const of = (source) => loader.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
   assert.match(of({ type: "animethemes", weight: 0 }), /weight/);

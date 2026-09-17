@@ -406,6 +406,14 @@ function sourceProblems(id, genre) {
       if (!filled) problems.push(`${where}(${spec.label}): ${group.join(" 또는 ")} 를 적어야 합니다.`);
     }
 
+    // 값이 정해져 있는 칸의 오타 — 여기서 안 잡으면 저쪽이 422를 주고 그 소스가 조용히 빈손이 된다
+    for (const [key, allowed] of Object.entries(spec.enums || {})) {
+      if (source[key] == null) continue;
+      for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
+        if (!allowed.includes(one)) problems.push(`${where}(${spec.label}): ${key}에 "${one}"는 쓸 수 없습니다. 쓸 수 있는 것: ${allowed.join(", ")}`);
+      }
+    }
+
     if (source.weight != null && !(Number(source.weight) >= 1)) problems.push(`${where}: weight는 1 이상이어야 합니다.`);
     if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) problems.push(`${where}: yearFrom이 yearTo보다 큽니다.`);
     if (source.minScore != null && !(Number(source.minScore) >= 0)) problems.push(`${where}: minScore는 0 이상이어야 합니다.`);

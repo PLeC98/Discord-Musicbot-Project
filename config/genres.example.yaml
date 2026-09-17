@@ -24,18 +24,26 @@
 #   weight : 고를 확률. 적지 않으면 1. 키워드는 품질이 제일 낮으니 낮게 주는 편이 좋습니다.
 #
 # type: keyword                        (키 필요 없음)
-#   유튜브에 검색어를 던져 결과를 씁니다. 예전 방식이라 품질이 가장 낮습니다.
+#   유튜브에 검색어를 던져 결과를 씁니다. 품질이 가장 낮습니다.
 #   keywords : (필수) 검색어 후보. 뽑을 때마다 무작위로 하나.
 #
 # type: lastfm                         (.env 의 LASTFM_API_KEY 필요)
 #   Last.fm 태그로 곡 이름을 받아 유튜브에서 찾습니다.
 #   tags  : (필수) 태그 목록. 태그마다 품질 편차가 크니 여럿 적는 편이 안전합니다.
-#   pages : 몇 쪽까지 퍼 올릴지(기본 5). 깊은 쪽도 품질이 떨어지지 않습니다.
+#   pages : 몇 페이지까지 퍼 올릴지(기본 5). 깊은 쪽도 품질이 떨어지지 않습니다.
 #
 # type: lbradio                        (.env 의 LISTENBRAINZ_TOKEN 필요)
-#   ListenBrainz가 짜 주는 50곡을 받아 유튜브에서 찾습니다. **곡 길이도 같이 와서 가장 정확합니다.**
-#   tags   : (필수, prompt 를 적었다면 생략 가능) 장르 태그. MusicBrainz 공식 장르 이름을 씁니다.
-#   mode   : easy(기본) · medium · hard. 흔한 곡에서 숨은 곡으로 가는 손잡이입니다.
+#   ListenBrainz가 짜 주는 50곡을 받아 유튜브에서 찾습니다.
+#   tags   : (필수, prompt 를 적었다면 생략 가능) 장르 태그. MusicBrainz 공식 장르명을 씁니다.
+#   mode   : easy(기본) · medium · hard.
+#            **이름과 반대로, hard 로 갈수록 더 유명한 곡이 나옵니다.** (실측, 청취수 중앙값)
+#                       easy    medium      hard
+#              jazz     2,713    9,727    46,671
+#              rock     7,256   61,593   133,740
+#              k-pop      641    3,420    26,506
+#              metal    4,603   19,869    91,837
+#            easy 쪽은 그 장르를 깊게 파는 사람이 아는 곡이 나옵니다(재즈 easy → Kenny Wheeler,
+#            록 easy → Urgehal). 아는 곡 위주로 틀고 싶으면 hard 를 쓰세요.
 #   prompt : 날것 그대로 쓰고 싶을 때만. 예) "tag:(jazz,funk)::or" · "artist:(Miles Davis)"
 #
 # type: animethemes                    (키 필요 없음)
@@ -53,30 +61,44 @@
 #                             yearTo: 2024
 #                             seasonTo: Spring
 #                           (seasonFrom 을 비우면 그 해 겨울부터, seasonTo 를 비우면 그 해 가을까지)
-#   mediaFormat           : TV, Movie, OVA 등. 극장판을 빼고 싶을 때.
+#   mediaFormat           : 매체 종류. 웹과 같은 이름을 쓰며, 이 여섯이 전부입니다.
+#                             TV, TV Short, Movie, OVA, ONA, Special
+#                           ("TV Short"는 띄어쓰기까지 그대로 적어야 합니다. TVShort 는 오류입니다.)
+#                           표본 300편 기준 비중: TV 71% · Movie 10% · OVA 8% · TV Short 6% · ONA 4% · Special 1%
 #
 # type: vocadb / utaitedb / touhoudb    (키 필요 없음)
 #   보컬로이드, 우타이테, 동방 곡 DB.
 #   tags                  : 장르 태그(rock, pop, ballad, EDM, technopop, metal, 和風 …).
 #   excludeTags           : 제외하고 싶은 태그.
-#   songTypes             : Original, Cover, Arrangement, Remix, Instrumental, Live 등.
-#                           사이트마다 "본체"가 달라 기본값이 다릅니다. 웬만하면 그대로 두세요.
-#                             vocadb   → Original    (보컬로이드 오리지널 곡)
-#                             utaitedb → Cover       (우타이테는 남의 곡을 부르는 사람들입니다)
-#                             touhoudb → Arrangement (동방은 어레인지 문화입니다.
-#                                                     Original은 ZUN의 게임 BGM 3천여 곡뿐입니다)
+#   songTypes             : 곡 종류. **웹은 일본어 버튼이지만 여기는 영어로 적습니다.**
+#                             指定なし           → Unspecified
+#                             オリジナル曲        → Original
+#                             再編曲            → Rearrangement   (touhoudb 에만 있습니다)
+#                             カバー曲           → Cover
+#                             編曲             → Arrangement     (touhoudb 에만 있습니다)
+#                             リマスター          → Remaster
+#                             ショートバージョン     → ShortVersion    (touhoudb 에만 있습니다)
+#                             インストゥルメンタル    → Instrumental
+#                             音楽PV           → MusicPV
+#                             ドラマ            → DramaPV
+#                             その他            → Other
+#                           웹 버튼은 사이트마다 다릅니다. vocadb·utaitedb 에는 위 목록 대신
+#                           Remix(리믹스)·Mashup(매시업)이 있고, utaitedb 에는 Live 도 있습니다.
+#                           사이트마다 기본값이 다릅니다. 미 기재시 기본값을 따릅니다.
+#                             vocadb   → Original
+#                             utaitedb → Cover
+#                             touhoudb → Arrangement (Original은 ZUN의 게임 BGM이 잡힙니다. 약 3천여개.)
 #   languages             : 노래 언어. ISO 코드로 적습니다. (ja, en, ko, zh, es, ru)
 #   artistTypes           : 라이브러리 분류. Vocaloid, UTAU, SynthesizerV, CeVIO, VOICEVOX, Voiceroid, Utaite …
 #   artists               : 특정 라이브러리만. 이름으로 적습니다. 예) [UNI]
-#   minScore              : 품질 바닥(웹의 評価 점수. Favorite×3 + Like×2 쯤 됩니다).
-#                           **사이트마다 척도가 완전히 다릅니다.** 같은 50이라도 남는 곡이 이만큼 다릅니다:
+#   minScore              : 최소 평가 점수 기준 (웹의 評価 점수)
+#                           사이트마다 척도가 완전히 다릅니다. 같은 50이라도 남는 곡이 이만큼 다릅니다:
 #                                         vocadb   utaitedb   touhoudb
 #                             (안 적음)    297,703    25,054     46,557
 #                             5             69,383       784      1,509
 #                             10            38,357       168        212
 #                             50             7,082         1          7
-#                           vocadb는 1위가 3694점(ローリンガール)이지만 나머지 둘은 1위가 80점대입니다.
-#                           utaitedb·touhoudb 에 50 같은 값을 넣으면 곡이 한두 개만 남습니다.
+#                           vocadb는 26/09/18 기준, 1위가 3694점이지만 나머지 둘은 1위가 80점대입니다.
 #   minLength / maxLength : 곡 길이(초) 범위.
 #   minBpm    / maxBpm    : BPM 범위.
 #   yearFrom  / yearTo    : 발표 연도 범위.

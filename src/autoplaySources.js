@@ -294,14 +294,22 @@ const FETCHERS = { keyword, lastfm, lbradio, animethemes, vocadb: vocaFamily, ut
  * 고를 수 있는 값 전체와 왜 어떤 것을 안 내놓는지는
  * notes/plan-autoplay-routes.md의 "소스별 설정 옵션"에 적어 두었다.
  */
+// 값이 정해져 있는 칸들. 오타를 설정 시점에 잡으려고 적어 둔다 — 안 그러면 저쪽이 422/400을
+// 돌려주고 그 소스가 조용히 빈손이 되어, "설정은 멀쩡한데 그 소스만 안 쓰이는" 꼴이 된다.
+const SEASONS = ["Winter", "Spring", "Summer", "Fall"];
+const MEDIA_FORMATS = ["TV", "TV Short", "Movie", "OVA", "ONA", "Special"];
+const SONG_TYPES = ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Arrangement", "Instrumental", "Mashup", "MusicPV", "DramaPV", "Live", "Illustration", "Other", "Rearrangement", "ShortVersion"];
+const SONG_SORTS = ["Name", "AdditionDate", "PublishDate", "FavoritedTimes", "RatingScore", "TagUsageCount", "SongType"];
+const VOCA_ENUMS = { songTypes: SONG_TYPES, sort: SONG_SORTS };
+
 const SPEC = {
   keyword: { label: "키워드", need: [["keywords"]] },
   lastfm: { label: "Last.fm", need: [["tags"]], env: "LASTFM_API_KEY", has: () => !!config.sources?.lastfmKey },
-  lbradio: { label: "ListenBrainz", need: [["tags", "prompt"]], env: "LISTENBRAINZ_TOKEN", has: () => !!config.sources?.listenbrainzToken },
-  animethemes: { label: "AnimeThemes", need: [] },
-  vocadb: { label: "VocaDB", need: [] },
-  utaitedb: { label: "UtaiteDB", need: [] },
-  touhoudb: { label: "TouhouDB", need: [] },
+  lbradio: { label: "ListenBrainz", need: [["tags", "prompt"]], enums: { mode: ["easy", "medium", "hard"] }, env: "LISTENBRAINZ_TOKEN", has: () => !!config.sources?.listenbrainzToken },
+  animethemes: { label: "AnimeThemes", need: [], enums: { themeType: ["OP", "ED"], season: SEASONS, seasonFrom: SEASONS, seasonTo: SEASONS, mediaFormat: MEDIA_FORMATS } },
+  vocadb: { label: "VocaDB", need: [], enums: VOCA_ENUMS },
+  utaitedb: { label: "UtaiteDB", need: [], enums: VOCA_ENUMS },
+  touhoudb: { label: "TouhouDB", need: [], enums: VOCA_ENUMS },
   spotify: { label: "스포티파이", need: [["url"]], env: "SPOTIFY_CLIENT_ID", has: () => !!config.spotify?.clientId },
   youtube: { label: "유튜브 재생목록", need: [["url"]] },
 };
