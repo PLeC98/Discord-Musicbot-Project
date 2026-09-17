@@ -1463,7 +1463,9 @@ class MusicPlayer {
       if (!keywords) return null;
       const minSec = Number(cfg.minDurationSec ?? 0);
       const maxSec = cfg.maxDurationSec == null ? Infinity : Number(cfg.maxDurationSec);
-      const blockedKeywords = cfg.blockedKeywords || [];
+      // 제목을 소문자로 낮춰 견주므로 차단어도 낮춰 둔다 — 안 그러면 "Playlist"처럼 대문자가 섞인
+      // 차단어가 아무것도 못 거르면서 걸러지는 척한다.
+      const blockedKeywords = (cfg.blockedKeywords || []).map((keyword) => String(keyword).toLowerCase());
       const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
 
       // 임의 트랙을 YouTube에서 검색

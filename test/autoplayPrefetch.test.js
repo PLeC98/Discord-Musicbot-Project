@@ -215,3 +215,37 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
   assert.deepEqual(titles(p.queue), []);
   assert.equal(refetched, 1);
 });
+
+// ── 뽑을 때의 거르기 ──────────────────────────────────────────────────────
+
+// 회귀 대상: 제목은 소문자로 낮춰 견주면서 차단어는 그대로 뒀다. 그래서 config에 적혀 있던
+// "Playlist" 같은 대문자 섞인 차단어가 아무것도 못 거르면서 걸러지는 척했다.
+test("차단어는 대소문자를 가리지 않는다", async () => {
+  const YouTube = require("../src/YouTube");
+  const realSearch = YouTube.search;
+
+  const found = [
+    { title: "Best Playlist Ever", url: "https://y/1", duration: 200 },
+    { title: "그냥 좋은 노래", url: "https://y/2", duration: 200 },
+  ];
+  YouTube.search = async () => found;
+
+  try {
+    const p = {
+      autoplay: "팝",
+      previousTracks: [],
+      currentTrack: null,
+      guild: { members: { me: { user: { id: "bot" } } } },
+      _autoplayConfig: () => ({ keywords: ["아무거나"], minDurationSec: 0, maxDurationSec: null, blockedKeywords: ["Playlist"] }),
+      pickAutoplayTrack: MusicPlayer.prototype.pickAutoplayTrack,
+    };
+
+    // 후보가 둘인데 하나가 걸리므로, 몇 번을 뽑아도 남는 것은 하나뿐이다
+    for (let i = 0; i < 8; i++) {
+      const picked = await p.pickAutoplayTrack();
+      assert.equal(picked?.url, "https://y/2", "대문자로 적은 차단어도 걸러야 한다");
+    }
+  } finally {
+    YouTube.search = realSearch;
+  }
+});

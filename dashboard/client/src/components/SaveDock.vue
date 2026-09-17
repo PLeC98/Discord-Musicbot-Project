@@ -14,7 +14,7 @@
       <button :class="[circle, ghost]" :disabled="saving" v-tooltip="'되돌리기'" @click="$emit('revert')"><Icon name="undo" :size="18" /></button>
 
       <button :class="[circle, primary]" :disabled="saving || blocked" v-tooltip="blocked ? '고칠 것이 남아 있습니다' : '저장'" @click="$emit('save')">
-        <Icon :name="saving ? 'unfold' : 'check'" :size="20" :class="saving ? 'animate-pulse' : ''" />
+        <Icon :name="saving ? 'spinner' : 'check'" :size="20" :class="saving ? 'animate-spin' : ''" />
       </button>
     </div>
   </Transition>
