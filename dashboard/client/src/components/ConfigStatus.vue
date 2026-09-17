@@ -6,11 +6,11 @@
 -->
 <template>
   <div>
-    <BaseCard icon="robot" title="상태 문구" class="mb-3">
-      <p class="text-muted text-[0.82rem] mt-1 mb-3">디스코드 프로필에 뜨는 문구입니다. 아래 기간·시간대에 맞는 것이 없을 때 이 문구들을 번갈아 씁니다.</p>
+    <BaseCard icon="robot" title="상태 문구 전역 설정" class="mb-3">
+      <p class="text-muted text-[0.82rem] mt-1 mb-3">디스코드 프로필에 뜨는 문구입니다. 아래 기간·시간대 문구 중 적용할 것이 없을 때 이 문구들을 번갈아 씁니다.</p>
 
       <label class="block mb-4 max-w-56">
-        <span :class="labelCls">문구를 바꾸는 간격(초)</span>
+        <span :class="labelCls">문구 변경 주기(초)</span>
         <input v-model.number="draft.interval" type="number" min="10" :class="inputCls" />
       </label>
 
@@ -24,7 +24,7 @@
             <Icon name="gear" :size="15" />
             <span>기간 · 시간대 문구 ({{ special.length }})</span>
           </div>
-          <p class="text-muted text-[0.82rem]">위에서부터 먼저 맞는 것 하나만 씁니다 — 좁은 기간을 위로 끌어 올리세요. 조건을 둘 이상 적으면 전부 맞아야 합니다.</p>
+          <p class="text-muted text-[0.82rem]">위에서부터 우선적으로 적용되며, 조건을 둘 이상 적으면 전부 일치해야 출력됩니다.</p>
         </div>
         <button :class="addBtn" v-tooltip="'항목 추가'" @click="addSpecial"><Icon name="add" :size="18" /></button>
       </div>
@@ -38,14 +38,14 @@
           'border-t-2 border-t-accent': dragOverIndex === i && draggedIndex !== i,
           'border-b-2 border-b-accent': dragOverIndex === special.length && i === special.length - 1,
         }"
-        draggable="true"
+        :draggable="dragReady"
         @dragstart="onDragStart($event, i)"
         @dragover.prevent="onDragOver($event, i)"
         @drop.prevent="onDrop"
         @dragend="onDragEnd"
       >
         <div class="flex items-center gap-2 mb-2">
-          <span data-drag-handle class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'">
+          <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
               <circle cx="2" cy="3" r="1.5" />
               <circle cx="2" cy="8" r="1.5" />
@@ -191,13 +191,22 @@ watch(payload, () => {
 const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
 
+// 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다(브라우저가 카드 드래그로 가로챈다).
+// 그렇다고 dragstart에서 가릴 수도 없다 — dragstart는 draggable인 요소에서 나므로 target이 언제나 카드다.
+// 그래서 손잡이를 누르고 있는 동안에만 draggable을 켠다.
+const dragReady = ref(false);
+
+function armDrag() {
+  dragReady.value = true;
+  // 누르기만 하고 끌지 않은 경우까지 풀어 준다 — 안 풀면 다음에 입력칸을 끌 때 카드가 따라온다
+  window.addEventListener("mouseup", disarmDrag, { once: true });
+}
+
+function disarmDrag() {
+  dragReady.value = false;
+}
+
 function onDragStart(e, i) {
-  // 카드 전체가 draggable이라, 막지 않으면 입력칸의 글자를 끌어 고르려 할 때 카드가 따라 움직인다.
-  // 손잡이에서 시작한 것만 받는다.
-  if (!e.target.closest?.("[data-drag-handle]")) {
-    e.preventDefault();
-    return;
-  }
   draggedIndex.value = i;
   e.dataTransfer.effectAllowed = "move";
 }
@@ -218,6 +227,7 @@ function onDrop() {
 }
 
 function onDragEnd() {
+  disarmDrag();
   draggedIndex.value = null;
   dragOverIndex.value = null;
 }
