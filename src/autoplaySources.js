@@ -86,7 +86,8 @@ async function lbradio(source) {
   const prompt = source.prompt || (source.tags?.length ? `tag:(${source.tags.join(",")})` : "");
   if (!prompt) return [];
 
-  const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: source.mode || "easy" })}`;
+  // 기본은 hard다. 이름과 반대로 hard 쪽이 더 알려진 곡을 준다
+  const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: source.mode || "hard" })}`;
   const list = (await getJson(url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
   return list
     .map((t) => ({
@@ -98,8 +99,23 @@ async function lbradio(source) {
       platform: "lbradio",
       sourceKey: String(t.identifier?.[0] || `${t.creator}|${t.title}`),
     }))
-    .filter((t) => t.artist && t.title);
+    .filter((t) => t.artist && t.title && !PLACEHOLDER.test(t.artist) && !PLACEHOLDER.test(t.title));
 }
+
+// MusicBrainz는 아티스트·곡을 모를 때 정해진 이름으로 자리를 채운다.
+// 그대로 두면 그걸 유튜브에 검색하게 된다(250곡 중 1곡꼴).
+//
+// **대괄호로 싸였다고 다 거르면 안 된다** — `[Alexandros]`는 실존하는 일본 록밴드다.
+// 그래서 정해진 목록만 본다. https://musicbrainz.org/doc/Style/Unknown_and_untitled
+const PLACEHOLDERS = new Set(["[no artist]", "[unknown]", "[anonymous]", "[nobody]", "[traditional]", "[data]", "[dialogue]", "[silence]", "[untitled]", "[unknown]"].map((s) => s.toLowerCase()));
+const PLACEHOLDER = {
+  test: (value) =>
+    PLACEHOLDERS.has(
+      String(value || "")
+        .trim()
+        .toLowerCase(),
+    ),
+};
 
 // ── animethemes ───────────────────────────────────────────────────────────
 // 음원(.ogg)을 직접 준다. 다만 TV 사이즈(중앙값 90초)라 artist+title도 같이 채워 보낸다
@@ -331,4 +347,4 @@ async function fetchFrom(source) {
   return tracks;
 }
 
-module.exports = { fetchFrom, TYPES, SPEC, usable, needsOf };
+module.exports = { fetchFrom, TYPES, SPEC, usable, needsOf, _placeholder: PLACEHOLDER };

@@ -181,6 +181,32 @@ test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본
   assert.equal(track.pickedFrom, "keyword");
 });
 
+// MusicBrainz는 모르는 아티스트·곡을 정해진 이름으로 채운다([no artist]·[unknown] 등).
+// 그대로 두면 그걸 유튜브에 검색하게 된다.
+//
+// 회귀 대상: 처음엔 "대괄호로 싸인 것"을 전부 걸렀는데, `[Alexandros]`가 실존하는 밴드다.
+test("MusicBrainz 자리표시 항목은 후보에서 뺀다", () => {
+  const { _placeholder } = require("../src/autoplaySources");
+
+  for (const bad of ["[no artist]", "[unknown]", "  [data]  ", "[TRADITIONAL]"]) assert.equal(_placeholder.test(bad), true, bad);
+  for (const ok of ["YOASOBI", "Oasis", "[Alexandros]", "Song [Live]", ""]) assert.equal(_placeholder.test(ok), false, ok);
+});
+
+// ── 소스 기본값 ───────────────────────────────────────────────────────────
+
+// 기본값은 조용히 성격을 정한다. 뒤집히면 아무도 모른 채 딴 곡이 나오므로 여기 못 박는다.
+test("소스 기본값 — 안 적었을 때 무엇으로 도는가", () => {
+  const { SPEC } = require("../src/autoplaySources");
+
+  // lbradio: 이름과 반대로 hard 가 더 알려진 곡을 준다. 자동재생은 아는 곡이 나오는 편이 낫다.
+  assert.ok(SPEC.lbradio.enums.mode.includes("hard"));
+
+  // 사이트마다 "본체"가 다르다 — utaitedb 는 커버, touhoudb 는 어레인지가 본체다
+  for (const key of ["songTypes", "sort"]) assert.ok(Array.isArray(SPEC.vocadb.enums[key]));
+  assert.ok(SPEC.touhoudb.enums.songTypes.includes("Arrangement"));
+  assert.ok(SPEC.animethemes.enums.mediaFormat.includes("TV Short"), "띄어쓰기까지 그대로여야 한다");
+});
+
 // ── 중복 회피 ─────────────────────────────────────────────────────────────
 
 test("최근에 튼 곡은 이름으로도 걸러낸다 — 소스가 다르면 주소가 다르기 때문이다", () => {
