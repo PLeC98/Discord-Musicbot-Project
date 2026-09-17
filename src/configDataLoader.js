@@ -15,6 +15,8 @@ const fs = require("fs");
 const path = require("path");
 const YAML = require("yaml");
 const log = require("./logger").child({ category: "config" });
+// 설정 검증과 실제 실행이 **같은 표**를 봐야 한다 — 어긋나면 저장은 되는데 재생이 안 된다
+const sources = require("./autoplaySources");
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
 // (CacheManager._cacheDir와 같은 방식 — 파일을 만지는 코드는 반드시 이 값을 거친다).
@@ -106,7 +108,56 @@ function genres() {
     throw Object.assign(new Error(`이모지가 아닌 값이 있습니다: ${shown}\n   emoji는 비우거나 이모지 한 글자만 적을 수 있습니다.`), { code: "CONFIG_INVALID" });
   }
 
+  const shape = validateGenres(data);
+  if (shape.length) {
+    throw Object.assign(new Error(["config/genres.yaml 을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+  }
+
+  checkSourceKeys(data.genres || {});
+
   return { defaults: data.defaults || {}, genres: data.genres || {} };
+}
+
+/**
+ * .env에 키가 없는 소스를 어떻게 다룰까 — **부분만 없으면 알리고 남은 것으로 돌고,
+ * 쓸 수 있는 게 하나도 안 남으면 기동을 거부한다.**
+ *
+ * 장르 하나가 삐끗했다고 봇 전체를 못 띄우는 것은 과하지만, 그 장르를 고르면 아무 일도 일어나지
+ * 않는 채로 두는 것은 더 나쁘다 — 무엇이 잘못됐는지 알 길이 없기 때문이다.
+ */
+function checkSourceKeys(genres) {
+  // 같은 키가 빠진 장르를 묶어 한 줄로 알린다 — 장르마다 한 줄이면 기동 로그가 경고로 덮인다
+  const grouped = new Map();
+
+  for (const [name, genre] of Object.entries(genres)) {
+    const list = Array.isArray(genre?.sources) ? genre.sources : [];
+    const missing = [];
+    let alive = 0;
+
+    for (const source of list) {
+      if (sources.usable(source?.type)) alive++;
+      else {
+        const need = sources.needsOf(source?.type);
+        if (need && !missing.includes(need.label)) missing.push(need.label);
+      }
+    }
+
+    if (!list.length) {
+      throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. config/genres.yaml을 확인하세요.`), { code: "CONFIG_INVALID" });
+    }
+    if (!alive) {
+      throw Object.assign(new Error(`자동재생 장르 ${name}에 사용되는 소스인 ${missing.join(", ")}의 키가 .env에 없어 재생이 불가능합니다. 설정을 확인하세요.`), { code: "CONFIG_INVALID" });
+    }
+    if (missing.length) {
+      const key = missing.join(", ");
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(name);
+    }
+  }
+
+  for (const [missing, names] of grouped) {
+    log.warn(`자동재생 장르 ${names.join(", ")}에 사용되는 소스 중 ${missing}의 키가 .env에 존재하지 않습니다. 지정된 다른 소스만을 이용합니다.`);
+  }
 }
 
 /** 봇 상태 메시지 설정 */
@@ -311,6 +362,49 @@ function save(name, data) {
   return check;
 }
 
+// 장르 하나의 sources를 본다. 반환: 문제 문구 배열.
+//
+// 맨 위 keywords:는 **읽지 않는다.** 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
+// 그건 축약이 아니라 영구 호환층이다 — 새로 쓰는 사람이 keywords:를 고를 이유가 없다.
+// 한 번 크게 깨지고 끝나는 편이 두 모양을 영원히 들고 가는 것보다 낫다.
+function sourceProblems(id, genre) {
+  const problems = [];
+
+  if (genre.keywords !== undefined) {
+    problems.push(`${id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요 — sources: [{ type: keyword, keywords: [...] }]`);
+  }
+
+  const list = genre.sources;
+  if (!Array.isArray(list) || list.length === 0) {
+    problems.push(`${id}: 소스(sources)가 하나는 있어야 합니다.`);
+    return problems;
+  }
+
+  list.forEach((source, i) => {
+    const where = `${id}의 ${i + 1}번째 소스`;
+    if (!source || typeof source !== "object") return problems.push(`${where}: type과 값을 적어야 합니다.`);
+
+    const spec = sources.SPEC[source.type];
+    if (!spec) return problems.push(`${where}: 모르는 종류입니다(${source.type}). 쓸 수 있는 것: ${sources.TYPES.join(", ")}`);
+
+    // 안쪽 배열은 "이 중 하나는 있어야 한다"
+    for (const group of spec.need) {
+      const filled = group.some((key) => {
+        const v = source[key];
+        return Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim();
+      });
+      if (!filled) problems.push(`${where}(${spec.label}): ${group.join(" 또는 ")} 를 적어야 합니다.`);
+    }
+
+    if (source.weight != null && !(Number(source.weight) >= 1)) problems.push(`${where}: weight는 1 이상이어야 합니다.`);
+    if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) problems.push(`${where}: yearFrom이 yearTo보다 큽니다.`);
+    if (source.minScore != null && !(Number(source.minScore) >= 0)) problems.push(`${where}: minScore는 0 이상이어야 합니다.`);
+    if (source.minLength != null && source.maxLength != null && Number(source.minLength) > Number(source.maxLength)) problems.push(`${where}: minLength가 maxLength보다 큽니다.`);
+  });
+
+  return problems;
+}
+
 /**
  * 장르 설정이 쓸 만한 모양인지 본다. 저장 전에 부른다 — 깨진 값을 파일에 남기지 않는다.
  * 반환: 문제 문구 배열(비어 있으면 통과).
@@ -330,9 +424,7 @@ function validateGenres(data) {
     // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다 — 파일을 손으로 고칠 수도 있어서 여기서 막는다.
     const emoji = (data.genres[id] || {}).emoji;
     if (emoji != null && emoji !== "" && !ONE_EMOJI.test(String(emoji))) problems.push(`${id}: emoji는 이모지 한 글자여야 합니다.`);
-    const keywords = (data.genres[id] || {}).keywords;
-    if (!Array.isArray(keywords) || keywords.length === 0) problems.push(`${id}: 검색어(keywords)가 하나는 있어야 합니다.`);
-    else if (keywords.some((k) => typeof k !== "string" || !k.trim())) problems.push(`${id}: 빈 검색어가 있습니다.`);
+    problems.push(...sourceProblems(id, data.genres[id] || {}));
   }
 
   const d = data?.defaults || {};

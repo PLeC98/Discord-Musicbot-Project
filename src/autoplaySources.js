@@ -278,20 +278,35 @@ async function youtube(source) {
 
 const FETCHERS = { keyword, lastfm, lbradio, animethemes, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
 
-// 이 소스를 쓰려면 .env에 무엇이 있어야 하나. 없으면 그 소스만 못 쓴다.
-const NEEDS = {
-  lastfm: { env: "LASTFM_API_KEY", label: "Last.fm", has: () => !!config.sources?.lastfmKey },
-  lbradio: { env: "LISTENBRAINZ_TOKEN", label: "ListenBrainz", has: () => !!config.sources?.listenbrainzToken },
-  spotify: { env: "SPOTIFY_CLIENT_ID", label: "스포티파이", has: () => !!config.spotify?.clientId },
+/**
+ * 소스 타입 명세 — **설정 검증과 실행이 같은 표를 본다.**
+ *
+ *   label  사람에게 보일 이름(기동 경고 문구에 쓴다)
+ *   need   반드시 있어야 하는 값. 안쪽 배열은 "이 중 **하나**는 있어야 한다"
+ *   env    .env에 있어야 하는 이름(없으면 그 소스만 못 쓴다)
+ *
+ * 고를 수 있는 값 전체와 왜 어떤 것을 안 내놓는지는
+ * notes/plan-autoplay-routes.md의 "소스별 설정 옵션"에 적어 두었다.
+ */
+const SPEC = {
+  keyword: { label: "키워드", need: [["keywords"]] },
+  lastfm: { label: "Last.fm", need: [["tags"]], env: "LASTFM_API_KEY", has: () => !!config.sources?.lastfmKey },
+  lbradio: { label: "ListenBrainz", need: [["tags", "prompt"]], env: "LISTENBRAINZ_TOKEN", has: () => !!config.sources?.listenbrainzToken },
+  animethemes: { label: "AnimeThemes", need: [] },
+  vocadb: { label: "VocaDB", need: [] },
+  utaitedb: { label: "UtaiteDB", need: [] },
+  touhoudb: { label: "TouhouDB", need: [] },
+  spotify: { label: "스포티파이", need: [["url"]], env: "SPOTIFY_CLIENT_ID", has: () => !!config.spotify?.clientId },
+  youtube: { label: "유튜브 재생목록", need: [["url"]] },
 };
 
 const TYPES = Object.keys(FETCHERS);
 
 /** 이 타입을 지금 쓸 수 있나 — 키가 필요한 소스는 키가 있어야 한다. */
-const usable = (type) => (TYPES.includes(type) ? !NEEDS[type] || NEEDS[type].has() : false);
+const usable = (type) => (SPEC[type] ? !SPEC[type].has || SPEC[type].has() : false);
 
 /** 이 타입이 무엇을 필요로 하는지(없으면 null) — 기동 시 문구를 만들 때 쓴다. */
-const needsOf = (type) => NEEDS[type] || null;
+const needsOf = (type) => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);
 
 /** 설정에 적힌 소스 하나를 곡 목록으로. 던지면 부르는 쪽이 다음 소스로 넘어간다. */
 async function fetchFrom(source) {
@@ -302,4 +317,4 @@ async function fetchFrom(source) {
   return tracks;
 }
 
-module.exports = { fetchFrom, TYPES, usable, needsOf };
+module.exports = { fetchFrom, TYPES, SPEC, usable, needsOf };

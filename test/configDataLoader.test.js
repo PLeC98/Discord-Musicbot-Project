@@ -86,22 +86,22 @@ test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 
 
 test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
   // JavaScript 객체가 정수처럼 생긴 키를 앞으로 당겨서, 끌어 옮긴 차례가 조용히 어긋난다.
-  write("genres", "defaults: {}\ngenres:\n  80:\n    keywords:\n      - pop\n");
+  write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
   fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
 
   const err = thrown(() => loader.genres());
   assert.equal(err.code, "CONFIG_INVALID");
   assert.match(err.message, /차례가 어긋납니다/);
 
-  assert.match(loader.validateGenres({ genres: { 80: { keywords: ["a"] } } }).join(" "), /차례가 어긋납니다/);
-  assert.deepEqual(loader.validateGenres({ genres: { "80년대": { keywords: ["a"] } } }), [], "글자가 붙으면 괜찮다");
+  assert.match(loader.validateGenres({ genres: { 80: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /차례가 어긋납니다/);
+  assert.deepEqual(loader.validateGenres({ genres: { "80년대": { sources: [{ type: "keyword", keywords: ["a"] }] } } }), [], "글자가 붙으면 괜찮다");
 });
 
 test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
   // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 읽을 때 잡지 않으면
   // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 자리에서 죽는다.
   const load = (emoji) => {
-    write("genres", `defaults: {}\ngenres:\n  팝:\n    emoji: ${emoji}\n    keywords:\n      - pop\n`);
+    write("genres", ["defaults: {}", "genres:", "  팝:", `    emoji: ${emoji}`, "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
     fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
     return loader.genres();
   };
@@ -115,13 +115,14 @@ test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다"
 });
 
 test("no·on 같은 말은 그냥 장르 키가 된다 — 따옴표가 필요 없다", () => {
-  write("genres", "defaults: {}\ngenres:\n  no:\n    label: 노\n  on:\n    label: 온\n");
+  const src = "    sources: [{ type: keyword, keywords: [a] }]";
+  write("genres", ["defaults: {}", "genres:", "  no:", "    label: 노", src, "  on:", "    label: 온", src, ""].join("\n"));
   fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
   assert.deepEqual(Object.keys(loader.genres().genres), ["no", "on"]);
 });
 
 test("defaults와 genres를 함께 돌려준다", () => {
-  write("genres", "defaults:\n  prefetchCount: 2\ngenres:\n  pop:\n    label: 팝\n");
+  write("genres", ["defaults:", "  prefetchCount: 2", "genres:", "  pop:", "    label: 팝", "    sources: [{ type: keyword, keywords: [a] }]", ""].join("\n"));
   fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
   const cfg = loader.genres();
   assert.deepEqual(Object.keys(cfg.genres), ["pop"]);
@@ -133,11 +134,11 @@ test("defaults와 genres를 함께 돌려준다", () => {
 // 주석 보존은 YAML을 고른 이유 전체다. 통째로 다시 쓰면 사람이 적어 둔 메모가 날아가고,
 // 그러면 "대시보드 없이도 손으로 고친다"는 전제가 무너진다.
 test("저장해도 사람이 적은 주석이 남는다 — 값이 바뀐 자리의 주석까지", () => {
-  write("genres", ["# 파일 머리", "", "defaults:", "  # 곡 수 메모", "  prefetchCount: 1", "genres:", "  pop:", "    # 손으로 적은 메모", "    label: 팝", "    keywords:", "      - pop music", ""].join("\n"));
+  write("genres", ["# 파일 머리", "", "defaults:", "  # 곡 수 메모", "  prefetchCount: 1", "genres:", "  pop:", "    # 손으로 적은 메모", "    label: 팝", "    sources: [{ type: keyword, keywords: [pop music] }]", ""].join("\n"));
 
   const data = loader.load("genres");
   data.genres.pop.label = "팝송";
-  data.genres.rock = { label: "록", keywords: ["rock music"] };
+  data.genres.rock = { label: "록", sources: [{ type: "keyword", keywords: ["rock music"] }] };
   loader.save("genres", data);
 
   const text = fs.readFileSync(path.join(DIR, "genres.yaml"), "utf8");
@@ -151,7 +152,7 @@ test("저장해도 사람이 적은 주석이 남는다 — 값이 바뀐 자리
 // 회귀 대상: 값은 그대로 두고 차례만 바꾸면 고칠 것이 없다고 보고 아무것도 쓰지 않았다.
 // 대시보드는 저장이 됐다고 여기고 파일을 다시 읽어, 바꾼 차례가 도로 돌아갔다.
 test("차례만 바꿔도 저장된다 — 주석은 쌍을 따라간다", () => {
-  write("genres", ["defaults: {}", "genres:", "  팝:", "    keywords: [pop]", "  # 록 메모", "  록:", "    keywords: [rock]", "  재즈:", "    keywords: [jazz]", ""].join("\n"));
+  write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", "  # 록 메모", "  록:", "    sources: [{ type: keyword, keywords: [rock] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", ""].join("\n"));
 
   const data = loader.load("genres");
   // 재즈를 맨 앞으로 — 값은 하나도 건드리지 않는다
@@ -165,7 +166,9 @@ test("차례만 바꿔도 저장된다 — 주석은 쌍을 따라간다", () =>
 });
 
 test("차례가 그대로면 파일을 건드리지 않는다", () => {
-  const before = ["# 머리말", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    keywords:", "      - pop", "  록:", "    keywords:", "      - rock", ""].join("\n");
+  // 블록 표기로 적는다 — YAML 라이브러리가 인라인 표기의 공백을 정규화하므로(`[pop]` → `[ pop ]`)
+  // 실제 설정 파일도 블록 표기를 쓴다. 그래야 대시보드가 저장해도 서식이 그대로다.
+  const before = ["# 머리말", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop", "  록:", "    sources:", "      - type: keyword", "        keywords:", "          - rock", ""].join("\n");
   write("genres", before);
 
   loader.save("genres", loader.load("genres"));
@@ -215,27 +218,48 @@ test("저장하면 다음 읽기가 새 값을 가져온다", () => {
 // ── 저장 전 검사 ──────────────────────────────────────────────────────────
 
 test("검사: 쓸 만하면 아무 말이 없다", () => {
-  assert.deepEqual(loader.validateGenres({ defaults: { prefetchCount: 1 }, genres: { 팝: { keywords: ["a"] } } }), []);
+  assert.deepEqual(loader.validateGenres({ defaults: { prefetchCount: 1 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } }), []);
 });
 
 test("검사: 장르가 없거나 25개를 넘으면 걸린다", () => {
   assert.match(loader.validateGenres({ genres: {} }).join(" "), /하나도 없습니다/);
 
   const many = {};
-  for (let i = 0; i < 26; i++) many["장르" + i] = { keywords: ["a"] };
+  for (let i = 0; i < 26; i++) many["장르" + i] = { sources: [{ type: "keyword", keywords: ["a"] }] };
   assert.match(loader.validateGenres({ genres: many }).join(" "), /25개까지/);
 });
 
-test("검사: 검색어가 비면 걸린다", () => {
-  const problems = loader.validateGenres({ genres: { 팝: { keywords: [] }, 록: { keywords: ["  "] } } });
-  assert.match(problems.join(" "), /검색어/);
-  assert.match(problems.join(" "), /빈 검색어/);
+test("검사: 소스에 필요한 값이 비면 걸린다", () => {
+  // keyword는 검색어가, lastfm은 태그가, 유튜브 재생목록은 주소가 있어야 한다
+  const of = (genre) => loader.validateGenres({ genres: { 팝: genre } }).join(" ");
+  assert.match(of({ sources: [{ type: "keyword", keywords: [] }] }), /keywords/);
+  assert.match(of({ sources: [{ type: "keyword", keywords: ["  "] }] }), /keywords/, "공백뿐인 것도 빈 것이다");
+  assert.match(of({ sources: [{ type: "lastfm" }] }), /tags/);
+  assert.match(of({ sources: [{ type: "youtube" }] }), /url/);
+  assert.equal(of({ sources: [{ type: "lbradio", prompt: "tag:(pop)" }] }), "", "tags 대신 prompt만 있어도 된다");
+});
+
+test("검사: 모르는 소스 종류는 걸린다", () => {
+  assert.match(loader.validateGenres({ genres: { 팝: { sources: [{ type: "없는것", keywords: ["a"] }] } } }).join(" "), /모르는 종류/);
+});
+
+// 맨 위 keywords:는 옛 모양이다. 조용히 읽어 주면 두 모양을 영원히 들고 가게 된다.
+test("검사: 맨 위 keywords: 는 옮기라고 알려 준다", () => {
+  const problems = loader.validateGenres({ genres: { 팝: { keywords: ["a"], sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
+  assert.match(problems, /sources: 로 옮겨/);
+});
+
+test("검사: weight와 연도 범위도 본다", () => {
+  const of = (source) => loader.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
+  assert.match(of({ type: "animethemes", weight: 0 }), /weight/);
+  assert.match(of({ type: "animethemes", yearFrom: 2020, yearTo: 2010 }), /yearFrom/);
+  assert.match(of({ type: "vocadb", minScore: -1 }), /minScore/);
 });
 
 test("검사: 이모지 자리에 이모지가 아닌 값이 있으면 걸린다", () => {
   // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 여기서 막지 않으면
   // 디스코드 선택 메뉴가 원인에서 한참 떨어진 자리에서 거부한다.
-  const of = (emoji) => loader.validateGenres({ genres: { 팝: { emoji, keywords: ["a"] } } });
+  const of = (emoji) => loader.validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
 
   assert.deepEqual(of("🇰🇷"), [], "국기처럼 코드포인트가 여럿인 것도 한 글자다");
   assert.deepEqual(of("1️⃣"), [], "키캡도 한 글자다");
@@ -246,6 +270,6 @@ test("검사: 이모지 자리에 이모지가 아닌 값이 있으면 걸린다
 });
 
 test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
-  const problems = loader.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { keywords: ["a"] } } });
+  const problems = loader.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });

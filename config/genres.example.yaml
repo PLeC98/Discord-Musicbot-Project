@@ -1,20 +1,71 @@
-# 자동재생 설정 — 이 파일 한 곳만 고치면 버튼 선택 메뉴 / 확인 메시지 / 유튜브 검색에 모두 반영됩니다.
+# 자동재생 설정 — 이 파일 한 곳만 고치면 버튼 선택 메뉴 / 확인 메시지 / 곡 고르기에 모두 반영됩니다.
 # 봇을 켜 둔 채로 고쳐도 됩니다(저장하면 다음 자동재생부터 적용).
 
 # 장르 항목
-#   이름     : 키가 곧 장르 이름입니다. 선택 메뉴와 안내 문구에 그대로 쓰입니다.
-#              (true·false·null 은 쓸 수 없습니다.)
-#              (숫자만으로 된 이름도 쓸 수 없습니다. "80년대"처럼 글자를 섞어주세요.)
-#              적은 차례가 선택 메뉴에 나오는 차례입니다.
-#              이름을 바꾸면 그 장르로 저장돼 있던 서버는 자동재생이 꺼집니다.
-#   emoji   : 선택 메뉴 아이콘. 비우거나 이모지 한 글자만 적습니다.
-#              (이모지가 아닌 값이 하나라도 있으면 디스코드가 메뉴 전체를 거부합니다.)
-#   keywords: 유튜브 검색어 후보. 자동재생 때마다 무작위로 하나를 고릅니다.
+#   이름    : 키가 곧 장르 이름입니다. 선택 메뉴와 안내 문구에 그대로 쓰입니다.
+#             (true·false·null 은 쓸 수 없습니다. 숫자만으로 된 이름도 쓸 수 없습니다 — "80년대"처럼 글자를 섞어주세요.)
+#             적은 차례가 선택 메뉴에 나오는 차례입니다.
+#             이름을 바꾸면 그 장르로 저장돼 있던 서버는 자동재생이 꺼집니다.
+#   emoji  : 선택 메뉴 아이콘. 비우거나 이모지 한 글자만 적습니다.
+#             (이모지가 아닌 값이 하나라도 있으면 디스코드가 메뉴 전체를 거부합니다.)
+#   sources: 곡을 어디서 가져올지. 아래 "소스" 설명을 보세요. 하나는 있어야 합니다.
 
 # 주의
 #   · 들여쓰기는 공백 두 칸. 탭을 쓰면 파일을 읽지 못합니다.
 #   · 장르는 최대 25개까지만 메뉴에 나옵니다(디스코드 제한).
-#   · 검색어를 바꾸면 결과가 확 달라집니다. 믹스·메들리가 섞여 들어오면 검색어부터 손보세요.
+#   · 목록은 블록 표기(- 로 시작하는 줄)로 적어주세요. [a, b] 꼴로 적어도 읽히지만,
+#     대시보드에서 저장할 때 서식이 조금 바뀝니다.
+
+# ── 소스 ─────────────────────────────────────────────────────────────────────
+#
+# 장르마다 소스를 여럿 둘 수 있습니다. 뽑을 때 weight 비율로 골라 쓰고,
+# 한 소스가 빈손이면 다음 소스로 넘어갑니다.
+#
+#   weight : 고를 확률. 적지 않으면 1. 키워드는 품질이 제일 낮으니 낮게 주는 편이 좋습니다.
+#
+# type: keyword                                 (키 필요 없음)
+#   유튜브에 검색어를 던져 결과를 씁니다. 예전 방식이라 품질이 가장 낮습니다.
+#   keywords : (필수) 검색어 후보. 뽑을 때마다 무작위로 하나.
+#
+# type: lastfm                                  (.env 의 LASTFM_API_KEY 필요)
+#   Last.fm 태그로 곡 이름을 받아 유튜브에서 찾습니다.
+#   tags  : (필수) 태그 목록. 태그마다 품질 편차가 크니 여럿 적는 편이 안전합니다.
+#   pages : 몇 쪽까지 퍼 올릴지(기본 5). 깊은 쪽도 품질이 떨어지지 않습니다.
+#
+# type: lbradio                                 (.env 의 LISTENBRAINZ_TOKEN 필요)
+#   ListenBrainz가 짜 주는 50곡을 받아 유튜브에서 찾습니다. **곡 길이도 같이 와서 가장 정확합니다.**
+#   tags   : (필수, prompt 를 적었다면 생략 가능) 장르 태그. MusicBrainz 공식 장르 이름을 씁니다.
+#   mode   : easy(기본) · medium · hard. 흔한 곡에서 숨은 곡으로 가는 손잡이입니다.
+#   prompt : 날것 그대로 쓰고 싶을 때만. 예) "tag:(jazz,funk)::or" · "artist:(Miles Davis)"
+#
+# type: animethemes                             (키 필요 없음)
+#   애니 주제가 전문 DB. 음원을 직접 받아 오므로 유튜브에서 못 찾아도 틀 수 있습니다.
+#   (유튜브에 풀버전이 있으면 그쪽을 먼저 쓰고, 없으면 TV 사이즈 음원을 씁니다.)
+#   themeType   : OP 또는 ED. 안 적으면 둘 다.
+#   sequence    : 몇 번째 주제가인지. 1이면 OP1·ED1만.
+#   yearFrom / yearTo : 방영 연도 범위.
+#   season      : Winter · Spring · Summer · Fall 중에서.
+#   mediaFormat : TV · Movie · OVA 등. 극장판을 빼고 싶을 때.
+#
+# type: vocadb / utaitedb / touhoudb             (키 필요 없음)
+#   보컬로이드 · 우타이테 · 동방 곡 DB. **유튜브 주소를 직접 주므로 검색이 필요 없습니다.**
+#   tags        : 장르 태그(rock · pop · ballad · EDM · technopop · metal · 和風 …).
+#   excludeTags : 빼고 싶은 태그.
+#   songTypes   : 기본은 Original(utaitedb만 Cover). Remix · Cover · Arrangement · Instrumental · Live 등.
+#   languages   : 노래 언어. **ISO 코드로 적습니다** — ja · en · ko · zh · es · ru.
+#   artistTypes : 보컬 라이브러리 종류. Vocaloid · UTAU · SynthesizerV · CeVIO · VOICEVOX · Voiceroid · Utaite …
+#   artists     : 특정 보컬만. 이름으로 적습니다. 예) [UNI]
+#   minScore    : 품질 바닥. 100이면 꽤 알려진 곡만 남습니다.
+#   minLength / maxLength : 곡 길이(초) 범위.
+#   minBpm / maxBpm       : BPM 범위.
+#   yearFrom / yearTo     : 발표 연도 범위.
+#   sort        : 기본 RatingScore. FavoritedTimes · PublishDate · AdditionDate 등.
+#
+# type: spotify                                 (스포티파이 자격증명 필요)
+#   url : (필수) 재생목록·앨범·아티스트 주소.
+#
+# type: youtube                                 (키 필요 없음)
+#   url : (필수) 재생목록 주소. **믹스(주소에 list=RD…)는 쓸 수 없습니다** — 끝이 없어서입니다.
 
 # 전역 기본값. 장르에 같은 항목을 적으면 그 장르에서만 덮어씁니다.
 defaults:
@@ -24,6 +75,7 @@ defaults:
   minDurationSec: 60
   maxDurationSec: 3600
   # 제목에 이 말이 들어가면 고르지 않습니다. 대소문자는 가리지 않습니다.
+  # (유튜브에서 찾아온 곡에만 걸립니다 — 출처가 확실한 소스는 거치지 않습니다.)
   blockedKeywords:
     - best of
     - tutorial
@@ -66,116 +118,269 @@ defaults:
     - 플리
     - 믹스
     - 메들리
+
 # 선택 메뉴에 나오는 장르들.
 genres:
   팝:
     emoji: 🎤
-    keywords:
-      - best pop music
-      - top pop songs
-      - pop hits official
-      - pop music 2020
-      - pop music 2021
-      - pop music 2022
-      - pop music 2023
-      - pop music 2024
-      - pop music 2025
-      - pop music 2026
+    sources:
+      - type: lbradio
+        tags:
+          - pop
+        weight: 3
+      - type: lastfm
+        tags:
+          - pop
+          - dance pop
+        weight: 2
+      - type: keyword
+        keywords:
+          - best pop music
+          - pop hits official
+
   록:
     emoji: 🎸
-    keywords:
-      - best rock music
-      - classic rock hits
-      - rock music official
-      - rock songs 2025
-      - rock songs 2026
+    sources:
+      - type: lbradio
+        tags:
+          - rock
+          - classic rock
+        weight: 3
+      - type: lastfm
+        tags:
+          - rock
+          - classic rock
+          - alternative rock
+        weight: 2
+      - type: keyword
+        keywords:
+          - best rock music
+          - classic rock hits
+
   힙합:
     emoji: 🎧
-    keywords:
-      - best rap music
-      - hip hop music
-      - rap songs official
-      - hip hop 2025
-      - hip hop 2026
+    sources:
+      - type: lbradio
+        tags:
+          - hip hop
+          - rap
+        weight: 3
+      - type: lastfm
+        tags:
+          - hip hop
+          - rap
+        weight: 2
+      - type: keyword
+        keywords:
+          - best rap music
+          - hip hop music
+
   일렉트로닉:
     emoji: 🎛️
-    keywords:
-      - best edm
-      - edm music
-      - electronic dance music
-      - house music official
+    sources:
+      - type: lbradio
+        tags:
+          - electronic
+          - techno
+        weight: 3
+      - type: lastfm
+        tags:
+          - electronic
+          - edm
+          - techno
+        weight: 2
+      - type: keyword
+        keywords:
+          - best edm
+          - electronic dance music
+
   재즈:
     emoji: 🎷
-    keywords:
-      - best jazz
-      - jazz music
-      - jazz standards
-      - smooth jazz official
+    sources:
+      - type: lbradio
+        tags:
+          - jazz
+          - bebop
+        mode: medium
+        weight: 3
+      - type: lastfm
+        tags:
+          - jazz
+          - bebop
+        weight: 2
+      - type: keyword
+        keywords:
+          - best jazz
+          - jazz standards
+
   클래식:
     emoji: 🎻
-    keywords:
-      - best classical
-      - classical music
-      - classical piano
-      - orchestra music
+    sources:
+      - type: lbradio
+        tags:
+          - classical
+        weight: 3
+      # orchestral·piano 태그는 엉뚱한 곡이 섞입니다 — classical 쪽이 정확합니다.
+      - type: lastfm
+        tags:
+          - classical
+          - classical music
+        weight: 2
+      - type: keyword
+        keywords:
+          - best classical
+          - classical piano
+
   메탈:
     emoji: 🤘
-    keywords:
-      - best metal
-      - metal music official
-      - heavy metal songs
-      - metal 2025
-      - metal 2026
+    sources:
+      - type: lbradio
+        tags:
+          - metal
+          - heavy metal
+        weight: 3
+      - type: lastfm
+        tags:
+          - metal
+          - death metal
+        weight: 2
+      - type: keyword
+        keywords:
+          - best metal
+          - heavy metal songs
+
   컨트리:
     emoji: 🤠
-    keywords:
-      - best country music
-      - country music official
-      - country songs 2025
-      - country songs 2026
+    sources:
+      - type: lbradio
+        tags:
+          - country
+        weight: 3
+      - type: lastfm
+        tags:
+          - country
+          - bluegrass
+        weight: 2
+      - type: keyword
+        keywords:
+          - best country music
+          - country music official
+
   R&B:
     emoji: 💃
-    keywords:
-      - best rnb
-      - soul music
-      - r&b music official
-      - rnb songs 2025
-      - rnb songs 2026
+    sources:
+      - type: lbradio
+        tags:
+          - rnb
+          - soul
+        weight: 3
+      - type: lastfm
+        tags:
+          - rnb
+          - soul
+        weight: 2
+      - type: keyword
+        keywords:
+          - best rnb
+          - soul music
+
   인디:
     emoji: 🌿
-    keywords:
-      - alternative music
-      - best indie
-      - indie music official
-      - indie songs 2025
-      - indie songs 2026
+    sources:
+      - type: lbradio
+        tags:
+          - indie
+          - indie rock
+        weight: 3
+      - type: lastfm
+        tags:
+          - indie
+          - indie rock
+          - indie pop
+        weight: 2
+      - type: keyword
+        keywords:
+          - best indie
+          - indie music official
+
   K-POP:
     emoji: 🇰🇷
-    keywords:
-      - best kpop
-      - kpop official mv
-      - korean music official
-      - kpop songs 2025
-      - kpop songs 2026
+    sources:
+      - type: lbradio
+        tags:
+          - k-pop
+        weight: 3
+      - type: lastfm
+        tags:
+          - k-pop
+          - korean
+        weight: 2
+      - type: keyword
+        keywords:
+          - best kpop
+          - kpop official mv
+
   애니메:
     emoji: 🎌
-    keywords:
-      - アニメ オープニング 公式
-      - アニメ オープニング 公式 2026
-      - アニソン 公式
-      - 2026 アニソン
+    sources:
+      - type: animethemes
+        weight: 3
+      - type: lbradio
+        tags:
+          - anime
+        weight: 2
+      - type: lastfm
+        tags:
+          - anime
+          - j-pop
+          - japanese
+      - type: keyword
+        keywords:
+          - アニソン 公式
+          - アニメ オープニング 公式
+
+  보컬로이드:
+    emoji: 🎹
+    sources:
+      - type: vocadb
+        minScore: 50
+
+  동방:
+    emoji: ⛩️
+    sources:
+      - type: touhoudb
+
   로파이:
     emoji: 🌙
-    keywords:
-      - lofi hip hop music
-      - lofi beats official
-      - chill lofi music
-      - best lofi
+    # 로파이는 아티스트가 유튜브에 곡을 거의 안 올려서, 이름으로 찾는 길이 잘 안 통합니다.
+    sources:
+      - type: lastfm
+        tags:
+          - lofi hip hop
+          - chillhop
+        weight: 2
+      - type: keyword
+        keywords:
+          - lofi hip hop music
+          - lofi beats official
+
   랜덤:
     emoji: 🎲
-    keywords:
-      - best music
-      - music official video
-      - music video official
-      - top songs 2025
-      - top songs 2026
+    sources:
+      - type: lbradio
+        tags:
+          - pop
+          - rock
+          - electronic
+          - hip hop
+        weight: 3
+      - type: lastfm
+        tags:
+          - pop
+          - rock
+          - electronic
+        weight: 2
+      - type: keyword
+        keywords:
+          - music official video
+          - top songs 2026

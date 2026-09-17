@@ -291,7 +291,7 @@ const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 
 before(() => {
   configData._setConfigDir(CONFIG_DIR);
-  fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    keywords:", "      - pop music", ""].join("\n"));
+  fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop music", ""].join("\n"));
 });
 
 after(() => {
@@ -314,12 +314,12 @@ test("설정: 모르는 이름은 404", async () => {
 test("설정: 읽으면 현재 값이 온다", async () => {
   const { status, json } = await req("GET", "/api/admin/config/genres");
   assert.equal(status, 200);
-  assert.deepEqual(json.data.genres.팝.keywords, ["pop music"]);
+  assert.deepEqual(json.data.genres.팝.sources, [{ type: "keyword", keywords: ["pop music"] }]);
 });
 
 test("설정: 저장하면 값이 바뀌고 주석은 남는다", async () => {
   const { json: before } = await req("GET", "/api/admin/config/genres");
-  before.data.genres.팝.keywords = ["pop music", "top pop"];
+  before.data.genres.팝.sources[0].keywords = ["pop music", "top pop"];
 
   const { status } = await req("PUT", "/api/admin/config/genres", { data: before.data });
   assert.equal(status, 200);
@@ -331,7 +331,7 @@ test("설정: 저장하면 값이 바뀌고 주석은 남는다", async () => {
 
 // 깨진 값을 파일에 남기느니 거절한다 — 봇이 그 파일로 돈다.
 test("설정: 쓸 수 없는 값은 저장 전에 거절한다", async () => {
-  const bad = { defaults: {}, genres: { true: { keywords: [] } } };
+  const bad = { defaults: {}, genres: { true: { sources: [{ type: "keyword", keywords: [] }] } } };
   const { status, json } = await req("PUT", "/api/admin/config/genres", { data: bad });
   assert.equal(status, 400);
   assert.ok(json.problems.length >= 2, "무엇이 문제인지 모두 알려준다");
