@@ -36,7 +36,7 @@
 #   ListenBrainz가 짜 주는 50곡을 받아 유튜브에서 찾습니다.
 #   tags   : (필수, prompt 를 적었다면 생략 가능) 장르 태그. MusicBrainz 공식 장르명을 씁니다.
 #   mode   : easy(기본) · medium · hard.
-#            **이름과 반대로, hard 로 갈수록 더 유명한 곡이 나옵니다.** (실측, 청취수 중앙값)
+#            hard 로 갈수록 더 유명한 곡이 나옵니다.
 #                       easy    medium      hard
 #              jazz     2,713    9,727    46,671
 #              rock     7,256   61,593   133,740
@@ -44,6 +44,15 @@
 #              metal    4,603   19,869    91,837
 #            easy 쪽은 그 장르를 깊게 파는 사람이 아는 곡이 나옵니다(재즈 easy → Kenny Wheeler,
 #            록 easy → Urgehal). 아는 곡 위주로 틀고 싶으면 hard 를 쓰세요.
+#
+#            **세 모드는 서로 다른 구간이라 곡이 겹치지 않습니다.** easy 로 두면 hard 에 나올
+#            곡은 아예 안 나옵니다(각 100곡씩 뽑아 견줬을 때 모드 사이 겹침 0곡. 반면 같은 모드를
+#            두 번 뽑으면 몇 곡씩 겹칩니다 — 풀이 작아서가 아니라 구간이 갈린 것입니다).
+#            재즈 청취수 범위: easy 776~8천 · medium 최대 2만8천 · hard 2만2천~81만
+#
+#            섞고 싶으면 모드가 다른 lbradio 를 여럿 두세요. 예) 아는 곡 위주에 가끔 숨은 곡:
+#              - { type: lbradio, tags: [jazz], mode: hard, weight: 3 }
+#              - { type: lbradio, tags: [jazz], mode: easy, weight: 1 }
 #   prompt : 날것 그대로 쓰고 싶을 때만. 예) "tag:(jazz,funk)::or" · "artist:(Miles Davis)"
 #
 # type: animethemes                    (키 필요 없음)
@@ -67,27 +76,24 @@
 #                           표본 300편 기준 비중: TV 71% · Movie 10% · OVA 8% · TV Short 6% · ONA 4% · Special 1%
 #
 # type: vocadb / utaitedb / touhoudb    (키 필요 없음)
-#   보컬로이드, 우타이테, 동방 곡 DB.
+#   보컬로이드, 우타이테, 동방 곡 DB. 일부 설정값이 복잡합니다. 해당 사이트를 참고하며 설정하는걸 권합니다.
 #   tags                  : 장르 태그(rock, pop, ballad, EDM, technopop, metal, 和風 …).
 #   excludeTags           : 제외하고 싶은 태그.
 #   songTypes             : 곡 종류. **웹은 일본어 버튼이지만 여기는 영어로 적습니다.**
-#                             指定なし           → Unspecified
-#                             オリジナル曲        → Original
-#                             再編曲            → Rearrangement   (touhoudb 에만 있습니다)
-#                             カバー曲           → Cover
-#                             編曲             → Arrangement     (touhoudb 에만 있습니다)
-#                             リマスター          → Remaster
-#                             ショートバージョン     → ShortVersion    (touhoudb 에만 있습니다)
-#                             インストゥルメンタル    → Instrumental
-#                             音楽PV           → MusicPV
-#                             ドラマ            → DramaPV
-#                             その他            → Other
-#                           웹 버튼은 사이트마다 다릅니다. vocadb·utaitedb 에는 위 목록 대신
-#                           Remix(리믹스)·Mashup(매시업)이 있고, utaitedb 에는 Live 도 있습니다.
-#                           사이트마다 기본값이 다릅니다. 미 기재시 기본값을 따릅니다.
-#                             vocadb   → Original
-#                             utaitedb → Cover
-#                             touhoudb → Arrangement (Original은 ZUN의 게임 BGM이 잡힙니다. 약 3천여개.)
+#                             指定なし        → Unspecified
+#                             オリジナル曲    → Original        (vocadb 기본값)
+#                             再編曲          → Rearrangement   (touhoudb에만 있습니다)
+#                             カバー曲        → Cover           (utaitedb 기본값)
+#                             編曲            → Arrangement     (touhoudb 기본값. touhoudb에만 있습니다)
+#                             リマスター        → Remaster
+#                             ショートバージョン  → ShortVersion (touhoudb에만 있습니다)
+#                             インストゥルメンタル → Instrumental
+#                             音楽PV             → MusicPV
+#                             ドラマ             → DramaPV
+#                             その他             → Other
+#                             リミックス         → Remix        (vocadb, utaitedb에만 있습니다)
+#                             マッシュアップ     → Mashup       (vocadb, utaitedb에만 있습니다)
+#                             ライブ収録         → Live         (utaitedb에만 있습니다)
 #   languages             : 노래 언어. ISO 코드로 적습니다. (ja, en, ko, zh, es, ru)
 #   artistTypes           : 라이브러리 분류. Vocaloid, UTAU, SynthesizerV, CeVIO, VOICEVOX, Voiceroid, Utaite …
 #   artists               : 특정 라이브러리만. 이름으로 적습니다. 예) [UNI]
