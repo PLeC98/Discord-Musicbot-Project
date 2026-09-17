@@ -23,56 +23,69 @@
 #
 #   weight : 고를 확률. 적지 않으면 1. 키워드는 품질이 제일 낮으니 낮게 주는 편이 좋습니다.
 #
-# type: keyword                         (키 필요 없음)
+# type: keyword                        (키 필요 없음)
 #   유튜브에 검색어를 던져 결과를 씁니다. 예전 방식이라 품질이 가장 낮습니다.
 #   keywords : (필수) 검색어 후보. 뽑을 때마다 무작위로 하나.
 #
-# type: lastfm                          (.env 의 LASTFM_API_KEY 필요)
+# type: lastfm                         (.env 의 LASTFM_API_KEY 필요)
 #   Last.fm 태그로 곡 이름을 받아 유튜브에서 찾습니다.
 #   tags  : (필수) 태그 목록. 태그마다 품질 편차가 크니 여럿 적는 편이 안전합니다.
 #   pages : 몇 쪽까지 퍼 올릴지(기본 5). 깊은 쪽도 품질이 떨어지지 않습니다.
 #
-# type: lbradio                         (.env 의 LISTENBRAINZ_TOKEN 필요)
+# type: lbradio                        (.env 의 LISTENBRAINZ_TOKEN 필요)
 #   ListenBrainz가 짜 주는 50곡을 받아 유튜브에서 찾습니다. **곡 길이도 같이 와서 가장 정확합니다.**
 #   tags   : (필수, prompt 를 적었다면 생략 가능) 장르 태그. MusicBrainz 공식 장르 이름을 씁니다.
 #   mode   : easy(기본) · medium · hard. 흔한 곡에서 숨은 곡으로 가는 손잡이입니다.
 #   prompt : 날것 그대로 쓰고 싶을 때만. 예) "tag:(jazz,funk)::or" · "artist:(Miles Davis)"
 #
-# type: animethemes                     (키 필요 없음)
+# type: animethemes                    (키 필요 없음)
 #   애니 주제가 전문 DB. TV Size 음원을 직접 제공합니다.
 #   (유튜브에서 풀버전을 검색 후 적절한게 있으면 그쪽을 쓰고, 없으면 해당 DB의 TV Size 음원을 씁니다.)
-#   themeType         : OP 또는 ED. 안 적으면 둘 다.
-#   sequence          : 몇 번째 주제가인지. 1이면 OP1·ED1만.
-#   yearFrom / yearTo : 방영 연도 범위.
-#   season            : 특정 분기만(연도와 무관). Winter, Spring, Summer, Fall 중에서 고릅니다.
-#                       예) [Fall] 이면 어느 해든 가을 방영만.
+#   themeType             : OP 또는 ED. 안 적으면 둘 다.
+#   sequence              : 몇 번째 주제가인지. 1이면 OP1·ED1만.
+#   yearFrom   / yearTo   : 방영 연도 범위.
+#   season                : 특정 분기만(연도와 무관). Winter, Spring, Summer, Fall 중에서 고릅니다.
+#                           예) [Fall] 이면 어느 해든 가을 방영만.
 #   seasonFrom / seasonTo : 양 끝 분기. yearFrom / yearTo 와 짝으로 씁니다.
-#                       "2020년 가을부터 2024년 봄까지"처럼 분기 단위로 자를 때 쓰세요.
-#                         yearFrom: 2020
-#                         seasonFrom: Fall
-#                         yearTo: 2024
-#                         seasonTo: Spring
-#                       (seasonFrom 을 비우면 그 해 겨울부터, seasonTo 를 비우면 그 해 가을까지)
-#   mediaFormat       : TV, Movie, OVA 등. 극장판을 빼고 싶을 때.
+#                           "2020년 가을부터 2024년 봄까지"처럼 분기 단위로 자를 때 쓰세요.
+#                             yearFrom: 2020
+#                             seasonFrom: Fall
+#                             yearTo: 2024
+#                             seasonTo: Spring
+#                           (seasonFrom 을 비우면 그 해 겨울부터, seasonTo 를 비우면 그 해 가을까지)
+#   mediaFormat           : TV, Movie, OVA 등. 극장판을 빼고 싶을 때.
 #
-# type: vocadb / utaitedb / touhoudb     (키 필요 없음)
+# type: vocadb / utaitedb / touhoudb    (키 필요 없음)
 #   보컬로이드, 우타이테, 동방 곡 DB.
-#   tags        : 장르 태그(rock, pop, ballad, EDM, technopop, metal, 和風 …).
-#   excludeTags : 제외하고 싶은 태그.
-#   songTypes   : 기본은 Original(utaitedb만 Cover). Remix, Cover, Arrangement, Instrumental, Live 등.
-#   languages   : 노래 언어. **ISO 코드로 적습니다** — ja, en, ko, zh, es, ru.
-#   artistTypes : 라이브러리 분류. Vocaloid, UTAU, SynthesizerV, CeVIO, VOICEVOX, Voiceroid, Utaite …
-#   artists     : 특정 라이브러리만. 이름으로 적습니다. 예) [UNI]
-#   minScore    : 품질 바닥. 100이면 꽤 알려진 곡만 남습니다.
+#   tags                  : 장르 태그(rock, pop, ballad, EDM, technopop, metal, 和風 …).
+#   excludeTags           : 제외하고 싶은 태그.
+#   songTypes             : Original, Cover, Arrangement, Remix, Instrumental, Live 등.
+#                           사이트마다 "본체"가 달라 기본값이 다릅니다. 웬만하면 그대로 두세요.
+#                             vocadb   → Original    (보컬로이드 오리지널 곡)
+#                             utaitedb → Cover       (우타이테는 남의 곡을 부르는 사람들입니다)
+#                             touhoudb → Arrangement (동방은 어레인지 문화입니다.
+#                                                     Original은 ZUN의 게임 BGM 3천여 곡뿐입니다)
+#   languages             : 노래 언어. ISO 코드로 적습니다. (ja, en, ko, zh, es, ru)
+#   artistTypes           : 라이브러리 분류. Vocaloid, UTAU, SynthesizerV, CeVIO, VOICEVOX, Voiceroid, Utaite …
+#   artists               : 특정 라이브러리만. 이름으로 적습니다. 예) [UNI]
+#   minScore              : 품질 바닥(웹의 評価 점수. Favorite×3 + Like×2 쯤 됩니다).
+#                           **사이트마다 척도가 완전히 다릅니다.** 같은 50이라도 남는 곡이 이만큼 다릅니다:
+#                                         vocadb   utaitedb   touhoudb
+#                             (안 적음)    297,703    25,054     46,557
+#                             5             69,383       784      1,509
+#                             10            38,357       168        212
+#                             50             7,082         1          7
+#                           vocadb는 1위가 3694점(ローリンガール)이지만 나머지 둘은 1위가 80점대입니다.
+#                           utaitedb·touhoudb 에 50 같은 값을 넣으면 곡이 한두 개만 남습니다.
 #   minLength / maxLength : 곡 길이(초) 범위.
 #   minBpm    / maxBpm    : BPM 범위.
 #   yearFrom  / yearTo    : 발표 연도 범위.
-#   sort        : 기본 RatingScore. FavoritedTimes, PublishDate, AdditionDate 등.
+#   sort                  : 기본 RatingScore. FavoritedTimes, PublishDate, AdditionDate 등.
 #
-# type: spotify                                 (스포티파이 자격증명 필요)
+# type: spotify                           (스포티파이 자격증명 필요)
 #   url : (필수) 재생목록·앨범·아티스트 주소.
 #
-# type: youtube                                 (키 필요 없음)
+# type: youtube                           (키 필요 없음)
 #   url : (필수) 재생목록 주소. 믹스(주소에 list=RD…)는 곡 수에 끝이 없어 사용할 수 없습니다.
 
 # ── 설정 ─────────────────────────────────────────────────────────────────────
@@ -357,7 +370,11 @@ genres:
   동방:
     emoji: ⛩️
     sources:
+      # 어레인지 46,557곡이 통째로 후보가 되면 아는 곡이 거의 안 나옵니다.
+      # 5점만 걸어도 1,509곡으로 좁혀지고 Bad Apple!! 같은 것이 올라옵니다.
+      # (보컬로이드의 50과 같은 자리입니다 — 사이트마다 척도가 다릅니다)
       - type: touhoudb
+        minScore: 5
 
   로파이:
     emoji: 🌙

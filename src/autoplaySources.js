@@ -187,9 +187,12 @@ async function themesByAnime(source) {
 const VOCA_HOSTS = { vocadb: "vocadb.net", utaitedb: "utaitedb.net", touhoudb: "touhoudb.com" };
 const VOCA_PAGE = 50;
 
-// 기본 곡 종류가 사이트마다 다르다 — **우타이테는 남의 곡을 부르는 사람들**이라 Original로 받으면
-// 정작 우타이테가 아니라 보컬로이드 원곡이 온다(MARETU feat. 初音ミク 같은 것).
-const VOCA_DEFAULT_TYPES = { utaitedb: ["Cover"] };
+// 기본 곡 종류가 사이트마다 다르다. 셋 다 같은 소프트웨어지만 무엇이 "본체"인지가 다르다.
+//   utaitedb — **우타이테는 남의 곡을 부르는 사람들**이다. Original로 받으면 정작 우타이테가
+//              아니라 보컬로이드 원곡이 온다(MARETU feat. 初音ミク 같은 것).
+//   touhoudb — 동방은 **어레인지 문화**다. Original은 ZUN의 게임 BGM 3,190곡뿐이고,
+//              사람들이 듣는 것은 Arrangement 46,557곡 쪽이다(Bad Apple!! · チルノのパーフェクトさんすう教室).
+const VOCA_DEFAULT_TYPES = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
 async function vocaFamily(source) {
   const base = `https://${VOCA_HOSTS[source.type]}/api/songs`;
