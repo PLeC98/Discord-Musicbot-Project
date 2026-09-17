@@ -26,7 +26,7 @@
 
       <div class="mt-4">
         <span :class="labelCls">차단어 - 제목에 해당 단어가 포함되면 선택하지 않습니다</span>
-        <ChipInput v-model="draft.defaults.blockedKeywords" placeholder="차단할 말을 적고 Enter" />
+        <ChipInput v-model="draft.defaults.blockedKeywords" lowercase placeholder="차단할 말을 적고 Enter" />
       </div>
     </BaseCard>
 
@@ -53,8 +53,8 @@
         }"
         :draggable="dragReady"
         @dragstart="onDragStart($event, i)"
-        @dragover.prevent="onDragOver($event, i)"
-        @drop.prevent="onDrop"
+        @dragover="onDragOver($event, i)"
+        @drop="onDrop"
         @dragend="onDragEnd"
       >
         <div class="flex items-center gap-2 mb-2">
@@ -176,12 +176,22 @@ function onDragStart(e, i) {
   e.dataTransfer.effectAllowed = "move";
 }
 
+// 카드가 draggable이 아니어도 dragover·drop은 지나가는 모든 드래그에 반응한다.
+// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다 — 우리 것만 받는다.
+function ours() {
+  return draggedIndex.value != null;
+}
+
 function onDragOver(e, i) {
+  if (!ours()) return;
+  e.preventDefault(); // 여기에 놓을 수 있다고 알린다
   const rect = e.currentTarget.getBoundingClientRect();
   dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
 }
 
-function onDrop() {
+function onDrop(e) {
+  if (!ours()) return;
+  e.preventDefault();
   const from = draggedIndex.value;
   const to = dragOverIndex.value;
   if (from == null || to == null) return;
@@ -202,7 +212,10 @@ function addRow() {
 }
 
 function apply(data) {
-  draft.value = { defaults: { prefetchCount: 1, minDurationSec: 30, maxDurationSec: null, blockedKeywords: [], ...(data.defaults || {}) }, genres: data.genres || {} };
+  const defaults = { prefetchCount: 1, minDurationSec: 30, maxDurationSec: null, blockedKeywords: [], ...(data.defaults || {}) };
+  // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다 — 대문자로 적어 두면 아무것도 못 거른다
+  defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
+  draft.value = { defaults, genres: data.genres || {} };
   rows.value = toRows(data.genres);
   snapshot.value = JSON.stringify(payload.value);
 }

@@ -22,8 +22,9 @@ defaults:
   prefetchCount: 1
   # 고를 곡의 길이 제한(초). maxDurationSec이 비어 있으면 상한 없음.
   minDurationSec: 30
-  maxDurationSec: null
-  # 제목에 이 말이 들어가면 고르지 않습니다(소문자로 비교).
+  maxDurationSec: 3600
+  # 제목에 이 말이 들어가면 고르지 않습니다. 대소문자는 가리지 않습니다.
+  # (대시보드에서 고치면 소문자로 적힙니다.)
   blockedKeywords:
     - tutorial
     - lesson

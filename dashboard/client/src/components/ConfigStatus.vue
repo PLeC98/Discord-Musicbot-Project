@@ -40,8 +40,8 @@
         }"
         :draggable="dragReady"
         @dragstart="onDragStart($event, i)"
-        @dragover.prevent="onDragOver($event, i)"
-        @drop.prevent="onDrop"
+        @dragover="onDragOver($event, i)"
+        @drop="onDrop"
         @dragend="onDragEnd"
       >
         <div class="flex items-center gap-2 mb-2">
@@ -211,12 +211,22 @@ function onDragStart(e, i) {
   e.dataTransfer.effectAllowed = "move";
 }
 
+// 카드가 draggable이 아니어도 dragover·drop은 지나가는 모든 드래그에 반응한다.
+// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다 — 우리 것만 받는다.
+function ours() {
+  return draggedIndex.value != null;
+}
+
 function onDragOver(e, i) {
+  if (!ours()) return;
+  e.preventDefault(); // 여기에 놓을 수 있다고 알린다
   const rect = e.currentTarget.getBoundingClientRect();
   dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
 }
 
-function onDrop() {
+function onDrop(e) {
+  if (!ours()) return;
+  e.preventDefault();
   const from = draggedIndex.value;
   const to = dragOverIndex.value;
   if (from == null || to == null) return;

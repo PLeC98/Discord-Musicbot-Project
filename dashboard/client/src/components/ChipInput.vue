@@ -24,6 +24,8 @@ import Icon from "./BaseIcon.vue";
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
   placeholder: { type: String, default: "" },
+  // 차단어처럼 대소문자를 가리지 않고 견주는 자리 — 적히는 값 자체를 낮춰 둔다
+  lowercase: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:modelValue"]);
 
@@ -32,8 +34,10 @@ const editing = ref(null);
 const draft = ref("");
 const editBox = useTemplateRef("editBox");
 
+const normalize = (text) => (props.lowercase ? text.trim().toLowerCase() : text.trim());
+
 function commit() {
-  const value = entry.value.trim();
+  const value = normalize(entry.value);
   entry.value = "";
   if (!value || props.modelValue.includes(value)) return; // 같은 것을 두 번 넣을 이유가 없다
   emit("update:modelValue", [...props.modelValue, value]);
@@ -60,7 +64,7 @@ function commitEdit() {
   if (i == null) return;
   editing.value = null;
 
-  const value = draft.value.trim();
+  const value = normalize(draft.value);
   // 비우면 지운 것으로 본다. 다른 칩과 같아지면 합쳐질 뿐이므로 그것도 지운다.
   if (!value || props.modelValue.some((item, at) => at !== i && item === value)) return removeAt(i);
   if (value === props.modelValue[i]) return;
