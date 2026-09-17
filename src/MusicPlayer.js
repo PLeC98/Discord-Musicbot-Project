@@ -7,6 +7,7 @@ const clog = require("./logger").child({ category: "control" });
 const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../config");
+const autoplayFilter = require("./autoplayFilter");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./TrackResolver");
 const SponsorBlock = require("./SponsorBlock");
@@ -1461,11 +1462,9 @@ class MusicPlayer {
       const cfg = this._autoplayConfig();
       const keywords = cfg?.keywords;
       if (!keywords) return null;
-      const minSec = Number(cfg.minDurationSec ?? 0);
-      const maxSec = cfg.maxDurationSec == null ? Infinity : Number(cfg.maxDurationSec);
-      // 제목을 소문자로 낮춰 견주므로 차단어도 낮춰 둔다 — 안 그러면 "Playlist"처럼 대문자가 섞인
-      // 차단어가 아무것도 못 거르면서 걸러지는 척한다.
-      const blockedKeywords = (cfg.blockedKeywords || []).map((keyword) => String(keyword).toLowerCase());
+      const limits = autoplayFilter.prepare(cfg);
+      const minSec = limits.minSec;
+      const maxSec = limits.maxSec;
       const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
 
       // 임의 트랙을 YouTube에서 검색
@@ -1477,26 +1476,9 @@ class MusicPlayer {
         return null;
       }
 
-      // 비음악 콘텐츠 필터링
-      const filteredResults = results.filter((track) => {
-        // 길이가 없으면 건너뜀
-        if (!track.duration) return false;
-
-        // 길이 제한 — config/genres.yaml에서 장르별로 정한다(minDurationSec·maxDurationSec)
-        if (track.duration < minSec || track.duration > maxSec) return false;
-
-        // 제목에 차단어가 들어갔는지 — 목록은 config/genres.yaml의 defaults.blockedKeywords
-        const title = (track.title || "").toLowerCase();
-        const hasBlockedKeyword = blockedKeywords.some((keyword) => title.includes(keyword));
-        if (hasBlockedKeyword) return false;
-
-        // 재생목록처럼 보이는 콘텐츠 필터링 (믹스와 모음은 이모지나 괄호가 많은 경우가 잦음)
-        const emojiCount = (title.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
-        const bracketCount = (title.match(/[[\]【】]/g) || []).length;
-        if (emojiCount > 3 || bracketCount > 4) return false;
-
-        return true;
-      });
+      // 무엇이 왜 떨어지는지는 src/autoplayFilter.js 한 곳에 모아 두었다 —
+      // 실측 도구가 같은 코드를 지나야 규칙을 고칠 때 잰 것이 어긋나지 않는다.
+      const filteredResults = results.filter((track) => autoplayFilter.judge(track, limits).ok);
 
       if (filteredResults.length === 0) {
         // 다른 키워드로 다시 시도

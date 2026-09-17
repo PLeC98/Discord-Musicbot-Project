@@ -21,7 +21,7 @@ defaults:
   # 미리 뽑아 대기열에 둘 곡 수. 사전 캐싱 수와는 무관합니다.
   prefetchCount: 1
   # 고를 곡의 길이 제한(초). maxDurationSec이 비어 있으면 상한 없음.
-  minDurationSec: 30
+  minDurationSec: 60
   maxDurationSec: 3600
   # 제목에 이 말이 들어가면 고르지 않습니다. 대소문자는 가리지 않습니다.
   blockedKeywords:
@@ -56,7 +56,6 @@ defaults:
     - asmr
     - story
     - audiobook
-    - mix |
     - compilation
     - mix
     - メドレー
@@ -65,6 +64,10 @@ defaults:
     - playlist
     - mega hits
     - billboard top
+    - 플레이리스트
+    - 플리
+    - 믹스
+    - 메들리
 # 선택 메뉴에 나오는 장르들.
 genres:
   팝:

@@ -12,7 +12,7 @@
         <!-- 디스코드 입력창처럼 칸 오른쪽 끝에. 고른 이모지는 커서 자리에 끼워 넣는다. -->
         <EmojiPicker class="absolute! right-1.5 top-1/2 -translate-y-1/2" @pick="insert(message, $event)">
           <template #default="{ toggle }">
-            <button type="button" :class="emojiBtn" v-tooltip="'이모지 넣기'" @click="toggle">
+            <button type="button" :class="emojiBtn" v-tooltip="'이모지'" @click="toggle">
               <Twemoji char="🙂" :size="17" />
             </button>
           </template>
