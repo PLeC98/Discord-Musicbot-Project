@@ -2,12 +2,17 @@
 
 // 자동재생 소스 — 설정 한 줄을 곡 목록으로 바꾼다. 부르는 곳이 다를 뿐 계약은 하나다.
 //
-//   { artist?, title, durationSec?, audioUrl?, youtubeUrl?, thumbnail?, sourceKey }
+//   { artist?, title, durationSec?, audioUrl?, youtubeUrl?, thumbnail?, sourceKey,
+//     sourceUrl?, platform? }
 //
 // 뒤의 처리는 **어느 칸이 찼는지가 정한다** — 유형을 따로 적어 두지 않는다.
 //   youtubeUrl 있음 → 그 영상을 튼다
 //   artist+title   → youtubeMatch로 찾는다 (durationSec이 있으면 길이 신호가 켜진다)
 //   audioUrl 있음  → 위가 안 되면 이것을 그대로 튼다
+//
+// `sourceUrl`·`platform`은 **곡이 어디 것인가**를 말한다. 이게 있으면 유튜브 영상은 소리를 대는
+// 곳일 뿐이고, 표시 이름과 캐시 장부의 칸은 출처 것이 된다(스포티파이와 같은 처지 — autoplayRoute 참고).
+// keyword·유튜브 재생목록은 영상 자체가 출처라 이 칸을 비워 둔다.
 //
 // 한 파일에 모은 까닭: 소스마다 20~40줄이고 지켜야 할 계약이 같다. 흩어 두면 계약이 안 보인다.
 
@@ -59,7 +64,15 @@ async function lastfm(source) {
   const page = 1 + rand(Math.max(1, Number(source.pages) || 5));
   const url = `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getTopTracks", tag, limit: 1000, page, api_key: key, format: "json" })}`;
   const list = (await getJson(url))?.tracks?.track || [];
-  return list.map((t) => ({ artist: t.artist?.name || "", title: t.name || "", sourceKey: t.url || `${t.artist?.name}|${t.name}` })).filter((t) => t.artist && t.title);
+  return list
+    .map((t) => ({
+      artist: t.artist?.name || "",
+      title: t.name || "",
+      sourceUrl: t.url || undefined, // Last.fm 곡 페이지가 곧 출처 주소다
+      platform: "lastfm",
+      sourceKey: t.url || `${t.artist?.name}|${t.name}`,
+    }))
+    .filter((t) => t.artist && t.title);
 }
 
 // ── lbradio ───────────────────────────────────────────────────────────────
@@ -78,6 +91,8 @@ async function lbradio(source) {
       title: t.title || "",
       // 200곡 중 196곡에 길이가 있었다. 없는 것은 정 유형으로 떨어져 필터를 탄다.
       durationSec: Number(t.duration) > 0 ? Math.round(Number(t.duration) / 1000) : undefined,
+      sourceUrl: t.identifier?.[0] || undefined, // MusicBrainz 녹음 주소
+      platform: "lbradio",
       sourceKey: String(t.identifier?.[0] || `${t.creator}|${t.title}`),
     }))
     .filter((t) => t.artist && t.title);
@@ -114,6 +129,8 @@ async function animethemes(source) {
       title: song.title,
       audioUrl: audio.link,
       thumbnail: (theme.anime?.images || []).find((i) => /large/i.test(i.facet))?.link || null,
+      sourceUrl: theme.anime?.slug ? `https://animethemes.moe/anime/${theme.anime.slug}` : undefined,
+      platform: "animethemes",
       sourceKey: `at:${song.id}`,
     });
   }
@@ -213,6 +230,8 @@ async function vocaFamily(source) {
       // 기본 응답에 들어 있다(100곡 중 빈 것 0개). 없으면 길이 제한에 걸려 통째로 떨어진다.
       durationSec: Number(song.lengthSeconds) || undefined,
       thumbnail: song.thumbUrl || null,
+      sourceUrl: `https://${VOCA_HOSTS[source.type]}/S/${song.id}`,
+      platform: source.type,
       sourceKey: `${source.type}:${song.id}`,
     });
   }
@@ -238,7 +257,7 @@ async function spotify(source) {
   const total = Number(head?.total) || 0;
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
   const part = await Spotify.getCollection(source.url, { offset, limit: PLAYLIST_PAGE });
-  return (part?.tracks || []).filter((t) => t.title && t.artist).map((t) => ({ artist: t.artist, title: t.title, durationSec: Number(t.duration) || undefined, thumbnail: t.thumbnail, sourceKey: t.url || `${t.artist}|${t.title}` }));
+  return (part?.tracks || []).filter((t) => t.title && t.artist).map((t) => ({ artist: t.artist, title: t.title, durationSec: Number(t.duration) || undefined, thumbnail: t.thumbnail, sourceUrl: t.url || undefined, platform: "spotify", sourceKey: t.url || `${t.artist}|${t.title}` }));
 }
 
 async function youtube(source) {

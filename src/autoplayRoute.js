@@ -62,21 +62,45 @@ function* byWeight(list) {
  *
  * **표시 이름은 소스 것을 앞세운다.** 유튜브 채널명은 아티스트가 아니라 올린 사람이라
  * 그대로 두면 `lcozzarelli — Sarah Vaughan - Fever`처럼 나온다. 우리가 "Sarah Vaughan의 Fever"를
- * 찾아서 고른 것이므로 아티스트는 소스가 안다. 소스가 이름을 모를 때(keyword·유튜브 재생목록)만
- * 영상 쪽을 쓴다.
+ * 찾아서 고른 것이므로 아티스트는 소스가 안다.
+ *
+ * 그런데 이름만 바꿔서는 안 된다. 트랙이 `platform: "youtube"`이고 주소가 영상 주소면
+ * **캐시 장부(track_lookup)의 그 영상 칸에 우리 이름이 덮인다** — 나중에 누가 그 영상을
+ * 직접 틀면 `resolveFromCache`가 우리가 써 둔 이름을 돌려준다. 게다가 TrackDownloader가
+ * 유튜브 트랙의 제목을 영상 제목으로 되돌려 놓는다.
+ *
+ * 스포티파이가 이미 같은 처지이고, 이 저장소는 그것을 이렇게 푼다 —
+ * **주소와 platform은 출처 것으로 두고, 영상은 `youtubeUrl`에, 소리는 `audioSourceKey`로 나눠 쓴다.**
+ * 그러면 장부에 칸이 따로 생기고 음원 파일은 하나만 받는다. 여기서도 그대로 따른다.
  */
-const fromYouTube = (video, cand) => ({
-  title: cand.title || video.title,
-  artist: cand.artist || video.channel || video.artist || "",
-  url: video.url,
-  duration: Number(video.durationSec || video.duration) || 0,
-  thumbnail: cand.thumbnail || video.thumbnail || null,
-  platform: "youtube",
-  type: "track",
-  id: video.id,
-});
+function fromYouTube(video, cand) {
+  const YouTube = require("./YouTube");
+  const videoId = video.id || YouTube.extractVideoId(video.url);
+  // 출처가 따로 있는 곡인가(Last.fm·LB Radio·VocaDB·AnimeThemes), 아니면 영상 자체가 출처인가(keyword·유튜브 재생목록)
+  const sourced = !!cand.sourceUrl;
 
-/** AnimeThemes가 준 음원 하나를 재생 가능한 트랙으로. */
+  return {
+    title: cand.title || video.title,
+    artist: cand.artist || video.channel || video.artist || "",
+    url: sourced ? cand.sourceUrl : video.url,
+    youtubeUrl: sourced ? video.url : undefined,
+    platform: sourced ? cand.platform || "youtube" : "youtube",
+    // 소리는 영상에서 온다 — 출처가 달라도 같은 영상이면 파일 하나를 함께 쓴다
+    audioSourceKey: videoId ? `yt:${videoId}` : undefined,
+    duration: Number(video.durationSec || video.duration) || 0,
+    thumbnail: cand.thumbnail || video.thumbnail || null,
+    type: "track",
+    id: videoId,
+  };
+}
+
+/**
+ * AnimeThemes가 준 음원 하나를 재생 가능한 트랙으로.
+ *
+ * `DirectLink.getInfo`를 거치지 않는다 — 그쪽 CDN이 HEAD에 403을 준다. 거쳤더라도 쓰지 않을 것이
+ * 제목을 파일명으로, 아티스트를 "직접 링크"로, 앨범아트를 빈 그림으로 채우기 때문이다.
+ * 우리는 API에서 진짜 이름과 표지를 받아 왔으므로 그것을 그대로 싣는다.
+ */
 const fromAudio = (cand) => ({
   title: cand.title,
   artist: cand.artist || "",
@@ -86,6 +110,8 @@ const fromAudio = (cand) => ({
   durationSource: "미상",
   thumbnail: cand.thumbnail || null,
   platform: "direct",
+  // DirectLink와 같은 규약 — 이 값이 있어야 캐시 장부에 이름·표지가 남는다
+  audioSourceKey: `dl:${require("./CacheManager").md5(cand.audioUrl)}`,
   type: "track",
   id: cand.sourceKey,
 });
@@ -128,7 +154,7 @@ async function findOnYouTube(cand) {
 async function resolve(cand, limits) {
   // 1) 유튜브 주소를 직접 받은 것 — 검색을 안 했으니 제목을 못 믿는다
   if (cand.youtubeUrl) {
-    const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec, id: cand.sourceKey }, cand);
+    const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec }, cand);
     const verdict = autoplayFilter.judge(track, limits);
     if (!verdict.ok) {
       // 소스를 같이 남긴다 — "길이 없음"이 무더기로 나오면 그 소스가 길이를 안 준다는 뜻이고,

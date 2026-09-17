@@ -139,9 +139,12 @@ class TrackDownloader {
 
       // Spotify와 SoundCloud는 DRM 보호가 있어 직접 다운로드할 수 없음 —
       // 대응되는 YouTube 영상 URL을 사용 (검색·캐시는 TrackResolver 한 곳에서)
-      let downloadUrl = track.url;
+      //
+      // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)도 같은 처지다.
+      // 다만 그쪽은 영상을 이미 찾아 두었으므로 다시 찾지 않는다.
+      let downloadUrl = track.youtubeUrl || track.url;
 
-      if (track.platform === "spotify" || track.platform === "soundcloud") {
+      if (!track.youtubeUrl && (track.platform === "spotify" || track.platform === "soundcloud")) {
         downloadUrl = await TrackResolver.findYouTubeEquivalent(track);
         if (!downloadUrl) {
           throw new Error("Could not find YouTube equivalent");
@@ -162,8 +165,9 @@ class TrackDownloader {
         throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
       }
 
-      // YouTube, Spotify(YouTube 경유), SoundCloud(YouTube 경유)는 youtube-dl-exec 사용
-      if (track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
+      // YouTube, Spotify(YouTube 경유), SoundCloud(YouTube 경유), 그리고 영상을 찾아 둔 자동재생
+      // 출처 트랙은 youtube-dl-exec 사용. 남는 것은 직접 링크뿐이다.
+      if (track.youtubeUrl || track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
         // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
         await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
           YouTube.getYtDlpOptions(
@@ -252,7 +256,8 @@ class TrackDownloader {
           /* 무시 */
         }
       }
-      log.info(`캐시 다운로드 완료: "${track.title}"${track.platform === "spotify" && track.youtubeUrl ? ` (yt: ${track.youtubeUrl})` : ""}`);
+      // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다 — 스포티파이만이 아니다
+      log.info(`캐시 다운로드 완료: "${track.title}"${track.youtubeUrl && track.platform !== "youtube" ? ` (yt: ${track.youtubeUrl})` : ""}`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다 — **내 임시 파일만**.

@@ -21,6 +21,8 @@ require.cache[ytPath] = {
       ytCalls.push(query);
       return ytResults;
     },
+    // 라우터가 audioSourceKey(yt:…)를 만들 때 쓴다 — 스텁도 계약을 지켜야 한다
+    extractVideoId: (url) => (String(url).match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/) || [])[1] || null,
   },
 };
 
@@ -105,6 +107,53 @@ test("표시 이름은 소스 것을 앞세운다 — 유튜브 채널명은 아
 test("소스가 이름을 모르면 영상 쪽을 쓴다 — 키워드·유튜브 재생목록이 그렇다", async () => {
   const track = await route.resolve({ title: "어느 영상", durationSec: 200, youtubeUrl: "https://youtu.be/z" }, LIMITS);
   assert.equal(track.title, "어느 영상");
+});
+
+// ── 출처와 소리를 나눠 쥔다 ───────────────────────────────────────────────
+
+// 회귀 대상: 출처에서 받아 온 곡을 `platform: "youtube"` + 영상 주소로 만들었더니,
+// **캐시 장부(track_lookup)의 그 영상 칸에 우리 이름이 덮였다.** 나중에 누가 그 영상을 직접 틀면
+// resolveFromCache가 우리가 써 둔 이름을 돌려준다. 게다가 TrackDownloader가 유튜브 트랙의
+// 제목을 영상 제목으로 되돌려 놓아 "소스 것을 앞세운다"가 무위로 돌아간다.
+//
+// 스포티파이가 이미 같은 처지이고 이 저장소는 그것을 이렇게 푼다 —
+// 주소와 platform은 출처 것, 영상은 youtubeUrl, 소리는 audioSourceKey로 나눠 쓴다.
+test("출처가 있는 곡은 주소도 platform도 출처 것이다 — 소리만 유튜브에서 온다", async () => {
+  const track = await route.resolve(
+    {
+      title: "絶対零度フェスティバル",
+      artist: "DIVELA feat. 初音ミク",
+      durationSec: 213,
+      youtubeUrl: "https://www.youtube.com/watch?v=4mMzhyUczic",
+      sourceUrl: "https://vocadb.net/S/757470",
+      platform: "vocadb",
+      sourceKey: "vocadb:757470",
+    },
+    LIMITS,
+  );
+
+  assert.equal(track.platform, "vocadb", "유튜브 행세를 하면 장부의 영상 칸을 덮는다");
+  assert.equal(track.url, "https://vocadb.net/S/757470", "장부에 우리 칸이 따로 생겨야 한다");
+  assert.equal(track.youtubeUrl, "https://www.youtube.com/watch?v=4mMzhyUczic");
+  assert.equal(track.audioSourceKey, "yt:4mMzhyUczic", "음원 파일은 영상 기준으로 함께 쓴다");
+});
+
+test("출처가 없으면 영상 자체가 출처다 — 키워드·유튜브 재생목록", async () => {
+  const track = await route.resolve({ title: "어느 영상", durationSec: 200, youtubeUrl: "https://www.youtube.com/watch?v=abcdefg" }, LIMITS);
+
+  assert.equal(track.platform, "youtube");
+  assert.equal(track.url, "https://www.youtube.com/watch?v=abcdefg");
+  assert.equal(track.youtubeUrl, undefined, "영상이 곧 출처라 따로 들 이유가 없다");
+  assert.equal(track.audioSourceKey, "yt:abcdefg");
+});
+
+test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된다", async () => {
+  const track = await route.resolve({ title: "주제가", artist: "누군가", audioUrl: "https://a.animethemes.moe/X-OP1.ogg", sourceKey: "at:9" }, LIMITS);
+
+  assert.match(track.audioSourceKey, /^dl:[0-9a-f]{32}$/);
+  // getInfo를 안 거치므로 제목이 파일명이 되거나 아티스트가 "직접 링크"가 되지 않는다
+  assert.equal(track.title, "주제가");
+  assert.equal(track.artist, "누군가");
 });
 
 // ── 중복 회피 ─────────────────────────────────────────────────────────────
