@@ -172,17 +172,7 @@
           <!-- 이모지 버튼은 오른쪽 위에 둔다 — 오른쪽 아래는 크기 조절 손잡이 자리다.
                글이 그 밑으로 들어가지 않게 pr로 자리를 비워 둔다. -->
           <div class="relative mb-1.5">
-            <textarea
-              ref="bMsgBox"
-              v-model="bMsg"
-              placeholder="공지 내용을 입력하세요..."
-              rows="4"
-              class="w-full bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-11 py-3 text-[0.9rem] resize-y outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7"
-              @blur="bCaret = caretOf(bMsgBox)"
-              @click="bCaret = caretOf(bMsgBox)"
-              @keyup="bCaret = caretOf(bMsgBox)"
-              @select="bCaret = caretOf(bMsgBox)"
-            ></textarea>
+            <textarea ref="bMsgBox" v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-11 py-3 text-[0.9rem] resize-y outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7" @blur="bCaret = caretOf(bMsgBox)" @click="bCaret = caretOf(bMsgBox)" @keyup="bCaret = caretOf(bMsgBox)" @select="bCaret = caretOf(bMsgBox)"></textarea>
             <EmojiPicker class="absolute! right-2 top-2.5" @pick="insertEmoji">
               <template #default="{ toggle }">
                 <button type="button" :class="emojiBtn" v-tooltip="'이모지 넣기'" @click="toggle"><Twemoji char="🙂" :size="17" /></button>
