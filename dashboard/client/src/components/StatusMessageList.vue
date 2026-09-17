@@ -46,6 +46,7 @@ import { nextTick, reactive } from "vue";
 import Icon from "./BaseIcon.vue";
 import Twemoji from "./TwemojiImage.vue";
 import EmojiPicker from "./EmojiPicker.vue";
+import { insertAt, caretOf } from "../utils/caret.js";
 
 // 배열을 그대로 고친다 — 줄마다 갈아끼우면 입력 중에 초점이 튄다
 const list = defineModel({ type: Array, required: true });
@@ -60,26 +61,19 @@ const carets = reactive({});
 // 판을 열면 칸에서 초점이 떠나므로, 떠나기 전 커서 자리를 적어 둔다.
 // 한 번도 만지지 않은 칸은 적어 둔 것이 없어, 넣을 때 글 끝으로 간다.
 function remember(message) {
-  const el = inputs[message.key];
-  if (el) carets[message.key] = { start: el.selectionStart, end: el.selectionEnd };
+  carets[message.key] = caretOf(inputs[message.key]);
 }
 
 function insert(message, char) {
-  const text = message.text || "";
-  const saved = carets[message.key];
-  const start = Math.min(saved?.start ?? text.length, text.length);
-  const end = Math.min(saved?.end ?? text.length, text.length);
+  const result = insertAt(message.text, char, carets[message.key], MAX_TEXT);
+  if (!result) return;
+  message.text = result.text;
 
-  const next = text.slice(0, start) + char + text.slice(end);
-  if (next.length > MAX_TEXT) return; // 넘치면 넣지 않는다 — 몰래 잘라내면 더 헷갈린다
-  message.text = next;
-
-  const at = start + char.length;
-  carets[message.key] = { start: at, end: at };
+  carets[message.key] = { start: result.caret, end: result.caret };
   nextTick(() => {
     const el = inputs[message.key];
     el?.focus();
-    el?.setSelectionRange(at, at);
+    el?.setSelectionRange(result.caret, result.caret);
   });
 }
 

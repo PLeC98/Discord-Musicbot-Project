@@ -169,7 +169,26 @@
             <button v-for="type in types" :key="type.value" :class="typeBtn(bType === type.value)" @click="bType = type.value">{{ type.label }}</button>
           </div>
 
-          <textarea v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-3 text-[0.9rem] resize-y outline-none mb-1.5 font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7"></textarea>
+          <!-- 이모지 버튼은 오른쪽 위에 둔다 — 오른쪽 아래는 크기 조절 손잡이 자리다.
+               글이 그 밑으로 들어가지 않게 pr로 자리를 비워 둔다. -->
+          <div class="relative mb-1.5">
+            <textarea
+              ref="bMsgBox"
+              v-model="bMsg"
+              placeholder="공지 내용을 입력하세요..."
+              rows="4"
+              class="w-full bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-11 py-3 text-[0.9rem] resize-y outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7"
+              @blur="bCaret = caretOf(bMsgBox)"
+              @click="bCaret = caretOf(bMsgBox)"
+              @keyup="bCaret = caretOf(bMsgBox)"
+              @select="bCaret = caretOf(bMsgBox)"
+            ></textarea>
+            <EmojiPicker class="absolute! right-2 top-2.5" @pick="insertEmoji">
+              <template #default="{ toggle }">
+                <button type="button" :class="emojiBtn" v-tooltip="'이모지 넣기'" @click="toggle"><Twemoji char="🙂" :size="17" /></button>
+              </template>
+            </EmojiPicker>
+          </div>
 
           <div class="flex items-center justify-between mb-3.5 text-xs">
             <span v-if="tooLong" class="text-danger">{{ bMsg.length - BROADCAST_MAX }}자를 줄여 주세요.</span>
@@ -329,6 +348,9 @@ import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
 import ConfigGenres from "../components/ConfigGenres.vue";
 import ConfigStatus from "../components/ConfigStatus.vue";
+import EmojiPicker from "../components/EmojiPicker.vue";
+import Twemoji from "../components/TwemojiImage.vue";
+import { insertAt, caretOf } from "../utils/caret.js";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
@@ -429,6 +451,22 @@ const result = ref(null);
 
 // 디스코드 embed description 상한. 서버도 같은 값으로 막지만, 다 쓰고 나서야 막히면 늦다.
 const BROADCAST_MAX = 4096;
+
+// 이모지는 커서 자리에 끼워 넣는다. 판을 열면 칸에서 초점이 떠나므로 떠나기 전 자리를 적어 둔다.
+const bMsgBox = ref(null);
+const bCaret = ref(null);
+const emojiBtn = "size-7 rounded-lg flex items-center justify-center cursor-pointer opacity-55 transition-[opacity,background-color] duration-150 hover:opacity-100 hover:bg-white/10";
+
+function insertEmoji(char) {
+  const result = insertAt(bMsg.value, char, bCaret.value, BROADCAST_MAX);
+  if (!result) return;
+  bMsg.value = result.text;
+  bCaret.value = { start: result.caret, end: result.caret };
+  nextTick(() => {
+    bMsgBox.value?.focus();
+    bMsgBox.value?.setSelectionRange(result.caret, result.caret);
+  });
+}
 const tooLong = computed(() => bMsg.value.length > BROADCAST_MAX);
 
 const types = [
