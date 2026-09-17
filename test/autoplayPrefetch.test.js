@@ -133,7 +133,7 @@ test("겹쳐 불려도 한 곡만 들어간다", async () => {
 const handleAutoplay = MusicPlayer.prototype.handleAutoplay;
 
 function makeNowPlayer({ nowPlayingMessage = null } = {}) {
-  const calls = { updated: 0, created: [] };
+  const calls = { updated: 0, created: [], sent: [] };
   return {
     calls,
     autoplay: "팝",
@@ -159,6 +159,15 @@ function makeNowPlayer({ nowPlayingMessage = null } = {}) {
       return auto("첫곡");
     },
     async play() {},
+    // 곡을 못 고르면 알리고 끈다 — 목이 프로토타입을 잇지 않으므로 옮겨 붙인다
+    _giveUpAutoplay: MusicPlayer.prototype._giveUpAutoplay,
+    setAutoplay: MusicPlayer.prototype.setAutoplay,
+    scheduleStatePersist() {},
+    textChannel: {
+      async send(text) {
+        calls.sent.push(text);
+      },
+    },
   };
 }
 
@@ -180,13 +189,18 @@ test("패널이 이미 있으면 고쳐 쓴다 — 새로 올리지 않는다", 
   assert.deepEqual(p.calls.created, []);
 });
 
-test("고를 곡이 없으면 아무것도 올리지 않고 false", async () => {
+// 조용히 멈추면 무엇이 잘못됐는지 알 길이 없다. 아무거나 트는 것보다는 끄는 편이 낫다.
+test("고를 곡이 없으면 끄고 알린다 — 아무거나 틀지 않는다", async () => {
   const p = makeNowPlayer();
   p.pickAutoplayTrack = async () => null;
 
   assert.equal(await handleAutoplay.call(p), false);
   assert.equal(p.calls.updated, 0);
   assert.deepEqual(p.calls.created, []);
+
+  assert.equal(p.autoplay, false, "자동재생이 꺼져야 한다");
+  assert.equal(p.calls.sent.length, 1);
+  assert.match(p.calls.sent[0], /팝/, "어느 장르에서 못 찾았는지 알려야 한다");
 });
 
 // ── 끄기·장르 변경 ────────────────────────────────────────────────────────
@@ -220,32 +234,44 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 
 // 회귀 대상: 제목은 소문자로 낮춰 견주면서 차단어는 그대로 뒀다. 그래서 config에 적혀 있던
 // "Playlist" 같은 대문자 섞인 차단어가 아무것도 못 거르면서 걸러지는 척했다.
-test("차단어는 대소문자를 가리지 않는다", async () => {
+//
+// 규칙 자체는 autoplayFilter가 갖고 있다(test/autoplayFilter.test.js). 여기서 보는 것은
+// **설정에서 뽑기까지 그 규칙이 실제로 이어지는가**다 — 소스에서 후보가 와서 필터를 지나는 길.
+test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가리지 않는다", async () => {
   const YouTube = require("../src/YouTube");
+  const pool = require("../src/autoplayPool");
   const realSearch = YouTube.search;
 
-  const found = [
-    { title: "Best Playlist Ever", url: "https://y/1", duration: 200 },
-    { title: "그냥 좋은 노래", url: "https://y/2", duration: 200 },
+  YouTube.search = async () => [
+    { id: "1", title: "Best Playlist Ever", url: "https://y/1", duration: 200 },
+    { id: "2", title: "그냥 좋은 노래", url: "https://y/2", duration: 200 },
   ];
-  YouTube.search = async () => found;
 
   try {
     const p = {
       autoplay: "팝",
       previousTracks: [],
+      queue: [],
       currentTrack: null,
       guild: { members: { me: { user: { id: "bot" } } } },
-      _autoplayConfig: () => ({ keywords: ["아무거나"], minDurationSec: 0, maxDurationSec: null, blockedKeywords: ["Playlist"] }),
+      _autoplayConfig: () => ({
+        sources: [{ type: "keyword", keywords: ["아무거나"] }],
+        minDurationSec: 0,
+        maxDurationSec: null,
+        blockedKeywords: ["Playlist"],
+      }),
       pickAutoplayTrack: MusicPlayer.prototype.pickAutoplayTrack,
     };
 
-    // 후보가 둘인데 하나가 걸리므로, 몇 번을 뽑아도 남는 것은 하나뿐이다
+    // 후보가 둘인데 하나가 걸리므로 남는 것은 하나뿐이다.
+    // 풀은 같은 곡을 두 번 내주지 않으므로 회마다 비우고 새로 받는다.
     for (let i = 0; i < 8; i++) {
+      pool._reset();
       const picked = await p.pickAutoplayTrack();
       assert.equal(picked?.url, "https://y/2", "대문자로 적은 차단어도 걸러야 한다");
     }
   } finally {
     YouTube.search = realSearch;
+    pool._reset();
   }
 });

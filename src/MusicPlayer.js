@@ -7,7 +7,7 @@ const clog = require("./logger").child({ category: "control" });
 const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../config");
-const autoplayFilter = require("./autoplayFilter");
+const autoplayRoute = require("./autoplayRoute");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./TrackResolver");
 const SponsorBlock = require("./SponsorBlock");
@@ -1460,47 +1460,18 @@ class MusicPlayer {
     try {
       // 장르 정의와 기준값은 config/genres.yaml 한 곳에서 관리. 장르가 기준값을 덮어쓴다.
       const cfg = this._autoplayConfig();
-      const keywords = cfg?.keywords;
-      if (!keywords) return null;
-      const limits = autoplayFilter.prepare(cfg);
-      const minSec = limits.minSec;
-      const maxSec = limits.maxSec;
-      const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
+      if (!cfg) return null;
 
-      // 임의 트랙을 YouTube에서 검색
-      const YouTube = require("./YouTube");
-      const results = await YouTube.search(randomKeyword, 15);
+      // 최근에 튼 곡과 **대기열에 이미 있는 곡**을 함께 넘긴다. 미리 뽑아 둔 자동재생 곡이
+      // 대기열에 있으므로, 그걸 빼지 않으면 같은 곡을 두 번 고를 수 있다.
+      const recent = [this.currentTrack, ...this.previousTracks.slice(-20), ...this.queue].filter(Boolean);
 
-      if (!results || results.length === 0) {
-        log.warn(`자동재생: 검색 결과가 없어 넘어갑니다 (장르 ${this.autoplay}, 검색어 "${randomKeyword}")`);
+      const picked = await autoplayRoute.pickTrack(cfg, recent);
+      if (!picked) {
+        log.warn(`자동재생: 어느 소스에서도 곡을 찾지 못했습니다 (장르 ${this.autoplay})`);
         return null;
       }
 
-      // 무엇이 왜 떨어지는지는 src/autoplayFilter.js 한 곳에 모아 두었다 —
-      // 실측 도구가 같은 코드를 지나야 규칙을 고칠 때 잰 것이 어긋나지 않는다.
-      const filteredResults = results.filter((track) => autoplayFilter.judge(track, limits).ok);
-
-      if (filteredResults.length === 0) {
-        // 다른 키워드로 다시 시도
-        const fallbackKeyword = keywords[Math.floor(Math.random() * keywords.length)];
-        const fallbackResults = await YouTube.search(fallbackKeyword, 10);
-        const fallbackFiltered = (fallbackResults || []).filter((track) => track.duration >= minSec && track.duration <= maxSec);
-
-        if (fallbackFiltered.length === 0) {
-          log.warn(`자동재생: 조건에 맞는 곡을 찾지 못해 넘어갑니다 (장르 ${this.autoplay}, 후보 ${results.length}곡)`);
-          return null;
-        }
-
-        filteredResults.push(...fallbackFiltered);
-      }
-
-      // 최근에 나온 곡은 뺀다. 추가 검색 없이 후보 안에서만 거른다 — 다시 검색하면 그만큼 또 기다린다.
-      // 전부 걸리면 거르지 않는다(후보가 적은 장르에서 아무것도 못 고르는 것보다 낫다).
-      const recent = new Set([this.currentTrack, ...this.previousTracks.slice(-20)].filter(Boolean).map((t) => t.url));
-      const fresh = filteredResults.filter((t) => !recent.has(t.url));
-      const pool = fresh.length > 0 ? fresh : filteredResults;
-
-      const picked = pool[Math.floor(Math.random() * pool.length)];
       picked.requestedBy = this.guild.members.me.user;
       picked.addedAt = Date.now();
       picked.autoplay = true; // 대기열 표시·정리에서 사용자 곡과 가른다
@@ -1511,10 +1482,28 @@ class MusicPlayer {
     }
   }
 
+  /**
+   * 틀 것이 하나도 없을 때 — 아무거나 틀지 않고 알린 뒤 끈다.
+   *
+   * 조용히 멈추면 무엇이 잘못됐는지 알 길이 없다. pickTrack은 이미 모든 소스를 훑고 오므로
+   * 여기까지 왔다는 것은 한 번 삐끗한 것이 아니라 정말로 낼 것이 없다는 뜻이다.
+   */
+  _giveUpAutoplay() {
+    if (!this.autoplay) return;
+    const genre = this.autoplay;
+    log.warn(`자동재생을 종료합니다. 곡을 찾지 못했습니다 (장르 ${genre})`);
+    this.textChannel?.send(`⏹️ \`${genre}\` 장르에서 틀 만한 곡을 찾지 못해 자동재생을 껐습니다.`).catch(() => {});
+    this.setAutoplay(false);
+  }
+
   /** 지금 골라서 바로 튼다 — 곡이 끝났을 때와, 아무것도 안 틀고 있을 때 켠 경우. 틀었으면 true. */
   async handleAutoplay() {
     const picked = await this.pickAutoplayTrack();
-    if (!picked) return false;
+    if (!picked) {
+      // 미리 뽑기(ensureAutoplayNext)에서는 끄지 않는다 — 거기서는 못 골라도 여기서 다시 해 본다.
+      this._giveUpAutoplay();
+      return false;
+    }
 
     trackState.enqueue(this, [picked]);
     trackState.shiftNext(this);
