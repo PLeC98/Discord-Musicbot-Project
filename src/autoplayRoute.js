@@ -134,7 +134,9 @@ async function findOnYouTube(cand) {
     return lists;
   };
 
-  const shape = (list) => list.map((r) => ({ id: r.id, url: r.url, title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive }));
+  // thumbnail을 꼭 실어야 한다 — Last.fm·LB Radio는 표지를 안 주므로 영상 것이 유일한 그림이다.
+  // 빠뜨리면 앨범아트 자리에 디스코드의 빈 그림이, 대시보드에는 파일 아이콘이 뜬다.
+  const shape = (list) => list.map((r) => ({ id: r.id, url: r.url, title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
   const primaryLists = (await run(primary)).map(shape);
   const secondaryLists = primaryLists.some((l) => l.length) ? [] : (await run(secondary)).map(shape);
 
@@ -205,7 +207,11 @@ async function pickTrack(cfg, recent = []) {
       const cand = await pool.take(source, sources.fetchFrom, reject);
       if (!cand) break;
       const track = await resolve(cand, limits);
-      if (track) return track;
+      if (track) {
+        // 어느 소스에서 어떻게 왔는지 — 뭐가 이상할 때 이것부터 본다
+        track.pickedFrom = source.type;
+        return track;
+      }
     }
   }
   return null;

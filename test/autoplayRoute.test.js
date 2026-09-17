@@ -156,6 +156,31 @@ test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된
   assert.equal(track.artist, "누군가");
 });
 
+// ── 썸네일 ────────────────────────────────────────────────────────────────
+
+// 회귀 대상: 유튜브 검색 결과를 후보 모양으로 옮길 때 thumbnail을 빠뜨렸다. Last.fm·LB Radio는
+// 표지를 안 주므로 영상 것이 유일한 그림인데, 그게 없어 디스코드에는 빈 그림이,
+// 대시보드에는 파일 아이콘이 떴다.
+test("소스가 표지를 안 주면 영상 썸네일을 쓴다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240, thumbnail: "https://i.ytimg.com/vi/v1/hq.jpg" }];
+
+  const track = await route.resolve({ artist: "Artist", title: "Song", durationSec: 240, sourceKey: "lf:1" }, LIMITS);
+  assert.equal(track.thumbnail, "https://i.ytimg.com/vi/v1/hq.jpg");
+});
+
+test("소스가 표지를 주면 그쪽이 이긴다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240, thumbnail: "https://i.ytimg.com/vi/v1/hq.jpg" }];
+
+  const track = await route.resolve({ artist: "Artist", title: "Song", durationSec: 240, thumbnail: "https://vocadb.net/cover.jpg", sourceKey: "vd:1" }, LIMITS);
+  assert.equal(track.thumbnail, "https://vocadb.net/cover.jpg");
+});
+
+test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240 }];
+  const track = await route.pickTrack({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: [], sources: [{ type: "keyword", keywords: ["아무거나"] }] }, []);
+  assert.equal(track.pickedFrom, "keyword");
+});
+
 // ── 중복 회피 ─────────────────────────────────────────────────────────────
 
 test("최근에 튼 곡은 이름으로도 걸러낸다 — 소스가 다르면 주소가 다르기 때문이다", () => {

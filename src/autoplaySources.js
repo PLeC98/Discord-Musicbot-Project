@@ -21,11 +21,14 @@ const log = require("./logger").child({ category: "autoplay" });
 
 const UA = "Discord-Musicbot-Project (autoplay)";
 const TIMEOUT_MS = 15000;
+// LB Radio는 재생목록을 그때그때 짜 주느라 느리다(실측 5~15초, 더 걸리기도 한다).
+// 15초로는 자주 끊겨 멀쩡한 소스가 빈손으로 취급된다.
+const SLOW_MS = 30000;
 const rand = (n) => Math.floor(Math.random() * n);
 const pick = (list) => (list.length ? list[rand(list.length)] : null);
 
-async function getJson(url, headers = {}) {
-  const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": UA, ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+async function getJson(url, headers = {}, timeoutMs = TIMEOUT_MS) {
+  const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": UA, ...headers }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
   return res.json();
 }
@@ -84,7 +87,7 @@ async function lbradio(source) {
   if (!prompt) return [];
 
   const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: source.mode || "easy" })}`;
-  const list = (await getJson(url, { Authorization: `Token ${token}` }))?.payload?.jspf?.playlist?.track || [];
+  const list = (await getJson(url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
   return list
     .map((t) => ({
       artist: t.creator || "",

@@ -250,7 +250,9 @@ class CacheManager {
       _cachedFilePath: filePath,
     };
 
-    if (row.platform === "spotify" && row.audio_source_key.startsWith("yt:")) {
+    // 출처가 따로 있고 소리만 유튜브에서 오는 곡(스포티파이, 그리고 자동재생의 lastfm·lbradio·
+    // vocadb 계열 …)은 영상 주소를 되살려 준다 — 없으면 스트림을 어디서 가져올지 알 수 없다.
+    if (row.platform !== "youtube" && String(row.audio_source_key).startsWith("yt:")) {
       cachedTrack.youtubeUrl = `https://www.youtube.com/watch?v=${row.audio_source_key.slice(3)}`;
     }
 

@@ -1475,6 +1475,11 @@ class MusicPlayer {
       picked.requestedBy = this.guild.members.me.user;
       picked.addedAt = Date.now();
       picked.autoplay = true; // 대기열 표시·정리에서 사용자 곡과 가른다
+
+      // 어디서 어떻게 왔는지 한 줄. 소스가 여럿이 되면서 "이 곡이 왜 나왔지"를 로그로 되짚을 수
+      // 있어야 한다 — 재생·종료 쪽에는 출처가 찍히는데 정작 고르는 자리에 없었다.
+      const how = picked.platform === "direct" ? "음원 직접" : picked.youtubeUrl ? `유튜브 ${picked.youtubeUrl}` : "유튜브";
+      clog.info(`자동재생 뽑기: "${picked.title}" — ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
       return picked;
     } catch (error) {
       log.error("자동재생 오류:", error.message);
@@ -1539,7 +1544,7 @@ class MusicPlayer {
       if (!this._canPrefetchAutoplay()) return false;
 
       trackState.enqueue(this, [picked]);
-      clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay})`);
+      clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"})`);
       if (this.guild?.client?.musicEmbedManager) {
         await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this).catch(() => {});
       }
