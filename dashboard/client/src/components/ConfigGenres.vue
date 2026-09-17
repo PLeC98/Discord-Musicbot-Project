@@ -172,6 +172,9 @@ function disarmDrag() {
 }
 
 function onDragStart(e, i) {
+  // dragstart는 위로 퍼진다 — 칸 안의 글자를 끄는 것도 여기까지 올라온다.
+  // 카드 자신이 끌리기 시작한 것만 받는다(글자 드래그는 target이 그 칸이다).
+  if (e.target !== e.currentTarget) return;
   draggedIndex.value = i;
   e.dataTransfer.effectAllowed = "move";
 }

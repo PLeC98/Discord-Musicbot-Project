@@ -3,10 +3,10 @@
 
 # 장르 항목
 #   이름     : 키가 곧 장르 이름입니다. 선택 메뉴와 안내 문구에 그대로 쓰입니다.
-#              (true·false·null 은 쓸 수 없습니다 — YAML이 값으로 읽습니다.)
-#              (숫자만으로 된 이름도 쓸 수 없습니다 — 차례가 어긋납니다. "80년대"처럼 글자를 붙이세요.)
-#              적은 차례가 곧 선택 메뉴에 나오는 차례입니다.
-#              이름을 바꾸면 그 장르로 저장돼 있던 서버는 자동재생이 한 번 꺼집니다.
+#              (true·false·null 은 쓸 수 없습니다.)
+#              (숫자만으로 된 이름도 쓸 수 없습니다. "80년대"처럼 글자를 섞어주세요.)
+#              적은 차례가 선택 메뉴에 나오는 차례입니다.
+#              이름을 바꾸면 그 장르로 저장돼 있던 서버는 자동재생이 꺼집니다.
 #   emoji   : 선택 메뉴 아이콘. 비우거나 이모지 한 글자만 적습니다.
 #              (이모지가 아닌 값이 하나라도 있으면 디스코드가 메뉴 전체를 거부합니다.)
 #   keywords: 유튜브 검색어 후보. 자동재생 때마다 무작위로 하나를 고릅니다.
@@ -24,8 +24,8 @@ defaults:
   minDurationSec: 30
   maxDurationSec: 3600
   # 제목에 이 말이 들어가면 고르지 않습니다. 대소문자는 가리지 않습니다.
-  # (대시보드에서 고치면 소문자로 적힙니다.)
   blockedKeywords:
+    - best of
     - tutorial
     - lesson
     - course
@@ -58,6 +58,13 @@ defaults:
     - audiobook
     - mix |
     - compilation
+    - mix
+    - メドレー
+    - ランキング
+    - top hits
+    - playlist
+    - mega hits
+    - billboard top
 # 선택 메뉴에 나오는 장르들.
 genres:
   팝:
@@ -112,37 +119,41 @@ genres:
   컨트리:
     emoji: 🤠
     keywords:
+      - best country music
       - country music official
       - country songs 2025
-      - best country music
+      - country songs 2026
   R&B:
     emoji: 💃
     keywords:
+      - best rnb
+      - soul music
       - r&b music official
       - rnb songs 2025
-      - soul music
-      - best rnb
+      - rnb songs 2026
   인디:
     emoji: 🌿
     keywords:
-      - indie music official
-      - indie songs 2025
       - alternative music
       - best indie
+      - indie music official
+      - indie songs 2025
+      - indie songs 2026
   K-POP:
     emoji: 🇰🇷
     keywords:
-      - kpop official mv
-      - kpop songs 2025
-      - korean music official
       - best kpop
+      - kpop official mv
+      - korean music official
+      - kpop songs 2025
+      - kpop songs 2026
   애니메:
     emoji: 🎌
     keywords:
       - アニメ オープニング 公式
+      - アニメ オープニング 公式 2026
       - アニソン 公式
       - 2026 アニソン
-      - アニメ神曲
   로파이:
     emoji: 🌙
     keywords:
@@ -153,7 +164,8 @@ genres:
   랜덤:
     emoji: 🎲
     keywords:
-      - music official video
-      - top songs 2025
-      - music video official
       - best music
+      - music official video
+      - music video official
+      - top songs 2025
+      - top songs 2026
