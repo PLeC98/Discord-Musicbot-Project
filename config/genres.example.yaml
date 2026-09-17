@@ -70,52 +70,61 @@ genres:
   팝:
     emoji: 🎤
     keywords:
-      - pop music 2024
+      - best pop music
       - top pop songs
       - pop hits official
-      - best pop music
+      - pop music 2020
+      - pop music 2021
+      - pop music 2022
+      - pop music 2023
+      - pop music 2024
+      - pop music 2025
+      - pop music 2026
   록:
     emoji: 🎸
     keywords:
+      - best rock music
+      - classic rock hits
       - rock music official
       - rock songs 2025
-      - classic rock hits
-      - best rock music
+      - rock songs 2026
   힙합:
     emoji: 🎧
     keywords:
+      - best rap music
       - hip hop music
       - rap songs official
       - hip hop 2025
-      - best rap music
+      - hip hop 2026
   일렉트로닉:
     emoji: 🎛️
     keywords:
+      - best edm
       - edm music
       - electronic dance music
       - house music official
-      - best edm
   재즈:
     emoji: 🎷
     keywords:
+      - best jazz
       - jazz music
       - jazz standards
       - smooth jazz official
-      - best jazz
   클래식:
     emoji: 🎻
     keywords:
+      - best classical
       - classical music
       - classical piano
       - orchestra music
-      - best classical
   메탈:
     emoji: 🤘
     keywords:
+      - best metal
       - metal music official
       - heavy metal songs
       - metal 2025
-      - best metal
+      - metal 2026
   컨트리:
     emoji: 🤠
     keywords:
