@@ -95,7 +95,7 @@
         <label class="flex items-center gap-2.5 text-sm" :class="s.canEdit ? '' : 'opacity-60'">
           <span class="text-muted">직접 입력</span>
           <input
-            type="number"
+            type="text"
             inputmode="numeric"
             :min="s.playlistAdd.min"
             :max="s.playlistAdd.max"
@@ -199,8 +199,10 @@ function pickPreset(n) {
   paCount.value = n;
 }
 
+// type="number" 를 안 쓴다 — 칸 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
 function onPaInput(e) {
-  const raw = e.target.value.trim();
+  const raw = e.target.value.replace(/[^0-9]/g, "");
+  if (e.target.value !== raw) e.target.value = raw;
   if (raw === "") {
     paUseDefault.value = true;
     paCount.value = null;

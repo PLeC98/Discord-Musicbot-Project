@@ -11,7 +11,7 @@
 
       <label class="block mb-4 max-w-56">
         <span :class="labelCls">문구 변경 주기(초)</span>
-        <input v-model.number="draft.interval" type="number" min="10" :class="inputCls" />
+        <NumberInput v-model="draft.interval" :class="inputCls" />
       </label>
 
       <MessageList v-model="messages" @add="messages.push(newMessage())" />
@@ -88,6 +88,7 @@ import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
 import SaveDock from "./SaveDock.vue";
 import MessageList from "./StatusMessageList.vue";
+import NumberInput from "./NumberInput.vue";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";

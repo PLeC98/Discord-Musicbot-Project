@@ -40,7 +40,7 @@
           <div v-for="field in shown(source)" :key="field.key" class="min-w-0" :class="widthCls(field)">
             <!-- 1/6 너비 칸은 설명을 붙이면 줄이 터진다 — 툴팁으로 돌린다 -->
             <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
-              {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span><span v-if="field.hint && field.width !== 'narrow'" class="text-muted font-normal"> {{ field.hint }}</span>
+              {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span><span v-if="field.hint && field.width !== 'narrow'" class="text-muted font-normal ml-1">{{ field.hint }}</span>
             </span>
 
             <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key])" placeholder="하나씩 적고 Enter" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
