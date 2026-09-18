@@ -405,6 +405,31 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // ── AI 보조 ───────────────────────────────────────────────────────────────
 
+// 값이 본문 어디로 가는지는 모델 프로필이 안다 — 화면이 베껴 두면 한쪽만 고치게 된다.
+test("AI 보조: 그 모델이 받는 칸을 알려 준다", async () => {
+  const { status, json } = await req("GET", "/api/admin/ai/fields?provider=anthropic&model=claude-opus-5");
+  assert.equal(status, 200);
+  assert.equal(json.known, true);
+
+  const effort = json.fields.find((f) => f.key === "effort");
+  assert.equal(effort.path, "output_config.effort", "경로는 본문 맨 위부터다");
+  assert.equal(effort.widget, "select", "위젯도 프로필이 정한다");
+  assert.ok(effort.enum.some((e) => e.value === "max"));
+
+  assert.ok(json.models.length > 5, "그 프로바이더가 아는 모델 목록도 준다");
+});
+
+test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", async () => {
+  const local = await req("GET", "/api/admin/ai/fields?provider=ollama&model=gemma3n:e2b");
+  assert.equal(local.json.known, false, "로컬은 프로필이 없다");
+  assert.deepEqual(local.json.fields, []);
+
+  const unknown = await req("GET", "/api/admin/ai/fields?provider=anthropic&model=없는모델");
+  assert.equal(unknown.json.known, false);
+  assert.deepEqual(unknown.json.fields, [], "모르는 모델이라고 던지지 않는다");
+  assert.ok(unknown.json.models.length > 0, "모델 목록은 그대로 준다");
+});
+
 // 키는 .env 에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
 test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
   const { status, json } = await req("GET", "/api/admin/ai/state");
@@ -426,6 +451,7 @@ test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", 
 test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "u1" };
   assert.equal((await req("GET", "/api/admin/ai/state")).status, 403);
+  assert.equal((await req("GET", "/api/admin/ai/fields?provider=anthropic")).status, 403);
   assert.equal((await req("POST", "/api/admin/ai/models", { data: {} })).status, 403);
   assert.equal((await req("POST", "/api/admin/ai/ping", { data: {} })).status, 403);
   assert.equal((await req("GET", "/api/admin/ai/prompt")).status, 403);
