@@ -2,6 +2,7 @@ const { Events, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
 const S = require("../src/strings");
 const { checkControl } = require("../src/permissions");
+const { expireReply } = require("../src/replyLifetime");
 const trackState = require("../src/trackState");
 
 module.exports = {
@@ -74,7 +75,7 @@ module.exports = {
     const selectedGenre = interaction.values[0];
 
     // 알 수 없는 장르 처리
-    const genres = require("../config/genres");
+    const { genres } = require("../src/configDataLoader").genres();
     if (!genres[selectedGenre]) {
       return await interaction.reply({
         content: `❌ 알 수 없는 장르입니다: \`${selectedGenre}\`. 자동재생 버튼을 다시 눌러 선택해 주세요.`,
@@ -85,7 +86,7 @@ module.exports = {
     // 선택한 장르로 자동재생 활성화
     player.setAutoplay(selectedGenre);
 
-    const genreName = genres[selectedGenre].label;
+    const genreName = selectedGenre; // 키가 곧 이름
     const embed = new EmbedBuilder()
       .setTitle("🎲 자동 재생이 활성화되었습니다")
       .setDescription(`**${genreName}** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.`)
@@ -97,7 +98,17 @@ module.exports = {
         inline: true,
       });
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    // 선택 메뉴를 결과로 덮는다 — reply로 새 메시지를 만들면 고른 뒤에도 선택 화면이 남는다.
+    // update는 ephemeral을 기록하지 않아 정리에서 빠지므로, 지우라고 선언해 둔다.
+    expireReply(interaction);
+    await interaction.update({ embeds: [embed], components: [] });
+
+    // 아무것도 틀고 있지 않으면 그 자리에서 첫 곡을 뽑아 재생한다. 틀고 있으면 지금 곡이 끝난 뒤에
+    // 이어지므로 건드리지 않는다(다음 곡은 play()가 미리 뽑아 둔다).
+    if (!player.currentTrack) {
+      await player.handleAutoplay();
+      return;
+    }
 
     // 자동재생이 활성화되었음을 표시하도록 메인 임베드 갱신
     if (client.musicEmbedManager) {

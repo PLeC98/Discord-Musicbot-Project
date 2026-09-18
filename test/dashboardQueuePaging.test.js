@@ -93,6 +93,8 @@ test("기본 응답은 한 묶음만 싣고 총 개수를 따로 알린다", asy
   assert.equal(json.queue.length, PAGE);
   assert.equal(json.queueTotal, QUEUE_LEN);
   assert.equal(json.queue[0].index, 0);
+  // 툴팁에 "youtube" 대신 읽을 수 있는 이름이 뜬다 — 브라우저는 src/platforms 를 못 읽어 서버가 실어 준다
+  assert.equal(json.queue[0].platformLabel, "YouTube");
 });
 
 test("?queue=n이면 펼쳐 둔 만큼 돌려준다 — 조작 응답도 같다", async () => {

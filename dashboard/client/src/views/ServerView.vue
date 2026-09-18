@@ -195,7 +195,8 @@
                 <span>{{ fmt(track.duration) }}</span>
               </div>
             </div>
-            <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" v-tooltip="track.platform"></span>
+            <span v-if="track.autoplay" class="text-muted shrink-0 flex items-center" v-tooltip="'자동재생'"><Icon name="robot" :size="13" /></span>
+            <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" v-tooltip="track.platformLabel || track.platform"></span>
             <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(i)" v-tooltip="'제거'" :disabled="!canRemove(track)"><Icon name="close" :size="14" /></button>
           </div>
 
@@ -656,8 +657,24 @@ async function jumpToHighlight() {
 
 const fmt = fmtTime;
 
+// 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다 —
+// 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
+// 키는 src/platforms.js 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
+const PLATFORM_COLORS = {
+  youtube: "#ff0000",
+  spotify: "#1db954",
+  soundcloud: "#ff5500",
+  direct: "var(--accent)",
+  lastfm: "#d92323",
+  lbradio: "#eb743b", // ListenBrainz 의 --bs-primary
+  animethemes: "#ffffff", // 로고 배경
+  vocadb: "#39c5bb", // 미쿠
+  utaitedb: "#00688f", // 배경에 박아 둔 Ado 로고의 장미
+  touhoudb: "#4f2347", // (구) 공식 트위터 프로필 이미지 배경
+};
+
 function platformColor(p) {
-  return { youtube: "#ff0000", spotify: "#1db954", soundcloud: "#ff5500", direct: "var(--accent)" }[p] || "#8b93a7";
+  return PLATFORM_COLORS[p] || "#8b93a7";
 }
 
 // SSE — 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.

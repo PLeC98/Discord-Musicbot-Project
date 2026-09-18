@@ -132,6 +132,13 @@ module.exports = {
     clientSecret: env("SPOTIFY_CLIENT_SECRET"),
   },
 
+  // 자동재생 소스 자격증명. 없으면 그 소스만 못 쓴다 — config/genres.yaml에서 어느 장르가
+  // 그 소스를 쓰는지 보고 기동 시점에 경고하거나 거부한다(src/configDataLoader.js).
+  sources: {
+    lastfmKey: env("LASTFM_API_KEY"),
+    listenbrainzToken: env("LISTENBRAINZ_TOKEN"),
+  },
+
   // 봇 설정
   bot: {
     defaultVolume: 100,

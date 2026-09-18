@@ -36,13 +36,6 @@ module.exports = {
       .setTimestamp()
       .addFields({ name: "👤 건너뛴 사람", value: `${member}`, inline: true });
 
-    if (player.queue.length > 0) {
-      embed.addFields({ name: "🔜 다음 노래", value: `[${player.queue[0].title}](${player.queue[0].url})`, inline: false });
-      embed.setFooter({ text: `대기열에 ${player.queue.length}개의 노래가 더 있습니다` });
-    } else {
-      embed.setFooter({ text: "대기열에 더 이상 노래가 없습니다" });
-    }
-
     if (currentTrack.thumbnail) embed.setThumbnail(currentTrack.thumbnail);
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });

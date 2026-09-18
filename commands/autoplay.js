@@ -1,79 +1,40 @@
 "use strict";
 
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
-const S = require("../src/strings");
-const { checkControl } = require("../src/permissions");
+const { SlashCommandBuilder } = require("discord.js");
+const { checkControl, checkSummon } = require("../src/permissions");
+const { ensurePlayer } = require("../src/playRequest");
+const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
+const { keepReply, expireReply } = require("../src/replyLifetime");
 
-// 장르 정의는 config/genres.js 한 곳에서 관리
-const genres = require("../config/genres");
-const GENRE_IDS = Object.keys(genres);
+// 장르는 옵션으로 받지 않는다 — 자동재생 버튼과 같은 선택 화면을 띄운다.
+// 옵션으로 받으면 목록이 기동 시점에 굳어(choices) 장르를 고쳐도 재배포 전까지 반영되지 않는다.
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("autoplay")
-    .setDescription("Enable or disable autoplay. If already on, turns it off.")
-    .setDescriptionLocalizations({ ko: "자동재생을 토글합니다" })
-    .addStringOption((option) =>
-      option
-        .setName("genre")
-        .setDescription("Genre for autoplay recommendations (omit to toggle off if active)")
-        .setDescriptionLocalizations({ ko: "자동재생 장르 (생략 시 토글, 꺼져 있으면 장르가 필요합니다)" })
-        .setRequired(false)
-        .addChoices(...GENRE_IDS.map((g) => ({ name: g.charAt(0).toUpperCase() + g.slice(1), value: g }))),
-    ),
+  data: new SlashCommandBuilder().setName("autoplay").setDescription("Toggle autoplay. Pick a genre when turning it on.").setDescriptionLocalizations({ ko: "자동재생을 토글합니다" }),
 
   async execute(interaction, client) {
-    const { guild, member } = interaction;
+    const { guild, member, channel } = interaction;
 
-    const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    const permErr = await checkControl(member);
+    // 재생 조작이므로 DJ 계층. 봇이 유휴면 재적 검사가 통과해 버리므로 소환 가능 여부를 이어 붙인다.
+    const permErr = (await checkControl(member)) || checkSummon(member);
     if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 
-    const genre = interaction.options.getString("genre");
+    // 틀고 있지 않아도 켤 수 있다 — 장르를 고르면 그 자리에서 첫 곡을 뽑아 재생한다.
+    const player = client.players.get(guild.id) ?? ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice?.channel ?? null });
 
-    if (player.autoplay && !genre) {
+    if (player.autoplay) {
       player.setAutoplay(false);
 
-      const embed = new EmbedBuilder().setTitle("🎲 자동 재생이 비활성화되었습니다").setDescription("자동 재생 기능이 꺼졌습니다.").setColor(config.bot.embedColor).setTimestamp();
-
-      await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+      // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다 — 고르면 변경, 두면 종료.
+      expireReply(interaction, OFF_MENU_MS);
+      await interaction.reply(buildAutoplayOffMenu(member.id, player.sessionId));
 
       if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
       return;
     }
 
-    if (!genre) {
-      const genreList = GENRE_IDS.map((g) => `\`${g}\``).join(", ");
-      return interaction.reply({
-        content: `자동재생이 꺼져 있습니다. \`/autoplay genre:<장르>\`로 활성화하세요.\n사용 가능한 장르: ${genreList}`,
-        flags: [1 << 6],
-      });
-    }
-
-    // 알 수 없는 장르는 거부
-    if (!genres[genre]) {
-      const genreList = GENRE_IDS.map((g) => `\`${g}\``).join(", ");
-      return interaction.reply({
-        content: `❌ 알 수 없는 장르입니다: \`${genre}\`\n사용 가능한 장르: ${genreList}`,
-        flags: [1 << 6],
-      });
-    }
-
-    player.setAutoplay(genre);
-    const genreName = genres[genre].label;
-
-    const embed = new EmbedBuilder()
-      .setTitle("🎲 자동 재생이 활성화되었습니다")
-      .setDescription(`**${genreName}** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.`)
-      .setColor(config.bot.embedColor)
-      .setTimestamp()
-      .addFields({ name: "👤 변경한 사람", value: `${member}`, inline: true });
-
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
+    // 고르는 동안 떠 있어야 한다 — 고른 뒤에는 선택 핸들러가 결과로 덮는다
+    keepReply(interaction);
+    await interaction.reply(buildGenreMenu(member.id, player.sessionId));
   },
 };

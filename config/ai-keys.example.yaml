@@ -1,0 +1,48 @@
+# AI 보조 API 키 — 프로바이더마다 따로 적습니다.
+#
+# 이 파일은 저장소에 올라가지 않습니다(.gitignore). 설치할 때 예시에서 복사됩니다.
+# 이름은 config/ai.yaml 의 provider 값과 같습니다.
+#
+# ── 대시보드는 이 값을 보지 못합니다 ──────────────────────────────────────────
+# 화면에는 "있음 / 없음"만 나옵니다. 값을 브라우저로 내려보내면 XSS 하나로 새어 나가고,
+# 운영자 세션이 털리면 곧 키가 털리는 것이 됩니다. 키를 바꾸려면 이 파일을 고치세요.
+#
+# ── 내 기기에서 도는 것은 키를 안 씁니다 ─────────────────────────────────────
+# ollama · lmstudio · vllm · llamacpp 은 여기 적을 칸이 없습니다.
+# ollama-cloud 는 클라우드라 키가 필요합니다.
+
+# ── 모델을 직접 내는 곳 ──
+ollama-cloud: "" # https://ollama.com/settings/keys
+openai: "" # https://platform.openai.com/api-keys
+anthropic: "" # https://console.anthropic.com/settings/keys
+aistudio: "" # https://aistudio.google.com/apikey
+deepseek: "" # https://platform.deepseek.com/api_keys
+mistral: "" # https://console.mistral.ai/api-keys
+xai: "" # https://console.x.ai
+groq: "" # https://console.groq.com/keys
+together: "" # https://api.together.xyz/settings/api-keys
+
+# ── 여러 곳을 묶어 파는 곳 ──
+openrouter: "" # https://openrouter.ai/keys
+nanogpt: "" # https://nano-gpt.com/api
+vercel: "" # https://vercel.com/dashboard/ai-gateway
+llmgateway: "" # https://llmgateway.io
+neuralwatt: "" # 키를 안 받는 것으로 보입니다. 필요해지면 여기 적으세요
+
+# ── 버텍스 AI 서비스 계정 ──
+#
+# 구글 클라우드 콘솔에서 받은 JSON 의 모든 줄을 두 칸 들여쓰기 해서 붙여넣으세요. 따옴표로 두르지 마세요
+#
+#   vertex: |-
+#     {
+#       "type": "service_account",
+#       "project_id": "내-프로젝트",
+#       "private_key": "-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----\n",
+#       "client_email": "…@내-프로젝트.iam.gserviceaccount.com"
+#     }
+#
+# 프로젝트는 이 JSON 의 project_id 를 씁니다. 리전은 config/ai.yaml 의 location 에 적습니다.
+vertex: |-
+
+# provider: custom 으로 그 밖의 OpenAI 호환 주소를 쓸 때
+custom: ""

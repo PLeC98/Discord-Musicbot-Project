@@ -7,6 +7,15 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 
+/* 이모지는 Twemoji 그림(TwemojiImage.vue)으로 그린다. 이 폰트는 그림을 못 받아왔을 때의 대비다
+   — Windows에는 국기 글리프가 아예 없어 그냥 두면 "🇰🇷"가 "KR"로 보인다.
+   @font-face는 .emoji가 실제로 그려질 때만 내려받으므로 평소에는 값이 들지 않는다. */
+@font-face {
+  font-family: "Twemoji";
+  src: url("twemoji-colr-font/twemoji.woff2") format("woff2");
+  font-display: swap;
+}
+
 /* 디자인 토큰(:root)을 Tailwind 유틸리티로 노출.
    inline = 값을 복제하지 않고 var(...) 참조를 그대로 인라인 → :root가 단일 출처로 유지됨.
    색: bg-accent, text-muted, bg-surface, border-line, text-success …
@@ -86,6 +95,10 @@ html {
 
 body {
   font-family: "gg sans", "Pretendard", "Noto Sans KR", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+
+  /* Twemoji가 맨 앞이어야 한다 — OS 이모지 폰트가 앞에 있으면 국기 자리를 먼저 가져가
+     글리프가 없는 채로 글자를 그려 버린다(그게 "KR"로 보이는 이유다). */
+  --font-emoji: "Twemoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   background: var(--bg-primary);
   background-image: radial-gradient(ellipse 80% 65% at 8% 12%, rgba(100, 60, 240, 0.16) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 88% 85%, rgba(50, 90, 250, 0.11) 0%, transparent 55%), radial-gradient(ellipse 50% 40% at 55% 48%, rgba(150, 60, 210, 0.07) 0%, transparent 55%);
   background-attachment: fixed;
@@ -97,22 +110,29 @@ body {
   --sb-size: 10px;
 }
 
-body::-webkit-scrollbar {
+/* 페이지만이 아니라 안쪽에서 구르는 것(입력칸·코드 상자·목록)도 같은 막대를 쓴다 —
+   한 화면에 두 종류가 섞이면 그것만 눈에 띈다. */
+::-webkit-scrollbar {
   width: var(--sb-size);
+  height: var(--sb-size);
 }
 
-body::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: var(--sb-track-color);
   border-radius: 5px;
 }
 
-body::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   background: var(--sb-thumb-color);
   border-radius: 5px;
 }
 
+::-webkit-scrollbar-corner {
+  background: var(--sb-track-color);
+}
+
 @supports not selector(::-webkit-scrollbar) {
-  body {
+  * {
     scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
   }
 }
@@ -158,4 +178,10 @@ body::-webkit-scrollbar-thumb {
   bottom: 100%;
   border-top-color: transparent;
   border-bottom-color: rgba(18, 22, 42, 0.97);
+}
+
+/* 이모지를 그리는 자리에만 붙인다 — 본문에 쓰면 안 된다.
+   키캡 이모지(1️⃣) 때문에 이 폰트는 숫자와 #·*도 들고 있어서, 본문에 깔면 숫자가 그림으로 바뀐다. */
+.emoji {
+  font-family: var(--font-emoji);
 }

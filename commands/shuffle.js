@@ -28,15 +28,6 @@ module.exports = {
       .setTimestamp()
       .addFields({ name: "👤 셔플한 사람", value: `${member}`, inline: true });
 
-    if (player.queue.length > 0) {
-      const nextTracks = player.queue.slice(0, 3);
-      let trackList = "";
-      nextTracks.forEach((track, i) => {
-        trackList += `${i + 1}. **[${track.title}](${track.url})**\n`;
-      });
-      embed.addFields({ name: "🔜 다음 노래들", value: trackList, inline: false });
-    }
-
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 
     if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);

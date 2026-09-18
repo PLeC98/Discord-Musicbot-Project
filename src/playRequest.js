@@ -27,7 +27,9 @@ function toRequester(source) {
 
   return {
     id: source.id ?? null,
-    username: source.username ?? source.user?.username ?? source.displayName ?? null,
+    // displayName을 먼저 본다 — GuildMember에는 username이 없어 전역 계정명이 먼저 잡히면
+    // 서버 닉네임이 영영 쓰이지 않는다. displayName은 닉네임이 있으면 닉네임, 없으면 표시 이름이다.
+    username: source.displayName ?? source.username ?? source.user?.displayName ?? source.user?.username ?? null,
     tag: source.tag ?? source.user?.tag ?? null,
   };
 }
@@ -113,6 +115,14 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
     const more = trackData.total == null ? trackData.tracks.length >= limit : trackData.total > trackData.tracks.length;
     if (!single && trackData.isPlaylist && room < batch && more) trackData = { ...trackData, queueLimited: true };
+  }
+
+  // 라이브는 끝이 없어 이 구조가 다루지 못한다 — 길이 기반 종료 감시도, 캐시도, "다음 곡"도 성립하지 않는다.
+  // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
+  if (trackData.tracks?.some((t) => t.isLive)) {
+    const playable = trackData.tracks.filter((t) => !t.isLive);
+    if (playable.length === 0) return { success: false, message: S.ERR_LIVE_NOT_SUPPORTED };
+    trackData = { ...trackData, tracks: playable };
   }
 
   // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)

@@ -75,9 +75,16 @@ function ok(...titles) {
 
 // ── toRequester ──────────────────────────────────────────────
 
-test("toRequester: GuildMember의 username은 user.username에서 온다 (GuildMember엔 username이 없다)", () => {
+// 표시에 쓰는 이름은 **그 서버에서 보이는 이름**이다. GuildMember에는 username이 없어
+// 전역 계정명(user.username)이 먼저 잡히면 닉네임이 영영 쓰이지 않는다 — displayName을 먼저 본다.
+test("toRequester: GuildMember는 서버 닉네임(displayName)을 쓴다", () => {
   const member = { id: "u1", user: { username: "carl", tag: "carl#0" }, displayName: "칼" };
-  assert.deepEqual(toRequester(member), { id: "u1", username: "carl", tag: "carl#0" });
+  assert.deepEqual(toRequester(member), { id: "u1", username: "칼", tag: "carl#0" });
+});
+
+test("toRequester: 닉네임이 없으면 전역 계정명으로 떨어진다", () => {
+  const member = { id: "u1", user: { username: "carl", tag: "carl#0" } };
+  assert.equal(toRequester(member).username, "carl");
 });
 
 test("toRequester: 대시보드 세션 사용자와 세션 복구 스텁도 같은 모양이 된다", () => {
@@ -159,6 +166,40 @@ function baseArgs(client, guild, extra = {}) {
   client.players.set(GUILD_ID, { textChannel: makeChannel("t"), voiceChannel: null, queue: [] });
   return { guild, requester: { id: "u1", user: { username: "carl" } }, ...extra };
 }
+
+// 라이브는 끝이 없어 이 구조가 다루지 못한다(길이 기반 종료 감시·캐시·"다음 곡"이 모두 성립하지 않는다).
+// 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
+test("라이브 링크는 거절하고 이유를 알린다", async () => {
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true }] });
+  const client = makeClient();
+  const guild = makeGuild();
+
+  const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play" }));
+
+  assert.equal(result.success, false);
+  assert.match(result.message, /라이브/);
+  assert.equal(client.embedCalls.length, 0, "코어까지 가지 않는다");
+});
+
+// 재생목록에 라이브가 섞여 있으면 그것만 빼고 나머지는 넣는다.
+test("재생목록의 라이브만 걸러내고 나머지는 넣는다", async () => {
+  mockResolve = () => ({
+    success: true,
+    isPlaylist: true,
+    collection: "playlist",
+    tracks: [
+      { title: "라이브", url: "https://y/live", duration: 0, isLive: true },
+      { title: "보통곡", url: "https://y/ok", duration: 100 },
+    ],
+  });
+  const client = makeClient();
+  const guild = makeGuild();
+
+  await requestPlayback(client, baseArgs(client, guild, { query: "https://y/list", source: "/play" }));
+
+  const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
+  assert.deepEqual(sent, ["보통곡"]);
+});
 
 test("query 경로: 해석 결과를 코어에 그대로 넘긴다", async () => {
   mockResolve = () => ok("곡A");

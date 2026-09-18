@@ -20,11 +20,13 @@ const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNK
 const PIN_SETTLE_MS = 12000;
 const { markTransient, isTransient } = require("./transientMessages");
 const blankThumbnail = require("./blankThumbnail");
+const { jumpDescription } = require("./queueDisplay");
 const NowPlayingPanel = require("./NowPlayingPanel");
 
 const BAR_LENGTH = 16;
 
-// 끝난 패널의 버튼 — 플레이어가 없어도 같은 모양을 그린다. 전부 비활성이라 custom_id는 쓰이지 않는다.
+// 끝난 패널의 버튼 — 플레이어가 없어도 같은 모양을 그린다.
+// 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
 const IDLE_CONTROLS = { sessionId: "idle", requesterId: "0", previousTracks: [], queue: [], loop: "off", paused: false, autoplay: false, currentTrack: null };
 
 class MusicEmbedManager {
@@ -165,7 +167,9 @@ class MusicEmbedManager {
       // 안내에 붙일 것 — 전체 곡 수는 받은 것보다 많을 때만
       const notice = { dropped, total: trackData.total > tracks.length ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) };
       if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
-      else trackState.enqueue(player, queued, { front: insertFirst });
+      else if (insertFirst) trackState.enqueue(player, queued, { front: true });
+      // 자동재생이 미리 뽑아 둔 곡보다는 앞에 — 사용자가 고른 곡이 먼저다
+      else trackState.enqueueAheadOfAutoplay(player, queued);
 
       // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
       if (startFailure && !player.currentTrack && player.queue.length > 0) {
@@ -418,11 +422,12 @@ class MusicEmbedManager {
     const progressBar = this.buildProgressBar(currentSec, totalSec);
 
     const artistValue = track.artist || "-";
-    const platformValue = track.platform ? track.platform.charAt(0).toUpperCase() + track.platform.slice(1) : "-";
+    const platformValue = this.getPlatformLabel(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
     // 제목은 이스케이프하지 않는다 — 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
-    const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.url})**${artistLine}`;
+    // 음원을 직접 받아 트는 곡은 url이 음원 파일이다 — 눌러 봐야 쓸모가 없으니 출처 쪽을 건다
+    const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.webUrl || track.url})**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
     // 직접 링크는 썸네일이 없으므로(임의 URL이라 앨범아트를 알 수 없다) 텍스트만 넣는다.
@@ -541,7 +546,7 @@ class MusicEmbedManager {
       .addSectionComponents(heading)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(`\`--:--\` ●${"▬".repeat(BAR_LENGTH)} \`--:--\``))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    for (const row of await this.createControlButtons(IDLE_CONTROLS, true)) container.addActionRowComponents(row);
+    for (const row of await this.createControlButtons(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})`));
 
     return { components: [container], files: [blankThumbnail.file()] };
@@ -662,7 +667,8 @@ class MusicEmbedManager {
   /**
    * 제어 버튼을 생성합니다.
    */
-  async createControlButtons(player, disabled = false) {
+  // keepAutoplay: 나머지를 죽여도 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
+  async createControlButtons(player, disabled = false, { keepAutoplay = false } = {}) {
     const sessionId = player.sessionId;
     const requesterId = player.requesterId;
 
@@ -717,7 +723,7 @@ class MusicEmbedManager {
       .setLabel("자동재생")
       .setStyle(player.autoplay ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setEmoji("🎲")
-      .setDisabled(disabled);
+      .setDisabled(disabled && !keepAutoplay);
 
     // SponsorBlock 하이라이트 점프 — 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
     const highlightAt = player.currentTrack?.sponsor?.highlightAt;
@@ -746,7 +752,8 @@ class MusicEmbedManager {
     const options = tracks.map((track, i) => {
       const label = `${i + 1}. ${track.title}`.slice(0, 100);
       const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(String(i));
-      if (track.artist) opt.setDescription(track.artist.slice(0, 100));
+      const description = jumpDescription(track);
+      if (description) opt.setDescription(description);
       return opt;
     });
 
@@ -787,14 +794,25 @@ class MusicEmbedManager {
   }
 
   /**
-   * 플랫폼 이름에 해당하는 이모지를 반환합니다.
+   * 플랫폼 이름에 해당하는 명칭과 이모지를 반환합니다. 모르는 값은 첫 글자만 대문자로 올립니다.
    */
+  getPlatformLabel(platform) {
+    return require("./platforms").labelOf(platform);
+  }
+
   getPlatformEmoji(platform) {
     const emojis = {
       youtube: "🔴",
       spotify: "🟢",
       soundcloud: "🟠",
       direct: "🔗",
+      // 자동재생이 출처에서 받아 온 곡들 — 소리는 유튜브나 그쪽 음원에서 온다
+      lastfm: "🔺",
+      lbradio: "🧠",
+      animethemes: "🎌",
+      vocadb: "🎹",
+      utaitedb: "🎤",
+      touhoudb: "⛩️",
     };
     return emojis[platform] || "🎵";
   }

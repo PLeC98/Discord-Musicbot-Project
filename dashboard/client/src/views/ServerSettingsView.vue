@@ -95,7 +95,7 @@
         <label class="flex items-center gap-2.5 text-sm" :class="s.canEdit ? '' : 'opacity-60'">
           <span class="text-muted">직접 입력</span>
           <input
-            type="number"
+            type="text"
             inputmode="numeric"
             :min="s.playlistAdd.min"
             :max="s.playlistAdd.max"
@@ -117,12 +117,8 @@
         </div>
       </BaseCard>
 
-      <!-- Save / revert -->
-      <div class="flex items-center gap-2.5 flex-wrap">
-        <BaseButton variant="primary" :disabled="!s.canEdit || !dirty || saving || paInvalid" @click="save">{{ saving ? "저장 중..." : "저장" }}</BaseButton>
-        <BaseButton variant="ghost" :disabled="!s.canEdit || !dirty || saving" @click="revert">되돌리기</BaseButton>
-        <span v-if="dirty" class="text-warning text-[0.8rem]">저장되지 않은 변경이 있습니다</span>
-      </div>
+      <!-- 저장/되돌리기는 화면 오른쪽 아래에 떠 있다 — 설정이 길어 맨 밑까지 스크롤하지 않아도 되게 -->
+      <SaveDock :dirty="dirty && s.canEdit" :saving="saving" :blocked="paInvalid" @save="save" @revert="revert" />
 
       <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
         <Icon :name="result.success ? 'check' : 'error'" :size="16" />
@@ -137,7 +133,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
-import BaseButton from "../components/BaseButton.vue";
+import SaveDock from "../components/SaveDock.vue";
 import Icon from "../components/BaseIcon.vue";
 
 const route = useRoute();
@@ -203,8 +199,10 @@ function pickPreset(n) {
   paCount.value = n;
 }
 
+// type="number" 를 안 쓴다 — 칸 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
 function onPaInput(e) {
-  const raw = e.target.value.trim();
+  const raw = e.target.value.replace(/[^0-9]/g, "");
+  if (e.target.value !== raw) e.target.value = raw;
   if (raw === "") {
     paUseDefault.value = true;
     paCount.value = null;

@@ -160,7 +160,7 @@ function panelPlayer(over = {}) {
 const shape = (json) => json.components.map((c) => c.type);
 const buttonsOf = (json) => json.components.filter((c) => c.type === 1).flatMap((row) => row.components);
 
-test("종료 모양: 재생 화면과 구성이 같고, 버튼은 전부 꺼지고, 썸네일 자리는 첨부한 투명 이미지다", async () => {
+test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리고, 썸네일 자리는 첨부한 투명 이미지다", async () => {
   const mem = new MusicEmbedManager({ players: new Map() });
   const player = panelPlayer();
   const playing = (await mem.createNowPlayingContainer(player, { title: "곡", url: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" })).toJSON();
@@ -169,10 +169,14 @@ test("종료 모양: 재생 화면과 구성이 같고, 버튼은 전부 꺼지�
 
   assert.deepEqual(shape(idle), shape(playing));
   assert.equal(buttonsOf(idle).length, buttonsOf(playing).length);
-  assert.ok(
-    buttonsOf(idle).every((b) => b.disabled),
-    "대기열 버튼까지 전부 꺼진다",
+  // 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다(3단계). 나머지는 대기열 버튼까지 꺼진다.
+  const alive = buttonsOf(idle).filter((b) => !b.disabled);
+  assert.deepEqual(
+    alive.map((b) => (b.custom_id || "").split(":")[0]),
+    ["music_autoplay"],
+    "자동재생 하나만 눌린다",
   );
+  assert.ok(buttonsOf(idle).length > 1, "나머지 버튼도 같은 자리에 그려진다(모양 유지)");
   assert.equal(idle.components[0].accessory.media.url, "attachment://blank.png");
   assert.equal(files[0].name, "blank.png");
 });
@@ -211,7 +215,11 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
 
       assert.equal(edits.length, 1, `패널을 고친다 (전용 채널=${botChannel})`);
       assert.equal(edits[0].id, "100");
-      assert.ok(buttonsOf(edits[0].payload.components[0].toJSON()).every((b) => b.disabled));
+      const idleButtons = buttonsOf(edits[0].payload.components[0].toJSON());
+      assert.ok(
+        idleButtons.filter((b) => !b.disabled).every((b) => (b.custom_id || "").startsWith("music_autoplay:")),
+        "자동재생 외에는 전부 꺼진다",
+      );
       assert.equal(edits[0].payload.files[0].name, "blank.png");
       assert.equal(sent.length, expectNotice ? 1 : 0, `종료 메시지 (전용 채널=${botChannel})`);
       assert.equal(player.nowPlayingMessage, null);
@@ -226,4 +234,27 @@ test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async (
   const json = JSON.stringify((await mem.createIdleContainer({ reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());
   assert.match(json, /곡을 기다리고 있어요/);
   assert.match(json, /<t:1600:R> 쉬러 갈게요/);
+});
+
+// ── 패널에 보일 출처 이름 ─────────────────────────────────────────────────
+
+// 회귀 대상: platform 을 그대로 첫 글자만 올려 썼다. platform 은 내부 분류 코드라
+// "Lbradio"·"Vocadb"·"Lastfm" 처럼 아무도 안 쓰는 표기가 패널에 그대로 나왔다.
+test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
+  const label = (p) => MusicEmbedManager.prototype.getPlatformLabel.call({}, p);
+
+  assert.equal(label("lbradio"), "ListenBrainz Radio");
+  assert.equal(label("lastfm"), "Last.fm");
+  assert.equal(label("vocadb"), "VocaDB");
+  assert.equal(label("utaitedb"), "UtaiteDB");
+  assert.equal(label("touhoudb"), "TouhouDB");
+  assert.equal(label("animethemes"), "AnimeThemes");
+  assert.equal(label("youtube"), "YouTube");
+  assert.equal(label("soundcloud"), "SoundCloud");
+  assert.equal(label("direct"), "직접 링크");
+
+  // 모르는 값은 첫 글자만 올린다 — 없는 것보다 낫다
+  assert.equal(label("새소스"), "새소스");
+  assert.equal(label("mixcloud"), "Mixcloud");
+  assert.equal(label(null), "-");
 });

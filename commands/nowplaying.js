@@ -93,18 +93,6 @@ module.exports = {
 
       embed.addFields({ name: "📊 상태", value: statusText, inline: false });
 
-      if (player.queue.length > 0) {
-        embed.addFields({
-          name: "🔜 다음 노래",
-          value: `[${player.queue[0].title}](${player.queue[0].url})`,
-          inline: false,
-        });
-
-        embed.setFooter({ text: `대기열에 ${player.queue.length}개의 노래가 더 있습니다` });
-      } else {
-        embed.setFooter({ text: "대기열에 더 이상 노래가 없습니다" });
-      }
-
       // 썸네일 추가
       if (track.thumbnail) {
         embed.setThumbnail(track.thumbnail);

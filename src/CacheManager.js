@@ -250,7 +250,9 @@ class CacheManager {
       _cachedFilePath: filePath,
     };
 
-    if (row.platform === "spotify" && row.audio_source_key.startsWith("yt:")) {
+    // 출처가 따로 있고 소리만 유튜브에서 오는 곡(스포티파이, 그리고 자동재생의 lastfm·lbradio·
+    // vocadb 계열 …)은 영상 주소를 되살려 준다 — 없으면 스트림을 어디서 가져올지 알 수 없다.
+    if (row.platform !== "youtube" && String(row.audio_source_key).startsWith("yt:")) {
       cachedTrack.youtubeUrl = `https://www.youtube.com/watch?v=${row.audio_source_key.slice(3)}`;
     }
 
@@ -603,30 +605,64 @@ class CacheManager {
 
     const before = { files: this._cacheCount(), bytes: this._cacheSize() };
 
-    // 파생 데이터만 비운다. track_lookup은 CASCADE 대상이지만 명시해 순서를 못박는다.
-    const tables = ["track_lookup", "audio_cache", "sponsorblock_cache", "age_restricted", "spotify_anon", "session_tracks", "player_sessions"];
-    const wipe = this.db.transaction(() => {
-      for (const t of tables) this.db.prepare(`DELETE FROM ${t}`).run();
-    });
-    wipe();
-
+    // 파일을 **먼저** 지우고, 잠겨서 못 지운 것의 행은 남긴다.
+    // 행만 지우고 파일을 남기면 부모 없는 자식이 생긴다 — 재생 중인 곡은 파일이 있어 다운로더를 건너뛰므로
+    // audio_cache 행이 다시 만들어지지 않고, 그 뒤의 track_lookup 기록이 FK 위반으로 재생을 죽인다.
+    const rows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache").all();
+    const pathOf = (row) => path.resolve(row.file_path || this.getFilePath(row.audio_source_key));
+    const keptKeys = new Set();
+    const keptPaths = new Set();
     let removed = 0;
     let kept = 0;
+
+    for (const row of rows) {
+      const target = pathOf(row);
+      if (!fs.existsSync(target)) continue;
+      try {
+        fs.unlinkSync(target);
+        removed++;
+      } catch {
+        kept++; // 재생 중이라 잠긴 파일 — 행을 남겨 둔다
+        keptKeys.add(row.audio_source_key);
+        keptPaths.add(target);
+      }
+    }
+
+    // DB가 모르는 파일까지 치운다(고아)
     if (fs.existsSync(this._cacheDir)) {
       for (const file of fs.readdirSync(this._cacheDir)) {
+        const target = path.resolve(path.join(this._cacheDir, file));
+        if (keptPaths.has(target)) continue;
         try {
-          fs.unlinkSync(path.join(this._cacheDir, file));
+          fs.unlinkSync(target);
           removed++;
         } catch {
-          kept++; // 재생 중이라 잠긴 파일
+          kept++;
         }
       }
     }
 
-    // 보호 집합은 사라진 행을 가리키게 되므로 함께 비운다. 재생 중인 곡은 다음 예열 틱이 다시 채운다.
+    const survivors = [...keptKeys];
+    const holes = survivors.map(() => "?").join(",");
+    const wipe = this.db.transaction(() => {
+      if (survivors.length) {
+        this.db.prepare(`DELETE FROM track_lookup WHERE audio_source_key NOT IN (${holes})`).run(...survivors);
+        this.db.prepare(`DELETE FROM audio_cache  WHERE audio_source_key NOT IN (${holes})`).run(...survivors);
+      } else {
+        this.db.prepare("DELETE FROM track_lookup").run();
+        this.db.prepare("DELETE FROM audio_cache").run();
+      }
+      for (const t of ["sponsorblock_cache", "age_restricted", "spotify_anon", "session_tracks", "player_sessions"]) {
+        this.db.prepare(`DELETE FROM ${t}`).run();
+      }
+    });
+    wipe();
+
+    // 보호 집합은 사라진 행을 가리키게 되므로 비우고, 살아남은 것(재생 중)만 다시 건다.
     this._protectedKeys.clear();
     this._queuedKeys.clear();
     this._protectedFiles.clear(); // 받는 중인 임시 파일 보호도 함께 — 파일은 위에서 지웠다
+    for (const key of keptKeys) this._protectedKeys.add(key);
 
     try {
       this.db.pragma("wal_checkpoint(TRUNCATE)");

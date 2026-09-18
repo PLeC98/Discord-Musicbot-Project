@@ -7,6 +7,7 @@ const clog = require("./logger").child({ category: "control" });
 const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../config");
+const autoplayRoute = require("./autoplayRoute");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./TrackResolver");
 const SponsorBlock = require("./SponsorBlock");
@@ -401,7 +402,9 @@ class MusicPlayer {
           audioStream = streamInfo.stream;
         } else if (typeof streamUrl_final === "string") {
           try {
-            if (this.currentTrack.platform === "direct") {
+            // 트랙의 platform이 아니라 서술자를 본다 — AnimeThemes처럼 출처 이름을 platform에
+            // 쓰면서 음원을 직접 받는 곡이 있다(TrackResolver.getStream이 direct 서술자를 돌려준다).
+            if (streamInfo?.platform === "direct" || this.currentTrack.platform === "direct") {
               // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
               audioStream = await DirectLink.getStream(streamUrl_final);
             } else {
@@ -559,10 +562,15 @@ class MusicPlayer {
       // 리소스 재생
       this.audioPlayer.play(this.resource);
 
-      // 재생 통계와 소스 URL → audioSourceKey 매핑을 DB에 기록
+      // 재생 통계와 소스 URL → audioSourceKey 매핑을 DB에 기록.
+      // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다 — 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
       if (this.currentTrack.audioSourceKey) {
-        CacheManager.recordPlayback(this.currentTrack.audioSourceKey);
-        CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
+        try {
+          CacheManager.recordPlayback(this.currentTrack.audioSourceKey);
+          CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
+        } catch (error) {
+          log.warn(`캐시 장부 기록 실패(재생은 계속): ${error?.message || error}`);
+        }
       }
 
       if (this.pauseReasons.size > 0) {
@@ -593,6 +601,9 @@ class MusicPlayer {
       this.startStateSync();
       this.warmer.start();
       await this.persistState(resumeFromMs > 0 ? "resume-playback" : "play");
+
+      // 다음 자동재생 곡을 미리 뽑아 둔다(B-50). 기다리지 않는다 — 재생 시작을 늦추면 안 된다.
+      this.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 뽑기 실패: ${error?.message || error}`));
 
       return { success: true, track: this.currentTrack };
     } catch (error) {
@@ -1012,7 +1023,7 @@ class MusicPlayer {
   /**
    * 이 플레이어가 아직 이 서버의 현행 플레이어인가.
    *
-   * 교체되고도 남아 있던 타이머가 뒤늦게 깨어나 **다른 플레이어의 등록과 음성 연결을**
+   * 교체되고도 남아 있던 타이머가 뒤늦게 깨어나 다른 플레이어의 등록과 음성 연결을
    * 건드리는 사고가 있었다(대기열 소진 타이머가 재생 중인 새 플레이어를 레지스트리에서
    * 지움). 지연 실행되는 정리 경로는 반드시 이걸로 자기 차례인지 확인한다.
    */
@@ -1103,7 +1114,7 @@ class MusicPlayer {
   /**
    * 재생 위치 이동. `/seek`·`/replay`·`/highlight`·대시보드가 전부 여기를 지난다.
    *
-   * 각 진입점이 `play(null, ms)`를 직접 부르면 **로그에는 새 곡이 시작된 것과 똑같이 보인다.**
+   * 각 진입점이 `play(null, ms)`를 직접 부르면 로그에는 새 곡이 시작된 것과 똑같이 보인다.
    * 사람이 위치를 옮긴 것과 봇이 다음 곡으로 넘어간 것을 가릴 수 없어지는데, `control`
    * 카테고리를 따로 가른 이유가 정확히 그것이다. 진입점마다 로그를 다는 대신 통로를 하나로 둔다.
    *
@@ -1206,13 +1217,23 @@ class MusicPlayer {
 
   /**
    * 자동재생 장르 설정(false면 끔). 진입점들이 `player.autoplay`에 직접 대입하고 있었는데,
-   * 그러면 **대기열이 저절로 늘어난 이유를 로그에서 찾을 수 없다** — 곡이 붙는 것만 보이고
+   * 그러면 대기열이 저절로 늘어난 이유를 로그에서 찾을 수 없다 — 곡이 붙는 것만 보이고
    * 누가 켰는지가 없다. 반복·볼륨과 같은 조작이므로 같은 자리에 둔다.
    */
   setAutoplay(genre) {
     const next = genre || false;
-    if (this.autoplay !== next) clog.info(`자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
+    const changed = this.autoplay !== next;
+    if (changed) clog.info(`자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
     this.autoplay = next;
+
+    // 미리 뽑아 둔 곡은 껐으면 남을 이유가 없고, 장르를 바꿨으면 이전 장르의 곡이다.
+    // 사용자가 넣은 곡은 건드리지 않는다.
+    if (changed) {
+      const dropped = trackState.dropAutoplay(this);
+      if (dropped > 0) clog.info(`미리 뽑아 둔 자동재생 곡 ${dropped}곡을 대기열에서 뺐습니다`);
+      if (next) this.ensureAutoplayNext().catch(() => {});
+    }
+
     this.scheduleStatePersist("autoplay", 200);
     return this.autoplay;
   }
@@ -1369,18 +1390,21 @@ class MusicPlayer {
       }
 
       if (this.autoplay) {
-        const genres = require("../config/genres");
-        if (genres[this.autoplay]) {
+        const { genres } = require("./configDataLoader").genres();
+        if (!genres[this.autoplay]) {
+          // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
+          log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
+          if (this.textChannel) {
+            this.textChannel?.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
+          }
+          this.autoplay = false;
+        } else {
           this.currentTrackRetries = 0;
-          await this.handleAutoplay();
-          return;
+          // 틀었을 때만 여기서 끝낸다. 못 골랐으면 아래 대기열 소진 흐름으로 떨어진다 —
+          // 그냥 return하면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가·스킵이 전부 먹통이 된다.
+          // 이때 자동재생은 켜 둔 채로 둔다. 후보를 한 번 못 찾은 것이 장르를 끌 이유는 아니다.
+          if (await this.handleAutoplay()) return;
         }
-        // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등) — 자동재생을 끄고 알린 뒤, 아래의 일반 대기열 종료 흐름으로 진행
-        log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
-        if (this.textChannel) {
-          this.textChannel?.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
-        }
-        this.autoplay = false;
       }
 
       trackState.setCurrent(this, null);
@@ -1426,83 +1450,165 @@ class MusicPlayer {
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 
-  async handleAutoplay() {
-    if (!this.autoplay || typeof this.autoplay !== "string") return;
+  /**
+   * 자동재생 후보 한 곡을 고른다. 못 고르면 null.
+   *
+   * 고르기만 한다 — 대기열도 재생도 건드리지 않는다. 부르는 쪽이 지금 틀지(handleAutoplay)
+   * 미리 대기열에 둘지(ensureAutoplayNext) 정한다.
+   */
+  async pickAutoplayTrack() {
+    if (!this.autoplay || typeof this.autoplay !== "string") return null;
 
     try {
-      // 장르 정의는 config/genres.js 한 곳에서 관리.
-      // 알 수 없는 장르는 호출부(handleTrackEnd)에서 걸러지므로 여기서는 방어적으로 중단만 한다.
-      const genres = require("../config/genres");
-      const keywords = genres[this.autoplay]?.keywords;
-      if (!keywords) return;
-      const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
+      // 장르 정의와 기준값은 config/genres.yaml 한 곳에서 관리. 장르가 기준값을 덮어쓴다.
+      const cfg = this._autoplayConfig();
+      if (!cfg) return null;
 
-      // 임의 트랙을 YouTube에서 검색
-      const YouTube = require("./YouTube");
-      const results = await YouTube.search(randomKeyword, 15);
+      // 최근에 튼 곡과 대기열에 이미 있는 곡을 함께 넘긴다. 미리 뽑아 둔 자동재생 곡이
+      // 대기열에 있으므로, 그걸 빼지 않으면 같은 곡을 두 번 고를 수 있다.
+      const recent = [this.currentTrack, ...this.previousTracks.slice(-20), ...this.queue].filter(Boolean);
 
-      if (!results || results.length === 0) {
-        return;
+      const picked = await autoplayRoute.pickTrack(cfg, recent);
+      if (!picked) {
+        log.warn(`자동재생: 어느 소스에서도 곡을 찾지 못했습니다 (장르 ${this.autoplay})`);
+        return null;
       }
 
-      // 비음악 콘텐츠 필터링
-      const filteredResults = results.filter((track) => {
-        // 길이가 없으면 건너뜀
-        if (!track.duration) return false;
+      picked.requestedBy = this.guild.members.me.user;
+      picked.addedAt = Date.now();
+      picked.autoplay = true; // 대기열 표시·정리에서 사용자 곡과 가른다
 
-        // 길이 제한: 30초 ~ 10분(600초)
-        // 이를 통해 대부분의 튜토리얼, 강의, 팟캐스트 및 전체 영화를 걸러냅니다.
-        if (track.duration < 30 || track.duration > 600) return false;
-
-        // 제목에서 일반적인 비음악 키워드 필터링
-        const title = (track.title || "").toLowerCase();
-        const blockedKeywords = ["tutorial", "lesson", "course", "learn", "learning", "podcast", "interview", "talk", "speech", "lecture", "review", "unboxing", "reaction", "gameplay", "full movie", "full album", "full episode", "documentary", "how to", "guide", "tips", "tricks", "vlog", "practice", "exercise", "workout", "meditation", "asmr", "story", "audiobook", "mix |", "compilation"];
-
-        // 제목에 차단 키워드가 포함되어 있는지 확인
-        const hasBlockedKeyword = blockedKeywords.some((keyword) => title.includes(keyword));
-        if (hasBlockedKeyword) return false;
-
-        // 재생목록처럼 보이는 콘텐츠 필터링 (믹스와 모음은 이모지나 괄호가 많은 경우가 잦음)
-        const emojiCount = (title.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
-        const bracketCount = (title.match(/[[\]【】]/g) || []).length;
-        if (emojiCount > 3 || bracketCount > 4) return false;
-
-        return true;
-      });
-
-      if (filteredResults.length === 0) {
-        // 다른 키워드로 다시 시도
-        const fallbackKeyword = keywords[Math.floor(Math.random() * keywords.length)];
-        const fallbackResults = await YouTube.search(fallbackKeyword, 10);
-        const fallbackFiltered = (fallbackResults || []).filter((track) => track.duration >= 30 && track.duration <= 600);
-
-        if (fallbackFiltered.length === 0) {
-          return;
-        }
-
-        filteredResults.push(...fallbackFiltered);
-      }
-
-      // 필터링된 결과에서 임의 트랙 선택
-      const randomTrack = filteredResults[Math.floor(Math.random() * filteredResults.length)];
-      randomTrack.requestedBy = this.guild.members.me.user;
-      randomTrack.addedAt = Date.now();
-
-      // 끝에 넣고 맨 앞을 꺼낸다 — 검색하는 사이 사용자가 곡을 넣었으면 그 곡이 먼저다
-      trackState.enqueue(this, [randomTrack]);
-      trackState.shiftNext(this);
-      await this.play(null, 0);
-
-      // 자동재생 트랙용 현재 재생 임베드 갱신
-      if (this.guild?.client?.musicEmbedManager) {
-        await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
-      }
+      // 어디서 어떻게 왔는지 한 줄. 소스가 여럿이 되면서 "이 곡이 왜 나왔지"를 로그로 되짚을 수
+      // 있어야 한다 — 재생·종료 쪽에는 출처가 찍히는데 정작 고르는 자리에 없었다.
+      const how = picked.platform === "direct" ? "음원 직접" : picked.youtubeUrl ? `유튜브 ${picked.youtubeUrl}` : "유튜브";
+      clog.info(`자동재생 뽑기: "${picked.title}" — ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
+      return picked;
     } catch (error) {
       log.error("자동재생 오류:", error.message);
+      return null;
     }
   }
 
+  /**
+   * 틀 것이 하나도 없을 때 — 아무거나 틀지 않고 알린 뒤 끈다.
+   *
+   * 조용히 멈추면 무엇이 잘못됐는지 알 길이 없다. pickTrack은 이미 모든 소스를 훑고 오므로
+   * 여기까지 왔다는 것은 한 번 삐끗한 것이 아니라 정말로 낼 것이 없다는 뜻이다.
+   */
+  _giveUpAutoplay() {
+    if (!this.autoplay) return;
+    const genre = this.autoplay;
+    log.warn(`자동재생을 종료합니다. 곡을 찾지 못했습니다 (장르 ${genre})`);
+    this.textChannel?.send(`⏹️ \`${genre}\` 장르에서 틀 만한 곡을 찾지 못해 자동재생을 껐습니다.`).catch(() => {});
+    this.setAutoplay(false);
+  }
+
+  /** 지금 골라서 바로 튼다 — 곡이 끝났을 때와, 아무것도 안 틀고 있을 때 켠 경우. 틀었으면 true. */
+  async handleAutoplay() {
+    const picked = await this.pickAutoplayTrack();
+    if (!picked) {
+      // 미리 뽑기(ensureAutoplayNext)에서는 끄지 않는다 — 거기서는 못 골라도 여기서 다시 해 본다.
+      this._giveUpAutoplay();
+      return false;
+    }
+
+    trackState.enqueue(this, [picked]);
+    trackState.shiftNext(this);
+    await this.play(null, 0);
+
+    const embeds = this.guild?.client?.musicEmbedManager;
+    if (embeds) {
+      // 패널이 없을 수 있다 — 아무것도 안 틀던 서버에서 자동재생으로 처음 트는 길.
+      // updateNowPlayingEmbed는 있는 패널을 고칠 뿐이라, 그대로 두면 소리만 나고 화면이 없다.
+      if (this.nowPlayingMessage) await embeds.updateNowPlayingEmbed(this);
+      else await embeds.createNewMusicEmbed(this, this.currentTrack, this.guild.members.me.user);
+    }
+    return true;
+  }
+
+  /**
+   * 곡이 시작될 때 다음 자동재생 곡을 미리 대기열에 둔다.
+   *
+   * 그래야 QueueWarmer가 평소처럼 받아 두고 전환이 즉시가 된다. 지금까지는 곡이 끝난 뒤에야
+   * 검색을 시작해 그만큼 소리가 비었다(B-50) — 자동재생 곡이 대기열에 머무는 시간이 0이었다.
+   *
+   * 부르는 쪽은 기다리지 않는다. 검색에 몇 초가 걸리는데 그걸 기다리면 재생 시작이 늦어진다.
+   */
+  async ensureAutoplayNext() {
+    if (this._autoplayPicking) return false; // 고르는 중 — 겹쳐 부르면 두 곡이 들어간다
+    if (!this._canPrefetchAutoplay()) return false;
+
+    this._autoplayPicking = true;
+    try {
+      // prefetchCount만큼 채운다. 한 번에 한 곡만 넣으면 값을 키워도 늘 한 곡 앞만 보게 된다
+      // — 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라 다시 불러 주는 사람이 없기 때문이다.
+      //
+      // 다만 쉬지 않고 연달아 뽑지는 않는다. 뽑기 한 번에 유튜브 검색이 여러 번 나가므로
+      // (소스 재시도 × 검색어) 다섯 곡을 붙여 뽑으면 수십 번이 몇 초 안에 몰린다.
+      // 급한 것은 첫 곡뿐이니 나머지는 예열과 같은 간격(preload.gapMs)을 둔다.
+      //
+      // (한때 이 몰아치기가 내려받기 403의 원인이라고 적어 뒀는데 **틀렸다.** 그 뒤 예열 대상이
+      //  한 곡뿐일 때도, 사용자가 넣은 유튜브 재생목록에서도 같은 403이 났다. 저쪽 사정이다 —
+      //  yt-dlp #17395 참고. 간격 자체는 저쪽을 덜 두드리니 그대로 둔다.)
+      let added = 0;
+      while (this._canPrefetchAutoplay()) {
+        if (added > 0) {
+          await new Promise((done) => setTimeout(done, this._prefetchGapMs ?? config.preload.gapMs));
+          if (!this._canPrefetchAutoplay()) break; // 쉬는 사이 사용자가 곡을 넣었을 수 있다
+        }
+
+        const picked = await this.pickAutoplayTrack();
+        if (!picked) break;
+        // 고르는 사이 대기열이 변했을 수 있다 — 사용자가 곡을 넣었으면 미리 뽑기는 취소한다.
+        if (!this._canPrefetchAutoplay()) break;
+
+        trackState.enqueue(this, [picked]);
+        added++;
+        clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"})`);
+      }
+
+      if (added && this.guild?.client?.musicEmbedManager) {
+        await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this).catch(() => {});
+      }
+      return added > 0;
+    } finally {
+      this._autoplayPicking = false;
+    }
+  }
+
+  // 지금 장르의 자동재생 설정 — 기준값 위에 장르 설정을 얹는다. 모르는 장르면 null.
+  _autoplayConfig() {
+    const { defaults, genres } = require("./configDataLoader").genres();
+    const genre = genres[this.autoplay];
+    // 이름도 같이 넘긴다 — AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplayAssist)
+    return genre ? { ...defaults, ...genre, genreName: this.autoplay } : null;
+  }
+
+  // 미리 뽑아 둘 수 있는 상태인가 — 고르기 전과 넣기 직전에 같은 것을 본다.
+  _canPrefetchAutoplay() {
+    if (!this.autoplay || typeof this.autoplay !== "string") return false;
+    if (!this.currentTrack) return false; // 틀고 있는 게 없으면 미리 둘 이유가 없다
+    if (this.loop === "track") return false; // 한곡 반복이면 다음 곡으로 넘어가지 않는다
+    const want = Number(this._autoplayConfig()?.prefetchCount ?? 1);
+    return this.queue.length < Math.max(1, want);
+  }
+
   async handleError(error, userMessage = null) {
+    // 내려간 영상을 고른 자동재생 곡 — 우리가 고른 것이니 사용자에게 알릴 일이 아니다.
+    // 기억해 두고(다음에 또 고르지 않게) 조용히 다른 곡으로 넘어간다.
+    const failed = this.currentTrack;
+    if (failed?.autoplay && require("./YouTube").isVideoUnavailableError(error)) {
+      autoplayRoute.markDead(failed);
+      log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${failed.title}"`);
+      userMessage = null;
+    }
+
+    // 대기열이 비었어도 자동재생 중이면 멈추지 않는다 — 그대로 두면 봇이 얼어붙는다.
+    if (this.queue.length === 0 && this.autoplay) {
+      trackState.setCurrent(this, null);
+      if (await this.handleAutoplay()) return;
+    }
+
     // 오류 시 다음 트랙으로 스킵 시도
     if (this.queue.length > 0) {
       // 스킵 전에 오류를 텍스트 채널로 전송
