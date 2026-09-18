@@ -4,8 +4,8 @@
   설정은 config/ai.yaml, **프롬프트는 config/ai-prompt.chatml** 로 따로 산다.
   둘 다 파일로도 고칠 수 있다 — 대시보드는 선택 기능이다.
 
-  **API 키는 여기서 다루지 않는다.** .env 에 있고, 화면에는 있는지 없는지만 내려온다 —
-  값을 브라우저로 보내면 XSS 하나로 새어 나간다.
+  **키는 쓰기 전용이다.** config/ai-keys.yaml 에 프로바이더마다 따로 있고, 넣을 수는 있어도
+  화면으로 되읽지는 못한다 — 값을 내려보내면 XSS 하나로 새어 나간다.
 
   미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
@@ -135,7 +135,7 @@
             <NumberInput v-model="timeoutSec" :class="inputCls" />
           </label>
           <label class="block">
-            <span :class="labelCls" v-tooltip="'곡마다 따로 물으면 느립니다'">리퀘스트당 판정할을 맡길 곡 수</span>
+            <span :class="labelCls" v-tooltip="'곡마다 따로 물으면 느립니다'">리퀘스트당 판정을 맡길 곡 수</span>
             <NumberInput v-model="draft.batchSize" :class="inputCls" />
           </label>
           <label class="flex items-center gap-2 cursor-pointer self-end pb-2.5">

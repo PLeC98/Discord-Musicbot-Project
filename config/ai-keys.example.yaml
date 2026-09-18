@@ -27,6 +27,7 @@ openrouter: "" # https://openrouter.ai/keys
 nanogpt: "" # https://nano-gpt.com/api
 vercel: "" # https://vercel.com/dashboard/ai-gateway
 llmgateway: "" # https://llmgateway.io
+neuralwatt: "" # 키를 안 받는 것으로 보입니다. 필요해지면 여기 적으세요
 
 # ── 버텍스 AI 서비스 계정 ──
 #

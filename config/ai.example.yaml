@@ -33,7 +33,8 @@
 #   aistudio · deepseek · mistral · xai
 #   groq · together                              모델을 직접 내는 곳
 #
-#   openrouter · nanogpt · vercel · llmgateway   여러 곳을 묶어 파는 곳
+#   openrouter · nanogpt · vercel
+#   llmgateway · neuralwatt                      여러 곳을 묶어 파는 곳
 #
 #   vertex                                       버텍스 AI(제미니 네이티브).
 #                                                키가 아니라 서비스 계정 JSON 을 씁니다
@@ -106,6 +107,7 @@ hideModels:
   - "gpt-3.5*"
   - "*gpt-4*"
   - "*omni-moderation*"
+  - "*gemini-1.5*"
   - "*gemini-2.5*"
   - "*sora*"
   - "*veo*"
