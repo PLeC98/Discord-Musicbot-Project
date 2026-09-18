@@ -83,11 +83,17 @@ async function lastfm(source) {
 async function lbradio(source) {
   const token = config.sources?.listenbrainzToken;
   if (!token) throw new Error("LISTENBRAINZ_TOKEN이 없습니다");
-  const prompt = source.prompt || (source.tags?.length ? `tag:(${source.tags.join(",")})` : "");
+  // 기본은 hard다. 이름과 반대로 hard 쪽이 더 알려진 곡을 준다 — 모드는 태그 폭을 바꾼다
+  // (easy는 적은 태그만, hard는 비슷한 태그까지 끌어와서 그만큼 큰 아티스트가 섞인다).
+  const modes = [].concat(source.mode || "hard");
+
+  // mode 파라미터는 하나만 받지만(둘을 주면 400), **프롬프트 안에서는 원소마다 지정할 수 있다.**
+  // 그래서 `mode: [easy, hard]` 를 한 번의 요청으로 섞을 수 있다 — 50곡을 나눠 채워 준다.
+  const tagPart = source.tags?.length ? `tag:(${source.tags.join(",")})` : "";
+  const prompt = source.prompt || (tagPart ? modes.map((m) => `${tagPart}::${m}`).join(" ") : "");
   if (!prompt) return [];
 
-  // 기본은 hard다. 이름과 반대로 hard 쪽이 더 알려진 곡을 준다
-  const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: source.mode || "hard" })}`;
+  const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: modes[0] })}`;
   const list = (await getJson(url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
   return list
     .map((t) => ({

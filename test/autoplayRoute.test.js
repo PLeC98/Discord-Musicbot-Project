@@ -192,6 +192,34 @@ test("MusicBrainz 자리표시 항목은 후보에서 뺀다", () => {
   for (const ok of ["YOASOBI", "Oasis", "[Alexandros]", "Song [Live]", ""]) assert.equal(_placeholder.test(ok), false, ok);
 });
 
+// ── 내려간 영상 ───────────────────────────────────────────────────────────
+
+// 소스 DB는 그 영상이 아직 살아 있다고 믿는다. 우리가 기억하지 않으면 같은 것을 또 고르고,
+// 그때마다 재생이 실패한다.
+test("못 트는 영상으로 표시하면 다시 고르지 않는다", async () => {
+  route._dead.clear();
+  const url = "https://www.youtube.com/watch?v=BYlcTa9SQXs";
+
+  const before = await route.resolve({ title: "노래", durationSec: 200, youtubeUrl: url }, LIMITS);
+  assert.ok(before, "표시하기 전에는 멀쩡히 고른다");
+
+  route.markDead(url);
+  assert.equal(route.rejector([])({ title: "노래", youtubeUrl: url }), true, "후보 단계에서 빠져야 한다");
+
+  // 이름으로 찾아온 것도 같은 영상이면 버린다
+  ytResults = [{ id: "BYlcTa9SQXs", url, title: "Song", artist: "A", duration: 240 }];
+  assert.equal(await route.resolve({ artist: "A", title: "Song", durationSec: 240 }, LIMITS), null);
+
+  route._dead.clear();
+});
+
+test("트랙을 통째로 넘겨도 표시된다 — 출처 곡은 url이 영상이 아니다", () => {
+  route._dead.clear();
+  route.markDead({ url: "https://vocadb.net/S/1", youtubeUrl: "https://youtu.be/abcdefghijk" });
+  assert.equal(route._dead.has("abcdefghijk"), true);
+  route._dead.clear();
+});
+
 // ── 소스 기본값 ───────────────────────────────────────────────────────────
 
 // 기본값은 조용히 성격을 정한다. 뒤집히면 아무도 모른 채 딴 곡이 나오므로 여기 못 박는다.

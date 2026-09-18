@@ -1571,6 +1571,21 @@ class MusicPlayer {
   }
 
   async handleError(error, userMessage = null) {
+    // 내려간 영상을 고른 자동재생 곡 — 우리가 고른 것이니 사용자에게 알릴 일이 아니다.
+    // 기억해 두고(다음에 또 고르지 않게) 조용히 다른 곡으로 넘어간다.
+    const failed = this.currentTrack;
+    if (failed?.autoplay && require("./YouTube").isVideoUnavailableError(error)) {
+      autoplayRoute.markDead(failed);
+      log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${failed.title}"`);
+      userMessage = null;
+    }
+
+    // 대기열이 비었어도 자동재생 중이면 멈추지 않는다 — 그대로 두면 봇이 얼어붙는다.
+    if (this.queue.length === 0 && this.autoplay) {
+      trackState.setCurrent(this, null);
+      if (await this.handleAutoplay()) return;
+    }
+
     // 오류 시 다음 트랙으로 스킵 시도
     if (this.queue.length > 0) {
       // 스킵 전에 오류를 텍스트 채널로 전송

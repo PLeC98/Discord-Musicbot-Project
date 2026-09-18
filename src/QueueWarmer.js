@@ -102,6 +102,30 @@ class QueueWarmer {
   }
 
   /**
+   * 내려간 영상을 고른 자동재생 곡을 대기열에서 빼고 다른 곡으로 채운다.
+   *
+   * 소스 DB(VocaDB·LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
+   * 않으면 다음 뽑기에서 같은 것을 또 고른다.
+   *
+   * @returns {boolean} 버렸으면 true — 부르는 쪽은 평소의 실패 처리를 건너뛴다.
+   */
+  _dropDeadAutoplay(track, err) {
+    const YouTube = require("./YouTube");
+    if (!YouTube.isVideoUnavailableError(err)) return false;
+
+    const index = this.player.queue.indexOf(track);
+    if (index < 0) return false;
+
+    require("./autoplayRoute").markDead(track);
+    require("./trackState").removeAt(this.player, index);
+    log.info(`자동재생 곡을 뺍니다(영상 없음): "${track.title}" — 다른 곡을 고릅니다`);
+
+    // 뺀 자리를 메운다. 기다리지 않는다 — 예열 루프를 잡아 두면 뒤 곡이 밀린다.
+    this.player.ensureAutoplayNext?.().catch(() => {});
+    return true;
+  }
+
+  /**
    * 예열 대상 — 대기열 앞 N곡.
    *
    * 현재 곡은 제외한다(재생 경로가 이미 받고 있다). 라이브는 끝이 없어 캐시 대상이 아니다.
@@ -160,6 +184,11 @@ class QueueWarmer {
           log.debug(`사전 캐싱: "${track.title}" | 대상 ${this.targets().length}곡`);
           await this.warm(track);
         } catch (err) {
+          // 영상이 내려간 자동재생 곡은 여기서 버린다. 그냥 두면 재생 차례에 스트림도 실패해
+          // 대기열이 빈 채로 멈춘다 — 우리가 고른 곡이니 사용자에게 알릴 일이 아니라
+          // 조용히 빼고 다른 곡을 고르는 것이 맞다.
+          if (track.autoplay && this._dropDeadAutoplay(track, err)) continue;
+
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
           // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
           log.warn(`사전 캐싱 실패 (${track.title}): ${err?.message || err}`);

@@ -329,3 +329,45 @@ test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
 
   assert.deepEqual(warmed, ["https://open.spotify.com/track/x"], "두 번 받지 않는다");
 });
+
+// ── 내려간 영상을 고른 자동재생 곡 ────────────────────────────────────────
+
+// 회귀 대상: 자동재생이 이미 내려간 영상을 고르면 예열이 실패하고, 그 곡이 대기열에 남아
+// 재생 차례에 스트림도 실패한다. 대기열이 비어 버려 봇이 그대로 멈췄다.
+// 우리가 고른 곡이니 사용자에게 알릴 일이 아니라, 조용히 빼고 다른 곡을 고른다.
+test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 고른다", async () => {
+  const gone = track("dead", { autoplay: true, youtubeUrl: "https://www.youtube.com/watch?v=BYlcTa9SQXs" });
+  const { warmer, player } = makeWarmer({ queue: [gone, track("ok")] });
+
+  let refilled = 0;
+  player.ensureAutoplayNext = async () => refilled++;
+
+  // yt-dlp가 내는 것과 같은 모양의 오류
+  warmer.warm = async () => {
+    throw new Error("ERROR: [youtube] BYlcTa9SQXs: Video unavailable");
+  };
+
+  warmer.tick(); // 첫 관측
+  await settle();
+  warmer.tick(); // 서명이 같아야 움직인다
+  await settle();
+
+  assert.equal(player.queue.includes(gone), false, "대기열에 남아 있으면 재생 차례에 또 실패한다");
+  assert.equal(refilled, 1, "뺀 자리를 메워야 한다");
+  assert.equal(require("../src/autoplayRoute")._dead.has("BYlcTa9SQXs"), true, "다음 뽑기에서 또 고르면 안 된다");
+});
+
+test("사용자가 넣은 곡은 빼지 않는다 — 없어졌다는 것을 알아야 한다", async () => {
+  const mine = track("mine", { youtubeUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" });
+  const { warmer, player } = makeWarmer({ queue: [mine] });
+  warmer.warm = async () => {
+    throw new Error("ERROR: [youtube] aaaaaaaaaaa: Video unavailable");
+  };
+
+  warmer.tick();
+  await settle();
+  warmer.tick();
+  await settle();
+
+  assert.equal(player.queue.includes(mine), true);
+});

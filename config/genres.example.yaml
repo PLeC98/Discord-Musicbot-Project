@@ -35,20 +35,23 @@
 # type: lbradio                        (.env 의 LISTENBRAINZ_TOKEN 필요)
 #   ListenBrainz가 짜 주는 50곡을 받아 유튜브에서 찾습니다.
 #   tags   : (필수, prompt 를 적었다면 생략 가능) 장르 태그. MusicBrainz 공식 장르명을 씁니다.
-#   mode   : easy · medium · hard(기본).
-#            이름과 반대로 hard 로 갈수록 더 유명한 곡이 나옵니다. (청취수 중앙값)
+#   mode   : easy · medium · hard(기본). 태그를 얼마나 넓게 잡을지입니다.
+#              easy   씨앗 태그만 씁니다
+#              medium 씨앗 태그 + 비슷한 태그 하나
+#              hard   씨앗 태그 + 비슷한 태그 여럿
+#            넓게 잡을수록 이웃 장르의 큰 아티스트가 딸려 와서, 이름과 반대로 hard 쪽이
+#            더 유명한 곡을 줍니다. (청취수 중앙값)
 #                       easy    medium      hard
 #              jazz     2,713    9,727    46,671
 #              rock     7,256   61,593   133,740
 #              k-pop      641    3,420    26,506
 #              metal    4,603   19,869    91,837
-#
 #            세 모드는 곡이 겹치지 않습니다. 상위 분류 취급이 아닙니다.
-#            easy 로 두면 hard 에 나올 곡은 아예 안 나옵니다
+#            easy 로 두면 hard 에 나올 곡은 아예 안 나옵니다.
 #
-#            섞고 싶으면 모드가 다른 lbradio 를 여럿 두세요. 예) 아는 곡 위주에 가끔 숨은 곡:
-#              - { type: lbradio, tags: [jazz], mode: hard, weight: 3 }
-#              - { type: lbradio, tags: [jazz], mode: easy, weight: 1 }
+#            섞고 싶으면 **여럿 적으면 됩니다.** 한 번의 요청으로 50곡을 나눠 채워 줍니다.
+#              mode: [hard, easy]
+#            (소스를 둘로 나눠 weight 로 비율을 주는 방법도 그대로 됩니다.)
 #   prompt : 날것 그대로 쓰고 싶을 때만. 예) "tag:(jazz,funk)::or" · "artist:(Miles Davis)"
 #
 # type: animethemes                    (키 필요 없음)
@@ -65,14 +68,18 @@
 #                             seasonFrom: Fall
 #                             yearTo: 2024
 #                             seasonTo: Spring
-#                           (seasonFrom 을 비우면 그 해 겨울부터, seasonTo 를 비우면 그 해 가을까지)
+#                           분기: Winter(1분기) → Spring(2분기) → Summer(3분기) → Fall(4분기).
+#                           비워 두면 그 해 전체
 #   mediaFormat           : 매체 종류. 웹과 같은 이름을 씁니다 (TV, TV Short, Movie, OVA, ONA, Special)
 #
 # type: vocadb / utaitedb / touhoudb    (키 필요 없음)
 #   보컬로이드, 우타이테, 동방 곡 DB. 일부 설정값이 복잡합니다. 해당 사이트를 참고하며 설정하는걸 권합니다.
+#     vocadb  : https://vocadb.net/
+#     touhoudb: https://touhoudb.com/
+#     utaitedb: https://utaitedb.net/
 #   tags                  : 장르 태그(rock, pop, ballad, EDM, technopop, metal, 和風 …).
 #   excludeTags           : 제외하고 싶은 태그.
-#   songTypes             : 곡 종류. **웹은 일본어 버튼이지만 여기는 영어로 적습니다.**
+#   songTypes             : 곡 종류. 웹은 일본어 버튼이지만 여기는 영어로 적습니다.
 #                             指定なし        → Unspecified
 #                             オリジナル曲    → Original        (vocadb 기본값)
 #                             再編曲          → Rearrangement   (touhoudb에만 있습니다)

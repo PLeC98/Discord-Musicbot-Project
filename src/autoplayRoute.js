@@ -24,6 +24,29 @@ const FULL_SEC = 150;
 // channelMatch 아니면 duration에 걸려 있다). 그래서 문턱을 유형별로 달리 잡는다.
 const CONFIDENCE_OK = new Set(["high", "medium"]);
 
+// 내려간 영상. 소스 DB는 그게 아직 살아 있다고 믿으므로 우리가 기억해야 다시 안 고른다.
+// (자동재생은 이 곡을 조용히 버리고 다음을 고른다 — 사용자에게 알릴 일이 아니다.)
+const DEAD_MAX = 500;
+const dead = new Set();
+
+/** 이 영상은 못 튼다고 표시한다 — 다음 뽑기부터 후보에서 빠진다. */
+function markDead(urlOrTrack) {
+  const url = typeof urlOrTrack === "string" ? urlOrTrack : urlOrTrack?.youtubeUrl || urlOrTrack?.url;
+  const id = url && require("./YouTube").extractVideoId(url);
+  if (!id) return false;
+  // 오래된 것부터 버린다 — 영상이 되살아나는 일도 있고, 무한정 들고 있을 이유가 없다
+  if (dead.size >= DEAD_MAX) dead.delete(dead.values().next().value);
+  dead.add(id);
+  log.debug(`못 트는 영상으로 표시: ${id}`);
+  return true;
+}
+
+const isDead = (url) => {
+  if (!url || !dead.size) return false;
+  const id = require("./YouTube").extractVideoId(url);
+  return !!id && dead.has(id);
+};
+
 const norm = (s) =>
   String(s || "")
     .toLowerCase()
@@ -42,7 +65,7 @@ function rejector(recent) {
     if (t.title) names.add(nameKey(t));
     if (t.url) urls.add(t.url);
   }
-  return (cand) => names.has(nameKey(cand)) || urls.has(cand.youtubeUrl || cand.audioUrl || "");
+  return (cand) => isDead(cand.youtubeUrl) || names.has(nameKey(cand)) || urls.has(cand.youtubeUrl || cand.audioUrl || "");
 }
 
 // 무게대로 하나 뽑되 뽑힌 것은 뺀다 — 한 소스가 빈 손이면 다음 소스로 가야 하기 때문이다.
@@ -145,7 +168,9 @@ async function findOnYouTube(cand) {
   if (!candidates.length) return null;
 
   const { best, confidence } = match.rankCandidates(candidates, target);
-  return best && CONFIDENCE_OK.has(confidence) ? best : null;
+  if (!best || !CONFIDENCE_OK.has(confidence)) return null;
+  // 이름으로 찾아온 것도 이미 못 튼다고 표시된 영상일 수 있다
+  return isDead(best.url) ? null : best;
 }
 
 /**
@@ -217,4 +242,4 @@ async function pickTrack(cfg, recent = []) {
   return null;
 }
 
-module.exports = { pickTrack, resolve, rejector, nameKey, FULL_SEC, _byWeight: byWeight };
+module.exports = { pickTrack, resolve, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };
