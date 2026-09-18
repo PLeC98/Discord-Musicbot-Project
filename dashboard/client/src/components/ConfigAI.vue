@@ -127,7 +127,7 @@
 
         <div class="mt-4">
           <span :class="labelCls">모델 목록에서 가릴 것</span>
-          <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 뺍니다. <code class="text-fg-soft">*</code> 만 쓰는 글롭이고 대소문자를 가리지 않습니다. 영상·이미지 모델이나 한참 옛 모델이 섞여 나올 때 씁니다.</p>
+          <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 제외합니다. <code class="text-fg-soft">*</code> 만 와일드카드 패턴으로 판정하며 대소문자를 가리지 않습니다. 영상·이미지 모델이나 구식 모델을 제외하는 용도입니다.</p>
           <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
         </div>
       </BaseCard>
@@ -215,13 +215,13 @@
             </button>
 
             <input v-model="section.name" :placeholder="`섹션 ${i + 1}`" :class="[inputCls, 'flex-1']" v-tooltip="'대시보드에서만 쓰이며, 전송되지 않습니다.'" />
-            <span class="text-muted text-[0.75rem] shrink-0 w-20 text-right">{{ section.role }}</span>
+            <span class="text-muted text-[0.75rem] shrink-0 w-12 text-right">{{ section.role }}</span>
 
             <button :class="removeBtn" v-tooltip="'이 섹션 삭제'" @click="removeSection(i)"><Icon name="trash" :size="15" /></button>
           </div>
 
           <div v-show="!isFolded(promptFoldId(i))" class="mt-2">
-            <label class="block w-32 mb-2">
+            <label class="block mb-2">
               <span :class="labelCls">역할</span>
               <div class="relative">
                 <select v-model="section.role" :class="[inputCls, selectCls]">
@@ -236,11 +236,13 @@
           </div>
         </div>
 
+        <p class="text-muted text-[0.78rem] mb-2">미리보기는 만들기만, 판정 테스트는 이 프롬프트를 통째로 실제 전송합니다(유료).</p>
         <div class="flex items-center gap-2.5 flex-wrap">
           <button :class="addLine" @click="loadDefaults">기본값으로</button>
-          <BaseButton @click="openPreview">리퀘스트 미리보기</BaseButton>
-          <BaseButton variant="secondary" :disabled="testing" @click="askPaid('judge')">{{ testing ? "보내는 중…" : "판정 테스트" }}</BaseButton>
-          <span class="text-muted text-[0.78rem]">미리보기는 만들기만, 판정 테스트는 이 프롬프트를 통째로 실제 전송합니다(유료).</span>
+          <div class="flex items-center gap-2.5 flex-wrap ml-auto">
+            <BaseButton @click="openPreview">리퀘스트 미리보기</BaseButton>
+            <BaseButton variant="warning" :disabled="testing" @click="askPaid('judge')">{{ testing ? "보내는 중…" : "판정 테스트" }}</BaseButton>
+          </div>
         </div>
       </BaseCard>
     </template>
@@ -264,7 +266,7 @@
           <dt class="text-muted">모델</dt>
           <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
           <dt class="text-muted">보낼 것</dt>
-          <dd>{{ paid === "ping" ? "짧은 물음 한 마디" : `판정 프롬프트 전체 (섹션 ${sections.length || "기본"}개 · 보기 곡 3개)` }}</dd>
+          <dd>{{ paid === "ping" ? "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요." : `판정 프롬프트 전체 (섹션 ${sections.length || "기본"}개 · 보기 곡 3개)` }}</dd>
         </dl>
         <div class="flex gap-2.5 justify-end">
           <BaseButton variant="ghost" @click="paid = null">그만두기</BaseButton>

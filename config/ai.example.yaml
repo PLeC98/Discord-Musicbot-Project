@@ -95,6 +95,28 @@ hideModels:
   - "*image*"
   - "*banana*"
   - "gpt-3.5*"
+  - "*audio*"
+  - "*robotics*"
+  - "*lyria*"
+  - "*transcribe*"
+  - "*veo*"
+  - "*translate*"
+  - "*aqa*"
+  - "*deep-research*"
+  - babbage-002
+  - "*gpt-4*"
+  - "*omni-moderation*"
+  - "*o1*"
+  - "*o3*"
+  - "*o4*"
+  - davinci-002
+  - "*gpt-live*"
+  - "*tts*"
+  - "*gpt-realtime*"
+  - "*computer-use*"
+  - "*antigravity*"
+  - "*gemini-2.5*"
+  - "*search-api*"
 
 # ── 후보 목록의 모양 ────────────────────────────────────────────────────────
 # 판정할 후보를 한 줄에 어떻게 적을지. 쓸 수 있는 자리표시자:
