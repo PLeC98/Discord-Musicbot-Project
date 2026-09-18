@@ -15,27 +15,29 @@
     <BaseCard icon="wrench" title="자동재생 AI 보조" class="mb-3">
       <p class="text-muted text-[0.82rem] mt-1 mb-3">곡 이름만 아는 출처(키워드 · Last.fm)에서 고른 후보를 모델에게 한 번 더 물어봅니다. 주소를 직접 받아오는 출처는 묻지 않습니다. 모델을 못 부르면 규칙으로 넘어가므로 재생이 멈추지는 않습니다.</p>
 
-      <label class="block max-w-xs">
-        <span :class="labelCls">프로바이더</span>
-        <div class="relative">
-          <select v-model="draft.provider" :class="[inputCls, selectCls]" @change="onProvider">
-            <option v-for="one in ungrouped" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
-            <optgroup v-for="group in grouped" :key="group.name" :label="group.name" :class="optionCls">
-              <option v-for="one in group.items" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
-            </optgroup>
-          </select>
-          <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-        </div>
-      </label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="block">
+          <span :class="labelCls">프로바이더</span>
+          <div class="relative">
+            <select v-model="draft.provider" :class="[inputCls, selectCls]" @change="onProvider">
+              <option v-for="one in ungrouped" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
+              <optgroup v-for="group in grouped" :key="group.name" :label="group.name" :class="optionCls">
+                <option v-for="one in group.items" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
+              </optgroup>
+            </select>
+            <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+          </div>
+        </label>
 
-      <template v-if="on">
         <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. -->
-        <label class="block mt-3">
+        <label v-if="on" class="block">
           <span :class="labelCls">엔드포인트 주소</span>
           <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
           <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ spec?.baseUrl }}</p>
         </label>
+      </div>
 
+      <template v-if="on">
         <span :class="[labelCls, 'mt-3']">모델</span>
         <div class="flex items-center gap-2 flex-wrap">
           <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침 (무료)'" @click="loadModels()">
@@ -60,13 +62,13 @@
         <template v-if="needsKey">
           <span :class="[labelCls, 'mt-3']">API 키</span>
           <div class="flex items-center gap-2">
-            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="hasKey ? '저장돼 있음 — 바꾸려면 새로 입력' : '키를 입력하세요'" :class="[inputCls, 'flex-1']" />
+            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="hasKey ? '저장 되어 있습니다. 새로 저장하여 수정할 수 있습니다.' : '키를 입력하세요'" :class="[inputCls, 'flex-1']" />
             <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
             <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 키 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
           </div>
           <p class="mt-1.5 text-[0.78rem]">
-            <span :class="keyCls">{{ hasKey ? "저장돼 있음" : "없음" }}</span>
-            <span class="text-muted"> · 화면으로 다시 내려오지 않습니다</span>
+            <span :class="keyCls">{{ hasKey ? "저장된 키 있음" : "저장된 키 없음" }}</span>
+            <span class="text-muted"> · 보안을 위해 저장된 값은 출력하지 않습니다. 확인을 원하면 설정 파일을 직접 열어 주세요.</span>
           </p>
           <p v-if="!secureOrigin" class="mt-1 text-[0.78rem] text-[#fbbf24]">지금 평문(HTTP)으로 접속 중입니다. 키가 그대로 네트워크를 지나갑니다.</p>
         </template>
@@ -87,9 +89,8 @@
             <span v-if="tested.extra" class="text-muted">· {{ tested.extra }}</span>
           </p>
           <p v-if="tested.reason && !tested.status" class="mt-1 text-[0.82rem] text-[#f87171]">{{ tested.reason }}</p>
-          <p v-if="tested.asked" class="mt-1 text-muted text-[0.78rem]">보낸 것: {{ tested.asked }}</p>
           <pre v-if="tested.body" :class="[preCls, 'mt-2']">{{ tested.body }}</pre>
-          <button v-if="tested.raw && tested.raw !== tested.body" :class="addLine" @click="showRaw = !showRaw">{{ showRaw ? "원문 접기" : "원문 보기" }}</button>
+          <button v-if="tested.raw && tested.raw !== tested.body" :class="[addLine, 'mt-2']" @click="showRaw = !showRaw">{{ showRaw ? "원문 접기" : "원문 보기" }}</button>
           <pre v-if="showRaw && tested.raw" :class="[preCls, 'mt-1']">{{ tested.raw }}</pre>
         </template>
       </template>
@@ -133,7 +134,7 @@
 
       <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
         <p class="text-muted text-[0.82rem] mb-3">
-          판정할 후보를 한 줄에 어떻게 적을지. 이렇게 만든 줄들이 아래 프롬프트의 <code class="text-fg-soft">{{ LIST_MARK }}</code> 자리에 들어갑니다.
+          판정할 후보를 줄 마다 어떻게 적을지. 이 설정을 따라 아래 프롬프트의 <code class="text-fg-soft">{{ LIST_MARK }}</code> 자리에 곡 목록이 들어갑니다.
         </p>
 
         <label class="block mb-2">
@@ -162,7 +163,7 @@
         </div>
         <p class="text-muted text-[0.78rem] mt-2">{{ UNKNOWN.find((u) => u.value === listCfg.unknownDuration)?.hint }}</p>
 
-        <p class="text-muted text-[0.78rem] mt-3">업로더 이름은 넣을 수 없습니다. 넣어 봤더니 장르 판정이 94% → 88%로 떨어졌습니다 — 유튜브의 그 칸은 대개 진짜 아티스트가 아니라 채널 이름입니다(Vevo · Radio Mix).</p>
+        <p class="text-muted text-[0.78rem] mt-3">업로더 이름은 넣을 수 없습니다. 실험 결과, Vevo나 Radio Mix 등의 명칭으로 인해 판정 정답률이 오히려 하락하여 제외하였습니다.</p>
       </BaseCard>
 
       <BaseCard class="mb-3">
@@ -627,8 +628,8 @@ async function loadModels({ quiet = false } = {}) {
   try {
     const got = (await axios.post("/api/admin/ai/models", { data: payload.value })).data;
     models.value = got.models || [];
-    // 받아 온 목록에 지금 값이 없으면 손으로 적던 것이다 — 그대로 두고 칸만 열어 둔다
-    manualModel.value = !models.value.length || (!!draft.value.model && !models.value.includes(draft.value.model));
+    // 목록을 받았으면 고르는 칸으로 돌아간다. 못 받았을 때만 직접 적게 한다.
+    manualModel.value = !models.value.length;
 
     if (quiet && !got.ok) return;
     const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
