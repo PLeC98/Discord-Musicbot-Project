@@ -259,6 +259,35 @@ test("소스 기본값 — 안 적었을 때 무엇으로 도는가", () => {
   assert.ok(SPEC.animethemes.enums.mediaFormat.includes("TV Short"), "띄어쓰기까지 그대로여야 한다");
 });
 
+// `languages` 파라미터는 저쪽이 **조용히 무시한다** — 쓰레기 값을 넣어도 전체가 온다.
+// 실제로 듣는 것은 advancedFilters 쪽이고, 한 번에 하나만 걸린다.
+test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () => {
+  const { _lyricsFilter, _someLanguages, SPEC } = require("../src/autoplaySources");
+
+  assert.deepEqual(_lyricsFilter(null), {}, "안 고르면 조건을 안 붙인다");
+
+  const one = _lyricsFilter("ko");
+  assert.equal(one["advancedFilters[0][filterType]"], "Lyrics");
+  assert.equal(one["advancedFilters[0][param]"], "ko");
+  assert.ok(!("languages" in one), "languages 로는 안 건다");
+
+  // 둘을 한꺼번에 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 준다.
+  // 그래서 언어마다 따로 받아 섞는다.
+  assert.deepEqual(_someLanguages(["ko", "en"]), ["ko", "en"]);
+  assert.deepEqual(_someLanguages([]), [null], "안 골랐으면 조건 없이 한 번");
+
+  // 언어 하나에 요청이 두 번이다. 많이 골랐으면 그때그때 몇 개만 — 판마다 달라 결국 고르게 섞인다.
+  const many = ["ja", "en", "ko", "zh", "es", "fr", "de"];
+  const some = _someLanguages(many);
+  assert.equal(some.length, 5);
+  assert.equal(new Set(some).size, 5, "같은 언어를 두 번 돌지 않는다");
+  assert.ok(some.every((one) => many.includes(one)));
+
+  // 사이트마다 있는 언어가 다르다 — 없는 것을 고르면 0곡이 온다
+  assert.ok(SPEC.vocadb.enums.languages.includes("ko"));
+  assert.ok(!SPEC.touhoudb.enums.languages.includes("ms"), "동방에는 말레이어 곡이 없다");
+});
+
 // ── 중복 회피 ─────────────────────────────────────────────────────────────
 
 test("최근에 튼 곡은 이름으로도 걸러낸다 — 소스가 다르면 주소가 다르기 때문이다", () => {

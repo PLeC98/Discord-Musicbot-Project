@@ -19,12 +19,12 @@
           <select :value="source.type" :class="selectCls" @change="changeType(i, $event.target.value)">
             <option v-for="t in choosable(source.type)" :key="t.type" :value="t.type" :class="optionCls">{{ t.label }}{{ t.usable ? "" : " (키 없음)" }}</option>
           </select>
-          <svg width="9" height="6" viewBox="0 0 9 6" fill="currentColor" :class="arrowCls"><path d="M0 0h9L4.5 6z" /></svg>
+          <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
         </div>
 
         <label class="flex items-center gap-1.5 shrink-0" v-tooltip="'고를 확률. 비우면 1'">
           <span class="text-[0.72rem] text-muted">가중치</span>
-          <input v-no-wheel :value="source.weight ?? ''" type="number" min="1" placeholder="1" :class="[inputCls, 'w-16! text-center']" @input="setField(i, 'weight', numberOrNull($event.target.value))" />
+          <NumberInput :model-value="source.weight ?? null" placeholder="1" :class="[inputCls, 'w-16! text-center']" @update:model-value="setField(i, 'weight', $event)" />
         </label>
 
         <button :class="iconBtn" v-tooltip="'이 출처 삭제'" @click="remove(i)"><Icon name="trash" :size="14" /></button>
@@ -35,16 +35,17 @@
         <p v-if="!spec(source.type)" class="text-[0.75rem] text-[#f87171]">모르는 종류입니다. 이 봇이 지원하지 않습니다.</p>
         <p v-else-if="!spec(source.type).usable" class="text-[0.75rem] text-[#fbbf24]">{{ spec(source.type).needs }} 가 .env 에 없어 지금은 쓰이지 않습니다.</p>
 
-        <!-- 짧은 숫자 칸(narrow)은 한 줄을 다 먹을 이유가 없다 — 좁은 화면에서 둘, 넓으면 여섯까지 -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-x-2.5 gap-y-3 mt-2.5">
-          <div v-for="field in shown(source)" :key="field.key" class="min-w-0" :class="field.narrow ? 'col-span-1' : 'col-span-2 sm:col-span-4 md:col-span-6'">
-            <!-- 좁은 칸은 설명을 붙이면 줄이 터진다 — 툴팁으로 돌린다 -->
-            <span :class="fieldLabelCls" v-tooltip="field.narrow ? field.hint : ''">
-              {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span>
-              <span v-if="field.hint && !field.narrow" class="text-muted font-normal">: {{ field.hint }}</span>
+        <!-- 칸 너비는 서버가 정한다(width) — 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-x-2.5 gap-y-3 mt-2.5">
+          <div v-for="field in shown(source)" :key="field.key" class="min-w-0" :class="widthCls(field)">
+            <!-- 1/6 너비 칸은 설명을 붙이면 줄이 터진다 — 툴팁으로 돌린다 -->
+            <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
+              {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span><span v-if="field.hint && field.width !== 'narrow'" class="text-muted font-normal"> {{ field.hint }}</span>
             </span>
 
-            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key])" :placeholder="`${field.label}를 적고 Enter`" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key])" placeholder="하나씩 적고 Enter" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+
+            <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
             <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-1.5">
               <button v-for="opt in field.options" :key="opt.value" type="button" :class="[pillCls, asList(source[field.key]).includes(opt.value) ? pillOn : pillOff]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
@@ -52,15 +53,17 @@
 
             <div v-else-if="field.kind === 'enum'" class="relative">
               <select :value="source[field.key] ?? ''" :class="selectCls" @change="setField(i, field.key, $event.target.value || null)">
-                <option value="" :class="optionCls">비우기</option>
+                <option value="" :class="optionCls">{{ field.emptyLabel || "비우기" }}</option>
                 <option v-for="opt in field.options" :key="opt.value" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
               </select>
-              <svg width="9" height="6" viewBox="0 0 9 6" fill="currentColor" :class="arrowCls"><path d="M0 0h9L4.5 6z" /></svg>
+              <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
             </div>
 
             <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="source[field.key] ?? null" :to="source[field.to] ?? null" :label="field.label" @update="setRange(i, field, $event)" />
 
-            <input v-else v-no-wheel :value="source[field.key] ?? ''" :type="field.kind === 'number' ? 'number' : 'text'" :min="field.min" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="inputCls" @input="setField(i, field.key, field.kind === 'number' ? numberOrNull($event.target.value) : $event.target.value || null)" />
+            <NumberInput v-else-if="field.kind === 'number'" :model-value="source[field.key] ?? null" :class="inputCls" @update:model-value="setField(i, field.key, $event)" />
+
+            <input v-else :value="source[field.key] ?? ''" type="text" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="inputCls" @input="setField(i, field.key, $event.target.value || null)" />
           </div>
         </div>
 
@@ -76,7 +79,7 @@
           <option value="" :class="optionCls">출처 추가…</option>
           <option v-for="t in addable" :key="t.type" :value="t.type" :class="optionCls">{{ t.label }}</option>
         </select>
-        <svg width="9" height="6" viewBox="0 0 9 6" fill="currentColor" :class="arrowCls"><path d="M0 0h9L4.5 6z" /></svg>
+        <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
       </div>
       <button :class="iconBtn" :disabled="!adding" v-tooltip="'추가'" @click="add"><Icon name="add" :size="15" /></button>
     </div>
@@ -89,6 +92,8 @@ import { ref, computed, watch } from "vue";
 import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
 import RangeSlider from "./RangeSlider.vue";
+import MultiSelect from "./MultiSelect.vue";
+import NumberInput from "./NumberInput.vue";
 import { isFolded, toggleFold, sourceFoldId } from "../composables/configFolds";
 
 const props = defineProps({
@@ -99,19 +104,28 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 
 // color-scheme: 네이티브 목록이 밝게 뜨는 것을 막는다(option 은 CSS 로 못 꾸민다)
-const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-1.5 text-[0.85rem] outline-none font-[inherit] w-full [color-scheme:dark] transition-[border-color] duration-150 focus:border-accent/55";
+const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-2 text-[0.85rem] outline-none font-[inherit] w-full [color-scheme:dark] transition-[border-color] duration-150 focus:border-accent/55";
 // appearance-none 으로 그리므로 화살표도 우리가 얹어야 한다(arrowCls) — 안 그리면 그냥 입력칸처럼 보인다
-const selectCls = `${inputCls} appearance-none cursor-pointer pr-7`;
-const arrowCls = "absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted";
+const selectCls = `${inputCls} appearance-none cursor-pointer pr-9`;
+const arrowCls = "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted";
 // option 은 네이티브로 그려져 부모 색을 물려받지 않는다 — 색을 직접 준다
 const optionCls = "bg-[#141833] text-[#e7e9f3]";
-const fieldLabelCls = "block text-[0.75rem] font-semibold text-fg-soft mb-1 truncate";
-const iconBtn = "h-[32px] w-[32px] rounded-lg border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-danger/15 hover:text-danger disabled:opacity-35 disabled:cursor-not-allowed";
+const fieldLabelCls = "block text-[0.75rem] font-semibold text-fg-soft mb-1";
+// self-stretch: 옆 입력칸과 같은 높이로 — 글자 크기를 건드려도 따라온다
+const iconBtn = "self-stretch w-[38px] rounded-lg border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-danger/15 hover:text-danger disabled:opacity-35 disabled:cursor-not-allowed";
 const foldBtn = "size-6 rounded text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 const pillCls = "px-2 py-1 rounded-md text-[0.75rem] border cursor-pointer transition-colors duration-150";
 const pillOn = "bg-accent/25 border-accent/55 text-fg";
 const pillOff = "bg-white/4 border-white/10 text-muted hover:bg-white/8";
 const deepBtn = "mt-2.5 text-[0.75rem] text-muted cursor-pointer hover:text-fg-soft transition-colors duration-150";
+
+// 모바일은 두 칸, 태블릿부터 여섯 칸짜리 격자다.
+const WIDTHS = {
+  narrow: "col-span-1", // 모바일 1/2, 그 위로 1/6
+  half: "col-span-1 md:col-span-3", // 늘 반 줄
+  halfWide: "col-span-2 md:col-span-3", // 모바일만 한 줄
+};
+const widthCls = (field) => WIDTHS[field.width] || "col-span-2 md:col-span-6";
 
 // 편집 중 목록이 흔들리지 않게 행마다 값을 붙인다 — 종류를 바꿔도 같은 행으로 남아야 한다.
 //
@@ -147,15 +161,18 @@ const adding = ref("");
 
 const spec = (type) => props.types.find((t) => t.type === type) || null;
 const asList = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
-const numberOrNull = (v) => (String(v).trim() === "" ? null : Number(v));
 
 // 쓸 수 있는 것만 고르게 한다. 다만 이미 쓰고 있는 종류는 목록에 남겨야 한다 —
 // 안 그러면 select 가 값을 잃고 저장할 때 조용히 바뀐다.
 const addable = computed(() => props.types.filter((t) => t.usable));
 const choosable = (current) => props.types.filter((t) => t.usable || t.type === current);
 
-const deepCount = (type) => (spec(type)?.fields || []).filter((f) => f.deep).length;
-const shown = (source) => (spec(source.type)?.fields || []).filter((f) => !f.deep || open.value.has(source._key));
+const fieldsOf = (type) => spec(type)?.fields || [];
+const deepCount = (type) => fieldsOf(type).filter((f) => f.deep).length;
+// when 이 있는 칸은 그 칸이 채워졌을 때만 뜬다 — 분기는 연도를 자른 뒤에나 뜻이 있다
+const shown = (source) => fieldsOf(source.type).filter((f) => (!f.deep || open.value.has(source._key)) && (!f.when || hasRange(source, f.when)));
+// 구간은 두 칸으로 적히니 한쪽만 손으로 적어 둔 설정도 있다
+const hasRange = (source, key) => source[key] != null || source[fieldsOf(source.type).find((f) => f.key === key)?.to] != null;
 
 function toggleDeep(key) {
   const next = new Set(open.value);
@@ -175,8 +192,16 @@ function write(i, patch) {
 }
 
 const setField = (i, key, value) => write(i, { [key]: value });
-// 구간은 두 칸을 한꺼번에 쓴다(yearFrom·yearTo)
-const setRange = (i, field, range) => write(i, { [field.key]: range.from, [field.to]: range.to });
+
+// 구간은 두 칸을 한꺼번에 쓴다(yearFrom·yearTo).
+// 전체로 되돌리면 그 구간에 딸린 칸도 비운다 — 화면에서 사라진 값이 설정에 남으면 안 된다.
+function setRange(i, field, range) {
+  const patch = { [field.key]: range.from, [field.to]: range.to };
+  if (range.from == null && range.to == null) {
+    for (const dep of fieldsOf(list.value[i].type).filter((one) => one.when === field.key)) patch[dep.key] = null;
+  }
+  write(i, patch);
+}
 
 function toggle(i, key, opt) {
   const now = asList(list.value[i][key]);
@@ -186,7 +211,11 @@ function toggle(i, key, opt) {
 
 // 종류를 바꾸면 그 종류가 안 받는 칸은 버린다 — 남겨 두면 저장할 때 검사에 걸린다
 function changeType(i, type) {
-  const keep = new Set((spec(type)?.fields || []).flatMap((f) => [f.key, f.to]).filter(Boolean));
+  const keep = new Set(
+    fieldsOf(type)
+      .flatMap((f) => [f.key, f.to])
+      .filter(Boolean),
+  );
   const old = list.value[i];
   const kept = Object.fromEntries(Object.entries(old).filter(([k]) => keep.has(k) || k === "weight" || k === "_key"));
   list.value[i] = { ...kept, type };

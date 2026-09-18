@@ -26,8 +26,8 @@
           <!-- option은 네이티브로 그려져 부모 색을 물려받지 않는다 — 색을 직접 준다 -->
           <option v-for="type in TYPES" :key="type.value" :value="type.value" class="bg-[#141833] text-[#e7e9f3]">{{ type.label }}</option>
         </select>
-        <svg width="9" height="6" viewBox="0 0 9 6" fill="currentColor" class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
-          <path d="M0 0h9L4.5 6z" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
+          <path d="M7 10l5 5 5-5z" />
         </svg>
       </div>
 
@@ -96,7 +96,7 @@ const TYPES = [
 
 // color-scheme: 네이티브 목록이 밝게 뜨는 것을 막는다(option은 CSS로 못 꾸민다)
 const inputCls = "bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] [color-scheme:dark] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
-const selectCls = "w-28 appearance-none cursor-pointer pl-3! pr-7!";
+const selectCls = "w-28 appearance-none cursor-pointer pl-3! pr-9!";
 const emojiBtn = "size-7 rounded-lg flex items-center justify-center cursor-pointer opacity-55 transition-[opacity,background-color] duration-150 hover:opacity-100 hover:bg-white/10";
 const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
 const addLine = "flex items-center gap-1.5 text-muted text-[0.82rem] px-2 py-1.5 rounded-lg cursor-pointer transition-colors duration-150 hover:text-fg-soft hover:bg-white/6";

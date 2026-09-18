@@ -12,11 +12,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label class="block">
           <span :class="labelCls">대기열에 준비해 둘 곡 수</span>
-          <input v-no-wheel v-model.number="draft.defaults.prefetchCount" type="number" min="1" :class="inputCls" />
+          <NumberInput v-model="draft.defaults.prefetchCount" :class="inputCls" />
         </label>
         <label class="block">
           <span :class="labelCls">최소 길이(초)</span>
-          <input v-no-wheel v-model.number="draft.defaults.minDurationSec" type="number" min="0" :class="inputCls" />
+          <NumberInput v-model="draft.defaults.minDurationSec" :class="inputCls" />
         </label>
         <label class="block">
           <span :class="labelCls">최대 길이(초)</span>
@@ -57,7 +57,8 @@
         @drop="onDrop"
         @dragend="onDragEnd"
       >
-        <div class="flex items-center gap-2 mb-2">
+        <!-- 아래 여백은 펼쳐졌을 때만 필요하다 — 여기에 두면 접었을 때 아래쪽만 넓어진다 -->
+        <div class="flex items-center gap-2">
           <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
               <circle cx="2" cy="3" r="1.5" />
@@ -77,7 +78,7 @@
           <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
           <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :genre-index="i" />
+        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :genre-index="i" class="mt-2" />
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
@@ -99,6 +100,7 @@ import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
 import SourceEditor from "./SourceEditor.vue";
+import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
 import { isFolded, toggleFold, genreFoldId } from "../composables/configFolds";

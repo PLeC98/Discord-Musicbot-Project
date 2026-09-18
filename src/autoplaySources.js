@@ -216,12 +216,28 @@ const VOCA_PAGE = 50;
 //              사람들이 듣는 것은 Arrangement 46,557곡 쪽이다(Bad Apple!! · チルノのパーフェクトさんすう教室).
 const VOCA_DEFAULT_TYPES = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
+// 가사 언어. `languages` 파라미터는 **조용히 무시된다** — 쓰레기 값을 넣어도 전체가 온다.
+// 실제로 듣는 것은 웹이 쓰는 advancedFilters 쪽이고, **한 번에 하나만 걸린다**:
+// 둘을 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 줄어든다(실측 2026-09-18).
+function lyricsFilter(one) {
+  return one ? { "advancedFilters[0][filterType]": "Lyrics", "advancedFilters[0][param]": one } : {};
+}
+
+// 그래서 고른 언어마다 따로 받아 섞는다. 언어 하나에 요청이 두 번이라 한 판에 도는 수를 묶어 두고,
+// 그보다 많이 골랐으면 그때그때 몇 개만 뽑는다 — 판마다 달라지니 여러 번 돌면 고르게 섞인다.
+const LANGS_PER_FETCH = 5;
+function someLanguages(list) {
+  const all = list || [];
+  if (all.length <= LANGS_PER_FETCH) return all.length ? all : [null];
+  const left = [...all];
+  return Array.from({ length: LANGS_PER_FETCH }, () => left.splice(rand(left.length), 1)[0]);
+}
+
 async function vocaFamily(source) {
   const base = `https://${VOCA_HOSTS[source.type]}/api/songs`;
-  const filters = {
+  const common = {
     tagName: source.tags,
     songTypes: (source.songTypes || VOCA_DEFAULT_TYPES[source.type] || ["Original"]).join(","),
-    languages: source.languages,
     minScore: source.minScore,
     minLength: source.minLength,
     maxLength: source.maxLength,
@@ -237,6 +253,30 @@ async function vocaFamily(source) {
     sort: source.sort || "RatingScore",
   };
 
+  const out = [];
+  const seen = new Set();
+  let failure = null;
+  for (const lang of someLanguages(source.languages)) {
+    // 언어마다 요청이 두 번이다. 하나가 실패했다고 나머지까지 버릴 이유는 없다 —
+    // 하나도 못 받았을 때만 던져서 부르는 쪽이 다음 소스로 넘어가게 한다.
+    try {
+      for (const track of await vocaWindow(base, { ...common, ...lyricsFilter(lang) }, source.type)) {
+        // 같은 곡이 여러 언어에 걸린다 — 번역 가사까지 세기 때문이다
+        if (seen.has(track.sourceKey)) continue;
+        seen.add(track.sourceKey);
+        out.push(track);
+      }
+    } catch (error) {
+      failure = failure || error;
+      log.debug(`${source.type} ${lang || "전체"}: ${error.message}`);
+    }
+  }
+  if (!out.length && failure) throw failure;
+  return out;
+}
+
+// 조건에 맞는 곡 중 아무 데나 한 창(50곡)을 떠 온다.
+async function vocaWindow(base, filters, type) {
   // 깊은 곳에서 집으려면 전체 개수를 먼저 알아야 한다
   const head = await getJson(`${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`);
   const total = Number(head?.totalCount) || 0;
@@ -262,9 +302,9 @@ async function vocaFamily(source) {
       // 기본 응답에 들어 있다(100곡 중 빈 것 0개). 없으면 길이 제한에 걸려 통째로 떨어진다.
       durationSec: Number(song.lengthSeconds) || undefined,
       thumbnail: song.thumbUrl || null,
-      sourceUrl: `https://${VOCA_HOSTS[source.type]}/S/${song.id}`,
-      platform: source.type,
-      sourceKey: `${source.type}:${song.id}`,
+      sourceUrl: `https://${VOCA_HOSTS[type]}/S/${song.id}`,
+      platform: type,
+      sourceKey: `${type}:${song.id}`,
     });
   }
   return out;
@@ -324,14 +364,35 @@ const FETCHERS = { keyword, lastfm, lbradio, animethemes, vocadb: vocaFamily, ut
 // 돌려주고 그 소스가 조용히 빈손이 되어, "설정은 멀쩡한데 그 소스만 안 쓰이는" 꼴이 된다.
 const SEASONS = ["Winter", "Spring", "Summer", "Fall"];
 const MEDIA_FORMATS = ["TV", "TV Short", "Movie", "OVA", "ONA", "Special"];
-const SONG_SORTS = ["Name", "AdditionDate", "PublishDate", "FavoritedTimes", "RatingScore", "TagUsageCount", "SongType"];
 const LB_MODES = ["easy", "medium", "hard"];
+
+// 정렬 이름은 저쪽 코드값이다. 화면에는 한국어로 보인다 — 코드값은 예제 파일 주석으로 충분하다.
+const SONG_SORT_OPTIONS = [
+  { value: "RatingScore", label: "평가 점수 높은 순" },
+  { value: "FavoritedTimes", label: "즐겨찾기 많은 순" },
+  { value: "PublishDate", label: "발표 최신순" },
+  { value: "AdditionDate", label: "등록 최신순" },
+  { value: "TagUsageCount", label: "태그 많은 순" },
+  { value: "SongType", label: "곡 종류순" },
+  { value: "Name", label: "이름순" },
+];
+const SONG_SORTS = SONG_SORT_OPTIONS.map((one) => one.value);
+
 // 검사도 사이트별이어야 한다 — vocadb 에 Arrangement 를 적으면 0곡이 온다
-const vocaEnums = (site) => ({ songTypes: VOCA_SONG_TYPES[site], sort: SONG_SORTS, ...(VOCA_ARTIST_TYPES[site] ? { artistTypes: VOCA_ARTIST_TYPES[site] } : {}) });
+const vocaEnums = (site) => ({
+  songTypes: VOCA_SONG_TYPES[site],
+  sort: SONG_SORTS,
+  languages: VOCA_LANGUAGES[site].map((one) => one.value),
+  ...(VOCA_ARTIST_TYPES[site] ? { artistTypes: VOCA_ARTIST_TYPES[site] } : {}),
+});
 
 // 대시보드가 그릴 입력칸. kind 는 화면이 무엇을 띄울지 정한다 —
-// list(칩) · text · url · number · enum(하나 고르기) · enumList(여럿 고르기).
+// list(칩) · text · url · number · range(구간 슬라이더) ·
+// enum(하나 고르기) · enumList(알약으로 여럿) · enumDrop(드롭다운에서 여럿).
 // deep: true 는 "자주 안 쓰는 것"이라 접어 둔다.
+// width 는 칸 너비다. 없으면 한 줄을 다 쓴다 — narrow(좁은 숫자칸) · half(늘 반 줄) ·
+// halfWide(모바일만 한 줄, 그 위로는 반 줄).
+// when: "다른칸" 은 그 칸이 채워졌을 때만 나온다.
 const f = (key, kind, label, extra = {}) => ({ key, kind, label, ...extra });
 // 고를 값이 정해진 칸. 화면에 보일 말이 API 값과 다르면 짝지어 준다.
 const opts = (list) => list.map((v) => (typeof v === "string" ? { value: v, label: v } : v));
@@ -360,6 +421,87 @@ const VOCA_ARTIST_TYPES = {
   touhoudb: null,
 };
 
+// 가사 언어. 저쪽이 목록을 안 주므로 ISO 639-1 전체를 훑어 **곡이 실제로 있는 것만** 남겼다
+// (실측 2026-09-18, 유튜브 PV 있는 곡 기준. 사이트마다 다르고, 많은 순서다).
+//
+// ha·ln·yo·jv 는 뺐다 — 표본 20곡이 전부 "로마자 표기" 항목이었다. 하우사어 곡 12,997개가
+// 있는 것이 아니라, 로마자 가사에 엉뚱한 코드가 붙어 있는 것이다.
+//
+// 번역 가사만 있는 곡도 걸린다(영어는 표본의 절반쯤). 그 언어로 부른 곡만 고를 길은 저쪽에 없다.
+const LANG_NAMES = {
+  ja: "일본어",
+  en: "영어",
+  zh: "중국어",
+  ko: "한국어",
+  es: "스페인어",
+  pt: "포르투갈어",
+  fr: "프랑스어",
+  ru: "러시아어",
+  id: "인도네시아어",
+  tl: "타갈로그어",
+  de: "독일어",
+  uk: "우크라이나어",
+  it: "이탈리아어",
+  tr: "튀르키예어",
+  th: "태국어",
+  pl: "폴란드어",
+  vi: "베트남어",
+  nl: "네덜란드어",
+  la: "라틴어",
+  ms: "말레이어",
+  fi: "핀란드어",
+  sr: "세르비아어",
+  sv: "스웨덴어",
+  cs: "체코어",
+  eo: "에스페란토",
+  be: "벨라루스어",
+  ca: "카탈루냐어",
+  ro: "루마니아어",
+  so: "소말리아어",
+  ar: "아랍어",
+  no: "노르웨이어",
+  el: "그리스어",
+  bs: "보스니아어",
+  bg: "불가리아어",
+  he: "히브리어",
+  hi: "힌디어",
+  hu: "헝가리어",
+  kk: "카자흐어",
+  yi: "이디시어",
+  bn: "벵골어",
+  da: "덴마크어",
+  eu: "바스크어",
+  ga: "아일랜드어",
+  mn: "몽골어",
+  ur: "우르두어",
+  cy: "웨일스어",
+  sa: "산스크리트어",
+  sk: "슬로바키아어",
+  ta: "타밀어",
+  tg: "타지크어",
+  zu: "줄루어",
+  et: "에스토니아어",
+  gl: "갈리시아어",
+  my: "버마어",
+  ba: "바시키르어",
+  bo: "티베트어",
+  kn: "칸나다어",
+  oc: "오크어",
+  sw: "스와힐리어",
+  te: "텔루구어",
+};
+
+const VOCA_LANG_CODES = {
+  // prettier-ignore
+  vocadb: ["ja","en","zh","ko","es","pt","fr","ru","id","tl","de","uk","it","tr","th","pl","vi","nl","la","ms","fi","sr","sv","cs","eo","be","ca","ro","so","ar","no","el","bs","bg","he","hi","hu","kk","yi","bn","da","eu","ga","mn","ur","cy","sa","sk","ta","tg","zu","et","gl","my","ba","bo","kn","oc","sw","te"],
+  // prettier-ignore
+  utaitedb: ["ja","en","ru","fr","pt","uk","zh","ko","pl","de","es","id","it","tl","el","vi","tr","bs","la","nl","sv","th"],
+  // prettier-ignore
+  touhoudb: ["ja","en","de","zh","fr","ko","la","sa","pl","es","ga","el","it","ro","ru","cs","he","id","sv","th","vi"],
+};
+
+const VOCA_LANGUAGES = Object.fromEntries(Object.entries(VOCA_LANG_CODES).map(([site, codes]) => [site, codes.map((code) => ({ value: code, label: LANG_NAMES[code] }))]));
+
 const VOCA_SINGER = {
   vocadb: { typeLabel: "보컬 라이브러리", artistLabel: "특정 보컬만", artistHint: "이름으로 적습니다. 예) UNI, 初音ミク" },
   utaitedb: { typeLabel: "가수 분류", artistLabel: "특정 우타이테만", artistHint: "이름으로 적습니다" },
@@ -373,19 +515,20 @@ function vocaFields(site) {
   const types = VOCA_ARTIST_TYPES[site];
   return [
     f("tags", "list", "장르 태그", { hint: "rock, pop, ballad, EDM, 和風 등" }),
-    f("minScore", "number", "최소 평가 점수", { narrow: true, min: 0, hint: VOCA_SCORE_HINT[site] }),
-    f("languages", "list", "노래 언어", { hint: "ISO 코드로 적습니다: ja, en, ko, zh" }),
+    f("minScore", "number", "최소 평가 점수", { width: "half", min: 0, hint: VOCA_SCORE_HINT[site] }),
+    // 언어마다 따로 받아 섞는다(vocaFamily) — 저쪽이 한 번에 하나만 받는다
+    f("languages", "enumDrop", "가사 언어", { width: "half", options: VOCA_LANGUAGES[site], hint: "번역 가사만 있는 곡도 섞입니다" }),
     ...(types ? [f("artistTypes", "enumList", singer.typeLabel, { deep: true, options: opts(types) })] : []),
     f("artists", "list", singer.artistLabel, { deep: true, hint: singer.artistHint }),
-    f("songTypes", "enumList", "곡 종류", { deep: true, options: opts(VOCA_SONG_TYPES[site]), hint: "비우면 이 사이트의 기본값" }),
+    f("songTypes", "enumList", "곡 종류", { deep: true, options: opts(VOCA_SONG_TYPES[site]), hint: `기본값: ${(VOCA_DEFAULT_TYPES[site] || ["Original"]).join(", ")}` }),
     f("excludeTags", "list", "제외할 태그", { deep: true }),
-    f("minLength", "number", "최소 길이(초)", { deep: true, narrow: true, min: 0 }),
-    f("maxLength", "number", "최대 길이(초)", { deep: true, narrow: true, min: 0 }),
-    f("minBpm", "number", "최소 BPM", { deep: true, narrow: true, min: 0 }),
-    f("maxBpm", "number", "최대 BPM", { deep: true, narrow: true, min: 0 }),
-    f("yearFrom", "number", "발표 연도 이후", { deep: true, narrow: true }),
-    f("yearTo", "number", "발표 연도 이전", { deep: true, narrow: true }),
-    f("sort", "enum", "정렬", { deep: true, options: opts(SONG_SORTS) }),
+    f("minLength", "number", "최소 길이(초)", { deep: true, width: "narrow", min: 0 }),
+    f("maxLength", "number", "최대 길이(초)", { deep: true, width: "narrow", min: 0 }),
+    f("minBpm", "number", "최소 BPM", { deep: true, width: "narrow", min: 0 }),
+    f("maxBpm", "number", "최대 BPM", { deep: true, width: "narrow", min: 0 }),
+    f("yearFrom", "number", "해당 연도 이후 발표", { deep: true, width: "narrow" }),
+    f("yearTo", "number", "해당 연도 이전 발표", { deep: true, width: "narrow" }),
+    f("sort", "enum", "정렬", { deep: true, options: SONG_SORT_OPTIONS }),
   ];
 }
 
@@ -414,14 +557,15 @@ const SPEC = {
     need: [],
     enums: { themeType: ["OP", "ED"], season: SEASONS, seasonFrom: SEASONS, seasonTo: SEASONS, mediaFormat: MEDIA_FORMATS },
     fields: [
-      f("themeType", "enum", "주제가 종류", { narrow: true, options: opts(["OP", "ED"]), hint: "비우면 둘 다" }),
-      f("mediaFormat", "enumList", "매체", { options: opts(MEDIA_FORMATS), hint: "비우면 전부" }),
+      f("themeType", "enum", "주제가 종류", { width: "halfWide", options: opts(["OP", "ED"]), emptyLabel: "OP/ED" }),
+      f("mediaFormat", "enumList", "매체", { width: "halfWide", options: opts(MEDIA_FORMATS), hint: "비우면 전부" }),
       // 두 점으로 잡는 구간. 고를 수 있는 범위는 저쪽에 물어 채운다(catalog)
       f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
-      f("seasonFrom", "enum", "시작 분기", { deep: true, options: SEASON_OPTIONS, hint: "연도와 짝으로 씁니다. 비우면 그 해 처음부터" }),
-      f("seasonTo", "enum", "끝 분기", { deep: true, options: SEASON_OPTIONS, hint: "비우면 그 해 끝까지" }),
-      f("season", "enumList", "특정 분기만", { deep: true, options: SEASON_OPTIONS, hint: "연도와 무관하게 이 분기만" }),
-      f("sequence", "number", "몇 번째 주제가", { deep: true, narrow: true, min: 1, hint: "1이면 OP1, ED1만" }),
+      // 분기는 연도를 자른 뒤에나 뜻이 있다 — 연도가 전체면 아예 안 보인다
+      f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
+      f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),
+      f("season", "enumList", "특정 분기만", { deep: true, width: "halfWide", options: SEASON_OPTIONS, hint: "연도와 무관하게 이 분기만" }),
+      f("sequence", "number", "몇 번째 주제가", { deep: true, width: "halfWide", min: 1, hint: "1이면 OP1, ED1만" }),
     ],
   },
   vocadb: { label: "VocaDB", hint: "보컬로이드 곡 DB. 유튜브 주소를 직접 받아옵니다.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb") },
@@ -502,6 +646,8 @@ module.exports = {
   usable,
   needsOf,
   _placeholder: PLACEHOLDER,
+  _lyricsFilter: lyricsFilter,
+  _someLanguages: someLanguages,
   // 테스트가 바깥으로 나가지 않게 연도 범위를 미리 채워 둔다
   _seedYearRange: (range) => {
     yearRange = range;
