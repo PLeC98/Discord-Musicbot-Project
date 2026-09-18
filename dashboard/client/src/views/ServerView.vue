@@ -657,8 +657,24 @@ async function jumpToHighlight() {
 
 const fmt = fmtTime;
 
+// 각 서비스가 실제로 쓰는 색이다(CSS 최빈값·브랜드 변수·로고 픽셀에서 뽑았다).
+// 자동재생 출처도 여기 있어야 한다 — 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
+// 이름은 MusicEmbedManager.getPlatformLabel 과 같은 값들이다.
+const PLATFORM_COLORS = {
+  youtube: "#ff0000",
+  spotify: "#1db954",
+  soundcloud: "#ff5500",
+  direct: "var(--accent)",
+  lastfm: "#d92323",
+  lbradio: "#eb743b", // ListenBrainz 의 --bs-primary
+  animethemes: "#75ead4", // 저쪽 다크 테마의 --solid-primary
+  vocadb: "#1a58b5", // 로고의 파랑. 틸도 있지만 아래 둘과 겹친다
+  utaitedb: "#e05fa0", // 로고가 검은 실루엣이라 브랜드 색이 없다 — 겹치지 않는 색으로 골랐다
+  touhoudb: "#95f6f7",
+};
+
 function platformColor(p) {
-  return { youtube: "#ff0000", spotify: "#1db954", soundcloud: "#ff5500", direct: "var(--accent)" }[p] || "#8b93a7";
+  return PLATFORM_COLORS[p] || "#8b93a7";
 }
 
 // SSE — 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.
