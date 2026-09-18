@@ -20,6 +20,7 @@ const folded = ref(load());
 export const genreFoldId = (i) => `g${i}`;
 export const sourceFoldId = (genreIndex, i) => `g${genreIndex}s${i}`;
 export const promptFoldId = (i) => `p${i}`;
+export const specialFoldId = (i) => `s${i}`;
 export const isFolded = (id) => folded.value.has(id);
 
 export function toggleFold(id) {

@@ -55,18 +55,25 @@
               <circle cx="8" cy="13" r="1.5" />
             </svg>
           </span>
+          <button :class="foldBtn" v-tooltip="isFolded(specialFoldId(i)) ? '펼치기' : '접기'" @click="toggleFold(specialFoldId(i))">
+            <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(specialFoldId(i)) }"><path d="M0 0h9L4.5 6z" /></svg>
+          </button>
           <input v-model="entry.name" placeholder="항목 이름 (크리스마스)" :class="[inputCls, 'flex-1']" />
-          <button :class="removeBtn" v-tooltip="'이 항목 삭제'" @click="special.splice(i, 1)"><Icon name="trash" :size="15" /></button>
+          <!-- 접어 두면 조건과 문구가 안 보인다 — 몇 개인지는 접힌 채로도 알려 준다 -->
+          <span v-if="isFolded(specialFoldId(i))" class="text-[0.78rem] shrink-0" :class="entry.messages.length ? 'text-muted' : 'text-[#f87171]'">문구 {{ entry.messages.length }}개</span>
+          <button :class="removeBtn" v-tooltip="'이 항목 삭제'" @click="removeSpecial(i)"><Icon name="trash" :size="15" /></button>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-          <label v-for="cond in CONDITIONS" :key="cond.key" class="block">
-            <span :class="labelCls">{{ cond.label }}</span>
-            <input v-model="entry[cond.key]" :placeholder="cond.placeholder" :class="[inputCls, 'font-mono text-[0.82rem]']" />
-          </label>
-        </div>
+        <div v-show="!isFolded(specialFoldId(i))">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+            <label v-for="cond in CONDITIONS" :key="cond.key" class="block">
+              <span :class="labelCls">{{ cond.label }}</span>
+              <input v-model="entry[cond.key]" :placeholder="cond.placeholder" :class="[inputCls, 'font-mono text-[0.82rem]']" />
+            </label>
+          </div>
 
-        <MessageList v-model="entry.messages" @add="entry.messages.push(newMessage())" />
+          <MessageList v-model="entry.messages" @add="entry.messages.push(newMessage())" />
+        </div>
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
@@ -89,11 +96,13 @@ import Icon from "./BaseIcon.vue";
 import SaveDock from "./SaveDock.vue";
 import MessageList from "./StatusMessageList.vue";
 import NumberInput from "./NumberInput.vue";
+import { isFolded, toggleFold, specialFoldId } from "../composables/configFolds";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
 const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10";
+const foldBtn = "size-7 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 
 const CONDITIONS = [
   { key: "date", label: "양력", placeholder: "12-24 ~ 12-26" },
@@ -248,6 +257,14 @@ function onDragEnd() {
 
 function addSpecial() {
   special.value.push({ key: ++serial, name: "", date: "", lunar: "", time: "", messages: [newMessage()] });
+}
+
+// 접힘은 자리로 기억한다 — 지우면 그 아래가 한 칸씩 당겨진다
+function removeSpecial(i) {
+  special.value.splice(i, 1);
+  for (let at = i; at < special.value.length + 1; at++) {
+    if (isFolded(specialFoldId(at))) toggleFold(specialFoldId(at));
+  }
 }
 
 function apply(data) {

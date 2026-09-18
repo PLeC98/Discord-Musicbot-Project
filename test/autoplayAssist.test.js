@@ -621,6 +621,28 @@ test("버텍스 모델 목록은 publisherModels 에서 읽는다", async () => 
   assert.match(got.url, /\/publishers\/google\/models$/);
 });
 
+// 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다 — 다른 키와 같은 자리에 둔다.
+test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", async () => {
+  const inline = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "인라인-프로젝트" });
+  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [{ role: "user", text: "{{목록}}" }]);
+  // 다른 칸은 그대로 둔다 — 뒤에 오는 테스트가 같은 파일을 본다
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${JSON.stringify(inline)}\n`);
+  configData._setConfigDir(DIR);
+  require("../src/googleAuth")._reset();
+
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init });
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  // 프로젝트를 안 적었으면 붙여넣은 JSON 의 project_id 를 쓴다
+  assert.match(calls.at(-1).url, /\/projects\/인라인-프로젝트\//);
+  assert.equal(calls.at(-1).init.headers.Authorization, "Bearer ya29.가짜");
+});
+
 // 서비스 계정 JSON 은 이 기능에서 가장 값비싼 비밀이다. 화면에도 응답에도 있으면 안 된다.
 test("버텍스: 서비스 계정 키와 토큰이 밖으로 나가지 않는다", async () => {
   global.fetch = async (url) => {

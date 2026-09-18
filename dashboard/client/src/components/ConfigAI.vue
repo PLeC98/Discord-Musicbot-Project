@@ -29,24 +29,13 @@
           </div>
         </label>
 
-        <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. -->
-        <label v-if="on && !spec?.needsProject" class="block">
+        <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다.
+             버텍스는 아예 없다 — 프로젝트·리전·모델로 조립한 것을 보여 준다. -->
+        <label v-if="on" class="block">
           <span :class="labelCls">엔드포인트 주소</span>
           <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
-          <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ spec?.baseUrl }}</p>
+          <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ shownEndpoint }}</p>
         </label>
-
-        <!-- 버텍스는 주소가 없다. 프로젝트·리전으로 조립한다. -->
-        <template v-if="on && spec?.needsProject">
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'global 도 됩니다'">리전</span>
-            <input v-model="draft.location" placeholder="us-central1" :class="inputCls" />
-          </label>
-          <label class="block">
-            <span :class="labelCls">프로젝트</span>
-            <input v-model="draft.project" placeholder="비우면 서비스 계정 JSON 의 project_id" :class="inputCls" />
-          </label>
-        </template>
       </div>
 
       <template v-if="on">
@@ -70,18 +59,42 @@
           </label>
         </div>
 
+        <!-- 버텍스는 주소를 이 둘로 조립한다. 모델까지 정해야 주소가 완성되므로 아래에 둔다. -->
+        <div v-if="spec?.needsProject" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'global 도 됩니다. 공개된 값이라 주소에 그대로 보입니다'">리전</span>
+            <input v-model="draft.location" placeholder="us-central1" :class="inputCls" />
+          </label>
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'위 주소에서는 가려 둡니다'">프로젝트 ID</span>
+            <input v-model="draft.project" placeholder="비우면 서비스 계정 JSON 의 project_id" :class="inputCls" />
+          </label>
+        </div>
+
         <!-- 키는 쓰기 전용이다. 값은 내려오지 않고 있는지 없는지만 온다. -->
         <template v-if="needsKey">
-          <span :class="[labelCls, 'mt-3']">{{ spec?.serviceAccount ? "서비스 계정 JSON 경로" : "API 키" }}</span>
-          <div class="flex items-center gap-2">
-            <!-- 서비스 계정은 비밀이 아니라 경로다. 가릴 이유가 없고, 오타를 봐야 한다. -->
-            <input v-model="keyInput" :type="spec?.serviceAccount ? 'text' : 'password'" autocomplete="off" :placeholder="keyPlaceholder" :class="[inputCls, 'flex-1', spec?.serviceAccount ? 'font-mono text-[0.82rem]' : '']" />
+          <span :class="[labelCls, 'mt-3']">{{ spec?.serviceAccount ? "서비스 계정 JSON" : "API 키" }}</span>
+
+          <!-- 서비스 계정은 JSON 덩어리다. 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다 —
+               다른 키와 같은 자리에 같은 방식으로 둔다. -->
+          <template v-if="spec?.serviceAccount">
+            <textarea v-model="keyInput" rows="4" autocomplete="off" :placeholder="keyPlaceholder" :class="[inputCls, 'font-mono text-[0.75rem] leading-relaxed resize-y']"></textarea>
+            <div class="flex items-center gap-2 mt-2">
+              <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
+              <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 값 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
+              <span v-if="keyInput.trim() && !looksLikeAccount" class="text-[0.78rem] text-[#fbbf24]">client_email 과 private_key 가 있는 JSON 이어야 합니다.</span>
+            </div>
+          </template>
+
+          <div v-else class="flex items-center gap-2">
+            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="keyPlaceholder" :class="[inputCls, 'flex-1']" />
             <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
             <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 키 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
           </div>
+
           <p class="mt-1.5 text-[0.78rem]">
             <span :class="keyCls">{{ hasKey ? "저장됨" : "저장된 값 없음" }}</span>
-            <span v-if="spec?.serviceAccount" class="text-muted"> · config/ 기준 상대경로도 됩니다. 프로젝트는 그 JSON 의 project_id 를 씁니다.</span>
+            <span v-if="spec?.serviceAccount" class="text-muted"> · 받은 JSON 을 그대로 붙여넣으세요. 프로젝트를 비우면 그 안의 project_id 를 씁니다.</span>
             <span v-else class="text-muted"> · 보안을 위해 저장된 값은 출력하지 않습니다. 확인을 원하면 설정 파일을 직접 열어 주세요.</span>
           </p>
           <p v-if="!secureOrigin" class="mt-1 text-[0.78rem] text-[#fbbf24]">지금 평문(HTTP)으로 접속 중입니다. 키가 그대로 네트워크를 지나갑니다.</p>
@@ -403,9 +416,34 @@ const grouped = computed(() => {
 const on = computed(() => !!draft.value.provider && draft.value.provider !== "off");
 // 로컬 모델은 키를 안 받는다 — 있으나 마나 한 표시를 띄우지 않는다
 const needsKey = computed(() => !!spec.value?.key);
+
+/**
+ * 어디로 나가는지 보여 준다. 버텍스는 주소가 없어 프로젝트·리전·모델로 조립한다.
+ *
+ * **프로젝트 ID 만 가린다.** 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
+ */
+const shownEndpoint = computed(() => {
+  if (!spec.value?.needsProject) return spec.value?.baseUrl;
+  const location = String(draft.value.location || "").trim() || "us-central1";
+  const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
+  const model = String(draft.value.model || "").trim() || "{모델}";
+  return `https://${host}/v1/projects/[프로젝트 ID]/locations/${location}/publishers/google/models/${model}:generateContent`;
+});
 const keyPlaceholder = computed(() => {
-  if (spec.value?.serviceAccount) return hasKey.value ? "저장돼 있습니다. 바꾸려면 새 경로를 적으세요" : "vertex-sa.json";
+  if (spec.value?.serviceAccount) return hasKey.value ? "저장돼 있습니다. 바꾸려면 새 JSON 을 붙여넣으세요" : '{\n  "type": "service_account",\n  "project_id": "…",\n  "private_key": "-----BEGIN PRIVATE KEY-----\\n…",\n  "client_email": "…@….iam.gserviceaccount.com"\n}';
   return hasKey.value ? "저장 되어 있습니다. 새로 저장하여 수정할 수 있습니다." : "키를 입력하세요";
+});
+
+// 붙여넣기 전에 알려 준다 — 엉뚱한 것을 저장해 두고 나중에 401 만 보는 것보다 낫다
+const looksLikeAccount = computed(() => {
+  const text = keyInput.value.trim();
+  if (!text.startsWith("{")) return true; // 경로로 적는 옛 방식도 받는다
+  try {
+    const one = JSON.parse(text);
+    return !!(one?.client_email && one?.private_key);
+  } catch {
+    return false;
+  }
 });
 // 평문으로 열어 두었으면 키가 그대로 네트워크를 지난다 — 파일을 고칠 때는 없는 일이다
 const secureOrigin = computed(() => window.isSecureContext);

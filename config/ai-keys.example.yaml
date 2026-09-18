@@ -29,10 +29,14 @@ vercel: "" # https://vercel.com/dashboard/ai-gateway
 llmgateway: "" # https://llmgateway.io
 
 # ── 버텍스 AI 는 키가 아니라 서비스 계정입니다 ──
-# 구글 클라우드 콘솔에서 받은 JSON 파일의 **경로**를 적습니다(config/ 기준 상대경로도 됩니다).
-# JSON 을 통째로 적어도 받지만, 파일로 두는 편이 낫습니다 — config/*-sa.json 은 .gitignore 에 있습니다.
-#   vertex: vertex-sa.json
-# 프로젝트는 그 JSON 의 project_id 를 씁니다. 리전은 config/ai.yaml 의 location 에 적습니다.
+# 구글 클라우드 콘솔에서 받은 JSON 을 **그대로 붙여넣습니다.** 한 줄로 두면 됩니다.
+#
+#   vertex: '{"type":"service_account","project_id":"…","private_key":"-----BEGIN …","client_email":"…"}'
+#
+# 파일 경로로 적어도 받습니다(config/ 기준 상대경로). 다만 그러면 그 파일이 어디 있는지
+# 따로 관리해야 하므로, 다른 키와 같은 자리에 두는 편을 권합니다.
+#
+# 프로젝트는 이 JSON 의 project_id 를 씁니다. 리전은 config/ai.yaml 의 location 에 적습니다.
 vertex: ""
 
 # provider: custom 으로 그 밖의 OpenAI 호환 주소를 쓸 때

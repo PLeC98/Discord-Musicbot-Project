@@ -643,7 +643,19 @@ function mask(text) {
   let out = String(text);
   // 받아 둔 액세스 토큰도 가린다 — 서비스 계정에서 나온 것이라 키만큼 값이 나간다
   for (const key of [...Object.values(configData.aiKeys()), ...require("./googleAuth").heldTokens()]) {
-    if (key && key.length > 8) out = out.split(key).join(REDACTED);
+    if (!key || key.length <= 8) continue;
+    out = out.split(key).join(REDACTED);
+
+    // 서비스 계정은 값 자체가 JSON 덩어리다. 통째로 나오는 일은 없어도 **키만 떨어져 나올 수는**
+    // 있으므로 안쪽 private_key 도 따로 가린다.
+    if (key.trimStart().startsWith("{")) {
+      try {
+        const inner = JSON.parse(key)?.private_key;
+        if (inner) out = out.split(inner).join(REDACTED);
+      } catch {
+        /* JSON 이 아니면 경로였던 것이다 */
+      }
+    }
   }
   return out;
 }
