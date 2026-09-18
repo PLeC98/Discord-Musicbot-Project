@@ -7,22 +7,24 @@
   **API 키는 여기서 다루지 않는다.** .env 에 있고, 화면에는 있는지 없는지만 내려온다 —
   값을 브라우저로 보내면 XSS 하나로 새어 나간다.
 
-  미리보기는 **서버가 실제로 한 번 보낸다**. 봇이 쓰는 조립 코드를 그대로 부르므로,
-  화면에 보이는 것과 실제로 나가는 것이 어긋날 수 없다.
+  미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
+  조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
 -->
 <template>
   <div>
     <BaseCard icon="wrench" title="자동재생 AI 보조" class="mb-3">
-      <p class="text-muted text-[0.82rem] mt-1 mb-3">곡 이름만 아는 출처(키워드 · Last.fm)에서 고른 후보를 모델에게 한 번 더 물어봅니다. 1시간짜리 믹스나 장르가 다른 곡을 걸러냅니다. 주소를 직접 받아오는 출처는 묻지 않습니다.</p>
+      <p class="text-muted text-[0.82rem] mt-1 mb-3">곡 이름만 아는 출처(키워드 · Last.fm)에서 고른 후보를 모델에게 한 번 더 물어봅니다. 주소를 직접 받아오는 출처는 묻지 않습니다. 모델을 못 부르면 규칙으로 넘어가므로 재생이 멈추지는 않습니다.</p>
 
-      <label class="flex items-center gap-2.5 mb-4 cursor-pointer w-fit">
-        <input v-model="draft.enabled" type="checkbox" class="size-4 accent-accent shrink-0" />
-        <span class="text-[0.9rem]">AI 보조 사용</span>
-      </label>
-
-      <p class="text-muted text-[0.78rem] mb-4 -mt-2">끄면 규칙만으로 고릅니다. 켜 두어도 모델을 못 부르면 규칙으로 넘어가므로 재생이 멈추지는 않습니다.</p>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+        <label class="block">
+          <span :class="labelCls">프로바이더</span>
+          <div class="relative">
+            <select v-model="draft.provider" :class="[inputCls, selectCls]">
+              <option v-for="one in PROVIDERS" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
+            </select>
+            <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+          </div>
+        </label>
         <label class="block">
           <span :class="labelCls">엔드포인트 주소</span>
           <input v-model="draft.baseUrl" placeholder="http://127.0.0.1:11434/v1" :class="inputCls" />
@@ -33,18 +35,14 @@
         </label>
       </div>
 
-      <p class="text-muted text-[0.78rem] mb-4">OpenAI 호환 주소면 무엇이든 됩니다. Ollama는 <code class="text-fg-soft">http://127.0.0.1:11434/v1</code>, LM Studio는 <code class="text-fg-soft">http://127.0.0.1:1234/v1</code> 입니다.</p>
-
       <div class="flex items-center gap-2.5 flex-wrap">
         <BaseButton :disabled="checking" @click="check">{{ checking ? "물어보는 중…" : "연결 확인" }}</BaseButton>
         <span class="text-[0.82rem]" :class="keyCls">API 키 {{ hasKey ? "있음" : "없음" }}</span>
-        <span class="text-muted text-[0.78rem]">{{ hasKey ? ".env 의 AI_API_KEY" : "로컬 모델이면 없어도 됩니다" }}</span>
+        <span class="text-muted text-[0.78rem]">.env 의 AI_API_KEY</span>
       </div>
 
-      <p v-if="result" class="mt-3 text-[0.82rem]" :class="result.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">
-        {{ result.ok ? `정상입니다. 한 곡 판정에 ${(result.tookMs / 1000).toFixed(1)}초 걸렸습니다.` : `부르지 못했습니다 — ${result.reason}` }}
-      </p>
-      <p v-if="result?.ok && result.tookMs > 30000" class="mt-1 text-[0.78rem] text-[#fbbf24]">한 곡에 이만큼 걸리면 자동재생이 다음 곡을 늦게 준비합니다. 더 작은 모델을 쓰거나 확인 제한 시간을 넉넉히 두세요.</p>
+      <p v-if="result?.ok" class="mt-3 text-[0.82rem] text-[#4ade80]">판정 한 번에 {{ (result.tookMs / 1000).toFixed(1) }}초. 응답을 읽는 데까지 문제 없습니다.</p>
+      <pre v-else-if="result" :class="[preCls, 'mt-3']">{{ result.reason }}</pre>
     </BaseCard>
 
     <BaseCard icon="gear" title="세부 설정" class="mb-3">
@@ -142,8 +140,8 @@
         @drop="onDrop"
         @dragend="onDragEnd"
       >
-        <div class="flex items-end gap-2">
-          <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 pb-2.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
+        <div class="flex items-center gap-2">
+          <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
               <circle cx="2" cy="3" r="1.5" />
               <circle cx="2" cy="8" r="1.5" />
@@ -154,11 +152,18 @@
             </svg>
           </span>
 
-          <button :class="foldBtn" v-tooltip="folded.has(section.key) ? '펼치기' : '접기'" @click="toggleFold(section.key)">
-            <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': folded.has(section.key) }"><path d="M0 0h9L4.5 6z" /></svg>
+          <button :class="foldBtn" v-tooltip="isFolded(promptFoldId(i)) ? '펼치기' : '접기'" @click="toggleFold(promptFoldId(i))">
+            <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(promptFoldId(i)) }"><path d="M0 0h9L4.5 6z" /></svg>
           </button>
 
-          <label class="block w-32 shrink-0">
+          <input v-model="section.name" :placeholder="`섹션 ${i + 1}`" :class="[inputCls, 'flex-1']" v-tooltip="'대시보드에서만 쓰는 이름입니다. 모델에게는 가지 않습니다'" />
+          <span class="text-muted text-[0.75rem] shrink-0 w-20 text-right">{{ section.role }}</span>
+
+          <button :class="removeBtn" v-tooltip="'이 섹션 삭제'" @click="removeSection(i)"><Icon name="trash" :size="15" /></button>
+        </div>
+
+        <div v-show="!isFolded(promptFoldId(i))" class="mt-2">
+          <label class="block w-32 mb-2">
             <span :class="labelCls">역할</span>
             <div class="relative">
               <select v-model="section.role" :class="[inputCls, selectCls]">
@@ -168,13 +173,6 @@
             </div>
           </label>
 
-          <span v-if="folded.has(section.key)" class="text-muted text-[0.78rem] flex-1 min-w-0 truncate pb-2.5">{{ oneLine(section.text) }}</span>
-          <span v-else class="flex-1"></span>
-
-          <button :class="removeBtn" v-tooltip="'이 섹션 삭제'" @click="sections.splice(i, 1)"><Icon name="trash" :size="15" /></button>
-        </div>
-
-        <div v-show="!folded.has(section.key)" class="mt-2">
           <span :class="labelCls">프롬프트</span>
           <textarea v-model="section.text" rows="8" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
         </div>
@@ -182,7 +180,9 @@
 
       <div class="flex items-center gap-2.5 flex-wrap">
         <button :class="addLine" @click="loadDefaults">기본값으로</button>
-        <BaseButton :disabled="previewing" @click="loadPreview">{{ previewing ? "보내는 중…" : "리퀘스트 미리보기" }}</BaseButton>
+        <BaseButton @click="openPreview">리퀘스트 미리보기</BaseButton>
+        <BaseButton :disabled="testing" @click="runTest">{{ testing ? "보내는 중…" : "테스트" }}</BaseButton>
+        <span class="text-muted text-[0.78rem]">미리보기는 만들기만, 테스트는 설정한 엔드포인트로 실제로 보냅니다.</span>
       </div>
     </BaseCard>
 
@@ -194,16 +194,17 @@
 
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
 
-    <!-- 리퀘스트 미리보기 — 다듬지 않는다. 나간 것과 온 것을 그대로 본다. -->
-    <div v-if="preview" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="preview = null">
+    <!-- 나간 것과 온 것을 그대로 본다. 다듬지 않는다. -->
+    <div v-if="shown" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="shown = null">
       <div class="bg-[rgba(12,16,36,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] w-[min(56rem,100%)] max-h-[88vh] overflow-auto p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div class="flex items-center gap-3 mb-4">
-          <h3 class="text-[0.95rem] font-semibold flex-1">리퀘스트 미리보기</h3>
-          <span v-if="preview.status" class="text-[0.8rem]" :class="preview.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'">HTTP {{ preview.status }} · {{ (preview.tookMs / 1000).toFixed(1) }}초</span>
-          <button :class="removeBtn" v-tooltip="'닫기'" @click="preview = null"><Icon name="close" :size="15" /></button>
+          <h3 class="text-[0.95rem] font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</h3>
+          <span v-if="shown.sent" class="text-[0.8rem]" :class="shown.status && shown.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'"> {{ shown.status ? `HTTP ${shown.status}` : "보내지 못함" }} · {{ (shown.tookMs / 1000).toFixed(1) }}초 </span>
+          <span v-else class="text-muted text-[0.8rem]">보내지 않았습니다</span>
+          <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
         </div>
 
-        <div v-for="box in previewBoxes" :key="box.title" class="mb-3">
+        <div v-for="box in boxes" :key="box.title" class="mb-3">
           <div class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)] mb-1">{{ box.title }}</div>
           <pre :class="preCls">{{ box.text }}</pre>
         </div>
@@ -220,6 +221,7 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NumberInput from "./NumberInput.vue";
 import SaveDock from "./SaveDock.vue";
+import { isFolded, toggleFold, promptFoldId } from "../composables/configFolds";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] [color-scheme:dark] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const selectCls = "appearance-none cursor-pointer pr-9!";
@@ -240,6 +242,12 @@ const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{
 
 const ROLES = ["system", "user", "assistant"];
 
+// 지금은 OpenAI 호환 하나뿐이다. 규격이 진짜로 다른 것이 필요해지면 여기에 는다.
+const PROVIDERS = [
+  { value: "off", label: "사용하지 않음" },
+  { value: "openai", label: "OpenAI 호환" },
+];
+
 const MARKS = [
   { mark: "{{번호}}", hint: "1부터" },
   { mark: "{{장르}}", hint: "자동재생 장르 이름. 없으면 랜덤" },
@@ -254,10 +262,9 @@ const UNKNOWN = [
   { value: "zero", label: "0으로 적는다", hint: "모르는 것을 0분이라고 알려 주는 셈이라 권하지 않습니다." },
 ];
 
-const draft = ref({ enabled: false });
+const draft = ref({ provider: "off" });
 const listCfg = ref({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
 const sections = ref([]);
-const folded = ref(new Set());
 const snapshot = ref("");
 const promptSnapshot = ref("");
 const saving = ref(false);
@@ -268,8 +275,8 @@ const serverProblems = ref([]);
 const hasKey = ref(false);
 const checking = ref(false);
 const result = ref(null);
-const previewing = ref(false);
-const preview = ref(null);
+const testing = ref(false);
+const shown = ref(null);
 const defaults = ref({ sections: [], line: "" });
 
 let serial = 0;
@@ -277,19 +284,13 @@ let serial = 0;
 const keyCls = computed(() => (hasKey.value ? "text-[#4ade80]" : "text-muted"));
 const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s*\}\}/.test(one.text)));
 
-// 다듬지 않는다 — 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다
-const previewBoxes = computed(() => {
-  const one = preview.value;
+// 다듬지 않는다 — 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다.
+// 응답 칸은 실제로 보냈을 때만 있다(미리보기는 만들기만 한다).
+const boxes = computed(() => {
+  const one = shown.value;
   if (!one) return [];
-  return [
-    { title: "URL", text: one.url },
-    { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) },
-    { title: "요청 본문", text: JSON.stringify(one.body, null, 2) },
-    { title: "응답", text: one.response || "(비어 있음)" },
-  ];
+  return [{ title: "URL", text: one.url }, { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) }, { title: "요청 본문", text: JSON.stringify(one.body, null, 2) }, ...(one.sent ? [{ title: "응답", text: one.response || "(비어 있음)" }] : [])];
 });
-
-const oneLine = (text) => String(text || "").split("\n")[0] || "(비어 있음)";
 
 // 추가 파라미터는 한 줄에 하나씩 적는 글이다 — 뜯어 읽는 것은 서버가 한다(autoplayAssist)
 const extraText = computed({
@@ -316,8 +317,9 @@ const timeoutSec = computed({
   },
 });
 
-// 설정과 프롬프트는 딴 파일이라 저장도 따로 간다
-const payload = computed(() => ({ ...draft.value, list: { ...listCfg.value } }));
+// 설정과 프롬프트는 딴 파일이라 저장도 따로 간다.
+// 섹션 이름은 ChatML 에 적을 자리가 없어 설정 쪽에 같이 실어 보낸다(차례가 곧 짝이다).
+const payload = computed(() => ({ ...draft.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") }));
 const promptPayload = computed(() => sections.value.map((one) => ({ role: one.role, text: one.text })));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
 
@@ -326,7 +328,7 @@ const problems = computed(() => {
   const found = [];
   const d = draft.value;
 
-  if (d.enabled) {
+  if (d.provider && d.provider !== "off") {
     if (!String(d.baseUrl || "").trim()) found.push("엔드포인트 주소를 적어야 합니다.");
     else if (!/^https?:\/\//.test(String(d.baseUrl).trim())) found.push("엔드포인트 주소는 http:// 또는 https:// 로 시작해야 합니다.");
     if (!String(d.model || "").trim()) found.push("모델 이름을 적어야 합니다.");
@@ -352,18 +354,19 @@ watch([payload, promptPayload], () => {
 });
 
 function addSection() {
-  sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", text: "" });
+  sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", name: "", text: "" });
 }
 
-function toggleFold(key) {
-  const next = new Set(folded.value);
-  if (next.has(key)) next.delete(key);
-  else next.add(key);
-  folded.value = next;
+// 접힘은 자리로 기억한다 — 지우면 그 아래가 한 칸씩 당겨진다
+function removeSection(i) {
+  sections.value.splice(i, 1);
+  for (let at = i; at < sections.value.length + 1; at++) {
+    if (isFolded(promptFoldId(at))) toggleFold(promptFoldId(at));
+  }
 }
 
 function loadDefaults() {
-  sections.value = defaults.value.sections.map((one) => ({ key: ++serial, role: one.role, text: one.text }));
+  sections.value = defaults.value.sections.map((one) => ({ key: ++serial, role: one.role, name: "", text: one.text }));
 }
 
 // 자리표시자 알약 — 줄 형식 칸 끝에 붙인다
@@ -417,16 +420,22 @@ function onDragEnd() {
 
 // ── 주고받기 ──────────────────────────────────────────────────────────────
 
+// 이름은 설정 쪽에 있고 내용은 프롬프트 파일에 있다 — 둘을 차례로 짝지어 합친다
+let names = [];
+
 function apply(data) {
-  const { list, prompt, ...rest } = data || {};
-  draft.value = { enabled: false, extra: "", ...rest };
+  const { list, prompt, promptNames, ...rest } = data || {};
+  draft.value = { provider: "off", extra: "", ...rest };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
+  names = Array.isArray(promptNames) ? promptNames : [];
+  sections.value.forEach((one, i) => (one.name = names[i] || ""));
   snapshot.value = JSON.stringify(payload.value);
 }
 
 function applyPrompt(list) {
-  sections.value = (list || []).map((one) => ({ key: ++serial, role: one?.role || "system", text: String(one?.text ?? "") }));
+  sections.value = (list || []).map((one, i) => ({ key: ++serial, role: one?.role || "system", name: names[i] || "", text: String(one?.text ?? "") }));
   promptSnapshot.value = JSON.stringify(promptPayload.value);
+  snapshot.value = JSON.stringify(payload.value); // 이름이 payload 에 실리므로 같이 굳힌다
 }
 
 async function fetchAll() {
@@ -451,14 +460,26 @@ async function fetchState() {
   }
 }
 
-async function loadPreview() {
-  previewing.value = true;
+const forServer = () => ({ ...payload.value, prompt: promptPayload.value });
+
+// 만들어만 본다. 아무 데도 안 나간다.
+async function openPreview() {
   try {
-    preview.value = (await axios.post("/api/admin/ai/preview", { data: { ...payload.value, prompt: promptPayload.value } })).data;
+    shown.value = { ...(await axios.post("/api/admin/ai/preview", { data: forServer() })).data, sent: false };
   } catch (error) {
     loadError.value = error.response?.data?.error || "미리보기를 만들지 못했습니다.";
+  }
+}
+
+// 설정한 엔드포인트의 설정한 모델로 **실제로 보낸다.**
+async function runTest() {
+  testing.value = true;
+  try {
+    shown.value = { ...(await axios.post("/api/admin/ai/test", { data: forServer() })).data, sent: true };
+  } catch (error) {
+    loadError.value = error.response?.data?.error || "보내지 못했습니다.";
   } finally {
-    previewing.value = false;
+    testing.value = false;
   }
 }
 

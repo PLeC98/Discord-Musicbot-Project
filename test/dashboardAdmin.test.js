@@ -292,7 +292,7 @@ const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 before(() => {
   configData._setConfigDir(CONFIG_DIR);
   fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop music", ""].join("\n"));
-  fs.writeFileSync(path.join(CONFIG_DIR, "ai.yaml"), ["# 손으로 적은 메모", "enabled: false", "baseUrl: http://127.0.0.1:11434/v1", "model: gemma3n:e2b", ""].join("\n"));
+  fs.writeFileSync(path.join(CONFIG_DIR, "ai.yaml"), ["# 손으로 적은 메모", "provider: off", "baseUrl: http://127.0.0.1:11434/v1", "model: gemma3n:e2b", ""].join("\n"));
 });
 
 after(() => {
@@ -459,28 +459,52 @@ test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
 
 // 켜 두었는데 주소가 비면 매번 실패하고 로그만 쌓인다. 저장 전에 막는다.
 test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
-  const ok = await req("PUT", "/api/admin/config/ai", { data: { enabled: false, baseUrl: "", model: "" } });
+  const ok = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", baseUrl: "", model: "" } });
   assert.equal(ok.status, 200, "꺼 둔 설정이 반쯤 비어 있는 것은 문제가 아니다");
 
-  const bad = await req("PUT", "/api/admin/config/ai", { data: { enabled: true, baseUrl: "", model: "" } });
+  const bad = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "", model: "" } });
   assert.equal(bad.status, 400);
   assert.ok(bad.json.problems.length >= 2);
 
-  const notUrl = await req("PUT", "/api/admin/config/ai", { data: { enabled: true, baseUrl: "127.0.0.1:11434", model: "m" } });
+  const notUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "127.0.0.1:11434", model: "m" } });
   assert.equal(notUrl.status, 400, "http:// 로 시작해야 한다");
 
-  const range = await req("PUT", "/api/admin/config/ai", { data: { enabled: false, temperature: 9 } });
+  const range = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 9 } });
   assert.equal(range.status, 400);
 
+  // 모르는 프로바이더로 저장되면 조용히 안 돈다
+  assert.equal((await req("PUT", "/api/admin/config/ai", { data: { provider: "anthropic" } })).status, 400);
+
+  // enabled 는 provider 로 바뀌었다 — 옛 이름을 적으면 알려 준다
+  const oldKey = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", enabled: true } });
+  assert.equal(oldKey.status, 400);
+  assert.match(oldKey.json.error, /provider/);
+
   // 프롬프트는 딴 파일에 산다 — 설정 파일에 적으면 쓰이지 않으니 알려 준다
-  const wrongPlace = await req("PUT", "/api/admin/config/ai", { data: { enabled: false, prompt: "여기 적으면 안 된다" } });
+  const wrongPlace = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", prompt: "여기 적으면 안 된다" } });
   assert.equal(wrongPlace.status, 400);
   assert.match(wrongPlace.json.error, /ai-prompt\.chatml/);
 
   // 손으로 적은 주석은 저장해도 남는다(장르·상태 설정과 같은 규약)
-  const saved = await req("PUT", "/api/admin/config/ai", { data: { enabled: true, baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b" } });
+  const saved = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b", promptNames: ["기준", "목록"] } });
   assert.equal(saved.status, 200);
+  assert.deepEqual(saved.json.data.promptNames, ["기준", "목록"], "섹션 이름은 설정 쪽에 남는다");
   assert.match(fs.readFileSync(path.join(CONFIG_DIR, "ai.yaml"), "utf8"), /손으로 적은 메모/);
+});
+
+// 나갈 것을 만들어만 본다. 보내지 않는다 — 테스트와 가르는 것이 이 엔드포인트의 요점이다.
+test("AI 미리보기: 응답 칸이 없다", async () => {
+  const { status, json } = await req("POST", "/api/admin/ai/preview", { data: { provider: "openai", baseUrl: "http://127.0.0.1:1/v1", model: "m" } });
+  assert.equal(status, 200);
+  assert.equal(json.url, "http://127.0.0.1:1/v1/chat/completions");
+  assert.ok(Array.isArray(json.body.messages));
+  assert.ok(!("response" in json) && !("status" in json), "보내지 않았으니 응답이 없다");
+
+  assert.equal((await req("POST", "/api/admin/ai/preview", {})).status, 400);
+  currentUser = { id: "u1" };
+  assert.equal((await req("POST", "/api/admin/ai/preview", { data: {} })).status, 403);
+  assert.equal((await req("POST", "/api/admin/ai/test", { data: {} })).status, 403);
+  currentUser = { id: "owner", username: "owner" };
 });
 
 test("소스 종류: 운영자만 볼 수 있다", async () => {

@@ -58,13 +58,19 @@ const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
 const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
+// 어디에 물을지. 지금은 OpenAI 호환 하나뿐이다 — Ollama · LM Studio · vLLM · OpenAI 본체가
+// 다 이 규격을 낸다. 규격이 진짜로 다른 것(Anthropic · Vertex 네이티브)이 필요해지면 여기에 는다.
+const PROVIDERS = ["off", "openai"];
+
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
   const one = { ...DEFAULTS, ...configData.ai() };
-  if (!one.enabled || !one.baseUrl || !one.model) return null;
+  if (!live(one) || !one.baseUrl || !one.model) return null;
   // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다
   return { ...one, prompt: configData.aiPrompt() };
 }
+
+const live = (one) => !!one?.provider && one.provider !== "off" && PROVIDERS.includes(one.provider);
 
 /**
  * 추가 파라미터 — 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
@@ -126,16 +132,19 @@ function renderLine(list, cand, genre, i) {
     길이초: known ? String(Math.round(sec)) : unknown,
   };
 
-  // 값을 모르면 **그 자리표시자가 든 낱말째** 뺀다. "길이=" 만 덩그러니 남으면 더 헷갈린다.
+  // 아는 이름인데 값을 모르면 **그 자리표시자가 든 낱말째** 뺀다.
+  // "길이=" 만 덩그러니 남으면 모델이 더 헷갈리기 때문이다.
+  //
+  // 모르는 이름은 건드리지 않는다 — 오타를 조용히 지워 버리면 왜 사라졌는지 알 길이 없다.
   return String(list?.lineFormat || DEFAULT_LINE)
     .split(/(\s+)/)
     .map((word) => {
       if (!word.includes("{{")) return word;
       let missing = false;
       const filled = word.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (all, name) => {
-        const value = values[name];
-        if (value == null) missing = true;
-        return value == null ? "" : value;
+        if (!(name in values)) return all;
+        if (values[name] == null) missing = true;
+        return values[name] ?? "";
       });
       return missing ? "" : filled;
     })
@@ -196,8 +205,9 @@ async function askBatch(one, batch, genre) {
     signal: AbortSignal.timeout(Number(one.timeoutMs)),
   });
 
-  // 본문을 오류에 싣지 않는다 — 어떤 서비스는 거절 응답에 보낸 헤더를 되비춘다
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타 · 남은 토큰 없음 · 사용량 초과 …).
+  // 그대로 싣되 키는 가린다 — 거절 응답에 보낸 값을 되비추는 서비스가 있다.
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${mask(await res.text()).slice(0, 300)}`);
 
   const text = (await res.json())?.choices?.[0]?.message?.content || "";
   // 작은 모델은 ```json 울타리나 앞말을 곧잘 붙인다. 배열만 집어낸다.
@@ -277,7 +287,7 @@ async function accepts(candidate, about = {}) {
 /** 지금 설정으로 실제로 부를 수 있는지 한 번 재 본다. 대시보드의 "연결 확인" 버튼용. */
 async function check() {
   const one = settings();
-  if (!one) return { ok: false, reason: "꺼져 있거나 주소·모델이 비어 있습니다." };
+  if (!one) return { ok: false, reason: `설정이 켜져 있지 않습니다(provider=${configData.ai()?.provider || "off"}).` };
 
   const started = Date.now();
   try {
@@ -294,18 +304,25 @@ async function check() {
 const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
 
 /**
- * 저장하기 전의 설정으로 **실제로 한 번 보내 본다.** 나간 것과 온 것을 손대지 않고 그대로 준다.
+ * 저장하기 전의 설정으로 **나갈 것을 만들어만 본다. 보내지 않는다.**
  * 조립은 봇이 쓰는 코드 그대로다 — 화면이 따로 흉내 내면 언젠가 어긋난다.
  *
- * 키 값은 절대 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
+ * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
-async function preview(draft, genre = "록") {
+function preview(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
   const request = buildRequest(one, SAMPLE, genre);
-  const shown = { ...request.headers };
-  if (shown.Authorization) shown.Authorization = "Bearer ***";
+  const headers = { ...request.headers };
+  if (headers.Authorization) headers.Authorization = "Bearer ***";
+  return { url: request.url, headers, body: request.body };
+}
 
-  const out = { url: request.url, headers: shown, body: request.body, status: null, response: "" };
+/** 같은 것을 **실제로 보낸다.** 나간 것과 온 것을 손대지 않고 그대로 준다. */
+async function sendTest(draft, genre = "록") {
+  const one = { ...DEFAULTS, ...(draft || {}) };
+  const request = buildRequest(one, SAMPLE, genre);
+  const out = { ...preview(draft, genre), status: null, response: "" };
+
   const started = Date.now();
   try {
     const res = await fetch(request.url, {
@@ -315,12 +332,18 @@ async function preview(draft, genre = "록") {
       signal: AbortSignal.timeout(Number(one.timeoutMs)),
     });
     out.status = res.status;
-    out.response = await res.text(); // 손대지 않는다 — 다듬으면 무엇이 온 것인지 못 본다
+    out.response = mask(await res.text()); // 다듬지 않는다 — 무엇이 왔는지 그대로 봐야 한다
   } catch (error) {
-    out.response = `(보내지 못했습니다) ${error.message}`;
+    out.response = mask(String(error.message));
   }
   out.tookMs = Date.now() - started;
   return out;
 }
 
-module.exports = { filter, accepts, check, settings, preview, parseExtra, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다 — 화면에도 로그에도 키가 남으면 안 된다
+function mask(text) {
+  const key = config.ai?.apiKey;
+  return key ? String(text).split(key).join("***") : String(text);
+}
+
+module.exports = { filter, accepts, check, settings, preview, sendTest, parseExtra, PROVIDERS, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

@@ -533,12 +533,15 @@ function ai() {
   return problems.length ? { ...data, enabled: false } : data;
 }
 
+const AI_PROVIDERS = ["off", "openai"];
+
 function validateAi(data) {
   const problems = [];
-  if (data?.enabled != null && typeof data.enabled !== "boolean") problems.push("enabled는 true 또는 false 여야 합니다.");
+  if (data?.provider != null && !AI_PROVIDERS.includes(data.provider)) problems.push(`provider는 ${AI_PROVIDERS.join(" · ")} 중 하나여야 합니다.`);
+  if (data?.enabled != null) problems.push("enabled 는 provider 로 바뀌었습니다. off 또는 openai 를 적으세요.");
 
   // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
-  if (data?.enabled === true) {
+  if (data?.provider && data.provider !== "off") {
     if (!String(data.baseUrl || "").trim()) problems.push("baseUrl을 적어야 합니다(예: http://127.0.0.1:11434/v1).");
     else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
     if (!String(data.model || "").trim()) problems.push("model을 적어야 합니다.");
@@ -556,6 +559,12 @@ function validateAi(data) {
   // 추가 파라미터는 한 줄에 하나씩 적는 글이다(autoplayAssist.parseExtra)
   if (data?.extra != null && typeof data.extra !== "string") problems.push("extra는 한 줄에 하나씩 적는 글이어야 합니다.");
   if (data?.prompt != null) problems.push(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`);
+
+  // 섹션 이름은 대시보드에서 어느 섹션인지 알아보려고 붙이는 것이다.
+  // ChatML 에는 이름을 적을 자리가 없어서 여기 둔다 — 차례가 프롬프트 섹션과 같아야 한다.
+  if (data?.promptNames != null && !(Array.isArray(data.promptNames) && data.promptNames.every((one) => one == null || typeof one === "string"))) {
+    problems.push("promptNames는 글자 목록이어야 합니다.");
+  }
 
   problems.push(...listProblems(data?.list));
   return problems;

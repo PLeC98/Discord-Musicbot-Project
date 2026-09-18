@@ -27,8 +27,10 @@
 # config/ai-prompt.chatml 에 따로 있습니다. 긴 글을 YAML 에 섞으면 들여쓰기에 걸려
 # 손으로 고치기 나쁘고, 프롬프트만 주고받기도 어렵습니다.
 
-# 끄면 규칙만으로 고릅니다.
-enabled: false
+# 어디에 물을지. off 면 규칙만으로 고릅니다.
+#   off     사용하지 않음
+#   openai  OpenAI 호환 (Ollama · LM Studio · vLLM · OpenAI 본체 · Gemini 호환 …)
+provider: off
 
 # OpenAI 호환 엔드포인트. 끝의 /v1 까지 적습니다.
 baseUrl: http://127.0.0.1:11434/v1
@@ -85,3 +87,8 @@ list:
   #   zero  0 으로 적습니다 — 거짓을 알려 주는 셈이라 권하지 않습니다
   unknownDuration: hide
   unknownText: 모름
+
+# 프롬프트 섹션에 붙일 이름. 대시보드에서 어느 섹션인지 알아보려고 쓰는 것뿐이고,
+# 모델에게는 안 갑니다. ChatML 에는 이름을 적을 자리가 없어서 여기 둡니다 —
+# 차례가 ai-prompt.chatml 의 섹션 차례와 같아야 합니다.
+promptNames: []

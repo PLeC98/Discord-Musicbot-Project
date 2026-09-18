@@ -31,7 +31,7 @@ function useConfig(yaml, sections) {
   configData._setConfigDir(DIR);
 }
 
-const ON = `enabled: true
+const ON = `provider: openai
 baseUrl: http://127.0.0.1:11434/v1
 model: test-model
 timeoutMs: 5000
@@ -58,7 +58,7 @@ const cand = (title, durationSec = 200) => ({ title, durationSec });
 // ── 꺼져 있을 때 ──────────────────────────────────────────────────────────
 
 test("꺼져 있으면 아예 부르지 않는다", async () => {
-  useConfig("enabled: false\n");
+  useConfig("provider: off\n");
   calls.length = 0;
   answers("[]");
 
@@ -70,7 +70,7 @@ test("꺼져 있으면 아예 부르지 않는다", async () => {
 
 // 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다. 아예 켜지 않는다.
 test("설정이 어긋나면 켜지지 않는다", async () => {
-  useConfig("enabled: true\nbaseUrl: \nmodel: \n");
+  useConfig("provider: openai\nbaseUrl: \nmodel: \n");
   calls.length = 0;
   answers("[]");
 
@@ -330,21 +330,21 @@ test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => 
 
 // ── 미리보기 ─────────────────────────────────────────────────────────────
 
-// 미리보기가 실제와 다르면 보여 주는 뜻이 없다 — 같은 조립 코드로 만들고 실제로 보낸다
-test("미리보기는 실제로 보내고 나간 것·온 것을 그대로 준다", async () => {
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
-    return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"[]"}}]}' };
-  };
+const DRAFT = { provider: "openai", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: "think=false" };
 
-  const shown = await assist.preview({ enabled: true, baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: "think=false" }, "록");
+// **미리보기는 아무 데도 안 나간다.** 테스트만 실제로 보낸다 — 둘을 섞으면
+// "키도 안 넣었는데 왜 응답이 오지"가 된다.
+test("미리보기는 만들기만 하고 보내지 않는다", () => {
+  calls.length = 0;
+  answers("[]");
 
+  const shown = assist.preview(DRAFT, "록");
+  assert.equal(calls.length, 0, "요청이 나가면 안 된다");
   assert.equal(shown.url, "http://127.0.0.1:11434/v1/chat/completions", "끝의 빗금은 정리한다");
   assert.equal(shown.body.think, false);
-  assert.equal(shown.status, 200);
-  assert.match(shown.response, /choices/, "응답은 손대지 않고 그대로 준다");
+  assert.ok(!("response" in shown), "보내지 않았으니 응답 칸이 없다");
 
-  // 키 값은 절대 화면으로 가지 않는다 — 있었다는 표시만 남긴다
+  // 키 값은 화면으로 가지 않는다 — 있었다는 표시만 남긴다
   assert.equal(shown.headers.Authorization, "Bearer ***");
   assert.ok(!JSON.stringify(shown).includes(process.env.AI_API_KEY));
 
@@ -354,13 +354,66 @@ test("미리보기는 실제로 보내고 나간 것·온 것을 그대로 준�
   assert.match(asked, /^3\. 장르=록 제목=/m, "길이를 모르는 줄은 그 칸이 빠진다");
 });
 
-test("미리보기는 못 보내도 던지지 않는다", async () => {
+test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다", async () => {
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"[]"}}]}' };
+  };
+
+  const shown = await assist.sendTest(DRAFT, "록");
+  assert.equal(calls.length, 1, "한 번 나간다");
+  assert.equal(shown.status, 200);
+  assert.match(shown.response, /choices/, "응답은 손대지 않고 그대로 준다");
+  assert.equal(shown.headers.Authorization, "Bearer ***");
+});
+
+test("테스트는 못 보내도 던지지 않는다", async () => {
   global.fetch = async () => {
     throw new Error("연결 실패");
   };
-  const shown = await assist.preview({ enabled: true, baseUrl: "http://x/v1", model: "m" });
+  const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
   assert.equal(shown.status, null);
   assert.match(shown.response, /연결 실패/);
+});
+
+// 거절 응답에 보낸 값을 되비추는 서비스가 있다 — 화면에도 로그에도 키가 남으면 안 된다
+test("응답에 키가 섞여 와도 가려서 준다", async () => {
+  global.fetch = async () => ({ ok: false, status: 401, text: async () => `bad key: ${process.env.AI_API_KEY}` });
+
+  const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
+  assert.equal(shown.status, 401);
+  assert.ok(!shown.response.includes(process.env.AI_API_KEY), shown.response);
+  assert.match(shown.response, /\*\*\*/);
+});
+
+// ── 오류를 그대로 보여준다 ────────────────────────────────────────────────
+
+// 왜 거절됐는지는 본문에만 있다(모델 이름 오타 · 사용량 초과 …). 상태 코드만으론 못 고친다.
+test("연결 확인 실패는 상태 코드와 본문을 그대로 전한다", async () => {
+  useConfig(ON);
+  answers(() => ({ ok: false, status: 429, text: async () => '{"error":"rate limit exceeded"}' }));
+
+  const got = await assist.check();
+  assert.equal(got.ok, false);
+  assert.match(got.reason, /429/);
+  assert.match(got.reason, /rate limit exceeded/);
+
+  useConfig("provider: off\n");
+  assert.match((await assist.check()).reason, /provider=off/, "왜 안 도는지도 그대로 말한다");
+});
+
+// ── 줄 형식의 모르는 이름 ─────────────────────────────────────────────────
+
+// 아는 이름인데 값이 없으면 낱말째 빼지만, 모르는 이름은 건드리지 않는다 —
+// 오타를 조용히 지우면 왜 사라졌는지 알 길이 없다.
+test("줄 형식의 모르는 자리표시자는 그대로 남는다", async () => {
+  useConfig(`${ON}list:\n  lineFormat: "{{제목}} / {{아티스트}} / {{길이분}}분"\n`, [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("Toxicity", 210), {});
+  assert.equal(calls.at(-1).body.messages[0].content, "Toxicity / {{아티스트}} / 3분");
 });
 
 test("묶음 크기대로 나눠 묻는다", async () => {
