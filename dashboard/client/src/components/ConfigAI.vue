@@ -63,7 +63,7 @@
         <div v-if="spec?.needsProject" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
           <label class="block">
             <span :class="labelCls" v-tooltip="'global 도 됩니다. 공개된 값이라 주소에 그대로 보입니다'">리전</span>
-            <input v-model="draft.location" placeholder="us-central1" :class="inputCls" />
+            <input v-model="draft.location" placeholder="global" :class="inputCls" />
           </label>
           <label class="block">
             <span :class="labelCls" v-tooltip="'위 주소에서는 가려 둡니다'">프로젝트 ID</span>
@@ -424,7 +424,7 @@ const needsKey = computed(() => !!spec.value?.key);
  */
 const shownEndpoint = computed(() => {
   if (!spec.value?.needsProject) return spec.value?.baseUrl;
-  const location = String(draft.value.location || "").trim() || "us-central1";
+  const location = String(draft.value.location || "").trim() || "global";
   const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
   const model = String(draft.value.model || "").trim() || "{모델}";
   return `https://${host}/v1/projects/[프로젝트 ID]/locations/${location}/publishers/google/models/${model}:generateContent`;
@@ -731,7 +731,19 @@ async function putKey(value) {
   }
 }
 
-const saveKey = () => putKey(keyInput.value.trim());
+/**
+ * 서비스 계정은 JSON 덩어리다. 받은 그대로 붙여넣으면 들여쓰기가 제각각이라,
+ * 저장 전에 한 모양으로 정리한다 — 파일에 블록 리터럴(`|-`)로 곱게 들어간다.
+ */
+function saveKey() {
+  const text = keyInput.value.trim();
+  if (!spec.value?.serviceAccount || !text.startsWith("{")) return putKey(text);
+  try {
+    return putKey(JSON.stringify(JSON.parse(text), null, 2));
+  } catch {
+    return putKey(text); // 못 읽으면 적힌 그대로 — 조용히 버리지 않는다
+  }
+}
 const clearKey = () => putKey("");
 
 // 유료 — 짧은 물음 하나를 실제로 생성시킨다(판정 프롬프트는 안 쓴다).

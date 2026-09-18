@@ -610,15 +610,38 @@ test("버텍스: assistant 는 model 이고, extra 는 generationConfig 로 간�
   assert.match(sent.url, /^https:\/\/aiplatform\.googleapis\.com\//);
 });
 
-test("버텍스 모델 목록은 publisherModels 에서 읽는다", async () => {
+// 모델 목록은 생성과 **주소 체계가 다르다**(프로젝트·리전이 안 붙는다).
+// 생성 주소를 그대로 썼다가 404 를 봤다. 문서판이 갈려 있어 차례로 물어본다.
+test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () => {
+  const tried = [];
   global.fetch = async (url) => {
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    tried.push(String(url));
+    if (tried.length < 2) return { ok: false, status: 404, text: async () => '{"error":"not found"}' };
     return { ok: true, status: 200, text: async () => '{"publisherModels":[{"name":"publishers/google/models/gemini-3-pro"},{"name":"publishers/google/models/gemini-3-flash"}]}' };
   };
 
   const got = await assist.listModels({ provider: "vertex", location: "us-central1", project: "p" });
-  assert.deepEqual(got.models, ["gemini-3-flash", "gemini-3-pro"]);
-  assert.match(got.url, /\/publishers\/google\/models$/);
+  assert.deepEqual(got.models, ["gemini-3-flash", "gemini-3-pro"], "name 앞의 publishers/google/models/ 를 떼어낸다");
+  assert.equal(tried.length, 2);
+  assert.ok(!tried[0].includes("/projects/"), "목록 주소에는 프로젝트가 안 붙는다");
+
+  // 404 가 아니면 그 답이 곧 사실이다 — 더 물어보지 않는다
+  tried.length = 0;
+  global.fetch = async (url) => {
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    tried.push(String(url));
+    return { ok: false, status: 403, text: async () => "denied" };
+  };
+  const denied = await assist.listModels({ provider: "vertex", location: "us-central1", project: "p" });
+  assert.equal(denied.status, 403);
+  assert.equal(tried.length, 1);
+});
+
+// 리전을 안 적으면 global 이고, 그때는 호스트에 리전이 안 붙는다
+test("버텍스 리전 기본값은 global", async () => {
+  const shown = await assist.preview({ provider: "vertex", model: "gemini-3-pro", project: "p" });
+  assert.match(shown.url, /^https:\/\/aiplatform\.googleapis\.com\/v1\/projects\/p\/locations\/global\//);
 });
 
 // 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다 — 다른 키와 같은 자리에 둔다.

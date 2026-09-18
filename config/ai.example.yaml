@@ -53,7 +53,7 @@ baseUrl: ""
 
 # ── 버텍스 AI 전용 ──────────────────────────────────────────────────────────
 # provider: vertex 일 때만 씁니다. 주소를 이 둘로 조립합니다(baseUrl 을 안 씁니다).
-#   location  리전. global 도 됩니다(그때는 호스트도 달라집니다)
+#   location  리전. 비우면 global 입니다(그때는 호스트도 달라집니다)
 #   project   비우면 서비스 계정 JSON 의 project_id 를 씁니다
 location: ""
 project: ""

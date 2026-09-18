@@ -29,12 +29,21 @@ vercel: "" # https://vercel.com/dashboard/ai-gateway
 llmgateway: "" # https://llmgateway.io
 
 # ── 버텍스 AI 는 키가 아니라 서비스 계정입니다 ──
-# 구글 클라우드 콘솔에서 받은 JSON 을 **그대로 붙여넣습니다.** 한 줄로 두면 됩니다.
 #
-#   vertex: '{"type":"service_account","project_id":"…","private_key":"-----BEGIN …","client_email":"…"}'
+# 구글 클라우드 콘솔에서 받은 JSON 을 **그대로** 넣습니다. 따옴표로 두르지 마세요 —
+# 아래처럼 `|-` 를 적고, JSON 의 모든 줄을 **두 칸 들여쓰기** 해서 붙여넣으면 됩니다.
+# (대시보드에서 넣으면 이 모양으로 알아서 저장됩니다.)
 #
-# 파일 경로로 적어도 받습니다(config/ 기준 상대경로). 다만 그러면 그 파일이 어디 있는지
-# 따로 관리해야 하므로, 다른 키와 같은 자리에 두는 편을 권합니다.
+#   vertex: |-
+#     {
+#       "type": "service_account",
+#       "project_id": "내-프로젝트",
+#       "private_key": "-----BEGIN PRIVATE KEY-----\n…\n-----END PRIVATE KEY-----\n",
+#       "client_email": "…@내-프로젝트.iam.gserviceaccount.com"
+#     }
+#
+# JSON 파일의 경로로 적어도 받습니다(config/ 기준 상대경로). 다만 그러면 그 파일이 어디
+# 있는지 따로 관리해야 하므로, 다른 키와 같은 자리에 두는 편을 권합니다.
 #
 # 프로젝트는 이 JSON 의 project_id 를 씁니다. 리전은 config/ai.yaml 의 location 에 적습니다.
 vertex: ""

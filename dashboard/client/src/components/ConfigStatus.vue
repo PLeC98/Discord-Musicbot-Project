@@ -44,7 +44,8 @@
         @drop="onDrop"
         @dragend="onDragEnd"
       >
-        <div class="flex items-center gap-2 mb-2">
+        <!-- 아래 여백은 펼쳐졌을 때만 필요하다 — 여기에 두면 접었을 때 아래쪽만 넓어진다 -->
+        <div class="flex items-center gap-2">
           <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
               <circle cx="2" cy="3" r="1.5" />
@@ -64,7 +65,7 @@
           <button :class="removeBtn" v-tooltip="'이 항목 삭제'" @click="removeSpecial(i)"><Icon name="trash" :size="15" /></button>
         </div>
 
-        <div v-show="!isFolded(specialFoldId(i))">
+        <div v-show="!isFolded(specialFoldId(i))" class="mt-2">
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
             <label v-for="cond in CONDITIONS" :key="cond.key" class="block">
               <span :class="labelCls">{{ cond.label }}</span>
