@@ -354,6 +354,62 @@ test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
   assert.equal(sent.body.top_p, 0.5);
 });
 
+// ── 모델 프로필이 정한 칸 ────────────────────────────────────────────────
+
+// 값이 본문 어디로 가는지는 모델 프로필이 안다(data/ai-models.json).
+test("params 는 프로필이 적어 둔 경로로 간다", async () => {
+  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  effort: high\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.output_config.effort, "high");
+  assert.equal(sent.body.thinking?.type, undefined, "안 고른 칸은 안 보낸다");
+});
+
+// 모델을 바꾸면 그 모델이 안 받는 값은 저절로 빠져야 한다 — 그대로 보내면 400 이다.
+test("그 모델이 안 받는 값은 안 보낸다", async () => {
+  // Astra 는 reasoning_effort 에 none 을 안 받는다(프로필 enum 에 없다)
+  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  reasoning_effort: none\n  없는칸: 1\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.reasoning_effort, undefined, "enum 에 없는 값은 버린다");
+  assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 칸도 버린다");
+});
+
+// 앤트로픽은 max_tokens 가 필수다 — 프로필의 defaults 가 채운다.
+test("프로필의 기본값은 늘 붙는다", async () => {
+  useConfig("provider: anthropic\nmodel: claude-opus-5\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.max_tokens, 4096);
+});
+
+// 추가 파라미터는 프로필이 모르는 것을 넣는 비상구다 — 마지막 말을 갖는다.
+test("추가 파라미터가 params 를 이긴다", async () => {
+  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  effort: low\nextra: output_config.effort=max\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.output_config.effort, "max");
+});
+
 // ── 프롬프트 파일(ChatML) ─────────────────────────────────────────────────
 
 test("ChatML 로 읽고 쓴다 — 왕복해도 같다", () => {

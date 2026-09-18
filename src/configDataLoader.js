@@ -617,6 +617,12 @@ function validateAi(data) {
     if (data?.[key] != null && typeof data[key] !== "string") problems.push(`${key}는 글자로 적어야 합니다.`);
   }
 
+  // 모델이 받는 칸의 값. 이름과 값이 맞는지는 모델 프로필이 판단하므로(autoplayAssist.withParams)
+  // 여기서는 모양만 본다 — 모르는 칸은 보낼 때 조용히 빠진다.
+  if (data?.params != null && (typeof data.params !== "object" || Array.isArray(data.params))) {
+    problems.push("params는 칸 이름과 값을 적는 표여야 합니다.");
+  }
+
   // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
   if (data?.hideModels != null && !(Array.isArray(data.hideModels) && data.hideModels.every((one) => typeof one === "string"))) {
     problems.push('hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).');

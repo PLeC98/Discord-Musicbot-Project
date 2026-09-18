@@ -155,4 +155,16 @@ list:
 # 모델에게 전송되지 않습니다.
 promptNames: []
 
+# 모델이 받는 칸의 값 — 추론 강도, 최대 출력 토큰 등.
+# 대시보드가 모델 프로필(data/ai-models.json)을 보고 받을 수 있는 칸만 보여 줍니다.
+# 모델을 바꾸면 그 모델이 안 받는 칸은 저절로 빠집니다.
+#
+# 예)
+#   params:
+#     effort: high            # 앤트로픽 5 계열
+#     reasoning_effort: low   # OpenAI 계열
+#     thinkingLevel: medium   # 제미니 계열
+#     max_tokens: 4096
+params: {}
+
 # 커스텀 프롬프트는 config/ai-prompt.chatml 에서 설정합니다. chatML 포맷을 따릅니다.

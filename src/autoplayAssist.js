@@ -490,11 +490,32 @@ const ANTHROPIC_MAX_TOKENS = 1024;
 const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
 /** 보낼 것 한 벌 — 미리보기도 이것을 쓴다. */
+/**
+ * 모델이 받는다고 적혀 있는 칸만 싣는다. 모델을 바꾸면 안 받는 칸은 저절로 빠진다 —
+ * Astra 에서 고른 effort=max 를 none 만 받는 모델에 그대로 보내면 400 이다.
+ */
+function withParams(body, one) {
+  const registry = specOf(one.provider)?.registry;
+  if (!registry || !one.model) return body;
+
+  const models = require("./aiModels");
+  const out = deepMerge(body, models.defaultsOf(registry, one.model));
+  const picked = one.params || {};
+  for (const field of models.fieldsOf(registry, one.model)) {
+    const value = picked[field.key];
+    if (value === undefined || value === "") continue;
+    if (field.enum && !field.enum.some((e) => e.value === value)) continue;
+    setPath(out, field.path, value);
+  }
+  return out;
+}
+
 async function buildRequest(one, batch, genre) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
 
-  const body = withExtra(dialect, dialect.body(one, buildMessages(one, batch, genre)), extra);
+  // 추가 파라미터가 맨 나중이다 — 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
+  const body = withExtra(dialect, withParams(dialect.body(one, buildMessages(one, batch, genre)), one), extra);
   return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, problems: extra.problems };
 }
 
