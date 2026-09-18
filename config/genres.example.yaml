@@ -48,10 +48,9 @@
 #              metal    4,603   19,869    91,837
 #            세 모드는 곡이 겹치지 않습니다. 상위 분류 취급이 아닙니다.
 #            easy 로 두면 hard 에 나올 곡은 아예 안 나옵니다.
-#
-#            섞고 싶으면 **여럿 적으면 됩니다.** 한 번의 요청으로 50곡을 나눠 채워 줍니다.
+#            섞고 싶으면 여럿 적으면 됩니다.
 #              mode: [hard, easy]
-#            (소스를 둘로 나눠 weight 로 비율을 주는 방법도 그대로 됩니다.)
+#            (동일 소스를 두개 작성하는 방법도 가능합니다.)
 #   prompt : 날것 그대로 쓰고 싶을 때만. 예) "tag:(jazz,funk)::or" · "artist:(Miles Davis)"
 #
 # type: animethemes                    (키 필요 없음)
@@ -95,19 +94,17 @@
 #                             マッシュアップ     → Mashup       (vocadb, utaitedb에만 있습니다)
 #                             ライブ収録         → Live         (utaitedb에만 있습니다)
 #   languages             : 가사 언어. ISO 639-1 코드로 적습니다. 여럿 적으면 언어마다 따로 받아 섞습니다
-#                           (저쪽이 한 번에 하나만 받습니다. 한 판에 최대 5개까지 돕니다).
 #                             ja 일본어 · en 영어 · zh 중국어 · ko 한국어 · es 스페인어 · pt 포르투갈어
 #                             fr 프랑스어 · ru 러시아어 · id 인도네시아어 · tl 타갈로그어 · de 독일어
 #                             uk 우크라이나어 · it 이탈리아어 · tr 튀르키예어 · th 태국어 · pl 폴란드어
 #                             vi 베트남어 · nl 네덜란드어 · la 라틴어 · ms 말레이어 · fi 핀란드어 …
-#                           곡이 하나라도 있는 언어만 대시보드에 나옵니다(vocadb 60 / utaitedb 22 / touhoudb 21).
-#                           번역 가사만 있는 곡도 걸립니다. 그 언어로 부른 곡만 고를 길은 저쪽에 없습니다.
+#                           번역 가사만 있는 곡도 걸립니다.
 #   artistTypes           : 부르는 쪽 분류. 사이트마다 다릅니다.
 #                             vocadb   → Vocaloid, UTAU, CeVIO, SynthesizerV, VOICEVOX, Voiceroid,
 #                                        NEUTRINO, VoiSona, ACEVirtualSinger, AIVOICE,
 #                                        OtherVoiceSynthesizer, NewType, OtherVocalist
 #                             utaitedb → Utaite, OtherVocalist
-#                             touhoudb → 없습니다 (사람이 부르는 어레인지라 분류가 비어 있습니다)
+#                             touhoudb → 미사용
 #   artists               : 특정 가수·아티스트만. 이름으로 적습니다. 예) [UNI], [ZUN]
 #   minScore              : 최소 평가 점수 기준 (웹의 評価 점수)
 #                           사이트마다 척도가 완전히 다릅니다. 같은 50이라도 남는 곡이 이만큼 다릅니다:

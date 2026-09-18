@@ -11,7 +11,7 @@
   <div>
     <div class="flex items-center justify-between mb-1">
       <span class="text-[0.78rem] text-fg-soft tabular-nums">{{ text }}</span>
-      <button v-if="from != null || to != null" type="button" :class="clearBtn" @click="emit('update', { from: null, to: null })">전체로</button>
+      <button v-if="from != null || to != null" type="button" :class="clearBtn" @click="emit('update', { from: null, to: null })">초기화</button>
     </div>
 
     <div class="relative h-5 select-none">

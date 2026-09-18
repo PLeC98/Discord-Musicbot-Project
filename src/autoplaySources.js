@@ -397,12 +397,11 @@ const f = (key, kind, label, extra = {}) => ({ key, kind, label, ...extra });
 // 고를 값이 정해진 칸. 화면에 보일 말이 API 값과 다르면 짝지어 준다.
 const opts = (list) => list.map((v) => (typeof v === "string" ? { value: v, label: v } : v));
 
-// 분기는 저쪽이 계절 이름을 쓰지만, 한국에서는 분기로 세는 편이 훨씬 흔하다.
 const SEASON_OPTIONS = opts([
-  { value: "Winter", label: "1분기 (1~3월)" },
-  { value: "Spring", label: "2분기 (4~6월)" },
-  { value: "Summer", label: "3분기 (7~9월)" },
-  { value: "Fall", label: "4분기 (10~12월)" },
+  { value: "Winter", label: "1분기" },
+  { value: "Spring", label: "2분기" },
+  { value: "Summer", label: "3분기" },
+  { value: "Fall", label: "4분기" },
 ]);
 
 // **사이트마다 있는 것이 다르다.** 돌려쓰면 없는 값을 고르게 되고, 그걸 넣으면 0곡이 온다.
@@ -508,14 +507,15 @@ const VOCA_SINGER = {
   touhoudb: { artistLabel: "특정 아티스트만", artistHint: "이름으로 적습니다. 예) ZUN, 暁Records" },
 };
 
-const VOCA_SCORE_HINT = { vocadb: "웹의 評価 점수. 50이면 7천 곡쯤 남습니다", utaitedb: "웹의 評価 점수. VocaDB보다 척도가 훨씬 낮습니다. 5면 8백 곡쯤", touhoudb: "웹의 評価 점수. VocaDB보다 척도가 훨씬 낮습니다. 5면 1천5백 곡쯤" };
+// 척도는 사이트마다 크게 다르지만(예제 파일의 표 참고) 설명할 말은 같다
+const VOCA_SCORE_HINT = '해당 사이트의 "評価" 점수.';
 
 function vocaFields(site) {
   const singer = VOCA_SINGER[site];
   const types = VOCA_ARTIST_TYPES[site];
   return [
     f("tags", "list", "장르 태그", { hint: "rock, pop, ballad, EDM, 和風 등" }),
-    f("minScore", "number", "최소 평가 점수", { width: "half", min: 0, hint: VOCA_SCORE_HINT[site] }),
+    f("minScore", "number", "최소 평가 점수", { width: "half", min: 0, hint: VOCA_SCORE_HINT }),
     // 언어마다 따로 받아 섞는다(vocaFamily) — 저쪽이 한 번에 하나만 받는다
     f("languages", "enumDrop", "가사 언어", { width: "half", options: VOCA_LANGUAGES[site], hint: "번역 가사만 있는 곡도 섞입니다" }),
     ...(types ? [f("artistTypes", "enumList", singer.typeLabel, { deep: true, options: opts(types) })] : []),
@@ -568,11 +568,11 @@ const SPEC = {
       f("sequence", "number", "몇 번째 주제가", { deep: true, width: "halfWide", min: 1, hint: "1이면 OP1, ED1만" }),
     ],
   },
-  vocadb: { label: "VocaDB", hint: "보컬로이드 곡 DB. 유튜브 주소를 직접 받아옵니다.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb") },
-  utaitedb: { label: "UtaiteDB", hint: "우타이테(부르는 사람) DB. 기본이 커버곡입니다.", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb") },
-  touhoudb: { label: "TouhouDB", hint: "동방 어레인지 DB. 기본이 어레인지입니다(Original은 ZUN의 게임 BGM).", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb") },
+  vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb") },
+  utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb") },
+  touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있습니다.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb") },
   spotify: { label: "스포티파이 재생목록", need: [["url"]], env: "SPOTIFY_CLIENT_ID", has: () => !!config.spotify?.clientId, fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트" })] },
-  youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "믹스(list=RD…)는 곡 수에 끝이 없어 쓸 수 없습니다" })] },
+  youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "자동 생성 믹스(list=RD…)는 곡 수에 끝이 없어 사용이 불가능합니다" })] },
 };
 
 const TYPES = Object.keys(FETCHERS);
@@ -605,7 +605,7 @@ async function animeYearRange() {
       yearRangeAt = Date.now();
     }
   } catch (error) {
-    log.debug(`AnimeThemes 연도 범위를 못 받았습니다: ${error.message}`);
+    log.debug(`AnimeThemes 연도 범위를 받아오지 못했습니다: ${error.message}`);
   }
   // 못 받으면 넉넉히 잡는다 — 칸이 아예 안 그려지는 것보다 낫다
   return yearRange || { min: 1960, max: new Date().getFullYear() + 1 };

@@ -379,12 +379,13 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
     media.options.some((o) => o.value === "TV Short"),
     "매체 목록에 TV Short 가 있어야 한다",
   );
+  // 분기는 계절 이름 대신 분기로 보여준다 — 값은 저쪽 이름 그대로 나가야 한다
   const season = byType.animethemes.fields.find((f) => f.key === "season");
   assert.deepEqual(
-    season.options.map((o) => o.label),
-    ["1분기 (1~3월)", "2분기 (4~6월)", "3분기 (7~9월)", "4분기 (10~12월)"],
-    "분기는 계절 이름 대신 분기로 보여준다",
+    season.options.map((o) => o.value),
+    ["Winter", "Spring", "Summer", "Fall"],
   );
+  season.options.forEach((one, i) => assert.ok(one.label.startsWith(`${i + 1}분기`), `${one.value} → ${one.label}`));
 
   // 구간 슬라이더는 고를 수 있는 양 끝을 서버가 알려 준다 — 화면이 올해로 어림잡지 않는다
   const year = byType.animethemes.fields.find((f) => f.key === "yearFrom");
