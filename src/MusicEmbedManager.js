@@ -422,7 +422,7 @@ class MusicEmbedManager {
     const progressBar = this.buildProgressBar(currentSec, totalSec);
 
     const artistValue = track.artist || "-";
-    const platformValue = track.platform ? track.platform.charAt(0).toUpperCase() + track.platform.slice(1) : "-";
+    const platformValue = this.getPlatformLabel(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
     // 제목은 이스케이프하지 않는다 — 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
@@ -794,8 +794,25 @@ class MusicEmbedManager {
   }
 
   /**
-   * 플랫폼 이름에 해당하는 이모지를 반환합니다.
+   * 플랫폼 이름에 해당하는 명칭과 이모지를 반환합니다. 모르는 값은 첫 글자만 대문자로 올립니다.
    */
+  getPlatformLabel(platform) {
+    const names = {
+      youtube: "YouTube",
+      spotify: "Spotify",
+      soundcloud: "SoundCloud",
+      direct: "직접 링크",
+      lastfm: "Last.fm",
+      lbradio: "ListenBrainz Radio",
+      animethemes: "AnimeThemes",
+      vocadb: "VocaDB",
+      utaitedb: "UtaiteDB",
+      touhoudb: "TouhouDB",
+    };
+    if (!platform) return "-";
+    return names[platform] || platform.charAt(0).toUpperCase() + platform.slice(1);
+  }
+
   getPlatformEmoji(platform) {
     const emojis = {
       youtube: "🔴",

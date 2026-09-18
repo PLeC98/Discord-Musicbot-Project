@@ -28,7 +28,7 @@ function genreSelect(requesterId, sessionId, placeholder) {
 
 /** 켤 때 — 장르를 고르면 그 장르로 켜진다. 고르는 동안 떠 있어야 한다(keepReply). */
 function buildGenreMenu(requesterId, sessionId) {
-  const embed = new EmbedBuilder().setTitle("🎲 음악 장르 선택").setDescription("대기열이 끝나면 어떤 장르를 재생할까요?").setColor(config.bot.embedColor);
+  const embed = new EmbedBuilder().setTitle("🎲 음악 장르 선택").setDescription("어떤 장르를 재생할까요?").setColor(config.bot.embedColor);
 
   const select = genreSelect(requesterId, sessionId, "음악 장르를 선택하세요...");
   return { embeds: [embed], components: [new ActionRowBuilder().addComponents(select)], flags: [1 << 6] };
