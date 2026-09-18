@@ -67,22 +67,51 @@ const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfiden
  * 필요해지면 그때 갈래를 낸다.
  */
 const PROVIDER_SPECS = {
-  off: { label: "사용하지 않음" },
-  ollama: { label: "Ollama (로컬)", baseUrl: "http://127.0.0.1:11434/v1", key: false },
-  lmstudio: { label: "LM Studio (로컬)", baseUrl: "http://127.0.0.1:1234/v1", key: false },
-  vllm: { label: "vLLM (로컬)", baseUrl: "http://127.0.0.1:8000/v1", key: false },
-  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true },
-  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", key: true },
-  groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", key: true },
-  together: { label: "Together AI", baseUrl: "https://api.together.xyz/v1", key: true },
-  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true },
-  gemini: { label: "Gemini (OpenAI 호환)", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: true },
-  custom: { label: "OpenAI 호환 (직접 입력)", baseUrl: "", key: true },
+  off: { label: "사용하지 않음", group: "" },
+
+  // ── 내 기기에서 도는 것 ── 키가 없다.
+  ollama: { label: "Ollama", baseUrl: "http://127.0.0.1:11434/v1", key: false, group: "로컬" },
+  lmstudio: { label: "LM Studio", baseUrl: "http://127.0.0.1:1234/v1", key: false, group: "로컬" },
+  vllm: { label: "vLLM", baseUrl: "http://127.0.0.1:8000/v1", key: false, group: "로컬" },
+  llamacpp: { label: "llama.cpp", baseUrl: "http://127.0.0.1:8080/v1", key: false, group: "로컬" },
+
+  // ── 모델을 직접 내는 곳 ──
+  "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드" },
+  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드" },
+  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드" },
+  aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: true, group: "클라우드" },
+  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드" },
+  mistral: { label: "Mistral", baseUrl: "https://api.mistral.ai/v1", key: true, group: "클라우드" },
+  xai: { label: "xAI (Grok)", baseUrl: "https://api.x.ai/v1", key: true, group: "클라우드" },
+  groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", key: true, group: "클라우드" },
+  together: { label: "Together AI", baseUrl: "https://api.together.xyz/v1", key: true, group: "클라우드" },
+
+  // ── 여러 곳을 묶어 파는 곳 ──
+  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", key: true, group: "게이트웨이" },
+  nanogpt: { label: "NanoGPT", baseUrl: "https://nano-gpt.com/api/v1", key: true, group: "게이트웨이" },
+  vercel: { label: "Vercel AI Gateway", baseUrl: "https://ai-gateway.vercel.sh/v1", key: true, group: "게이트웨이" },
+  llmgateway: { label: "LLM Gateway", baseUrl: "https://api.llmgateway.io/v1", key: true, group: "게이트웨이" },
+
+  // 주소를 직접 적는 유일한 자리. 여기 없는 곳도, 위의 주소가 바뀌었을 때도 이것으로 간다.
+  custom: { label: "OpenAI 호환 (직접 입력)", baseUrl: "", key: true, editable: true, group: "직접" },
 };
 
 const PROVIDERS = Object.keys(PROVIDER_SPECS);
 const specOf = (provider) => PROVIDER_SPECS[provider] || null;
 const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
+
+/**
+ * 어디로 보낼지. **custom 일 때만 설정에 적힌 주소를 쓴다.**
+ *
+ * 프로바이더를 골랐으면 그곳의 주소로 간다 — 설정에 남아 있는 옛 주소로 조용히 나가지 않는다.
+ * 여기 적힌 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom 으로 간다.
+ */
+function endpointOf(one) {
+  const spec = specOf(one?.provider);
+  if (!spec) return "";
+  const url = spec.editable ? one?.baseUrl : spec.baseUrl;
+  return String(url || "").replace(/\/+$/, "");
+}
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
 const wantsKey = (one) => !!specOf(one?.provider)?.key;
 
@@ -96,7 +125,7 @@ function authOf(one) {
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
   const one = { ...DEFAULTS, ...configData.ai() };
-  if (!live(one) || !one.baseUrl || !one.model) return null;
+  if (!live(one) || !endpointOf(one) || !one.model) return null;
   // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다
   return { ...one, prompt: configData.aiPrompt() };
 }
@@ -213,7 +242,7 @@ function buildRequest(one, batch, genre) {
   for (const key of extra.drop) delete body[key];
 
   return {
-    url: `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`,
+    url: `${endpointOf(one)}/chat/completions`,
     headers: {
       "Content-Type": "application/json",
       ...authOf(one),
@@ -329,9 +358,9 @@ async function accepts(candidate, about = {}) {
 async function listModels(draft) {
   const one = { ...DEFAULTS, ...(draft || {}) };
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
-  if (!one.baseUrl) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다." };
+  if (!endpointOf(one)) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
 
-  const url = `${String(one.baseUrl).replace(/\/+$/, "")}/models`;
+  const url = `${endpointOf(one)}/models`;
   const headers = authOf(one);
   const started = Date.now();
 
@@ -368,7 +397,7 @@ async function ping(draft) {
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
   if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
 
-  const url = `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`;
+  const url = `${endpointOf(one)}/chat/completions`;
   const extra = parseExtra(one.extra);
   const body = { model: one.model, messages: [{ role: "user", content: PING_TEXT }], ...extra.body };
   for (const key of extra.drop) delete body[key];
@@ -456,4 +485,4 @@ function mask(text) {
   return out;
 }
 
-module.exports = { filter, accepts, settings, preview, sendTest, listModels, ping, parseExtra, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+module.exports = { filter, accepts, settings, preview, sendTest, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

@@ -571,8 +571,11 @@ function validateAi(data) {
 
   // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
   if (data?.provider && data.provider !== "off") {
-    if (!String(data.baseUrl || "").trim()) problems.push("baseUrl을 적어야 합니다(예: http://127.0.0.1:11434/v1).");
-    else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
+    // baseUrl 은 custom 일 때만 쓴다 — 나머지는 프로바이더에 박힌 주소로 간다(autoplayAssist)
+    if (data.provider === "custom") {
+      if (!String(data.baseUrl || "").trim()) problems.push("provider가 custom이면 baseUrl을 적어야 합니다.");
+      else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
+    }
     if (!String(data.model || "").trim()) problems.push("model을 적어야 합니다.");
   }
 

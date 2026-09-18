@@ -35,7 +35,7 @@ function useConfig(yaml, sections) {
 // 설정 폴더를 쓰지 않는 호출(preview·ping·listModels)도 키를 보게 해 둔다
 useConfig("provider: off\n");
 
-const ON = `provider: openai
+const ON = `provider: custom
 baseUrl: http://127.0.0.1:11434/v1
 model: test-model
 timeoutMs: 5000
@@ -74,7 +74,7 @@ test("꺼져 있으면 아예 부르지 않는다", async () => {
 
 // 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다. 아예 켜지 않는다.
 test("설정이 어긋나면 켜지지 않는다", async () => {
-  useConfig("provider: openai\nbaseUrl: \nmodel: \n");
+  useConfig("provider: custom\nbaseUrl: \nmodel: \n");
   calls.length = 0;
   answers("[]");
 
@@ -334,7 +334,7 @@ test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => 
 
 // ── 미리보기 ─────────────────────────────────────────────────────────────
 
-const DRAFT = { provider: "openai", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: "think=false" };
+const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: "think=false" };
 
 // **미리보기는 아무 데도 안 나간다.** 테스트만 실제로 보낸다 — 둘을 섞으면
 // "키도 안 넣었는데 왜 응답이 오지"가 된다.
@@ -417,13 +417,46 @@ test("무료 확인은 모델 목록만 받는다 — 추론이 없다", async (
     return { ok: true, status: 200, text: async () => '{"data":[{"id":"gemma3n:e2b"},{"id":"qwen3:8b"}]}' };
   };
 
-  const got = await assist.listModels({ provider: "ollama", baseUrl: "http://127.0.0.1:11434/v1/" });
+  // 적어 둔 baseUrl 은 무시되고 ollama 에 박힌 주소로 간다
+  const got = await assist.listModels({ provider: "ollama", baseUrl: "http://엉뚱한곳/v1" });
   assert.equal(got.ok, true);
   assert.deepEqual(got.models, ["gemma3n:e2b", "qwen3:8b"]);
   assert.equal(calls[0].url, "http://127.0.0.1:11434/v1/models");
   assert.equal(calls[0].init.method, undefined, "GET 이다 — 생성이 아니다");
   // 로컬 프로바이더는 키를 안 보낸다
   assert.ok(!calls[0].init.headers.Authorization, "로컬에는 키를 안 붙인다");
+});
+
+// 주소는 프로바이더에 박힌 것을 쓴다 — 설정에 남아 있는 옛 주소로 조용히 나가지 않는다.
+test("baseUrl 은 custom 일 때만 쓴다", () => {
+  assert.equal(assist.endpointOf({ provider: "openai", baseUrl: "http://엉뚱한곳/v1" }), "https://api.openai.com/v1");
+  assert.equal(assist.endpointOf({ provider: "ollama", baseUrl: "http://엉뚱한곳/v1" }), "http://127.0.0.1:11434/v1");
+  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "https://plec.moe/anthropic/v1/" }), "https://plec.moe/anthropic/v1", "끝의 빗금은 정리한다");
+  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "" }), "");
+  assert.equal(assist.endpointOf({ provider: "모름" }), "");
+
+  // 같은 이름이라도 로컬과 클라우드는 다른 곳이다
+  assert.notEqual(assist.PROVIDER_SPECS.ollama.baseUrl, assist.PROVIDER_SPECS["ollama-cloud"].baseUrl);
+  assert.equal(assist.PROVIDER_SPECS.ollama.key, false, "내 기기에는 키를 안 붙인다");
+  assert.equal(assist.PROVIDER_SPECS["ollama-cloud"].key, true);
+});
+
+// 키 칸 이름은 provider 이름과 같아야 한다. 어긋나면 키를 적어 두고도 안 붙어 나간다.
+test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", () => {
+  const example = require("yaml").parse(fs.readFileSync(path.join(__dirname, "..", "config", "ai-keys.example.yaml"), "utf8"));
+  const slots = Object.keys(example);
+  const needs = assist.PROVIDERS.filter((one) => assist.PROVIDER_SPECS[one].key);
+
+  assert.deepEqual(
+    needs.filter((one) => !slots.includes(one)),
+    [],
+    "키가 필요한데 적을 칸이 없다",
+  );
+  assert.deepEqual(
+    slots.filter((one) => !needs.includes(one)),
+    [],
+    "칸은 있는데 쓰는 곳이 없다",
+  );
 });
 
 test("클라우드 프로바이더에는 키를 붙인다", async () => {

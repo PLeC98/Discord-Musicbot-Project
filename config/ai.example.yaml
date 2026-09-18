@@ -26,21 +26,27 @@
 # 어디에 물을지. off 면 규칙만으로 고릅니다.
 #
 #   off                                          사용하지 않음
-#   ollama · lmstudio · vllm                     로컬. 키를 안 씁니다
-#   openai · openrouter · groq · together
-#   deepseek · gemini                            클라우드. ai-keys.yaml 의 같은 이름 칸을 씁니다
-#   custom                                       그 밖의 OpenAI 호환 주소
 #
-# 어느 쪽이든 OpenAI 호환 규격으로 부릅니다. 프로바이더를 고르면 대시보드가 아래
-# baseUrl 을 채워 주고, 모델 목록도 {baseUrl}/models 로 받아옵니다.
+#   ollama · lmstudio · vllm · llamacpp          내 기기에서 도는 것. 키를 안 씁니다
+#
+#   ollama-cloud · openai · anthropic
+#   aistudio · deepseek · mistral · xai
+#   groq · together                              모델을 직접 내는 곳
+#
+#   openrouter · nanogpt · vercel · llmgateway   여러 곳을 묶어 파는 곳
+#
+#   custom                                       그 밖의 OpenAI 호환 주소(아래 baseUrl 을 씁니다)
+#
+# 전부 OpenAI 호환 규격으로 부릅니다. 키는 config/ai-keys.yaml 의 **같은 이름 칸**을 씁니다.
+# ollama 와 ollama-cloud 는 다른 곳입니다 — 앞은 내 기기, 뒤는 저쪽 서버입니다.
 provider: off
 
-# OpenAI 호환 엔드포인트. 끝의 /v1 까지 적습니다.
+# OpenAI 호환 엔드포인트.
 #
-# **프로바이더가 무엇이든 언제나 이 주소로 나갑니다.** 프로바이더를 고르는 것은
-# 이 칸을 채워 주고 어느 키를 쓸지 정하는 것뿐입니다 — 프록시나 게이트웨이를
-# 앞에 두었다면 여기를 그 주소로 바꾸면 됩니다.
-baseUrl: http://127.0.0.1:11434/v1
+# **provider 가 custom 일 때만 씁니다.** 다른 것을 골랐으면 그 서비스의 주소로 나갑니다
+# (주소는 src/autoplayAssist.js 의 PROVIDER_SPECS 에 있습니다).
+# 여기 없는 곳이거나, 프록시를 앞에 두었거나, 박힌 주소가 바뀌었으면 custom 으로 쓰세요.
+baseUrl: ""
 
 # 모델 이름. 실측에서는 gemma3n:e2b(4.3GB)가 가장 나았습니다.
 # 더 큰 e4b 는 오히려 박해져서 쓸 만한 곡까지 떨어뜨렸습니다(재현율 94% → 87%).

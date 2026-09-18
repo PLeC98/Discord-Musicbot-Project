@@ -468,11 +468,15 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const ok = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", baseUrl: "", model: "" } });
   assert.equal(ok.status, 200, "꺼 둔 설정이 반쯤 비어 있는 것은 문제가 아니다");
 
-  const bad = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "", model: "" } });
+  const bad = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "", model: "" } });
   assert.equal(bad.status, 400);
   assert.ok(bad.json.problems.length >= 2);
 
-  const notUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "127.0.0.1:11434", model: "m" } });
+  // baseUrl 은 custom 일 때만 따진다 — 나머지는 프로바이더에 박힌 주소로 간다
+  const noUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "", model: "gpt-5" } });
+  assert.equal(noUrl.status, 200);
+
+  const notUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "127.0.0.1:11434", model: "m" } });
   assert.equal(notUrl.status, 400, "http:// 로 시작해야 한다");
 
   const range = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 9 } });
@@ -500,7 +504,7 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
 
 // 나갈 것을 만들어만 본다. 보내지 않는다 — 테스트와 가르는 것이 이 엔드포인트의 요점이다.
 test("AI 미리보기: 응답 칸이 없다", async () => {
-  const { status, json } = await req("POST", "/api/admin/ai/preview", { data: { provider: "openai", baseUrl: "http://127.0.0.1:1/v1", model: "m" } });
+  const { status, json } = await req("POST", "/api/admin/ai/preview", { data: { provider: "custom", baseUrl: "http://127.0.0.1:1/v1", model: "m" } });
   assert.equal(status, 200);
   assert.equal(json.url, "http://127.0.0.1:1/v1/chat/completions");
   assert.ok(Array.isArray(json.body.messages));

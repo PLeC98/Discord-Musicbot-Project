@@ -19,7 +19,10 @@
         <span :class="labelCls">프로바이더</span>
         <div class="relative">
           <select v-model="draft.provider" :class="[inputCls, selectCls]" @change="onProvider">
-            <option v-for="one in providers" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
+            <option v-for="one in ungrouped" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
+            <optgroup v-for="group in grouped" :key="group.name" :label="group.name" :class="optionCls">
+              <option v-for="one in group.items" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
+            </optgroup>
           </select>
           <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
         </div>
@@ -27,9 +30,11 @@
 
       <template v-if="on">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. -->
           <label class="block">
             <span :class="labelCls">엔드포인트 주소</span>
-            <input v-model="draft.baseUrl" placeholder="http://127.0.0.1:11434/v1" :class="inputCls" />
+            <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
+            <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ spec?.baseUrl }}</p>
           </label>
 
           <label class="block">
@@ -313,6 +318,18 @@ let serial = 0;
 const hasKey = computed(() => !!keyPresence.value[draft.value.provider]);
 const keyCls = computed(() => (hasKey.value ? "text-[#4ade80]" : "text-muted"));
 const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
+
+// 로컬 · 클라우드 · 게이트웨이로 묶어 보여 준다. 묶음 없는 것("사용하지 않음")은 맨 위에.
+const ungrouped = computed(() => providers.value.filter((one) => !one.group));
+const grouped = computed(() => {
+  const out = [];
+  for (const one of providers.value.filter((x) => x.group)) {
+    const found = out.find((g) => g.name === one.group);
+    if (found) found.items.push(one);
+    else out.push({ name: one.group, items: [one] });
+  }
+  return out;
+});
 const on = computed(() => !!draft.value.provider && draft.value.provider !== "off");
 // 로컬 모델은 키를 안 받는다 — 있으나 마나 한 표시를 띄우지 않는다
 const needsKey = computed(() => !!spec.value?.key);
@@ -363,8 +380,10 @@ const problems = computed(() => {
   const d = draft.value;
 
   if (d.provider && d.provider !== "off") {
-    if (!String(d.baseUrl || "").trim()) found.push("엔드포인트 주소를 적어야 합니다.");
-    else if (!/^https?:\/\//.test(String(d.baseUrl).trim())) found.push("엔드포인트 주소는 http:// 또는 https:// 로 시작해야 합니다.");
+    if (spec.value?.editable) {
+      if (!String(d.baseUrl || "").trim()) found.push("엔드포인트 주소를 적어야 합니다.");
+      else if (!/^https?:\/\//.test(String(d.baseUrl).trim())) found.push("엔드포인트 주소는 http:// 또는 https:// 로 시작해야 합니다.");
+    }
     if (!String(d.model || "").trim()) found.push("모델 이름을 적어야 합니다.");
     if (sections.value.length && !hasListMark.value) found.push(`프롬프트 어딘가에 ${LIST_MARK} 이 있어야 합니다.`);
   }
@@ -527,13 +546,9 @@ function onProvider() {
   pingResult.value = null;
   manualModel.value = false;
 
-  const now = spec.value;
-  if (!now || now.value === "off") return;
-  const known = providers.value.map((one) => one.baseUrl).filter(Boolean);
-  if (!draft.value.baseUrl || known.includes(draft.value.baseUrl)) draft.value.baseUrl = now.baseUrl || "";
-
-  // 고르면 알아서 불러온다 — 무료라 누르게 할 이유가 없다
-  loadModels({ quiet: true });
+  // baseUrl 은 custom 전용이다 — 다른 것을 골랐다고 적어 둔 주소를 지우지 않는다
+  if (!on.value) return;
+  loadModels({ quiet: true }); // 고르면 알아서 불러온다 — 무료라 누르게 할 이유가 없다
 }
 
 // 무료 — 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
