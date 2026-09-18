@@ -9,7 +9,7 @@
 #
 # ── 내 기기에서 도는 것은 키를 안 씁니다 ─────────────────────────────────────
 # ollama · lmstudio · vllm · llamacpp 은 여기 적을 칸이 없습니다.
-# 같은 이름이라도 ollama-cloud 는 클라우드라 키가 필요합니다.
+# ollama-cloud 는 클라우드라 키가 필요합니다.
 
 # ── 모델을 직접 내는 곳 ──
 ollama-cloud: "" # https://ollama.com/settings/keys
@@ -28,11 +28,9 @@ nanogpt: "" # https://nano-gpt.com/api
 vercel: "" # https://vercel.com/dashboard/ai-gateway
 llmgateway: "" # https://llmgateway.io
 
-# ── 버텍스 AI 는 키가 아니라 서비스 계정입니다 ──
+# ── 버텍스 AI 서비스 계정 ──
 #
-# 구글 클라우드 콘솔에서 받은 JSON 을 **그대로** 넣습니다. 따옴표로 두르지 마세요 —
-# 아래처럼 `|-` 를 적고, JSON 의 모든 줄을 **두 칸 들여쓰기** 해서 붙여넣으면 됩니다.
-# (대시보드에서 넣으면 이 모양으로 알아서 저장됩니다.)
+# 구글 클라우드 콘솔에서 받은 JSON 의 모든 줄을 두 칸 들여쓰기 해서 붙여넣으세요. 따옴표로 두르지 마세요
 #
 #   vertex: |-
 #     {
@@ -42,11 +40,8 @@ llmgateway: "" # https://llmgateway.io
 #       "client_email": "…@내-프로젝트.iam.gserviceaccount.com"
 #     }
 #
-# JSON 파일의 경로로 적어도 받습니다(config/ 기준 상대경로). 다만 그러면 그 파일이 어디
-# 있는지 따로 관리해야 하므로, 다른 키와 같은 자리에 두는 편을 권합니다.
-#
 # 프로젝트는 이 JSON 의 project_id 를 씁니다. 리전은 config/ai.yaml 의 location 에 적습니다.
-vertex: ""
+vertex: |-
 
 # provider: custom 으로 그 밖의 OpenAI 호환 주소를 쓸 때
 custom: ""
