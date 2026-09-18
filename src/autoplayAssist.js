@@ -140,7 +140,6 @@ function authOf(one) {
 //
 // TODO 앤트로픽은 나중에 네이티브로 옮긴다(버텍스 네이티브를 들일 때 함께). 지금은
 // OpenAI 호환 계층으로 가되 /models 가 요구하는 버전 헤더를 붙여 둔다.
-const headersOf = (one) => ({ ...(specOf(one?.provider)?.headers || {}), ...authOf(one) });
 
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
@@ -246,26 +245,41 @@ function buildMessages(one, batch, genre) {
 }
 
 /**
- * 후보 묶음을 모델에게 묻는다.
- * @returns {Promise<Array<{song: boolean, fits: boolean}|null>>} 후보와 같은 길이. 못 받은 자리는 null.
+ * 저쪽 규격의 차이를 여기 한 곳에 모은다.
+ *
+ * 오래 "전부 OpenAI 호환"으로 버텼지만, 앤트로픽과 버텍스 네이티브는 본문 모양도 인증도
+ * 다르다. 갈래마다 이 여섯 가지만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
+ *
+ *   chatUrl   생성 요청을 보낼 주소
+ *   modelsUrl 모델 목록 주소 (없으면 목록을 못 받는 곳이다)
+ *   headers   그 규격이 요구하는 헤더 + 인증 (토큰을 받아야 할 수 있어 async)
+ *   body      우리 {role, content} 목록을 저쪽 본문으로
+ *   answerOf  응답에서 모델이 쓴 글
+ *   modelsOf  모델 목록 응답에서 이름들
  */
+const DIALECTS = {
+  openai: {
+    chatUrl: (one) => `${endpointOf(one)}/chat/completions`,
+    modelsUrl: (one) => `${endpointOf(one)}/models`,
+    headers: async (one) => ({ "Content-Type": "application/json", ...(specOf(one.provider)?.headers || {}), ...(await authOf(one)) }),
+    body: (one, messages) => ({ model: one.model, temperature: Number(one.temperature), messages }),
+    answerOf: (json) => json?.choices?.[0]?.message?.content || "",
+    modelsOf: (json) => (json?.data || []).map((m) => m?.id),
+  },
+};
+
+const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
+
 /** 보낼 것 한 벌 — 미리보기도 이것을 쓴다. */
-function buildRequest(one, batch, genre) {
+async function buildRequest(one, batch, genre) {
+  const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
-  const body = {
-    model: one.model,
-    temperature: Number(one.temperature),
-    messages: buildMessages(one, batch, genre),
-    ...extra.body,
-  };
+
+  const body = { ...dialect.body(one, buildMessages(one, batch, genre)), ...extra.body };
   // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
   for (const key of extra.drop) delete body[key];
 
-  return {
-    url: `${endpointOf(one)}/chat/completions`,
-    headers: { "Content-Type": "application/json", ...headersOf(one), ...extra.headers },
-    body,
-  };
+  return { url: dialect.chatUrl(one), headers: { ...(await dialect.headers(one)), ...extra.headers }, body };
 }
 
 // gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 흘리는 일이 있다.
@@ -275,7 +289,7 @@ const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
 const despace = (text) => text.replace(ODD_SPACE, " ");
 
 async function askBatch(one, batch, genre) {
-  const request = buildRequest(one, batch, genre);
+  const request = await buildRequest(one, batch, genre);
 
   const res = await fetch(request.url, {
     method: "POST",
@@ -288,7 +302,7 @@ async function askBatch(one, batch, genre) {
   // 그대로 싣되 키는 가린다 — 거절 응답에 보낸 값을 되비추는 서비스가 있다.
   if (!res.ok) throw new Error(`HTTP ${res.status} — ${mask(await res.text()).slice(0, 300)}`);
 
-  const text = (await res.json())?.choices?.[0]?.message?.content || "";
+  const text = dialectOf(one).answerOf(await res.json()) || "";
   // 작은 모델은 ```json 울타리나 앞말을 곧잘 붙인다. 배열만 집어낸다.
   const found = text.match(/\[[\s\S]*\]/);
   if (!found) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
@@ -374,22 +388,22 @@ async function accepts(candidate, about = {}) {
 async function listModels(draft) {
   const one = { ...DEFAULTS, ...(draft || {}) };
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
-  if (!endpointOf(one)) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
 
-  const url = `${endpointOf(one)}/models`;
-  const headers = headersOf(one);
+  const dialect = dialectOf(one);
+  const url = dialect.modelsUrl(one);
+  if (!url) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
+
   const started = Date.now();
-
   try {
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+    const res = await fetch(url, { headers: await dialect.headers(one), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
     const text = mask(await res.text());
     const took = Date.now() - started;
     if (!res.ok) return { ok: false, url, status: res.status, response: text, tookMs: took, reason: `HTTP ${res.status}` };
 
-    // OpenAI 규격은 { data: [{ id }] } 다. 다른 모양이면 목록만 못 채우고 연결은 된 것이다.
+    // 모양은 갈래마다 다르다. 못 읽어도 목록만 못 채우고 연결은 된 것이다.
     let all = [];
     try {
-      all = (JSON.parse(text)?.data || []).map((m) => m?.id).filter((id) => typeof id === "string");
+      all = (dialect.modelsOf(JSON.parse(text)) || []).filter((id) => typeof id === "string");
     } catch {
       /* 목록을 못 읽어도 응답 자체는 보여 준다 */
     }
@@ -431,16 +445,13 @@ async function ping(draft) {
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
   if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
 
-  const url = `${endpointOf(one)}/chat/completions`;
+  const dialect = dialectOf(one);
+  const url = dialect.chatUrl(one);
   const extra = parseExtra(one.extra);
-  const body = { model: one.model, messages: [{ role: "user", content: PING_TEXT }], ...extra.body };
+  const body = { ...dialect.body(one, [{ role: "user", content: PING_TEXT }]), ...extra.body };
   for (const key of extra.drop) delete body[key];
 
-  const headers = {
-    "Content-Type": "application/json",
-    ...headersOf(one),
-    ...extra.headers,
-  };
+  const headers = { ...(await dialect.headers(one)), ...extra.headers };
 
   const started = Date.now();
   try {
@@ -450,7 +461,7 @@ async function ping(draft) {
 
     let answer = "";
     try {
-      answer = JSON.parse(text)?.choices?.[0]?.message?.content || "";
+      answer = dialect.answerOf(JSON.parse(text)) || "";
     } catch {
       /* 모양이 다르면 원문으로 본다 */
     }
@@ -469,9 +480,9 @@ const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", dura
  *
  * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
-function preview(draft, genre = "록") {
+async function preview(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
-  const request = buildRequest(one, SAMPLE, genre);
+  const request = await buildRequest(one, SAMPLE, genre);
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body };
 }
 
@@ -485,8 +496,8 @@ function safeHeaders(headers) {
 /** 같은 것을 **실제로 보낸다.** 나간 것과 온 것을 손대지 않고 그대로 준다. */
 async function sendTest(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
-  const request = buildRequest(one, SAMPLE, genre);
-  const out = { ...preview(draft, genre), status: null, response: "" };
+  const request = await buildRequest(one, SAMPLE, genre);
+  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, status: null, response: "" };
 
   const started = Date.now();
   try {

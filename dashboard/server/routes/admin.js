@@ -283,10 +283,10 @@ router.put("/ai/prompt", requireOwner, (req, res) => {
 });
 
 // 나갈 것을 **만들어만 본다. 보내지 않는다.** 조립은 봇이 쓰는 코드 그대로다.
-router.post("/ai/preview", requireOwner, (req, res) => {
+router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
-  res.json(require("../../../src/autoplayAssist").preview(data));
+  res.json(await require("../../../src/autoplayAssist").preview(data));
 });
 
 // 같은 것을 **실제로 보낸다.** 설정한 엔드포인트의 설정한 모델로 나가고 응답까지 본다.

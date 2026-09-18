@@ -338,11 +338,11 @@ const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model
 
 // **미리보기는 아무 데도 안 나간다.** 테스트만 실제로 보낸다 — 둘을 섞으면
 // "키도 안 넣었는데 왜 응답이 오지"가 된다.
-test("미리보기는 만들기만 하고 보내지 않는다", () => {
+test("미리보기는 만들기만 하고 보내지 않는다", async () => {
   calls.length = 0;
   answers("[]");
 
-  const shown = assist.preview(DRAFT, "록");
+  const shown = await assist.preview(DRAFT, "록");
   assert.equal(calls.length, 0, "요청이 나가면 안 된다");
   assert.equal(shown.url, "http://127.0.0.1:11434/v1/chat/completions", "끝의 빗금은 정리한다");
   assert.equal(shown.body.think, false);
