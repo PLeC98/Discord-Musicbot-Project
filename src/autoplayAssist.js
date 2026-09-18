@@ -78,7 +78,7 @@ const PROVIDER_SPECS = {
   // ── 모델을 직접 내는 곳 ──
   openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드" },
   anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", dialect: "anthropic" },
-  aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: true, group: "클라우드" },
+  aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta", key: true, group: "클라우드", dialect: "gemini" },
   xai: { label: "xAI (Grok)", baseUrl: "https://api.x.ai/v1", key: true, group: "클라우드" },
   "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드" },
   deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드" },
@@ -351,6 +351,27 @@ function buildMessages(one, batch, genre) {
  *   answerOf  응답에서 모델이 쓴 글
  *   modelsOf  모델 목록 응답에서 이름들
  */
+/**
+ * 제미니 네이티브 본문 — AI 스튜디오와 버텍스가 **같은 모양**을 쓴다.
+ * 갈리는 것은 주소와 인증뿐이다.
+ *
+ *   · messages 가 아니라 contents/parts 이고, assistant 를 model 이라 부른다
+ *   · system 은 systemInstruction 이라는 딴 칸이다
+ *   · 온도 같은 것은 generationConfig 안에 있다(추가 파라미터도 경로를 적어 넣는다)
+ */
+function geminiBody(one, messages) {
+  const system = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
+  return {
+    contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+    generationConfig: { temperature: Number(one.temperature) },
+  };
+}
+const geminiAnswer = (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join("");
+
 const DIALECTS = {
   openai: {
     chatUrl: (one) => `${endpointOf(one)}/chat/completions`,
@@ -396,6 +417,31 @@ const DIALECTS = {
   },
 
   /**
+   * 구글 AI 스튜디오 — 제미니 네이티브.
+   *
+   * **OpenAI 호환층(/v1beta/openai)을 쓰지 않는다.** 호환층으로는 추론 설정이 저쪽 규격과
+   * 어긋나고, 모델 프로필이 적어 둔 경로(generationConfig.…)도 네이티브 기준이다.
+   * 버텍스와 본문이 같고 주소·인증만 다르다.
+   */
+  gemini: {
+    chatUrl: (one) => `${endpointOf(one)}/models/${one.model || ""}:generateContent`,
+    modelsUrl: (one) => `${endpointOf(one)}/models`,
+    headers: async (one) => {
+      const key = await keyFor(one);
+      return { "Content-Type": "application/json", ...(key ? { "x-goog-api-key": key } : {}) };
+    },
+    body: geminiBody,
+    answerOf: geminiAnswer,
+    // { models: [{ name: "models/gemini-3.7-flash" }] }
+    modelsOf: (json) =>
+      (json?.models || []).map((m) =>
+        String(m?.name || "")
+          .split("/")
+          .pop(),
+      ),
+  },
+
+  /**
    * 버텍스 AI — 제미니 네이티브.
    *
    * 여기만 유난히 다르다.
@@ -416,18 +462,8 @@ const DIALECTS = {
       const token = await require("./googleAuth").accessToken(configData.aiKeyOf(one.provider), { baseDir: configData.configDir(), timeoutMs: Number(one.timeoutMs) });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
-    body: (one, messages) => {
-      const system = messages
-        .filter((m) => m.role === "system")
-        .map((m) => m.content)
-        .join("\n\n");
-      return {
-        contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        generationConfig: { temperature: Number(one.temperature) },
-      };
-    },
-    answerOf: (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join(""),
+    body: geminiBody,
+    answerOf: geminiAnswer,
     // { publisherModels: [{ name: "publishers/google/models/gemini-3-pro" }] }
     modelsOf: (json) =>
       (json?.publisherModels || []).map((m) =>

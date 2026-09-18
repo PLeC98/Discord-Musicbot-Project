@@ -30,7 +30,7 @@ fs.writeFileSync(SA_PATH, JSON.stringify({ client_email: "bot@p.iam.gserviceacco
 
 function useConfig(yaml, sections) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
-  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${SA_PATH}\n`);
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\naistudio: ${KEY}\nvertex: ${SA_PATH}\n`);
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
   else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), configData.toChatML(sections));
   configData._setConfigDir(DIR);
@@ -655,6 +655,30 @@ test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경�
   assert.ok(!("topP" in sent.body));
   // global 리전은 호스트가 다르다
   assert.match(sent.url, /^https:\/\/aiplatform\.googleapis\.com\//);
+});
+
+// AI 스튜디오도 제미니 네이티브다. OpenAI 호환층(/v1beta/openai)을 쓰면 추론 설정이
+// 저쪽 규격과 어긋나고, 모델 프로필이 적어 둔 경로도 네이티브 기준이다.
+test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
+  useConfig("provider: aistudio\nmodel: gemini-3.7-flash\nextra: generationConfig.topP=0.5\n", [
+    { role: "system", text: "너는 판정기다" },
+    { role: "user", text: "{{목록}}" },
+  ]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+
+  assert.match(sent.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-3\.7-flash:generateContent$/);
+  assert.equal(sent.init.headers["x-goog-api-key"], KEY, "키는 x-goog-api-key 로 간다");
+  assert.equal(sent.init.headers.Authorization, undefined, "Bearer 가 아니다");
+  assert.ok(sent.body.contents, "messages 가 아니라 contents 다");
+  assert.equal(sent.body.systemInstruction.parts[0].text, "너는 판정기다");
+  assert.equal(sent.body.generationConfig.topP, 0.5, "추가 파라미터도 적은 경로 그대로");
 });
 
 // 모델 목록은 생성과 **주소 체계가 다르다**(프로젝트·리전이 안 붙는다).
