@@ -78,9 +78,7 @@ const PROVIDER_SPECS = {
   // ── 모델을 직접 내는 곳 ──
   "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드" },
   openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드" },
-  // /chat/completions 는 OpenAI 호환 계층이지만 /models 는 네이티브라 버전 헤더를 요구한다
-  // (없으면 `anthropic-version: header is required`). 한 주소에 두 성격이 섞여 있다.
-  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", headers: { "anthropic-version": "2023-06-01" } },
+  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", dialect: "anthropic" },
   aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: true, group: "클라우드" },
   deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드" },
   mistral: { label: "Mistral", baseUrl: "https://api.mistral.ai/v1", key: true, group: "클라우드" },
@@ -124,15 +122,18 @@ const wantsKey = (one) => !!specOf(one?.provider)?.key;
  * 초안을 그대로 받는데, 그 주소로 키까지 붙여 보내면 운영자 세션을 쥔 쪽이 저장도 없이
  * 아무 데로나 키를 흘려보낼 수 있다(재 봤다). 다른 프로바이더는 주소가 박혀 있어 해당 없다.
  */
-function authOf(one) {
-  if (!wantsKey(one)) return {};
+async function keyFor(one) {
+  if (!wantsKey(one)) return "";
 
   if (specOf(one.provider)?.editable) {
     const saved = String(configData.ai()?.baseUrl || "").replace(/\/+$/, "");
-    if (!saved || endpointOf(one) !== saved) return {};
+    if (!saved || endpointOf(one) !== saved) return "";
   }
+  return configData.aiKeyOf(one.provider);
+}
 
-  const key = configData.aiKeyOf(one.provider);
+async function authOf(one) {
+  const key = await keyFor(one);
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
@@ -266,7 +267,44 @@ const DIALECTS = {
     answerOf: (json) => json?.choices?.[0]?.message?.content || "",
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
   },
+
+  /**
+   * 앤트로픽 네이티브(/v1/messages).
+   *
+   * OpenAI 와 다른 것 셋:
+   *   · system 은 메시지가 아니라 **본문 맨 위 칸**이다
+   *   · max_tokens 가 **필수**다(없으면 400)
+   *   · 인증이 Authorization 이 아니라 x-api-key 다
+   */
+  anthropic: {
+    chatUrl: (one) => `${endpointOf(one)}/messages`,
+    modelsUrl: (one) => `${endpointOf(one)}/models`,
+    headers: async (one) => {
+      const key = await keyFor(one);
+      return { "Content-Type": "application/json", "anthropic-version": ANTHROPIC_VERSION, ...(key ? { "x-api-key": key } : {}) };
+    },
+    body: (one, messages) => {
+      // system 은 여럿일 수 있다(섹션을 나눠 적었을 수 있다) — 붙여서 한 칸에 넣는다
+      const system = messages
+        .filter((m) => m.role === "system")
+        .map((m) => m.content)
+        .join("\n\n");
+      return {
+        model: one.model,
+        // 판정 답은 짧다. 모자라면 extra 로 늘린다(max_tokens=4096).
+        max_tokens: ANTHROPIC_MAX_TOKENS,
+        temperature: Number(one.temperature),
+        ...(system ? { system } : {}),
+        messages: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
+      };
+    },
+    answerOf: (json) => (json?.content || []).map((part) => part?.text || "").join(""),
+    modelsOf: (json) => (json?.data || []).map((m) => m?.id),
+  },
 };
+
+const ANTHROPIC_VERSION = "2023-06-01";
+const ANTHROPIC_MAX_TOKENS = 1024;
 
 const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
@@ -486,10 +524,21 @@ async function preview(draft, genre = "록") {
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body };
 }
 
+// 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
+const SECRET_HEADERS = ["authorization", "x-api-key", "x-goog-api-key", "api-key"];
+
 /** 화면에 보여도 되는 헤더 — 키 값은 절대 나가지 않는다. */
 function safeHeaders(headers) {
-  const out = { ...headers };
-  if (out.Authorization) out.Authorization = `Bearer ${REDACTED}`;
+  const out = {};
+  for (const [name, value] of Object.entries(headers || {})) {
+    if (!SECRET_HEADERS.includes(name.toLowerCase())) {
+      out[name] = value;
+      continue;
+    }
+    // 앞의 낱말(Bearer)은 남긴다 — 어떤 방식으로 붙는지는 보이는 편이 낫다
+    const scheme = /^(\w+)\s/.exec(String(value));
+    out[name] = scheme ? `${scheme[1]} ${REDACTED}` : REDACTED;
+  }
   return out;
 }
 

@@ -26,7 +26,7 @@ const KEY = "sk-test-do-not-log";
 
 function useConfig(yaml, sections) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
-  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\n`);
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\n`);
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
   else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), configData.toChatML(sections));
   configData._setConfigDir(DIR);
@@ -501,23 +501,61 @@ test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
   assert.ok(dots.models.includes("gpt-5"), "gpt.5 가 gpt-5 를 가리면 안 된다");
 });
 
-// 앤트로픽은 /chat/completions 는 OpenAI 호환이지만 /models 는 네이티브라 버전 헤더를 요구한다.
-// 안 붙이면 `anthropic-version: header is required` 로 목록을 못 받는다.
-test("그 서비스가 요구하는 헤더를 붙인다", async () => {
+// ── 앤트로픽 네이티브 ─────────────────────────────────────────────────────
+
+// OpenAI 와 다른 것 셋: system 이 본문 맨 위 칸, max_tokens 가 필수, 인증이 x-api-key.
+test("앤트로픽은 네이티브 규격으로 보낸다", async () => {
+  useConfig("provider: anthropic\nmodel: claude-x\ntemperature: 0\n", [
+    { role: "system", text: "기준 하나" },
+    { role: "system", text: "기준 둘" },
+    { role: "user", text: "{{목록}}" },
+  ]);
   calls.length = 0;
   global.fetch = async (url, init) => {
-    calls.push({ url, init });
-    return { ok: true, status: 200, text: async () => "{}" };
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ content: [{ type: "text", text: '[{"n":1,"song":true,"fits":true}]' }] }) };
   };
 
-  await assist.listModels({ provider: "anthropic" });
-  assert.equal(calls.at(-1).init.headers["anthropic-version"], "2023-06-01");
+  assert.equal(await assist.accepts(cand("A"), { genre: "록" }), true, "content[].text 에서 판정을 읽는다");
 
-  await assist.ping({ provider: "anthropic", model: "claude" });
-  assert.equal(calls.at(-1).init.headers["anthropic-version"], "2023-06-01", "판정·확인 어느 쪽이든 같아야 한다");
+  const sent = calls.at(-1);
+  assert.equal(sent.url, "https://api.anthropic.com/v1/messages");
+  assert.equal(sent.init.headers["x-api-key"], KEY, "Authorization 이 아니라 x-api-key 다");
+  assert.ok(!sent.init.headers.Authorization);
+  assert.equal(sent.init.headers["anthropic-version"], "2023-06-01");
 
-  await assist.listModels({ provider: "openai" });
-  assert.ok(!calls.at(-1).init.headers["anthropic-version"], "다른 곳에는 안 붙인다");
+  assert.equal(sent.body.system, "기준 하나\n\n기준 둘", "system 은 본문 맨 위 칸으로 올리고 여럿이면 붙인다");
+  assert.ok(sent.body.max_tokens > 0, "없으면 400 이다");
+  assert.deepEqual(
+    sent.body.messages.map((m) => m.role),
+    ["user"],
+    "system 은 messages 에 남지 않는다",
+  );
+});
+
+test("앤트로픽 모델 목록과 max_tokens 덮어쓰기", async () => {
+  useConfig("provider: anthropic\nmodel: claude-x\nextra: max_tokens=4096\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: init.body ? JSON.parse(init.body) : null });
+    return { ok: true, status: 200, text: async () => '{"data":[{"id":"claude-opus-5"},{"id":"claude-sonnet-5"}]}', json: async () => ({ content: [{ text: "[]" }] }) };
+  };
+
+  const got = await assist.listModels({ provider: "anthropic" });
+  assert.deepEqual(got.models, ["claude-opus-5", "claude-sonnet-5"]);
+  assert.equal(calls.at(-1).url, "https://api.anthropic.com/v1/models");
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.max_tokens, 4096, "모자라면 extra 로 늘린다");
+});
+
+test("인증이 실린 헤더는 어느 이름이든 가린다", async () => {
+  const shown = await assist.preview({ provider: "anthropic", model: "claude-x" }, "록");
+  assert.equal(shown.headers["x-api-key"], assist.REDACTED);
+  assert.ok(!JSON.stringify(shown).includes(KEY));
+
+  const openai = await assist.preview({ provider: "openai", model: "gpt" }, "록");
+  assert.equal(openai.headers.Authorization, `Bearer ${assist.REDACTED}`, "붙는 방식은 보이는 편이 낫다");
 });
 
 test("클라우드 프로바이더에는 키를 붙인다", async () => {
