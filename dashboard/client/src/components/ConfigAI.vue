@@ -159,6 +159,41 @@
         </div>
       </BaseCard>
 
+      <!--
+        모델이 받는 칸 — 어디로 갈지도, 어떤 위젯일지도 모델 프로필이 정한다.
+        프로필이 없는 모델(로컬·custom)은 카드째 안 나오고, 그때는 추가 파라미터로 넣는다.
+      -->
+      <BaseCard v-if="paramGroups.length" icon="robot" title="모델 설정" class="mb-3">
+        <p class="text-muted text-[0.78rem] -mt-1 mb-3">
+          {{ modelName || draft.model }} 이(가) 받는 칸입니다.
+          <button type="button" class="text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
+        </p>
+
+        <div v-for="group in paramGroups" :key="group.id" class="mb-4 last:mb-0">
+          <span :class="labelCls">{{ GROUP_NAMES[group.id] || group.id }}</span>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1">
+            <label v-for="field in group.fields" :key="field.key" class="block">
+              <span class="text-[0.78rem] text-fg-soft block mb-1" v-tooltip="field.path">{{ field.label || field.key }}</span>
+
+              <select v-if="field.enum" v-model="params[field.key]" :class="[inputCls, selectCls]">
+                <option value="">기본값</option>
+                <option v-for="opt in field.enum" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+
+              <label v-else-if="field.type === 'boolean'" class="flex items-center gap-2 cursor-pointer h-9">
+                <input v-model="params[field.key]" type="checkbox" class="size-4 accent-accent shrink-0" />
+                <span class="text-[0.82rem] text-muted">{{ params[field.key] ? "켬" : "끔" }}</span>
+              </label>
+
+              <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :class="inputCls" />
+              <input v-else v-model="params[field.key]" :placeholder="field.default ?? ''" :class="inputCls" />
+            </label>
+          </div>
+        </div>
+
+        <p v-if="paramLimits" class="text-muted text-[0.75rem] mt-3">{{ paramLimits }}</p>
+      </BaseCard>
+
       <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
         <p class="text-muted text-[0.82rem] mb-3">
           판정할 후보를 줄 마다 어떻게 적을지. 이 설정을 따라 아래 프롬프트의 <code class="text-fg-soft">{{ LIST_MARK }}</code> 자리에 곡 목록이 들어갑니다.
@@ -369,6 +404,10 @@ const UNKNOWN = [
 ];
 
 const draft = ref({ provider: "off" });
+// 모델이 받는 칸 — 서버가 프로필(data/ai-models.json)을 보고 알려 준다
+const fieldInfo = ref({ known: false, fields: [], models: [] });
+const showAdvanced = ref(false);
+const params = ref({});
 const listCfg = ref({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
 const sections = ref([]);
 const snapshot = ref("");
@@ -496,7 +535,40 @@ const timeoutSec = computed({
 
 // 설정과 프롬프트는 딴 파일이라 저장도 따로 간다.
 // 섹션 이름은 ChatML 에 적을 자리가 없어 설정 쪽에 같이 실어 보낸다(차례가 곧 짝이다).
-const payload = computed(() => ({ ...draft.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") }));
+// 저쪽 uiSchema 의 그룹 이름을 우리 말로
+const GROUP_NAMES = { credentials: "인증", model: "모델", generation: "생성", reasoning: "추론", output: "출력", control: "요청 제어" };
+
+// 고른 모델의 이름표. 프로필이 알면 보기 좋은 이름이 있다.
+const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
+
+const paramGroups = computed(() => {
+  const shown = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
+  const by = new Map();
+  for (const field of shown) {
+    const id = field.group || "generation";
+    if (!by.has(id)) by.set(id, { id, fields: [] });
+    by.get(id).fields.push(field);
+  }
+  return [...by.values()];
+});
+
+// 저쪽이 "이 칸이 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼)
+function showIfOk(field) {
+  if (!field.showIf) return true;
+  return params.value[field.showIf.key] === field.showIf.equals;
+}
+
+const paramLimits = computed(() => {
+  const m = fieldInfo.value.models.find((one) => one.modelId === draft.value.model);
+  if (!m?.contextWindowTokens && !m?.maxOutputTokens) return "";
+  const n = (x) => Number(x).toLocaleString("ko-KR");
+  return [m.contextWindowTokens ? `컨텍스트 ${n(m.contextWindowTokens)}토큰` : "", m.maxOutputTokens ? `최대 출력 ${n(m.maxOutputTokens)}토큰` : ""].filter(Boolean).join(" · ");
+});
+
+const payload = computed(() => ({ ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") }));
+
+// 빈 값은 "고르지 않음"이다 — 저쪽에 빈 글자를 보내면 enum 에 안 맞아 거절당한다
+const cleanParams = computed(() => Object.fromEntries(Object.entries(params.value).filter(([, v]) => v !== "" && v !== null && v !== undefined)));
 const promptPayload = computed(() => sections.value.map((one) => ({ role: one.role, text: one.text })));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
 
@@ -603,8 +675,9 @@ function onDragEnd() {
 let names = [];
 
 function apply(data) {
-  const { list, prompt, promptNames, ...rest } = data || {};
+  const { list, prompt, promptNames, params: saved, ...rest } = data || {};
   draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
+  params.value = { ...(saved || {}) };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
   names = Array.isArray(promptNames) ? promptNames : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));
@@ -617,6 +690,29 @@ function applyPrompt(list) {
   promptSnapshot.value = JSON.stringify(promptPayload.value);
   snapshot.value = JSON.stringify(payload.value); // 이름이 payload 에 실리므로 같이 굳힌다
 }
+
+// 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
+watch(
+  () => [draft.value.provider, draft.value.model],
+  async ([provider, model], old) => {
+    if (!provider || provider === "off") {
+      fieldInfo.value = { known: false, fields: [], models: [] };
+      return;
+    }
+    try {
+      const { data } = await axios.get("/api/admin/ai/fields", { params: { provider, model: model || "" } });
+      fieldInfo.value = data;
+      // 모델을 갈아탔으면 새 모델이 안 받는 값은 떨군다 — 그대로 보내면 400 이다
+      if (old && old[1] && old[1] !== model) {
+        const keys = new Set(data.fields.map((one) => one.key));
+        params.value = Object.fromEntries(Object.entries(params.value).filter(([k]) => keys.has(k)));
+      }
+    } catch {
+      fieldInfo.value = { known: false, fields: [], models: [] };
+    }
+  },
+  { immediate: true },
+);
 
 async function fetchAll() {
   loadError.value = "";
