@@ -6,9 +6,6 @@
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
 // (판정 품질 자체는 모델과 프롬프트의 몫이고 notes/research-autoplay-quality.md 에서 쟀다.)
 
-// config.js 는 require 시점에 .env 를 굳힌다 — 그 전에 넣어야 한다
-process.env.AI_API_KEY = "sk-test-do-not-log";
-
 const os = require("node:os");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -24,12 +21,19 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true }));
 // 설정을 갈아끼운다. _setConfigDir 가 읽어 둔 것을 버리므로 같은 이름을 몇 번이고 바꿔 쓸 수 있다.
 //
 // 프롬프트는 **딴 파일**이다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다.
+// 키도 설정 파일에 있다(config/ai-keys.yaml). 프로바이더마다 따로다.
+const KEY = "sk-test-do-not-log";
+
 function useConfig(yaml, sections) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\n`);
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
   else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), configData.toChatML(sections));
   configData._setConfigDir(DIR);
 }
+
+// 설정 폴더를 쓰지 않는 호출(preview·ping·listModels)도 키를 보게 해 둔다
+useConfig("provider: off\n");
 
 const ON = `provider: openai
 baseUrl: http://127.0.0.1:11434/v1
@@ -146,7 +150,7 @@ test("모델이 죽어도 자동재생은 돈다", async () => {
 // 어떤 서비스는 거절 응답에 보낸 헤더를 되비춘다. 그 본문을 오류에 실으면 로그에 키가 남는다.
 test("오류 어디에도 키가 나오지 않는다", async () => {
   useConfig(ON);
-  answers(() => ({ ok: false, status: 401, text: async () => `Invalid key: ${process.env.AI_API_KEY}` }));
+  answers(() => ({ ok: false, status: 401, text: async () => `Invalid key: ${KEY}` }));
 
   const seen = [];
   const log = require("../src/logger");
@@ -161,7 +165,7 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
   log.debug = realDebug;
 
   assert.ok(seen.length, "무슨 일이 있었는지는 남겨야 한다");
-  for (const line of seen) assert.ok(!line.includes(process.env.AI_API_KEY), `로그에 키가 남았다: ${line}`);
+  for (const line of seen) assert.ok(!line.includes(KEY), `로그에 키가 남았다: ${line}`);
 });
 
 // ── 요청 모양 ────────────────────────────────────────────────────────────
@@ -183,7 +187,7 @@ test("설정한 것이 그대로 요청에 실린다", async () => {
   assert.equal(sent.body.reasoning_effort, "low");
   assert.equal(sent.body.messages[0].content, "내가 쓴 기준", "프롬프트를 적었으면 그것을 쓴다");
   assert.match(sent.body.messages[1].content, /장르=록/);
-  assert.equal(sent.init.headers.Authorization, `Bearer ${process.env.AI_API_KEY}`);
+  assert.equal(sent.init.headers.Authorization, `Bearer ${KEY}`);
 });
 
 test("프롬프트를 안 적으면 기본 구성을 쓴다", async () => {
@@ -346,7 +350,7 @@ test("미리보기는 만들기만 하고 보내지 않는다", () => {
 
   // 키 값은 화면으로 가지 않는다 — 있었다는 표시만 남긴다
   assert.equal(shown.headers.Authorization, "Bearer [REDACTED_SECRET_KEY]");
-  assert.ok(!JSON.stringify(shown).includes(process.env.AI_API_KEY));
+  assert.ok(!JSON.stringify(shown).includes(KEY));
 
   // 보기 곡 셋 중 하나는 길이를 모르는 것이다 — 그 처리를 눈으로 보라고 넣었다
   const asked = shown.body.messages.at(-1).content;
@@ -379,11 +383,11 @@ test("테스트는 못 보내도 던지지 않는다", async () => {
 
 // 거절 응답에 보낸 값을 되비추는 서비스가 있다 — 화면에도 로그에도 키가 남으면 안 된다
 test("응답에 키가 섞여 와도 가려서 준다", async () => {
-  global.fetch = async () => ({ ok: false, status: 401, text: async () => `bad key: ${process.env.AI_API_KEY}` });
+  global.fetch = async () => ({ ok: false, status: 401, text: async () => `bad key: ${KEY}` });
 
   const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
   assert.equal(shown.status, 401);
-  assert.ok(!shown.response.includes(process.env.AI_API_KEY), shown.response);
+  assert.ok(!shown.response.includes(KEY), shown.response);
   // 별표만 있으면 원래 그런 값인 줄 안다 — 무엇이 가려졌는지 이름을 붙인다
   assert.ok(shown.response.includes(assist.REDACTED), shown.response);
 });
@@ -430,7 +434,7 @@ test("클라우드 프로바이더에는 키를 붙인다", async () => {
   };
 
   await assist.listModels({ provider: "openai", baseUrl: "https://api.openai.com/v1" });
-  assert.equal(calls[0].init.headers.Authorization, `Bearer ${process.env.AI_API_KEY}`);
+  assert.equal(calls[0].init.headers.Authorization, `Bearer ${KEY}`);
 });
 
 test("유료 확인은 짧은 물음 하나만 보낸다 — 판정 프롬프트가 아니다", async () => {

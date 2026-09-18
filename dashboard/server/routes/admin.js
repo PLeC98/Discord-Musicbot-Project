@@ -235,8 +235,10 @@ router.get("/source-types", requireOwner, async (req, res) => {
 // 기본 프롬프트도 같이 준다 — 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
   const assist = require("../../../src/autoplayAssist");
+  // **키 값은 절대 안 내려간다.** 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
+  const keys = configData.aiKeys();
   res.json({
-    hasKey: !!require("../../../config").ai?.apiKey,
+    hasKey: Object.fromEntries(Object.keys(assist.PROVIDER_SPECS).map((name) => [name, !!keys[name]])),
     // 주소·키 필요 여부는 서버가 안다 — 화면이 베껴 두면 한쪽만 고치게 된다
     providers: Object.entries(assist.PROVIDER_SPECS).map(([value, spec]) => ({ value, ...spec })),
     pingText: assist.PING_TEXT,

@@ -14,7 +14,7 @@ const path = require("path");
 
 const CONFIG_DIR = path.join(__dirname, "..", "config");
 // 이름 뒤에 확장자가 다른 것도 있다(프롬프트는 ChatML 글 파일이다)
-const NAMES = ["genres", "status", "ai", "ai-prompt.chatml"];
+const NAMES = ["genres", "status", "ai", "ai-keys", "ai-prompt.chatml"];
 
 function setup() {
   const made = [];

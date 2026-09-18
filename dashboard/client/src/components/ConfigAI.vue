@@ -44,23 +44,22 @@
           </label>
         </div>
 
-        <div class="flex items-center gap-2.5 flex-wrap mt-3">
-          <BaseButton :disabled="loadingModels" @click="loadModels">{{ loadingModels ? "불러오는 중…" : "모델 목록 불러오기" }}</BaseButton>
-          <span class="text-muted text-[0.78rem]">무료 — 추론 없이 {{ "{baseUrl}/models" }} 만 부릅니다.</span>
-          <button v-if="models.length" :class="addLine" @click="manualModel = !manualModel">{{ manualModel ? "목록에서 고르기" : "직접 입력" }}</button>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span v-if="needsKey" class="text-[0.82rem]" :class="keyCls">API 키 {{ hasKey ? "있음" : "없음" }}</span>
+          <span v-if="needsKey" class="text-muted text-[0.78rem]">config/ai-keys.yaml 의 {{ draft.provider }}</span>
+          <button v-if="models.length" :class="addLine" @click="manualModel = !manualModel">{{ manualModel ? "목록에서 고르기" : "모델 직접 입력" }}</button>
+        </div>
+
+        <p class="text-muted text-[0.78rem] mt-4 mb-2">무료는 {{ "{baseUrl}/models" }} 만 부릅니다. 유료는 짧은 물음 하나를 실제로 생성시킵니다.</p>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels">{{ loadingModels ? "확인 중…" : "무료 테스트" }}</BaseButton>
+          <BaseButton variant="secondary" :disabled="pinging" @click="runPing">{{ pinging ? "보내는 중…" : "유료 테스트" }}</BaseButton>
         </div>
 
         <p v-if="modelResult" class="mt-2 text-[0.82rem]" :class="modelResult.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">
           {{ modelResult.ok ? `모델 ${models.length}개 · ${(modelResult.tookMs / 1000).toFixed(1)}초` : modelResult.reason }}
         </p>
         <pre v-if="modelResult && !modelResult.ok && modelResult.response" :class="[preCls, 'mt-2']">{{ modelResult.response }}</pre>
-
-        <div class="flex items-center gap-2.5 flex-wrap mt-4">
-          <BaseButton :disabled="pinging" @click="runPing">{{ pinging ? "보내는 중…" : "생성 테스트" }}</BaseButton>
-          <span class="text-muted text-[0.78rem]">유료 — 짧은 물음 하나를 실제로 생성시킵니다.</span>
-          <span v-if="needsKey" class="text-[0.82rem]" :class="keyCls">API 키 {{ hasKey ? "있음" : "없음" }}</span>
-          <span v-if="needsKey" class="text-muted text-[0.78rem]">.env 의 AI_API_KEY</span>
-        </div>
 
         <template v-if="pingResult">
           <p class="mt-2 text-[0.82rem]" :class="pingResult.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ pingResult.status ? `HTTP ${pingResult.status}` : "보내지 못함" }} · {{ (pingResult.tookMs / 1000).toFixed(1) }}초</p>
@@ -295,7 +294,7 @@ const savedAt = ref(null);
 const loadError = ref("");
 const serverProblems = ref([]);
 
-const hasKey = ref(false);
+const keyPresence = ref({});
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
@@ -310,6 +309,8 @@ const defaults = ref({ sections: [], line: "" });
 
 let serial = 0;
 
+// 키는 프로바이더마다 따로다(config/ai-keys.yaml). 값은 안 내려오고 있는지 없는지만 온다.
+const hasKey = computed(() => !!keyPresence.value[draft.value.provider]);
 const keyCls = computed(() => (hasKey.value ? "text-[#4ade80]" : "text-muted"));
 const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
 const on = computed(() => !!draft.value.provider && draft.value.provider !== "off");
@@ -486,12 +487,12 @@ async function fetchAll() {
 async function fetchState() {
   try {
     const state = (await axios.get("/api/admin/ai/state")).data;
-    hasKey.value = !!state.hasKey;
+    keyPresence.value = state.hasKey || {};
     if (state.providers?.length) providers.value = state.providers;
     pingText.value = state.pingText || "";
     defaults.value = { sections: state.defaultSections || [], line: state.defaultLine || "" };
   } catch {
-    hasKey.value = false;
+    keyPresence.value = {};
   }
 }
 
@@ -524,25 +525,30 @@ function onProvider() {
   models.value = [];
   modelResult.value = null;
   pingResult.value = null;
+  manualModel.value = false;
 
   const now = spec.value;
   if (!now || now.value === "off") return;
   const known = providers.value.map((one) => one.baseUrl).filter(Boolean);
   if (!draft.value.baseUrl || known.includes(draft.value.baseUrl)) draft.value.baseUrl = now.baseUrl || "";
+
+  // 고르면 알아서 불러온다 — 무료라 누르게 할 이유가 없다
+  loadModels({ quiet: true });
 }
 
-// 무료 — 추론을 안 돌린다. 모델 고르는 칸도 이것으로 채운다.
-async function loadModels() {
+// 무료 — 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
+// quiet: 프로바이더를 고를 때 저절로 도는 것이라 실패를 빨갛게 띄우지 않는다.
+async function loadModels({ quiet = false } = {}) {
   loadingModels.value = true;
   pingResult.value = null;
   try {
     const got = (await axios.post("/api/admin/ai/models", { data: payload.value })).data;
-    modelResult.value = got;
+    modelResult.value = quiet && !got.ok ? null : got;
     models.value = got.models || [];
     // 받아 온 목록에 지금 값이 없으면 손으로 적던 것이다 — 그대로 두고 칸만 열어 둔다
     manualModel.value = !models.value.length || (!!draft.value.model && !models.value.includes(draft.value.model));
   } catch (error) {
-    modelResult.value = { ok: false, reason: error.response?.data?.error || "불러오지 못했습니다." };
+    modelResult.value = quiet ? null : { ok: false, reason: error.response?.data?.error || "불러오지 못했습니다." };
   } finally {
     loadingModels.value = false;
   }
@@ -580,8 +586,10 @@ function revert() {
   applyPrompt(JSON.parse(promptSnapshot.value));
 }
 
-onMounted(() => {
-  fetchState();
-  fetchAll();
+onMounted(async () => {
+  await fetchState();
+  await fetchAll();
+  // 켜져 있으면 열자마자 채워 둔다. 무료라 물어볼 것이 없다.
+  if (on.value) loadModels({ quiet: true });
 });
 </script>

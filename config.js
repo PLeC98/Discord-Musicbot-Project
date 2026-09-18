@@ -139,11 +139,6 @@ module.exports = {
     listenbrainzToken: env("LISTENBRAINZ_TOKEN"),
   },
 
-  // AI 보조(config/ai.yaml). 로컬 모델은 키를 안 받으므로 비워 두는 것이 정상이다.
-  ai: {
-    apiKey: env("AI_API_KEY"),
-  },
-
   // 봇 설정
   bot: {
     defaultVolume: 100,

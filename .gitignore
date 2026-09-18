@@ -7,6 +7,7 @@ database/
 config/genres.yaml
 config/status.yaml
 config/ai.yaml
+config/ai-keys.yaml
 config/ai-prompt.chatml
 audio_cache/
 node_modules/

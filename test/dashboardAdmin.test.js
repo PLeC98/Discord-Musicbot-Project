@@ -293,6 +293,8 @@ before(() => {
   configData._setConfigDir(CONFIG_DIR);
   fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop music", ""].join("\n"));
   fs.writeFileSync(path.join(CONFIG_DIR, "ai.yaml"), ["# 손으로 적은 메모", "provider: off", "baseUrl: http://127.0.0.1:11434/v1", "model: gemma3n:e2b", ""].join("\n"));
+  // 키는 프로바이더마다 따로 있는 딴 파일이다 — 대시보드로는 값이 나가지 않는다
+  fs.writeFileSync(path.join(CONFIG_DIR, "ai-keys.yaml"), ["openai: sk-test-only", 'groq: ""', ""].join("\n"));
 });
 
 after(() => {
@@ -407,7 +409,10 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
   const { status, json } = await req("GET", "/api/admin/ai/state");
   assert.equal(status, 200);
-  assert.equal(typeof json.hasKey, "boolean");
+  // 프로바이더마다 있는지 없는지만 — 값은 어디에도 없다
+  assert.equal(typeof json.hasKey, "object");
+  assert.equal(json.hasKey.openai, true, "키를 적어 둔 프로바이더는 있음");
+  assert.equal(json.hasKey.groq, false, "안 적은 것은 없음");
   assert.ok(!("apiKey" in json), "값을 실으면 안 된다");
   // 화면이 기본 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다 — 서버가 준다
   assert.deepEqual(json.defaultSections, require("../src/autoplayAssist").DEFAULT_SECTIONS);

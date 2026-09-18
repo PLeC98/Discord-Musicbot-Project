@@ -11,7 +11,6 @@
 //
 // **없어도 되는 기능이다.** 못 부르면 규칙이 고른 것을 그대로 쓴다. 재생이 멈추지 않는다.
 
-const config = require("../config");
 const configData = require("./configDataLoader");
 const log = require("./logger").child({ category: "autoplay" });
 
@@ -86,6 +85,13 @@ const specOf = (provider) => PROVIDER_SPECS[provider] || null;
 const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
 const wantsKey = (one) => !!specOf(one?.provider)?.key;
+
+// 키는 프로바이더마다 따로다(config/ai-keys.yaml). 로컬에는 아예 안 붙인다.
+function authOf(one) {
+  if (!wantsKey(one)) return {};
+  const key = configData.aiKeyOf(one.provider);
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
 
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
@@ -210,7 +216,7 @@ function buildRequest(one, batch, genre) {
     url: `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`,
     headers: {
       "Content-Type": "application/json",
-      ...(wantsKey(one) && config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {}),
+      ...authOf(one),
       ...extra.headers,
     },
     body,
@@ -326,7 +332,7 @@ async function listModels(draft) {
   if (!one.baseUrl) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다." };
 
   const url = `${String(one.baseUrl).replace(/\/+$/, "")}/models`;
-  const headers = wantsKey(one) && config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {};
+  const headers = authOf(one);
   const started = Date.now();
 
   try {
@@ -369,7 +375,7 @@ async function ping(draft) {
 
   const headers = {
     "Content-Type": "application/json",
-    ...(wantsKey(one) && config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {}),
+    ...authOf(one),
     ...extra.headers,
   };
 
@@ -437,11 +443,17 @@ async function sendTest(draft, genre = "록") {
 }
 
 // 어떤 서비스는 거절 응답에 보낸 값을 되비춘다 — 화면에도 로그에도 키가 남으면 안 된다.
+// 무엇이 가려진 것인지 알아볼 수 있게 이름을 붙인다(별표만 있으면 원래 그런 값인 줄 안다).
 const REDACTED = "[REDACTED_SECRET_KEY]";
 
+// 지금 쓰는 프로바이더 것만이 아니라 **적혀 있는 키를 모두** 가린다.
+// 어느 것이 되비쳐 올지 우리가 정할 수 없고, 넉넉히 가려서 손해 볼 것이 없다.
 function mask(text) {
-  const key = config.ai?.apiKey;
-  return key ? String(text).split(key).join(REDACTED) : String(text);
+  let out = String(text);
+  for (const key of Object.values(configData.aiKeys())) {
+    if (key) out = out.split(key).join(REDACTED);
+  }
+  return out;
 }
 
 module.exports = { filter, accepts, settings, preview, sendTest, listModels, ping, parseExtra, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

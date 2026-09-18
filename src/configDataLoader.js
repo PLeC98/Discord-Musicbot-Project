@@ -328,6 +328,13 @@ function syncMap(doc, node, data, pathArr) {
     if (JSON.stringify(doc.getIn(here)) === JSON.stringify(value)) continue;
 
     doc.setIn(here, value);
+
+    // 여러 줄 글은 블록 리터럴로 적는다. 큰따옴표로 적으면 줄바꿈 하나가 **빈 줄**로 나가서
+    // (YAML 은 그렇게 접는다) 읽기 나쁘다. 되읽으면 같은 값이지만 손으로 고칠 파일이다.
+    if (typeof value === "string" && value.includes("\n")) {
+      const node = doc.getIn(here, true);
+      if (node) node.type = YAML.Scalar.BLOCK_LITERAL;
+    }
   }
 
   // 차례 맞추기 — 키도 값도 그대로인 채 순서만 바뀔 수 있다(대시보드에서 끌어 옮긴다).
@@ -453,6 +460,26 @@ function validateGenres(data) {
 
   return problems;
 }
+
+// ── ai-keys.yaml ──────────────────────────────────────────────────────────
+//
+// 프로바이더마다 키가 따로다. **이 값은 대시보드로 내려보내지 않는다** —
+// 화면에는 있는지 없는지만 간다(dashboard/server/routes/admin.js).
+//
+// .env 가 아니라 여기 두는 까닭: 프로바이더가 여럿이면 .env 한 칸을 돌려쓸 수 없고,
+// 키를 갈아 끼울 때마다 봇을 다시 띄워야 한다. 설정 파일은 mtime 이 바뀌면 다시 읽는다.
+
+function aiKeys() {
+  try {
+    const data = load("ai-keys");
+    return Object.fromEntries(Object.entries(data).map(([name, value]) => [name, String(value ?? "").trim()]));
+  } catch {
+    return {}; // 파일이 없으면 키가 없는 것이다. 로컬 모델만 쓰면 이게 정상이다.
+  }
+}
+
+/** 이 프로바이더의 키(없으면 빈 문자열). */
+const aiKeyOf = (provider) => aiKeys()[provider] || "";
 
 // ── ai-prompt.chatml ──────────────────────────────────────────────────────
 //
@@ -625,6 +652,8 @@ module.exports = {
   genres,
   status,
   ai,
+  aiKeys,
+  aiKeyOf,
   aiPrompt,
   save,
   saveAiPrompt,
