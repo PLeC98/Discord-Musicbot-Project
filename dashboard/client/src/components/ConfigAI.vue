@@ -30,11 +30,23 @@
         </label>
 
         <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. -->
-        <label v-if="on" class="block">
+        <label v-if="on && !spec?.needsProject" class="block">
           <span :class="labelCls">엔드포인트 주소</span>
           <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
           <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ spec?.baseUrl }}</p>
         </label>
+
+        <!-- 버텍스는 주소가 없다. 프로젝트·리전으로 조립한다. -->
+        <template v-if="on && spec?.needsProject">
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'global 도 됩니다'">리전</span>
+            <input v-model="draft.location" placeholder="us-central1" :class="inputCls" />
+          </label>
+          <label class="block">
+            <span :class="labelCls">프로젝트</span>
+            <input v-model="draft.project" placeholder="비우면 서비스 계정 JSON 의 project_id" :class="inputCls" />
+          </label>
+        </template>
       </div>
 
       <template v-if="on">
@@ -60,15 +72,17 @@
 
         <!-- 키는 쓰기 전용이다. 값은 내려오지 않고 있는지 없는지만 온다. -->
         <template v-if="needsKey">
-          <span :class="[labelCls, 'mt-3']">API 키</span>
+          <span :class="[labelCls, 'mt-3']">{{ spec?.serviceAccount ? "서비스 계정 JSON 경로" : "API 키" }}</span>
           <div class="flex items-center gap-2">
-            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="hasKey ? '저장 되어 있습니다. 새로 저장하여 수정할 수 있습니다.' : '키를 입력하세요'" :class="[inputCls, 'flex-1']" />
+            <!-- 서비스 계정은 비밀이 아니라 경로다. 가릴 이유가 없고, 오타를 봐야 한다. -->
+            <input v-model="keyInput" :type="spec?.serviceAccount ? 'text' : 'password'" autocomplete="off" :placeholder="keyPlaceholder" :class="[inputCls, 'flex-1', spec?.serviceAccount ? 'font-mono text-[0.82rem]' : '']" />
             <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
             <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 키 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
           </div>
           <p class="mt-1.5 text-[0.78rem]">
-            <span :class="keyCls">{{ hasKey ? "저장된 키 있음" : "저장된 키 없음" }}</span>
-            <span class="text-muted"> · 보안을 위해 저장된 값은 출력하지 않습니다. 확인을 원하면 설정 파일을 직접 열어 주세요.</span>
+            <span :class="keyCls">{{ hasKey ? "저장됨" : "저장된 값 없음" }}</span>
+            <span v-if="spec?.serviceAccount" class="text-muted"> · config/ 기준 상대경로도 됩니다. 프로젝트는 그 JSON 의 project_id 를 씁니다.</span>
+            <span v-else class="text-muted"> · 보안을 위해 저장된 값은 출력하지 않습니다. 확인을 원하면 설정 파일을 직접 열어 주세요.</span>
           </p>
           <p v-if="!secureOrigin" class="mt-1 text-[0.78rem] text-[#fbbf24]">지금 평문(HTTP)으로 접속 중입니다. 키가 그대로 네트워크를 지나갑니다.</p>
         </template>
@@ -389,6 +403,10 @@ const grouped = computed(() => {
 const on = computed(() => !!draft.value.provider && draft.value.provider !== "off");
 // 로컬 모델은 키를 안 받는다 — 있으나 마나 한 표시를 띄우지 않는다
 const needsKey = computed(() => !!spec.value?.key);
+const keyPlaceholder = computed(() => {
+  if (spec.value?.serviceAccount) return hasKey.value ? "저장돼 있습니다. 바꾸려면 새 경로를 적으세요" : "vertex-sa.json";
+  return hasKey.value ? "저장 되어 있습니다. 새로 저장하여 수정할 수 있습니다." : "키를 입력하세요";
+});
 // 평문으로 열어 두었으면 키가 그대로 네트워크를 지난다 — 파일을 고칠 때는 없는 일이다
 const secureOrigin = computed(() => window.isSecureContext);
 // custom 은 저장된 주소와 같을 때만 키가 붙는다(autoplayAssist.authOf).
@@ -548,7 +566,7 @@ let names = [];
 
 function apply(data) {
   const { list, prompt, promptNames, ...rest } = data || {};
-  draft.value = { provider: "off", extra: "", hideModels: [], ...rest };
+  draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
   names = Array.isArray(promptNames) ? promptNames : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));

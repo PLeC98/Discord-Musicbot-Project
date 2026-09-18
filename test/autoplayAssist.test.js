@@ -23,10 +23,14 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true }));
 // 프롬프트는 **딴 파일**이다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다.
 // 키도 설정 파일에 있다(config/ai-keys.yaml). 프로바이더마다 따로다.
 const KEY = "sk-test-do-not-log";
+// 버텍스는 키가 아니라 서비스 계정 JSON 을 쓴다 — 진짜 키라야 서명이 통과한다
+const { privateKey: PRIVATE_KEY } = require("node:crypto").generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
+const SA_PATH = path.join(DIR, "vertex-sa.json").replace(/\\/g, "/");
+fs.writeFileSync(SA_PATH, JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "json-프로젝트" }));
 
 function useConfig(yaml, sections) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
-  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\n`);
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${SA_PATH}\n`);
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
   else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), configData.toChatML(sections));
   configData._setConfigDir(DIR);
@@ -547,6 +551,90 @@ test("앤트로픽 모델 목록과 max_tokens 덮어쓰기", async () => {
 
   await assist.accepts(cand("A"), {});
   assert.equal(calls.at(-1).body.max_tokens, 4096, "모자라면 extra 로 늘린다");
+});
+
+// ── 버텍스 AI(제미니 네이티브) ────────────────────────────────────────────
+
+// 여기만 유난히 다르다: 주소를 조립하고, 토큰으로 인증하고, 본문이 contents/parts 다.
+test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\ntemperature: 0\n", [
+    { role: "system", text: "기준이다" },
+    { role: "user", text: "{{목록}}" },
+  ]);
+  require("../src/googleAuth")._reset();
+
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: '[{"n":1,"song":true,"fits":true}]' }] } }] }) };
+  };
+
+  assert.equal(await assist.accepts(cand("A"), { genre: "록" }), true, "candidates[].content.parts[].text 를 읽는다");
+
+  const token = calls.find((one) => String(one.url).includes("oauth2"));
+  assert.ok(token, "먼저 서비스 계정으로 토큰을 받는다");
+
+  const sent = calls.at(-1);
+  assert.equal(sent.url, "https://us-central1-aiplatform.googleapis.com/v1/projects/json-프로젝트/locations/us-central1/publishers/google/models/gemini-3-pro:generateContent");
+  assert.equal(sent.init.headers.Authorization, "Bearer ya29.가짜");
+  assert.deepEqual(sent.body.systemInstruction, { parts: [{ text: "기준이다" }] }, "system 은 딴 칸이다");
+  assert.equal(sent.body.contents[0].role, "user");
+  assert.ok(sent.body.contents[0].parts[0].text.includes("장르=록"));
+  assert.ok(!("messages" in sent.body));
+});
+
+test("버텍스: assistant 는 model 이고, extra 는 generationConfig 로 간다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: topP=0.9\n", [
+    { role: "assistant", text: "알겠다" },
+    { role: "user", text: "{{목록}}" },
+  ]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.deepEqual(
+    sent.body.contents.map((c) => c.role),
+    ["model", "user"],
+    "assistant 를 model 이라 부른다",
+  );
+  // 맨 위에 두면 저쪽이 조용히 무시한다 — 가장 알아채기 어려운 종류다
+  assert.equal(sent.body.generationConfig.topP, 0.9);
+  assert.ok(!("topP" in sent.body));
+  // global 리전은 호스트가 다르다
+  assert.match(sent.url, /^https:\/\/aiplatform\.googleapis\.com\//);
+});
+
+test("버텍스 모델 목록은 publisherModels 에서 읽는다", async () => {
+  global.fetch = async (url) => {
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    return { ok: true, status: 200, text: async () => '{"publisherModels":[{"name":"publishers/google/models/gemini-3-pro"},{"name":"publishers/google/models/gemini-3-flash"}]}' };
+  };
+
+  const got = await assist.listModels({ provider: "vertex", location: "us-central1", project: "p" });
+  assert.deepEqual(got.models, ["gemini-3-flash", "gemini-3-pro"]);
+  assert.match(got.url, /\/publishers\/google\/models$/);
+});
+
+// 서비스 계정 JSON 은 이 기능에서 가장 값비싼 비밀이다. 화면에도 응답에도 있으면 안 된다.
+test("버텍스: 서비스 계정 키와 토큰이 밖으로 나가지 않는다", async () => {
+  global.fetch = async (url) => {
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.진짜같은토큰","expires_in":3600}' };
+    return { ok: false, status: 401, text: async () => "denied for token ya29.진짜같은토큰" };
+  };
+  require("../src/googleAuth")._reset();
+
+  const shown = await assist.sendTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" });
+  const dump = JSON.stringify(shown);
+  assert.ok(!dump.includes("PRIVATE KEY"), "서비스 계정 키가 나가면 안 된다");
+  assert.ok(!dump.includes(PRIVATE_KEY.slice(40, 90)));
+  assert.ok(!dump.includes("ya29.진짜같은토큰"), "받아 둔 토큰도 가린다");
+  assert.equal(shown.headers.Authorization, `Bearer ${assist.REDACTED}`);
 });
 
 test("인증이 실린 헤더는 어느 이름이든 가린다", async () => {

@@ -9,7 +9,7 @@
     <BaseCard icon="robot" title="상태 문구 전역 설정" class="mb-3">
       <p class="text-muted text-[0.82rem] mt-1 mb-3">디스코드 프로필에 뜨는 문구입니다. 아래 기간·시간대 문구 중 적용할 것이 없을 때 이 문구들을 번갈아 씁니다.</p>
 
-      <label class="block mb-4 max-w-56">
+      <label class="block mb-4 w-full">
         <span :class="labelCls">문구 변경 주기(초)</span>
         <NumberInput v-model="draft.interval" :class="inputCls" />
       </label>

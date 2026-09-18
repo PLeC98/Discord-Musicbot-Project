@@ -35,6 +35,9 @@
 #
 #   openrouter · nanogpt · vercel · llmgateway   여러 곳을 묶어 파는 곳
 #
+#   vertex                                       버텍스 AI(제미니 네이티브).
+#                                                키가 아니라 서비스 계정 JSON 을 씁니다
+#
 #   custom                                       그 밖의 OpenAI 호환 주소(아래 baseUrl 을 씁니다)
 #
 # 전부 OpenAI 호환 규격으로 부릅니다. 키는 config/ai-keys.yaml 의 **같은 이름 칸**을 씁니다.
@@ -47,6 +50,13 @@ provider: off
 # (주소는 src/autoplayAssist.js 의 PROVIDER_SPECS 에 있습니다).
 # 여기 없는 곳이거나, 프록시를 앞에 두었거나, 박힌 주소가 바뀌었으면 custom 으로 쓰세요.
 baseUrl: ""
+
+# ── 버텍스 AI 전용 ──────────────────────────────────────────────────────────
+# provider: vertex 일 때만 씁니다. 주소를 이 둘로 조립합니다(baseUrl 을 안 씁니다).
+#   location  리전. global 도 됩니다(그때는 호스트도 달라집니다)
+#   project   비우면 서비스 계정 JSON 의 project_id 를 씁니다
+location: ""
+project: ""
 
 # 모델 이름. 실측에서는 gemma3n:e2b(4.3GB)가 가장 나았습니다.
 # 더 큰 e4b 는 오히려 박해져서 쓸 만한 곡까지 떨어뜨렸습니다(재현율 94% → 87%).

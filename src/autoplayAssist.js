@@ -61,10 +61,10 @@ const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfiden
  * 어디에 물을지.
  *
  * **모델 이름은 여기 적지 않는다.** 적어 두면 저쪽에서 새 모델이 나올 때마다 이 파일을
- * 고쳐야 한다. 주소만 알고 있다가 `GET {baseUrl}/models` 로 그때그때 물어본다.
+ * 고쳐야 한다. 주소만 알고 있다가 목록을 그때그때 물어본다.
  *
- * 전부 OpenAI 호환이라 코드가 하나다 — 규격이 진짜로 다른 것(Anthropic · Vertex 네이티브)이
- * 필요해지면 그때 갈래를 낸다.
+ * 대부분 OpenAI 호환이라 코드가 하나다. 규격이 진짜로 다른 것(앤트로픽·버텍스 네이티브)은
+ * `dialect` 로 갈래를 낸다 — 차이는 DIALECTS 한 곳에만 있다.
  */
 const PROVIDER_SPECS = {
   off: { label: "사용하지 않음", group: "" },
@@ -91,6 +91,9 @@ const PROVIDER_SPECS = {
   nanogpt: { label: "NanoGPT", baseUrl: "https://nano-gpt.com/api/v1", key: true, group: "게이트웨이" },
   vercel: { label: "Vercel AI Gateway", baseUrl: "https://ai-gateway.vercel.sh/v1", key: true, group: "게이트웨이" },
   llmgateway: { label: "LLM Gateway", baseUrl: "https://api.llmgateway.io/v1", key: true, group: "게이트웨이" },
+
+  // 구글 클라우드. 키가 아니라 서비스 계정 JSON 을 쓰고, 주소는 프로젝트·리전으로 조립한다.
+  vertex: { label: "Vertex AI (Gemini 네이티브)", key: true, group: "클라우드", dialect: "vertex", serviceAccount: true, needsProject: true },
 
   // 주소를 직접 적는 유일한 자리. 여기 없는 곳도, 위의 주소가 바뀌었을 때도 이것으로 간다.
   custom: { label: "OpenAI 호환 (직접 입력)", baseUrl: "", key: true, editable: true, group: "직접" },
@@ -137,15 +140,12 @@ async function authOf(one) {
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
-// 그 서비스가 늘 요구하는 헤더 + 키. 세 갈래(판정·모델 목록·유료 확인)가 같은 것을 써야 한다.
-//
-// TODO 앤트로픽은 나중에 네이티브로 옮긴다(버텍스 네이티브를 들일 때 함께). 지금은
-// OpenAI 호환 계층으로 가되 /models 가 요구하는 버전 헤더를 붙여 둔다.
-
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
   const one = { ...DEFAULTS, ...configData.ai() };
-  if (!live(one) || !endpointOf(one) || !one.model) return null;
+  // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
+  if (!live(one) || !one.model) return null;
+  if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
   // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다
   return { ...one, prompt: configData.aiPrompt() };
 }
@@ -301,7 +301,56 @@ const DIALECTS = {
     answerOf: (json) => (json?.content || []).map((part) => part?.text || "").join(""),
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
   },
+
+  /**
+   * 버텍스 AI — 제미니 네이티브.
+   *
+   * 여기만 유난히 다르다.
+   *   · 주소를 프로젝트·리전·모델로 **조립한다**. baseUrl 이 없다.
+   *   · 인증이 API 키가 아니라 서비스 계정에서 받은 액세스 토큰이다(googleAuth).
+   *   · 본문이 messages 가 아니라 contents/parts 이고, assistant 를 model 이라 부른다.
+   *   · system 은 systemInstruction 이라는 딴 칸이다.
+   *   · 온도 같은 것은 맨 위가 아니라 generationConfig 안에 있다 —
+   *     그래서 extra 로 적은 것도 그 안으로 넣는다(맨 위에 두면 조용히 무시된다).
+   */
+  vertex: {
+    chatUrl: (one) => `${vertexBase(one)}/publishers/google/models/${one.model || ""}:generateContent`,
+    modelsUrl: (one) => `${vertexBase(one)}/publishers/google/models`,
+    headers: async (one) => {
+      const token = await require("./googleAuth").accessToken(configData.aiKeyOf(one.provider), { baseDir: configData.configDir(), timeoutMs: Number(one.timeoutMs) });
+      return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+    },
+    body: (one, messages) => {
+      const system = messages
+        .filter((m) => m.role === "system")
+        .map((m) => m.content)
+        .join("\n\n");
+      return {
+        contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+        generationConfig: { temperature: Number(one.temperature) },
+      };
+    },
+    answerOf: (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join(""),
+    // { publisherModels: [{ name: "publishers/google/models/gemini-3-pro" }] }
+    modelsOf: (json) =>
+      (json?.publisherModels || []).map((m) =>
+        String(m?.name || "")
+          .split("/")
+          .pop(),
+      ),
+    // extra 는 맨 위가 아니라 generationConfig 로 간다
+    extraInto: "generationConfig",
+  },
 };
+
+// 리전이 global 이면 호스트도 다르다(지역 호스트로 부르면 404 다)
+function vertexBase(one) {
+  const location = String(one?.location || "").trim() || "us-central1";
+  const project = String(one?.project || "").trim() || require("./googleAuth").projectOf(configData.aiKeyOf(one?.provider), configData.configDir());
+  const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
+  return `https://${host}/v1/projects/${project}/locations/${location}`;
+}
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MAX_TOKENS = 1024;
@@ -313,11 +362,31 @@ async function buildRequest(one, batch, genre) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
 
-  const body = { ...dialect.body(one, buildMessages(one, batch, genre)), ...extra.body };
-  // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
-  for (const key of extra.drop) delete body[key];
-
+  const body = withExtra(dialect, dialect.body(one, buildMessages(one, batch, genre)), extra);
   return { url: dialect.chatUrl(one), headers: { ...(await dialect.headers(one)), ...extra.headers }, body };
+}
+
+/**
+ * 추가 파라미터를 본문에 얹는다.
+ *
+ * 버텍스는 온도 같은 것이 맨 위가 아니라 generationConfig 안에 있다(extraInto).
+ * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다 — 가장 알아채기 어려운 종류다.
+ */
+function withExtra(dialect, body, extra) {
+  const where = dialect.extraInto;
+  if (!where) {
+    const out = { ...body, ...extra.body };
+    // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
+    for (const key of extra.drop) delete out[key];
+    return out;
+  }
+
+  const inner = { ...(body[where] || {}), ...extra.body };
+  for (const key of extra.drop) delete inner[key];
+  const out = { ...body, [where]: inner };
+  // 안쪽이 통째로 비었으면 칸도 빼 준다
+  if (!Object.keys(inner).length) delete out[where];
+  return out;
 }
 
 // gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 흘리는 일이 있다.
@@ -486,8 +555,7 @@ async function ping(draft) {
   const dialect = dialectOf(one);
   const url = dialect.chatUrl(one);
   const extra = parseExtra(one.extra);
-  const body = { ...dialect.body(one, [{ role: "user", content: PING_TEXT }]), ...extra.body };
-  for (const key of extra.drop) delete body[key];
+  const body = withExtra(dialect, dialect.body(one, [{ role: "user", content: PING_TEXT }]), extra);
 
   const headers = { ...(await dialect.headers(one)), ...extra.headers };
 
@@ -573,8 +641,9 @@ const REDACTED = "[REDACTED_SECRET_KEY]";
 // 어느 것이 되비쳐 올지 우리가 정할 수 없고, 넉넉히 가려서 손해 볼 것이 없다.
 function mask(text) {
   let out = String(text);
-  for (const key of Object.values(configData.aiKeys())) {
-    if (key) out = out.split(key).join(REDACTED);
+  // 받아 둔 액세스 토큰도 가린다 — 서비스 계정에서 나온 것이라 키만큼 값이 나간다
+  for (const key of [...Object.values(configData.aiKeys()), ...require("./googleAuth").heldTokens()]) {
+    if (key && key.length > 8) out = out.split(key).join(REDACTED);
   }
   return out;
 }

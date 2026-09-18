@@ -598,6 +598,10 @@ function validateAi(data) {
       else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
     }
     if (!String(data.model || "").trim()) problems.push("model을 적어야 합니다.");
+
+    // 버텍스는 주소를 프로젝트·리전으로 조립한다 — 없으면 아무 데도 못 간다.
+    // 프로젝트는 서비스 계정 JSON 에 있으면 그것을 쓰므로 여기서는 리전만 못 박는다.
+    if (data.provider === "vertex" && !String(data.location || "").trim()) problems.push("provider가 vertex면 location을 적어야 합니다(예: us-central1, global).");
   }
 
   const num = (key, min, max) => {
@@ -612,6 +616,10 @@ function validateAi(data) {
   // 추가 파라미터는 한 줄에 하나씩 적는 글이다(autoplayAssist.parseExtra)
   if (data?.extra != null && typeof data.extra !== "string") problems.push("extra는 한 줄에 하나씩 적는 글이어야 합니다.");
   if (data?.prompt != null) problems.push(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`);
+
+  for (const key of ["project", "location"]) {
+    if (data?.[key] != null && typeof data[key] !== "string") problems.push(`${key}는 글자로 적어야 합니다.`);
+  }
 
   // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
   if (data?.hideModels != null && !(Array.isArray(data.hideModels) && data.hideModels.every((one) => typeof one === "string"))) {
@@ -696,6 +704,7 @@ module.exports = {
   ACTIVITY_TYPES,
   fileOf,
   exampleOf,
+  configDir: () => configDir,
   promptPath,
   _setConfigDir,
   _cache: cache,
