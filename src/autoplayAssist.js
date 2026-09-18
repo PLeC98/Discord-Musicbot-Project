@@ -78,7 +78,9 @@ const PROVIDER_SPECS = {
   // ── 모델을 직접 내는 곳 ──
   "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드" },
   openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드" },
-  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드" },
+  // /chat/completions 는 OpenAI 호환 계층이지만 /models 는 네이티브라 버전 헤더를 요구한다
+  // (없으면 `anthropic-version: header is required`). 한 주소에 두 성격이 섞여 있다.
+  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", headers: { "anthropic-version": "2023-06-01" } },
   aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: true, group: "클라우드" },
   deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드" },
   mistral: { label: "Mistral", baseUrl: "https://api.mistral.ai/v1", key: true, group: "클라우드" },
@@ -133,6 +135,12 @@ function authOf(one) {
   const key = configData.aiKeyOf(one.provider);
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
+
+// 그 서비스가 늘 요구하는 헤더 + 키. 세 갈래(판정·모델 목록·유료 확인)가 같은 것을 써야 한다.
+//
+// TODO 앤트로픽은 나중에 네이티브로 옮긴다(버텍스 네이티브를 들일 때 함께). 지금은
+// OpenAI 호환 계층으로 가되 /models 가 요구하는 버전 헤더를 붙여 둔다.
+const headersOf = (one) => ({ ...(specOf(one?.provider)?.headers || {}), ...authOf(one) });
 
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
@@ -255,11 +263,7 @@ function buildRequest(one, batch, genre) {
 
   return {
     url: `${endpointOf(one)}/chat/completions`,
-    headers: {
-      "Content-Type": "application/json",
-      ...authOf(one),
-      ...extra.headers,
-    },
+    headers: { "Content-Type": "application/json", ...headersOf(one), ...extra.headers },
     body,
   };
 }
@@ -373,7 +377,7 @@ async function listModels(draft) {
   if (!endpointOf(one)) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
 
   const url = `${endpointOf(one)}/models`;
-  const headers = authOf(one);
+  const headers = headersOf(one);
   const started = Date.now();
 
   try {
@@ -383,17 +387,35 @@ async function listModels(draft) {
     if (!res.ok) return { ok: false, url, status: res.status, response: text, tookMs: took, reason: `HTTP ${res.status}` };
 
     // OpenAI 규격은 { data: [{ id }] } 다. 다른 모양이면 목록만 못 채우고 연결은 된 것이다.
-    let models = [];
+    let all = [];
     try {
-      models = (JSON.parse(text)?.data || []).map((m) => m?.id).filter((id) => typeof id === "string");
+      all = (JSON.parse(text)?.data || []).map((m) => m?.id).filter((id) => typeof id === "string");
     } catch {
       /* 목록을 못 읽어도 응답 자체는 보여 준다 */
     }
-    return { ok: true, url, status: res.status, models: models.sort(), response: text, tookMs: took };
+
+    // **이름을 코드에 적지 않는다.** 대신 안 쓸 것을 설정에서 가린다 — 저쪽 목록에는
+    // 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
+    const hidden = hideRules(one.hideModels);
+    const models = all.filter((id) => !hidden.some((rule) => rule.test(id))).sort();
+    return { ok: true, url, status: res.status, models, hiddenCount: all.length - models.length, response: text, tookMs: took };
   } catch (error) {
     return { ok: false, url, status: null, response: mask(error.message), tookMs: Date.now() - started, reason: mask(error.message) };
   }
 }
+
+/**
+ * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다 — 정규식을 설정 파일에 적게 하면
+ * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
+ */
+function hideRules(patterns) {
+  return (Array.isArray(patterns) ? patterns : [])
+    .map((one) => String(one ?? "").trim())
+    .filter(Boolean)
+    .map((one) => new RegExp(`^${one.split("*").map(escapeRe).join(".*")}$`, "i"));
+}
+
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // 유료 확인에 쓰는 물음 — 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
 const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
@@ -416,7 +438,7 @@ async function ping(draft) {
 
   const headers = {
     "Content-Type": "application/json",
-    ...authOf(one),
+    ...headersOf(one),
     ...extra.headers,
   };
 

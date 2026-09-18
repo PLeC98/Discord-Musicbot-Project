@@ -480,6 +480,46 @@ test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () =
   assert.equal(calls.at(-1).url, "https://api.openai.com/v1/chat/completions");
 });
 
+// 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다 —
+// 저쪽 목록에는 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
+test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({ data: [{ id: "gpt-5" }, { id: "sora-2" }, { id: "gpt-3.5-turbo" }, { id: "nano-banana-pro-preview" }, { id: "text-embedding-3-small" }] }),
+  });
+
+  const got = await assist.listModels({ provider: "openai", hideModels: ["*sora*", "gpt-3.5*", "*banana*", "*embedding*"] });
+  assert.deepEqual(got.models, ["gpt-5"]);
+  assert.equal(got.hiddenCount, 4, "몇 개를 가렸는지 알려 준다 — 조용히 사라지면 안 된다");
+
+  // 안 적으면 그대로 다 온다
+  assert.equal((await assist.listModels({ provider: "openai" })).models.length, 5);
+
+  // 글롭이지 정규식이 아니다 — 점은 점이다
+  const dots = await assist.listModels({ provider: "openai", hideModels: ["gpt.5"] });
+  assert.ok(dots.models.includes("gpt-5"), "gpt.5 가 gpt-5 를 가리면 안 된다");
+});
+
+// 앤트로픽은 /chat/completions 는 OpenAI 호환이지만 /models 는 네이티브라 버전 헤더를 요구한다.
+// 안 붙이면 `anthropic-version: header is required` 로 목록을 못 받는다.
+test("그 서비스가 요구하는 헤더를 붙인다", async () => {
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => "{}" };
+  };
+
+  await assist.listModels({ provider: "anthropic" });
+  assert.equal(calls.at(-1).init.headers["anthropic-version"], "2023-06-01");
+
+  await assist.ping({ provider: "anthropic", model: "claude" });
+  assert.equal(calls.at(-1).init.headers["anthropic-version"], "2023-06-01", "판정·확인 어느 쪽이든 같아야 한다");
+
+  await assist.listModels({ provider: "openai" });
+  assert.ok(!calls.at(-1).init.headers["anthropic-version"], "다른 곳에는 안 붙인다");
+});
+
 test("클라우드 프로바이더에는 키를 붙인다", async () => {
   calls.length = 0;
   global.fetch = async (url, init) => {

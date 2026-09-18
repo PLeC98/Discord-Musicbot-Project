@@ -29,67 +29,68 @@
       </label>
 
       <template v-if="on">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. -->
-          <label class="block">
-            <span :class="labelCls">엔드포인트 주소</span>
-            <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
-            <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ spec?.baseUrl }}</p>
-          </label>
+        <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. -->
+        <label class="block mt-3">
+          <span :class="labelCls">엔드포인트 주소</span>
+          <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
+          <p v-else class="text-muted text-[0.82rem] font-mono break-all py-2">{{ spec?.baseUrl }}</p>
+        </label>
 
-          <label class="block">
-            <span :class="labelCls">모델</span>
-            <div class="flex items-center gap-2">
-              <div v-if="models.length && !manualModel" class="relative flex-1 min-w-0">
-                <select v-model="draft.model" :class="[inputCls, selectCls]">
-                  <option v-for="one in models" :key="one" :value="one" :class="optionCls">{{ one }}</option>
-                </select>
-                <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-              </div>
-              <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1']" />
-              <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침 (무료)'" @click="loadModels()">
-                <Icon name="repeat" :size="15" :class="loadingModels ? 'opacity-40' : ''" />
-              </button>
-            </div>
-          </label>
-        </div>
+        <span :class="[labelCls, 'mt-3']">모델</span>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침 (무료)'" @click="loadModels()">
+            <Icon name="repeat" :size="15" :class="loadingModels ? 'opacity-40' : ''" />
+          </button>
 
-        <div class="flex items-center gap-2.5 flex-wrap">
-          <button v-if="models.length" :class="addLine" @click="manualModel = !manualModel">{{ manualModel ? "목록에서 고르기" : "모델 직접 입력" }}</button>
+          <div v-if="models.length && !manualModel" class="relative flex-1 min-w-40">
+            <select v-model="draft.model" :class="[inputCls, selectCls]">
+              <option v-for="one in models" :key="one" :value="one" :class="optionCls">{{ one }}</option>
+            </select>
+            <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+          </div>
+          <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1 min-w-40']" />
+
+          <label class="flex items-center gap-2 cursor-pointer shrink-0" v-tooltip="models.length ? '' : '목록을 못 받았으면 직접 적어야 합니다'">
+            <input v-model="manualModel" type="checkbox" class="size-4 accent-accent shrink-0" :disabled="!models.length" />
+            <span class="text-[0.82rem]" :class="models.length ? '' : 'text-muted'">직접 입력하기</span>
+          </label>
         </div>
 
         <!-- 키는 쓰기 전용이다. 값은 내려오지 않고 있는지 없는지만 온다. -->
-        <div v-if="needsKey" class="mt-3">
-          <span :class="labelCls">API 키</span>
+        <template v-if="needsKey">
+          <span :class="[labelCls, 'mt-3']">API 키</span>
           <div class="flex items-center gap-2">
-            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="hasKey ? '저장돼 있습니다. 바꾸려면 새로 입력하세요' : '키를 입력하세요'" :class="[inputCls, 'flex-1']" />
+            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="hasKey ? '저장돼 있음 — 바꾸려면 새로 입력' : '키를 입력하세요'" :class="[inputCls, 'flex-1']" />
             <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
             <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 키 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
           </div>
           <p class="mt-1.5 text-[0.78rem]">
             <span :class="keyCls">{{ hasKey ? "저장돼 있음" : "없음" }}</span>
-            <span class="text-muted"> · config/ai-keys.yaml 에 저장되며 화면으로 다시 내려오지 않습니다</span>
+            <span class="text-muted"> · 화면으로 다시 내려오지 않습니다</span>
           </p>
           <p v-if="!secureOrigin" class="mt-1 text-[0.78rem] text-[#fbbf24]">지금 평문(HTTP)으로 접속 중입니다. 키가 그대로 네트워크를 지나갑니다.</p>
-        </div>
+        </template>
 
         <p v-if="staleCustomUrl" class="mt-3 text-[0.78rem] text-[#fbbf24]">주소를 고쳤지만 아직 저장하지 않았습니다. 저장 전에는 키를 붙이지 않고 보냅니다.</p>
 
-        <p class="text-muted text-[0.78rem] mt-4 mb-2">무료는 모델 목록만 부릅니다. 유료는 짧은 물음 하나를 실제로 생성시킵니다.</p>
+        <p class="text-muted text-[0.78rem] mt-4 mb-2">무료 테스트는 현재 API 키와 URL로 모델 목록·토큰 수 확인 API만 호출하며, 유료 테스트는 짧은 질문을 실제로 전송합니다.</p>
         <div class="flex items-center gap-2.5 flex-wrap">
           <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels()">{{ loadingModels ? "확인 중…" : "무료 테스트" }}</BaseButton>
-          <BaseButton variant="secondary" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? "보내는 중…" : "유료 테스트" }}</BaseButton>
+          <BaseButton variant="warning" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? "보내는 중…" : "유료 테스트" }}</BaseButton>
         </div>
 
-        <p v-if="modelResult" class="mt-2 text-[0.82rem]" :class="modelResult.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">
-          {{ modelResult.ok ? `모델 ${models.length}개 · ${(modelResult.tookMs / 1000).toFixed(1)}초` : modelResult.reason }}
-        </p>
-        <pre v-if="modelResult && !modelResult.ok && modelResult.response" :class="[preCls, 'mt-2']">{{ modelResult.response }}</pre>
-
-        <template v-if="pingResult">
-          <p class="mt-2 text-[0.82rem]" :class="pingResult.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ pingResult.status ? `HTTP ${pingResult.status}` : "보내지 못함" }} · {{ (pingResult.tookMs / 1000).toFixed(1) }}초</p>
-          <p class="mt-1 text-muted text-[0.78rem]">보낸 것: {{ pingText }}</p>
-          <pre :class="[preCls, 'mt-2']">{{ pingResult.answer || pingResult.response }}</pre>
+        <!-- 둘 다 테스트 결과다. 나눠 둘 이유가 없어 한 자리에 쓴다. -->
+        <template v-if="tested">
+          <p class="mt-3 text-[0.82rem]" :class="tested.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">
+            <span class="font-semibold">{{ tested.kind }}</span>
+            · {{ tested.status ? `HTTP ${tested.status}` : "보내지 못함" }} · {{ tested.tookMs }}ms
+            <span v-if="tested.extra" class="text-muted">· {{ tested.extra }}</span>
+          </p>
+          <p v-if="tested.reason && !tested.status" class="mt-1 text-[0.82rem] text-[#f87171]">{{ tested.reason }}</p>
+          <p v-if="tested.asked" class="mt-1 text-muted text-[0.78rem]">보낸 것: {{ tested.asked }}</p>
+          <pre v-if="tested.body" :class="[preCls, 'mt-2']">{{ tested.body }}</pre>
+          <button v-if="tested.raw && tested.raw !== tested.body" :class="addLine" @click="showRaw = !showRaw">{{ showRaw ? "원문 접기" : "원문 보기" }}</button>
+          <pre v-if="showRaw && tested.raw" :class="[preCls, 'mt-1']">{{ tested.raw }}</pre>
         </template>
       </template>
     </BaseCard>
@@ -121,6 +122,12 @@
             한 줄에 하나씩. <code class="text-fg-soft">key=value</code> / <code class="text-fg-soft">key=json::{...}</code> / <code class="text-fg-soft">header::Name=value</code> / <code class="text-fg-soft">key={{ NONE_MARK }}</code> 지원.
           </p>
           <textarea v-model="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
+        </div>
+
+        <div class="mt-4">
+          <span :class="labelCls">모델 목록에서 가릴 것</span>
+          <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 뺍니다. <code class="text-fg-soft">*</code> 만 쓰는 글롭이고 대소문자를 가리지 않습니다. 영상·이미지 모델이나 한참 옛 모델이 섞여 나올 때 씁니다.</p>
+          <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
         </div>
       </BaseCard>
 
@@ -247,7 +254,8 @@
 
     <!-- 유료 확인 — 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다. -->
     <div v-if="paid" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="paid = null">
-      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-110 w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <!-- 주소가 길면 늘어나고 짧으면 줄어든다. 다만 너무 좁아지지는 않게 바닥을 둔다. -->
+      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 w-fit min-w-[min(26rem,90vw)] max-w-[min(60rem,92vw)] shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p class="mb-2 text-[0.95rem] text-fg-soft">실제로 보냅니다. 토큰이 듭니다.</p>
         <dl class="mb-5 text-[0.82rem] grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
           <dt class="text-muted">보낼 곳</dt>
@@ -290,6 +298,7 @@ import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NumberInput from "./NumberInput.vue";
+import ChipInput from "./ChipInput.vue";
 import SaveDock from "./SaveDock.vue";
 import { isFolded, toggleFold, promptFoldId } from "../composables/configFolds";
 
@@ -346,11 +355,12 @@ const paid = ref(null); // "ping" | "judge" — 확인 대화상자
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
-const modelResult = ref(null);
 const models = ref([]);
 const manualModel = ref(false);
 const pinging = ref(false);
-const pingResult = ref(null);
+// 무료·유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
+const tested = ref(null);
+const showRaw = ref(false);
 const testing = ref(false);
 const shown = ref(null);
 const defaults = ref({ sections: [], line: "" });
@@ -391,6 +401,13 @@ const boxes = computed(() => {
   const one = shown.value;
   if (!one) return [];
   return [{ title: "URL", text: one.url }, { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) }, { title: "요청 본문", text: JSON.stringify(one.body, null, 2) }, ...(one.sent ? [{ title: "응답", text: one.response || "(비어 있음)" }] : [])];
+});
+
+const hideModels = computed({
+  get: () => draft.value.hideModels || [],
+  set: (v) => {
+    draft.value.hideModels = v;
+  },
 });
 
 // 추가 파라미터는 한 줄에 하나씩 적는 글이다 — 뜯어 읽는 것은 서버가 한다(autoplayAssist)
@@ -528,7 +545,7 @@ let names = [];
 
 function apply(data) {
   const { list, prompt, promptNames, ...rest } = data || {};
-  draft.value = { provider: "off", extra: "", ...rest };
+  draft.value = { provider: "off", extra: "", hideModels: [], ...rest };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
   names = Array.isArray(promptNames) ? promptNames : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));
@@ -589,12 +606,10 @@ async function runTest() {
   }
 }
 
-// 프로바이더를 바꾸면 그 주소를 채워 준다. 직접 적어 둔 것은 건드리지 않는다 —
-// 다른 포트로 띄워 둔 사람의 설정을 드롭다운 한 번에 날리면 안 된다.
 function onProvider() {
   models.value = [];
-  modelResult.value = null;
-  pingResult.value = null;
+  tested.value = null;
+  keyInput.value = "";
   manualModel.value = false;
 
   // baseUrl 은 custom 전용이다 — 다른 것을 골랐다고 적어 둔 주소를 지우지 않는다
@@ -606,15 +621,29 @@ function onProvider() {
 // quiet: 프로바이더를 고를 때 저절로 도는 것이라 실패를 빨갛게 띄우지 않는다.
 async function loadModels({ quiet = false } = {}) {
   loadingModels.value = true;
-  pingResult.value = null;
+  showRaw.value = false;
+  if (!quiet) tested.value = null;
+
   try {
     const got = (await axios.post("/api/admin/ai/models", { data: payload.value })).data;
-    modelResult.value = quiet && !got.ok ? null : got;
     models.value = got.models || [];
     // 받아 온 목록에 지금 값이 없으면 손으로 적던 것이다 — 그대로 두고 칸만 열어 둔다
     manualModel.value = !models.value.length || (!!draft.value.model && !models.value.includes(draft.value.model));
+
+    if (quiet && !got.ok) return;
+    const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
+    tested.value = {
+      kind: "무료 테스트",
+      ok: got.ok,
+      status: got.status,
+      tookMs: got.tookMs ?? 0,
+      reason: got.reason,
+      extra: got.ok ? `모델 ${models.value.length}개${hidden}` : "",
+      body: got.ok ? "" : got.response,
+      raw: got.response,
+    };
   } catch (error) {
-    modelResult.value = quiet ? null : { ok: false, reason: error.response?.data?.error || "불러오지 못했습니다." };
+    if (!quiet) tested.value = { kind: "무료 테스트", ok: false, status: null, tookMs: 0, reason: error.response?.data?.error || "불러오지 못했습니다." };
   } finally {
     loadingModels.value = false;
   }
@@ -649,11 +678,22 @@ const clearKey = () => putKey("");
 // 유료 — 짧은 물음 하나를 실제로 생성시킨다(판정 프롬프트는 안 쓴다).
 async function runPing() {
   pinging.value = true;
-  pingResult.value = null;
+  tested.value = null;
+  showRaw.value = false;
   try {
-    pingResult.value = (await axios.post("/api/admin/ai/ping", { data: payload.value })).data;
+    const got = (await axios.post("/api/admin/ai/ping", { data: payload.value })).data;
+    tested.value = {
+      kind: "유료 테스트",
+      ok: got.ok,
+      status: got.status,
+      tookMs: got.tookMs ?? 0,
+      reason: got.reason,
+      asked: pingText.value,
+      body: got.answer || got.response,
+      raw: got.response,
+    };
   } catch (error) {
-    pingResult.value = { ok: false, reason: error.response?.data?.error || "보내지 못했습니다.", tookMs: 0 };
+    tested.value = { kind: "유료 테스트", ok: false, status: null, tookMs: 0, reason: error.response?.data?.error || "보내지 못했습니다." };
   } finally {
     pinging.value = false;
   }

@@ -613,6 +613,11 @@ function validateAi(data) {
   if (data?.extra != null && typeof data.extra !== "string") problems.push("extra는 한 줄에 하나씩 적는 글이어야 합니다.");
   if (data?.prompt != null) problems.push(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`);
 
+  // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
+  if (data?.hideModels != null && !(Array.isArray(data.hideModels) && data.hideModels.every((one) => typeof one === "string"))) {
+    problems.push('hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).');
+  }
+
   // 섹션 이름은 대시보드에서 어느 섹션인지 알아보려고 붙이는 것이다.
   // ChatML 에는 이름을 적을 자리가 없어서 여기 둔다 — 차례가 프롬프트 섹션과 같아야 한다.
   if (data?.promptNames != null && !(Array.isArray(data.promptNames) && data.promptNames.every((one) => one == null || typeof one === "string"))) {
