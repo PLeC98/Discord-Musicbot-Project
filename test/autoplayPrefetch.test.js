@@ -35,6 +35,7 @@ function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [],
     _canPrefetchAutoplay: MusicPlayer.prototype._canPrefetchAutoplay,
     // 실제 config/genres.yaml 을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
     _autoplayConfig: () => ({ prefetchCount: prefetch }),
+    _prefetchGapMs: 0, // 뽑기 사이 쉬는 시간 — 테스트에서는 기다릴 이유가 없다
     async pickAutoplayTrack() {
       calls.picks++;
       return pick ? await pick.call(this) : auto(`자동${calls.picks}`);
@@ -84,6 +85,28 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
 // 기본 1곡만 덮으면 값을 키워도 한 곡만 들어가는 회귀를 놓친다.
 // 회귀 대상: 한 번 불릴 때 한 곡만 넣었다. 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라,
 // prefetchCount 를 키워도 늘 한 곡 앞만 보였다.
+// 뽑기 한 번에 유튜브 검색이 여러 번 나간다. 다섯 곡을 붙여 뽑으면 수십 번이 몇 초 안에 몰려
+// 뒤이은 내려받기가 403을 맞는다. 급한 것은 첫 곡뿐이므로 나머지는 사이를 둔다.
+test("둘째 곡부터는 쉬었다 뽑는다 — 유튜브를 몰아치지 않는다", async () => {
+  const slept = [];
+  const p = makePlayer({ prefetch: 3 });
+  p._prefetchGapMs = 5;
+
+  const realTimeout = global.setTimeout;
+  global.setTimeout = (fn, ms) => {
+    slept.push(ms);
+    return realTimeout(fn, 0);
+  };
+  try {
+    await ensureAutoplayNext.call(p);
+  } finally {
+    global.setTimeout = realTimeout;
+  }
+
+  assert.equal(p.queue.length, 3);
+  assert.deepEqual(slept, [5, 5], "첫 곡은 바로, 나머지 둘은 쉬었다가");
+});
+
 test("prefetchCount만큼 채운다 — 한 번 불려도 끝까지", async () => {
   const p = makePlayer({ prefetch: 3 });
 

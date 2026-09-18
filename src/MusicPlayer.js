@@ -1542,8 +1542,18 @@ class MusicPlayer {
     try {
       // prefetchCount만큼 채운다. 한 번에 한 곡만 넣으면 값을 키워도 늘 한 곡 앞만 보게 된다
       // — 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라 다시 불러 주는 사람이 없기 때문이다.
+      //
+      // 다만 쉬지 않고 연달아 뽑으면 안 된다. 뽑기 한 번에 유튜브 검색이 여러 번 나가므로
+      // (소스 재시도 × 검색어) 다섯 곡을 붙여 뽑으면 수십 번이 몇 초 안에 몰리고, 뒤이은
+      // 내려받기가 403을 맞는다. 급한 것은 첫 곡뿐이니 나머지는 사이를 둔다 —
+      // 예열이 내려받기에 두는 간격(preload.gapMs)과 같은 값을 쓴다.
       let added = 0;
       while (this._canPrefetchAutoplay()) {
+        if (added > 0) {
+          await new Promise((done) => setTimeout(done, this._prefetchGapMs ?? config.preload.gapMs));
+          if (!this._canPrefetchAutoplay()) break; // 쉬는 사이 사용자가 곡을 넣었을 수 있다
+        }
+
         const picked = await this.pickAutoplayTrack();
         if (!picked) break;
         // 고르는 사이 대기열이 변했을 수 있다 — 사용자가 곡을 넣었으면 미리 뽑기는 취소한다.
