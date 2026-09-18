@@ -348,6 +348,8 @@ test("설정: 내용이 없으면 400", async () => {
 
 // 편집기가 그릴 표는 서버가 준다. 화면이 목록을 따로 들면 소스를 더할 때 한쪽만 고치게 된다.
 test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준다", async () => {
+  // 방영 연도 범위는 평소 AnimeThemes 에 묻는다 — 테스트는 바깥에 나가지 않는다
+  require("../src/autoplaySources")._seedYearRange({ min: 1963, max: 2026 });
   const { status, json } = await req("GET", "/api/admin/source-types");
   assert.equal(status, 200);
 
@@ -370,10 +372,31 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   // "둘 중 하나"는 따로 알려 준다
   assert.deepEqual(byType.lbradio.either, [["tags", "prompt"]]);
 
-  // 고를 값이 정해진 칸은 목록을 같이 준다
+  // 고를 값이 정해진 칸은 목록을 같이 준다 — 보일 말과 API 값이 다를 수 있어 짝으로 준다
   const media = byType.animethemes.fields.find((f) => f.key === "mediaFormat");
   assert.equal(media.kind, "enumList");
-  assert.ok(media.options.includes("TV Short"));
+  assert.ok(
+    media.options.some((o) => o.value === "TV Short"),
+    "매체 목록에 TV Short 가 있어야 한다",
+  );
+  const season = byType.animethemes.fields.find((f) => f.key === "season");
+  assert.deepEqual(
+    season.options.map((o) => o.label),
+    ["1분기 (1~3월)", "2분기 (4~6월)", "3분기 (7~9월)", "4분기 (10~12월)"],
+    "분기는 계절 이름 대신 분기로 보여준다",
+  );
+
+  // 구간 슬라이더는 고를 수 있는 양 끝을 서버가 알려 준다 — 화면이 올해로 어림잡지 않는다
+  const year = byType.animethemes.fields.find((f) => f.key === "yearFrom");
+  assert.equal(year.kind, "range");
+  assert.equal(year.to, "yearTo");
+  assert.ok(year.min > 1900 && year.max >= year.min);
+
+  // 가족 사이트라고 값까지 같지는 않다 — 사이트마다 받는 것만 준다
+  const songTypes = (type) => byType[type].fields.find((f) => f.key === "songTypes").options.map((o) => o.value);
+  assert.ok(songTypes("touhoudb").includes("Arrangement"), "동방은 어레인지를 받는다");
+  assert.ok(!songTypes("vocadb").includes("Arrangement"), "보카로는 어레인지를 받지 않는다");
+  assert.ok(!byType.touhoudb.fields.some((f) => f.key === "artistTypes"), "동방에는 분류 자체가 없다");
 });
 
 test("소스 종류: 운영자만 볼 수 있다", async () => {

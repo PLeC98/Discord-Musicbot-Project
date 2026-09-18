@@ -73,7 +73,7 @@
         <div v-for="p in problems" :key="p">· {{ p }}</div>
       </div>
 
-      <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장됨 — 다음 회전부터 반영됩니다</p>
+      <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장됨. 다음 회전부터 반영됩니다</p>
       <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
     </BaseCard>
 

@@ -68,7 +68,7 @@ function rejector(recent) {
   return (cand) => isDead(cand.youtubeUrl) || names.has(nameKey(cand)) || urls.has(cand.youtubeUrl || cand.audioUrl || "");
 }
 
-// 무게대로 하나 뽑되 뽑힌 것은 뺀다 — 한 소스가 빈 손이면 다음 소스로 가야 하기 때문이다.
+// 가중치대로 하나 뽑되 뽑힌 것은 뺀다 — 한 소스가 빈 손이면 다음 소스로 가야 하기 때문이다.
 function* byWeight(list) {
   const left = list.map((s) => ({ source: s, weight: Math.max(1, Number(s.weight) || 1) }));
   while (left.length) {
@@ -229,7 +229,7 @@ async function pickTrack(cfg, recent = []) {
   const limits = autoplayFilter.prepare(cfg);
   const reject = rejector(recent);
 
-  // 무게대로 훑되 한 소스가 빈 손이면 다음으로 간다. 목록이 곧 폴백 사슬이다.
+  // 가중치대로 훑되 한 소스가 빈 손이면 다음으로 간다. 목록이 곧 폴백 사슬이다.
   for (const source of byWeight(list)) {
     // 한 소스 안에서도 몇 번은 더 본다 — 후보 하나가 필터에 걸렸다고 소스를 버릴 이유가 없다
     for (let tries = 0; tries < 3; tries++) {

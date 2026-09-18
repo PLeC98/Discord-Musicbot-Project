@@ -12,11 +12,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label class="block">
           <span :class="labelCls">대기열에 준비해 둘 곡 수</span>
-          <input v-model.number="draft.defaults.prefetchCount" type="number" min="1" :class="inputCls" />
+          <input v-no-wheel v-model.number="draft.defaults.prefetchCount" type="number" min="1" :class="inputCls" />
         </label>
         <label class="block">
           <span :class="labelCls">최소 길이(초)</span>
-          <input v-model.number="draft.defaults.minDurationSec" type="number" min="0" :class="inputCls" />
+          <input v-no-wheel v-model.number="draft.defaults.minDurationSec" type="number" min="0" :class="inputCls" />
         </label>
         <label class="block">
           <span :class="labelCls">최대 길이(초)</span>
@@ -37,7 +37,7 @@
             <Icon name="music" :size="15" />
             <span>장르 ({{ rows.length }}/25)</span>
           </div>
-          <p class="text-muted text-[0.82rem]">장르마다 곡을 가져올 출처를 여럿 둘 수 있습니다. 비중대로 골라 쓰고, 한 곳이 빈손이면 다음 곳으로 넘어갑니다. 드래그해 순서를 바꿀 수 있습니다.</p>
+          <p class="text-muted text-[0.82rem]">장르마다 곡을 가져올 출처를 여럿 둘 수 있습니다. 가중치에 따라 골라 쓰고, 곡을 주지 않는 출처가 있으면 다음 출처로 넘어갑니다. 드래그해 순서를 바꿀 수 있습니다.</p>
         </div>
         <button :class="addBtn" :disabled="rows.length >= 25" v-tooltip="rows.length >= 25 ? '25개까지만 추가할 수 있습니다' : '장르 추가'" @click="addRow"><Icon name="add" :size="18" /></button>
       </div>
@@ -68,18 +68,23 @@
               <circle cx="8" cy="13" r="1.5" />
             </svg>
           </span>
+          <button :class="foldBtn" v-tooltip="isFolded(genreFoldId(i)) ? '펼치기' : '접기'" @click="toggleFold(genreFoldId(i))">
+            <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(genreFoldId(i)) }"><path d="M0 0h9L4.5 6z" /></svg>
+          </button>
           <EmojiInput v-model="row.emoji" />
           <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
-          <button :class="removeBtn" v-tooltip="'이 장르 삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
+          <!-- 접어 두면 출처가 아예 안 보인다 — 몇 개인지는 접힌 채로도 알려 준다 -->
+          <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
+          <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <SourceEditor v-model="row.sources" :types="sourceTypes" />
+        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :genre-index="i" />
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
         <div v-for="p in problems" :key="p">· {{ p }}</div>
       </div>
 
-      <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장됨 — 다음 자동재생부터 반영됩니다</p>
+      <p v-if="savedAt" class="mt-3 text-muted text-[0.8rem]">저장 완료. 다음 자동재생부터 반영됩니다</p>
       <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
     </BaseCard>
 
@@ -96,11 +101,13 @@ import ChipInput from "./ChipInput.vue";
 import SourceEditor from "./SourceEditor.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
+import { isFolded, toggleFold, genreFoldId } from "../composables/configFolds";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
 // 옆 입력칸과 같은 높이로 — py-2 + text-[0.9rem] 입력이 38px이다
 const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
+const foldBtn = "size-7 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,opacity] duration-150 hover:not-disabled:bg-white/10 disabled:opacity-35 disabled:cursor-not-allowed";
 
 const draft = ref({ defaults: {}, genres: {} });

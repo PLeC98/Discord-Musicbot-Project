@@ -4,6 +4,7 @@ import App from "./App.vue";
 import router from "./router/index.js";
 import axios from "axios";
 import tooltip from "./directives/tooltip.js";
+import noWheel from "./directives/noWheel.js";
 import "./style.css";
 
 axios.defaults.withCredentials = true;
@@ -45,4 +46,5 @@ const app = createApp(App);
 app.use(createPinia());
 app.use(router);
 app.directive("tooltip", tooltip);
+app.directive("no-wheel", noWheel);
 app.mount("#app");
