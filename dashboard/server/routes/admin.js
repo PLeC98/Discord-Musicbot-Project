@@ -235,7 +235,14 @@ router.get("/source-types", requireOwner, async (req, res) => {
 // 기본 프롬프트도 같이 준다 — 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
   const assist = require("../../../src/autoplayAssist");
-  res.json({ hasKey: !!require("../../../config").ai?.apiKey, providers: assist.PROVIDERS, defaultSections: assist.DEFAULT_SECTIONS, defaultLine: assist.DEFAULT_LINE });
+  res.json({
+    hasKey: !!require("../../../config").ai?.apiKey,
+    // 주소·키 필요 여부는 서버가 안다 — 화면이 베껴 두면 한쪽만 고치게 된다
+    providers: Object.entries(assist.PROVIDER_SPECS).map(([value, spec]) => ({ value, ...spec })),
+    pingText: assist.PING_TEXT,
+    defaultSections: assist.DEFAULT_SECTIONS,
+    defaultLine: assist.DEFAULT_LINE,
+  });
 });
 
 // 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
@@ -273,10 +280,15 @@ router.post("/ai/test", requireOwner, async (req, res) => {
   res.json(await require("../../../src/autoplayAssist").sendTest(data));
 });
 
-// 지금 설정으로 실제로 부를 수 있나 — 한 곡을 물어 보고 걸린 시간을 돌려준다.
-// 모델이 느릴 수 있어 오래 걸린다(로컬 경량 모델 기준 수십 초).
-router.post("/ai/check", requireOwner, async (req, res) => {
-  res.json(await require("../../../src/autoplayAssist").check());
+// 무료 확인 — 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.
+// 화면의 모델 고르는 칸도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
+router.post("/ai/models", requireOwner, async (req, res) => {
+  res.json(await require("../../../src/autoplayAssist").listModels(req.body?.data || {}));
+});
+
+// 유료 확인 — 짧은 물음 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
+router.post("/ai/ping", requireOwner, async (req, res) => {
+  res.json(await require("../../../src/autoplayAssist").ping(req.body?.data || {}));
 });
 
 router.get("/config/:name", requireOwner, (req, res) => {

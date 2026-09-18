@@ -421,7 +421,8 @@ test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", 
 test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "u1" };
   assert.equal((await req("GET", "/api/admin/ai/state")).status, 403);
-  assert.equal((await req("POST", "/api/admin/ai/check")).status, 403);
+  assert.equal((await req("POST", "/api/admin/ai/models", { data: {} })).status, 403);
+  assert.equal((await req("POST", "/api/admin/ai/ping", { data: {} })).status, 403);
   assert.equal((await req("GET", "/api/admin/ai/prompt")).status, 403);
   assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [] })).status, 403);
   currentUser = { id: "owner", username: "owner" };

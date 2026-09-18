@@ -110,22 +110,29 @@ body {
   --sb-size: 10px;
 }
 
-body::-webkit-scrollbar {
+/* 페이지만이 아니라 안쪽에서 구르는 것(입력칸·코드 상자·목록)도 같은 막대를 쓴다 —
+   한 화면에 두 종류가 섞이면 그것만 눈에 띈다. */
+::-webkit-scrollbar {
   width: var(--sb-size);
+  height: var(--sb-size);
 }
 
-body::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: var(--sb-track-color);
   border-radius: 5px;
 }
 
-body::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   background: var(--sb-thumb-color);
   border-radius: 5px;
 }
 
+::-webkit-scrollbar-corner {
+  background: var(--sb-track-color);
+}
+
 @supports not selector(::-webkit-scrollbar) {
-  body {
+  * {
     scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
   }
 }

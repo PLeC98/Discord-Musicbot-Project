@@ -28,8 +28,15 @@
 # 손으로 고치기 나쁘고, 프롬프트만 주고받기도 어렵습니다.
 
 # 어디에 물을지. off 면 규칙만으로 고릅니다.
-#   off     사용하지 않음
-#   openai  OpenAI 호환 (Ollama · LM Studio · vLLM · OpenAI 본체 · Gemini 호환 …)
+#
+#   off                                          사용하지 않음
+#   ollama · lmstudio · vllm                     로컬. 키를 안 씁니다
+#   openai · openrouter · groq · together
+#   deepseek · gemini                            클라우드. .env 의 AI_API_KEY 를 씁니다
+#   custom                                       그 밖의 OpenAI 호환 주소
+#
+# 어느 쪽이든 OpenAI 호환 규격으로 부릅니다. 프로바이더를 고르면 대시보드가 아래
+# baseUrl 을 채워 주고, 모델 목록도 {baseUrl}/models 로 받아옵니다.
 provider: off
 
 # OpenAI 호환 엔드포인트. 끝의 /v1 까지 적습니다.

@@ -345,7 +345,7 @@ test("미리보기는 만들기만 하고 보내지 않는다", () => {
   assert.ok(!("response" in shown), "보내지 않았으니 응답 칸이 없다");
 
   // 키 값은 화면으로 가지 않는다 — 있었다는 표시만 남긴다
-  assert.equal(shown.headers.Authorization, "Bearer ***");
+  assert.equal(shown.headers.Authorization, "Bearer [REDACTED_SECRET_KEY]");
   assert.ok(!JSON.stringify(shown).includes(process.env.AI_API_KEY));
 
   // 보기 곡 셋 중 하나는 길이를 모르는 것이다 — 그 처리를 눈으로 보라고 넣었다
@@ -365,7 +365,7 @@ test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다",
   assert.equal(calls.length, 1, "한 번 나간다");
   assert.equal(shown.status, 200);
   assert.match(shown.response, /choices/, "응답은 손대지 않고 그대로 준다");
-  assert.equal(shown.headers.Authorization, "Bearer ***");
+  assert.equal(shown.headers.Authorization, "Bearer [REDACTED_SECRET_KEY]");
 });
 
 test("테스트는 못 보내도 던지지 않는다", async () => {
@@ -384,23 +384,83 @@ test("응답에 키가 섞여 와도 가려서 준다", async () => {
   const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
   assert.equal(shown.status, 401);
   assert.ok(!shown.response.includes(process.env.AI_API_KEY), shown.response);
-  assert.match(shown.response, /\*\*\*/);
+  // 별표만 있으면 원래 그런 값인 줄 안다 — 무엇이 가려졌는지 이름을 붙인다
+  assert.ok(shown.response.includes(assist.REDACTED), shown.response);
 });
 
 // ── 오류를 그대로 보여준다 ────────────────────────────────────────────────
 
 // 왜 거절됐는지는 본문에만 있다(모델 이름 오타 · 사용량 초과 …). 상태 코드만으론 못 고친다.
-test("연결 확인 실패는 상태 코드와 본문을 그대로 전한다", async () => {
-  useConfig(ON);
-  answers(() => ({ ok: false, status: 429, text: async () => '{"error":"rate limit exceeded"}' }));
+test("확인 실패는 상태 코드와 본문을 그대로 전한다", async () => {
+  global.fetch = async () => ({ ok: false, status: 429, text: async () => '{"error":"rate limit exceeded"}' });
 
-  const got = await assist.check();
+  const got = await assist.listModels({ provider: "openai", baseUrl: "http://x/v1" });
   assert.equal(got.ok, false);
   assert.match(got.reason, /429/);
-  assert.match(got.reason, /rate limit exceeded/);
+  assert.match(got.response, /rate limit exceeded/);
 
-  useConfig("provider: off\n");
-  assert.match((await assist.check()).reason, /provider=off/, "왜 안 도는지도 그대로 말한다");
+  assert.match((await assist.listModels({ provider: "off" })).reason, /provider=off/, "왜 안 도는지도 그대로 말한다");
+});
+
+// ── 무료 확인(모델 목록)과 유료 확인(짧은 생성) ───────────────────────────
+
+// 연결만 보고 싶은데 판정 프롬프트를 통째로 보내면 토큰도 들고,
+// "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
+test("무료 확인은 모델 목록만 받는다 — 추론이 없다", async () => {
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => '{"data":[{"id":"gemma3n:e2b"},{"id":"qwen3:8b"}]}' };
+  };
+
+  const got = await assist.listModels({ provider: "ollama", baseUrl: "http://127.0.0.1:11434/v1/" });
+  assert.equal(got.ok, true);
+  assert.deepEqual(got.models, ["gemma3n:e2b", "qwen3:8b"]);
+  assert.equal(calls[0].url, "http://127.0.0.1:11434/v1/models");
+  assert.equal(calls[0].init.method, undefined, "GET 이다 — 생성이 아니다");
+  // 로컬 프로바이더는 키를 안 보낸다
+  assert.ok(!calls[0].init.headers.Authorization, "로컬에는 키를 안 붙인다");
+});
+
+test("클라우드 프로바이더에는 키를 붙인다", async () => {
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => "{}" };
+  };
+
+  await assist.listModels({ provider: "openai", baseUrl: "https://api.openai.com/v1" });
+  assert.equal(calls[0].init.headers.Authorization, `Bearer ${process.env.AI_API_KEY}`);
+});
+
+test("유료 확인은 짧은 물음 하나만 보낸다 — 판정 프롬프트가 아니다", async () => {
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"안녕하세요. 42입니다."}}]}' };
+  };
+
+  const got = await assist.ping({ provider: "ollama", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b" });
+  assert.equal(got.ok, true);
+  assert.equal(got.answer, "안녕하세요. 42입니다.");
+
+  const sent = calls[0].body;
+  assert.equal(sent.messages.length, 1, "한 마디만 보낸다");
+  assert.equal(sent.messages[0].content, assist.PING_TEXT);
+  assert.ok(!JSON.stringify(sent).includes("{{목록}}"), "판정 프롬프트는 안 실린다");
+});
+
+// ── 모델이 공백을 이상하게 뱉을 때 ────────────────────────────────────────
+
+// gemma 계열이 토크나이저의 공백 표시(U+2581)를 답에 그대로 흘리면
+// JSON.parse 가 `Unexpected token '▁'` 로 죽는다. 실제로 겪은 것이다.
+test("답에 U+2581 이 섞여 와도 읽는다", async () => {
+  useConfig(ON);
+  answers(`[\n▁▁{"n": 1, "song": true, "fits": true}\n]`);
+  assert.equal(await assist.accepts(cand("A"), {}), true);
+
+  answers(`[\n▁▁{"n": 1, "song": false, "fits": true}\n]`);
+  assert.equal(await assist.accepts(cand("A"), {}), false, "읽었으니 판정도 따른다");
 });
 
 // ── 줄 형식의 모르는 이름 ─────────────────────────────────────────────────

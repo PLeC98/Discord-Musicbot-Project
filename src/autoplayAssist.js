@@ -58,9 +58,34 @@ const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
 const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
-// 어디에 물을지. 지금은 OpenAI 호환 하나뿐이다 — Ollama · LM Studio · vLLM · OpenAI 본체가
-// 다 이 규격을 낸다. 규격이 진짜로 다른 것(Anthropic · Vertex 네이티브)이 필요해지면 여기에 는다.
-const PROVIDERS = ["off", "openai"];
+/**
+ * 어디에 물을지.
+ *
+ * **모델 이름은 여기 적지 않는다.** 적어 두면 저쪽에서 새 모델이 나올 때마다 이 파일을
+ * 고쳐야 한다. 주소만 알고 있다가 `GET {baseUrl}/models` 로 그때그때 물어본다.
+ *
+ * 전부 OpenAI 호환이라 코드가 하나다 — 규격이 진짜로 다른 것(Anthropic · Vertex 네이티브)이
+ * 필요해지면 그때 갈래를 낸다.
+ */
+const PROVIDER_SPECS = {
+  off: { label: "사용하지 않음" },
+  ollama: { label: "Ollama (로컬)", baseUrl: "http://127.0.0.1:11434/v1", key: false },
+  lmstudio: { label: "LM Studio (로컬)", baseUrl: "http://127.0.0.1:1234/v1", key: false },
+  vllm: { label: "vLLM (로컬)", baseUrl: "http://127.0.0.1:8000/v1", key: false },
+  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true },
+  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", key: true },
+  groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", key: true },
+  together: { label: "Together AI", baseUrl: "https://api.together.xyz/v1", key: true },
+  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true },
+  gemini: { label: "Gemini (OpenAI 호환)", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: true },
+  custom: { label: "OpenAI 호환 (직접 입력)", baseUrl: "", key: true },
+};
+
+const PROVIDERS = Object.keys(PROVIDER_SPECS);
+const specOf = (provider) => PROVIDER_SPECS[provider] || null;
+const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
+// 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
+const wantsKey = (one) => !!specOf(one?.provider)?.key;
 
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
@@ -69,8 +94,6 @@ function settings() {
   // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다
   return { ...one, prompt: configData.aiPrompt() };
 }
-
-const live = (one) => !!one?.provider && one.provider !== "off" && PROVIDERS.includes(one.provider);
 
 /**
  * 추가 파라미터 — 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
@@ -187,13 +210,18 @@ function buildRequest(one, batch, genre) {
     url: `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`,
     headers: {
       "Content-Type": "application/json",
-      // 로컬 모델은 키를 안 받는다 — 없으면 헤더 자체를 안 붙인다
-      ...(config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {}),
+      ...(wantsKey(one) && config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {}),
       ...extra.headers,
     },
     body,
   };
 }
+
+// gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 흘리는 일이 있다.
+// JSON.parse 가 `Unexpected token '▁'` 로 죽으므로 들여쓰기 자리의 그것만 공백으로 되돌린다.
+// 같은 자리에 오는 다른 폭의 공백(U+00A0 · U+3000)도 함께 본다.
+const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
+const despace = (text) => text.replace(ODD_SPACE, " ");
 
 async function askBatch(one, batch, genre) {
   const request = buildRequest(one, batch, genre);
@@ -212,10 +240,10 @@ async function askBatch(one, batch, genre) {
   const text = (await res.json())?.choices?.[0]?.message?.content || "";
   // 작은 모델은 ```json 울타리나 앞말을 곧잘 붙인다. 배열만 집어낸다.
   const found = text.match(/\[[\s\S]*\]/);
-  if (!found) throw new Error("JSON 배열을 못 찾았습니다");
+  if (!found) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
 
   const out = new Array(batch.length).fill(null);
-  for (const verdict of JSON.parse(found[0])) {
+  for (const verdict of JSON.parse(despace(found[0]))) {
     const at = Number(verdict?.n) - 1;
     if (at >= 0 && at < batch.length) out[at] = { song: !!verdict.song, fits: !!verdict.fits };
   }
@@ -285,18 +313,81 @@ async function accepts(candidate, about = {}) {
 }
 
 /** 지금 설정으로 실제로 부를 수 있는지 한 번 재 본다. 대시보드의 "연결 확인" 버튼용. */
-async function check() {
-  const one = settings();
-  if (!one) return { ok: false, reason: `설정이 켜져 있지 않습니다(provider=${configData.ai()?.provider || "off"}).` };
+/**
+ * **무료 확인** — 모델 목록만 받아 온다(`GET {baseUrl}/models`).
+ *
+ * 추론을 안 돌리므로 토큰이 안 든다. 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있다.
+ * 받아 온 목록은 화면의 모델 고르는 칸을 채우는 데도 쓴다 — 그래서 모델 이름을 코드에
+ * 적어 둘 이유가 없다.
+ */
+async function listModels(draft) {
+  const one = { ...DEFAULTS, ...(draft || {}) };
+  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
+  if (!one.baseUrl) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다." };
+
+  const url = `${String(one.baseUrl).replace(/\/+$/, "")}/models`;
+  const headers = wantsKey(one) && config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {};
+  const started = Date.now();
+
+  try {
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+    const text = mask(await res.text());
+    const took = Date.now() - started;
+    if (!res.ok) return { ok: false, url, status: res.status, response: text, tookMs: took, reason: `HTTP ${res.status}` };
+
+    // OpenAI 규격은 { data: [{ id }] } 다. 다른 모양이면 목록만 못 채우고 연결은 된 것이다.
+    let models = [];
+    try {
+      models = (JSON.parse(text)?.data || []).map((m) => m?.id).filter((id) => typeof id === "string");
+    } catch {
+      /* 목록을 못 읽어도 응답 자체는 보여 준다 */
+    }
+    return { ok: true, url, status: res.status, models: models.sort(), response: text, tookMs: took };
+  } catch (error) {
+    return { ok: false, url, status: null, response: mask(error.message), tookMs: Date.now() - started, reason: mask(error.message) };
+  }
+}
+
+// 유료 확인에 쓰는 물음 — 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
+const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
+
+/**
+ * **유료 확인** — 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.
+ *
+ * 연결만 보고 싶은데 판정 프롬프트를 통째로 보내면 토큰도 들고, 모델이 헛소리를 했을 때
+ * "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
+ */
+async function ping(draft) {
+  const one = { ...DEFAULTS, ...(draft || {}) };
+  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
+  if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
+
+  const url = `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`;
+  const extra = parseExtra(one.extra);
+  const body = { model: one.model, messages: [{ role: "user", content: PING_TEXT }], ...extra.body };
+  for (const key of extra.drop) delete body[key];
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...(wantsKey(one) && config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {}),
+    ...extra.headers,
+  };
 
   const started = Date.now();
   try {
-    const verdicts = await askBatch(one, [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }], "록");
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+    const text = mask(await res.text());
     const took = Date.now() - started;
-    if (!verdicts[0]) return { ok: false, reason: "답이 왔지만 판정을 못 읽었습니다.", tookMs: took };
-    return { ok: true, tookMs: took, verdict: verdicts[0] };
+
+    let answer = "";
+    try {
+      answer = JSON.parse(text)?.choices?.[0]?.message?.content || "";
+    } catch {
+      /* 모양이 다르면 원문으로 본다 */
+    }
+    return { ok: res.ok, url, headers: safeHeaders(headers), body, status: res.status, response: text, answer, tookMs: took, reason: res.ok ? "" : `HTTP ${res.status}` };
   } catch (error) {
-    return { ok: false, reason: error.message, tookMs: Date.now() - started };
+    return { ok: false, url, headers: safeHeaders(headers), body, status: null, response: mask(error.message), tookMs: Date.now() - started, reason: mask(error.message) };
   }
 }
 
@@ -312,9 +403,14 @@ const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", dura
 function preview(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
   const request = buildRequest(one, SAMPLE, genre);
-  const headers = { ...request.headers };
-  if (headers.Authorization) headers.Authorization = "Bearer ***";
-  return { url: request.url, headers, body: request.body };
+  return { url: request.url, headers: safeHeaders(request.headers), body: request.body };
+}
+
+/** 화면에 보여도 되는 헤더 — 키 값은 절대 나가지 않는다. */
+function safeHeaders(headers) {
+  const out = { ...headers };
+  if (out.Authorization) out.Authorization = `Bearer ${REDACTED}`;
+  return out;
 }
 
 /** 같은 것을 **실제로 보낸다.** 나간 것과 온 것을 손대지 않고 그대로 준다. */
@@ -340,10 +436,12 @@ async function sendTest(draft, genre = "록") {
   return out;
 }
 
-// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다 — 화면에도 로그에도 키가 남으면 안 된다
+// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다 — 화면에도 로그에도 키가 남으면 안 된다.
+const REDACTED = "[REDACTED_SECRET_KEY]";
+
 function mask(text) {
   const key = config.ai?.apiKey;
-  return key ? String(text).split(key).join("***") : String(text);
+  return key ? String(text).split(key).join(REDACTED) : String(text);
 }
 
-module.exports = { filter, accepts, check, settings, preview, sendTest, parseExtra, PROVIDERS, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+module.exports = { filter, accepts, settings, preview, sendTest, listModels, ping, parseExtra, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

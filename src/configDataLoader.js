@@ -533,11 +533,13 @@ function ai() {
   return problems.length ? { ...data, enabled: false } : data;
 }
 
-const AI_PROVIDERS = ["off", "openai"];
+// 목록은 autoplayAssist 가 갖는다(주소·키 필요 여부까지 거기 있다).
+// **여기서 위로 require 하면 순환이다** — 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
+const aiProviders = () => require("./autoplayAssist").PROVIDERS;
 
 function validateAi(data) {
   const problems = [];
-  if (data?.provider != null && !AI_PROVIDERS.includes(data.provider)) problems.push(`provider는 ${AI_PROVIDERS.join(" · ")} 중 하나여야 합니다.`);
+  if (data?.provider != null && !aiProviders().includes(data.provider)) problems.push(`provider는 ${aiProviders().join(" · ")} 중 하나여야 합니다.`);
   if (data?.enabled != null) problems.push("enabled 는 provider 로 바뀌었습니다. off 또는 openai 를 적으세요.");
 
   // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
