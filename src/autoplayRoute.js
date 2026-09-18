@@ -14,6 +14,7 @@ const autoplayFilter = require("./autoplayFilter");
 const pool = require("./autoplayPool");
 const sources = require("./autoplaySources");
 const match = require("./youtubeMatch");
+const assist = require("./autoplayAssist");
 const log = require("./logger").child({ category: "autoplay" });
 
 // 유튜브에서 찾은 것이 이보다 짧으면 풀버전이 아니라 TV 사이즈 립이다.
@@ -144,7 +145,7 @@ const fromAudio = (cand) => ({
 });
 
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
-async function findOnYouTube(cand) {
+async function findOnYouTube(cand, genre) {
   const YouTube = require("./YouTube");
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
   const { primary, secondary } = match.buildSearchQueries(target);
@@ -171,8 +172,17 @@ async function findOnYouTube(cand) {
   const candidates = match.mergeCandidateLists(primaryLists, secondaryLists).filter((c) => c.url && !c.isLive);
   if (!candidates.length) return null;
 
-  const { best, confidence } = match.rankCandidates(candidates, target);
-  if (!best || !CONFIDENCE_OK.has(confidence)) return null;
+  let { best, confidence } = match.rankCandidates(candidates, target);
+  if (!best) return null;
+
+  // 규칙이 고른 뒤에 한 번 더 묻는다. 꺼져 있거나 못 부르면 같은 배열이 그대로 돌아온다.
+  const kept = await assist.filter(candidates, { genre, confident: confidence === "high" });
+  if (kept !== candidates) {
+    ({ best, confidence } = match.rankCandidates(kept, target));
+    if (!best) return null;
+  }
+
+  if (!CONFIDENCE_OK.has(confidence)) return null;
   // 이름으로 찾아온 것도 이미 못 튼다고 표시된 영상일 수 있다
   return isDead(best.url) ? null : best;
 }
@@ -181,8 +191,9 @@ async function findOnYouTube(cand) {
  * 후보 하나를 틀 수 있는 트랙으로 바꾼다. 못 바꾸면 null.
  * @param {object} cand   소스가 준 후보
  * @param {object} limits autoplayFilter.prepare의 결과
+ * @param {string} [genre] 장르 이름 — AI 보조가 "이 장르가 맞나"를 물을 때만 쓴다
  */
-async function resolve(cand, limits) {
+async function resolve(cand, limits, genre) {
   // 1) 유튜브 주소를 직접 받은 것 — 검색을 안 했으니 제목을 못 믿는다
   if (cand.youtubeUrl) {
     const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec }, cand);
@@ -193,12 +204,15 @@ async function resolve(cand, limits) {
       log.debug(`걸러냄(${verdict.reason}${verdict.detail ? `: ${verdict.detail}` : ""}) [${cand.sourceKey}]: ${track.title}`);
       return null;
     }
+    // 검색으로 얻은 것(키워드)만 한 번 더 묻는다 — 주소를 직접 주는 소스는 출처가 곧 정답이다.
+    // 실측에서 AI가 규칙을 이긴 것이 바로 이 경로였다(86% → 95%).
+    if (cand.fromSearch && !(await assist.accepts(track, { genre }))) return null;
     return track;
   }
 
   // 2) 이름으로 유튜브에서 찾기
   if (cand.artist && cand.title) {
-    const best = await findOnYouTube(cand);
+    const best = await findOnYouTube(cand, genre);
     if (best) {
       const track = fromYouTube(best, cand);
       const verdict = autoplayFilter.judge(track, limits);
@@ -235,7 +249,7 @@ async function pickTrack(cfg, recent = []) {
     for (let tries = 0; tries < 3; tries++) {
       const cand = await pool.take(source, sources.fetchFrom, reject);
       if (!cand) break;
-      const track = await resolve(cand, limits);
+      const track = await resolve(cand, limits, cfg?.genreName);
       if (track) {
         // 어느 소스에서 어떻게 왔는지 — 뭐가 이상할 때 이것부터 본다
         track.pickedFrom = source.type;

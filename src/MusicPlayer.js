@@ -1580,7 +1580,8 @@ class MusicPlayer {
   _autoplayConfig() {
     const { defaults, genres } = require("./configDataLoader").genres();
     const genre = genres[this.autoplay];
-    return genre ? { ...defaults, ...genre } : null;
+    // 이름도 같이 넘긴다 — AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplayAssist)
+    return genre ? { ...defaults, ...genre, genreName: this.autoplay } : null;
   }
 
   // 미리 뽑아 둘 수 있는 상태인가 — 고르기 전과 넣기 직전에 같은 것을 본다.

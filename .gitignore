@@ -6,6 +6,7 @@ database/
 # 예시만 추적한다: 운영자가 고친 값이 PR에 실려 전역 기본값이 되지 않게.
 config/genres.yaml
 config/status.yaml
+config/ai.yaml
 audio_cache/
 node_modules/
 dashboard/client/dist/

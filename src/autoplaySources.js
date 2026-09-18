@@ -53,7 +53,9 @@ async function keyword(source) {
   if (!word) return [];
   const YouTube = require("./YouTube");
   const results = (await YouTube.search(word, 15)) || [];
-  return results.filter((r) => r.url && !r.isLive).map((r) => ({ title: r.title, durationSec: r.duration, youtubeUrl: r.url, thumbnail: r.thumbnail, sourceKey: `yt:${r.id}` }));
+  // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplayAssist)
+  // — 주소를 직접 주는 소스는 출처가 곧 정답이라 물을 것이 없다.
+  return results.filter((r) => r.url && !r.isLive).map((r) => ({ title: r.title, durationSec: r.duration, youtubeUrl: r.url, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }));
 }
 
 // ── lastfm ────────────────────────────────────────────────────────────────

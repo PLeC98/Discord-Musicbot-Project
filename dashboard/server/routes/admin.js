@@ -219,7 +219,7 @@ router.post("/reset-cache", requireOwner, (req, res) => {
 // 바뀐 자리만 고친다(configDataLoader.save가 주석·빈 줄을 보존한다).
 
 // 검사기가 있는 것만 고칠 수 있다 — 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
-const VALIDATORS = { genres: configData.validateGenres, status: configData.validateStatus };
+const VALIDATORS = { genres: configData.validateGenres, status: configData.validateStatus, ai: configData.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 
 // 자동재생 소스 편집기가 그릴 표 — 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
@@ -228,6 +228,19 @@ const CONFIG_NAMES = Object.keys(VALIDATORS);
 router.get("/source-types", requireOwner, async (req, res) => {
   // AnimeThemes 연도 범위를 저쪽에 물어 채우므로 비동기다(하루에 한 번만 묻고 캐시한다)
   res.json({ types: await require("../../../src/autoplaySources").catalog() });
+});
+
+// AI 보조 — 키는 .env 에 있고 **값을 내려보내지 않는다.** 있는지 없는지만 알려 준다.
+// 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
+// 기본 프롬프트도 같이 준다 — 화면이 베껴 두면 한쪽만 고치게 된다.
+router.get("/ai/state", requireOwner, (req, res) => {
+  res.json({ hasKey: !!require("../../../config").ai?.apiKey, defaultPrompt: require("../../../src/autoplayAssist").DEFAULT_PROMPT });
+});
+
+// 지금 설정으로 실제로 부를 수 있나 — 한 곡을 물어 보고 걸린 시간을 돌려준다.
+// 모델이 느릴 수 있어 오래 걸린다(로컬 경량 모델 기준 수십 초).
+router.post("/ai/check", requireOwner, async (req, res) => {
+  res.json(await require("../../../src/autoplayAssist").check());
 });
 
 router.get("/config/:name", requireOwner, (req, res) => {

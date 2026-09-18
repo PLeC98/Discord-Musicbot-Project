@@ -234,6 +234,11 @@
         <ConfigStatus v-if="tab === 'presence'" />
       </div>
 
+      <div v-show="tab === 'ai'">
+        <!-- 파일(config/ai.yaml)로도 고칠 수 있다. API 키는 .env 에 있고 여기로 내려오지 않는다. -->
+        <ConfigAI v-if="tab === 'ai'" />
+      </div>
+
       <div v-show="tab === 'dev'">
         <!-- 권한 수준 오버라이드 — 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
         <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
@@ -338,6 +343,7 @@ import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
 import ConfigGenres from "../components/ConfigGenres.vue";
 import ConfigStatus from "../components/ConfigStatus.vue";
+import ConfigAI from "../components/ConfigAI.vue";
 import EmojiPicker from "../components/EmojiPicker.vue";
 import Twemoji from "../components/TwemojiImage.vue";
 import { insertAt, caretOf } from "../utils/caret.js";
@@ -353,6 +359,7 @@ const TABS = [
   { id: "config", label: "자동재생", icon: "music" },
   // id를 "status"로 못 쓴다 — 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "presence", label: "상태 문구", icon: "headphones" },
+  { id: "ai", label: "AI 보조", icon: "campaign" },
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
 const TAB_KEY = "admin:tab";

@@ -13,7 +13,7 @@ const fs = require("fs");
 const path = require("path");
 
 const CONFIG_DIR = path.join(__dirname, "..", "config");
-const NAMES = ["genres", "status"];
+const NAMES = ["genres", "status", "ai"];
 
 function setup() {
   const made = [];

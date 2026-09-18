@@ -454,10 +454,58 @@ function validateGenres(data) {
   return problems;
 }
 
+// ── ai.yaml ───────────────────────────────────────────────────────────────
+
+// 상태와 같은 처지다 — 곡을 고를 때마다 읽히므로 던지지 않는다.
+// 던지면 자동재생이 통째로 멈춘다. AI는 없어도 되는 기능이라 그건 과하다.
+let aiWarned = "";
+
+function ai() {
+  let data;
+  try {
+    data = load("ai");
+  } catch {
+    return { enabled: false }; // 파일이 없어도 봇은 돈다. 이 기능만 꺼진다.
+  }
+
+  const problems = validateAi(data);
+  const key = problems.join("|");
+  if (problems.length && key !== aiWarned) log.warn(`ai.yaml: ${problems.join(" / ")}`);
+  aiWarned = key;
+
+  // 하나라도 어긋나면 켜지 않는다 — 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다
+  return problems.length ? { ...data, enabled: false } : data;
+}
+
+function validateAi(data) {
+  const problems = [];
+  if (data?.enabled != null && typeof data.enabled !== "boolean") problems.push("enabled는 true 또는 false 여야 합니다.");
+
+  // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
+  if (data?.enabled === true) {
+    if (!String(data.baseUrl || "").trim()) problems.push("baseUrl을 적어야 합니다(예: http://127.0.0.1:11434/v1).");
+    else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
+    if (!String(data.model || "").trim()) problems.push("model을 적어야 합니다.");
+  }
+
+  const num = (key, min, max) => {
+    if (data?.[key] == null) return;
+    const value = Number(data[key]);
+    if (!Number.isFinite(value) || value < min || value > max) problems.push(`${key}는 ${min}~${max} 사이여야 합니다.`);
+  };
+  num("temperature", 0, 2);
+  num("timeoutMs", 1000, 600000);
+  num("batchSize", 1, 50);
+
+  if (data?.extra != null && (typeof data.extra !== "object" || Array.isArray(data.extra))) problems.push("extra는 이름:값 꼴이어야 합니다.");
+  if (data?.prompt != null && typeof data.prompt !== "string") problems.push("prompt는 글로 적어야 합니다.");
+  return problems;
+}
+
 // 테스트 시임 — 폴더를 바꾸면 읽어 둔 것도 버린다(다른 파일을 같은 이름으로 읽게 되므로).
 function _setConfigDir(dir) {
   configDir = dir;
   cache.clear();
 }
 
-module.exports = { load, genres, status, save, validateGenres, validateStatus, ACTIVITY_TYPES, fileOf, exampleOf, _setConfigDir, _cache: cache };
+module.exports = { load, genres, status, ai, save, validateGenres, validateStatus, validateAi, ACTIVITY_TYPES, fileOf, exampleOf, _setConfigDir, _cache: cache };

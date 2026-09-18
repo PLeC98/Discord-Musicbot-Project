@@ -292,6 +292,7 @@ const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 before(() => {
   configData._setConfigDir(CONFIG_DIR);
   fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop music", ""].join("\n"));
+  fs.writeFileSync(path.join(CONFIG_DIR, "ai.yaml"), ["# 손으로 적은 메모", "enabled: false", "baseUrl: http://127.0.0.1:11434/v1", "model: gemma3n:e2b", ""].join("\n"));
 });
 
 after(() => {
@@ -398,6 +399,51 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   assert.ok(songTypes("touhoudb").includes("Arrangement"), "동방은 어레인지를 받는다");
   assert.ok(!songTypes("vocadb").includes("Arrangement"), "보카로는 어레인지를 받지 않는다");
   assert.ok(!byType.touhoudb.fields.some((f) => f.key === "artistTypes"), "동방에는 분류 자체가 없다");
+});
+
+// ── AI 보조 ───────────────────────────────────────────────────────────────
+
+// 키는 .env 에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
+test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
+  const { status, json } = await req("GET", "/api/admin/ai/state");
+  assert.equal(status, 200);
+  assert.equal(typeof json.hasKey, "boolean");
+  assert.ok(!("apiKey" in json), "값을 실으면 안 된다");
+  // 화면이 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다 — 서버가 준다
+  assert.equal(json.defaultPrompt, require("../src/autoplayAssist").DEFAULT_PROMPT);
+
+  const body = JSON.stringify(json);
+  for (const secret of [process.env.AI_API_KEY, process.env.DISCORD_TOKEN, process.env.CLIENT_SECRET].filter(Boolean)) {
+    assert.ok(!body.includes(secret), "응답에 비밀이 섞였다");
+  }
+});
+
+test("AI 보조: 운영자만 본다", async () => {
+  currentUser = { id: "u1" };
+  assert.equal((await req("GET", "/api/admin/ai/state")).status, 403);
+  assert.equal((await req("POST", "/api/admin/ai/check")).status, 403);
+  currentUser = { id: "owner", username: "owner" };
+});
+
+// 켜 두었는데 주소가 비면 매번 실패하고 로그만 쌓인다. 저장 전에 막는다.
+test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
+  const ok = await req("PUT", "/api/admin/config/ai", { data: { enabled: false, baseUrl: "", model: "" } });
+  assert.equal(ok.status, 200, "꺼 둔 설정이 반쯤 비어 있는 것은 문제가 아니다");
+
+  const bad = await req("PUT", "/api/admin/config/ai", { data: { enabled: true, baseUrl: "", model: "" } });
+  assert.equal(bad.status, 400);
+  assert.ok(bad.json.problems.length >= 2);
+
+  const notUrl = await req("PUT", "/api/admin/config/ai", { data: { enabled: true, baseUrl: "127.0.0.1:11434", model: "m" } });
+  assert.equal(notUrl.status, 400, "http:// 로 시작해야 한다");
+
+  const range = await req("PUT", "/api/admin/config/ai", { data: { enabled: false, temperature: 9 } });
+  assert.equal(range.status, 400);
+
+  // 손으로 적은 주석은 저장해도 남는다(장르·상태 설정과 같은 규약)
+  const saved = await req("PUT", "/api/admin/config/ai", { data: { enabled: true, baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b" } });
+  assert.equal(saved.status, 200);
+  assert.match(fs.readFileSync(path.join(CONFIG_DIR, "ai.yaml"), "utf8"), /손으로 적은 메모/);
 });
 
 test("소스 종류: 운영자만 볼 수 있다", async () => {
