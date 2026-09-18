@@ -13,6 +13,7 @@ const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
 const { shadowMember } = require("../viewAs");
+const { labelOf } = require("../../../src/platforms"); // 이름표는 임베드와 같은 표에서 나온다 — 브라우저는 src/ 를 못 읽는다
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용) — SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS = {
@@ -114,6 +115,7 @@ function queueTrack(t, i) {
     duration: t.duration,
     thumbnail: t.thumbnail,
     platform: t.platform,
+    platformLabel: labelOf(t.platform),
     autoplay: Boolean(t.autoplay), // 자동재생이 미리 뽑아 둔 곡 — 화면에서 사용자 곡과 가른다
     requestedBy: t.requestedBy ? { id: t.requestedBy.id } : null,
   };
@@ -145,6 +147,7 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
           thumbnail: track.thumbnail,
           url: track.url,
           platform: track.platform,
+          platformLabel: labelOf(track.platform),
           currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
           requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,
           // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점 — 대시보드 진행바 마커용

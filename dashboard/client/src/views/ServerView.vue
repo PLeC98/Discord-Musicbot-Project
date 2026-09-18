@@ -196,7 +196,7 @@
               </div>
             </div>
             <span v-if="track.autoplay" class="text-muted shrink-0 flex items-center" v-tooltip="'자동재생'"><Icon name="robot" :size="13" /></span>
-            <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" v-tooltip="track.platform"></span>
+            <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }" v-tooltip="track.platformLabel || track.platform"></span>
             <button class="size-6.5 rounded-md text-muted cursor-pointer text-xs flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:not-disabled:bg-danger/15 hover:not-disabled:text-danger" @click="removeTrack(i)" v-tooltip="'제거'" :disabled="!canRemove(track)"><Icon name="close" :size="14" /></button>
           </div>
 
@@ -657,9 +657,9 @@ async function jumpToHighlight() {
 
 const fmt = fmtTime;
 
-// 각 서비스가 실제로 쓰는 색이다(CSS 최빈값·브랜드 변수·로고 픽셀에서 뽑았다).
-// 자동재생 출처도 여기 있어야 한다 — 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
-// 이름은 MusicEmbedManager.getPlatformLabel 과 같은 값들이다.
+// 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다 —
+// 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
+// 키는 src/platforms.js 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
 const PLATFORM_COLORS = {
   youtube: "#ff0000",
   spotify: "#1db954",
@@ -667,10 +667,10 @@ const PLATFORM_COLORS = {
   direct: "var(--accent)",
   lastfm: "#d92323",
   lbradio: "#eb743b", // ListenBrainz 의 --bs-primary
-  animethemes: "#75ead4", // 저쪽 다크 테마의 --solid-primary
-  vocadb: "#1a58b5", // 로고의 파랑. 틸도 있지만 아래 둘과 겹친다
-  utaitedb: "#e05fa0", // 로고가 검은 실루엣이라 브랜드 색이 없다 — 겹치지 않는 색으로 골랐다
-  touhoudb: "#95f6f7",
+  animethemes: "#ffffff", // 로고 배경
+  vocadb: "#39c5bb", // 미쿠
+  utaitedb: "#00688f", // 배경에 박아 둔 Ado 로고의 장미
+  touhoudb: "#4f2347", // (구) 공식 트위터 프로필 이미지 배경
 };
 
 function platformColor(p) {
