@@ -22,8 +22,12 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true }));
 
 // 설정을 갈아끼운다. _setConfigDir 가 읽어 둔 것을 버리므로 같은 이름을 몇 번이고 바꿔 쓸 수 있다.
-function useConfig(yaml) {
+//
+// 프롬프트는 **딴 파일**이다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다.
+function useConfig(yaml, sections) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
+  if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
+  else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), configData.toChatML(sections));
   configData._setConfigDir(DIR);
 }
 
@@ -163,7 +167,10 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
 // ── 요청 모양 ────────────────────────────────────────────────────────────
 
 test("설정한 것이 그대로 요청에 실린다", async () => {
-  useConfig(`${ON}temperature: 0.4\nextra:\n  think: false\n  reasoning_effort: low\nprompt:\n  - role: system\n    text: 내가 쓴 기준\n  - role: user\n    text: "{{목록}}"\n`);
+  useConfig(`${ON}temperature: 0.4\nextra: |\n  think=false\n  reasoning_effort=low\n`, [
+    { role: "system", text: "내가 쓴 기준" },
+    { role: "user", text: "{{목록}}" },
+  ]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -195,16 +202,11 @@ test("프롬프트를 안 적으면 기본 구성을 쓴다", async () => {
 // ── 대화 구성 ────────────────────────────────────────────────────────────
 
 test("섹션마다 역할을 정해 적은 차례대로 보낸다", async () => {
-  useConfig(`${ON}prompt:
-  - role: system
-    text: 기준이다
-  - role: assistant
-    text: 알겠다
-  - role: user
-    text: |
-      아래를 판정해라
-      {{목록}}
-`);
+  useConfig(ON, [
+    { role: "system", text: "기준이다" },
+    { role: "assistant", text: "알겠다" },
+    { role: "user", text: "아래를 판정해라\n{{목록}}" },
+  ]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -219,10 +221,7 @@ test("섹션마다 역할을 정해 적은 차례대로 보낸다", async () => 
 });
 
 test("{{목록}} 자리에 후보가 들어간다 — 어느 역할이든", async () => {
-  useConfig(`${ON}prompt:
-  - role: system
-    text: "기준. 목록: {{목록}} 끝."
-`);
+  useConfig(ON, [{ role: "system", text: "기준. 목록: {{목록}} 끝." }]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true},{"n":2,"song":true,"fits":true}]');
 
@@ -233,14 +232,11 @@ test("{{목록}} 자리에 후보가 들어간다 — 어느 역할이든", asyn
 });
 
 test("내용이 빈 섹션은 보내지 않는다", async () => {
-  useConfig(`${ON}prompt:
-  - role: system
-    text: 기준이다
-  - role: assistant
-    text: "   "
-  - role: user
-    text: "{{목록}}"
-`);
+  useConfig(ON, [
+    { role: "system", text: "기준이다" },
+    { role: "assistant", text: "   " },
+    { role: "user", text: "{{목록}}" },
+  ]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -251,12 +247,7 @@ test("내용이 빈 섹션은 보내지 않는다", async () => {
 // ── 후보 목록의 모양 ──────────────────────────────────────────────────────
 
 test("줄 형식을 직접 짤 수 있다", async () => {
-  useConfig(`${ON}list:
-  lineFormat: "{{번호}}) {{제목}} [{{길이초}}s]"
-prompt:
-  - role: user
-    text: "{{목록}}"
-`);
+  useConfig(`${ON}list:\n  lineFormat: "{{번호}}) {{제목}} [{{길이초}}s]"\n`, [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -268,7 +259,7 @@ prompt:
 test("길이를 모르는 후보 — 낱말째 빼거나, 글자로 적거나, 0으로", async () => {
   const unknown = { title: "이름만 아는 곡" };
   const ask = async (yaml) => {
-    useConfig(`${ON}${yaml}prompt:\n  - role: user\n    text: "{{목록}}"\n`);
+    useConfig(`${ON}${yaml}`, [{ role: "user", text: "{{목록}}" }]);
     calls.length = 0;
     answers('[{"n":1,"song":true,"fits":true}]');
     await assist.accepts(unknown, { genre: "록" });
@@ -287,20 +278,89 @@ test("길이를 모르는 후보 — 낱말째 빼거나, 글자로 적거나, 0
   assert.equal(calls.at(-1).body.messages[1].content, "1. 장르=록 길이=3분 제목=Toxicity");
 });
 
-// 미리보기가 실제와 다르면 보여 주는 뜻이 없다 — 같은 조립 코드를 쓴다
-test("미리보기는 실제로 나갈 요청과 같은 것을 만든다", async () => {
-  const cfg = { enabled: true, baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: { think: false } };
-  const shown = assist.preview(cfg, "록");
+// ── 추가 파라미터 ─────────────────────────────────────────────────────────
+
+// 서비스마다 이름도 자리도 달라 글로 받는다. 네 가지 꼴을 지원한다.
+test("추가 파라미터 — 값·JSON·헤더·빼기", () => {
+  const got = assist.parseExtra(["think=false", "reasoning_effort=low", "top_p=0.9", 'response_format=json::{"type":"json_object"}', "header::X-Title=Discord Musicbot", "temperature={{none}}", "# 주석은 건너뛴다", "", "이름없음"].join("\n"));
+
+  assert.deepEqual(got.body, { think: false, reasoning_effort: "low", top_p: 0.9, response_format: { type: "json_object" } });
+  assert.deepEqual(got.headers, { "X-Title": "Discord Musicbot" });
+  assert.deepEqual(got.drop, ["temperature"]);
+});
+
+test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
+  useConfig(`${ON}extra: |\n  header::X-Title=Musicbot\n  temperature={{none}}\n  top_p=0.5\n`);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.init.headers["X-Title"], "Musicbot");
+  assert.ok(!("temperature" in sent.body), "{{none}} 은 아예 안 보낸다");
+  assert.equal(sent.body.top_p, 0.5);
+});
+
+// ── 프롬프트 파일(ChatML) ─────────────────────────────────────────────────
+
+test("ChatML 로 읽고 쓴다 — 왕복해도 같다", () => {
+  const text = `<|im_start|>system\n기준이다\n여러 줄\n<|im_end|>\n\n<|im_start|>user\n{{목록}}\n<|im_end|>\n`;
+  const parsed = configData.parseChatML(text);
+
+  assert.deepEqual(parsed, [
+    { role: "system", text: "기준이다\n여러 줄" },
+    { role: "user", text: "{{목록}}" },
+  ]);
+  assert.equal(configData.toChatML(parsed), text);
+  assert.deepEqual(configData.parseChatML(configData.toChatML(parsed)), parsed);
+
+  // 블록 바깥의 글은 규격에 자리가 없다
+  assert.deepEqual(configData.parseChatML("앞말\n<|im_start|>user\n하나\n<|im_end|>\n뒷말"), [{ role: "user", text: "하나" }]);
+  assert.deepEqual(configData.parseChatML(""), []);
+});
+
+test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => {
+  useConfig(ON); // 프롬프트 파일을 안 만든다
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.messages[0].content, assist.DEFAULT_PROMPT);
+});
+
+// ── 미리보기 ─────────────────────────────────────────────────────────────
+
+// 미리보기가 실제와 다르면 보여 주는 뜻이 없다 — 같은 조립 코드로 만들고 실제로 보낸다
+test("미리보기는 실제로 보내고 나간 것·온 것을 그대로 준다", async () => {
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"[]"}}]}' };
+  };
+
+  const shown = await assist.preview({ enabled: true, baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: "think=false" }, "록");
 
   assert.equal(shown.url, "http://127.0.0.1:11434/v1/chat/completions", "끝의 빗금은 정리한다");
   assert.equal(shown.body.think, false);
-  assert.equal(typeof shown.hasKey, "boolean");
-  assert.ok(!JSON.stringify(shown).includes(process.env.AI_API_KEY), "키 값은 나가지 않는다");
+  assert.equal(shown.status, 200);
+  assert.match(shown.response, /choices/, "응답은 손대지 않고 그대로 준다");
+
+  // 키 값은 절대 화면으로 가지 않는다 — 있었다는 표시만 남긴다
+  assert.equal(shown.headers.Authorization, "Bearer ***");
+  assert.ok(!JSON.stringify(shown).includes(process.env.AI_API_KEY));
 
   // 보기 곡 셋 중 하나는 길이를 모르는 것이다 — 그 처리를 눈으로 보라고 넣었다
   const asked = shown.body.messages.at(-1).content;
   assert.equal(asked.split("\n").length, 3);
   assert.match(asked, /^3\. 장르=록 제목=/m, "길이를 모르는 줄은 그 칸이 빠진다");
+});
+
+test("미리보기는 못 보내도 던지지 않는다", async () => {
+  global.fetch = async () => {
+    throw new Error("연결 실패");
+  };
+  const shown = await assist.preview({ enabled: true, baseUrl: "http://x/v1", model: "m" });
+  assert.equal(shown.status, null);
+  assert.match(shown.response, /연결 실패/);
 });
 
 test("묶음 크기대로 나눠 묻는다", async () => {

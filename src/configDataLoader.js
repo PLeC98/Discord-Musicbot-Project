@@ -454,6 +454,62 @@ function validateGenres(data) {
   return problems;
 }
 
+// ── ai-prompt.chatml ──────────────────────────────────────────────────────
+//
+// 프롬프트는 설정과 **딴 파일**에 산다. 설정 파일에 긴 글을 섞으면 YAML 들여쓰기에 걸려
+// 손으로 고치기 나쁘고, 프롬프트만 주고받기도 어렵다.
+//
+// 모양은 ChatML 이다 — 채팅 프론트엔드들이 쓰는 그 규격이라 옮겨 붙이기 쉽다.
+//
+//   <|im_start|>system
+//   판정 기준…
+//   <|im_end|>
+
+const PROMPT_FILE = "ai-prompt.chatml";
+const CHATML = /<\|im_start\|>[ \t]*(\w+)[ \t]*\r?\n([\s\S]*?)<\|im_end\|>/g;
+const promptPath = () => path.join(configDir, PROMPT_FILE);
+
+/** ChatML 글 → 섹션 목록. 블록 바깥의 글은 버린다(규격에 자리가 없다). */
+function parseChatML(text) {
+  const out = [];
+  for (const [, role, body] of String(text || "").matchAll(CHATML)) {
+    out.push({ role: role.toLowerCase(), text: body.replace(/\r?\n$/, "") });
+  }
+  return out;
+}
+
+/** 섹션 목록 → ChatML 글. */
+function toChatML(sections) {
+  return `${(sections || []).map((one) => `<|im_start|>${one?.role || "system"}\n${String(one?.text ?? "")}\n<|im_end|>`).join("\n\n")}\n`;
+}
+
+/** 지금 프롬프트. 파일이 없거나 비면 빈 목록 — 부르는 쪽이 기본 구성을 쓴다. */
+function aiPrompt() {
+  let stat;
+  try {
+    stat = fs.statSync(promptPath());
+  } catch {
+    return [];
+  }
+
+  const cached = cache.get(PROMPT_FILE);
+  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.value;
+
+  const value = parseChatML(fs.readFileSync(promptPath(), "utf8"));
+  cache.set(PROMPT_FILE, { mtimeMs: stat.mtimeMs, value });
+  return value;
+}
+
+function saveAiPrompt(sections) {
+  const problems = promptProblems(sections, true);
+  if (problems.length) throw Object.assign(new Error(problems[0]), { code: "CONFIG_INVALID", problems });
+
+  fs.writeFileSync(promptPath(), toChatML(sections));
+  cache.delete(PROMPT_FILE);
+  log.info(`설정을 저장했습니다: ${PROMPT_FILE}`);
+  return aiPrompt();
+}
+
 // ── ai.yaml ───────────────────────────────────────────────────────────────
 
 // 상태와 같은 처지다 — 곡을 고를 때마다 읽히므로 던지지 않는다.
@@ -497,33 +553,36 @@ function validateAi(data) {
   num("timeoutMs", 1000, 600000);
   num("batchSize", 1, 50);
 
-  if (data?.extra != null && (typeof data.extra !== "object" || Array.isArray(data.extra))) problems.push("extra는 이름:값 꼴이어야 합니다.");
+  // 추가 파라미터는 한 줄에 하나씩 적는 글이다(autoplayAssist.parseExtra)
+  if (data?.extra != null && typeof data.extra !== "string") problems.push("extra는 한 줄에 하나씩 적는 글이어야 합니다.");
+  if (data?.prompt != null) problems.push(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`);
 
-  problems.push(...promptProblems(data?.prompt, data?.enabled === true));
   problems.push(...listProblems(data?.list));
   return problems;
 }
 
-// 대화는 섹션 목록이다. 섹션마다 역할(system·user·assistant)과 내용을 갖는다.
+// 프롬프트는 섹션 목록이다. 섹션마다 역할(system·user·assistant)과 내용을 갖는다.
 // 비우면 기본 구성을 쓰므로, 적었을 때만 따진다.
 const AI_ROLES = ["system", "user", "assistant"];
 
 function promptProblems(prompt, on) {
   if (prompt == null) return [];
-  if (!Array.isArray(prompt)) return ["prompt는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."];
+  if (!Array.isArray(prompt)) return ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."];
   if (!prompt.length) return [];
 
   const problems = [];
   prompt.forEach((section, i) => {
-    const where = `prompt ${i + 1}번째 섹션`;
+    const where = `${i + 1}번째 섹션`;
     if (!section || typeof section !== "object") return problems.push(`${where}: 역할과 내용을 적어야 합니다.`);
-    if (!AI_ROLES.includes(section.role)) problems.push(`${where}: role은 ${AI_ROLES.join(" · ")} 중 하나여야 합니다.`);
-    if (section.text != null && typeof section.text !== "string") problems.push(`${where}: text는 글로 적어야 합니다.`);
+    if (!AI_ROLES.includes(section.role)) problems.push(`${where}: 역할은 ${AI_ROLES.join(" · ")} 중 하나여야 합니다.`);
+    if (section.text != null && typeof section.text !== "string") problems.push(`${where}: 내용은 글로 적어야 합니다.`);
+    // ChatML 은 블록 안에 끝 표시가 또 나오면 파일이 깨진다
+    if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>·<|im_end|> 를 적을 수 없습니다.`);
   });
 
   // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다. 켜 두고 이러면 매번 헛돈다.
   const hasList = prompt.some((section) => /\{\{\s*목록\s*\}\}/.test(String(section?.text ?? "")));
-  if (on && !hasList) problems.push("prompt 어딘가에 {{목록}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다.");
+  if (on && !hasList) problems.push("어딘가에 {{목록}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다.");
   return problems;
 }
 
@@ -550,4 +609,24 @@ function _setConfigDir(dir) {
   cache.clear();
 }
 
-module.exports = { load, genres, status, ai, save, validateGenres, validateStatus, validateAi, ACTIVITY_TYPES, fileOf, exampleOf, _setConfigDir, _cache: cache };
+module.exports = {
+  load,
+  genres,
+  status,
+  ai,
+  aiPrompt,
+  save,
+  saveAiPrompt,
+  validateGenres,
+  validateStatus,
+  validateAi,
+  promptProblems,
+  parseChatML,
+  toChatML,
+  ACTIVITY_TYPES,
+  fileOf,
+  exampleOf,
+  promptPath,
+  _setConfigDir,
+  _cache: cache,
+};

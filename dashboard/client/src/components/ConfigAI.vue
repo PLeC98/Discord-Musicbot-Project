@@ -1,13 +1,13 @@
 <!--
   AI 보조 설정 (운영자 패널).
 
-  이 설정은 파일(config/ai.yaml)로도 고칠 수 있다 — 대시보드는 선택 기능이다.
-  그래서 저장은 파일을 통째로 덮지 않고 바뀐 자리만 고치며, 손으로 적은 주석은 그대로 남는다.
+  설정은 config/ai.yaml, **프롬프트는 config/ai-prompt.chatml** 로 따로 산다.
+  둘 다 파일로도 고칠 수 있다 — 대시보드는 선택 기능이다.
 
   **API 키는 여기서 다루지 않는다.** .env 에 있고, 화면에는 있는지 없는지만 내려온다 —
   값을 브라우저로 보내면 XSS 하나로 새어 나간다.
 
-  미리보기는 **서버가 만든다**. 봇이 실제로 쓰는 조립 코드를 그대로 부르므로,
+  미리보기는 **서버가 실제로 한 번 보낸다**. 봇이 쓰는 조립 코드를 그대로 부르므로,
   화면에 보이는 것과 실제로 나가는 것이 어긋날 수 없다.
 -->
 <template>
@@ -69,14 +69,10 @@
 
       <div class="mt-4">
         <span :class="labelCls">추가 파라미터</span>
-        <p class="text-muted text-[0.78rem] mb-2">사고 조절처럼 서비스마다 이름이 다른 것을 그대로 보냅니다. Ollama 계열은 <code class="text-fg-soft">think</code> / <code class="text-fg-soft">false</code>, OpenAI 계열은 <code class="text-fg-soft">reasoning_effort</code> / <code class="text-fg-soft">low</code>.</p>
-
-        <div v-for="(row, i) in extraRows" :key="row.key" class="flex items-center gap-2 mb-2">
-          <input v-model="row.name" placeholder="이름" :class="[inputCls, 'flex-1']" />
-          <input v-model="row.value" placeholder="값" :class="[inputCls, 'flex-1']" />
-          <button :class="removeBtn" v-tooltip="'이 값 삭제'" @click="extraRows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
-        </div>
-        <button :class="addLine" @click="extraRows.push({ key: ++serial, name: '', value: '' })"><Icon name="add" :size="14" /><span>값 추가</span></button>
+        <p class="text-muted text-[0.78rem] mb-2">
+          한 줄에 하나씩. <code class="text-fg-soft">key=value</code> / <code class="text-fg-soft">key=json::{...}</code> / <code class="text-fg-soft">header::Name=value</code> / <code class="text-fg-soft">key={{ NONE_MARK }}</code> 지원.
+        </p>
+        <textarea v-model="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
       </div>
     </BaseCard>
 
@@ -128,48 +124,65 @@
 
       <p v-if="!sections.length" class="text-muted text-[0.82rem] mb-3">비어 있어 기본 프롬프트를 씁니다.</p>
       <p v-else-if="!hasListMark" class="text-[0.82rem] text-[#f87171] mb-3">
-        어느 섹션에도 <code class="text-fg-soft">{{ LIST_MARK }}</code> 이 없습니다. 그 자리에 판정할 후보가 들어가므로 하나는 있어야 합니다.
+        어느 섹션에도 <code class="text-fg-soft">{{ LIST_MARK }}</code> 이 없습니다.
       </p>
 
-      <div v-for="(section, i) in sections" :key="section.key" class="border border-white/8 rounded-xl p-3 mb-2.5 bg-white/3">
-        <div class="flex items-center gap-2 mb-2">
-          <div class="relative w-32 shrink-0">
-            <select v-model="section.role" :class="[inputCls, selectCls]">
-              <option v-for="one in ROLES" :key="one.value" :value="one.value" :class="optionCls">{{ one.label }}</option>
-            </select>
-            <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-          </div>
-          <span class="text-muted text-[0.75rem] flex-1 min-w-0 truncate">{{ ROLES.find((r) => r.value === section.role)?.hint }}</span>
-          <button :class="stepBtn" :disabled="i === 0" v-tooltip="'위로'" @click="move(i, -1)">
-            <svg width="10" height="7" viewBox="0 0 9 6" fill="currentColor" class="rotate-180"><path d="M0 0h9L4.5 6z" /></svg>
+      <div
+        v-for="(section, i) in sections"
+        :key="section.key"
+        class="border border-white/8 rounded-xl p-3 mb-2.5 bg-white/3 transition-[border-color,opacity] duration-150"
+        :class="{
+          'opacity-35': draggedIndex === i,
+          'border-t-2 border-t-accent': dragOverIndex === i && draggedIndex !== i,
+          'border-b-2 border-b-accent': dragOverIndex === sections.length && i === sections.length - 1,
+        }"
+        :draggable="dragReady"
+        @dragstart="onDragStart($event, i)"
+        @dragover="onDragOver($event, i)"
+        @drop="onDrop"
+        @dragend="onDragEnd"
+      >
+        <div class="flex items-end gap-2">
+          <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 pb-2.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2" cy="3" r="1.5" />
+              <circle cx="2" cy="8" r="1.5" />
+              <circle cx="2" cy="13" r="1.5" />
+              <circle cx="8" cy="3" r="1.5" />
+              <circle cx="8" cy="8" r="1.5" />
+              <circle cx="8" cy="13" r="1.5" />
+            </svg>
+          </span>
+
+          <button :class="foldBtn" v-tooltip="folded.has(section.key) ? '펼치기' : '접기'" @click="toggleFold(section.key)">
+            <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': folded.has(section.key) }"><path d="M0 0h9L4.5 6z" /></svg>
           </button>
-          <button :class="stepBtn" :disabled="i === sections.length - 1" v-tooltip="'아래로'" @click="move(i, 1)">
-            <svg width="10" height="7" viewBox="0 0 9 6" fill="currentColor"><path d="M0 0h9L4.5 6z" /></svg>
-          </button>
+
+          <label class="block w-32 shrink-0">
+            <span :class="labelCls">역할</span>
+            <div class="relative">
+              <select v-model="section.role" :class="[inputCls, selectCls]">
+                <option v-for="one in ROLES" :key="one" :value="one" :class="optionCls">{{ one }}</option>
+              </select>
+              <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+            </div>
+          </label>
+
+          <span v-if="folded.has(section.key)" class="text-muted text-[0.78rem] flex-1 min-w-0 truncate pb-2.5">{{ oneLine(section.text) }}</span>
+          <span v-else class="flex-1"></span>
+
           <button :class="removeBtn" v-tooltip="'이 섹션 삭제'" @click="sections.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <textarea v-model="section.text" rows="6" placeholder="내용" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
-        <button v-if="!section.text.includes(LIST_MARK)" :class="addLine" @click="appendMark(section)">{{ LIST_MARK }} 넣기</button>
+
+        <div v-show="!folded.has(section.key)" class="mt-2">
+          <span :class="labelCls">프롬프트</span>
+          <textarea v-model="section.text" rows="8" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
+        </div>
       </div>
 
-      <button :class="addLine" @click="loadDefaults">기본값으로</button>
-    </BaseCard>
-
-    <BaseCard icon="desktop" title="실제로 나갈 리퀘스트">
-      <p class="text-muted text-[0.82rem] mb-3">지금 화면의 설정으로 봇이 보낼 요청입니다. 봇이 쓰는 조립 코드를 그대로 불러 만들므로 실제와 다를 수 없습니다.</p>
-      <BaseButton :disabled="previewing" @click="loadPreview">{{ previewing ? "만드는 중…" : "미리보기" }}</BaseButton>
-
-      <div v-if="preview" class="mt-3">
-        <p class="text-muted text-[0.78rem] font-mono break-all">POST {{ preview.url }}</p>
-        <p class="text-muted text-[0.78rem] mb-3">헤더: Content-Type{{ preview.hasKey ? " · Authorization (키 값은 화면에 오지 않습니다)" : "" }}</p>
-
-        <div v-for="(message, i) in preview.body.messages" :key="i" class="mb-2">
-          <div class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)] mb-1">messages[{{ i }}] · {{ message.role }}</div>
-          <pre :class="preCls">{{ message.content }}</pre>
-        </div>
-
-        <div class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)] mb-1 mt-3">나머지 본문</div>
-        <pre :class="preCls">{{ JSON.stringify(restOfBody, null, 2) }}</pre>
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <button :class="addLine" @click="loadDefaults">기본값으로</button>
+        <BaseButton :disabled="previewing" @click="loadPreview">{{ previewing ? "보내는 중…" : "리퀘스트 미리보기" }}</BaseButton>
       </div>
     </BaseCard>
 
@@ -180,6 +193,22 @@
     <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
 
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
+
+    <!-- 리퀘스트 미리보기 — 다듬지 않는다. 나간 것과 온 것을 그대로 본다. -->
+    <div v-if="preview" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="preview = null">
+      <div class="bg-[rgba(12,16,36,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] w-[min(56rem,100%)] max-h-[88vh] overflow-auto p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <div class="flex items-center gap-3 mb-4">
+          <h3 class="text-[0.95rem] font-semibold flex-1">리퀘스트 미리보기</h3>
+          <span v-if="preview.status" class="text-[0.8rem]" :class="preview.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'">HTTP {{ preview.status }} · {{ (preview.tookMs / 1000).toFixed(1) }}초</span>
+          <button :class="removeBtn" v-tooltip="'닫기'" @click="preview = null"><Icon name="close" :size="15" /></button>
+        </div>
+
+        <div v-for="box in previewBoxes" :key="box.title" class="mb-3">
+          <div class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)] mb-1">{{ box.title }}</div>
+          <pre :class="preCls">{{ box.text }}</pre>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -197,21 +226,19 @@ const selectCls = "appearance-none cursor-pointer pr-9!";
 const arrowCls = "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted";
 const optionCls = "bg-[#141833] text-[#e7e9f3]";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
-const preCls = "bg-black/30 border border-white/8 rounded-xl p-3 text-[0.75rem] leading-relaxed font-mono whitespace-pre-wrap break-words max-h-80 overflow-auto text-fg-soft";
+const preCls = "bg-black/30 border border-white/8 rounded-xl p-3 text-[0.75rem] leading-relaxed font-mono whitespace-pre-wrap break-words max-h-72 overflow-auto text-fg-soft";
 const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
-const stepBtn = "h-[38px] w-8 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8 disabled:opacity-25 disabled:cursor-not-allowed";
+const foldBtn = "size-7 mb-0.5 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10";
 const addLine = "flex items-center gap-1.5 text-muted text-[0.82rem] px-2 py-1.5 rounded-lg cursor-pointer transition-colors duration-150 hover:text-fg-soft hover:bg-white/6";
 const markBtn = "px-2 py-1 rounded-md text-[0.75rem] font-mono border border-white/10 bg-white/4 text-muted cursor-pointer transition-colors duration-150 hover:bg-white/8 hover:text-fg";
 
 // 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다 — 값으로 둔다
 const LIST_MARK = "{{목록}}";
+const NONE_MARK = "{{none}}";
+const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\ntemperature=${NONE_MARK}`;
 
-const ROLES = [
-  { value: "system", label: "system", hint: "판정 기준처럼 늘 지켜야 할 것" },
-  { value: "user", label: "user", hint: "이번에 물어보는 것" },
-  { value: "assistant", label: "assistant", hint: "모델이 이렇게 답했다고 미리 알려 주는 것" },
-];
+const ROLES = ["system", "user", "assistant"];
 
 const MARKS = [
   { mark: "{{번호}}", hint: "1부터" },
@@ -230,7 +257,9 @@ const UNKNOWN = [
 const draft = ref({ enabled: false });
 const listCfg = ref({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
 const sections = ref([]);
+const folded = ref(new Set());
 const snapshot = ref("");
+const promptSnapshot = ref("");
 const saving = ref(false);
 const savedAt = ref(null);
 const loadError = ref("");
@@ -243,31 +272,32 @@ const previewing = ref(false);
 const preview = ref(null);
 const defaults = ref({ sections: [], line: "" });
 
+let serial = 0;
+
 const keyCls = computed(() => (hasKey.value ? "text-[#4ade80]" : "text-muted"));
-
-// 미리보기에서 messages 를 뺀 나머지 — 그쪽은 따로 보여 준다
-const restOfBody = computed(() => {
-  const { messages, ...others } = preview.value?.body || {};
-  return others;
-});
-
 const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s*\}\}/.test(one.text)));
 
-// extra 는 순서가 없는 이름:값이지만 편집 중에는 줄로 다룬다 — 맵으로 두면 이름을 고치는 순간 키가 바뀐다
-let serial = 0;
-const extraRows = ref([]);
-const toRows = (extra) => Object.entries(extra || {}).map(([name, value]) => ({ key: ++serial, name, value: String(value) }));
+// 다듬지 않는다 — 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다
+const previewBoxes = computed(() => {
+  const one = preview.value;
+  if (!one) return [];
+  return [
+    { title: "URL", text: one.url },
+    { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) },
+    { title: "요청 본문", text: JSON.stringify(one.body, null, 2) },
+    { title: "응답", text: one.response || "(비어 있음)" },
+  ];
+});
 
-// YAML 에 true/false/숫자로 남아야 할 것이 글자로 굳으면 저쪽이 안 받는다
-function parseValue(raw) {
-  const text = String(raw).trim();
-  if (text === "true") return true;
-  if (text === "false") return false;
-  if (text !== "" && !Number.isNaN(Number(text))) return Number(text);
-  return text;
-}
+const oneLine = (text) => String(text || "").split("\n")[0] || "(비어 있음)";
 
-const extra = computed(() => Object.fromEntries(extraRows.value.filter((r) => r.name.trim()).map((r) => [r.name.trim(), parseValue(r.value)])));
+// 추가 파라미터는 한 줄에 하나씩 적는 글이다 — 뜯어 읽는 것은 서버가 한다(autoplayAssist)
+const extraText = computed({
+  get: () => draft.value.extra || "",
+  set: (v) => {
+    draft.value.extra = v;
+  },
+});
 
 // 온도는 0.4 처럼 소수라 숫자 칸을 못 쓴다. 빈 칸과 0 을 가르려고 글자로 다룬다.
 const temperatureText = computed({
@@ -286,13 +316,10 @@ const timeoutSec = computed({
   },
 });
 
-const payload = computed(() => ({
-  ...draft.value,
-  extra: extra.value,
-  list: { ...listCfg.value },
-  prompt: sections.value.map((one) => ({ role: one.role, text: one.text })),
-}));
-const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
+// 설정과 프롬프트는 딴 파일이라 저장도 따로 간다
+const payload = computed(() => ({ ...draft.value, list: { ...listCfg.value } }));
+const promptPayload = computed(() => sections.value.map((one) => ({ role: one.role, text: one.text })));
+const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 const problems = computed(() => {
@@ -313,34 +340,30 @@ const problems = computed(() => {
   const line = String(listCfg.value.lineFormat || "").trim();
   if (line && !/\{\{\s*제목\s*\}\}/.test(line)) found.push("줄 형식에 {{제목}} 이 있어야 합니다.");
   if (sections.value.some((one) => !one.text.trim())) found.push("내용이 빈 섹션이 있습니다.");
-
-  const names = extraRows.value.map((r) => r.name.trim()).filter(Boolean);
-  if (new Set(names).size !== names.length) found.push("추가 파라미터의 이름이 겹칩니다.");
+  // ChatML 은 블록 안에 끝 표시가 또 나오면 파일이 깨진다
+  if (sections.value.some((one) => /<\|im_(start|end)\|>/.test(one.text))) found.push("프롬프트에 <|im_start|>·<|im_end|> 를 적을 수 없습니다.");
 
   return [...found, ...serverProblems.value];
 });
 
-watch(payload, () => {
+watch([payload, promptPayload], () => {
   savedAt.value = null;
   serverProblems.value = [];
-  preview.value = null; // 고쳤으면 옛 미리보기는 거짓말이 된다
 });
 
 function addSection() {
   sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", text: "" });
 }
 
-function move(i, by) {
-  const [one] = sections.value.splice(i, 1);
-  sections.value.splice(i + by, 0, one);
+function toggleFold(key) {
+  const next = new Set(folded.value);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  folded.value = next;
 }
 
 function loadDefaults() {
   sections.value = defaults.value.sections.map((one) => ({ key: ++serial, role: one.role, text: one.text }));
-}
-
-function appendMark(section) {
-  section.text += (!section.text || section.text.endsWith("\n") ? "" : "\n") + LIST_MARK;
 }
 
 // 자리표시자 알약 — 줄 형식 칸 끝에 붙인다
@@ -348,19 +371,69 @@ function insertMark(mark) {
   listCfg.value.lineFormat = `${listCfg.value.lineFormat || defaults.value.line}${mark}`;
 }
 
+// ── 순서 바꾸기 — 장르·상태 설정과 같은 방식 ───────────────────────────────
+const draggedIndex = ref(null);
+const dragOverIndex = ref(null);
+// 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다 — 손잡이를 누르는 동안만 켠다
+const dragReady = ref(false);
+
+function armDrag() {
+  dragReady.value = true;
+  window.addEventListener("mouseup", () => (dragReady.value = false), { once: true });
+}
+
+function onDragStart(e, i) {
+  // dragstart는 위로 퍼진다 — 카드 자신이 끌리기 시작한 것만 받는다
+  if (e.target !== e.currentTarget) return;
+  draggedIndex.value = i;
+  e.dataTransfer.effectAllowed = "move";
+}
+
+function onDragOver(e, i) {
+  if (draggedIndex.value == null) return;
+  e.preventDefault();
+  const rect = e.currentTarget.getBoundingClientRect();
+  dragOverIndex.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1;
+}
+
+function onDrop(e) {
+  if (draggedIndex.value == null) return;
+  e.preventDefault();
+  const from = draggedIndex.value;
+  const to = dragOverIndex.value;
+  if (from != null && to != null) {
+    const [moved] = sections.value.splice(from, 1);
+    // 앞에서 빼면 뒤쪽 자리가 하나씩 당겨진다
+    sections.value.splice(to > from ? to - 1 : to, 0, moved);
+  }
+  onDragEnd();
+}
+
+function onDragEnd() {
+  dragReady.value = false;
+  draggedIndex.value = null;
+  dragOverIndex.value = null;
+}
+
+// ── 주고받기 ──────────────────────────────────────────────────────────────
+
 function apply(data) {
-  const { extra: got, list, prompt, ...rest } = data || {};
-  draft.value = { enabled: false, ...rest };
+  const { list, prompt, ...rest } = data || {};
+  draft.value = { enabled: false, extra: "", ...rest };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
-  sections.value = (Array.isArray(prompt) ? prompt : []).map((one) => ({ key: ++serial, role: one?.role || "system", text: String(one?.text ?? "") }));
-  extraRows.value = toRows(got);
   snapshot.value = JSON.stringify(payload.value);
 }
 
-async function fetchConfig() {
+function applyPrompt(list) {
+  sections.value = (list || []).map((one) => ({ key: ++serial, role: one?.role || "system", text: String(one?.text ?? "") }));
+  promptSnapshot.value = JSON.stringify(promptPayload.value);
+}
+
+async function fetchAll() {
   loadError.value = "";
   try {
     apply((await axios.get("/api/admin/config/ai")).data.data);
+    applyPrompt((await axios.get("/api/admin/ai/prompt")).data.sections);
   } catch (error) {
     loadError.value = error.response?.data?.error || "설정을 읽지 못했습니다.";
   }
@@ -381,7 +454,7 @@ async function fetchState() {
 async function loadPreview() {
   previewing.value = true;
   try {
-    preview.value = (await axios.post("/api/admin/ai/preview", { data: payload.value })).data;
+    preview.value = (await axios.post("/api/admin/ai/preview", { data: { ...payload.value, prompt: promptPayload.value } })).data;
   } catch (error) {
     loadError.value = error.response?.data?.error || "미리보기를 만들지 못했습니다.";
   } finally {
@@ -406,6 +479,7 @@ async function save() {
   serverProblems.value = [];
   try {
     apply((await axios.put("/api/admin/config/ai", { data: payload.value })).data.data);
+    applyPrompt((await axios.put("/api/admin/ai/prompt", { sections: promptPayload.value })).data.sections);
     savedAt.value = Date.now();
   } catch (error) {
     serverProblems.value = error.response?.data?.problems || [error.response?.data?.error || "저장하지 못했습니다."];
@@ -416,10 +490,11 @@ async function save() {
 
 function revert() {
   apply(JSON.parse(snapshot.value));
+  applyPrompt(JSON.parse(promptSnapshot.value));
 }
 
 onMounted(() => {
   fetchState();
-  fetchConfig();
+  fetchAll();
 });
 </script>

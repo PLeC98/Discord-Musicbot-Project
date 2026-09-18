@@ -61,7 +61,53 @@ const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfiden
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
   const one = { ...DEFAULTS, ...configData.ai() };
-  return one.enabled && one.baseUrl && one.model ? one : null;
+  if (!one.enabled || !one.baseUrl || !one.model) return null;
+  // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다
+  return { ...one, prompt: configData.aiPrompt() };
+}
+
+/**
+ * 추가 파라미터 — 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
+ *
+ *   key=value            그대로 (true · false · 숫자는 알아서 바꾼다)
+ *   key=json::{...}      JSON 으로 읽어 넣는다 (객체·배열)
+ *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
+ *   key={{none}}         그 값을 아예 안 보낸다 (temperature 처럼 늘 붙는 것을 뺄 때)
+ */
+function parseExtra(text) {
+  const body = {};
+  const headers = {};
+  const drop = [];
+
+  for (const raw of String(text || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const at = line.indexOf("=");
+    if (at < 1) continue; // 이름이 없는 줄은 버린다
+    const name = line.slice(0, at).trim();
+    const value = line.slice(at + 1).trim();
+
+    if (/^header::/i.test(name)) {
+      headers[name.slice(8).trim()] = value;
+    } else if (value === "{{none}}") {
+      drop.push(name);
+    } else if (value.startsWith("json::")) {
+      const json = value.slice(6);
+      try {
+        body[name] = JSON.parse(json);
+      } catch {
+        body[name] = json; // 못 읽으면 적힌 그대로 — 조용히 버리지 않는다
+      }
+    } else if (value === "true" || value === "false") {
+      body[name] = value === "true";
+    } else if (value !== "" && !Number.isNaN(Number(value))) {
+      body[name] = Number(value);
+    } else {
+      body[name] = value;
+    }
+  }
+  return { body, headers, drop };
 }
 
 /** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 — 둘 다 받는다. */
@@ -116,23 +162,37 @@ function buildMessages(one, batch, genre) {
  * 후보 묶음을 모델에게 묻는다.
  * @returns {Promise<Array<{song: boolean, fits: boolean}|null>>} 후보와 같은 길이. 못 받은 자리는 null.
  */
-async function askBatch(one, batch, genre) {
+/** 보낼 것 한 벌 — 미리보기도 이것을 쓴다. */
+function buildRequest(one, batch, genre) {
+  const extra = parseExtra(one.extra);
   const body = {
     model: one.model,
     temperature: Number(one.temperature),
     messages: buildMessages(one, batch, genre),
-    // 서비스마다 이름이 다른 것들(think · reasoning_effort …)은 설정에서 그대로 얹는다
-    ...(one.extra && typeof one.extra === "object" ? one.extra : {}),
+    ...extra.body,
   };
+  // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
+  for (const key of extra.drop) delete body[key];
 
-  const res = await fetch(`${String(one.baseUrl).replace(/\/+$/, "")}/chat/completions`, {
-    method: "POST",
+  return {
+    url: `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`,
     headers: {
       "Content-Type": "application/json",
       // 로컬 모델은 키를 안 받는다 — 없으면 헤더 자체를 안 붙인다
       ...(config.ai?.apiKey ? { Authorization: `Bearer ${config.ai.apiKey}` } : {}),
+      ...extra.headers,
     },
-    body: JSON.stringify(body),
+    body,
+  };
+}
+
+async function askBatch(one, batch, genre) {
+  const request = buildRequest(one, batch, genre);
+
+  const res = await fetch(request.url, {
+    method: "POST",
+    headers: request.headers,
+    body: JSON.stringify(request.body),
     signal: AbortSignal.timeout(Number(one.timeoutMs)),
   });
 
@@ -234,21 +294,33 @@ async function check() {
 const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
 
 /**
- * 저장하기 전의 설정으로 **실제로 나갈 요청**을 만들어 본다.
- * 진짜 조립 코드를 그대로 쓴다 — 화면이 따로 흉내 내면 언젠가 어긋난다.
+ * 저장하기 전의 설정으로 **실제로 한 번 보내 본다.** 나간 것과 온 것을 손대지 않고 그대로 준다.
+ * 조립은 봇이 쓰는 코드 그대로다 — 화면이 따로 흉내 내면 언젠가 어긋난다.
+ *
+ * 키 값은 절대 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
-function preview(draft, genre = "록") {
+async function preview(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
-  return {
-    url: `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`,
-    hasKey: !!config.ai?.apiKey,
-    body: {
-      model: one.model || "",
-      temperature: Number(one.temperature),
-      messages: buildMessages(one, SAMPLE, genre),
-      ...(one.extra && typeof one.extra === "object" ? one.extra : {}),
-    },
-  };
+  const request = buildRequest(one, SAMPLE, genre);
+  const shown = { ...request.headers };
+  if (shown.Authorization) shown.Authorization = "Bearer ***";
+
+  const out = { url: request.url, headers: shown, body: request.body, status: null, response: "" };
+  const started = Date.now();
+  try {
+    const res = await fetch(request.url, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+      signal: AbortSignal.timeout(Number(one.timeoutMs)),
+    });
+    out.status = res.status;
+    out.response = await res.text(); // 손대지 않는다 — 다듬으면 무엇이 온 것인지 못 본다
+  } catch (error) {
+    out.response = `(보내지 못했습니다) ${error.message}`;
+  }
+  out.tookMs = Date.now() - started;
+  return out;
 }
 
-module.exports = { filter, accepts, check, settings, preview, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+module.exports = { filter, accepts, check, settings, preview, parseExtra, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

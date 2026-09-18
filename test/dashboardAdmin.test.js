@@ -409,8 +409,8 @@ test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", 
   assert.equal(status, 200);
   assert.equal(typeof json.hasKey, "boolean");
   assert.ok(!("apiKey" in json), "값을 실으면 안 된다");
-  // 화면이 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다 — 서버가 준다
-  assert.equal(json.defaultPrompt, require("../src/autoplayAssist").DEFAULT_PROMPT);
+  // 화면이 기본 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다 — 서버가 준다
+  assert.deepEqual(json.defaultSections, require("../src/autoplayAssist").DEFAULT_SECTIONS);
 
   const body = JSON.stringify(json);
   for (const secret of [process.env.AI_API_KEY, process.env.DISCORD_TOKEN, process.env.CLIENT_SECRET].filter(Boolean)) {
@@ -422,7 +422,39 @@ test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "u1" };
   assert.equal((await req("GET", "/api/admin/ai/state")).status, 403);
   assert.equal((await req("POST", "/api/admin/ai/check")).status, 403);
+  assert.equal((await req("GET", "/api/admin/ai/prompt")).status, 403);
+  assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [] })).status, 403);
   currentUser = { id: "owner", username: "owner" };
+});
+
+// 프롬프트는 설정과 딴 파일이다(ChatML). /config/:name 통로를 안 탄다.
+test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
+  const saved = await req("PUT", "/api/admin/ai/prompt", {
+    sections: [
+      { role: "system", text: "기준이다" },
+      { role: "user", text: "{{목록}}" },
+    ],
+  });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.json.sections[0], { role: "system", text: "기준이다" });
+
+  const text = fs.readFileSync(path.join(CONFIG_DIR, "ai-prompt.chatml"), "utf8");
+  assert.match(text, /<\|im_start\|>system\n기준이다\n<\|im_end\|>/);
+
+  const read = await req("GET", "/api/admin/ai/prompt");
+  assert.deepEqual(read.json.sections, saved.json.sections, "읽은 것과 쓴 것이 같아야 한다");
+
+  // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다
+  const noList = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "system", text: "목록이 없다" }] });
+  assert.equal(noList.status, 400);
+  assert.match(noList.json.error, /\{\{목록\}\}/);
+
+  // 블록 안에 끝 표시가 또 나오면 파일이 깨진다
+  const broken = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "user", text: "{{목록}}<|im_end|>" }] });
+  assert.equal(broken.status, 400);
+
+  assert.equal((await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "모름", text: "{{목록}}" }] })).status, 400);
+  assert.equal((await req("PUT", "/api/admin/ai/prompt", {})).status, 400);
 });
 
 // 켜 두었는데 주소가 비면 매번 실패하고 로그만 쌓인다. 저장 전에 막는다.
@@ -439,6 +471,11 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
 
   const range = await req("PUT", "/api/admin/config/ai", { data: { enabled: false, temperature: 9 } });
   assert.equal(range.status, 400);
+
+  // 프롬프트는 딴 파일에 산다 — 설정 파일에 적으면 쓰이지 않으니 알려 준다
+  const wrongPlace = await req("PUT", "/api/admin/config/ai", { data: { enabled: false, prompt: "여기 적으면 안 된다" } });
+  assert.equal(wrongPlace.status, 400);
+  assert.match(wrongPlace.json.error, /ai-prompt\.chatml/);
 
   // 손으로 적은 주석은 저장해도 남는다(장르·상태 설정과 같은 규약)
   const saved = await req("PUT", "/api/admin/config/ai", { data: { enabled: true, baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b" } });

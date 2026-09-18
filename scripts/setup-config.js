@@ -13,15 +13,18 @@ const fs = require("fs");
 const path = require("path");
 
 const CONFIG_DIR = path.join(__dirname, "..", "config");
-const NAMES = ["genres", "status", "ai"];
+// 이름 뒤에 확장자가 다른 것도 있다(프롬프트는 ChatML 글 파일이다)
+const NAMES = ["genres", "status", "ai", "ai-prompt.chatml"];
 
 function setup() {
   const made = [];
   const missing = [];
 
-  for (const name of NAMES) {
-    const target = path.join(CONFIG_DIR, `${name}.yaml`);
-    const example = path.join(CONFIG_DIR, `${name}.example.yaml`);
+  for (const one of NAMES) {
+    const at = one.indexOf(".");
+    const [name, ext] = at < 0 ? [one, "yaml"] : [one.slice(0, at), one.slice(at + 1)];
+    const target = path.join(CONFIG_DIR, `${name}.${ext}`);
+    const example = path.join(CONFIG_DIR, `${name}.example.${ext}`);
 
     if (fs.existsSync(target)) continue;
     if (!fs.existsSync(example)) {

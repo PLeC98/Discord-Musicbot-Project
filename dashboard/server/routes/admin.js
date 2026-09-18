@@ -235,15 +235,36 @@ router.get("/source-types", requireOwner, async (req, res) => {
 // 기본 프롬프트도 같이 준다 — 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
   const assist = require("../../../src/autoplayAssist");
-  res.json({ hasKey: !!require("../../../config").ai?.apiKey, defaultPrompt: assist.DEFAULT_PROMPT, defaultSections: assist.DEFAULT_SECTIONS, defaultLine: assist.DEFAULT_LINE });
+  res.json({ hasKey: !!require("../../../config").ai?.apiKey, defaultSections: assist.DEFAULT_SECTIONS, defaultLine: assist.DEFAULT_LINE });
 });
 
-// 저장하기 전의 설정으로 실제로 나갈 요청을 만들어 본다. 조립은 봇이 쓰는 코드 그대로다 —
-// 화면이 따로 흉내 내면 언젠가 어긋난다. 키는 여기서도 값이 아니라 유무만 나간다.
-router.post("/ai/preview", requireOwner, (req, res) => {
+// 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
+// /config/:name 통로를 못 탄다 — 여기서 따로 받는다.
+router.get("/ai/prompt", requireOwner, (req, res) => {
+  res.json({ sections: configData.aiPrompt() });
+});
+
+router.put("/ai/prompt", requireOwner, (req, res) => {
+  const sections = req.body?.sections;
+  if (!Array.isArray(sections)) return res.status(400).json({ error: "저장할 내용이 없습니다." });
+
+  const problems = configData.promptProblems(sections, true);
+  if (problems.length) return res.status(400).json({ error: problems[0], problems });
+
+  try {
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml — 실행 ${req.session.user.username || req.session.user.id}`);
+    res.json({ sections: configData.saveAiPrompt(sections) });
+  } catch (error) {
+    res.status(409).json({ error: error.message });
+  }
+});
+
+// 저장하기 전의 설정으로 **실제로 한 번 보내 본다.** 나간 것과 온 것을 그대로 돌려준다 —
+// 조립은 봇이 쓰는 코드 그대로다. 키 값은 나가지 않는다(헤더에 있었다는 표시만).
+router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
-  res.json(require("../../../src/autoplayAssist").preview(data));
+  res.json(await require("../../../src/autoplayAssist").preview(data));
 });
 
 // 지금 설정으로 실제로 부를 수 있나 — 한 곡을 물어 보고 걸린 시간을 돌려준다.
