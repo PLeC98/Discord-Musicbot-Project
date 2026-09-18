@@ -247,6 +247,20 @@ router.get("/ai/state", requireOwner, (req, res) => {
   });
 });
 
+// 키를 고쳐 쓴다. **쓰기 전용이다** — 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
+// 로그에도 이름만 남긴다.
+router.put("/ai/keys", requireOwner, (req, res) => {
+  const keys = req.body?.keys;
+  if (!keys || typeof keys !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
+
+  try {
+    log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")} — 실행 ${req.session.user.username || req.session.user.id}`);
+    res.json({ hasKey: configData.saveAiKeys(keys) });
+  } catch (error) {
+    res.status(409).json({ error: error.message });
+  }
+});
+
 // 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
 // /config/:name 통로를 못 탄다 — 여기서 따로 받는다.
 router.get("/ai/prompt", requireOwner, (req, res) => {

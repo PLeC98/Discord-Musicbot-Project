@@ -115,9 +115,21 @@ function endpointOf(one) {
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
 const wantsKey = (one) => !!specOf(one?.provider)?.key;
 
-// 키는 프로바이더마다 따로다(config/ai-keys.yaml). 로컬에는 아예 안 붙인다.
+/**
+ * 키는 프로바이더마다 따로다(config/ai-keys.yaml). 로컬에는 아예 안 붙인다.
+ *
+ * **custom 은 저장된 주소와 같을 때만 붙인다.** 대시보드의 미리보기·테스트는 저장 안 한
+ * 초안을 그대로 받는데, 그 주소로 키까지 붙여 보내면 운영자 세션을 쥔 쪽이 저장도 없이
+ * 아무 데로나 키를 흘려보낼 수 있다(재 봤다). 다른 프로바이더는 주소가 박혀 있어 해당 없다.
+ */
 function authOf(one) {
   if (!wantsKey(one)) return {};
+
+  if (specOf(one.provider)?.editable) {
+    const saved = String(configData.ai()?.baseUrl || "").replace(/\/+$/, "");
+    if (!saved || endpointOf(one) !== saved) return {};
+  }
+
   const key = configData.aiKeyOf(one.provider);
   return key ? { Authorization: `Bearer ${key}` } : {};
 }

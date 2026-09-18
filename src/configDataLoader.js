@@ -481,6 +481,27 @@ function aiKeys() {
 /** 이 프로바이더의 키(없으면 빈 문자열). */
 const aiKeyOf = (provider) => aiKeys()[provider] || "";
 
+/**
+ * 키를 고쳐 쓴다. **적어 보낸 칸만** 바꾸고 나머지는 그대로 둔다.
+ * 돌려주는 것은 값이 아니라 있는지 없는지다 — 값은 어느 통로로도 돌아나가지 않는다.
+ */
+function saveAiKeys(changes) {
+  if (!changes || typeof changes !== "object") throw Object.assign(new Error("저장할 내용이 없습니다"), { code: "CONFIG_INVALID" });
+
+  const known = new Set(aiProviders());
+  const next = { ...aiKeys() };
+  for (const [name, value] of Object.entries(changes)) {
+    if (!known.has(name)) continue; // 모르는 이름으로 칸을 늘리지 않는다
+    if (value != null && typeof value !== "string") throw Object.assign(new Error(`${name}: 키는 글자여야 합니다`), { code: "CONFIG_INVALID" });
+    next[name] = value == null ? "" : value.trim();
+  }
+
+  // 파일이 없으면 만들어 둔다 — 설치 때 복사되지만 지웠을 수도 있다
+  if (!fs.existsSync(fileOf("ai-keys"))) fs.writeFileSync(fileOf("ai-keys"), "");
+  save("ai-keys", next);
+  return Object.fromEntries(Object.entries(next).map(([name, value]) => [name, !!value]));
+}
+
 // ── ai-prompt.chatml ──────────────────────────────────────────────────────
 //
 // 프롬프트는 설정과 **딴 파일**에 산다. 설정 파일에 긴 글을 섞으면 YAML 들여쓰기에 걸려
@@ -657,6 +678,7 @@ module.exports = {
   ai,
   aiKeys,
   aiKeyOf,
+  saveAiKeys,
   aiPrompt,
   save,
   saveAiPrompt,

@@ -39,26 +39,46 @@
 
           <label class="block">
             <span :class="labelCls">모델</span>
-            <div v-if="models.length && !manualModel" class="relative">
-              <select v-model="draft.model" :class="[inputCls, selectCls]">
-                <option v-for="one in models" :key="one" :value="one" :class="optionCls">{{ one }}</option>
-              </select>
-              <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+            <div class="flex items-center gap-2">
+              <div v-if="models.length && !manualModel" class="relative flex-1 min-w-0">
+                <select v-model="draft.model" :class="[inputCls, selectCls]">
+                  <option v-for="one in models" :key="one" :value="one" :class="optionCls">{{ one }}</option>
+                </select>
+                <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+              </div>
+              <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1']" />
+              <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침 (무료)'" @click="loadModels()">
+                <Icon name="repeat" :size="15" :class="loadingModels ? 'opacity-40' : ''" />
+              </button>
             </div>
-            <input v-else v-model="draft.model" placeholder="모델 이름" :class="inputCls" />
           </label>
         </div>
 
         <div class="flex items-center gap-2.5 flex-wrap">
-          <span v-if="needsKey" class="text-[0.82rem]" :class="keyCls">API 키 {{ hasKey ? "있음" : "없음" }}</span>
-          <span v-if="needsKey" class="text-muted text-[0.78rem]">config/ai-keys.yaml 의 {{ draft.provider }}</span>
           <button v-if="models.length" :class="addLine" @click="manualModel = !manualModel">{{ manualModel ? "목록에서 고르기" : "모델 직접 입력" }}</button>
         </div>
 
-        <p class="text-muted text-[0.78rem] mt-4 mb-2">무료는 {{ "{baseUrl}/models" }} 만 부릅니다. 유료는 짧은 물음 하나를 실제로 생성시킵니다.</p>
+        <!-- 키는 쓰기 전용이다. 값은 내려오지 않고 있는지 없는지만 온다. -->
+        <div v-if="needsKey" class="mt-3">
+          <span :class="labelCls">API 키</span>
+          <div class="flex items-center gap-2">
+            <input v-model="keyInput" type="password" autocomplete="off" :placeholder="hasKey ? '저장돼 있습니다. 바꾸려면 새로 입력하세요' : '키를 입력하세요'" :class="[inputCls, 'flex-1']" />
+            <BaseButton :disabled="!keyInput.trim() || savingKey" @click="saveKey">{{ savingKey ? "저장 중…" : "저장" }}</BaseButton>
+            <button v-if="hasKey" :class="iconBtn" :disabled="savingKey" v-tooltip="'저장된 키 지우기'" @click="clearKey"><Icon name="trash" :size="15" /></button>
+          </div>
+          <p class="mt-1.5 text-[0.78rem]">
+            <span :class="keyCls">{{ hasKey ? "저장돼 있음" : "없음" }}</span>
+            <span class="text-muted"> · config/ai-keys.yaml 에 저장되며 화면으로 다시 내려오지 않습니다</span>
+          </p>
+          <p v-if="!secureOrigin" class="mt-1 text-[0.78rem] text-[#fbbf24]">지금 평문(HTTP)으로 접속 중입니다. 키가 그대로 네트워크를 지나갑니다.</p>
+        </div>
+
+        <p v-if="staleCustomUrl" class="mt-3 text-[0.78rem] text-[#fbbf24]">주소를 고쳤지만 아직 저장하지 않았습니다. 저장 전에는 키를 붙이지 않고 보냅니다.</p>
+
+        <p class="text-muted text-[0.78rem] mt-4 mb-2">무료는 모델 목록만 부릅니다. 유료는 짧은 물음 하나를 실제로 생성시킵니다.</p>
         <div class="flex items-center gap-2.5 flex-wrap">
-          <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels">{{ loadingModels ? "확인 중…" : "무료 테스트" }}</BaseButton>
-          <BaseButton variant="secondary" :disabled="pinging" @click="runPing">{{ pinging ? "보내는 중…" : "유료 테스트" }}</BaseButton>
+          <BaseButton variant="ghost" :disabled="loadingModels" @click="loadModels()">{{ loadingModels ? "확인 중…" : "무료 테스트" }}</BaseButton>
+          <BaseButton variant="secondary" :disabled="pinging" @click="askPaid('ping')">{{ pinging ? "보내는 중…" : "유료 테스트" }}</BaseButton>
         </div>
 
         <p v-if="modelResult" class="mt-2 text-[0.82rem]" :class="modelResult.ok ? 'text-[#4ade80]' : 'text-[#f87171]'">
@@ -86,7 +106,7 @@
             <NumberInput v-model="timeoutSec" :class="inputCls" />
           </label>
           <label class="block">
-            <span :class="labelCls" v-tooltip="'곡마다 따로 물으면 느립니다'">한 리퀘스트마다 판정을 맡길 곡 수</span>
+            <span :class="labelCls" v-tooltip="'곡마다 따로 물으면 느립니다'">리퀘스트당 판정할을 맡길 곡 수</span>
             <NumberInput v-model="draft.batchSize" :class="inputCls" />
           </label>
           <label class="flex items-center gap-2 cursor-pointer self-end pb-2.5">
@@ -211,7 +231,7 @@
         <div class="flex items-center gap-2.5 flex-wrap">
           <button :class="addLine" @click="loadDefaults">기본값으로</button>
           <BaseButton @click="openPreview">리퀘스트 미리보기</BaseButton>
-          <BaseButton :disabled="testing" @click="runTest">{{ testing ? "보내는 중…" : "판정 테스트" }}</BaseButton>
+          <BaseButton variant="secondary" :disabled="testing" @click="askPaid('judge')">{{ testing ? "보내는 중…" : "판정 테스트" }}</BaseButton>
           <span class="text-muted text-[0.78rem]">미리보기는 만들기만, 판정 테스트는 이 프롬프트를 통째로 실제 전송합니다(유료).</span>
         </div>
       </BaseCard>
@@ -224,6 +244,25 @@
     <p v-if="loadError" class="mt-3 text-[0.82rem] text-[#f87171]">{{ loadError }}</p>
 
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
+
+    <!-- 유료 확인 — 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다. -->
+    <div v-if="paid" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="paid = null">
+      <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 max-w-110 w-[90%] shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
+        <p class="mb-2 text-[0.95rem] text-fg-soft">실제로 보냅니다. 토큰이 듭니다.</p>
+        <dl class="mb-5 text-[0.82rem] grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          <dt class="text-muted">보낼 곳</dt>
+          <dd class="font-mono break-all">{{ spec?.editable ? draft.baseUrl : spec?.baseUrl }}</dd>
+          <dt class="text-muted">모델</dt>
+          <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
+          <dt class="text-muted">보낼 것</dt>
+          <dd>{{ paid === "ping" ? "짧은 물음 한 마디" : `판정 프롬프트 전체 (섹션 ${sections.length || "기본"}개 · 보기 곡 3개)` }}</dd>
+        </dl>
+        <div class="flex gap-2.5 justify-end">
+          <BaseButton variant="ghost" @click="paid = null">그만두기</BaseButton>
+          <BaseButton variant="secondary" @click="runPaid">보내기</BaseButton>
+        </div>
+      </div>
+    </div>
 
     <!-- 나간 것과 온 것을 그대로 본다. 다듬지 않는다. -->
     <div v-if="shown" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="shown = null">
@@ -264,6 +303,7 @@ const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted
 const foldBtn = "size-7 mb-0.5 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10";
 const addLine = "flex items-center gap-1.5 text-muted text-[0.82rem] px-2 py-1.5 rounded-lg cursor-pointer transition-colors duration-150 hover:text-fg-soft hover:bg-white/6";
+const iconBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10 hover:text-fg disabled:opacity-35 disabled:cursor-not-allowed";
 const markBtn = "px-2 py-1 rounded-md text-[0.75rem] font-mono border border-white/10 bg-white/4 text-muted cursor-pointer transition-colors duration-150 hover:bg-white/8 hover:text-fg";
 
 // 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다 — 값으로 둔다
@@ -300,6 +340,9 @@ const loadError = ref("");
 const serverProblems = ref([]);
 
 const keyPresence = ref({});
+const keyInput = ref("");
+const savingKey = ref(false);
+const paid = ref(null); // "ping" | "judge" — 확인 대화상자
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
@@ -333,6 +376,13 @@ const grouped = computed(() => {
 const on = computed(() => !!draft.value.provider && draft.value.provider !== "off");
 // 로컬 모델은 키를 안 받는다 — 있으나 마나 한 표시를 띄우지 않는다
 const needsKey = computed(() => !!spec.value?.key);
+// 평문으로 열어 두었으면 키가 그대로 네트워크를 지난다 — 파일을 고칠 때는 없는 일이다
+const secureOrigin = computed(() => window.isSecureContext);
+// custom 은 저장된 주소와 같을 때만 키가 붙는다(autoplayAssist.authOf).
+// **ref 를 computed 보다 먼저 선언한다** — 아래에 두면 TDZ 이고, Vue 가 그 예외를 삼켜
+// 화면만 조용히 비는 종류의 버그가 된다(SourceEditor 에서 한 번 당했다).
+const savedBaseUrl = ref("");
+const staleCustomUrl = computed(() => !!spec.value?.editable && String(draft.value.baseUrl || "") !== savedBaseUrl.value);
 const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s*\}\}/.test(one.text)));
 
 // 다듬지 않는다 — 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다.
@@ -482,6 +532,7 @@ function apply(data) {
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
   names = Array.isArray(promptNames) ? promptNames : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));
+  savedBaseUrl.value = String(draft.value.baseUrl || ""); // 키를 붙일지 가르는 기준
   snapshot.value = JSON.stringify(payload.value);
 }
 
@@ -568,6 +619,32 @@ async function loadModels({ quiet = false } = {}) {
     loadingModels.value = false;
   }
 }
+
+// 돈이 드는 것은 한 번 물어본다. 보안이 아니라 실수 방지다.
+const askPaid = (which) => (paid.value = which);
+
+function runPaid() {
+  const which = paid.value;
+  paid.value = null;
+  if (which === "ping") runPing();
+  else runTest();
+}
+
+// 키는 쓰기 전용이다 — payload 에 안 싣는다(미리보기·테스트로 새어 나가면 안 된다)
+async function putKey(value) {
+  savingKey.value = true;
+  try {
+    keyPresence.value = (await axios.put("/api/admin/ai/keys", { keys: { [draft.value.provider]: value } })).data.hasKey || {};
+    keyInput.value = "";
+  } catch (error) {
+    loadError.value = error.response?.data?.error || "키를 저장하지 못했습니다.";
+  } finally {
+    savingKey.value = false;
+  }
+}
+
+const saveKey = () => putKey(keyInput.value.trim());
+const clearKey = () => putKey("");
 
 // 유료 — 짧은 물음 하나를 실제로 생성시킨다(판정 프롬프트는 안 쓴다).
 async function runPing() {

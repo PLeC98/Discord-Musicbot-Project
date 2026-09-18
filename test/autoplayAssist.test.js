@@ -459,6 +459,27 @@ test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", (
   );
 });
 
+// 미리보기·테스트는 **저장 안 한 초안**을 그대로 받는다. custom 은 주소를 사람이 적으므로,
+// 그 주소로 키까지 붙여 보내면 운영자 세션을 쥔 쪽이 저장도 없이 아무 데로나 키를 흘릴 수 있다.
+test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () => {
+  useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => "{}" };
+  };
+
+  await assist.ping({ provider: "custom", baseUrl: "https://공격자/v1", model: "m" });
+  assert.ok(!calls.at(-1).init.headers.Authorization, "저장 안 한 주소에는 키를 안 붙인다");
+
+  await assist.ping({ provider: "custom", baseUrl: "https://내가저장한곳/v1", model: "m" });
+  assert.equal(calls.at(-1).init.headers.Authorization, `Bearer ${KEY}`, "저장된 주소면 붙인다");
+
+  // 주소가 박힌 프로바이더는 애초에 초안이 주소를 못 바꾼다
+  await assist.ping({ provider: "openai", baseUrl: "https://공격자/v1", model: "m" });
+  assert.equal(calls.at(-1).url, "https://api.openai.com/v1/chat/completions");
+});
+
 test("클라우드 프로바이더에는 키를 붙인다", async () => {
   calls.length = 0;
   global.fetch = async (url, init) => {

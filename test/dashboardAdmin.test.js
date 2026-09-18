@@ -433,6 +433,36 @@ test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
+// 키는 **쓰기 전용**이다. 넣을 수는 있어도 되읽을 수는 없다 —
+// 운영자 세션이 털려도 덮어쓰기지 읽기가 아니어야 한다.
+test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
+  const saved = await req("PUT", "/api/admin/ai/keys", { keys: { groq: "sk-groq-새키" } });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.json.hasKey.groq, true);
+  assert.equal(saved.json.hasKey.openai, true, "적어 보내지 않은 칸은 그대로 둔다");
+  assert.ok(!JSON.stringify(saved.json).includes("sk-groq-새키"), "응답에 값이 실리면 안 된다");
+
+  // 파일에는 들어갔다
+  assert.match(fs.readFileSync(path.join(CONFIG_DIR, "ai-keys.yaml"), "utf8"), /sk-groq-새키/);
+
+  // 어느 통로로도 값이 돌아나오지 않는다
+  const state = await req("GET", "/api/admin/ai/state");
+  assert.ok(!JSON.stringify(state.json).includes("sk-groq-새키"));
+
+  // 빈 값이면 지운다
+  assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: { groq: "" } })).json.hasKey.groq, false);
+
+  // 모르는 이름으로 칸을 늘리지 않는다
+  const odd = await req("PUT", "/api/admin/ai/keys", { keys: { 엉뚱한것: "x" } });
+  assert.equal(odd.status, 200);
+  assert.ok(!("엉뚱한것" in odd.json.hasKey));
+
+  assert.equal((await req("PUT", "/api/admin/ai/keys", {})).status, 400);
+  currentUser = { id: "u1" };
+  assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: {} })).status, 403);
+  currentUser = { id: "owner", username: "owner" };
+});
+
 // 프롬프트는 설정과 딴 파일이다(ChatML). /config/:name 통로를 안 탄다.
 test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
   const saved = await req("PUT", "/api/admin/ai/prompt", {
