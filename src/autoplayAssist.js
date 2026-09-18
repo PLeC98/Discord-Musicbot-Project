@@ -154,45 +154,137 @@ function settings() {
 /**
  * 추가 파라미터 — 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
  *
- *   key=value            그대로 (true · false · 숫자는 알아서 바꾼다)
+ *   key=value            그대로 (true · false · null · 숫자는 알아서 바꾼다)
+ *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
+ *   a.b.c=value          점으로 안쪽 칸에 넣는다 (thinking.budget_tokens 처럼)
  *   key=json::{...}      JSON 으로 읽어 넣는다 (객체·배열)
  *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
- *   key={{none}}         그 값을 아예 안 보낸다 (temperature 처럼 늘 붙는 것을 뺄 때)
+ *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}} 이면 헤더를 뺀다)
+ *   # 주석
+ *
+ * **RisuAI 와 같은 입력법이다** — 그쪽에 익숙한 사람이 그대로 적을 수 있게 맞췄다.
+ * 못 읽은 줄은 조용히 버리지 않고 problems 로 돌려준다(대시보드가 보여 준다).
  */
+function setPath(obj, path, value) {
+  const keys = path.split(".");
+  let at = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다 — 안쪽에 더 넣을 수 없는 모양이다
+    if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
+    at = at[k];
+  }
+  at[keys[keys.length - 1]] = value;
+  return obj;
+}
+
+/** 점 경로로 지운다. 없는 길이면 아무 일도 안 한다. */
+function delPath(obj, path) {
+  const keys = path.split(".");
+  let at = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    at = at?.[keys[i]];
+    if (!at || typeof at !== "object") return;
+  }
+  delete at[keys[keys.length - 1]];
+}
+
+// 파이썬 꼴 키워드를 JSON 이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
+const RELAXED = [
+  ["True", "true"],
+  ["False", "false"],
+  ["None", "null"],
+];
+function relaxJson(text) {
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      out += ch;
+      if (ch === "\\" && i + 1 < text.length) out += text[++i];
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    // 낱말 경계에서만 바꾼다 — Nonetype 같은 것을 건드리면 안 된다
+    const edge = (c) => !c || !/[A-Za-z0-9_$]/.test(c);
+    const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
+    if (hit) {
+      out += hit[1];
+      i += hit[0].length - 1;
+    } else out += ch;
+  }
+  return out;
+}
+
+function readJson(text) {
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch {}
+  const relaxed = relaxJson(text);
+  if (relaxed !== text) {
+    try {
+      return { ok: true, value: JSON.parse(relaxed) };
+    } catch {}
+  }
+  return { ok: false };
+}
+
 function parseExtra(text) {
   const body = {};
   const headers = {};
   const drop = [];
+  const dropHeaders = [];
+  const problems = [];
 
   for (const raw of String(text || "").split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
 
     const at = line.indexOf("=");
-    if (at < 1) continue; // 이름이 없는 줄은 버린다
+    if (at < 1) {
+      problems.push(`이름이 없습니다: ${line}`);
+      continue;
+    }
     const name = line.slice(0, at).trim();
     const value = line.slice(at + 1).trim();
+    const isHeader = /^header::/i.test(name);
+    const header = isHeader ? name.slice(8).trim() : null;
 
-    if (/^header::/i.test(name)) {
-      headers[name.slice(8).trim()] = value;
-    } else if (value === "{{none}}") {
-      drop.push(name);
-    } else if (value.startsWith("json::")) {
-      const json = value.slice(6);
-      try {
-        body[name] = JSON.parse(json);
-      } catch {
-        body[name] = json; // 못 읽으면 적힌 그대로 — 조용히 버리지 않는다
-      }
-    } else if (value === "true" || value === "false") {
-      body[name] = value === "true";
-    } else if (value !== "" && !Number.isNaN(Number(value))) {
-      body[name] = Number(value);
-    } else {
-      body[name] = value;
+    // **{{none}} 을 header:: 보다 먼저 본다** — 안 그러면 헤더에 "{{none}}" 을 넣게 된다
+    if (value === "{{none}}") {
+      if (isHeader) dropHeaders.push(header);
+      else drop.push(name);
+      continue;
     }
+    if (isHeader) {
+      headers[header] = value;
+      continue;
+    }
+    if (value === "") {
+      problems.push(`값이 없습니다: ${name}`);
+      continue;
+    }
+
+    if (value.startsWith("json::")) {
+      const got = readJson(value.slice(6));
+      if (got.ok) setPath(body, name, got.value);
+      else problems.push(`JSON 으로 못 읽었습니다: ${name}`);
+      continue;
+    }
+    const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
+    if (quoted && value.length >= 2) setPath(body, name, value.slice(1, -1));
+    else if (value === "true" || value === "false") setPath(body, name, value === "true");
+    else if (value === "null") setPath(body, name, null);
+    else if (!Number.isNaN(Number(value))) setPath(body, name, Number(value));
+    else setPath(body, name, value);
   }
-  return { body, headers, drop };
+  return { body, headers, drop, dropHeaders, problems };
 }
 
 /** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 — 둘 다 받는다. */
@@ -369,7 +461,7 @@ async function buildRequest(one, batch, genre) {
   const extra = parseExtra(one.extra);
 
   const body = withExtra(dialect, dialect.body(one, buildMessages(one, batch, genre)), extra);
-  return { url: dialect.chatUrl(one), headers: { ...(await dialect.headers(one)), ...extra.headers }, body };
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, problems: extra.problems };
 }
 
 /**
@@ -378,17 +470,37 @@ async function buildRequest(one, batch, genre) {
  * 버텍스는 온도 같은 것이 맨 위가 아니라 generationConfig 안에 있다(extraInto).
  * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다 — 가장 알아채기 어려운 종류다.
  */
+/** 안쪽 칸까지 합친다 — 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
+function deepMerge(base, add) {
+  const out = { ...base };
+  for (const [key, value] of Object.entries(add)) {
+    const mine = out[key];
+    const both = (v) => v && typeof v === "object" && !Array.isArray(v);
+    out[key] = both(mine) && both(value) ? deepMerge(mine, value) : value;
+  }
+  return out;
+}
+
+/** 헤더를 얹고, header::Name={{none}} 으로 지우라고 한 것을 뺀다. 이름의 대소문자는 안 가린다. */
+function headersWith(base, extra) {
+  const out = { ...base, ...extra.headers };
+  for (const name of extra.dropHeaders || []) {
+    for (const key of Object.keys(out)) if (key.toLowerCase() === String(name).toLowerCase()) delete out[key];
+  }
+  return out;
+}
+
 function withExtra(dialect, body, extra) {
   const where = dialect.extraInto;
   if (!where) {
-    const out = { ...body, ...extra.body };
+    const out = deepMerge(body, extra.body);
     // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
-    for (const key of extra.drop) delete out[key];
+    for (const path of extra.drop) delPath(out, path);
     return out;
   }
 
-  const inner = { ...(body[where] || {}), ...extra.body };
-  for (const key of extra.drop) delete inner[key];
+  const inner = deepMerge(body[where] || {}, extra.body);
+  for (const path of extra.drop) delPath(inner, path);
   const out = { ...body, [where]: inner };
   // 안쪽이 통째로 비었으면 칸도 빼 준다
   if (!Object.keys(inner).length) delete out[where];
@@ -577,7 +689,7 @@ async function ping(draft) {
   const extra = parseExtra(one.extra);
   const body = withExtra(dialect, dialect.body(one, [{ role: "user", content: PING_TEXT }]), extra);
 
-  const headers = { ...(await dialect.headers(one)), ...extra.headers };
+  const headers = headersWith(await dialect.headers(one), extra);
 
   const started = Date.now();
   try {

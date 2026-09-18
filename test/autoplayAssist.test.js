@@ -288,13 +288,58 @@ test("길이를 모르는 후보 — 낱말째 빼거나, 글자로 적거나, 0
 
 // ── 추가 파라미터 ─────────────────────────────────────────────────────────
 
-// 서비스마다 이름도 자리도 달라 글로 받는다. 네 가지 꼴을 지원한다.
+// 서비스마다 이름도 자리도 달라 글로 받는다. RisuAI 와 같은 입력법이다.
 test("추가 파라미터 — 값·JSON·헤더·빼기", () => {
   const got = assist.parseExtra(["think=false", "reasoning_effort=low", "top_p=0.9", 'response_format=json::{"type":"json_object"}', "header::X-Title=Discord Musicbot", "temperature={{none}}", "# 주석은 건너뛴다", "", "이름없음"].join("\n"));
 
   assert.deepEqual(got.body, { think: false, reasoning_effort: "low", top_p: 0.9, response_format: { type: "json_object" } });
   assert.deepEqual(got.headers, { "X-Title": "Discord Musicbot" });
   assert.deepEqual(got.drop, ["temperature"]);
+  assert.deepEqual(got.problems, ["이름이 없습니다: 이름없음"]);
+});
+
+// **점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다.** 키 이름이 통째로 들어가 조용히 무시됐다.
+test("추가 파라미터 — 점 표기로 안쪽 칸에 넣는다", () => {
+  const got = assist.parseExtra(["thinking.budget_tokens=1024", "thinking.type=enabled", "generationConfig.thinkingConfig.thinkingLevel=high"].join("\n"));
+
+  assert.deepEqual(got.body, {
+    thinking: { budget_tokens: 1024, type: "enabled" },
+    generationConfig: { thinkingConfig: { thinkingLevel: "high" } },
+  });
+});
+
+// 값을 어떻게 읽을지. 따옴표로 두르면 숫자처럼 보여도 글자다.
+test("추가 파라미터 — 값의 꼴", () => {
+  const got = assist.parseExtra(['seed="123"', "stop=null", "n=2", "flag=true", "name=그냥 글자", 'cfg=json::{"a":True,"b":None}'].join("\n"));
+
+  assert.equal(got.body.seed, "123", "따옴표를 벗기고 글자로 둔다");
+  assert.equal(got.body.stop, null);
+  assert.equal(got.body.n, 2);
+  assert.equal(got.body.flag, true);
+  assert.equal(got.body.name, "그냥 글자");
+  assert.deepEqual(got.body.cfg, { a: true, b: null }, "파이썬 꼴 키워드도 읽는다");
+});
+
+// 조용히 버리면 "왜 안 먹지"가 된다. 못 읽은 줄은 돌려줘서 화면이 보여 준다.
+test("추가 파라미터 — 못 읽은 줄을 알려 준다", () => {
+  const got = assist.parseExtra(["cfg=json::{깨짐", "empty=", "ok=1"].join("\n"));
+
+  assert.deepEqual(got.body, { ok: 1 }, "멀쩡한 줄은 살린다");
+  assert.equal(got.problems.length, 2);
+  assert.match(got.problems.join(" "), /JSON 으로 못 읽었습니다: cfg/);
+  assert.match(got.problems.join(" "), /값이 없습니다: empty/);
+});
+
+// {{none}} 을 header:: 보다 먼저 봐야 한다 — 반대로 보면 헤더에 "{{none}}" 을 넣게 된다.
+test("헤더도 {{none}} 으로 지운다", async () => {
+  useConfig(`${ON}extra: |\n  header::Authorization={{none}}\n  header::X-Title=지움 확인\n`);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.init.headers.Authorization, undefined, "지우라고 한 헤더는 안 나간다");
+  assert.equal(sent.init.headers["X-Title"], "지움 확인", "나머지 헤더는 그대로");
 });
 
 test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
