@@ -76,25 +76,25 @@ const PROVIDER_SPECS = {
   llamacpp: { label: "llama.cpp", baseUrl: "http://127.0.0.1:8080/v1", key: false, group: "로컬" },
 
   // ── 모델을 직접 내는 곳 ──
-  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드" },
-  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", dialect: "anthropic" },
-  aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta", key: true, group: "클라우드", dialect: "gemini" },
+  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드", registry: "openai" },
+  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", dialect: "anthropic", registry: "anthropic" },
+  aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta", key: true, group: "클라우드", dialect: "gemini", registry: "google" },
   xai: { label: "xAI (Grok)", baseUrl: "https://api.x.ai/v1", key: true, group: "클라우드" },
-  "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드" },
-  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드" },
+  "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드", registry: "ollama-cloud" },
+  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드", registry: "deepseek" },
   mistral: { label: "Mistral", baseUrl: "https://api.mistral.ai/v1", key: true, group: "클라우드" },
   groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", key: true, group: "클라우드" },
   together: { label: "Together AI", baseUrl: "https://api.together.xyz/v1", key: true, group: "클라우드" },
 
   // 구글 클라우드. 키가 아니라 서비스 계정 JSON 을 쓰고, 주소는 프로젝트·리전으로 조립한다.
-  vertex: { label: "Vertex AI (Gemini 네이티브)", key: true, group: "클라우드", dialect: "vertex", serviceAccount: true, needsProject: true },
+  vertex: { label: "Vertex AI (Gemini 네이티브)", key: true, group: "클라우드", dialect: "vertex", serviceAccount: true, needsProject: true, registry: "vertex-gemini-native" },
 
   // ── 여러 곳을 묶어 파는 곳 ──
-  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", key: true, group: "게이트웨이" },
-  nanogpt: { label: "NanoGPT", baseUrl: "https://nano-gpt.com/api/v1", key: true, group: "게이트웨이" },
-  vercel: { label: "Vercel AI Gateway", baseUrl: "https://ai-gateway.vercel.sh/v1", key: true, group: "게이트웨이" },
-  llmgateway: { label: "LLM Gateway", baseUrl: "https://api.llmgateway.io/v1", key: true, group: "게이트웨이" },
-  neuralwatt: { label: "Neuralwatt", baseUrl: "https://api.neuralwatt.com/v1", key: true, group: "게이트웨이" },
+  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", key: true, group: "게이트웨이", registry: "openrouter" },
+  nanogpt: { label: "NanoGPT", baseUrl: "https://nano-gpt.com/api/v1", key: true, group: "게이트웨이", registry: "nanogpt" },
+  vercel: { label: "Vercel AI Gateway", baseUrl: "https://ai-gateway.vercel.sh/v1", key: true, group: "게이트웨이", registry: "vercel" },
+  llmgateway: { label: "LLM Gateway", baseUrl: "https://api.llmgateway.io/v1", key: true, group: "게이트웨이", registry: "llmgateway" },
+  neuralwatt: { label: "Neuralwatt", baseUrl: "https://api.neuralwatt.com/v1", key: true, group: "게이트웨이", registry: "neuralwatt" },
 
   // 주소를 직접 적는 유일한 자리. 여기 없는 곳도, 위의 주소가 바뀌었을 때도 이것으로 간다.
   custom: { label: "OpenAI 호환 (직접 입력)", baseUrl: "", key: true, editable: true, group: "직접" },
