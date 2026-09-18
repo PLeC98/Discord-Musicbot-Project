@@ -121,3 +121,31 @@ test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종�
   const cookiePath = require("../config").ytdl.cookiesFile;
   if (cookiePath) assert.ok(!raw.includes(cookiePath), "설정된 쿠키 경로가 응답에 실리면 안 된다");
 });
+
+// ── 미디어 주소가 어긋난 실패 ─────────────────────────────────────────────
+
+// 회귀 대상: 자동재생이 고른 곡이 `HTTP Error 403: Forbidden`으로 실패했는데, 같은 영상을
+// 몇 분 뒤 직접 틀면 멀쩡히 재생됐다. 영상 문제가 아니라 **서명된 미디어 주소**의 문제라
+// 다시 받으면 풀린다. 그런데 이 오류가 어디에도 걸리지 않아 한 번에 실패로 끝났다.
+test("내려받다 막힌 것과 영상이 없어진 것을 가른다", () => {
+  const YouTube = require("../src/YouTube");
+  const err = (msg) => ({ stderr: msg });
+
+  for (const msg of ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "ERROR: unable to download video data: HTTP Error 429: Too Many Requests", "ERROR: fragment 1 not found, unable to continue", "ERROR: unable to download fragment 3"]) {
+    assert.equal(YouTube.isStaleMediaError(err(msg)), true, msg);
+    assert.equal(YouTube.isClientFault(err(msg)), true, `${msg} — 클라이언트 목록이 있으면 다음으로 넘어가야 한다`);
+  }
+
+  // 영상이 없어진 것은 다시 받아도 소용없다 — 다른 길로 가야 한다
+  for (const msg of ["ERROR: [youtube] abc: Video unavailable", "ERROR: This video has been removed by the uploader"]) {
+    assert.equal(YouTube.isStaleMediaError(err(msg)), false, msg);
+    assert.equal(YouTube.isVideoUnavailableError(err(msg)), true, msg);
+  }
+
+  // 연령 제한도 아니다 — 쿠키 폴백이 따로 있다
+  assert.equal(YouTube.isStaleMediaError(err("ERROR: Sign in to confirm your age")), false);
+
+  // 네트워크 타임아웃은 같은 "unable to download video data" 문구로 오지만 다른 일이다 —
+  // 유튜브가 거절한 게 아니라 우리가 못 닿은 것이라, 주소를 다시 받아도 소용이 없다.
+  assert.equal(YouTube.isStaleMediaError(err("ERROR: unable to download video data: <urlopen error timed out>")), false);
+});

@@ -34,6 +34,9 @@ const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 const { PlayerClients, NEEDS_POT, KNOWN } = require("./PlayerClients");
 const playerClients = new PlayerClients(config.ytdl.playerClients, { window: config.ytdl.clientWindow, fails: config.ytdl.clientFails });
 
+// 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다 — 곧바로 다시 물으면 같은 것을 받기 쉽다.
+const STALE_RETRY_MS = 700;
+
 class YouTube {
   // yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
   static getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
@@ -197,6 +200,15 @@ class YouTube {
         log.warn({ tags: ["retry", "fallback"] }, `연령 제한 감지 (${videoId}) — 쿠키로 재시도합니다`);
         return await this._runWithClients(url, buildOptions, true);
       }
+
+      // 서명된 미디어 주소가 어긋난 경우 — 한 번 더 받아 새 주소를 얻는다.
+      // 클라이언트 목록을 안 쓰는 설치에서는 이 재시도가 유일한 회복 수단이다.
+      if (this.isStaleMediaError(error)) {
+        log.warn({ tags: ["retry"] }, `미디어 주소가 어긋났습니다 (${videoId || url}) — 다시 받습니다`);
+        await new Promise((done) => setTimeout(done, STALE_RETRY_MS));
+        return await this._runWithClients(url, buildOptions, known);
+      }
+
       throw error;
     }
   }
@@ -282,7 +294,22 @@ class YouTube {
   static isClientFault(error) {
     const msg = (error && (error.stderr || error.message)) || String(error || "");
     if (this.isVideoUnavailableError(error) || this.isAgeRestrictedError(error)) return false;
-    return /requested format is not available|only images are available|no video formats found|PO Token|nsig extraction failed/i.test(msg);
+    return /requested format is not available|only images are available|no video formats found|PO Token|nsig extraction failed/i.test(msg) || this.isStaleMediaError(error);
+  }
+
+  /**
+   * 포맷 주소를 받아 놓고 **내려받다가** 막힌 것인가.
+   *
+   * 유튜브가 주는 미디어 주소는 요청 맥락에 묶여 서명돼 있어서, 그 서명이 어긋나면 403이 온다.
+   * 영상 자체의 문제가 아니라 그 주소의 문제라 **다시 받으면 대개 풀린다** — 같은 영상을 조금 뒤에
+   * 직접 틀면 멀쩡히 재생되는 것이 그 증거다.
+   */
+  static isStaleMediaError(error) {
+    const msg = (error && (error.stderr || error.message)) || String(error || "");
+    if (this.isVideoUnavailableError(error) || this.isAgeRestrictedError(error)) return false;
+    // "unable to download video data" 만으로는 안 된다 — 네트워크 타임아웃도 같은 문구로 온다.
+    // 유튜브가 거절한 것(403/429)과 조각이 어긋난 것만 본다.
+    return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
   }
 
   static _faultReason(error) {
