@@ -350,7 +350,7 @@ const TABS = [
   { id: "status", label: "봇 상태", icon: "robot" },
   { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
-  { id: "config", label: "자동재생 설정", icon: "music" },
+  { id: "config", label: "자동재생", icon: "music" },
   // id를 "status"로 못 쓴다 — 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "presence", label: "상태 문구", icon: "headphones" },
   { id: "dev", label: "개발자", icon: "wrench" },

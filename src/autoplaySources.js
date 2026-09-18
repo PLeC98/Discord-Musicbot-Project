@@ -326,18 +326,70 @@ const SEASONS = ["Winter", "Spring", "Summer", "Fall"];
 const MEDIA_FORMATS = ["TV", "TV Short", "Movie", "OVA", "ONA", "Special"];
 const SONG_TYPES = ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Arrangement", "Instrumental", "Mashup", "MusicPV", "DramaPV", "Live", "Illustration", "Other", "Rearrangement", "ShortVersion"];
 const SONG_SORTS = ["Name", "AdditionDate", "PublishDate", "FavoritedTimes", "RatingScore", "TagUsageCount", "SongType"];
+const LB_MODES = ["easy", "medium", "hard"];
 const VOCA_ENUMS = { songTypes: SONG_TYPES, sort: SONG_SORTS };
 
+// 대시보드가 그릴 입력칸. kind 는 화면이 무엇을 띄울지 정한다 —
+// list(칩) · text · url · number · enum(하나 고르기) · enumList(여럿 고르기).
+// deep: true 는 "자주 안 쓰는 것"이라 접어 둔다.
+const f = (key, kind, label, extra = {}) => ({ key, kind, label, ...extra });
+const VOCA_FIELDS = [
+  f("tags", "list", "장르 태그", { hint: "rock · pop · ballad · EDM · 和風 …" }),
+  f("minScore", "number", "최소 평가 점수", { min: 0, hint: "사이트마다 척도가 다릅니다. VocaDB는 50, 나머지 둘은 5쯤" }),
+  f("languages", "list", "노래 언어", { hint: "ISO 코드로 — ja · en · ko · zh" }),
+  f("artistTypes", "list", "라이브러리 분류", { deep: true, hint: "Vocaloid · UTAU · SynthesizerV · CeVIO …" }),
+  f("artists", "list", "특정 라이브러리만", { deep: true, hint: "이름으로. 예) UNI" }),
+  f("songTypes", "enumList", "곡 종류", { deep: true, options: SONG_TYPES, hint: "비우면 사이트별 기본값" }),
+  f("excludeTags", "list", "뺄 태그", { deep: true }),
+  f("minLength", "number", "최소 길이(초)", { deep: true, min: 0 }),
+  f("maxLength", "number", "최대 길이(초)", { deep: true, min: 0 }),
+  f("minBpm", "number", "최소 BPM", { deep: true, min: 0 }),
+  f("maxBpm", "number", "최대 BPM", { deep: true, min: 0 }),
+  f("yearFrom", "number", "발표 연도 이후", { deep: true }),
+  f("yearTo", "number", "발표 연도 이전", { deep: true }),
+  f("sort", "enum", "정렬", { deep: true, options: SONG_SORTS }),
+];
+
 const SPEC = {
-  keyword: { label: "키워드", need: [["keywords"]] },
-  lastfm: { label: "Last.fm", need: [["tags"]], env: "LASTFM_API_KEY", has: () => !!config.sources?.lastfmKey },
-  lbradio: { label: "ListenBrainz", need: [["tags", "prompt"]], enums: { mode: ["easy", "medium", "hard"] }, env: "LISTENBRAINZ_TOKEN", has: () => !!config.sources?.listenbrainzToken },
-  animethemes: { label: "AnimeThemes", need: [], enums: { themeType: ["OP", "ED"], season: SEASONS, seasonFrom: SEASONS, seasonTo: SEASONS, mediaFormat: MEDIA_FORMATS } },
-  vocadb: { label: "VocaDB", need: [], enums: VOCA_ENUMS },
-  utaitedb: { label: "UtaiteDB", need: [], enums: VOCA_ENUMS },
-  touhoudb: { label: "TouhouDB", need: [], enums: VOCA_ENUMS },
-  spotify: { label: "스포티파이", need: [["url"]], env: "SPOTIFY_CLIENT_ID", has: () => !!config.spotify?.clientId },
-  youtube: { label: "유튜브 재생목록", need: [["url"]] },
+  keyword: { label: "키워드", hint: "유튜브에 검색어를 던집니다. 품질이 가장 낮으니 무게를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "뽑을 때마다 무작위로 하나" })] },
+  lastfm: {
+    label: "Last.fm",
+    hint: "태그로 곡 이름을 받아 유튜브에서 찾습니다.",
+    need: [["tags"]],
+    env: "LASTFM_API_KEY",
+    has: () => !!config.sources?.lastfmKey,
+    fields: [f("tags", "list", "태그", { hint: "태그마다 품질 편차가 큽니다. 여럿 적는 편이 안전합니다" }), f("pages", "number", "퍼 올릴 페이지 수", { deep: true, min: 1, hint: "기본 5" })],
+  },
+  lbradio: {
+    label: "ListenBrainz Radio",
+    hint: "한 번에 50곡을 짜 줍니다. 곡 길이도 같이 와서 가장 정확합니다.",
+    need: [["tags", "prompt"]],
+    enums: { mode: LB_MODES },
+    env: "LISTENBRAINZ_TOKEN",
+    has: () => !!config.sources?.listenbrainzToken,
+    fields: [f("tags", "list", "태그", { hint: "MusicBrainz 공식 장르명" }), f("mode", "enumList", "모드", { options: LB_MODES, hint: "이름과 반대로 hard 가 더 유명한 곡을 줍니다. 여럿 고르면 섞입니다" }), f("prompt", "text", "프롬프트 직접 쓰기", { deep: true, hint: "예) tag:(jazz,funk)::or · artist:(Miles Davis)" })],
+  },
+  animethemes: {
+    label: "AnimeThemes",
+    hint: "애니 주제가 DB. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 씁니다.",
+    need: [],
+    enums: { themeType: ["OP", "ED"], season: SEASONS, seasonFrom: SEASONS, seasonTo: SEASONS, mediaFormat: MEDIA_FORMATS },
+    fields: [
+      f("themeType", "enum", "주제가 종류", { options: ["OP", "ED"], hint: "비우면 둘 다" }),
+      f("mediaFormat", "enumList", "매체", { options: MEDIA_FORMATS, hint: "비우면 전부" }),
+      f("yearFrom", "number", "방영 연도 이후"),
+      f("yearTo", "number", "방영 연도 이전"),
+      f("seasonFrom", "enum", "시작 분기", { deep: true, options: SEASONS, hint: "연도와 짝으로. 비우면 그 해 처음부터" }),
+      f("seasonTo", "enum", "끝 분기", { deep: true, options: SEASONS, hint: "비우면 그 해 끝까지" }),
+      f("season", "enumList", "특정 분기만", { deep: true, options: SEASONS, hint: "연도와 무관하게 이 분기만" }),
+      f("sequence", "number", "몇 번째 주제가", { deep: true, min: 1, hint: "1이면 OP1·ED1만" }),
+    ],
+  },
+  vocadb: { label: "VocaDB", hint: "보컬로이드. 유튜브 주소를 직접 줍니다.", need: [], enums: VOCA_ENUMS, fields: VOCA_FIELDS },
+  utaitedb: { label: "UtaiteDB", hint: "우타이테(부르는 사람). 기본이 커버곡입니다.", need: [], enums: VOCA_ENUMS, fields: VOCA_FIELDS },
+  touhoudb: { label: "TouhouDB", hint: "동방. 기본이 어레인지입니다.", need: [], enums: VOCA_ENUMS, fields: VOCA_FIELDS },
+  spotify: { label: "스포티파이 재생목록", need: [["url"]], env: "SPOTIFY_CLIENT_ID", has: () => !!config.spotify?.clientId, fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트" })] },
+  youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "믹스(list=RD…)는 곡 수에 끝이 없어 쓸 수 없습니다" })] },
 };
 
 const TYPES = Object.keys(FETCHERS);
@@ -348,6 +400,29 @@ const usable = (type) => (SPEC[type] ? !SPEC[type].has || SPEC[type].has() : fal
 /** 이 타입이 무엇을 필요로 하는지(없으면 null) — 기동 시 문구를 만들 때 쓴다. */
 const needsOf = (type) => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);
 
+/**
+ * 대시보드가 그릴 소스 목록. 검증·실행과 **같은 표**에서 뽑아 준다 —
+ * 화면이 따로 목록을 들고 있으면 소스를 더할 때 한쪽만 고치게 된다.
+ *
+ * 필수 여부는 need 에서 끌어온다(중복해서 적지 않는다).
+ */
+function catalog() {
+  return TYPES.map((type) => {
+    const spec = SPEC[type];
+    const required = new Set(spec.need.flat());
+    return {
+      type,
+      label: spec.label,
+      hint: spec.hint || "",
+      usable: usable(type),
+      needs: spec.env || null,
+      // need 가 [["tags","prompt"]] 꼴이면 "둘 중 하나"라는 뜻이다
+      either: spec.need.filter((g) => g.length > 1).map((g) => [...g]),
+      fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key) })),
+    };
+  });
+}
+
 /** 설정에 적힌 소스 하나를 곡 목록으로. 던지면 부르는 쪽이 다음 소스로 넘어간다. */
 async function fetchFrom(source) {
   const fetcher = FETCHERS[source?.type];
@@ -357,4 +432,4 @@ async function fetchFrom(source) {
   return tracks;
 }
 
-module.exports = { fetchFrom, TYPES, SPEC, usable, needsOf, _placeholder: PLACEHOLDER };
+module.exports = { fetchFrom, TYPES, SPEC, catalog, usable, needsOf, _placeholder: PLACEHOLDER };

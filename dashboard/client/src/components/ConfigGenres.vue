@@ -37,7 +37,7 @@
             <Icon name="music" :size="15" />
             <span>장르 ({{ rows.length }}/25)</span>
           </div>
-          <p class="text-muted text-[0.82rem]">자동 재생은 지정한 키워드들 중 하나를 무작위로 선택해 검색에 사용합니다. 드래그해 순서를 바꿀 수 있습니다.</p>
+          <p class="text-muted text-[0.82rem]">장르마다 곡을 가져올 출처를 여럿 둘 수 있습니다. 비중대로 골라 쓰고, 한 곳이 빈손이면 다음 곳으로 넘어갑니다. 드래그해 순서를 바꿀 수 있습니다.</p>
         </div>
         <button :class="addBtn" :disabled="rows.length >= 25" v-tooltip="rows.length >= 25 ? '25개까지만 추가할 수 있습니다' : '장르 추가'" @click="addRow"><Icon name="add" :size="18" /></button>
       </div>
@@ -72,7 +72,7 @@
           <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
           <button :class="removeBtn" v-tooltip="'이 장르 삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <ChipInput v-model="row.keywords" placeholder="검색어를 적고 Enter" />
+        <SourceEditor v-model="row.sources" :types="sourceTypes" />
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
@@ -93,6 +93,7 @@ import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
+import SourceEditor from "./SourceEditor.vue";
 import EmojiInput from "./EmojiInput.vue";
 import SaveDock from "./SaveDock.vue";
 
@@ -109,12 +110,15 @@ const saving = ref(false);
 const savedAt = ref(null);
 const loadError = ref("");
 const serverProblems = ref([]);
+const sourceTypes = ref([]);
 
 // 편집 중에는 배열로 다룬다 — 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
 // 이름이 곧 키다. 따로 id를 두지 않는다.
 let serial = 0;
-const toRows = (genres) => Object.entries(genres || {}).map(([name, g]) => ({ key: ++serial, name, emoji: g.emoji || "", keywords: [...(g.keywords || [])] }));
-const toMap = (list) => Object.fromEntries(list.map((r) => [r.name.trim(), { emoji: r.emoji, keywords: r.keywords }]));
+const toRows = (genres) => Object.entries(genres || {}).map(([name, g]) => ({ key: ++serial, name, emoji: g.emoji || "", sources: (g.sources || []).map((one) => ({ ...one })) }));
+// _key 는 편집 중 행을 붙잡아 두려고 붙인 것이라 저장할 때는 뺀다
+const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
+const toMap = (list) => Object.fromEntries(list.map((r) => [r.name.trim(), { emoji: r.emoji, sources: r.sources.map(clean) }]));
 
 // 상한은 비울 수 있다(제한 없음) — 빈 칸과 0을 가르려고 문자열로 다룬다.
 const maxDurationText = computed({
@@ -141,7 +145,7 @@ const problems = computed(() => {
   // 숫자만으로 된 이름은 끌어 옮긴 차례가 조용히 어긋난다 — 서버도 같은 것을 막는다
   for (const name of names.filter((n) => /^(0|[1-9][0-9]*)$/.test(n))) found.push(`"${name}": 숫자만으로 된 이름은 차례가 어긋납니다. "${name}년대"처럼 글자를 붙여 주세요.`);
   for (const r of rows.value) {
-    if (r.name.trim() && !r.keywords.length) found.push(`${r.name}: 검색어가 하나는 있어야 합니다.`);
+    if (r.name.trim() && !r.sources.length) found.push(`${r.name}: 곡을 가져올 출처가 하나는 있어야 합니다.`);
     if (r.emoji && !ONE_EMOJI.test(r.emoji)) found.push(`${r.name || "이름 없는 장르"}: 이모지가 아닌 값이 들어 있습니다.`);
   }
   return [...found, ...serverProblems.value];
@@ -211,7 +215,7 @@ function onDragEnd() {
 }
 
 function addRow() {
-  rows.value.push({ key: ++serial, name: "", emoji: "", keywords: [] });
+  rows.value.push({ key: ++serial, name: "", emoji: "", sources: [] });
 }
 
 function apply(data) {
@@ -230,6 +234,16 @@ async function fetchConfig() {
     apply(res.data.data);
   } catch (error) {
     loadError.value = error.response?.data?.error || "설정을 읽지 못했습니다.";
+  }
+}
+
+// 어떤 출처를 쓸 수 있고 무슨 칸을 받는지는 서버가 안다(.env 의 키 유무까지).
+// 못 읽어도 편집은 막지 않는다 — 그때는 이미 적혀 있는 것만 보이고 새로 고르지는 못한다.
+async function fetchSourceTypes() {
+  try {
+    sourceTypes.value = (await axios.get("/api/admin/source-types")).data.types || [];
+  } catch {
+    sourceTypes.value = [];
   }
 }
 
@@ -252,5 +266,8 @@ function revert() {
   apply(back);
 }
 
-onMounted(fetchConfig);
+onMounted(() => {
+  fetchSourceTypes();
+  fetchConfig();
+});
 </script>

@@ -222,6 +222,13 @@ router.post("/reset-cache", requireOwner, (req, res) => {
 const VALIDATORS = { genres: configData.validateGenres, status: configData.validateStatus };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 
+// 자동재생 소스 편집기가 그릴 표 — 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
+// 검증·실행과 같은 표에서 나온다(src/autoplaySources). 화면이 목록을 따로 들면 소스를 더할 때
+// 한쪽만 고치게 된다.
+router.get("/source-types", requireOwner, (req, res) => {
+  res.json({ types: require("../../../src/autoplaySources").catalog() });
+});
+
 router.get("/config/:name", requireOwner, (req, res) => {
   const { name } = req.params;
   if (!CONFIG_NAMES.includes(name)) return res.status(404).json({ error: "그런 설정이 없습니다." });

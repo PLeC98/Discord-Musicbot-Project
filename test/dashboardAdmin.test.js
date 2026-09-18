@@ -343,3 +343,41 @@ test("설정: 쓸 수 없는 값은 저장 전에 거절한다", async () => {
 test("설정: 내용이 없으면 400", async () => {
   assert.equal((await req("PUT", "/api/admin/config/genres", {})).status, 400);
 });
+
+// ── 소스 종류 목록 ────────────────────────────────────────────────────────
+
+// 편집기가 그릴 표는 서버가 준다. 화면이 목록을 따로 들면 소스를 더할 때 한쪽만 고치게 된다.
+test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준다", async () => {
+  const { status, json } = await req("GET", "/api/admin/source-types");
+  assert.equal(status, 200);
+
+  const types = json.types;
+  const byType = Object.fromEntries(types.map((t) => [t.type, t]));
+  assert.ok(types.length >= 9, "소스 종류가 다 와야 한다");
+
+  // 이름은 그 서비스 표기로 — 내부 코드명을 그대로 보여주지 않는다
+  assert.equal(byType.lbradio.label, "ListenBrainz Radio");
+  assert.equal(byType.vocadb.label, "VocaDB");
+
+  // 키가 필요한 것은 무엇이 필요한지 밝힌다(화면이 "키 없음"을 띄운다)
+  assert.equal(byType.lbradio.needs, "LISTENBRAINZ_TOKEN");
+  assert.equal(byType.keyword.needs, null, "키워드는 키가 필요 없다");
+  assert.equal(typeof byType.keyword.usable, "boolean");
+
+  // 필수 칸은 need 에서 끌어온다 — 화면이 따로 적지 않는다
+  assert.equal(byType.keyword.fields.find((f) => f.key === "keywords").required, true);
+  assert.equal(byType.youtube.fields.find((f) => f.key === "url").required, true);
+  // "둘 중 하나"는 따로 알려 준다
+  assert.deepEqual(byType.lbradio.either, [["tags", "prompt"]]);
+
+  // 고를 값이 정해진 칸은 목록을 같이 준다
+  const media = byType.animethemes.fields.find((f) => f.key === "mediaFormat");
+  assert.equal(media.kind, "enumList");
+  assert.ok(media.options.includes("TV Short"));
+});
+
+test("소스 종류: 운영자만 볼 수 있다", async () => {
+  currentUser = { id: "u1" };
+  assert.equal((await req("GET", "/api/admin/source-types")).status, 403);
+  currentUser = { id: "owner", username: "owner" };
+});
