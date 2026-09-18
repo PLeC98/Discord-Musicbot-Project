@@ -598,10 +598,6 @@ function validateAi(data) {
       else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
     }
     if (!String(data.model || "").trim()) problems.push("model을 적어야 합니다.");
-
-    // 버텍스는 주소를 프로젝트·리전으로 조립한다 — 없으면 아무 데도 못 간다.
-    // 프로젝트는 서비스 계정 JSON 에 있으면 그것을 쓰므로 여기서는 리전만 못 박는다.
-    if (data.provider === "vertex" && !String(data.location || "").trim()) problems.push("provider가 vertex면 location을 적어야 합니다(예: us-central1, global).");
   }
 
   const num = (key, min, max) => {

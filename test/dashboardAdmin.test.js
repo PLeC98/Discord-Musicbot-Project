@@ -506,6 +506,10 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const noUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "", model: "gpt-5" } });
   assert.equal(noUrl.status, 200);
 
+  // 버텍스의 리전은 비우면 global 이다(autoplayAssist) — 적으라고 막을 이유가 없다
+  const noRegion = await req("PUT", "/api/admin/config/ai", { data: { provider: "vertex", model: "gemini-3-pro" } });
+  assert.equal(noRegion.status, 200);
+
   const notUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "127.0.0.1:11434", model: "m" } });
   assert.equal(notUrl.status, 400, "http:// 로 시작해야 한다");
 
