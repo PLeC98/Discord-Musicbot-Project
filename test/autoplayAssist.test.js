@@ -629,8 +629,10 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
   assert.ok(!("messages" in sent.body));
 });
 
-test("버텍스: assistant 는 model 이고, extra 는 generationConfig 로 간다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: topP=0.9\n", [
+// **경로는 언제나 본문 맨 위부터다.** 버텍스라고 generationConfig 안으로 넣어 주지 않는다 —
+// 모델 프로필의 mapsTo.path 와 같은 규칙이라야 두 길이 어긋나지 않는다.
+test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경로 그대로 간다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: generationConfig.topP=0.9\n", [
     { role: "assistant", text: "알겠다" },
     { role: "user", text: "{{목록}}" },
   ]);

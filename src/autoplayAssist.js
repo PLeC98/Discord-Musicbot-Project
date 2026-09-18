@@ -404,7 +404,7 @@ const DIALECTS = {
    *   · 본문이 messages 가 아니라 contents/parts 이고, assistant 를 model 이라 부른다.
    *   · system 은 systemInstruction 이라는 딴 칸이다.
    *   · 온도 같은 것은 맨 위가 아니라 generationConfig 안에 있다 —
-   *     그래서 extra 로 적은 것도 그 안으로 넣는다(맨 위에 두면 조용히 무시된다).
+   *     추가 파라미터도 `generationConfig.topP=0.9` 처럼 **경로를 적어** 넣는다.
    */
   vertex: {
     chatUrl: (one) => `${vertexBase(one)}/publishers/google/models/${one.model || ""}:generateContent`,
@@ -435,8 +435,6 @@ const DIALECTS = {
           .split("/")
           .pop(),
       ),
-    // extra 는 맨 위가 아니라 generationConfig 로 간다
-    extraInto: "generationConfig",
   },
 };
 
@@ -467,7 +465,7 @@ async function buildRequest(one, batch, genre) {
 /**
  * 추가 파라미터를 본문에 얹는다.
  *
- * 버텍스는 온도 같은 것이 맨 위가 아니라 generationConfig 안에 있다(extraInto).
+ * 버텍스는 온도 같은 것이 맨 위가 아니라 generationConfig 안에 있다.
  * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다 — 가장 알아채기 어려운 종류다.
  */
 /** 안쪽 칸까지 합친다 — 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
@@ -490,20 +488,15 @@ function headersWith(base, extra) {
   return out;
 }
 
-function withExtra(dialect, body, extra) {
-  const where = dialect.extraInto;
-  if (!where) {
-    const out = deepMerge(body, extra.body);
-    // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
-    for (const path of extra.drop) delPath(out, path);
-    return out;
-  }
-
-  const inner = deepMerge(body[where] || {}, extra.body);
-  for (const path of extra.drop) delPath(inner, path);
-  const out = { ...body, [where]: inner };
-  // 안쪽이 통째로 비었으면 칸도 빼 준다
-  if (!Object.keys(inner).length) delete out[where];
+/**
+ * **경로는 언제나 본문 맨 위부터다.** 다이얼렉트마다 다른 자리로 넣어 주지 않는다 —
+ * 버텍스처럼 안쪽 칸을 쓰는 곳은 `generationConfig.topP=0.9` 로 적는다.
+ * 모델 프로필의 mapsTo.path 도 같은 규칙이라, 두 길이 어긋나지 않는다.
+ */
+function withExtra(_dialect, body, extra) {
+  const out = deepMerge(body, extra.body);
+  // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
+  for (const path of extra.drop) delPath(out, path);
   return out;
 }
 
