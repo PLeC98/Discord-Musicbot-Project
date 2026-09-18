@@ -266,6 +266,9 @@ const TrackResolver = {
         // 출처 것이고 소리는 유튜브에서 온다. 고를 때 영상을 이미 찾아 두었으므로 그대로 쓴다
         // — 스포티파이와 달리 여기서 다시 찾지 않는다.
         if (track.youtubeUrl) return YouTube.getStream(track.youtubeUrl, seekSeconds);
+        // AnimeThemes처럼 출처 이름을 platform 에 쓰면서 음원을 직접 받는 곡.
+        // 위의 "direct"와 같은 처지이므로 같은 서술자를 돌려준다.
+        if (DirectLink.isDirectAudioLink(track.url)) return { url: track.url, platform: "direct", httpHeaders: {} };
         throw new Error(`지원되지 않는 플랫폼: ${track.platform}`);
     }
   },

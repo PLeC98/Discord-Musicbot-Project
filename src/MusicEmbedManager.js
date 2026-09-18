@@ -426,7 +426,8 @@ class MusicEmbedManager {
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
     // 제목은 이스케이프하지 않는다 — 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
-    const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.url})**${artistLine}`;
+    // 음원을 직접 받아 트는 곡은 url이 음원 파일이다 — 눌러 봐야 쓸모가 없으니 출처 쪽을 건다
+    const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.webUrl || track.url})**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
     // 직접 링크는 썸네일이 없으므로(임의 URL이라 앨범아트를 알 수 없다) 텍스트만 넣는다.
@@ -801,6 +802,13 @@ class MusicEmbedManager {
       spotify: "🟢",
       soundcloud: "🟠",
       direct: "🔗",
+      // 자동재생이 출처에서 받아 온 곡들 — 소리는 유튜브나 그쪽 음원에서 온다
+      lastfm: "🔺",
+      lbradio: "🧠",
+      animethemes: "🎌",
+      vocadb: "🎹",
+      utaitedb: "🎤",
+      touhoudb: "⛩️",
     };
     return emojis[platform] || "🎵";
   }

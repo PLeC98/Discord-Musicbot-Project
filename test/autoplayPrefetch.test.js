@@ -20,7 +20,7 @@ const user = (title) => ({ title, url: `https://y/${title}` });
 const auto = (title) => ({ title, url: `https://y/${title}`, autoplay: true });
 const titles = (arr) => arr.map((t) => t.title);
 
-function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [], loop = false, pick } = {}) {
+function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [], loop = false, pick, prefetch = 1 } = {}) {
   const calls = { picks: 0 };
   return {
     calls,
@@ -33,7 +33,8 @@ function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [],
     scheduleStatePersist() {},
     // 프로토타입을 잇지 않는 목이므로, 코드가 부르는 헬퍼는 여기 옮겨 붙인다
     _canPrefetchAutoplay: MusicPlayer.prototype._canPrefetchAutoplay,
-    _autoplayConfig: MusicPlayer.prototype._autoplayConfig,
+    // 실제 config/genres.yaml 을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
+    _autoplayConfig: () => ({ prefetchCount: prefetch }),
     async pickAutoplayTrack() {
       calls.picks++;
       return pick ? await pick.call(this) : auto(`자동${calls.picks}`);
@@ -81,18 +82,16 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
 
 // 미리 뽑을 곡 수는 config/genres.yaml의 prefetchCount가 정한다(장르가 덮어쓴다).
 // 기본 1곡만 덮으면 값을 키워도 한 곡만 들어가는 회귀를 놓친다.
-test("prefetchCount만큼 채운다 — 설정 값이 실제로 쓰인다", async () => {
-  const { defaults } = require("../src/configDataLoader").genres();
-  const realDefault = defaults.prefetchCount;
-  defaults.prefetchCount = 3;
-  try {
-    const p = makePlayer();
-    for (let i = 0; i < 4; i++) await ensureAutoplayNext.call(p);
+// 회귀 대상: 한 번 불릴 때 한 곡만 넣었다. 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라,
+// prefetchCount 를 키워도 늘 한 곡 앞만 보였다.
+test("prefetchCount만큼 채운다 — 한 번 불려도 끝까지", async () => {
+  const p = makePlayer({ prefetch: 3 });
 
-    assert.deepEqual(titles(p.queue), ["자동1", "자동2", "자동3"], "세 곡까지만 채우고 멈춘다");
-  } finally {
-    defaults.prefetchCount = realDefault;
-  }
+  assert.equal(await ensureAutoplayNext.call(p), true);
+  assert.deepEqual(titles(p.queue), ["자동1", "자동2", "자동3"], "한 번에 세 곡까지 채우고 멈춘다");
+
+  assert.equal(await ensureAutoplayNext.call(p), false, "다 찼으면 더 넣지 않는다");
+  assert.equal(p.queue.length, 3);
 });
 
 // ── 고르는 동안 대기열이 변하는 경우 ──────────────────────────────────────

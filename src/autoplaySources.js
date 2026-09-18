@@ -248,8 +248,12 @@ async function vocaFamily(source) {
 
   const out = [];
   for (const song of page?.items || []) {
-    const pvs = song.pvs || [];
-    const pv = pvs.find((p) => p.service === "Youtube" && p.pvType === "Original") || pvs.find((p) => p.service === "Youtube");
+    // **disabled 를 꼭 봐야 한다.** 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
+    // 수 없음"으로 회색이 되는 그것), 그걸 무시하면 죽은 영상을 골라 재생이 실패한다.
+    // 실측: vocadb 100곡 중 10곡에 죽은 PV가 섞여 있다. Bad Apple!! 은 죽은 Original 다음에
+    // 멀쩡한 Original 이 있어서, 안 보면 정확히 틀린 것을 집는다.
+    const pvs = (song.pvs || []).filter((p) => p.service === "Youtube" && !p.disabled);
+    const pv = pvs.find((p) => p.pvType === "Original") || pvs[0];
     if (!pv?.url || !song.name) continue;
     out.push({
       artist: creditOf(song) || song.artistString || "",

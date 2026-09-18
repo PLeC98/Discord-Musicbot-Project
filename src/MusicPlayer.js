@@ -402,7 +402,9 @@ class MusicPlayer {
           audioStream = streamInfo.stream;
         } else if (typeof streamUrl_final === "string") {
           try {
-            if (this.currentTrack.platform === "direct") {
+            // 트랙의 platform이 아니라 서술자를 본다 — AnimeThemes처럼 출처 이름을 platform에
+            // 쓰면서 음원을 직접 받는 곡이 있다(TrackResolver.getStream이 direct 서술자를 돌려준다).
+            if (streamInfo?.platform === "direct" || this.currentTrack.platform === "direct") {
               // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
               audioStream = await DirectLink.getStream(streamUrl_final);
             } else {
@@ -1021,7 +1023,7 @@ class MusicPlayer {
   /**
    * 이 플레이어가 아직 이 서버의 현행 플레이어인가.
    *
-   * 교체되고도 남아 있던 타이머가 뒤늦게 깨어나 **다른 플레이어의 등록과 음성 연결을**
+   * 교체되고도 남아 있던 타이머가 뒤늦게 깨어나 다른 플레이어의 등록과 음성 연결을
    * 건드리는 사고가 있었다(대기열 소진 타이머가 재생 중인 새 플레이어를 레지스트리에서
    * 지움). 지연 실행되는 정리 경로는 반드시 이걸로 자기 차례인지 확인한다.
    */
@@ -1112,7 +1114,7 @@ class MusicPlayer {
   /**
    * 재생 위치 이동. `/seek`·`/replay`·`/highlight`·대시보드가 전부 여기를 지난다.
    *
-   * 각 진입점이 `play(null, ms)`를 직접 부르면 **로그에는 새 곡이 시작된 것과 똑같이 보인다.**
+   * 각 진입점이 `play(null, ms)`를 직접 부르면 로그에는 새 곡이 시작된 것과 똑같이 보인다.
    * 사람이 위치를 옮긴 것과 봇이 다음 곡으로 넘어간 것을 가릴 수 없어지는데, `control`
    * 카테고리를 따로 가른 이유가 정확히 그것이다. 진입점마다 로그를 다는 대신 통로를 하나로 둔다.
    *
@@ -1215,7 +1217,7 @@ class MusicPlayer {
 
   /**
    * 자동재생 장르 설정(false면 끔). 진입점들이 `player.autoplay`에 직접 대입하고 있었는데,
-   * 그러면 **대기열이 저절로 늘어난 이유를 로그에서 찾을 수 없다** — 곡이 붙는 것만 보이고
+   * 그러면 대기열이 저절로 늘어난 이유를 로그에서 찾을 수 없다 — 곡이 붙는 것만 보이고
    * 누가 켰는지가 없다. 반복·볼륨과 같은 조작이므로 같은 자리에 둔다.
    */
   setAutoplay(genre) {
@@ -1462,7 +1464,7 @@ class MusicPlayer {
       const cfg = this._autoplayConfig();
       if (!cfg) return null;
 
-      // 최근에 튼 곡과 **대기열에 이미 있는 곡**을 함께 넘긴다. 미리 뽑아 둔 자동재생 곡이
+      // 최근에 튼 곡과 대기열에 이미 있는 곡을 함께 넘긴다. 미리 뽑아 둔 자동재생 곡이
       // 대기열에 있으므로, 그걸 빼지 않으면 같은 곡을 두 번 고를 수 있다.
       const recent = [this.currentTrack, ...this.previousTracks.slice(-20), ...this.queue].filter(Boolean);
 
@@ -1525,7 +1527,7 @@ class MusicPlayer {
   }
 
   /**
-   * 곡이 시작될 때 다음 자동재생 곡을 **미리** 대기열에 둔다.
+   * 곡이 시작될 때 다음 자동재생 곡을 미리 대기열에 둔다.
    *
    * 그래야 QueueWarmer가 평소처럼 받아 두고 전환이 즉시가 된다. 지금까지는 곡이 끝난 뒤에야
    * 검색을 시작해 그만큼 소리가 비었다(B-50) — 자동재생 곡이 대기열에 머무는 시간이 0이었다.
@@ -1538,17 +1540,24 @@ class MusicPlayer {
 
     this._autoplayPicking = true;
     try {
-      const picked = await this.pickAutoplayTrack();
-      if (!picked) return false;
-      // 고르는 사이 대기열이 변했을 수 있다 — 사용자가 곡을 넣었으면 미리 뽑기는 취소한다.
-      if (!this._canPrefetchAutoplay()) return false;
+      // prefetchCount만큼 채운다. 한 번에 한 곡만 넣으면 값을 키워도 늘 한 곡 앞만 보게 된다
+      // — 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라 다시 불러 주는 사람이 없기 때문이다.
+      let added = 0;
+      while (this._canPrefetchAutoplay()) {
+        const picked = await this.pickAutoplayTrack();
+        if (!picked) break;
+        // 고르는 사이 대기열이 변했을 수 있다 — 사용자가 곡을 넣었으면 미리 뽑기는 취소한다.
+        if (!this._canPrefetchAutoplay()) break;
 
-      trackState.enqueue(this, [picked]);
-      clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"})`);
-      if (this.guild?.client?.musicEmbedManager) {
+        trackState.enqueue(this, [picked]);
+        added++;
+        clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"})`);
+      }
+
+      if (added && this.guild?.client?.musicEmbedManager) {
         await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this).catch(() => {});
       }
-      return true;
+      return added > 0;
     } finally {
       this._autoplayPicking = false;
     }

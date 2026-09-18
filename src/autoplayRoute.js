@@ -127,12 +127,16 @@ function fromYouTube(video, cand) {
 const fromAudio = (cand) => ({
   title: cand.title,
   artist: cand.artist || "",
+  // url 은 음원 그대로 둔다 — 받는 쪽(DirectLink)이 이 주소로 가져오고, 세션 복원도 이것만 남긴다.
+  // 사람에게 보일 링크는 webUrl 로 따로 싣는다. 음원 파일 주소를 눌러 봐야 쓸모가 없다.
   url: cand.audioUrl,
+  webUrl: cand.sourceUrl || undefined,
   // 길이를 미리 재지 않는다. 어차피 받아야 하고, TrackDownloader가 받으면서 실측해 고쳐 준다.
   duration: 0,
   durationSource: "미상",
   thumbnail: cand.thumbnail || null,
-  platform: "direct",
+  // 패널에 "Direct"가 아니라 어디서 온 곡인지 보이게 한다
+  platform: cand.platform || "direct",
   // DirectLink와 같은 규약 — 이 값이 있어야 캐시 장부에 이름·표지가 남는다
   audioSourceKey: `dl:${require("./CacheManager").md5(cand.audioUrl)}`,
   type: "track",
