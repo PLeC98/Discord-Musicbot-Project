@@ -12,7 +12,7 @@
     <div v-for="(source, i) in list" :key="source._key" class="border border-white/8 rounded-lg p-2.5 mb-2 bg-black/15">
       <div class="flex items-center gap-2">
         <select :value="source.type" :class="selectCls" @change="changeType(i, $event.target.value)">
-          <option v-for="t in choosable(source.type)" :key="t.type" :value="t.type">{{ t.label }}{{ t.usable ? "" : " (키 없음)" }}</option>
+          <option v-for="t in choosable(source.type)" :key="t.type" :value="t.type" :class="optionCls">{{ t.label }}{{ t.usable ? "" : " (키 없음)" }}</option>
         </select>
 
         <label class="flex items-center gap-1.5 shrink-0" v-tooltip="'고를 확률. 비우면 1'">
@@ -42,8 +42,8 @@
         </div>
 
         <select v-else-if="field.kind === 'enum'" :value="source[field.key] ?? ''" :class="selectCls" @change="setField(i, field.key, $event.target.value || null)">
-          <option value="">(비움)</option>
-          <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
+          <option value="" :class="optionCls">(비움)</option>
+          <option v-for="opt in field.options" :key="opt" :value="opt" :class="optionCls">{{ opt }}</option>
         </select>
 
         <input v-else :value="source[field.key] ?? ''" :type="field.kind === 'number' ? 'number' : 'text'" :min="field.min" :placeholder="field.kind === 'url' ? 'https://…' : ''" :class="inputCls" @input="setField(i, field.key, field.kind === 'number' ? numberOrNull($event.target.value) : $event.target.value || null)" />
@@ -56,8 +56,8 @@
 
     <div class="flex items-center gap-2">
       <select v-model="adding" :class="[selectCls, 'flex-1']">
-        <option value="">출처 추가…</option>
-        <option v-for="t in addable" :key="t.type" :value="t.type">{{ t.label }}</option>
+        <option value="" :class="optionCls">출처 추가…</option>
+        <option v-for="t in addable" :key="t.type" :value="t.type" :class="optionCls">{{ t.label }}</option>
       </select>
       <button :class="iconBtn" :disabled="!adding" v-tooltip="'추가'" @click="add"><Icon name="add" :size="15" /></button>
     </div>
@@ -73,8 +73,11 @@ import ChipInput from "./ChipInput.vue";
 const props = defineProps({ modelValue: { type: Array, default: () => [] }, types: { type: Array, default: () => [] } });
 const emit = defineEmits(["update:modelValue"]);
 
-const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-1.5 text-[0.85rem] outline-none font-[inherit] w-full transition-[border-color] duration-150 focus:border-accent/55";
-const selectCls = `${inputCls} cursor-pointer`;
+// color-scheme: 네이티브 목록이 밝게 뜨는 것을 막는다(option 은 CSS 로 못 꾸민다)
+const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-1.5 text-[0.85rem] outline-none font-[inherit] w-full [color-scheme:dark] transition-[border-color] duration-150 focus:border-accent/55";
+const selectCls = `${inputCls} appearance-none cursor-pointer pr-7`;
+// option 은 네이티브로 그려져 부모 색을 물려받지 않는다 — 색을 직접 준다
+const optionCls = "bg-[#141833] text-[#e7e9f3]";
 const fieldLabelCls = "block text-[0.75rem] font-semibold text-fg-soft mb-1";
 const iconBtn = "h-[32px] w-[32px] rounded-lg border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-danger/15 hover:text-danger disabled:opacity-35 disabled:cursor-not-allowed";
 const pillCls = "px-2 py-1 rounded-md text-[0.75rem] border cursor-pointer transition-colors duration-150";
@@ -89,6 +92,12 @@ const deepBtn = "mt-2.5 text-[0.75rem] text-muted cursor-pointer hover:text-fg-s
 let serial = 0;
 const list = ref([]);
 
+// watch 가 immediate 로 바로 돌므로 **그 전에** 있어야 한다. 아래에 두면 TDZ 에 걸리는데,
+// Vue 가 watcher 콜백의 예외를 잡아 콘솔에만 남기고 넘어가므로 **화면은 멀쩡히 그려지고
+// 목록만 빈 채로** "출처가 하나는 있어야 합니다"가 뜬다 — 실제로 그렇게 한 번 당했다.
+const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
+const push = () => emit("update:modelValue", list.value.map(clean));
+
 watch(
   () => props.modelValue,
   (next) => {
@@ -99,9 +108,6 @@ watch(
   },
   { immediate: true, deep: true },
 );
-
-const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
-const push = () => emit("update:modelValue", list.value.map(clean));
 
 function remove(i) {
   list.value.splice(i, 1);
