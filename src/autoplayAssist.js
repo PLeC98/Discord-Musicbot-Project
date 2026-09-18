@@ -43,6 +43,19 @@ fits — 요청한 장르가 맞는가?
 JSON 배열로만 답한다. 설명하지 않는다.
 [{"n":1,"song":true,"fits":false}, ...]`;
 
+// 기본 대화 구성. 섹션마다 역할이 따로 있고, {{목록}} 자리에 후보가 들어간다.
+// 이 둘이 곧 예전 모양(system=기준 · user=목록)이라 설정을 안 건드리면 지금까지와 같다.
+const DEFAULT_SECTIONS = [
+  { role: "system", text: DEFAULT_PROMPT },
+  { role: "user", text: "{{목록}}" },
+];
+
+// 업로더 이름은 **일부러 안 넣는다.** 도움이 될 줄 알고 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다.
+// 유튜브의 그 칸은 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`·`Radio Mix`).
+const DEFAULT_LINE = "{{번호}}. 장르={{장르}} 길이={{길이분}}분 제목={{제목}}";
+
+const ROLES = new Set(["system", "user", "assistant"]);
+const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
 const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
 /** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
@@ -51,10 +64,53 @@ function settings() {
   return one.enabled && one.baseUrl && one.model ? one : null;
 }
 
-// 업로더 이름은 **일부러 안 넘긴다.** 도움이 될 줄 알고 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다.
-// 유튜브의 그 칸은 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`·`Radio Mix`).
-// 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 — 둘 다 받는다
-const lineOf = (one, genre, i) => `${i + 1}. 장르=${genre || "랜덤"} 길이=${Math.floor(Number(one.durationSec ?? one.duration ?? 0) / 60)}분 제목=${one.title}`;
+/** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 — 둘 다 받는다. */
+function renderLine(list, cand, genre, i) {
+  const sec = Number(cand.durationSec ?? cand.duration);
+  const known = Number.isFinite(sec) && sec > 0;
+  // 길이를 모르는데 "0분"이라고 적으면 거짓을 알려 주는 것이다 — 기본은 그 칸을 뺀다
+  const mode = list?.unknownDuration || "hide";
+  const unknown = mode === "zero" ? "0" : mode === "text" ? String(list?.unknownText ?? "모름") : null;
+
+  const values = {
+    번호: String(i + 1),
+    장르: genre || "랜덤",
+    제목: String(cand.title ?? ""),
+    길이분: known ? String(Math.floor(sec / 60)) : unknown,
+    길이초: known ? String(Math.round(sec)) : unknown,
+  };
+
+  // 값을 모르면 **그 자리표시자가 든 낱말째** 뺀다. "길이=" 만 덩그러니 남으면 더 헷갈린다.
+  return String(list?.lineFormat || DEFAULT_LINE)
+    .split(/(\s+)/)
+    .map((word) => {
+      if (!word.includes("{{")) return word;
+      let missing = false;
+      const filled = word.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (all, name) => {
+        const value = values[name];
+        if (value == null) missing = true;
+        return value == null ? "" : value;
+      });
+      return missing ? "" : filled;
+    })
+    .join("")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** 실제로 보낼 messages. 미리보기도 이것을 쓴다 — 화면이 흉내 내면 어긋난다. */
+function buildMessages(one, batch, genre) {
+  const list = batch.map((cand, i) => renderLine(one.list, cand, genre, i)).join("\n");
+  const sections = Array.isArray(one.prompt) && one.prompt.length ? one.prompt : DEFAULT_SECTIONS;
+
+  return sections
+    .map((section) => ({
+      // 모르는 역할은 system 으로 떨어뜨린다 — 저쪽이 400을 주느니 낫다
+      role: ROLES.has(section?.role) ? section.role : "system",
+      content: String(section?.text ?? "").replace(LIST_MARK, list),
+    }))
+    .filter((message) => message.content.trim());
+}
 
 /**
  * 후보 묶음을 모델에게 묻는다.
@@ -64,10 +120,7 @@ async function askBatch(one, batch, genre) {
   const body = {
     model: one.model,
     temperature: Number(one.temperature),
-    messages: [
-      { role: "system", content: String(one.prompt || "").trim() || DEFAULT_PROMPT },
-      { role: "user", content: batch.map((cand, i) => lineOf(cand, genre, i)).join("\n") },
-    ],
+    messages: buildMessages(one, batch, genre),
     // 서비스마다 이름이 다른 것들(think · reasoning_effort …)은 설정에서 그대로 얹는다
     ...(one.extra && typeof one.extra === "object" ? one.extra : {}),
   };
@@ -177,4 +230,25 @@ async function check() {
   }
 }
 
-module.exports = { filter, accepts, check, settings, DEFAULT_PROMPT };
+// 미리보기용 보기 곡 — 판정이 갈리는 세 가지를 일부러 골랐다(멀쩡한 곡 · 믹스 · 길이 모름)
+const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
+
+/**
+ * 저장하기 전의 설정으로 **실제로 나갈 요청**을 만들어 본다.
+ * 진짜 조립 코드를 그대로 쓴다 — 화면이 따로 흉내 내면 언젠가 어긋난다.
+ */
+function preview(draft, genre = "록") {
+  const one = { ...DEFAULTS, ...(draft || {}) };
+  return {
+    url: `${String(one.baseUrl || "").replace(/\/+$/, "")}/chat/completions`,
+    hasKey: !!config.ai?.apiKey,
+    body: {
+      model: one.model || "",
+      temperature: Number(one.temperature),
+      messages: buildMessages(one, SAMPLE, genre),
+      ...(one.extra && typeof one.extra === "object" ? one.extra : {}),
+    },
+  };
+}
+
+module.exports = { filter, accepts, check, settings, preview, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

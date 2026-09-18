@@ -163,7 +163,7 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
 // ── 요청 모양 ────────────────────────────────────────────────────────────
 
 test("설정한 것이 그대로 요청에 실린다", async () => {
-  useConfig(`${ON}temperature: 0.4\nextra:\n  think: false\n  reasoning_effort: low\nprompt: "내가 쓴 기준"\n`);
+  useConfig(`${ON}temperature: 0.4\nextra:\n  think: false\n  reasoning_effort: low\nprompt:\n  - role: system\n    text: 내가 쓴 기준\n  - role: user\n    text: "{{목록}}"\n`);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
@@ -179,13 +179,128 @@ test("설정한 것이 그대로 요청에 실린다", async () => {
   assert.equal(sent.init.headers.Authorization, `Bearer ${process.env.AI_API_KEY}`);
 });
 
-test("프롬프트를 비우면 기본 프롬프트를 쓴다", async () => {
-  useConfig(`${ON}prompt: ""\n`);
+test("프롬프트를 안 적으면 기본 구성을 쓴다", async () => {
+  useConfig(ON);
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.messages[0].content, assist.DEFAULT_PROMPT);
+  const sent = calls.at(-1).body.messages;
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].role, "system");
+  assert.equal(sent[0].content, assist.DEFAULT_PROMPT);
+  assert.equal(sent[1].role, "user");
+});
+
+// ── 대화 구성 ────────────────────────────────────────────────────────────
+
+test("섹션마다 역할을 정해 적은 차례대로 보낸다", async () => {
+  useConfig(`${ON}prompt:
+  - role: system
+    text: 기준이다
+  - role: assistant
+    text: 알겠다
+  - role: user
+    text: |
+      아래를 판정해라
+      {{목록}}
+`);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("Toxicity", 210), { genre: "록" });
+  const sent = calls.at(-1).body.messages;
+  assert.deepEqual(
+    sent.map((one) => one.role),
+    ["system", "assistant", "user"],
+  );
+  assert.equal(sent[0].content, "기준이다");
+  assert.match(sent[2].content, /^아래를 판정해라\n1\. 장르=록 길이=3분 제목=Toxicity/);
+});
+
+test("{{목록}} 자리에 후보가 들어간다 — 어느 역할이든", async () => {
+  useConfig(`${ON}prompt:
+  - role: system
+    text: "기준. 목록: {{목록}} 끝."
+`);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true},{"n":2,"song":true,"fits":true}]');
+
+  await assist.filter([cand("A", 60), cand("B", 120)], { genre: "록" });
+  const sent = calls.at(-1).body.messages;
+  assert.equal(sent.length, 1, "섹션이 하나면 메시지도 하나다");
+  assert.equal(sent[0].content, "기준. 목록: 1. 장르=록 길이=1분 제목=A\n2. 장르=록 길이=2분 제목=B 끝.");
+});
+
+test("내용이 빈 섹션은 보내지 않는다", async () => {
+  useConfig(`${ON}prompt:
+  - role: system
+    text: 기준이다
+  - role: assistant
+    text: "   "
+  - role: user
+    text: "{{목록}}"
+`);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.messages.length, 2);
+});
+
+// ── 후보 목록의 모양 ──────────────────────────────────────────────────────
+
+test("줄 형식을 직접 짤 수 있다", async () => {
+  useConfig(`${ON}list:
+  lineFormat: "{{번호}}) {{제목}} [{{길이초}}s]"
+prompt:
+  - role: user
+    text: "{{목록}}"
+`);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("Toxicity", 210), { genre: "록" });
+  assert.equal(calls.at(-1).body.messages[0].content, "1) Toxicity [210s]");
+});
+
+// 길이를 모르는데 "0분"이라고 적으면 모델에게 거짓을 알려 주는 것이다.
+test("길이를 모르는 후보 — 낱말째 빼거나, 글자로 적거나, 0으로", async () => {
+  const unknown = { title: "이름만 아는 곡" };
+  const ask = async (yaml) => {
+    useConfig(`${ON}${yaml}prompt:\n  - role: user\n    text: "{{목록}}"\n`);
+    calls.length = 0;
+    answers('[{"n":1,"song":true,"fits":true}]');
+    await assist.accepts(unknown, { genre: "록" });
+    return calls.at(-1).body.messages[0].content;
+  };
+
+  assert.equal(await ask(""), "1. 장르=록 제목=이름만 아는 곡", "기본은 길이 칸을 통째로 뺀다");
+  assert.equal(await ask("list:\n  unknownDuration: text\n  unknownText: 모름\n"), "1. 장르=록 길이=모름분 제목=이름만 아는 곡");
+  assert.equal(await ask("list:\n  unknownDuration: zero\n"), "1. 장르=록 길이=0분 제목=이름만 아는 곡");
+
+  // 아는 후보는 어느 설정에서도 그대로다
+  useConfig(ON);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+  await assist.accepts(cand("Toxicity", 210), { genre: "록" });
+  assert.equal(calls.at(-1).body.messages[1].content, "1. 장르=록 길이=3분 제목=Toxicity");
+});
+
+// 미리보기가 실제와 다르면 보여 주는 뜻이 없다 — 같은 조립 코드를 쓴다
+test("미리보기는 실제로 나갈 요청과 같은 것을 만든다", async () => {
+  const cfg = { enabled: true, baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: { think: false } };
+  const shown = assist.preview(cfg, "록");
+
+  assert.equal(shown.url, "http://127.0.0.1:11434/v1/chat/completions", "끝의 빗금은 정리한다");
+  assert.equal(shown.body.think, false);
+  assert.equal(typeof shown.hasKey, "boolean");
+  assert.ok(!JSON.stringify(shown).includes(process.env.AI_API_KEY), "키 값은 나가지 않는다");
+
+  // 보기 곡 셋 중 하나는 길이를 모르는 것이다 — 그 처리를 눈으로 보라고 넣었다
+  const asked = shown.body.messages.at(-1).content;
+  assert.equal(asked.split("\n").length, 3);
+  assert.match(asked, /^3\. 장르=록 제목=/m, "길이를 모르는 줄은 그 칸이 빠진다");
 });
 
 test("묶음 크기대로 나눠 묻는다", async () => {

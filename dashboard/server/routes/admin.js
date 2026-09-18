@@ -234,7 +234,16 @@ router.get("/source-types", requireOwner, async (req, res) => {
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
 // 기본 프롬프트도 같이 준다 — 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
-  res.json({ hasKey: !!require("../../../config").ai?.apiKey, defaultPrompt: require("../../../src/autoplayAssist").DEFAULT_PROMPT });
+  const assist = require("../../../src/autoplayAssist");
+  res.json({ hasKey: !!require("../../../config").ai?.apiKey, defaultPrompt: assist.DEFAULT_PROMPT, defaultSections: assist.DEFAULT_SECTIONS, defaultLine: assist.DEFAULT_LINE });
+});
+
+// 저장하기 전의 설정으로 실제로 나갈 요청을 만들어 본다. 조립은 봇이 쓰는 코드 그대로다 —
+// 화면이 따로 흉내 내면 언젠가 어긋난다. 키는 여기서도 값이 아니라 유무만 나간다.
+router.post("/ai/preview", requireOwner, (req, res) => {
+  const data = req.body?.data;
+  if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
+  res.json(require("../../../src/autoplayAssist").preview(data));
 });
 
 // 지금 설정으로 실제로 부를 수 있나 — 한 곡을 물어 보고 걸린 시간을 돌려준다.

@@ -498,7 +498,49 @@ function validateAi(data) {
   num("batchSize", 1, 50);
 
   if (data?.extra != null && (typeof data.extra !== "object" || Array.isArray(data.extra))) problems.push("extra는 이름:값 꼴이어야 합니다.");
-  if (data?.prompt != null && typeof data.prompt !== "string") problems.push("prompt는 글로 적어야 합니다.");
+
+  problems.push(...promptProblems(data?.prompt, data?.enabled === true));
+  problems.push(...listProblems(data?.list));
+  return problems;
+}
+
+// 대화는 섹션 목록이다. 섹션마다 역할(system·user·assistant)과 내용을 갖는다.
+// 비우면 기본 구성을 쓰므로, 적었을 때만 따진다.
+const AI_ROLES = ["system", "user", "assistant"];
+
+function promptProblems(prompt, on) {
+  if (prompt == null) return [];
+  if (!Array.isArray(prompt)) return ["prompt는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."];
+  if (!prompt.length) return [];
+
+  const problems = [];
+  prompt.forEach((section, i) => {
+    const where = `prompt ${i + 1}번째 섹션`;
+    if (!section || typeof section !== "object") return problems.push(`${where}: 역할과 내용을 적어야 합니다.`);
+    if (!AI_ROLES.includes(section.role)) problems.push(`${where}: role은 ${AI_ROLES.join(" · ")} 중 하나여야 합니다.`);
+    if (section.text != null && typeof section.text !== "string") problems.push(`${where}: text는 글로 적어야 합니다.`);
+  });
+
+  // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다. 켜 두고 이러면 매번 헛돈다.
+  const hasList = prompt.some((section) => /\{\{\s*목록\s*\}\}/.test(String(section?.text ?? "")));
+  if (on && !hasList) problems.push("prompt 어딘가에 {{목록}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다.");
+  return problems;
+}
+
+const AI_UNKNOWN = ["hide", "text", "zero"];
+
+function listProblems(list) {
+  if (list == null) return [];
+  if (typeof list !== "object" || Array.isArray(list)) return ["list는 이름:값 꼴이어야 합니다."];
+
+  const problems = [];
+  if (list.lineFormat != null) {
+    if (typeof list.lineFormat !== "string") problems.push("list.lineFormat은 글로 적어야 합니다.");
+    // 제목이 없으면 판정할 거리가 없다
+    else if (list.lineFormat.trim() && !/\{\{\s*제목\s*\}\}/.test(list.lineFormat)) problems.push("list.lineFormat에 {{제목}} 이 있어야 합니다.");
+  }
+  if (list.unknownDuration != null && !AI_UNKNOWN.includes(list.unknownDuration)) problems.push(`list.unknownDuration은 ${AI_UNKNOWN.join(" · ")} 중 하나여야 합니다.`);
+  if (list.unknownText != null && typeof list.unknownText !== "string") problems.push("list.unknownText는 글로 적어야 합니다.");
   return problems;
 }
 
