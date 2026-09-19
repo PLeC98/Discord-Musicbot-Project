@@ -41,13 +41,13 @@
       <template v-if="on">
         <span :class="[labelCls, 'mt-3']">모델</span>
         <div class="flex items-center gap-2 flex-wrap">
-          <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침 (무료)'" @click="loadModels()">
+          <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침'" @click="loadModels()">
             <Icon name="repeat" :size="15" :class="loadingModels ? 'opacity-40' : ''" />
           </button>
 
           <div v-if="models.length && !manualModel" class="relative flex-1 min-w-40">
             <select v-model="draft.model" :class="[inputCls, selectCls]">
-              <option v-for="one in models" :key="one" :value="one" :class="optionCls">{{ one }}</option>
+              <option v-for="one in modelChoices" :key="one.id" :value="one.id" :class="optionCls">{{ one.label }}</option>
             </select>
             <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
           </div>
@@ -497,7 +497,34 @@ const paid = ref(null); // "ping" | "judge" — 확인 대화상자
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
+// 프로바이더를 바꾸면 모델 칸이 빈다. 마지막에 고른 것을 브라우저에 적어 둔다 —
+// 접기 상태와 같은 화면 편의라 설정 파일에 넣지 않는다.
+const PICK_KEY = "configAI.model";
+function rememberedModels() {
+  try {
+    return JSON.parse(localStorage.getItem(PICK_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+function rememberModel(provider, model) {
+  if (!provider || provider === "off" || !model) return;
+  try {
+    localStorage.setItem(PICK_KEY, JSON.stringify({ ...rememberedModels(), [provider]: model }));
+  } catch {
+    // 사생활 보호 모드처럼 못 쓰는 브라우저 — 기억을 못 할 뿐이다
+  }
+}
+
 const models = ref([]);
+// 프로필이 아는 모델은 보기 좋은 이름으로 보여준다. 모르는 것은 원본 ID 그대로 —
+// 키로 실제로 쓸 수 있는 것은 /models 만 안다(로컬·신모델은 프로필에 없다).
+const modelChoices = computed(() =>
+  models.value.map((id) => {
+    const known = fieldInfo.value.models.find((one) => one.modelId === id);
+    return { id, label: known ? `${known.name} — ${id}` : id };
+  }),
+);
 const manualModel = ref(false);
 const pinging = ref(false);
 // 무료·유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
@@ -774,7 +801,14 @@ function applyPrompt(list) {
 }
 
 // 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
-watch(() => [draft.value.provider, draft.value.model], loadFields, { immediate: true });
+watch(
+  () => [draft.value.provider, draft.value.model],
+  () => {
+    rememberModel(draft.value.provider, draft.value.model);
+    return loadFields();
+  },
+  { immediate: true },
+);
 
 // 고른 값은 그때그때 모델 칸에 담는다
 let picking = "";
@@ -907,6 +941,9 @@ async function loadModels({ quiet = false } = {}) {
     models.value = got.models || [];
     // 목록을 받았으면 고르는 칸으로 돌아간다. 못 받았을 때만 직접 적게 한다.
     manualModel.value = !models.value.length;
+    // 고른 적 없거나 지금 목록에 없는 것이면 기억해 둔 것으로
+    const remembered = rememberedModels()[draft.value.provider];
+    if (remembered && models.value.includes(remembered) && !models.value.includes(draft.value.model)) draft.value.model = remembered;
 
     if (quiet && !got.ok) return;
     const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
