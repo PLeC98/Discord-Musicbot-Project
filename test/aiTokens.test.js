@@ -6,9 +6,23 @@ const tokens = require("../src/aiTokens");
 const SENTENCE = "세차를 하려고 해. 세차장은 50미터 떨어져 있어. 걸어가야 할까, 운전해서 가야 할까?";
 
 test("메시지 하나의 셈이 저쪽 실측과 맞는다", () => {
-  const got = tokens.countMessages([{ content: SENTENCE }], "tik");
-  assert.equal(got.total, 39, "포장 몫까지 더한 값");
+  const got = tokens.countMessages([{ content: SENTENCE }], "tik", "openai");
+  assert.equal(got.total, 39, "감싸는 몫까지 더한 값");
   assert.equal(got.each[0], 33, "본문만");
+});
+
+// 규격마다 메시지를 감싸는 몫이 다르다. 셋 다 실제 응답에서 잰 값이다.
+test("요청 토큰은 규격마다 감싸는 몫이 다르다", () => {
+  const one = [{ content: SENTENCE }];
+  // 제미니는 promptTokenCount 가 본문과 그대로 같았다 — 감싸는 몫이 없다
+  const gemini = tokens.countMessages(one, "gemma", "gemini");
+  assert.equal(gemini.total, gemini.body, "제미니는 더 붙는 것이 없다");
+  assert.equal(gemini.total, 33);
+
+  // OpenAI 는 본문 33 짜리가 prompt_tokens 39 로 왔다
+  const openai = tokens.countMessages(one, "tik", "openai");
+  assert.equal(openai.body, 33);
+  assert.equal(openai.total, 39);
 });
 
 // 제미니·젬마는 딴 토크나이저다 — 같은 글을 다르게 센다.

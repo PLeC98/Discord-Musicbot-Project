@@ -11,9 +11,20 @@ const path = require("path");
 
 const GEMMA_FILE = path.join(__dirname, "..", "data", "gemma-tokenizer.model");
 
-// 한 메시지를 감싸는 포장 몫. 실측으로 맞췄다(GPT-5·5.6·6 세대).
-const WRAP_PER_MESSAGE = 3;
-const WRAP_PER_REQUEST = 3;
+/**
+ * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 **실측으로 잡았다.**
+ *
+ *   openai     한 메시지 3 + 요청 3. 본문 33 짜리가 prompt_tokens 39 로 왔다
+ *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같았다
+ *              (countTokens 엔드포인트는 1 을 더 세는데 그 값은 청구되지 않는다)
+ *   anthropic  세대마다 다르다. 5(4.8~5) · 10(4.7) · 6(4.5~4.6)
+ */
+const FRAMING = {
+  openai: { perMessage: 3, perRequest: 3 },
+  gemini: { perMessage: 0, perRequest: 0 },
+  vertex: { perMessage: 0, perRequest: 0 },
+  anthropic: { perMessage: 0, perRequest: 5 },
+};
 
 // ── SentencePiece BPE ──────────────────────────────────────────────────────
 // 조각마다 점수가 있고 **점수가 높은 짝부터 붙인다.** merges 목록이 따로 없는 이유다.
@@ -137,17 +148,21 @@ function count(text, tokenizer = "tik") {
   return { tokens: body ? require("gpt-tokenizer").encode(body).length : 0, by: "tik", exact: tokenizer === "tik" };
 }
 
-/** 메시지 묶음 하나가 몇 토큰인지 — 포장 몫까지 더한 값. */
-function countMessages(messages, tokenizer = "tik") {
-  let total = WRAP_PER_REQUEST;
+/**
+ * 요청 하나가 몇 토큰인지 — 메시지를 감싸는 몫까지 더한 값.
+ * 본문만 세려면 `count` 를 쓴다(프롬프트 칸이 그렇게 쓴다).
+ */
+function countMessages(messages, tokenizer = "tik", dialect = "openai") {
+  const wrap = FRAMING[dialect] || FRAMING.openai;
+  let total = wrap.perRequest;
   const each = [];
   for (const one of messages || []) {
     const got = count(one?.content ?? one?.text ?? "", tokenizer);
     each.push(got.tokens);
-    total += got.tokens + WRAP_PER_MESSAGE;
+    total += got.tokens + wrap.perMessage;
   }
   const got = count("", tokenizer);
-  return { total, each, by: got.by, exact: got.exact };
+  return { total, body: total - wrap.perRequest - (messages || []).length * wrap.perMessage, each, by: got.by, exact: got.exact };
 }
 
-module.exports = { count, countMessages, tokenizerFor, GEMMA_FILE, _readPieces: readPieces };
+module.exports = { count, countMessages, tokenizerFor, FRAMING, GEMMA_FILE, _readPieces: readPieces };

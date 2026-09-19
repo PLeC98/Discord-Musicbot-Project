@@ -1,5 +1,5 @@
 /**
- * 모델 프로필 받아 오기 — pnpm run ai:models
+ * 모델 프로필 받아 오기 — pnpm run update:models
  *
  * 대시보드의 갱신 버튼과 같은 길(src/aiModels.refresh)을 쓴다.
  */

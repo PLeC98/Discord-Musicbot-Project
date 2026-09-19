@@ -369,7 +369,12 @@
           <h3 class="text-[0.95rem] font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</h3>
           <span v-if="shown.sent" class="text-[0.8rem]" :class="shown.status && shown.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'"> {{ shown.status ? `HTTP ${shown.status}` : "보내지 못함" }} · {{ (shown.tookMs / 1000).toFixed(1) }}초 </span>
           <span v-else class="text-muted text-[0.8rem]">보내지 않았습니다</span>
-          <span v-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
+          <span v-if="shown.usage" class="text-muted text-[0.8rem]" v-tooltip="'저쪽이 알려 준 값입니다'">
+            입력 {{ shown.usage.input.toLocaleString("ko-KR") }}
+            <template v-if="shown.usage.output != null"> · 출력 {{ shown.usage.output.toLocaleString("ko-KR") }}</template>
+            <template v-if="shown.usage.thoughts"> · 사고 {{ shown.usage.thoughts.toLocaleString("ko-KR") }}</template>
+          </span>
+          <span v-else-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
           <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
         </div>
 

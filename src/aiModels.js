@@ -131,7 +131,7 @@ const CANARY = [
 
 /**
  * 받아서 파일에 쓴다. 해시가 같으면 받지 않는다.
- * 대시보드 갱신 버튼과 `pnpm run ai:models` 가 이 길을 같이 쓴다.
+ * 대시보드 갱신 버튼과 `pnpm run update:models` 가 이 길을 같이 쓴다.
  */
 async function refresh({ registries, force = false, timeoutMs = 30000 } = {}) {
   const held = load();

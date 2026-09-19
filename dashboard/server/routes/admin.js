@@ -284,7 +284,7 @@ router.post("/ai/tokens", requireOwner, (req, res) => {
   res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact: counted[0]?.exact ?? true });
 });
 
-/** 모델 프로필 갱신 — 해시가 같으면 받지 않는다. pnpm run ai:models 와 같은 길이다. */
+/** 모델 프로필 갱신 — 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
 router.post("/ai/models/refresh", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
   const models = require("../../../src/aiModels");

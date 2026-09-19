@@ -380,6 +380,7 @@ const DIALECTS = {
     body: (one, messages) => ({ model: one.model, temperature: Number(one.temperature), messages }),
     answerOf: (json) => json?.choices?.[0]?.message?.content || "",
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
+    usageOf: (json) => pickUsage(json?.usage?.prompt_tokens, json?.usage?.completion_tokens, json?.usage?.completion_tokens_details?.reasoning_tokens),
   },
 
   /**
@@ -414,6 +415,7 @@ const DIALECTS = {
     },
     answerOf: (json) => (json?.content || []).map((part) => part?.text || "").join(""),
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
+    usageOf: (json) => pickUsage(json?.usage?.input_tokens, json?.usage?.output_tokens),
   },
 
   /**
@@ -432,6 +434,7 @@ const DIALECTS = {
     },
     body: geminiBody,
     answerOf: geminiAnswer,
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount),
     // { models: [{ name: "models/gemini-3.7-flash" }] }
     modelsOf: (json) =>
       (json?.models || []).map((m) =>
@@ -464,6 +467,7 @@ const DIALECTS = {
     },
     body: geminiBody,
     answerOf: geminiAnswer,
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount),
     // { publisherModels: [{ name: "publishers/google/models/gemini-3-pro" }] }
     modelsOf: (json) =>
       (json?.publisherModels || []).map((m) =>
@@ -486,6 +490,17 @@ function vertexBase(one) {
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MAX_TOKENS = 1024;
+
+/**
+ * 응답이 알려 준 실제 토큰 수. 없으면 null — 추산으로 메우지 않는다.
+ * 사고 토큰은 따로 잡히고, 추론을 켜면 그쪽이 훨씬 클 수 있다.
+ */
+const pickUsage = (input, output, thoughts) => {
+  if (typeof input !== "number") return null;
+  const out = { input, output: typeof output === "number" ? output : null };
+  if (typeof thoughts === "number") out.thoughts = thoughts;
+  return out;
+};
 
 const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
@@ -516,7 +531,8 @@ function countTokens(one, messages) {
   try {
     const tokens = require("./aiTokens");
     const registry = specOf(one.provider)?.registry;
-    return tokens.countMessages(messages, tokens.tokenizerFor(registry, one.model));
+    const dialect = specOf(one.provider)?.dialect || "openai";
+    return tokens.countMessages(messages, tokens.tokenizerFor(registry, one.model), dialect);
   } catch {
     return null; // 못 세도 요청은 나가야 한다
   }
@@ -838,6 +854,12 @@ async function sendTest(draft, genre = "록") {
     });
     out.status = res.status;
     out.response = mask(await res.text()); // 다듬지 않는다 — 무엇이 왔는지 그대로 봐야 한다
+    // 저쪽이 알려 준 실제 토큰 수가 있으면 그것을 쓴다. 추산은 볼 이유가 없다.
+    try {
+      out.usage = dialectOf(one).usageOf?.(JSON.parse(out.response)) || null;
+    } catch {
+      out.usage = null;
+    }
   } catch (error) {
     out.response = mask(String(error.message));
   }
