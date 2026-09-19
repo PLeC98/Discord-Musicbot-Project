@@ -61,9 +61,6 @@ project: ""
 # 모델명
 model: gemma3n:e2b
 
-# 0 이면 같은 질문에 같은 답을 합니다. 판정에는 흔들릴 이유가 없습니다.
-temperature: 0
-
 # 이 시간을 넘기면 포기하고 규칙만으로 고릅니다(밀리초).
 timeoutMs: 60000
 
@@ -92,7 +89,7 @@ skipConfident: true
 #     reasoning_effort=low             # OpenAI 계열
 #     response_format=json::{"type":"json_object"}
 #     header::X-Title=Discord Musicbot
-#     temperature={{none}}
+#     temperature=0                    # 프로필이 없는 프로바이더는 여기로 적습니다
 #     thinking.budget_tokens=1024      # 앤트로픽
 #     generationConfig.topP=0.9        # 버텍스는 이 안에 들어갑니다
 extra: ""
@@ -155,7 +152,7 @@ list:
 # 모델에게 전송되지 않습니다.
 promptNames: []
 
-# 모델이 받는 칸의 값 — 추론 강도, 최대 출력 토큰 등.
+# 모델이 받는 칸의 값 — 온도, 추론 강도, 최대 출력 토큰 등.
 # 대시보드가 모델 프로필(data/ai-models.json)을 보고 받을 수 있는 칸만 보여 줍니다.
 # **모델 이름으로 한 겹 나눕니다** — 모델을 바꿔도 앞 모델에서 고른 값이 따라오지 않게.
 # 안 적은 칸은 프로필의 기본값으로 나갑니다.
@@ -163,10 +160,13 @@ promptNames: []
 # 예)
 #   params:
 #     claude-opus-5:
+#       temperature: 0        # 0 이면 같은 질문에 같은 답을 합니다
 #       effort: high          # 앤트로픽 5 계열
 #       max_tokens: 4096
 #     gemini-3.8-flash:
 #       thinkingLevel: medium # 제미니 계열
+#
+# 프로필이 없는 프로바이더(로컬 · custom)는 이 칸을 못 씁니다 — 위의 extra 로 적습니다.
 params: {}
 
 # 커스텀 프롬프트는 config/ai-prompt.chatml 에서 설정합니다. chatML 포맷을 따릅니다.

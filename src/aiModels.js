@@ -58,9 +58,6 @@ function profileOf(registry, modelId, snapshot = load()) {
   return null;
 }
 
-// 우리 설정 화면이 이미 값을 갖고 있는 칸. 자리만 프로필에서 받고 값은 우리 것을 쓴다.
-const OURS = new Set(["temperature"]);
-
 /** 그 모델이 받는 칸들 — 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
 function fieldsOf(registry, modelId, snapshot = load()) {
   const found = profileOf(registry, modelId, snapshot);
@@ -74,7 +71,6 @@ function fieldsOf(registry, modelId, snapshot = load()) {
     .map((f) => {
       const hint = hints.get(f.key) || {};
       const out = { key: f.key, path: f.mapsTo.path, type: f.type, label: f.label };
-      if (OURS.has(f.key)) out.ours = true;
       if (Array.isArray(f.enum) && f.enum.length) out.enum = f.enum.map((e) => ({ value: e?.value ?? e, label: e?.label ?? String(e?.value ?? e) }));
       for (const n of ["min", "max", "step"]) if (typeof f[n] === "number") out[n] = f[n];
       if (f.default !== undefined) out.default = f.default;

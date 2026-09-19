@@ -151,12 +151,9 @@
             <span class="text-[0.78rem] text-fg-soft font-medium">{{ group.label }}</span>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1.5">
               <label v-for="field in group.fields" :key="field.key" class="block">
-                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="field.ours ? '0이면 같은 질문에 같은 답을 합니다' : field.path">{{ field.label || field.key }}</span>
+                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="field.path">{{ field.label || field.key }}</span>
 
-                <!-- 온도만은 값이 우리 설정에 있다. 자리는 프로필이 정한다. -->
-                <input v-if="field.ours" v-model="temperatureText" inputmode="decimal" placeholder="0" :class="inputCls" />
-
-                <div v-else-if="field.enum" class="relative">
+                <div v-if="field.enum" class="relative">
                   <select v-model="params[field.key]" :class="[inputCls, selectCls]">
                     <option value="" :class="optionCls">{{ field.default ? `기본값 (${field.default})` : "기본값" }}</option>
                     <option v-for="opt in field.enum" :key="opt.value" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
@@ -169,7 +166,7 @@
                   <span class="text-[0.82rem] text-muted">{{ params[field.key] ? "켬" : "끔" }}</span>
                 </label>
 
-                <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :placeholder="String(field.default ?? '')" :class="inputCls" />
+                <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :decimal="field.type === 'number'" :negative="(field.min ?? 0) < 0" :placeholder="String(field.default ?? '')" :class="inputCls" />
 
                 <ChipInput v-else-if="field.type === 'stringArray'" :model-value="params[field.key] || []" placeholder="적고 Enter" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
 
@@ -484,7 +481,7 @@ const markBtn = "px-2 py-1 rounded-md text-[0.75rem] font-mono border border-whi
 // 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다 — 값으로 둔다
 const LIST_MARK = "{{목록}}";
 const NONE_MARK = "{{none}}";
-const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\ntemperature=${NONE_MARK}`;
+const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\nmax_tokens=${NONE_MARK}`;
 
 const ROLES = ["system", "user", "assistant"];
 
@@ -698,15 +695,6 @@ const extraText = computed({
   },
 });
 
-// 온도는 0.4 처럼 소수라 숫자 칸을 못 쓴다. 빈 칸과 0 을 가르려고 글자로 다룬다.
-const temperatureText = computed({
-  get: () => (draft.value.temperature == null ? "" : String(draft.value.temperature)),
-  set: (v) => {
-    const text = String(v).trim();
-    draft.value.temperature = text === "" ? null : Number(text);
-  },
-});
-
 // 파일은 밀리초로 적히지만 사람에게는 초가 낫다
 const timeoutSec = computed({
   get: () => (draft.value.timeoutMs == null ? null : Math.round(draft.value.timeoutMs / 1000)),
@@ -721,18 +709,13 @@ const timeoutSec = computed({
 const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
 
 // 묶음의 이름도 차례도 프로필이 정한다 — 우리가 표를 들고 있으면 저쪽이 늘 때 한쪽만 고치게 된다.
-const OUR_TEMP = { key: "temperature", label: "Temperature", type: "number", ours: true, group: "generation", order: 99 };
-
 const paramGroups = computed(() => {
-  const shown = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
-  // 온도 칸이 없는 프로필도 있다. 우리 값은 늘 나가므로 생성 묶음 끝에 붙여 둔다.
-  const all = shown.some((f) => f.ours) ? shown : [...shown, OUR_TEMP];
+  const all = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
   const known = fieldInfo.value.groups || [];
   const by = new Map();
   for (const field of all) {
     const id = field.group || "generation";
-    // 프로필이 없는 프로바이더에는 묶음 이름도 없다 — 온도 하나만 놓일 자리다
-    if (!by.has(id)) by.set(id, { id, label: known.find((g) => g.id === id)?.label || (id === "generation" ? "생성" : id), fields: [] });
+    if (!by.has(id)) by.set(id, { id, label: known.find((g) => g.id === id)?.label || id, fields: [] });
     by.get(id).fields.push(field);
   }
   for (const group of by.values()) group.fields.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
@@ -781,7 +764,6 @@ const problems = computed(() => {
     if (sections.value.length && !hasListMark.value) found.push(`프롬프트 어딘가에 ${LIST_MARK} 이 있어야 합니다.`);
   }
 
-  if (d.temperature != null && !(Number(d.temperature) >= 0 && Number(d.temperature) <= 2)) found.push("온도는 0~2 사이여야 합니다.");
   if (d.timeoutMs != null && !(Number(d.timeoutMs) >= 1000 && Number(d.timeoutMs) <= 600000)) found.push("타임아웃은 1~600초 사이여야 합니다.");
   if (d.batchSize != null && !(Number(d.batchSize) >= 1 && Number(d.batchSize) <= 50)) found.push("한 리퀘스트의 곡 수는 1~50 사이여야 합니다.");
 

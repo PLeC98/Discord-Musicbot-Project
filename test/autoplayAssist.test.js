@@ -175,7 +175,7 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
 // ── 요청 모양 ────────────────────────────────────────────────────────────
 
 test("설정한 것이 그대로 요청에 실린다", async () => {
-  useConfig(`${ON}temperature: 0.4\nextra: |\n  think=false\n  reasoning_effort=low\n`, [
+  useConfig(`${ON}extra: |\n  think=false\n  reasoning_effort=low\n  temperature=0.4\n`, [
     { role: "system", text: "내가 쓴 기준" },
     { role: "user", text: "{{목록}}" },
   ]);
@@ -186,8 +186,8 @@ test("설정한 것이 그대로 요청에 실린다", async () => {
   const sent = calls.at(-1);
   assert.equal(sent.url, "http://127.0.0.1:11434/v1/chat/completions");
   assert.equal(sent.body.model, "test-model");
-  assert.equal(sent.body.temperature, 0.4);
   assert.equal(sent.body.think, false, "서비스마다 다른 값은 extra 로 그대로 얹는다");
+  assert.equal(sent.body.temperature, 0.4, "프로필이 없는 프로바이더는 extra 로 적는다");
   assert.equal(sent.body.reasoning_effort, "low");
   assert.equal(sent.body.messages[0].content, "내가 쓴 기준", "프롬프트를 적었으면 그것을 쓴다");
   assert.match(sent.body.messages[1].content, /장르=록/);
@@ -435,9 +435,9 @@ test("프로필 기본값은 고르지 않아도 붙는다", async () => {
   assert.equal(sent.body.logprobs, false);
 });
 
-// 온도 값은 우리 설정 칸이 갖고 있다. 프로필에서 같은 칸이 와도 값까지 내주지는 않는다.
-test("온도는 우리 칸 하나로 간다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\ntemperature: 0.7\nparams:\n  gemini-3.7-flash:\n    temperature: 1.9\n", [{ role: "user", text: "{{목록}}" }]);
+// 온도도 모델이 받는 칸 하나다 — 프로필이 적어 둔 자리로 들어간다(제미니는 generationConfig 안).
+test("온도는 params 를 타고 프로필이 적은 자리로 간다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\nparams:\n  gemini-3.7-flash:\n    temperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
   global.fetch = async (url, init) => {
     calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
@@ -446,11 +446,12 @@ test("온도는 우리 칸 하나로 간다", async () => {
   };
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.generationConfig.temperature, 0.7, "다이얼렉트가 제자리에 넣는다");
+  assert.equal(calls.at(-1).body.generationConfig.temperature, 0.7);
 
-  // 프로필도 온도 칸을 내지만 값은 우리 것이다 — 프로필 기본값이 덮어쓰면 안 된다
-  const models = require("../src/aiModels");
-  assert.equal(models.fieldsOf("vertex-gemini-native", "gemini-3.7-flash").find((one) => one.key === "temperature")?.ours, true);
+  // 안 적으면 아예 안 보낸다 — 저쪽이 안 받는 모델도 있다
+  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{목록}}" }]);
+  await assist.accepts(cand("A"), {});
+  assert.ok(!("temperature" in (calls.at(-1).body.generationConfig || {})));
 });
 
 // 모델을 바꾸면 앞 모델에서 고른 값이 따라오면 안 된다.
@@ -518,7 +519,7 @@ test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => 
 
 // ── 미리보기 ─────────────────────────────────────────────────────────────
 
-const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: "think=false" };
+const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", extra: "think=false" };
 
 // **미리보기는 아무 데도 안 나간다.** 테스트만 실제로 보낸다 — 둘을 섞으면
 // "키도 안 넣었는데 왜 응답이 오지"가 된다.
@@ -689,7 +690,7 @@ test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
 
 // OpenAI 와 다른 것 셋: system 이 본문 맨 위 칸, max_tokens 가 필수, 인증이 x-api-key.
 test("앤트로픽은 네이티브 규격으로 보낸다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-x\ntemperature: 0\n", [
+  useConfig("provider: anthropic\nmodel: claude-x\n", [
     { role: "system", text: "기준 하나" },
     { role: "system", text: "기준 둘" },
     { role: "user", text: "{{목록}}" },
@@ -737,7 +738,7 @@ test("앤트로픽 모델 목록과 max_tokens 덮어쓰기", async () => {
 
 // 여기만 유난히 다르다: 주소를 조립하고, 토큰으로 인증하고, 본문이 contents/parts 다.
 test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\ntemperature: 0\n", [
+  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [
     { role: "system", text: "기준이다" },
     { role: "user", text: "{{목록}}" },
   ]);

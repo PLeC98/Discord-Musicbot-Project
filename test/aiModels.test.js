@@ -22,8 +22,7 @@ test("base-provider 를 상속해 칸을 합친다", () => {
   assert.equal(models.fieldsOf("p", "m", snapshot)[1].path, "cfg.thinkingConfig.thinkingLevel");
 });
 
-// 우리 설정 화면이 이미 갖고 있는 칸은 프로필에서 내지 않는다 — 두 벌로 뜨면 어느 쪽이 나가는지 모른다.
-test("우리가 값을 갖고 있는 칸은 자리만 받는다", () => {
+test("본문으로 가는 칸을 프로필이 적힌 차례대로 낸다", () => {
   const snapshot = {
     baseProviders: {
       p: {
@@ -36,13 +35,10 @@ test("우리가 값을 갖고 있는 칸은 자리만 받는다", () => {
     profiles: { "p:m": { modelId: "m", providerBaseId: "p", schema: [] } },
   };
 
-  const got = models.fieldsOf("p", "m", snapshot);
   assert.deepEqual(
-    got.map((f) => f.key),
+    models.fieldsOf("p", "m", snapshot).map((f) => f.key),
     ["temperature", "topK"],
   );
-  assert.equal(got[0].ours, true, "값은 우리 설정에서 온다는 표가 붙는다");
-  assert.ok(!("ours" in got[1]));
 });
 
 test("키가 겹치면 프로필이 이긴다", () => {

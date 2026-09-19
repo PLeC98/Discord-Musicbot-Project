@@ -585,8 +585,13 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const notUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "127.0.0.1:11434", model: "m" } });
   assert.equal(notUrl.status, 400, "http:// 로 시작해야 한다");
 
-  const range = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 9 } });
+  const range = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", batchSize: 99 } });
   assert.equal(range.status, 400);
+
+  // 온도는 모델이 받는 칸 하나가 됐다 — 맨 위에 남아 있으면 조용히 무시되므로 막는다
+  const moved = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 0 } });
+  assert.equal(moved.status, 400);
+  assert.match(moved.json.problems.join(" "), /params 아래에 모델별로/);
 
   // 모르는 프로바이더로 저장되면 조용히 안 돈다
   assert.equal((await req("PUT", "/api/admin/config/ai", { data: { provider: "anthropic" } })).status, 400);

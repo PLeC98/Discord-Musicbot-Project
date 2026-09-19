@@ -605,7 +605,8 @@ function validateAi(data) {
     const value = Number(data[key]);
     if (!Number.isFinite(value) || value < min || value > max) problems.push(`${key}는 ${min}~${max} 사이여야 합니다.`);
   };
-  num("temperature", 0, 2);
+  // 온도도 모델이 받는 칸 하나다 — params 아래로 옮겼다. 남아 있으면 조용히 무시되므로 알린다.
+  if (data?.temperature != null) problems.push("temperature는 params 아래에 모델별로 적습니다.");
   num("timeoutMs", 1000, 600000);
   num("batchSize", 1, 50);
 

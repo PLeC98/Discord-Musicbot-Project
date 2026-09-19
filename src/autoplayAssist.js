@@ -57,7 +57,7 @@ const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
 // 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다) — 그래서 프롬프트에서도 쓸 수 있다.
 const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
-const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfident: true };
+const DEFAULTS = { timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
 /**
  * 어디에 물을지.
@@ -371,7 +371,6 @@ function geminiBody(one, messages) {
   return {
     contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
     ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-    generationConfig: { temperature: Number(one.temperature) },
   };
 }
 const geminiAnswer = (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join("");
@@ -381,7 +380,7 @@ const DIALECTS = {
     chatUrl: (one) => `${endpointOf(one)}/chat/completions`,
     modelsUrl: (one) => `${endpointOf(one)}/models`,
     headers: async (one) => ({ "Content-Type": "application/json", ...(specOf(one.provider)?.headers || {}), ...(await authOf(one)) }),
-    body: (one, messages) => ({ model: one.model, temperature: Number(one.temperature), messages }),
+    body: (one, messages) => ({ model: one.model, messages }),
     answerOf: (json) => json?.choices?.[0]?.message?.content || "",
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
     usageOf: (json) => pickUsage(json?.usage?.prompt_tokens, json?.usage?.completion_tokens, json?.usage?.completion_tokens_details?.reasoning_tokens),
@@ -412,7 +411,6 @@ const DIALECTS = {
         model: one.model,
         // 저쪽에서 필수라 늘 붙인다. 프로필이 아는 모델이면 그쪽 값이 이긴다.
         max_tokens: ANTHROPIC_MAX_TOKENS,
-        temperature: Number(one.temperature),
         ...(system ? { system } : {}),
         messages: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
       };
@@ -615,7 +613,7 @@ function headersWith(base, extra) {
  */
 function withExtra(_dialect, body, extra) {
   const out = deepMerge(body, extra.body);
-  // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
+  // {{none}} 은 얹은 뒤에 지워야 앤트로픽 max_tokens 처럼 늘 붙는 것도 뺄 수 있다
   for (const path of extra.drop) delPath(out, path);
   return out;
 }
