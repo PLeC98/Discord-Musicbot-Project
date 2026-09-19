@@ -46,12 +46,12 @@
           </button>
 
           <div v-if="models.length && !manualModel" class="relative flex-1 min-w-40">
-            <select v-model="draft.model" :class="[inputCls, selectCls]">
+            <select v-model="draft.model" :class="[inputCls, selectCls]" @change="rememberModel(draft.provider, draft.model)">
               <option v-for="one in modelChoices" :key="one.id" :value="one.id" :class="optionCls">{{ one.label }}</option>
             </select>
             <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
           </div>
-          <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1 min-w-40']" />
+          <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1 min-w-40']" @change="rememberModel(draft.provider, draft.model)" />
 
           <label class="flex items-center gap-2 cursor-pointer shrink-0" v-tooltip="models.length ? '' : '목록을 못 받았으면 직접 적어야 합니다'">
             <input v-model="manualModel" type="checkbox" class="size-4 accent-accent shrink-0" :disabled="!models.length" />
@@ -567,9 +567,10 @@ const paid = ref(null); // "ping" | "judge" — 확인 대화상자
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
-// 프로바이더를 바꾸면 모델 칸이 빈다. 마지막에 고른 것을 브라우저에 적어 둔다 —
+// 프로바이더를 바꾸면 모델 칸이 빈다. **사람이 고른 것만** 브라우저에 적어 둔다 —
+// 저절로 고른 첫 모델까지 적으면 "마지막에 고른 것"이 그것으로 덮인다.
 // 접기 상태와 같은 화면 편의라 설정 파일에 넣지 않는다.
-const PICK_KEY = "configAI.model";
+const PICK_KEY = "configAI.model.picked";
 function rememberedModels() {
   try {
     return JSON.parse(localStorage.getItem(PICK_KEY) || "{}");
@@ -872,6 +873,8 @@ function apply(data) {
   const { list, prompt, promptNames, params: saved, ...rest } = data || {};
   draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
   allParams.value = { ...(saved || {}) };
+  // 설정에 저장돼 있는 모델도 사람이 고른 것이다 — 기동 직후에도 기억이 비지 않게 둔다
+  rememberModel(draft.value.provider, draft.value.model);
   picking = draft.value.model || "";
   params.value = { ...(allParams.value[picking] || {}) };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
@@ -890,11 +893,7 @@ function applyPrompt(list) {
 // 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
 watch(
   () => [draft.value.provider, draft.value.model],
-  () => {
-    // 목록에 있는 것만 적어 둔다 — 프로바이더를 막 바꿔 아직 옛 모델이 남아 있을 수 있다
-    if (models.value.includes(draft.value.model)) rememberModel(draft.value.provider, draft.value.model);
-    return loadFields();
-  },
+  () => loadFields(),
   { immediate: true },
 );
 
@@ -1125,9 +1124,6 @@ async function loadModels({ quiet = false } = {}) {
       const remembered = rememberedModels()[draft.value.provider];
       draft.value.model = models.value.includes(remembered) ? remembered : models.value[0] || "";
     }
-    // 목록을 받은 지금이 적어 둘 수 있는 첫 순간이다 — 아래 watch 는 값이 바뀔 때만 돈다
-    rememberModel(draft.value.provider, draft.value.model);
-
     if (quiet && !got.ok) return;
     const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
     tested.value = {
