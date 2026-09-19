@@ -58,7 +58,7 @@ function profileOf(registry, modelId, snapshot = load()) {
   return null;
 }
 
-// 우리 설정 화면이 이미 갖고 있는 칸. 두 벌로 뜨면 어느 쪽이 나가는지 알 수 없다.
+// 우리 설정 화면이 이미 값을 갖고 있는 칸. 자리만 프로필에서 받고 값은 우리 것을 쓴다.
 const OURS = new Set(["temperature"]);
 
 /** 그 모델이 받는 칸들 — 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
@@ -70,17 +70,19 @@ function fieldsOf(registry, modelId, snapshot = load()) {
   const hints = new Map([...(base?.uiSchema?.fields || []), ...(profile.uiSchema?.fields || [])].map((f) => [f.key, f]));
 
   return mergeSchemas(base?.requestSchema, profile.schema)
-    .filter((f) => f?.mapsTo?.target === "body" && f.mapsTo.path && f.key !== "modelId" && !OURS.has(f.key))
+    .filter((f) => f?.mapsTo?.target === "body" && f.mapsTo.path && f.key !== "modelId")
     .map((f) => {
       const hint = hints.get(f.key) || {};
       const out = { key: f.key, path: f.mapsTo.path, type: f.type, label: f.label };
+      if (OURS.has(f.key)) out.ours = true;
       if (Array.isArray(f.enum) && f.enum.length) out.enum = f.enum.map((e) => ({ value: e?.value ?? e, label: e?.label ?? String(e?.value ?? e) }));
       for (const n of ["min", "max", "step"]) if (typeof f[n] === "number") out[n] = f[n];
       if (f.default !== undefined) out.default = f.default;
-      for (const n of ["widget", "group", "visibility", "showIf"]) if (hint[n] !== undefined) out[n] = hint[n];
+      for (const n of ["widget", "group", "visibility", "showIf", "order"]) if (hint[n] !== undefined) out[n] = hint[n];
       return out;
     })
-    .filter((f) => f.visibility !== "hidden");
+    .filter((f) => f.visibility !== "hidden")
+    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 }
 
 /** 칸을 담는 묶음 — 이름과 차례를 프로필이 정한다. 칸 이름은 영어뿐이고 묶음에만 한국어가 있다. */

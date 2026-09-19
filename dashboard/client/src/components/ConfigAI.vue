@@ -138,8 +138,7 @@
 
     <template v-if="on">
       <BaseCard icon="gear" title="모델 설정" class="mb-3">
-        <!-- 온도는 어느 프로바이더든 있으므로 우리 칸이 갖는다(프로필에서는 빼 둔다). -->
-        <div v-if="paramGroups.length" class="flex items-baseline justify-between mb-3">
+        <div v-if="fieldInfo.fields.length" class="flex items-baseline justify-between mb-3">
           <span :class="labelCls + ' mb-0'">{{ modelName || draft.model }}</span>
           <span class="flex items-baseline gap-3">
             <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft" :disabled="refreshing" v-tooltip="'모델 정보를 다시 받습니다'" @click="refreshModels">{{ refreshing ? "받는 중…" : refreshNote || "모델 정보 갱신" }}</button>
@@ -147,21 +146,17 @@
           </span>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <label class="block">
-            <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="'0이면 같은 질문에 같은 답을 합니다'">Temperature</span>
-            <input v-model="temperatureText" inputmode="decimal" placeholder="0" :class="inputCls" />
-          </label>
-        </div>
-
-        <div v-if="paramGroups.length" class="mt-4">
+        <div v-if="paramGroups.length">
           <div v-for="group in paramGroups" :key="group.id" class="mb-4 last:mb-0">
             <span class="text-[0.78rem] text-fg-soft font-medium">{{ group.label }}</span>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1.5">
               <label v-for="field in group.fields" :key="field.key" class="block">
-                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="field.path">{{ field.label || field.key }}</span>
+                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="field.ours ? '0이면 같은 질문에 같은 답을 합니다' : field.path">{{ field.label || field.key }}</span>
 
-                <div v-if="field.enum" class="relative">
+                <!-- 온도만은 값이 우리 설정에 있다. 자리는 프로필이 정한다. -->
+                <input v-if="field.ours" v-model="temperatureText" inputmode="decimal" placeholder="0" :class="inputCls" />
+
+                <div v-else-if="field.enum" class="relative">
                   <select v-model="params[field.key]" :class="[inputCls, selectCls]">
                     <option value="" :class="optionCls">{{ field.default ? `기본값 (${field.default})` : "기본값" }}</option>
                     <option v-for="opt in field.enum" :key="opt.value" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
@@ -725,15 +720,21 @@ const timeoutSec = computed({
 const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
 
 // 묶음의 이름도 차례도 프로필이 정한다 — 우리가 표를 들고 있으면 저쪽이 늘 때 한쪽만 고치게 된다.
+const OUR_TEMP = { key: "temperature", label: "Temperature", type: "number", ours: true, group: "generation", order: 99 };
+
 const paramGroups = computed(() => {
   const shown = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
+  // 온도 칸이 없는 프로필도 있다. 우리 값은 늘 나가므로 생성 묶음 끝에 붙여 둔다.
+  const all = shown.some((f) => f.ours) ? shown : [...shown, OUR_TEMP];
   const known = fieldInfo.value.groups || [];
   const by = new Map();
-  for (const field of shown) {
+  for (const field of all) {
     const id = field.group || "generation";
-    if (!by.has(id)) by.set(id, { id, label: known.find((g) => g.id === id)?.label || id, fields: [] });
+    // 프로필이 없는 프로바이더에는 묶음 이름도 없다 — 온도 하나만 놓일 자리다
+    if (!by.has(id)) by.set(id, { id, label: known.find((g) => g.id === id)?.label || (id === "generation" ? "생성" : id), fields: [] });
     by.get(id).fields.push(field);
   }
+  for (const group of by.values()) group.fields.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
   const order = (id) => known.findIndex((g) => g.id === id);
   return [...by.values()].sort((a, b) => (order(a.id) + 1 || 99) - (order(b.id) + 1 || 99));
 });

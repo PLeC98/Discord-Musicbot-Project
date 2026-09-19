@@ -534,7 +534,6 @@ const usable = (field, value) => {
   return typeOk(field.type, value);
 };
 
-/** 이 요청이 몇 토큰짜리인지. 어느 기준으로 셌는지 같이 준다 — 어림수라서 밝혀야 한다. */
 /**
  * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다 —
  * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
@@ -565,6 +564,7 @@ function withParams(body, one) {
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
   const picked = one.params?.[one.model] || {};
   for (const field of models.fieldsOf(registry, one.model)) {
+    if (field.ours) continue; // 온도처럼 우리 설정이 이미 넣어 둔 칸
     // 고른 값이 못 쓸 것이면(종류가 틀리거나 그 모델이 안 받는 값) 프로필 기본값으로 떨어진다
     const value = [picked[field.key], field.default].find((one) => usable(field, one));
     if (value !== undefined) setPath(out, field.path, value);

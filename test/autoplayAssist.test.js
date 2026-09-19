@@ -435,9 +435,9 @@ test("프로필 기본값은 고르지 않아도 붙는다", async () => {
   assert.equal(sent.body.logprobs, false);
 });
 
-// 온도는 우리 설정 칸이 갖고 있다 — 프로필에서도 내면 화면에 같은 것이 둘 뜬다.
+// 온도 값은 우리 설정 칸이 갖고 있다. 프로필에서 같은 칸이 와도 값까지 내주지는 않는다.
 test("온도는 우리 칸 하나로 간다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\ntemperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);
+  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\ntemperature: 0.7\nparams:\n  gemini-3.7-flash:\n    temperature: 1.9\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
   global.fetch = async (url, init) => {
     calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
@@ -448,8 +448,9 @@ test("온도는 우리 칸 하나로 간다", async () => {
   await assist.accepts(cand("A"), {});
   assert.equal(calls.at(-1).body.generationConfig.temperature, 0.7, "다이얼렉트가 제자리에 넣는다");
 
+  // 프로필도 온도 칸을 내지만 값은 우리 것이다 — 프로필 기본값이 덮어쓰면 안 된다
   const models = require("../src/aiModels");
-  assert.ok(!models.fieldsOf("vertex-gemini-native", "gemini-3.7-flash").some((one) => one.key === "temperature"), "프로필은 온도를 안 낸다");
+  assert.equal(models.fieldsOf("vertex-gemini-native", "gemini-3.7-flash").find((one) => one.key === "temperature")?.ours, true);
 });
 
 // 모델을 바꾸면 앞 모델에서 고른 값이 따라오면 안 된다.
