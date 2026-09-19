@@ -21,7 +21,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "postinstall": "node scripts/setup-config.js && node scripts/install-ffmpeg.js && node scripts/update-ytdlp.js",
-    "install:ffmpeg": "node scripts/install-ffmpeg.js"
+    "install:ffmpeg": "node scripts/install-ffmpeg.js",
+    "ai:models": "node scripts/refresh-ai-models.js"
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",

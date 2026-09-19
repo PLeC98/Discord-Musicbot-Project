@@ -141,7 +141,10 @@
         <!-- 온도는 어느 프로바이더든 있으므로 우리 칸이 갖는다(프로필에서는 빼 둔다). -->
         <div v-if="paramGroups.length" class="flex items-baseline justify-between mb-3">
           <span :class="labelCls + ' mb-0'">{{ modelName || draft.model }}</span>
-          <button type="button" class="text-[0.78rem] text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
+          <span class="flex items-baseline gap-3">
+            <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft" :disabled="refreshing" v-tooltip="'모델 정보를 다시 받습니다'" @click="refreshModels">{{ refreshing ? "받는 중…" : refreshNote || "모델 정보 갱신" }}</button>
+            <button type="button" class="text-[0.78rem] text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
+          </span>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -252,7 +255,7 @@
             <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
               <Icon name="terminal" :size="15" />
               <span>판정 프롬프트 ({{ sections.length }})</span>
-              <span v-if="tokenTotal != null" class="normal-case tracking-normal font-normal text-muted" v-tooltip="`${tokenBy} 기준으로 센 어림수입니다`">≈ {{ tokenTotal.toLocaleString("ko-KR") }}토큰</span>
+              <span v-if="tokenTotal != null" class="normal-case tracking-normal font-normal text-muted" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenTotal.toLocaleString("ko-KR") }} 토큰</span>
             </div>
             <p class="text-muted text-[0.82rem]">섹션마다 역할을 정해 적은 차례대로 보냅니다. 답은 반드시 <code class="text-fg-soft">[{"n":1,"song":true,"fits":false}]</code> 꼴의 JSON 배열이어야 합니다.</p>
           </div>
@@ -314,7 +317,7 @@
 
             <div class="flex items-baseline justify-between">
               <span :class="labelCls">프롬프트</span>
-              <span v-if="tokenEach[i] != null" class="text-muted text-[0.75rem]">≈ {{ tokenEach[i].toLocaleString("ko-KR") }}</span>
+              <span v-if="tokenEach[i] != null" class="text-muted text-[0.75rem]" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenEach[i].toLocaleString("ko-KR") }} 토큰</span>
             </div>
             <textarea v-model="section.text" rows="8" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
           </div>
@@ -366,7 +369,7 @@
           <h3 class="text-[0.95rem] font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</h3>
           <span v-if="shown.sent" class="text-[0.8rem]" :class="shown.status && shown.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'"> {{ shown.status ? `HTTP ${shown.status}` : "보내지 못함" }} · {{ (shown.tookMs / 1000).toFixed(1) }}초 </span>
           <span v-else class="text-muted text-[0.8rem]">보내지 않았습니다</span>
-          <span v-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="`${shown.tokens.by} 기준으로 센 어림수입니다`">≈ {{ shown.tokens.total.toLocaleString("ko-KR") }}토큰</span>
+          <span v-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
           <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
         </div>
 
@@ -431,6 +434,23 @@ const draft = ref({ provider: "off" });
 const fieldInfo = ref({ known: false, fields: [], groups: [], models: [] });
 const showAdvanced = ref(false);
 const showHide = ref(false);
+const refreshing = ref(false);
+const refreshNote = ref("");
+
+async function refreshModels() {
+  refreshing.value = true;
+  refreshNote.value = "";
+  try {
+    const { data } = await axios.post("/api/admin/ai/models/refresh");
+    refreshNote.value = data.changed ? `모델 ${data.count}개로 갱신` : "이미 최신";
+    if (data.changed) await loadFields();
+  } catch (error) {
+    refreshNote.value = error.response?.data?.error || "받지 못했습니다";
+  } finally {
+    refreshing.value = false;
+    setTimeout(() => (refreshNote.value = ""), 4000);
+  }
+}
 // 값은 모델별로 따로 든다 — 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
 const allParams = ref({});
 const params = ref({});
@@ -438,7 +458,7 @@ const jsonText = ref({});
 // 토큰은 어림수다 — 어느 기준으로 셌는지 같이 밝힌다
 const tokenEach = ref([]);
 const tokenTotal = ref(null);
-const tokenBy = ref("");
+const tokenExact = ref(true);
 let tokenTimer = null;
 const jsonBad = ref({});
 
@@ -749,28 +769,7 @@ function applyPrompt(list) {
 }
 
 // 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
-watch(
-  () => [draft.value.provider, draft.value.model],
-  async ([provider, model]) => {
-    if (!provider || provider === "off") {
-      fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
-      return;
-    }
-    try {
-      const { data } = await axios.get("/api/admin/ai/fields", { params: { provider, model: model || "" } });
-      fieldInfo.value = data;
-      if (model !== picking) {
-        picking = model;
-        params.value = { ...(allParams.value[model] || {}) };
-        jsonText.value = {};
-        jsonBad.value = {};
-      }
-    } catch {
-      fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
-    }
-  },
-  { immediate: true },
-);
+watch(() => [draft.value.provider, draft.value.model], loadFields, { immediate: true });
 
 // 고른 값은 그때그때 모델 칸에 담는다
 let picking = "";
@@ -805,10 +804,31 @@ async function countTokens() {
     });
     tokenEach.value = data.each;
     tokenTotal.value = data.total;
-    tokenBy.value = data.by;
+    tokenExact.value = data.exact;
   } catch {
     tokenEach.value = [];
     tokenTotal.value = null;
+  }
+}
+
+async function loadFields() {
+  const provider = draft.value.provider;
+  const model = draft.value.model;
+  if (!provider || provider === "off") {
+    fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
+    return;
+  }
+  try {
+    const { data } = await axios.get("/api/admin/ai/fields", { params: { provider, model: model || "" } });
+    fieldInfo.value = data;
+    if (model !== picking) {
+      picking = model;
+      params.value = { ...(allParams.value[model] || {}) };
+      jsonText.value = {};
+      jsonBad.value = {};
+    }
+  } catch {
+    fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
   }
 }
 

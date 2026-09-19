@@ -2,11 +2,9 @@
  * 토큰 세기 — 요청이 몇 토큰짜리인지.
  *
  * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다.
- *   tik     OpenAI 계열 — gpt-tokenizer (o200k_base)
+ *   tik     OpenAI 계열 — gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩이다
  *   gemma   제미니·젬마 — data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없다 — tik 로 어림하고, 정확한 값은 저쪽 API 로 센다
- *
- * **어림수다.** 어느 기준으로 셌는지 같이 돌려주니 화면이 그대로 밝힌다.
+ *   claude  앤트로픽은 공개 토크나이저가 없다 — tik 로 어림한다. 이때만 추산치다
  */
 const fs = require("fs");
 const path = require("path");
@@ -131,14 +129,12 @@ function tokenizerFor(registry, model) {
 /** 글 하나가 몇 토큰인지. 어느 기준으로 셌는지 같이 준다. */
 function count(text, tokenizer = "tik") {
   const body = String(text ?? "");
-  if (!body) return { tokens: 0, by: tokenizer, exact: tokenizer === "tik" };
-
   if (tokenizer === "gemma") {
     const rank = loadGemma();
-    if (rank) return { tokens: countGemma(body, rank), by: "gemma", exact: true };
+    if (rank) return { tokens: body ? countGemma(body, rank) : 0, by: "gemma", exact: true };
   }
   // claude 는 공개 토크나이저가 없다. gemma 파일이 없을 때도 여기로 온다.
-  return { tokens: require("gpt-tokenizer").encode(body).length, by: "tik", exact: tokenizer === "tik" };
+  return { tokens: body ? require("gpt-tokenizer").encode(body).length : 0, by: "tik", exact: tokenizer === "tik" };
 }
 
 /** 메시지 묶음 하나가 몇 토큰인지 — 포장 몫까지 더한 값. */
@@ -150,8 +146,8 @@ function countMessages(messages, tokenizer = "tik") {
     each.push(got.tokens);
     total += got.tokens + WRAP_PER_MESSAGE;
   }
-  const by = count("", tokenizer).by;
-  return { total, each, by, exact: false };
+  const got = count("", tokenizer);
+  return { total, each, by: got.by, exact: got.exact };
 }
 
 module.exports = { count, countMessages, tokenizerFor, GEMMA_FILE, _readPieces: readPieces };

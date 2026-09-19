@@ -279,8 +279,27 @@ router.post("/ai/tokens", requireOwner, (req, res) => {
   const texts = Array.isArray(req.body?.texts) ? req.body.texts : [];
   if (texts.length > 50) return res.status(400).json({ error: "한 번에 50칸까지" });
 
-  const each = texts.map((one) => tokens.count(String(one ?? "").slice(0, 200000), by).tokens);
-  res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by });
+  const counted = texts.map((one) => tokens.count(String(one ?? "").slice(0, 200000), by));
+  const each = counted.map((one) => one.tokens);
+  res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact: counted[0]?.exact ?? true });
+});
+
+/** 모델 프로필 갱신 — 해시가 같으면 받지 않는다. pnpm run ai:models 와 같은 길이다. */
+router.post("/ai/models/refresh", requireOwner, async (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const models = require("../../../src/aiModels");
+  try {
+    const registries = [
+      ...new Set(
+        Object.values(assist.PROVIDER_SPECS)
+          .map((one) => one.registry)
+          .filter(Boolean),
+      ),
+    ];
+    res.json(await models.refresh({ registries, force: !!req.body?.force }));
+  } catch (error) {
+    res.status(502).json({ error: error.message || "모델 정보를 받지 못했습니다." });
+  }
 });
 
 router.put("/ai/keys", requireOwner, (req, res) => {

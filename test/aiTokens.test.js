@@ -26,6 +26,13 @@ test("어느 기준으로 셌는지 밝힌다", () => {
   assert.equal(claude.exact, false);
 });
 
+// o200k_base 하나가 4o·4.1·o1·o3·5.x·6 을 다 덮는다 — 그 계열은 어림수가 아니다.
+test("추산치인 것은 클로드뿐이다", () => {
+  assert.equal(tokens.countMessages([{ content: "안녕" }], "tik").exact, true);
+  assert.equal(tokens.countMessages([{ content: "안녕" }], "gemma").exact, true);
+  assert.equal(tokens.countMessages([{ content: "안녕" }], "claude").exact, false);
+});
+
 test("빈 글은 0 이고, 모르는 모델은 tik 으로", () => {
   assert.equal(tokens.count("", "gemma").tokens, 0);
   assert.equal(tokens.tokenizerFor("anthropic", "없는모델"), "tik");

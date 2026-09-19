@@ -122,4 +122,35 @@ async function fetchRegistry(registries, { timeoutMs = 30000, fetchImpl = fetch 
   return out;
 }
 
-module.exports = { RAW, FILE, fetchRegistry, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };
+// 저쪽이 모양을 바꾸면 칸이 통째로 빈 채로 저장될 수 있다. 아는 모델로 한 번 보고 쓴다.
+const CANARY = [
+  ["anthropic", "claude-opus-5", "effort"],
+  ["vertex-gemini-native", "gemini-3.7-flash", "thinkingLevel"],
+  ["openai", "gpt-5.5", "reasoning_effort"],
+];
+
+/**
+ * 받아서 파일에 쓴다. 해시가 같으면 받지 않는다.
+ * 대시보드 갱신 버튼과 `pnpm run ai:models` 가 이 길을 같이 쓴다.
+ */
+async function refresh({ registries, force = false, timeoutMs = 30000 } = {}) {
+  const held = load();
+  const index = await (await fetch(`${RAW}/index.json`, { signal: AbortSignal.timeout(timeoutMs) })).json();
+  if (!force && index.hash && index.hash === held.hash) {
+    return { changed: false, count: Object.keys(held.profiles || {}).length, fetchedAt: held.fetchedAt };
+  }
+
+  const got = await fetchRegistry(registries, { timeoutMs });
+  for (const [registry, modelId, key] of CANARY) {
+    if (!fieldsOf(registry, modelId, got).some((one) => one.key === key)) {
+      throw new Error(`${modelId} 에 ${key} 가 없습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
+    }
+  }
+
+  fs.mkdirSync(path.dirname(FILE), { recursive: true });
+  fs.writeFileSync(FILE, JSON.stringify(got, null, 2) + String.fromCharCode(10));
+  load({ reload: true });
+  return { changed: true, count: Object.keys(got.profiles).length, fetchedAt: got.fetchedAt };
+}
+
+module.exports = { RAW, FILE, CANARY, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };
