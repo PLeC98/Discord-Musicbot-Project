@@ -4,7 +4,9 @@
  * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다.
  *   tik     OpenAI 계열 — gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩이다
  *   gemma   제미니·젬마 — data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없다 — tik 로 어림한다. 이때만 추산치다
+ *   claude  앤트로픽은 공개 토크나이저가 없다. tik 로 세면 한국어에서 35% 가 모자란다
+ *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 센다 — 무료이고 정확하다.
+ *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치다
  */
 const fs = require("fs");
 const path = require("path");
@@ -23,7 +25,7 @@ const FRAMING = {
   openai: { perMessage: 3, perRequest: 3 },
   gemini: { perMessage: 0, perRequest: 0 },
   vertex: { perMessage: 0, perRequest: 0 },
-  anthropic: { perMessage: 0, perRequest: 5 },
+  anthropic: { perMessage: 0, perRequest: 6 },
 };
 
 // ── SentencePiece BPE ──────────────────────────────────────────────────────
@@ -165,4 +167,33 @@ function countMessages(messages, tokenizer = "tik", dialect = "openai") {
   return { total, body: total - wrap.perRequest - (messages || []).length * wrap.perMessage, each, by: got.by, exact: got.exact };
 }
 
-module.exports = { count, countMessages, tokenizerFor, FRAMING, GEMMA_FILE, _readPieces: readPieces };
+/**
+ * 앤트로픽에 직접 물어 정확히 센다. 과금이 없고 ~150ms 다.
+ * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 쓴다.
+ */
+async function countByAnthropic(messages, { model, apiKey, timeoutMs = 15000 } = {}) {
+  if (!apiKey || !model) return null;
+  const body = {
+    model,
+    messages: (messages || []).map((one) => ({ role: one.role === "assistant" ? "assistant" : "user", content: String(one.content ?? one.text ?? "") })).filter((one) => one.content),
+  };
+  const system = (messages || [])
+    .filter((one) => one.role === "system")
+    .map((one) => one.content ?? one.text)
+    .join(String.fromCharCode(10, 10));
+  if (system) body.system = system;
+  body.messages = body.messages.filter((one) => one.role !== "system");
+  if (!body.messages.length) return null;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages/count_tokens", {
+    method: "POST",
+    headers: { "content-type": "application/json", "anthropic-version": "2023-06-01", "x-api-key": apiKey },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return typeof json?.input_tokens === "number" ? json.input_tokens : null;
+}
+
+module.exports = { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, _readPieces: readPieces };

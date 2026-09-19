@@ -269,19 +269,34 @@ router.get("/ai/fields", requireOwner, (req, res) => {
   });
 });
 
-/** 프롬프트 칸이 적는 동안 세어 보는 곳. 어느 기준으로 셌는지 같이 준다. */
-router.post("/ai/tokens", requireOwner, (req, res) => {
+/**
+ * 프롬프트 칸이 적는 동안 세어 보는 곳 — 본문만 센다(감싸는 몫은 미리보기에서 본다).
+ * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
+ */
+router.post("/ai/tokens", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
   const tokens = require("../../../src/aiTokens");
-  const registry = assist.PROVIDER_SPECS[String(req.body?.provider || "")]?.registry;
-  const by = tokens.tokenizerFor(registry, String(req.body?.model || ""));
+  const provider = String(req.body?.provider || "");
+  const model = String(req.body?.model || "");
+  const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
 
   const texts = Array.isArray(req.body?.texts) ? req.body.texts : [];
   if (texts.length > 50) return res.status(400).json({ error: "한 번에 50칸까지" });
+  const cut = texts.map((one) => String(one ?? "").slice(0, 200000));
 
-  const counted = texts.map((one) => tokens.count(String(one ?? "").slice(0, 200000), by));
+  if (by === "claude") {
+    const apiKey = configData.aiKeyOf(provider);
+    const wrap = tokens.FRAMING.anthropic.perRequest;
+    const each = await Promise.all(cut.map(async (one) => (one ? await tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }) : 0)));
+    if (each.every((one) => one !== null)) {
+      const bare = each.map((one) => (one ? one - wrap : 0));
+      return res.json({ each: bare, total: bare.reduce((sum, one) => sum + one, 0), by: "claude", exact: true });
+    }
+  }
+
+  const counted = cut.map((one) => tokens.count(one, by));
   const each = counted.map((one) => one.tokens);
-  res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact: counted[0]?.exact ?? true });
+  res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by: counted[0]?.by ?? by, exact: counted[0]?.exact ?? true });
 });
 
 /** 모델 프로필 갱신 — 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */

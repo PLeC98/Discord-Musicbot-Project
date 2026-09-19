@@ -415,7 +415,7 @@ const DIALECTS = {
     },
     answerOf: (json) => (json?.content || []).map((part) => part?.text || "").join(""),
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
-    usageOf: (json) => pickUsage(json?.usage?.input_tokens, json?.usage?.output_tokens),
+    usageOf: (json) => pickUsage(json?.usage?.input_tokens, json?.usage?.output_tokens, json?.usage?.output_tokens_details?.thinking_tokens),
   },
 
   /**
@@ -434,7 +434,7 @@ const DIALECTS = {
     },
     body: geminiBody,
     answerOf: geminiAnswer,
-    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount),
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false }),
     // { models: [{ name: "models/gemini-3.7-flash" }] }
     modelsOf: (json) =>
       (json?.models || []).map((m) =>
@@ -467,7 +467,7 @@ const DIALECTS = {
     },
     body: geminiBody,
     answerOf: geminiAnswer,
-    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount),
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false }),
     // { publisherModels: [{ name: "publishers/google/models/gemini-3-pro" }] }
     modelsOf: (json) =>
       (json?.publisherModels || []).map((m) =>
@@ -493,13 +493,17 @@ const ANTHROPIC_MAX_TOKENS = 1024;
 
 /**
  * 응답이 알려 준 실제 토큰 수. 없으면 null — 추산으로 메우지 않는다.
- * 사고 토큰은 따로 잡히고, 추론을 켜면 그쪽이 훨씬 클 수 있다.
+ *
+ * **사고 토큰을 어디에 넣는지가 회사마다 다르다.** OpenAI·앤트로픽은 출력 안에 들어
+ * 있고, 제미니는 따로 잡혀 합계에만 더해진다. 그래서 출력은 늘 "사고까지 합친 값"으로
+ * 맞춰 둔다 — 화면이 규격을 알 필요가 없게.
  */
-const pickUsage = (input, output, thoughts) => {
+const pickUsage = (input, output, thoughts, { thoughtsInOutput = true } = {}) => {
   if (typeof input !== "number") return null;
-  const out = { input, output: typeof output === "number" ? output : null };
-  if (typeof thoughts === "number") out.thoughts = thoughts;
-  return out;
+  const think = typeof thoughts === "number" ? thoughts : null;
+  let out = typeof output === "number" ? output : null;
+  if (out !== null && think !== null && !thoughtsInOutput) out += think;
+  return { input, output: out, thoughts: think };
 };
 
 const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
@@ -527,12 +531,21 @@ const usable = (field, value) => {
 };
 
 /** 이 요청이 몇 토큰짜리인지. 어느 기준으로 셌는지 같이 준다 — 어림수라서 밝혀야 한다. */
-function countTokens(one, messages) {
+/**
+ * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다 —
+ * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
+ */
+async function countTokens(one, messages) {
   try {
     const tokens = require("./aiTokens");
-    const registry = specOf(one.provider)?.registry;
-    const dialect = specOf(one.provider)?.dialect || "openai";
-    return tokens.countMessages(messages, tokens.tokenizerFor(registry, one.model), dialect);
+    const spec = specOf(one.provider);
+    const by = tokens.tokenizerFor(spec?.registry, one.model);
+
+    if (by === "claude") {
+      const exact = await tokens.countByAnthropic(messages, { model: one.model, apiKey: await keyFor(one), timeoutMs: Number(one.timeoutMs) });
+      if (exact !== null) return { total: exact, body: exact - tokens.FRAMING.anthropic.perRequest, by: "claude", exact: true };
+    }
+    return tokens.countMessages(messages, by, spec?.dialect || "openai");
   } catch {
     return null; // 못 세도 요청은 나가야 한다
   }
@@ -562,7 +575,7 @@ async function buildRequest(one, batch, genre) {
 
   // 추가 파라미터가 맨 나중이다 — 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
   const body = withExtra(dialect, withParams(dialect.body(one, messages), one), extra);
-  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, problems: extra.problems, tokens: countTokens(one, messages) };
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, problems: extra.problems, tokens: await countTokens(one, messages) };
 }
 
 /**

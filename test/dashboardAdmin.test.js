@@ -114,7 +114,7 @@ let base;
 before(() => {
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(express.json());
+  app.use(require("../dashboard/server/bodyLimit").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use((req, res, next) => {
     req.session = { user: currentUser };
     next();
@@ -404,6 +404,22 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 });
 
 // ── AI 보조 ───────────────────────────────────────────────────────────────
+
+// 로어북을 붙인 프롬프트는 32kb 를 넘어 413 이 났다. 프롬프트가 오가는 길만 넓혀 두었다.
+test("AI 보조: 긴 프롬프트도 받는다", async () => {
+  const long = "가".repeat(60000); // 32kb 를 훌쩍 넘는다
+
+  const counted = await req("POST", "/api/admin/ai/tokens", { provider: "off", model: "", texts: [long] });
+  assert.equal(counted.status, 200, "토큰 세기는 긴 글을 받아야 한다");
+  assert.ok(counted.json.total > 1000);
+
+  const saved = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "user", text: `${long} {{목록}}` }] });
+  assert.equal(saved.status, 200, "저장도 마찬가지다");
+
+  // 넓힌 것은 프롬프트 길뿐이다 — 나머지는 그대로 좁게 둔다
+  const other = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", extra: long } });
+  assert.equal(other.status, 413, "딴 길은 여전히 32kb 에서 막힌다");
+});
 
 // 값이 본문 어디로 가는지는 모델 프로필이 안다 — 화면이 베껴 두면 한쪽만 고치게 된다.
 test("AI 보조: 그 모델이 받는 칸을 알려 준다", async () => {
