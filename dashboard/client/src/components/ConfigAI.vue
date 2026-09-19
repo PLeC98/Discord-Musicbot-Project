@@ -172,6 +172,14 @@
                 </label>
 
                 <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :placeholder="String(field.default ?? '')" :class="inputCls" />
+
+                <ChipInput v-else-if="field.type === 'stringArray'" :model-value="params[field.key] || []" placeholder="적고 Enter" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
+
+                <template v-else-if="field.type === 'json'">
+                  <textarea :value="jsonText[field.key] ?? (params[field.key] ? JSON.stringify(params[field.key], null, 2) : '')" rows="3" placeholder="{ }" :class="[inputCls, 'font-mono text-[0.78rem] resize-y']" @input="(e) => onJson(field.key, e.target.value)"></textarea>
+                  <span v-if="jsonBad[field.key]" class="text-danger text-[0.75rem] mt-1 block">JSON 으로 읽지 못했습니다</span>
+                </template>
+
                 <input v-else v-model="params[field.key]" :placeholder="String(field.default ?? '')" :class="inputCls" />
               </label>
             </div>
@@ -421,6 +429,23 @@ const showHide = ref(false);
 // 값은 모델별로 따로 든다 — 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
 const allParams = ref({});
 const params = ref({});
+const jsonText = ref({});
+const jsonBad = ref({});
+
+function onJson(key, text) {
+  jsonText.value = { ...jsonText.value, [key]: text };
+  if (!text.trim()) {
+    params.value = { ...params.value, [key]: undefined };
+    jsonBad.value = { ...jsonBad.value, [key]: false };
+    return;
+  }
+  try {
+    params.value = { ...params.value, [key]: JSON.parse(text) };
+    jsonBad.value = { ...jsonBad.value, [key]: false };
+  } catch {
+    jsonBad.value = { ...jsonBad.value, [key]: true };
+  }
+}
 const listCfg = ref({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
 const sections = ref([]);
 const snapshot = ref("");
@@ -727,6 +752,8 @@ watch(
       if (model !== picking) {
         picking = model;
         params.value = { ...(allParams.value[model] || {}) };
+        jsonText.value = {};
+        jsonBad.value = {};
       }
     } catch {
       fieldInfo.value = { known: false, fields: [], groups: [], models: [] };

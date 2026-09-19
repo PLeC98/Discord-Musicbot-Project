@@ -494,6 +494,23 @@ const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] 
  * 모델이 받는다고 적혀 있는 칸만 싣는다. 모델을 바꾸면 안 받는 칸은 저절로 빠진다 —
  * Astra 에서 고른 effort=max 를 none 만 받는 모델에 그대로 보내면 400 이다.
  */
+// 저쪽이 배열을 바라는 칸에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤거나
+// 프로필이 바뀌어 종류가 달라졌을 수 있으니 보내기 전에 한 번 본다.
+function typeOk(type, value) {
+  if (type === "stringArray") return Array.isArray(value);
+  if (type === "json") return value !== null && typeof value === "object";
+  if (type === "integer" || type === "number") return typeof value === "number" && Number.isFinite(value);
+  if (type === "boolean") return typeof value === "boolean";
+  if (type === "string") return typeof value === "string";
+  return true;
+}
+
+const usable = (field, value) => {
+  if (value === undefined || value === "") return false;
+  if (field.enum && !field.enum.some((e) => e.value === value)) return false;
+  return typeOk(field.type, value);
+};
+
 function withParams(body, one) {
   const registry = specOf(one.provider)?.registry;
   if (!registry || !one.model) return body;
@@ -504,11 +521,9 @@ function withParams(body, one) {
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
   const picked = one.params?.[one.model] || {};
   for (const field of models.fieldsOf(registry, one.model)) {
-    const chosen = picked[field.key];
-    const value = chosen === undefined || chosen === "" ? field.default : chosen;
-    if (value === undefined || value === "") continue;
-    if (field.enum && !field.enum.some((e) => e.value === value)) continue;
-    setPath(out, field.path, value);
+    // 고른 값이 못 쓸 것이면(종류가 틀리거나 그 모델이 안 받는 값) 프로필 기본값으로 떨어진다
+    const value = [picked[field.key], field.default].find((one) => usable(field, one));
+    if (value !== undefined) setPath(out, field.path, value);
   }
   return out;
 }

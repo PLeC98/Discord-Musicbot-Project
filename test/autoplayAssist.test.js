@@ -384,6 +384,44 @@ test("그 모델이 안 받는 값은 안 보낸다", async () => {
   assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 칸도 버린다");
 });
 
+// 저쪽이 배열을 바라는 칸에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤을 수 있다.
+test("종류가 안 맞는 값은 안 보낸다", async () => {
+  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop: 그냥글자\n    seed: 열둘\n    logprobs: 켬\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.stop, undefined, "배열 칸에 글자는 안 보낸다");
+  assert.equal(sent.body.seed, undefined, "숫자 칸에 글자는 안 보낸다");
+  assert.equal(sent.body.logprobs, false, "종류가 틀리면 프로필 기본값으로 떨어진다");
+});
+
+// 배열·JSON 칸도 제 모양이면 그대로 실린다.
+test("배열과 JSON 칸은 제 모양이면 실린다", async () => {
+  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop:\n      - 끝\n      - 그만\n    metadata:\n      who: musicbot\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.deepEqual(sent.body.stop, ["끝", "그만"]);
+  assert.deepEqual(sent.body.metadata, { who: "musicbot" });
+});
+
+// 화면에 안 보이는(고급) 칸이라도 프로필 기본값은 붙어야 한다.
+test("프로필 기본값은 고르지 않아도 붙는다", async () => {
+  useConfig("provider: openai\nmodel: gpt-6-astra\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.max_completion_tokens, 8192);
+  assert.equal(sent.body.parallel_tool_calls, true);
+  assert.equal(sent.body.logprobs, false);
+});
+
 // 온도는 우리 설정 칸이 갖고 있다 — 프로필에서도 내면 화면에 같은 것이 둘 뜬다.
 test("온도는 우리 칸 하나로 간다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\ntemperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);

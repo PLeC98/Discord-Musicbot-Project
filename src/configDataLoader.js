@@ -617,10 +617,18 @@ function validateAi(data) {
     if (data?.[key] != null && typeof data[key] !== "string") problems.push(`${key}는 글자로 적어야 합니다.`);
   }
 
-  // 모델이 받는 칸의 값. 이름과 값이 맞는지는 모델 프로필이 판단하므로(autoplayAssist.withParams)
-  // 여기서는 모양만 본다 — 모르는 칸은 보낼 때 조용히 빠진다.
-  if (data?.params != null && (typeof data.params !== "object" || Array.isArray(data.params))) {
-    problems.push("params는 칸 이름과 값을 적는 표여야 합니다.");
+  // 모델이 받는 칸의 값. **모델 이름으로 한 겹 나뉜다** — 안 그러면 모델을 바꿨을 때
+  // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(autoplayAssist.withParams).
+  if (data?.params != null) {
+    if (typeof data.params !== "object" || Array.isArray(data.params)) {
+      problems.push("params는 모델 이름 아래에 칸을 적는 표여야 합니다.");
+    } else {
+      for (const [model, values] of Object.entries(data.params)) {
+        if (values != null && (typeof values !== "object" || Array.isArray(values))) {
+          problems.push(`params.${model} 은 칸 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).`);
+        }
+      }
+    }
   }
 
   // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
