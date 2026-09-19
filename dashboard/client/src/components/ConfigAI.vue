@@ -252,6 +252,7 @@
             <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
               <Icon name="terminal" :size="15" />
               <span>판정 프롬프트 ({{ sections.length }})</span>
+              <span v-if="tokenTotal != null" class="normal-case tracking-normal font-normal text-muted" v-tooltip="`${tokenBy} 기준으로 센 어림수입니다`">≈ {{ tokenTotal.toLocaleString("ko-KR") }}토큰</span>
             </div>
             <p class="text-muted text-[0.82rem]">섹션마다 역할을 정해 적은 차례대로 보냅니다. 답은 반드시 <code class="text-fg-soft">[{"n":1,"song":true,"fits":false}]</code> 꼴의 JSON 배열이어야 합니다.</p>
           </div>
@@ -311,7 +312,10 @@
               </div>
             </label>
 
-            <span :class="labelCls">프롬프트</span>
+            <div class="flex items-baseline justify-between">
+              <span :class="labelCls">프롬프트</span>
+              <span v-if="tokenEach[i] != null" class="text-muted text-[0.75rem]">≈ {{ tokenEach[i].toLocaleString("ko-KR") }}</span>
+            </div>
             <textarea v-model="section.text" rows="8" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
           </div>
         </div>
@@ -362,6 +366,7 @@
           <h3 class="text-[0.95rem] font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</h3>
           <span v-if="shown.sent" class="text-[0.8rem]" :class="shown.status && shown.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'"> {{ shown.status ? `HTTP ${shown.status}` : "보내지 못함" }} · {{ (shown.tookMs / 1000).toFixed(1) }}초 </span>
           <span v-else class="text-muted text-[0.8rem]">보내지 않았습니다</span>
+          <span v-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="`${shown.tokens.by} 기준으로 센 어림수입니다`">≈ {{ shown.tokens.total.toLocaleString("ko-KR") }}토큰</span>
           <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
         </div>
 
@@ -430,6 +435,11 @@ const showHide = ref(false);
 const allParams = ref({});
 const params = ref({});
 const jsonText = ref({});
+// 토큰은 어림수다 — 어느 기준으로 셌는지 같이 밝힌다
+const tokenEach = ref([]);
+const tokenTotal = ref(null);
+const tokenBy = ref("");
+let tokenTimer = null;
 const jsonBad = ref({});
 
 function onJson(key, text) {
@@ -771,6 +781,36 @@ watch(
   },
   { deep: true },
 );
+
+watch(
+  () => [sections.value.map((one) => one.text).join(String.fromCharCode(10)), draft.value.provider, draft.value.model],
+  () => {
+    clearTimeout(tokenTimer);
+    tokenTimer = setTimeout(countTokens, 400);
+  },
+  { immediate: true },
+);
+
+async function countTokens() {
+  if (!sections.value.length) {
+    tokenEach.value = [];
+    tokenTotal.value = null;
+    return;
+  }
+  try {
+    const { data } = await axios.post("/api/admin/ai/tokens", {
+      provider: draft.value.provider,
+      model: draft.value.model,
+      texts: sections.value.map((one) => one.text),
+    });
+    tokenEach.value = data.each;
+    tokenTotal.value = data.total;
+    tokenBy.value = data.by;
+  } catch {
+    tokenEach.value = [];
+    tokenTotal.value = null;
+  }
+}
 
 async function fetchAll() {
   loadError.value = "";

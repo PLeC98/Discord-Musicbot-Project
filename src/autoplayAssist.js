@@ -511,6 +511,17 @@ const usable = (field, value) => {
   return typeOk(field.type, value);
 };
 
+/** 이 요청이 몇 토큰짜리인지. 어느 기준으로 셌는지 같이 준다 — 어림수라서 밝혀야 한다. */
+function countTokens(one, messages) {
+  try {
+    const tokens = require("./aiTokens");
+    const registry = specOf(one.provider)?.registry;
+    return tokens.countMessages(messages, tokens.tokenizerFor(registry, one.model));
+  } catch {
+    return null; // 못 세도 요청은 나가야 한다
+  }
+}
+
 function withParams(body, one) {
   const registry = specOf(one.provider)?.registry;
   if (!registry || !one.model) return body;
@@ -531,10 +542,11 @@ function withParams(body, one) {
 async function buildRequest(one, batch, genre) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
+  const messages = buildMessages(one, batch, genre);
 
   // 추가 파라미터가 맨 나중이다 — 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
-  const body = withExtra(dialect, withParams(dialect.body(one, buildMessages(one, batch, genre)), one), extra);
-  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, problems: extra.problems };
+  const body = withExtra(dialect, withParams(dialect.body(one, messages), one), extra);
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, problems: extra.problems, tokens: countTokens(one, messages) };
 }
 
 /**
@@ -789,7 +801,7 @@ const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", dura
 async function preview(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
   const request = await buildRequest(one, SAMPLE, genre);
-  return { url: request.url, headers: safeHeaders(request.headers), body: request.body };
+  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, tokens: request.tokens, problems: request.problems };
 }
 
 // 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
@@ -814,7 +826,7 @@ function safeHeaders(headers) {
 async function sendTest(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
   const request = await buildRequest(one, SAMPLE, genre);
-  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, status: null, response: "" };
+  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, tokens: request.tokens, problems: request.problems, status: null, response: "" };
 
   const started = Date.now();
   try {

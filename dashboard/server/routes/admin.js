@@ -269,6 +269,20 @@ router.get("/ai/fields", requireOwner, (req, res) => {
   });
 });
 
+/** 프롬프트 칸이 적는 동안 세어 보는 곳. 어느 기준으로 셌는지 같이 준다. */
+router.post("/ai/tokens", requireOwner, (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const tokens = require("../../../src/aiTokens");
+  const registry = assist.PROVIDER_SPECS[String(req.body?.provider || "")]?.registry;
+  const by = tokens.tokenizerFor(registry, String(req.body?.model || ""));
+
+  const texts = Array.isArray(req.body?.texts) ? req.body.texts : [];
+  if (texts.length > 50) return res.status(400).json({ error: "한 번에 50칸까지" });
+
+  const each = texts.map((one) => tokens.count(String(one ?? "").slice(0, 200000), by).tokens);
+  res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by });
+});
+
 router.put("/ai/keys", requireOwner, (req, res) => {
   const keys = req.body?.keys;
   if (!keys || typeof keys !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
