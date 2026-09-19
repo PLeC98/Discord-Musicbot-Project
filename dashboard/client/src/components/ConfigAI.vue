@@ -249,6 +249,40 @@
         <p class="text-muted text-[0.78rem] mt-3">업로더 이름은 넣을 수 없습니다. 실험 결과, Vevo나 Radio Mix 등의 명칭으로 인해 판정 정답률이 오히려 하락하여 제외하였습니다.</p>
       </BaseCard>
 
+      <!--
+        판정 테스트 — SAMPLE 이 아니라 진짜 곡으로 시험한다.
+        주소를 넣으면 정보를 조회해 목록을 만들고, 그 목록 그대로 모델에게 보낸다.
+      -->
+      <BaseCard icon="check" title="판정 테스트" class="mb-3">
+        <p class="text-muted text-[0.78rem] -mt-1 mb-2">유튜브 주소를 한 줄에 하나씩. 정보를 조회해 실제로 모델에게 갈 줄을 만듭니다.</p>
+        <textarea v-model="judgeUrls" rows="3" placeholder="https://www.youtube.com/watch?v=..." :class="[inputCls, 'font-mono text-[0.78rem] resize-y']"></textarea>
+
+        <div class="flex items-center gap-2 mt-2">
+          <label class="flex items-center gap-2">
+            <span class="text-[0.78rem] text-muted shrink-0">장르</span>
+            <input v-model="judgeGenre" placeholder="록" :class="[inputCls, 'w-28']" />
+          </label>
+          <BaseButton variant="ghost" :disabled="judging || !judgeUrls.trim()" @click="buildJudgeList">{{ judging ? "조회 중…" : "목록 만들기" }}</BaseButton>
+          <BaseButton v-if="judgeList.length" variant="warning" :disabled="judging" @click="askJudge = true">판정 받기</BaseButton>
+        </div>
+
+        <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2">{{ judgeError }}</p>
+
+        <div v-if="judgeCands.length" class="mt-3">
+          <div class="flex items-baseline justify-between mb-1.5">
+            <span :class="labelCls + ' mb-0'">모델에게 갈 목록</span>
+            <button type="button" :class="copyBtn" @click="copy(judgeList.join('\n'))">복사</button>
+          </div>
+          <div v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-2 py-1.5 border-b border-white/6 last:border-0">
+            <span v-if="judgeVerdicts" class="shrink-0 text-[0.78rem] mt-0.5 w-14" :class="verdictOk(judgeVerdicts[i]) ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ verdictText(judgeVerdicts[i]) }}</span>
+            <div class="min-w-0 flex-1">
+              <p v-if="cand.error" class="text-danger text-[0.78rem]">{{ cand.url }} — {{ cand.error }}</p>
+              <p v-else class="font-mono text-[0.75rem] text-fg-soft break-all">{{ lineFor(cand) }}</p>
+            </div>
+          </div>
+        </div>
+      </BaseCard>
+
       <BaseCard class="mb-3">
         <div class="flex items-start gap-3 mb-3">
           <div class="min-w-0 flex-1">
@@ -343,7 +377,7 @@
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
 
     <!-- 유료 확인 — 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다. -->
-    <div v-if="paid" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="paid = null">
+    <div v-if="paid || askJudge" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="((paid = null), (askJudge = false))">
       <!-- 주소가 길면 늘어나고 짧으면 줄어든다. 다만 너무 좁아지지는 않게 바닥을 둔다. -->
       <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 w-fit min-w-[min(26rem,90vw)] max-w-[min(60rem,92vw)] shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p class="mb-2 text-[0.95rem] text-fg-soft">실제로 보냅니다. 토큰이 듭니다.</p>
@@ -353,11 +387,12 @@
           <dt class="text-muted">모델</dt>
           <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
           <dt class="text-muted">보낼 것</dt>
-          <dd>{{ paid === "ping" ? "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요." : `판정 프롬프트 전체 (섹션 ${sections.length || "기본"}개 · 보기 곡 3개)` }}</dd>
+          <dd v-if="askJudge">판정 프롬프트 전체 (섹션 {{ sections.length || "기본" }}개 · 고른 곡 {{ judgeCands.filter((one) => !one.error).length }}개)</dd>
+          <dd v-else>{{ paid === "ping" ? "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요." : `판정 프롬프트 전체 (섹션 ${sections.length || "기본"}개 · 보기 곡 3개)` }}</dd>
         </dl>
         <div class="flex gap-2.5 justify-end">
-          <BaseButton variant="ghost" @click="paid = null">그만두기</BaseButton>
-          <BaseButton variant="secondary" @click="runPaid">보내기</BaseButton>
+          <BaseButton variant="ghost" @click="((paid = null), (askJudge = false))">그만두기</BaseButton>
+          <BaseButton variant="secondary" @click="askJudge ? runJudge() : runPaid()">보내기</BaseButton>
         </div>
       </div>
     </div>
@@ -379,7 +414,10 @@
         </div>
 
         <div v-for="box in boxes" :key="box.title" class="mb-3">
-          <div class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)] mb-1">{{ box.title }}</div>
+          <div class="flex items-baseline justify-between mb-1">
+            <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
+            <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
+          </div>
           <pre :class="preCls">{{ box.text }}</pre>
         </div>
       </div>
@@ -847,6 +885,70 @@ async function countTokens() {
   } catch {
     tokenEach.value = [];
     tokenTotal.value = null;
+  }
+}
+
+// ── 판정 테스트 ────────────────────────────────────────────────────────────
+// SAMPLE 이 아니라 진짜 곡으로 시험한다. 목록 만들기는 아무것도 보내지 않고,
+// 판정 받기만 실제로 보낸다(유료 확인을 거친다).
+const judgeUrls = ref("");
+const judgeGenre = ref("록");
+const judging = ref(false);
+const judgeError = ref("");
+const judgeCands = ref([]);
+const judgeList = ref([]);
+const judgeVerdicts = ref(null);
+const askJudge = ref(false);
+
+const copyBtn = "text-[0.75rem] text-muted hover:text-fg-soft cursor-pointer";
+function copy(text) {
+  try {
+    navigator.clipboard.writeText(String(text ?? ""));
+  } catch {
+    // 안전하지 않은 출처처럼 못 쓰는 자리 — 복사만 안 될 뿐이다
+  }
+}
+
+// 못 읽은 줄이 섞여 있어 후보 차례와 줄 차례가 어긋난다 — 멀쩡한 것만 세어 맞춘다
+function lineFor(cand) {
+  const at = judgeCands.value.filter((one) => !one.error).indexOf(cand);
+  return judgeList.value[at] ?? "";
+}
+const verdictOk = (one) => one && one.song && one.fits;
+const verdictText = (one) => (!one ? "?" : one.song && one.fits ? "통과" : !one.song ? "곡 아님" : "장르 다름");
+
+async function buildJudgeList() {
+  judging.value = true;
+  judgeError.value = "";
+  judgeVerdicts.value = null;
+  try {
+    const urls = judgeUrls.value
+      .split(/\r?\n/)
+      .map((one) => one.trim())
+      .filter(Boolean);
+    const { data } = await axios.post("/api/admin/ai/judge/list", { urls, genre: judgeGenre.value, data: payload.value });
+    judgeCands.value = data.candidates;
+    judgeList.value = data.lines;
+  } catch (error) {
+    judgeError.value = error.response?.data?.error || "목록을 만들지 못했습니다.";
+  } finally {
+    judging.value = false;
+  }
+}
+
+async function runJudge() {
+  askJudge.value = false;
+  judging.value = true;
+  judgeError.value = "";
+  try {
+    const usable = judgeCands.value.filter((one) => !one.error);
+    const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: payload.value });
+    judgeVerdicts.value = judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null)));
+    shown.value = { ...data, sent: true };
+  } catch (error) {
+    judgeError.value = error.response?.data?.error || "판정을 받지 못했습니다.";
+  } finally {
+    judging.value = false;
   }
 }
 

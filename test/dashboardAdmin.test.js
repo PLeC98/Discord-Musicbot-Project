@@ -405,6 +405,23 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // ── AI 보조 ───────────────────────────────────────────────────────────────
 
+// 판정 테스트는 보기 곡이 아니라 진짜 곡으로 시험한다. 목록 만들기는 아무것도 안 보낸다.
+test("AI 보조: 유튜브 주소로 판정할 목록을 만든다", async () => {
+  const bad = await req("POST", "/api/admin/ai/judge/list", { urls: ["https://example.com/노래"] });
+  assert.equal(bad.status, 200);
+  assert.equal(bad.json.candidates[0].error, "유튜브 주소가 아닙니다.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
+  assert.deepEqual(bad.json.lines, [], "쓸 수 있는 후보가 없으면 줄도 없다");
+
+  assert.equal((await req("POST", "/api/admin/ai/judge/list", { urls: [] })).status, 400);
+  assert.equal((await req("POST", "/api/admin/ai/judge/list", { urls: new Array(21).fill("https://youtu.be/x") })).status, 400, "한 번에 20개까지");
+});
+
+test("AI 보조: 판정할 후보가 없으면 보내지 않는다", async () => {
+  const got = await req("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }] });
+  assert.equal(got.status, 400);
+  assert.match(got.json.error, /후보가 없습니다/);
+});
+
 // 로어북을 붙인 프롬프트는 32kb 를 넘어 413 이 났다. 프롬프트가 오가는 길만 넓혀 두었다.
 test("AI 보조: 긴 프롬프트도 받는다", async () => {
   const long = "가".repeat(60000); // 32kb 를 훌쩍 넘는다

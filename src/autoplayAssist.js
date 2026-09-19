@@ -622,6 +622,27 @@ function withExtra(_dialect, body, extra) {
 const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
 const despace = (text) => text.replace(ODD_SPACE, " ");
 
+/**
+ * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말을 곧잘 붙이므로 배열만 집는다.
+ * 못 읽으면 null — 부르는 쪽이 원문을 그대로 보여 준다.
+ */
+function readVerdicts(text, count) {
+  const found = String(text || "").match(/\[[\s\S]*\]/);
+  if (!found) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(despace(found[0]));
+  } catch {
+    return null;
+  }
+  const out = new Array(count).fill(null);
+  for (const verdict of Array.isArray(parsed) ? parsed : []) {
+    const at = Number(verdict?.n) - 1;
+    if (at >= 0 && at < count) out[at] = { song: !!verdict.song, fits: !!verdict.fits };
+  }
+  return out;
+}
+
 async function askBatch(one, batch, genre) {
   const request = await buildRequest(one, batch, genre);
 
@@ -637,15 +658,8 @@ async function askBatch(one, batch, genre) {
   if (!res.ok) throw new Error(`HTTP ${res.status} — ${mask(await res.text()).slice(0, 300)}`);
 
   const text = dialectOf(one).answerOf(await res.json()) || "";
-  // 작은 모델은 ```json 울타리나 앞말을 곧잘 붙인다. 배열만 집어낸다.
-  const found = text.match(/\[[\s\S]*\]/);
-  if (!found) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
-
-  const out = new Array(batch.length).fill(null);
-  for (const verdict of JSON.parse(despace(found[0]))) {
-    const at = Number(verdict?.n) - 1;
-    if (at >= 0 && at < batch.length) out[at] = { song: !!verdict.song, fits: !!verdict.fits };
-  }
+  const out = readVerdicts(text, batch.length);
+  if (!out) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
   return out;
 }
 
@@ -851,6 +865,75 @@ function safeHeaders(headers) {
   return out;
 }
 
+/**
+ * 유튜브 주소로 후보를 만든다 — 판정 테스트가 진짜 곡으로 시험할 수 있게.
+ * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
+ */
+async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
+  const YouTube = require("./YouTube");
+  const out = [];
+  for (const raw of (urls || []).slice(0, 20)) {
+    const url = String(raw || "").trim();
+    if (!url) continue;
+    if (!YouTube.isYouTubeURL(url)) {
+      out.push({ url, error: "유튜브 주소가 아닙니다." });
+      continue;
+    }
+    try {
+      const info = await Promise.race([YouTube.getInfo(url), new Promise((_, no) => setTimeout(() => no(new Error("시간이 걸려 그만뒀습니다.")), timeoutMs))]);
+      out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
+    } catch (error) {
+      out.push({ url, error: error.message || "정보를 읽지 못했습니다." });
+    }
+  }
+  return out;
+}
+
+/** 그 후보들이 실제로 프롬프트에 어떻게 적히는지. 모델에게 가는 그 줄 그대로다. */
+function renderList(draft, cands, genre = "록") {
+  const one = { ...DEFAULTS, ...settings(), ...(draft || {}) };
+  return (cands || []).map((cand, i) => renderLine(one.list, cand, genre, i));
+}
+
+/**
+ * 고른 후보들을 실제로 판정시킨다 — SAMPLE 이 아니라 진짜 곡으로.
+ * 나간 것·온 것·곡별 판정을 같이 준다.
+ */
+async function judgeTest(draft, cands, genre = "록") {
+  const one = { ...DEFAULTS, ...(draft || {}) };
+  const usable = (cands || []).filter((cand) => cand && !cand.error && cand.title);
+  if (!usable.length) return { error: "판정할 후보가 없습니다." };
+
+  const request = await buildRequest(one, usable, genre);
+  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, tokens: request.tokens, problems: request.problems, status: null, response: "", verdicts: null };
+
+  const started = Date.now();
+  try {
+    const res = await fetch(request.url, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+      signal: AbortSignal.timeout(Number(one.timeoutMs)),
+    });
+    out.status = res.status;
+    const text = await res.text();
+    out.response = mask(text);
+    try {
+      const json = JSON.parse(text);
+      out.usage = dialectOf(one).usageOf?.(json) || null;
+      // 판정은 곡마다 한 줄이다. 못 읽으면 null — 원문은 위에 그대로 있다.
+      const answered = readVerdicts(dialectOf(one).answerOf(json), usable.length);
+      out.verdicts = answered ? usable.map((cand, i) => ({ title: cand.title, url: cand.url, ...(answered[i] || { song: null, fits: null }) })) : null;
+    } catch {
+      out.verdicts = null;
+    }
+  } catch (error) {
+    out.response = mask(String(error.message));
+  }
+  out.tookMs = Date.now() - started;
+  return out;
+}
+
 /** 같은 것을 **실제로 보낸다.** 나간 것과 온 것을 손대지 않고 그대로 준다. */
 async function sendTest(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
@@ -907,4 +990,4 @@ function mask(text) {
   return out;
 }
 
-module.exports = { filter, accepts, settings, preview, sendTest, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+module.exports = { filter, accepts, settings, preview, sendTest, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

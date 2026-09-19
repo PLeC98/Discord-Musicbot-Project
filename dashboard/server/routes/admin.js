@@ -317,6 +317,31 @@ router.post("/ai/models/refresh", requireOwner, async (req, res) => {
   }
 });
 
+/**
+ * 판정 테스트 1 — 유튜브 주소로 후보를 만들고, 프롬프트에 어떻게 적히는지 보여준다.
+ * 아무것도 보내지 않는다.
+ */
+router.post("/ai/judge/list", requireOwner, async (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
+  if (!urls.length) return res.status(400).json({ error: "유튜브 주소를 적어 주세요." });
+  if (urls.length > 20) return res.status(400).json({ error: "한 번에 20개까지" });
+
+  const genre = String(req.body?.genre || "록");
+  const cands = await assist.candidatesFromUrls(urls);
+  const usable = cands.filter((one) => !one.error);
+  res.json({ candidates: cands, lines: assist.renderList(req.body?.data, usable, genre) });
+});
+
+/** 판정 테스트 2 — 그 후보들을 **실제로** 보내 곡별 판정을 받는다. */
+router.post("/ai/judge/run", requireOwner, async (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
+  const got = await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록"));
+  if (got.error) return res.status(400).json(got);
+  res.json(got);
+});
+
 router.put("/ai/keys", requireOwner, (req, res) => {
   const keys = req.body?.keys;
   if (!keys || typeof keys !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
