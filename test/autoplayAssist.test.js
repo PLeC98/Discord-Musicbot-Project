@@ -548,7 +548,7 @@ test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다",
     return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"[]"}}]}' };
   };
 
-  const shown = await assist.sendTest(DRAFT, "록");
+  const shown = await assist.judgeTest(DRAFT, [], "록");
   assert.equal(calls.length, 1, "한 번 나간다");
   assert.equal(shown.status, 200);
   assert.match(shown.response, /choices/, "응답은 손대지 않고 그대로 준다");
@@ -559,7 +559,7 @@ test("테스트는 못 보내도 던지지 않는다", async () => {
   global.fetch = async () => {
     throw new Error("연결 실패");
   };
-  const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
+  const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, null);
   assert.match(shown.response, /연결 실패/);
 });
@@ -568,7 +568,7 @@ test("테스트는 못 보내도 던지지 않는다", async () => {
 test("응답에 키가 섞여 와도 가려서 준다", async () => {
   global.fetch = async () => ({ ok: false, status: 401, text: async () => `bad key: ${KEY}` });
 
-  const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
+  const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, 401);
   assert.ok(!shown.response.includes(KEY), shown.response);
   // 별표만 있으면 원래 그런 값인 줄 안다 — 무엇이 가려졌는지 이름을 붙인다
@@ -879,7 +879,7 @@ test("버텍스: 서비스 계정 키와 토큰이 밖으로 나가지 않는다
   };
   require("../src/googleAuth")._reset();
 
-  const shown = await assist.sendTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" });
+  const shown = await assist.judgeTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" }, []);
   const dump = JSON.stringify(shown);
   assert.ok(!dump.includes("PRIVATE KEY"), "서비스 계정 키가 나가면 안 된다");
   assert.ok(!dump.includes(PRIVATE_KEY.slice(40, 90)));

@@ -939,35 +939,6 @@ async function judgeTest(draft, cands, genre = "록") {
   return out;
 }
 
-/** 같은 것을 **실제로 보낸다.** 나간 것과 온 것을 손대지 않고 그대로 준다. */
-async function sendTest(draft, genre = "록") {
-  const one = { ...DEFAULTS, ...(draft || {}) };
-  const request = await buildRequest(one, SAMPLE, genre);
-  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems, status: null, response: "" };
-
-  const started = Date.now();
-  try {
-    const res = await fetch(request.url, {
-      method: "POST",
-      headers: request.headers,
-      body: JSON.stringify(request.body),
-      signal: AbortSignal.timeout(Number(one.timeoutMs)),
-    });
-    out.status = res.status;
-    out.response = mask(await res.text()); // 다듬지 않는다 — 무엇이 왔는지 그대로 봐야 한다
-    // 저쪽이 알려 준 실제 토큰 수가 있으면 그것을 쓴다. 추산은 볼 이유가 없다.
-    try {
-      out.usage = dialectOf(one).usageOf?.(JSON.parse(out.response)) || null;
-    } catch {
-      out.usage = null;
-    }
-  } catch (error) {
-    out.response = mask(String(error.message));
-  }
-  out.tookMs = Date.now() - started;
-  return out;
-}
-
 // 어떤 서비스는 거절 응답에 보낸 값을 되비춘다 — 화면에도 로그에도 키가 남으면 안 된다.
 // 무엇이 가려진 것인지 알아볼 수 있게 이름을 붙인다(별표만 있으면 원래 그런 값인 줄 안다).
 const REDACTED = "[REDACTED_SECRET_KEY]";
@@ -995,4 +966,4 @@ function mask(text) {
   return out;
 }
 
-module.exports = { filter, accepts, settings, preview, sendTest, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+module.exports = { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

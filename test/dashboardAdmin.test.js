@@ -619,7 +619,6 @@ test("AI 미리보기: 응답 칸이 없다", async () => {
   assert.equal((await req("POST", "/api/admin/ai/preview", {})).status, 400);
   currentUser = { id: "u1" };
   assert.equal((await req("POST", "/api/admin/ai/preview", { data: {} })).status, 403);
-  assert.equal((await req("POST", "/api/admin/ai/test", { data: {} })).status, 403);
   currentUser = { id: "owner", username: "owner" };
 });
 

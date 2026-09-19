@@ -383,13 +383,6 @@ router.post("/ai/preview", requireOwner, async (req, res) => {
   res.json(await require("../../../src/autoplayAssist").preview(data));
 });
 
-// 같은 것을 **실제로 보낸다.** 설정한 엔드포인트의 설정한 모델로 나가고 응답까지 본다.
-router.post("/ai/test", requireOwner, async (req, res) => {
-  const data = req.body?.data;
-  if (!data || typeof data !== "object") return res.status(400).json({ error: "보낼 내용이 없습니다." });
-  res.json(await require("../../../src/autoplayAssist").sendTest(data));
-});
-
 // 무료 확인 — 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.
 // 화면의 모델 고르는 칸도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
 router.post("/ai/models", requireOwner, async (req, res) => {

@@ -354,7 +354,7 @@
           </div>
         </div>
 
-        <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">적은 주소를 아직 조회하지 않았습니다 — 그대로 보내면 보기 곡으로 판정합니다</p>
+        <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">작성한 주소를 아직 조회하지 않았습니다. 그대로 전송하면 예제 프리셋을 이용합니다.</p>
 
         <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2">{{ judgeError }}</p>
 
