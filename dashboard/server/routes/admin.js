@@ -330,7 +330,7 @@ router.post("/ai/judge/list", requireOwner, async (req, res) => {
   const genre = String(req.body?.genre || "록");
   const cands = await assist.candidatesFromUrls(urls);
   const usable = cands.filter((one) => !one.error);
-  res.json({ candidates: cands, lines: assist.renderList(req.body?.data, usable, genre) });
+  res.json({ candidates: cands, lines: assist.renderList({ list: req.body?.list }, usable, genre) });
 });
 
 /** 판정 테스트 2 — 그 후보들을 **실제로** 보내 곡별 판정을 받는다. */

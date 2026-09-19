@@ -342,7 +342,7 @@
             <textarea v-model="judgeUrls" rows="3" wrap="off" placeholder="https://www.youtube.com/watch?v=... (한 줄에 하나)" :class="[inputCls, 'font-mono text-[0.8rem] leading-relaxed resize-y']"></textarea>
           </label>
 
-          <div class="w-full md:w-60 shrink-0">
+          <div class="w-full md:w-60 lg:w-72 xl:w-88 shrink-0">
             <label class="block">
               <span :class="labelCls">장르</span>
               <input v-model="judgeGenre" placeholder="록" :class="inputCls" />
@@ -422,7 +422,7 @@
     <div v-if="shown" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="shown = null">
       <div class="bg-[rgba(12,16,36,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] w-[min(56rem,100%)] max-h-[88vh] overflow-auto p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div class="flex items-center gap-3 mb-4">
-          <h3 class="text-[0.95rem] font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</h3>
+          <div class="text-2xl font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</div>
           <span v-if="shown.sent" class="text-[0.8rem]" :class="shown.status && shown.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'"> {{ shown.status ? `HTTP ${shown.status}` : "보내지 못함" }} · {{ (shown.tookMs / 1000).toFixed(1) }}초 </span>
           <span v-else class="text-muted text-[0.8rem]">보내지 않았습니다</span>
           <span v-if="shown.usage" class="text-muted text-[0.8rem]" v-tooltip="'저쪽이 알려 준 값입니다'">
@@ -436,7 +436,7 @@
 
         <div v-for="(part, i) in shownSections" :key="i" class="mb-3">
           <div class="flex items-baseline justify-between mb-1">
-            <span class="text-[0.8rem] font-semibold text-[rgba(196,181,253,0.85)]"># {{ part.name }}</span>
+            <span class="text-[0.95rem] font-semibold text-[rgba(196,181,253,0.9)]">{{ part.name }}</span>
             <span class="flex items-baseline gap-3">
               <span class="text-[0.72rem] text-muted font-mono">{{ part.role }}</span>
               <button type="button" :class="copyBtn" @click="copy(part.text)">복사</button>
@@ -951,7 +951,7 @@ const judgeList = ref([]);
 const judgeVerdicts = ref(null);
 const judgeSent = ref(null);
 const showJudgeRaw = ref(false);
-let judgeBuiltFrom = "";
+const judgeBuiltFrom = ref("");
 
 const copyBtn = "text-[0.75rem] text-muted hover:text-fg-soft cursor-pointer";
 function copy(text) {
@@ -964,7 +964,7 @@ function copy(text) {
 
 const judgeKey = computed(() => `${judgeUrls.value.trim()}|${judgeGenre.value.trim()}`);
 // 적어 두고 제작을 안 눌렀으면 알려 준다 — 그대로 보내면 보기 곡으로 판정한다
-const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeKey.value !== judgeBuiltFrom);
+const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeKey.value !== judgeBuiltFrom.value);
 
 const judgeBoxes = computed(() => {
   const one = judgeSent.value;
@@ -995,10 +995,10 @@ async function buildJudgeList() {
   judgeVerdicts.value = null;
   judgeSent.value = null;
   try {
-    const { data } = await axios.post("/api/admin/ai/judge/list", { urls: judgeUrlList(), genre: judgeGenre.value, data: payload.value });
+    const { data } = await axios.post("/api/admin/ai/judge/list", { urls: judgeUrlList(), genre: judgeGenre.value, list: listCfg.value });
     judgeCands.value = data.candidates;
     judgeList.value = data.lines;
-    judgeBuiltFrom = judgeKey.value;
+    judgeBuiltFrom.value = judgeKey.value;
   } catch (error) {
     judgeError.value = error.response?.data?.error || "목록을 만들지 못했습니다.";
   } finally {

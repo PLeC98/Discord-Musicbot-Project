@@ -4,7 +4,7 @@
  */
 const express = require("express");
 
-const PROMPT_PATHS = ["/api/admin/ai/prompt", "/api/admin/ai/tokens", "/api/admin/ai/preview", "/api/admin/ai/test", "/api/admin/ai/judge/list", "/api/admin/ai/judge/run"];
+const PROMPT_PATHS = ["/api/admin/ai/prompt", "/api/admin/ai/tokens", "/api/admin/ai/preview", "/api/admin/ai/test", "/api/admin/ai/judge/run"];
 
 function bodyLimit() {
   const small = express.json({ limit: "32kb" });
