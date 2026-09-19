@@ -289,3 +289,21 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   const problems = loader.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
+
+// 저장하면 서버가 보낸 차례대로 파일을 줄 세운다. 대시보드가 보내는 차례와 예시 파일이
+// 어긋나면, 새로 깐 사람이 한 번 저장하는 순간 주석과 값이 뒤섞인다.
+test("대시보드가 보내는 키 차례와 ai.example.yaml 의 차례가 같다", () => {
+  const root = path.join(__dirname, "..");
+  const vue = fs.readFileSync(path.join(root, "dashboard/client/src/components/ConfigAI.vue"), "utf8");
+  const at = vue.indexOf("const KEY_ORDER = [");
+  assert.ok(at > 0, "ConfigAI.vue 에 KEY_ORDER 가 있어야 한다");
+  const sending = JSON.parse(vue.slice(vue.indexOf("[", at), vue.indexOf("]", at) + 1));
+
+  const example = fs.readFileSync(path.join(root, "config/ai.example.yaml"), "utf8");
+  const inFile = example
+    .split("\n")
+    .filter((line) => /^[a-zA-Z]/.test(line))
+    .map((line) => line.slice(0, line.indexOf(":")));
+
+  assert.deepEqual(sending, inFile);
+});

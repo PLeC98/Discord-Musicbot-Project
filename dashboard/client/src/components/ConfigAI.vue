@@ -736,7 +736,18 @@ const paramLimits = computed(() => {
   return [m.contextWindowTokens ? `컨텍스트 ${n(m.contextWindowTokens)}토큰` : "", m.maxOutputTokens ? `최대 출력 ${n(m.maxOutputTokens)}토큰` : ""].filter(Boolean).join(" · ");
 });
 
-const payload = computed(() => ({ ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") }));
+// 저장하면 서버가 **보낸 차례대로** 파일을 줄 세운다(configDataLoader.syncMap).
+// config/ai.example.yaml 과 같은 차례로 보내야 새로 깐 파일이 뒤섞이지 않는다.
+const KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"];
+
+const payload = computed(() => {
+  const all = { ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") };
+  const out = {};
+  for (const key of KEY_ORDER) if (key in all) out[key] = all[key];
+  // 모르는 키는 뒤에 그대로 둔다 — 빠뜨리면 저장할 때 파일에서 지워진다
+  for (const [key, value] of Object.entries(all)) if (!(key in out)) out[key] = value;
+  return out;
+});
 
 // 빈 값은 "고르지 않음"이다(프로필 기본값으로 간다). 빈 모델 칸도 남기지 않는다.
 const cleanParams = computed(() => {
