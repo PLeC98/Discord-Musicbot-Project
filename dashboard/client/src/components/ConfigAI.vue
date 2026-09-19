@@ -1124,6 +1124,8 @@ async function loadModels({ quiet = false } = {}) {
       const remembered = rememberedModels()[draft.value.provider];
       draft.value.model = models.value.includes(remembered) ? remembered : models.value[0] || "";
     }
+    // 목록을 받은 지금이 적어 둘 수 있는 첫 순간이다 — 아래 watch 는 값이 바뀔 때만 돈다
+    rememberModel(draft.value.provider, draft.value.model);
 
     if (quiet && !got.ok) return;
     const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
