@@ -58,6 +58,9 @@ function profileOf(registry, modelId, snapshot = load()) {
   return null;
 }
 
+// 우리 설정 화면이 이미 갖고 있는 칸. 두 벌로 뜨면 어느 쪽이 나가는지 알 수 없다.
+const OURS = new Set(["temperature"]);
+
 /** 그 모델이 받는 칸들 — 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
 function fieldsOf(registry, modelId, snapshot = load()) {
   const found = profileOf(registry, modelId, snapshot);
@@ -67,7 +70,7 @@ function fieldsOf(registry, modelId, snapshot = load()) {
   const hints = new Map([...(base?.uiSchema?.fields || []), ...(profile.uiSchema?.fields || [])].map((f) => [f.key, f]));
 
   return mergeSchemas(base?.requestSchema, profile.schema)
-    .filter((f) => f?.mapsTo?.target === "body" && f.mapsTo.path && f.key !== "modelId")
+    .filter((f) => f?.mapsTo?.target === "body" && f.mapsTo.path && f.key !== "modelId" && !OURS.has(f.key))
     .map((f) => {
       const hint = hints.get(f.key) || {};
       const out = { key: f.key, path: f.mapsTo.path, type: f.type, label: f.label };

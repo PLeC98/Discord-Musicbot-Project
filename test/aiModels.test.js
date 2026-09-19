@@ -9,7 +9,7 @@ test("base-provider 를 상속해 칸을 합친다", () => {
     baseProviders: {
       p: {
         requestSchema: [
-          { key: "temperature", type: "number", mapsTo: { target: "body", path: "cfg.temperature" } },
+          { key: "topP", type: "number", mapsTo: { target: "body", path: "cfg.topP" } },
           { key: "thinkingLevel", type: "string", enum: [{ value: "low" }], mapsTo: { target: "body", path: "cfg.thinkingConfig.thinkingLevel" } },
         ],
       },
@@ -18,8 +18,28 @@ test("base-provider 를 상속해 칸을 합친다", () => {
   };
 
   const keys = models.fieldsOf("p", "m", snapshot).map((f) => f.key);
-  assert.deepEqual(keys, ["temperature", "thinkingLevel"]);
+  assert.deepEqual(keys, ["topP", "thinkingLevel"]);
   assert.equal(models.fieldsOf("p", "m", snapshot)[1].path, "cfg.thinkingConfig.thinkingLevel");
+});
+
+// 우리 설정 화면이 이미 갖고 있는 칸은 프로필에서 내지 않는다 — 두 벌로 뜨면 어느 쪽이 나가는지 모른다.
+test("우리가 갖고 있는 칸은 프로필에서 안 낸다", () => {
+  const snapshot = {
+    baseProviders: {
+      p: {
+        requestSchema: [
+          { key: "temperature", mapsTo: { target: "body", path: "cfg.temperature" } },
+          { key: "topK", mapsTo: { target: "body", path: "cfg.topK" } },
+        ],
+      },
+    },
+    profiles: { "p:m": { modelId: "m", providerBaseId: "p", schema: [] } },
+  };
+
+  assert.deepEqual(
+    models.fieldsOf("p", "m", snapshot).map((f) => f.key),
+    ["topK"],
+  );
 });
 
 test("키가 겹치면 프로필이 이긴다", () => {

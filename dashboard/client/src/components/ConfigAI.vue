@@ -138,20 +138,20 @@
 
     <template v-if="on">
       <BaseCard icon="gear" title="모델 설정" class="mb-3">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- 온도는 어느 프로바이더든 있으므로 우리 칸이 갖는다(프로필에서는 빼 둔다). -->
+        <div v-if="paramGroups.length" class="flex items-baseline justify-between mb-3">
+          <span :class="labelCls + ' mb-0'">{{ modelName || draft.model }}</span>
+          <button type="button" class="text-[0.78rem] text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
           <label class="block">
-            <span :class="labelCls" v-tooltip="'0이면 같은 질문에 같은 답을 합니다'">온도</span>
+            <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="'0이면 같은 질문에 같은 답을 합니다'">Temperature</span>
             <input v-model="temperatureText" inputmode="decimal" placeholder="0" :class="inputCls" />
           </label>
         </div>
 
-        <!-- 모델이 받는 칸 — 어디로 갈지도, 어떤 위젯일지도 모델 프로필이 정한다. -->
-        <div v-if="paramGroups.length" class="mt-4 pt-4 border-t border-white/8">
-          <div class="flex items-baseline justify-between mb-3">
-            <span :class="labelCls + ' mb-0'">{{ modelName || draft.model }} 이(가) 받는 칸</span>
-            <button type="button" class="text-[0.78rem] text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
-          </div>
-
+        <div v-if="paramGroups.length" class="mt-4">
           <div v-for="group in paramGroups" :key="group.id" class="mb-4 last:mb-0">
             <span class="text-[0.78rem] text-fg-soft font-medium">{{ group.label }}</span>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1.5">

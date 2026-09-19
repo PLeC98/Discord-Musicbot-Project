@@ -405,7 +405,7 @@ const DIALECTS = {
         .join("\n\n");
       return {
         model: one.model,
-        // 판정 답은 짧다. 모자라면 extra 로 늘린다(max_tokens=4096).
+        // 저쪽에서 필수라 늘 붙인다. 프로필이 아는 모델이면 그쪽 값이 이긴다.
         max_tokens: ANTHROPIC_MAX_TOKENS,
         temperature: Number(one.temperature),
         ...(system ? { system } : {}),

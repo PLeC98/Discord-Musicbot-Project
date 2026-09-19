@@ -384,6 +384,23 @@ test("그 모델이 안 받는 값은 안 보낸다", async () => {
   assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 칸도 버린다");
 });
 
+// 온도는 우리 설정 칸이 갖고 있다 — 프로필에서도 내면 화면에 같은 것이 둘 뜬다.
+test("온도는 우리 칸 하나로 간다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\ntemperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.generationConfig.temperature, 0.7, "다이얼렉트가 제자리에 넣는다");
+
+  const models = require("../src/aiModels");
+  assert.ok(!models.fieldsOf("vertex-gemini-native", "gemini-3.7-flash").some((one) => one.key === "temperature"), "프로필은 온도를 안 낸다");
+});
+
 // 모델을 바꾸면 앞 모델에서 고른 값이 따라오면 안 된다.
 test("params 는 모델마다 따로 기억한다", async () => {
   useConfig("provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-6-astra:\n    reasoning_effort: max\n  gpt-5.5:\n    reasoning_effort: none\n", [{ role: "user", text: "{{목록}}" }]);
