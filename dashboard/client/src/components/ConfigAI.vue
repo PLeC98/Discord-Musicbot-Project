@@ -151,7 +151,7 @@
             <span class="text-[0.78rem] text-fg-soft font-medium">{{ group.label }}</span>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1.5">
               <label v-for="field in group.fields" :key="field.key" class="block">
-                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="field.path">{{ field.label || field.key }}</span>
+                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="hintOf(field)">{{ field.label || field.key }}</span>
 
                 <div v-if="field.enum" class="relative">
                   <select v-model="params[field.key]" :class="[inputCls, selectCls]">
@@ -709,6 +709,15 @@ const timeoutSec = computed({
 const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
 
 // 묶음의 이름도 차례도 프로필이 정한다 — 우리가 표를 들고 있으면 저쪽이 늘 때 한쪽만 고치게 된다.
+// 값을 자르지는 않는다 — 다만 얼마까지 받는다고 적혀 있는지는 보여 준다
+function hintOf(field) {
+  const lo = field.min;
+  const hi = field.max;
+  if (lo === undefined && hi === undefined) return field.path;
+  const range = lo !== undefined && hi !== undefined ? `${lo}~${hi}` : lo !== undefined ? `${lo} 이상` : `${hi} 이하`;
+  return `${field.path} · ${range}`;
+}
+
 const paramGroups = computed(() => {
   const all = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
   const known = fieldInfo.value.groups || [];
