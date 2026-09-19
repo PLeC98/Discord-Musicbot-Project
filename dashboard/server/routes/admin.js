@@ -337,9 +337,7 @@ router.post("/ai/judge/list", requireOwner, async (req, res) => {
 router.post("/ai/judge/run", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
   const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
-  const got = await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록"));
-  if (got.error) return res.status(400).json(got);
-  res.json(got);
+  res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록")));
 });
 
 router.put("/ai/keys", requireOwner, (req, res) => {

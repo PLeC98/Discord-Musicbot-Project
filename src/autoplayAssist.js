@@ -55,6 +55,8 @@ const DEFAULT_LINE = "{{번호}}. 장르={{장르}} 길이={{길이분}}분 제�
 
 const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
+// 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다) — 그래서 프롬프트에서도 쓸 수 있다.
+const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
 const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
 /**
@@ -333,7 +335,9 @@ function buildMessages(one, batch, genre) {
     .map((section) => ({
       // 모르는 역할은 system 으로 떨어뜨린다 — 저쪽이 400을 주느니 낫다
       role: ROLES.has(section?.role) ? section.role : "system",
-      content: String(section?.text ?? "").replace(LIST_MARK, list),
+      content: String(section?.text ?? "")
+        .replace(LIST_MARK, list)
+        .replace(GENRE_MARK, genre || "랜덤"),
     }))
     .filter((message) => message.content.trim());
 }
@@ -575,7 +579,7 @@ async function buildRequest(one, batch, genre) {
 
   // 추가 파라미터가 맨 나중이다 — 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
   const body = withExtra(dialect, withParams(dialect.body(one, messages), one), extra);
-  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, problems: extra.problems, tokens: await countTokens(one, messages) };
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, messages, problems: extra.problems, tokens: await countTokens(one, messages) };
 }
 
 /**
@@ -844,7 +848,7 @@ const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", dura
 async function preview(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
   const request = await buildRequest(one, SAMPLE, genre);
-  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, tokens: request.tokens, problems: request.problems };
+  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems };
 }
 
 // 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
@@ -901,11 +905,12 @@ function renderList(draft, cands, genre = "록") {
  */
 async function judgeTest(draft, cands, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
-  const usable = (cands || []).filter((cand) => cand && !cand.error && cand.title);
-  if (!usable.length) return { error: "판정할 후보가 없습니다." };
+  // 고른 것이 없으면 보기 곡으로 돌린다 — 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
+  const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
+  const usable = picked.length ? picked : SAMPLE;
 
   const request = await buildRequest(one, usable, genre);
-  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, tokens: request.tokens, problems: request.problems, status: null, response: "", verdicts: null };
+  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems, status: null, response: "", verdicts: null };
 
   const started = Date.now();
   try {
@@ -938,7 +943,7 @@ async function judgeTest(draft, cands, genre = "록") {
 async function sendTest(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
   const request = await buildRequest(one, SAMPLE, genre);
-  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, tokens: request.tokens, problems: request.problems, status: null, response: "" };
+  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems, status: null, response: "" };
 
   const started = Date.now();
   try {

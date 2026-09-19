@@ -249,40 +249,6 @@
         <p class="text-muted text-[0.78rem] mt-3">업로더 이름은 넣을 수 없습니다. 실험 결과, Vevo나 Radio Mix 등의 명칭으로 인해 판정 정답률이 오히려 하락하여 제외하였습니다.</p>
       </BaseCard>
 
-      <!--
-        판정 테스트 — SAMPLE 이 아니라 진짜 곡으로 시험한다.
-        주소를 넣으면 정보를 조회해 목록을 만들고, 그 목록 그대로 모델에게 보낸다.
-      -->
-      <BaseCard icon="check" title="판정 테스트" class="mb-3">
-        <p class="text-muted text-[0.78rem] -mt-1 mb-2">유튜브 주소를 한 줄에 하나씩. 정보를 조회해 실제로 모델에게 갈 줄을 만듭니다.</p>
-        <textarea v-model="judgeUrls" rows="3" placeholder="https://www.youtube.com/watch?v=..." :class="[inputCls, 'font-mono text-[0.78rem] resize-y']"></textarea>
-
-        <div class="flex items-center gap-2 mt-2">
-          <label class="flex items-center gap-2">
-            <span class="text-[0.78rem] text-muted shrink-0">장르</span>
-            <input v-model="judgeGenre" placeholder="록" :class="[inputCls, 'w-28']" />
-          </label>
-          <BaseButton variant="ghost" :disabled="judging || !judgeUrls.trim()" @click="buildJudgeList">{{ judging ? "조회 중…" : "목록 만들기" }}</BaseButton>
-          <BaseButton v-if="judgeList.length" variant="warning" :disabled="judging" @click="askJudge = true">판정 받기</BaseButton>
-        </div>
-
-        <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2">{{ judgeError }}</p>
-
-        <div v-if="judgeCands.length" class="mt-3">
-          <div class="flex items-baseline justify-between mb-1.5">
-            <span :class="labelCls + ' mb-0'">모델에게 갈 목록</span>
-            <button type="button" :class="copyBtn" @click="copy(judgeList.join('\n'))">복사</button>
-          </div>
-          <div v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-2 py-1.5 border-b border-white/6 last:border-0">
-            <span v-if="judgeVerdicts" class="shrink-0 text-[0.78rem] mt-0.5 w-14" :class="verdictOk(judgeVerdicts[i]) ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ verdictText(judgeVerdicts[i]) }}</span>
-            <div class="min-w-0 flex-1">
-              <p v-if="cand.error" class="text-danger text-[0.78rem]">{{ cand.url }} — {{ cand.error }}</p>
-              <p v-else class="font-mono text-[0.75rem] text-fg-soft break-all">{{ lineFor(cand) }}</p>
-            </div>
-          </div>
-        </div>
-      </BaseCard>
-
       <BaseCard class="mb-3">
         <div class="flex items-start gap-3 mb-3">
           <div class="min-w-0 flex-1">
@@ -357,14 +323,69 @@
           </div>
         </div>
 
-        <p class="text-muted text-[0.78rem] mb-2">미리보기는 만들기만, 판정 테스트는 이 프롬프트를 통째로 실제 전송합니다(유료).</p>
         <div class="flex items-center gap-2.5 flex-wrap">
           <button :class="addLine" @click="loadDefaults">기본값으로</button>
           <div class="flex items-center gap-2.5 flex-wrap ml-auto">
             <BaseButton @click="openPreview">리퀘스트 미리보기</BaseButton>
-            <BaseButton variant="warning" :disabled="testing" @click="askPaid('judge')">{{ testing ? "보내는 중…" : "판정 테스트" }}</BaseButton>
           </div>
         </div>
+      </BaseCard>
+
+      <!--
+        판정 테스트 — 보기 곡이 아니라 진짜 곡으로 시험한다.
+        목록 제작은 아무것도 보내지 않는다. 판정 전송만 실제로 보낸다.
+      -->
+      <BaseCard icon="check" title="판정 테스트" class="mb-3">
+        <div class="flex flex-col md:flex-row gap-3 items-start">
+          <label class="block flex-1 min-w-0 w-full">
+            <span :class="labelCls">유튜브 주소</span>
+            <textarea v-model="judgeUrls" rows="3" wrap="off" placeholder="https://www.youtube.com/watch?v=... (한 줄에 하나)" :class="[inputCls, 'font-mono text-[0.8rem] leading-relaxed resize-y']"></textarea>
+          </label>
+
+          <div class="w-full md:w-60 shrink-0">
+            <label class="block">
+              <span :class="labelCls">장르</span>
+              <input v-model="judgeGenre" placeholder="록" :class="inputCls" />
+            </label>
+            <div class="grid grid-cols-2 gap-2 mt-3">
+              <BaseButton variant="ghost" class="w-full justify-center" :disabled="judging || !judgeUrls.trim()" @click="buildJudgeList">{{ judging ? "조회 중…" : "목록 제작" }}</BaseButton>
+              <BaseButton variant="warning" class="w-full justify-center" :disabled="judging" @click="runJudge">{{ judging ? "보내는 중…" : "판정 전송" }}</BaseButton>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">적은 것이 목록에 반영되지 않았습니다 — 그대로 보내면 보기 곡으로 판정합니다</p>
+
+        <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2">{{ judgeError }}</p>
+
+        <div v-if="judgeCands.length" class="mt-3">
+          <div class="flex items-baseline justify-between mb-1.5">
+            <span :class="labelCls + ' mb-0'">모델에게 갈 목록</span>
+            <button type="button" :class="copyBtn" @click="copy(judgeList.join(String.fromCharCode(10)))">복사</button>
+          </div>
+          <div v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-2 py-1.5 border-b border-white/6 last:border-0">
+            <span v-if="judgeVerdicts" class="shrink-0 text-[0.78rem] mt-0.5 w-16" :class="verdictOk(judgeVerdicts[i]) ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ verdictText(judgeVerdicts[i]) }}</span>
+            <div class="min-w-0 flex-1">
+              <p v-if="cand.error" class="text-danger text-[0.78rem] break-all">{{ cand.url }} — {{ cand.error }}</p>
+              <p v-else class="font-mono text-[0.75rem] text-fg-soft break-all">{{ lineFor(cand) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <template v-if="judgeSent">
+          <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft cursor-pointer mt-3" @click="showJudgeRaw = !showJudgeRaw">
+            {{ showJudgeRaw ? "나간 것·온 것 접기" : "나간 것·온 것 보기" }}
+          </button>
+          <div v-if="showJudgeRaw" class="mt-2">
+            <div v-for="box in judgeBoxes" :key="box.title" class="mb-3">
+              <div class="flex items-baseline justify-between mb-1">
+                <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
+                <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
+              </div>
+              <pre :class="preCls">{{ box.text }}</pre>
+            </div>
+          </div>
+        </template>
       </BaseCard>
     </template>
 
@@ -413,12 +434,28 @@
           <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
         </div>
 
-        <div v-for="box in boxes" :key="box.title" class="mb-3">
+        <div v-for="(part, i) in shownSections" :key="i" class="mb-3">
           <div class="flex items-baseline justify-between mb-1">
-            <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
-            <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
+            <span class="text-[0.8rem] font-semibold text-[rgba(196,181,253,0.85)]"># {{ part.name }}</span>
+            <span class="flex items-baseline gap-3">
+              <span class="text-[0.72rem] text-muted font-mono">{{ part.role }}</span>
+              <button type="button" :class="copyBtn" @click="copy(part.text)">복사</button>
+            </span>
           </div>
-          <pre :class="preCls">{{ box.text }}</pre>
+          <pre :class="preCls">{{ part.text }}</pre>
+        </div>
+
+        <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft cursor-pointer mt-1" @click="showRawRequest = !showRawRequest">
+          {{ showRawRequest ? "날것 접기" : "날것 보기 (URL · 헤더 · 본문)" }}
+        </button>
+        <div v-if="showRawRequest" class="mt-2">
+          <div v-for="box in boxes" :key="box.title" class="mb-3">
+            <div class="flex items-baseline justify-between mb-1">
+              <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
+              <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
+            </div>
+            <pre :class="preCls">{{ box.text }}</pre>
+          </div>
         </div>
       </div>
     </div>
@@ -560,7 +597,7 @@ const models = ref([]);
 const modelChoices = computed(() =>
   models.value.map((id) => {
     const known = fieldInfo.value.models.find((one) => one.modelId === id);
-    return { id, label: known ? `${known.name} — ${id}` : id };
+    return { id, label: known ? `${known.name} (${id})` : id };
   }),
 );
 const manualModel = ref(false);
@@ -633,11 +670,23 @@ const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s
 
 // 다듬지 않는다 — 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다.
 // 응답 칸은 실제로 보냈을 때만 있다(미리보기는 만들기만 한다).
+// 보낼 글을 섹션별로 — 규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다.
+// 이름은 프롬프트 칸에 적어 둔 것을 쓴다.
+const shownSections = computed(() =>
+  (shown.value?.messages || []).map((one, i) => ({
+    name: sections.value[i]?.name || `섹션 ${i + 1}`,
+    role: one.role,
+    text: one.content,
+  })),
+);
+
+// 날것 그대로도 볼 수 있게 남겨 둔다(접어 둔다)
 const boxes = computed(() => {
   const one = shown.value;
   if (!one) return [];
   return [{ title: "URL", text: one.url }, { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) }, { title: "요청 본문", text: JSON.stringify(one.body, null, 2) }, ...(one.sent ? [{ title: "응답", text: one.response || "(비어 있음)" }] : [])];
 });
+const showRawRequest = ref(false);
 
 const hideModels = computed({
   get: () => draft.value.hideModels || [],
@@ -842,7 +891,8 @@ function applyPrompt(list) {
 watch(
   () => [draft.value.provider, draft.value.model],
   () => {
-    rememberModel(draft.value.provider, draft.value.model);
+    // 목록에 있는 것만 적어 둔다 — 프로바이더를 막 바꿔 아직 옛 모델이 남아 있을 수 있다
+    if (models.value.includes(draft.value.model)) rememberModel(draft.value.provider, draft.value.model);
     return loadFields();
   },
   { immediate: true },
@@ -889,8 +939,9 @@ async function countTokens() {
 }
 
 // ── 판정 테스트 ────────────────────────────────────────────────────────────
-// SAMPLE 이 아니라 진짜 곡으로 시험한다. 목록 만들기는 아무것도 보내지 않고,
-// 판정 받기만 실제로 보낸다(유료 확인을 거친다).
+// 보기 곡이 아니라 진짜 곡으로 시험한다. 목록 제작은 아무것도 보내지 않고,
+// 판정 전송만 실제로 보낸다. 적어만 두고 제작을 안 했으면 보기 곡으로 나간다.
+const NL = String.fromCharCode(10);
 const judgeUrls = ref("");
 const judgeGenre = ref("록");
 const judging = ref(false);
@@ -898,7 +949,9 @@ const judgeError = ref("");
 const judgeCands = ref([]);
 const judgeList = ref([]);
 const judgeVerdicts = ref(null);
-const askJudge = ref(false);
+const judgeSent = ref(null);
+const showJudgeRaw = ref(false);
+let judgeBuiltFrom = "";
 
 const copyBtn = "text-[0.75rem] text-muted hover:text-fg-soft cursor-pointer";
 function copy(text) {
@@ -909,6 +962,19 @@ function copy(text) {
   }
 }
 
+const judgeKey = computed(() => `${judgeUrls.value.trim()}|${judgeGenre.value.trim()}`);
+// 적어 두고 제작을 안 눌렀으면 알려 준다 — 그대로 보내면 보기 곡으로 판정한다
+const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeKey.value !== judgeBuiltFrom);
+
+const judgeBoxes = computed(() => {
+  const one = judgeSent.value;
+  if (!one) return [];
+  return [
+    { title: "요청 본문", text: JSON.stringify(one.body, null, 2) },
+    { title: "응답", text: one.response || "(비어 있음)" },
+  ];
+});
+
 // 못 읽은 줄이 섞여 있어 후보 차례와 줄 차례가 어긋난다 — 멀쩡한 것만 세어 맞춘다
 function lineFor(cand) {
   const at = judgeCands.value.filter((one) => !one.error).indexOf(cand);
@@ -917,18 +983,22 @@ function lineFor(cand) {
 const verdictOk = (one) => one && one.song && one.fits;
 const verdictText = (one) => (!one ? "?" : one.song && one.fits ? "통과" : !one.song ? "곡 아님" : "장르 다름");
 
+const judgeUrlList = () =>
+  judgeUrls.value
+    .split(NL)
+    .map((one) => one.trim())
+    .filter(Boolean);
+
 async function buildJudgeList() {
   judging.value = true;
   judgeError.value = "";
   judgeVerdicts.value = null;
+  judgeSent.value = null;
   try {
-    const urls = judgeUrls.value
-      .split(/\r?\n/)
-      .map((one) => one.trim())
-      .filter(Boolean);
-    const { data } = await axios.post("/api/admin/ai/judge/list", { urls, genre: judgeGenre.value, data: payload.value });
+    const { data } = await axios.post("/api/admin/ai/judge/list", { urls: judgeUrlList(), genre: judgeGenre.value, data: payload.value });
     judgeCands.value = data.candidates;
     judgeList.value = data.lines;
+    judgeBuiltFrom = judgeKey.value;
   } catch (error) {
     judgeError.value = error.response?.data?.error || "목록을 만들지 못했습니다.";
   } finally {
@@ -937,14 +1007,14 @@ async function buildJudgeList() {
 }
 
 async function runJudge() {
-  askJudge.value = false;
   judging.value = true;
   judgeError.value = "";
   try {
-    const usable = judgeCands.value.filter((one) => !one.error);
+    // 제작을 안 했거나 적은 것이 바뀌었으면 후보를 안 싣는다 — 서버가 보기 곡으로 돌린다
+    const usable = judgeStale.value ? [] : judgeCands.value.filter((one) => !one.error);
     const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: payload.value });
-    judgeVerdicts.value = judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null)));
-    shown.value = { ...data, sent: true };
+    judgeSent.value = data;
+    judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
   } catch (error) {
     judgeError.value = error.response?.data?.error || "판정을 받지 못했습니다.";
   } finally {
@@ -1043,9 +1113,11 @@ async function loadModels({ quiet = false } = {}) {
     models.value = got.models || [];
     // 목록을 받았으면 고르는 칸으로 돌아간다. 못 받았을 때만 직접 적게 한다.
     manualModel.value = !models.value.length;
-    // 고른 적 없거나 지금 목록에 없는 것이면 기억해 둔 것으로
-    const remembered = rememberedModels()[draft.value.provider];
-    if (remembered && models.value.includes(remembered) && !models.value.includes(draft.value.model)) draft.value.model = remembered;
+    // 지금 값이 이 프로바이더의 목록에 없으면 기억해 둔 것으로 되돌린다
+    if (!models.value.includes(draft.value.model)) {
+      const remembered = rememberedModels()[draft.value.provider];
+      draft.value.model = models.value.includes(remembered) ? remembered : models.value[0] || "";
+    }
 
     if (quiet && !got.ok) return;
     const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";

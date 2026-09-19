@@ -416,10 +416,11 @@ test("AI 보조: 유튜브 주소로 판정할 목록을 만든다", async () =>
   assert.equal((await req("POST", "/api/admin/ai/judge/list", { urls: new Array(21).fill("https://youtu.be/x") })).status, 400, "한 번에 20개까지");
 });
 
-test("AI 보조: 판정할 후보가 없으면 보내지 않는다", async () => {
-  const got = await req("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }] });
-  assert.equal(got.status, 400);
-  assert.match(got.json.error, /후보가 없습니다/);
+// 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다 — 보기 곡으로 돌린다.
+test("AI 보조: 고른 후보가 없으면 보기 곡으로 판정한다", async () => {
+  const got = await req("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }], data: { provider: "off" } });
+  assert.equal(got.status, 200);
+  assert.ok(got.json.body, "요청은 만들어진다");
 });
 
 // 로어북을 붙인 프롬프트는 32kb 를 넘어 413 이 났다. 프롬프트가 오가는 길만 넓혀 두었다.

@@ -384,6 +384,19 @@ test("그 모델이 안 받는 값은 안 보낸다", async () => {
   assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 칸도 버린다");
 });
 
+// 장르는 한 요청에 하나다 — 모든 줄이 같은 값을 쓰므로 프롬프트에서도 쓸 수 있다.
+test("{{장르}} 는 프롬프트에서도 풀린다", async () => {
+  useConfig(`${ON}`, [
+    { role: "system", text: "너는 {{장르}} 판정기다" },
+    { role: "user", text: "{{목록}}" },
+  ]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), { genre: "재즈" });
+  assert.equal(calls.at(-1).body.messages[0].content, "너는 재즈 판정기다");
+});
+
 // 저쪽이 배열을 바라는 칸에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤을 수 있다.
 test("종류가 안 맞는 값은 안 보낸다", async () => {
   useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop: 그냥글자\n    seed: 열둘\n    logprobs: 켬\n", [{ role: "user", text: "{{목록}}" }]);
