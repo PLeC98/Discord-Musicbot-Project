@@ -405,18 +405,30 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // ── AI 보조 ───────────────────────────────────────────────────────────────
 
-// 판정 테스트는 보기 곡이 아니라 진짜 곡으로 시험한다. 목록 만들기는 아무것도 안 보낸다.
-test("AI 보조: 유튜브 주소로 판정할 목록을 만든다", async () => {
-  const bad = await req("POST", "/api/admin/ai/judge/list", { urls: ["https://example.com/노래"] });
+// 판정 테스트는 보기 곡이 아니라 진짜 곡으로 시험한다. 링크 조회는 아무것도 안 보낸다.
+test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
+  const bad = await req("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
   assert.equal(bad.status, 200);
   assert.equal(bad.json.candidates[0].error, "유튜브 주소가 아닙니다.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
-  assert.deepEqual(bad.json.lines, [], "쓸 수 있는 후보가 없으면 줄도 없다");
 
-  assert.equal((await req("POST", "/api/admin/ai/judge/list", { urls: [] })).status, 400);
-  assert.equal((await req("POST", "/api/admin/ai/judge/list", { urls: new Array(21).fill("https://youtu.be/x") })).status, 400, "한 번에 20개까지");
+  assert.equal((await req("POST", "/api/admin/ai/judge/lookup", { urls: [] })).status, 400);
+  assert.equal((await req("POST", "/api/admin/ai/judge/lookup", { urls: new Array(21).fill("https://youtu.be/x") })).status, 400, "한 번에 20개까지");
 });
 
-// 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다 — 보기 곡으로 돌린다.
+// 목록 형식·장르를 고치면 다시 그린다 — 조회를 다시 하지 않는다.
+test("AI 보조: 후보를 프롬프트에 적히는 줄로 그린다", async () => {
+  const cands = [
+    { url: "a", error: "못 읽음" },
+    { url: "b", title: "노래", durationSec: 245 },
+  ];
+  const got = await req("POST", "/api/admin/ai/judge/lines", { candidates: cands, genre: "재즈", list: { lineFormat: "{{번호}}. {{제목}} ({{길이분}}분, {{장르}})" } });
+  assert.equal(got.status, 200);
+  assert.deepEqual(got.json.lines, ["1. 노래 (4분, 재즈)"], "못 읽은 것은 빼고 번호는 남은 것만 센다");
+
+  assert.deepEqual((await req("POST", "/api/admin/ai/judge/lines", { candidates: [] })).json.lines, []);
+});
+
+// 조회를 안 하고 눌러도 무엇이 나가는지는 보여야 한다 — 보기 곡으로 돌린다.
 test("AI 보조: 고른 후보가 없으면 보기 곡으로 판정한다", async () => {
   const got = await req("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }], data: { provider: "off" } });
   assert.equal(got.status, 200);

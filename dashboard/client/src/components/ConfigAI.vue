@@ -333,7 +333,7 @@
 
       <!--
         판정 테스트 — 보기 곡이 아니라 진짜 곡으로 시험한다.
-        목록 제작은 아무것도 보내지 않는다. 판정 전송만 실제로 보낸다.
+        링크 조회는 아무것도 보내지 않는다. 판정 요청만 실제로 보낸다.
       -->
       <BaseCard icon="check" title="판정 테스트" class="mb-3">
         <div class="flex flex-col md:flex-row gap-3 items-start">
@@ -348,13 +348,13 @@
               <input v-model="judgeGenre" placeholder="록" :class="inputCls" />
             </label>
             <div class="grid grid-cols-2 gap-2 mt-3">
-              <BaseButton variant="ghost" class="w-full justify-center" :disabled="judging || !judgeUrls.trim()" @click="buildJudgeList">{{ judging ? "조회 중…" : "목록 제작" }}</BaseButton>
-              <BaseButton variant="warning" class="w-full justify-center" :disabled="judging" @click="runJudge">{{ judging ? "보내는 중…" : "판정 전송" }}</BaseButton>
+              <BaseButton variant="ghost" class="w-full justify-center" :disabled="judging || !judgeUrls.trim()" @click="lookupJudge">{{ judging ? "조회 중…" : "링크 조회" }}</BaseButton>
+              <BaseButton variant="warning" class="w-full justify-center" :disabled="judging" @click="askPaid('judge')">{{ judging ? "보내는 중…" : "판정 요청" }}</BaseButton>
             </div>
           </div>
         </div>
 
-        <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">적은 것이 목록에 반영되지 않았습니다 — 그대로 보내면 보기 곡으로 판정합니다</p>
+        <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">적은 주소를 아직 조회하지 않았습니다 — 그대로 보내면 보기 곡으로 판정합니다</p>
 
         <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2">{{ judgeError }}</p>
 
@@ -374,7 +374,7 @@
 
         <template v-if="judgeSent">
           <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft cursor-pointer mt-3" @click="showJudgeRaw = !showJudgeRaw">
-            {{ showJudgeRaw ? "나간 것·온 것 접기" : "나간 것·온 것 보기" }}
+            {{ showJudgeRaw ? "리퀘스트 로그 접기" : "리퀘스트 로그 보기" }}
           </button>
           <div v-if="showJudgeRaw" class="mt-2">
             <div v-for="box in judgeBoxes" :key="box.title" class="mb-3">
@@ -398,7 +398,7 @@
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
 
     <!-- 유료 확인 — 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다. -->
-    <div v-if="paid || askJudge" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="((paid = null), (askJudge = false))">
+    <div v-if="paid" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="paid = null">
       <!-- 주소가 길면 늘어나고 짧으면 줄어든다. 다만 너무 좁아지지는 않게 바닥을 둔다. -->
       <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 w-fit min-w-[min(26rem,90vw)] max-w-[min(60rem,92vw)] shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <p class="mb-2 text-[0.95rem] text-fg-soft">실제로 보냅니다. 토큰이 듭니다.</p>
@@ -408,12 +408,12 @@
           <dt class="text-muted">모델</dt>
           <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
           <dt class="text-muted">보낼 것</dt>
-          <dd v-if="askJudge">판정 프롬프트 전체 (섹션 {{ sections.length || "기본" }}개 · 고른 곡 {{ judgeCands.filter((one) => !one.error).length }}개)</dd>
-          <dd v-else>{{ paid === "ping" ? "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요." : `판정 프롬프트 전체 (섹션 ${sections.length || "기본"}개 · 보기 곡 3개)` }}</dd>
+          <dd v-if="paid === 'ping'">한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.</dd>
+          <dd v-else>판정 프롬프트 전체 (섹션 {{ sections.length || "기본" }}개 · {{ judgeUsable.length ? `고른 곡 ${judgeUsable.length}개` : "보기 곡 3개" }})</dd>
         </dl>
         <div class="flex gap-2.5 justify-end">
-          <BaseButton variant="ghost" @click="((paid = null), (askJudge = false))">그만두기</BaseButton>
-          <BaseButton variant="secondary" @click="askJudge ? runJudge() : runPaid()">보내기</BaseButton>
+          <BaseButton variant="ghost" @click="paid = null">그만두기</BaseButton>
+          <BaseButton variant="secondary" @click="runPaid">보내기</BaseButton>
         </div>
       </div>
     </div>
@@ -605,7 +605,6 @@ const pinging = ref(false);
 // 무료·유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
 const tested = ref(null);
 const showRaw = ref(false);
-const testing = ref(false);
 const shown = ref(null);
 const defaults = ref({ sections: [], line: "" });
 
@@ -939,8 +938,8 @@ async function countTokens() {
 }
 
 // ── 판정 테스트 ────────────────────────────────────────────────────────────
-// 보기 곡이 아니라 진짜 곡으로 시험한다. 목록 제작은 아무것도 보내지 않고,
-// 판정 전송만 실제로 보낸다. 적어만 두고 제작을 안 했으면 보기 곡으로 나간다.
+// 보기 곡이 아니라 진짜 곡으로 시험한다. 링크 조회는 아무것도 보내지 않고,
+// 판정 요청만 실제로 보낸다. 적어만 두고 조회를 안 했으면 보기 곡으로 나간다.
 const NL = String.fromCharCode(10);
 const judgeUrls = ref("");
 const judgeGenre = ref("록");
@@ -951,7 +950,7 @@ const judgeList = ref([]);
 const judgeVerdicts = ref(null);
 const judgeSent = ref(null);
 const showJudgeRaw = ref(false);
-const judgeBuiltFrom = ref("");
+const judgeLookedUp = ref("");
 
 const copyBtn = "text-[0.75rem] text-muted hover:text-fg-soft cursor-pointer";
 function copy(text) {
@@ -962,9 +961,10 @@ function copy(text) {
   }
 }
 
-const judgeKey = computed(() => `${judgeUrls.value.trim()}|${judgeGenre.value.trim()}`);
-// 적어 두고 제작을 안 눌렀으면 알려 준다 — 그대로 보내면 보기 곡으로 판정한다
-const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeKey.value !== judgeBuiltFrom.value);
+// 적어 두고 조회를 안 눌렀으면 알려 준다 — 그대로 보내면 보기 곡으로 판정한다
+const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeUrls.value.trim() !== judgeLookedUp.value);
+const rendered = (one) => !one.error && one.title;
+const judgeUsable = computed(() => (judgeStale.value ? [] : judgeCands.value.filter(rendered)));
 
 const judgeBoxes = computed(() => {
   const one = judgeSent.value;
@@ -977,7 +977,7 @@ const judgeBoxes = computed(() => {
 
 // 못 읽은 줄이 섞여 있어 후보 차례와 줄 차례가 어긋난다 — 멀쩡한 것만 세어 맞춘다
 function lineFor(cand) {
-  const at = judgeCands.value.filter((one) => !one.error).indexOf(cand);
+  const at = judgeCands.value.filter(rendered).indexOf(cand);
   return judgeList.value[at] ?? "";
 }
 const verdictOk = (one) => one && one.song && one.fits;
@@ -989,20 +989,39 @@ const judgeUrlList = () =>
     .map((one) => one.trim())
     .filter(Boolean);
 
-async function buildJudgeList() {
+async function lookupJudge() {
   judging.value = true;
   judgeError.value = "";
   judgeVerdicts.value = null;
   judgeSent.value = null;
   try {
-    const { data } = await axios.post("/api/admin/ai/judge/list", { urls: judgeUrlList(), genre: judgeGenre.value, list: listCfg.value });
-    judgeCands.value = data.candidates;
-    judgeList.value = data.lines;
-    judgeBuiltFrom.value = judgeKey.value;
+    judgeCands.value = (await axios.post("/api/admin/ai/judge/lookup", { urls: judgeUrlList() })).data.candidates;
+    judgeLookedUp.value = judgeUrls.value.trim();
   } catch (error) {
-    judgeError.value = error.response?.data?.error || "목록을 만들지 못했습니다.";
+    judgeError.value = error.response?.data?.error || "조회하지 못했습니다.";
   } finally {
     judging.value = false;
+  }
+}
+
+// 줄 그리기는 서버 몫이다 — 화면이 흉내 내면 실제로 나가는 줄과 어긋난다.
+// 늦게 온 응답이 방금 그린 것을 덮지 않도록 차례를 센다.
+let linesSeq = 0;
+let linesTimer = null;
+watch([judgeCands, judgeGenre, () => JSON.stringify(listCfg.value)], () => {
+  clearTimeout(linesTimer);
+  linesTimer = setTimeout(drawLines, 150);
+});
+
+async function drawLines() {
+  const usable = judgeCands.value.filter(rendered);
+  if (!usable.length) return (judgeList.value = []);
+  const seq = ++linesSeq;
+  try {
+    const { data } = await axios.post("/api/admin/ai/judge/lines", { candidates: usable, list: listCfg.value, genre: judgeGenre.value });
+    if (seq === linesSeq) judgeList.value = data.lines;
+  } catch {
+    if (seq === linesSeq) judgeList.value = [];
   }
 }
 
@@ -1010,8 +1029,7 @@ async function runJudge() {
   judging.value = true;
   judgeError.value = "";
   try {
-    // 제작을 안 했거나 적은 것이 바뀌었으면 후보를 안 싣는다 — 서버가 보기 곡으로 돌린다
-    const usable = judgeStale.value ? [] : judgeCands.value.filter((one) => !one.error);
+    const usable = judgeUsable.value; // 조회를 안 했으면 비어 있다 — 서버가 보기 곡으로 돌린다
     const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: payload.value });
     judgeSent.value = data;
     judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
@@ -1078,18 +1096,6 @@ async function openPreview() {
   }
 }
 
-// 설정한 엔드포인트의 설정한 모델로 **실제로 보낸다.**
-async function runTest() {
-  testing.value = true;
-  try {
-    shown.value = { ...(await axios.post("/api/admin/ai/test", { data: forServer() })).data, sent: true };
-  } catch (error) {
-    loadError.value = error.response?.data?.error || "보내지 못했습니다.";
-  } finally {
-    testing.value = false;
-  }
-}
-
 function onProvider() {
   models.value = [];
   tested.value = null;
@@ -1145,7 +1151,7 @@ function runPaid() {
   const which = paid.value;
   paid.value = null;
   if (which === "ping") runPing();
-  else runTest();
+  else runJudge();
 }
 
 // 키는 쓰기 전용이다 — payload 에 안 싣는다(미리보기·테스트로 새어 나가면 안 된다)
