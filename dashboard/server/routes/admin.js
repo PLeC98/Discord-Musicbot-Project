@@ -263,6 +263,7 @@ router.get("/ai/fields", requireOwner, (req, res) => {
   res.json({
     known: !!models.profileOf(registry, model),
     fields: model ? models.fieldsOf(registry, model) : [],
+    groups: model ? models.groupsOf(registry, model) : [],
     // 프로필이 아는 모델들 — 목록에 이름표를 입힐 때 쓴다
     models: models.modelsOf(registry),
   });

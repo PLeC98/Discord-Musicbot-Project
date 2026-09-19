@@ -80,6 +80,18 @@ function fieldsOf(registry, modelId, snapshot = load()) {
     .filter((f) => f.visibility !== "hidden");
 }
 
+/** 칸을 담는 묶음 — 이름과 차례를 프로필이 정한다. 칸 이름은 영어뿐이고 묶음에만 한국어가 있다. */
+function groupsOf(registry, modelId, snapshot = load()) {
+  const found = profileOf(registry, modelId, snapshot);
+  if (!found) return [];
+  const base = snapshot.baseProviders?.[found.profile.providerBaseId];
+  const by = new Map();
+  for (const g of [...(base?.uiSchema?.groups || []), ...(found.profile.uiSchema?.groups || [])]) {
+    by.set(g.id, { id: g.id, label: g.labelI18n?.ko || g.label || g.id, order: g.order ?? 99 });
+  }
+  return [...by.values()].sort((a, b) => a.order - b.order);
+}
+
 /** 늘 붙는 값(base 의 defaultBody + 프로필 defaults). 앤트로픽의 max_tokens 가 여기 있다. */
 function defaultsOf(registry, modelId, snapshot = load()) {
   const found = profileOf(registry, modelId, snapshot);
@@ -107,4 +119,4 @@ async function fetchRegistry(registries, { timeoutMs = 30000, fetchImpl = fetch 
   return out;
 }
 
-module.exports = { RAW, FILE, fetchRegistry, load, modelsOf, profileOf, fieldsOf, defaultsOf, mergeSchemas };
+module.exports = { RAW, FILE, fetchRegistry, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };

@@ -500,9 +500,12 @@ function withParams(body, one) {
 
   const models = require("./aiModels");
   const out = deepMerge(body, models.defaultsOf(registry, one.model));
-  const picked = one.params || {};
+  // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다 —
+  // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
+  const picked = one.params?.[one.model] || {};
   for (const field of models.fieldsOf(registry, one.model)) {
-    const value = picked[field.key];
+    const chosen = picked[field.key];
+    const value = chosen === undefined || chosen === "" ? field.default : chosen;
     if (value === undefined || value === "") continue;
     if (field.enum && !field.enum.some((e) => e.value === value)) continue;
     setPath(out, field.path, value);

@@ -59,6 +59,19 @@
           </label>
         </div>
 
+        <div v-if="models.length || hideModels.length" class="mt-3">
+          <button type="button" class="w-full flex items-center justify-between text-left py-1.5 cursor-pointer group" @click="showHide = !showHide">
+            <span class="text-[0.8rem] text-muted group-hover:text-fg-soft transition-colors"
+              >모델 목록에서 가릴 것<span v-if="hideModels.length" class="ml-1.5 text-muted/70">{{ hideModels.length }}</span></span
+            >
+            <svg class="text-muted transition-transform duration-200" :class="showHide ? 'rotate-180' : ''" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+          </button>
+          <div v-if="showHide" class="pt-1 pb-1">
+            <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 제외합니다. <code class="text-fg-soft">*</code> 만 와일드카드 패턴으로 판정하며 대소문자를 가리지 않습니다. 영상·이미지 모델이나 구식 모델을 제외하는 용도입니다.</p>
+            <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
+          </div>
+        </div>
+
         <!-- 버텍스는 주소를 이 둘로 조립한다. 모델까지 정해야 주소가 완성되므로 아래에 둔다. -->
         <div v-if="spec?.needsProject" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
           <label class="block">
@@ -124,12 +137,60 @@
     </BaseCard>
 
     <template v-if="on">
-      <BaseCard icon="gear" title="세부 설정" class="mb-3">
+      <BaseCard icon="gear" title="모델 설정" class="mb-3">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <label class="block">
             <span :class="labelCls" v-tooltip="'0이면 같은 질문에 같은 답을 합니다'">온도</span>
             <input v-model="temperatureText" inputmode="decimal" placeholder="0" :class="inputCls" />
           </label>
+        </div>
+
+        <!-- 모델이 받는 칸 — 어디로 갈지도, 어떤 위젯일지도 모델 프로필이 정한다. -->
+        <div v-if="paramGroups.length" class="mt-4 pt-4 border-t border-white/8">
+          <div class="flex items-baseline justify-between mb-3">
+            <span :class="labelCls + ' mb-0'">{{ modelName || draft.model }} 이(가) 받는 칸</span>
+            <button type="button" class="text-[0.78rem] text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
+          </div>
+
+          <div v-for="group in paramGroups" :key="group.id" class="mb-4 last:mb-0">
+            <span class="text-[0.78rem] text-fg-soft font-medium">{{ group.label }}</span>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1.5">
+              <label v-for="field in group.fields" :key="field.key" class="block">
+                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="field.path">{{ field.label || field.key }}</span>
+
+                <div v-if="field.enum" class="relative">
+                  <select v-model="params[field.key]" :class="[inputCls, selectCls]">
+                    <option value="" :class="optionCls">{{ field.default ? `기본값 (${field.default})` : "기본값" }}</option>
+                    <option v-for="opt in field.enum" :key="opt.value" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
+                  </select>
+                  <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+                </div>
+
+                <label v-else-if="field.type === 'boolean'" class="flex items-center gap-2 cursor-pointer h-9">
+                  <input v-model="params[field.key]" type="checkbox" class="size-4 accent-accent shrink-0" />
+                  <span class="text-[0.82rem] text-muted">{{ params[field.key] ? "켬" : "끔" }}</span>
+                </label>
+
+                <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :placeholder="String(field.default ?? '')" :class="inputCls" />
+                <input v-else v-model="params[field.key]" :placeholder="String(field.default ?? '')" :class="inputCls" />
+              </label>
+            </div>
+          </div>
+
+          <p v-if="paramLimits" class="text-muted text-[0.75rem]">{{ paramLimits }}</p>
+        </div>
+
+        <div class="mt-4">
+          <span :class="labelCls">추가 파라미터</span>
+          <p class="text-muted text-[0.78rem] mb-2">
+            한 줄에 하나씩. <code class="text-fg-soft">key=value</code> / <code class="text-fg-soft">key=json::{...}</code> / <code class="text-fg-soft">header::Name=value</code> / <code class="text-fg-soft">key={{ NONE_MARK }}</code> 지원.
+          </p>
+          <textarea v-model="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
+        </div>
+      </BaseCard>
+
+      <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 pb-4 border-b border-white/8">
           <label class="block">
             <span :class="labelCls" v-tooltip="'이 시간을 넘기면 포기하고 규칙으로 고릅니다'">타임아웃(초)</span>
             <NumberInput v-model="timeoutSec" :class="inputCls" />
@@ -144,57 +205,6 @@
           </label>
         </div>
 
-        <div class="mt-4">
-          <span :class="labelCls">추가 파라미터</span>
-          <p class="text-muted text-[0.78rem] mb-2">
-            한 줄에 하나씩. <code class="text-fg-soft">key=value</code> / <code class="text-fg-soft">key=json::{...}</code> / <code class="text-fg-soft">header::Name=value</code> / <code class="text-fg-soft">key={{ NONE_MARK }}</code> 지원.
-          </p>
-          <textarea v-model="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
-        </div>
-
-        <div class="mt-4">
-          <span :class="labelCls">모델 목록에서 가릴 것</span>
-          <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 제외합니다. <code class="text-fg-soft">*</code> 만 와일드카드 패턴으로 판정하며 대소문자를 가리지 않습니다. 영상·이미지 모델이나 구식 모델을 제외하는 용도입니다.</p>
-          <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
-        </div>
-      </BaseCard>
-
-      <!--
-        모델이 받는 칸 — 어디로 갈지도, 어떤 위젯일지도 모델 프로필이 정한다.
-        프로필이 없는 모델(로컬·custom)은 카드째 안 나오고, 그때는 추가 파라미터로 넣는다.
-      -->
-      <BaseCard v-if="paramGroups.length" icon="robot" title="모델 설정" class="mb-3">
-        <p class="text-muted text-[0.78rem] -mt-1 mb-3">
-          {{ modelName || draft.model }} 이(가) 받는 칸입니다.
-          <button type="button" class="text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
-        </p>
-
-        <div v-for="group in paramGroups" :key="group.id" class="mb-4 last:mb-0">
-          <span :class="labelCls">{{ GROUP_NAMES[group.id] || group.id }}</span>
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1">
-            <label v-for="field in group.fields" :key="field.key" class="block">
-              <span class="text-[0.78rem] text-fg-soft block mb-1" v-tooltip="field.path">{{ field.label || field.key }}</span>
-
-              <select v-if="field.enum" v-model="params[field.key]" :class="[inputCls, selectCls]">
-                <option value="">기본값</option>
-                <option v-for="opt in field.enum" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-
-              <label v-else-if="field.type === 'boolean'" class="flex items-center gap-2 cursor-pointer h-9">
-                <input v-model="params[field.key]" type="checkbox" class="size-4 accent-accent shrink-0" />
-                <span class="text-[0.82rem] text-muted">{{ params[field.key] ? "켬" : "끔" }}</span>
-              </label>
-
-              <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :class="inputCls" />
-              <input v-else v-model="params[field.key]" :placeholder="field.default ?? ''" :class="inputCls" />
-            </label>
-          </div>
-        </div>
-
-        <p v-if="paramLimits" class="text-muted text-[0.75rem] mt-3">{{ paramLimits }}</p>
-      </BaseCard>
-
-      <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
         <p class="text-muted text-[0.82rem] mb-3">
           판정할 후보를 줄 마다 어떻게 적을지. 이 설정을 따라 아래 프롬프트의 <code class="text-fg-soft">{{ LIST_MARK }}</code> 자리에 곡 목록이 들어갑니다.
         </p>
@@ -405,8 +415,11 @@ const UNKNOWN = [
 
 const draft = ref({ provider: "off" });
 // 모델이 받는 칸 — 서버가 프로필(data/ai-models.json)을 보고 알려 준다
-const fieldInfo = ref({ known: false, fields: [], models: [] });
+const fieldInfo = ref({ known: false, fields: [], groups: [], models: [] });
 const showAdvanced = ref(false);
+const showHide = ref(false);
+// 값은 모델별로 따로 든다 — 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
+const allParams = ref({});
 const params = ref({});
 const listCfg = ref({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
 const sections = ref([]);
@@ -535,21 +548,21 @@ const timeoutSec = computed({
 
 // 설정과 프롬프트는 딴 파일이라 저장도 따로 간다.
 // 섹션 이름은 ChatML 에 적을 자리가 없어 설정 쪽에 같이 실어 보낸다(차례가 곧 짝이다).
-// 저쪽 uiSchema 의 그룹 이름을 우리 말로
-const GROUP_NAMES = { credentials: "인증", model: "모델", generation: "생성", reasoning: "추론", output: "출력", control: "요청 제어" };
-
 // 고른 모델의 이름표. 프로필이 알면 보기 좋은 이름이 있다.
 const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
 
+// 묶음의 이름도 차례도 프로필이 정한다 — 우리가 표를 들고 있으면 저쪽이 늘 때 한쪽만 고치게 된다.
 const paramGroups = computed(() => {
   const shown = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
+  const known = fieldInfo.value.groups || [];
   const by = new Map();
   for (const field of shown) {
     const id = field.group || "generation";
-    if (!by.has(id)) by.set(id, { id, fields: [] });
+    if (!by.has(id)) by.set(id, { id, label: known.find((g) => g.id === id)?.label || id, fields: [] });
     by.get(id).fields.push(field);
   }
-  return [...by.values()];
+  const order = (id) => known.findIndex((g) => g.id === id);
+  return [...by.values()].sort((a, b) => (order(a.id) + 1 || 99) - (order(b.id) + 1 || 99));
 });
 
 // 저쪽이 "이 칸이 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼)
@@ -567,8 +580,15 @@ const paramLimits = computed(() => {
 
 const payload = computed(() => ({ ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") }));
 
-// 빈 값은 "고르지 않음"이다 — 저쪽에 빈 글자를 보내면 enum 에 안 맞아 거절당한다
-const cleanParams = computed(() => Object.fromEntries(Object.entries(params.value).filter(([, v]) => v !== "" && v !== null && v !== undefined)));
+// 빈 값은 "고르지 않음"이다(프로필 기본값으로 간다). 빈 모델 칸도 남기지 않는다.
+const cleanParams = computed(() => {
+  const out = {};
+  for (const [model, values] of Object.entries(allParams.value)) {
+    const kept = Object.fromEntries(Object.entries(values || {}).filter(([, v]) => v !== "" && v !== null && v !== undefined));
+    if (Object.keys(kept).length) out[model] = kept;
+  }
+  return out;
+});
 const promptPayload = computed(() => sections.value.map((one) => ({ role: one.role, text: one.text })));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
 
@@ -677,7 +697,9 @@ let names = [];
 function apply(data) {
   const { list, prompt, promptNames, params: saved, ...rest } = data || {};
   draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
-  params.value = { ...(saved || {}) };
+  allParams.value = { ...(saved || {}) };
+  picking = draft.value.model || "";
+  params.value = { ...(allParams.value[picking] || {}) };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
   names = Array.isArray(promptNames) ? promptNames : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));
@@ -694,24 +716,33 @@ function applyPrompt(list) {
 // 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
 watch(
   () => [draft.value.provider, draft.value.model],
-  async ([provider, model], old) => {
+  async ([provider, model]) => {
     if (!provider || provider === "off") {
-      fieldInfo.value = { known: false, fields: [], models: [] };
+      fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
       return;
     }
     try {
       const { data } = await axios.get("/api/admin/ai/fields", { params: { provider, model: model || "" } });
       fieldInfo.value = data;
-      // 모델을 갈아탔으면 새 모델이 안 받는 값은 떨군다 — 그대로 보내면 400 이다
-      if (old && old[1] && old[1] !== model) {
-        const keys = new Set(data.fields.map((one) => one.key));
-        params.value = Object.fromEntries(Object.entries(params.value).filter(([k]) => keys.has(k)));
+      if (model !== picking) {
+        picking = model;
+        params.value = { ...(allParams.value[model] || {}) };
       }
     } catch {
-      fieldInfo.value = { known: false, fields: [], models: [] };
+      fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
     }
   },
   { immediate: true },
+);
+
+// 고른 값은 그때그때 모델 칸에 담는다
+let picking = "";
+watch(
+  params,
+  (now) => {
+    if (draft.value.model) allParams.value = { ...allParams.value, [draft.value.model]: { ...now } };
+  },
+  { deep: true },
 );
 
 async function fetchAll() {

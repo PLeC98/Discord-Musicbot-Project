@@ -358,7 +358,7 @@ test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
 
 // 값이 본문 어디로 가는지는 모델 프로필이 안다(data/ai-models.json).
 test("params 는 프로필이 적어 둔 경로로 간다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  effort: high\n", [{ role: "user", text: "{{목록}}" }]);
+  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: high\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
   global.fetch = async (url, init) => {
     calls.push({ url, init, body: JSON.parse(init.body) });
@@ -368,13 +368,13 @@ test("params 는 프로필이 적어 둔 경로로 간다", async () => {
   await assist.accepts(cand("A"), {});
   const sent = calls.at(-1);
   assert.equal(sent.body.output_config.effort, "high");
-  assert.equal(sent.body.thinking?.type, undefined, "안 고른 칸은 안 보낸다");
+  assert.equal(sent.body.thinking?.type, "adaptive", "안 고른 칸은 프로필 기본값으로");
 });
 
 // 모델을 바꾸면 그 모델이 안 받는 값은 저절로 빠져야 한다 — 그대로 보내면 400 이다.
 test("그 모델이 안 받는 값은 안 보낸다", async () => {
   // Astra 는 reasoning_effort 에 none 을 안 받는다(프로필 enum 에 없다)
-  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  reasoning_effort: none\n  없는칸: 1\n", [{ role: "user", text: "{{목록}}" }]);
+  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    reasoning_effort: none\n    없는칸: 1\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
   answers("[]");
 
@@ -382,6 +382,16 @@ test("그 모델이 안 받는 값은 안 보낸다", async () => {
   const sent = calls.at(-1);
   assert.equal(sent.body.reasoning_effort, undefined, "enum 에 없는 값은 버린다");
   assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 칸도 버린다");
+});
+
+// 모델을 바꾸면 앞 모델에서 고른 값이 따라오면 안 된다.
+test("params 는 모델마다 따로 기억한다", async () => {
+  useConfig("provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-6-astra:\n    reasoning_effort: max\n  gpt-5.5:\n    reasoning_effort: none\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.reasoning_effort, "none", "고른 모델 것만 쓴다");
 });
 
 // 앤트로픽은 max_tokens 가 필수다 — 프로필의 defaults 가 채운다.
@@ -399,7 +409,7 @@ test("프로필의 기본값은 늘 붙는다", async () => {
 
 // 추가 파라미터는 프로필이 모르는 것을 넣는 비상구다 — 마지막 말을 갖는다.
 test("추가 파라미터가 params 를 이긴다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  effort: low\nextra: output_config.effort=max\n", [{ role: "user", text: "{{목록}}" }]);
+  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: low\nextra: output_config.effort=max\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
   global.fetch = async (url, init) => {
     calls.push({ url, init, body: JSON.parse(init.body) });
