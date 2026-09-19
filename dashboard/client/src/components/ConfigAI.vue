@@ -708,7 +708,6 @@ const timeoutSec = computed({
 // 고른 모델의 이름표. 프로필이 알면 보기 좋은 이름이 있다.
 const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
 
-// 묶음의 이름도 차례도 프로필이 정한다 — 우리가 표를 들고 있으면 저쪽이 늘 때 한쪽만 고치게 된다.
 // 값을 자르지는 않는다 — 다만 얼마까지 받는다고 적혀 있는지는 보여 준다
 function hintOf(field) {
   const lo = field.min;
@@ -732,10 +731,13 @@ const paramGroups = computed(() => {
   return [...by.values()].sort((a, b) => (order(a.id) + 1 || 99) - (order(b.id) + 1 || 99));
 });
 
-// 저쪽이 "이 칸이 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼)
+// 저쪽이 "이 칸이 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼).
+// 가려진 칸은 서버도 안 보낸다(autoplayAssist.withParams) — 판정 기준을 같게 둔다.
 function showIfOk(field) {
   if (!field.showIf) return true;
-  return params.value[field.showIf.key] === field.showIf.equals;
+  const owner = fieldInfo.value.fields.find((one) => one.key === field.showIf.key);
+  const value = [params.value[field.showIf.key], owner?.default].find((one) => one !== undefined && one !== "");
+  return value === field.showIf.equals;
 }
 
 const paramLimits = computed(() => {

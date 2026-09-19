@@ -435,6 +435,22 @@ test("프로필 기본값은 고르지 않아도 붙는다", async () => {
   assert.equal(sent.body.logprobs, false);
 });
 
+// 켰다 끈 값이 params 에 남는다. 그대로 보내면 저쪽이 거절한다 —
+// top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
+test("조건이 안 맞는 칸은 보내지 않는다", async () => {
+  const withLogprobs = (on) => "provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-5.5:\n    logprobs: " + on + "\n    top_logprobs: 5\n";
+
+  useConfig(withLogprobs("true"), [{ role: "user", text: "{{목록}}" }]);
+  answers("[]");
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.top_logprobs, 5, "켜 두었으면 나간다");
+
+  useConfig(withLogprobs("false"), [{ role: "user", text: "{{목록}}" }]);
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.logprobs, false);
+  assert.ok(!("top_logprobs" in calls.at(-1).body), "끄면 딸린 칸도 안 나간다");
+});
+
 // 온도도 모델이 받는 칸 하나다 — 프로필이 적어 둔 자리로 들어간다(제미니는 generationConfig 안).
 test("온도는 params 를 타고 프로필이 적은 자리로 간다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\nparams:\n  gemini-3.7-flash:\n    temperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);

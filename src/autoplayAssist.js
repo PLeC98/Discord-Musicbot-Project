@@ -561,10 +561,18 @@ function withParams(body, one) {
   // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다 —
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
   const picked = one.params?.[one.model] || {};
-  for (const field of models.fieldsOf(registry, one.model)) {
-    if (field.ours) continue; // 온도처럼 우리 설정이 이미 넣어 둔 칸
+  const fields = models.fieldsOf(registry, one.model);
+  const valueOf = (field) => [picked[field.key], field.default].find((one) => usable(field, one));
+
+  for (const field of fields) {
+    // 화면에서 가려진 칸은 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다 —
+    // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
+    if (field.showIf) {
+      const owner = fields.find((one) => one.key === field.showIf.key);
+      if (!owner || valueOf(owner) !== field.showIf.equals) continue;
+    }
     // 고른 값이 못 쓸 것이면(종류가 틀리거나 그 모델이 안 받는 값) 프로필 기본값으로 떨어진다
-    const value = [picked[field.key], field.default].find((one) => usable(field, one));
+    const value = valueOf(field);
     if (value !== undefined) setPath(out, field.path, value);
   }
   return out;
