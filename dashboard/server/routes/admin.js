@@ -249,6 +249,100 @@ router.get("/ai/state", requireOwner, (req, res) => {
 
 // 키를 고쳐 쓴다. **쓰기 전용이다** — 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
 // 로그에도 이름만 남긴다.
+/**
+ * 그 모델이 받는 칸 — 프로필(data/ai-models.json)이 정한다.
+ * 화면은 여기서 받은 위젯·그룹 그대로 그린다.
+ */
+router.get("/ai/fields", requireOwner, (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const models = require("../../../src/aiModels");
+  const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
+  if (!registry) return res.json({ known: false, fields: [], models: [] });
+
+  const model = String(req.query.model || "");
+  res.json({
+    known: !!models.profileOf(registry, model),
+    fields: model ? models.fieldsOf(registry, model) : [],
+    groups: model ? models.groupsOf(registry, model) : [],
+    // 프로필이 아는 모델들 — 목록에 이름표를 입힐 때 쓴다
+    models: models.modelsOf(registry),
+  });
+});
+
+/**
+ * 프롬프트 칸이 적는 동안 세어 보는 곳 — 본문만 센다(감싸는 몫은 미리보기에서 본다).
+ * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
+ */
+router.post("/ai/tokens", requireOwner, async (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const tokens = require("../../../src/aiTokens");
+  const provider = String(req.body?.provider || "");
+  const model = String(req.body?.model || "");
+  const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
+
+  const texts = Array.isArray(req.body?.texts) ? req.body.texts : [];
+  if (texts.length > 50) return res.status(400).json({ error: "한 번에 50칸까지" });
+  const cut = texts.map((one) => String(one ?? "").slice(0, 200000));
+
+  if (by === "claude") {
+    const apiKey = configData.aiKeyOf(provider);
+    const wrap = tokens.FRAMING.anthropic.perRequest;
+    const each = await Promise.all(cut.map(async (one) => (one ? await tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }) : 0)));
+    if (each.every((one) => one !== null)) {
+      const bare = each.map((one) => (one ? one - wrap : 0));
+      return res.json({ each: bare, total: bare.reduce((sum, one) => sum + one, 0), by: "claude", exact: true });
+    }
+  }
+
+  const counted = cut.map((one) => tokens.count(one, by));
+  const each = counted.map((one) => one.tokens);
+  res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by: counted[0]?.by ?? by, exact: counted[0]?.exact ?? true });
+});
+
+/** 모델 프로필 갱신 — 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
+router.post("/ai/models/refresh", requireOwner, async (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const models = require("../../../src/aiModels");
+  try {
+    const registries = [
+      ...new Set(
+        Object.values(assist.PROVIDER_SPECS)
+          .map((one) => one.registry)
+          .filter(Boolean),
+      ),
+    ];
+    res.json(await models.refresh({ registries, force: !!req.body?.force }));
+  } catch (error) {
+    res.status(502).json({ error: error.message || "모델 정보를 받지 못했습니다." });
+  }
+});
+
+/**
+ * 판정 테스트 1 — 유튜브 주소로 후보를 읽는다. 아무것도 보내지 않는다.
+ */
+router.post("/ai/judge/lookup", requireOwner, async (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
+  if (!urls.length) return res.status(400).json({ error: "유튜브 주소를 적어 주세요." });
+  if (urls.length > 20) return res.status(400).json({ error: "한 번에 20개까지" });
+
+  res.json({ candidates: await assist.candidatesFromUrls(urls) });
+});
+
+/** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식·장르를 고치는 대로 다시 그린다. */
+router.post("/ai/judge/lines", requireOwner, (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one) => one && !one.error && one.title).slice(0, 20);
+  res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) });
+});
+
+/** 판정 테스트 2 — 그 후보들을 **실제로** 보내 곡별 판정을 받는다. */
+router.post("/ai/judge/run", requireOwner, async (req, res) => {
+  const assist = require("../../../src/autoplayAssist");
+  const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
+  res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록")));
+});
+
 router.put("/ai/keys", requireOwner, (req, res) => {
   const keys = req.body?.keys;
   if (!keys || typeof keys !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
@@ -287,13 +381,6 @@ router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
   res.json(await require("../../../src/autoplayAssist").preview(data));
-});
-
-// 같은 것을 **실제로 보낸다.** 설정한 엔드포인트의 설정한 모델로 나가고 응답까지 본다.
-router.post("/ai/test", requireOwner, async (req, res) => {
-  const data = req.body?.data;
-  if (!data || typeof data !== "object") return res.status(400).json({ error: "보낼 내용이 없습니다." });
-  res.json(await require("../../../src/autoplayAssist").sendTest(data));
 });
 
 // 무료 확인 — 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.

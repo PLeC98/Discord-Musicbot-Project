@@ -114,7 +114,7 @@ let base;
 before(() => {
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(express.json());
+  app.use(require("../dashboard/server/bodyLimit").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use((req, res, next) => {
     req.session = { user: currentUser };
     next();
@@ -405,6 +405,77 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // ── AI 보조 ───────────────────────────────────────────────────────────────
 
+// 판정 테스트는 보기 곡이 아니라 진짜 곡으로 시험한다. 링크 조회는 아무것도 안 보낸다.
+test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
+  const bad = await req("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
+  assert.equal(bad.status, 200);
+  assert.equal(bad.json.candidates[0].error, "유튜브 주소가 아닙니다.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
+
+  assert.equal((await req("POST", "/api/admin/ai/judge/lookup", { urls: [] })).status, 400);
+  assert.equal((await req("POST", "/api/admin/ai/judge/lookup", { urls: new Array(21).fill("https://youtu.be/x") })).status, 400, "한 번에 20개까지");
+});
+
+// 목록 형식·장르를 고치면 다시 그린다 — 조회를 다시 하지 않는다.
+test("AI 보조: 후보를 프롬프트에 적히는 줄로 그린다", async () => {
+  const cands = [
+    { url: "a", error: "못 읽음" },
+    { url: "b", title: "노래", durationSec: 245 },
+  ];
+  const got = await req("POST", "/api/admin/ai/judge/lines", { candidates: cands, genre: "재즈", list: { lineFormat: "{{번호}}. {{제목}} ({{길이분}}분, {{장르}})" } });
+  assert.equal(got.status, 200);
+  assert.deepEqual(got.json.lines, ["1. 노래 (4분, 재즈)"], "못 읽은 것은 빼고 번호는 남은 것만 센다");
+
+  assert.deepEqual((await req("POST", "/api/admin/ai/judge/lines", { candidates: [] })).json.lines, []);
+});
+
+// 조회를 안 하고 눌러도 무엇이 나가는지는 보여야 한다 — 보기 곡으로 돌린다.
+test("AI 보조: 고른 후보가 없으면 보기 곡으로 판정한다", async () => {
+  const got = await req("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }], data: { provider: "off" } });
+  assert.equal(got.status, 200);
+  assert.ok(got.json.body, "요청은 만들어진다");
+});
+
+// 로어북을 붙인 프롬프트는 32kb 를 넘어 413 이 났다. 프롬프트가 오가는 길만 넓혀 두었다.
+test("AI 보조: 긴 프롬프트도 받는다", async () => {
+  const long = "가".repeat(60000); // 32kb 를 훌쩍 넘는다
+
+  const counted = await req("POST", "/api/admin/ai/tokens", { provider: "off", model: "", texts: [long] });
+  assert.equal(counted.status, 200, "토큰 세기는 긴 글을 받아야 한다");
+  assert.ok(counted.json.total > 1000);
+
+  const saved = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "user", text: `${long} {{목록}}` }] });
+  assert.equal(saved.status, 200, "저장도 마찬가지다");
+
+  // 넓힌 것은 프롬프트 길뿐이다 — 나머지는 그대로 좁게 둔다
+  const other = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", extra: long } });
+  assert.equal(other.status, 413, "딴 길은 여전히 32kb 에서 막힌다");
+});
+
+// 값이 본문 어디로 가는지는 모델 프로필이 안다 — 화면이 베껴 두면 한쪽만 고치게 된다.
+test("AI 보조: 그 모델이 받는 칸을 알려 준다", async () => {
+  const { status, json } = await req("GET", "/api/admin/ai/fields?provider=anthropic&model=claude-opus-5");
+  assert.equal(status, 200);
+  assert.equal(json.known, true);
+
+  const effort = json.fields.find((f) => f.key === "effort");
+  assert.equal(effort.path, "output_config.effort", "경로는 본문 맨 위부터다");
+  assert.equal(effort.widget, "select", "위젯도 프로필이 정한다");
+  assert.ok(effort.enum.some((e) => e.value === "max"));
+
+  assert.ok(json.models.length > 5, "그 프로바이더가 아는 모델 목록도 준다");
+});
+
+test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", async () => {
+  const local = await req("GET", "/api/admin/ai/fields?provider=ollama&model=gemma3n:e2b");
+  assert.equal(local.json.known, false, "로컬은 프로필이 없다");
+  assert.deepEqual(local.json.fields, []);
+
+  const unknown = await req("GET", "/api/admin/ai/fields?provider=anthropic&model=없는모델");
+  assert.equal(unknown.json.known, false);
+  assert.deepEqual(unknown.json.fields, [], "모르는 모델이라고 던지지 않는다");
+  assert.ok(unknown.json.models.length > 0, "모델 목록은 그대로 준다");
+});
+
 // 키는 .env 에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
 test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
   const { status, json } = await req("GET", "/api/admin/ai/state");
@@ -426,6 +497,7 @@ test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", 
 test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "u1" };
   assert.equal((await req("GET", "/api/admin/ai/state")).status, 403);
+  assert.equal((await req("GET", "/api/admin/ai/fields?provider=anthropic")).status, 403);
   assert.equal((await req("POST", "/api/admin/ai/models", { data: {} })).status, 403);
   assert.equal((await req("POST", "/api/admin/ai/ping", { data: {} })).status, 403);
   assert.equal((await req("GET", "/api/admin/ai/prompt")).status, 403);
@@ -513,8 +585,13 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const notUrl = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "127.0.0.1:11434", model: "m" } });
   assert.equal(notUrl.status, 400, "http:// 로 시작해야 한다");
 
-  const range = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 9 } });
+  const range = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", batchSize: 99 } });
   assert.equal(range.status, 400);
+
+  // 온도는 모델이 받는 칸 하나가 됐다 — 맨 위에 남아 있으면 조용히 무시되므로 막는다
+  const moved = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 0 } });
+  assert.equal(moved.status, 400);
+  assert.match(moved.json.problems.join(" "), /params 아래에 모델별로/);
 
   // 모르는 프로바이더로 저장되면 조용히 안 돈다
   assert.equal((await req("PUT", "/api/admin/config/ai", { data: { provider: "anthropic" } })).status, 400);
@@ -547,7 +624,6 @@ test("AI 미리보기: 응답 칸이 없다", async () => {
   assert.equal((await req("POST", "/api/admin/ai/preview", {})).status, 400);
   currentUser = { id: "u1" };
   assert.equal((await req("POST", "/api/admin/ai/preview", { data: {} })).status, 403);
-  assert.equal((await req("POST", "/api/admin/ai/test", { data: {} })).status, 403);
   currentUser = { id: "owner", username: "owner" };
 });
 

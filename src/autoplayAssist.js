@@ -55,7 +55,9 @@ const DEFAULT_LINE = "{{번호}}. 장르={{장르}} 길이={{길이분}}분 제�
 
 const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
-const DEFAULTS = { temperature: 0, timeoutMs: 60000, batchSize: 10, skipConfident: true };
+// 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다) — 그래서 프롬프트에서도 쓸 수 있다.
+const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
+const DEFAULTS = { timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
 /**
  * 어디에 물을지.
@@ -76,25 +78,25 @@ const PROVIDER_SPECS = {
   llamacpp: { label: "llama.cpp", baseUrl: "http://127.0.0.1:8080/v1", key: false, group: "로컬" },
 
   // ── 모델을 직접 내는 곳 ──
-  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드" },
-  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", dialect: "anthropic" },
-  aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", key: true, group: "클라우드" },
+  openai: { label: "OpenAI", baseUrl: "https://api.openai.com/v1", key: true, group: "클라우드", registry: "openai" },
+  anthropic: { label: "Anthropic", baseUrl: "https://api.anthropic.com/v1", key: true, group: "클라우드", dialect: "anthropic", registry: "anthropic" },
+  aistudio: { label: "Google AI Studio", baseUrl: "https://generativelanguage.googleapis.com/v1beta", key: true, group: "클라우드", dialect: "gemini", registry: "google" },
   xai: { label: "xAI (Grok)", baseUrl: "https://api.x.ai/v1", key: true, group: "클라우드" },
-  "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드" },
-  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드" },
+  "ollama-cloud": { label: "Ollama Cloud", baseUrl: "https://ollama.com/v1", key: true, group: "클라우드", registry: "ollama-cloud" },
+  deepseek: { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", key: true, group: "클라우드", registry: "deepseek" },
   mistral: { label: "Mistral", baseUrl: "https://api.mistral.ai/v1", key: true, group: "클라우드" },
   groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", key: true, group: "클라우드" },
   together: { label: "Together AI", baseUrl: "https://api.together.xyz/v1", key: true, group: "클라우드" },
 
   // 구글 클라우드. 키가 아니라 서비스 계정 JSON 을 쓰고, 주소는 프로젝트·리전으로 조립한다.
-  vertex: { label: "Vertex AI (Gemini 네이티브)", key: true, group: "클라우드", dialect: "vertex", serviceAccount: true, needsProject: true },
+  vertex: { label: "Vertex AI (Gemini 네이티브)", key: true, group: "클라우드", dialect: "vertex", serviceAccount: true, needsProject: true, registry: "vertex-gemini-native" },
 
   // ── 여러 곳을 묶어 파는 곳 ──
-  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", key: true, group: "게이트웨이" },
-  nanogpt: { label: "NanoGPT", baseUrl: "https://nano-gpt.com/api/v1", key: true, group: "게이트웨이" },
-  vercel: { label: "Vercel AI Gateway", baseUrl: "https://ai-gateway.vercel.sh/v1", key: true, group: "게이트웨이" },
-  llmgateway: { label: "LLM Gateway", baseUrl: "https://api.llmgateway.io/v1", key: true, group: "게이트웨이" },
-  neuralwatt: { label: "Neuralwatt", baseUrl: "https://api.neuralwatt.com/v1", key: true, group: "게이트웨이" },
+  openrouter: { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", key: true, group: "게이트웨이", registry: "openrouter" },
+  nanogpt: { label: "NanoGPT", baseUrl: "https://nano-gpt.com/api/v1", key: true, group: "게이트웨이", registry: "nanogpt" },
+  vercel: { label: "Vercel AI Gateway", baseUrl: "https://ai-gateway.vercel.sh/v1", key: true, group: "게이트웨이", registry: "vercel" },
+  llmgateway: { label: "LLM Gateway", baseUrl: "https://api.llmgateway.io/v1", key: true, group: "게이트웨이", registry: "llmgateway" },
+  neuralwatt: { label: "Neuralwatt", baseUrl: "https://api.neuralwatt.com/v1", key: true, group: "게이트웨이", registry: "neuralwatt" },
 
   // 주소를 직접 적는 유일한 자리. 여기 없는 곳도, 위의 주소가 바뀌었을 때도 이것으로 간다.
   custom: { label: "OpenAI 호환 (직접 입력)", baseUrl: "", key: true, editable: true, group: "직접" },
@@ -110,11 +112,19 @@ const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.
  * 프로바이더를 골랐으면 그곳의 주소로 간다 — 설정에 남아 있는 옛 주소로 조용히 나가지 않는다.
  * 여기 적힌 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom 으로 간다.
  */
+// 끝의 슬래시를 뗀다. `/\/+$/` 로 하면 안 된다 — 끝에 없는 슬래시 더미에 역추적이 붙어
+// **O(n²)** 가 된다(실측: 10만 개 3.2초, 20만 개 12.4초). 세면서 자르면 선형이다.
+function stripTrailingSlash(text) {
+  const str = String(text || "");
+  let end = str.length;
+  while (end > 0 && str[end - 1] === "/") end--;
+  return str.slice(0, end);
+}
+
 function endpointOf(one) {
   const spec = specOf(one?.provider);
   if (!spec) return "";
-  const url = spec.editable ? one?.baseUrl : spec.baseUrl;
-  return String(url || "").replace(/\/+$/, "");
+  return stripTrailingSlash(spec.editable ? one?.baseUrl : spec.baseUrl);
 }
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
 const wantsKey = (one) => !!specOf(one?.provider)?.key;
@@ -130,7 +140,7 @@ async function keyFor(one) {
   if (!wantsKey(one)) return "";
 
   if (specOf(one.provider)?.editable) {
-    const saved = String(configData.ai()?.baseUrl || "").replace(/\/+$/, "");
+    const saved = stripTrailingSlash(configData.ai()?.baseUrl);
     if (!saved || endpointOf(one) !== saved) return "";
   }
   return configData.aiKeyOf(one.provider);
@@ -154,45 +164,159 @@ function settings() {
 /**
  * 추가 파라미터 — 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
  *
- *   key=value            그대로 (true · false · 숫자는 알아서 바꾼다)
+ *   key=value            그대로 (true · false · null · 숫자는 알아서 바꾼다)
+ *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
+ *   a.b.c=value          점으로 안쪽 칸에 넣는다 (thinking.budget_tokens 처럼)
  *   key=json::{...}      JSON 으로 읽어 넣는다 (객체·배열)
  *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
- *   key={{none}}         그 값을 아예 안 보낸다 (temperature 처럼 늘 붙는 것을 뺄 때)
+ *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}} 이면 헤더를 뺀다)
+ *   # 주석
+ *
+ * **RisuAI 와 같은 입력법이다** — 그쪽에 익숙한 사람이 그대로 적을 수 있게 맞췄다.
+ * 못 읽은 줄은 조용히 버리지 않고 problems 로 돌려준다(대시보드가 보여 준다).
  */
+// `__proto__` 한 마디면 Object.prototype 이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
+// **모델 레지스트리(우리가 받아 오는 남의 데이터)의 mapsTo.path** 로도 들어오므로 여기서 막는다.
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const safeKeys = (path) => {
+  const keys = String(path).split(".");
+  return keys.some((one) => UNSAFE_KEYS.has(one)) ? null : keys;
+};
+
+function setPath(obj, path, value) {
+  const keys = safeKeys(path);
+  if (!keys) return obj;
+  let at = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    // safeKeys 가 이미 걸렀지만 여기서도 본다 — 분석기가 알아보는 자리는 대입 바로 옆이다
+    if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
+    // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다 — 안쪽에 더 넣을 수 없는 모양이다
+    if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
+    at = at[k];
+  }
+  const last = keys[keys.length - 1];
+  if (last === "__proto__" || last === "constructor" || last === "prototype") return obj;
+  at[last] = value;
+  return obj;
+}
+
+/** 점 경로로 지운다. 없는 길이면 아무 일도 안 한다. */
+function delPath(obj, path) {
+  const keys = safeKeys(path);
+  if (!keys) return;
+  let at = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+    at = at?.[k];
+    if (!at || typeof at !== "object") return;
+  }
+  const last = keys[keys.length - 1];
+  if (last === "__proto__" || last === "constructor" || last === "prototype") return;
+  delete at[last];
+}
+
+// 파이썬 꼴 키워드를 JSON 이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
+const RELAXED = [
+  ["True", "true"],
+  ["False", "false"],
+  ["None", "null"],
+];
+function relaxJson(text) {
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      out += ch;
+      if (ch === "\\" && i + 1 < text.length) out += text[++i];
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    // 낱말 경계에서만 바꾼다 — Nonetype 같은 것을 건드리면 안 된다
+    const edge = (c) => !c || !/[A-Za-z0-9_$]/.test(c);
+    const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
+    if (hit) {
+      out += hit[1];
+      i += hit[0].length - 1;
+    } else out += ch;
+  }
+  return out;
+}
+
+function readJson(text) {
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch {}
+  const relaxed = relaxJson(text);
+  if (relaxed !== text) {
+    try {
+      return { ok: true, value: JSON.parse(relaxed) };
+    } catch {}
+  }
+  return { ok: false };
+}
+
 function parseExtra(text) {
   const body = {};
   const headers = {};
   const drop = [];
+  const dropHeaders = [];
+  const problems = [];
 
   for (const raw of String(text || "").split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
 
     const at = line.indexOf("=");
-    if (at < 1) continue; // 이름이 없는 줄은 버린다
+    if (at < 1) {
+      problems.push(`이름이 없습니다: ${line}`);
+      continue;
+    }
     const name = line.slice(0, at).trim();
     const value = line.slice(at + 1).trim();
+    const isHeader = /^header::/i.test(name);
+    const header = isHeader ? name.slice(8).trim() : null;
 
-    if (/^header::/i.test(name)) {
-      headers[name.slice(8).trim()] = value;
-    } else if (value === "{{none}}") {
-      drop.push(name);
-    } else if (value.startsWith("json::")) {
-      const json = value.slice(6);
-      try {
-        body[name] = JSON.parse(json);
-      } catch {
-        body[name] = json; // 못 읽으면 적힌 그대로 — 조용히 버리지 않는다
-      }
-    } else if (value === "true" || value === "false") {
-      body[name] = value === "true";
-    } else if (value !== "" && !Number.isNaN(Number(value))) {
-      body[name] = Number(value);
-    } else {
-      body[name] = value;
+    // **{{none}} 을 header:: 보다 먼저 본다** — 안 그러면 헤더에 "{{none}}" 을 넣게 된다
+    if (value === "{{none}}") {
+      if (isHeader) dropHeaders.push(header);
+      else drop.push(name);
+      continue;
     }
+    if (isHeader) {
+      headers[header] = value;
+      continue;
+    }
+    if (value === "") {
+      problems.push(`값이 없습니다: ${name}`);
+      continue;
+    }
+    if (!safeKeys(name)) {
+      problems.push(`쓸 수 없는 이름입니다: ${name}`);
+      continue;
+    }
+
+    if (value.startsWith("json::")) {
+      const got = readJson(value.slice(6));
+      if (got.ok) setPath(body, name, got.value);
+      else problems.push(`JSON 으로 못 읽었습니다: ${name}`);
+      continue;
+    }
+    const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
+    if (quoted && value.length >= 2) setPath(body, name, value.slice(1, -1));
+    else if (value === "true" || value === "false") setPath(body, name, value === "true");
+    else if (value === "null") setPath(body, name, null);
+    else if (!Number.isNaN(Number(value))) setPath(body, name, Number(value));
+    else setPath(body, name, value);
   }
-  return { body, headers, drop };
+  return { body, headers, drop, dropHeaders, problems };
 }
 
 /** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 — 둘 다 받는다. */
@@ -241,7 +365,9 @@ function buildMessages(one, batch, genre) {
     .map((section) => ({
       // 모르는 역할은 system 으로 떨어뜨린다 — 저쪽이 400을 주느니 낫다
       role: ROLES.has(section?.role) ? section.role : "system",
-      content: String(section?.text ?? "").replace(LIST_MARK, list),
+      content: String(section?.text ?? "")
+        .replace(LIST_MARK, list)
+        .replace(GENRE_MARK, genre || "랜덤"),
     }))
     .filter((message) => message.content.trim());
 }
@@ -259,14 +385,35 @@ function buildMessages(one, batch, genre) {
  *   answerOf  응답에서 모델이 쓴 글
  *   modelsOf  모델 목록 응답에서 이름들
  */
+/**
+ * 제미니 네이티브 본문 — AI 스튜디오와 버텍스가 **같은 모양**을 쓴다.
+ * 갈리는 것은 주소와 인증뿐이다.
+ *
+ *   · messages 가 아니라 contents/parts 이고, assistant 를 model 이라 부른다
+ *   · system 은 systemInstruction 이라는 딴 칸이다
+ *   · 온도 같은 것은 generationConfig 안에 있다(추가 파라미터도 경로를 적어 넣는다)
+ */
+function geminiBody(one, messages) {
+  const system = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
+  return {
+    contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+    ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+  };
+}
+const geminiAnswer = (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join("");
+
 const DIALECTS = {
   openai: {
     chatUrl: (one) => `${endpointOf(one)}/chat/completions`,
     modelsUrl: (one) => `${endpointOf(one)}/models`,
     headers: async (one) => ({ "Content-Type": "application/json", ...(specOf(one.provider)?.headers || {}), ...(await authOf(one)) }),
-    body: (one, messages) => ({ model: one.model, temperature: Number(one.temperature), messages }),
+    body: (one, messages) => ({ model: one.model, messages }),
     answerOf: (json) => json?.choices?.[0]?.message?.content || "",
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
+    usageOf: (json) => pickUsage(json?.usage?.prompt_tokens, json?.usage?.completion_tokens, json?.usage?.completion_tokens_details?.reasoning_tokens),
   },
 
   /**
@@ -292,15 +439,41 @@ const DIALECTS = {
         .join("\n\n");
       return {
         model: one.model,
-        // 판정 답은 짧다. 모자라면 extra 로 늘린다(max_tokens=4096).
+        // 저쪽에서 필수라 늘 붙인다. 프로필이 아는 모델이면 그쪽 값이 이긴다.
         max_tokens: ANTHROPIC_MAX_TOKENS,
-        temperature: Number(one.temperature),
         ...(system ? { system } : {}),
         messages: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
       };
     },
     answerOf: (json) => (json?.content || []).map((part) => part?.text || "").join(""),
     modelsOf: (json) => (json?.data || []).map((m) => m?.id),
+    usageOf: (json) => pickUsage(json?.usage?.input_tokens, json?.usage?.output_tokens, json?.usage?.output_tokens_details?.thinking_tokens),
+  },
+
+  /**
+   * 구글 AI 스튜디오 — 제미니 네이티브.
+   *
+   * **OpenAI 호환층(/v1beta/openai)을 쓰지 않는다.** 호환층으로는 추론 설정이 저쪽 규격과
+   * 어긋나고, 모델 프로필이 적어 둔 경로(generationConfig.…)도 네이티브 기준이다.
+   * 버텍스와 본문이 같고 주소·인증만 다르다.
+   */
+  gemini: {
+    chatUrl: (one) => `${endpointOf(one)}/models/${one.model || ""}:generateContent`,
+    modelsUrl: (one) => `${endpointOf(one)}/models`,
+    headers: async (one) => {
+      const key = await keyFor(one);
+      return { "Content-Type": "application/json", ...(key ? { "x-goog-api-key": key } : {}) };
+    },
+    body: geminiBody,
+    answerOf: geminiAnswer,
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false }),
+    // { models: [{ name: "models/gemini-3.7-flash" }] }
+    modelsOf: (json) =>
+      (json?.models || []).map((m) =>
+        String(m?.name || "")
+          .split("/")
+          .pop(),
+      ),
   },
 
   /**
@@ -312,7 +485,7 @@ const DIALECTS = {
    *   · 본문이 messages 가 아니라 contents/parts 이고, assistant 를 model 이라 부른다.
    *   · system 은 systemInstruction 이라는 딴 칸이다.
    *   · 온도 같은 것은 맨 위가 아니라 generationConfig 안에 있다 —
-   *     그래서 extra 로 적은 것도 그 안으로 넣는다(맨 위에 두면 조용히 무시된다).
+   *     추가 파라미터도 `generationConfig.topP=0.9` 처럼 **경로를 적어** 넣는다.
    */
   vertex: {
     chatUrl: (one) => `${vertexBase(one)}/publishers/google/models/${one.model || ""}:generateContent`,
@@ -324,18 +497,9 @@ const DIALECTS = {
       const token = await require("./googleAuth").accessToken(configData.aiKeyOf(one.provider), { baseDir: configData.configDir(), timeoutMs: Number(one.timeoutMs) });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
-    body: (one, messages) => {
-      const system = messages
-        .filter((m) => m.role === "system")
-        .map((m) => m.content)
-        .join("\n\n");
-      return {
-        contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        generationConfig: { temperature: Number(one.temperature) },
-      };
-    },
-    answerOf: (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join(""),
+    body: geminiBody,
+    answerOf: geminiAnswer,
+    usageOf: (json) => pickUsage(json?.usageMetadata?.promptTokenCount, json?.usageMetadata?.candidatesTokenCount, json?.usageMetadata?.thoughtsTokenCount, { thoughtsInOutput: false }),
     // { publisherModels: [{ name: "publishers/google/models/gemini-3-pro" }] }
     modelsOf: (json) =>
       (json?.publisherModels || []).map((m) =>
@@ -343,8 +507,6 @@ const DIALECTS = {
           .split("/")
           .pop(),
       ),
-    // extra 는 맨 위가 아니라 generationConfig 로 간다
-    extraInto: "generationConfig",
   },
 };
 
@@ -361,37 +523,137 @@ function vertexBase(one) {
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MAX_TOKENS = 1024;
 
+/**
+ * 응답이 알려 준 실제 토큰 수. 없으면 null — 추산으로 메우지 않는다.
+ *
+ * **사고 토큰을 어디에 넣는지가 회사마다 다르다.** OpenAI·앤트로픽은 출력 안에 들어
+ * 있고, 제미니는 따로 잡혀 합계에만 더해진다. 그래서 출력은 늘 "사고까지 합친 값"으로
+ * 맞춰 둔다 — 화면이 규격을 알 필요가 없게.
+ */
+const pickUsage = (input, output, thoughts, { thoughtsInOutput = true } = {}) => {
+  if (typeof input !== "number") return null;
+  const think = typeof thoughts === "number" ? thoughts : null;
+  let out = typeof output === "number" ? output : null;
+  if (out !== null && think !== null && !thoughtsInOutput) out += think;
+  return { input, output: out, thoughts: think };
+};
+
 const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
 /** 보낼 것 한 벌 — 미리보기도 이것을 쓴다. */
+/**
+ * 모델이 받는다고 적혀 있는 칸만 싣는다. 모델을 바꾸면 안 받는 칸은 저절로 빠진다 —
+ * Astra 에서 고른 effort=max 를 none 만 받는 모델에 그대로 보내면 400 이다.
+ */
+// 저쪽이 배열을 바라는 칸에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤거나
+// 프로필이 바뀌어 종류가 달라졌을 수 있으니 보내기 전에 한 번 본다.
+function typeOk(type, value) {
+  if (type === "stringArray") return Array.isArray(value);
+  if (type === "json") return value !== null && typeof value === "object";
+  if (type === "integer" || type === "number") return typeof value === "number" && Number.isFinite(value);
+  if (type === "boolean") return typeof value === "boolean";
+  if (type === "string") return typeof value === "string";
+  return true;
+}
+
+const usable = (field, value) => {
+  if (value === undefined || value === "") return false;
+  if (field.enum && !field.enum.some((e) => e.value === value)) return false;
+  return typeOk(field.type, value);
+};
+
+/**
+ * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다 —
+ * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
+ */
+async function countTokens(one, messages) {
+  try {
+    const tokens = require("./aiTokens");
+    const spec = specOf(one.provider);
+    const by = tokens.tokenizerFor(spec?.registry, one.model);
+
+    if (by === "claude") {
+      const exact = await tokens.countByAnthropic(messages, { model: one.model, apiKey: await keyFor(one), timeoutMs: Number(one.timeoutMs) });
+      if (exact !== null) return { total: exact, body: exact - tokens.FRAMING.anthropic.perRequest, by: "claude", exact: true };
+    }
+    return tokens.countMessages(messages, by, spec?.dialect || "openai");
+  } catch {
+    return null; // 못 세도 요청은 나가야 한다
+  }
+}
+
+function withParams(body, one) {
+  const registry = specOf(one.provider)?.registry;
+  if (!registry || !one.model) return body;
+
+  const models = require("./aiModels");
+  const out = deepMerge(body, models.defaultsOf(registry, one.model));
+  // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다 —
+  // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
+  const picked = one.params?.[one.model] || {};
+  const fields = models.fieldsOf(registry, one.model);
+  const valueOf = (field) => [picked[field.key], field.default].find((one) => usable(field, one));
+
+  for (const field of fields) {
+    // 화면에서 가려진 칸은 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다 —
+    // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
+    if (field.showIf) {
+      const owner = fields.find((one) => one.key === field.showIf.key);
+      if (!owner || valueOf(owner) !== field.showIf.equals) continue;
+    }
+    // 고른 값이 못 쓸 것이면(종류가 틀리거나 그 모델이 안 받는 값) 프로필 기본값으로 떨어진다
+    const value = valueOf(field);
+    if (value !== undefined) setPath(out, field.path, value);
+  }
+  return out;
+}
+
 async function buildRequest(one, batch, genre) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
+  const messages = buildMessages(one, batch, genre);
 
-  const body = withExtra(dialect, dialect.body(one, buildMessages(one, batch, genre)), extra);
-  return { url: dialect.chatUrl(one), headers: { ...(await dialect.headers(one)), ...extra.headers }, body };
+  // 추가 파라미터가 맨 나중이다 — 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
+  const body = withExtra(dialect, withParams(dialect.body(one, messages), one), extra);
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, messages, problems: extra.problems, tokens: await countTokens(one, messages) };
 }
 
 /**
  * 추가 파라미터를 본문에 얹는다.
  *
- * 버텍스는 온도 같은 것이 맨 위가 아니라 generationConfig 안에 있다(extraInto).
+ * 버텍스는 온도 같은 것이 맨 위가 아니라 generationConfig 안에 있다.
  * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다 — 가장 알아채기 어려운 종류다.
  */
-function withExtra(dialect, body, extra) {
-  const where = dialect.extraInto;
-  if (!where) {
-    const out = { ...body, ...extra.body };
-    // {{none}} 은 얹은 뒤에 지워야 temperature 처럼 늘 붙는 것도 뺄 수 있다
-    for (const key of extra.drop) delete out[key];
-    return out;
+/** 안쪽 칸까지 합친다 — 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
+function deepMerge(base, add) {
+  const out = { ...base };
+  for (const [key, value] of Object.entries(add)) {
+    if (UNSAFE_KEYS.has(key)) continue; // setPath 와 같은 이유
+    const mine = out[key];
+    const both = (v) => v && typeof v === "object" && !Array.isArray(v);
+    out[key] = both(mine) && both(value) ? deepMerge(mine, value) : value;
   }
+  return out;
+}
 
-  const inner = { ...(body[where] || {}), ...extra.body };
-  for (const key of extra.drop) delete inner[key];
-  const out = { ...body, [where]: inner };
-  // 안쪽이 통째로 비었으면 칸도 빼 준다
-  if (!Object.keys(inner).length) delete out[where];
+/** 헤더를 얹고, header::Name={{none}} 으로 지우라고 한 것을 뺀다. 이름의 대소문자는 안 가린다. */
+function headersWith(base, extra) {
+  const out = { ...base, ...extra.headers };
+  for (const name of extra.dropHeaders || []) {
+    for (const key of Object.keys(out)) if (key.toLowerCase() === String(name).toLowerCase()) delete out[key];
+  }
+  return out;
+}
+
+/**
+ * **경로는 언제나 본문 맨 위부터다.** 다이얼렉트마다 다른 자리로 넣어 주지 않는다 —
+ * 버텍스처럼 안쪽 칸을 쓰는 곳은 `generationConfig.topP=0.9` 로 적는다.
+ * 모델 프로필의 mapsTo.path 도 같은 규칙이라, 두 길이 어긋나지 않는다.
+ */
+function withExtra(_dialect, body, extra) {
+  const out = deepMerge(body, extra.body);
+  // {{none}} 은 얹은 뒤에 지워야 앤트로픽 max_tokens 처럼 늘 붙는 것도 뺄 수 있다
+  for (const path of extra.drop) delPath(out, path);
   return out;
 }
 
@@ -400,6 +662,27 @@ function withExtra(dialect, body, extra) {
 // 같은 자리에 오는 다른 폭의 공백(U+00A0 · U+3000)도 함께 본다.
 const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
 const despace = (text) => text.replace(ODD_SPACE, " ");
+
+/**
+ * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말을 곧잘 붙이므로 배열만 집는다.
+ * 못 읽으면 null — 부르는 쪽이 원문을 그대로 보여 준다.
+ */
+function readVerdicts(text, count) {
+  const found = String(text || "").match(/\[[\s\S]*\]/);
+  if (!found) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(despace(found[0]));
+  } catch {
+    return null;
+  }
+  const out = new Array(count).fill(null);
+  for (const verdict of Array.isArray(parsed) ? parsed : []) {
+    const at = Number(verdict?.n) - 1;
+    if (at >= 0 && at < count) out[at] = { song: !!verdict.song, fits: !!verdict.fits };
+  }
+  return out;
+}
 
 async function askBatch(one, batch, genre) {
   const request = await buildRequest(one, batch, genre);
@@ -416,15 +699,8 @@ async function askBatch(one, batch, genre) {
   if (!res.ok) throw new Error(`HTTP ${res.status} — ${mask(await res.text()).slice(0, 300)}`);
 
   const text = dialectOf(one).answerOf(await res.json()) || "";
-  // 작은 모델은 ```json 울타리나 앞말을 곧잘 붙인다. 배열만 집어낸다.
-  const found = text.match(/\[[\s\S]*\]/);
-  if (!found) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
-
-  const out = new Array(batch.length).fill(null);
-  for (const verdict of JSON.parse(despace(found[0]))) {
-    const at = Number(verdict?.n) - 1;
-    if (at >= 0 && at < batch.length) out[at] = { song: !!verdict.song, fits: !!verdict.fits };
-  }
+  const out = readVerdicts(text, batch.length);
+  if (!out) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
   return out;
 }
 
@@ -577,7 +853,7 @@ async function ping(draft) {
   const extra = parseExtra(one.extra);
   const body = withExtra(dialect, dialect.body(one, [{ role: "user", content: PING_TEXT }]), extra);
 
-  const headers = { ...(await dialect.headers(one)), ...extra.headers };
+  const headers = headersWith(await dialect.headers(one), extra);
 
   const started = Date.now();
   try {
@@ -609,7 +885,7 @@ const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", dura
 async function preview(draft, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
   const request = await buildRequest(one, SAMPLE, genre);
-  return { url: request.url, headers: safeHeaders(request.headers), body: request.body };
+  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems };
 }
 
 // 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
@@ -630,11 +906,48 @@ function safeHeaders(headers) {
   return out;
 }
 
-/** 같은 것을 **실제로 보낸다.** 나간 것과 온 것을 손대지 않고 그대로 준다. */
-async function sendTest(draft, genre = "록") {
+/**
+ * 유튜브 주소로 후보를 만든다 — 판정 테스트가 진짜 곡으로 시험할 수 있게.
+ * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
+ */
+async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
+  const YouTube = require("./YouTube");
+  const out = [];
+  for (const raw of (urls || []).slice(0, 20)) {
+    const url = String(raw || "").trim();
+    if (!url) continue;
+    if (!YouTube.isYouTubeURL(url)) {
+      out.push({ url, error: "유튜브 주소가 아닙니다." });
+      continue;
+    }
+    try {
+      const info = await Promise.race([YouTube.getInfo(url), new Promise((_, no) => setTimeout(() => no(new Error("시간이 걸려 그만뒀습니다.")), timeoutMs))]);
+      out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
+    } catch (error) {
+      out.push({ url, error: error.message || "정보를 읽지 못했습니다." });
+    }
+  }
+  return out;
+}
+
+/** 그 후보들이 실제로 프롬프트에 어떻게 적히는지. 모델에게 가는 그 줄 그대로다. */
+function renderList(draft, cands, genre = "록") {
+  const one = { ...DEFAULTS, ...settings(), ...(draft || {}) };
+  return (cands || []).map((cand, i) => renderLine(one.list, cand, genre, i));
+}
+
+/**
+ * 고른 후보들을 실제로 판정시킨다 — SAMPLE 이 아니라 진짜 곡으로.
+ * 나간 것·온 것·곡별 판정을 같이 준다.
+ */
+async function judgeTest(draft, cands, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
-  const request = await buildRequest(one, SAMPLE, genre);
-  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, status: null, response: "" };
+  // 고른 것이 없으면 보기 곡으로 돌린다 — 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
+  const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
+  const usable = picked.length ? picked : SAMPLE;
+
+  const request = await buildRequest(one, usable, genre);
+  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems, status: null, response: "", verdicts: null };
 
   const started = Date.now();
   try {
@@ -645,7 +958,17 @@ async function sendTest(draft, genre = "록") {
       signal: AbortSignal.timeout(Number(one.timeoutMs)),
     });
     out.status = res.status;
-    out.response = mask(await res.text()); // 다듬지 않는다 — 무엇이 왔는지 그대로 봐야 한다
+    const text = await res.text();
+    out.response = mask(text);
+    try {
+      const json = JSON.parse(text);
+      out.usage = dialectOf(one).usageOf?.(json) || null;
+      // 판정은 곡마다 한 줄이다. 못 읽으면 null — 원문은 위에 그대로 있다.
+      const answered = readVerdicts(dialectOf(one).answerOf(json), usable.length);
+      out.verdicts = answered ? usable.map((cand, i) => ({ title: cand.title, url: cand.url, ...(answered[i] || { song: null, fits: null }) })) : null;
+    } catch {
+      out.verdicts = null;
+    }
   } catch (error) {
     out.response = mask(String(error.message));
   }
@@ -680,4 +1003,4 @@ function mask(text) {
   return out;
 }
 
-module.exports = { filter, accepts, settings, preview, sendTest, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+module.exports = { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };

@@ -30,7 +30,7 @@ fs.writeFileSync(SA_PATH, JSON.stringify({ client_email: "bot@p.iam.gserviceacco
 
 function useConfig(yaml, sections) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
-  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${SA_PATH}\n`);
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\naistudio: ${KEY}\nvertex: ${SA_PATH}\n`);
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
   else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), configData.toChatML(sections));
   configData._setConfigDir(DIR);
@@ -175,7 +175,7 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
 // ── 요청 모양 ────────────────────────────────────────────────────────────
 
 test("설정한 것이 그대로 요청에 실린다", async () => {
-  useConfig(`${ON}temperature: 0.4\nextra: |\n  think=false\n  reasoning_effort=low\n`, [
+  useConfig(`${ON}extra: |\n  think=false\n  reasoning_effort=low\n  temperature=0.4\n`, [
     { role: "system", text: "내가 쓴 기준" },
     { role: "user", text: "{{목록}}" },
   ]);
@@ -186,8 +186,8 @@ test("설정한 것이 그대로 요청에 실린다", async () => {
   const sent = calls.at(-1);
   assert.equal(sent.url, "http://127.0.0.1:11434/v1/chat/completions");
   assert.equal(sent.body.model, "test-model");
-  assert.equal(sent.body.temperature, 0.4);
   assert.equal(sent.body.think, false, "서비스마다 다른 값은 extra 로 그대로 얹는다");
+  assert.equal(sent.body.temperature, 0.4, "프로필이 없는 프로바이더는 extra 로 적는다");
   assert.equal(sent.body.reasoning_effort, "low");
   assert.equal(sent.body.messages[0].content, "내가 쓴 기준", "프롬프트를 적었으면 그것을 쓴다");
   assert.match(sent.body.messages[1].content, /장르=록/);
@@ -288,13 +288,58 @@ test("길이를 모르는 후보 — 낱말째 빼거나, 글자로 적거나, 0
 
 // ── 추가 파라미터 ─────────────────────────────────────────────────────────
 
-// 서비스마다 이름도 자리도 달라 글로 받는다. 네 가지 꼴을 지원한다.
+// 서비스마다 이름도 자리도 달라 글로 받는다. RisuAI 와 같은 입력법이다.
 test("추가 파라미터 — 값·JSON·헤더·빼기", () => {
   const got = assist.parseExtra(["think=false", "reasoning_effort=low", "top_p=0.9", 'response_format=json::{"type":"json_object"}', "header::X-Title=Discord Musicbot", "temperature={{none}}", "# 주석은 건너뛴다", "", "이름없음"].join("\n"));
 
   assert.deepEqual(got.body, { think: false, reasoning_effort: "low", top_p: 0.9, response_format: { type: "json_object" } });
   assert.deepEqual(got.headers, { "X-Title": "Discord Musicbot" });
   assert.deepEqual(got.drop, ["temperature"]);
+  assert.deepEqual(got.problems, ["이름이 없습니다: 이름없음"]);
+});
+
+// **점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다.** 키 이름이 통째로 들어가 조용히 무시됐다.
+test("추가 파라미터 — 점 표기로 안쪽 칸에 넣는다", () => {
+  const got = assist.parseExtra(["thinking.budget_tokens=1024", "thinking.type=enabled", "generationConfig.thinkingConfig.thinkingLevel=high"].join("\n"));
+
+  assert.deepEqual(got.body, {
+    thinking: { budget_tokens: 1024, type: "enabled" },
+    generationConfig: { thinkingConfig: { thinkingLevel: "high" } },
+  });
+});
+
+// 값을 어떻게 읽을지. 따옴표로 두르면 숫자처럼 보여도 글자다.
+test("추가 파라미터 — 값의 꼴", () => {
+  const got = assist.parseExtra(['seed="123"', "stop=null", "n=2", "flag=true", "name=그냥 글자", 'cfg=json::{"a":True,"b":None}'].join("\n"));
+
+  assert.equal(got.body.seed, "123", "따옴표를 벗기고 글자로 둔다");
+  assert.equal(got.body.stop, null);
+  assert.equal(got.body.n, 2);
+  assert.equal(got.body.flag, true);
+  assert.equal(got.body.name, "그냥 글자");
+  assert.deepEqual(got.body.cfg, { a: true, b: null }, "파이썬 꼴 키워드도 읽는다");
+});
+
+// 조용히 버리면 "왜 안 먹지"가 된다. 못 읽은 줄은 돌려줘서 화면이 보여 준다.
+test("추가 파라미터 — 못 읽은 줄을 알려 준다", () => {
+  const got = assist.parseExtra(["cfg=json::{깨짐", "empty=", "ok=1"].join("\n"));
+
+  assert.deepEqual(got.body, { ok: 1 }, "멀쩡한 줄은 살린다");
+  assert.equal(got.problems.length, 2);
+  assert.match(got.problems.join(" "), /JSON 으로 못 읽었습니다: cfg/);
+  assert.match(got.problems.join(" "), /값이 없습니다: empty/);
+});
+
+// {{none}} 을 header:: 보다 먼저 봐야 한다 — 반대로 보면 헤더에 "{{none}}" 을 넣게 된다.
+test("헤더도 {{none}} 으로 지운다", async () => {
+  useConfig(`${ON}extra: |\n  header::Authorization={{none}}\n  header::X-Title=지움 확인\n`);
+  calls.length = 0;
+  answers('[{"n":1,"song":true,"fits":true}]');
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.init.headers.Authorization, undefined, "지우라고 한 헤더는 안 나간다");
+  assert.equal(sent.init.headers["X-Title"], "지움 확인", "나머지 헤더는 그대로");
 });
 
 test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
@@ -307,6 +352,187 @@ test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
   assert.equal(sent.init.headers["X-Title"], "Musicbot");
   assert.ok(!("temperature" in sent.body), "{{none}} 은 아예 안 보낸다");
   assert.equal(sent.body.top_p, 0.5);
+});
+
+// ── 모델 프로필이 정한 칸 ────────────────────────────────────────────────
+
+// 값이 본문 어디로 가는지는 모델 프로필이 안다(data/ai-models.json).
+test("params 는 프로필이 적어 둔 경로로 간다", async () => {
+  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: high\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.output_config.effort, "high");
+  assert.equal(sent.body.thinking?.type, "adaptive", "안 고른 칸은 프로필 기본값으로");
+});
+
+// 모델을 바꾸면 그 모델이 안 받는 값은 저절로 빠져야 한다 — 그대로 보내면 400 이다.
+test("그 모델이 안 받는 값은 안 보낸다", async () => {
+  // Astra 는 reasoning_effort 에 none 을 안 받는다(프로필 enum 에 없다)
+  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    reasoning_effort: none\n    없는칸: 1\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.reasoning_effort, undefined, "enum 에 없는 값은 버린다");
+  assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 칸도 버린다");
+});
+
+// 장르는 한 요청에 하나다 — 모든 줄이 같은 값을 쓰므로 프롬프트에서도 쓸 수 있다.
+test("{{장르}} 는 프롬프트에서도 풀린다", async () => {
+  useConfig(`${ON}`, [
+    { role: "system", text: "너는 {{장르}} 판정기다" },
+    { role: "user", text: "{{목록}}" },
+  ]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), { genre: "재즈" });
+  assert.equal(calls.at(-1).body.messages[0].content, "너는 재즈 판정기다");
+});
+
+// 저쪽이 배열을 바라는 칸에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤을 수 있다.
+test("종류가 안 맞는 값은 안 보낸다", async () => {
+  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop: 그냥글자\n    seed: 열둘\n    logprobs: 켬\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.stop, undefined, "배열 칸에 글자는 안 보낸다");
+  assert.equal(sent.body.seed, undefined, "숫자 칸에 글자는 안 보낸다");
+  assert.equal(sent.body.logprobs, false, "종류가 틀리면 프로필 기본값으로 떨어진다");
+});
+
+// 배열·JSON 칸도 제 모양이면 그대로 실린다.
+test("배열과 JSON 칸은 제 모양이면 실린다", async () => {
+  useConfig("provider: openai\nmodel: gpt-6-astra\nparams:\n  gpt-6-astra:\n    stop:\n      - 끝\n      - 그만\n    metadata:\n      who: musicbot\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.deepEqual(sent.body.stop, ["끝", "그만"]);
+  assert.deepEqual(sent.body.metadata, { who: "musicbot" });
+});
+
+// 화면에 안 보이는(고급) 칸이라도 프로필 기본값은 붙어야 한다.
+test("프로필 기본값은 고르지 않아도 붙는다", async () => {
+  useConfig("provider: openai\nmodel: gpt-6-astra\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+  assert.equal(sent.body.max_completion_tokens, 8192);
+  assert.equal(sent.body.parallel_tool_calls, true);
+  assert.equal(sent.body.logprobs, false);
+});
+
+// 켰다 끈 값이 params 에 남는다. 그대로 보내면 저쪽이 거절한다 —
+// top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
+test("조건이 안 맞는 칸은 보내지 않는다", async () => {
+  const withLogprobs = (on) => "provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-5.5:\n    logprobs: " + on + "\n    top_logprobs: 5\n";
+
+  useConfig(withLogprobs("true"), [{ role: "user", text: "{{목록}}" }]);
+  answers("[]");
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.top_logprobs, 5, "켜 두었으면 나간다");
+
+  useConfig(withLogprobs("false"), [{ role: "user", text: "{{목록}}" }]);
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.logprobs, false);
+  assert.ok(!("top_logprobs" in calls.at(-1).body), "끄면 딸린 칸도 안 나간다");
+});
+
+// 온도도 모델이 받는 칸 하나다 — 프로필이 적어 둔 자리로 들어간다(제미니는 generationConfig 안).
+// 끝 슬래시를 떼는 정규식이 역추적으로 O(n²) 였다 — 20만 글자에 12.4초 동안 이벤트 루프가 멈췄다.
+test("긴 주소에도 끝 슬래시 떼기가 느려지지 않는다", () => {
+  const one = { provider: "custom", baseUrl: "/".repeat(200_000) + "x" };
+  const started = Date.now();
+  assist.endpointOf(one);
+  assert.ok(Date.now() - started < 500, "선형이어야 한다");
+
+  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "http://x/v1///" }), "http://x/v1", "하던 일은 그대로");
+  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "" }), "");
+});
+
+// 점 경로는 설정 글에서만 오는 것이 아니다 — **모델 레지스트리의 mapsTo.path** 로도 온다.
+// 레지스트리는 우리가 내려받는 남의 데이터라, `__proto__` 한 마디로 프로세스 전체가 오염될 수 있었다.
+test("점 경로로 Object.prototype 을 오염시킬 수 없다", () => {
+  for (const name of ["__proto__.뚫림", "constructor.prototype.뚫림", "a.__proto__.뚫림"]) {
+    const got = assist.parseExtra(`${name}=1`);
+    assert.deepEqual(got.body, {}, name);
+    assert.match(got.problems.join(" "), /쓸 수 없는 이름/, `${name} — 조용히 버리지 않고 알려 준다`);
+  }
+  assert.equal({}.뚫림, undefined, "Object.prototype 이 멀쩡해야 한다");
+});
+
+// 멀쩡한 점 경로는 그대로 통해야 한다 — 위 가드가 과하게 막으면 안 된다
+test("평범한 점 경로는 막지 않는다", () => {
+  const got = assist.parseExtra("generationConfig.topP=0.9");
+  assert.deepEqual(got.body, { generationConfig: { topP: 0.9 } });
+  assert.deepEqual(got.problems, []);
+});
+
+test("온도는 params 를 타고 프로필이 적은 자리로 간다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\nparams:\n  gemini-3.7-flash:\n    temperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
+    if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.generationConfig.temperature, 0.7);
+
+  // 안 적으면 아예 안 보낸다 — 저쪽이 안 받는 모델도 있다
+  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{목록}}" }]);
+  await assist.accepts(cand("A"), {});
+  assert.ok(!("temperature" in (calls.at(-1).body.generationConfig || {})));
+});
+
+// 모델을 바꾸면 앞 모델에서 고른 값이 따라오면 안 된다.
+test("params 는 모델마다 따로 기억한다", async () => {
+  useConfig("provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-6-astra:\n    reasoning_effort: max\n  gpt-5.5:\n    reasoning_effort: none\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  answers("[]");
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.reasoning_effort, "none", "고른 모델 것만 쓴다");
+});
+
+// 앤트로픽은 max_tokens 가 필수다 — 프로필의 defaults 가 채운다.
+test("프로필의 기본값은 늘 붙는다", async () => {
+  useConfig("provider: anthropic\nmodel: claude-opus-5\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.max_tokens, 4096);
+});
+
+// 추가 파라미터는 프로필이 모르는 것을 넣는 비상구다 — 마지막 말을 갖는다.
+test("추가 파라미터가 params 를 이긴다", async () => {
+  useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: low\nextra: output_config.effort=max\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.at(-1).body.output_config.effort, "max");
 });
 
 // ── 프롬프트 파일(ChatML) ─────────────────────────────────────────────────
@@ -338,7 +564,7 @@ test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => 
 
 // ── 미리보기 ─────────────────────────────────────────────────────────────
 
-const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", temperature: 0, extra: "think=false" };
+const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", extra: "think=false" };
 
 // **미리보기는 아무 데도 안 나간다.** 테스트만 실제로 보낸다 — 둘을 섞으면
 // "키도 안 넣었는데 왜 응답이 오지"가 된다.
@@ -369,7 +595,7 @@ test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다",
     return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"[]"}}]}' };
   };
 
-  const shown = await assist.sendTest(DRAFT, "록");
+  const shown = await assist.judgeTest(DRAFT, [], "록");
   assert.equal(calls.length, 1, "한 번 나간다");
   assert.equal(shown.status, 200);
   assert.match(shown.response, /choices/, "응답은 손대지 않고 그대로 준다");
@@ -380,7 +606,7 @@ test("테스트는 못 보내도 던지지 않는다", async () => {
   global.fetch = async () => {
     throw new Error("연결 실패");
   };
-  const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
+  const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, null);
   assert.match(shown.response, /연결 실패/);
 });
@@ -389,7 +615,7 @@ test("테스트는 못 보내도 던지지 않는다", async () => {
 test("응답에 키가 섞여 와도 가려서 준다", async () => {
   global.fetch = async () => ({ ok: false, status: 401, text: async () => `bad key: ${KEY}` });
 
-  const shown = await assist.sendTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" });
+  const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, 401);
   assert.ok(!shown.response.includes(KEY), shown.response);
   // 별표만 있으면 원래 그런 값인 줄 안다 — 무엇이 가려졌는지 이름을 붙인다
@@ -509,7 +735,7 @@ test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
 
 // OpenAI 와 다른 것 셋: system 이 본문 맨 위 칸, max_tokens 가 필수, 인증이 x-api-key.
 test("앤트로픽은 네이티브 규격으로 보낸다", async () => {
-  useConfig("provider: anthropic\nmodel: claude-x\ntemperature: 0\n", [
+  useConfig("provider: anthropic\nmodel: claude-x\n", [
     { role: "system", text: "기준 하나" },
     { role: "system", text: "기준 둘" },
     { role: "user", text: "{{목록}}" },
@@ -557,7 +783,7 @@ test("앤트로픽 모델 목록과 max_tokens 덮어쓰기", async () => {
 
 // 여기만 유난히 다르다: 주소를 조립하고, 토큰으로 인증하고, 본문이 contents/parts 다.
 test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\ntemperature: 0\n", [
+  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [
     { role: "system", text: "기준이다" },
     { role: "user", text: "{{목록}}" },
   ]);
@@ -584,8 +810,10 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
   assert.ok(!("messages" in sent.body));
 });
 
-test("버텍스: assistant 는 model 이고, extra 는 generationConfig 로 간다", async () => {
-  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: topP=0.9\n", [
+// **경로는 언제나 본문 맨 위부터다.** 버텍스라고 generationConfig 안으로 넣어 주지 않는다 —
+// 모델 프로필의 mapsTo.path 와 같은 규칙이라야 두 길이 어긋나지 않는다.
+test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경로 그대로 간다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: generationConfig.topP=0.9\n", [
     { role: "assistant", text: "알겠다" },
     { role: "user", text: "{{목록}}" },
   ]);
@@ -608,6 +836,30 @@ test("버텍스: assistant 는 model 이고, extra 는 generationConfig 로 간�
   assert.ok(!("topP" in sent.body));
   // global 리전은 호스트가 다르다
   assert.match(sent.url, /^https:\/\/aiplatform\.googleapis\.com\//);
+});
+
+// AI 스튜디오도 제미니 네이티브다. OpenAI 호환층(/v1beta/openai)을 쓰면 추론 설정이
+// 저쪽 규격과 어긋나고, 모델 프로필이 적어 둔 경로도 네이티브 기준이다.
+test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
+  useConfig("provider: aistudio\nmodel: gemini-3.7-flash\nextra: generationConfig.topP=0.5\n", [
+    { role: "system", text: "너는 판정기다" },
+    { role: "user", text: "{{목록}}" },
+  ]);
+  calls.length = 0;
+  global.fetch = async (url, init) => {
+    calls.push({ url, init, body: JSON.parse(init.body) });
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
+  };
+
+  await assist.accepts(cand("A"), {});
+  const sent = calls.at(-1);
+
+  assert.match(sent.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-3\.7-flash:generateContent$/);
+  assert.equal(sent.init.headers["x-goog-api-key"], KEY, "키는 x-goog-api-key 로 간다");
+  assert.equal(sent.init.headers.Authorization, undefined, "Bearer 가 아니다");
+  assert.ok(sent.body.contents, "messages 가 아니라 contents 다");
+  assert.equal(sent.body.systemInstruction.parts[0].text, "너는 판정기다");
+  assert.equal(sent.body.generationConfig.topP, 0.5, "추가 파라미터도 적은 경로 그대로");
 });
 
 // 모델 목록은 생성과 **주소 체계가 다르다**(프로젝트·리전이 안 붙는다).
@@ -674,7 +926,7 @@ test("버텍스: 서비스 계정 키와 토큰이 밖으로 나가지 않는다
   };
   require("../src/googleAuth")._reset();
 
-  const shown = await assist.sendTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" });
+  const shown = await assist.judgeTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" }, []);
   const dump = JSON.stringify(shown);
   assert.ok(!dump.includes("PRIVATE KEY"), "서비스 계정 키가 나가면 안 된다");
   assert.ok(!dump.includes(PRIVATE_KEY.slice(40, 90)));

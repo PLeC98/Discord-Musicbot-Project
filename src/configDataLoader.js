@@ -605,7 +605,8 @@ function validateAi(data) {
     const value = Number(data[key]);
     if (!Number.isFinite(value) || value < min || value > max) problems.push(`${key}는 ${min}~${max} 사이여야 합니다.`);
   };
-  num("temperature", 0, 2);
+  // 온도도 모델이 받는 칸 하나다 — params 아래로 옮겼다. 남아 있으면 조용히 무시되므로 알린다.
+  if (data?.temperature != null) problems.push("temperature는 params 아래에 모델별로 적습니다.");
   num("timeoutMs", 1000, 600000);
   num("batchSize", 1, 50);
 
@@ -615,6 +616,20 @@ function validateAi(data) {
 
   for (const key of ["project", "location"]) {
     if (data?.[key] != null && typeof data[key] !== "string") problems.push(`${key}는 글자로 적어야 합니다.`);
+  }
+
+  // 모델이 받는 칸의 값. **모델 이름으로 한 겹 나뉜다** — 안 그러면 모델을 바꿨을 때
+  // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(autoplayAssist.withParams).
+  if (data?.params != null) {
+    if (typeof data.params !== "object" || Array.isArray(data.params)) {
+      problems.push("params는 모델 이름 아래에 칸을 적는 표여야 합니다.");
+    } else {
+      for (const [model, values] of Object.entries(data.params)) {
+        if (values != null && (typeof values !== "object" || Array.isArray(values))) {
+          problems.push(`params.${model} 은 칸 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).`);
+        }
+      }
+    }
   }
 
   // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.

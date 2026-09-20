@@ -41,22 +41,35 @@
       <template v-if="on">
         <span :class="[labelCls, 'mt-3']">모델</span>
         <div class="flex items-center gap-2 flex-wrap">
-          <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침 (무료)'" @click="loadModels()">
+          <button :class="iconBtn" :disabled="loadingModels" v-tooltip="'모델 목록 새로고침'" @click="loadModels()">
             <Icon name="repeat" :size="15" :class="loadingModels ? 'opacity-40' : ''" />
           </button>
 
           <div v-if="models.length && !manualModel" class="relative flex-1 min-w-40">
-            <select v-model="draft.model" :class="[inputCls, selectCls]">
-              <option v-for="one in models" :key="one" :value="one" :class="optionCls">{{ one }}</option>
+            <select v-model="draft.model" :class="[inputCls, selectCls]" @change="rememberModel(draft.provider, draft.model)">
+              <option v-for="one in modelChoices" :key="one.id" :value="one.id" :class="optionCls">{{ one.label }}</option>
             </select>
             <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
           </div>
-          <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1 min-w-40']" />
+          <input v-else v-model="draft.model" placeholder="모델 이름" :class="[inputCls, 'flex-1 min-w-40']" @change="rememberModel(draft.provider, draft.model)" />
 
           <label class="flex items-center gap-2 cursor-pointer shrink-0" v-tooltip="models.length ? '' : '목록을 못 받았으면 직접 적어야 합니다'">
             <input v-model="manualModel" type="checkbox" class="size-4 accent-accent shrink-0" :disabled="!models.length" />
             <span class="text-[0.82rem]" :class="models.length ? '' : 'text-muted'">직접 입력하기</span>
           </label>
+        </div>
+
+        <div v-if="models.length || hideModels.length" class="mt-3">
+          <button type="button" class="w-full flex items-center justify-between text-left py-1.5 cursor-pointer group" @click="showHide = !showHide">
+            <span class="text-[0.8rem] text-muted group-hover:text-fg-soft transition-colors"
+              >모델 목록에서 가릴 것<span v-if="hideModels.length" class="ml-1.5 text-muted/70">{{ hideModels.length }}</span></span
+            >
+            <svg class="text-muted transition-transform duration-200" :class="showHide ? 'rotate-180' : ''" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+          </button>
+          <div v-if="showHide" class="pt-1 pb-1">
+            <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 제외합니다. <code class="text-fg-soft">*</code> 만 와일드카드 패턴으로 판정하며 대소문자를 가리지 않습니다. 영상·이미지 모델이나 구식 모델을 제외하는 용도입니다.</p>
+            <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
+          </div>
         </div>
 
         <!-- 버텍스는 주소를 이 둘로 조립한다. 모델까지 정해야 주소가 완성되므로 아래에 둔다. -->
@@ -124,12 +137,63 @@
     </BaseCard>
 
     <template v-if="on">
-      <BaseCard icon="gear" title="세부 설정" class="mb-3">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'0이면 같은 질문에 같은 답을 합니다'">온도</span>
-            <input v-model="temperatureText" inputmode="decimal" placeholder="0" :class="inputCls" />
-          </label>
+      <BaseCard icon="gear" title="모델 설정" class="mb-3">
+        <div v-if="fieldInfo.fields.length" class="flex items-baseline justify-between mb-3">
+          <span :class="labelCls + ' mb-0'">{{ modelName || draft.model }}</span>
+          <span class="flex items-baseline gap-3">
+            <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft" :disabled="refreshing" v-tooltip="'모델 정보를 다시 받습니다'" @click="refreshModels">{{ refreshing ? "받는 중…" : refreshNote || "모델 정보 갱신" }}</button>
+            <button type="button" class="text-[0.78rem] text-accent hover:underline" @click="showAdvanced = !showAdvanced">{{ showAdvanced ? "기본만 보기" : "고급까지 보기" }}</button>
+          </span>
+        </div>
+
+        <div v-if="paramGroups.length">
+          <div v-for="group in paramGroups" :key="group.id" class="mb-4 last:mb-0">
+            <span class="text-[0.78rem] text-fg-soft font-medium">{{ group.label }}</span>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1.5">
+              <label v-for="field in group.fields" :key="field.key" class="block">
+                <span class="text-[0.78rem] text-muted block mb-1.5" v-tooltip="hintOf(field)">{{ field.label || field.key }}</span>
+
+                <div v-if="field.enum" class="relative">
+                  <select v-model="params[field.key]" :class="[inputCls, selectCls]">
+                    <option value="" :class="optionCls">{{ field.default ? `기본값 (${field.default})` : "기본값" }}</option>
+                    <option v-for="opt in field.enum" :key="opt.value" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
+                  </select>
+                  <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+                </div>
+
+                <label v-else-if="field.type === 'boolean'" class="flex items-center gap-2 cursor-pointer h-9">
+                  <input v-model="params[field.key]" type="checkbox" class="size-4 accent-accent shrink-0" />
+                  <span class="text-[0.82rem] text-muted">{{ params[field.key] ? "켬" : "끔" }}</span>
+                </label>
+
+                <NumberInput v-else-if="field.type === 'integer' || field.type === 'number'" v-model="params[field.key]" :decimal="field.type === 'number'" :negative="(field.min ?? 0) < 0" :placeholder="String(field.default ?? '')" :class="inputCls" />
+
+                <ChipInput v-else-if="field.type === 'stringArray'" :model-value="params[field.key] || []" placeholder="적고 Enter" @update:model-value="(v) => (params[field.key] = v.length ? v : undefined)" />
+
+                <template v-else-if="field.type === 'json'">
+                  <textarea :value="jsonText[field.key] ?? (params[field.key] ? JSON.stringify(params[field.key], null, 2) : '')" rows="3" placeholder="{ }" :class="[inputCls, 'font-mono text-[0.78rem] resize-y']" @input="(e) => onJson(field.key, e.target.value)"></textarea>
+                  <span v-if="jsonBad[field.key]" class="text-danger text-[0.75rem] mt-1 block">JSON 으로 읽지 못했습니다</span>
+                </template>
+
+                <input v-else v-model="params[field.key]" :placeholder="String(field.default ?? '')" :class="inputCls" />
+              </label>
+            </div>
+          </div>
+
+          <p v-if="paramLimits" class="text-muted text-[0.75rem]">{{ paramLimits }}</p>
+        </div>
+
+        <div class="mt-4">
+          <span :class="labelCls">추가 파라미터</span>
+          <p class="text-muted text-[0.78rem] mb-2">
+            한 줄에 하나씩. <code class="text-fg-soft">key=value</code> / <code class="text-fg-soft">key=json::{...}</code> / <code class="text-fg-soft">header::Name=value</code> / <code class="text-fg-soft">key={{ NONE_MARK }}</code> 지원.
+          </p>
+          <textarea v-model="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
+        </div>
+      </BaseCard>
+
+      <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 pb-4 border-b border-white/8">
           <label class="block">
             <span :class="labelCls" v-tooltip="'이 시간을 넘기면 포기하고 규칙으로 고릅니다'">타임아웃(초)</span>
             <NumberInput v-model="timeoutSec" :class="inputCls" />
@@ -144,22 +208,6 @@
           </label>
         </div>
 
-        <div class="mt-4">
-          <span :class="labelCls">추가 파라미터</span>
-          <p class="text-muted text-[0.78rem] mb-2">
-            한 줄에 하나씩. <code class="text-fg-soft">key=value</code> / <code class="text-fg-soft">key=json::{...}</code> / <code class="text-fg-soft">header::Name=value</code> / <code class="text-fg-soft">key={{ NONE_MARK }}</code> 지원.
-          </p>
-          <textarea v-model="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
-        </div>
-
-        <div class="mt-4">
-          <span :class="labelCls">모델 목록에서 가릴 것</span>
-          <p class="text-muted text-[0.78rem] mb-2">받아 온 목록에서 제외합니다. <code class="text-fg-soft">*</code> 만 와일드카드 패턴으로 판정하며 대소문자를 가리지 않습니다. 영상·이미지 모델이나 구식 모델을 제외하는 용도입니다.</p>
-          <ChipInput v-model="hideModels" lowercase placeholder="*sora* 처럼 적고 Enter" />
-        </div>
-      </BaseCard>
-
-      <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
         <p class="text-muted text-[0.82rem] mb-3">
           판정할 후보를 줄 마다 어떻게 적을지. 이 설정을 따라 아래 프롬프트의 <code class="text-fg-soft">{{ LIST_MARK }}</code> 자리에 곡 목록이 들어갑니다.
         </p>
@@ -199,6 +247,7 @@
             <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-2">
               <Icon name="terminal" :size="15" />
               <span>판정 프롬프트 ({{ sections.length }})</span>
+              <span v-if="tokenTotal != null" class="normal-case tracking-normal font-normal text-muted" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenTotal.toLocaleString("ko-KR") }} 토큰</span>
             </div>
             <p class="text-muted text-[0.82rem]">섹션마다 역할을 정해 적은 차례대로 보냅니다. 답은 반드시 <code class="text-fg-soft">[{"n":1,"song":true,"fits":false}]</code> 꼴의 JSON 배열이어야 합니다.</p>
           </div>
@@ -258,19 +307,77 @@
               </div>
             </label>
 
-            <span :class="labelCls">프롬프트</span>
+            <div class="flex items-baseline justify-between">
+              <span :class="labelCls">프롬프트</span>
+              <span v-if="tokenEach[i] != null" class="text-muted text-[0.75rem]" v-tooltip="tokenExact ? '' : '추산치'">{{ tokenEach[i].toLocaleString("ko-KR") }} 토큰</span>
+            </div>
             <textarea v-model="section.text" rows="8" :class="[inputCls, 'font-mono text-[0.78rem] leading-relaxed resize-y']"></textarea>
           </div>
         </div>
 
-        <p class="text-muted text-[0.78rem] mb-2">미리보기는 만들기만, 판정 테스트는 이 프롬프트를 통째로 실제 전송합니다(유료).</p>
         <div class="flex items-center gap-2.5 flex-wrap">
           <button :class="addLine" @click="loadDefaults">기본값으로</button>
           <div class="flex items-center gap-2.5 flex-wrap ml-auto">
             <BaseButton @click="openPreview">리퀘스트 미리보기</BaseButton>
-            <BaseButton variant="warning" :disabled="testing" @click="askPaid('judge')">{{ testing ? "보내는 중…" : "판정 테스트" }}</BaseButton>
           </div>
         </div>
+      </BaseCard>
+
+      <!--
+        판정 테스트 — 보기 곡이 아니라 진짜 곡으로 시험한다.
+        링크 조회는 아무것도 보내지 않는다. 판정 요청만 실제로 보낸다.
+      -->
+      <BaseCard icon="check" title="판정 테스트" class="mb-3">
+        <div class="flex flex-col md:flex-row gap-3 items-start">
+          <label class="block flex-1 min-w-0 w-full">
+            <span :class="labelCls">유튜브 주소</span>
+            <textarea v-model="judgeUrls" rows="3" wrap="off" placeholder="https://www.youtube.com/watch?v=... (한 줄에 하나)" :class="[inputCls, 'font-mono text-[0.8rem] leading-relaxed resize-y']"></textarea>
+          </label>
+
+          <div class="w-full md:w-60 lg:w-72 xl:w-88 shrink-0">
+            <label class="block">
+              <span :class="labelCls">장르</span>
+              <input v-model="judgeGenre" placeholder="록" :class="inputCls" />
+            </label>
+            <div class="grid grid-cols-2 gap-2 mt-3">
+              <BaseButton variant="ghost" class="w-full justify-center" :disabled="judging || !judgeUrls.trim()" @click="lookupJudge">{{ judging ? "조회 중…" : "링크 조회" }}</BaseButton>
+              <BaseButton variant="warning" class="w-full justify-center" :disabled="judging" @click="askPaid('judge')">{{ judging ? "보내는 중…" : "판정 요청" }}</BaseButton>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="judgeStale" class="text-[0.78rem] text-[#f87171] mt-2">작성한 주소를 아직 조회하지 않았습니다. 그대로 전송하면 예제 프리셋을 이용합니다.</p>
+
+        <p v-if="judgeError" class="text-danger text-[0.78rem] mt-2">{{ judgeError }}</p>
+
+        <div v-if="judgeCands.length" class="mt-3">
+          <div class="flex items-baseline justify-between mb-1.5">
+            <span :class="labelCls + ' mb-0'">모델에게 갈 목록</span>
+            <button type="button" :class="copyBtn" @click="copy(judgeList.join(String.fromCharCode(10)))">복사</button>
+          </div>
+          <div v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-2 py-1.5 border-b border-white/6 last:border-0">
+            <span v-if="judgeVerdicts" class="shrink-0 text-[0.78rem] mt-0.5 w-16" :class="verdictOk(judgeVerdicts[i]) ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ verdictText(judgeVerdicts[i]) }}</span>
+            <div class="min-w-0 flex-1">
+              <p v-if="cand.error" class="text-danger text-[0.78rem] break-all">{{ cand.url }} — {{ cand.error }}</p>
+              <p v-else class="font-mono text-[0.75rem] text-fg-soft break-all">{{ lineFor(cand) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <template v-if="judgeSent">
+          <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft cursor-pointer mt-3" @click="showJudgeRaw = !showJudgeRaw">
+            {{ showJudgeRaw ? "리퀘스트 로그 접기" : "리퀘스트 로그 보기" }}
+          </button>
+          <div v-if="showJudgeRaw" class="mt-2">
+            <div v-for="box in judgeBoxes" :key="box.title" class="mb-3">
+              <div class="flex items-baseline justify-between mb-1">
+                <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
+                <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
+              </div>
+              <pre :class="preCls">{{ box.text }}</pre>
+            </div>
+          </div>
+        </template>
       </BaseCard>
     </template>
 
@@ -293,7 +400,8 @@
           <dt class="text-muted">모델</dt>
           <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
           <dt class="text-muted">보낼 것</dt>
-          <dd>{{ paid === "ping" ? "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요." : `판정 프롬프트 전체 (섹션 ${sections.length || "기본"}개 · 보기 곡 3개)` }}</dd>
+          <dd v-if="paid === 'ping'">한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.</dd>
+          <dd v-else>판정 프롬프트 전체 (섹션 {{ sections.length || "기본" }}개 · {{ judgeUsable.length ? `고른 곡 ${judgeUsable.length}개` : "보기 곡 3개" }})</dd>
         </dl>
         <div class="flex gap-2.5 justify-end">
           <BaseButton variant="ghost" @click="paid = null">그만두기</BaseButton>
@@ -306,15 +414,40 @@
     <div v-if="shown" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="shown = null">
       <div class="bg-[rgba(12,16,36,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] w-[min(56rem,100%)] max-h-[88vh] overflow-auto p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div class="flex items-center gap-3 mb-4">
-          <h3 class="text-[0.95rem] font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</h3>
+          <div class="text-2xl font-semibold flex-1">{{ shown.sent ? "테스트" : "리퀘스트 미리보기" }}</div>
           <span v-if="shown.sent" class="text-[0.8rem]" :class="shown.status && shown.status < 400 ? 'text-[#4ade80]' : 'text-[#f87171]'"> {{ shown.status ? `HTTP ${shown.status}` : "보내지 못함" }} · {{ (shown.tookMs / 1000).toFixed(1) }}초 </span>
           <span v-else class="text-muted text-[0.8rem]">보내지 않았습니다</span>
+          <span v-if="shown.usage" class="text-muted text-[0.8rem]" v-tooltip="'저쪽이 알려 준 값입니다'">
+            입력 {{ shown.usage.input.toLocaleString("ko-KR") }}
+            <template v-if="shown.usage.output != null"> · 출력 {{ shown.usage.output.toLocaleString("ko-KR") }}</template>
+            <template v-if="shown.usage.thoughts"> · 사고 {{ shown.usage.thoughts.toLocaleString("ko-KR") }}</template>
+          </span>
+          <span v-else-if="shown.tokens" class="text-muted text-[0.8rem]" v-tooltip="shown.tokens.exact ? '' : '추산치'">{{ shown.tokens.total.toLocaleString("ko-KR") }} 토큰</span>
           <button :class="removeBtn" v-tooltip="'닫기'" @click="shown = null"><Icon name="close" :size="15" /></button>
         </div>
 
-        <div v-for="box in boxes" :key="box.title" class="mb-3">
-          <div class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)] mb-1">{{ box.title }}</div>
-          <pre :class="preCls">{{ box.text }}</pre>
+        <div v-for="(part, i) in shownSections" :key="i" class="mb-3">
+          <div class="flex items-baseline justify-between mb-1">
+            <span class="text-[0.95rem] font-semibold text-[rgba(196,181,253,0.9)]">{{ part.name }}</span>
+            <span class="flex items-baseline gap-3">
+              <span class="text-[0.72rem] text-muted font-mono">{{ part.role }}</span>
+              <button type="button" :class="copyBtn" @click="copy(part.text)">복사</button>
+            </span>
+          </div>
+          <pre :class="preCls">{{ part.text }}</pre>
+        </div>
+
+        <button type="button" class="text-[0.78rem] text-muted hover:text-fg-soft cursor-pointer mt-1" @click="showRawRequest = !showRawRequest">
+          {{ showRawRequest ? "날것 접기" : "날것 보기 (URL · 헤더 · 본문)" }}
+        </button>
+        <div v-if="showRawRequest" class="mt-2">
+          <div v-for="box in boxes" :key="box.title" class="mb-3">
+            <div class="flex items-baseline justify-between mb-1">
+              <span class="text-[0.75rem] font-semibold text-[rgba(196,181,253,0.8)]">{{ box.title }}</span>
+              <button type="button" :class="copyBtn" @click="copy(box.text)">복사</button>
+            </div>
+            <pre :class="preCls">{{ box.text }}</pre>
+          </div>
         </div>
       </div>
     </div>
@@ -348,7 +481,7 @@ const markBtn = "px-2 py-1 rounded-md text-[0.75rem] font-mono border border-whi
 // 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다 — 값으로 둔다
 const LIST_MARK = "{{목록}}";
 const NONE_MARK = "{{none}}";
-const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\ntemperature=${NONE_MARK}`;
+const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\nmax_tokens=${NONE_MARK}`;
 
 const ROLES = ["system", "user", "assistant"];
 
@@ -369,6 +502,52 @@ const UNKNOWN = [
 ];
 
 const draft = ref({ provider: "off" });
+// 모델이 받는 칸 — 서버가 프로필(data/ai-models.json)을 보고 알려 준다
+const fieldInfo = ref({ known: false, fields: [], groups: [], models: [] });
+const showAdvanced = ref(false);
+const showHide = ref(false);
+const refreshing = ref(false);
+const refreshNote = ref("");
+
+async function refreshModels() {
+  refreshing.value = true;
+  refreshNote.value = "";
+  try {
+    const { data } = await axios.post("/api/admin/ai/models/refresh");
+    refreshNote.value = data.changed ? `모델 ${data.count}개로 갱신` : "이미 최신";
+    if (data.changed) await loadFields();
+  } catch (error) {
+    refreshNote.value = error.response?.data?.error || "받지 못했습니다";
+  } finally {
+    refreshing.value = false;
+    setTimeout(() => (refreshNote.value = ""), 4000);
+  }
+}
+// 값은 모델별로 따로 든다 — 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
+const allParams = ref({});
+const params = ref({});
+const jsonText = ref({});
+// 토큰은 어림수다 — 어느 기준으로 셌는지 같이 밝힌다
+const tokenEach = ref([]);
+const tokenTotal = ref(null);
+const tokenExact = ref(true);
+let tokenTimer = null;
+const jsonBad = ref({});
+
+function onJson(key, text) {
+  jsonText.value = { ...jsonText.value, [key]: text };
+  if (!text.trim()) {
+    params.value = { ...params.value, [key]: undefined };
+    jsonBad.value = { ...jsonBad.value, [key]: false };
+    return;
+  }
+  try {
+    params.value = { ...params.value, [key]: JSON.parse(text) };
+    jsonBad.value = { ...jsonBad.value, [key]: false };
+  } catch {
+    jsonBad.value = { ...jsonBad.value, [key]: true };
+  }
+}
 const listCfg = ref({ lineFormat: "", unknownDuration: "hide", unknownText: "" });
 const sections = ref([]);
 const snapshot = ref("");
@@ -385,13 +564,40 @@ const paid = ref(null); // "ping" | "judge" — 확인 대화상자
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
+// 프로바이더를 바꾸면 모델 칸이 빈다. **사람이 고른 것만** 브라우저에 적어 둔다 —
+// 저절로 고른 첫 모델까지 적으면 "마지막에 고른 것"이 그것으로 덮인다.
+// 접기 상태와 같은 화면 편의라 설정 파일에 넣지 않는다.
+const PICK_KEY = "configAI.model.picked";
+function rememberedModels() {
+  try {
+    return JSON.parse(localStorage.getItem(PICK_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+function rememberModel(provider, model) {
+  if (!provider || provider === "off" || !model) return;
+  try {
+    localStorage.setItem(PICK_KEY, JSON.stringify({ ...rememberedModels(), [provider]: model }));
+  } catch {
+    // 사생활 보호 모드처럼 못 쓰는 브라우저 — 기억을 못 할 뿐이다
+  }
+}
+
 const models = ref([]);
+// 프로필이 아는 모델은 보기 좋은 이름으로 보여준다. 모르는 것은 원본 ID 그대로 —
+// 키로 실제로 쓸 수 있는 것은 /models 만 안다(로컬·신모델은 프로필에 없다).
+const modelChoices = computed(() =>
+  models.value.map((id) => {
+    const known = fieldInfo.value.models.find((one) => one.modelId === id);
+    return { id, label: known ? `${known.name} (${id})` : id };
+  }),
+);
 const manualModel = ref(false);
 const pinging = ref(false);
 // 무료·유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
 const tested = ref(null);
 const showRaw = ref(false);
-const testing = ref(false);
 const shown = ref(null);
 const defaults = ref({ sections: [], line: "" });
 
@@ -456,11 +662,23 @@ const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s
 
 // 다듬지 않는다 — 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다.
 // 응답 칸은 실제로 보냈을 때만 있다(미리보기는 만들기만 한다).
+// 보낼 글을 섹션별로 — 규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다.
+// 이름은 프롬프트 칸에 적어 둔 것을 쓴다.
+const shownSections = computed(() =>
+  (shown.value?.messages || []).map((one, i) => ({
+    name: sections.value[i]?.name || `섹션 ${i + 1}`,
+    role: one.role,
+    text: one.content,
+  })),
+);
+
+// 날것 그대로도 볼 수 있게 남겨 둔다(접어 둔다)
 const boxes = computed(() => {
   const one = shown.value;
   if (!one) return [];
   return [{ title: "URL", text: one.url }, { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) }, { title: "요청 본문", text: JSON.stringify(one.body, null, 2) }, ...(one.sent ? [{ title: "응답", text: one.response || "(비어 있음)" }] : [])];
 });
+const showRawRequest = ref(false);
 
 const hideModels = computed({
   get: () => draft.value.hideModels || [],
@@ -477,15 +695,6 @@ const extraText = computed({
   },
 });
 
-// 온도는 0.4 처럼 소수라 숫자 칸을 못 쓴다. 빈 칸과 0 을 가르려고 글자로 다룬다.
-const temperatureText = computed({
-  get: () => (draft.value.temperature == null ? "" : String(draft.value.temperature)),
-  set: (v) => {
-    const text = String(v).trim();
-    draft.value.temperature = text === "" ? null : Number(text);
-  },
-});
-
 // 파일은 밀리초로 적히지만 사람에게는 초가 낫다
 const timeoutSec = computed({
   get: () => (draft.value.timeoutMs == null ? null : Math.round(draft.value.timeoutMs / 1000)),
@@ -496,7 +705,70 @@ const timeoutSec = computed({
 
 // 설정과 프롬프트는 딴 파일이라 저장도 따로 간다.
 // 섹션 이름은 ChatML 에 적을 자리가 없어 설정 쪽에 같이 실어 보낸다(차례가 곧 짝이다).
-const payload = computed(() => ({ ...draft.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") }));
+// 고른 모델의 이름표. 프로필이 알면 보기 좋은 이름이 있다.
+const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
+
+// 값을 자르지는 않는다 — 다만 얼마까지 받는다고 적혀 있는지는 보여 준다
+function hintOf(field) {
+  const lo = field.min;
+  const hi = field.max;
+  if (lo === undefined && hi === undefined) return field.path;
+  const range = lo !== undefined && hi !== undefined ? `${lo}~${hi}` : lo !== undefined ? `${lo} 이상` : `${hi} 이하`;
+  return `${field.path} · ${range}`;
+}
+
+const paramGroups = computed(() => {
+  const all = fieldInfo.value.fields.filter((f) => (showAdvanced.value || f.visibility !== "advanced") && showIfOk(f));
+  const known = fieldInfo.value.groups || [];
+  const by = new Map();
+  for (const field of all) {
+    const id = field.group || "generation";
+    if (!by.has(id)) by.set(id, { id, label: known.find((g) => g.id === id)?.label || id, fields: [] });
+    by.get(id).fields.push(field);
+  }
+  for (const group of by.values()) group.fields.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  const order = (id) => known.findIndex((g) => g.id === id);
+  return [...by.values()].sort((a, b) => (order(a.id) + 1 || 99) - (order(b.id) + 1 || 99));
+});
+
+// 저쪽이 "이 칸이 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼).
+// 가려진 칸은 서버도 안 보낸다(autoplayAssist.withParams) — 판정 기준을 같게 둔다.
+function showIfOk(field) {
+  if (!field.showIf) return true;
+  const owner = fieldInfo.value.fields.find((one) => one.key === field.showIf.key);
+  const value = [params.value[field.showIf.key], owner?.default].find((one) => one !== undefined && one !== "");
+  return value === field.showIf.equals;
+}
+
+const paramLimits = computed(() => {
+  const m = fieldInfo.value.models.find((one) => one.modelId === draft.value.model);
+  if (!m?.contextWindowTokens && !m?.maxOutputTokens) return "";
+  const n = (x) => Number(x).toLocaleString("ko-KR");
+  return [m.contextWindowTokens ? `컨텍스트 ${n(m.contextWindowTokens)}토큰` : "", m.maxOutputTokens ? `최대 출력 ${n(m.maxOutputTokens)}토큰` : ""].filter(Boolean).join(" · ");
+});
+
+// 저장하면 서버가 **보낸 차례대로** 파일을 줄 세운다(configDataLoader.syncMap).
+// config/ai.example.yaml 과 같은 차례로 보내야 새로 깐 파일이 뒤섞이지 않는다.
+const KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"];
+
+const payload = computed(() => {
+  const all = { ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") };
+  const out = {};
+  for (const key of KEY_ORDER) if (key in all) out[key] = all[key];
+  // 모르는 키는 뒤에 그대로 둔다 — 빠뜨리면 저장할 때 파일에서 지워진다
+  for (const [key, value] of Object.entries(all)) if (!(key in out)) out[key] = value;
+  return out;
+});
+
+// 빈 값은 "고르지 않음"이다(프로필 기본값으로 간다). 빈 모델 칸도 남기지 않는다.
+const cleanParams = computed(() => {
+  const out = {};
+  for (const [model, values] of Object.entries(allParams.value)) {
+    const kept = Object.fromEntries(Object.entries(values || {}).filter(([, v]) => v !== "" && v !== null && v !== undefined));
+    if (Object.keys(kept).length) out[model] = kept;
+  }
+  return out;
+});
 const promptPayload = computed(() => sections.value.map((one) => ({ role: one.role, text: one.text })));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
 
@@ -514,7 +786,6 @@ const problems = computed(() => {
     if (sections.value.length && !hasListMark.value) found.push(`프롬프트 어딘가에 ${LIST_MARK} 이 있어야 합니다.`);
   }
 
-  if (d.temperature != null && !(Number(d.temperature) >= 0 && Number(d.temperature) <= 2)) found.push("온도는 0~2 사이여야 합니다.");
   if (d.timeoutMs != null && !(Number(d.timeoutMs) >= 1000 && Number(d.timeoutMs) <= 600000)) found.push("타임아웃은 1~600초 사이여야 합니다.");
   if (d.batchSize != null && !(Number(d.batchSize) >= 1 && Number(d.batchSize) <= 50)) found.push("한 리퀘스트의 곡 수는 1~50 사이여야 합니다.");
 
@@ -603,8 +874,13 @@ function onDragEnd() {
 let names = [];
 
 function apply(data) {
-  const { list, prompt, promptNames, ...rest } = data || {};
+  const { list, prompt, promptNames, params: saved, ...rest } = data || {};
   draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
+  allParams.value = { ...(saved || {}) };
+  // 설정에 저장돼 있는 모델도 사람이 고른 것이다 — 기동 직후에도 기억이 비지 않게 둔다
+  rememberModel(draft.value.provider, draft.value.model);
+  picking = draft.value.model || "";
+  params.value = { ...(allParams.value[picking] || {}) };
   listCfg.value = { lineFormat: "", unknownDuration: "hide", unknownText: "", ...(list || {}) };
   names = Array.isArray(promptNames) ? promptNames : [];
   sections.value.forEach((one, i) => (one.name = names[i] || ""));
@@ -616,6 +892,177 @@ function applyPrompt(list) {
   sections.value = (list || []).map((one, i) => ({ key: ++serial, role: one?.role || "system", name: names[i] || "", text: String(one?.text ?? "") }));
   promptSnapshot.value = JSON.stringify(promptPayload.value);
   snapshot.value = JSON.stringify(payload.value); // 이름이 payload 에 실리므로 같이 굳힌다
+}
+
+// 프로바이더나 모델이 바뀌면 받을 수 있는 칸도 달라진다.
+watch(
+  () => [draft.value.provider, draft.value.model],
+  () => loadFields(),
+  { immediate: true },
+);
+
+// 고른 값은 그때그때 모델 칸에 담는다
+let picking = "";
+watch(
+  params,
+  (now) => {
+    if (draft.value.model) allParams.value = { ...allParams.value, [draft.value.model]: { ...now } };
+  },
+  { deep: true },
+);
+
+watch(
+  () => [sections.value.map((one) => one.text).join(String.fromCharCode(10)), draft.value.provider, draft.value.model],
+  () => {
+    clearTimeout(tokenTimer);
+    tokenTimer = setTimeout(countTokens, 400);
+  },
+  { immediate: true },
+);
+
+async function countTokens() {
+  if (!sections.value.length) {
+    tokenEach.value = [];
+    tokenTotal.value = null;
+    return;
+  }
+  try {
+    const { data } = await axios.post("/api/admin/ai/tokens", {
+      provider: draft.value.provider,
+      model: draft.value.model,
+      texts: sections.value.map((one) => one.text),
+    });
+    tokenEach.value = data.each;
+    tokenTotal.value = data.total;
+    tokenExact.value = data.exact;
+  } catch {
+    tokenEach.value = [];
+    tokenTotal.value = null;
+  }
+}
+
+// ── 판정 테스트 ────────────────────────────────────────────────────────────
+// 보기 곡이 아니라 진짜 곡으로 시험한다. 링크 조회는 아무것도 보내지 않고,
+// 판정 요청만 실제로 보낸다. 적어만 두고 조회를 안 했으면 보기 곡으로 나간다.
+const NL = String.fromCharCode(10);
+const judgeUrls = ref("");
+const judgeGenre = ref("록");
+const judging = ref(false);
+const judgeError = ref("");
+const judgeCands = ref([]);
+const judgeList = ref([]);
+const judgeVerdicts = ref(null);
+const judgeSent = ref(null);
+const showJudgeRaw = ref(false);
+const judgeLookedUp = ref("");
+
+const copyBtn = "text-[0.75rem] text-muted hover:text-fg-soft cursor-pointer";
+function copy(text) {
+  try {
+    navigator.clipboard.writeText(String(text ?? ""));
+  } catch {
+    // 안전하지 않은 출처처럼 못 쓰는 자리 — 복사만 안 될 뿐이다
+  }
+}
+
+// 적어 두고 조회를 안 눌렀으면 알려 준다 — 그대로 보내면 보기 곡으로 판정한다
+const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeUrls.value.trim() !== judgeLookedUp.value);
+const rendered = (one) => !one.error && one.title;
+const judgeUsable = computed(() => (judgeStale.value ? [] : judgeCands.value.filter(rendered)));
+
+const judgeBoxes = computed(() => {
+  const one = judgeSent.value;
+  if (!one) return [];
+  return [
+    { title: "요청 본문", text: JSON.stringify(one.body, null, 2) },
+    { title: "응답", text: one.response || "(비어 있음)" },
+  ];
+});
+
+// 못 읽은 줄이 섞여 있어 후보 차례와 줄 차례가 어긋난다 — 멀쩡한 것만 세어 맞춘다
+function lineFor(cand) {
+  const at = judgeCands.value.filter(rendered).indexOf(cand);
+  return judgeList.value[at] ?? "";
+}
+const verdictOk = (one) => one && one.song && one.fits;
+const verdictText = (one) => (!one ? "?" : one.song && one.fits ? "통과" : !one.song ? "곡 아님" : "장르 다름");
+
+const judgeUrlList = () =>
+  judgeUrls.value
+    .split(NL)
+    .map((one) => one.trim())
+    .filter(Boolean);
+
+async function lookupJudge() {
+  judging.value = true;
+  judgeError.value = "";
+  judgeVerdicts.value = null;
+  judgeSent.value = null;
+  try {
+    judgeCands.value = (await axios.post("/api/admin/ai/judge/lookup", { urls: judgeUrlList() })).data.candidates;
+    judgeLookedUp.value = judgeUrls.value.trim();
+  } catch (error) {
+    judgeError.value = error.response?.data?.error || "조회하지 못했습니다.";
+  } finally {
+    judging.value = false;
+  }
+}
+
+// 줄 그리기는 서버 몫이다 — 화면이 흉내 내면 실제로 나가는 줄과 어긋난다.
+// 늦게 온 응답이 방금 그린 것을 덮지 않도록 차례를 센다.
+let linesSeq = 0;
+let linesTimer = null;
+watch([judgeCands, judgeGenre, () => JSON.stringify(listCfg.value)], () => {
+  clearTimeout(linesTimer);
+  linesTimer = setTimeout(drawLines, 150);
+});
+
+async function drawLines() {
+  const usable = judgeCands.value.filter(rendered);
+  if (!usable.length) return (judgeList.value = []);
+  const seq = ++linesSeq;
+  try {
+    const { data } = await axios.post("/api/admin/ai/judge/lines", { candidates: usable, list: listCfg.value, genre: judgeGenre.value });
+    if (seq === linesSeq) judgeList.value = data.lines;
+  } catch {
+    if (seq === linesSeq) judgeList.value = [];
+  }
+}
+
+async function runJudge() {
+  judging.value = true;
+  judgeError.value = "";
+  try {
+    const usable = judgeUsable.value; // 조회를 안 했으면 비어 있다 — 서버가 보기 곡으로 돌린다
+    const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: payload.value });
+    judgeSent.value = data;
+    judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
+  } catch (error) {
+    judgeError.value = error.response?.data?.error || "판정을 받지 못했습니다.";
+  } finally {
+    judging.value = false;
+  }
+}
+
+async function loadFields() {
+  const provider = draft.value.provider;
+  const model = draft.value.model;
+  if (!provider || provider === "off") {
+    fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
+    return;
+  }
+  try {
+    const { data } = await axios.get("/api/admin/ai/fields", { params: { provider, model: model || "" } });
+    fieldInfo.value = data;
+    if (model !== picking) {
+      picking = model;
+      params.value = { ...(allParams.value[model] || {}) };
+      jsonText.value = {};
+      jsonBad.value = {};
+    }
+  } catch {
+    fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
+  }
 }
 
 async function fetchAll() {
@@ -653,18 +1100,6 @@ async function openPreview() {
   }
 }
 
-// 설정한 엔드포인트의 설정한 모델로 **실제로 보낸다.**
-async function runTest() {
-  testing.value = true;
-  try {
-    shown.value = { ...(await axios.post("/api/admin/ai/test", { data: forServer() })).data, sent: true };
-  } catch (error) {
-    loadError.value = error.response?.data?.error || "보내지 못했습니다.";
-  } finally {
-    testing.value = false;
-  }
-}
-
 function onProvider() {
   models.value = [];
   tested.value = null;
@@ -688,7 +1123,11 @@ async function loadModels({ quiet = false } = {}) {
     models.value = got.models || [];
     // 목록을 받았으면 고르는 칸으로 돌아간다. 못 받았을 때만 직접 적게 한다.
     manualModel.value = !models.value.length;
-
+    // 지금 값이 이 프로바이더의 목록에 없으면 기억해 둔 것으로 되돌린다
+    if (!models.value.includes(draft.value.model)) {
+      const remembered = rememberedModels()[draft.value.provider];
+      draft.value.model = models.value.includes(remembered) ? remembered : models.value[0] || "";
+    }
     if (quiet && !got.ok) return;
     const hidden = got.hiddenCount ? `, ${got.hiddenCount}개 가림` : "";
     tested.value = {
@@ -715,7 +1154,7 @@ function runPaid() {
   const which = paid.value;
   paid.value = null;
   if (which === "ping") runPing();
-  else runTest();
+  else runJudge();
 }
 
 // 키는 쓰기 전용이다 — payload 에 안 싣는다(미리보기·테스트로 새어 나가면 안 된다)
