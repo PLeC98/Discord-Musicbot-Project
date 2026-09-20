@@ -163,7 +163,7 @@ class YouTube {
   }
 
   /**
-   * 라이브의 종류를 가린다 — `_detectLive`는 "라이브 계열인가"만 보지만,
+   * 라이브의 종류를 가린다. `_detectLive`는 "라이브 계열인가"만 보지만,
    * 재생은 방송 중(is_live)과 시작 전(is_upcoming)을 다르게 다뤄야 한다. 틀 것이 없는 쪽은 거절한다.
    * @returns {"is_live"|"is_upcoming"|null}
    */
@@ -176,8 +176,9 @@ class YouTube {
   }
 
   /**
-   * 표시용 제목. 라이브는 yt-dlp가 `title` 뒤에 조회 시각을 붙여 준다
-   * ("... 2026-09-21 02:26"). `fulltitle`이 그게 빠진 원제이고, 라이브가 아니면 둘이 같다.
+   * 표시용 제목. 라이브는 yt-dlp가 `title` 뒤에 조회 시각을 붙여 준다(예: `제목 2026-01-02 03:04`).
+   * 조회할 때마다 달라지는 값이라 캐시·매칭에도 나쁘다. `fulltitle`이 그게 빠진 원제이고,
+   * 라이브가 아니면 둘이 같다.
    */
   static titleOf(item) {
     if (!item) return null;
@@ -491,7 +492,7 @@ class YouTube {
       }
 
       const baseUrl = info.url;
-      // HLS 재생목록 주소에는 `begin=`을 붙일 수 없다 — 위치는 ffmpeg의 `-ss`가 정한다.
+      // HLS 재생목록 주소에는 `begin=`을 붙일 수 없다. 위치는 ffmpeg의 `-ss`가 정한다.
       const isHls = typeof info.protocol === "string" && info.protocol.startsWith("m3u8");
       const canSeek = !isHls && /googlevideo\.com/i.test(baseUrl);
       let finalUrl = baseUrl;
@@ -518,7 +519,7 @@ class YouTube {
         isLive: YouTube._detectLive(info),
         liveStatus: YouTube.liveStatusOf(info),
         // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "받아 둔 바이트"가 아니라 "받아 올 주소"를
-        // 줘야 하는 형식이라 파이프로 먹일 수 없다 — 재생 쪽이 이 값으로 갈래를 고른다.
+        // 줘야 하는 형식이라 파이프로 먹일 수 없다. 재생 쪽이 이 값으로 갈래를 고른다.
         protocol: info.protocol || null,
       };
     } catch (error) {

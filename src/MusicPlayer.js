@@ -35,7 +35,7 @@ const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 �
 const SWITCH_FADE_MS = 40; // 등출력 크로스페이드 길이
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
 const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받아 다시 여는 횟수
-const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위 — 시도 횟수에 비례해 늘린다
+const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 // 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
@@ -271,7 +271,7 @@ class MusicPlayer {
       this.pendingEndReason = null;
       this.skipRequested = false;
       this.stopRequested = false;
-      this._playingLive = false; // 이번 재생이 라이브 갈래인가 — 종료 처리가 재연결 여부를 이걸로 가른다
+      this._playingLive = false; // 이번 재생이 라이브 갈래인가. 종료 처리가 재연결 여부를 이걸로 가른다
       const resumeFromMs = Math.max(0, Math.floor(Number(seekMs) || 0));
       const resumeFromSeconds = resumeFromMs / 1000;
       this.currentTrackStartOffsetMs = resumeFromMs;
@@ -376,24 +376,24 @@ class MusicPlayer {
         streamUrl_final = streamInfo;
       }
 
-      // 지금 라이브인지는 yt-dlp 응답이 정본이다 — 대기열에 담길 때 방송 중이었어도 그사이 끝나
+      // 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 담길 때 방송 중이었어도 그사이 끝나
       // 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 담긴 것도 있다(재생목록·믹스).
       // 탐색·반복·종료 감시·표시가 전부 이 값을 읽으므로 여기서 한 번 맞춰 둔다.
       if (streamInfo && typeof streamInfo === "object" && "liveStatus" in streamInfo) {
         this.currentTrack.liveStatus = streamInfo.liveStatus;
         this.currentTrack.isLive = streamInfo.liveStatus === "is_live";
       } else if (downloadedFile) {
-        // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다 — 라이브는 받지 않는다.
+        // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 받지 않는다.
         this.currentTrack.isLive = false;
       }
 
-      // HLS는 파이프로 먹일 수 없다 — 재생목록 안이 상대 경로뿐이라 ffmpeg가 기준 위치를 알아야 하고,
+      // HLS는 파이프로 먹일 수 없다. 재생목록 안이 상대 경로뿐이라 ffmpeg가 기준 위치를 알아야 하고,
       // 세그먼트도 스스로 받아 와야 한다. 주소를 주는 갈래는 여기뿐이다.
       const useUrlInput = !downloadedFile && typeof streamUrl_final === "string" && MusicPlayer.isHlsStream(streamInfo);
       const isLiveStream = useUrlInput && streamInfo?.liveStatus === "is_live";
 
       // 플래그: 스트림은 있지만 캐시 파일이 없으면 다운로드 필요.
-      // 라이브만 예외 — 끝이 없어서 받기 시작하면 파일이 무한히 분다.
+      // 라이브만 예외다. 끝이 없어서 받기 시작하면 파일이 무한히 분다.
       if (!downloadedFile && !isLiveStream) shouldDownload = true;
 
       if (useUrlInput) {
@@ -407,7 +407,7 @@ class MusicPlayer {
         shouldDownload = false;
 
         const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ url: streamUrl_final, seekMs: isLiveStream ? 0 : resumeFromMs }), "stream");
-        // 캐시 전환(AudioSplicer)은 걸지 않는다 — 라이브는 갈아탈 캐시가 없고, 잔끊김은
+        // 캐시 전환(AudioSplicer)은 걸지 않는다. 라이브는 갈아탈 캐시가 없고, 잔끊김은
         // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(handleTrackEnd).
         this._playingLive = isLiveStream;
         this._liveExitCode = null;
@@ -443,7 +443,7 @@ class MusicPlayer {
         this._startBackgroundDownload();
 
         // 다운로드 완료를 기다리지 않고 즉시 스트리밍. 이 갈래에서는 네트워크를 Node가 담당하고
-        // ffmpeg에는 pipe로만 넣는다 — URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패
+        // ffmpeg에는 pipe로만 넣는다. URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패
         // 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 빌드는 SIGSEGV로 죽는다).
         // 그래서 URL 입력은 그렇게 할 수밖에 없는 HLS 갈래에만 두었다.
         let audioStream;
@@ -690,7 +690,7 @@ class MusicPlayer {
   }
 
   /**
-   * yt-dlp가 알려주는 전송 방식이 HLS인가 — `m3u8`(우리가 받아 합치는 방식)과
+   * yt-dlp가 알려주는 전송 방식이 HLS인가. `m3u8`(우리가 받아 합치는 방식)과
    * `m3u8_native`(ffmpeg에게 맡기는 방식) 둘 다 재생목록이라 주소로 열어야 한다.
    */
   static isHlsStream(streamInfo) {
@@ -700,7 +700,7 @@ class MusicPlayer {
 
   /** 즉시 재생과 나란히 캐시를 받아 둔다. 기다리지 않으며, 실패해도 재생은 스트림으로 계속된다. */
   _startBackgroundDownload() {
-    // currentTrack은 다운로드가 끝나기 전에 바뀔 수 있다 — 지금 곡을 붙잡아 둔다
+    // currentTrack은 다운로드가 끝나기 전에 바뀔 수 있다. 지금 곡을 붙잡아 둔다
     const trackToDownload = this.currentTrack;
     this.downloader
       .downloadTrack(trackToDownload)
@@ -711,7 +711,7 @@ class MusicPlayer {
       })
       .catch((err) => {
         if (err && err.message) {
-          log.warn(`백그라운드 캐시 다운로드 실패: ${err.message} — 재생은 스트림으로 계속됩니다.`);
+          log.warn(`백그라운드 캐시 다운로드 실패: ${err.message}. 재생은 스트림으로 계속됩니다.`);
         }
       });
   }
@@ -720,12 +720,12 @@ class MusicPlayer {
    * 재생용 ffmpeg 인자 구성. 출력 대상(`pipe:1`)까지 포함한 완전한 인자를 돌려준다.
    *
    * 입력은 셋 중 하나다.
-   *  - `file` — 캐시 파일. `-ss`는 `-i` 앞(seek 가능해 빠름)
-   *  - `url` — HLS 전용. 재생목록은 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
-   *  - 둘 다 없으면 `pipe:0` — 그 밖의 모든 스트리밍. `-ss`는 `-i` 뒤여야 한다
+   *  - `file`: 캐시 파일. `-ss`는 `-i` 앞(seek 가능해 빠름)
+   *  - `url`: HLS 전용. 재생목록은 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
+   *  - 둘 다 없으면 `pipe:0`: 그 밖의 모든 스트리밍. `-ss`는 `-i` 뒤여야 한다
    *    (pipe에서 입력측 `-ss`는 출력을 잘라먹는다)
    *
-   * **URL을 주는 것은 HLS에 한한다.** 나머지를 URL로 열면 yt-dlp가 준 httpHeaders가 빠지고,
+   * URL을 주는 것은 HLS에 한한다. 나머지를 URL로 열면 yt-dlp가 준 httpHeaders가 빠지고,
    * 스트리밍 실패 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존하게 된다.
    *
    * @param {{file?: string|null, url?: string|null, seekMs?: number}} opts
@@ -736,7 +736,7 @@ class MusicPlayer {
 
     if (url) {
       // 잔끊김은 ffmpeg 안에서 흡수시키고 우리 재시도는 진짜 실패에만 돌게 나눈다.
-      // `-reconnect_at_eof`는 켜지 않는다 — 라이브에서 EOF는 "방송이 끝났다"인데, 켜면
+      // `-reconnect_at_eof`는 켜지 않는다. 라이브에서 EOF는 "방송이 끝났다"인데, 켜면
       // 오류로 보고 무한히 다시 붙는다.
       const reconnect = ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1"];
       // 오래된 빌드에는 없는 옵션이다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로 확인하고 붙인다.
@@ -802,11 +802,11 @@ class MusicPlayer {
     const trackDuration = this.currentTrack && Number(this.currentTrack.duration) > 0 ? Number(this.currentTrack.duration) : null;
     const durationSeconds = streamDuration || trackDuration;
 
-    // 라이브는 길이가 없다 — 폴백 워치독(5분 뒤 강제 종료)이 방송을 잘라 버린다.
+    // 라이브는 길이가 없다. 폴백 워치독(5분 뒤 강제 종료)이 방송을 잘라 버린다.
     if (this.currentTrack?.isLive) {
       this.expectedTrackEndTs = null;
       this.trackTimer = null;
-      wlog.debug(`종료 감시 없음: ${this._trackLabel()} — 라이브는 길이로 가를 수 없다`);
+      wlog.debug(`종료 감시 없음: ${this._trackLabel()} | 라이브는 길이로 가를 수 없다`);
       return;
     }
 
@@ -920,7 +920,7 @@ class MusicPlayer {
       return;
     }
 
-    // 라이브는 길이가 없어 "다 틀었나"를 길이로 가를 수 없다 — 이 감시를 걸지 않는다.
+    // 라이브는 길이가 없어 "다 틀었나"를 길이로 가를 수 없다. 이 감시를 걸지 않는다.
     // 끊김은 버퍼링 정체 감지와 ffmpeg 종료 코드가 잡는다.
     if (this.currentTrack.isLive) {
       this.trackTimer = null;
@@ -1234,9 +1234,9 @@ class MusicPlayer {
    * @param {string} reason  누가 시켰나 — "seek" | "replay" | "highlight" | "dashboard"
    */
   seek(seekMs, reason = "seek") {
-    // 라이브에는 실시간밖에 없다 — 되감을 자리도, 앞서 갈 자리도 없다.
+    // 라이브에는 실시간밖에 없다. 되감을 자리도, 앞서 갈 자리도 없다.
     if (this.currentTrack?.isLive) {
-      clog.info(`위치 이동 거부: ${this._trackLabel()} — 라이브 | 원인=${reason}`);
+      clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);
       return { success: false, message: S.ERR_LIVE_NO_SEEK };
     }
     const from = Math.round((this.lastPlaybackPosition || 0) / 1000);
@@ -1324,13 +1324,13 @@ class MusicPlayer {
     return false;
   }
 
-  /** 재생 중이거나 대기열에 라이브가 있는가 — 반복은 끝이 있어야 성립한다. */
+  /** 재생 중이거나 대기열에 라이브가 있는가. 반복은 끝이 있어야 성립한다. */
   hasLiveTrack() {
     if (this.currentTrack?.isLive) return true;
     return Boolean(this.queue?.some((track) => track?.isLive));
   }
 
-  /** 라이브가 대기열에 들어왔다 — 걸려 있던 반복을 푼다. 풀었으면 true. */
+  /** 라이브가 대기열에 들어왔을 때 걸려 있던 반복을 푼다. 풀었으면 true. */
   releaseLoopForLive() {
     if (!this.loop) return false;
     clog.info(`반복 해제: 라이브가 들어와 반복(${this.loop})을 풉니다`);
@@ -1340,7 +1340,7 @@ class MusicPlayer {
 
   setLoop(mode) {
     // 모드: false, 'track', 'queue'
-    // 끝이 없는 것은 반복할 수 없다. 켜려는 요청만 막는다 — 끄는 것은 언제나 통한다.
+    // 끝이 없는 것은 반복할 수 없다. 켜려는 요청만 막고 끄는 것은 언제나 통한다.
     if (mode && this.hasLiveTrack()) {
       clog.info(`반복 거부: 라이브가 있어 반복(${mode})을 켜지 않습니다`);
       return this.loop;
@@ -1461,7 +1461,7 @@ class MusicPlayer {
       // "sponsorblock"(아웃트로 종료)은 스킵 버튼과 동일하게 트랙 완료로 취급 — 조기 드롭 복구 대상 아님.
       const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump" || reason === "sponsorblock";
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
-      // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다 —
+      // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
       // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
       const liveDropped = this._playingLive && !manualSkip && this._liveExitCode !== 0;
 

@@ -17,7 +17,7 @@ const MusicPlayer = require("../src/MusicPlayer");
 const build = (opts) => MusicPlayer.buildFfmpegArgs(opts);
 const idx = (args, flag) => args.indexOf(flag);
 
-test("스트리밍: 입력은 pipe:0 — 부르지 않은 곳에 URL이 새지 않는다", () => {
+test("스트리밍: 입력은 pipe:0. 부르지 않은 곳에 URL이 새지 않는다", () => {
   for (const seekMs of [0, 1, 5000, 180000]) {
     const args = build({ seekMs });
     assert.equal(args[idx(args, "-i") + 1], "pipe:0", `seekMs=${seekMs}`);

@@ -27,12 +27,11 @@ const SponsorBlock = require("./SponsorBlock");
 const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역 — 서버가 달라도 같은 곡은 한 번만 받는다.
 
 /**
- * 이 트랙은 음원을 남에게서 빌려 와야 하는가 — **스포티파이뿐이다.**
+ * 이 트랙은 음원을 남에게서 빌려 와야 하는가. 스포티파이뿐이다.
  *
- * 상류 주석이 "Spotify와 SoundCloud는 DRM 보호가 있어 직접 다운로드할 수 없음"이라며 둘을 묶어
- * 두었는데, 사운드클라우드는 DRM 이 없고 제 음원을 준다. 그래서 `sc:` 키 안에 유튜브 음원이 들어가,
- * 같은 곡이 처음 틀 때와 캐시로 틀 때 서로 다른 녹음이 됐다(SC-4).
- * 조건문 안에 묻어 두면 다음 사람이 또 끼워 넣으므로 규칙에 이름을 준다.
+ * 사운드클라우드는 DRM 이 없고 제 음원을 주므로 여기 해당하지 않는다. 묶어 두면 `sc:` 키 안에
+ * 유튜브 음원이 들어가, 같은 곡이 처음 틀 때와 캐시로 틀 때 서로 다른 녹음이 된다.
+ * 조건문 안에 묻어 두면 다시 끼워 넣게 되므로 규칙에 이름을 준다.
  */
 function needsBorrowedAudio(track) {
   return !track?.youtubeUrl && track?.platform === "spotify";
@@ -152,7 +151,7 @@ class TrackDownloader {
 
       // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 TrackResolver 한 곳에서).
       // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
-      // 찾아 두었으므로 다시 찾지 않는다 — 규칙은 needsBorrowedAudio 참조.
+      // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
       //
       // 사운드클라우드는 `youtubeUrl` 이 붙어 있어도 제 주소로 받는다. 붙을 수 있는 경로가
       // 남아 있는데(id 없는 트랙의 예열), 그대로 두면 `sc:` 키에 남의 음원이 또 들어간다.
@@ -179,10 +178,10 @@ class TrackDownloader {
         throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
       }
 
-      // yt-dlp가 받아 오는 것들 — YouTube, Spotify(YouTube 경유), SoundCloud(제 음원),
+      // yt-dlp가 받아 오는 것들: YouTube, Spotify(YouTube 경유), SoundCloud(제 음원),
       // 그리고 영상을 찾아 둔 자동재생 출처 트랙. 남는 것은 직접 링크뿐이다.
       // 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
-      // 조립하므로 우리가 손댈 것이 없다(실측: 세그먼트 조립 → m4a → opus 135k).
+      // 조립하므로 우리가 손댈 것이 없다.
       if (track.youtubeUrl || track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
         // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
         await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
@@ -202,7 +201,7 @@ class TrackDownloader {
               // 코덱은 yt-dlp 가 소스를 보고 정한다 — 이미 Opus 면 리먹싱, 아니면 libopus.
               // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
               // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
-              // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다 — 숫자가 갈라지지 않게.
+              // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다. 숫자가 갈라지지 않게.
               postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
               extractAudio: true,
               audioFormat: "opus",
@@ -225,16 +224,16 @@ class TrackDownloader {
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
         const audioStream = await DirectLink.getStream(track.url);
 
-        // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수가 없는데, 안에 든 것을
-        // 모르면 이미 Opus 인 음원까지 다시 굽게 된다(AnimeThemes 가 그랬다).
+        // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
+        // 모르면 이미 Opus 인 음원까지 다시 굽게 된다.
         const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
         CacheManager.protectFile(rawPath);
         try {
           await pipeline(audioStream, fsSync.createWriteStream(rawPath));
-          // 무엇을 할지는 audioConvert 한 곳이 정한다 — 리먹싱이냐 변환이냐, 목표가 몇이냐.
+          // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
           const made = await audioConvert.toCacheOpus(rawPath, tempPath);
 
-          // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다 — 받아둔 파일의 실측으로 교정.
+          // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다. 받아둔 파일의 실측으로 교정.
           // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
           if (made.durationSec) {
             track.duration = made.durationSec;
@@ -246,7 +245,7 @@ class TrackDownloader {
           try {
             fsSync.unlinkSync(rawPath);
           } catch {
-            /* 이미 없거나 잠겨 있음 — cleanTemp와 기동 스윕이 받는다 */
+            /* 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다 */
           }
         }
       }
@@ -354,7 +353,7 @@ class TrackDownloader {
    */
   async warm(track) {
     if (!track || !track.url) return;
-    // 사운드클라우드는 제 음원을 주므로 동등물을 찾지 않는다(SC-4). 키를 못 만드는 경우
+    // 사운드클라우드는 제 음원을 주므로 동등물을 찾지 않는다. 키를 못 만드는 경우
     // (id 없는 트랙)에는 URL 해시 경로로 떨어지는데, 남의 음원을 넣는 것보다 낫다.
     if (!TrackResolver.ensureAudioSourceKey(track) && track.platform !== "soundcloud") {
       await TrackResolver.findYouTubeEquivalent(track);

@@ -14,7 +14,7 @@ const { capabilities: ffmpegCapabilities } = require("./ffmpegPath");
 /** 이 곡을 대기열에 넣을 수 없는 이유. 넣을 수 있으면 null. */
 function liveBlockReason(track) {
   if (!track?.isLive) return null;
-  // is_upcoming(예정)은 아직 소리가 없다 — 열어 봐야 받을 것이 없다.
+  // is_upcoming(예정)은 아직 소리가 없다. 열어 봐야 받을 것이 없다.
   if (track.liveStatus !== "is_live") return S.ERR_LIVE_UPCOMING;
   return ffmpegCapabilities().ok ? null : S.ERR_LIVE_NO_FFMPEG;
 }
@@ -126,7 +126,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     if (!single && trackData.isPlaylist && room < batch && more) trackData = { ...trackData, queueLimited: true };
   }
 
-  // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 막는 것은 두 가지뿐이다 —
+  // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 막는 것은 두 가지뿐이다.
   // 아직 시작하지 않은 방송(틀 것이 없다)과, 그 갈래를 열 수 없는 ffmpeg 빌드.
   // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
   if (trackData.tracks?.length) {
@@ -138,7 +138,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     }
   }
 
-  // 끝이 없는 것은 반복할 수 없다 — 라이브가 들어오면 걸려 있던 반복을 푼다.
+  // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
   if (player && trackData.tracks?.some((t) => t.isLive)) player.releaseLoopForLive();
 
   // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)

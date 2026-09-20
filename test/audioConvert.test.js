@@ -1,12 +1,12 @@
 "use strict";
 
-// src/audioConvert.js — 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
+// src/audioConvert.js: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
-// 회귀 대상: 직접 링크 갈래가 **무엇이 들어오든 무조건 재인코딩**하던 것. AnimeThemes 음원이
+// 회귀 대상: 직접 링크 갈래가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
 // 이미 Opus 186~329k 인데 그걸 128k 로 다시 구워 저장했다(2026-09-21 실측).
 //
 // 숫자가 둘인 것이 핵심이다. 상한은 Opus 소스를 Opus 로 다시 쓸지 재는 자리에만 걸리고,
-// 변환 목표는 소스 비트레이트와 무관하다 — mp3 128k 와 Opus 128k 는 같은 값이 아니므로
+// 변환 목표는 소스 비트레이트와 무관하다. mp3 128k 와 Opus 128k 는 같은 값이 아니므로
 // 코덱을 넘나들며 숫자를 비교하면 안 된다.
 
 const path = require("node:path");
@@ -23,14 +23,14 @@ const { parseProbeOutput } = ffmpegInternals;
 
 const idx = (args, flag) => args.indexOf(flag);
 
-test("이미 Opus 면 그대로 옮긴다 — 손실 세대를 쓰지 않는다", () => {
+test("이미 Opus 면 그대로 옮긴다. 손실 세대를 쓰지 않는다", () => {
   for (const kbps of [96, 128, 186, 205, 318, 329, REMUX_MAX_KBPS]) {
     const plan = planFor({ codec: "opus", bitrateKbps: kbps });
     assert.equal(plan.action, "copy", `${kbps}k`);
   }
 });
 
-test("상한을 아슬아슬하게 넘긴 것은 굽지 않는다 — 구우면 오히려 커진다", () => {
+test("상한을 아슬아슬하게 넘긴 것은 굽지 않는다. 구우면 오히려 커진다", () => {
   // 실측: 323k 를 `-b:a 320k` 로 구웠더니 324k 가 나오고 파일이 4KB 늘었다(libopus VBR).
   // 손실 세대와 CPU 를 쓰고 용량도 손해라면 할 이유가 없다.
   for (const kbps of [REMUX_MAX_KBPS + 1, 329, Math.floor(REMUX_MAX_KBPS * REMUX_SLACK)]) {
@@ -50,7 +50,7 @@ test("크게 넘는 Opus 만 상한까지 낮춰 다시 굽는다", () => {
 });
 
 test("Opus 가 아니면 소스 비트레이트와 무관하게 같은 목표로 굽는다", () => {
-  // mp3 320k 를 320k opus 로 굽는 판단이 나오면 안 된다 — 같은 자로 잰 값이 아니다.
+  // mp3 320k 를 320k opus 로 굽는 판단이 나오면 안 된다. 같은 자로 잰 값이 아니다.
   for (const [codec, kbps] of [
     ["mp3", 320],
     ["mp3", 128],
@@ -61,11 +61,11 @@ test("Opus 가 아니면 소스 비트레이트와 무관하게 같은 목표로
   ]) {
     const plan = planFor({ codec, bitrateKbps: kbps });
     assert.equal(plan.action, "transcode", `${codec} ${kbps}k`);
-    assert.equal(plan.bitrateKbps, TRANSCODE_TARGET_KBPS, `${codec} ${kbps}k — 목표는 소스와 무관하다`);
+    assert.equal(plan.bitrateKbps, TRANSCODE_TARGET_KBPS, `${codec} ${kbps}k, 목표는 소스와 무관하다`);
   }
 });
 
-test("코덱을 못 읽으면 굽는다 — 모를 때 리먹싱하면 컨테이너가 어긋난다", () => {
+test("코덱을 못 읽으면 굽는다. 모를 때 리먹싱하면 컨테이너가 어긋난다", () => {
   for (const info of [{ codec: null, bitrateKbps: 200 }, {}, null]) {
     const plan = planFor(info);
     assert.equal(plan.action, "transcode");
@@ -73,7 +73,7 @@ test("코덱을 못 읽으면 굽는다 — 모를 때 리먹싱하면 컨테이
   }
 });
 
-test("비트레이트를 못 읽은 Opus 는 그대로 옮긴다 — 상한은 아는 값에만 건다", () => {
+test("비트레이트를 못 읽은 Opus 는 그대로 옮긴다. 상한은 아는 값에만 건다", () => {
   const plan = planFor({ codec: "opus", bitrateKbps: null });
   assert.equal(plan.action, "copy");
 });
@@ -106,7 +106,7 @@ test("인자: 출력은 언제나 opus 컨테이너이고 -vn 이 붙는다", ()
   }
 });
 
-test("yt-dlp 갈래도 같은 목표 비트레이트를 쓴다 — 숫자가 두 군데에 적히지 않게", () => {
+test("yt-dlp 갈래도 같은 목표 비트레이트를 쓴다. 숫자가 두 군데에 적히지 않게", () => {
   assert.deepEqual(audioConvert.ytdlpPostprocessorArgs(), { ffmpeg: ["-b:a", `${TRANSCODE_TARGET_KBPS}k`] });
 });
 
@@ -171,7 +171,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
   assert.equal(info.codec, "opus", "만든 것을 다시 읽을 수 있어야 한다");
   assert.equal(info.durationSec, 3);
 
-  // 96k 짜리라 상한 아래다 — 리먹싱으로 가야 한다
+  // 96k 짜리라 상한 아래다. 리먹싱으로 가야 한다
   assert.equal(planFor(info).action, "copy");
 
   const result = await audioConvert.toCacheOpus(TONE, OUT);
@@ -183,7 +183,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
 
 // ── SC-4 ─────────────────────────────────────────────────────────────────────
 
-test("음원을 빌려 오는 것은 스포티파이뿐이다 — 사운드클라우드는 제 음원을 준다", () => {
+test("음원을 빌려 오는 것은 스포티파이뿐이다. 사운드클라우드는 제 음원을 준다", () => {
   // 상류가 둘을 DRM 으로 묶어 둬서 `sc:` 키 안에 유튜브 음원이 들어갔다. 같은 곡이 처음 틀 때와
   // 캐시로 틀 때 서로 다른 녹음이 됐고, 유튜브 검색이 헛짚으면 그 키에 다른 곡이 박힌 채 남았다.
   const { needsBorrowedAudio } = require("../src/TrackDownloader")._internals;
@@ -198,7 +198,7 @@ test("음원을 빌려 오는 것은 스포티파이뿐이다 — 사운드클�
 });
 
 test("사운드클라우드는 youtubeUrl 이 붙어 있어도 제 주소로 받는다", () => {
-  // 붙을 수 있는 경로가 남아 있다 — id 없는 트랙의 예열이 동등물을 찾아 심는 경우.
+  // 붙을 수 있는 경로가 남아 있다. id 없는 트랙의 예열이 동등물을 찾아 심는 경우.
   // 그대로 두면 `sc:` 키에 남의 음원이 또 들어간다.
   const downloadUrlFor = (track) => (track.platform === "soundcloud" ? track.url : track.youtubeUrl || track.url);
 

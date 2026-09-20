@@ -24,7 +24,7 @@ test("능력 확인: 우리가 깔아 주는 빌드는 https와 hls를 갖췄다
   assert.equal(typeof caps.segMaxRetry, "boolean", "세그먼트 재시도 옵션은 있고 없고를 가린다");
 });
 
-test("능력 확인 결과는 캐시된다 — 재생할 때마다 프로세스를 띄우지 않는다", () => {
+test("능력 확인 결과는 캐시된다. 재생할 때마다 프로세스를 띄우지 않는다", () => {
   assert.equal(capabilities(), capabilities(), "동일 객체를 돌려줘야 함");
 });
 
@@ -38,7 +38,7 @@ test("liveStatusOf: 방송 중과 시작 전을 가른다", () => {
   assert.equal(YouTube.liveStatusOf(null), null);
   // live_status를 안 주는 응답(flat 검색 항목 등)에서는 is_live만 보고 판단한다.
   assert.equal(YouTube.liveStatusOf({ is_live: true }), "is_live");
-  // 다만 live_status가 명시됐다면 그쪽이 정본이다 — was_live인데 is_live가 남아 오는 경우.
+  // 다만 live_status가 명시됐다면 그쪽이 정본이다. was_live인데 is_live가 남아 오는 경우.
   assert.equal(YouTube.liveStatusOf({ live_status: "was_live", is_live: true }), null);
 });
 
@@ -48,7 +48,7 @@ test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () =>
   const live = { live_status: "is_live", title: "lofi radio 2026-09-21 02:26", fulltitle: "lofi radio" };
   assert.equal(YouTube.titleOf(live), "lofi radio");
 
-  // 라이브가 아니면 둘이 같다 — 건드릴 것이 없다
+  // 라이브가 아니면 둘이 같다. 건드릴 것이 없다
   assert.equal(YouTube.titleOf({ title: "보통곡", fulltitle: "보통곡" }), "보통곡");
   assert.equal(YouTube.titleOf({ title: "fulltitle 없음" }), "fulltitle 없음");
   // fulltitle이 비어 오면 title로 돌아간다
@@ -102,7 +102,7 @@ test("URL 입력: 잔끊김은 ffmpeg가 먹되 EOF로는 재접속하지 않는
 });
 
 test("URL 입력: -seg_max_retry는 빌드가 아는 경우에만 붙인다", () => {
-  // ffmpeg는 모르는 옵션을 치명적 오류로 본다 — 없는 빌드에 붙이면 재생이 시작조차 못 한다.
+  // ffmpeg는 모르는 옵션을 치명적 오류로 본다. 없는 빌드에 붙이면 재생이 시작조차 못 한다.
   const args = MusicPlayer.buildFfmpegArgs({ url: "https://x/index.m3u8" });
   const at = idx(args, "-seg_max_retry");
   if (capabilities().segMaxRetry) {
@@ -114,13 +114,13 @@ test("URL 입력: -seg_max_retry는 빌드가 아는 경우에만 붙인다", ()
   }
 });
 
-test("URL 입력 + 오프셋: -ss는 -i 앞(입력측) — 재생목록은 탐색 가능하다", () => {
+test("URL 입력 + 오프셋: -ss는 -i 앞(입력측). 재생목록은 탐색 가능하다", () => {
   const args = MusicPlayer.buildFfmpegArgs({ url: "https://x/index.m3u8", seekMs: 30000 });
   assert.ok(idx(args, "-ss") < idx(args, "-i"), args.join(" "));
   assert.equal(args[idx(args, "-ss") + 1], "30.000");
 });
 
-test("URL을 주지 않으면 갈래가 바뀌지 않는다 — 파이프가 기본이다", () => {
+test("URL을 주지 않으면 갈래가 바뀌지 않는다. 파이프가 기본이다", () => {
   for (const opts of [{}, { seekMs: 5000 }, { url: null }, { url: "" }]) {
     const args = MusicPlayer.buildFfmpegArgs(opts);
     assert.equal(args[idx(args, "-i") + 1], "pipe:0", JSON.stringify(opts));
@@ -159,7 +159,7 @@ test("반복: 라이브가 있으면 켤 수 없고, 끄는 것은 언제나 통
   queued.setLoop("queue");
   assert.equal(queued.loop, false);
 
-  // 이미 걸려 있던 반복은 풀 수 있어야 한다 — 못 끄면 갇힌다
+  // 이미 걸려 있던 반복은 풀 수 있어야 한다. 못 끄면 갇힌다
   const stuck = fakePlayer({ currentTrack: { isLive: true }, loop: "queue" });
   stuck.setLoop(false);
   assert.equal(stuck.loop, false);
@@ -179,7 +179,7 @@ test("반복: 라이브가 들어오면 걸려 있던 반복을 푼다", () => {
   assert.equal(player.releaseLoopForLive(), false, "이미 꺼져 있으면 할 일이 없다");
 });
 
-test("탐색: 라이브에는 옮길 자리가 없다 — 재생을 다시 걸지 않는다", () => {
+test("탐색: 라이브에는 옮길 자리가 없다. 재생을 다시 걸지 않는다", () => {
   let played = 0;
   const player = fakePlayer({
     currentTrack: { isLive: true },
@@ -214,7 +214,7 @@ test("종료 감시: 라이브는 길이로 가를 수 없어 감시를 걸지 �
 });
 
 test("종료 감시 예약: 라이브에는 5분 폴백 워치독을 걸지 않는다", () => {
-  // 길이를 모르는 스트림은 5분 뒤 강제 종료가 기본값이다 — 그대로 두면 방송이 5분마다 잘린다.
+  // 길이를 모르는 스트림은 5분 뒤 강제 종료가 기본값이다. 그대로 두면 방송이 5분마다 잘린다.
   const live = fakePlayer({ currentTrack: { isLive: true, duration: 0, title: "라디오", platform: "youtube" } });
   live.scheduleTrackWatchdog({});
   assert.equal(live.trackTimer, null);
@@ -234,7 +234,7 @@ test("_reset 후에도 능력 확인이 다시 선다", () => {
 });
 
 // 라이브가 끊겼을 때 무엇을 하는가. 길이가 없어 "일찍 끝났다"로 가를 수 없으므로 ffmpeg의
-// 종료 코드로 가른다 — 0이면 방송이 끝난 것, 그 밖은 사고다.
+// 종료 코드로 가른다. 0이면 방송이 끝난 것, 그 밖은 사고다.
 
 const endingPlayer = (overrides = {}) => {
   const played = [];
@@ -257,7 +257,7 @@ const endingPlayer = (overrides = {}) => {
   return player;
 };
 
-test("라이브 종료: ffmpeg가 0으로 끝나면 방송이 끝난 것 — 다음 곡으로", async () => {
+test("라이브 종료: ffmpeg가 0으로 끝나면 방송이 끝난 것이니 다음 곡으로", async () => {
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
   const player = endingPlayer({ currentTrack: finished, queue: [next], _playingLive: true, _liveExitCode: 0 });
@@ -270,7 +270,7 @@ test("라이브 종료: ffmpeg가 0으로 끝나면 방송이 끝난 것 — 다
 });
 
 test("라이브 종료: 사고로 끊기면 같은 곡을 위치 0으로 다시 연다", async () => {
-  // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"다 — 만료된 주소로는 몇 번을 붙어도 실패한다.
+  // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"다. 만료된 주소로는 몇 번을 붙어도 실패한다.
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
   const player = endingPlayer({ currentTrack: finished, queue: [next], _playingLive: true, _liveExitCode: 1 });
@@ -296,7 +296,7 @@ test("라이브 종료: 재시도를 다 쓰면 다음 곡으로 넘긴다", asy
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
   const player = endingPlayer({ currentTrack: finished, queue: [next], _playingLive: true, _liveExitCode: 1 });
-  // 이미 상한까지 다시 열어 본 상태로 둔다 — 상한을 넘기면 포기해야 한다
+  // 이미 상한까지 다시 열어 본 상태로 둔다. 상한을 넘기면 포기해야 한다
   player._retryTrack = finished;
   player.currentTrackRetries = 99;
 
@@ -306,7 +306,7 @@ test("라이브 종료: 재시도를 다 쓰면 다음 곡으로 넘긴다", asy
   assert.deepEqual(player.played, [0]);
 });
 
-test("끝난 방송(was_live)은 재연결 대상이 아니다 — 라이브 갈래를 타지 않았다", async () => {
+test("끝난 방송(was_live)은 재연결 대상이 아니다. 라이브 갈래를 타지 않았다", async () => {
   // 대기열에 담길 때는 방송 중이었지만 재생 시점에는 다시보기였다. 길이가 있으니 평범한 곡이다.
   // 이때 재연결로 들어가면 정상 종료마다 몇 초씩 멈춘 뒤에야 다음 곡으로 넘어간다.
   const finished = { title: "끝난 방송", isLive: true, duration: 3600 };
