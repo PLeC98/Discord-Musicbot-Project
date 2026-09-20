@@ -196,3 +196,13 @@ test("음원을 빌려 오는 것은 스포티파이뿐이다 — 사운드클�
   assert.equal(needsBorrowedAudio({ platform: "spotify", youtubeUrl: "https://y/x" }), false);
   assert.equal(needsBorrowedAudio(null), false);
 });
+
+test("사운드클라우드는 youtubeUrl 이 붙어 있어도 제 주소로 받는다", () => {
+  // 붙을 수 있는 경로가 남아 있다 — id 없는 트랙의 예열이 동등물을 찾아 심는 경우.
+  // 그대로 두면 `sc:` 키에 남의 음원이 또 들어간다.
+  const downloadUrlFor = (track) => (track.platform === "soundcloud" ? track.url : track.youtubeUrl || track.url);
+
+  assert.equal(downloadUrlFor({ platform: "soundcloud", url: "https://sc/a", youtubeUrl: "https://y/b" }), "https://sc/a");
+  assert.equal(downloadUrlFor({ platform: "spotify", url: "https://sp/a", youtubeUrl: "https://y/b" }), "https://y/b");
+  assert.equal(downloadUrlFor({ platform: "youtube", url: "https://y/a" }), "https://y/a");
+});

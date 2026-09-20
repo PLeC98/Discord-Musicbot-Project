@@ -153,7 +153,10 @@ class TrackDownloader {
       // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 TrackResolver 한 곳에서).
       // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
       // 찾아 두었으므로 다시 찾지 않는다 — 규칙은 needsBorrowedAudio 참조.
-      let downloadUrl = track.youtubeUrl || track.url;
+      //
+      // 사운드클라우드는 `youtubeUrl` 이 붙어 있어도 제 주소로 받는다. 붙을 수 있는 경로가
+      // 남아 있는데(id 없는 트랙의 예열), 그대로 두면 `sc:` 키에 남의 음원이 또 들어간다.
+      let downloadUrl = track.platform === "soundcloud" ? track.url : track.youtubeUrl || track.url;
 
       if (needsBorrowedAudio(track)) {
         downloadUrl = await TrackResolver.findYouTubeEquivalent(track);
@@ -351,7 +354,9 @@ class TrackDownloader {
    */
   async warm(track) {
     if (!track || !track.url) return;
-    if (!TrackResolver.ensureAudioSourceKey(track)) {
+    // 사운드클라우드는 제 음원을 주므로 동등물을 찾지 않는다(SC-4). 키를 못 만드는 경우
+    // (id 없는 트랙)에는 URL 해시 경로로 떨어지는데, 남의 음원을 넣는 것보다 낫다.
+    if (!TrackResolver.ensureAudioSourceKey(track) && track.platform !== "soundcloud") {
       await TrackResolver.findYouTubeEquivalent(track);
     }
     await this.downloadTrack(track);
