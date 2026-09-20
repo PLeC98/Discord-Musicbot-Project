@@ -571,7 +571,7 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
   // 곡 해석/스트림 셋업 중(play() 진행 중)엔 seek 금지 — 동시 play() 레이스로 currentTrack이
   // 중간에 null 돼 크래시하던 문제 방지. 아직 실제 재생 전이므로 seek 대상 자체가 없다.
   if (player.isPlayStarting) return res.status(409).json({ error: "재생을 준비 중입니다. 잠시 후 다시 시도해 주세요." });
-  // 라이브에는 실시간밖에 없다 — 옮길 자리가 없다.
+  // 라이브에는 실시간밖에 없다. 옮길 자리가 없다.
   if (player.currentTrack.isLive) return res.status(409).json({ error: "라이브 방송은 구간 이동을 할 수 없습니다." });
 
   const positionSec = Number(req.body.position);
@@ -613,7 +613,7 @@ router.post("/:guildId/player/loop", requireAuth, requireControl, async (req, re
   const mode = req.body.mode;
   if (!["off", "track", "queue"].includes(mode)) return res.status(400).json({ error: "반복 모드가 올바르지 않습니다." });
 
-  // 끝이 없는 것은 반복할 수 없다 — 라이브가 있으면 켜지 못한다(끄는 것은 그대로 통한다).
+  // 끝이 없는 것은 반복할 수 없다. 라이브가 있으면 켜지 못한다(끄는 것은 그대로 통한다).
   if (mode !== "off" && player.hasLiveTrack()) return res.status(409).json({ error: "라이브 방송이 있어 반복을 켤 수 없습니다." });
 
   player.setLoop(mode === "off" ? false : mode);

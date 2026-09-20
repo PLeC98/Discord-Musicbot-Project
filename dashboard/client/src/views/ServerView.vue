@@ -36,7 +36,7 @@
 
             <!-- Full-width progress bar -->
             <div class="flex items-center gap-2 mb-1.5">
-              <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다 — 표식으로 대신한다 -->
+              <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->
               <span :class="timeText">{{ isLive ? "🔴 라이브" : fmt(displayTime) }}</span>
               <div class="group relative flex flex-1 h-4 items-center before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" :class="seekable ? 'cursor-pointer' : ''" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
                 <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
@@ -45,7 +45,7 @@
                 <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm opacity-80 hover:opacity-100 hover:h-1.5" :style="{ left: m.left + '%', width: m.width + '%', backgroundColor: m.color }" v-tooltip="m.label"></div>
                 <!-- 하이라이트 지점 -->
                 <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 rounded" :style="{ left: highlightMarker + '%', backgroundColor: 'var(--category-highlight-color)' }" v-tooltip="'하이라이트'"></div>
-                <!-- 옮길 수 없는 곡(라이브·길이 미상)에는 손잡이를 내지 않는다 — 잡을 수 있는 것처럼 보이면 안 된다 -->
+                <!-- 옮길 수 없는 곡(라이브·길이 미상)에는 손잡이를 내지 않는다. 잡을 수 있는 것처럼 보이면 안 된다 -->
                 <div v-if="seekable" class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
               </div>
               <span :class="timeText">{{ player.currentTrack.duration > 0 ? fmt(player.currentTrack.duration) : "--:--" }}</span>
@@ -600,7 +600,7 @@ const highlightMarker = computed(() => {
 });
 
 const loopTitle = computed(() => {
-  // 끝이 없는 것은 반복할 수 없다 — 왜 못 누르는지 툴팁으로 말해 준다
+  // 끝이 없는 것은 반복할 수 없다. 왜 못 누르는지 툴팁으로 말해 준다
   if (player.value.hasLive) return "라이브 방송이 있어 반복을 켤 수 없습니다";
   const l = player.value.loop;
   if (l === "track") return "트랙 반복 중 (클릭: 큐 반복)";
@@ -737,7 +737,7 @@ onMounted(() => {
     // 실제 재생 중일 때만 전진 — playing 없이 currentTrack만 보면, 곡 해석(YouTube 검색) 중
     // 아직 재생 전인데도 바가 움직여 '유령 재생'처럼 보인다.
     if (track && player.value.playing && !player.value.paused) {
-      // 길이를 모르는 곡(라이브)은 클램프할 상한이 없다 — 그대로 Math.min을 걸면 매초 0으로 되돌아간다
+      // 길이를 모르는 곡(라이브)은 클램프할 상한이 없다. 그대로 Math.min을 걸면 매초 0으로 되돌아간다
       const next = localTime.value + 1;
       localTime.value = track.duration > 0 ? Math.min(next, track.duration) : next;
     }

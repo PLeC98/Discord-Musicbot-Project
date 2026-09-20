@@ -167,7 +167,7 @@ function baseArgs(client, guild, extra = {}) {
   return { guild, requester: { id: "u1", user: { username: "carl" } }, ...extra };
 }
 
-// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다 — 더 이상 입구에서 막지 않는다.
+// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 더 이상 입구에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
   const client = makeClient();
@@ -213,7 +213,7 @@ test("재생목록의 시작 전 방송만 걸러내고 나머지는 넣는다",
   assert.deepEqual(sent, ["보통곡"]);
 });
 
-// 끝이 없는 것은 반복할 수 없다 — 라이브가 들어오면 걸려 있던 반복을 푼다.
+// 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
 test("라이브가 대기열에 들어오면 반복을 푼다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
   const client = makeClient();

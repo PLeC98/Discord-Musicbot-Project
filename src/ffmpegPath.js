@@ -78,11 +78,11 @@ function ffmpegPath() {
 }
 
 /**
- * HLS(라이브) 재생에 필요한 능력 — 결과는 프로세스 단위로 캐시한다.
+ * HLS(라이브) 재생에 필요한 능력. 결과는 프로세스 단위로 캐시한다.
  *
  * 우리가 깔아 주는 BtbN 빌드는 전부 갖췄지만 FFMPEG_PATH로 다른 빌드를 물릴 수 있다.
  * 네트워크 주소를 여는 경로는 그쪽 네트워크 스택에 통째로 의존하므로, 쓰기 전에 물어본다.
- * (파이프 경로는 이 결과와 무관하게 늘 동작한다 — 못 갖춘 빌드는 라이브만 못 튼다.)
+ * (파이프 경로는 이 결과와 무관하게 늘 동작한다. 못 갖춘 빌드는 라이브만 못 튼다.)
  *
  * `segMaxRetry`는 비교적 최근 옵션이라 따로 본다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로
  * 없는 빌드에 붙이면 재생이 시작조차 못 한다.
@@ -112,7 +112,7 @@ function capabilities() {
 
   caps = { https, hls, segMaxRetry, ok: https && hls };
   if (!caps.ok) {
-    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 — https:${https ? "있음" : "없음"} hls:${hls ? "있음" : "없음"}`);
+    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"})`);
   }
   return caps;
 }
