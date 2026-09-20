@@ -16,7 +16,7 @@ module.exports = {
     // SOURCE_REPO_URL로 개조본 저장소를 지정한 경우에만 세 번째 줄 추가 (기본값은 본 프로젝트 저장소라서 그대로 표시하면 위 줄과 중복됨)
     if (sourceRepo !== projectRepo) {
       const label = sourceRepo.match(/github\.com\/([^/]+)/)?.[1] || "Modified Source";
-      licenseValue += `\n• [${label}](${sourceRepo}) — **GNU AGPL-3.0-or-later**`;
+      licenseValue += `\n• [${label}](${sourceRepo}). **GNU AGPL-3.0-or-later**`;
     }
 
     const embed = new EmbedBuilder()

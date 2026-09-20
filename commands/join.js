@@ -53,7 +53,7 @@ module.exports = {
         // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
         // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
         const title = escapeMd(player.currentTrack.title);
-        await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}** — 일시정지 상태예요` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
+        await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}**. 일시정지 상태예요` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
       } catch (error) {
         log.error({ sub: "join" }, "세션 복원 실패:", error.message);
         player.releaseResources();
@@ -64,7 +64,7 @@ module.exports = {
     } else {
       await player.connect();
       player.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
-      // 틀 것 없이 들어왔다 — 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
+      // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
       if (config.bot.leaveDelayQueueEmptyMs > 0) player.scheduleIdleLeave("곡 없이 대기");
       client.musicEmbedManager?.handlePlaybackEnd(player, { reason: "joined" }).catch(() => {});
       await interaction.reply({ content: "✅ 음성 채널에 접속했어요!", flags: [1 << 6] });

@@ -25,16 +25,16 @@ class CacheManager {
     this.db = null;
     this._initialized = false;
     this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
-    this._protectedFiles = new Set(); // 지금 받고 있는 임시 파일 경로 — 기동 스윕이 건드리면 안 된다
-    this._queuedKeys = new Map(); // guildId -> Set<audio_source_key> — 대기열 앞부분
+    this._protectedFiles = new Set(); // 지금 받고 있는 임시 파일 경로. 기동 스윕이 건드리면 안 된다
+    this._queuedKeys = new Map(); // guildId -> Set<audio_source_key>. 대기열 앞부분
     this._evictInterval = null;
     this._sessions = null;
-    // 캐시 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 폴더를 건드리지 않는다 —
+    // 캐시 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 폴더를 건드리지 않는다.
     // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
     this._cacheDir = CACHE_DIR;
   }
 
-  // 초기화 — dbPath는 테스트 주입용(임시 DB), 운영은 항상 기본 경로
+  // 초기화. dbPath는 테스트 주입용(임시 DB), 운영은 항상 기본 경로
   initialize(dbPath = DB_PATH) {
     if (this._initialized) return;
 
@@ -112,7 +112,7 @@ class CacheManager {
                 updated_at               INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
-            -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용 — 라이브 조회 실패 시 사용).
+            -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용. 라이브 조회 실패 시 사용).
             -- data_json = 정규화 이전 원시 배열(카테고리 전부). 정규화/필터는 SponsorBlock.js가 읽을 때 수행.
             CREATE TABLE IF NOT EXISTS sponsorblock_cache (
                 video_id    TEXT PRIMARY KEY,
@@ -120,7 +120,7 @@ class CacheManager {
                 fetched_at  INTEGER NOT NULL
             );
 
-            -- 연령 제한 확인된 videoId — 재조회 시 bgutil 실패를 건너뛰고 바로 쿠키 폴백에 사용.
+            -- 연령 제한 확인된 videoId. 재조회 시 bgutil 실패를 건너뛰고 바로 쿠키 폴백에 사용.
             -- 캐시 퇴거에서도 이 영상들은 더 오래 잔존시킨다(재취득이 느리고 쿠키가 필요하므로).
             CREATE TABLE IF NOT EXISTS age_restricted (
                 video_id    TEXT PRIMARY KEY,
@@ -155,7 +155,7 @@ class CacheManager {
 
   // 라이브 보호 (재생 중/사전 캐시된 트랙)
 
-  /** 키를 사용 중으로 표시 — 제거 대상에서 건너뜀 */
+  /** 키를 사용 중으로 표시. 제거 대상에서 건너뜀 */
   protect(audioSourceKey) {
     if (audioSourceKey) this._protectedKeys.add(audioSourceKey);
   }
@@ -166,7 +166,7 @@ class CacheManager {
   }
 
   /**
-   * 파일 하나를 정리 대상에서 뺀다 — 받는 중인 임시 파일용.
+   * 파일 하나를 정리 대상에서 뺀다. 받는 중인 임시 파일용.
    * 키가 아니라 경로로 보호하는 이유: 임시 파일은 DB에도 없고 캐시 키로도 유도되지 않는다.
    */
   protectFile(filepath) {
@@ -193,7 +193,7 @@ class CacheManager {
     else this._queuedKeys.set(guildId, set);
   }
 
-  /** 재생 중 + 모든 길드의 대기열 — 퇴거에서 제외할 키 전부 */
+  /** 재생 중 + 모든 길드의 대기열. 퇴거에서 제외할 키 전부 */
   _liveKeys() {
     const keys = new Set(this._protectedKeys);
     for (const set of this._queuedKeys.values()) for (const k of set) keys.add(k);
@@ -251,7 +251,7 @@ class CacheManager {
     };
 
     // 출처가 따로 있고 소리만 유튜브에서 오는 곡(스포티파이, 그리고 자동재생의 lastfm·lbradio·
-    // vocadb 계열 …)은 영상 주소를 되살려 준다 — 없으면 스트림을 어디서 가져올지 알 수 없다.
+    // vocadb 계열 …)은 영상 주소를 되살려 준다. 없으면 스트림을 어디서 가져올지 알 수 없다.
     if (row.platform !== "youtube" && String(row.audio_source_key).startsWith("yt:")) {
       cachedTrack.youtubeUrl = `https://www.youtube.com/watch?v=${row.audio_source_key.slice(3)}`;
     }
@@ -265,7 +265,7 @@ class CacheManager {
     return this.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(audioSourceKey) || null;
   }
 
-  // 쓰기 — audio_cache
+  // 쓰기. audio_cache
 
   recordDownloadStart(audioSourceKey, track) {
     if (!this._initialized) this.initialize();
@@ -308,7 +308,7 @@ class CacheManager {
       )
       .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, `size:${fileSizeBytes}`, now, now, now, audioSourceKey);
 
-    // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다 — evictIfNeeded는 닫힌 DB를 기본 경로로 다시 연다
+    // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다. evictIfNeeded는 닫힌 DB를 기본 경로로 다시 연다
     setImmediate(() => {
       if (this._initialized) this.evictIfNeeded().catch(() => {});
     });
@@ -332,7 +332,7 @@ class CacheManager {
       .run(now, now, audioSourceKey);
   }
 
-  // 쓰기 — track_lookup
+  // 쓰기. track_lookup
 
   /**
    * 소스 URL → 캐시 키 매핑과 표시용 메타데이터 기록.
@@ -370,7 +370,7 @@ class CacheManager {
       .run(sourceUrl, audioSourceKey, platform, displayTitle || null, displayArtist || null, displayThumbnail || null, v, now, now);
   }
 
-  /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null — 재생목록이 준 제목은 여기 안 걸린다. */
+  /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null. 재생목록이 준 제목은 여기 안 걸린다. */
   getVerifiedTitle(sourceUrl) {
     if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT display_title FROM track_lookup WHERE source_url = ? AND title_verified = 1").get(this._normalizeSourceUrl(sourceUrl));
@@ -378,7 +378,7 @@ class CacheManager {
   }
 
   /**
-   * 매핑만 조회 (파일 검증 없음) — 유튜브 재검색 스킵용(Tier-1).
+   * 매핑만 조회 (파일 검증 없음). 유튜브 재검색 스킵용(Tier-1).
    * resolveFromCache와 달리 오디오 파일 존재를 요구하지 않으므로, 파일이 퇴거됐어도
    * "이 소스가 어느 audio_source_key인가"를 알려준다. 반환: audioSourceKey 또는 null.
    */
@@ -388,7 +388,7 @@ class CacheManager {
     return row ? row.audio_source_key : null;
   }
 
-  /** 스테일 매핑 삭제 — 캐시된 영상이 내려간 경우 재검색 전에 호출. */
+  /** 스테일 매핑 삭제. 캐시된 영상이 내려간 경우 재검색 전에 호출. */
   removeResolution(sourceUrl) {
     if (!this._initialized) this.initialize();
     this.db.prepare("DELETE FROM track_lookup WHERE source_url = ?").run(this._normalizeSourceUrl(sourceUrl));
@@ -396,8 +396,8 @@ class CacheManager {
 
   // 검증 정책
 
-  // 포크 초기의 "재생 전 캐시 재검증" 설계 잔재 — 원류에는 SQLite 캐시가 아예 없다(audio_cache는 폴더 이름이었다).
-  // 이 값과 content_fingerprint·last_verified_at 셋 다 쓰기 전용이다. 재검증은 채우지 않기로 했다 —
+  // 포크 초기의 "재생 전 캐시 재검증" 설계 잔재. 원류에는 SQLite 캐시가 아예 없다(audio_cache는 폴더 이름이었다).
+  // 이 값과 content_fingerprint·last_verified_at 셋 다 쓰기 전용이다. 재검증은 채우지 않기로 했다.
   // 키가 videoId·트랙ID라 원본이 변할 수 없고, 파일 손상은 존재·크기 검사와 임시 파일 rename이 이미 막는다.
   // 다음 스키마 변경 때 세 열을 함께 지운다.
   _verificationPolicy(audioSourceKey) {
@@ -406,7 +406,7 @@ class CacheManager {
     return "infrequent"; // 30일 (yt:*)
   }
 
-  // 플레이어 세션 — 행 구조와 쓰기는 playerSessionStore
+  // 플레이어 세션. 행 구조와 쓰기는 playerSessionStore
 
   get sessions() {
     if (!this._initialized) this.initialize();
@@ -415,7 +415,7 @@ class CacheManager {
   }
 
   /**
-   * 저장된 세션에서 지켜야 할 캐시 파일 — 기동 시 고아 파일 청소가 쓴다.
+   * 저장된 세션에서 지켜야 할 캐시 파일. 기동 시 고아 파일 청소가 쓴다.
    * 그 시점엔 플레이어가 아직 없으므로 저장된 현재곡·대기열이 유일한 근거다.
    */
   getProtectedCacheFiles() {
@@ -455,7 +455,7 @@ class CacheManager {
     this.db.prepare("UPDATE guild_settings SET bot_channel_id = NULL, updated_at = ? WHERE guild_id = ?").run(Date.now(), guildId);
   }
 
-  /** DJ 역할 ID 목록 — 미설정이면 빈 배열 */
+  /** DJ 역할 ID 목록. 미설정이면 빈 배열 */
   getDjRoles(guildId) {
     if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT dj_role_ids FROM guild_settings WHERE guild_id = ?").get(guildId);
@@ -488,7 +488,7 @@ class CacheManager {
     this.db.prepare("UPDATE guild_settings SET dj_role_ids = NULL, updated_at = ? WHERE guild_id = ?").run(Date.now(), guildId);
   }
 
-  /** 서버별 SponsorBlock 설정 — { enabled: null|bool, categories: null|string[] } (null=전역 상속) */
+  /** 서버별 SponsorBlock 설정. { enabled: null|bool, categories: null|string[] } (null=전역 상속) */
   getGuildSponsorBlock(guildId) {
     if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT sponsorblock_enabled, sponsorblock_categories FROM guild_settings WHERE guild_id = ?").get(guildId);
@@ -522,7 +522,7 @@ class CacheManager {
       .run(guildId, encEnabled, encCats, Date.now());
   }
 
-  /** 재생목록을 넣을 때 한 번에 들어가는 곡 수 — 미설정이면 null */
+  /** 재생목록을 넣을 때 한 번에 들어가는 곡 수. 미설정이면 null */
   getPlaylistAddMax(guildId) {
     if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT playlist_add_max FROM guild_settings WHERE guild_id = ?").get(guildId);
@@ -542,7 +542,7 @@ class CacheManager {
       .run(guildId, count ?? null, Date.now());
   }
 
-  /** 이 서버의 현재 재생 패널 자리 — 없으면 null */
+  /** 이 서버의 현재 재생 패널 자리. 없으면 null */
   getPanelRecord(guildId) {
     if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT now_playing_channel_id AS channelId, now_playing_message_id AS messageId FROM guild_settings WHERE guild_id = ?").get(guildId);
@@ -592,13 +592,13 @@ class CacheManager {
   }
 
   /**
-   * 캐시를 초기 상태로 되돌린다 — 오디오 파일 전부와 파생 데이터 테이블.
+   * 캐시를 초기 상태로 되돌린다. 오디오 파일 전부와 파생 데이터 테이블.
    *
    * `guild_settings`(전용 채널·DJ 역할·SponsorBlock 설정)는 남긴다. 사용자가 손으로 넣은
    * 유일한 값이라 다시 만들 수 없고, 나머지는 전부 다시 받거나 다시 계산할 수 있다.
    *
    * 재생 중인 파일은 열려 있어 지워지지 않을 수 있다(윈도우). 실패해도 멈추지 않고 세어서
-   * 돌려준다 — 재생은 이미 연 핸들로 계속되므로 끊기지 않는다.
+   * 돌려준다. 재생은 이미 연 핸들로 계속되므로 끊기지 않는다.
    */
   resetCache() {
     if (!this._initialized) this.initialize();
@@ -606,7 +606,7 @@ class CacheManager {
     const before = { files: this._cacheCount(), bytes: this._cacheSize() };
 
     // 파일을 먼저 지우고, 잠겨서 못 지운 것의 행은 남긴다.
-    // 행만 지우고 파일을 남기면 부모 없는 자식이 생긴다 — 재생 중인 곡은 파일이 있어 다운로더를 건너뛰므로
+    // 행만 지우고 파일을 남기면 부모 없는 자식이 생긴다. 재생 중인 곡은 파일이 있어 다운로더를 건너뛰므로
     // audio_cache 행이 다시 만들어지지 않고, 그 뒤의 track_lookup 기록이 FK 위반으로 재생을 죽인다.
     const rows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache").all();
     const pathOf = (row) => path.resolve(row.file_path || this.getFilePath(row.audio_source_key));
@@ -622,7 +622,7 @@ class CacheManager {
         fs.unlinkSync(target);
         removed++;
       } catch {
-        kept++; // 재생 중이라 잠긴 파일 — 행을 남겨 둔다
+        kept++; // 재생 중이라 잠긴 파일. 행을 남겨 둔다
         keptKeys.add(row.audio_source_key);
         keptPaths.add(target);
       }
@@ -661,7 +661,7 @@ class CacheManager {
     // 보호 집합은 사라진 행을 가리키게 되므로 비우고, 살아남은 것(재생 중)만 다시 건다.
     this._protectedKeys.clear();
     this._queuedKeys.clear();
-    this._protectedFiles.clear(); // 받는 중인 임시 파일 보호도 함께 — 파일은 위에서 지웠다
+    this._protectedFiles.clear(); // 받는 중인 임시 파일 보호도 함께. 파일은 위에서 지웠다
     for (const key of keptKeys) this._protectedKeys.add(key);
 
     try {
@@ -758,9 +758,9 @@ class CacheManager {
     if (!overSize && !overFiles && !lowDisk) return;
 
     if (lowDisk) {
-      log.warn(`디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음) — 오디오 캐시를 즉시 정리합니다.`);
+      log.warn(`디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음). 오디오 캐시를 즉시 정리합니다.`);
     } else {
-      log.info(`오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개) — 오래된 파일부터 정리합니다.`);
+      log.info(`오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개). 오래된 파일부터 정리합니다.`);
     }
 
     await this.evict();
@@ -769,7 +769,7 @@ class CacheManager {
   async evict() {
     if (!this._initialized) this.initialize();
 
-    // 보호 중인 키 제외 — 재생 중인 곡과 각 길드의 대기열 앞부분.
+    // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분.
     // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
     const live = this._liveKeys();
     const rows = this.db
@@ -888,7 +888,7 @@ class CacheManager {
 
   // ── SponsorBlock 세그먼트 캐시 (폴백 전용) ─────────────────────────────────
 
-  /** videoId의 캐시된 원시 세그먼트 반환 — { segments: [...], fetchedAt } 또는 null */
+  /** videoId의 캐시된 원시 세그먼트 반환. { segments: [...], fetchedAt } 또는 null */
   getSponsorSegments(videoId) {
     if (!videoId) return null;
     const row = this.db.prepare("SELECT data_json, fetched_at FROM sponsorblock_cache WHERE video_id = ?").get(videoId);
@@ -900,7 +900,7 @@ class CacheManager {
     }
   }
 
-  /** videoId의 원시 세그먼트 write-through 저장 (빈 배열도 저장 — "구간 없음" 네거티브 캐시) */
+  /** videoId의 원시 세그먼트 write-through 저장 (빈 배열도 저장. "구간 없음" 네거티브 캐시) */
   setSponsorSegments(videoId, segments) {
     if (!videoId || !Array.isArray(segments)) return;
     this.db
@@ -927,7 +927,7 @@ class CacheManager {
     return !!this.db.prepare("SELECT 1 FROM age_restricted WHERE video_id = ?").get(videoId);
   }
 
-  // Spotify 익명 웹플레이어 상태 (secret/해시/clientVersion) — 자가치유 캐시
+  // Spotify 익명 웹플레이어 상태 (secret/해시/clientVersion). 자가치유 캐시
 
   /** 저장된 익명 상태 반환 (없으면 null). `{ ...data, fetchedAt }` */
   getSpotifyAnonState() {

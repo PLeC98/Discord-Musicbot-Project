@@ -48,7 +48,7 @@ function resolve() {
   if (configured) {
     const version = probe(configured);
     if (!version) {
-      // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다 — 사용자가 의도한 바이너리가 아닌 것을
+      // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 안 먹지"로 이어진다.
       throw new Error(`FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`);
     }
@@ -72,7 +72,7 @@ function resolve() {
   throw new Error("ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 내려받거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
 }
 
-/** 해석된 실행 파일 경로만 반환 — 실행 지점에서 쓰는 기본 접근자. */
+/** 해석된 실행 파일 경로만 반환. 실행 지점에서 쓰는 기본 접근자. */
 function ffmpegPath() {
   return resolve().path;
 }
@@ -117,7 +117,7 @@ function capabilities() {
   return caps;
 }
 
-/** 기동 시 1회 호출 — 실제로 쓰는 바이너리를 로그에 남긴다. 못 찾으면 던진다. */
+/** 기동 시 1회 호출. 실제로 쓰는 바이너리를 로그에 남긴다. 못 찾으면 던진다. */
 function logResolved() {
   const info = resolve();
   const shown = info.source === "PATH" ? "PATH의 ffmpeg" : info.path;
@@ -125,7 +125,7 @@ function logResolved() {
   return info;
 }
 
-/** 테스트용 — 캐시 초기화 */
+/** 테스트용. 캐시 초기화 */
 function _reset() {
   resolved = null;
   caps = null;

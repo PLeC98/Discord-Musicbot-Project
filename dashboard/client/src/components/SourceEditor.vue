@@ -4,7 +4,7 @@
   무슨 종류가 있고 어떤 칸을 받는지는 서버가 준다(GET /api/admin/source-types → autoplaySources.catalog).
   화면이 목록을 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다.
 
-  .env 에 키가 없는 종류는 **고르는 칸에서 숨긴다.** 다만 이미 설정에 적혀 있으면 그대로 보인다 —
+  .env 에 키가 없는 종류는 **고르는 칸에서 숨긴다.** 다만 이미 설정에 적혀 있으면 그대로 보인다. 
   안 그러면 저장하는 순간 조용히 지워진다.
 -->
 <template>
@@ -35,10 +35,10 @@
         <p v-if="!spec(source.type)" class="text-[0.75rem] text-[#f87171]">모르는 종류입니다. 이 봇이 지원하지 않습니다.</p>
         <p v-else-if="!spec(source.type).usable" class="text-[0.75rem] text-[#fbbf24]">{{ spec(source.type).needs }} 가 .env 에 없어 지금은 쓰이지 않습니다.</p>
 
-        <!-- 칸 너비는 서버가 정한다(width) — 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
+        <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-x-2.5 gap-y-3 mt-2.5">
           <div v-for="field in shown(source)" :key="field.key" class="min-w-0" :class="widthCls(field)">
-            <!-- 1/6 너비 칸은 설명을 붙이면 줄이 터진다 — 툴팁으로 돌린다 -->
+            <!-- 1/6 너비 칸은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
             <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
               {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span><span v-if="field.hint && field.width !== 'narrow'" class="text-muted font-normal ml-1">{{ field.hint }}</span>
             </span>
@@ -105,13 +105,13 @@ const emit = defineEmits(["update:modelValue"]);
 
 // color-scheme: 네이티브 목록이 밝게 뜨는 것을 막는다(option 은 CSS 로 못 꾸민다)
 const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-2 text-[0.85rem] outline-none font-[inherit] w-full [color-scheme:dark] transition-[border-color] duration-150 focus:border-accent/55";
-// appearance-none 으로 그리므로 화살표도 우리가 얹어야 한다(arrowCls) — 안 그리면 그냥 입력칸처럼 보인다
+// appearance-none 으로 그리므로 화살표도 우리가 얹어야 한다(arrowCls). 안 그리면 그냥 입력칸처럼 보인다
 const selectCls = `${inputCls} appearance-none cursor-pointer pr-9`;
 const arrowCls = "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted";
-// option 은 네이티브로 그려져 부모 색을 물려받지 않는다 — 색을 직접 준다
+// option 은 네이티브로 그려져 부모 색을 물려받지 않는다. 색을 직접 준다
 const optionCls = "bg-[#141833] text-[#e7e9f3]";
 const fieldLabelCls = "block text-[0.75rem] font-semibold text-fg-soft mb-1";
-// self-stretch: 옆 입력칸과 같은 높이로 — 글자 크기를 건드려도 따라온다
+// self-stretch: 옆 입력칸과 같은 높이로. 글자 크기를 건드려도 따라온다
 const iconBtn = "self-stretch w-[38px] rounded-lg border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-danger/15 hover:text-danger disabled:opacity-35 disabled:cursor-not-allowed";
 const foldBtn = "size-6 rounded text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 const pillCls = "px-2 py-1 rounded-md text-[0.75rem] border cursor-pointer transition-colors duration-150";
@@ -127,7 +127,7 @@ const WIDTHS = {
 };
 const widthCls = (field) => WIDTHS[field.width] || "col-span-2 md:col-span-6";
 
-// 편집 중 목록이 흔들리지 않게 행마다 값을 붙인다 — 종류를 바꿔도 같은 행으로 남아야 한다.
+// 편집 중 목록이 흔들리지 않게 행마다 값을 붙인다. 종류를 바꿔도 같은 행으로 남아야 한다.
 //
 // computed 로 두면 안 된다. get 이 매번 새 배열을 만드니 거기에 splice 해 봐야 set 이 안 불리고,
 // _key 도 렌더마다 새로 붙어 입력칸이 포커스를 잃는다. 그래서 여기 두고 위에서 내려온 것만 맞춘다.
@@ -136,7 +136,7 @@ const list = ref([]);
 
 // watch 가 immediate 로 바로 돌므로 그 전에 있어야 한다. 아래에 두면 TDZ 에 걸리는데,
 // Vue 가 watcher 콜백의 예외를 잡아 콘솔에만 남기고 넘어가므로 화면은 멀쩡히 그려지고
-// 목록만 빈 채로 "출처가 하나는 있어야 합니다"가 뜬다 — 실제로 그렇게 한 번 당했다.
+// 목록만 빈 채로 "출처가 하나는 있어야 합니다"가 뜬다. 실제로 그렇게 한 번 당했다.
 const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
 const push = () => emit("update:modelValue", list.value.map(clean));
 
@@ -144,7 +144,7 @@ watch(
   () => props.modelValue,
   (next) => {
     const incoming = next || [];
-    // 우리가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다 — 건드리면 _key 가 갈린다
+    // 우리가 방금 올려보낸 것이 그대로 내려온 것이면 건드리지 않는다. 건드리면 _key 가 갈린다
     if (JSON.stringify(incoming.map(clean)) === JSON.stringify(list.value.map(clean))) return;
     list.value = incoming.map((one) => ({ ...one, _key: ++serial }));
   },
@@ -162,14 +162,14 @@ const adding = ref("");
 const spec = (type) => props.types.find((t) => t.type === type) || null;
 const asList = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
 
-// 쓸 수 있는 것만 고르게 한다. 다만 이미 쓰고 있는 종류는 목록에 남겨야 한다 —
+// 쓸 수 있는 것만 고르게 한다. 다만 이미 쓰고 있는 종류는 목록에 남겨야 한다.
 // 안 그러면 select 가 값을 잃고 저장할 때 조용히 바뀐다.
 const addable = computed(() => props.types.filter((t) => t.usable));
 const choosable = (current) => props.types.filter((t) => t.usable || t.type === current);
 
 const fieldsOf = (type) => spec(type)?.fields || [];
 const deepCount = (type) => fieldsOf(type).filter((f) => f.deep).length;
-// when 이 있는 칸은 그 칸이 채워졌을 때만 뜬다 — 분기는 연도를 자른 뒤에나 뜻이 있다
+// when 이 있는 칸은 그 칸이 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
 const shown = (source) => fieldsOf(source.type).filter((f) => (!f.deep || open.value.has(source._key)) && (!f.when || hasRange(source, f.when)));
 // 구간은 두 칸으로 적히니 한쪽만 손으로 적어 둔 설정도 있다
 const hasRange = (source, key) => source[key] != null || source[fieldsOf(source.type).find((f) => f.key === key)?.to] != null;
@@ -184,7 +184,7 @@ function toggleDeep(key) {
 function write(i, patch) {
   const row = list.value[i];
   for (const [k, v] of Object.entries(patch)) {
-    // 비운 칸은 아예 지운다 — YAML 에 `minScore: null` 같은 줄을 남기지 않는다
+    // 비운 칸은 아예 지운다. YAML 에 `minScore: null` 같은 줄을 남기지 않는다
     if (v == null) delete row[k];
     else row[k] = v;
   }
@@ -194,7 +194,7 @@ function write(i, patch) {
 const setField = (i, key, value) => write(i, { [key]: value });
 
 // 구간은 두 칸을 한꺼번에 쓴다(yearFrom·yearTo).
-// 전체로 되돌리면 그 구간에 딸린 칸도 비운다 — 화면에서 사라진 값이 설정에 남으면 안 된다.
+// 전체로 되돌리면 그 구간에 딸린 칸도 비운다. 화면에서 사라진 값이 설정에 남으면 안 된다.
 function setRange(i, field, range) {
   const patch = { [field.key]: range.from, [field.to]: range.to };
   if (range.from == null && range.to == null) {
@@ -209,7 +209,7 @@ function toggle(i, key, opt) {
   setField(i, key, next.length ? next : null);
 }
 
-// 종류를 바꾸면 그 종류가 안 받는 칸은 버린다 — 남겨 두면 저장할 때 검사에 걸린다
+// 종류를 바꾸면 그 종류가 안 받는 칸은 버린다. 남겨 두면 저장할 때 검사에 걸린다
 function changeType(i, type) {
   const keep = new Set(
     fieldsOf(type)

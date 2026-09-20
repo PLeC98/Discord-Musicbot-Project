@@ -10,7 +10,7 @@ const { silentResponder } = require("./playbackResponder");
 const GuildSettingsManager = require("./GuildSettingsManager");
 const trackState = require("./trackState");
 
-// 편집 대상이 사라진 경우 — 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
+// 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
 const UNKNOWN_MESSAGE = 10008;
 const UNKNOWN_WEBHOOK = 10015;
 const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNKNOWN_WEBHOOK;
@@ -25,7 +25,7 @@ const NowPlayingPanel = require("./NowPlayingPanel");
 
 const BAR_LENGTH = 16;
 
-// 끝난 패널의 버튼 — 플레이어가 없어도 같은 모양을 그린다.
+// 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
 const IDLE_CONTROLS = { sessionId: "idle", requesterId: "0", previousTracks: [], queue: [], loop: "off", paused: false, autoplay: false, currentTrack: null };
 
@@ -37,7 +37,7 @@ class MusicEmbedManager {
     this.webhookCache = new Map(); // channelId -> WebhookClient 매핑
     this.reposting = new Set(); // 현재 재생 메시지를 다시 올리는 중인 guildId
     this.panel = new NowPlayingPanel(this);
-    this.idleViews = new Map(); // guildId → 끝난 패널의 문구 { reason, leavesAt } — 맨 아래로 다시 올릴 때 같은 모양으로
+    this.idleViews = new Map(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
     this.repinTimers = new Map(); // guildId → 전용 채널 재고정 디바운스
   }
 
@@ -81,14 +81,14 @@ class MusicEmbedManager {
   /**
    * 음악 데이터를 처리하고 적절한 임베드를 전송/갱신합니다.
    *
-   * 서버당 한 번에 하나의 작업만 — Promise tail 체인 방식.
+   * 서버당 한 번에 하나의 작업만. Promise tail 체인 방식.
    * "기다렸다가 등록"(await 후 set)은 대기와 등록 사이에 끼어든 요청이 락을 놓치고,
    * 앞 작업의 finally가 뒤 작업의 Map 항목을 지우는 경쟁이 있었다(A/B/C 동시 시나리오).
    * 여기서는 get+set이 동기(사이에 await 없음)라 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다.
    */
   handleMusicData(guildId, trackData, requester, responder = silentResponder) {
     const tail = this.processingQueue.get(guildId) || Promise.resolve();
-    // 앞 작업의 실패가 뒤 작업까지 실패시키면 안 됨 — 각 작업의 결과/오류는 자기 호출자에게만 전달
+    // 앞 작업의 실패가 뒤 작업까지 실패시키면 안 됨. 각 작업의 결과/오류는 자기 호출자에게만 전달
     const processingPromise = tail.catch(() => {}).then(() => this._processMusic(guildId, trackData, requester, responder));
     this.processingQueue.set(guildId, processingPromise);
 
@@ -145,10 +145,10 @@ class MusicEmbedManager {
           }
 
           if (startFailure) {
-            // 시작 실패 — 유령 임베드 만들지 않음. 실패한 곡은 큐에 넣지 않는다(재시도해도 실패).
+            // 시작 실패. 유령 임베드 만들지 않음. 실패한 곡은 큐에 넣지 않는다(재시도해도 실패).
             trackState.setCurrent(player, null);
           } else if (playbackStarted) {
-            // UI 실패가 재생 상태를 망가뜨리면 안 됨 — 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
+            // UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, track, requester, responder);
             } catch (embedError) {
@@ -161,14 +161,14 @@ class MusicEmbedManager {
         }
       }
 
-      // 상한은 여기서 판정한다 — 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
+      // 상한은 여기서 판정한다. 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
       const queued = tracksToQueue.slice(0, trackState.roomLeft(player, config.bot.maxQueueSize));
       const dropped = tracksToQueue.length - queued.length;
-      // 안내에 붙일 것 — 전체 곡 수는 받은 것보다 많을 때만
+      // 안내에 붙일 것. 전체 곡 수는 받은 것보다 많을 때만
       const notice = { dropped, total: trackData.total > tracks.length ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) };
       if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
       else if (insertFirst) trackState.enqueue(player, queued, { front: true });
-      // 자동재생이 미리 뽑아 둔 곡보다는 앞에 — 사용자가 고른 곡이 먼저다
+      // 자동재생이 미리 뽑아 둔 곡보다는 앞에. 사용자가 고른 곡이 먼저다
       else trackState.enqueueAheadOfAutoplay(player, queued);
 
       // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
@@ -197,7 +197,7 @@ class MusicEmbedManager {
       if (firstTrackResult && tracks.length > 1) {
         // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
         await this.showPlaylistAdditionMessage(player, queued, sourceLabel, insertFirst, notice);
-        // 대기열 갱신 — 임베드 새로고침
+        // 대기열 갱신. 임베드 새로고침
         await this.updateNowPlayingEmbed(player);
         return { ...firstTrackResult, dropped, queueLimited: notice.queueLimited };
       }
@@ -225,7 +225,7 @@ class MusicEmbedManager {
   async showPlaylistAdditionMessage(player, queued, sourceLabel, insertFirst = false, notice = {}) {
     const messageText = this.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice);
 
-    // 진입점의 응답이 아니라 항상 텍스트 채널로 — 채널이 없는 경로(대시보드)는 생략
+    // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
 
     let infoMessage;
@@ -256,7 +256,7 @@ class MusicEmbedManager {
       return { success: true, message: "Now playing", isNewEmbed: false };
     }
 
-    player.requesterId = requester?.id ?? null; // 버튼 custom_id가 쓴다 — 그리기 전에
+    player.requesterId = requester?.id ?? null; // 버튼 custom_id가 쓴다. 그리기 전에
     this.idleViews.delete(player.guild?.id);
 
     // 전용 채널 맨 아래의 끝난 패널은 그 자리를 재생 화면으로 고친다. 아니면 새로 올리고 지난 패널을 치운다.
@@ -265,7 +265,7 @@ class MusicEmbedManager {
     player.nowPlayingWebhook = webhook;
     if (!reused) await this.panel.commit(player.guild, channel, message, webhook);
 
-    // 진입점이 띄운 "검색 중…" 자리표시자 제거 — 채널에 중복/정지 메시지를 남기지 않는다
+    // 진입점이 띄운 "검색 중…" 자리표시자 제거. 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
 
     player.nowPlayingMessage = message;
@@ -319,7 +319,7 @@ class MusicEmbedManager {
     return { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
   }
 
-  /** 이 서버의 전용 채널 — 설정돼 있고 찾을 수 있을 때만 */
+  /** 이 서버의 전용 채널. 설정돼 있고 찾을 수 있을 때만 */
   async _dedicatedChannel(guild, fallback = null) {
     if (!guild?.id) return null;
     const id = await GuildSettingsManager.getBotChannel(guild.id);
@@ -327,7 +327,7 @@ class MusicEmbedManager {
     return guild.channels?.cache?.get(id) ?? (fallback?.id === id ? fallback : null);
   }
 
-  /** 패널을 둘 채널 — 전용 채널이 있으면 늘 거기, 없으면 요청한 채널 */
+  /** 패널을 둘 채널. 전용 채널이 있으면 늘 거기, 없으면 요청한 채널 */
   async _panelChannel(player) {
     return (await this._dedicatedChannel(player.guild, player.textChannel)) ?? player.textChannel;
   }
@@ -357,7 +357,7 @@ class MusicEmbedManager {
    * 현재 재생 메시지를 채널 맨 아래에 다시 올립니다 (기존 것은 제거).
    * 사용자가 지웠을 때의 자가 복구와, 전용 채널에서 묻혔을 때의 재고정이 같은 경로를 씁니다.
    *
-   * 서버당 한 번만 — 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
+   * 서버당 한 번만. 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
    * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 지운다.
    */
   async _repostNowPlaying(player, reason) {
@@ -381,7 +381,7 @@ class MusicEmbedManager {
       await this.panel.commit(player.guild, channel, message, webhook);
       log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
     } catch (error) {
-      // 다시 올리지 못하면 참조를 버린다 — 5초마다 같은 실패를 반복하면 그게 도배다
+      // 다시 올리지 못하면 참조를 버린다. 5초마다 같은 실패를 반복하면 그게 도배다
       player.nowPlayingMessage = null;
       this.stopProgressUpdate(guildId);
       log.error("재생 중 임베드 다시 올리기 실패:", error?.message || error);
@@ -393,7 +393,7 @@ class MusicEmbedManager {
   /**
    * 전용 채널에서 현재 재생 메시지가 다른 메시지 밑에 묻혔는지 봅니다.
    *
-   * 채널 캐시만 읽는다(추가 API 호출 없음) — 삭제된 메시지는 캐시에서도 빠지므로
+   * 채널 캐시만 읽는다(추가 API 호출 없음). 삭제된 메시지는 캐시에서도 빠지므로
    * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
    */
   async _isBuried(player, now = Date.now()) {
@@ -401,12 +401,12 @@ class MusicEmbedManager {
     return Boolean(channel) && this._buriedAt(channel, player.nowPlayingMessage?.id, now);
   }
 
-  // 채널 캐시만 읽는다 — 12초 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
+  // 채널 캐시만 읽는다. 12초 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
   _buriedAt(channel, messageId, now = Date.now()) {
     if (!messageId || !channel?.messages?.cache) return false;
 
     const cutoff = now - PIN_SETTLE_MS;
-    // 스스로 지워질 봇 메시지(더 넣기 메뉴 등)는 세지 않는다 — 조작 중에 위치가 바뀌면 거슬린다
+    // 스스로 지워질 봇 메시지(더 넣기 메뉴 등)는 세지 않는다. 조작 중에 위치가 바뀌면 거슬린다
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
@@ -425,8 +425,8 @@ class MusicEmbedManager {
     const platformValue = this.getPlatformLabel(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
-    // 제목은 이스케이프하지 않는다 — 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
-    // 음원을 직접 받아 트는 곡은 url이 음원 파일이다 — 눌러 봐야 쓸모가 없으니 출처 쪽을 건다
+    // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
+    // 음원을 직접 받아 트는 곡은 url이 음원 파일이다. 눌러 봐야 쓸모가 없으니 출처 쪽을 건다
     const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.webUrl || track.url})**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
@@ -500,7 +500,7 @@ class MusicEmbedManager {
   async updateNowPlayingEmbed(player) {
     if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     if (!player.nowPlayingMessage || !player.currentTrack) return;
-    if (this.reposting.has(player.guild?.id)) return; // 다시 올리는 중 — 그쪽이 최신 내용으로 보낸다
+    if (this.reposting.has(player.guild?.id)) return; // 다시 올리는 중. 그쪽이 최신 내용으로 보낸다
 
     try {
       const container = await this.createNowPlayingContainer(player, player.currentTrack);
@@ -518,7 +518,7 @@ class MusicEmbedManager {
         });
       }
     } catch (error) {
-      // 편집 대상이 없어졌다 — 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
+      // 편집 대상이 없어졌다. 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
       if (isGone(error)) {
         if (error.code === UNKNOWN_WEBHOOK) {
           const channel = await this._panelChannel(player);
@@ -533,7 +533,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * 끝난 패널 — 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 자리는 투명 이미지로 채워 줄 구성을 맞춘다.
+   * 끝난 패널. 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 자리는 투명 이미지로 채워 줄 구성을 맞춘다.
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
    * reason: queue-end(음성에 잠시 남음) | stop · disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
    */
@@ -561,7 +561,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * 재생이 끝났을 때 — 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 끝난 패널의 문구만 고친다
+   * 재생이 끝났을 때. 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 끝난 패널의 문구만 고친다
    * (대기 중에 음성에서 나감 등). 종료 메시지는 전용 채널 밖에서, 방금까지 재생하던 때만 올린다.
    */
   async handlePlaybackEnd(player, { reason = "stop" } = {}) {
@@ -571,7 +571,7 @@ class MusicEmbedManager {
 
     const live = player.nowPlayingMessage;
     const textChannel = player.textChannel;
-    // 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다 — textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다
+    // 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다. textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다
     const panelChannelId = live ? (live.channel_id ?? live.channelId ?? (await this._panelChannel(player))?.id) : guild?.id && (await this.panel.store.getPanel(guild.id))?.channelId;
     const botChannelId = guild?.id ? await GuildSettingsManager.getBotChannel(guild.id) : null;
     const dedicated = Boolean(panelChannelId) && panelChannelId === botChannelId;
@@ -633,26 +633,26 @@ class MusicEmbedManager {
     await this.panel.commit(guild, channel, message, webhook);
   }
 
-  /** 전용 채널을 정했거나 바꿨거나 풀었을 때 — 재생 중이면 패널을 옮기고, 아니면 끝난 패널을 새 채널에 올리거나 치운다 */
+  /** 전용 채널을 정했거나 바꿨거나 풀었을 때. 재생 중이면 패널을 옮기고, 아니면 끝난 패널을 새 채널에 올리거나 치운다 */
   async onBotChannelChanged(guild) {
     const channel = await this._dedicatedChannel(guild);
     const player = this.client.players.get(guild.id);
     if (player?.currentTrack && player.nowPlayingMessage) {
       if (channel) await this._repostNowPlaying(player, "전용 채널 변경");
-      return; // 풀었으면 재생 중인 패널은 그 자리에 둔다 — 끝나면 전용 채널 밖 규칙을 따른다
+      return; // 풀었으면 재생 중인 패널은 그 자리에 둔다. 끝나면 전용 채널 밖 규칙을 따른다
     }
     if (channel) await this._postIdle(guild, channel);
     else await this.panel.remove(guild);
   }
 
-  /** 곡이 없을 때 /dashboard — 끝난 패널을 이 채널에 다시 올린다 */
+  /** 곡이 없을 때 /dashboard. 끝난 패널을 이 채널에 다시 올린다 */
   async repostIdlePanel(guild, channel) {
     const dedicated = (await this._dedicatedChannel(guild))?.id === channel.id;
     await this._postIdle(guild, channel, { dedicated });
   }
 
   /**
-   * 기동 때 한 번 — 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
+   * 기동 때 한 번. 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
    * 전용 채널에 패널이 없으면 올린다. 세션을 복원해 새 패널을 올린 서버는 건너뛴다.
    */
   async restorePanels() {
@@ -675,7 +675,7 @@ class MusicEmbedManager {
   /**
    * 제어 버튼을 생성합니다.
    */
-  // keepAutoplay: 나머지를 죽여도 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
+  // keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
   async createControlButtons(player, disabled = false, { keepAutoplay = false } = {}) {
     const sessionId = player.sessionId;
     const requesterId = player.requesterId;
@@ -706,7 +706,7 @@ class MusicEmbedManager {
     // Row 2: 셔플(아이콘만) + 반복 + 대기열 + 자동재생
     const shuffleButton = new ButtonBuilder().setCustomId(`music_shuffle:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
 
-    // 반복 버튼 — 꺼짐 → 트랙 → 대기열 순환
+    // 반복 버튼. 꺼짐 → 트랙 → 대기열 순환
     let loopLabel, loopEmoji, loopStyle;
     if (player.loop === "track") {
       loopLabel = "반복: 트랙";
@@ -733,7 +733,7 @@ class MusicEmbedManager {
       .setEmoji("🎲")
       .setDisabled(disabled && !keepAutoplay);
 
-    // SponsorBlock 하이라이트 점프 — 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
+    // SponsorBlock 하이라이트 점프. 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
     const highlightAt = player.currentTrack?.sponsor?.highlightAt;
     const hasHighlight = highlightAt !== null && highlightAt !== undefined;
     const highlightButton = new ButtonBuilder()
@@ -814,7 +814,7 @@ class MusicEmbedManager {
       spotify: "🟢",
       soundcloud: "🟠",
       direct: "🔗",
-      // 자동재생이 출처에서 받아 온 곡들 — 소리는 유튜브나 그쪽 음원에서 온다
+      // 자동재생이 출처에서 받아 온 곡들. 소리는 유튜브나 그쪽 음원에서 온다
       lastfm: "🔺",
       lbradio: "🧠",
       animethemes: "🎌",

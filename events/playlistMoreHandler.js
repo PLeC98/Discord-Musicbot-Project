@@ -1,6 +1,6 @@
 "use strict";
 
-// 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달) — 상태는 custom_id에 있다(src/playlistMore.js).
+// 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/playlistMore.js).
 
 const { Events, MessageFlags } = require("discord.js");
 const log = require("../src/logger").child({ category: "events" });
@@ -26,7 +26,7 @@ module.exports = {
 
     const message = interaction.message;
 
-    // 그만 넣기 — 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
+    // 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
     if (isSelect && interaction.values[0] === "stop") {
       if (state.requesterId && state.requesterId !== interaction.user.id) return refuse("목록을 넣은 사람만 닫을 수 있어요.");
       if (message) More.clearExpiry(message.id);

@@ -14,7 +14,7 @@ const DB_PATH = path.join(__dirname, "..", "..", "database", "sessions.db");
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 class SqliteSessionStore extends Store {
-  // dbPath는 테스트 시임 (임시 DB — 운영 DB 미접촉)
+  // dbPath는 테스트 시임 (임시 DB. 운영 DB 미접촉)
   constructor({ dbPath = DB_PATH, pruneIntervalMs = 60 * 60 * 1000 } = {}) {
     super();
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -39,7 +39,7 @@ class SqliteSessionStore extends Store {
       try {
         this.prune();
       } catch {
-        /* 정리 실패는 다음 주기에 재시도 — 서비스에 영향 없음 */
+        /* 정리 실패는 다음 주기에 재시도. 서비스에 영향 없음 */
       }
     }, pruneIntervalMs);
     this._pruneTimer.unref?.();
@@ -71,7 +71,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  // rolling/유휴 갱신 — 데이터 재직렬화 없이 만료만 연장
+  // rolling/유휴 갱신. 데이터 재직렬화 없이 만료만 연장
   touch(sid, session, cb = () => {}) {
     try {
       this._touchStmt.run(this._expiresAt(session), sid);

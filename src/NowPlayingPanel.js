@@ -1,6 +1,6 @@
 "use strict";
 
-// 서버당 하나뿐인 현재 재생 패널의 자리 — 어느 채널의 어느 메시지인지 DB에 남긴다.
+// 서버당 하나뿐인 현재 재생 패널의 자리. 어느 채널의 어느 메시지인지 DB에 남긴다.
 // 메모리 참조(player.nowPlayingMessage)는 재생이 끝나거나 재시작하면 없어지므로, 옛 패널을 치우는 기준은 이 기록이다.
 
 const GuildSettingsManager = require("./GuildSettingsManager");
@@ -10,12 +10,12 @@ const UNKNOWN_MESSAGE = 10008;
 class NowPlayingPanel {
   /**
    * @param {{ getOrCreateWebhook(channel): Promise<object|null> }} embeds 웹훅을 다시 찾는 쪽(MusicEmbedManager)
-   * @param {{ getPanel, setPanel }} store 기록 저장소 — 테스트가 갈아끼운다
+   * @param {{ getPanel, setPanel }} store 기록 저장소. 테스트가 갈아끼운다
    */
   constructor(embeds, store = GuildSettingsManager) {
     this.embeds = embeds;
     this.store = store;
-    this.chains = new Map(); // guildId → Promise 꼬리 — 기록을 읽고 바꾸는 사이에 다른 게시가 끼지 않게
+    this.chains = new Map(); // guildId → Promise 꼬리. 기록을 읽고 바꾸는 사이에 다른 게시가 끼지 않게
   }
 
   _serial(guildId, fn) {
@@ -49,13 +49,13 @@ class NowPlayingPanel {
         await webhook.editMessage(record.messageId, payload);
         return { channel, webhook, messageId: record.messageId };
       } catch (error) {
-        if (error?.code === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 지워졌다 — 다음 게시가 새로 올린다
+        if (error?.code === UNKNOWN_MESSAGE) await this.store.setPanel(guild.id, null, null); // 지워졌다. 다음 게시가 새로 올린다
         return null;
       }
     });
   }
 
-  /** 패널을 지우고 기록을 비운다 — 전용 채널을 풀었을 때 */
+  /** 패널을 지우고 기록을 비운다. 전용 채널을 풀었을 때 */
   remove(guild) {
     if (!guild?.id) return Promise.resolve();
     return this._serial(guild.id, async () => {
@@ -70,7 +70,7 @@ class NowPlayingPanel {
     return guild.channels?.cache?.get(channelId) ?? (await guild.channels?.fetch?.(channelId).catch(() => null)) ?? null;
   }
 
-  // 웹훅으로 지우면 권한이 필요 없다. 웹훅이 없어졌거나 일반 메시지로 보냈으면 채널 권한으로 — 안 되면 둔다.
+  // 웹훅으로 지우면 권한이 필요 없다. 웹훅이 없어졌거나 일반 메시지로 보냈으면 채널 권한으로. 안 되면 둔다.
   async _delete(guild, { channelId, messageId }, hint) {
     const sameChannel = hint.channel?.id === channelId;
     const channel = sameChannel ? hint.channel : await this._channel(guild, channelId);

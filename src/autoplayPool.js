@@ -20,7 +20,7 @@ const MAX_POOLS = 64; // 설정을 자주 고쳐도 무한히 늘지 않게
 const pools = new Map();
 
 // 열쇠는 설정 내용으로 만든다. 키 차례가 달라도 같은 설정이면 같은 풀이어야 한다.
-// weight는 뺀다 — 어느 풀을 고를지에만 쓰이지, 풀 내용과는 상관이 없다.
+// weight는 뺀다. 어느 풀을 고를지에만 쓰이지, 풀 내용과는 상관이 없다.
 function keyOf(source) {
   const stable = (v) => {
     if (Array.isArray(v)) return v.map(stable);
@@ -71,7 +71,7 @@ async function take(source, fill, reject) {
     try {
       tracks = (await fill(source)) || [];
     } catch (error) {
-      // 소스 하나가 죽어도 자동재생 전체가 죽지 않는다 — 부르는 쪽이 다음 소스로 넘어간다
+      // 소스 하나가 죽어도 자동재생 전체가 죽지 않는다. 부르는 쪽이 다음 소스로 넘어간다
       log.warn(`자동재생 소스 실패 (${source?.type}): ${error.message}`);
       return null;
     }
@@ -82,7 +82,7 @@ async function take(source, fill, reject) {
   }
 
   // 아직 안 쓴 것 중에서 무작위로. 부르는 쪽이 싫다는 것은 건너뛰되 썼다고 치지 않는다
-  // — 다른 서버는 그 곡을 받아도 되기 때문이다.
+  // 다른 서버는 그 곡을 받아도 되기 때문이다.
   const left = pool.tracks.filter((t) => !pool.used.has(idOf(t)));
   const ok = reject ? left.filter((t) => !reject(t)) : left;
   const from = ok.length ? ok : [];
@@ -98,7 +98,7 @@ function stats() {
   return [...pools.entries()].map(([key, p]) => ({ key, total: p.tracks.length, used: p.used.size, age: Date.now() - p.fetchedAt }));
 }
 
-/** 테스트 시임 — 풀을 전부 버린다. */
+/** 테스트 시임. 풀을 전부 버린다. */
 function _reset() {
   pools.clear();
 }

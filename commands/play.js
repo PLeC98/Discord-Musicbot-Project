@@ -33,7 +33,7 @@ module.exports = {
         return await interaction.reply({ content: validationResult.message, flags: MessageFlags.Ephemeral });
       }
 
-      // 처음부터 Components V2로 응답 — 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
+      // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
       await interaction.reply({
         components: [client.musicEmbedManager.createSearchingContainer(`**${query}** 검색 중...`)],
         flags: MessageFlags.IsComponentsV2,
@@ -75,7 +75,7 @@ module.exports = {
   },
 
   async validateRequest(member) {
-    // 곡 추가는 전 계층 가능 — 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
+    // 곡 추가는 전 계층 가능. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
     const permErr = checkAdd(member) || checkSummon(member);
     if (permErr) return { success: false, message: permErr };
     return { success: true };

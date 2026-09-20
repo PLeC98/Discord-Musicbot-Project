@@ -23,7 +23,7 @@ function liveBlockReason(track) {
  * 곡 추가 경로의 단일 코어. 진입점(슬래시 명령/전용 채널/검색 선택/대시보드)은
  * 권한 검사와 응답 매체(responder)만 책임지고 나머지는 전부 여기를 지난다.
  *
- * 여기서 디스코드 상호작용도 HTTP 응답도 만들지 않는다 — 결과 객체만 돌려준다.
+ * 여기서 디스코드 상호작용도 HTTP 응답도 만들지 않는다. 결과 객체만 돌려준다.
  */
 
 /**
@@ -36,7 +36,7 @@ function toRequester(source) {
 
   return {
     id: source.id ?? null,
-    // displayName을 먼저 본다 — GuildMember에는 username이 없어 전역 계정명이 먼저 잡히면
+    // displayName을 먼저 본다. GuildMember에는 username이 없어 전역 계정명이 먼저 잡히면
     // 서버 닉네임이 영영 쓰이지 않는다. displayName은 닉네임이 있으면 닉네임, 없으면 표시 이름이다.
     username: source.displayName ?? source.username ?? source.user?.displayName ?? source.user?.username ?? null,
     tag: source.tag ?? source.user?.tag ?? null,
@@ -46,7 +46,7 @@ function toRequester(source) {
 /**
  * 서버의 플레이어를 확보한다. 이미 있으면 재사용하고 채널만 갱신.
  *
- * voiceChannel은 봇이 유휴일 때만 갱신한다 — 재생 중 다른 채널 참조로 오염되면
+ * voiceChannel은 봇이 유휴일 때만 갱신한다. 재생 중 다른 채널 참조로 오염되면
  * 이후 재연결이 엉뚱한 채널로 간다. textChannel은 null로 덮어쓰지 않는다(대시보드).
  */
 function ensurePlayer(client, { guild, textChannel = null, voiceChannel = null }) {
@@ -66,7 +66,7 @@ function ensurePlayer(client, { guild, textChannel = null, voiceChannel = null }
 
 /**
  * 대시보드처럼 텍스트 채널 개념이 없는 진입점의 출력 채널을 정한다.
- * 서버가 지정한 봇 전용 채널만 쓴다 — 아무 채널이나 추측하면 엉뚱한 곳에 도배한다.
+ * 서버가 지정한 봇 전용 채널만 쓴다. 아무 채널이나 추측하면 엉뚱한 곳에 도배한다.
  */
 async function resolveFallbackTextChannel(guild) {
   try {
@@ -86,7 +86,7 @@ async function resolveFallbackTextChannel(guild) {
  * @param {object} options
  * @param {object} options.guild            서버(길드) 객체
  * @param {object} options.requester        요청자 (GuildMember 또는 { id, username })
- * @param {string} [options.query]          검색어/URL — tracks를 주지 않으면 필수
+ * @param {string} [options.query]          검색어/URL. tracks를 주지 않으면 필수
  * @param {Array}  [options.tracks]         이미 해석된 트랙 (검색 선택 경로)
  * @param {object} [options.textChannel]    안내·임베드를 보낼 채널
  * @param {object} [options.voiceChannel]   접속할 음성 채널
@@ -106,7 +106,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   }
 
   const player = ensurePlayer(client, { guild, textChannel: resolvedTextChannel, voiceChannel });
-  // 재생목록을 넣을 때 한 번에 들어가는 곡 수 — 서버 설정, 더 넣기 선택지 단위이기도 하다
+  // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정, 더 넣기 선택지 단위이기도 하다
   const batch = GuildSettingsManager.resolvePlaylistAddMax(guildId);
 
   let trackData;
@@ -114,7 +114,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     trackData = { success: true, isPlaylist: tracks.length > 1, collection, tracks };
   } else {
     log.debug({ sub: "play" }, `${source} | 서버=${guildId} | 검색어="${query}"`);
-    // 받을 곡 수 — 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
+    // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
     // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
     const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
     const limit = single ? 1 : Math.max(1, Math.min(batch, room));
@@ -159,7 +159,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
   log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}${trackData.queueLimited ? " | 자리가 모자라 일부만 받음" : ""}`);
 
-  // 목록이 더 남았으면 이어 받을 상태 — 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
+  // 목록이 더 남았으면 이어 받을 상태. 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
   const more = result?.success && !result.dropped ? continuation(query, trackData, { insertFirst }) : null;
   return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player, more: more && { ...more, batch } };
 }
@@ -167,11 +167,11 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
 const MORE_BATCH = 100;
 
 /**
- * 재생목록 이어 넣기 — 디스코드 메뉴와 대시보드가 같이 쓴다.
+ * 재생목록 이어 넣기. 디스코드 메뉴와 대시보드가 같이 쓴다.
  *
  * 받는 곡 수는 누른 시점의 남은 자리로 다시 자른다. 앵커(직전 마지막 곡)를 찾으려고 LOOKBACK만큼 앞에서부터
  * 받고, 찾으면 그 뒤부터, 못 찾으면 요청 위치부터 넣는다. 맨 앞에 넣었던 목록이면 앵커 곡 바로 뒤에 넣는다.
- * 곡은 묶음으로 나눠 받으며 onProgress(받은 수, 받을 수)를 부른다 — 대기열에는 다 받은 뒤 한 번에 넣는다.
+ * 곡은 묶음으로 나눠 받으며 onProgress(받은 수, 받을 수)를 부른다. 대기열에는 다 받은 뒤 한 번에 넣는다.
  */
 async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {} }) {
   const player = client.players.get(guild.id);
@@ -199,7 +199,7 @@ async function continueCollection(client, { guild, requester, state, count, text
     if (fresh.length === 0 || !advanced || (total != null && cursor >= total)) break;
   }
 
-  // 앵커가 앞당겨져 더 받았으면 넘친 만큼 되돌린다 — 다음 이어 받기는 앵커가 바로잡는다
+  // 앵커가 앞당겨져 더 받았으면 넘친 만큼 되돌린다. 다음 이어 받기는 앵커가 바로잡는다
   const tracks = found.slice(0, want);
   if (tracks.length === 0) return { success: false, message: "더 넣을 곡을 찾지 못했어요." };
   const nextOffset = cursor - (found.length - tracks.length);

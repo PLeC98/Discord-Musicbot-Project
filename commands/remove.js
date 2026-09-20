@@ -22,7 +22,7 @@ module.exports = {
 
     const position = interaction.options.getInteger("position");
 
-    if (position > player.queue.length) return interaction.reply({ content: `❌ 대기열에 ${player.queue.length}개의 곡만 있습니다. (1–${player.queue.length} 범위로 입력하세요)`, flags: [1 << 6] });
+    if (position > player.queue.length) return interaction.reply({ content: `❌ 대기열에 ${player.queue.length}개의 곡만 있습니다. (1. ${player.queue.length} 범위로 입력하세요)`, flags: [1 << 6] });
 
     // DJ 계층이 아니어도 자기가 추가한 곡은 제거 가능
     const permErr = await checkRemoveTrack(member, player.queue[position - 1]);

@@ -18,7 +18,7 @@ let eventSource = null;
 let nudgeTimer = null;
 let visHandler = null;
 
-// 상호(유저∩봇) 서버 목록 — 사이드바와 서버 목록 화면(ServersView)이 공유.
+// 상호(유저∩봇) 서버 목록. 사이드바와 서버 목록 화면(ServersView)이 공유.
 // 구독 카운팅으로 SSE·폴링을 단일화: 첫 구독자가 연결을 열고, 마지막 구독자가 닫는다.
 export const useGuildsStore = defineStore("guilds", {
   state: () => ({
@@ -31,7 +31,7 @@ export const useGuildsStore = defineStore("guilds", {
         const res = await axios.get("/api/guilds");
         this.guilds = res.data.guilds;
       } catch {
-        // 일시적 오류는 무시 — 다음 폴링/넛지에서 회복
+        // 일시적 오류는 무시. 다음 폴링/넛지에서 회복
       } finally {
         this.loading = false;
       }
@@ -63,7 +63,7 @@ export const useGuildsStore = defineStore("guilds", {
           stopFallback();
         };
         eventSource.onmessage = (e) => {
-          // 페이로드: {"t":"changed","g":"<guildId>"} — 구독자별로 관심 서버가 다르므로 그대로 넘긴다
+          // 페이로드: {"t":"changed","g":"<guildId>"}. 구독자별로 관심 서버가 다르므로 그대로 넘긴다
           let guildId = null;
           try {
             guildId = JSON.parse(e.data)?.g ?? null;

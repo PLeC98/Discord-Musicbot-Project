@@ -19,7 +19,7 @@ const config = require("../config");
 class QueueWarmer {
   /**
    * @param {object} player  MusicPlayer (queue / currentTrack / loop / guild 를 읽는다)
-   * @param {object} deps    협력자 주입 — 생략하면 실제 모듈을 쓴다
+   * @param {object} deps    협력자 주입. 생략하면 실제 모듈을 쓴다
    */
   constructor(player, deps = {}) {
     this.player = player;
@@ -30,7 +30,7 @@ class QueueWarmer {
 
     // 한 곡을 캐시에 올린다. 실패는 던진다.
     this.warm = deps.warm;
-    // 캐시 파일이 이미 있는가 / 지금 받는 중인가 — 이 둘만이 "받을 필요가 없다"의 근거다.
+    // 캐시 파일이 이미 있는가 / 지금 받는 중인가. 이 둘만이 "받을 필요가 없다"의 근거다.
     this.isCached = deps.isCached;
     this.isBusy = deps.isBusy;
     // 트랙 → 캐시 키(없을 수 있다: 아직 유튜브 동등물을 못 찾은 스포티파이 트랙)
@@ -40,11 +40,11 @@ class QueueWarmer {
 
     this._timer = null;
     this._sleepTimer = null;
-    this._lastSeen = null; // 직전 틱의 서명 — 안정 여부 판정용
+    this._lastSeen = null; // 직전 틱의 서명. 안정 여부 판정용
     this._applied = null; // 실제로 반영한 서명
     this._running = false;
     this._stopped = false;
-    this._failed = new Set(); // 이번 서명에서 실패한 트랙 — 같은 곡을 무한히 재시도하지 않는다
+    this._failed = new Set(); // 이번 서명에서 실패한 트랙. 같은 곡을 무한히 재시도하지 않는다
   }
 
   start() {
@@ -79,13 +79,13 @@ class QueueWarmer {
     const stable = signature === this._lastSeen;
     this._lastSeen = signature;
 
-    if (!stable) return; // 아직 조작 중 — 목표가 확정되길 기다린다
+    if (!stable) return; // 아직 조작 중. 목표가 확정되길 기다린다
     if (signature === this._applied) return;
     this._applied = signature;
     this._failed = new Set();
 
     // 보호를 먼저 건다. 예열이 끝나기 전에 퇴거가 돌아 방금 받은 파일을 가져가면 안 된다.
-    // 아직 캐시가 없는 키까지 넣는다 — 해당 행이 없으면 퇴거 쪽에서 무해하게 무시된다.
+    // 아직 캐시가 없는 키까지 넣는다. 해당 행이 없으면 퇴거 쪽에서 무해하게 무시된다.
     const guildId = this.player.guild?.id;
     if (guildId) {
       const keys = this.targets()
@@ -104,7 +104,7 @@ class QueueWarmer {
    * 소스 DB(VocaDB·LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
    * 않으면 다음 뽑기에서 같은 것을 또 고른다.
    *
-   * @returns {boolean} 버렸으면 true — 부르는 쪽은 평소의 실패 처리를 건너뛴다.
+   * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
    */
   _dropDeadAutoplay(track, err) {
     const YouTube = require("./YouTube");
@@ -115,15 +115,15 @@ class QueueWarmer {
 
     require("./autoplayRoute").markDead(track);
     require("./trackState").removeAt(this.player, index);
-    log.info(`자동재생 곡을 뺍니다(영상 없음): "${track.title}" — 다른 곡을 고릅니다`);
+    log.info(`자동재생 곡을 뺍니다(영상 없음): "${track.title}". 다른 곡을 고릅니다`);
 
-    // 뺀 자리를 메운다. 기다리지 않는다 — 예열 루프를 잡아 두면 뒤 곡이 밀린다.
+    // 뺀 자리를 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
     this.player.ensureAutoplayNext?.().catch(() => {});
     return true;
   }
 
   /**
-   * 예열 대상 — 대기열 앞 N곡.
+   * 예열 대상. 대기열 앞 N곡.
    *
    * 현재 곡은 제외한다(재생 경로가 이미 받고 있다). 라이브는 끝이 없어 캐시 대상이 아니다.
    * 한곡 반복 중에는 다음 곡이 현재 곡이므로 앞을 받아둘 이유가 없다.
@@ -141,7 +141,7 @@ class QueueWarmer {
 
   /**
    * 대기열 앞부분의 지문. 순서가 바뀌면 달라져야 하므로 이어붙인다.
-   * 현재 곡도 넣는다 — 대기열은 그대로인데 현재 곡만 바뀌는 경로(이전곡)가 있다.
+   * 현재 곡도 넣는다. 대기열은 그대로인데 현재 곡만 바뀌는 경로(이전곡)가 있다.
    *
    * 캐시 키가 아니라 URL을 쓴다. 키는 스포티파이 트랙에서 받는 도중에 정해지므로, 키로 지문을
    * 만들면 곡을 하나 받을 때마다 대기열이 바뀐 것처럼 보여 루프가 매번 끊긴다. 여기서 봐야
@@ -182,7 +182,7 @@ class QueueWarmer {
           await this.warm(track);
         } catch (err) {
           // 영상이 내려간 자동재생 곡은 여기서 버린다. 그냥 두면 재생 차례에 스트림도 실패해
-          // 대기열이 빈 채로 멈춘다 — 우리가 고른 곡이니 사용자에게 알릴 일이 아니라
+          // 대기열이 빈 채로 멈춘다. 우리가 고른 곡이니 사용자에게 알릴 일이 아니라
           // 조용히 빼고 다른 곡을 고르는 것이 맞다.
           if (track.autoplay && this._dropDeadAutoplay(track, err)) continue;
 

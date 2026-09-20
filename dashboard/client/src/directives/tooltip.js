@@ -1,4 +1,4 @@
-// v-tooltip="text" — 네이티브 title 대신 커스텀 디자인 툴팁.
+// v-tooltip="text". 네이티브 title 대신 커스텀 디자인 툴팁.
 // 단일 DOM 노드를 body에 붙여 재사용, 대상 위(공간 없으면 아래)에 중앙 정렬로 표시.
 
 let tipEl = null;

@@ -46,7 +46,7 @@ class PlayerClients {
     this.exhaustedLogged = false;
   }
 
-  /** 설정이 비었는가 — 그러면 폴백 루프 자체를 돌지 않는다(지금까지와 동일 동작) */
+  /** 설정이 비었는가. 그러면 폴백 루프 자체를 돌지 않는다(지금까지와 동일 동작) */
   get idle() {
     return this.order.length === 0;
   }
@@ -78,14 +78,14 @@ class PlayerClients {
     log.warn(`${client} 를 이번 실행 동안 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). .env에서 빼는 것을 검토하세요`);
   }
 
-  /** 전멸했을 때 한 번만 알린다 — 매 곡마다 같은 줄을 쌓지 않도록 */
+  // 전멸했을 때 한 번만. 매 곡마다 같은 줄을 쌓지 않도록.
   noteExhausted() {
     if (this.exhaustedLogged) return;
     this.exhaustedLogged = true;
     log.warn(`지정한 클라이언트가 모두 제외됐습니다. yt-dlp 기본값으로 진행합니다`);
   }
 
-  /** 로그·대시보드용 */
+  // 로그·대시보드용
   snapshot() {
     return {
       order: [...this.order],

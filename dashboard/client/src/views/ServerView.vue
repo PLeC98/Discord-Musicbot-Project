@@ -22,7 +22,7 @@
             <!-- Thumbnail + title/artist -->
             <div class="flex gap-4 items-center mb-4.5 mt-3.5">
               <img v-if="player.currentTrack.thumbnail" :src="player.currentTrack.thumbnail" class="w-auto h-[15vw] max-h-37.5 rounded-xl object-cover shrink-0 shadow-[0_4px_18px_rgba(0,0,0,0.5)]" />
-              <!-- 직접 링크는 앨범아트를 알 수 없다 — 파일 아이콘으로 대체 -->
+              <!-- 직접 링크는 앨범아트를 알 수 없다. 파일 아이콘으로 대체 -->
               <div v-else class="h-[15vw] max-h-37.5 aspect-square rounded-xl bg-white/6 flex items-center justify-center shrink-0 text-muted">
                 <Icon name="audio-file" :size="44" />
               </div>
@@ -136,12 +136,12 @@
           </BaseButton>
         </div>
 
-        <!-- Case 3: 봇은 음성에 있는데 서버에 플레이어가 없다 — 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우.
-             폼을 열어봤자 409이므로 잠근다. 되살릴 방법은 아직 모른다(원인 미규명) — 참가를 권하지 않는다.
+        <!-- Case 3: 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우.
+             폼을 열어봤자 409이므로 잠근다. 되살릴 방법은 아직 모른다(원인 미규명). 참가를 권하지 않는다.
              이 상태에서도 봇이 소리를 내고 있을 수 있어, 새 플레이어를 만들면 그쪽이 끊긴다. -->
         <div v-else-if="!player.hasPlayer" class="text-muted text-sm">봇이 음성 채널에 있지만 재생 상태를 읽을 수 없어요. 잠시 후 다시 시도해 주세요.</div>
 
-        <!-- Case 4: bot in voice, but user elsewhere (모더레이터 제외) — 곡 추가는 계층 무관, 재적 규칙만 -->
+        <!-- Case 4: bot in voice, but user elsewhere (모더레이터 제외). 곡 추가는 계층 무관, 재적 규칙만 -->
         <div v-else-if="!player.canAdd" class="text-muted text-sm">곡 추가는 봇과 같은 음성 채널에 참가한 뒤 이용할 수 있어요.</div>
 
         <!-- Case 5: bot in voice + controllable → show add form -->
@@ -236,12 +236,12 @@ import { fmtTime } from "../utils/time.js";
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
 const timeText = "text-muted text-[0.78rem] whitespace-nowrap tabular-nums";
 
-// 원형 아이콘 버튼 — 상태(기본/정지/활성)별로 색상군을 통째로 정의(같은 속성 유틸리티 중복 회피)
+// 원형 아이콘 버튼. 상태(기본/정지/활성)별로 색상군을 통째로 정의(같은 속성 유틸리티 중복 회피)
 const iconBase = "size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-[background-color,color,scale] duration-150 disabled:opacity-25 disabled:cursor-not-allowed active:not-disabled:scale-[0.88] active:not-disabled:duration-75";
 const iconBtn = `${iconBase} text-[rgba(232,234,246,0.7)] hover:not-disabled:bg-white/11 hover:not-disabled:text-fg active:not-disabled:bg-white/17`;
 const iconStop = `${iconBase} text-[rgba(232,234,246,0.7)] hover:not-disabled:bg-danger/18 hover:not-disabled:text-[#fca5a5] active:not-disabled:bg-danger/26`;
 const iconActive = `${iconBase} text-[#c4b5fd] hover:not-disabled:bg-accent/20 hover:not-disabled:text-[#ddd6fe] active:not-disabled:bg-white/17`;
-// 볼륨 캡슐 안 버튼 — 캡슐이 hover 배경을 담당하므로 버튼 자체는 투명 유지
+// 볼륨 캡슐 안 버튼. 캡슐이 hover 배경을 담당하므로 버튼 자체는 투명 유지
 const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer text-[rgba(232,234,246,0.7)] group-hover/vol:text-fg";
 
 const route = useRoute();
@@ -254,7 +254,7 @@ const QUEUE_PAGE = 100;
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
 const queueBoxRef = ref(null);
-// 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다 — 안 그러면 목록이 접힌다.
+// 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다. 안 그러면 목록이 접힌다.
 const qs = () => `?queue=${loadedCount.value}`;
 
 const addQuery = ref("");
@@ -262,7 +262,7 @@ const adding = ref(false);
 const addError = ref("");
 const addNotice = ref("");
 const addInfo = ref("");
-// 이어 넣을 수 있는 재생목록 — 서버가 준 상태를 그대로 되돌려 보낸다
+// 이어 넣을 수 있는 재생목록. 서버가 준 상태를 그대로 되돌려 보낸다
 const more = ref(null);
 const moreBusy = ref(false);
 const queueMax = ref(0);
@@ -287,14 +287,14 @@ const scrubTime = ref(0);
 
 // Action responses come from playerState() which omits the GET /player extras
 // (botInVoice/userInVoice/canControl/canAdd/canManage/userId). Spread over the previous
-// full-refresh state so those flags never flash off — 명시 목록으로 관리하다 canManage가
+// full-refresh state so those flags never flash off. 명시 목록으로 관리하다 canManage가
 // 빠져 조작 직후 ⚙ 버튼이 증발했던 버그의 재발 방지.
 function applyState(data) {
   player.value = { ...player.value, ...data };
   syncLoaded();
 }
 
-// 곡이 빠져 큐가 줄면 펼쳐 둔 창도 같이 줄인다 — 안 그러면 바닥에 닿아도 더 받을 게 없다고 판단한다.
+// 곡이 빠져 큐가 줄면 펼쳐 둔 창도 같이 줄인다. 안 그러면 바닥에 닿아도 더 받을 게 없다고 판단한다.
 function syncLoaded() {
   loadedCount.value = Math.max(QUEUE_PAGE, player.value.queue?.length || 0);
 }
@@ -305,7 +305,7 @@ async function loadMore() {
   loadingMore.value = true;
   try {
     const res = await axios.get(`/api/guilds/${guildId}/player/queue`, { params: { offset: player.value.queue.length, limit: QUEUE_PAGE } });
-    // 받는 사이에 큐가 바뀌었을 수 있다 — 지금 길이보다 뒤에 있는 것만 이어 붙인다.
+    // 받는 사이에 큐가 바뀌었을 수 있다. 지금 길이보다 뒤에 있는 것만 이어 붙인다.
     const fresh = (res.data.items || []).filter((t) => t.index >= player.value.queue.length);
     player.value = { ...player.value, queue: [...player.value.queue, ...fresh], queueTotal: res.data.total };
     syncLoaded();
@@ -321,7 +321,7 @@ function onQueueScroll(e) {
   if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) loadMore();
 }
 
-// 봇과 다른 채널(또는 음성 밖)이면 서버가 조작을 전부 막는다 — 카드를 가려 이유를 먼저 보여준다.
+// 봇과 다른 채널(또는 음성 밖)이면 서버가 조작을 전부 막는다. 카드를 가려 이유를 먼저 보여준다.
 // 모더레이터는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
 const channelLocked = computed(() => !player.value.canControl && player.value.botInVoice && !player.value.sameVoice);
 
@@ -338,7 +338,7 @@ async function refresh() {
   try {
     const res = await axios.get(`/api/guilds/${guildId}/player${qs()}`);
     // 봇 재적/추가가능 여부가 바뀌면 직전 곡 추가 오류는 더 이상 유효하지 않으므로 정리
-    // (봇이 나가 추가 폼이 참가 버튼으로 바뀌는 순간 stale 오류 제거 — 새로고침 없이 사라짐)
+    // (봇이 나가 추가 폼이 참가 버튼으로 바뀌는 순간 stale 오류 제거. 새로고침 없이 사라짐)
     if (addError.value && (res.data.botInVoice !== player.value.botInVoice || res.data.canAdd !== player.value.canAdd)) {
       addError.value = "";
     }
@@ -400,13 +400,13 @@ async function doStop() {
   }
 }
 
-// 입력이 YouTube 재생목록(list= 포함)인지 — "한 곡만 추가" 버튼 노출 조건
+// 입력이 YouTube 재생목록(list= 포함)인지. "한 곡만 추가" 버튼 노출 조건
 const isPlaylistQuery = computed(() => {
   const q = addQuery.value.trim();
   return /(?:youtube\.com|youtu\.be)/i.test(q) && /[?&]list=/i.test(q);
 });
 
-// "한 곡만 추가"의 실제 요청 payload — 영상 ID가 링크에 노출돼 있으면(watch?v=, youtu.be/ID)
+// "한 곡만 추가"의 실제 요청 payload. 영상 ID가 링크에 노출돼 있으면(watch?v=, youtu.be/ID)
 // 재생목록 조회 없이 링크를 그 영상만 가리키게 절삭(빠름). 그 외(playlist?list=만)는 single=true로 첫 곡.
 function singlePayload(raw) {
   try {
@@ -419,7 +419,7 @@ function singlePayload(raw) {
       if (id) return { query: `https://www.youtube.com/watch?v=${id}`, single: false };
     }
   } catch {
-    /* URL 아님 — 원본 그대로 */
+    /* URL 아님. 원본 그대로 */
   }
   return { query: raw.trim(), single: true };
 }
@@ -523,7 +523,7 @@ async function onDrop() {
   const to = insertAt > from ? insertAt - 1 : insertAt;
   if (from === to) return;
 
-  // Optimistic update — reorder local queue immediately for responsive feel
+  // Optimistic update. reorder local queue immediately for responsive feel
   const q = [...player.value.queue];
   const [moved] = q.splice(from, 1);
   q.splice(to, 0, moved);
@@ -665,7 +665,7 @@ async function jumpToHighlight() {
 
 const fmt = fmtTime;
 
-// 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다 —
+// 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다.
 // 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
 // 키는 src/platforms.js 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
 const PLATFORM_COLORS = {
@@ -685,7 +685,7 @@ function platformColor(p) {
   return PLATFORM_COLORS[p] || "#8b93a7";
 }
 
-// SSE — 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.
+// SSE. 서버가 "변화 발생" 넛지를 보내면 상태를 다시 가져옴 (하이브리드). 디바운스로 넛지 몰림 흡수.
 // 폴링은 SSE가 끊겼을 때만 도는 진짜 폴백(기존엔 SSE 정상 여부와 무관하게 30초마다 /player를 무조건 호출).
 function startFallback() {
   if (!timer) timer = setInterval(refresh, 30000);
@@ -705,7 +705,7 @@ function openEvents() {
   };
   eventSource.onmessage = () => {
     clearTimeout(nudgeTimer);
-    nudgeTimer = setTimeout(refresh, 600); // 연달아 조작하면 넛지도 연달아 온다 — 합쳐서 한 번만 다시 읽는다
+    nudgeTimer = setTimeout(refresh, 600); // 연달아 조작하면 넛지도 연달아 온다. 합쳐서 한 번만 다시 읽는다
   };
   eventSource.onerror = () => startFallback(); // SSE 끊김 → 폴백 폴링 시작 (재연결 시 onopen에서 중지)
 }
@@ -731,10 +731,10 @@ onMounted(() => {
   };
   document.addEventListener("visibilitychange", visHandler);
   if (!document.hidden) openEvents();
-  // 로컬 진행바 틱(네트워크 아님) — 넛지/refresh가 currentTime을 서버 기준으로 재동기화
+  // 로컬 진행바 틱(네트워크 아님). 넛지/refresh가 currentTime을 서버 기준으로 재동기화
   progressTimer = setInterval(() => {
     const track = player.value.currentTrack;
-    // 실제 재생 중일 때만 전진 — playing 없이 currentTrack만 보면, 곡 해석(YouTube 검색) 중
+    // 실제 재생 중일 때만 전진. playing 없이 currentTrack만 보면, 곡 해석(YouTube 검색) 중
     // 아직 재생 전인데도 바가 움직여 '유령 재생'처럼 보인다.
     if (track && player.value.playing && !player.value.paused) {
       // 길이를 모르는 곡(라이브)은 클램프할 상한이 없다. 그대로 Math.min을 걸면 매초 0으로 되돌아간다

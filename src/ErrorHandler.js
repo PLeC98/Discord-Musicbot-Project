@@ -76,7 +76,7 @@ class ErrorHandler {
    * 실제 오류를 전체 상세 정보와 함께 콘솔에 기록한 뒤 사용자 표시용 메시지를 반환
    * catch 블록에서 바로 사용할 수 있음
    * @param {Error|string} error
-   * @param {string} context  — 예: 'play.js search', 'MusicPlayer.play'
+   * @param {string} context. 예: 'play.js search', 'MusicPlayer.play'
    * @returns {string}
    */
   static handle(error, context = "") {

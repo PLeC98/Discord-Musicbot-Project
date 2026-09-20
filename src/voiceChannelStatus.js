@@ -38,7 +38,7 @@ function mark(channelId, status) {
 function canWrite(channelId) {
   if (!channelId) return false;
   const now = current.get(channelId);
-  if (now === undefined) return true; // 아직 아무 소식도 못 들은 채널 — 기동 시 GUILD_CREATE가 채운다
+  if (now === undefined) return true; // 아직 아무 소식도 못 들은 채널. 기동 시 GUILD_CREATE가 채운다
   return now === "" || now === ours.get(channelId);
 }
 
@@ -57,7 +57,7 @@ function consumePacket(packet) {
   }
 }
 
-/** 테스트용 — 기록 비우기 */
+/** 테스트용. 기록 비우기 */
 function _reset() {
   current.clear();
   ours.clear();

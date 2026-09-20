@@ -1,12 +1,12 @@
 <!--
-  문자열 목록을 칩으로 다룬다 — 검색어와 차단어가 같은 성질이라 한 곳에 모은다.
+  문자열 목록을 칩으로 다룬다. 검색어와 차단어가 같은 성질이라 한 곳에 모은다.
   Enter로 추가, 지우기 버튼 또는 빈 칸에서 Backspace로 제거, 칩을 누르면 고친다.
 -->
 <template>
   <div class="flex flex-wrap items-center gap-1.5 bg-white/5 border border-white/9 rounded-xl px-2.5 py-2 transition-[border-color,background-color] duration-200 focus-within:border-accent/55 focus-within:bg-white/7">
     <!-- max-w-full: 긴 값이 들어와도 칩이 상자를 뚫고 나가지 않게 한다(뚫으면 페이지에 가로 스크롤이 생긴다) -->
     <span v-for="(item, i) in modelValue" :key="`${i}-${item}`" class="inline-flex items-center gap-1 max-w-full min-w-0 bg-white/8 rounded-lg pl-2 pr-1 py-0.5 text-[0.8rem]">
-      <!-- 고치는 중에는 그 자리에서 바로 친다 — 지우고 다시 넣게 하면 긴 검색어가 성가시다.
+      <!-- 고치는 중에는 그 자리에서 바로 친다. 지우고 다시 넣게 하면 긴 검색어가 성가시다.
            size 속성은 "0" 글자 너비로 세는 것이라 실제 글자 폭과 어긋나고 상한도 없다.
            field-sizing으로 내용에 맞추되 max-w-full로 묶는다(안 되는 브라우저는 기본 폭으로 남는다). -->
       <input v-if="editing === i" ref="editBox" v-model="draft" class="bg-transparent border-0 text-fg text-[0.8rem] outline-none font-[inherit] p-0 min-w-16 max-w-full field-sizing-content" @keydown.enter.prevent="commitEdit" @keydown.esc="editing = null" @blur="commitEdit" />
@@ -28,7 +28,7 @@ import Icon from "./BaseIcon.vue";
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
   placeholder: { type: String, default: "" },
-  // 차단어처럼 대소문자를 가리지 않고 견주는 자리 — 적히는 값 자체를 낮춰 둔다
+  // 차단어처럼 대소문자를 가리지 않고 견주는 자리. 적히는 값 자체를 낮춰 둔다
   lowercase: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:modelValue"]);
@@ -58,7 +58,7 @@ async function startEdit(i) {
   editing.value = i;
   draft.value = props.modelValue[i];
   await nextTick();
-  // v-for 안의 ref는 배열로 모인다 — 지금 열린 것은 하나뿐이다
+  // v-for 안의 ref는 배열로 모인다. 지금 열린 것은 하나뿐이다
   const el = Array.isArray(editBox.value) ? editBox.value[0] : editBox.value;
   el?.select();
 }
@@ -79,7 +79,7 @@ function commitEdit() {
   );
 }
 
-// 빈 칸에서 Backspace면 마지막 칩을 지운다 — 칩 UI의 관습이다.
+// 빈 칸에서 Backspace면 마지막 칩을 지운다. 칩 UI의 관습이다.
 function onBackspace() {
   if (entry.value !== "" || props.modelValue.length === 0) return;
   emit("update:modelValue", props.modelValue.slice(0, -1));

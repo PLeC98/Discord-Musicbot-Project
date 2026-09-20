@@ -14,17 +14,17 @@ const CacheManager = require("./CacheManager");
 const SponsorBlock = require("./SponsorBlock");
 
 /**
- * TrackDownloader — 오디오 파일 다운로드/사전 로드
+ * TrackDownloader. 오디오 파일 다운로드/사전 로드
  *
  * 진행 중인 다운로드는 프로세스 전역으로 모은다(inFlight). 재생 경로와 예열뿐 아니라 서버끼리도 같은 맵을 봐야
- * 같은 곡을 두 번 받지 않는다 — 캐시 파일 경로는 서버와 무관한 전역 경로다.
+ * 같은 곡을 두 번 받지 않는다. 캐시 파일 경로는 서버와 무관한 전역 경로다.
  *
- * Map<최종 경로, Promise<최종 경로>> — 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 파일 존재 폴링이 필요 없다.
+ * Map<최종 경로, Promise<최종 경로>>. 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 파일 존재 폴링이 필요 없다.
  *
  * 받는 동안에는 자기 임시 파일에만 쓰고 끝난 뒤 최종 경로로 옮긴다. 그래야 같은 곡이 어찌어찌 겹쳐도
  * 서로의 작업 파일에 쓰지 않고, 실패 정리가 남의 파일을 지우지 않는다.
  */
-const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역 — 서버가 달라도 같은 곡은 한 번만 받는다.
+const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역. 서버가 달라도 같은 곡은 한 번만 받는다.
 
 /**
  * 이 트랙은 음원을 남에게서 빌려 와야 하는가. 스포티파이뿐이다.
@@ -37,13 +37,13 @@ function needsBorrowedAudio(track) {
   return !track?.youtubeUrl && track?.platform === "spotify";
 }
 
-/** 내 임시 경로 — 같은 폴더여야 옮기기가 원자적이고, .opus여야 yt-dlp가 확장자를 바꾸지 않는다 */
+/** 내 임시 경로. 같은 폴더여야 옮기기가 원자적이고, .opus여야 yt-dlp가 확장자를 바꾸지 않는다 */
 function tempPathFor(filepath) {
   const stem = path.basename(filepath, ".opus");
   return path.join(path.dirname(filepath), `${stem}.tmp-${process.pid}-${crypto.randomBytes(4).toString("hex")}.opus`);
 }
 
-/** 내 임시 파일과 그 부스러기(.part·조각·info.json)만 지운다 — 남이 받는 중인 파일은 건드리지 않는다 */
+/** 내 임시 파일과 그 부스러기(.part·조각·info.json)만 지운다. 남이 받는 중인 파일은 건드리지 않는다 */
 function cleanTemp(tempPath) {
   const dir = path.dirname(tempPath);
   const stem = path.basename(tempPath, ".opus");
@@ -60,7 +60,7 @@ function cleanTemp(tempPath) {
       fsSync.unlinkSync(path.join(dir, name));
       removed++;
     } catch {
-      /* 아직 잠겨 있거나 이미 없음 — 기동 스윕이 처리 */
+      /* 아직 잠겨 있거나 이미 없음. 기동 스윕이 처리 */
     }
   }
   return removed;
@@ -69,7 +69,7 @@ function cleanTemp(tempPath) {
 /**
  * 다 받은 임시 파일을 최종 경로로 올린다. 그 사이 다른 쪽이 먼저 끝냈으면 내 것을 버린다.
  *
- * 올리기 전에 최종 경로를 보호한다 — 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
+ * 올리기 전에 최종 경로를 보호한다. 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
  * 그 순간 기동 스윕이 돌면 고아로 보고 지운다. 푸는 것은 받기가 끝날 때(_performDownload의 finally).
  */
 async function publish(tempPath, filepath) {
@@ -88,7 +88,7 @@ class TrackDownloader {
   }
 
   /**
-   * 트랙의 캐시 파일 경로 산출 — audioSourceKey가 없으면(스포티파이 미해석 등)
+   * 트랙의 캐시 파일 경로 산출. audioSourceKey가 없으면(스포티파이 미해석 등)
    * 소스 URL을 그대로 해시. getFilePath가 md5(입력)로 경로를 만들므로
    * 기존 인라인 폴백(track_md5(url).opus)과 동일한 경로가 나온다.
    */
@@ -111,7 +111,7 @@ class TrackDownloader {
       }
     }
 
-    // 이미 다운로드 중이면 그 promise를 그대로 대기 — 폴링 불필요, 실패도 즉시 전파
+    // 이미 다운로드 중이면 그 promise를 그대로 대기. 폴링 불필요, 실패도 즉시 전파
     const running = inFlight.get(filepath);
     if (running) return await running;
 
@@ -122,7 +122,7 @@ class TrackDownloader {
         // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
         // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
-          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}) — 재검색 후 재시도`);
+          log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
           const fresh = await TrackResolver.reresolveYouTube(track);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
@@ -142,7 +142,7 @@ class TrackDownloader {
     const player = this.player;
     const audioSourceKey = track.audioSourceKey;
     let verifiedTitle = null;
-    let audioDurationSec = null; // 캐시에 남길 오디오 길이 — track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
+    let audioDurationSec = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
     CacheManager.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
@@ -164,7 +164,7 @@ class TrackDownloader {
         }
       }
 
-      // videoId가 확정된 지점(preload 경로) — SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
+      // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
       try {
         await SponsorBlock.ensureForTrack(track, player.guild?.id);
@@ -172,7 +172,7 @@ class TrackDownloader {
         /* 무시 */
       }
 
-      // ⚠️ 라이브 스트림은 캐시 다운로드 대상이 아니다 — 끝이 없어서 yt-dlp가 ffmpeg를 외부 다운로더로
+      // ⚠️ 라이브 스트림은 캐시 다운로드 대상이 아니다. 끝이 없어서 yt-dlp가 ffmpeg를 외부 다운로더로
       //    띄운 뒤 무한히 파일을 불린다. 재생(스트리밍)은 정상 진행되므로 여기서만 끊는다.
       if (track.isLive) {
         throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
@@ -188,7 +188,7 @@ class TrackDownloader {
           YouTube.getYtDlpOptions(
             {
               output: tempPath,
-              // 이 다운로드에 곁들여 메타데이터를 파일로 받는다 — 왕복이 늘지 않는다.
+              // 이 다운로드에 곁들여 메타데이터를 파일로 받는다. 왕복이 늘지 않는다.
               // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
               // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
               // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
@@ -198,7 +198,7 @@ class TrackDownloader {
               // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
               // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
               matchFilter: "!is_live",
-              // 코덱은 yt-dlp 가 소스를 보고 정한다 — 이미 Opus 면 리먹싱, 아니면 libopus.
+              // 코덱은 yt-dlp 가 소스를 보고 정한다. 이미 Opus 면 리먹싱, 아니면 libopus.
               // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
               // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
               // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다. 숫자가 갈라지지 않게.
@@ -213,7 +213,7 @@ class TrackDownloader {
         // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
         // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
         if (!fsSync.existsSync(tempPath)) {
-          throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등) — 캐시 다운로드 불가");
+          throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등). 캐시 다운로드 불가");
         }
 
         const info = this._takeInfoJson(tempPath);
@@ -250,7 +250,7 @@ class TrackDownloader {
         }
       }
 
-      // 파일 검증 — 최종 경로로 올리기 전에
+      // 파일 검증. 최종 경로로 올리기 전에
       const stats = await fs.stat(tempPath);
       if (stats.size === 0) {
         await fs.unlink(tempPath).catch(() => {});
@@ -276,11 +276,11 @@ class TrackDownloader {
           /* 무시 */
         }
       }
-      // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다 — 스포티파이만이 아니다
+      // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다
       log.info(`캐시 다운로드 완료: "${track.title}"${track.youtubeUrl && track.platform !== "youtube" ? ` (yt: ${track.youtubeUrl})` : ""}`);
       return filepath;
     } catch (error) {
-      // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다 — 내 임시 파일만.
+      // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.
       // (같은 곡의 부스러기를 전부 훑으면 다른 쪽이 받는 중인 작업 파일을 지운다.)
       // 그리고 recordDownloadStart로 'downloading'이 된 DB 행을 'error'로 되돌린다.
       // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
@@ -342,14 +342,11 @@ class TrackDownloader {
   /**
    * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
    *
-   * 받기 전에 캐시 키를 반드시 확정해야 한다. 키가 곧 파일 경로이고, downloadTrack은
-   * 진입 시점의 경로로 파일을 쓰기 때문이다. 스포티파이 트랙은 유튜브 동등물을 찾아야 키가
-   * 정해지는데, 그 검색이 다운로드 '안'에서 일어나면 파일은 스포티파이 URL 해시 경로에
-   * 저장되고 DB 행도 남지 않는다(키가 그 시점에 null이라). 그러면 키가 생긴 다음 번에
-   * 같은 곡을 한 번 더 받는다.
+   * 받기 전에 캐시 키를 확정해야 한다. 키가 곧 파일 경로인데, 스포티파이는 유튜브 동등물을
+   * 찾아야 키가 정해진다. 그 검색을 다운로드 안에서 하면 키가 아직 null이라 파일이 URL 해시
+   * 경로에 저장되고 DB 행도 안 남아, 키가 생긴 다음 번에 같은 곡을 또 받는다.
    *
-   * 나머지 판정 — 이미 받았는가 / 받는 중인가 — 은 downloadTrack이 갖고 있으므로 여기서
-   * 다시 하지 않는다. 실패는 그대로 던져 호출자가 판단하게 둔다.
+   * 이미 받았는지, 받는 중인지는 downloadTrack이 판정하므로 여기서 다시 하지 않는다.
    */
   async warm(track) {
     if (!track || !track.url) return;
@@ -362,7 +359,7 @@ class TrackDownloader {
   }
 }
 
-/** 이 경로를 지금 받고 있는가 — 서버와 무관하다 */
+/** 이 경로를 지금 받고 있는가. 서버와 무관하다 */
 TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
 
 /** 받는 중이면 그 promise, 아니면 null */

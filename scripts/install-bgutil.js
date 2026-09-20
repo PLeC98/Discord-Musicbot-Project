@@ -1,8 +1,8 @@
 "use strict";
 
 // bgutil-ytdlp-pot-provider (POToken 공급자) 설치/업데이트 스크립트.
-//   pnpm run install:bgutil   — 없으면 git clone, 그 후 의존성 설치 + 빌드
-//   pnpm run update:bgutil    — git pull 후 재설치 + 재빌드 (--update)
+//   pnpm run install:bgutil. 없으면 git clone, 그 후 의존성 설치 + 빌드
+//   pnpm run update:bgutil. git pull 후 재설치 + 재빌드 (--update)
 //
 // bgutil은 별도로 가져와야 한다.
 // 봇 실행 시 자동 감지되어 POToken 서버(포트 4416)를 함께 시작한다.
@@ -38,7 +38,7 @@ try {
 
   if (!fs.existsSync(SERVER)) throw new Error(`server 디렉터리를 찾을 수 없습니다: ${SERVER}`);
 
-  // bgutil은 자체 npm 프로젝트(별도 ecosystem) — package-lock 기반 재현 설치, 실패 시 install로 폴백
+  // bgutil은 자체 npm 프로젝트(별도 ecosystem). package-lock 기반 재현 설치, 실패 시 install로 폴백
   try {
     run("npm ci", SERVER);
   } catch {
@@ -47,11 +47,11 @@ try {
   }
 
   // upstream 잠금 파일의 알려진 취약 전이 의존성을 semver 범위 내에서 교체 (예: form-data GHSA-hmw2-7cc7-3qxx).
-  // 로컬 변경분은 다음 update 때 원복 후 재적용 — upstream이 잠금을 고치면 자연히 no-op.
+  // 로컬 변경분은 다음 update 때 원복 후 재적용. upstream이 잠금을 고치면 자연히 no-op.
   try {
     run("npm audit fix", SERVER);
   } catch {
-    console.warn("⚠️  npm audit fix 실패(네트워크/레지스트리 문제일 수 있음) — 설치는 계속 진행합니다. 나중에 bgutil-ytdlp-pot-provider/server에서 직접 실행해 주세요.");
+    console.warn("⚠️  npm audit fix 실패(네트워크/레지스트리 문제일 수 있음). 설치는 계속 진행합니다. 나중에 bgutil-ytdlp-pot-provider/server에서 직접 실행해 주세요.");
   }
 
   run("npx tsc", SERVER); // build/main.js 생성 (tsconfig outDir=./build)

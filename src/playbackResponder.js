@@ -28,7 +28,7 @@ function scheduleDelete(message, ms = AUTO_DELETE_MS) {
   }, ms);
 }
 
-// 두 번 불려도 한 번만 실행되는 정리 함수 — 코어와 진입점이 모두 부를 수 있다.
+// 두 번 불려도 한 번만 실행되는 정리 함수. 코어와 진입점이 모두 부를 수 있다.
 function onceDismiss(fn) {
   let done = false;
   return async () => {
@@ -43,7 +43,7 @@ function onceDismiss(fn) {
 }
 
 /**
- * 슬래시 명령 — 자리표시자가 상호작용 응답 그 자체다.
+ * 슬래시 명령. 자리표시자가 상호작용 응답 그 자체다.
  * 초기 응답이 CV2 컨테이너라 `content`로는 수정할 수 없어(디스코드가 거부) 컨테이너로 보낸다.
  */
 function interactionResponder(interaction, embedManager) {
@@ -58,7 +58,7 @@ function interactionResponder(interaction, embedManager) {
   });
 
   return {
-    // 자리표시자를 안내 문구로 덮어쓴다 — 별도 메시지를 만들지 않으므로 dismiss가 필요 없다
+    // 자리표시자를 안내 문구로 덮어쓴다. 별도 메시지를 만들지 않으므로 dismiss가 필요 없다
     async notifyQueued(text) {
       try {
         if (interaction.deferred || interaction.replied) {
@@ -81,7 +81,7 @@ function interactionResponder(interaction, embedManager) {
 }
 
 /**
- * 텍스트 채널 — 전용 채널과 검색 선택.
+ * 텍스트 채널. 전용 채널과 검색 선택.
  * 자리표시자가 별도 메시지라 안내로 덮어쓸 수 없다 → 안내 전에 먼저 치운다.
  * onDismiss는 진입점이 자기 자리표시자를 지우는 방법을 넘긴다.
  */
@@ -103,7 +103,7 @@ function channelResponder(channel, onDismiss = null) {
   };
 }
 
-/** 디스코드 응답이 없는 경로(대시보드) — 결과는 호출자가 HTTP 응답으로 전달한다. */
+/** 디스코드 응답이 없는 경로(대시보드). 결과는 호출자가 HTTP 응답으로 전달한다. */
 const silentResponder = {
   async notifyQueued() {},
   async dismissPlaceholder() {},

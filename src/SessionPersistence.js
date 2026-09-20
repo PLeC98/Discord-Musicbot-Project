@@ -14,7 +14,7 @@ const HEARTBEAT_MS = 5000;
 // 저장한 직후 메모리를 비우는 경로다. 거울을 붙인 채 비우면 방금 저장한 트랙이 DB에서 지워진다.
 const FINAL_REASONS = new Set(["leave", "shutdown"]);
 
-// 기동이 DB를 연 뒤에만 쓴다 — DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
+// 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
 const liveStore = () => (CacheManager._initialized ? CacheManager.sessions : null);
 
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
@@ -42,7 +42,7 @@ function beat() {
 class SessionPersistence {
   constructor(player) {
     this.player = player;
-    this.frozen = false; // 마지막 저장 뒤 — 이후의 트랙 변경은 DB에 옮기지 않는다
+    this.frozen = false; // 마지막 저장 뒤. 이후의 트랙 변경은 DB에 옮기지 않는다
     this.dirty = false; // 증분 쓰기가 실패해 DB가 메모리와 어긋났을 수 있다
     this.saveTimer = null;
   }
@@ -59,7 +59,7 @@ class SessionPersistence {
       if (write(store, guildId) === false) this.resync(store);
     } catch (error) {
       this.dirty = true;
-      log.warn(`세션 트랙 저장 실패 — 다음 변경에서 통째로 다시 씁니다 (서버 ID ${guildId}): ${error.message}`);
+      log.warn(`세션 트랙 저장 실패. 다음 변경에서 통째로 다시 씁니다 (서버 ID ${guildId}): ${error.message}`);
     }
   }
 
@@ -125,7 +125,7 @@ class SessionPersistence {
       volume: p.volume,
       loopMode: p.loop === "track" || p.loop === "queue" ? p.loop : "off",
       autoplay: p.autoplay || null,
-      // 복원하는 건 수동 일시정지뿐이다 — 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
+      // 복원하는 건 수동 일시정지뿐이다. 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
       pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
       positionMs: p.getCurrentTime?.() || 0,
       startOffsetMs: p.currentTrackStartOffsetMs || 0,
@@ -219,14 +219,14 @@ class SessionPersistence {
     player.autoplay = session.autoplay || false;
     player.requesterId = session.requesterId || player.requesterId;
 
-    // 미리 뽑아 둔 자동재생 곡은 복원하지 않는다 — 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
+    // 미리 뽑아 둔 자동재생 곡은 복원하지 않는다. 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
     // 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 뽑힌다. 요청자가 봇인 것으로 가른다.
     const botId = player.guild?.client?.user?.id || null;
     const queueRows = botId ? record.queue.filter((t) => t.requesterId !== botId) : record.queue;
     const droppedAutoplay = record.queue.length - queueRows.length;
     if (droppedAutoplay > 0) log.info(`복원에서 자동재생 곡 ${droppedAutoplay}곡 제외 (서버 ID ${player.guild.id})`);
 
-    // 상한을 줄인 뒤 재시작하면 저장된 대기열이 넘친다 — 잘라낸다. 잘랐으면 DB도 맞춰야 하니 다시 쓴다.
+    // 상한을 줄인 뒤 재시작하면 저장된 대기열이 넘친다. 잘라낸다. 잘랐으면 DB도 맞춰야 하니 다시 쓴다.
     const max = config.bot.maxQueueSize;
     const cut = max > 0 && queueRows.length > max;
     if (cut) log.info(`복원한 대기열이 상한을 넘어 잘라냄: ${queueRows.length}곡 → ${max}곡 (서버 ID ${player.guild.id})`);
@@ -237,7 +237,7 @@ class SessionPersistence {
         queue: (cut ? queueRows.slice(0, max) : queueRows).map((t) => this.reviveTrack(t)),
         history: record.history.map((t) => this.reviveTrack(t)),
       },
-      // 잘랐거나 걸러냈으면 메모리와 DB가 어긋난다 — 다시 써서 맞춘다
+      // 잘랐거나 걸러냈으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
       { persisted: !cut && droppedAutoplay === 0 },
     );
 
@@ -245,7 +245,7 @@ class SessionPersistence {
       trackState.shiftNext(player);
     }
 
-    // 받아 둔 파일 경로는 저장하지 않는다 — 내려받을 때와 같은 식으로 캐시 키에서 다시 구한다
+    // 받아 둔 파일 경로는 저장하지 않는다. 내려받을 때와 같은 식으로 캐시 키에서 다시 구한다
     const key = player.currentTrack?.audioSourceKey || player.currentTrack?.url;
     const file = key ? CacheManager.getFilePath(key) : null;
     player.currentDownloadedFile = file && fsSync.existsSync(file) ? file : null;

@@ -36,7 +36,7 @@ function install() {
  * @param {import("node:child_process").ChildProcess|{pid?:number}} child spawn된 프로세스(또는 pid/kill을 가진 래퍼)
  * @param {string} label 로그용 이름
  * @param {{group?:boolean}} options group=true면 detached로 띄워 자체 프로세스 그룹을 가진 경우
- * @returns {() => void} 등록 해제 함수 — 프로세스가 정상 종료하면 반드시 호출할 것
+ * @returns {() => void} 등록 해제 함수. 프로세스가 정상 종료하면 반드시 호출할 것
  */
 function register(child, label = "child", { group = false } = {}) {
   const pid = child && child.pid;
@@ -46,7 +46,7 @@ function register(child, label = "child", { group = false } = {}) {
   return () => active.delete(pid);
 }
 
-/** 자식이 아직 살아있는가 — 종료했으면 PID 재사용 위험이 있으므로 시그널을 보내면 안 된다. */
+/** 자식이 아직 살아있는가. 종료했으면 PID 재사용 위험이 있으므로 시그널을 보내면 안 된다. */
 function _isAlive(child) {
   if (!child) return false;
   // ChildProcess는 종료 시 exitCode 또는 signalCode 중 하나가 채워진다(그 전엔 둘 다 null).
@@ -70,10 +70,10 @@ function killTree(entry) {
   }
 
   try {
-    // detached로 띄웠으면 그룹 전체(-pid) — 손자 ffmpeg까지 같이 죽는다.
+    // detached로 띄웠으면 그룹 전체(-pid). 손자 ffmpeg까지 같이 죽는다.
     process.kill(group ? -pid : pid, "SIGKILL");
   } catch {
-    // ESRCH(이미 종료) 또는 그룹이 없는 경우 — 직접 pid로 한 번 더.
+    // ESRCH(이미 종료) 또는 그룹이 없는 경우. 직접 pid로 한 번 더.
     try {
       process.kill(pid, "SIGKILL");
     } catch {
@@ -84,7 +84,7 @@ function killTree(entry) {
 }
 
 /**
- * 등록된 모든 프로세스를 트리째 종료한다. 멱등 — 두 번 불러도 안전하다.
+ * 등록된 모든 프로세스를 트리째 종료한다. 멱등. 두 번 불러도 안전하다.
  * @param {string} reason 로그용
  * @returns {number} 실제로 종료를 시도한 프로세스 수
  */
@@ -111,7 +111,7 @@ function size() {
 }
 
 /**
- * 지금 살아 있는 자식 프로세스 목록 — 운영자 패널 모니터링용.
+ * 지금 살아 있는 자식 프로세스 목록. 운영자 패널 모니터링용.
  * 오래 살아 있는 항목이 곧 새는 신호다(재생 ffmpeg는 곡 길이를 넘기지 않아야 한다).
  * @returns {Array<{pid:number,label:string,ageMs:number}>} 오래된 것부터
  */

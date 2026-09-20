@@ -5,7 +5,7 @@
     <div v-if="loading" class="flex items-center justify-center p-20 text-muted">불러오는 중...</div>
 
     <template v-else>
-      <!-- 탭 — 카드가 늘어나 한 화면에 다 두면 찾기 어렵다.
+      <!-- 탭. 카드가 늘어나 한 화면에 다 두면 찾기 어렵다.
            v-if가 아니라 v-show인 이유: 로그 뷰어의 누적 로그와 스크롤 위치가 탭을 오갈 때 날아가면 안 된다.
 
            바깥이 스크롤러, 안쪽 줄이 경계선을 갖는다. 경계선을 스크롤러에 두면 가로 스크롤바가
@@ -70,7 +70,7 @@
             </div>
           </BaseCard>
 
-          <!-- 자식 프로세스 — 재생 ffmpeg는 곡이 끝나면 사라져야 한다.
+          <!-- 자식 프로세스. 재생 ffmpeg는 곡이 끝나면 사라져야 한다.
                오래 남아 있으면 정리 사슬이 끊긴 것이므로 나이를 강조해서 보여준다. -->
           <BaseCard icon="terminal" title="자식 프로세스">
             <div :class="statRow">
@@ -93,7 +93,7 @@
             </div>
           </BaseCard>
 
-          <!-- 유튜브 접속 경로 — 어느 것이 실행 중 제외됐는지는 여기서만 보인다.
+          <!-- 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다.
                기동 로그는 시작 시점의 설정만 보여주므로 도중에 막힌 경로를 알 수 없다. -->
           <BaseCard icon="globe" title="유튜브 접속 경로">
             <div :class="statRow">
@@ -169,7 +169,7 @@
             <button v-for="type in types" :key="type.value" :class="typeBtn(bType === type.value)" @click="bType = type.value">{{ type.label }}</button>
           </div>
 
-          <!-- 이모지 버튼은 오른쪽 위에 둔다 — 오른쪽 아래는 크기 조절 손잡이 자리다.
+          <!-- 이모지 버튼은 오른쪽 위에 둔다. 오른쪽 아래는 크기 조절 손잡이 자리다.
                글이 그 밑으로 들어가지 않게 pr로 자리를 비워 둔다. -->
           <div class="relative mb-1.5">
             <textarea ref="bMsgBox" v-model="bMsg" placeholder="공지 내용을 입력하세요..." rows="4" class="w-full bg-white/5 border border-white/9 rounded-xl text-fg pl-3.5 pr-11 py-3 text-[0.9rem] resize-y outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7" @blur="bCaret = caretOf(bMsgBox)" @click="bCaret = caretOf(bMsgBox)" @keyup="bCaret = caretOf(bMsgBox)" @select="bCaret = caretOf(bMsgBox)"></textarea>
@@ -226,7 +226,7 @@
         <!-- 파일(config/genres.yaml)로도 고칠 수 있다. 저장은 바뀐 자리만 고쳐 주석을 보존한다. -->
         <ConfigGenres v-if="tab === 'config'" />
 
-        <p v-if="tab === 'config'" class="text-muted text-[0.75rem] mt-4 px-1 opacity-60">이모지 그림 <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">Twemoji</a> ⓒ Twitter, Inc 및 기여자 — <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">CC-BY 4.0</a></p>
+        <p v-if="tab === 'config'" class="text-muted text-[0.75rem] mt-4 px-1 opacity-60">이모지 그림 <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">Twemoji</a> ⓒ Twitter, Inc 및 기여자. <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer" class="underline hover:text-fg-soft">CC-BY 4.0</a></p>
       </div>
 
       <div v-show="tab === 'presence'">
@@ -240,7 +240,7 @@
       </div>
 
       <div v-show="tab === 'dev'">
-        <!-- 권한 수준 오버라이드 — 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
+        <!-- 권한 수준 오버라이드. 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
         <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
           <p class="text-muted text-[0.82rem] mt-1 mb-3">선택한 계층으로 대시보드를 사용합니다. 화면 표시뿐 아니라 서버가 실제로 허용하는 동작까지 그 계층을 따릅니다. 이 패널은 오버라이드와 무관하게 계속 열 수 있습니다.</p>
           <div class="flex flex-col gap-1.5">
@@ -350,14 +350,14 @@ import { insertAt, caretOf } from "../utils/caret.js";
 import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
 
 // ── 탭 ────────────────────────────────────────────────────────────────────────
-// 선택은 새로고침을 넘겨 유지한다 — 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
+// 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
 // 첫 탭으로 튕기면 쓰기 나쁘다.
 const TABS = [
   { id: "status", label: "봇 상태", icon: "robot" },
   { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
   { id: "config", label: "자동재생", icon: "music" },
-  // id를 "status"로 못 쓴다 — 맨 위 "봇 상태" 탭이 이미 쓰고 있다
+  // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "presence", label: "상태 문구", icon: "headphones" },
   { id: "ai", label: "AI 보조", icon: "campaign" },
   { id: "dev", label: "개발자", icon: "wrench" },
@@ -371,14 +371,14 @@ function setTab(id) {
   localStorage.setItem(TAB_KEY, id);
 }
 
-// 스크롤바는 사이드바(ServerSidebar navClass)와 같은 토큰을 쓴다 — 가로라 w 대신 h.
+// 스크롤바는 사이드바(ServerSidebar navClass)와 같은 토큰을 쓴다. 가로라 w 대신 h.
 const tabScroller = "mb-4 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[3px]";
 const tabBtn = "flex items-center gap-1.5 shrink-0 px-3.5 py-2 -mb-px border-b-2 cursor-pointer text-[0.85rem] font-semibold transition-[color,border-color] duration-200";
 const tabOn = "text-[#c4b5fd] border-[#c4b5fd]";
 const tabOff = "text-muted border-transparent hover:text-fg";
 
 // ── 권한 수준 오버라이드 ──────────────────────────────────────────────────────
-// 계층을 바꾸면 스토어가 페이지를 다시 읽는다 — 서버 목록·플레이어 권한이 통째로 달라지기 때문.
+// 계층을 바꾸면 스토어가 페이지를 다시 읽는다. 서버 목록·플레이어 권한이 통째로 달라지기 때문.
 const user = useUserStore();
 const switchingTier = ref(false);
 const tierError = ref("");
@@ -403,7 +403,7 @@ async function pickTier(tier) {
 const statRow = "flex justify-between items-center py-2.5 border-b border-white/7 text-sm last:border-b-0 last:pb-0 [&>span:first-child]:text-muted [&>strong]:font-semibold [&>span:last-child]:font-semibold";
 const cardTitle = "text-[0.7rem] font-bold uppercase tracking-[0.09em] text-[rgba(196,181,253,0.65)] mb-3.5";
 
-// 필터/타입 알약 버튼 — active 여부에 따라 색상군을 통째로 교체(같은 속성 유틸리티 중복 회피)
+// 필터/타입 알약 버튼. active 여부에 따라 색상군을 통째로 교체(같은 속성 유틸리티 중복 회피)
 function typeBtn(active) {
   const base = "px-4 py-1.5 rounded-[20px] border cursor-pointer text-[0.83rem] font-medium transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-spring hover:-translate-y-px";
   return active ? `${base} border-accent/55 text-[#c4b5fd] bg-accent/16 shadow-[0_0_10px_rgba(124,111,246,0.2)]` : `${base} border-white/9 bg-white/5 text-muted hover:bg-white/9 hover:text-fg`;
@@ -524,7 +524,7 @@ async function broadcast() {
     result.value = res.data;
     if (res.data.success) bMsg.value = "";
   } catch (e) {
-    // 서버가 알려 준 이유를 그대로 보여 준다 — "발송 실패"만으로는 무엇을 고쳐야 할지 알 수 없다
+    // 서버가 알려 준 이유를 그대로 보여 준다. "발송 실패"만으로는 무엇을 고쳐야 할지 알 수 없다
     result.value = { success: false, error: e.response?.data?.error };
   } finally {
     sending.value = false;
@@ -542,7 +542,7 @@ async function fetchGuilds() {
     const res = await axios.get("/api/admin/guilds");
     guilds.value = res.data.guilds;
   } catch {
-    // 일시 오류는 무시 — 다음 폴링에서 회복
+    // 일시 오류는 무시. 다음 폴링에서 회복
   }
 }
 
@@ -618,7 +618,7 @@ const sseConnected = ref(false);
 const logPane = ref(null);
 let sse = null;
 
-// 레벨 필터는 다중 토글이다 — "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
+// 레벨 필터는 다중 토글이다. "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
 // 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
 const LEVEL_ORDER = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const logLevels = [
@@ -631,7 +631,7 @@ const logLevels = [
 
 // 초기 상태는 서버의 LOG_LEVEL을 따른다. 서버가 debug를 아예 안 보내고 있으면 그 알약이
 // 켜져 있어도 보여줄 것이 없으므로, 꺼진 채로 시작해 "지금 흐르고 있는 것"과 맞춘다.
-// 꺼진 알약도 눌러서 켤 수 있다 — 서버 레벨을 낮추면 그때부터 오는 것이 보인다.
+// 꺼진 알약도 눌러서 켤 수 있다. 서버 레벨을 낮추면 그때부터 오는 것이 보인다.
 const levelsOn = ref(new Set(["info", "warn", "error", "fatal"]));
 let levelsInitialized = false;
 function syncLevelsWithServer(serverLevel) {
@@ -728,7 +728,7 @@ function connectSSE() {
 // ── Lifecycle ────────────────────────────────────────────────
 // status는 실시간 값(uptime·메모리·자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
 // 디스코드 rate limit과 무관하고(우리 Express만 친다) 보는 사람이 운영자 한 명이라 주기를
-// 좁혀도 부담이 없다 — 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
+// 좁혀도 부담이 없다. 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
 //
 // 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
 // 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
@@ -749,7 +749,7 @@ function stopPoll() {
   }
 }
 onMounted(() => {
-  // 첫 진입만은 탭과 무관하게 둘 다 받는다 — 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
+  // 첫 진입만은 탭과 무관하게 둘 다 받는다. 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
   fetchStatus();
   fetchGuilds();
   visHandler = () => {
@@ -761,7 +761,7 @@ onMounted(() => {
   };
   document.addEventListener("visibilitychange", visHandler);
   if (!document.hidden) startPoll();
-  connectSSE(); // 로그 스트림은 백그라운드에서도 유지 — 폴링이 아니라 이벤트 발생 시에만 전송
+  connectSSE(); // 로그 스트림은 백그라운드에서도 유지. 폴링이 아니라 이벤트 발생 시에만 전송
 });
 onUnmounted(() => {
   if (visHandler) {

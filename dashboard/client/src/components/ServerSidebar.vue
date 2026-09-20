@@ -1,5 +1,5 @@
 <template>
-  <!-- 인라인 레일 — md 미만 없음 / md~lg 항상 미니 / lg+ 접힘 설정에 따라 미니·펼침 (콘텐츠를 밀어냄).
+  <!-- 인라인 레일. md 미만 없음 / md~lg 항상 미니 / lg+ 접힘 설정에 따라 미니·펼침 (콘텐츠를 밀어냄).
        md 이상에는 상단바가 없으므로 로고·토글·계정을 전부 레일이 갖는다.
        z-135: 재생 바(130)의 위쪽 그림자가 레일로 번지는 것을 덮되, 드로어 딤(140)보다는 아래. -->
   <aside class="hidden md:flex shrink-0 sticky z-135 top-(--chrome) h-[calc(100dvh-var(--chrome))] flex-col border-r border-white/7 bg-[rgba(7,11,21,0.45)] backdrop-blur-[20px] transition-[width] duration-300 ease-smooth overflow-hidden" :class="collapsed ? 'w-16' : 'w-16 lg:w-60'">
@@ -34,8 +34,8 @@
     <AccountMenu rail :collapsed="collapsed" />
   </aside>
 
-  <!-- 오버레이 드로어 — lg 미만 전용: 배경 딤 + 왼쪽에서 슬라이드 인 (콘텐츠 위에 겹침).
-       상단 오프셋이 구간마다 다르다 — md 미만은 상단바(h-12) 아래, md~lg는 상단바가 없으니 배너 바로 아래. -->
+  <!-- 오버레이 드로어. lg 미만 전용: 배경 딤 + 왼쪽에서 슬라이드 인 (콘텐츠 위에 겹침).
+       상단 오프셋이 구간마다 다르다. md 미만은 상단바(h-12) 아래, md~lg는 상단바가 없으니 배너 바로 아래. -->
   <div class="lg:hidden fixed inset-x-0 top-[calc(var(--chrome)+3rem)] md:top-(--chrome) bottom-0 z-140 bg-black/55 transition-opacity duration-300" :class="drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'" @click="closeDrawer"></div>
 
   <aside class="lg:hidden fixed left-0 top-[calc(var(--chrome)+3rem)] md:top-(--chrome) bottom-0 z-150 w-60 flex flex-col bg-[rgba(7,11,21,0.92)] backdrop-blur-2xl backdrop-saturate-[1.8] border-r border-white/10 transition-transform duration-300 ease-smooth" :class="drawerOpen ? 'translate-x-0' : '-translate-x-full'">
@@ -78,7 +78,7 @@ import { sidebarCollapsed as collapsed, drawerOpen, closeDrawer, toggleSidebar }
 const store = useGuildsStore();
 const route = useRoute();
 
-// 활성 판정은 라우트로 직접 — 설정 화면(/servers/:id/settings)은 별개 라우트 레코드라 router-link-active가 안 붙고,
+// 활성 판정은 라우트로 직접. 설정 화면(/servers/:id/settings)은 별개 라우트 레코드라 router-link-active가 안 붙고,
 // /servers는 하위 경로에도 붙어버려 서버를 보는 동안 목록까지 활성으로 보인다.
 const isHome = computed(() => route.path === "/servers");
 

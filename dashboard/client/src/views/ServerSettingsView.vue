@@ -117,7 +117,7 @@
         </div>
       </BaseCard>
 
-      <!-- 저장/되돌리기는 화면 오른쪽 아래에 떠 있다 — 설정이 길어 맨 밑까지 스크롤하지 않아도 되게 -->
+      <!-- 저장/되돌리기는 화면 오른쪽 아래에 떠 있다. 설정이 길어 맨 밑까지 스크롤하지 않아도 되게 -->
       <SaveDock :dirty="dirty && s.canEdit" :saving="saving" :blocked="paInvalid" @save="save" @revert="revert" />
 
       <div v-if="result" :class="resultMsg(result.success)" class="flex items-center gap-1.5">
@@ -143,7 +143,7 @@ const loading = ref(true);
 const loadError = ref(null);
 const s = ref({ guildName: null, canEdit: false, djRoleIds: [], botChannelId: null, roles: [], channels: [], sponsorblock: null, playlistAdd: null });
 
-// 편집 폼 상태 (서버 값과 분리 — 저장 전까지 반영 안 됨)
+// 편집 폼 상태 (서버 값과 분리. 저장 전까지 반영 안 됨)
 const selectedRoles = ref([]);
 const selectedChannel = ref(null);
 const roleFilter = ref("");
@@ -151,7 +151,7 @@ const sbEnabled = ref(true);
 const sbCategories = ref([]);
 const sbHelpOpen = ref(false);
 
-// 각 SponsorBlock 구간 종류 설명 — 내용은 여기에 작성 (키 = 카테고리 id)
+// 각 SponsorBlock 구간 종류 설명. 내용은 여기에 작성 (키 = 카테고리 id)
 const sbDescriptions = {
   music_offtopic: "이 구간은 뮤직비디오에서만 해당합니다.",
   intro: "반복되는 애니메이션이나 정적 프레임과 같은 내용을 포함하는 구간",
@@ -177,7 +177,7 @@ const sbDirty = computed(() => {
   return sbEnabled.value !== sb.enabled || JSON.stringify([...sbCategories.value].sort()) !== JSON.stringify([...(sb.categories || [])].sort());
 });
 
-// 재생목록 한 번에 넣는 곡 수 — 기본값(null) 또는 직접 정한 값
+// 재생목록 한 번에 넣는 곡 수. 기본값(null) 또는 직접 정한 값
 const paUseDefault = ref(true);
 const paCount = ref(null);
 const paPresets = computed(() => {
@@ -189,7 +189,7 @@ const paInvalid = computed(() => {
   const pa = s.value.playlistAdd;
   return Boolean(pa) && !paUseDefault.value && !(Number.isInteger(paCount.value) && paCount.value >= pa.min && paCount.value <= pa.max);
 });
-// 대기열 상한이 기본값보다 작으면 서버도 상한으로 자른다 — 보이는 값을 맞춘다
+// 대기열 상한이 기본값보다 작으면 서버도 상한으로 자른다. 보이는 값을 맞춘다
 const paClamp = (n) => Math.min(s.value.playlistAdd.max, Math.max(s.value.playlistAdd.min, n));
 const paEffective = computed(() => paClamp(paValue.value ?? s.value.playlistAdd.default));
 const paDirty = computed(() => Boolean(s.value.playlistAdd) && paValue.value !== s.value.playlistAdd.value);
@@ -199,7 +199,7 @@ function pickPreset(n) {
   paCount.value = n;
 }
 
-// type="number" 를 안 쓴다 — 칸 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
+// type="number" 를 안 쓴다. 칸 위에서 휠을 굴리면 값이 바뀐다. 대신 숫자만 받는다.
 function onPaInput(e) {
   const raw = e.target.value.replace(/[^0-9]/g, "");
   if (e.target.value !== raw) e.target.value = raw;

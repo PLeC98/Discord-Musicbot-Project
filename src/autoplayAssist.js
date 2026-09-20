@@ -48,7 +48,7 @@ const DEFAULT_LINE = "{{번호}}. 장르={{장르}} 길이={{길이분}}분 제�
 
 const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
-// 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다) — 그래서 프롬프트에서도 쓸 수 있다.
+// 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다). 그래서 프롬프트에서도 쓸 수 있다.
 const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
 const DEFAULTS = { timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
@@ -139,18 +139,18 @@ async function authOf(one) {
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
-/** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
+/** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
   const one = { ...DEFAULTS, ...configData.ai() };
   // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
-  // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다
+  // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml). 설정 파일에는 안 섞는다
   return { ...one, prompt: configData.aiPrompt() };
 }
 
 /**
- * 추가 파라미터 — 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
+ * 추가 파라미터. 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
  *
  *   key=value            그대로 (true · false · null · 숫자는 알아서 바꾼다)
  *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
@@ -176,9 +176,9 @@ function setPath(obj, path, value) {
   let at = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
-    // safeKeys 가 이미 걸렀지만 여기서도 본다 — 분석기가 알아보는 자리는 대입 바로 옆이다
+    // safeKeys 가 이미 걸렀지만 여기서도 본다. 분석기가 알아보는 자리는 대입 바로 옆이다
     if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
-    // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다 — 안쪽에 더 넣을 수 없는 모양이다
+    // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다. 안쪽에 더 넣을 수 없는 모양이다
     if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
     at = at[k];
   }
@@ -226,7 +226,7 @@ function relaxJson(text) {
       out += ch;
       continue;
     }
-    // 낱말 경계에서만 바꾼다 — Nonetype 같은 것을 건드리면 안 된다
+    // 낱말 경계에서만 바꾼다. Nonetype 같은 것을 건드리면 안 된다
     const edge = (c) => !c || !/[A-Za-z0-9_$]/.test(c);
     const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
     if (hit) {
@@ -271,7 +271,7 @@ function parseExtra(text) {
     const isHeader = /^header::/i.test(name);
     const header = isHeader ? name.slice(8).trim() : null;
 
-    // {{none}} 을 header:: 보다 먼저 본다 — 안 그러면 헤더에 "{{none}}" 을 넣게 된다
+    // {{none}} 을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}" 을 넣게 된다
     if (value === "{{none}}") {
       if (isHeader) dropHeaders.push(header);
       else drop.push(name);
@@ -306,11 +306,11 @@ function parseExtra(text) {
   return { body, headers, drop, dropHeaders, problems };
 }
 
-/** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 — 둘 다 받는다. */
+/** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다. */
 function renderLine(list, cand, genre, i) {
   const sec = Number(cand.durationSec ?? cand.duration);
   const known = Number.isFinite(sec) && sec > 0;
-  // 길이를 모르는데 "0분"이라고 적으면 거짓을 알려 주는 것이다 — 기본은 그 칸을 뺀다
+  // 길이를 모르는데 "0분"이라고 적으면 거짓을 알려 주는 것이다. 기본은 그 칸을 뺀다
   const mode = list?.unknownDuration || "hide";
   const unknown = mode === "zero" ? "0" : mode === "text" ? String(list?.unknownText ?? "모름") : null;
 
@@ -325,7 +325,7 @@ function renderLine(list, cand, genre, i) {
   // 아는 이름인데 값을 모르면 그 자리표시자가 든 낱말째 뺀다.
   // "길이=" 만 덩그러니 남으면 모델이 더 헷갈리기 때문이다.
   //
-  // 모르는 이름은 건드리지 않는다 — 오타를 조용히 지워 버리면 왜 사라졌는지 알 길이 없다.
+  // 모르는 이름은 건드리지 않는다. 오타를 조용히 지워 버리면 왜 사라졌는지 알 길이 없다.
   return String(list?.lineFormat || DEFAULT_LINE)
     .split(/(\s+)/)
     .map((word) => {
@@ -343,14 +343,14 @@ function renderLine(list, cand, genre, i) {
     .trim();
 }
 
-/** 실제로 보낼 messages. 미리보기도 이것을 쓴다 — 화면이 흉내 내면 어긋난다. */
+/** 실제로 보낼 messages. 미리보기도 이것을 쓴다. 화면이 흉내 내면 어긋난다. */
 function buildMessages(one, batch, genre) {
   const list = batch.map((cand, i) => renderLine(one.list, cand, genre, i)).join("\n");
   const sections = Array.isArray(one.prompt) && one.prompt.length ? one.prompt : DEFAULT_SECTIONS;
 
   return sections
     .map((section) => ({
-      // 모르는 역할은 system 으로 떨어뜨린다 — 저쪽이 400을 주느니 낫다
+      // 모르는 역할은 system 으로 떨어뜨린다. 저쪽이 400을 주느니 낫다
       role: ROLES.has(section?.role) ? section.role : "system",
       content: String(section?.text ?? "")
         .replace(LIST_MARK, list)
@@ -411,7 +411,7 @@ const DIALECTS = {
       return { "Content-Type": "application/json", "anthropic-version": ANTHROPIC_VERSION, ...(key ? { "x-api-key": key } : {}) };
     },
     body: (one, messages) => {
-      // system 은 여럿일 수 있다(섹션을 나눠 적었을 수 있다) — 붙여서 한 칸에 넣는다
+      // system 은 여럿일 수 있다(섹션을 나눠 적었을 수 있다). 붙여서 한 칸에 넣는다
       const system = messages
         .filter((m) => m.role === "system")
         .map((m) => m.content)
@@ -527,7 +527,7 @@ const usable = (field, value) => {
 };
 
 /**
- * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다 —
+ * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다.
  * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
  */
 async function countTokens(one, messages) {
@@ -552,14 +552,14 @@ function withParams(body, one) {
 
   const models = require("./aiModels");
   const out = deepMerge(body, models.defaultsOf(registry, one.model));
-  // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다 —
+  // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다.
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
   const picked = one.params?.[one.model] || {};
   const fields = models.fieldsOf(registry, one.model);
   const valueOf = (field) => [picked[field.key], field.default].find((one) => usable(field, one));
 
   for (const field of fields) {
-    // 화면에서 가려진 칸은 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다 —
+    // 화면에서 가려진 칸은 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다.
     // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
     if (field.showIf) {
       const owner = fields.find((one) => one.key === field.showIf.key);
@@ -577,7 +577,7 @@ async function buildRequest(one, batch, genre) {
   const extra = parseExtra(one.extra);
   const messages = buildMessages(one, batch, genre);
 
-  // 추가 파라미터가 맨 나중이다 — 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
+  // 추가 파라미터가 맨 나중이다. 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
   const body = withExtra(dialect, withParams(dialect.body(one, messages), one), extra);
   return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, messages, problems: extra.problems, tokens: await countTokens(one, messages) };
 }
@@ -608,7 +608,7 @@ function headersWith(base, extra) {
 }
 
 /**
- * 경로는 언제나 본문 맨 위부터다. 다이얼렉트마다 다른 자리로 넣어 주지 않는다 —
+ * 경로는 언제나 본문 맨 위부터다. 다이얼렉트마다 다른 자리로 넣어 주지 않는다.
  * 버텍스처럼 안쪽 칸을 쓰는 곳은 `generationConfig.topP=0.9` 로 적는다.
  * 모델 프로필의 mapsTo.path 도 같은 규칙이라, 두 길이 어긋나지 않는다.
  */
@@ -627,7 +627,7 @@ const despace = (text) => text.replace(ODD_SPACE, " ");
 
 /**
  * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말을 곧잘 붙이므로 배열만 집는다.
- * 못 읽으면 null — 부르는 쪽이 원문을 그대로 보여 준다.
+ * 못 읽으면 null. 부르는 쪽이 원문을 그대로 보여 준다.
  */
 function readVerdicts(text, count) {
   const found = String(text || "").match(/\[[\s\S]*\]/);
@@ -657,8 +657,8 @@ async function askBatch(one, batch, genre) {
   });
 
   // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타 · 남은 토큰 없음 · 사용량 초과 …).
-  // 그대로 싣되 키는 가린다 — 거절 응답에 보낸 값을 되비추는 서비스가 있다.
-  if (!res.ok) throw new Error(`HTTP ${res.status} — ${mask(await res.text()).slice(0, 300)}`);
+  // 그대로 싣되 키는 가린다. 거절 응답에 보낸 값을 되비추는 서비스가 있다.
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${mask(await res.text()).slice(0, 300)}`);
 
   const text = dialectOf(one).answerOf(await res.json()) || "";
   const out = readVerdicts(text, batch.length);
@@ -685,14 +685,14 @@ async function filter(candidates, about = {}) {
     for (let at = 0; at < candidates.length; at += size) {
       const batch = candidates.slice(at, at + size);
       const verdicts = await askBatch(one, batch, about.genre);
-      // 답을 못 받은 자리는 살린다 — 모델이 빠뜨린 것을 떨어뜨릴 이유가 없다
+      // 답을 못 받은 자리는 살린다. 모델이 빠뜨린 것을 떨어뜨릴 이유가 없다
       batch.forEach((cand, i) => {
         const verdict = verdicts[i];
         if (!verdict || (verdict.song && verdict.fits)) kept.push(cand);
       });
     }
   } catch (error) {
-    log.debug(`AI 보조를 건너뜁니다(${error.message}) — 규칙만으로 고릅니다`);
+    log.debug(`AI 보조를 건너뜁니다(${error.message}). 규칙만으로 고릅니다`);
     return candidates;
   }
 
@@ -715,12 +715,12 @@ async function accepts(candidate, about = {}) {
 
   try {
     const [verdict] = await askBatch(one, [candidate], about.genre);
-    if (!verdict) return true; // 판정을 못 읽었다 — 버릴 근거가 없다
+    if (!verdict) return true; // 판정을 못 읽었다. 버릴 근거가 없다
     if (verdict.song && verdict.fits) return true;
     log.debug(`AI 보조가 거름(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${candidate.title}`);
     return false;
   } catch (error) {
-    log.debug(`AI 보조를 건너뜁니다(${error.message}) — 규칙만으로 고릅니다`);
+    log.debug(`AI 보조를 건너뜁니다(${error.message}). 규칙만으로 고릅니다`);
     return true;
   }
 }
@@ -738,7 +738,7 @@ async function listModels(draft) {
   const first = dialect.modelsUrl(one);
   if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
 
-  // 같은 곳인데 문서판마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다 —
+  // 같은 곳인데 문서판마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다.
   // 그래야 어느 판을 쓰는 프로젝트든 목록이 뜬다. 404 가 아니면 그 답이 곧 사실이다.
   const urls = [first, ...(dialect.modelsUrlFallbacks?.(one) || [])];
   const started = Date.now();
@@ -767,7 +767,7 @@ async function listModels(draft) {
       /* 목록을 못 읽어도 응답 자체는 보여 준다 */
     }
 
-    // 이름을 코드에 적지 않는다. 대신 안 쓸 것을 설정에서 가린다 — 저쪽 목록에는
+    // 이름을 코드에 적지 않는다. 대신 안 쓸 것을 설정에서 가린다. 저쪽 목록에는
     // 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
     const hidden = hideRules(one.hideModels);
     const models = all.filter((id) => !hidden.some((rule) => rule.test(id))).sort();
@@ -778,7 +778,7 @@ async function listModels(draft) {
 }
 
 /**
- * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다 — 정규식을 설정 파일에 적게 하면
+ * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다. 정규식을 설정 파일에 적게 하면
  * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
  */
 function hideRules(patterns) {
@@ -790,11 +790,11 @@ function hideRules(patterns) {
 
 const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// 유료 확인에 쓰는 물음 — 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
+// 유료 확인에 쓰는 물음. 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
 const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
 
 /**
- * 유료 확인 — 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.
+ * 유료 확인. 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.
  *
  * 연결만 보고 싶은데 판정 프롬프트를 통째로 보내면 토큰도 들고, 모델이 헛소리를 했을 때
  * "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
@@ -829,12 +829,12 @@ async function ping(draft) {
   }
 }
 
-// 미리보기용 보기 곡 — 판정이 갈리는 세 가지를 일부러 골랐다(멀쩡한 곡 · 믹스 · 길이 모름)
+// 미리보기용 보기 곡. 판정이 갈리는 세 가지를 일부러 골랐다(멀쩡한 곡 · 믹스 · 길이 모름)
 const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
 
 /**
  * 저장하기 전의 설정으로 나갈 것을 만들어만 본다. 보내지 않는다.
- * 조립은 봇이 쓰는 코드 그대로다 — 화면이 따로 흉내 내면 언젠가 어긋난다.
+ * 조립은 봇이 쓰는 코드 그대로다. 화면이 따로 흉내 내면 언젠가 어긋난다.
  *
  * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
@@ -847,7 +847,7 @@ async function preview(draft, genre = "록") {
 // 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
 const SECRET_HEADERS = ["authorization", "x-api-key", "x-goog-api-key", "api-key"];
 
-/** 화면에 보여도 되는 헤더 — 키 값은 절대 나가지 않는다. */
+/** 화면에 보여도 되는 헤더. 키 값은 절대 나가지 않는다. */
 function safeHeaders(headers) {
   const out = {};
   for (const [name, value] of Object.entries(headers || {})) {
@@ -855,7 +855,7 @@ function safeHeaders(headers) {
       out[name] = value;
       continue;
     }
-    // 앞의 낱말(Bearer)은 남긴다 — 어떤 방식으로 붙는지는 보이는 편이 낫다
+    // 앞의 낱말(Bearer)은 남긴다. 어떤 방식으로 붙는지는 보이는 편이 낫다
     const scheme = /^(\w+)\s/.exec(String(value));
     out[name] = scheme ? `${scheme[1]} ${REDACTED}` : REDACTED;
   }
@@ -863,7 +863,7 @@ function safeHeaders(headers) {
 }
 
 /**
- * 유튜브 주소로 후보를 만든다 — 판정 테스트가 진짜 곡으로 시험할 수 있게.
+ * 유튜브 주소로 후보를 만든다. 판정 테스트가 진짜 곡으로 시험할 수 있게.
  * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
  */
 async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
@@ -893,12 +893,12 @@ function renderList(draft, cands, genre = "록") {
 }
 
 /**
- * 고른 후보들을 실제로 판정시킨다 — SAMPLE 이 아니라 진짜 곡으로.
+ * 고른 후보들을 실제로 판정시킨다. SAMPLE 이 아니라 진짜 곡으로.
  * 나간 것·온 것·곡별 판정을 같이 준다.
  */
 async function judgeTest(draft, cands, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
-  // 고른 것이 없으면 보기 곡으로 돌린다 — 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
+  // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
   const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
   const usable = picked.length ? picked : SAMPLE;
 
@@ -919,7 +919,7 @@ async function judgeTest(draft, cands, genre = "록") {
     try {
       const json = JSON.parse(text);
       out.usage = dialectOf(one).usageOf?.(json) || null;
-      // 판정은 곡마다 한 줄이다. 못 읽으면 null — 원문은 위에 그대로 있다.
+      // 판정은 곡마다 한 줄이다. 못 읽으면 null. 원문은 위에 그대로 있다.
       const answered = readVerdicts(dialectOf(one).answerOf(json), usable.length);
       out.verdicts = answered ? usable.map((cand, i) => ({ title: cand.title, url: cand.url, ...(answered[i] || { song: null, fits: null }) })) : null;
     } catch {
@@ -932,7 +932,7 @@ async function judgeTest(draft, cands, genre = "록") {
   return out;
 }
 
-// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다 — 화면에도 로그에도 키가 남으면 안 된다.
+// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다. 화면에도 로그에도 키가 남으면 안 된다.
 // 무엇이 가려진 것인지 알아볼 수 있게 이름을 붙인다(별표만 있으면 원래 그런 값인 줄 안다).
 const REDACTED = "[REDACTED_SECRET_KEY]";
 
@@ -940,7 +940,7 @@ const REDACTED = "[REDACTED_SECRET_KEY]";
 // 어느 것이 되비쳐 올지 우리가 정할 수 없고, 넉넉히 가려서 손해 볼 것이 없다.
 function mask(text) {
   let out = String(text);
-  // 받아 둔 액세스 토큰도 가린다 — 서비스 계정에서 나온 것이라 키만큼 값이 나간다
+  // 받아 둔 액세스 토큰도 가린다. 서비스 계정에서 나온 것이라 키만큼 값이 나간다
   for (const key of [...Object.values(configData.aiKeys()), ...require("./googleAuth").heldTokens()]) {
     if (!key || key.length <= 8) continue;
     out = out.split(key).join(REDACTED);

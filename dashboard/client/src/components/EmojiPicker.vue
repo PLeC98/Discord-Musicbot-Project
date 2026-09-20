@@ -2,11 +2,11 @@
   이모지 고르는 판. 무엇을 눌러 여는지와, 고른 것을 어디에 넣는지는 부르는 쪽이 정한다.
   (장르 아이콘은 값을 갈아끼우고, 상태 문구는 커서 자리에 끼워 넣는다.)
 
-  검색칸에는 이름으로 찾아도 되고 이모지를 붙여넣어도 된다 — 붙여넣은 것이 목록에 없더라도
+  검색칸에는 이름으로 찾아도 되고 이모지를 붙여넣어도 된다. 붙여넣은 것이 목록에 없더라도
   이모지 한 글자이기만 하면 고를 수 있게 맨 앞에 내놓는다.
 
   분류와 순서는 디스코드 선택기 그대로다. 목록(1900여 개)은 처음 열 때 따로 받아온다
-  — 대시보드를 열 때마다 들고 다닐 것이 아니다.
+ 대시보드를 열 때마다 들고 다닐 것이 아니다.
 -->
 <template>
   <div ref="root" class="relative inline-flex shrink-0">
@@ -108,7 +108,7 @@ async function load() {
   try {
     module = await import("../emojiList.js");
   } catch {
-    // 목록은 따로 받아오므로 못 받아올 수가 있다 — 특히 대시보드를 다시 빌드하면 파일 이름이
+    // 목록은 따로 받아오므로 못 받아올 수가 있다. 특히 대시보드를 다시 빌드하면 파일 이름이
     // 바뀌어서, 열어 둔 화면이 없어진 파일을 찾는다. 새로고침하면 풀린다.
     loadError.value = "목록을 불러오지 못했습니다. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
     return;
@@ -121,7 +121,7 @@ async function load() {
   } catch {
     saved = null; // 못 읽는 환경이면 그냥 다 펼친다
   }
-  // 저장된 이름 중 지금도 있는 것만 본다 — 분류가 바뀌어도 엉뚱하게 접히지 않는다
+  // 저장된 이름 중 지금도 있는 것만 본다. 분류가 바뀌어도 엉뚱하게 접히지 않는다
   const names = new Set(Array.isArray(saved) ? saved : []);
   collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group) => [group.name, names.has(group.name)]));
 }
@@ -136,7 +136,7 @@ const results = computed(() => {
   if (!typed) return null;
 
   const found = [];
-  // 붙여넣은 이모지는 목록에 없더라도 고를 수 있어야 한다 — 폰트가 모르는 새 이모지일 수도 있다
+  // 붙여넣은 이모지는 목록에 없더라도 고를 수 있어야 한다. 폰트가 모르는 새 이모지일 수도 있다
   if (ONE_EMOJI.test(typed)) found.push({ char: typed, label: typed });
 
   const needle = typed.toLowerCase();
@@ -159,7 +159,7 @@ function clear() {
   open.value = false;
 }
 
-// 판을 띄울 자리 — 여는 버튼 아래가 화면을 넘치면 위로 올린다.
+// 판을 띄울 자리. 여는 버튼 아래가 화면을 넘치면 위로 올린다.
 function place() {
   const rect = root.value?.getBoundingClientRect();
   if (!rect) return;
@@ -167,7 +167,7 @@ function place() {
   const height = 372;
   const below = rect.bottom + 6;
   const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 6) : below;
-  // 정수로 떨어뜨린다 — 소수점 좌표에 놓이면 안에서 붙어 있는 분류 머리 위에 1픽셀 틈이 비친다
+  // 정수로 떨어뜨린다. 소수점 좌표에 놓이면 안에서 붙어 있는 분류 머리 위에 1픽셀 틈이 비친다
   const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
   popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
 }
@@ -197,7 +197,7 @@ onBeforeUnmount(() => listen(false));
 
 const panel = "fixed z-200 rounded-2xl overflow-hidden bg-[rgba(18,22,42,0.97)] backdrop-blur-2xl backdrop-saturate-[1.6] border border-white/11 shadow-[0_12px_40px_rgba(0,0,0,0.55)] inset-shadow-glass";
 const searchCls = "w-full bg-white/5 border border-white/9 rounded-lg text-fg px-3 py-1.5 text-[0.84rem] outline-none font-[inherit] transition-[border-color,background-color] duration-150 focus:border-accent/55 focus:bg-white/7";
-// 스크롤 상자에는 안쪽 여백을 주지 않는다 — 여백을 주면 붙어 있는 분류 머리가 그만큼 내려와 틈이 생긴다
+// 스크롤 상자에는 안쪽 여백을 주지 않는다. 여백을 주면 붙어 있는 분류 머리가 그만큼 내려와 틈이 생긴다
 const scroller = "h-[300px] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-(--sb-track-color) [&::-webkit-scrollbar-track]:rounded-[5px] [&::-webkit-scrollbar-thumb]:bg-(--sb-thumb-color) [&::-webkit-scrollbar-thumb]:rounded-[5px]";
 const header = "sticky top-0 z-10 w-full flex items-center gap-1.5 bg-[rgba(18,22,42,0.97)] px-2.5 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.08em] text-[rgba(196,181,253,0.7)] cursor-pointer transition-colors duration-150 hover:text-[rgba(196,181,253,0.95)]";
 const clearBtn = "absolute right-4 top-1/2 -translate-y-1/2 size-5 rounded-full flex items-center justify-center text-muted cursor-pointer transition-colors duration-150 hover:bg-white/12 hover:text-fg";

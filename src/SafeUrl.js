@@ -55,7 +55,7 @@ function isBlockedIp(ip) {
   return addr.range() !== "unicast";
 }
 
-/** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략) — IP 차단이 주 방어이고 이건 심층방어. */
+/** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략). IP 차단이 주 방어이고 이건 심층방어. */
 function isAllowedContentType(contentType) {
   if (!contentType) return true;
   return ALLOWED_CONTENT_TYPE.test(contentType);
@@ -79,7 +79,7 @@ async function validateAndResolve(rawUrl) {
     throw new SsrfError(`허용되지 않는 스키마: ${url.protocol}`);
   }
 
-  // URL.hostname은 IPv6 리터럴을 대괄호 포함으로 준다('[::1]') — net.isIP 판정 전에 벗긴다.
+  // URL.hostname은 IPv6 리터럴을 대괄호 포함으로 준다('[::1]'). net.isIP 판정 전에 벗긴다.
   // (안 벗기면 모든 IPv6 리터럴이 DNS 경로로 빠져 공인 IPv6 주소도 사용 불가)
   const rawHost = url.hostname;
   const host = rawHost.startsWith("[") && rawHost.endsWith("]") ? rawHost.slice(1, -1) : rawHost;
@@ -105,7 +105,7 @@ async function validateAndResolve(rawUrl) {
 }
 
 /**
- * 검증된 IP로만 접속하는 에이전트 — lookup을 무시하고 항상 핀 IP를 돌려줘
+ * 검증된 IP로만 접속하는 에이전트. lookup을 무시하고 항상 핀 IP를 돌려줘
  * 소켓 레벨의 DNS 재해석(리바인딩)을 차단한다. autoSelectFamily(Node20+)가
  * all:true로 호출하는 경우까지 처리.
  */
@@ -206,7 +206,7 @@ function assertResponseAllowed(headers) {
   }
 }
 
-/** 가드된 HEAD — 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws */
+/** 가드된 HEAD. 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws */
 async function head(rawUrl) {
   const { response, agent } = await guardedRequest("head", rawUrl);
   try {
@@ -217,7 +217,7 @@ async function head(rawUrl) {
   }
 }
 
-/** 가드된 GET 스트림 — Content-Type 검증 + 크기 캡이 적용된 Readable 반환. @throws */
+/** 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. @throws */
 async function getStream(rawUrl) {
   const { response, agent } = await guardedRequest("get", rawUrl, { responseType: "stream" });
   const source = response.data;

@@ -13,9 +13,9 @@ const SponsorBlock = require("../../../src/SponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
 const { shadowMember } = require("../viewAs");
-const { labelOf } = require("../../../src/platforms"); // 이름표는 임베드와 같은 표에서 나온다 — 브라우저는 src/ 를 못 읽는다
+const { labelOf } = require("../../../src/platforms"); // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
 
-// SponsorBlock 카테고리 라벨 (대시보드 표시용) — SKIP_CATEGORIES와 키 일치
+// SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS = {
   music_offtopic: "음악이 아닌 구간",
   intro: "인트로/무음 구간",
@@ -85,15 +85,15 @@ async function getPlayer(req, res, guildId) {
     }
   }
 
-  // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다 — 이 한 곳이면 아래의
+  // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다. 이 한 곳이면 아래의
   // checkControl/checkAdd/isModerator가 전부 그 계층으로 판정된다.
   return { client, guild, player: client.players?.get(guildId) || null, member: shadowMember(req, member) };
 }
 
-// 음성 재적 상태 — 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
+// 음성 재적 상태. 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
 // botInVoice/userInVoice를 따로 보면 같은 서버 다른 채널을 구분하지 못한다.
 function voiceFlags(guild, userId) {
-  // channelId가 아니라 channel?.id로 읽는다 — permissions.js의 checkVoice와 같은 경로여야
+  // channelId가 아니라 channel?.id로 읽는다. permissions.js의 checkVoice와 같은 경로여야
   // 채널이 캐시에 없을 때 "화면은 조작 가능이라는데 서버는 막는" 어긋남이 생기지 않는다.
   //
   // 멤버가 아니라 voiceStates에서 읽는 이유: 멤버 캐시는 비어 있을 수 있지만 음성 상태는
@@ -103,7 +103,7 @@ function voiceFlags(guild, userId) {
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };
 }
 
-// 대기열은 앞에서부터 이만큼만 실어 보낸다 — 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.
+// 대기열은 앞에서부터 이만큼만 실어 보낸다. 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.
 const QUEUE_PAGE = 100;
 const QUEUE_WINDOW_MAX = 1000;
 
@@ -116,7 +116,7 @@ function queueTrack(t, i) {
     thumbnail: t.thumbnail,
     platform: t.platform,
     platformLabel: labelOf(t.platform),
-    autoplay: Boolean(t.autoplay), // 자동재생이 미리 뽑아 둔 곡 — 화면에서 사용자 곡과 가른다
+    autoplay: Boolean(t.autoplay), // 자동재생이 미리 뽑아 둔 곡. 화면에서 사용자 곡과 가른다
     requestedBy: t.requestedBy ? { id: t.requestedBy.id } : null,
   };
 }
@@ -131,7 +131,7 @@ function queueWindow(req) {
 function playerState(player, queueLimit = QUEUE_PAGE) {
   if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = player.getStatus();
-  // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다 — 그래야
+  // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다. 그래야
   // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다. isPlaybackActive: 리소스가 물린 상태.
   const track = player.isPlaybackActive() ? player.currentTrack : null;
   return {
@@ -151,7 +151,7 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
           isLive: Boolean(track.isLive),
           currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
           requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,
-          // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점 — 대시보드 진행바 마커용
+          // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점. 대시보드 진행바 마커용
           sponsorSegments: (track.sponsor?.skipSegments || []).map((s) => ({ start: s.start, end: s.end, categories: s.categories || [] })),
           highlightAt: track.sponsor?.highlightAt ?? null,
         }
@@ -165,13 +165,13 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
 }
 
 // ── 입력 검증 ─────────────────────────────────────────────────────────────────
-// 사용자 입력은 타입·범위를 먼저 확정 — 비문자열 body의 TypeError(async 핸들러라 500조차 아닌
+// 사용자 입력은 타입·범위를 먼저 확정. 비문자열 body의 TypeError(async 핸들러라 500조차 아닌
 // unhandled rejection), parseFloat/parseInt의 느슨한 허용("Infinity", "50junk")이
 // 하위 로직·로그·yt-dlp로 흘러가지 않게 한다.
 
 const QUERY_MAX_LEN = 500;
 
-// 문자열 확인 + 제어문자(CR/LF/NUL 등) 정규화 — 로그 위조·외부 도구 인자 오염 방지.
+// 문자열 확인 + 제어문자(CR/LF/NUL 등) 정규화. 로그 위조·외부 도구 인자 오염 방지.
 // 부적합 입력은 null (호출부에서 400)
 function sanitizeQuery(raw) {
   if (typeof raw !== "string" || raw.length > QUERY_MAX_LEN) return null;
@@ -179,7 +179,7 @@ function sanitizeQuery(raw) {
   return query || null;
 }
 
-// 유한 정수 파싱 — parseInt와 달리 "50junk"·Infinity·소수를 전부 NaN으로 거부
+// 유한 정수 파싱. parseInt와 달리 "50junk"·Infinity·소수를 전부 NaN으로 거부
 function toInt(value) {
   const n = Number(value);
   return Number.isInteger(n) ? n : NaN;
@@ -212,7 +212,7 @@ router.get("/", requireAuth, async (req, res) => {
       id: g.id,
       name: g.name,
       icon: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.webp?size=64` : null,
-      canManageGuild: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD, // 그 서버의 "서버 관리" 권한 — 봇 운영자(isOwner)와 무관
+      canManageGuild: (parseInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD, // 그 서버의 "서버 관리" 권한. 봇 운영자(isOwner)와 무관
       hasPlayer: client.players?.has(g.id) || false,
       memberCount: guild.memberCount,
       // 전역 재생 바가 대상 서버를 찾는 기준. 동시 음성 참여는 불가능하므로 참인 서버는 많아야 하나다.
@@ -224,7 +224,7 @@ router.get("/", requireAuth, async (req, res) => {
   res.json({ guilds: mutual });
 });
 
-// SSE — 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 서버 전체를 한 연결로).
+// SSE. 서버 목록의 재생 상태 실시간 갱신. 사용자 단위 멀티플렉스(상호+멤버 서버 전체를 한 연결로).
 router.get("/events", requireAuth, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다" });
@@ -258,7 +258,7 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
 
   const voice = voiceFlags(guild, req.session.user.id);
 
-  // 제어/추가 가능 여부 — UI 표시용 (실제 강제는 각 엔드포인트가 담당). member는 getPlayer가 실멤버십으로 확보.
+  // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member는 getPlayer가 실멤버십으로 확보.
   let controllable = isOwner(req);
   let addable = controllable;
   if (!controllable && member) {
@@ -266,7 +266,7 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
     addable = !checkAdd(member);
   }
 
-  // 서버 설정(⚙) 진입 가능 여부 — 모더레이터/봇 운영자만 (설정 화면 GET 게이트와 동일 기준)
+  // 서버 설정(⚙) 진입 가능 여부. 모더레이터/봇 운영자만 (설정 화면 GET 게이트와 동일 기준)
   const manageable = isOwner(req) || (member ? isModerator(member) : false);
 
   // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
@@ -274,7 +274,7 @@ router.get("/:guildId/player", requireAuth, async (req, res) => {
   res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId: req.session.user.id });
 });
 
-// 대기열 더 보기 — 화면이 바닥에 닿았을 때 다음 구간만 받아 간다.
+// 대기열 더 보기. 화면이 바닥에 닿았을 때 다음 구간만 받아 간다.
 router.get("/:guildId/player/queue", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
@@ -288,7 +288,7 @@ router.get("/:guildId/player/queue", requireAuth, async (req, res) => {
   res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(t, offset + i)), total: queue.length });
 });
 
-// SSE — 플레이어 상태 변화 넛지 (하이브리드: 넛지 받으면 클라이언트가 GET /player 재호출)
+// SSE. 플레이어 상태 변화 넛지 (하이브리드: 넛지 받으면 클라이언트가 GET /player 재호출)
 router.get("/:guildId/player/events", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId); // 비멤버 403 / 봇 미참여 404
   if (!ctx) return;
@@ -297,8 +297,8 @@ router.get("/:guildId/player/events", requireAuth, async (req, res) => {
 
 // ── Settings endpoints ────────────────────────────────────────────────────────
 
-// 서버 설정 조회 — DJ 역할·봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
-// 조회·변경 모두 모더레이터/봇 운영자 전용 (사용자 결정 — 일반 멤버는 ⚙ 진입 자체 불가).
+// 서버 설정 조회. DJ 역할·봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
+// 조회·변경 모두 모더레이터/봇 운영자 전용 (사용자 결정. 일반 멤버는 ⚙ 진입 자체 불가).
 router.get("/:guildId/settings", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
@@ -313,7 +313,7 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
   const rawChannelId = await GuildSettingsManager.getBotChannel(guild.id);
   const botChannelId = rawChannelId && guild.channels.cache.has(rawChannelId) ? rawChannelId : null;
 
-  // @everyone(서버 ID와 동일)은 제외 — "전원 DJ"는 미설정이 이미 그 의미
+  // @everyone(서버 ID와 동일)은 제외. "전원 DJ"는 미설정이 이미 그 의미
   const roles = [...guild.roles.cache.values()]
     .filter((r) => r.id !== guild.id)
     .sort((a, b) => b.position - a.position)
@@ -334,7 +334,7 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
     available: SponsorBlock.SKIP_CATEGORIES.map((id) => ({ id, label: SB_CATEGORY_LABELS[id] || id })),
   };
 
-  // 재생목록 한 번에 넣는 곡 수 — 저장값(null=기본), 실제 값, 설정할 수 있는 범위
+  // 재생목록 한 번에 넣는 곡 수. 저장값(null=기본), 실제 값, 설정할 수 있는 범위
   const playlistAdd = {
     value: await GuildSettingsManager.getPlaylistAddMax(guild.id),
     effective: GuildSettingsManager.resolvePlaylistAddMax(guild.id),
@@ -344,7 +344,7 @@ router.get("/:guildId/settings", requireAuth, async (req, res) => {
   res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd });
 });
 
-// 서버 설정 변경 — 모더레이터/봇 운영자만. /setdjrole·/setchannel과 동일 기준.
+// 서버 설정 변경. 모더레이터/봇 운영자만. /setdjrole·/setchannel과 동일 기준.
 // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
 router.put("/:guildId/settings", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
@@ -357,7 +357,7 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
 
   const { djRoleIds, botChannelId, sponsorblock, playlistAddMax } = req.body || {};
 
-  // 재생목록 한 번에 넣는 곡 수 (선택적) — null이면 기본값으로
+  // 재생목록 한 번에 넣는 곡 수 (선택적). null이면 기본값으로
   let nextPlaylistAdd; // undefined=변경 없음
   if (playlistAddMax !== undefined) {
     const { min, max } = GuildSettingsManager.playlistAddLimits();
@@ -367,7 +367,7 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     nextPlaylistAdd = playlistAddMax;
   }
 
-  // SponsorBlock 검증 (선택적) — enabled(bool)·categories(유효 카테고리 배열)
+  // SponsorBlock 검증 (선택적). enabled(bool)·categories(유효 카테고리 배열)
   let nextSponsor; // undefined=변경 없음
   if (sponsorblock !== undefined) {
     if (typeof sponsorblock !== "object" || sponsorblock === null) {
@@ -416,7 +416,7 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     if (nextRoles.length) await GuildSettingsManager.setDjRoles(guild.id, nextRoles);
     else await GuildSettingsManager.clearDjRoles(guild.id);
   }
-  // 화면은 저장할 때마다 전용 채널을 함께 보낸다 — 실제로 바뀌었을 때만 패널을 옮긴다
+  // 화면은 저장할 때마다 전용 채널을 함께 보낸다. 실제로 바뀌었을 때만 패널을 옮긴다
   let channelChanged = false;
   if (nextChannel !== undefined) {
     channelChanged = nextChannel !== (await GuildSettingsManager.getBotChannel(guild.id));
@@ -433,7 +433,7 @@ router.put("/:guildId/settings", requireAuth, async (req, res) => {
     client?.musicEmbedManager?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
   }
 
-  log.info(`서버 설정 변경: ${guild.name} (${guild.id}) — 실행 ${req.session.user.username || req.session.user.id}`);
+  log.info(`서버 설정 변경: ${guild.name} (${guild.id}). 실행 ${req.session.user.username || req.session.user.id}`);
   res.json({ success: true });
 });
 
@@ -464,8 +464,8 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
     return res.status(403).json({ error: "봇이 해당 채널에 접속할 권한이 없습니다" });
   }
 
-  // Discord 쪽 /join과 동일 — 봇이 이미 다른 채널에서 사용 중이면 이동 불가.
-  // (모더레이터의 봇 이동은 Discord 네이티브 드래그 기능으로 충분 — API 이동 미지원, 사용자 결정)
+  // Discord 쪽 /join과 동일. 봇이 이미 다른 채널에서 사용 중이면 이동 불가.
+  // (모더레이터의 봇 이동은 Discord 네이티브 드래그 기능으로 충분. API 이동 미지원, 사용자 결정)
   const botChannel = guild.members.me?.voice?.channel;
   if (botChannel && botChannel.id !== voiceChannel.id) {
     return res.status(403).json({ error: "봇이 이미 다른 음성 채널에서 사용 중입니다" });
@@ -474,7 +474,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   let player = client.players.get(guildId);
   if (!player) {
     const MusicPlayer = require("../../../src/MusicPlayer");
-    // textChannel은 여기서 정하지 않는다 — 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
+    // textChannel은 여기서 정하지 않는다. 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
     player = new MusicPlayer(guild, null, voiceChannel);
     client.players.set(guildId, player);
   } else {
@@ -494,7 +494,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
     player.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
   }
 
-  // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과 — 계층(DJ 여부)만 판정에 반영됨
+  // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
   const controllable = isOwner(req) || !(await checkControl(member));
   const addable = isOwner(req) || !checkAdd(member);
   res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, req.session.user.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: req.session.user.id });
@@ -530,7 +530,7 @@ router.post("/:guildId/player/previous", requireAuth, requireControl, async (req
   res.json({ ok: true });
 });
 
-// Skip — DJ 계층이거나 현재 곡의 요청자 본인이면 가능
+// Skip. DJ 계층이거나 현재 곡의 요청자 본인이면 가능
 router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
@@ -568,7 +568,7 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
   if (!ctx) return;
   const { player } = ctx;
   if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-  // 곡 해석/스트림 셋업 중(play() 진행 중)엔 seek 금지 — 동시 play() 레이스로 currentTrack이
+  // 곡 해석/스트림 셋업 중(play() 진행 중)엔 seek 금지. 동시 play() 레이스로 currentTrack이
   // 중간에 null 돼 크래시하던 문제 방지. 아직 실제 재생 전이므로 seek 대상 자체가 없다.
   if (player.isPlayStarting) return res.status(409).json({ error: "재생을 준비 중입니다. 잠시 후 다시 시도해 주세요." });
   // 라이브에는 실시간밖에 없다. 옮길 자리가 없다.
@@ -633,7 +633,7 @@ router.post("/:guildId/player/shuffle", requireAuth, requireControl, async (req,
   res.json(playerState(player, queueWindow(req)));
 });
 
-// Add track to queue  { query: string } — 곡 추가는 전 계층 가능, 재적 규칙만 적용
+// Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
 router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res) => {
   const { guildId } = req.params;
   const ctx = await getPlayer(req, res, guildId);
@@ -653,7 +653,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
   if (!query) return res.status(400).json({ error: `검색어를 입력해 주세요 (문자열, 최대 ${QUERY_MAX_LEN}자)` });
 
   try {
-    // responder를 주지 않으면 무동작 — 디스코드에는 알리지 않고 결과를 이 응답으로만 전달한다.
+    // responder를 주지 않으면 무동작. 디스코드에는 알리지 않고 결과를 이 응답으로만 전달한다.
     // 재생 시작·임베드·로깅은 슬래시 명령과 같은 코어를 지난다.
     const result = await requestPlayback(client, {
       guild,
@@ -666,7 +666,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
       source: "대시보드",
     });
 
-    // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함) — JSON 규약에 맞게 제거
+    // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함). JSON 규약에 맞게 제거
     if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
 
     res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize });
@@ -676,10 +676,10 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
   }
 });
 
-// 이어 넣기 상태를 화면에 — 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
+// 이어 넣기 상태를 화면에. 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
 const moreView = (more) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS } : null);
 
-// Continue a playlist  POST /:guildId/player/queue/more — 곡 추가와 같은 권한·제한
+// Continue a playlist  POST /:guildId/player/queue/more. 곡 추가와 같은 권한·제한
 router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req, res) => {
   const { guildId } = req.params;
   const ctx = await getPlayer(req, res, guildId);
@@ -695,7 +695,7 @@ router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req
     if (err) return res.status(403).json({ error: toApiError(err) });
   }
 
-  // 대시보드는 맨 앞에 넣는 경로가 없다 — 요청 본문의 insertFirst는 믿지 않는다
+  // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다
   const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });
   const count = Number.isSafeInteger(req.body?.count) && req.body.count >= 1 && req.body.count <= MAX_COUNT ? req.body.count : null;
   if (!state || !count) return res.status(400).json({ error: "더 넣을 목록 정보가 올바르지 않습니다" });
@@ -717,7 +717,7 @@ router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req
   }
 });
 
-// Remove track from queue  DELETE /:guildId/player/queue/:index — DJ 계층이거나 그 곡의 요청자 본인
+// Remove track from queue  DELETE /:guildId/player/queue/:index. DJ 계층이거나 그 곡의 요청자 본인
 router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;

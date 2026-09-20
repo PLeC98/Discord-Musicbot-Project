@@ -6,7 +6,7 @@
 // 그것을 구글 토큰 엔드포인트에 내밀어 한 시간짜리 액세스 토큰을 받아 쓴다.
 //
 // 이 파일이 다루는 것은 이 기능에서 가장 값비싼 비밀이다. private_key 는 어떤 경로로도
-// 밖으로 나가면 안 된다 — 오류 메시지에도, 로그에도, 화면에도.
+// 밖으로 나가면 안 된다. 오류 메시지에도, 로그에도, 화면에도.
 // 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞머리만 싣는다.
 
 const fs = require("fs");
@@ -78,7 +78,7 @@ async function accessToken(where, { baseDir, timeoutMs = 15000 } = {}) {
   try {
     signature = crypto.createSign("RSA-SHA256").update(signing).sign(account.private_key, "base64url");
   } catch {
-    // 오류에 키가 섞여 나올 수 있다 — 저쪽 문구를 그대로 싣지 않는다
+    // 오류에 키가 섞여 나올 수 있다. 저쪽 문구를 그대로 싣지 않는다
     throw new Error("서비스 계정 키로 서명하지 못했습니다(private_key 를 확인하세요)");
   }
 
@@ -90,7 +90,7 @@ async function accessToken(where, { baseDir, timeoutMs = 15000 } = {}) {
   });
 
   const text = await res.text();
-  if (!res.ok) throw new Error(`토큰을 받지 못했습니다: HTTP ${res.status} — ${text.slice(0, 200)}`);
+  if (!res.ok) throw new Error(`토큰을 받지 못했습니다: HTTP ${res.status} ${text.slice(0, 200)}`);
 
   let token;
   try {
@@ -116,7 +116,7 @@ function projectOf(where, baseDir) {
   }
 }
 
-/** 받아 둔 토큰 — 가려야 할 것이라 바깥에서도 알아야 한다(autoplayAssist.mask). */
+/** 받아 둔 토큰. 가려야 할 것이라 바깥에서도 알아야 한다(autoplayAssist.mask). */
 const heldTokens = () => [...cache.values()].map((one) => one.token).filter(Boolean);
 
 module.exports = { accessToken, projectOf, heldTokens, readAccount, _reset: () => cache.clear() };

@@ -7,7 +7,7 @@ class DirectLink {
 
   /**
    * 직접 오디오 링크의 메타데이터 조회.
-   * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다 — 성공 시 [track], 실패 시 [].
+   * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 성공 시 [track], 실패 시 [].
    * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다.
    */
   static async getInfo(url) {
@@ -16,7 +16,7 @@ class DirectLink {
         return [];
       }
 
-      // SSRF 가드된 HEAD — Content-Type/크기 검증 포함
+      // SSRF 가드된 HEAD. Content-Type/크기 검증 포함
       const { headers } = await SafeUrl.head(url);
       const contentType = headers["content-type"] || "";
       const contentLength = headers["content-length"];
@@ -53,8 +53,8 @@ class DirectLink {
   }
 
   /**
-   * 재생/다운로드용 스트림 획득 — SSRF 가드된 Readable 반환.
-   * 직접 링크는 URL 기반 탐색을 지원하지 않음 — 탐색은 MusicPlayer의 FFmpeg가 처리하므로
+   * 재생/다운로드용 스트림 획득. SSRF 가드된 Readable 반환.
+   * 직접 링크는 URL 기반 탐색을 지원하지 않음. 탐색은 MusicPlayer의 FFmpeg가 처리하므로
    * startSeconds는 여기서 무시한다.
    */
   static async getStream(url) {
@@ -64,7 +64,7 @@ class DirectLink {
       }
       return await SafeUrl.getStream(url);
     } catch (error) {
-      // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용 — 사용자 노출 없음)
+      // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
       log.error("직접 링크 스트림 실패:", error.message || error);
       throw new Error("재생할 수 없는 링크입니다", { cause: error });
     }
@@ -87,7 +87,7 @@ class DirectLink {
     }
   }
 
-  // 참고: 동기 함수로 유지해야 함 — getInfo()가 반환값을
+  // 참고: 동기 함수로 유지해야 함. getInfo()가 반환값을
   // track.title에 직접 할당함 (비동기 버전은 "[object Promise]"를 생성했음)
   static extractTitle(filename) {
     // 확장자를 제거하고 파일명 정리

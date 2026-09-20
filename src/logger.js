@@ -53,7 +53,7 @@ function buildRecord(levelNum, bindings, args) {
 
 // 루트 레벨은 공유 상태다. 각 파일이 require 시점에 `child()`로 로거를 만들어 두는데,
 // 레벨을 그때 복사해 버리면 나중에(config를 읽은 뒤) 루트 레벨을 바꿔도 이미 만들어진
-// 자식들에게 닿지 않는다 — 설정이 아무 효과가 없어진다. pino의 자식도 부모 레벨을 따른다.
+// 자식들에게 닿지 않는다. 설정이 아무 효과가 없어진다. pino의 자식도 부모 레벨을 따른다.
 let rootLevelNum = LEVELS.info;
 
 function createLogger(bindings = {}, ownLevel = null) {

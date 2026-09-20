@@ -25,7 +25,7 @@ module.exports = {
     const client = message.client;
     const member = message.member;
 
-    // 곡 추가 권한: 봇 동작 중에는 재적 규칙(모더레이터 면제), 유휴 시에는 소환 가능 여부 — /play와 동일 기준
+    // 곡 추가 권한: 봇 동작 중에는 재적 규칙(모더레이터 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
       const reply = await message.reply(permError);
@@ -37,7 +37,7 @@ module.exports = {
     // 채널을 깔끔하게 유지하기 위해 사용자 메시지 삭제
     await message.delete().catch(() => {});
 
-    // 초기 CV2 검색 자리표시자 — 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
+    // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send({
       components: [client.musicEmbedManager.createSearchingContainer(`🔍 **${preview}** 검색 중...`)],
@@ -57,7 +57,7 @@ module.exports = {
         source: "전용채널",
       });
 
-      // 해석 실패·재생 시작 실패를 사용자에게 알림 — 침묵하면 왜 안 되는지 알 수 없다
+      // 해석 실패·재생 시작 실패를 사용자에게 알림. 침묵하면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
         const errMsg = await message.channel.send({ content: S.withErrorMark(result.message || "재생을 시작할 수 없어요.") });

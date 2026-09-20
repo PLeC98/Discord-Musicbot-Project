@@ -4,9 +4,9 @@ const { Collection } = require("discord.js");
 const log = require("./logger").child({ category: "registry" });
 
 /**
- * client.players를 감싸 등록·해제를 전부 기록한다.
+ * client.players를 감싸 등록, 해제를 전부 기록
  *
- * 봇이 음성 채널에 남아 소리를 내고 있는데 레지스트리는 비어 있는 사례를 쫓기 위한 관측용이다
+ * 봇이 음성 채널에 남아 소리를 내고 있는데 레지스트리는 비어 있는 사례를 쫓기 위한 관측용
  * (곡 추가가 409, /nowplaying이 "재생 중인 곡 없음"). 지우는 경로가 여러 파일에 흩어져 있고
  * 아직 찾지 못한 경로가 있을 수 있어, 호출부마다 로그를 다는 대신 맵 자체를 감쌌다.
  */

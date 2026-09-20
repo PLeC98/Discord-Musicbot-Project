@@ -1,5 +1,5 @@
 <template>
-  <!-- 사이드바 하단 계정 영역 — 클릭하면 위로 펼쳐지는 메뉴 (Discord/ChatGPT식) -->
+  <!-- 사이드바 하단 계정 영역. 클릭하면 위로 펼쳐지는 메뉴 (Discord/ChatGPT식) -->
   <!-- 재생 바와 같은 높이(h-16 = --player)·배경·그림자. 나란히 놓여 한 줄로 이어져 보이게. -->
   <div class="shrink-0 h-16 flex items-center px-2 border-t border-white/7 bg-[rgba(9,13,26,0.9)] shadow-[0_-8px_32px_rgba(0,0,0,0.45)]">
     <button ref="triggerEl" type="button" aria-haspopup="menu" :aria-expanded="open" v-tooltip="rail ? user.displayName : null" :class="[triggerBase, open ? 'bg-white/8 text-fg' : 'text-muted hover:bg-white/6 hover:text-fg', iconOnly ? 'justify-center' : rail ? 'max-lg:justify-center' : '']" @click="toggle">
@@ -37,7 +37,7 @@ import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import { useUserStore } from "../stores/user.js";
 
-// rail=true면 사이드바 레일 안 — md~lg 구간에서 라벨을 숨기는 반응형 규칙이 붙는다(ServerSidebar와 동일 방식).
+// rail=true면 사이드바 레일 안. md~lg 구간에서 라벨을 숨기는 반응형 규칙이 붙는다(ServerSidebar와 동일 방식).
 // collapsed는 lg+ 접힘 상태. 드로어에서는 둘 다 꺼진 상태로 쓴다.
 const props = defineProps({
   rail: { type: Boolean, default: false },
@@ -62,7 +62,7 @@ function toggle() {
     open.value = false;
     return;
   }
-  // 메뉴는 트리거 위로 펼친다 — bottom 기준이라 높이를 몰라도 붙는다
+  // 메뉴는 트리거 위로 펼친다. bottom 기준이라 높이를 몰라도 붙는다
   const r = triggerEl.value.getBoundingClientRect();
   pos.value = {
     left: `${Math.round(Math.max(8, Math.min(r.left, window.innerWidth - MENU_WIDTH - 8)))}px`,

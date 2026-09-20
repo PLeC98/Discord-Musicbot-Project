@@ -3,11 +3,11 @@
 const { PermissionsBitField, PermissionFlagsBits } = require("discord.js");
 
 /**
- * 권한 수준 오버라이드 — 봇 운영자가 낮은 계층의 화면과 동작을 그대로 재현해 보기 위한 점검용.
+ * 권한 수준 오버라이드. 봇 운영자가 낮은 계층의 화면과 동작을 그대로 재현해 보기 위한 점검용.
  * 디스코드의 "역할 적용해서 서버 보기"와 같은 발상으로, 판정 로직(src/permissions.js)은 건드리지 않고
  * 입력(권한 비트·보유 역할)만 갈아끼운다. 그래야 UI 표시와 서버 강제가 같이 따라온다.
  *
- * 상향은 구조적으로 불가능하다 — 설정은 진짜 운영자만 할 수 있고(requireOwner) 모든 계층이 운영자 이하다.
+ * 상향은 구조적으로 불가능하다. 설정은 진짜 운영자만 할 수 있고(requireOwner) 모든 계층이 운영자 이하다.
  */
 
 const TIERS = ["owner", "moderator", "dj", "user"];

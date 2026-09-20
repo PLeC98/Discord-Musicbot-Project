@@ -1,6 +1,6 @@
 "use strict";
 
-// NDJSON 파일 destination — LogManager.destinations에 얹히는 소비자 하나.
+// NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
 // 파일 로직을 facade(src/logger.js)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
 // 같은 자리에 transport가 앉으므로 호출부가 그대로 살아남는다.
@@ -40,7 +40,7 @@ function backupPath(file, at = new Date()) {
 /**
  * 비어 있는 분리본 경로. 같은 밀리초에 두 번 회전하면 이름이 겹치므로 시각을 1ms씩 민다.
  *
- * 번호를 덧붙이는 방법(`…407-2.log`)은 쓸 수 없다 — `-`(0x2D)가 `.`(0x2E)보다 작아서
+ * 번호를 덧붙이는 방법(`…407-2.log`)은 쓸 수 없다. `-`(0x2D)가 `.`(0x2E)보다 작아서
  * 번호가 붙은 쪽이 원본보다 앞으로 정렬되고, 이름순=시간순 계약이 깨진다.
  * 시각을 미는 쪽은 이름 모양이 하나로 유지된다.
  */
@@ -76,17 +76,17 @@ function createFileDestination({ file, maxBytes, keep }) {
   let fd = null;
   let size = 0;
 
-  // 오류는 한 번만 알리고 조용히 멈춘다 — 여기서 logger를 부르면 이 destination으로 되돌아온다.
+  // 오류는 한 번만 알리고 조용히 멈춘다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
   function giveUp(what, err) {
     if (fd !== null) {
       try {
         fs.closeSync(fd);
       } catch {
-        /* 이미 닫혔거나 못 닫음 — 어차피 포기하는 길 */
+        /* 이미 닫혔거나 못 닫음. 어차피 포기하는 길 */
       }
       fd = null;
     }
-    process.stderr.write(`[logFile] ${what} — 파일 로그를 중단합니다 (${file}): ${err.message}\n`);
+    process.stderr.write(`[logFile] ${what}. 파일 로그를 중단합니다 (${file}): ${err.message}\n`);
   }
 
   function open() {
@@ -99,7 +99,7 @@ function createFileDestination({ file, maxBytes, keep }) {
     }
   }
 
-  // 지금까지 분리해 둔 파일들 — 이름순이 곧 시간순이다(파일명이 로컬 시각이라).
+  // 지금까지 분리해 둔 파일들. 이름순이 곧 시간순이다(파일명이 로컬 시각이라).
   function rotatedFiles() {
     const base = path.basename(file);
     const ext = path.extname(base);
@@ -112,7 +112,7 @@ function createFileDestination({ file, maxBytes, keep }) {
         .filter((n) => re.test(n))
         .sort();
     } catch {
-      return []; // 디렉터리를 못 읽으면 정리를 건너뛴다 — 기록은 계속되어야 한다
+      return []; // 디렉터리를 못 읽으면 정리를 건너뛴다. 기록은 계속되어야 한다
     }
   }
 
@@ -124,12 +124,12 @@ function createFileDestination({ file, maxBytes, keep }) {
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));
       } catch {
-        /* 지우지 못해도 기록은 계속한다 — 다음 회전에서 다시 시도한다 */
+        /* 지우지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다 */
       }
     }
   }
 
-  // 회전: fd를 먼저 닫는다 — Windows는 열려 있는 파일을 rename하지 못한다.
+  // 회전: fd를 먼저 닫는다. Windows는 열려 있는 파일을 rename하지 못한다.
   // 번호 방식과 달리 rename은 한 번뿐이다(파일 전부를 밀어 올리지 않는다).
   function rotate() {
     try {

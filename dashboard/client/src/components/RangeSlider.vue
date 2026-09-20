@@ -1,7 +1,7 @@
 <!--
   두 점으로 잡는 구간 슬라이더.
 
-  양 끝까지 벌리면 "구간 없음"이다 — 그때는 null 을 올려 설정에서 아예 뺀다.
+  양 끝까지 벌리면 "구간 없음"이다. 그때는 null 을 올려 설정에서 아예 뺀다.
   슬라이더로는 빈 값을 나타낼 수 없으니, 끝까지 벌린 상태를 그 뜻으로 삼는다.
 
   range 입력 둘을 겹쳐 쓴다. 겹친 채로 두면 아래 칸을 못 잡으므로 손잡이만 눌리게 하고(pointer-events),
@@ -39,7 +39,7 @@ const emit = defineEmits(["update"]);
 const clearBtn = "text-[0.72rem] text-muted cursor-pointer hover:text-fg-soft transition-colors duration-150";
 
 // 설정에 적힌 값이 범위 밖일 수 있다(저쪽 자료가 늘거나 손으로 적었거나).
-// 보이기만 맞춰 두고 값은 건드리지 않는다 — 손잡이를 옮길 때 비로소 바뀐다.
+// 보이기만 맞춰 두고 값은 건드리지 않는다. 손잡이를 옮길 때 비로소 바뀐다.
 const clamp = (v) => Math.min(props.max, Math.max(props.min, v));
 const lo = computed(() => clamp(props.from ?? props.min));
 const hi = computed(() => Math.max(lo.value, clamp(props.to ?? props.max)));
@@ -61,7 +61,7 @@ function set(a, b) {
 </script>
 
 <style scoped>
-/* 겹쳐 놓은 두 칸 — 칸 전체가 아니라 손잡이만 눌려야 아래 칸도 잡을 수 있다 */
+/* 겹쳐 놓은 두 칸. 칸 전체가 아니라 손잡이만 눌려야 아래 칸도 잡을 수 있다 */
 input[type="range"] {
   position: absolute;
   inset: 0;

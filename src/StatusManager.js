@@ -31,7 +31,7 @@ class StatusManager {
     this.intervalId = null;
   }
 
-  // 부를 때마다 읽는다 — 로더가 mtime을 보고 바뀌었을 때만 실제로 다시 읽는다.
+  // 부를 때마다 읽는다. 로더가 mtime을 보고 바뀌었을 때만 실제로 다시 읽는다.
   // 코드에 박힌 기본값으로 조용히 넘어가지 않는다: 파일이 없으면 로더가 기동을 멈추고 무엇을 할지 알린다.
   load() {
     return require("./configDataLoader").status();

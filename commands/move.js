@@ -28,7 +28,7 @@ module.exports = {
     const to = interaction.options.getInteger("to");
     const max = player.queue.length;
 
-    if (from > max || to > max) return interaction.reply({ content: `❌ 유효한 범위를 입력하세요. (1–${max})`, flags: [1 << 6] });
+    if (from > max || to > max) return interaction.reply({ content: `❌ 유효한 범위를 입력하세요. (1. ${max})`, flags: [1 << 6] });
 
     if (from === to) return interaction.reply({ content: "❌ 현재 위치와 이동할 위치가 같습니다.", flags: [1 << 6] });
 
