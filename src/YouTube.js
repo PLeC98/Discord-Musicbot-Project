@@ -162,6 +162,32 @@ class YouTube {
     return Boolean(item.is_live) || item.live_status === "is_live" || item.live_status === "is_upcoming";
   }
 
+  /**
+   * 라이브의 종류를 가린다 — `_detectLive`는 "라이브 계열인가"만 보지만,
+   * 재생은 방송 중(is_live)과 시작 전(is_upcoming)을 다르게 다뤄야 한다. 틀 것이 없는 쪽은 거절한다.
+   * @returns {"is_live"|"is_upcoming"|null}
+   */
+  static liveStatusOf(item) {
+    if (!item) return null;
+    if (item.live_status === "is_live" || item.live_status === "is_upcoming") return item.live_status;
+    // 구버전 응답이나 flat 검색 항목에는 live_status 없이 is_live만 올 수 있다.
+    if (item.live_status === undefined && item.is_live) return "is_live";
+    return null;
+  }
+
+  /**
+   * 표시용 제목. 라이브는 yt-dlp가 `title` 뒤에 조회 시각을 붙여 준다
+   * ("... 2026-09-21 02:26"). `fulltitle`이 그게 빠진 원제이고, 라이브가 아니면 둘이 같다.
+   */
+  static titleOf(item) {
+    if (!item) return null;
+    const text = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+    const full = text(item.fulltitle);
+    const title = text(item.title);
+    if (YouTube.liveStatusOf(item) && full) return full;
+    return title || full;
+  }
+
   static _isVideoEntry(item) {
     if (!item) return false;
     if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
@@ -359,7 +385,7 @@ class YouTube {
           const unknownArtist = "알 수 없는 아티스트";
 
           const track = {
-            title: item.title || item.fulltitle || unknownTitle,
+            title: YouTube.titleOf(item) || unknownTitle,
             artist: item.uploader || item.channel || unknownArtist,
             url: item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null),
             duration: item.duration || 0,
@@ -371,6 +397,7 @@ class YouTube {
             uploadDate: item.upload_date,
             description: item.description,
             isLive: YouTube._detectLive(item),
+            liveStatus: YouTube.liveStatusOf(item),
           };
 
           // 검색 결과에 길이가 없으면 getInfo에서 가져오기 시도
@@ -382,6 +409,7 @@ class YouTube {
             }
             if (detailedInfo && detailedInfo.isLive) {
               track.isLive = true;
+              track.liveStatus = detailedInfo.liveStatus;
             }
           }
 
@@ -418,7 +446,7 @@ class YouTube {
       const unknownArtist = "알 수 없는 아티스트";
 
       const track = {
-        title: info.title || unknownTitle,
+        title: YouTube.titleOf(info) || unknownTitle,
         artist: info.uploader || info.channel || unknownArtist,
         url: info.webpage_url || url,
         duration: info.duration || 0,
@@ -431,6 +459,7 @@ class YouTube {
         description: info.description,
         formats: info.formats,
         isLive: YouTube._detectLive(info),
+        liveStatus: YouTube.liveStatusOf(info),
       };
 
       return track;
@@ -462,7 +491,9 @@ class YouTube {
       }
 
       const baseUrl = info.url;
-      const canSeek = /googlevideo\.com/i.test(baseUrl);
+      // HLS 재생목록 주소에는 `begin=`을 붙일 수 없다 — 위치는 ffmpeg의 `-ss`가 정한다.
+      const isHls = typeof info.protocol === "string" && info.protocol.startsWith("m3u8");
+      const canSeek = !isHls && /googlevideo\.com/i.test(baseUrl);
       let finalUrl = baseUrl;
 
       const seekSeconds = Math.max(0, Number(startSeconds) || 0);
@@ -477,7 +508,7 @@ class YouTube {
         rawUrl: baseUrl,
         // 영상 자체의 제목. 재생목록 페이지가 주는 제목과 다를 수 있고, 이쪽이 정본이다
         // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
-        title: typeof info.title === "string" && info.title.trim() ? info.title : null,
+        title: YouTube.titleOf(info),
         type: info.acodec && info.acodec.includes("opus") ? "opus" : "arbitrary",
         duration: info.duration || 0,
         bitrate: info.abr || info.tbr || 0,
@@ -485,6 +516,10 @@ class YouTube {
         format: info.format,
         httpHeaders: info.http_headers || {},
         isLive: YouTube._detectLive(info),
+        liveStatus: YouTube.liveStatusOf(info),
+        // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "받아 둔 바이트"가 아니라 "받아 올 주소"를
+        // 줘야 하는 형식이라 파이프로 먹일 수 없다 — 재생 쪽이 이 값으로 갈래를 고른다.
+        protocol: info.protocol || null,
       };
     } catch (error) {
       log.error("스트림 URL 획득 실패:", error.message || error);
@@ -521,7 +556,7 @@ class YouTube {
         if (entry && (entry.id || entry.url)) {
           try {
             const track = {
-              title: entry.title || entry.fulltitle || unknownTitle,
+              title: YouTube.titleOf(entry) || unknownTitle,
               artist: entry.uploader || entry.channel || entry.uploader_id || unknownArtist,
               url: entry.webpage_url || entry.url || (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : null),
               duration: entry.duration || 0,
@@ -529,6 +564,8 @@ class YouTube {
               platform: "youtube",
               type: "track",
               id: entry.id,
+              isLive: YouTube._detectLive(entry),
+              liveStatus: YouTube.liveStatusOf(entry),
             };
 
             // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).

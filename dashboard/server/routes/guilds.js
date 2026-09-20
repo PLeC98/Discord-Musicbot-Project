@@ -129,7 +129,7 @@ function queueWindow(req) {
 }
 
 function playerState(player, queueLimit = QUEUE_PAGE) {
-  if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null };
+  if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = player.getStatus();
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다 — 그래야
   // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다. isPlaybackActive: 리소스가 물린 상태.
@@ -148,6 +148,7 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
           url: track.url,
           platform: track.platform,
           platformLabel: labelOf(track.platform),
+          isLive: Boolean(track.isLive),
           currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
           requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,
           // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점 — 대시보드 진행바 마커용
@@ -156,6 +157,8 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
         }
       : null,
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
+    // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
+    hasLive: player.hasLiveTrack?.() ?? false,
     queue: (player.queue || []).slice(0, queueLimit).map(queueTrack),
     queueTotal: player.queue?.length ?? 0,
   };
@@ -568,6 +571,8 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
   // 곡 해석/스트림 셋업 중(play() 진행 중)엔 seek 금지 — 동시 play() 레이스로 currentTrack이
   // 중간에 null 돼 크래시하던 문제 방지. 아직 실제 재생 전이므로 seek 대상 자체가 없다.
   if (player.isPlayStarting) return res.status(409).json({ error: "재생을 준비 중입니다. 잠시 후 다시 시도해 주세요." });
+  // 라이브에는 실시간밖에 없다 — 옮길 자리가 없다.
+  if (player.currentTrack.isLive) return res.status(409).json({ error: "라이브 방송은 구간 이동을 할 수 없습니다." });
 
   const positionSec = Number(req.body.position);
   // Number.isFinite: parseFloat와 달리 "Infinity"(라이브 duration 0에서 클램프를 뚫음)·비숫자 문자열 거부
@@ -607,6 +612,9 @@ router.post("/:guildId/player/loop", requireAuth, requireControl, async (req, re
 
   const mode = req.body.mode;
   if (!["off", "track", "queue"].includes(mode)) return res.status(400).json({ error: "반복 모드가 올바르지 않습니다." });
+
+  // 끝이 없는 것은 반복할 수 없다 — 라이브가 있으면 켜지 못한다(끄는 것은 그대로 통한다).
+  if (mode !== "off" && player.hasLiveTrack()) return res.status(409).json({ error: "라이브 방송이 있어 반복을 켤 수 없습니다." });
 
   player.setLoop(mode === "off" ? false : mode);
   if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});

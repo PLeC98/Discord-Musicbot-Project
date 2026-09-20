@@ -15,6 +15,7 @@ const log = require("./logger").child({ category: "ffmpeg" });
  */
 
 let resolved = null; // { path, version, source }
+let caps = null; // { https, hls, segMaxRetry, ok }
 
 /** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 뽑는다. 아니면 null. */
 function probe(candidate) {
@@ -76,6 +77,46 @@ function ffmpegPath() {
   return resolve().path;
 }
 
+/**
+ * HLS(라이브) 재생에 필요한 능력 — 결과는 프로세스 단위로 캐시한다.
+ *
+ * 우리가 깔아 주는 BtbN 빌드는 전부 갖췄지만 FFMPEG_PATH로 다른 빌드를 물릴 수 있다.
+ * 네트워크 주소를 여는 경로는 그쪽 네트워크 스택에 통째로 의존하므로, 쓰기 전에 물어본다.
+ * (파이프 경로는 이 결과와 무관하게 늘 동작한다 — 못 갖춘 빌드는 라이브만 못 튼다.)
+ *
+ * `segMaxRetry`는 비교적 최근 옵션이라 따로 본다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로
+ * 없는 빌드에 붙이면 재생이 시작조차 못 한다.
+ *
+ * @returns {{https: boolean, hls: boolean, segMaxRetry: boolean, ok: boolean}}
+ */
+function capabilities() {
+  if (caps) return caps;
+
+  const ask = (args) => {
+    try {
+      const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
+      if (result.error) return "";
+      return `${result.stdout || ""}${result.stderr || ""}`;
+    } catch {
+      return "";
+    }
+  };
+
+  // -protocols는 Input:과 Output: 두 절을 낸다. 우리가 쓰는 것은 읽기이므로 Input: 절만 본다.
+  const protocols = ask(["-hide_banner", "-protocols"]);
+  const inputSection = protocols.split(/^\s*Output:/m)[0];
+  const https = /^\s*https\s*$/m.test(inputSection);
+
+  const hls = /^\s*\S*D\S*\s+hls\s/m.test(ask(["-hide_banner", "-demuxers"]));
+  const segMaxRetry = /-seg_max_retry\b/.test(ask(["-hide_banner", "-h", "demuxer=hls"]));
+
+  caps = { https, hls, segMaxRetry, ok: https && hls };
+  if (!caps.ok) {
+    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 — https:${https ? "있음" : "없음"} hls:${hls ? "있음" : "없음"}`);
+  }
+  return caps;
+}
+
 /** 기동 시 1회 호출 — 실제로 쓰는 바이너리를 로그에 남긴다. 못 찾으면 던진다. */
 function logResolved() {
   const info = resolve();
@@ -87,6 +128,7 @@ function logResolved() {
 /** 테스트용 — 캐시 초기화 */
 function _reset() {
   resolved = null;
+  caps = null;
 }
 
-module.exports = { ffmpegPath, resolve, logResolved, _internals: { probe, fromBundle, _reset } };
+module.exports = { ffmpegPath, resolve, capabilities, logResolved, _internals: { probe, fromBundle, _reset } };

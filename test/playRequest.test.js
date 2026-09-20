@@ -163,32 +163,44 @@ test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드�
 // ── requestPlayback ──────────────────────────────────────────
 
 function baseArgs(client, guild, extra = {}) {
-  client.players.set(GUILD_ID, { textChannel: makeChannel("t"), voiceChannel: null, queue: [] });
+  client.players.set(GUILD_ID, { textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive() {}, hasLiveTrack: () => false });
   return { guild, requester: { id: "u1", user: { username: "carl" } }, ...extra };
 }
 
-// 라이브는 끝이 없어 이 구조가 다루지 못한다(길이 기반 종료 감시·캐시·"다음 곡"이 모두 성립하지 않는다).
-// 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
-test("라이브 링크는 거절하고 이유를 알린다", async () => {
-  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true }] });
+// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다 — 더 이상 입구에서 막지 않는다.
+test("방송 중인 라이브는 통과시킨다", async () => {
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
   const client = makeClient();
   const guild = makeGuild();
 
-  const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play" }));
+  await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play" }));
+
+  const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
+  assert.deepEqual(sent, ["24/7 라디오"]);
+});
+
+// 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
+// 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
+test("시작 전 방송은 거절하고 이유를 알린다", async () => {
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "곧 시작", url: "https://y/soon", duration: 0, isLive: true, liveStatus: "is_upcoming" }] });
+  const client = makeClient();
+  const guild = makeGuild();
+
+  const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/soon", source: "/play" }));
 
   assert.equal(result.success, false);
-  assert.match(result.message, /라이브/);
+  assert.match(result.message, /시작하지 않은/);
   assert.equal(client.embedCalls.length, 0, "코어까지 가지 않는다");
 });
 
-// 재생목록에 라이브가 섞여 있으면 그것만 빼고 나머지는 넣는다.
-test("재생목록의 라이브만 걸러내고 나머지는 넣는다", async () => {
+// 재생목록에 시작 전 방송이 섞여 있으면 그것만 빼고 나머지는 넣는다.
+test("재생목록의 시작 전 방송만 걸러내고 나머지는 넣는다", async () => {
   mockResolve = () => ({
     success: true,
     isPlaylist: true,
     collection: "playlist",
     tracks: [
-      { title: "라이브", url: "https://y/live", duration: 0, isLive: true },
+      { title: "곧 시작", url: "https://y/soon", duration: 0, isLive: true, liveStatus: "is_upcoming" },
       { title: "보통곡", url: "https://y/ok", duration: 100 },
     ],
   });
@@ -199,6 +211,26 @@ test("재생목록의 라이브만 걸러내고 나머지는 넣는다", async (
 
   const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
   assert.deepEqual(sent, ["보통곡"]);
+});
+
+// 끝이 없는 것은 반복할 수 없다 — 라이브가 들어오면 걸려 있던 반복을 푼다.
+test("라이브가 대기열에 들어오면 반복을 푼다", async () => {
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
+  const client = makeClient();
+  const guild = makeGuild();
+  const args = baseArgs(client, guild, { query: "https://y/live", source: "/play" });
+  let released = 0;
+  const player = client.players.get(GUILD_ID);
+  player.loop = "queue";
+  player.releaseLoopForLive = () => {
+    released++;
+    player.loop = false;
+  };
+
+  await requestPlayback(client, args);
+
+  assert.equal(released, 1);
+  assert.equal(player.loop, false);
 });
 
 test("query 경로: 해석 결과를 코어에 그대로 넘긴다", async () => {

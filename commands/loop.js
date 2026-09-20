@@ -23,6 +23,11 @@ module.exports = {
 
     if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
 
+    // 끝이 없는 것은 반복할 수 없다 — 라이브가 있으면 켤 수 없다고 알린다(끄는 것은 그대로 통한다).
+    if (player.hasLiveTrack() && interaction.options.getString("mode") !== "off") {
+      return interaction.reply({ content: S.ERR_LIVE_NO_LOOP, flags: [1 << 6] });
+    }
+
     const modeOption = interaction.options.getString("mode");
     let newLoopMode, modeMessage, modeEmoji;
 
