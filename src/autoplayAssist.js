@@ -189,11 +189,15 @@ function setPath(obj, path, value) {
   let at = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
+    // safeKeys 가 이미 걸렀지만 여기서도 본다 — 분석기가 알아보는 자리는 대입 바로 옆이다
+    if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
     // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다 — 안쪽에 더 넣을 수 없는 모양이다
     if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
     at = at[k];
   }
-  at[keys[keys.length - 1]] = value;
+  const last = keys[keys.length - 1];
+  if (last === "__proto__" || last === "constructor" || last === "prototype") return obj;
+  at[last] = value;
   return obj;
 }
 
@@ -203,10 +207,14 @@ function delPath(obj, path) {
   if (!keys) return;
   let at = obj;
   for (let i = 0; i < keys.length - 1; i++) {
-    at = at?.[keys[i]];
+    const k = keys[i];
+    if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+    at = at?.[k];
     if (!at || typeof at !== "object") return;
   }
-  delete at[keys[keys.length - 1]];
+  const last = keys[keys.length - 1];
+  if (last === "__proto__" || last === "constructor" || last === "prototype") return;
+  delete at[last];
 }
 
 // 파이썬 꼴 키워드를 JSON 이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
