@@ -32,5 +32,5 @@ module.exports = {
   ERR_LIVE_UPCOMING: "❌ 아직 시작하지 않은 방송이에요. 방송이 시작된 뒤에 다시 넣어 주세요!",
   ERR_LIVE_NO_FFMPEG: "❌ 지금 설치된 ffmpeg로는 라이브 방송을 재생할 수 없어요. `pnpm run install:ffmpeg`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인해 주세요.",
   ERR_LIVE_NO_SEEK: "❌ 라이브 방송은 구간 이동을 할 수 없어요.",
-  ERR_LIVE_NO_LOOP: "❌ 라이브 방송이 있으면 반복을 켤 수 없어요. 끝이 없는 방송은 반복할 수가 없거든요!",
+  ERR_LIVE_NO_LOOP: "❌ 라이브 방송이 있으면 반복을 켤 수 없어요.",
 };

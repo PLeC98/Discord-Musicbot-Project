@@ -37,7 +37,7 @@
             <!-- Full-width progress bar -->
             <div class="flex items-center gap-2 mb-1.5">
               <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다 — 표식으로 대신한다 -->
-              <span :class="timeText">{{ isLive ? "🔴 LIVE" : fmt(displayTime) }}</span>
+              <span :class="timeText">{{ isLive ? "🔴 라이브" : fmt(displayTime) }}</span>
               <div class="group relative flex flex-1 h-4 items-center before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" :class="seekable ? 'cursor-pointer' : ''" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
                 <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
                 <!-- SponsorBlock 자동 스킵 구간 마커 (카테고리별 공식 색상). 호버 시 카테고리 툴팁 -->
@@ -99,7 +99,7 @@
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
                 </button>
                 <!-- Loop (cycles: off → track → queue) -->
-                <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" v-tooltip="loopTitle" :disabled="!player.canControl">
+                <button :class="player.loop ? iconActive : iconBtn" @click="cycleLoop" v-tooltip="loopTitle" :disabled="!player.canControl || player.hasLive">
                   <svg v-if="player.loop === 'track'" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 2 1 1 1-1v4h1z" />
                   </svg>
@@ -247,7 +247,7 @@ const volBtn = "size-10 rounded-full flex items-center justify-center shrink-0 c
 const route = useRoute();
 const guildId = route.params.guildId;
 const loading = ref(true);
-const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
+const player = ref({ playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, userId: null, hasPrevious: false });
 
 // 대기열은 앞에서부터 한 묶음씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
 const QUEUE_PAGE = 100;
@@ -394,7 +394,7 @@ async function doStop() {
   showStopConfirm.value = false;
   try {
     await axios.post(`/api/guilds/${guildId}/player/stop`);
-    player.value = { ...player.value, playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false };
+    player.value = { ...player.value, playing: false, paused: false, queue: [], currentTrack: null, volume: 100, loop: false, hasLive: false };
   } catch (e) {
     console.error("stop", e);
   }
@@ -600,6 +600,8 @@ const highlightMarker = computed(() => {
 });
 
 const loopTitle = computed(() => {
+  // 끝이 없는 것은 반복할 수 없다 — 왜 못 누르는지 툴팁으로 말해 준다
+  if (player.value.hasLive) return "라이브 방송이 있어 반복을 켤 수 없습니다";
   const l = player.value.loop;
   if (l === "track") return "트랙 반복 중 (클릭: 큐 반복)";
   if (l === "queue") return "큐 반복 중 (클릭: 반복 끄기)";

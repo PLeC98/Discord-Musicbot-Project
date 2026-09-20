@@ -129,7 +129,7 @@ function queueWindow(req) {
 }
 
 function playerState(player, queueLimit = QUEUE_PAGE) {
-  if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null };
+  if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = player.getStatus();
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다 — 그래야
   // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다. isPlaybackActive: 리소스가 물린 상태.
@@ -157,6 +157,8 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
         }
       : null,
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
+    // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
+    hasLive: player.hasLiveTrack?.() ?? false,
     queue: (player.queue || []).slice(0, queueLimit).map(queueTrack),
     queueTotal: player.queue?.length ?? 0,
   };
