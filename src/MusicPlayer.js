@@ -33,6 +33,9 @@ const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 �
 const SWITCH_FADE_MS = 40; // 등출력 크로스페이드 길이
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
+// 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.
+// 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
+const SEND_BITRATE = 128_000;
 
 const sec = (ms) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
@@ -543,6 +546,7 @@ class MusicPlayer {
       if (this.resource.volume) {
         this.resource.volume.setVolume(this.volume / 100);
       }
+      this.resource.encoder?.setBitrate(SEND_BITRATE);
 
       const audioDurationSec = this._audioDurationSec(streamInfo, downloadedFile);
       if (audioDurationSec) this.currentTrack.duration = audioDurationSec;

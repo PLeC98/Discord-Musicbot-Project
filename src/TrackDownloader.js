@@ -183,8 +183,11 @@ class TrackDownloader {
               // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
               // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
               matchFilter: "!is_live",
+              // 코덱은 yt-dlp 가 소스를 보고 정한다 — 이미 Opus 면 리먹싱, 아니면 libopus.
+              // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
+              // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
               postprocessorArgs: {
-                ffmpeg: ["-c:a", "libopus", "-b:a", "128k"],
+                ffmpeg: ["-b:a", "128k"],
               },
               extractAudio: true,
               audioFormat: "opus",
