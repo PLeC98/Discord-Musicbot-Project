@@ -8,7 +8,6 @@ config/genres.yaml
 config/status.yaml
 config/ai.yaml
 config/ai-keys.yaml
-config/*-sa.json
 config/ai-prompt.chatml
 audio_cache/
 node_modules/
