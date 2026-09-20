@@ -5,7 +5,8 @@ const path = require("path");
 const crypto = require("crypto");
 const log = require("./logger").child({ category: "track" });
 const fsSync = require("fs");
-const { spawnFfmpeg, probeDurationSec } = require("./ffmpegProcess");
+const { pipeline } = require("stream/promises");
+const audioConvert = require("./audioConvert");
 const YouTube = require("./YouTube");
 const TrackResolver = require("./TrackResolver");
 const DirectLink = require("./DirectLink");
@@ -24,6 +25,18 @@ const SponsorBlock = require("./SponsorBlock");
  * 서로의 작업 파일에 쓰지 않고, 실패 정리가 남의 파일을 지우지 않는다.
  */
 const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역 — 서버가 달라도 같은 곡은 한 번만 받는다.
+
+/**
+ * 이 트랙은 음원을 남에게서 빌려 와야 하는가 — **스포티파이뿐이다.**
+ *
+ * 상류 주석이 "Spotify와 SoundCloud는 DRM 보호가 있어 직접 다운로드할 수 없음"이라며 둘을 묶어
+ * 두었는데, 사운드클라우드는 DRM 이 없고 제 음원을 준다. 그래서 `sc:` 키 안에 유튜브 음원이 들어가,
+ * 같은 곡이 처음 틀 때와 캐시로 틀 때 서로 다른 녹음이 됐다(SC-4).
+ * 조건문 안에 묻어 두면 다음 사람이 또 끼워 넣으므로 규칙에 이름을 준다.
+ */
+function needsBorrowedAudio(track) {
+  return !track?.youtubeUrl && track?.platform === "spotify";
+}
 
 /** 내 임시 경로 — 같은 폴더여야 옮기기가 원자적이고, .opus여야 yt-dlp가 확장자를 바꾸지 않는다 */
 function tempPathFor(filepath) {
@@ -137,14 +150,12 @@ class TrackDownloader {
     try {
       if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
 
-      // Spotify와 SoundCloud는 DRM 보호가 있어 직접 다운로드할 수 없음 —
-      // 대응되는 YouTube 영상 URL을 사용 (검색·캐시는 TrackResolver 한 곳에서)
-      //
-      // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)도 같은 처지다.
-      // 다만 그쪽은 영상을 이미 찾아 두었으므로 다시 찾지 않는다.
+      // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 TrackResolver 한 곳에서).
+      // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
+      // 찾아 두었으므로 다시 찾지 않는다 — 규칙은 needsBorrowedAudio 참조.
       let downloadUrl = track.youtubeUrl || track.url;
 
-      if (!track.youtubeUrl && (track.platform === "spotify" || track.platform === "soundcloud")) {
+      if (needsBorrowedAudio(track)) {
         downloadUrl = await TrackResolver.findYouTubeEquivalent(track);
         if (!downloadUrl) {
           throw new Error("Could not find YouTube equivalent");
@@ -165,8 +176,10 @@ class TrackDownloader {
         throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
       }
 
-      // YouTube, Spotify(YouTube 경유), SoundCloud(YouTube 경유), 그리고 영상을 찾아 둔 자동재생
-      // 출처 트랙은 youtube-dl-exec 사용. 남는 것은 직접 링크뿐이다.
+      // yt-dlp가 받아 오는 것들 — YouTube, Spotify(YouTube 경유), SoundCloud(제 음원),
+      // 그리고 영상을 찾아 둔 자동재생 출처 트랙. 남는 것은 직접 링크뿐이다.
+      // 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
+      // 조립하므로 우리가 손댈 것이 없다(실측: 세그먼트 조립 → m4a → opus 135k).
       if (track.youtubeUrl || track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
         // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
         await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
@@ -186,9 +199,8 @@ class TrackDownloader {
               // 코덱은 yt-dlp 가 소스를 보고 정한다 — 이미 Opus 면 리먹싱, 아니면 libopus.
               // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
               // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
-              postprocessorArgs: {
-                ffmpeg: ["-b:a", "128k"],
-              },
+              // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다 — 숫자가 갈라지지 않게.
+              postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
               extractAudio: true,
               audioFormat: "opus",
             },
@@ -206,30 +218,33 @@ class TrackDownloader {
         verifiedTitle = info.title;
         audioDurationSec = info.durationSec;
       } else {
-        // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온 뒤 FFmpeg로 opus 트랜스코딩.
+        // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
         // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
         const audioStream = await DirectLink.getStream(track.url);
 
-        // opus로 트랜스코딩. 출력이 파일이므로 stdout을 소비하지 않는다(killOnStdoutClose 해제).
-        const ffmpeg = spawnFfmpeg(["-loglevel", "error", "-i", "pipe:0", "-f", "opus", "-ar", "48000", "-ac", "2", "-b:a", "128k", "-y", tempPath], "download", { killOnStdoutClose: false });
+        // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수가 없는데, 안에 든 것을
+        // 모르면 이미 Opus 인 음원까지 다시 굽게 된다(AnimeThemes 가 그랬다).
+        const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
+        CacheManager.protectFile(rawPath);
+        try {
+          await pipeline(audioStream, fsSync.createWriteStream(rawPath));
+          // 무엇을 할지는 audioConvert 한 곳이 정한다 — 리먹싱이냐 변환이냐, 목표가 몇이냐.
+          const made = await audioConvert.toCacheOpus(rawPath, tempPath);
 
-        audioStream.pipe(ffmpeg.stdin);
-
-        await new Promise((resolve, reject) => {
-          ffmpeg.on("exit", (code, signal) => {
-            if (code === 0) resolve();
-            else reject(new Error(`FFmpeg 종료 (code=${code}, signal=${signal})`));
-          });
-          ffmpeg.on("error", reject);
-        });
-
-        // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다 — 받아둔 파일에서 실제 길이로 교정.
-        // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
-        const probed = await probeDurationSec(tempPath);
-        if (probed) {
-          track.duration = probed;
-          track.durationSource = "실측";
-          audioDurationSec = probed;
+          // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다 — 받아둔 파일의 실측으로 교정.
+          // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
+          if (made.durationSec) {
+            track.duration = made.durationSec;
+            track.durationSource = "실측";
+            audioDurationSec = made.durationSec;
+          }
+        } finally {
+          CacheManager.unprotectFile(rawPath);
+          try {
+            fsSync.unlinkSync(rawPath);
+          } catch {
+            /* 이미 없거나 잠겨 있음 — cleanTemp와 기동 스윕이 받는다 */
+          }
         }
       }
 
@@ -350,4 +365,4 @@ TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
 TrackDownloader.waitFor = (filepath) => inFlight.get(filepath) ?? null;
 
 module.exports = TrackDownloader;
-module.exports._internals = { inFlight, tempPathFor, cleanTemp, publish };
+module.exports._internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };

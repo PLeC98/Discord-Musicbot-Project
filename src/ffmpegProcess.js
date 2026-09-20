@@ -83,33 +83,72 @@ function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
 }
 
 /**
- * 로컬 오디오 파일의 실제 길이(초). 알아낼 수 없으면 null.
+ * ffmpeg가 파일을 열어 내놓는 안내문에서 우리가 쓰는 세 가지를 뽑는다.
+ * 파싱만 한다 — 프로세스를 띄우지 않으므로 테스트가 실물 파일 없이 고정할 수 있다.
  *
- * 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다
- * (실측: 241초 파일이 비트레이트에 따라 137초 또는 509초로 나왔다).
- * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다.
+ * 비트레이트는 스트림 줄에 적힌 값이 있으면 그쪽을 쓴다. `Duration:` 줄의 값은 컨테이너 전체라
+ * 오버헤드가 섞이는데, 오디오 전용 파일에서는 둘이 거의 같고 스트림 줄에 없는 형식도 많다.
+ *
+ * @returns {{durationSec: number|null, codec: string|null, bitrateKbps: number|null}}
  */
-function probeDurationSec(file) {
+function parseProbeOutput(text) {
+  const out = { durationSec: null, codec: null, bitrateKbps: null };
+  const str = String(text || "");
+
+  const dur = str.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
+  if (dur) {
+    const sec = Number(dur[1]) * 3600 + Number(dur[2]) * 60 + parseFloat(dur[3]);
+    if (Number.isFinite(sec) && sec > 0) out.durationSec = Math.round(sec);
+  }
+
+  const stream = str.match(/Audio:\s*([A-Za-z0-9_.-]+)([^\r\n]*)/);
+  if (stream) {
+    out.codec = stream[1].toLowerCase();
+    const perStream = stream[2].match(/,\s*(\d+)\s*kb\/s/);
+    if (perStream) out.bitrateKbps = Number(perStream[1]);
+  }
+  if (out.bitrateKbps === null) {
+    const container = str.match(/Duration:[^\r\n]*?bitrate:\s*(\d+)\s*kb\/s/);
+    if (container) out.bitrateKbps = Number(container[1]);
+  }
+  if (!(out.bitrateKbps > 0)) out.bitrateKbps = null;
+
+  return out;
+}
+
+/**
+ * 로컬 오디오 파일 안에 무엇이 들었는지 묻는다. 열지 못하면 전부 null.
+ *
+ * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다 — 길이·코덱·비트레이트가
+ * 한 번에 나오므로 따로 물어볼 일이 없다.
+ */
+function probeAudio(file) {
   return new Promise((resolve) => {
+    const unknown = { durationSec: null, codec: null, bitrateKbps: null };
     let child;
     try {
       child = spawnFfmpeg(["-hide_banner", "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
     } catch {
-      return resolve(null);
+      return resolve(unknown);
     }
 
     let out = "";
     child.stderr.on("data", (chunk) => {
       out = (out + chunk.toString()).slice(-4000);
     });
-    child.on("error", () => resolve(null));
-    child.on("exit", () => {
-      const m = out.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
-      if (!m) return resolve(null);
-      const sec = Number(m[1]) * 3600 + Number(m[2]) * 60 + parseFloat(m[3]);
-      resolve(Number.isFinite(sec) && sec > 0 ? Math.round(sec) : null);
-    });
+    child.on("error", () => resolve(unknown));
+    child.on("exit", () => resolve(parseProbeOutput(out)));
   });
 }
 
-module.exports = { spawnFfmpeg, probeDurationSec, _internals: { CRASH_SIGNALS } };
+/**
+ * 로컬 오디오 파일의 실제 길이(초). 알아낼 수 없으면 null.
+ *
+ * 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다
+ * (실측: 241초 파일이 비트레이트에 따라 137초 또는 509초로 나왔다).
+ */
+async function probeDurationSec(file) {
+  return (await probeAudio(file)).durationSec;
+}
+
+module.exports = { spawnFfmpeg, probeAudio, probeDurationSec, _internals: { CRASH_SIGNALS, parseProbeOutput } };
