@@ -419,7 +419,7 @@ class MusicEmbedManager {
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
     const currentSec = Math.floor(currentMs / 1000);
     const totalSec = track.duration || 0;
-    const progressBar = this.buildProgressBar(currentSec, totalSec);
+    const progressBar = this.buildProgressBar(currentSec, totalSec, { live: Boolean(track.isLive) });
 
     const artistValue = track.artist || "-";
     const platformValue = this.getPlatformLabel(track.platform);
@@ -435,6 +435,7 @@ class MusicEmbedManager {
 
     // 상태 줄 (일시정지 / 대기열 수)
     const statusParts = [];
+    if (track.isLive) statusParts.push("🔴 LIVE");
     if (player.paused) {
       if (player.pauseReasons?.has("mute")) statusParts.push("🔇 뮤트됨");
       else if (player.pauseReasons?.has("alone")) statusParts.push("⏳ 혼자 남음");
@@ -472,9 +473,14 @@ class MusicEmbedManager {
   /**
    * 진행 바 문자열을 빌드합니다.
    */
-  buildProgressBar(currentSec, totalSec) {
+  buildProgressBar(currentSec, totalSec, { live = false } = {}) {
     const currentStr = this.formatDuration(currentSec);
     const totalStr = this.formatDuration(totalSec);
+
+    // 라이브에는 끝이 없다 — 어디쯤인지 찍을 지점도, 표시할 길이도 없다.
+    if (live) {
+      return `\`${currentStr}\` ${"▬".repeat(BAR_LENGTH + 1)} \`--:--\``;
+    }
 
     if (!totalSec || totalSec === 0) {
       return `\`${currentStr}\` ●${"▬".repeat(BAR_LENGTH)} \`${totalStr}\``;

@@ -1,6 +1,7 @@
 // youtube-dl-exec 직접 호출 금지 — spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("./ytdlp");
 const config = require("../config");
+const { capabilities: ffmpegCapabilities } = require("./ffmpegPath");
 
 class SoundCloud {
   // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용
@@ -67,21 +68,36 @@ class SoundCloud {
     }
   }
 
+  /**
+   * 재생용 스트림 서술자. 주소만이 아니라 전송 방식까지 돌려준다 —
+   * 사운드클라우드의 최고 음질은 HLS(`hls_aac_96k` 등)라 파이프로는 열리지 않는다.
+   * 재생 쪽이 `protocol`을 보고 주소를 주는 갈래로 보낸다.
+   *
+   * 탐색은 URL 매개변수가 아니라 ffmpeg가 처리한다.
+   */
   static async getStream(url) {
-    // yt-dlp로 오디오 스트림 가져오기
-    const result = await youtubedl(url, {
-      format: "bestaudio/best",
-      getUrl: true,
+    // HLS를 못 여는 ffmpeg 빌드에서는 애초에 받아 합칠 수 있는 포맷을 고른다.
+    // 사운드클라우드는 progressive(`http_mp3_1_0`)를 함께 주므로 음질을 조금 내주고 재생을 지킨다.
+    const format = ffmpegCapabilities().ok ? "bestaudio/best" : "bestaudio[protocol^=http]/best[protocol^=http]/bestaudio/best";
+
+    const info = await youtubedl(url, {
+      format,
+      dumpSingleJson: true,
       noWarnings: true,
     });
 
-    if (!result) {
+    if (!info || !info.url) {
       throw new Error("스트림 URL을 찾을 수 없음");
     }
 
-    // 참고: SoundCloud 스트림은 일반적으로 URL 매개변수를 통한 탐색을 지원하지 않음
-    // 탐색은 MusicPlayer의 FFmpeg가 처리
-    return result;
+    return {
+      url: info.url,
+      protocol: info.protocol || null,
+      duration: Math.round(Number(info.duration) || 0),
+      bitrate: info.abr || info.tbr || 0,
+      platform: "soundcloud",
+      httpHeaders: info.http_headers || {},
+    };
   }
 
   static async getPlaylist(url) {

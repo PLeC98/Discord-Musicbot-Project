@@ -29,6 +29,9 @@ module.exports = {
 
     if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
 
+    // 라이브에는 실시간밖에 없다 — 옮길 자리가 없다.
+    if (player.currentTrack.isLive) return interaction.reply({ content: S.ERR_LIVE_NO_SEEK, flags: [1 << 6] });
+
     const highlightAt = player.currentTrack.sponsor?.highlightAt;
     if (highlightAt === null || highlightAt === undefined) {
       return interaction.reply({ content: "❌ 이 곡에는 SponsorBlock 하이라이트 지점이 없어요.", flags: [1 << 6] });

@@ -449,6 +449,11 @@ module.exports = {
       modeEmoji = "➡️";
     }
 
+    // 끝이 없는 것은 반복할 수 없다 — 순환 버튼은 라이브가 있으면 "끄기"에만 응한다.
+    if (newLoopMode && player.hasLiveTrack()) {
+      return interaction.reply({ content: S.ERR_LIVE_NO_LOOP, flags: [1 << 6] });
+    }
+
     player.setLoop(newLoopMode);
 
     const embed = new EmbedBuilder()

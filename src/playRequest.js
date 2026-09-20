@@ -9,6 +9,15 @@ const config = require("../config");
 const trackState = require("./trackState");
 const S = require("./strings");
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
+const { capabilities: ffmpegCapabilities } = require("./ffmpegPath");
+
+/** 이 곡을 대기열에 넣을 수 없는 이유. 넣을 수 있으면 null. */
+function liveBlockReason(track) {
+  if (!track?.isLive) return null;
+  // is_upcoming(예정)은 아직 소리가 없다 — 열어 봐야 받을 것이 없다.
+  if (track.liveStatus !== "is_live") return S.ERR_LIVE_UPCOMING;
+  return ffmpegCapabilities().ok ? null : S.ERR_LIVE_NO_FFMPEG;
+}
 
 /**
  * 곡 추가 경로의 단일 코어. 진입점(슬래시 명령/전용 채널/검색 선택/대시보드)은
@@ -117,13 +126,20 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     if (!single && trackData.isPlaylist && room < batch && more) trackData = { ...trackData, queueLimited: true };
   }
 
-  // 라이브는 끝이 없어 이 구조가 다루지 못한다 — 길이 기반 종료 감시도, 캐시도, "다음 곡"도 성립하지 않는다.
+  // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 막는 것은 두 가지뿐이다 —
+  // 아직 시작하지 않은 방송(틀 것이 없다)과, 그 갈래를 열 수 없는 ffmpeg 빌드.
   // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
-  if (trackData.tracks?.some((t) => t.isLive)) {
-    const playable = trackData.tracks.filter((t) => !t.isLive);
-    if (playable.length === 0) return { success: false, message: S.ERR_LIVE_NOT_SUPPORTED };
-    trackData = { ...trackData, tracks: playable };
+  if (trackData.tracks?.length) {
+    const judged = trackData.tracks.map((t) => [t, liveBlockReason(t)]);
+    const playable = judged.filter(([, why]) => !why).map(([t]) => t);
+    if (playable.length < trackData.tracks.length) {
+      if (playable.length === 0) return { success: false, message: judged.find(([, why]) => why)[1] };
+      trackData = { ...trackData, tracks: playable };
+    }
   }
+
+  // 끝이 없는 것은 반복할 수 없다 — 라이브가 들어오면 걸려 있던 반복을 푼다.
+  if (player && trackData.tracks?.some((t) => t.isLive)) player.releaseLoopForLive();
 
   // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)
   if (single && trackData.tracks.length > 1) {

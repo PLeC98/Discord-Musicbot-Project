@@ -255,6 +255,8 @@ class SessionPersistence {
     if (trackDurationMs && resumeMs > Math.max(trackDurationMs - 2000, 0)) {
       resumeMs = 0;
     }
+    // 라이브에 저장된 위치는 의미가 없다 — 어차피 지금 시점(라이브 엣지)으로만 붙는다.
+    if (player.currentTrack?.isLive) resumeMs = 0;
 
     player.currentTrackStartOffsetMs = Math.max(Number(session.startOffsetMs) || 0, 0);
     player.lastPlaybackPosition = resumeMs;

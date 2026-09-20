@@ -162,6 +162,19 @@ class YouTube {
     return Boolean(item.is_live) || item.live_status === "is_live" || item.live_status === "is_upcoming";
   }
 
+  /**
+   * 라이브의 종류를 가린다 — `_detectLive`는 "라이브 계열인가"만 보지만,
+   * 재생은 방송 중(is_live)과 시작 전(is_upcoming)을 다르게 다뤄야 한다. 틀 것이 없는 쪽은 거절한다.
+   * @returns {"is_live"|"is_upcoming"|null}
+   */
+  static liveStatusOf(item) {
+    if (!item) return null;
+    if (item.live_status === "is_live" || item.live_status === "is_upcoming") return item.live_status;
+    // 구버전 응답이나 flat 검색 항목에는 live_status 없이 is_live만 올 수 있다.
+    if (item.live_status === undefined && item.is_live) return "is_live";
+    return null;
+  }
+
   static _isVideoEntry(item) {
     if (!item) return false;
     if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
@@ -371,6 +384,7 @@ class YouTube {
             uploadDate: item.upload_date,
             description: item.description,
             isLive: YouTube._detectLive(item),
+            liveStatus: YouTube.liveStatusOf(item),
           };
 
           // 검색 결과에 길이가 없으면 getInfo에서 가져오기 시도
@@ -382,6 +396,7 @@ class YouTube {
             }
             if (detailedInfo && detailedInfo.isLive) {
               track.isLive = true;
+              track.liveStatus = detailedInfo.liveStatus;
             }
           }
 
@@ -431,6 +446,7 @@ class YouTube {
         description: info.description,
         formats: info.formats,
         isLive: YouTube._detectLive(info),
+        liveStatus: YouTube.liveStatusOf(info),
       };
 
       return track;
@@ -485,6 +501,10 @@ class YouTube {
         format: info.format,
         httpHeaders: info.http_headers || {},
         isLive: YouTube._detectLive(info),
+        liveStatus: YouTube.liveStatusOf(info),
+        // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "받아 둔 바이트"가 아니라 "받아 올 주소"를
+        // 줘야 하는 형식이라 파이프로 먹일 수 없다 — 재생 쪽이 이 값으로 갈래를 고른다.
+        protocol: info.protocol || null,
       };
     } catch (error) {
       log.error("스트림 URL 획득 실패:", error.message || error);

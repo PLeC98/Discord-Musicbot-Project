@@ -27,7 +27,8 @@
             <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2" :class="np.scrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: np.progressPct + '%' }"></div>
             <div v-if="np.canControl && np.duration > 0" class="absolute top-1/2 size-2.5 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2 transition-opacity duration-150" :class="np.scrubbing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'" :style="{ left: np.progressPct + '%' }"></div>
           </div>
-          <span :class="timeText">{{ fmtTime(np.duration) }}</span>
+          <!-- 라이브에는 끝이 없다 — 길이 자리를 비워 둔다(진행바 동그라미는 duration 0이라 이미 빠진다) -->
+          <span :class="timeText">{{ np.duration > 0 ? fmtTime(np.duration) : "--:--" }}</span>
         </div>
       </div>
 
