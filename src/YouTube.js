@@ -175,6 +175,19 @@ class YouTube {
     return null;
   }
 
+  /**
+   * 표시용 제목. 라이브는 yt-dlp가 `title` 뒤에 조회 시각을 붙여 준다
+   * ("... 2026-09-21 02:26"). `fulltitle`이 그게 빠진 원제이고, 라이브가 아니면 둘이 같다.
+   */
+  static titleOf(item) {
+    if (!item) return null;
+    const text = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+    const full = text(item.fulltitle);
+    const title = text(item.title);
+    if (YouTube.liveStatusOf(item) && full) return full;
+    return title || full;
+  }
+
   static _isVideoEntry(item) {
     if (!item) return false;
     if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
@@ -372,7 +385,7 @@ class YouTube {
           const unknownArtist = "알 수 없는 아티스트";
 
           const track = {
-            title: item.title || item.fulltitle || unknownTitle,
+            title: YouTube.titleOf(item) || unknownTitle,
             artist: item.uploader || item.channel || unknownArtist,
             url: item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null),
             duration: item.duration || 0,
@@ -433,7 +446,7 @@ class YouTube {
       const unknownArtist = "알 수 없는 아티스트";
 
       const track = {
-        title: info.title || unknownTitle,
+        title: YouTube.titleOf(info) || unknownTitle,
         artist: info.uploader || info.channel || unknownArtist,
         url: info.webpage_url || url,
         duration: info.duration || 0,
@@ -495,7 +508,7 @@ class YouTube {
         rawUrl: baseUrl,
         // 영상 자체의 제목. 재생목록 페이지가 주는 제목과 다를 수 있고, 이쪽이 정본이다
         // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
-        title: typeof info.title === "string" && info.title.trim() ? info.title : null,
+        title: YouTube.titleOf(info),
         type: info.acodec && info.acodec.includes("opus") ? "opus" : "arbitrary",
         duration: info.duration || 0,
         bitrate: info.abr || info.tbr || 0,
@@ -543,7 +556,7 @@ class YouTube {
         if (entry && (entry.id || entry.url)) {
           try {
             const track = {
-              title: entry.title || entry.fulltitle || unknownTitle,
+              title: YouTube.titleOf(entry) || unknownTitle,
               artist: entry.uploader || entry.channel || entry.uploader_id || unknownArtist,
               url: entry.webpage_url || entry.url || (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : null),
               duration: entry.duration || 0,

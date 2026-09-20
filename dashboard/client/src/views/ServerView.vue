@@ -36,17 +36,19 @@
 
             <!-- Full-width progress bar -->
             <div class="flex items-center gap-2 mb-1.5">
-              <span :class="timeText">{{ fmt(displayTime) }}</span>
-              <div class="group relative flex flex-1 h-4 items-center cursor-pointer before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
+              <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다 — 표식으로 대신한다 -->
+              <span :class="timeText">{{ isLive ? "🔴 LIVE" : fmt(displayTime) }}</span>
+              <div class="group relative flex flex-1 h-4 items-center before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded before:bg-white/10 before:pointer-events-none" :class="seekable ? 'cursor-pointer' : ''" ref="progressBarRef" @mousedown.prevent="onScrubStart" @touchstart.prevent="onScrubStart">
                 <div class="absolute left-0 h-1 rounded pointer-events-none bg-linear-90 from-accent to-accent-2 shadow-[0_0_8px_rgba(124,111,246,0.55)]" :class="isScrubbing ? '' : 'transition-[width] duration-400 ease-linear'" :style="{ width: progressPct + '%' }"></div>
                 <!-- SponsorBlock 자동 스킵 구간 마커 (카테고리별 공식 색상). 호버 시 카테고리 툴팁 -->
                 <!-- mousedown은 부모로 버블링돼 스크럽 시작에 영향 없음 -->
                 <div v-for="(m, i) in sponsorMarkers" :key="'sb' + i" class="absolute h-1 rounded-sm opacity-80 hover:opacity-100 hover:h-1.5" :style="{ left: m.left + '%', width: m.width + '%', backgroundColor: m.color }" v-tooltip="m.label"></div>
                 <!-- 하이라이트 지점 -->
                 <div v-if="highlightMarker !== null" class="absolute top-1/2 w-0.5 h-3 -translate-y-1/2 rounded" :style="{ left: highlightMarker + '%', backgroundColor: 'var(--category-highlight-color)' }" v-tooltip="'하이라이트'"></div>
-                <div class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
+                <!-- 옮길 수 없는 곡(라이브·길이 미상)에는 손잡이를 내지 않는다 — 잡을 수 있는 것처럼 보이면 안 된다 -->
+                <div v-if="seekable" class="absolute top-1/2 size-3 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.45)] pointer-events-none -translate-x-1/2 -translate-y-1/2" :class="isScrubbing ? 'opacity-100 scale-120 [transition:opacity_.15s,translate_.15s,scale_.15s]' : 'opacity-0 group-hover:opacity-100 [transition:opacity_.15s,translate_.15s,scale_.15s,left_.4s_linear]'" :style="{ left: progressPct + '%' }"></div>
               </div>
-              <span :class="timeText">{{ fmt(player.currentTrack.duration) }}</span>
+              <span :class="timeText">{{ player.currentTrack.duration > 0 ? fmt(player.currentTrack.duration) : "--:--" }}</span>
             </div>
 
             <!-- Controls -->
@@ -540,6 +542,10 @@ async function onDrop() {
 
 const displayTime = computed(() => (isScrubbing.value ? scrubTime.value : localTime.value));
 
+const isLive = computed(() => !!player.value.currentTrack?.isLive);
+// 길이를 알아야 위치를 옮길 수 있다. 라이브에는 실시간밖에 없어 옮길 자리가 없다.
+const seekable = computed(() => (player.value.currentTrack?.duration ?? 0) > 0 && !isLive.value);
+
 const progressPct = computed(() => {
   const t = player.value.currentTrack;
   if (!t?.duration) return 0;
@@ -612,7 +618,7 @@ function getTimeFromPointer(e) {
 }
 
 function onScrubStart(e) {
-  if (!player.value.currentTrack || !player.value.canControl) return;
+  if (!seekable.value || !player.value.canControl) return;
   isScrubbing.value = true;
   scrubTime.value = getTimeFromPointer(e);
   document.addEventListener("mousemove", onScrubMove);
@@ -729,7 +735,9 @@ onMounted(() => {
     // 실제 재생 중일 때만 전진 — playing 없이 currentTrack만 보면, 곡 해석(YouTube 검색) 중
     // 아직 재생 전인데도 바가 움직여 '유령 재생'처럼 보인다.
     if (track && player.value.playing && !player.value.paused) {
-      localTime.value = Math.min(localTime.value + 1, track.duration);
+      // 길이를 모르는 곡(라이브)은 클램프할 상한이 없다 — 그대로 Math.min을 걸면 매초 0으로 되돌아간다
+      const next = localTime.value + 1;
+      localTime.value = track.duration > 0 ? Math.min(next, track.duration) : next;
     }
   }, 1000);
 });

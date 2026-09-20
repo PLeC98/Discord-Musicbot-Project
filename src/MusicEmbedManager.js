@@ -434,8 +434,8 @@ class MusicEmbedManager {
     const titleComponent = track.thumbnail ? new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(track.thumbnail)) : null;
 
     // 상태 줄 (일시정지 / 대기열 수)
+    // 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar) — 여기서 또 내지 않는다.
     const statusParts = [];
-    if (track.isLive) statusParts.push("🔴 LIVE");
     if (player.paused) {
       if (player.pauseReasons?.has("mute")) statusParts.push("🔇 뮤트됨");
       else if (player.pauseReasons?.has("alone")) statusParts.push("⏳ 혼자 남음");
@@ -478,8 +478,10 @@ class MusicEmbedManager {
     const totalStr = this.formatDuration(totalSec);
 
     // 라이브에는 끝이 없다 — 어디쯤인지 찍을 지점도, 표시할 길이도 없다.
+    // 경과 시간 자리는 비워 두는 대신 표식을 넣는다. 그 값은 곡 안의 위치가 아니라
+    // "우리가 붙어 있은 시간"이라, 옆의 `--:--`과 나란히 두면 진행률처럼 읽힌다.
     if (live) {
-      return `\`${currentStr}\` ${"▬".repeat(BAR_LENGTH + 1)} \`--:--\``;
+      return `\`🔴 LIVE\` ${"▬".repeat(BAR_LENGTH + 1)} \`--:--\``;
     }
 
     if (!totalSec || totalSec === 0) {

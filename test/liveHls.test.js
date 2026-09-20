@@ -11,6 +11,7 @@ const assert = require("node:assert/strict");
 
 const MusicPlayer = require("../src/MusicPlayer");
 const YouTube = require("../src/YouTube");
+const MusicEmbedManager = require("../src/MusicEmbedManager");
 const { capabilities, _internals } = require("../src/ffmpegPath");
 
 const idx = (args, flag) => args.indexOf(flag);
@@ -39,6 +40,38 @@ test("liveStatusOf: 방송 중과 시작 전을 가른다", () => {
   assert.equal(YouTube.liveStatusOf({ is_live: true }), "is_live");
   // 다만 live_status가 명시됐다면 그쪽이 정본이다 — was_live인데 is_live가 남아 오는 경우.
   assert.equal(YouTube.liveStatusOf({ live_status: "was_live", is_live: true }), null);
+});
+
+test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () => {
+  // yt-dlp는 라이브의 `title` 뒤에 조회 시각을 붙인다. 그대로 쓰면 대기열·패널·로그에
+  // "... 2026-09-21 02:58" 이 따라다니고, 새로 조회할 때마다 제목이 달라진다.
+  const live = { live_status: "is_live", title: "lofi radio 2026-09-21 02:26", fulltitle: "lofi radio" };
+  assert.equal(YouTube.titleOf(live), "lofi radio");
+
+  // 라이브가 아니면 둘이 같다 — 건드릴 것이 없다
+  assert.equal(YouTube.titleOf({ title: "보통곡", fulltitle: "보통곡" }), "보통곡");
+  assert.equal(YouTube.titleOf({ title: "fulltitle 없음" }), "fulltitle 없음");
+  // fulltitle이 비어 오면 title로 돌아간다
+  assert.equal(YouTube.titleOf({ live_status: "is_live", title: "A", fulltitle: "   " }), "A");
+  assert.equal(YouTube.titleOf({}), null);
+  assert.equal(YouTube.titleOf(null), null);
+});
+
+test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를 비운다", () => {
+  const manager = Object.create(MusicEmbedManager.prototype);
+  manager.formatDuration = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
+  const live = manager.buildProgressBar(65, 0, { live: true });
+  assert.match(live, /LIVE/, "라이브임을 알려야 한다");
+  assert.doesNotMatch(live, /1:05/, "붙어 있은 시간은 곡 안의 위치가 아니다");
+  assert.doesNotMatch(live, /●/, "찍을 지점이 없다");
+  assert.ok(live.includes("--:--"), "길이는 모른다");
+
+  // 보통 곡은 그대로다
+  const normal = manager.buildProgressBar(65, 200);
+  assert.match(normal, /1:05/);
+  assert.match(normal, /3:20/);
+  assert.match(normal, /●/);
 });
 
 test("isHlsStream: m3u8 계열만 참", () => {
