@@ -271,6 +271,7 @@ class MusicPlayer {
       this.pendingEndReason = null;
       this.skipRequested = false;
       this.stopRequested = false;
+      this._playingLive = false; // 이번 재생이 라이브 갈래인가 — 종료 처리가 재연결 여부를 이걸로 가른다
       const resumeFromMs = Math.max(0, Math.floor(Number(seekMs) || 0));
       const resumeFromSeconds = resumeFromMs / 1000;
       this.currentTrackStartOffsetMs = resumeFromMs;
@@ -375,6 +376,17 @@ class MusicPlayer {
         streamUrl_final = streamInfo;
       }
 
+      // 지금 라이브인지는 yt-dlp 응답이 정본이다 — 대기열에 담길 때 방송 중이었어도 그사이 끝나
+      // 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 담긴 것도 있다(재생목록·믹스).
+      // 탐색·반복·종료 감시·표시가 전부 이 값을 읽으므로 여기서 한 번 맞춰 둔다.
+      if (streamInfo && typeof streamInfo === "object" && "liveStatus" in streamInfo) {
+        this.currentTrack.liveStatus = streamInfo.liveStatus;
+        this.currentTrack.isLive = streamInfo.liveStatus === "is_live";
+      } else if (downloadedFile) {
+        // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다 — 라이브는 받지 않는다.
+        this.currentTrack.isLive = false;
+      }
+
       // HLS는 파이프로 먹일 수 없다 — 재생목록 안이 상대 경로뿐이라 ffmpeg가 기준 위치를 알아야 하고,
       // 세그먼트도 스스로 받아 와야 한다. 주소를 주는 갈래는 여기뿐이다.
       const useUrlInput = !downloadedFile && typeof streamUrl_final === "string" && MusicPlayer.isHlsStream(streamInfo);
@@ -397,6 +409,7 @@ class MusicPlayer {
         const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ url: streamUrl_final, seekMs: isLiveStream ? 0 : resumeFromMs }), "stream");
         // 캐시 전환(AudioSplicer)은 걸지 않는다 — 라이브는 갈아탈 캐시가 없고, 잔끊김은
         // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(handleTrackEnd).
+        this._playingLive = isLiveStream;
         this._liveExitCode = null;
         ffmpeg.once("exit", (code, signal) => {
           this._liveExitCode = code === null && signal ? -1 : code;
@@ -429,9 +442,10 @@ class MusicPlayer {
         const filepath = this.downloader.trackFilePath(this.currentTrack);
         this._startBackgroundDownload();
 
-        // 다운로드 완료를 기다리지 않고 즉시 스트리밍. 네트워크는 항상 Node가 담당하고 ffmpeg에는
-        // pipe로만 넣는다 — ffmpeg에 URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패 폴백을
-        // 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 링크 빌드는 여기서 SIGSEGV로 죽는다).
+        // 다운로드 완료를 기다리지 않고 즉시 스트리밍. 이 갈래에서는 네트워크를 Node가 담당하고
+        // ffmpeg에는 pipe로만 넣는다 — URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패
+        // 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 빌드는 SIGSEGV로 죽는다).
+        // 그래서 URL 입력은 그렇게 할 수밖에 없는 HLS 갈래에만 두었다.
         let audioStream;
         // 청크 스트림이 끊겼을 때 부를 훅 — 스플라이서가 아래에서 만들어진 뒤 채운다
         const streamHooks = { interrupt: () => false, resumed: () => {} };
@@ -452,7 +466,7 @@ class MusicPlayer {
               };
 
               // 전체 길이를 알면 Range로 나눠 받는다 — 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
-              // 길이를 모르는 입력(라이브 스트림 등)은 나눌 수가 없으므로 예전 방식 그대로.
+              // 길이를 모르는 입력은 나눌 수가 없으므로 예전 방식 그대로.
               const totalBytes = contentLengthFromUrl(fetchUrl);
               if (totalBytes) {
                 // await로 첫 요청까지 여기서 끝낸다 — 실패가 아래 catch의 캐시 폴백으로 가도록
@@ -784,6 +798,14 @@ class MusicPlayer {
     const streamDuration = streamInfo && Number(streamInfo.duration) > 0 ? Number(streamInfo.duration) : null;
     const trackDuration = this.currentTrack && Number(this.currentTrack.duration) > 0 ? Number(this.currentTrack.duration) : null;
     const durationSeconds = streamDuration || trackDuration;
+
+    // 라이브는 길이가 없다 — 폴백 워치독(5분 뒤 강제 종료)이 방송을 잘라 버린다.
+    if (this.currentTrack?.isLive) {
+      this.expectedTrackEndTs = null;
+      this.trackTimer = null;
+      wlog.debug(`종료 감시 없음: ${this._trackLabel()} — 라이브는 길이로 가를 수 없다`);
+      return;
+    }
 
     if (durationSeconds && durationSeconds > 0) {
       // 시작 오프셋을 고려해 남은 시간 계산 (초)
@@ -1438,7 +1460,7 @@ class MusicPlayer {
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
       // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다 —
       // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
-      const liveDropped = Boolean(finishedTrack?.isLive) && !manualSkip && this._liveExitCode !== 0;
+      const liveDropped = this._playingLive && !manualSkip && this._liveExitCode !== 0;
 
       const endedLabel = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
       this._endingLabel = null;

@@ -92,9 +92,10 @@ test("URL을 주지 않으면 갈래가 바뀌지 않는다 — 파이프가 기
     const args = MusicPlayer.buildFfmpegArgs(opts);
     assert.equal(args[idx(args, "-i") + 1], "pipe:0", JSON.stringify(opts));
   }
-  // 파일이 있으면 파일이 이긴다 — 캐시로 트는 쪽이 언제나 낫다
+  // 둘을 같이 주면 URL이 이긴다. 다만 "캐시가 있으면 캐시로 튼다"를 정하는 것은 여기가 아니라
+  // _play 쪽이다(파일이 잡혀 있으면 URL 갈래를 아예 타지 않는다).
   const withFile = MusicPlayer.buildFfmpegArgs({ file: "/cache/x.opus", url: "https://x/index.m3u8" });
-  assert.equal(withFile[idx(withFile, "-i") + 1], "https://x/index.m3u8", "URL 갈래가 파일보다 먼저 판정된다");
+  assert.equal(withFile[idx(withFile, "-i") + 1], "https://x/index.m3u8");
 });
 
 // 아래는 길이를 전제하던 자리들. 라이브에는 길이가 없다.
@@ -179,8 +180,114 @@ test("종료 감시: 라이브는 길이로 가를 수 없어 감시를 걸지 �
   assert.equal(player.trackTimer, null, "감시를 걸어 두지도 않는다");
 });
 
+test("종료 감시 예약: 라이브에는 5분 폴백 워치독을 걸지 않는다", () => {
+  // 길이를 모르는 스트림은 5분 뒤 강제 종료가 기본값이다 — 그대로 두면 방송이 5분마다 잘린다.
+  const live = fakePlayer({ currentTrack: { isLive: true, duration: 0, title: "라디오", platform: "youtube" } });
+  live.scheduleTrackWatchdog({});
+  assert.equal(live.trackTimer, null);
+  assert.equal(live.expectedTrackEndTs, null);
+
+  // 라이브가 아니면 평소대로 걸린다
+  const normal = fakePlayer({ currentTrack: { isLive: false, duration: 200, title: "곡", platform: "youtube" }, currentTrackStartOffsetMs: 0 });
+  normal.scheduleTrackWatchdog({ duration: 200 });
+  assert.notEqual(normal.trackTimer, null);
+  clearTimeout(normal.trackTimer);
+});
+
 test("_reset 후에도 능력 확인이 다시 선다", () => {
   _internals._reset();
   const caps = capabilities();
   assert.equal(caps.ok, true);
+});
+
+// 라이브가 끊겼을 때 무엇을 하는가. 길이가 없어 "일찍 끝났다"로 가를 수 없으므로 ffmpeg의
+// 종료 코드로 가른다 — 0이면 방송이 끝난 것, 그 밖은 사고다.
+
+const endingPlayer = (overrides = {}) => {
+  const played = [];
+  const player = fakePlayer({
+    isTransitioning: false,
+    sponsorSkipper: { stop() {} },
+    previousTracks: [],
+    currentDownloadedFile: null,
+    autoplay: false,
+    resource: { playbackDuration: 30_000 },
+    currentTrackStartOffsetMs: 0,
+    releaseAudioProtection() {},
+    play: async (track, ms) => {
+      played.push(ms);
+      return { success: true };
+    },
+    ...overrides,
+  });
+  player.played = played;
+  return player;
+};
+
+test("라이브 종료: ffmpeg가 0으로 끝나면 방송이 끝난 것 — 다음 곡으로", async () => {
+  const finished = { title: "라디오", isLive: true };
+  const next = { title: "다음곡" };
+  const player = endingPlayer({ currentTrack: finished, queue: [next], _playingLive: true, _liveExitCode: 0 });
+
+  await player.handleTrackEnd("idle");
+
+  assert.equal(player.currentTrack, next, "다음 곡으로 넘어가야 함");
+  assert.deepEqual(player.played, [0]);
+  assert.deepEqual(player.previousTracks, [finished]);
+});
+
+test("라이브 종료: 사고로 끊기면 같은 곡을 위치 0으로 다시 연다", async () => {
+  // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"다 — 만료된 주소로는 몇 번을 붙어도 실패한다.
+  const finished = { title: "라디오", isLive: true };
+  const next = { title: "다음곡" };
+  const player = endingPlayer({ currentTrack: finished, queue: [next], _playingLive: true, _liveExitCode: 1 });
+
+  await player.handleTrackEnd("idle");
+
+  assert.equal(player.currentTrack, finished, "같은 방송을 계속 튼다");
+  assert.deepEqual(player.played, [0], "끊긴 위치가 아니라 라이브 엣지로 붙는다");
+  assert.deepEqual(player.queue, [next], "대기열은 그대로");
+});
+
+test("라이브 종료: 사용자가 스킵한 것은 사고가 아니다", async () => {
+  const finished = { title: "라디오", isLive: true };
+  const next = { title: "다음곡" };
+  const player = endingPlayer({ currentTrack: finished, queue: [next], _playingLive: true, _liveExitCode: -1 });
+
+  await player.handleTrackEnd("skip");
+
+  assert.equal(player.currentTrack, next);
+});
+
+test("라이브 종료: 재시도를 다 쓰면 다음 곡으로 넘긴다", async () => {
+  const finished = { title: "라디오", isLive: true };
+  const next = { title: "다음곡" };
+  const player = endingPlayer({ currentTrack: finished, queue: [next], _playingLive: true, _liveExitCode: 1 });
+  // 이미 상한까지 다시 열어 본 상태로 둔다 — 상한을 넘기면 포기해야 한다
+  player._retryTrack = finished;
+  player.currentTrackRetries = 99;
+
+  await player.handleTrackEnd("idle");
+
+  assert.equal(player.currentTrack, next);
+  assert.deepEqual(player.played, [0]);
+});
+
+test("끝난 방송(was_live)은 재연결 대상이 아니다 — 라이브 갈래를 타지 않았다", async () => {
+  // 대기열에 담길 때는 방송 중이었지만 재생 시점에는 다시보기였다. 길이가 있으니 평범한 곡이다.
+  // 이때 재연결로 들어가면 정상 종료마다 몇 초씩 멈춘 뒤에야 다음 곡으로 넘어간다.
+  const finished = { title: "끝난 방송", isLive: true, duration: 3600 };
+  const next = { title: "다음곡" };
+  const player = endingPlayer({
+    currentTrack: finished,
+    queue: [next],
+    _playingLive: false,
+    _liveExitCode: 1,
+    resource: { playbackDuration: 3_600_000 },
+  });
+
+  await player.handleTrackEnd("idle");
+
+  assert.equal(player.currentTrack, next);
+  assert.deepEqual(player.played, [0]);
 });

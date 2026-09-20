@@ -478,7 +478,9 @@ class YouTube {
       }
 
       const baseUrl = info.url;
-      const canSeek = /googlevideo\.com/i.test(baseUrl);
+      // HLS 재생목록 주소에는 `begin=`을 붙일 수 없다 — 위치는 ffmpeg의 `-ss`가 정한다.
+      const isHls = typeof info.protocol === "string" && info.protocol.startsWith("m3u8");
+      const canSeek = !isHls && /googlevideo\.com/i.test(baseUrl);
       let finalUrl = baseUrl;
 
       const seekSeconds = Math.max(0, Number(startSeconds) || 0);
@@ -549,6 +551,8 @@ class YouTube {
               platform: "youtube",
               type: "track",
               id: entry.id,
+              isLive: YouTube._detectLive(entry),
+              liveStatus: YouTube.liveStatusOf(entry),
             };
 
             // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
