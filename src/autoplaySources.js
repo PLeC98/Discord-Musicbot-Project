@@ -5,16 +5,14 @@
 //   { artist?, title, durationSec?, audioUrl?, youtubeUrl?, thumbnail?, sourceKey,
 //     sourceUrl?, platform? }
 //
-// 뒤의 처리는 **어느 칸이 찼는지가 정한다** — 유형을 따로 적어 두지 않는다.
+// 뒤의 처리는 어느 칸이 찼는지가 정한다. 유형을 따로 적어 두지 않는다.
 //   youtubeUrl 있음 → 그 영상을 튼다
 //   artist+title   → youtubeMatch로 찾는다 (durationSec이 있으면 길이 신호가 켜진다)
 //   audioUrl 있음  → 위가 안 되면 이것을 그대로 튼다
 //
-// `sourceUrl`·`platform`은 **곡이 어디 것인가**를 말한다. 이게 있으면 유튜브 영상은 소리를 대는
-// 곳일 뿐이고, 표시 이름과 캐시 장부의 칸은 출처 것이 된다(스포티파이와 같은 처지 — autoplayRoute 참고).
+// `sourceUrl`·`platform`은 곡이 어디 것인가를 말한다. 이게 있으면 유튜브 영상은 소리를 대는
+// 곳일 뿐이고, 표시 이름과 캐시 장부의 칸은 출처 것이 된다(autoplayRoute 참고).
 // keyword·유튜브 재생목록은 영상 자체가 출처라 이 칸을 비워 둔다.
-//
-// 한 파일에 모은 까닭: 소스마다 20~40줄이고 지켜야 할 계약이 같다. 흩어 두면 계약이 안 보인다.
 
 const config = require("../config");
 const log = require("./logger").child({ category: "autoplay" });
@@ -33,7 +31,7 @@ async function getJson(url, headers = {}, timeoutMs = TIMEOUT_MS) {
   return res.json();
 }
 
-// 배열 옵션은 이름 뒤에 []를 붙여야 듣는다. 안 붙이면 400도 아니고 **조용히 무시된다**
+// 배열 옵션은 이름 뒤에 []를 붙여야 듣는다. 안 붙이면 400도 아니고 조용히 무시된다
 // — VocaDB 계열에서 가장 흔한 함정이라 여기 한 곳에서 책임진다.
 function query(params) {
   const q = new URLSearchParams();
@@ -81,7 +79,7 @@ async function lastfm(source) {
 }
 
 // ── lbradio ───────────────────────────────────────────────────────────────
-// 호출마다 50곡을 새로 짠다. **길이를 준다**(병 유형) — youtubeMatch의 길이 신호가 켜진다.
+// 호출마다 50곡을 새로 짠다. 길이를 준다(병 유형) — youtubeMatch의 길이 신호가 켜진다.
 async function lbradio(source) {
   const token = config.sources?.listenbrainzToken;
   if (!token) throw new Error("LISTENBRAINZ_TOKEN이 없습니다");
@@ -89,7 +87,7 @@ async function lbradio(source) {
   // (easy는 적은 태그만, hard는 비슷한 태그까지 끌어와서 그만큼 큰 아티스트가 섞인다).
   const modes = [].concat(source.mode || "hard");
 
-  // mode 파라미터는 하나만 받지만(둘을 주면 400), **프롬프트 안에서는 원소마다 지정할 수 있다.**
+  // mode 파라미터는 하나만 받지만(둘을 주면 400), 프롬프트 안에서는 원소마다 지정할 수 있다.
   // 그래서 `mode: [easy, hard]` 를 한 번의 요청으로 섞을 수 있다 — 50곡을 나눠 채워 준다.
   const tagPart = source.tags?.length ? `tag:(${source.tags.join(",")})` : "";
   const prompt = source.prompt || (tagPart ? modes.map((m) => `${tagPart}::${m}`).join(" ") : "");
@@ -113,7 +111,7 @@ async function lbradio(source) {
 // MusicBrainz는 아티스트·곡을 모를 때 정해진 이름으로 자리를 채운다.
 // 그대로 두면 그걸 유튜브에 검색하게 된다(250곡 중 1곡꼴).
 //
-// **대괄호로 싸였다고 다 거르면 안 된다** — `[Alexandros]`는 실존하는 일본 록밴드다.
+// 대괄호로 싸였다고 다 거르면 안 된다 — `[Alexandros]`는 실존하는 일본 록밴드다.
 // 그래서 정해진 목록만 본다. https://musicbrainz.org/doc/Style/Unknown_and_untitled
 const PLACEHOLDERS = new Set(["[no artist]", "[unknown]", "[anonymous]", "[nobody]", "[traditional]", "[data]", "[dialogue]", "[silence]", "[untitled]", "[unknown]"].map((s) => s.toLowerCase()));
 const PLACEHOLDER = {
@@ -176,7 +174,7 @@ async function themesAtRandom(source) {
   return (await getJson(url))?.animethemes || [];
 }
 
-// 연도·시즌·매체는 animetheme 쪽에서 **조용히 무시된다.** anime 쪽에 걸어야 듣는다.
+// 연도·시즌·매체는 animetheme 쪽에서 조용히 무시된다. anime 쪽에 걸어야 듣는다.
 // 시즌은 범위 문법이 없어 연도로만 자르고 양끝 시즌은 우리가 걸러낸다.
 async function themesByAnime(source) {
   const url = `https://api.animethemes.moe/anime?${query({
@@ -207,19 +205,19 @@ async function themesByAnime(source) {
 }
 
 // ── vocadb 계열 ───────────────────────────────────────────────────────────
-// **유튜브 주소를 직접 준다** — 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
+// 유튜브 주소를 직접 준다 — 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
 const VOCA_HOSTS = { vocadb: "vocadb.net", utaitedb: "utaitedb.net", touhoudb: "touhoudb.com" };
 const VOCA_PAGE = 50;
 
 // 기본 곡 종류가 사이트마다 다르다. 셋 다 같은 소프트웨어지만 무엇이 "본체"인지가 다르다.
-//   utaitedb — **우타이테는 남의 곡을 부르는 사람들**이다. Original로 받으면 정작 우타이테가
+//   utaitedb — 우타이테는 남의 곡을 부르는 사람들이다. Original로 받으면 정작 우타이테가
 //              아니라 보컬로이드 원곡이 온다(MARETU feat. 初音ミク 같은 것).
-//   touhoudb — 동방은 **어레인지 문화**다. Original은 ZUN의 게임 BGM 3,190곡뿐이고,
+//   touhoudb — 동방은 어레인지 문화다. Original은 ZUN의 게임 BGM 3,190곡뿐이고,
 //              사람들이 듣는 것은 Arrangement 46,557곡 쪽이다(Bad Apple!! · チルノのパーフェクトさんすう教室).
 const VOCA_DEFAULT_TYPES = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
-// 가사 언어. `languages` 파라미터는 **조용히 무시된다** — 쓰레기 값을 넣어도 전체가 온다.
-// 실제로 듣는 것은 웹이 쓰는 advancedFilters 쪽이고, **한 번에 하나만 걸린다**:
+// 가사 언어. `languages` 파라미터는 조용히 무시된다 — 쓰레기 값을 넣어도 전체가 온다.
+// 실제로 듣는 것은 웹이 쓰는 advancedFilters 쪽이고, 한 번에 하나만 걸린다:
 // 둘을 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 줄어든다(실측 2026-09-18).
 function lyricsFilter(one) {
   return one ? { "advancedFilters[0][filterType]": "Lyrics", "advancedFilters[0][param]": one } : {};
@@ -290,7 +288,7 @@ async function vocaWindow(base, filters, type) {
 
   const out = [];
   for (const song of page?.items || []) {
-    // **disabled 를 꼭 봐야 한다.** 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
+    // disabled 를 꼭 봐야 한다. 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
     // 수 없음"으로 회색이 되는 그것), 그걸 무시하면 죽은 영상을 골라 재생이 실패한다.
     // 실측: vocadb 100곡 중 10곡에 죽은 PV가 섞여 있다. Bad Apple!! 은 죽은 Original 다음에
     // 멀쩡한 Original 이 있어서, 안 보면 정확히 틀린 것을 집는다.
@@ -353,10 +351,10 @@ async function youtube(source) {
 const FETCHERS = { keyword, lastfm, lbradio, animethemes, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
 
 /**
- * 소스 타입 명세 — **설정 검증과 실행이 같은 표를 본다.**
+ * 소스 타입 명세 — 설정 검증과 실행이 같은 표를 본다.
  *
  *   label  사람에게 보일 이름(기동 경고 문구에 쓴다)
- *   need   반드시 있어야 하는 값. 안쪽 배열은 "이 중 **하나**는 있어야 한다"
+ *   need   반드시 있어야 하는 값. 안쪽 배열은 "이 중 하나는 있어야 한다"
  *   env    .env에 있어야 하는 이름(없으면 그 소스만 못 쓴다)
  *
  * 고를 수 있는 값 전체와 왜 어떤 것을 안 내놓는지는
@@ -406,7 +404,7 @@ const SEASON_OPTIONS = opts([
   { value: "Fall", label: "4분기" },
 ]);
 
-// **사이트마다 있는 것이 다르다.** 돌려쓰면 없는 값을 고르게 되고, 그걸 넣으면 0곡이 온다.
+// 사이트마다 있는 것이 다르다. 돌려쓰면 없는 값을 고르게 되고, 그걸 넣으면 0곡이 온다.
 // (실측 2026-09-18 — 유튜브 PV 있는 곡 기준으로 한 건이라도 있는 것만)
 const VOCA_SONG_TYPES = {
   vocadb: ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Instrumental", "Mashup", "MusicPV", "DramaPV", "Other"],
@@ -414,7 +412,7 @@ const VOCA_SONG_TYPES = {
   touhoudb: ["Unspecified", "Original", "Remaster", "Cover", "Arrangement", "Rearrangement", "ShortVersion", "Instrumental", "MusicPV", "DramaPV", "Other"],
 };
 
-// 부르는 쪽 분류. **TouhouDB에는 아예 없다**(0명) — 동방은 사람이 부르는 어레인지라 그렇다.
+// 부르는 쪽 분류. TouhouDB에는 아예 없다(0명) — 동방은 사람이 부르는 어레인지라 그렇다.
 // UtaiteDB는 우타이테와 그 밖뿐이고, 보컬 합성 라이브러리 목록은 VocaDB에만 있다.
 const VOCA_ARTIST_TYPES = {
   vocadb: ["Vocaloid", "UTAU", "CeVIO", "SynthesizerV", "VOICEVOX", "Voiceroid", "NEUTRINO", "VoiSona", "ACEVirtualSinger", "AIVOICE", "OtherVoiceSynthesizer", "NewType", "OtherVocalist"],
@@ -422,7 +420,7 @@ const VOCA_ARTIST_TYPES = {
   touhoudb: null,
 };
 
-// 가사 언어. 저쪽이 목록을 안 주므로 ISO 639-1 전체를 훑어 **곡이 실제로 있는 것만** 남겼다
+// 가사 언어. 저쪽이 목록을 안 주므로 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다
 // (실측 2026-09-18, 유튜브 PV 있는 곡 기준. 사이트마다 다르고, 많은 순서다).
 //
 // ha·ln·yo·jv 는 뺐다 — 표본 20곡이 전부 "로마자 표기" 항목이었다. 하우사어 곡 12,997개가
@@ -586,7 +584,7 @@ const usable = (type) => (SPEC[type] ? !SPEC[type].has || SPEC[type].has() : fal
 const needsOf = (type) => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);
 
 /**
- * 대시보드가 그릴 소스 목록. 검증·실행과 **같은 표**에서 뽑아 준다 —
+ * 대시보드가 그릴 소스 목록. 검증·실행과 같은 표에서 뽑아 준다 —
  * 화면이 따로 목록을 들고 있으면 소스를 더할 때 한쪽만 고치게 된다.
  *
  * 필수 여부는 need 에서 끌어온다(중복해서 적지 않는다).

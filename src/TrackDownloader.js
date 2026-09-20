@@ -16,7 +16,7 @@ const SponsorBlock = require("./SponsorBlock");
 /**
  * TrackDownloader — 오디오 파일 다운로드/사전 로드
  *
- * 진행 중인 다운로드는 **프로세스 전역**으로 모은다(inFlight). 재생 경로와 예열뿐 아니라 서버끼리도 같은 맵을 봐야
+ * 진행 중인 다운로드는 프로세스 전역으로 모은다(inFlight). 재생 경로와 예열뿐 아니라 서버끼리도 같은 맵을 봐야
  * 같은 곡을 두 번 받지 않는다 — 캐시 파일 경로는 서버와 무관한 전역 경로다.
  *
  * Map<최종 경로, Promise<최종 경로>> — 진행 중인 다운로드의 promise를 그대로 await할 수 있어, 파일 존재 폴링이 필요 없다.
@@ -280,7 +280,7 @@ class TrackDownloader {
       log.info(`캐시 다운로드 완료: "${track.title}"${track.youtubeUrl && track.platform !== "youtube" ? ` (yt: ${track.youtubeUrl})` : ""}`);
       return filepath;
     } catch (error) {
-      // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다 — **내 임시 파일만**.
+      // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다 — 내 임시 파일만.
       // (같은 곡의 부스러기를 전부 훑으면 다른 쪽이 받는 중인 작업 파일을 지운다.)
       // 그리고 recordDownloadStart로 'downloading'이 된 DB 행을 'error'로 되돌린다.
       // (없으면 다음 부팅의 onStartup 리셋 때까지 유령 'downloading' 행이 남는다.)
@@ -342,7 +342,7 @@ class TrackDownloader {
   /**
    * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
    *
-   * **받기 전에 캐시 키를 반드시 확정해야 한다.** 키가 곧 파일 경로이고, downloadTrack은
+   * 받기 전에 캐시 키를 반드시 확정해야 한다. 키가 곧 파일 경로이고, downloadTrack은
    * 진입 시점의 경로로 파일을 쓰기 때문이다. 스포티파이 트랙은 유튜브 동등물을 찾아야 키가
    * 정해지는데, 그 검색이 다운로드 '안'에서 일어나면 파일은 스포티파이 URL 해시 경로에
    * 저장되고 DB 행도 남지 않는다(키가 그 시점에 null이라). 그러면 키가 생긴 다음 번에

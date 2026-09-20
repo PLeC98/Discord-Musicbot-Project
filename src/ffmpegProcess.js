@@ -17,7 +17,7 @@ const log = require("./logger").child({ category: "ffmpeg" });
 const CRASH_SIGNALS = new Set(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
 
 /**
- * @param {string[]} args 완전한 ffmpeg 인자 — **출력 대상까지 호출부가 지정한다.**
+ * @param {string[]} args 완전한 ffmpeg 인자 — 출력 대상까지 호출부가 지정한다.
  *   재생은 `pipe:1`, 캐시 변환은 `-y <파일>`이라 여기서 임의로 붙일 수 없다.
  * @param {string} label 로그·레지스트리 표기용 ("stream" | "playback" | "download")
  * @param {{killOnStdoutClose?: boolean}} opts stdout을 소비하는 경로(재생)에서만 true

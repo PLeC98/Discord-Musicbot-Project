@@ -4,7 +4,7 @@
   설정은 config/ai.yaml, **프롬프트는 config/ai-prompt.chatml** 로 따로 산다.
   둘 다 파일로도 고칠 수 있다 — 대시보드는 선택 기능이다.
 
-  **키는 쓰기 전용이다.** config/ai-keys.yaml 에 프로바이더마다 따로 있고, 넣을 수는 있어도
+  키는 쓰기 전용이다. config/ai-keys.yaml 에 프로바이더마다 따로 있고, 넣을 수는 있어도
   화면으로 되읽지는 못한다 — 값을 내려보내면 XSS 하나로 새어 나간다.
 
   미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
@@ -485,7 +485,7 @@ const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{
 
 const ROLES = ["system", "user", "assistant"];
 
-// 프로바이더 목록은 **서버가 준다**(주소·키 필요 여부까지). 화면이 베껴 두면 한쪽만 고치게 된다.
+// 프로바이더 목록은 서버가 준다(주소·키 필요 여부까지). 화면이 베껴 두면 한쪽만 고치게 된다.
 
 const MARKS = [
   { mark: "{{번호}}", hint: "1부터" },
@@ -564,7 +564,7 @@ const paid = ref(null); // "ping" | "judge" — 확인 대화상자
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
-// 프로바이더를 바꾸면 모델 칸이 빈다. **사람이 고른 것만** 브라우저에 적어 둔다 —
+// 프로바이더를 바꾸면 모델 칸이 빈다. 사람이 고른 것만 브라우저에 적어 둔다 —
 // 저절로 고른 첫 모델까지 적으면 "마지막에 고른 것"이 그것으로 덮인다.
 // 접기 상태와 같은 화면 편의라 설정 파일에 넣지 않는다.
 const PICK_KEY = "configAI.model.picked";
@@ -626,7 +626,7 @@ const needsKey = computed(() => !!spec.value?.key);
 /**
  * 어디로 나가는지 보여 준다. 버텍스는 주소가 없어 프로젝트·리전·모델로 조립한다.
  *
- * **프로젝트 ID 만 가린다.** 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
+ * 프로젝트 ID 만 가린다. 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
  */
 const shownEndpoint = computed(() => {
   if (!spec.value?.needsProject) return spec.value?.baseUrl;
@@ -654,7 +654,7 @@ const looksLikeAccount = computed(() => {
 // 평문으로 열어 두었으면 키가 그대로 네트워크를 지난다 — 파일을 고칠 때는 없는 일이다
 const secureOrigin = computed(() => window.isSecureContext);
 // custom 은 저장된 주소와 같을 때만 키가 붙는다(autoplayAssist.authOf).
-// **ref 를 computed 보다 먼저 선언한다** — 아래에 두면 TDZ 이고, Vue 가 그 예외를 삼켜
+// ref 를 computed 보다 먼저 선언한다 — 아래에 두면 TDZ 이고, Vue 가 그 예외를 삼켜
 // 화면만 조용히 비는 종류의 버그가 된다(SourceEditor 에서 한 번 당했다).
 const savedBaseUrl = ref("");
 const staleCustomUrl = computed(() => !!spec.value?.editable && String(draft.value.baseUrl || "") !== savedBaseUrl.value);
@@ -747,7 +747,7 @@ const paramLimits = computed(() => {
   return [m.contextWindowTokens ? `컨텍스트 ${n(m.contextWindowTokens)}토큰` : "", m.maxOutputTokens ? `최대 출력 ${n(m.maxOutputTokens)}토큰` : ""].filter(Boolean).join(" · ");
 });
 
-// 저장하면 서버가 **보낸 차례대로** 파일을 줄 세운다(configDataLoader.syncMap).
+// 저장하면 서버가 보낸 차례대로 파일을 줄 세운다(configDataLoader.syncMap).
 // config/ai.example.yaml 과 같은 차례로 보내야 새로 깐 파일이 뒤섞이지 않는다.
 const KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"];
 

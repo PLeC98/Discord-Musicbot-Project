@@ -11,7 +11,7 @@ const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-regis
 const FILE = path.join(__dirname, "..", "data", "ai-models.json");
 
 /**
- * 프로필은 base-provider 를 **상속한다.** 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
+ * 프로필은 base-provider 를 상속한다. 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
  * 베이스에 있다 — 합치지 않으면 추론 칸이 통째로 빈다. 키가 겹치면 프로필이 이긴다.
  */
 function mergeSchemas(base, extension) {

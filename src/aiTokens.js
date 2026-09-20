@@ -1,12 +1,12 @@
 /**
  * 토큰 세기 — 요청이 몇 토큰짜리인지.
  *
- * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다.
- *   tik     OpenAI 계열 — gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩이다
+ * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정함
+ *   tik     OpenAI 계열 — gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩
  *   gemma   제미니·젬마 — data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없다. tik 로 세면 한국어에서 35% 가 모자란다
- *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 센다 — 무료이고 정확하다.
- *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치다
+ *   claude  앤트로픽은 공개 토크나이저가 없다. tik 로 세면 한국어에서 35% 가 모자람
+ *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 측정: 무료이고 정확
+ *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치
  */
 const fs = require("fs");
 const path = require("path");
@@ -14,7 +14,7 @@ const path = require("path");
 const GEMMA_FILE = path.join(__dirname, "..", "data", "gemma-tokenizer.model");
 
 /**
- * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 **실측으로 잡았다.**
+ * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 실측으로 잡았다.
  *
  *   openai     한 메시지 3 + 요청 3. 본문 33 짜리가 prompt_tokens 39 로 왔다
  *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같았다
@@ -29,7 +29,7 @@ const FRAMING = {
 };
 
 // ── SentencePiece BPE ──────────────────────────────────────────────────────
-// 조각마다 점수가 있고 **점수가 높은 짝부터 붙인다.** merges 목록이 따로 없는 이유다.
+// 조각마다 점수가 있고 점수가 높은 짝부터 붙인다. merges 목록이 따로 없는 이유다.
 let gemma = null;
 
 function varint(buf, at) {
@@ -44,7 +44,7 @@ function varint(buf, at) {
   return [out, at];
 }
 
-/** ModelProto 에서 조각과 점수만 꺼낸다. */
+/** ModelProto 에서 조각과 점수만 */
 function readPieces(buf) {
   const piece = [];
   const score = [];

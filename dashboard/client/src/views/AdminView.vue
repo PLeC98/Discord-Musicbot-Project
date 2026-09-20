@@ -618,7 +618,7 @@ const sseConnected = ref(false);
 const logPane = ref(null);
 let sse = null;
 
-// 레벨 필터는 **다중 토글**이다 — "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
+// 레벨 필터는 다중 토글이다 — "이 중 하나만 보기"가 아니라 "보려는 건 켜고 안 보려는 건 끈다".
 // 선택은 저장하지 않는다(새로고침하면 초기 상태로 돌아간다).
 const LEVEL_ORDER = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const logLevels = [

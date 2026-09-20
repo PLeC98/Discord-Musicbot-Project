@@ -120,7 +120,7 @@ class AudioSplicer extends Readable {
 
         const bReady = this.bDebt === 0 && (this.b.readableLength >= FRAME_BYTES || isEnded(this.b));
         if (!bReady) {
-          // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 **멈추지 말고 전환 지점을 뒤로 민다** —
+          // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 멈추지 말고 전환 지점을 뒤로 민다 —
           // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 무이음으로 갈 이유가 없어진다.
           const c = this._take(this.a);
           if (c) {

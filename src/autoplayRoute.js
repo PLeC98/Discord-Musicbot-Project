@@ -1,8 +1,8 @@
 "use strict";
 
-// 자동재생 한 곡을 고른다. 소스에서 후보를 받아 **틀 수 있는 트랙**으로 바꾸는 데까지가 여기 몫이다.
+// 자동재생 한 곡을 고른다. 소스에서 후보를 받아 틀 수 있는 트랙으로 바꾸는 데까지가 여기 몫이다.
 //
-// 소스가 무엇을 주느냐에 따라 길이 셋으로 갈린다 — 후보에 **어느 칸이 찼는지**가 그것을 정한다.
+// 소스가 무엇을 주느냐에 따라 길이 셋으로 갈린다 — 후보에 어느 칸이 찼는지가 그것을 정한다.
 //   youtubeUrl 있음 → 그 영상. 검색을 안 하므로 제목을 못 믿는다 → autoplayFilter를 건다
 //   artist+title   → youtubeMatch로 찾는다. durationSec이 같이 오면 길이 신호가 켜져
 //                    youtubeMatch가 알아서 걸러 주므로 autoplayFilter가 필요 없다
@@ -84,18 +84,12 @@ function* byWeight(list) {
 /**
  * 유튜브 영상 하나를 재생 가능한 트랙으로.
  *
- * **표시 이름은 소스 것을 앞세운다.** 유튜브 채널명은 아티스트가 아니라 올린 사람이라
- * 그대로 두면 `lcozzarelli — Sarah Vaughan - Fever`처럼 나온다. 우리가 "Sarah Vaughan의 Fever"를
- * 찾아서 고른 것이므로 아티스트는 소스가 안다.
+ * 표시 이름은 소스 것을 앞세운다. 유튜브 채널명은 아티스트가 아니라 올린 사람이다.
  *
- * 그런데 이름만 바꿔서는 안 된다. 트랙이 `platform: "youtube"`이고 주소가 영상 주소면
- * **캐시 장부(track_lookup)의 그 영상 칸에 우리 이름이 덮인다** — 나중에 누가 그 영상을
- * 직접 틀면 `resolveFromCache`가 우리가 써 둔 이름을 돌려준다. 게다가 TrackDownloader가
- * 유튜브 트랙의 제목을 영상 제목으로 되돌려 놓는다.
- *
- * 스포티파이가 이미 같은 처지이고, 이 저장소는 그것을 이렇게 푼다 —
- * **주소와 platform은 출처 것으로 두고, 영상은 `youtubeUrl`에, 소리는 `audioSourceKey`로 나눠 쓴다.**
- * 그러면 장부에 칸이 따로 생기고 음원 파일은 하나만 받는다. 여기서도 그대로 따른다.
+ * 이름만 바꿔서는 안 된다. `platform: "youtube"`이고 주소가 영상 주소면 캐시 장부의 그 영상 칸에
+ * 우리 이름이 덮이고, TrackDownloader가 제목을 영상 제목으로 되돌려 놓는다.
+ * 그래서 주소와 platform은 출처 것으로 두고, 영상은 `youtubeUrl`에, 소리는 `audioSourceKey`로
+ * 나눠 쓴다. 장부에 칸이 따로 생기고 음원 파일은 하나만 받는다. 스포티파이와 같은 방식이다.
  */
 function fromYouTube(video, cand) {
   const YouTube = require("./YouTube");

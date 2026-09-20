@@ -32,7 +32,7 @@ function isUnavailable(err) {
 }
 
 // err.message는 절대 내보내지 않는다 — "database disk image is malformed"도 내부 정보다.
-// 다만 **무엇을 고쳐야 하는지**는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
+// 다만 무엇을 고쳐야 하는지는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
 // 내용이 길어서 막힌 사람이 무엇을 줄여야 할지 알 수 없다.
 function classify(err) {
   const status = err?.status ?? err?.statusCode;
@@ -66,7 +66,7 @@ function errorHandler(err, req, res, next) {
   // 로그는 응답을 쓸 수 있든 없든 남긴다 — 헤더가 이미 나간 응답(SSE)에서 나는 오류가
   // 기록조차 안 되면 사후에 존재 자체를 알 수 없다.
   //
-  // 4xx는 **보낸 쪽이 잘못한 것**이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
+  // 4xx는 보낸 쪽이 잘못한 것이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
   // PayloadTooLargeError 스택이 쌓이면 그게 곧 도배다. 한 줄로 사실만 남긴다.
   const line = `[${errorId}] ${req.method} ${req.originalUrl} → ${status}`;
   if (status >= 500) log.error(line, err?.stack || err?.message || err);

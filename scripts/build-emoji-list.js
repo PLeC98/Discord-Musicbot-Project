@@ -1,6 +1,6 @@
 "use strict";
 
-// 대시보드 이모지 고르기 목록을 만든다. **손으로 실행한다** — postinstall이나 빌드에 걸려 있지 않다.
+// 대시보드 이모지 고르기 목록을 만든다. 손으로 실행한다 — postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.js
 //
 // 목록의 원본은 notes/디스코드 이모지 카테고리 및 목록.md 다. 분류와 순서를 디스코드 선택기에서

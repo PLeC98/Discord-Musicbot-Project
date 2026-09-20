@@ -2,7 +2,7 @@
 
 // src/autoplayRoute — 소스가 준 후보를 "틀 수 있는 트랙"으로 바꾸고, 소스를 훑어 한 곡을 고른다.
 //
-// 여기서 지키려는 것은 **어느 칸이 찼는지가 길을 정한다**는 규칙이다.
+// 여기서 지키려는 것은 어느 칸이 찼는지가 길을 정한다는 규칙이다.
 // 유튜브 검색은 실제로 하지 않는다 — require.cache로 YouTube를 갈아 끼운다.
 
 const { test, beforeEach } = require("node:test");
@@ -112,7 +112,7 @@ test("소스가 이름을 모르면 영상 쪽을 쓴다 — 키워드·유튜�
 // ── 출처와 소리를 나눠 쥔다 ───────────────────────────────────────────────
 
 // 회귀 대상: 출처에서 받아 온 곡을 `platform: "youtube"` + 영상 주소로 만들었더니,
-// **캐시 장부(track_lookup)의 그 영상 칸에 우리 이름이 덮였다.** 나중에 누가 그 영상을 직접 틀면
+// 캐시 장부(track_lookup)의 그 영상 칸에 우리 이름이 덮였다. 나중에 누가 그 영상을 직접 틀면
 // resolveFromCache가 우리가 써 둔 이름을 돌려준다. 게다가 TrackDownloader가 유튜브 트랙의
 // 제목을 영상 제목으로 되돌려 놓아 "소스 것을 앞세운다"가 무위로 돌아간다.
 //
@@ -259,7 +259,7 @@ test("소스 기본값 — 안 적었을 때 무엇으로 도는가", () => {
   assert.ok(SPEC.animethemes.enums.mediaFormat.includes("TV Short"), "띄어쓰기까지 그대로여야 한다");
 });
 
-// `languages` 파라미터는 저쪽이 **조용히 무시한다** — 쓰레기 값을 넣어도 전체가 온다.
+// `languages` 파라미터는 저쪽이 조용히 무시한다 — 쓰레기 값을 넣어도 전체가 온다.
 // 실제로 듣는 것은 advancedFilters 쪽이고, 한 번에 하나만 걸린다.
 test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () => {
   const { _lyricsFilter, _someLanguages, SPEC } = require("../src/autoplaySources");

@@ -7,13 +7,13 @@ const config = require("../config");
 const CacheManager = require("./CacheManager");
 const { ffmpegPath } = require("./ffmpegPath");
 
-// yt-dlp의 --plugin-dirs는 **하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트**를 기대한다
+// yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
-// 한 단계 더 들어가 찾다가 아무것도 못 찾고 **조용히 넘어간다** — 오류도 경고도 없다.
+// 한 단계 더 들어가 찾다가 아무것도 못 찾고 조용히 넘어간다 — 오류도 경고도 없다.
 // 그래서 plugin/ 이 아니라 그 부모인 저장소 루트를 넘긴다.
 const BGUTIL_DIR = path.join(__dirname, "..", "bgutil-ytdlp-pot-provider");
 
-// 있는지 확인하는 것으로 그치지 않고 **yt-dlp의 규칙 그대로** 훑는다.
+// 있는지 확인하는 것으로 그치지 않고 yt-dlp의 규칙 그대로 훑는다.
 // 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다 — 그 사고가 이미 한 번 났다.
 function findPluginRoot(dir) {
   let entries;
@@ -55,7 +55,7 @@ class YouTube {
       ...extraOptions,
     };
 
-    // 인증 모델: **평상시 쿠키 없이, 연령 제한에만 쿠키.** bgutil 유무와 무관하다.
+    // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
     // 예전엔 "bgutil이 없으면 쿠키를 1차 인증으로"였는데, bgutil이 3개월간 로드조차 안 된 채
     // 무쿠키로 멀쩡히 돌았다 — 무쿠키 운용은 bgutil 덕이 아니었다(2026-09-10 규명).
     // 게다가 쿠키는 계정 밴 위험이 있다(yt-dlp 문서: 게스트 ~300영상/시간, 계정 ~2000영상/시간,
@@ -95,7 +95,7 @@ class YouTube {
       log.warn(`${needy.join(", ")} 은(는) POToken이 있어야 제대로 동작합니다. BGUTIL_ENABLED=true로 켜거나 목록에서 빼세요`);
     }
 
-    // 우리가 아는 목록에 없는 이름. **걸러내지 않는다** — yt-dlp가 새로 추가한 것일 수 있고,
+    // 우리가 아는 목록에 없는 이름. 걸러내지 않는다 — yt-dlp가 새로 추가한 것일 수 있고,
     // 유효한지는 yt-dlp가 판단한다. 알고 넣은 사람은 이 줄을 무시하면 되고,
     // 오타였다면 "넣으라는 대로 넣었는데 왜?"의 답이 여기 있다.
     const unknown = clients.filter((c) => !KNOWN.includes(c));
@@ -106,7 +106,7 @@ class YouTube {
 
   /**
    * 대시보드용 — 지금 유튜브에 어떻게 붙고 있고, 어느 경로가 살아 있나.
-   * 기동 로그는 시작 시점의 설정만 보여주지만 여기는 **실행 중 바뀌는 상태**(제외된 경로)를 담는다.
+   * 기동 로그는 시작 시점의 설정만 보여주지만 여기는 실행 중 바뀌는 상태(제외된 경로)를 담는다.
    */
   static statusSnapshot() {
     const snap = playerClients.snapshot();
@@ -241,7 +241,7 @@ class YouTube {
   }
 
   /**
-   * player_client를 순서대로 시도한다. 지정이 없으면 **호출 한 번으로 끝** — 기존과 동일하다.
+   * player_client를 순서대로 시도한다. 지정이 없으면 호출 한 번으로 끝 — 기존과 동일하다.
    *
    * 클라이언트 탓으로 보이는 실패에서만 다음으로 넘어가고 빈도를 기록한다. 영상이 없어졌거나
    * 연령 제한이거나 네트워크가 끊긴 것은 클라이언트 잘못이 아니므로 그대로 위로 던진다 —
@@ -300,7 +300,7 @@ class YouTube {
     if (!stderr) return;
     for (const line of String(stderr).split("\n")) {
       if (!/^WARNING/i.test(line)) continue;
-      // yt-dlp가 모르는 이름은 **실패가 아니라 기본 클라이언트로 조용히 떨어져 성공한다.**
+      // yt-dlp가 모르는 이름은 실패가 아니라 기본 클라이언트로 조용히 떨어져 성공한다.
       // 그러면 우리 폴백 루프가 첫 항목에서 끝나 뒤 목록이 통째로 사문화된다 — 이건 알려야 한다.
       const skipped = line.match(/Skipping unsupported client "?([\w-]+)"?/i);
       if (skipped) {
@@ -325,15 +325,15 @@ class YouTube {
   }
 
   /**
-   * 포맷 주소를 받아 놓고 **내려받다가** 막힌 것인가.
+   * 포맷 주소를 받아 놓고 내려받다가 막힌 것인가.
    *
    * 유튜브가 발급한 미디어 주소를 그 CDN이 거절하는 일이 간헐적으로 있다. yt-dlp 자신이 같은
-   * 주소로 세 번 재시도해도(retries:3) 계속 403인데, **주소를 새로 받으면 풀린다** — 주소 자체가
+   * 주소로 세 번 재시도해도(retries:3) 계속 403인데, 주소를 새로 받으면 풀린다 — 주소 자체가
    * 처음부터 거절당한 것이지 통신이 끊긴 게 아니다.
    *
    * 저쪽 사정이고 우리 쪽에 고칠 것이 없다(yt-dlp #17395 — 간헐적이고, OS·VPN·쿠키와 무관하며,
    * 실패한 요청에 siu=1 이 붙는다는 관찰이 있다. 2026.08.19 기준 고쳐진 바 없다).
-   * 그래서 여기서는 **다시 받는 것**만 한다.
+   * 그래서 여기서는 다시 받는 것만 한다.
    */
   static isStaleMediaError(error) {
     const msg = (error && (error.stderr || error.message)) || String(error || "");

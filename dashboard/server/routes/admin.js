@@ -230,12 +230,12 @@ router.get("/source-types", requireOwner, async (req, res) => {
   res.json({ types: await require("../../../src/autoplaySources").catalog() });
 });
 
-// AI 보조 — 키는 .env 에 있고 **값을 내려보내지 않는다.** 있는지 없는지만 알려 준다.
+// AI 보조 — 키는 .env 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
 // 기본 프롬프트도 같이 준다 — 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
   const assist = require("../../../src/autoplayAssist");
-  // **키 값은 절대 안 내려간다.** 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
+  // 키 값은 절대 안 내려간다. 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
   const keys = configData.aiKeys();
   res.json({
     hasKey: Object.fromEntries(Object.keys(assist.PROVIDER_SPECS).map((name) => [name, !!keys[name]])),
@@ -247,7 +247,7 @@ router.get("/ai/state", requireOwner, (req, res) => {
   });
 });
 
-// 키를 고쳐 쓴다. **쓰기 전용이다** — 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
+// 키를 고쳐 쓴다. 쓰기 전용이다 — 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
 // 로그에도 이름만 남긴다.
 /**
  * 그 모델이 받는 칸 — 프로필(data/ai-models.json)이 정한다.
@@ -336,7 +336,7 @@ router.post("/ai/judge/lines", requireOwner, (req, res) => {
   res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) });
 });
 
-/** 판정 테스트 2 — 그 후보들을 **실제로** 보내 곡별 판정을 받는다. */
+/** 판정 테스트 2 — 그 후보들을 실제로 보내 곡별 판정을 받는다. */
 router.post("/ai/judge/run", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
   const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
@@ -376,7 +376,7 @@ router.put("/ai/prompt", requireOwner, (req, res) => {
   }
 });
 
-// 나갈 것을 **만들어만 본다. 보내지 않는다.** 조립은 봇이 쓰는 코드 그대로다.
+// 나갈 것을 만들어만 본다. 보내지 않는다. 조립은 봇이 쓰는 코드 그대로다.
 router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });

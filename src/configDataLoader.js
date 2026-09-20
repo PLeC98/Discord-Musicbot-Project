@@ -15,7 +15,7 @@ const fs = require("fs");
 const path = require("path");
 const YAML = require("yaml");
 const log = require("./logger").child({ category: "config" });
-// 설정 검증과 실제 실행이 **같은 표**를 봐야 한다 — 어긋나면 저장은 되는데 재생이 안 된다
+// 설정 검증과 실제 실행이 같은 표를 봐야 한다 — 어긋나면 저장은 되는데 재생이 안 된다
 const sources = require("./autoplaySources");
 
 // 같은 말을 되풀이하지 않는다 — genres()는 곡을 고를 때마다 불린다
@@ -44,7 +44,7 @@ const exampleOf = (name) => path.join(configDir, `${name}.example.yaml`);
  *
  * 기동 시 파일이 없으면 멈춘다(.env와 같은 취급) — 코드에 박힌 기본값으로 조용히 돌면
  * 설치가 어긋나도 아무도 모른 채 엉뚱한 설정으로 운영된다.
- * 반면 **돌던 중의 읽기·파싱 실패는 직전 값을 유지**한다. 저장하다 만 파일 한 번에 재생이 멈추면 안 된다.
+ * 반면 돌던 중의 읽기·파싱 실패는 직전 값을 유지한다. 저장하다 만 파일 한 번에 재생이 멈추면 안 된다.
  */
 function load(name) {
   const file = fileOf(name);
@@ -122,8 +122,8 @@ function genres() {
 }
 
 /**
- * .env에 키가 없는 소스를 어떻게 다룰까 — **부분만 없으면 알리고 남은 것으로 돌고,
- * 쓸 수 있는 게 하나도 안 남으면 기동을 거부한다.**
+ * .env에 키가 없는 소스를 어떻게 다룰까 — 부분만 없으면 알리고 남은 것으로 돌고,
+ * 쓸 수 있는 게 하나도 안 남으면 기동을 거부한다.
  *
  * 장르 하나가 삐끗했다고 봇 전체를 못 띄우는 것은 과하지만, 그 장르를 고르면 아무 일도 일어나지
  * 않는 채로 두는 것은 더 나쁘다 — 무엇이 잘못됐는지 알 길이 없기 때문이다.
@@ -263,7 +263,7 @@ function validateStatus(data) {
 // ── 쓰기 (대시보드) ───────────────────────────────────────────────────────
 
 /**
- * 받은 데이터를 문서에 **덮어쓰지 않고 맞춘다** — 바뀐 자리만 고친다.
+ * 받은 데이터를 문서에 덮어쓰지 않고 맞춘다 — 바뀐 자리만 고친다.
  *
  * 통째로 다시 쓰면 사람이 적은 주석이 전부 날아간다. 손대지 않은 항목은 원문 그대로 두어야
  * 이 파일의 두 주인(운영자·대시보드)이 공존할 수 있다.
@@ -329,7 +329,7 @@ function syncMap(doc, node, data, pathArr) {
 
     doc.setIn(here, value);
 
-    // 여러 줄 글은 블록 리터럴로 적는다. 큰따옴표로 적으면 줄바꿈 하나가 **빈 줄**로 나가서
+    // 여러 줄 글은 블록 리터럴로 적는다. 큰따옴표로 적으면 줄바꿈 하나가 빈 줄로 나가서
     // (YAML 은 그렇게 접는다) 읽기 나쁘다. 되읽으면 같은 값이지만 손으로 고칠 파일이다.
     if (typeof value === "string" && value.includes("\n")) {
       const node = doc.getIn(here, true);
@@ -381,7 +381,7 @@ function save(name, data) {
 
 // 장르 하나의 sources를 본다. 반환: 문제 문구 배열.
 //
-// 맨 위 keywords:는 **읽지 않는다.** 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
+// 맨 위 keywords:는 읽지 않는다. 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
 // 그건 축약이 아니라 영구 호환층이다 — 새로 쓰는 사람이 keywords:를 고를 이유가 없다.
 // 한 번 크게 깨지고 끝나는 편이 두 모양을 영원히 들고 가는 것보다 낫다.
 function sourceProblems(id, genre) {
@@ -463,7 +463,7 @@ function validateGenres(data) {
 
 // ── ai-keys.yaml ──────────────────────────────────────────────────────────
 //
-// 프로바이더마다 키가 따로다. **이 값은 대시보드로 내려보내지 않는다** —
+// 프로바이더마다 키가 따로다. 이 값은 대시보드로 내려보내지 않는다 —
 // 화면에는 있는지 없는지만 간다(dashboard/server/routes/admin.js).
 //
 // .env 가 아니라 여기 두는 까닭: 프로바이더가 여럿이면 .env 한 칸을 돌려쓸 수 없고,
@@ -482,7 +482,7 @@ function aiKeys() {
 const aiKeyOf = (provider) => aiKeys()[provider] || "";
 
 /**
- * 키를 고쳐 쓴다. **적어 보낸 칸만** 바꾸고 나머지는 그대로 둔다.
+ * 키를 고쳐 쓴다. 적어 보낸 칸만 바꾸고 나머지는 그대로 둔다.
  * 돌려주는 것은 값이 아니라 있는지 없는지다 — 값은 어느 통로로도 돌아나가지 않는다.
  */
 function saveAiKeys(changes) {
@@ -504,7 +504,7 @@ function saveAiKeys(changes) {
 
 // ── ai-prompt.chatml ──────────────────────────────────────────────────────
 //
-// 프롬프트는 설정과 **딴 파일**에 산다. 설정 파일에 긴 글을 섞으면 YAML 들여쓰기에 걸려
+// 프롬프트는 설정과 딴 파일에 산다. 설정 파일에 긴 글을 섞으면 YAML 들여쓰기에 걸려
 // 손으로 고치기 나쁘고, 프롬프트만 주고받기도 어렵다.
 //
 // 모양은 ChatML 이다 — 채팅 프론트엔드들이 쓰는 그 규격이라 옮겨 붙이기 쉽다.
@@ -582,7 +582,7 @@ function ai() {
 }
 
 // 목록은 autoplayAssist 가 갖는다(주소·키 필요 여부까지 거기 있다).
-// **여기서 위로 require 하면 순환이다** — 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
+// 여기서 위로 require 하면 순환이다 — 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
 const aiProviders = () => require("./autoplayAssist").PROVIDERS;
 
 function validateAi(data) {
@@ -618,7 +618,7 @@ function validateAi(data) {
     if (data?.[key] != null && typeof data[key] !== "string") problems.push(`${key}는 글자로 적어야 합니다.`);
   }
 
-  // 모델이 받는 칸의 값. **모델 이름으로 한 겹 나뉜다** — 안 그러면 모델을 바꿨을 때
+  // 모델이 받는 칸의 값. 모델 이름으로 한 겹 나뉜다 — 안 그러면 모델을 바꿨을 때
   // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(autoplayAssist.withParams).
   if (data?.params != null) {
     if (typeof data.params !== "object" || Array.isArray(data.params)) {

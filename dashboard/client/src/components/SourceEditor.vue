@@ -134,9 +134,9 @@ const widthCls = (field) => WIDTHS[field.width] || "col-span-2 md:col-span-6";
 let serial = 0;
 const list = ref([]);
 
-// watch 가 immediate 로 바로 돌므로 **그 전에** 있어야 한다. 아래에 두면 TDZ 에 걸리는데,
-// Vue 가 watcher 콜백의 예외를 잡아 콘솔에만 남기고 넘어가므로 **화면은 멀쩡히 그려지고
-// 목록만 빈 채로** "출처가 하나는 있어야 합니다"가 뜬다 — 실제로 그렇게 한 번 당했다.
+// watch 가 immediate 로 바로 돌므로 그 전에 있어야 한다. 아래에 두면 TDZ 에 걸리는데,
+// Vue 가 watcher 콜백의 예외를 잡아 콘솔에만 남기고 넘어가므로 화면은 멀쩡히 그려지고
+// 목록만 빈 채로 "출처가 하나는 있어야 합니다"가 뜬다 — 실제로 그렇게 한 번 당했다.
 const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
 const push = () => emit("update:modelValue", list.value.map(clean));
 

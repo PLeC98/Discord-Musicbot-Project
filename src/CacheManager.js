@@ -340,8 +340,8 @@ class CacheManager {
    * `verified`는 "제목을 영상 자체에서 확인했는가"다. 재생목록 페이지가 주는 제목은 같은 영상인데도
    * 다를 수 있어(실측: 같은 영상인데 재생목록은 앞에 전각 공백이 붙은 축약 제목을, 영상 자체는
    * 정식 제목을 준다), 그걸로 확인된
-   * 제목을 덮으면 한 번 고친 것이 도로 낡은 값으로 돌아간다. 그래서 **확인된 제목은 확인된
-   * 제목으로만 갱신한다.** 매핑(audio_source_key)은 출처와 무관하게 항상 갱신한다.
+   * 제목을 덮으면 한 번 고친 것이 도로 낡은 값으로 돌아간다. 그래서 확인된 제목은 확인된
+   * 제목으로만 갱신한다. 매핑(audio_source_key)은 출처와 무관하게 항상 갱신한다.
    */
   recordTrackLookup(sourceUrl, platform, audioSourceKey, displayTitle, displayArtist, displayThumbnail, { verified = false } = {}) {
     if (!this._initialized) this.initialize();
@@ -605,7 +605,7 @@ class CacheManager {
 
     const before = { files: this._cacheCount(), bytes: this._cacheSize() };
 
-    // 파일을 **먼저** 지우고, 잠겨서 못 지운 것의 행은 남긴다.
+    // 파일을 먼저 지우고, 잠겨서 못 지운 것의 행은 남긴다.
     // 행만 지우고 파일을 남기면 부모 없는 자식이 생긴다 — 재생 중인 곡은 파일이 있어 다운로더를 건너뛰므로
     // audio_cache 행이 다시 만들어지지 않고, 그 뒤의 track_lookup 기록이 FK 위반으로 재생을 죽인다.
     const rows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache").all();

@@ -20,7 +20,7 @@ const HAS_ANSI = /\x1B\[/;
 const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const LEVEL_NAMES = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // SSE 와이어 레벨 = 실제 레벨 이름. 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로
-// 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 **대시보드가 영영 못 가른다.**
+// 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 영영 못 가른다.
 // 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
 const WIRE_LEVEL = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다 — 여기 걸리는 건 전부 서드파티라
@@ -37,7 +37,7 @@ const LEVEL_COLOR = {
   fatal: chalk.bgRed.white,
 };
 
-// **본문 색도 sink가 칠한다.** 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
+// 본문 색도 sink가 칠한다. 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
 // 79%가 흰 글씨였다(실측 86건 중 68건). 색이 위험도가 아니라 "그 줄을 쓴 사람이 chalk를 썼는지"를
 // 나타내던 셈이다. sink는 레벨을 알고 있으니 여기서 일관되게 칠한다.
 const TEXT_COLOR = {
