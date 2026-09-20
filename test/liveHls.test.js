@@ -65,7 +65,7 @@ test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를
   assert.match(live, /LIVE/, "라이브임을 알려야 한다");
   assert.doesNotMatch(live, /1:05/, "붙어 있은 시간은 곡 안의 위치가 아니다");
   assert.doesNotMatch(live, /●/, "찍을 지점이 없다");
-  assert.ok(live.includes("--:--"), "길이는 모른다");
+  assert.ok(live.includes("-:--"), "길이는 모른다");
 
   // 보통 곡은 그대로다
   const normal = manager.buildProgressBar(65, 200);

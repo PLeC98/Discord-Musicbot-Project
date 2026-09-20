@@ -481,7 +481,7 @@ class MusicEmbedManager {
     // 경과 시간 자리는 비워 두는 대신 표식을 넣는다. 그 값은 곡 안의 위치가 아니라
     // "우리가 붙어 있은 시간"이라, 옆의 `--:--`과 나란히 두면 진행률처럼 읽힌다.
     if (live) {
-      return `\`🔴LIVE\` ${"▬".repeat(BAR_LENGTH + 1)} \`--:--\``;
+      return `\`🔴LIVE\` ${"▬".repeat(BAR_LENGTH + 1)} \`-:--\``;
     }
 
     if (!totalSec || totalSec === 0) {
