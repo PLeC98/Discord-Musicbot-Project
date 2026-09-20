@@ -452,6 +452,17 @@ test("조건이 안 맞는 칸은 보내지 않는다", async () => {
 });
 
 // 온도도 모델이 받는 칸 하나다 — 프로필이 적어 둔 자리로 들어간다(제미니는 generationConfig 안).
+// 끝 슬래시를 떼는 정규식이 역추적으로 O(n²) 였다 — 20만 글자에 12.4초 동안 이벤트 루프가 멈췄다.
+test("긴 주소에도 끝 슬래시 떼기가 느려지지 않는다", () => {
+  const one = { provider: "custom", baseUrl: "/".repeat(200_000) + "x" };
+  const started = Date.now();
+  assist.endpointOf(one);
+  assert.ok(Date.now() - started < 500, "선형이어야 한다");
+
+  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "http://x/v1///" }), "http://x/v1", "하던 일은 그대로");
+  assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "" }), "");
+});
+
 // 점 경로는 설정 글에서만 오는 것이 아니다 — **모델 레지스트리의 mapsTo.path** 로도 온다.
 // 레지스트리는 우리가 내려받는 남의 데이터라, `__proto__` 한 마디로 프로세스 전체가 오염될 수 있었다.
 test("점 경로로 Object.prototype 을 오염시킬 수 없다", () => {

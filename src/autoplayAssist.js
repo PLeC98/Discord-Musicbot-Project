@@ -112,11 +112,19 @@ const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.
  * 프로바이더를 골랐으면 그곳의 주소로 간다 — 설정에 남아 있는 옛 주소로 조용히 나가지 않는다.
  * 여기 적힌 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom 으로 간다.
  */
+// 끝의 슬래시를 뗀다. `/\/+$/` 로 하면 안 된다 — 끝에 없는 슬래시 더미에 역추적이 붙어
+// **O(n²)** 가 된다(실측: 10만 개 3.2초, 20만 개 12.4초). 세면서 자르면 선형이다.
+function stripTrailingSlash(text) {
+  const str = String(text || "");
+  let end = str.length;
+  while (end > 0 && str[end - 1] === "/") end--;
+  return str.slice(0, end);
+}
+
 function endpointOf(one) {
   const spec = specOf(one?.provider);
   if (!spec) return "";
-  const url = spec.editable ? one?.baseUrl : spec.baseUrl;
-  return String(url || "").replace(/\/+$/, "");
+  return stripTrailingSlash(spec.editable ? one?.baseUrl : spec.baseUrl);
 }
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
 const wantsKey = (one) => !!specOf(one?.provider)?.key;
@@ -132,7 +140,7 @@ async function keyFor(one) {
   if (!wantsKey(one)) return "";
 
   if (specOf(one.provider)?.editable) {
-    const saved = String(configData.ai()?.baseUrl || "").replace(/\/+$/, "");
+    const saved = stripTrailingSlash(configData.ai()?.baseUrl);
     if (!saved || endpointOf(one) !== saved) return "";
   }
   return configData.aiKeyOf(one.provider);
