@@ -452,6 +452,24 @@ test("조건이 안 맞는 칸은 보내지 않는다", async () => {
 });
 
 // 온도도 모델이 받는 칸 하나다 — 프로필이 적어 둔 자리로 들어간다(제미니는 generationConfig 안).
+// 점 경로는 설정 글에서만 오는 것이 아니다 — **모델 레지스트리의 mapsTo.path** 로도 온다.
+// 레지스트리는 우리가 내려받는 남의 데이터라, `__proto__` 한 마디로 프로세스 전체가 오염될 수 있었다.
+test("점 경로로 Object.prototype 을 오염시킬 수 없다", () => {
+  for (const name of ["__proto__.뚫림", "constructor.prototype.뚫림", "a.__proto__.뚫림"]) {
+    const got = assist.parseExtra(`${name}=1`);
+    assert.deepEqual(got.body, {}, name);
+    assert.match(got.problems.join(" "), /쓸 수 없는 이름/, `${name} — 조용히 버리지 않고 알려 준다`);
+  }
+  assert.equal({}.뚫림, undefined, "Object.prototype 이 멀쩡해야 한다");
+});
+
+// 멀쩡한 점 경로는 그대로 통해야 한다 — 위 가드가 과하게 막으면 안 된다
+test("평범한 점 경로는 막지 않는다", () => {
+  const got = assist.parseExtra("generationConfig.topP=0.9");
+  assert.deepEqual(got.body, { generationConfig: { topP: 0.9 } });
+  assert.deepEqual(got.problems, []);
+});
+
 test("온도는 params 를 타고 프로필이 적은 자리로 간다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\nparams:\n  gemini-3.7-flash:\n    temperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;

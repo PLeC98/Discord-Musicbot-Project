@@ -167,8 +167,17 @@ function settings() {
  * **RisuAI 와 같은 입력법이다** — 그쪽에 익숙한 사람이 그대로 적을 수 있게 맞췄다.
  * 못 읽은 줄은 조용히 버리지 않고 problems 로 돌려준다(대시보드가 보여 준다).
  */
+// `__proto__` 한 마디면 Object.prototype 이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
+// **모델 레지스트리(우리가 받아 오는 남의 데이터)의 mapsTo.path** 로도 들어오므로 여기서 막는다.
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+const safeKeys = (path) => {
+  const keys = String(path).split(".");
+  return keys.some((one) => UNSAFE_KEYS.has(one)) ? null : keys;
+};
+
 function setPath(obj, path, value) {
-  const keys = path.split(".");
+  const keys = safeKeys(path);
+  if (!keys) return obj;
   let at = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
@@ -182,7 +191,8 @@ function setPath(obj, path, value) {
 
 /** 점 경로로 지운다. 없는 길이면 아무 일도 안 한다. */
 function delPath(obj, path) {
-  const keys = path.split(".");
+  const keys = safeKeys(path);
+  if (!keys) return;
   let at = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     at = at?.[keys[i]];
@@ -270,6 +280,10 @@ function parseExtra(text) {
     }
     if (value === "") {
       problems.push(`값이 없습니다: ${name}`);
+      continue;
+    }
+    if (!safeKeys(name)) {
+      problems.push(`쓸 수 없는 이름입니다: ${name}`);
       continue;
     }
 
@@ -598,6 +612,7 @@ async function buildRequest(one, batch, genre) {
 function deepMerge(base, add) {
   const out = { ...base };
   for (const [key, value] of Object.entries(add)) {
+    if (UNSAFE_KEYS.has(key)) continue; // setPath 와 같은 이유
     const mine = out[key];
     const both = (v) => v && typeof v === "object" && !Array.isArray(v);
     out[key] = both(mine) && both(value) ? deepMerge(mine, value) : value;
