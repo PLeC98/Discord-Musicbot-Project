@@ -27,7 +27,7 @@ module.exports = {
 
     if (!skipped) return interaction.reply({ content: "❌ 노래가 건너뛰어지지 않았습니다!", flags: [1 << 6] });
 
-    if (player.loop === "track") return interaction.reply({ content: `🔂 한곡 반복 중 — **${currentTrack.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`, flags: [1 << 6] });
+    if (player.loop === "track") return interaction.reply({ content: `🔂 한곡 반복 중. **${currentTrack.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`, flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("⏭️ 노래 건너뜀")

@@ -75,7 +75,7 @@ module.exports = {
   },
 
   async validateRequest(member) {
-    // 우선 추가(대기열 맨 앞 삽입)는 재생 순서를 바꾸는 조작 — DJ 계층 필요
+    // 우선 추가(대기열 맨 앞 삽입)는 재생 순서를 바꾸는 조작. DJ 계층 필요
     const permErr = (await checkControl(member)) || checkSummon(member);
     if (permErr) return { success: false, message: permErr };
     return { success: true };

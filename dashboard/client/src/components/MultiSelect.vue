@@ -1,5 +1,5 @@
 <!--
-  여럿 고르는 드롭다운 — 열면 각 줄 오른쪽 끝에 체크박스가 있다.
+  여럿 고르는 드롭다운. 열면 각 줄 오른쪽 끝에 체크박스가 있다.
 
   알약(enumList)으로 늘어놓기에는 항목이 너무 많은 칸에 쓴다(가사 언어는 40가지가 넘는다).
 -->
@@ -48,7 +48,7 @@ function toggle(value) {
   emit("update:modelValue", next);
 }
 
-// 바깥을 누르면 닫는다. 열려 있을 때만 듣는다 — 닫힌 드롭다운이 여럿 있어도 비용이 없다.
+// 바깥을 누르면 닫는다. 열려 있을 때만 듣는다. 닫힌 드롭다운이 여럿 있어도 비용이 없다.
 function onDocClick(event) {
   if (!root.value?.contains(event.target)) open.value = false;
 }

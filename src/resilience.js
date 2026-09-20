@@ -6,7 +6,7 @@
 //       진짜 치명적 오류는 안전하게 종료해 봇 운영자의 확인·수동 재시작을 대기.
 
 const log = require("./logger").child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
-// 프로세스를 내리는 것은 음성 관심사가 아니다 — 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
+// 프로세스를 내리는 것은 음성 관심사가 아니다. 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
 const flog = require("./logger").child({ category: "core", sub: "fatal" });
 const { VoiceConnectionStatus } = require("@discordjs/voice");
 
@@ -14,7 +14,7 @@ const { VoiceConnectionStatus } = require("@discordjs/voice");
 const NET_ERR_WINDOW_MS = 60000;
 const NET_ERR_MAX = 8;
 
-// undici/Node 네트워크 계열 오류인지 — 느슨한 message 부분문자열 대신 code/name을 우선 판정.
+// undici/Node 네트워크 계열 오류인지. 느슨한 message 부분문자열 대신 code/name을 우선 판정.
 function isTransientNetworkError(err) {
   if (!err) return false;
   const code = err.code;
@@ -23,7 +23,7 @@ function isTransientNetworkError(err) {
   const name = err.name;
   if (name && ["FetchError", "AbortError"].includes(name)) return true;
   const msg = err.message || "";
-  // "IP discovery"는 @discordjs/voice의 음성 연결 수립 단계(자기 공인 IP:포트 확인) 실패 —
+  // "IP discovery"는 @discordjs/voice의 음성 연결 수립 단계(자기 공인 IP:포트 확인) 실패.
   // 일시적 UDP/네트워크 이슈라 해당 서버만 재연결로 복구 가능(전체 몰살할 이유 없음).
   return /terminated|socket hang up|ECONNRESET|ETIMEDOUT|network|IP discovery/i.test(msg);
 }
@@ -40,10 +40,10 @@ async function healBrokenPlayers(client) {
     for (const [guildId, player] of client.players) {
       try {
         if (!player || !player.currentTrack || player.paused) continue; // 되살릴 게 없음
-        if (player.isRecovering) continue; // 이미 자체 복구 중 — 방해 금지
+        if (player.isRecovering) continue; // 이미 자체 복구 중. 방해 금지
         const status = player.connection && player.connection.state && player.connection.state.status;
-        if (status === VoiceConnectionStatus.Ready) continue; // 정상 서버 — 무영향
-        // 수립 진행 중은 자체 완료/실패를 기다림 — 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
+        if (status === VoiceConnectionStatus.Ready) continue; // 정상 서버. 무영향
+        // 수립 진행 중은 자체 완료/실패를 기다림. 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
         if (status === VoiceConnectionStatus.Connecting || status === VoiceConnectionStatus.Signalling) continue;
         log.info(`서버 ID ${guildId}의 음성 연결이 끊겨 복구를 시작합니다`);
         player.voice.startConnectionRecovery();
@@ -56,7 +56,7 @@ async function healBrokenPlayers(client) {
   }
 }
 
-// 빈도 가드 팩토리 — 짧은 시간창에 오류가 몰리면 시스템적 이상으로 보고 true(→ 안전 종료 승격).
+// 빈도 가드 팩토리. 짧은 시간창에 오류가 몰리면 시스템적 이상으로 보고 true(→ 안전 종료 승격).
 // 오류 종류별로 별도 인스턴스를 사용해 서로의 카운터를 오염시키지 않는다.
 function makeFloodGuard(windowMs = NET_ERR_WINDOW_MS, max = NET_ERR_MAX) {
   let times = [];
@@ -69,12 +69,12 @@ function makeFloodGuard(windowMs = NET_ERR_WINDOW_MS, max = NET_ERR_MAX) {
 }
 
 const networkErrorFlooding = makeFloodGuard();
-// 알 수 없는 unhandledRejection용 — 단발은 봇을 살리고, 반복(좀비 루프)만 안전 종료로 승격
+// 알 수 없는 unhandledRejection용. 단발은 봇을 살리고, 반복(좀비 루프)만 안전 종료로 승격
 const unknownRejectionFlooding = makeFloodGuard();
-// discord.js client "error"용 — 리스너 rejection과 내부 오류가 같이 들어오므로 별도 카운터
+// discord.js client "error"용. 리스너 rejection과 내부 오류가 같이 들어오므로 별도 카운터
 const unknownClientErrorFlooding = makeFloodGuard();
 
-// 재시도해도 결과가 같은 Discord API 오류 — 로그만 남기고 흘려보낸다(프로세스를 흔들 이유가 없음).
+// 재시도해도 결과가 같은 Discord API 오류. 로그만 남기고 흘려보낸다(프로세스를 흔들 이유가 없음).
 const IGNORABLE_DISCORD_ERRORS = {
   10062: { level: "info", message: "ℹ️ 만료된 상호작용입니다 (10062 Unknown interaction)" },
   40060: { level: "info", message: "ℹ️ 이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)" },
@@ -85,16 +85,16 @@ function ignorableDiscordError(err) {
   return (err && IGNORABLE_DISCORD_ERRORS[err.code]) || null;
 }
 
-// 상호작용 토큰이 죽은 경우. 응답 경로 자체가 닫혀서 reply도 followUp도 다시 같은 오류다 —
+// 상호작용 토큰이 죽은 경우. 응답 경로 자체가 닫혀서 reply도 followUp도 다시 같은 오류다.
 // 오류 안내를 시도하는 것이 곧 두 번째 오류가 된다.
 function isDeadInteraction(err) {
   return !!err && (err.code === 10062 || err.code === 40060);
 }
 
-// 치명적 오류: 안전하게 정리하고 종료 — 운영자 확인 후 수동 재시작을 기다린다.
+// 치명적 오류: 안전하게 정리하고 종료. 운영자 확인 후 수동 재시작을 기다린다.
 // 저장 세션은 초기화한다: 세션 상태 자체가 원인이면 재시작 시 크래시 루프가 되므로.
 // (정전 등은 5초 스냅샷이 그대로 남는 별개 경로라 정상 복구된다.)
-// exit는 테스트 주입용 — 기본은 process.exit(1).
+// exit는 테스트 주입용. 기본은 process.exit(1).
 function fatalShutdown(client, error, exit = () => process.exit(1)) {
   try {
     if (client && client.players) {
@@ -104,11 +104,11 @@ function fatalShutdown(client, error, exit = () => process.exit(1)) {
       client.players.clear();
     }
   } catch {
-    /* best-effort 정리 — 종료 중이므로 실패해도 계속 */
+    /* best-effort 정리. 종료 중이므로 실패해도 계속 */
   }
-  // 이 줄 다음에 프로세스가 죽는다 — 레벨 판정의 fatal 정의 그대로다.
+  // 이 줄 다음에 프로세스가 죽는다. 레벨 판정의 fatal 정의 그대로다.
   // 레벨로 거를 때 "봇이 죽은 순간"만 뽑아낼 수 있어야 한다.
-  // 구분선 두 줄은 뺐다 — fatal 레벨과 색이 이미 눈에 띄고, 한 사건에 네 줄을 찍을 이유가 없다.
+  // 구분선 두 줄은 뺐다. fatal 레벨과 색이 이미 눈에 띄고, 한 사건에 네 줄을 찍을 이유가 없다.
   flog.fatal(
     `치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다.
 ${String((error && error.stack) || error)}`,

@@ -13,7 +13,7 @@
           <div class="h-full rounded-full bg-linear-90 from-accent to-accent-2 transition-[width] duration-500 ease-smooth" :class="busy && 'animate-pulse'" :style="{ width: `${progress}%` }"></div>
         </div>
       </div>
-      <!-- 닫기 — 둘레의 고리가 남은 시간만큼 줄어들고, 다 줄면 디스코드 메뉴처럼 사라진다 -->
+      <!-- 닫기. 둘레의 고리가 남은 시간만큼 줄어들고, 다 줄면 디스코드 메뉴처럼 사라진다 -->
       <button type="button" class="relative size-8 -mr-1 -mt-1 rounded-full flex items-center justify-center shrink-0 text-muted cursor-pointer transition-[background-color,color] duration-150 hover:not-disabled:text-fg hover:not-disabled:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed" :disabled="busy" v-tooltip="busy ? '넣는 중' : `닫기 · ${secondsLeft}초 뒤 사라져요`" aria-label="닫기" @click="$emit('close')">
         <svg class="absolute inset-0 -rotate-90 pointer-events-none" viewBox="0 0 32 32" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2" class="opacity-15" />
@@ -49,7 +49,7 @@ import { ref, computed, watch, onBeforeUnmount } from "vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 
-// 재생목록 이어 넣기 — 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:
+// 재생목록 이어 넣기. 디스코드 메뉴와 기능은 같지만 모양은 웹에 맞춘다:
 // 자주 쓰는 양은 한 번 누르면 끝나고, 그 밖의 양은 슬라이더나 숫자로 고른다.
 // 남은 자리는 대기열이 바뀌는 대로 다시 센다(대시보드 이벤트가 queueTotal을 갱신한다).
 const props = defineProps({
@@ -76,7 +76,7 @@ watch(cap, (c) => {
 });
 const valid = computed(() => Number.isInteger(amount.value) && amount.value >= 1 && amount.value <= cap.value);
 
-// ── 수명 — 디스코드 메뉴와 같다: 가만두면 사라지고, 이어 넣으면 다시 센다. 넣는 동안은 멈춘다.
+// ── 수명. 디스코드 메뉴와 같다: 가만두면 사라지고, 이어 넣으면 다시 센다. 넣는 동안은 멈춘다.
 const RING = 2 * Math.PI * 14;
 const lifetime = computed(() => props.more.lifetimeMs || 30000);
 const timerKey = ref(0);
@@ -134,7 +134,7 @@ onBeforeUnmount(stop);
 }
 @keyframes ring-drain {
   to {
-    stroke-dashoffset: 87.965; /* 2π × 14 — RING과 같다 */
+    stroke-dashoffset: 87.965; /* 2π × 14. RING과 같다 */
   }
 }
 </style>

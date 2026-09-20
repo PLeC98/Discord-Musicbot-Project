@@ -15,32 +15,32 @@ module.exports = {
     const embed = new EmbedBuilder().setTitle("🎵 도움말").setDescription("🔒 표시 명령어는 **봇과 같은 음성 채널에 있는 DJ**부터 사용할 수 있습니다. 모더레이터는 채널에 없어도 사용 가능해요.\nDJ 역할이 설정되지 않은 서버에서는 전원이 DJ로 취급됩니다. (`/setdjrole`)").setColor(config.bot.embedColor).setThumbnail(client.user.displayAvatarURL()).setTimestamp();
     embed.addFields({
       name: "🎵 재생",
-      value: ["`/play <곡/URL>` — 음악 재생", "`/playfirst <곡/URL>` — 대기열 맨 앞에 추가 🔒", "`/pause` — 일시정지 / 재개 🔒", "`/stop` — 재생 중지 및 퇴장 🔒", "`/skip` — 다음 곡 🔒 (자기가 추가한 곡은 누구나)", "`/previous` — 이전 곡 🔒", "`/replay` — 현재 곡 처음부터 🔒", "`/seek <시간>` — 특정 위치로 이동 (예: `1:30`, `90`) 🔒"].join("\n"),
+      value: ["`/play <곡/URL>`. 음악 재생", "`/playfirst <곡/URL>`. 대기열 맨 앞에 추가 🔒", "`/pause`. 일시정지 / 재개 🔒", "`/stop`. 재생 중지 및 퇴장 🔒", "`/skip`. 다음 곡 🔒 (자기가 추가한 곡은 누구나)", "`/previous`. 이전 곡 🔒", "`/replay`. 현재 곡 처음부터 🔒", "`/seek <시간>`. 특정 위치로 이동 (예: `1:30`, `90`) 🔒"].join("\n"),
       inline: false,
     });
     embed.addFields({
       name: "📋 대기열",
-      value: ["`/queue [페이지]` — 대기열 표시", "`/clear` — 대기열 비우기 🔒", "`/remove <번호>` — 특정 곡 제거 🔒 (자기가 추가한 곡은 누구나)", "`/move <from> <to>` — 곡 순서 변경 🔒", "`/shuffle` — 대기열 셔플 🔒"].join("\n"),
+      value: ["`/queue [페이지]`. 대기열 표시", "`/clear`. 대기열 비우기 🔒", "`/remove <번호>`. 특정 곡 제거 🔒 (자기가 추가한 곡은 누구나)", "`/move <from> <to>`. 곡 순서 변경 🔒", "`/shuffle`. 대기열 셔플 🔒"].join("\n"),
       inline: false,
     });
     embed.addFields({
       name: "🎛️ 모드 & 오디오",
-      value: ["`/loop [mode]` — 반복 설정 (`off` · `track` · `queue`) 🔒", "`/autoplay <장르>` — 대기열 소진 시 자동 재생 🔒", "`/volume <0-100>` — 볼륨 설정 🔒"].join("\n"),
+      value: ["`/loop [mode]`. 반복 설정 (`off` · `track` · `queue`) 🔒", "`/autoplay <장르>`. 대기열 소진 시 자동 재생 🔒", "`/volume <0-100>`. 볼륨 설정 🔒"].join("\n"),
       inline: false,
     });
     embed.addFields({
       name: "🔍 탐색 & 정보",
-      value: ["`/search <검색어>` — YouTube 검색 후 선택", "`/nowplaying` — 현재 곡 상세 정보"].join("\n"),
+      value: ["`/search <검색어>`. YouTube 검색 후 선택", "`/nowplaying`. 현재 곡 상세 정보"].join("\n"),
       inline: false,
     });
     embed.addFields({
       name: "📡 채널 & 세션",
-      value: ["`/join` — 음성 채널 입장 (이전 세션 복구)", "`/leave` — 퇴장 및 세션 저장 🔒", "`/setchannel` — 전용 채널 지정 (서버 관리 권한)", "`/setdjrole` — DJ 역할 지정 (서버 관리 권한)", "`/setplaylistlimit [곡 수]` — 재생목록을 한 번에 넣는 곡 수 (서버 관리 권한)", "`/dashboard` — 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"].join("\n"),
+      value: ["`/join`. 음성 채널 입장 (이전 세션 복구)", "`/leave`. 퇴장 및 세션 저장 🔒", "`/setchannel`. 전용 채널 지정 (서버 관리 권한)", "`/setdjrole`. DJ 역할 지정 (서버 관리 권한)", "`/setplaylistlimit [곡 수]`. 재생목록을 한 번에 넣는 곡 수 (서버 관리 권한)", "`/dashboard`. 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"].join("\n"),
       inline: false,
     });
     embed.addFields({
       name: "📊 봇 정보",
-      value: ["`/ping` — 레이턴시 확인 (서버 관리 권한)", "`/system` — 시스템 상태 (봇 운영자)", "`/cachestatus` — 오디오 캐시 통계 (서버 관리 권한)"].join("\n"),
+      value: ["`/ping`. 레이턴시 확인 (서버 관리 권한)", "`/system`. 시스템 상태 (봇 운영자)", "`/cachestatus`. 오디오 캐시 통계 (서버 관리 권한)"].join("\n"),
       inline: false,
     });
     embed.addFields({
@@ -53,7 +53,7 @@ module.exports = {
       value: [`🏠 **서버:** ${guilds}개`, `👥 **사용자:** ${users.toLocaleString()}명`, `🎵 **활성 서버:** ${activeServers}개`, `⏱️ **업타임:** ${this.formatUptime(process.uptime())}`].join("\n"),
       inline: true,
     });
-    // WEBSITE는 선택 설정(null 허용) — 없으면 링크/버튼을 생략한다
+    // WEBSITE는 선택 설정(null 허용). 없으면 링크/버튼을 생략한다
     const links = [`[📄 Invite Bot](${config.bot.invite})`];
     if (config.bot.website) links.unshift(`[🌐 Website](${config.bot.website})`);
     embed.addFields({

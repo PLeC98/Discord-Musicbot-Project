@@ -4,7 +4,7 @@ const { VoiceConnectionStatus, joinVoiceChannel, entersState } = require("@disco
 const log = require("./logger").child({ category: "voice" });
 
 /**
- * VoiceConnectionManager — 음성 연결/자동 복구/헬스체크
+ * VoiceConnectionManager. 음성 연결/자동 복구/헬스체크
  *
  * 연결 상태 필드(connection, isRecovering, recoveryAttempts, recoveryInterval, connectionHealthCheck 등)는 기존 외부 참조와 cleanup/releaseResources의 직접 해제를 깨지 않도록 player 인스턴스에 유지하고, 이 클래스는 로직만 보유
  */
@@ -92,7 +92,7 @@ class VoiceConnectionManager {
         const channelId = player.voiceChannel?.id;
         const channel = channelId ? player.guild.channels.cache.get(channelId) : null;
         if (!channel) {
-          // 클라이언트 레지스트리에서도 제거 — 정리된 플레이어를
+          // 클라이언트 레지스트리에서도 제거. 정리된 플레이어를
           // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
           // 이 서버는 재시작 전까지 계속 막힘
           log.warn(`헬스체크: 음성 채널을 찾을 수 없어 플레이어를 정리합니다 (${player.guild?.name ?? player.guild?.id})`);
@@ -143,9 +143,9 @@ class VoiceConnectionManager {
             break;
           }
 
-          // 재연결 시도 — 완료(성공/실패/15초 타임아웃)까지 기다린 뒤에만 다음 단계로
+          // 재연결 시도. 완료(성공/실패/15초 타임아웃)까지 기다린 뒤에만 다음 단계로
           const reconnected = await this.forceReconnect();
-          if (!active()) return; // 대기 중 중단됨 — 상태를 건드리지 않고 종료
+          if (!active()) return; // 대기 중 중단됨. 상태를 건드리지 않고 종료
 
           if (reconnected) {
             // 중단된 위치에서 재생 재개
@@ -171,7 +171,7 @@ class VoiceConnectionManager {
     const player = this.player;
     this._recoveryGen = (this._recoveryGen || 0) + 1; // 진행 중인 루프 무효화 (늦은 await 복귀 차단)
     if (player.recoveryInterval) {
-      // 구 setInterval 경로의 잔재 방어 — 현재 코드는 인터벌을 만들지 않음
+      // 구 setInterval 경로의 잔재 방어. 현재 코드는 인터벌을 만들지 않음
       clearInterval(player.recoveryInterval);
       player.recoveryInterval = null;
     }
@@ -191,14 +191,14 @@ class VoiceConnectionManager {
   async forceReconnect() {
     const player = this.player;
     try {
-      // 기존 연결 제거 — 이미 파괴된 연결에 destroy()를 다시 부르면 예외가 난다.
+      // 기존 연결 제거. 이미 파괴된 연결에 destroy()를 다시 부르면 예외가 난다.
       // 복구 트리거 자체가 "연결이 Destroyed됨"(헬스체크/Destroyed 이벤트)인 경우가 많으므로
       // 상태를 확인하고, 그래도 남은 경쟁은 try로 삼켜 새 연결 생성으로 넘어간다.
       if (player.connection && player.connection.state.status !== VoiceConnectionStatus.Destroyed) {
         try {
           player.connection.destroy();
         } catch {
-          // 이미 파괴됨 등 — 무시하고 새 연결로 진행
+          // 이미 파괴됨 등. 무시하고 새 연결로 진행
         }
       }
 
@@ -254,7 +254,7 @@ class VoiceConnectionManager {
             try {
               const freshGuild = await player.guild.client.guilds.fetch(player.guild.id);
               if (freshGuild && freshGuild.voiceAdapterCreator) {
-                // 서버 참조 갱신 — 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
+                // 서버 참조 갱신. 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
                 // 신선 참조로 재할당. fetch()는 캐시된 동일 인스턴스를 갱신해 돌려주므로
                 // 재할당이 안전하고, 공유 객체의 내부 상태를 덮어쓸 위험이 없다.
                 player.guild = freshGuild;

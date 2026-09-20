@@ -1,6 +1,6 @@
 "use strict";
 
-// 플레이어 세션 저장소 — 길드당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
+// 플레이어 세션 저장소. 길드당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
 // DB는 재시작 복원용 사본이다. 재생 중의 진실은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
@@ -8,7 +8,7 @@ const { HISTORY_MAX } = require("./trackState");
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
 const GAP = 1_000_000_000;
-// better-sqlite3는 정수를 JS Number로 준다 — 2^53을 넘으면 정밀도가 깨지므로 그 전에 재번호한다
+// better-sqlite3는 정수를 JS Number로 준다. 2^53을 넘으면 정밀도가 깨지므로 그 전에 재번호한다
 const SEQ_LIMIT = Number.MAX_SAFE_INTEGER - GAP;
 
 const SCHEMA = `
@@ -209,7 +209,7 @@ class PlayerSessionStore {
     });
   }
 
-  // 재생 위치만 — 활성 플레이어 전부를 한 트랜잭션에
+  // 재생 위치만. 활성 플레이어 전부를 한 트랜잭션에
   savePositions(entries) {
     const now = Date.now();
     this._tx(() => {
@@ -247,7 +247,7 @@ class PlayerSessionStore {
     });
   }
 
-  // 대기열 index번째를 현재곡으로 — 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다)
+  // 대기열 index번째를 현재곡으로. 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다)
   take(guildId, index) {
     return this._tx(() => {
       const row = this.q.rowidAt.get(guildId, "queue", index);
@@ -305,7 +305,7 @@ class PlayerSessionStore {
     });
   }
 
-  // 이전곡 — 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 큐 반복 사본(copy번째)은 먼저 뺀다.
+  // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 큐 반복 사본(copy번째)은 먼저 뺀다.
   rewind(guildId, track, { copy = -1, current = null } = {}) {
     return this._tx(() => {
       const last = this.q.lastRowid.get(guildId, "history");
@@ -331,7 +331,7 @@ class PlayerSessionStore {
     });
   }
 
-  // ── 트랙 행 (통째로) — 셔플처럼 드문 것, 그리고 어긋났을 때 ──
+  // ── 트랙 행 (통째로). 셔플처럼 드문 것, 그리고 어긋났을 때 ──
 
   replaceTracks(guildId, { current = null, queue = [], history = [] }) {
     this._tx(() => {
@@ -360,7 +360,7 @@ class PlayerSessionStore {
     return this.q.allSessions.all().map((s) => ({ guildId: s.guild_id, session: sessionFromRow(s), ...groupTracks(byGuild.get(s.guild_id) || []) }));
   }
 
-  // 기동 시 고아 파일 청소가 지켜야 할 곡 — 현재곡과 대기열(기록은 다시 받으면 된다)
+  // 기동 시 고아 파일 청소가 지켜야 할 곡. 현재곡과 대기열(기록은 다시 받으면 된다)
   liveTrackRefs() {
     return this.q.liveRefs.all().map((r) => ({ audioSourceKey: r.audio_source_key, url: r.source_url }));
   }

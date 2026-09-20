@@ -4,12 +4,12 @@ import axios from "axios";
 import router from "../router/index.js";
 import { useGuildsStore, onGuildNudge } from "./guilds.js";
 
-// 전역 재생 바 — "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
+// 전역 재생 바. "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
 //
 // ServerView와 상태를 공유하지 않는다. 재생 중인 서버의 화면에서는 바가 숨으므로(D-4)
 // 같은 서버를 둘이 동시에 조회하는 상황이 생기지 않는다.
 //
-// SSE 연결은 새로 열지 않는다 — 세션당 캡(기본 5)이 있어서, 사이드바가 이미 유지 중인
+// SSE 연결은 새로 열지 않는다. 세션당 캡(기본 5)이 있어서, 사이드바가 이미 유지 중인
 // 목록 연결의 넛지를 나눠 쓴다(guilds.js onGuildNudge).
 export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const guilds = useGuildsStore();
@@ -18,14 +18,14 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const localTime = ref(0); // 갱신 사이를 메우는 진행 위치(초)
   const scrubbing = ref(false); // 스크럽 중에는 서버 값으로 덮지 않는다
 
-  // 대상 서버 — 동시 음성 참여가 불가능하므로 항상 하나 이하다(§1).
+  // 대상 서버. 동시 음성 참여가 불가능하므로 항상 하나 이하다(§1).
   const guildId = computed(() => guilds.guilds.find((g) => g.listening)?.id ?? null);
   const guild = computed(() => guilds.guilds.find((g) => g.id === guildId.value) ?? null);
 
   const track = computed(() => data.value?.currentTrack ?? null);
   // 그 서버의 화면은 전체화면 역할을 하므로 거기서는 숨긴다(D-4). 다른 서버 화면에서는 뜬다.
   const onTargetPage = computed(() => !!guildId.value && router.currentRoute.value.params.guildId === guildId.value);
-  // 곡이 없어도 봇과 같은 채널이면 빈 셸로 남긴다 — 볼륨은 조작할 수 있고, 재생이 시작될 때
+  // 곡이 없어도 봇과 같은 채널이면 빈 셸로 남긴다. 볼륨은 조작할 수 있고, 재생이 시작될 때
   // 레이아웃이 튀지 않는다. 채널이 다르거나 봇이 없으면(guildId null) 통째로 사라진다.
   const visible = computed(() => !!guildId.value && !onTargetPage.value && !!data.value?.hasPlayer);
 
@@ -47,7 +47,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
       data.value = res.data;
       if (!scrubbing.value) localTime.value = res.data.currentTrack?.currentTime ?? 0;
     } catch {
-      data.value = null; // 권한을 잃었거나 봇이 나갔다 — 바를 접는다
+      data.value = null; // 권한을 잃었거나 봇이 나갔다. 바를 접는다
     }
   }
 
@@ -96,20 +96,20 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     // 대상 서버가 바뀌면(참가·이동·퇴장) 즉시 다시 읽는다
     stopWatch = watch(guildId, () => refresh(), { immediate: true });
 
-    // 목록 SSE 넛지 — 내 대상 서버의 변화만 골라 받는다.
+    // 목록 SSE 넛지. 내 대상 서버의 변화만 골라 받는다.
     // guildId가 null이면(어느 서버인지 모르는 페이로드) 안전하게 갱신한다.
     offNudge = onGuildNudge((changedGuildId) => {
       if (!guildId.value) return;
-      if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다 — 넛지마다 둘이 각각 조회하면 요청이 배로 든다
+      if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다. 넛지마다 둘이 각각 조회하면 요청이 배로 든다
       if (!changedGuildId || changedGuildId === guildId.value) refresh();
     });
 
-    // 그 화면을 벗어나는 순간 한 번 따라잡는다 — 머무는 동안 건너뛴 변화가 있다.
+    // 그 화면을 벗어나는 순간 한 번 따라잡는다. 머무는 동안 건너뛴 변화가 있다.
     stopPageWatch = watch(onTargetPage, (on) => {
       if (!on) refresh();
     });
 
-    // 갱신 사이 진행 위치 보간 — 재생 중이고 스크럽하지 않을 때만
+    // 갱신 사이 진행 위치 보간. 재생 중이고 스크럽하지 않을 때만
     ticker = setInterval(() => {
       if (!track.value || data.value?.paused || !data.value?.playing || scrubbing.value) return;
       if (duration.value > 0 && localTime.value >= duration.value) return;

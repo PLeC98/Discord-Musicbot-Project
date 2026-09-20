@@ -16,7 +16,7 @@ const sleep = (ms) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)
  *
  * @returns {Promise<{guild: object|null, gone: boolean}>}
  *   `gone`은 길드가 실제로 사라졌을 때만 참이다. 네트워크 오류·5xx·레이트리밋 같은 일시적
- *   실패는 거짓 — 세션을 지우지 않고 다음 기동에서 다시 시도한다.
+ *   실패는 거짓. 세션을 지우지 않고 다음 기동에서 다시 시도한다.
  */
 async function resolveGuildForRestore(client, guildId, { attempts = ATTEMPTS, delayMs = RETRY_DELAY_MS } = {}) {
   const cached = client.guilds.cache.get(guildId);
@@ -34,7 +34,7 @@ async function resolveGuildForRestore(client, guildId, { attempts = ATTEMPTS, de
     }
   }
 
-  log.warn(`서버 ID ${guildId} 조회를 ${attempts}회 실패 — 세션을 지우지 않고 다음 기동에서 다시 시도합니다: ${lastError?.message ?? "길드를 받지 못함"}`);
+  log.warn(`서버 ID ${guildId} 조회를 ${attempts}회 실패. 세션을 지우지 않고 다음 기동에서 다시 시도합니다: ${lastError?.message ?? "길드를 받지 못함"}`);
   return { guild: null, gone: false };
 }
 

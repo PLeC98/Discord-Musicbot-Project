@@ -1,4 +1,4 @@
-// 봇 운영자(OWNER_ID) 전용 라우터 — 모든 엔드포인트가 requireOwner를 지난다.
+// 봇 운영자(OWNER_ID) 전용 라우터. 모든 엔드포인트가 requireOwner를 지난다.
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
 const express = require("express");
@@ -49,7 +49,7 @@ router.get("/status", requireOwner, (req, res) => {
       loadAvg: os.loadavg(),
     },
     activePlayers: client?.players?.size || 0,
-    // 자식 프로세스(ffmpeg/yt-dlp) — 오래 살아 있는 항목이 새는 신호다.
+    // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다.
     // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.
     processes: (() => {
       const all = procRegistry.list();
@@ -63,7 +63,7 @@ router.get("/status", requireOwner, (req, res) => {
         oldest: all.slice(0, 8),
       };
     })(),
-    // 유튜브 접속 경로 — 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
+    // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: require("../../../src/YouTube").statusSnapshot(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
@@ -83,7 +83,7 @@ const ANNOUNCE_MAX = 4096; // 디스코드 embed description 상한
 router.post("/broadcast", requireOwner, async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
 
-  // 문자열인지 먼저 본다 — 객체가 오면 message.trim()에서 TypeError가 나 500이 됐다
+  // 문자열인지 먼저 본다. 객체가 오면 message.trim()에서 TypeError가 나 500이 됐다
   if (typeof message !== "string" || !message.trim()) return res.status(400).json({ error: "공지 내용을 입력해 주세요." });
   const body = message.trim();
   if (body.length > ANNOUNCE_MAX) return res.status(400).json({ error: `공지는 ${ANNOUNCE_MAX}자까지 보낼 수 있습니다 (지금 ${body.length}자).` });
@@ -192,14 +192,14 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
 router.post("/redeploy-commands", requireOwner, async (req, res) => {
   const { deployCommands } = require("../../../src/commandLoader");
-  const r = await deployCommands({ force: true }); // 대시보드 버튼 = 명시적 재배포 의도 — 지문 무시
+  const r = await deployCommands({ force: true }); // 대시보드 버튼 = 명시적 재배포 의도. 지문 무시
   if (r.ok) {
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
   }
   return res.status(502).json({ success: false, error: r.error?.message || "배포에 실패했습니다", code: r.error?.code || null });
 });
 
-// 캐시 초기화 — 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
+// 캐시 초기화. 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
 // 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
 router.post("/reset-cache", requireOwner, (req, res) => {
   const CacheManager = require("../../../src/CacheManager");
@@ -218,11 +218,11 @@ router.post("/reset-cache", requireOwner, (req, res) => {
 // 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와 여기. 그래서 통째로 덮어쓰지 않고
 // 바뀐 자리만 고친다(configDataLoader.save가 주석·빈 줄을 보존한다).
 
-// 검사기가 있는 것만 고칠 수 있다 — 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
+// 검사기가 있는 것만 고칠 수 있다. 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
 const VALIDATORS = { genres: configData.validateGenres, status: configData.validateStatus, ai: configData.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 
-// 자동재생 소스 편집기가 그릴 표 — 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
+// 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
 // 검증·실행과 같은 표에서 나온다(src/autoplaySources). 화면이 목록을 따로 들면 소스를 더할 때
 // 한쪽만 고치게 된다.
 router.get("/source-types", requireOwner, async (req, res) => {
@@ -230,16 +230,16 @@ router.get("/source-types", requireOwner, async (req, res) => {
   res.json({ types: await require("../../../src/autoplaySources").catalog() });
 });
 
-// AI 보조 — 키는 .env 에 있고 **값을 내려보내지 않는다.** 있는지 없는지만 알려 준다.
+// AI 보조. 키는 .env 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
-// 기본 프롬프트도 같이 준다 — 화면이 베껴 두면 한쪽만 고치게 된다.
+// 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
   const assist = require("../../../src/autoplayAssist");
-  // **키 값은 절대 안 내려간다.** 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
+  // 키 값은 절대 안 내려간다. 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
   const keys = configData.aiKeys();
   res.json({
     hasKey: Object.fromEntries(Object.keys(assist.PROVIDER_SPECS).map((name) => [name, !!keys[name]])),
-    // 주소·키 필요 여부는 서버가 안다 — 화면이 베껴 두면 한쪽만 고치게 된다
+    // 주소·키 필요 여부는 서버가 안다. 화면이 베껴 두면 한쪽만 고치게 된다
     providers: Object.entries(assist.PROVIDER_SPECS).map(([value, spec]) => ({ value, ...spec })),
     pingText: assist.PING_TEXT,
     defaultSections: assist.DEFAULT_SECTIONS,
@@ -247,10 +247,10 @@ router.get("/ai/state", requireOwner, (req, res) => {
   });
 });
 
-// 키를 고쳐 쓴다. **쓰기 전용이다** — 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
+// 키를 고쳐 쓴다. 쓰기 전용이다. 적어 보낸 칸만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
 // 로그에도 이름만 남긴다.
 /**
- * 그 모델이 받는 칸 — 프로필(data/ai-models.json)이 정한다.
+ * 그 모델이 받는 칸. 프로필(data/ai-models.json)이 정한다.
  * 화면은 여기서 받은 위젯·그룹 그대로 그린다.
  */
 router.get("/ai/fields", requireOwner, (req, res) => {
@@ -264,13 +264,13 @@ router.get("/ai/fields", requireOwner, (req, res) => {
     known: !!models.profileOf(registry, model),
     fields: model ? models.fieldsOf(registry, model) : [],
     groups: model ? models.groupsOf(registry, model) : [],
-    // 프로필이 아는 모델들 — 목록에 이름표를 입힐 때 쓴다
+    // 프로필이 아는 모델들. 목록에 이름표를 입힐 때 쓴다
     models: models.modelsOf(registry),
   });
 });
 
 /**
- * 프롬프트 칸이 적는 동안 세어 보는 곳 — 본문만 센다(감싸는 몫은 미리보기에서 본다).
+ * 프롬프트 칸이 적는 동안 세어 보는 곳. 본문만 센다(감싸는 몫은 미리보기에서 본다).
  * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
  */
 router.post("/ai/tokens", requireOwner, async (req, res) => {
@@ -299,7 +299,7 @@ router.post("/ai/tokens", requireOwner, async (req, res) => {
   res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by: counted[0]?.by ?? by, exact: counted[0]?.exact ?? true });
 });
 
-/** 모델 프로필 갱신 — 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
+/** 모델 프로필 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
 router.post("/ai/models/refresh", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
   const models = require("../../../src/aiModels");
@@ -318,7 +318,7 @@ router.post("/ai/models/refresh", requireOwner, async (req, res) => {
 });
 
 /**
- * 판정 테스트 1 — 유튜브 주소로 후보를 읽는다. 아무것도 보내지 않는다.
+ * 판정 테스트 1. 유튜브 주소로 후보를 읽는다. 아무것도 보내지 않는다.
  */
 router.post("/ai/judge/lookup", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
@@ -336,7 +336,7 @@ router.post("/ai/judge/lines", requireOwner, (req, res) => {
   res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) });
 });
 
-/** 판정 테스트 2 — 그 후보들을 **실제로** 보내 곡별 판정을 받는다. */
+/** 판정 테스트 2. 그 후보들을 실제로 보내 곡별 판정을 받는다. */
 router.post("/ai/judge/run", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
   const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
@@ -348,7 +348,7 @@ router.put("/ai/keys", requireOwner, (req, res) => {
   if (!keys || typeof keys !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
 
   try {
-    log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")} — 실행 ${req.session.user.username || req.session.user.id}`);
+    log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${req.session.user.username || req.session.user.id}`);
     res.json({ hasKey: configData.saveAiKeys(keys) });
   } catch (error) {
     res.status(409).json({ error: error.message });
@@ -356,7 +356,7 @@ router.put("/ai/keys", requireOwner, (req, res) => {
 });
 
 // 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
-// /config/:name 통로를 못 탄다 — 여기서 따로 받는다.
+// /config/:name 통로를 못 탄다. 여기서 따로 받는다.
 router.get("/ai/prompt", requireOwner, (req, res) => {
   res.json({ sections: configData.aiPrompt() });
 });
@@ -369,27 +369,27 @@ router.put("/ai/prompt", requireOwner, (req, res) => {
   if (problems.length) return res.status(400).json({ error: problems[0], problems });
 
   try {
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml — 실행 ${req.session.user.username || req.session.user.id}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml. 실행 ${req.session.user.username || req.session.user.id}`);
     res.json({ sections: configData.saveAiPrompt(sections) });
   } catch (error) {
     res.status(409).json({ error: error.message });
   }
 });
 
-// 나갈 것을 **만들어만 본다. 보내지 않는다.** 조립은 봇이 쓰는 코드 그대로다.
+// 나갈 것을 만들어만 본다. 보내지 않는다. 조립은 봇이 쓰는 코드 그대로다.
 router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
   res.json(await require("../../../src/autoplayAssist").preview(data));
 });
 
-// 무료 확인 — 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.
+// 무료 확인. 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.
 // 화면의 모델 고르는 칸도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
 router.post("/ai/models", requireOwner, async (req, res) => {
   res.json(await require("../../../src/autoplayAssist").listModels(req.body?.data || {}));
 });
 
-// 유료 확인 — 짧은 물음 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
+// 유료 확인. 짧은 물음 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
 router.post("/ai/ping", requireOwner, async (req, res) => {
   res.json(await require("../../../src/autoplayAssist").ping(req.body?.data || {}));
 });
@@ -401,7 +401,7 @@ router.get("/config/:name", requireOwner, (req, res) => {
   try {
     res.json({ name, data: configData.load(name) });
   } catch (error) {
-    // 파일이 없거나 문법이 깨졌다 — 화면이 이유를 그대로 보여줄 수 있게 넘긴다
+    // 파일이 없거나 문법이 깨졌다. 화면이 이유를 그대로 보여줄 수 있게 넘긴다
     res.status(409).json({ error: error.message, code: error.code || null });
   }
 });
@@ -413,13 +413,13 @@ router.put("/config/:name", requireOwner, (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
 
-  // 저장 전에 본다 — 깨진 값을 파일에 남기느니 거절한다. 봇이 그 파일로 돌기 때문이다.
+  // 저장 전에 본다. 깨진 값을 파일에 남기느니 거절한다. 봇이 그 파일로 돌기 때문이다.
   const problems = VALIDATORS[name](data);
   if (problems.length) return res.status(400).json({ error: problems[0], problems });
 
   try {
     const saved = configData.save(name, data);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml — 실행 ${req.session.user.username || req.session.user.id}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml. 실행 ${req.session.user.username || req.session.user.id}`);
     res.json({ success: true, data: saved });
   } catch (error) {
     log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${error.message}`);
@@ -432,7 +432,7 @@ router.get("/logs/stream", requireOwner, (req, res) => {
   logManager.addClient(res);
 });
 
-// 권한 수준 오버라이드 — { tier: "owner"|"moderator"|"dj"|"user"|null }. null이면 해제.
+// 권한 수준 오버라이드. { tier: "owner"|"moderator"|"dj"|"user"|null }. null이면 해제.
 // requireOwner가 오버라이드를 무시하므로(실 운영자 기준) 낮춘 뒤에도 여기로 되돌아올 수 있다.
 router.post("/view-as", requireOwner, (req, res) => {
   const { tier } = req.body || {};
@@ -443,7 +443,7 @@ router.post("/view-as", requireOwner, (req, res) => {
   if (tier === null) delete req.session.viewAs;
   else req.session.viewAs = tier;
 
-  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"} — 실행 ${req.session.user.username || req.session.user.id}`);
+  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"}. 실행 ${req.session.user.username || req.session.user.id}`);
   res.json({ viewAs: getViewAs(req) });
 });
 

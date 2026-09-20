@@ -1,15 +1,13 @@
 "use strict";
 
 /**
- * 음성 채널 상태(voice channel status)의 현재 값과 "그게 우리가 쓴 것인가"를 추적한다.
+ * 음성 채널 상태의 현재 값과 그게 우리가 쓴 것인지를 추적한다.
  *
- * **REST로는 알 수 없다.** 채널 객체(`GET /channels/:id`, `GET /guilds/:id/channels`)에 `status`가
- * 실려 오지 않는다(2026-09-15 실측). 예전 코드는 REST로 현재 상태를 읽어 비교하려 했지만 언제나
- * 빈 문자열을 받았고, 그래서 사람이 적어 둔 상태를 매번 덮어썼다.
+ * REST로는 알 수 없다. 채널 객체에 `status`가 실려 오지 않아서, 읽어 비교하려 하면 언제나
+ * 빈 문자열을 받고 사람이 적어 둔 상태를 덮어쓰게 된다.
  *
- * 값은 게이트웨이로만 온다:
- * - 기동 시 `GUILD_CREATE`의 채널 목록에 `status`가 들어 있다(없으면 `null`)
- * - 이후 바뀔 때마다 `VOICE_CHANNEL_STATUS_UPDATE`가 온다 (우리가 쓴 것도 되돌아온다)
+ * 값은 게이트웨이로만 온다. 기동 시 `GUILD_CREATE`의 채널 목록에 실려 오고(없으면 `null`),
+ * 이후 바뀔 때마다 `VOICE_CHANNEL_STATUS_UPDATE`가 온다(우리가 쓴 것도 되돌아온다).
  */
 
 const current = new Map(); // channelId -> 현재 상태 문자열 ("" = 비어 있음)
@@ -40,7 +38,7 @@ function mark(channelId, status) {
 function canWrite(channelId) {
   if (!channelId) return false;
   const now = current.get(channelId);
-  if (now === undefined) return true; // 아직 아무 소식도 못 들은 채널 — 기동 시 GUILD_CREATE가 채운다
+  if (now === undefined) return true; // 아직 아무 소식도 못 들은 채널. 기동 시 GUILD_CREATE가 채운다
   return now === "" || now === ours.get(channelId);
 }
 
@@ -59,7 +57,7 @@ function consumePacket(packet) {
   }
 }
 
-/** 테스트용 — 기록 비우기 */
+/** 테스트용. 기록 비우기 */
 function _reset() {
   current.clear();
   ours.clear();

@@ -12,7 +12,7 @@ module.exports = {
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
 
-    // 패널을 호출 채널로 옮기는 부작용이 있는 명령어 — 봇 전용 채널이 지정된 서버: 그 채널에서만 사용 가능하되 전원 허용 (패널이 항상 전용 채널에 유지됨)
+    // 패널을 호출 채널로 옮기는 부작용이 있는 명령어. 봇 전용 채널이 지정된 서버: 그 채널에서만 사용 가능하되 전원 허용 (패널이 항상 전용 채널에 유지됨)
     //  미지정 서버(삭제된 채널 포함): 어디서나 사용 가능하되 DJ 계층 필요
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (botChannelId && guild.channels.cache.has(botChannelId)) {

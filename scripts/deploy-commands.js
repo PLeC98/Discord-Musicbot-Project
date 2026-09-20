@@ -1,6 +1,6 @@
 "use strict";
 
-// 슬래시 커맨드를 Discord에 수동 (재)배포하는 독립 스크립트 — `pnpm run cmddeploy`.
+// 슬래시 커맨드를 Discord에 수동 (재)배포하는 독립 스크립트. `pnpm run cmddeploy`.
 // 봇 프로세스와 무관하게 실행되므로 봇 재시작 없이 언제든 커맨드 정의를 갱신한다.
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
@@ -8,7 +8,7 @@ const { deployCommands, commands, deployErrorLines } = require("../src/commandLo
 
 (async () => {
   console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);
-  const r = await deployCommands({ force: true }); // 수동 스크립트 = 명시적 재배포 의도 — 지문 무시
+  const r = await deployCommands({ force: true }); // 수동 스크립트 = 명시적 재배포 의도. 지문 무시
 
   if (r.ok) {
     const where = r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로";

@@ -2,10 +2,10 @@
   AI 보조 설정 (운영자 패널).
 
   설정은 config/ai.yaml, **프롬프트는 config/ai-prompt.chatml** 로 따로 산다.
-  둘 다 파일로도 고칠 수 있다 — 대시보드는 선택 기능이다.
+  둘 다 파일로도 고칠 수 있다. 대시보드는 선택 기능이다.
 
-  **키는 쓰기 전용이다.** config/ai-keys.yaml 에 프로바이더마다 따로 있고, 넣을 수는 있어도
-  화면으로 되읽지는 못한다 — 값을 내려보내면 XSS 하나로 새어 나간다.
+  키는 쓰기 전용이다. config/ai-keys.yaml 에 프로바이더마다 따로 있고, 넣을 수는 있어도
+  화면으로 되읽지는 못한다. 값을 내려보내면 XSS 하나로 새어 나간다.
 
   미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
@@ -30,7 +30,7 @@
         </label>
 
         <!-- 주소를 직접 적는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다.
-             버텍스는 아예 없다 — 프로젝트·리전·모델로 조립한 것을 보여 준다. -->
+             버텍스는 아예 없다. 프로젝트·리전·모델로 조립한 것을 보여 준다. -->
         <label v-if="on" class="block">
           <span :class="labelCls">엔드포인트 주소</span>
           <input v-if="spec?.editable" v-model="draft.baseUrl" placeholder="https://example.com/v1" :class="inputCls" />
@@ -88,7 +88,7 @@
         <template v-if="needsKey">
           <span :class="[labelCls, 'mt-3']">{{ spec?.serviceAccount ? "서비스 계정 JSON" : "API 키" }}</span>
 
-          <!-- 서비스 계정은 JSON 덩어리다. 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다 —
+          <!-- 서비스 계정은 JSON 덩어리다. 파일로 따로 두면 그 파일이 어디 있는지 또 관리해야 한다. 
                다른 키와 같은 자리에 같은 방식으로 둔다. -->
           <template v-if="spec?.serviceAccount">
             <textarea v-model="keyInput" rows="4" autocomplete="off" :placeholder="keyPlaceholder" :class="[inputCls, 'font-mono text-[0.75rem] leading-relaxed resize-y']"></textarea>
@@ -324,7 +324,7 @@
       </BaseCard>
 
       <!--
-        판정 테스트 — 보기 곡이 아니라 진짜 곡으로 시험한다.
+        판정 테스트. 보기 곡이 아니라 진짜 곡으로 시험한다.
         링크 조회는 아무것도 보내지 않는다. 판정 요청만 실제로 보낸다.
       -->
       <BaseCard icon="check" title="판정 테스트" class="mb-3">
@@ -358,7 +358,7 @@
           <div v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-2 py-1.5 border-b border-white/6 last:border-0">
             <span v-if="judgeVerdicts" class="shrink-0 text-[0.78rem] mt-0.5 w-16" :class="verdictOk(judgeVerdicts[i]) ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ verdictText(judgeVerdicts[i]) }}</span>
             <div class="min-w-0 flex-1">
-              <p v-if="cand.error" class="text-danger text-[0.78rem] break-all">{{ cand.url }} — {{ cand.error }}</p>
+              <p v-if="cand.error" class="text-danger text-[0.78rem] break-all">{{ cand.url }}. {{ cand.error }}</p>
               <p v-else class="font-mono text-[0.75rem] text-fg-soft break-all">{{ lineFor(cand) }}</p>
             </div>
           </div>
@@ -389,7 +389,7 @@
 
     <SaveDock :dirty="dirty" :saving="saving" :blocked="problems.length > 0" @save="save" @revert="revert" />
 
-    <!-- 유료 확인 — 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다. -->
+    <!-- 유료 확인. 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다. -->
     <div v-if="paid" class="fixed inset-0 bg-black/65 backdrop-blur-[6px] flex items-center justify-center z-200 p-4" @click.self="paid = null">
       <!-- 주소가 길면 늘어나고 짧으면 줄어든다. 다만 너무 좁아지지는 않게 바닥을 둔다. -->
       <div class="bg-[rgba(12,16,36,0.88)] backdrop-blur-2xl backdrop-saturate-[1.8] border border-white/12 rounded-[20px] p-8 w-fit min-w-[min(26rem,90vw)] max-w-[min(60rem,92vw)] shadow-[0_20px_60px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.08)]">
@@ -478,19 +478,19 @@ const addLine = "flex items-center gap-1.5 text-muted text-[0.82rem] px-2 py-1.5
 const iconBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color] duration-150 hover:bg-white/10 hover:text-fg disabled:opacity-35 disabled:cursor-not-allowed";
 const markBtn = "px-2 py-1 rounded-md text-[0.75rem] font-mono border border-white/10 bg-white/4 text-muted cursor-pointer transition-colors duration-150 hover:bg-white/8 hover:text-fg";
 
-// 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다 — 값으로 둔다
+// 템플릿에 그대로 적으면 Vue 가 보간으로 읽는다. 값으로 둔다
 const LIST_MARK = "{{목록}}";
 const NONE_MARK = "{{none}}";
 const EXTRA_SAMPLE = `think=false\nreasoning_effort=low\nresponse_format=json::{"type":"json_object"}\nheader::X-Title=Discord Musicbot\nmax_tokens=${NONE_MARK}`;
 
 const ROLES = ["system", "user", "assistant"];
 
-// 프로바이더 목록은 **서버가 준다**(주소·키 필요 여부까지). 화면이 베껴 두면 한쪽만 고치게 된다.
+// 프로바이더 목록은 서버가 준다(주소·키 필요 여부까지). 화면이 베껴 두면 한쪽만 고치게 된다.
 
 const MARKS = [
   { mark: "{{번호}}", hint: "1부터" },
   { mark: "{{장르}}", hint: "자동재생 장르 이름. 없으면 랜덤" },
-  { mark: "{{제목}}", hint: "영상 제목 — 반드시 넣어야 합니다" },
+  { mark: "{{제목}}", hint: "영상 제목. 반드시 넣어야 합니다" },
   { mark: "{{길이분}}", hint: "길이(분)" },
   { mark: "{{길이초}}", hint: "길이(초)" },
 ];
@@ -502,7 +502,7 @@ const UNKNOWN = [
 ];
 
 const draft = ref({ provider: "off" });
-// 모델이 받는 칸 — 서버가 프로필(data/ai-models.json)을 보고 알려 준다
+// 모델이 받는 칸. 서버가 프로필(data/ai-models.json)을 보고 알려 준다
 const fieldInfo = ref({ known: false, fields: [], groups: [], models: [] });
 const showAdvanced = ref(false);
 const showHide = ref(false);
@@ -523,11 +523,11 @@ async function refreshModels() {
     setTimeout(() => (refreshNote.value = ""), 4000);
   }
 }
-// 값은 모델별로 따로 든다 — 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
+// 값은 모델별로 따로 든다. 모델을 갈아타도 앞 모델에서 고른 값이 따라오지 않는다.
 const allParams = ref({});
 const params = ref({});
 const jsonText = ref({});
-// 토큰은 어림수다 — 어느 기준으로 셌는지 같이 밝힌다
+// 토큰은 어림수다. 어느 기준으로 셌는지 같이 밝힌다
 const tokenEach = ref([]);
 const tokenTotal = ref(null);
 const tokenExact = ref(true);
@@ -560,11 +560,11 @@ const serverProblems = ref([]);
 const keyPresence = ref({});
 const keyInput = ref("");
 const savingKey = ref(false);
-const paid = ref(null); // "ping" | "judge" — 확인 대화상자
+const paid = ref(null); // "ping" | "judge". 확인 대화상자
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
-// 프로바이더를 바꾸면 모델 칸이 빈다. **사람이 고른 것만** 브라우저에 적어 둔다 —
+// 프로바이더를 바꾸면 모델 칸이 빈다. 사람이 고른 것만 브라우저에 적어 둔다.
 // 저절로 고른 첫 모델까지 적으면 "마지막에 고른 것"이 그것으로 덮인다.
 // 접기 상태와 같은 화면 편의라 설정 파일에 넣지 않는다.
 const PICK_KEY = "configAI.model.picked";
@@ -580,12 +580,12 @@ function rememberModel(provider, model) {
   try {
     localStorage.setItem(PICK_KEY, JSON.stringify({ ...rememberedModels(), [provider]: model }));
   } catch {
-    // 사생활 보호 모드처럼 못 쓰는 브라우저 — 기억을 못 할 뿐이다
+    // 사생활 보호 모드처럼 못 쓰는 브라우저. 기억을 못 할 뿐이다
   }
 }
 
 const models = ref([]);
-// 프로필이 아는 모델은 보기 좋은 이름으로 보여준다. 모르는 것은 원본 ID 그대로 —
+// 프로필이 아는 모델은 보기 좋은 이름으로 보여준다. 모르는 것은 원본 ID 그대로.
 // 키로 실제로 쓸 수 있는 것은 /models 만 안다(로컬·신모델은 프로필에 없다).
 const modelChoices = computed(() =>
   models.value.map((id) => {
@@ -620,13 +620,13 @@ const grouped = computed(() => {
   return out;
 });
 const on = computed(() => !!draft.value.provider && draft.value.provider !== "off");
-// 로컬 모델은 키를 안 받는다 — 있으나 마나 한 표시를 띄우지 않는다
+// 로컬 모델은 키를 안 받는다. 있으나 마나 한 표시를 띄우지 않는다
 const needsKey = computed(() => !!spec.value?.key);
 
 /**
  * 어디로 나가는지 보여 준다. 버텍스는 주소가 없어 프로젝트·리전·모델로 조립한다.
  *
- * **프로젝트 ID 만 가린다.** 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
+ * 프로젝트 ID 만 가린다. 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
  */
 const shownEndpoint = computed(() => {
   if (!spec.value?.needsProject) return spec.value?.baseUrl;
@@ -640,7 +640,7 @@ const keyPlaceholder = computed(() => {
   return hasKey.value ? "저장 되어 있습니다. 새로 저장하여 수정할 수 있습니다." : "키를 입력하세요";
 });
 
-// 붙여넣기 전에 알려 준다 — 엉뚱한 것을 저장해 두고 나중에 401 만 보는 것보다 낫다
+// 붙여넣기 전에 알려 준다. 엉뚱한 것을 저장해 두고 나중에 401 만 보는 것보다 낫다
 const looksLikeAccount = computed(() => {
   const text = keyInput.value.trim();
   if (!text.startsWith("{")) return true; // 경로로 적는 옛 방식도 받는다
@@ -651,18 +651,18 @@ const looksLikeAccount = computed(() => {
     return false;
   }
 });
-// 평문으로 열어 두었으면 키가 그대로 네트워크를 지난다 — 파일을 고칠 때는 없는 일이다
+// 평문으로 열어 두었으면 키가 그대로 네트워크를 지난다. 파일을 고칠 때는 없는 일이다
 const secureOrigin = computed(() => window.isSecureContext);
 // custom 은 저장된 주소와 같을 때만 키가 붙는다(autoplayAssist.authOf).
-// **ref 를 computed 보다 먼저 선언한다** — 아래에 두면 TDZ 이고, Vue 가 그 예외를 삼켜
+// ref 를 computed 보다 먼저 선언한다. 아래에 두면 TDZ 이고, Vue 가 그 예외를 삼켜
 // 화면만 조용히 비는 종류의 버그가 된다(SourceEditor 에서 한 번 당했다).
 const savedBaseUrl = ref("");
 const staleCustomUrl = computed(() => !!spec.value?.editable && String(draft.value.baseUrl || "") !== savedBaseUrl.value);
 const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s*\}\}/.test(one.text)));
 
-// 다듬지 않는다 — 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다.
+// 다듬지 않는다. 무엇이 나갔고 무엇이 왔는지 그대로 봐야 한다.
 // 응답 칸은 실제로 보냈을 때만 있다(미리보기는 만들기만 한다).
-// 보낼 글을 섹션별로 — 규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다.
+// 보낼 글을 섹션별로. 규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다.
 // 이름은 프롬프트 칸에 적어 둔 것을 쓴다.
 const shownSections = computed(() =>
   (shown.value?.messages || []).map((one, i) => ({
@@ -687,7 +687,7 @@ const hideModels = computed({
   },
 });
 
-// 추가 파라미터는 한 줄에 하나씩 적는 글이다 — 뜯어 읽는 것은 서버가 한다(autoplayAssist)
+// 추가 파라미터는 한 줄에 하나씩 적는 글이다. 뜯어 읽는 것은 서버가 한다(autoplayAssist)
 const extraText = computed({
   get: () => draft.value.extra || "",
   set: (v) => {
@@ -708,7 +708,7 @@ const timeoutSec = computed({
 // 고른 모델의 이름표. 프로필이 알면 보기 좋은 이름이 있다.
 const modelName = computed(() => fieldInfo.value.models.find((m) => m.modelId === draft.value.model)?.name || "");
 
-// 값을 자르지는 않는다 — 다만 얼마까지 받는다고 적혀 있는지는 보여 준다
+// 값을 자르지는 않는다. 다만 얼마까지 받는다고 적혀 있는지는 보여 준다
 function hintOf(field) {
   const lo = field.min;
   const hi = field.max;
@@ -732,7 +732,7 @@ const paramGroups = computed(() => {
 });
 
 // 저쪽이 "이 칸이 켜져 있을 때만 보여라"를 적어 둔다(logprobs → top_logprobs 처럼).
-// 가려진 칸은 서버도 안 보낸다(autoplayAssist.withParams) — 판정 기준을 같게 둔다.
+// 가려진 칸은 서버도 안 보낸다(autoplayAssist.withParams). 판정 기준을 같게 둔다.
 function showIfOk(field) {
   if (!field.showIf) return true;
   const owner = fieldInfo.value.fields.find((one) => one.key === field.showIf.key);
@@ -747,7 +747,7 @@ const paramLimits = computed(() => {
   return [m.contextWindowTokens ? `컨텍스트 ${n(m.contextWindowTokens)}토큰` : "", m.maxOutputTokens ? `최대 출력 ${n(m.maxOutputTokens)}토큰` : ""].filter(Boolean).join(" · ");
 });
 
-// 저장하면 서버가 **보낸 차례대로** 파일을 줄 세운다(configDataLoader.syncMap).
+// 저장하면 서버가 보낸 차례대로 파일을 줄 세운다(configDataLoader.syncMap).
 // config/ai.example.yaml 과 같은 차례로 보내야 새로 깐 파일이 뒤섞이지 않는다.
 const KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"];
 
@@ -755,7 +755,7 @@ const payload = computed(() => {
   const all = { ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") };
   const out = {};
   for (const key of KEY_ORDER) if (key in all) out[key] = all[key];
-  // 모르는 키는 뒤에 그대로 둔다 — 빠뜨리면 저장할 때 파일에서 지워진다
+  // 모르는 키는 뒤에 그대로 둔다. 빠뜨리면 저장할 때 파일에서 지워진다
   for (const [key, value] of Object.entries(all)) if (!(key in out)) out[key] = value;
   return out;
 });
@@ -807,7 +807,7 @@ function addSection() {
   sections.value.push({ key: ++serial, role: sections.value.length ? "user" : "system", name: "", text: "" });
 }
 
-// 접힘은 자리로 기억한다 — 지우면 그 아래가 한 칸씩 당겨진다
+// 접힘은 자리로 기억한다. 지우면 그 아래가 한 칸씩 당겨진다
 function removeSection(i) {
   sections.value.splice(i, 1);
   for (let at = i; at < sections.value.length + 1; at++) {
@@ -819,15 +819,15 @@ function loadDefaults() {
   sections.value = defaults.value.sections.map((one) => ({ key: ++serial, role: one.role, name: "", text: one.text }));
 }
 
-// 자리표시자 알약 — 줄 형식 칸 끝에 붙인다
+// 자리표시자 알약. 줄 형식 칸 끝에 붙인다
 function insertMark(mark) {
   listCfg.value.lineFormat = `${listCfg.value.lineFormat || defaults.value.line}${mark}`;
 }
 
-// ── 순서 바꾸기 — 장르·상태 설정과 같은 방식 ───────────────────────────────
+// ── 순서 바꾸기. 장르·상태 설정과 같은 방식 ───────────────────────────────
 const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
-// 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다 — 손잡이를 누르는 동안만 켠다
+// 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다. 손잡이를 누르는 동안만 켠다
 const dragReady = ref(false);
 
 function armDrag() {
@@ -836,7 +836,7 @@ function armDrag() {
 }
 
 function onDragStart(e, i) {
-  // dragstart는 위로 퍼진다 — 카드 자신이 끌리기 시작한 것만 받는다
+  // dragstart는 위로 퍼진다. 카드 자신이 끌리기 시작한 것만 받는다
   if (e.target !== e.currentTarget) return;
   draggedIndex.value = i;
   e.dataTransfer.effectAllowed = "move";
@@ -870,14 +870,14 @@ function onDragEnd() {
 
 // ── 주고받기 ──────────────────────────────────────────────────────────────
 
-// 이름은 설정 쪽에 있고 내용은 프롬프트 파일에 있다 — 둘을 차례로 짝지어 합친다
+// 이름은 설정 쪽에 있고 내용은 프롬프트 파일에 있다. 둘을 차례로 짝지어 합친다
 let names = [];
 
 function apply(data) {
   const { list, prompt, promptNames, params: saved, ...rest } = data || {};
   draft.value = { provider: "off", extra: "", hideModels: [], location: "", project: "", ...rest };
   allParams.value = { ...(saved || {}) };
-  // 설정에 저장돼 있는 모델도 사람이 고른 것이다 — 기동 직후에도 기억이 비지 않게 둔다
+  // 설정에 저장돼 있는 모델도 사람이 고른 것이다. 기동 직후에도 기억이 비지 않게 둔다
   rememberModel(draft.value.provider, draft.value.model);
   picking = draft.value.model || "";
   params.value = { ...(allParams.value[picking] || {}) };
@@ -961,11 +961,11 @@ function copy(text) {
   try {
     navigator.clipboard.writeText(String(text ?? ""));
   } catch {
-    // 안전하지 않은 출처처럼 못 쓰는 자리 — 복사만 안 될 뿐이다
+    // 안전하지 않은 출처처럼 못 쓰는 자리. 복사만 안 될 뿐이다
   }
 }
 
-// 적어 두고 조회를 안 눌렀으면 알려 준다 — 그대로 보내면 보기 곡으로 판정한다
+// 적어 두고 조회를 안 눌렀으면 알려 준다. 그대로 보내면 보기 곡으로 판정한다
 const judgeStale = computed(() => !!judgeUrls.value.trim() && judgeUrls.value.trim() !== judgeLookedUp.value);
 const rendered = (one) => !one.error && one.title;
 const judgeUsable = computed(() => (judgeStale.value ? [] : judgeCands.value.filter(rendered)));
@@ -979,7 +979,7 @@ const judgeBoxes = computed(() => {
   ];
 });
 
-// 못 읽은 줄이 섞여 있어 후보 차례와 줄 차례가 어긋난다 — 멀쩡한 것만 세어 맞춘다
+// 못 읽은 줄이 섞여 있어 후보 차례와 줄 차례가 어긋난다. 멀쩡한 것만 세어 맞춘다
 function lineFor(cand) {
   const at = judgeCands.value.filter(rendered).indexOf(cand);
   return judgeList.value[at] ?? "";
@@ -1008,7 +1008,7 @@ async function lookupJudge() {
   }
 }
 
-// 줄 그리기는 서버 몫이다 — 화면이 흉내 내면 실제로 나가는 줄과 어긋난다.
+// 줄 그리기는 서버 몫이다. 화면이 흉내 내면 실제로 나가는 줄과 어긋난다.
 // 늦게 온 응답이 방금 그린 것을 덮지 않도록 차례를 센다.
 let linesSeq = 0;
 let linesTimer = null;
@@ -1033,7 +1033,7 @@ async function runJudge() {
   judging.value = true;
   judgeError.value = "";
   try {
-    const usable = judgeUsable.value; // 조회를 안 했으면 비어 있다 — 서버가 보기 곡으로 돌린다
+    const usable = judgeUsable.value; // 조회를 안 했으면 비어 있다. 서버가 보기 곡으로 돌린다
     const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: payload.value });
     judgeSent.value = data;
     judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
@@ -1075,7 +1075,7 @@ async function fetchAll() {
   }
 }
 
-// 키 유무와 기본 프롬프트. 둘 다 서버가 들고 있다 —
+// 키 유무와 기본 프롬프트. 둘 다 서버가 들고 있다.
 // 화면이 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다.
 async function fetchState() {
   try {
@@ -1106,12 +1106,12 @@ function onProvider() {
   keyInput.value = "";
   manualModel.value = false;
 
-  // baseUrl 은 custom 전용이다 — 다른 것을 골랐다고 적어 둔 주소를 지우지 않는다
+  // baseUrl 은 custom 전용이다. 다른 것을 골랐다고 적어 둔 주소를 지우지 않는다
   if (!on.value) return;
-  loadModels({ quiet: true }); // 고르면 알아서 불러온다 — 무료라 누르게 할 이유가 없다
+  loadModels({ quiet: true }); // 고르면 알아서 불러온다. 무료라 누르게 할 이유가 없다
 }
 
-// 무료 — 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
+// 무료. 추론을 안 돌린다. 연결 확인이자 모델 목록 불러오기다(같은 한 번의 호출이다).
 // quiet: 프로바이더를 고를 때 저절로 도는 것이라 실패를 빨갛게 띄우지 않는다.
 async function loadModels({ quiet = false } = {}) {
   loadingModels.value = true;
@@ -1157,7 +1157,7 @@ function runPaid() {
   else runJudge();
 }
 
-// 키는 쓰기 전용이다 — payload 에 안 싣는다(미리보기·테스트로 새어 나가면 안 된다)
+// 키는 쓰기 전용이다. payload 에 안 싣는다(미리보기·테스트로 새어 나가면 안 된다)
 async function putKey(value) {
   savingKey.value = true;
   try {
@@ -1172,7 +1172,7 @@ async function putKey(value) {
 
 /**
  * 서비스 계정은 JSON 덩어리다. 받은 그대로 붙여넣으면 들여쓰기가 제각각이라,
- * 저장 전에 한 모양으로 정리한다 — 파일에 블록 리터럴(`|-`)로 곱게 들어간다.
+ * 저장 전에 한 모양으로 정리한다. 파일에 블록 리터럴(`|-`)로 곱게 들어간다.
  */
 function saveKey() {
   const text = keyInput.value.trim();
@@ -1180,12 +1180,12 @@ function saveKey() {
   try {
     return putKey(JSON.stringify(JSON.parse(text), null, 2));
   } catch {
-    return putKey(text); // 못 읽으면 적힌 그대로 — 조용히 버리지 않는다
+    return putKey(text); // 못 읽으면 적힌 그대로. 조용히 버리지 않는다
   }
 }
 const clearKey = () => putKey("");
 
-// 유료 — 짧은 물음 하나를 실제로 생성시킨다(판정 프롬프트는 안 쓴다).
+// 유료. 짧은 물음 하나를 실제로 생성시킨다(판정 프롬프트는 안 쓴다).
 async function runPing() {
   pinging.value = true;
   tested.value = null;

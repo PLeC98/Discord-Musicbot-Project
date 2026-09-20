@@ -17,7 +17,7 @@ function normalizeDashboardOrigin(value) {
 /**
  * 허용 출처는 대시보드 주소 하나뿐이다.
  *
- * Vite 개발 서버(5173)는 **`pnpm run dev`로 띄웠을 때만** 허용
+ * Vite 개발 서버(5173)는 `pnpm run dev`로 띄웠을 때만 허용
  */
 function createCorsOptions(dashboardUrl, { allowDevOrigin = false } = {}) {
   const allowedOrigins = new Set([normalizeDashboardOrigin(dashboardUrl)]);
@@ -35,10 +35,10 @@ function createCorsOptions(dashboardUrl, { allowDevOrigin = false } = {}) {
       }
 
       const allowed = allowedOrigins.has(normalized) && normalized === origin.replace(/\/$/, "");
-      // 개발 서버가 막혔을 때 브라우저 콘솔만 보면 원인을 알기 어렵다 — 켜는 방법을 한 번 알려 준다.
+      // 개발 서버가 막혔을 때 브라우저 콘솔만 보면 원인을 알기 어렵다. 켜는 방법을 한 번 알려 준다.
       if (!allowed && normalized === DEV_ORIGIN && !warnedDevOrigin) {
         warnedDevOrigin = true;
-        log.warn("개발 서버(5173)에서 온 요청을 막았습니다 — 대시보드 UI를 개발 중이라면 `pnpm run dev`로 봇을 실행하세요.");
+        log.warn("개발 서버(5173)에서 온 요청을 막았습니다. 대시보드 UI를 개발 중이라면 `pnpm run dev`로 봇을 실행하세요.");
       }
       return callback(null, allowed);
     },

@@ -4,7 +4,7 @@ const log = require("./logger").child({ category: "guild" });
 const CacheManager = require("./CacheManager");
 const config = require("../config");
 
-// 재생목록 한 번에 넣는 곡 수의 위쪽 끝 — 대기열 상한이 더 작으면 그쪽을 따른다
+// 재생목록 한 번에 넣는 곡 수의 위쪽 끝. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
 
 class GuildSettingsManager {
@@ -54,7 +54,7 @@ class GuildSettingsManager {
     }
   }
 
-  /** DJ 역할 ID 목록 — 미설정이면 빈 배열 */
+  /** DJ 역할 ID 목록. 미설정이면 빈 배열 */
   async getDjRoles(guildId) {
     const key = `${guildId}_djRoles`;
     if (this.cache.has(key)) return this.cache.get(key);
@@ -75,7 +75,7 @@ class GuildSettingsManager {
     this.cache.delete(`${guildId}_djRoles`);
   }
 
-  // ── 현재 재생 패널 자리 — 사용자 설정이 아니라 옛 패널을 치우는 기준 ─────────
+  // ── 현재 재생 패널 자리. 사용자 설정이 아니라 옛 패널을 치우는 기준 ─────────
 
   /** { channelId, messageId } 또는 null */
   async getPanel(guildId) {
@@ -110,7 +110,7 @@ class GuildSettingsManager {
     return { min: 1, max: queueMax > 0 ? Math.min(PLAYLIST_ADD_CEILING, queueMax) : PLAYLIST_ADD_CEILING, default: config.bot.playlistAddDefault };
   }
 
-  /** 서버가 정한 값 — 미설정이면 null */
+  /** 서버가 정한 값. 미설정이면 null */
   async getPlaylistAddMax(guildId) {
     const key = `${guildId}_playlistAdd`;
     if (this.cache.has(key)) return this.cache.get(key);
@@ -137,8 +137,8 @@ class GuildSettingsManager {
   }
 
   /**
-   * 실제로 쓸 값 — 읽을 때마다 범위로 자른다. 서버가 200을 정한 뒤 운영자가 대기열 상한을 줄일 수 있어서다.
-   * DB가 열린 뒤에만 읽는다 — 열지 않은 채 부르는 테스트가 운영 DB를 건드리지 않게.
+   * 실제로 쓸 값. 읽을 때마다 범위로 자른다. 서버가 200을 정한 뒤 운영자가 대기열 상한을 줄일 수 있어서다.
+   * DB가 열린 뒤에만 읽는다. 열지 않은 채 부르는 테스트가 운영 DB를 건드리지 않게.
    */
   resolvePlaylistAddMax(guildId) {
     const { min, max, default: fallback } = this.playlistAddLimits();
@@ -157,7 +157,7 @@ class GuildSettingsManager {
 
   // ── SponsorBlock 서버별 설정 ────────────────────────────────────────────────
 
-  /** 서버별 원본 설정(상속=null) — { enabled: null|bool, categories: null|string[] } */
+  /** 서버별 원본 설정(상속=null). { enabled: null|bool, categories: null|string[] } */
   async getSponsorBlock(guildId) {
     const key = `${guildId}_sb`;
     if (this.cache.has(key)) return this.cache.get(key);
@@ -171,7 +171,7 @@ class GuildSettingsManager {
     return v;
   }
 
-  /** 부분 갱신 — patch에 준 키만 변경(enabled/categories). null 전달 시 "상속"으로 되돌림. */
+  /** 부분 갱신. patch에 준 키만 변경(enabled/categories). null 전달 시 "상속"으로 되돌림. */
   async setSponsorBlock(guildId, patch) {
     const cur = await this.getSponsorBlock(guildId);
     const next = {
@@ -189,7 +189,7 @@ class GuildSettingsManager {
   }
 
   /**
-   * 유효 SponsorBlock 설정 — { enabled, categories }.
+   * 유효 SponsorBlock 설정. { enabled, categories }.
    * 전역 마스터(config)가 off면 서버 설정과 무관하게 하드 off(상업적 이용 컴플라이언스).
    * 마스터 on이면: enabled = 서버값 ?? true(기본 on), categories = 서버값 ?? 전역 기본.
    */

@@ -25,12 +25,12 @@ module.exports = {
 
     sweepPending();
 
-    // 커맨드 진입 조건과 동일 기준 재확인 (심층 방어 — 원본이 에페메랄이라 실질 노출은 없음)
+    // 커맨드 진입 조건과 동일 기준 재확인 (심층 방어. 원본이 에페메랄이라 실질 노출은 없음)
     if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
       return interaction.reply({ content: "❌ 서버 관리 권한이 필요해요.", flags: MessageFlags.Ephemeral });
     }
 
-    // 드롭메뉴 선택 — 즉시 저장하지 않고 보류만 (저장 버튼이 확정)
+    // 드롭메뉴 선택. 즉시 저장하지 않고 보류만 (저장 버튼이 확정)
     if (isSelect) {
       pending.set(interaction.message.id, { roleIds: [...interaction.values], at: Date.now() });
       return interaction.deferUpdate();

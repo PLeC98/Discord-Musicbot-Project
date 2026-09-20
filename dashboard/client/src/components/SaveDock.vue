@@ -1,10 +1,10 @@
 <!--
-  저장/되돌리기 — 화면 오른쪽 아래에 떠 있다.
+  저장/되돌리기. 화면 오른쪽 아래에 떠 있다.
 
   설정 화면은 세로로 길어서, 카드 맨 밑에 버튼을 두면 고친 자리에서 한참 스크롤해야 저장할 수 있다.
   아래 재생바가 떠 있을 때를 고려해 --player 만큼 띄운다(재생바가 없으면 0이라 저절로 내려앉는다).
 
-  고친 것이 없으면 나타나지 않는다 — 누를 일이 없는 버튼이 늘 떠 있으면 화면만 가린다.
+  고친 것이 없으면 나타나지 않는다. 누를 일이 없는 버튼이 늘 떠 있으면 화면만 가린다.
 -->
 <template>
   <Transition name="dock">
@@ -26,7 +26,7 @@ import Icon from "./BaseIcon.vue";
 defineProps({
   dirty: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
-  // 저장을 막아야 할 때(검사에 걸린 값이 있음) — 버튼은 두되 누르지 못하게 한다
+  // 저장을 막아야 할 때(검사에 걸린 값이 있음). 버튼은 두되 누르지 못하게 한다
   blocked: { type: Boolean, default: false },
   hint: { type: String, default: "저장되지 않은 변경이 있습니다" },
 });

@@ -505,7 +505,7 @@ test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
-// 키는 **쓰기 전용**이다. 넣을 수는 있어도 되읽을 수는 없다 —
+// 키는 쓰기 전용이다. 넣을 수는 있어도 되읽을 수는 없다 —
 // 운영자 세션이 털려도 덮어쓰기지 읽기가 아니어야 한다.
 test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   const saved = await req("PUT", "/api/admin/ai/keys", { keys: { groq: "sk-groq-새키" } });

@@ -12,7 +12,7 @@ const log = require("../../../src/logger").child({ category: "dashboard" });
 // NODE_ENV 대신 미들웨어로 막는 이유: 환경 변수 하나에 노출 여부가 걸리면
 // 다른 방식으로 기동했을 때 다시 샌다. 미들웨어는 환경과 무관하게 동작한다.
 //
-// 진단 가능성은 오류 ID로 유지한다 — 응답에는 ID만, 서버 로그에는 ID + 전체 스택.
+// 진단 가능성은 오류 ID로 유지한다. 응답에는 ID만, 서버 로그에는 ID + 전체 스택.
 
 const MSG_BAD_REQUEST = "요청 형식이 올바르지 않습니다.";
 const MSG_TOO_LARGE = "보낸 내용이 너무 깁니다. 줄여서 다시 시도해 주세요.";
@@ -21,7 +21,7 @@ const MSG_UNAVAILABLE = "일시적으로 서비스를 사용할 수 없습니다
 const MSG_INTERNAL = "요청을 처리하지 못했습니다.";
 const MSG_NOT_FOUND = "요청한 경로를 찾을 수 없습니다.";
 
-// 저장장치/DB 계층 장애 — 요청이 잘못된 게 아니라 지금 처리할 수 없는 상태라 503으로 낸다.
+// 저장장치/DB 계층 장애. 요청이 잘못된 게 아니라 지금 처리할 수 없는 상태라 503으로 낸다.
 // (언마운트된 볼륨의 SQLite는 파일이 멀쩡해도 SQLITE_CORRUPT를 던진다.)
 const UNAVAILABLE_CODES = new Set(["EIO", "ENOENT", "EACCES", "ENOSPC", "EBUSY", "ENXIO", "EROFS"]);
 
@@ -31,8 +31,8 @@ function isUnavailable(err) {
   return code.startsWith("SQLITE_") || UNAVAILABLE_CODES.has(code);
 }
 
-// err.message는 절대 내보내지 않는다 — "database disk image is malformed"도 내부 정보다.
-// 다만 **무엇을 고쳐야 하는지**는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
+// err.message는 절대 내보내지 않는다. "database disk image is malformed"도 내부 정보다.
+// 다만 무엇을 고쳐야 하는지는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
 // 내용이 길어서 막힌 사람이 무엇을 줄여야 할지 알 수 없다.
 function classify(err) {
   const status = err?.status ?? err?.statusCode;
@@ -63,10 +63,10 @@ function errorHandler(err, req, res, next) {
   const errorId = crypto.randomBytes(4).toString("hex");
   const { status, message } = classify(err);
 
-  // 로그는 응답을 쓸 수 있든 없든 남긴다 — 헤더가 이미 나간 응답(SSE)에서 나는 오류가
+  // 로그는 응답을 쓸 수 있든 없든 남긴다. 헤더가 이미 나간 응답(SSE)에서 나는 오류가
   // 기록조차 안 되면 사후에 존재 자체를 알 수 없다.
   //
-  // 4xx는 **보낸 쪽이 잘못한 것**이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
+  // 4xx는 보낸 쪽이 잘못한 것이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
   // PayloadTooLargeError 스택이 쌓이면 그게 곧 도배다. 한 줄로 사실만 남긴다.
   const line = `[${errorId}] ${req.method} ${req.originalUrl} → ${status}`;
   if (status >= 500) log.error(line, err?.stack || err?.message || err);

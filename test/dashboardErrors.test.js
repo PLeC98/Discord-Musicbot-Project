@@ -111,7 +111,7 @@ test("분류: SQLITE_*·I/O 오류는 503, 4xx는 그대로, 나머지는 500", 
 });
 
 // 2026-09-15 사용자 보고: 긴 공지를 보내면 대시보드에 "발송 실패"만 떠 무엇을 고칠지 알 수 없었다.
-// 내부 사정은 감추되 **무엇을 고쳐야 하는지**는 알려 준다.
+// 내부 사정은 감추되 무엇을 고쳐야 하는지는 알려 준다.
 test("분류: 413·429는 고칠 방법이 드러나는 문구를 준다", () => {
   const tooLarge = _internals.classify(Object.assign(new Error("request entity too large"), { status: 413, type: "entity.too.large" }));
   assert.equal(tooLarge.status, 413);

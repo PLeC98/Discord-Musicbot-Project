@@ -7,7 +7,7 @@
 <script setup>
 import { computed } from "vue";
 
-// 공용 버튼 — 구 .btn/.btn-primary/.btn-danger/.btn-ghost (M3 Expressive).
+// 공용 버튼. 구 .btn/.btn-primary/.btn-danger/.btn-ghost (M3 Expressive).
 // href를 주면 <a>, 아니면 <button>으로 렌더된다. 크기 변형은 size prop으로.
 const props = defineProps({
   variant: { type: String, default: "primary" }, // primary | secondary | warning | danger | ghost
@@ -26,7 +26,7 @@ const sizes = {
 const variants = {
   primary: "text-white bg-linear-135 from-accent to-accent-2 shadow-[0_4px_18px_var(--accent-glow)] hover:not-disabled:shadow-[0_8px_32px_var(--accent-glow),0_0_0_1px_rgba(255,255,255,0.1)]",
   secondary: "text-white bg-linear-135 from-[#2dd4bf] to-[#3b82f6] shadow-[0_4px_18px_rgba(45,212,191,0.32)] hover:not-disabled:shadow-[0_8px_32px_rgba(45,212,191,0.44),0_0_0_1px_rgba(255,255,255,0.1)]",
-  // 되돌릴 수는 있지만 값을 치르는 것 — 토큰을 태우는 버튼처럼. danger(빨강)까지 갈 일은 아니다.
+  // 되돌릴 수는 있지만 값을 치르는 것. 토큰을 태우는 버튼처럼. danger(빨강)까지 갈 일은 아니다.
   warning: "text-[#241a05] bg-linear-135 from-[#fbbf24] to-[#f97316] shadow-[0_4px_18px_rgba(249,115,22,0.32)] hover:not-disabled:shadow-[0_8px_32px_rgba(249,115,22,0.45),0_0_0_1px_rgba(255,255,255,0.1)]",
   danger: "text-white bg-linear-135 from-[#f87171] to-[#ef4444] shadow-[0_4px_18px_rgba(248,113,113,0.34)] hover:not-disabled:shadow-[0_8px_32px_rgba(248,113,113,0.45)]",
   ghost: "text-fg bg-white/6 border border-line hover:not-disabled:bg-white/10",

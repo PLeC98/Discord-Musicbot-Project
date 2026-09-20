@@ -2,7 +2,7 @@
 
 // src/autoplayAssist.js — 자동재생 AI 보조.
 //
-// 이 기능의 계약은 "맞히는 것"이 아니라 **없어도 돌아가는 것**이다.
+// 이 기능의 계약은 "맞히는 것"이 아니라 없어도 돌아가는 것이다.
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
 // (판정 품질 자체는 모델과 프롬프트의 몫이고 notes/research-autoplay-quality.md 에서 쟀다.)
 
@@ -20,7 +20,7 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true }));
 
 // 설정을 갈아끼운다. _setConfigDir 가 읽어 둔 것을 버리므로 같은 이름을 몇 번이고 바꿔 쓸 수 있다.
 //
-// 프롬프트는 **딴 파일**이다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다.
+// 프롬프트는 딴 파일이다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다.
 // 키도 설정 파일에 있다(config/ai-keys.yaml). 프로바이더마다 따로다.
 const KEY = "sk-test-do-not-log";
 // 버텍스는 키가 아니라 서비스 계정 JSON 을 쓴다 — 진짜 키라야 서명이 통과한다
@@ -298,7 +298,7 @@ test("추가 파라미터 — 값·JSON·헤더·빼기", () => {
   assert.deepEqual(got.problems, ["이름이 없습니다: 이름없음"]);
 });
 
-// **점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다.** 키 이름이 통째로 들어가 조용히 무시됐다.
+// 점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다. 키 이름이 통째로 들어가 조용히 무시됐다.
 test("추가 파라미터 — 점 표기로 안쪽 칸에 넣는다", () => {
   const got = assist.parseExtra(["thinking.budget_tokens=1024", "thinking.type=enabled", "generationConfig.thinkingConfig.thinkingLevel=high"].join("\n"));
 
@@ -463,7 +463,7 @@ test("긴 주소에도 끝 슬래시 떼기가 느려지지 않는다", () => {
   assert.equal(assist.endpointOf({ provider: "custom", baseUrl: "" }), "");
 });
 
-// 점 경로는 설정 글에서만 오는 것이 아니다 — **모델 레지스트리의 mapsTo.path** 로도 온다.
+// 점 경로는 설정 글에서만 오는 것이 아니다 — 모델 레지스트리의 mapsTo.path 로도 온다.
 // 레지스트리는 우리가 내려받는 남의 데이터라, `__proto__` 한 마디로 프로세스 전체가 오염될 수 있었다.
 test("점 경로로 Object.prototype 을 오염시킬 수 없다", () => {
   for (const name of ["__proto__.뚫림", "constructor.prototype.뚫림", "a.__proto__.뚫림"]) {
@@ -566,7 +566,7 @@ test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => 
 
 const DRAFT = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1/", model: "test-model", extra: "think=false" };
 
-// **미리보기는 아무 데도 안 나간다.** 테스트만 실제로 보낸다 — 둘을 섞으면
+// 미리보기는 아무 데도 안 나간다. 테스트만 실제로 보낸다 — 둘을 섞으면
 // "키도 안 넣었는데 왜 응답이 오지"가 된다.
 test("미리보기는 만들기만 하고 보내지 않는다", async () => {
   calls.length = 0;
@@ -689,7 +689,7 @@ test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", (
   );
 });
 
-// 미리보기·테스트는 **저장 안 한 초안**을 그대로 받는다. custom 은 주소를 사람이 적으므로,
+// 미리보기·테스트는 저장 안 한 초안을 그대로 받는다. custom 은 주소를 사람이 적으므로,
 // 그 주소로 키까지 붙여 보내면 운영자 세션을 쥔 쪽이 저장도 없이 아무 데로나 키를 흘릴 수 있다.
 test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () => {
   useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
@@ -810,7 +810,7 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
   assert.ok(!("messages" in sent.body));
 });
 
-// **경로는 언제나 본문 맨 위부터다.** 버텍스라고 generationConfig 안으로 넣어 주지 않는다 —
+// 경로는 언제나 본문 맨 위부터다. 버텍스라고 generationConfig 안으로 넣어 주지 않는다 —
 // 모델 프로필의 mapsTo.path 와 같은 규칙이라야 두 길이 어긋나지 않는다.
 test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경로 그대로 간다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: global\nextra: generationConfig.topP=0.9\n", [
@@ -862,7 +862,7 @@ test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
   assert.equal(sent.body.generationConfig.topP, 0.5, "추가 파라미터도 적은 경로 그대로");
 });
 
-// 모델 목록은 생성과 **주소 체계가 다르다**(프로젝트·리전이 안 붙는다).
+// 모델 목록은 생성과 주소 체계가 다르다(프로젝트·리전이 안 붙는다).
 // 생성 주소를 그대로 썼다가 404 를 봤다. 문서판이 갈려 있어 차례로 물어본다.
 test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () => {
   const tried = [];

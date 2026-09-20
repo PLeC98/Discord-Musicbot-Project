@@ -1,6 +1,6 @@
 "use strict";
 
-// Spotify 소스 — 링크 타입별 투트랙 라우팅.
+// Spotify 소스. 링크 타입별 투트랙 라우팅.
 //   track/album  → 공식 Web API(native fetch, client credentials)
 //   artist       → 공식 API, 실패 시 익명 GraphQL 폴백(정책 축소 대비)
 //   playlist     → 익명 GraphQL 전용(공식은 100곡 상한이라 사실상 불가)
@@ -24,7 +24,7 @@ const HDR_HTML = { "User-Agent": UA, "Accept-Language": "en" };
 const TIMEOUT_MS = 10000;
 const BUNDLE_TIMEOUT_MS = 30000;
 
-// 씨앗값 — 최초 추출 실패 시 폴백. 자가치유가 최신값으로 덮어씀.
+// 씨앗값. 최초 추출 실패 시 폴백. 자가치유가 최신값으로 덮어씀.
 const SEED = {
   secrets: [{ secret: ',7/*F("rLJ2oxaKL^f+E1xvP@N', version: 61 }],
   hashes: {
@@ -235,7 +235,7 @@ const graphql = {
       this._state = { ...extracted, fetchedAt: Date.now() };
       CacheManager.setSpotifyAnonState(extracted);
     } catch (e) {
-      log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${e.message} — 저장값/시드값 사용`);
+      log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${e.message}. 저장값/시드값 사용`);
       this._state = this._state || CacheManager.getSpotifyAnonState() || { ...SEED, fetchedAt: 0 };
     }
     return this._state;
@@ -292,7 +292,7 @@ const graphql = {
       j = await this._mintToken();
     } catch (e) {
       if (e.status === 400 || e.status === 403) {
-        log.warn({ tags: ["retry"] }, `익명 토큰 오류 ${e.status} — secret을 다시 추출해 재시도합니다`);
+        log.warn({ tags: ["retry"] }, `익명 토큰 오류 ${e.status}. secret을 다시 추출해 재시도합니다`);
         await this._ensureState(true);
         j = await this._mintToken();
       } else throw e;
@@ -325,7 +325,7 @@ const graphql = {
       return await run();
     } catch (e) {
       if (e.persistedNotFound) {
-        log.warn({ tags: ["retry"] }, "저장된 해시 만료 — 다시 추출해 재시도합니다");
+        log.warn({ tags: ["retry"] }, "저장된 해시 만료. 다시 추출해 재시도합니다");
         await this._ensureState(true);
         return run();
       }
@@ -353,7 +353,7 @@ const graphql = {
           if (n) out.push(n);
         }
       }
-      // 재생할 수 없는 곡은 건너뛰므로 받은 곡 수와 원본 위치가 어긋난다 — 다음 위치는 원본 기준으로 센다
+      // 재생할 수 없는 곡은 건너뛰므로 받은 곡 수와 원본 위치가 어긋난다. 다음 위치는 원본 기준으로 센다
       cursor += items.length;
       if (items.length < want) break;
       if (total != null && cursor >= total) break;
@@ -395,7 +395,7 @@ async function resolveType(type, id, options) {
       if (result.tracks.length || last) return result;
       // 빈 결과 + 폴백 남음 → 다음 시도
     } catch (e) {
-      log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${e.message}${last ? "" : " — 폴백 전환"}`);
+      log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${e.message}${last ? "" : ", 폴백 전환"}`);
       if (last) return empty;
     }
   }
@@ -432,5 +432,5 @@ async function search(query, limit = 1) {
 
 module.exports = { isSpotifyURL, parseSpotifyURL, getCollection, getFromURL, search };
 
-// 테스트용 노출 — 프로바이더는 요청 함수(_query/_get)를 바꿔 끼워 네트워크 없이 검증한다
+// 테스트용 노출. 프로바이더는 요청 함수(_query/_get)를 바꿔 끼워 네트워크 없이 검증한다
 module.exports._internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };

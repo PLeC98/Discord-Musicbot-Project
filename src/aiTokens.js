@@ -1,12 +1,12 @@
 /**
- * 토큰 세기 — 요청이 몇 토큰짜리인지.
+ * 토큰 세기. 요청이 몇 토큰짜리인지.
  *
- * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다.
- *   tik     OpenAI 계열 — gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩이다
- *   gemma   제미니·젬마 — data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없다. tik 로 세면 한국어에서 35% 가 모자란다
- *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 센다 — 무료이고 정확하다.
- *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치다
+ * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정함
+ *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩
+ *   gemma   제미니·젬마. data/gemma-tokenizer.model (SentencePiece BPE)
+ *   claude  앤트로픽은 공개 토크나이저가 없다. tik 로 세면 한국어에서 35% 가 모자람
+ *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 측정: 무료이고 정확
+ *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치
  */
 const fs = require("fs");
 const path = require("path");
@@ -14,7 +14,7 @@ const path = require("path");
 const GEMMA_FILE = path.join(__dirname, "..", "data", "gemma-tokenizer.model");
 
 /**
- * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 **실측으로 잡았다.**
+ * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 실측으로 잡았다.
  *
  *   openai     한 메시지 3 + 요청 3. 본문 33 짜리가 prompt_tokens 39 로 왔다
  *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같았다
@@ -29,7 +29,7 @@ const FRAMING = {
 };
 
 // ── SentencePiece BPE ──────────────────────────────────────────────────────
-// 조각마다 점수가 있고 **점수가 높은 짝부터 붙인다.** merges 목록이 따로 없는 이유다.
+// 조각마다 점수가 있고 점수가 높은 짝부터 붙인다. merges 목록이 따로 없는 이유다.
 let gemma = null;
 
 function varint(buf, at) {
@@ -44,7 +44,7 @@ function varint(buf, at) {
   return [out, at];
 }
 
-/** ModelProto 에서 조각과 점수만 꺼낸다. */
+/** ModelProto 에서 조각과 점수만 */
 function readPieces(buf) {
   const piece = [];
   const score = [];
@@ -106,9 +106,9 @@ function loadGemma() {
   return gemma;
 }
 
-/** 점수가 높은 짝부터 붙여 나간다. 더 붙일 것이 없으면 그것이 토큰 수다. */
+// 점수가 높은 짝부터 붙여 나간다. 더 붙일 것이 없으면 그것이 토큰 수.
 function countGemma(text, rank) {
-  // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약이다
+  // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약임
   const prepared = "▁" + String(text).replace(/ /g, "▁");
   let parts = [...prepared];
   for (;;) {
@@ -130,7 +130,7 @@ function countGemma(text, rank) {
 
 // ── 바깥에서 쓰는 것 ────────────────────────────────────────────────────────
 
-/** 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림한다. */
+// 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림.
 function tokenizerFor(registry, model) {
   if (!registry || !model) return "tik";
   const found = require("./aiModels")
@@ -139,7 +139,7 @@ function tokenizerFor(registry, model) {
   return found?.tokenizer || "tik";
 }
 
-/** 글 하나가 몇 토큰인지. 어느 기준으로 셌는지 같이 준다. */
+// 글 하나가 몇 토큰인지, 어느 기준으로 셌는지
 function count(text, tokenizer = "tik") {
   const body = String(text ?? "");
   if (tokenizer === "gemma") {
@@ -151,7 +151,7 @@ function count(text, tokenizer = "tik") {
 }
 
 /**
- * 요청 하나가 몇 토큰인지 — 메시지를 감싸는 몫까지 더한 값.
+ * 요청 하나가 몇 토큰인지. 메시지를 감싸는 몫까지 더한 값.
  * 본문만 세려면 `count` 를 쓴다(프롬프트 칸이 그렇게 쓴다).
  */
 function countMessages(messages, tokenizer = "tik", dialect = "openai") {
@@ -168,8 +168,8 @@ function countMessages(messages, tokenizer = "tik", dialect = "openai") {
 }
 
 /**
- * 앤트로픽에 직접 물어 정확히 센다. 과금이 없고 ~150ms 다.
- * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 쓴다.
+ * 앤트로픽에 직접 물어 정확히 측정. 무과금, ~150ms
+ * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 사용
  */
 async function countByAnthropic(messages, { model, apiKey, timeoutMs = 15000 } = {}) {
   if (!apiKey || !model) return null;

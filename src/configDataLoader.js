@@ -5,24 +5,24 @@
 // 왜 config/에 코드를 두지 않는가: 그 폴더는 운영자가 손으로 고치는 자리다. 편집 대상과 그것을 읽는
 // 코드가 섞이면 무엇을 고쳐야 할지 헷갈린다. config/는 데이터만, 읽는 방법은 여기가 갖는다.
 //
-// 왜 YAML인가: 이 파일들은 주인이 둘이다 — 손으로 고치는 운영자와, 대시보드(계획 5단계).
+// 왜 YAML인가: 이 파일들은 주인이 둘이다. 손으로 고치는 운영자와, 대시보드(계획 5단계).
 // 기계가 통째로 다시 쓰면 사람이 적은 주석이 날아가는데, YAML은 주석·빈 줄을 보존하며 고쳐 쓸 수 있다.
 //
 // 왜 require 캐시를 건드리지 않는가: 데이터가 JS 모듈이 아니므로 모듈 캐시와 무관하다.
-// mtime이 바뀐 것만 다시 읽는다 — 봇을 켜 둔 채로 고쳐도 다음 호출부터 반영된다.
+// mtime이 바뀐 것만 다시 읽는다. 봇을 켜 둔 채로 고쳐도 다음 호출부터 반영된다.
 
 const fs = require("fs");
 const path = require("path");
 const YAML = require("yaml");
 const log = require("./logger").child({ category: "config" });
-// 설정 검증과 실제 실행이 **같은 표**를 봐야 한다 — 어긋나면 저장은 되는데 재생이 안 된다
+// 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 const sources = require("./autoplaySources");
 
-// 같은 말을 되풀이하지 않는다 — genres()는 곡을 고를 때마다 불린다
+// 같은 말을 되풀이하지 않는다. genres()는 곡을 고를 때마다 불린다
 let warnedKeys = "";
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
-// (CacheManager._cacheDir와 같은 방식 — 파일을 만지는 코드는 반드시 이 값을 거친다).
+// (CacheManager._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
 let configDir = path.join(__dirname, "..", "config");
 
 // name -> { mtimeMs, value }
@@ -32,7 +32,7 @@ const cache = new Map();
 // g 플래그가 없어 test()에 상태가 남지 않는다.
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 
-// 숫자만으로 된 이름 — JavaScript 객체가 정수처럼 생긴 키를 앞으로 당기는 탓에 장르 차례가
+// 숫자만으로 된 이름. JavaScript 객체가 정수처럼 생긴 키를 앞으로 당기는 탓에 장르 차례가
 // 조용히 어긋난다("재즈 80 팝"이 "80 재즈 팝"이 된다). 차례는 선택 메뉴에 그대로 나오므로 막는다.
 const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
 
@@ -42,9 +42,9 @@ const exampleOf = (name) => path.join(configDir, `${name}.example.yaml`);
 /**
  * 설정 파일 하나를 읽는다. 내용이 바뀌지 않았으면 읽은 것을 그대로 돌려준다.
  *
- * 기동 시 파일이 없으면 멈춘다(.env와 같은 취급) — 코드에 박힌 기본값으로 조용히 돌면
+ * 기동 시 파일이 없으면 멈춘다(.env와 같은 취급). 코드에 박힌 기본값으로 조용히 돌면
  * 설치가 어긋나도 아무도 모른 채 엉뚱한 설정으로 운영된다.
- * 반면 **돌던 중의 읽기·파싱 실패는 직전 값을 유지**한다. 저장하다 만 파일 한 번에 재생이 멈추면 안 된다.
+ * 반면 돌던 중의 읽기·파싱 실패는 직전 값을 유지한다. 저장하다 만 파일 한 번에 재생이 멈추면 안 된다.
  */
 function load(name) {
   const file = fileOf(name);
@@ -72,7 +72,7 @@ function load(name) {
     // 사람이 고치는 파일이라 문법 오류가 날 수 있다. 어디가 잘못됐는지 알려 주는 것이 중요하다.
     const detail = error?.message || error;
     if (cached) {
-      log.warn(`설정 파일을 읽지 못했습니다(직전 값 유지): ${path.basename(file)} — ${detail}`);
+      log.warn(`설정 파일을 읽지 못했습니다(직전 값 유지): ${path.basename(file)}, ${detail}`);
       return cached.value;
     }
     throw Object.assign(new Error(`설정 파일을 읽지 못했습니다: ${file}\n   ${detail}\n   들여쓰기에 탭을 쓰지 않았는지 확인하세요(YAML은 공백만 받습니다).`), { code: "CONFIG_INVALID" });
@@ -84,7 +84,7 @@ function load(name) {
 }
 
 /**
- * 자동재생 장르 설정 — { defaults, genres }.
+ * 자동재생 장르 설정. { defaults, genres }.
  *
  * 장르 키는 곧 이름이며 문자열이어야 한다. 이 라이브러리(YAML 1.2)에서 no·yes·on·off는 그냥 문자열이지만,
  * `true`/`false`/`null`은 값으로 읽혀 id가 조용히 뒤바뀐다(null 키는 빈 문자열이 된다).
@@ -95,7 +95,7 @@ function genres() {
   const bad = Object.keys(data.genres || {}).filter((k) => k === "true" || k === "false" || k === "");
   if (bad.length) {
     const shown = bad.map((k) => (k === "" ? "null" : k)).join(", ");
-    // 따옴표를 써도 파싱 뒤에는 같은 문자열이라 구분할 수 없다 — 아예 못 쓰는 이름으로 못박는다.
+    // 따옴표를 써도 파싱 뒤에는 같은 문자열이라 구분할 수 없다. 아예 못 쓰는 이름으로 못박는다.
     throw Object.assign(new Error(`장르 이름으로 쓸 수 없습니다: ${shown}\n   true·false·null 은 YAML이 값으로 읽습니다. 다른 이름을 쓰세요.`), { code: "CONFIG_INVALID" });
   }
   const numeric = Object.keys(data.genres || {}).filter((k) => NUMERIC_NAME.test(k));
@@ -122,14 +122,14 @@ function genres() {
 }
 
 /**
- * .env에 키가 없는 소스를 어떻게 다룰까 — **부분만 없으면 알리고 남은 것으로 돌고,
- * 쓸 수 있는 게 하나도 안 남으면 기동을 거부한다.**
+ * .env에 키가 없는 소스를 어떻게 다룰까. 부분만 없으면 알리고 남은 것으로 돌고,
+ * 쓸 수 있는 게 하나도 안 남으면 기동을 거부한다.
  *
  * 장르 하나가 삐끗했다고 봇 전체를 못 띄우는 것은 과하지만, 그 장르를 고르면 아무 일도 일어나지
- * 않는 채로 두는 것은 더 나쁘다 — 무엇이 잘못됐는지 알 길이 없기 때문이다.
+ * 않는 채로 두는 것은 더 나쁘다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
  */
 function checkSourceKeys(genres) {
-  // 같은 키가 빠진 장르를 묶어 한 줄로 알린다 — 장르마다 한 줄이면 기동 로그가 경고로 덮인다
+  // 같은 키가 빠진 장르를 묶어 한 줄로 알린다. 장르마다 한 줄이면 기동 로그가 경고로 덮인다
   const grouped = new Map();
   const lines = [];
 
@@ -164,18 +164,18 @@ function checkSourceKeys(genres) {
   }
 
   // 이 함수는 곡을 고를 때마다 불린다(MusicPlayer._autoplayConfig). 그대로 남기면 같은 경고가
-  // 몇 분마다 되풀이되므로, 내용이 달라졌을 때만 남긴다 — status()가 쓰는 것과 같은 손이다.
+  // 몇 분마다 되풀이되므로, 내용이 달라졌을 때만 남긴다. status()가 쓰는 것과 같은 손이다.
   const key = lines.join("|");
   if (lines.length && key !== warnedKeys) for (const line of lines) log.warn(line);
   warnedKeys = key;
 }
 
 /** 봇 상태 메시지 설정 */
-// StatusManager의 TYPE_MAP과 같아야 한다(거기서 require하면 순환이 된다 — 테스트로 어긋남을 막는다)
+// StatusManager의 TYPE_MAP과 같아야 한다(거기서 require하면 순환이 된다. 테스트로 어긋남을 막는다)
 const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"];
 const MAX_TEXT = 128; // 디스코드 활동 문구 길이 상한
 
-// 같은 말을 되풀이하지 않는다 — 상태는 회전 주기마다 읽히기 때문이다
+// 같은 말을 되풀이하지 않는다. 상태는 회전 주기마다 읽히기 때문이다
 let warned = "";
 
 function status() {
@@ -183,7 +183,7 @@ function status() {
 
   // 장르와 달리 여기서는 던지지 않는다. 이 함수는 setInterval 안에서 주기마다 불리므로,
   // 던지면 타이머에서 잡히지 않는 예외가 되어 상태가 틀린 것보다 나쁜 일이 벌어진다.
-  // 대신 무엇이 잘못됐는지 남기고 그대로 돌려준다 — 손으로 고친 파일이 조용히 어긋나지 않게.
+  // 대신 무엇이 잘못됐는지 남기고 그대로 돌려준다. 손으로 고친 파일이 조용히 어긋나지 않게.
   const problems = validateStatus(data);
   const key = problems.join("|");
   if (problems.length && key !== warned) log.warn(`status.yaml: ${problems.join(" / ")}`);
@@ -193,7 +193,7 @@ function status() {
 }
 
 // "MM-DD ~ MM-DD" / "HH:MM ~ HH:MM". 비교가 문자열 비교라 두 자리로 적지 않으면
-// 형식이 틀린 게 아니라 "엉뚱한 날에 걸린다" — 그래서 모양까지 본다.
+// 형식이 틀린 게 아니라 "엉뚱한 날에 걸린다". 그래서 모양까지 본다.
 function rangeProblem(value, kind) {
   if (typeof value !== "string") return "글자로 적어야 합니다";
   const parts = value.split("~");
@@ -217,8 +217,8 @@ function messageProblems(list, where) {
       continue;
     }
     if (typeof message.text !== "string" || !message.text.trim()) problems.push(`${where}: 빈 문구가 있습니다.`);
-    else if (message.text.length > MAX_TEXT) problems.push(`${where}: 문구가 ${MAX_TEXT}자를 넘습니다 — "${message.text.slice(0, 20)}…"`);
-    // 종류를 잘못 적으면 조용히 "듣는 중"이 된다 — 오타가 말을 안 해 주는 종류라 여기서 잡는다
+    else if (message.text.length > MAX_TEXT) problems.push(`${where}: 문구가 ${MAX_TEXT}자를 넘습니다. "${message.text.slice(0, 20)}…"`);
+    // 종류를 잘못 적으면 조용히 "듣는 중"이 된다. 오타가 말을 안 해 주는 종류라 여기서 잡는다
     if (message.type != null && !ACTIVITY_TYPES.includes(message.type)) problems.push(`${where}: "${message.type}"은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`);
   }
   return problems;
@@ -245,7 +245,7 @@ function validateStatus(data) {
       continue;
     }
 
-    // 조건이 하나도 없으면 항상 맞아서 아래 항목이 전부 죽는다 — 손으로 고치다 범위만 지우면 밟는다
+    // 조건이 하나도 없으면 항상 맞아서 아래 항목이 전부 죽는다. 손으로 고치다 범위만 지우면 밟는다
     const kinds = ["date", "lunar", "time"].filter((k) => entry[k] != null);
     if (!kinds.length) problems.push(`${name}: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).`);
 
@@ -263,15 +263,15 @@ function validateStatus(data) {
 // ── 쓰기 (대시보드) ───────────────────────────────────────────────────────
 
 /**
- * 받은 데이터를 문서에 **덮어쓰지 않고 맞춘다** — 바뀐 자리만 고친다.
+ * 받은 데이터를 문서에 덮어쓰지 않고 맞춘다. 바뀐 자리만 고친다.
  *
  * 통째로 다시 쓰면 사람이 적은 주석이 전부 날아간다. 손대지 않은 항목은 원문 그대로 두어야
  * 이 파일의 두 주인(운영자·대시보드)이 공존할 수 있다.
  *
- * 배열은 통째로 바꾼다 — 항목 사이 주석은 보존되지 않는다(검색어 목록에 주석을 다는 일은 드물다).
+ * 배열은 통째로 바꾼다. 항목 사이 주석은 보존되지 않는다(검색어 목록에 주석을 다는 일은 드물다).
  */
 // 목록도 자리마다 견줘 고친다. 통째로 갈아끼우면 그 안에 손으로 적어 둔 주석이 전부 날아간다.
-// 자리를 기준으로 맞추므로 중간에 하나를 끼워 넣으면 그 아래 주석은 한 칸씩 밀린다 —
+// 자리를 기준으로 맞추므로 중간에 하나를 끼워 넣으면 그 아래 주석은 한 칸씩 밀린다.
 // 통째로 날리는 것보다는 낫다는 선택이다.
 function syncSeq(doc, node, list, pathArr) {
   // 남는 자리는 뒤에서부터 지운다(앞에서 지우면 뒤 자리가 당겨진다)
@@ -303,7 +303,7 @@ function syncSeq(doc, node, list, pathArr) {
 function syncMap(doc, node, data, pathArr) {
   const keys = new Set(Object.keys(data));
 
-  // 사라진 키 제거 — 그 키에 달린 주석도 함께 간다
+  // 사라진 키 제거. 그 키에 달린 주석도 함께 간다
   for (const item of [...(node?.items || [])]) {
     const key = String(item.key?.value ?? item.key);
     if (!keys.has(key)) doc.deleteIn([...pathArr, key]);
@@ -324,12 +324,12 @@ function syncMap(doc, node, data, pathArr) {
       continue;
     }
 
-    // 값이 같으면 건드리지 않는다 — 손대면 서식만 바뀐다
+    // 값이 같으면 건드리지 않는다. 손대면 서식만 바뀐다
     if (JSON.stringify(doc.getIn(here)) === JSON.stringify(value)) continue;
 
     doc.setIn(here, value);
 
-    // 여러 줄 글은 블록 리터럴로 적는다. 큰따옴표로 적으면 줄바꿈 하나가 **빈 줄**로 나가서
+    // 여러 줄 글은 블록 리터럴로 적는다. 큰따옴표로 적으면 줄바꿈 하나가 빈 줄로 나가서
     // (YAML 은 그렇게 접는다) 읽기 나쁘다. 되읽으면 같은 값이지만 손으로 고칠 파일이다.
     if (typeof value === "string" && value.includes("\n")) {
       const node = doc.getIn(here, true);
@@ -337,7 +337,7 @@ function syncMap(doc, node, data, pathArr) {
     }
   }
 
-  // 차례 맞추기 — 키도 값도 그대로인 채 순서만 바뀔 수 있다(대시보드에서 끌어 옮긴다).
+  // 차례 맞추기. 키도 값도 그대로인 채 순서만 바뀔 수 있다(대시보드에서 끌어 옮긴다).
   // 장르 차례는 선택 메뉴에 그대로 나오므로 저장되어야 한다.
   // 쌍을 통째로 옮기는 것이라 거기 달린 주석도 함께 간다.
   // 고치는 동안 갈아끼워졌을 수 있어 다시 집는다
@@ -353,7 +353,7 @@ function syncMap(doc, node, data, pathArr) {
 /**
  * 설정 파일을 고쳐 쓴다. 주석·빈 줄은 그대로 남는다.
  *
- * 임시 파일에 쓰고 원자적으로 옮긴다 — 반쯤 쓰인 파일을 로더가 읽는 일이 없어야 한다.
+ * 임시 파일에 쓰고 원자적으로 옮긴다. 반쯤 쓰인 파일을 로더가 읽는 일이 없어야 한다.
  */
 function save(name, data) {
   if (!data || typeof data !== "object") throw Object.assign(new Error("저장할 내용이 없습니다"), { code: "CONFIG_INVALID" });
@@ -367,7 +367,7 @@ function save(name, data) {
   syncMap(doc, doc.contents, data, []);
 
   const text = doc.toString({ lineWidth: 0 });
-  // 쓴 것을 도로 읽어 확인한다 — 깨진 파일을 남기느니 저장을 거절한다
+  // 쓴 것을 도로 읽어 확인한다. 깨진 파일을 남기느니 저장을 거절한다
   const check = YAML.parse(text);
   if (!check || typeof check !== "object") throw Object.assign(new Error("저장 결과가 올바르지 않습니다"), { code: "CONFIG_INVALID" });
 
@@ -381,14 +381,14 @@ function save(name, data) {
 
 // 장르 하나의 sources를 본다. 반환: 문제 문구 배열.
 //
-// 맨 위 keywords:는 **읽지 않는다.** 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
-// 그건 축약이 아니라 영구 호환층이다 — 새로 쓰는 사람이 keywords:를 고를 이유가 없다.
+// 맨 위 keywords:는 읽지 않는다. 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
+// 그건 축약이 아니라 영구 호환층이다. 새로 쓰는 사람이 keywords:를 고를 이유가 없다.
 // 한 번 크게 깨지고 끝나는 편이 두 모양을 영원히 들고 가는 것보다 낫다.
 function sourceProblems(id, genre) {
   const problems = [];
 
   if (genre.keywords !== undefined) {
-    problems.push(`${id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요 — sources: [{ type: keyword, keywords: [...] }]`);
+    problems.push(`${id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]`);
   }
 
   const list = genre.sources;
@@ -413,7 +413,7 @@ function sourceProblems(id, genre) {
       if (!filled) problems.push(`${where}(${spec.label}): ${group.join(" 또는 ")} 를 적어야 합니다.`);
     }
 
-    // 값이 정해져 있는 칸의 오타 — 여기서 안 잡으면 저쪽이 422를 주고 그 소스가 조용히 빈손이 된다
+    // 값이 정해져 있는 칸의 오타. 여기서 안 잡으면 저쪽이 422를 주고 그 소스가 조용히 빈손이 된다
     for (const [key, allowed] of Object.entries(spec.enums || {})) {
       if (source[key] == null) continue;
       for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
@@ -431,7 +431,7 @@ function sourceProblems(id, genre) {
 }
 
 /**
- * 장르 설정이 쓸 만한 모양인지 본다. 저장 전에 부른다 — 깨진 값을 파일에 남기지 않는다.
+ * 장르 설정이 쓸 만한 모양인지 본다. 저장 전에 부른다. 깨진 값을 파일에 남기지 않는다.
  * 반환: 문제 문구 배열(비어 있으면 통과).
  */
 function validateGenres(data) {
@@ -439,14 +439,14 @@ function validateGenres(data) {
   const ids = Object.keys(data?.genres || {});
 
   if (ids.length === 0) problems.push("장르가 하나도 없습니다.");
-  // 디스코드 선택 메뉴는 25개까지만 받는다 — 넘기면 메뉴가 거부된다
+  // 디스코드 선택 메뉴는 25개까지만 받는다. 넘기면 메뉴가 거부된다
   if (ids.length > 25) problems.push(`장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다.`);
 
   for (const id of ids) {
     // 키가 곧 이름이다. YAML이 값으로 읽어 버리는 말은 이름으로 쓸 수 없다.
     if (id === "true" || id === "false" || id === "" || id === "null") problems.push(`"${id || "null"}"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).`);
     if (NUMERIC_NAME.test(id)) problems.push(`"${id}": 숫자만으로 된 이름은 차례가 어긋납니다. "${id}년대"처럼 글자를 붙여 주세요.`);
-    // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다 — 파일을 손으로 고칠 수도 있어서 여기서 막는다.
+    // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다. 파일을 손으로 고칠 수도 있어서 여기서 막는다.
     const emoji = (data.genres[id] || {}).emoji;
     if (emoji != null && emoji !== "" && !ONE_EMOJI.test(String(emoji))) problems.push(`${id}: emoji는 이모지 한 글자여야 합니다.`);
     problems.push(...sourceProblems(id, data.genres[id] || {}));
@@ -463,7 +463,7 @@ function validateGenres(data) {
 
 // ── ai-keys.yaml ──────────────────────────────────────────────────────────
 //
-// 프로바이더마다 키가 따로다. **이 값은 대시보드로 내려보내지 않는다** —
+// 프로바이더마다 키가 따로다. 이 값은 대시보드로 내려보내지 않는다.
 // 화면에는 있는지 없는지만 간다(dashboard/server/routes/admin.js).
 //
 // .env 가 아니라 여기 두는 까닭: 프로바이더가 여럿이면 .env 한 칸을 돌려쓸 수 없고,
@@ -482,8 +482,8 @@ function aiKeys() {
 const aiKeyOf = (provider) => aiKeys()[provider] || "";
 
 /**
- * 키를 고쳐 쓴다. **적어 보낸 칸만** 바꾸고 나머지는 그대로 둔다.
- * 돌려주는 것은 값이 아니라 있는지 없는지다 — 값은 어느 통로로도 돌아나가지 않는다.
+ * 키를 고쳐 쓴다. 적어 보낸 칸만 바꾸고 나머지는 그대로 둔다.
+ * 돌려주는 것은 값이 아니라 있는지 없는지다. 값은 어느 통로로도 돌아나가지 않는다.
  */
 function saveAiKeys(changes) {
   if (!changes || typeof changes !== "object") throw Object.assign(new Error("저장할 내용이 없습니다"), { code: "CONFIG_INVALID" });
@@ -496,7 +496,7 @@ function saveAiKeys(changes) {
     next[name] = value == null ? "" : value.trim();
   }
 
-  // 파일이 없으면 만들어 둔다 — 설치 때 복사되지만 지웠을 수도 있다
+  // 파일이 없으면 만들어 둔다. 설치 때 복사되지만 지웠을 수도 있다
   if (!fs.existsSync(fileOf("ai-keys"))) fs.writeFileSync(fileOf("ai-keys"), "");
   save("ai-keys", next);
   return Object.fromEntries(Object.entries(next).map(([name, value]) => [name, !!value]));
@@ -504,10 +504,10 @@ function saveAiKeys(changes) {
 
 // ── ai-prompt.chatml ──────────────────────────────────────────────────────
 //
-// 프롬프트는 설정과 **딴 파일**에 산다. 설정 파일에 긴 글을 섞으면 YAML 들여쓰기에 걸려
+// 프롬프트는 설정과 딴 파일에 산다. 설정 파일에 긴 글을 섞으면 YAML 들여쓰기에 걸려
 // 손으로 고치기 나쁘고, 프롬프트만 주고받기도 어렵다.
 //
-// 모양은 ChatML 이다 — 채팅 프론트엔드들이 쓰는 그 규격이라 옮겨 붙이기 쉽다.
+// 모양은 ChatML 이다. 채팅 프론트엔드들이 쓰는 그 규격이라 옮겨 붙이기 쉽다.
 //
 //   <|im_start|>system
 //   판정 기준…
@@ -531,7 +531,7 @@ function toChatML(sections) {
   return `${(sections || []).map((one) => `<|im_start|>${one?.role || "system"}\n${String(one?.text ?? "")}\n<|im_end|>`).join("\n\n")}\n`;
 }
 
-/** 지금 프롬프트. 파일이 없거나 비면 빈 목록 — 부르는 쪽이 기본 구성을 쓴다. */
+/** 지금 프롬프트. 파일이 없거나 비면 빈 목록. 부르는 쪽이 기본 구성을 쓴다. */
 function aiPrompt() {
   let stat;
   try {
@@ -560,7 +560,7 @@ function saveAiPrompt(sections) {
 
 // ── ai.yaml ───────────────────────────────────────────────────────────────
 
-// 상태와 같은 처지다 — 곡을 고를 때마다 읽히므로 던지지 않는다.
+// 상태와 같은 처지다. 곡을 고를 때마다 읽히므로 던지지 않는다.
 // 던지면 자동재생이 통째로 멈춘다. AI는 없어도 되는 기능이라 그건 과하다.
 let aiWarned = "";
 
@@ -577,12 +577,12 @@ function ai() {
   if (problems.length && key !== aiWarned) log.warn(`ai.yaml: ${problems.join(" / ")}`);
   aiWarned = key;
 
-  // 하나라도 어긋나면 켜지 않는다 — 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다
+  // 하나라도 어긋나면 켜지 않는다. 반만 맞는 설정으로 부르면 매번 실패하고 로그만 쌓인다
   return problems.length ? { ...data, enabled: false } : data;
 }
 
 // 목록은 autoplayAssist 가 갖는다(주소·키 필요 여부까지 거기 있다).
-// **여기서 위로 require 하면 순환이다** — 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
+// 여기서 위로 require 하면 순환이다. 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
 const aiProviders = () => require("./autoplayAssist").PROVIDERS;
 
 function validateAi(data) {
@@ -592,7 +592,7 @@ function validateAi(data) {
 
   // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
   if (data?.provider && data.provider !== "off") {
-    // baseUrl 은 custom 일 때만 쓴다 — 나머지는 프로바이더에 박힌 주소로 간다(autoplayAssist)
+    // baseUrl 은 custom 일 때만 쓴다. 나머지는 프로바이더에 박힌 주소로 간다(autoplayAssist)
     if (data.provider === "custom") {
       if (!String(data.baseUrl || "").trim()) problems.push("provider가 custom이면 baseUrl을 적어야 합니다.");
       else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
@@ -605,7 +605,7 @@ function validateAi(data) {
     const value = Number(data[key]);
     if (!Number.isFinite(value) || value < min || value > max) problems.push(`${key}는 ${min}~${max} 사이여야 합니다.`);
   };
-  // 온도도 모델이 받는 칸 하나다 — params 아래로 옮겼다. 남아 있으면 조용히 무시되므로 알린다.
+  // 온도도 모델이 받는 칸 하나다. params 아래로 옮겼다. 남아 있으면 조용히 무시되므로 알린다.
   if (data?.temperature != null) problems.push("temperature는 params 아래에 모델별로 적습니다.");
   num("timeoutMs", 1000, 600000);
   num("batchSize", 1, 50);
@@ -618,7 +618,7 @@ function validateAi(data) {
     if (data?.[key] != null && typeof data[key] !== "string") problems.push(`${key}는 글자로 적어야 합니다.`);
   }
 
-  // 모델이 받는 칸의 값. **모델 이름으로 한 겹 나뉜다** — 안 그러면 모델을 바꿨을 때
+  // 모델이 받는 칸의 값. 모델 이름으로 한 겹 나뉜다. 안 그러면 모델을 바꿨을 때
   // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(autoplayAssist.withParams).
   if (data?.params != null) {
     if (typeof data.params !== "object" || Array.isArray(data.params)) {
@@ -638,7 +638,7 @@ function validateAi(data) {
   }
 
   // 섹션 이름은 대시보드에서 어느 섹션인지 알아보려고 붙이는 것이다.
-  // ChatML 에는 이름을 적을 자리가 없어서 여기 둔다 — 차례가 프롬프트 섹션과 같아야 한다.
+  // ChatML 에는 이름을 적을 자리가 없어서 여기 둔다. 차례가 프롬프트 섹션과 같아야 한다.
   if (data?.promptNames != null && !(Array.isArray(data.promptNames) && data.promptNames.every((one) => one == null || typeof one === "string"))) {
     problems.push("promptNames는 글자 목록이어야 합니다.");
   }
@@ -689,7 +689,7 @@ function listProblems(list) {
   return problems;
 }
 
-// 테스트 시임 — 폴더를 바꾸면 읽어 둔 것도 버린다(다른 파일을 같은 이름으로 읽게 되므로).
+// 테스트 시임. 폴더를 바꾸면 읽어 둔 것도 버린다(다른 파일을 같은 이름으로 읽게 되므로).
 function _setConfigDir(dir) {
   configDir = dir;
   cache.clear();

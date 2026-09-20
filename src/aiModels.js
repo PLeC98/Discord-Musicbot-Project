@@ -1,5 +1,5 @@
 /**
- * 모델 프로필 — 어느 모델이 어떤 칸을 받고 그 값이 본문 어디로 가는지.
+ * 모델 프로필. 어느 모델이 어떤 칸을 받고 그 값이 본문 어디로 가는지.
  *
  * PocketRisu 공개 레지스트리를 `data/ai-models.json` 에 원본 그대로 둔다.
  * (CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry)
@@ -11,8 +11,8 @@ const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-regis
 const FILE = path.join(__dirname, "..", "data", "ai-models.json");
 
 /**
- * 프로필은 base-provider 를 **상속한다.** 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
- * 베이스에 있다 — 합치지 않으면 추론 칸이 통째로 빈다. 키가 겹치면 프로필이 이긴다.
+ * 프로필은 base-provider 를 상속한다. 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
+ * 베이스에 있다. 합치지 않으면 추론 칸이 통째로 빈다. 키가 겹치면 프로필이 이긴다.
  */
 function mergeSchemas(base, extension) {
   const override = new Set((extension || []).map((f) => f?.key));
@@ -21,7 +21,7 @@ function mergeSchemas(base, extension) {
 
 let held = null;
 
-/** 없으면 빈 것으로 든다 — 프로필이 없다고 봇이 멈출 일은 아니다. */
+/** 없으면 빈 것으로 든다. 프로필이 없다고 봇이 멈출 일은 아니다. */
 function load({ reload = false } = {}) {
   if (held && !reload) return held;
   try {
@@ -58,7 +58,7 @@ function profileOf(registry, modelId, snapshot = load()) {
   return null;
 }
 
-/** 그 모델이 받는 칸들 — 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
+/** 그 모델이 받는 칸들. 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
 function fieldsOf(registry, modelId, snapshot = load()) {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
@@ -81,7 +81,7 @@ function fieldsOf(registry, modelId, snapshot = load()) {
     .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 }
 
-/** 칸을 담는 묶음 — 이름과 차례를 프로필이 정한다. 칸 이름은 영어뿐이고 묶음에만 한국어가 있다. */
+/** 칸을 담는 묶음. 이름과 차례를 프로필이 정한다. 칸 이름은 영어뿐이고 묶음에만 한국어가 있다. */
 function groupsOf(registry, modelId, snapshot = load()) {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];

@@ -1,7 +1,7 @@
 "use strict";
 
-// 재생목록 "더 넣기" — 이어 받을 위치(상태), 선택지, 디스코드 메뉴, 메시지 수명.
-// 상태는 메뉴의 custom_id에만 둔다(메모리 없음) — 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
+// 재생목록 "더 넣기". 이어 받을 위치(상태), 선택지, 디스코드 메뉴, 메시지 수명.
+// 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 const { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
 const log = require("./logger").child({ category: "player" });
@@ -13,13 +13,13 @@ const { collectionLabel } = require("./strings");
 const { markTransient } = require("./transientMessages");
 
 const LIFETIME_MS = 30_000;
-// 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭 — 그 사이 목록이 이만큼 편집돼도 이어진다
+// 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다
 const LOOKBACK = 5;
 const MAX_COUNT = 10_000;
 const SELECT_PREFIX = "plm";
 const MODAL_PREFIX = "plmm";
 
-// 이어 받을 수 있는 출처 — 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 받을 게 없다.
+// 이어 받을 수 있는 출처. 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 받을 게 없다.
 const KINDS = {
   ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist" },
   spp: { id: /^[A-Za-z0-9]{22}$/, url: (id) => `https://open.spotify.com/playlist/${id}`, collection: "playlist" },
@@ -72,18 +72,18 @@ function decodeState(customId) {
   return validState({ kind, listId, offset, anchorId, insertFirst: place === "f", requesterId: requesterId ?? null });
 }
 
-// 대기열에 더 넣을 수 있는 곡 수 — 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더
+// 대기열에 더 넣을 수 있는 곡 수. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더
 function roomFor(player) {
   return trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
 }
 
-// 선택지 — 한 번에 넣는 묶음 단위로, 남은 곡과 남은 자리 중 작은 쪽(cap)을 넘지 않게
+// 선택지. 한 번에 넣는 묶음 단위로, 남은 곡과 남은 자리 중 작은 쪽(cap)을 넘지 않게
 function moreChoices({ remaining, room, batch }) {
   const cap = Math.max(0, Math.min(remaining, room));
   return { cap, steps: cap > 0 ? [batch, batch * 2].filter((n) => n < cap) : [] };
 }
 
-// 누른 사람·메시지 나이 확인 — 문제가 있으면 안내 문구
+// 누른 사람·메시지 나이 확인. 문제가 있으면 안내 문구
 function clickError(state, { userId, lastTouched, now = Date.now() }) {
   if (state.requesterId && state.requesterId !== userId) return "목록을 넣은 사람만 더 넣을 수 있어요.";
   if (now - lastTouched > LIFETIME_MS) return "시간이 지나 닫힌 메뉴예요. 링크를 다시 넣어 주세요.";
@@ -100,12 +100,12 @@ function parseCount(raw) {
 function menuMessage(head, state, { remaining, room, batch = config.bot.playlistAddDefault }) {
   const { cap, steps } = moreChoices({ remaining, room, batch });
   if (cap === 0) return { content: `${head}\n대기열이 가득 차 지금은 더 넣을 수 없어요.`, components: [] };
-  // 모달 ID가 한 글자 더 길다 — 둘 다 100자 안이어야 한다
+  // 모달 ID가 한 글자 더 길다. 둘 다 100자 안이어야 한다
   if (encodeState(MODAL_PREFIX, state).length > 100) return { content: head, components: [] };
 
   const menu = new StringSelectMenuBuilder()
     .setCustomId(encodeState(SELECT_PREFIX, state))
-    .setPlaceholder(`더 넣기 — 남은 ${fmt(remaining)}곡`)
+    .setPlaceholder(`더 넣기 (남은 ${fmt(remaining)}곡)`)
     .addOptions(...steps.map((n) => ({ label: `${fmt(n)}곡 더`, value: String(n) })), { label: cap < remaining ? `넣을 수 있는 만큼 (${fmt(cap)}곡)` : `남은 곡 전부 (${fmt(cap)}곡)`, value: String(cap) }, { label: "직접 입력…", value: "custom" }, { label: "그만 넣기", value: "stop" });
   return { content: head, components: [new ActionRowBuilder().addComponents(menu)] };
 }
@@ -136,7 +136,7 @@ function countModal(state, cap, batch = config.bot.playlistAddDefault) {
   return new ModalBuilder().setCustomId(encodeState(MODAL_PREFIX, state)).setTitle("더 넣기").addComponents(new ActionRowBuilder().addComponents(input));
 }
 
-// ── 메시지 수명 — 이어 넣으면 다시 센다 ──
+// ── 메시지 수명. 이어 넣으면 다시 센다 ──
 
 const expiries = new Map(); // messageId → timer
 
@@ -158,7 +158,7 @@ function expireLater(messageId, remove, ms = LIFETIME_MS) {
   expiries.set(messageId, timer);
 }
 
-// 슬래시 명령 — 일반 채널 메시지로 띄운다. 상호작용 후속 메시지는 디스코드가 원래 응답에 답장 모양으로 붙이는데,
+// 슬래시 명령. 일반 채널 메시지로 띄운다. 상호작용 후속 메시지는 디스코드가 원래 응답에 답장 모양으로 붙이는데,
 // 그 응답이 지워지면 "메시지를 불러올 수 없어요"에 매달린다. 채널에 쓸 권한이 없을 때만 본인 전용 후속 메시지로.
 async function offerOnInteraction(interaction, more, player) {
   if (await offerOnChannel(interaction.channel, more, player, interaction.user.id, { quiet: true })) return;
@@ -172,7 +172,7 @@ async function offerOnInteraction(interaction, more, player) {
   }
 }
 
-// 공개 메시지 — 누를 수 있는 사람은 custom_id의 요청자로 가른다. 띄웠거나 띄울 것이 없으면 true.
+// 공개 메시지. 누를 수 있는 사람은 custom_id의 요청자로 가른다. 띄웠거나 띄울 것이 없으면 true.
 async function offerOnChannel(channel, more, player, requesterId, { quiet = false } = {}) {
   const payload = offerMessage({ ...more, requesterId }, roomFor(player));
   if (payload.components.length === 0) return true;

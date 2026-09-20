@@ -24,12 +24,12 @@ const PORT = config.dashboard.port;
 const HOST = config.dashboard.host;
 const DASHBOARD_URL = config.dashboard.url;
 
-// 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백 —
+// 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
 // 보안은 유지되지만(추측 불가) 재시작마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
 function resolveSessionSecret() {
   if (config.dashboard.sessionSecret) {
     if (config.dashboard.sessionSecret.length < 32) {
-      log.warn("SESSION_SECRET이 너무 짧습니다 (32자 미만) — 64자 이상 랜덤 문자열을 권장합니다.");
+      log.warn("SESSION_SECRET이 너무 짧습니다 (32자 미만). 64자 이상 랜덤 문자열을 권장합니다.");
     }
     return config.dashboard.sessionSecret;
   }
@@ -37,7 +37,7 @@ function resolveSessionSecret() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// 평문 접속 감지 — 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
+// 평문 접속 감지. 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
 // 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 그물.
 function plaintextAccessWarner(host) {
   if (isLoopbackHost(host)) return (req, res, next) => next();
@@ -46,13 +46,13 @@ function plaintextAccessWarner(host) {
   return (req, res, next) => {
     if (!warned && !req.secure) {
       warned = true;
-      log.warn("평문 HTTP 연결로 접속됨 — 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
+      log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
     }
     next();
   };
 }
 
-// 미들웨어 등록만 하고 listen은 하지 않는다 — 등록 순서 자체가 회귀 대상이라(정적 자산이
+// 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체가 회귀 대상이라(정적 자산이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
 function createApp(client) {
   const app = express();
@@ -68,7 +68,7 @@ function createApp(client) {
   app.use(plaintextAccessWarner(HOST));
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
-  // 오류를 화면에 표시할 수 있어야 한다 — 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
+  // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
   const clientDist = path.join(__dirname, "../client/dist");
   if (fs.existsSync(clientDist)) {
     app.use(express.static(clientDist));
@@ -87,14 +87,14 @@ function createApp(client) {
   app.use(
     session({
       secret: SESSION_SECRET,
-      // SQLite 영속 스토어 — 재시작해도 로그인 유지 (SESSION_SECRET이 .env에 고정일 때.
-      // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림 — resolveSessionSecret 경고 참조)
+      // SQLite 영속 스토어. 재시작해도 로그인 유지 (SESSION_SECRET이 .env에 고정일 때.
+      // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조)
       store: new SqliteSessionStore(),
       resave: false,
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        // 'auto': Secure attribute follows the actual connection —
+        // 'auto': Secure attribute follows the actual connection.
         // set when served over HTTPS (via trusted proxy), omitted on
         // plain http://localhost so local testing keeps working
         secure: "auto",
@@ -109,11 +109,11 @@ function createApp(client) {
   // Make Discord client available to routes
   app.locals.discordClient = client;
 
-  // ── API 요청 제한 (express-rate-limit) — 라우트 마운트보다 먼저 등록 ──
+  // ── API 요청 제한 (express-rate-limit). 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
   const apiKey = (req) => req.session?.user?.id || ipKeyGenerator(req.ip);
 
-  // 일반 인증 API — 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE(장수명 연결) 경로는 제외.
+  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE(장수명 연결) 경로는 제외.
   app.use(
     "/api",
     rateLimit({
@@ -127,7 +127,7 @@ function createApp(client) {
     }),
   );
 
-  // 로그인/OAuth — 세션 전이라 IP 키 (trust proxy가 사설망 한정이라 신뢰 가능)
+  // 로그인/OAuth. 세션 전이라 IP 키 (trust proxy가 사설망 한정이라 신뢰 가능)
   app.use(
     "/auth",
     rateLimit({
@@ -147,7 +147,7 @@ function createApp(client) {
   app.use("/api/guilds", guildsRoutes);
 
   // Current user endpoint
-  // isOwner는 세션에 저장하지 않고 여기서 파생한다 — UI 표시용이고 권한 판정은 서버가 매번 다시 한다.
+  // isOwner는 세션에 저장하지 않고 여기서 파생한다. UI 표시용이고 권한 판정은 서버가 매번 다시 한다.
   // isOwner는 권한 수준 오버라이드가 반영된 값(UI가 그 계층으로 보이게), isRealOwner는 해제 수단을
   // 계속 노출하기 위한 원래 값이다.
   app.get("/api/me", (req, res) => {
@@ -181,7 +181,7 @@ function startDashboard(client) {
     log.info(line);
     for (const w of warnings) log.warn(w);
     // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
-    if (config.dashboard.devOrigin) log.warn("개발 모드 — Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
+    if (config.dashboard.devOrigin) log.warn("개발 모드. Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
   });
 
   return app;

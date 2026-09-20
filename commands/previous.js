@@ -23,7 +23,7 @@ module.exports = {
 
     if (!result) return interaction.reply({ content: "❌ 이전 노래로 이동하지 못했습니다!", flags: [1 << 6] });
 
-    await interaction.reply({ content: player.loop === "track" ? "🔂 한곡 반복 중 — 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!", flags: [1 << 6] });
+    await interaction.reply({ content: player.loop === "track" ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!", flags: [1 << 6] });
 
     if (client.musicEmbedManager && player.currentTrack) await client.musicEmbedManager.updateNowPlayingEmbed(player);
   },

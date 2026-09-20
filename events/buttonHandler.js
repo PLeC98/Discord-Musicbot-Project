@@ -36,14 +36,14 @@ module.exports = {
       return await this.handleSystemRefresh(interaction);
     }
 
-    // 자동재생은 놀고 있을 때도 켤 수 있다(3단계) — 끝난 패널의 버튼이 여기로 온다.
+    // 자동재생은 놀고 있을 때도 켤 수 있다(3단계). 끝난 패널의 버튼이 여기로 온다.
     // 아래의 "플레이어 없으면 거절"과 세션 검증을 지나면 눌리지 않으므로 앞에서 받는다.
     if (interaction.customId.startsWith("music_autoplay:")) {
       return await this.handleAutoplayButton(interaction, client);
     }
 
     // 음악 플레이어 가져오기 (음악 버튼은 현재 재생 패널에만 존재)
-    // 재적/계층 검사는 각 핸들러의 check* 호출이 담당 — 조회(대기열)는 검사 없이 개방
+    // 재적/계층 검사는 각 핸들러의 check* 호출이 담당. 조회(대기열)는 검사 없이 개방
     const player = client.players.get(guild.id);
     if (!player) {
       return await interaction.reply({
@@ -203,7 +203,7 @@ module.exports = {
 
     if (skipped && player.loop === "track") {
       return await interaction.reply({
-        content: `🔂 한곡 반복 중 — **${currentTrack.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`,
+        content: `🔂 한곡 반복 중. **${currentTrack.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`,
         flags: [1 << 6],
       });
     }
@@ -254,7 +254,7 @@ module.exports = {
 
     if (result) {
       await interaction.reply({
-        content: player.loop === "track" ? "🔂 한곡 반복 중 — 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!",
+        content: player.loop === "track" ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!",
         flags: [1 << 6],
       });
     } else {
@@ -474,7 +474,7 @@ module.exports = {
     }
   },
 
-  // 끝난 패널·재생 중 패널 양쪽에서 온다. 플레이어가 없으면 만든다 — /autoplay와 같은 길.
+  // 끝난 패널·재생 중 패널 양쪽에서 온다. 플레이어가 없으면 만든다. /autoplay와 같은 길.
   async handleAutoplayButton(interaction, client) {
     const { guild, member, channel } = interaction;
 
@@ -491,7 +491,7 @@ module.exports = {
     if (player.autoplay) {
       player.setAutoplay(false);
 
-      // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다 — 고르면 변경, 두면 종료.
+      // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다. 고르면 변경, 두면 종료.
       expireReply(interaction, OFF_MENU_MS);
       await interaction.reply(buildAutoplayOffMenu(requesterId, player.sessionId));
 
@@ -501,7 +501,7 @@ module.exports = {
       return;
     }
 
-    // 고르는 동안 떠 있어야 한다 — 수명 표는 이 버튼의 분기를 가르지 못하므로 여기서 선언한다
+    // 고르는 동안 떠 있어야 한다. 수명 표는 이 버튼의 분기를 가르지 못하므로 여기서 선언한다
     keepReply(interaction);
     await interaction.reply(buildGenreMenu(requesterId, player.sessionId));
   },
@@ -555,7 +555,7 @@ module.exports = {
     const member = interaction.member;
     const guild = interaction.guild;
 
-    // 곡 추가 경로 — 봇 동작 중에는 재적 규칙만(모더레이터 면제), 유휴 시에는 소환 대상이 필요하므로 본인 재적 필수
+    // 곡 추가 경로. 봇 동작 중에는 재적 규칙만(모더레이터 면제), 유휴 시에는 소환 대상이 필요하므로 본인 재적 필수
     const botVoiceChannel = guild.members.me?.voice?.channel;
     if (botVoiceChannel) {
       const permErr = checkAdd(member);
@@ -572,7 +572,7 @@ module.exports = {
       });
     }
 
-    // 메시지 ID로 키잉 — 같은 사용자의 재검색/다른 서버의 검색과 섞이지 않음
+    // 메시지 ID로 키잉. 같은 사용자의 재검색/다른 서버의 검색과 섞이지 않음
     const userSearchData = client.searchResults?.get(interaction.message.id);
     if (!userSearchData) {
       return await interaction.reply({
@@ -612,7 +612,7 @@ module.exports = {
 
     await interaction.editReply({ embeds: [processingEmbed], components: [] });
 
-    // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답 —
+    // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
     // 검색 메시지는 일반 임베드라 CV2 현재 재생 메시지로 수정할 수 없다.
     const responder = channelResponder(interaction.channel, () => interaction.deleteReply().catch(() => {}));
 
@@ -635,7 +635,7 @@ module.exports = {
         return await interaction.editReply({ embeds: [errorEmbed], components: [] });
       }
 
-      // 검색 결과 메시지 제거 — 현재 재생/대기열 정보는 별도로 전송됨
+      // 검색 결과 메시지 제거. 현재 재생/대기열 정보는 별도로 전송됨
       await responder.dismissPlaceholder();
     } catch (error) {
       const errorEmbed = new EmbedBuilder().setTitle("❌ 오류").setDescription(S.ERR_PROCESSING).setColor("#FF0000").setTimestamp();

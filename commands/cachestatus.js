@@ -59,7 +59,7 @@ module.exports = {
         .map((t, i) => {
           const dur = t.duration_sec ? `${Math.floor(t.duration_sec / 60)}:${String(Math.round(t.duration_sec % 60)).padStart(2, "0")}` : "?:??";
           const title = t.title?.length > 35 ? t.title.slice(0, 33) + "…" : (t.title ?? "제목 없음");
-          return `\`${i + 1}.\` **${title}** — ${t.play_count}회 (${dur})`;
+          return `\`${i + 1}.\` **${title}**. ${t.play_count}회 (${dur})`;
         })
         .join("\n");
     }

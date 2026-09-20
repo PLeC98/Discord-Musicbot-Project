@@ -3,14 +3,14 @@
 // 재생을 끊지 않고 오디오 소스를 갈아끼우는 스트림.
 //
 // ffmpeg와 createAudioResource 사이에 두면 AudioPlayer는 소스가 바뀐 줄 모르고 playbackDuration도 이어진다.
-// 이음매는 등출력(cos/sin) 크로스페이드로 덮는다 — 선형으로 섞으면 교차점에서 -6dB 딥이 생긴다.
+// 이음매는 등출력(cos/sin) 크로스페이드로 덮는다. 선형으로 섞으면 교차점에서 -6dB 딥이 생긴다.
 //
 // 입출력 모두 s16le 48kHz 스테레오 PCM (MusicPlayer.buildFfmpegArgs의 출력 형식).
 
 const { Readable } = require("stream");
 
 const BYTES_PER_MS = 192; // s16le 48kHz 스테레오
-const FRAME_BYTES = 20 * BYTES_PER_MS; // 20ms — @discordjs/voice의 프레임 주기
+const FRAME_BYTES = 20 * BYTES_PER_MS; // 20ms. @discordjs/voice의 프레임 주기
 
 // 소스가 끝났는지. 'end'는 버퍼를 다 비워야 오므로, 꼬리가 남은 동안에도 참이 되는 신호가 필요하다.
 const isEnded = (s) => s.readableEnded || s._readableState?.ended === true;
@@ -35,7 +35,7 @@ class AudioSplicer extends Readable {
     this.bDebt = 0; // 민 만큼 새 소스에서 버려야 할 바이트
     this._ended = false;
 
-    // 소스 오류는 이 스트림의 오류가 된다. 참조를 고정해 둬야 나중에 뗄 수 있다 —
+    // 소스 오류는 이 스트림의 오류가 된다. 참조를 고정해 둬야 나중에 뗄 수 있다.
     // 전환을 마치고 옛 소스를 파괴할 때 이 핸들러가 붙어 있으면, 그 파괴가 오류를 내는 순간
     // 방금 성공한 전환까지 같이 죽는다.
     this._failFrom = (err) => this.destroy(err);
@@ -48,7 +48,7 @@ class AudioSplicer extends Readable {
     return Math.floor(this.emitted / BYTES_PER_MS);
   }
 
-  /** 전환 지점을 뒤로 민 횟수 — 새 소스가 늦어 재조정한 정도 */
+  /** 전환 지점을 뒤로 민 횟수. 새 소스가 늦어 재조정한 정도 */
   get slips() {
     return this._slips;
   }
@@ -120,7 +120,7 @@ class AudioSplicer extends Readable {
 
         const bReady = this.bDebt === 0 && (this.b.readableLength >= FRAME_BYTES || isEnded(this.b));
         if (!bReady) {
-          // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 **멈추지 말고 전환 지점을 뒤로 민다** —
+          // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 멈추지 말고 전환 지점을 뒤로 민다.
           // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 무이음으로 갈 이유가 없어진다.
           const c = this._take(this.a);
           if (c) {
@@ -131,7 +131,7 @@ class AudioSplicer extends Readable {
             if (!this.push(c)) return;
             continue;
           }
-          // 옛 소스도 말랐다 — 더 밀 여유가 없다
+          // 옛 소스도 말랐다. 더 밀 여유가 없다
           if (isEnded(this.a)) {
             this._completeSwitch();
             continue;
@@ -141,13 +141,13 @@ class AudioSplicer extends Readable {
 
         const b = this.b.read(FRAME_BYTES);
         if (!b) {
-          // 새 소스가 끝났거나 프레임이 안 된다 — 페이드를 접고 넘어간다
+          // 새 소스가 끝났거나 프레임이 안 된다. 페이드를 접고 넘어간다
           this._completeSwitch();
           continue;
         }
         const a = this.a.readableLength >= FRAME_BYTES || isEnded(this.a) ? this.a.read(FRAME_BYTES) : null;
         if (!a) {
-          // 옛 소스가 말랐다 — 남은 페이드를 포기하고 b로. 공백보다 짧은 이음매가 낫다.
+          // 옛 소스가 말랐다. 남은 페이드를 포기하고 b로. 공백보다 짧은 이음매가 낫다.
           this.b.unshift(b);
           this._completeSwitch();
           continue;
@@ -181,7 +181,7 @@ class AudioSplicer extends Readable {
       if (!d) break;
       this.bDebt -= d.length;
     }
-    // 새 소스가 빚만큼도 남기지 않고 끝났다 — 더 갚을 방법이 없으니 접는다
+    // 새 소스가 빚만큼도 남기지 않고 끝났다. 더 갚을 방법이 없으니 접는다
     if (this.bDebt > 0 && isEnded(this.b) && this.b.readableLength === 0) this.bDebt = 0;
   }
 
@@ -237,14 +237,14 @@ class AudioSplicer extends Readable {
   // @discordjs/voice는 리소스를 버릴 때 playStream(pipeline)을 파괴하고, pipeline은 그 파괴를
   // 소스까지 역전파한다. 그 사슬이 여기서 끊기면 ffmpeg의 stdout이 닫히지 않아
   // spawnFfmpeg의 killOnStdoutClose가 걸리지 않고, ffmpeg가 파이프에 막힌 채 남는다.
-  // 레지스트리는 종료 백스톱이라 그때까지 좀비가 쌓인다 — 곡을 넘길 때마다 하나씩.
+  // 레지스트리는 종료 백스톱이라 그때까지 좀비가 쌓인다. 곡을 넘길 때마다 하나씩.
   _destroy(err, cb) {
     this.waiting = null;
     for (const s of [this.a, this.b]) this._discard(s);
     cb(err);
   }
 
-  // 더 쓰지 않을 소스를 손에서 놓는다. 오류 핸들러를 흡수기로 갈아끼운 뒤 파괴한다 —
+  // 더 쓰지 않을 소스를 손에서 놓는다. 오류 핸들러를 흡수기로 갈아끼운 뒤 파괴한다.
   // 그냥 떼면 듣는 사람이 없어 uncaughtException, 그냥 두면 이 파괴가 우리를 죽인다.
   _discard(s) {
     if (!s) return;

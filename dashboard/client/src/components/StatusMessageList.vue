@@ -1,5 +1,5 @@
 <!--
-  상태 문구 줄 목록 — 평소 문구와 기간·시간대 문구가 같은 모양이라 함께 쓴다.
+  상태 문구 줄 목록. 평소 문구와 기간·시간대 문구가 같은 모양이라 함께 쓴다.
 
   활동 종류는 대부분 건드릴 일이 없어 "기본"을 두면 파일에도 적히지 않는다.
   파일에서는 그런 줄이 `- 🎵 /play` 한 줄로 남는다.
@@ -23,7 +23,7 @@
            밝은 글자가 안 보인다. CSS로 그리게 하고 화살표는 따로 얹는다. -->
       <div class="relative shrink-0">
         <select v-model="message.type" :class="[inputCls, selectCls]" v-tooltip="'활동 종류'">
-          <!-- option은 네이티브로 그려져 부모 색을 물려받지 않는다 — 색을 직접 준다 -->
+          <!-- option은 네이티브로 그려져 부모 색을 물려받지 않는다. 색을 직접 준다 -->
           <option v-for="type in TYPES" :key="type.value" :value="type.value" class="bg-[#141833] text-[#e7e9f3]">{{ type.label }}</option>
         </select>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
@@ -48,7 +48,7 @@ import Twemoji from "./TwemojiImage.vue";
 import EmojiPicker from "./EmojiPicker.vue";
 import { insertAt, caretOf } from "../utils/caret.js";
 
-// 배열을 그대로 고친다 — 줄마다 갈아끼우면 입력 중에 초점이 튄다
+// 배열을 그대로 고친다. 줄마다 갈아끼우면 입력 중에 초점이 튄다
 const list = defineModel({ type: Array, required: true });
 defineEmits(["add"]);
 

@@ -75,7 +75,7 @@ function ok(...titles) {
 
 // ── toRequester ──────────────────────────────────────────────
 
-// 표시에 쓰는 이름은 **그 서버에서 보이는 이름**이다. GuildMember에는 username이 없어
+// 표시에 쓰는 이름은 그 서버에서 보이는 이름이다. GuildMember에는 username이 없어
 // 전역 계정명(user.username)이 먼저 잡히면 닉네임이 영영 쓰이지 않는다 — displayName을 먼저 본다.
 test("toRequester: GuildMember는 서버 닉네임(displayName)을 쓴다", () => {
   const member = { id: "u1", user: { username: "carl", tag: "carl#0" }, displayName: "칼" };

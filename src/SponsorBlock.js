@@ -1,6 +1,6 @@
 "use strict";
 
-// SponsorBlock — 영상별 비음악/인트로/아웃트로 등 구간을 SponsorBlock API로 조회해 자동 스킵에 사용.
+// SponsorBlock. 영상별 비음악/인트로/아웃트로 등 구간을 SponsorBlock API로 조회해 자동 스킵에 사용.
 //
 // 설계:
 //  - 프라이버시 해시-프리픽스 엔드포인트로 조회 (어떤 영상을 트는지 서버에 노출 안 함).
@@ -23,7 +23,7 @@ const FETCH_ACTION_TYPES = ["skip", "poi"];
 
 const USER_AGENT = `Discord-Musicbot-Project/${pkg.version} (+${config.bot.projectRepo})`;
 
-// 겹치거나 맞닿은 skip 구간을 합집합으로 병합 — 기여한 카테고리는 union으로 보존
+// 겹치거나 맞닿은 skip 구간을 합집합으로 병합. 기여한 카테고리는 union으로 보존
 function mergeIntervals(segs) {
   if (!segs.length) return [];
   const sorted = [...segs].sort((a, b) => a.start - b.start);
@@ -60,7 +60,7 @@ const SponsorBlock = {
 
   /**
    * videoId의 라이브 조회 → 원시 세그먼트 배열, 실패 시 null.
-   * 200 + 배열이면 성공(우리 영상 세그먼트 없으면 빈 배열 — 이는 실패 아님, "구간 없음").
+   * 200 + 배열이면 성공(우리 영상 세그먼트 없으면 빈 배열. 이는 실패 아님, "구간 없음").
    * 네트워크/타임아웃(abort)/비200/비배열 → null(=폴백 트리거).
    */
   async _fetchRaw(videoId) {
@@ -121,7 +121,7 @@ const SponsorBlock = {
     return { ...normalize(raw, categories), source };
   },
 
-  /** 트랙에서 YouTube videoId 추출 — 캐시키(yt:) 우선, 그다음 native/해석된 URL */
+  /** 트랙에서 YouTube videoId 추출. 캐시키(yt:) 우선, 그다음 native/해석된 URL */
   _trackVideoId(track) {
     if (!track) return null;
     if (typeof track.audioSourceKey === "string" && track.audioSourceKey.startsWith("yt:")) {
@@ -134,7 +134,7 @@ const SponsorBlock = {
   },
 
   /**
-   * 트랙에 SponsorBlock 데이터(track.sponsor)를 확보 — 재생 근접(preload)·재생 직전에 호출.
+   * 트랙에 SponsorBlock 데이터(track.sponsor)를 확보. 재생 근접(preload)·재생 직전에 호출.
    * 서버별 유효 설정으로 조회하며, 한 번 확보하면 재조회하지 않는다(멱등). 실패해도 예외를 던지지 않음.
    * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:string}|null>}
    */
@@ -143,7 +143,7 @@ const SponsorBlock = {
     if (track._sponsorResolved) return track.sponsor || null;
 
     const videoId = this._trackVideoId(track);
-    if (!videoId) return null; // videoId 미확정 — 다음 호출 시 재시도
+    if (!videoId) return null; // videoId 미확정. 다음 호출 시 재시도
 
     const GuildSettingsManager = require("./GuildSettingsManager");
     const eff = GuildSettingsManager.resolveSponsorBlock(guildId);

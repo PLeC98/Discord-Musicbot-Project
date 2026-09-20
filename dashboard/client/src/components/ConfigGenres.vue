@@ -1,7 +1,7 @@
 <!--
   자동재생 장르 편집기 (운영자 패널).
 
-  이 설정은 파일(config/genres.yaml)로도 고칠 수 있다 — 대시보드는 선택 기능이다.
+  이 설정은 파일(config/genres.yaml)로도 고칠 수 있다. 대시보드는 선택 기능이다.
   그래서 저장은 파일을 통째로 덮지 않고 바뀐 자리만 고치며, 손으로 적은 주석은 그대로 남는다.
 -->
 <template>
@@ -57,7 +57,7 @@
         @drop="onDrop"
         @dragend="onDragEnd"
       >
-        <!-- 아래 여백은 펼쳐졌을 때만 필요하다 — 여기에 두면 접었을 때 아래쪽만 넓어진다 -->
+        <!-- 아래 여백은 펼쳐졌을 때만 필요하다. 여기에 두면 접었을 때 아래쪽만 넓어진다 -->
         <div class="flex items-center gap-2">
           <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
@@ -74,7 +74,7 @@
           </button>
           <EmojiInput v-model="row.emoji" />
           <input v-model="row.name" placeholder="장르 이름" :class="[inputCls, 'flex-1']" />
-          <!-- 접어 두면 출처가 아예 안 보인다 — 몇 개인지는 접힌 채로도 알려 준다 -->
+          <!-- 접어 두면 출처가 아예 안 보인다. 몇 개인지는 접힌 채로도 알려 준다 -->
           <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
           <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
@@ -107,7 +107,7 @@ import { isFolded, toggleFold, genreFoldId } from "../composables/configFolds";
 
 const inputCls = "w-full bg-white/5 border border-white/9 rounded-xl text-fg px-3.5 py-2 text-[0.9rem] outline-none font-[inherit] transition-[border-color,background-color] duration-200 focus:border-accent/55 focus:bg-white/7";
 const labelCls = "block text-[0.8rem] text-muted mb-1.5";
-// 옆 입력칸과 같은 높이로 — py-2 + text-[0.9rem] 입력이 38px이다
+// 옆 입력칸과 같은 높이로. py-2 + text-[0.9rem] 입력이 38px이다
 const removeBtn = "h-[38px] w-[38px] rounded-xl border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,border-color] duration-150 hover:bg-danger/15 hover:text-danger hover:border-danger/30";
 const foldBtn = "size-7 rounded-lg text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:text-fg hover:bg-white/8";
 const addBtn = "size-9 rounded-xl border border-white/9 bg-white/5 text-fg-soft cursor-pointer flex items-center justify-center shrink-0 transition-[background-color,color,opacity] duration-150 hover:not-disabled:bg-white/10 disabled:opacity-35 disabled:cursor-not-allowed";
@@ -121,7 +121,7 @@ const loadError = ref("");
 const serverProblems = ref([]);
 const sourceTypes = ref([]);
 
-// 편집 중에는 배열로 다룬다 — 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
+// 편집 중에는 배열로 다룬다. 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
 // 이름이 곧 키다. 따로 id를 두지 않는다.
 let serial = 0;
 const toRows = (genres) => Object.entries(genres || {}).map(([name, g]) => ({ key: ++serial, name, emoji: g.emoji || "", sources: (g.sources || []).map((one) => ({ ...one })) }));
@@ -129,7 +129,7 @@ const toRows = (genres) => Object.entries(genres || {}).map(([name, g]) => ({ ke
 const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
 const toMap = (list) => Object.fromEntries(list.map((r) => [r.name.trim(), { emoji: r.emoji, sources: r.sources.map(clean) }]));
 
-// 상한은 비울 수 있다(제한 없음) — 빈 칸과 0을 가르려고 문자열로 다룬다.
+// 상한은 비울 수 있다(제한 없음). 빈 칸과 0을 가르려고 문자열로 다룬다.
 const maxDurationText = computed({
   get: () => (draft.value.defaults.maxDurationSec == null ? "" : String(draft.value.defaults.maxDurationSec)),
   set: (v) => {
@@ -151,7 +151,7 @@ const problems = computed(() => {
   if (names.some((name) => !name)) found.push("이름이 빈 장르가 있습니다.");
   if (new Set(names).size !== names.length) found.push("이름이 겹칩니다.");
   if (names.some((name) => ["true", "false", "null"].includes(name))) found.push("true·false·null 은 이름으로 쓸 수 없습니다.");
-  // 숫자만으로 된 이름은 끌어 옮긴 차례가 조용히 어긋난다 — 서버도 같은 것을 막는다
+  // 숫자만으로 된 이름은 끌어 옮긴 차례가 조용히 어긋난다. 서버도 같은 것을 막는다
   for (const name of names.filter((n) => /^(0|[1-9][0-9]*)$/.test(n))) found.push(`"${name}": 숫자만으로 된 이름은 차례가 어긋납니다. "${name}년대"처럼 글자를 붙여 주세요.`);
   for (const r of rows.value) {
     if (r.name.trim() && !r.sources.length) found.push(`${r.name}: 곡을 가져올 출처가 하나는 있어야 합니다.`);
@@ -165,18 +165,18 @@ watch(payload, () => {
   serverProblems.value = [];
 });
 
-// ── 순서 바꾸기 — 대기열 목록과 같은 방식 ─────────────────────────────────
+// ── 순서 바꾸기. 대기열 목록과 같은 방식 ─────────────────────────────────
 const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
 
 // 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다(브라우저가 카드 드래그로 가로챈다).
-// 그렇다고 dragstart에서 가릴 수도 없다 — dragstart는 draggable인 요소에서 나므로 target이 언제나 카드다.
+// 그렇다고 dragstart에서 가릴 수도 없다. dragstart는 draggable인 요소에서 나므로 target이 언제나 카드다.
 // 그래서 손잡이를 누르고 있는 동안에만 draggable을 켠다.
 const dragReady = ref(false);
 
 function armDrag() {
   dragReady.value = true;
-  // 누르기만 하고 끌지 않은 경우까지 풀어 준다 — 안 풀면 다음에 입력칸을 끌 때 카드가 따라온다
+  // 누르기만 하고 끌지 않은 경우까지 풀어 준다. 안 풀면 다음에 입력칸을 끌 때 카드가 따라온다
   window.addEventListener("mouseup", disarmDrag, { once: true });
 }
 
@@ -185,7 +185,7 @@ function disarmDrag() {
 }
 
 function onDragStart(e, i) {
-  // dragstart는 위로 퍼진다 — 칸 안의 글자를 끄는 것도 여기까지 올라온다.
+  // dragstart는 위로 퍼진다. 칸 안의 글자를 끄는 것도 여기까지 올라온다.
   // 카드 자신이 끌리기 시작한 것만 받는다(글자 드래그는 target이 그 칸이다).
   if (e.target !== e.currentTarget) return;
   draggedIndex.value = i;
@@ -193,7 +193,7 @@ function onDragStart(e, i) {
 }
 
 // 카드가 draggable이 아니어도 dragover·drop은 지나가는 모든 드래그에 반응한다.
-// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다 — 우리 것만 받는다.
+// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다. 우리 것만 받는다.
 function ours() {
   return draggedIndex.value != null;
 }
@@ -229,7 +229,7 @@ function addRow() {
 
 function apply(data) {
   const defaults = { prefetchCount: 1, minDurationSec: 30, maxDurationSec: null, blockedKeywords: [], ...(data.defaults || {}) };
-  // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다 — 대문자로 적어 두면 아무것도 못 거른다
+  // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다. 대문자로 적어 두면 아무것도 못 거른다
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
   draft.value = { defaults, genres: data.genres || {} };
   rows.value = toRows(data.genres);
@@ -247,7 +247,7 @@ async function fetchConfig() {
 }
 
 // 어떤 출처를 쓸 수 있고 무슨 칸을 받는지는 서버가 안다(.env 의 키 유무까지).
-// 못 읽어도 편집은 막지 않는다 — 그때는 이미 적혀 있는 것만 보이고 새로 고르지는 못한다.
+// 못 읽어도 편집은 막지 않는다. 그때는 이미 적혀 있는 것만 보이고 새로 고르지는 못한다.
 async function fetchSourceTypes() {
   try {
     sourceTypes.value = (await axios.get("/api/admin/source-types")).data.types || [];

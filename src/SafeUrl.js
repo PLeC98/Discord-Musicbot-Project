@@ -1,10 +1,8 @@
 "use strict";
 
 /**
- * SafeUrl — 사용자가 제공한 URL을 봇 서버가 대신 요청할 때의 SSRF 방어 계층.
+ * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD·GET이 여기를 지난다.
  *
- * 직접 오디오 링크(DirectLink)의 getInfo(HEAD)·getStream(GET)이 이 모듈을 통과
- * 방어 요소:
  *  - 스키마 화이트리스트(http/https만)
  *  - 내부·예약 IP 대역 차단 (ipaddr.js: 공인 unicast만 통과, IPv4-매핑 언랩)
  *  - IP 우회표기 정규화 (10진/16진/8진/매핑 모두 ipaddr.parse가 해석)
@@ -12,7 +10,8 @@
  *  - 리다이렉트 홉별 재검증 (maxRedirects:0 수동 루프, IP-리터럴 리다이렉트까지 검사)
  *  - Content-Type 화이트리스트 + 파일 크기 상한 + 타임아웃
  *
- * SSRF 오라클 방지: 차단 사유(어느 IP가 막혔는지)는 서버 로그로만 남기고, 이 모듈을 호출하는 쪽(DirectLink)은 사용자에게 일반화된 오류만 노출한다 — 안 그러면 봇이 내부망 도달성을 되짚어주는 탐지 도구가 된다.
+ * 차단 사유는 서버 로그에만 남기고 사용자에게는 일반화된 오류만 준다.
+ * 어느 IP가 막혔는지 알려 주면 봇이 내부망 탐지 도구가 된다.
  */
 
 const axios = require("axios");
@@ -56,7 +55,7 @@ function isBlockedIp(ip) {
   return addr.range() !== "unicast";
 }
 
-/** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략) — IP 차단이 주 방어이고 이건 심층방어. */
+/** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략). IP 차단이 주 방어이고 이건 심층방어. */
 function isAllowedContentType(contentType) {
   if (!contentType) return true;
   return ALLOWED_CONTENT_TYPE.test(contentType);
@@ -80,7 +79,7 @@ async function validateAndResolve(rawUrl) {
     throw new SsrfError(`허용되지 않는 스키마: ${url.protocol}`);
   }
 
-  // URL.hostname은 IPv6 리터럴을 대괄호 포함으로 준다('[::1]') — net.isIP 판정 전에 벗긴다.
+  // URL.hostname은 IPv6 리터럴을 대괄호 포함으로 준다('[::1]'). net.isIP 판정 전에 벗긴다.
   // (안 벗기면 모든 IPv6 리터럴이 DNS 경로로 빠져 공인 IPv6 주소도 사용 불가)
   const rawHost = url.hostname;
   const host = rawHost.startsWith("[") && rawHost.endsWith("]") ? rawHost.slice(1, -1) : rawHost;
@@ -106,7 +105,7 @@ async function validateAndResolve(rawUrl) {
 }
 
 /**
- * 검증된 IP로만 접속하는 에이전트 — lookup을 무시하고 항상 핀 IP를 돌려줘
+ * 검증된 IP로만 접속하는 에이전트. lookup을 무시하고 항상 핀 IP를 돌려줘
  * 소켓 레벨의 DNS 재해석(리바인딩)을 차단한다. autoSelectFamily(Node20+)가
  * all:true로 호출하는 경우까지 처리.
  */
@@ -207,7 +206,7 @@ function assertResponseAllowed(headers) {
   }
 }
 
-/** 가드된 HEAD — 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws */
+/** 가드된 HEAD. 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws */
 async function head(rawUrl) {
   const { response, agent } = await guardedRequest("head", rawUrl);
   try {
@@ -218,7 +217,7 @@ async function head(rawUrl) {
   }
 }
 
-/** 가드된 GET 스트림 — Content-Type 검증 + 크기 캡이 적용된 Readable 반환. @throws */
+/** 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. @throws */
 async function getStream(rawUrl) {
   const { response, agent } = await guardedRequest("get", rawUrl, { responseType: "stream" });
   const source = response.data;

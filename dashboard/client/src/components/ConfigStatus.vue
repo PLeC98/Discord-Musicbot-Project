@@ -1,7 +1,7 @@
 <!--
   상태 문구 편집기 (운영자 패널).
 
-  이 설정은 파일(config/status.yaml)로도 고칠 수 있다 — 대시보드는 선택 기능이다.
+  이 설정은 파일(config/status.yaml)로도 고칠 수 있다. 대시보드는 선택 기능이다.
   그래서 저장은 파일을 통째로 덮지 않고 바뀐 자리만 고치며, 손으로 적은 주석은 그대로 남는다.
 -->
 <template>
@@ -44,7 +44,7 @@
         @drop="onDrop"
         @dragend="onDragEnd"
       >
-        <!-- 아래 여백은 펼쳐졌을 때만 필요하다 — 여기에 두면 접었을 때 아래쪽만 넓어진다 -->
+        <!-- 아래 여백은 펼쳐졌을 때만 필요하다. 여기에 두면 접었을 때 아래쪽만 넓어진다 -->
         <div class="flex items-center gap-2">
           <span class="text-muted cursor-grab active:cursor-grabbing opacity-35 hover:opacity-75 shrink-0 flex items-center px-0.5 transition-opacity duration-150 select-none" v-tooltip="'드래그하여 순서 변경'" @mousedown="armDrag">
             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
@@ -60,7 +60,7 @@
             <svg width="11" height="7" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(specialFoldId(i)) }"><path d="M0 0h9L4.5 6z" /></svg>
           </button>
           <input v-model="entry.name" placeholder="항목 이름 (크리스마스)" :class="[inputCls, 'flex-1']" />
-          <!-- 접어 두면 조건과 문구가 안 보인다 — 몇 개인지는 접힌 채로도 알려 준다 -->
+          <!-- 접어 두면 조건과 문구가 안 보인다. 몇 개인지는 접힌 채로도 알려 준다 -->
           <span v-if="isFolded(specialFoldId(i))" class="text-[0.78rem] shrink-0" :class="entry.messages.length ? 'text-muted' : 'text-[#f87171]'">문구 {{ entry.messages.length }}개</span>
           <button :class="removeBtn" v-tooltip="'이 항목 삭제'" @click="removeSpecial(i)"><Icon name="trash" :size="15" /></button>
         </div>
@@ -121,7 +121,7 @@ const savedAt = ref(null);
 const loadError = ref("");
 const serverProblems = ref([]);
 
-// 편집 중에는 배열로 다룬다 — 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
+// 편집 중에는 배열로 다룬다. 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
 let serial = 0;
 const newMessage = () => ({ key: ++serial, text: "", type: "" });
 
@@ -198,18 +198,18 @@ watch(payload, () => {
   serverProblems.value = [];
 });
 
-// ── 순서 바꾸기 — 대기열 목록과 같은 방식 ─────────────────────────────────
+// ── 순서 바꾸기. 대기열 목록과 같은 방식 ─────────────────────────────────
 const draggedIndex = ref(null);
 const dragOverIndex = ref(null);
 
 // 카드를 늘 draggable로 두면 입력칸의 글자를 끌어 고를 수 없다(브라우저가 카드 드래그로 가로챈다).
-// 그렇다고 dragstart에서 가릴 수도 없다 — dragstart는 draggable인 요소에서 나므로 target이 언제나 카드다.
+// 그렇다고 dragstart에서 가릴 수도 없다. dragstart는 draggable인 요소에서 나므로 target이 언제나 카드다.
 // 그래서 손잡이를 누르고 있는 동안에만 draggable을 켠다.
 const dragReady = ref(false);
 
 function armDrag() {
   dragReady.value = true;
-  // 누르기만 하고 끌지 않은 경우까지 풀어 준다 — 안 풀면 다음에 입력칸을 끌 때 카드가 따라온다
+  // 누르기만 하고 끌지 않은 경우까지 풀어 준다. 안 풀면 다음에 입력칸을 끌 때 카드가 따라온다
   window.addEventListener("mouseup", disarmDrag, { once: true });
 }
 
@@ -218,7 +218,7 @@ function disarmDrag() {
 }
 
 function onDragStart(e, i) {
-  // dragstart는 위로 퍼진다 — 칸 안의 글자를 끄는 것도 여기까지 올라온다.
+  // dragstart는 위로 퍼진다. 칸 안의 글자를 끄는 것도 여기까지 올라온다.
   // 카드 자신이 끌리기 시작한 것만 받는다(글자 드래그는 target이 그 칸이다).
   if (e.target !== e.currentTarget) return;
   draggedIndex.value = i;
@@ -226,7 +226,7 @@ function onDragStart(e, i) {
 }
 
 // 카드가 draggable이 아니어도 dragover·drop은 지나가는 모든 드래그에 반응한다.
-// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다 — 우리 것만 받는다.
+// 칸 안의 글자를 끌면 그것도 여기로 들어와 엉뚱한 자리에 삽입선이 떴다. 우리 것만 받는다.
 function ours() {
   return draggedIndex.value != null;
 }
@@ -260,7 +260,7 @@ function addSpecial() {
   special.value.push({ key: ++serial, name: "", date: "", lunar: "", time: "", messages: [newMessage()] });
 }
 
-// 접힘은 자리로 기억한다 — 지우면 그 아래가 한 칸씩 당겨진다
+// 접힘은 자리로 기억한다. 지우면 그 아래가 한 칸씩 당겨진다
 function removeSpecial(i) {
   special.value.splice(i, 1);
   for (let at = i; at < special.value.length + 1; at++) {

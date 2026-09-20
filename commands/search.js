@@ -54,7 +54,7 @@ module.exports = {
   },
 
   async validateRequest(member) {
-    // 검색 후 선택은 곡 추가 경로 — 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
+    // 검색 후 선택은 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
     const permErr = checkAdd(member) || checkSummon(member);
     if (permErr) return { success: false, message: permErr };
     return { success: true };
@@ -119,7 +119,7 @@ module.exports = {
       components: components,
     });
 
-    // 검색 결과를 메시지 ID로 키잉해 임시 저장 — 사용자 ID 키는 같은 사용자의
+    // 검색 결과를 메시지 ID로 키잉해 임시 저장. 사용자 ID 키는 같은 사용자의
     // 재검색이 이전 메시지의 버튼과 뒤섞이는 문제가 있었음(감사 M-08).
     // userId는 버튼 처리에서 요청자 본인 확인용
     const client = interaction.client;
@@ -131,7 +131,7 @@ module.exports = {
       timestamp: Date.now(),
     });
 
-    // 5분 후 정리 — 메시지별 키라 다른 검색의 타이머와 간섭하지 않음
+    // 5분 후 정리. 메시지별 키라 다른 검색의 타이머와 간섭하지 않음
     const timer = setTimeout(
       () => {
         client.searchResults.delete(message.id);

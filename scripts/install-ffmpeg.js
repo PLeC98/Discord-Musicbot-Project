@@ -1,18 +1,14 @@
 /**
- * ffmpeg 바이너리 설치 — BtbN/FFmpeg-Builds 릴리스에서 받아 `bin/`에 둔다.
+ * ffmpeg 바이너리 설치. BtbN/FFmpeg-Builds 릴리스에서 받아 `bin/`에 둔다.
  *
- * 릴리스는 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀌어
- * 환경마다 다른 바이너리가 깔린다.
+ * 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀐다.
+ * 그중 월말 빌드를 쓴다. 일반 autobuild는 2주 뒤 지워져서 고정해 두면 404가 난다.
  *
- * **월말 빌드로 고정한다.** BtbN은 일반 autobuild를 2주만 보관하고 지우므로(고정해 두면 404가 난다),
- * 2년간 남는 각 달 마지막 빌드만 안전한 고정 대상이다.
- *
- * 다른 릴리스를 쓰려면 .env의 FFMPEG_RELEASE에 태그를 적는다 — 자산 이름은 그 릴리스의
+ * 다른 릴리스를 쓰려면 .env의 FFMPEG_RELEASE에 태그를 적는다. 자산 이름은 그 릴리스의
  * checksums.sha256에서 찾으므로 버전 문자열을 따로 맞출 필요가 없다.
- * 태그 목록은 https://github.com/BtbN/FFmpeg-Builds/releases 에서 확인.
+ * 태그 목록: https://github.com/BtbN/FFmpeg-Builds/releases
  *
- * macOS와 미지원 아키텍처는 건너뛴다 — BtbN이 빌드를 제공하지 않는다.
- * 그 환경에서는 PATH의 ffmpeg나 .env의 FFMPEG_PATH를 쓴다.
+ * macOS와 미지원 아키텍처는 BtbN이 빌드를 주지 않아 건너뛴다. PATH의 ffmpeg나 FFMPEG_PATH를 쓴다.
  */
 "use strict";
 
@@ -45,10 +41,10 @@ function skip(reason) {
 }
 
 /**
- * .env 값 하나를 가볍게 읽는다 — 이 스크립트는 .env가 없을 수도 있는 시점(postinstall)에 돌아
+ * .env 값 하나를 가볍게 읽는다. 이 스크립트는 .env가 없을 수도 있는 시점(postinstall)에 돌아
  * dotenv를 쓸 수 없다. 그래서 dotenv의 규칙 중 필요한 것만 흉내 낸다.
  *
- * **인라인 주석을 떼는 것이 핵심이다.** `FFMPEG_PATH=   # 설명`처럼 값이 비고 주석만 있는 줄을
+ * 인라인 주석을 떼는 것이 핵심이다. `FFMPEG_PATH=   # 설명`처럼 값이 비고 주석만 있는 줄을
  * 그대로 읽으면 설명문이 경로가 되어, 설정한 적 없는 사용자가 내려받기를 영영 건너뛴다.
  */
 function readEnvValue(name, source = null) {
@@ -78,7 +74,7 @@ function readEnvValue(name, source = null) {
 
 async function download(url) {
   const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${url}`);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}. ${url}`);
   return Buffer.from(await res.arrayBuffer());
 }
 
@@ -86,7 +82,7 @@ async function download(url) {
  * 릴리스의 checksums.sha256에서 이 플랫폼이 쓸 자산을 고른다.
  *
  * 한 릴리스에는 ffmpeg 브랜치가 여럿 들어 있다(예: 8.1 · 9.0 · N-master). 그중
- * **릴리스 브랜치의 가장 높은 버전**을 쓴다 — N-master(`ffmpeg-N-126342-…`)는 이름에 브랜치가
+ * 릴리스 브랜치의 가장 높은 버전을 쓴다. N-master(`ffmpeg-N-126342-…`)는 이름에 브랜치가
  * 없어 제외되고, `-shared-`는 실행에 별도 라이브러리가 필요해 제외한다.
  *
  * 자산 이름을 코드에 박지 않는 이유: 이름에 커밋 해시가 들어가 릴리스마다 달라진다.
@@ -121,7 +117,7 @@ function resolveAsset(checksumsText, key) {
 /**
  * 아카이브를 읽을 수 있는 tar 후보들.
  *
- * 윈도우는 System32의 bsdtar를 먼저 본다 — zip은 bsdtar만 읽고, PATH에 Git Bash 등의
+ * 윈도우는 System32의 bsdtar를 먼저 본다. zip은 bsdtar만 읽고, PATH에 Git Bash 등의
  * GNU tar가 앞서 있으면 그쪽이 잡혀 실패한다. 리눅스는 PATH의 tar면 된다(.tar.xz는 xz 필요).
  */
 function tarCandidates() {
@@ -136,7 +132,7 @@ function tarCandidates() {
 /**
  * 아카이브에서 ffmpeg 실행 파일 하나만 꺼낸다.
  *
- * 경로는 전부 상대경로로 넘기고 cwd로 위치를 잡는다 — GNU tar는 `-f C:\...`의 콜론을
+ * 경로는 전부 상대경로로 넘기고 cwd로 위치를 잡는다. GNU tar는 `-f C:\...`의 콜론을
  * 원격 호스트 지정으로 해석해 실패한다.
  */
 function extractBinary(archiveName, binName, cwd) {
@@ -161,14 +157,14 @@ function extractBinary(archiveName, binName, cwd) {
 }
 
 async function main() {
-  // --force는 FFMPEG_PATH가 있어도 내려받는다 — 명시적으로 요청한 갱신을 설정이 막으면 안 된다.
+  // --force는 FFMPEG_PATH가 있어도 내려받는다. 명시적으로 요청한 갱신을 설정이 막으면 안 된다.
   const configured = readEnvValue("FFMPEG_PATH");
-  if (configured && !force) skip(`.env의 FFMPEG_PATH가 설정돼 있어 내려받지 않습니다 (${configured}) — 그래도 받으려면 --force`);
+  if (configured && !force) skip(`.env의 FFMPEG_PATH가 설정돼 있어 내려받지 않습니다 (${configured}). 그래도 받으려면 --force`);
 
   const key = `${process.platform}-${process.arch}`;
   const target = TARGETS[key];
   if (!target) {
-    skip(`${key}용 빌드가 제공되지 않습니다 — ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${process.platform === "darwin" ? " (brew install ffmpeg)" : ""}.`);
+    skip(`${key}용 빌드가 제공되지 않습니다. ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${process.platform === "darwin" ? " (brew install ffmpeg)" : ""}.`);
   }
 
   const release = readEnvValue("FFMPEG_RELEASE") || DEFAULT_RELEASE;

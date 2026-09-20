@@ -1,6 +1,6 @@
 "use strict";
 
-// LogSink — 로그 레코드의 "진짜 매니저".
+// LogSink. 로그 레코드의 "진짜 매니저".
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
 // 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
@@ -9,21 +9,21 @@
 const util = require("util");
 const chalk = require("chalk");
 
-// 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로 — 몽키패치 순서와 무관하게 재귀 차단.
+// 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
 
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
-// 위 정규식은 /g라 test()가 lastIndex를 들고 다닌다(호출마다 결과가 달라진다) — 검사용은 따로.
+// 위 정규식은 /g라 test()가 lastIndex를 들고 다닌다(호출마다 결과가 달라진다). 검사용은 따로.
 const HAS_ANSI = /\x1B\[/;
 
 // pino와 동일한 레벨 체계
 const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const LEVEL_NAMES = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // SSE 와이어 레벨 = 실제 레벨 이름. 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로
-// 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 **대시보드가 영영 못 가른다.**
+// 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 영영 못 가른다.
 // 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
 const WIRE_LEVEL = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
-// 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다 — 여기 걸리는 건 전부 서드파티라
+// 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
 // info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
 const CONSOLE_LEVEL = { log: 20, info: 30, warn: 40, error: 50 };
 
@@ -37,7 +37,7 @@ const LEVEL_COLOR = {
   fatal: chalk.bgRed.white,
 };
 
-// **본문 색도 sink가 칠한다.** 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
+// 본문 색도 sink가 칠한다. 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
 // 79%가 흰 글씨였다(실측 86건 중 68건). 색이 위험도가 아니라 "그 줄을 쓴 사람이 chalk를 썼는지"를
 // 나타내던 셈이다. sink는 레벨을 알고 있으니 여기서 일관되게 칠한다.
 const TEXT_COLOR = {
@@ -49,7 +49,7 @@ const TEXT_COLOR = {
   fatal: chalk.red.bold,
 };
 
-// 카테고리 배지 색 — 이름 해시로 고른다(대시보드 뷰어의 catColor와 같은 방식).
+// 카테고리 배지 색. 이름 해시로 고른다(대시보드 뷰어의 catColor와 같은 방식).
 // 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 가르는 편이
 // 이모지로 가르는 것보다 확실하고, cmd에서 깨지지도 않는다.
 const CAT_COLORS = [chalk.magenta, chalk.blue, chalk.green, chalk.yellow, chalk.cyan, chalk.redBright, chalk.blueBright, chalk.greenBright];
@@ -59,7 +59,7 @@ function catColor(name) {
   return CAT_COLORS[h % CAT_COLORS.length];
 }
 
-// 레드액션(민감정보 마스킹) — 레코드가 버퍼/터미널/SSE로 나가기 직전 단일 지점.
+// 레드액션(민감정보 마스킹). 레코드가 버퍼/터미널/SSE로 나가기 직전 단일 지점.
 // Phase 0은 "최소 규칙"만. 본격 경로기반 redact는 pino 도입(Phase 3)에서 승계.
 const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "client_secret", "clientsecret", "access_token", "accesstoken", "refresh_token", "refreshtoken", "token", "totp", "totpserver", "apikey", "api_key"]);
 const MSG_PATTERNS = [
@@ -70,7 +70,7 @@ const MSG_PATTERNS = [
 class LogManager {
   constructor({ maxLines = 500, intercept = true } = {}) {
     this.maxLines = maxLines;
-    // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다 —
+    // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
     this.consoleLevel = 0;
     this.buffer = [];
@@ -78,7 +78,7 @@ class LogManager {
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
     this.destinations = []; // file(logFile.js), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
-    // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다 — 그게 파일에서
+    // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다. 그게 파일에서
     // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.
     this.earlyRecords = [];
 
@@ -119,7 +119,7 @@ class LogManager {
     const payload = `data: ${JSON.stringify(entry)}\n\n`;
     for (const res of this.clients) {
       try {
-        // write가 false면 커널 버퍼가 찼다는 뜻 — 읽지 않는 소비자를 붙들고 있으면 메모리가 는다.
+        // write가 false면 커널 버퍼가 찼다는 뜻. 읽지 않는 소비자를 붙들고 있으면 메모리가 는다.
         // 로그는 지나간 것을 되돌려 줄 성질이 아니므로 기다리지 않고 끊는다(다시 열면 버퍼부터 받는다).
         if (res.write(payload) === false) {
           res.end();
@@ -135,7 +135,7 @@ class LogManager {
     } else {
       for (const dest of this.destinations) {
         try {
-          dest(safe); // destinations는 리치 레코드를 받음(구조화 소비 대비 — ANSI도 그대로)
+          dest(safe); // destinations는 리치 레코드를 받음(구조화 소비 대비. ANSI도 그대로)
         } catch {
           /* destination 오류가 로깅을 막지 않도록 삼킴 */
         }
@@ -216,7 +216,7 @@ class LogManager {
 
   /**
    * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
-   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`) — "SSE 연결을 몇 개까지 두느냐"는 한 가지 질문이다.
+   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). "SSE 연결을 몇 개까지 두느냐"는 한 가지 질문이다.
    *
    * 상한을 넘으면 429. 느린 소비자는 _record가 정리한다(아래 write 반환값 확인).
    */
@@ -263,7 +263,7 @@ class LogManager {
     res.on("error", cleanup);
   }
 
-  /** 연결 정리 — 쓰기 실패 경로에서도 하트비트까지 함께 걷는다. */
+  /** 연결 정리. 쓰기 실패 경로에서도 하트비트까지 함께 걷는다. */
   _dropClient(res) {
     const cleanup = this._cleanups.get(res);
     if (cleanup) cleanup();

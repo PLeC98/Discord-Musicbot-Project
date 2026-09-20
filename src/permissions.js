@@ -4,8 +4,8 @@ const { PermissionFlagsBits } = require("discord.js");
 const GuildSettingsManager = require("./GuildSettingsManager");
 const S = require("./strings");
 
-// "강한 모더레이션 권한" — 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
-// 봇 운영자(OWNER_ID)와는 다른 개념이다 — 그쪽은 dashboard/server/owner.js.
+// "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
+// 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 dashboard/server/owner.js.
 // 서버 소유자와 Administrator(관리자) 권한 보유자는 discord.js 권한 검사가 자동으로 전부 통과시킨다.
 // 기준을 조정하려면 이 배열만 수정하면 된다.
 const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
@@ -15,7 +15,7 @@ function isModerator(member) {
 }
 
 /**
- * DJ 계층 이상인가 — 재생 조작 권한의 기준.
+ * DJ 계층 이상인가. 재생 조작 권한의 기준.
  *  - 모더레이터: 항상 DJ 취급
  *  - DJ 역할이 설정된 서버(/setdjrole, 복수 가능): 그 중 하나라도 보유한 유저만
  *  - 미설정 서버: 전원 DJ (DJ 역할 설정은 opt-in 제한)
@@ -34,7 +34,7 @@ async function isDj(member) {
 }
 
 /**
- * 재적 규칙 — 모더레이터는 어디서든 면제, 그 외는:
+ * 재적 규칙. 모더레이터는 어디서든 면제, 그 외는:
  *  - 봇이 음성 채널에서 동작 중이면 같은 채널 재적 필수
  *  - 봇이 유휴(음성 미접속)면 채널 제약 없음
  * 통과 시 null, 거부 시 사용자에게 보여줄 오류 문자열 반환.
@@ -64,7 +64,7 @@ function checkAdd(member) {
 }
 
 /**
- * 봇이 유휴 상태일 때 소환 가능한지 — 요청자의 채널로 들어가야 하므로 모더레이터여도 본인 접속 필수이며,
+ * 봇이 유휴 상태일 때 소환 가능한지. 요청자의 채널로 들어가야 하므로 모더레이터여도 본인 접속 필수이며,
  * 봇에게 그 채널의 Connect/Speak 권한이 있어야 한다. 봇이 이미 음성 채널에 있으면 검사 불필요(null).
  *
  * 재적 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에

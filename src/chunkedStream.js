@@ -13,7 +13,7 @@ const STALL_MS = 10_000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// 다시 요청해도 결과가 같은 실패 — 4xx(만료·차단)와 구간 어긋남
+// 다시 요청해도 결과가 같은 실패. 4xx(만료·차단)와 구간 어긋남
 function permanent(message) {
   return Object.assign(new Error(message), { permanent: true });
 }
@@ -29,10 +29,10 @@ function httpError(status) {
  * @param {number}   totalBytes   전체 길이. googlevideo는 URL의 clen 파라미터로 준다
  * @param {number}   chunkSize    요청 하나의 크기 = 미리 받아 두는 양의 단위
  * @param {(err: Error) => boolean} [onInterrupt]
- *   재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것 — 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
+ *   재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것. 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
  * @param {(info: {attempts: number, downtimeMs: number, starvedMs: number}) => void} [onResumed]
  *   끊긴 뒤 다시 받기 시작했을 때. starvedMs는 그동안 내보낼 것이 없어 소비자가 기다린 시간이다.
- * @param {Function} fetchImpl    테스트 주입용 — 기본은 전역 fetch
+ * @param {Function} fetchImpl    테스트 주입용. 기본은 전역 fetch
  * @returns {Readable}
  */
 function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }) {
@@ -100,7 +100,7 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
     if (!fetching && !handedOff && pos < totalBytes && queued < lowWater) fill();
   }
 
-  // Content-Range: "bytes <start>-<end>/<total>" — 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
+  // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
   function assertRangeStart(res, expected) {
     const cr = res.headers.get?.("content-range");
     if (!cr) return;
@@ -152,7 +152,7 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
       const reader = res.body.getReader();
       while (pos < target) {
         if (queued >= chunkSize + lowWater) {
-          // Range를 무시한 200 응답에서만 걸린다 — 파일 전체를 메모리에 올리지 않도록
+          // Range를 무시한 200 응답에서만 걸린다. 파일 전체를 메모리에 올리지 않도록
           clearTimeout(stallTimer);
           await new Promise((resolve) => (wakeRoom = resolve));
           if (stream.destroyed) return;
@@ -249,7 +249,7 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
  */
 async function openChunkedStream(opts) {
   const stream = createChunkedStream(opts);
-  // 오류는 prime()의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException이 되는 것만 막는다 —
+  // 오류는 prime()의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException이 되는 것만 막는다.
   // 호출부는 여전히 자기 on("error")를 붙여야 한다.
   stream.on("error", () => {});
   try {

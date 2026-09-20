@@ -1,25 +1,18 @@
 "use strict";
 
-// 자동재생 AI 보조 — 유튜브에서 찾아온 후보를 모델에게 한 번 더 물어본다.
+// 자동재생 AI 보조. 유튜브에서 찾아온 후보를 모델에게 한 번 더 물어본다.
 //
-// **소스가 아니라 뒷거름망이다.** 곡 이름만 아는 소스(키워드·Last.fm)에서만 쓸 자리가 있다.
+// 소스가 아니라 뒷거름망이다. 곡 이름만 아는 소스(키워드·Last.fm)에서만 쓸 자리가 있고,
 // 주소를 직접 주는 소스(VocaDB·AnimeThemes·재생목록)는 출처가 곧 정답이라 물을 것이 없다.
 //
-// 실측(notes/research-autoplay-quality.md · 140곡 정답표, gemma3n:e2b)
-//   규칙만        맞춘 비율 86% · 정밀도 79% · 재현율 97%
-//   규칙 + 모델   맞춘 비율 95% · 정밀도 96% · 재현율 94%
-//
-// **없어도 되는 기능이다.** 못 부르면 규칙이 고른 것을 그대로 쓴다. 재생이 멈추지 않는다.
+// 없어도 되는 기능이다. 못 부르면 규칙이 고른 것을 그대로 쓰고 재생은 멈추지 않는다.
 
 const configData = require("./configDataLoader");
 const log = require("./logger").child({ category: "autoplay" });
 
-// 판정 기준을 그대로 글로 옮긴 것. **프롬프트가 성능의 거의 전부였다** —
-// 같은 모델·같은 표본에서 이 글을 고쳐 맞춘 비율이 77% → 95%로 움직였다.
-//
-// 1차 프롬프트는 "믹스·플레이리스트·컴필레이션·라디오·강의·리뷰·예고편·랭킹영상이면 false"처럼
-// 부정 목록을 늘어놓았는데, 그러면 "Avicii - Wake Me Up (Official Video)"까지 false 가 됐다.
-// **"곡 하나냐 여러 곡이냐"로 묻고 예를 붙이는** 지금 모양이 훨씬 낫다.
+// 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
+// 걸러낼 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지
+// 걸린다. "곡 하나냐 여러 곡이냐"로 묻고 예를 붙이는 지금 모양이 낫다.
 const DEFAULT_PROMPT = `유튜브 검색 결과가 디스코드 음악봇의 자동재생에 쓸 만한지 판정한다.
 
 song — 이 영상이 **곡 하나**를 담고 있는가?
@@ -49,24 +42,22 @@ const DEFAULT_SECTIONS = [
   { role: "user", text: "{{목록}}" },
 ];
 
-// 업로더 이름은 **일부러 안 넣는다.** 도움이 될 줄 알고 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다.
+// 업로더 이름은 일부러 안 넣는다. 도움이 될 줄 알고 넣어 봤더니 fits 가 94% → 88% 로 떨어졌다.
 // 유튜브의 그 칸은 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`·`Radio Mix`).
 const DEFAULT_LINE = "{{번호}}. 장르={{장르}} 길이={{길이분}}분 제목={{제목}}";
 
 const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
-// 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다) — 그래서 프롬프트에서도 쓸 수 있다.
+// 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다). 그래서 프롬프트에서도 쓸 수 있다.
 const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
 const DEFAULTS = { timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
 /**
- * 어디에 물을지.
+ * 어디에 물을지. 모델 이름은 적지 않는다. 적어 두면 저쪽에서 새 모델이 나올 때마다 고쳐야 하므로,
+ * 주소만 알고 있다가 목록을 그때그때 물어본다.
  *
- * **모델 이름은 여기 적지 않는다.** 적어 두면 저쪽에서 새 모델이 나올 때마다 이 파일을
- * 고쳐야 한다. 주소만 알고 있다가 목록을 그때그때 물어본다.
- *
- * 대부분 OpenAI 호환이라 코드가 하나다. 규격이 진짜로 다른 것(앤트로픽·버텍스 네이티브)은
- * `dialect` 로 갈래를 낸다 — 차이는 DIALECTS 한 곳에만 있다.
+ * 대부분 OpenAI 호환이라 코드가 하나다. 규격이 진짜로 다른 곳은 `dialect`로 갈래를 내고,
+ * 차이는 DIALECTS 한 곳에만 둔다.
  */
 const PROVIDER_SPECS = {
   off: { label: "사용하지 않음", group: "" },
@@ -107,13 +98,11 @@ const specOf = (provider) => PROVIDER_SPECS[provider] || null;
 const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
 
 /**
- * 어디로 보낼지. **custom 일 때만 설정에 적힌 주소를 쓴다.**
- *
- * 프로바이더를 골랐으면 그곳의 주소로 간다 — 설정에 남아 있는 옛 주소로 조용히 나가지 않는다.
- * 여기 적힌 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom 으로 간다.
+ * 어디로 보낼지. custom일 때만 설정에 적힌 주소를 쓴다.
+ * 프로바이더를 골랐으면 그곳의 주소로 간다. 설정에 남은 옛 주소로 조용히 나가지 않게.
+ * 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom으로 간다.
  */
-// 끝의 슬래시를 뗀다. `/\/+$/` 로 하면 안 된다 — 끝에 없는 슬래시 더미에 역추적이 붙어
-// **O(n²)** 가 된다(실측: 10만 개 3.2초, 20만 개 12.4초). 세면서 자르면 선형이다.
+// 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
 function stripTrailingSlash(text) {
   const str = String(text || "");
   let end = str.length;
@@ -130,11 +119,10 @@ function endpointOf(one) {
 const wantsKey = (one) => !!specOf(one?.provider)?.key;
 
 /**
- * 키는 프로바이더마다 따로다(config/ai-keys.yaml). 로컬에는 아예 안 붙인다.
+ * 키는 프로바이더마다 따로다(config/ai-keys.yaml). 로컬에는 안 붙인다.
  *
- * **custom 은 저장된 주소와 같을 때만 붙인다.** 대시보드의 미리보기·테스트는 저장 안 한
- * 초안을 그대로 받는데, 그 주소로 키까지 붙여 보내면 운영자 세션을 쥔 쪽이 저장도 없이
- * 아무 데로나 키를 흘려보낼 수 있다(재 봤다). 다른 프로바이더는 주소가 박혀 있어 해당 없다.
+ * custom은 저장된 주소와 같을 때만 붙인다. 대시보드 미리보기는 저장 안 한 초안을 그대로 받는데,
+ * 그 주소로 키까지 보내면 운영자 세션을 쥔 쪽이 아무 데로나 키를 흘릴 수 있다.
  */
 async function keyFor(one) {
   if (!wantsKey(one)) return "";
@@ -151,18 +139,18 @@ async function authOf(one) {
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
-/** 지금 쓸 수 있나 — 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
+/** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
   const one = { ...DEFAULTS, ...configData.ai() };
   // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
-  // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml) — 설정 파일에는 안 섞는다
+  // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml). 설정 파일에는 안 섞는다
   return { ...one, prompt: configData.aiPrompt() };
 }
 
 /**
- * 추가 파라미터 — 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
+ * 추가 파라미터. 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
  *
  *   key=value            그대로 (true · false · null · 숫자는 알아서 바꾼다)
  *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
@@ -172,11 +160,10 @@ function settings() {
  *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}} 이면 헤더를 뺀다)
  *   # 주석
  *
- * **RisuAI 와 같은 입력법이다** — 그쪽에 익숙한 사람이 그대로 적을 수 있게 맞췄다.
- * 못 읽은 줄은 조용히 버리지 않고 problems 로 돌려준다(대시보드가 보여 준다).
+ * RisuAI와 같은 입력법이다. 못 읽은 줄은 조용히 버리지 않고 problems로 돌려준다.
  */
-// `__proto__` 한 마디면 Object.prototype 이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
-// **모델 레지스트리(우리가 받아 오는 남의 데이터)의 mapsTo.path** 로도 들어오므로 여기서 막는다.
+// `__proto__` 한 마디면 Object.prototype이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
+// 모델 레지스트리(받아 오는 남의 데이터)의 mapsTo.path로도 들어오므로 여기서 막는다.
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const safeKeys = (path) => {
   const keys = String(path).split(".");
@@ -189,9 +176,9 @@ function setPath(obj, path, value) {
   let at = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
-    // safeKeys 가 이미 걸렀지만 여기서도 본다 — 분석기가 알아보는 자리는 대입 바로 옆이다
+    // safeKeys 가 이미 걸렀지만 여기서도 본다. 분석기가 알아보는 자리는 대입 바로 옆이다
     if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
-    // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다 — 안쪽에 더 넣을 수 없는 모양이다
+    // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다. 안쪽에 더 넣을 수 없는 모양이다
     if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
     at = at[k];
   }
@@ -239,7 +226,7 @@ function relaxJson(text) {
       out += ch;
       continue;
     }
-    // 낱말 경계에서만 바꾼다 — Nonetype 같은 것을 건드리면 안 된다
+    // 낱말 경계에서만 바꾼다. Nonetype 같은 것을 건드리면 안 된다
     const edge = (c) => !c || !/[A-Za-z0-9_$]/.test(c);
     const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
     if (hit) {
@@ -284,7 +271,7 @@ function parseExtra(text) {
     const isHeader = /^header::/i.test(name);
     const header = isHeader ? name.slice(8).trim() : null;
 
-    // **{{none}} 을 header:: 보다 먼저 본다** — 안 그러면 헤더에 "{{none}}" 을 넣게 된다
+    // {{none}} 을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}" 을 넣게 된다
     if (value === "{{none}}") {
       if (isHeader) dropHeaders.push(header);
       else drop.push(name);
@@ -319,11 +306,11 @@ function parseExtra(text) {
   return { body, headers, drop, dropHeaders, problems };
 }
 
-/** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 — 둘 다 받는다. */
+/** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다. */
 function renderLine(list, cand, genre, i) {
   const sec = Number(cand.durationSec ?? cand.duration);
   const known = Number.isFinite(sec) && sec > 0;
-  // 길이를 모르는데 "0분"이라고 적으면 거짓을 알려 주는 것이다 — 기본은 그 칸을 뺀다
+  // 길이를 모르는데 "0분"이라고 적으면 거짓을 알려 주는 것이다. 기본은 그 칸을 뺀다
   const mode = list?.unknownDuration || "hide";
   const unknown = mode === "zero" ? "0" : mode === "text" ? String(list?.unknownText ?? "모름") : null;
 
@@ -335,10 +322,10 @@ function renderLine(list, cand, genre, i) {
     길이초: known ? String(Math.round(sec)) : unknown,
   };
 
-  // 아는 이름인데 값을 모르면 **그 자리표시자가 든 낱말째** 뺀다.
+  // 아는 이름인데 값을 모르면 그 자리표시자가 든 낱말째 뺀다.
   // "길이=" 만 덩그러니 남으면 모델이 더 헷갈리기 때문이다.
   //
-  // 모르는 이름은 건드리지 않는다 — 오타를 조용히 지워 버리면 왜 사라졌는지 알 길이 없다.
+  // 모르는 이름은 건드리지 않는다. 오타를 조용히 지워 버리면 왜 사라졌는지 알 길이 없다.
   return String(list?.lineFormat || DEFAULT_LINE)
     .split(/(\s+)/)
     .map((word) => {
@@ -356,14 +343,14 @@ function renderLine(list, cand, genre, i) {
     .trim();
 }
 
-/** 실제로 보낼 messages. 미리보기도 이것을 쓴다 — 화면이 흉내 내면 어긋난다. */
+/** 실제로 보낼 messages. 미리보기도 이것을 쓴다. 화면이 흉내 내면 어긋난다. */
 function buildMessages(one, batch, genre) {
   const list = batch.map((cand, i) => renderLine(one.list, cand, genre, i)).join("\n");
   const sections = Array.isArray(one.prompt) && one.prompt.length ? one.prompt : DEFAULT_SECTIONS;
 
   return sections
     .map((section) => ({
-      // 모르는 역할은 system 으로 떨어뜨린다 — 저쪽이 400을 주느니 낫다
+      // 모르는 역할은 system 으로 떨어뜨린다. 저쪽이 400을 주느니 낫다
       role: ROLES.has(section?.role) ? section.role : "system",
       content: String(section?.text ?? "")
         .replace(LIST_MARK, list)
@@ -374,9 +361,7 @@ function buildMessages(one, batch, genre) {
 
 /**
  * 저쪽 규격의 차이를 여기 한 곳에 모은다.
- *
- * 오래 "전부 OpenAI 호환"으로 버텼지만, 앤트로픽과 버텍스 네이티브는 본문 모양도 인증도
- * 다르다. 갈래마다 이 여섯 가지만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
+ * 갈래마다 이 여섯 가지만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
  *
  *   chatUrl   생성 요청을 보낼 주소
  *   modelsUrl 모델 목록 주소 (없으면 목록을 못 받는 곳이다)
@@ -386,12 +371,9 @@ function buildMessages(one, batch, genre) {
  *   modelsOf  모델 목록 응답에서 이름들
  */
 /**
- * 제미니 네이티브 본문 — AI 스튜디오와 버텍스가 **같은 모양**을 쓴다.
- * 갈리는 것은 주소와 인증뿐이다.
- *
- *   · messages 가 아니라 contents/parts 이고, assistant 를 model 이라 부른다
- *   · system 은 systemInstruction 이라는 딴 칸이다
- *   · 온도 같은 것은 generationConfig 안에 있다(추가 파라미터도 경로를 적어 넣는다)
+ * 제미니 네이티브 본문. AI 스튜디오와 버텍스가 같은 모양을 쓰고 갈리는 것은 주소와 인증뿐이다.
+ * messages가 아니라 contents/parts이고 assistant를 model이라 부른다. system은 systemInstruction,
+ * 온도 같은 것은 generationConfig 안에 있다(추가 파라미터도 경로를 적어 넣는다).
  */
 function geminiBody(one, messages) {
   const system = messages
@@ -417,12 +399,9 @@ const DIALECTS = {
   },
 
   /**
-   * 앤트로픽 네이티브(/v1/messages).
-   *
-   * OpenAI 와 다른 것 셋:
-   *   · system 은 메시지가 아니라 **본문 맨 위 칸**이다
-   *   · max_tokens 가 **필수**다(없으면 400)
-   *   · 인증이 Authorization 이 아니라 x-api-key 다
+   * 앤트로픽 네이티브(/v1/messages). OpenAI와 다른 것 셋:
+   * system이 메시지가 아니라 본문 맨 위 칸, max_tokens가 필수(없으면 400),
+   * 인증이 Authorization이 아니라 x-api-key.
    */
   anthropic: {
     chatUrl: (one) => `${endpointOf(one)}/messages`,
@@ -432,7 +411,7 @@ const DIALECTS = {
       return { "Content-Type": "application/json", "anthropic-version": ANTHROPIC_VERSION, ...(key ? { "x-api-key": key } : {}) };
     },
     body: (one, messages) => {
-      // system 은 여럿일 수 있다(섹션을 나눠 적었을 수 있다) — 붙여서 한 칸에 넣는다
+      // system 은 여럿일 수 있다(섹션을 나눠 적었을 수 있다). 붙여서 한 칸에 넣는다
       const system = messages
         .filter((m) => m.role === "system")
         .map((m) => m.content)
@@ -451,11 +430,8 @@ const DIALECTS = {
   },
 
   /**
-   * 구글 AI 스튜디오 — 제미니 네이티브.
-   *
-   * **OpenAI 호환층(/v1beta/openai)을 쓰지 않는다.** 호환층으로는 추론 설정이 저쪽 규격과
-   * 어긋나고, 모델 프로필이 적어 둔 경로(generationConfig.…)도 네이티브 기준이다.
-   * 버텍스와 본문이 같고 주소·인증만 다르다.
+   * 구글 AI 스튜디오. 제미니 네이티브를 쓴다.
+   * 호환층(/v1beta/openai)으로는 추론 설정이 어긋나고, 모델 프로필의 경로도 네이티브 기준이다.
    */
   gemini: {
     chatUrl: (one) => `${endpointOf(one)}/models/${one.model || ""}:generateContent`,
@@ -477,19 +453,12 @@ const DIALECTS = {
   },
 
   /**
-   * 버텍스 AI — 제미니 네이티브.
-   *
-   * 여기만 유난히 다르다.
-   *   · 주소를 프로젝트·리전·모델로 **조립한다**. baseUrl 이 없다.
-   *   · 인증이 API 키가 아니라 서비스 계정에서 받은 액세스 토큰이다(googleAuth).
-   *   · 본문이 messages 가 아니라 contents/parts 이고, assistant 를 model 이라 부른다.
-   *   · system 은 systemInstruction 이라는 딴 칸이다.
-   *   · 온도 같은 것은 맨 위가 아니라 generationConfig 안에 있다 —
-   *     추가 파라미터도 `generationConfig.topP=0.9` 처럼 **경로를 적어** 넣는다.
+   * 버텍스 AI. 제미니 네이티브이되 주소를 프로젝트·리전·모델로 조립한다(baseUrl이 없다).
+   * 인증도 API 키가 아니라 서비스 계정에서 받은 액세스 토큰이다(googleAuth).
    */
   vertex: {
     chatUrl: (one) => `${vertexBase(one)}/publishers/google/models/${one.model || ""}:generateContent`,
-    // 모델 목록은 생성과 **주소 체계가 다르다.** 프로젝트·리전이 붙지 않는 쪽이라
+    // 모델 목록은 생성과 주소 체계가 다르다. 프로젝트·리전이 붙지 않는 쪽이라
     // 생성 주소를 그대로 쓰면 404 다. 문서판이 갈려 있어 차례로 물어본다.
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
@@ -524,11 +493,10 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_MAX_TOKENS = 1024;
 
 /**
- * 응답이 알려 준 실제 토큰 수. 없으면 null — 추산으로 메우지 않는다.
+ * 응답이 알려 준 실제 토큰 수. 없으면 null. 추산으로 메우지 않는다.
  *
- * **사고 토큰을 어디에 넣는지가 회사마다 다르다.** OpenAI·앤트로픽은 출력 안에 들어
- * 있고, 제미니는 따로 잡혀 합계에만 더해진다. 그래서 출력은 늘 "사고까지 합친 값"으로
- * 맞춰 둔다 — 화면이 규격을 알 필요가 없게.
+ * 사고 토큰을 어디에 넣는지가 회사마다 다르다(OpenAI·앤트로픽은 출력 안, 제미니는 따로).
+ * 출력은 늘 사고까지 합친 값으로 맞춰 둔다. 화면이 규격을 알 필요가 없게.
  */
 const pickUsage = (input, output, thoughts, { thoughtsInOutput = true } = {}) => {
   if (typeof input !== "number") return null;
@@ -540,13 +508,9 @@ const pickUsage = (input, output, thoughts, { thoughtsInOutput = true } = {}) =>
 
 const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
-/** 보낼 것 한 벌 — 미리보기도 이것을 쓴다. */
-/**
- * 모델이 받는다고 적혀 있는 칸만 싣는다. 모델을 바꾸면 안 받는 칸은 저절로 빠진다 —
- * Astra 에서 고른 effort=max 를 none 만 받는 모델에 그대로 보내면 400 이다.
- */
-// 저쪽이 배열을 바라는 칸에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤거나
-// 프로필이 바뀌어 종류가 달라졌을 수 있으니 보내기 전에 한 번 본다.
+/** 보낼 것 한 벌. 미리보기도 이것을 쓴다. */
+/** 모델이 받는다고 적혀 있는 칸만 싣는다. 안 받는 칸을 보내면 400이므로 모델을 바꾸면 저절로 빠져야 한다. */
+// 배열을 바라는 칸에 글자를 보내면 400이다. 설정을 손으로 고쳤거나 프로필이 바뀌었을 수 있어 한 번 본다.
 function typeOk(type, value) {
   if (type === "stringArray") return Array.isArray(value);
   if (type === "json") return value !== null && typeof value === "object";
@@ -563,7 +527,7 @@ const usable = (field, value) => {
 };
 
 /**
- * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다 —
+ * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다.
  * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
  */
 async function countTokens(one, messages) {
@@ -588,14 +552,14 @@ function withParams(body, one) {
 
   const models = require("./aiModels");
   const out = deepMerge(body, models.defaultsOf(registry, one.model));
-  // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다 —
+  // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다.
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
   const picked = one.params?.[one.model] || {};
   const fields = models.fieldsOf(registry, one.model);
   const valueOf = (field) => [picked[field.key], field.default].find((one) => usable(field, one));
 
   for (const field of fields) {
-    // 화면에서 가려진 칸은 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다 —
+    // 화면에서 가려진 칸은 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다.
     // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
     if (field.showIf) {
       const owner = fields.find((one) => one.key === field.showIf.key);
@@ -613,18 +577,16 @@ async function buildRequest(one, batch, genre) {
   const extra = parseExtra(one.extra);
   const messages = buildMessages(one, batch, genre);
 
-  // 추가 파라미터가 맨 나중이다 — 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
+  // 추가 파라미터가 맨 나중이다. 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
   const body = withExtra(dialect, withParams(dialect.body(one, messages), one), extra);
   return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, messages, problems: extra.problems, tokens: await countTokens(one, messages) };
 }
 
 /**
- * 추가 파라미터를 본문에 얹는다.
- *
- * 버텍스는 온도 같은 것이 맨 위가 아니라 generationConfig 안에 있다.
- * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다 — 가장 알아채기 어려운 종류다.
+ * 추가 파라미터를 본문에 얹는다. 버텍스는 온도 같은 것이 generationConfig 안에 있어서,
+ * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다.
  */
-/** 안쪽 칸까지 합친다 — 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
+/** 안쪽 칸까지 합친다. 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
 function deepMerge(base, add) {
   const out = { ...base };
   for (const [key, value] of Object.entries(add)) {
@@ -646,7 +608,7 @@ function headersWith(base, extra) {
 }
 
 /**
- * **경로는 언제나 본문 맨 위부터다.** 다이얼렉트마다 다른 자리로 넣어 주지 않는다 —
+ * 경로는 언제나 본문 맨 위부터다. 다이얼렉트마다 다른 자리로 넣어 주지 않는다.
  * 버텍스처럼 안쪽 칸을 쓰는 곳은 `generationConfig.topP=0.9` 로 적는다.
  * 모델 프로필의 mapsTo.path 도 같은 규칙이라, 두 길이 어긋나지 않는다.
  */
@@ -665,7 +627,7 @@ const despace = (text) => text.replace(ODD_SPACE, " ");
 
 /**
  * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말을 곧잘 붙이므로 배열만 집는다.
- * 못 읽으면 null — 부르는 쪽이 원문을 그대로 보여 준다.
+ * 못 읽으면 null. 부르는 쪽이 원문을 그대로 보여 준다.
  */
 function readVerdicts(text, count) {
   const found = String(text || "").match(/\[[\s\S]*\]/);
@@ -695,8 +657,8 @@ async function askBatch(one, batch, genre) {
   });
 
   // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타 · 남은 토큰 없음 · 사용량 초과 …).
-  // 그대로 싣되 키는 가린다 — 거절 응답에 보낸 값을 되비추는 서비스가 있다.
-  if (!res.ok) throw new Error(`HTTP ${res.status} — ${mask(await res.text()).slice(0, 300)}`);
+  // 그대로 싣되 키는 가린다. 거절 응답에 보낸 값을 되비추는 서비스가 있다.
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${mask(await res.text()).slice(0, 300)}`);
 
   const text = dialectOf(one).answerOf(await res.json()) || "";
   const out = readVerdicts(text, batch.length);
@@ -706,9 +668,7 @@ async function askBatch(one, batch, genre) {
 
 /**
  * 후보 목록에서 모델이 아니라고 한 것을 걸러낸다.
- *
- * **실패하면 받은 목록을 그대로 돌려준다.** 판정을 못 했다고 곡을 버리면, 모델이 죽었을 때
- * 자동재생이 통째로 멈춘다. 못 고르는 것보다 규칙만으로 고르는 편이 낫다.
+ * 실패하면 받은 목록을 그대로 돌려준다. 판정을 못 했다고 곡을 버리면 모델이 죽었을 때 자동재생이 멈춘다.
  *
  * @param {Array<{title: string, durationSec?: number}>} candidates 순위가 매겨진 후보
  * @param {{genre?: string, confident?: boolean}} about
@@ -725,14 +685,14 @@ async function filter(candidates, about = {}) {
     for (let at = 0; at < candidates.length; at += size) {
       const batch = candidates.slice(at, at + size);
       const verdicts = await askBatch(one, batch, about.genre);
-      // 답을 못 받은 자리는 살린다 — 모델이 빠뜨린 것을 떨어뜨릴 이유가 없다
+      // 답을 못 받은 자리는 살린다. 모델이 빠뜨린 것을 떨어뜨릴 이유가 없다
       batch.forEach((cand, i) => {
         const verdict = verdicts[i];
         if (!verdict || (verdict.song && verdict.fits)) kept.push(cand);
       });
     }
   } catch (error) {
-    log.debug(`AI 보조를 건너뜁니다(${error.message}) — 규칙만으로 고릅니다`);
+    log.debug(`AI 보조를 건너뜁니다(${error.message}). 규칙만으로 고릅니다`);
     return candidates;
   }
 
@@ -742,10 +702,9 @@ async function filter(candidates, about = {}) {
 }
 
 /**
- * 곡 하나를 물어본다 — 규칙이 이미 하나로 좁혀 놓은 자리(키워드 경로)용.
- *
- * `filter`와 달리 **아니라고 하면 정말로 버린다.** 목록이 아니라 한 곡이므로
- * "전부 떨어지면 되돌린다"가 성립하지 않는다. 대신 못 물어본 경우는 그대로 살린다.
+ * 곡 하나를 물어본다. 규칙이 이미 하나로 좁혀 놓은 자리(키워드 경로)용.
+ * `filter`와 달리 아니라고 하면 정말로 버린다. 한 곡이라 "전부 떨어지면 되돌린다"가 성립하지 않는다.
+ * 못 물어본 경우는 그대로 살린다.
  *
  * @returns {Promise<boolean>} 틀어도 되는가
  */
@@ -756,23 +715,20 @@ async function accepts(candidate, about = {}) {
 
   try {
     const [verdict] = await askBatch(one, [candidate], about.genre);
-    if (!verdict) return true; // 판정을 못 읽었다 — 버릴 근거가 없다
+    if (!verdict) return true; // 판정을 못 읽었다. 버릴 근거가 없다
     if (verdict.song && verdict.fits) return true;
     log.debug(`AI 보조가 거름(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${candidate.title}`);
     return false;
   } catch (error) {
-    log.debug(`AI 보조를 건너뜁니다(${error.message}) — 규칙만으로 고릅니다`);
+    log.debug(`AI 보조를 건너뜁니다(${error.message}). 규칙만으로 고릅니다`);
     return true;
   }
 }
 
-/** 지금 설정으로 실제로 부를 수 있는지 한 번 재 본다. 대시보드의 "연결 확인" 버튼용. */
+/** 지금 설정으로 실제로 부를 수 있는지 재 본다. 대시보드의 "연결 확인" 버튼용. */
 /**
- * **무료 확인** — 모델 목록만 받아 온다(`GET {baseUrl}/models`).
- *
- * 추론을 안 돌리므로 토큰이 안 든다. 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있다.
- * 받아 온 목록은 화면의 모델 고르는 칸을 채우는 데도 쓴다 — 그래서 모델 이름을 코드에
- * 적어 둘 이유가 없다.
+ * 모델 목록만 받아 온다(`GET {baseUrl}/models`). 추론을 안 돌리므로 토큰이 안 든다.
+ * 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있고, 받아 온 목록은 화면의 모델 칸을 채우는 데도 쓴다.
  */
 async function listModels(draft) {
   const one = { ...DEFAULTS, ...(draft || {}) };
@@ -782,7 +738,7 @@ async function listModels(draft) {
   const first = dialect.modelsUrl(one);
   if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
 
-  // 같은 곳인데 문서판마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다 —
+  // 같은 곳인데 문서판마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다.
   // 그래야 어느 판을 쓰는 프로젝트든 목록이 뜬다. 404 가 아니면 그 답이 곧 사실이다.
   const urls = [first, ...(dialect.modelsUrlFallbacks?.(one) || [])];
   const started = Date.now();
@@ -811,7 +767,7 @@ async function listModels(draft) {
       /* 목록을 못 읽어도 응답 자체는 보여 준다 */
     }
 
-    // **이름을 코드에 적지 않는다.** 대신 안 쓸 것을 설정에서 가린다 — 저쪽 목록에는
+    // 이름을 코드에 적지 않는다. 대신 안 쓸 것을 설정에서 가린다. 저쪽 목록에는
     // 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
     const hidden = hideRules(one.hideModels);
     const models = all.filter((id) => !hidden.some((rule) => rule.test(id))).sort();
@@ -822,7 +778,7 @@ async function listModels(draft) {
 }
 
 /**
- * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다 — 정규식을 설정 파일에 적게 하면
+ * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다. 정규식을 설정 파일에 적게 하면
  * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
  */
 function hideRules(patterns) {
@@ -834,11 +790,11 @@ function hideRules(patterns) {
 
 const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// 유료 확인에 쓰는 물음 — 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
+// 유료 확인에 쓰는 물음. 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
 const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
 
 /**
- * **유료 확인** — 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.
+ * 유료 확인. 진짜로 한 번 생성시킨다. 판정 프롬프트가 아니라 짧은 물음을 보낸다.
  *
  * 연결만 보고 싶은데 판정 프롬프트를 통째로 보내면 토큰도 들고, 모델이 헛소리를 했을 때
  * "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
@@ -873,12 +829,12 @@ async function ping(draft) {
   }
 }
 
-// 미리보기용 보기 곡 — 판정이 갈리는 세 가지를 일부러 골랐다(멀쩡한 곡 · 믹스 · 길이 모름)
+// 미리보기용 보기 곡. 판정이 갈리는 세 가지를 일부러 골랐다(멀쩡한 곡 · 믹스 · 길이 모름)
 const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
 
 /**
- * 저장하기 전의 설정으로 **나갈 것을 만들어만 본다. 보내지 않는다.**
- * 조립은 봇이 쓰는 코드 그대로다 — 화면이 따로 흉내 내면 언젠가 어긋난다.
+ * 저장하기 전의 설정으로 나갈 것을 만들어만 본다. 보내지 않는다.
+ * 조립은 봇이 쓰는 코드 그대로다. 화면이 따로 흉내 내면 언젠가 어긋난다.
  *
  * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
@@ -891,7 +847,7 @@ async function preview(draft, genre = "록") {
 // 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
 const SECRET_HEADERS = ["authorization", "x-api-key", "x-goog-api-key", "api-key"];
 
-/** 화면에 보여도 되는 헤더 — 키 값은 절대 나가지 않는다. */
+/** 화면에 보여도 되는 헤더. 키 값은 절대 나가지 않는다. */
 function safeHeaders(headers) {
   const out = {};
   for (const [name, value] of Object.entries(headers || {})) {
@@ -899,7 +855,7 @@ function safeHeaders(headers) {
       out[name] = value;
       continue;
     }
-    // 앞의 낱말(Bearer)은 남긴다 — 어떤 방식으로 붙는지는 보이는 편이 낫다
+    // 앞의 낱말(Bearer)은 남긴다. 어떤 방식으로 붙는지는 보이는 편이 낫다
     const scheme = /^(\w+)\s/.exec(String(value));
     out[name] = scheme ? `${scheme[1]} ${REDACTED}` : REDACTED;
   }
@@ -907,7 +863,7 @@ function safeHeaders(headers) {
 }
 
 /**
- * 유튜브 주소로 후보를 만든다 — 판정 테스트가 진짜 곡으로 시험할 수 있게.
+ * 유튜브 주소로 후보를 만든다. 판정 테스트가 진짜 곡으로 시험할 수 있게.
  * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
  */
 async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
@@ -937,12 +893,12 @@ function renderList(draft, cands, genre = "록") {
 }
 
 /**
- * 고른 후보들을 실제로 판정시킨다 — SAMPLE 이 아니라 진짜 곡으로.
+ * 고른 후보들을 실제로 판정시킨다. SAMPLE 이 아니라 진짜 곡으로.
  * 나간 것·온 것·곡별 판정을 같이 준다.
  */
 async function judgeTest(draft, cands, genre = "록") {
   const one = { ...DEFAULTS, ...(draft || {}) };
-  // 고른 것이 없으면 보기 곡으로 돌린다 — 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
+  // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
   const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
   const usable = picked.length ? picked : SAMPLE;
 
@@ -963,7 +919,7 @@ async function judgeTest(draft, cands, genre = "록") {
     try {
       const json = JSON.parse(text);
       out.usage = dialectOf(one).usageOf?.(json) || null;
-      // 판정은 곡마다 한 줄이다. 못 읽으면 null — 원문은 위에 그대로 있다.
+      // 판정은 곡마다 한 줄이다. 못 읽으면 null. 원문은 위에 그대로 있다.
       const answered = readVerdicts(dialectOf(one).answerOf(json), usable.length);
       out.verdicts = answered ? usable.map((cand, i) => ({ title: cand.title, url: cand.url, ...(answered[i] || { song: null, fits: null }) })) : null;
     } catch {
@@ -976,20 +932,20 @@ async function judgeTest(draft, cands, genre = "록") {
   return out;
 }
 
-// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다 — 화면에도 로그에도 키가 남으면 안 된다.
+// 어떤 서비스는 거절 응답에 보낸 값을 되비춘다. 화면에도 로그에도 키가 남으면 안 된다.
 // 무엇이 가려진 것인지 알아볼 수 있게 이름을 붙인다(별표만 있으면 원래 그런 값인 줄 안다).
 const REDACTED = "[REDACTED_SECRET_KEY]";
 
-// 지금 쓰는 프로바이더 것만이 아니라 **적혀 있는 키를 모두** 가린다.
+// 지금 쓰는 프로바이더 것만이 아니라 적혀 있는 키를 모두 가린다.
 // 어느 것이 되비쳐 올지 우리가 정할 수 없고, 넉넉히 가려서 손해 볼 것이 없다.
 function mask(text) {
   let out = String(text);
-  // 받아 둔 액세스 토큰도 가린다 — 서비스 계정에서 나온 것이라 키만큼 값이 나간다
+  // 받아 둔 액세스 토큰도 가린다. 서비스 계정에서 나온 것이라 키만큼 값이 나간다
   for (const key of [...Object.values(configData.aiKeys()), ...require("./googleAuth").heldTokens()]) {
     if (!key || key.length <= 8) continue;
     out = out.split(key).join(REDACTED);
 
-    // 서비스 계정은 값 자체가 JSON 덩어리다. 통째로 나오는 일은 없어도 **키만 떨어져 나올 수는**
+    // 서비스 계정은 값 자체가 JSON 덩어리다. 통째로 나오는 일은 없어도 키만 떨어져 나올 수는
     // 있으므로 안쪽 private_key 도 따로 가린다.
     if (key.trimStart().startsWith("{")) {
       try {

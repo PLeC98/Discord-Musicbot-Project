@@ -1,21 +1,15 @@
 "use strict";
 
-// NDJSON 파일 destination — LogManager.destinations에 얹히는 소비자 하나.
+// NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
-// 파일 저장을 sink의 destination 계층에 두는 이유: pino가 들어와도(Phase 3) 같은 자리에
-// pino.multistream/transport가 앉으므로 호출부와 facade가 무수정으로 살아남는다.
-// facade(src/logger.js) 안에 파일 로직을 넣으면 그건 pino 교체 때 통째로 버려진다.
+// 파일 로직을 facade(src/logger.js)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
+// 같은 자리에 transport가 앉으므로 호출부가 그대로 살아남는다.
 //
-// 형식은 가공하지 않은 NDJSON — 한 줄 = 레코드 하나. 사람이 읽기 좋게 정리하는 건 읽는 쪽의 일이다.
-// 유일한 가공은 ANSI 제거다(색은 터미널 사정이고, 파일에 남으면 grep이 깨진다).
+// 한 줄에 레코드 하나. 가공은 ANSI 제거뿐이다(색은 터미널 사정이고, 파일에 남으면 grep이 깨진다).
+// 샤딩해도 파일을 나누지 않는다. 분석하려고 파일 여러 개를 여는 것은 손해다.
 //
-// 샤딩해도 파일을 나누지 않는다 — 분석하려고 파일 여러 개를 여는 건 손해다. 매니저 집계가
-// 들어오면(Phase 3) 이 모듈을 매니저 프로세스에 그대로 얹고 샤드 쪽은 ipc destination을 쓴다.
-//
-// 쓰기는 동기다. 이 파일의 존재 이유가 사후 분석이라 "죽는 순간의 마지막 줄"이 가장 중요한데,
-// 스트림 버퍼는 process.exit()·치명적 종료에서 그대로 날아간다. 한 줄이 수백 바이트라
-// writeSync는 마이크로초 단위이고, 우리 로그량(초당 몇 줄)에서 이벤트 루프 영향은 무시할 수준이다.
-// (pino도 같은 이유로 sync 옵션을 둔다. 처리량이 문제가 되면 그때 sonic-boom에 넘긴다.)
+// 쓰기는 동기다. 사후 분석이 목적이라 죽는 순간의 마지막 줄이 가장 중요한데, 스트림 버퍼는
+// process.exit()이나 치명적 종료에서 그대로 날아간다. 우리 로그량에서 writeSync 비용은 무시할 수준이다.
 
 const fs = require("fs");
 const path = require("path");
@@ -32,10 +26,10 @@ function stamp(d = new Date()) {
 // logs/bot.log → logs/bot-2026-09-10T14-23-05.123.log (확장자가 없으면 뒤에 붙인다)
 //
 // 번호(bot.1.log)가 아니라 시각을 박는 이유:
-//  - 번호는 회전할 때마다 **파일 전부를 rename**해야 한다(1→2, 2→3 …). 시각은 rename 한 번이다.
+//  - 번호는 회전할 때마다 파일 전부를 rename해야 한다(1→2, 2→3 …). 시각은 rename 한 번이다.
 //  - 파일명만 보고 언제 것인지 안다. 번호는 열어봐야 알고, 회전할 때마다 뜻이 바뀐다.
 //  - 이름순 정렬이 곧 시간순이다.
-// 박는 값은 **분리한 시각**이다. "언제부터 기록했는지"는 재시작 후 기존 파일에 이어 쓸 때
+// 박는 값은 분리한 시각이다. "언제부터 기록했는지"는 재시작 후 기존 파일에 이어 쓸 때
 // 알 수가 없지만(첫 줄을 읽어야 한다), 분리 시각은 그 순간 확실하다.
 function backupPath(file, at = new Date()) {
   const ext = path.extname(file);
@@ -44,10 +38,10 @@ function backupPath(file, at = new Date()) {
 }
 
 /**
- * 비어 있는 분리본 경로. 같은 밀리초에 두 번 회전하면 이름이 겹치므로 **시각을 1ms씩 민다.**
+ * 비어 있는 분리본 경로. 같은 밀리초에 두 번 회전하면 이름이 겹치므로 시각을 1ms씩 민다.
  *
- * 번호를 덧붙이는 방법(`…407-2.log`)은 쓸 수 없다 — `-`(0x2D)가 `.`(0x2E)보다 작아서
- * 번호가 붙은 쪽이 원본보다 **앞으로** 정렬되고, 이름순=시간순 계약이 깨진다.
+ * 번호를 덧붙이는 방법(`…407-2.log`)은 쓸 수 없다. `-`(0x2D)가 `.`(0x2E)보다 작아서
+ * 번호가 붙은 쪽이 원본보다 앞으로 정렬되고, 이름순=시간순 계약이 깨진다.
  * 시각을 미는 쪽은 이름 모양이 하나로 유지된다.
  */
 function nextBackupPath(file, exists = fs.existsSync, at = new Date()) {
@@ -65,13 +59,13 @@ function stripAnsi(s) {
 }
 
 /**
- * 두 설정은 서로 다른 축이고, **각각의 0은 "그 축에 제한 없음"**을 뜻한다.
+ * 두 설정은 서로 다른 축이고, 각각의 0은 "그 축에 제한 없음"을 뜻한다.
  *
  *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(개수 설정은 의미 없음)
  *   keep     = 0  → 회전은 하되 오래된 것을 지우지 않는다. 파일이 계속 쌓인다
  *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 지운다
  *
- * 분리된 파일에는 **분리한 시각**이 붙는다 (bot-2026-09-10T14-23-05.123.log).
+ * 분리된 파일에는 분리한 시각이 붙는다 (bot-2026-09-10T14-23-05.123.log).
  *
  * @param {string} file      기록할 파일 경로(절대)
  * @param {number} maxBytes  이 크기를 넘으면 회전. 0이면 회전 안 함
@@ -82,17 +76,17 @@ function createFileDestination({ file, maxBytes, keep }) {
   let fd = null;
   let size = 0;
 
-  // 오류는 한 번만 알리고 조용히 멈춘다 — 여기서 logger를 부르면 이 destination으로 되돌아온다.
+  // 오류는 한 번만 알리고 조용히 멈춘다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
   function giveUp(what, err) {
     if (fd !== null) {
       try {
         fs.closeSync(fd);
       } catch {
-        /* 이미 닫혔거나 못 닫음 — 어차피 포기하는 길 */
+        /* 이미 닫혔거나 못 닫음. 어차피 포기하는 길 */
       }
       fd = null;
     }
-    process.stderr.write(`[logFile] ${what} — 파일 로그를 중단합니다 (${file}): ${err.message}\n`);
+    process.stderr.write(`[logFile] ${what}. 파일 로그를 중단합니다 (${file}): ${err.message}\n`);
   }
 
   function open() {
@@ -105,7 +99,7 @@ function createFileDestination({ file, maxBytes, keep }) {
     }
   }
 
-  // 지금까지 분리해 둔 파일들 — 이름순이 곧 시간순이다(파일명이 로컬 시각이라).
+  // 지금까지 분리해 둔 파일들. 이름순이 곧 시간순이다(파일명이 로컬 시각이라).
   function rotatedFiles() {
     const base = path.basename(file);
     const ext = path.extname(base);
@@ -118,7 +112,7 @@ function createFileDestination({ file, maxBytes, keep }) {
         .filter((n) => re.test(n))
         .sort();
     } catch {
-      return []; // 디렉터리를 못 읽으면 정리를 건너뛴다 — 기록은 계속되어야 한다
+      return []; // 디렉터리를 못 읽으면 정리를 건너뛴다. 기록은 계속되어야 한다
     }
   }
 
@@ -130,12 +124,12 @@ function createFileDestination({ file, maxBytes, keep }) {
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));
       } catch {
-        /* 지우지 못해도 기록은 계속한다 — 다음 회전에서 다시 시도한다 */
+        /* 지우지 못해도 기록은 계속한다. 다음 회전에서 다시 시도한다 */
       }
     }
   }
 
-  // 회전: fd를 먼저 닫는다 — Windows는 열려 있는 파일을 rename하지 못한다.
+  // 회전: fd를 먼저 닫는다. Windows는 열려 있는 파일을 rename하지 못한다.
   // 번호 방식과 달리 rename은 한 번뿐이다(파일 전부를 밀어 올리지 않는다).
   function rotate() {
     try {

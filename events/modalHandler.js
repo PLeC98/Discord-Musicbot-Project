@@ -9,7 +9,7 @@ module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
-    if (/^plmm?:/.test(interaction.customId)) return; // 재생목록 더 넣기 — playlistMoreHandler.js
+    if (/^plmm?:/.test(interaction.customId)) return; // 재생목록 더 넣기. playlistMoreHandler.js
 
     const client = interaction.client;
 
@@ -63,7 +63,7 @@ module.exports = {
       });
     }
 
-    // 자동재생 설정은 재생 조작 — DJ 계층 + 재적 규칙 (모더레이터 면제)
+    // 자동재생 설정은 재생 조작. DJ 계층 + 재적 규칙 (모더레이터 면제)
     const permErr = await checkControl(member);
     if (permErr) {
       return await interaction.reply({
@@ -98,7 +98,7 @@ module.exports = {
         inline: true,
       });
 
-    // 선택 메뉴를 결과로 덮는다 — reply로 새 메시지를 만들면 고른 뒤에도 선택 화면이 남는다.
+    // 선택 메뉴를 결과로 덮는다. reply로 새 메시지를 만들면 고른 뒤에도 선택 화면이 남는다.
     // update는 ephemeral을 기록하지 않아 정리에서 빠지므로, 지우라고 선언해 둔다.
     expireReply(interaction);
     await interaction.update({ embeds: [embed], components: [] });
@@ -129,7 +129,7 @@ module.exports = {
       });
     }
 
-    // 볼륨 변경은 재생 조작 — DJ 계층 + 접속 규칙 (모더레이터 면제)
+    // 볼륨 변경은 재생 조작. DJ 계층 + 접속 규칙 (모더레이터 면제)
     const permErr = await checkControl(member);
     if (permErr) {
       return await interaction.reply({

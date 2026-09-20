@@ -15,7 +15,7 @@ const DISCORD_API = "https://discord.com/api/v10";
 // 응답 없는 요청이 로그인 콜백을 붙잡지 않도록. Discord 호출은 모두 이 인스턴스로 나간다.
 const http = axios.create({ timeout: 10000 });
 
-// Log OAuth config at startup — 리다이렉트 불일치 디버깅용 REDIRECT_URI만.
+// Log OAuth config at startup. 리다이렉트 불일치 디버깅용 REDIRECT_URI만.
 // CLIENT_ID는 config에서 필수 검증되므로(없으면 기동 실패) 출력 불필요하고,
 // OWNER_ID는 봇 운영자의 신원이라 원시 ID를 로그(=운영자 SSE 로그 스트림)에 남기지 않는다.
 log.debug({ sub: "auth" }, `리디렉션 URI: ${REDIRECT_URI}`);
@@ -80,7 +80,7 @@ router.get("/callback", async (req, res) => {
       guilds: guildsRes.data,
     };
 
-    // 로그인 성공 시 세션 ID 재발급 — session fixation 방어.
+    // 로그인 성공 시 세션 ID 재발급. session fixation 방어.
     // 로그인 전 세션(oauthState 등)은 폐기, 새 sid로 사용자 정보만
     req.session.regenerate((err) => {
       if (err) {
