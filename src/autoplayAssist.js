@@ -349,12 +349,15 @@ function buildMessages(one, batch, genre) {
   const sections = Array.isArray(one.prompt) && one.prompt.length ? one.prompt : DEFAULT_SECTIONS;
 
   return sections
-    .map((section) => ({
+    .map((section, at) => ({
       // 모르는 역할은 system 으로 떨어뜨린다. 저쪽이 400을 주느니 낫다
       role: ROLES.has(section?.role) ? section.role : "system",
       content: String(section?.text ?? "")
         .replace(LIST_MARK, list)
         .replace(GENRE_MARK, genre || "랜덤"),
+      // 빈 섹션은 아래에서 빠진다. 화면이 이름표를 붙일 때 번호로 짝지으면 밀리므로
+      // 어느 섹션에서 나왔는지를 달고 나간다.
+      at,
     }))
     .filter((message) => message.content.trim());
 }
@@ -380,9 +383,11 @@ function geminiBody(one, messages) {
     .filter((m) => m.role === "system")
     .map((m) => m.content)
     .join("\n\n");
+  // systemInstruction 을 앞에 둔다. 저쪽은 이름 있는 칸이라 순서를 안 보지만,
+  // 요청 로그는 사람이 읽는다. 지시가 목록 뒤에 오면 거꾸로 읽힌다.
   return {
-    contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
     ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+    contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
   };
 }
 const geminiAnswer = (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join("");
@@ -576,10 +581,12 @@ async function buildRequest(one, batch, genre) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
   const messages = buildMessages(one, batch, genre);
+  // `at`(원래 섹션 번호)은 화면이 이름표를 붙이는 데만 쓴다. 저쪽에 보낼 것에는 들어가면 안 된다.
+  const wire = messages.map(({ role, content }) => ({ role, content }));
 
   // 추가 파라미터가 맨 나중이다. 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
-  const body = withExtra(dialect, withParams(dialect.body(one, messages), one), extra);
-  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, messages, problems: extra.problems, tokens: await countTokens(one, messages) };
+  const body = withExtra(dialect, withParams(dialect.body(one, wire), one), extra);
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, messages, problems: extra.problems, tokens: await countTokens(one, wire) };
 }
 
 /**
