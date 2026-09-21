@@ -1,6 +1,6 @@
 "use strict";
 
-// ESLint flat config — 목적은 버그 탐지(미사용 변수·미정의 참조·await 실수 등)
+// ESLint flat config. 목적은 버그 탐지(미사용 변수·미정의 참조·await 실수 등)
 // 코드 모양은 Prettier 담당 - eslint-config-prettier로 스타일 규칙을 전부 끔
 
 const js = require("@eslint/js");

@@ -20,12 +20,12 @@ const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/logFile");
 const trackState = require("./src/trackState");
 
-// 로그 레벨 적용 — config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
+// 로그 레벨 적용. config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
 // 기본 레벨(info)로 이미 기록됐다. 그것들은 어차피 warn 이상이라 잘려나갈 일이 없다.
 require("./src/logger").level = config.logging.level;
 if (config.logging.consoleLevel) logSink.setConsoleLevel(config.logging.consoleLevel);
 
-// 파일 로그 마운트 — config를 읽은 직후, 기동 로그가 쏟아지기 전에.
+// 파일 로그 마운트. config를 읽은 직후, 기동 로그가 쏟아지기 전에.
 // 이 지점보다 앞선 레코드(config 검증 경고 등)는 sink가 모아뒀다가 여기서 재생한다.
 const logFile = config.logging.fileEnabled ? createFileDestination(config.logging) : null;
 if (logFile) {
@@ -65,7 +65,7 @@ async function restoreSavedPlayers(client) {
       const { guild, gone } = await resolveGuildForRestore(client, guildId);
 
       if (!guild) {
-        // 일시적 조회 실패면 세션을 남긴다 — 다음 기동에서 다시 시도한다
+        // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
         if (gone) {
           log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
           CacheManager.sessions.removeSession(guildId);
@@ -123,7 +123,7 @@ const BGUTIL_SERVER_DIR = path.join(__dirname, "bgutil-ytdlp-pot-provider", "ser
 const BGUTIL_ENTRY = path.join(BGUTIL_SERVER_DIR, "build", "main.js");
 const BGUTIL_PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 
-// bgutil이 발급한 토큰을 그대로 로그에 남기지 않는다 — 세션 자격증명이다.
+// bgutil이 발급한 토큰을 그대로 로그에 남기지 않는다. 세션 자격증명이다.
 // (sink의 레드액션은 access_token 계열 이름만 알아서 poToken은 그냥 통과한다.)
 function scrubBgutilLine(line) {
   return String(line)
@@ -153,7 +153,7 @@ function startBgutilServer() {
     cwd: BGUTIL_SERVER_DIR,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  // 남의 프로세스라 레벨을 직접 붙일 수 없다 — 스트림(stdout/stderr)과 문구로 가른다.
+  // 남의 프로세스라 레벨을 직접 붙일 수 없다. 스트림(stdout/stderr)과 문구로 가른다.
   // bgutil의 stdout은 전량 요청 단위 상세(POT 생성·챌린지)라 debug로 내린다. 수명주기(시작·준비
   // 완료·비정상 종료)는 아래 우리 코드가 따로 남기므로 여기서 info로 올릴 것이 없다.
   const emit = (chunk, stream) =>
@@ -202,7 +202,7 @@ async function waitForBgutilReady(timeoutMs = 30000) {
         return true;
       }
     } catch {
-      /* 아직 준비 안 됨 — 재시도 */
+      /* 아직 준비 안 됨. 재시도 */
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -213,7 +213,7 @@ async function waitForBgutilReady(timeoutMs = 30000) {
 startBgutilServer();
 // ────────────────────────────────────────────────────────────────────────────
 
-// uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료) — src/resilience.js
+// uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료). src/resilience.js
 const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
 
 function startBot() {
@@ -237,7 +237,7 @@ function startBot() {
     startDashboard(client);
   }
 
-  // 로딩 실패는 기동을 멈춘다 — 핸들러가 빠진 채로 로그인하면 운영자는 그걸 정상으로 본다.
+  // 로딩 실패는 기동을 멈춘다. 핸들러가 빠진 채로 로그인하면 운영자는 그걸 정상으로 본다.
   const abortOnLoadFailure = (what, failures) => {
     if (failures.length === 0) return;
     for (const { file, error } of failures) log.error(`${what} 로딩 실패: ${file}`, error?.stack || error?.message || error);
@@ -297,7 +297,7 @@ function startBot() {
   client.restoreSessions = async function () {
     log.debug("세션 복원 시작");
     await restoreSavedPlayers(client);
-    // 기록된 패널을 지금 상태로 — 세션을 복원한 서버는 이미 새로 올렸다
+    // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
     await client.musicEmbedManager?.restorePanels();
     // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록
     await cleanupAudioCache();
@@ -320,7 +320,7 @@ function startBot() {
     } catch (error) {
       log.error(`${interaction.commandName} 명령어 실행 중 오류:`, error);
 
-      // 토큰이 죽었으면(10062/40060) 안내 시도가 곧 두 번째 같은 오류다 — 아무 데도 닿지 않는다.
+      // 토큰이 죽었으면(10062/40060) 안내 시도가 곧 두 번째 같은 오류다. 아무 데도 닿지 않는다.
       if (isDeadInteraction(error)) return;
 
       const payload = { content: "❌ 명령어 실행 중 오류가 발생했습니다!", flags: [1 << 6] };
@@ -332,7 +332,7 @@ function startBot() {
     }
   });
 
-  // 음성 채널 상태는 REST로 읽을 수 없다 — 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
+  // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
   client.on(Events.Raw, (packet) => voiceChannelStatus.consumePacket(packet));
 
@@ -341,7 +341,7 @@ function startBot() {
     const guild = oldState.guild;
 
     // 채널 이동은 대시보드의 "봇 부르기 / 곡 추가 / 재생 조작" 노출 조건을 바꾼다.
-    // 이 알림이 없으면 재생 중일 때만 우연히 갱신된다 — 아래 임베드 갱신 훅에 묻어가기 때문에.
+    // 이 알림이 없으면 재생 중일 때만 우연히 갱신된다. 아래 임베드 갱신 훅에 묻어가기 때문에.
     // 마이크 음소거·화면 공유 등도 같은 이벤트로 오지만 노출 조건과 무관하므로 채널이 바뀔 때만.
     if (oldState.channelId !== newState.channelId) DashboardEvents.notify(guild.id);
 
@@ -432,7 +432,7 @@ function startBot() {
 
   // 프로세스 종료는 init() 내부에 등록된 gracefulShutdown에 의해 처리
 
-  // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정 — client "error"와 unhandledRejection이 같은 기준을 쓴다.
+  // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정. client "error"와 unhandledRejection이 같은 기준을 쓴다.
   // true = 알려진 오류라 처리 완료, false = 알 수 없음(호출부가 빈도 가드로 판단).
   const handleLooseError = (error, source) => {
     const known = ignorableDiscordError(error);
@@ -442,7 +442,7 @@ function startBot() {
       return true;
     }
 
-    // 일시적 네트워크/음성 오류(IP discovery 실패 등) — 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
+    // 일시적 네트워크/음성 오류(IP discovery 실패 등). 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
     if (isTransientNetworkError(error)) {
       log.warn(`네트워크/음성 오류(${source}): 연결이 끊긴 서버의 복구를 시도합니다.`);
       healBrokenPlayers(client).catch(() => {});
@@ -453,7 +453,7 @@ function startBot() {
 
   // discord.js v14의 AsyncEventEmitter는 async 리스너의 rejection을 잡아 client "error"로 다시 던진다.
   // 리스너가 없으면 그 throw가 타이머 콜백에서 터져 unhandledRejection이 아니라 uncaughtException이 되고,
-  // 알 수 없는 오류는 곧바로 안전 종료로 간다 — 리스너 하나의 사소한 rejection이 봇 전체를 내린다.
+  // 알 수 없는 오류는 곧바로 안전 종료로 간다. 리스너 하나의 사소한 rejection이 봇 전체를 내린다.
   client.on(Events.Error, (error) => {
     log.error("클라이언트 오류:", error);
     if (handleLooseError(error, "client")) return;
@@ -470,7 +470,7 @@ function startBot() {
 
     if (handleLooseError(reason, "rejection")) return;
 
-    // 알 수 없는 rejection — 단발은 위 로그만 남기고 계속(사소한 catch 누락이 봇 전체 다운으로
+    // 알 수 없는 rejection. 단발은 위 로그만 남기고 계속(사소한 catch 누락이 봇 전체 다운으로
     // 번지지 않게). 짧은 시간창에 반복되면 좀비 루프/시스템적 이상으로 보고 안전 종료
     // (uncaughtException의 네트워크 폭주 가드와 같은 방침)
     if (unknownRejectionFlooding()) {
@@ -482,13 +482,13 @@ function startBot() {
   process.on("uncaughtException", (error) => {
     log.error("처리되지 않은 예외:", error);
 
-    // Discord 상호작용 오류 — 무해, 계속
+    // Discord 상호작용 오류. 무해, 계속
     if (isDeadInteraction(error)) {
       log.info("디스코드 상호작용 오류: 봇의 동작에는 영향이 없습니다.");
       return;
     }
 
-    // 일시적 네트워크 오류 — 프로세스는 살리고 "영향받은 서버만" 표적 복구. 짧은 시간에 폭주하면(빈도 가드) 시스템적 이상으로 보고 안전 종료
+    // 일시적 네트워크 오류. 프로세스는 살리고 "영향받은 서버만" 표적 복구. 짧은 시간에 폭주하면(빈도 가드) 시스템적 이상으로 보고 안전 종료
     if (isTransientNetworkError(error)) {
       if (!networkErrorFlooding()) {
         log.warn("네트워크 오류: 연결이 끊긴 서버의 복구를 시도합니다. 봇은 계속 실행됩니다.");
@@ -559,7 +559,7 @@ function startBot() {
 
         // 실제 음성 연결을 기준으로 정리한다.
         // client.players를 돌면 레지스트리에 없는 연결이 그대로 남아, 프로세스가 죽은 뒤에도
-        // 봇이 음성 채널에 유령으로 남는다 — 재시작하면 "봇은 음성에 있는데 플레이어가 없는" 상태가 된다.
+        // 봇이 음성 채널에 유령으로 남는다. 재시작하면 "봇은 음성에 있는데 플레이어가 없는" 상태가 된다.
         for (const [guildId, connection] of getVoiceConnections()) {
           const name = client.guilds.cache.get(guildId)?.name ?? guildId;
           const orphan = client.players.has(guildId) ? "" : " | 레지스트리에 없던 연결";
