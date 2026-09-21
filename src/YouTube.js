@@ -185,6 +185,12 @@ class YouTube {
    * ⚠️ 일시적 네트워크·봇 감지·연령 제한과는 구별(그것들은 재검색 대상 아님).
    */
   static isVideoUnavailableError(error) {
+    // 연령 제한을 먼저 뺀다. 쿠키가 무효일 때 yt-dlp 가 내는 "cookies are no longer valid" 가
+    // 아래의 "no longer available" 과 한 단어 차이라, 정규식이 넓어지는 순간 살아 있는 영상이
+    // 내려간 것으로 분류된다. 자동재생은 그 판정으로 곡을 영구히 버리므로(markDead) 대가가 크다.
+    // 옆의 isClientFault·isStaleMediaError 도 같은 가드를 갖고 있다.
+    if (this.isAgeRestrictedError(error)) return false;
+
     const msg = (error && (error.stderr || error.message)) || String(error || "");
     return /video unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
   }
