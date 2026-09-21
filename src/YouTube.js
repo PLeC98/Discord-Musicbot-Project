@@ -363,8 +363,13 @@ class YouTube {
         continue;
       }
       if (/require[sd]? a .*PO Token|PO Token which was not provided/i.test(line)) {
-        const who = client || "기본 클라이언트";
-        if (NEEDS_POT.includes(client)) log.debug(`${who}: POToken을 요구했습니다 (알려진 특성)`);
+        // 요구한 클라이언트 이름은 경고 본문에 적혀 온다("web_creator client https formats require...").
+        // 우리가 지정한 값을 쓰면 안 된다. 연령 제한 영상에서는 우리가 고르지 않은 web_creator 가
+        // yt-dlp 판단으로 끼어들기 때문에, 지정값으로 찍으면 엉뚱한 이름이 남는다.
+        const named = line.match(/\b([a-z][\w-]*) client\b/i);
+        const asked = named ? named[1] : client;
+        const who = asked || "기본 클라이언트";
+        if (NEEDS_POT.includes(asked)) log.debug(`${who}: POToken을 요구했습니다 (알려진 특성)`);
         else log.warn({ tags: ["youtube-change"] }, `${who}가 POToken을 요구했습니다. 유튜브 정책이 바뀐 것으로 보입니다`);
         continue;
       }
@@ -372,10 +377,28 @@ class YouTube {
     }
   }
 
+  /**
+   * yt-dlp 가 그 클라이언트를 아예 실행하지 않았는가.
+   *
+   * 쿠키를 붙이면 쓸 수 있는 클라이언트 집합이 바뀐다. 쿠키를 못 받는 것들(visionos·android·
+   * tv_simply 등)은 건너뛰어지고, 남은 것이 없으면 "Requested format is not available" 로 끝난다.
+   * 그 메시지만 보면 클라이언트가 실패한 것처럼 보이지만 돌아 본 적조차 없다.
+   *
+   * 어느 클라이언트가 쿠키를 지원하는지는 우리가 표로 들고 있지 않는다. yt-dlp 가 건너뛰면서
+   * 이유를 적어 주므로 그것을 읽는다. 표를 박아 두면 유튜브나 yt-dlp 가 바뀔 때 먼저 어긋난다.
+   */
+  static isSkippedClientError(error) {
+    const msg = (error && (error.stderr || error.message)) || String(error || "");
+    return /Skipping client "[\w-]+"/i.test(msg);
+  }
+
   /** 이 실패가 클라이언트 탓으로 보이는가 (영상·네트워크 문제와 구별) */
   static isClientFault(error) {
     const msg = (error && (error.stderr || error.message)) || String(error || "");
     if (this.isVideoUnavailableError(error) || this.isAgeRestrictedError(error)) return false;
+    // 실행조차 안 된 것을 실패로 세면 멀쩡한 클라이언트가 제외된다. 연령 제한 영상 몇 편이면
+    // 주력 경로가 세션 내내 빠지고, 그때부터 평상시 재생까지 기본값으로 떨어진다.
+    if (this.isSkippedClientError(error)) return false;
     return /requested format is not available|only images are available|no video formats found|PO Token|nsig extraction failed/i.test(msg) || this.isStaleMediaError(error);
   }
 
