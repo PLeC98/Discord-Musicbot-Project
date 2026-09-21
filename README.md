@@ -152,6 +152,8 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 > 크롬/엣지: [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 >
 > 파이어폭스: [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
+>
+> 자세한 것은 yt-dlp의 [유튜브 쿠키 추출하기](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies)를 참고하세요.
 
 **연령 제한 영상 재생**: 연령 제한 영상은 **인증된 쿠키가 필수**입니다.
 
