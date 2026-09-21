@@ -131,6 +131,29 @@ class YouTube {
     return !!(config.ytdl.cookiesFromBrowser || config.ytdl.cookiesFile);
   }
 
+  /**
+   * yt-dlp 오류를 로그에 남길 만큼으로 줄인다.
+   *
+   * yt-dlp는 안에서 여러 번 재시도하고 그때마다 같은 경고를 stderr에 다시 쓴다. 그대로 부으면
+   * 한 번 실패에 같은 줄이 대여섯 개씩 쌓여 그 위의 재생 로그를 덮는다.
+   *
+   * 겹친 줄만 접고 내용은 지우지 않는다. 원인이 WARNING에, 결과가 ERROR에 나뉘어 적히는 경우가
+   * 있어서다(쿠키가 무효 → 연령 확인을 요구받음). 한쪽만 남기면 왜 실패했는지를 잃는다.
+   */
+  static briefError(error, maxLines = 4) {
+    const raw = (error && (error.stderr || error.message)) || String(error || "");
+    const seen = new Set();
+    const lines = [];
+    for (const one of String(raw).split(/\r?\n/)) {
+      const line = one.trim();
+      if (!line || seen.has(line)) continue;
+      seen.add(line);
+      lines.push(line);
+    }
+    if (lines.length <= maxLines) return lines.join("\n");
+    return `${lines.slice(0, maxLines).join("\n")}\n(외 ${lines.length - maxLines}줄)`;
+  }
+
   /** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별 */
   static isAgeRestrictedError(error) {
     const msg = (error && (error.stderr || error.message)) || String(error || "");
@@ -465,7 +488,7 @@ class YouTube {
 
       return track;
     } catch (error) {
-      log.error("영상 정보 조회 실패:", error.message || error);
+      log.error("영상 정보 조회 실패:", this.briefError(error));
       return null;
     }
   }
@@ -523,7 +546,7 @@ class YouTube {
         protocol: info.protocol || null,
       };
     } catch (error) {
-      log.error("스트림 URL 획득 실패:", error.message || error);
+      log.error("스트림 URL 획득 실패:", this.briefError(error));
       throw error;
     }
   }
