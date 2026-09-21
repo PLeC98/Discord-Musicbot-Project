@@ -58,9 +58,8 @@ function createApp(client) {
   const app = express();
   const SESSION_SECRET = resolveSessionSecret();
 
-  // Trust X-Forwarded-* headers only from private-network proxies
-  // (Caddy on the same machine or on the LAN). Headers arriving directly
-  // from public addresses are ignored, so clients cannot spoof them.
+  // X-Forwarded-* 는 사설망 프록시가 보낸 것만 믿는다(같은 기기나 LAN 의 Caddy).
+  // 공인 주소에서 바로 온 헤더는 무시하므로 클라이언트가 값을 꾸며낼 수 없다.
   app.set("trust proxy", "loopback, linklocal, uniquelocal");
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
@@ -94,9 +93,8 @@ function createApp(client) {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        // 'auto': Secure attribute follows the actual connection.
-        // set when served over HTTPS (via trusted proxy), omitted on
-        // plain http://localhost so local testing keeps working
+        // "auto" 는 Secure 를 실제 연결에 맞춘다. HTTPS 로 서비스하면(믿는 프록시 경유) 붙고,
+        // 그냥 http://localhost 면 빠져서 로컬 시험이 그대로 된다.
         secure: "auto",
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -106,7 +104,7 @@ function createApp(client) {
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
 
-  // Make Discord client available to routes
+  // 라우트에서 디스코드 클라이언트를 쓸 수 있게
   app.locals.discordClient = client;
 
   // ── API 요청 제한 (express-rate-limit). 라우트 마운트보다 먼저 등록 ──
@@ -139,14 +137,14 @@ function createApp(client) {
     }),
   );
 
-  // Auth routes (/auth/login, /auth/callback, /auth/logout)
+  // 로그인 관련(/auth/login · /auth/callback · /auth/logout)
   app.use("/auth", authRoutes);
 
-  // API routes
+  // API 라우트
   app.use("/api/admin", adminRoutes);
   app.use("/api/guilds", guildsRoutes);
 
-  // Current user endpoint
+  // 지금 로그인한 사람
   // isOwner는 세션에 저장하지 않고 여기서 파생한다. UI 표시용이고 권한 판정은 서버가 매번 다시 한다.
   // isOwner는 권한 수준 오버라이드가 반영된 값(UI가 그 계층으로 보이게), isRealOwner는 해제 수단을
   // 계속 노출하기 위한 원래 값이다.
@@ -155,7 +153,7 @@ function createApp(client) {
     res.json({ ...req.session.user, isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req) });
   });
 
-  // Public bot info (used on login page before auth)
+  // 로그인 전 화면이 쓰는 공개 정보
   app.get("/api/bot", (req, res) => {
     const botUser = client?.user;
     if (!botUser) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
