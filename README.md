@@ -138,7 +138,15 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 
 ### 쿠키 설정 (연령 제한 영상 전용)
 
-`COOKIES_FROM_BROWSER=chrome`(또는 firefox/edge) 혹은 브라우저 확장으로 내보낸 `cookies.txt`를 `COOKIES_FILE=./cookies.txt`로 지정하세요.
+`.env`의 `COOKIES_SOURCE`로 지정 가능합니다.
+
+| 값                                         | 동작                               |
+| ------------------------------------------ | ---------------------------------- |
+| (비움)                                     | 쿠키를 쓰지 않습니다.              |
+| `chrome` · `firefox` · `edge` · `safari` … | 브라우저에서 가져옵니다.           |
+| `file`                                     | `config/cookies.txt`를 사용합니다. |
+
+`file`로 두면 **대시보드 운영자 화면에 "쿠키 설정" 탭이 생깁니다.** 브라우저 확장에서 복사한 내용을 대시보드에서 붙여넣어 갈아 끼울 수 있습니다.
 
 > [!CAUTION]
 > **쿠키는 연령 제한 영상에만 사용합니다.**
@@ -147,11 +155,13 @@ pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 > ([yt-dlp 문서](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies): 계정 기준 시간당 약 2000영상)
 
 > [!IMPORTANT]
-> 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. `COOKIES_FROM_BROWSER`를 시도해 보고, 문제가 발생하면 `COOKIES_FILE`을 사용하시기 바랍니다.
+> 현재, 크롬/크로미움 기반 브라우저에서 "권한 거부"가 발생한다는 [yt-dlp의 이슈](https://github.com/yt-dlp/yt-dlp/issues/7271)가 있습니다. 브라우저 이름을 먼저 시도해 보고, 문제가 발생하면 `COOKIES_SOURCE=file`을 사용하시기 바랍니다.
 >
 > 크롬/엣지: [Get cookies.txt LOCALLY](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 >
 > 파이어폭스: [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
+>
+> 자세한 것은 yt-dlp의 [유튜브 쿠키 추출하기](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies)를 참고하세요.
 
 **연령 제한 영상 재생**: 연령 제한 영상은 **인증된 쿠키가 필수**입니다.
 

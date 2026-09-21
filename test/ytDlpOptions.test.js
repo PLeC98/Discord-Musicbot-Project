@@ -4,8 +4,7 @@
 // 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백
 // dotenv는 기설정 process.env를 덮지 않으므로 require 전에 세팅한 빈 값이 .env보다 우선.
 
-process.env.COOKIES_FROM_BROWSER = "";
-process.env.COOKIES_FILE = "";
+process.env.COOKIES_SOURCE = "";
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
@@ -118,8 +117,8 @@ test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
 test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종류만 알린다", () => {
   // 대시보드는 운영자 전용이지만, 파일 경로는 알려야 할 이유가 없다.
   const raw = JSON.stringify(YouTube.statusSnapshot());
-  const cookiePath = require("../config").ytdl.cookiesFile;
-  if (cookiePath) assert.ok(!raw.includes(cookiePath), "설정된 쿠키 경로가 응답에 실리면 안 된다");
+  const cookiePath = require("../src/configDataLoader").cookiesPath();
+  assert.ok(!raw.includes(cookiePath), "쿠키 파일 경로가 응답에 실리면 안 된다");
 });
 
 // ── 미디어 주소가 어긋난 실패 ─────────────────────────────────────────────

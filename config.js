@@ -82,6 +82,11 @@ function resolveFromRoot(p) {
   return path.isAbsolute(p) ? p : path.resolve(__dirname, p);
 }
 
+// 쿠키 출처. 브라우저 이름은 yt-dlp에 그대로 넘기므로 소문자로만 맞춘다
+// (`chrome:Profile 1` 처럼 프로필이 붙은 형태를 깨면 안 된다).
+const COOKIES_SOURCE = String(env("COOKIES_SOURCE") || "").trim();
+const USE_COOKIE_FILE = COOKIES_SOURCE.toLowerCase() === "file";
+
 // SponsorBlock skip 지원 카테고리 (권위 목록. src/SponsorBlock.js의 SKIP_CATEGORIES와 동기 유지)
 const SB_SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
 // 콤마 구분 문자열 → 유효 카테고리 배열 (오타·미지원 값은 조용히 제거, 원칙 4: 형식 오류는 걸러냄)
@@ -190,8 +195,13 @@ module.exports = {
     filter: "audioonly",
     quality: "highestaudio",
     highWaterMark: 1 << 25,
-    cookiesFromBrowser: env("COOKIES_FROM_BROWSER"),
-    cookiesFile: resolveFromRoot(env("COOKIES_FILE")),
+    // 쿠키를 어디서 가져오나. 한 칸이다. 브라우저 이름이면 그 브라우저에서 뽑고,
+    // "file"이면 config/cookies.txt를 쓴다(대시보드가 그 파일을 고친다). 비우면 쓰지 않는다.
+    // 경로를 받지 않는 이유: 파일 자리를 고정해야 대시보드가 어디를 고칠지 물을 필요가 없다.
+    // AI 키(config/ai-keys.yaml)와 같은 취급이다.
+    cookiesSource: COOKIES_SOURCE,
+    cookiesFromBrowser: USE_COOKIE_FILE ? null : COOKIES_SOURCE || null,
+    useCookieFile: USE_COOKIE_FILE,
 
     // 재생용 player_client 순서. 비우면 지정하지 않는다 = yt-dlp 기본값 그대로.
     // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/YouTube.js).

@@ -9,8 +9,7 @@
 //
 // 방어선 3중: (1) 매칭 후보에서 라이브 제외 (2) track.isLive면 다운로드 미시작 (3) yt-dlp --match-filter "!is_live"
 
-process.env.COOKIES_FROM_BROWSER = "";
-process.env.COOKIES_FILE = "";
+process.env.COOKIES_SOURCE = "";
 
 const os = require("node:os");
 const fs = require("node:fs");

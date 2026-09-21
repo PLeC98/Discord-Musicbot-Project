@@ -376,6 +376,36 @@ router.put("/ai/prompt", requireOwner, (req, res) => {
   }
 });
 
+// 유튜브 쿠키. 연령 제한 영상에만 쓰이고, 유튜브가 브라우저 쪽에서 세션을 돌리면 만료 시각과
+// 무관하게 무효가 된다. 그때마다 서버에 들어가 파일을 갈아 끼우는 대신 여기서 덮어쓴다.
+//
+// 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다.
+function cookieState() {
+  const YouTube = require("../../../src/YouTube");
+  return {
+    source: YouTube.statusSnapshot().cookies,
+    hasFile: configData.cookiesReady(),
+    // 0이 아니면 지금 덮어써도 그 yt-dlp 가 끝나면서 옛 내용으로 되돌린다
+    inFlight: YouTube.cookieRunsInFlight(),
+  };
+}
+
+router.get("/cookies", requireOwner, (req, res) => res.json(cookieState()));
+
+router.put("/cookies", requireOwner, (req, res) => {
+  const text = req.body?.text;
+  if (typeof text !== "string") return res.status(400).json({ error: "저장할 내용이 없습니다." });
+
+  try {
+    // 내용은 절대 남기지 않는다. 로그인된 세션 그 자체다
+    log.warn({ sub: "admin" }, `대시보드에서 유튜브 쿠키 ${text.trim() ? "저장" : "삭제"}. 실행 ${req.session.user.username || req.session.user.id}`);
+    configData.saveCookies(text);
+    res.json(cookieState());
+  } catch (error) {
+    res.status(409).json({ error: error.message });
+  }
+});
+
 // 나갈 것을 만들어만 본다. 보내지 않는다. 조립은 봇이 쓰는 코드 그대로다.
 router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
