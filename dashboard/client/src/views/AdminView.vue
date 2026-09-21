@@ -239,6 +239,11 @@
         <ConfigAI v-if="tab === 'ai'" />
       </div>
 
+      <div v-show="tab === 'cookies'">
+        <!-- 파일(config/cookies.txt)로도 고칠 수 있다. 저장된 값은 여기로 내려오지 않는다. -->
+        <ConfigCookies v-if="tab === 'cookies'" />
+      </div>
+
       <div v-show="tab === 'dev'">
         <!-- 권한 수준 오버라이드. 디스코드의 "역할 적용해서 서버 보기"에 해당. 서버측 판정까지 함께 낮아진다. -->
         <BaseCard icon="wrench" title="권한 수준으로 보기" class="mb-3">
@@ -344,6 +349,7 @@ import Icon from "../components/BaseIcon.vue";
 import ConfigGenres from "../components/ConfigGenres.vue";
 import ConfigStatus from "../components/ConfigStatus.vue";
 import ConfigAI from "../components/ConfigAI.vue";
+import ConfigCookies from "../components/ConfigCookies.vue";
 import EmojiPicker from "../components/EmojiPicker.vue";
 import Twemoji from "../components/TwemojiImage.vue";
 import { insertAt, caretOf } from "../utils/caret.js";
@@ -352,7 +358,7 @@ import { useUserStore, VIEW_AS_TIERS } from "../stores/user.js";
 // ── 탭 ────────────────────────────────────────────────────────────────────────
 // 선택은 새로고침을 넘겨 유지한다. 권한 수준을 바꾸면 페이지가 다시 로드되는데 그때마다
 // 첫 탭으로 튕기면 쓰기 나쁘다.
-const TABS = [
+const ALL_TABS = [
   { id: "status", label: "봇 상태", icon: "robot" },
   { id: "logs", label: "실시간 로그", icon: "list" },
   { id: "guilds", label: "서버 관리", icon: "globe" },
@@ -360,11 +366,15 @@ const TABS = [
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "presence", label: "상태 문구", icon: "headphones" },
   { id: "ai", label: "AI 보조", icon: "campaign" },
+  // COOKIES_SOURCE=file 일 때만 나온다. 브라우저 쿠키를 쓰거나 쓰지 않으면 고칠 파일이 없다
+  { id: "cookies", label: "유튜브 쿠키", icon: "gear", needsCookieFile: true },
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
 const TAB_KEY = "admin:tab";
 const savedTab = localStorage.getItem(TAB_KEY);
-const tab = ref(TABS.some((t) => t.id === savedTab) ? savedTab : "status");
+// 보이는 탭 목록(TABS)이 아니라 전체로 본다. 쿠키 탭은 상태를 받아야 보일지 정해지는데,
+// 여기는 그 전이라 아직 모른다. 못 쓰는 탭에 머물면 상태가 온 뒤에 되돌린다.
+const tab = ref(ALL_TABS.some((t) => t.id === savedTab) ? savedTab : "status");
 
 function setTab(id) {
   tab.value = id;
@@ -422,6 +432,13 @@ const s = ref({
   activePlayers: 0,
   processes: { total: 0, byLabel: [], oldest: [] },
   youtube: { pot: "off", cookies: "none", configured: false, clients: [] },
+});
+
+// 쿠키 탭은 파일 방식일 때만 쓸모가 있다. 판정 근거가 상태 응답에 이미 실려 오므로 따로 묻지 않는다.
+const TABS = computed(() => ALL_TABS.filter((t) => !t.needsCookieFile || s.value?.youtube?.cookies === "file"));
+// 쓸 수 없게 된 탭에 머물러 있으면 되돌린다. 아무것도 안 그려진 화면을 보게 하지 않는다.
+watch(TABS, (list) => {
+  if (!list.some((t) => t.id === tab.value)) setTab("status");
 });
 
 const potLabels = { on: "사용 중", off: "사용 안 함", missing: "켜져 있으나 설치 없음" };

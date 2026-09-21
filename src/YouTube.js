@@ -37,6 +37,13 @@ const playerClients = new PlayerClients(config.ytdl.playerClients, { window: con
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 
+// 쓸 때 부른다. configDataLoader 가 autoplaySources 를 거쳐 이 파일로 돌아오는 길이 있다
+const configData = () => require("./configDataLoader");
+
+// 지금 쿠키 파일을 쥔 채 도는 yt-dlp 가 몇 개인가. 대시보드가 쿠키를 갈아 끼울 때 본다.
+// yt-dlp 는 끝나면서 쿠키 항아리를 그 파일에 되쓰므로, 도는 중에 갈아 끼우면 옛것으로 되돌아간다.
+let cookieRuns = 0;
+
 class YouTube {
   // yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
   static getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
@@ -65,8 +72,8 @@ class YouTube {
     if (forceCookies) {
       if (config.ytdl.cookiesFromBrowser) {
         baseOptions.cookiesFromBrowser = config.ytdl.cookiesFromBrowser;
-      } else if (config.ytdl.cookiesFile) {
-        baseOptions.cookies = config.ytdl.cookiesFile;
+      } else if (config.ytdl.useCookieFile && configData().cookiesReady()) {
+        baseOptions.cookies = configData().cookiesPath();
       }
     }
 
@@ -85,8 +92,9 @@ class YouTube {
   static logAuthMode() {
     const clients = config.ytdl.playerClients;
     const pot = this.potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
-    const cookie = config.ytdl.cookiesFromBrowser ? `브라우저(${config.ytdl.cookiesFromBrowser})` : config.ytdl.cookiesFile ? "파일" : "없음";
-    log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}${cookie === "없음" ? "" : "(연령 제한 폴백 전용)"}`);
+    // 파일 방식인데 아직 안 올렸으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
+    const cookie = config.ytdl.cookiesFromBrowser ? `브라우저 ${config.ytdl.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdl.useCookieFile ? (configData().cookiesReady() ? "파일(연령 제한 폴백 전용)" : "파일(아직 비어 있음. 대시보드에서 넣으세요)") : "없음";
+    log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
 
     // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.
     // 막지는 않는다. 이 표는 오늘의 유튜브일 뿐이고, 진짜 판정은 실행이 한다.
@@ -113,7 +121,7 @@ class YouTube {
     const fails = (h) => (h || []).filter((x) => x === "ng").length;
     return {
       pot: this.potEnabled() ? "on" : config.bgutil.enabled ? "missing" : "off",
-      cookies: config.ytdl.cookiesFromBrowser ? "browser" : config.ytdl.cookiesFile ? "file" : "none",
+      cookies: config.ytdl.cookiesFromBrowser ? "browser" : config.ytdl.useCookieFile ? "file" : "none",
       configured: snap.order.length > 0,
       clients: snap.order.map((name) => ({
         name,
@@ -126,9 +134,20 @@ class YouTube {
     };
   }
 
-  /** 쿠키(브라우저/파일)가 설정돼 있는가. 연령 제한 폴백 가능 여부 */
+  /**
+   * 쿠키(브라우저/파일)를 지금 쓸 수 있는가. 연령 제한 폴백 가능 여부.
+   *
+   * 파일 쪽은 기동 시점이 아니라 물어볼 때마다 본다. 대시보드로 갈아 끼우면 봇을 다시 띄우지
+   * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮아(연령 제한에서만 불린다) stat 값이 아깝지 않다.
+   */
   static cookiesConfigured() {
-    return !!(config.ytdl.cookiesFromBrowser || config.ytdl.cookiesFile);
+    if (config.ytdl.cookiesFromBrowser) return true;
+    return config.ytdl.useCookieFile && configData().cookiesReady();
+  }
+
+  /** 쿠키 파일을 쥔 채 도는 yt-dlp 수. 0이 아니면 지금 갈아 끼운 것이 되돌아갈 수 있다 */
+  static cookieRunsInFlight() {
+    return cookieRuns;
   }
 
   /** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별 */
@@ -287,9 +306,16 @@ class YouTube {
    */
   static async _runOnce(url, options, client) {
     const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
-    const result = await youtubedl(url, opts);
-    this._inspectWarnings(result?._stderr, client);
-    return result;
+    // 쿠키 파일이 실제로 넘어간 호출만 센다. 무쿠키 캐싱까지 세면 경고가 거짓이 된다
+    const holdsCookieFile = !!opts.cookies;
+    if (holdsCookieFile) cookieRuns++;
+    try {
+      const result = await youtubedl(url, opts);
+      this._inspectWarnings(result?._stderr, client);
+      return result;
+    } finally {
+      if (holdsCookieFile) cookieRuns--;
+    }
   }
 
   /**
