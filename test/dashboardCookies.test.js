@@ -84,11 +84,12 @@ test("저장하면 있는지 없는지만 돌려준다", async () => {
 });
 
 test("저장된 쿠키는 어느 응답으로도 돌아나가지 않는다", async () => {
-  await req("PUT", "/api/admin/cookies", { text: SAMPLE });
-  for (const path_ of ["/api/admin/cookies"]) {
-    const raw = JSON.stringify((await req("GET", path_)).json);
-    assert.ok(!raw.includes("abc123"), `${path_} 에 쿠키 값이 실렸다`);
-    assert.ok(!raw.includes("youtube.com"), `${path_} 에 쿠키 내용이 실렸다`);
+  const saved = await req("PUT", "/api/admin/cookies", { text: SAMPLE });
+  const fetched = await req("GET", "/api/admin/cookies");
+  // 저장 응답과 조회 응답 양쪽을 본다. 저장한 직후가 제일 새기 쉽다
+  for (const body of [saved.json, fetched.json]) {
+    const raw = JSON.stringify(body);
+    for (const line of SAMPLE.split("\n")) assert.ok(!raw.includes(line), "응답에 쿠키 내용이 실렸다");
   }
 });
 
