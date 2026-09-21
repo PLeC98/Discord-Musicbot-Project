@@ -396,7 +396,7 @@
         <p class="mb-2 text-[0.95rem] text-fg-soft">실제로 보냅니다. 토큰이 듭니다.</p>
         <dl class="mb-5 text-[0.82rem] grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
           <dt class="text-muted">보낼 곳</dt>
-          <dd class="font-mono break-all">{{ spec?.editable ? draft.baseUrl : spec?.baseUrl }}</dd>
+          <dd class="font-mono break-all">{{ paidUrl || "확인하는 중…" }}</dd>
           <dt class="text-muted">모델</dt>
           <dd class="font-mono break-all">{{ draft.model || "(비어 있음)" }}</dd>
           <dt class="text-muted">보낼 것</dt>
@@ -561,6 +561,7 @@ const keyPresence = ref({});
 const keyInput = ref("");
 const savingKey = ref(false);
 const paid = ref(null); // "ping" | "judge". 확인 대화상자
+const paidUrl = ref(""); // 그 대화상자에 띄울 진짜 주소. 서버에 물어서 채운다
 const providers = ref([{ value: "off", label: "사용하지 않음" }]);
 const pingText = ref("");
 const loadingModels = ref(false);
@@ -664,12 +665,13 @@ const hasListMark = computed(() => sections.value.some((one) => /\{\{\s*목록\s
 // 응답 칸은 실제로 보냈을 때만 있다(미리보기는 만들기만 한다).
 // 보낼 글을 섹션별로. 규격에 따라 본문 모양이 달라 JSON 으로는 읽기 어렵다.
 // 이름은 프롬프트 칸에 적어 둔 것을 쓴다.
+// 빈 섹션은 요청에서 빠진다. 서버가 달아 준 `at`(원래 섹션 번호)으로 이름표를 찾아야
+// 밀리지 않는다. 번호로 짝지으면 빈 섹션 뒤의 것들이 전부 한 칸씩 어긋난다.
 const shownSections = computed(() =>
-  (shown.value?.messages || []).map((one, i) => ({
-    name: sections.value[i]?.name || `섹션 ${i + 1}`,
-    role: one.role,
-    text: one.content,
-  })),
+  (shown.value?.messages || []).map((one, i) => {
+    const at = Number.isInteger(one.at) ? one.at : i;
+    return { name: sections.value[at]?.name || `섹션 ${at + 1}`, role: one.role, text: one.content };
+  }),
 );
 
 // 날것 그대로도 볼 수 있게 남겨 둔다(접어 둔다)
@@ -770,6 +772,11 @@ const cleanParams = computed(() => {
   return out;
 });
 const promptPayload = computed(() => sections.value.map((one) => ({ role: one.role, text: one.text })));
+
+// AI 에 보낼 요청을 만들 때 쓰는 것. 저장용(payload)과 갈리는 자리는 프롬프트 하나다.
+// 프롬프트는 ai-prompt.chatml 에 따로 저장하므로 payload 에는 없고, 요청에는 있어야 한다.
+// 미리보기·판정 요청처럼 "지금 화면에 있는 것"을 시험하는 곳은 전부 이쪽을 쓴다.
+const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || JSON.stringify(promptPayload.value) !== promptSnapshot.value);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
@@ -973,7 +980,11 @@ const judgeUsable = computed(() => (judgeStale.value ? [] : judgeCands.value.fil
 const judgeBoxes = computed(() => {
   const one = judgeSent.value;
   if (!one) return [];
+  // 미리보기 모달과 같은 것을 같은 차례로 보여준다. 같은 요청인데 보여주는 것이 다르면
+  // 어느 쪽이 진짜인지 알 수 없다.
   return [
+    { title: "URL", text: one.url },
+    { title: "요청 헤더", text: JSON.stringify(one.headers, null, 2) },
     { title: "요청 본문", text: JSON.stringify(one.body, null, 2) },
     { title: "응답", text: one.response || "(비어 있음)" },
   ];
@@ -1034,7 +1045,7 @@ async function runJudge() {
   judgeError.value = "";
   try {
     const usable = judgeUsable.value; // 조회를 안 했으면 비어 있다. 서버가 보기 곡으로 돌린다
-    const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: payload.value });
+    const { data } = await axios.post("/api/admin/ai/judge/run", { candidates: usable, genre: judgeGenre.value, data: aiRequestDraft() });
     judgeSent.value = data;
     judgeVerdicts.value = usable.length ? judgeCands.value.map((cand) => (cand.error ? null : (data.verdicts?.[usable.indexOf(cand)] ?? null))) : null;
   } catch (error) {
@@ -1089,12 +1100,10 @@ async function fetchState() {
   }
 }
 
-const forServer = () => ({ ...payload.value, prompt: promptPayload.value });
-
 // 만들어만 본다. 아무 데도 안 나간다.
 async function openPreview() {
   try {
-    shown.value = { ...(await axios.post("/api/admin/ai/preview", { data: forServer() })).data, sent: false };
+    shown.value = { ...(await axios.post("/api/admin/ai/preview", { data: aiRequestDraft() })).data, sent: false };
   } catch (error) {
     loadError.value = error.response?.data?.error || "미리보기를 만들지 못했습니다.";
   }
@@ -1148,7 +1157,19 @@ async function loadModels({ quiet = false } = {}) {
 }
 
 // 돈이 드는 것은 한 번 물어본다. 보안이 아니라 실수 방지다.
-const askPaid = (which) => (paid.value = which);
+// 확인 대화상자를 열면서 진짜 주소를 받아 온다. 미리보기는 아무 데도 안 보내므로 토큰이 안 든다.
+// 클라이언트가 주소를 흉내 내면 어긋난다(버텍스는 project·location 으로 조립하고,
+// custom 은 끝 슬래시를 떼야 한다). 물어보는 편이 늘 맞다.
+const askPaid = async (which) => {
+  paid.value = which;
+  paidUrl.value = "";
+  try {
+    const { url } = (await axios.post("/api/admin/ai/preview", { data: aiRequestDraft() })).data;
+    if (paid.value === which) paidUrl.value = url || "";
+  } catch {
+    /* 못 물어봤으면 빈칸으로 둔다. 틀린 주소를 보여주느니 낫다 */
+  }
+};
 
 function runPaid() {
   const which = paid.value;

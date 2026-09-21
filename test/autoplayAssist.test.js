@@ -1060,3 +1060,62 @@ test("규칙이 확신하면 묻지 않는다", async () => {
   await assist.accepts(cand("A"), { confident: true });
   assert.equal(calls.length, 1);
 });
+
+// ── 화면이 보여주는 것과 실제로 나가는 것 ──────────────────────────────────
+
+test("빈 섹션이 있어도 어느 섹션에서 나온 messages 인지 알 수 있다", async () => {
+  // 화면이 섹션 이름표를 붙일 때 번호로 짝지으면, 빈 섹션 뒤의 것들이 한 칸씩 밀린다.
+  const out = await assist.preview({
+    provider: "custom",
+    baseUrl: "http://127.0.0.1:11434/v1",
+    model: "test-model",
+    prompt: [
+      { role: "system", text: "첫째" },
+      { role: "user", text: "   " },
+      { role: "user", text: "셋째 {{목록}}" },
+    ],
+  });
+
+  assert.equal(out.messages.length, 2, "빈 섹션은 나가지 않는다");
+  assert.deepEqual(
+    out.messages.map((one) => one.at),
+    [0, 2],
+    "원래 섹션 번호를 달고 나와야 한다",
+  );
+});
+
+test("섹션 번호 표시는 저쪽에 보내는 본문에 섞이지 않는다", async () => {
+  const out = await assist.preview({
+    provider: "custom",
+    baseUrl: "http://127.0.0.1:11434/v1",
+    model: "test-model",
+    prompt: [{ role: "user", text: "하나 {{목록}}" }],
+  });
+
+  assert.ok(!JSON.stringify(out.body).includes('"at"'), "본문에 at 이 새면 저쪽이 400 을 줄 수 있다");
+  for (const message of out.body.messages || []) {
+    assert.deepEqual(Object.keys(message).sort(), ["content", "role"]);
+  }
+});
+
+test("제미니 본문은 지시를 목록보다 앞에 둔다", async () => {
+  // 저쪽은 이름 있는 칸이라 순서를 안 보지만, 요청 로그는 사람이 읽는다.
+  const out = await assist.preview({
+    provider: "aistudio",
+    model: "gemini-test",
+    prompt: [
+      { role: "system", text: "판정 기준" },
+      { role: "user", text: "{{목록}}" },
+    ],
+  });
+
+  const keys = Object.keys(out.body);
+  assert.ok(keys.indexOf("systemInstruction") < keys.indexOf("contents"), `지시가 앞이어야 한다: ${keys.join(" → ")}`);
+});
+
+test("미리보기는 URL 을 돌려준다. 화면이 주소를 흉내 내지 않아도 되게", async () => {
+  // 버텍스는 project·location 으로 조립하고 custom 은 끝 슬래시를 뗀다.
+  // 클라이언트가 같은 계산을 다시 하면 어긋난다.
+  const out = await assist.preview({ provider: "custom", baseUrl: "http://127.0.0.1:11434/v1///", model: "test-model" });
+  assert.equal(out.url, "http://127.0.0.1:11434/v1/chat/completions");
+});
