@@ -367,7 +367,7 @@ const ALL_TABS = [
   { id: "presence", label: "상태 문구", icon: "headphones" },
   { id: "ai", label: "AI 보조", icon: "campaign" },
   // COOKIES_SOURCE=file 일 때만 나온다. 브라우저 쿠키를 쓰거나 쓰지 않으면 고칠 파일이 없다
-  { id: "cookies", label: "유튜브 쿠키", icon: "gear", needsCookieFile: true },
+  { id: "cookies", label: "쿠키 설정", icon: "gear", needsCookieFile: true },
   { id: "dev", label: "개발자", icon: "wrench" },
 ];
 const TAB_KEY = "admin:tab";
