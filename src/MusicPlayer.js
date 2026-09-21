@@ -711,7 +711,7 @@ class MusicPlayer {
       })
       .catch((err) => {
         if (err && err.message) {
-          log.warn(`백그라운드 캐시 다운로드 실패: ${err.message}. 재생은 스트림으로 계속됩니다.`);
+          log.warn(`백그라운드 캐시 다운로드 실패: ${require("./YouTube").briefError(err)}. 재생은 스트림으로 계속됩니다.`);
         }
       });
   }
