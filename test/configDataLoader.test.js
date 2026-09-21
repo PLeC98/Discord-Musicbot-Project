@@ -18,6 +18,15 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
 const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
 
+// 로더는 mtimeMs가 정확히 같으면 캐시를 재사용한다. 테스트가 `Date.now()`로 찍으면 앞 테스트와
+// 같은 밀리초에 들어갈 수 있고, 그러면 새로 쓴 파일 대신 앞 테스트의 결과가 나온다.
+// 부를 때마다 반드시 커지는 값을 쓴다.
+let stamp = Date.now();
+const touch = (name) => {
+  stamp += 1000;
+  fs.utimesSync(path.join(DIR, `${name}.yaml`), new Date(stamp), new Date(stamp));
+};
+
 before(() => loader._setConfigDir(DIR));
 after(() => {
   loader._setConfigDir(path.join(__dirname, "..", "config"));
@@ -50,7 +59,7 @@ test("주석이 있어도 읽고, 파일이 바뀌면 다시 읽는다", () => {
   assert.equal(loader.load("sample"), first, "같은 것을 돌려준다");
 
   write("sample", "# 주석\nvalue: 2\n");
-  fs.utimesSync(path.join(DIR, "sample.yaml"), new Date(), new Date(Date.now() + 1000));
+  touch("sample");
   assert.equal(loader.load("sample").value, 2, "봇을 켜 둔 채 고쳐도 반영된다");
 });
 
@@ -60,7 +69,7 @@ test("돌던 중 문법이 깨지면 직전 값을 유지한다", () => {
   assert.equal(loader.load("broken").value, 1);
 
   write("broken", "value: [\n  깨진\n"); // 닫히지 않은 배열
-  fs.utimesSync(path.join(DIR, "broken.yaml"), new Date(), new Date(Date.now() + 1000));
+  touch("broken");
   assert.equal(loader.load("broken").value, 1, "직전 값으로 계속 돈다");
 });
 
@@ -77,7 +86,7 @@ test("처음부터 문법이 깨져 있으면 멈춘다 — 탭 안내까지", (
 test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 마찬가지", () => {
   for (const key of ["true", '"true"', "null"]) {
     write("genres", `defaults: {}\ngenres:\n  ${key}:\n    label: 값\n`);
-    fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
+    touch("genres");
     const err = thrown(() => loader.genres());
     assert.equal(err.code, "CONFIG_INVALID", key);
     assert.match(err.message, /쓸 수 없습니다/);
@@ -87,7 +96,7 @@ test("true·false·null 은 장르 id로 쓸 수 없다 — 따옴표를 써도 
 test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
   // JavaScript 객체가 정수처럼 생긴 키를 앞으로 당겨서, 끌어 옮긴 차례가 조용히 어긋난다.
   write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
-  fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
+  touch("genres");
 
   const err = thrown(() => loader.genres());
   assert.equal(err.code, "CONFIG_INVALID");
@@ -102,7 +111,7 @@ test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다"
   // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 자리에서 죽는다.
   const load = (emoji) => {
     write("genres", ["defaults: {}", "genres:", "  팝:", `    emoji: ${emoji}`, "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
-    fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
+    touch("genres");
     return loader.genres();
   };
 
@@ -117,13 +126,13 @@ test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다"
 test("no·on 같은 말은 그냥 장르 키가 된다 — 따옴표가 필요 없다", () => {
   const src = "    sources: [{ type: keyword, keywords: [a] }]";
   write("genres", ["defaults: {}", "genres:", "  no:", "    label: 노", src, "  on:", "    label: 온", src, ""].join("\n"));
-  fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
+  touch("genres");
   assert.deepEqual(Object.keys(loader.genres().genres), ["no", "on"]);
 });
 
 test("defaults와 genres를 함께 돌려준다", () => {
   write("genres", ["defaults:", "  prefetchCount: 2", "genres:", "  pop:", "    label: 팝", "    sources: [{ type: keyword, keywords: [a] }]", ""].join("\n"));
-  fs.utimesSync(path.join(DIR, "genres.yaml"), new Date(), new Date(Date.now() + 1000));
+  touch("genres");
   const cfg = loader.genres();
   assert.deepEqual(Object.keys(cfg.genres), ["pop"]);
   assert.equal(cfg.defaults.prefetchCount, 2);
