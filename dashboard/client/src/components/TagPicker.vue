@@ -37,7 +37,7 @@ import { useAnchoredPanel } from "../composables/anchoredPanel";
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
   options: { type: Array, default: () => [] },
-  placeholder: { type: String, default: "치면 후보가 뜹니다" },
+  placeholder: { type: String, default: "입력하면 후보가 표시됩니다" },
   limit: { type: Number, default: 8 },
 });
 const emit = defineEmits(["update:modelValue"]);
