@@ -322,6 +322,30 @@ function anisongFilters(source) {
 // files.catbox.moe 는 미러가 아니므로 쓰지 않는다(없는 파일이 있다).
 const ANISONG_HOST = "https://nawdist.animemusicquiz.com";
 
+// AnisongDB 는 표지를 안 준다. 작품 ID 가 후보에 실려 오므로 AniList 에서 받아 온다.
+// 분당 30회 제한이 있어 곡마다 치면 닿는다. 한 번 채울 때 묶어서 두 번만 묻는다.
+const ANILIST = "https://graphql.anilist.co";
+const ANILIST_BATCH = 50;
+const COVER_QUERY = `query($ids:[Int]){Page(perPage:${ANILIST_BATCH}){media(id_in:$ids,type:ANIME){id coverImage{extraLarge large}}}}`;
+
+/** 작품 ID 배열 → 표지 주소 Map. 못 받으면 그만큼 빈다(그림 없이 튼다). */
+async function anilistCovers(ids) {
+  const covers = new Map();
+  for (let i = 0; i < ids.length; i += ANILIST_BATCH) {
+    try {
+      const body = await postJson(ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
+      for (const media of body?.data?.Page?.media || []) {
+        const url = media?.coverImage?.extraLarge || media?.coverImage?.large;
+        if (media?.id && url) covers.set(media.id, url);
+      }
+    } catch (error) {
+      // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
+      log.debug(`AniList 표지를 받아오지 못했습니다: ${error.message}`);
+    }
+  }
+  return covers;
+}
+
 async function anisongdb(source) {
   // 500까지 받을 수 있지만 뽑는 것은 3분에 한 곡이라 100이면 풀 TTL을 버틴다.
   // 조건에 맞는 곡이 n보다 적으면 그 전부가 온다.
@@ -352,9 +376,16 @@ async function anisongdb(source) {
       sourceUrl: song.linked_ids?.anilist ? `https://anilist.co/anime/${song.linked_ids.anilist}` : `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}`,
       platform: "anisongdb",
       sourceKey: `amq:${id}`,
+      _anilist: song.linked_ids?.anilist || null,
       // songLength 를 durationSec 으로 싣지 않는다. 곡 길이가 아니라 AMQ 클립 길이라
       // 유튜브에서 풀버전을 찾을 때 오답을 부른다.
     });
+  }
+
+  const covers = await anilistCovers([...new Set(out.map((c) => c._anilist).filter(Boolean))]);
+  for (const cand of out) {
+    cand.thumbnail = covers.get(cand._anilist) || null;
+    delete cand._anilist;
   }
   return out;
 }

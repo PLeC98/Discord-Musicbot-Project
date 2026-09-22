@@ -152,3 +152,110 @@ test("목록을 못 받아도 던지지 않는다 — 칸이 안 그려지는 �
     global.fetch = real;
   }
 });
+
+// ── 후보 모양 ─────────────────────────────────────────────────────────────
+
+// 가짜 fetch. AnisongDB 와 AniList 를 부르는 순서대로 답한다.
+function stub({ songs, covers = [], anilistFails = false }) {
+  const calls = [];
+  const real = global.fetch;
+  global.fetch = async (url, opts) => {
+    calls.push({ url: String(url), body: opts?.body ? JSON.parse(opts.body) : null });
+    if (String(url).includes("anilist")) {
+      if (anilistFails) return { ok: false, status: 429, text: async () => "" };
+      return { ok: true, json: async () => ({ data: { Page: { media: covers } } }) };
+    }
+    return { ok: true, json: async () => songs };
+  };
+  return { calls, restore: () => (global.fetch = real) };
+}
+
+const song = (over = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });
+
+test("후보 모양 — 음원 주소·출처·열쇠", async () => {
+  const s = stub({ songs: [song()], covers: [{ id: 7, coverImage: { extraLarge: "https://cover/7.jpg" } }] });
+  try {
+    const [cand] = await sources.fetchFrom({ type: "anisongdb" });
+    assert.equal(cand.sourceKey, "amq:1", "annSongId 가 아니라 amqSongId");
+    assert.equal(cand.platform, "anisongdb");
+    assert.equal(cand.audioUrl, "https://nawdist.animemusicquiz.com/abc.mp3");
+    assert.equal(cand.sourceUrl, "https://anilist.co/anime/7");
+    assert.equal(cand.thumbnail, "https://cover/7.jpg");
+    assert.equal(cand.durationSec, undefined, "songLength 를 길이로 싣으면 매칭이 망가진다");
+    assert.ok(!("_anilist" in cand), "속 값이 새어 나가면 안 된다");
+  } finally {
+    s.restore();
+  }
+});
+
+// 같은 곡이 속편·OVA·극장판에 다시 쓰인다. annSongId 로 막으면 그것들이 다 따로 센다.
+test("amqSongId 가 같으면 한 번만 낸다", async () => {
+  const s = stub({ songs: [song({ annSongId: 10 }), song({ annSongId: 11 }), song({ amqSongId: 2, annSongId: 12 })] });
+  try {
+    const got = await sources.fetchFrom({ type: "anisongdb" });
+    assert.deepEqual(
+      got.map((c) => c.sourceKey),
+      ["amq:1", "amq:2"],
+    );
+  } finally {
+    s.restore();
+  }
+});
+
+test("음원이 없으면 영상 주소로 떨어진다", async () => {
+  const s = stub({ songs: [song({ audio: null, HQ: "v.webm" }), song({ amqSongId: 2, audio: null, HQ: null, MQ: "m.webm" })] });
+  try {
+    const got = await sources.fetchFrom({ type: "anisongdb" });
+    assert.equal(got.length, 1, "MQ 는 쓰지 않는다. 있는 곡이 적어 후보가 훅 준다");
+    assert.match(got[0].audioUrl, /\/v\.webm$/);
+  } finally {
+    s.restore();
+  }
+});
+
+// 음원 주소가 캐시 장부의 열쇠이자 최근 재생 판정에 쓰인다. 섞이면 같은 곡이 두 칸으로 갈린다.
+test("음원 호스트가 하나로 고정된다", async () => {
+  const s = stub({ songs: [song(), song({ amqSongId: 2, audio: "b.mp3" }), song({ amqSongId: 3, audio: "c.mp3" })] });
+  try {
+    const got = await sources.fetchFrom({ type: "anisongdb" });
+    assert.equal(new Set(got.map((c) => new URL(c.audioUrl).host)).size, 1);
+  } finally {
+    s.restore();
+  }
+});
+
+test("AniList ID 가 없으면 ANN 주소를 쓴다", async () => {
+  const s = stub({ songs: [song({ linked_ids: { anilist: null } })] });
+  try {
+    const [cand] = await sources.fetchFrom({ type: "anisongdb" });
+    assert.equal(cand.sourceUrl, "https://www.animenewsnetwork.com/encyclopedia/anime.php?id=100");
+    assert.equal(cand.thumbnail, null);
+  } finally {
+    s.restore();
+  }
+});
+
+// AniList 는 분당 30회다. 곡마다 치면 닿는다.
+test("표지는 묶어서 묻는다 — 곡마다 치지 않는다", async () => {
+  const songs = Array.from({ length: 120 }, (_, i) => song({ amqSongId: i, linked_ids: { anilist: i } }));
+  const s = stub({ songs });
+  try {
+    await sources.fetchFrom({ type: "anisongdb" });
+    const toAniList = s.calls.filter((c) => c.url.includes("anilist"));
+    assert.equal(toAniList.length, 3, "120개면 50씩 세 번");
+    assert.ok(toAniList.every((c) => c.body.variables.ids.length <= 50));
+  } finally {
+    s.restore();
+  }
+});
+
+test("표지를 못 받아도 곡은 낸다", async () => {
+  const s = stub({ songs: [song()], anilistFails: true });
+  try {
+    const [cand] = await sources.fetchFrom({ type: "anisongdb" });
+    assert.equal(cand.thumbnail, null);
+    assert.equal(cand.sourceKey, "amq:1");
+  } finally {
+    s.restore();
+  }
+});
