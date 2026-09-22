@@ -133,6 +133,28 @@ test("probe 파싱: 스트림 줄에 없으면 컨테이너 값을 쓴다 (Opus 
   assert.equal(info.durationSec, 90);
 });
 
+// 컨테이너 값을 오디오로 읽으면 멀쩡한 opus 를 상한까지 다시 굽는다.
+test("probe 파싱: 영상이 섞여 있으면 컨테이너 값을 쓰지 않는다", () => {
+  const info = parseProbeOutput(`
+  Duration: 00:01:29.14, start: 0.000000, bitrate: 4662 kb/s
+    Stream #0:0: Video: vp9 (Profile 0), yuv420p(tv, bt709, progressive), 1280x720, 23.98 fps
+    Stream #0:1: Audio: opus, 48000 Hz, stereo, fltp (default)
+`);
+  assert.equal(info.codec, "opus");
+  assert.equal(info.bitrateKbps, null, "4662k 는 영상까지 합친 값이다");
+  assert.equal(info.durationSec, 89);
+  assert.equal(planFor(info).action, "copy", "모르면 굽지 않는다");
+});
+
+test("probe 파싱: 영상이 있어도 오디오 스트림에 적혀 있으면 그 값을 쓴다", () => {
+  const info = parseProbeOutput(`
+  Duration: 00:02:00.00, start: 0.000000, bitrate: 2048 kb/s
+    Stream #0:0: Video: h264, yuv420p, 1920x1080, 30 fps
+    Stream #0:1: Audio: aac, 44100 Hz, stereo, fltp, 129 kb/s
+`);
+  assert.equal(info.bitrateKbps, 129);
+});
+
 test("probe 파싱: 읽을 것이 없으면 전부 null", () => {
   for (const text of ["", "Invalid data found when processing input", null]) {
     assert.deepEqual(parseProbeOutput(text), { durationSec: null, codec: null, bitrateKbps: null });

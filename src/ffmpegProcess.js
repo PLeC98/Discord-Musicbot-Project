@@ -86,8 +86,8 @@ function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
  * ffmpeg가 파일을 열어 내놓는 안내문에서 우리가 쓰는 세 가지를 뽑는다.
  * 파싱만 한다. 프로세스를 띄우지 않으므로 테스트가 실물 파일 없이 고정할 수 있다.
  *
- * 비트레이트는 스트림 줄에 적힌 값이 있으면 그쪽을 쓴다. `Duration:` 줄의 값은 컨테이너 전체라
- * 오버헤드가 섞이는데, 오디오 전용 파일에서는 둘이 거의 같고 스트림 줄에 없는 형식도 많다.
+ * 비트레이트는 스트림 줄에 적힌 값이 있으면 그쪽을 쓴다. `Duration:` 줄의 값은 컨테이너 전체지만
+ * 오디오 전용 파일에서는 둘이 거의 같고 스트림 줄에 없는 형식도 많아 폴백으로 쓴다.
  *
  * @returns {{durationSec: number|null, codec: string|null, bitrateKbps: number|null}}
  */
@@ -107,7 +107,9 @@ function parseProbeOutput(text) {
     const perStream = stream[2].match(/,\s*(\d+)\s*kb\/s/);
     if (perStream) out.bitrateKbps = Number(perStream[1]);
   }
-  if (out.bitrateKbps === null) {
+  // 컨테이너 값은 영상이 섞여 있으면 오디오 비트레이트가 아니다. 모르는 채로 두는 편이 낫다.
+  // 부르는 쪽이 "상한을 넘음"으로 보고 멀쩡한 opus 를 다시 굽기 때문이다.
+  if (out.bitrateKbps === null && !/Stream #\d+:\d+[^\r\n]*:\s*Video:/.test(str)) {
     const container = str.match(/Duration:[^\r\n]*?bitrate:\s*(\d+)\s*kb\/s/);
     if (container) out.bitrateKbps = Number(container[1]);
   }
