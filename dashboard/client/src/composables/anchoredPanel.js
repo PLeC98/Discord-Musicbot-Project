@@ -27,9 +27,9 @@ function coveredBottom(el) {
  * @param {import("vue").Ref} o.panel  띄울 패널. 바깥 누름 판정에 같이 쓴다
  * @param {import("vue").Ref} o.open   열림 상태. 바깥을 누르면 여기를 내린다
  * @param {number} [o.maxHeight] 패널이 바랄 최대 높이(px)
- * @param {number} [o.gap]       칸과 패널 사이 간격(px)
+ * @param {number} [o.gap]       칸과 패널 사이 간격(px). 음수면 테두리를 겹친다
  */
-export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = 2 }) {
+export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1 }) {
   const style = ref({});
   let observer = null;
 
@@ -70,6 +70,9 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
   watch(open, (now) => {
     listen(now);
     if (now) {
+      // 먼저 한 번 잡고 그린다. 자리를 nextTick 으로 미루면 패널이 한 프레임 동안
+      // 문서 맨 끝에 그려지고, 그쪽에 초점이 가면 브라우저가 페이지를 바닥까지 내린다.
+      place();
       nextTick(place);
       if (anchor.value && typeof ResizeObserver !== "undefined") {
         observer = new ResizeObserver(place);

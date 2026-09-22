@@ -240,26 +240,13 @@ const ANISONG_GENRES = ["Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fant
 let anisongStats = null;
 let anisongStatsAt = 0;
 
-/** 연도별 곡 수 Map 을 min 부터 한 칸씩의 배열로. 빈 해는 0 으로 메운다. */
-function yearRow(byYear) {
-  const from = Math.min(...byYear.keys());
-  const to = Math.max(...byYear.keys());
-  const row = [];
-  for (let y = from; y <= to; y += 1) row.push(byYear.get(y) || 0);
-  return row;
-}
-
 /** 화면이 고를 값을 저쪽에 물어 채운다. 못 받으면 null(빈 목록으로 그린다). */
 async function anisongCatalog() {
   if (anisongStats && Date.now() - anisongStatsAt < YEAR_TTL_MS) return anisongStats;
   try {
     const stats = await getJson(`${ANISONG}/database_stats`);
-    const byYear = new Map();
-    for (const [season, count] of Object.entries(stats?.songs_by_season || {})) {
-      const year = Number(String(season).match(/\d{4}/)?.[0]);
-      if (year) byYear.set(year, (byYear.get(year) || 0) + (Number(count) || 0));
-    }
-    const years = [...byYear.keys()];
+    const seasons = Object.keys(stats?.songs_by_season || {});
+    const years = seasons.map((one) => Number(String(one).match(/\d{4}/)?.[0])).filter(Boolean);
     // 0칸은 난이도가 아니라 결측이다(미디어가 없어 출제된 적 없는 곡). 범위 필터도 기본으로
     // 빼므로 여기서도 뺀다. 안 빼면 슬라이더 옆 분포에 없는 봉우리가 생긴다.
     const histogram = Array.isArray(stats?.songs_by_difficulty) ? stats.songs_by_difficulty.slice(1) : [];
@@ -267,9 +254,9 @@ async function anisongCatalog() {
       genres: Object.keys(stats?.songs_by_genre || {}),
       tags: Object.keys(stats?.songs_by_tag || {}),
       difficulty: histogram,
-      // 1920~30년대에 한두 곡이 있어 슬라이더가 백 해 너비가 된다. 잘라 내지 않는 대신
-      // 분포를 같이 줘서 어디부터 곡이 있는지 눈에 보이게 한다.
-      ...(years.length ? { min: Math.min(...years), max: Math.max(...years), byYear: yearRow(byYear) } : {}),
+      // 1920~30년대에 한두 곡이 있어 슬라이더가 백 해 너비가 된다. 저쪽도 그 해를
+      // 고를 수 있게 두므로 우리도 자르지 않는다.
+      ...(years.length ? { min: Math.min(...years), max: Math.max(...years) } : {}),
     };
     anisongStatsAt = Date.now();
   } catch (error) {
@@ -887,7 +874,7 @@ async function animeYearRange() {
 function fill(field, type, years, anisong) {
   if (type === "animethemes" && field.kind === "range") return years;
   if (type !== "anisongdb") return {};
-  if (field.key === "yearFrom") return anisong?.min ? { min: anisong.min, max: anisong.max, histogram: anisong.byYear || [] } : years;
+  if (field.key === "yearFrom") return anisong?.min ? { min: anisong.min, max: anisong.max } : years;
   // 분포를 같이 내린다. 화면이 슬라이더 옆에 그려야 사용자가 높은 쪽 후보가 얼마나
   // 적은지 알고 고른다. 쏠림이 심해서 안 보여 주면 "왜 같은 곡만 나오지"가 된다.
   if (field.key === "difficultyFrom") return anisong?.difficulty?.length ? { histogram: anisong.difficulty } : {};
