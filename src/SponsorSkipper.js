@@ -81,7 +81,8 @@ class SponsorSkipper {
     this._prevSec = d.prevSec;
 
     if (d.action === "end") {
-      log.info(`${p.currentTrack?.title ?? ""}: 종료 구간 도달, 트랙 종료`);
+      // 스킵과 트랙 종료가 원인=sponsorblock 을 달고 따라나온다. 세 줄이 한 사건이다.
+      log.debug(`${p.currentTrack?.title ?? ""}: 종료 구간 도달, 트랙 종료`);
       p.skip("sponsorblock"); // 스킵 버튼과 동일 처리 (다음 곡/루프 존중)
     } else if (d.action === "seek") {
       log.info(`${p.currentTrack?.title ?? ""}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);

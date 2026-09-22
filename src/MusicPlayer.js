@@ -1706,9 +1706,9 @@ class MusicPlayer {
         // 고르는 사이 대기열이 변했을 수 있다. 사용자가 곡을 넣었으면 미리 뽑기는 취소한다.
         if (!this._canPrefetchAutoplay()) break;
 
+        // 골랐다는 줄은 pickAutoplayTrack 이 이미 찍었다. 그쪽이 아티스트와 행선까지 적는다.
         trackState.enqueue(this, [picked]);
         added++;
-        clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"})`);
       }
 
       if (added && this.guild?.client?.musicEmbedManager) {

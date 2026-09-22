@@ -60,9 +60,11 @@ class VoiceConnectionManager {
     });
 
     // 연결 상태 변경 모니터링. 전이를 남겨야 "언제 왜 끊겼는지"를 사후에 따라갈 수 있다.
+    // 다만 정상 연결은 signalling → connecting → ready 로 한 번에 세 줄이고, 그 세 줄로
+    // 사후에 밝힐 것이 없다. 이상한 경우는 아래와 error 핸들러가 따로 갈라낸다.
     player.connection.on("stateChange", (oldState, newState) => {
       if (oldState.status !== newState.status) {
-        log.info(`연결 상태: ${oldState.status} → ${newState.status} | ${label()}`);
+        log.debug(`연결 상태: ${oldState.status} → ${newState.status} | ${label()}`);
       }
       if (newState.status === VoiceConnectionStatus.Ready) {
         // 연결 복구 성공
