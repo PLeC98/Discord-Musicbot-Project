@@ -29,7 +29,7 @@ const HEAD_TIMEOUT_MS = 10000;
 const GET_TIMEOUT_MS = 30000;
 const MAX_BYTES = 500 * 1024 * 1024; // 500 MB
 const ALLOWED_CONTENT_TYPE = /^\s*(audio\/|video\/|application\/octet-stream|binary\/octet-stream)/i;
-const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const USER_AGENT = require("../config").userAgents.browser;
 
 class SsrfError extends Error {
   constructor(message) {

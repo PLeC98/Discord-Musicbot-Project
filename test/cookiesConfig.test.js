@@ -34,8 +34,8 @@ beforeEach(() => loader.clearCookies());
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tHSID\tdef456"].join("\n");
 
 test("COOKIES_SOURCE=file 이면 브라우저가 아니라 파일 방식이다", () => {
-  assert.equal(config.ytdl.useCookieFile, true);
-  assert.equal(config.ytdl.cookiesFromBrowser, null);
+  assert.equal(config.ytdlp.useCookieFile, true);
+  assert.equal(config.ytdlp.cookiesFromBrowser, null);
 });
 
 test("파일이 없으면 쿠키가 없는 것이다", () => {

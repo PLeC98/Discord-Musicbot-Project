@@ -461,9 +461,9 @@ class MusicPlayer {
             } else {
               // 오프셋 재생이면 begin= 없는 원본 URL을 받아 `-ss`가 단독으로 위치를 정하게 한다(이중 seek 방지).
               const fetchUrl = resumeFromMs > 0 && streamInfo?.rawUrl ? streamInfo.rawUrl : streamUrl_final;
-              const reqHeaders = streamInfo?.httpHeaders || {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              };
+              // 평상시엔 yt-dlp가 준 것을 그대로 쓴다. 클라이언트마다 다른 값을 저쪽이 골라 준다.
+              // 폴백은 yt-dlp를 안 거친 입력을 위한 것이다.
+              const reqHeaders = streamInfo?.httpHeaders || { "User-Agent": config.userAgents.browser };
 
               // 전체 길이를 알면 Range로 나눠 받는다. 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
               // 길이를 모르는 입력은 나눌 수가 없으므로 예전 방식 그대로.

@@ -14,7 +14,7 @@ const log = require("./logger").child({ category: "spotify" });
 const config = require("../config");
 const CacheManager = require("./CacheManager");
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+const UA = config.userAgents.browser;
 const API_BASE = "https://api.spotify.com/v1";
 const PARTNER = "https://api-partner.spotify.com/pathfinder/v2/query";
 const REFERER = "https://open.spotify.com/";

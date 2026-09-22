@@ -17,7 +17,7 @@
 const config = require("../config");
 const log = require("./logger").child({ category: "autoplay" });
 
-const UA = "Discord-Musicbot-Project (autoplay)";
+const UA = config.userAgents.bot;
 const TIMEOUT_MS = 15000;
 // LB Radio는 재생목록을 그때그때 짜 주느라 느리다(실측 5~15초, 더 걸리기도 한다).
 // 15초로는 자주 끊겨 멀쩡한 소스가 빈손으로 취급된다.
