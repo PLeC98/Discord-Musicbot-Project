@@ -173,6 +173,28 @@ test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된
   assert.equal(track.artist, "누군가");
 });
 
+// 회귀 대상: 로그가 음원으로 떨어진 곡을 "→ 유튜브"로 적고 있었다. platform 으로 가르려 했는데
+// 음원을 직접 트는 곡도 platform 은 출처 이름이라 그 판정은 어느 소스에서도 참이 되지 않는다.
+// 소리가 어디서 오는지는 audioSourceKey 만이 가른다.
+test("음원으로 떨어져도 platform 은 출처 이름이다 — 소리의 출생은 audioSourceKey 가 가른다", async () => {
+  ytResults = [];
+  const cand = { artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", platform: "anisongdb", sourceKey: "amq:1" };
+  const track = await route.resolve(cand, LIMITS);
+  assert.equal(track.platform, "anisongdb", "임베드 이름표가 출처로 나와야 한다");
+  assert.ok(track.audioSourceKey.startsWith("dl:"), "소리는 음원에서 온다");
+  assert.equal(track.youtubeUrl, undefined);
+});
+
+// 같은 소스가 유튜브로 올라갔을 때는 반대다. platform 은 그대로고 키만 바뀜다.
+test("유튜브로 올라가도 platform 은 그대로다 — 키가 yt: 로 바뀜다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "Song / Artist", artist: "아무 채널", duration: 260 }];
+  const cand = { artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceUrl: "https://anilist.co/anime/1", platform: "anisongdb", sourceKey: "amq:2" };
+  const track = await route.resolve(cand, LIMITS);
+  assert.equal(track.platform, "anisongdb");
+  assert.equal(track.audioSourceKey, "yt:v1");
+  assert.equal(track.youtubeUrl, "https://www.youtube.com/watch?v=v1");
+});
+
 // ── 썸네일 ────────────────────────────────────────────────────────────────
 
 // 회귀 대상: 유튜브 검색 결과를 후보 모양으로 옮길 때 thumbnail을 빠뜨렸다. Last.fm·LB Radio는
