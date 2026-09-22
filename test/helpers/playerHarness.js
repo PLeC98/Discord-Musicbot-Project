@@ -20,7 +20,7 @@ const { EventEmitter } = require("events");
 const { PassThrough, Writable } = require("stream");
 
 // 판정 시험에서 무엇이 불렸는지 모은다. 시험마다 reset() 으로 비운다
-const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: [], persists: [], directStreams: [] };
+const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: [], persists: [], directStreams: [], sink: [] };
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
 const realVoice = require("@discordjs/voice");
@@ -169,6 +169,12 @@ SessionPersistence.prototype.scheduleStatePersist = function (reason) {
 SessionPersistence.prototype.removeSession = function () {
   calls.persists.push("remove");
 };
+// 대기열이 바뀔 때 세션 저장이 받는 알림. 어떤 알림이 어떤 순서로 가는지만 남긴다
+for (const name of ["onSetCurrent", "onEnqueue", "onTake", "onRetire", "onRewind", "onRemoveAt", "onMove", "onClearQueue", "onReset", "onReplace"]) {
+  SessionPersistence.prototype[name] = function () {
+    calls.sink.push(name);
+  };
+}
 QueueWarmer.prototype.start = function () {};
 
 // 시험마다 바꾸는 협력자. 기본값은 "아무 일도 안 일어남"
