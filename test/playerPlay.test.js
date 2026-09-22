@@ -272,6 +272,30 @@ test("스포티파이: 동등물을 찾아 그 영상의 캐시가 있으면 파
   assert.equal(row.audio_source_key, "yt:nnnnnnnnnnn", "스포티파이 곡 → 영상 을 장부에 적는다");
 });
 
+test("스포티파이: SponsorBlock 을 먼저 묻고, 영상 id 를 몰라 동등물을 찾은 뒤 다시 묻는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = spotifyTrack();
+  behavior.equivalent = () => "https://www.youtube.com/watch?v=s1sssssssss";
+  behavior.sponsor = () => ({ skipSegments: [] });
+  behavior.stream = () => ({ url: "https://media.test/s", duration: 200 });
+
+  await playOnce(p);
+
+  assert.deepEqual(calls.steps.slice(0, 3), ["sponsor", "equivalent", "sponsor"]);
+  assert.equal(p.currentTrack._sponsorResolved, true);
+});
+
+test("스트림 서술자도 받아 둔 파일도 없으면 실패", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("s2sssssssss");
+  behavior.stream = () => null;
+
+  const r = await playOnce(p);
+
+  assert.equal(r.success, false);
+  assert.equal(calls.spawns.length, 0);
+});
+
 test("스포티파이: 동등물의 캐시가 없으면 스트림으로", async () => {
   const p = h.makePlayer();
   p.currentTrack = spotifyTrack();

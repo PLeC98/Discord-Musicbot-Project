@@ -20,7 +20,7 @@ const { EventEmitter } = require("events");
 const { PassThrough, Writable } = require("stream");
 
 // 판정 시험에서 무엇이 불렸는지 모은다. 시험마다 reset() 으로 비운다
-const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: [], persists: [], directStreams: [], sink: [] };
+const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: [], persists: [], directStreams: [], sink: [], steps: [] };
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
 const realVoice = require("@discordjs/voice");
@@ -192,6 +192,7 @@ TrackResolver.getStream = async (track, seekSec) => {
   return behavior.stream(track, seekSec);
 };
 TrackResolver.findYouTubeEquivalent = async (track) => {
+  calls.steps.push("equivalent");
   const url = behavior.equivalent ? behavior.equivalent(track) : null;
   if (url) {
     track.youtubeUrl = url;
@@ -199,7 +200,11 @@ TrackResolver.findYouTubeEquivalent = async (track) => {
   }
   return url;
 };
+// 진짜처럼 영상 id 를 알 수 있을 때만 확정한다. 모르면 다음 호출에 다시 본다(스포티파이는 동등물을 찾은 뒤)
 SponsorBlock.ensureForTrack = async (track) => {
+  calls.steps.push("sponsor");
+  if (!track || track._sponsorResolved) return;
+  if (!SponsorBlock._trackVideoId(track)) return;
   if (behavior.sponsor && !track.sponsor) track.sponsor = behavior.sponsor(track);
   track._sponsorResolved = true;
 };
