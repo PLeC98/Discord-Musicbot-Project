@@ -1628,7 +1628,9 @@ class MusicPlayer {
 
       // 어디서 어떻게 왔는지 한 줄. 소스가 여럿이 되면서 "이 곡이 왜 나왔지"를 로그로 되짚을 수
       // 있어야 한다. 재생·종료 쪽에는 출처가 찍히는데 정작 고르는 자리에 없었다.
-      const how = picked.platform === "direct" ? "음원 직접" : picked.youtubeUrl ? `유튜브 ${picked.youtubeUrl}` : "유튜브";
+      // platform 으로는 못 가른다. 음원을 직접 트는 곡도 platform 은 출처 이름(anisongdb 등)이다.
+      // 소리가 어디서 오는지는 audioSourceKey 가 가른다. dl: 은 음원, yt: 는 영상이다.
+      const how = String(picked.audioSourceKey || "").startsWith("dl:") ? "음원 직접" : `유튜브 ${picked.youtubeUrl || picked.url}`;
       clog.info(`자동재생 뽑기: "${picked.title}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
       return picked;
     } catch (error) {
@@ -1706,9 +1708,9 @@ class MusicPlayer {
         // 고르는 사이 대기열이 변했을 수 있다. 사용자가 곡을 넣었으면 미리 뽑기는 취소한다.
         if (!this._canPrefetchAutoplay()) break;
 
+        // 골랐다는 줄은 pickAutoplayTrack 이 이미 찍었다. 그쪽이 아티스트와 행선까지 적는다.
         trackState.enqueue(this, [picked]);
         added++;
-        clog.info(`자동재생 미리 뽑기: "${picked.title}" (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"})`);
       }
 
       if (added && this.guild?.client?.musicEmbedManager) {

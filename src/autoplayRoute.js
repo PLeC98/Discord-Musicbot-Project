@@ -6,7 +6,8 @@
 //   youtubeUrl 있음 → 그 영상. 검색을 안 하므로 제목을 못 믿는다 → autoplayFilter를 건다
 //   artist+title   → youtubeMatch로 찾는다. durationSec이 같이 오면 길이 신호가 켜져
 //                    youtubeMatch가 알아서 걸러 주므로 autoplayFilter가 필요 없다
-//   audioUrl 있음  → 위가 안 되면 이것을 그대로 튼다(AnimeThemes). 출처가 곧 정답이라 필터가 없다
+//   audioUrl 있음  → 위가 안 되거나 유튜브 쪽 근거가 모자라면 이것을 튼다.
+//                    출처가 곧 정답이라 필터가 없다(upgradeWorthIt)
 //
 
 const autoplayFilter = require("./autoplayFilter");
@@ -173,19 +174,38 @@ async function findOnYouTube(cand, genre) {
   const candidates = match.mergeCandidateLists(primaryLists, secondaryLists).filter((c) => c.url && !c.isLive);
   if (!candidates.length) return null;
 
-  let { best, confidence } = match.rankCandidates(candidates, target);
+  let { best, confidence, ranked } = match.rankCandidates(candidates, target);
   if (!best) return null;
 
   // 규칙이 고른 뒤에 한 번 더 묻는다. 꺼져 있거나 못 부르면 같은 배열이 그대로 돌아온다.
   const kept = await assist.filter(candidates, { genre, confident: confidence === "high" });
   if (kept !== candidates) {
-    ({ best, confidence } = match.rankCandidates(kept, target));
+    ({ best, confidence, ranked } = match.rankCandidates(kept, target));
     if (!best) return null;
   }
 
   if (!CONFIDENCE_OK.has(confidence)) return null;
+  if (!upgradeWorthIt(cand, confidence, ranked[0])) return null;
   // 이름으로 찾아온 것도 이미 못 튼다고 표시된 영상일 수 있다
   return isDead(best.url) ? null : best;
+}
+
+/**
+ * 음원을 이미 가진 후보를 유튜브 것으로 바꿔도 되는가.
+ *
+ * medium 은 "나쁜 신호가 없다"일 뿐 "같은 곡이다"가 아니다. 그런데 애니송 DB 는 길이를
+ * 실어 보내지 않고(AMQ 클립 길이라 곡 길이가 아니다), 가수 이름이 채널명과 같은 일도
+ * 드물다. 그래서 high 로 가는 세 길이 전부 막히고 "정크 단어가 없는 검색 1위"만 남아
+ * medium 이 된다.
+ *
+ * 올바른 녹음을 이미 손에 쥐고 있을 때는 그만큼으로는 부족하다. 최소한 영상 제목에
+ * 곡 제목이 들어 있어야 바꾼다. 아니면 음원을 그대로 튼다.
+ */
+function upgradeWorthIt(cand, confidence, top) {
+  if (!cand.audioUrl) return true;
+  const ok = confidence === "high" || !!top?.breakdown?.title;
+  if (!ok) log.debug(`음원을 그대로 씁니다(유튜브 쪽 근거 부족: ${confidence}) [${cand.sourceKey}]: ${cand.title}`);
+  return ok;
 }
 
 /**

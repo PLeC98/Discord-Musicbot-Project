@@ -15,11 +15,8 @@
           <svg width="9" height="6" viewBox="0 0 9 6" fill="currentColor" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(sourceFoldId(genreIndex, i)) }"><path d="M0 0h9L4.5 6z" /></svg>
         </button>
 
-        <div class="relative flex-1 min-w-0">
-          <select :value="source.type" :class="selectCls" @change="changeType(i, $event.target.value)">
-            <option v-for="t in choosable(source.type)" :key="t.type" :value="t.type" :class="optionCls">{{ t.label }}{{ t.usable ? "" : " (키 없음)" }}</option>
-          </select>
-          <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+        <div class="flex-1 min-w-0">
+          <SingleSelect :model-value="source.type" :options="typeOptions(source.type)" @update:model-value="changeType(i, $event)" />
         </div>
 
         <label class="flex items-center gap-1.5 shrink-0" v-tooltip="'고를 확률. 비우면 1'">
@@ -47,19 +44,15 @@
 
             <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
+            <TagPicker v-else-if="field.kind === 'enumSearch'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+
             <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-1.5">
               <button v-for="opt in field.options" :key="opt.value" type="button" :class="[pillCls, asList(source[field.key]).includes(opt.value) ? pillOn : pillOff]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
             </div>
 
-            <div v-else-if="field.kind === 'enum'" class="relative">
-              <select :value="source[field.key] ?? ''" :class="selectCls" @change="setField(i, field.key, $event.target.value || null)">
-                <option value="" :class="optionCls">{{ field.emptyLabel || "비우기" }}</option>
-                <option v-for="opt in field.options" :key="opt.value" :value="opt.value" :class="optionCls">{{ opt.label }}</option>
-              </select>
-              <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
-            </div>
+            <SingleSelect v-else-if="field.kind === 'enum'" :model-value="source[field.key] ?? ''" :options="field.options" :empty-label="field.emptyLabel || '비우기'" @update:model-value="setField(i, field.key, $event || null)" />
 
-            <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="source[field.key] ?? null" :to="source[field.to] ?? null" :label="field.label" @update="setRange(i, field, $event)" />
+            <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="source[field.key] ?? null" :to="source[field.to] ?? null" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
 
             <NumberInput v-else-if="field.kind === 'number'" :model-value="source[field.key] ?? null" :class="inputCls" @update:model-value="setField(i, field.key, $event)" />
 
@@ -74,12 +67,8 @@
     </div>
 
     <div class="flex items-center gap-2">
-      <div class="relative flex-1">
-        <select v-model="adding" :class="selectCls">
-          <option value="" :class="optionCls">출처 추가…</option>
-          <option v-for="t in addable" :key="t.type" :value="t.type" :class="optionCls">{{ t.label }}</option>
-        </select>
-        <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+      <div class="flex-1">
+        <SingleSelect v-model="adding" :options="addable.map((t) => ({ value: t.type, label: t.label }))" empty-label="출처 추가…" />
       </div>
       <button :class="iconBtn" :disabled="!adding" v-tooltip="'추가'" @click="add"><Icon name="add" :size="15" /></button>
     </div>
@@ -93,6 +82,8 @@ import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
 import RangeSlider from "./RangeSlider.vue";
 import MultiSelect from "./MultiSelect.vue";
+import SingleSelect from "./SingleSelect.vue";
+import TagPicker from "./TagPicker.vue";
 import NumberInput from "./NumberInput.vue";
 import { isFolded, toggleFold, sourceFoldId } from "../composables/configFolds";
 
@@ -103,13 +94,8 @@ const props = defineProps({
 });
 const emit = defineEmits(["update:modelValue"]);
 
-// color-scheme: 네이티브 목록이 밝게 뜨는 것을 막는다(option 은 CSS 로 못 꾸민다)
+// color-scheme: 날짜 같은 네이티브 위젯이 밝게 뜨는 것을 막는다
 const inputCls = "bg-white/5 border border-white/9 rounded-lg text-fg px-2.5 py-2 text-[0.85rem] outline-none font-[inherit] w-full [color-scheme:dark] transition-[border-color] duration-150 focus:border-accent/55";
-// appearance-none 으로 그리므로 화살표도 우리가 얹어야 한다(arrowCls). 안 그리면 그냥 입력칸처럼 보인다
-const selectCls = `${inputCls} appearance-none cursor-pointer pr-9`;
-const arrowCls = "absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted";
-// option 은 네이티브로 그려져 부모 색을 물려받지 않는다. 색을 직접 준다
-const optionCls = "bg-[#141833] text-[#e7e9f3]";
 const fieldLabelCls = "block text-[0.75rem] font-semibold text-fg-soft mb-1";
 // self-stretch: 옆 입력칸과 같은 높이로. 글자 크기를 건드려도 따라온다
 const iconBtn = "self-stretch w-[38px] rounded-lg border border-white/9 text-muted cursor-pointer flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-danger/15 hover:text-danger disabled:opacity-35 disabled:cursor-not-allowed";
@@ -166,6 +152,8 @@ const asList = (v) => (Array.isArray(v) ? v : v == null || v === "" ? [] : [v]);
 // 안 그러면 select 가 값을 잃고 저장할 때 조용히 바뀐다.
 const addable = computed(() => props.types.filter((t) => t.usable));
 const choosable = (current) => props.types.filter((t) => t.usable || t.type === current);
+// 키가 없는 소스도 보이되 왜 못 쓰는지를 적어 둔다. 이미 고른 것이면 남아 있어야 한다
+const typeOptions = (current) => choosable(current).map((t) => ({ value: t.type, label: `${t.label}${t.usable ? "" : " (키 없음)"}` }));
 
 const fieldsOf = (type) => spec(type)?.fields || [];
 const deepCount = (type) => fieldsOf(type).filter((f) => f.deep).length;

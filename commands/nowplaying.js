@@ -1,5 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
+// 이름표와 이모지는 임베드와 같은 표에서 나온다
+const { labelOf, emojiOf } = require("../src/platforms");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("nowplaying").setDescription("Shows information about currently playing song").setDescriptionLocalizations({
@@ -29,14 +31,7 @@ module.exports = {
       const currentTime = player.getCurrentTime();
       const status = player.getStatus();
 
-      const PLATFORM_NAMES = {
-        youtube: "YouTube",
-        spotify: "Spotify",
-        soundcloud: "SoundCloud",
-        direct: "직접 링크",
-      };
-      const platformCode = (track.platform || "unknown").toString().toLowerCase();
-      const platformName = PLATFORM_NAMES[platformCode] || (track.platform ? track.platform.charAt(0).toUpperCase() + track.platform.slice(1) : "알 수 없음");
+      const platformCode = (track.platform || "").toString().toLowerCase();
 
       const embed = new EmbedBuilder().setTitle("🎵 현재 재생 중").setDescription(`**[${track.title}](${track.url})**`).setColor(config.bot.embedColor).setTimestamp();
 
@@ -50,7 +45,7 @@ module.exports = {
 
       embed.addFields({
         name: "🎵 플랫폼",
-        value: `${this.getPlatformEmoji(platformCode)} ${platformName}`,
+        value: `${emojiOf(platformCode)} ${labelOf(platformCode)}`,
         inline: true,
       });
 
@@ -141,15 +136,5 @@ module.exports = {
     } else {
       return filled + indicator + empty.substring(1);
     }
-  },
-
-  getPlatformEmoji(platform) {
-    const emojis = {
-      youtube: "🔴",
-      spotify: "🟢",
-      soundcloud: "🟠",
-      direct: "🔗",
-    };
-    return emojis[platform] || "🎵";
   },
 };

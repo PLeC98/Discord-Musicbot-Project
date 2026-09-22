@@ -80,6 +80,23 @@ test("찾은 것이 TV 사이즈 립이면 음원으로 떨어진다 — 음질�
   assert.equal(track.platform, "direct", `${route.FULL_SEC}초 미만이면 음원을 쓴다`);
 });
 
+// 회귀 대상: 애니송 DB 는 길이를 안 실어 보내고 가수 이름이 채널명과 같은 일도 드물다.
+// 그래서 확신 high 로 가는 길이 전부 막히고 "정크 단어가 없는 검색 1위"만으로 medium 이
+// 붙어 엉또한 영상이 지나갔다. 음원을 이미 쥐고 있을 때는 그만큼으로는 부족하다.
+test("음원이 있는데 찾은 영상 제목에 곡 제목이 없으면 음원으로 떨어진다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "다른 곡입니다", artist: "아무 채널", duration: 260 }];
+  const track = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceKey: "amq:1" }, LIMITS);
+  assert.equal(track.platform, "direct");
+  assert.equal(track.url, "https://nawdist.animemusicquiz.com/a.mp3");
+});
+
+// 길이를 모르는 채로도 제목이 들어 있으면 바꾼다. 이것까지 막으면 풀버전을 통째로 포기하는 셜이다.
+test("음원이 있어도 영상 제목에 곡 제목이 들어 있으면 유튜브를 쓴다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "Song / Artist", artist: "아무 채널", duration: 260 }];
+  const track = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceKey: "amq:2" }, LIMITS);
+  assert.equal(track.platform, "youtube");
+});
+
 test("유튜브에서 아무것도 못 찾아도 음원이 있으면 튼다", async () => {
   ytResults = [];
   const track = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://a.animethemes.moe/X.ogg", sourceKey: "at:1" }, LIMITS);
@@ -154,6 +171,28 @@ test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된
   // getInfo를 안 거치므로 제목이 파일명이 되거나 아티스트가 "직접 링크"가 되지 않는다
   assert.equal(track.title, "주제가");
   assert.equal(track.artist, "누군가");
+});
+
+// 회귀 대상: 로그가 음원으로 떨어진 곡을 "→ 유튜브"로 적고 있었다. platform 으로 가르려 했는데
+// 음원을 직접 트는 곡도 platform 은 출처 이름이라 그 판정은 어느 소스에서도 참이 되지 않는다.
+// 소리가 어디서 오는지는 audioSourceKey 만이 가른다.
+test("음원으로 떨어져도 platform 은 출처 이름이다 — 소리의 출생은 audioSourceKey 가 가른다", async () => {
+  ytResults = [];
+  const cand = { artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", platform: "anisongdb", sourceKey: "amq:1" };
+  const track = await route.resolve(cand, LIMITS);
+  assert.equal(track.platform, "anisongdb", "임베드 이름표가 출처로 나와야 한다");
+  assert.ok(track.audioSourceKey.startsWith("dl:"), "소리는 음원에서 온다");
+  assert.equal(track.youtubeUrl, undefined);
+});
+
+// 같은 소스가 유튜브로 올라갔을 때는 반대다. platform 은 그대로고 키만 바뀜다.
+test("유튜브로 올라가도 platform 은 그대로다 — 키가 yt: 로 바뀜다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "Song / Artist", artist: "아무 채널", duration: 260 }];
+  const cand = { artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceUrl: "https://anilist.co/anime/1", platform: "anisongdb", sourceKey: "amq:2" };
+  const track = await route.resolve(cand, LIMITS);
+  assert.equal(track.platform, "anisongdb");
+  assert.equal(track.audioSourceKey, "yt:v1");
+  assert.equal(track.youtubeUrl, "https://www.youtube.com/watch?v=v1");
 });
 
 // ── 썸네일 ────────────────────────────────────────────────────────────────

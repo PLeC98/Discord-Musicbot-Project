@@ -71,6 +71,31 @@
 #                           비워 두면 그 해 전체
 #   mediaFormat           : 매체 종류. 웹과 같은 이름을 씁니다 (TV, TV Short, Movie, OVA, ONA, Special)
 #
+# type: anisongdb                      (키 필요 없음)
+#   애니 주제가 DB(퀴즈 사이트 AMQ 기반). animethemes 와 같은 방식으로 재생하지만,
+#   곡마다 인지도 점수가 있어 "유명한 곡만" 을 고를 수 있습니다. 삽입곡도 있습니다.
+#   difficultyFrom /       : 인지도 범위(1~100). AMQ 에서 그 곡을 맞힌 사람의 비율입니다.
+#   difficultyTo             높을수록 유명합니다. 대부분의 곡이 20~40 에 몰려 있고
+#                            80 이상은 아주 적으니, 좁게 잡으면 늘 같은 곡이 나옵니다.
+#   songTypes             : opening, ending, insert 중에서. 안 적으면 OP·ED 만.
+#                           삽입곡은 폭이 크게 넓어집니다. 쓰고 싶다면 이 소스를 두 줄 적어
+#                           OP·ED 와 삽입곡의 인지도 범위를 따로 잡는 편이 낫습니다.
+#   animeTypes            : tv, movie, ova, ona, special, other 중에서. 안 적으면 전부.
+#   genres                : 장르. 열여덟 가지뿐입니다.
+#                           Action, Adventure, Comedy, Drama, Ecchi, Fantasy, Horror,
+#                           Mahou Shoujo, Mecha, Music, Mystery, Psychological, Romance,
+#                           Sci-Fi, Slice of Life, Sports, Supernatural, Thriller
+#   tags                  : 장르보다 잘게 나눈 것. 수백 가지라 대시보드에서 찾아 고르는 편이
+#                           편합니다. 예) School, Idol, Isekai, Shounen, Magic
+#                           ※ Idol·School 은 태그이지 장르가 아닙니다. genres 에 적으면 안 됩니다.
+#   yearFrom   / yearTo   : 방영 연도 범위.
+#   seasonFrom / seasonTo : 양 끝 분기. animethemes 와 같은 방식입니다.
+#   songCategories        : 곡 성격. standard, character, chanting, instrumental, other.
+#                           안 적으면 standard 만. 연주곡은 자동재생에 잘 안 맞습니다.
+#   broadcasts            : normal, dub, rebroadcast. 안 적으면 본방만.
+#                           재방송판에만 있는 곡이 있어 넓히고 싶을 때만 적으세요.
+#   n                     : 한 번에 받아 올 곡 수(기본 100).
+#
 # type: vocadb / utaitedb / touhoudb    (키 필요 없음)
 #   보컬로이드, 우타이테, 동방 곡 DB. 일부 설정값이 복잡합니다. 해당 사이트를 참고하며 설정하는걸 권합니다.
 #     vocadb  : https://vocadb.net/
@@ -384,8 +409,12 @@ genres:
   애니:
     emoji: 🎌
     sources:
-      - type: animethemes
+      # 인지도로 걸러 유명한 주제가만. 삽입곡은 기본으로 빠집니다
+      - type: anisongdb
+        difficultyFrom: 35
         weight: 3
+      - type: animethemes
+        weight: 2
       - type: lbradio
         tags:
           - anime

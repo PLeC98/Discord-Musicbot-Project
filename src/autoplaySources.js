@@ -31,6 +31,23 @@ async function getJson(url, headers = {}, timeoutMs = TIMEOUT_MS) {
   return res.json();
 }
 
+// getJson의 형제. 필터를 본문으로 받는 API용.
+// 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
+// 설정이 조용히 빈손이 되는 이유를 알 수 없다.
+async function postJson(url, body, timeoutMs = TIMEOUT_MS) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": UA },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) {
+    const detail = res.status === 422 ? await res.text().catch(() => "") : "";
+    throw new Error(`HTTP ${res.status} (${new URL(url).host})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
+  return res.json();
+}
+
 // 배열 옵션은 이름 뒤에 []를 붙여야 듣는다. 안 붙이면 400도 아니고 조용히 무시된다
 // VocaDB 계열에서 가장 흔한 함정이라 여기 한 곳에서 책임진다.
 function query(params) {
@@ -204,6 +221,177 @@ async function themesByAnime(source) {
   return out;
 }
 
+// ── anisongdb ─────────────────────────────────────────────────────────────
+// AMQ 기반 애니송 DB. AnimeThemes와 같은 갑 유형(음원 직접)이지만 곡 단위 인지도
+// (songDifficulty)가 있어 "유명한 곡만"을 걸 수 있다.
+const ANISONG = "https://anisongdb.com/api";
+
+// 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
+const ANISONG_SONG_TYPES = ["opening", "ending", "insert"];
+const ANISONG_ANIME_TYPES = ["tv", "movie", "ova", "ona", "special", "other"];
+const ANISONG_CATEGORIES = ["standard", "character", "chanting", "instrumental", "other"];
+const ANISONG_BROADCASTS = ["normal", "dub", "rebroadcast"];
+
+// 설정 검증이 동기라 여기 적어야 한다. 정본은 database_stats이고 화면은 그쪽을 쓴다.
+// 태그는 수가 많아 못 적는다. 오타는 저쪽 422로 드러난다.
+const ANISONG_GENRES = ["Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"];
+
+// 장르·태그 목록과 난이도 분포. 하루 한 번만 묻는다.
+let anisongStats = null;
+let anisongStatsAt = 0;
+
+/** 화면이 고를 값을 저쪽에 물어 채운다. 못 받으면 null(빈 목록으로 그린다). */
+async function anisongCatalog() {
+  if (anisongStats && Date.now() - anisongStatsAt < YEAR_TTL_MS) return anisongStats;
+  try {
+    const stats = await getJson(`${ANISONG}/database_stats`);
+    const seasons = Object.keys(stats?.songs_by_season || {});
+    const years = seasons.map((one) => Number(String(one).match(/\d{4}/)?.[0])).filter(Boolean);
+    // 0칸은 난이도가 아니라 결측이다(미디어가 없어 출제된 적 없는 곡). 범위 필터도 기본으로
+    // 빼므로 여기서도 뺀다. 안 빼면 슬라이더 옆 분포에 없는 봉우리가 생긴다.
+    const histogram = Array.isArray(stats?.songs_by_difficulty) ? stats.songs_by_difficulty.slice(1) : [];
+    anisongStats = {
+      genres: Object.keys(stats?.songs_by_genre || {}),
+      tags: Object.keys(stats?.songs_by_tag || {}),
+      difficulty: histogram,
+      // 1920~30년대에 한두 곡이 있어 슬라이더가 백 해 너비가 된다. 저쪽도 그 해를
+      // 고를 수 있게 두므로 우리도 자르지 않는다.
+      ...(years.length ? { min: Math.min(...years), max: Math.max(...years) } : {}),
+    };
+    anisongStatsAt = Date.now();
+  } catch (error) {
+    log.debug(`AnisongDB 목록을 받아오지 못했습니다: ${error.message}`);
+  }
+  return anisongStats;
+}
+
+/**
+ * 설정 한 줄을 저쪽이 받는 filters 로.
+ *
+ * 안 적은 칸은 아예 빼야 한다. 빈 배열은 minItems 1 에 걸려 422.
+ * `include_no_difficulty` 는 켜지 않는다. 난이도 0·null 은 값이 아니라 결측이다.
+ */
+function anisongFilters(source) {
+  const list = (v, allowed) => {
+    const kept = [].concat(v || []).map((one) => String(one).toLowerCase());
+    const ok = kept.filter((one) => allowed.includes(one));
+    return ok.length ? ok : null;
+  };
+  const labels = (v) => {
+    const kept = [].concat(v || []).filter((one) => String(one).trim());
+    return kept.length ? { require_any: kept } : null;
+  };
+  const season = (s, y, fallback) => (y ? `${s || fallback} ${y}` : null);
+
+  const filters = {
+    // 삽입곡은 기본으로 끈다. 폭이 쓸데없이 넓어진다
+    song_types: list(source.songTypes, ANISONG_SONG_TYPES) || ["opening", "ending"],
+    song_categories: list(source.songCategories, ANISONG_CATEGORIES) || ["standard"],
+    broadcasts: list(source.broadcasts, ANISONG_BROADCASTS) || ["normal"],
+    // require_any 는 OR(require_all 이 AND). HQ 를 같이 받는 이유는 저쪽이 영상을 먼저 올리고
+    // 음원 추출을 나중에 해서, 최신 분기로 좁히면 영상만 있는 곡이 넷 중 하나꼴이기 때문이다.
+    media_links: { require_any: ["audio", "HQ"] },
+  };
+
+  const animeTypes = list(source.animeTypes, ANISONG_ANIME_TYPES);
+  if (animeTypes) filters.anime_types = animeTypes;
+
+  const genres = labels(source.genres);
+  if (genres) filters.genres = genres;
+  const tags = labels(source.tags);
+  if (tags) filters.tags = tags;
+
+  // 저쪽이 양끝을 다 받는다. 0 은 결측이라 하한은 1 부터다
+  const from = Number(source.difficultyFrom);
+  const to = Number(source.difficultyTo);
+  if (from > 0 || to > 0) {
+    filters.difficulty = {
+      start: from > 0 ? Math.min(100, from) : 1,
+      end: to > 0 ? Math.min(100, to) : 100,
+    };
+  }
+
+  // AnimeThemes와 달리 저쪽이 범위를 받으므로 우리가 양끝을 자를 일이 없다
+  const start = season(source.seasonFrom, source.yearFrom, "Winter");
+  const end = season(source.seasonTo, source.yearTo, "Fall");
+  if (start || end) filters.season = { ...(start && { start }), ...(end && { end }) };
+
+  return filters;
+}
+
+// 음원 호스트. 저쪽 미러 셋이 같은 파일을 갖고 있지만 하나로 고정해야 한다. 이 주소가
+// 캐시 장부의 열쇠이자 최근 재생 판정에 쓰여서, 섞으면 같은 곡이 두 칸으로 갈린다.
+// files.catbox.moe 는 미러가 아니므로 쓰지 않는다(없는 파일이 있다).
+const ANISONG_HOST = "https://nawdist.animemusicquiz.com";
+
+// AnisongDB 는 표지를 안 준다. 작품 ID 가 후보에 실려 오므로 AniList 에서 받아 온다.
+// 분당 30회 제한이 있어 곡마다 치면 닿는다. 한 번 채울 때 묶어서 두 번만 묻는다.
+const ANILIST = "https://graphql.anilist.co";
+const ANILIST_BATCH = 50;
+const COVER_QUERY = `query($ids:[Int]){Page(perPage:${ANILIST_BATCH}){media(id_in:$ids,type:ANIME){id coverImage{extraLarge large}}}}`;
+
+/** 작품 ID 배열 → 표지 주소 Map. 못 받으면 그만큼 빈다(그림 없이 튼다). */
+async function anilistCovers(ids) {
+  const covers = new Map();
+  for (let i = 0; i < ids.length; i += ANILIST_BATCH) {
+    try {
+      const body = await postJson(ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
+      for (const media of body?.data?.Page?.media || []) {
+        const url = media?.coverImage?.extraLarge || media?.coverImage?.large;
+        if (media?.id && url) covers.set(media.id, url);
+      }
+    } catch (error) {
+      // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
+      log.debug(`AniList 표지를 받아오지 못했습니다: ${error.message}`);
+    }
+  }
+  return covers;
+}
+
+async function anisongdb(source) {
+  // 500까지 받을 수 있지만 뽑는 것은 3분에 한 곡이라 100이면 풀 TTL을 버틴다.
+  // 조건에 맞는 곡이 n보다 적으면 그 전부가 온다.
+  const n = Math.min(500, Math.max(1, Number(source.n) || 100));
+  const songs = await postJson(`${ANISONG}/get_n_random_songs`, { n, filters: anisongFilters(source) });
+
+  const out = [];
+  const seen = new Set();
+  for (const song of songs || []) {
+    if (!song?.songName) continue;
+    // amqSongId 가 곡 단위다. annSongId 는 (애니, 곡) 쌍이라 속편·OVA·극장판에 다시 쓰인
+    // 같은 곡을 서로 다른 것으로 센다.
+    const id = song.amqSongId ?? song.annSongId;
+    if (id == null || seen.has(id)) continue;
+
+    // 음원이 없으면 영상에서 소리를 뺀다. ffmpeg 인자는 손댈 것이 없다.
+    // `-f opus`가 오디오 전용 컨테이너라 알아서 소리만 고른다.
+    const file = song.audio || song.HQ;
+    if (!file) continue;
+
+    seen.add(id);
+    out.push({
+      artist: song.songArtist || song.animeENName || "",
+      title: song.songName,
+      audioUrl: `${ANISONG_HOST}/${file}`,
+      // 곡마다 있는 웹페이지가 없어 작품 페이지를 쓴다.
+      // AniList가 드물게 비어 있고 annId는 늘 있으므로 이어 쓴다.
+      sourceUrl: song.linked_ids?.anilist ? `https://anilist.co/anime/${song.linked_ids.anilist}` : `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}`,
+      platform: "anisongdb",
+      sourceKey: `amq:${id}`,
+      _anilist: song.linked_ids?.anilist || null,
+      // songLength 를 durationSec 으로 싣지 않는다. 곡 길이가 아니라 AMQ 클립 길이라
+      // 유튜브에서 풀버전을 찾을 때 오답을 부른다.
+    });
+  }
+
+  const covers = await anilistCovers([...new Set(out.map((c) => c._anilist).filter(Boolean))]);
+  for (const cand of out) {
+    cand.thumbnail = covers.get(cand._anilist) || null;
+    delete cand._anilist;
+  }
+  return out;
+}
+
 // ── vocadb 계열 ───────────────────────────────────────────────────────────
 // 유튜브 주소를 직접 준다. 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
 const VOCA_HOSTS = { vocadb: "vocadb.net", utaitedb: "utaitedb.net", touhoudb: "touhoudb.com" };
@@ -348,7 +536,7 @@ async function youtube(source) {
 
 // ── 등록부 ────────────────────────────────────────────────────────────────
 
-const FETCHERS = { keyword, lastfm, lbradio, animethemes, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
+const FETCHERS = { keyword, lastfm, lbradio, animethemes, anisongdb, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
 
 /**
  * 소스 타입 명세. 설정 검증과 실행이 같은 표를 본다.
@@ -385,7 +573,8 @@ const vocaEnums = (site) => ({
 
 // 대시보드가 그릴 입력칸. kind 는 화면이 무엇을 띄울지 정한다.
 // list(칩) · text · url · number · range(구간 슬라이더) ·
-// enum(하나 고르기) · enumList(알약으로 여럿) · enumDrop(드롭다운에서 여럿).
+// enum(하나 고르기) · enumList(알약으로 여럿) · enumDrop(드롭다운에서 여럿) ·
+// enumSearch(쳐서 찾아 칩으로 여럿. 항목이 수백 개인 칸).
 // deep: true 는 "자주 안 쓰는 것"이라 접어 둔다.
 // width 는 칸 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자칸) · half(늘 반 줄) ·
 // halfWide(모바일만 한 줄, 그 위로는 반 줄).
@@ -565,6 +754,74 @@ const SPEC = {
       f("sequence", "number", "몇 번째 주제가", { deep: true, width: "halfWide", min: 1, hint: "1이면 OP1, ED1만" }),
     ],
   },
+  anisongdb: {
+    label: "AnisongDB",
+    hint: "애니 주제가 DB(AMQ 기반). 곡마다 인지도 점수가 있어 유명한 곡만 고를 수 있습니다. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 재생합니다.",
+    need: [],
+    // 태그는 364개라 여기 못 적는다(검증이 동기다). 오타는 저쪽 422로 드러난다.
+    enums: {
+      songTypes: ANISONG_SONG_TYPES,
+      animeTypes: ANISONG_ANIME_TYPES,
+      songCategories: ANISONG_CATEGORIES,
+      broadcasts: ANISONG_BROADCASTS,
+      genres: ANISONG_GENRES,
+      seasonFrom: SEASONS,
+      seasonTo: SEASONS,
+    },
+    fields: [
+      // 두 점으로 잡는 구간. 분포는 catalog 가 저쪽에 물어 채운다
+      f("difficultyFrom", "range", "인지도", { to: "difficultyTo", min: 1, max: 100, hint: "AMQ에서 그 곡을 맞힌 사람의 비율입니다. 높을수록 유명합니다" }),
+      f("songTypes", "enumList", "주제가 종류", {
+        width: "halfWide",
+        options: opts([
+          { value: "opening", label: "OP" },
+          { value: "ending", label: "ED" },
+          { value: "insert", label: "삽입곡" },
+        ]),
+        hint: "비우면 OP·ED만. 삽입곡은 폭이 크게 넓어집니다",
+      }),
+      f("animeTypes", "enumList", "매체", {
+        width: "halfWide",
+        options: opts([
+          { value: "tv", label: "TV" },
+          { value: "movie", label: "극장판" },
+          { value: "ova", label: "OVA" },
+          { value: "ona", label: "ONA" },
+          { value: "special", label: "스페셜" },
+          { value: "other", label: "기타" },
+        ]),
+        hint: "비우면 전부",
+      }),
+      f("genres", "enumDrop", "장르", { width: "halfWide", options: opts(ANISONG_GENRES), hint: "고른 것 중 하나라도 맞으면 나옵니다" }),
+      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 것입니다. 예) School · Idol · Isekai" }),
+      f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
+      f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
+      f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),
+      f("songCategories", "enumList", "곡 성격", {
+        deep: true,
+        width: "halfWide",
+        options: opts([
+          { value: "standard", label: "일반" },
+          { value: "character", label: "캐릭터송" },
+          { value: "chanting", label: "구호·창" },
+          { value: "instrumental", label: "연주곡" },
+          { value: "other", label: "기타" },
+        ]),
+        hint: "비우면 일반만",
+      }),
+      f("broadcasts", "enumList", "방영 판본", {
+        deep: true,
+        width: "halfWide",
+        options: opts([
+          { value: "normal", label: "본방" },
+          { value: "dub", label: "더빙" },
+          { value: "rebroadcast", label: "재방송" },
+        ]),
+        hint: "비우면 본방만. 재방송판에만 있는 곡이 있습니다",
+      }),
+      f("n", "number", "한 번에 받아 올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, hint: "기본 100" }),
+    ],
+  },
   vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb") },
   utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb") },
   touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있습니다.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb") },
@@ -608,8 +865,28 @@ async function animeYearRange() {
   return yearRange || { min: 1960, max: new Date().getFullYear() + 1 };
 }
 
+/**
+ * 칸 하나에 저쪽에서 받아 온 값을 얹는다.
+ *
+ * `kind === "range"` 로 가르지 않는 이유: 구간 칸이 둘인 소스가 있어(연도와 인지도)
+ * 한쪽 값이 다른 쪽에 얹힌다. 칸 이름으로 가른다.
+ */
+function fill(field, type, years, anisong) {
+  if (type === "animethemes" && field.kind === "range") return years;
+  if (type !== "anisongdb") return {};
+  if (field.key === "yearFrom") return anisong?.min ? { min: anisong.min, max: anisong.max } : years;
+  // 분포를 같이 내린다. 화면이 슬라이더 옆에 그려야 사용자가 높은 쪽 후보가 얼마나
+  // 적은지 알고 고른다. 쏠림이 심해서 안 보여 주면 "왜 같은 곡만 나오지"가 된다.
+  if (field.key === "difficultyFrom") return anisong?.difficulty?.length ? { histogram: anisong.difficulty } : {};
+  // 태그는 364개라 SPEC 에 못 적는다. 저쪽에 물어 채운다.
+  if (field.key === "tags") return { options: opts(anisong?.tags || []) };
+  if (field.key === "genres" && anisong?.genres?.length) return { options: opts(anisong.genres) };
+  return {};
+}
+
 async function catalog() {
-  const years = await animeYearRange();
+  // 나란히 부른다. 한쪽이 느리다고 다른 쪽을 기다릴 이유가 없다.
+  const [years, anisong] = await Promise.all([animeYearRange(), anisongCatalog()]);
   return TYPES.map((type) => {
     const spec = SPEC[type];
     const required = new Set(spec.need.flat());
@@ -621,7 +898,7 @@ async function catalog() {
       needs: spec.env || null,
       // need 가 [["tags","prompt"]] 꼴이면 "둘 중 하나"라는 뜻이다
       either: spec.need.filter((g) => g.length > 1).map((g) => [...g]),
-      fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key), ...(one.kind === "range" && type === "animethemes" ? years : {}) })),
+      fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key), ...fill(one, type, years, anisong) })),
     };
   });
 }
@@ -645,6 +922,12 @@ module.exports = {
   _placeholder: PLACEHOLDER,
   _lyricsFilter: lyricsFilter,
   _someLanguages: someLanguages,
+  _anisongFilters: anisongFilters,
+  _anisongCatalog: anisongCatalog,
+  _seedAnisongStats: (stats) => {
+    anisongStats = stats;
+    anisongStatsAt = stats ? Date.now() : 0;
+  },
   // 테스트가 바깥으로 나가지 않게 연도 범위를 미리 채워 둔다
   _seedYearRange: (range) => {
     yearRange = range;
