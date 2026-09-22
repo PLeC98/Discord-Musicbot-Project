@@ -301,6 +301,53 @@ test("주소가 같아도 걸러낸다", () => {
   assert.equal(reject({ title: "다른 제목", youtubeUrl: "https://youtu.be/same" }), true);
 });
 
+// 소스마다 띄어쓰기·하이픈·장식 기호를 다르게 적는다. 실측한 실제 쌍들이다.
+test("표기가 갈린 같은 곡을 같다고 본다", () => {
+  const same = [
+    [
+      ["Kakuu Bansanka", "Nan mo nee"],
+      ["Kakuu Bansanka", "Nanmonee"],
+    ],
+    [
+      ["x", "Laid-Back Journey"],
+      ["x", "Laid Back Journey"],
+    ],
+    [
+      ["x", "Happy☆Material"],
+      ["x", "Happy Material"],
+    ],
+    [
+      ["x", "Geki! Teikoku Kageki-dan"],
+      ["x", "Geki! Teikoku Kagekidan"],
+    ],
+    [
+      ["x", "Long Hope Philia (TV Limited)"],
+      ["x", "Long Hope Philia <TV Limited.>"],
+    ],
+  ];
+  for (const [[a1, t1], [a2, t2]] of same) {
+    const reject = route.rejector([{ artist: a1, title: t1 }]);
+    assert.equal(reject({ artist: a2, title: t2 }), true, `"${t1}" == "${t2}"`);
+  }
+});
+
+test("판본·참여 표기가 다르면 다른 곡이다 — 너무 뭉개면 멀쩡한 곡이 사라진다", () => {
+  const reject = route.rejector([
+    { artist: "a", title: "Uragirimono no Requiem" },
+    { artist: "b", title: "NEVER SAY GOODBYE" },
+  ]);
+  assert.equal(reject({ artist: "a", title: "Uragirimono no Requiem Diavolo Ver." }), false);
+  assert.equal(reject({ artist: "b", title: "NEVER SAY GOODBYE feat. Mummy-D" }), false);
+});
+
+// 정규화에서 글자를 통째로 버리면 일본어 제목이 전부 빈 문자열이 되어 한 곡으로 뭉개진다.
+// 자동재생 소스 절반이 일본어 제목을 준다(Last.fm·LB Radio·VocaDB 계열).
+test("일본어 제목끼리 뭉개지지 않는다", () => {
+  const reject = route.rejector([{ artist: "高橋洋子", title: "残酷な天使のテーゼ" }]);
+  assert.equal(reject({ artist: "LiSA", title: "紅蓮華" }), false, "서로 다른 일본어 곡");
+  assert.equal(reject({ artist: "高橋洋子", title: "残酷な天使のテーゼ" }), true, "같은 곡은 여전히 잡는다");
+});
+
 // ── 소스 훑기 ─────────────────────────────────────────────────────────────
 
 test("무게대로 훑되 모든 소스를 한 번씩 거친다 — 목록이 곧 폴백 사슬이다", () => {
