@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 
-const { PLATFORM_NAMES, labelOf } = require("../src/platforms");
+const { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf } = require("../src/platforms");
 const { TYPES } = require("../src/autoplaySources");
 
 // 소스를 더하고 이름표를 안 적으면 화면에 "Lbradio" 같은 것이 뜬다.
@@ -21,4 +21,14 @@ test("모르는 값은 첫 글자만 올리고, 빈 값은 한 칸 문자로", (
   assert.equal(labelOf(""), "-");
   assert.equal(labelOf(null), "-");
   assert.equal(labelOf("touhoudb"), "TouhouDB");
+});
+
+// 이름표와 이모지는 같이 적어야 한다. 하나만 적으면 임베드 플랫폼 칸이 음표로 뜨거나
+// 이름이 "Anisongdb" 처럼 난다. 실제로 /nowplaying 이 그 꼴이었다.
+test("이름표가 있는 플랫폼은 이모지도 있다", () => {
+  const missing = Object.keys(PLATFORM_NAMES).filter((one) => !PLATFORM_EMOJI[one]);
+  assert.deepEqual(missing, [], `이모지 없는 플랫폼: ${missing.join(", ")}`);
+  assert.equal(emojiOf("anisongdb"), "🎏");
+  assert.equal(emojiOf("bandcamp"), "🎵");
+  assert.equal(emojiOf(""), "🎵");
 });

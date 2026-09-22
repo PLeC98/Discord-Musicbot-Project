@@ -809,21 +809,7 @@ class MusicEmbedManager {
   }
 
   getPlatformEmoji(platform) {
-    const emojis = {
-      youtube: "🔴",
-      spotify: "🟢",
-      soundcloud: "🟠",
-      direct: "🔗",
-      // 자동재생이 출처에서 받아 온 곡들. 소리는 유튜브나 그쪽 음원에서 온다
-      lastfm: "🔺",
-      lbradio: "🧠",
-      animethemes: "🎌",
-      anisongdb: "🎏",
-      vocadb: "🎹",
-      utaitedb: "🎤",
-      touhoudb: "⛩️",
-    };
-    return emojis[platform] || "🎵";
+    return require("./platforms").emojiOf(platform);
   }
 
   /**
