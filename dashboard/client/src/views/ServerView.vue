@@ -676,6 +676,7 @@ const PLATFORM_COLORS = {
   lastfm: "#d92323",
   lbradio: "#eb743b", // ListenBrainz 의 --bs-primary
   animethemes: "#ffffff", // 로고 배경
+  anisongdb: "#f2a93b", // 사이트 강조색
   vocadb: "#39c5bb", // 미쿠
   utaitedb: "#00688f", // 배경에 박아 둔 Ado 로고의 장미
   touhoudb: "#4f2347", // (구) 공식 트위터 프로필 이미지 배경

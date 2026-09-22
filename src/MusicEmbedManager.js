@@ -818,6 +818,7 @@ class MusicEmbedManager {
       lastfm: "🔺",
       lbradio: "🧠",
       animethemes: "🎌",
+      anisongdb: "🎏",
       vocadb: "🎹",
       utaitedb: "🎤",
       touhoudb: "⛩️",

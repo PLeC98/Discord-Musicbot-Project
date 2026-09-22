@@ -15,6 +15,7 @@ const PLATFORM_NAMES = {
   lastfm: "Last.fm",
   lbradio: "ListenBrainz Radio",
   animethemes: "AnimeThemes",
+  anisongdb: "AnisongDB",
   vocadb: "VocaDB",
   utaitedb: "UtaiteDB",
   touhoudb: "TouhouDB",
