@@ -32,7 +32,7 @@ const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 
 const { PlayerClients, NEEDS_POT, KNOWN } = require("./PlayerClients");
-const playerClients = new PlayerClients(config.ytdl.playerClients, { window: config.ytdl.clientWindow, fails: config.ytdl.clientFails });
+const playerClients = new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails });
 
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
@@ -57,22 +57,20 @@ class YouTube {
       // 재생(ffmpegPath 해석기)과 캐시 변환이 서로 다른 바이너리를 쓰게 된다. 실제로 그래왔다.
       ffmpegLocation: ffmpegPath(),
       jsRuntimes: `node:${process.execPath}`,
-      addHeader: ["referer:youtube.com", "user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"],
+      // User-Agent를 우리가 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 골라 주고, 그 값이
+      // http_headers로 실려 와 재생 요청 헤더가 된다. 우리가 덮으면 그게 낡은 단일 값으로 뭉개진다.
       ...(YouTube.potEnabled() && { pluginDirs: BGUTIL_DIR }),
       ...extraOptions,
     };
 
     // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
-    // 예전엔 "bgutil이 없으면 쿠키를 1차 인증으로"였는데, bgutil이 3개월간 로드조차 안 된 채
-    // 무쿠키로 멀쩡히 돌았다. 무쿠키 운용은 bgutil 덕이 아니었다(2026-09-10 규명).
-    // 게다가 쿠키는 계정 밴 위험이 있다(yt-dlp 문서: 게스트 ~300영상/시간, 계정 ~2000영상/시간,
-    // 과다 사용 시 밴 경고). 노출 지점을 연령 제한 한 곳으로 묶는다.
-    // ⚠️ 과거의 "쿠키 없으면 player_client=ios 강제" 폴백은 금지. ios는 자체 POT 없이 포맷을
-    //    안 주고 bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다(2026-07-11 실증).
+    // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다.
+    //    "player_client=ios 강제" 폴백은 금지. ios는 자체 POT 없이 포맷을 안 주고
+    //    bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다.
     if (forceCookies) {
-      if (config.ytdl.cookiesFromBrowser) {
-        baseOptions.cookiesFromBrowser = config.ytdl.cookiesFromBrowser;
-      } else if (config.ytdl.useCookieFile && configData().cookiesReady()) {
+      if (config.ytdlp.cookiesFromBrowser) {
+        baseOptions.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
+      } else if (config.ytdlp.useCookieFile && configData().cookiesReady()) {
         baseOptions.cookies = configData().cookiesPath();
       }
     }
@@ -87,13 +85,12 @@ class YouTube {
 
   /**
    * 기동 시 한 줄로 인증 상태를 남긴다. "지금 무엇으로 유튜브에 붙고 있나"를 한눈에.
-   * 이걸 안 남겨서 bgutil이 3개월간 죽어 있는 것을 아무도 몰랐다.
    */
   static logAuthMode() {
-    const clients = config.ytdl.playerClients;
+    const clients = config.ytdlp.playerClients;
     const pot = this.potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
     // 파일 방식인데 아직 안 올렸으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
-    const cookie = config.ytdl.cookiesFromBrowser ? `브라우저 ${config.ytdl.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdl.useCookieFile ? (configData().cookiesReady() ? "파일(연령 제한 폴백 전용)" : "파일(아직 비어 있음. 대시보드에서 넣으세요)") : "없음";
+    const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (configData().cookiesReady() ? "파일(연령 제한 폴백 전용)" : "파일(아직 비어 있음. 대시보드에서 넣으세요)") : "없음";
     log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
 
     // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.
@@ -121,7 +118,7 @@ class YouTube {
     const fails = (h) => (h || []).filter((x) => x === "ng").length;
     return {
       pot: this.potEnabled() ? "on" : config.bgutil.enabled ? "missing" : "off",
-      cookies: config.ytdl.cookiesFromBrowser ? "browser" : config.ytdl.useCookieFile ? "file" : "none",
+      cookies: config.ytdlp.cookiesFromBrowser ? "browser" : config.ytdlp.useCookieFile ? "file" : "none",
       configured: snap.order.length > 0,
       clients: snap.order.map((name) => ({
         name,
@@ -141,8 +138,8 @@ class YouTube {
    * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮아(연령 제한에서만 불린다) stat 값이 아깝지 않다.
    */
   static cookiesConfigured() {
-    if (config.ytdl.cookiesFromBrowser) return true;
-    return config.ytdl.useCookieFile && configData().cookiesReady();
+    if (config.ytdlp.cookiesFromBrowser) return true;
+    return config.ytdlp.useCookieFile && configData().cookiesReady();
   }
 
   /** 쿠키 파일을 쥔 채 도는 yt-dlp 수. 0이 아니면 지금 갈아 끼운 것이 되돌아갈 수 있다 */
@@ -182,7 +179,7 @@ class YouTube {
   /**
    * yt-dlp 오류가 "영상 자체가 내려감/삭제/비공개"인지 판별.
    * 캐시된 매핑의 영상이 사라진 경우 재검색으로 보내기 위한 신호.
-   * ⚠️ 일시적 네트워크·봇 감지·연령 제한과는 구별(그것들은 재검색 대상 아님).
+   *   일시적 네트워크·봇 감지·연령 제한과는 구별(그것들은 재검색 대상 아님).
    */
   static isVideoUnavailableError(error) {
     // 연령 제한을 먼저 뺀다. 쿠키가 무효일 때 yt-dlp 가 내는 "cookies are no longer valid" 가

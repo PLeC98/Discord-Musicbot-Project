@@ -23,7 +23,9 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
   // noWarnings는 켜지 않는다 — yt-dlp 경고에 "이 클라이언트는 POToken이 필요하다"가 섞여 온다
   assert.equal(opts.noWarnings, undefined);
   assert.match(opts.jsRuntimes, /^node:/, "JS 런타임은 자기 node 실행 파일 (deno 불필요)");
-  assert.ok(Array.isArray(opts.addHeader));
+  // User-Agent를 덮지 않는다. yt-dlp가 클라이언트마다 고른 값이 http_headers로 실려 와
+  // 재생 요청 헤더가 되므로, 우리가 끼어들면 낡은 단일 값으로 뭉개진다.
+  assert.equal(opts.addHeader, undefined);
 });
 
 test("호출자가 extractorArgs를 명시하면 그대로 존중 (병합 계약)", () => {
@@ -70,11 +72,26 @@ test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (
   assert.equal(path.basename(BGUTIL_PLUGIN_ROOT), "yt_dlp_plugins");
 });
 
-test("BGUTIL_ENABLED=false면 설치돼 있어도 pluginDirs를 넘기지 않는다", () => {
-  // 설치 여부와 무관하게, 끄기로 했으면 안 쓴다
-  const opts = YouTube.getYtDlpOptions();
-  assert.equal(YouTube.potEnabled(), false, "이 테스트는 BGUTIL_ENABLED 기본값(false) 기준");
-  assert.equal(opts.pluginDirs, undefined);
+// 스위치 값을 주변 환경에서 읽어 오면 안 된다. 개발자의 .env가 BGUTIL_ENABLED=true면
+// "끄면 안 넘긴다"가 확인되지 않은 채 실패로만 떴다. 두 방향을 직접 세워서 본다.
+// potEnabled()는 부를 때마다 config를 보므로 값을 갈아 끼우면 그대로 듣는다.
+test("BGUTIL_ENABLED가 pluginDirs 전달을 가른다", (t) => {
+  const { BGUTIL_AVAILABLE } = YouTube._internals;
+  const config = require("../config");
+  const restore = config.bgutil.enabled;
+  t.after(() => {
+    config.bgutil.enabled = restore;
+  });
+
+  // 끄기로 했으면 설치 여부와 무관하게 안 쓴다
+  config.bgutil.enabled = false;
+  assert.equal(YouTube.potEnabled(), false);
+  assert.equal(YouTube.getYtDlpOptions().pluginDirs, undefined);
+
+  // 켜고 설치돼 있을 때만 넘어간다. 미설치 환경에서는 켜도 안 넘어가는 것이 맞다
+  config.bgutil.enabled = true;
+  assert.equal(YouTube.potEnabled(), BGUTIL_AVAILABLE);
+  assert.equal(YouTube.getYtDlpOptions().pluginDirs === undefined, !BGUTIL_AVAILABLE);
 });
 
 // ── 실패 분류 ────────────────────────────────────────────────────────────────

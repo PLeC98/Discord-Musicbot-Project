@@ -13,7 +13,6 @@
 const crypto = require("crypto");
 const config = require("../config");
 const CacheManager = require("./CacheManager");
-const pkg = require("../package.json");
 
 // skip 지원 9개 카테고리 (config.js의 SB_SKIP_CATEGORIES와 동기 유지)
 const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
@@ -21,7 +20,7 @@ const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro"
 const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];
 const FETCH_ACTION_TYPES = ["skip", "poi"];
 
-const USER_AGENT = `Discord-Musicbot-Project/${pkg.version} (+${config.bot.projectRepo})`;
+const USER_AGENT = config.userAgents.bot;
 
 // 겹치거나 맞닿은 skip 구간을 합집합으로 병합. 기여한 카테고리는 union으로 보존
 function mergeIntervals(segs) {
