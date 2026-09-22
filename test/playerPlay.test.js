@@ -11,6 +11,7 @@ const h = require("./helpers/playerHarness");
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { AudioSplicer } = require("../src/audioSplicer");
+const { PassThrough } = require("node:stream");
 
 const { calls, behavior } = h;
 
@@ -425,4 +426,78 @@ test("종료 감시는 남은 길이 + 4초 뒤로 건다", async () => {
   h.dispose(p);
 
   assert.equal(delay, (100 - 40) * 1000 + 4000, "길이를 아는 곡은 감시를 건다");
+});
+
+// ── 재생 뒤에 오는 신호 ────────────────────────────────────────────────
+
+test("다른 곡을 틀면 앞 곡의 퇴거 보호를 풀고 새 곡을 보호한다", async () => {
+  const track = yt("y1yyyyyyyyy");
+  h.seedCache("yt:y1yyyyyyyyy", track);
+  h.CacheManager.protect("yt:y0yyyyyyyyy");
+  const p = h.makePlayer();
+  p._protectedAudioKey = "yt:y0yyyyyyyyy";
+  p.currentTrack = track;
+
+  await playOnce(p);
+
+  const live = h.CacheManager._liveKeys();
+  assert.equal(live.has("yt:y0yyyyyyyyy"), false);
+  assert.equal(live.has("yt:y1yyyyyyyyy"), true);
+  p.releaseAudioProtection();
+});
+
+test("라이브 ffmpeg 의 종료 코드를 적는다. 신호로 죽으면 -1", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("z1zzzzzzzzz");
+  behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
+
+  await playOnce(p);
+  assert.equal(p._liveExitCode, null, "여는 순간에는 비운다");
+  calls.spawns[0].emit("exit", 1, null);
+  assert.equal(p._liveExitCode, 1);
+
+  h.reset();
+  const q = h.makePlayer();
+  q.currentTrack = yt("z2zzzzzzzzz");
+  behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
+  await playOnce(q);
+  calls.spawns[0].emit("exit", null, "SIGKILL");
+  assert.equal(q._liveExitCode, -1);
+});
+
+test("청크 스트림이 끊기면 캐시 전환을 먼저 묻고, 그 답을 청크 스트림에 돌려준다", async () => {
+  const p = h.makePlayer();
+  const track = yt("z3zzzzzzzzz");
+  p.currentTrack = track;
+  const asked = [];
+  p._planCacheSwitch = (_splicer, t) => {
+    asked.push(t);
+    return true;
+  };
+  behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?clen=4096", duration: 100 });
+
+  await playOnce(p);
+  const { onInterrupt, onResumed } = calls.chunked[0];
+
+  assert.equal(onInterrupt(new Error("끊김")), true, "전환이 예약되면 청크 스트림은 이어받지 않는다");
+  assert.deepEqual(asked, [track], "그 재생의 곡으로 묻는다(현재 곡이 바뀌었어도)");
+  assert.doesNotThrow(() => onResumed({ attempts: 1, downtimeMs: 500, starvedMs: 0 }));
+});
+
+test("스트림이 복구 불가로 끊기면 캐시 전환을 걸고 ffmpeg 입력을 닫는다", async () => {
+  const p = h.makePlayer();
+  const track = yt("z4zzzzzzzzz");
+  p.currentTrack = track;
+  const asked = [];
+  p._planCacheSwitch = (_splicer, t) => asked.push(t);
+  behavior.stream = () => ({ url: "https://media.test/e", duration: 100 });
+  const body = new PassThrough();
+  behavior.fetch = () => ({ ok: true, status: 200, body });
+
+  await playOnce(p);
+  const ffmpeg = calls.spawns[0];
+  body.emit("error", new Error("끊김"));
+
+  assert.deepEqual(asked, [track]);
+  assert.equal(ffmpeg.stdin.writableEnded, true, "입력을 닫아야 출력이 끝나 전환이나 Idle 로 넘어간다");
 });
