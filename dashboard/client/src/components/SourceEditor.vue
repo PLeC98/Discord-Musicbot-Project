@@ -47,6 +47,8 @@
 
             <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
+            <TagPicker v-else-if="field.kind === 'enumSearch'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+
             <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-1.5">
               <button v-for="opt in field.options" :key="opt.value" type="button" :class="[pillCls, asList(source[field.key]).includes(opt.value) ? pillOn : pillOff]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
             </div>
@@ -59,7 +61,7 @@
               <svg :class="arrowCls" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
             </div>
 
-            <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="source[field.key] ?? null" :to="source[field.to] ?? null" :label="field.label" @update="setRange(i, field, $event)" />
+            <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="source[field.key] ?? null" :to="source[field.to] ?? null" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
 
             <NumberInput v-else-if="field.kind === 'number'" :model-value="source[field.key] ?? null" :class="inputCls" @update:model-value="setField(i, field.key, $event)" />
 
@@ -93,6 +95,7 @@ import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
 import RangeSlider from "./RangeSlider.vue";
 import MultiSelect from "./MultiSelect.vue";
+import TagPicker from "./TagPicker.vue";
 import NumberInput from "./NumberInput.vue";
 import { isFolded, toggleFold, sourceFoldId } from "../composables/configFolds";
 

@@ -571,7 +571,8 @@ const vocaEnums = (site) => ({
 
 // 대시보드가 그릴 입력칸. kind 는 화면이 무엇을 띄울지 정한다.
 // list(칩) · text · url · number · range(구간 슬라이더) ·
-// enum(하나 고르기) · enumList(알약으로 여럿) · enumDrop(드롭다운에서 여럿).
+// enum(하나 고르기) · enumList(알약으로 여럿) · enumDrop(드롭다운에서 여럿) ·
+// enumSearch(쳐서 찾아 칩으로 여럿. 항목이 수백 개인 칸).
 // deep: true 는 "자주 안 쓰는 것"이라 접어 둔다.
 // width 는 칸 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자칸) · half(늘 반 줄) ·
 // halfWide(모바일만 한 줄, 그 위로는 반 줄).
@@ -790,7 +791,7 @@ const SPEC = {
         hint: "비우면 전부",
       }),
       f("genres", "enumDrop", "장르", { width: "halfWide", options: opts(ANISONG_GENRES), hint: "고른 것 중 하나라도 맞으면 나옵니다" }),
-      f("tags", "enumDrop", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 것입니다. 예) School · Idol · Isekai" }),
+      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 것입니다. 예) School · Idol · Isekai" }),
       f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
       f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
       f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),

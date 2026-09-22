@@ -6,12 +6,19 @@
 
   range 입력 둘을 겹쳐 쓴다. 겹친 채로 두면 아래 칸을 못 잡으므로 손잡이만 눌리게 하고(pointer-events),
   둘이 한자리에 모였을 때는 앞쪽 손잡이를 위로 올린다.
+
+  histogram 을 주면 막대로 그린다. 값이 고르게 퍼져 있지 않은 칸에서는 이것이 있어야
+  사용자가 고른 구간에 후보가 몇 곡이나 남는지 짐작할 수 있다.
 -->
 <template>
   <div>
     <div class="flex items-center justify-between mb-1">
       <span class="text-[0.78rem] text-fg-soft tabular-nums">{{ text }}</span>
       <button v-if="from != null || to != null" type="button" :class="clearBtn" @click="emit('update', { from: null, to: null })">초기화</button>
+    </div>
+
+    <div v-if="bars.length" class="flex items-end gap-px h-8 mb-0.5" aria-hidden="true">
+      <div v-for="(bar, i) in bars" :key="i" class="flex-1 rounded-t-[1px] transition-colors duration-150" :class="bar.inside ? 'bg-accent/55' : 'bg-white/10'" :style="{ height: `${bar.height}%` }"></div>
     </div>
 
     <div class="relative h-5 select-none">
@@ -33,6 +40,8 @@ const props = defineProps({
   from: { type: Number, default: null },
   to: { type: Number, default: null },
   label: { type: String, default: "" },
+  // min 부터 한 칸씩의 개수. 길이가 범위와 달라도 비율로 맞춰 그린다
+  histogram: { type: Array, default: () => [] },
 });
 const emit = defineEmits(["update"]);
 
@@ -52,6 +61,25 @@ const loOnTop = computed(() => lo.value > (props.min + props.max) / 2);
 
 const pct = (v) => ((v - props.min) / Math.max(1, props.max - props.min)) * 100;
 const fill = computed(() => ({ left: `${pct(lo.value)}%`, right: `${100 - pct(hi.value)}%` }));
+
+// 막대가 너무 많으면 화면에서 1픽셀도 안 되므로 묶어서 줄인다
+const BARS = 48;
+const bars = computed(() => {
+  const raw = (props.histogram || []).map((v) => Number(v) || 0);
+  if (raw.length < 2) return [];
+  const per = Math.ceil(raw.length / BARS);
+  const groups = [];
+  for (let i = 0; i < raw.length; i += per) {
+    const slice = raw.slice(i, i + per);
+    groups.push({ sum: slice.reduce((a, b) => a + b, 0), at: props.min + i, to: props.min + i + slice.length - 1 });
+  }
+  // 한 칸이 압도적으로 크면 나머지가 다 납작해진다. 제곱근으로 눌러 모양이 보이게 한다
+  const top = Math.max(...groups.map((g) => Math.sqrt(g.sum)));
+  return groups.map((g) => ({
+    height: top > 0 ? Math.max(2, (Math.sqrt(g.sum) / top) * 100) : 2,
+    inside: g.to >= lo.value && g.at <= hi.value,
+  }));
+});
 
 function set(a, b) {
   // 손잡이가 서로를 지나치면 붙여 세운다
