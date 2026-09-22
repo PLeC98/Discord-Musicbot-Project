@@ -80,6 +80,23 @@ test("찾은 것이 TV 사이즈 립이면 음원으로 떨어진다 — 음질�
   assert.equal(track.platform, "direct", `${route.FULL_SEC}초 미만이면 음원을 쓴다`);
 });
 
+// 회귀 대상: 애니송 DB 는 길이를 안 실어 보내고 가수 이름이 채널명과 같은 일도 드물다.
+// 그래서 확신 high 로 가는 길이 전부 막히고 "정크 단어가 없는 검색 1위"만으로 medium 이
+// 붙어 엉또한 영상이 지나갔다. 음원을 이미 쥐고 있을 때는 그만큼으로는 부족하다.
+test("음원이 있는데 찾은 영상 제목에 곡 제목이 없으면 음원으로 떨어진다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "다른 곡입니다", artist: "아무 채널", duration: 260 }];
+  const track = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceKey: "amq:1" }, LIMITS);
+  assert.equal(track.platform, "direct");
+  assert.equal(track.url, "https://nawdist.animemusicquiz.com/a.mp3");
+});
+
+// 길이를 모르는 채로도 제목이 들어 있으면 바꾼다. 이것까지 막으면 풀버전을 통째로 포기하는 셜이다.
+test("음원이 있어도 영상 제목에 곡 제목이 들어 있으면 유튜브를 쓴다", async () => {
+  ytResults = [{ id: "v1", url: "https://www.youtube.com/watch?v=v1", title: "Song / Artist", artist: "아무 채널", duration: 260 }];
+  const track = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", sourceKey: "amq:2" }, LIMITS);
+  assert.equal(track.platform, "youtube");
+});
+
 test("유튜브에서 아무것도 못 찾아도 음원이 있으면 튼다", async () => {
   ytResults = [];
   const track = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://a.animethemes.moe/X.ogg", sourceKey: "at:1" }, LIMITS);
