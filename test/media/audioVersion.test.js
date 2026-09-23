@@ -1,10 +1,9 @@
-"use strict";
-
 // src/media/audioVersion.js — 받은 음원의 판. 받을 때 같은 응답에서 읽는다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { fromYtDlpInfo, fromHeaders } = require("../../src/media/audioVersion");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import audioVersion from "../../src/media/audioVersion.js";
+const { fromYtDlpInfo, fromHeaders } = audioVersion;
 
 test("yt-dlp info: 유튜브는 포맷 주소의 lmt, 사운드클라우드는 경로 첫 칸이나 수정 시각", () => {
   const cases = [

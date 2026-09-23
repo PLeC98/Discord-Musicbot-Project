@@ -1,12 +1,10 @@
-"use strict";
-
 // Range 요청으로 나눠 받는 읽기 스트림.
 //
 // googlevideo는 순차 GET을 재생 속도의 약 2배로 조이고(Range는 우회한다), 재생 속도 이하로 읽히는
 // 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 
-const { Readable } = require("stream");
+import { Readable } from "stream";
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000;
@@ -285,4 +283,6 @@ function describeStreamError(err) {
   return parts.join(" ← ");
 }
 
-module.exports = { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError };
+const exported = { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError };
+export default exported;
+export { exported as "module.exports" };

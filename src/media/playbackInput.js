@@ -1,16 +1,18 @@
-"use strict";
-
 // 소리를 여는 곳. 받아 둔 파일 · HLS 주소 · 스트림 파이프 셋 중 하나로 ffmpeg 를 띄우고 오디오 리소스를 만든다.
 // 어느 갈래로 갈지는 transportOf 가 정했다. 스트림 파이프가 열리지 않으면 나란히 받던 캐시 파일로 연다.
 
-const { StreamType } = require("@discordjs/voice");
-const { Readable } = require("stream");
-const fs = require("fs");
-const log = require("../infra/log/logger").child({ category: "player" });
-const config = require("../../config");
-const { AudioSplicer } = require("./audioSplicer");
-const { contentLengthFromUrl, describeStreamError } = require("./chunkedStream");
-const { buildFfmpegArgs } = require("./ffmpeg/args");
+import { StreamType } from "@discordjs/voice";
+import { Readable } from "stream";
+import fs from "fs";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "player" });
+import config from "../../config.js";
+import audioSplicer from "./audioSplicer.js";
+const { AudioSplicer } = audioSplicer;
+import chunkedStream from "./chunkedStream.js";
+const { contentLengthFromUrl, describeStreamError } = chunkedStream;
+import args from "./ffmpeg/args.js";
+const { buildFfmpegArgs } = args;
 
 const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이드 길이
 
@@ -197,4 +199,6 @@ function pipeResource(o, audioStream, hooks) {
   return resourceOf(o, playSource, o.streamInfo.duration || o.meta.duration);
 }
 
-module.exports = { openInput };
+const exported = { openInput };
+export default exported;
+export { exported as "module.exports" };

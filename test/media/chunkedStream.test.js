@@ -1,13 +1,12 @@
-"use strict";
-
 // src/media/chunkedStream.js — Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
 //
 // 네트워크는 fetch를 주입해 흉내낸다. 실 소켓 없이 전부 검증한다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { Writable } = require("stream");
-const { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } = require("../../src/media/chunkedStream");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { Writable } from "stream";
+import chunkedStream from "../../src/media/chunkedStream.js";
+const { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } = chunkedStream;
 
 const URL_ = "https://x/y";
 const FAST = { retryDelaysMs: [0, 0, 0] };

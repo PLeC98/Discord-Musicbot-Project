@@ -1,9 +1,9 @@
-"use strict";
-
-const { spawn } = require("child_process");
-const { ffmpegPath } = require("./path");
-const procRegistry = require("../../infra/processRegistry");
-const log = require("../../infra/log/logger").child({ category: "ffmpeg" });
+import { spawn } from "child_process";
+import path from "./path.js";
+const { ffmpegPath } = path;
+import procRegistry from "../../infra/processRegistry.js";
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "ffmpeg" });
 
 /**
  * ffmpeg 자식 프로세스 생성.
@@ -153,4 +153,6 @@ async function probeDurationSec(file) {
   return (await probeAudio(file)).durationSec;
 }
 
-module.exports = { spawnFfmpeg, probeAudio, probeDurationSec, _internals: { CRASH_SIGNALS, parseProbeOutput } };
+const exported = { spawnFfmpeg, probeAudio, probeDurationSec, _internals: { CRASH_SIGNALS, parseProbeOutput } };
+export default exported;
+export { exported as "module.exports" };

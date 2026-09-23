@@ -1,29 +1,27 @@
-"use strict";
-
 // TrackDownloader 가 캐시에 곡을 받는 흐름의 지금 동작을 고정한다(구조 리팩터링 0-B).
 //
 // 3단계가 받을 때 `audio_version` 을 채우고 열쇠 모양을 바꾸고, 5단계가 CacheManager 를 쪼갠다. 그 전에 갈래마다
 // "무엇으로 받았나 · 장부에 무엇을 적었나 · 트랙에 무엇을 고쳤나"를 적어 둔다. 진짜 CacheManager 를 임시 DB 로 쓰고
 // yt-dlp · 직접 링크 · 변환 · SponsorBlock · 동등물 찾기만 바꿔 끼운다.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { Readable } = require("node:stream");
-const { test, before, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { Readable } from "node:stream";
+import { test, before, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
-const audioCache = require("../../src/store/audioCache");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = require("../../src/sources/youtube/index");
-const equivalent = require("../../src/sources/youtube/equivalent");
-const DirectLink = require("../../src/sources/direct");
-const SponsorBlock = require("../../src/sources/sponsorBlock");
-const audioConvert = require("../../src/media/convert");
-const TrackDownloader = require("../../src/media/cacheDownload");
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
+const DirectLink = (await import("../../src/sources/direct.js")).default;
+const SponsorBlock = (await import("../../src/sources/sponsorBlock.js")).default;
+const audioConvert = (await import("../../src/media/convert.js")).default;
+const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
 
 // 무엇이 불렸는지 모은다
 const calls = { ytdlp: [], direct: [], convert: [], sponsor: [], equivalent: [], reresolve: [] };
@@ -103,7 +101,7 @@ const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE
 const lookupRow = (requestKey) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const leftovers = () => fs.readdirSync(audioCache._cacheDir).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
 
-const yt = require("../helpers/tracks").youtube;
+const yt = (await import("../helpers/tracks.js")).default.youtube;
 
 // ── yt-dlp 갈래 ────────────────────────────────────────────────────────
 

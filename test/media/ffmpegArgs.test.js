@@ -1,5 +1,3 @@
-"use strict";
-
 // media/ffmpeg/args buildFfmpegArgs — ffmpeg 인자 구성의 불변식.
 //
 // 회귀 대상: 오프셋 재생 시 ffmpeg에 URL을 직접 입력하던 것. httpHeaders가 빠지고,
@@ -9,10 +7,16 @@
 // URL 입력은 HLS 갈래에만 있다(liveHls.test.js). 여기서 고정하는 것은 그 갈래를 부르지 않은
 // 모든 경우가 여전히 pipe 로 간다는 것이다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const { buildFfmpegArgs } = require("../../src/media/ffmpeg/args");
+import argsModule from "../../src/media/ffmpeg/args.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { buildFfmpegArgs } = argsModule;
 
 const build = (opts) => buildFfmpegArgs(opts);
 

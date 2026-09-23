@@ -1,5 +1,3 @@
-"use strict";
-
 // src/media/cacheDownload.js — 캐시 변환 옵션.
 //
 // 회귀 대상: `postprocessorArgs` 가 코덱을 못 박고 있었다. yt-dlp 의 ExtractAudio 는 소스 코덱을
@@ -7,12 +5,13 @@
 // 그 뒤에 붙어 ffmpeg 에서 이겨 버렸다. 그래서 유튜브 251(Opus)까지 매번 다시 인코딩됐다.
 // 상류에서 내려온 뒤 아무도 다시 보지 않은 설정이다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const { openTempStore } = require("../helpers/tempStore");
-const TrackDownloader = require("../../src/media/cacheDownload");
-const YouTube = require("../../src/sources/youtube/index");
+import tempStore from "../helpers/tempStore.js";
+const { openTempStore } = tempStore;
+import TrackDownloader from "../../src/media/cacheDownload.js";
+import YouTube from "../../src/sources/youtube/index.js";
 
 /** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 받지는 않는다. 받기 전에 캐시 행을 적으므로 임시 DB 를 연다 */
 async function captureOptions() {

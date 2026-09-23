@@ -1,5 +1,3 @@
-"use strict";
-
 // 받은 음원의 판(audio_version). 같은 주소에서 음원이 바뀐 것을 나중에 알아볼 값이다.
 // 받을 때 같은 응답에서 공짜로 나온다. 값을 적기만 하고, 견주는 일(재검증)은 아직 없다.
 //
@@ -41,4 +39,6 @@ function fromHeaders(headers) {
   return parts.length ? parts.map(([k, v]) => `${k}=${v}`).join(";") : null;
 }
 
-module.exports = { fromYtDlpInfo, fromHeaders };
+const exported = { fromYtDlpInfo, fromHeaders };
+export default exported;
+export { exported as "module.exports" };

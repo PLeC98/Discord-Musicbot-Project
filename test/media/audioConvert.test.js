@@ -1,5 +1,3 @@
-"use strict";
-
 // src/media/convert.js: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
 // 회귀 대상: 직접 링크 갈래가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
@@ -9,16 +7,21 @@
 // 변환 목표는 소스 비트레이트와 무관하다. mp3 128k 와 Opus 128k 는 같은 값이 아니므로
 // 코덱을 넘나들며 숫자를 비교하면 안 된다.
 
-const path = require("node:path");
-const os = require("node:os");
-const fs = require("node:fs");
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
+import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
 
-const audioConvert = require("../../src/media/convert");
+import audioConvert from "../../src/media/convert.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 const { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } = audioConvert;
 const { argsFor } = audioConvert._internals;
-const { probeAudio, _internals: ffmpegInternals } = require("../../src/media/ffmpeg/process");
+const { probeAudio, _internals: ffmpegInternals } = (await import("../../src/media/ffmpeg/process.js")).default;
 const { parseProbeOutput } = ffmpegInternals;
 
 const idx = (args, flag) => args.indexOf(flag);

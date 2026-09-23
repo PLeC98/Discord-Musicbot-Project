@@ -1,5 +1,3 @@
-"use strict";
-
 // 재생을 끊지 않고 오디오 소스를 갈아끼우는 스트림.
 //
 // ffmpeg와 createAudioResource 사이에 두면 AudioPlayer는 소스가 바뀐 줄 모르고 playbackDuration도 이어진다.
@@ -7,7 +5,7 @@
 //
 // 입출력 모두 s16le 48kHz 스테레오 PCM (MusicPlayer.buildFfmpegArgs의 출력 형식).
 
-const { Readable } = require("stream");
+import { Readable } from "stream";
 
 const BYTES_PER_MS = 192; // s16le 48kHz 스테레오
 const FRAME_BYTES = 20 * BYTES_PER_MS; // 20ms. @discordjs/voice의 프레임 주기
@@ -258,4 +256,6 @@ class AudioSplicer extends Readable {
   }
 }
 
-module.exports = { AudioSplicer, BYTES_PER_MS, FRAME_BYTES };
+const exported = { AudioSplicer, BYTES_PER_MS, FRAME_BYTES };
+export default exported;
+export { exported as "module.exports" };

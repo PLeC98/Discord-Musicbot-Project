@@ -1,22 +1,25 @@
-"use strict";
-
-const fs = require("fs").promises;
-const path = require("path");
-const crypto = require("crypto");
-const log = require("../infra/log/logger").child({ category: "track" });
-const fsSync = require("fs");
-const { pipeline } = require("stream/promises");
-const audioConvert = require("./convert");
-const versionOf = require("./audioVersion");
-const { readInfo } = require("../sources/ytdlpInfo");
-const YouTube = require("../sources/youtube/index");
-const equivalent = require("../sources/youtube/equivalent");
-const DirectLink = require("../sources/direct");
-const audioCache = require("../store/audioCache");
-const trackLookup = require("../store/trackLookup");
-const SponsorBlock = require("../sources/sponsorBlock");
-const { inputKind } = require("../rules/inputKind");
-const { audioKeyOf } = require("../rules/audioKeyOf");
+import fsModule from "fs";
+const fs = fsModule.promises;
+import path from "path";
+import crypto from "crypto";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "track" });
+import fsSync from "fs";
+import { pipeline } from "stream/promises";
+import audioConvert from "./convert.js";
+import versionOf from "./audioVersion.js";
+import ytdlpInfo from "../sources/ytdlpInfo.js";
+const { readInfo } = ytdlpInfo;
+import YouTube from "../sources/youtube/index.js";
+import equivalent from "../sources/youtube/equivalent.js";
+import DirectLink from "../sources/direct.js";
+import audioCache from "../store/audioCache.js";
+import trackLookup from "../store/trackLookup.js";
+import SponsorBlock from "../sources/sponsorBlock.js";
+import inputKindModule from "../rules/inputKind.js";
+const { inputKind } = inputKindModule;
+import audioKeyOfModule from "../rules/audioKeyOf.js";
+const { audioKeyOf } = audioKeyOfModule;
 
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드
@@ -371,5 +374,6 @@ TrackDownloader.findCacheFile = (track) => {
   }
 };
 
-module.exports = TrackDownloader;
-module.exports._internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };
+export default TrackDownloader;
+export { TrackDownloader as "module.exports" };
+TrackDownloader._internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };

@@ -1,17 +1,15 @@
-"use strict";
-
 // src/media/cacheDownload.js — 같은 곡을 두 서버가 동시에 받는 경쟁 (백로그 B-23)
 //
 // 회귀 대상: 진행 중 다운로드 맵이 MusicPlayer마다 따로였다. 서버가 다르면 같은 전역 캐시 경로에
 // yt-dlp/ffmpeg가 둘 다 쓰고, 한쪽의 실패 정리가 다른 쪽 작업 파일을 지웠다.
 
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const TrackDownloader = require("../../src/media/cacheDownload");
-const audioCache = require("../../src/store/audioCache");
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import TrackDownloader from "../../src/media/cacheDownload.js";
+import audioCache from "../../src/store/audioCache.js";
 
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;
 

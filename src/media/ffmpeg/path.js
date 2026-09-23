@@ -1,10 +1,9 @@
-"use strict";
-
-const fs = require("fs");
-const path = require("path");
-const { spawnSync } = require("child_process");
-const config = require("../../../config");
-const log = require("../../infra/log/logger").child({ category: "ffmpeg" });
+import fs from "fs";
+import path from "path";
+import { spawnSync } from "child_process";
+import config from "../../../config.js";
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "ffmpeg" });
 
 /**
  * ffmpeg 실행 파일 경로의 단일 출처. 재생(spawnFfmpeg)과 캐시 변환(yt-dlp --ffmpeg-location)이
@@ -32,7 +31,7 @@ function probe(candidate) {
 
 /** scripts/install-ffmpeg.js가 내려받아 두는 위치. 미지원 플랫폼에서는 없다. */
 function fromBundle() {
-  const p = path.join(__dirname, "..", "..", "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  const p = path.join(import.meta.dirname, "..", "..", "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   return fs.existsSync(p) ? p : null;
 }
 
@@ -135,4 +134,6 @@ function _reset() {
   caps = null;
 }
 
-module.exports = { ffmpegPath, resolve, capabilities, logResolved, _internals: { probe, fromBundle, _reset } };
+const exported = { ffmpegPath, resolve, capabilities, logResolved, _internals: { probe, fromBundle, _reset } };
+export default exported;
+export { exported as "module.exports" };

@@ -1,14 +1,12 @@
-"use strict";
-
 // src/media/cacheDownload.js `_takeInfoJson` — 다운로드에 곁들여 받은 info.json에서 제목과 오디오 길이를 꺼낸다.
 // 읽고 지우는 것까지가 계약이다 — 남기면 캐시 폴더에 영상마다 100KB대 찌꺼기가 쌓인다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const TrackDownloader = require("../../src/media/cacheDownload");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import TrackDownloader from "../../src/media/cacheDownload.js";
 
 const take = TrackDownloader.prototype._takeInfoJson;
 const NONE = { title: null, durationSec: null, version: null };
