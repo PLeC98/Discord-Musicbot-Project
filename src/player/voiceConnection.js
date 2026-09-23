@@ -2,6 +2,7 @@
 
 const { VoiceConnectionStatus, joinVoiceChannel, entersState } = require("@discordjs/voice");
 const log = require("../infra/log/logger").child({ category: "voice" });
+const { holdingAdapterCreator } = require("../infra/voiceAdapter");
 
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
@@ -206,7 +207,7 @@ class VoiceConnectionManager {
       player.connection = joinVoiceChannel({
         channelId: player.voiceChannel.id,
         guildId: player.guild.id,
-        adapterCreator: player.guild.voiceAdapterCreator,
+        adapterCreator: this._adapterCreator(),
       });
 
       // 새 연결의 이벤트 설정
@@ -260,7 +261,7 @@ class VoiceConnectionManager {
       player.connection = joinVoiceChannel({
         channelId: player.voiceChannel.id,
         guildId: player.guild.id,
-        adapterCreator: player.guild.voiceAdapterCreator,
+        adapterCreator: this._adapterCreator(),
       });
 
       // 연결 이벤트 설정
@@ -276,6 +277,14 @@ class VoiceConnectionManager {
       log.error("음성 채널 연결 실패:", error.message);
       throw error; // restoreFromState가 처리할 수 있도록 다시 던짐
     }
+  }
+
+  // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voiceAdapter)
+  _adapterCreator() {
+    const player = this.player;
+    return holdingAdapterCreator(player.guild.voiceAdapterCreator, {
+      onRewrite: (from, to) => log.info(`음성 재참가 요청을 옮겨진 채널로 고쳐 보냅니다: ${from} → ${to} (${player.guild?.name ?? player.guild?.id})`),
+    });
   }
 
   /**
