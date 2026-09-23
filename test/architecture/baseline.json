@@ -24,7 +24,6 @@
     "dashboard/server/index.js": 3
   },
   "requireCache": {
-    "test/controlEntrances.test.js": 2,
     "test/dashboard/dashboardErrors.test.js": 3
   },
   "methodSwap": [

@@ -11,22 +11,14 @@
 process.env.OWNER_ID = "owner";
 
 const { listenForFetch } = require("./helpers/listen");
-const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-// 권한 판정은 켜고 끄기만 한다. 판정 자체는 permissions.test.js 가 본다
-const perm = { deny: false };
-const gate = () => (perm.deny ? "❌ 권한이 없습니다" : null);
-const permPath = require.resolve("../src/usecases/permissions");
-require.cache[permPath] = {
-  id: permPath,
-  filename: permPath,
-  loaded: true,
-  exports: { ...require(permPath), checkControl: gate, checkSkip: gate, checkRemoveTrack: gate, checkAdd: gate, checkSummon: gate, isModerator: () => false },
-};
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => [], getBotChannel: async () => null } };
+// 권한은 진짜 판정을 쓴다. 판정 자체는 permissions.test.js 가 본다.
+// 봇이 음성에 없어 재적 규칙은 늘 통과한다. "denied" 칸만 서버에 DJ 역할을 걸어, 그 역할이 없는 이 멤버를 막는다
+const { openTempStore, setGuild } = require("./helpers/tempStore");
+const store = openTempStore("control-entrances-");
+after(() => store.close());
 
 const express = require("express");
 const buttonHandler = require("../events/buttonHandler");
@@ -92,15 +84,16 @@ function makePlayer(state, acts) {
   return p;
 }
 
-const member = { id: "u1", user: { id: "u1" }, voice: { channel: null }, toString: () => "<@u1>" };
+const member = { id: "u1", user: { id: "u1" }, voice: { channel: null }, permissions: { has: () => false }, roles: { cache: new Map() }, toString: () => "<@u1>" };
 const guild = {
   id: "g1",
   name: "서버",
-  roles: { cache: new Map() },
+  roles: { cache: new Map([["dj", { id: "dj" }]]) },
   channels: { cache: new Map() },
   voiceStates: { cache: new Map() },
   members: { fetch: async () => member, me: { voice: { channel: null } } },
 };
+member.guild = guild;
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([["g1", guild]]) },
@@ -112,7 +105,7 @@ const client = {
 function arrange(state) {
   const acts = [];
   client.players.clear();
-  perm.deny = state === "denied";
+  setGuild("g1", { djRoles: state === "denied" ? ["dj"] : [] });
   if (state !== "none") client.players.set("g1", makePlayer(state, acts));
   return acts;
 }
