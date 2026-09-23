@@ -9,7 +9,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
 
-const LIST = path.join(__dirname, "..", "dashboard", "client", "src", "emojiList.js");
+const LIST = path.join(__dirname, "..", "..", "dashboard", "client", "src", "emojiList.js");
 const list = () => import("file://" + LIST.replace(/\\/g, "/"));
 const groups = () => list().then((m) => m.EMOJI_GROUPS);
 const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.name, e.char, e]));
@@ -78,6 +78,6 @@ test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
 test("기록된 Twemoji 버전이 설치된 것과 같다", async () => {
   // 그림은 twemoji 패키지가 가리키는 CDN에서 온다. 패키지만 올리고 목록을 다시 만들지 않으면
   // 새로 생긴 이모지가 목록에 없는 채로 남는다 — 그때 여기서 걸린다.
-  const installed = require("../dashboard/client/node_modules/@twemoji/api/package.json").version;
+  const installed = require("../../dashboard/client/node_modules/@twemoji/api/package.json").version;
   assert.equal((await list()).TWEMOJI_VERSION, installed, "scripts/build-emoji-list.js를 다시 실행해야 한다");
 });

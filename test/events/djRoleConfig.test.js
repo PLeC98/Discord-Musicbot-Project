@@ -8,7 +8,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 const store = { djRoles: new Map() };
 require.cache[gsmPath] = {
   id: gsmPath,
@@ -26,7 +26,7 @@ require.cache[gsmPath] = {
   },
 };
 
-const handler = require("../events/djRoleConfigHandler");
+const handler = require("../../events/djRoleConfigHandler");
 
 const guild = { id: "g1", roles: { cache: { has: (id) => ["r1", "r2"].includes(id) } } };
 

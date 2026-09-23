@@ -6,16 +6,16 @@
 // /join 과 플레이어가 없을 때의 /autoplay 는 진짜 MusicPlayer 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
-const h = require("./helpers/playerHarness");
+const h = require("../helpers/playerHarness");
 const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { MessageFlags } = require("discord.js");
 
-const S = require("../src/ui/strings");
-const settings = require("../src/store/guildSettings");
-const TrackResolver = require("../src/sources/trackResolver");
-const YouTube = require("../src/sources/youtube/index");
-const More = require("../src/usecases/playlistMore");
+const S = require("../../src/ui/strings");
+const settings = require("../../src/store/guildSettings");
+const TrackResolver = require("../../src/sources/trackResolver");
+const YouTube = require("../../src/sources/youtube/index");
+const More = require("../../src/usecases/playlistMore");
 const CacheManager = h.CacheManager;
 
 const USER = "111111111111111111";
@@ -140,7 +140,7 @@ function interaction(w, { options = {}, channelId = "c1" } = {}) {
   return { it, log, sentOnChannel };
 }
 
-const cmd = (name) => require(`../commands/${name}.js`);
+const cmd = (name) => require(`../../commands/${name}.js`);
 
 // ── /play · /playfirst ────────────────────────────────────────────────
 

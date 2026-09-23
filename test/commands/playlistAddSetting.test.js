@@ -8,7 +8,7 @@ const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
 const stored = new Map();
-const cmPath = require.resolve(path.join(__dirname, "..", "src", "store", "cacheManager.js"));
+const cmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "cacheManager.js"));
 require.cache[cmPath] = {
   id: cmPath,
   filename: cmPath,
@@ -20,9 +20,9 @@ require.cache[cmPath] = {
   },
 };
 
-const config = require("../config");
-const GuildSettingsManager = require("../src/store/guildSettings");
-const command = require("../commands/setplaylistlimit");
+const config = require("../../config");
+const GuildSettingsManager = require("../../src/store/guildSettings");
+const command = require("../../commands/setplaylistlimit");
 
 const G = "g1";
 const savedQueueMax = config.bot.maxQueueSize;

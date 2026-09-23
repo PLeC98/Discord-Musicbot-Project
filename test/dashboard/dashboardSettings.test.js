@@ -12,7 +12,7 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 // ── GuildSettingsManager 모킹 (라우터 require 전에) ──────────
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 const store = { djRoles: new Map(), botChannel: new Map(), sponsorblock: new Map(), playlistAdd: new Map() };
 const gsmCalls = [];
 require.cache[gsmPath] = {
@@ -122,7 +122,7 @@ before(async () => {
     next();
   });
   app.locals.discordClient = client;
-  app.use("/api/guilds", require("../dashboard/server/routes/guilds.js"));
+  app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js"));
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
 });

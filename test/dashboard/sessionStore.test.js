@@ -8,7 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
-const SqliteSessionStore = require("../dashboard/server/sessionStore");
+const SqliteSessionStore = require("../../dashboard/server/sessionStore");
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sess-"));
 const stores = [];

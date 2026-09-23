@@ -14,7 +14,7 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 // ── GuildSettingsManager 모킹 (라우터 require 전에 — 실 SQLite 미접촉) ──────
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = {
   id: gsmPath,
   filename: gsmPath,
@@ -32,7 +32,7 @@ require.cache[gsmPath] = {
 
 // ── TrackResolver 모킹 (코어가 실 해석/네트워크를 타지 않게) ──────────────
 const resolverCalls = [];
-const trPath = require.resolve(path.join(__dirname, "..", "src", "sources", "trackResolver.js"));
+const trPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
 require.cache[trPath] = {
   id: trPath,
   filename: trPath,
@@ -130,7 +130,7 @@ before(async () => {
     next();
   });
   app.locals.discordClient = client;
-  app.use("/api/guilds", require("../dashboard/server/routes/guilds.js"));
+  app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js"));
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
 });

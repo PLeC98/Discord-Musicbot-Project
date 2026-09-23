@@ -10,7 +10,7 @@ const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = {
   id: gsmPath,
   filename: gsmPath,
@@ -73,7 +73,7 @@ before(async () => {
     next();
   });
   app.locals.discordClient = client;
-  app.use("/api/guilds", require("../dashboard/server/routes/guilds.js"));
+  app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js"));
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
   player = makePlayer();

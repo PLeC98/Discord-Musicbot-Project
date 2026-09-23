@@ -14,15 +14,15 @@ const assert = require("node:assert/strict");
 const { MessageFlags, PermissionFlagsBits } = require("discord.js");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const config = require("../config");
-const S = require("../src/ui/strings");
-const settings = require("../src/store/guildSettings");
-const SponsorBlock = require("../src/sources/sponsorBlock");
-const sponsorConfig = require("../events/sponsorConfigHandler");
+const config = require("../../config");
+const S = require("../../src/ui/strings");
+const settings = require("../../src/store/guildSettings");
+const SponsorBlock = require("../../src/sources/sponsorBlock");
+const sponsorConfig = require("../../events/sponsorConfigHandler");
 
 after(() => {
   CacheManager.close();
@@ -34,7 +34,7 @@ beforeEach(() => {
   CacheManager.db.exec("DELETE FROM guild_settings; DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
-const cmd = (name) => require(`../commands/${name}.js`);
+const cmd = (name) => require(`../../commands/${name}.js`);
 const fieldsOf = (payload) => Object.fromEntries((payload.embeds[0].data.fields || []).map((f) => [f.name, f.value]));
 
 function interaction({ player = null, options = {}, userId = "u1", guildRoles = [], manage = true, channelId = "c1" } = {}) {

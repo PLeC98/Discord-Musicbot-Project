@@ -16,7 +16,7 @@ const assert = require("node:assert/strict");
 
 // ── 로거 모킹 (다른 모듈이 require 하기 전에 — errorId가 로그에도 남는지 확인용) ──────
 const logLines = [];
-const logPath = require.resolve(path.join(__dirname, "..", "src", "infra", "log", "logger.js"));
+const logPath = require.resolve(path.join(__dirname, "..", "..", "src", "infra", "log", "logger.js"));
 const fakeLog = {
   info: (...a) => logLines.push(a.join(" ")),
   warn: (...a) => logLines.push(a.join(" ")),
@@ -29,7 +29,7 @@ require.cache[logPath] = { id: logPath, filename: logPath, loaded: true, exports
 
 // ── 세션 스토어·세션 미들웨어 모킹 ──────────────────────────────────────────────
 // 실 SQLite를 건드리지 않으면서 "언마운트로 스토어가 죽은" 상태를 재현한다.
-const storePath = require.resolve(path.join(__dirname, "..", "dashboard", "server", "sessionStore.js"));
+const storePath = require.resolve(path.join(__dirname, "..", "..", "dashboard", "server", "sessionStore.js"));
 require.cache[storePath] = { id: storePath, filename: storePath, loaded: true, exports: class FakeStore {} };
 
 let storeBroken = true;
@@ -52,7 +52,7 @@ require.cache[sessionPath] = {
 };
 
 // ── GuildSettingsManager 모킹 (라우터가 실 DB를 열지 않게) ─────────────────────
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = {
   id: gsmPath,
   filename: gsmPath,
@@ -68,12 +68,12 @@ require.cache[gsmPath] = {
   },
 };
 
-const { createApp } = require("../dashboard/server/index.js");
-const { describeBinding, isLoopbackHost } = require("../dashboard/server/binding.js");
-const { _internals } = require("../dashboard/server/middleware/errorHandler.js");
-const { errorHandler } = require("../dashboard/server/middleware/errorHandler.js");
+const { createApp } = require("../../dashboard/server/index.js");
+const { describeBinding, isLoopbackHost } = require("../../dashboard/server/binding.js");
+const { _internals } = require("../../dashboard/server/middleware/errorHandler.js");
+const { errorHandler } = require("../../dashboard/server/middleware/errorHandler.js");
 
-const HAS_DIST = fs.existsSync(path.join(__dirname, "..", "dashboard", "client", "dist", "index.html"));
+const HAS_DIST = fs.existsSync(path.join(__dirname, "..", "..", "dashboard", "client", "dist", "index.html"));
 
 let server;
 let base;

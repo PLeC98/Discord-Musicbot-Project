@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createCorsOptions, normalizeDashboardOrigin } = require("../dashboard/server/cors");
+const { createCorsOptions, normalizeDashboardOrigin } = require("../../dashboard/server/cors");
 
 function isAllowed(options, origin) {
   return new Promise((resolve, reject) => {

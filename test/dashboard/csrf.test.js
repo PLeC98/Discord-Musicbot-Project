@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { issueCsrfToken, requireCsrfToken } = require("../dashboard/server/middleware/csrf");
+const { issueCsrfToken, requireCsrfToken } = require("../../dashboard/server/middleware/csrf");
 
 function response() {
   return {

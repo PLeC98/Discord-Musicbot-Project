@@ -13,14 +13,14 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const config = require("../config");
-const S = require("../src/ui/strings");
-const settings = require("../src/store/guildSettings");
-const buttonHandler = require("../events/buttonHandler");
+const config = require("../../config");
+const S = require("../../src/ui/strings");
+const settings = require("../../src/store/guildSettings");
+const buttonHandler = require("../../events/buttonHandler");
 
 after(() => {
   CacheManager.close();

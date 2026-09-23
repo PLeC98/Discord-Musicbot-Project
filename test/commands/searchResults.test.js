@@ -6,8 +6,8 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const searchCommand = require("../commands/search");
-const buttonHandler = require("../events/buttonHandler");
+const searchCommand = require("../../commands/search");
+const buttonHandler = require("../../events/buttonHandler");
 
 function makeClient() {
   return {

@@ -15,7 +15,7 @@ const { test, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const express = require("express");
 
-const loader = require("../src/config/loader");
+const loader = require("../../src/config/loader");
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-route-"));
 
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123"].join("\n");
@@ -28,19 +28,19 @@ before(() => {
   loader._setConfigDir(DIR);
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(require("../dashboard/server/bodyLimit").bodyLimit());
+  app.use(require("../../dashboard/server/bodyLimit").bodyLimit());
   app.use((req, res, next) => {
     req.session = { user: currentUser };
     next();
   });
-  app.use("/api/admin", require("../dashboard/server/routes/admin.js"));
+  app.use("/api/admin", require("../../dashboard/server/routes/admin.js"));
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(() => {
   server.close();
-  loader._setConfigDir(path.join(__dirname, "..", "config"));
+  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true });
 });
 

@@ -17,7 +17,7 @@ const assert = require("node:assert/strict");
 process.env.DEPLOYED_COMMANDS_HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
 
 // ── 모킹: GuildSettingsManager (공지 발송이 봇 채널 조회 시 실 DB를 열지 않도록) ──
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 let botChannelOf = () => null;
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async (g) => botChannelOf(g) } };
 
@@ -114,13 +114,13 @@ let base;
 before(() => {
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(require("../dashboard/server/bodyLimit").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
+  app.use(require("../../dashboard/server/bodyLimit").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use((req, res, next) => {
     req.session = { user: currentUser };
     next();
   });
   app.locals.discordClient = client;
-  app.use("/api/admin", require("../dashboard/server/routes/admin.js"));
+  app.use("/api/admin", require("../../dashboard/server/routes/admin.js"));
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -286,7 +286,7 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
 // 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
 // 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
 
-const configData = require("../src/config/loader");
+const configData = require("../../src/config/loader");
 const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 
 before(() => {
@@ -298,7 +298,7 @@ before(() => {
 });
 
 after(() => {
-  configData._setConfigDir(path.join(__dirname, "..", "config"));
+  configData._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(CONFIG_DIR, { recursive: true, force: true });
 });
 
@@ -352,7 +352,7 @@ test("설정: 내용이 없으면 400", async () => {
 // 편집기가 그릴 표는 서버가 준다. 화면이 목록을 따로 들면 소스를 더할 때 한쪽만 고치게 된다.
 test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준다", async () => {
   // 방영 연도 범위는 평소 AnimeThemes 에 묻는다 — 테스트는 바깥에 나가지 않는다
-  require("../src/autoplay/sources/index")._seedYearRange({ min: 1963, max: 2026 });
+  require("../../src/autoplay/sources/index")._seedYearRange({ min: 1963, max: 2026 });
   const { status, json } = await req("GET", "/api/admin/source-types");
   assert.equal(status, 200);
 
@@ -486,7 +486,7 @@ test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", 
   assert.equal(json.hasKey.groq, false, "안 적은 것은 없음");
   assert.ok(!("apiKey" in json), "값을 실으면 안 된다");
   // 화면이 기본 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다 — 서버가 준다
-  assert.deepEqual(json.defaultSections, require("../src/autoplay/assist/index").DEFAULT_SECTIONS);
+  assert.deepEqual(json.defaultSections, require("../../src/autoplay/assist/index").DEFAULT_SECTIONS);
 
   const body = JSON.stringify(json);
   for (const secret of [process.env.AI_API_KEY, process.env.DISCORD_TOKEN, process.env.CLIENT_SECRET].filter(Boolean)) {

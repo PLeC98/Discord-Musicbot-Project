@@ -10,9 +10,9 @@ const path = require("node:path");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { SPEC } = require("../src/autoplay/sources/index");
+const { SPEC } = require("../../src/autoplay/sources/index");
 
-const EDITOR = path.join(__dirname, "..", "dashboard", "client", "src", "components", "SourceEditor.vue");
+const EDITOR = path.join(__dirname, "..", "..", "dashboard", "client", "src", "components", "SourceEditor.vue");
 
 test("편집기가 SPEC 의 칸 종류를 전부 안다", () => {
   const src = fs.readFileSync(EDITOR, "utf8");

@@ -14,19 +14,19 @@ const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const S = require("../src/ui/strings");
-const settings = require("../src/store/guildSettings");
-const TrackResolver = require("../src/sources/trackResolver");
-const loader = require("../src/config/loader");
-const More = require("../src/usecases/playlistMore");
-const messageHandler = require("../events/messageHandler");
-const panelPin = require("../events/panelPin");
-const playlistMoreHandler = require("../events/playlistMoreHandler");
-const modalHandler = require("../events/modalHandler");
+const S = require("../../src/ui/strings");
+const settings = require("../../src/store/guildSettings");
+const TrackResolver = require("../../src/sources/trackResolver");
+const loader = require("../../src/config/loader");
+const More = require("../../src/usecases/playlistMore");
+const messageHandler = require("../../events/messageHandler");
+const panelPin = require("../../events/panelPin");
+const playlistMoreHandler = require("../../events/playlistMoreHandler");
+const modalHandler = require("../../events/modalHandler");
 
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";
@@ -43,7 +43,7 @@ before(() => {
 
 after(() => {
   Object.assign(TrackResolver, real);
-  loader._setConfigDir(path.join(__dirname, "..", "config"));
+  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
   CacheManager.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
