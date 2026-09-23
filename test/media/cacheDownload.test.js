@@ -35,7 +35,7 @@ const real = {
   getYtDlpOptions: YouTube.getYtDlpOptions,
   getStream: DirectLink.getStream,
   toCacheOpus: audioConvert.toCacheOpus,
-  ensureForTrack: SponsorBlock.ensureForTrack,
+  forTrack: SponsorBlock.forTrack,
   findYouTubeEquivalent: equivalent.findYouTubeEquivalent,
   reresolveYouTube: equivalent.reresolveYouTube,
 };
@@ -56,7 +56,7 @@ before(() => {
     fs.writeFileSync(out, "opus");
     return { durationSec: 222 };
   };
-  SponsorBlock.ensureForTrack = async (track, guildId) => {
+  SponsorBlock.forTrack = async (track, guildId) => {
     calls.sponsor.push({ title: track.title, guildId });
   };
   equivalent.findYouTubeEquivalent = async (track) => {
@@ -76,7 +76,7 @@ after(() => {
   Object.assign(YouTube, { runYtDlp: real.runYtDlp, getYtDlpOptions: real.getYtDlpOptions });
   DirectLink.getStream = real.getStream;
   audioConvert.toCacheOpus = real.toCacheOpus;
-  SponsorBlock.ensureForTrack = real.ensureForTrack;
+  SponsorBlock.forTrack = real.forTrack;
   Object.assign(equivalent, { findYouTubeEquivalent: real.findYouTubeEquivalent, reresolveYouTube: real.reresolveYouTube });
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });

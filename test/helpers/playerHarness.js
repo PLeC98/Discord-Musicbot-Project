@@ -160,7 +160,7 @@ QueueWarmer.prototype.start = function () {};
 const behavior = {
   stream: null, // (track, seekSec) → streamInfo. 던지면 스트림 실패
   equivalent: null, // (track) → youtubeUrl. 스포티파이 동등물
-  sponsor: null, // (track) → track.sponsor 에 넣을 값
+  sponsor: null, // (track) → SponsorBlock.forTrack 의 답
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
   fetch: null, // (url, init) → Response 비슷한 것
   directStream: null, // (url) → Readable
@@ -174,13 +174,11 @@ equivalent.findYouTubeEquivalent = async (track) => {
   }
   return url;
 };
-// 진짜처럼 영상 id 를 알 수 있을 때만 확정한다. 모르면 다음 호출에 다시 본다(스포티파이는 동등물을 찾은 뒤)
-SponsorBlock.ensureForTrack = async (track) => {
+// 진짜처럼 영상 id 를 알 때만 답한다(스포티파이는 동등물을 찾은 뒤)
+SponsorBlock.forTrack = async (track) => {
   calls.steps.push("sponsor");
-  if (!track || track._sponsorResolved) return;
-  if (!SponsorBlock._trackVideoId(track)) return;
-  if (behavior.sponsor && !track.sponsor) track.sponsor = behavior.sponsor(track);
-  track._sponsorResolved = true;
+  if (!SponsorBlock._trackVideoId(track)) return null;
+  return behavior.sponsor ? behavior.sponsor(track) : null;
 };
 // 진짜 다운로드는 첫 await 전에 두 가지를 동기로 한다. 장부에 "받는 중" 행을 만들고(recordDownloadStart),
 // 받는 중 목록에 올린다. play() 끝의 링크 장부 기록이 그 행에 기대므로(외래 키) 가짜도 똑같이 해야 한다.

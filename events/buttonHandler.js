@@ -352,7 +352,7 @@ module.exports = {
 
     // 버튼은 하이라이트가 없으면 비활성이라 정상적으론 여기 도달 안 함.
     // 곡 전환 직전 stale 클릭 대비로만 조용히 무시(0초 재시작 방지).
-    const highlightAt = player.currentTrack?.sponsor?.highlightAt;
+    const highlightAt = player.sponsor?.highlightAt;
     if (highlightAt === null || highlightAt === undefined) {
       return interaction.deferUpdate();
     }

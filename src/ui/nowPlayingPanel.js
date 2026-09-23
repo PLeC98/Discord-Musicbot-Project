@@ -444,8 +444,8 @@ class MusicEmbedManager {
     if (player.queue.length > 0) {
       statusParts.push(`${player.queue.length}개의 노래 대기 중`);
     }
-    if (track.sponsor?.skipSegments?.length) {
-      statusParts.push(`건너 뛸 구간 ${track.sponsor.skipSegments.length}개`);
+    if (player.sponsor?.skipSegments?.length) {
+      statusParts.push(`건너 뛸 구간 ${player.sponsor.skipSegments.length}개`);
     }
 
     const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor));
@@ -734,7 +734,7 @@ class MusicEmbedManager {
       .setDisabled(disabled && !keepAutoplay);
 
     // SponsorBlock 하이라이트 점프. 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
-    const highlightAt = player.currentTrack?.sponsor?.highlightAt;
+    const highlightAt = player.sponsor?.highlightAt;
     const hasHighlight = highlightAt !== null && highlightAt !== undefined;
     const highlightButton = new ButtonBuilder()
       .setCustomId(`music_highlight:${requesterId}:${sessionId}`)

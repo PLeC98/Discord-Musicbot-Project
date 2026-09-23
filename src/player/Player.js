@@ -213,6 +213,12 @@ class MusicPlayer {
     return Boolean(this.currentTrack?.isLive);
   }
 
+  /** 지금 곡의 SponsorBlock 구간 · 하이라이트. 틀고 있을 때만 있다 */
+  get sponsor() {
+    const pb = this.playback;
+    return pb && pb.track === this.currentTrack ? pb.sponsor : null;
+  }
+
   /** play() 가 곡을 여는 중인가(자동 스킵 · 대시보드 탐색이 끼어들지 않게 본다) */
   get isPlayStarting() {
     return this.lifecycle.starting;
@@ -263,12 +269,8 @@ class MusicPlayer {
       // 흐름: (spotify면) youtube 해석 → SponsorBlock 조회 → 인트로 있으면 오프셋, 없으면 그대로.
       if ((Number(seekMs) || 0) === 0) {
         try {
-          await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
-          if (!this.currentTrack._sponsorResolved && !this.currentTrack.audioUrl) {
-            await equivalent.findYouTubeEquivalent(this.currentTrack); // 멱등. videoId 확정
-            await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
-          }
-          const introEnd = this._introOffsetMs(this.currentTrack);
+          if (!this.currentTrack.audioUrl) await equivalent.findYouTubeEquivalent(this.currentTrack); // 멱등. videoId 확정
+          const introEnd = this._introOffsetMs(await SponsorBlock.forTrack(this.currentTrack, this.guild.id));
           if (introEnd > 0) seekMs = introEnd;
         } catch {
           /* 조회 실패는 무시(fail-open). 오프셋 없이 재생 */
@@ -334,10 +336,10 @@ class MusicPlayer {
         }
       }
 
-      // SponsorBlock 구간 데이터 확보 (첫곡/캐시곡 포함. preload를 거치지 않았을 수 있음).
-      // 이 시점엔 음원 주소가 정해져 videoId가 확정됨(스포티파이도 영상을 찾은 뒤). 실패해도 재생 진행.
+      // 이번 재생의 SponsorBlock 구간. 이 시점엔 음원 주소가 정해져 영상 id 가 확정됐다(스포티파이도 영상을 찾은 뒤).
+      // 앞에서 물었으면 기억해 둔 것이 온다. 실패해도 재생은 간다.
       try {
-        await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
+        pb.sponsor = await SponsorBlock.forTrack(this.currentTrack, this.guild.id);
       } catch {
         /* 무시 */
       }
@@ -624,8 +626,8 @@ class MusicPlayer {
 
   // 트랙 시작(0 부근)에서 시작하는 인트로 스킵 구간의 끝(ms). 없으면 0.
   // 이 값을 신규 재생의 초기 오프셋으로 써서 인트로를 무갭으로 건너뛴다.
-  _introOffsetMs(track) {
-    const segs = track?.sponsor?.skipSegments;
+  _introOffsetMs(sponsor) {
+    const segs = sponsor?.skipSegments;
     if (!segs || !segs.length) return 0;
     const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하면 인트로로 간주
     const intro = segs.find((s) => s.start <= INTRO_START_TOL_SEC);

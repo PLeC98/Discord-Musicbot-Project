@@ -287,7 +287,7 @@ test("스포티파이: 동등물을 찾아 그 영상의 캐시가 있으면 파
   assert.equal(row.audio_url, "https://www.youtube.com/watch?v=nnnnnnnnnnn", "스포티파이 곡 → 영상 을 장부에 적는다");
 });
 
-test("스포티파이: SponsorBlock 을 먼저 묻고, 영상 id 를 몰라 동등물을 찾은 뒤 다시 묻는다", async () => {
+test("스포티파이: 영상 id 를 몰라 동등물을 먼저 찾고 SponsorBlock 을 묻는다. 구간은 이번 재생에 둔다", async () => {
   const p = h.makePlayer();
   p.currentTrack = spotifyTrack();
   behavior.equivalent = () => "https://www.youtube.com/watch?v=s1sssssssss";
@@ -296,8 +296,9 @@ test("스포티파이: SponsorBlock 을 먼저 묻고, 영상 id 를 몰라 동�
 
   await playOnce(p);
 
-  assert.deepEqual(calls.steps.slice(0, 3), ["sponsor", "equivalent", "sponsor"]);
-  assert.equal(p.currentTrack._sponsorResolved, true);
+  assert.deepEqual(calls.steps.slice(0, 2), ["equivalent", "sponsor"]);
+  assert.deepEqual(p.sponsor, { skipSegments: [] });
+  assert.equal(p.currentTrack.sponsor, undefined, "트랙에는 붙이지 않는다");
 });
 
 test("스트림 서술자도 받아 둔 파일도 없으면 실패", async () => {

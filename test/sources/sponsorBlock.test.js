@@ -213,46 +213,71 @@ test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
   assert.deepEqual(eff.categories, ["sponsor", "filler"]);
 });
 
-// ── ensureForTrack (트랙 글루) ────────────────────────────────────────────────
+// ── forTrack (곡 글루) ─────────────────────────────────────────────────────────
 
-test("ensureForTrack: youtube 트랙에 sponsor 데이터 확보 + 멱등", async () => {
-  config.sponsorblock.enabled = true;
+test("forTrack: 서버 설정으로 거른 구간을 돌려주고, 영상 id 로 기억해 다시 묻지 않는다", async () => {
+  SponsorBlock._forget();
   stubFetch("ytVid1", [seg("music_offtopic", 0, 8, "skip")]);
   const track = { platform: "youtube", id: "ytVid1", audioUrl: "https://youtu.be/ytVid1" };
-  const r = await SponsorBlock.ensureForTrack(track, "gEnsure");
-  assert.ok(r);
-  assert.equal(track._sponsorResolved, true);
-  assert.equal(track.sponsor.skipSegments.length, 1);
+  const r = await SponsorBlock.forTrack(track, "gEnsure");
+  assert.equal(r.skipSegments.length, 1);
+  assert.equal(track.sponsor, undefined, "곡에는 붙이지 않는다");
 
-  // 멱등 — 두 번째 호출은 재조회하지 않음(네트워크 끊겨도 저장값 반환)
+  // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작 · 복원) 묻지 않는다
   global.fetch = async () => {
     throw new Error("should not be called");
   };
-  const r2 = await SponsorBlock.ensureForTrack(track, "gEnsure");
-  assert.equal(r2, track.sponsor);
+  const r2 = await SponsorBlock.forTrack({ ...track }, "gEnsure");
+  assert.deepEqual(r2, r);
 });
 
-test("ensureForTrack: 서버 비활성이면 sponsor=null, 조회 안 함", async () => {
-  config.sponsorblock.enabled = true;
+test("forTrack: 겹쳐 불러도 한 번만 묻는다", async () => {
+  SponsorBlock._forget();
+  let asked = 0;
+  global.fetch = async () => {
+    asked++;
+    return { status: 200, json: async () => [{ videoID: "ytVidTwice", hash: "0".repeat(64), segments: [] }] };
+  };
+  const track = { audioUrl: "https://youtu.be/ytVidTwice" };
+  await Promise.all([SponsorBlock.forTrack(track, "gEnsure"), SponsorBlock.forTrack(track, "gEnsure")]);
+  assert.equal(asked, 1);
+});
+
+test("forTrack: 서버가 껐으면 null, 조회 안 함", async () => {
+  SponsorBlock._forget();
   guildTable.setGuildSponsorBlock("gEnsureOff", { enabled: false, categories: null });
   let called = false;
   global.fetch = async () => {
     called = true;
     return { status: 200, json: async () => [] };
   };
-  const track = { platform: "youtube", id: "ytVid2", audioUrl: "https://youtu.be/ytVid2" };
-  const r = await SponsorBlock.ensureForTrack(track, "gEnsureOff");
+  const r = await SponsorBlock.forTrack({ audioUrl: "https://youtu.be/ytVid2" }, "gEnsureOff");
   assert.equal(r, null);
-  assert.equal(track._sponsorResolved, true);
   assert.equal(called, false);
 });
 
-test("ensureForTrack: videoId 미확정이면 null, 미해결 상태 유지", async () => {
-  config.sponsorblock.enabled = true;
-  const track = { platform: "spotify", title: "x" }; // 영상을 아직 못 찾아 음원 주소가 없다
-  const r = await SponsorBlock.ensureForTrack(track, "gEnsure");
+test("forTrack: 영상 id 를 모르면 null. 기억하지 않아 영상을 찾은 뒤 다시 물을 수 있다", async () => {
+  SponsorBlock._forget();
+  const r = await SponsorBlock.forTrack({ platform: "spotify", title: "x" }, "gEnsure"); // 영상을 아직 못 찾아 음원 주소가 없다
   assert.equal(r, null);
-  assert.notEqual(track._sponsorResolved, true); // 다음에 재시도 가능
+});
+
+test("forTrack: 못 받은 것(none)은 잠시 기억했다가 시간이 지나면 다시 묻는다", async (t) => {
+  SponsorBlock._forget();
+  t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+  let asked = 0;
+  global.fetch = async () => {
+    asked++;
+    throw new Error("network down");
+  };
+  const track = { audioUrl: "https://youtu.be/ytVidNone" };
+  assert.equal((await SponsorBlock.forTrack(track, "gEnsure")).source, "none");
+  await SponsorBlock.forTrack(track, "gEnsure");
+  assert.equal(asked, 1, "바로 다시 틀 때는 묻지 않는다");
+
+  t.mock.timers.tick(10 * 60_000);
+  await SponsorBlock.forTrack(track, "gEnsure");
+  assert.equal(asked, 2);
 });
 
 test("영상 id 는 음원 주소에서만 읽는다. 곡이 어디서 왔는지는 상관없다", () => {

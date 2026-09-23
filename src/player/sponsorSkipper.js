@@ -43,8 +43,8 @@ class SponsorSkipper {
 
   /** 재생 시작/seek 시 호출. 이번 재생 세션의 구간·기준점 설정 후 워처 가동. */
   onPlayStart(seekMs = 0) {
-    const t = this.player.currentTrack;
-    this.segments = t && t.sponsor && Array.isArray(t.sponsor.skipSegments) ? t.sponsor.skipSegments : [];
+    const segs = this.player.sponsor?.skipSegments;
+    this.segments = Array.isArray(segs) ? segs : [];
     // 신규 재생(seekMs 0)은 prevSec=-1로 두어 인트로(start=0)도 넘어섬 판정되게 함.
     this._prevSec = seekMs > 0 ? seekMs / 1000 : -1;
     if (this.segments.length) this._start();

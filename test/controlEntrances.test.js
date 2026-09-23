@@ -34,7 +34,7 @@ const buttonHandler = require("../events/buttonHandler");
 
 const STATES = ["none", "denied", "idle", "alone", "playing", "loopTrack", "live", "starting"];
 
-const track = (title, extra = {}) => ({ title, url: `https://youtu.be/${title}`, duration: 180, platform: "youtube", sponsor: { highlightAt: 42 }, ...extra });
+const track = (title, extra = {}) => ({ title, url: `https://youtu.be/${title}`, duration: 180, platform: "youtube", ...extra });
 
 function makePlayer(state, acts) {
   const rec =
@@ -68,6 +68,9 @@ function makePlayer(state, acts) {
     leaveAndSave: rec("leaveAndSave", async () => {}),
     get isLive() {
       return Boolean(this.currentTrack?.isLive);
+    },
+    get sponsor() {
+      return this.currentTrack ? { highlightAt: 42 } : null;
     },
     hasLiveTrack() {
       return Boolean(this.currentTrack?.isLive || this.queue.some((t) => t.isLive));

@@ -23,6 +23,12 @@ const FETCH_ACTION_TYPES = ["skip", "poi"];
 
 const USER_AGENT = config.userAgents.bot;
 
+// 영상 id 로 기억한 조회 결과(DB 캐시 앞의 메모리 기억). 같은 곡을 다시 틀 때 묻지 않는다.
+// 서버마다 카테고리가 달라 거르기 전의 원시 구간을 기억한다.
+const remembered = new Map(); // videoId → { at, none, promise }
+const REMEMBER_MAX = 500;
+const RETRY_NONE_MS = 10 * 60_000; // 못 받은 것은 이만큼 지나 다시 묻는다
+
 // 겹치거나 맞닿은 skip 구간을 합집합으로 병합. 기여한 카테고리는 union으로 보존
 function mergeIntervals(segs) {
   if (!segs.length) return [];
@@ -104,21 +110,19 @@ const SponsorBlock = {
     if (!config.sponsorblock.enabled) return { skipSegments: [], highlightAt: null, source: "disabled" };
     if (!videoId) return { skipSegments: [], highlightAt: null, source: "none" };
 
-    let raw = await this._fetchRaw(videoId);
-    let source;
+    return shape(await this._rawFor(videoId), categories);
+  },
+
+  /** 원시 구간과 출처. 라이브 조회를 먼저, 실패하면 DB 캐시 */
+  async _rawFor(videoId) {
+    const raw = await this._fetchRaw(videoId);
     if (raw) {
       externalCaches.setSponsorSegments(videoId, raw); // write-through (빈 배열도 저장)
-      source = "live";
-    } else {
-      const cached = externalCaches.getSponsorSegments(videoId);
-      if (cached) {
-        raw = cached.segments;
-        source = "cache";
-      } else {
-        return { skipSegments: [], highlightAt: null, source: "none" };
-      }
+      return { raw, source: "live" };
     }
-    return { ...normalize(raw, categories), source };
+    const cached = externalCaches.getSponsorSegments(videoId);
+    if (cached) return { raw: cached.segments, source: "cache" };
+    return { raw: null, source: "none" };
   },
 
   /** 트랙에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */
@@ -127,30 +131,47 @@ const SponsorBlock = {
   },
 
   /**
-   * 트랙에 SponsorBlock 데이터(track.sponsor)를 확보. 재생 근접(preload)·재생 직전에 호출.
-   * 서버별 유효 설정으로 조회하며, 한 번 확보하면 재조회하지 않는다(멱등). 실패해도 예외를 던지지 않음.
+   * 곡의 구간 · 하이라이트를 서버별 설정으로 거른 것. 재생 근접(미리 받기) · 재생 직전에 부른다.
+   * 조회는 영상 id 로 기억해 두고 다시 묻지 않는다. 겹쳐 불러도 한 번만 묻는다.
+   * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. 예외를 던지지 않는다.
    * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:string}|null>}
    */
-  async ensureForTrack(track, guildId) {
-    if (!track) return null;
-    if (track._sponsorResolved) return track.sponsor || null;
-
+  async forTrack(track, guildId) {
     const videoId = this._trackVideoId(track);
-    if (!videoId) return null; // videoId 미확정. 다음 호출 시 재시도
+    if (!videoId) return null;
 
     const GuildSettingsManager = require("../store/guildSettings");
     const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
-    if (!eff.enabled) {
-      track._sponsorResolved = true;
-      track.sponsor = null;
-      return null;
-    }
+    if (!eff.enabled) return null;
+    if (!config.sponsorblock.enabled) return { skipSegments: [], highlightAt: null, source: "disabled" };
 
-    const res = await this.lookup(videoId, { categories: eff.categories });
-    track.sponsor = res;
-    track._sponsorResolved = true;
-    return res;
+    let entry = remembered.get(videoId);
+    if (!entry || (entry.none && Date.now() - entry.at >= RETRY_NONE_MS)) entry = this._remember(videoId);
+    return shape(await entry.promise, eff.categories);
+  },
+
+  _remember(videoId) {
+    const entry = { at: Date.now(), none: false, promise: null };
+    entry.promise = this._rawFor(videoId)
+      .catch(() => ({ raw: null, source: "none" }))
+      .then((r) => {
+        entry.none = !r.raw;
+        return r;
+      });
+    remembered.delete(videoId);
+    remembered.set(videoId, entry);
+    if (remembered.size > REMEMBER_MAX) remembered.delete(remembered.keys().next().value);
+    return entry;
+  },
+
+  _forget() {
+    remembered.clear();
   },
 };
+
+function shape({ raw, source }, categories) {
+  if (!raw) return { skipSegments: [], highlightAt: null, source };
+  return { ...normalize(raw, categories), source };
+}
 
 module.exports = SponsorBlock;

@@ -167,7 +167,7 @@ class TrackDownloader {
       // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
       try {
-        await SponsorBlock.ensureForTrack(track, player.guild?.id);
+        await SponsorBlock.forTrack(track, player.guild?.id);
       } catch {
         /* 무시 */
       }

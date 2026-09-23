@@ -115,7 +115,7 @@ test("_tick: 아웃트로 → skip('sponsorblock') (스킵 버튼과 동일 처�
 });
 
 test("onPlayStart: 구간 있으면 워처 시작, 없으면 정지 (인터벌 핸들 검증)", () => {
-  const fakePlayer = { currentTrack: { sponsor: { skipSegments: segs([0, 5]) }, duration: 100 }, paused: false, getCurrentTime: () => 0 };
+  const fakePlayer = { currentTrack: { duration: 100 }, sponsor: { skipSegments: segs([0, 5]) }, paused: false, getCurrentTime: () => 0 };
   const sk = new SponsorSkipper(fakePlayer);
   sk.onPlayStart(0);
   assert.ok(sk._interval, "구간 있으면 인터벌 가동");
@@ -124,7 +124,7 @@ test("onPlayStart: 구간 있으면 워처 시작, 없으면 정지 (인터벌 �
   assert.equal(sk._interval, null);
 
   // 구간 없는 트랙
-  fakePlayer.currentTrack = { sponsor: { skipSegments: [] }, duration: 100 };
+  fakePlayer.sponsor = { skipSegments: [] };
   sk.onPlayStart(30);
   assert.equal(sk._interval, null, "구간 없으면 워처 미가동");
 });
