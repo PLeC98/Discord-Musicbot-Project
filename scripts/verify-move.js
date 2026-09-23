@@ -26,7 +26,7 @@ const normalize = (line) =>
     .replace(/\bimport\(\s*(["'`])[^"'`]*\1\s*\)/g, "import(<경로>)")
     .replace(/\bfrom\s+(["'])[^"']*\1/g, "from <경로>")
     .replace(/path\.(join|resolve)\(\s*__dirname[^)]*\)/g, "path.$1(<경로>)")
-    .replace(/(["'])(?:\.{1,2}\/)*(?:src|test|commands|events|dashboard|scripts)\/[\w./-]*/g, "<경로>");
+    .replace(/(["'])(?:\.{1,2}\/)*(?:src|test|commands|events|dashboard|scripts)\/[\w./-]*\1/g, "<경로>");
 
 const removed = new Map(); // 모양 → 남은 수
 const removedAt = new Map(); // 모양 → 처음 본 자리
