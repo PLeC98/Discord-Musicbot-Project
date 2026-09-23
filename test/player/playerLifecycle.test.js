@@ -384,6 +384,30 @@ test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다
   assert.equal(p.audioPlayer.listenerCount(AudioPlayerStatus.Idle), 0, "리스너를 뗀다");
 });
 
+test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다", async () => {
+  const p = h.makePlayer();
+  const seeks = [];
+  const ends = [];
+  p.play = async (ms) => seeks.push(ms);
+  p.handleTrackEnd = async (r) => ends.push(r);
+  p.currentTrack = yt("xxxxxxxxxx1");
+  p.playback = { track: p.currentTrack, startOffsetMs: 1000, resource: { playbackDuration: 4000 } };
+
+  await p.onVoiceRecovered();
+  assert.deepEqual(seeks, [5000]);
+
+  p.play = async () => {
+    throw new Error("x");
+  };
+  await p.onVoiceRecovered();
+  assert.deepEqual(ends, ["error"]);
+
+  p.currentTrack = null;
+  await p.onVoiceRecovered();
+  h.dispose(p);
+  assert.deepEqual(ends, ["error"], "곡이 없으면 아무것도 안 한다");
+});
+
 // ── 혼자 남았을 때 ────────────────────────────────────────────────────
 
 function voiceChannelWith(player, humans) {

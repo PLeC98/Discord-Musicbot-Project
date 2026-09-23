@@ -62,11 +62,6 @@ function makePlayer({ channel = true } = {}) {
     connection: fakeConnection(),
     currentTrack: { title: "곡" },
     paused: false,
-    lastPlaybackPosition: 0,
-    positionMs: 0,
-    getCurrentTime() {
-      return this.positionMs;
-    },
     cleanups: [],
     cleanup(reason) {
       this.cleanups.push(reason);
@@ -215,15 +210,7 @@ test("헬스체크: 밀려난 플레이어는 정리하되 레지스트리의 �
   }
 });
 
-// ── 위치 저장 · 재연결 · 재개 ──────────────────────────────────────────
-
-test("위치 저장: 플레이어가 아는 지금 위치를 적어 둔다", () => {
-  const { player, vcm } = makePlayer();
-  player.positionMs = 13000;
-
-  vcm.savePlaybackPosition();
-  assert.equal(player.lastPlaybackPosition, 13000);
-});
+// ── 재연결 ──────────────────────────────────────────
 
 test("강제 재연결: 옛 연결을 부수고 같은 채널에 새로 붙어 구독하고 15초 Ready 를 기다린다", async () => {
   const { player, vcm } = makePlayer();
@@ -250,28 +237,6 @@ test("강제 재연결: 이미 파괴된 연결은 다시 부수지 않고, Read
 
   assert.equal(await vcm.forceReconnect(), false);
   assert.equal(old.destroyed, 0);
-});
-
-test("재개: 플레이어가 아는 지금 위치에서 다시 튼다. 실패하면 error 로 곡을 끝낸다", async () => {
-  const { player, vcm } = makePlayer();
-  const seeks = [];
-  const ends = [];
-  player.play = async (ms) => seeks.push(ms);
-  player.handleTrackEnd = async (r) => ends.push(r);
-
-  player.positionMs = 5000;
-  await vcm.resumePlaybackAfterRecovery();
-  assert.deepEqual(seeks, [5000]);
-
-  player.play = async () => {
-    throw new Error("x");
-  };
-  await vcm.resumePlaybackAfterRecovery();
-  assert.deepEqual(ends, ["error"]);
-
-  player.currentTrack = null;
-  await vcm.resumePlaybackAfterRecovery();
-  assert.deepEqual(ends, ["error"], "곡이 없으면 아무것도 안 한다");
 });
 
 // ── 연결 · 이동 · 끊기 ────────────────────────────────────────────────

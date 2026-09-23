@@ -1,7 +1,7 @@
 "use strict";
 
 // src/player/voiceConnection.js — 연결 복구 루프의 단일 실행 계약.
-// forceReconnect/resumePlaybackAfterRecovery는 스텁 — 루프 구조(중첩 금지·중단·상한)만 검증.
+// forceReconnect 와 플레이어의 onVoiceRecovered 는 스텁 — 루프 구조(중첩 금지·중단·상한)만 검증.
 // 회귀 대상: 구 setInterval(3초) 방식의 콜백 중첩 (forceReconnect 15초 대기와 겹침)
 
 const { test } = require("node:test");
@@ -21,19 +21,18 @@ const tick = () => new Promise((r) => setImmediate(r));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function makeVcm({ maxAttempts = 5 } = {}) {
+  const stats = { reconnects: 0, activeReconnects: 0, maxActiveReconnects: 0, resumes: 0 };
   const player = {
     voiceChannel: { id: "vc1" },
     guild: { channels: { cache: new Map([["vc1", { id: "vc1" }]]) } },
+    onVoiceRecovered: async () => stats.resumes++,
   };
   const vcm = new VoiceConnectionManager(player);
   vcm.maxRecoveryAttempts = maxAttempts;
   vcm.recoveryRetryDelayMs = 5; // 테스트용 휴지 단축 (기본 3000ms)
 
-  const stats = { reconnects: 0, activeReconnects: 0, maxActiveReconnects: 0, resumes: 0, saves: 0 };
   let reconnectImpl = async () => false;
 
-  vcm.savePlaybackPosition = () => stats.saves++;
-  vcm.resumePlaybackAfterRecovery = async () => stats.resumes++;
   vcm.forceReconnect = async () => {
     stats.reconnects++;
     stats.activeReconnects++;
@@ -54,7 +53,6 @@ test("성공 경로: 재연결 성공 → 위치 재개 1회 → 상태 초기�
 
   await vcm.startConnectionRecovery();
 
-  assert.equal(stats.saves, 1, "시작 시 재생 위치 저장");
   assert.equal(stats.reconnects, 1);
   assert.equal(stats.resumes, 1);
   assert.equal(vcm.isRecovering, false);

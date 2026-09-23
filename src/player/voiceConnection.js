@@ -131,9 +131,6 @@ class VoiceConnectionManager {
 
     log.warn(`연결 복구 시작: "${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id}) | 최대 ${this.maxRecoveryAttempts}회`);
 
-    // 현재 재생 위치 저장
-    this.savePlaybackPosition();
-
     // 단일 실행 복구 루프.
     // "시도 → 완료 대기 → 휴지"를 순차 반복하고, 세대 토큰으로 중단↔재시작 경쟁을 차단
     // (stop 후 새 복구가 시작돼도 이전 루프의 늦은 await 복귀가 새 상태를 건드리지 못함).
@@ -161,8 +158,8 @@ class VoiceConnectionManager {
           if (!active()) return; // 대기 중 중단됨. 상태를 건드리지 않고 종료
 
           if (reconnected) {
-            // 중단된 위치에서 재생 재개
-            await this.resumePlaybackAfterRecovery();
+            // 재생을 이어 트는 것은 플레이어가 한다. 연결 모듈은 알리기만 한다
+            await player.onVoiceRecovered();
             break;
           }
         } catch (error) {
@@ -184,11 +181,6 @@ class VoiceConnectionManager {
     this._recoveryGen = (this._recoveryGen || 0) + 1; // 진행 중인 루프 무효화 (늦은 await 복귀 차단)
     this.isRecovering = false;
     this.recoveryAttempts = 0;
-  }
-
-  savePlaybackPosition() {
-    const player = this.player;
-    player.lastPlaybackPosition = player.getCurrentTime();
   }
 
   async forceReconnect() {
@@ -224,19 +216,6 @@ class VoiceConnectionManager {
     } catch (error) {
       log.error("강제 재연결 실패:", error);
       return false;
-    }
-  }
-
-  async resumePlaybackAfterRecovery() {
-    const player = this.player;
-    if (!player.currentTrack) return;
-
-    try {
-      await player.play(player.getCurrentTime());
-    } catch (error) {
-      log.error("재생 재개 실패:", error);
-      // 다음 트랙으로 계속 진행 시도
-      await player.handleTrackEnd("error");
     }
   }
 

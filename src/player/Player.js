@@ -224,6 +224,17 @@ class MusicPlayer {
     return this.voice.connect();
   }
 
+  /** 음성 연결이 복구됐다(voiceConnection 이 알린다). 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다 */
+  async onVoiceRecovered() {
+    if (!this.currentTrack) return;
+    try {
+      await this.play(this.getCurrentTime());
+    } catch (error) {
+      log.error("재생 재개 실패:", error);
+      await this.handleTrackEnd("error");
+    }
+  }
+
   moveToChannel(newChannel) {
     return this.voice.moveToChannel(newChannel);
   }
