@@ -317,17 +317,25 @@ test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 �
 test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나갈 예약을 건다", async () => {
   const w = world({ player: null });
   const { it, log } = interaction(w);
+  // 끝난 패널로 알리는 것은 플레이어 알림을 거친다
+  const off = require("../../src/player/events").on("ended", async (_p, reason) => w.seen.push(`end:${reason}`));
 
-  await cmd("join").execute(it, w.client);
+  try {
+    await cmd("join").execute(it, w.client);
+  } finally {
+    off();
+  }
 
   const player = w.client.players.get("g1");
-  assert.ok(player instanceof h.MusicPlayer);
-  assert.ok(player.connection, "붙었다");
-  assert.deepEqual(log, [["reply", { content: "✅ 음성 채널에 접속했어요!", flags: [64] }]]);
-  await new Promise(setImmediate);
-  assert.ok(w.seen.includes("end:joined"));
-  assert.ok(player.idle.emptyTimer, "곡 없이 대기");
-  h.dispose(player);
+  try {
+    assert.ok(player instanceof h.MusicPlayer);
+    assert.ok(player.connection, "붙었다");
+    assert.deepEqual(log, [["reply", { content: "✅ 음성 채널에 접속했어요!", flags: [64] }]]);
+    assert.ok(w.seen.includes("end:joined"));
+    assert.ok(player.idle.emptyTimer, "곡 없이 대기");
+  } finally {
+    h.dispose(player);
+  }
 });
 
 test("/join: 끊긴 채 남은 플레이어는 자원을 놓게 한 뒤 새것으로 바꾼다", async () => {

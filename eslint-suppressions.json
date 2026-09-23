@@ -6,7 +6,7 @@
   },
   "commands/join.js": {
     "no-empty-function": {
-      "count": 2
+      "count": 1
     }
   },
   "dashboard/server/routes/admin.js": {

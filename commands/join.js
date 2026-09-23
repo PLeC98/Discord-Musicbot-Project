@@ -2,7 +2,8 @@
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "commands" });
-const MusicPlayer = require("../src/player/Player");
+const { ensurePlayer } = require("../src/usecases/addTracks");
+const playerEvents = require("../src/player/events");
 const { sessions } = require("../src/store/playerSessions");
 const { escapeMd } = require("../src/ui/mentions");
 const S = require("../src/ui/strings");
@@ -35,10 +36,10 @@ module.exports = {
     if (existing) {
       existing.releaseResources();
       existing.releaseAudioProtection();
+      client.players.delete(guild.id);
     }
 
-    const player = new MusicPlayer(guild, channel, member.voice.channel);
-    client.players.set(guild.id, player);
+    const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice.channel });
 
     if (hasSession) {
       await interaction.deferReply();
@@ -66,7 +67,7 @@ module.exports = {
       player.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
       // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
       if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
-      client.musicEmbedManager?.handlePlaybackEnd(player, { reason: "joined" }).catch(() => {});
+      playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${error?.message || error}`));
       await interaction.reply({ content: "✅ 음성 채널에 접속했어요!", flags: [1 << 6] });
     }
   },
