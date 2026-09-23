@@ -137,6 +137,24 @@ test("음량: 0 ~ 100 정수만, 전후를 돌려준다", async () => {
   assert.deepEqual(await controls.volume(fakePlayer(), DJ, 80), { ok: true, before: 50, level: 80 });
 });
 
+test("음량: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고치기는 멈춘 뒤 한 번", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const lines = [];
+  require("../../src/infra/log/sink").addDestination((rec) => String(rec.msg).startsWith("볼륨:") && lines.push(rec.msg));
+  const seen = panel();
+  const p = fakePlayer({ setVolume: (v) => (p.calls.push(`volume:${v}`), (p.volume = v)) });
+
+  for (const level of [60, 70, 80]) await controls.volume(p, DJ, level);
+  assert.deepEqual(p.calls, ["volume:60", "volume:70", "volume:80"]);
+  assert.deepEqual(seen, []);
+  assert.deepEqual(lines, []);
+
+  t.mock.timers.tick(controls.VOLUME_SETTLE_MS);
+  await new Promise(setImmediate);
+  assert.deepEqual(seen, ["refresh"]);
+  assert.deepEqual(lines, ["볼륨: 50% → 80%"]);
+});
+
 test("반복: 모드 확인, 라이브가 있으면 켜기만 거절. 버튼의 다음 모드는 끔 → 한곡 → 대기열 → 끔", async () => {
   assert.equal((await controls.loop(fakePlayer(), DJ, "all")).code, "bad-loop-mode");
   const live = fakePlayer({ hasLiveTrack: () => true });

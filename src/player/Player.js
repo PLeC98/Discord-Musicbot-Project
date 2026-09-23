@@ -612,9 +612,8 @@ class MusicPlayer {
   }
 
   setVolume(volume) {
-    const before = this.volume;
+    // 조작 로그는 부르는 쪽(usecases/controls)이 잇단 변경을 모아 한 줄로 남긴다
     this.volume = Math.max(0, Math.min(100, volume));
-    if (before !== this.volume) clog.info(`볼륨: ${before}% → ${this.volume}%`);
     if (this.resource && this.resource.volume) {
       this.resource.volume.setVolume(this.volume / 100);
     }

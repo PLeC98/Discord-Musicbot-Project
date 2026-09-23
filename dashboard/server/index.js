@@ -122,7 +122,8 @@ function createApp(client, { stream }) {
       legacyHeaders: false,
       keyGenerator: apiKey,
       message: { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
-      skip: (req) => req.originalUrl.startsWith("/api/admin/logs/stream") || req.originalUrl.includes("/player/events") || req.originalUrl.startsWith("/api/guilds/events"),
+      // 음량은 재생 경로가 따로 센다(끄는 동안 잇달아 온다)
+      skip: (req) => req.originalUrl.startsWith("/api/admin/logs/stream") || req.originalUrl.includes("/player/events") || req.originalUrl.startsWith("/api/guilds/events") || /\/player\/volume(\?|$)/.test(req.originalUrl),
     }),
   );
 

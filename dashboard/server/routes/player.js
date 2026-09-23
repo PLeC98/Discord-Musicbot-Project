@@ -204,8 +204,16 @@ function controlRoutes(router) {
     }
   });
 
-  // Volume  { volume: 0-100 }
-  router.post("/:guildId/player/volume", requireAuth, async (req, res) => {
+  // Volume  { volume: 0-100 }. 화면은 끄는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
+  const volumeLimiter = rateLimit({
+    windowMs: config.dashboard.rateLimit.windowMs,
+    limit: config.dashboard.rateLimit.apiMax,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip),
+    message: { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
+  });
+  router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
     const r = await controls.volume(ctx.player, actorOf(req, ctx.member), toInt(req.body.volume));

@@ -110,15 +110,31 @@ async function highlight(player, actor, opts = {}) {
   return seek(player, actor, Math.max(0, Math.floor(at * 1000)), { ...opts, reason: "highlight" });
 }
 
-/** 음량(0 ~ 100 정수) */
+/** 음량(0 ~ 100 정수). 소리는 바로 바뀐다. 로그와 패널은 잇단 변경이 멈춘 뒤 한 번 */
 async function volume(player, actor, level) {
   const blocked = await gate(player, actor);
   if (blocked) return blocked;
   if (!Number.isInteger(level) || level < 0 || level > 100) return fail("bad-volume");
   const before = player.volume;
   const applied = player.setVolume(level) ?? level;
-  await refresh(player);
+  settleVolume(player, before);
   return { ok: true, before, level: applied };
+}
+
+// 대시보드는 끄는 동안 음량을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
+const VOLUME_SETTLE_MS = 400;
+const settling = new WeakMap(); // player -> { from, timer }
+
+function settleVolume(player, before) {
+  const s = settling.get(player) ?? { from: before };
+  clearTimeout(s.timer);
+  s.timer = setTimeout(() => {
+    settling.delete(player);
+    if (s.from !== player.volume) log.info(`볼륨: ${s.from}% → ${player.volume}%`);
+    refresh(player);
+  }, VOLUME_SETTLE_MS);
+  s.timer.unref?.();
+  settling.set(player, s);
 }
 
 /** 반복 모드. mode: false(끔) · "track" · "queue" */
@@ -225,4 +241,4 @@ async function leave(guild, actor, players) {
   return { ok: true, left: "player", track, saved };
 }
 
-module.exports = { pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };
+module.exports = { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };
