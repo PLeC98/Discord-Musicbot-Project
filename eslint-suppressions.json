@@ -72,11 +72,6 @@
       "count": 1
     }
   },
-  "index.js": {
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
   "scripts/build-emoji-list.js": {
     "complexity": {
       "count": 1
