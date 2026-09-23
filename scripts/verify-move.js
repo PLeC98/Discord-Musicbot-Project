@@ -29,22 +29,37 @@ const normalize = (line) =>
     .replace(/path\.join\(\s*(["'])(?:src|test|commands|events|dashboard|scripts)\1[^)]*\)/g, "path.join(<경로>)")
     .replace(/(["'])(?:\.{1,2}\/)*(?:src|test|commands|events|dashboard|scripts)\/[\w./-]*\1/g, "<경로>");
 
+// 기준선 파일은 옮긴 파일 이름을 따라 키와 수가 바뀐다. 코드가 아니므로 보지 않는다
+const SKIP = new Set(["eslint-suppressions.json", "test/architecture/baseline.json"]);
+
 const removed = new Map(); // 모양 → 남은 수
 const removedAt = new Map(); // 모양 → 처음 본 자리
 const added = [];
 let file = "";
+let oldFile = "";
 
+// 파일 머리줄(--- · +++)은 diff 와 첫 @@ 사이에만 있다. 본문의 "-- SQL 주석"을 지운 줄도 "--- "로 시작한다
+let inHeader = false;
 for (const raw of diff.split("\n")) {
-  if (raw.startsWith("+++ ")) {
-    file = raw.slice(6);
+  if (raw.startsWith("diff ")) {
+    inHeader = true;
     continue;
   }
-  if (raw.startsWith("--- ") || raw.startsWith("@@") || raw.startsWith("diff ") || raw.startsWith("index ")) continue;
+  if (raw.startsWith("@@")) {
+    inHeader = false;
+    continue;
+  }
+  if (inHeader) {
+    if (raw.startsWith("--- ")) oldFile = raw.slice(6);
+    if (raw.startsWith("+++ ")) file = raw.slice(6);
+    continue;
+  }
+  if (SKIP.has(file) || SKIP.has(oldFile)) continue;
   if (raw.startsWith("-")) {
     const key = normalize(raw.slice(1));
     if (!key) continue;
     removed.set(key, (removed.get(key) || 0) + 1);
-    if (!removedAt.has(key)) removedAt.set(key, file);
+    if (!removedAt.has(key)) removedAt.set(key, file === "ev/null" ? oldFile : file);
   } else if (raw.startsWith("+")) {
     const key = normalize(raw.slice(1));
     if (key) added.push({ key, file, text: raw.slice(1).trim() });
