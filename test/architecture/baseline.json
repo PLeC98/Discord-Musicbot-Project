@@ -16,11 +16,6 @@
     "src/ui/genreMenu.js": 1,
     "src/ui/nowPlayingPanel.js": 2,
     "src/usecases/addTracks.js": 1,
-    "commands/cachestatus.js": 1,
-    "commands/nowplaying.js": 1,
-    "commands/system.js": 1,
-    "events/modalHandler.js": 1,
-    "dashboard/server/index.js": 1,
     "dashboard/server/routes/admin.js": 21
   },
   "configCapture": {

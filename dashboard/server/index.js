@@ -9,6 +9,7 @@ const fs = require("fs");
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
 const { createCorsOptions } = require("./cors");
+const { bodyLimit } = require("./bodyLimit");
 const SqliteSessionStore = require("./sessionStore");
 const { issueCsrfToken, requireCsrfToken } = require("./middleware/csrf");
 const { securityHeaders } = require("./middleware/securityHeaders");
@@ -81,7 +82,7 @@ function createApp(client, { stream }) {
     });
   }
 
-  app.use(require("./bodyLimit").bodyLimit());
+  app.use(bodyLimit());
   app.use(cors(createCorsOptions(DASHBOARD_URL, { allowDevOrigin: config.dashboard.devOrigin })));
   app.use(
     session({

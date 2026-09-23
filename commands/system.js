@@ -1,6 +1,6 @@
 "use strict";
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, version: djsVersion } = require("discord.js");
 const os = require("os");
 const config = require("../config");
 
@@ -38,7 +38,6 @@ module.exports = {
     const usedMem = totalMem - freeMem;
     const guildCount = client.guilds.cache.size;
     const activeCount = client.players?.size ?? 0;
-    const djsVersion = require("discord.js").version;
 
     const embed = new EmbedBuilder()
       .setTitle("🖥️ 시스템 상태")

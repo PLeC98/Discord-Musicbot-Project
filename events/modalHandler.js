@@ -1,5 +1,6 @@
 const { Events, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
+const genreConfig = require("../src/config/genres");
 const S = require("../src/ui/strings");
 const { checkControl } = require("../src/usecases/permissions");
 const { expireReply } = require("../src/ui/replyLifetime");
@@ -76,7 +77,7 @@ module.exports = {
     const selectedGenre = interaction.values[0];
 
     // 알 수 없는 장르 처리
-    const { genres } = require("../src/config/genres").genres();
+    const { genres } = genreConfig.genres();
     if (!genres[selectedGenre]) {
       return await interaction.reply({
         content: `❌ 알 수 없는 장르입니다: \`${selectedGenre}\`. 자동재생 버튼을 다시 눌러 선택해 주세요.`,

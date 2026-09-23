@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js"
 const config = require("../config");
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
 const { labelOf, emojiOf } = require("../src/ui/platforms");
+const { formatDuration } = require("../src/ui/format");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("nowplaying").setDescription("Shows information about currently playing song").setDescriptionLocalizations({
@@ -52,7 +53,7 @@ module.exports = {
       if (track.duration && track.duration > 0) {
         const progressBar = this.createProgressBar(currentTime, track.duration * 1000);
         const currentTimeFormatted = this.formatTime(currentTime);
-        const totalTimeFormatted = this.formatDuration(track.duration);
+        const totalTimeFormatted = formatDuration(track.duration);
 
         embed.addFields({
           name: "⏱️ 진행",
@@ -108,13 +109,9 @@ module.exports = {
     return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
   },
 
-  formatDuration(seconds) {
-    return require("../src/ui/format").formatDuration(seconds); // 공용 구현: src/ui/format.js
-  },
-
   formatTime(milliseconds) {
     const seconds = Math.floor(milliseconds / 1000);
-    return this.formatDuration(seconds);
+    return formatDuration(seconds);
   },
 
   createProgressBar(current, total, length = 15) {

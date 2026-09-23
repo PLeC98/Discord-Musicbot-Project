@@ -2,6 +2,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require("discord.js");
 const config = require("../config");
+const audioCache = require("../src/store/audioCache");
 
 function formatBytes(bytes) {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
@@ -31,7 +32,6 @@ module.exports = {
   async execute(interaction, _client) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const audioCache = require("../src/store/audioCache");
     const stats = audioCache.getCacheStats();
 
     // 캐시 현황
