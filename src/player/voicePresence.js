@@ -3,7 +3,7 @@
 // 음성 상태 이벤트 해석. 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음을 가리고, 언제 나가는지는 idleLeave 가 정한다.
 
 const log = require("../infra/log/logger").child({ category: "core" });
-const DashboardEvents = require("./events");
+const playerEvents = require("./events");
 const trackState = require("./trackState");
 
 async function onVoiceStateUpdate(client, oldState, newState) {
@@ -12,7 +12,7 @@ async function onVoiceStateUpdate(client, oldState, newState) {
   // 채널 이동은 대시보드의 "봇 부르기 / 곡 추가 / 재생 조작" 노출 조건을 바꾼다.
   // 이 알림이 없으면 재생 중일 때만 우연히 갱신된다. 아래 임베드 갱신 훅에 묻어가기 때문에.
   // 마이크 음소거·화면 공유 등도 같은 이벤트로 오지만 노출 조건과 무관하므로 채널이 바뀔 때만.
-  if (oldState.channelId !== newState.channelId) DashboardEvents.notify(guild.id);
+  if (oldState.channelId !== newState.channelId) playerEvents.touched(guild.id);
 
   const player = client.players.get(guild.id);
   if (!player) return;

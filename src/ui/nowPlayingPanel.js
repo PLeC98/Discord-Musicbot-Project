@@ -2,7 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBui
 const log = require("../infra/log/logger").child({ category: "player" });
 const config = require("../../config");
 const { formatDuration } = require("./format");
-const DashboardEvents = require("../player/events");
+const playerEvents = require("../player/events");
 const ErrorHandler = require("./errorMessages");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
@@ -498,7 +498,7 @@ class MusicEmbedManager {
    * 현재 재생 임베드를 제자리에서 갱신합니다.
    */
   async updateNowPlayingEmbed(player) {
-    if (player?.guild?.id) DashboardEvents.notify(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
+    if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     if (!player.nowPlayingMessage || !player.currentTrack) return;
     if (this.reposting.has(player.guild?.id)) return; // 다시 올리는 중. 그쪽이 최신 내용으로 보낸다
 
@@ -566,7 +566,7 @@ class MusicEmbedManager {
    */
   async handlePlaybackEnd(player, { reason = "stop" } = {}) {
     const guild = player.guild;
-    if (guild?.id) DashboardEvents.notify(guild.id); // 대시보드 SSE 넛지 (종료/정지)
+    if (guild?.id) playerEvents.touched(guild.id); // 대시보드 SSE 넛지 (종료/정지)
     this.stopProgressUpdate(guild?.id);
 
     const live = player.nowPlayingMessage;

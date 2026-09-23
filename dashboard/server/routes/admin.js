@@ -181,7 +181,7 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     await guild.leave();
 
     // 해당 서버 페이지를 보던 사용자에게 넛지 → 다음 조회에서 404로 이탈 유도
-    const DashboardEvents = require("../../../src/player/events");
+    const DashboardEvents = require("../playerStream");
     DashboardEvents.notify(guild.id);
 
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 서버 나가기: ${name} (${guild.id})`);

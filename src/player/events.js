@@ -1,173 +1,48 @@
 "use strict";
 
-const config = require("../../config");
+// 플레이어가 화면과 대시보드에 알리는 창구. 플레이어는 화면을 모르고 여기로 알린다.
+// 듣는 쪽은 조립(src/app/main.js)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
+//
+//   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
+//   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · disconnected)
+//   started(player, requester)  패널 없이 재생이 시작됐다(자동재생 첫 곡). 새 패널을 올린다
+//   released(textChannelId)     플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
+//   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 
-const { heartbeatMs, maxPerUser, coalesceMs } = config.dashboard.sse;
+const log = require("../infra/log/logger").child({ category: "player" });
 
-/**
- * DashboardEvents. 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
- *
- * 두 종류의 구독:
- *  - 개별 서버(플레이어) 페이지: 서버 1개 구독 (this.guilds: guildId -> Set<res>)
- *  - 서버 목록 페이지: 사용자의 상호+멤버 서버 전체를 한 연결로 멀티플렉스 (this.listSubs)
- *    → 목록마다 서버 수만큼 연결을 여는 폭발을 피함.
- *
- * 페이로드는 "어느 서버에 변화 발생"이라는 최소 신호(`{"t":"changed","g":"<guildId>"}`). 받으면 GET으로 재조회.
- * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 무엇을 구독 중인가"만 관리.
- */
-class DashboardEvents {
-  constructor() {
-    this.guilds = new Map(); // guildId -> Set<res>       (개별 서버 페이지)
-    this.listSubs = new Set(); // { res, guildIds:Set }   (서버 목록 페이지. 멀티플렉스)
-    this.listGuildIds = new Map(); // guildId -> 그 서버를 구독 중인 목록 구독자 수 (notify 가드 O(1))
-    this.perKey = new Map(); // userKey -> 연결 수 (세션당 캡, 개별+목록 공유)
-    this._cleanups = new WeakMap(); // res -> idempotent cleanup (쓰기 실패 경로에서 호출)
-    this.coalesceTimers = new Map(); // guildId -> timer
+const listeners = new Map(); // 알림 이름 → Set<fn>
 
-    // 하트비트: 유휴 연결이 프록시 타임아웃으로 끊기지 않게 주기적 주석 전송
-    this.heartbeat = setInterval(() => this._pingAll(), heartbeatMs);
-    if (this.heartbeat.unref) this.heartbeat.unref();
-  }
+/** 듣는 쪽을 건다. 떼는 함수를 돌려준다 */
+function on(name, fn) {
+  if (!listeners.has(name)) listeners.set(name, new Set());
+  listeners.get(name).add(fn);
+  return () => listeners.get(name)?.delete(fn);
+}
 
-  _sseHead(res) {
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    });
-    if (res.flushHeaders) res.flushHeaders();
-    res.write(": connected\n\n");
-  }
+// 듣는 쪽을 모두 부르고 모두 끝날 때까지 기다린다. 듣는 쪽의 실패는 알린 쪽으로 올라간다
+async function emit(name, ...args) {
+  const fns = [...(listeners.get(name) ?? [])];
+  await Promise.all(fns.map((fn) => fn(...args)));
+}
 
-  /** 세션당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. */
-  _capOk(res, userKey) {
-    const count = this.perKey.get(userKey) || 0;
-    if (count >= maxPerUser) {
-      res.status(429).json({ error: "이벤트 연결이 너무 많습니다" });
-      return false;
-    }
-    this.perKey.set(userKey, count + 1);
-    return true;
-  }
+const refresh = (player) => emit("refresh", player);
+const ended = (player, reason) => emit("ended", player, reason);
+const started = (player, requester) => emit("started", player, requester);
 
-  _releaseKey(userKey) {
-    const c = (this.perKey.get(userKey) || 1) - 1;
-    if (c <= 0) this.perKey.delete(userKey);
-    else this.perKey.set(userKey, c);
-  }
+function released(textChannelId) {
+  for (const fn of listeners.get("released") ?? []) fn(textChannelId);
+}
 
-  /** 개별 서버(플레이어) 페이지 구독. requireAuth + 멤버십 게이트 뒤 호출할 것. */
-  addClient(guildId, res, userKey) {
-    if (!this._capOk(res, userKey)) return;
-    this._sseHead(res);
-
-    let set = this.guilds.get(guildId);
-    if (!set) {
-      set = new Set();
-      this.guilds.set(guildId, set);
-    }
-    set.add(res);
-
-    // idempotent cleanup. close/error/쓰기 실패 어느 경로로 와도 회계(Set·perKey 캡·빈 Set 정리)가 한 번만, 전부 정리.
-    let done = false;
-    const cleanup = () => {
-      if (done) return;
-      done = true;
-      set.delete(res);
-      if (set.size === 0 && this.guilds.get(guildId) === set) this.guilds.delete(guildId);
-      this._releaseKey(userKey);
-    };
-    this._cleanups.set(res, cleanup);
-    res.on("close", cleanup);
-    res.on("error", cleanup);
-  }
-
-  /** 서버 목록 페이지 구독. guildIds(사용자의 상호+멤버 서버 집합)의 이벤트를 한 연결로 멀티플렉스. */
-  addListClient(res, guildIds, userKey) {
-    if (!this._capOk(res, userKey)) return;
-    this._sseHead(res);
-
-    const sub = { res, guildIds };
-    this.listSubs.add(sub);
-    for (const gid of guildIds) this.listGuildIds.set(gid, (this.listGuildIds.get(gid) || 0) + 1);
-
-    let done = false;
-    const cleanup = () => {
-      if (done) return;
-      done = true;
-      this.listSubs.delete(sub);
-      for (const gid of guildIds) {
-        const c = (this.listGuildIds.get(gid) || 1) - 1;
-        if (c <= 0) this.listGuildIds.delete(gid);
-        else this.listGuildIds.set(gid, c);
-      }
-      this._releaseKey(userKey);
-    };
-    sub.cleanup = cleanup;
-    res.on("close", cleanup);
-    res.on("error", cleanup);
-  }
-
-  /** 서버 상태 변화 알림. coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 구독자 없으면 타이머도 안 만듦. */
-  notify(guildId) {
-    if (!guildId) return;
-    if (!this.guilds.has(guildId) && !this.listGuildIds.has(guildId)) return; // 이 서버를 보는 구독자 없음
-    if (this.coalesceTimers.has(guildId)) return; // 이미 예약됨
-    const t = setTimeout(() => {
-      this.coalesceTimers.delete(guildId);
-      this._emit(guildId);
-    }, coalesceMs);
-    if (t.unref) t.unref();
-    this.coalesceTimers.set(guildId, t);
-  }
-
-  _emit(guildId) {
-    // guildId를 함께 보낸다. 목록 구독자는 여러 서버를 한 연결로 받으므로, 이게 없으면
-    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(전역 재생 바가 자기 대상만 고르는 근거).
-    // 구독자는 이미 그 서버 멤버로 검증된 뒤라 ID 노출 문제는 없다.
-    const payload = `data: {"t":"changed","g":${JSON.stringify(guildId)}}\n\n`;
-    const set = this.guilds.get(guildId);
-    if (set) {
-      for (const res of set) {
-        try {
-          res.write(payload);
-        } catch {
-          this._cleanups.get(res)?.();
-        }
-      }
-    }
-    // 목록 구독자: 자기 서버 집합에 든 서버의 이벤트만 (스코핑)
-    for (const sub of this.listSubs) {
-      if (sub.guildIds.has(guildId)) {
-        try {
-          sub.res.write(payload);
-        } catch {
-          sub.cleanup?.();
-        }
-      }
-    }
-  }
-
-  _pingAll() {
-    const ping = ": ping\n\n";
-    for (const set of this.guilds.values()) {
-      for (const res of set) {
-        try {
-          res.write(ping);
-        } catch {
-          this._cleanups.get(res)?.();
-        }
-      }
-    }
-    for (const sub of this.listSubs) {
-      try {
-        sub.res.write(ping);
-      } catch {
-        sub.cleanup?.();
-      }
+// 대시보드 알림은 기다리지 않고, 실패해도 알린 쪽을 멈추지 않는다
+function touched(guildId) {
+  for (const fn of listeners.get("touched") ?? []) {
+    try {
+      fn(guildId);
+    } catch (error) {
+      log.warn(`대시보드 알림 실패: ${error.message}`);
     }
   }
 }
 
-module.exports = new DashboardEvents();
+module.exports = { on, refresh, ended, started, released, touched, _reset: () => listeners.clear() };

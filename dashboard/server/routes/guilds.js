@@ -28,7 +28,7 @@ const SB_CATEGORY_LABELS = {
   filler: "잡담/농담",
 };
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
-const DashboardEvents = require("../../../src/player/events");
+const DashboardEvents = require("../playerStream");
 
 const MANAGE_GUILD = 0x20;
 

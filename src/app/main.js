@@ -29,6 +29,8 @@ const MusicEmbedManager = require("../ui/nowPlayingPanel");
 const StatusManager = require("../ui/botPresence");
 const { createFileDestination } = require("../infra/log/file");
 const { startDashboard } = require("../../dashboard/server/index");
+const playerStream = require("../../dashboard/server/playerStream");
+const playerEvents = require("../player/events");
 
 const log = logger.child({ category: "core" });
 const ROOT = path.join(__dirname, "..", "..");
@@ -76,6 +78,7 @@ function startBot({ potServer, logFile }) {
   client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
   client.musicEmbedManager = new MusicEmbedManager(client);
   startDashboard(client);
+  listenToPlayers();
 
   client.once(Events.ClientReady, () => onReady(client));
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
@@ -87,6 +90,11 @@ function startBot({ potServer, logFile }) {
   installErrorHandlers(client);
 
   init(client, { potServer, logFile });
+}
+
+// 플레이어의 알림을 화면과 대시보드에 잇는다
+function listenToPlayers() {
+  playerEvents.on("touched", (guildId) => playerStream.notify(guildId));
 }
 
 async function onReady(client) {
