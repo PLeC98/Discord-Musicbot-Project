@@ -6,6 +6,7 @@
 
 process.env.OWNER_ID = "owner";
 
+const { listenForFetch } = require("../helpers/listen");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -69,7 +70,7 @@ before(async () => {
   });
   app.locals.discordClient = client;
   app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js"));
-  server = app.listen(0);
+  server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
   player = makePlayer();
   client.players.set(GUILD_ID, player);

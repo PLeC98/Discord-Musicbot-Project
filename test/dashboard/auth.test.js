@@ -8,6 +8,7 @@ const assert = require("node:assert/strict");
 const express = require("express");
 const session = require("express-session");
 const { createAuthRouter } = require("../../dashboard/server/routes/auth");
+const { listenForFetch } = require("../helpers/listen");
 
 const servers = [];
 after(() => servers.forEach((s) => s.close()));
@@ -35,9 +36,8 @@ async function start(http) {
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false }));
   app.use("/auth", createAuthRouter({ http }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
-  const server = app.listen(0);
+  const server = await listenForFetch(app);
   servers.push(server);
-  await new Promise((r) => server.once("listening", r));
   const base = `http://127.0.0.1:${server.address().port}`;
   let cookie = "";
   const go = async (path, init = {}) => {

@@ -9,6 +9,7 @@
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
+const { listenForFetch } = require("../helpers/listen");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -113,7 +114,7 @@ before(async () => {
   app.locals.discordClient = client;
   app.locals.lookup = lookup;
   app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js"));
-  server = app.listen(0);
+  server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });
 

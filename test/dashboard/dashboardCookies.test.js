@@ -8,6 +8,7 @@
 process.env.OWNER_ID = "owner";
 process.env.COOKIES_SOURCE = "file";
 
+const { listenForFetch } = require("../helpers/listen");
 const os = require("node:os");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -25,7 +26,7 @@ let currentUser;
 let server;
 let base;
 
-before(() => {
+before(async () => {
   yamlStore._setConfigDir(DIR);
   currentUser = { id: "owner", username: "owner" };
   const app = express();
@@ -35,7 +36,7 @@ before(() => {
     next();
   });
   app.use("/api/admin", require("../../dashboard/server/routes/admin.js"));
-  server = app.listen(0);
+  server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });
 

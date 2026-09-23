@@ -7,6 +7,7 @@
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
+const { listenForFetch } = require("../helpers/listen");
 const os = require("node:os");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -111,7 +112,7 @@ let currentUser;
 let server;
 let base;
 
-before(() => {
+before(async () => {
   currentUser = { id: "owner", username: "owner" };
   const app = express();
   app.use(require("../../dashboard/server/bodyLimit").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
@@ -121,7 +122,7 @@ before(() => {
   });
   app.locals.discordClient = client;
   app.use("/api/admin", require("../../dashboard/server/routes/admin.js"));
-  server = app.listen(0);
+  server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });
 
