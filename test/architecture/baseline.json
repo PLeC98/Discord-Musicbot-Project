@@ -45,7 +45,6 @@
     "src/sources/spotify.js": 1,
     "src/sources/youtube/ytdlpRun.js": 3,
     "dashboard/server/index.js": 3,
-    "dashboard/server/routes/auth.js": 4,
     "dashboard/server/routes/guilds.js": 2,
     "index.js": 5
   },

@@ -16,7 +16,7 @@ const { errorHandler, notFoundJson } = require("./middleware/errorHandler");
 const { isLoopbackHost, describeBinding } = require("./binding");
 const { isOwner, isRealOwner } = require("./owner");
 const { getViewAs } = require("./viewAs");
-const authRoutes = require("./routes/auth");
+const { createAuthRouter } = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const guildsRoutes = require("./routes/guilds");
 
@@ -138,7 +138,7 @@ function createApp(client) {
   );
 
   // 로그인 관련(/auth/login · /auth/callback · /auth/logout)
-  app.use("/auth", authRoutes);
+  app.use("/auth", createAuthRouter());
 
   // API 라우트
   app.use("/api/admin", adminRoutes);
