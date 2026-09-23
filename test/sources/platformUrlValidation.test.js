@@ -88,3 +88,9 @@ test("모르는 사이트의 링크도 거절하고, 캐시 장부를 보지 않
   assert.equal(lookup.isUnsupportedLink("spotify:track:abc"), false, "스포티파이 URI 는 링크 모양이 달라도 다룬다");
   assert.equal(lookup.isUnsupportedLink("https://cdn.example.com/a.mp3"), false, "직접 링크");
 });
+
+test("스포티파이 공유 링크의 지역 경로(intl-xx/)는 같은 곡으로 알아본다", () => {
+  assert.equal(lookup.detectPlatform("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"), "spotify");
+  assert.deepEqual(links.parseSpotifyURL("https://open.spotify.com/intl-pt-br/album/abc"), { type: "album", id: "abc" });
+  assert.equal(links.isSpotifyURL("https://open.spotify.com/intl-ko/"), false);
+});

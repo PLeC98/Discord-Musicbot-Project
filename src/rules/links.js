@@ -73,13 +73,14 @@ function createVideoUrl(videoId) {
 
 // ── 스포티파이 ──
 
+// 공유 링크에는 지역 경로(intl-ko/ 등)가 붙을 수 있다. 같은 곡이다
 function isSpotifyURL(url) {
-  const patterns = [/^https?:\/\/open\.spotify\.com\/(track|album|playlist|artist)\/[a-zA-Z0-9]+/, /^spotify:(track|album|playlist|artist):[a-zA-Z0-9]+/];
+  const patterns = [/^https?:\/\/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|playlist|artist)\/[a-zA-Z0-9]+/, /^spotify:(track|album|playlist|artist):[a-zA-Z0-9]+/];
   return patterns.some((p) => p.test(url));
 }
 
 function parseSpotifyURL(url) {
-  let m = String(url).match(/^https?:\/\/open\.spotify\.com\/(track|album|playlist|artist)\/([a-zA-Z0-9]+)/);
+  let m = String(url).match(/^https?:\/\/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|playlist|artist)\/([a-zA-Z0-9]+)/);
   if (m) return { type: m[1], id: m[2] };
   m = String(url).match(/^spotify:(track|album|playlist|artist):([a-zA-Z0-9]+)/);
   if (m) return { type: m[1], id: m[2] };
