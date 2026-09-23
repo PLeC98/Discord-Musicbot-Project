@@ -23,7 +23,7 @@ const deps = {
     ytCalls.push(query);
     return ytResults;
   },
-  known: (requestKey) => ledger.get(requestKey) ?? null,
+  known: (requestKey) => ledger.get(requestKey) ?? null, // { audioUrl, durationSec? }
   fetch: async (source) => (source.type === "keyword" && source.keywords?.length ? ytResults.map((r) => ({ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, fromSearch: true, sourceKey: `yt:${r.id}` })) : []),
   assist: { filter: async (candidates) => candidates, accepts: async () => true },
 };
@@ -226,7 +226,7 @@ test("요청 열쇠: 곡 페이지는 다듬어서, 영상 후보는 그 영상,
 // ── 장부부터 본다 ─────────────────────────────────────────────────────────
 
 test("장부에 이 요청의 영상이 있으면 검색하지 않고 그 영상을 쓴다", async () => {
-  ledger.set("amq:500", "https://www.youtube.com/watch?v=ledgervideo");
+  ledger.set("amq:500", { audioUrl: "https://www.youtube.com/watch?v=ledgervideo", durationSec: 262 });
   ytResults = [{ id: "other", audioUrl: "https://www.youtube.com/watch?v=otherother1", title: "Song / Artist", artist: "채널", duration: 260 }];
 
   const track = await resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/x.mp3", sourceUrl: "https://anilist.co/anime/5", platform: "anisongdb", sourceKey: "amq:500" }, LIMITS);
@@ -236,11 +236,12 @@ test("장부에 이 요청의 영상이 있으면 검색하지 않고 그 영상
   assert.equal(track.requestKey, "amq:500");
   assert.equal(track.pageUrl, "https://anilist.co/anime/5");
   assert.equal(track.audioFoundBy, "ledger", "그 영상이 내려갔으면 다시 찾는다");
+  assert.equal(track.duration, 262, "받아 둔 파일의 길이. 이 소스는 길이를 안 준다");
 });
 
 test("장부의 영상이 못 트는 것으로 표시돼 있으면 평소대로 찾는다", async () => {
   route._dead.clear();
-  ledger.set("lastfm:A|Song", "https://www.youtube.com/watch?v=deadvideo01");
+  ledger.set("lastfm:A|Song", { audioUrl: "https://www.youtube.com/watch?v=deadvideo01" });
   route.markDead("https://www.youtube.com/watch?v=deadvideo01");
   ytResults = [{ id: "v9", audioUrl: "https://www.youtube.com/watch?v=v9", title: "A - Song", artist: "A", duration: 240 }];
 
@@ -252,7 +253,7 @@ test("장부의 영상이 못 트는 것으로 표시돼 있으면 평소대로 
 });
 
 test("장부가 음원 파일을 가리키면(전에 음원으로 떨어진 곡) 검색하지 않고 소스의 음원을 튼다", async () => {
-  ledger.set("amq:501", "https://nawdist.animemusicquiz.com/old.mp3");
+  ledger.set("amq:501", { audioUrl: "https://nawdist.animemusicquiz.com/old.mp3" });
 
   const track = await resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/new.mp3", platform: "anisongdb", sourceKey: "amq:501" }, LIMITS);
 

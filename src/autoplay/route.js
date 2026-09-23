@@ -166,7 +166,13 @@ const fromAudio = (cand) => ({
 // 바깥 경계. 테스트는 이것을 넘겨 진짜 소스 · 검색 · 장부 · AI 보조를 부르지 않는다
 const REAL = {
   search: (query, limit) => YouTube.search(query, limit),
-  known: (requestKey) => trackLookup.getAudioUrl(requestKey),
+  // 장부가 아는 음원 주소. 받아 둔 파일이 있으면 그 길이도(후보가 길이를 안 주는 소스가 있다)
+  known(requestKey) {
+    const hit = trackLookup.resolveFromCache(requestKey);
+    if (hit.hit) return { audioUrl: hit.track.audioUrl, durationSec: hit.track.duration };
+    const audioUrl = trackLookup.getAudioUrl(requestKey);
+    return audioUrl ? { audioUrl } : null;
+  },
   fetch: (source) => sources.fetchFrom(source),
   assist: aiAssist,
 };
@@ -287,10 +293,10 @@ async function resolve(cand, limits, genre, deps = REAL) {
  * 모르면 null(평소대로 찾는다).
  */
 function fromLedger(cand, known) {
-  if (!known) return null;
-  if (links.isYouTubeURL(known)) {
-    if (isDead(known)) return null;
-    const track = fromYouTube({ url: known, durationSec: cand.durationSec }, cand);
+  if (!known?.audioUrl) return null;
+  if (links.isYouTubeURL(known.audioUrl)) {
+    if (isDead(known.audioUrl)) return null;
+    const track = fromYouTube({ url: known.audioUrl, durationSec: known.durationSec || cand.durationSec }, cand);
     track.audioFoundBy = "ledger"; // 내려갔으면 다시 찾는다
     return track;
   }
@@ -328,4 +334,4 @@ async function pickTrack(cfg, recent = [], deps = REAL) {
   return null;
 }
 
-module.exports = { pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };
+module.exports = { REAL, pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };

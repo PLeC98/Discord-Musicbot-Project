@@ -1621,7 +1621,8 @@ class MusicPlayer {
       // 대기열에 있으므로, 그걸 빼지 않으면 같은 곡을 두 번 고를 수 있다.
       const recent = [this.currentTrack, ...this.previousTracks.slice(-20), ...this.queue].filter(Boolean);
 
-      const picked = await autoplayRoute.pickTrack(cfg, recent);
+      // autoplayDeps: 길 찾기의 바깥 경계(소스 · 검색 · 장부 · AI 보조). 테스트만 넘긴다. 없으면 진짜
+      const picked = await autoplayRoute.pickTrack(cfg, recent, this.autoplayDeps);
       if (!picked) {
         log.warn(`자동재생: 어느 소스에서도 곡을 찾지 못했습니다 (장르 ${this.autoplay})`);
         return null;

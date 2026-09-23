@@ -95,3 +95,14 @@ test("모양이 틀린 장부 줄은 없는 것으로 본다", () => {
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/badrow"), null, "빈 음원 주소");
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/badrow").hit, false);
 });
+
+test("자동재생이 보는 장부(route.REAL.known): 받아 둔 파일이 있으면 길이까지, 없으면 음원 주소만", () => {
+  const { known } = require("../../src/autoplay/route").REAL;
+  cacheFile("yt:knowncache");
+  trackLookup.recordTrackLookup({ requestKey: "amq:801", pageUrl: "https://anilist.co/anime/8", audioUrl: "https://www.youtube.com/watch?v=knowncache", platform: "anisongdb", title: "곡" });
+  trackLookup.recordTrackLookup({ requestKey: "amq:802", pageUrl: "https://anilist.co/anime/8", audioUrl: "https://www.youtube.com/watch?v=notcached01", platform: "anisongdb", title: "곡2" });
+
+  assert.deepEqual(known("amq:801"), { audioUrl: "https://www.youtube.com/watch?v=knowncache", durationSec: 90 });
+  assert.deepEqual(known("amq:802"), { audioUrl: "https://www.youtube.com/watch?v=notcached01" });
+  assert.equal(known("amq:803"), null);
+});

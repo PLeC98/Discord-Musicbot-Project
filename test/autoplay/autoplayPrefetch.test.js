@@ -283,6 +283,8 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
         blockedKeywords: ["Playlist"],
       }),
       pickAutoplayTrack: MusicPlayer.prototype.pickAutoplayTrack,
+      // AI 보조는 운영 설정(config/ai.yaml)을 읽어 진짜로 부른다. 여기서는 규칙만 본다
+      autoplayDeps: { ...require("../../src/autoplay/route").REAL, assist: { filter: async (c) => c, accepts: async () => true } },
     };
 
     // 후보가 둘인데 하나가 걸리므로 남는 것은 하나뿐이다.
