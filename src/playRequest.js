@@ -1,12 +1,12 @@
 "use strict";
 
-const MusicPlayer = require("./MusicPlayer");
+const MusicPlayer = require("./player/Player");
 const TrackResolver = require("./sources/trackResolver");
 const GuildSettingsManager = require("./store/guildSettings");
 const { silentResponder } = require("./playbackResponder");
 const log = require("./infra/log/logger").child({ category: "player" });
 const config = require("../config");
-const trackState = require("./trackState");
+const trackState = require("./player/trackState");
 const S = require("./strings");
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
 const { capabilities: ffmpegCapabilities } = require("./media/ffmpeg/path");

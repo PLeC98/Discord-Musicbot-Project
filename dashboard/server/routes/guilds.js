@@ -28,7 +28,7 @@ const SB_CATEGORY_LABELS = {
   filler: "잡담/농담",
 };
 const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
-const DashboardEvents = require("../../../src/DashboardEvents");
+const DashboardEvents = require("../../../src/player/events");
 
 const MANAGE_GUILD = 0x20;
 
@@ -473,7 +473,7 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
 
   let player = client.players.get(guildId);
   if (!player) {
-    const MusicPlayer = require("../../../src/MusicPlayer");
+    const MusicPlayer = require("../../../src/player/Player");
     // textChannel은 여기서 정하지 않는다. 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
     player = new MusicPlayer(guild, null, voiceChannel);
     client.players.set(guildId, player);

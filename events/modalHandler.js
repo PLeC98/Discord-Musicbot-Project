@@ -3,7 +3,7 @@ const config = require("../config");
 const S = require("../src/strings");
 const { checkControl } = require("../src/permissions");
 const { expireReply } = require("../src/replyLifetime");
-const trackState = require("../src/trackState");
+const trackState = require("../src/player/trackState");
 
 module.exports = {
   name: Events.InteractionCreate,

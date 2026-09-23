@@ -10,8 +10,8 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const MusicPlayer = require("../../src/MusicPlayer");
-const trackState = require("../../src/trackState");
+const MusicPlayer = require("../../src/player/Player");
+const trackState = require("../../src/player/trackState");
 
 const ensureAutoplayNext = MusicPlayer.prototype.ensureAutoplayNext;
 const setAutoplay = MusicPlayer.prototype.setAutoplay;

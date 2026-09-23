@@ -137,14 +137,14 @@ CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
-const MusicPlayer = require("../../src/MusicPlayer");
+const MusicPlayer = require("../../src/player/Player");
 const TrackResolver = require("../../src/sources/trackResolver");
 const TrackDownloader = require("../../src/media/cacheDownload");
 const SponsorBlock = require("../../src/sources/sponsorBlock");
 const DirectLink = require("../../src/sources/direct");
-const VoiceConnectionManager = require("../../src/VoiceConnectionManager");
-const SessionPersistence = require("../../src/SessionPersistence");
-const QueueWarmer = require("../../src/QueueWarmer");
+const VoiceConnectionManager = require("../../src/player/voiceConnection");
+const SessionPersistence = require("../../src/player/sessionMirror");
+const QueueWarmer = require("../../src/player/queueWarmer");
 
 const fakeConnection = () => Object.assign(new EventEmitter(), { state: { status: "ready" }, destroy() {}, subscribe() {} });
 VoiceConnectionManager.prototype.startConnectionHealthCheck = function () {};

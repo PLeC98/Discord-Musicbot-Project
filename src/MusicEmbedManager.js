@@ -2,13 +2,13 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBui
 const log = require("./infra/log/logger").child({ category: "player" });
 const config = require("../config");
 const { formatDuration } = require("./utils");
-const DashboardEvents = require("./DashboardEvents");
+const DashboardEvents = require("./player/events");
 const ErrorHandler = require("./ErrorHandler");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
 const { silentResponder } = require("./playbackResponder");
 const GuildSettingsManager = require("./store/guildSettings");
-const trackState = require("./trackState");
+const trackState = require("./player/trackState");
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
 const UNKNOWN_MESSAGE = 10008;

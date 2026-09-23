@@ -9,16 +9,16 @@ const config = require("./config");
 const CacheManager = require("./src/store/cacheManager");
 const procRegistry = require("./src/infra/processRegistry");
 const { logResolved: logResolvedFfmpeg } = require("./src/media/ffmpeg/path");
-const MusicPlayer = require("./src/MusicPlayer");
-const { resolveGuildForRestore } = require("./src/sessionRestore");
-const DashboardEvents = require("./src/DashboardEvents");
-const voiceChannelStatus = require("./src/voiceChannelStatus");
+const MusicPlayer = require("./src/player/Player");
+const { resolveGuildForRestore } = require("./src/player/sessionRestore");
+const DashboardEvents = require("./src/player/events");
+const voiceChannelStatus = require("./src/player/voiceChannelStatus");
 const { loadModules } = require("./src/moduleLoader");
 const { scheduleReplyCleanup } = require("./src/replyLifetime");
-const PlayerRegistry = require("./src/playerRegistry");
+const PlayerRegistry = require("./src/player/registry");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
 const { createFileDestination } = require("./src/infra/log/file");
-const trackState = require("./src/trackState");
+const trackState = require("./src/player/trackState");
 
 // 로그 레벨 적용. config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
 // 기본 레벨(info)로 이미 기록됐다. 그것들은 어차피 warn 이상이라 잘려나갈 일이 없다.
