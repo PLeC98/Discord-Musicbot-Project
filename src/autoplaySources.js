@@ -15,7 +15,7 @@
 // keyword·유튜브 재생목록은 영상 자체가 출처라 이 칸을 비워 둔다.
 
 const config = require("../config");
-const log = require("./logger").child({ category: "autoplay" });
+const log = require("./infra/log/logger").child({ category: "autoplay" });
 
 const UA = config.userAgents.bot;
 const TIMEOUT_MS = 15000;

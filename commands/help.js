@@ -1,7 +1,7 @@
 "use strict";
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const log = require("../src/logger").child({ category: "commands" });
+const log = require("../src/infra/log/logger").child({ category: "commands" });
 const config = require("../config");
 
 module.exports = {

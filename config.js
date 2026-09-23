@@ -1,6 +1,6 @@
 const path = require("path");
 const pkg = require("./package.json");
-const log = require("./src/logger").child({ category: "config" });
+const log = require("./src/infra/log/logger").child({ category: "config" });
 const fs = require("fs");
 const { parseClients } = require("./src/PlayerClients");
 

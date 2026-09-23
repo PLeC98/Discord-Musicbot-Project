@@ -2,8 +2,8 @@
 
 const { spawn } = require("child_process");
 const { ffmpegPath } = require("./ffmpegPath");
-const procRegistry = require("./ChildProcessRegistry");
-const log = require("./logger").child({ category: "ffmpeg" });
+const procRegistry = require("./infra/processRegistry");
+const log = require("./infra/log/logger").child({ category: "ffmpeg" });
 
 /**
  * ffmpeg 자식 프로세스 생성.

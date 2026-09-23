@@ -1,7 +1,7 @@
 "use strict";
 
 const { spawnSync } = require("node:child_process");
-const log = require("./logger").child({ category: "proc" });
+const log = require("./log/logger").child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
 

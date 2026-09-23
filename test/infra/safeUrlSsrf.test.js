@@ -33,7 +33,7 @@ const realLookup = dnsPromises.lookup.bind(dnsPromises);
 let lookupImpl = realLookup;
 dnsPromises.lookup = (...args) => lookupImpl(...args);
 
-const { SsrfError, head, getStream } = require("../src/SafeUrl");
+const { SsrfError, head, getStream } = require("../../src/infra/safeUrl");
 
 after(() => {
   dnsPromises.lookup = realLookup;

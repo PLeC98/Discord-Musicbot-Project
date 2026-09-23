@@ -1,7 +1,7 @@
 "use strict";
 
 const { Collection } = require("discord.js");
-const log = require("./logger").child({ category: "registry" });
+const log = require("./infra/log/logger").child({ category: "registry" });
 
 /**
  * client.players를 감싸 등록, 해제를 전부 기록

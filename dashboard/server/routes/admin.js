@@ -2,12 +2,12 @@
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
 const express = require("express");
-const log = require("../../../src/logger").child({ category: "dashboard" });
+const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
 const router = express.Router();
 const requireOwner = require("../middleware/requireOwner");
 const os = require("os");
-const logManager = require("../../../src/LogManager");
-const procRegistry = require("../../../src/ChildProcessRegistry");
+const logManager = require("../../../src/infra/log/sink");
+const procRegistry = require("../../../src/infra/processRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
 const trackState = require("../../../src/trackState");
 const configData = require("../../../src/configDataLoader");

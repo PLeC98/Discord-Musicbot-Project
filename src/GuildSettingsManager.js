@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require("./logger").child({ category: "guild" });
+const log = require("./infra/log/logger").child({ category: "guild" });
 const CacheManager = require("./CacheManager");
 const config = require("../config");
 

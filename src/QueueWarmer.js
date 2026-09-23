@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require("./logger").child({ category: "track" });
+const log = require("./infra/log/logger").child({ category: "track" });
 const config = require("../config");
 
 /**

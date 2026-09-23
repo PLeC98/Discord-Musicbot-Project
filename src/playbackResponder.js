@@ -1,7 +1,7 @@
 "use strict";
 
 const { MessageFlags } = require("discord.js");
-const log = require("./logger").child({ category: "player" });
+const log = require("./infra/log/logger").child({ category: "player" });
 const { markTransient } = require("./transientMessages");
 
 /**

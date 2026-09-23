@@ -1,7 +1,7 @@
 "use strict";
 
 const crypto = require("crypto");
-const log = require("../../../src/logger").child({ category: "dashboard" });
+const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
 
 // 오류 응답에 스택·내부 경로·의존성 버전이 실리지 않게 한다.
 //

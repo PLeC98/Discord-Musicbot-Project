@@ -1,5 +1,5 @@
 const config = require("../../config");
-const log = require("../../src/logger").child({ category: "dashboard" });
+const log = require("../../src/infra/log/logger").child({ category: "dashboard" });
 const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");

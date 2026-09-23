@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } = require("../src/logFile");
+const { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } = require("../../src/infra/log/file");
 
 function tmpdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));

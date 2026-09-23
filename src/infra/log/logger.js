@@ -14,7 +14,7 @@
 //   - pino에 없는 logger.log()는 노출하지 않는다 (레거시 console.log은 LogManager 브리지가 흡수)
 
 const util = require("util");
-const sink = require("./LogManager"); // 속성 접근으로 호출(sink.record) → 테스트에서 스텁 가능
+const sink = require("./sink"); // 속성 접근으로 호출(sink.record) → 테스트에서 스텁 가능
 
 const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const LEVEL_NAMES = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };

@@ -15,7 +15,7 @@ const pool = require("./autoplayPool");
 const sources = require("./autoplaySources");
 const match = require("./youtubeMatch");
 const assist = require("./autoplayAssist");
-const log = require("./logger").child({ category: "autoplay" });
+const log = require("./infra/log/logger").child({ category: "autoplay" });
 
 // 유튜브에서 찾은 것이 이보다 짧으면 풀버전이 아니라 TV 사이즈 립이다.
 // 그럴 바에는 AnimeThemes 음원을 그대로 트는 편이 낫다. 음질만 나쁘고 단계만 는다.

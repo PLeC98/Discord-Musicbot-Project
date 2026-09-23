@@ -3,7 +3,7 @@
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/playlistMore.js).
 
 const { Events, MessageFlags } = require("discord.js");
-const log = require("../src/logger").child({ category: "events" });
+const log = require("../src/infra/log/logger").child({ category: "events" });
 const S = require("../src/strings");
 const { checkAdd } = require("../src/permissions");
 const GuildSettingsManager = require("../src/GuildSettingsManager");

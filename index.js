@@ -1,5 +1,5 @@
-const logSink = require("./src/LogManager"); // intercept console before anything else logs
-const log = require("./src/logger").child({ category: "core" });
+const logSink = require("./src/infra/log/sink"); // intercept console before anything else logs
+const log = require("./src/infra/log/logger").child({ category: "core" });
 const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
 const { getVoiceConnections } = require("@discordjs/voice");
 const { spawn } = require("child_process");
@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const config = require("./config");
 const CacheManager = require("./src/CacheManager");
-const procRegistry = require("./src/ChildProcessRegistry");
+const procRegistry = require("./src/infra/processRegistry");
 const { logResolved: logResolvedFfmpeg } = require("./src/ffmpegPath");
 const MusicPlayer = require("./src/MusicPlayer");
 const { resolveGuildForRestore } = require("./src/sessionRestore");
@@ -17,12 +17,12 @@ const { loadModules } = require("./src/moduleLoader");
 const { scheduleReplyCleanup } = require("./src/replyLifetime");
 const PlayerRegistry = require("./src/playerRegistry");
 const { ALLOWED_MENTIONS } = require("./src/mentions");
-const { createFileDestination } = require("./src/logFile");
+const { createFileDestination } = require("./src/infra/log/file");
 const trackState = require("./src/trackState");
 
 // 로그 레벨 적용. config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
 // 기본 레벨(info)로 이미 기록됐다. 그것들은 어차피 warn 이상이라 잘려나갈 일이 없다.
-require("./src/logger").level = config.logging.level;
+require("./src/infra/log/logger").level = config.logging.level;
 if (config.logging.consoleLevel) logSink.setConsoleLevel(config.logging.consoleLevel);
 
 // 파일 로그 마운트. config를 읽은 직후, 기동 로그가 쏟아지기 전에.

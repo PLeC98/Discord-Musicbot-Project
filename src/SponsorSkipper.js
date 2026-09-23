@@ -1,7 +1,7 @@
 "use strict";
 
 const { AudioPlayerStatus } = require("@discordjs/voice");
-const log = require("./logger").child({ category: "sponsor" });
+const log = require("./infra/log/logger").child({ category: "sponsor" });
 
 // SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.
 //

@@ -10,7 +10,7 @@
 // TTL·실패 시 번들 재추출로 갱신(자가치유). 참고 구현: LavaSrc, discord-player-spotify(원리 교차검증만).
 
 const crypto = require("crypto");
-const log = require("./logger").child({ category: "spotify" });
+const log = require("./infra/log/logger").child({ category: "spotify" });
 const config = require("../config");
 const CacheManager = require("./CacheManager");
 

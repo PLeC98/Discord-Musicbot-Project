@@ -1,7 +1,7 @@
 "use strict";
 
 const fsSync = require("fs");
-const log = require("./logger").child({ category: "session" });
+const log = require("./infra/log/logger").child({ category: "session" });
 const CacheManager = require("./CacheManager");
 const trackState = require("./trackState");
 const config = require("../config");

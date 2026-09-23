@@ -157,7 +157,7 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
   answers(() => ({ ok: false, status: 401, text: async () => `Invalid key: ${KEY}` }));
 
   const seen = [];
-  const log = require("../src/logger");
+  const log = require("../src/infra/log/logger");
   const realDebug = log.debug;
   const child = log.child;
   log.child = () => ({ ...log, debug: (line) => seen.push(String(line)) });

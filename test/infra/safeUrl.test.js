@@ -5,7 +5,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { SsrfError, isBlockedIp, isAllowedContentType, validateAndResolve } = require("../src/SafeUrl");
+const { SsrfError, isBlockedIp, isAllowedContentType, validateAndResolve } = require("../../src/infra/safeUrl");
 
 test("isBlockedIp: 내부·예약 대역 차단 배터리", () => {
   const blocked = [

@@ -1,7 +1,7 @@
 "use strict";
 
 const { VoiceConnectionStatus, joinVoiceChannel, entersState } = require("@discordjs/voice");
-const log = require("./logger").child({ category: "voice" });
+const log = require("./infra/log/logger").child({ category: "voice" });
 
 /**
  * VoiceConnectionManager. 음성 연결/자동 복구/헬스체크

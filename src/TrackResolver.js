@@ -3,7 +3,7 @@
 // TrackResolver. 쿼리/트랙의 플랫폼 감지, 메타데이터 조회, 스트림 해석
 
 const YouTube = require("./YouTube");
-const log = require("./logger").child({ category: "track" });
+const log = require("./infra/log/logger").child({ category: "track" });
 const Spotify = require("./Spotify");
 const SoundCloud = require("./SoundCloud");
 const DirectLink = require("./DirectLink");

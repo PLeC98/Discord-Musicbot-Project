@@ -4,7 +4,7 @@
 // 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 const { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
-const log = require("./logger").child({ category: "player" });
+const log = require("./infra/log/logger").child({ category: "player" });
 const config = require("../config");
 const YouTube = require("./YouTube");
 const Spotify = require("./Spotify");

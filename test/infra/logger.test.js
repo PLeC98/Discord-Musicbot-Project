@@ -6,8 +6,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const logger = require("../src/logger");
-const sink = require("../src/LogManager");
+const logger = require("../../src/infra/log/logger");
+const sink = require("../../src/infra/log/sink");
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogManager } = sink;
 
@@ -207,7 +207,7 @@ function fakeRes({ writeResult = true } = {}) {
 test("관리자 SSE: 연결 상한을 넘으면 429 — 무한정 받지 않는다", () => {
   const lm = new LogManager({ intercept: false });
   lm._renderTerminal = () => {};
-  const { maxPerUser } = require("../config").dashboard.sse;
+  const { maxPerUser } = require("../../config").dashboard.sse;
 
   for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes());
   assert.equal(lm.clients.size, maxPerUser);

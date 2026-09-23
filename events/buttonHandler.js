@@ -1,5 +1,5 @@
 const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
-const log = require("../src/logger").child({ category: "events" });
+const log = require("../src/infra/log/logger").child({ category: "events" });
 const config = require("../config");
 const S = require("../src/strings");
 const { requestPlayback } = require("../src/playRequest");

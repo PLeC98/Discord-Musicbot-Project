@@ -3,7 +3,7 @@
 const fs = require("fs").promises;
 const path = require("path");
 const crypto = require("crypto");
-const log = require("./logger").child({ category: "track" });
+const log = require("./infra/log/logger").child({ category: "track" });
 const fsSync = require("fs");
 const { pipeline } = require("stream/promises");
 const audioConvert = require("./audioConvert");

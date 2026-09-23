@@ -1,5 +1,5 @@
 const express = require("express");
-const log = require("../../../src/logger").child({ category: "dashboard" });
+const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
 const router = express.Router();
 const requireAuth = require("../middleware/requireAuth");
 const requireControl = require("../middleware/requireControl");

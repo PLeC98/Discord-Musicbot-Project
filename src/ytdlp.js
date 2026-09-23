@@ -1,7 +1,7 @@
 "use strict";
 
 const youtubedl = require("youtube-dl-exec");
-const procRegistry = require("./ChildProcessRegistry");
+const procRegistry = require("./infra/processRegistry");
 
 const IS_WIN = process.platform === "win32";
 

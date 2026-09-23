@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
-const log = require("../src/logger").child({ category: "commands" });
+const log = require("../src/infra/log/logger").child({ category: "commands" });
 const ErrorHandler = require("../src/ErrorHandler");
 const { requestPlayback } = require("../src/playRequest");
 const { interactionResponder } = require("../src/playbackResponder");

@@ -1,7 +1,7 @@
 "use strict";
 
 const Database = require("better-sqlite3");
-const log = require("./logger").child({ category: "cache" });
+const log = require("./infra/log/logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");

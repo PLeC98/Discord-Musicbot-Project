@@ -8,7 +8,7 @@
 // (유튜브의 SABR 적용이 세션·영상 단위로 굴러가기 때문)
 // 그래서 확정 판정이 불가능하므로 최근 N회 중 M회 실패라는 빈도로만 다룸.
 
-const log = require("./logger").child({ category: "youtube", sub: "client" });
+const log = require("./infra/log/logger").child({ category: "youtube", sub: "client" });
 
 // 2026-09-11 기준, yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
 // 기동 시 "우리가 아는 목록에 없다"고 한 줄 알려주는 용도. 목록에 없어도 그대로 yt-dlp에 넘김.

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } = require("discord.js");
 const GuildSettingsManager = require("../src/GuildSettingsManager");
-const log = require("../src/logger").child({ category: "commands" });
+const log = require("../src/infra/log/logger").child({ category: "commands" });
 
 const movePanel = (interaction) => interaction.client.musicEmbedManager?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
 

@@ -104,7 +104,7 @@
       "count": 1
     }
   },
-  "src/ChildProcessRegistry.js": {
+  "src/infra/processRegistry.js": {
     "no-empty-function": {
       "count": 1
     }

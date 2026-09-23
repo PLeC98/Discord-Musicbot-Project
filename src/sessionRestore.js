@@ -1,7 +1,7 @@
 "use strict";
 
 const { RESTJSONErrorCodes } = require("discord.js");
-const log = require("./logger").child({ category: "session" });
+const log = require("./infra/log/logger").child({ category: "session" });
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;

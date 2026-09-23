@@ -1,7 +1,7 @@
 "use strict";
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
-const log = require("../src/logger").child({ category: "commands" });
+const log = require("../src/infra/log/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/MusicPlayer");
 const CacheManager = require("../src/CacheManager");
 const { escapeMd } = require("../src/mentions");

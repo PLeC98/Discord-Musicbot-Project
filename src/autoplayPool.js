@@ -11,7 +11,7 @@
 // 메모리에만 둔다. 잃어도 비용이 호출 한 번이고, 저장하면 다시 채울 때 뽑는 무작위 오프셋이
 // 재기동을 넘어 살아남아 뜻이 없어진다.
 
-const log = require("./logger").child({ category: "autoplay" });
+const log = require("./infra/log/logger").child({ category: "autoplay" });
 
 const TTL_MS = 60 * 60 * 1000; // 며칠 켜 둔 봇이 같은 풀에 갇히지 않게
 const MAX_POOLS = 64; // 설정을 자주 고쳐도 무한히 늘지 않게

@@ -16,7 +16,7 @@ const assert = require("node:assert/strict");
 
 // ── 로거 모킹 (다른 모듈이 require 하기 전에 — errorId가 로그에도 남는지 확인용) ──────
 const logLines = [];
-const logPath = require.resolve(path.join(__dirname, "..", "src", "logger.js"));
+const logPath = require.resolve(path.join(__dirname, "..", "src", "infra", "log", "logger.js"));
 const fakeLog = {
   info: (...a) => logLines.push(a.join(" ")),
   warn: (...a) => logLines.push(a.join(" ")),

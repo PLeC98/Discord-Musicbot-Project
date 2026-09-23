@@ -221,7 +221,7 @@ class LogManager {
    * 상한을 넘으면 429. 느린 소비자는 _record가 정리한다(아래 write 반환값 확인).
    */
   addClient(res) {
-    const { maxPerUser, heartbeatMs } = require("../config").dashboard.sse;
+    const { maxPerUser, heartbeatMs } = require("../../../config").dashboard.sse;
     if (this.clients.size >= maxPerUser) {
       res.status(429).json({ error: "로그 연결이 너무 많습니다" });
       return;

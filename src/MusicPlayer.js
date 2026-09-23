@@ -1,9 +1,9 @@
 const { AudioPlayerStatus, createAudioPlayer, createAudioResource, StreamType } = require("@discordjs/voice");
-const log = require("./logger").child({ category: "player" });
+const log = require("./infra/log/logger").child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
-const wlog = require("./logger").child({ category: "watchdog" });
+const wlog = require("./infra/log/logger").child({ category: "watchdog" });
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
-const clog = require("./logger").child({ category: "control" });
+const clog = require("./infra/log/logger").child({ category: "control" });
 const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../config");

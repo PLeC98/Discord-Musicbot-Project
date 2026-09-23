@@ -1,4 +1,4 @@
-const log = require("../../src/logger").child({ category: "dashboard" });
+const log = require("../../src/infra/log/logger").child({ category: "dashboard" });
 
 const DEV_ORIGIN = "http://localhost:5173";
 let warnedDevOrigin = false;

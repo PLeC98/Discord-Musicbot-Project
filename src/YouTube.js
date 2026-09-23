@@ -1,5 +1,5 @@
 const path = require("path");
-const log = require("./logger").child({ category: "youtube" });
+const log = require("./infra/log/logger").child({ category: "youtube" });
 const fs = require("fs");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("./ytdlp");

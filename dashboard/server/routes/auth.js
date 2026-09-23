@@ -1,5 +1,5 @@
 const express = require("express");
-const log = require("../../../src/logger").child({ category: "dashboard" });
+const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
 const axios = require("axios");
 const crypto = require("crypto");
 const router = express.Router();

@@ -14,7 +14,7 @@
 const fs = require("fs");
 const path = require("path");
 const YAML = require("yaml");
-const log = require("./logger").child({ category: "config" });
+const log = require("./infra/log/logger").child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 const sources = require("./autoplaySources");
 

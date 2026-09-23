@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } = require("discord.js");
-const log = require("./logger").child({ category: "player" });
+const log = require("./infra/log/logger").child({ category: "player" });
 const config = require("../config");
 const { formatDuration } = require("./utils");
 const DashboardEvents = require("./DashboardEvents");
