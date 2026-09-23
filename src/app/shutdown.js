@@ -22,7 +22,12 @@ const REAL = {
 function installShutdown(client, { potServer, logFile, ...boundary }) {
   const { proc, voiceConnections, killAll, exit } = { ...REAL, ...boundary };
 
+  let shuttingDown = false;
   const gracefulShutdown = async (signal) => {
+    // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
+    if (shuttingDown) return;
+    shuttingDown = true;
+
     // 켜져 있는 플레이어의 세션을 먼저 저장한다
     const saves = [];
     for (const [guildId, player] of client.players) {
@@ -31,15 +36,17 @@ function installShutdown(client, { potServer, logFile, ...boundary }) {
     }
     await Promise.all(saves);
 
-    // 실제 음성 연결을 기준으로 정리한다.
-    // client.players를 돌면 레지스트리에 없는 연결이 그대로 남아, 프로세스가 죽은 뒤에도
-    // 봇이 음성 채널에 유령으로 남는다. 재시작하면 "봇은 음성에 있는데 플레이어가 없는" 상태가 된다.
+    // 플레이어의 음성 연결은 플레이어가 끊는다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
+    const reason = `프로세스 종료(${signal})`;
+    for (const [, player] of client.players) player?.disconnect?.(reason);
+
+    // 남은 것은 레지스트리에 없던 연결이다. 그대로 두면 프로세스가 죽은 뒤에도 봇이 음성 채널에
+    // 유령으로 남는다. 재시작하면 "봇은 음성에 있는데 플레이어가 없는" 상태가 된다.
     for (const [guildId, connection] of voiceConnections()) {
       const name = client.guilds.cache.get(guildId)?.name ?? guildId;
-      const orphan = client.players.has(guildId) ? "" : " | 레지스트리에 없던 연결";
       try {
         connection.destroy();
-        log.info(`음성 채널 떠남: ${name} | 원인=프로세스 종료(${signal})${orphan}`);
+        log.info(`음성 채널 떠남: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
       } catch (error) {
         log.error(`음성 연결 정리 실패: ${name}`, error);
       }

@@ -9,10 +9,27 @@ const { installShutdown } = require("../../src/app/shutdown");
 
 function setup({ saveFails = false } = {}) {
   const steps = [];
+  // 음성 라이브러리가 들고 있는 연결. 플레이어가 끊으면 빠진다(진짜도 destroy 가 목록에서 뺀다)
+  const live = new Map();
+  const connection = (id, fails = false) => ({
+    destroy: () => {
+      if (fails) throw new Error("이미 끊김");
+      steps.push(`voice:${id}`);
+      live.delete(id);
+    },
+  });
+  live.set("g1", connection("g1"));
+  live.set("g9", connection("g9"));
+  live.set("g8", connection("g8", true));
+
   const player = (id) => ({
     persistState: async (reason, immediate) => {
       steps.push(`save:${id}:${reason}:${immediate}`);
       if (saveFails) throw new Error("저장 실패");
+    },
+    disconnect: (reason) => {
+      steps.push(`disconnect:${id}:${reason}`);
+      live.get(id)?.destroy();
     },
   });
   const client = {
@@ -23,36 +40,29 @@ function setup({ saveFails = false } = {}) {
     guilds: { cache: new Map([["g1", { name: "서버1" }]]) },
     destroy: () => steps.push("client:destroy"),
   };
-  const connection = (id, fails = false) => ({
-    destroy: () => {
-      if (fails) throw new Error("이미 끊김");
-      steps.push(`voice:${id}`);
-    },
-  });
   const proc = Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } });
+  let exits = 0;
   const exited = new Promise((resolve) => {
     installShutdown(client, {
       potServer: { stop: () => steps.push("pot:stop") },
       logFile: { close: () => steps.push("log:close") },
       proc,
-      voiceConnections: () =>
-        new Map([
-          ["g1", connection("g1")],
-          ["g9", connection("g9")],
-          ["g8", connection("g8", true)],
-        ]),
+      voiceConnections: () => new Map(live),
       killAll: (reason) => steps.push(`kill:${reason}`),
-      exit: (code) => resolve(code),
+      exit: (code) => {
+        exits++;
+        resolve(code);
+      },
     });
   });
-  return { steps, proc, exited };
+  return { steps, proc, exited, exits: () => exits };
 }
 
-test("신호를 받으면 세션을 저장하고, 음성 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
+test("신호를 받으면 세션을 저장하고, 플레이어가 음성을 끊고, 남은 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
-  assert.deepEqual(steps, ["save:g1:shutdown:true", "voice:g1", "voice:g9", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
+  assert.deepEqual(steps, ["save:g1:shutdown:true", "disconnect:g1:프로세스 종료(SIGTERM)", "voice:g1", "voice:g9", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
 });
 
 test("레지스트리에 없는 음성 연결도 끊는다. 저장이나 끊기가 실패해도 끝까지 간다", async () => {
@@ -63,8 +73,12 @@ test("레지스트리에 없는 음성 연결도 끊는다. 저장이나 끊기�
   assert.equal(steps.at(-2), "kill:SIGHUP");
 });
 
-test("SIGINT 도 받는다", async () => {
-  const { proc, exited } = setup();
+test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다", async () => {
+  const { steps, proc, exited, exits } = setup();
+  proc.emit("SIGINT");
   proc.emit("SIGINT");
   assert.equal(await exited, 0);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(exits(), 1);
+  assert.equal(steps.filter((s) => s.startsWith("save:")).length, 1);
 });
