@@ -22,7 +22,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "postinstall": "node scripts/setup-config.js && node scripts/install-ffmpeg.js && node scripts/update-ytdlp.js",
-    "install:ffmpeg": "node scripts/install-ffmpeg.js"
+    "install:ffmpeg": "node scripts/install-ffmpeg.js",
+    "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
@@ -47,10 +48,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.6",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.11.0",
     "globals": "^17.12.0",
-    "prettier": "^3.9.8"
+    "prettier": "^3.9.8",
+    "typescript": "~6.0.3"
   }
 }

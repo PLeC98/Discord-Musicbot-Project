@@ -1,0 +1,18 @@
+{
+  // 타입 검사만 한다(빌드 없음). 1 ~ 8단계는 파일마다 `// @ts-check` 를 단 것만 본다.
+  // TS 6 은 기본값이 여럿 바뀌었다(types · module · target · strict). 기본값에 기대지 않고 전부 적는다.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2024",
+    "lib": ["es2024"],
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.js", "commands/**/*.js", "events/**/*.js", "dashboard/server/**/*.js", "index.js", "config.js", "scripts/**/*.js"]
+}
