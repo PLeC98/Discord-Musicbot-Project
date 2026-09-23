@@ -1636,7 +1636,7 @@ class MusicPlayer {
       // 있어야 한다. 재생·종료 쪽에는 출처가 찍히는데 정작 고르는 자리에 없었다.
       // platform 으로는 못 가른다. 음원을 직접 트는 곡도 platform 은 출처 이름(anisongdb 등)이다.
       // 소리가 어디서 오는지는 음원 주소가 가른다.
-      const how = `${inputKind(picked.audioUrl) === "direct" ? "음원 직접" : `유튜브 ${picked.audioUrl}`}${picked.audioFoundBy === "ledger" ? " (장부, 검색 안 함)" : ""}`;
+      const how = `${inputKind(picked.audioUrl) === "direct" ? "음원 직접" : `유튜브 ${picked.audioUrl}`}${picked.audioFoundBy === "ledger" ? " (매핑 재사용, 검색 생략)" : ""}`;
       clog.info(`자동재생 뽑기: "${picked.title}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
       return picked;
     } catch (error) {

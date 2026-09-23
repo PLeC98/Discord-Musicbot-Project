@@ -120,7 +120,7 @@ const lookup = {
     const skipCache = links.isYouTubePlaylist(query) || this.isUnsupportedLink(query);
     const cacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
     if (cacheHit.hit) {
-      log.info(`장부 지름길(조회 · 검색 안 함): "${cacheHit.track.title}" → ${cacheHit.track.audioUrl}`);
+      log.debug(`캐시 히트(조회 · 검색 생략): "${cacheHit.track.title}" → ${cacheHit.track.audioUrl}`);
       return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
     }
     return this.getTrackData(query, context, range);

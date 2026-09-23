@@ -25,7 +25,7 @@ const equivalent = {
     if (known && links.isYouTubeURL(known)) {
       track.audioUrl = known;
       track.audioFoundBy = "ledger"; // 소비 시 unavailable이면 재검색 트리거
-      log.info(`유튜브 동등물(장부, 검색 안 함): "${track.title}" → ${known}`);
+      log.debug(`유튜브 동등물(매핑 재사용, 검색 생략): "${track.title}" → ${known}`);
       return known;
     }
 

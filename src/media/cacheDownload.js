@@ -281,7 +281,7 @@ class TrackDownloader {
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
       // 예열이 앞으로 여러 곡을 미리 받으므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
-      log.info(`캐시 다운로드 완료: "${track.title}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""}`);
+      log.debug(`캐시 다운로드 완료: "${track.title}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""}`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.
