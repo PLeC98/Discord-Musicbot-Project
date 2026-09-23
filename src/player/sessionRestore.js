@@ -39,7 +39,7 @@ async function resolveGuildForRestore(client, guildId, { attempts = ATTEMPTS, de
   return { guild: null, gone: false };
 }
 
-// 기동 때 저장된 재생 세션을 모두 되살린다. 플레이어는 부르는 쪽이 준 것으로 만든다
+// 기동 때 저장된 재생 세션을 모두 되살린다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
 async function restoreSavedPlayers(client, MusicPlayer) {
   const saved = sessions().loadAll();
   if (saved.length === 0) return;
@@ -47,62 +47,55 @@ async function restoreSavedPlayers(client, MusicPlayer) {
   log.info(`저장된 재생 세션 ${saved.length}개를 복원합니다`);
 
   for (const record of saved) {
-    const { guildId } = record;
     try {
-      const { guild, gone } = await resolveGuildForRestore(client, guildId);
-
-      if (!guild) {
-        // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
-        if (gone) {
-          log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
-          sessions().removeSession(guildId);
-        }
-        continue;
-      }
-
-      const { voiceChannelId, textChannelId } = record.session;
-
-      if (!voiceChannelId || !textChannelId) {
-        sessions().removeSession(guildId);
-        continue;
-      }
-
-      let voiceChannel = guild.channels.cache.get(voiceChannelId) || null;
-      if (!voiceChannel) {
-        voiceChannel = await guild.channels.fetch(voiceChannelId).catch(() => null);
-      }
-
-      let textChannel = guild.channels.cache.get(textChannelId) || null;
-      if (!textChannel) {
-        textChannel = await guild.channels.fetch(textChannelId).catch(() => null);
-      }
-
-      const isVoiceValid = voiceChannel && typeof voiceChannel.isVoiceBased === "function" && voiceChannel.isVoiceBased();
-      const isTextValid = textChannel && typeof textChannel.isTextBased === "function" && textChannel.isTextBased();
-
-      if (!isVoiceValid || !isTextValid) {
-        log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
-        sessions().removeSession(guildId);
-        continue;
-      }
-
-      const player = new MusicPlayer(guild, textChannel, voiceChannel);
-      client.players.set(guildId, player);
-
-      try {
-        await player.restoreFromState(record);
-        log.info(`서버 ${guild.name}의 세션 복원 완료`);
-      } catch (error) {
-        log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, error.message);
-        client.players.delete(guildId);
-        player.cleanup("세션 복원 실패");
-        sessions().removeSession(guildId);
-      }
+      await restoreOne(client, MusicPlayer, record);
     } catch (error) {
-      log.error(`서버 ID ${guildId} 세션 복원 중 오류:`, error.message);
-      sessions().removeSession(guildId);
+      log.error(`서버 ID ${record.guildId} 세션 복원 중 오류:`, error.message);
+      sessions().removeSession(record.guildId);
     }
   }
+}
+
+async function restoreOne(client, MusicPlayer, record) {
+  const { guildId } = record;
+  const { guild, gone } = await resolveGuildForRestore(client, guildId);
+  if (!guild) {
+    // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
+    if (gone) {
+      log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
+      sessions().removeSession(guildId);
+    }
+    return;
+  }
+
+  const channels = await savedChannels(guild, record.session);
+  if (!channels) {
+    sessions().removeSession(guildId);
+    return;
+  }
+
+  const player = new MusicPlayer(guild, channels.text, channels.voice);
+  client.players.set(guildId, player);
+  try {
+    await player.restoreFromState(record);
+    log.info(`서버 ${guild.name}의 세션 복원 완료`);
+  } catch (error) {
+    log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, error.message);
+    client.players.delete(guildId);
+    player.cleanup("세션 복원 실패");
+    sessions().removeSession(guildId);
+  }
+}
+
+// 저장된 음성 · 글자 채널. 기록이 없거나 그 종류의 채널이 아니면 null
+async function savedChannels(guild, { voiceChannelId, textChannelId }) {
+  if (!voiceChannelId || !textChannelId) return null;
+  const find = async (id) => guild.channels.cache.get(id) || (await guild.channels.fetch(id).catch(() => null));
+  const voice = await find(voiceChannelId);
+  const text = await find(textChannelId);
+  if (voice?.isVoiceBased?.() && text?.isTextBased?.()) return { voice, text };
+  log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
+  return null;
 }
 
 module.exports = { resolveGuildForRestore, restoreSavedPlayers, ATTEMPTS, RETRY_DELAY_MS };
