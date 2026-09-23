@@ -1,15 +1,5 @@
 {
-  "direction": [
-    "dashboard/server/routes/admin.js -> src/app/commandLoader.js",
-    "src/player/Player.js -> src/ui/errorMessages.js",
-    "src/player/Player.js -> src/ui/strings.js",
-    "src/player/sessionMirror.js -> src/ui/format.js",
-    "src/player/sessionMirror.js -> src/ui/mentions.js",
-    "src/player/sessionMirror.js -> src/usecases/responders.js",
-    "src/sources/lookup.js -> src/ui/errorMessages.js",
-    "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js",
-    "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"
-  ],
+  "direction": ["dashboard/server/routes/admin.js -> src/app/commandLoader.js", "src/sources/lookup.js -> src/ui/errorMessages.js", "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js", "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"],
   "cycles": [],
   "unseen": ["src/app/moduleLoader.js"],
   "lazyRequire": {

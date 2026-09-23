@@ -19,6 +19,9 @@ const audioCache = require("../../src/store/audioCache");
 const SessionPersistence = require("../../src/player/sessionMirror");
 const trackState = require("../../src/player/trackState");
 
+// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
+require("../../src/player/events").on("notice", require("../../src/ui/playerNotices").sendNotice);
+
 before(() => {
   removeDb();
   audioCache.initialize(DB_PATH);
@@ -389,7 +392,7 @@ test("복원 안내: 멈춘 채 되살렸으면 재개됐다고 하지 않는다
 });
 
 test("복원 안내는 잠시 뒤 지운다", async () => {
-  const { AUTO_DELETE_MS } = require("../../src/usecases/responders");
+  const { AUTO_DELETE_MS } = require("../../src/ui/transientMessages");
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const channel = fakeChannel();

@@ -2,7 +2,7 @@
 
 const { MessageFlags } = require("discord.js");
 const log = require("../infra/log/logger").child({ category: "player" });
-const { markTransient } = require("../ui/transientMessages");
+const { scheduleDelete } = require("../ui/transientMessages");
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -16,17 +16,6 @@ const { markTransient } = require("../ui/transientMessages");
  * 둘 다 던지지 않는다. 안내 실패가 재생을 망가뜨리면 안 된다.
  * 실패 경로에서는 코어가 dismissPlaceholder를 부르지 않는다. 진입점이 자리표시자에 오류를 덮어쓸 수 있게.
  */
-
-const AUTO_DELETE_MS = 10000;
-
-// 안내 메시지는 채널에 쌓이지 않게 잠시 뒤 지운다. 이미 지워졌을 수 있으므로 실패는 무시.
-function scheduleDelete(message, ms = AUTO_DELETE_MS) {
-  if (!message || typeof message.delete !== "function") return;
-  markTransient(message.id, ms);
-  setTimeout(() => {
-    Promise.resolve(message.delete()).catch(() => {});
-  }, ms);
-}
 
 // 두 번 불려도 한 번만 실행되는 정리 함수. 코어와 진입점이 모두 부를 수 있다.
 function onceDismiss(fn) {
@@ -109,4 +98,4 @@ const silentResponder = {
   async dismissPlaceholder() {},
 };
 
-module.exports = { interactionResponder, channelResponder, silentResponder, scheduleDelete, AUTO_DELETE_MS, _internals: { scheduleDelete, onceDismiss } };
+module.exports = { interactionResponder, channelResponder, silentResponder, _internals: { onceDismiss } };

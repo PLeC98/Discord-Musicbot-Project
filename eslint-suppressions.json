@@ -125,10 +125,10 @@
       "count": 1
     },
     "no-empty": {
-      "count": 2
+      "count": 1
     },
     "no-empty-function": {
-      "count": 8
+      "count": 6
     }
   },
   "src/player/idleLeave.js": {
@@ -148,9 +148,6 @@
   },
   "src/player/sessionMirror.js": {
     "complexity": {
-      "count": 1
-    },
-    "max-statements": {
       "count": 1
     },
     "no-empty-function": {
@@ -277,7 +274,7 @@
   },
   "src/usecases/responders.js": {
     "no-empty-function": {
-      "count": 3
+      "count": 2
     }
   },
   "src/store/playerSessions.js": {
@@ -303,6 +300,11 @@
   "src/app/resilience.js": {
     "no-empty-function": {
       "count": 2
+    }
+  },
+  "src/ui/transientMessages.js": {
+    "no-empty-function": {
+      "count": 1
     }
   }
 }

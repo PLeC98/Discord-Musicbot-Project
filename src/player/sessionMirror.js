@@ -5,9 +5,6 @@ const db = require("../store/db");
 const { sessions } = require("../store/playerSessions");
 const trackState = require("./trackState");
 const config = require("../../config");
-const { formatDuration } = require("../ui/format");
-const { escapeMd } = require("../ui/mentions");
-const { scheduleDelete } = require("../usecases/responders");
 const playerEvents = require("./events");
 
 const HEARTBEAT_MS = 5000;
@@ -293,12 +290,9 @@ class SessionPersistence {
       }
     }
 
-    if (player.textChannel && player.currentTrack) {
+    if (player.currentTrack) {
       try {
-        const title = escapeMd(player.currentTrack.title || "Unknown");
-        const at = formatDuration(Math.floor(resumeMs / 1000));
-        const content = player.paused ? `⏸️ 일시정지 상태로 복원됨 • **${title}** (${at})` : `▶️ 음악 재개됨 • **${title}** (${at})`;
-        scheduleDelete(await player.textChannel.send({ content }));
+        await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(resumeMs / 1000), paused: player.paused });
       } catch {
         // 메시지를 보낼 수 없으면 무시
       }

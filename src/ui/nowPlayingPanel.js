@@ -16,7 +16,7 @@ const UNKNOWN_WEBHOOK = 10015;
 const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNKNOWN_WEBHOOK;
 
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
-// 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(playbackResponder.AUTO_DELETE_MS).
+// 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
 const { markTransient, isTransient } = require("./transientMessages");
 const blankThumbnail = require("./blankThumbnail");
@@ -134,8 +134,8 @@ class MusicEmbedManager {
             const playResult = await player.play();
             // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
             // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.
-            if (playResult && playResult.success === false) {
-              startFailure = playResult.message || "재생을 시작할 수 없습니다.";
+            if (playResult && playResult.ok === false) {
+              startFailure = ErrorHandler.playFailure(playResult);
             } else {
               playbackStarted = true;
             }
@@ -175,7 +175,7 @@ class MusicEmbedManager {
       if (startFailure && !player.currentTrack && player.queue.length > 0) {
         try {
           const nextResult = await player.play(0);
-          if (nextResult && nextResult.success !== false && player.currentTrack) {
+          if (nextResult && nextResult.ok !== false && player.currentTrack) {
             startFailure = null;
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, player.currentTrack, requester, responder);

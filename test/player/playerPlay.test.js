@@ -43,7 +43,7 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, true);
+  assert.equal(r.ok, true);
   assert.equal(calls.spawns.length, 1);
   assert.equal(calls.spawns[0].label, "playback");
   assert.match(argsOf(calls.spawns[0]), new RegExp(`-i ${file.replace(/[\\.]/g, "\\$&")}`));
@@ -59,7 +59,7 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
 test("재생 단계: 틀지 못하면 idle 로 돌아오고, 정지하면 disposed", async () => {
   const p = h.makePlayer();
   const r = await playOnce(p); // 대기열이 비었다
-  assert.equal(r.success, false);
+  assert.equal(r.ok, false);
   assert.equal(p.lifecycle.phase, "idle");
   assert.equal(p.isPlayStarting, false);
 
@@ -117,7 +117,7 @@ test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시�
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, true);
+  assert.equal(r.ok, true);
   assert.equal(calls.fetches.length, 1, "길이를 모르는 주소는 단일 GET");
   assert.equal(calls.fetches[0].url, "https://media.test/a");
   assert.deepEqual(calls.fetches[0].init.headers, { "User-Agent": "yt-dlp" }, "yt-dlp 가 준 헤더를 그대로");
@@ -184,7 +184,7 @@ test("스트림이 실패해도 그사이 캐시가 다 받아졌으면 파일�
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, true);
+  assert.equal(r.ok, true);
   assert.equal(calls.spawns.length, 1, "스트림 ffmpeg 는 띄우지 않고 파일만");
   assert.equal(calls.spawns[0].label, "playback");
 });
@@ -200,8 +200,9 @@ test("스트림도 캐시도 안 되면 실패를 돌려주고 멈춘다", async
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, false);
-  assert.equal(typeof r.message, "string", "지금은 사람이 읽을 문장을 돌려준다");
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "play-failed");
+  assert.ok(r.error, "문장은 화면이 만든다. 오류를 그대로 넘긴다");
   assert.equal(p.currentTrack, null, "대기열이 비어 있으면 현재 곡을 비운다");
   assert.ok(p.audioPlayer.stops >= 1, "말하는 중 상태를 푼다");
 });
@@ -215,7 +216,7 @@ test("스트림 주소를 못 받으면 실패", async () => {
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, false);
+  assert.equal(r.ok, false);
   assert.equal(calls.spawns.length, 0);
 });
 
@@ -280,7 +281,7 @@ test("ffmpeg 가 HLS 를 못 열면 실패", async () => {
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, false);
+  assert.equal(r.ok, false);
 });
 
 // ── 스포티파이 ─────────────────────────────────────────────────────────
@@ -323,7 +324,7 @@ test("스트림 서술자도 받아 둔 파일도 없으면 실패", async () =>
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, false);
+  assert.equal(r.ok, false);
   assert.equal(calls.spawns.length, 0);
 });
 
@@ -344,7 +345,7 @@ test("스포티파이: 동등물을 못 찾으면 실패", async () => {
 
   const r = await playOnce(p);
 
-  assert.equal(r.success, false);
+  assert.equal(r.ok, false);
 });
 
 // ── 위치 · 인트로 · 제목 ───────────────────────────────────────────────
@@ -415,7 +416,7 @@ test("현재 곡도 대기열도 없으면 실패 문장을 돌려준다", async
 
   const r = await playOnce(p);
 
-  assert.deepEqual(r, { success: false, message: "대기열에 트랙이 없습니다!" });
+  assert.deepEqual(r, { ok: false, code: "queue-empty" });
 });
 
 test("음성에 안 붙어 있으면 먼저 붙는다", async () => {

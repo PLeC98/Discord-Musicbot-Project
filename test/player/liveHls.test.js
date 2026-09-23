@@ -193,8 +193,7 @@ test("탐색: 라이브에는 옮길 자리가 없다. 재생을 다시 걸지 �
     },
   });
   const result = player.seek(30000, "seek");
-  assert.equal(result.success, false);
-  assert.match(result.message, /라이브/);
+  assert.deepEqual(result, { ok: false, code: "live-no-seek" });
   assert.equal(played, 0, "play()까지 가면 안 된다");
 });
 
@@ -250,7 +249,7 @@ const endingPlayer = (overrides = {}) => {
     releaseAudioProtection() {},
     play: async (ms) => {
       played.push(ms);
-      return { success: true };
+      return { ok: true };
     },
     ...overrides,
   });

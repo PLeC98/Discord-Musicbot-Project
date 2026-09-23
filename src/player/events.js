@@ -7,6 +7,7 @@
 //   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · disconnected)
 //   started(player, requester)  패널 없이 재생이 시작됐다(자동재생 첫 곡). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
+//   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 
 const log = require("../infra/log/logger").child({ category: "player" });
@@ -29,6 +30,7 @@ async function emit(name, ...args) {
 const refresh = (player) => emit("refresh", player);
 const ended = (player, reason) => emit("ended", player, reason);
 const started = (player, requester) => emit("started", player, requester);
+const notice = (player, code, detail = {}) => emit("notice", player, code, detail);
 
 function released(player, textChannelId) {
   for (const fn of listeners.get("released") ?? []) fn(player, textChannelId);
@@ -45,4 +47,4 @@ function touched(guildId) {
   }
 }
 
-module.exports = { on, refresh, ended, started, released, touched, _reset: () => listeners.clear() };
+module.exports = { on, refresh, ended, started, notice, released, touched, _reset: () => listeners.clear() };

@@ -18,6 +18,9 @@ const { calls, AudioPlayerStatus } = h;
 beforeEach(() => h.reset());
 
 const yt = require("../helpers/tracks").youtube;
+
+// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
+require("../../src/player/events").on("notice", require("../../src/ui/playerNotices").sendNotice);
 const tick = (ms = 0) => new Promise((done) => setTimeout(done, ms));
 
 // 받아 둔 곡으로 만든다. 다음 곡을 틀 때 스트림 없이 파일 갈래로 가게 한다
@@ -117,7 +120,7 @@ test("손으로 넘긴 곡은 일찍 끝나도 다시 틀지 않는다", async (
     let replays = 0;
     p.play = async () => {
       replays += 1;
-      return { success: true };
+      return { ok: true };
     };
 
     await p.handleTrackEnd(reason);
@@ -135,7 +138,7 @@ test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 �
   const seeks = [];
   p.play = async (seekMs) => {
     seeks.push(seekMs);
-    return { success: true };
+    return { ok: true };
   };
 
   const started = Date.now();
@@ -486,10 +489,11 @@ test("handleError: 대기열이 있으면 알리고 다음 곡을 튼다", async
   const next = cached("zzzzzzzzzzz");
   p.queue = [next];
 
-  await p.handleError(new Error("x"), "못 틀었어요");
+  await p.handleError(new Error("x"), { tell: true });
   h.dispose(p);
 
-  assert.deepEqual(sent, ["못 틀었어요"]);
+  assert.equal(sent.length, 1, "무엇이 잘못됐는지 채널에 알린다");
+  assert.match(sent[0], /오류/);
   assert.equal(p.currentTrack, next);
   assert.equal(p.previousTracks.length, 0, "실패한 곡은 기록에 넣지 않는다");
 });
@@ -584,7 +588,7 @@ test("위치 이동: 라이브는 거절, 아니면 그 자리에서 play", asyn
   await p.seek(20000, "replay");
   h.dispose(p);
 
-  assert.equal(r.success, false);
+  assert.equal(r.ok, false);
   assert.deepEqual(seeks, [20000]);
 });
 

@@ -31,6 +31,7 @@ const { createFileDestination } = require("../infra/log/file");
 const { startDashboard } = require("../../dashboard/server/index");
 const playerStream = require("../../dashboard/server/playerStream");
 const playerEvents = require("../player/events");
+const { sendNotice } = require("../ui/playerNotices");
 
 const log = logger.child({ category: "core" });
 const ROOT = path.join(__dirname, "..", "..");
@@ -98,6 +99,7 @@ function listenToPlayers(panels) {
   playerEvents.on("ended", (player, reason) => panels.handlePlaybackEnd(player, { reason }));
   playerEvents.on("started", (player, requester) => panels.createNewMusicEmbed(player, player.currentTrack, requester));
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
+  playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));
   playerEvents.on("touched", (guildId) => playerStream.notify(guildId));
 }
 

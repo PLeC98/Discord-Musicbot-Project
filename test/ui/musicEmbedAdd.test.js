@@ -14,7 +14,7 @@ const track = (id, extra = {}) => ({ id, title: `곡 ${id}`, url: `https://youtu
 const who = { id: "u1", username: "사용자" };
 
 // 연결 · 재생 결과를 시험마다 정하는 가짜 플레이어
-function setup({ current = null, queue = [], plays = [{ success: true }], connected = false } = {}) {
+function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false } = {}) {
   const calls = [];
   const sent = [];
   const player = {
@@ -36,7 +36,7 @@ function setup({ current = null, queue = [], plays = [{ success: true }], connec
     },
     async play(...args) {
       calls.push(["play", ...args]);
-      const next = plays.shift() ?? { success: true };
+      const next = plays.shift() ?? { ok: true };
       if (next instanceof Error) throw next;
       // 진짜 play() 는 현재 곡이 없으면 대기열에서 꺼낸다
       if (!this.currentTrack && this.queue.length) this.currentTrack = this.queue.shift();
@@ -72,12 +72,12 @@ test("이미 붙어 있으면 연결하지 않는다", async () => {
 });
 
 test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만든다", async () => {
-  const withMessage = setup({ plays: [{ success: false, message: "스트림 실패" }] });
-  assert.deepEqual(await withMessage.mem.handleMusicData("g1", { tracks: [track("a")] }, who), { success: false, message: "스트림 실패" });
-  assert.equal(withMessage.player.currentTrack, null);
-  assert.ok(!withMessage.calls.some((c) => c[0] === "embed"));
+  const withCode = setup({ plays: [{ ok: false, code: "voice-failed" }] });
+  assert.deepEqual(await withCode.mem.handleMusicData("g1", { tracks: [track("a")] }, who), { success: false, message: "음성 채널에 연결하지 못했습니다!" });
+  assert.equal(withCode.player.currentTrack, null);
+  assert.ok(!withCode.calls.some((c) => c[0] === "embed"));
 
-  const noMessage = setup({ plays: [{ success: false }] });
+  const noMessage = setup({ plays: [{ ok: false }] });
   assert.deepEqual(await noMessage.mem.handleMusicData("g1", { tracks: [track("a")] }, who), { success: false, message: "재생을 시작할 수 없습니다." });
 
   const thrown = setup({ plays: [new Error("fetch failed")] });
@@ -87,7 +87,7 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
 });
 
 test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀어 되살린다", async () => {
-  const { mem, player, calls, sent } = setup({ plays: [{ success: false, message: "첫 곡 실패" }, { success: true }] });
+  const { mem, player, calls, sent } = setup({ plays: [{ ok: false, code: "voice-failed" }, { ok: true }] });
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const r = await mem.handleMusicData("g1", { isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
@@ -109,8 +109,8 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
 });
 
 test("되살리기도 실패하면 첫 곡의 실패를 돌려준다", async () => {
-  const { mem } = setup({ plays: [{ success: false, message: "첫 곡 실패" }, { success: false }] });
-  assert.deepEqual(await mem.handleMusicData("g1", { isPlaylist: true, tracks: [track("a"), track("b")] }, who), { success: false, message: "첫 곡 실패" });
+  const { mem } = setup({ plays: [{ ok: false, code: "voice-failed" }, { ok: false }] });
+  assert.deepEqual(await mem.handleMusicData("g1", { isPlaylist: true, tracks: [track("a"), track("b")] }, who), { success: false, message: "음성 채널에 연결하지 못했습니다!" });
 });
 
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {

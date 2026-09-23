@@ -22,15 +22,15 @@ const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인
 
 /**
  * 틀 곡과 시작 위치.
- * @returns {Promise<{ok: true, startMs: number} | {ok: false, message: string}>}
+ * @returns {Promise<{ok: true, startMs: number} | {ok: false, code: "queue-empty" | "voice-failed"}>}
  */
 async function prepareStart(player, seekMs) {
   if (!player.currentTrack) {
-    if (player.queue.length === 0) return { ok: false, message: "대기열에 트랙이 없습니다!" };
+    if (player.queue.length === 0) return { ok: false, code: "queue-empty" };
     trackState.shiftNext(player);
   }
   if (!player.connection && !(await player.connect())) {
-    return { ok: false, message: "음성 채널에 연결하지 못했습니다!" };
+    return { ok: false, code: "voice-failed" };
   }
 
   const wanted = Number(seekMs) || 0;

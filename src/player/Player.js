@@ -4,11 +4,13 @@ const log = require("../infra/log/logger").child({ category: "player" });
 const wlog = require("../infra/log/logger").child({ category: "watchdog" });
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
 const clog = require("../infra/log/logger").child({ category: "control" });
+// 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
+const elog = require("../infra/log/logger").child({ category: "error" });
 const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../../config");
 const autoplayRoute = require("../autoplay/route");
-const ErrorHandler = require("../ui/errorMessages");
+const { errorKind } = require("../rules/errorKind");
 const streamUrl = require("../sources/streamUrl");
 const SponsorSkipper = require("./sponsorSkipper");
 const DirectLink = require("../sources/direct");
@@ -28,7 +30,6 @@ const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./sessionMirror");
 const QueueWarmer = require("./queueWarmer");
 const trackState = require("./trackState");
-const S = require("../ui/strings");
 const { spawnFfmpeg } = require("../media/ffmpeg/process");
 const { transportOf } = require("../rules/transportOf");
 const { buildFfmpegArgs } = require("../media/ffmpeg/args");
@@ -42,6 +43,9 @@ const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 �
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
 const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받아 다시 여는 횟수
 const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
+
+// 채널 알림을 못 보낸 것(권한 · 지워진 채널)은 재생을 막지 않는다
+const noticeFailed = (error) => log.warn(`채널 알림을 보내지 못했습니다: ${error?.message || error}`);
 
 const sec = (ms) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
@@ -242,7 +246,7 @@ class MusicPlayer {
     this.lifecycle.to("starting");
     try {
       const start = await prepareStart(this, seekMs);
-      if (!start.ok) return { success: false, message: start.message };
+      if (!start.ok) return start;
 
       // 새 재생. 위치 재개는 직전 재생이 남긴 스트림 정보를 쓴다(같은 곡일 때만)
       this.pendingEndReason = null;
@@ -282,11 +286,11 @@ class MusicPlayer {
 
       await commitPlaying(this, pb, source);
       this.lifecycle.to("playing");
-      return { success: true, track: this.currentTrack };
+      return { ok: true, track: this.currentTrack };
     } catch (error) {
-      const errorMsg = ErrorHandler.handle(error, "MusicPlayer.play");
-      await this.handleError(error, errorMsg);
-      return { success: false, message: errorMsg };
+      elog.error({ sub: "MusicPlayer.play", kind: errorKind(error) }, `${error?.message || error}`);
+      await this.handleError(error, { tell: true });
+      return { ok: false, code: "play-failed", error };
     } finally {
       // 틀지 못하고 나왔다(대기열이 비었거나 실패). 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰다
       if (this.lifecycle.starting) this.lifecycle.to("idle", "시작 못 함");
@@ -556,7 +560,7 @@ class MusicPlayer {
     // 라이브에는 실시간밖에 없다. 되감을 자리도, 앞서 갈 자리도 없다.
     if (this.isLive) {
       clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);
-      return { success: false, message: S.ERR_LIVE_NO_SEEK };
+      return { ok: false, code: "live-no-seek" };
     }
     const from = Math.round((this.lastPlaybackPosition || 0) / 1000);
     clog.info(`위치 이동: ${this._trackLabel()} | ${from}초 → ${Math.round(seekMs / 1000)}초 | 원인=${reason}`);
@@ -822,9 +826,7 @@ class MusicPlayer {
         if (!genres[this.autoplay]) {
           // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
           log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
-          if (this.textChannel) {
-            this.textChannel?.send(`❌ 자동재생 장르 \`${this.autoplay}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`).catch(() => {});
-          }
+          playerEvents.notice(this, "autoplay-unknown-genre", { genre: this.autoplay }).catch(noticeFailed);
           this.autoplay = false;
         } else {
           this.currentTrackRetries = 0;
@@ -903,7 +905,7 @@ class MusicPlayer {
     if (!this.autoplay) return;
     const genre = this.autoplay;
     log.warn(`자동재생을 종료합니다. 곡을 찾지 못했습니다 (장르 ${genre})`);
-    this.textChannel?.send(`⏹️ \`${genre}\` 장르에서 틀 만한 곡을 찾지 못해 자동재생을 껐습니다.`).catch(() => {});
+    playerEvents.notice(this, "autoplay-gave-up", { genre }).catch(noticeFailed);
     this.setAutoplay(false);
   }
 
@@ -988,14 +990,15 @@ class MusicPlayer {
     return this.queue.length < Math.max(1, want);
   }
 
-  async handleError(error, userMessage = null) {
+  // tell: 다음 곡으로 넘길 때 무엇이 잘못됐는지 채널에 알린다
+  async handleError(error, { tell = false } = {}) {
     // 내려간 영상을 고른 자동재생 곡. 우리가 고른 것이니 사용자에게 알릴 일이 아니다.
     // 기억해 두고(다음에 또 고르지 않게) 조용히 다른 곡으로 넘어간다.
     const failed = this.currentTrack;
     if (failed?.autoplay && require("../sources/youtube/index").isVideoUnavailableError(error)) {
       autoplayRoute.markDead(failed);
       log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${failed.title}"`);
-      userMessage = null;
+      tell = false;
     }
 
     // 대기열이 비었어도 자동재생 중이면 멈추지 않는다. 그대로 두면 봇이 얼어붙는다.
@@ -1007,11 +1010,7 @@ class MusicPlayer {
     // 오류 시 다음 트랙으로 스킵 시도
     if (this.queue.length > 0) {
       // 스킵 전에 오류를 텍스트 채널로 전송
-      if (userMessage && this.textChannel) {
-        try {
-          await this.textChannel.send(userMessage);
-        } catch (_) {}
-      }
+      if (tell) await playerEvents.notice(this, "skipped-after-error", { error }).catch(noticeFailed);
       trackState.shiftNext(this);
       await this.play(0);
     } else {

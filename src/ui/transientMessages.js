@@ -25,4 +25,15 @@ function isTransient(messageId, now = Date.now()) {
   return false;
 }
 
-module.exports = { markTransient, isTransient };
+const AUTO_DELETE_MS = 10000;
+
+// 안내 메시지는 채널에 쌓이지 않게 잠시 뒤 지운다. 이미 지워졌을 수 있으므로 실패는 무시.
+function scheduleDelete(message, ms = AUTO_DELETE_MS) {
+  if (!message || typeof message.delete !== "function") return;
+  markTransient(message.id, ms);
+  setTimeout(() => {
+    Promise.resolve(message.delete()).catch(() => {});
+  }, ms);
+}
+
+module.exports = { markTransient, isTransient, scheduleDelete, AUTO_DELETE_MS };

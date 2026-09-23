@@ -22,6 +22,12 @@ const ERROR_MESSAGES = {
  *   const msg = await ErrorHandler.getMessage(error);
  *   await interaction.editReply({ content: msg });
  */
+// play() 가 곡을 못 틀었을 때(code). 오류로 못 튼 것은 오류 종류로 안내한다
+const PLAY_FAILURE = {
+  "queue-empty": "대기열에 트랙이 없습니다!",
+  "voice-failed": "음성 채널에 연결하지 못했습니다!",
+};
+
 class ErrorHandler {
   // 종류는 rules/errorKind 가 가른다
   static classify(error) {
@@ -45,6 +51,11 @@ class ErrorHandler {
    * @param {string} context. 예: 'play.js search', 'MusicPlayer.play'
    * @returns {string}
    */
+  /** play() 의 실패 결과({ ok: false, code, error })를 사용자 문장으로 */
+  static playFailure(result) {
+    return PLAY_FAILURE[result?.code] ?? (result?.error ? this.getMessage(result.error) : "재생을 시작할 수 없습니다.");
+  }
+
   static handle(error, context = "") {
     const category = this.classify(error);
     // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
