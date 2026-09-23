@@ -1,10 +1,8 @@
-"use strict";
-
 // src/player/sponsorSkipper.js — 발동 판정(decide) 순수 로직: 교차 감지, 수동 진입 배제, 아웃트로→종료.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const SponsorSkipper = require("../../src/player/sponsorSkipper");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import SponsorSkipper from "../../src/player/sponsorSkipper.js";
 
 const segs = (...pairs) => pairs.map(([start, end]) => ({ start, end, categories: ["music_offtopic"] }));
 

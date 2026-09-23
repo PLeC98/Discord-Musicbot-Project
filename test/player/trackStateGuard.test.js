@@ -1,13 +1,11 @@
-"use strict";
-
 // 현재곡·대기열·기록은 src/player/trackState.js만 바꾼다. 다른 곳에서 직접 바꾸면 저장이 그 변화를 모른다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("fs");
-const path = require("path");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "fs";
+import path from "path";
 
-const ROOT = path.join(__dirname, "..", "..");
+const ROOT = path.join(import.meta.dirname, "..", "..");
 const DIRS = ["src", "commands", "events", path.join("dashboard", "server")];
 const OWNER = path.join("src", "player", "trackState.js");
 

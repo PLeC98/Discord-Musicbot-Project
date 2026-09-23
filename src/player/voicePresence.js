@@ -1,10 +1,9 @@
-"use strict";
-
 // 음성 상태 이벤트 해석. 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음을 가리고, 언제 나가는지는 idleLeave 가 정한다.
 
-const log = require("../infra/log/logger").child({ category: "core" });
-const playerEvents = require("./events");
-const trackState = require("./trackState");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "core" });
+import playerEvents from "./events.js";
+import trackState from "./trackState.js";
 
 async function onVoiceStateUpdate(client, oldState, newState) {
   const guild = oldState.guild;
@@ -81,4 +80,6 @@ async function listenersChanged(client, player, guild, oldState, newState) {
   if (wasAlone === someone && player.currentTrack) await playerEvents.refresh(player);
 }
 
-module.exports = { onVoiceStateUpdate };
+const exported = { onVoiceStateUpdate };
+export default exported;
+export { exported as "module.exports" };

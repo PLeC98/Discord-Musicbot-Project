@@ -1,5 +1,3 @@
-"use strict";
-
 // MusicPlayer.play() 의 지금 동작을 고정한다(구조 리팩터링 0단계).
 //
 // 옳고 그름을 따지는 테스트가 아니다. 리팩터링이 play() 를 다섯 함수로 나눌 때 **무엇이 바뀌었는지**
@@ -7,18 +5,19 @@
 //
 // 갈래마다 셋을 본다. 어떤 ffmpeg 를 무엇으로 띄웠나, 캐시 장부에 무엇을 적었나, 끝난 뒤 플레이어 상태.
 
-const h = require("../helpers/playerHarness");
-const audioCache = require("../../src/store/audioCache");
-const { test, beforeEach } = require("node:test");
-const assert = require("node:assert/strict");
-const { AudioSplicer } = require("../../src/media/audioSplicer");
-const { PassThrough } = require("node:stream");
+import h from "../helpers/playerHarness.js";
+import audioCache from "../../src/store/audioCache.js";
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import audioSplicer from "../../src/media/audioSplicer.js";
+const { AudioSplicer } = audioSplicer;
+import { PassThrough } from "node:stream";
 
 const { calls, behavior } = h;
 
 beforeEach(() => h.reset());
 
-const tracks = require("../helpers/tracks");
+const tracks = (await import("../helpers/tracks.js")).default;
 
 const yt = tracks.youtube;
 const argsOf = (child) => child.args.join(" ");

@@ -1,8 +1,8 @@
-"use strict";
-
-const { RESTJSONErrorCodes } = require("discord.js");
-const log = require("../infra/log/logger").child({ category: "session" });
-const { sessions } = require("../store/playerSessions");
+import { RESTJSONErrorCodes } from "discord.js";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "session" });
+import playerSessions from "../store/playerSessions.js";
+const { sessions } = playerSessions;
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
@@ -107,4 +107,6 @@ async function savedChannels(guild, { voiceChannelId, textChannelId }) {
   return null;
 }
 
-module.exports = { resolveGuildForRestore, restoreSavedPlayers, ATTEMPTS, RETRY_DELAY_MS };
+const exported = { resolveGuildForRestore, restoreSavedPlayers, ATTEMPTS, RETRY_DELAY_MS };
+export default exported;
+export { exported as "module.exports" };

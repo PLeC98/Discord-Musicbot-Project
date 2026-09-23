@@ -1,5 +1,3 @@
-"use strict";
-
 // src/player/Player.js — 반복 모드 × 트랙 전이(자연 종료/스킵/이전곡) 계약
 // 회귀 대상 3종:
 //  1. 한곡 반복 중 스킵이 대기열을 진행시킴 (기대: 현재 곡 재시작, 대기열 불변)
@@ -7,10 +5,10 @@
 //  3. 한곡 반복 중 이전곡을 누르면 곡이 증식하며 두 곡이 번갈아 재생됨
 // handleTrackEnd/previous를 프로토타입 호출 — 실 오디오/연결 없이 상태 전이만 검증.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const MusicPlayer = require("../../src/player/Player");
-const PlaybackState = require("../../src/player/playbackState");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import MusicPlayer from "../../src/player/Player.js";
+import PlaybackState from "../../src/player/playbackState.js";
 
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 const previous = MusicPlayer.prototype.previous;

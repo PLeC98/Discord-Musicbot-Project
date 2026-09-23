@@ -1,14 +1,13 @@
-"use strict";
-
 // 언제 음성 채널을 떠나나. 타이머 둘을 이 모듈이 가지고 stop() 하나로 치운다.
 //   혼자 남음   채널에 사람이 없으면 멈추고, 정해진 시간 뒤에도 없으면 정리한다(leaveDelayAloneMs)
 //   틀 게 없음  대기열이 비면 정해진 시간 뒤 정리한다(leaveDelayQueueEmptyMs)
 // 누가 혼자 남았는지 알아보는 것(음성 상태 해석)은 부르는 쪽이 한다. 여기는 시간만 잰다.
 
-const log = require("../infra/log/logger").child({ category: "player" });
-const config = require("../../config");
-const trackState = require("./trackState");
-const playerEvents = require("./events");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "player" });
+import config from "../../config.js";
+import trackState from "./trackState.js";
+import playerEvents from "./events.js";
 
 class IdleLeave {
   constructor(player) {
@@ -122,4 +121,5 @@ class IdleLeave {
   }
 }
 
-module.exports = IdleLeave;
+export default IdleLeave;
+export { IdleLeave as "module.exports" };

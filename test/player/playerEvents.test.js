@@ -1,10 +1,8 @@
-"use strict";
-
 // src/player/events.js — 플레이어가 화면과 대시보드에 알리는 창구.
 
-const { test, afterEach } = require("node:test");
-const assert = require("node:assert/strict");
-const playerEvents = require("../../src/player/events");
+import { test, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import playerEvents from "../../src/player/events.js";
 
 afterEach(() => playerEvents._reset());
 

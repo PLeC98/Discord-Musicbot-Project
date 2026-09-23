@@ -1,12 +1,11 @@
-"use strict";
-
 // 재생 감시 둘. 타이머는 이 모듈이 가지고 stop() 하나로 치운다.
 //   종료 감시     곡이 끝났는데 Idle 이 오지 않는 경우. 길이를 넘기면 멈춰 종료 처리에 맡긴다
 //   버퍼링 감시   재생이 시작되지 않은 채 입력도 없이 멈춘 경우. 멈춰 같은 곡을 다시 시도하게 한다
 // 둘 다 audioPlayer.stop() 으로 Idle 을 일으키고, 왜 멈췄는지(pendingEndReason)를 남긴다.
 
-const { AudioPlayerStatus } = require("@discordjs/voice");
-const wlog = require("../infra/log/logger").child({ category: "watchdog" });
+import { AudioPlayerStatus } from "@discordjs/voice";
+import logger from "../infra/log/logger.js";
+const wlog = logger.child({ category: "watchdog" });
 
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 
@@ -152,5 +151,6 @@ class PlaybackWatch {
   }
 }
 
-module.exports = PlaybackWatch;
-module.exports.BUFFERING_STALL_MS = BUFFERING_STALL_MS;
+export default PlaybackWatch;
+export { PlaybackWatch as "module.exports" };
+PlaybackWatch.BUFFERING_STALL_MS = BUFFERING_STALL_MS;

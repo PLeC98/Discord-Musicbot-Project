@@ -1,9 +1,8 @@
-"use strict";
-
 // 현재곡·대기열·기록을 바꾸는 유일한 통로. 필드는 플레이어에 그대로 두고 읽기는 어디서든 한다.
 // 바꾼 뒤 player.trackSink에 알린다. 세션 저장이 메모리를 따라가는 길은 이것 하나다.
 
-const { HISTORY_MAX } = require("../rules/history");
+import historyModule from "../rules/history.js";
+const { HISTORY_MAX } = historyModule;
 
 const sinkOf = (player) => player.trackSink;
 
@@ -146,7 +145,7 @@ function restore(player, { current = null, queue = [], history = [] }, { persist
   if (!persisted) sinkOf(player)?.onReplace();
 }
 
-module.exports = {
+const exported = {
   HISTORY_MAX,
   roomLeft,
   init,
@@ -165,3 +164,5 @@ module.exports = {
   reset,
   restore,
 };
+export default exported;
+export { exported as "module.exports" };

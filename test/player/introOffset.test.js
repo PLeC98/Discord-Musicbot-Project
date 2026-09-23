@@ -1,10 +1,9 @@
-"use strict";
-
 // src/player/startPlayback.js introOffsetMs — 신규 재생의 인트로 초기 오프셋 산출.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { introOffsetMs: intro } = require("../../src/player/startPlayback");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import startPlayback from "../../src/player/startPlayback.js";
+const { introOffsetMs: intro } = startPlayback;
 
 test("introOffsetMs: 0 부근 시작 인트로 → 끝(ms)", () => {
   assert.equal(intro({ skipSegments: [{ start: 0, end: 138, categories: ["intro"] }] }), 138000);

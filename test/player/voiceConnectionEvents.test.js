@@ -1,15 +1,13 @@
-"use strict";
-
 // VoiceConnectionManager 의 연결 이벤트 · 헬스체크 · 재연결 · 재개 · 연결 · 이동의 지금 동작을 고정한다
 // (구조 리팩터링 0단계). 복구 루프 자체는 voiceConnectionManager.test.js 가 본다.
 //
 // 음성 라이브러리의 joinVoiceChannel · entersState 는 관리자를 만들 때 가짜로 넘긴다.
 
-const { test, beforeEach, mock } = require("node:test");
-const assert = require("node:assert/strict");
-const { EventEmitter } = require("events");
+import { test, beforeEach, mock } from "node:test";
+import assert from "node:assert/strict";
+import { EventEmitter } from "events";
 
-const { VoiceConnectionStatus } = require("@discordjs/voice");
+import { VoiceConnectionStatus } from "@discordjs/voice";
 
 const joins = [];
 let enters = async () => {}; // (connection, status, ms) → 성공이면 resolve
@@ -42,7 +40,7 @@ const voiceLib = {
   },
 };
 
-const VoiceConnectionManager = require("../../src/player/voiceConnection");
+const VoiceConnectionManager = (await import("../../src/player/voiceConnection.js")).default;
 
 const flush = () => new Promise((done) => setImmediate(done));
 

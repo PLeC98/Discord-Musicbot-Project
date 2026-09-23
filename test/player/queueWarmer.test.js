@@ -1,5 +1,3 @@
-"use strict";
-
 // src/player/queueWarmer.js — 대기열 앞부분을 캐시에 올린 상태로 유지하는 계약
 //
 // 핵심은 "언제 움직이지 않는가"다. 조작이 진행 중일 때 받기 시작하면 곧 쓸모없어질 곡을
@@ -7,9 +5,14 @@
 //
 // 협력자는 전부 주입 — 실 파일·네트워크 없이 판정만 검증한다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const QueueWarmer = require("../../src/player/queueWarmer");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import QueueWarmer from "../../src/player/queueWarmer.js";
+
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
 
 const track = (id, extra = {}) => ({ title: id, requestKey: `https://y/${id}`, audioKey: `yt:${id}`, ...extra });
 

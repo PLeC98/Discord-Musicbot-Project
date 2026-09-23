@@ -1,5 +1,3 @@
-"use strict";
-
 // src/player/Player.js — 지연 정리 타이머가 "자기가 아직 현행 플레이어인지" 확인하고 움직이는지.
 //
 // 회귀 대상 (2026-09-08 실서버 관측): 대기열 소진 타이머는 트랙이 끝날 때마다 새로 예약되는데
@@ -7,17 +5,18 @@
 // 기준으로 조건을 통과하고는 길드 키로 client.players에서 지웠다. 그 사이 새 플레이어가
 // 등록돼 재생 중이면 그것이 지워진다 — 소리는 나는데 /nowplaying·대시보드는 "재생 중 없음"이 된다.
 
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
-const { openTempStore } = require("../helpers/tempStore");
+import tempStore from "../helpers/tempStore.js";
+const { openTempStore } = tempStore;
 const store = openTempStore("registry-guard-");
 after(() => store.close());
 
-const config = require("../../config");
-const MusicPlayer = require("../../src/player/Player");
-const PlaybackState = require("../../src/player/playbackState");
-const IdleLeave = require("../../src/player/idleLeave");
+const config = (await import("../../config.js")).default;
+const MusicPlayer = (await import("../../src/player/Player.js")).default;
+const PlaybackState = (await import("../../src/player/playbackState.js")).default;
+const IdleLeave = (await import("../../src/player/idleLeave.js")).default;
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
 const GUILD = "g1";

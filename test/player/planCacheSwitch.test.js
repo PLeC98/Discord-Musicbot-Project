@@ -1,5 +1,3 @@
-"use strict";
-
 // src/player/Player.js `_planCacheSwitch` — 스트림이 죽었을 때 캐시로 무이음 전환을 예약하는 판정
 //
 // 예약하지 '않아야' 하는 경우가 핵심이다. 잘못 예약하면 엉뚱한 곡·엉뚱한 위치로 갈아타거나,
@@ -8,14 +6,14 @@
 // 프로토타입 호출 — 실 오디오·음성 연결 없이 판정만 검증한다(playbackLoop.test.js와 같은 방식).
 // 캐시 파일은 곡의 열쇠 자리(임시 폴더)에 진짜로 둔다.
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { PassThrough } = require("node:stream");
-const MusicPlayer = require("../../src/player/Player");
-const audioCache = require("../../src/store/audioCache");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { PassThrough } from "node:stream";
+import MusicPlayer from "../../src/player/Player.js";
+import audioCache from "../../src/store/audioCache.js";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
 const realDir = audioCache._cacheDir;

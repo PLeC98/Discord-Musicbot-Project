@@ -1,10 +1,9 @@
-"use strict";
-
-const log = require("../infra/log/logger").child({ category: "track" });
-const config = require("../../config");
-const YouTube = require("../sources/youtube/index");
-const autoplayRoute = require("../autoplay/route");
-const trackState = require("./trackState");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "track" });
+import config from "../../config.js";
+import YouTube from "../sources/youtube/index.js";
+import autoplayRoute from "../autoplay/route.js";
+import trackState from "./trackState.js";
 
 /**
  * 대기열 앞부분을 캐시에 올려둔 상태로 유지한다.
@@ -212,4 +211,5 @@ class QueueWarmer {
   }
 }
 
-module.exports = QueueWarmer;
+export default QueueWarmer;
+export { QueueWarmer as "module.exports" };

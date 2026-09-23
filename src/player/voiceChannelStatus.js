@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * 음성 채널 상태의 현재 값과 그게 우리가 쓴 것인지를 추적한다.
  *
@@ -63,4 +61,6 @@ function _reset() {
   ours.clear();
 }
 
-module.exports = { observe, mark, canWrite, consumePacket, _internals: { current, ours, _reset } };
+const exported = { observe, mark, canWrite, consumePacket, _internals: { current, ours, _reset } };
+export default exported;
+export { exported as "module.exports" };

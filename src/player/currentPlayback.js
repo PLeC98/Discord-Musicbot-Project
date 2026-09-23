@@ -1,5 +1,3 @@
-"use strict";
-
 // 곡 하나를 한 번 트는 동안만 사는 것. play() 가 부를 때마다 새로 만들고(위치 이동 · 재시도 · 복구 재개도 새 재생이다),
 // 곡이 바뀌거나 플레이어를 정리하면 버린다. 늦게 도착한 이벤트는 "이게 지금 재생의 것인가"를 객체 동일성으로 가린다.
 //
@@ -22,4 +20,5 @@ class CurrentPlayback {
   }
 }
 
-module.exports = CurrentPlayback;
+export default CurrentPlayback;
+export { CurrentPlayback as "module.exports" };

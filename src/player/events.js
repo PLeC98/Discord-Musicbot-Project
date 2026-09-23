@@ -1,5 +1,3 @@
-"use strict";
-
 // 플레이어가 화면과 대시보드에 알리는 창구. 플레이어는 화면을 모르고 여기로 알린다.
 // 듣는 쪽은 조립(src/app/main.js)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
 //
@@ -10,7 +8,8 @@
 //   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 
-const log = require("../infra/log/logger").child({ category: "player" });
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "player" });
 
 const listeners = new Map(); // 알림 이름 → Set<fn>
 
@@ -47,4 +46,6 @@ function touched(guildId) {
   }
 }
 
-module.exports = { on, refresh, ended, started, notice, released, touched, _reset: () => listeners.clear() };
+const exported = { on, refresh, ended, started, notice, released, touched, _reset: () => listeners.clear() };
+export default exported;
+export { exported as "module.exports" };

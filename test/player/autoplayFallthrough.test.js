@@ -1,5 +1,3 @@
-"use strict";
-
 // src/player/Player.js — 자동재생이 곡을 못 고른 뒤의 상태.
 //
 // 회귀 대상: handleAutoplay가 후보를 하나도 못 찾으면 아무 말 없이 return했고, handleTrackEnd는
@@ -8,10 +6,10 @@
 // 임베드는 마지막 곡에 멈추고, 곡을 넣어도 대기열에만 쌓이고, 스킵은 성공했다고 답만 했다.
 // (실측 2026-09-16: lofi·anime 키워드는 검색 결과 15개가 전부 한 시간짜리 믹스라 후보가 0이 된다.)
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const MusicPlayer = require("../../src/player/Player");
-const PlaybackState = require("../../src/player/playbackState");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import MusicPlayer from "../../src/player/Player.js";
+import PlaybackState from "../../src/player/playbackState.js";
 
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 

@@ -1,7 +1,6 @@
-"use strict";
-
-const { Collection } = require("discord.js");
-const log = require("../infra/log/logger").child({ category: "registry" });
+import { Collection } from "discord.js";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "registry" });
 
 /**
  * client.players를 감싸 등록, 해제를 전부 기록
@@ -44,4 +43,5 @@ class PlayerRegistry extends Collection {
   }
 }
 
-module.exports = PlayerRegistry;
+export default PlayerRegistry;
+export { PlayerRegistry as "module.exports" };

@@ -1,5 +1,3 @@
-"use strict";
-
 // 트랙의 모양. 곡은 흐르면서 칸이 늘어나므로 단계마다 타입을 둔다. 값은 없고 타입만 있다.
 //
 // 링크 칸 셋은 하는 일이 다르다.
@@ -54,4 +52,6 @@
  * @typedef {QueuedTrack & { audioUrl: string }} PlayableTrack
  */
 
-module.exports = {};
+const exported = {};
+export default exported;
+export { exported as "module.exports" };

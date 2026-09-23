@@ -1,11 +1,10 @@
-"use strict";
-
 // 재생 생명주기. 두 축이다.
 //   단계(phase)   idle → starting → playing, 버리면 disposed(이 플레이어를 더 안 쓴다. stop · leave · 정리)
 //   끝 처리(ending)  곡 끝을 처리하는 중인가. 끝 처리가 다음 곡을 틀기 때문에 단계와 따로 선다(끝 처리 중에 starting · playing 이 된다)
 // 전이마다 한 줄 남긴다. 허용되지 않은 전이는 경고로 드러내고 그대로 따른다(재생을 멈추면 안 된다).
 
-const log = require("../infra/log/logger").child({ category: "watchdog" });
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "watchdog" });
 
 const NEXT = {
   idle: ["starting", "disposed"],
@@ -47,4 +46,5 @@ class PlaybackState {
   }
 }
 
-module.exports = PlaybackState;
+export default PlaybackState;
+export { PlaybackState as "module.exports" };

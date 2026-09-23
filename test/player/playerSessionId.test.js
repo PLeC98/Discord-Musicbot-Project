@@ -1,8 +1,6 @@
-"use strict";
-
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const createPlayerSessionId = require("../../src/player/playerSessionId");
+import test from "node:test";
+import assert from "node:assert/strict";
+import createPlayerSessionId from "../../src/player/playerSessionId.js";
 
 test("creates compact URL-safe player session IDs", () => {
   const id = createPlayerSessionId();

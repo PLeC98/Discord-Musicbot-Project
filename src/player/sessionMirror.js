@@ -1,11 +1,11 @@
-"use strict";
-
-const log = require("../infra/log/logger").child({ category: "session" });
-const db = require("../store/db");
-const { sessions } = require("../store/playerSessions");
-const trackState = require("./trackState");
-const config = require("../../config");
-const playerEvents = require("./events");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "session" });
+import db from "../store/db.js";
+import playerSessions from "../store/playerSessions.js";
+const { sessions } = playerSessions;
+import trackState from "./trackState.js";
+import config from "../../config.js";
+import playerEvents from "./events.js";
 
 const HEARTBEAT_MS = 5000;
 
@@ -302,5 +302,6 @@ class SessionPersistence {
   }
 }
 
-module.exports = SessionPersistence;
-module.exports._beat = beat;
+export default SessionPersistence;
+export { SessionPersistence as "module.exports" };
+SessionPersistence._beat = beat;

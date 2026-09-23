@@ -1,21 +1,27 @@
-"use strict";
-
 // 라이브(HLS) 재생 경로의 불변식.
 //
 // HLS는 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열리는 형식이라, 이 갈래만 ffmpeg에
 // URL을 넘긴다. 나머지 스트리밍이 그 길로 새면 httpHeaders가 빠지고 폴백을 건너뛴다.
 // 그리고 라이브에는 길이가 없어서, 길이를 전제하던 자리들(종료 감시·탐색·반복)이 전부 걸린다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const MusicPlayer = require("../../src/player/Player");
-const PlaybackState = require("../../src/player/playbackState");
-const PlaybackWatch = require("../../src/player/playbackWatch");
-const YouTube = require("../../src/sources/youtube/index");
-const { capabilities, _internals } = require("../../src/media/ffmpeg/path");
-const { buildFfmpegArgs } = require("../../src/media/ffmpeg/args");
-const { isHlsStream } = require("../../src/rules/transportOf");
+import MusicPlayer from "../../src/player/Player.js";
+import PlaybackState from "../../src/player/playbackState.js";
+import PlaybackWatch from "../../src/player/playbackWatch.js";
+import YouTube from "../../src/sources/youtube/index.js";
+import path from "../../src/media/ffmpeg/path.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { capabilities, _internals } = path;
+import argsModule from "../../src/media/ffmpeg/args.js";
+const { buildFfmpegArgs } = argsModule;
+import transportOf from "../../src/rules/transportOf.js";
+const { isHlsStream } = transportOf;
 
 const idx = (args, flag) => args.indexOf(flag);
 

@@ -1,10 +1,8 @@
-"use strict";
-
 // src/player/playbackState.js — 재생 단계와 끝 처리 중인가.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const PlaybackState = require("../../src/player/playbackState");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import PlaybackState from "../../src/player/playbackState.js";
 
 test("단계: idle → starting → playing → (끝) idle → starting … 버리면 disposed", () => {
   const s = new PlaybackState();

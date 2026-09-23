@@ -1,43 +1,57 @@
-const { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } = require("@discordjs/voice");
-const log = require("../infra/log/logger").child({ category: "player" });
+import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } from "@discordjs/voice";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
-const wlog = require("../infra/log/logger").child({ category: "watchdog" });
-const YouTube = require("../sources/youtube/index");
-const genreConfig = require("../config/genres");
+import loggerModule from "../infra/log/logger.js";
+const wlog = loggerModule.child({ category: "watchdog" });
+import YouTube from "../sources/youtube/index.js";
+import genreConfig from "../config/genres.js";
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
-const clog = require("../infra/log/logger").child({ category: "control" });
+import loggerModule2 from "../infra/log/logger.js";
+const clog = loggerModule2.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
-const elog = require("../infra/log/logger").child({ category: "error" });
-const { PermissionFlagsBits } = require("discord.js");
+import loggerModule3 from "../infra/log/logger.js";
+const elog = loggerModule3.child({ category: "error" });
+import { PermissionFlagsBits } from "discord.js";
 
-const config = require("../../config");
-const autoplayRoute = require("../autoplay/route");
-const { errorKind } = require("../rules/errorKind");
-const streamUrl = require("../sources/streamUrl");
-const SponsorSkipper = require("./sponsorSkipper");
-const DirectLink = require("../sources/direct");
-const { openChunkedStream } = require("../media/chunkedStream");
-const { openInput } = require("../media/playbackInput");
-const voiceChannelStatus = require("./voiceChannelStatus");
-const audioCache = require("../store/audioCache");
-const VoiceConnectionManager = require("./voiceConnection");
-const PlaybackWatch = require("./playbackWatch");
-const IdleLeave = require("./idleLeave");
-const PlaybackState = require("./playbackState");
-const CurrentPlayback = require("./currentPlayback");
-const playerEvents = require("./events");
-const { prepareStart, resolveSource, commitPlaying } = require("./startPlayback");
-const TrackDownloader = require("../media/cacheDownload");
-const createPlayerSessionId = require("./playerSessionId");
-const SessionPersistence = require("./sessionMirror");
-const QueueWarmer = require("./queueWarmer");
-const trackState = require("./trackState");
-const { spawnFfmpeg } = require("../media/ffmpeg/process");
-const { transportOf } = require("../rules/transportOf");
-const { buildFfmpegArgs } = require("../media/ffmpeg/args");
-const { inputKind } = require("../rules/inputKind");
-const { audioKeyOf } = require("../rules/audioKeyOf");
-const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
+import config from "../../config.js";
+import autoplayRoute from "../autoplay/route.js";
+import errorKindModule from "../rules/errorKind.js";
+const { errorKind } = errorKindModule;
+import streamUrl from "../sources/streamUrl.js";
+import SponsorSkipper from "./sponsorSkipper.js";
+import DirectLink from "../sources/direct.js";
+import chunkedStream from "../media/chunkedStream.js";
+const { openChunkedStream } = chunkedStream;
+import playbackInput from "../media/playbackInput.js";
+const { openInput } = playbackInput;
+import voiceChannelStatus from "./voiceChannelStatus.js";
+import audioCache from "../store/audioCache.js";
+import VoiceConnectionManager from "./voiceConnection.js";
+import PlaybackWatch from "./playbackWatch.js";
+import IdleLeave from "./idleLeave.js";
+import PlaybackState from "./playbackState.js";
+import CurrentPlayback from "./currentPlayback.js";
+import playerEvents from "./events.js";
+import startPlayback from "./startPlayback.js";
+const { prepareStart, resolveSource, commitPlaying } = startPlayback;
+import TrackDownloader from "../media/cacheDownload.js";
+import createPlayerSessionId from "./playerSessionId.js";
+import SessionPersistence from "./sessionMirror.js";
+import QueueWarmer from "./queueWarmer.js";
+import trackState from "./trackState.js";
+import process from "../media/ffmpeg/process.js";
+const { spawnFfmpeg } = process;
+import transportOfModule from "../rules/transportOf.js";
+const { transportOf } = transportOfModule;
+import args from "../media/ffmpeg/args.js";
+const { buildFfmpegArgs } = args;
+import inputKindModule from "../rules/inputKind.js";
+const { inputKind } = inputKindModule;
+import audioKeyOfModule from "../rules/audioKeyOf.js";
+const { audioKeyOf } = audioKeyOfModule;
+import path from "../media/ffmpeg/path.js";
+const { capabilities: ffmpegCapabilities } = path;
 
 // 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
@@ -1101,4 +1115,5 @@ MusicPlayer.useBoundary = (overrides) => {
   defaultBoundary = overrides ? { ...REAL, ...overrides } : REAL;
 };
 
-module.exports = MusicPlayer;
+export default MusicPlayer;
+export { MusicPlayer as "module.exports" };

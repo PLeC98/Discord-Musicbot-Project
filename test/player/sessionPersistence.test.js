@@ -1,23 +1,27 @@
-"use strict";
-
 // src/player/sessionMirror.js — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
-const { sessions } = require("../../src/store/playerSessions");
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after, mock } = require("node:test");
-const assert = require("node:assert/strict");
+import playerSessions from "../../src/store/playerSessions.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { sessions } = playerSessions;
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after, mock } from "node:test";
+import assert from "node:assert/strict";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-session-test-${process.pid}.db`);
 const removeDb = () => {
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(DB_PATH + suffix, { force: true });
 };
 
-const audioCache = require("../../src/store/audioCache");
-const SessionPersistence = require("../../src/player/sessionMirror");
-const trackState = require("../../src/player/trackState");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
+const SessionPersistence = (await import("../../src/player/sessionMirror.js")).default;
+const trackState = (await import("../../src/player/trackState.js")).default;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
 require("../../src/player/events").on("notice", require("../../src/ui/playerNotices").sendNotice);

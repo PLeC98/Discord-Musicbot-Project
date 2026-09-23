@@ -1,14 +1,12 @@
-"use strict";
-
 // 곡 길이 판정 — 종료 감시(playbackWatch)의 위치 계산, 판정에 쓰는 오디오 길이 선택(startPlayback)
 // 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { AudioPlayerStatus } = require("@discordjs/voice");
-const MusicPlayer = require("../../src/player/Player");
-const PlaybackWatch = require("../../src/player/playbackWatch");
-const audioCache = require("../../src/store/audioCache");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { AudioPlayerStatus } from "@discordjs/voice";
+import MusicPlayer from "../../src/player/Player.js";
+import PlaybackWatch from "../../src/player/playbackWatch.js";
+import audioCache from "../../src/store/audioCache.js";
 
 // ── 종료 워치독 ──────────────────────────────────────────────
 
@@ -50,7 +48,7 @@ test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
 // 재생목록으로 담은 스포티파이 곡은 스포티파이 길이를 들고 오는데, 실제 오디오는 수 초 짧을 수 있다.
 // 그 차이로 멀쩡한 종료가 조기 종료로 판정되고 SponsorBlock 곡 끝 구간이 파일 끝으로 건너뛰기가 됐다.
 
-const { audioDurationSec } = require("../../src/player/startPlayback");
+const { audioDurationSec } = (await import("../../src/player/startPlayback.js")).default;
 
 function withLookup(rows, fn) {
   const original = audioCache.lookupByAudioKey;

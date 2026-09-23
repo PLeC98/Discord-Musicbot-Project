@@ -1,13 +1,11 @@
-"use strict";
-
 // src/player/playbackWatch.js 버퍼링 감시 — 재생이 시작되지 않은 채 멈춘 곡을 깨우는 판정
 // 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { AudioPlayerStatus } = require("@discordjs/voice");
-const MusicPlayer = require("../../src/player/Player");
-const PlaybackWatch = require("../../src/player/playbackWatch");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { AudioPlayerStatus } from "@discordjs/voice";
+import MusicPlayer from "../../src/player/Player.js";
+import PlaybackWatch from "../../src/player/playbackWatch.js";
 
 function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reason = null } = {}) {
   return {

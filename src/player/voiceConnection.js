@@ -1,10 +1,10 @@
-"use strict";
-
-const { VoiceConnectionStatus, joinVoiceChannel, entersState } = require("@discordjs/voice");
+import { VoiceConnectionStatus, joinVoiceChannel, entersState } from "@discordjs/voice";
 
 const VOICE_LIB = { joinVoiceChannel, entersState };
-const log = require("../infra/log/logger").child({ category: "voice" });
-const { holdingAdapterCreator } = require("../infra/voiceAdapter");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "voice" });
+import voiceAdapter from "../infra/voiceAdapter.js";
+const { holdingAdapterCreator } = voiceAdapter;
 
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
@@ -344,4 +344,5 @@ class VoiceConnectionManager {
   }
 }
 
-module.exports = VoiceConnectionManager;
+export default VoiceConnectionManager;
+export { VoiceConnectionManager as "module.exports" };

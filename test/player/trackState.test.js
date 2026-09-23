@@ -1,10 +1,8 @@
-"use strict";
-
 // src/player/trackState.js — 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const trackState = require("../../src/player/trackState");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import trackState from "../../src/player/trackState.js";
 
 const t = (title) => ({ title });
 const titles = (arr) => arr.map((x) => x.title);

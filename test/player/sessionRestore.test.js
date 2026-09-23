@@ -1,15 +1,14 @@
-"use strict";
-
 // src/player/sessionRestore.js — 부팅 시 저장 세션의 길드 확보.
 //
 // 회귀 대상 1: 구 코드는 `guilds.fetch().catch(() => null)`로 거부를 삼켜 바깥 catch의
 // `retries--`가 도달 불가였다. 길드 하나가 계속 실패하면 1초 간격 무한 루프 = 부팅 정지.
 // 회귀 대상 2: 일시적 조회 실패에도 저장 세션을 삭제했다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { RESTJSONErrorCodes } = require("discord.js");
-const { resolveGuildForRestore } = require("../../src/player/sessionRestore");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { RESTJSONErrorCodes } from "discord.js";
+import sessionRestore from "../../src/player/sessionRestore.js";
+const { resolveGuildForRestore } = sessionRestore;
 
 // 재시도 대기는 0으로 — 검증 대상은 시도 횟수지 대기 시간이 아니다
 const NOW = { attempts: 3, delayMs: 0 };
@@ -102,10 +101,10 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 
 // ── 기동 때 저장 세션 모두 되살리기 ───────────────────────────────────────────
 
-const { after } = require("node:test");
-const { openTempStore } = require("../helpers/tempStore");
-const { restoreSavedPlayers } = require("../../src/player/sessionRestore");
-const { sessions } = require("../../src/store/playerSessions");
+import { after } from "node:test";
+const { openTempStore } = (await import("../helpers/tempStore.js")).default;
+const { restoreSavedPlayers } = (await import("../../src/player/sessionRestore.js")).default;
+const { sessions } = (await import("../../src/store/playerSessions.js")).default;
 
 const store = openTempStore("session-restore-");
 after(() => store.close());
