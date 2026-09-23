@@ -7,48 +7,29 @@
 // (2) 정적 자산까지 세션 뒤에 있어 앱 껍데기조차 못 뜨고 백지가 되던 것.
 //
 // 실 앱(createApp)을 임의 포트에 띄운다 — 순서 자체가 검증 대상이라 축소판으로는 의미가 없다.
-// 세션 미들웨어만 "저장장치가 죽은 상태"로 갈아끼운다.
+// 세션 미들웨어만 "저장장치가 죽은 상태"로 넘긴다.
 
 const fs = require("node:fs");
 const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-// ── 로거 모킹 (다른 모듈이 require 하기 전에 — errorId가 로그에도 남는지 확인용) ──────
+// ── 로그: 싱크에 받는 곳을 달아 본다(errorId가 로그에도 남는지 확인용) ──────
 const logLines = [];
-const logPath = require.resolve(path.join(__dirname, "..", "..", "src", "infra", "log", "logger.js"));
-const fakeLog = {
-  info: (...a) => logLines.push(a.join(" ")),
-  warn: (...a) => logLines.push(a.join(" ")),
-  error: (...a) => logLines.push(a.join(" ")),
-  debug: () => {},
-  bind: () => fakeLog,
-  child: () => fakeLog,
-};
-require.cache[logPath] = { id: logPath, filename: logPath, loaded: true, exports: fakeLog };
+require("../../src/infra/log/sink").addDestination((rec) => logLines.push(JSON.stringify(rec)));
 
-// ── 세션 스토어·세션 미들웨어 모킹 ──────────────────────────────────────────────
-// 실 SQLite를 건드리지 않으면서 "언마운트로 스토어가 죽은" 상태를 재현한다.
-const storePath = require.resolve(path.join(__dirname, "..", "..", "dashboard", "server", "sessionStore.js"));
-require.cache[storePath] = { id: storePath, filename: storePath, loaded: true, exports: class FakeStore {} };
-
+// ── 로그인 세션: "언마운트로 스토어가 죽은" 상태. 실 SQLite를 건드리지 않는다 ──────────────
 let storeBroken = true;
-const sessionPath = require.resolve("express-session");
-require.cache[sessionPath] = {
-  id: sessionPath,
-  filename: sessionPath,
-  loaded: true,
-  exports: () => (req, res, next) => {
-    if (storeBroken) {
-      // better-sqlite3가 언마운트된 볼륨에서 실제로 던지는 모양
-      const err = new Error("database disk image is malformed");
-      err.name = "SqliteError";
-      err.code = "SQLITE_CORRUPT";
-      return next(err);
-    }
-    req.session = {};
-    next();
-  },
+const brokenSession = (req, res, next) => {
+  if (storeBroken) {
+    // better-sqlite3가 언마운트된 볼륨에서 실제로 던지는 모양
+    const err = new Error("database disk image is malformed");
+    err.name = "SqliteError";
+    err.code = "SQLITE_CORRUPT";
+    return next(err);
+  }
+  req.session = {};
+  next();
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
@@ -68,7 +49,7 @@ let server;
 let base;
 
 before(async () => {
-  server = createApp({ user: null }, { stream: createPlayerStream() }).listen(0, "127.0.0.1");
+  server = createApp({ user: null }, { stream: createPlayerStream(), sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${server.address().port}`;
 });

@@ -21,10 +21,6 @@ const { createAuthRouter } = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const { createGuildsRouter } = require("./routes/guilds");
 
-const PORT = config.dashboard.port;
-const HOST = config.dashboard.host;
-const DASHBOARD_URL = config.dashboard.url;
-
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
 // 보안은 유지되지만(추측 불가) 재시작마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
 function resolveSessionSecret() {
@@ -53,11 +49,31 @@ function plaintextAccessWarner(host) {
   };
 }
 
+// 로그인 세션. SQLite 영속 스토어라 재시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
+// 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조)
+function createSessionMiddleware() {
+  return session({
+    secret: resolveSessionSecret(),
+    store: new SqliteSessionStore(),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      // "auto" 는 Secure 를 실제 연결에 맞춘다. HTTPS 로 서비스하면(믿는 프록시 경유) 붙고,
+      // 그냥 http://localhost 면 빠져서 로컬 시험이 그대로 된다.
+      secure: "auto",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  });
+}
+
 // 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체가 회귀 대상이라(정적 자산이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
-function createApp(client, { stream }) {
+// sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
+function createApp(client, { stream, sessionMiddleware = createSessionMiddleware() }) {
   const app = express();
-  const SESSION_SECRET = resolveSessionSecret();
+  const { host, url } = config.dashboard;
 
   // X-Forwarded-* 는 사설망 프록시가 보낸 것만 믿는다(같은 기기나 LAN 의 Caddy).
   // 공인 주소에서 바로 온 헤더는 무시하므로 클라이언트가 값을 꾸며낼 수 없다.
@@ -65,7 +81,7 @@ function createApp(client, { stream }) {
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
   app.use(securityHeaders);
-  app.use(plaintextAccessWarner(HOST));
+  app.use(plaintextAccessWarner(host));
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
@@ -83,25 +99,8 @@ function createApp(client, { stream }) {
   }
 
   app.use(bodyLimit());
-  app.use(cors(createCorsOptions(DASHBOARD_URL, { allowDevOrigin: config.dashboard.devOrigin })));
-  app.use(
-    session({
-      secret: SESSION_SECRET,
-      // SQLite 영속 스토어. 재시작해도 로그인 유지 (SESSION_SECRET이 .env에 고정일 때.
-      // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조)
-      store: new SqliteSessionStore(),
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        // "auto" 는 Secure 를 실제 연결에 맞춘다. HTTPS 로 서비스하면(믿는 프록시 경유) 붙고,
-        // 그냥 http://localhost 면 빠져서 로컬 시험이 그대로 된다.
-        secure: "auto",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      },
-    }),
-  );
+  app.use(cors(createCorsOptions(url, { allowDevOrigin: config.dashboard.devOrigin })));
+  app.use(sessionMiddleware);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
 
@@ -176,8 +175,9 @@ function createApp(client, { stream }) {
 function startDashboard(client, { stream }) {
   const app = createApp(client, { stream });
 
-  const { line, warnings } = describeBinding(HOST, PORT, DASHBOARD_URL);
-  app.listen(PORT, HOST, () => {
+  const { port, host, url } = config.dashboard;
+  const { line, warnings } = describeBinding(host, port, url);
+  app.listen(port, host, () => {
     log.info(line);
     for (const w of warnings) log.warn(w);
     // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
