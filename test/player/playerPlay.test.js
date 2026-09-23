@@ -18,7 +18,9 @@ const { calls, behavior } = h;
 
 beforeEach(() => h.reset());
 
-const yt = (id, extra = {}) => ({ id, title: `곡 ${id}`, artist: "가수", url: `https://www.youtube.com/watch?v=${id}`, platform: "youtube", duration: 180, ...extra });
+const tracks = require("../helpers/tracks");
+
+const yt = tracks.youtube;
 const argsOf = (child) => child.args.join(" ");
 
 // 한 시험이 끝나면 타이머를 남기지 않는다
@@ -140,8 +142,8 @@ test("전체 길이(clen)를 아는 주소는 청크로 나눠 받는다", async
 
 test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () => {
   const p = h.makePlayer();
-  p.currentTrack = { id: "x", title: "직접", url: "https://files.test/a.mp3", platform: "direct", duration: 0 };
-  behavior.stream = (t) => ({ url: t.url, platform: "direct" });
+  p.currentTrack = tracks.direct("https://files.test/a.mp3");
+  behavior.stream = (t) => ({ url: t.audioUrl, platform: "direct" });
 
   await playOnce(p);
 
@@ -151,8 +153,8 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
 
 test("출처 이름을 platform 에 쓰는 음원 곡도 서술자가 direct 면 DirectLink 로 연다", async () => {
   const p = h.makePlayer();
-  p.currentTrack = { id: "amq:1", title: "애니", url: "https://nawdist.test/a.mp3", platform: "anisongdb", duration: 0, audioSourceKey: "dl:abc" };
-  behavior.stream = (t) => ({ url: t.url, platform: "direct" });
+  p.currentTrack = { id: "amq:1", title: "애니", url: "https://nawdist.test/a.mp3", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.test/a.mp3", platform: "anisongdb", duration: 0, audioSourceKey: "dl:abc" };
+  behavior.stream = (t) => ({ url: t.audioUrl, platform: "direct" });
 
   await playOnce(p);
 
@@ -256,7 +258,7 @@ test("ffmpeg 가 HLS 를 못 열면 실패", async () => {
 
 // ── 스포티파이 ─────────────────────────────────────────────────────────
 
-const spotifyTrack = () => ({ id: "sp1", title: "스포티파이 곡", artist: "가수", url: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 });
+const spotifyTrack = () => tracks.spotify("sp1");
 
 test("스포티파이: 동등물을 찾아 그 영상의 캐시가 있으면 파일로 튼다", async () => {
   h.seedCache("yt:nnnnnnnnnnn", yt("nnnnnnnnnnn"));

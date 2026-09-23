@@ -29,6 +29,7 @@ const trackState = require("./trackState");
 const S = require("../ui/strings");
 const { spawnFfmpeg } = require("../media/ffmpeg/process");
 const { transportOf, isHlsStream } = require("../rules/transportOf");
+const { inputKind } = require("../rules/inputKind");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 const { Readable } = require("stream");
 const fsSync = require("fs");
@@ -260,7 +261,7 @@ class MusicPlayer {
       if ((Number(seekMs) || 0) === 0) {
         try {
           await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
-          if (!this.currentTrack._sponsorResolved && this.currentTrack.platform === "spotify") {
+          if (!this.currentTrack._sponsorResolved && !this.currentTrack.audioUrl) {
             await equivalent.findYouTubeEquivalent(this.currentTrack); // 멱등. videoId 확정
             await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
           }
@@ -315,9 +316,9 @@ class MusicPlayer {
       }
 
       if (!streamInfo && !downloadedFile) {
-        // spotify는 YouTube 동등물을 먼저 확보. 검색으로 audioSourceKey가 정해지므로
+        // 음원 주소가 없는 곡(스포티파이)은 YouTube 동등물을 먼저 확보. 검색으로 audioSourceKey가 정해지므로
         // 캐시 파일을 한 번 더 확인해 있으면 스트림 획득을 통째로 건너뜀
-        if (this.currentTrack.platform === "spotify") {
+        if (!this.currentTrack.audioUrl) {
           const ytUrl = await equivalent.findYouTubeEquivalent(this.currentTrack);
           if (!ytUrl) {
             throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
@@ -356,7 +357,7 @@ class MusicPlayer {
       }
 
       // SponsorBlock 구간 데이터 확보 (첫곡/캐시곡 포함. preload를 거치지 않았을 수 있음).
-      // 이 시점엔 videoId가 확정(youtube id / 해석된 youtubeUrl / audioSourceKey yt:)됨. 실패해도 재생 진행.
+      // 이 시점엔 음원 주소가 정해져 videoId가 확정됨(스포티파이도 영상을 찾은 뒤). 실패해도 재생 진행.
       try {
         await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
       } catch {
@@ -458,7 +459,7 @@ class MusicPlayer {
           try {
             // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
             // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
-            if (streamInfo?.platform === "direct" || this.currentTrack.platform === "direct") {
+            if (streamInfo?.platform === "direct") {
               // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
               audioStream = await DirectLink.getStream(streamUrl_final);
             } else {
@@ -1631,8 +1632,8 @@ class MusicPlayer {
       // 어디서 어떻게 왔는지 한 줄. 소스가 여럿이 되면서 "이 곡이 왜 나왔지"를 로그로 되짚을 수
       // 있어야 한다. 재생·종료 쪽에는 출처가 찍히는데 정작 고르는 자리에 없었다.
       // platform 으로는 못 가른다. 음원을 직접 트는 곡도 platform 은 출처 이름(anisongdb 등)이다.
-      // 소리가 어디서 오는지는 audioSourceKey 가 가른다. dl: 은 음원, yt: 는 영상이다.
-      const how = String(picked.audioSourceKey || "").startsWith("dl:") ? "음원 직접" : `유튜브 ${picked.youtubeUrl || picked.url}`;
+      // 소리가 어디서 오는지는 음원 주소가 가른다.
+      const how = inputKind(picked.audioUrl) === "direct" ? "음원 직접" : `유튜브 ${picked.audioUrl}`;
       clog.info(`자동재생 뽑기: "${picked.title}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
       return picked;
     } catch (error) {

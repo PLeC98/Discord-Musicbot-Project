@@ -218,7 +218,7 @@ test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
 test("ensureForTrack: youtube 트랙에 sponsor 데이터 확보 + 멱등", async () => {
   config.sponsorblock.enabled = true;
   stubFetch("ytVid1", [seg("music_offtopic", 0, 8, "skip")]);
-  const track = { platform: "youtube", id: "ytVid1", url: "https://youtu.be/ytVid1" };
+  const track = { platform: "youtube", id: "ytVid1", audioUrl: "https://youtu.be/ytVid1" };
   const r = await SponsorBlock.ensureForTrack(track, "gEnsure");
   assert.ok(r);
   assert.equal(track._sponsorResolved, true);
@@ -240,7 +240,7 @@ test("ensureForTrack: 서버 비활성이면 sponsor=null, 조회 안 함", asyn
     called = true;
     return { status: 200, json: async () => [] };
   };
-  const track = { platform: "youtube", id: "ytVid2", url: "https://youtu.be/ytVid2" };
+  const track = { platform: "youtube", id: "ytVid2", audioUrl: "https://youtu.be/ytVid2" };
   const r = await SponsorBlock.ensureForTrack(track, "gEnsureOff");
   assert.equal(r, null);
   assert.equal(track._sponsorResolved, true);
@@ -249,8 +249,16 @@ test("ensureForTrack: 서버 비활성이면 sponsor=null, 조회 안 함", asyn
 
 test("ensureForTrack: videoId 미확정이면 null, 미해결 상태 유지", async () => {
   config.sponsorblock.enabled = true;
-  const track = { platform: "spotify", title: "x" }; // youtubeUrl/audioSourceKey 없음
+  const track = { platform: "spotify", title: "x" }; // 영상을 아직 못 찾아 음원 주소가 없다
   const r = await SponsorBlock.ensureForTrack(track, "gEnsure");
   assert.equal(r, null);
   assert.notEqual(track._sponsorResolved, true); // 다음에 재시도 가능
+});
+
+test("영상 id 는 음원 주소에서만 읽는다. 곡이 어디서 왔는지는 상관없다", () => {
+  assert.equal(SponsorBlock._trackVideoId({ platform: "youtube", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }), "aaaaaaaaaaa");
+  assert.equal(SponsorBlock._trackVideoId({ platform: "vocadb", pageUrl: "https://vocadb.net/S/1", audioUrl: "https://youtu.be/bbbbbbbbbbb" }), "bbbbbbbbbbb");
+  assert.equal(SponsorBlock._trackVideoId({ platform: "spotify" }), null, "영상을 찾기 전");
+  assert.equal(SponsorBlock._trackVideoId({ platform: "anisongdb", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3" }), null, "음원 곡");
+  assert.equal(SponsorBlock._trackVideoId(null), null);
 });

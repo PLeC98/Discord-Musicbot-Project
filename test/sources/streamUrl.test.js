@@ -1,6 +1,6 @@
 "use strict";
 
-// src/sources/streamUrl.js — 재생용 스트림을 어디서 가져올지 고르는 자리.
+// src/sources/streamUrl.js — 재생용 스트림을 어디서 가져올지 고르는 자리. 곡이 어디서 왔는지(platform)가 아니라 음원 주소가 정한다.
 //
 // 회귀 대상: 자동재생 소스가 늘면서 platform 값이 vocadb·lastfm·lbradio·touhoudb 같은 것이
 // 되었는데, 이 스위치는 youtube/spotify/soundcloud/direct만 알고 나머지를 던졌다.
@@ -26,7 +26,7 @@ const streamUrl = require("../../src/sources/streamUrl");
 test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온다", async () => {
   for (const platform of ["vocadb", "touhoudb", "utaitedb", "lastfm", "lbradio", "animethemes"]) {
     asked = null;
-    const track = { platform, url: `https://${platform}.example/song/1`, youtubeUrl: "https://www.youtube.com/watch?v=abc", title: "곡" };
+    const track = { platform, pageUrl: `https://${platform}.example/song/1`, audioUrl: "https://www.youtube.com/watch?v=abc", title: "곡" };
 
     await streamUrl.getStream(track, 12, { youtube });
 
@@ -37,15 +37,15 @@ test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온
 
 test("유튜브 곡은 그대로 자기 주소를 쓴다", async () => {
   asked = null;
-  await streamUrl.getStream({ platform: "youtube", url: "https://www.youtube.com/watch?v=zzz" }, 0, { youtube });
+  await streamUrl.getStream({ platform: "youtube", audioUrl: "https://www.youtube.com/watch?v=zzz" }, 0, { youtube });
   assert.equal(asked.url, "https://www.youtube.com/watch?v=zzz");
 });
 
 test("음원을 직접 트는 곡은 주소 서술자만 돌려준다 — 여기서 열면 프리로드가 연결을 흘린다", async () => {
-  const got = await streamUrl.getStream({ platform: "direct", url: "https://a.animethemes.moe/X.ogg" }, 0, { youtube });
+  const got = await streamUrl.getStream({ platform: "animethemes", audioUrl: "https://a.animethemes.moe/X.ogg" }, 0, { youtube });
   assert.deepEqual(got, { url: "https://a.animethemes.moe/X.ogg", platform: "direct", httpHeaders: {} });
 });
 
-test("영상도 없는 모르는 플랫폼은 여전히 거절한다", async () => {
-  await assert.rejects(() => streamUrl.getStream({ platform: "없는것", url: "x" }, 0, { youtube }), /지원되지 않는 플랫폼/);
+test("음원 주소가 모르는 사이트면 거절한다", async () => {
+  await assert.rejects(() => streamUrl.getStream({ platform: "없는것", audioUrl: "https://example.com/page" }, 0, { youtube }), /지원되지 않는 음원 주소/);
 });

@@ -23,7 +23,7 @@ async function captureOptions() {
   };
   try {
     const downloader = new TrackDownloader({ guild: { id: "g" } });
-    await downloader._performDownload({ url: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube", title: "곡" }, "/tmp/없는경로.opus").catch(() => {});
+    await downloader._performDownload({ audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube", title: "곡" }, "/tmp/없는경로.opus").catch(() => {});
   } finally {
     YouTube.runYtDlp = real;
   }

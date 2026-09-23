@@ -121,15 +121,9 @@ const SponsorBlock = {
     return { ...normalize(raw, categories), source };
   },
 
-  /** 트랙에서 YouTube videoId 추출. 캐시키(yt:) 우선, 그다음 native/해석된 URL */
+  /** 트랙에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */
   _trackVideoId(track) {
-    if (!track) return null;
-    if (typeof track.audioSourceKey === "string" && track.audioSourceKey.startsWith("yt:")) {
-      return track.audioSourceKey.slice(3);
-    }
-    if (track.platform === "youtube") return track.id || links.extractVideoId(track.url);
-    if (track.youtubeUrl) return links.extractVideoId(track.youtubeUrl);
-    return null;
+    return (track?.audioUrl && links.extractVideoId(track.audioUrl)) || null;
   },
 
   /**

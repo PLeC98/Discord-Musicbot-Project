@@ -14,6 +14,7 @@ const DirectLink = require("../sources/direct");
 const audioCache = require("../store/audioCache");
 const trackLookup = require("../store/trackLookup");
 const SponsorBlock = require("../sources/sponsorBlock");
+const { inputKind } = require("../rules/inputKind");
 
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드
@@ -29,14 +30,14 @@ const SponsorBlock = require("../sources/sponsorBlock");
 const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역. 서버가 달라도 같은 곡은 한 번만 받는다.
 
 /**
- * 이 트랙은 음원을 남에게서 빌려 와야 하는가. 스포티파이뿐이다.
+ * 이 트랙은 음원을 남에게서 빌려 와야 하는가. 음원 주소가 없는 곡, 곧 영상을 아직 못 찾은 스포티파이 곡뿐이다.
  *
  * 사운드클라우드는 DRM 이 없고 제 음원을 주므로 여기 해당하지 않는다. 묶어 두면 `sc:` 키 안에
  * 유튜브 음원이 들어가, 같은 곡이 처음 틀 때와 캐시로 틀 때 서로 다른 녹음이 된다.
  * 조건문 안에 묻어 두면 다시 끼워 넣게 되므로 규칙에 이름을 준다.
  */
 function needsBorrowedAudio(track) {
-  return !track?.youtubeUrl && track?.platform === "spotify";
+  return !!track && !track.audioUrl;
 }
 
 /** 내 임시 경로. 같은 폴더여야 옮기기가 원자적이고, .opus여야 yt-dlp가 확장자를 바꾸지 않는다 */
@@ -154,9 +155,7 @@ class TrackDownloader {
       // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
       // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
       // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
-      //
-      // 사운드클라우드는 `youtubeUrl` 이 붙어 있어도 제 주소로 받는다. 그대로 두면 `sc:` 키에 남의 음원이 들어간다.
-      let downloadUrl = track.platform === "soundcloud" ? track.url : track.youtubeUrl || track.url;
+      let downloadUrl = track.audioUrl;
 
       if (needsBorrowedAudio(track)) {
         downloadUrl = await equivalent.findYouTubeEquivalent(track);
@@ -179,11 +178,11 @@ class TrackDownloader {
         throw new Error("라이브 스트림은 캐시 다운로드 대상이 아님");
       }
 
-      // yt-dlp가 받아 오는 것들: YouTube, Spotify(YouTube 경유), SoundCloud(제 음원),
-      // 그리고 영상을 찾아 둔 자동재생 출처 트랙. 남는 것은 직접 링크뿐이다.
+      // yt-dlp가 받아 오는 것들: 유튜브 영상(스포티파이 · 자동재생 곡이 찾아 둔 것 포함)과 사운드클라우드.
+      // 남는 것은 직접 링크뿐이다. 곡이 어디서 왔는지가 아니라 음원 주소가 가른다.
       // 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
       // 조립하므로 우리가 손댈 것이 없다.
-      if (track.youtubeUrl || track.platform === "youtube" || track.platform === "spotify" || track.platform === "soundcloud") {
+      if (inputKind(downloadUrl) !== "direct") {
         // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
         await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
           YouTube.getYtDlpOptions(
@@ -222,8 +221,8 @@ class TrackDownloader {
         audioDurationSec = info.durationSec;
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
-        // 즉시재생과 별개의 요청이므로 소비 시점에 track.url을 다시 가드 fetch 한다.
-        const audioStream = await DirectLink.getStream(track.url);
+        // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
+        const audioStream = await DirectLink.getStream(downloadUrl);
 
         // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
         // 모르면 이미 Opus 인 음원까지 다시 굽게 된다.
@@ -280,7 +279,7 @@ class TrackDownloader {
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
       // 예열이 앞으로 여러 곡을 미리 받으므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
-      log.debug(`캐시 다운로드 완료: "${track.title}"${track.youtubeUrl && track.platform !== "youtube" ? ` (yt: ${track.youtubeUrl})` : ""}`);
+      log.debug(`캐시 다운로드 완료: "${track.title}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""}`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.

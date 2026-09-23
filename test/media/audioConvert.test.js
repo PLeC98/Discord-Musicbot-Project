@@ -205,26 +205,16 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
 
 // ── SC-4 ─────────────────────────────────────────────────────────────────────
 
-test("음원을 빌려 오는 것은 스포티파이뿐이다. 사운드클라우드는 제 음원을 준다", () => {
+test("음원을 빌려 오는 것은 음원 주소가 없는 곡(스포티파이)뿐이다. 사운드클라우드는 제 음원을 준다", () => {
   // 상류가 둘을 DRM 으로 묶어 둬서 `sc:` 키 안에 유튜브 음원이 들어갔다. 같은 곡이 처음 틀 때와
   // 캐시로 틀 때 서로 다른 녹음이 됐고, 유튜브 검색이 헛짚으면 그 키에 다른 곡이 박힌 채 남았다.
   const { needsBorrowedAudio } = require("../../src/media/cacheDownload")._internals;
 
   assert.equal(needsBorrowedAudio({ platform: "spotify" }), true);
-  assert.equal(needsBorrowedAudio({ platform: "soundcloud" }), false, "SC-4");
-  assert.equal(needsBorrowedAudio({ platform: "youtube" }), false);
-  assert.equal(needsBorrowedAudio({ platform: "direct" }), false);
+  assert.equal(needsBorrowedAudio({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }), false, "SC-4");
+  assert.equal(needsBorrowedAudio({ platform: "youtube", audioUrl: "https://www.youtube.com/watch?v=x" }), false);
+  assert.equal(needsBorrowedAudio({ platform: "direct", audioUrl: "https://f.test/a.mp3" }), false);
   // 이미 찾아 둔 영상이 있으면 다시 찾지 않는다(자동재생 출처 트랙)
-  assert.equal(needsBorrowedAudio({ platform: "spotify", youtubeUrl: "https://y/x" }), false);
+  assert.equal(needsBorrowedAudio({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=x" }), false);
   assert.equal(needsBorrowedAudio(null), false);
-});
-
-test("사운드클라우드는 youtubeUrl 이 붙어 있어도 제 주소로 받는다", () => {
-  // 붙을 수 있는 경로가 남아 있다. id 없는 트랙의 예열이 동등물을 찾아 심는 경우.
-  // 그대로 두면 `sc:` 키에 남의 음원이 또 들어간다.
-  const downloadUrlFor = (track) => (track.platform === "soundcloud" ? track.url : track.youtubeUrl || track.url);
-
-  assert.equal(downloadUrlFor({ platform: "soundcloud", url: "https://sc/a", youtubeUrl: "https://y/b" }), "https://sc/a");
-  assert.equal(downloadUrlFor({ platform: "spotify", url: "https://sp/a", youtubeUrl: "https://y/b" }), "https://y/b");
-  assert.equal(downloadUrlFor({ platform: "youtube", url: "https://y/a" }), "https://y/a");
 });

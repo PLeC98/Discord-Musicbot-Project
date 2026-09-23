@@ -336,7 +336,7 @@ test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
 // 재생 차례에 스트림도 실패한다. 대기열이 비어 버려 봇이 그대로 멈췄다.
 // 우리가 고른 곡이니 사용자에게 알릴 일이 아니라, 조용히 빼고 다른 곡을 고른다.
 test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 고른다", async () => {
-  const gone = track("dead", { autoplay: true, youtubeUrl: "https://www.youtube.com/watch?v=BYlcTa9SQXs" });
+  const gone = track("dead", { autoplay: true, audioUrl: "https://www.youtube.com/watch?v=BYlcTa9SQXs" });
   const { warmer, player } = makeWarmer({ queue: [gone, track("ok")] });
 
   let refilled = 0;

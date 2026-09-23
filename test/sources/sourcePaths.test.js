@@ -258,8 +258,8 @@ test("스트림: 새로 찾은 영상이 내려간 것은 다시 찾지 않는�
     throw new Error("ERROR: Video unavailable");
   });
   swap(equivalent, "reresolveYouTube", async () => assert.fail("다시 찾으면 안 된다"));
-  await assert.rejects(streamUrl.getStream({ platform: "spotify", youtubeUrl: "https://www.youtube.com/watch?v=x", _youtubeFromCache: false }), /Video unavailable/);
+  await assert.rejects(streamUrl.getStream({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=x", _youtubeFromCache: false }), /Video unavailable/);
 
   swap(SoundCloud, "getStream", async (url) => ({ url: `${url}#stream` }));
-  assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", url: "https://soundcloud.com/a/b" }), { url: "https://soundcloud.com/a/b#stream" });
+  assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }), { url: "https://soundcloud.com/a/b#stream" });
 });

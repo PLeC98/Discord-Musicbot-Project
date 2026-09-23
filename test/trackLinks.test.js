@@ -59,17 +59,14 @@ test("세션 복원: 유튜브로 올라간 음원 곡은 페이지 링크가 �
   db.close();
 });
 
-test("음원 곡의 url 에 페이지를 넣으면 재생도 받기도 못 한다", async () => {
+test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음원 주소에서만 온다", async () => {
   const streamUrl = require("../src/sources/streamUrl");
-  const base = { title: "곡", platform: "anisongdb", audioSourceKey: "dl:abc", id: "amq:48944" };
+  const track = { title: "곡", platform: "anisongdb", id: "amq:48944", pageUrl: "https://anilist.co/anime/21827", requestKey: "amq:48944", audioUrl: "https://nawdist.animemusicquiz.com/abc.mp3" };
+  assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {} });
 
-  const audio = { ...base, url: "https://nawdist.animemusicquiz.com/abc.mp3" };
-  assert.deepEqual(await streamUrl.getStream(audio), { url: audio.url, platform: "direct", httpHeaders: {} });
-  assert.equal(links.isDirectAudioLink(audio.url), true);
-
-  const page = { ...base, url: "https://anilist.co/anime/21827" };
-  await assert.rejects(streamUrl.getStream(page), /지원되지 않는 플랫폼: anisongdb/);
-  assert.equal(links.isDirectAudioLink(page.url), false, "다운로드의 직접 링크 갈래가 첫 관문에서 막힌다");
+  // 음원 주소 자리에 페이지가 들어가면 받을 수 없다. 그래서 페이지는 제 칸에만 둔다
+  await assert.rejects(streamUrl.getStream({ ...track, audioUrl: track.pageUrl }), /지원되지 않는 음원 주소/);
+  assert.equal(links.isDirectAudioLink(track.pageUrl), false);
 });
 
 test("장부 열쇠에 작품 페이지가 들어가면 같은 작품의 두 곡이 한 칸을 덮어쓴다", () => {

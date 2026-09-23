@@ -35,7 +35,7 @@ const dead = new Set();
 
 /** 이 영상은 못 튼다고 표시한다. 다음 뽑기부터 후보에서 빠진다. */
 function markDead(urlOrTrack) {
-  const url = typeof urlOrTrack === "string" ? urlOrTrack : urlOrTrack?.youtubeUrl || urlOrTrack?.url;
+  const url = typeof urlOrTrack === "string" ? urlOrTrack : urlOrTrack?.audioUrl;
   const id = url && links.extractVideoId(url);
   if (!id) return false;
   // 오래된 것부터 버린다. 영상이 되살아나는 일도 있고, 무한정 들고 있을 이유가 없다

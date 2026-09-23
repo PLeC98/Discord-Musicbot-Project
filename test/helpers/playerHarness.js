@@ -198,6 +198,7 @@ equivalent.findYouTubeEquivalent = async (track) => {
   const url = behavior.equivalent ? behavior.equivalent(track) : null;
   if (url) {
     track.youtubeUrl = url;
+    track.audioUrl = url;
     lookup.ensureAudioSourceKey(track);
   }
   return url;

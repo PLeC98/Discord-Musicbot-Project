@@ -281,9 +281,9 @@ test("못 트는 영상으로 표시하면 다시 고르지 않는다", async ()
   route._dead.clear();
 });
 
-test("트랙을 통째로 넘겨도 표시된다 — 출처 곡은 url이 영상이 아니다", () => {
+test("트랙을 통째로 넘겨도 표시된다 — 출처 곡은 페이지가 영상이 아니라 음원 주소를 본다", () => {
   route._dead.clear();
-  route.markDead({ url: "https://vocadb.net/S/1", youtubeUrl: "https://youtu.be/abcdefghijk" });
+  route.markDead({ pageUrl: "https://vocadb.net/S/1", audioUrl: "https://youtu.be/abcdefghijk" });
   assert.equal(route._dead.has("abcdefghijk"), true);
   route._dead.clear();
 });

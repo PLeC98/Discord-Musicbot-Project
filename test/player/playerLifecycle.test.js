@@ -16,7 +16,7 @@ const { calls, AudioPlayerStatus } = h;
 
 beforeEach(() => h.reset());
 
-const yt = (id, extra = {}) => ({ id, title: `곡 ${id}`, artist: "가수", url: `https://www.youtube.com/watch?v=${id}`, platform: "youtube", duration: 180, ...extra });
+const yt = require("../helpers/tracks").youtube;
 const tick = (ms = 0) => new Promise((done) => setTimeout(done, ms));
 
 // 받아 둔 곡으로 만든다. 다음 곡을 틀 때 스트림 없이 파일 갈래로 가게 한다
