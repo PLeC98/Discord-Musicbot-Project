@@ -19,7 +19,7 @@ function open() {
 }
 
 let serial = 0;
-const t = (title = `t${serial++}`) => ({ title, url: `https://y/${title}`, audioSourceKey: `yt:${title}` });
+const t = (title = `t${serial++}`) => ({ title, pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
 const titles = (arr) => arr.map((x) => x.title);
 
 function snapshot(p) {
@@ -170,20 +170,21 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
+test("트랙 필드: 링크 칸 셋과 표시 정보가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
   const { store } = open();
   const track = {
-    id: "vid1",
+    id: "amq:1",
     title: "노래",
-    url: "https://youtube.com/watch?v=vid1",
+    pageUrl: "https://anilist.co/anime/1",
+    requestKey: "amq:1",
+    audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
     duration: "185",
     thumbnail: "https://img/1.jpg",
     artist: "가수",
     album: "앨범",
     uploader: "채널",
-    platform: "youtube",
-    audioSourceKey: "yt:vid1",
-    youtubeUrl: "https://youtube.com/watch?v=vid1",
+    platform: "anisongdb",
+    audioSourceKey: "dl:계산하는 값이라 저장하지 않는다",
     live: true,
     addedAt: 1720000000000,
     requestedBy: { id: "u1", username: "someone" },
@@ -191,20 +192,17 @@ test("트랙 필드: 저장한 그대로 돌아오고, 요청자는 id만 남는
   store.setCurrent(G, track);
 
   assert.deepEqual(store.load(G).current, {
-    id: "vid1",
+    id: "amq:1",
     title: "노래",
-    url: "https://youtube.com/watch?v=vid1",
-    pageUrl: "https://youtube.com/watch?v=vid1",
-    requestKey: "https://www.youtube.com/watch?v=vid1",
-    audioUrl: "https://youtube.com/watch?v=vid1",
+    pageUrl: "https://anilist.co/anime/1",
+    requestKey: "amq:1",
+    audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
     duration: 185,
     thumbnail: "https://img/1.jpg",
     artist: "가수",
     album: "앨범",
     uploader: "채널",
-    platform: "youtube",
-    audioSourceKey: "yt:vid1",
-    youtubeUrl: "https://youtube.com/watch?v=vid1",
+    platform: "anisongdb",
     isLive: true,
     addedAt: 1720000000000,
     requesterId: "u1",
@@ -259,16 +257,12 @@ test("replaceTracks: 주어진 목록으로 통째로 바꾸고 기록은 상한
   assert.equal(s.history.at(-1).title, `h${trackState.HISTORY_MAX + 2}`);
 });
 
-test("liveTrackRefs: 현재곡과 대기열만 — 기록은 지킬 필요가 없다", () => {
+test("liveAudioUrls: 현재곡과 대기열만 — 기록은 지킬 필요가 없다", () => {
   const { store } = open();
   store.setCurrent(G, t("now"));
-  store.append(G, [t("next")]);
+  store.append(G, [t("next"), { title: "스포티파이", requestKey: "https://open.spotify.com/track/x" }]);
   store.retire(G, t("past"));
-  const keys = store
-    .liveTrackRefs()
-    .map((r) => r.audioSourceKey)
-    .sort();
-  assert.deepEqual(keys, ["yt:next", "yt:now"]);
+  assert.deepEqual(store.liveAudioUrls().sort(), ["https://www.youtube.com/watch?v=next", "https://www.youtube.com/watch?v=now"], "음원 주소가 아직 없는 곡은 빠진다");
 });
 
 test("loadAll: 트랙이 없는 세션도 빈 목록으로 돌아온다", () => {

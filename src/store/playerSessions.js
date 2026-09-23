@@ -5,8 +5,6 @@
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
 const { HISTORY_MAX } = require("../player/trackState");
-const { canonicalUrl } = require("../rules/canonicalUrl");
-const { audioUrlOf } = require("../rules/audioKeyOf");
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
 const GAP = 1_000_000_000;
@@ -33,8 +31,9 @@ const SCHEMA = `
     slot             TEXT    NOT NULL CHECK (slot IN ('current', 'queue', 'history')),
     seq              INTEGER NOT NULL,
     track_id         TEXT,
-    source_url       TEXT,
-    audio_source_key TEXT,
+    page_url         TEXT,
+    request_key      TEXT,
+    audio_url        TEXT,
     title            TEXT,
     artist           TEXT,
     album            TEXT,
@@ -43,14 +42,13 @@ const SCHEMA = `
     thumbnail        TEXT,
     platform         TEXT,
     is_live          INTEGER NOT NULL DEFAULT 0,
-    youtube_url      TEXT,
     requester_id     TEXT,
     added_at         INTEGER NOT NULL,
     PRIMARY KEY (guild_id, slot, seq)
   );
 `;
 
-const TRACK_COLUMNS = ["track_id", "source_url", "audio_source_key", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "youtube_url", "requester_id", "added_at"];
+const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "added_at"];
 
 function createTables(db) {
   db.exec(SCHEMA);
@@ -59,8 +57,9 @@ function createTables(db) {
 function toRow(track) {
   return {
     track_id: track.id || null,
-    source_url: track.url || null,
-    audio_source_key: track.audioSourceKey || null,
+    page_url: track.pageUrl || null,
+    request_key: track.requestKey || null,
+    audio_url: track.audioUrl || null,
     title: track.title || null,
     artist: track.artist || null,
     album: track.album || null,
@@ -69,7 +68,6 @@ function toRow(track) {
     thumbnail: track.thumbnail || null,
     platform: track.platform || null,
     is_live: track.isLive || track.live ? 1 : 0,
-    youtube_url: track.youtubeUrl || null,
     requester_id: track.requestedBy?.id || track.requesterId || null,
     added_at: track.addedAt || Date.now(),
   };
@@ -79,18 +77,15 @@ function fromRow(row) {
   return {
     id: row.track_id,
     title: row.title,
-    url: row.source_url,
-    pageUrl: row.source_url,
-    requestKey: canonicalUrl(row.source_url),
-    audioUrl: audioUrlOf({ platform: row.platform, url: row.source_url, youtubeUrl: row.youtube_url, id: row.track_id }) || undefined,
+    pageUrl: row.page_url,
+    requestKey: row.request_key,
+    audioUrl: row.audio_url ?? undefined,
     duration: row.duration_sec,
     thumbnail: row.thumbnail,
     artist: row.artist,
     album: row.album,
     uploader: row.uploader,
     platform: row.platform,
-    audioSourceKey: row.audio_source_key,
-    youtubeUrl: row.youtube_url,
     isLive: Boolean(row.is_live),
     addedAt: row.added_at,
     requesterId: row.requester_id,
@@ -149,7 +144,7 @@ class PlayerSessionStore {
       allSessions: q("SELECT * FROM player_sessions"),
       guildTracks: q("SELECT * FROM session_tracks WHERE guild_id = ? ORDER BY slot, seq"),
       allTracks: q("SELECT * FROM session_tracks ORDER BY guild_id, slot, seq"),
-      liveRefs: q("SELECT audio_source_key, source_url FROM session_tracks WHERE slot IN ('current', 'queue')"),
+      liveRefs: q("SELECT audio_url FROM session_tracks WHERE slot IN ('current', 'queue') AND audio_url IS NOT NULL"),
     };
   }
 
@@ -365,9 +360,9 @@ class PlayerSessionStore {
     return this.q.allSessions.all().map((s) => ({ guildId: s.guild_id, session: sessionFromRow(s), ...groupTracks(byGuild.get(s.guild_id) || []) }));
   }
 
-  // 기동 시 고아 파일 청소가 지켜야 할 곡. 현재곡과 대기열(기록은 다시 받으면 된다)
-  liveTrackRefs() {
-    return this.q.liveRefs.all().map((r) => ({ audioSourceKey: r.audio_source_key, url: r.source_url }));
+  // 기동 시 고아 파일 청소가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 받으면 된다)
+  liveAudioUrls() {
+    return this.q.liveRefs.all().map((r) => r.audio_url);
   }
 }
 

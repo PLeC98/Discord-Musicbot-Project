@@ -1,9 +1,9 @@
 "use strict";
 
-// 트랙의 링크 칸과 캐시 장부의 지금 동작을 고정한다(구조 리팩터링 0단계).
+// 트랙의 링크 칸 셋(pageUrl · requestKey · audioUrl)과 링크 장부.
 //
-// 여기 적힌 것은 대부분 고칠 동작이다. 3단계(트랙 모델)가 요청 열쇠 · 페이지 링크 칸을 세우면서 답을 바꾼다.
-// 그때 이 테스트를 새 답으로 고치고, 어느 답이 왜 바뀌었는지는 그 커밋이 적는다.
+// 한 칸(url)이 보여 줄 링크 · 장부 열쇠 · 음원 주소를 다 하던 때 여기서 틀린 답을 고정해 두었고(리팩터링 0단계),
+// 3단계가 칸을 가르면서 답을 바꿨다. 남은 것은 그 틀린 답이 다시 나오지 않게 하는 테스트다.
 
 const fs = require("node:fs");
 const links = require("../src/rules/links");
@@ -12,6 +12,7 @@ const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const Database = require("better-sqlite3");
+const { canonicalUrl } = require("../src/rules/canonicalUrl");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "track-links-"));
 let audioCache, trackLookup;
@@ -38,7 +39,10 @@ function seed(key, track) {
   return file;
 }
 
-test("세션 복원: 유튜브로 올라간 음원 곡은 페이지 링크가 남고, 음원으로 떨어진 곡은 잃는다", () => {
+const watch = (id) => `https://www.youtube.com/watch?v=${id}`;
+
+// 전에는 음원으로 떨어진 곡의 작품 페이지(webUrl)를 저장할 칸이 없어 복원 뒤 링크가 음원 파일로 바뀌었다
+test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도 작품 페이지 링크를 지킨다", () => {
   const { PlayerSessionStore, createTables } = require("../src/store/playerSessions");
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
@@ -47,15 +51,13 @@ test("세션 복원: 유튜브로 올라간 음원 곡은 페이지 링크가 �
   store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loop: "off", autoplay: "x", pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: "u" });
 
   const page = "https://anilist.co/anime/1";
-  const toYoutube = { title: "A", artist: "가수", platform: "anisongdb", url: page, youtubeUrl: "https://www.youtube.com/watch?v=v1", audioSourceKey: "yt:v1", id: "amq:1", addedAt: 1 };
-  const toFile = { title: "B", artist: "가수", platform: "anisongdb", url: "https://nawdist.animemusicquiz.com/a.mp3", webUrl: page, audioSourceKey: "dl:abc", id: "amq:2", addedAt: 2 };
+  const toYoutube = { title: "A", artist: "가수", platform: "anisongdb", pageUrl: page, requestKey: "amq:1", audioUrl: watch("v1"), id: "amq:1", addedAt: 1 };
+  const toFile = { title: "B", artist: "가수", platform: "anisongdb", pageUrl: page, requestKey: "amq:2", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", id: "amq:2", addedAt: 2 };
   store.append("g1", [toYoutube, toFile]);
 
   const [a, b] = store.load("g1").queue;
-  const shown = (t) => t.webUrl || t.url; // 임베드가 쓰는 규칙
-  assert.equal(shown(a), page, "url 칸에 페이지가 있어 살아남는다");
-  assert.equal(b.webUrl, undefined, "webUrl 은 저장하는 칸이 없다");
-  assert.equal(shown(b), "https://nawdist.animemusicquiz.com/a.mp3");
+  assert.deepEqual([a.pageUrl, a.requestKey, a.audioUrl], [page, "amq:1", watch("v1")]);
+  assert.deepEqual([b.pageUrl, b.requestKey, b.audioUrl], [page, "amq:2", "https://nawdist.animemusicquiz.com/a.mp3"]);
   db.close();
 });
 
@@ -69,23 +71,20 @@ test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음�
   assert.equal(links.isDirectAudioLink(track.pageUrl), false);
 });
 
-test("장부는 받은 열쇠 그대로 적는다. 작품 페이지를 열쇠로 주면 두 곡이 한 칸을 덮는다(그래서 자동재생은 요청 열쇠를 준다)", () => {
+// 전에는 장부 열쇠가 작품 페이지라, 같은 작품의 OP 와 ED 가 한 줄을 두고 서로 덮었다(「Fatal」 링크를 넣으면 「Burning」)
+test("장부: 같은 작품의 두 곡은 요청 열쇠가 달라 따로 산다. 작품 페이지는 열쇠가 아니다", () => {
   const page = "https://anilist.co/anime/150672";
-  const fatal = { title: "Fatal", artist: "GEMN", url: page, platform: "anisongdb", audioSourceKey: "yt:fatalfatal1" };
-  const burning = { title: "Burning", artist: "Hitsujibungaku", url: page, platform: "anisongdb", audioSourceKey: "yt:burningburn" };
-  seed(fatal.audioSourceKey, fatal);
-  seed(burning.audioSourceKey, burning);
+  const fatal = { title: "Fatal", artist: "GEMN", platform: "anisongdb", pageUrl: page, requestKey: "amq:9001", audioUrl: watch("fatalfatal1") };
+  const burning = { title: "Burning", artist: "Hitsujibungaku", platform: "anisongdb", pageUrl: page, requestKey: "amq:9002", audioUrl: watch("burningburn") };
+  seed("yt:fatalfatal1", fatal);
+  seed("yt:burningburn", burning);
 
-  trackLookup.recordTrackLookup(page, "anisongdb", fatal.audioSourceKey, fatal.title, fatal.artist, null);
-  trackLookup.recordTrackLookup(page, "anisongdb", burning.audioSourceKey, burning.title, burning.artist, null);
+  trackLookup.recordTrackLookup(fatal);
+  trackLookup.recordTrackLookup(burning);
 
-  const hit = trackLookup.resolveFromCache(page);
-  assert.equal(hit.hit, true);
-  assert.equal(hit.audioSourceKey, "yt:burningburn", "Fatal 의 링크를 넣어도 Burning 이 나온다");
-  assert.equal(hit.track.title, "Burning");
-  const pointing = audioCache.db.prepare("SELECT COUNT(*) c FROM track_lookup WHERE audio_source_key = ?").get(fatal.audioSourceKey).c;
-  assert.equal(pointing, 0, "Fatal 파일은 가리키는 행이 없는 채로 남는다");
-  assert.equal(audioCache.db.prepare("SELECT status FROM audio_cache WHERE audio_source_key = ?").get(fatal.audioSourceKey).status, "cached");
+  assert.equal(trackLookup.resolveFromCache("amq:9001").track.title, "Fatal");
+  assert.equal(trackLookup.resolveFromCache("amq:9002").track.title, "Burning");
+  assert.equal(trackLookup.resolveFromCache(page).hit, false);
 });
 
 test("장부 조회 앞의 링크 다듬기: 공유 링크가 장부의 깨끗한 주소와 맞는다", () => {
@@ -97,27 +96,26 @@ test("장부 조회 앞의 링크 다듬기: 공유 링크가 장부의 깨끗�
     ["https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
     ["https://soundcloud.com/artist/track-name?si=abc&utm_source=clipboard", "https://soundcloud.com/artist/track-name"],
   ];
-  for (const [input, expected] of cases) assert.equal(trackLookup._normalizeSourceUrl(input), expected, input);
+  for (const [input, expected] of cases) assert.equal(canonicalUrl(input), expected, input);
 
   const clean = "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj";
   seed("yt:spotifyshar", { title: "곡" });
-  trackLookup.recordTrackLookup(clean, "spotify", "yt:spotifyshar", "곡", "가수", null);
-  assert.equal(trackLookup.getResolvedKey(`${clean}?si=0a1b2c`), "yt:spotifyshar", "공유 링크도 장부와 맞는다");
-  assert.equal(trackLookup.getResolvedKey("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=x"), "yt:spotifyshar", "지역 경로가 붙어도");
-  assert.equal(trackLookup.getResolvedKey(clean), "yt:spotifyshar");
+  trackLookup.recordTrackLookup({ requestKey: clean, pageUrl: clean, audioUrl: watch("spotifyshar"), platform: "spotify", title: "곡", artist: "가수" });
+  assert.equal(trackLookup.getAudioUrl(`${clean}?si=0a1b2c`), watch("spotifyshar"), "공유 링크도 장부와 맞는다");
+  assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=x"), watch("spotifyshar"), "지역 경로가 붙어도");
+  assert.equal(trackLookup.resolveFromCache(`${clean}?si=0a1b2c`).hit, true, "받아 둔 파일로 바로 튼다");
 });
 
-test("퇴거가 audio_cache 행을 지우면 외래 키 연쇄로 링크 장부 행도 지워진다", () => {
+// 전에는 외래 키 연쇄 삭제 때문에 퇴거가 장부까지 지웠다. "퇴거돼도 알려준다"는 주석과 반대였다
+test("퇴거가 audio_cache 행을 지워도 링크 장부는 남는다", () => {
   const spotify = "https://open.spotify.com/track/evictcascade";
-  const key = "yt:evictcasca";
-  const file = seed(key, { title: "곡", url: spotify, platform: "spotify" });
-  trackLookup.recordTrackLookup(spotify, "spotify", key, "곡", "가수", null);
-  assert.equal(trackLookup.getResolvedKey(spotify), key);
+  const file = seed("yt:evictcasca", { title: "곡" });
+  trackLookup.recordTrackLookup({ requestKey: spotify, pageUrl: spotify, audioUrl: watch("evictcasca"), platform: "spotify", title: "곡", artist: "가수" });
 
   // evict() 가 한 줄마다 하는 일 그대로
   fs.unlinkSync(file);
-  audioCache.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(key);
+  audioCache.db.prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictcasca");
 
-  assert.equal(trackLookup.getResolvedKey(spotify), null, "파일이 퇴거돼도 매핑은 알려준다는 주석과 반대");
+  assert.equal(trackLookup.getAudioUrl(spotify), watch("evictcasca"));
   assert.equal(trackLookup.resolveFromCache(spotify).hit, false);
 });

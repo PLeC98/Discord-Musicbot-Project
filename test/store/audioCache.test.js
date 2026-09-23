@@ -45,7 +45,7 @@ test("getFilePath: 같은 키 → 같은 경로 (결정적), 다른 키 → 다�
 test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근 재생은 생존", async () => {
   const now = Date.now();
   const OLD = now - 90 * 86_400_000; // 90일 전
-  const ins = audioCache.db.prepare("INSERT INTO audio_cache (audio_source_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
+  const ins = audioCache.db.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
 
   // 생존해야 할 것들: 최근에 자주 재생
   for (let i = 0; i < 8; i++) {
@@ -63,9 +63,9 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
 
     const remaining = new Set(
       audioCache.db
-        .prepare("SELECT audio_source_key FROM audio_cache")
+        .prepare("SELECT audio_key FROM audio_cache")
         .all()
-        .map((r) => r.audio_source_key),
+        .map((r) => r.audio_key),
     );
     assert.ok(!remaining.has("bad1"), "미재생·고령·대용량이 최우선 퇴거");
     assert.ok(!remaining.has("bad2"), "미재생·고령·대용량이 최우선 퇴거");
@@ -134,7 +134,7 @@ test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", ()
 test("외부 호출자가 쓰는 메서드는 내보낸 인스턴스에서 호출 가능해야 한다", () => {
   for (const [mod, names] of [
     [audioCache, ["md5", "getFilePath"]],
-    [trackLookup, ["resolveFromCache", "getResolvedKey", "removeResolution"]],
+    [trackLookup, ["resolveFromCache", "getAudioUrl", "removeResolution"]],
   ]) {
     for (const name of names) assert.equal(typeof mod[name], "function", name);
   }
@@ -174,7 +174,7 @@ function runResetChecks() {
 
   audioCache.recordDownloadStart("yt:reset1", { title: "t", duration: 10 });
   audioCache.recordDownloadComplete("yt:reset1", audioCache.getFilePath("yt:reset1"), 1234, { title: "t" });
-  trackLookup.recordTrackLookup("https://y/reset1", "youtube", "yt:reset1", "t", null, null);
+  trackLookup.recordTrackLookup({ requestKey: "https://y/reset1", pageUrl: "https://y/reset1", audioUrl: "https://www.youtube.com/watch?v=reset1", platform: "youtube", title: "t" });
   externalCaches.markAgeRestricted("reset1");
   audioCache.sessions.append("g-reset", [{ title: "t", url: "https://y/reset1" }]);
 

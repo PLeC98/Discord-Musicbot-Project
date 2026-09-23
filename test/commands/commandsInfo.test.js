@@ -213,7 +213,7 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 ·
   seed("yt:aaaaaaaaaaa", "많이 튼 곡", 3);
   seed("sc:1", "사운드클라우드", 0);
   seed("dl:abc", "직접", 1);
-  trackLookup.recordTrackLookup("https://youtu.be/aaaaaaaaaaa", "youtube", "yt:aaaaaaaaaaa", "많이 튼 곡", "가수", null);
+  trackLookup.recordTrackLookup({ requestKey: "https://youtu.be/aaaaaaaaaaa", pageUrl: "https://youtu.be/aaaaaaaaaaa", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube", title: "많이 튼 곡", artist: "가수" });
 
   const { it, log, client } = interaction();
   await cmd("cachestatus").execute(it, client);

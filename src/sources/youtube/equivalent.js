@@ -5,6 +5,7 @@
 const YouTube = require("./index");
 const trackLookup = require("../../store/trackLookup");
 const lookup = require("../lookup");
+const links = require("../../rules/links");
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./match");
 
 const equivalent = {
@@ -16,23 +17,20 @@ const equivalent = {
    */
   // search: 유튜브 검색 함수. 생략하면 진짜
   async findYouTubeEquivalent(track, { search = (query, limit) => YouTube.search(query, limit) } = {}) {
-    if (track.youtubeUrl) {
-      track.audioUrl ??= track.youtubeUrl;
+    if (track.audioUrl) {
       lookup.ensureAudioSourceKey(track);
-      return track.youtubeUrl;
+      return track.audioUrl;
     }
 
-    // Tier-1: 이미 해결된 매핑이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
-    // 매핑의 영상이 내려간 경우는 소비(다운로드) 시점에서 감지해 reresolveYouTube로 재검색한다.
-    if (track.requestKey) {
-      const cachedKey = trackLookup.getResolvedKey(track.requestKey);
-      if (cachedKey && cachedKey.startsWith("yt:")) {
-        track.audioSourceKey = cachedKey;
-        track.youtubeUrl = `https://www.youtube.com/watch?v=${cachedKey.slice(3)}`;
-        track.audioUrl = track.youtubeUrl;
-        track._youtubeFromCache = true; // 소비 시 unavailable이면 재검색 트리거
-        return track.youtubeUrl;
-      }
+    // Tier-1: 장부에 이 요청의 영상이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
+    // 그 영상이 내려간 경우는 소비(다운로드) 시점에서 감지해 reresolveYouTube로 재검색한다.
+    const known = track.requestKey && trackLookup.getAudioUrl(track.requestKey);
+    if (known && links.isYouTubeURL(known)) {
+      track.youtubeUrl = known;
+      track.audioUrl = known;
+      track._youtubeFromCache = true; // 소비 시 unavailable이면 재검색 트리거
+      lookup.ensureAudioSourceKey(track);
+      return known;
     }
 
     // 타겟: 스포티파이 duration(초)을 durationSec로 넘겨야 길이 신호가 동작한다

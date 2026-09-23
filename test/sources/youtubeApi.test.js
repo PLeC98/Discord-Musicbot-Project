@@ -181,7 +181,7 @@ test("스트림: 주소가 없거나 yt-dlp 가 실패하면 던진다", async (
 
 test("재생목록: 필요한 구간만 받고, 영상 자체에서 확인해 둔 제목이 있으면 그것을 쓴다", async () => {
   audioCache.recordDownloadStart("yt:jjjjjjjjjjj", { title: "t" });
-  trackLookup.recordTrackLookup("https://www.youtube.com/watch?v=jjjjjjjjjjj", "youtube", "yt:jjjjjjjjjjj", "확인된 제목", "가수", null, { verified: true });
+  trackLookup.recordTrackLookup({ requestKey: "https://www.youtube.com/watch?v=jjjjjjjjjjj", pageUrl: "https://www.youtube.com/watch?v=jjjjjjjjjjj", audioUrl: "https://www.youtube.com/watch?v=jjjjjjjjjjj", platform: "youtube", title: "확인된 제목", artist: "가수" }, { verified: true });
   respond = () => ({ title: "목록", playlist_count: 57, entries: [video("jjjjjjjjjjj", { title: "재생목록이 준 낡은 제목" }), { id: "kkkkkkkkkkk", title: "주소만" }, null] });
 
   const list = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL1", { offset: 20, limit: 10 });

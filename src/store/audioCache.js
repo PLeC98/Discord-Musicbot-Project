@@ -5,7 +5,7 @@
 const log = require("../infra/log/logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
-const { md5 } = require("../rules/audioKeyOf");
+const { md5, audioKeyOf } = require("../rules/audioKeyOf");
 const { PlayerSessionStore } = require("./playerSessions");
 const db = require("./db");
 
@@ -20,9 +20,9 @@ const SIZE_REF_BYTES = 50 * 1024 * 1024;
 
 class AudioCache {
   constructor() {
-    this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
+    this._protectedKeys = new Set(); // 현재 재생 중인 audio_key
     this._protectedFiles = new Set(); // 지금 받고 있는 임시 파일 경로. 기동 스윕이 건드리면 안 된다
-    this._queuedKeys = new Map(); // guildId -> Set<audio_source_key>. 대기열 앞부분
+    this._queuedKeys = new Map(); // guildId -> Set<audio_key>. 대기열 앞부분
     this._evictInterval = null;
     this._sessions = null;
     // 캐시 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 폴더를 건드리지 않는다.
@@ -53,7 +53,7 @@ class AudioCache {
     return md5(str);
   }
 
-  /** audio_source_key에 대한 결정적 파일 경로 */
+  /** audio_key에 대한 결정적 파일 경로 */
   getFilePath(audioSourceKey) {
     return path.join(this._cacheDir, `track_${this.md5(audioSourceKey)}.opus`);
   }
@@ -105,9 +105,9 @@ class AudioCache {
     return keys;
   }
 
-  /** audio_source_key로 원시 조회 */
+  /** audio_key로 원시 조회 */
   lookupByAudioKey(audioSourceKey) {
-    return this.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(audioSourceKey) || null;
+    return this.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioSourceKey) || null;
   }
 
   // 쓰기. audio_cache
@@ -118,15 +118,14 @@ class AudioCache {
       .prepare(
         `
             INSERT INTO audio_cache
-                (audio_source_key, status, duration_sec, title, channel,
-                 verification_policy, created_at, updated_at)
-            VALUES (?, 'downloading', ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(audio_source_key) DO UPDATE SET
+                (audio_key, status, duration_sec, title, channel, created_at, updated_at)
+            VALUES (?, 'downloading', ?, ?, ?, ?, ?)
+            ON CONFLICT(audio_key) DO UPDATE SET
                 status     = 'downloading',
                 updated_at = excluded.updated_at
         `,
       )
-      .run(audioSourceKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, this._verificationPolicy(audioSourceKey), now, now);
+      .run(audioSourceKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, now, now);
   }
 
   // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
@@ -142,14 +141,12 @@ class AudioCache {
                 title               = COALESCE(?, title),
                 channel             = COALESCE(?, channel),
                 duration_sec        = COALESCE(?, duration_sec),
-                content_fingerprint = ?,
                 downloaded_at       = ?,
-                last_verified_at    = ?,
                 updated_at          = ?
-            WHERE audio_source_key = ?
+            WHERE audio_key = ?
         `,
       )
-      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, `size:${fileSizeBytes}`, now, now, now, audioSourceKey);
+      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, now, now, audioSourceKey);
 
     // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다. evictIfNeeded는 닫힌 DB를 기본 경로로 다시 연다
     setImmediate(() => {
@@ -158,7 +155,7 @@ class AudioCache {
   }
 
   recordError(audioSourceKey) {
-    this.db.prepare(`UPDATE audio_cache SET status = 'error', updated_at = ? WHERE audio_source_key = ?`).run(Date.now(), audioSourceKey);
+    this.db.prepare(`UPDATE audio_cache SET status = 'error', updated_at = ? WHERE audio_key = ?`).run(Date.now(), audioSourceKey);
   }
 
   recordPlayback(audioSourceKey) {
@@ -167,22 +164,10 @@ class AudioCache {
       .prepare(
         `
             UPDATE audio_cache SET play_count = play_count + 1, last_played_at = ?, updated_at = ?
-            WHERE audio_source_key = ?
+            WHERE audio_key = ?
         `,
       )
       .run(now, now, audioSourceKey);
-  }
-
-  // 검증 정책
-
-  // 포크 초기의 "재생 전 캐시 재검증" 설계 잔재. 원류에는 SQLite 캐시가 아예 없다(audio_cache는 폴더 이름이었다).
-  // 이 값과 content_fingerprint·last_verified_at 셋 다 쓰기 전용이다. 재검증은 채우지 않기로 했다.
-  // 키가 videoId·트랙ID라 원본이 변할 수 없고, 파일 손상은 존재·크기 검사와 임시 파일 rename이 이미 막는다.
-  // 다음 스키마 변경 때 세 열을 함께 지운다.
-  _verificationPolicy(audioSourceKey) {
-    if (audioSourceKey.startsWith("sc:")) return "periodic"; // 24시간
-    if (audioSourceKey.startsWith("dl:")) return "always"; // 매 재생
-    return "infrequent"; // 30일 (yt:*)
   }
 
   // 플레이어 세션. 행 구조와 쓰기는 playerSessionStore
@@ -198,8 +183,8 @@ class AudioCache {
    */
   getProtectedCacheFiles() {
     const files = new Set();
-    for (const { audioSourceKey, url } of this.sessions.liveTrackRefs()) {
-      const key = audioSourceKey || url;
+    for (const audioUrl of this.sessions.liveAudioUrls()) {
+      const key = audioKeyOf(audioUrl);
       if (key) files.add(path.resolve(this.getFilePath(key)));
     }
     return files;
@@ -213,12 +198,12 @@ class AudioCache {
     if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
     // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
-    const cachedRows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache WHERE status = 'cached'").all();
+    const cachedRows = this.db.prepare("SELECT audio_key, file_path FROM audio_cache WHERE status = 'cached'").all();
     let orphanDbCount = 0;
     for (const row of cachedRows) {
-      const fp = row.file_path || this.getFilePath(row.audio_source_key);
+      const fp = row.file_path || this.getFilePath(row.audio_key);
       if (!fs.existsSync(fp)) {
-        this.db.prepare("UPDATE audio_cache SET status = 'error', file_path = NULL, updated_at = ? WHERE audio_source_key = ?").run(Date.now(), row.audio_source_key);
+        this.db.prepare("UPDATE audio_cache SET status = 'error', file_path = NULL, updated_at = ? WHERE audio_key = ?").run(Date.now(), row.audio_key);
         orphanDbCount++;
       }
     }
@@ -243,11 +228,9 @@ class AudioCache {
   resetCache() {
     const before = { files: this._cacheCount(), bytes: this._cacheSize() };
 
-    // 파일을 먼저 지우고, 잠겨서 못 지운 것의 행은 남긴다.
-    // 행만 지우고 파일을 남기면 부모 없는 자식이 생긴다. 재생 중인 곡은 파일이 있어 다운로더를 건너뛰므로
-    // audio_cache 행이 다시 만들어지지 않고, 그 뒤의 track_lookup 기록이 FK 위반으로 재생을 죽인다.
-    const rows = this.db.prepare("SELECT audio_source_key, file_path FROM audio_cache").all();
-    const pathOf = (row) => path.resolve(row.file_path || this.getFilePath(row.audio_source_key));
+    // 파일을 먼저 지우고, 잠겨서 못 지운 것의 행은 남긴다. 행만 지우고 파일을 남기면 DB 가 모르는 파일이 된다.
+    const rows = this.db.prepare("SELECT audio_key, file_path FROM audio_cache").all();
+    const pathOf = (row) => path.resolve(row.file_path || this.getFilePath(row.audio_key));
     const keptKeys = new Set();
     const keptPaths = new Set();
     let removed = 0;
@@ -261,7 +244,7 @@ class AudioCache {
         removed++;
       } catch {
         kept++; // 재생 중이라 잠긴 파일. 행을 남겨 둔다
-        keptKeys.add(row.audio_source_key);
+        keptKeys.add(row.audio_key);
         keptPaths.add(target);
       }
     }
@@ -283,14 +266,9 @@ class AudioCache {
     const survivors = [...keptKeys];
     const holes = survivors.map(() => "?").join(",");
     const wipe = this.db.transaction(() => {
-      if (survivors.length) {
-        this.db.prepare(`DELETE FROM track_lookup WHERE audio_source_key NOT IN (${holes})`).run(...survivors);
-        this.db.prepare(`DELETE FROM audio_cache  WHERE audio_source_key NOT IN (${holes})`).run(...survivors);
-      } else {
-        this.db.prepare("DELETE FROM track_lookup").run();
-        this.db.prepare("DELETE FROM audio_cache").run();
-      }
-      for (const t of ["sponsorblock_cache", "age_restricted", "spotify_anon", "session_tracks", "player_sessions"]) {
+      if (survivors.length) this.db.prepare(`DELETE FROM audio_cache WHERE audio_key NOT IN (${holes})`).run(...survivors);
+      else this.db.prepare("DELETE FROM audio_cache").run();
+      for (const t of ["track_lookup", "sponsorblock_cache", "age_restricted", "spotify_anon", "session_tracks", "player_sessions"]) {
         this.db.prepare(`DELETE FROM ${t}`).run();
       }
     });
@@ -410,7 +388,7 @@ class AudioCache {
     const rows = this.db
       .prepare("SELECT * FROM audio_cache WHERE status = 'cached'")
       .all()
-      .filter((r) => !live.has(r.audio_source_key));
+      .filter((r) => !live.has(r.audio_key));
 
     if (rows.length === 0) return;
 
@@ -445,7 +423,7 @@ class AudioCache {
         let score = Math.min(1, (1 - recency) * W_RECENCY + (1 - freq) * W_FREQUENCY + sizeFrac * W_SIZE + neverPlayed);
 
         // 연령 제한 영상: 점수를 낮춰 잔존 우선순위를 높임 (재취득 비용↑). 절대 임계값이 아닌 상대 랭킹이라 영구보존은 아님.
-        const vid = typeof r.audio_source_key === "string" && r.audio_source_key.startsWith("yt:") ? r.audio_source_key.slice(3) : null;
+        const vid = typeof r.audio_key === "string" && r.audio_key.startsWith("yt:") ? r.audio_key.slice(3) : null;
         if (vid && ageSet.has(vid)) score *= 0.5;
 
         return { ...r, _score: score };
@@ -456,13 +434,13 @@ class AudioCache {
     const target = Math.min(Math.ceil(rows.length * 0.2), 50);
     let evicted = 0;
     for (const row of scored.slice(0, target)) {
-      const fp = row.file_path || this.getFilePath(row.audio_source_key);
+      const fp = row.file_path || this.getFilePath(row.audio_key);
       try {
         if (fs.existsSync(fp)) fs.unlinkSync(fp);
       } catch {
         /* 무시 */
       }
-      this.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(row.audio_source_key);
+      this.db.prepare("DELETE FROM audio_cache WHERE audio_key = ?").run(row.audio_key);
       evicted++;
     }
     if (evicted > 0) log.info(`${evicted}개의 오디오 캐시 파일 삭제 완료`);
@@ -493,9 +471,9 @@ class AudioCache {
     const lookupCount = this.db.prepare("SELECT COUNT(*) AS c FROM track_lookup").get().c;
     const neverPlayed = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND (play_count IS NULL OR play_count=0)").get().c;
 
-    const ytCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_source_key LIKE 'yt:%'").get().c;
-    const scCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_source_key LIKE 'sc:%'").get().c;
-    const dlCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_source_key LIKE 'dl:%'").get().c;
+    const ytCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_key LIKE 'yt:%'").get().c;
+    const scCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_key LIKE 'sc:%'").get().c;
+    const dlCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_key LIKE 'dl:%'").get().c;
 
     const topTracks = this.db.prepare("SELECT title, channel, play_count, duration_sec FROM audio_cache WHERE status='cached' AND play_count > 0 ORDER BY play_count DESC LIMIT 5").all();
 

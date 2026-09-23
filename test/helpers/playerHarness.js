@@ -299,8 +299,8 @@ function dispose(player) {
 }
 
 /** 장부에서 한 줄. 없으면 null. */
-const lookupRow = (sourceUrl) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE source_url = ?").get(sourceUrl) || null;
-const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(key) || null;
+const lookupRow = (requestKey) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
+const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
 
 module.exports = {
   MusicPlayer,

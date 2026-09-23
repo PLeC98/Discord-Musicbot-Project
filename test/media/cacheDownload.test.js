@@ -101,8 +101,8 @@ beforeEach(() => {
 });
 
 const downloader = () => new TrackDownloader({ guild: { id: "g1" } });
-const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(key) || null;
-const lookupRow = (url) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE source_url = ?").get(url) || null;
+const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
+const lookupRow = (requestKey) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const leftovers = () => fs.readdirSync(audioCache._cacheDir).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
 
 const yt = (id, extra = {}) => require("../helpers/tracks").youtube(id, { audioSourceKey: `yt:${id}`, ...extra });
@@ -128,7 +128,7 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
   assert.equal(row.status, "cached");
   assert.equal(row.duration_sec, 201, "오디오 길이는 info.json 의 값");
   const lookup = lookupRow(track.url);
-  assert.equal(lookup.audio_source_key, "yt:aaaaaaaaaaa");
+  assert.equal(lookup.audio_url, "https://www.youtube.com/watch?v=aaaaaaaaaaa");
   assert.equal(lookup.title_verified, 1, "유튜브는 영상 자체 제목으로 확인됨");
   assert.equal(track.title, "영상 자체 제목", "유튜브 곡은 제목을 영상 자체 제목으로 고친다");
   assert.deepEqual(leftovers(), [], "info.json 과 임시 파일을 남기지 않는다");
@@ -182,8 +182,9 @@ test("자동재생 곡은 장부에 요청 열쇠(소스 안의 곡)로 적힌�
   await downloader().downloadTrack(song(1, "fatalfatal1"));
   await downloader().downloadTrack(song(2, "burningburn"));
 
-  assert.equal(lookupRow("amq:1").audio_source_key, "yt:fatalfatal1");
-  assert.equal(lookupRow("amq:2").audio_source_key, "yt:burningburn");
+  assert.equal(lookupRow("amq:1").audio_url, "https://www.youtube.com/watch?v=fatalfatal1");
+  assert.equal(lookupRow("amq:2").audio_url, "https://www.youtube.com/watch?v=burningburn");
+  assert.equal(lookupRow("amq:1").page_url, page, "작품 페이지는 보여 줄 링크로만 남는다");
   assert.equal(lookupRow(page), null, "작품 페이지는 열쇠가 아니다");
 });
 

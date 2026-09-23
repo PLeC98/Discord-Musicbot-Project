@@ -618,15 +618,14 @@ class MusicPlayer {
       // 리소스 재생
       this.audioPlayer.play(this.resource);
 
-      // 재생 통계와 소스 URL → audioSourceKey 매핑을 DB에 기록.
+      // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록.
       // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
       //
-      // 라이브는 캐시 장부에 낄 자리가 없다. `track_lookup.audio_source_key`가 `audio_cache`를
-      // 참조하는데 라이브는 받지 않으므로 그 행이 영영 생기지 않는다(외래 키 위반).
+      // 라이브는 받아 두지 않으므로 적을 것이 없다.
       if (this.currentTrack.audioSourceKey && !this.currentTrack.isLive) {
         try {
           audioCache.recordPlayback(this.currentTrack.audioSourceKey);
-          trackLookup.recordTrackLookup(this.currentTrack.requestKey, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
+          trackLookup.recordTrackLookup(this.currentTrack, { verified: titleVerified });
         } catch (error) {
           log.warn(`캐시 장부 기록 실패(재생은 계속): ${error?.message || error}`);
         }

@@ -66,7 +66,7 @@ test("캐시에서 틀어도 장부에 재생을 적는다", async () => {
 
   assert.equal(h.audioRow("yt:bbbbbbbbbbb").play_count, 1);
   const row = h.lookupRow(track.url);
-  assert.equal(row.audio_source_key, "yt:bbbbbbbbbbb");
+  assert.equal(row.audio_url, "https://www.youtube.com/watch?v=bbbbbbbbbbb");
   assert.equal(row.title_verified, 0, "캐시 갈래는 영상 제목을 못 받아 확인 안 됨으로 적는다");
 });
 
@@ -272,7 +272,7 @@ test("스포티파이: 동등물을 찾아 그 영상의 캐시가 있으면 파
   assert.equal(calls.spawns[0].label, "playback");
   assert.equal(p.currentTrack.audioSourceKey, "yt:nnnnnnnnnnn");
   const row = h.lookupRow("https://open.spotify.com/track/sp1");
-  assert.equal(row.audio_source_key, "yt:nnnnnnnnnnn", "스포티파이 곡 → 영상 을 장부에 적는다");
+  assert.equal(row.audio_url, "https://www.youtube.com/watch?v=nnnnnnnnnnn", "스포티파이 곡 → 영상 을 장부에 적는다");
 });
 
 test("스포티파이: SponsorBlock 을 먼저 묻고, 영상 id 를 몰라 동등물을 찾은 뒤 다시 묻는다", async () => {

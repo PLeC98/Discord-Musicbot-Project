@@ -139,7 +139,7 @@ test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 
   fs.writeFileSync(file, "x");
   audioCache.recordDownloadStart("yt:ccccccccccc", { title: "t" });
   audioCache.recordDownloadComplete("yt:ccccccccccc", file, 1, { title: "t" }, { durationSec: 99 });
-  trackLookup.recordTrackLookup(url, "youtube", "yt:ccccccccccc", "장부 제목", "장부 가수", null);
+  trackLookup.recordTrackLookup({ requestKey: url, pageUrl: url, audioUrl: "https://www.youtube.com/watch?v=ccccccccccc", platform: "youtube", title: "장부 제목", artist: "장부 가수" });
   swap(YouTube, "search", async () => assert.fail("조회하면 안 된다"));
 
   const hit = await lookup.resolveQuery(`https://youtu.be/ccccccccccc?si=share`);
@@ -175,7 +175,7 @@ test("캐시 열쇠: 유튜브 id · 사운드클라우드 경로 · 직접 링�
 
 test("동등물: 장부에 매핑이 있으면 검색하지 않고 쓰며, 장부에서 왔다고 표시한다", async () => {
   audioCache.recordDownloadStart("yt:fffffffffff", { title: "t" });
-  trackLookup.recordTrackLookup("https://open.spotify.com/track/sp1", "spotify", "yt:fffffffffff", "곡", "가수", null);
+  trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/sp1", pageUrl: "https://open.spotify.com/track/sp1", audioUrl: "https://www.youtube.com/watch?v=fffffffffff", platform: "spotify", title: "곡", artist: "가수" });
   swap(YouTube, "search", async () => assert.fail("검색하면 안 된다"));
   const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp1", requestKey: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 };
 
@@ -210,9 +210,9 @@ test("동등물: 검색 결과에서 라이브를 빼고 점수로 고르고, �
   assert.equal(track._youtubeFromCache, undefined, "새로 찾은 것은 표시가 없다");
 });
 
-test("동등물: 이미 youtubeUrl 이 있으면 열쇠만 채우고, 후보가 없으면 null", async () => {
-  const has = { platform: "lastfm", youtubeUrl: "https://www.youtube.com/watch?v=hhhhhhhhhhh" };
-  assert.equal(await equivalent.findYouTubeEquivalent(has), has.youtubeUrl);
+test("동등물: 이미 음원 주소가 있으면 열쇠만 채우고, 후보가 없으면 null", async () => {
+  const has = { platform: "lastfm", audioUrl: "https://www.youtube.com/watch?v=hhhhhhhhhhh" };
+  assert.equal(await equivalent.findYouTubeEquivalent(has), has.audioUrl);
   assert.equal(has.audioSourceKey, "yt:hhhhhhhhhhh");
 
   swap(YouTube, "search", async () => []);
@@ -221,15 +221,15 @@ test("동등물: 이미 youtubeUrl 이 있으면 열쇠만 채우고, 후보가 
 
 test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는다", async () => {
   audioCache.recordDownloadStart("yt:deaddeaddea", { title: "t" });
-  trackLookup.recordTrackLookup("https://open.spotify.com/track/sp3", "spotify", "yt:deaddeaddea", "곡", "가수", null);
+  trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/sp3", pageUrl: "https://open.spotify.com/track/sp3", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", platform: "spotify", title: "곡", artist: "가수" });
   swap(YouTube, "search", async () => [{ id: "newnewnewne", url: "https://www.youtube.com/watch?v=newnewnewne", title: "곡", artist: "가수", duration: 200 }]);
-  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioSourceKey: "yt:deaddeaddea", _youtubeFromCache: true };
+  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioSourceKey: "yt:deaddeaddea", _youtubeFromCache: true };
 
   const url = await equivalent.reresolveYouTube(track);
 
   assert.equal(url, "https://www.youtube.com/watch?v=newnewnewne");
   assert.equal(track._youtubeFromCache, false);
-  assert.equal(trackLookup.getResolvedKey("https://open.spotify.com/track/sp3"), null, "장부 매핑을 지운다(새 매핑은 받을 때 적힌다)");
+  assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/sp3"), null, "장부 매핑을 지운다(새 매핑은 받을 때 적힌다)");
 });
 
 // ── 스트림 ────────────────────────────────────────────────────────────
@@ -242,10 +242,10 @@ test("스트림: 장부에서 온 영상이 내려갔으면 한 번 다시 찾�
     return { url: "https://rr.googlevideo.com/new" };
   });
   swap(equivalent, "reresolveYouTube", async (t) => {
-    t.youtubeUrl = "https://www.youtube.com/watch?v=newnewnewne";
-    return t.youtubeUrl;
+    t.audioUrl = "https://www.youtube.com/watch?v=newnewnewne";
+    return t.audioUrl;
   });
-  const track = { title: "곡", platform: "spotify", url: "https://open.spotify.com/track/sp4", requestKey: "https://open.spotify.com/track/sp4", youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", _youtubeFromCache: true };
+  const track = { title: "곡", platform: "spotify", url: "https://open.spotify.com/track/sp4", requestKey: "https://open.spotify.com/track/sp4", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", _youtubeFromCache: true };
 
   const s = await streamUrl.getStream(track, 5);
 

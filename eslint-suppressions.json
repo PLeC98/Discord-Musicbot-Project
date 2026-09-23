@@ -101,11 +101,6 @@
       "count": 1
     }
   },
-  "src/store/trackLookup.js": {
-    "max-params": {
-      "count": 1
-    }
-  },
   "src/infra/processRegistry.js": {
     "no-empty-function": {
       "count": 1

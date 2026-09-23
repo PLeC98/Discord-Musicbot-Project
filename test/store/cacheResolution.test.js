@@ -29,24 +29,23 @@ after(() => {
   }
 });
 
-test("getResolvedKey: 매핑만 있으면 파일 없어도 audioSourceKey 반환", () => {
+test("getAudioUrl: 장부 줄만 있으면 파일이 없어도 음원 주소를 돌려준다", () => {
   const spUrl = "https://open.spotify.com/track/abc123";
-  assert.equal(trackLookup.getResolvedKey(spUrl), null); // 없음
-  // audio_cache 행 생성(FK) 후 매핑 기록 — 파일은 만들지 않음
-  audioCache.recordDownloadStart("yt:vidAAA", { title: "t" });
-  trackLookup.recordTrackLookup(spUrl, "spotify", "yt:vidAAA", "t", "a", null);
-  assert.equal(trackLookup.getResolvedKey(spUrl), "yt:vidAAA"); // 파일 없이도 히트
+  assert.equal(trackLookup.getAudioUrl(spUrl), null); // 없음
+  // audio_cache 행도 파일도 없이 장부만 적는다. 장부는 캐시와 따로 산다
+  trackLookup.recordTrackLookup({ requestKey: spUrl, pageUrl: spUrl, audioUrl: "https://www.youtube.com/watch?v=vidAAA", platform: "spotify", title: "t", artist: "a" });
+  assert.equal(trackLookup.getAudioUrl(spUrl), "https://www.youtube.com/watch?v=vidAAA"); // 파일 없이도 히트
 });
 
 test("removeResolution: 스테일 매핑 삭제", () => {
   const spUrl = "https://open.spotify.com/track/abc123";
-  assert.equal(trackLookup.getResolvedKey(spUrl), "yt:vidAAA");
+  assert.equal(trackLookup.getAudioUrl(spUrl), "https://www.youtube.com/watch?v=vidAAA");
   trackLookup.removeResolution(spUrl);
-  assert.equal(trackLookup.getResolvedKey(spUrl), null);
+  assert.equal(trackLookup.getAudioUrl(spUrl), null);
 });
 
-test("getResolvedKey: 미존재 URL은 null", () => {
-  assert.equal(trackLookup.getResolvedKey("https://open.spotify.com/track/none"), null);
+test("getAudioUrl: 없는 요청은 null", () => {
+  assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/none"), null);
 });
 
 test("YouTube.isVideoUnavailableError: 삭제/비공개 영상 감지", () => {

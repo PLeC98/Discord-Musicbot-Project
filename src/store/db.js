@@ -10,7 +10,7 @@ const { createTables: createSessionTables } = require("./playerSessions");
 const DB_PATH = path.join(__dirname, "..", "..", "database", "cache.db");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 let conn = null;
 
@@ -30,7 +30,7 @@ function open(dbPath = DB_PATH, { cacheDir } = {}) {
   const version = next.pragma("user_version", { simple: true });
   if (hasTables && version !== SCHEMA_VERSION) {
     next.close();
-    const message = `캐시 DB 구조가 이 버전과 맞지 않습니다 (DB v${version}, 필요 v${SCHEMA_VERSION}). 봇을 끄고 ${dbPath} (-wal, -shm 포함)와 ${cacheDir} 폴더를 지운 뒤 다시 실행하세요. 서버별 설정(전용 채널·DJ 역할·SponsorBlock·재생목록 한 번에 넣는 곡 수)은 다시 해야 합니다.`;
+    const message = `캐시 DB 구조가 이 버전과 맞지 않습니다 (DB v${version}, 필요 v${SCHEMA_VERSION}). 봇을 끄고 ${dbPath} (-wal, -shm 포함)와 ${cacheDir} 폴더를 지운 뒤 다시 실행하세요. 받아 둔 곡과 저장된 대기열이 사라지고, 서버별 설정(전용 채널·DJ 역할·SponsorBlock·재생목록 한 번에 넣는 곡 수)은 다시 해야 합니다.`;
     throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
   }
 
@@ -55,17 +55,18 @@ function close() {
 
 function createTables(db) {
   db.exec(`
+            -- 받아 둔 소리 하나. 열쇠는 audioKeyOf(음원 주소)다(yt:<id> · sc:<경로> · dl:<md5>).
+            -- audio_version: 원본의 판(유튜브 lmt, 직접 링크 ETag 등). 같은 주소에서 음원이 바뀐 것을 알아볼 값
             CREATE TABLE IF NOT EXISTS audio_cache (
-                audio_source_key    TEXT PRIMARY KEY,
+                audio_key           TEXT PRIMARY KEY,
                 status              TEXT NOT NULL DEFAULT 'downloading',
                 file_path           TEXT,
                 file_size_bytes     INTEGER,
                 duration_sec        REAL,
                 title               TEXT,
                 channel             TEXT,
-                content_fingerprint TEXT,
-                verification_policy TEXT NOT NULL DEFAULT 'infrequent',
-                last_verified_at    INTEGER,
+                audio_version       TEXT,
+                version_checked_at  INTEGER,
                 play_count          INTEGER NOT NULL DEFAULT 0,
                 last_played_at      INTEGER,
                 downloaded_at       INTEGER,
@@ -73,9 +74,12 @@ function createTables(db) {
                 updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
+            -- 링크 장부. "이 요청은 이 음원이다". 파일이 있든 없든 참이라 퇴거해도 남는다.
+            -- 캐시 열쇠는 적지 않는다. 쓸 때 audioKeyOf(audio_url) 로 계산한다
             CREATE TABLE IF NOT EXISTS track_lookup (
-                source_url          TEXT PRIMARY KEY,
-                audio_source_key    TEXT NOT NULL,
+                request_key         TEXT PRIMARY KEY,
+                page_url            TEXT NOT NULL,
+                audio_url           TEXT NOT NULL,
                 platform            TEXT NOT NULL,
                 display_title       TEXT,
                 display_artist      TEXT,
@@ -84,9 +88,7 @@ function createTables(db) {
                 -- 재생목록이 주는 제목은 낡을 수 있어(같은 영상인데 다르다), 확인된 제목을 덮으면 안 된다.
                 title_verified      INTEGER NOT NULL DEFAULT 0,
                 created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-                updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-                FOREIGN KEY (audio_source_key)
-                    REFERENCES audio_cache(audio_source_key) ON DELETE CASCADE
+                updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
             );
 
             CREATE TABLE IF NOT EXISTS guild_settings (
@@ -126,7 +128,6 @@ function createTables(db) {
 
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
-            CREATE INDEX IF NOT EXISTS idx_tl_audio_key   ON track_lookup(audio_source_key);
         `);
 
   createSessionTables(db);

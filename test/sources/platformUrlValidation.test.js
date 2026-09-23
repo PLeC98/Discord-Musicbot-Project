@@ -7,7 +7,7 @@ const test = require("node:test");
 const links = require("../../src/rules/links");
 const assert = require("node:assert/strict");
 const lookup = require("../../src/sources/lookup");
-const trackLookup = require("../../src/store/trackLookup");
+const { canonicalUrl } = require("../../src/rules/canonicalUrl");
 
 test("accepts supported media hosts by parsed hostname", () => {
   assert.equal(lookup.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
@@ -50,7 +50,7 @@ test("YouTube URL 형태별 인식 — /live/ 포함", () => {
   }
 
   // 같은 영상이면 어느 형태로 넣어도 같은 캐시 키로 접힌다 — /live/도 예외가 아니다
-  assert.equal(trackLookup._normalizeSourceUrl("https://www.youtube.com/live/rmn4m0Ieajk"), "https://www.youtube.com/watch?v=rmn4m0Ieajk");
+  assert.equal(canonicalUrl("https://www.youtube.com/live/rmn4m0Ieajk"), "https://www.youtube.com/watch?v=rmn4m0Ieajk");
 });
 
 test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
@@ -73,8 +73,8 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
 
 test("cache normalization only canonicalizes genuine YouTube URLs", () => {
   const disguised = "https://evil.example/youtube.com/watch?v=dQw4w9WgXcQ";
-  assert.equal(trackLookup._normalizeSourceUrl(disguised), disguised);
-  assert.equal(trackLookup._normalizeSourceUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  assert.equal(canonicalUrl(disguised), disguised);
+  assert.equal(canonicalUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 });
 
 // 유튜브가 아닌 사이트도 같다. 주소 글자를 검색어로 쓰면 엉뚱한 곡이 나오고, 장부가 맞으면 엉뚱한 캐시 곡이 나온다
