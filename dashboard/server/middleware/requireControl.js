@@ -1,6 +1,6 @@
 "use strict";
 
-const { checkControl } = require("../../../src/permissions");
+const { checkControl } = require("../../../src/usecases/permissions");
 const S = require("../../../src/ui/strings");
 const { isOwner } = require("../owner");
 const { shadowMember } = require("../viewAs");

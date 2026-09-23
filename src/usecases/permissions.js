@@ -1,8 +1,8 @@
 "use strict";
 
 const { PermissionFlagsBits } = require("discord.js");
-const GuildSettingsManager = require("./store/guildSettings");
-const S = require("./ui/strings");
+const GuildSettingsManager = require("../store/guildSettings");
+const S = require("../ui/strings");
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
 // 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 dashboard/server/owner.js.

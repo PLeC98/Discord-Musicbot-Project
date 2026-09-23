@@ -4,13 +4,13 @@
 // 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 const { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
-const log = require("./infra/log/logger").child({ category: "player" });
-const config = require("../config");
-const YouTube = require("./sources/youtube/index");
-const Spotify = require("./sources/spotify");
-const trackState = require("./player/trackState");
-const { collectionLabel } = require("./ui/strings");
-const { markTransient } = require("./ui/transientMessages");
+const log = require("../infra/log/logger").child({ category: "player" });
+const config = require("../../config");
+const YouTube = require("../sources/youtube/index");
+const Spotify = require("../sources/spotify");
+const trackState = require("../player/trackState");
+const { collectionLabel } = require("../ui/strings");
+const { markTransient } = require("../ui/transientMessages");
 
 const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다

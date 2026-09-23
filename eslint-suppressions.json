@@ -273,7 +273,7 @@
       "count": 6
     }
   },
-  "src/playRequest.js": {
+  "src/usecases/addTracks.js": {
     "complexity": {
       "count": 2
     },
@@ -281,7 +281,7 @@
       "count": 1
     }
   },
-  "src/playbackResponder.js": {
+  "src/usecases/responders.js": {
     "no-empty-function": {
       "count": 3
     }
@@ -291,7 +291,7 @@
       "count": 1
     }
   },
-  "src/playlistMore.js": {
+  "src/usecases/playlistMore.js": {
     "no-empty-function": {
       "count": 1
     }

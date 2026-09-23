@@ -7,7 +7,7 @@ const trackState = require("./trackState");
 const config = require("../../config");
 const { formatDuration } = require("../ui/format");
 const { escapeMd } = require("../ui/mentions");
-const { scheduleDelete } = require("../playbackResponder");
+const { scheduleDelete } = require("../usecases/responders");
 
 const HEARTBEAT_MS = 5000;
 

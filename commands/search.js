@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const config = require("../config.js");
 const YouTube = require("../src/sources/youtube/index.js");
 const S = require("../src/ui/strings");
-const { checkAdd, checkSummon } = require("../src/permissions");
+const { checkAdd, checkSummon } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()

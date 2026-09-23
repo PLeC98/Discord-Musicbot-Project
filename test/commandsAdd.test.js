@@ -15,7 +15,7 @@ const S = require("../src/ui/strings");
 const settings = require("../src/store/guildSettings");
 const TrackResolver = require("../src/sources/trackResolver");
 const YouTube = require("../src/sources/youtube/index");
-const More = require("../src/playlistMore");
+const More = require("../src/usecases/playlistMore");
 const CacheManager = h.CacheManager;
 
 const USER = "111111111111111111";

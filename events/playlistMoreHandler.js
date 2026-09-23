@@ -5,10 +5,10 @@
 const { Events, MessageFlags } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "events" });
 const S = require("../src/ui/strings");
-const { checkAdd } = require("../src/permissions");
+const { checkAdd } = require("../src/usecases/permissions");
 const GuildSettingsManager = require("../src/store/guildSettings");
-const { continueCollection } = require("../src/playRequest");
-const More = require("../src/playlistMore");
+const { continueCollection } = require("../src/usecases/addTracks");
+const More = require("../src/usecases/playlistMore");
 
 const PROGRESS_EVERY_MS = 2000;
 

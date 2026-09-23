@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/ui/strings");
-const { checkControl } = require("../src/permissions");
+const { checkControl } = require("../src/usecases/permissions");
 
 /**
  * 시간 문자열을 밀리초로 파싱

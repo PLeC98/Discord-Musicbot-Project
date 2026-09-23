@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/ui/strings");
-const { checkControl } = require("../src/permissions");
+const { checkControl } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("shuffle").setDescription("Shuffle the queue").setDescriptionLocalizations({ ko: "대기열을 무작위로 섞습니다" }),

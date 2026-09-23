@@ -1,8 +1,8 @@
 "use strict";
 
 const { SlashCommandBuilder } = require("discord.js");
-const { checkControl, checkSummon } = require("../src/permissions");
-const { ensurePlayer } = require("../src/playRequest");
+const { checkControl, checkSummon } = require("../src/usecases/permissions");
+const { ensurePlayer } = require("../src/usecases/addTracks");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/ui/genreMenu");
 const { keepReply, expireReply } = require("../src/ui/replyLifetime");
 

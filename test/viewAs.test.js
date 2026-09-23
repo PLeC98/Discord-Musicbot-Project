@@ -22,7 +22,7 @@ require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports
 
 const { TIERS, getViewAs, shadowMember } = require("../dashboard/server/viewAs");
 const { isOwner, isRealOwner } = require("../dashboard/server/owner");
-const { isModerator, isDj, checkVoice, checkControl, checkAdd } = require("../src/permissions");
+const { isModerator, isDj, checkVoice, checkControl, checkAdd } = require("../src/usecases/permissions");
 const S = require("../src/ui/strings");
 
 const req = (tier, userId = "owner") => ({ session: { user: { id: userId }, ...(tier === undefined ? {} : { viewAs: tier }) } });

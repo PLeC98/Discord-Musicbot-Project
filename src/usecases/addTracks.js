@@ -1,15 +1,15 @@
 "use strict";
 
-const MusicPlayer = require("./player/Player");
-const TrackResolver = require("./sources/trackResolver");
-const GuildSettingsManager = require("./store/guildSettings");
-const { silentResponder } = require("./playbackResponder");
-const log = require("./infra/log/logger").child({ category: "player" });
-const config = require("../config");
-const trackState = require("./player/trackState");
-const S = require("./ui/strings");
+const MusicPlayer = require("../player/Player");
+const TrackResolver = require("../sources/trackResolver");
+const GuildSettingsManager = require("../store/guildSettings");
+const { silentResponder } = require("./responders");
+const log = require("../infra/log/logger").child({ category: "player" });
+const config = require("../../config");
+const trackState = require("../player/trackState");
+const S = require("../ui/strings");
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
-const { capabilities: ffmpegCapabilities } = require("./media/ffmpeg/path");
+const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 
 /** 이 곡을 대기열에 넣을 수 없는 이유. 넣을 수 있으면 null. */
 function liveBlockReason(track) {
@@ -155,7 +155,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   // 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
   const first = trackData.tracks?.[0];
   const count = trackData.tracks?.length ?? 0;
-  const what = trackData.isPlaylist ? `${require("./ui/strings").collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
+  const what = trackData.isPlaylist ? `${require("../ui/strings").collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
   const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
   log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}${trackData.queueLimited ? " | 자리가 모자라 일부만 받음" : ""}`);
 

@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/ui/strings");
-const { checkControl } = require("../src/permissions");
+const { checkControl } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("replay").setDescription("Restart the current track from the beginning").setDescriptionLocalizations({ ko: "현재 곡을 처음부터 재생합니다" }),

@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const S = require("../src/ui/strings");
-const { checkControl } = require("../src/permissions");
+const { checkControl } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("stop").setDescription("Stop playback and disconnect from voice channel").setDescriptionLocalizations({ ko: "재생을 정지하고 음성 채널에서 퇴장합니다" }),

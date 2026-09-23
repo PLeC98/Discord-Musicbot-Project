@@ -12,12 +12,12 @@ const assert = require("node:assert/strict");
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
 let mockBotChannelId = null;
 let mockBatch = 50;
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async () => mockBotChannelId, resolvePlaylistAddMax: () => mockBatch } };
 
 let mockResolve = null;
 const resolverCalls = [];
-const trPath = require.resolve(path.join(__dirname, "..", "src", "sources", "trackResolver.js"));
+const trPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
 require.cache[trPath] = {
   id: trPath,
   filename: trPath,
@@ -36,7 +36,7 @@ require.cache[trPath] = {
 let mockCollection = null;
 const collectionCalls = [];
 
-const { requestPlayback, continueCollection, toRequester, ensurePlayer } = require("../src/playRequest");
+const { requestPlayback, continueCollection, toRequester, ensurePlayer } = require("../../src/usecases/addTracks");
 
 // ── 하네스 ───────────────────────────────────────────────────
 const GUILD_ID = "g1";
@@ -379,7 +379,7 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
 // ── 받을 곡 수 (해석기에 넘기는 어림값) ──────────────────────
 
 async function withLimits(queueMax, playlistMax, fn) {
-  const config = require("../config");
+  const config = require("../../config");
   const saved = [config.bot.maxQueueSize, mockBatch];
   config.bot.maxQueueSize = queueMax;
   mockBatch = playlistMax;

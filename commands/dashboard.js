@@ -1,10 +1,10 @@
 "use strict";
 
 const { SlashCommandBuilder } = require("discord.js");
-const { toRequester } = require("../src/playRequest");
-const { interactionResponder } = require("../src/playbackResponder");
+const { toRequester } = require("../src/usecases/addTracks");
+const { interactionResponder } = require("../src/usecases/responders");
 const GuildSettingsManager = require("../src/store/guildSettings");
-const { checkControl } = require("../src/permissions");
+const { checkControl } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "현재 재생 중 패널을 채널 하단에 띄웁니다" }),

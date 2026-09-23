@@ -4,7 +4,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const More = require("../src/playlistMore");
+const More = require("../../src/usecases/playlistMore");
 
 const PL = "37i9dQZF1E3aglU7q0y10F";
 const TRACK = "3385Kx5khQ1JpCVFJjKAPa";

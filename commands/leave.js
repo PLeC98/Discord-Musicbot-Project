@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/ui/strings");
-const { checkControl } = require("../src/permissions");
+const { checkControl } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("leave").setDescription("Leave the voice channel and save the current queue for later").setDescriptionLocalizations({ ko: "음성 채널에서 나가고 현재 대기열을 저장합니다" }),

@@ -2,10 +2,10 @@ const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, 
 const log = require("../src/infra/log/logger").child({ category: "events" });
 const config = require("../config");
 const S = require("../src/ui/strings");
-const { requestPlayback } = require("../src/playRequest");
-const { channelResponder } = require("../src/playbackResponder");
-const { checkControl, checkSkip, checkAdd, checkSummon } = require("../src/permissions");
-const { ensurePlayer } = require("../src/playRequest");
+const { requestPlayback } = require("../src/usecases/addTracks");
+const { channelResponder } = require("../src/usecases/responders");
+const { checkControl, checkSkip, checkAdd, checkSummon } = require("../src/usecases/permissions");
+const { ensurePlayer } = require("../src/usecases/addTracks");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/ui/genreMenu");
 const { keepReply, expireReply } = require("../src/ui/replyLifetime");
 const { queueLine } = require("../src/ui/queueDisplay");

@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
 const S = require("../src/ui/strings");
-const { checkSkip } = require("../src/permissions");
+const { checkSkip } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("skip").setDescription("Skip the current track").setDescriptionLocalizations({ ko: "현재 재생 중인 곡을 건너뜁니다" }),

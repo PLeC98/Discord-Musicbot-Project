@@ -1,8 +1,8 @@
 "use strict";
 
 const { MessageFlags } = require("discord.js");
-const log = require("./infra/log/logger").child({ category: "player" });
-const { markTransient } = require("./ui/transientMessages");
+const log = require("../infra/log/logger").child({ category: "player" });
+const { markTransient } = require("../ui/transientMessages");
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.

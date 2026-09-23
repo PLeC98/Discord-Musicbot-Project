@@ -9,7 +9,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { MessageFlags } = require("discord.js");
 
-const { interactionResponder, channelResponder, silentResponder, _internals } = require("../src/playbackResponder");
+const { interactionResponder, channelResponder, silentResponder, _internals } = require("../../src/usecases/responders");
 
 function fakeInteraction({ deferred = true, replied = false } = {}) {
   const calls = [];

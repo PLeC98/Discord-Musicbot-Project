@@ -17,7 +17,7 @@ const assert = require("node:assert/strict");
 // 권한 판정은 켜고 끄기만 한다. 판정 자체는 permissions.test.js 가 본다
 const perm = { deny: false };
 const gate = () => (perm.deny ? "❌ 권한이 없습니다" : null);
-const permPath = require.resolve("../src/permissions");
+const permPath = require.resolve("../src/usecases/permissions");
 require.cache[permPath] = {
   id: permPath,
   filename: permPath,

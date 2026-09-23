@@ -6,7 +6,7 @@ const DashboardEvents = require("../player/events");
 const ErrorHandler = require("./errorMessages");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
-const { silentResponder } = require("../playbackResponder");
+const { silentResponder } = require("../usecases/responders");
 const GuildSettingsManager = require("../store/guildSettings");
 const trackState = require("../player/trackState");
 

@@ -10,11 +10,11 @@ const { PermissionFlagsBits } = require("discord.js");
 
 // permissions.js보다 먼저 모킹을 심어야 함
 let mockDjRoles = [];
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => mockDjRoles } };
 
-const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = require("../src/permissions");
-const S = require("../src/ui/strings");
+const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = require("../../src/usecases/permissions");
+const S = require("../../src/ui/strings");
 
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id

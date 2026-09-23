@@ -1,10 +1,10 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "commands" });
 const ErrorHandler = require("../src/ui/errorMessages");
-const { requestPlayback } = require("../src/playRequest");
-const { interactionResponder } = require("../src/playbackResponder");
-const { offerOnInteraction } = require("../src/playlistMore");
-const { checkAdd, checkSummon } = require("../src/permissions");
+const { requestPlayback } = require("../src/usecases/addTracks");
+const { interactionResponder } = require("../src/usecases/responders");
+const { offerOnInteraction } = require("../src/usecases/playlistMore");
+const { checkAdd, checkSummon } = require("../src/usecases/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()

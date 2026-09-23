@@ -388,7 +388,7 @@ test("복원 안내: 멈춘 채 되살렸으면 재개됐다고 하지 않는다
 });
 
 test("복원 안내는 잠시 뒤 지운다", async () => {
-  const { AUTO_DELETE_MS } = require("../../src/playbackResponder");
+  const { AUTO_DELETE_MS } = require("../../src/usecases/responders");
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const channel = fakeChannel();
