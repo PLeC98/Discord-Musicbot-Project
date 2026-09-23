@@ -10,7 +10,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { SPEC } = require("../src/autoplaySources");
+const { SPEC } = require("../src/autoplay/sources/index");
 
 const EDITOR = path.join(__dirname, "..", "dashboard", "client", "src", "components", "SourceEditor.vue");
 

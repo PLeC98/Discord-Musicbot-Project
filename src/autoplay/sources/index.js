@@ -14,8 +14,8 @@
 // 곳일 뿐이고, 표시 이름과 캐시 장부의 칸은 출처 것이 된다(autoplayRoute 참고).
 // keyword·유튜브 재생목록은 영상 자체가 출처라 이 칸을 비워 둔다.
 
-const config = require("../config");
-const log = require("./infra/log/logger").child({ category: "autoplay" });
+const config = require("../../../config");
+const log = require("../../infra/log/logger").child({ category: "autoplay" });
 
 const UA = config.userAgents.bot;
 const TIMEOUT_MS = 15000;
@@ -66,7 +66,7 @@ function query(params) {
 async function keyword(source) {
   const word = pick(source.keywords || []);
   if (!word) return [];
-  const YouTube = require("./sources/youtube/index");
+  const YouTube = require("../../sources/youtube/index");
   const results = (await YouTube.search(word, 15)) || [];
   // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplayAssist)
   // 주소를 직접 주는 소스는 출처가 곧 정답이라 물을 것이 없다.
@@ -512,7 +512,7 @@ const PLAYLIST_PAGE = 50;
 
 async function spotify(source) {
   if (!source.url) return [];
-  const Spotify = require("./sources/spotify");
+  const Spotify = require("../../sources/spotify");
   const head = await Spotify.getCollection(source.url, { offset: 0, limit: 1 });
   const total = Number(head?.total) || 0;
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
@@ -522,7 +522,7 @@ async function spotify(source) {
 
 async function youtube(source) {
   if (!source.url) return [];
-  const YouTube = require("./sources/youtube/index");
+  const YouTube = require("../../sources/youtube/index");
   const head = await YouTube.getPlaylist(source.url, { offset: 0, limit: 1 });
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다
   const total = Number(head?.total) || 0;

@@ -12,8 +12,8 @@ const path = require("node:path");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const configData = require("../src/config/loader");
-const assist = require("../src/autoplayAssist");
+const configData = require("../../src/config/loader");
+const assist = require("../../src/autoplay/assist/index");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true }));
@@ -157,12 +157,12 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
   answers(() => ({ ok: false, status: 401, text: async () => `Invalid key: ${KEY}` }));
 
   const seen = [];
-  const log = require("../src/infra/log/logger");
+  const log = require("../../src/infra/log/logger");
   const realDebug = log.debug;
   const child = log.child;
   log.child = () => ({ ...log, debug: (line) => seen.push(String(line)) });
-  delete require.cache[require.resolve("../src/autoplayAssist")];
-  const fresh = require("../src/autoplayAssist");
+  delete require.cache[require.resolve("../../src/autoplay/assist/index")];
+  const fresh = require("../../src/autoplay/assist/index");
 
   await fresh.accepts(cand("A"), {});
   log.child = child;
@@ -673,7 +673,7 @@ test("baseUrl 은 custom 일 때만 쓴다", () => {
 
 // 키 칸 이름은 provider 이름과 같아야 한다. 어긋나면 키를 적어 두고도 안 붙어 나간다.
 test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", () => {
-  const example = require("yaml").parse(fs.readFileSync(path.join(__dirname, "..", "config", "ai-keys.example.yaml"), "utf8"));
+  const example = require("yaml").parse(fs.readFileSync(path.join(__dirname, "..", "..", "config", "ai-keys.example.yaml"), "utf8"));
   const slots = Object.keys(example);
   const needs = assist.PROVIDERS.filter((one) => assist.PROVIDER_SPECS[one].key);
 
@@ -787,7 +787,7 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
     { role: "system", text: "기준이다" },
     { role: "user", text: "{{목록}}" },
   ]);
-  require("../src/googleAuth")._reset();
+  require("../../src/autoplay/assist/googleAuth")._reset();
 
   calls.length = 0;
   global.fetch = async (url, init) => {
@@ -903,7 +903,7 @@ test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", as
   // 다른 칸은 그대로 둔다 — 뒤에 오는 테스트가 같은 파일을 본다
   fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${JSON.stringify(inline)}\n`);
   configData._setConfigDir(DIR);
-  require("../src/googleAuth")._reset();
+  require("../../src/autoplay/assist/googleAuth")._reset();
 
   calls.length = 0;
   global.fetch = async (url, init) => {
@@ -924,7 +924,7 @@ test("버텍스: 서비스 계정 키와 토큰이 밖으로 나가지 않는다
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.진짜같은토큰","expires_in":3600}' };
     return { ok: false, status: 401, text: async () => "denied for token ya29.진짜같은토큰" };
   };
-  require("../src/googleAuth")._reset();
+  require("../../src/autoplay/assist/googleAuth")._reset();
 
   const shown = await assist.judgeTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" }, []);
   const dump = JSON.stringify(shown);
@@ -1023,8 +1023,8 @@ test("업로더 이름은 넘기지 않는다", async () => {
 
 // 모듈이 멀쩡해도 배선이 빠지면 아무 일도 안 일어난다. 그 배선이 조용히 풀리는 것을 막는다.
 test("키워드 경로에서만 묻는다", async () => {
-  const route = require("../src/autoplayRoute");
-  const limits = require("../src/autoplayFilter").prepare({ minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] });
+  const route = require("../../src/autoplay/route");
+  const limits = require("../../src/autoplay/filter").prepare({ minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] });
   const fromSearch = { title: "Pop Hits 2021 믹스", durationSec: 3600, youtubeUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", fromSearch: true, sourceKey: "yt:aaaaaaaaaaa" };
 
   useConfig(ON);

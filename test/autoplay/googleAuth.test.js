@@ -12,7 +12,7 @@ const crypto = require("node:crypto");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const auth = require("../src/googleAuth");
+const auth = require("../../src/autoplay/assist/googleAuth");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sa-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true }));

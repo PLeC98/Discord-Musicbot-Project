@@ -352,7 +352,7 @@ test("설정: 내용이 없으면 400", async () => {
 // 편집기가 그릴 표는 서버가 준다. 화면이 목록을 따로 들면 소스를 더할 때 한쪽만 고치게 된다.
 test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준다", async () => {
   // 방영 연도 범위는 평소 AnimeThemes 에 묻는다 — 테스트는 바깥에 나가지 않는다
-  require("../src/autoplaySources")._seedYearRange({ min: 1963, max: 2026 });
+  require("../src/autoplay/sources/index")._seedYearRange({ min: 1963, max: 2026 });
   const { status, json } = await req("GET", "/api/admin/source-types");
   assert.equal(status, 200);
 
@@ -486,7 +486,7 @@ test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", 
   assert.equal(json.hasKey.groq, false, "안 적은 것은 없음");
   assert.ok(!("apiKey" in json), "값을 실으면 안 된다");
   // 화면이 기본 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다 — 서버가 준다
-  assert.deepEqual(json.defaultSections, require("../src/autoplayAssist").DEFAULT_SECTIONS);
+  assert.deepEqual(json.defaultSections, require("../src/autoplay/assist/index").DEFAULT_SECTIONS);
 
   const body = JSON.stringify(json);
   for (const secret of [process.env.AI_API_KEY, process.env.DISCORD_TOKEN, process.env.CLIENT_SECRET].filter(Boolean)) {

@@ -5,7 +5,7 @@
  */
 const path = require("path");
 const models = require("../src/config/schema/aiModels");
-const { PROVIDER_SPECS } = require("../src/autoplayAssist");
+const { PROVIDER_SPECS } = require("../src/autoplay/assist/index");
 
 (async () => {
   const registries = [

@@ -8,7 +8,7 @@
 const h = require("./helpers/playerHarness");
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
-const autoplayRoute = require("../src/autoplayRoute");
+const autoplayRoute = require("../src/autoplay/route");
 const voiceChannelStatus = require("../src/voiceChannelStatus");
 
 const { calls, AudioPlayerStatus } = h;

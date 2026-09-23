@@ -8,7 +8,7 @@
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
-const pool = require("../src/autoplayPool");
+const pool = require("../../src/autoplay/pool");
 
 const songs = (n, tag = "s") => Array.from({ length: n }, (_, i) => ({ artist: "A", title: `${tag}${i}`, sourceKey: `${tag}${i}` }));
 

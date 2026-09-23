@@ -7,8 +7,8 @@
 //
 // 없어도 되는 기능이다. 못 부르면 규칙이 고른 것을 그대로 쓰고 재생은 멈추지 않는다.
 
-const configData = require("./config/loader");
-const log = require("./infra/log/logger").child({ category: "autoplay" });
+const configData = require("../../config/loader");
+const log = require("../../infra/log/logger").child({ category: "autoplay" });
 
 // 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
 // 걸러낼 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지
@@ -537,7 +537,7 @@ const usable = (field, value) => {
  */
 async function countTokens(one, messages) {
   try {
-    const tokens = require("./aiTokens");
+    const tokens = require("./tokens");
     const spec = specOf(one.provider);
     const by = tokens.tokenizerFor(spec?.registry, one.model);
 
@@ -555,7 +555,7 @@ function withParams(body, one) {
   const registry = specOf(one.provider)?.registry;
   if (!registry || !one.model) return body;
 
-  const models = require("./config/schema/aiModels");
+  const models = require("../../config/schema/aiModels");
   const out = deepMerge(body, models.defaultsOf(registry, one.model));
   // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다.
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
@@ -874,7 +874,7 @@ function safeHeaders(headers) {
  * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
  */
 async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
-  const YouTube = require("./sources/youtube/index");
+  const YouTube = require("../../sources/youtube/index");
   const out = [];
   for (const raw of (urls || []).slice(0, 20)) {
     const url = String(raw || "").trim();

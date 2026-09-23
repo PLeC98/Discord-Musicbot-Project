@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const GEMMA_FILE = path.join(__dirname, "..", "data", "gemma-tokenizer.model");
+const GEMMA_FILE = path.join(__dirname, "..", "..", "..", "data", "gemma-tokenizer.model");
 
 /**
  * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 실측으로 잡았다.
@@ -133,7 +133,7 @@ function countGemma(text, rank) {
 // 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림.
 function tokenizerFor(registry, model) {
   if (!registry || !model) return "tik";
-  const found = require("./config/schema/aiModels")
+  const found = require("../../config/schema/aiModels")
     .modelsOf(registry)
     .find((one) => one.modelId === model);
   return found?.tokenizer || "tik";

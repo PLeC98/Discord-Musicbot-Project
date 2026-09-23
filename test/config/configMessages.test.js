@@ -12,7 +12,7 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const loader = require("../../src/config/loader");
-const { PROVIDERS } = require("../../src/autoplayAssist"); // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
+const { PROVIDERS } = require("../../src/autoplay/assist/index"); // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
 const GENRES = [

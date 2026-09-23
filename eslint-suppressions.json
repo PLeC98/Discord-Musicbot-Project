@@ -241,7 +241,7 @@
       "count": 1
     }
   },
-  "src/autoplayAssist.js": {
+  "src/autoplay/assist/index.js": {
     "complexity": {
       "count": 1
     },
@@ -249,7 +249,7 @@
       "count": 2
     }
   },
-  "src/autoplaySources.js": {
+  "src/autoplay/sources/index.js": {
     "complexity": {
       "count": 7
     }

@@ -113,7 +113,7 @@ class QueueWarmer {
     const index = this.player.queue.indexOf(track);
     if (index < 0) return false;
 
-    require("./autoplayRoute").markDead(track);
+    require("./autoplay/route").markDead(track);
     require("./trackState").removeAt(this.player, index);
     log.info(`자동재생 곡을 뺍니다(영상 없음): "${track.title}". 다른 곡을 고릅니다`);
 

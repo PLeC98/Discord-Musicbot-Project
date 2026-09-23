@@ -227,14 +227,14 @@ const CONFIG_NAMES = Object.keys(VALIDATORS);
 // 한쪽만 고치게 된다.
 router.get("/source-types", requireOwner, async (req, res) => {
   // AnimeThemes 연도 범위를 저쪽에 물어 채우므로 비동기다(하루에 한 번만 묻고 캐시한다)
-  res.json({ types: await require("../../../src/autoplaySources").catalog() });
+  res.json({ types: await require("../../../src/autoplay/sources/index").catalog() });
 });
 
 // AI 보조. 키는 .env 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
 // 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
-  const assist = require("../../../src/autoplayAssist");
+  const assist = require("../../../src/autoplay/assist/index");
   // 키 값은 절대 안 내려간다. 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
   const keys = configData.aiKeys();
   res.json({
@@ -254,7 +254,7 @@ router.get("/ai/state", requireOwner, (req, res) => {
  * 화면은 여기서 받은 위젯·그룹 그대로 그린다.
  */
 router.get("/ai/fields", requireOwner, (req, res) => {
-  const assist = require("../../../src/autoplayAssist");
+  const assist = require("../../../src/autoplay/assist/index");
   const models = require("../../../src/config/schema/aiModels");
   const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
   if (!registry) return res.json({ known: false, fields: [], models: [] });
@@ -274,8 +274,8 @@ router.get("/ai/fields", requireOwner, (req, res) => {
  * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
  */
 router.post("/ai/tokens", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplayAssist");
-  const tokens = require("../../../src/aiTokens");
+  const assist = require("../../../src/autoplay/assist/index");
+  const tokens = require("../../../src/autoplay/assist/tokens");
   const provider = String(req.body?.provider || "");
   const model = String(req.body?.model || "");
   const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
@@ -301,7 +301,7 @@ router.post("/ai/tokens", requireOwner, async (req, res) => {
 
 /** 모델 프로필 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
 router.post("/ai/models/refresh", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplayAssist");
+  const assist = require("../../../src/autoplay/assist/index");
   const models = require("../../../src/config/schema/aiModels");
   try {
     const registries = [
@@ -321,7 +321,7 @@ router.post("/ai/models/refresh", requireOwner, async (req, res) => {
  * 판정 테스트 1. 유튜브 주소로 후보를 읽는다. 아무것도 보내지 않는다.
  */
 router.post("/ai/judge/lookup", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplayAssist");
+  const assist = require("../../../src/autoplay/assist/index");
   const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
   if (!urls.length) return res.status(400).json({ error: "유튜브 주소를 적어 주세요." });
   if (urls.length > 20) return res.status(400).json({ error: "한 번에 20개까지" });
@@ -331,14 +331,14 @@ router.post("/ai/judge/lookup", requireOwner, async (req, res) => {
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식·장르를 고치는 대로 다시 그린다. */
 router.post("/ai/judge/lines", requireOwner, (req, res) => {
-  const assist = require("../../../src/autoplayAssist");
+  const assist = require("../../../src/autoplay/assist/index");
   const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one) => one && !one.error && one.title).slice(0, 20);
   res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) });
 });
 
 /** 판정 테스트 2. 그 후보들을 실제로 보내 곡별 판정을 받는다. */
 router.post("/ai/judge/run", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplayAssist");
+  const assist = require("../../../src/autoplay/assist/index");
   const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
   res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록")));
 });
@@ -410,18 +410,18 @@ router.put("/cookies", requireOwner, (req, res) => {
 router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
-  res.json(await require("../../../src/autoplayAssist").preview(data));
+  res.json(await require("../../../src/autoplay/assist/index").preview(data));
 });
 
 // 무료 확인. 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.
 // 화면의 모델 고르는 칸도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
 router.post("/ai/models", requireOwner, async (req, res) => {
-  res.json(await require("../../../src/autoplayAssist").listModels(req.body?.data || {}));
+  res.json(await require("../../../src/autoplay/assist/index").listModels(req.body?.data || {}));
 });
 
 // 유료 확인. 짧은 물음 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
 router.post("/ai/ping", requireOwner, async (req, res) => {
-  res.json(await require("../../../src/autoplayAssist").ping(req.body?.data || {}));
+  res.json(await require("../../../src/autoplay/assist/index").ping(req.body?.data || {}));
 });
 
 router.get("/config/:name", requireOwner, (req, res) => {

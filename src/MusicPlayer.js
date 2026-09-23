@@ -7,7 +7,7 @@ const clog = require("./infra/log/logger").child({ category: "control" });
 const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../config");
-const autoplayRoute = require("./autoplayRoute");
+const autoplayRoute = require("./autoplay/route");
 const ErrorHandler = require("./ErrorHandler");
 const TrackResolver = require("./sources/trackResolver");
 const SponsorBlock = require("./sources/sponsorBlock");

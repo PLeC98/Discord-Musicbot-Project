@@ -11,7 +11,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const sources = require("../src/autoplaySources");
+const sources = require("../../src/autoplay/sources/index");
 const build = sources._anisongFilters;
 
 // ── 기본값 ────────────────────────────────────────────────────────────────

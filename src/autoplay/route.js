@@ -10,12 +10,12 @@
 //                    출처가 곧 정답이라 필터가 없다(upgradeWorthIt)
 //
 
-const autoplayFilter = require("./autoplayFilter");
-const pool = require("./autoplayPool");
-const sources = require("./autoplaySources");
-const match = require("./sources/youtube/match");
-const assist = require("./autoplayAssist");
-const log = require("./infra/log/logger").child({ category: "autoplay" });
+const autoplayFilter = require("./filter");
+const pool = require("./pool");
+const sources = require("./sources/index");
+const match = require("../sources/youtube/match");
+const assist = require("./assist/index");
+const log = require("../infra/log/logger").child({ category: "autoplay" });
 
 // 유튜브에서 찾은 것이 이보다 짧으면 풀버전이 아니라 TV 사이즈 립이다.
 // 그럴 바에는 AnimeThemes 음원을 그대로 트는 편이 낫다. 음질만 나쁘고 단계만 는다.
@@ -33,7 +33,7 @@ const dead = new Set();
 /** 이 영상은 못 튼다고 표시한다. 다음 뽑기부터 후보에서 빠진다. */
 function markDead(urlOrTrack) {
   const url = typeof urlOrTrack === "string" ? urlOrTrack : urlOrTrack?.youtubeUrl || urlOrTrack?.url;
-  const id = url && require("./sources/youtube/index").extractVideoId(url);
+  const id = url && require("../sources/youtube/index").extractVideoId(url);
   if (!id) return false;
   // 오래된 것부터 버린다. 영상이 되살아나는 일도 있고, 무한정 들고 있을 이유가 없다
   if (dead.size >= DEAD_MAX) dead.delete(dead.values().next().value);
@@ -44,7 +44,7 @@ function markDead(urlOrTrack) {
 
 const isDead = (url) => {
   if (!url || !dead.size) return false;
-  const id = require("./sources/youtube/index").extractVideoId(url);
+  const id = require("../sources/youtube/index").extractVideoId(url);
   return !!id && dead.has(id);
 };
 
@@ -100,7 +100,7 @@ function* byWeight(list) {
  * 나눠 쓴다. 장부에 칸이 따로 생기고 음원 파일은 하나만 받는다. 스포티파이와 같은 방식이다.
  */
 function fromYouTube(video, cand) {
-  const YouTube = require("./sources/youtube/index");
+  const YouTube = require("../sources/youtube/index");
   const videoId = video.id || YouTube.extractVideoId(video.url);
   // 출처가 따로 있는 곡인가(Last.fm·LB Radio·VocaDB·AnimeThemes), 아니면 영상 자체가 출처인가(keyword·유튜브 재생목록)
   const sourced = !!cand.sourceUrl;
@@ -141,14 +141,14 @@ const fromAudio = (cand) => ({
   // 패널에 "Direct"가 아니라 어디서 온 곡인지 보이게 한다
   platform: cand.platform || "direct",
   // DirectLink와 같은 규약. 이 값이 있어야 캐시 장부에 이름·표지가 남는다
-  audioSourceKey: `dl:${require("./store/cacheManager").md5(cand.audioUrl)}`,
+  audioSourceKey: `dl:${require("../store/cacheManager").md5(cand.audioUrl)}`,
   type: "track",
   id: cand.sourceKey,
 });
 
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
 async function findOnYouTube(cand, genre) {
-  const YouTube = require("./sources/youtube/index");
+  const YouTube = require("../sources/youtube/index");
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
   const { primary, secondary } = match.buildSearchQueries(target);
 
