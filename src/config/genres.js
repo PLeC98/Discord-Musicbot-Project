@@ -6,7 +6,7 @@ const log = require("../infra/log/logger").child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 const sources = require("./schema/genreSources");
 const { load } = require("./yamlStore");
-const { genreProblems, NUMERIC_NAME, ONE_EMOJI } = require("./schema/genres");
+const { genreProblems } = require("./schema/genres");
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
@@ -23,25 +23,7 @@ let warnedKeys = "";
  */
 function genres() {
   const data = load("genres");
-  const bad = Object.keys(data.genres || {}).filter((k) => k === "true" || k === "false" || k === "");
-  if (bad.length) {
-    const shown = bad.map((k) => (k === "" ? "null" : k)).join(", ");
-    // 따옴표를 써도 파싱 뒤에는 같은 문자열이라 구분할 수 없다. 아예 못 쓰는 이름으로 못박는다.
-    throw Object.assign(new Error(`장르 이름으로 쓸 수 없습니다: ${shown}\n   true·false·null 은 YAML이 값으로 읽습니다. 다른 이름을 쓰세요.`), { code: "CONFIG_INVALID" });
-  }
-  const numeric = Object.keys(data.genres || {}).filter((k) => NUMERIC_NAME.test(k));
-  if (numeric.length) {
-    throw Object.assign(new Error(`장르 이름으로 쓸 수 없습니다: ${numeric.join(", ")}\n   숫자만으로 된 이름은 차례가 어긋납니다. "80년대"처럼 글자를 붙여 주세요.`), { code: "CONFIG_INVALID" });
-  }
-
-  // 이모지가 아닌 값이 하나라도 있으면 디스코드가 선택 메뉴 전체를 거부한다.
-  // 손으로 고친 파일이 /autoplay에서 터지지 않도록 읽는 자리에서 먼저 잡는다.
-  const badEmoji = Object.entries(data.genres || {}).filter(([, g]) => g?.emoji != null && g.emoji !== "" && !ONE_EMOJI.test(String(g.emoji)));
-  if (badEmoji.length) {
-    const shown = badEmoji.map(([k, g]) => `${k}: ${g.emoji}`).join(", ");
-    throw Object.assign(new Error(`이모지가 아닌 값이 있습니다: ${shown}\n   emoji는 비우거나 이모지 한 글자만 적을 수 있습니다.`), { code: "CONFIG_INVALID" });
-  }
-
+  // 이름 · 숫자 이름 · 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(data);
   if (shape.length) {
     throw Object.assign(new Error(["config/genres.yaml 을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
@@ -101,4 +83,4 @@ function checkSourceKeys(genres) {
   warnedKeys = key;
 }
 
-module.exports = { genres, validateGenres, NUMERIC_NAME };
+module.exports = { genres, validateGenres };

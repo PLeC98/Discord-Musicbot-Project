@@ -170,3 +170,16 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   const problems = genreConfig.validateGenres({ defaults: { minDurationSec: 600, maxDurationSec: 60 }, genres: { 팝: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
+
+// 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 켜야 다음 문제가 보이던 것을 없앴다
+test("기동 오류는 문제를 한 번에 모두 나열한다(대시보드 저장 전 검사와 같은 문구)", () => {
+  write("genres", ["defaults: {}", "genres:", "  80:", "    sources: [{ type: keyword, keywords: [pop] }]", "  팝:", "    emoji: abc", "    sources: []", ""].join("\n"));
+  touch("genres");
+  const err = thrown(() => genreConfig.genres());
+  assert.equal(err.code, "CONFIG_INVALID");
+  const lines = err.message.split("\n");
+  assert.equal(lines[0], "config/genres.yaml 을 읽을 수 없습니다:");
+  assert.match(err.message, /"80": 숫자만으로 된 이름은/);
+  assert.match(err.message, /팝: emoji는 이모지 한 글자여야/);
+  assert.match(err.message, /팝: 소스\(sources\)가 하나는 있어야/);
+});
