@@ -315,8 +315,8 @@ test("insertFirst가 코어로 전달된다", async () => {
   assert.equal(client.embedCalls[0].trackData.insertFirst, true);
 });
 
-test("해석 실패는 렌더링 없이 그대로 전파된다", async () => {
-  mockResolve = () => ({ success: false, message: "❌ 결과를 찾을 수 없습니다!" });
+test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () => {
+  mockResolve = () => ({ success: false, code: "no-result" });
   const client = makeClient();
   const guild = makeGuild();
 

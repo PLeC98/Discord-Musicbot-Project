@@ -235,7 +235,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
   try {
     const w = world();
     await settings.setBotChannel("g1", "bot-channel");
-    lookup.resolveQuery = async () => ({ success: false, message: "결과를 찾을 수 없습니다!" });
+    lookup.resolveQuery = async () => ({ success: false, code: "no-result" });
     const msg = message(w);
 
     await messageHandler.execute(msg);

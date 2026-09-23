@@ -8,7 +8,7 @@ const Spotify = require("./spotify");
 const SoundCloud = require("./soundcloud");
 const DirectLink = require("./direct");
 const trackLookup = require("../store/trackLookup");
-const ErrorHandler = require("../ui/errorMessages");
+const { errorKind } = require("../rules/errorKind");
 const { inputKind } = require("../rules/inputKind");
 const log = require("../infra/log/logger").child({ category: "track" });
 
@@ -29,7 +29,8 @@ const lookup = {
     return inputKind(query) === "unknown";
   },
 
-  // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, message }
+  // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, code, error? }
+  //   code: no-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/errorMessages 로 만든다
   // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
   // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
   async getTrackData(query, context = "lookup.getTrackData", { offset = 0, limit } = {}) {
@@ -88,13 +89,13 @@ const lookup = {
       }
 
       if (!tracks || tracks.length === 0) {
-        return { success: false, message: "❌ 결과를 찾을 수 없습니다!" };
+        return { success: false, code: "no-result" };
       }
 
       return { success: true, isPlaylist, collection, tracks, total, nextOffset };
     } catch (error) {
-      const errorMsg = ErrorHandler.handle(error, context);
-      return { success: false, message: errorMsg };
+      log.error({ sub: context || undefined, kind: errorKind(error) }, `${error?.message || error}`);
+      return { success: false, code: "lookup-failed", error };
     }
   },
 

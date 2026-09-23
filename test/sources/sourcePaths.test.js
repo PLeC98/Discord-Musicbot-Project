@@ -112,15 +112,20 @@ test("조회: 사운드클라우드 · 직접 링크는 한 곡", async () => {
   assert.equal(direct.tracks[0].url, "https://files.test/a.mp3");
 });
 
-test("조회: 결과가 없으면 문장, 던지면 ErrorHandler 의 안내문", async () => {
+test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
   swap(YouTube, "search", async () => []);
-  assert.deepEqual(await lookup.getTrackData("없는 곡"), { success: false, message: "❌ 결과를 찾을 수 없습니다!" });
+  assert.deepEqual(await lookup.getTrackData("없는 곡"), { success: false, code: "no-result" });
+  const boom = new Error("ECONNRESET");
   swap(YouTube, "search", async () => {
-    throw new Error("ECONNRESET");
+    throw boom;
   });
-  const r = await lookup.getTrackData("끊긴 곡");
-  assert.equal(r.success, false);
-  assert.match(r.message, /네트워크 오류/);
+  assert.deepEqual(await lookup.getTrackData("끊긴 곡"), { success: false, code: "lookup-failed", error: boom });
+});
+
+test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", () => {
+  const ErrorHandler = require("../../src/ui/errorMessages");
+  assert.equal(ErrorHandler.lookupFailure({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
+  assert.match(ErrorHandler.lookupFailure({ code: "lookup-failed", error: new Error("ECONNRESET") }), /네트워크 오류/);
 });
 
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {

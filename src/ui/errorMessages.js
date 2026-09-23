@@ -56,6 +56,11 @@ class ErrorHandler {
     return PLAY_FAILURE[result?.code] ?? (result?.error ? this.getMessage(result.error) : "재생을 시작할 수 없습니다.");
   }
 
+  /** 곡 찾기 실패({ code, error? }) → 안내문 */
+  static lookupFailure(result) {
+    return result?.code === "no-result" ? "❌ 결과를 찾을 수 없습니다!" : this.getMessage(result?.error);
+  }
+
   static handle(error, context = "") {
     const category = this.classify(error);
     // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)

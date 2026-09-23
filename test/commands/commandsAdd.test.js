@@ -165,7 +165,7 @@ test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /p
 
 test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 ErrorHandler 문장으로", async () => {
   const w = world();
-  resolveReply = () => ({ success: false, message: "❌ 결과를 찾을 수 없습니다!" });
+  resolveReply = () => ({ success: false, code: "no-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
   await cmd("play").execute(failed.it, w.client);
   assert.deepEqual(failed.log.at(-1), ["editReply", { components: [{ error: "❌ 결과를 찾을 수 없습니다!" }], flags: MessageFlags.IsComponentsV2 }]);
@@ -214,7 +214,7 @@ test("/playfirst: DJ 계층이 필요하고, 맨 앞에 넣으라고 코어에 �
 
 test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
   const w = world({ roles: ["dj"] });
-  resolveReply = () => ({ success: false, message: "❌ 결과를 찾을 수 없습니다!" });
+  resolveReply = () => ({ success: false, code: "no-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
   await cmd("playfirst").execute(failed.it, w.client);
   assert.deepEqual(failed.log.at(-1), ["editReply", { components: [{ error: "❌ 결과를 찾을 수 없습니다!" }], flags: MessageFlags.IsComponentsV2 }]);

@@ -8,6 +8,7 @@ const log = require("../infra/log/logger").child({ category: "player" });
 const config = require("../../config");
 const trackState = require("../player/trackState");
 const S = require("../ui/strings");
+const ErrorHandler = require("../ui/errorMessages");
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 const { liveBlockReason } = require("../rules/liveBlockReason");
@@ -120,7 +121,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
     const limit = single ? 1 : Math.max(1, Math.min(batch, room));
     trackData = await lookup.resolveQuery(query, `${source}.resolveQuery`, { limit });
-    if (!trackData.success) return trackData;
+    if (!trackData.success) return { success: false, message: ErrorHandler.lookupFailure(trackData) };
 
     // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
     const more = trackData.total == null ? trackData.tracks.length >= limit : trackData.total > trackData.tracks.length;
