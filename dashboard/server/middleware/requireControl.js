@@ -1,8 +1,6 @@
 "use strict";
 
-const { checkControl } = require("../../../src/usecases/permissions");
 const S = require("../../../src/ui/strings");
-const { isOwner } = require("../owner");
 const { shadowMember } = require("../viewAs");
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리
@@ -34,18 +32,4 @@ async function resolveMember(req, res) {
   return { client, guild, member };
 }
 
-// 재생 조작 엔드포인트 공통 가드
-async function requireControl(req, res, next) {
-  if (isOwner(req)) return next();
-
-  const ctx = await resolveMember(req, res);
-  if (!ctx) return;
-
-  const err = await checkControl(ctx.member);
-  if (err) return res.status(403).json({ error: toApiError(err) });
-  next();
-}
-
-module.exports = requireControl;
-module.exports.resolveMember = resolveMember;
-module.exports.toApiError = toApiError;
+module.exports = { resolveMember, toApiError };

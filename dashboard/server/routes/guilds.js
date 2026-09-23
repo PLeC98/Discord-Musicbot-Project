@@ -2,9 +2,10 @@ const express = require("express");
 const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
 const router = express.Router();
 const requireAuth = require("../middleware/requireAuth");
-const requireControl = require("../middleware/requireControl");
-const { resolveMember, toApiError } = requireControl;
-const { checkControl, checkAdd, checkSkip, checkRemoveTrack, isModerator } = require("../../../src/usecases/permissions");
+const { resolveMember, toApiError } = require("../middleware/requireControl");
+const { checkControl, checkAdd, isModerator } = require("../../../src/usecases/permissions");
+const controls = require("../../../src/usecases/controls");
+const { controlApiError } = require("../../../src/ui/controlMessages");
 const { ChannelType } = require("discord.js");
 const GuildSettingsManager = require("../../../src/store/guildSettings");
 const { requestPlayback, continueCollection } = require("../../../src/usecases/addTracks");
@@ -500,33 +501,31 @@ router.post("/:guildId/player/join", requireAuth, async (req, res) => {
   res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, req.session.user.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: req.session.user.id });
 });
 
+// ── 재생 조작 ─────────────────────────────────────────────────────────────────
+// 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
+
+const actorOf = (req, member) => (isOwner(req) ? { owner: true } : { member });
+
+function refuse(res, result) {
+  const { status, error } = controlApiError(result);
+  return res.status(status).json({ error });
+}
+
 // Toggle pause / resume
-router.post("/:guildId/player/pause", requireAuth, requireControl, async (req, res) => {
+router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player, client } = ctx;
-  if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-
-  if (player.paused) {
-    player.resume();
-  } else {
-    player.pause();
-  }
-
-  if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player, queueWindow(req)));
+  const r = await controls.pause(ctx.player, actorOf(req, ctx.member));
+  if (!r.ok) return refuse(res, r);
+  res.json(playerState(ctx.player, queueWindow(req)));
 });
 
 // Previous
-router.post("/:guildId/player/previous", requireAuth, requireControl, async (req, res) => {
+router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player } = ctx;
-  if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-  // 한곡 반복 중에는 이전곡 = 현재 곡 재시작이라 기록이 없어도 유효
-  if (!player.previousTracks?.length && player.loop !== "track") return res.status(409).json({ error: "이전 곡이 없습니다." });
-
-  player.previous();
+  const r = await controls.previous(ctx.player, actorOf(req, ctx.member), { requireTrack: true });
+  if (!r.ok) return refuse(res, r);
   res.json({ ok: true });
 });
 
@@ -534,55 +533,35 @@ router.post("/:guildId/player/previous", requireAuth, requireControl, async (req
 router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player } = ctx;
-  if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-
-  if (!isOwner(req)) {
-    const mctx = await resolveMember(req, res);
-    if (!mctx) return;
-    const err = await checkSkip(mctx.member, player);
-    if (err) return res.status(403).json({ error: toApiError(err) });
-  }
-
-  player.skip();
+  const r = await controls.skip(ctx.player, actorOf(req, ctx.member), { allowEmpty: true });
+  if (!r.ok) return refuse(res, r);
   res.json({ ok: true });
 });
 
 // Stop
-router.post("/:guildId/player/stop", requireAuth, requireControl, async (req, res) => {
-  const { guildId } = req.params;
-  const ctx = await getPlayer(req, res, guildId);
+router.post("/:guildId/player/stop", requireAuth, async (req, res) => {
+  const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player, client } = ctx;
-  if (!player) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-
-  player.stop();
-  client.players.delete(guildId);
-  if (client.musicEmbedManager) client.musicEmbedManager.handlePlaybackEnd(player, { reason: "stop" }).catch(() => {});
+  const r = await controls.stop(ctx.player, actorOf(req, ctx.member), ctx.client.players);
+  if (!r.ok) return refuse(res, r);
   res.json({ ok: true });
 });
 
 // Seek  { position: seconds }
-router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, res) => {
+router.post("/:guildId/player/seek", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player } = ctx;
-  if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-  // 곡 해석/스트림 셋업 중(play() 진행 중)엔 seek 금지. 동시 play() 레이스로 currentTrack이
-  // 중간에 null 돼 크래시하던 문제 방지. 아직 실제 재생 전이므로 seek 대상 자체가 없다.
-  if (player.isPlayStarting) return res.status(409).json({ error: "재생을 준비 중입니다. 잠시 후 다시 시도해 주세요." });
-  // 라이브에는 실시간밖에 없다. 옮길 자리가 없다.
-  if (player.isLive) return res.status(409).json({ error: "라이브 방송은 구간 이동을 할 수 없습니다." });
-
   const positionSec = Number(req.body.position);
   // Number.isFinite: parseFloat와 달리 "Infinity"(라이브 duration 0에서 클램프를 뚫음)·비숫자 문자열 거부
   if (!Number.isFinite(positionSec) || positionSec < 0) return res.status(400).json({ error: "재생 위치가 올바르지 않습니다." });
 
-  const durationSec = player.currentTrack.duration ?? 0;
+  // 진행바를 끝까지 끌면 곡 길이와 같은 값이 온다. 끝 1초 앞으로 당긴다
+  const durationSec = ctx.player?.currentTrack?.duration ?? 0;
   const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
   try {
-    await player.seek(Math.floor(clampedSec * 1000), "dashboard");
+    const r = await controls.seek(ctx.player, actorOf(req, ctx.member), Math.floor(clampedSec * 1000), { reason: "dashboard", refuseStarting: true });
+    if (!r.ok) return refuse(res, r);
     res.json({ ok: true, position: clampedSec });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -590,47 +569,37 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
 });
 
 // Volume  { volume: 0-100 }
-router.post("/:guildId/player/volume", requireAuth, requireControl, async (req, res) => {
+router.post("/:guildId/player/volume", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player } = ctx;
-  if (!player) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-
-  const vol = toInt(req.body.volume);
-  if (isNaN(vol) || vol < 0 || vol > 100) return res.status(400).json({ error: "볼륨은 0에서 100 사이여야 합니다." });
-
-  player.setVolume(vol);
-  res.json(playerState(player, queueWindow(req)));
+  const r = await controls.volume(ctx.player, actorOf(req, ctx.member), toInt(req.body.volume));
+  if (!r.ok) return refuse(res, r);
+  res.json(playerState(ctx.player, queueWindow(req)));
 });
 
 // Loop  { mode: 'off' | 'track' | 'queue' }
-router.post("/:guildId/player/loop", requireAuth, requireControl, async (req, res) => {
+const LOOP_MODE = new Map([
+  ["off", false],
+  ["track", "track"],
+  ["queue", "queue"],
+]);
+
+router.post("/:guildId/player/loop", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player, client } = ctx;
-  if (!player?.currentTrack) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-
-  const mode = req.body.mode;
-  if (!["off", "track", "queue"].includes(mode)) return res.status(400).json({ error: "반복 모드가 올바르지 않습니다." });
-
-  // 끝이 없는 것은 반복할 수 없다. 라이브가 있으면 켜지 못한다(끄는 것은 그대로 통한다).
-  if (mode !== "off" && player.hasLiveTrack()) return res.status(409).json({ error: "라이브 방송이 있어 반복을 켤 수 없습니다." });
-
-  player.setLoop(mode === "off" ? false : mode);
-  if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player, queueWindow(req)));
+  // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
+  const r = await controls.loop(ctx.player, actorOf(req, ctx.member), LOOP_MODE.get(req.body.mode));
+  if (!r.ok) return refuse(res, r);
+  res.json(playerState(ctx.player, queueWindow(req)));
 });
 
 // Shuffle
-router.post("/:guildId/player/shuffle", requireAuth, requireControl, async (req, res) => {
+router.post("/:guildId/player/shuffle", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player, client } = ctx;
-  if (!player || player.queue.length < 2) return res.status(409).json({ error: "대기열에 곡이 2개 이상 있어야 합니다." });
-
-  player.shuffleQueue();
-  if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player, queueWindow(req)));
+  const r = await controls.shuffle(ctx.player, actorOf(req, ctx.member));
+  if (!r.ok) return refuse(res, r);
+  res.json(playerState(ctx.player, queueWindow(req)));
 });
 
 // Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
@@ -723,42 +692,18 @@ router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req
 router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player } = ctx;
-  if (!player) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-
-  const index = toInt(req.params.index);
-  if (isNaN(index) || index < 0 || index >= player.queue.length) {
-    return res.status(400).json({ error: "대기열 항목 번호가 올바르지 않습니다." });
-  }
-
-  if (!isOwner(req)) {
-    const mctx = await resolveMember(req, res);
-    if (!mctx) return;
-    const err = await checkRemoveTrack(mctx.member, player.queue[index]);
-    if (err) return res.status(403).json({ error: toApiError(err) });
-  }
-
-  player.removeFromQueue(index);
-  res.json(playerState(player, queueWindow(req)));
+  const r = await controls.remove(ctx.player, actorOf(req, ctx.member), toInt(req.params.index));
+  if (!r.ok) return refuse(res, r);
+  res.json(playerState(ctx.player, queueWindow(req)));
 });
 
 // Move track in queue  { from: number, to: number }
-router.post("/:guildId/player/queue/move", requireAuth, requireControl, async (req, res) => {
+router.post("/:guildId/player/queue/move", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const { player, client } = ctx;
-  if (!player) return res.status(409).json({ error: "현재 재생 중인 음악이 없습니다." });
-
-  const from = toInt(req.body.from);
-  const to = toInt(req.body.to);
-
-  if (isNaN(from) || isNaN(to) || from < 0 || to < 0 || from >= player.queue.length || to >= player.queue.length) {
-    return res.status(400).json({ error: "이동할 대기열 위치가 올바르지 않습니다." });
-  }
-
-  player.moveInQueue(from, to);
-  if (client.musicEmbedManager) client.musicEmbedManager.updateNowPlayingEmbed(player).catch(() => {});
-  res.json(playerState(player, queueWindow(req)));
+  const r = await controls.move(ctx.player, actorOf(req, ctx.member), toInt(req.body.from), toInt(req.body.to), { allowSame: true });
+  if (!r.ok) return refuse(res, r);
+  res.json(playerState(ctx.player, queueWindow(req)));
 });
 
 module.exports = router;

@@ -80,16 +80,13 @@ async function previous(player, actor, { requireTrack = false } = {}) {
 /**
  * 곡 안의 위치로. reason 은 로그에 남는 원인(seek · replay · highlight · dashboard).
  * refuseStarting: 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 일 전에 부른다(응답 미루기 등).
- * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다). clamp 면 끝 1초 앞으로 붙인다
+ * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다)
  */
-async function seek(player, actor, ms, { reason = "seek", refuseStarting = false, clamp = false, onAccepted } = {}) {
+async function seek(player, actor, ms, { reason = "seek", refuseStarting = false, onAccepted } = {}) {
   const blocked = (await gate(player, actor)) ?? needTrack(player) ?? seekBlocked(player, refuseStarting);
   if (blocked) return blocked;
   const durationMs = (Number(player.currentTrack.duration) || 0) * 1000;
-  if (durationMs > 0 && ms >= durationMs) {
-    if (!clamp) return fail("beyond-end", { durationMs });
-    ms = Math.max(0, durationMs - 1000);
-  }
+  if (durationMs > 0 && ms >= durationMs) return fail("beyond-end", { durationMs });
   await onAccepted?.();
   await player.seek(ms, reason);
   await refresh(player);

@@ -231,3 +231,23 @@ test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400,
   assert.equal(ok.json.more.offset, 60);
   assert.equal(ok.json.more.requesterId, undefined);
 });
+
+test("조작 거절은 디스코드와 같은 문장에서 ❌ 만 떼어 보낸다", async () => {
+  freshPlayer().currentTrack = null;
+  const r = await req("POST", `/api/guilds/${GUILD_ID}/player/pause`);
+  assert.equal(r.status, 409);
+  assert.deepEqual(r.json, { error: "현재 재생 중인 노래가 없습니다!" });
+});
+
+test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다", async () => {
+  const seen = [];
+  const off = require("../../src/player/events").on("refresh", async (p) => seen.push(p === player));
+  try {
+    freshPlayer();
+    await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
+    await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/0`);
+  } finally {
+    off();
+  }
+  assert.deepEqual(seen, [true, true]);
+});
