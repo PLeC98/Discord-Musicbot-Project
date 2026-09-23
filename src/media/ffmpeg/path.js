@@ -32,7 +32,7 @@ function probe(candidate) {
 
 /** scripts/install-ffmpeg.js가 내려받아 두는 위치. 미지원 플랫폼에서는 없다. */
 function fromBundle() {
-  const p = path.join(__dirname, "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  const p = path.join(__dirname, "..", "..", "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   return fs.existsSync(p) ? p : null;
 }
 
