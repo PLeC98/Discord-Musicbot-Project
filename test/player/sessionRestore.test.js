@@ -99,3 +99,115 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
   assert.equal(res.guild, guild);
   assert.equal(client.calls.length, 0);
 });
+
+// ── 기동 때 저장 세션 모두 되살리기 ───────────────────────────────────────────
+
+const { after } = require("node:test");
+const { openTempStore } = require("../helpers/tempStore");
+const { restoreSavedPlayers } = require("../../src/player/sessionRestore");
+const { sessions } = require("../../src/store/playerSessions");
+
+const store = openTempStore("session-restore-");
+after(() => store.close());
+
+const channel = (id, kind) => ({ id, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text" });
+
+function saved(guildId, { voice = "vc1", text = "tc1" } = {}) {
+  sessions().saveSession(guildId, { voiceChannelId: voice, textChannelId: text });
+}
+
+function guildWith(id, chans = [channel("vc1", "voice"), channel("tc1", "text")]) {
+  const cache = new Map(chans.map((c) => [c.id, c]));
+  return { id, name: `서버 ${id}`, channels: { cache, fetch: async () => null } };
+}
+
+// 플레이어 대신. 무엇으로 만들었고 무엇을 불렀는지 남긴다
+function fakePlayerClass({ restoreFails = false } = {}) {
+  const made = [];
+  class FakePlayer {
+    constructor(guild, text, voice) {
+      Object.assign(this, { guild, text, voice, calls: [] });
+      made.push(this);
+    }
+    async restoreFromState(record) {
+      this.calls.push(`restore:${record.guildId}`);
+      if (restoreFails) throw new Error("복원 실패");
+    }
+    cleanup(reason) {
+      this.calls.push(`cleanup:${reason}`);
+    }
+  }
+  return { FakePlayer, made };
+}
+
+function clientWith(guilds) {
+  return { players: new Map(), guilds: { cache: new Map(guilds.map((g) => [g.id, g])), fetch: async () => null } };
+}
+
+const remaining = () =>
+  sessions()
+    .loadAll()
+    .map((r) => r.guildId);
+
+test("되살리기: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저장 상태로 되돌린다", async () => {
+  saved("r1");
+  const client = clientWith([guildWith("r1")]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, FakePlayer);
+
+  assert.equal(made.length, 1);
+  assert.equal(made[0].voice.id, "vc1");
+  assert.equal(made[0].text.id, "tc1");
+  assert.deepEqual(made[0].calls, ["restore:r1"]);
+  assert.equal(client.players.get("r1"), made[0]);
+  sessions().removeSession("r1");
+});
+
+test("되살리기: 저장 상태를 못 되돌리면 플레이어를 치우고 세션을 지운다", async () => {
+  saved("r2");
+  const client = clientWith([guildWith("r2")]);
+  const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
+
+  await restoreSavedPlayers(client, FakePlayer);
+
+  assert.deepEqual(made[0].calls, ["restore:r2", "cleanup:세션 복원 실패"]);
+  assert.equal(client.players.has("r2"), false);
+  assert.deepEqual(remaining(), []);
+});
+
+test("되살리기: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 지운다", async () => {
+  saved("r3", { voice: null });
+  saved("r4", { voice: "tc1", text: "vc1" }); // 서로 바뀐 종류
+  const client = clientWith([guildWith("r3"), guildWith("r4")]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, FakePlayer);
+
+  assert.equal(made.length, 0);
+  assert.deepEqual(remaining(), []);
+});
+
+test("되살리기: 서버가 사라졌으면 세션을 지우고, 잠깐 못 받은 것이면 남긴다", async () => {
+  saved("gone1");
+  saved("flaky1");
+  const client = clientWith([]);
+  client.guilds.fetch = async (id) => {
+    if (id === "gone1") throw Object.assign(new Error("Unknown Guild"), { code: RESTJSONErrorCodes.UnknownGuild });
+    throw new Error("네트워크");
+  };
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, FakePlayer);
+
+  assert.equal(made.length, 0);
+  assert.deepEqual(remaining(), ["flaky1"]);
+  sessions().removeSession("flaky1");
+});
+
+test("되살리기: 저장 세션이 없으면 아무것도 안 한다", async () => {
+  const client = clientWith([]);
+  const { FakePlayer, made } = fakePlayerClass();
+  await restoreSavedPlayers(client, FakePlayer);
+  assert.equal(made.length, 0);
+});
