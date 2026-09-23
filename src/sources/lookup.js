@@ -10,6 +10,7 @@ const DirectLink = require("./direct");
 const trackLookup = require("../store/trackLookup");
 const ErrorHandler = require("../ui/errorMessages");
 const { inputKind } = require("../rules/inputKind");
+const log = require("../infra/log/logger").child({ category: "track" });
 
 const lookup = {
   // 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 글은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
@@ -119,6 +120,7 @@ const lookup = {
     const skipCache = links.isYouTubePlaylist(query) || this.isUnsupportedLink(query);
     const cacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
     if (cacheHit.hit) {
+      log.info(`장부 지름길(조회 · 검색 안 함): "${cacheHit.track.title}" → ${cacheHit.track.audioUrl}`);
       return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
     }
     return this.getTrackData(query, context, range);
