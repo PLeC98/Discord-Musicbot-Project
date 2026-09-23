@@ -114,8 +114,9 @@ ${String((error && error.stack) || error)}`,
   exit();
 }
 
-// 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다
-function installErrorHandlers(client) {
+// 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다.
+// proc · exit: 처리기를 걸 곳과 안전 종료의 끝. 생략하면 진짜 프로세스
+function installErrorHandlers(client, { proc = process, exit } = {}) {
   const log = coreLog;
   // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정. client "error"와 unhandledRejection이 같은 기준을 쓴다.
   // true = 알려진 오류라 처리 완료, false = 알 수 없음(호출부가 빈도 가드로 판단).
@@ -145,12 +146,12 @@ function installErrorHandlers(client) {
 
     if (unknownClientErrorFlooding()) {
       log.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 클라이언트 오류가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
-      fatalShutdown(client, error instanceof Error ? error : new Error(String(error)));
+      fatalShutdown(client, error instanceof Error ? error : new Error(String(error)), exit);
     }
   });
 
   // 오류 처리
-  process.on("unhandledRejection", (reason) => {
+  proc.on("unhandledRejection", (reason) => {
     log.error("처리되지 않은 rejection:", reason);
 
     if (handleLooseError(reason, "rejection")) return;
@@ -160,11 +161,11 @@ function installErrorHandlers(client) {
     // (uncaughtException의 네트워크 폭주 가드와 같은 방침)
     if (unknownRejectionFlooding()) {
       log.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 거부가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
-      fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)));
+      fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)), exit);
     }
   });
 
-  process.on("uncaughtException", (error) => {
+  proc.on("uncaughtException", (error) => {
     log.error("처리되지 않은 예외:", error);
 
     // Discord 상호작용 오류. 무해, 계속
@@ -184,7 +185,7 @@ function installErrorHandlers(client) {
     }
 
     // 그 외(또는 네트워크 폭주) = 치명적 → 안전 종료
-    fatalShutdown(client, error);
+    fatalShutdown(client, error, exit);
   });
 }
 

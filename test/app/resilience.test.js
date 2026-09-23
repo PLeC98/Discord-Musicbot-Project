@@ -213,3 +213,74 @@ test("무해한 Discord 오류: 그 외에는 null (알 수 없는 오류로 넘
 test("빈도 가드는 오류 종류별로 서로 다른 인스턴스다 (카운터 오염 방지)", () => {
   assert.equal(new Set([networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding]).size, 3);
 });
+
+// ── 새어 나온 오류 처리기 ─────────────────────────────────────────────────────
+
+const { EventEmitter } = require("node:events");
+const { installErrorHandlers } = require("../../src/app/resilience");
+
+// 빈도 가드는 모듈에 하나씩이라 시험마다 시계를 한 시간씩 먼 미래로 옮겨 앞 시험의 기록을 창 밖으로 보낸다
+let clock = Date.UTC(2100, 0, 1);
+
+// 끊긴 음성 연결을 가진 플레이어 하나. 표적 복구가 불렸는지 센다
+function installed(t) {
+  clock += 3_600_000;
+  t.mock.timers.enable({ apis: ["Date"], now: clock });
+  const heals = [];
+  const exits = [];
+  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1) }, cleanup() {} };
+  const client = Object.assign(new EventEmitter(), { players: new Map([["g1", player]]) });
+  const proc = new EventEmitter();
+  installErrorHandlers(client, { proc, exit: () => exits.push(1) });
+  return { client, proc, heals, exits };
+}
+
+const net = () => Object.assign(new Error("socket"), { code: "ECONNRESET" });
+const settle = () => new Promise((r) => setImmediate(r));
+
+test("처리기: 무해한 디스코드 오류와 죽은 상호작용은 넘어간다", async (t) => {
+  const { client, proc, exits, heals } = installed(t);
+  client.emit("error", { code: 50013, message: "Missing Permissions" });
+  proc.emit("unhandledRejection", { code: 10008 });
+  for (let i = 0; i < NET_ERR_MAX + 2; i++) proc.emit("uncaughtException", { code: 10062 });
+  await settle();
+  assert.deepEqual(exits, []);
+  assert.deepEqual(heals, []);
+});
+
+test("처리기: 일시적 네트워크 오류는 끊긴 서버만 되살린다", async (t) => {
+  const { client, proc, exits, heals } = installed(t);
+  client.emit("error", net());
+  await settle();
+  proc.emit("unhandledRejection", net());
+  await settle();
+  proc.emit("uncaughtException", net());
+  await settle();
+  assert.equal(heals.length, 3);
+  assert.deepEqual(exits, []);
+});
+
+test("처리기: 잡히지 않은 예외는 네트워크 오류가 아니면 곧바로 안전 종료", async (t) => {
+  const { proc, exits } = installed(t);
+  proc.emit("uncaughtException", new Error("버그"));
+  assert.equal(exits.length, 1);
+});
+
+test("처리기: 알 수 없는 거부 · 클라이언트 오류는 한 번이면 넘어가고, 몰려오면 안전 종료", async (t) => {
+  const { client, proc, exits } = installed(t);
+  proc.emit("unhandledRejection", new Error("한 번"));
+  client.emit("error", new Error("한 번"));
+  assert.deepEqual(exits, []);
+
+  for (let i = 0; i < NET_ERR_MAX; i++) proc.emit("unhandledRejection", "문자열 거부");
+  assert.equal(exits.length, 1, "거부가 몰려옴");
+  for (let i = 0; i < NET_ERR_MAX; i++) client.emit("error", new Error("또"));
+  assert.equal(exits.length, 2, "클라이언트 오류가 몰려옴");
+});
+
+test("처리기: 네트워크 예외가 몰려오면 안전 종료", async (t) => {
+  const { proc, exits } = installed(t);
+  for (let i = 0; i <= NET_ERR_MAX; i++) proc.emit("uncaughtException", net());
+  await settle();
+  assert.equal(exits.length, 1);
+});
