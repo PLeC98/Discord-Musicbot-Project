@@ -16,6 +16,7 @@ after(() => store.close());
 
 const config = require("../../config");
 const MusicPlayer = require("../../src/player/Player");
+const PlaybackState = require("../../src/player/playbackState");
 const IdleLeave = require("../../src/player/idleLeave");
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
@@ -35,7 +36,7 @@ after(() => {
 // playbackLoop.test.js와 같은 방식 — 코드가 건드리는 것만 나열한 목
 function makePlayer(players, current = { title: "곡", duration: 10 }) {
   const p = {
-    isTransitioning: false,
+    lifecycle: new PlaybackState(),
     watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
     pauseReasons: new Set(),
     currentTrack: current,

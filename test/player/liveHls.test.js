@@ -10,6 +10,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 const MusicPlayer = require("../../src/player/Player");
+const PlaybackState = require("../../src/player/playbackState");
 const PlaybackWatch = require("../../src/player/playbackWatch");
 const YouTube = require("../../src/sources/youtube/index");
 const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
@@ -239,7 +240,7 @@ test("_reset 후에도 능력 확인이 다시 선다", () => {
 const endingPlayer = (overrides = {}) => {
   const played = [];
   const player = fakePlayer({
-    isTransitioning: false,
+    lifecycle: new PlaybackState(),
     sponsorSkipper: { stop() {} },
     previousTracks: [],
     currentDownloadedFile: null,

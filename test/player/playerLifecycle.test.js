@@ -65,7 +65,7 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   assert.equal(calls.spawns.length, 1);
   assert.deepEqual(seen, ["update"]);
   assert.deepEqual(calls.sink.slice(0, 2), ["onRetire", "onTake"], "끝난 곡 은퇴 → 다음 곡 꺼냄 순서");
-  assert.equal(p.isTransitioning, false);
+  assert.equal(p.lifecycle.ending, false);
   assert.equal(p.pendingEndReason, null);
 });
 
@@ -206,7 +206,7 @@ test("모르는 자동재생 장르는 끄고 채널에 알린 뒤 대기열 소
 test("넘어가는 중에 또 불리면 아무것도 안 한다", async () => {
   const p = h.makePlayer();
   const track = playing(p, yt("mmmmmmmmmmm"));
-  p.isTransitioning = true;
+  p.lifecycle.ending = true;
 
   await p.handleTrackEnd("idle");
   h.dispose(p);

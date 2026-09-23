@@ -54,6 +54,18 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
   assert.equal(p.currentDownloadedFile, file);
   // 길이는 캐시에 적힌 실제 길이로 바꾼다
   assert.equal(p.currentTrack.duration, 201);
+  assert.equal(p.lifecycle.phase, "playing");
+});
+
+test("재생 단계: 틀지 못하면 idle 로 돌아오고, 정지하면 disposed", async () => {
+  const p = h.makePlayer();
+  const r = await playOnce(p); // 대기열이 비었다
+  assert.equal(r.success, false);
+  assert.equal(p.lifecycle.phase, "idle");
+  assert.equal(p.isPlayStarting, false);
+
+  p.stop();
+  assert.equal(p.lifecycle.phase, "disposed");
 });
 
 test("캐시에서 틀어도 장부에 재생을 적는다", async () => {

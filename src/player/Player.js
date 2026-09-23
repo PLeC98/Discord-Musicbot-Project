@@ -22,6 +22,7 @@ const trackLookup = require("../store/trackLookup");
 const VoiceConnectionManager = require("./voiceConnection");
 const PlaybackWatch = require("./playbackWatch");
 const IdleLeave = require("./idleLeave");
+const PlaybackState = require("./playbackState");
 const TrackDownloader = require("../media/cacheDownload");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./sessionMirror");
@@ -101,10 +102,9 @@ class MusicPlayer {
     this.sessionId = createPlayerSessionId();
 
     // 재생 생명주기 상태
-    this.isTransitioning = false;
     this.pendingEndReason = null;
     this.currentTrackRetries = 0;
-    this.isPlayStarting = false; // play() 셋업 진행 중. 워처 자동 스킵 재진입 방지
+    this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
     this.currentTrackCache = null;
     this.activeStreamInfo = null;
     this.lastPlaybackPosition = 0;
@@ -219,6 +219,11 @@ class MusicPlayer {
 
   // ── 음성 연결. 연결 복구 상태와 헬스체크는 VoiceConnectionManager 가 가진다 ──
 
+  /** play() 가 곡을 여는 중인가(자동 스킵 · 대시보드 탐색이 끼어들지 않게 본다) */
+  get isPlayStarting() {
+    return this.lifecycle.starting;
+  }
+
   /** 음성 연결을 스스로 복구하는 중인가(바깥의 복구 감시가 방해하지 않게 본다) */
   get isRecovering() {
     return this.voice?.isRecovering ?? false;
@@ -240,8 +245,8 @@ class MusicPlayer {
 
   async play(_trackIndex = null, seekMs = 0) {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
-    // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). isPlayStarting 동안 워처는 발동을 미룬다.
-    this.isPlayStarting = true;
+    // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). starting 동안 워처는 발동을 미룬다.
+    this.lifecycle.to("starting");
     try {
       // 현재 트랙이 없으면 대기열에서 가져오기
       if (!this.currentTrack) {
@@ -667,13 +672,15 @@ class MusicPlayer {
       // 다음 자동재생 곡을 미리 뽑아 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
       this.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 뽑기 실패: ${error?.message || error}`));
 
+      this.lifecycle.to("playing");
       return { success: true, track: this.currentTrack };
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, "MusicPlayer.play");
       await this.handleError(error, errorMsg);
       return { success: false, message: errorMsg };
     } finally {
-      this.isPlayStarting = false;
+      // 틀지 못하고 나왔다(대기열이 비었거나 실패). 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰다
+      if (this.lifecycle.starting) this.lifecycle.to("idle", "시작 못 함");
     }
   }
 
@@ -968,6 +975,7 @@ class MusicPlayer {
   }
 
   stop() {
+    this.lifecycle.to("disposed", "정지");
     clog.info(`정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 비움`);
     this.updateVoiceStatus("").catch(() => {});
 
@@ -993,6 +1001,7 @@ class MusicPlayer {
   }
 
   async leaveAndSave() {
+    this.lifecycle.to("disposed", "나가며 저장");
     this.updateVoiceStatus("").catch(() => {});
 
     // 연결 해제 전에 전체 상태(대기열, 위치, 설정) 저장
@@ -1214,11 +1223,8 @@ class MusicPlayer {
   // 타이머 기반 트랙 완료 처리
 
   async handleTrackEnd(reason = "idle") {
-    if (this.isTransitioning) {
-      return;
-    }
-
-    this.isTransitioning = true;
+    if (!this.lifecycle.beginEnd()) return; // 끝이 겹쳐 들어왔다. 먼저 온 것이 처리한다
+    if (this.lifecycle.phase === "playing") this.lifecycle.to("idle", `곡 끝(${reason})`);
     this.sponsorSkipper?.stop(); // 다음 트랙 play()가 onPlayStart로 다시 가동
 
     try {
@@ -1341,7 +1347,7 @@ class MusicPlayer {
 
       this.idle.scheduleEmpty();
     } finally {
-      this.isTransitioning = false;
+      this.lifecycle.finishEnd();
       this.pendingEndReason = null;
     }
   }
@@ -1549,6 +1555,7 @@ class MusicPlayer {
   }
 
   cleanup(isShutdown = false, reason = null) {
+    this.lifecycle.to("disposed", reason || "정리");
     try {
       if (!isShutdown) {
         this.updateVoiceStatus("").catch(() => {});

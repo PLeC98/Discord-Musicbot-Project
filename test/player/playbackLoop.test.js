@@ -10,6 +10,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const MusicPlayer = require("../../src/player/Player");
+const PlaybackState = require("../../src/player/playbackState");
 
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 const previous = MusicPlayer.prototype.previous;
@@ -20,7 +21,7 @@ function makeTrack(title, duration = 100) {
 
 function makePlayer({ loop = false, current = null, queue = [], history = [] } = {}) {
   return {
-    isTransitioning: false,
+    lifecycle: new PlaybackState(),
     watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
     idle: { cancelAlone() {}, cancelEmpty() {}, scheduleEmpty() {}, stop() {} },
     currentTrack: current,
