@@ -95,16 +95,10 @@ class MusicPlayer {
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
     this.lastPlaybackPosition = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
 
-    // 음성 채널 상태 소유권
-
     // 일시정지 관리
     this.pauseReasons = new Set();
 
-    // 비활성 타임아웃
-
-    // 로컬 파일 캐싱
-
-    // 협력 모듈. 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
+    // 협력 모듈. 각자 자기 상태와 타이머를 가진다
     this.voice = new VoiceConnectionManager(this);
     this.watch = new PlaybackWatch(this); // 종료 감시 · 버퍼링 감시
     this.idle = new IdleLeave(this); // 혼자 남음 · 틀 게 없음 퇴장
@@ -243,7 +237,7 @@ class MusicPlayer {
     return this.voice.disconnect(reason);
   }
 
-  // ── 다운로드/사전 로드. 로직은 TrackDownloader ──────────────────────────
+  // ── 재생. 단계는 startPlayback, 소리를 여는 것은 media/playbackInput ──────
 
   async play(seekMs = 0) {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
@@ -457,11 +451,6 @@ class MusicPlayer {
   }
 
   /**
-   * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제.
-   * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 함.
-   * 그렇지 않으면 30초 상태 검사 interval이 플레이어 객체를 영원히 붙잡습니다.
-   */
-  /**
    * 이 플레이어가 아직 이 서버의 현행 플레이어인가.
    *
    * 교체되고도 남아 있던 타이머가 뒤늦게 깨어나면 다른 플레이어의 등록과 음성 연결을 건드린다.
@@ -471,6 +460,11 @@ class MusicPlayer {
     return this.guild?.client?.players?.get(this.guild.id) === this;
   }
 
+  /**
+   * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제.
+   * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 함.
+   * 그렇지 않으면 30초 상태 검사 interval이 플레이어 객체를 영원히 붙잡습니다.
+   */
   releaseResources() {
     this.idle.stop();
     this.stopStateSync();
@@ -743,8 +737,7 @@ class MusicPlayer {
     return (pb.startOffsetMs || 0) + (pb.resource?.playbackDuration || 0);
   }
 
-  // 타이머 기반 트랙 완료 처리
-
+  // 곡 끝 처리. 다시 틀기 · 한곡 반복 · 다음 곡 · 자동재생 · 대기열 소진을 가른다
   async handleTrackEnd(reason = "idle") {
     if (!this.lifecycle.beginEnd()) return; // 끝이 겹쳐 들어왔다. 먼저 온 것이 처리한다
     if (this.lifecycle.phase === "playing") this.lifecycle.to("idle", `곡 끝(${reason})`);
