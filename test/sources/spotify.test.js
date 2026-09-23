@@ -3,22 +3,23 @@
 // Spotify 순수 함수 단위 테스트 (네트워크 없음) — URL 파싱, TOTP, 정규화, secret 추출.
 
 const { test } = require("node:test");
+const links = require("../../src/rules/links");
 const assert = require("node:assert/strict");
 const Spotify = require("../../src/sources/spotify");
 const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = Spotify._internals;
 
 test("parseSpotifyURL: 타입/ID 추출 (open URL + spotify: URI)", () => {
-  assert.deepEqual(Spotify.parseSpotifyURL("https://open.spotify.com/track/2tpWsVSb9UEmDRxAl1zhX1"), { type: "track", id: "2tpWsVSb9UEmDRxAl1zhX1" });
-  assert.deepEqual(Spotify.parseSpotifyURL("https://open.spotify.com/playlist/abc123?si=xyz"), { type: "playlist", id: "abc123" });
-  assert.deepEqual(Spotify.parseSpotifyURL("spotify:album:XYZ"), { type: "album", id: "XYZ" });
-  assert.deepEqual(Spotify.parseSpotifyURL("https://example.com/track/x"), { type: null, id: null });
+  assert.deepEqual(links.parseSpotifyURL("https://open.spotify.com/track/2tpWsVSb9UEmDRxAl1zhX1"), { type: "track", id: "2tpWsVSb9UEmDRxAl1zhX1" });
+  assert.deepEqual(links.parseSpotifyURL("https://open.spotify.com/playlist/abc123?si=xyz"), { type: "playlist", id: "abc123" });
+  assert.deepEqual(links.parseSpotifyURL("spotify:album:XYZ"), { type: "album", id: "XYZ" });
+  assert.deepEqual(links.parseSpotifyURL("https://example.com/track/x"), { type: null, id: null });
 });
 
 test("isSpotifyURL: 유효/무효 판별 (호스트 사칭 차단)", () => {
-  assert.equal(Spotify.isSpotifyURL("https://open.spotify.com/artist/5Pwc4xIPtQLFEnJriah9YJ"), true);
-  assert.equal(Spotify.isSpotifyURL("spotify:track:abc"), true);
-  assert.equal(Spotify.isSpotifyURL("https://evil.example/open.spotify.com/track/123abc"), false);
-  assert.equal(Spotify.isSpotifyURL("https://open.spotify.com/episode/xyz"), false); // episode 미지원
+  assert.equal(links.isSpotifyURL("https://open.spotify.com/artist/5Pwc4xIPtQLFEnJriah9YJ"), true);
+  assert.equal(links.isSpotifyURL("spotify:track:abc"), true);
+  assert.equal(links.isSpotifyURL("https://evil.example/open.spotify.com/track/123abc"), false);
+  assert.equal(links.isSpotifyURL("https://open.spotify.com/episode/xyz"), false); // episode 미지원
 });
 
 test("totp: RFC 6238 SHA1 테스트 벡터 (6자리)", () => {

@@ -4,10 +4,9 @@
 // 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 const { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
+const links = require("../rules/links");
 const log = require("../infra/log/logger").child({ category: "player" });
 const config = require("../../config");
-const YouTube = require("../sources/youtube/index");
-const Spotify = require("../sources/spotify");
 const trackState = require("../player/trackState");
 const { collectionLabel } = require("../ui/strings");
 const { markTransient } = require("../ui/transientMessages");
@@ -31,12 +30,12 @@ const USER_ID = /^\d{17,20}$/;
 const fmt = (n) => Number(n).toLocaleString("ko-KR");
 
 function sourceOf(query) {
-  if (YouTube.isPlaylist(query)) {
-    const listId = YouTube.extractPlaylistId(query);
+  if (links.isYouTubePlaylist(query)) {
+    const listId = links.extractPlaylistId(query);
     return listId && !listId.startsWith("RD") ? { kind: "ytp", listId } : null;
   }
-  if (Spotify.isSpotifyURL(query)) {
-    const { type, id } = Spotify.parseSpotifyURL(query);
+  if (links.isSpotifyURL(query)) {
+    const { type, id } = links.parseSpotifyURL(query);
     if (type === "playlist") return { kind: "spp", listId: id };
     if (type === "album") return { kind: "spa", listId: id };
   }

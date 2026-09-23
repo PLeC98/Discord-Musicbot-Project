@@ -11,22 +11,6 @@ const { YouTubeErrors } = require("./errors");
 const { YouTubeApi } = require("./api");
 
 class YouTube {
-  static _parseYouTubeURL(value) {
-    return links.parseYouTubeURL(value);
-  }
-
-  static isYouTubeHost(value) {
-    return links.isYouTubeHost(value);
-  }
-
-  static isYouTubeURL(value) {
-    return links.isYouTubeURL(value);
-  }
-
-  static isPlaylist(value) {
-    return links.isYouTubePlaylist(value);
-  }
-
   static parseDuration(durationString) {
     if (!durationString) return 0;
 
@@ -41,25 +25,9 @@ class YouTube {
     return seconds;
   }
 
-  static extractVideoId(value) {
-    return links.extractVideoId(value);
-  }
-
-  static extractPlaylistId(url) {
-    return links.extractPlaylistId(url);
-  }
-
-  static createThumbnailUrl(videoId, quality) {
-    return links.createThumbnailUrl(videoId, quality);
-  }
-
-  static createVideoUrl(videoId) {
-    return links.createVideoUrl(videoId);
-  }
-
   static async validateUrl(url) {
     try {
-      if (!this.isYouTubeURL(url)) {
+      if (!links.isYouTubeURL(url)) {
         return false;
       }
 

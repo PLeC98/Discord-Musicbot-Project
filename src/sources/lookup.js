@@ -3,6 +3,7 @@
 // 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 받는다.
 
 const YouTube = require("./youtube/index");
+const links = require("../rules/links");
 const Spotify = require("./spotify");
 const SoundCloud = require("./soundcloud");
 const DirectLink = require("./direct");
@@ -25,7 +26,7 @@ const lookup = {
    * (클립은 2026년 유튜브가 기능을 없앴다. 지원 대상이 아니다.)
    */
   isUnsupportedYouTubeLink(query) {
-    return YouTube.isYouTubeHost(query) && !YouTube.isYouTubeURL(query);
+    return links.isYouTubeHost(query) && !links.isYouTubeURL(query);
   },
 
   // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, message }
@@ -41,7 +42,7 @@ const lookup = {
 
       switch (this.detectPlatform(query)) {
         case "youtube":
-          if (YouTube.isPlaylist(query)) {
+          if (links.isYouTubePlaylist(query)) {
             const playlistData = await YouTube.getPlaylist(query, { offset, limit });
             if (playlistData && playlistData.tracks && playlistData.tracks.length > 0) {
               tracks = playlistData.tracks;
@@ -61,10 +62,10 @@ const lookup = {
           break;
 
         case "spotify":
-          if (Spotify.isSpotifyURL(query)) {
+          if (links.isSpotifyURL(query)) {
             const part = await Spotify.getCollection(query, { offset, limit });
             tracks = part.tracks || [];
-            const { type } = Spotify.parseSpotifyURL(query);
+            const { type } = links.parseSpotifyURL(query);
             isPlaylist = type === "playlist" || type === "album" || type === "artist";
             if (isPlaylist) {
               collection = type;
@@ -100,11 +101,11 @@ const lookup = {
   // (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다).
   async getCollection(url, range) {
     const none = { tracks: [], total: null, nextOffset: null };
-    if (YouTube.isPlaylist(url)) {
+    if (links.isYouTubePlaylist(url)) {
       const r = await YouTube.getPlaylist(url, range);
       return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null } : none;
     }
-    if (Spotify.isSpotifyURL(url)) return Spotify.getCollection(url, range);
+    if (links.isSpotifyURL(url)) return Spotify.getCollection(url, range);
     return none;
   },
 
@@ -115,7 +116,7 @@ const lookup = {
    * 캐시가 그 엉뚱한 영상을 그대로 돌려준다.
    */
   async resolveQuery(query, context, range = {}) {
-    const skipCache = YouTube.isPlaylist(query) || this.isUnsupportedYouTubeLink(query);
+    const skipCache = links.isYouTubePlaylist(query) || this.isUnsupportedYouTubeLink(query);
     const cacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
     if (cacheHit.hit) {
       return { success: true, isPlaylist: false, tracks: [cacheHit.track] };

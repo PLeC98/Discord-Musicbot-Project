@@ -7,6 +7,7 @@
 // yt-dlp 는 youtube-dl-exec 의 exec 만, 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
 
 const { Readable } = require("node:stream");
+const links = require("../../src/rules/links");
 const { test, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -56,10 +57,10 @@ const scItem = (slug, extra = {}) => ({ id: 1000 + slug.length, title: `SC ${slu
 
 test("사운드클라우드 링크 판정: 곡 · 세트 · 사용자 · 앱 짧은 링크", () => {
   for (const url of ["https://soundcloud.com/artist/track-name", "https://m.soundcloud.com/artist/track", "https://soundcloud.com/artist/sets/list", "https://soundcloud.com/artist", "https://on.soundcloud.com/AbC123"]) {
-    assert.equal(SoundCloud.isSoundCloudURL(url), true, url);
+    assert.equal(links.isSoundCloudURL(url), true, url);
   }
   for (const url of ["https://soundcloud.app/x/y", "https://www.youtube.com/watch?v=x", "soundcloud.com/a/b"]) {
-    assert.equal(SoundCloud.isSoundCloudURL(url), false, url);
+    assert.equal(links.isSoundCloudURL(url), false, url);
   }
 });
 
@@ -117,10 +118,10 @@ test("사운드클라우드 스트림: 주소가 없으면 던진다", async () 
 
 test("직접 링크 판정: http(s) 이고 지원하는 확장자로 끝나야 한다(쿼리는 상관없다)", () => {
   for (const url of ["https://files.test/a.mp3", "http://x.test/b/c.FLAC", "https://cdn.test/v.webm?sig=1", "https://x.test/y.opus"]) {
-    assert.equal(DirectLink.isDirectAudioLink(url), true, url);
+    assert.equal(links.isDirectAudioLink(url), true, url);
   }
   for (const url of ["https://files.test/a.txt", "ftp://x.test/a.mp3", "https://x.test/mp3", "not a url"]) {
-    assert.equal(DirectLink.isDirectAudioLink(url), false, url);
+    assert.equal(links.isDirectAudioLink(url), false, url);
   }
 });
 

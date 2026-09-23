@@ -11,6 +11,7 @@
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
 const crypto = require("crypto");
+const links = require("../rules/links");
 const config = require("../../config");
 const externalCaches = require("../store/externalCaches");
 
@@ -126,9 +127,8 @@ const SponsorBlock = {
     if (typeof track.audioSourceKey === "string" && track.audioSourceKey.startsWith("yt:")) {
       return track.audioSourceKey.slice(3);
     }
-    const YouTube = require("./youtube/index");
-    if (track.platform === "youtube") return track.id || YouTube.extractVideoId(track.url);
-    if (track.youtubeUrl) return YouTube.extractVideoId(track.youtubeUrl);
+    if (track.platform === "youtube") return track.id || links.extractVideoId(track.url);
+    if (track.youtubeUrl) return links.extractVideoId(track.youtubeUrl);
     return null;
   },
 

@@ -8,6 +8,7 @@
 // 없어도 되는 기능이다. 못 부르면 규칙이 고른 것을 그대로 쓰고 재생은 멈추지 않는다.
 
 const aiConfig = require("../../config/ai");
+const links = require("../../rules/links");
 const yamlStore = require("../../config/yamlStore");
 const log = require("../../infra/log/logger").child({ category: "autoplay" });
 const { PROVIDER_SPECS, PROVIDERS } = require("../../config/schema/aiProviders");
@@ -839,7 +840,7 @@ async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
   for (const raw of (urls || []).slice(0, 20)) {
     const url = String(raw || "").trim();
     if (!url) continue;
-    if (!YouTube.isYouTubeURL(url)) {
+    if (!links.isYouTubeURL(url)) {
       out.push({ url, error: "유튜브 주소가 아닙니다." });
       continue;
     }

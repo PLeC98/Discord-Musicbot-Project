@@ -11,6 +11,7 @@
 //
 
 const autoplayFilter = require("./filter");
+const links = require("../rules/links");
 const { candidateKind } = require("../rules/candidateKind");
 const pool = require("./pool");
 const sources = require("./sources/index");
@@ -34,7 +35,7 @@ const dead = new Set();
 /** 이 영상은 못 튼다고 표시한다. 다음 뽑기부터 후보에서 빠진다. */
 function markDead(urlOrTrack) {
   const url = typeof urlOrTrack === "string" ? urlOrTrack : urlOrTrack?.youtubeUrl || urlOrTrack?.url;
-  const id = url && require("../sources/youtube/index").extractVideoId(url);
+  const id = url && links.extractVideoId(url);
   if (!id) return false;
   // 오래된 것부터 버린다. 영상이 되살아나는 일도 있고, 무한정 들고 있을 이유가 없다
   if (dead.size >= DEAD_MAX) dead.delete(dead.values().next().value);
@@ -45,7 +46,7 @@ function markDead(urlOrTrack) {
 
 const isDead = (url) => {
   if (!url || !dead.size) return false;
-  const id = require("../sources/youtube/index").extractVideoId(url);
+  const id = links.extractVideoId(url);
   return !!id && dead.has(id);
 };
 
@@ -101,8 +102,7 @@ function* byWeight(list) {
  * 나눠 쓴다. 장부에 칸이 따로 생기고 음원 파일은 하나만 받는다. 스포티파이와 같은 방식이다.
  */
 function fromYouTube(video, cand) {
-  const YouTube = require("../sources/youtube/index");
-  const videoId = video.id || YouTube.extractVideoId(video.url);
+  const videoId = video.id || links.extractVideoId(video.url);
   // 출처가 따로 있는 곡인가(Last.fm·LB Radio·VocaDB·AnimeThemes), 아니면 영상 자체가 출처인가(keyword·유튜브 재생목록)
   const sourced = !!cand.sourceUrl;
 

@@ -6,6 +6,7 @@
 // 그때 이 테스트를 새 답으로 고치고, 어느 답이 왜 바뀌었는지는 그 커밋이 적는다.
 
 const fs = require("node:fs");
+const links = require("../src/rules/links");
 const os = require("node:os");
 const path = require("node:path");
 const { test, before, after } = require("node:test");
@@ -60,16 +61,15 @@ test("세션 복원: 유튜브로 올라간 음원 곡은 페이지 링크가 �
 
 test("음원 곡의 url 에 페이지를 넣으면 재생도 받기도 못 한다", async () => {
   const streamUrl = require("../src/sources/streamUrl");
-  const DirectLink = require("../src/sources/direct");
   const base = { title: "곡", platform: "anisongdb", audioSourceKey: "dl:abc", id: "amq:48944" };
 
   const audio = { ...base, url: "https://nawdist.animemusicquiz.com/abc.mp3" };
   assert.deepEqual(await streamUrl.getStream(audio), { url: audio.url, platform: "direct", httpHeaders: {} });
-  assert.equal(DirectLink.isDirectAudioLink(audio.url), true);
+  assert.equal(links.isDirectAudioLink(audio.url), true);
 
   const page = { ...base, url: "https://anilist.co/anime/21827" };
   await assert.rejects(streamUrl.getStream(page), /지원되지 않는 플랫폼: anisongdb/);
-  assert.equal(DirectLink.isDirectAudioLink(page.url), false, "다운로드의 직접 링크 갈래가 첫 관문에서 막힌다");
+  assert.equal(links.isDirectAudioLink(page.url), false, "다운로드의 직접 링크 갈래가 첫 관문에서 막힌다");
 });
 
 test("장부 열쇠에 작품 페이지가 들어가면 같은 작품의 두 곡이 한 칸을 덮어쓴다", () => {

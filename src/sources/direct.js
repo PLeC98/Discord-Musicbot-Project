@@ -4,8 +4,6 @@ const log = require("../infra/log/logger").child({ category: "link" });
 const SafeUrl = require("../infra/safeUrl");
 
 class DirectLink {
-  static supportedFormats = links.DIRECT_AUDIO_FORMATS;
-
   /**
    * 직접 오디오 링크의 메타데이터 조회.
    * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 성공 시 [track], 실패 시 [].
@@ -13,7 +11,7 @@ class DirectLink {
    */
   static async getInfo(url) {
     try {
-      if (!this.isDirectAudioLink(url)) {
+      if (!links.isDirectAudioLink(url)) {
         return [];
       }
 
@@ -60,7 +58,7 @@ class DirectLink {
    */
   static async getStream(url) {
     try {
-      if (!this.isDirectAudioLink(url)) {
+      if (!links.isDirectAudioLink(url)) {
         throw new Error("지원되지 않는 직접 오디오 파일 링크");
       }
       return await SafeUrl.getStream(url);
@@ -69,10 +67,6 @@ class DirectLink {
       log.error("직접 링크 스트림 실패:", error.message || error);
       throw new Error("재생할 수 없는 링크입니다", { cause: error });
     }
-  }
-
-  static isDirectAudioLink(url) {
-    return links.isDirectAudioLink(url);
   }
 
   // 참고: 동기 함수로 유지해야 함. getInfo()가 반환값을

@@ -417,7 +417,7 @@ async function search(query, limit = 1) {
   }
 }
 
-module.exports = { isSpotifyURL, parseSpotifyURL, getCollection, getFromURL, search };
+module.exports = { getCollection, getFromURL, search };
 
 // 테스트용 노출. 프로바이더는 요청 함수(_query/_get)를 바꿔 끼워 네트워크 없이 검증한다
 module.exports._internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };

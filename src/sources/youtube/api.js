@@ -3,6 +3,7 @@
 // 유튜브 검색 · 정보 · 스트림 · 재생목록.
 
 const log = require("../../infra/log/logger").child({ category: "youtube" });
+const links = require("../../rules/links");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("../ytdlpSpawn");
 const config = require("../../../config");
@@ -65,7 +66,7 @@ class YouTubeApi {
   static async search(query, limit = 1, { exec = youtubedl } = {}) {
     try {
       // 이미 YouTube URL인 경우 직접 정보를 가져옴
-      if (this.isYouTubeURL(query)) {
+      if (links.isYouTubeURL(query)) {
         const info = await this.getInfo(query);
         return info ? [info] : [];
       }

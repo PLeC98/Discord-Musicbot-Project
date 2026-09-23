@@ -3,6 +3,7 @@
 // yt-dlp 실행. 플레이어 클라이언트를 바꿔 가며 다시 묻고, 쿠키로 한 번 더 묻는다.
 
 const log = require("../../infra/log/logger").child({ category: "youtube" });
+const links = require("../../rules/links");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("../ytdlpSpawn");
 const config = require("../../../config");
@@ -31,7 +32,7 @@ class YouTubeRun {
    */
   // exec: yt-dlp 를 실행하는 함수. 생략하면 진짜(ytdlpSpawn)
   static async runYtDlp(url, buildOptions, exec = youtubedl) {
-    const videoId = this.extractVideoId(url);
+    const videoId = links.extractVideoId(url);
     let known = false;
     try {
       known = videoId ? externalCaches.isAgeRestricted(videoId) : false;

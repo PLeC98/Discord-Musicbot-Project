@@ -4,11 +4,9 @@ process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
 
 const test = require("node:test");
+const links = require("../../src/rules/links");
 const assert = require("node:assert/strict");
 const lookup = require("../../src/sources/lookup");
-const YouTube = require("../../src/sources/youtube/index");
-const Spotify = require("../../src/sources/spotify");
-const SoundCloud = require("../../src/sources/soundcloud");
 const trackLookup = require("../../src/store/trackLookup");
 
 test("accepts supported media hosts by parsed hostname", () => {
@@ -20,18 +18,18 @@ test("accepts supported media hosts by parsed hostname", () => {
 
 test("does not treat embedded domain text as a trusted media URL", () => {
   const internalPlaylist = "http://127.0.0.1:33333/youtube.com/playlist?list=PL123";
-  assert.equal(YouTube.isYouTubeURL(internalPlaylist), false);
-  assert.equal(YouTube.isPlaylist(internalPlaylist), false);
-  assert.equal(YouTube.isYouTubeURL("https://youtube.com@127.0.0.1/watch?v=dQw4w9WgXcQ"), false);
-  assert.equal(Spotify.isSpotifyURL("https://evil.example/open.spotify.com/track/123abc"), false);
-  assert.equal(SoundCloud.isSoundCloudURL("https://evil.example/soundcloud.com/artist/track"), false);
+  assert.equal(links.isYouTubeURL(internalPlaylist), false);
+  assert.equal(links.isYouTubePlaylist(internalPlaylist), false);
+  assert.equal(links.isYouTubeURL("https://youtube.com@127.0.0.1/watch?v=dQw4w9WgXcQ"), false);
+  assert.equal(links.isSpotifyURL("https://evil.example/open.spotify.com/track/123abc"), false);
+  assert.equal(links.isSoundCloudURL("https://evil.example/soundcloud.com/artist/track"), false);
 });
 
 test("recognizes canonical YouTube playlists and video IDs", () => {
-  assert.equal(YouTube.isPlaylist("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123"), true);
-  assert.equal(YouTube.isPlaylist("https://youtu.be/dQw4w9WgXcQ?list=PL123"), true);
-  assert.equal(YouTube.extractVideoId("https://m.youtube.com/shorts/dQw4w9WgXcQ"), "dQw4w9WgXcQ");
-  assert.equal(YouTube.extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+  assert.equal(links.isYouTubePlaylist("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL123"), true);
+  assert.equal(links.isYouTubePlaylist("https://youtu.be/dQw4w9WgXcQ?list=PL123"), true);
+  assert.equal(links.extractVideoId("https://m.youtube.com/shorts/dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+  assert.equal(links.extractVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
 });
 
 // /live/ID가 빠져 있어 URL 문자열이 그대로 검색어가 됐고, 검색이 돌려준 무관한 영상이 재생됐다
@@ -47,8 +45,8 @@ test("YouTube URL 형태별 인식 — /live/ 포함", () => {
     ["https://m.youtube.com/live/rmn4m0Ieajk", "rmn4m0Ieajk"],
   ];
   for (const [url, id] of shapes) {
-    assert.equal(YouTube.isYouTubeURL(url), true, url);
-    assert.equal(YouTube.extractVideoId(url), id, url);
+    assert.equal(links.isYouTubeURL(url), true, url);
+    assert.equal(links.extractVideoId(url), id, url);
   }
 
   // 같은 영상이면 어느 형태로 넣어도 같은 캐시 키로 접힌다 — /live/도 예외가 아니다
@@ -60,7 +58,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
   const unsupported = ["https://www.youtube.com/clip/UgkxDwCneHNsPn-e8AtJkR6rRVpNlHqHOZDE", "https://www.youtube.com/@someChannel", "https://www.youtube.com/results?search_query=test"];
 
   for (const url of unsupported) {
-    assert.equal(YouTube.isYouTubeURL(url), false, url);
+    assert.equal(links.isYouTubeURL(url), false, url);
     assert.equal(lookup.isUnsupportedYouTubeLink(url), true, url);
 
     const result = await lookup.getTrackData(url);

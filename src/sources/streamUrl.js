@@ -3,9 +3,9 @@
 // 트랙 → 지금 쓸 스트림 서술자. 플랫폼마다 누가 여는지만 가른다.
 
 const YouTube = require("./youtube/index");
+const links = require("../rules/links");
 const log = require("../infra/log/logger").child({ category: "track" });
 const SoundCloud = require("./soundcloud");
-const DirectLink = require("./direct");
 const equivalent = require("./youtube/equivalent");
 
 const streamUrl = {
@@ -50,7 +50,7 @@ const streamUrl = {
         if (track.youtubeUrl) return youtube.getStream(track.youtubeUrl, seekSeconds);
         // AnimeThemes처럼 출처 이름을 platform 에 쓰면서 음원을 직접 받는 곡.
         // 위의 "direct"와 같은 처지이므로 같은 서술자를 돌려준다.
-        if (DirectLink.isDirectAudioLink(track.url)) return { url: track.url, platform: "direct", httpHeaders: {} };
+        if (links.isDirectAudioLink(track.url)) return { url: track.url, platform: "direct", httpHeaders: {} };
         throw new Error(`지원되지 않는 플랫폼: ${track.platform}`);
     }
   },

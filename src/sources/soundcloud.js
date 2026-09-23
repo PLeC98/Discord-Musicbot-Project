@@ -10,7 +10,7 @@ class SoundCloud {
   static async search(query, limit = 1) {
     try {
       // 이미 SoundCloud URL이면 직접 정보 가져오기
-      if (this.isSoundCloudURL(query)) {
+      if (links.isSoundCloudURL(query)) {
         const info = await this.getInfo(query);
         return info ? [info] : [];
       }
@@ -32,7 +32,7 @@ class SoundCloud {
       for (const item of results.entries.slice(0, limit)) {
         try {
           // SoundCloud 링크만 필터링
-          if (item.webpage_url && this.isSoundCloudURL(item.webpage_url)) {
+          if (item.webpage_url && links.isSoundCloudURL(item.webpage_url)) {
             const track = await this.formatTrack(item);
             if (track) {
               tracks.push(track);
@@ -196,16 +196,12 @@ class SoundCloud {
     }
   }
 
-  static isSoundCloudURL(url) {
-    return links.isSoundCloudURL(url);
-  }
-
   static isPlaylist(url) {
     return url.includes("/sets/");
   }
 
   static isTrack(url) {
-    return this.isSoundCloudURL(url) && !this.isPlaylist(url) && !this.isUser(url);
+    return links.isSoundCloudURL(url) && !this.isPlaylist(url) && !this.isUser(url);
   }
 
   static isUser(url) {
@@ -231,7 +227,7 @@ class SoundCloud {
 
   static async validateUrl(url) {
     try {
-      if (!this.isSoundCloudURL(url)) {
+      if (!links.isSoundCloudURL(url)) {
         return false;
       }
 
