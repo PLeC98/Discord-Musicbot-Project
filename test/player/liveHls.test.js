@@ -206,7 +206,7 @@ test("종료 감시: 라이브는 길이로 가를 수 없어 감시를 걸지 �
     },
     resource: { playbackDuration: 5000 },
     currentTrackStartOffsetMs: 0,
-    trackTimer: setTimeout(() => {}, 60_000),
+    trackTimer: setTimeout(() => {}, 60_000).unref(), // 걸려 있던 감시. 프로세스를 붙잡지 않게
   });
   player.ensureTrackCompletion();
   assert.equal(stopped, 0, "라이브를 정지시키면 안 된다");
