@@ -218,7 +218,6 @@ test("종료 감시 예약: 라이브에는 5분 폴백 워치독을 걸지 않�
   const live = fakePlayer({ currentTrack: { isLive: true, duration: 0, title: "라디오", platform: "youtube" } });
   live.scheduleTrackWatchdog({});
   assert.equal(live.trackTimer, null);
-  assert.equal(live.expectedTrackEndTs, null);
 
   // 라이브가 아니면 평소대로 걸린다
   const normal = fakePlayer({ currentTrack: { isLive: false, duration: 200, title: "곡", platform: "youtube" }, currentTrackStartOffsetMs: 0 });

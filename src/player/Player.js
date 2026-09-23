@@ -77,9 +77,6 @@ class MusicPlayer {
     this.startTime = null;
     this.pausedTime = 0;
 
-    // 필터
-    this.currentFilter = null;
-
     // UI 관리
     this.nowPlayingMessage = null;
     this.requesterId = null;
@@ -102,10 +99,7 @@ class MusicPlayer {
     this.isTransitioning = false;
     this.pendingEndReason = null;
     this.currentTrackRetries = 0;
-    this.skipRequested = false;
-    this.stopRequested = false;
     this.isPlayStarting = false; // play() 셋업 진행 중. 워처 자동 스킵 재진입 방지
-    this.expectedTrackEndTs = null;
     this.currentTrackCache = null;
     this.activeStreamInfo = null;
     this.lastPlaybackPosition = 0;
@@ -274,8 +268,6 @@ class MusicPlayer {
 
       // 새 재생을 위해 생명주기 플래그 재설정
       this.pendingEndReason = null;
-      this.skipRequested = false;
-      this.stopRequested = false;
       this._playingLive = false; // 이번 재생이 라이브 갈래인가. 종료 처리가 재연결 여부를 이걸로 가른다
       const resumeFromMs = Math.max(0, Math.floor(Number(seekMs) || 0));
       const resumeFromSeconds = resumeFromMs / 1000;
@@ -809,7 +801,6 @@ class MusicPlayer {
 
     // 라이브는 길이가 없다. 폴백 워치독(5분 뒤 강제 종료)이 방송을 잘라 버린다.
     if (this.currentTrack?.isLive) {
-      this.expectedTrackEndTs = null;
       this.trackTimer = null;
       wlog.debug(`종료 감시 없음: ${this._trackLabel()} | 라이브는 길이로 가를 수 없다`);
       return;
@@ -820,7 +811,6 @@ class MusicPlayer {
       const startOffsetSeconds = Math.floor((this.currentTrackStartOffsetMs || 0) / 1000);
       const remainingSeconds = Math.max(1, durationSeconds - startOffsetSeconds);
 
-      this.expectedTrackEndTs = Date.now() + remainingSeconds * 1000;
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
       const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
 
@@ -828,7 +818,6 @@ class MusicPlayer {
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
     } else {
       // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
-      this.expectedTrackEndTs = null;
       wlog.warn(`종료 감시 예약: ${this._trackLabel()} | 길이를 몰라 5분 뒤 강제 종료합니다`);
       this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 5 * 60 * 1000);
     }
@@ -1196,7 +1185,6 @@ class MusicPlayer {
     this._endingLabel = `"${this.currentTrack?.title ?? "?"}" (${this.currentTrack?.platform ?? "?"})`;
     trackState.reset(this);
     this.pendingEndReason = "stop";
-    this.stopRequested = true;
     this.currentTrackStartOffsetMs = 0;
     this.lastPlaybackPosition = 0;
     this.audioPlayer.stop(true);
@@ -1220,7 +1208,6 @@ class MusicPlayer {
 
     trackState.reset(this);
     this.pendingEndReason = "stop";
-    this.stopRequested = true;
     this.currentTrackStartOffsetMs = 0;
     this.lastPlaybackPosition = 0;
     this.audioPlayer.stop(true);
@@ -1263,7 +1250,6 @@ class MusicPlayer {
       }
 
       this.pendingEndReason = reason;
-      this.skipRequested = true;
       this.audioPlayer.stop(true);
       this.scheduleStatePersist("skip", 0);
       return true;
@@ -1281,7 +1267,6 @@ class MusicPlayer {
         this.trackTimer = null;
       }
       this.pendingEndReason = "previous";
-      this.skipRequested = true;
       this.audioPlayer.stop(true);
       this.scheduleStatePersist("previous", 0);
       return true;
@@ -1298,7 +1283,6 @@ class MusicPlayer {
       }
 
       this.pendingEndReason = "previous";
-      this.skipRequested = true;
       this.audioPlayer.stop(true);
       this.scheduleStatePersist("previous", 0);
       return true;
@@ -1522,7 +1506,6 @@ class MusicPlayer {
       }
 
       this.resource = null;
-      this.expectedTrackEndTs = null;
       this.startTime = null;
       this.pausedTime = 0;
       this.lastPlaybackPosition = 0;
@@ -1574,8 +1557,6 @@ class MusicPlayer {
       this.scheduleIdleLeave();
     } finally {
       this.isTransitioning = false;
-      this.skipRequested = false;
-      this.stopRequested = false;
       this.pendingEndReason = null;
     }
   }
