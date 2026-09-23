@@ -1,5 +1,3 @@
-"use strict";
-
 // 판정: 받은 파일을 어떻게 굽나. probe 결과 하나로 copy 냐 transcode 냐만 답한다.
 
 /**
@@ -47,4 +45,6 @@ function planFor(info) {
   return { action: "copy", bitrateKbps: kbps, why: kbps ? `이미 opus ${kbps}k` : "이미 opus" };
 }
 
-module.exports = { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
+const exported = { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
+export default exported;
+export { exported as "module.exports" };

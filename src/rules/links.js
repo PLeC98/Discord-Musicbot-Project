@@ -1,5 +1,3 @@
-"use strict";
-
 // 사이트 지식. 어느 호스트가 어느 사이트인가, id 는 어디 있나. 판정이 아니다(판정은 inputKind · canonicalUrl · audioKeyOf).
 // 순수 함수만 둔다. 사이트를 더하면 이 파일과 그 판정들만 고친다.
 
@@ -136,4 +134,6 @@ function isHttpLink(value) {
   }
 }
 
-module.exports = { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, createThumbnailUrl, createVideoUrl, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
+const exported = { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, createThumbnailUrl, createVideoUrl, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
+export default exported;
+export { exported as "module.exports" };

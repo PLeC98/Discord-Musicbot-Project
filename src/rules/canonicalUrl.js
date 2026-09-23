@@ -1,5 +1,3 @@
-"use strict";
-
 // 판정: 이 링크를 어떤 모양으로 적나. 링크 장부의 열쇠가 된다. 같은 곡을 가리키는 공유 링크 여럿이 한 모양으로 모인다.
 //
 //   유튜브        영상 id 로 모은다(list= · index= · si= · t= · 호스트 차이를 버린다). 재생목록 주소는 그대로
@@ -8,8 +6,10 @@
 //   직접 링크     그대로. 서명된 주소는 쿼리에 토큰이 있어 버리면 못 받는다
 //   그 밖         다듬지 않는다
 
-const { extractVideoId, parseSpotifyURL } = require("./links");
-const { inputKind } = require("./inputKind");
+import links from "./links.js";
+const { extractVideoId, parseSpotifyURL } = links;
+import inputKindModule from "./inputKind.js";
+const { inputKind } = inputKindModule;
 
 function soundCloudPath(value) {
   const url = new URL(value.trim());
@@ -35,4 +35,6 @@ function canonicalUrl(value) {
   }
 }
 
-module.exports = { canonicalUrl };
+const exported = { canonicalUrl };
+export default exported;
+export { exported as "module.exports" };

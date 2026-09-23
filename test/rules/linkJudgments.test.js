@@ -1,12 +1,13 @@
-"use strict";
-
 // 링크 판정 셋(inputKind · canonicalUrl · audioKeyOf). 순수 함수라 입력과 답만 적는다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { inputKind } = require("../../src/rules/inputKind");
-const { canonicalUrl } = require("../../src/rules/canonicalUrl");
-const { audioKeyOf, md5 } = require("../../src/rules/audioKeyOf");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import inputKindModule from "../../src/rules/inputKind.js";
+const { inputKind } = inputKindModule;
+import canonicalUrlModule from "../../src/rules/canonicalUrl.js";
+const { canonicalUrl } = canonicalUrlModule;
+import audioKeyOfModule from "../../src/rules/audioKeyOf.js";
+const { audioKeyOf, md5 } = audioKeyOfModule;
 
 test("inputKind: 사이트 호스트를 먼저 보고 확장자는 마지막에 본다", () => {
   const cases = [

@@ -1,14 +1,16 @@
-"use strict";
-
 // 흐름 앞의 판정 셋(candidateKind · liveBlockReason · transportOf). 입력과 답만 적는다.
 // convertPlan 과 errorKind 는 media/audioConvert.test.js · ui/errorClassification.test.js 가 표로 고정한다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { candidateKind } = require("../../src/rules/candidateKind");
-const { liveBlockReason } = require("../../src/rules/liveBlockReason");
-const { transportOf, isHlsStream } = require("../../src/rules/transportOf");
-const { isDeadInteraction } = require("../../src/rules/deadInteraction");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import candidateKindModule from "../../src/rules/candidateKind.js";
+const { candidateKind } = candidateKindModule;
+import liveBlockReasonModule from "../../src/rules/liveBlockReason.js";
+const { liveBlockReason } = liveBlockReasonModule;
+import transportOfModule from "../../src/rules/transportOf.js";
+const { transportOf, isHlsStream } = transportOfModule;
+import deadInteraction from "../../src/rules/deadInteraction.js";
+const { isDeadInteraction } = deadInteraction;
 
 test("candidateKind: 유튜브 주소 > 가수 · 제목 > 음원, 아무것도 없으면 null", () => {
   assert.equal(candidateKind({ youtubeUrl: "u", artist: "a", title: "t", audioUrl: "x" }), "youtube");

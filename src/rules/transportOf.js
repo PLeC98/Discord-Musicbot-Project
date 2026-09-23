@@ -1,5 +1,3 @@
-"use strict";
-
 // 판정: 재생을 어떻게 먹이나. 답: { via: "url" | "pipe" | "file", live, cacheable, list? }.
 //   url   ffmpeg 에 주소를 준다. 받아서 흘릴 수 없는 것 전부다. HLS 재생목록과 DASH 조각 목록은 안이
 //         상대 경로라 ffmpeg 가 기준 위치를 알아야 하고, 조각도 스스로 받아 와야 한다. list 가 어느 목록인지 적는다
@@ -36,4 +34,6 @@ function transportOf({ file, streamUrl, streamInfo }) {
   return { via: file ? "file" : "pipe", live: false, cacheable: true };
 }
 
-module.exports = { transportOf, isHlsStream };
+const exported = { transportOf, isHlsStream };
+export default exported;
+export { exported as "module.exports" };

@@ -8,6 +8,9 @@ const globals = require("globals");
 const pluginVue = require("eslint-plugin-vue");
 const prettierConfig = require("eslint-config-prettier");
 
+// ESM 으로 바꾼 봇 코드 폴더. 같은 이름의 test/ 폴더도 같이 바뀐다
+const ESM_FOLDERS = ["src/infra", "src/rules"];
+
 module.exports = [
   {
     ignores: [
@@ -34,7 +37,7 @@ module.exports = [
 
   // ESM 으로 바꾼 폴더(리팩터링 9단계, 아래층부터). require · __dirname 이 남으면 no-undef 로 드러난다
   {
-    files: ["src/infra/**/*.js", "test/infra/**/*.js"],
+    files: ESM_FOLDERS.flatMap((dir) => [`${dir}/**/*.js`, `${dir.replace(/^src/, "test")}/**/*.js`]),
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",

@@ -1,5 +1,3 @@
-"use strict";
-
 // 판정: 이 곡을 대기열에 넣어도 되나. 넣을 수 없으면 까닭의 이름, 넣을 수 있으면 null.
 //   live-upcoming   예정된 라이브. 아직 소리가 없어 열어 봐야 받을 것이 없다
 //   live-no-ffmpeg  라이브를 틀 ffmpeg 능력이 없다
@@ -11,4 +9,6 @@ function liveBlockReason(track, { ffmpegReady }) {
   return ffmpegReady() ? null : "live-no-ffmpeg";
 }
 
-module.exports = { liveBlockReason };
+const exported = { liveBlockReason };
+export default exported;
+export { exported as "module.exports" };

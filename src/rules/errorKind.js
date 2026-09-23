@@ -1,5 +1,3 @@
-"use strict";
-
 // 판정: 이 오류는 어떤 종류인가. 오류 문장을 보고 종류 이름을 낸다. 문장은 ui/errorMessages 가 만든다.
 // 오류에 이름(code)이 붙어 있으면 그것을 먼저 본다. 없으면 표의 위에서부터 처음 맞는 것이 이긴다. 차례가 곧 우선순위다.
 //
@@ -35,4 +33,6 @@ function errorKind(error) {
   return "unknown";
 }
 
-module.exports = { errorKind, RULES };
+const exported = { errorKind, RULES };
+export default exported;
+export { exported as "module.exports" };
