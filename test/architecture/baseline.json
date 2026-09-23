@@ -19,7 +19,6 @@
     "commands/cachestatus.js": 1,
     "commands/nowplaying.js": 1,
     "commands/system.js": 1,
-    "events/buttonHandler.js": 2,
     "events/modalHandler.js": 1,
     "dashboard/server/index.js": 1,
     "dashboard/server/routes/admin.js": 22,

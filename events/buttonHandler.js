@@ -2,7 +2,7 @@ const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, 
 const log = require("../src/infra/log/logger").child({ category: "events" });
 const config = require("../config");
 const S = require("../src/ui/strings");
-const { requestPlayback } = require("../src/usecases/addTracks");
+const { requestPlayback, ensurePlayer } = require("../src/usecases/addTracks");
 const { channelResponder } = require("../src/usecases/responders");
 const { checkControl, checkAdd, checkSummon } = require("../src/usecases/permissions");
 const controls = require("../src/usecases/controls");
@@ -13,122 +13,67 @@ const LOOP_TEXT = {
   queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
-const { ensurePlayer } = require("../src/usecases/addTracks");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/ui/genreMenu");
 const { keepReply, expireReply } = require("../src/ui/replyLifetime");
 const { queueLine } = require("../src/ui/queueDisplay");
+const helpCommand = require("../commands/help");
+const systemCommand = require("../commands/system");
+
+// customId 앞머리로 가르는 버튼. 플레이어 없이도 눌린다. null 은 다른 처리기(djRoleConfigHandler · sponsorConfigHandler)가 받는다.
+// 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
+const FREE = [
+  ["djrole:", null],
+  ["sb:", null],
+  ["search_", (h, it) => h.handleSearchInteraction(it, it.client)],
+  ["help_refresh", (h, it) => h.handleHelpRefresh(it)],
+  ["system_refresh", (h, it) => h.handleSystemRefresh(it)],
+  ["music_autoplay:", (h, it) => h.handleAutoplayButton(it)],
+];
+
+// 재생 패널의 버튼. customId 는 "이름:요청자:세션"
+const PANEL = {
+  music_pause: (h, it, player) => h.handlePause(it, player),
+  music_skip: (h, it, player) => h.handleSkip(it, player),
+  music_stop: (h, it, player) => h.handleStop(it, player),
+  music_queue: (h, it, player) => h.handleQueue(it, player),
+  music_shuffle: (h, it, player) => h.handleShuffle(it, player),
+  music_highlight: (h, it, player) => h.handleHighlight(it, player),
+  music_volume: (h, it) => h.handleVolumeModal(it),
+  music_loop: (h, it, player) => h.handleLoop(it, player),
+  music_previous: (h, it, player) => h.handlePrevious(it, player),
+};
 
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     if (!interaction.isButton()) return;
+    const route = FREE.find(([prefix]) => interaction.customId.startsWith(prefix));
+    if (route) return route[1]?.(this, interaction);
+    return this.handlePanelButton(interaction);
+  },
 
-    const client = interaction.client;
-    const guild = interaction.guild;
-
-    // DJ 역할 설정 UI 버튼은 전용 핸들러(djRoleConfigHandler.js)가 처리
-    if (interaction.customId.startsWith("djrole:")) return;
-    // SponsorBlock 설정 UI 버튼은 전용 핸들러(sponsorConfigHandler.js)가 처리
-    if (interaction.customId.startsWith("sb:")) return;
-
-    // 검색 버튼용 특수 제어
-    if (interaction.customId.startsWith("search_")) {
-      return await this.handleSearchInteraction(interaction, client);
-    }
-
-    // 도움말/시스템 새로고침 버튼 (음성 채널 불필요)
-    if (interaction.customId === "help_refresh") {
-      return await this.handleHelpRefresh(interaction);
-    }
-    if (interaction.customId === "system_refresh") {
-      return await this.handleSystemRefresh(interaction);
-    }
-
-    // 자동재생은 놀고 있을 때도 켤 수 있다. 끝난 패널의 버튼이 여기로 온다.
-    // 아래의 "플레이어 없으면 거절"과 세션 검증을 지나면 눌리지 않으므로 앞에서 받는다.
-    if (interaction.customId.startsWith("music_autoplay:")) {
-      return await this.handleAutoplayButton(interaction, client);
-    }
-
-    // 음악 플레이어 가져오기 (음악 버튼은 현재 재생 패널에만 존재)
-    // 재적/계층 검사는 각 핸들러의 check* 호출이 담당. 조회(대기열)는 검사 없이 개방
-    const player = client.players.get(guild.id);
-    if (!player) {
-      return await interaction.reply({
-        content: S.ERR_NO_MUSIC,
-        flags: [1 << 6],
-      });
-    }
+  // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
+  // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
+  async handlePanelButton(interaction) {
+    const player = interaction.client.players.get(interaction.guild.id);
+    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
 
     try {
-      // 권한 확인과 세션 검증을 위해 커스텀 ID 파싱
-      const customIdParts = interaction.customId.split(":");
-      const [buttonType, requesterId, sessionId] = customIdParts;
-
-      // 권한이 필요한 버튼의 세션 검증 (대기열 버튼은 제외)
+      const [name, , sessionId] = interaction.customId.split(":");
       if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-        return await interaction.reply({
-          content: S.ERR_SESSION_INVALID,
-          flags: [1 << 6],
-        });
+        return await interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
       }
-
-      switch (buttonType) {
-        case "music_pause":
-          await this.handlePause(interaction, player, requesterId);
-          break;
-
-        case "music_skip":
-          await this.handleSkip(interaction, player, requesterId);
-          break;
-
-        case "music_stop":
-          await this.handleStop(interaction, player, client, requesterId);
-          break;
-
-        case "music_queue":
-          await this.handleQueue(interaction, player);
-          break;
-
-        case "music_shuffle":
-          await this.handleShuffle(interaction, player, requesterId);
-          break;
-
-        case "music_highlight":
-          await this.handleHighlight(interaction, player);
-          break;
-
-        case "music_volume":
-          await this.handleVolumeModal(interaction, player, requesterId);
-          break;
-
-        case "music_loop":
-          await this.handleLoop(interaction, player, requesterId);
-          break;
-
-        case "music_previous":
-          await this.handlePrevious(interaction, player);
-          break;
-
-        default:
-          await interaction.reply({
-            content: "❌ 알 수 없는 상호작용!",
-            flags: [1 << 6],
-          });
-      }
+      const handle = PANEL[name];
+      if (!handle) return await interaction.reply({ content: "❌ 알 수 없는 상호작용!", flags: [1 << 6] });
+      await handle(this, interaction, player);
     } catch (error) {
-      if (!interaction.replied && !interaction.deferred) {
-        try {
-          await interaction.reply({
-            content: S.ERR_PROCESSING,
-            flags: [1 << 6],
-          });
-        } catch (replyError) {}
-      }
+      log.error(`패널 버튼 처리 실패(${interaction.customId}):`, error);
+      if (interaction.replied || interaction.deferred) return;
+      await interaction.reply({ content: S.ERR_PROCESSING, flags: [1 << 6] }).catch((replyError) => log.warn(`오류 안내 전송 실패: ${replyError.message}`));
     }
   },
 
-  async handlePause(interaction, player, _requesterId) {
+  async handlePause(interaction, player) {
     const r = await controls.pause(player, { member: interaction.member });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -146,7 +91,7 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 
-  async handleSkip(interaction, player, _requesterId) {
+  async handleSkip(interaction, player) {
     const r = await controls.skip(player, { member: interaction.member });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -179,8 +124,8 @@ module.exports = {
     });
   },
 
-  async handleStop(interaction, player, client, _requesterId) {
-    const r = await controls.stop(player, { member: interaction.member }, client.players);
+  async handleStop(interaction, player) {
+    const r = await controls.stop(player, { member: interaction.member }, interaction.client.players);
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
@@ -249,7 +194,7 @@ module.exports = {
     await interaction.editReply({ content: "✨ 하이라이트 지점으로 이동했어요." });
   },
 
-  async handleShuffle(interaction, player, _requesterId) {
+  async handleShuffle(interaction, player) {
     const r = await controls.shuffle(player, { member: interaction.member });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -263,7 +208,7 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 
-  async handleVolumeModal(interaction, _player, _requesterId) {
+  async handleVolumeModal(interaction) {
     const permErr = await checkControl(interaction.member);
     if (permErr) {
       return await interaction.reply({
@@ -282,7 +227,7 @@ module.exports = {
     await interaction.showModal(modal);
   },
 
-  async handleLoop(interaction, player, _requesterId) {
+  async handleLoop(interaction, player) {
     // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
     const r = await controls.loop(player, { member: interaction.member }, controls.nextLoopMode(player.loop));
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
@@ -301,13 +246,14 @@ module.exports = {
   },
 
   // 끝난 패널·재생 중 패널 양쪽에서 온다. 플레이어가 없으면 만든다. /autoplay와 같은 길.
-  async handleAutoplayButton(interaction, client) {
+  async handleAutoplayButton(interaction) {
     const { guild, member, channel } = interaction;
 
     // 재생 조작이므로 DJ 계층. 봇이 유휴면 재적 검사가 통과해 버리므로 소환 가능 여부를 이어 붙인다.
     const permErr = (await checkControl(member)) || checkSummon(member);
     if (permErr) return await interaction.reply({ content: permErr, flags: [1 << 6] });
 
+    const { client } = interaction;
     const player = client.players.get(guild.id) ?? ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice?.channel ?? null });
     return await this.handleAutoplay(interaction, player, member.id);
   },
@@ -332,24 +278,8 @@ module.exports = {
     await interaction.reply(buildGenreMenu(requesterId, player.sessionId));
   },
 
-  async handleHelpRefresh(interaction) {
-    try {
-      await interaction.deferUpdate();
-      const helpCommand = require("../commands/help.js");
-      const { embed, row } = await helpCommand.buildHelpEmbed(interaction.client);
-      await interaction.editReply({ embeds: [embed], components: [row] });
-    } catch (error) {
-      log.error("명령어 도움말 새로고침 실패:", error);
-      try {
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
-        } else {
-          await interaction.followUp({ content: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
-        }
-      } catch (err) {
-        log.error("오류 안내 전송 실패:", err);
-      }
-    }
+  handleHelpRefresh(interaction) {
+    return this.refreshMessage(interaction, (client) => helpCommand.buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!" });
   },
 
   async handleSystemRefresh(interaction) {
@@ -357,19 +287,22 @@ module.exports = {
     if (interaction.user.id !== config.dashboard.ownerId) {
       return await interaction.reply({ content: "❌ 봇 운영자만 사용할 수 있습니다!", flags: [1 << 6] });
     }
+    return this.refreshMessage(interaction, (client) => systemCommand.buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!" });
+  },
 
+  // 새로고침 버튼: 버튼이 달린 메시지를 새 내용으로 고친다
+  async refreshMessage(interaction, build, { failed, notice }) {
     try {
       await interaction.deferUpdate();
-      const systemCommand = require("../commands/system.js");
-      const { embed, row } = systemCommand.buildSystemEmbed(interaction.client);
+      const { embed, row } = await build(interaction.client);
       await interaction.editReply({ embeds: [embed], components: [row] });
     } catch (error) {
-      log.error("시스템 정보 새로고침 실패:", error);
+      log.error(failed, error);
       try {
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
+          await interaction.reply({ content: notice, flags: [1 << 6] });
         } else {
-          await interaction.followUp({ content: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!", flags: [1 << 6] });
+          await interaction.followUp({ content: notice, flags: [1 << 6] });
         }
       } catch (err) {
         log.error("오류 안내 전송 실패:", err);
