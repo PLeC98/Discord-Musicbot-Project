@@ -157,12 +157,13 @@ test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 
 
 // ── 열쇠 ──────────────────────────────────────────────────────────────
 
-test("캐시 열쇠: 유튜브 id · 사운드클라우드 숫자 id · 직접 링크 md5 · 찾아 둔 영상. 이미 있으면 그대로", () => {
+test("캐시 열쇠: 유튜브 id · 사운드클라우드 경로 · 직접 링크 md5 · 찾아 둔 영상. 이미 있으면 그대로", () => {
   const key = (t) => lookup.ensureAudioSourceKey(t);
   assert.equal(key({ platform: "youtube", id: "aaaaaaaaaaa" }), "yt:aaaaaaaaaaa");
   assert.equal(key({ platform: "youtube", url: "https://youtu.be/bbbbbbbbbbb" }), "yt:bbbbbbbbbbb");
-  assert.equal(key({ platform: "soundcloud", id: 12345, url: "https://soundcloud.com/a/b" }), "sc:12345");
-  assert.equal(key({ platform: "soundcloud", url: "https://soundcloud.com/a/b" }), null, "id 가 없는 사운드클라우드 곡은 열쇠가 없다");
+  assert.equal(key({ platform: "soundcloud", id: 12345, url: "https://soundcloud.com/a/b" }), "sc:a/b");
+  assert.equal(key({ platform: "soundcloud", url: "https://soundcloud.com/a/b", youtubeUrl: "https://youtu.be/ccccccccccc" }), "sc:a/b", "영상이 붙어 있어도 제 음원");
+  assert.equal(key({ platform: "anisongdb", url: "https://files.test/b.webm" }), `dl:${audioCache.md5("https://files.test/b.webm")}`, "음원을 직접 받는 자동재생 곡");
   assert.equal(key({ platform: "direct", url: "https://files.test/a.mp3" }), `dl:${audioCache.md5("https://files.test/a.mp3")}`);
   assert.equal(key({ platform: "lastfm", youtubeUrl: "https://www.youtube.com/watch?v=ddddddddddd" }), "yt:ddddddddddd");
   assert.equal(key({ platform: "spotify", url: "https://open.spotify.com/track/x" }), null, "동등물 전에는 없다");

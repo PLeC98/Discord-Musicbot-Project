@@ -48,14 +48,24 @@ test("canonicalUrl: 사이트마다 같은 곡의 공유 링크를 한 모양으
   assert.equal(canonicalUrl(null), null, "글자가 아니면 그대로 돌려준다");
 });
 
-test("audioKeyOf: 플랫폼마다 열쇠 모양, 소리가 유튜브에서 오면 영상 열쇠", () => {
-  assert.equal(audioKeyOf({ platform: "youtube", id: "abcdefghijk" }), "yt:abcdefghijk");
-  assert.equal(audioKeyOf({ platform: "youtube", url: "https://youtu.be/abcdefghijk" }), "yt:abcdefghijk");
-  assert.equal(audioKeyOf({ platform: "youtube", url: "https://example.com" }), null);
-  assert.equal(audioKeyOf({ platform: "soundcloud", id: 123 }), "sc:123");
-  assert.equal(audioKeyOf({ platform: "direct", url: "https://cdn.example.com/a.mp3" }), `dl:${md5("https://cdn.example.com/a.mp3")}`);
-  assert.equal(audioKeyOf({ platform: "spotify", youtubeUrl: "https://www.youtube.com/watch?v=abcdefghijk" }), "yt:abcdefghijk");
-  assert.equal(audioKeyOf({ platform: "soundcloud", youtubeUrl: "https://youtu.be/abcdefghijk" }), "yt:abcdefghijk", "id 없는 사운드클라우드 곡은 아래 갈래로");
-  assert.equal(audioKeyOf({ platform: "spotify" }), null);
-  assert.equal(audioKeyOf(null), null);
+test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 열쇠 모양", () => {
+  const cases = [
+    ["https://www.youtube.com/watch?v=abcdefghijk&list=RDx", "yt:abcdefghijk"],
+    ["https://youtu.be/abcdefghijk?si=x", "yt:abcdefghijk"],
+    ["https://www.youtube.com/playlist?list=PLx", null], // 영상이 아니면 열쇠가 없다
+    ["https://soundcloud.com/artist/track?in=a/sets/b", "sc:artist/track"],
+    ["https://m.soundcloud.com/artist/track", "sc:artist/track"],
+    ["https://on.soundcloud.com/AbCd", "sc:on.soundcloud.com/AbCd"],
+    ["https://api-v2.soundcloud.com/tracks/368141150", "sc:api-v2.soundcloud.com/tracks/368141150"], // 재생목록을 훑어 읽은 곡
+    ["https://cdn.example.com/a.mp3", `dl:${md5("https://cdn.example.com/a.mp3")}`],
+    ["https://cdn.example.com/a.mp3?token=1", `dl:${md5("https://cdn.example.com/a.mp3?token=1")}`], // 서명된 주소는 쿼리까지
+    // 자동재생 음원(AnisongDB 는 소리 · 영상 파일, AnimeThemes 는 ogg). 확장자가 있어야 직접 링크로 받는다
+    ["https://nawdist.animemusicquiz.com/abcdef.mp3", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.mp3")}`],
+    ["https://nawdist.animemusicquiz.com/abcdef.webm", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.webm")}`],
+    ["https://a.animethemes.moe/Title-OP1.ogg", `dl:${md5("https://a.animethemes.moe/Title-OP1.ogg")}`],
+    ["https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj", null], // 소리가 여기서 오지 않는다
+    ["https://anilist.co/anime/1", null],
+    [undefined, null],
+  ];
+  for (const [input, want] of cases) assert.equal(audioKeyOf(input), want, String(input));
 });

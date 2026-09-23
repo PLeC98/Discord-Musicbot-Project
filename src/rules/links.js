@@ -96,6 +96,8 @@ function isSoundCloudURL(url) {
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
     // 모바일 앱 공유용 짧은 링크 (yt-dlp가 리디렉션을 따라감)
     /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
+    // 재생목록을 훑어 읽으면 여섯째 곡부터 곡 페이지 대신 이 주소가 온다. yt-dlp 가 그대로 받는다
+    /^https?:\/\/api(-v2)?\.soundcloud\.com\/tracks\/\d+/,
   ];
   return patterns.some((pattern) => pattern.test(url));
 }
