@@ -1,12 +1,9 @@
 "use strict";
 
-const fsSync = require("fs");
 const log = require("../infra/log/logger").child({ category: "session" });
-const audioCache = require("../store/audioCache");
 const db = require("../store/db");
 const { sessions } = require("../store/playerSessions");
 const trackState = require("./trackState");
-const { audioKeyOf } = require("../rules/audioKeyOf");
 const config = require("../../config");
 const { formatDuration } = require("../ui/format");
 const { escapeMd } = require("../ui/mentions");
@@ -248,11 +245,6 @@ class SessionPersistence {
       trackState.shiftNext(player);
     }
 
-    // 받아 둔 파일 경로는 저장하지 않는다. 내려받을 때와 같은 식으로 캐시 키에서 다시 구한다
-    const key = audioKeyOf(player.currentTrack?.audioUrl);
-    const file = key ? audioCache.getFilePath(key) : null;
-    player.currentDownloadedFile = file && fsSync.existsSync(file) ? file : null;
-
     const trackDurationMs = player.currentTrack?.duration ? Number(player.currentTrack.duration) * 1000 : null;
     let resumeMs = Math.max(0, Number(session.positionMs) || 0);
     if (trackDurationMs && resumeMs > Math.max(trackDurationMs - 2000, 0)) {
@@ -284,7 +276,7 @@ class SessionPersistence {
 
     if (session.pausedManual) player.pauseReasons.add("manual"); // play()가 시작 직후 즉시 일시정지
 
-    await player.play(null, resumeMs);
+    await player.play(resumeMs);
     if (session.pausedManual) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
 
     if (player.resource?.volume) {

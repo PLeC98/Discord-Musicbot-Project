@@ -336,12 +336,7 @@ class TrackDownloader {
 
   /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */
   isCached(track) {
-    try {
-      const filepath = this.trackFilePath(track);
-      return fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0;
-    } catch {
-      return false;
-    }
+    return TrackDownloader.findCacheFile(track) !== null;
   }
 
   /**
@@ -359,6 +354,22 @@ TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
 
 /** 받는 중이면 그 promise, 아니면 null */
 TrackDownloader.waitFor = (filepath) => inFlight.get(filepath) ?? null;
+
+/**
+ * 이 곡의 캐시 파일. 다 받아 둔 것만 돌려준다(열쇠 자리에 있고, 비어 있지 않고, 받는 중이 아님). 없으면 null.
+ * 받기는 임시 파일에 쓰고 끝나면 옮기므로 열쇠 자리에 있으면 다 받은 것이다. 받는 중 확인은 그래도 한 번 더 본다.
+ * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 열쇠도 없어 null 이다.
+ */
+TrackDownloader.findCacheFile = (track) => {
+  const key = audioKeyOf(track?.audioUrl);
+  if (!key) return null;
+  const file = audioCache.getFilePath(key);
+  try {
+    return fsSync.statSync(file).size > 0 && !TrackDownloader.isDownloading(file) ? file : null;
+  } catch {
+    return null;
+  }
+};
 
 module.exports = TrackDownloader;
 module.exports._internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };

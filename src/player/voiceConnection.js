@@ -237,7 +237,7 @@ class VoiceConnectionManager {
 
     try {
       const resumeMs = player.resource ? player.currentTrackStartOffsetMs + (player.resource.playbackDuration || 0) : player.lastPlaybackPosition || 0;
-      await player.play(null, resumeMs);
+      await player.play(resumeMs);
     } catch (error) {
       log.error("재생 재개 실패:", error);
       // 다음 트랙으로 계속 진행 시도

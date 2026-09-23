@@ -339,3 +339,26 @@ test("예열: 열쇠를 못 정한 스포티파이 곡은 받기 전에 동등�
   assert.deepEqual(calls.equivalent, ["예열 곡"], "받기 전에 한 번. 음원 주소가 생긴 뒤에는 다시 안 찾는다");
   assert.ok(fs.existsSync(audioCache.getFilePath("yt:ooooooooooo")), "열쇠 자리에 받는다(URL 해시 자리가 아니라)");
 });
+
+// ── 받아 둔 파일 찾기 ─────────────────────────────────────────────────
+
+test("findCacheFile: 열쇠 자리에 다 받아 둔 파일만. 없거나 비었거나 받는 중이면 null", () => {
+  const track = yt("findfindfin");
+  const file = audioCache.getFilePath("yt:findfindfin");
+
+  assert.equal(TrackDownloader.findCacheFile(track), null, "없다");
+  fs.writeFileSync(file, "");
+  assert.equal(TrackDownloader.findCacheFile(track), null, "비었다");
+  fs.writeFileSync(file, "opus");
+  assert.equal(TrackDownloader.findCacheFile(track), file);
+
+  TrackDownloader._internals.inFlight.set(file, new Promise(() => {}));
+  try {
+    assert.equal(TrackDownloader.findCacheFile(track), null, "받는 중");
+  } finally {
+    TrackDownloader._internals.inFlight.delete(file);
+  }
+
+  assert.equal(TrackDownloader.findCacheFile({ title: "스포티파이", requestKey: "https://open.spotify.com/track/x" }), null, "음원 주소가 없으면 열쇠도 없다");
+  assert.equal(TrackDownloader.findCacheFile(null), null);
+});

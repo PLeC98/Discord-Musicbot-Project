@@ -6,14 +6,24 @@
 // 이미 끝난 재생에 손을 대게 된다. 그럴 땐 아무것도 안 해야 기존 경로(Idle → play(위치))가 받는다.
 //
 // 프로토타입 호출 — 실 오디오·음성 연결 없이 판정만 검증한다(playbackLoop.test.js와 같은 방식).
+// 캐시 파일은 곡의 열쇠 자리(임시 폴더)에 진짜로 둔다.
 
-const { test } = require("node:test");
+const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { PassThrough } = require("node:stream");
 const MusicPlayer = require("../../src/player/Player");
+const audioCache = require("../../src/store/audioCache");
+
+const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
+const realDir = audioCache._cacheDir;
+audioCache._cacheDir = DIR;
+after(() => {
+  audioCache._cacheDir = realDir;
+  fs.rmSync(DIR, { recursive: true, force: true });
+});
 
 const planCacheSwitch = MusicPlayer.prototype._planCacheSwitch;
 
@@ -37,58 +47,51 @@ function fakeSplicer({ destroyed = false, switchPending = false, emittedMs = 500
 // 캐시 파일을 여는 디코더(ffmpeg)는 띄우지 않는다. 출력 자리만 있는 가짜
 const fakeFfmpeg = () => ({ stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true, once() {}, on() {} });
 
-function fakePlayer({ track, file = null, startOffsetMs = 0 } = {}) {
+function fakePlayer({ track, startOffsetMs = 0 } = {}) {
   return {
     currentTrack: track,
-    currentDownloadedFile: file,
     currentTrackStartOffsetMs: startOffsetMs,
     io: { spawnFfmpeg: fakeFfmpeg },
     _trackLabel: MusicPlayer.prototype._trackLabel,
   };
 }
 
-const TRACK = { title: "곡", url: "https://y/1", duration: 200, platform: "youtube" };
+const TRACK = { title: "곡", audioUrl: "https://www.youtube.com/watch?v=pcspcspcs01", duration: 200, platform: "youtube" };
+const cacheFile = audioCache.getFilePath("yt:pcspcspcs01");
+
+// 이 곡의 캐시 파일을 둔다. null 이면 없앤다
+function cacheAs(content) {
+  fs.rmSync(cacheFile, { force: true });
+  if (content != null) fs.writeFileSync(cacheFile, content);
+}
 
 // ── 예약하지 않아야 하는 경우 ────────────────────────────────
 
 test("캐시 파일이 없으면 예약하지 않는다 (기존 경로가 받는다)", () => {
+  cacheAs(null);
   const sp = fakeSplicer();
-  planCacheSwitch.call(fakePlayer({ track: TRACK, file: null }), sp, TRACK);
-  assert.equal(sp.calls.length, 0);
-});
-
-test("캐시 경로가 있어도 파일이 실제로 없으면 예약하지 않는다", () => {
-  const sp = fakeSplicer();
-  planCacheSwitch.call(fakePlayer({ track: TRACK, file: path.join(os.tmpdir(), "없는파일-xyz.opus") }), sp, TRACK);
+  planCacheSwitch.call(fakePlayer({ track: TRACK }), sp, TRACK);
   assert.equal(sp.calls.length, 0);
 });
 
 test("캐시 파일이 비어 있으면 예약하지 않는다 (다운로드 중일 수 있다)", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
-  const empty = path.join(dir, "empty.opus");
-  fs.writeFileSync(empty, "");
+  cacheAs("");
   const sp = fakeSplicer();
-  planCacheSwitch.call(fakePlayer({ track: TRACK, file: empty }), sp, TRACK);
+  planCacheSwitch.call(fakePlayer({ track: TRACK }), sp, TRACK);
   assert.equal(sp.calls.length, 0);
-  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("트랙이 이미 바뀌었으면 예약하지 않는다 (늦게 도착한 오류)", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
-  const file = path.join(dir, "c.opus");
-  fs.writeFileSync(file, Buffer.alloc(4096));
+  cacheAs(Buffer.alloc(4096));
   const sp = fakeSplicer();
-  const player = fakePlayer({ track: { ...TRACK, title: "다음 곡" }, file });
+  const player = fakePlayer({ track: { ...TRACK, title: "다음 곡" } });
   planCacheSwitch.call(player, sp, TRACK); // 오류는 이전 곡의 것
   assert.equal(sp.calls.length, 0, "다음 곡의 캐시로 갈아타면 안 된다");
-  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("이미 파괴됐거나 예약된 스플라이서는 건드리지 않는다", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
-  const file = path.join(dir, "c.opus");
-  fs.writeFileSync(file, Buffer.alloc(4096));
-  const player = fakePlayer({ track: TRACK, file });
+  cacheAs(Buffer.alloc(4096));
+  const player = fakePlayer({ track: TRACK });
 
   const dead = fakeSplicer({ destroyed: true });
   planCacheSwitch.call(player, dead, TRACK);
@@ -99,18 +102,15 @@ test("이미 파괴됐거나 예약된 스플라이서는 건드리지 않는다
   assert.equal(pending.calls.length, 0, "이미 예약됨");
 
   planCacheSwitch.call(player, null, TRACK); // 던지지 않는다
-  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 // ── 예약하는 경우 ────────────────────────────────────────────
 
 test("캐시가 있으면 현재 위치보다 앞선 지점에 예약한다", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
-  const file = path.join(dir, "c.opus");
-  fs.writeFileSync(file, Buffer.alloc(4096));
+  cacheAs(Buffer.alloc(4096));
 
   const sp = fakeSplicer({ emittedMs: 12_000 });
-  planCacheSwitch.call(fakePlayer({ track: TRACK, file, startOffsetMs: 30_000 }), sp, TRACK);
+  planCacheSwitch.call(fakePlayer({ track: TRACK, startOffsetMs: 30_000 }), sp, TRACK);
 
   assert.equal(sp.calls.length, 1);
   const { atMs, next } = sp.calls[0];
@@ -118,17 +118,14 @@ test("캐시가 있으면 현재 위치보다 앞선 지점에 예약한다", ()
   assert.ok(atMs - 12_000 >= 1000, "디코더 기동을 덮을 만큼 여유가 있어야 한다");
   assert.ok(next, "디코더 출력이 넘어갔다");
   next.destroy?.();
-  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test("예약했는지를 돌려준다 — 청크 스트림이 이어받을지 이걸로 정한다", () => {
-  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK, file: null }), fakeSplicer(), TRACK), false);
+  cacheAs(null);
+  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK }), fakeSplicer(), TRACK), false);
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
-  const file = path.join(dir, "c.opus");
-  fs.writeFileSync(file, Buffer.alloc(4096));
+  cacheAs(Buffer.alloc(4096));
   const sp = fakeSplicer();
-  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK, file }), sp, TRACK), true);
+  assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK }), sp, TRACK), true);
   sp.calls[0].next.destroy?.();
-  fs.rmSync(dir, { recursive: true, force: true });
 });

@@ -243,12 +243,11 @@ const endingPlayer = (overrides = {}) => {
     lifecycle: new PlaybackState(),
     sponsorSkipper: { stop() {} },
     previousTracks: [],
-    currentDownloadedFile: null,
     autoplay: false,
     resource: { playbackDuration: 30_000 },
     currentTrackStartOffsetMs: 0,
     releaseAudioProtection() {},
-    play: async (track, ms) => {
+    play: async (ms) => {
       played.push(ms);
       return { success: true };
     },

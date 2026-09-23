@@ -174,7 +174,7 @@ class MusicEmbedManager {
       // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
       if (startFailure && !player.currentTrack && player.queue.length > 0) {
         try {
-          const nextResult = await player.play(null, 0);
+          const nextResult = await player.play(0);
           if (nextResult && nextResult.success !== false && player.currentTrack) {
             startFailure = null;
             try {

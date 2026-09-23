@@ -358,7 +358,7 @@ module.exports = {
     }
 
     await interaction.deferReply({ flags: [1 << 6] });
-    await player.play(null, Math.max(0, Math.floor(highlightAt * 1000)));
+    await player.play(Math.max(0, Math.floor(highlightAt * 1000)));
     await interaction.editReply({ content: "✨ 하이라이트 지점으로 이동했어요." });
 
     if (interaction.client.musicEmbedManager) {

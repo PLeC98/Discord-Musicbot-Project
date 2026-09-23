@@ -26,7 +26,7 @@ const argsOf = (child) => child.args.join(" ");
 // 한 시험이 끝나면 타이머를 남기지 않는다
 async function playOnce(player, seekMs = 0) {
   try {
-    return await player.play(null, seekMs);
+    return await player.play(seekMs);
   } finally {
     h.dispose(player);
   }
@@ -51,7 +51,6 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
   assert.equal(calls.fetches.length, 0);
   assert.equal(p.audioPlayer.played.length, 1);
   assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "파일 갈래는 스플라이서를 끼우지 않는다");
-  assert.equal(p.currentDownloadedFile, file);
   // 길이는 캐시에 적힌 실제 길이로 바꾼다
   assert.equal(p.currentTrack.duration, 201);
   assert.equal(p.lifecycle.phase, "playing");
@@ -82,17 +81,17 @@ test("캐시에서 틀어도 장부에 재생을 적는다", async () => {
   assert.equal(row.title_verified, 0, "캐시 갈래는 영상 제목을 못 받아 확인 안 됨으로 적는다");
 });
 
-test("받아 둔 파일(currentDownloadedFile)이 있으면 그것부터 쓴다", async () => {
+test("받아 둔 파일은 열쇠 자리에서만 찾는다. 다른 자리의 파일은 쓰지 않고 스트림으로 튼다", async () => {
   const track = yt("ccccccccccc");
   const other = h.writeCacheFile("yt:다른-자리");
   const p = h.makePlayer();
   p.currentTrack = track;
-  p.currentDownloadedFile = other;
+  behavior.stream = () => ({ url: "https://media.test/cc", duration: 100 });
 
   await playOnce(p);
 
-  assert.equal(calls.spawns[0].label, "playback");
-  assert.ok(calls.spawns[0].args.includes(other));
+  assert.equal(calls.spawns[0].label, "stream");
+  assert.ok(!calls.spawns[0].args.includes(other));
 });
 
 test("캐시로 튼 곡은 퇴거에서 보호한다", async () => {
@@ -246,7 +245,7 @@ test("라이브는 위치 0 으로 열고, 캐시를 안 받고, 종료 감시�
   p.currentTrack = yt("lllllllllll");
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
 
-  await p.play(null, 7000);
+  await p.play(7000);
   const timer = p.watch.endTimer;
   h.dispose(p);
 
@@ -342,7 +341,7 @@ test("위치를 옮기면 지난 googlevideo 주소에 begin= 을 붙여 다시 
     return { url: "https://rr1.googlevideo.com/videoplayback?id=1", duration: 300, canSeek: true };
   };
 
-  await p.play(null, 0);
+  await p.play(0);
   await playOnce(p, 30000);
 
   assert.equal(asked, 1, "두 번째는 주소를 다시 묻지 않는다");
@@ -432,7 +431,7 @@ test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
   const p = h.makePlayer();
   p.currentTrack = track;
 
-  await p.play(null, 0);
+  await p.play(0);
   await playOnce(p, 1000);
 
   assert.deepEqual(
@@ -460,7 +459,7 @@ test("종료 감시는 남은 길이 + 4초 뒤로 건다", async () => {
   const p = h.makePlayer();
   p.currentTrack = track;
 
-  await p.play(null, 40000);
+  await p.play(40000);
   const delay = p.watch.endTimer?._idleTimeout; // 치우기 전에 읽는다. 치우면 -1 이 된다
   h.dispose(p);
 

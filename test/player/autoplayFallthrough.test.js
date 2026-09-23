@@ -32,7 +32,6 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
     lastPlaybackPosition: 0,
     currentTrackRetries: 0,
     previousTracks: [],
-    currentDownloadedFile: null,
     currentTrackCache: null,
     loop: false,
     queue: [],

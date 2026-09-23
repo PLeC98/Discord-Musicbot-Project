@@ -141,7 +141,7 @@ test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 �
   p._playingLive = true;
   p._liveExitCode = 1;
   const seeks = [];
-  p.play = async (_i, seekMs) => {
+  p.play = async (seekMs) => {
     seeks.push(seekMs);
     return { success: true };
   };
@@ -333,7 +333,6 @@ test("stop(): 대기열과 현재 곡을 비우고 세션을 지우고 연결을
   p.previousTracks = [yt("sssssssssss")];
   p._protectedAudioKey = "yt:qqqqqqqqqqq";
   audioCache.protect("yt:qqqqqqqqqqq");
-  p.currentDownloadedFile = "x";
   p.pauseReasons.add("manual");
 
   p.stop();
@@ -347,7 +346,6 @@ test("stop(): 대기열과 현재 곡을 비우고 세션을 지우고 연결을
   assert.equal(p.audioPlayer.stops, 1);
   assert.equal(p.pendingEndReason, "stop");
   assert.equal(p.pauseReasons.size, 0);
-  assert.equal(p.currentDownloadedFile, null);
   assert.equal(p._protectedAudioKey, null);
   assert.equal(audioCache._liveKeys().has("yt:qqqqqqqqqqq"), false, "보호를 푼다");
   assert.match(p._endingLabel, /곡 qqqqqqqqqqq/, "늦게 오는 종료 로그를 위해 이름을 남긴다");
@@ -375,7 +373,6 @@ test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다
   p.connection.destroy = () => (destroyed += 1);
   p.currentTrack = yt("vvvvvvvvvvv");
   p.previousTracks = [yt("wwwwwwwwwww")];
-  p.currentDownloadedFile = "x";
 
   p.cleanup(false, "시험");
   h.dispose(p);
@@ -385,22 +382,19 @@ test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다
   assert.deepEqual(calls.persists, ["remove"]);
   assert.equal(p.currentTrack, null);
   assert.deepEqual(p.previousTracks, [], "기록까지 비운다");
-  assert.equal(p.currentDownloadedFile, null);
   assert.equal(p.textChannel, null);
   assert.equal(p.voiceChannel, null);
   assert.deepEqual(seen, ["webhook:text1"]);
   assert.equal(p.audioPlayer.listenerCount(AudioPlayerStatus.Idle), 0, "리스너를 뗀다");
 });
 
-test("cleanup(true)(종료): 세션을 지우지 않고 저장하며 받아 둔 파일 참조는 남긴다", () => {
+test("cleanup(true)(종료): 세션을 지우지 않고 저장한다", () => {
   const p = h.makePlayer();
-  p.currentDownloadedFile = "x";
 
   p.cleanup(true);
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["shutdown"]);
-  assert.equal(p.currentDownloadedFile, "x");
 });
 
 // ── 혼자 남았을 때 ────────────────────────────────────────────────────
@@ -579,7 +573,7 @@ test("반복: 라이브가 있으면 켜지 않고, 라이브가 들어오면 �
 test("위치 이동: 라이브는 거절, 아니면 그 자리에서 play", async () => {
   const p = h.makePlayer();
   const seeks = [];
-  p.play = async (_i, ms) => seeks.push(ms);
+  p.play = async (ms) => seeks.push(ms);
   p.currentTrack = yt("e1eeeeeeeee", { isLive: true });
   const r = p.seek(10000);
   p.currentTrack = yt("e2eeeeeeeee");

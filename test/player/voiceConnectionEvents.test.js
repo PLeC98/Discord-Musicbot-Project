@@ -263,7 +263,7 @@ test("재개: 리소스가 있으면 오프셋 + 재생량, 없으면 저장해 
   const { player, vcm } = makePlayer();
   const seeks = [];
   const ends = [];
-  player.play = async (_i, ms) => seeks.push(ms);
+  player.play = async (ms) => seeks.push(ms);
   player.handleTrackEnd = async (r) => ends.push(r);
 
   player.currentTrackStartOffsetMs = 1000;

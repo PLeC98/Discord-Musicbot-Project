@@ -71,7 +71,7 @@ function fakePlayer({ status = "playing", isPlayStarting = false, paused = false
     isPlayStarting,
     audioPlayer: { state: { status } },
     getCurrentTime: () => curSec * 1000,
-    play: async (_i, ms) => calls.play.push(ms),
+    play: async (ms) => calls.play.push(ms),
     skip: (r) => calls.skip.push(r),
     _calls: calls,
   };

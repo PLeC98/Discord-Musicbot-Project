@@ -51,7 +51,7 @@ function makePlayer() {
     },
     isPlaybackActive: () => true,
     getCurrentTime: () => 0,
-    async play(_, ms) {
+    async play(ms) {
       this.calls.push(["play", ms]);
     },
     // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다 — 진입점마다 로그를 다는 대신

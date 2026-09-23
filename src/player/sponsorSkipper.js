@@ -11,7 +11,7 @@ const log = require("../infra/log/logger").child({ category: "sponsor" });
 //   (= "수동 진입 허용"을 별도 상태 없이 교차 감지만으로 처리).
 //
 // 구간 처리:
-//  - 인트로/중간: 기존 seek 재사용(play(null, end*1000))으로 구간 끝으로 점프.
+//  - 인트로/중간: 기존 seek 재사용(play(end*1000))으로 구간 끝으로 점프.
 //  - 아웃트로/끝(seg.end ≈ 트랙 길이): 다음 트랙으로 진행(handleTrackEnd).
 
 const TICK_MS = 500; // 워처 주기 (인트로 블리드 ≤ 이 값)
@@ -87,7 +87,7 @@ class SponsorSkipper {
     } else if (d.action === "seek") {
       log.info(`${p.currentTrack?.title ?? ""}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
-      p.play(null, Math.round(d.toSec * 1000)).catch(() => {});
+      p.play(Math.round(d.toSec * 1000)).catch(() => {});
     }
   }
 }

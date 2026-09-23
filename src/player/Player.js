@@ -118,7 +118,6 @@ class MusicPlayer {
     // 비활성 타임아웃
 
     // 로컬 파일 캐싱
-    this.currentDownloadedFile = null; // 현재 재생 중인 다운로드 파일 경로
 
     // 협력 모듈. 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
     this.voice = new VoiceConnectionManager(this);
@@ -243,7 +242,7 @@ class MusicPlayer {
 
   // ── 다운로드/사전 로드. 로직은 TrackDownloader ──────────────────────────
 
-  async play(_trackIndex = null, seekMs = 0) {
+  async play(seekMs = 0) {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
@@ -294,25 +293,9 @@ class MusicPlayer {
       // 오디오 스트림 가져오기 - 사전 로드된 항목 먼저 확인
       let streamInfo;
 
-      // 캐시 열쇠는 음원 주소에서 바로 나온다(yt-dlp 호출 전 파일 조회 가능; spotify는 YouTube 검색 후)
-      const earlyKey = audioKeyOf(this.currentTrack.audioUrl);
-
-      // 조기 파일 확인. 파일이 이미 캐시되어 있으면 yt-dlp 호출을 전부 건너뜀
-      let downloadedFile;
+      // 받아 둔 파일이 있으면 yt-dlp 호출을 전부 건너뛴다. 열쇠는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
+      let downloadedFile = TrackDownloader.findCacheFile(this.currentTrack);
       let shouldDownload = false;
-
-      if (this.currentDownloadedFile && fsSync.existsSync(this.currentDownloadedFile) && !TrackDownloader.isDownloading(this.currentDownloadedFile)) {
-        downloadedFile = this.currentDownloadedFile;
-      } else if (earlyKey) {
-        const _earlyPath = audioCache.getFilePath(earlyKey);
-        if (fsSync.existsSync(_earlyPath) && !TrackDownloader.isDownloading(_earlyPath)) {
-          const _earlyStats = fsSync.statSync(_earlyPath);
-          if (_earlyStats.size > 0) {
-            downloadedFile = _earlyPath;
-            this.currentDownloadedFile = _earlyPath;
-          }
-        }
-      }
 
       // 재개 시 캐시 재사용 시도
       if (resumeFromMs > 0) {
@@ -330,14 +313,7 @@ class MusicPlayer {
           if (!ytUrl) {
             throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
           }
-          const spotKey = audioKeyOf(this.currentTrack.audioUrl);
-          if (spotKey) {
-            const _spotPath = audioCache.getFilePath(spotKey);
-            if (fsSync.existsSync(_spotPath) && fsSync.statSync(_spotPath).size > 0) {
-              downloadedFile = _spotPath;
-              this.currentDownloadedFile = _spotPath;
-            }
-          }
+          downloadedFile = TrackDownloader.findCacheFile(this.currentTrack);
         }
 
         // 일반 방식으로 스트림 가져오기 (플랫폼 스위치는 sources/streamUrl 한 곳에서)
@@ -374,20 +350,8 @@ class MusicPlayer {
       // 자동 스킵 워처 가동. 구간 있으면 시작, seek면 기준점을 seek 지점으로 리셋(수동 진입 허용)
       this.sponsorSkipper.onPlayStart(resumeFromMs);
 
-      // 기존(string) 및 신규(object) 스트림 형식을 모두 처리
-      let streamUrl_final;
-
-      if (typeof streamInfo === "string") {
-        streamUrl_final = streamInfo;
-      } else if (streamInfo && typeof streamInfo === "object") {
-        if (streamInfo.stream) {
-          streamUrl_final = streamInfo.stream;
-        } else {
-          streamUrl_final = streamInfo.url;
-        }
-      } else {
-        streamUrl_final = streamInfo;
-      }
+      // 스트림 서술자의 주소(받아 둔 파일로 틀면 없다)
+      const streamUrl_final = streamInfo?.url;
 
       // 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 담길 때 방송 중이었어도 그사이 끝나
       // 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 담긴 것도 있다(재생목록·믹스).
@@ -461,9 +425,7 @@ class MusicPlayer {
         let audioStream;
         // 청크 스트림이 끊겼을 때 부를 훅. 스플라이서가 아래에서 만들어진 뒤 채운다
         const streamHooks = { interrupt: () => false, resumed: () => {} };
-        if (typeof streamInfo === "object" && streamInfo.stream) {
-          audioStream = streamInfo.stream;
-        } else if (typeof streamUrl_final === "string") {
+        if (typeof streamUrl_final === "string") {
           try {
             // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
             // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
@@ -518,8 +480,6 @@ class MusicPlayer {
 
             if (!downloadedFile) throw fetchError;
           }
-        } else {
-          audioStream = streamUrl_final;
         }
 
         this._inputToken = null;
@@ -719,9 +679,7 @@ class MusicPlayer {
     this.downloader
       .downloadTrack(trackToDownload)
       .then((file) => {
-        if (this.currentTrack && this.currentTrack.requestKey === trackToDownload.requestKey) {
-          this.currentDownloadedFile = file;
-        }
+        log.debug(`백그라운드 캐시 다운로드 끝: ${this._trackLabel(trackToDownload)} → ${file}`);
       })
       .catch((err) => {
         if (err && err.message) {
@@ -776,12 +734,8 @@ class MusicPlayer {
     // 늦게 도착한 오류가 다음 곡의 재생을 건드리지 않도록
     if (!track || this.currentTrack !== track) return giveUp("이미 다른 곡으로 넘어감");
 
-    const file = this.currentDownloadedFile;
-    try {
-      if (!file || !fsSync.existsSync(file) || fsSync.statSync(file).size === 0) return giveUp("쓸 수 있는 캐시 파일이 없음");
-    } catch {
-      return giveUp("캐시 파일 조회 실패"); // 기존 경로로 넘긴다
-    }
+    const file = TrackDownloader.findCacheFile(track);
+    if (!file) return giveUp("쓸 수 있는 캐시 파일이 없음");
 
     // 전환 지점은 스플라이서 출력 기준이다. 리소스는 그보다 뒤처져 있으므로
     // resource.playbackDuration을 쓰면 자기 정합적이지 않다.
@@ -988,8 +942,6 @@ class MusicPlayer {
 
     this.releaseAudioProtection();
 
-    this.currentDownloadedFile = null;
-
     // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
     this._endingLabel = `"${this.currentTrack?.title ?? "?"}" (${this.currentTrack?.platform ?? "?"})`;
     trackState.reset(this);
@@ -1014,8 +966,6 @@ class MusicPlayer {
 
     this.releaseAudioProtection();
 
-    this.currentDownloadedFile = null;
-
     trackState.reset(this);
     this.pendingEndReason = "stop";
     this.currentTrackStartOffsetMs = 0;
@@ -1027,7 +977,7 @@ class MusicPlayer {
   /**
    * 재생 위치 이동. `/seek`·`/replay`·`/highlight`·대시보드가 전부 여기를 지난다.
    *
-   * 각 진입점이 `play(null, ms)`를 직접 부르면 로그에서 사람이 위치를 옮긴 것과 봇이 다음 곡으로
+   * 각 진입점이 `play(ms)`를 직접 부르면 로그에서 사람이 위치를 옮긴 것과 봇이 다음 곡으로
    * 넘어간 것을 가릴 수 없다. 진입점마다 로그를 다는 대신 통로를 하나로 둔다.
    *
    * @param {number} seekMs  이동할 위치(ms)
@@ -1041,7 +991,7 @@ class MusicPlayer {
     }
     const from = Math.round((this.lastPlaybackPosition || 0) / 1000);
     clog.info(`위치 이동: ${this._trackLabel()} | ${from}초 → ${Math.round(seekMs / 1000)}초 | 원인=${reason}`);
-    return this.play(null, seekMs);
+    return this.play(seekMs);
   }
 
   // reason: "skip"(기본) 또는 "jump"(대기열 점프. 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
@@ -1263,13 +1213,13 @@ class MusicPlayer {
             // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
             // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
             await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * this.currentTrackRetries));
-            await this.play(null, 0);
+            await this.play(0);
             return;
           }
           log.error(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${endedLabel} | 재시도 ${MAX_LIVE_REOPENS}회 소진`);
         } else if (this.currentTrackRetries <= MAX_TRACK_RETRIES) {
           log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${endedLabel} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
-          await this.play(null, totalPlaybackMs);
+          await this.play(totalPlaybackMs);
           return;
         } else {
           log.error(`재생을 복구하지 못해 다음 곡으로 넘깁니다: ${endedLabel} | ${at} 지점, 재시도 ${MAX_TRACK_RETRIES}회 소진`);
@@ -1283,13 +1233,10 @@ class MusicPlayer {
         return;
       }
 
-      // 참조 해제 (파일은 디스크에 유지. 제거는 audioCache 가 처리)
-      this.currentDownloadedFile = null;
-
       if (this.loop === "track" && reason !== "stop" && reason !== "jump") {
         // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생
         // 대기열·이전 곡 기록은 불변. 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
-        await this.play(null, 0);
+        await this.play(0);
         return;
       }
       if (reason !== "previous") {
@@ -1307,7 +1254,7 @@ class MusicPlayer {
         trackState.shiftNext(this);
 
         // 다음 트랙을 처음부터 재생
-        await this.play(null, 0);
+        await this.play(0);
 
         if (this.guild?.client?.musicEmbedManager) {
           await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
@@ -1419,7 +1366,7 @@ class MusicPlayer {
 
     trackState.enqueue(this, [picked]);
     trackState.shiftNext(this);
-    await this.play(null, 0);
+    await this.play(0);
 
     const embeds = this.guild?.client?.musicEmbedManager;
     if (embeds) {
@@ -1519,7 +1466,7 @@ class MusicPlayer {
         } catch (_) {}
       }
       trackState.shiftNext(this);
-      await this.play(null, 0);
+      await this.play(0);
     } else {
       trackState.setCurrent(this, null);
       // 시작/마지막 곡 실패 정리: 오디오플레이어를 정지해 '말하는 중'(speaking) 상태·유령 재생을 해제.
@@ -1570,10 +1517,6 @@ class MusicPlayer {
         this.persistState("shutdown").catch(() => {});
       } else {
         this.persistence?.removeSession();
-      }
-
-      if (!isShutdown) {
-        this.currentDownloadedFile = null;
       }
 
       // 복구 시스템 · 상태 확인 타이머 중지

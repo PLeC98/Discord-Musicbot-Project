@@ -98,7 +98,7 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
       player.queue.map((t) => t.id),
       ["c"],
     );
-    assert.deepEqual(calls.slice(-3), [["play", null, 0], ["embed", "b"], "update"]);
+    assert.deepEqual(calls.slice(-3), [["play", 0], ["embed", "b"], "update"]);
     assert.equal(sent[0].content, "✅ 재생목록의 2개 노래가 대기열에 추가되었습니다!");
     mock.timers.tick(10_000);
     await new Promise(setImmediate);

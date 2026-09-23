@@ -214,7 +214,7 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 
 function makeRestorePlayer(overrides = {}) {
   const { p, sp } = makePlayer({ connection: { state: {} }, calls: [], ...overrides }); // 연결 재수립 경로 생략
-  p.play = async function (_, ms) {
+  p.play = async function (ms) {
     // play()는 시작 직후 pauseReasons를 보고 즉시 일시정지 — 그 시점의 사유 유무를 기록
     this.calls.push(["play", ms, this.pauseReasons.has("manual")]);
   };
