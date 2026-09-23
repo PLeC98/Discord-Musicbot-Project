@@ -16,6 +16,16 @@ const statusConfig = require("../../../src/config/status");
 const aiConfig = require("../../../src/config/ai");
 const cookieConfig = require("../../../src/config/cookies");
 const yamlStore = require("../../../src/config/yamlStore");
+const { EmbedBuilder } = require("discord.js");
+const config = require("../../../config");
+const GuildSettingsManager = require("../../../src/store/guildSettings");
+const audioCache = require("../../../src/store/audioCache");
+const YouTube = require("../../../src/sources/youtube/index");
+const autoplaySources = require("../../../src/autoplay/sources/index");
+const assist = require("../../../src/autoplay/assist/index");
+const tokens = require("../../../src/autoplay/assist/tokens");
+const models = require("../../../src/config/schema/aiModels");
+const { deployCommands } = require("../../../src/app/commandLoader");
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
@@ -69,10 +79,10 @@ router.get("/status", requireOwner, (req, res) => {
       };
     })(),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
-    youtube: require("../../../src/sources/youtube/index").statusSnapshot(),
+    youtube: YouTube.statusSnapshot(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
-    logLevel: require("../../../config").logging.level,
+    logLevel: config.logging.level,
   });
 });
 
@@ -97,12 +107,10 @@ router.post("/broadcast", requireOwner, async (req, res) => {
   const client = req.app.locals.discordClient;
   if (!client?.isReady()) return res.status(503).json({ error: "봇이 아직 준비되지 않았습니다." });
 
-  const { EmbedBuilder } = require("discord.js");
   const cfg = ANNOUNCE_TYPES[type];
 
   const embed = new EmbedBuilder().setTitle(`${cfg.emoji} ${cfg.title}`).setDescription(body).setColor(cfg.color).setTimestamp().setFooter({ text: "봇 운영자" });
 
-  const GuildSettingsManager = require("../../../src/store/guildSettings");
   let sent = 0,
     failed = 0;
 
@@ -195,7 +203,6 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
 // Re-register slash commands with Discord (owner-triggered from dashboard).
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
 router.post("/redeploy-commands", requireOwner, async (req, res) => {
-  const { deployCommands } = require("../../../src/app/commandLoader");
   const r = await deployCommands({ force: true }); // 대시보드 버튼 = 명시적 재배포 의도. 지문 무시
   if (r.ok) {
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
@@ -206,7 +213,6 @@ router.post("/redeploy-commands", requireOwner, async (req, res) => {
 // 캐시 초기화. 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
 // 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
 router.post("/reset-cache", requireOwner, (req, res) => {
-  const audioCache = require("../../../src/store/audioCache");
   try {
     const result = audioCache.resetCache();
     log.warn({ sub: "admin" }, `대시보드 운영자 패널에서 캐시 초기화: 파일 ${result.removed}개 삭제`);
@@ -231,14 +237,13 @@ const CONFIG_NAMES = Object.keys(VALIDATORS);
 // 한쪽만 고치게 된다.
 router.get("/source-types", requireOwner, async (req, res) => {
   // AnimeThemes 연도 범위를 저쪽에 물어 채우므로 비동기다(하루에 한 번만 묻고 캐시한다)
-  res.json({ types: await require("../../../src/autoplay/sources/index").catalog() });
+  res.json({ types: await autoplaySources.catalog() });
 });
 
 // AI 보조. 키는 .env 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
 // 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
 router.get("/ai/state", requireOwner, (req, res) => {
-  const assist = require("../../../src/autoplay/assist/index");
   // 키 값은 절대 안 내려간다. 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
   const keys = aiConfig.aiKeys();
   res.json({
@@ -258,8 +263,6 @@ router.get("/ai/state", requireOwner, (req, res) => {
  * 화면은 여기서 받은 위젯·그룹 그대로 그린다.
  */
 router.get("/ai/fields", requireOwner, (req, res) => {
-  const assist = require("../../../src/autoplay/assist/index");
-  const models = require("../../../src/config/schema/aiModels");
   const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
   if (!registry) return res.json({ known: false, fields: [], models: [] });
 
@@ -278,8 +281,6 @@ router.get("/ai/fields", requireOwner, (req, res) => {
  * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
  */
 router.post("/ai/tokens", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplay/assist/index");
-  const tokens = require("../../../src/autoplay/assist/tokens");
   const provider = String(req.body?.provider || "");
   const model = String(req.body?.model || "");
   const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
@@ -305,8 +306,6 @@ router.post("/ai/tokens", requireOwner, async (req, res) => {
 
 /** 모델 프로필 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
 router.post("/ai/models/refresh", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplay/assist/index");
-  const models = require("../../../src/config/schema/aiModels");
   try {
     const registries = [
       ...new Set(
@@ -325,7 +324,6 @@ router.post("/ai/models/refresh", requireOwner, async (req, res) => {
  * 판정 테스트 1. 유튜브 주소로 후보를 읽는다. 아무것도 보내지 않는다.
  */
 router.post("/ai/judge/lookup", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplay/assist/index");
   const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
   if (!urls.length) return res.status(400).json({ error: "유튜브 주소를 적어 주세요." });
   if (urls.length > 20) return res.status(400).json({ error: "한 번에 20개까지" });
@@ -335,14 +333,12 @@ router.post("/ai/judge/lookup", requireOwner, async (req, res) => {
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식·장르를 고치는 대로 다시 그린다. */
 router.post("/ai/judge/lines", requireOwner, (req, res) => {
-  const assist = require("../../../src/autoplay/assist/index");
   const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one) => one && !one.error && one.title).slice(0, 20);
   res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) });
 });
 
 /** 판정 테스트 2. 그 후보들을 실제로 보내 곡별 판정을 받는다. */
 router.post("/ai/judge/run", requireOwner, async (req, res) => {
-  const assist = require("../../../src/autoplay/assist/index");
   const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
   res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "록")));
 });
@@ -385,7 +381,6 @@ router.put("/ai/prompt", requireOwner, (req, res) => {
 //
 // 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다.
 function cookieState() {
-  const YouTube = require("../../../src/sources/youtube/index");
   return {
     source: YouTube.statusSnapshot().cookies,
     hasFile: cookieConfig.cookiesReady(),
@@ -414,18 +409,18 @@ router.put("/cookies", requireOwner, (req, res) => {
 router.post("/ai/preview", requireOwner, async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return res.status(400).json({ error: "볼 내용이 없습니다." });
-  res.json(await require("../../../src/autoplay/assist/index").preview(data));
+  res.json(await assist.preview(data));
 });
 
 // 무료 확인. 모델 목록만 받는다. 추론을 안 돌리니 토큰이 안 든다.
 // 화면의 모델 고르는 칸도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
 router.post("/ai/models", requireOwner, async (req, res) => {
-  res.json(await require("../../../src/autoplay/assist/index").listModels(req.body?.data || {}));
+  res.json(await assist.listModels(req.body?.data || {}));
 });
 
 // 유료 확인. 짧은 물음 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
 router.post("/ai/ping", requireOwner, async (req, res) => {
-  res.json(await require("../../../src/autoplay/assist/index").ping(req.body?.data || {}));
+  res.json(await assist.ping(req.body?.data || {}));
 });
 
 router.get("/config/:name", requireOwner, (req, res) => {
