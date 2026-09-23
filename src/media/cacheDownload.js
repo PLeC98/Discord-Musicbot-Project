@@ -7,6 +7,7 @@ const log = require("../infra/log/logger").child({ category: "track" });
 const fsSync = require("fs");
 const { pipeline } = require("stream/promises");
 const audioConvert = require("./convert");
+const versionOf = require("./audioVersion");
 const YouTube = require("../sources/youtube/index");
 const equivalent = require("../sources/youtube/equivalent");
 const DirectLink = require("../sources/direct");
@@ -154,6 +155,7 @@ class TrackDownloader {
     const audioKey = audioKeyOf(track.audioUrl);
     let verifiedTitle = null;
     let audioDurationSec = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
+    let audioVersion; // 받은 음원의 판. 같은 주소에서 음원이 바뀐 것을 알아볼 값(audioVersion.js)
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
     audioCache.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
@@ -216,10 +218,12 @@ class TrackDownloader {
         const info = this._takeInfoJson(tempPath);
         verifiedTitle = info.title;
         audioDurationSec = info.durationSec;
+        audioVersion = info.version;
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
         // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
         const audioStream = await DirectLink.getStream(downloadUrl);
+        audioVersion = versionOf.fromHeaders(audioStream.headers);
 
         // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
         // 모르면 이미 Opus 인 음원까지 다시 굽게 된다.
@@ -267,7 +271,7 @@ class TrackDownloader {
       if (audioKey) {
         try {
           const _finalSt = fsSync.statSync(filepath);
-          audioCache.recordDownloadComplete(audioKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
+          audioCache.recordDownloadComplete(audioKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec, audioVersion });
           trackLookup.recordTrackLookup(track, { verified: !!verifiedTitle && track.platform === "youtube" });
         } catch {
           /* 무시 */
@@ -316,6 +320,7 @@ class TrackDownloader {
         return {
           title: typeof info?.title === "string" && info.title.trim() ? info.title : null,
           durationSec: Number(info?.duration) > 0 ? Number(info.duration) : null,
+          version: versionOf.fromYtDlpInfo(info),
         };
       } catch {
         try {
@@ -325,7 +330,7 @@ class TrackDownloader {
         }
       }
     }
-    return { title: null, durationSec: null };
+    return { title: null, durationSec: null, version: null };
   }
 
   /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */

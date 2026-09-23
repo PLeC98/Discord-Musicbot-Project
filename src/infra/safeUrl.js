@@ -233,6 +233,7 @@ async function getStream(rawUrl, deps = {}) {
   }
 
   const capped = byteCap(MAX_BYTES);
+  capped.headers = response.headers; // 받는 쪽이 음원의 판(ETag 등)을 읽는다
   pipeline(source, capped, () => {
     agent.destroy(); // 스트림 정상 종료/오류 어느 쪽이든 소켓 정리
   });

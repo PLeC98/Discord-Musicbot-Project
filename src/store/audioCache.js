@@ -129,7 +129,8 @@ class AudioCache {
   }
 
   // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
-  recordDownloadComplete(audioKey, filePath, fileSizeBytes, track, { durationSec = null } = {}) {
+  // audioVersion: 받은 음원의 판(media/audioVersion). 모르면 null
+  recordDownloadComplete(audioKey, filePath, fileSizeBytes, track, { durationSec = null, audioVersion = null } = {}) {
     const now = Date.now();
     this.db
       .prepare(
@@ -141,12 +142,14 @@ class AudioCache {
                 title               = COALESCE(?, title),
                 channel             = COALESCE(?, channel),
                 duration_sec        = COALESCE(?, duration_sec),
+                audio_version       = ?,
+                version_checked_at  = ?,
                 downloaded_at       = ?,
                 updated_at          = ?
             WHERE audio_key = ?
         `,
       )
-      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, now, now, audioKey);
+      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, now, audioKey);
 
     // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다. evictIfNeeded는 닫힌 DB를 기본 경로로 다시 연다
     setImmediate(() => {

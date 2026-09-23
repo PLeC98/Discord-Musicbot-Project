@@ -49,7 +49,7 @@ before(() => {
   };
   DirectLink.getStream = async (url) => {
     calls.direct.push(url);
-    return Readable.from([Buffer.from("raw-audio")]);
+    return Object.assign(Readable.from([Buffer.from("raw-audio")]), { headers: { etag: '"v1"', "content-length": "9" } });
   };
   audioConvert.toCacheOpus = async (src, out) => {
     calls.convert.push({ src, out, srcExists: fs.existsSync(src) });
@@ -87,7 +87,7 @@ const writesFile =
   ({ title = "영상 자체 제목", duration = 201 } = {}) =>
   (_url, options) => {
     fs.writeFileSync(options.output, "opus-bytes");
-    fs.writeFileSync(`${options.output}.info.json`, JSON.stringify({ title, duration }));
+    fs.writeFileSync(`${options.output}.info.json`, JSON.stringify({ title, duration, extractor_key: "Youtube", url: "https://rr1.googlevideo.com/videoplayback?itag=251&lmt=1700000000000000" }));
   };
 
 beforeEach(() => {
@@ -125,6 +125,8 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
   const row = audioRow("yt:aaaaaaaaaaa");
   assert.equal(row.status, "cached");
   assert.equal(row.duration_sec, 201, "오디오 길이는 info.json 의 값");
+  assert.equal(row.audio_version, "lmt:1700000000000000", "받은 포맷의 판을 적는다");
+  assert.ok(row.version_checked_at > 0);
   const lookup = lookupRow(track.requestKey);
   assert.equal(lookup.audio_url, "https://www.youtube.com/watch?v=aaaaaaaaaaa");
   assert.equal(lookup.title_verified, 1, "유튜브는 영상 자체 제목으로 확인됨");
@@ -236,6 +238,7 @@ test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 �
   assert.equal(calls.convert[0].srcExists, true);
   assert.equal(track.duration, 222);
   assert.equal(track.durationSource, "실측");
+  assert.equal(audioRow(`dl:${audioCache.md5("https://files.test/a.flac")}`).audio_version, 'etag="v1";length=9', "응답 헤더에서 판을 읽는다");
   assert.equal(audioRow(`dl:${audioCache.md5("https://files.test/a.flac")}`).duration_sec, 222);
   assert.equal(fs.readFileSync(file, "utf8"), "opus");
   assert.deepEqual(leftovers(), [], ".raw 를 남기지 않는다");
