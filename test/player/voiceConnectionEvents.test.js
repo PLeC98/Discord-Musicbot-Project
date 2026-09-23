@@ -3,14 +3,13 @@
 // VoiceConnectionManager 의 연결 이벤트 · 헬스체크 · 재연결 · 재개 · 연결 · 이동의 지금 동작을 고정한다
 // (구조 리팩터링 0단계). 복구 루프 자체는 voiceConnectionManager.test.js 가 본다.
 //
-// 음성 라이브러리의 joinVoiceChannel · entersState 를 불러오기 전에 바꿔 끼운다.
+// 음성 라이브러리의 joinVoiceChannel · entersState 는 관리자를 만들 때 가짜로 넘긴다.
 
 const { test, beforeEach, mock } = require("node:test");
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("events");
 
-const realVoice = require("@discordjs/voice");
-const { VoiceConnectionStatus } = realVoice;
+const { VoiceConnectionStatus } = require("@discordjs/voice");
 
 const joins = [];
 let enters = async () => {}; // (connection, status, ms) → 성공이면 resolve
@@ -31,20 +30,15 @@ function fakeConnection() {
   return c;
 }
 
-require.cache[require.resolve("@discordjs/voice")] = {
-  id: "@discordjs/voice",
-  loaded: true,
-  exports: {
-    ...realVoice,
-    joinVoiceChannel: (opts) => {
-      const c = fakeConnection();
-      joins.push({ opts, connection: c });
-      return c;
-    },
-    entersState: async (connection, status, ms) => {
-      entered.push([status, ms]);
-      return enters(connection, status, ms);
-    },
+const voiceLib = {
+  joinVoiceChannel: (opts) => {
+    const c = fakeConnection();
+    joins.push({ opts, connection: c });
+    return c;
+  },
+  entersState: async (connection, status, ms) => {
+    entered.push([status, ms]);
+    return enters(connection, status, ms);
   },
 };
 
@@ -68,7 +62,7 @@ function makePlayer({ channel = true } = {}) {
     },
   };
   guild.client.players.set("g1", player);
-  const vcm = new VoiceConnectionManager(player);
+  const vcm = new VoiceConnectionManager(player, voiceLib);
   const recoveries = [];
   vcm.startConnectionRecovery = async () => recoveries.push(true);
   return { player, vcm, recoveries };

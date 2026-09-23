@@ -125,33 +125,66 @@ const VoiceConnectionManager = require("../../src/player/voiceConnection");
 const SessionPersistence = require("../../src/player/sessionMirror");
 const QueueWarmer = require("../../src/player/queueWarmer");
 
+// 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
 const fakeConnection = () => Object.assign(new EventEmitter(), { state: { status: "ready" }, destroy() {}, subscribe() {} });
-VoiceConnectionManager.prototype.startConnectionHealthCheck = function () {};
-VoiceConnectionManager.prototype.setupConnectionEvents = function () {};
-VoiceConnectionManager.prototype.connect = async function () {
-  this.player.connection = fakeConnection();
-  return true;
-};
-
-SessionPersistence.prototype._mirror = function () {};
-SessionPersistence.prototype.persistState = async function (reason) {
-  calls.persists.push(reason);
-};
-SessionPersistence.prototype.startStateSync = function () {};
-SessionPersistence.prototype.stopStateSync = function () {};
-SessionPersistence.prototype.scheduleStatePersist = function (reason) {
-  calls.persists.push(`schedule:${reason}`);
-};
-SessionPersistence.prototype.removeSession = function () {
-  calls.persists.push("remove");
-};
-// 대기열이 바뀔 때 세션 저장이 받는 알림. 어떤 알림이 어떤 순서로 가는지만 남긴다
-for (const name of ["onSetCurrent", "onEnqueue", "onTake", "onRetire", "onRewind", "onRemoveAt", "onMove", "onClearQueue", "onReset", "onReplace"]) {
-  SessionPersistence.prototype[name] = function () {
-    calls.sink.push(name);
-  };
+class FakeVoice extends VoiceConnectionManager {
+  startConnectionHealthCheck() {}
+  setupConnectionEvents() {}
+  async connect() {
+    this.player.connection = fakeConnection();
+    return true;
+  }
 }
-QueueWarmer.prototype.start = function () {};
+
+// 대기열이 바뀔 때 세션 저장이 받는 알림(on…)은 어떤 알림이 어떤 순서로 가는지만 남긴다
+class FakePersistence extends SessionPersistence {
+  _mirror() {}
+  async persistState(reason) {
+    calls.persists.push(reason);
+  }
+  startStateSync() {}
+  stopStateSync() {}
+  scheduleStatePersist(reason) {
+    calls.persists.push(`schedule:${reason}`);
+  }
+  removeSession() {
+    calls.persists.push("remove");
+  }
+  onSetCurrent() {
+    calls.sink.push("onSetCurrent");
+  }
+  onEnqueue() {
+    calls.sink.push("onEnqueue");
+  }
+  onTake() {
+    calls.sink.push("onTake");
+  }
+  onRetire() {
+    calls.sink.push("onRetire");
+  }
+  onRewind() {
+    calls.sink.push("onRewind");
+  }
+  onRemoveAt() {
+    calls.sink.push("onRemoveAt");
+  }
+  onMove() {
+    calls.sink.push("onMove");
+  }
+  onClearQueue() {
+    calls.sink.push("onClearQueue");
+  }
+  onReset() {
+    calls.sink.push("onReset");
+  }
+  onReplace() {
+    calls.sink.push("onReplace");
+  }
+}
+
+class FakeWarmer extends QueueWarmer {
+  start() {}
+}
 
 // 시험마다 바꾸는 협력자. 기본값은 "아무 일도 안 일어남"
 const behavior = {
@@ -198,6 +231,9 @@ TrackDownloader.prototype.downloadTrack = function (track) {
 // 플레이어의 바깥 경계. 이 뒤로 만드는 플레이어가 모두 쓴다
 MusicPlayer.useBoundary({
   createAudioPlayer: () => new FakeAudioPlayer(),
+  createVoice: (player) => new FakeVoice(player),
+  createPersistence: (player) => new FakePersistence(player),
+  createWarmer: (player, deps) => new FakeWarmer(player, deps),
   createAudioResource,
   spawnFfmpeg,
   ffmpegCapabilities: () => caps,

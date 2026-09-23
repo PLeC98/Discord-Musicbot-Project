@@ -1,6 +1,8 @@
 "use strict";
 
 const { VoiceConnectionStatus, joinVoiceChannel, entersState } = require("@discordjs/voice");
+
+const VOICE_LIB = { joinVoiceChannel, entersState };
 const log = require("../infra/log/logger").child({ category: "voice" });
 const { holdingAdapterCreator } = require("../infra/voiceAdapter");
 
@@ -14,8 +16,10 @@ const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되�
  * 플레이어가 음성 라이브러리에 구독시키므로 플레이어에 있다.
  */
 class VoiceConnectionManager {
-  constructor(player) {
+  /** lib: 음성 라이브러리의 joinVoiceChannel · entersState. 기본은 진짜 */
+  constructor(player, lib = VOICE_LIB) {
     this.player = player;
+    this.lib = lib;
     this.isRecovering = false;
     this.recoveryAttempts = 0;
     this.maxRecoveryAttempts = 5;
@@ -40,9 +44,9 @@ class VoiceConnectionManager {
       // 네트워크 연결 끊김에는 즉시 자동 재연결 시도
       log.warn(`연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 자동 재연결 대기`);
       try {
-        await entersState(player.connection, VoiceConnectionStatus.Connecting, 5000);
+        await this.lib.entersState(player.connection, VoiceConnectionStatus.Connecting, 5000);
         // 여기에 도달하면 Discord가 자동 재연결을 시도 중임
-        await entersState(player.connection, VoiceConnectionStatus.Ready, 10000);
+        await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, 10000);
         log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${label()}`);
       } catch (error) {
         // 자동 재연결 실패, 음악 재생 중이면 자체 복구 시스템 시작
@@ -204,7 +208,7 @@ class VoiceConnectionManager {
       }
 
       // 새 연결 생성
-      player.connection = joinVoiceChannel({
+      player.connection = this.lib.joinVoiceChannel({
         channelId: player.voiceChannel.id,
         guildId: player.guild.id,
         adapterCreator: this._adapterCreator(),
@@ -217,7 +221,7 @@ class VoiceConnectionManager {
       player.connection.subscribe(player.audioPlayer);
 
       // 연결 준비 대기
-      await entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
+      await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
       return true;
     } catch (error) {
       log.error("강제 재연결 실패:", error);
@@ -258,7 +262,7 @@ class VoiceConnectionManager {
         }
       }
 
-      player.connection = joinVoiceChannel({
+      player.connection = this.lib.joinVoiceChannel({
         channelId: player.voiceChannel.id,
         guildId: player.guild.id,
         adapterCreator: this._adapterCreator(),
@@ -270,7 +274,7 @@ class VoiceConnectionManager {
       player.connection.subscribe(player.audioPlayer);
 
       // 연결 준비 대기
-      await entersState(player.connection, VoiceConnectionStatus.Ready, 30000);
+      await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, 30000);
       log.info(`음성 채널 참가: "${player.voiceChannel?.name ?? player.voiceChannel?.id}" (${player.guild?.name ?? player.guild?.id})`);
       return true;
     } catch (error) {

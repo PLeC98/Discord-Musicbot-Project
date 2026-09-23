@@ -1,4 +1,4 @@
-const { AudioPlayerStatus, createAudioPlayer, createAudioResource } = require("@discordjs/voice");
+const { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } = require("@discordjs/voice");
 const log = require("../infra/log/logger").child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = require("../infra/log/logger").child({ category: "watchdog" });
@@ -50,6 +50,7 @@ const noticeFailed = (error) => log.warn(`채널 알림을 보내지 못했습�
 const sec = (ms) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 // 바깥 경계: 음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소. 기본은 진짜다.
+// 음성 연결 · 세션 저장 · 대기열 미리 받기를 만드는 함수도 여기 둔다. 하네스가 가짜 협력 모듈을 넘기는 자리다.
 // 테스트는 생성자에 넘기거나, 플레이어를 직접 만들지 않는 경로(명령 · 곡 추가)를 시험할 때 useBoundary 로 기본을 바꾼다
 const REAL = {
   createAudioPlayer,
@@ -60,6 +61,11 @@ const REAL = {
   fetch: (url, init) => fetch(url, init),
   directStream: (url) => DirectLink.getStream(url),
   getStream: (track, seekSeconds, options) => streamUrl.getStream(track, seekSeconds, options),
+  joinVoiceChannel,
+  entersState,
+  createVoice: (player) => new VoiceConnectionManager(player, player.io),
+  createPersistence: (player) => new SessionPersistence(player),
+  createWarmer: (player, deps) => new QueueWarmer(player, deps),
 };
 let defaultBoundary = REAL;
 
@@ -104,13 +110,13 @@ class MusicPlayer {
     this.pauseReasons = new Set();
 
     // 협력 모듈. 각자 자기 상태와 타이머를 가진다
-    this.voice = new VoiceConnectionManager(this);
+    this.voice = this.io.createVoice(this);
     this.watch = new PlaybackWatch(this); // 종료 감시 · 버퍼링 감시
     this.idle = new IdleLeave(this); // 혼자 남음 · 틀 게 없음 퇴장
     this.downloader = new TrackDownloader(this);
-    this.persistence = new SessionPersistence(this);
+    this.persistence = this.io.createPersistence(this);
     this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
-    this.warmer = new QueueWarmer(this, {
+    this.warmer = this.io.createWarmer(this, {
       warm: (track) => this.downloader.warm(track),
       isCached: (track) => this.downloader.isCached(track),
       isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),

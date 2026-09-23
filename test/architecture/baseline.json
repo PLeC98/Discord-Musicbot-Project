@@ -26,8 +26,7 @@
   "requireCache": {
     "test/autoplay/autoplayAssist.test.js": 1,
     "test/controlEntrances.test.js": 2,
-    "test/dashboard/dashboardErrors.test.js": 3,
-    "test/player/voiceConnectionEvents.test.js": 1
+    "test/dashboard/dashboardErrors.test.js": 3
   },
   "methodSwap": [
     "test/autoplay/autoplayAssist.test.js",
