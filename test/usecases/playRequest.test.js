@@ -98,13 +98,15 @@ test("toRequester: null/문자열에 던지지 않는다", () => {
 
 // ── ensurePlayer ─────────────────────────────────────────────
 
-test("ensurePlayer: 없으면 만들고 맵에 넣는다", () => {
+test("ensurePlayer: 없으면 만들고 맵에 넣는다", (t) => {
   const client = makeClient();
   const guild = makeGuild();
   const channel = makeChannel("t1");
   const voice = { id: "v1" };
 
   const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: voice });
+  // 진짜 플레이어는 30초 음성 점검 타이머를 건다. 끄지 않으면 테스트 프로세스가 그만큼 살아 있다
+  t.after(() => clearInterval(player.connectionHealthCheck));
   assert.equal(client.players.get(GUILD_ID), player);
   assert.equal(player.textChannel, channel);
   assert.equal(player.voiceChannel, voice);
@@ -343,7 +345,7 @@ test("텍스트 채널이 없으면 서버가 지정한 봇 전용 채널로 채
   const guild = makeGuild({ channels: [botChannel] });
   client.players.set(GUILD_ID, { textChannel: null, voiceChannel: null, queue: [] });
 
-  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A" });
+  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
   assert.equal(client.players.get(GUILD_ID).textChannel, botChannel);
 });
 
@@ -354,7 +356,7 @@ test("봇 전용 채널이 미설정이면 아무 채널도 추측하지 않는�
   const guild = makeGuild({ channels: [makeChannel("random")] });
   client.players.set(GUILD_ID, { textChannel: null, voiceChannel: null, queue: [] });
 
-  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A" });
+  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
   assert.equal(client.players.get(GUILD_ID).textChannel, null);
 });
 
@@ -366,7 +368,7 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   const guild = makeGuild({ channels: [makeChannel("botCh")] });
   client.players.set(GUILD_ID, { textChannel: null, voiceChannel: null, queue: [] });
 
-  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given });
+  await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given, lookup });
   assert.equal(client.players.get(GUILD_ID).textChannel, given);
 });
 
