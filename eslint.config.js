@@ -46,13 +46,29 @@ module.exports = [
 
   {
     rules: {
-      // 빈 catch는 이 코드베이스의 의도된 관용구 (best-effort 정리 경로 다수)
+      // 테스트와 대시보드 클라이언트에서는 빈 catch 를 허용한다. 봇 쪽 코드는 아래에서 막는다
       "no-empty": ["error", { allowEmptyCatch: true }],
       // 미사용이라도 _ 접두사와 catch 파라미터는 허용 (API 시그니처 유지용),
       // rest 생략용 구조분해(const { omit, ...rest })도 허용
       "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true }],
       // 제어문자 매칭은 이 코드베이스의 정당한 용례 (ANSI 이스케이프 제거, 입력 정규화 방어)
       "no-control-regex": "off",
+    },
+  },
+
+  // 봇 쪽 코드의 품질 게이트. 지금의 위반은 eslint-suppressions.json 에 기준선으로 둔다(한 번만 만들고 다시 만들지 않는다).
+  // 위반을 줄인 커밋은 `eslint . --prune-suppressions` 로 억제 파일도 같이 줄인다. 새로 쓴 코드는 억제 목록에 못 들어간다.
+  // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다).
+  {
+    files: ["src/**/*.js", "commands/**/*.js", "events/**/*.js", "dashboard/server/**/*.js", "index.js", "config.js", "scripts/**/*.js"],
+    rules: {
+      complexity: ["error", 15],
+      "max-lines-per-function": ["error", { max: 120, skipBlankLines: true, skipComments: true }],
+      "max-depth": ["error", 4],
+      "max-params": ["error", 5],
+      "max-statements": ["error", 50],
+      "no-empty": ["error", { allowEmptyCatch: false }],
+      "no-empty-function": "error",
     },
   },
 ];

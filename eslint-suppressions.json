@@ -1,0 +1,309 @@
+{
+  "commands/dashboard.js": {
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "commands/join.js": {
+    "no-empty-function": {
+      "count": 2
+    }
+  },
+  "commands/loop.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "dashboard/server/routes/admin.js": {
+    "complexity": {
+      "count": 2
+    },
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "dashboard/server/routes/guilds.js": {
+    "complexity": {
+      "count": 4
+    },
+    "max-statements": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 6
+    }
+  },
+  "dashboard/server/sessionStore.js": {
+    "no-empty-function": {
+      "count": 3
+    }
+  },
+  "events/buttonHandler.js": {
+    "complexity": {
+      "count": 1
+    },
+    "no-empty": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "events/messageHandler.js": {
+    "no-empty-function": {
+      "count": 2
+    }
+  },
+  "events/modalHandler.js": {
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "events/playlistMoreHandler.js": {
+    "complexity": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 5
+    }
+  },
+  "events/sponsorConfigHandler.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "index.js": {
+    "complexity": {
+      "count": 2
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 2
+    }
+  },
+  "scripts/build-emoji-list.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "scripts/install-ffmpeg.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/CacheManager.js": {
+    "max-params": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/ChildProcessRegistry.js": {
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/ErrorHandler.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/GuildSettingsManager.js": {
+    "no-empty": {
+      "count": 2
+    }
+  },
+  "src/MusicEmbedManager.js": {
+    "complexity": {
+      "count": 5
+    },
+    "max-depth": {
+      "count": 4
+    },
+    "max-params": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
+    },
+    "no-empty": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 2
+    }
+  },
+  "src/MusicPlayer.js": {
+    "complexity": {
+      "count": 4
+    },
+    "max-depth": {
+      "count": 8
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 3
+    },
+    "no-empty": {
+      "count": 2
+    },
+    "no-empty-function": {
+      "count": 13
+    }
+  },
+  "src/NowPlayingPanel.js": {
+    "no-empty-function": {
+      "count": 2
+    }
+  },
+  "src/QueueWarmer.js": {
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/SessionPersistence.js": {
+    "complexity": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/SoundCloud.js": {
+    "max-depth": {
+      "count": 1
+    }
+  },
+  "src/SponsorSkipper.js": {
+    "no-empty-function": {
+      "count": 2
+    }
+  },
+  "src/Spotify.js": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/TrackDownloader.js": {
+    "complexity": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 2
+    }
+  },
+  "src/TrackResolver.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/VoiceConnectionManager.js": {
+    "complexity": {
+      "count": 3
+    },
+    "max-depth": {
+      "count": 2
+    },
+    "no-empty": {
+      "count": 1
+    }
+  },
+  "src/YouTube.js": {
+    "complexity": {
+      "count": 3
+    },
+    "max-depth": {
+      "count": 5
+    }
+  },
+  "src/audioSplicer.js": {
+    "complexity": {
+      "count": 1
+    },
+    "max-depth": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/autoplayAssist.js": {
+    "complexity": {
+      "count": 1
+    },
+    "no-empty": {
+      "count": 2
+    }
+  },
+  "src/autoplaySources.js": {
+    "complexity": {
+      "count": 7
+    }
+  },
+  "src/chunkedStream.js": {
+    "complexity": {
+      "count": 1
+    },
+    "max-depth": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/configDataLoader.js": {
+    "complexity": {
+      "count": 6
+    }
+  },
+  "src/playRequest.js": {
+    "complexity": {
+      "count": 2
+    },
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/playbackResponder.js": {
+    "no-empty-function": {
+      "count": 3
+    }
+  },
+  "src/playerSessionStore.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/playlistMore.js": {
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/replyLifetime.js": {
+    "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/youtubeMatch.js": {
+    "complexity": {
+      "count": 2
+    }
+  }
+}
