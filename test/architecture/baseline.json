@@ -33,8 +33,7 @@
     "events/modalHandler.js": 1,
     "dashboard/server/index.js": 1,
     "dashboard/server/routes/admin.js": 22,
-    "dashboard/server/routes/guilds.js": 1,
-    "index.js": 6
+    "dashboard/server/routes/guilds.js": 1
   },
   "configCapture": {
     "src/autoplay/sources/http.js": 1,
@@ -43,8 +42,7 @@
     "src/sources/spotify.js": 1,
     "src/sources/youtube/ytdlpRun.js": 3,
     "dashboard/server/index.js": 3,
-    "dashboard/server/routes/guilds.js": 2,
-    "index.js": 5
+    "dashboard/server/routes/guilds.js": 2
   },
   "requireCache": {
     "test/autoplay/autoplayAssist.test.js": 1,
