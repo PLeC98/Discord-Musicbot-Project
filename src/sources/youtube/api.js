@@ -143,6 +143,7 @@ class YouTubeApi {
 
       return tracks;
     } catch (error) {
+      if (this.codeOf(error)) throw error; // 링크 한 곡이 까닭이 분명하게 실패했다. getInfo 참조
       log.error("유튜브 검색 실패:", error.message || error);
       return [];
     }
@@ -194,6 +195,9 @@ class YouTubeApi {
 
       return track;
     } catch (error) {
+      // 못 트는 까닭이 분명한 실패(비공개 · 삭제 · 연령 제한)는 던진다. 찾는 쪽이 그 까닭을 사용자에게 알린다.
+      // 삼키면 "결과를 찾을 수 없습니다"로 뭉개진다. 까닭을 모르는 실패만 null 이다
+      if (this.codeOf(error)) throw error;
       log.error("영상 정보 조회 실패:", this.briefError(error));
       return null;
     }

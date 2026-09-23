@@ -129,9 +129,21 @@ test("정보: 칸을 옮겨 담고 포맷 목록을 붙인다. 라이브는 조�
   assert.equal(t.liveStatus, "is_live");
 });
 
-test("정보: 실패하면 null(던지지 않는다)", async () => {
-  respond = () => ({ fail: "ERROR: Video unavailable" });
+test("정보: 까닭을 모르는 실패는 null(던지지 않는다)", async () => {
+  respond = () => ({ fail: "ERROR: [youtube] fffffffffff: Some other failure" });
   assert.equal(await YouTube.getInfo("https://www.youtube.com/watch?v=fffffffffff"), null);
+});
+
+// 회귀 대상: 비공개 · 연령 제한 영상 링크를 넣으면 까닭을 삼켜 "결과를 찾을 수 없습니다"로만 나왔다
+test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
+  respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
+  await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => e.code === "video-unavailable");
+  await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => e.code === "video-unavailable");
+
+  const lookup = require("../../src/sources/lookup");
+  const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
+  assert.equal(result.success, false);
+  assert.match(result.message, /동영상을 사용할 수 없습니다/);
 });
 
 // ── 스트림 ────────────────────────────────────────────────────────────
