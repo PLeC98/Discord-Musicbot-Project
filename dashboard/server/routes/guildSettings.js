@@ -12,6 +12,7 @@ const SponsorBlock = require("../../../src/sources/sponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
 const { getPlayer } = require("../guildAccess");
+const { parse, settingsBody } = require("../requestSchemas");
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS = {
@@ -89,42 +90,22 @@ function createGuildSettingsRouter() {
       return res.status(403).json({ error: "서버 설정을 변경할 권한이 없습니다 (서버 관리 권한 필요)" });
     }
 
-    const { djRoleIds, botChannelId, sponsorblock, playlistAddMax } = req.body || {};
+    const body = parse(settingsBody(GuildSettingsManager.playlistAddLimits()), req.body ?? {});
+    if (!body.ok) return res.status(400).json({ error: body.error });
+    // 칸마다 undefined 는 변경 없음
+    const { djRoleIds, botChannelId, sponsorblock, playlistAddMax: nextPlaylistAdd } = body.value;
 
-    // 재생목록 한 번에 넣는 곡 수 (선택적). null이면 기본값으로
-    let nextPlaylistAdd; // undefined=변경 없음
-    if (playlistAddMax !== undefined) {
-      const { min, max } = GuildSettingsManager.playlistAddLimits();
-      if (playlistAddMax !== null && !(Number.isSafeInteger(playlistAddMax) && playlistAddMax >= min && playlistAddMax <= max)) {
-        return res.status(400).json({ error: `재생목록 한 번에 넣는 곡 수는 ${min}~${max} 사이의 정수여야 합니다` });
-      }
-      nextPlaylistAdd = playlistAddMax;
-    }
-
-    // SponsorBlock 검증 (선택적). enabled(bool)·categories(유효 카테고리 배열)
-    let nextSponsor; // undefined=변경 없음
+    // SponsorBlock. 모르는 카테고리는 걸러 낸다
+    let nextSponsor;
     if (sponsorblock !== undefined) {
-      if (typeof sponsorblock !== "object" || sponsorblock === null) {
-        return res.status(400).json({ error: "sponsorblock 설정 형식이 올바르지 않습니다" });
-      }
-      const enabled = typeof sponsorblock.enabled === "boolean" ? sponsorblock.enabled : null;
-      let categories = null;
-      if (sponsorblock.categories !== undefined) {
-        if (!Array.isArray(sponsorblock.categories) || sponsorblock.categories.some((c) => typeof c !== "string")) {
-          return res.status(400).json({ error: "sponsorblock.categories는 문자열 배열이어야 합니다" });
-        }
-        const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
-        categories = [...new Set(sponsorblock.categories.filter((c) => valid.has(c)))];
-      }
-      nextSponsor = { enabled, categories };
+      const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
+      const categories = sponsorblock.categories === undefined ? null : [...new Set(sponsorblock.categories.filter((c) => valid.has(c)))];
+      nextSponsor = { enabled: sponsorblock.enabled, categories };
     }
 
-    // 검증
+    // DJ 역할. 이 서버에 없는 역할은 걸러 낸다
     let nextRoles = null;
     if (djRoleIds !== undefined) {
-      if (!Array.isArray(djRoleIds) || djRoleIds.some((id) => typeof id !== "string")) {
-        return res.status(400).json({ error: "djRoleIds는 역할 ID 문자열 배열이어야 합니다" });
-      }
       nextRoles = [...new Set(djRoleIds)].filter((id) => id !== guild.id && guild.roles.cache.has(id));
       if (nextRoles.length > 25) {
         // 디스코드 /setdjrole GUI(셀렉트 메뉴 최대 25개)와 정합 유지
@@ -133,16 +114,14 @@ function createGuildSettingsRouter() {
     }
 
     let nextChannel; // undefined=변경 없음, null=해제, string=지정
-    if (botChannelId !== undefined) {
-      if (botChannelId === null || botChannelId === "") {
-        nextChannel = null;
-      } else {
-        const ch = typeof botChannelId === "string" ? guild.channels.cache.get(botChannelId) : null;
-        if (!ch || ch.type !== ChannelType.GuildText) {
-          return res.status(400).json({ error: "봇 전용 채널은 일반 텍스트 채널이어야 합니다" });
-        }
-        nextChannel = botChannelId;
+    if (botChannelId === null || botChannelId === "") {
+      nextChannel = null;
+    } else if (botChannelId !== undefined) {
+      const ch = guild.channels.cache.get(botChannelId);
+      if (!ch || ch.type !== ChannelType.GuildText) {
+        return res.status(400).json({ error: "봇 전용 채널은 일반 텍스트 채널이어야 합니다" });
       }
+      nextChannel = botChannelId;
     }
 
     // 반영

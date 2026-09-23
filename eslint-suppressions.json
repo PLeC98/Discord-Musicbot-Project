@@ -25,9 +25,6 @@
   "dashboard/server/routes/guildSettings.js": {
     "complexity": {
       "count": 1
-    },
-    "max-statements": {
-      "count": 1
     }
   },
   "dashboard/server/routes/player.js": {

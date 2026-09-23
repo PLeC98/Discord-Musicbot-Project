@@ -443,3 +443,21 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   guild.members.me = null;
   currentMember = plainMember();
 });
+
+test("PUT settings: 모양이 틀리면 그 칸의 문장으로 400, 아무것도 반영하지 않는다", async () => {
+  currentMember = modMember();
+  const rowBefore = settingsRow();
+  const cases = [
+    [{ djRoleIds: "r1" }, "djRoleIds는 역할 ID 문자열 배열이어야 합니다"],
+    [{ sponsorblock: { categories: [1] } }, "sponsorblock.categories는 문자열 배열이어야 합니다"],
+    [{ sponsorblock: "on" }, "sponsorblock 설정 형식이 올바르지 않습니다"],
+    [{ botChannelId: 5 }, "봇 전용 채널은 일반 텍스트 채널이어야 합니다"],
+    [[1, 2], "서버 설정 형식이 올바르지 않습니다"],
+  ];
+  for (const [body, error] of cases) {
+    const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, body);
+    assert.equal(r.status, 400, JSON.stringify(body));
+    assert.deepEqual(r.json, { error });
+  }
+  assert.deepEqual(settingsRow(), rowBefore);
+});
