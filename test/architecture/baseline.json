@@ -21,8 +21,7 @@
     "commands/system.js": 1,
     "events/modalHandler.js": 1,
     "dashboard/server/index.js": 1,
-    "dashboard/server/routes/admin.js": 21,
-    "dashboard/server/routes/player.js": 1
+    "dashboard/server/routes/admin.js": 21
   },
   "configCapture": {
     "src/autoplay/sources/http.js": 1,

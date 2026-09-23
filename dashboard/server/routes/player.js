@@ -10,7 +10,7 @@ const { resolveMember, toApiError } = require("../middleware/requireControl");
 const { checkControl, checkAdd, isModerator } = require("../../../src/usecases/permissions");
 const controls = require("../../../src/usecases/controls");
 const { controlApiError } = require("../../../src/ui/controlMessages");
-const { requestPlayback, continueCollection } = require("../../../src/usecases/addTracks");
+const { requestPlayback, continueCollection, ensurePlayer } = require("../../../src/usecases/addTracks");
 const { validState, MAX_COUNT, LIFETIME_MS } = require("../../../src/usecases/playlistMore");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
@@ -137,15 +137,8 @@ function joinRoute(router) {
       return res.status(403).json({ error: "봇이 이미 다른 음성 채널에서 사용 중입니다" });
     }
 
-    let player = client.players.get(guildId);
-    if (!player) {
-      const MusicPlayer = require("../../../src/player/Player");
-      // textChannel은 여기서 정하지 않는다. 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
-      player = new MusicPlayer(guild, null, voiceChannel);
-      client.players.set(guildId, player);
-    } else {
-      player.voiceChannel = voiceChannel;
-    }
+    // textChannel은 여기서 정하지 않는다. 곡 추가 시 코어가 서버의 봇 전용 채널로 채운다
+    const player = ensurePlayer(client, { guild, voiceChannel });
 
     try {
       await player.connect();
