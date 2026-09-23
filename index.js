@@ -18,6 +18,7 @@ const { scheduleReplyCleanup } = require("./src/ui/replyLifetime");
 const PlayerRegistry = require("./src/player/registry");
 const { ALLOWED_MENTIONS } = require("./src/ui/mentions");
 const { createFileDestination } = require("./src/infra/log/file");
+const statusConfig = require("./src/config/status");
 const trackState = require("./src/player/trackState");
 
 // 로그 레벨 적용. config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
@@ -535,6 +536,15 @@ function startBot() {
       } catch (error) {
         log.error(error.message);
         log.error("config/genres.yaml 을 고친 뒤 다시 실행하세요.");
+        process.exit(1);
+      }
+
+      // 활동 문구 설정도 여기서 본다. 틀린 채로 뜨면 쓸 설정이 없다(돌던 중에 틀리면 직전 설정으로 돈다)
+      try {
+        statusConfig.status();
+      } catch (error) {
+        log.error(error.message);
+        log.error("config/status.yaml 을 고친 뒤 다시 실행하세요.");
         process.exit(1);
       }
 

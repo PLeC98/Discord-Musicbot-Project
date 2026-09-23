@@ -90,13 +90,36 @@ test("항목 이름 규칙은 장르와 같다", () => {
 
 // ── 읽기 ──────────────────────────────────────────────────────────────────
 
-test("읽을 때는 던지지 않고 알리기만 한다", () => {
-  // status()는 회전 주기마다 setInterval 안에서 불린다 — 던지면 타이머에서 잡히지 않는 예외가 된다.
+test("처음 읽을 때 틀렸으면 문제를 한 줄씩 적어 던진다(기동이 멈춘다)", () => {
+  statusConfig._reset();
   fs.writeFileSync(path.join(DIR, "status.yaml"), "interval: 1\nmessages: []\n");
   yamlStore._cache.clear();
 
-  const data = statusConfig.status();
-  assert.equal(data.interval, 1, "틀렸어도 그대로 돌려준다 — 봇이 멈추는 것보다 낫다");
+  assert.throws(
+    () => statusConfig.status(),
+    (e) => e.code === "CONFIG_INVALID" && e.message === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
+  );
+});
+
+test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {
+  // status()는 회전 주기마다 setInterval 안에서 불린다 — 던지면 타이머에서 잡히지 않는 예외가 된다.
+  statusConfig._reset();
+  const file = path.join(DIR, "status.yaml");
+  const write = (text, mtime) => {
+    fs.writeFileSync(file, text);
+    fs.utimesSync(file, mtime, mtime);
+  };
+  write("interval: 30\nmessages: [맞는 문구]\n", 1000);
+  yamlStore._cache.clear();
+  assert.deepEqual(statusConfig.status().messages, ["맞는 문구"]);
+
+  write("interval: 1\nmessages: []\n", 2000);
+  const kept = statusConfig.status();
+  assert.equal(kept.interval, 30, "틀린 파일은 쓰지 않는다");
+  assert.deepEqual(kept.messages, ["맞는 문구"]);
+
+  write("interval: 60\nmessages: [고친 문구]\n", 3000);
+  assert.deepEqual(statusConfig.status().messages, ["고친 문구"]);
 });
 
 // ── 고르기 ────────────────────────────────────────────────────────────────

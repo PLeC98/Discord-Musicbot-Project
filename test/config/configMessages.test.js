@@ -390,10 +390,13 @@ test("장르 파일이 검사에 걸리면 던진다(기동이 멈춰야 한다)
   );
 });
 
-test("상태 파일은 검사에 걸려도 던지지 않고 그대로 돌려준다(타이머 안에서 불린다)", () => {
+test("상태 파일도 처음부터 검사에 걸리면 던진다. 문구는 장르와 같은 모양으로 한 줄씩", () => {
+  statusConfig._reset();
   write("status", "interval: 5\nmessages: []\n");
-  const data = statusConfig.status();
-  assert.equal(data.interval, 5);
+  assert.throws(
+    () => statusConfig.status(),
+    (e) => e.code === "CONFIG_INVALID" && e.message === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
+  );
 });
 
 test("AI 파일은 검사에 걸리면 끈 채로 돌려주고, 파일이 없으면 꺼진 것으로 본다", () => {
