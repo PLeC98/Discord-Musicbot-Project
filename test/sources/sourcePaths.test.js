@@ -40,7 +40,7 @@ beforeEach(() => {
     obj[key] = fn;
   }
   audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true });
+  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true, maxRetries: 5 });
 });
 
 after(() => {
@@ -49,7 +49,7 @@ after(() => {
     obj[key] = fn;
   }
   audioCache.close();
-  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 const ytTrack = (id, extra = {}) => ({ id, title: `곡 ${id}`, artist: "가수", url: `https://www.youtube.com/watch?v=${id}`, duration: 200, platform: "youtube", ...extra });

@@ -26,7 +26,7 @@ before(() => {
 
 after(() => {
   audioCache?.close();
-  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 // 받아 둔 곡 하나. 파일과 audio_cache 행을 같이 만든다

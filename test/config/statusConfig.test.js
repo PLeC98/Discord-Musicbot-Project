@@ -22,7 +22,7 @@ const CONFIG = path.join(__dirname, "..", "..", "config");
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
   yamlStore._setConfigDir(CONFIG);
-  fs.rmSync(DIR, { recursive: true, force: true });
+  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 const ok = { messages: ["🎵 /play"] };

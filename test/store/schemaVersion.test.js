@@ -17,7 +17,7 @@ const storeDb = require("../../src/store/db");
 
 after(() => {
   audioCache.close();
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 });
 
 function open(name) {

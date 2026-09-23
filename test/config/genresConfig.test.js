@@ -26,7 +26,7 @@ const touch = (name) => {
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
   yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
-  fs.rmSync(DIR, { recursive: true, force: true });
+  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 // assert.throws는 오류를 돌려주지 않는다 — 검증기로 받는다.

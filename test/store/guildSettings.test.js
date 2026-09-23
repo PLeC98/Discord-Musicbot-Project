@@ -26,7 +26,7 @@ beforeEach(() => {
 
 after(() => {
   audioCache.close();
-  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 // 메모리 캐시를 비우고 다시 읽는다. DB 에 실제로 남았는지 본다

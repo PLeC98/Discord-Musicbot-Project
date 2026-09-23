@@ -106,7 +106,7 @@ test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치�
   const left = fs.readdirSync(dir);
   assert.deepEqual(left, [], "DB에 없는 .opus 고아 + 잔해가 모두 정리되어야 함");
 
-  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 });
 
 test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", () => {
@@ -126,7 +126,7 @@ test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", ()
     assert.equal(fs.existsSync(temp), false, "받기가 끝났거나 죽은 뒤 남은 것은 정리된다");
   } finally {
     audioCache._cacheDir = prevDir;
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
@@ -157,7 +157,7 @@ function withTempCacheDir(fn) {
     return fn(dir);
   } finally {
     audioCache._cacheDir = prevDir;
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 }
 

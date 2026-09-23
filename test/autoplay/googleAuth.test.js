@@ -15,7 +15,7 @@ const assert = require("node:assert/strict");
 const auth = require("../../src/autoplay/assist/googleAuth");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sa-"));
-after(() => fs.rmSync(DIR, { recursive: true, force: true }));
+after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
 // 진짜 키로 서명해야 crypto 가 통과한다 — 작게 뽑는다
 const { privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });

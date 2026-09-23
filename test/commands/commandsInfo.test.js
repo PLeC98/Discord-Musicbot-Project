@@ -28,7 +28,7 @@ const sponsorConfig = require("../../events/sponsorConfigHandler");
 
 after(() => {
   audioCache.close();
-  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {

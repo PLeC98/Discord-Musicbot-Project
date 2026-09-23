@@ -45,7 +45,7 @@ after(() => {
   Object.assign(lookup, real);
   yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
   audioCache.close();
-  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {

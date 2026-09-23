@@ -27,7 +27,7 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookies-"));
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
   yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
-  fs.rmSync(DIR, { recursive: true, force: true });
+  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 beforeEach(() => cookieConfig.clearCookies());
 

@@ -13,7 +13,7 @@ const { REST } = require("discord.js");
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cmdhash-"));
 let hashSeq = 0;
 const freshHashPath = () => path.join(tmpDir, `hash-${hashSeq++}.json`);
-after(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+after(() => fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 }));
 
 // commandLoader require 전에 패치 — deployCommands가 만드는 new REST() 인스턴스에 적용됨
 const realPut = REST.prototype.put;

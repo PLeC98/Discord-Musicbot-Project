@@ -16,7 +16,7 @@ const audioCache = require("../../src/store/audioCache");
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-download-race-"));
-after(() => fs.rmSync(dir, { recursive: true, force: true }));
+after(() => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }));
 
 const KEY = "a".repeat(32);
 const finalPath = path.join(dir, `track_${KEY}.opus`);

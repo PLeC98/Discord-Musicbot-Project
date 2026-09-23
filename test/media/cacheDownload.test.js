@@ -79,7 +79,7 @@ after(() => {
   SponsorBlock.forTrack = real.forTrack;
   Object.assign(equivalent, { findYouTubeEquivalent: real.findYouTubeEquivalent, reresolveYouTube: real.reresolveYouTube });
   audioCache.close();
-  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 // yt-dlp 가 정상으로 받았을 때 남기는 것: 출력 파일과 곁들인 info.json
@@ -94,7 +94,7 @@ beforeEach(() => {
   for (const k of Object.keys(calls)) calls[k].length = 0;
   ytdlpBehavior = writesFile();
   audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true });
+  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true, maxRetries: 5 });
   fs.mkdirSync(audioCache._cacheDir, { recursive: true });
 });
 

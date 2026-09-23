@@ -17,7 +17,7 @@ const yamlStore = require("../../src/config/yamlStore");
 const assist = require("../../src/autoplay/assist/index");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
-after(() => fs.rmSync(DIR, { recursive: true, force: true }));
+after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
 // 설정을 갈아끼운다. _setConfigDir 가 읽어 둔 것을 버리므로 같은 이름을 몇 번이고 바꿔 쓸 수 있다.
 //

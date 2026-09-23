@@ -299,7 +299,7 @@ before(() => {
 
 after(() => {
   yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
-  fs.rmSync(CONFIG_DIR, { recursive: true, force: true });
+  fs.rmSync(CONFIG_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 test("설정: 운영자가 아니면 읽지도 쓰지도 못한다", async () => {

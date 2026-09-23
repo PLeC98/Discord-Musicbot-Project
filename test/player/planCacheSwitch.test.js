@@ -22,7 +22,7 @@ const realDir = audioCache._cacheDir;
 audioCache._cacheDir = DIR;
 after(() => {
   audioCache._cacheDir = realDir;
-  fs.rmSync(DIR, { recursive: true, force: true });
+  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 const planCacheSwitch = MusicPlayer.prototype._planCacheSwitch;

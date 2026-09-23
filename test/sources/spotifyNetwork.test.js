@@ -48,7 +48,7 @@ after(() => {
   global.fetch = realFetch;
   Object.assign(config.spotify, savedCreds);
   audioCache.close();
-  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => {

@@ -32,7 +32,7 @@ after(() => {
   try {
     fs.unlinkSync(DB_PATH);
   } catch {}
-  fs.rmSync(CACHE_DIR, { recursive: true, force: true });
+  fs.rmSync(CACHE_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 // 캐시된 곡 하나를 만든다 — 행 + 파일.

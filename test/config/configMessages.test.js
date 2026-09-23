@@ -379,7 +379,7 @@ const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), t
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
   yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
-  fs.rmSync(DIR, { recursive: true, force: true });
+  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 test("장르 파일이 검사에 걸리면 던진다(기동이 멈춰야 한다). 문구는 한 줄씩 들여 쓴다", () => {

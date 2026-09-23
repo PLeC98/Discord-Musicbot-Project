@@ -19,7 +19,7 @@ function openTempStore(prefix = "store-") {
     db: () => audioCache.db,
     close() {
       audioCache.close();
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
     },
   };
 }

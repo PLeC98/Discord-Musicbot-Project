@@ -42,7 +42,7 @@ before(() => {
 after(() => {
   server.close();
   yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
-  fs.rmSync(DIR, { recursive: true, force: true });
+  fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
 beforeEach(() => cookieConfig.clearCookies());

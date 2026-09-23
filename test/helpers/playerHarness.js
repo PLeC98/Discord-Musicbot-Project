@@ -266,7 +266,7 @@ function reset() {
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
   audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true });
+  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true, maxRetries: 5 });
   fs.mkdirSync(audioCache._cacheDir, { recursive: true });
 }
 

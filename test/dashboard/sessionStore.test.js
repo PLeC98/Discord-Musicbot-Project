@@ -25,7 +25,7 @@ after(() => {
       s.close();
     } catch {}
   }
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 });
 });
 
 const getAsync = (store, sid) => new Promise((res, rej) => store.get(sid, (e, s) => (e ? rej(e) : res(s))));
