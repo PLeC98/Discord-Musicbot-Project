@@ -13,6 +13,7 @@ class CurrentPlayback {
     this.resource = null; // 음성 라이브러리의 오디오 리소스
     this.cacheFile = null; // 받아 둔 파일로 틀면 그 경로
     this.transport = null; // transportOf 의 답 { via, live, cacheable }
+    this.isLive = null; // 지금 라이브인가(yt-dlp 의 답). 모르면 null
     this.live = false; // 라이브를 주소 갈래로 트는가. 끝 처리가 재연결 여부를 이걸로 가른다
     this.liveExitCode = null; // 그 갈래 ffmpeg 의 종료 코드(끝났으면)
     this.inputProgressAt = null; // 입력이 마지막으로 들어온 때. 버퍼링 감시가 본다

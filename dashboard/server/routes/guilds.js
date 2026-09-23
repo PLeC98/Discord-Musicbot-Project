@@ -148,7 +148,7 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
           url: track.pageUrl,
           platform: track.platform,
           platformLabel: labelOf(track.platform),
-          isLive: Boolean(track.isLive),
+          isLive: Boolean(player.isLive),
           currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
           requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,
           // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점. 대시보드 진행바 마커용
@@ -572,7 +572,7 @@ router.post("/:guildId/player/seek", requireAuth, requireControl, async (req, re
   // 중간에 null 돼 크래시하던 문제 방지. 아직 실제 재생 전이므로 seek 대상 자체가 없다.
   if (player.isPlayStarting) return res.status(409).json({ error: "재생을 준비 중입니다. 잠시 후 다시 시도해 주세요." });
   // 라이브에는 실시간밖에 없다. 옮길 자리가 없다.
-  if (player.currentTrack.isLive) return res.status(409).json({ error: "라이브 방송은 구간 이동을 할 수 없습니다." });
+  if (player.isLive) return res.status(409).json({ error: "라이브 방송은 구간 이동을 할 수 없습니다." });
 
   const positionSec = Number(req.body.position);
   // Number.isFinite: parseFloat와 달리 "Infinity"(라이브 duration 0에서 클램프를 뚫음)·비숫자 문자열 거부

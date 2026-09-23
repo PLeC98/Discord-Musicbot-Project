@@ -206,6 +206,13 @@ class MusicPlayer {
     return this.playback?.resource ?? null;
   }
 
+  /** 지금 곡이 라이브인가. 틀고 있으면 이번 재생의 답, 아직 모르면 담을 때의 답 */
+  get isLive() {
+    const pb = this.playback;
+    if (pb && pb.track === this.currentTrack && pb.isLive != null) return pb.isLive;
+    return Boolean(this.currentTrack?.isLive);
+  }
+
   /** play() 가 곡을 여는 중인가(자동 스킵 · 대시보드 탐색이 끼어들지 않게 본다) */
   get isPlayStarting() {
     return this.lifecycle.starting;
@@ -342,14 +349,9 @@ class MusicPlayer {
 
       // 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 담길 때 방송 중이었어도 그사이 끝나
       // 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 담긴 것도 있다(재생목록·믹스).
-      // 탐색·반복·종료 감시·표시가 전부 이 값을 읽으므로 여기서 한 번 맞춰 둔다.
-      if (streamInfo && typeof streamInfo === "object" && "liveStatus" in streamInfo) {
-        this.currentTrack.liveStatus = streamInfo.liveStatus;
-        this.currentTrack.isLive = streamInfo.liveStatus === "is_live";
-      } else if (downloadedFile) {
-        // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 받지 않는다.
-        this.currentTrack.isLive = false;
-      }
+      // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 받지 않는다.
+      if (streamInfo && typeof streamInfo === "object" && "liveStatus" in streamInfo) pb.isLive = streamInfo.liveStatus === "is_live";
+      else if (downloadedFile) pb.isLive = false;
 
       // 주소를 주는 갈래는 여기뿐이다(HLS). 이 자리의 답이다. 받기에 실패해 캐시 파일로 바꾸는 갈래는 아래에서 따로 간다
       const transport = transportOf({ file: downloadedFile, streamUrl: streamUrl_final, streamInfo });
@@ -570,7 +572,7 @@ class MusicPlayer {
       // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
       //
       // 라이브는 받아 두지 않으므로 적을 것이 없다.
-      if (audioKey && !this.currentTrack.isLive) {
+      if (audioKey && !this.isLive) {
         try {
           audioCache.recordPlayback(audioKey);
           trackLookup.recordTrackLookup(this.currentTrack, { verified: titleVerified });
@@ -962,7 +964,7 @@ class MusicPlayer {
    */
   seek(seekMs, reason = "seek") {
     // 라이브에는 실시간밖에 없다. 되감을 자리도, 앞서 갈 자리도 없다.
-    if (this.currentTrack?.isLive) {
+    if (this.isLive) {
       clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);
       return { success: false, message: S.ERR_LIVE_NO_SEEK };
     }
@@ -1037,7 +1039,7 @@ class MusicPlayer {
 
   /** 재생 중이거나 대기열에 라이브가 있는가. 반복은 끝이 있어야 성립한다. */
   hasLiveTrack() {
-    if (this.currentTrack?.isLive) return true;
+    if (this.isLive) return true;
     return Boolean(this.queue?.some((track) => track?.isLive));
   }
 

@@ -33,7 +33,7 @@ class PlaybackWatch {
     const durationSeconds = streamDuration || trackDuration;
 
     // 라이브는 길이가 없다. 폴백 워치독(5분 뒤 강제 종료)이 방송을 잘라 버린다.
-    if (player.currentTrack?.isLive) {
+    if (player.isLive) {
       wlog.debug(`종료 감시 없음: ${player._trackLabel()} | 라이브는 길이로 가를 수 없다`);
       return;
     }
@@ -62,7 +62,7 @@ class PlaybackWatch {
 
     // 라이브는 길이가 없어 "다 틀었나"를 길이로 가를 수 없다. 이 감시를 걸지 않는다.
     // 끊김은 버퍼링 정체 감지와 ffmpeg 종료 코드가 잡는다.
-    if (player.currentTrack.isLive) return;
+    if (player.isLive) return;
 
     const status = player.audioPlayer.state?.status;
     const playedMs = player.getCurrentTime();

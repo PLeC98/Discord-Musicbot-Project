@@ -30,8 +30,8 @@
  * @property {string} requestKey
  * @property {string} [audioUrl]
  * @property {AudioFoundBy} [audioFoundBy]
- * @property {boolean} [isLive] 담을 때의 답. 재생할 때의 답은 CurrentPlayback 에 있다
- * @property {string | null} [liveStatus]
+ * @property {boolean} [isLive] 담을 때의 답. 틀 때의 답은 CurrentPlayback 에 있다(플레이어의 isLive 가 둘을 고른다)
+ * @property {string | null} [liveStatus] 담을 때의 답
  */
 
 /**

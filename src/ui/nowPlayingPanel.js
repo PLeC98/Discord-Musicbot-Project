@@ -419,7 +419,7 @@ class MusicEmbedManager {
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
     const currentSec = Math.floor(currentMs / 1000);
     const totalSec = track.duration || 0;
-    const progressBar = this.buildProgressBar(currentSec, totalSec, { live: Boolean(track.isLive) });
+    const progressBar = this.buildProgressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive) });
 
     const artistValue = track.artist || "-";
     const platformValue = this.getPlatformLabel(track.platform);

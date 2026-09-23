@@ -66,6 +66,9 @@ function makePlayer(state, acts) {
     removeFromQueue: rec("removeFromQueue", () => track("q1")),
     moveInQueue: rec("moveInQueue"),
     leaveAndSave: rec("leaveAndSave", async () => {}),
+    get isLive() {
+      return Boolean(this.currentTrack?.isLive);
+    },
     hasLiveTrack() {
       return Boolean(this.currentTrack?.isLive || this.queue.some((t) => t.isLive));
     },

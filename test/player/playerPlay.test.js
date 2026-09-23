@@ -236,7 +236,7 @@ test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 받�
   assert.equal(calls.fetches.length, 0, "Node 가 받지 않는다");
   assert.equal(calls.downloads.length, 1);
   assert.equal(p.playback.live, false);
-  assert.equal(p.currentTrack.isLive, false);
+  assert.equal(p.isLive, false);
   assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "HLS 갈래는 스플라이서를 끼우지 않는다");
 });
 
@@ -252,7 +252,8 @@ test("라이브는 위치 0 으로 열고, 캐시를 안 받고, 종료 감시�
   assert.ok(!calls.spawns[0].args.includes("-ss"), "라이브에는 옮길 자리가 없다");
   assert.equal(calls.downloads.length, 0, "끝이 없어 받기 시작하면 파일이 무한히 분다");
   assert.equal(p.playback.live, true);
-  assert.equal(p.currentTrack.isLive, true, "지금은 재생 시점의 답을 트랙에 덮어쓴다");
+  assert.equal(p.isLive, true, "재생 시점의 답을 따른다");
+  assert.equal(p.currentTrack.isLive, undefined, "트랙은 담을 때의 답 그대로");
   assert.equal(timer, null);
 });
 
