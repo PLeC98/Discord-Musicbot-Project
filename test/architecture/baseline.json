@@ -9,7 +9,6 @@
     "src/player/sessionMirror.js -> src/usecases/responders.js",
     "src/sources/lookup.js -> src/ui/errorMessages.js",
     "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js",
-    "src/store/playerSessions.js -> src/player/trackState.js",
     "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"
   ],
   "cycles": ["config.js -> src/infra/log/logger.js", "config.js -> src/sources/youtube/clients.js", "src/infra/log/logger.js -> src/infra/log/sink.js", "src/infra/log/sink.js -> config.js", "src/sources/youtube/clients.js -> src/infra/log/logger.js"],
@@ -67,7 +66,6 @@
     "test/media/cacheDownload.test.js",
     "test/media/cacheTranscode.test.js",
     "test/player/playerPlay.test.js",
-    "test/player/sessionPersistence.test.js",
     "test/player/trackCompletion.test.js",
     "test/sources/clientFaultAndPot.test.js",
     "test/sources/soundcloudDirect.test.js",

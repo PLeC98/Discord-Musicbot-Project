@@ -3,6 +3,7 @@
 // src/store/audioCache.js — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
+const { sessions } = require("../../src/store/playerSessions");
 const os = require("node:os");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -176,13 +177,13 @@ function runResetChecks() {
   audioCache.recordDownloadComplete("yt:reset1", audioCache.getFilePath("yt:reset1"), 1234, { title: "t" });
   trackLookup.recordTrackLookup({ requestKey: "https://y/reset1", pageUrl: "https://y/reset1", audioUrl: "https://www.youtube.com/watch?v=reset1", platform: "youtube", title: "t" });
   externalCaches.markAgeRestricted("reset1");
-  audioCache.sessions.append("g-reset", [{ title: "t", pageUrl: "https://y/reset1", requestKey: "https://y/reset1" }]);
+  sessions().append("g-reset", [{ title: "t", pageUrl: "https://y/reset1", requestKey: "https://y/reset1" }]);
 
   const result = audioCache.resetCache();
 
   assert.equal(typeof result.removed, "number");
   assert.equal(audioCache._cacheCount(), 0, "audio_cache 비움");
-  assert.equal(audioCache.sessions.load("g-reset"), null, "세션 비움");
+  assert.equal(sessions().load("g-reset"), null, "세션 비움");
   assert.equal(externalCaches.isAgeRestricted("reset1"), false, "연령제한 표시 비움");
   assert.equal(trackLookup.resolveFromCache("https://y/reset1").hit, false, "조회 기록 비움");
 

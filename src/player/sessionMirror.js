@@ -3,6 +3,8 @@
 const fsSync = require("fs");
 const log = require("../infra/log/logger").child({ category: "session" });
 const audioCache = require("../store/audioCache");
+const db = require("../store/db");
+const { sessions } = require("../store/playerSessions");
 const trackState = require("./trackState");
 const { audioKeyOf } = require("../rules/audioKeyOf");
 const config = require("../../config");
@@ -16,7 +18,7 @@ const HEARTBEAT_MS = 5000;
 const FINAL_REASONS = new Set(["leave", "shutdown"]);
 
 // 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
-const liveStore = () => (audioCache._initialized ? audioCache.sessions : null);
+const liveStore = () => (db.isOpen() ? sessions() : null);
 
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
 const active = new Set();

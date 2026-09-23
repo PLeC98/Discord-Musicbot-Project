@@ -19,6 +19,7 @@ const PlayerRegistry = require("./src/player/registry");
 const { ALLOWED_MENTIONS } = require("./src/ui/mentions");
 const { createFileDestination } = require("./src/infra/log/file");
 const statusConfig = require("./src/config/status");
+const { sessions } = require("./src/store/playerSessions");
 const trackState = require("./src/player/trackState");
 
 // 로그 레벨 적용. config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
@@ -55,7 +56,7 @@ async function cleanupAudioCache() {
 }
 
 async function restoreSavedPlayers(client) {
-  const saved = audioCache.sessions.loadAll();
+  const saved = sessions().loadAll();
   if (saved.length === 0) return;
 
   log.info(`저장된 재생 세션 ${saved.length}개를 복원합니다`);
@@ -69,7 +70,7 @@ async function restoreSavedPlayers(client) {
         // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
         if (gone) {
           log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
-          audioCache.sessions.removeSession(guildId);
+          sessions().removeSession(guildId);
         }
         continue;
       }
@@ -77,7 +78,7 @@ async function restoreSavedPlayers(client) {
       const { voiceChannelId, textChannelId } = record.session;
 
       if (!voiceChannelId || !textChannelId) {
-        audioCache.sessions.removeSession(guildId);
+        sessions().removeSession(guildId);
         continue;
       }
 
@@ -96,7 +97,7 @@ async function restoreSavedPlayers(client) {
 
       if (!isVoiceValid || !isTextValid) {
         log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
-        audioCache.sessions.removeSession(guildId);
+        sessions().removeSession(guildId);
         continue;
       }
 
@@ -110,11 +111,11 @@ async function restoreSavedPlayers(client) {
         log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, error.message);
         client.players.delete(guildId);
         player.cleanup(false, "세션 복원 실패");
-        audioCache.sessions.removeSession(guildId);
+        sessions().removeSession(guildId);
       }
     } catch (error) {
       log.error(`서버 ID ${guildId} 세션 복원 중 오류:`, error.message);
-      audioCache.sessions.removeSession(guildId);
+      sessions().removeSession(guildId);
     }
   }
 }

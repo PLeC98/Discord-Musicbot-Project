@@ -7,7 +7,8 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const Database = require("better-sqlite3");
 const trackState = require("../../src/player/trackState");
-const { PlayerSessionStore, createTables, GAP, SEQ_LIMIT } = require("../../src/store/playerSessions");
+const { PlayerSessionStore, GAP, SEQ_LIMIT } = require("../../src/store/playerSessions");
+const { createTables } = require("../../src/store/db");
 
 const G = "g1";
 

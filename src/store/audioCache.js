@@ -6,7 +6,7 @@ const log = require("../infra/log/logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
 const { md5, audioKeyOf } = require("../rules/audioKeyOf");
-const { PlayerSessionStore } = require("./playerSessions");
+const { sessions } = require("./playerSessions");
 const db = require("./db");
 
 const CACHE_DIR = path.join(__dirname, "..", "..", "audio_cache");
@@ -24,7 +24,6 @@ class AudioCache {
     this._protectedFiles = new Set(); // 지금 받고 있는 임시 파일 경로. 기동 스윕이 건드리면 안 된다
     this._queuedKeys = new Map(); // guildId -> Set<audio_key>. 대기열 앞부분
     this._evictInterval = null;
-    this._sessions = null;
     // 캐시 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 폴더를 건드리지 않는다.
     // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
     this._cacheDir = CACHE_DIR;
@@ -173,20 +172,13 @@ class AudioCache {
       .run(now, now, audioKey);
   }
 
-  // 플레이어 세션. 행 구조와 쓰기는 playerSessionStore
-
-  get sessions() {
-    if (!this._sessions) this._sessions = new PlayerSessionStore(this.db);
-    return this._sessions;
-  }
-
   /**
    * 저장된 세션에서 지켜야 할 캐시 파일. 기동 시 고아 파일 청소가 쓴다.
    * 그 시점엔 플레이어가 아직 없으므로 저장된 현재곡·대기열이 유일한 근거다.
    */
   getProtectedCacheFiles() {
     const files = new Set();
-    for (const audioUrl of this.sessions.liveAudioUrls()) {
+    for (const audioUrl of sessions().liveAudioUrls()) {
       const key = audioKeyOf(audioUrl);
       if (key) files.add(path.resolve(this.getFilePath(key)));
     }
@@ -510,7 +502,6 @@ class AudioCache {
     }
     if (db.isOpen()) {
       db.close();
-      this._sessions = null;
     }
   }
 }

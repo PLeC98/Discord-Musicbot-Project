@@ -6,6 +6,7 @@
 // /join 과 플레이어가 없을 때의 /autoplay 는 진짜 MusicPlayer 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
+const { sessions } = require("../../src/store/playerSessions");
 const h = require("../helpers/playerHarness");
 const audioCache = require("../../src/store/audioCache");
 const { test, beforeEach, after } = require("node:test");
@@ -343,8 +344,8 @@ test("/join: 끊긴 채 남은 플레이어는 자원을 놓게 한 뒤 새것�
 });
 
 test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재생 · 일시정지 · 곡 없음 · 실패)", async () => {
-  audioCache.sessions.saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loop: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
-  audioCache.sessions.setCurrent("g1", require("../helpers/tracks").youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
+  sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loop: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
+  sessions().setCurrent("g1", require("../helpers/tracks").youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
 
   const run = async (restore) => {
     h.MusicPlayer.prototype.restoreFromState = restore;

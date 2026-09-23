@@ -4,7 +4,8 @@
 // DB는 재시작 복원용 사본이다. 재생 중의 진실은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
-const { HISTORY_MAX } = require("../player/trackState");
+const { HISTORY_MAX } = require("../rules/history");
+const db = require("./db");
 const { SessionTrackRow, checked } = require("./rows");
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
@@ -12,48 +13,7 @@ const GAP = 1_000_000_000;
 // better-sqlite3는 정수를 JS Number로 준다. 2^53을 넘으면 정밀도가 깨지므로 그 전에 재번호한다
 const SEQ_LIMIT = Number.MAX_SAFE_INTEGER - GAP;
 
-const SCHEMA = `
-  CREATE TABLE IF NOT EXISTS player_sessions (
-    guild_id               TEXT    PRIMARY KEY,
-    voice_channel_id       TEXT,
-    text_channel_id        TEXT,
-    volume                 INTEGER NOT NULL DEFAULT 100,
-    loop_mode              TEXT    NOT NULL DEFAULT 'off' CHECK (loop_mode IN ('off', 'track', 'queue')),
-    autoplay               TEXT,
-    paused_manual          INTEGER NOT NULL DEFAULT 0,
-    position_ms            INTEGER NOT NULL DEFAULT 0,
-    start_offset_ms        INTEGER NOT NULL DEFAULT 0,
-    requester_id           TEXT,
-    updated_at             INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS session_tracks (
-    guild_id         TEXT    NOT NULL REFERENCES player_sessions(guild_id) ON DELETE CASCADE,
-    slot             TEXT    NOT NULL CHECK (slot IN ('current', 'queue', 'history')),
-    seq              INTEGER NOT NULL,
-    track_id         TEXT,
-    page_url         TEXT,
-    request_key      TEXT,
-    audio_url        TEXT,
-    title            TEXT,
-    artist           TEXT,
-    album            TEXT,
-    uploader         TEXT,
-    duration_sec     REAL,
-    thumbnail        TEXT,
-    platform         TEXT,
-    is_live          INTEGER NOT NULL DEFAULT 0,
-    requester_id     TEXT,
-    added_at         INTEGER NOT NULL,
-    PRIMARY KEY (guild_id, slot, seq)
-  );
-`;
-
 const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "added_at"];
-
-function createTables(db) {
-  db.exec(SCHEMA);
-}
 
 function toRow(track) {
   return {
@@ -390,4 +350,12 @@ function groupTracks(rows, drop) {
   return out;
 }
 
-module.exports = { PlayerSessionStore, createTables, SCHEMA, GAP, SEQ_LIMIT };
+// 열린 캐시 DB 에 붙은 저장소 하나. 다시 열면(테스트의 임시 DB 등) 새로 붙는다. 열기 전에 부르면 db 가 던진다
+let bound = null;
+function sessions() {
+  const conn = db.get();
+  if (!bound || bound.db !== conn) bound = new PlayerSessionStore(conn);
+  return bound;
+}
+
+module.exports = { PlayerSessionStore, sessions, GAP, SEQ_LIMIT };

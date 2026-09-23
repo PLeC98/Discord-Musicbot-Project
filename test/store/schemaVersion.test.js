@@ -2,6 +2,7 @@
 
 // src/store/db.js — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
+const { sessions } = require("../../src/store/playerSessions");
 const os = require("node:os");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -28,13 +29,13 @@ test("새 DB는 현재 버전으로 만들어지고 세션 표를 쓴다", () =>
   open("fresh.db");
   assert.equal(audioCache.db.pragma("user_version", { simple: true }), storeDb.SCHEMA_VERSION);
 
-  audioCache.sessions.append("g", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
-  assert.equal(audioCache.sessions.load("g").queue.length, 1);
+  sessions().append("g", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
+  assert.equal(sessions().load("g").queue.length, 1);
 });
 
 test("같은 버전의 DB는 다시 열리고 내용이 남아 있다", () => {
   open("fresh.db");
-  assert.equal(audioCache.sessions.load("g").queue[0].title, "a");
+  assert.equal(sessions().load("g").queue[0].title, "a");
 });
 
 test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다", () => {

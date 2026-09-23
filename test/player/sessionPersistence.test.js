@@ -3,6 +3,7 @@
 // src/player/sessionMirror.js — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
+const { sessions } = require("../../src/store/playerSessions");
 const os = require("node:os");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -60,7 +61,7 @@ const titles = (arr) => arr.map((x) => x.title);
 const memory = (p) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
 
 function stored(guildId) {
-  const s = audioCache.sessions.load(guildId);
+  const s = sessions().load(guildId);
   if (!s) return { current: null, queue: [], history: [] };
   return { current: s.current?.title ?? null, queue: titles(s.queue), history: titles(s.history) };
 }
@@ -124,7 +125,7 @@ test("DB가 메모리와 어긋나 있으면 다음 변경에서 통째로 다�
 
 test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다시 쓴다", () => {
   const { p, sp } = makePlayer();
-  const store = audioCache.sessions;
+  const store = sessions();
   const real = store.append;
   store.append = () => {
     throw new Error("디스크 가득 참");
@@ -149,7 +150,7 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
   await sp.persistState("leave", true);
   trackState.reset(p);
 
-  const s = audioCache.sessions.load(p.guild.id);
+  const s = sessions().load(p.guild.id);
   assert.equal(s.current.title, "now", "구 코드 구조였다면 비우는 순간 방금 저장한 트랙이 지워진다");
   assert.deepEqual(titles(s.queue), ["next"]);
 });
@@ -161,7 +162,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 수동 사유만 남�
   trackState.setCurrent(p, t("x"));
   await sp.persistState();
 
-  let { session } = audioCache.sessions.load(p.guild.id);
+  let { session } = sessions().load(p.guild.id);
   assert.equal(session.loopMode, "off");
   assert.equal(session.autoplay, null);
   assert.equal(session.pausedManual, false, "혼자 남아 멈춘 것은 복원 대상이 아니다");
@@ -172,7 +173,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 수동 사유만 남�
   p.autoplay = "kpop";
   p.pauseReasons.add("manual");
   await sp.persistState();
-  ({ session } = audioCache.sessions.load(p.guild.id));
+  ({ session } = sessions().load(p.guild.id));
   assert.equal(session.loopMode, "queue");
   assert.equal(session.autoplay, "kpop");
   assert.equal(session.pausedManual, true);
@@ -184,7 +185,7 @@ test("곡도 대기열도 없으면 세션을 지운다", async () => {
   await sp.persistState();
   trackState.setCurrent(p, null);
   await sp.persistState();
-  assert.equal(audioCache.sessions.load(p.guild.id), null);
+  assert.equal(sessions().load(p.guild.id), null);
 });
 
 test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중인 플레이어는 건너뛴다", async () => {
@@ -201,8 +202,8 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 
   try {
     SessionPersistence._beat();
-    assert.equal(audioCache.sessions.load(a.p.guild.id).session.positionMs, 11_000);
-    assert.equal(audioCache.sessions.load(b.p.guild.id).session.positionMs, 20_000, "멈춘 동안 위치는 그대로다");
+    assert.equal(sessions().load(a.p.guild.id).session.positionMs, 11_000);
+    assert.equal(sessions().load(b.p.guild.id).session.positionMs, 20_000, "멈춘 동안 위치는 그대로다");
   } finally {
     a.sp.stopStateSync();
     b.sp.stopStateSync();
@@ -269,9 +270,9 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   trackState.enqueue(saved, [t("a"), t("b"), t("c"), t("d")]);
   trackState.setCurrent(saved, t("now"));
   trackState.retire(saved, t("old"), { requeue: true });
-  const record = audioCache.sessions.load(saved.guild.id);
+  const record = sessions().load(saved.guild.id);
 
-  const store = audioCache.sessions;
+  const store = sessions();
   const real = store.replaceTracks;
   let rewrites = 0;
   store.replaceTracks = (...args) => {
@@ -302,7 +303,7 @@ test("복원: 자동재생이 미리 뽑아 둔 곡은 되살리지 않고 DB도
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
   trackState.enqueue(saved, [t("내곡1"), { ...t("자동곡"), requestedBy: { id: BOT } }, t("내곡2")]);
-  const record = audioCache.sessions.load(saved.guild.id);
+  const record = sessions().load(saved.guild.id);
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id, client: { user: { id: BOT } } } });
   await sp.restoreFromState(record);
@@ -317,7 +318,7 @@ test("복원: 봇 id를 알 수 없으면 대기열을 그대로 되살린다", 
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
   trackState.enqueue(saved, [t("내곡"), { ...t("자동곡"), requestedBy: { id: "bot1" } }]);
-  const record = audioCache.sessions.load(saved.guild.id);
+  const record = sessions().load(saved.guild.id);
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } }); // client 없음
   await sp.restoreFromState(record);
@@ -335,7 +336,7 @@ test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다"
     saved,
     Array.from({ length: 30 }, () => t()),
   );
-  const record = audioCache.sessions.load(saved.guild.id);
+  const record = sessions().load(saved.guild.id);
 
   config.bot.maxQueueSize = 25;
   try {

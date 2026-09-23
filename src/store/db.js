@@ -5,7 +5,6 @@
 const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
-const { createTables: createSessionTables } = require("./playerSessions");
 
 const DB_PATH = path.join(__dirname, "..", "..", "database", "cache.db");
 
@@ -130,7 +129,45 @@ function createTables(db) {
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
         `);
 
-  createSessionTables(db);
+  db.exec(SESSION_TABLES);
 }
 
-module.exports = { open, get, isOpen, close, SCHEMA_VERSION, DB_PATH };
+// 플레이어 세션(재시작 복원용). 행 구조와 쓰기는 playerSessions
+const SESSION_TABLES = `
+  CREATE TABLE IF NOT EXISTS player_sessions (
+    guild_id               TEXT    PRIMARY KEY,
+    voice_channel_id       TEXT,
+    text_channel_id        TEXT,
+    volume                 INTEGER NOT NULL DEFAULT 100,
+    loop_mode              TEXT    NOT NULL DEFAULT 'off' CHECK (loop_mode IN ('off', 'track', 'queue')),
+    autoplay               TEXT,
+    paused_manual          INTEGER NOT NULL DEFAULT 0,
+    position_ms            INTEGER NOT NULL DEFAULT 0,
+    start_offset_ms        INTEGER NOT NULL DEFAULT 0,
+    requester_id           TEXT,
+    updated_at             INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS session_tracks (
+    guild_id         TEXT    NOT NULL REFERENCES player_sessions(guild_id) ON DELETE CASCADE,
+    slot             TEXT    NOT NULL CHECK (slot IN ('current', 'queue', 'history')),
+    seq              INTEGER NOT NULL,
+    track_id         TEXT,
+    page_url         TEXT,
+    request_key      TEXT,
+    audio_url        TEXT,
+    title            TEXT,
+    artist           TEXT,
+    album            TEXT,
+    uploader         TEXT,
+    duration_sec     REAL,
+    thumbnail        TEXT,
+    platform         TEXT,
+    is_live          INTEGER NOT NULL DEFAULT 0,
+    requester_id     TEXT,
+    added_at         INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, slot, seq)
+  );
+`;
+
+module.exports = { open, get, isOpen, close, createTables, SCHEMA_VERSION, DB_PATH };
