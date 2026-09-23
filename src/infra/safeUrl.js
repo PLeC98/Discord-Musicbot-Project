@@ -67,7 +67,7 @@ function isAllowedContentType(contentType) {
  * @returns {{ url: URL, pinnedIp: string, family: number }}
  * @throws {SsrfError}
  */
-async function validateAndResolve(rawUrl) {
+async function validateAndResolve(rawUrl, lookup = dns.lookup.bind(dns)) {
   let url;
   try {
     url = new URL(rawUrl);
@@ -92,7 +92,7 @@ async function validateAndResolve(rawUrl) {
 
   let addrs;
   try {
-    addrs = await dns.lookup(host, { all: true, verbatim: true });
+    addrs = await lookup(host, { all: true, verbatim: true });
   } catch {
     throw new SsrfError(`DNS 해석 실패: ${host}`);
   }
@@ -128,17 +128,17 @@ function createPinnedAgent(protocol, pinnedIp, family) {
  * @returns {{ response: import('axios').AxiosResponse, agent: import('http').Agent }}
  *   (호출측이 응답 소비 후 agent.destroy())
  */
-async function guardedRequest(method, rawUrl, { responseType } = {}) {
+async function guardedRequest(method, rawUrl, { responseType, request = axios, lookup } = {}) {
   let currentUrl = rawUrl;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const { url, pinnedIp, family } = await validateAndResolve(currentUrl);
+    const { url, pinnedIp, family } = await validateAndResolve(currentUrl, lookup);
     const isHttps = url.protocol === "https:";
     const agent = createPinnedAgent(url.protocol, pinnedIp, family);
 
     let response;
     try {
-      response = await axios({
+      response = await request({
         method,
         url: url.href,
         responseType,
@@ -206,9 +206,12 @@ function assertResponseAllowed(headers) {
   }
 }
 
-/** 가드된 HEAD. 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws */
-async function head(rawUrl) {
-  const { response, agent } = await guardedRequest("head", rawUrl);
+/**
+ * 가드된 HEAD. 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws
+ * deps: { request, lookup } 바깥 경계. 생략하면 axios 와 dns.lookup
+ */
+async function head(rawUrl, deps = {}) {
+  const { response, agent } = await guardedRequest("head", rawUrl, deps);
   try {
     assertResponseAllowed(response.headers);
     return { status: response.status, headers: response.headers };
@@ -217,9 +220,9 @@ async function head(rawUrl) {
   }
 }
 
-/** 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. @throws */
-async function getStream(rawUrl) {
-  const { response, agent } = await guardedRequest("get", rawUrl, { responseType: "stream" });
+/** 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws */
+async function getStream(rawUrl, deps = {}) {
+  const { response, agent } = await guardedRequest("get", rawUrl, { ...deps, responseType: "stream" });
   const source = response.data;
   try {
     assertResponseAllowed(response.headers);

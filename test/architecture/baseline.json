@@ -61,10 +61,8 @@
     "test/dashboard/dashboardErrors.test.js": 3,
     "test/dashboard/dashboardValidation.test.js": 1,
     "test/helpers/playerHarness.js": 4,
-    "test/infra/safeUrlSsrf.test.js": 1,
     "test/player/voiceConnectionEvents.test.js": 1,
     "test/sources/liveStreamGuard.test.js": 4,
-    "test/sources/playlistRange.test.js": 1,
     "test/sources/trackResolverStream.test.js": 1,
     "test/usecases/playRequest.test.js": 1
   },

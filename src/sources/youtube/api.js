@@ -61,7 +61,8 @@ class YouTubeApi {
     return false;
   }
 
-  static async search(query, limit = 1) {
+  // 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 진짜. getInfo · getStream · getPlaylist 도 같다
+  static async search(query, limit = 1, { exec = youtubedl } = {}) {
     try {
       // 이미 YouTube URL인 경우 직접 정보를 가져옴
       if (this.isYouTubeURL(query)) {
@@ -72,7 +73,7 @@ class YouTubeApi {
       // 유튜브 검색에 yt-dlp 사용
       const searchQuery = `ytsearch${limit}:${query}`;
 
-      const results = await youtubedl(
+      const results = await exec(
         searchQuery,
         this.getYtDlpOptions({
           dumpSingleJson: true,
@@ -137,16 +138,19 @@ class YouTubeApi {
     }
   }
 
-  static async getInfo(url) {
+  static async getInfo(url, { exec } = {}) {
     try {
-      const info = await this.runYtDlp(url, (forceCookies) =>
-        this.getYtDlpOptions(
-          {
-            dumpSingleJson: true,
-            preferFreeFormats: true,
-          },
-          { forceCookies },
-        ),
+      const info = await this.runYtDlp(
+        url,
+        (forceCookies) =>
+          this.getYtDlpOptions(
+            {
+              dumpSingleJson: true,
+              preferFreeFormats: true,
+            },
+            { forceCookies },
+          ),
+        exec,
       );
 
       if (!info) {
@@ -180,21 +184,24 @@ class YouTubeApi {
     }
   }
 
-  static async getStream(url, startSeconds = 0) {
+  static async getStream(url, startSeconds = 0, { exec } = {}) {
     try {
       if (!url) {
         throw new Error("URL이 필요함");
       }
 
       // 단순 형식으로 스트림 URL 가져오기
-      const info = await this.runYtDlp(url, (forceCookies) =>
-        this.getYtDlpOptions(
-          {
-            dumpSingleJson: true,
-            format: "bestaudio/best",
-          },
-          { forceCookies },
-        ),
+      const info = await this.runYtDlp(
+        url,
+        (forceCookies) =>
+          this.getYtDlpOptions(
+            {
+              dumpSingleJson: true,
+              format: "bestaudio/best",
+            },
+            { forceCookies },
+          ),
+        exec,
       );
 
       if (!info || !info.url) {
@@ -240,9 +247,9 @@ class YouTubeApi {
 
   // offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
   // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-  static async getPlaylist(url, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
+  static async getPlaylist(url, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl } = {}) {
     try {
-      const info = await youtubedl(
+      const info = await exec(
         url,
         this.getYtDlpOptions({
           dumpSingleJson: true,

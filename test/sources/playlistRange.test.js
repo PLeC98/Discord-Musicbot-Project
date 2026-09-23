@@ -3,22 +3,15 @@
 // 여러 곡 출처는 필요한 구간만 받는다 — 스포티파이 재생목록·앨범·인기곡, 유튜브 재생목록, 해석기 전달.
 // 회귀 대상: 1만 곡 재생목록을 전부 받은 뒤(61초) 대기열에서 잘랐다.
 
-const path = require("node:path");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-// yt-dlp 호출을 가로챈다 (YouTube보다 먼저)
+// yt-dlp 실행 함수 가짜. getPlaylist 에 넘긴다
 const ytCalls = [];
 let ytInfo = null;
-const ytPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "ytdlpSpawn.js"));
-require.cache[ytPath] = {
-  id: ytPath,
-  filename: ytPath,
-  loaded: true,
-  exports: async (url, options) => {
-    ytCalls.push({ url, options });
-    return ytInfo;
-  },
+const exec = async (url, options) => {
+  ytCalls.push({ url, options });
+  return ytInfo;
 };
 
 const Spotify = require("../../src/sources/spotify");
@@ -154,14 +147,14 @@ test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기�
   const restores = [swap(YouTube, "getYtDlpOptions", (o) => o), swap(trackLookup, "getVerifiedTitle", () => null)];
   try {
     ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
-    const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3 });
+    const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3, exec });
     assert.equal(ytCalls.at(-1).options.playlistItems, "51:53");
     assert.equal(r.tracks.length, 2);
     assert.equal(r.total, 98);
     assert.equal(r.nextOffset, 53, "빈 항목도 원본 자리를 차지한다");
 
     ytInfo = { title: "Mix", entries: [{ id: "a", title: "A" }] };
-    const mix = await YouTube.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa");
+    const mix = await YouTube.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa", { exec });
     assert.equal(ytCalls.at(-1).options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 묶음만큼");
     assert.equal(mix.total, null, "믹스는 끝이 없어 총 곡 수가 없다");
   } finally {

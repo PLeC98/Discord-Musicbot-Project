@@ -6,38 +6,30 @@
 // 사실이지만 그게 이 모듈의 존재 이유다. 실제 방어(IP 핀 접속·홉별 재검증)를 CodeQL이 추적하지
 // 못하는 것인지, 아니면 진짜 구멍이 있는지 확인한다.
 //
-// axios·dns를 가로채 네트워크 없이 검증한다. 실 소켓은 열리지 않는다.
+// 요청 함수와 DNS 해석을 가짜로 넘겨 네트워크 없이 검증한다. 실 소켓은 열리지 않는다.
 
 const dnsPromises = require("dns").promises;
-const { test, after, beforeEach } = require("node:test");
+const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
-// ── axios 가로채기 (SafeUrl require 전에) ────────────────────────────────────
-const axiosPath = require.resolve("axios");
+// ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head · getStream 에 넘긴다 ─────────────
 const calls = [];
 let responder = () => ({ status: 200, headers: { "content-type": "audio/mpeg" }, data: null });
-require.cache[axiosPath] = {
-  id: axiosPath,
-  filename: axiosPath,
-  loaded: true,
-  exports: (cfg) => {
+// 기본은 실제 해석에 위임
+const realLookup = dnsPromises.lookup.bind(dnsPromises);
+let lookupImpl = realLookup;
+const deps = {
+  request: (cfg) => {
     calls.push(cfg);
     return Promise.resolve(responder(cfg, calls.length));
   },
+  lookup: (...args) => lookupImpl(...args),
 };
 
-// ── dns.lookup 가로채기 ──────────────────────────────────────────────────────
-// SafeUrl은 `require("dns").promises`를 잡아두고 호출 시점에 .lookup을 찾으므로
-// 같은 객체의 프로퍼티를 바꾸면 가로채진다. 기본은 실제 해석에 위임.
-const realLookup = dnsPromises.lookup.bind(dnsPromises);
-let lookupImpl = realLookup;
-dnsPromises.lookup = (...args) => lookupImpl(...args);
-
-const { SsrfError, head, getStream } = require("../../src/infra/safeUrl");
-
-after(() => {
-  dnsPromises.lookup = realLookup;
-});
+const safeUrl = require("../../src/infra/safeUrl");
+const { SsrfError } = safeUrl;
+const head = (url) => safeUrl.head(url, deps);
+const getStream = (url) => safeUrl.getStream(url, deps);
 
 beforeEach(() => {
   calls.length = 0;

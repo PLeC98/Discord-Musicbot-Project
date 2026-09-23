@@ -29,7 +29,8 @@ class YouTubeRun {
    * @param {string} url
    * @param {(forceCookies:boolean)=>object} buildOptions  forceCookies를 받아 yt-dlp 옵션을 만드는 함수
    */
-  static async runYtDlp(url, buildOptions) {
+  // exec: yt-dlp 를 실행하는 함수. 생략하면 진짜(ytdlpSpawn)
+  static async runYtDlp(url, buildOptions, exec = youtubedl) {
     const videoId = this.extractVideoId(url);
     let known = false;
     try {
@@ -39,7 +40,7 @@ class YouTubeRun {
     }
 
     try {
-      return await this._runWithClients(url, buildOptions, known);
+      return await this._runWithClients(url, buildOptions, known, exec);
     } catch (error) {
       if (!known && videoId && this.isAgeRestrictedError(error) && this.cookiesConfigured()) {
         try {
@@ -48,7 +49,7 @@ class YouTubeRun {
           /* 기록 실패는 무시 */
         }
         log.warn({ tags: ["retry", "fallback"] }, `연령 제한 감지 (${videoId}). 쿠키로 재시도합니다`);
-        return await this._runWithClients(url, buildOptions, true);
+        return await this._runWithClients(url, buildOptions, true, exec);
       }
 
       // 서명된 미디어 주소가 어긋난 경우. 한 번 더 받아 새 주소를 얻는다.
@@ -56,7 +57,7 @@ class YouTubeRun {
       if (this.isStaleMediaError(error)) {
         log.warn({ tags: ["retry"] }, `미디어 주소가 어긋났습니다 (${videoId || url}). 다시 받습니다`);
         await new Promise((done) => setTimeout(done, STALE_RETRY_MS));
-        return await this._runWithClients(url, buildOptions, known);
+        return await this._runWithClients(url, buildOptions, known, exec);
       }
 
       throw error;
@@ -70,19 +71,19 @@ class YouTubeRun {
    * 연령 제한이거나 네트워크가 끊긴 것은 클라이언트 잘못이 아니므로 그대로 위로 던진다.
    * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다.
    */
-  static async _runWithClients(url, buildOptions, forceCookies) {
+  static async _runWithClients(url, buildOptions, forceCookies, exec) {
     const clients = playerClients.idle ? [] : playerClients.list();
 
     if (clients.length === 0) {
       if (!playerClients.idle) playerClients.noteExhausted(); // 지정은 했는데 전부 제외됨
-      return this._runOnce(url, buildOptions(forceCookies), null);
+      return this._runOnce(url, buildOptions(forceCookies), null, exec);
     }
 
     let lastError = null;
     for (let i = 0; i < clients.length; i++) {
       const client = clients[i];
       try {
-        const result = await this._runOnce(url, buildOptions(forceCookies), client);
+        const result = await this._runOnce(url, buildOptions(forceCookies), client, exec);
         playerClients.record(client, true);
         return result;
       } catch (error) {
@@ -97,7 +98,7 @@ class YouTubeRun {
     // 지정한 것이 다 안 됐다. yt-dlp 기본값에 한 번 맡겨 본다. 유지보수되는 쪽이 더 나을 수 있다.
     log.warn({ tags: ["fallback"] }, `지정한 클라이언트를 모두 시도했습니다. yt-dlp 기본값으로 마지막 시도를 합니다`);
     try {
-      return await this._runOnce(url, buildOptions(forceCookies), null);
+      return await this._runOnce(url, buildOptions(forceCookies), null, exec);
     } catch {
       throw lastError; // 원인 파악에는 클라이언트별 실패가 더 유용하다
     }
@@ -108,13 +109,13 @@ class YouTubeRun {
    * 호출부가 extractorArgs를 직접 넘겼으면 그쪽이 이긴다. 명시적 지정을 폴백이 덮지 않는다.
    * 클라이언트를 하나씩만 넘기는 이유는 _runWithClients 머리말 참조.
    */
-  static async _runOnce(url, options, client) {
+  static async _runOnce(url, options, client, exec = youtubedl) {
     const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
     // 쿠키 파일이 실제로 넘어간 호출만 센다. 무쿠키 캐싱까지 세면 경고가 거짓이 된다
     const holdsCookieFile = !!opts.cookies;
     if (holdsCookieFile) cookieRuns++;
     try {
-      const result = await youtubedl(url, opts);
+      const result = await exec(url, opts);
       this._inspectWarnings(result?._stderr, client);
       return result;
     } finally {
