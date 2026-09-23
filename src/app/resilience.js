@@ -1,6 +1,6 @@
 "use strict";
 
-// 프로세스 레벨 오류 복원력 헬퍼 (index.js의 uncaughtException 핸들러에서 사용).
+// 프로세스 레벨 오류 복원력. 기동이 installErrorHandlers 로 처리기를 건다.
 //
 // 방침: 일시적 네트워크 오류는 프로세스를 살린 채 "영향받은 서버만" 표적 복구하고,
 //       진짜 치명적 오류는 안전하게 종료해 봇 운영자의 확인·수동 재시작을 대기.
@@ -11,7 +11,7 @@ const flog = require("../infra/log/logger").child({ category: "core", sub: "fata
 const { VoiceConnectionStatus } = require("@discordjs/voice");
 const { Events } = require("discord.js");
 const { isDeadInteraction } = require("../rules/deadInteraction");
-// 기동이 거는 오류 처리기의 로그. 봇 전체의 일이다
+// 새어 나온 오류 처리기의 로그. 봇 전체의 일이다
 const coreLog = require("../infra/log/logger").child({ category: "core" });
 
 // 네트워크 오류 폭주 판정용 시간창
@@ -117,20 +117,19 @@ ${String((error && error.stack) || error)}`,
 // 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다.
 // proc · exit: 처리기를 걸 곳과 안전 종료의 끝. 생략하면 진짜 프로세스
 function installErrorHandlers(client, { proc = process, exit } = {}) {
-  const log = coreLog;
   // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정. client "error"와 unhandledRejection이 같은 기준을 쓴다.
   // true = 알려진 오류라 처리 완료, false = 알 수 없음(호출부가 빈도 가드로 판단).
   const handleLooseError = (error, source) => {
     const known = ignorableDiscordError(error);
     if (known) {
-      if (known.level === "error") log.error(known.message);
-      else log.info(known.message);
+      if (known.level === "error") coreLog.error(known.message);
+      else coreLog.info(known.message);
       return true;
     }
 
     // 일시적 네트워크/음성 오류(IP discovery 실패 등). 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
     if (isTransientNetworkError(error)) {
-      log.warn(`네트워크/음성 오류(${source}): 연결이 끊긴 서버의 복구를 시도합니다.`);
+      coreLog.warn(`네트워크/음성 오류(${source}): 연결이 끊긴 서버의 복구를 시도합니다.`);
       healBrokenPlayers(client).catch(() => {});
       return true;
     }
@@ -141,18 +140,18 @@ function installErrorHandlers(client, { proc = process, exit } = {}) {
   // 리스너가 없으면 그 throw가 타이머 콜백에서 터져 unhandledRejection이 아니라 uncaughtException이 되고,
   // 알 수 없는 오류는 곧바로 안전 종료로 간다. 리스너 하나의 사소한 rejection이 봇 전체를 내린다.
   client.on(Events.Error, (error) => {
-    log.error("클라이언트 오류:", error);
+    coreLog.error("클라이언트 오류:", error);
     if (handleLooseError(error, "client")) return;
 
     if (unknownClientErrorFlooding()) {
-      log.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 클라이언트 오류가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
+      coreLog.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 클라이언트 오류가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
       fatalShutdown(client, error instanceof Error ? error : new Error(String(error)), exit);
     }
   });
 
   // 오류 처리
   proc.on("unhandledRejection", (reason) => {
-    log.error("처리되지 않은 rejection:", reason);
+    coreLog.error("처리되지 않은 rejection:", reason);
 
     if (handleLooseError(reason, "rejection")) return;
 
@@ -160,28 +159,28 @@ function installErrorHandlers(client, { proc = process, exit } = {}) {
     // 번지지 않게). 짧은 시간창에 반복되면 좀비 루프/시스템적 이상으로 보고 안전 종료
     // (uncaughtException의 네트워크 폭주 가드와 같은 방침)
     if (unknownRejectionFlooding()) {
-      log.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 거부가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
+      coreLog.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 거부가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
       fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)), exit);
     }
   });
 
   proc.on("uncaughtException", (error) => {
-    log.error("처리되지 않은 예외:", error);
+    coreLog.error("처리되지 않은 예외:", error);
 
     // Discord 상호작용 오류. 무해, 계속
     if (isDeadInteraction(error)) {
-      log.info("디스코드 상호작용 오류: 봇의 동작에는 영향이 없습니다.");
+      coreLog.info("디스코드 상호작용 오류: 봇의 동작에는 영향이 없습니다.");
       return;
     }
 
     // 일시적 네트워크 오류. 프로세스는 살리고 "영향받은 서버만" 표적 복구. 짧은 시간에 폭주하면(빈도 가드) 시스템적 이상으로 보고 안전 종료
     if (isTransientNetworkError(error)) {
       if (!networkErrorFlooding()) {
-        log.warn("네트워크 오류: 연결이 끊긴 서버의 복구를 시도합니다. 봇은 계속 실행됩니다.");
+        coreLog.warn("네트워크 오류: 연결이 끊긴 서버의 복구를 시도합니다. 봇은 계속 실행됩니다.");
         healBrokenPlayers(client).catch(() => {});
         return;
       }
-      log.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 네트워크 오류가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
+      coreLog.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 네트워크 오류가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
     }
 
     // 그 외(또는 네트워크 폭주) = 치명적 → 안전 종료
