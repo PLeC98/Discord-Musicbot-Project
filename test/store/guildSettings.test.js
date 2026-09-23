@@ -173,3 +173,47 @@ test("실패한 읽기의 빈 값도 메모리에 남는다(DB 가 돌아와도 
   await whenDbFails("getBotChannel", () => settings.getBotChannel("g3"));
   assert.equal(await settings.getBotChannel("g3"), null);
 });
+
+// ── 표(guildTable)를 직접: 메모리 캐시 없이 한 칸씩 ─────────────
+
+// ── guild_settings: DJ 역할 라운드트립 ───────────────────────
+
+test("DJ 역할: 복수 저장/조회/해제", () => {
+  guildTable.setDjRoles("g1", ["a", "b", "c"]);
+  assert.deepEqual(guildTable.getDjRoles("g1"), ["a", "b", "c"]);
+
+  guildTable.setDjRoles("g1", ["a"]);
+  assert.deepEqual(guildTable.getDjRoles("g1"), ["a"], "덮어쓰기");
+
+  guildTable.clearDjRoles("g1");
+  assert.deepEqual(guildTable.getDjRoles("g1"), []);
+});
+
+test("DJ 역할: 빈 배열 저장 = 미설정(NULL)과 동일", () => {
+  guildTable.setDjRoles("g2", []);
+  assert.deepEqual(guildTable.getDjRoles("g2"), []);
+  const raw = audioCache.db.prepare("SELECT dj_role_ids FROM guild_settings WHERE guild_id = 'g2'").get();
+  assert.equal(raw.dj_role_ids, null);
+});
+
+test("DJ 역할: 손상된 JSON은 빈 배열로 폴백 (기동 불능 방지)", () => {
+  audioCache.db.prepare("INSERT INTO guild_settings (guild_id, dj_role_ids, updated_at) VALUES ('g3', 'not-json', 0)").run();
+  assert.deepEqual(guildTable.getDjRoles("g3"), []);
+});
+
+test("DJ 역할: 미지정 서버는 빈 배열", () => {
+  assert.deepEqual(guildTable.getDjRoles("no-such-guild"), []);
+});
+
+// ── guild_settings: 봇 채널 ──────────────────────────────────
+
+test("봇 채널: 저장/조회/해제 — DJ 설정과 같은 행에서 서로 무손상", () => {
+  guildTable.setDjRoles("g4", ["r1"]);
+  guildTable.setBotChannel("g4", "ch4");
+  assert.equal(guildTable.getBotChannel("g4"), "ch4");
+  assert.deepEqual(guildTable.getDjRoles("g4"), ["r1"]);
+
+  guildTable.clearBotChannel("g4");
+  assert.equal(guildTable.getBotChannel("g4"), null);
+  assert.deepEqual(guildTable.getDjRoles("g4"), ["r1"], "채널 해제가 DJ 설정을 지우지 않음");
+});

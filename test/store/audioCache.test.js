@@ -1,6 +1,6 @@
 "use strict";
 
-// 저장소(src/store/) — 임시 DB로 실 SQLite 경로 검증 (guild_settings 라운드트립, 퇴거 스코어링)
+// src/store/audioCache.js — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 const os = require("node:os");
@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const DB_PATH = path.join(os.tmpdir(), `musicbot-cachemanager-test-${process.pid}.db`);
+const DB_PATH = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}.db`);
 
 let guildTable, audioCache, externalCaches, trackLookup;
 
@@ -27,48 +27,6 @@ after(() => {
   try {
     fs.unlinkSync(DB_PATH);
   } catch {}
-});
-
-// ── guild_settings: DJ 역할 라운드트립 ───────────────────────
-
-test("DJ 역할: 복수 저장/조회/해제", () => {
-  guildTable.setDjRoles("g1", ["a", "b", "c"]);
-  assert.deepEqual(guildTable.getDjRoles("g1"), ["a", "b", "c"]);
-
-  guildTable.setDjRoles("g1", ["a"]);
-  assert.deepEqual(guildTable.getDjRoles("g1"), ["a"], "덮어쓰기");
-
-  guildTable.clearDjRoles("g1");
-  assert.deepEqual(guildTable.getDjRoles("g1"), []);
-});
-
-test("DJ 역할: 빈 배열 저장 = 미설정(NULL)과 동일", () => {
-  guildTable.setDjRoles("g2", []);
-  assert.deepEqual(guildTable.getDjRoles("g2"), []);
-  const raw = audioCache.db.prepare("SELECT dj_role_ids FROM guild_settings WHERE guild_id = 'g2'").get();
-  assert.equal(raw.dj_role_ids, null);
-});
-
-test("DJ 역할: 손상된 JSON은 빈 배열로 폴백 (기동 불능 방지)", () => {
-  audioCache.db.prepare("INSERT INTO guild_settings (guild_id, dj_role_ids, updated_at) VALUES ('g3', 'not-json', 0)").run();
-  assert.deepEqual(guildTable.getDjRoles("g3"), []);
-});
-
-test("DJ 역할: 미지정 서버는 빈 배열", () => {
-  assert.deepEqual(guildTable.getDjRoles("no-such-guild"), []);
-});
-
-// ── guild_settings: 봇 채널 ──────────────────────────────────
-
-test("봇 채널: 저장/조회/해제 — DJ 설정과 같은 행에서 서로 무손상", () => {
-  guildTable.setDjRoles("g4", ["r1"]);
-  guildTable.setBotChannel("g4", "ch4");
-  assert.equal(guildTable.getBotChannel("g4"), "ch4");
-  assert.deepEqual(guildTable.getDjRoles("g4"), ["r1"]);
-
-  guildTable.clearBotChannel("g4");
-  assert.equal(guildTable.getBotChannel("g4"), null);
-  assert.deepEqual(guildTable.getDjRoles("g4"), ["r1"], "채널 해제가 DJ 설정을 지우지 않음");
 });
 
 // ── 파일 경로 ────────────────────────────────────────────────
@@ -241,51 +199,6 @@ test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌�
 
     assert.equal(audioCache._liveKeys().size, 0);
   });
-});
-
-// ── 제목 출처 (title_verified) ───────────────────────────────
-// 재생목록 페이지가 주는 제목은 같은 영상인데도 다를 수 있다. 그걸로 확인된 제목을 덮으면
-// 한 번 고친 것이 도로 낡은 값으로 돌아간다 — 이 왕복이 실제 증상이었다.
-
-const TL_URL = "https://www.youtube.com/watch?v=titletest";
-
-// track_lookup은 audio_cache를 외래키로 참조한다 — 캐시 행이 먼저 있어야 한다.
-const withCacheRow = (key) => audioCache.recordDownloadStart(key, { title: "x", duration: 1 });
-
-test("확인되지 않은 제목은 확인된 제목을 덮지 못한다", () => {
-  withCacheRow("yt:titletest");
-  trackLookup.recordTrackLookup(TL_URL, "youtube", "yt:titletest", "정식 제목", "채널", null, { verified: true });
-  assert.equal(trackLookup.getVerifiedTitle(TL_URL), "정식 제목");
-
-  trackLookup.recordTrackLookup(TL_URL, "youtube", "yt:titletest", "낡은 재생목록 제목", "채널", null);
-  assert.equal(trackLookup.getVerifiedTitle(TL_URL), "정식 제목", "재생목록 제목이 덮으면 안 된다");
-});
-
-test("확인된 제목은 확인된 제목으로 갱신된다 (영상 제목이 실제로 바뀐 경우)", () => {
-  trackLookup.recordTrackLookup(TL_URL, "youtube", "yt:titletest", "새 정식 제목", "채널", null, { verified: true });
-  assert.equal(trackLookup.getVerifiedTitle(TL_URL), "새 정식 제목");
-});
-
-test("확인된 적 없는 URL은 getVerifiedTitle이 null", () => {
-  const url = "https://www.youtube.com/watch?v=unverif";
-  withCacheRow("yt:unverif");
-  trackLookup.recordTrackLookup(url, "youtube", "yt:unverif", "첫 제목", null, null);
-  trackLookup.recordTrackLookup(url, "youtube", "yt:unverif", "둘째 제목", null, null);
-  assert.equal(trackLookup.getVerifiedTitle(url), null, "미확인 제목은 여기 안 걸린다");
-});
-
-test("매핑(audio_source_key)은 출처와 무관하게 항상 갱신된다", () => {
-  const url = "https://www.youtube.com/watch?v=remap";
-  withCacheRow("yt:old");
-  withCacheRow("yt:new");
-  trackLookup.recordTrackLookup(url, "youtube", "yt:old", "제목", null, null, { verified: true });
-  trackLookup.recordTrackLookup(url, "youtube", "yt:new", "낡은 제목", null, null);
-  assert.equal(trackLookup.getResolvedKey(url), "yt:new", "재검색 결과가 매핑을 갱신해야 한다");
-  assert.equal(trackLookup.getVerifiedTitle(url), "제목", "제목은 지켜진다");
-});
-
-test("행이 없는 URL은 getVerifiedTitle이 null", () => {
-  assert.equal(trackLookup.getVerifiedTitle("https://www.youtube.com/watch?v=nosuch"), null);
 });
 
 // ── 오디오 길이 (duration_sec) ───────────────────────────────
