@@ -257,6 +257,21 @@ test("라이브는 위치 0 으로 열고, 캐시를 안 받고, 종료 감시�
   assert.equal(timer, null);
 });
 
+test("DASH 도 주소를 ffmpeg 에 주되 HLS 옵션은 붙이지 않는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("dddddddddd1");
+  behavior.stream = () => ({ url: "https://dash.test/v.mpd", protocol: "http_dash_segments", duration: 300 });
+
+  await playOnce(p);
+
+  const args = calls.spawns[0].args;
+  assert.equal(args[args.indexOf("-i") + 1], "https://dash.test/v.mpd");
+  assert.ok(!args.includes("-seg_max_retry"), "HLS 디먹서 옵션이라 붙이면 ffmpeg 가 멈춘다");
+  assert.equal(calls.fetches.length, 0, "Node 가 받지 않는다");
+  assert.equal(calls.downloads.length, 1);
+  assert.equal(p.playback.transport.list, "dash");
+});
+
 test("ffmpeg 가 HLS 를 못 열면 실패", async () => {
   h.caps.ok = false;
   const p = h.makePlayer();

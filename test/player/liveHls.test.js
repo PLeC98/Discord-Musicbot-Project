@@ -26,6 +26,7 @@ test("능력 확인: 우리가 깔아 주는 빌드는 https와 hls를 갖췄다
   assert.equal(caps.hls, true, "hls 디먹서가 있어야 재생목록을 읽는다");
   assert.equal(caps.ok, true);
   assert.equal(typeof caps.segMaxRetry, "boolean", "세그먼트 재시도 옵션은 있고 없고를 가린다");
+  assert.equal(typeof caps.dash, "boolean", "DASH 조각 목록을 여는지도 가린다");
 });
 
 test("능력 확인 결과는 캐시된다. 재생할 때마다 프로세스를 띄우지 않는다", () => {

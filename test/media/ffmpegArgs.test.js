@@ -15,6 +15,14 @@ const assert = require("node:assert/strict");
 const { buildFfmpegArgs } = require("../../src/media/ffmpeg/args");
 
 const build = (opts) => buildFfmpegArgs(opts);
+
+test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpeg 는 모르는 옵션에 멈춘다", () => {
+  const caps = { segMaxRetry: true };
+  assert.ok(build({ url: "https://x/a.m3u8", caps }).includes("-seg_max_retry"));
+  const dash = build({ url: "https://x/a.mpd", hls: false, caps });
+  assert.ok(!dash.includes("-seg_max_retry"));
+  assert.equal(dash[dash.indexOf("-i") + 1], "https://x/a.mpd");
+});
 const idx = (args, flag) => args.indexOf(flag);
 
 test("스트리밍: 입력은 pipe:0. 부르지 않은 곳에 URL이 새지 않는다", () => {

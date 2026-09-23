@@ -33,14 +33,18 @@ test("liveBlockReason: 라이브가 아니면 null, 예정이면 upcoming, ffmpe
   assert.equal(asked, 2);
 });
 
-test("transportOf: HLS 주소만 url, 캐시 파일이 있으면 file, 나머지는 pipe. 라이브는 캐시하지 않는다", () => {
+test("transportOf: 받아서 흘릴 수 없는 것만 url, 캐시 파일이 있으면 file, 나머지는 pipe. 라이브는 캐시하지 않는다", () => {
   const hls = { protocol: "m3u8_native" };
-  assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.m3u8", streamInfo: { ...hls, liveStatus: "is_live" } }), { via: "url", live: true, cacheable: false });
-  assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "url", live: false, cacheable: true });
+  assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.m3u8", streamInfo: { ...hls, liveStatus: "is_live" } }), { via: "url", live: true, cacheable: false, list: "hls" });
+  assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "url", live: false, cacheable: true, list: "hls" });
   assert.deepEqual(transportOf({ file: "/c/a.opus", streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "file", live: false, cacheable: true });
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.webm", streamInfo: { protocol: "https" } }), { via: "pipe", live: false, cacheable: true });
   assert.deepEqual(transportOf({ file: null, streamUrl: null, streamInfo: { stream: {}, ...hls } }), { via: "pipe", live: false, cacheable: true }, "주소가 없으면 url 이 아니다");
-  // DASH 는 아직 가리지 않는다(파이프에 안 담기는 것은 같지만 따로 정한다)
+  // DASH 도 파이프에 안 담긴다. 조각 목록이다
+  assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.mpd", streamInfo: { protocol: "http_dash_segments" } }), { via: "url", live: false, cacheable: true, list: "dash" });
+  assert.equal(transportOf({ file: null, streamUrl: "https://x/a", streamInfo: { protocol: "ism" } }).list, "other", "모르는 방식도 받아서 흘릴 수는 없다");
+  assert.equal(transportOf({ file: null, streamUrl: "https://x/a.mp3", streamInfo: { protocol: "http" } }).via, "pipe");
+  assert.equal(transportOf({ file: null, streamUrl: "https://x/a.mp3", streamInfo: { platform: "direct" } }).via, "pipe", "방식을 모르는 직접 링크");
   assert.equal(isHlsStream({ protocol: "http_dash_segments" }), false);
   assert.equal(isHlsStream("m3u8"), false, "서술자가 객체가 아니면 아니다");
 });

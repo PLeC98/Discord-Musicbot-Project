@@ -50,18 +50,26 @@ function resourceOf(o, input, duration) {
   });
 }
 
-// HLS. 재생목록은 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
+// 목록에 필요한 ffmpeg 능력. 모르는 방식은 https 만 있으면 ffmpeg 에 맡겨 본다
+const CAN_OPEN = {
+  hls: (caps) => caps.ok,
+  dash: (caps) => caps.https && caps.dash,
+  other: (caps) => caps.https,
+};
+
+// HLS · DASH. 목록은 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
 function openUrl(o) {
   // 입구(playRequest)와 사운드클라우드 포맷 선택이 먼저 거르지만, 여기까지 온 것은 막는다.
-  if (!o.io.ffmpegCapabilities().ok) {
-    throw new Error("이 ffmpeg 빌드로는 HLS 스트림을 재생할 수 없습니다");
+  const list = o.transport.list ?? "hls";
+  if (!CAN_OPEN[list](o.io.ffmpegCapabilities())) {
+    throw new Error(`이 ffmpeg 빌드로는 ${list === "other" ? o.streamInfo.protocol : list.toUpperCase()} 스트림을 재생할 수 없습니다`);
   }
 
   // 라이브가 아닌 HLS(사운드클라우드 등)는 평소대로 캐시를 받아 둔다. 재생은 기다리지 않는다.
   o.download?.start();
 
   const live = o.transport.live;
-  const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ url: o.streamInfo.url, seekMs: live ? 0 : o.startMs, caps: o.io.ffmpegCapabilities() }), "stream");
+  const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ url: o.streamInfo.url, hls: list === "hls", seekMs: live ? 0 : o.startMs, caps: o.io.ffmpegCapabilities() }), "stream");
   // 캐시 전환(AudioSplicer)은 걸지 않는다. 라이브는 갈아탈 캐시가 없고, 잔끊김은
   // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(handleTrackEnd).
   ffmpeg.once("exit", (code, signal) => o.onExit(code === null && signal ? -1 : code));

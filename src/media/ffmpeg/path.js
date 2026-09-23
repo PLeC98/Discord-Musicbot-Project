@@ -87,7 +87,9 @@ function ffmpegPath() {
  * `segMaxRetry`는 비교적 최근 옵션이라 따로 본다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로
  * 없는 빌드에 붙이면 재생이 시작조차 못 한다.
  *
- * @returns {{https: boolean, hls: boolean, segMaxRetry: boolean, ok: boolean}}
+ * `dash`는 DASH 조각 목록을 여는가. 지금 받는 곳에서는 드물다.
+ *
+ * @returns {{https: boolean, hls: boolean, dash: boolean, segMaxRetry: boolean, ok: boolean}}
  */
 function capabilities() {
   if (caps) return caps;
@@ -107,10 +109,12 @@ function capabilities() {
   const inputSection = protocols.split(/^\s*Output:/m)[0];
   const https = /^\s*https\s*$/m.test(inputSection);
 
-  const hls = /^\s*\S*D\S*\s+hls\s/m.test(ask(["-hide_banner", "-demuxers"]));
+  const demuxers = ask(["-hide_banner", "-demuxers"]);
+  const hls = /^\s*\S*D\S*\s+hls\s/m.test(demuxers);
+  const dash = /^\s*\S*D\S*\s+dash\s/m.test(demuxers);
   const segMaxRetry = /-seg_max_retry\b/.test(ask(["-hide_banner", "-h", "demuxer=hls"]));
 
-  caps = { https, hls, segMaxRetry, ok: https && hls };
+  caps = { https, hls, dash, segMaxRetry, ok: https && hls };
   if (!caps.ok) {
     log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"})`);
   }

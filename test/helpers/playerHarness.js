@@ -100,7 +100,7 @@ function spawnFfmpeg(args, label) {
   calls.spawns.push(child);
   return child;
 }
-const caps = { ok: true, https: true, hls: true, segMaxRetry: true };
+const caps = { ok: true, https: true, hls: true, dash: true, segMaxRetry: true };
 
 // ── 3. 청크 스트림 ─────────────────────────────────────────────────────
 async function openChunkedStream(opts) {
@@ -264,7 +264,7 @@ function reset() {
   for (const k of Object.keys(calls)) calls[k].length = 0;
   for (const k of Object.keys(behavior)) behavior[k] = null;
   inFlight.clear();
-  Object.assign(caps, { ok: true, https: true, hls: true, segMaxRetry: true });
+  Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
   audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache._cacheDir, { recursive: true, force: true });
   fs.mkdirSync(audioCache._cacheDir, { recursive: true });
