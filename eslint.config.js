@@ -32,6 +32,16 @@ module.exports = [
     },
   },
 
+  // ESM 으로 바꾼 폴더(리팩터링 9단계, 아래층부터). require · __dirname 이 남으면 no-undef 로 드러난다
+  {
+    files: ["src/infra/**/*.js", "test/infra/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: globals.nodeBuiltin,
+    },
+  },
+
   // 대시보드 클라이언트 - Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)
   ...pluginVue.configs["flat/essential"],
   {

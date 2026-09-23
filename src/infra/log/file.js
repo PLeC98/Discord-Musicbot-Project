@@ -1,5 +1,3 @@
-"use strict";
-
 // NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
 // 파일 로직을 facade(src/infra/log/logger.js)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
@@ -11,8 +9,8 @@
 // 쓰기는 동기다. 사후 분석이 목적이라 죽는 순간의 마지막 줄이 가장 중요한데, 스트림 버퍼는
 // process.exit()이나 치명적 종료에서 그대로 날아간다. 우리 로그량에서 writeSync 비용은 무시할 수준이다.
 
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
@@ -175,4 +173,6 @@ function createFileDestination({ file, maxBytes, keep }) {
   return { write, close, path: file };
 }
 
-module.exports = { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp };
+const exported = { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp };
+export default exported;
+export { exported as "module.exports" };

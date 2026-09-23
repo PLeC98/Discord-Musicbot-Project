@@ -1,5 +1,3 @@
-"use strict";
-
 // src/infra/safeUrl.js — SSRF 방어가 실제로 버티는지 공격해 본다.
 //
 // CodeQL이 이 파일을 js/request-forgery(critical)로 지적한다. "URL이 사용자 입력에 의존한다"는
@@ -8,9 +6,10 @@
 //
 // 요청 함수와 DNS 해석을 가짜로 넘겨 네트워크 없이 검증한다. 실 소켓은 열리지 않는다.
 
-const dnsPromises = require("dns").promises;
-const { test, beforeEach } = require("node:test");
-const assert = require("node:assert/strict");
+import dns from "dns";
+const dnsPromises = dns.promises;
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
 
 // ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head · getStream 에 넘긴다 ─────────────
 const calls = [];
@@ -26,7 +25,7 @@ const deps = {
   lookup: (...args) => lookupImpl(...args),
 };
 
-const safeUrl = require("../../src/infra/safeUrl");
+const safeUrl = (await import("../../src/infra/safeUrl.js")).default;
 const { SsrfError } = safeUrl;
 const head = (url) => safeUrl.head(url, deps);
 const getStream = (url) => safeUrl.getStream(url, deps);

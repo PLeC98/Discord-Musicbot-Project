@@ -1,5 +1,3 @@
-"use strict";
-
 // 음성 라이브러리와 디스코드 게이트웨이 사이에 끼우는 어댑터.
 //
 // @discordjs/voice 는 음성 서버 연결이 닫히면(닫힘 코드 4014 말고) 곧바로 그때의 설정으로 다시 참가한다.
@@ -62,4 +60,6 @@ function holdingAdapterCreator(creator, { holdMs = HOLD_MS, onRewrite } = {}) {
   };
 }
 
-module.exports = { holdingAdapterCreator, HOLD_MS };
+const exported = { holdingAdapterCreator, HOLD_MS };
+export default exported;
+export { exported as "module.exports" };

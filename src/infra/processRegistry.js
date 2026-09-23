@@ -1,7 +1,6 @@
-"use strict";
-
-const { spawnSync } = require("node:child_process");
-const log = require("./log/logger").child({ category: "proc" });
+import { spawnSync } from "node:child_process";
+import logger from "./log/logger.js";
+const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
 
@@ -123,4 +122,6 @@ function list() {
     .sort((a, b) => b.ageMs - a.ageMs);
 }
 
-module.exports = { register, killAll, size, list, install, _internals: { active, killTree, _isAlive } };
+const exported = { register, killAll, size, list, install, _internals: { active, killTree, _isAlive } };
+export default exported;
+export { exported as "module.exports" };

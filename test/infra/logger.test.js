@@ -1,13 +1,12 @@
-"use strict";
-
 // logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const logger = require("../../src/infra/log/logger");
-const sink = require("../../src/infra/log/sink");
+import logger from "../../src/infra/log/logger.js";
+import sink from "../../src/infra/log/sink.js";
+import config from "../../config.js";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogManager } = sink;
 
@@ -207,7 +206,7 @@ function fakeRes({ writeResult = true } = {}) {
 test("관리자 SSE: 연결 상한을 넘으면 429 — 무한정 받지 않는다", () => {
   const lm = new LogManager({ intercept: false });
   lm._renderTerminal = () => {};
-  const { maxPerUser } = require("../../config").dashboard.sse;
+  const { maxPerUser } = config.dashboard.sse;
 
   for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes());
   assert.equal(lm.clients.size, maxPerUser);

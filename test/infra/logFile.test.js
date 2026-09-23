@@ -1,13 +1,12 @@
-"use strict";
-
 // src/infra/log/file.js — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } = require("../../src/infra/log/file");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import fileModule from "../../src/infra/log/file.js";
+const { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } = fileModule;
 
 function tmpdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));

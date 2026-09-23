@@ -1,5 +1,3 @@
-"use strict";
-
 // src/infra/processRegistry.js — 외부 프로세스 트리 종료
 //
 // 회귀 대상: 라이브 방송이 잘못 매칭돼 캐시 다운로드가 시작되면 yt-dlp가 ffmpeg를 외부 다운로더로
@@ -9,12 +7,12 @@
 // Windows(taskkill /T)와 POSIX(detached + 프로세스 그룹 시그널)는 구현이 완전히 다르므로,
 // CI가 ubuntu·windows 양쪽에서 이 파일을 돌려 두 경로를 모두 증명한다.
 
-const { spawn } = require("node:child_process");
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { spawn } from "node:child_process";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
 const IS_WIN = process.platform === "win32";
-const registry = require("../../src/infra/processRegistry");
+const registry = (await import("../../src/infra/processRegistry.js")).default;
 
 /** pid가 아직 살아있는가 — 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
 function alive(pid) {

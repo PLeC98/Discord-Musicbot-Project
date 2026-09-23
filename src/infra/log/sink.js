@@ -1,14 +1,12 @@
-"use strict";
-
 // LogSink. 로그 레코드의 "진짜 매니저".
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
 // 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
 // 생산자는 두 갈래: (1) src/infra/log/logger.js facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
-const util = require("util");
-const config = require("../../../config");
-const chalk = require("chalk");
+import util from "util";
+import config from "../../../config.js";
+import chalk from "chalk";
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
@@ -275,4 +273,5 @@ class LogManager {
 const singleton = new LogManager();
 singleton.LogManager = LogManager; // 테스트용 클래스(격리 인스턴스 생성)
 singleton._internals = { LEVELS, LEVEL_NAMES, WIRE_LEVEL, CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS };
-module.exports = singleton;
+export default singleton;
+export { singleton as "module.exports" };

@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD·GET이 여기를 지난다.
  *
@@ -14,13 +12,14 @@
  * 어느 IP가 막혔는지 알려 주면 봇이 내부망 탐지 도구가 된다.
  */
 
-const axios = require("axios");
-const dns = require("dns").promises;
-const net = require("net");
-const http = require("http");
-const https = require("https");
-const { pipeline, Transform } = require("stream");
-const ipaddr = require("ipaddr.js");
+import axios from "axios";
+import { promises as dns } from "dns";
+import net from "net";
+import http from "http";
+import https from "https";
+import { pipeline, Transform } from "stream";
+import ipaddr from "ipaddr.js";
+import config from "../../config.js";
 
 // --- 보안 상수 (코드 고정: 오설정으로 방어가 꺼지지 않도록 .env화하지 않음) ---
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
@@ -29,7 +28,6 @@ const HEAD_TIMEOUT_MS = 10000;
 const GET_TIMEOUT_MS = 30000;
 const MAX_BYTES = 500 * 1024 * 1024; // 500 MB
 const ALLOWED_CONTENT_TYPE = /^\s*(audio\/|video\/|application\/octet-stream|binary\/octet-stream)/i;
-const USER_AGENT = require("../../config").userAgents.browser;
 
 class SsrfError extends Error {
   constructor(message) {
@@ -154,7 +152,7 @@ async function guardedRequest(method, rawUrl, { responseType, request = axios, l
         validateStatus: (s) => s >= 200 && s < 400, // 3xx도 우리가 읽어야 함
         httpAgent: isHttps ? undefined : agent,
         httpsAgent: isHttps ? agent : undefined,
-        headers: { "User-Agent": USER_AGENT },
+        headers: { "User-Agent": config.userAgents.browser },
       });
     } catch (err) {
       agent.destroy();
@@ -240,7 +238,7 @@ async function getStream(rawUrl, deps = {}) {
   return capped;
 }
 
-module.exports = {
+const exported = {
   SsrfError,
   head,
   getStream,
@@ -250,3 +248,5 @@ module.exports = {
   validateAndResolve,
   MAX_BYTES,
 };
+export default exported;
+export { exported as "module.exports" };
