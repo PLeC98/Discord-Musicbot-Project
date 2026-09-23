@@ -2,6 +2,7 @@
 const youtubedl = require("./ytdlpSpawn");
 const links = require("../rules/links");
 const { canonicalUrl } = require("../rules/canonicalUrl");
+const { readInfo } = require("./ytdlpInfo");
 const config = require("../../config");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 
@@ -82,11 +83,13 @@ class SoundCloud {
     // 사운드클라우드는 progressive(`http_mp3_1_0`)를 함께 주므로 음질을 조금 내주고 재생을 지킨다.
     const format = ffmpegCapabilities().ok ? "bestaudio/best" : "bestaudio[protocol^=http]/best[protocol^=http]/bestaudio/best";
 
-    const info = await youtubedl(url, {
-      format,
-      dumpSingleJson: true,
-      noWarnings: true,
-    });
+    const info = readInfo(
+      await youtubedl(url, {
+        format,
+        dumpSingleJson: true,
+        noWarnings: true,
+      }),
+    );
 
     if (!info || !info.url) {
       throw new Error("스트림 URL을 찾을 수 없음");
@@ -169,8 +172,10 @@ class SoundCloud {
     }
   }
 
-  static async formatTrack(soundcloudTrack) {
+  static async formatTrack(raw) {
     try {
+      const soundcloudTrack = readInfo(raw);
+      if (!soundcloudTrack) return null;
       const unknownTitle = "알 수 없는 제목";
       const unknownArtist = "알 수 없는 아티스트";
 

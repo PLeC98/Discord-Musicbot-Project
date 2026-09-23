@@ -5,6 +5,7 @@
 const log = require("../../infra/log/logger").child({ category: "youtube" });
 const links = require("../../rules/links");
 const { canonicalUrl } = require("../../rules/canonicalUrl");
+const { readInfo } = require("../ytdlpInfo");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("../ytdlpSpawn");
 const config = require("../../../config");
@@ -90,7 +91,10 @@ class YouTubeApi {
       const tracks = [];
       // 비디오가 아닌 검색 결과(채널·재생목록·핸들)를 제외. ytsearch가 이들을 섞어 반환하는데,
       // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 순위로 우승).
-      const videoEntries = results.entries.filter((e) => this._isVideoEntry(e)).slice(0, limit);
+      const videoEntries = results.entries
+        .map(readInfo)
+        .filter((e) => this._isVideoEntry(e))
+        .slice(0, limit);
       for (const item of videoEntries) {
         try {
           // 디버그: 항목 구조 기록
@@ -146,17 +150,19 @@ class YouTubeApi {
 
   static async getInfo(url, { exec } = {}) {
     try {
-      const info = await this.runYtDlp(
-        url,
-        (forceCookies) =>
-          this.getYtDlpOptions(
-            {
-              dumpSingleJson: true,
-              preferFreeFormats: true,
-            },
-            { forceCookies },
-          ),
-        exec,
+      const info = readInfo(
+        await this.runYtDlp(
+          url,
+          (forceCookies) =>
+            this.getYtDlpOptions(
+              {
+                dumpSingleJson: true,
+                preferFreeFormats: true,
+              },
+              { forceCookies },
+            ),
+          exec,
+        ),
       );
 
       if (!info) {
@@ -200,17 +206,19 @@ class YouTubeApi {
       }
 
       // 단순 형식으로 스트림 URL 가져오기
-      const info = await this.runYtDlp(
-        url,
-        (forceCookies) =>
-          this.getYtDlpOptions(
-            {
-              dumpSingleJson: true,
-              format: "bestaudio/best",
-            },
-            { forceCookies },
-          ),
-        exec,
+      const info = readInfo(
+        await this.runYtDlp(
+          url,
+          (forceCookies) =>
+            this.getYtDlpOptions(
+              {
+                dumpSingleJson: true,
+                format: "bestaudio/best",
+              },
+              { forceCookies },
+            ),
+          exec,
+        ),
       );
 
       if (!info || !info.url) {
@@ -258,13 +266,15 @@ class YouTubeApi {
   // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
   static async getPlaylist(url, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl } = {}) {
     try {
-      const info = await exec(
-        url,
-        this.getYtDlpOptions({
-          dumpSingleJson: true,
-          flatPlaylist: true,
-          playlistItems: `${offset + 1}:${offset + limit}`,
-        }),
+      const info = readInfo(
+        await exec(
+          url,
+          this.getYtDlpOptions({
+            dumpSingleJson: true,
+            flatPlaylist: true,
+            playlistItems: `${offset + 1}:${offset + limit}`,
+          }),
+        ),
       );
 
       if (!info) {
@@ -279,7 +289,7 @@ class YouTubeApi {
       const unknownArtist = "알 수 없는 아티스트";
 
       const tracks = [];
-      for (const entry of info.entries) {
+      for (const entry of info.entries.map(readInfo)) {
         if (entry && (entry.id || entry.url)) {
           try {
             const videoUrl = entry.webpage_url || entry.url || (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : null);

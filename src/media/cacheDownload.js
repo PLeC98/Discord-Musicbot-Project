@@ -8,6 +8,7 @@ const fsSync = require("fs");
 const { pipeline } = require("stream/promises");
 const audioConvert = require("./convert");
 const versionOf = require("./audioVersion");
+const { readInfo } = require("../sources/ytdlpInfo");
 const YouTube = require("../sources/youtube/index");
 const equivalent = require("../sources/youtube/equivalent");
 const DirectLink = require("../sources/direct");
@@ -315,7 +316,7 @@ class TrackDownloader {
     for (const p of candidates) {
       try {
         if (!fsSync.existsSync(p)) continue;
-        const info = JSON.parse(fsSync.readFileSync(p, "utf8"));
+        const info = readInfo(JSON.parse(fsSync.readFileSync(p, "utf8")));
         fsSync.unlinkSync(p);
         return {
           title: typeof info?.title === "string" && info.title.trim() ? info.title : null,
