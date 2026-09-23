@@ -68,7 +68,16 @@ async function restoreOne(client, MusicPlayer, record) {
     return;
   }
 
+  // 기다리는 사이 사람이 이 서버에서 재생을 시작했으면 그쪽이 이긴다. 세션 기록도 이미 그 플레이어가 쓰고 있어 건드리지 않는다
+  const alreadyPlaying = () => {
+    if (!client.players.has(guildId)) return false;
+    log.info(`서버 ${guild.name}은(는) 이미 재생 중이라 저장 세션 복원을 건너뜁니다`);
+    return true;
+  };
+  if (alreadyPlaying()) return;
+
   const channels = await savedChannels(guild, record.session);
+  if (alreadyPlaying()) return;
   if (!channels) {
     sessions().removeSession(guildId);
     return;

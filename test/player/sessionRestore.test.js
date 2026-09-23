@@ -211,3 +211,18 @@ test("되살리기: 저장 세션이 없으면 아무것도 안 한다", async (
   await restoreSavedPlayers(client, FakePlayer);
   assert.equal(made.length, 0);
 });
+
+test("되살리기: 기다리는 사이 그 서버에서 재생이 시작됐으면 건드리지 않는다", async () => {
+  saved("r5");
+  const client = clientWith([guildWith("r5")]);
+  const live = { live: true };
+  client.players.set("r5", live);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, FakePlayer);
+
+  assert.equal(made.length, 0);
+  assert.equal(client.players.get("r5"), live, "지금 도는 플레이어를 바꿔 끼우지 않는다");
+  assert.deepEqual(remaining(), ["r5"], "세션 기록도 그 플레이어의 것이다");
+  sessions().removeSession("r5");
+});

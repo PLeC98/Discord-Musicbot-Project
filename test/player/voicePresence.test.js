@@ -77,6 +77,12 @@ test("봇이 다른 채널로 옮겨지면 기록을 맞추고 혼자 남음을 
   assert.deepEqual(calls.slice(0, 3), ["move:vc0->vc2", "cancelAlone:false", "embed:update"]);
 });
 
+test("봇이 처음 참가한 것은 옮겨진 것이 아니다", async () => {
+  const { client, calls, state } = setup();
+  await onVoiceStateUpdate(client, state(BOT, null), state(BOT, "vc1", { channel: { id: "vc1" } }));
+  assert.ok(!calls.some((c) => c.startsWith("move:")));
+});
+
 test("봇이 서버 음소거되면 mute 로 멈추고, 풀리면 mute 를 푼다", async () => {
   const { client, calls, state } = setup();
   await onVoiceStateUpdate(client, state(BOT, "vc1"), state(BOT, "vc1", { serverMute: true }));
