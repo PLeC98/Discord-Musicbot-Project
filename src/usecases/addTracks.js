@@ -15,8 +15,8 @@ const { liveBlockReason } = require("../rules/liveBlockReason");
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
 
 /** 이 곡을 대기열에 넣을 수 없는 이유(사용자에게 보일 문장). 넣을 수 있으면 null. */
-function liveBlockText(track) {
-  const reason = liveBlockReason(track, { ffmpegReady: () => ffmpegCapabilities().ok });
+function liveBlockText(track, ffmpegReady) {
+  const reason = liveBlockReason(track, { ffmpegReady });
   return reason ? LIVE_BLOCK_TEXT[reason] : null;
 }
 
@@ -97,7 +97,7 @@ async function resolveFallbackTextChannel(guild) {
  * @param {string} options.source           로그 라벨
  * @returns {Promise<{success: boolean, message?: string, isPlaylist?: boolean, tracks?: Array}>}
  */
-async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = songLookup }) {
+async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = songLookup, ffmpegReady = () => ffmpegCapabilities().ok }) {
   const guildId = guild.id;
   const who = toRequester(requester);
 
@@ -131,7 +131,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   // 아직 시작하지 않은 방송(틀 것이 없다)과, 그 갈래를 열 수 없는 ffmpeg 빌드.
   // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
   if (trackData.tracks?.length) {
-    const judged = trackData.tracks.map((t) => [t, liveBlockText(t)]);
+    const judged = trackData.tracks.map((t) => [t, liveBlockText(t, ffmpegReady)]);
     const playable = judged.filter(([, why]) => !why).map(([t]) => t);
     if (playable.length < trackData.tracks.length) {
       if (playable.length === 0) return { success: false, message: judged.find(([, why]) => why)[1] };
@@ -156,7 +156,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   // 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
   const first = trackData.tracks?.[0];
   const count = trackData.tracks?.length ?? 0;
-  const what = trackData.isPlaylist ? `${require("../ui/strings").collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
+  const what = trackData.isPlaylist ? `${S.collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
   const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
   log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player?.queue?.length ?? 0}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}${trackData.queueLimited ? " | 자리가 모자라 일부만 받음" : ""}`);
 

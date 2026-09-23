@@ -160,7 +160,7 @@ test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드�
 
 function baseArgs(client, guild, extra = {}) {
   client.players.set(GUILD_ID, { textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive() {}, hasLiveTrack: () => false });
-  return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ...extra };
+  return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, ...extra };
 }
 
 // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 더 이상 입구에서 막지 않는다.
@@ -173,6 +173,18 @@ test("방송 중인 라이브는 통과시킨다", async () => {
 
   const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
   assert.deepEqual(sent, ["24/7 라디오"]);
+});
+
+test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
+  const client = makeClient();
+  const guild = makeGuild();
+
+  const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
+
+  assert.equal(result.success, false);
+  assert.equal(result.message, require("../../src/ui/strings").ERR_LIVE_NO_FFMPEG);
+  assert.equal(client.embedCalls.length, 0);
 });
 
 // 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.

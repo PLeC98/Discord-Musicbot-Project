@@ -14,8 +14,7 @@
     "src/store/audioCache.js": 3,
     "src/ui/botPresence.js": 1,
     "src/ui/genreMenu.js": 1,
-    "src/ui/nowPlayingPanel.js": 2,
-    "src/usecases/addTracks.js": 1
+    "src/ui/nowPlayingPanel.js": 2
   },
   "configCapture": {
     "src/autoplay/sources/http.js": 1,
