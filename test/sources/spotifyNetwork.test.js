@@ -1,24 +1,22 @@
-"use strict";
-
 // Spotify 의 공식 API 경로와 익명 GraphQL 경로가 네트워크와 무엇을 주고받는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 3 이 트랙 칸을 바꾸고, 5 가 익명 상태를 저장하는 곳을 옮긴다. fetch 만 가짜로 두고
 // 토큰 발급 · 재사용 · 상태 추출 · 저장 · 재시도를 적어 둔다. 익명 상태는 진짜 CacheManager(임시 DB)에 남는다.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
-const audioCache = require("../../src/store/audioCache");
-const externalCaches = require("../../src/store/externalCaches");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
+const externalCaches = (await import("../../src/store/externalCaches.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const config = require("../../config");
-const Spotify = require("../../src/sources/spotify");
+const config = (await import("../../config.js")).default;
+const Spotify = (await import("../../src/sources/spotify.js")).default;
 const { official, graphql, deriveKey, totp } = Spotify._internals;
 
 const realFetch = global.fetch;

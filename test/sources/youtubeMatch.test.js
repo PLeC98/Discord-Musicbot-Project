@@ -1,5 +1,3 @@
-"use strict";
-
 // src/sources/youtube/match.js — 후보 채점의 순수 로직 계약.
 //
 // 유튜브 검색 결과로 실제 선택을 검증하는 회귀 코퍼스는 여기 두지 않는다.
@@ -8,9 +6,10 @@
 //
 // 여기 남은 것은 네트워크도 외부 데이터도 타지 않는, 코드 자체의 계약이다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { rankCandidates, scoreCandidate, W, _internal: I } = require("../../src/sources/youtube/match");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import match from "../../src/sources/youtube/match.js";
+const { rankCandidates, scoreCandidate, W, _internal: I } = match;
 
 // ── 용어 판정 ────────────────────────────────────────────────
 

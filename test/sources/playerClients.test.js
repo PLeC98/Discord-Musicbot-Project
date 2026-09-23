@@ -1,13 +1,13 @@
-"use strict";
-
 // src/sources/youtube/clients.js — 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
 // 연속 실패가 아니라 슬라이딩 윈도우인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가
 // 갈려서(2026-09-11 실측) 성공이 섞이면 연속 카운터가 계속 리셋된다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { PlayerClients, KNOWN, NEEDS_POT } = require("../../src/sources/youtube/clients");
-const { parseClients } = require("../../config");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import clients from "../../src/sources/youtube/clients.js";
+const { PlayerClients, KNOWN, NEEDS_POT } = clients;
+import config from "../../config.js";
+const { parseClients } = config;
 
 test("빈 설정이면 idle — 폴백 루프를 아예 돌지 않는다 (기존 동작 보존)", () => {
   const pc = new PlayerClients([]);

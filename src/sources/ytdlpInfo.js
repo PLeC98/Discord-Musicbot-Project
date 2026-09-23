@@ -1,10 +1,9 @@
-"use strict";
-
 // yt-dlp JSON 경계. 쓰는 칸만 뽑고 나머지는 흘려보낸다.
 // 칸 하나의 모양이 바뀌면(yt-dlp 가 칸을 바꾸면) 그 칸만 버리고 한 번 알린다. 곡 하나를 통째로 버리지 않는다.
 
-const { z } = require("zod");
-const log = require("../infra/log/logger").child({ category: "youtube" });
+import { z } from "zod";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "youtube" });
 
 const reported = new Set();
 
@@ -74,4 +73,6 @@ function readInfo(raw) {
   return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 }
 
-module.exports = { readInfo };
+const exported = { readInfo };
+export default exported;
+export { exported as "module.exports" };

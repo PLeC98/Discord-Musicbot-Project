@@ -1,8 +1,7 @@
-"use strict";
-
-const youtubedl = require("youtube-dl-exec");
-const procRegistry = require("../infra/processRegistry");
-const { YouTubeErrors } = require("./youtube/errors");
+import youtubedl from "youtube-dl-exec";
+import procRegistry from "../infra/processRegistry.js";
+import errors from "./youtube/errors.js";
+const { YouTubeErrors } = errors;
 
 const IS_WIN = process.platform === "win32";
 
@@ -44,4 +43,5 @@ async function run(url, flags = {}, opts = {}) {
   }
 }
 
-module.exports = run;
+export default run;
+export { run as "module.exports" };

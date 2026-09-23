@@ -1,5 +1,3 @@
-"use strict";
-
 // 쿠키가 붙으면 쓸 수 있는 클라이언트 집합이 바뀐다. 그 경계에서 생기던 두 가지를 고정한다.
 //
 //  1. yt-dlp 가 건너뛴 클라이언트를 실패로 세면 안 된다. 돌아 본 적이 없기 때문이다.
@@ -7,14 +5,19 @@
 //  2. POToken 을 요구한 클라이언트 이름은 경고 본문에 적혀 온다. 우리가 지정한 값이 아니다.
 //     연령 제한 영상에서는 우리가 고르지 않은 web_creator 가 yt-dlp 판단으로 끼어든다.
 
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.COOKIES_SOURCE = "";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const YouTube = require("../../src/sources/youtube/index");
-const { NEEDS_POT } = require("../../src/sources/youtube/clients");
-const sink = require("../../src/infra/log/sink");
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const { NEEDS_POT } = (await import("../../src/sources/youtube/clients.js")).default;
+const sink = (await import("../../src/infra/log/sink.js")).default;
 
 // debug 로 흘리는 것까지 봐야 한다. 루트 레벨은 기동 코드가 올려 주므로 테스트에서 직접 올린다.
 require("../../src/infra/log/logger").level = "trace";

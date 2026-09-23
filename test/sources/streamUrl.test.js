@@ -1,5 +1,3 @@
-"use strict";
-
 // src/sources/streamUrl.js — 재생용 스트림을 어디서 가져올지 고르는 자리. 곡이 어디서 왔는지(platform)가 아니라 음원 주소가 정한다.
 //
 // 회귀 대상: 자동재생 소스가 늘면서 platform 값이 vocadb·lastfm·lbradio·touhoudb 같은 것이
@@ -8,8 +6,8 @@
 // 캐시에 받아 둔 곡은 파일로 재생돼서 멀쩡했고, 안 받아 둔 곡만 죽었다 —
 // 그래서 "두 곡은 되다가 갑자기 안 되는" 모양으로 나타났다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
 // 실제로 유튜브에 붙지 않는다 — 어느 주소로 가는지만 본다
 let asked = null;
@@ -21,7 +19,7 @@ const youtube = {
   isVideoUnavailableError: () => false,
 };
 
-const streamUrl = require("../../src/sources/streamUrl");
+const streamUrl = (await import("../../src/sources/streamUrl.js")).default;
 
 test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온다", async () => {
   for (const platform of ["vocadb", "touhoudb", "utaitedb", "lastfm", "lbradio", "animethemes"]) {

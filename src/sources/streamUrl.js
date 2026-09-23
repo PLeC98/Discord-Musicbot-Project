@@ -1,12 +1,12 @@
-"use strict";
-
 // 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 가른다.
 
-const YouTube = require("./youtube/index");
-const { inputKind } = require("../rules/inputKind");
-const log = require("../infra/log/logger").child({ category: "track" });
-const SoundCloud = require("./soundcloud");
-const equivalent = require("./youtube/equivalent");
+import YouTube from "./youtube/index.js";
+import inputKindModule from "../rules/inputKind.js";
+const { inputKind } = inputKindModule;
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "track" });
+import SoundCloud from "./soundcloud.js";
+import equivalent from "./youtube/equivalent.js";
 
 const streamUrl = {
   /**
@@ -47,4 +47,5 @@ const streamUrl = {
   },
 };
 
-module.exports = streamUrl;
+export default streamUrl;
+export { streamUrl as "module.exports" };

@@ -1,20 +1,18 @@
-"use strict";
-
 // 사운드클라우드와 직접 링크가 무엇을 조회하고 무엇을 돌려주는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 링크 판정을 rules/links 로 옮기고, 3 이 사운드클라우드 열쇠 모양과 트랙 칸을 바꾼다. 사운드클라우드는 부르는 곳이
 // 있는 것(링크 판정 · 검색 · 스트림)만 본다. 나머지 정적 메서드는 고아다(B-41, SC-1 때 판단).
 // yt-dlp 는 youtube-dl-exec 의 exec 만, 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
 
-const { Readable } = require("node:stream");
-const links = require("../../src/rules/links");
-const { test, before, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
+import { Readable } from "node:stream";
+import links from "../../src/rules/links.js";
+import { test, before, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
 
-const ytdlExec = require("youtube-dl-exec");
-const SafeUrl = require("../../src/infra/safeUrl");
-const SoundCloud = require("../../src/sources/soundcloud");
-const DirectLink = require("../../src/sources/direct");
+import ytdlExec from "youtube-dl-exec";
+import SafeUrl from "../../src/infra/safeUrl.js";
+import SoundCloud from "../../src/sources/soundcloud.js";
+import DirectLink from "../../src/sources/direct.js";
 
 const calls = { ytdlp: [], head: [], stream: [] };
 let respond;

@@ -1,13 +1,13 @@
-"use strict";
-
 // src/sources/youtube/potServer.js — bgutil POToken 서버를 띄우고 지키기.
 // 프로세스 띄우기 · 설치 확인 · HTTP 는 가짜를 넘긴다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { EventEmitter } = require("node:events");
-const { withConfig } = require("../helpers/config");
-const { createPotServer, scrubBgutilLine, PORT } = require("../../src/sources/youtube/potServer");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import config from "../helpers/config.js";
+const { withConfig } = config;
+import potServer from "../../src/sources/youtube/potServer.js";
+const { createPotServer, scrubBgutilLine, PORT } = potServer;
 
 test("토큰은 로그에 남기지 않는다", () => {
   assert.equal(scrubBgutilLine("Generated IntegrityToken: abc.def-123"), "Generated IntegrityToken: [REDACTED]");

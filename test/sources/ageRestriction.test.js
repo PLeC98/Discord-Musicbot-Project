@@ -1,12 +1,15 @@
-"use strict";
-
 // 연령 제한 폴백: CacheManager 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별.
 
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-agerestrict-test-${process.pid}.db`);
 

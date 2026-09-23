@@ -1,16 +1,17 @@
-"use strict";
-
 // 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 받는다.
 
-const YouTube = require("./youtube/index");
-const links = require("../rules/links");
-const Spotify = require("./spotify");
-const SoundCloud = require("./soundcloud");
-const DirectLink = require("./direct");
-const trackLookup = require("../store/trackLookup");
-const { errorKind } = require("../rules/errorKind");
-const { inputKind } = require("../rules/inputKind");
-const log = require("../infra/log/logger").child({ category: "track" });
+import YouTube from "./youtube/index.js";
+import links from "../rules/links.js";
+import Spotify from "./spotify.js";
+import SoundCloud from "./soundcloud.js";
+import DirectLink from "./direct.js";
+import trackLookup from "../store/trackLookup.js";
+import errorKindModule from "../rules/errorKind.js";
+const { errorKind } = errorKindModule;
+import inputKindModule from "../rules/inputKind.js";
+const { inputKind } = inputKindModule;
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "track" });
 
 const lookup = {
   // 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 글은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
@@ -128,4 +129,5 @@ const lookup = {
   },
 };
 
-module.exports = lookup;
+export default lookup;
+export { lookup as "module.exports" };

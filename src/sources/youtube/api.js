@@ -1,15 +1,16 @@
-"use strict";
-
 // 유튜브 검색 · 정보 · 스트림 · 재생목록.
 
-const log = require("../../infra/log/logger").child({ category: "youtube" });
-const links = require("../../rules/links");
-const { canonicalUrl } = require("../../rules/canonicalUrl");
-const { readInfo } = require("../ytdlpInfo");
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "youtube" });
+import links from "../../rules/links.js";
+import canonicalUrlModule from "../../rules/canonicalUrl.js";
+const { canonicalUrl } = canonicalUrlModule;
+import ytdlpInfo from "../ytdlpInfo.js";
+const { readInfo } = ytdlpInfo;
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-const youtubedl = require("../ytdlpSpawn");
-const config = require("../../../config");
-const trackLookup = require("../../store/trackLookup");
+import youtubedl from "../ytdlpSpawn.js";
+import config from "../../../config.js";
+import trackLookup from "../../store/trackLookup.js";
 
 class YouTubeApi {
   /**
@@ -353,4 +354,6 @@ class YouTubeApi {
   }
 }
 
-module.exports = { YouTubeApi };
+const exported = { YouTubeApi };
+export default exported;
+export { exported as "module.exports" };

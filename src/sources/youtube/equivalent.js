@@ -1,12 +1,12 @@
-"use strict";
-
 // 스포티파이 곡의 유튜브 동등물 찾기. 찾은 영상을 트랙의 음원 주소로 적는다.
 
-const YouTube = require("./index");
-const trackLookup = require("../../store/trackLookup");
-const links = require("../../rules/links");
-const log = require("../../infra/log/logger").child({ category: "track" });
-const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./match");
+import YouTube from "./index.js";
+import trackLookup from "../../store/trackLookup.js";
+import links from "../../rules/links.js";
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "track" });
+import match from "./match.js";
+const { buildSearchQueries, mergeCandidateLists, rankCandidates } = match;
 
 const equivalent = {
   /**
@@ -82,4 +82,5 @@ const equivalent = {
   },
 };
 
-module.exports = equivalent;
+export default equivalent;
+export { equivalent as "module.exports" };

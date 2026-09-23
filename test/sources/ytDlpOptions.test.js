@@ -1,14 +1,17 @@
-"use strict";
-
 // src/sources/youtube/index.js getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
 // 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백
 // dotenv는 기설정 process.env를 덮지 않으므로 require 전에 세팅한 빈 값이 .env보다 우선.
 
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.COOKIES_SOURCE = "";
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const YouTube = require("../../src/sources/youtube/index");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
 
 test("쿠키 미설정이어도 player_client를 강제하지 않음 (우분투 재생 불능 회귀)", () => {
   const opts = YouTube.getYtDlpOptions();
@@ -48,9 +51,9 @@ test("호출자가 extractorArgs를 명시하면 그대로 존중 (병합 계약
 // yt_dlp_plugins를 직접 담은 디렉터리를 넘기면 아무것도 못 찾고 조용히 넘어가므로,
 // 규칙 자체를 테스트로 박아 둔다 (2026-09-10: 도입 후 3개월간 이 상태였다).
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 function fixture(layout) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "plugroot-"));

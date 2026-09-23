@@ -1,5 +1,3 @@
-"use strict";
-
 // youtubeMatch. Spotify/외부 트랙의 YouTube 동등물을 "점수제"로 고르는 순수 로직 + 쿼리 구성.
 // 실제 검색(YouTube.search)은 호출측(probe · youtube/equivalent)이 하고, 결과 병합은 mergeCandidateLists로.
 
@@ -391,7 +389,7 @@ function rankCandidates(candidates, target) {
   return { ranked: scored, best: top ? top.candidate : null, confidence };
 }
 
-module.exports = {
+const exported = {
   buildSearchQueries,
   mergeCandidateLists,
   rankCandidates,
@@ -402,3 +400,5 @@ module.exports = {
   REUPLOAD_TERMS,
   _internal: { normLoose, normChannel, analyzeChannel, durationScore, countJunk, countVersion, isReupload, splitArtists, detectVersionKind, stripVersionTag },
 };
+export default exported;
+export { exported as "module.exports" };

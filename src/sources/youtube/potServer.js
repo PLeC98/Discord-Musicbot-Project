@@ -1,15 +1,14 @@
-"use strict";
-
 // bgutil POToken 서버. 유튜브가 요구하는 토큰을 만들어 주는 로컬 HTTP 서버를 띄우고 지킨다.
 // 조립(index.js)이 하나 만들어 기동 때 띄우고 종료 때 내린다.
 
-const childProcess = require("child_process");
-const fs = require("fs");
-const path = require("path");
-const log = require("../../infra/log/logger").child({ category: "core" });
-const config = require("../../../config");
+import childProcess from "child_process";
+import fs from "fs";
+import path from "path";
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "core" });
+import config from "../../../config.js";
 
-const SERVER_DIR = path.join(__dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider", "server");
+const SERVER_DIR = path.join(import.meta.dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider", "server");
 const ENTRY = path.join(SERVER_DIR, "build", "main.js");
 const PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 띄우기까지
@@ -99,4 +98,6 @@ function createPotServer({ spawn = childProcess.spawn, exists = fs.existsSync, f
   return { start, stop, waitReady };
 }
 
-module.exports = { createPotServer, scrubBgutilLine, PORT };
+const exported = { createPotServer, scrubBgutilLine, PORT };
+export default exported;
+export { exported as "module.exports" };

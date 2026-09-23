@@ -1,5 +1,3 @@
-"use strict";
-
 // yt-dlp 오류를 가른다(영상 없음 · 연령 제한 · 클라이언트 탓 · 낡은 미디어 주소).
 
 class YouTubeErrors {
@@ -114,4 +112,6 @@ class YouTubeErrors {
   }
 }
 
-module.exports = { YouTubeErrors };
+const exported = { YouTubeErrors };
+export default exported;
+export { exported as "module.exports" };

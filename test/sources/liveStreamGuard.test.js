@@ -1,5 +1,3 @@
-"use strict";
-
 // 라이브 스트림 차단 — 캐시 다운로드가 끝나지 않아 ffmpeg가 무한히 파일을 불리던 문제의 방어선.
 //
 // 회귀 시나리오: 제목이 기호뿐인 Spotify 트랙("''''''")의 YouTube 동등물로
@@ -9,17 +7,22 @@
 //
 // 방어선 3중: (1) 매칭 후보에서 라이브 제외 (2) track.isLive면 다운로드 미시작 (3) yt-dlp --match-filter "!is_live"
 
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.COOKIES_SOURCE = "";
 
-const os = require("node:os");
-const fs = require("node:fs");
-const path = require("node:path");
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
+import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
 
 // 동등물 찾기가 링크 장부를 타므로 임시 DB로 돌린다 — 운영 DB 미접촉.
 const TEST_DB = path.join(os.tmpdir(), `musicbot-livestream-test-${process.pid}.db`);
-const audioCache = require("../../src/store/audioCache");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
 audioCache.initialize(TEST_DB);
 after(() => {
   audioCache.close();
@@ -32,8 +35,8 @@ after(() => {
   }
 });
 
-const YouTube = require("../../src/sources/youtube/index");
-const equivalent = require("../../src/sources/youtube/equivalent");
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
 
 test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
   assert.equal(YouTube._detectLive({ is_live: true }), true);

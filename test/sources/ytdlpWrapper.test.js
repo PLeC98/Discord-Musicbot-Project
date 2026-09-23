@@ -1,5 +1,3 @@
-"use strict";
-
 // src/sources/ytdlpSpawn.js — youtube-dl-exec 드롭인 래퍼의 계약.
 //
 // 왜 래퍼가 필요한가: 원본 youtubedl(url, flags)는 Promise만 돌려줘 spawn된 프로세스를 잡을 수 없다.
@@ -13,13 +11,13 @@
 // 검사용 인자는 url이 아니라 flags로 넘긴다. youtube-dl-exec는 url을 `--` 뒤 positional로
 // 두므로(3.1.14+), url 자리에 플래그를 넣으면 yt-dlp가 리터럴 URL로 해석한다.
 
-const fs = require("node:fs");
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const youtubedl = require("youtube-dl-exec");
-const run = require("../../src/sources/ytdlpSpawn");
-const registry = require("../../src/infra/processRegistry");
+import youtubedl from "youtube-dl-exec";
+import run from "../../src/sources/ytdlpSpawn.js";
+import registry from "../../src/infra/processRegistry.js";
 
 const BINARY = youtubedl.constants.YOUTUBE_DL_PATH;
 const hasBinary = fs.existsSync(BINARY);

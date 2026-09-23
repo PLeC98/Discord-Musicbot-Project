@@ -1,7 +1,8 @@
-const path = require("path");
-const links = require("../rules/links");
-const log = require("../infra/log/logger").child({ category: "link" });
-const SafeUrl = require("../infra/safeUrl");
+import path from "path";
+import links from "../rules/links.js";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "link" });
+import SafeUrl from "../infra/safeUrl.js";
 
 class DirectLink {
   /**
@@ -118,4 +119,5 @@ class DirectLink {
   }
 }
 
-module.exports = DirectLink;
+export default DirectLink;
+export { DirectLink as "module.exports" };

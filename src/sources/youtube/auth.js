@@ -1,21 +1,22 @@
-"use strict";
-
 // 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · yt-dlp 공통 옵션 · 인증 상태 로그.
 
-const path = require("path");
-const fs = require("fs");
-const log = require("../../infra/log/logger").child({ category: "youtube" });
-const config = require("../../../config");
+import path from "path";
+import fs from "fs";
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "youtube" });
+import config from "../../../config.js";
 // yt-dlp 에 줄 ffmpeg 경로. 재생과 같은 바이너리를 쓰게 조립(app/main)이 넘긴다(useFfmpeg). 안 넘기면 yt-dlp 가 PATH 에서 찾는다
 let ffmpegLocation = () => null;
-const { NEEDS_POT, KNOWN } = require("./clients");
-const { playerClients } = require("./ytdlpRun");
+import clientsModule from "./clients.js";
+const { NEEDS_POT, KNOWN } = clientsModule;
+import ytdlpRun from "./ytdlpRun.js";
+const { playerClients } = ytdlpRun;
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
 // 한 단계 더 들어가 찾다가 아무것도 못 찾고 조용히 넘어간다. 오류도 경고도 없다.
 // 그래서 plugin/ 이 아니라 그 부모인 저장소 루트를 넘긴다.
-const BGUTIL_DIR = path.join(__dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider");
+const BGUTIL_DIR = path.join(import.meta.dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider");
 // 있는지 확인하는 것으로 그치지 않고 yt-dlp의 규칙 그대로 훑는다.
 // 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다.
 function findPluginRoot(dir) {
@@ -32,7 +33,7 @@ function findPluginRoot(dir) {
 }
 const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
-const cookieConfig = require("../../config/cookies");
+import cookieConfig from "../../config/cookies.js";
 
 class YouTubeAuth {
   /** locate: ffmpeg 경로를 돌려주는 함수(media/ffmpeg/path 의 ffmpegPath) */
@@ -138,4 +139,6 @@ class YouTubeAuth {
   }
 }
 
-module.exports = { YouTubeAuth, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
+const exported = { YouTubeAuth, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
+export default exported;
+export { exported as "module.exports" };

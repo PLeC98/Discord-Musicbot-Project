@@ -1,10 +1,9 @@
-"use strict";
-
 // src/sources/ytdlpInfo.js — yt-dlp JSON 경계. 쓰는 칸만 뽑고, 모양이 바뀐 칸만 버린다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { readInfo } = require("../../src/sources/ytdlpInfo");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import ytdlpInfo from "../../src/sources/ytdlpInfo.js";
+const { readInfo } = ytdlpInfo;
 
 test("쓰는 칸만 뽑고 나머지는 흘려보낸다", () => {
   const info = readInfo({ id: "abc", title: "곡", duration: 200, webpage_url: "https://www.youtube.com/watch?v=abc", requested_subtitles: {}, _version: { v: 1 } });

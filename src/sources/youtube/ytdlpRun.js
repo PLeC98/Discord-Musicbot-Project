@@ -1,14 +1,14 @@
-"use strict";
-
 // yt-dlp 실행. 플레이어 클라이언트를 바꿔 가며 다시 묻고, 쿠키로 한 번 더 묻는다.
 
-const log = require("../../infra/log/logger").child({ category: "youtube" });
-const links = require("../../rules/links");
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "youtube" });
+import links from "../../rules/links.js";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-const youtubedl = require("../ytdlpSpawn");
-const config = require("../../../config");
-const externalCaches = require("../../store/externalCaches");
-const { PlayerClients, NEEDS_POT } = require("./clients");
+import youtubedl from "../ytdlpSpawn.js";
+import config from "../../../config.js";
+import externalCaches from "../../store/externalCaches.js";
+import clientsModule from "./clients.js";
+const { PlayerClients, NEEDS_POT } = clientsModule;
 
 // 클라이언트 순번표. 설정은 처음 쓸 때 읽는다
 let clientsTable = null;
@@ -158,4 +158,6 @@ class YouTubeRun {
   }
 }
 
-module.exports = { YouTubeRun, playerClients };
+const exported = { YouTubeRun, playerClients };
+export default exported;
+export { exported as "module.exports" };

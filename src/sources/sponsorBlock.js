@@ -1,5 +1,3 @@
-"use strict";
-
 // SponsorBlock. 영상별 비음악/인트로/아웃트로 등 구간을 SponsorBlock API로 조회해 자동 스킵에 사용.
 //
 // 설계:
@@ -10,11 +8,11 @@
 //
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
-const crypto = require("crypto");
-const links = require("../rules/links");
-const config = require("../../config");
-const GuildSettingsManager = require("../store/guildSettings");
-const externalCaches = require("../store/externalCaches");
+import crypto from "crypto";
+import links from "../rules/links.js";
+import config from "../../config.js";
+import GuildSettingsManager from "../store/guildSettings.js";
+import externalCaches from "../store/externalCaches.js";
 
 // skip 지원 9개 카테고리 (config.js의 SB_SKIP_CATEGORIES와 동기 유지)
 const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
@@ -172,4 +170,5 @@ function shape({ raw, source }, categories) {
   return { ...normalize(raw, categories), source };
 }
 
-module.exports = SponsorBlock;
+export default SponsorBlock;
+export { SponsorBlock as "module.exports" };

@@ -1,10 +1,8 @@
-"use strict";
-
 // 여러 곡 출처는 필요한 구간만 받는다 — 스포티파이 재생목록·앨범·인기곡, 유튜브 재생목록, 해석기 전달.
 // 회귀 대상: 1만 곡 재생목록을 전부 받은 뒤(61초) 대기열에서 잘랐다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
 // yt-dlp 실행 함수 가짜. getPlaylist 에 넘긴다
 const ytCalls = [];
@@ -14,10 +12,10 @@ const exec = async (url, options) => {
   return ytInfo;
 };
 
-const Spotify = require("../../src/sources/spotify");
-const YouTube = require("../../src/sources/youtube/index");
-const trackLookup = require("../../src/store/trackLookup");
-const lookup = require("../../src/sources/lookup");
+const Spotify = (await import("../../src/sources/spotify.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const trackLookup = (await import("../../src/store/trackLookup.js")).default;
+const lookup = (await import("../../src/sources/lookup.js")).default;
 
 const { graphql, official } = Spotify._internals;
 

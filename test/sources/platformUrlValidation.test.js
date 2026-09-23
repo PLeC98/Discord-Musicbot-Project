@@ -1,13 +1,11 @@
-"use strict";
-
 process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
 
-const test = require("node:test");
-const links = require("../../src/rules/links");
-const assert = require("node:assert/strict");
-const lookup = require("../../src/sources/lookup");
-const { canonicalUrl } = require("../../src/rules/canonicalUrl");
+import test from "node:test";
+const links = (await import("../../src/rules/links.js")).default;
+import assert from "node:assert/strict";
+const lookup = (await import("../../src/sources/lookup.js")).default;
+const { canonicalUrl } = (await import("../../src/rules/canonicalUrl.js")).default;
 
 test("accepts supported media hosts by parsed hostname", () => {
   assert.equal(lookup.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");

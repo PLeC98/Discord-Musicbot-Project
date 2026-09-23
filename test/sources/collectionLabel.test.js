@@ -1,14 +1,13 @@
-"use strict";
-
 // 여러 곡을 담은 출처(재생목록·앨범·아티스트)를 구분해 대기열 추가를 안내한다
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const lookup = require("../../src/sources/lookup");
-const Spotify = require("../../src/sources/spotify");
-const YouTube = require("../../src/sources/youtube/index");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
-const { collectionLabel } = require("../../src/ui/strings");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import lookup from "../../src/sources/lookup.js";
+import Spotify from "../../src/sources/spotify.js";
+import YouTube from "../../src/sources/youtube/index.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
+import strings from "../../src/ui/strings.js";
+const { collectionLabel } = strings;
 
 function stub(obj, key, fn) {
   const original = obj[key];

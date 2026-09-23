@@ -1,11 +1,9 @@
-"use strict";
-
 // Spotify 순수 함수 단위 테스트 (네트워크 없음) — URL 파싱, TOTP, 정규화, secret 추출.
 
-const { test } = require("node:test");
-const links = require("../../src/rules/links");
-const assert = require("node:assert/strict");
-const Spotify = require("../../src/sources/spotify");
+import { test } from "node:test";
+import links from "../../src/rules/links.js";
+import assert from "node:assert/strict";
+import Spotify from "../../src/sources/spotify.js";
 const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = Spotify._internals;
 
 test("parseSpotifyURL: 타입/ID 추출 (open URL + spotify: URI)", () => {

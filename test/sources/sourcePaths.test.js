@@ -1,31 +1,34 @@
-"use strict";
-
 // 곡 찾기(sources/lookup) · 유튜브 동등물(youtube/equivalent) · 스트림(streamUrl)의 갈래를 고정한다
 // (링크 종류별 조회 · 캐시 지름길 · 열쇠 만들기 · 동등물 찾기 · 재검색 · 스트림).
 //
 // 부르는 쪽(YouTube · Spotify · SoundCloud · DirectLink)은 메서드만 바꿔 끼우고, 장부는 진짜 저장소를 임시 DB 로 쓴다.
 // 유튜브 검색 결과도 트랙 모양이다(음원 주소가 audioUrl).
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
+
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
-const audioCache = require("../../src/store/audioCache");
-const trackLookup = require("../../src/store/trackLookup");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
+const trackLookup = (await import("../../src/store/trackLookup.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = require("../../src/sources/youtube/index");
-const Spotify = require("../../src/sources/spotify");
-const SoundCloud = require("../../src/sources/soundcloud");
-const DirectLink = require("../../src/sources/direct");
-const equivalent = require("../../src/sources/youtube/equivalent");
-const lookup = require("../../src/sources/lookup");
-const streamUrl = require("../../src/sources/streamUrl");
-const { audioKeyOf } = require("../../src/rules/audioKeyOf");
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const Spotify = (await import("../../src/sources/spotify.js")).default;
+const SoundCloud = (await import("../../src/sources/soundcloud.js")).default;
+const DirectLink = (await import("../../src/sources/direct.js")).default;
+const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
+const lookup = (await import("../../src/sources/lookup.js")).default;
+const streamUrl = (await import("../../src/sources/streamUrl.js")).default;
+const { audioKeyOf } = (await import("../../src/rules/audioKeyOf.js")).default;
 
 // 바꿔 끼운 메서드를 시험 끝에 되돌린다
 const swaps = [];

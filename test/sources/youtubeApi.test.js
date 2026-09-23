@@ -1,25 +1,28 @@
-"use strict";
-
 // YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 2b 가 오류를 코드로 바꾸고, 3 이 스트림 서술자에서 판(lmt)을 읽고, 7 이 파일을 쪼갠다.
 // 모듈을 통째로 바꿔 끼우지 않고 youtube-dl-exec 의 exec 하나만 가짜로 둔다. 그래서 src/sources/ytdlpSpawn.js 의 응답 · 오류 모양
 // 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 시험마다 비워 설정과 무관하게 한 번에 부르게 한다.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, before, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, before, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
+
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
-const audioCache = require("../../src/store/audioCache");
-const trackLookup = require("../../src/store/trackLookup");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
+const trackLookup = (await import("../../src/store/trackLookup.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const ytdlExec = require("youtube-dl-exec");
-const YouTube = require("../../src/sources/youtube/index");
+import ytdlExec from "youtube-dl-exec";
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
 const { playerClients } = YouTube._internals;
 
 const calls = [];

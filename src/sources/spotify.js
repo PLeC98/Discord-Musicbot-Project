@@ -1,5 +1,3 @@
-"use strict";
-
 // Spotify 소스. 링크 타입별 투트랙 라우팅.
 //   track/album  → 공식 Web API(native fetch, client credentials)
 //   artist       → 공식 API, 실패 시 익명 GraphQL 폴백(정책 축소 대비)
@@ -9,11 +7,13 @@
 // 외부 코드 이식 없이 번들에서 직접 밝혀낸 원리로 구현. secret/해시/clientVersion은 DB에 캐시하고
 // TTL·실패 시 번들 재추출로 갱신(자가치유). 참고 구현: LavaSrc, discord-player-spotify(원리 교차검증만).
 
-const crypto = require("crypto");
-const { isSpotifyURL, parseSpotifyURL } = require("../rules/links");
-const log = require("../infra/log/logger").child({ category: "spotify" });
-const config = require("../../config");
-const externalCaches = require("../store/externalCaches");
+import crypto from "crypto";
+import links from "../rules/links.js";
+const { isSpotifyURL, parseSpotifyURL } = links;
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "spotify" });
+import config from "../../config.js";
+import externalCaches from "../store/externalCaches.js";
 
 const ua = () => config.userAgents.browser;
 const API_BASE = "https://api.spotify.com/v1";
@@ -419,7 +419,9 @@ async function search(query, limit = 1) {
   }
 }
 
-module.exports = { getCollection, getFromURL, search };
+const exported = { getCollection, getFromURL, search };
+export default exported;
+export { exported as "module.exports" };
 
 // 테스트용 노출. 프로바이더는 요청 함수(_query/_get)를 바꿔 끼워 네트워크 없이 검증한다
-module.exports._internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
+exported._internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };

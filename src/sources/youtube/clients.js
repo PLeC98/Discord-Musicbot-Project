@@ -1,5 +1,3 @@
-"use strict";
-
 // yt-dlp의 YouTube player_client 순서와 죽은 것 같은 클라이언트 판정
 //
 // yt-dlp에 클라이언트를 여러 개 넘기면 전부 호출해서 포맷을 병합함. 폴백하지 않음.
@@ -8,7 +6,8 @@
 // (유튜브의 SABR 적용이 세션·영상 단위로 굴러가기 때문)
 // 그래서 확정 판정이 불가능하므로 최근 N회 중 M회 실패라는 빈도로만 다룸.
 
-const log = require("../../infra/log/logger").child({ category: "youtube", sub: "client" });
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "youtube", sub: "client" });
 
 // 2026-09-11 기준, yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
 // 기동 시 "우리가 아는 목록에 없다"고 한 줄 알려주는 용도. 목록에 없어도 그대로 yt-dlp에 넘김.
@@ -88,4 +87,6 @@ class PlayerClients {
   }
 }
 
-module.exports = { PlayerClients, KNOWN, NEEDS_POT };
+const exported = { PlayerClients, KNOWN, NEEDS_POT };
+export default exported;
+export { exported as "module.exports" };
