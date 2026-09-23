@@ -15,7 +15,7 @@ const CASES = [
   ["Video not available in your country", "geo-blocked"],
   ["HTTP Error 429: Too Many Requests", "rate-limited"],
   ["YouTube equivalent not found", "no-youtube-match"],
-  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ''''''", "no-youtube-match"], // MusicPlayer/TrackResolver가 던지는 한글 메시지
+  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ''''''", "no-youtube-match"], // MusicPlayer · streamUrl 이 던지는 한글 메시지
   ["read ECONNRESET", "network"],
   ["connect ETIMEDOUT 1.2.3.4:443", "network"],
   ["FFmpeg exited with code 1", "stream-failed"],

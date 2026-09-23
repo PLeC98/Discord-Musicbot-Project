@@ -1,11 +1,10 @@
 "use strict";
 
-// TrackResolver 의 갈래(링크 종류별 조회 · 캐시 지름길 · 열쇠 만들기 · 동등물 찾기 · 재검색 · 스트림)를 고정한다
-// (구조 리팩터링 0-B).
+// 곡 찾기(sources/lookup) · 유튜브 동등물(youtube/equivalent) · 스트림(streamUrl)의 갈래를 고정한다
+// (링크 종류별 조회 · 캐시 지름길 · 열쇠 만들기 · 동등물 찾기 · 재검색 · 스트림).
 //
-// 2a 가 이 파일을 sources/lookup · streamUrl · youtube/equivalent 와 판정 둘(inputKind · audioKeyOf)로 쪼갠다. 3 이 열쇠와
-// 링크 칸을 바꾼다. 부르는 쪽(YouTube · Spotify · SoundCloud · DirectLink)은 메서드만 바꿔 끼우고, 장부는 진짜 CacheManager
-// 를 임시 DB 로 쓴다.
+// 3 이 열쇠와 링크 칸을 바꾼다. 부르는 쪽(YouTube · Spotify · SoundCloud · DirectLink)은 메서드만 바꿔 끼우고,
+// 장부는 진짜 저장소를 임시 DB 로 쓴다.
 
 const fs = require("node:fs");
 const os = require("node:os");

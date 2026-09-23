@@ -4,7 +4,7 @@
 // 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler).
 //
 // 6단계가 입구를 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 바꿔 끼우지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
-// 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.musicEmbedManager)와 트랙 조회(TrackResolver 의 메서드)만 가짜로 둔다.
+// 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.musicEmbedManager)와 트랙 조회(sources/lookup 의 메서드)만 가짜로 둔다.
 
 const fs = require("node:fs");
 const os = require("node:os");

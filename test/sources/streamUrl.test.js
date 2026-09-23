@@ -1,6 +1,6 @@
 "use strict";
 
-// src/TrackResolver.getStream — 재생용 스트림을 어디서 가져올지 고르는 자리.
+// src/sources/streamUrl.js — 재생용 스트림을 어디서 가져올지 고르는 자리.
 //
 // 회귀 대상: 자동재생 소스가 늘면서 platform 값이 vocadb·lastfm·lbradio·touhoudb 같은 것이
 // 되었는데, 이 스위치는 youtube/spotify/soundcloud/direct만 알고 나머지를 던졌다.

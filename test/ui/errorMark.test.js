@@ -12,7 +12,7 @@ const S = require("../../src/ui/strings");
 const { toApiError } = require("../../dashboard/server/middleware/requireControl");
 
 // 실제로 흘러다니는 두 종류의 출처
-const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // TrackResolver / ErrorHandler / strings
+const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // sources/lookup / ErrorHandler / strings
 const BARE = "음악을 처리하는 중 오류가 발생했습니다."; // MusicEmbedManager._processMusic
 
 test("withErrorMark: 접두가 없으면 붙인다", () => {

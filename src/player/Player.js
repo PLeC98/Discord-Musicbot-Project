@@ -331,7 +331,7 @@ class MusicPlayer {
           }
         }
 
-        // 일반 방식으로 스트림 가져오기 (플랫폼 스위치는 TrackResolver 한 곳에서)
+        // 일반 방식으로 스트림 가져오기 (플랫폼 스위치는 sources/streamUrl 한 곳에서)
         if (!downloadedFile) {
           streamInfo = await streamUrl.getStream(this.currentTrack, resumeFromSeconds);
         }
@@ -457,7 +457,7 @@ class MusicPlayer {
         } else if (typeof streamUrl_final === "string") {
           try {
             // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
-            // 쓰면서 음원을 직접 받는 곡이 있다(TrackResolver.getStream이 direct 서술자를 돌려준다).
+            // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
             if (streamInfo?.platform === "direct" || this.currentTrack.platform === "direct") {
               // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
               audioStream = await DirectLink.getStream(streamUrl_final);

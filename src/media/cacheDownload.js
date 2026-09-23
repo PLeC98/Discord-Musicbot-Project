@@ -151,7 +151,7 @@ class TrackDownloader {
     try {
       if (audioSourceKey) audioCache.recordDownloadStart(audioSourceKey, track);
 
-      // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 TrackResolver 한 곳에서).
+      // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
       // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
       // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
       //

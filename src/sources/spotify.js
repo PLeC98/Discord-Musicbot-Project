@@ -389,7 +389,7 @@ async function resolveType(type, id, options) {
   return empty;
 }
 
-// ── 외부 계약 (TrackResolver가 쓰는 것) ──
+// ── 외부 계약 (sources/lookup 이 쓰는 것) ──
 
 // 여러 곡 출처는 필요한 구간만 받는다
 async function getCollection(url, { offset = 0, limit = config.bot.playlistAddDefault } = {}) {
