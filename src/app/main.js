@@ -94,9 +94,6 @@ async function onReady(client) {
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
 
-  log.info("캐시 DB 로드 대기 중");
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-
   log.debug("세션 복원 시작");
   await restoreSavedPlayers(client, MusicPlayer);
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
