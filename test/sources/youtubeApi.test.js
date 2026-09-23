@@ -143,7 +143,7 @@ test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · �
   const lookup = require("../../src/sources/lookup");
   const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.success, false);
-  assert.match(result.message, /동영상을 사용할 수 없습니다/);
+  assert.equal(result.message, "❌ 비공개이거나 삭제된 영상은 재생할 수 없어요.");
 });
 
 // ── 스트림 ────────────────────────────────────────────────────────────
