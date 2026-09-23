@@ -36,7 +36,7 @@ module.exports = {
       return await this.handleSystemRefresh(interaction);
     }
 
-    // 자동재생은 놀고 있을 때도 켤 수 있다(3단계). 끝난 패널의 버튼이 여기로 온다.
+    // 자동재생은 놀고 있을 때도 켤 수 있다. 끝난 패널의 버튼이 여기로 온다.
     // 아래의 "플레이어 없으면 거절"과 세션 검증을 지나면 눌리지 않으므로 앞에서 받는다.
     if (interaction.customId.startsWith("music_autoplay:")) {
       return await this.handleAutoplayButton(interaction, client);

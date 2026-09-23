@@ -60,7 +60,7 @@ function catColor(name) {
 }
 
 // 레드액션(민감정보 마스킹). 레코드가 버퍼/터미널/SSE로 나가기 직전 단일 지점.
-// Phase 0은 "최소 규칙"만. 본격 경로기반 redact는 pino 도입(Phase 3)에서 승계.
+// 지금은 "최소 규칙"만 둔다. 경로 기반 redact 는 로거를 바꿀 때(pino 등) 넘긴다.
 const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "client_secret", "clientsecret", "access_token", "accesstoken", "refresh_token", "refreshtoken", "token", "totp", "totpserver", "apikey", "api_key"]);
 const MSG_PATTERNS = [
   { re: /(Bearer\s+)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
