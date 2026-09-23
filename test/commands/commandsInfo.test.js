@@ -171,6 +171,20 @@ test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", a
   assert.equal(cmd("help").formatUptime(90061), "1일 1시간 1분");
 });
 
+test("/help: 모든 명령을 적는다", async () => {
+  const { it, log, client } = interaction();
+  await cmd("help").execute(it, client);
+  const text = Object.values(fieldsOf(log[0][1])).join("\n");
+  const names = fs
+    .readdirSync(path.join(__dirname, "../../commands"))
+    .map((f) => f.replace(/\.js$/, ""))
+    .filter((name) => name !== "help");
+  assert.deepEqual(
+    names.filter((name) => !text.includes(`\`/${name}`)),
+    [],
+  );
+});
+
 test("/help: 만들다 던지면 오류 임베드", async () => {
   const { it, log, client } = interaction();
   client.user.displayAvatarURL = () => {

@@ -15,7 +15,7 @@ module.exports = {
     const embed = new EmbedBuilder().setTitle("🎵 도움말").setDescription("🔒 표시 명령어는 **봇과 같은 음성 채널에 있는 DJ**부터 사용할 수 있습니다. 모더레이터는 채널에 없어도 사용 가능해요.\nDJ 역할이 설정되지 않은 서버에서는 전원이 DJ로 취급됩니다. (`/setdjrole`)").setColor(config.bot.embedColor).setThumbnail(client.user.displayAvatarURL()).setTimestamp();
     embed.addFields({
       name: "🎵 재생",
-      value: ["`/play <곡/URL>`. 음악 재생", "`/playfirst <곡/URL>`. 대기열 맨 앞에 추가 🔒", "`/pause`. 일시정지 / 재개 🔒", "`/stop`. 재생 중지 및 퇴장 🔒", "`/skip`. 다음 곡 🔒 (자기가 추가한 곡은 누구나)", "`/previous`. 이전 곡 🔒", "`/replay`. 현재 곡 처음부터 🔒", "`/seek <시간>`. 특정 위치로 이동 (예: `1:30`, `90`) 🔒"].join("\n"),
+      value: ["`/play <곡/URL>`. 음악 재생", "`/playfirst <곡/URL>`. 대기열 맨 앞에 추가 🔒", "`/pause`. 일시정지 / 재개 🔒", "`/stop`. 재생 중지 및 퇴장 🔒", "`/skip`. 다음 곡 🔒 (자기가 추가한 곡은 누구나)", "`/previous`. 이전 곡 🔒", "`/replay`. 현재 곡 처음부터 🔒", "`/seek <시간>`. 특정 위치로 이동 (예: `1:30`, `90`) 🔒", "`/highlight`. 하이라이트 지점으로 이동 🔒"].join("\n"),
       inline: false,
     });
     embed.addFields({
@@ -25,7 +25,7 @@ module.exports = {
     });
     embed.addFields({
       name: "🎛️ 모드 & 오디오",
-      value: ["`/loop [mode]`. 반복 설정 (`off` · `track` · `queue`) 🔒", "`/autoplay <장르>`. 대기열 소진 시 자동 재생 🔒", "`/volume <0-100>`. 볼륨 설정 🔒"].join("\n"),
+      value: ["`/loop [mode]`. 반복 설정 (`off` · `track` · `queue`) 🔒", "`/autoplay`. 자동재생 켜기 · 끄기 (켤 때 장르 선택) 🔒", "`/volume <0-100>`. 볼륨 설정 🔒"].join("\n"),
       inline: false,
     });
     embed.addFields({
@@ -35,17 +35,17 @@ module.exports = {
     });
     embed.addFields({
       name: "📡 채널 & 세션",
-      value: ["`/join`. 음성 채널 입장 (이전 세션 복구)", "`/leave`. 퇴장 및 세션 저장 🔒", "`/setchannel`. 전용 채널 지정 (서버 관리 권한)", "`/setdjrole`. DJ 역할 지정 (서버 관리 권한)", "`/setplaylistlimit [곡 수]`. 재생목록을 한 번에 넣는 곡 수 (서버 관리 권한)", "`/dashboard`. 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"].join("\n"),
+      value: ["`/join`. 음성 채널 입장 (이전 세션 복구)", "`/leave`. 퇴장 및 세션 저장 🔒", "`/setchannel`. 전용 채널 지정 (서버 관리 권한)", "`/setdjrole`. DJ 역할 지정 (서버 관리 권한)", "`/setplaylistlimit [곡 수]`. 재생목록을 한 번에 넣는 곡 수 (서버 관리 권한)", "`/sponsorblock`. SponsorBlock 자동 스킵 설정 (서버 관리 권한)", "`/dashboard`. 컨트롤 패널 재게시 (봇 전용 채널에서는 전원, 그 외 🔒)"].join("\n"),
       inline: false,
     });
     embed.addFields({
       name: "📊 봇 정보",
-      value: ["`/ping`. 레이턴시 확인 (서버 관리 권한)", "`/system`. 시스템 상태 (봇 운영자)", "`/cachestatus`. 오디오 캐시 통계 (서버 관리 권한)"].join("\n"),
+      value: ["`/ping`. 레이턴시 확인 (서버 관리 권한)", "`/system`. 시스템 상태 (봇 운영자)", "`/cachestatus`. 오디오 캐시 통계 (서버 관리 권한)", "`/license`. 라이선스와 소스 코드 위치"].join("\n"),
       inline: false,
     });
     embed.addFields({
       name: "🌐 지원 플랫폼",
-      value: ["🔴 **YouTube** - 비디오/음악 링크 및 검색", "🟢 **Spotify** - 노래/재생목록/앨범 링크", "🟠 **SoundCloud** - 음악 링크 및 검색", "🔗 **직접 링크** - MP3, WAV, OGG 파일"].join("\n"),
+      value: ["🔴 **YouTube** - 비디오/음악 링크 및 검색", "🟢 **Spotify** - 노래/재생목록/앨범 링크", "🟠 **SoundCloud** - 음악 링크 및 검색", "🔗 **직접 링크** - 오디오 · 영상 파일 주소 (MP3, FLAC, M4A, MP4 등)"].join("\n"),
       inline: false,
     });
     embed.addFields({
