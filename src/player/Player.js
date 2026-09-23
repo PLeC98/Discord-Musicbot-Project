@@ -1539,7 +1539,7 @@ class MusicPlayer {
       }
 
       if (this.autoplay) {
-        const { genres } = require("../config/loader").genres();
+        const { genres } = require("../config/genres").genres();
         if (!genres[this.autoplay]) {
           // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
           log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
@@ -1725,7 +1725,7 @@ class MusicPlayer {
 
   // 지금 장르의 자동재생 설정. 기준값 위에 장르 설정을 얹는다. 모르는 장르면 null.
   _autoplayConfig() {
-    const { defaults, genres } = require("../config/loader").genres();
+    const { defaults, genres } = require("../config/genres").genres();
     const genre = genres[this.autoplay];
     // 이름도 같이 넘긴다. AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplayAssist)
     return genre ? { ...defaults, ...genre, genreName: this.autoplay } : null;

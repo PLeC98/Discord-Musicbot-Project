@@ -15,7 +15,7 @@ const OFF_MENU_MS = 30_000;
  */
 function genreSelect(requesterId, sessionId, placeholder) {
   // 장르 정의는 config/genres.yaml 한 곳에서 관리. 부를 때마다 읽는다(파일이 바뀌면 곧바로 반영)
-  const { genres } = require("../config/loader").genres();
+  const { genres } = require("../config/genres").genres();
 
   return (
     new StringSelectMenuBuilder()

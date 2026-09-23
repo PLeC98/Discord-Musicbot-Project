@@ -15,7 +15,8 @@ const { test, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const express = require("express");
 
-const loader = require("../../src/config/loader");
+const yamlStore = require("../../src/config/yamlStore");
+const cookieConfig = require("../../src/config/cookies");
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-route-"));
 
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123"].join("\n");
@@ -25,7 +26,7 @@ let server;
 let base;
 
 before(() => {
-  loader._setConfigDir(DIR);
+  yamlStore._setConfigDir(DIR);
   currentUser = { id: "owner", username: "owner" };
   const app = express();
   app.use(require("../../dashboard/server/bodyLimit").bodyLimit());
@@ -40,11 +41,11 @@ before(() => {
 
 after(() => {
   server.close();
-  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true });
 });
 
-beforeEach(() => loader.clearCookies());
+beforeEach(() => cookieConfig.clearCookies());
 
 async function req(method, urlPath, body) {
   const res = await fetch(base + urlPath, {
@@ -69,7 +70,7 @@ test("운영자만 들어온다", async () => {
   assert.equal((await req("PUT", "/api/admin/cookies", { text: SAMPLE })).status, 403);
 
   currentUser = { id: "owner", username: "owner" };
-  assert.equal(fs.existsSync(loader.cookiesPath()), false, "거절당한 요청이 파일을 남기면 안 된다");
+  assert.equal(fs.existsSync(cookieConfig.cookiesPath()), false, "거절당한 요청이 파일을 남기면 안 된다");
 });
 
 test("저장하면 있는지 없는지만 돌려준다", async () => {
@@ -98,7 +99,7 @@ test("빈 글을 보내면 지운다", async () => {
   const cleared = await req("PUT", "/api/admin/cookies", { text: "" });
   assert.equal(cleared.status, 200);
   assert.equal(cleared.json.hasFile, false);
-  assert.equal(fs.existsSync(loader.cookiesPath()), false);
+  assert.equal(fs.existsSync(cookieConfig.cookiesPath()), false);
 });
 
 test("글이 아닌 것은 거절한다", async () => {
@@ -106,11 +107,11 @@ test("글이 아닌 것은 거절한다", async () => {
   for (const body of [{}, { text: null }, { text: 12 }, { text: { a: 1 } }]) {
     assert.equal((await req("PUT", "/api/admin/cookies", body)).status, 400, JSON.stringify(body));
   }
-  assert.equal(loader.cookiesReady(), true, "거절당한 요청이 있던 쿠키를 지우면 안 된다");
+  assert.equal(cookieConfig.cookiesReady(), true, "거절당한 요청이 있던 쿠키를 지우면 안 된다");
 });
 
 test("붙여넣은 그대로 파일에 들어간다", async () => {
   await req("PUT", "/api/admin/cookies", { text: SAMPLE });
-  const saved = fs.readFileSync(loader.cookiesPath(), "utf8");
+  const saved = fs.readFileSync(cookieConfig.cookiesPath(), "utf8");
   assert.equal(saved, `${SAMPLE}\n`);
 });

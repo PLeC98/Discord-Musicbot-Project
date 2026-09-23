@@ -12,7 +12,8 @@ const path = require("node:path");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const configData = require("../../src/config/loader");
+const aiConfig = require("../../src/config/ai");
+const yamlStore = require("../../src/config/yamlStore");
 const assist = require("../../src/autoplay/assist/index");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
@@ -32,8 +33,8 @@ function useConfig(yaml, sections) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
   fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\naistudio: ${KEY}\nvertex: ${SA_PATH}\n`);
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
-  else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), configData.toChatML(sections));
-  configData._setConfigDir(DIR);
+  else fs.writeFileSync(path.join(DIR, "ai-prompt.chatml"), aiConfig.toChatML(sections));
+  yamlStore._setConfigDir(DIR);
 }
 
 // 설정 폴더를 쓰지 않는 호출(preview·ping·listModels)도 키를 보게 해 둔다
@@ -539,18 +540,18 @@ test("추가 파라미터가 params 를 이긴다", async () => {
 
 test("ChatML 로 읽고 쓴다 — 왕복해도 같다", () => {
   const text = `<|im_start|>system\n기준이다\n여러 줄\n<|im_end|>\n\n<|im_start|>user\n{{목록}}\n<|im_end|>\n`;
-  const parsed = configData.parseChatML(text);
+  const parsed = aiConfig.parseChatML(text);
 
   assert.deepEqual(parsed, [
     { role: "system", text: "기준이다\n여러 줄" },
     { role: "user", text: "{{목록}}" },
   ]);
-  assert.equal(configData.toChatML(parsed), text);
-  assert.deepEqual(configData.parseChatML(configData.toChatML(parsed)), parsed);
+  assert.equal(aiConfig.toChatML(parsed), text);
+  assert.deepEqual(aiConfig.parseChatML(aiConfig.toChatML(parsed)), parsed);
 
   // 블록 바깥의 글은 규격에 자리가 없다
-  assert.deepEqual(configData.parseChatML("앞말\n<|im_start|>user\n하나\n<|im_end|>\n뒷말"), [{ role: "user", text: "하나" }]);
-  assert.deepEqual(configData.parseChatML(""), []);
+  assert.deepEqual(aiConfig.parseChatML("앞말\n<|im_start|>user\n하나\n<|im_end|>\n뒷말"), [{ role: "user", text: "하나" }]);
+  assert.deepEqual(aiConfig.parseChatML(""), []);
 });
 
 test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => {
@@ -902,7 +903,7 @@ test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", as
   useConfig("provider: vertex\nmodel: gemini-3-pro\nlocation: us-central1\n", [{ role: "user", text: "{{목록}}" }]);
   // 다른 칸은 그대로 둔다 — 뒤에 오는 테스트가 같은 파일을 본다
   fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${JSON.stringify(inline)}\n`);
-  configData._setConfigDir(DIR);
+  yamlStore._setConfigDir(DIR);
   require("../../src/autoplay/assist/googleAuth")._reset();
 
   calls.length = 0;

@@ -39,7 +39,7 @@ const playerClients = new PlayerClients(config.ytdlp.playerClients, { window: co
 const STALE_RETRY_MS = 700;
 
 // 쓸 때 부른다. configDataLoader 가 autoplaySources 를 거쳐 이 파일로 돌아오는 길이 있다
-const configData = () => require("../../config/loader");
+const cookieConfig = () => require("../../config/cookies");
 
 // 지금 쿠키 파일을 쥔 채 도는 yt-dlp 가 몇 개인가. 대시보드가 쿠키를 갈아 끼울 때 본다.
 // yt-dlp 는 끝나면서 쿠키 항아리를 그 파일에 되쓰므로, 도는 중에 갈아 끼우면 옛것으로 되돌아간다.
@@ -71,8 +71,8 @@ class YouTube {
     if (forceCookies) {
       if (config.ytdlp.cookiesFromBrowser) {
         baseOptions.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
-      } else if (config.ytdlp.useCookieFile && configData().cookiesReady()) {
-        baseOptions.cookies = configData().cookiesPath();
+      } else if (config.ytdlp.useCookieFile && cookieConfig().cookiesReady()) {
+        baseOptions.cookies = cookieConfig().cookiesPath();
       }
     }
 
@@ -91,7 +91,7 @@ class YouTube {
     const clients = config.ytdlp.playerClients;
     const pot = this.potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
     // 파일 방식인데 아직 안 올렸으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
-    const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (configData().cookiesReady() ? "파일(연령 제한 폴백 전용)" : "파일(아직 비어 있음. 대시보드에서 넣으세요)") : "없음";
+    const cookie = config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieConfig().cookiesReady() ? "파일(연령 제한 폴백 전용)" : "파일(아직 비어 있음. 대시보드에서 넣으세요)") : "없음";
     log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
 
     // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.
@@ -140,7 +140,7 @@ class YouTube {
    */
   static cookiesConfigured() {
     if (config.ytdlp.cookiesFromBrowser) return true;
-    return config.ytdlp.useCookieFile && configData().cookiesReady();
+    return config.ytdlp.useCookieFile && cookieConfig().cookiesReady();
   }
 
   /** 쿠키 파일을 쥔 채 도는 yt-dlp 수. 0이 아니면 지금 갈아 끼운 것이 되돌아갈 수 있다 */

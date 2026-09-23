@@ -12,15 +12,16 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const YAML = require("yaml");
 
-const loader = require("../../src/config/loader");
+const yamlStore = require("../../src/config/yamlStore");
+const statusConfig = require("../../src/config/status");
 const StatusManager = require("../../src/ui/botPresence");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-status-"));
 const CONFIG = path.join(__dirname, "..", "..", "config");
 
-before(() => loader._setConfigDir(DIR));
+before(() => yamlStore._setConfigDir(DIR));
 after(() => {
-  loader._setConfigDir(CONFIG);
+  yamlStore._setConfigDir(CONFIG);
   fs.rmSync(DIR, { recursive: true, force: true });
 });
 
@@ -31,60 +32,60 @@ const ok = { messages: ["🎵 /play"] };
 test("예시 파일은 아무 문제가 없다", () => {
   // 새로 설치한 사람이 곧바로 저장이 막히는 일이 없어야 한다
   const data = YAML.parse(fs.readFileSync(path.join(CONFIG, "status.example.yaml"), "utf8"));
-  assert.deepEqual(loader.validateStatus(data), []);
+  assert.deepEqual(statusConfig.validateStatus(data), []);
 });
 
 test("활동 종류 목록은 StatusManager와 같다", () => {
   // configDataLoader가 StatusManager를 require하면 순환이 된다 — 그래서 목록을 따로 들고 있다
-  assert.deepEqual(Object.keys(StatusManager.TYPE_MAP), loader.ACTIVITY_TYPES);
+  assert.deepEqual(Object.keys(StatusManager.TYPE_MAP), statusConfig.ACTIVITY_TYPES);
 });
 
 test("문구는 그냥 적어도 되고, 종류가 필요할 때만 풀어 적는다", () => {
-  assert.deepEqual(loader.validateStatus({ messages: ["🎵 /play", { text: "🎮 놀아요", type: "Playing" }] }), []);
+  assert.deepEqual(statusConfig.validateStatus({ messages: ["🎵 /play", { text: "🎮 놀아요", type: "Playing" }] }), []);
 });
 
 test("쓸 수 없는 활동 종류는 걸린다", () => {
   // 잘못 적으면 조용히 "듣는 중"이 된다 — 오타가 말을 안 해 주는 종류다
-  const problems = loader.validateStatus({ messages: [{ text: "x", type: "playing" }] });
+  const problems = statusConfig.validateStatus({ messages: [{ text: "x", type: "playing" }] });
   assert.match(problems.join(" "), /활동 종류/);
 });
 
 test("평소 문구가 없으면 걸린다", () => {
-  assert.match(loader.validateStatus({ messages: [] }).join(" "), /문구가 하나는/);
-  assert.match(loader.validateStatus({ messages: ["  "] }).join(" "), /빈 문구/);
+  assert.match(statusConfig.validateStatus({ messages: [] }).join(" "), /문구가 하나는/);
+  assert.match(statusConfig.validateStatus({ messages: ["  "] }).join(" "), /빈 문구/);
 });
 
 test("문구가 128자를 넘으면 걸린다", () => {
-  assert.match(loader.validateStatus({ messages: ["가".repeat(129)] }).join(" "), /128자/);
+  assert.match(statusConfig.validateStatus({ messages: ["가".repeat(129)] }).join(" "), /128자/);
 });
 
 test("interval은 10초 미만일 수 없다", () => {
-  assert.match(loader.validateStatus({ ...ok, interval: 5 }).join(" "), /10 이상/);
-  assert.deepEqual(loader.validateStatus({ ...ok, interval: 10 }), []);
+  assert.match(statusConfig.validateStatus({ ...ok, interval: 5 }).join(" "), /10 이상/);
+  assert.deepEqual(statusConfig.validateStatus({ ...ok, interval: 10 }), []);
 });
 
 test("날짜·시간은 두 자리로 적어야 한다", () => {
   // 비교가 문자열 비교라 "1-5"는 형식만 어긋나는 게 아니라 엉뚱한 날에 걸린다
-  const of = (special) => loader.validateStatus({ ...ok, special }).join(" ");
+  const of = (special) => statusConfig.validateStatus({ ...ok, special }).join(" ");
 
   assert.match(of({ 봄: { date: "3-1 ~ 3-31", messages: ["x"] } }), /두 자리/);
   assert.match(of({ 심야: { time: "2:00 ~ 6:00", messages: ["x"] } }), /두 자리/);
   assert.match(of({ 겨울: { date: "12-01", messages: ["x"] } }), /~ 로 나눠/);
   assert.match(of({ 이상: { date: "13-01 ~ 13-05", messages: ["x"] } }), /두 자리/);
 
-  assert.deepEqual(loader.validateStatus({ ...ok, special: { 봄: { date: "03-01 ~ 03-31", messages: ["x"] } } }), []);
-  assert.deepEqual(loader.validateStatus({ ...ok, special: { 심야: { time: "22:00 ~ 06:00", messages: ["x"] } } }), []);
+  assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { 봄: { date: "03-01 ~ 03-31", messages: ["x"] } } }), []);
+  assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { 심야: { time: "22:00 ~ 06:00", messages: ["x"] } } }), []);
 });
 
 test("조건이 하나도 없는 항목은 걸린다", () => {
   // 조건이 없으면 항상 맞아서 그 아래 항목이 전부 죽는다. 범위만 지우다 밟는 함정이다.
-  const problems = loader.validateStatus({ ...ok, special: { 아무때나: { messages: ["x"] } } });
+  const problems = statusConfig.validateStatus({ ...ok, special: { 아무때나: { messages: ["x"] } } });
   assert.match(problems.join(" "), /하나는 있어야/);
 });
 
 test("항목 이름 규칙은 장르와 같다", () => {
-  assert.match(loader.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /차례가 어긋납니다/);
-  assert.deepEqual(loader.validateStatus({ ...ok, special: { "2024년": { date: "01-01 ~ 01-02", messages: ["x"] } } }), []);
+  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /차례가 어긋납니다/);
+  assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { "2024년": { date: "01-01 ~ 01-02", messages: ["x"] } } }), []);
 });
 
 // ── 읽기 ──────────────────────────────────────────────────────────────────
@@ -92,9 +93,9 @@ test("항목 이름 규칙은 장르와 같다", () => {
 test("읽을 때는 던지지 않고 알리기만 한다", () => {
   // status()는 회전 주기마다 setInterval 안에서 불린다 — 던지면 타이머에서 잡히지 않는 예외가 된다.
   fs.writeFileSync(path.join(DIR, "status.yaml"), "interval: 1\nmessages: []\n");
-  loader._cache.clear();
+  yamlStore._cache.clear();
 
-  const data = loader.status();
+  const data = statusConfig.status();
   assert.equal(data.interval, 1, "틀렸어도 그대로 돌려준다 — 봇이 멈추는 것보다 낫다");
 });
 

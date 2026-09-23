@@ -7,7 +7,8 @@
 //
 // 없어도 되는 기능이다. 못 부르면 규칙이 고른 것을 그대로 쓰고 재생은 멈추지 않는다.
 
-const configData = require("../../config/loader");
+const aiConfig = require("../../config/ai");
+const yamlStore = require("../../config/yamlStore");
 const log = require("../../infra/log/logger").child({ category: "autoplay" });
 const { PROVIDER_SPECS, PROVIDERS } = require("../../config/schema/aiProviders");
 
@@ -87,10 +88,10 @@ async function keyFor(one) {
   if (!wantsKey(one)) return "";
 
   if (specOf(one.provider)?.editable) {
-    const saved = stripTrailingSlash(configData.ai()?.baseUrl);
+    const saved = stripTrailingSlash(aiConfig.ai()?.baseUrl);
     if (!saved || endpointOf(one) !== saved) return "";
   }
-  return configData.aiKeyOf(one.provider);
+  return aiConfig.aiKeyOf(one.provider);
 }
 
 async function authOf(one) {
@@ -100,12 +101,12 @@ async function authOf(one) {
 
 /** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings() {
-  const one = { ...DEFAULTS, ...configData.ai() };
+  const one = { ...DEFAULTS, ...aiConfig.ai() };
   // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
   // 프롬프트는 딴 파일에 산다(config/ai-prompt.chatml). 설정 파일에는 안 섞는다
-  return { ...one, prompt: configData.aiPrompt() };
+  return { ...one, prompt: aiConfig.aiPrompt() };
 }
 
 /**
@@ -427,7 +428,7 @@ const DIALECTS = {
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one) => {
-      const token = await require("./googleAuth").accessToken(configData.aiKeyOf(one.provider), { baseDir: configData.configDir(), timeoutMs: Number(one.timeoutMs) });
+      const token = await require("./googleAuth").accessToken(aiConfig.aiKeyOf(one.provider), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs) });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
     body: geminiBody,
@@ -449,7 +450,7 @@ const vertexHost = (one) => (vertexLocation(one) === "global" ? "aiplatform.goog
 
 function vertexBase(one) {
   const location = vertexLocation(one);
-  const project = String(one?.project || "").trim() || require("./googleAuth").projectOf(configData.aiKeyOf(one?.provider), configData.configDir());
+  const project = String(one?.project || "").trim() || require("./googleAuth").projectOf(aiConfig.aiKeyOf(one?.provider), yamlStore.configDir());
   return `https://${vertexHost(one)}/v1/projects/${project}/locations/${location}`;
 }
 
@@ -907,7 +908,7 @@ const REDACTED = "[REDACTED_SECRET_KEY]";
 function mask(text) {
   let out = String(text);
   // 받아 둔 액세스 토큰도 가린다. 서비스 계정에서 나온 것이라 키만큼 값이 나간다
-  for (const key of [...Object.values(configData.aiKeys()), ...require("./googleAuth").heldTokens()]) {
+  for (const key of [...Object.values(aiConfig.aiKeys()), ...require("./googleAuth").heldTokens()]) {
     if (!key || key.length <= 8) continue;
     out = out.split(key).join(REDACTED);
 

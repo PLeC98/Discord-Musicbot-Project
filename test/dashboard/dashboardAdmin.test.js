@@ -286,11 +286,11 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
 // 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
 // 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
 
-const configData = require("../../src/config/loader");
+const yamlStore = require("../../src/config/yamlStore");
 const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 
 before(() => {
-  configData._setConfigDir(CONFIG_DIR);
+  yamlStore._setConfigDir(CONFIG_DIR);
   fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), ["# 손으로 적은 메모", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop music", ""].join("\n"));
   fs.writeFileSync(path.join(CONFIG_DIR, "ai.yaml"), ["# 손으로 적은 메모", "provider: off", "baseUrl: http://127.0.0.1:11434/v1", "model: gemma3n:e2b", ""].join("\n"));
   // 키는 프로바이더마다 따로 있는 딴 파일이다 — 대시보드로는 값이 나가지 않는다
@@ -298,7 +298,7 @@ before(() => {
 });
 
 after(() => {
-  configData._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(CONFIG_DIR, { recursive: true, force: true });
 });
 

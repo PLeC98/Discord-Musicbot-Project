@@ -11,7 +11,10 @@ const fs = require("node:fs");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const loader = require("../../src/config/loader");
+const genreConfig = require("../../src/config/genres");
+const statusConfig = require("../../src/config/status");
+const aiConfig = require("../../src/config/ai");
+const yamlStore = require("../../src/config/yamlStore");
 const { PROVIDERS } = require("../../src/autoplay/assist/index"); // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
@@ -360,43 +363,43 @@ const PROMPTS = [
 
 test("장르 검사: 장르가 25개를 넘는다(디스코드 선택 메뉴 한도)", () => {
   const genres = Object.fromEntries(Array.from({ length: 26 }, (_, i) => [`g${i}a`, { sources: [{ type: "keyword", keywords: ["x"] }] }]));
-  assert.deepEqual(loader.validateGenres({ genres }), ["장르가 26개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다."]);
+  assert.deepEqual(genreConfig.validateGenres({ genres }), ["장르가 26개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다."]);
 });
 
-for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(loader.validateGenres(input), want));
-for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => assert.deepEqual(loader.validateStatus(input), want));
-for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(loader.validateAi(input), want));
-for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(loader.promptProblems(input, on), want));
+for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(genreConfig.validateGenres(input), want));
+for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => assert.deepEqual(statusConfig.validateStatus(input), want));
+for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input), want));
+for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(aiConfig.promptProblems(input, on), want));
 
 // ── 던지나 경고하나: 부르는 쪽이 정한다 ────────────────────────────────
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "config-messages-"));
 const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
 
-before(() => loader._setConfigDir(DIR));
+before(() => yamlStore._setConfigDir(DIR));
 after(() => {
-  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true });
 });
 
 test("장르 파일이 검사에 걸리면 던진다(기동이 멈춰야 한다). 문구는 한 줄씩 들여 쓴다", () => {
   write("genres", "genres:\n  가요:\n    sources: []\n");
   assert.throws(
-    () => loader.genres(),
+    () => genreConfig.genres(),
     (e) => e.code === "CONFIG_INVALID" && e.message === ["config/genres.yaml 을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n"),
   );
 });
 
 test("상태 파일은 검사에 걸려도 던지지 않고 그대로 돌려준다(타이머 안에서 불린다)", () => {
   write("status", "interval: 5\nmessages: []\n");
-  const data = loader.status();
+  const data = statusConfig.status();
   assert.equal(data.interval, 5);
 });
 
 test("AI 파일은 검사에 걸리면 끈 채로 돌려주고, 파일이 없으면 꺼진 것으로 본다", () => {
   write("ai", "provider: custom\n");
-  assert.equal(loader.ai().enabled, false);
+  assert.equal(aiConfig.ai().enabled, false);
   fs.rmSync(path.join(DIR, "ai.yaml"));
-  loader._cache.clear();
-  assert.deepEqual(loader.ai(), { enabled: false });
+  yamlStore._cache.clear();
+  assert.deepEqual(aiConfig.ai(), { enabled: false });
 });

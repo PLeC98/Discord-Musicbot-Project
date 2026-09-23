@@ -17,18 +17,19 @@ const fs = require("node:fs");
 const { test, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
-const loader = require("../../src/config/loader");
+const yamlStore = require("../../src/config/yamlStore");
+const cookieConfig = require("../../src/config/cookies");
 const YouTube = require("../../src/sources/youtube/index");
 const config = require("../../config");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookies-"));
 
-before(() => loader._setConfigDir(DIR));
+before(() => yamlStore._setConfigDir(DIR));
 after(() => {
-  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true });
 });
-beforeEach(() => loader.clearCookies());
+beforeEach(() => cookieConfig.clearCookies());
 
 // 실제 확장이 내보내는 모양. 칸 구분은 탭이다
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tHSID\tdef456"].join("\n");
@@ -39,47 +40,47 @@ test("COOKIES_SOURCE=file 이면 브라우저가 아니라 파일 방식이다",
 });
 
 test("파일이 없으면 쿠키가 없는 것이다", () => {
-  assert.equal(loader.cookiesReady(), false);
+  assert.equal(cookieConfig.cookiesReady(), false);
   assert.equal(YouTube.cookiesConfigured(), false, "없는 파일로 연령 제한 재시도를 돌리면 안 된다");
   assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, undefined);
 });
 
 test("빈 파일도 없는 것으로 친다", () => {
-  fs.writeFileSync(loader.cookiesPath(), "   \n");
-  assert.equal(loader.cookiesReady(), false, "공백뿐인 파일은 yt-dlp 에 넘겨도 소용이 없다");
+  fs.writeFileSync(cookieConfig.cookiesPath(), "   \n");
+  assert.equal(cookieConfig.cookiesReady(), false, "공백뿐인 파일은 yt-dlp 에 넘겨도 소용이 없다");
 });
 
 test("저장하면 봇을 다시 띄우지 않아도 그 다음 판정부터 반영된다", () => {
   assert.equal(YouTube.cookiesConfigured(), false);
-  loader.saveCookies(SAMPLE);
+  cookieConfig.saveCookies(SAMPLE);
   assert.equal(YouTube.cookiesConfigured(), true);
-  assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, loader.cookiesPath());
+  assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, cookieConfig.cookiesPath());
 });
 
 test("평상시에는 쿠키를 붙이지 않는다 (연령 제한 폴백 전용)", () => {
-  loader.saveCookies(SAMPLE);
+  cookieConfig.saveCookies(SAMPLE);
   assert.equal(YouTube.getYtDlpOptions().cookies, undefined);
 });
 
 test("탭으로 나뉜 칸이 그대로 남는다", () => {
-  loader.saveCookies(SAMPLE);
-  const saved = fs.readFileSync(loader.cookiesPath(), "utf8");
+  cookieConfig.saveCookies(SAMPLE);
+  const saved = fs.readFileSync(cookieConfig.cookiesPath(), "utf8");
   const rows = saved.split("\n").filter((one) => one && !one.startsWith("#"));
   assert.equal(rows.length, 2);
   for (const row of rows) assert.equal(row.split("\t").length, 7, "Netscape 형식은 7칸이다");
 });
 
 test("CRLF 로 붙여넣어도 LF 로 맞추고 끝에 개행을 둔다", () => {
-  loader.saveCookies(SAMPLE.replace(/\n/g, "\r\n"));
-  const saved = fs.readFileSync(loader.cookiesPath(), "utf8");
+  cookieConfig.saveCookies(SAMPLE.replace(/\n/g, "\r\n"));
+  const saved = fs.readFileSync(cookieConfig.cookiesPath(), "utf8");
   assert.ok(!saved.includes("\r"), "yt-dlp 가 마지막 칸에 \\r 을 붙여 읽으면 안 된다");
   assert.ok(saved.endsWith("\n"));
 });
 
 test("빈 글을 저장하면 파일을 지운다 (빈 파일을 남기지 않는다)", () => {
-  loader.saveCookies(SAMPLE);
-  assert.equal(loader.saveCookies("   "), false);
-  assert.equal(fs.existsSync(loader.cookiesPath()), false);
+  cookieConfig.saveCookies(SAMPLE);
+  assert.equal(cookieConfig.saveCookies("   "), false);
+  assert.equal(fs.existsSync(cookieConfig.cookiesPath()), false);
 });
 
 test("쿠키를 쥔 yt-dlp 수를 센다 (덮어쓰기 경고의 근거)", () => {
@@ -87,8 +88,8 @@ test("쿠키를 쥔 yt-dlp 수를 센다 (덮어쓰기 경고의 근거)", () =>
 });
 
 test("상태 응답은 방식만 알리고 경로는 싣지 않는다", () => {
-  loader.saveCookies(SAMPLE);
+  cookieConfig.saveCookies(SAMPLE);
   const snap = YouTube.statusSnapshot();
   assert.equal(snap.cookies, "file");
-  assert.ok(!JSON.stringify(snap).includes(loader.cookiesPath()));
+  assert.ok(!JSON.stringify(snap).includes(cookieConfig.cookiesPath()));
 });

@@ -21,7 +21,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 const S = require("../../src/ui/strings");
 const settings = require("../../src/store/guildSettings");
 const TrackResolver = require("../../src/sources/trackResolver");
-const loader = require("../../src/config/loader");
+const yamlStore = require("../../src/config/yamlStore");
 const More = require("../../src/usecases/playlistMore");
 const messageHandler = require("../../events/messageHandler");
 const panelPin = require("../../events/panelPin");
@@ -38,12 +38,12 @@ const CONFIG_DIR = path.join(TMP, "config");
 before(() => {
   fs.mkdirSync(CONFIG_DIR, { recursive: true });
   fs.writeFileSync(path.join(CONFIG_DIR, "genres.yaml"), "genres:\n  가요:\n    sources:\n      - type: keyword\n        keywords: [가요]\n");
-  loader._setConfigDir(CONFIG_DIR);
+  yamlStore._setConfigDir(CONFIG_DIR);
 });
 
 after(() => {
   Object.assign(TrackResolver, real);
-  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });

@@ -10,7 +10,11 @@ const logManager = require("../../../src/infra/log/sink");
 const procRegistry = require("../../../src/infra/processRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
 const trackState = require("../../../src/player/trackState");
-const configData = require("../../../src/config/loader");
+const genreConfig = require("../../../src/config/genres");
+const statusConfig = require("../../../src/config/status");
+const aiConfig = require("../../../src/config/ai");
+const cookieConfig = require("../../../src/config/cookies");
+const yamlStore = require("../../../src/config/yamlStore");
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
@@ -219,7 +223,7 @@ router.post("/reset-cache", requireOwner, (req, res) => {
 // 바뀐 자리만 고친다(configDataLoader.save가 주석·빈 줄을 보존한다).
 
 // 검사기가 있는 것만 고칠 수 있다. 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
-const VALIDATORS = { genres: configData.validateGenres, status: configData.validateStatus, ai: configData.validateAi };
+const VALIDATORS = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 
 // 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
@@ -236,7 +240,7 @@ router.get("/source-types", requireOwner, async (req, res) => {
 router.get("/ai/state", requireOwner, (req, res) => {
   const assist = require("../../../src/autoplay/assist/index");
   // 키 값은 절대 안 내려간다. 프로바이더마다 있는지 없는지만 알린다(config/ai-keys.yaml).
-  const keys = configData.aiKeys();
+  const keys = aiConfig.aiKeys();
   res.json({
     hasKey: Object.fromEntries(Object.keys(assist.PROVIDER_SPECS).map((name) => [name, !!keys[name]])),
     // 주소·키 필요 여부는 서버가 안다. 화면이 베껴 두면 한쪽만 고치게 된다
@@ -285,7 +289,7 @@ router.post("/ai/tokens", requireOwner, async (req, res) => {
   const cut = texts.map((one) => String(one ?? "").slice(0, 200000));
 
   if (by === "claude") {
-    const apiKey = configData.aiKeyOf(provider);
+    const apiKey = aiConfig.aiKeyOf(provider);
     const wrap = tokens.FRAMING.anthropic.perRequest;
     const each = await Promise.all(cut.map(async (one) => (one ? await tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }) : 0)));
     if (each.every((one) => one !== null)) {
@@ -349,7 +353,7 @@ router.put("/ai/keys", requireOwner, (req, res) => {
 
   try {
     log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${req.session.user.username || req.session.user.id}`);
-    res.json({ hasKey: configData.saveAiKeys(keys) });
+    res.json({ hasKey: aiConfig.saveAiKeys(keys) });
   } catch (error) {
     res.status(409).json({ error: error.message });
   }
@@ -358,19 +362,19 @@ router.put("/ai/keys", requireOwner, (req, res) => {
 // 프롬프트는 설정과 딴 파일에 산다(config/ai-prompt.chatml). YAML 이 아니라 ChatML 글이라
 // /config/:name 통로를 못 탄다. 여기서 따로 받는다.
 router.get("/ai/prompt", requireOwner, (req, res) => {
-  res.json({ sections: configData.aiPrompt() });
+  res.json({ sections: aiConfig.aiPrompt() });
 });
 
 router.put("/ai/prompt", requireOwner, (req, res) => {
   const sections = req.body?.sections;
   if (!Array.isArray(sections)) return res.status(400).json({ error: "저장할 내용이 없습니다." });
 
-  const problems = configData.promptProblems(sections, true);
+  const problems = aiConfig.promptProblems(sections, true);
   if (problems.length) return res.status(400).json({ error: problems[0], problems });
 
   try {
     log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml. 실행 ${req.session.user.username || req.session.user.id}`);
-    res.json({ sections: configData.saveAiPrompt(sections) });
+    res.json({ sections: aiConfig.saveAiPrompt(sections) });
   } catch (error) {
     res.status(409).json({ error: error.message });
   }
@@ -384,7 +388,7 @@ function cookieState() {
   const YouTube = require("../../../src/sources/youtube/index");
   return {
     source: YouTube.statusSnapshot().cookies,
-    hasFile: configData.cookiesReady(),
+    hasFile: cookieConfig.cookiesReady(),
     // 0이 아니면 지금 덮어써도 그 yt-dlp 가 끝나면서 옛 내용으로 되돌린다
     inFlight: YouTube.cookieRunsInFlight(),
   };
@@ -399,7 +403,7 @@ router.put("/cookies", requireOwner, (req, res) => {
   try {
     // 내용은 절대 남기지 않는다. 로그인된 세션 그 자체다
     log.warn({ sub: "admin" }, `대시보드에서 유튜브 쿠키 ${text.trim() ? "저장" : "삭제"}. 실행 ${req.session.user.username || req.session.user.id}`);
-    configData.saveCookies(text);
+    cookieConfig.saveCookies(text);
     res.json(cookieState());
   } catch (error) {
     res.status(409).json({ error: error.message });
@@ -429,7 +433,7 @@ router.get("/config/:name", requireOwner, (req, res) => {
   if (!CONFIG_NAMES.includes(name)) return res.status(404).json({ error: "그런 설정이 없습니다." });
 
   try {
-    res.json({ name, data: configData.load(name) });
+    res.json({ name, data: yamlStore.load(name) });
   } catch (error) {
     // 파일이 없거나 문법이 깨졌다. 화면이 이유를 그대로 보여줄 수 있게 넘긴다
     res.status(409).json({ error: error.message, code: error.code || null });
@@ -448,7 +452,7 @@ router.put("/config/:name", requireOwner, (req, res) => {
   if (problems.length) return res.status(400).json({ error: problems[0], problems });
 
   try {
-    const saved = configData.save(name, data);
+    const saved = yamlStore.save(name, data);
     log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml. 실행 ${req.session.user.username || req.session.user.id}`);
     res.json({ success: true, data: saved });
   } catch (error) {
