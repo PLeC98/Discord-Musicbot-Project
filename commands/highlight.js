@@ -2,7 +2,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/strings");
+const S = require("../src/ui/strings");
 const { checkControl } = require("../src/permissions");
 
 function formatMs(ms) {

@@ -4,7 +4,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { formatDuration } = require("../src/utils");
+const { formatDuration } = require("../../src/ui/format");
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
   assert.equal(formatDuration(0), "0:00");

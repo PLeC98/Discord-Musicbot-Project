@@ -8,7 +8,7 @@ const Spotify = require("./spotify");
 const SoundCloud = require("./soundcloud");
 const DirectLink = require("./direct");
 const CacheManager = require("../store/cacheManager");
-const ErrorHandler = require("../ErrorHandler");
+const ErrorHandler = require("../ui/errorMessages");
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./youtube/match");
 
 const TrackResolver = {

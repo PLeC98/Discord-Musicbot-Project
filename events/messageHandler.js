@@ -5,7 +5,7 @@ const { checkAdd, checkSummon } = require("../src/permissions");
 const { requestPlayback } = require("../src/playRequest");
 const { channelResponder, scheduleDelete } = require("../src/playbackResponder");
 const { offerOnChannel } = require("../src/playlistMore");
-const S = require("../src/strings");
+const S = require("../src/ui/strings");
 
 module.exports = {
   name: Events.MessageCreate,

@@ -3,7 +3,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const zlib = require("node:zlib");
-const blankThumbnail = require("../src/blankThumbnail");
+const blankThumbnail = require("../../src/ui/blankThumbnail");
 
 const { crc32, NAME, SIZE } = blankThumbnail._internals;
 

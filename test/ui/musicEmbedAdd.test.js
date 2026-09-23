@@ -7,8 +7,8 @@
 
 const { test, mock } = require("node:test");
 const assert = require("node:assert/strict");
-const config = require("../config");
-const MusicEmbedManager = require("../src/MusicEmbedManager");
+const config = require("../../config");
+const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 
 const track = (id, extra = {}) => ({ id, title: `곡 ${id}`, url: `https://youtu.be/${id}`, ...extra });
 const who = { id: "u1", username: "사용자" };

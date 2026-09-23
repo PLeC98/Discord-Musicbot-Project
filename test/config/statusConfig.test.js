@@ -13,7 +13,7 @@ const assert = require("node:assert/strict");
 const YAML = require("yaml");
 
 const loader = require("../../src/config/loader");
-const StatusManager = require("../../src/StatusManager");
+const StatusManager = require("../../src/ui/botPresence");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-status-"));
 const CONFIG = path.join(__dirname, "..", "..", "config");

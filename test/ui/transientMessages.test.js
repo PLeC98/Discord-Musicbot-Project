@@ -2,7 +2,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { markTransient, isTransient } = require("../src/transientMessages");
+const { markTransient, isTransient } = require("../../src/ui/transientMessages");
 
 test("스스로 지워질 메시지: 지울 시각(+여유)까지만 기억하고, 다시 표시하면 기한이 늘어난다", () => {
   const t0 = 1_000_000;

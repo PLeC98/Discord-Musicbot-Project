@@ -7,8 +7,8 @@ const assert = require("node:assert/strict");
 const TrackResolver = require("../../src/sources/trackResolver");
 const Spotify = require("../../src/sources/spotify");
 const YouTube = require("../../src/sources/youtube/index");
-const MusicEmbedManager = require("../../src/MusicEmbedManager");
-const { collectionLabel } = require("../../src/strings");
+const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
+const { collectionLabel } = require("../../src/ui/strings");
 
 function stub(obj, key, fn) {
   const original = obj[key];

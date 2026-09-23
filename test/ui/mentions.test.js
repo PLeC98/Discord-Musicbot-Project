@@ -10,8 +10,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { WebhookClient, MessagePayload } = require("discord.js");
-const { ALLOWED_MENTIONS, escapeMd } = require("../src/mentions");
-const MusicEmbedManager = require("../src/MusicEmbedManager");
+const { ALLOWED_MENTIONS, escapeMd } = require("../../src/ui/mentions");
+const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
 const EVIL_LINK = "[여기를 클릭](https://evil.example)";

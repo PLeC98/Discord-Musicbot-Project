@@ -1,8 +1,8 @@
 const { Events, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
-const S = require("../src/strings");
+const S = require("../src/ui/strings");
 const { checkControl } = require("../src/permissions");
-const { expireReply } = require("../src/replyLifetime");
+const { expireReply } = require("../src/ui/replyLifetime");
 const trackState = require("../src/player/trackState");
 
 module.exports = {

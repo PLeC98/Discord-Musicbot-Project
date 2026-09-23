@@ -5,8 +5,8 @@ const log = require("../infra/log/logger").child({ category: "session" });
 const CacheManager = require("../store/cacheManager");
 const trackState = require("./trackState");
 const config = require("../../config");
-const { formatDuration } = require("../utils");
-const { escapeMd } = require("../mentions");
+const { formatDuration } = require("../ui/format");
+const { escapeMd } = require("../ui/mentions");
 const { scheduleDelete } = require("../playbackResponder");
 
 const HEARTBEAT_MS = 5000;

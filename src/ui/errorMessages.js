@@ -1,4 +1,4 @@
-const log = require("./infra/log/logger").child({ category: "error" });
+const log = require("../infra/log/logger").child({ category: "error" });
 const ERROR_MESSAGES = {
   youtube_bot_detection: "❌ **YouTube가 이 요청을 차단했습니다 (봇 감지)**\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** bgutil-ytdlp-pot-provider를 설치하거나, `.env` 파일에 `COOKIES_SOURCE=chrome` (또는 firefox/edge)를 추가하세요.",
   youtube_age_restricted: "❌ **연령 제한 동영상**\n이 동영상은 YouTube 계정 로그인이 필요합니다.\n\n**해결 방법:** `.env`에 `COOKIES_SOURCE=chrome`을 설정하여 봇이 브라우저의 YouTube 세션을 사용할 수 있도록 하세요.",

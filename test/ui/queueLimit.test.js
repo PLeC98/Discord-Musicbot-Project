@@ -4,9 +4,9 @@
 
 const { test, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-const config = require("../config");
-const trackState = require("../src/player/trackState");
-const MusicEmbedManager = require("../src/MusicEmbedManager");
+const config = require("../../config");
+const trackState = require("../../src/player/trackState");
+const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {

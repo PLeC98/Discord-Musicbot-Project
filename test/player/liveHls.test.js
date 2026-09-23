@@ -11,7 +11,7 @@ const assert = require("node:assert/strict");
 
 const MusicPlayer = require("../../src/player/Player");
 const YouTube = require("../../src/sources/youtube/index");
-const MusicEmbedManager = require("../../src/MusicEmbedManager");
+const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 const { capabilities, _internals } = require("../../src/media/ffmpeg/path");
 
 const idx = (args, flag) => args.indexOf(flag);

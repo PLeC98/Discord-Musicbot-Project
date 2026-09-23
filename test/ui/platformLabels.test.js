@@ -1,8 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert");
 
-const { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf } = require("../src/platforms");
-const { TYPES } = require("../src/autoplay/sources/index");
+const { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf } = require("../../src/ui/platforms");
+const { TYPES } = require("../../src/autoplay/sources/index");
 
 // 소스를 더하고 이름표를 안 적으면 화면에 "Lbradio" 같은 것이 뜬다.
 // 실제로 자동재생 소스 여섯이 대시보드에서 이름 없이(그리고 회색 점으로) 떠 있었다.

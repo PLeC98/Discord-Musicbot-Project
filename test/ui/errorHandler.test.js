@@ -4,7 +4,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const ErrorHandler = require("../src/ErrorHandler");
+const ErrorHandler = require("../../src/ui/errorMessages");
 
 const CASES = [
   // [실제 yt-dlp/네트워크에서 나오는 형태의 메시지, 기대 범주]

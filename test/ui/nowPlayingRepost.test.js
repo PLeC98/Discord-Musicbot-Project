@@ -6,8 +6,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Collection } = require("discord.js");
-const MusicEmbedManager = require("../src/MusicEmbedManager");
-const GuildSettingsManager = require("../src/store/guildSettings");
+const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
+const GuildSettingsManager = require("../../src/store/guildSettings");
 
 const BOT_CHANNEL = "chan-1";
 
@@ -150,7 +150,7 @@ test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
     assert.equal(await mem._isBuried(player, now), false, "곧 스스로 지워질 안내는 쫓지 않는다");
 
     cache.set("155", { id: "155", createdTimestamp: now - 20000 });
-    require("../src/transientMessages").markTransient("155", 30000, now - 20000);
+    require("../../src/ui/transientMessages").markTransient("155", 30000, now - 20000);
     assert.equal(await mem._isBuried(player, now), false, "오래 떠 있어도 스스로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
 
     cache.set("160", { id: "160", createdTimestamp: now - 30000 });

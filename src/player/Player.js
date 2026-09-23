@@ -8,7 +8,7 @@ const { PermissionFlagsBits } = require("discord.js");
 
 const config = require("../../config");
 const autoplayRoute = require("../autoplay/route");
-const ErrorHandler = require("../ErrorHandler");
+const ErrorHandler = require("../ui/errorMessages");
 const TrackResolver = require("../sources/trackResolver");
 const SponsorBlock = require("../sources/sponsorBlock");
 const SponsorSkipper = require("./sponsorSkipper");
@@ -23,7 +23,7 @@ const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./sessionMirror");
 const QueueWarmer = require("./queueWarmer");
 const trackState = require("./trackState");
-const S = require("../strings");
+const S = require("../ui/strings");
 const { spawnFfmpeg } = require("../media/ffmpeg/process");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 const { Readable } = require("stream");

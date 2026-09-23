@@ -2,8 +2,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/strings");
-const { queueLine } = require("../src/queueDisplay");
+const S = require("../src/ui/strings");
+const { queueLine } = require("../src/ui/queueDisplay");
 
 const PAGE_SIZE = 10;
 

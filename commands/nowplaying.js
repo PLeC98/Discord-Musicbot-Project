@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../config");
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
-const { labelOf, emojiOf } = require("../src/platforms");
+const { labelOf, emojiOf } = require("../src/ui/platforms");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("nowplaying").setDescription("Shows information about currently playing song").setDescriptionLocalizations({
@@ -109,7 +109,7 @@ module.exports = {
   },
 
   formatDuration(seconds) {
-    return require("../src/utils").formatDuration(seconds); // 공용 구현: src/utils.js
+    return require("../src/ui/format").formatDuration(seconds); // 공용 구현: src/utils.js
   },
 
   formatTime(milliseconds) {

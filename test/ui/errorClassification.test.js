@@ -8,8 +8,8 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const ErrorHandler = require("../src/ErrorHandler");
-const YouTube = require("../src/sources/youtube/index");
+const ErrorHandler = require("../../src/ui/errorMessages");
+const YouTube = require("../../src/sources/youtube/index");
 
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;

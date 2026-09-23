@@ -11,7 +11,7 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { MessageFlags } = require("discord.js");
 
-const S = require("../src/strings");
+const S = require("../src/ui/strings");
 const settings = require("../src/store/guildSettings");
 const TrackResolver = require("../src/sources/trackResolver");
 const YouTube = require("../src/sources/youtube/index");

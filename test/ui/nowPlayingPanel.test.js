@@ -4,7 +4,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const NowPlayingPanel = require("../src/NowPlayingPanel");
+const NowPlayingPanel = require("../../src/ui/panelLocation");
 
 function memoryStore(initial = {}) {
   const records = new Map(Object.entries(initial));

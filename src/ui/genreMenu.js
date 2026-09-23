@@ -4,7 +4,7 @@
 // 진입점마다 따로 만들면 한쪽만 고쳐져 갈라진다(실제로 명령 쪽은 영문 키 목록을 쓰고 있었다).
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require("discord.js");
-const config = require("../config");
+const config = require("../../config");
 
 // 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
 const OFF_MENU_MS = 30_000;
@@ -15,7 +15,7 @@ const OFF_MENU_MS = 30_000;
  */
 function genreSelect(requesterId, sessionId, placeholder) {
   // 장르 정의는 config/genres.yaml 한 곳에서 관리. 부를 때마다 읽는다(파일이 바뀌면 곧바로 반영)
-  const { genres } = require("./config/loader").genres();
+  const { genres } = require("../config/loader").genres();
 
   return (
     new StringSelectMenuBuilder()

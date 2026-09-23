@@ -13,7 +13,7 @@ const SponsorBlock = require("../../../src/sources/sponsorBlock");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
 const { shadowMember } = require("../viewAs");
-const { labelOf } = require("../../../src/platforms"); // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
+const { labelOf } = require("../../../src/ui/platforms"); // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS = {

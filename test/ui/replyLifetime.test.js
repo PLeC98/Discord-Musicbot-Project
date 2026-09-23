@@ -4,7 +4,7 @@
 
 const { test, mock } = require("node:test");
 const assert = require("node:assert/strict");
-const { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS } = require("../src/replyLifetime");
+const { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS } = require("../../src/ui/replyLifetime");
 
 function command(name, over = {}) {
   const calls = [];

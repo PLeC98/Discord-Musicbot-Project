@@ -8,8 +8,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const S = require("../src/strings");
-const { toApiError } = require("../dashboard/server/middleware/requireControl");
+const S = require("../../src/ui/strings");
+const { toApiError } = require("../../dashboard/server/middleware/requireControl");
 
 // 실제로 흘러다니는 두 종류의 출처
 const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // TrackResolver / ErrorHandler / strings

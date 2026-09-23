@@ -14,9 +14,9 @@ const { resolveGuildForRestore } = require("./src/player/sessionRestore");
 const DashboardEvents = require("./src/player/events");
 const voiceChannelStatus = require("./src/player/voiceChannelStatus");
 const { loadModules } = require("./src/moduleLoader");
-const { scheduleReplyCleanup } = require("./src/replyLifetime");
+const { scheduleReplyCleanup } = require("./src/ui/replyLifetime");
 const PlayerRegistry = require("./src/player/registry");
-const { ALLOWED_MENTIONS } = require("./src/mentions");
+const { ALLOWED_MENTIONS } = require("./src/ui/mentions");
 const { createFileDestination } = require("./src/infra/log/file");
 const trackState = require("./src/player/trackState");
 
@@ -228,7 +228,7 @@ function startBot() {
   client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
 
   // Initialize Music Embed Manager
-  const MusicEmbedManager = require("./src/MusicEmbedManager");
+  const MusicEmbedManager = require("./src/ui/nowPlayingPanel");
   client.musicEmbedManager = new MusicEmbedManager(client);
 
   // Start dashboard server
@@ -283,7 +283,7 @@ function startBot() {
     log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
 
     // Set bot activity
-    const StatusManager = require("./src/StatusManager");
+    const StatusManager = require("./src/ui/botPresence");
     if (!client.statusManager) {
       client.statusManager = new StatusManager(client);
       client.statusManager.start();

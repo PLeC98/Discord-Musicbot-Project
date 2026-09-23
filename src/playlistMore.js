@@ -9,8 +9,8 @@ const config = require("../config");
 const YouTube = require("./sources/youtube/index");
 const Spotify = require("./sources/spotify");
 const trackState = require("./player/trackState");
-const { collectionLabel } = require("./strings");
-const { markTransient } = require("./transientMessages");
+const { collectionLabel } = require("./ui/strings");
+const { markTransient } = require("./ui/transientMessages");
 
 const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다

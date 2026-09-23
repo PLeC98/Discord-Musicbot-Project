@@ -7,7 +7,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { queueLine, jumpDescription, AUTOPLAY_MARK } = require("../src/queueDisplay");
+const { queueLine, jumpDescription, AUTOPLAY_MARK } = require("../../src/ui/queueDisplay");
 
 const song = (over = {}) => ({ title: "곡", url: "https://y/1", artist: "가수", duration: 100, ...over });
 

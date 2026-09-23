@@ -4,8 +4,8 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/player/Player");
 const CacheManager = require("../src/store/cacheManager");
-const { escapeMd } = require("../src/mentions");
-const S = require("../src/strings");
+const { escapeMd } = require("../src/ui/mentions");
+const S = require("../src/ui/strings");
 const config = require("../config");
 
 module.exports = {

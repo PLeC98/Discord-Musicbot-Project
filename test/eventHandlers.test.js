@@ -18,7 +18,7 @@ const CacheManager = require("../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const S = require("../src/strings");
+const S = require("../src/ui/strings");
 const settings = require("../src/store/guildSettings");
 const TrackResolver = require("../src/sources/trackResolver");
 const loader = require("../src/config/loader");

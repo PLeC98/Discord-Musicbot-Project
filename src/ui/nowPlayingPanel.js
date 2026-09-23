@@ -1,14 +1,14 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } = require("discord.js");
-const log = require("./infra/log/logger").child({ category: "player" });
-const config = require("../config");
-const { formatDuration } = require("./utils");
-const DashboardEvents = require("./player/events");
-const ErrorHandler = require("./ErrorHandler");
+const log = require("../infra/log/logger").child({ category: "player" });
+const config = require("../../config");
+const { formatDuration } = require("./format");
+const DashboardEvents = require("../player/events");
+const ErrorHandler = require("./errorMessages");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
-const { silentResponder } = require("./playbackResponder");
-const GuildSettingsManager = require("./store/guildSettings");
-const trackState = require("./player/trackState");
+const { silentResponder } = require("../playbackResponder");
+const GuildSettingsManager = require("../store/guildSettings");
+const trackState = require("../player/trackState");
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
 const UNKNOWN_MESSAGE = 10008;
@@ -21,7 +21,7 @@ const PIN_SETTLE_MS = 12000;
 const { markTransient, isTransient } = require("./transientMessages");
 const blankThumbnail = require("./blankThumbnail");
 const { jumpDescription } = require("./queueDisplay");
-const NowPlayingPanel = require("./NowPlayingPanel");
+const NowPlayingPanel = require("./panelLocation");
 
 const BAR_LENGTH = 16;
 

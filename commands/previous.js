@@ -1,7 +1,7 @@
 "use strict";
 
 const { SlashCommandBuilder } = require("discord.js");
-const S = require("../src/strings");
+const S = require("../src/ui/strings");
 const { checkControl } = require("../src/permissions");
 
 module.exports = {

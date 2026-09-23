@@ -18,7 +18,7 @@ CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
 const config = require("../config");
-const S = require("../src/strings");
+const S = require("../src/ui/strings");
 const settings = require("../src/store/guildSettings");
 const buttonHandler = require("../events/buttonHandler");
 
