@@ -202,9 +202,9 @@ router.post("/redeploy-commands", requireOwner, async (req, res) => {
 // 캐시 초기화. 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
 // 되돌릴 수 없으므로 클라이언트가 확인 대화를 거친다. 재생 중인 파일은 잠겨 있어 남을 수 있고, 재생은 끊기지 않는다.
 router.post("/reset-cache", requireOwner, (req, res) => {
-  const CacheManager = require("../../../src/store/cacheManager");
+  const audioCache = require("../../../src/store/audioCache");
   try {
-    const result = CacheManager.resetCache();
+    const result = audioCache.resetCache();
     log.warn({ sub: "admin" }, `대시보드 운영자 패널에서 캐시 초기화: 파일 ${result.removed}개 삭제`);
     res.json({ success: true, ...result });
   } catch (error) {

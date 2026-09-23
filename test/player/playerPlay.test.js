@@ -8,6 +8,7 @@
 // 갈래마다 셋을 본다. 어떤 ffmpeg 를 무엇으로 띄웠나, 캐시 장부에 무엇을 적었나, 끝난 뒤 플레이어 상태.
 
 const h = require("../helpers/playerHarness");
+const audioCache = require("../../src/store/audioCache");
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { AudioSplicer } = require("../../src/media/audioSplicer");
@@ -89,7 +90,7 @@ test("캐시로 튼 곡은 퇴거에서 보호한다", async () => {
   await playOnce(p);
 
   assert.equal(p._protectedAudioKey, "yt:ddddddddddd");
-  assert.ok(h.CacheManager._liveKeys().has("yt:ddddddddddd"));
+  assert.ok(audioCache._liveKeys().has("yt:ddddddddddd"));
   p.releaseAudioProtection();
 });
 
@@ -457,14 +458,14 @@ test("종료 감시는 남은 길이 + 4초 뒤로 건다", async () => {
 test("다른 곡을 틀면 앞 곡의 퇴거 보호를 풀고 새 곡을 보호한다", async () => {
   const track = yt("y1yyyyyyyyy");
   h.seedCache("yt:y1yyyyyyyyy", track);
-  h.CacheManager.protect("yt:y0yyyyyyyyy");
+  audioCache.protect("yt:y0yyyyyyyyy");
   const p = h.makePlayer();
   p._protectedAudioKey = "yt:y0yyyyyyyyy";
   p.currentTrack = track;
 
   await playOnce(p);
 
-  const live = h.CacheManager._liveKeys();
+  const live = audioCache._liveKeys();
   assert.equal(live.has("yt:y0yyyyyyyyy"), false);
   assert.equal(live.has("yt:y1yyyyyyyyy"), true);
   p.releaseAudioProtection();

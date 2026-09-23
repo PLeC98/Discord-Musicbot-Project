@@ -13,26 +13,27 @@ const assert = require("node:assert/strict");
 const Database = require("better-sqlite3");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "track-links-"));
-let CacheManager;
+let audioCache, trackLookup;
 
 before(() => {
-  CacheManager = require("../src/store/cacheManager");
-  CacheManager._cacheDir = path.join(TMP, "audio_cache");
-  CacheManager.initialize(path.join(TMP, "cache.db"));
+  audioCache = require("../src/store/audioCache");
+  trackLookup = require("../src/store/trackLookup");
+  audioCache._cacheDir = path.join(TMP, "audio_cache");
+  audioCache.initialize(path.join(TMP, "cache.db"));
 });
 
 after(() => {
-  CacheManager?.close();
+  audioCache?.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
 // 받아 둔 곡 하나. 파일과 audio_cache 행을 같이 만든다
 function seed(key, track) {
-  const file = CacheManager.getFilePath(key);
+  const file = audioCache.getFilePath(key);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, "opus");
-  CacheManager.recordDownloadStart(key, track);
-  CacheManager.recordDownloadComplete(key, file, 4, track, { durationSec: 90 });
+  audioCache.recordDownloadStart(key, track);
+  audioCache.recordDownloadComplete(key, file, 4, track, { durationSec: 90 });
   return file;
 }
 
@@ -78,16 +79,16 @@ test("장부 열쇠에 작품 페이지가 들어가면 같은 작품의 두 곡
   seed(fatal.audioSourceKey, fatal);
   seed(burning.audioSourceKey, burning);
 
-  CacheManager.recordTrackLookup(page, "anisongdb", fatal.audioSourceKey, fatal.title, fatal.artist, null);
-  CacheManager.recordTrackLookup(page, "anisongdb", burning.audioSourceKey, burning.title, burning.artist, null);
+  trackLookup.recordTrackLookup(page, "anisongdb", fatal.audioSourceKey, fatal.title, fatal.artist, null);
+  trackLookup.recordTrackLookup(page, "anisongdb", burning.audioSourceKey, burning.title, burning.artist, null);
 
-  const hit = CacheManager.resolveFromCache(page);
+  const hit = trackLookup.resolveFromCache(page);
   assert.equal(hit.hit, true);
   assert.equal(hit.audioSourceKey, "yt:burningburn", "Fatal 의 링크를 넣어도 Burning 이 나온다");
   assert.equal(hit.track.title, "Burning");
-  const pointing = CacheManager.db.prepare("SELECT COUNT(*) c FROM track_lookup WHERE audio_source_key = ?").get(fatal.audioSourceKey).c;
+  const pointing = audioCache.db.prepare("SELECT COUNT(*) c FROM track_lookup WHERE audio_source_key = ?").get(fatal.audioSourceKey).c;
   assert.equal(pointing, 0, "Fatal 파일은 가리키는 행이 없는 채로 남는다");
-  assert.equal(CacheManager.db.prepare("SELECT status FROM audio_cache WHERE audio_source_key = ?").get(fatal.audioSourceKey).status, "cached");
+  assert.equal(audioCache.db.prepare("SELECT status FROM audio_cache WHERE audio_source_key = ?").get(fatal.audioSourceKey).status, "cached");
 });
 
 test("장부 조회 앞의 링크 다듬기는 유튜브만 한다", () => {
@@ -100,26 +101,26 @@ test("장부 조회 앞의 링크 다듬기는 유튜브만 한다", () => {
     ["https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj"],
     ["https://soundcloud.com/artist/track-name?si=abc&utm_source=clipboard", "https://soundcloud.com/artist/track-name?si=abc&utm_source=clipboard"],
   ];
-  for (const [input, expected] of cases) assert.equal(CacheManager._normalizeSourceUrl(input), expected, input);
+  for (const [input, expected] of cases) assert.equal(trackLookup._normalizeSourceUrl(input), expected, input);
 
   const clean = "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj";
   seed("yt:spotifyshar", { title: "곡" });
-  CacheManager.recordTrackLookup(clean, "spotify", "yt:spotifyshar", "곡", "가수", null);
-  assert.equal(CacheManager.getResolvedKey(`${clean}?si=0a1b2c`), null, "공유 링크는 장부와 안 맞는다");
-  assert.equal(CacheManager.getResolvedKey(clean), "yt:spotifyshar");
+  trackLookup.recordTrackLookup(clean, "spotify", "yt:spotifyshar", "곡", "가수", null);
+  assert.equal(trackLookup.getResolvedKey(`${clean}?si=0a1b2c`), null, "공유 링크는 장부와 안 맞는다");
+  assert.equal(trackLookup.getResolvedKey(clean), "yt:spotifyshar");
 });
 
 test("퇴거가 audio_cache 행을 지우면 외래 키 연쇄로 링크 장부 행도 지워진다", () => {
   const spotify = "https://open.spotify.com/track/evictcascade";
   const key = "yt:evictcasca";
   const file = seed(key, { title: "곡", url: spotify, platform: "spotify" });
-  CacheManager.recordTrackLookup(spotify, "spotify", key, "곡", "가수", null);
-  assert.equal(CacheManager.getResolvedKey(spotify), key);
+  trackLookup.recordTrackLookup(spotify, "spotify", key, "곡", "가수", null);
+  assert.equal(trackLookup.getResolvedKey(spotify), key);
 
   // evict() 가 한 줄마다 하는 일 그대로
   fs.unlinkSync(file);
-  CacheManager.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(key);
+  audioCache.db.prepare("DELETE FROM audio_cache WHERE audio_source_key = ?").run(key);
 
-  assert.equal(CacheManager.getResolvedKey(spotify), null, "파일이 퇴거돼도 매핑은 알려준다는 주석과 반대");
-  assert.equal(CacheManager.resolveFromCache(spotify).hit, false);
+  assert.equal(trackLookup.getResolvedKey(spotify), null, "파일이 퇴거돼도 매핑은 알려준다는 주석과 반대");
+  assert.equal(trackLookup.resolveFromCache(spotify).hit, false);
 });

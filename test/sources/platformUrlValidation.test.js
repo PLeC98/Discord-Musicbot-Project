@@ -9,7 +9,7 @@ const TrackResolver = require("../../src/sources/trackResolver");
 const YouTube = require("../../src/sources/youtube/index");
 const Spotify = require("../../src/sources/spotify");
 const SoundCloud = require("../../src/sources/soundcloud");
-const CacheManager = require("../../src/store/cacheManager");
+const trackLookup = require("../../src/store/trackLookup");
 
 test("accepts supported media hosts by parsed hostname", () => {
   assert.equal(TrackResolver.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
@@ -52,7 +52,7 @@ test("YouTube URL 형태별 인식 — /live/ 포함", () => {
   }
 
   // 같은 영상이면 어느 형태로 넣어도 같은 캐시 키로 접힌다 — /live/도 예외가 아니다
-  assert.equal(CacheManager._normalizeSourceUrl("https://www.youtube.com/live/rmn4m0Ieajk"), "https://www.youtube.com/watch?v=rmn4m0Ieajk");
+  assert.equal(trackLookup._normalizeSourceUrl("https://www.youtube.com/live/rmn4m0Ieajk"), "https://www.youtube.com/watch?v=rmn4m0Ieajk");
 });
 
 test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
@@ -75,6 +75,6 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
 
 test("cache normalization only canonicalizes genuine YouTube URLs", () => {
   const disguised = "https://evil.example/youtube.com/watch?v=dQw4w9WgXcQ";
-  assert.equal(CacheManager._normalizeSourceUrl(disguised), disguised);
-  assert.equal(CacheManager._normalizeSourceUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  assert.equal(trackLookup._normalizeSourceUrl(disguised), disguised);
+  assert.equal(trackLookup._normalizeSourceUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 });

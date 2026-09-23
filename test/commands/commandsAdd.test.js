@@ -7,6 +7,7 @@
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
 const h = require("../helpers/playerHarness");
+const audioCache = require("../../src/store/audioCache");
 const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { MessageFlags } = require("discord.js");
@@ -16,7 +17,6 @@ const settings = require("../../src/store/guildSettings");
 const TrackResolver = require("../../src/sources/trackResolver");
 const YouTube = require("../../src/sources/youtube/index");
 const More = require("../../src/usecases/playlistMore");
-const CacheManager = h.CacheManager;
 
 const USER = "111111111111111111";
 const real = { resolveQuery: TrackResolver.resolveQuery, search: YouTube.search, restore: h.MusicPlayer.prototype.restoreFromState };
@@ -32,7 +32,7 @@ after(() => {
 beforeEach(() => {
   h.reset();
   settings.cache.clear();
-  CacheManager.db.exec("DELETE FROM guild_settings; DELETE FROM player_sessions;");
+  audioCache.db.exec("DELETE FROM guild_settings; DELETE FROM player_sessions;");
   resolved.length = 0;
   resolveReply = () => ({ success: true, isPlaylist: false, tracks: [{ id: "aaaaaaaaaaa", title: "곡", url: "https://youtu.be/aaaaaaaaaaa" }] });
   TrackResolver.resolveQuery = async (query, context, range) => {
@@ -343,8 +343,8 @@ test("/join: 끊긴 채 남은 플레이어는 자원을 놓게 한 뒤 새것�
 });
 
 test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재생 · 일시정지 · 곡 없음 · 실패)", async () => {
-  CacheManager.sessions.saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loop: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
-  CacheManager.sessions.setCurrent("g1", { title: "저장된 곡", url: "https://youtu.be/ccccccccccc", platform: "youtube", addedAt: 1 });
+  audioCache.sessions.saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loop: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
+  audioCache.sessions.setCurrent("g1", { title: "저장된 곡", url: "https://youtu.be/ccccccccccc", platform: "youtube", addedAt: 1 });
 
   const run = async (restore) => {
     h.MusicPlayer.prototype.restoreFromState = restore;

@@ -9,18 +9,19 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-cacheres-test-${process.pid}.db`);
-let CacheManager;
+let audioCache, trackLookup;
 let YouTube;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  CacheManager = require("../../src/store/cacheManager");
-  CacheManager.initialize(DB_PATH);
+  audioCache = require("../../src/store/audioCache");
+  trackLookup = require("../../src/store/trackLookup");
+  audioCache.initialize(DB_PATH);
   YouTube = require("../../src/sources/youtube/index");
 });
 
 after(() => {
-  if (CacheManager) CacheManager.close();
+  if (audioCache) audioCache.close();
   try {
     fs.unlinkSync(DB_PATH);
   } catch {
@@ -30,22 +31,22 @@ after(() => {
 
 test("getResolvedKey: 매핑만 있으면 파일 없어도 audioSourceKey 반환", () => {
   const spUrl = "https://open.spotify.com/track/abc123";
-  assert.equal(CacheManager.getResolvedKey(spUrl), null); // 없음
+  assert.equal(trackLookup.getResolvedKey(spUrl), null); // 없음
   // audio_cache 행 생성(FK) 후 매핑 기록 — 파일은 만들지 않음
-  CacheManager.recordDownloadStart("yt:vidAAA", { title: "t" });
-  CacheManager.recordTrackLookup(spUrl, "spotify", "yt:vidAAA", "t", "a", null);
-  assert.equal(CacheManager.getResolvedKey(spUrl), "yt:vidAAA"); // 파일 없이도 히트
+  audioCache.recordDownloadStart("yt:vidAAA", { title: "t" });
+  trackLookup.recordTrackLookup(spUrl, "spotify", "yt:vidAAA", "t", "a", null);
+  assert.equal(trackLookup.getResolvedKey(spUrl), "yt:vidAAA"); // 파일 없이도 히트
 });
 
 test("removeResolution: 스테일 매핑 삭제", () => {
   const spUrl = "https://open.spotify.com/track/abc123";
-  assert.equal(CacheManager.getResolvedKey(spUrl), "yt:vidAAA");
-  CacheManager.removeResolution(spUrl);
-  assert.equal(CacheManager.getResolvedKey(spUrl), null);
+  assert.equal(trackLookup.getResolvedKey(spUrl), "yt:vidAAA");
+  trackLookup.removeResolution(spUrl);
+  assert.equal(trackLookup.getResolvedKey(spUrl), null);
 });
 
 test("getResolvedKey: 미존재 URL은 null", () => {
-  assert.equal(CacheManager.getResolvedKey("https://open.spotify.com/track/none"), null);
+  assert.equal(trackLookup.getResolvedKey("https://open.spotify.com/track/none"), null);
 });
 
 test("YouTube.isVideoUnavailableError: 삭제/비공개 영상 감지", () => {

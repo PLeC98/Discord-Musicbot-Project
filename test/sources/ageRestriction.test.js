@@ -10,18 +10,19 @@ const assert = require("node:assert/strict");
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-agerestrict-test-${process.pid}.db`);
 
-let CacheManager;
+let audioCache, externalCaches;
 let YouTube;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  CacheManager = require("../../src/store/cacheManager");
-  CacheManager.initialize(DB_PATH);
+  audioCache = require("../../src/store/audioCache");
+  externalCaches = require("../../src/store/externalCaches");
+  audioCache.initialize(DB_PATH);
   YouTube = require("../../src/sources/youtube/index");
 });
 
 after(() => {
-  if (CacheManager) CacheManager.close();
+  if (audioCache) audioCache.close();
   try {
     fs.unlinkSync(DB_PATH);
   } catch {
@@ -30,20 +31,20 @@ after(() => {
 });
 
 test("CacheManager: 연령 제한 videoId 기록/조회 라운드트립", () => {
-  assert.equal(CacheManager.isAgeRestricted("vidAge1"), false);
-  CacheManager.markAgeRestricted("vidAge1");
-  assert.equal(CacheManager.isAgeRestricted("vidAge1"), true);
+  assert.equal(externalCaches.isAgeRestricted("vidAge1"), false);
+  externalCaches.markAgeRestricted("vidAge1");
+  assert.equal(externalCaches.isAgeRestricted("vidAge1"), true);
   // 멱등 (중복 기록 무해)
-  CacheManager.markAgeRestricted("vidAge1");
-  assert.equal(CacheManager.isAgeRestricted("vidAge1"), true);
-  assert.equal(CacheManager.isAgeRestricted("other"), false);
+  externalCaches.markAgeRestricted("vidAge1");
+  assert.equal(externalCaches.isAgeRestricted("vidAge1"), true);
+  assert.equal(externalCaches.isAgeRestricted("other"), false);
 });
 
 test("CacheManager: 빈/누락 videoId는 무시", () => {
-  CacheManager.markAgeRestricted("");
-  CacheManager.markAgeRestricted(null);
-  assert.equal(CacheManager.isAgeRestricted(""), false);
-  assert.equal(CacheManager.isAgeRestricted(null), false);
+  externalCaches.markAgeRestricted("");
+  externalCaches.markAgeRestricted(null);
+  assert.equal(externalCaches.isAgeRestricted(""), false);
+  assert.equal(externalCaches.isAgeRestricted(null), false);
 });
 
 test("YouTube.isAgeRestrictedError: 연령 게이트 메시지 감지", () => {

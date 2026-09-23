@@ -1,24 +1,16 @@
 "use strict";
 
 // 재생목록 한 번에 넣는 곡 수 — 서버 설정의 범위 계산과 /setplaylistlimit.
-// CacheManager는 require.cache 주입으로 모킹(실 SQLite 미접촉).
+// 진짜 서버 설정을 임시 DB 로 쓴다.
 
-const path = require("path");
-const { test, beforeEach } = require("node:test");
+const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
+const { openTempStore } = require("../helpers/tempStore");
 
-const stored = new Map();
-const cmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "cacheManager.js"));
-require.cache[cmPath] = {
-  id: cmPath,
-  filename: cmPath,
-  loaded: true,
-  exports: {
-    _initialized: true,
-    getPlaylistAddMax: (g) => stored.get(g) ?? null,
-    setPlaylistAddMax: (g, n) => stored.set(g, n ?? null),
-  },
-};
+const store = openTempStore("playlist-add-");
+after(() => store.close());
+const CacheManager = require("../../src/store/cacheManager");
+const stored = { get: (g) => CacheManager.getPlaylistAddMax(g), set: (g, n) => CacheManager.setPlaylistAddMax(g, n), has: (g) => CacheManager.getPlaylistAddMax(g) !== null };
 
 const config = require("../../config");
 const GuildSettingsManager = require("../../src/store/guildSettings");
@@ -28,7 +20,7 @@ const G = "g1";
 const savedQueueMax = config.bot.maxQueueSize;
 
 beforeEach(() => {
-  stored.clear();
+  store.db().exec("DELETE FROM guild_settings");
   GuildSettingsManager.cache.clear();
   config.bot.maxQueueSize = savedQueueMax;
 });

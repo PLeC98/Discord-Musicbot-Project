@@ -23,7 +23,7 @@ require.cache[ytPath] = {
 
 const Spotify = require("../../src/sources/spotify");
 const YouTube = require("../../src/sources/youtube/index");
-const CacheManager = require("../../src/store/cacheManager");
+const trackLookup = require("../../src/store/trackLookup");
 const TrackResolver = require("../../src/sources/trackResolver");
 
 const { graphql, official } = Spotify._internals;
@@ -151,7 +151,7 @@ test("스포티파이 인기곡: 통째로 받은 뒤 구간을 자른다", asyn
 // ── 유튜브 재생목록 ──
 
 test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기준 다음 위치를 돌려준다", async () => {
-  const restores = [swap(YouTube, "getYtDlpOptions", (o) => o), swap(CacheManager, "getVerifiedTitle", () => null)];
+  const restores = [swap(YouTube, "getYtDlpOptions", (o) => o), swap(trackLookup, "getVerifiedTitle", () => null)];
   try {
     ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
     const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3 });

@@ -19,10 +19,10 @@ const assert = require("node:assert/strict");
 
 // TrackResolver가 CacheManager(해석 캐시 조회)를 타므로 임시 DB로 돌린다 — 운영 DB 미접촉.
 const TEST_DB = path.join(os.tmpdir(), `musicbot-livestream-test-${process.pid}.db`);
-const CacheManager = require("../../src/store/cacheManager");
-CacheManager.initialize(TEST_DB);
+const audioCache = require("../../src/store/audioCache");
+audioCache.initialize(TEST_DB);
 after(() => {
-  CacheManager.close();
+  audioCache.close();
   for (const f of [TEST_DB, `${TEST_DB}-wal`, `${TEST_DB}-shm`]) {
     try {
       fs.unlinkSync(f);

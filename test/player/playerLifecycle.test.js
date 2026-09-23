@@ -6,6 +6,7 @@
 // 리팩터링이 재생 상태를 한 칸으로 모으고 곡별 객체를 따로 떼어 낼 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
 
 const h = require("../helpers/playerHarness");
+const audioCache = require("../../src/store/audioCache");
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const autoplayRoute = require("../../src/autoplay/route");
@@ -331,7 +332,7 @@ test("stop(): 대기열과 현재 곡을 비우고 세션을 지우고 연결을
   p.queue = [yt("rrrrrrrrrrr")];
   p.previousTracks = [yt("sssssssssss")];
   p._protectedAudioKey = "yt:qqqqqqqqqqq";
-  h.CacheManager.protect("yt:qqqqqqqqqqq");
+  audioCache.protect("yt:qqqqqqqqqqq");
   p.currentDownloadedFile = "x";
   p.pauseReasons.add("manual");
 
@@ -348,7 +349,7 @@ test("stop(): 대기열과 현재 곡을 비우고 세션을 지우고 연결을
   assert.equal(p.pauseReasons.size, 0);
   assert.equal(p.currentDownloadedFile, null);
   assert.equal(p._protectedAudioKey, null);
-  assert.equal(h.CacheManager._liveKeys().has("yt:qqqqqqqqqqq"), false, "보호를 푼다");
+  assert.equal(audioCache._liveKeys().has("yt:qqqqqqqqqqq"), false, "보호를 푼다");
   assert.match(p._endingLabel, /곡 qqqqqqqqqqq/, "늦게 오는 종료 로그를 위해 이름을 남긴다");
 });
 

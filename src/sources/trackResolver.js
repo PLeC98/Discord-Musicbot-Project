@@ -7,7 +7,8 @@ const log = require("../infra/log/logger").child({ category: "track" });
 const Spotify = require("./spotify");
 const SoundCloud = require("./soundcloud");
 const DirectLink = require("./direct");
-const CacheManager = require("../store/cacheManager");
+const audioCache = require("../store/audioCache");
+const trackLookup = require("../store/trackLookup");
 const ErrorHandler = require("../ui/errorMessages");
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./youtube/match");
 
@@ -119,7 +120,7 @@ const TrackResolver = {
    */
   async resolveQuery(query, context, range = {}) {
     const skipCache = YouTube.isPlaylist(query) || this.isUnsupportedYouTubeLink(query);
-    const cacheHit = skipCache ? { hit: false } : CacheManager.resolveFromCache(query);
+    const cacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
     if (cacheHit.hit) {
       return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
     }
@@ -140,7 +141,7 @@ const TrackResolver = {
     } else if (track.platform === "soundcloud" && track.id) {
       track.audioSourceKey = `sc:${track.id}`;
     } else if (track.platform === "direct") {
-      track.audioSourceKey = `dl:${CacheManager.md5(track.url)}`;
+      track.audioSourceKey = `dl:${audioCache.md5(track.url)}`;
     } else if (track.youtubeUrl) {
       // 스포티파이와, 자동재생이 출처에서 받아 온 곡들(lastfm·lbradio·vocadb 계열 …).
       // 출처가 달라도 같은 영상이면 음원 파일 하나를 함께 쓴다.
@@ -165,7 +166,7 @@ const TrackResolver = {
     // Tier-1: 이미 해결된 매핑이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
     // 매핑의 영상이 내려간 경우는 소비(다운로드) 시점에서 감지해 reresolveYouTube로 재검색한다.
     if (track.url) {
-      const cachedKey = CacheManager.getResolvedKey(track.url);
+      const cachedKey = trackLookup.getResolvedKey(track.url);
       if (cachedKey && cachedKey.startsWith("yt:")) {
         track.audioSourceKey = cachedKey;
         track.youtubeUrl = `https://www.youtube.com/watch?v=${cachedKey.slice(3)}`;
@@ -220,7 +221,7 @@ const TrackResolver = {
    * 재검색 결과는 _youtubeFromCache가 아니므로(신규 검색), 다시 실패해도 이 경로가 재발동하지 않는다(무한루프 방지).
    */
   async reresolveYouTube(track) {
-    if (track.url) CacheManager.removeResolution(track.url);
+    if (track.url) trackLookup.removeResolution(track.url);
     track.youtubeUrl = null;
     track.youtubeTitle = null;
     track.audioSourceKey = null;

@@ -12,14 +12,16 @@ const assert = require("node:assert/strict");
 const DB_PATH = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}.db`);
 
 let SponsorBlock;
-let CacheManager;
+let CacheManager, audioCache, externalCaches;
 let config;
 const realFetch = global.fetch;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
   CacheManager = require("../../src/store/cacheManager");
-  CacheManager.initialize(DB_PATH);
+  audioCache = require("../../src/store/audioCache");
+  externalCaches = require("../../src/store/externalCaches");
+  audioCache.initialize(DB_PATH);
   SponsorBlock = require("../../src/sources/sponsorBlock");
   config = require("../../config");
   config.sponsorblock.enabled = true; // 테스트 기준 활성
@@ -27,7 +29,7 @@ before(() => {
 
 after(() => {
   global.fetch = realFetch;
-  if (CacheManager) CacheManager.close();
+  if (CacheManager) audioCache.close();
   try {
     fs.unlinkSync(DB_PATH);
   } catch {
@@ -128,7 +130,7 @@ test("lookup: 라이브 성공 → source live + write-through 캐시", async ()
   assert.equal(r.source, "live");
   assert.equal(r.skipSegments.length, 1);
   // 캐시에 원시 세그먼트가 저장됐는지
-  const cached = CacheManager.getSponsorSegments("vidLive");
+  const cached = externalCaches.getSponsorSegments("vidLive");
   assert.ok(cached && cached.segments.length === 1);
   assert.equal(cached.segments[0].category, "music_offtopic");
 });
@@ -166,7 +168,7 @@ test("lookup: 우리 영상 세그먼트 없음(빈 배열)은 라이브 성공 
   const r = await SponsorBlock.lookup("vidEmpty", { categories: ["music_offtopic"] });
   assert.equal(r.source, "live");
   assert.deepEqual(r.skipSegments, []);
-  const cached = CacheManager.getSponsorSegments("vidEmpty");
+  const cached = externalCaches.getSponsorSegments("vidEmpty");
   assert.ok(cached && Array.isArray(cached.segments) && cached.segments.length === 0);
 });
 

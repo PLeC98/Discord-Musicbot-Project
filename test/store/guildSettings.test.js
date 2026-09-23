@@ -13,18 +13,19 @@ const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guild-settings-"));
 const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 const settings = require("../../src/store/guildSettings");
 const config = require("../../config");
 
 beforeEach(() => {
   settings.cache.clear();
-  CacheManager.db.exec("DELETE FROM guild_settings;");
+  audioCache.db.exec("DELETE FROM guild_settings;");
 });
 
 after(() => {
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
@@ -106,13 +107,13 @@ test("재생목록 곡 수는 읽을 때마다 범위로 자른다(저장 뒤 �
 });
 
 test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", () => {
-  CacheManager.close();
+  audioCache.close();
   try {
     const { min, max, default: d } = settings.playlistAddLimits();
     assert.equal(settings.resolvePlaylistAddMax("g-unopened"), Math.max(min, Math.min(max, d)));
     assert.equal(settings.cache.has("g-unopened_playlistAdd"), false);
   } finally {
-    CacheManager.initialize(path.join(TMP, "cache.db"));
+    audioCache.initialize(path.join(TMP, "cache.db"));
   }
 });
 

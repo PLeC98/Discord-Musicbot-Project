@@ -11,28 +11,30 @@ const Database = require("better-sqlite3");
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
 const CacheManager = require("../../src/store/cacheManager");
+const audioCache = require("../../src/store/audioCache");
+const storeDb = require("../../src/store/db");
 
 after(() => {
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
 function open(name) {
-  CacheManager.close();
-  CacheManager.initialize(path.join(dir, name));
+  audioCache.close();
+  audioCache.initialize(path.join(dir, name));
 }
 
 test("새 DB는 현재 버전으로 만들어지고 세션 표를 쓴다", () => {
   open("fresh.db");
-  assert.equal(CacheManager.db.pragma("user_version", { simple: true }), CacheManager.SCHEMA_VERSION);
+  assert.equal(audioCache.db.pragma("user_version", { simple: true }), storeDb.SCHEMA_VERSION);
 
-  CacheManager.sessions.append("g", [{ title: "a" }]);
-  assert.equal(CacheManager.sessions.load("g").queue.length, 1);
+  audioCache.sessions.append("g", [{ title: "a" }]);
+  assert.equal(audioCache.sessions.load("g").queue.length, 1);
 });
 
 test("같은 버전의 DB는 다시 열리고 내용이 남아 있다", () => {
   open("fresh.db");
-  assert.equal(CacheManager.sessions.load("g").queue[0].title, "a");
+  assert.equal(audioCache.sessions.load("g").queue[0].title, "a");
 });
 
 test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다", () => {
@@ -41,13 +43,13 @@ test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다"
   pre.exec("CREATE TABLE player_sessions (guild_id TEXT PRIMARY KEY, state_json TEXT NOT NULL, updated_at INTEGER NOT NULL)");
   pre.close();
 
-  CacheManager.close();
+  audioCache.close();
   assert.throws(
-    () => CacheManager.initialize(legacy),
+    () => audioCache.initialize(legacy),
     (error) => error.code === "SCHEMA_MISMATCH" && error.message.includes("지운 뒤 다시 실행"),
   );
-  assert.equal(CacheManager._initialized, false, "열다 만 상태로 남지 않는다");
-  assert.throws(() => CacheManager.db, { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
+  assert.equal(audioCache._initialized, false, "열다 만 상태로 남지 않는다");
+  assert.throws(() => audioCache.db, { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
 
   const check = new Database(legacy);
   const made = check.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'session_tracks'").get().n;
@@ -59,11 +61,11 @@ test("버전이 다른 DB도 같다", () => {
   const other = path.join(dir, "other.db");
   const pre = new Database(other);
   pre.exec("CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY)");
-  pre.pragma(`user_version = ${CacheManager.SCHEMA_VERSION + 1}`);
+  pre.pragma(`user_version = ${storeDb.SCHEMA_VERSION + 1}`);
   pre.close();
 
-  CacheManager.close();
-  assert.throws(() => CacheManager.initialize(other), { code: "SCHEMA_MISMATCH" });
+  audioCache.close();
+  assert.throws(() => audioCache.initialize(other), { code: "SCHEMA_MISMATCH" });
 });
 
 test("현재 재생 패널 자리: 쓰고 읽고 비운다 — 같은 행의 서버 설정은 그대로", () => {

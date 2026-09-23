@@ -14,9 +14,10 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
-const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+const trackLookup = require("../../src/store/trackLookup");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 
 const YouTube = require("../../src/sources/youtube/index");
 const Spotify = require("../../src/sources/spotify");
@@ -36,8 +37,8 @@ beforeEach(() => {
     const [obj, key, fn] = swaps.pop();
     obj[key] = fn;
   }
-  CacheManager.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(CacheManager._cacheDir, { recursive: true, force: true });
+  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true });
 });
 
 after(() => {
@@ -45,7 +46,7 @@ after(() => {
     const [obj, key, fn] = swaps.pop();
     obj[key] = fn;
   }
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
@@ -132,12 +133,12 @@ test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 �
 
 test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 재생목록 · 모르는 유튜브 링크는 지름길을 안 탄다", async () => {
   const url = "https://www.youtube.com/watch?v=ccccccccccc";
-  const file = CacheManager.getFilePath("yt:ccccccccccc");
+  const file = audioCache.getFilePath("yt:ccccccccccc");
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, "x");
-  CacheManager.recordDownloadStart("yt:ccccccccccc", { title: "t" });
-  CacheManager.recordDownloadComplete("yt:ccccccccccc", file, 1, { title: "t" }, { durationSec: 99 });
-  CacheManager.recordTrackLookup(url, "youtube", "yt:ccccccccccc", "장부 제목", "장부 가수", null);
+  audioCache.recordDownloadStart("yt:ccccccccccc", { title: "t" });
+  audioCache.recordDownloadComplete("yt:ccccccccccc", file, 1, { title: "t" }, { durationSec: 99 });
+  trackLookup.recordTrackLookup(url, "youtube", "yt:ccccccccccc", "장부 제목", "장부 가수", null);
   swap(YouTube, "search", async () => assert.fail("조회하면 안 된다"));
 
   const hit = await TrackResolver.resolveQuery(`https://youtu.be/ccccccccccc?si=share`);
@@ -161,7 +162,7 @@ test("캐시 열쇠: 유튜브 id · 사운드클라우드 숫자 id · 직접 �
   assert.equal(key({ platform: "youtube", url: "https://youtu.be/bbbbbbbbbbb" }), "yt:bbbbbbbbbbb");
   assert.equal(key({ platform: "soundcloud", id: 12345, url: "https://soundcloud.com/a/b" }), "sc:12345");
   assert.equal(key({ platform: "soundcloud", url: "https://soundcloud.com/a/b" }), null, "id 가 없는 사운드클라우드 곡은 열쇠가 없다");
-  assert.equal(key({ platform: "direct", url: "https://files.test/a.mp3" }), `dl:${CacheManager.md5("https://files.test/a.mp3")}`);
+  assert.equal(key({ platform: "direct", url: "https://files.test/a.mp3" }), `dl:${audioCache.md5("https://files.test/a.mp3")}`);
   assert.equal(key({ platform: "lastfm", youtubeUrl: "https://www.youtube.com/watch?v=ddddddddddd" }), "yt:ddddddddddd");
   assert.equal(key({ platform: "spotify", url: "https://open.spotify.com/track/x" }), null, "동등물 전에는 없다");
   assert.equal(key({ platform: "youtube", id: "eeeeeeeeeee", audioSourceKey: "yt:keep" }), "yt:keep");
@@ -171,8 +172,8 @@ test("캐시 열쇠: 유튜브 id · 사운드클라우드 숫자 id · 직접 �
 // ── 동등물 찾기 · 재검색 ──────────────────────────────────────────────
 
 test("동등물: 장부에 매핑이 있으면 검색하지 않고 쓰며, 장부에서 왔다고 표시한다", async () => {
-  CacheManager.recordDownloadStart("yt:fffffffffff", { title: "t" });
-  CacheManager.recordTrackLookup("https://open.spotify.com/track/sp1", "spotify", "yt:fffffffffff", "곡", "가수", null);
+  audioCache.recordDownloadStart("yt:fffffffffff", { title: "t" });
+  trackLookup.recordTrackLookup("https://open.spotify.com/track/sp1", "spotify", "yt:fffffffffff", "곡", "가수", null);
   swap(YouTube, "search", async () => assert.fail("검색하면 안 된다"));
   const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 };
 
@@ -217,8 +218,8 @@ test("동등물: 이미 youtubeUrl 이 있으면 열쇠만 채우고, 후보가 
 });
 
 test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는다", async () => {
-  CacheManager.recordDownloadStart("yt:deaddeaddea", { title: "t" });
-  CacheManager.recordTrackLookup("https://open.spotify.com/track/sp3", "spotify", "yt:deaddeaddea", "곡", "가수", null);
+  audioCache.recordDownloadStart("yt:deaddeaddea", { title: "t" });
+  trackLookup.recordTrackLookup("https://open.spotify.com/track/sp3", "spotify", "yt:deaddeaddea", "곡", "가수", null);
   swap(YouTube, "search", async () => [{ id: "newnewnewne", url: "https://www.youtube.com/watch?v=newnewnewne", title: "곡", artist: "가수", duration: 200 }]);
   const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioSourceKey: "yt:deaddeaddea", _youtubeFromCache: true };
 
@@ -226,7 +227,7 @@ test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는�
 
   assert.equal(url, "https://www.youtube.com/watch?v=newnewnewne");
   assert.equal(track._youtubeFromCache, false);
-  assert.equal(CacheManager.getResolvedKey("https://open.spotify.com/track/sp3"), null, "장부 매핑을 지운다(새 매핑은 받을 때 적힌다)");
+  assert.equal(trackLookup.getResolvedKey("https://open.spotify.com/track/sp3"), null, "장부 매핑을 지운다(새 매핑은 받을 때 적힌다)");
 });
 
 // ── 스트림 ────────────────────────────────────────────────────────────

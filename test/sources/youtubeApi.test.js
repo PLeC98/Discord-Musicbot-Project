@@ -13,9 +13,10 @@ const { test, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
-const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+const trackLookup = require("../../src/store/trackLookup");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 
 const ytdlExec = require("youtube-dl-exec");
 const YouTube = require("../../src/sources/youtube/index");
@@ -41,14 +42,14 @@ before(() => {
 after(() => {
   ytdlExec.exec = realExec;
   playerClients.order = savedOrder;
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
 beforeEach(() => {
   calls.length = 0;
   respond = () => ({});
-  CacheManager.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
 const video = (id, extra = {}) => ({ id, title: `영상 ${id}`, uploader: "올린 사람", webpage_url: `https://www.youtube.com/watch?v=${id}`, duration: 200, thumbnail: `https://i.ytimg.com/${id}.jpg`, view_count: 5, upload_date: "20260101", ...extra });
@@ -179,8 +180,8 @@ test("스트림: 주소가 없거나 yt-dlp 가 실패하면 던진다", async (
 // ── 재생목록 ──────────────────────────────────────────────────────────
 
 test("재생목록: 필요한 구간만 받고, 영상 자체에서 확인해 둔 제목이 있으면 그것을 쓴다", async () => {
-  CacheManager.recordDownloadStart("yt:jjjjjjjjjjj", { title: "t" });
-  CacheManager.recordTrackLookup("https://www.youtube.com/watch?v=jjjjjjjjjjj", "youtube", "yt:jjjjjjjjjjj", "확인된 제목", "가수", null, { verified: true });
+  audioCache.recordDownloadStart("yt:jjjjjjjjjjj", { title: "t" });
+  trackLookup.recordTrackLookup("https://www.youtube.com/watch?v=jjjjjjjjjjj", "youtube", "yt:jjjjjjjjjjj", "확인된 제목", "가수", null, { verified: true });
   respond = () => ({ title: "목록", playlist_count: 57, entries: [video("jjjjjjjjjjj", { title: "재생목록이 준 낡은 제목" }), { id: "kkkkkkkkkkk", title: "주소만" }, null] });
 
   const list = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL1", { offset: 20, limit: 10 });

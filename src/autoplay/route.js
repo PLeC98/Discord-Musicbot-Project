@@ -141,7 +141,7 @@ const fromAudio = (cand) => ({
   // 패널에 "Direct"가 아니라 어디서 온 곡인지 보이게 한다
   platform: cand.platform || "direct",
   // DirectLink와 같은 규약. 이 값이 있어야 캐시 장부에 이름·표지가 남는다
-  audioSourceKey: `dl:${require("../store/cacheManager").md5(cand.audioUrl)}`,
+  audioSourceKey: `dl:${require("../store/audioCache").md5(cand.audioUrl)}`,
   type: "track",
   id: cand.sourceKey,
 });

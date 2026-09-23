@@ -7,7 +7,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { AudioPlayerStatus } = require("@discordjs/voice");
 const MusicPlayer = require("../../src/player/Player");
-const CacheManager = require("../../src/store/cacheManager");
+const audioCache = require("../../src/store/audioCache");
 
 // ── 종료 워치독 ──────────────────────────────────────────────
 
@@ -54,12 +54,12 @@ test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
 const audioDuration = MusicPlayer.prototype._audioDurationSec;
 
 function withLookup(rows, fn) {
-  const original = CacheManager.lookupByAudioKey;
-  CacheManager.lookupByAudioKey = (key) => rows[key] || null;
+  const original = audioCache.lookupByAudioKey;
+  audioCache.lookupByAudioKey = (key) => rows[key] || null;
   try {
     return fn();
   } finally {
-    CacheManager.lookupByAudioKey = original;
+    audioCache.lookupByAudioKey = original;
   }
 }
 

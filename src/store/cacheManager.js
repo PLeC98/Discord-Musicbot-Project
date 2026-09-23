@@ -1,14 +1,14 @@
 "use strict";
 
-// 옮기는 중의 껍데기. 오디오 캐시 · 링크 장부 · 바깥 서비스 캐시는 각자의 파일로 갔고 서버 설정 SQL 만 남았다.
-// 옮겨 간 것은 그쪽으로 넘긴다. 부르는 곳을 옮기면 없어진다.
+// 서버 설정 SQL. store/guildSettings 와 합치면 없어진다.
 
 const db = require("./db");
-const audioCache = require("./audioCache");
-const trackLookup = require("./trackLookup");
-const externalCaches = require("./externalCaches");
 
 class CacheManager {
+  get db() {
+    return db.get();
+  }
+
   // 서버 설정
 
   getBotChannel(guildId) {
@@ -135,61 +135,3 @@ class CacheManager {
 }
 
 module.exports = new CacheManager();
-module.exports.SCHEMA_VERSION = db.SCHEMA_VERSION;
-
-const MOVED = [
-  [
-    audioCache,
-    [
-      "_protectedKeys",
-      "_protectedFiles",
-      "_queuedKeys",
-      "_evictInterval",
-      "_sessions",
-      "_cacheDir",
-      "initialize",
-      "db",
-      "_initialized",
-      "md5",
-      "getFilePath",
-      "protect",
-      "unprotect",
-      "protectFile",
-      "unprotectFile",
-      "setQueuedKeys",
-      "_liveKeys",
-      "lookupByAudioKey",
-      "recordDownloadStart",
-      "recordDownloadComplete",
-      "recordError",
-      "recordPlayback",
-      "_verificationPolicy",
-      "sessions",
-      "getProtectedCacheFiles",
-      "onStartup",
-      "resetCache",
-      "_cleanOrphanFiles",
-      "_diskFree",
-      "_cacheSize",
-      "_cacheCount",
-      "evictIfNeeded",
-      "evict",
-      "_startPeriodicEviction",
-      "getCacheStats",
-      "close",
-    ],
-  ],
-  [trackLookup, ["_normalizeSourceUrl", "resolveFromCache", "recordTrackLookup", "getVerifiedTitle", "getResolvedKey", "removeResolution"]],
-  [externalCaches, ["getSponsorSegments", "setSponsorSegments", "markAgeRestricted", "isAgeRestricted", "getSpotifyAnonState", "setSpotifyAnonState"]],
-];
-for (const [target, moved] of MOVED) {
-  for (const name of moved) {
-    Object.defineProperty(module.exports, name, {
-      get: () => (typeof target[name] === "function" ? target[name].bind(target) : target[name]),
-      set: (value) => {
-        target[name] = value;
-      },
-      enumerable: true,
-    });
-  }
-}

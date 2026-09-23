@@ -31,8 +31,8 @@ module.exports = {
   async execute(interaction, _client) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const CacheManager = require("../src/store/cacheManager");
-    const stats = CacheManager.getCacheStats();
+    const audioCache = require("../src/store/audioCache");
+    const stats = audioCache.getCacheStats();
 
     // 캐시 현황
     const sizeBar = usageBar(stats.totalSize, stats.maxSize);

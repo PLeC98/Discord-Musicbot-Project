@@ -15,8 +15,10 @@ const { MessageFlags, PermissionFlagsBits } = require("discord.js");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+const trackLookup = require("../../src/store/trackLookup");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = require("../../config");
 const S = require("../../src/ui/strings");
@@ -25,13 +27,13 @@ const SponsorBlock = require("../../src/sources/sponsorBlock");
 const sponsorConfig = require("../../events/sponsorConfigHandler");
 
 after(() => {
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
 beforeEach(() => {
   settings.cache.clear();
-  CacheManager.db.exec("DELETE FROM guild_settings; DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  audioCache.db.exec("DELETE FROM guild_settings; DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
 const cmd = (name) => require(`../../commands/${name}.js`);
@@ -201,17 +203,17 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
 
 test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 · TOP · 최근)", async () => {
   const seed = (key, title, plays) => {
-    const file = CacheManager.getFilePath(key);
+    const file = audioCache.getFilePath(key);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, "x".repeat(1000));
-    CacheManager.recordDownloadStart(key, { title });
-    CacheManager.recordDownloadComplete(key, file, 1000, { title }, { durationSec: 125 });
-    for (let i = 0; i < plays; i++) CacheManager.recordPlayback(key);
+    audioCache.recordDownloadStart(key, { title });
+    audioCache.recordDownloadComplete(key, file, 1000, { title }, { durationSec: 125 });
+    for (let i = 0; i < plays; i++) audioCache.recordPlayback(key);
   };
   seed("yt:aaaaaaaaaaa", "많이 튼 곡", 3);
   seed("sc:1", "사운드클라우드", 0);
   seed("dl:abc", "직접", 1);
-  CacheManager.recordTrackLookup("https://youtu.be/aaaaaaaaaaa", "youtube", "yt:aaaaaaaaaaa", "많이 튼 곡", "가수", null);
+  trackLookup.recordTrackLookup("https://youtu.be/aaaaaaaaaaa", "youtube", "yt:aaaaaaaaaaa", "많이 튼 곡", "가수", null);
 
   const { it, log, client } = interaction();
   await cmd("cachestatus").execute(it, client);
@@ -279,7 +281,7 @@ test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메�
   );
 
   settings.cache.clear();
-  CacheManager.db.exec("DELETE FROM guild_settings;");
+  audioCache.db.exec("DELETE FROM guild_settings;");
   const none = interaction();
   await cmd("setdjrole").execute(none.it, none.client);
   assert.match(none.log[0][1].embeds[0].data.description, /모든 유저/);
@@ -351,7 +353,7 @@ test("SponsorBlock 화면: 끄고 저장하면 미사용, 구간을 비우고 �
   assert.match(save.log[0][2], /구간: 미사용/);
 
   settings.cache.clear();
-  CacheManager.db.exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "사용"에서 시작하게
+  audioCache.db.exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "사용"에서 시작하게
   const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
   await sponsorConfig.execute(empty.it);
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });

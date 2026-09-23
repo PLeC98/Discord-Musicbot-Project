@@ -12,7 +12,7 @@
 const crypto = require("crypto");
 const log = require("../infra/log/logger").child({ category: "spotify" });
 const config = require("../../config");
-const CacheManager = require("../store/cacheManager");
+const externalCaches = require("../store/externalCaches");
 
 const UA = config.userAgents.browser;
 const API_BASE = "https://api.spotify.com/v1";
@@ -227,16 +227,16 @@ const graphql = {
   async _ensureState(forceRefresh) {
     if (!forceRefresh && this._state && Date.now() - this._state.fetchedAt < STATE_TTL_MS) return this._state;
     if (!forceRefresh && !this._state) {
-      const db = CacheManager.getSpotifyAnonState();
+      const db = externalCaches.getSpotifyAnonState();
       if (db && db.secrets?.length && Date.now() - db.fetchedAt < STATE_TTL_MS) return (this._state = db);
     }
     try {
       const extracted = await this._extract();
       this._state = { ...extracted, fetchedAt: Date.now() };
-      CacheManager.setSpotifyAnonState(extracted);
+      externalCaches.setSpotifyAnonState(extracted);
     } catch (e) {
       log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${e.message}. 저장값/시드값 사용`);
-      this._state = this._state || CacheManager.getSpotifyAnonState() || { ...SEED, fetchedAt: 0 };
+      this._state = this._state || externalCaches.getSpotifyAnonState() || { ...SEED, fetchedAt: 0 };
     }
     return this._state;
   },

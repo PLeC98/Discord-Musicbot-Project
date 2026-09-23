@@ -4,7 +4,8 @@ const fs = require("fs");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("../ytdlpSpawn");
 const config = require("../../../config");
-const CacheManager = require("../../store/cacheManager");
+const externalCaches = require("../../store/externalCaches");
+const trackLookup = require("../../store/trackLookup");
 const { ffmpegPath } = require("../../media/ffmpeg/path");
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
@@ -255,7 +256,7 @@ class YouTube {
     const videoId = this.extractVideoId(url);
     let known = false;
     try {
-      known = videoId ? CacheManager.isAgeRestricted(videoId) : false;
+      known = videoId ? externalCaches.isAgeRestricted(videoId) : false;
     } catch {
       /* 캐시 미초기화 등. 기본값 false */
     }
@@ -265,7 +266,7 @@ class YouTube {
     } catch (error) {
       if (!known && videoId && this.isAgeRestrictedError(error) && this.cookiesConfigured()) {
         try {
-          CacheManager.markAgeRestricted(videoId);
+          externalCaches.markAgeRestricted(videoId);
         } catch {
           /* 기록 실패는 무시 */
         }
@@ -649,7 +650,7 @@ class YouTube {
             // 낡은 제목이 그대로 보인다.
             if (track.url) {
               try {
-                const known = CacheManager.getVerifiedTitle(track.url);
+                const known = trackLookup.getVerifiedTitle(track.url);
                 if (known) track.title = known;
               } catch {
                 /* DB 미초기화 등. 재생목록 제목 그대로 간다 */

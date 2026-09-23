@@ -16,17 +16,18 @@ const assert = require("node:assert/strict");
 const DB_PATH = path.join(os.tmpdir(), `musicbot-cachereset-test-${process.pid}.db`);
 const CACHE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cachereset-"));
 
-let CacheManager;
+let audioCache, trackLookup;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  CacheManager = require("../../src/store/cacheManager");
-  CacheManager._cacheDir = CACHE_DIR; // 실 캐시 폴더를 건드리지 않는다
-  CacheManager.initialize(DB_PATH);
+  audioCache = require("../../src/store/audioCache");
+  trackLookup = require("../../src/store/trackLookup");
+  audioCache._cacheDir = CACHE_DIR; // 실 캐시 폴더를 건드리지 않는다
+  audioCache.initialize(DB_PATH);
 });
 
 after(() => {
-  CacheManager.close();
+  audioCache.close();
   try {
     fs.unlinkSync(DB_PATH);
   } catch {}
@@ -36,11 +37,11 @@ after(() => {
 // 캐시된 곡 하나를 만든다 — 행 + 파일.
 function seedTrack(key, title) {
   const track = { title, artist: "가수", duration: 100, url: `https://y/${title}`, platform: "youtube" };
-  const file = CacheManager.getFilePath(key);
+  const file = audioCache.getFilePath(key);
   fs.writeFileSync(file, "오디오");
-  CacheManager.recordDownloadStart(key, track);
-  CacheManager.recordDownloadComplete(key, file, fs.statSync(file).size, track, { durationSec: 100 });
-  CacheManager.recordTrackLookup(track.url, track.platform, key, track.title, track.artist, null);
+  audioCache.recordDownloadStart(key, track);
+  audioCache.recordDownloadComplete(key, file, fs.statSync(file).size, track, { durationSec: 100 });
+  trackLookup.recordTrackLookup(track.url, track.platform, key, track.title, track.artist, null);
   return { track, file };
 }
 
@@ -57,7 +58,7 @@ test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지
 
   let result;
   try {
-    result = CacheManager.resetCache();
+    result = audioCache.resetCache();
   } finally {
     fs.unlinkSync = realUnlink;
   }
@@ -66,20 +67,20 @@ test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지
   assert.ok(fs.existsSync(playing.file), "잠긴 파일은 그대로");
   assert.equal(fs.existsSync(idle.file), false, "나머지 파일은 지워진다");
 
-  const rows = CacheManager.db.prepare("SELECT audio_source_key FROM audio_cache").all();
+  const rows = audioCache.db.prepare("SELECT audio_source_key FROM audio_cache").all();
   assert.deepEqual(
     rows.map((r) => r.audio_source_key),
     ["yt:playing"],
     "파일이 남은 곡의 행만 살아남는다",
   );
-  assert.equal(CacheManager._protectedKeys.has("yt:playing"), true, "살아남은 키는 다시 보호한다");
+  assert.equal(audioCache._protectedKeys.has("yt:playing"), true, "살아남은 키는 다시 보호한다");
 });
 
 test("초기화 뒤에도 재생 중인 곡의 장부 기록이 FK로 터지지 않는다 (회귀)", () => {
   // 위 테스트가 남긴 상태 그대로 — 재생 경로가 곡을 계속 틀며 기록을 남기는 순간이다.
   assert.doesNotThrow(() => {
-    CacheManager.recordPlayback("yt:playing");
-    CacheManager.recordTrackLookup("https://y/재생중인곡", "youtube", "yt:playing", "재생중인곡", "가수", null);
+    audioCache.recordPlayback("yt:playing");
+    trackLookup.recordTrackLookup("https://y/재생중인곡", "youtube", "yt:playing", "재생중인곡", "가수", null);
   });
 });
 
@@ -87,9 +88,9 @@ test("남길 것이 없으면 전부 비운다", () => {
   seedTrack("yt:a", "곡A");
   seedTrack("yt:b", "곡B");
 
-  const result = CacheManager.resetCache();
+  const result = audioCache.resetCache();
 
   assert.equal(result.kept, 0);
-  assert.equal(CacheManager.db.prepare("SELECT COUNT(*) AS n FROM audio_cache").get().n, 0);
-  assert.equal(CacheManager.db.prepare("SELECT COUNT(*) AS n FROM track_lookup").get().n, 0);
+  assert.equal(audioCache.db.prepare("SELECT COUNT(*) AS n FROM audio_cache").get().n, 0);
+  assert.equal(audioCache.db.prepare("SELECT COUNT(*) AS n FROM track_lookup").get().n, 0);
 });

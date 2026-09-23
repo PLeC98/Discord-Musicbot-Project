@@ -16,7 +16,8 @@ const DirectLink = require("../sources/direct");
 const { openChunkedStream, contentLengthFromUrl, describeStreamError } = require("../media/chunkedStream");
 const { AudioSplicer } = require("../media/audioSplicer");
 const voiceChannelStatus = require("./voiceChannelStatus");
-const CacheManager = require("../store/cacheManager");
+const audioCache = require("../store/audioCache");
+const trackLookup = require("../store/trackLookup");
 const VoiceConnectionManager = require("./voiceConnection");
 const TrackDownloader = require("../media/cacheDownload");
 const createPlayerSessionId = require("./playerSessionId");
@@ -128,7 +129,7 @@ class MusicPlayer {
       isCached: (track) => this.downloader.isCached(track),
       isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),
       keyOf: (track) => TrackResolver.ensureAudioSourceKey(track),
-      setProtection: (guildId, keys) => CacheManager.setQueuedKeys(guildId, keys),
+      setProtection: (guildId, keys) => audioCache.setQueuedKeys(guildId, keys),
     });
     this.sponsorSkipper = new SponsorSkipper(this);
 
@@ -292,7 +293,7 @@ class MusicPlayer {
       if (this.currentDownloadedFile && fsSync.existsSync(this.currentDownloadedFile) && !TrackDownloader.isDownloading(this.currentDownloadedFile)) {
         downloadedFile = this.currentDownloadedFile;
       } else if (this.currentTrack.audioSourceKey) {
-        const _earlyPath = this.currentTrack._cachedFilePath || CacheManager.getFilePath(this.currentTrack.audioSourceKey);
+        const _earlyPath = this.currentTrack._cachedFilePath || audioCache.getFilePath(this.currentTrack.audioSourceKey);
         if (fsSync.existsSync(_earlyPath) && !TrackDownloader.isDownloading(_earlyPath)) {
           const _earlyStats = fsSync.statSync(_earlyPath);
           if (_earlyStats.size > 0) {
@@ -319,7 +320,7 @@ class MusicPlayer {
             throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
           }
           if (this.currentTrack.audioSourceKey) {
-            const _spotPath = CacheManager.getFilePath(this.currentTrack.audioSourceKey);
+            const _spotPath = audioCache.getFilePath(this.currentTrack.audioSourceKey);
             if (fsSync.existsSync(_spotPath) && fsSync.statSync(_spotPath).size > 0) {
               downloadedFile = _spotPath;
               this.currentDownloadedFile = _spotPath;
@@ -603,12 +604,12 @@ class MusicPlayer {
 
       // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
       if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
-        CacheManager.unprotect(this._protectedAudioKey);
+        audioCache.unprotect(this._protectedAudioKey);
         this._protectedAudioKey = null;
       }
       if (this.currentTrack.audioSourceKey) {
         this._protectedAudioKey = this.currentTrack.audioSourceKey;
-        CacheManager.protect(this._protectedAudioKey);
+        audioCache.protect(this._protectedAudioKey);
       }
 
       // 리소스 재생
@@ -621,8 +622,8 @@ class MusicPlayer {
       // 참조하는데 라이브는 받지 않으므로 그 행이 영영 생기지 않는다(외래 키 위반).
       if (this.currentTrack.audioSourceKey && !this.currentTrack.isLive) {
         try {
-          CacheManager.recordPlayback(this.currentTrack.audioSourceKey);
-          CacheManager.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
+          audioCache.recordPlayback(this.currentTrack.audioSourceKey);
+          trackLookup.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
         } catch (error) {
           log.warn(`캐시 장부 기록 실패(재생은 계속): ${error?.message || error}`);
         }
@@ -683,7 +684,7 @@ class MusicPlayer {
   // 조기 종료·SponsorBlock 곡 끝 판정에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
   _audioDurationSec(streamInfo, downloadedFile) {
     if (downloadedFile && this.currentTrack?.audioSourceKey) {
-      const cached = CacheManager.lookupByAudioKey(this.currentTrack.audioSourceKey)?.duration_sec;
+      const cached = audioCache.lookupByAudioKey(this.currentTrack.audioSourceKey)?.duration_sec;
       if (cached > 0) return cached;
     }
     return streamInfo?.duration > 0 ? streamInfo.duration : null;
@@ -1168,7 +1169,7 @@ class MusicPlayer {
   // 재생 중 트랙의 캐시 퇴거 보호 해제. currentTrack이 이미 null이어도 기억된 키로 해제
   releaseAudioProtection() {
     const key = this._protectedAudioKey || this.currentTrack?.audioSourceKey;
-    if (key) CacheManager.unprotect(key);
+    if (key) audioCache.unprotect(key);
     this._protectedAudioKey = null;
   }
 

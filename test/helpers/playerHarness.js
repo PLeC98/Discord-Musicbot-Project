@@ -6,7 +6,7 @@
 // play() 는 한 번도 돌지 않았다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 갈아 끼운다.
 //
 //   음성 라이브러리 · ffmpeg · 청크 스트림  MusicPlayer 가 불러올 때 구조 분해로 가져간다. 불러오기 전에 바꾼다
-//   캐시 장부                              진짜 CacheManager 를 임시 DB 로. "장부에 무엇을 적었나"를 그대로 본다
+//   캐시 장부                              진짜 audioCache 를 임시 DB 로. "장부에 무엇을 적었나"를 그대로 본다
 //   스트림 주소 · 다운로드 · SponsorBlock   모듈 객체의 메서드를 시험마다 바꾼다
 //   음성 연결 · 세션 저장 · 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
 //
@@ -132,9 +132,9 @@ require.cache[chunkedPath].exports = {
 
 // ── 4. 캐시 장부: 진짜를 임시 DB 로 ──────────────────────────────────────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
-const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
 const MusicPlayer = require("../../src/player/Player");
@@ -215,7 +215,7 @@ TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
 TrackDownloader.waitFor = (filepath) => inFlight.get(filepath) ?? null;
 TrackDownloader.prototype.downloadTrack = function (track) {
   calls.downloads.push(track);
-  if (track.audioSourceKey) CacheManager.recordDownloadStart(track.audioSourceKey, track);
+  if (track.audioSourceKey) audioCache.recordDownloadStart(track.audioSourceKey, track);
   const filepath = this.trackFilePath(track);
   const running = behavior.download ? Promise.resolve().then(() => behavior.download(track)) : new Promise(() => {});
   inFlight.set(filepath, running);
@@ -259,9 +259,9 @@ function makePlayer({ connected = true, guildId = "g1" } = {}) {
   return player;
 }
 
-/** 캐시 파일을 만든다. 열쇠로 찾는 경로(CacheManager.getFilePath)에 둔다. */
+/** 캐시 파일을 만든다. 열쇠로 찾는 경로(audioCache.getFilePath)에 둔다. */
 function writeCacheFile(key, bytes = "opus") {
-  const file = CacheManager.getFilePath(key);
+  const file = audioCache.getFilePath(key);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, bytes);
   return file;
@@ -273,8 +273,8 @@ function writeCacheFile(key, bytes = "opus") {
  */
 function seedCache(key, track, { durationSec = 200 } = {}) {
   const file = writeCacheFile(key);
-  CacheManager.recordDownloadStart(key, track);
-  CacheManager.recordDownloadComplete(key, file, fs.statSync(file).size, track, { durationSec });
+  audioCache.recordDownloadStart(key, track);
+  audioCache.recordDownloadComplete(key, file, fs.statSync(file).size, track, { durationSec });
   return file;
 }
 
@@ -283,9 +283,9 @@ function reset() {
   for (const k of Object.keys(behavior)) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, segMaxRetry: true });
-  CacheManager.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(CacheManager._cacheDir, { recursive: true, force: true });
-  fs.mkdirSync(CacheManager._cacheDir, { recursive: true });
+  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true });
+  fs.mkdirSync(audioCache._cacheDir, { recursive: true });
 }
 
 /** 타이머를 남기지 않게 정리한다. 시험 끝에 부른다. */
@@ -296,12 +296,12 @@ function dispose(player) {
 }
 
 /** 장부에서 한 줄. 없으면 null. */
-const lookupRow = (sourceUrl) => CacheManager.db.prepare("SELECT * FROM track_lookup WHERE source_url = ?").get(sourceUrl) || null;
-const audioRow = (key) => CacheManager.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(key) || null;
+const lookupRow = (sourceUrl) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE source_url = ?").get(sourceUrl) || null;
+const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(key) || null;
 
 module.exports = {
   MusicPlayer,
-  CacheManager,
+  audioCache,
   TrackResolver,
   AudioPlayerStatus,
   calls,

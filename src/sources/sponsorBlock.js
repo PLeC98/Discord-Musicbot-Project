@@ -12,7 +12,7 @@
 
 const crypto = require("crypto");
 const config = require("../../config");
-const CacheManager = require("../store/cacheManager");
+const externalCaches = require("../store/externalCaches");
 
 // skip 지원 9개 카테고리 (config.js의 SB_SKIP_CATEGORIES와 동기 유지)
 const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
@@ -106,10 +106,10 @@ const SponsorBlock = {
     let raw = await this._fetchRaw(videoId);
     let source;
     if (raw) {
-      CacheManager.setSponsorSegments(videoId, raw); // write-through (빈 배열도 저장)
+      externalCaches.setSponsorSegments(videoId, raw); // write-through (빈 배열도 저장)
       source = "live";
     } else {
-      const cached = CacheManager.getSponsorSegments(videoId);
+      const cached = externalCaches.getSponsorSegments(videoId);
       if (cached) {
         raw = cached.segments;
         source = "cache";

@@ -10,7 +10,8 @@ const audioConvert = require("./convert");
 const YouTube = require("../sources/youtube/index");
 const TrackResolver = require("../sources/trackResolver");
 const DirectLink = require("../sources/direct");
-const CacheManager = require("../store/cacheManager");
+const audioCache = require("../store/audioCache");
+const trackLookup = require("../store/trackLookup");
 const SponsorBlock = require("../sources/sponsorBlock");
 
 /**
@@ -77,7 +78,7 @@ async function publish(tempPath, filepath) {
     await fs.unlink(tempPath).catch(() => {});
     return false;
   }
-  CacheManager.protectFile(filepath);
+  audioCache.protectFile(filepath);
   await fs.rename(tempPath, filepath);
   return true;
 }
@@ -93,7 +94,7 @@ class TrackDownloader {
    * 기존 인라인 폴백(track_md5(url).opus)과 동일한 경로가 나온다.
    */
   trackFilePath(track) {
-    return CacheManager.getFilePath(track.audioSourceKey || track.url);
+    return audioCache.getFilePath(track.audioSourceKey || track.url);
   }
 
   /**
@@ -144,10 +145,10 @@ class TrackDownloader {
     let verifiedTitle = null;
     let audioDurationSec = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
-    CacheManager.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
+    audioCache.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
     try {
-      if (audioSourceKey) CacheManager.recordDownloadStart(audioSourceKey, track);
+      if (audioSourceKey) audioCache.recordDownloadStart(audioSourceKey, track);
 
       // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 TrackResolver 한 곳에서).
       // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
@@ -227,7 +228,7 @@ class TrackDownloader {
         // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
         // 모르면 이미 Opus 인 음원까지 다시 굽게 된다.
         const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
-        CacheManager.protectFile(rawPath);
+        audioCache.protectFile(rawPath);
         try {
           await pipeline(audioStream, fsSync.createWriteStream(rawPath));
           // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
@@ -241,7 +242,7 @@ class TrackDownloader {
             audioDurationSec = made.durationSec;
           }
         } finally {
-          CacheManager.unprotectFile(rawPath);
+          audioCache.unprotectFile(rawPath);
           try {
             fsSync.unlinkSync(rawPath);
           } catch {
@@ -270,8 +271,8 @@ class TrackDownloader {
       if (audioSourceKey) {
         try {
           const _finalSt = fsSync.statSync(filepath);
-          CacheManager.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
-          CacheManager.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail, { verified: !!verifiedTitle && track.platform === "youtube" });
+          audioCache.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
+          trackLookup.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail, { verified: !!verifiedTitle && track.platform === "youtube" });
         } catch {
           /* 무시 */
         }
@@ -289,15 +290,15 @@ class TrackDownloader {
       try {
         const removed = cleanTemp(tempPath);
         if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${track.title}`);
-        if (audioSourceKey) CacheManager.recordError(audioSourceKey);
+        if (audioSourceKey) audioCache.recordError(audioSourceKey);
       } catch {
         /* 정리 실패는 원래 오류를 가리면 안 된다 */
       }
       log.error(`캐시 다운로드 실패 ("${track.title}"):`, YouTube.briefError(error));
       throw error;
     } finally {
-      CacheManager.unprotectFile(tempPath);
-      CacheManager.unprotectFile(filepath);
+      audioCache.unprotectFile(tempPath);
+      audioCache.unprotectFile(filepath);
     }
   }
 

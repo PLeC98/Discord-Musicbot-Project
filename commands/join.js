@@ -3,7 +3,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "commands" });
 const MusicPlayer = require("../src/player/Player");
-const CacheManager = require("../src/store/cacheManager");
+const audioCache = require("../src/store/audioCache");
 const { escapeMd } = require("../src/ui/mentions");
 const S = require("../src/ui/strings");
 const config = require("../config");
@@ -26,7 +26,7 @@ module.exports = {
     }
 
     // /leave에서 저장한 세션이 있는지 확인
-    const savedState = CacheManager.sessions.load(guild.id);
+    const savedState = audioCache.sessions.load(guild.id);
     const hasSession = savedState?.current;
 
     // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로

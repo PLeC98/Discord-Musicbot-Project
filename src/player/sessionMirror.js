@@ -2,7 +2,7 @@
 
 const fsSync = require("fs");
 const log = require("../infra/log/logger").child({ category: "session" });
-const CacheManager = require("../store/cacheManager");
+const audioCache = require("../store/audioCache");
 const trackState = require("./trackState");
 const config = require("../../config");
 const { formatDuration } = require("../ui/format");
@@ -15,7 +15,7 @@ const HEARTBEAT_MS = 5000;
 const FINAL_REASONS = new Set(["leave", "shutdown"]);
 
 // 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
-const liveStore = () => (CacheManager._initialized ? CacheManager.sessions : null);
+const liveStore = () => (audioCache._initialized ? audioCache.sessions : null);
 
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
 const active = new Set();
@@ -247,7 +247,7 @@ class SessionPersistence {
 
     // 받아 둔 파일 경로는 저장하지 않는다. 내려받을 때와 같은 식으로 캐시 키에서 다시 구한다
     const key = player.currentTrack?.audioSourceKey || player.currentTrack?.url;
-    const file = key ? CacheManager.getFilePath(key) : null;
+    const file = key ? audioCache.getFilePath(key) : null;
     player.currentDownloadedFile = file && fsSync.existsSync(file) ? file : null;
 
     const trackDurationMs = player.currentTrack?.duration ? Number(player.currentTrack.duration) * 1000 : null;

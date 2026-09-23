@@ -14,9 +14,9 @@ const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
-const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 
 const S = require("../../src/ui/strings");
 const settings = require("../../src/store/guildSettings");
@@ -44,13 +44,13 @@ before(() => {
 after(() => {
   Object.assign(TrackResolver, real);
   loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
 beforeEach(() => {
   settings.cache.clear();
-  CacheManager.db.exec("DELETE FROM guild_settings;");
+  audioCache.db.exec("DELETE FROM guild_settings;");
   resolved.length = 0;
   TrackResolver.resolveQuery = async (query, context, range) => {
     resolved.push({ query, context, range });
@@ -159,7 +159,7 @@ test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 �
   await messageHandler.execute(message(w, { content: "   " }));
   await messageHandler.execute(message(w, { channelId: "other" }));
   settings.cache.clear();
-  CacheManager.db.exec("DELETE FROM guild_settings;");
+  audioCache.db.exec("DELETE FROM guild_settings;");
   await messageHandler.execute(message(w));
   assert.deepEqual(resolved, []);
 });

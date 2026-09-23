@@ -12,9 +12,10 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
-const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+const externalCaches = require("../../src/store/externalCaches");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = require("../../config");
 const Spotify = require("../../src/sources/spotify");
@@ -46,7 +47,7 @@ global.fetch = async (url, init = {}) => {
 after(() => {
   global.fetch = realFetch;
   Object.assign(config.spotify, savedCreds);
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
@@ -56,7 +57,7 @@ beforeEach(() => {
   official._token = null;
   graphql._state = null;
   graphql._anonToken = null;
-  CacheManager.db.exec("DELETE FROM spotify_anon;");
+  audioCache.db.exec("DELETE FROM spotify_anon;");
   Object.assign(config.spotify, { clientId: "cid", clientSecret: "csecret" });
 });
 
@@ -175,7 +176,7 @@ test("익명 상태: 홈 · 번들에서 판 · secret · 해시를 뽑아 DB �
   assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }]);
   assert.equal(state.hashes.fetchPlaylist, "a".repeat(64));
   assert.equal(state.hashes.queryArtistOverview, "b".repeat(64));
-  const saved = CacheManager.getSpotifyAnonState();
+  const saved = externalCaches.getSpotifyAnonState();
   assert.equal(saved.clientVersion, "9.9.9");
 
   const before = requests.length;
@@ -196,14 +197,14 @@ test("익명 상태: 요청이 던지면 저장값, 그것도 없으면 코드�
   const seeded = await graphql._ensureState(true);
   assert.ok(seeded.secrets.length > 0, "시드 secret");
   assert.equal(seeded.fetchedAt, 0, "시드는 새것으로 치지 않는다");
-  assert.equal(CacheManager.getSpotifyAnonState(), null, "DB 에 적지 않는다");
+  assert.equal(externalCaches.getSpotifyAnonState(), null, "DB 에 적지 않는다");
 });
 
 test("익명 상태: 홈이 오류 상태(500)를 줘도 뽑기가 성공한 것으로 치고, 시드값을 새것으로 DB 에 적는다", async () => {
   routes = [() => reply("", { status: 500 })];
   const state = await graphql._ensureState(true);
   assert.ok(state.fetchedAt > 0, "지금 동작: 새것으로 친다");
-  assert.ok(CacheManager.getSpotifyAnonState(), "지금 동작: DB 에 남는다(12시간 동안 다시 안 뽑는다)");
+  assert.ok(externalCaches.getSpotifyAnonState(), "지금 동작: DB 에 남는다(12시간 동안 다시 안 뽑는다)");
 });
 
 test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받고, 만료 전까지 재사용", async () => {

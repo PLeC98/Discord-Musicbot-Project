@@ -14,9 +14,9 @@ const { test, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
-const CacheManager = require("../../src/store/cacheManager");
-CacheManager._cacheDir = path.join(TMP, "audio_cache");
-CacheManager.initialize(path.join(TMP, "cache.db"));
+const audioCache = require("../../src/store/audioCache");
+audioCache._cacheDir = path.join(TMP, "audio_cache");
+audioCache.initialize(path.join(TMP, "cache.db"));
 
 const YouTube = require("../../src/sources/youtube/index");
 const TrackResolver = require("../../src/sources/trackResolver");
@@ -78,7 +78,7 @@ after(() => {
   audioConvert.toCacheOpus = real.toCacheOpus;
   SponsorBlock.ensureForTrack = real.ensureForTrack;
   Object.assign(TrackResolver, { findYouTubeEquivalent: real.findYouTubeEquivalent, reresolveYouTube: real.reresolveYouTube });
-  CacheManager.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
 
@@ -93,15 +93,15 @@ const writesFile =
 beforeEach(() => {
   for (const k of Object.keys(calls)) calls[k].length = 0;
   ytdlpBehavior = writesFile();
-  CacheManager.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(CacheManager._cacheDir, { recursive: true, force: true });
-  fs.mkdirSync(CacheManager._cacheDir, { recursive: true });
+  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true });
+  fs.mkdirSync(audioCache._cacheDir, { recursive: true });
 });
 
 const downloader = () => new TrackDownloader({ guild: { id: "g1" } });
-const audioRow = (key) => CacheManager.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(key) || null;
-const lookupRow = (url) => CacheManager.db.prepare("SELECT * FROM track_lookup WHERE source_url = ?").get(url) || null;
-const leftovers = () => fs.readdirSync(CacheManager._cacheDir).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
+const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(key) || null;
+const lookupRow = (url) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE source_url = ?").get(url) || null;
+const leftovers = () => fs.readdirSync(audioCache._cacheDir).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
 
 const yt = (id, extra = {}) => ({ title: `곡 ${id}`, artist: "가수", url: `https://www.youtube.com/watch?v=${id}`, platform: "youtube", duration: 180, audioSourceKey: `yt:${id}`, ...extra });
 
@@ -112,7 +112,7 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
 
   const file = await downloader().downloadTrack(track);
 
-  assert.equal(file, CacheManager.getFilePath("yt:aaaaaaaaaaa"));
+  assert.equal(file, audioCache.getFilePath("yt:aaaaaaaaaaa"));
   assert.equal(fs.readFileSync(file, "utf8"), "opus-bytes");
   assert.equal(calls.ytdlp.length, 1);
   const { url, options } = calls.ytdlp[0];
@@ -192,7 +192,7 @@ test("빈 파일은 버린다", async () => {
   ytdlpBehavior = (_url, options) => fs.writeFileSync(options.output, "");
 
   await assert.rejects(downloader().downloadTrack(yt("hhhhhhhhhhh")), /Downloaded file is empty/);
-  assert.equal(fs.existsSync(CacheManager.getFilePath("yt:hhhhhhhhhhh")), false);
+  assert.equal(fs.existsSync(audioCache.getFilePath("yt:hhhhhhhhhhh")), false);
   assert.deepEqual(leftovers(), []);
 });
 
@@ -230,7 +230,7 @@ test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 �
 
 test("최종 파일이 이미 있으면 아무것도 안 받는다", async () => {
   const track = yt("jjjjjjjjjjj");
-  fs.writeFileSync(CacheManager.getFilePath("yt:jjjjjjjjjjj"), "old");
+  fs.writeFileSync(audioCache.getFilePath("yt:jjjjjjjjjjj"), "old");
 
   const file = await downloader().downloadTrack(track);
 
@@ -250,7 +250,7 @@ test("같은 곡을 동시에 두 번 부르면 한 번만 받는다", async () 
 
   const a = d.downloadTrack(yt("kkkkkkkkkkk"));
   const b = d.downloadTrack(yt("kkkkkkkkkkk"));
-  assert.equal(TrackDownloader.isDownloading(CacheManager.getFilePath("yt:kkkkkkkkkkk")), true);
+  assert.equal(TrackDownloader.isDownloading(audioCache.getFilePath("yt:kkkkkkkkkkk")), true);
   release();
   const [fa, fb] = await Promise.all([a, b]);
 
@@ -261,7 +261,7 @@ test("같은 곡을 동시에 두 번 부르면 한 번만 받는다", async () 
 
 test("받는 사이 다른 쪽이 먼저 올렸으면 내 것을 버리고 그것을 쓴다", async () => {
   ytdlpBehavior = (url, options) => {
-    fs.writeFileSync(CacheManager.getFilePath("yt:lllllllllll"), "theirs");
+    fs.writeFileSync(audioCache.getFilePath("yt:lllllllllll"), "theirs");
     writesFile()(url, options);
   };
 
@@ -274,14 +274,14 @@ test("받는 사이 다른 쪽이 먼저 올렸으면 내 것을 버리고 그�
 test("받는 동안 임시 파일을 퇴거 · 기동 청소에서 보호하고, 끝나면 푼다", async () => {
   let during;
   ytdlpBehavior = (url, options) => {
-    during = CacheManager._protectedFiles.has(path.resolve(options.output));
+    during = audioCache._protectedFiles.has(path.resolve(options.output));
     writesFile()(url, options);
   };
 
   await downloader().downloadTrack(yt("mmmmmmmmmmm"));
 
   assert.equal(during, true);
-  assert.equal(CacheManager._protectedFiles.size, 0);
+  assert.equal(audioCache._protectedFiles.size, 0);
 });
 
 // ── 장부에서 온 영상이 죽었을 때 ────────────────────────────────────────
@@ -296,7 +296,7 @@ test("장부에서 가져온 영상이 내려갔으면 다시 찾아 한 번 더
   const file = await downloader().downloadTrack(track);
 
   assert.deepEqual(calls.reresolve, ["스포티파이 곡"]);
-  assert.equal(file, CacheManager.getFilePath("yt:freshfresh01"), "새 영상의 열쇠 자리로 받는다");
+  assert.equal(file, audioCache.getFilePath("yt:freshfresh01"), "새 영상의 열쇠 자리로 받는다");
   assert.equal(audioRow("yt:deaddeaddea").status, "error");
   assert.equal(audioRow("yt:freshfresh01").status, "cached");
 });
@@ -331,5 +331,5 @@ test("예열: 열쇠를 못 정한 스포티파이 곡은 받기 전에 동등�
   }
 
   assert.deepEqual(calls.equivalent, ["예열 곡"], "예열에서 한 번. 받기 안에서는 youtubeUrl 이 있어 다시 안 찾는다");
-  assert.ok(fs.existsSync(CacheManager.getFilePath("yt:ooooooooooo")), "열쇠 자리에 받는다(URL 해시 자리가 아니라)");
+  assert.ok(fs.existsSync(audioCache.getFilePath("yt:ooooooooooo")), "열쇠 자리에 받는다(URL 해시 자리가 아니라)");
 });

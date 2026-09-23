@@ -2,6 +2,7 @@
 
 const log = require("../infra/log/logger").child({ category: "guild" });
 const CacheManager = require("./cacheManager");
+const audioCache = require("./audioCache");
 const config = require("../../config");
 
 // 재생목록 한 번에 넣는 곡 수의 위쪽 끝. 대기열 상한이 더 작으면 그쪽을 따른다
@@ -144,7 +145,7 @@ class GuildSettingsManager {
     const { min, max, default: fallback } = this.playlistAddLimits();
     const key = `${guildId}_playlistAdd`;
     let stored = this.cache.get(key);
-    if (stored === undefined && CacheManager._initialized) {
+    if (stored === undefined && audioCache._initialized) {
       try {
         stored = CacheManager.getPlaylistAddMax(guildId);
         this.cache.set(key, stored);
