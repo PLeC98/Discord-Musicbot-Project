@@ -8,6 +8,7 @@ const assert = require("node:assert/strict");
 const { candidateKind } = require("../../src/rules/candidateKind");
 const { liveBlockReason } = require("../../src/rules/liveBlockReason");
 const { transportOf, isHlsStream } = require("../../src/rules/transportOf");
+const { isDeadInteraction } = require("../../src/rules/deadInteraction");
 
 test("candidateKind: 유튜브 주소 > 가수 · 제목 > 음원, 아무것도 없으면 null", () => {
   assert.equal(candidateKind({ youtubeUrl: "u", artist: "a", title: "t", audioUrl: "x" }), "youtube");
@@ -47,4 +48,12 @@ test("transportOf: 받아서 흘릴 수 없는 것만 url, 캐시 파일이 있�
   assert.equal(transportOf({ file: null, streamUrl: "https://x/a.mp3", streamInfo: { platform: "direct" } }).via, "pipe", "방식을 모르는 직접 링크");
   assert.equal(isHlsStream({ protocol: "http_dash_segments" }), false);
   assert.equal(isHlsStream("m3u8"), false, "서술자가 객체가 아니면 아니다");
+});
+
+test("죽은 상호작용: 토큰 만료·중복 응답만 참", () => {
+  assert.equal(isDeadInteraction({ code: 10062 }), true);
+  assert.equal(isDeadInteraction({ code: 40060 }), true);
+  assert.equal(isDeadInteraction({ code: 50013 }), false);
+  assert.equal(isDeadInteraction(new Error("boom")), false);
+  assert.equal(isDeadInteraction(null), false);
 });

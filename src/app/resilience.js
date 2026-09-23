@@ -85,12 +85,6 @@ function ignorableDiscordError(err) {
   return (err && IGNORABLE_DISCORD_ERRORS[err.code]) || null;
 }
 
-// 상호작용 토큰이 죽은 경우. 응답 경로 자체가 닫혀서 reply도 followUp도 다시 같은 오류다.
-// 오류 안내를 시도하는 것이 곧 두 번째 오류가 된다.
-function isDeadInteraction(err) {
-  return !!err && (err.code === 10062 || err.code === 40060);
-}
-
 // 치명적 오류: 안전하게 정리하고 종료. 운영자 확인 후 수동 재시작을 기다린다.
 // 저장 세션은 초기화한다: 세션 상태 자체가 원인이면 재시작 시 크래시 루프가 되므로.
 // (정전 등은 5초 스냅샷이 그대로 남는 별개 경로라 정상 복구된다.)
@@ -124,7 +118,6 @@ module.exports = {
   unknownRejectionFlooding,
   unknownClientErrorFlooding,
   ignorableDiscordError,
-  isDeadInteraction,
   fatalShutdown,
   NET_ERR_WINDOW_MS,
   NET_ERR_MAX,

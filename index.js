@@ -15,6 +15,7 @@ const MusicPlayer = require("./src/player/Player");
 const { restoreSavedPlayers } = require("./src/player/sessionRestore");
 const voiceChannelStatus = require("./src/player/voiceChannelStatus");
 const { onVoiceStateUpdate } = require("./src/player/voicePresence");
+const { isDeadInteraction } = require("./src/rules/deadInteraction");
 const { createPotServer } = require("./src/sources/youtube/potServer");
 const { loadModules } = require("./src/app/moduleLoader");
 const { scheduleReplyCleanup } = require("./src/ui/replyLifetime");
@@ -61,7 +62,7 @@ const potServer = createPotServer();
 potServer.start();
 
 // uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료). src/app/resilience.js
-const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/app/resilience");
+const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/app/resilience");
 
 function startBot() {
   const client = new Client({
@@ -150,34 +151,6 @@ function startBot() {
     await cleanupAudioCache();
     log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
   };
-
-  // Handle interactions (slash commands)
-  client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = client.commands.get(interaction.commandName);
-
-    if (!command) {
-      log.error(`등록되지 않은 명령어: ${interaction.commandName}`);
-      return;
-    }
-
-    try {
-      await command.execute(interaction, client);
-    } catch (error) {
-      log.error(`${interaction.commandName} 명령어 실행 중 오류:`, error);
-
-      // 토큰이 죽었으면(10062/40060) 안내 시도가 곧 두 번째 같은 오류다. 아무 데도 닿지 않는다.
-      if (isDeadInteraction(error)) return;
-
-      const payload = { content: "❌ 명령어 실행 중 오류가 발생했습니다!", flags: [1 << 6] };
-      const sending = interaction.replied || interaction.deferred ? interaction.followUp(payload) : interaction.reply(payload);
-      // 안내 실패는 여기서 끝낸다. 리스너 밖으로 던지면 client "error"를 거쳐 uncaughtException이 된다.
-      await sending.catch((err) => log.error("오류 안내 전송 실패:", err.message));
-    } finally {
-      scheduleReplyCleanup(interaction);
-    }
-  });
 
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
