@@ -1,6 +1,6 @@
 "use strict";
 
-// src/NowPlayingPanel.js — 서버당 패널 하나. 새로 올리면 기록된 옛 패널을 지운다(재시작해도).
+// src/ui/panelLocation.js — 서버당 패널 하나. 새로 올리면 기록된 옛 패널을 지운다(재시작해도).
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

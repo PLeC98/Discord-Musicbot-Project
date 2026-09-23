@@ -1,6 +1,6 @@
 "use strict";
 
-// src/trackState.js — 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
+// src/player/trackState.js — 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

@@ -1,6 +1,6 @@
 "use strict";
 
-// src/resilience.js — 프로세스 오류 복원력 (일시 네트워크=표적 복구 / 치명적=안전 종료)
+// src/app/resilience.js — 프로세스 오류 복원력 (일시 네트워크=표적 복구 / 치명적=안전 종료)
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

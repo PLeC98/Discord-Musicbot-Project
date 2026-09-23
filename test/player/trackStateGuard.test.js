@@ -1,6 +1,6 @@
 "use strict";
 
-// 현재곡·대기열·기록은 src/trackState.js만 바꾼다. 다른 곳에서 직접 바꾸면 저장이 그 변화를 모른다.
+// 현재곡·대기열·기록은 src/player/trackState.js만 바꾼다. 다른 곳에서 직접 바꾸면 저장이 그 변화를 모른다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

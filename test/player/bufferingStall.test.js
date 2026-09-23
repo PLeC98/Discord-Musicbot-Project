@@ -1,6 +1,6 @@
 "use strict";
 
-// src/MusicPlayer.js `_checkBufferingStall` — 재생이 시작되지 않은 채 멈춘 곡을 깨우는 판정
+// src/player/Player.js `_checkBufferingStall` — 재생이 시작되지 않은 채 멈춘 곡을 깨우는 판정
 // 프로토타입 호출 — 실 오디오 없이 판정만 검증한다.
 
 const { test } = require("node:test");

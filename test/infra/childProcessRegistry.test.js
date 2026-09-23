@@ -1,6 +1,6 @@
 "use strict";
 
-// src/ChildProcessRegistry.js — 외부 프로세스 트리 종료
+// src/infra/processRegistry.js — 외부 프로세스 트리 종료
 //
 // 회귀 대상: 라이브 방송이 잘못 매칭돼 캐시 다운로드가 시작되면 yt-dlp가 ffmpeg를 외부 다운로더로
 // 띄우는데(손자 프로세스), 봇을 종료해도 ffmpeg가 살아남아 끝나지 않는 방송을 계속 받아쓰던 문제.

@@ -1,6 +1,6 @@
 "use strict";
 
-// src/chunkedStream.js — Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
+// src/media/chunkedStream.js — Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
 //
 // 네트워크는 fetch를 주입해 흉내낸다. 실 소켓 없이 전부 검증한다.
 

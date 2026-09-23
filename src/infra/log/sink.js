@@ -4,7 +4,7 @@
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
 // 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
-// 생산자는 두 갈래: (1) src/logger.js facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
+// 생산자는 두 갈래: (1) src/infra/log/logger.js facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
 const util = require("util");
 const chalk = require("chalk");
@@ -76,7 +76,7 @@ class LogManager {
     this.buffer = [];
     this.clients = new Set();
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
-    this.destinations = []; // file(logFile.js), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
+    this.destinations = []; // file(file.js), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
     // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다. 그게 파일에서
     // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.

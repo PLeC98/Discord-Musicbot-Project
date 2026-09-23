@@ -1,6 +1,6 @@
 "use strict";
 
-// src/YouTube.js briefError — yt-dlp 오류를 로그에 남길 만큼으로 줄이는 계약.
+// src/sources/youtube/index.js briefError — yt-dlp 오류를 로그에 남길 만큼으로 줄이는 계약.
 // 회귀 대상: yt-dlp 내부 재시도가 같은 경고를 stderr에 다시 써서 한 번 실패에 같은 줄이
 // 대여섯 개씩 쌓이던 것.
 

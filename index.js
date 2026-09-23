@@ -213,13 +213,13 @@ async function waitForBgutilReady(timeoutMs = 30000) {
 startBgutilServer();
 // ────────────────────────────────────────────────────────────────────────────
 
-// uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료). src/resilience.js
+// uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료). src/app/resilience.js
 const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/app/resilience");
 
 function startBot() {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
-    // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/mentions.js)
+    // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.js)
     allowedMentions: ALLOWED_MENTIONS,
   });
 
@@ -254,7 +254,7 @@ function startBot() {
     log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
   };
 
-  // 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/replyLifetime.js). 핸들러의 결과·오류는 그대로 돌려준다.
+  // 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/ui/replyLifetime.js). 핸들러의 결과·오류는 그대로 돌려준다.
   const withReplyCleanup =
     (execute) =>
     (interaction, ...rest) => {

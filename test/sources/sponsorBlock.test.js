@@ -1,6 +1,6 @@
 "use strict";
 
-// src/SponsorBlock.js — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
+// src/sources/sponsorBlock.js — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
 // 네트워크는 global.fetch 스텁으로 대체, 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 const os = require("node:os");

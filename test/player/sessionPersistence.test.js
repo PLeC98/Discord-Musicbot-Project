@@ -1,6 +1,6 @@
 "use strict";
 
-// src/SessionPersistence.js — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
+// src/player/sessionMirror.js — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 const os = require("node:os");

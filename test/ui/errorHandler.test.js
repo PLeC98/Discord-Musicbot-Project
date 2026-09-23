@@ -1,6 +1,6 @@
 "use strict";
 
-// src/ErrorHandler.js — 오류 분류 및 사용자 메시지 매핑
+// src/ui/errorMessages.js — 오류 분류 및 사용자 메시지 매핑
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

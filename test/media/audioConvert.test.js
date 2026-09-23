@@ -1,6 +1,6 @@
 "use strict";
 
-// src/audioConvert.js: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
+// src/media/convert.js: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
 // 회귀 대상: 직접 링크 갈래가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
 // 이미 Opus 186~329k 인데 그걸 128k 로 다시 구워 저장했다(2026-09-21 실측).

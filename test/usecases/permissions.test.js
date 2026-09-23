@@ -1,6 +1,6 @@
 "use strict";
 
-// src/permissions.js — 권한 3계층(모더레이터/DJ/일반) 판정.
+// src/usecases/permissions.js — 권한 3계층(모더레이터/DJ/일반) 판정.
 // GuildSettingsManager는 require.cache 주입으로 모킹 (실 SQLite 미접촉).
 
 const path = require("node:path");

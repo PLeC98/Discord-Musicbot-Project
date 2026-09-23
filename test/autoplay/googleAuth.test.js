@@ -1,6 +1,6 @@
 "use strict";
 
-// src/googleAuth.js — 서비스 계정 JSON → 액세스 토큰.
+// src/autoplay/assist/googleAuth.js — 서비스 계정 JSON → 액세스 토큰.
 //
 // 이 파일이 다루는 private_key 는 이 기능에서 가장 값비싼 비밀이다.
 // 어떤 경로로도 밖으로 나가지 않는 것이 여기서 지킬 계약이다.

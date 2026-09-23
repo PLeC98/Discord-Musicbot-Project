@@ -1,6 +1,6 @@
 "use strict";
 
-// src/autoplayAssist.js — 자동재생 AI 보조.
+// src/autoplay/assist/index.js — 자동재생 AI 보조.
 //
 // 이 기능의 계약은 "맞히는 것"이 아니라 없어도 돌아가는 것이다.
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.

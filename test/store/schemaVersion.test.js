@@ -1,6 +1,6 @@
 "use strict";
 
-// src/CacheManager.js — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
+// src/store/cacheManager.js — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
 const os = require("node:os");
 const path = require("node:path");

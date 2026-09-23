@@ -1,6 +1,6 @@
 "use strict";
 
-// src/TrackDownloader.js — 캐시 변환 옵션.
+// src/media/cacheDownload.js — 캐시 변환 옵션.
 //
 // 회귀 대상: `postprocessorArgs` 가 코덱을 못 박고 있었다. yt-dlp 의 ExtractAudio 는 소스 코덱을
 // 보고 `-acodec copy`(이미 Opus) 또는 `-acodec libopus`(그 밖)를 스스로 고르는데, 우리 값이

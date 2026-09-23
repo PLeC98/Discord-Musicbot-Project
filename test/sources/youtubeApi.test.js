@@ -3,7 +3,7 @@
 // YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 2b 가 오류를 코드로 바꾸고, 3 이 스트림 서술자에서 판(lmt)을 읽고, 7 이 파일을 쪼갠다.
-// 모듈을 통째로 바꿔 끼우지 않고 youtube-dl-exec 의 exec 하나만 가짜로 둔다. 그래서 src/ytdlp.js 의 응답 · 오류 모양
+// 모듈을 통째로 바꿔 끼우지 않고 youtube-dl-exec 의 exec 하나만 가짜로 둔다. 그래서 src/sources/ytdlpSpawn.js 의 응답 · 오류 모양
 // 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 시험마다 비워 설정과 무관하게 한 번에 부르게 한다.
 
 const fs = require("node:fs");
@@ -53,7 +53,7 @@ beforeEach(() => {
 
 const video = (id, extra = {}) => ({ id, title: `영상 ${id}`, uploader: "올린 사람", webpage_url: `https://www.youtube.com/watch?v=${id}`, duration: 200, thumbnail: `https://i.ytimg.com/${id}.jpg`, view_count: 5, upload_date: "20260101", ...extra });
 
-// ── ytdlp.js ─────────────────────────────────────────────────────────
+// ── ytdlpSpawn.js ───────────────────────────────────────────────────────
 
 test("yt-dlp 가 실패하면 stderr 를 message 로 담은 오류를 던진다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] abc: Video unavailable" });

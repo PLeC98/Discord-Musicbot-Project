@@ -795,7 +795,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * 초 단위 길이를 H:MM:SS 또는 M:SS 형식으로 변환합니다. (공용 구현: src/utils.js)
+   * 초 단위 길이를 H:MM:SS 또는 M:SS 형식으로 변환합니다. (공용 구현: src/ui/format.js)
    */
   formatDuration(seconds) {
     return formatDuration(seconds);

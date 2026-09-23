@@ -1,6 +1,6 @@
 "use strict";
 
-// src/playRequest.js — 곡 추가 경로의 단일 코어.
+// src/usecases/addTracks.js — 곡 추가 경로의 단일 코어.
 //
 // 회귀 대상: 슬래시 명령/전용 채널/검색 선택은 handleMusicData를, 대시보드는 addTrack을 타서
 // 코어가 둘로 갈려 있었다. 같은 버그를 두 번 고쳐야 했고 요청자 모양도 서로 달랐다.

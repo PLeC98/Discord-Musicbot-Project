@@ -88,7 +88,7 @@ function resolveFromRoot(p) {
 const COOKIES_SOURCE = String(env("COOKIES_SOURCE") || "").trim();
 const USE_COOKIE_FILE = COOKIES_SOURCE.toLowerCase() === "file";
 
-// SponsorBlock skip 지원 카테고리 (권위 목록. src/SponsorBlock.js의 SKIP_CATEGORIES와 동기 유지)
+// SponsorBlock skip 지원 카테고리 (권위 목록. src/sources/sponsorBlock.js의 SKIP_CATEGORIES와 동기 유지)
 const SB_SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
 // 콤마 구분 문자열 → 유효 카테고리 배열 (오타·미지원 값은 조용히 제거, 원칙 4: 형식 오류는 걸러냄)
 function parseSbCategories(raw) {
@@ -153,7 +153,7 @@ module.exports = {
   },
 
   // 자동재생 소스 자격증명. 없으면 그 소스만 못 쓴다. config/genres.yaml에서 어느 장르가
-  // 그 소스를 쓰는지 보고 기동 시점에 경고하거나 거부한다(src/configDataLoader.js).
+  // 그 소스를 쓰는지 보고 기동 시점에 경고하거나 거부한다(src/config/loader.js).
   sources: {
     lastfmKey: env("LASTFM_API_KEY"),
     listenbrainzToken: env("LISTENBRAINZ_TOKEN"),
@@ -194,7 +194,7 @@ module.exports = {
     },
   },
 
-  // ffmpeg 실행 파일. 미지정이면 src/ffmpegPath.js가 자동 탐색(bin/의 번들 → PATH).
+  // ffmpeg 실행 파일. 미지정이면 src/media/ffmpeg/path.js가 자동 탐색(bin/의 번들 → PATH).
   // macOS는 자동 다운로드 대상이 아니므로 여기로 지정하거나 PATH에 두어야 한다(brew install ffmpeg).
   ffmpeg: {
     path: resolveFromRoot(env("FFMPEG_PATH")),
@@ -210,10 +210,10 @@ module.exports = {
     useCookieFile: USE_COOKIE_FILE,
 
     // 재생용 player_client 순서. 비우면 지정하지 않는다 = yt-dlp 기본값 그대로.
-    // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/YouTube.js).
+    // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/sources/youtube/index.js).
     playerClients: parseClients(env("YTDLP_PLAYER_CLIENTS")),
     // "최근 window회 중 fails회 실패"면 그 클라이언트를 이번 실행 동안 제외한다.
-    // 연속 실패로 세지 않는 이유는 src/PlayerClients.js 머리말 참조.
+    // 연속 실패로 세지 않는 이유는 src/sources/youtube/clients.js 머리말 참조.
     clientWindow: envInt("YTDLP_CLIENT_WINDOW", 5, { min: 2, max: 50 }),
     clientFails: envInt("YTDLP_CLIENT_FAILS", 3, { min: 1, max: 50 }),
   },
@@ -261,7 +261,7 @@ module.exports = {
     evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
   },
 
-  // SponsorBlock. 비음악 구간 자동 스킵 (src/SponsorBlock.js). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
+  // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsorBlock.js). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
   // enabled=false 면 API 호출·캐싱이 전부 무동작. 상업적 이용 시 데이터 라이선스(비상업)를 피하는 마스터 스위치.
   sponsorblock: {
     enabled: env("SPONSORBLOCK_ENABLED", "true") !== "false",
@@ -279,7 +279,7 @@ module.exports = {
     idleText: env("VOICE_IDLE_STATUS", ""),
   },
 
-  // 재생 스트림 수신. googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/chunkedStream.js).
+  // 재생 스트림 수신. googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/media/chunkedStream.js).
   stream: {
     chunkBytes: envInt("STREAM_CHUNK_KB", 1024, { min: 64, max: 65536 }) * 1024,
   },

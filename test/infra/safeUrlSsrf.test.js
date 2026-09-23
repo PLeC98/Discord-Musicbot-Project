@@ -1,6 +1,6 @@
 "use strict";
 
-// src/SafeUrl.js — SSRF 방어가 실제로 버티는지 공격해 본다.
+// src/infra/safeUrl.js — SSRF 방어가 실제로 버티는지 공격해 본다.
 //
 // CodeQL이 이 파일을 js/request-forgery(critical)로 지적한다. "URL이 사용자 입력에 의존한다"는
 // 사실이지만 그게 이 모듈의 존재 이유다. 실제 방어(IP 핀 접속·홉별 재검증)를 CodeQL이 추적하지

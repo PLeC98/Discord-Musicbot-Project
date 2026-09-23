@@ -1,6 +1,6 @@
 "use strict";
 
-// src/replyLifetime.js — 본인에게만 보이는 응답의 수명 표와 지우기 예약
+// src/ui/replyLifetime.js — 본인에게만 보이는 응답의 수명 표와 지우기 예약
 
 const { test, mock } = require("node:test");
 const assert = require("node:assert/strict");

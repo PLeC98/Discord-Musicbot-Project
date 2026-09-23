@@ -151,7 +151,7 @@ const TrackResolver = {
   },
 
   /**
-   * Spotify/SoundCloud 트랙의 YouTube 동등물 검색. 점수제 선택(src/youtubeMatch.js).
+   * Spotify/SoundCloud 트랙의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.js).
    * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치·정크를 타이브레이커로 삼아
    * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.youtubeUrl(및 audioSourceKey)을
    * 설정하고 URL 반환, 실패 시 null.

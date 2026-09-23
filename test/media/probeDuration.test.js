@@ -1,6 +1,6 @@
 "use strict";
 
-// src/ffmpegProcess.js probeDurationSec — 받아둔 파일에서 실제 재생 길이를 읽는다.
+// src/media/ffmpeg/process.js probeDurationSec — 받아둔 파일에서 실제 재생 길이를 읽는다.
 //
 // 회귀 대상: 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다.
 // 실측(2026-09-08): 4분 1초(241초) 파일이 268kbps에서 509초, 72kbps에서 137초로 잡혔다.

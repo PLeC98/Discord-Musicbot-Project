@@ -1,6 +1,6 @@
 "use strict";
 
-// src/mentions.js — 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
+// src/ui/mentions.js — 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
 //
 // 회귀 대상 1: 트랙 제목·직접 링크 파일명은 공격자가 정할 수 있는데 그대로 content에 들어갔다.
 // allowedMentions가 한 곳도 없어서 제목에 @everyone을 넣으면 봇 명의로 대규모 멘션이 나갔다.

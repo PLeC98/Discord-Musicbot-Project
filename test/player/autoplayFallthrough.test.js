@@ -1,6 +1,6 @@
 "use strict";
 
-// src/MusicPlayer.js — 자동재생이 곡을 못 고른 뒤의 상태.
+// src/player/Player.js — 자동재생이 곡을 못 고른 뒤의 상태.
 //
 // 회귀 대상: handleAutoplay가 후보를 하나도 못 찾으면 아무 말 없이 return했고, handleTrackEnd는
 // 그 결과와 무관하게 곧바로 return했다. 그래서 대기열 소진 처리(현재곡 비우기·종료 패널·퇴장 예약)가

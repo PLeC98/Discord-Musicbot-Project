@@ -1,6 +1,6 @@
 "use strict";
 
-// src/logFile.js — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
+// src/infra/log/file.js — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

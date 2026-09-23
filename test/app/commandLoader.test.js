@@ -1,6 +1,6 @@
 "use strict";
 
-// src/commandLoader.js — 커맨드 로드 + 배포 (REST.put은 프로토타입 패치로 목킹, 실 배포 없음).
+// src/app/commandLoader.js — 커맨드 로드 + 배포 (REST.put은 프로토타입 패치로 목킹, 실 배포 없음).
 // 배포 지문은 임시 파일 사용 — 운영 database/deployed-commands.json 미접촉.
 
 const fs = require("node:fs");

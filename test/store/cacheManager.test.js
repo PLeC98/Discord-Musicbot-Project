@@ -1,6 +1,6 @@
 "use strict";
 
-// src/CacheManager.js — 임시 DB로 실 SQLite 경로 검증 (guild_settings 라운드트립, 퇴거 스코어링)
+// src/store/cacheManager.js — 임시 DB로 실 SQLite 경로 검증 (guild_settings 라운드트립, 퇴거 스코어링)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 const os = require("node:os");

@@ -1,6 +1,6 @@
 "use strict";
 
-// src/MusicPlayer.js 곡 길이 판정 — 종료 워치독의 위치 계산, 판정에 쓰는 오디오 길이 선택
+// src/player/Player.js 곡 길이 판정 — 종료 워치독의 위치 계산, 판정에 쓰는 오디오 길이 선택
 // 프로토타입 호출 — 실 오디오 없이 판정만 검증한다.
 
 const { test } = require("node:test");

@@ -109,7 +109,7 @@ module.exports = {
   },
 
   formatDuration(seconds) {
-    return require("../src/ui/format").formatDuration(seconds); // 공용 구현: src/utils.js
+    return require("../src/ui/format").formatDuration(seconds); // 공용 구현: src/ui/format.js
   },
 
   formatTime(milliseconds) {

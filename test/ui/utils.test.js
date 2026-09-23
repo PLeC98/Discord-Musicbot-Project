@@ -1,6 +1,6 @@
 "use strict";
 
-// src/utils.js — 공용 소형 유틸
+// src/ui/format.js — 공용 소형 유틸
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

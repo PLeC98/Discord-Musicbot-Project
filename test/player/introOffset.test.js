@@ -1,6 +1,6 @@
 "use strict";
 
-// src/MusicPlayer.js _introOffsetMs — 신규 재생의 인트로 초기 오프셋 산출.
+// src/player/Player.js _introOffsetMs — 신규 재생의 인트로 초기 오프셋 산출.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

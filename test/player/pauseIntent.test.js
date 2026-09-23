@@ -1,6 +1,6 @@
 "use strict";
 
-// src/MusicPlayer.js — 일시정지 의도가 버퍼링을 넘어 살아남는가.
+// src/player/Player.js — 일시정지 의도가 버퍼링을 넘어 살아남는가.
 // @discordjs/voice의 pause()는 재생 중일 때만 받는다. play(resource) 직후는 버퍼링이라, 그때 건 일시정지가
 // 조용히 무시되고 곡이 재생됐다(재시작 복원에서 재현).
 

@@ -1,6 +1,6 @@
 "use strict";
 
-// src/SponsorSkipper.js — 발동 판정(decide) 순수 로직: 교차 감지, 수동 진입 배제, 아웃트로→종료.
+// src/player/sponsorSkipper.js — 발동 판정(decide) 순수 로직: 교차 감지, 수동 진입 배제, 아웃트로→종료.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");

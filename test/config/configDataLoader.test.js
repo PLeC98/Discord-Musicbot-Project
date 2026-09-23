@@ -1,6 +1,6 @@
 "use strict";
 
-// src/configDataLoader.js — config/*.yaml을 읽는 단일 통로.
+// src/config/loader.js — config/*.yaml을 읽는 단일 통로.
 //
 // 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와, 대시보드(계획 5단계). 그래서
 //  · 봇을 켜 둔 채 고쳐도 반영돼야 하고(mtime),
