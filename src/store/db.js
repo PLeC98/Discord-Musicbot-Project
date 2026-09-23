@@ -1,12 +1,10 @@
-"use strict";
-
 // 캐시 DB 하나. 불러와도 열리지 않는다. 기동이 open() 으로 열고, 열기 전에 get() 을 부르면 던진다.
 
-const Database = require("better-sqlite3");
-const path = require("path");
-const fs = require("fs");
+import Database from "better-sqlite3";
+import path from "path";
+import fs from "fs";
 
-const DB_PATH = path.join(__dirname, "..", "..", "database", "cache.db");
+const DB_PATH = path.join(import.meta.dirname, "..", "..", "database", "cache.db");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
 const SCHEMA_VERSION = 4;
@@ -170,4 +168,6 @@ const SESSION_TABLES = `
   );
 `;
 
-module.exports = { open, get, isOpen, close, createTables, SCHEMA_VERSION, DB_PATH };
+const exported = { open, get, isOpen, close, createTables, SCHEMA_VERSION, DB_PATH };
+export default exported;
+export { exported as "module.exports" };

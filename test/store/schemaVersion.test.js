@@ -1,19 +1,18 @@
-"use strict";
-
 // src/store/db.js — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
-const { sessions } = require("../../src/store/playerSessions");
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const Database = require("better-sqlite3");
+import playerSessions from "../../src/store/playerSessions.js";
+const { sessions } = playerSessions;
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import Database from "better-sqlite3";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
-const guildTable = require("../../src/store/guildSettings").table;
-const audioCache = require("../../src/store/audioCache");
-const storeDb = require("../../src/store/db");
+const guildTable = (await import("../../src/store/guildSettings.js")).default.table;
+const audioCache = (await import("../../src/store/audioCache.js")).default;
+const storeDb = (await import("../../src/store/db.js")).default;
 
 after(() => {
   audioCache.close();

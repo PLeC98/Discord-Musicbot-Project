@@ -1,12 +1,12 @@
-"use strict";
-
 // 플레이어 세션 저장소. 길드당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
 // DB는 재시작 복원용 사본이다. 재생 중의 진실은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
-const { HISTORY_MAX } = require("../rules/history");
-const db = require("./db");
-const { SessionTrackRow, checked } = require("./rows");
+import historyModule from "../rules/history.js";
+const { HISTORY_MAX } = historyModule;
+import db from "./db.js";
+import rowsModule from "./rows.js";
+const { SessionTrackRow, checked } = rowsModule;
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
 const GAP = 1_000_000_000;
@@ -358,4 +358,6 @@ function sessions() {
   return bound;
 }
 
-module.exports = { PlayerSessionStore, sessions, GAP, SEQ_LIMIT };
+const exported = { PlayerSessionStore, sessions, GAP, SEQ_LIMIT };
+export default exported;
+export { exported as "module.exports" };

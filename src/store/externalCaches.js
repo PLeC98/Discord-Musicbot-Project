@@ -1,8 +1,6 @@
-"use strict";
-
 // 바깥 서비스의 답을 담아 두는 표. SponsorBlock 구간 · 연령 제한 영상 · 스포티파이 익명 상태
 
-const db = require("./db");
+import db from "./db.js";
 
 class ExternalCaches {
   get db() {
@@ -67,4 +65,6 @@ class ExternalCaches {
   }
 }
 
-module.exports = new ExternalCaches();
+const exported = new ExternalCaches();
+export default exported;
+export { exported as "module.exports" };

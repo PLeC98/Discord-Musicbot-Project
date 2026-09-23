@@ -1,14 +1,15 @@
-"use strict";
-
 // 링크 장부(track_lookup). 요청 열쇠 → 보여 줄 링크 · 음원 주소 · 표시 정보.
 // 캐시 파일은 두 걸음으로 찾는다. 장부 줄의 음원 주소에서 열쇠를 계산하고, 그 열쇠로 audio_cache 를 본다.
 
-const fs = require("fs");
-const db = require("./db");
-const audioCache = require("./audioCache");
-const { canonicalUrl } = require("../rules/canonicalUrl");
-const { audioKeyOf } = require("../rules/audioKeyOf");
-const { LookupRow, checked } = require("./rows");
+import fs from "fs";
+import db from "./db.js";
+import audioCache from "./audioCache.js";
+import canonicalUrlModule from "../rules/canonicalUrl.js";
+const { canonicalUrl } = canonicalUrlModule;
+import audioKeyOfModule from "../rules/audioKeyOf.js";
+const { audioKeyOf } = audioKeyOfModule;
+import rows from "./rows.js";
+const { LookupRow, checked } = rows;
 
 class TrackLookup {
   get db() {
@@ -108,4 +109,6 @@ class TrackLookup {
   }
 }
 
-module.exports = new TrackLookup();
+const exported = new TrackLookup();
+export default exported;
+export { exported as "module.exports" };

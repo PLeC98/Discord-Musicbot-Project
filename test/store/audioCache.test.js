@@ -1,14 +1,18 @@
-"use strict";
-
 // src/store/audioCache.js — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
-const { sessions } = require("../../src/store/playerSessions");
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+import playerSessions from "../../src/store/playerSessions.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { sessions } = playerSessions;
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}.db`);
 
@@ -81,7 +85,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
 // 회귀 대상: 라이브 매칭 등으로 다운로드가 중단되면 yt-dlp가 track_<md5>.opus.part 등을 남기는데,
 // _cleanOrphanFiles가 .opus만 훑어서 이 부스러기들이 영구 잔류하고 용량만 먹던 문제.
 
-const crypto = require("node:crypto");
+import crypto from "node:crypto";
 
 function makeCacheDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-partials-"));

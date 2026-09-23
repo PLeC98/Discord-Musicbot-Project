@@ -1,16 +1,17 @@
-"use strict";
-
 // 오디오 캐시. 받아 둔 파일 · 보호 · 퇴거 · 오디오 장부(audio_cache) · 기동 정리 · 통계
 
-const log = require("../infra/log/logger").child({ category: "cache" });
-const path = require("path");
-const fs = require("fs");
-const config = require("../../config");
-const { md5, audioKeyOf } = require("../rules/audioKeyOf");
-const { sessions } = require("./playerSessions");
-const db = require("./db");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "cache" });
+import path from "path";
+import fs from "fs";
+import config from "../../config.js";
+import audioKeyOfModule from "../rules/audioKeyOf.js";
+const { md5, audioKeyOf } = audioKeyOfModule;
+import playerSessions from "./playerSessions.js";
+const { sessions } = playerSessions;
+import db from "./db.js";
 
-const CACHE_DIR = path.join(__dirname, "..", "..", "audio_cache");
+const CACHE_DIR = path.join(import.meta.dirname, "..", "..", "audio_cache");
 
 // 제거 점수 가중치
 const W_RECENCY = 0.4;
@@ -507,4 +508,6 @@ class AudioCache {
   }
 }
 
-module.exports = new AudioCache();
+const exported = new AudioCache();
+export default exported;
+export { exported as "module.exports" };

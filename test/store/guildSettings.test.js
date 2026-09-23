@@ -1,23 +1,21 @@
-"use strict";
-
 // 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다(구조 리팩터링 0-B).
 //
 // 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기 · 쓰기 · 지우기, 메모리 캐시,
 // DB 가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 표를 임시 DB 로 쓴다.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guild-settings-"));
-const guildTable = require("../../src/store/guildSettings").table;
-const audioCache = require("../../src/store/audioCache");
+const guildTable = (await import("../../src/store/guildSettings.js")).default.table;
+const audioCache = (await import("../../src/store/audioCache.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
-const settings = require("../../src/store/guildSettings");
-const config = require("../../config");
+const settings = (await import("../../src/store/guildSettings.js")).default;
+const config = (await import("../../config.js")).default;
 
 beforeEach(() => {
   settings.cache.clear();

@@ -1,14 +1,14 @@
-"use strict";
-
 // src/store/playerSessions.js — 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
 // 저장소는 행을 위치로 찾으므로, 둘이 한 번이라도 어긋나면 이후의 모든 증분 쓰기가 엉뚱한 행을 건드린다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const Database = require("better-sqlite3");
-const trackState = require("../../src/player/trackState");
-const { PlayerSessionStore, GAP, SEQ_LIMIT } = require("../../src/store/playerSessions");
-const { createTables } = require("../../src/store/db");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import Database from "better-sqlite3";
+import trackState from "../../src/player/trackState.js";
+import playerSessions from "../../src/store/playerSessions.js";
+const { PlayerSessionStore, GAP, SEQ_LIMIT } = playerSessions;
+import dbModule from "../../src/store/db.js";
+const { createTables } = dbModule;
 
 const G = "g1";
 

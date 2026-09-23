@@ -1,8 +1,7 @@
-"use strict";
-
-const log = require("../infra/log/logger").child({ category: "guild" });
-const db = require("./db");
-const config = require("../../config");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "guild" });
+import db from "./db.js";
+import config from "../../config.js";
 
 // 재생목록 한 번에 넣는 곡 수의 위쪽 끝. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -342,5 +341,7 @@ class GuildSettingsManager {
   }
 }
 
-module.exports = new GuildSettingsManager();
-module.exports.table = table;
+const exported = new GuildSettingsManager();
+export default exported;
+export { exported as "module.exports" };
+exported.table = table;

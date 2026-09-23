@@ -1,15 +1,19 @@
-"use strict";
-
 // src/store/trackLookup.js — 링크 장부의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { openTempStore } = require("../helpers/tempStore");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import tempStore from "../helpers/tempStore.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { openTempStore } = tempStore;
 
 const store = openTempStore("track-lookup-");
 after(() => store.close());
-const audioCache = require("../../src/store/audioCache");
-const trackLookup = require("../../src/store/trackLookup");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
+const trackLookup = (await import("../../src/store/trackLookup.js")).default;
 
 // ── 제목 출처 (title_verified) ───────────────────────────────
 // 재생목록 페이지가 주는 제목은 같은 영상인데도 다를 수 있다. 그걸로 확인된 제목을 덮으면
@@ -51,7 +55,7 @@ test("행이 없는 URL은 getVerifiedTitle이 null", () => {
 
 // ── 두 걸음으로 캐시 찾기 ─────────────────────────────────────
 
-const fs = require("node:fs");
+import fs from "node:fs";
 
 function cacheFile(key) {
   const file = audioCache.getFilePath(key);

@@ -1,10 +1,9 @@
-"use strict";
-
 // 저장소에서 되읽는 행의 모양. 밖(디스크)에서 들어오는 값이라 트랙으로 바꾸기 전에 한 번 본다.
 // 모양이 틀린 행은 버리고 한 줄 남긴다. 한 행 때문에 대기열 전체를 못 되살리면 안 된다.
 
-const { z } = require("zod");
-const log = require("../infra/log/logger").child({ category: "cache" });
+import { z } from "zod";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "cache" });
 
 const text = z.string().min(1);
 const maybe = (schema) => schema.nullable();
@@ -54,4 +53,6 @@ function checked(schema, row, what) {
   return null;
 }
 
-module.exports = { SessionTrackRow, LookupRow, checked };
+const exported = { SessionTrackRow, LookupRow, checked };
+export default exported;
+export { exported as "module.exports" };
