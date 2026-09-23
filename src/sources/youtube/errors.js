@@ -45,7 +45,7 @@ class YouTubeErrors {
     if (this.isAgeRestrictedError(error)) return false;
 
     const msg = (error && (error.stderr || error.message)) || String(error || "");
-    return /video unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
+    return /video (?:is )?unavailable|no longer available|has been removed|removed by (the )?(uploader|user)|private video|account associated with this video has been terminated|this video is not available|content isn.?t available|violat(?:ing|ion) of youtube/i.test(msg);
   }
 
   /**

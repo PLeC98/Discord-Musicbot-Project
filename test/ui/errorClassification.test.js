@@ -3,13 +3,13 @@
 // 오류를 가르는 두 집의 지금 답을 한 표로 고정한다(구조 리팩터링 0-B).
 //
 // ErrorHandler.classify(사용자에게 보일 범주)와 YouTube.is*Error(재시도 · 폴백 판단)가 같은 문장을 따로 가른다.
-// 2a 는 이 답을 그대로 rules/errorKind 로 옮기고, 2b 가 몇 칸을 바꾼다(분류 순서 버그 · 코드 먼저 보기).
-// 바뀌는 칸은 그 커밋에서 이 표를 고친다. 표에 "순서 버그" 라고 적은 행이 2b 가 고칠 곳이다.
+// 두 집이 같은 문장을 같은 뜻으로 가르는지 이 표가 본다. "고친 순서" 라고 적은 행은 예전에 봇 감지로 잘못 가르던 것이다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const ErrorHandler = require("../../src/ui/errorMessages");
 const YouTube = require("../../src/sources/youtube/index");
+const { RULES } = require("../../src/rules/errorKind");
 
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;
@@ -17,12 +17,12 @@ const F = false;
 const TABLE = [
   // 영상이 없는 경우
   ["ERROR: [youtube] abc: Video unavailable", "video-unavailable", T, F, F, F, F],
-  ["ERROR: [youtube] abc: This video is unavailable", "bot-check", F, F, F, F, F], // 순서 버그: 봇 감지 규칙에 걸린다. 영상 없음 정규식도 "video is unavailable" 을 못 잡는다
+  ["ERROR: [youtube] abc: This video is unavailable", "video-unavailable", T, F, F, F, F], // 고친 순서: 봇 감지 규칙에 있던 것을 영상 없음으로. 영상 없음 정규식도 "is" 를 받는다
   ["ERROR: [youtube] abc: Private video. Sign in if you've been granted access", "video-unavailable", T, F, F, F, F],
   ["ERROR: This video has been removed by the uploader", "video-unavailable", T, F, F, F, F],
   ["ERROR: This video is no longer available because the YouTube account associated with this video has been terminated", "video-unavailable", T, F, F, F, F],
   // 연령 제한 · 봇 감지 · 쿠키
-  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "bot-check", F, T, F, F, F], // 순서 버그: 봇 감지의 "sign in to confirm" 이 연령 제한보다 먼저 걸린다
+  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "age-restricted", F, T, F, F, F], // 고친 순서: 연령 제한이 봇 감지("sign in to confirm")보다 앞
   ["ERROR: Sign in to confirm you're not a bot", "bot-check", F, F, F, F, F],
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 가르지 않는다
   // 클라이언트 · 포맷
@@ -64,4 +64,15 @@ test("classify 는 문자열과 빈 값도 받는다", () => {
   assert.equal(ErrorHandler.classify("fetch failed"), "network");
   assert.equal(ErrorHandler.classify(null), "unknown");
   assert.equal(ErrorHandler.classify(undefined), "unknown");
+});
+
+// 한 문장이 규칙 둘에 걸리면 표의 차례가 답을 정한다. 그런 겹침은 여기 적은 것만 있어야 한다
+// (새로 겹치면 차례를 다시 보고 이 목록에 이유와 함께 더한다).
+test("분류 규칙의 겹침: 알고 있는 것만", () => {
+  const KNOWN = {
+    "ERROR: Sign in to confirm your age. This video may be inappropriate for some users.": ["age-restricted", "bot-check"], // 연령 제한이 앞
+  };
+  const hits = (msg) => RULES.filter(([, tests]) => tests.some((one) => (typeof one === "function" ? one(msg.toLowerCase()) : msg.toLowerCase().includes(one)))).map(([kind]) => kind);
+  const overlaps = Object.fromEntries(TABLE.map(([msg]) => [msg, hits(msg)]).filter(([, kinds]) => kinds.length > 1));
+  assert.deepEqual(overlaps, KNOWN);
 });

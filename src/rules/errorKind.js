@@ -1,42 +1,34 @@
 "use strict";
 
 // 판정: 이 오류는 어떤 종류인가. 오류 문장을 보고 종류 이름을 낸다. 문장은 ui/errorMessages 가 만든다.
-// 규칙은 위에서부터 처음 맞는 것이 이긴다. 차례가 곧 우선순위다.
+// 표의 위에서부터 처음 맞는 것이 이긴다. 차례가 곧 우선순위다.
+//
+// 연령 제한이 봇 감지보다 앞이다. 연령 확인 문장("Sign in to confirm your age")이 봇 감지의 "sign in to confirm" 도
+// 품고 있어서, 차례가 거꾸로면 연령 제한이 봇 감지로 가려진다.
+
+const RULES = [
+  ["age-restricted", ["age-restricted", "age restricted", "confirm your age", "only available to registered users"]],
+  // YouTube 봇 감지 / 로그인 필요
+  ["bot-check", ["sign in to confirm", "confirm you", "bot detection", "not a robot", "please sign in", "inappropriate", (m) => m.includes("youtube") && m.includes("403")]],
+  // 비공개 / 삭제됨 / 사용할 수 없는 영상
+  ["video-unavailable", ["private video", "video unavailable", "this video is unavailable", "this video has been removed", "no longer available", "has been deleted", "video is not available"]],
+  ["geo-blocked", ["not available in your country", "geo", "blocked in", "region"]],
+  ["rate-limited", ["429", "too many requests", "rate limit", "quota"]],
+  // Spotify 트랙을 YouTube 에서 찾을 수 없음
+  ["no-youtube-match", ["youtube equivalent not found", "no youtube match", "could not find youtube", "동등물"]],
+  ["no-results", ["no results", "not found", "no entries", "no tracks"]],
+  ["network", ["econnreset", "econnrefused", "etimedout", "fetch failed", "socket hang up", "network", "connection refused", "getaddrinfo"]],
+  // FFmpeg / 스트림 처리
+  ["stream-failed", ["ffmpeg", "pipe", "stream", "audio", "codec"]],
+  ["voice-permission", ["missing access", "missing permissions", "voice_join", "speak"]],
+];
+
+const matches = (msg, test) => (typeof test === "function" ? test(msg) : msg.includes(test));
 
 function errorKind(error) {
   const msg = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
-
-  // YouTube 봇 감지 / 로그인 필요
-  if (msg.includes("sign in to confirm") || msg.includes("confirm you") || msg.includes("bot detection") || msg.includes("not a robot") || msg.includes("please sign in") || msg.includes("inappropriate") || msg.includes("this video is unavailable") || (msg.includes("youtube") && msg.includes("403"))) return "bot-check";
-
-  // 연령 제한
-  if (msg.includes("age-restricted") || msg.includes("age restricted") || msg.includes("confirm your age") || msg.includes("only available to registered users")) return "age-restricted";
-
-  // 비공개 / 삭제됨 / 사용할 수 없는 영상
-  if (msg.includes("private video") || msg.includes("video unavailable") || msg.includes("this video has been removed") || msg.includes("no longer available") || msg.includes("has been deleted") || msg.includes("video is not available")) return "video-unavailable";
-
-  // 지역 제한
-  if (msg.includes("not available in your country") || msg.includes("geo") || msg.includes("blocked in") || msg.includes("region")) return "geo-blocked";
-
-  // 속도 제한
-  if (msg.includes("429") || msg.includes("too many requests") || msg.includes("rate limit") || msg.includes("quota")) return "rate-limited";
-
-  // Spotify 트랙을 YouTube에서 찾을 수 없음
-  if (msg.includes("youtube equivalent not found") || msg.includes("no youtube match") || msg.includes("could not find youtube") || msg.includes("동등물")) return "no-youtube-match";
-
-  // 결과 없음
-  if (msg.includes("no results") || msg.includes("not found") || msg.includes("no entries") || msg.includes("no tracks")) return "no-results";
-
-  // 네트워크 / 연결 오류
-  if (msg.includes("econnreset") || msg.includes("econnrefused") || msg.includes("etimedout") || msg.includes("fetch failed") || msg.includes("socket hang up") || msg.includes("network") || msg.includes("connection refused") || msg.includes("getaddrinfo")) return "network";
-
-  // FFmpeg / 스트림 처리
-  if (msg.includes("ffmpeg") || msg.includes("pipe") || msg.includes("stream") || msg.includes("audio") || msg.includes("codec")) return "stream-failed";
-
-  // 음성 채널 권한
-  if (msg.includes("missing access") || msg.includes("missing permissions") || msg.includes("voice_join") || msg.includes("speak")) return "voice-permission";
-
+  for (const [kind, tests] of RULES) if (tests.some((test) => matches(msg, test))) return kind;
   return "unknown";
 }
 
-module.exports = { errorKind };
+module.exports = { errorKind, RULES };

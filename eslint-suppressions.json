@@ -111,11 +111,6 @@
       "count": 1
     }
   },
-  "src/rules/errorKind.js": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/store/guildSettings.js": {
     "no-empty": {
       "count": 2
