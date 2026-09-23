@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { loadModules } = require("../src/moduleLoader");
+const { loadModules } = require("../../src/app/moduleLoader");
 
 function tmpModules(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "modload-"));

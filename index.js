@@ -13,7 +13,7 @@ const MusicPlayer = require("./src/player/Player");
 const { resolveGuildForRestore } = require("./src/player/sessionRestore");
 const DashboardEvents = require("./src/player/events");
 const voiceChannelStatus = require("./src/player/voiceChannelStatus");
-const { loadModules } = require("./src/moduleLoader");
+const { loadModules } = require("./src/app/moduleLoader");
 const { scheduleReplyCleanup } = require("./src/ui/replyLifetime");
 const PlayerRegistry = require("./src/player/registry");
 const { ALLOWED_MENTIONS } = require("./src/ui/mentions");
@@ -35,7 +35,7 @@ if (logFile) {
 
 // 슬래시 명령어 배포
 {
-  const { deployCommands, deployErrorLines } = require("./src/commandLoader");
+  const { deployCommands, deployErrorLines } = require("./src/app/commandLoader");
   log.debug("슬래시 명령어 배포를 시작합니다.");
   deployCommands().then((r) => {
     if (r.ok && r.skipped) log.info(`명령어 정의 ${r.count}개가 바뀌지 않았습니다. 등록을 건너뜁니다. (강제 재배포: pnpm run cmddeploy)`);
@@ -214,7 +214,7 @@ startBgutilServer();
 // ────────────────────────────────────────────────────────────────────────────
 
 // uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료). src/resilience.js
-const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/resilience");
+const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/app/resilience");
 
 function startBot() {
   const client = new Client({
@@ -246,7 +246,7 @@ function startBot() {
   };
 
   const loadCommands = () => {
-    const { commands, failures, missing } = require("./src/commandLoader").loaded;
+    const { commands, failures, missing } = require("./src/app/commandLoader").loaded;
     if (missing) return log.warn("commands 디렉터리가 없어 명령어 로딩을 건너뜁니다.");
 
     abortOnLoadFailure("슬래시 명령어", failures);

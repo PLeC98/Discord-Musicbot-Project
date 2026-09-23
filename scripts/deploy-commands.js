@@ -4,7 +4,7 @@
 // 봇 프로세스와 무관하게 실행되므로 봇 재시작 없이 언제든 커맨드 정의를 갱신한다.
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
-const { deployCommands, commands, deployErrorLines } = require("../src/commandLoader");
+const { deployCommands, commands, deployErrorLines } = require("../src/app/commandLoader");
 
 (async () => {
   console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);

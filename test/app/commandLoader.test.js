@@ -27,11 +27,11 @@ after(() => {
   REST.prototype.put = realPut;
 });
 
-const { commands, loaded, deployCommands, deployErrorLines } = require("../src/commandLoader");
-const config = require("../config");
+const { commands, loaded, deployCommands, deployErrorLines } = require("../../src/app/commandLoader");
+const config = require("../../config");
 
 test("commands/*.js 전부가 유효한 정의(name/description)로 로드됨", () => {
-  const fileCount = fs.readdirSync(path.join(__dirname, "..", "commands")).filter((f) => f.endsWith(".js")).length;
+  const fileCount = fs.readdirSync(path.join(__dirname, "..", "..", "commands")).filter((f) => f.endsWith(".js")).length;
   assert.equal(commands.length, fileCount, "data/execute 누락으로 스킵되는 커맨드 파일이 없어야 함");
   for (const c of commands) {
     assert.equal(typeof c.name, "string");
