@@ -1,5 +1,3 @@
-"use strict";
-
 // 여러 파일에서 공유되는 공통 한국어 문자열
 // 파일별 문자열은 각 파일에 인라인으로 하드코딩
 
@@ -15,7 +13,7 @@ const withoutErrorMark = (msg) => String(msg ?? "").replace(/^\s*❌\s*/, "");
 const COLLECTION_LABELS = { playlist: "재생목록", album: "앨범", artist: "아티스트 인기곡" };
 const collectionLabel = (collection) => COLLECTION_LABELS[collection] || COLLECTION_LABELS.playlist;
 
-module.exports = {
+const exported = {
   withErrorMark,
   withoutErrorMark,
   collectionLabel,
@@ -34,3 +32,5 @@ module.exports = {
   ERR_LIVE_NO_SEEK: "❌ 라이브 방송은 구간 이동을 할 수 없어요.",
   ERR_LIVE_NO_LOOP: "❌ 라이브 방송이 있으면 반복을 켤 수 없어요.",
 };
+export default exported;
+export { exported as "module.exports" };

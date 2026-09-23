@@ -1,5 +1,3 @@
-"use strict";
-
 // src/ui/mentions.js — 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
 //
 // 회귀 대상 1: 트랙 제목·직접 링크 파일명은 공격자가 정할 수 있는데 그대로 content에 들어갔다.
@@ -7,11 +5,12 @@
 // 회귀 대상 2: 제목이 `[클릭](https://evil.example)`이면 안내 문구 안에서 진짜 클릭되는
 // 링크로 렌더링됐다(2026-09-08 실측). 곡 하나 추가할 수 있으면 피싱 링크를 심을 수 있었다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { WebhookClient, MessagePayload } = require("discord.js");
-const { ALLOWED_MENTIONS, escapeMd } = require("../../src/ui/mentions");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { WebhookClient, MessagePayload } from "discord.js";
+import mentions from "../../src/ui/mentions.js";
+const { ALLOWED_MENTIONS, escapeMd } = mentions;
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
 const EVIL_LINK = "[여기를 클릭](https://evil.example)";

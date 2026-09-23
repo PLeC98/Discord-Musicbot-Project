@@ -1,13 +1,16 @@
-"use strict";
-
 // 현재 재생 임베드의 자가 복구 — 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
 // 회귀 대상: 사용자가 임베드를 지우면 5초 갱신마다 10008(Unknown Message)을 error로 찍던 도배.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { Collection } = require("discord.js");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
-const GuildSettingsManager = require("../../src/store/guildSettings");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { Collection } from "discord.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
+import GuildSettingsManager from "../../src/store/guildSettings.js";
+
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
 
 const BOT_CHANNEL = "chan-1";
 

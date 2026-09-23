@@ -1,9 +1,13 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } = require("discord.js");
-const log = require("../infra/log/logger").child({ category: "player" });
-const config = require("../../config");
-const { formatDuration } = require("./format");
-const { progressBar, emptyProgressBar } = require("./progressBar");
-const { labelOf, emojiOf } = require("./platforms");
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } from "discord.js";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "player" });
+import config from "../../config.js";
+import format from "./format.js";
+const { formatDuration } = format;
+import progressBarModule from "./progressBar.js";
+const { progressBar, emptyProgressBar } = progressBarModule;
+import platforms from "./platforms.js";
+const { labelOf, emojiOf } = platforms;
 
 // 알릴 곳이 없는 매체. 결과를 알리는 매체는 부르는 쪽(usecases/responders)이 넘긴다
 const NO_RESPONDER = {
@@ -14,12 +18,13 @@ const NO_RESPONDER = {
     // 치울 자리표시자가 없다
   },
 };
-const playerEvents = require("../player/events");
-const ErrorHandler = require("./errorMessages");
-const S = require("./strings");
-const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
-const GuildSettingsManager = require("../store/guildSettings");
-const trackState = require("../player/trackState");
+import playerEvents from "../player/events.js";
+import ErrorHandler from "./errorMessages.js";
+import S from "./strings.js";
+import mentions from "./mentions.js";
+const { ALLOWED_MENTIONS, escapeMd } = mentions;
+import GuildSettingsManager from "../store/guildSettings.js";
+import trackState from "../player/trackState.js";
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
 const UNKNOWN_MESSAGE = 10008;
@@ -29,10 +34,12 @@ const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNK
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
-const { markTransient, isTransient } = require("./transientMessages");
-const blankThumbnail = require("./blankThumbnail");
-const { jumpDescription } = require("./queueDisplay");
-const NowPlayingPanel = require("./panelLocation");
+import transientMessages from "./transientMessages.js";
+const { markTransient, isTransient } = transientMessages;
+import blankThumbnail from "./blankThumbnail.js";
+import queueDisplay from "./queueDisplay.js";
+const { jumpDescription } = queueDisplay;
+import NowPlayingPanel from "./panelLocation.js";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
@@ -830,4 +837,5 @@ class MusicEmbedManager {
   }
 }
 
-module.exports = MusicEmbedManager;
+export default MusicEmbedManager;
+export { MusicEmbedManager as "module.exports" };

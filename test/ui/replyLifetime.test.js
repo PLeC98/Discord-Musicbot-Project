@@ -1,10 +1,9 @@
-"use strict";
-
 // src/ui/replyLifetime.js — 본인에게만 보이는 응답의 수명 표와 지우기 예약
 
-const { test, mock } = require("node:test");
-const assert = require("node:assert/strict");
-const { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS } = require("../../src/ui/replyLifetime");
+import { test, mock } from "node:test";
+import assert from "node:assert/strict";
+import replyLifetime from "../../src/ui/replyLifetime.js";
+const { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS } = replyLifetime;
 
 function command(name, over = {}) {
   const calls = [];

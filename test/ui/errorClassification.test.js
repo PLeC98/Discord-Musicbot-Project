@@ -1,15 +1,14 @@
-"use strict";
-
 // 오류를 가르는 두 집의 지금 답을 한 표로 고정한다(구조 리팩터링 0-B).
 //
 // ErrorHandler.classify(사용자에게 보일 범주)와 YouTube.is*Error(재시도 · 폴백 판단)가 같은 문장을 따로 가른다.
 // 두 집이 같은 문장을 같은 뜻으로 가르는지 이 표가 본다. "고친 순서" 라고 적은 행은 예전에 봇 감지로 잘못 가르던 것이다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const ErrorHandler = require("../../src/ui/errorMessages");
-const YouTube = require("../../src/sources/youtube/index");
-const { RULES } = require("../../src/rules/errorKind");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import ErrorHandler from "../../src/ui/errorMessages.js";
+import YouTube from "../../src/sources/youtube/index.js";
+import errorKind from "../../src/rules/errorKind.js";
+const { RULES } = errorKind;
 
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;

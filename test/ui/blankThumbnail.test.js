@@ -1,9 +1,7 @@
-"use strict";
-
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const zlib = require("node:zlib");
-const blankThumbnail = require("../../src/ui/blankThumbnail");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import zlib from "node:zlib";
+import blankThumbnail from "../../src/ui/blankThumbnail.js";
 
 const { crc32, NAME, SIZE } = blankThumbnail._internals;
 

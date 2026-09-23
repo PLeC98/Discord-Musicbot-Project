@@ -1,12 +1,10 @@
-"use strict";
-
 // 대기열 상한 — 추가 구간(MusicEmbedManager._processMusic)이 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
 
-const { test, afterEach } = require("node:test");
-const assert = require("node:assert/strict");
-const config = require("../../config");
-const trackState = require("../../src/player/trackState");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
+import { test, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import config from "../../config.js";
+import trackState from "../../src/player/trackState.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {

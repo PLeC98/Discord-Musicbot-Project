@@ -1,5 +1,3 @@
-"use strict";
-
 // 프로젝트 공용 소형 유틸
 
 /** 초 단위 길이를 H:MM:SS 또는 M:SS 문자열로 변환 */
@@ -18,4 +16,6 @@ function formatDuration(seconds) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
-module.exports = { formatDuration };
+const exported = { formatDuration };
+export default exported;
+export { exported as "module.exports" };

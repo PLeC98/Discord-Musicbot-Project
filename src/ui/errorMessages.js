@@ -1,5 +1,7 @@
-const log = require("../infra/log/logger").child({ category: "error" });
-const { errorKind } = require("../rules/errorKind");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "error" });
+import errorKindModule from "../rules/errorKind.js";
+const { errorKind } = errorKindModule;
 const ERROR_MESSAGES = {
   "bot-check": "❌ **YouTube가 이 요청을 차단했습니다 (봇 감지)**\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** bgutil-ytdlp-pot-provider를 설치하거나, `.env` 파일에 `COOKIES_SOURCE=chrome` (또는 firefox/edge)를 추가하세요.",
   // 운영자가 쿠키를 일부러 안 걸어 둔 것일 수 있다. 사용자에게 설정 방법을 늘어놓지 않는다
@@ -69,4 +71,5 @@ class ErrorHandler {
   }
 }
 
-module.exports = ErrorHandler;
+export default ErrorHandler;
+export { ErrorHandler as "module.exports" };

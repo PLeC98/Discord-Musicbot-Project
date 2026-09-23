@@ -1,14 +1,12 @@
-"use strict";
-
 // 곡 추가 코어(MusicEmbedManager._processMusic)의 흐름을 고정한다(구조 리팩터링 0-B).
 //
 // 6단계가 이것을 화면 모듈에서 usecases/addTracks 로 옮긴다. 첫 곡 재생 · 실패 · 다음 곡으로 되살리기 · 대기열 상한 · 넣을 자리 ·
 // 안내를 적어 둔다. 대기열은 진짜 trackState 로 바뀌고, 플레이어의 연결 · 재생과 패널 만들기만 가짜다.
 
-const { test, mock } = require("node:test");
-const assert = require("node:assert/strict");
-const config = require("../../config");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
+import { test, mock } from "node:test";
+import assert from "node:assert/strict";
+import config from "../../config.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 
 const track = (id, extra = {}) => ({ id, title: `곡 ${id}`, url: `https://youtu.be/${id}`, ...extra });
 const who = { id: "u1", username: "사용자" };

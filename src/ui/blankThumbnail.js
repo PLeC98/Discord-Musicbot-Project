@@ -1,9 +1,7 @@
-"use strict";
-
 // 썸네일 자리를 채우는 투명 PNG. CV2 섹션은 액세서리가 있어야 하고, 없으면 레이아웃이 달라진다.
 // 메시지에 첨부하고 attachment://로 가리킨다. 파일로 두지 않고 처음 쓸 때 만든다.
 
-const zlib = require("node:zlib");
+import zlib from "node:zlib";
 
 const NAME = "blank.png";
 const SIZE = 256;
@@ -41,8 +39,10 @@ function png(size) {
 
 let cached = null;
 
-module.exports = {
+const exported = {
   url: `attachment://${NAME}`,
   file: () => ({ attachment: (cached ??= png(SIZE)), name: NAME }),
   _internals: { png, crc32, NAME, SIZE },
 };
+export default exported;
+export { exported as "module.exports" };

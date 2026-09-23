@@ -1,12 +1,10 @@
-"use strict";
-
 // src/ui/nowPlayingPanel.js — 서버별 음악 처리 락 (Promise tail 체인).
 // 실제 처리(_processMusic)는 스텁하고 직렬화 계약만 검증한다.
 // 회귀 대상: 구 "await 후 set" 방식의 A/B/C 경쟁 (앞 작업 finally가 뒤 작업 락을 삭제 → 동시 실행)
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 
 function deferred() {
   let resolve, reject;
@@ -151,7 +149,7 @@ test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보�
 // ── 끝난 패널 ──
 // 부르는 곳이 전부 현재 곡을 먼저 비워, 버튼 끄기가 한 번도 돌지 않았다(2026-09-16).
 
-const GuildSettingsManager = require("../../src/store/guildSettings");
+const GuildSettingsManager = (await import("../../src/store/guildSettings.js")).default;
 
 function panelPlayer(over = {}) {
   return {

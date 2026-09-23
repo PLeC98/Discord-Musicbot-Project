@@ -1,10 +1,8 @@
-"use strict";
-
 // src/ui/errorMessages.js — 오류 분류 및 사용자 메시지 매핑
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const ErrorHandler = require("../../src/ui/errorMessages");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import ErrorHandler from "../../src/ui/errorMessages.js";
 
 const CASES = [
   // [실제 yt-dlp/네트워크에서 나오는 형태의 메시지, 기대 범주]

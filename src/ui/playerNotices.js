@@ -1,11 +1,12 @@
-"use strict";
-
 // 플레이어가 알린 일(notice)을 그 서버의 글자 채널에 문장으로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
 
-const ErrorHandler = require("./errorMessages");
-const { formatDuration } = require("./format");
-const { escapeMd } = require("./mentions");
-const { scheduleDelete } = require("./transientMessages");
+import ErrorHandler from "./errorMessages.js";
+import format from "./format.js";
+const { formatDuration } = format;
+import mentions from "./mentions.js";
+const { escapeMd } = mentions;
+import transientMessages from "./transientMessages.js";
+const { scheduleDelete } = transientMessages;
 
 // 코드 → 문장. 세부(detail)는 알린 쪽이 준 것
 const TEXT = {
@@ -31,4 +32,6 @@ async function sendNotice(player, code, detail = {}) {
   if (SHORT_LIVED.has(code)) scheduleDelete(sent);
 }
 
-module.exports = { sendNotice, NOTICE_TEXT: TEXT };
+const exported = { sendNotice, NOTICE_TEXT: TEXT };
+export default exported;
+export { exported as "module.exports" };

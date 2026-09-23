@@ -1,11 +1,9 @@
-"use strict";
-
 // 자동재생 장르 선택 화면. 자동재생 버튼과 `/autoplay`가 같은 것을 띄운다.
 // 진입점마다 따로 만들면 한쪽만 고쳐져 갈라진다(실제로 명령 쪽은 영문 키 목록을 쓰고 있었다).
 
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require("discord.js");
-const config = require("../../config");
-const genreConfig = require("../config/genres");
+import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
+import config from "../../config.js";
+import genreConfig from "../config/genres.js";
 
 // 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
 const OFF_MENU_MS = 30_000;
@@ -46,4 +44,6 @@ function buildAutoplayOffMenu(requesterId, sessionId) {
   return { embeds: [embed], components: [new ActionRowBuilder().addComponents(select)], flags: [1 << 6] };
 }
 
-module.exports = { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS };
+const exported = { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS };
+export default exported;
+export { exported as "module.exports" };

@@ -1,6 +1,6 @@
-const { ActivityType } = require("discord.js");
-const KoreanLunarCalendar = require("korean-lunar-calendar");
-const statusConfig = require("../config/status");
+import { ActivityType } from "discord.js";
+import KoreanLunarCalendar from "korean-lunar-calendar";
+import statusConfig from "../config/status.js";
 
 // Custom은 말머리("듣는 중" 같은 것) 없이 문구만 보여준다.
 // discord.js가 알아서 state로 옮겨 주므로 여기서는 이름만 넘기면 된다(ClientPresence 참고).
@@ -111,7 +111,8 @@ class StatusManager {
   }
 }
 
-module.exports = StatusManager;
-module.exports.TYPE_MAP = TYPE_MAP;
-module.exports.parseRange = parseRange;
-module.exports.toMessage = toMessage;
+export default StatusManager;
+export { StatusManager as "module.exports" };
+StatusManager.TYPE_MAP = TYPE_MAP;
+StatusManager.parseRange = parseRange;
+StatusManager.toMessage = toMessage;

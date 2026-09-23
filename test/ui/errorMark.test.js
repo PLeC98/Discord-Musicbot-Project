@@ -1,15 +1,14 @@
-"use strict";
-
 // 오류 메시지의 ❌ 접두 규약 — src/ui/strings.js가 단일 출처.
 //
 // 회귀 대상: 표시 지점마다 접두를 제각기 추측해 전용 채널은 "❌ ❌ …"로 두 번 찍고,
 // handleMusicData 실패는 ❌ 없이 나가고, 대시보드 JSON에는 ❌가 새어 들어갔다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const S = require("../../src/ui/strings");
-const { toApiError } = require("../../dashboard/server/middleware/requireControl");
+import S from "../../src/ui/strings.js";
+import requireControl from "../../dashboard/server/middleware/requireControl.js";
+const { toApiError } = requireControl;
 
 // 실제로 흘러다니는 두 종류의 출처
 const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // sources/lookup / ErrorHandler / strings

@@ -1,14 +1,12 @@
-"use strict";
-
 // 전용 채널의 패널 — 끝난 패널 자리를 재생 화면으로 고쳐 쓰고, 묻히면 맨 아래로, 음성에서 나가면 문구를 고친다.
 // 전용 채널이 있으면 패널은 늘 그 채널에 둔다.
 
-const { test, beforeEach, afterEach } = require("node:test");
-const assert = require("node:assert/strict");
-const { Collection } = require("discord.js");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
-const GuildSettingsManager = require("../../src/store/guildSettings");
-const playerEvents = require("../../src/player/events");
+import { test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
+import { Collection } from "discord.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
+import GuildSettingsManager from "../../src/store/guildSettings.js";
+import playerEvents from "../../src/player/events.js";
 
 const BOT = "bot-chan";
 let botChannelId;

@@ -1,8 +1,7 @@
-"use strict";
-
 // 재생 진행 막대. 재생 패널과 /nowplaying 이 같은 모양을 쓴다.
 
-const { formatDuration } = require("./format");
+import format from "./format.js";
+const { formatDuration } = format;
 
 const BAR_LENGTH = 16;
 
@@ -30,4 +29,6 @@ function progressBar(currentSec, totalSec, { live = false } = {}) {
 /** 곡이 없을 때의 막대 */
 const emptyProgressBar = () => `\`--:--\` ●${"▬".repeat(BAR_LENGTH)} \`--:--\``;
 
-module.exports = { progressBar, emptyProgressBar, BAR_LENGTH };
+const exported = { progressBar, emptyProgressBar, BAR_LENGTH };
+export default exported;
+export { exported as "module.exports" };

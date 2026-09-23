@@ -1,13 +1,12 @@
-"use strict";
-
 // src/ui/queueDisplay.js — 대기열을 보여 주는 자리들의 공통 생김새.
 //
 // `/queue`와 대기열 버튼이 거의 같은 임베드를 각자 만들고 있었다(한쪽만 고치면 표시가 갈린다).
 // 줄 만드는 일을 이 모듈로 모았으므로, 규칙은 여기서 잠근다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { queueLine, jumpDescription, AUTOPLAY_MARK } = require("../../src/ui/queueDisplay");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import queueDisplay from "../../src/ui/queueDisplay.js";
+const { queueLine, jumpDescription, AUTOPLAY_MARK } = queueDisplay;
 
 const song = (over = {}) => ({ title: "곡", pageUrl: "https://y/1", artist: "가수", duration: 100, ...over });
 

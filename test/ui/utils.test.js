@@ -1,10 +1,9 @@
-"use strict";
-
 // src/ui/format.js — 공용 소형 유틸
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { formatDuration } = require("../../src/ui/format");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import format from "../../src/ui/format.js";
+const { formatDuration } = format;
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
   assert.equal(formatDuration(0), "0:00");

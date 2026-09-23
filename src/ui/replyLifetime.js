@@ -1,5 +1,3 @@
-"use strict";
-
 // 본인에게만 보이는 응답을 얼마 뒤 지울지. 한 곳에서 정한다(2026-09-16). 쓰면서 불편하면 이 표만 고친다.
 //   거절·오류("재생 중인 음악이 없습니다", 권한 부족, 입력 오류)와 조작 결과(일시정지·스킵·볼륨 …) → 기본값
 //   읽는 화면과, 조작하는 동안 떠 있어야 하는 설정·선택 화면 → null(지우지 않는다. 사용자가 닫는다)
@@ -84,4 +82,6 @@ function scheduleReplyCleanup(interaction) {
   timer.unref?.();
 }
 
-module.exports = { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS, COMMANDS, COMPONENTS };
+const exported = { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS, COMMANDS, COMPONENTS };
+export default exported;
+export { exported as "module.exports" };

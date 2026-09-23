@@ -1,11 +1,10 @@
-"use strict";
-
 // 대기열을 보여 주는 자리들이 같은 생김새를 쓰게 한다.
 //
 // `/queue`와 대기열 버튼은 거의 같은 임베드를 각자 만들고 있었다. 한쪽만 고치면 표시가 갈리므로
 // 줄 만드는 일을 여기로 모은다. 점프 메뉴 설명도 같은 규칙(요청자 표기)을 따른다.
 
-const { formatDuration } = require("./format");
+import format from "./format.js";
+const { formatDuration } = format;
 
 // 자동재생이 미리 뽑아 둔 곡 표시. 장르별 이모지는 쓰지 않는다.
 // 알려야 하는 것은 "자동으로 들어온 곡"이지 장르가 아니고, 장르마다 다르면 전달이 흐려진다.
@@ -47,4 +46,6 @@ function jumpDescription(track) {
   return tail ? `${trimmed} | ${tail}` : trimmed;
 }
 
-module.exports = { queueLine, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };
+const exported = { queueLine, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };
+export default exported;
+export { exported as "module.exports" };
