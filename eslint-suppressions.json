@@ -208,7 +208,7 @@
       "count": 2
     }
   },
-  "src/sources/trackResolver.js": {
+  "src/sources/lookup.js": {
     "complexity": {
       "count": 1
     }

@@ -7,8 +7,8 @@
     "src/player/sessionMirror.js -> src/ui/format.js",
     "src/player/sessionMirror.js -> src/ui/mentions.js",
     "src/player/sessionMirror.js -> src/usecases/responders.js",
+    "src/sources/lookup.js -> src/ui/errorMessages.js",
     "src/sources/soundcloud.js -> src/media/ffmpeg/path.js",
-    "src/sources/trackResolver.js -> src/ui/errorMessages.js",
     "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js",
     "src/store/playerSessions.js -> src/player/trackState.js",
     "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"
