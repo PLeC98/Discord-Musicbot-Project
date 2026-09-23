@@ -42,8 +42,8 @@ test("대시보드 알림 · 놓기는 기다리지 않고, 실패해도 알린 
     throw new Error("끊김");
   });
   playerEvents.on("touched", (g) => seen.push(`touched:${g}`));
-  playerEvents.on("released", (id) => seen.push(`released:${id}`));
+  playerEvents.on("released", (_p, id) => seen.push(`released:${id}`));
   playerEvents.touched("g1");
-  playerEvents.released("t1");
+  playerEvents.released({}, "t1");
   assert.deepEqual(seen, ["touched:g1", "released:t1"]);
 });

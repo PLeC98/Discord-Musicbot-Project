@@ -31,7 +31,7 @@ async function forcedOut(client, player, guild) {
   try {
     player.pendingEndReason = "forced-disconnect";
     trackState.reset(player);
-    await client.musicEmbedManager?.handlePlaybackEnd(player, { reason: "disconnected" });
+    await playerEvents.ended(player, "disconnected");
   } catch (error) {
     log.error("강제 연결 해제 후 재생 UI 갱신 실패:", error);
   } finally {
@@ -46,7 +46,7 @@ async function botMoved(client, player, oldState, newState) {
   if (!oldState.channelId || !newState.channelId || oldState.channelId === newState.channelId || !newState.channel) return;
   player.voice.followMove(oldState.channelId, newState.channel);
   player.idle.cancelAlone(false);
-  await client.musicEmbedManager?.updateNowPlayingEmbed(player);
+  await playerEvents.refresh(player);
 }
 
 // 서버 음소거 · 헤드셋 끄기 · 무대 발언권 없음은 들을 수 없으니 멈춘다
@@ -54,10 +54,10 @@ async function botMuted(client, player, oldState, newState) {
   const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
   const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
   if (!wasMuted && isMuted) {
-    if (player.pauseFor("mute")) await client.musicEmbedManager?.updateNowPlayingEmbed(player);
+    if (player.pauseFor("mute")) await playerEvents.refresh(player);
   } else if (wasMuted && !isMuted) {
     const resumed = player.resumeFor("mute");
-    if (resumed || !player.pauseReasons.has("mute")) await client.musicEmbedManager?.updateNowPlayingEmbed(player);
+    if (resumed || !player.pauseReasons.has("mute")) await playerEvents.refresh(player);
   }
 }
 
@@ -78,7 +78,7 @@ async function listenersChanged(client, player, guild, oldState, newState) {
   if (someone) player.idle.cancelAlone(true);
   else player.idle.startAlone();
   // 멈춤이 바뀌었을 때만 패널을 고친다(혼자 남아 멈춤 · 돌아와 풂)
-  if (wasAlone === someone && player.currentTrack) await client.musicEmbedManager?.updateNowPlayingEmbed(player);
+  if (wasAlone === someone && player.currentTrack) await playerEvents.refresh(player);
 }
 
 module.exports = { onVoiceStateUpdate };

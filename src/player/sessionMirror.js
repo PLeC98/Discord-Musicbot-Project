@@ -8,6 +8,7 @@ const config = require("../../config");
 const { formatDuration } = require("../ui/format");
 const { escapeMd } = require("../ui/mentions");
 const { scheduleDelete } = require("../usecases/responders");
+const playerEvents = require("./events");
 
 const HEARTBEAT_MS = 5000;
 
@@ -282,12 +283,11 @@ class SessionPersistence {
       player.resource.volume.setVolume(player.volume / 100);
     }
 
-    const embedManager = player.guild?.client?.musicEmbedManager;
-    if (embedManager && player.textChannel) {
+    if (player.textChannel) {
       try {
         // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
         const requester = { id: session.requesterId || player.guild.client.user.id };
-        await embedManager.createNewMusicEmbed(player, player.currentTrack, requester);
+        await playerEvents.started(player, requester);
       } catch (error) {
         log.error("세션 복원 중 재생 임베드 복구 실패:", error?.message || error);
       }

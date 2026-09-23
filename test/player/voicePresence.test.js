@@ -6,6 +6,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { onVoiceStateUpdate } = require("../../src/player/voicePresence");
+const playerEvents = require("../../src/player/events");
 
 const BOT = "bot1";
 
@@ -36,11 +37,10 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = {
   const client = {
     user: { id: BOT },
     players,
-    musicEmbedManager: {
-      updateNowPlayingEmbed: async () => calls.push("embed:update"),
-      handlePlaybackEnd: async (_p, { reason }) => calls.push(`embed:end:${reason}`),
-    },
   };
+  // 이 플레이어가 화면에 알린 것
+  playerEvents.on("refresh", async (p) => p === player && calls.push("embed:update"));
+  playerEvents.on("ended", async (p, reason) => p === player && calls.push(`embed:end:${reason}`));
   const state = (id, channelId, extra = {}) => ({ id, channelId, guild, ...extra });
   return { calls, client, player, players, guild, state };
 }
@@ -62,12 +62,12 @@ test("봇이 음성에서 쫓겨나면 끝난 패널로 바꾸고 정리하고 �
 });
 
 test("패널을 못 바꿔도 정리는 한다", async () => {
-  const { client, calls, players, state } = setup();
-  client.musicEmbedManager.handlePlaybackEnd = async () => {
-    throw new Error("x");
-  };
+  const { client, calls, player, players, state } = setup();
+  playerEvents.on("ended", async (p) => {
+    if (p === player) throw new Error("x");
+  });
   await onVoiceStateUpdate(client, state(BOT, "vc1"), state(BOT, null));
-  assert.deepEqual(calls, ["cleanup:봇이 음성에서 강제 퇴장됨"]);
+  assert.deepEqual(calls, ["embed:end:disconnected", "cleanup:봇이 음성에서 강제 퇴장됨"], "알리기는 실패해도 정리는 한다");
   assert.equal(players.has("g1"), false);
 });
 

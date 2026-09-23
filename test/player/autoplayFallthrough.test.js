@@ -37,7 +37,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
     pendingEndReason: null,
     textChannel: null,
     persistence: { removeSession() {} },
-    guild: { id: "g1", client: { musicEmbedManager: null } },
+    guild: { id: "g1", client: {} },
     _trackLabel: MusicPlayer.prototype._trackLabel,
     getCurrentTime: MusicPlayer.prototype.getCurrentTime,
     audioPlayer: { stop() {} },

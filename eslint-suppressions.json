@@ -132,9 +132,6 @@
     }
   },
   "src/player/idleLeave.js": {
-    "complexity": {
-      "count": 1
-    },
     "no-empty-function": {
       "count": 1
     }

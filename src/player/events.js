@@ -6,7 +6,7 @@
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
 //   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · disconnected)
 //   started(player, requester)  패널 없이 재생이 시작됐다(자동재생 첫 곡). 새 패널을 올린다
-//   released(textChannelId)     플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
+//   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 
 const log = require("../infra/log/logger").child({ category: "player" });
@@ -30,8 +30,8 @@ const refresh = (player) => emit("refresh", player);
 const ended = (player, reason) => emit("ended", player, reason);
 const started = (player, requester) => emit("started", player, requester);
 
-function released(textChannelId) {
-  for (const fn of listeners.get("released") ?? []) fn(textChannelId);
+function released(player, textChannelId) {
+  for (const fn of listeners.get("released") ?? []) fn(player, textChannelId);
 }
 
 // 대시보드 알림은 기다리지 않고, 실패해도 알린 쪽을 멈추지 않는다

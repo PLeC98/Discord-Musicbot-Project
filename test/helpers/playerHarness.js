@@ -219,7 +219,7 @@ MusicPlayer.useBoundary({
 
 // ── 6. 도우미 ────────────────────────────────────────────────────────
 function fakeGuild(id = "g1") {
-  const client = { players: new Map(), musicEmbedManager: null, user: { id: "bot" }, guilds: { fetch: async () => null } };
+  const client = { players: new Map(), user: { id: "bot" }, guilds: { fetch: async () => null } };
   return {
     id,
     name: `서버 ${id}`,

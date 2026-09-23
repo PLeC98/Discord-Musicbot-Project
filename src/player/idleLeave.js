@@ -8,6 +8,7 @@
 const log = require("../infra/log/logger").child({ category: "player" });
 const config = require("../../config");
 const trackState = require("./trackState");
+const playerEvents = require("./events");
 
 class IdleLeave {
   constructor(player) {
@@ -36,10 +37,7 @@ class IdleLeave {
 
         if (hasListeners) {
           player.resumeFor("alone");
-          const embedManager = player.guild?.client?.musicEmbedManager;
-          if (embedManager) {
-            await embedManager.updateNowPlayingEmbed(player);
-          }
+          await playerEvents.refresh(player);
           return;
         }
 
@@ -48,8 +46,7 @@ class IdleLeave {
         trackState.reset(player);
 
         try {
-          const embedManager = player.guild?.client?.musicEmbedManager;
-          await embedManager?.handlePlaybackEnd(player, { reason: "disconnected" });
+          await playerEvents.ended(player, "disconnected");
 
           await player.persistState("inactivity-timeout");
         } catch (error) {
@@ -109,7 +106,7 @@ class IdleLeave {
       player.cleanup(reason);
       player.guild.client.players.delete(player.guild.id);
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      player.guild.client.musicEmbedManager?.handlePlaybackEnd(player, { reason: "disconnected" }).catch(() => {});
+      playerEvents.ended(player, "disconnected").catch(() => {});
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 

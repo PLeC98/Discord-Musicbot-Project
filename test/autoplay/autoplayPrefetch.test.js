@@ -12,6 +12,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const MusicPlayer = require("../../src/player/Player");
 const trackState = require("../../src/player/trackState");
+const { recordPanel } = require("../helpers/panelEvents");
 
 const ensureAutoplayNext = MusicPlayer.prototype.ensureAutoplayNext;
 const setAutoplay = MusicPlayer.prototype.setAutoplay;
@@ -155,8 +156,8 @@ test("겹쳐 불려도 한 곡만 들어간다", async () => {
 const handleAutoplay = MusicPlayer.prototype.handleAutoplay;
 
 function makeNowPlayer({ nowPlayingMessage = null } = {}) {
-  const calls = { updated: 0, created: [], sent: [] };
-  return {
+  const calls = { sent: [] };
+  const player = {
     calls,
     autoplay: "팝",
     queue: [],
@@ -166,16 +167,7 @@ function makeNowPlayer({ nowPlayingMessage = null } = {}) {
     guild: {
       id: "g1",
       members: { me: { user: { id: "bot", username: "봇" } } },
-      client: {
-        musicEmbedManager: {
-          async updateNowPlayingEmbed() {
-            calls.updated++;
-          },
-          async createNewMusicEmbed(player, track) {
-            calls.created.push(track.title);
-          },
-        },
-      },
+      client: {},
     },
     async pickAutoplayTrack() {
       return auto("첫곡");
@@ -191,6 +183,8 @@ function makeNowPlayer({ nowPlayingMessage = null } = {}) {
       },
     },
   };
+  player.panel = recordPanel({ player }); // 화면에 알린 것
+  return player;
 }
 
 // 아무것도 틀지 않던 서버에서 /autoplay로 켜는 길 — 이 경로에는 고칠 패널이 없다.
@@ -199,16 +193,14 @@ test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
 
   assert.equal(await handleAutoplay.call(p), true);
   assert.equal(p.currentTrack.title, "첫곡");
-  assert.deepEqual(p.calls.created, ["첫곡"], "빠뜨리면 소리만 나고 화면이 없다");
-  assert.equal(p.calls.updated, 0);
+  assert.deepEqual(p.panel, ["create:첫곡"], "빠뜨리면 소리만 나고 화면이 없다");
 });
 
 test("패널이 이미 있으면 고쳐 쓴다 — 새로 올리지 않는다", async () => {
   const p = makeNowPlayer({ nowPlayingMessage: { id: "m1" } });
 
   assert.equal(await handleAutoplay.call(p), true);
-  assert.equal(p.calls.updated, 1);
-  assert.deepEqual(p.calls.created, []);
+  assert.deepEqual(p.panel, ["update"]);
 });
 
 // 조용히 멈추면 무엇이 잘못됐는지 알 길이 없다. 아무거나 트는 것보다는 끄는 편이 낫다.
@@ -217,8 +209,7 @@ test("고를 곡이 없으면 끄고 알린다 — 아무거나 틀지 않는다
   p.pickAutoplayTrack = async () => null;
 
   assert.equal(await handleAutoplay.call(p), false);
-  assert.equal(p.calls.updated, 0);
-  assert.deepEqual(p.calls.created, []);
+  assert.deepEqual(p.panel, []);
 
   assert.equal(p.autoplay, false, "자동재생이 꺼져야 한다");
   assert.equal(p.calls.sent.length, 1);

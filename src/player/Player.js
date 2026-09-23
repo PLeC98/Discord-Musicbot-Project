@@ -21,6 +21,7 @@ const PlaybackWatch = require("./playbackWatch");
 const IdleLeave = require("./idleLeave");
 const PlaybackState = require("./playbackState");
 const CurrentPlayback = require("./currentPlayback");
+const playerEvents = require("./events");
 const { prepareStart, resolveSource, commitPlaying } = require("./startPlayback");
 const TrackDownloader = require("../media/cacheDownload");
 const createPlayerSessionId = require("./playerSessionId");
@@ -538,8 +539,7 @@ class MusicPlayer {
     this.nowPlayingMessage = null;
     this.requesterId = null;
     this.voiceChannel = null;
-    const embedManager = this.guild?.client?.musicEmbedManager;
-    if (embedManager && this.textChannel?.id) embedManager.deleteWebhookCache(this.textChannel.id);
+    if (this.textChannel?.id) playerEvents.released(this, this.textChannel.id);
     this.textChannel = null;
   }
 
@@ -812,10 +812,7 @@ class MusicPlayer {
 
         // 다음 트랙을 처음부터 재생
         await this.play(0);
-
-        if (this.guild?.client?.musicEmbedManager) {
-          await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this);
-        }
+        await playerEvents.refresh(this);
 
         return;
       }
@@ -842,7 +839,7 @@ class MusicPlayer {
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
-      await this.guild?.client?.musicEmbedManager?.handlePlaybackEnd(this, { reason: "queue-end" });
+      await playerEvents.ended(this, "queue-end");
 
       this.idle.cancelAlone(false);
       this.persistence?.removeSession();
@@ -923,13 +920,10 @@ class MusicPlayer {
     trackState.shiftNext(this);
     await this.play(0);
 
-    const embeds = this.guild?.client?.musicEmbedManager;
-    if (embeds) {
-      // 패널이 없을 수 있다. 아무것도 안 틀던 서버에서 자동재생으로 처음 트는 길.
-      // updateNowPlayingEmbed는 있는 패널을 고칠 뿐이라, 그대로 두면 소리만 나고 화면이 없다.
-      if (this.nowPlayingMessage) await embeds.updateNowPlayingEmbed(this);
-      else await embeds.createNewMusicEmbed(this, this.currentTrack, this.guild.members.me.user);
-    }
+    // 패널이 없을 수 있다. 아무것도 안 틀던 서버에서 자동재생으로 처음 트는 길.
+    // 패널 고치기는 있는 패널을 고칠 뿐이라, 그대로 두면 소리만 나고 화면이 없다.
+    if (this.nowPlayingMessage) await playerEvents.refresh(this);
+    else await playerEvents.started(this, this.guild.members.me.user);
     return true;
   }
 
@@ -970,9 +964,7 @@ class MusicPlayer {
         added++;
       }
 
-      if (added && this.guild?.client?.musicEmbedManager) {
-        await this.guild.client.musicEmbedManager.updateNowPlayingEmbed(this).catch(() => {});
-      }
+      if (added) await playerEvents.refresh(this).catch(() => {});
       return added > 0;
     } finally {
       this._autoplayPicking = false;

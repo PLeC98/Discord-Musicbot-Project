@@ -5,6 +5,7 @@
 // playerPlay.test.js 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
 // 리팩터링이 재생 상태를 한 칸으로 모으고 곡별 객체를 따로 떼어 낼 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
 
+const { recordPanel } = require("../helpers/panelEvents");
 const h = require("../helpers/playerHarness");
 const audioCache = require("../../src/store/audioCache");
 const { test, beforeEach } = require("node:test");
@@ -27,16 +28,8 @@ function cached(id, extra) {
 }
 
 // 재생 패널 관리자 대신. 무엇을 불렀는지만 남긴다
-function embeds(player) {
-  const seen = [];
-  player.guild.client.musicEmbedManager = {
-    seen,
-    updateNowPlayingEmbed: async () => seen.push("update"),
-    handlePlaybackEnd: async (_p, { reason }) => seen.push(`end:${reason}`),
-    deleteWebhookCache: (id) => seen.push(`webhook:${id}`),
-  };
-  return seen;
-}
+// 이 플레이어가 화면에 알린 것(알림을 옛 화면 가짜의 기록 모양으로)
+const embeds = (player) => recordPanel({ player });
 
 // 재생이 끝난 곡 하나를 세운다. 리소스의 재생량으로 "어디까지 틀었나"를 정한다
 function playing(player, track, playedMs = track.duration * 1000) {
