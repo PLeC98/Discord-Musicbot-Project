@@ -211,6 +211,34 @@ test("/playfirst: DJ 계층이 필요하고, 맨 앞에 넣으라고 코어에 �
   assert.equal(w.seen[0].handle.insertFirst, true);
 });
 
+test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
+  const w = world({ roles: ["dj"] });
+  resolveReply = () => ({ success: false, message: "❌ 결과를 찾을 수 없습니다!" });
+  const failed = interaction(w, { options: { query: "없는 노래" } });
+  await cmd("playfirst").execute(failed.it, w.client);
+  assert.deepEqual(failed.log.at(-1), ["editReply", { components: [{ error: "❌ 결과를 찾을 수 없습니다!" }], flags: MessageFlags.IsComponentsV2 }]);
+
+  resolveReply = () => {
+    throw new Error("fetch failed");
+  };
+  const thrown = interaction(w, { options: { query: "끊김" } });
+  await cmd("playfirst").execute(thrown.it, w.client);
+  assert.match(thrown.log.at(-1)[1].components[0].error, /네트워크 오류/);
+
+  w.client.musicEmbedManager.createSearchingContainer = () => {
+    throw new Error("무언가");
+  };
+  const early = interaction(w, { options: { query: "노래" } });
+  await cmd("playfirst").execute(early.it, w.client);
+  assert.equal(early.log[0][1].flags, MessageFlags.Ephemeral);
+
+  resolveReply = () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [{ id: "bbbbbbbbbbb", title: "첫 곡" }] });
+  const more = interaction(world({ roles: ["dj"] }), { options: { query: "https://www.youtube.com/playlist?list=PLabcdefghij" } });
+  await cmd("playfirst").execute(more.it, more.it.client);
+  assert.equal(more.sentOnChannel.length, 1);
+  More.clearExpiry(more.sentOnChannel[0].id);
+});
+
 // ── /search ───────────────────────────────────────────────────────────
 
 test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 달고, 결과를 메시지 id 로 기억한다", async () => {
