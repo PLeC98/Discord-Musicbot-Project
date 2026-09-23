@@ -18,7 +18,6 @@
   "lazyRequire": {
     "src/autoplay/assist/index.js": 6,
     "src/autoplay/assist/tokens.js": 2,
-    "src/autoplay/route.js": 1,
     "src/autoplay/sources/keyword.js": 1,
     "src/autoplay/sources/playlists.js": 2,
     "src/infra/log/sink.js": 1,
@@ -54,7 +53,6 @@
   },
   "requireCache": {
     "test/autoplay/autoplayAssist.test.js": 1,
-    "test/autoplay/autoplayRoute.test.js": 1,
     "test/controlEntrances.test.js": 2,
     "test/dashboard/dashboardErrors.test.js": 3,
     "test/helpers/playerHarness.js": 4,

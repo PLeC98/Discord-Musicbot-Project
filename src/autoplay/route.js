@@ -9,6 +9,9 @@
 //   audioUrl 있음  → 위가 안 되거나 유튜브 쪽 근거가 모자라면 이것을 튼다.
 //                    출처가 곧 정답이라 필터가 없다(upgradeWorthIt)
 //
+// 이름으로 찾기 전에 링크 장부부터 본다. 같은 요청(소스 안의 곡)을 전에 틀었으면 그때 정한 음원을 그대로 쓴다.
+// 검색을 아끼고, 같은 곡이 뽑힐 때마다 다른 영상이 나오지 않는다.
+//
 
 const autoplayFilter = require("./filter");
 const links = require("../rules/links");
@@ -17,7 +20,9 @@ const { candidateKind } = require("../rules/candidateKind");
 const pool = require("./pool");
 const sources = require("./sources/index");
 const match = require("../sources/youtube/match");
-const assist = require("./assist/index");
+const aiAssist = require("./assist/index");
+const YouTube = require("../sources/youtube/index");
+const trackLookup = require("../store/trackLookup");
 const log = require("../infra/log/logger").child({ category: "autoplay" });
 
 // 유튜브에서 찾은 것이 이보다 짧으면 풀버전이 아니라 TV 사이즈 립이다.
@@ -158,9 +163,16 @@ const fromAudio = (cand) => ({
   id: cand.sourceKey,
 });
 
+// 바깥 경계. 테스트는 이것을 넘겨 진짜 소스 · 검색 · 장부 · AI 보조를 부르지 않는다
+const REAL = {
+  search: (query, limit) => YouTube.search(query, limit),
+  known: (requestKey) => trackLookup.getAudioUrl(requestKey),
+  fetch: (source) => sources.fetchFrom(source),
+  assist: aiAssist,
+};
+
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
-async function findOnYouTube(cand, genre) {
-  const YouTube = require("../sources/youtube/index");
+async function findOnYouTube(cand, genre, { search, assist }) {
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
   const { primary, secondary } = match.buildSearchQueries(target);
 
@@ -168,7 +180,7 @@ async function findOnYouTube(cand, genre) {
     const lists = [];
     for (const one of queries.slice(0, 2)) {
       try {
-        lists.push((await YouTube.search(one, 8)) || []);
+        lists.push((await search(one, 8)) || []);
       } catch {
         lists.push([]); // 한 검색어가 실패해도 나머지로 계속한다
       }
@@ -225,9 +237,11 @@ function upgradeWorthIt(cand, confidence, top) {
  * @param {object} cand   소스가 준 후보
  * @param {object} limits autoplayFilter.prepare의 결과
  * @param {string} [genre] 장르 이름. AI 보조가 "이 장르가 맞나"를 물을 때만 쓴다
+ * @param {object} [deps]  바깥 경계(REAL). 생략하면 진짜
  */
-async function resolve(cand, limits, genre) {
+async function resolve(cand, limits, genre, deps = REAL) {
   const kind = candidateKind(cand);
+  const { assist } = deps;
 
   // 1) 유튜브 주소를 직접 받은 것. 검색을 안 했으니 제목을 못 믿는다
   if (kind === "youtube") {
@@ -245,9 +259,11 @@ async function resolve(cand, limits, genre) {
     return track;
   }
 
-  // 2) 이름으로 유튜브에서 찾기
+  // 2) 이름으로 유튜브에서 찾기. 장부에 이 요청의 음원이 있으면 찾지 않고 그것을 쓴다
   if (kind === "search") {
-    const best = await findOnYouTube(cand, genre);
+    const ledger = fromLedger(cand, deps.known(requestKeyOf(cand)));
+    if (ledger) return ledger;
+    const best = await findOnYouTube(cand, genre, deps);
     if (best) {
       const track = fromYouTube(best, cand);
       const verdict = autoplayFilter.judge(track, limits);
@@ -266,12 +282,29 @@ async function resolve(cand, limits, genre) {
 }
 
 /**
+ * 장부가 아는 음원으로 트랙을 만든다. 전에 이 요청을 틀 때 정한 것이라 거르기를 다시 하지 않는다.
+ * 영상이면 그 영상(못 트는 것으로 표시된 영상은 빼고), 음원 파일이었으면 소스가 지금 준 음원을 쓴다.
+ * 모르면 null(평소대로 찾는다).
+ */
+function fromLedger(cand, known) {
+  if (!known) return null;
+  if (links.isYouTubeURL(known)) {
+    if (isDead(known)) return null;
+    const track = fromYouTube({ url: known, durationSec: cand.durationSec }, cand);
+    track.audioFoundBy = "ledger"; // 내려갔으면 다시 찾는다
+    return track;
+  }
+  return cand.audioUrl ? fromAudio(cand) : null;
+}
+
+/**
  * 이 장르에서 한 곡을 고른다. 못 고르면 null(부르는 쪽이 자동재생을 끈다).
  *
  * @param {object} cfg      { ...defaults, ...genres[이름] }. sources를 들고 있다
  * @param {object[]} recent 최근에 튼 곡들(중복 회피용)
+ * @param {object} [deps]   바깥 경계(resolve 와 같다)
  */
-async function pickTrack(cfg, recent = []) {
+async function pickTrack(cfg, recent = [], deps = REAL) {
   const list = (cfg?.sources || []).filter((s) => s && sources.usable(s.type));
   if (!list.length) return null;
 
@@ -282,9 +315,9 @@ async function pickTrack(cfg, recent = []) {
   for (const source of byWeight(list)) {
     // 한 소스 안에서도 몇 번은 더 본다. 후보 하나가 필터에 걸렸다고 소스를 버릴 이유가 없다
     for (let tries = 0; tries < 3; tries++) {
-      const cand = await pool.take(source, sources.fetchFrom, reject);
+      const cand = await pool.take(source, deps.fetch, reject);
       if (!cand) break;
-      const track = await resolve(cand, limits, cfg?.genreName);
+      const track = await resolve(cand, limits, cfg?.genreName, deps);
       if (track) {
         // 어느 소스에서 어떻게 왔는지. 뭐가 이상할 때 이것부터 본다
         track.pickedFrom = source.type;
