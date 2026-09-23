@@ -97,7 +97,7 @@ async function resolveFallbackTextChannel(guild) {
  * @param {string} options.source           로그 라벨
  * @returns {Promise<{success: boolean, message?: string, isPlaylist?: boolean, tracks?: Array}>}
  */
-async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play" }) {
+async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = TrackResolver }) {
   const guildId = guild.id;
   const who = toRequester(requester);
 
@@ -119,7 +119,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
     // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
     const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
     const limit = single ? 1 : Math.max(1, Math.min(batch, room));
-    trackData = await TrackResolver.resolveQuery(query, `${source}.resolveQuery`, { limit });
+    trackData = await lookup.resolveQuery(query, `${source}.resolveQuery`, { limit });
     if (!trackData.success) return trackData;
 
     // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
@@ -174,7 +174,7 @@ const MORE_BATCH = 100;
  * 받고, 찾으면 그 뒤부터, 못 찾으면 요청 위치부터 넣는다. 맨 앞에 넣었던 목록이면 앵커 곡 바로 뒤에 넣는다.
  * 곡은 묶음으로 나눠 받으며 onProgress(받은 수, 받을 수)를 부른다. 대기열에는 다 받은 뒤 한 번에 넣는다.
  */
-async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {} }) {
+async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = TrackResolver }) {
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
   const want = Math.min(count, roomFor(player));
@@ -188,7 +188,7 @@ async function continueCollection(client, { guild, requester, state, count, text
   while (found.length < want) {
     const back = Math.min(LOOKBACK, cursor);
     const limit = Math.min(MORE_BATCH, want - found.length) + back;
-    const part = await TrackResolver.getCollection(url, { offset: cursor - back, limit });
+    const part = await lookup.getCollection(url, { offset: cursor - back, limit });
     if (part.total != null) total = part.total;
     const hit = part.tracks.findIndex((t) => t.id === anchor);
     const fresh = hit >= 0 ? part.tracks.slice(hit + 1) : part.tracks.slice(back);

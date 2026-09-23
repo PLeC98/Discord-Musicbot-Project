@@ -9,7 +9,6 @@
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
-const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -18,22 +17,16 @@ const { openTempStore } = require("../helpers/tempStore");
 const store = openTempStore("dashboard-validation-");
 after(() => store.close());
 
-// ── TrackResolver 모킹 (코어가 실 해석/네트워크를 타지 않게) ──────────────
+// ── 조회 가짜(코어가 실 해석/네트워크를 타지 않게). 라우터가 app.locals.lookup 을 코어에 넘긴다 ──
 const resolverCalls = [];
-const trPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
-require.cache[trPath] = {
-  id: trPath,
-  filename: trPath,
-  loaded: true,
-  exports: {
-    async resolveQuery(query) {
-      resolverCalls.push(query);
-      return { success: true, isPlaylist: false, tracks: [makeTrack("추가곡")] };
-    },
-    async getCollection(_url, { offset, limit }) {
-      const tracks = Array.from({ length: limit }, (_, k) => ({ ...makeTrack(`c${offset + k}`), id: `c${String(offset + k).padStart(21, "0")}` }));
-      return { tracks, total: 1000, nextOffset: offset + limit };
-    },
+const lookup = {
+  async resolveQuery(query) {
+    resolverCalls.push(query);
+    return { success: true, isPlaylist: false, tracks: [makeTrack("추가곡")] };
+  },
+  async getCollection(_url, { offset, limit }) {
+    const tracks = Array.from({ length: limit }, (_, k) => ({ ...makeTrack(`c${offset + k}`), id: `c${String(offset + k).padStart(21, "0")}` }));
+    return { tracks, total: 1000, nextOffset: offset + limit };
   },
 };
 
@@ -118,6 +111,7 @@ before(async () => {
     next();
   });
   app.locals.discordClient = client;
+  app.locals.lookup = lookup;
   app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js"));
   server = app.listen(0);
   base = `http://127.0.0.1:${server.address().port}`;

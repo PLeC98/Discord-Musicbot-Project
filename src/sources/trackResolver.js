@@ -143,7 +143,8 @@ const TrackResolver = {
    * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.youtubeUrl(및 audioSourceKey)을
    * 설정하고 URL 반환, 실패 시 null.
    */
-  async findYouTubeEquivalent(track) {
+  // search: 유튜브 검색 함수. 생략하면 진짜
+  async findYouTubeEquivalent(track, { search = (query, limit) => YouTube.search(query, limit) } = {}) {
     if (track.youtubeUrl) {
       this.ensureAudioSourceKey(track);
       return track.youtubeUrl;
@@ -169,7 +170,7 @@ const TrackResolver = {
       const lists = [];
       for (const query of queries) {
         try {
-          const results = await YouTube.search(query, 6);
+          const results = await search(query, 6);
           lists.push(
             (results || []).map((r) => ({
               id: r.id,
@@ -206,35 +207,36 @@ const TrackResolver = {
    * 캐시 매핑의 유튜브 영상이 내려간 경우: 스테일 매핑을 삭제하고 새로 검색한다.
    * 재검색 결과는 _youtubeFromCache가 아니므로(신규 검색), 다시 실패해도 이 경로가 재발동하지 않는다(무한루프 방지).
    */
-  async reresolveYouTube(track) {
+  async reresolveYouTube(track, deps) {
     if (track.url) trackLookup.removeResolution(track.url);
     track.youtubeUrl = null;
     track.youtubeTitle = null;
     track.audioSourceKey = null;
     track._youtubeFromCache = false;
-    return this.findYouTubeEquivalent(track);
+    return this.findYouTubeEquivalent(track, deps);
   },
 
   /**
    * 재생용 스트림 획득. 플랫폼 스위치 단일화.
    * spotify는 YouTube 동등물을 먼저 확보(track.youtubeUrl 재사용)한 뒤 YouTube로 위임.
    */
-  async getStream(track, seekSeconds = 0) {
+  // youtube: 유튜브 스트림을 여는 쪽. 생략하면 진짜
+  async getStream(track, seekSeconds = 0, { youtube = YouTube } = {}) {
     switch (track.platform) {
       case "youtube":
-        return YouTube.getStream(track.url, seekSeconds);
+        return youtube.getStream(track.url, seekSeconds);
 
       case "spotify": {
         let ytUrl = await this.findYouTubeEquivalent(track);
         if (!ytUrl) throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
         try {
-          return await YouTube.getStream(ytUrl, seekSeconds);
+          return await youtube.getStream(ytUrl, seekSeconds);
         } catch (err) {
           // 캐시 매핑의 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
-          if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
+          if (youtube.isVideoUnavailableError(err) && track._youtubeFromCache) {
             log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
             ytUrl = await this.reresolveYouTube(track);
-            if (ytUrl) return await YouTube.getStream(ytUrl, seekSeconds);
+            if (ytUrl) return await youtube.getStream(ytUrl, seekSeconds);
           }
           throw err;
         }
@@ -252,7 +254,7 @@ const TrackResolver = {
         // 자동재생이 출처에서 받아 온 곡(lastfm·lbradio·vocadb·animethemes …)은 표시 정보만
         // 출처 것이고 소리는 유튜브에서 온다. 고를 때 영상을 이미 찾아 두었으므로 그대로 쓴다
         // 스포티파이와 달리 여기서 다시 찾지 않는다.
-        if (track.youtubeUrl) return YouTube.getStream(track.youtubeUrl, seekSeconds);
+        if (track.youtubeUrl) return youtube.getStream(track.youtubeUrl, seekSeconds);
         // AnimeThemes처럼 출처 이름을 platform 에 쓰면서 음원을 직접 받는 곡.
         // 위의 "direct"와 같은 처지이므로 같은 서술자를 돌려준다.
         if (DirectLink.isDirectAudioLink(track.url)) return { url: track.url, platform: "direct", httpHeaders: {} };

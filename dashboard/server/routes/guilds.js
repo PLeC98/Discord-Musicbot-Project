@@ -664,6 +664,7 @@ router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res
       query,
       single: req.body.single === true,
       source: "대시보드",
+      lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 자리. 없으면 진짜
     });
 
     // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함). JSON 규약에 맞게 제거
@@ -707,6 +708,7 @@ router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req
       state,
       count,
       source: "대시보드 더 넣기",
+      lookup: req.app.locals.lookup,
     });
     if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
 

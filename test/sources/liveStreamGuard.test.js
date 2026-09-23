@@ -33,6 +33,7 @@ after(() => {
 });
 
 const YouTube = require("../../src/sources/youtube/index");
+const TrackResolver = require("../../src/sources/trackResolver");
 
 test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
   assert.equal(YouTube._detectLive({ is_live: true }), true);
@@ -49,46 +50,26 @@ test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
 });
 
 test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있으면 null)", async () => {
-  const resolverPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
-  delete require.cache[resolverPath];
-
-  const originalSearch = YouTube.search;
-  YouTube.search = async () => [
+  const search = async () => [
     // 유일한 후보가 라이브 — 예전 코드라면 이게 우승해서 무한 다운로드로 이어졌다.
     { id: "L".repeat(11), url: "https://www.youtube.com/watch?v=LLLLLLLLLLL", title: "24/7 kids anime live", artist: "SomeChannel", duration: 0, isLive: true },
   ];
 
-  try {
-    const TrackResolver = require(resolverPath);
-    const track = { title: "''''''", artist: "x0o0x_", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/abc" };
-    const result = await TrackResolver.findYouTubeEquivalent(track);
-    assert.equal(result, null, "라이브만 남으면 매칭 실패로 끝나야 한다 — 라이브를 골라선 안 된다");
-    assert.equal(track.youtubeUrl, undefined);
-  } finally {
-    YouTube.search = originalSearch;
-    delete require.cache[resolverPath];
-  }
+  const track = { title: "''''''", artist: "x0o0x_", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/abc" };
+  const result = await TrackResolver.findYouTubeEquivalent(track, { search });
+  assert.equal(result, null, "라이브만 남으면 매칭 실패로 끝나야 한다 — 라이브를 골라선 안 된다");
+  assert.equal(track.youtubeUrl, undefined);
 });
 
 test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보가 선택된다", async () => {
-  const resolverPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
-  delete require.cache[resolverPath];
-
-  const originalSearch = YouTube.search;
-  YouTube.search = async () => [
+  const search = async () => [
     { id: "L".repeat(11), url: "https://www.youtube.com/watch?v=LLLLLLLLLLL", title: "테스트곡 live stream", artist: "테스트가수", duration: 0, isLive: true },
     { id: "V".repeat(11), url: "https://www.youtube.com/watch?v=VVVVVVVVVVV", title: "테스트곡", artist: "테스트가수", duration: 200, isLive: false },
   ];
 
-  try {
-    const TrackResolver = require(resolverPath);
-    const track = { title: "테스트곡", artist: "테스트가수", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/def" };
-    const result = await TrackResolver.findYouTubeEquivalent(track);
-    assert.equal(result, "https://www.youtube.com/watch?v=VVVVVVVVVVV");
-  } finally {
-    YouTube.search = originalSearch;
-    delete require.cache[resolverPath];
-  }
+  const track = { title: "테스트곡", artist: "테스트가수", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/def" };
+  const result = await TrackResolver.findYouTubeEquivalent(track, { search });
+  assert.equal(result, "https://www.youtube.com/watch?v=VVVVVVVVVVV");
 });
 
 test("다운로드 옵션에 --match-filter !is_live 가 실린다 (yt-dlp 자체 2차 방어선)", () => {

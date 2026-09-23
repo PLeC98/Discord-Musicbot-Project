@@ -57,12 +57,8 @@
     "test/autoplay/autoplayRoute.test.js": 1,
     "test/controlEntrances.test.js": 2,
     "test/dashboard/dashboardErrors.test.js": 3,
-    "test/dashboard/dashboardValidation.test.js": 1,
     "test/helpers/playerHarness.js": 4,
-    "test/player/voiceConnectionEvents.test.js": 1,
-    "test/sources/liveStreamGuard.test.js": 4,
-    "test/sources/trackResolverStream.test.js": 1,
-    "test/usecases/playRequest.test.js": 1
+    "test/player/voiceConnectionEvents.test.js": 1
   },
   "methodSwap": [
     "test/autoplay/autoplayAssist.test.js",
@@ -78,7 +74,6 @@
     "test/player/sessionPersistence.test.js",
     "test/player/trackCompletion.test.js",
     "test/sources/clientFaultAndPot.test.js",
-    "test/sources/liveStreamGuard.test.js",
     "test/sources/soundcloudDirect.test.js",
     "test/sources/spotifyNetwork.test.js",
     "test/ui/musicEmbedManager.test.js",

@@ -12,20 +12,13 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 // 실제로 유튜브에 붙지 않는다 — 어느 주소로 가는지만 본다
-const ytPath = require.resolve("../../src/sources/youtube/index");
 let asked = null;
-require.cache[ytPath] = {
-  id: ytPath,
-  filename: ytPath,
-  loaded: true,
-  exports: {
-    getStream: async (url, seek) => {
-      asked = { url, seek };
-      return { fake: true };
-    },
-    extractVideoId: () => null,
-    isVideoUnavailableError: () => false,
+const youtube = {
+  getStream: async (url, seek) => {
+    asked = { url, seek };
+    return { fake: true };
   },
+  isVideoUnavailableError: () => false,
 };
 
 const TrackResolver = require("../../src/sources/trackResolver");
@@ -35,7 +28,7 @@ test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온
     asked = null;
     const track = { platform, url: `https://${platform}.example/song/1`, youtubeUrl: "https://www.youtube.com/watch?v=abc", title: "곡" };
 
-    await TrackResolver.getStream(track, 12);
+    await TrackResolver.getStream(track, 12, { youtube });
 
     assert.equal(asked.url, "https://www.youtube.com/watch?v=abc", `${platform}: 출처 주소가 아니라 영상에서 가져와야 한다`);
     assert.equal(asked.seek, 12, `${platform}: 이어듣기 위치도 그대로 넘겨야 한다`);
@@ -44,15 +37,15 @@ test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온
 
 test("유튜브 곡은 그대로 자기 주소를 쓴다", async () => {
   asked = null;
-  await TrackResolver.getStream({ platform: "youtube", url: "https://www.youtube.com/watch?v=zzz" }, 0);
+  await TrackResolver.getStream({ platform: "youtube", url: "https://www.youtube.com/watch?v=zzz" }, 0, { youtube });
   assert.equal(asked.url, "https://www.youtube.com/watch?v=zzz");
 });
 
 test("음원을 직접 트는 곡은 주소 서술자만 돌려준다 — 여기서 열면 프리로드가 연결을 흘린다", async () => {
-  const got = await TrackResolver.getStream({ platform: "direct", url: "https://a.animethemes.moe/X.ogg" }, 0);
+  const got = await TrackResolver.getStream({ platform: "direct", url: "https://a.animethemes.moe/X.ogg" }, 0, { youtube });
   assert.deepEqual(got, { url: "https://a.animethemes.moe/X.ogg", platform: "direct", httpHeaders: {} });
 });
 
 test("영상도 없는 모르는 플랫폼은 여전히 거절한다", async () => {
-  await assert.rejects(() => TrackResolver.getStream({ platform: "없는것", url: "x" }, 0), /지원되지 않는 플랫폼/);
+  await assert.rejects(() => TrackResolver.getStream({ platform: "없는것", url: "x" }, 0, { youtube }), /지원되지 않는 플랫폼/);
 });

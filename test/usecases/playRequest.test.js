@@ -5,7 +5,6 @@
 // 회귀 대상: 슬래시 명령/전용 채널/검색 선택은 handleMusicData를, 대시보드는 addTrack을 타서
 // 코어가 둘로 갈려 있었다. 같은 버그를 두 번 고쳐야 했고 요청자 모양도 서로 달랐다.
 
-const path = require("node:path");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -17,20 +16,15 @@ setGuild("g1", { playlistAddMax: 50 });
 
 let mockResolve = null;
 const resolverCalls = [];
-const trPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
-require.cache[trPath] = {
-  id: trPath,
-  filename: trPath,
-  loaded: true,
-  exports: {
-    async resolveQuery(query, context, range) {
-      resolverCalls.push({ query, context, range });
-      return mockResolve(query);
-    },
-    async getCollection(url, range) {
-      collectionCalls.push({ url, range });
-      return mockCollection(range);
-    },
+// 조회 가짜. 곡 추가 코어에 lookup 으로 넘긴다
+const lookup = {
+  async resolveQuery(query, context, range) {
+    resolverCalls.push({ query, context, range });
+    return mockResolve(query);
+  },
+  async getCollection(url, range) {
+    collectionCalls.push({ url, range });
+    return mockCollection(range);
   },
 };
 let mockCollection = null;
@@ -164,7 +158,7 @@ test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드�
 
 function baseArgs(client, guild, extra = {}) {
   client.players.set(GUILD_ID, { textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive() {}, hasLiveTrack: () => false });
-  return { guild, requester: { id: "u1", user: { username: "carl" } }, ...extra };
+  return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ...extra };
 }
 
 // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 더 이상 입구에서 막지 않는다.
@@ -460,7 +454,7 @@ async function continueWith({ state, count, size = 300, shift = 0, queued = 0 })
   player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
   player.currentTrack = track("now");
   const progress = [];
-  const result = await continueCollection(client, { guild, requester: { id: "u1" }, state, count, onProgress: (done, want) => progress.push([done, want]) });
+  const result = await continueCollection(client, { guild, requester: { id: "u1" }, state, count, lookup, onProgress: (done, want) => progress.push([done, want]) });
   return { result, progress, added: client.embedCalls[0]?.trackData };
 }
 
