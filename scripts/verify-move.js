@@ -7,7 +7,8 @@
 //   node scripts/verify-move.js --staged   커밋 전, 스테이지에 올린 것
 //
 // 지운 줄이 전부 더한 줄 어딘가에 다시 나타나야 한다(앞뒤 공백 무시). 불러오는 경로는 옮기면 바뀌는 것이 당연하므로
-// require · require.resolve · import 의 경로 글자와 path.join(__dirname, …) 의 인자는 지우고 비교한다.
+// require · require.resolve · import 의 경로 글자, path.join/resolve(__dirname, …) 의 인자, 저장소 기준 경로 글자("src/…")는
+// 지우고 비교한다.
 // 짝이 없는 더한 줄(함수 머리 · 내보내기 · 부르는 한 줄 같은 감싸는 줄)은 목록으로 보여 주기만 한다. 사람이 본다.
 // 지운 줄이 하나라도 사라졌으면 실패한다. 그것은 옮기기가 아니라 고치기다.
 
@@ -24,7 +25,8 @@ const normalize = (line) =>
     .replace(/require(\.resolve)?\(\s*(["'`])[^"'`]*\2\s*\)/g, "require$1(<경로>)")
     .replace(/\bimport\(\s*(["'`])[^"'`]*\1\s*\)/g, "import(<경로>)")
     .replace(/\bfrom\s+(["'])[^"']*\1/g, "from <경로>")
-    .replace(/path\.join\(\s*__dirname[^)]*\)/g, "path.join(<경로>)");
+    .replace(/path\.(join|resolve)\(\s*__dirname[^)]*\)/g, "path.$1(<경로>)")
+    .replace(/(["'])(?:\.{1,2}\/)*(?:src|test|commands|events|dashboard|scripts)\/[\w./-]*/g, "<경로>");
 
 const removed = new Map(); // 모양 → 남은 수
 const removedAt = new Map(); // 모양 → 처음 본 자리
