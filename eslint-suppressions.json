@@ -96,11 +96,13 @@
       "count": 1
     }
   },
-  "src/store/cacheManager.js": {
-    "max-params": {
-      "count": 1
-    },
+  "src/store/audioCache.js": {
     "no-empty-function": {
+      "count": 1
+    }
+  },
+  "src/store/trackLookup.js": {
+    "max-params": {
       "count": 1
     }
   },
