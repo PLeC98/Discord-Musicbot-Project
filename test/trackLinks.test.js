@@ -91,22 +91,22 @@ test("장부 열쇠에 작품 페이지가 들어가면 같은 작품의 두 곡
   assert.equal(audioCache.db.prepare("SELECT status FROM audio_cache WHERE audio_source_key = ?").get(fatal.audioSourceKey).status, "cached");
 });
 
-test("장부 조회 앞의 링크 다듬기는 유튜브만 한다", () => {
+test("장부 조회 앞의 링크 다듬기: 공유 링크가 장부의 깨끗한 주소와 맞는다", () => {
   const cases = [
     ["https://youtu.be/Lsv4wg9YU8Y?si=AbCdEf", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
     ["https://www.youtube.com/watch?v=Lsv4wg9YU8Y&list=PLxyz&index=3", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
     ["https://music.youtube.com/watch?v=Lsv4wg9YU8Y&si=AbCdEf", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
-    // 아래는 그대로 둔다. 장부에는 깨끗한 주소로 적히므로 공유 링크로는 첫 지름길을 늘 놓친다
-    ["https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"],
-    ["https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj"],
-    ["https://soundcloud.com/artist/track-name?si=abc&utm_source=clipboard", "https://soundcloud.com/artist/track-name?si=abc&utm_source=clipboard"],
+    ["https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
+    ["https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
+    ["https://soundcloud.com/artist/track-name?si=abc&utm_source=clipboard", "https://soundcloud.com/artist/track-name"],
   ];
   for (const [input, expected] of cases) assert.equal(trackLookup._normalizeSourceUrl(input), expected, input);
 
   const clean = "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj";
   seed("yt:spotifyshar", { title: "곡" });
   trackLookup.recordTrackLookup(clean, "spotify", "yt:spotifyshar", "곡", "가수", null);
-  assert.equal(trackLookup.getResolvedKey(`${clean}?si=0a1b2c`), null, "공유 링크는 장부와 안 맞는다");
+  assert.equal(trackLookup.getResolvedKey(`${clean}?si=0a1b2c`), "yt:spotifyshar", "공유 링크도 장부와 맞는다");
+  assert.equal(trackLookup.getResolvedKey("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=x"), "yt:spotifyshar", "지역 경로가 붙어도");
   assert.equal(trackLookup.getResolvedKey(clean), "yt:spotifyshar");
 });
 

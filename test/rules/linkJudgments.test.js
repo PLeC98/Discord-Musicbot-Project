@@ -30,11 +30,18 @@ test("inputKind: 사이트 호스트를 먼저 보고 확장자는 마지막에 
   for (const [input, want] of cases) assert.equal(inputKind(input), want, String(input));
 });
 
-test("canonicalUrl: 유튜브만 영상 id 로 모으고 나머지는 그대로", () => {
+test("canonicalUrl: 사이트마다 같은 곡의 공유 링크를 한 모양으로, 직접 링크와 모르는 것은 그대로", () => {
   const cases = [
     ["https://youtu.be/Lsv4wg9YU8Y?si=AbCdEf", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
     ["https://music.youtube.com/watch?v=Lsv4wg9YU8Y&list=RDx", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],
-    ["https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"],
+    ["https://www.youtube.com/playlist?list=PLx", "https://www.youtube.com/playlist?list=PLx"], // 영상 id 가 없으면 그대로
+    ["https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
+    ["https://open.spotify.com/intl-ko/album/abc?si=x", "https://open.spotify.com/album/abc"],
+    ["spotify:track:2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
+    ["https://m.soundcloud.com/artist/track?in=a/sets/b&utm_source=x", "https://soundcloud.com/artist/track"],
+    ["https://on.soundcloud.com/AbCd", "https://on.soundcloud.com/AbCd"],
+    ["https://cdn.example.com/a.mp3?token=abc", "https://cdn.example.com/a.mp3?token=abc"],
+    ["https://anilist.co/anime/1?x=1", "https://anilist.co/anime/1?x=1"],
     ["검색어", "검색어"],
   ];
   for (const [input, want] of cases) assert.equal(canonicalUrl(input), want, input);
