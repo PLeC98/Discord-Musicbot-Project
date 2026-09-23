@@ -41,7 +41,7 @@ function embeds(player) {
 // 재생이 끝난 곡 하나를 세운다. 리소스의 재생량으로 "어디까지 틀었나"를 정한다
 function playing(player, track, playedMs = track.duration * 1000) {
   player.currentTrack = track;
-  player.resource = { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } };
+  player.playback = { resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } } };
   return track;
 }
 
@@ -138,8 +138,7 @@ test("손으로 넘긴 곡은 일찍 끝나도 다시 틀지 않는다", async (
 test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 받아 다시 연다", async () => {
   const p = h.makePlayer();
   const live = playing(p, yt("iiiiiiiiiii", { isLive: true, duration: 0 }), 60000);
-  p._playingLive = true;
-  p._liveExitCode = 1;
+  Object.assign(p.playback, { live: true, liveExitCode: 1 });
   const seeks = [];
   p.play = async (seekMs) => {
     seeks.push(seekMs);
@@ -159,8 +158,7 @@ test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 �
 test("라이브 다시 열기를 다섯 번 쓰면 다음 곡으로 넘긴다", async () => {
   const p = h.makePlayer();
   const live = playing(p, yt("jjjjjjjjjjj", { isLive: true, duration: 0 }), 60000);
-  p._playingLive = true;
-  p._liveExitCode = 1;
+  Object.assign(p.playback, { live: true, liveExitCode: 1 });
   p._retryTrack = live;
   p.currentTrackRetries = 5;
   embeds(p);
@@ -175,8 +173,7 @@ test("라이브 다시 열기를 다섯 번 쓰면 다음 곡으로 넘긴다", 
 test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는다", async () => {
   const p = h.makePlayer();
   playing(p, yt("kkkkkkkkkkk", { isLive: true, duration: 0 }), 60000);
-  p._playingLive = true;
-  p._liveExitCode = 0;
+  Object.assign(p.playback, { live: true, liveExitCode: 0 });
   embeds(p);
 
   await p.handleTrackEnd("idle");
@@ -217,7 +214,7 @@ test("넘어가는 중에 또 불리면 아무것도 안 한다", async () => {
 
 test("현재 곡이 없는데 끝나면 리소스만 비운다", async () => {
   const p = h.makePlayer();
-  p.resource = { playbackDuration: 0 };
+  p.playback = { resource: { playbackDuration: 0 } };
 
   await p.handleTrackEnd("stop");
   h.dispose(p);
@@ -531,7 +528,7 @@ test("handleError: 자동재생이 고른 곡이 내려갔으면 조용히 표�
 test("볼륨은 0~100 으로 자르고 지금 리소스에 바로 건다", () => {
   const p = h.makePlayer();
   let applied = null;
-  p.resource = { volume: { setVolume: (v) => (applied = v) } };
+  p.playback = { resource: { volume: { setVolume: (v) => (applied = v) } } };
 
   assert.equal(p.setVolume(150), 100);
   assert.equal(applied, 1);

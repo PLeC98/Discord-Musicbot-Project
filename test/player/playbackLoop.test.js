@@ -36,7 +36,6 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     autoplay: false,
     startTime: null,
     pausedTime: 0,
-    currentTrackCache: null,
     pendingEndReason: null,
     guild: { id: "g1", client: null },
     played: [],

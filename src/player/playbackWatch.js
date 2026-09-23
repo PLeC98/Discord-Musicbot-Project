@@ -132,7 +132,7 @@ class PlaybackWatch {
   checkBufferingStall(now = Date.now()) {
     const player = this.player;
     if (player.audioPlayer?.state?.status !== AudioPlayerStatus.Buffering) return this.stopBuffering();
-    const quietSince = Math.max(this.bufferingSince ?? now, player._inputProgressAt ?? 0);
+    const quietSince = Math.max(this.bufferingSince ?? now, player.playback?.inputProgressAt ?? 0);
     if (now - quietSince < BUFFERING_STALL_MS) return;
     this.stopBuffering();
     wlog.warn(`재생이 시작되지 않아 다시 시도합니다: ${player._trackLabel()} | 버퍼링 ${sec(now - this.bufferingSince)}초, 입력 없음 ${sec(now - quietSince)}초`);

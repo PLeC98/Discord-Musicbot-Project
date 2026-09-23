@@ -20,7 +20,7 @@ function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reas
       },
     },
     pendingEndReason: reason,
-    _inputProgressAt: inputAt,
+    playback: { inputProgressAt: inputAt },
     _trackLabel: MusicPlayer.prototype._trackLabel,
   };
 }

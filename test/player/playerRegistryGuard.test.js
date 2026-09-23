@@ -50,7 +50,6 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     autoplay: false,
     startTime: null,
     pausedTime: 0,
-    currentTrackCache: null,
     pendingEndReason: null,
     guild: { id: GUILD, name: "TestGuild", client: { players } },
     cleanupCalls: [],

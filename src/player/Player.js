@@ -23,6 +23,7 @@ const VoiceConnectionManager = require("./voiceConnection");
 const PlaybackWatch = require("./playbackWatch");
 const IdleLeave = require("./idleLeave");
 const PlaybackState = require("./playbackState");
+const CurrentPlayback = require("./currentPlayback");
 const TrackDownloader = require("../media/cacheDownload");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./sessionMirror");
@@ -76,7 +77,7 @@ class MusicPlayer {
     // 오디오 플레이어 설정
     this.audioPlayer = this.io.createAudioPlayer();
     this.connection = null;
-    this.resource = null;
+    this.playback = null; // 지금 트는 한 번(CurrentPlayback). 곡이 바뀌면 버린다
 
     // 대기열 관리. 현재곡·대기열·기록은 trackState로만 바꾼다
     trackState.init(this);
@@ -105,8 +106,6 @@ class MusicPlayer {
     this.pendingEndReason = null;
     this.currentTrackRetries = 0;
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
-    this.currentTrackCache = null;
-    this.activeStreamInfo = null;
     this.lastPlaybackPosition = 0;
     this.currentTrackStartOffsetMs = 0;
 
@@ -218,6 +217,11 @@ class MusicPlayer {
 
   // ── 음성 연결. 연결 복구 상태와 헬스체크는 VoiceConnectionManager 가 가진다 ──
 
+  /** 지금 재생의 오디오 리소스. 없으면 null */
+  get resource() {
+    return this.playback?.resource ?? null;
+  }
+
   /** play() 가 곡을 여는 중인가(자동 스킵 · 대시보드 탐색이 끼어들지 않게 본다) */
   get isPlayStarting() {
     return this.lifecycle.starting;
@@ -282,9 +286,11 @@ class MusicPlayer {
 
       // 새 재생을 위해 생명주기 플래그 재설정
       this.pendingEndReason = null;
-      this._playingLive = false; // 이번 재생이 라이브 갈래인가. 종료 처리가 재연결 여부를 이걸로 가른다
       const resumeFromMs = Math.max(0, Math.floor(Number(seekMs) || 0));
       const resumeFromSeconds = resumeFromMs / 1000;
+      // 새 재생. 위치 재개는 직전 재생이 남긴 스트림 정보를 쓴다(같은 곡일 때만)
+      const previous = this.playback;
+      const pb = (this.playback = new CurrentPlayback(this.currentTrack, { startOffsetMs: resumeFromMs }));
       this.currentTrackStartOffsetMs = resumeFromMs;
       this.lastPlaybackPosition = resumeFromMs;
       this.pausedTime = 0;
@@ -299,7 +305,7 @@ class MusicPlayer {
 
       // 재개 시 캐시 재사용 시도
       if (resumeFromMs > 0) {
-        const cached = this.getCachedStreamForCurrentTrack(resumeFromSeconds);
+        const cached = this.getCachedStreamForCurrentTrack(resumeFromSeconds, previous?.resume);
         if (cached) {
           streamInfo = cached;
         }
@@ -385,23 +391,18 @@ class MusicPlayer {
         const ffmpeg = this.io.spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ url: streamUrl_final, seekMs: isLiveStream ? 0 : resumeFromMs, caps: this.io.ffmpegCapabilities() }), "stream");
         // 캐시 전환(AudioSplicer)은 걸지 않는다. 라이브는 갈아탈 캐시가 없고, 잔끊김은
         // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(handleTrackEnd).
-        this._playingLive = isLiveStream;
-        this._liveExitCode = null;
+        pb.live = isLiveStream;
         ffmpeg.once("exit", (code, signal) => {
-          this._liveExitCode = code === null && signal ? -1 : code;
+          pb.liveExitCode = code === null && signal ? -1 : code;
         });
 
         // 파이프 갈래는 Node가 받는 바이트로 정체를 재지만 여기엔 그 스트림이 없다.
         // ffmpeg 출력이 곧 "살아 있다"의 증거다.
-        this._inputToken = null;
-        this._inputProgressAt = null;
-        const inputToken = {};
-        this._inputToken = inputToken;
         ffmpeg.stdout.on("data", () => {
-          if (this._inputToken === inputToken) this._inputProgressAt = Date.now();
+          pb.inputProgressAt = Date.now();
         });
 
-        this.resource = this.io.createAudioResource(ffmpeg.stdout, {
+        pb.resource = this.io.createAudioResource(ffmpeg.stdout, {
           inputType: StreamType.Raw,
           inlineVolume: true,
           metadata: {
@@ -482,9 +483,6 @@ class MusicPlayer {
           }
         }
 
-        this._inputToken = null;
-        this._inputProgressAt = null;
-
         // 스트리밍에 실패했고 다운로드 파일이 있으면 파일 재생으로 건너뜀
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
@@ -522,13 +520,11 @@ class MusicPlayer {
           ffmpeg.once("exit", () => audioStream.destroy());
           audioStream.pipe(ffmpeg.stdin);
           // pipe 뒤에 붙인다. 먼저 붙이면 흐르기 시작한 데이터가 목적지 없이 버려진다
-          const inputToken = {};
-          this._inputToken = inputToken;
           audioStream.on("data", () => {
-            if (this._inputToken === inputToken) this._inputProgressAt = Date.now();
+            pb.inputProgressAt = Date.now();
           });
 
-          this.resource = this.io.createAudioResource(playSource, {
+          pb.resource = this.io.createAudioResource(playSource, {
             inputType: StreamType.Raw,
             inlineVolume: true,
             metadata: {
@@ -545,7 +541,7 @@ class MusicPlayer {
       if (!shouldDownload && downloadedFile) {
         const ffmpeg = this.io.spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }), "playback");
 
-        this.resource = this.io.createAudioResource(ffmpeg.stdout, {
+        pb.resource = this.io.createAudioResource(ffmpeg.stdout, {
           inputType: StreamType.Raw,
           inlineVolume: true,
           metadata: {
@@ -558,15 +554,17 @@ class MusicPlayer {
       }
 
       // 리소스가 있는지 확인
-      if (!this.resource) {
+      if (!pb.resource) {
         throw new Error("Failed to create audio resource");
       }
+      pb.cacheFile = downloadedFile ?? null;
+      pb.transport = transport;
 
       // 볼륨 설정
-      if (this.resource.volume) {
-        this.resource.volume.setVolume(this.volume / 100);
+      if (pb.resource.volume) {
+        pb.resource.volume.setVolume(this.volume / 100);
       }
-      this.resource.encoder?.setBitrate(SEND_BITRATE);
+      pb.resource.encoder?.setBitrate(SEND_BITRATE);
 
       const audioDurationSec = this._audioDurationSec(streamInfo, downloadedFile);
       if (audioDurationSec) this.currentTrack.duration = audioDurationSec;
@@ -585,7 +583,7 @@ class MusicPlayer {
       }
 
       // 리소스 재생
-      this.audioPlayer.play(this.resource);
+      this.audioPlayer.play(pb.resource);
 
       // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록.
       // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
@@ -610,7 +608,7 @@ class MusicPlayer {
       // 참고: JS에서 typeof null === 'object'는 true. null 안전 가드 사용
       const baseSourceUrl = streamInfo && typeof streamInfo === "object" ? streamInfo.rawUrl || streamInfo.url || (typeof streamUrl_final === "string" ? streamUrl_final : null) : streamUrl_final;
 
-      this.activeStreamInfo = {
+      pb.resume = {
         trackKey: this.getTrackCacheKey(this.currentTrack),
         platform: this.currentTrack.platform,
         fetchedAt: Date.now(),
@@ -618,9 +616,6 @@ class MusicPlayer {
         baseUrl: baseSourceUrl,
         info: streamInfo && typeof streamInfo === "object" ? streamInfo : { url: streamUrl_final },
       };
-
-      // 이후 재개 시도를 위해 현재 스트림 캐시
-      this.currentTrackCache = this.activeStreamInfo;
 
       // 정상 완료를 보장하고 성급한 전환을 막기 위해 워치독 예약
       this.watch.scheduleEnd(streamInfo);
@@ -767,20 +762,21 @@ class MusicPlayer {
     return track.id || track.requestKey || `${track.title}-${track.duration}`;
   }
 
-  getCachedStreamForCurrentTrack(seekSeconds) {
-    if (!this.currentTrackCache) return null;
+  // resume: 직전 재생이 남긴 스트림 정보(CurrentPlayback.resume). 같은 곡이고 주소로 위치를 옮길 수 있을 때만 쓴다
+  getCachedStreamForCurrentTrack(seekSeconds, resume = this.playback?.resume) {
+    if (!resume) return null;
     const key = this.getTrackCacheKey(this.currentTrack);
-    if (!key || this.currentTrackCache.trackKey !== key) return null;
-    if (!this.currentTrackCache.resumeSupported || !this.currentTrackCache.baseUrl) return null;
-    const seekUrl = this.applySeekToUrl(this.currentTrackCache.baseUrl, seekSeconds);
+    if (!key || resume.trackKey !== key) return null;
+    if (!resume.resumeSupported || !resume.baseUrl) return null;
+    const seekUrl = this.applySeekToUrl(resume.baseUrl, seekSeconds);
     if (!seekUrl) return null;
 
     return {
-      ...this.currentTrackCache.info,
+      ...resume.info,
       url: seekUrl,
       canSeek: true,
       fromCache: true,
-      duration: this.currentTrackCache.info?.duration || this.currentTrack.duration,
+      duration: resume.info?.duration || this.currentTrack.duration,
     };
   }
 
@@ -1191,7 +1187,7 @@ class MusicPlayer {
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
       // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
       // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
-      const liveDropped = this._playingLive && !manualSkip && this._liveExitCode !== 0;
+      const liveDropped = Boolean(this.playback?.live) && !manualSkip && this.playback.liveExitCode !== 0;
 
       const endedLabel = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
       this._endingLabel = null;
@@ -1229,7 +1225,7 @@ class MusicPlayer {
       }
 
       if (!finishedTrack) {
-        this.resource = null;
+        this.playback = null;
         return;
       }
 
@@ -1243,12 +1239,11 @@ class MusicPlayer {
         trackState.retire(this, finishedTrack, { requeue: this.loop === "queue" });
       }
 
-      this.resource = null;
+      this.playback = null;
       this.startTime = null;
       this.pausedTime = 0;
       this.lastPlaybackPosition = 0;
       this.currentTrackStartOffsetMs = 0;
-      this.currentTrackCache = null;
 
       if (this.queue.length > 0) {
         trackState.shiftNext(this);
@@ -1282,7 +1277,6 @@ class MusicPlayer {
       }
 
       trackState.setCurrent(this, null);
-      this.currentTrackCache = null;
       this.currentTrackStartOffsetMs = 0;
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
@@ -1549,22 +1543,20 @@ class MusicPlayer {
       }
 
       // 리소스 정리
-      if (this.resource) {
+      if (this.playback?.resource) {
         try {
-          this.resource.playStream.destroy();
+          this.playback.resource.playStream.destroy();
         } catch (e) {
           // 스트림이 이미 제거되었을 수 있음
         }
-        this.resource = null;
       }
+      this.playback = null;
 
       // 플레이어 데이터 정리. 보호 해제가 currentTrack을 읽으므로 먼저
       this.releaseAudioProtection();
       trackState.reset(this, { history: true });
       this.startTime = null;
       this.pausedTime = 0;
-      this.currentTrackCache = null;
-      this.activeStreamInfo = null;
 
       // 복구 데이터 정리
       this.lastPlaybackPosition = 0;

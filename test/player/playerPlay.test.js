@@ -235,7 +235,7 @@ test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 받�
   assert.ok(args.includes("-ss"), "다시보기는 위치를 옮길 수 있다");
   assert.equal(calls.fetches.length, 0, "Node 가 받지 않는다");
   assert.equal(calls.downloads.length, 1);
-  assert.equal(p._playingLive, false);
+  assert.equal(p.playback.live, false);
   assert.equal(p.currentTrack.isLive, false);
   assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "HLS 갈래는 스플라이서를 끼우지 않는다");
 });
@@ -251,7 +251,7 @@ test("라이브는 위치 0 으로 열고, 캐시를 안 받고, 종료 감시�
 
   assert.ok(!calls.spawns[0].args.includes("-ss"), "라이브에는 옮길 자리가 없다");
   assert.equal(calls.downloads.length, 0, "끝이 없어 받기 시작하면 파일이 무한히 분다");
-  assert.equal(p._playingLive, true);
+  assert.equal(p.playback.live, true);
   assert.equal(p.currentTrack.isLive, true, "지금은 재생 시점의 답을 트랙에 덮어쓴다");
   assert.equal(timer, null);
 });
@@ -490,9 +490,9 @@ test("라이브 ffmpeg 의 종료 코드를 적는다. 신호로 죽으면 -1", 
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
 
   await playOnce(p);
-  assert.equal(p._liveExitCode, null, "여는 순간에는 비운다");
+  assert.equal(p.playback.liveExitCode, null, "여는 순간에는 비운다");
   calls.spawns[0].emit("exit", 1, null);
-  assert.equal(p._liveExitCode, 1);
+  assert.equal(p.playback.liveExitCode, 1);
 
   h.reset();
   const q = h.makePlayer();
@@ -500,7 +500,7 @@ test("라이브 ffmpeg 의 종료 코드를 적는다. 신호로 죽으면 -1", 
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
   await playOnce(q);
   calls.spawns[0].emit("exit", null, "SIGKILL");
-  assert.equal(q._liveExitCode, -1);
+  assert.equal(q.playback.liveExitCode, -1);
 });
 
 test("청크 스트림이 끊기면 캐시 전환을 먼저 묻고, 그 답을 청크 스트림에 돌려준다", async () => {
