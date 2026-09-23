@@ -584,10 +584,11 @@ class MusicPlayer {
   }
 
   previous() {
+    // 틀고 있는 곡이 없으면 멈출 것도 없다. 멈춤이 곡 끝을 부르지 않아 되감은 곡이 대기열에 걸린 채 남는다
+    if (!this.currentTrack) return false;
     clog.info(`이전곡: ${this._trackLabel()} | 이전 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
     // 한곡 반복 중 이전곡 = 현재 곡 재시작. 대기열·기록 불변.
     if (this.loop === "track") {
-      if (!this.currentTrack) return false;
       this.watch.stopEnd();
       this.pendingEndReason = "previous";
       this.audioPlayer.stop(true);
@@ -837,7 +838,8 @@ class MusicPlayer {
         }
       }
 
-      trackState.setCurrent(this, null);
+      // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다
+      trackState.reset(this, { history: true });
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 

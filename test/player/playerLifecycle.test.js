@@ -65,7 +65,7 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   assert.equal(p.pendingEndReason, null);
 });
 
-test("대기열이 비면 현재 곡을 비우고 패널을 끝내고 세션을 지우고 나갈 예약을 건다", async () => {
+test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을 끝내고 세션을 지우고 나갈 예약을 건다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   playing(p, yt("ccccccccccc"));
@@ -78,7 +78,8 @@ test("대기열이 비면 현재 곡을 비우고 패널을 끝내고 세션을 
   assert.deepEqual(seen, ["end:queue-end"]);
   assert.ok(calls.persists.includes("remove"));
   assert.ok(leaveTimer, "대기열 소진 뒤 나갈 예약");
-  assert.equal(p.previousTracks.length, 1);
+  assert.deepEqual(p.previousTracks, []);
+  assert.ok(calls.sink.includes("onReset"), "기록 비움도 저장소에 반영");
 });
 
 test("일찍 끊긴 곡은 끊긴 자리부터 다시 튼다", async () => {
@@ -157,12 +158,14 @@ test("라이브 다시 열기를 다섯 번 쓰면 다음 곡으로 넘긴다", 
   Object.assign(p.playback, { live: true, liveExitCode: 1 });
   p._retryTrack = live;
   p.currentTrackRetries = 5;
+  const next = cached("j2jjjjjjjjj");
+  p.queue = [next];
   embeds(p);
 
   await p.handleTrackEnd("idle");
   h.dispose(p);
 
-  assert.equal(p.currentTrack, null);
+  assert.equal(p.currentTrack, next);
   assert.equal(p.previousTracks.at(-1), live);
 });
 
@@ -603,6 +606,17 @@ test("이전곡: 기록이 있으면 되감고 previous 로 멈춘다. 없으면
   assert.equal(p.pendingEndReason, "previous");
   assert.equal(p.audioPlayer.stops, 1);
   assert.deepEqual(calls.sink, ["onRewind"]);
+});
+
+test("이전곡: 틀고 있는 곡이 없으면 기록이 있어도 false, 대기열도 그대로", () => {
+  const p = h.makePlayer();
+  p.previousTracks = [yt("f2fffffffff")];
+  const ok = p.previous();
+  h.dispose(p);
+  assert.equal(ok, false);
+  assert.deepEqual(p.queue, []);
+  assert.equal(p.pendingEndReason, null);
+  assert.equal(p.audioPlayer.stops, 0);
 });
 
 test("스킵: 곡이 있으면 원인을 적고 멈춘다. 없으면 false", () => {

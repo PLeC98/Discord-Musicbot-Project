@@ -130,7 +130,7 @@ function clearQueue(player) {
   return cleared;
 }
 
-// 대기열과 현재곡을 비운다. 기록은 플레이어를 버릴 때만 함께 비운다.
+// 대기열과 현재곡을 비운다. 기록은 플레이어를 버릴 때와 대기열이 다 끝났을 때 함께 비운다.
 function reset(player, { history = false } = {}) {
   player.queue = [];
   player.currentTrack = null;
