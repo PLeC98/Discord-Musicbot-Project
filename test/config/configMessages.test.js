@@ -1,9 +1,9 @@
 "use strict";
 
-// 설정 파일 검사 문구의 지금 모양을 고정한다(구조 리팩터링 0-B).
+// 설정 파일 검사 문구를 고정한다(config/schema 의 zod 스키마).
 //
-// 7단계가 이 검사를 zod 스키마로 옮긴다. 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 안 바뀌어야 한다.
-// 입력마다 지금 나오는 문구 목록을 그대로 적었다. 던질지 경고할지는 부르는 쪽이 정한다(아래 셋째 묶음).
+// 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 차례까지 적었다.
+// 여러 문제가 겹치면 칸 검사가 먼저, 교차 검사(이름 · 칸끼리 비교)가 뒤에 나온다. 던질지 경고할지는 부르는 쪽이 정한다(아래 셋째 묶음).
 
 const os = require("node:os");
 const path = require("node:path");
@@ -51,7 +51,7 @@ const GENRES = [
         },
       },
     },
-    ['"80": 숫자만으로 된 이름은 차례가 어긋납니다. "80년대"처럼 글자를 붙여 주세요.', '"true"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).', "가요: emoji는 이모지 한 글자여야 합니다."],
+    ["가요: emoji는 이모지 한 글자여야 합니다.", '"80": 숫자만으로 된 이름은 차례가 어긋납니다. "80년대"처럼 글자를 붙여 주세요.', '"true"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).'],
   ],
   [
     "맨 위 keywords · 소스 없음",
@@ -100,17 +100,7 @@ const GENRES = [
         },
       },
     },
-    [
-      "소스의 1번째 소스: type과 값을 적어야 합니다.",
-      "소스의 2번째 소스: 모르는 종류입니다(nope). 쓸 수 있는 것: keyword, lastfm, lbradio, animethemes, anisongdb, vocadb, utaitedb, touhoudb, spotify, youtube",
-      "소스의 3번째 소스(키워드): keywords 를 적어야 합니다.",
-      '소스의 4번째 소스(ListenBrainz Radio): mode에 "insane"는 쓸 수 없습니다. 쓸 수 있는 것: easy, medium, hard',
-      '소스의 5번째 소스(AnisongDB): songTypes에 "bad"는 쓸 수 없습니다. 쓸 수 있는 것: opening, ending, insert',
-      "소스의 6번째 소스: weight는 1 이상이어야 합니다.",
-      "소스의 6번째 소스: yearFrom이 yearTo보다 큽니다.",
-      "소스의 6번째 소스: minScore는 0 이상이어야 합니다.",
-      "소스의 6번째 소스: minLength가 maxLength보다 큽니다.",
-    ],
+    ["소스의 1번째 소스: type과 값을 적어야 합니다.", "소스의 2번째 소스: 모르는 종류입니다(nope). 쓸 수 있는 것: keyword, lastfm, lbradio, animethemes, anisongdb, vocadb, utaitedb, touhoudb, spotify, youtube", "소스의 3번째 소스(키워드): keywords 를 적어야 합니다.", '소스의 4번째 소스(ListenBrainz Radio): mode에 "insane"는 쓸 수 없습니다. 쓸 수 있는 것: easy, medium, hard', '소스의 5번째 소스(AnisongDB): songTypes에 "bad"는 쓸 수 없습니다. 쓸 수 있는 것: opening, ending, insert', "소스의 6번째 소스: weight는 1 이상이어야 합니다.", "소스의 6번째 소스: minScore는 0 이상이어야 합니다.", "소스의 6번째 소스: yearFrom이 yearTo보다 큽니다.", "소스의 6번째 소스: minLength가 maxLength보다 큽니다."],
   ],
   [
     "기본값 문제",
@@ -219,17 +209,7 @@ const STATUSES = [
         },
       },
     },
-    [
-      '"2026": 숫자만으로 된 이름은 차례가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.',
-      '"true"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).',
-      "빈것: 내용이 비었습니다.",
-      "조건없음: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).",
-      '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 합니다',
-      '범위의 lunar: "12-24 ~ 12-26"처럼 ~ 로 나눠 적어야 합니다',
-      '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다',
-      "숫자의 date: 글자로 적어야 합니다",
-      "숫자: 문구가 하나는 있어야 합니다.",
-    ],
+    ["빈것: 내용이 비었습니다.", "조건없음: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).", '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 합니다', '범위의 lunar: "12-24 ~ 12-26"처럼 ~ 로 나눠 적어야 합니다', '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다', "숫자의 date: 글자로 적어야 합니다", "숫자: 문구가 하나는 있어야 합니다.", '"2026": 숫자만으로 된 이름은 차례가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.', '"true"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).'],
   ],
 ];
 
@@ -366,11 +346,9 @@ test("장르 검사: 장르가 25개를 넘는다(디스코드 선택 메뉴 한
   assert.deepEqual(genreConfig.validateGenres({ genres }), ["장르가 26개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다."]);
 });
 
-// 순서는 보지 않고 같은 문구가 같은 수만큼 나오는지만 본다(zod 로 옮기는 동안). 옮긴 뒤 새 순서로 다시 고정한다
-const sameSet = (actual, want) => assert.deepEqual([...actual].sort(), [...want].sort());
-for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => sameSet(genreConfig.validateGenres(input), want));
-for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => sameSet(statusConfig.validateStatus(input), want));
-for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => sameSet(aiConfig.validateAi(input), want));
+for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(genreConfig.validateGenres(input), want));
+for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => assert.deepEqual(statusConfig.validateStatus(input), want));
+for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input), want));
 for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(aiConfig.promptProblems(input, on), want));
 
 // ── 던지나 경고하나: 부르는 쪽이 정한다 ────────────────────────────────
