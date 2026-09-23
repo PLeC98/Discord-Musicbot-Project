@@ -10,6 +10,7 @@
 // TTL·실패 시 번들 재추출로 갱신(자가치유). 참고 구현: LavaSrc, discord-player-spotify(원리 교차검증만).
 
 const crypto = require("crypto");
+const { isSpotifyURL, parseSpotifyURL } = require("../rules/links");
 const log = require("../infra/log/logger").child({ category: "spotify" });
 const config = require("../../config");
 const externalCaches = require("../store/externalCaches");
@@ -34,20 +35,6 @@ const SEED = {
   clientVersion: "1.2.80.289.gd6b01cc3",
 };
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
-
-// ── URL 파싱 (외부 계약: isSpotifyURL / parseSpotifyURL) ──
-function isSpotifyURL(url) {
-  const patterns = [/^https?:\/\/open\.spotify\.com\/(track|album|playlist|artist)\/[a-zA-Z0-9]+/, /^spotify:(track|album|playlist|artist):[a-zA-Z0-9]+/];
-  return patterns.some((p) => p.test(url));
-}
-
-function parseSpotifyURL(url) {
-  let m = String(url).match(/^https?:\/\/open\.spotify\.com\/(track|album|playlist|artist)\/([a-zA-Z0-9]+)/);
-  if (m) return { type: m[1], id: m[2] };
-  m = String(url).match(/^spotify:(track|album|playlist|artist):([a-zA-Z0-9]+)/);
-  if (m) return { type: m[1], id: m[2] };
-  return { type: null, id: null };
-}
 
 // ── 정규화 (양 경로 공통 출력 계약) ──
 function pickImageUrl(sources) {

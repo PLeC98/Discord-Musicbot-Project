@@ -1,5 +1,6 @@
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("./ytdlpSpawn");
+const links = require("../rules/links");
 const config = require("../../config");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 
@@ -196,14 +197,7 @@ class SoundCloud {
   }
 
   static isSoundCloudURL(url) {
-    const patterns = [
-      /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/,
-      /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/sets\/[\w-]+/,
-      /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
-      // 모바일 앱 공유용 짧은 링크 (yt-dlp가 리디렉션을 따라감)
-      /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
-    ];
-    return patterns.some((pattern) => pattern.test(url));
+    return links.isSoundCloudURL(url);
   }
 
   static isPlaylist(url) {

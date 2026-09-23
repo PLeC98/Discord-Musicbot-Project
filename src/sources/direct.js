@@ -1,9 +1,10 @@
 const path = require("path");
+const links = require("../rules/links");
 const log = require("../infra/log/logger").child({ category: "link" });
 const SafeUrl = require("../infra/safeUrl");
 
 class DirectLink {
-  static supportedFormats = [".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".wma", ".opus", ".webm", ".mp4", ".mkv", ".avi", ".mov"];
+  static supportedFormats = links.DIRECT_AUDIO_FORMATS;
 
   /**
    * 직접 오디오 링크의 메타데이터 조회.
@@ -71,20 +72,7 @@ class DirectLink {
   }
 
   static isDirectAudioLink(url) {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname.toLowerCase();
-
-      // URL이 지원되는 오디오 형식으로 끝나는지 확인
-      const hasAudioExtension = this.supportedFormats.some((format) => pathname.endsWith(format));
-
-      // 직접 HTTP/HTTPS 링크인지 확인
-      const isHttpLink = urlObj.protocol === "http:" || urlObj.protocol === "https:";
-
-      return isHttpLink && hasAudioExtension;
-    } catch (error) {
-      return false;
-    }
+    return links.isDirectAudioLink(url);
   }
 
   // 참고: 동기 함수로 유지해야 함. getInfo()가 반환값을
