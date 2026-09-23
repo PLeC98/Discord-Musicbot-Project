@@ -184,3 +184,70 @@ test("풀어 적은 문구의 종류가 그대로 온다", () => {
   const config = { messages: [{ text: "놀아요", type: "Playing" }] };
   assert.deepEqual(managerAt({}).getCurrentEntry(config), { text: "놀아요", type: "Playing" });
 });
+
+// ── 걸기 ──────────────────────────────────────────────────────────────────
+
+function presenceClient() {
+  const set = [];
+  return { set, client: { user: { setActivity: (a) => set.push(a) } } };
+}
+
+test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => {
+  const { ActivityType } = require("discord.js");
+  const { set, client } = presenceClient();
+  const manager = new StatusManager(client);
+  manager.load = () => ({ messages: ["평소", { text: "놀아요", type: "Playing" }] });
+
+  manager.apply();
+  manager.rotationIndex = 1;
+  manager.apply();
+  assert.deepEqual(set, [
+    { name: "평소", type: ActivityType.Listening },
+    { name: "놀아요", type: ActivityType.Playing },
+  ]);
+
+  // 로그인 전이거나 고를 문구가 없으면 건드리지 않는다
+  const loggedOut = new StatusManager({});
+  loggedOut.load = () => ({ messages: ["x"] });
+  loggedOut.apply();
+  manager.load = () => ({ messages: [] });
+  manager.apply();
+  assert.equal(set.length, 2);
+});
+
+test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지지 않는다. stop 이 멈춘다", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const { set, client } = presenceClient();
+  const manager = new StatusManager(client);
+  manager.load = () => ({ interval: 3, messages: ["하나", "둘"] });
+
+  manager.start();
+  assert.deepEqual(
+    set.map((a) => a.name),
+    ["하나"],
+    "시작하자마자 건다",
+  );
+  t.mock.timers.tick(9_999);
+  assert.equal(set.length, 1, "3초로 적어도 10초");
+  t.mock.timers.tick(1);
+  assert.deepEqual(
+    set.map((a) => a.name),
+    ["하나", "둘"],
+  );
+
+  manager.stop();
+  t.mock.timers.tick(60_000);
+  assert.equal(set.length, 2);
+  manager.stop(); // 두 번 불러도 된다
+});
+
+test("오늘 · 음력 오늘 · 지금은 MM-DD · HH:MM 모양", () => {
+  const manager = new StatusManager({});
+  assert.match(manager.today(), /^\d{2}-\d{2}$/);
+  assert.match(manager.todayLunar(), /^\d{2}-\d{2}$/);
+  assert.match(manager.now(), /^\d{2}:\d{2}$/);
+});
+
+test("load 는 설정 로더의 status() 를 부른다", () => {
+  assert.equal(new StatusManager({}).load(), statusConfig.status());
+});
