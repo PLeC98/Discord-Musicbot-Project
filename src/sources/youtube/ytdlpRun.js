@@ -10,7 +10,9 @@ const config = require("../../../config");
 const externalCaches = require("../../store/externalCaches");
 const { PlayerClients, NEEDS_POT } = require("./clients");
 
-const playerClients = new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails });
+// 클라이언트 순번표. 설정은 처음 쓸 때 읽는다
+let clientsTable = null;
+const playerClients = () => (clientsTable ??= new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails }));
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 // 지금 쿠키 파일을 쥔 채 도는 yt-dlp 가 몇 개인가. 대시보드가 쿠키를 갈아 끼울 때 본다.
@@ -73,10 +75,11 @@ class YouTubeRun {
    * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다.
    */
   static async _runWithClients(url, buildOptions, forceCookies, exec) {
-    const clients = playerClients.idle ? [] : playerClients.list();
+    const table = playerClients();
+    const clients = table.idle ? [] : table.list();
 
     if (clients.length === 0) {
-      if (!playerClients.idle) playerClients.noteExhausted(); // 지정은 했는데 전부 제외됨
+      if (!table.idle) table.noteExhausted(); // 지정은 했는데 전부 제외됨
       return this._runOnce(url, buildOptions(forceCookies), null, exec);
     }
 
@@ -85,12 +88,12 @@ class YouTubeRun {
       const client = clients[i];
       try {
         const result = await this._runOnce(url, buildOptions(forceCookies), client, exec);
-        playerClients.record(client, true);
+        table.record(client, true);
         return result;
       } catch (error) {
         if (!this.isClientFault(error)) throw error; // 영상·네트워크 문제. 클라이언트 바꿔봐야 소용없다
         lastError = error;
-        playerClients.record(client, false);
+        table.record(client, false);
         const next = clients[i + 1];
         log.warn({ tags: ["fallback"] }, `${client} 실패 (${this._faultReason(error)})${next ? `. ${next} 로 전환합니다` : ""}`);
       }

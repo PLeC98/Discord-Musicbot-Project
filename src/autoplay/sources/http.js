@@ -4,7 +4,7 @@
 
 const config = require("../../../config");
 
-const UA = config.userAgents.bot;
+const userAgent = () => config.userAgents.bot;
 
 const TIMEOUT_MS = 15000;
 
@@ -13,7 +13,7 @@ const rand = (n) => Math.floor(Math.random() * n);
 const pick = (list) => (list.length ? list[rand(list.length)] : null);
 
 async function getJson(url, headers = {}, timeoutMs = TIMEOUT_MS) {
-  const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": UA, ...headers }, signal: AbortSignal.timeout(timeoutMs) });
+  const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
   return res.json();
 }
@@ -31,4 +31,4 @@ function query(params) {
   return q.toString();
 }
 
-module.exports = { getJson, pick, rand, query, TIMEOUT_MS, UA };
+module.exports = { getJson, pick, rand, query, TIMEOUT_MS, userAgent };

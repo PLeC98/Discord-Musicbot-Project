@@ -110,7 +110,7 @@ class YouTubeAuth {
    * 기동 로그는 시작 시점의 설정만 보여주지만 여기는 실행 중 바뀌는 상태(제외된 경로)를 담는다.
    */
   static statusSnapshot() {
-    const snap = playerClients.snapshot();
+    const snap = playerClients().snapshot();
     const fails = (h) => (h || []).filter((x) => x === "ng").length;
     return {
       pot: this.potEnabled() ? "on" : config.bgutil.enabled ? "missing" : "off",

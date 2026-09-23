@@ -15,11 +15,11 @@ const log = require("../infra/log/logger").child({ category: "spotify" });
 const config = require("../../config");
 const externalCaches = require("../store/externalCaches");
 
-const UA = config.userAgents.browser;
+const ua = () => config.userAgents.browser;
 const API_BASE = "https://api.spotify.com/v1";
 const PARTNER = "https://api-partner.spotify.com/pathfinder/v2/query";
 const REFERER = "https://open.spotify.com/";
-const HDR_HTML = { "User-Agent": UA, "Accept-Language": "en" };
+const htmlHeaders = () => ({ "User-Agent": ua(), "Accept-Language": "en" });
 
 // 응답이 없으면 끊는다. 웹플레이어 번들은 수 MB라 따로 둔다.
 const TIMEOUT_MS = 10000;
@@ -135,7 +135,7 @@ function partnerHeaders(tok, clientVersion) {
     Referer: REFERER,
     Origin: "https://open.spotify.com",
     Accept: "application/json",
-    "User-Agent": UA,
+    "User-Agent": ua(),
     "Content-Type": "application/json",
   };
 }
@@ -150,7 +150,7 @@ const official = {
     const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString("base64");
     const r = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
-      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA },
+      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": ua() },
       body: "grant_type=client_credentials",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -163,7 +163,7 @@ const official = {
   async _get(path) {
     const tok = await this._accessToken();
     const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": UA }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!r.ok) throw new Error(`API ${r.status} (${path.slice(0, 40)})`);
     return r.json();
   },
@@ -231,7 +231,7 @@ const graphql = {
   },
 
   async _extract() {
-    const home = await fetch("https://open.spotify.com/", { headers: HDR_HTML, signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.text());
+    const home = await fetch("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.text());
     let clientVersion = SEED.clientVersion;
     const cfg = home.match(/id="appServerConfig"[^>]*>([^<]+)</);
     if (cfg) {
@@ -245,7 +245,7 @@ const graphql = {
     let secrets = null;
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];
     if (scriptUrl) {
-      const js = await fetch(scriptUrl, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) }).then((r) => r.text());
+      const js = await fetch(scriptUrl, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) }).then((r) => r.text());
       const s = parseSecrets(js);
       if (s.length) secrets = s;
       const fp = js.match(/"fetchPlaylist","query","([0-9a-f]{64})"/);
@@ -258,14 +258,14 @@ const graphql = {
 
   async _mintToken() {
     const state = await this._ensureState(false);
-    const home = await fetch("https://open.spotify.com/", { headers: HDR_HTML, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const home = await fetch("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
     const cookies = (home.headers.getSetCookie?.() || []).map((c) => c.split(";")[0]).join("; ");
-    const stJson = await fetch("https://open.spotify.com/api/server-time", { headers: { ...HDR_HTML, Cookie: cookies, Referer: REFERER }, signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.json());
+    const stJson = await fetch("https://open.spotify.com/api/server-time", { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER }, signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.json());
     const serverSec = Number(stJson.serverTime) || Math.floor(Date.now() / 1000);
     const { secret, version } = state.secrets[0];
     const key = deriveKey(secret);
     const qs = new URLSearchParams({ reason: "init", productType: "web-player", totp: totp(key, Date.now()), totpServer: totp(key, serverSec * 1000), totpVer: String(version) });
-    const r = await fetch(`https://open.spotify.com/api/token?${qs}`, { headers: { ...HDR_HTML, Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const r = await fetch(`https://open.spotify.com/api/token?${qs}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!r.ok) {
       const e = new Error(`익명 토큰 ${r.status}`);
       e.status = r.status;

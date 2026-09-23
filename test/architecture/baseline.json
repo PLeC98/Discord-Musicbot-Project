@@ -16,12 +16,7 @@
     "src/ui/genreMenu.js": 1,
     "src/ui/nowPlayingPanel.js": 2
   },
-  "configCapture": {
-    "src/autoplay/sources/http.js": 1,
-    "src/sources/sponsorBlock.js": 1,
-    "src/sources/spotify.js": 1,
-    "src/sources/youtube/ytdlpRun.js": 3
-  },
+  "configCapture": {},
   "requireCache": {},
   "methodSwap": [
     "test/autoplay/autoplayPrefetch.test.js",

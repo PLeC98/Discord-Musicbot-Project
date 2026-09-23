@@ -4,7 +4,7 @@
 
 const log = require("../../infra/log/logger").child({ category: "autoplay" });
 const { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } = require("../../config/schema/genreSources");
-const { TIMEOUT_MS, UA, getJson } = require("./http");
+const { TIMEOUT_MS, userAgent, getJson } = require("./http");
 
 // getJson의 형제. 필터를 본문으로 받는 API용.
 // 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
@@ -12,7 +12,7 @@ const { TIMEOUT_MS, UA, getJson } = require("./http");
 async function postJson(url, body, timeoutMs = TIMEOUT_MS) {
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": UA },
+    headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": userAgent() },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs),
   });

@@ -54,6 +54,14 @@ for (const part of [auth.YouTubeAuth, run.YouTubeRun, YouTubeErrors, YouTubeApi]
   }
 }
 
-YouTube._internals = { BGUTIL_DIR: auth.BGUTIL_DIR, BGUTIL_PLUGIN_ROOT: auth.BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE: auth.BGUTIL_AVAILABLE, findPluginRoot: auth.findPluginRoot, playerClients: run.playerClients };
+YouTube._internals = {
+  BGUTIL_DIR: auth.BGUTIL_DIR,
+  BGUTIL_PLUGIN_ROOT: auth.BGUTIL_PLUGIN_ROOT,
+  BGUTIL_AVAILABLE: auth.BGUTIL_AVAILABLE,
+  findPluginRoot: auth.findPluginRoot,
+  get playerClients() {
+    return run.playerClients();
+  },
+};
 
 module.exports = YouTube;

@@ -21,8 +21,6 @@ const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro"
 const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];
 const FETCH_ACTION_TYPES = ["skip", "poi"];
 
-const USER_AGENT = config.userAgents.bot;
-
 // 영상 id 로 기억한 조회 결과(DB 캐시 앞의 메모리 기억). 같은 곡을 다시 틀 때 묻지 않는다.
 // 서버마다 카테고리가 달라 거르기 전의 원시 구간을 기억한다.
 const remembered = new Map(); // videoId → { at, none, promise }
@@ -78,7 +76,7 @@ const SponsorBlock = {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), sb.timeoutMs);
     try {
-      const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: controller.signal });
+      const res = await fetch(url, { headers: { "User-Agent": config.userAgents.bot }, signal: controller.signal });
       if (res.status !== 200) return null;
       const arr = await res.json();
       if (!Array.isArray(arr)) return null;
