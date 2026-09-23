@@ -4,6 +4,7 @@ const fsSync = require("fs");
 const log = require("../infra/log/logger").child({ category: "session" });
 const audioCache = require("../store/audioCache");
 const trackState = require("./trackState");
+const { audioKeyOf } = require("../rules/audioKeyOf");
 const config = require("../../config");
 const { formatDuration } = require("../ui/format");
 const { escapeMd } = require("../ui/mentions");
@@ -246,7 +247,7 @@ class SessionPersistence {
     }
 
     // 받아 둔 파일 경로는 저장하지 않는다. 내려받을 때와 같은 식으로 캐시 키에서 다시 구한다
-    const key = player.currentTrack?.audioSourceKey || player.currentTrack?.url;
+    const key = player.currentTrack?.audioSourceKey || audioKeyOf(player.currentTrack?.audioUrl);
     const file = key ? audioCache.getFilePath(key) : null;
     player.currentDownloadedFile = file && fsSync.existsSync(file) ? file : null;
 

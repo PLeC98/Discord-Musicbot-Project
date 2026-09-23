@@ -68,16 +68,16 @@ const norm = (s) =>
 /** 소스를 가로질러 같은 곡을 잡으려면 주소가 아니라 이름을 봐야 한다. */
 const nameKey = (t) => `${norm(t.artist)}|${norm(t.title)}`;
 
-/** 최근에 튼 곡들을 "이건 싫다" 판정으로 바꾼다. */
+/** 최근에 튼 곡들을 "이건 싫다" 판정으로 바꾼다. 주소는 음원 주소끼리 다듬어 견준다(출처 페이지는 작품 하나에 곡이 여럿일 수 있다) */
 function rejector(recent) {
   const names = new Set();
-  const urls = new Set();
+  const audio = new Set();
   for (const t of recent || []) {
     if (!t) continue;
     if (t.title) names.add(nameKey(t));
-    if (t.url) urls.add(t.url);
+    if (t.audioUrl) audio.add(canonicalUrl(t.audioUrl));
   }
-  return (cand) => isDead(cand.youtubeUrl) || names.has(nameKey(cand)) || urls.has(cand.youtubeUrl || cand.audioUrl || "");
+  return (cand) => isDead(cand.youtubeUrl) || names.has(nameKey(cand)) || audio.has(canonicalUrl(cand.youtubeUrl || cand.audioUrl || ""));
 }
 
 // 가중치대로 하나 뽑되 뽑힌 것은 뺀다. 한 소스가 빈 손이면 다음 소스로 가야 하기 때문이다.

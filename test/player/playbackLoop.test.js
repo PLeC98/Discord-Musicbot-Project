@@ -15,7 +15,7 @@ const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 const previous = MusicPlayer.prototype.previous;
 
 function makeTrack(title, duration = 100) {
-  return { title, url: `https://y/${title}`, duration };
+  return { title, requestKey: `https://y/${title}`, duration };
 }
 
 function makePlayer({ loop = false, current = null, queue = [], history = [] } = {}) {

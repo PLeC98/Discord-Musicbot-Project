@@ -91,9 +91,9 @@ function requeuedCopyOf(player, track) {
   const same = player.queue.lastIndexOf(track);
   if (same >= 0) return same;
   // 복원한 뒤에는 기록과 대기열이 서로 다른 객체다. 반복이 아니면 같은 곡은 사용자가 일부러 넣은 것이다.
-  if (player.loop !== "queue" || !track.url) return -1;
+  if (player.loop !== "queue" || !track.requestKey) return -1;
   for (let i = player.queue.length - 1; i >= 0; i--) {
-    if (player.queue[i].url === track.url) return i;
+    if (player.queue[i].requestKey === track.requestKey) return i;
   }
   return -1;
 }

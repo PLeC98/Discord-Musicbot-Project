@@ -11,7 +11,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const QueueWarmer = require("../../src/player/queueWarmer");
 
-const track = (id, extra = {}) => ({ title: id, url: `https://y/${id}`, audioSourceKey: `yt:${id}`, ...extra });
+const track = (id, extra = {}) => ({ title: id, requestKey: `https://y/${id}`, audioSourceKey: `yt:${id}`, ...extra });
 
 function makeWarmer({ queue = [], currentTrack = null, loop = false, cached = new Set(), busy = new Set(), fail = new Set(), guildId = "g1" } = {}) {
   const warmed = [];
@@ -240,7 +240,7 @@ test("아직 캐시되지 않은 키도 보호한다 (예열이 끝나기 전에
 });
 
 test("키가 없는 트랙은 보호에서 빠진다 (미해석 스포티파이 — 보호할 파일이 없다)", async () => {
-  const spotify = { title: "s", url: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioSourceKey: null };
   const { warmer, protection } = makeWarmer({ queue: [spotify, track("b")] });
 
   warmer.tick();
@@ -289,7 +289,7 @@ test("대기열이 같아도 현재 곡이 바뀌면 서명이 달라진다 (이
 // 키가 생긴 다음 틱에는 키 경로가 비어 있어 또 받았다.
 
 test("키가 늦게 정해져도 지문은 흔들리지 않는다", () => {
-  const spotify = { title: "s", url: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioSourceKey: null };
   const { warmer } = makeWarmer({ queue: [spotify] });
 
   const before = warmer.signature();
@@ -298,7 +298,7 @@ test("키가 늦게 정해져도 지문은 흔들리지 않는다", () => {
 });
 
 test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
-  const spotify = { title: "s", url: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioSourceKey: null };
   const cached = new Set();
   const warmed = [];
 
@@ -308,11 +308,11 @@ test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
     gapMs: 0,
     intervalMs: 1000,
     keyOf: (t) => t?.audioSourceKey || null,
-    // 파일 경로는 키에서 나온다 — 키가 없으면 URL 해시로 갈라진다(실제 trackFilePath와 같은 규칙)
-    isCached: (t) => cached.has(t.audioSourceKey || t.url),
+    // 파일 경로는 키에서 나온다 — 키가 없으면 요청 열쇠 해시로 갈라진다(실제 trackFilePath와 같은 규칙)
+    isCached: (t) => cached.has(t.audioSourceKey || t.requestKey),
     isBusy: () => false,
     warm: async (t) => {
-      warmed.push(t.url);
+      warmed.push(t.requestKey);
       t.audioSourceKey = "yt:resolved"; // warm이 받기 전에 키를 확정한다
       cached.add(t.audioSourceKey);
     },

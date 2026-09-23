@@ -364,9 +364,16 @@ test("최근에 튼 곡은 이름으로도 걸러낸다 — 소스가 다르면 
   assert.equal(reject({ artist: "YOASOBI", title: "Racing Into The Night" }), false);
 });
 
-test("주소가 같아도 걸러낸다", () => {
-  const reject = route.rejector([{ title: "x", url: "https://youtu.be/same" }]);
-  assert.equal(reject({ title: "다른 제목", youtubeUrl: "https://youtu.be/same" }), true);
+test("음원 주소가 같아도 걸러낸다 — 모양이 달라도 다듬어 견준다", () => {
+  const reject = route.rejector([{ title: "x", audioUrl: "https://www.youtube.com/watch?v=samesamesam" }]);
+  assert.equal(reject({ title: "다른 제목", youtubeUrl: "https://youtu.be/samesamesam?si=1" }), true);
+  assert.equal(reject({ title: "또 다른 제목", youtubeUrl: "https://youtu.be/otherotherx" }), false);
+});
+
+// 회귀 대상: 출처 곡은 url 에 출처 페이지를 들고 있어 후보의 영상 주소와 견주면 한 번도 맞지 않았다(이름 비교가 막아 주고 있었다)
+test("출처 곡을 최근에 틀었으면 같은 영상을 다른 이름으로 가져와도 걸러낸다", () => {
+  const reject = route.rejector([{ title: "Fatal", pageUrl: "https://anilist.co/anime/150672", audioUrl: "https://www.youtube.com/watch?v=fatalfatal1" }]);
+  assert.equal(reject({ title: "ファタール", youtubeUrl: "https://www.youtube.com/watch?v=fatalfatal1" }), true);
 });
 
 // 소스마다 띄어쓰기·하이픈·장식 기호를 다르게 적는다. 실측한 실제 쌍들이다.

@@ -316,7 +316,7 @@ test("새로 검색한 영상(장부에서 온 것이 아님)이 내려갔으면
 // ── 예열 ──────────────────────────────────────────────────────────────
 
 test("예열: 열쇠를 못 정한 스포티파이 곡은 받기 전에 동등물부터 찾는다", async () => {
-  const track = { title: "예열 곡", url: "https://open.spotify.com/track/sp5", platform: "spotify", _equivalent: "https://www.youtube.com/watch?v=ooooooooooo" };
+  const track = { title: "예열 곡", url: "https://open.spotify.com/track/sp5", requestKey: "https://open.spotify.com/track/sp5", platform: "spotify", _equivalent: "https://www.youtube.com/watch?v=ooooooooooo" };
   equivalent.findYouTubeEquivalent = async (t) => {
     calls.equivalent.push(t.title);
     t.youtubeUrl = t._equivalent;

@@ -708,7 +708,7 @@ class MusicPlayer {
     this.downloader
       .downloadTrack(trackToDownload)
       .then((file) => {
-        if (this.currentTrack && this.currentTrack.url === trackToDownload.url) {
+        if (this.currentTrack && this.currentTrack.requestKey === trackToDownload.requestKey) {
           this.currentDownloadedFile = file;
         }
       })
@@ -834,7 +834,7 @@ class MusicPlayer {
 
   getTrackCacheKey(track) {
     if (!track) return null;
-    return track.id || track.url || `${track.title}-${track.duration}`;
+    return track.id || track.requestKey || `${track.title}-${track.duration}`;
   }
 
   getCachedStreamForCurrentTrack(seekSeconds) {

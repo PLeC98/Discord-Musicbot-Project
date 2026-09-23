@@ -91,12 +91,10 @@ class TrackDownloader {
   }
 
   /**
-   * 트랙의 캐시 파일 경로 산출. audioSourceKey가 없으면(스포티파이 미해석 등)
-   * 소스 URL을 그대로 해시. getFilePath가 md5(입력)로 경로를 만들므로
-   * 기존 인라인 폴백(track_md5(url).opus)과 동일한 경로가 나온다.
+   * 트랙의 캐시 파일 경로 산출. audioSourceKey가 없으면(스포티파이 미해석 등) 요청 열쇠를 해시한다.
    */
   trackFilePath(track) {
-    return audioCache.getFilePath(track.audioSourceKey || track.url);
+    return audioCache.getFilePath(track.audioSourceKey || track.requestKey);
   }
 
   /**
@@ -351,7 +349,7 @@ class TrackDownloader {
    * 이미 받았는지, 받는 중인지는 downloadTrack이 판정하므로 여기서 다시 하지 않는다.
    */
   async warm(track) {
-    if (!track || !track.url) return;
+    if (!track || !track.requestKey) return;
     // 사운드클라우드는 제 음원을 주므로 동등물을 찾지 않는다
     if (!lookup.ensureAudioSourceKey(track) && track.platform !== "soundcloud") {
       await equivalent.findYouTubeEquivalent(track);
