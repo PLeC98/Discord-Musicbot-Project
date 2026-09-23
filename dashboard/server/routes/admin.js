@@ -205,8 +205,11 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
 router.post("/redeploy-commands", requireOwner, async (req, res) => {
   const r = await req.app.locals.deployCommands({ force: true }); // 대시보드 버튼 = 명시적 재배포 의도. 지문 무시
   if (r.ok) {
+    // 개수는 디스코드가 등록을 받고 돌려준 것이다
+    log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 다시 등록했습니다.`);
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
   }
+  log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${r.error?.message || r.error}`);
   return res.status(502).json({ success: false, error: r.error?.message || "배포에 실패했습니다", code: r.error?.code || null });
 });
 
