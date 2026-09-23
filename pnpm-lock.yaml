@@ -63,6 +63,9 @@ importers:
       youtube-dl-exec:
         specifier: ^3.1.15
         version: 3.1.15(debug@4.4.3(supports-color@7.2.0))
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -2227,6 +2230,9 @@ packages:
     resolution: {integrity: sha512-hUWpBIF6hQMtqEr1icf6PP1bEOIX3xvdhvDMbQqMmj5Vg8pI7DIrGzlPTHUZWtHX/sh7LzOgIzBTXZAztrrskA==}
     engines: {node: '>= 18'}
 
+  zod@4.6.5:
+    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+
 snapshots:
 
   '@babel/helper-string-parser@7.29.7': {}
@@ -4222,3 +4228,5 @@ snapshots:
       tinyspawn: 1.5.10
     transitivePeerDependencies:
       - debug
+
+  zod@4.6.5: {}

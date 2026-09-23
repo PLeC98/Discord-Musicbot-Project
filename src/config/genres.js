@@ -6,17 +6,13 @@ const log = require("../infra/log/logger").child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
 const sources = require("./schema/genreSources");
 const { load } = require("./yamlStore");
+const { genreProblems, NUMERIC_NAME, ONE_EMOJI } = require("./schema/genres");
+
+// 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
+const validateGenres = genreProblems;
 
 // 같은 말을 되풀이하지 않는다. genres()는 곡을 고를 때마다 불린다
 let warnedKeys = "";
-
-// 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 코드포인트가 여럿인 것도 한 덩이로 센다.
-// g 플래그가 없어 test()에 상태가 남지 않는다.
-const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
-
-// 숫자만으로 된 이름. JavaScript 객체가 정수처럼 생긴 키를 앞으로 당기는 탓에 장르 차례가
-// 조용히 어긋난다("재즈 80 팝"이 "80 재즈 팝"이 된다). 차례는 선택 메뉴에 그대로 나오므로 막는다.
-const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
 
 /**
  * 자동재생 장르 설정. { defaults, genres }.
@@ -103,88 +99,6 @@ function checkSourceKeys(genres) {
   const key = lines.join("|");
   if (lines.length && key !== warnedKeys) for (const line of lines) log.warn(line);
   warnedKeys = key;
-}
-
-// 장르 하나의 sources를 본다. 반환: 문제 문구 배열.
-//
-// 맨 위 keywords:는 읽지 않는다. 한때 "sources가 없으면 그걸 keyword 소스로 읽자"고 했는데,
-// 그건 축약이 아니라 영구 호환층이다. 새로 쓰는 사람이 keywords:를 고를 이유가 없다.
-// 한 번 크게 깨지고 끝나는 편이 두 모양을 영원히 들고 가는 것보다 낫다.
-function sourceProblems(id, genre) {
-  const problems = [];
-
-  if (genre.keywords !== undefined) {
-    problems.push(`${id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]`);
-  }
-
-  const list = genre.sources;
-  if (!Array.isArray(list) || list.length === 0) {
-    problems.push(`${id}: 소스(sources)가 하나는 있어야 합니다.`);
-    return problems;
-  }
-
-  list.forEach((source, i) => {
-    const where = `${id}의 ${i + 1}번째 소스`;
-    if (!source || typeof source !== "object") return problems.push(`${where}: type과 값을 적어야 합니다.`);
-
-    const spec = sources.SPEC[source.type];
-    if (!spec) return problems.push(`${where}: 모르는 종류입니다(${source.type}). 쓸 수 있는 것: ${sources.TYPES.join(", ")}`);
-
-    // 안쪽 배열은 "이 중 하나는 있어야 한다"
-    for (const group of spec.need) {
-      const filled = group.some((key) => {
-        const v = source[key];
-        return Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim();
-      });
-      if (!filled) problems.push(`${where}(${spec.label}): ${group.join(" 또는 ")} 를 적어야 합니다.`);
-    }
-
-    // 값이 정해져 있는 칸의 오타. 여기서 안 잡으면 저쪽이 422를 주고 그 소스가 조용히 빈손이 된다
-    for (const [key, allowed] of Object.entries(spec.enums || {})) {
-      if (source[key] == null) continue;
-      for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
-        if (!allowed.includes(one)) problems.push(`${where}(${spec.label}): ${key}에 "${one}"는 쓸 수 없습니다. 쓸 수 있는 것: ${allowed.join(", ")}`);
-      }
-    }
-
-    if (source.weight != null && !(Number(source.weight) >= 1)) problems.push(`${where}: weight는 1 이상이어야 합니다.`);
-    if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) problems.push(`${where}: yearFrom이 yearTo보다 큽니다.`);
-    if (source.minScore != null && !(Number(source.minScore) >= 0)) problems.push(`${where}: minScore는 0 이상이어야 합니다.`);
-    if (source.minLength != null && source.maxLength != null && Number(source.minLength) > Number(source.maxLength)) problems.push(`${where}: minLength가 maxLength보다 큽니다.`);
-  });
-
-  return problems;
-}
-
-/**
- * 장르 설정이 쓸 만한 모양인지 본다. 저장 전에 부른다. 깨진 값을 파일에 남기지 않는다.
- * 반환: 문제 문구 배열(비어 있으면 통과).
- */
-function validateGenres(data) {
-  const problems = [];
-  const ids = Object.keys(data?.genres || {});
-
-  if (ids.length === 0) problems.push("장르가 하나도 없습니다.");
-  // 디스코드 선택 메뉴는 25개까지만 받는다. 넘기면 메뉴가 거부된다
-  if (ids.length > 25) problems.push(`장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다.`);
-
-  for (const id of ids) {
-    // 키가 곧 이름이다. YAML이 값으로 읽어 버리는 말은 이름으로 쓸 수 없다.
-    if (id === "true" || id === "false" || id === "" || id === "null") problems.push(`"${id || "null"}"는 장르 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).`);
-    if (NUMERIC_NAME.test(id)) problems.push(`"${id}": 숫자만으로 된 이름은 차례가 어긋납니다. "${id}년대"처럼 글자를 붙여 주세요.`);
-    // 이모지는 비워 둘 수 있다. 적었다면 한 글자여야 한다. 파일을 손으로 고칠 수도 있어서 여기서 막는다.
-    const emoji = (data.genres[id] || {}).emoji;
-    if (emoji != null && emoji !== "" && !ONE_EMOJI.test(String(emoji))) problems.push(`${id}: emoji는 이모지 한 글자여야 합니다.`);
-    problems.push(...sourceProblems(id, data.genres[id] || {}));
-  }
-
-  const d = data?.defaults || {};
-  if (d.prefetchCount != null && !(Number(d.prefetchCount) >= 1)) problems.push("prefetchCount는 1 이상이어야 합니다.");
-  if (d.minDurationSec != null && !(Number(d.minDurationSec) >= 0)) problems.push("minDurationSec은 0 이상이어야 합니다.");
-  if (d.maxDurationSec != null && !(Number(d.maxDurationSec) > 0)) problems.push("maxDurationSec은 비우거나 0보다 커야 합니다.");
-  if (d.minDurationSec != null && d.maxDurationSec != null && Number(d.minDurationSec) > Number(d.maxDurationSec)) problems.push("minDurationSec이 maxDurationSec보다 큽니다.");
-
-  return problems;
 }
 
 module.exports = { genres, validateGenres, NUMERIC_NAME };

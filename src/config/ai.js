@@ -7,6 +7,9 @@ const path = require("path");
 const log = require("../infra/log/logger").child({ category: "config" });
 const { PROVIDERS } = require("./schema/aiProviders");
 const { load, fileOf, save, configDir, cache } = require("./yamlStore");
+const { aiProblems, PROMPT_FILE } = require("./schema/ai");
+
+const validateAi = aiProblems;
 
 // ── ai-keys.yaml ──────────────────────────────────────────────────────────
 //
@@ -48,19 +51,6 @@ function saveAiKeys(changes) {
   save("ai-keys", next);
   return Object.fromEntries(Object.entries(next).map(([name, value]) => [name, !!value]));
 }
-
-// ── ai-prompt.chatml ──────────────────────────────────────────────────────
-//
-// 프롬프트는 설정과 딴 파일에 산다. 설정 파일에 긴 글을 섞으면 YAML 들여쓰기에 걸려
-// 손으로 고치기 나쁘고, 프롬프트만 주고받기도 어렵다.
-//
-// 모양은 ChatML 이다. 채팅 프론트엔드들이 쓰는 그 규격이라 옮겨 붙이기 쉽다.
-//
-//   <|im_start|>system
-//   판정 기준…
-//   <|im_end|>
-
-const PROMPT_FILE = "ai-prompt.chatml";
 
 const CHATML = /<\|im_start\|>[ \t]*(\w+)[ \t]*\r?\n([\s\S]*?)<\|im_end\|>/g;
 
@@ -134,68 +124,6 @@ function ai() {
 // 여기서 위로 require 하면 순환이다. 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
 const aiProviders = () => PROVIDERS;
 
-function validateAi(data) {
-  const problems = [];
-  if (data?.provider != null && !aiProviders().includes(data.provider)) problems.push(`provider는 ${aiProviders().join(" · ")} 중 하나여야 합니다.`);
-  if (data?.enabled != null) problems.push("enabled 는 provider 로 바뀌었습니다. off 또는 openai 를 적으세요.");
-
-  // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
-  if (data?.provider && data.provider !== "off") {
-    // baseUrl 은 custom 일 때만 쓴다. 나머지는 프로바이더에 박힌 주소로 간다(autoplayAssist)
-    if (data.provider === "custom") {
-      if (!String(data.baseUrl || "").trim()) problems.push("provider가 custom이면 baseUrl을 적어야 합니다.");
-      else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) problems.push("baseUrl은 http:// 또는 https:// 로 시작해야 합니다.");
-    }
-    if (!String(data.model || "").trim()) problems.push("model을 적어야 합니다.");
-  }
-
-  const num = (key, min, max) => {
-    if (data?.[key] == null) return;
-    const value = Number(data[key]);
-    if (!Number.isFinite(value) || value < min || value > max) problems.push(`${key}는 ${min}~${max} 사이여야 합니다.`);
-  };
-  // 온도도 모델이 받는 칸 하나다. params 아래로 옮겼다. 남아 있으면 조용히 무시되므로 알린다.
-  if (data?.temperature != null) problems.push("temperature는 params 아래에 모델별로 적습니다.");
-  num("timeoutMs", 1000, 600000);
-  num("batchSize", 1, 50);
-
-  // 추가 파라미터는 한 줄에 하나씩 적는 글이다(autoplayAssist.parseExtra)
-  if (data?.extra != null && typeof data.extra !== "string") problems.push("extra는 한 줄에 하나씩 적는 글이어야 합니다.");
-  if (data?.prompt != null) problems.push(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`);
-
-  for (const key of ["project", "location"]) {
-    if (data?.[key] != null && typeof data[key] !== "string") problems.push(`${key}는 글자로 적어야 합니다.`);
-  }
-
-  // 모델이 받는 칸의 값. 모델 이름으로 한 겹 나뉜다. 안 그러면 모델을 바꿨을 때
-  // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(autoplayAssist.withParams).
-  if (data?.params != null) {
-    if (typeof data.params !== "object" || Array.isArray(data.params)) {
-      problems.push("params는 모델 이름 아래에 칸을 적는 표여야 합니다.");
-    } else {
-      for (const [model, values] of Object.entries(data.params)) {
-        if (values != null && (typeof values !== "object" || Array.isArray(values))) {
-          problems.push(`params.${model} 은 칸 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).`);
-        }
-      }
-    }
-  }
-
-  // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
-  if (data?.hideModels != null && !(Array.isArray(data.hideModels) && data.hideModels.every((one) => typeof one === "string"))) {
-    problems.push('hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).');
-  }
-
-  // 섹션 이름은 대시보드에서 어느 섹션인지 알아보려고 붙이는 것이다.
-  // ChatML 에는 이름을 적을 자리가 없어서 여기 둔다. 차례가 프롬프트 섹션과 같아야 한다.
-  if (data?.promptNames != null && !(Array.isArray(data.promptNames) && data.promptNames.every((one) => one == null || typeof one === "string"))) {
-    problems.push("promptNames는 글자 목록이어야 합니다.");
-  }
-
-  problems.push(...listProblems(data?.list));
-  return problems;
-}
-
 // 프롬프트는 섹션 목록이다. 섹션마다 역할(system·user·assistant)과 내용을 갖는다.
 // 비우면 기본 구성을 쓰므로, 적었을 때만 따진다.
 const AI_ROLES = ["system", "user", "assistant"];
@@ -218,23 +146,6 @@ function promptProblems(prompt, on) {
   // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다. 켜 두고 이러면 매번 헛돈다.
   const hasList = prompt.some((section) => /\{\{\s*목록\s*\}\}/.test(String(section?.text ?? "")));
   if (on && !hasList) problems.push("어딘가에 {{목록}} 이 있어야 합니다. 그 자리에 판정할 후보가 들어갑니다.");
-  return problems;
-}
-
-const AI_UNKNOWN = ["hide", "text", "zero"];
-
-function listProblems(list) {
-  if (list == null) return [];
-  if (typeof list !== "object" || Array.isArray(list)) return ["list는 이름:값 꼴이어야 합니다."];
-
-  const problems = [];
-  if (list.lineFormat != null) {
-    if (typeof list.lineFormat !== "string") problems.push("list.lineFormat은 글로 적어야 합니다.");
-    // 제목이 없으면 판정할 거리가 없다
-    else if (list.lineFormat.trim() && !/\{\{\s*제목\s*\}\}/.test(list.lineFormat)) problems.push("list.lineFormat에 {{제목}} 이 있어야 합니다.");
-  }
-  if (list.unknownDuration != null && !AI_UNKNOWN.includes(list.unknownDuration)) problems.push(`list.unknownDuration은 ${AI_UNKNOWN.join(" · ")} 중 하나여야 합니다.`);
-  if (list.unknownText != null && typeof list.unknownText !== "string") problems.push("list.unknownText는 글로 적어야 합니다.");
   return problems;
 }
 

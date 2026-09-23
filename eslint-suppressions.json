@@ -285,17 +285,7 @@
       "count": 1
     }
   },
-  "src/config/ai.js": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/config/genres.js": {
-    "complexity": {
-      "count": 3
-    }
-  },
-  "src/config/status.js": {
     "complexity": {
       "count": 1
     }
