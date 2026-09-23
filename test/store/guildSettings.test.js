@@ -2,8 +2,8 @@
 
 // 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다(구조 리팩터링 0-B).
 //
-// 5단계가 이것을 CacheManager 의 SQL 과 합쳐 store/guildSettings 로 만든다. 설정마다 읽기 · 쓰기 · 지우기, 메모리 캐시,
-// DB 가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 CacheManager 를 임시 DB 로 쓴다.
+// 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기 · 쓰기 · 지우기, 메모리 캐시,
+// DB 가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 표를 임시 DB 로 쓴다.
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -12,7 +12,7 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guild-settings-"));
-const CacheManager = require("../../src/store/cacheManager");
+const guildTable = require("../../src/store/guildSettings").table;
 const audioCache = require("../../src/store/audioCache");
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
@@ -32,16 +32,16 @@ after(() => {
 // 메모리 캐시를 비우고 다시 읽는다. DB 에 실제로 남았는지 본다
 const fresh = () => settings.cache.clear();
 
-// CacheManager 의 한 메서드를 잠깐 던지게 한다
+// 표의 한 메서드를 잠깐 던지게 한다
 async function whenDbFails(method, fn) {
-  const real = CacheManager[method];
-  CacheManager[method] = () => {
+  const real = guildTable[method];
+  guildTable[method] = () => {
     throw new Error("DB 실패");
   };
   try {
     return await fn();
   } finally {
-    CacheManager[method] = real;
+    guildTable[method] = real;
   }
 }
 

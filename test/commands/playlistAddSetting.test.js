@@ -9,8 +9,8 @@ const { openTempStore } = require("../helpers/tempStore");
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());
-const CacheManager = require("../../src/store/cacheManager");
-const stored = { get: (g) => CacheManager.getPlaylistAddMax(g), set: (g, n) => CacheManager.setPlaylistAddMax(g, n), has: (g) => CacheManager.getPlaylistAddMax(g) !== null };
+const guildTable = require("../../src/store/guildSettings").table;
+const stored = { get: (g) => guildTable.getPlaylistAddMax(g), set: (g, n) => guildTable.setPlaylistAddMax(g, n), has: (g) => guildTable.getPlaylistAddMax(g) !== null };
 
 const config = require("../../config");
 const GuildSettingsManager = require("../../src/store/guildSettings");

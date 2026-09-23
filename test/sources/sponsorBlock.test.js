@@ -12,13 +12,13 @@ const assert = require("node:assert/strict");
 const DB_PATH = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}.db`);
 
 let SponsorBlock;
-let CacheManager, audioCache, externalCaches;
+let guildTable, audioCache, externalCaches;
 let config;
 const realFetch = global.fetch;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  CacheManager = require("../../src/store/cacheManager");
+  guildTable = require("../../src/store/guildSettings").table;
   audioCache = require("../../src/store/audioCache");
   externalCaches = require("../../src/store/externalCaches");
   audioCache.initialize(DB_PATH);
@@ -29,7 +29,7 @@ before(() => {
 
 after(() => {
   global.fetch = realFetch;
-  if (CacheManager) audioCache.close();
+  if (guildTable) audioCache.close();
   try {
     fs.unlinkSync(DB_PATH);
   } catch {
@@ -182,7 +182,7 @@ test("lookup: videoId 없으면 none", async () => {
 test("resolveSponsorBlock: 마스터 off면 서버 설정 무관 하드 off", () => {
   const GSM = require("../../src/store/guildSettings");
   config.sponsorblock.enabled = false;
-  CacheManager.setGuildSponsorBlock("gMasterOff", { enabled: true, categories: ["filler"] });
+  guildTable.setGuildSponsorBlock("gMasterOff", { enabled: true, categories: ["filler"] });
   const eff = GSM.resolveSponsorBlock("gMasterOff");
   assert.equal(eff.enabled, false);
   assert.deepEqual(eff.categories, []);
@@ -199,7 +199,7 @@ test("resolveSponsorBlock: 마스터 on + 서버 미설정 → 기본 on + 전�
 test("resolveSponsorBlock: 서버가 enabled=false로 오버라이드", () => {
   const GSM = require("../../src/store/guildSettings");
   config.sponsorblock.enabled = true;
-  CacheManager.setGuildSponsorBlock("gOff", { enabled: false, categories: null });
+  guildTable.setGuildSponsorBlock("gOff", { enabled: false, categories: null });
   const eff = GSM.resolveSponsorBlock("gOff");
   assert.equal(eff.enabled, false);
 });
@@ -207,7 +207,7 @@ test("resolveSponsorBlock: 서버가 enabled=false로 오버라이드", () => {
 test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
   const GSM = require("../../src/store/guildSettings");
   config.sponsorblock.enabled = true;
-  CacheManager.setGuildSponsorBlock("gCats", { enabled: null, categories: ["sponsor", "filler"] });
+  guildTable.setGuildSponsorBlock("gCats", { enabled: null, categories: ["sponsor", "filler"] });
   const eff = GSM.resolveSponsorBlock("gCats");
   assert.equal(eff.enabled, true);
   assert.deepEqual(eff.categories, ["sponsor", "filler"]);
@@ -234,7 +234,7 @@ test("ensureForTrack: youtube 트랙에 sponsor 데이터 확보 + 멱등", asyn
 
 test("ensureForTrack: 서버 비활성이면 sponsor=null, 조회 안 함", async () => {
   config.sponsorblock.enabled = true;
-  CacheManager.setGuildSponsorBlock("gEnsureOff", { enabled: false, categories: null });
+  guildTable.setGuildSponsorBlock("gEnsureOff", { enabled: false, categories: null });
   let called = false;
   global.fetch = async () => {
     called = true;

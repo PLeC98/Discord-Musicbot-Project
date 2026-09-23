@@ -4,7 +4,7 @@
 // /nowplaying · /queue · /help · /system · /cachestatus · /setchannel · /setdjrole · /sponsorblock, 그리고 sponsorConfigHandler.
 //
 // 6단계가 표시 명령을 ui/ 의 같은 조각으로, 설정 명령을 store/guildSettings 로 돌린다. 문구 전부가 아니라 "무엇을 골라 담았나 ·
-// 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 CacheManager(임시 DB)로 돈다.
+// 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -14,7 +14,7 @@ const assert = require("node:assert/strict");
 const { MessageFlags, PermissionFlagsBits } = require("discord.js");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
-const CacheManager = require("../../src/store/cacheManager");
+const guildTable = require("../../src/store/guildSettings").table;
 const audioCache = require("../../src/store/audioCache");
 const trackLookup = require("../../src/store/trackLookup");
 audioCache._cacheDir = path.join(TMP, "audio_cache");
@@ -252,8 +252,8 @@ test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패�
   assert.deepEqual(seen, ["movePanel"]);
   assert.equal(log[0][1].embeds[0].data.title, "🔧 봇 채널 제거됨");
 
-  const real = CacheManager.setBotChannel;
-  CacheManager.setBotChannel = () => {
+  const real = guildTable.setBotChannel;
+  guildTable.setBotChannel = () => {
     throw new Error("DB");
   };
   try {
@@ -261,7 +261,7 @@ test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패�
     await cmd("setchannel").execute(failed.it, failed.client);
     assert.deepEqual(failed.log[0][1], { content: "❌ 채널 설정 중 오류가 발생했어요.", flags: MessageFlags.Ephemeral });
   } finally {
-    CacheManager.setBotChannel = real;
+    guildTable.setBotChannel = real;
   }
 });
 

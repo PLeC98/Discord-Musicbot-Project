@@ -1,6 +1,6 @@
 "use strict";
 
-// src/store/cacheManager.js — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
+// src/store/db.js — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
 const os = require("node:os");
 const path = require("node:path");
@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const Database = require("better-sqlite3");
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
-const CacheManager = require("../../src/store/cacheManager");
+const guildTable = require("../../src/store/guildSettings").table;
 const audioCache = require("../../src/store/audioCache");
 const storeDb = require("../../src/store/db");
 
@@ -70,16 +70,16 @@ test("버전이 다른 DB도 같다", () => {
 
 test("현재 재생 패널 자리: 쓰고 읽고 비운다 — 같은 행의 서버 설정은 그대로", () => {
   open("panel.db");
-  assert.equal(CacheManager.getPanelRecord("g"), null);
+  assert.equal(guildTable.getPanelRecord("g"), null);
 
-  CacheManager.setBotChannel("g", "c-bot");
-  CacheManager.setPanelRecord("g", "c-bot", "m1");
-  assert.deepEqual(CacheManager.getPanelRecord("g"), { channelId: "c-bot", messageId: "m1" });
+  guildTable.setBotChannel("g", "c-bot");
+  guildTable.setPanelRecord("g", "c-bot", "m1");
+  assert.deepEqual(guildTable.getPanelRecord("g"), { channelId: "c-bot", messageId: "m1" });
 
-  CacheManager.setPanelRecord("g", "c-other", "m2");
-  assert.deepEqual(CacheManager.getPanelRecord("g"), { channelId: "c-other", messageId: "m2" }, "서버당 한 행을 덮어쓴다");
-  assert.equal(CacheManager.getBotChannel("g"), "c-bot");
+  guildTable.setPanelRecord("g", "c-other", "m2");
+  assert.deepEqual(guildTable.getPanelRecord("g"), { channelId: "c-other", messageId: "m2" }, "서버당 한 행을 덮어쓴다");
+  assert.equal(guildTable.getBotChannel("g"), "c-bot");
 
-  CacheManager.setPanelRecord("g", "c-other", null);
-  assert.equal(CacheManager.getPanelRecord("g"), null);
+  guildTable.setPanelRecord("g", "c-other", null);
+  assert.equal(guildTable.getPanelRecord("g"), null);
 });

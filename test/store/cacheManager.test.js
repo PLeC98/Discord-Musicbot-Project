@@ -1,6 +1,6 @@
 "use strict";
 
-// src/store/cacheManager.js — 임시 DB로 실 SQLite 경로 검증 (guild_settings 라운드트립, 퇴거 스코어링)
+// 저장소(src/store/) — 임시 DB로 실 SQLite 경로 검증 (guild_settings 라운드트립, 퇴거 스코어링)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 const os = require("node:os");
@@ -11,11 +11,11 @@ const assert = require("node:assert/strict");
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-cachemanager-test-${process.pid}.db`);
 
-let CacheManager, audioCache, externalCaches, trackLookup;
+let guildTable, audioCache, externalCaches, trackLookup;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  CacheManager = require("../../src/store/cacheManager");
+  guildTable = require("../../src/store/guildSettings").table;
   audioCache = require("../../src/store/audioCache");
   externalCaches = require("../../src/store/externalCaches");
   trackLookup = require("../../src/store/trackLookup");
@@ -32,43 +32,43 @@ after(() => {
 // ── guild_settings: DJ 역할 라운드트립 ───────────────────────
 
 test("DJ 역할: 복수 저장/조회/해제", () => {
-  CacheManager.setDjRoles("g1", ["a", "b", "c"]);
-  assert.deepEqual(CacheManager.getDjRoles("g1"), ["a", "b", "c"]);
+  guildTable.setDjRoles("g1", ["a", "b", "c"]);
+  assert.deepEqual(guildTable.getDjRoles("g1"), ["a", "b", "c"]);
 
-  CacheManager.setDjRoles("g1", ["a"]);
-  assert.deepEqual(CacheManager.getDjRoles("g1"), ["a"], "덮어쓰기");
+  guildTable.setDjRoles("g1", ["a"]);
+  assert.deepEqual(guildTable.getDjRoles("g1"), ["a"], "덮어쓰기");
 
-  CacheManager.clearDjRoles("g1");
-  assert.deepEqual(CacheManager.getDjRoles("g1"), []);
+  guildTable.clearDjRoles("g1");
+  assert.deepEqual(guildTable.getDjRoles("g1"), []);
 });
 
 test("DJ 역할: 빈 배열 저장 = 미설정(NULL)과 동일", () => {
-  CacheManager.setDjRoles("g2", []);
-  assert.deepEqual(CacheManager.getDjRoles("g2"), []);
+  guildTable.setDjRoles("g2", []);
+  assert.deepEqual(guildTable.getDjRoles("g2"), []);
   const raw = audioCache.db.prepare("SELECT dj_role_ids FROM guild_settings WHERE guild_id = 'g2'").get();
   assert.equal(raw.dj_role_ids, null);
 });
 
 test("DJ 역할: 손상된 JSON은 빈 배열로 폴백 (기동 불능 방지)", () => {
   audioCache.db.prepare("INSERT INTO guild_settings (guild_id, dj_role_ids, updated_at) VALUES ('g3', 'not-json', 0)").run();
-  assert.deepEqual(CacheManager.getDjRoles("g3"), []);
+  assert.deepEqual(guildTable.getDjRoles("g3"), []);
 });
 
 test("DJ 역할: 미지정 서버는 빈 배열", () => {
-  assert.deepEqual(CacheManager.getDjRoles("no-such-guild"), []);
+  assert.deepEqual(guildTable.getDjRoles("no-such-guild"), []);
 });
 
 // ── guild_settings: 봇 채널 ──────────────────────────────────
 
 test("봇 채널: 저장/조회/해제 — DJ 설정과 같은 행에서 서로 무손상", () => {
-  CacheManager.setDjRoles("g4", ["r1"]);
-  CacheManager.setBotChannel("g4", "ch4");
-  assert.equal(CacheManager.getBotChannel("g4"), "ch4");
-  assert.deepEqual(CacheManager.getDjRoles("g4"), ["r1"]);
+  guildTable.setDjRoles("g4", ["r1"]);
+  guildTable.setBotChannel("g4", "ch4");
+  assert.equal(guildTable.getBotChannel("g4"), "ch4");
+  assert.deepEqual(guildTable.getDjRoles("g4"), ["r1"]);
 
-  CacheManager.clearBotChannel("g4");
-  assert.equal(CacheManager.getBotChannel("g4"), null);
-  assert.deepEqual(CacheManager.getDjRoles("g4"), ["r1"], "채널 해제가 DJ 설정을 지우지 않음");
+  guildTable.clearBotChannel("g4");
+  assert.equal(guildTable.getBotChannel("g4"), null);
+  assert.deepEqual(guildTable.getDjRoles("g4"), ["r1"], "채널 해제가 DJ 설정을 지우지 않음");
 });
 
 // ── 파일 경로 ────────────────────────────────────────────────
@@ -211,8 +211,8 @@ test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다", ()
 });
 
 function runResetChecks() {
-  CacheManager.setBotChannel("keepme", "ch-keep");
-  CacheManager.setDjRoles("keepme", ["role-keep"]);
+  guildTable.setBotChannel("keepme", "ch-keep");
+  guildTable.setDjRoles("keepme", ["role-keep"]);
 
   audioCache.recordDownloadStart("yt:reset1", { title: "t", duration: 10 });
   audioCache.recordDownloadComplete("yt:reset1", audioCache.getFilePath("yt:reset1"), 1234, { title: "t" });
@@ -228,8 +228,8 @@ function runResetChecks() {
   assert.equal(externalCaches.isAgeRestricted("reset1"), false, "연령제한 표시 비움");
   assert.equal(trackLookup.resolveFromCache("https://y/reset1").hit, false, "조회 기록 비움");
 
-  assert.equal(CacheManager.getBotChannel("keepme"), "ch-keep", "전용 채널은 남는다");
-  assert.deepEqual(CacheManager.getDjRoles("keepme"), ["role-keep"], "DJ 역할은 남는다");
+  assert.equal(guildTable.getBotChannel("keepme"), "ch-keep", "전용 채널은 남는다");
+  assert.deepEqual(guildTable.getDjRoles("keepme"), ["role-keep"], "DJ 역할은 남는다");
 }
 
 test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌다)", () => {
