@@ -47,7 +47,7 @@ async function skip(player, actor, { allowEmpty = false } = {}) {
   const restarted = player.loop === "track";
   if (!allowEmpty && player.queue.length === 0 && !restarted) return fail("nothing-to-skip");
   const track = player.currentTrack;
-  if (!player.skip()) return fail("failed");
+  if (!player.skip()) return fail("skip-failed");
   if (!restarted && player.currentTrack) await refresh(player);
   return { ok: true, track, restarted };
 }
@@ -73,7 +73,7 @@ async function previous(player, actor, { requireTrack = false } = {}) {
   if (blocked) return blocked;
   const restarted = player.loop === "track";
   if (player.previousTracks.length === 0 && !restarted) return fail("no-previous");
-  if (!player.previous()) return fail("failed");
+  if (!player.previous()) return fail("previous-failed");
   return { ok: true, restarted };
 }
 
@@ -204,7 +204,7 @@ async function jump(player, actor, index) {
   player.moveInQueue(index, 0);
   if (!player.skip("jump")) {
     player.moveInQueue(0, index);
-    return fail("failed");
+    return fail("jump-failed");
   }
   return { ok: true, track };
 }

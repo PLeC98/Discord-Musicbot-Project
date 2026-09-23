@@ -4,7 +4,15 @@ const config = require("../config");
 const S = require("../src/ui/strings");
 const { requestPlayback } = require("../src/usecases/addTracks");
 const { channelResponder } = require("../src/usecases/responders");
-const { checkControl, checkSkip, checkAdd, checkSummon } = require("../src/usecases/permissions");
+const { checkControl, checkAdd, checkSummon } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
+
+const LOOP_TEXT = {
+  track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
+  queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
+  false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
+};
 const { ensurePlayer } = require("../src/usecases/addTracks");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/ui/genreMenu");
 const { keepReply, expireReply } = require("../src/ui/replyLifetime");
@@ -121,181 +129,70 @@ module.exports = {
   },
 
   async handlePause(interaction, player, _requesterId) {
-    const permErr = await checkControl(interaction.member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
+    const r = await controls.pause(player, { member: interaction.member });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
-    if (!player.currentTrack) {
-      return await interaction.reply({
-        content: S.ERR_NO_SONG_PLAYING,
-        flags: [1 << 6],
-      });
-    }
+    const message = r.paused ? "음악 일시정지됨" : "음악 재개됨";
+    const emoji = r.paused ? "⏸️" : "▶️";
+    const embed = new EmbedBuilder()
+      .setTitle(`${emoji} ${message}`)
+      .setDescription(`**[${r.track.title}](${r.track.pageUrl})** ${message}!`)
+      .setColor(config.bot.embedColor)
+      .setTimestamp()
+      .addFields({ name: "👤 작업자", value: `${interaction.member}`, inline: true });
 
-    let result, message, emoji;
+    if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-    if (player.paused) {
-      result = player.resume();
-      message = "음악 재개됨";
-      emoji = "▶️";
-    } else {
-      result = player.pause();
-      message = "음악 일시정지됨";
-      emoji = "⏸️";
-    }
-
-    if (result) {
-      const embed = new EmbedBuilder()
-        .setTitle(`${emoji} ${message}`)
-        .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})** ${message}!`)
-        .setColor(config.bot.embedColor)
-        .setTimestamp()
-        .addFields({ name: "👤 작업자", value: `${interaction.member}`, inline: true });
-
-      if (player.currentTrack.thumbnail) {
-        embed.setThumbnail(player.currentTrack.thumbnail);
-      }
-
-      await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-      if (interaction.client.musicEmbedManager) {
-        await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
-      }
-    } else {
-      await interaction.reply({
-        content: "❌ 작업이 실패했습니다!",
-        flags: [1 << 6],
-      });
-    }
+    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 
   async handleSkip(interaction, player, _requesterId) {
-    // DJ 계층 또는 현재 곡의 요청자 본인은 스킵 가능
-    const permErr = await checkSkip(interaction.member, player);
-    if (permErr) {
+    const r = await controls.skip(player, { member: interaction.member });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+
+    if (r.restarted) {
       return await interaction.reply({
-        content: permErr,
+        content: `🔂 한곡 반복 중. **${r.track.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`,
         flags: [1 << 6],
       });
     }
 
-    if (!player.currentTrack) {
-      return await interaction.reply({
-        content: S.ERR_NO_SONG_PLAYING,
-        flags: [1 << 6],
-      });
-    }
+    const embed = new EmbedBuilder()
+      .setTitle("⏭️ 노래 건너뜀")
+      .setDescription(`**[${r.track.title}](${r.track.pageUrl})** 건너뜀!`)
+      .setColor(config.bot.embedColor)
+      .setTimestamp()
+      .addFields({ name: "👤 건너뛴 사람", value: `${interaction.member}`, inline: true });
 
-    // 한곡 반복 중에는 스킵 = 현재 곡 재시작이라 대기열이 비어도 유효
-    if (player.queue.length === 0 && player.loop !== "track") {
-      return await interaction.reply({
-        content: "❌ 건너뛸 노래가 없습니다! 대기열에 노래가 없습니다.",
-        flags: [1 << 6],
-      });
-    }
+    if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-    const currentTrack = player.currentTrack;
-    const skipped = player.skip();
-
-    if (skipped && player.loop === "track") {
-      return await interaction.reply({
-        content: `🔂 한곡 반복 중. **${currentTrack.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`,
-        flags: [1 << 6],
-      });
-    }
-
-    if (skipped) {
-      const embed = new EmbedBuilder()
-        .setTitle("⏭️ 노래 건너뜀")
-        .setDescription(`**[${currentTrack.title}](${currentTrack.pageUrl})** 건너뜀!`)
-        .setColor(config.bot.embedColor)
-        .setTimestamp()
-        .addFields({ name: "👤 건너뛴 사람", value: `${interaction.member}`, inline: true });
-
-      if (currentTrack.thumbnail) {
-        embed.setThumbnail(currentTrack.thumbnail);
-      }
-
-      await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-      if (interaction.client.musicEmbedManager && player.currentTrack) {
-        await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
-      }
-    } else {
-      await interaction.reply({
-        content: "❌ 노래가 건너뛰어지지 않았습니다!",
-        flags: [1 << 6],
-      });
-    }
+    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 
   async handlePrevious(interaction, player) {
-    const permErr = await checkControl(interaction.member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
+    const r = await controls.previous(player, { member: interaction.member });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
-    // 한곡 반복 중에는 이전곡 = 현재 곡 재시작이라 기록이 없어도 유효
-    if (player.previousTracks.length === 0 && player.loop !== "track") {
-      return await interaction.reply({
-        content: "❌ 이전 노래가 없습니다!",
-        flags: [1 << 6],
-      });
-    }
-
-    const result = player.previous();
-
-    if (result) {
-      await interaction.reply({
-        content: player.loop === "track" ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!",
-        flags: [1 << 6],
-      });
-    } else {
-      await interaction.reply({
-        content: "❌ 이전 노래로 이동하지 못했습니다!",
-        flags: [1 << 6],
-      });
-    }
+    await interaction.reply({
+      content: r.restarted ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!",
+      flags: [1 << 6],
+    });
   },
 
   async handleStop(interaction, player, client, _requesterId) {
-    const permErr = await checkControl(interaction.member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
-
-    const queueLength = player.queue.length;
-    const currentTrack = player.currentTrack;
-
-    player.stop();
-    client.players.delete(interaction.guild.id);
+    const r = await controls.stop(player, { member: interaction.member }, client.players);
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("⏹️ 음악 중지됨")
-      .setDescription(`${currentTrack ? `**[${currentTrack.title}](${currentTrack.pageUrl})**` : "Music"} 중지됨!`)
+      .setDescription(`${r.track ? `**[${r.track.title}](${r.track.pageUrl})**` : "Music"} 중지됨!`)
       .setColor("#FF0000")
       .setTimestamp()
       .addFields({ name: "👤 중지한 사람", value: `${interaction.member}`, inline: true });
 
-    if (queueLength > 0) {
-      embed.setFooter({ text: `대기열에서 ${queueLength}개의 노래가 제거되었습니다` });
-    }
+    if (r.cleared > 0) embed.setFooter({ text: `대기열에서 ${r.cleared}개의 노래가 제거되었습니다` });
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-    if (client.musicEmbedManager) {
-      await client.musicEmbedManager.handlePlaybackEnd(player, { reason: "stop" });
-    }
   },
 
   async handleQueue(interaction, player) {
@@ -367,35 +264,17 @@ module.exports = {
   },
 
   async handleShuffle(interaction, player, _requesterId) {
-    const permErr = await checkControl(interaction.member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
-
-    if (player.queue.length < 2) {
-      return await interaction.reply({
-        content: "❌ 셔플하려면 대기열에 최소 2개의 노래가 있어야 합니다!",
-        flags: [1 << 6],
-      });
-    }
-
-    player.shuffleQueue();
+    const r = await controls.shuffle(player, { member: interaction.member });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("🔀 대기열 셔플됨")
-      .setDescription(`${player.queue.length}개의 노래가 셔플되었습니다!`)
+      .setDescription(`${r.count}개의 노래가 셔플되었습니다!`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "👤 셔플한 사람", value: `${interaction.member}`, inline: true });
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-    if (interaction.client.musicEmbedManager) {
-      await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
-    }
   },
 
   async handleVolumeModal(interaction, _player, _requesterId) {
@@ -418,44 +297,11 @@ module.exports = {
   },
 
   async handleLoop(interaction, player, _requesterId) {
-    const permErr = await checkControl(interaction.member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
+    // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
+    const r = await controls.loop(player, { member: interaction.member }, controls.nextLoopMode(player.loop));
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
-    if (!player.currentTrack) {
-      return await interaction.reply({
-        content: S.ERR_NO_SONG_PLAYING,
-        flags: [1 << 6],
-      });
-    }
-
-    let newLoopMode, modeMessage, modeEmoji;
-
-    if (player.loop === false || player.loop === "off") {
-      newLoopMode = "track";
-      modeMessage = "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다.";
-      modeEmoji = "🔂";
-    } else if (player.loop === "track") {
-      newLoopMode = "queue";
-      modeMessage = "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다.";
-      modeEmoji = "🔁";
-    } else {
-      newLoopMode = false;
-      modeMessage = "반복 모드가 이제 **꺼졌습니다**";
-      modeEmoji = "➡️";
-    }
-
-    // 끝이 없는 것은 반복할 수 없다. 순환 버튼은 라이브가 있으면 "끄기"에만 응한다.
-    if (newLoopMode && player.hasLiveTrack()) {
-      return interaction.reply({ content: S.ERR_LIVE_NO_LOOP, flags: [1 << 6] });
-    }
-
-    player.setLoop(newLoopMode);
-
+    const [modeEmoji, modeMessage] = LOOP_TEXT[String(r.mode)];
     const embed = new EmbedBuilder()
       .setTitle(`${modeEmoji} 🔁 반복 모드 변경됨`)
       .setDescription(modeMessage)
@@ -463,15 +309,9 @@ module.exports = {
       .setTimestamp()
       .addFields({ name: "👤 변경한 사람", value: `${interaction.member}`, inline: true });
 
-    if (player.currentTrack && player.currentTrack.thumbnail) {
-      embed.setThumbnail(player.currentTrack.thumbnail);
-    }
+    if (r.track?.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-    if (interaction.client.musicEmbedManager) {
-      await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
-    }
   },
 
   // 끝난 패널·재생 중 패널 양쪽에서 온다. 플레이어가 없으면 만든다. /autoplay와 같은 길.

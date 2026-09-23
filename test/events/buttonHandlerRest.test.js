@@ -20,6 +20,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 const config = require("../../config");
 const S = require("../../src/ui/strings");
 const settings = require("../../src/store/guildSettings");
+const playerEvents = require("../../src/player/events");
 const buttonHandler = require("../../events/buttonHandler");
 
 after(() => {
@@ -79,6 +80,8 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     },
   };
   if (player) client.players.set("g1", p);
+  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  playerEvents.on("refresh", async (x) => x === p && seen.push("update"));
   return { guild, member, client, seen, player: p };
 }
 

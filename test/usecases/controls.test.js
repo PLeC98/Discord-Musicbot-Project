@@ -179,7 +179,7 @@ test("점프: 그 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기�
   assert.deepEqual(p.calls, ["move:1->0", "skip:jump"]);
 
   const stuck = fakePlayer({ skip: () => false });
-  assert.equal((await controls.jump(stuck, DJ, 1)).code, "failed");
+  assert.equal((await controls.jump(stuck, DJ, 1)).code, "jump-failed");
   assert.deepEqual(
     stuck.queue.map((t) => t.title),
     ["a", "b"],

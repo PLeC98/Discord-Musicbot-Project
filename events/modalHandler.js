@@ -3,7 +3,8 @@ const config = require("../config");
 const S = require("../src/ui/strings");
 const { checkControl } = require("../src/usecases/permissions");
 const { expireReply } = require("../src/ui/replyLifetime");
-const trackState = require("../src/player/trackState");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -117,56 +118,25 @@ module.exports = {
   },
 
   async handleVolumeModal(interaction, client) {
-    const guild = interaction.guild;
-    const member = interaction.member;
-
-    // 음악 플레이어 가져오기
-    const player = client.players.get(guild.id);
-    if (!player) {
-      return await interaction.reply({
-        content: S.ERR_NO_MUSIC,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    // 볼륨 변경은 재생 조작. DJ 계층 + 접속 규칙 (모더레이터 면제)
-    const permErr = await checkControl(member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const volumeInput = interaction.fields.getTextInputValue("volume_input");
-    const volume = parseInt(volumeInput);
-
-    // 볼륨 검증
-    if (isNaN(volume) || volume < 0 || volume > 100) {
-      return await interaction.reply({
-        content: "❌ 볼륨은 0에서 100 사이의 숫자여야 합니다!",
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const appliedVolume = player.setVolume(volume);
+    const volume = parseInt(interaction.fields.getTextInputValue("volume_input"));
+    const r = await controls.volume(client.players.get(interaction.guild.id), { member: interaction.member }, volume);
+    if (!r.ok) return await interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle("🔊 볼륨이 변경되었습니다")
-      .setDescription(`볼륨이 **${appliedVolume}%**로 설정되었습니다!`)
+      .setDescription(`볼륨이 **${r.level}%**로 설정되었습니다!`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({
         name: "👤 설정한 사람",
-        value: `${member}`,
+        value: `${interaction.member}`,
         inline: true,
       });
 
     // 시각적 볼륨 바
-    const volumeBar = this.createVolumeBar(appliedVolume);
     embed.addFields({
       name: "🔉 레벨",
-      value: volumeBar,
+      value: this.createVolumeBar(r.level),
       inline: false,
     });
 
@@ -183,60 +153,22 @@ module.exports = {
   },
 
   async handleJumpTo(interaction, client) {
-    const guild = interaction.guild;
-    const member = interaction.member;
-
-    const player = client.players.get(guild.id);
-    if (!player) {
-      return await interaction.reply({
-        content: S.ERR_NO_MUSIC,
-        flags: [1 << 6],
-      });
-    }
-
+    const player = client.players.get(interaction.guild.id);
     const [, , sessionId] = interaction.customId.split(":");
-
-    if (sessionId && player.sessionId && sessionId !== player.sessionId) {
+    if (player && sessionId && player.sessionId && sessionId !== player.sessionId) {
       return await interaction.reply({
         content: S.ERR_SESSION_INVALID,
         flags: [1 << 6],
       });
     }
 
-    const permErr = await checkControl(member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
+    const r = await controls.jump(player, { member: interaction.member }, Number(interaction.values[0]));
+    if (r.code === "bad-position") return await interaction.reply({ content: "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!", flags: [1 << 6] });
+    if (!r.ok) return await interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
-    const selectedIndex = parseInt(interaction.values[0]);
-
-    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= player.queue.length) {
-      return await interaction.reply({
-        content: "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!",
-        flags: [1 << 6],
-      });
-    }
-
-    const selectedTrack = trackState.move(player, selectedIndex, 0);
-
-    // 현재 곡 건너뛰기 → selectedTrack이 다음에 재생됨.
-    // "jump" 사유: 한곡 반복 중에도 재시작이 아니라 선택한 곡으로 이동해야 함
-    const skipped = player.skip("jump");
-
-    if (skipped) {
-      await interaction.reply({
-        content: `⏭️ **${selectedTrack.title}**로 이동했습니다!`,
-        flags: [1 << 6],
-      });
-    } else {
-      trackState.move(player, 0, selectedIndex);
-      await interaction.reply({
-        content: "❌ 곡으로 이동하지 못했습니다!",
-        flags: [1 << 6],
-      });
-    }
+    await interaction.reply({
+      content: `⏭️ **${r.track.title}**로 이동했습니다!`,
+      flags: [1 << 6],
+    });
   },
 };

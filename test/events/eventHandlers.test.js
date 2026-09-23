@@ -105,6 +105,10 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     async handleAutoplay() {
       seen.push("handleAutoplay");
     },
+    moveInQueue(from, to) {
+      this.queue.splice(to, 0, this.queue.splice(from, 1)[0]);
+      return true;
+    },
     skip(reason) {
       seen.push(`skip:${reason}`);
       return this.skipResult ?? true;
