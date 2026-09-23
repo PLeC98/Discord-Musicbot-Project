@@ -1,9 +1,7 @@
-"use strict";
-
 // 자동재생 소스가 같이 쓰는 요청 도우미.
 
-const { setTimeout: sleep } = require("node:timers/promises");
-const config = require("../../../config");
+import { setTimeout as sleep } from "node:timers/promises";
+import config from "../../../config.js";
 
 const userAgent = () => config.userAgents.bot;
 
@@ -75,4 +73,6 @@ function remembered(load, { ttlMs, retryMs, waitMs }) {
   };
 }
 
-module.exports = { getJson, pick, rand, query, remembered, TIMEOUT_MS, userAgent };
+const exported = { getJson, pick, rand, query, remembered, TIMEOUT_MS, userAgent };
+export default exported;
+export { exported as "module.exports" };

@@ -1,5 +1,3 @@
-"use strict";
-
 // 자동재생 소스. 설정 한 줄을 곡 목록으로 바꾼다. 부르는 곳이 다를 뿐 계약은 하나다.
 //
 //   { artist?, title, durationSec?, audioUrl?, youtubeUrl?, thumbnail?, sourceKey,
@@ -14,16 +12,26 @@
 // 곳일 뿐이고, 표시 이름과 캐시 장부의 칸은 출처 것이 된다(autoplayRoute 참고).
 // keyword·유튜브 재생목록은 영상 자체가 출처라 이 칸을 비워 둔다.
 
-const log = require("../../infra/log/logger").child({ category: "autoplay" });
-const { SPEC, usable, needsOf, opts } = require("../../config/schema/genreSources");
-const { getJson, remembered } = require("./http");
-const { keyword } = require("./keyword");
-const { lastfm } = require("./lastfm");
-const { lbradio, PLACEHOLDER } = require("./lbradio");
-const { animethemes } = require("./animethemes");
-const { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } = require("./anisongdb");
-const { vocaFamily, lyricsFilter, someLanguages } = require("./voca");
-const { spotify, youtube } = require("./playlists");
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "autoplay" });
+import genreSources from "../../config/schema/genreSources.js";
+const { SPEC, usable, needsOf, opts } = genreSources;
+import http from "./http.js";
+const { getJson, remembered } = http;
+import keywordModule from "./keyword.js";
+const { keyword } = keywordModule;
+import lastfmModule from "./lastfm.js";
+const { lastfm } = lastfmModule;
+import lbradioModule from "./lbradio.js";
+const { lbradio, PLACEHOLDER } = lbradioModule;
+import animethemesModule from "./animethemes.js";
+const { animethemes } = animethemesModule;
+import anisongdbModule from "./anisongdb.js";
+const { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } = anisongdbModule;
+import voca from "./voca.js";
+const { vocaFamily, lyricsFilter, someLanguages } = voca;
+import playlists from "./playlists.js";
+const { spotify, youtube } = playlists;
 
 // ── 등록부 ────────────────────────────────────────────────────────────────
 
@@ -105,7 +113,7 @@ async function fetchFrom(source) {
   return tracks;
 }
 
-module.exports = {
+const exported = {
   fetchFrom,
   TYPES,
   SPEC,
@@ -121,3 +129,5 @@ module.exports = {
   // 테스트가 바깥으로 나가지 않게 연도 범위를 미리 채워 둔다
   _seedYearRange: (range) => yearRange.seed(range),
 };
+export default exported;
+export { exported as "module.exports" };

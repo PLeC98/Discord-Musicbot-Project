@@ -1,5 +1,3 @@
-"use strict";
-
 // 구글 서비스 계정 → 액세스 토큰.
 //
 // 버텍스 AI 는 API 키를 안 받는다. 서비스 계정 JSON 으로 JWT 를 만들어 서명하고,
@@ -9,9 +7,9 @@
 // 밖으로 나가면 안 된다. 오류 메시지에도, 로그에도, 화면에도.
 // 그래서 여기서 던지는 오류는 우리가 쓴 문구뿐이고, 저쪽 응답은 본문 앞머리만 싣는다.
 
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const SCOPE = "https://www.googleapis.com/auth/cloud-platform";
@@ -119,4 +117,6 @@ function projectOf(where, baseDir) {
 /** 받아 둔 토큰. 가려야 할 것이라 바깥에서도 알아야 한다(autoplayAssist.mask). */
 const heldTokens = () => [...cache.values()].map((one) => one.token).filter(Boolean);
 
-module.exports = { accessToken, projectOf, heldTokens, readAccount, _reset: () => cache.clear() };
+const exported = { accessToken, projectOf, heldTokens, readAccount, _reset: () => cache.clear() };
+export default exported;
+export { exported as "module.exports" };

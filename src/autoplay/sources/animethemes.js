@@ -1,8 +1,7 @@
-"use strict";
-
 // AnimeThemes 소스.
 
-const { query, getJson } = require("./http");
+import http from "./http.js";
+const { query, getJson } = http;
 
 // ── animethemes ───────────────────────────────────────────────────────────
 // 음원(.ogg)을 직접 준다. 다만 TV 사이즈(중앙값 90초)라 artist+title도 같이 채워 보낸다
@@ -86,4 +85,6 @@ async function themesByAnime(source) {
   return out;
 }
 
-module.exports = { animethemes };
+const exported = { animethemes };
+export default exported;
+export { exported as "module.exports" };

@@ -1,10 +1,11 @@
-"use strict";
-
 // VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
 
-const log = require("../../infra/log/logger").child({ category: "autoplay" });
-const { VOCA_DEFAULT_TYPES } = require("../../config/schema/genreSources");
-const { rand, getJson, query } = require("./http");
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "autoplay" });
+import genreSources from "../../config/schema/genreSources.js";
+const { VOCA_DEFAULT_TYPES } = genreSources;
+import http from "./http.js";
+const { rand, getJson, query } = http;
 
 // ── vocadb 계열 ───────────────────────────────────────────────────────────
 // 유튜브 주소를 직접 준다. 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
@@ -115,4 +116,6 @@ function creditOf(song) {
   return [makers.join(", "), singers.join(", ")].filter(Boolean).join(" feat. ");
 }
 
-module.exports = { vocaFamily, lyricsFilter, someLanguages };
+const exported = { vocaFamily, lyricsFilter, someLanguages };
+export default exported;
+export { exported as "module.exports" };

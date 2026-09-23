@@ -1,5 +1,3 @@
-"use strict";
-
 // AnisongDB 소스. 설정 한 줄이 저쪽 filters 로 어떻게 바뀌는가.
 //
 // 지키려는 계약:
@@ -8,10 +6,10 @@
 //  · include_no_difficulty 를 켜지 않는다. 난이도 0 은 결측이다
 //  · 삽입곡은 기본으로 꺼져 있다
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const sources = require("../../src/autoplay/sources/index");
+import sources from "../../src/autoplay/sources/index.js";
 const build = sources._anisongFilters;
 
 // ── 기본값 ────────────────────────────────────────────────────────────────

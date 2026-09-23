@@ -1,9 +1,8 @@
-"use strict";
-
 // ListenBrainz Radio 소스.
 
-const config = require("../../../config");
-const { query, getJson } = require("./http");
+import config from "../../../config.js";
+import http from "./http.js";
+const { query, getJson } = http;
 
 // LB Radio는 재생목록을 그때그때 짜 주느라 느리다(실측 5~15초, 더 걸리기도 한다).
 // 15초로는 자주 끊겨 멀쩡한 소스가 빈손으로 취급된다.
@@ -55,4 +54,6 @@ const PLACEHOLDER = {
     ),
 };
 
-module.exports = { lbradio, PLACEHOLDER };
+const exported = { lbradio, PLACEHOLDER };
+export default exported;
+export { exported as "module.exports" };

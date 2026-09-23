@@ -1,5 +1,3 @@
-"use strict";
-
 // 자동재생 AI 보조. 유튜브에서 찾아온 후보를 모델에게 한 번 더 물어본다.
 //
 // 소스가 아니라 뒷거름망이다. 곡 이름만 아는 소스(키워드·Last.fm)에서만 쓸 자리가 있고,
@@ -7,15 +5,17 @@
 //
 // 없어도 되는 기능이다. 못 부르면 규칙이 고른 것을 그대로 쓰고 재생은 멈추지 않는다.
 
-const aiConfig = require("../../config/ai");
-const links = require("../../rules/links");
-const yamlStore = require("../../config/yamlStore");
-const googleAuth = require("./googleAuth");
-const tokens = require("./tokens");
-const models = require("../../config/schema/aiModels");
-const YouTube = require("../../sources/youtube/index");
-const log = require("../../infra/log/logger").child({ category: "autoplay" });
-const { PROVIDER_SPECS, PROVIDERS } = require("../../config/schema/aiProviders");
+import aiConfig from "../../config/ai.js";
+import links from "../../rules/links.js";
+import yamlStore from "../../config/yamlStore.js";
+import googleAuth from "./googleAuth.js";
+import tokens from "./tokens.js";
+import models from "../../config/schema/aiModels.js";
+import YouTube from "../../sources/youtube/index.js";
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "autoplay" });
+import aiProviders from "../../config/schema/aiProviders.js";
+const { PROVIDER_SPECS, PROVIDERS } = aiProviders;
 
 // 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
 // 걸러낼 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지
@@ -928,4 +928,6 @@ function mask(text) {
   return out;
 }
 
-module.exports = { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+const exported = { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+export default exported;
+export { exported as "module.exports" };

@@ -1,5 +1,3 @@
-"use strict";
-
 // 자동재생 후보 풀. 소스에서 받아 온 곡 목록을 쥐고 있다가 한 곡씩 내준다.
 //
 // 소스를 한 번 부르면 곡이 무더기로 온다(Last.fm 1000 · AnimeThemes 100 · LB Radio 50).
@@ -11,7 +9,8 @@
 // 메모리에만 둔다. 잃어도 비용이 호출 한 번이고, 저장하면 다시 채울 때 뽑는 무작위 오프셋이
 // 재기동을 넘어 살아남아 뜻이 없어진다.
 
-const log = require("../infra/log/logger").child({ category: "autoplay" });
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "autoplay" });
 
 const TTL_MS = 60 * 60 * 1000; // 며칠 켜 둔 봇이 같은 풀에 갇히지 않게
 const MAX_POOLS = 64; // 설정을 자주 고쳐도 무한히 늘지 않게
@@ -103,4 +102,6 @@ function _reset() {
   pools.clear();
 }
 
-module.exports = { take, stats, keyOf, _reset, TTL_MS, MAX_POOLS };
+const exported = { take, stats, keyOf, _reset, TTL_MS, MAX_POOLS };
+export default exported;
+export { exported as "module.exports" };

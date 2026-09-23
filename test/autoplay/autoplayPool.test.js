@@ -1,14 +1,12 @@
-"use strict";
-
 // src/autoplayPool — 소스에서 받아 온 곡을 쥐고 한 곡씩 내주는 풀.
 //
 // 여기서 지키려는 성질은 넷이다: 같은 곡을 두 번 안 낸다 · 다 쓰면 다시 채운다 ·
 // 설정이 다르면 풀도 다르다 · 소스가 죽어도 던지지 않는다.
 
-const { test, beforeEach } = require("node:test");
-const assert = require("node:assert/strict");
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
 
-const pool = require("../../src/autoplay/pool");
+import pool from "../../src/autoplay/pool.js";
 
 const songs = (n, tag = "s") => Array.from({ length: n }, (_, i) => ({ artist: "A", title: `${tag}${i}`, sourceKey: `${tag}${i}` }));
 

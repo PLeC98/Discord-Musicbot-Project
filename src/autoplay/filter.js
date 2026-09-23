@@ -1,5 +1,3 @@
-"use strict";
-
 // 자동재생 후보를 걸러내는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
 //
 // 따로 빼 둔 이유: 실제 재생과 실측 도구가 같은 코드를 지나야 잰 것이 뜻을 갖는다.
@@ -68,4 +66,6 @@ function judge(track, limits) {
   return { ok: true };
 }
 
-module.exports = { prepare, judge };
+const exported = { prepare, judge };
+export default exported;
+export { exported as "module.exports" };

@@ -1,9 +1,8 @@
-"use strict";
-
 // Last.fm 소스.
 
-const config = require("../../../config");
-const { pick, rand, query, getJson } = require("./http");
+import config from "../../../config.js";
+import http from "./http.js";
+const { pick, rand, query, getJson } = http;
 
 // ── lastfm ────────────────────────────────────────────────────────────────
 // 길이를 안 준다(정 유형). 깊은 쪽이 오히려 알차므로 무작위 쪽을 퍼 올린다.
@@ -27,4 +26,6 @@ async function lastfm(source) {
     .filter((t) => t.artist && t.title);
 }
 
-module.exports = { lastfm };
+const exported = { lastfm };
+export default exported;
+export { exported as "module.exports" };

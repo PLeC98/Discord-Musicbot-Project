@@ -1,10 +1,11 @@
-"use strict";
-
 // AnisongDB 소스. 표지는 AniList 에서.
 
-const log = require("../../infra/log/logger").child({ category: "autoplay" });
-const { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } = require("../../config/schema/genreSources");
-const { TIMEOUT_MS, userAgent, getJson, remembered } = require("./http");
+import logger from "../../infra/log/logger.js";
+const log = logger.child({ category: "autoplay" });
+import genreSources from "../../config/schema/genreSources.js";
+const { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } = genreSources;
+import http from "./http.js";
+const { TIMEOUT_MS, userAgent, getJson, remembered } = http;
 
 // getJson의 형제. 필터를 본문으로 받는 API용.
 // 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
@@ -194,4 +195,6 @@ async function anisongdb(source) {
 // 테스트가 바깥으로 나가지 않게 통계를 미리 채워 둔다
 const _seedAnisongStats = (stats) => anisongStats.seed(stats);
 
-module.exports = { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
+const exported = { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
+export default exported;
+export { exported as "module.exports" };

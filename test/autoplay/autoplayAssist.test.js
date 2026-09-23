@@ -1,20 +1,23 @@
-"use strict";
-
 // src/autoplay/assist/index.js — 자동재생 AI 보조.
 //
 // 이 기능의 계약은 "맞히는 것"이 아니라 없어도 돌아가는 것이다.
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
 // (판정 품질 자체는 모델과 프롬프트의 몫이고 notes/research-autoplay-quality.md 에서 쟀다.)
 
-const os = require("node:os");
-const fs = require("node:fs");
-const path = require("node:path");
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
+import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
 
-const aiConfig = require("../../src/config/ai");
-const yamlStore = require("../../src/config/yamlStore");
-const assist = require("../../src/autoplay/assist/index");
+import aiConfig from "../../src/config/ai.js";
+import yamlStore from "../../src/config/yamlStore.js";
+import assist from "../../src/autoplay/assist/index.js";
+
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
@@ -25,7 +28,8 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 // 키도 설정 파일에 있다(config/ai-keys.yaml). 프로바이더마다 따로다.
 const KEY = "sk-test-do-not-log";
 // 버텍스는 키가 아니라 서비스 계정 JSON 을 쓴다 — 진짜 키라야 서명이 통과한다
-const { privateKey: PRIVATE_KEY } = require("node:crypto").generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
+import nodecrypto from "node:crypto";
+const { privateKey: PRIVATE_KEY } = nodecrypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 const SA_PATH = path.join(DIR, "vertex-sa.json").replace(/\\/g, "/");
 fs.writeFileSync(SA_PATH, JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "json-프로젝트" }));
 
@@ -676,7 +680,7 @@ test("baseUrl 은 custom 일 때만 쓴다", () => {
 
 // 키 칸 이름은 provider 이름과 같아야 한다. 어긋나면 키를 적어 두고도 안 붙어 나간다.
 test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", () => {
-  const example = require("yaml").parse(fs.readFileSync(path.join(__dirname, "..", "..", "config", "ai-keys.example.yaml"), "utf8"));
+  const example = require("yaml").parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "config", "ai-keys.example.yaml"), "utf8"));
   const slots = Object.keys(example);
   const needs = assist.PROVIDERS.filter((one) => assist.PROVIDER_SPECS[one].key);
 

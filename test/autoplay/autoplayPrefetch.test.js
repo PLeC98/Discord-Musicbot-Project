@@ -1,5 +1,3 @@
-"use strict";
-
 // 자동재생 미리 뽑기(B-50) — src/player/Player.js · src/player/trackState.js
 //
 // 곡이 끝난 뒤에야 검색을 시작하면 그만큼 소리가 빈다. 곡이 시작될 때 다음 곡을 미리 대기열에 둬야
@@ -8,11 +6,17 @@
 // play()가 이것을 await 하지 않고 부르므로(재생 시작을 늦추면 안 된다), 고르는 동안 대기열이
 // 변할 수 있다. 그 사이 사용자가 곡을 넣었으면 미리 뽑기는 취소해야 하고, 겹쳐 불려도 한 곡만 들어가야 한다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const MusicPlayer = require("../../src/player/Player");
-const trackState = require("../../src/player/trackState");
-const { recordPanel } = require("../helpers/panelEvents");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import MusicPlayer from "../../src/player/Player.js";
+import trackState from "../../src/player/trackState.js";
+import panelEvents from "../helpers/panelEvents.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { recordPanel } = panelEvents;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
 require("../../src/player/events").on("notice", require("../../src/ui/playerNotices").sendNotice);

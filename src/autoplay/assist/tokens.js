@@ -8,11 +8,18 @@
  *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 측정: 무료이고 정확
  *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치
  */
-const fs = require("fs");
-const path = require("path");
-const models = require("../../config/schema/aiModels");
+import fs from "fs";
+import path from "path";
+import { createRequire } from "node:module";
+import models from "../../config/schema/aiModels.js";
 
-const GEMMA_FILE = path.join(__dirname, "..", "..", "..", "data", "gemma-tokenizer.model");
+// gpt-tokenizer 는 표가 커서 불러오는 데 오래 걸린다. 처음 셀 때 부른다. 셈이 동기라 await import() 대신 require 로
+// (이름을 require 로 두어 구조 검사가 지연 부름으로 센다)
+const require = createRequire(import.meta.url);
+let tik = null;
+const tikCount = (body) => (tik ??= require("gpt-tokenizer")).encode(body).length;
+
+const GEMMA_FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "gemma-tokenizer.model");
 
 /**
  * 메시지를 역할과 함께 감싸는 데 드는 토큰. 규격마다 다르고 실측으로 잡았다.
@@ -146,7 +153,7 @@ function count(text, tokenizer = "tik") {
     if (rank) return { tokens: body ? countGemma(body, rank) : 0, by: "gemma", exact: true };
   }
   // claude 는 공개 토크나이저가 없다. gemma 파일이 없을 때도 여기로 온다.
-  return { tokens: body ? require("gpt-tokenizer").encode(body).length : 0, by: "tik", exact: tokenizer === "tik" };
+  return { tokens: body ? tikCount(body) : 0, by: "tik", exact: tokenizer === "tik" };
 }
 
 /**
@@ -195,4 +202,6 @@ async function countByAnthropic(messages, { model, apiKey, timeoutMs = 15000 } =
   return typeof json?.input_tokens === "number" ? json.input_tokens : null;
 }
 
-module.exports = { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, _readPieces: readPieces };
+const exported = { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, _readPieces: readPieces };
+export default exported;
+export { exported as "module.exports" };

@@ -1,18 +1,23 @@
-"use strict";
-
 // src/autoplayRoute — 소스가 준 후보를 "틀 수 있는 트랙"으로 바꾸고, 소스를 훑어 한 곡을 고른다.
 //
 // 여기서 지키려는 것은 어느 칸이 찼는지가 길을 정한다는 규칙이다.
 // 바깥 경계(소스 · 유튜브 검색 · 링크 장부 · AI 보조)는 넘겨 준다. 진짜로 부르지 않는다.
 
-const { test, beforeEach } = require("node:test");
-const assert = require("node:assert/strict");
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
 
-const route = require("../../src/autoplay/route");
-const { audioKeyOf } = require("../../src/rules/audioKeyOf");
-const pool = require("../../src/autoplay/pool");
+import route from "../../src/autoplay/route.js";
+import audioKeyOfModule from "../../src/rules/audioKeyOf.js";
+import { createRequire } from "node:module";
 
-const LIMITS = require("../../src/autoplay/filter").prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist"] });
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { audioKeyOf } = audioKeyOfModule;
+import pool from "../../src/autoplay/pool.js";
+
+import filterModule from "../../src/autoplay/filter.js";
+const LIMITS = filterModule.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist"] });
 
 let ytResults = [];
 let ytCalls = [];

@@ -1,12 +1,11 @@
-"use strict";
-
 // src/autoplay/sources/http.js remembered — 화면을 위해 저쪽에서 받아 기억하는 값.
 // 회귀 대상: AnimeThemes 가 죽어 있으면(522) 운영자 자동재생 설정이 소스 종류 목록을 받느라 시간 초과까지 기다렸고,
 // 요청마다 다시 기다렸다. 그동안 화면은 모든 소스를 "모르는 종류"로 그렸다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { remembered } = require("../../src/autoplay/sources/http");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import http from "../../src/autoplay/sources/http.js";
+const { remembered } = http;
 
 const opts = { ttlMs: 60_000, retryMs: 60_000, waitMs: 30 };
 

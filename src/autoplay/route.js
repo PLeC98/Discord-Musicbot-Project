@@ -1,5 +1,3 @@
-"use strict";
-
 // 자동재생 한 곡을 고른다. 소스에서 후보를 받아 틀 수 있는 트랙으로 바꾸는 데까지가 여기 몫이다.
 //
 // 소스가 무엇을 주느냐에 따라 길이 셋으로 갈린다. 후보에 어느 칸이 찼는지가 그것을 정한다.
@@ -13,17 +11,20 @@
 // 검색을 아끼고, 같은 곡이 뽑힐 때마다 다른 영상이 나오지 않는다.
 //
 
-const autoplayFilter = require("./filter");
-const links = require("../rules/links");
-const { canonicalUrl } = require("../rules/canonicalUrl");
-const { candidateKind } = require("../rules/candidateKind");
-const pool = require("./pool");
-const sources = require("./sources/index");
-const match = require("../sources/youtube/match");
-const aiAssist = require("./assist/index");
-const YouTube = require("../sources/youtube/index");
-const trackLookup = require("../store/trackLookup");
-const log = require("../infra/log/logger").child({ category: "autoplay" });
+import autoplayFilter from "./filter.js";
+import links from "../rules/links.js";
+import canonicalUrlModule from "../rules/canonicalUrl.js";
+const { canonicalUrl } = canonicalUrlModule;
+import candidateKindModule from "../rules/candidateKind.js";
+const { candidateKind } = candidateKindModule;
+import pool from "./pool.js";
+import sources from "./sources/index.js";
+import match from "../sources/youtube/match.js";
+import aiAssist from "./assist/index.js";
+import YouTube from "../sources/youtube/index.js";
+import trackLookup from "../store/trackLookup.js";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "autoplay" });
 
 // 유튜브에서 찾은 것이 이보다 짧으면 풀버전이 아니라 TV 사이즈 립이다.
 // 그럴 바에는 AnimeThemes 음원을 그대로 트는 편이 낫다. 음질만 나쁘고 단계만 는다.
@@ -334,4 +335,6 @@ async function pickTrack(cfg, recent = [], deps = REAL) {
   return null;
 }
 
-module.exports = { REAL, pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };
+const exported = { REAL, pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };
+export default exported;
+export { exported as "module.exports" };

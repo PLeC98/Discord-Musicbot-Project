@@ -1,10 +1,9 @@
-"use strict";
-
 // 재생목록 소스(스포티파이 · 유튜브).
 
-const { rand } = require("./http");
-const Spotify = require("../../sources/spotify");
-const YouTube = require("../../sources/youtube/index");
+import http from "./http.js";
+const { rand } = http;
+import Spotify from "../../sources/spotify.js";
+import YouTube from "../../sources/youtube/index.js";
 
 // ── 재생목록 ──────────────────────────────────────────────────────────────
 // 통째로 받지 않는다. total을 알면 무작위 오프셋으로 한 구간만 집어 온다.
@@ -32,4 +31,6 @@ async function youtube(source) {
   return (part?.tracks || []).filter((t) => t.audioUrl && !t.isLive).map((t) => ({ title: t.title, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey }));
 }
 
-module.exports = { spotify, youtube };
+const exported = { spotify, youtube };
+export default exported;
+export { exported as "module.exports" };

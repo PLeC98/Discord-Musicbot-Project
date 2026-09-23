@@ -1,14 +1,12 @@
-"use strict";
-
 // src/autoplayFilter — 자동재생 후보를 걸러내는 규칙.
 //
 // 문턱은 짐작이 아니라 후보 840개를 세어 정했다(notes/research-autoplay-quality.md).
 // 그래서 여기 적는 것은 "왜 이 값인가"가 아니라 "이 성질이 깨지면 안 된다"이다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const filter = require("../../src/autoplay/filter");
+import filter from "../../src/autoplay/filter.js";
 
 const limits = (over = {}) => filter.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist", "메들리"], ...over });
 const judge = (title, duration = 240, over) => filter.judge({ title, duration }, limits(over));

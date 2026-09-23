@@ -1,9 +1,8 @@
-"use strict";
-
 // 키워드 소스.
 
-const { pick } = require("./http");
-const YouTube = require("../../sources/youtube/index");
+import http from "./http.js";
+const { pick } = http;
+import YouTube from "../../sources/youtube/index.js";
 
 // ── keyword ───────────────────────────────────────────────────────────────
 // 옛 길. 유튜브 검색 결과를 그대로 후보로 삼는다. 품질이 제일 낮으니 weight를 낮게 주는 편이 낫다.
@@ -16,4 +15,6 @@ async function keyword(source) {
   return results.filter((r) => r.audioUrl && !r.isLive).map((r) => ({ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }));
 }
 
-module.exports = { keyword };
+const exported = { keyword };
+export default exported;
+export { exported as "module.exports" };
