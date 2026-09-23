@@ -10,6 +10,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 const MusicPlayer = require("../../src/player/Player");
+const PlaybackWatch = require("../../src/player/playbackWatch");
 const YouTube = require("../../src/sources/youtube/index");
 const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 const { capabilities, _internals } = require("../../src/media/ffmpeg/path");
@@ -139,12 +140,12 @@ const fakePlayer = (overrides = {}) => {
     currentTrack: null,
     queue: [],
     loop: false,
-    trackTimer: null,
     lastPlaybackPosition: 0,
     scheduleStatePersist() {},
     _trackLabel: () => '"x" (youtube)',
     ...overrides,
   });
+  player.watch = new PlaybackWatch(player);
   return player;
 };
 
@@ -206,24 +207,24 @@ test("종료 감시: 라이브는 길이로 가를 수 없어 감시를 걸지 �
     },
     resource: { playbackDuration: 5000 },
     currentTrackStartOffsetMs: 0,
-    trackTimer: setTimeout(() => {}, 60_000).unref(), // 걸려 있던 감시. 프로세스를 붙잡지 않게
   });
-  player.ensureTrackCompletion();
+  player.watch.endTimer = setTimeout(() => {}, 60_000).unref(); // 걸려 있던 감시. 프로세스를 붙잡지 않게
+  player.watch.checkEnd();
   assert.equal(stopped, 0, "라이브를 정지시키면 안 된다");
-  assert.equal(player.trackTimer, null, "감시를 걸어 두지도 않는다");
+  assert.equal(player.watch.endTimer, null, "감시를 걸어 두지도 않는다");
 });
 
 test("종료 감시 예약: 라이브에는 5분 폴백 워치독을 걸지 않는다", () => {
   // 길이를 모르는 스트림은 5분 뒤 강제 종료가 기본값이다. 그대로 두면 방송이 5분마다 잘린다.
   const live = fakePlayer({ currentTrack: { isLive: true, duration: 0, title: "라디오", platform: "youtube" } });
-  live.scheduleTrackWatchdog({});
-  assert.equal(live.trackTimer, null);
+  live.watch.scheduleEnd({});
+  assert.equal(live.watch.endTimer, null);
 
   // 라이브가 아니면 평소대로 걸린다
   const normal = fakePlayer({ currentTrack: { isLive: false, duration: 200, title: "곡", platform: "youtube" }, currentTrackStartOffsetMs: 0 });
-  normal.scheduleTrackWatchdog({ duration: 200 });
-  assert.notEqual(normal.trackTimer, null);
-  clearTimeout(normal.trackTimer);
+  normal.watch.scheduleEnd({ duration: 200 });
+  assert.notEqual(normal.watch.endTimer, null);
+  normal.watch.stop();
 });
 
 test("_reset 후에도 능력 확인이 다시 선다", () => {

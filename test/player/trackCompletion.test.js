@@ -1,12 +1,13 @@
 "use strict";
 
-// src/player/Player.js 곡 길이 판정 — 종료 워치독의 위치 계산, 판정에 쓰는 오디오 길이 선택
-// 프로토타입 호출 — 실 오디오 없이 판정만 검증한다.
+// 곡 길이 판정 — 종료 감시(playbackWatch)의 위치 계산, 판정에 쓰는 오디오 길이 선택(Player)
+// 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { AudioPlayerStatus } = require("@discordjs/voice");
 const MusicPlayer = require("../../src/player/Player");
+const PlaybackWatch = require("../../src/player/playbackWatch");
 const audioCache = require("../../src/store/audioCache");
 
 // ── 종료 워치독 ──────────────────────────────────────────────
@@ -23,28 +24,26 @@ function watchdogPlayer({ offsetMs = 0, playedMs = 0, duration = 200 } = {}) {
         this.stopped = true;
       },
     },
-    trackTimer: null,
     pendingEndReason: null,
     _trackLabel: MusicPlayer.prototype._trackLabel,
-    _durationSource: MusicPlayer.prototype._durationSource,
-    ensureTrackCompletion: MusicPlayer.prototype.ensureTrackCompletion,
   };
 }
+const watchOf = (p) => (p.watch ??= new PlaybackWatch(p));
 
 test("종료 워치독은 시작 오프셋을 더해 곡 안의 위치로 판정한다", () => {
   // 100초 지점부터 틀어 100초를 냈다 = 200초 곡의 끝
   const p = watchdogPlayer({ offsetMs: 100_000, playedMs: 100_000, duration: 200 });
-  p.ensureTrackCompletion();
+  watchOf(p).checkEnd();
   assert.equal(p.audioPlayer.stopped, true, "오프셋을 빼면 100초 남은 줄 알고 미룬다");
   assert.equal(p.pendingEndReason, "watchdog");
 });
 
 test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
   const p = watchdogPlayer({ offsetMs: 0, playedMs: 100_000, duration: 200 });
-  p.ensureTrackCompletion();
+  watchOf(p).checkEnd();
   assert.equal(p.audioPlayer.stopped, false);
-  assert.ok(p.trackTimer);
-  clearTimeout(p.trackTimer);
+  assert.ok(p.watch.endTimer);
+  p.watch.stop();
 });
 
 // ── 판정용 오디오 길이 ───────────────────────────────────────

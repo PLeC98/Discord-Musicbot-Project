@@ -235,7 +235,7 @@ test("라이브는 위치 0 으로 열고, 캐시를 안 받고, 종료 감시�
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
 
   await p.play(null, 7000);
-  const timer = p.trackTimer;
+  const timer = p.watch.endTimer;
   h.dispose(p);
 
   assert.ok(!calls.spawns[0].args.includes("-ss"), "라이브에는 옮길 자리가 없다");
@@ -449,7 +449,7 @@ test("종료 감시는 남은 길이 + 4초 뒤로 건다", async () => {
   p.currentTrack = track;
 
   await p.play(null, 40000);
-  const delay = p.trackTimer?._idleTimeout; // 치우기 전에 읽는다. 치우면 -1 이 된다
+  const delay = p.watch.endTimer?._idleTimeout; // 치우기 전에 읽는다. 치우면 -1 이 된다
   h.dispose(p);
 
   assert.equal(delay, (100 - 40) * 1000 + 4000, "길이를 아는 곡은 감시를 건다");

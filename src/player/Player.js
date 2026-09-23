@@ -20,6 +20,7 @@ const voiceChannelStatus = require("./voiceChannelStatus");
 const audioCache = require("../store/audioCache");
 const trackLookup = require("../store/trackLookup");
 const VoiceConnectionManager = require("./voiceConnection");
+const PlaybackWatch = require("./playbackWatch");
 const TrackDownloader = require("../media/cacheDownload");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./sessionMirror");
@@ -41,7 +42,6 @@ const SWITCH_FADE_MS = 40; // 등출력 크로스페이드 길이
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
 const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받아 다시 여는 횟수
 const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
-const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 // 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
 const SEND_BITRATE = 128_000;
@@ -104,7 +104,6 @@ class MusicPlayer {
     this.queueEmptyTimer = null;
 
     // 재생 생명주기 상태
-    this.trackTimer = null;
     this.isTransitioning = false;
     this.pendingEndReason = null;
     this.currentTrackRetries = 0;
@@ -128,6 +127,7 @@ class MusicPlayer {
 
     // 협력 모듈. 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
     this.voice = new VoiceConnectionManager(this);
+    this.watch = new PlaybackWatch(this); // 종료 감시 · 버퍼링 감시
     this.downloader = new TrackDownloader(this);
     this.persistence = new SessionPersistence(this);
     this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
@@ -188,8 +188,8 @@ class MusicPlayer {
       if (oldState.status === newState.status) return;
 
       if (oldState.status === AudioPlayerStatus.Buffering) {
-        const heldMs = this._bufferingSince ? Date.now() - this._bufferingSince : null;
-        this._clearBufferingWatch();
+        const heldMs = this.watch.bufferingSince ? Date.now() - this.watch.bufferingSince : null;
+        this.watch.stopBuffering();
         if (heldMs !== null) {
           const line = `상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
           if (heldMs >= 3000) wlog.warn(`${line} 오래 걸림`);
@@ -200,7 +200,7 @@ class MusicPlayer {
 
       wlog.debug(`재생 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
 
-      if (newState.status === AudioPlayerStatus.Buffering) this._startBufferingWatch();
+      if (newState.status === AudioPlayerStatus.Buffering) this.watch.startBuffering();
     });
 
     this.audioPlayer.on("error", (error) => {
@@ -662,7 +662,7 @@ class MusicPlayer {
       this.currentTrackCache = this.activeStreamInfo;
 
       // 정상 완료를 보장하고 성급한 전환을 막기 위해 워치독 예약
-      this.scheduleTrackWatchdog(streamInfo);
+      this.watch.scheduleEnd(streamInfo);
 
       this.startStateSync();
       this.warmer.start();
@@ -805,39 +805,6 @@ class MusicPlayer {
     return true;
   }
 
-  scheduleTrackWatchdog(streamInfo = null) {
-    if (this.trackTimer) {
-      clearTimeout(this.trackTimer);
-    }
-
-    const streamDuration = streamInfo && Number(streamInfo.duration) > 0 ? Number(streamInfo.duration) : null;
-    const trackDuration = this.currentTrack && Number(this.currentTrack.duration) > 0 ? Number(this.currentTrack.duration) : null;
-    const durationSeconds = streamDuration || trackDuration;
-
-    // 라이브는 길이가 없다. 폴백 워치독(5분 뒤 강제 종료)이 방송을 잘라 버린다.
-    if (this.currentTrack?.isLive) {
-      this.trackTimer = null;
-      wlog.debug(`종료 감시 없음: ${this._trackLabel()} | 라이브는 길이로 가를 수 없다`);
-      return;
-    }
-
-    if (durationSeconds && durationSeconds > 0) {
-      // 시작 오프셋을 고려해 남은 시간 계산 (초)
-      const startOffsetSeconds = Math.floor((this.currentTrackStartOffsetMs || 0) / 1000);
-      const remainingSeconds = Math.max(1, durationSeconds - startOffsetSeconds);
-
-      // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
-      const timeoutMs = Math.max(remainingSeconds * 1000 + 4000, 5000);
-
-      wlog.debug(`종료 감시 예약: ${this._trackLabel()} | 길이 ${durationSeconds}초(${this._durationSource()}) | 오프셋 ${startOffsetSeconds}초 | ${Math.round(timeoutMs / 1000)}초 뒤 확인`);
-      this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), timeoutMs);
-    } else {
-      // 폴백 워치독: 길이를 알 수 없는 스트림은 5분마다 확인
-      wlog.warn(`종료 감시 예약: ${this._trackLabel()} | 길이를 몰라 5분 뒤 강제 종료합니다`);
-      this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 5 * 60 * 1000);
-    }
-  }
-
   getTrackCacheKey(track) {
     if (!track) return null;
     return track.id || track.requestKey || `${track.title}-${track.duration}`;
@@ -878,101 +845,9 @@ class MusicPlayer {
     return `${url}${separator}begin=${startMs}`;
   }
 
-  // Buffering이 안 끝나면 voice는 아무 이벤트도 내지 않는다
-  _startBufferingWatch() {
-    this._clearBufferingWatch();
-    this._bufferingSince = Date.now();
-    this._bufferingTimer = setInterval(() => this._checkBufferingStall(), 1000);
-    this._bufferingTimer.unref?.();
-  }
-
-  // 입력이 조금씩이라도 들어오면 정체가 아니다. Range를 못 쓰는 입력의 위치 재개는 앞부분을 읽어 넘기느라 오래 걸린다
-  _checkBufferingStall(now = Date.now()) {
-    if (this.audioPlayer?.state?.status !== AudioPlayerStatus.Buffering) return this._clearBufferingWatch();
-    const quietSince = Math.max(this._bufferingSince ?? now, this._inputProgressAt ?? 0);
-    if (now - quietSince < BUFFERING_STALL_MS) return;
-    this._clearBufferingWatch();
-    wlog.warn(`재생이 시작되지 않아 다시 시도합니다: ${this._trackLabel()} | 버퍼링 ${sec(now - this._bufferingSince)}초, 입력 없음 ${sec(now - quietSince)}초`);
-    if (!this.pendingEndReason) this.pendingEndReason = "buffering-stall";
-    // force 없이는 무음 패딩만 예약되고 Buffering에서 벗어나지 않는다(패딩은 Playing에서만 소비된다)
-    this.audioPlayer.stop(true);
-  }
-
-  _clearBufferingWatch() {
-    if (this._bufferingTimer) {
-      clearInterval(this._bufferingTimer);
-      this._bufferingTimer = null;
-    }
-  }
-
-  // 워치독 로그용. 트랙 식별과 길이 출처
+  // 로그용 트랙 식별
   _trackLabel(track = this.currentTrack) {
     return `"${track?.title ?? "?"}" (${track?.platform ?? "?"})`;
-  }
-
-  _durationSource() {
-    const t = this.currentTrack;
-    if (!(Number(t?.duration) > 0)) return "없음";
-    return t?.durationSource || "제공값";
-  }
-
-  // 2초 폴링이 같은 줄을 도배하지 않게, 직전과 다를 때만 남긴다
-  _logWatchdogOnce(line) {
-    if (this._lastWatchdogLine === line) return;
-    this._lastWatchdogLine = line;
-    wlog.debug(line);
-  }
-
-  ensureTrackCompletion() {
-    if (!this.currentTrack) {
-      this.trackTimer = null;
-      return;
-    }
-
-    // 라이브는 길이가 없어 "다 틀었나"를 길이로 가를 수 없다. 이 감시를 걸지 않는다.
-    // 끊김은 버퍼링 정체 감지와 ffmpeg 종료 코드가 잡는다.
-    if (this.currentTrack.isLive) {
-      this.trackTimer = null;
-      return;
-    }
-
-    const status = this.audioPlayer.state?.status;
-    // playbackDuration은 이 리소스가 낸 양이라 시작 오프셋을 더해야 곡 안의 위치가 된다
-    const playedMs = (this.currentTrackStartOffsetMs || 0) + (this.resource?.playbackDuration || 0);
-    const playedSec = (playedMs / 1000).toFixed(1);
-
-    if (status === AudioPlayerStatus.Playing) {
-      const durationMs = (Number(this.currentTrack.duration) || 0) * 1000;
-
-      if (durationMs > 0 && playedMs + 1500 < durationMs) {
-        const remainingMs = Math.max(durationMs - playedMs, 2000);
-        wlog.debug(`종료 감시: ${this._trackLabel()} | 재생 ${playedSec}초 / 예상 ${durationMs / 1000}초. 아직 남음, ${Math.round(remainingMs / 1000)}초 뒤 재확인`);
-        this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), remainingMs);
-        return;
-      }
-
-      // 여기서 stop()을 부르면 Idle이 발생해 다음 곡으로 넘어간다. 워치독이 실제로 "일을 한" 유일한 지점.
-      wlog.warn(`종료 감시가 트랙을 정지시킴: ${this._trackLabel()} | 재생 ${playedSec}초 / 예상 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"} | 길이출처=${this._durationSource()}`);
-
-      // Idle을 발생시키고 생명주기 핸들러가 실행되도록 정상 중지
-      if (!this.pendingEndReason) {
-        this.pendingEndReason = "watchdog";
-      }
-      this.audioPlayer.stop();
-      this.trackTimer = null;
-      return;
-    }
-
-    if (status === AudioPlayerStatus.Idle || status === AudioPlayerStatus.AutoPaused) {
-      // Idle 핸들러가 처리하므로 할 일 없음
-      wlog.debug(`종료 감시: ${this._trackLabel()} | 상태=${status}. 종료 처리에 맡기고 감시를 끝냅니다`);
-      this.trackTimer = null;
-      return;
-    }
-
-    // 알 수 없는 상태, 계속 감시 (일시정지 등). 2초마다 도므로 상태가 바뀔 때만 남긴다
-    this._logWatchdogOnce(`👁 워치독 확인: ${this._trackLabel()} | 상태=${status} | 재생 ${playedSec}s → 2s 간격 감시 중`);
-    this.trackTimer = setTimeout(() => this.ensureTrackCompletion(), 2000);
   }
 
   onPlayerIdle(trigger = "idle") {
@@ -1157,17 +1032,12 @@ class MusicPlayer {
     this.voice.stopConnectionRecovery();
     this.voice.stopHealthCheck();
 
-    if (this.trackTimer) {
-      clearTimeout(this.trackTimer);
-      this.trackTimer = null;
-    }
+    this.watch.stop();
 
     if (this.queueEmptyTimer) {
       clearTimeout(this.queueEmptyTimer);
       this.queueEmptyTimer = null;
     }
-
-    this._clearBufferingWatch();
   }
 
   // 재생 중 트랙의 캐시 퇴거 보호 해제. currentTrack이 이미 null이어도 기억된 키로 해제
@@ -1250,10 +1120,7 @@ class MusicPlayer {
     if (this.currentTrack) {
       clog.info(`스킵: ${this._trackLabel()} | 원인=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
       // 트랙 타이머 정리
-      if (this.trackTimer) {
-        clearTimeout(this.trackTimer);
-        this.trackTimer = null;
-      }
+      this.watch.stopEnd();
 
       if (this.queueEmptyTimer) {
         clearTimeout(this.queueEmptyTimer);
@@ -1273,10 +1140,7 @@ class MusicPlayer {
     // 한곡 반복 중 이전곡 = 현재 곡 재시작. 대기열·기록 불변.
     if (this.loop === "track") {
       if (!this.currentTrack) return false;
-      if (this.trackTimer) {
-        clearTimeout(this.trackTimer);
-        this.trackTimer = null;
-      }
+      this.watch.stopEnd();
       this.pendingEndReason = "previous";
       this.audioPlayer.stop(true);
       this.scheduleStatePersist("previous", 0);
@@ -1288,10 +1152,7 @@ class MusicPlayer {
       // 미리 할당하면 "예기치 않게 종료됨" 재시도 로직이 그 곡을 중간부터 재개한다.
       trackState.rewind(this);
 
-      if (this.trackTimer) {
-        clearTimeout(this.trackTimer);
-        this.trackTimer = null;
-      }
+      this.watch.stopEnd();
 
       this.pendingEndReason = "previous";
       this.audioPlayer.stop(true);
@@ -1445,10 +1306,7 @@ class MusicPlayer {
     this.sponsorSkipper?.stop(); // 다음 트랙 play()가 onPlayStart로 다시 가동
 
     try {
-      if (this.trackTimer) {
-        clearTimeout(this.trackTimer);
-        this.trackTimer = null;
-      }
+      this.watch.stopEnd();
 
       const finishedTrack = this.currentTrack;
       this.releaseAudioProtection();
@@ -1823,10 +1681,7 @@ class MusicPlayer {
       this.voice.stopHealthCheck();
 
       // 트랙 타이머 정리
-      if (this.trackTimer) {
-        clearTimeout(this.trackTimer);
-        this.trackTimer = null;
-      }
+      this.watch.stopEnd();
 
       // 오디오 플레이어 중지
       if (this.audioPlayer) {

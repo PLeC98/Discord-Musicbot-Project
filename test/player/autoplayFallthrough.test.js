@@ -24,7 +24,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
   return {
     calls,
     isTransitioning: false,
-    trackTimer: null,
+    watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
     currentTrack: current,
     resource: current ? { playbackDuration: (current.duration || 0) * 1000 } : null,
     currentTrackStartOffsetMs: 0,

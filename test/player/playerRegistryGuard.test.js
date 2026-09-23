@@ -35,7 +35,7 @@ after(() => {
 function makePlayer(players, current = { title: "곡", duration: 10 }) {
   return {
     isTransitioning: false,
-    trackTimer: null,
+    watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
     queueEmptyTimer: null,
     currentTrack: current,
     resource: { playbackDuration: (current?.duration || 0) * 1000 },
@@ -57,7 +57,6 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     _trackLabel: MusicPlayer.prototype._trackLabel,
     _isActivePlayer: MusicPlayer.prototype._isActivePlayer,
     scheduleIdleLeave: MusicPlayer.prototype.scheduleIdleLeave,
-    _clearBufferingWatch() {},
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     clearInactivityTimer() {},

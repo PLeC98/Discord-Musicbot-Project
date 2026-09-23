@@ -292,12 +292,12 @@ test("종료 감시: 길이를 다 채웠으면 watchdog 원인으로 멈춘다"
   playing(p, yt("ooooooooooo", { duration: 100 }), 99000);
   p.audioPlayer.state = { status: AudioPlayerStatus.Playing };
 
-  p.ensureTrackCompletion();
+  p.watch.checkEnd();
   h.dispose(p);
 
   assert.equal(p.pendingEndReason, "watchdog");
   assert.equal(p.audioPlayer.stops, 1);
-  assert.equal(p.trackTimer, null);
+  assert.equal(p.watch.endTimer, null);
 });
 
 test("종료 감시: Idle 이면 손 떼고, 일시정지면 2초마다 다시 본다, 라이브·곡 없음은 걸지 않는다", () => {
@@ -305,22 +305,22 @@ test("종료 감시: Idle 이면 손 떼고, 일시정지면 2초마다 다시 �
   playing(p, yt("ppppppppppp"), 1000);
 
   p.audioPlayer.state = { status: AudioPlayerStatus.Idle };
-  p.ensureTrackCompletion();
-  assert.equal(p.trackTimer, null);
+  p.watch.checkEnd();
+  assert.equal(p.watch.endTimer, null);
 
   p.audioPlayer.state = { status: AudioPlayerStatus.Paused };
-  p.ensureTrackCompletion();
-  assert.equal(p.trackTimer?._idleTimeout, 2000);
-  clearTimeout(p.trackTimer);
+  p.watch.checkEnd();
+  assert.equal(p.watch.endTimer?._idleTimeout, 2000);
+  p.watch.stopEnd();
 
   p.currentTrack.isLive = true;
-  p.ensureTrackCompletion();
-  assert.equal(p.trackTimer, null);
+  p.watch.checkEnd();
+  assert.equal(p.watch.endTimer, null);
 
   p.currentTrack = null;
-  p.ensureTrackCompletion();
+  p.watch.checkEnd();
   h.dispose(p);
-  assert.equal(p.trackTimer, null);
+  assert.equal(p.watch.endTimer, null);
 });
 
 // ── 정지 · 나가기 · 정리 ────────────────────────────────────────────────
