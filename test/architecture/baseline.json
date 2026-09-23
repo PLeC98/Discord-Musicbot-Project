@@ -24,12 +24,10 @@
     "dashboard/server/index.js": 3
   },
   "requireCache": {
-    "test/autoplay/autoplayAssist.test.js": 1,
     "test/controlEntrances.test.js": 2,
     "test/dashboard/dashboardErrors.test.js": 3
   },
   "methodSwap": [
-    "test/autoplay/autoplayAssist.test.js",
     "test/autoplay/autoplayPrefetch.test.js",
     "test/commands/commandsAdd.test.js",
     "test/commands/commandsInfo.test.js",

@@ -157,17 +157,19 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
   useConfig(ON);
   answers(() => ({ ok: false, status: 401, text: async () => `Invalid key: ${KEY}` }));
 
+  // 로그 싱크에 받는 곳을 달아 모든 레코드를 본다. debug 까지 남게 잠시 올린다
   const seen = [];
-  const log = require("../../src/infra/log/logger");
-  const realDebug = log.debug;
-  const child = log.child;
-  log.child = () => ({ ...log, debug: (line) => seen.push(String(line)) });
-  delete require.cache[require.resolve("../../src/autoplay/assist/index")];
-  const fresh = require("../../src/autoplay/assist/index");
-
-  await fresh.accepts(cand("A"), {});
-  log.child = child;
-  log.debug = realDebug;
+  let watching = true;
+  require("../../src/infra/log/sink").addDestination((rec) => watching && seen.push(JSON.stringify(rec)));
+  const logger = require("../../src/infra/log/logger");
+  const level = logger.level;
+  logger.level = "debug";
+  try {
+    await assist.accepts(cand("A"), {});
+  } finally {
+    logger.level = level;
+    watching = false;
+  }
 
   assert.ok(seen.length, "무슨 일이 있었는지는 남겨야 한다");
   for (const line of seen) assert.ok(!line.includes(KEY), `로그에 키가 남았다: ${line}`);
