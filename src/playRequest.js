@@ -9,7 +9,7 @@ const config = require("../config");
 const trackState = require("./trackState");
 const S = require("./strings");
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
-const { capabilities: ffmpegCapabilities } = require("./ffmpegPath");
+const { capabilities: ffmpegCapabilities } = require("./media/ffmpeg/path");
 
 /** 이 곡을 대기열에 넣을 수 없는 이유. 넣을 수 있으면 null. */
 function liveBlockReason(track) {

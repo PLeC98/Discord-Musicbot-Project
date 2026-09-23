@@ -9,7 +9,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { PassThrough } = require("stream");
-const { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } = require("../src/audioSplicer");
+const { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } = require("../../src/media/audioSplicer");
 
 // 위치마다 값이 다른 PCM — 어긋나면 바로 드러난다. mark로 소스를 구분한다.
 function pcm(ms, mark) {

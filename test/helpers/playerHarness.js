@@ -101,8 +101,8 @@ function fakeChild(args, label) {
   };
   return child;
 }
-const ffmpegProcessPath = require.resolve("../../src/ffmpegProcess");
-const realFfmpegProcess = require("../../src/ffmpegProcess");
+const ffmpegProcessPath = require.resolve("../../src/media/ffmpeg/process");
+const realFfmpegProcess = require("../../src/media/ffmpeg/process");
 require.cache[ffmpegProcessPath].exports = {
   ...realFfmpegProcess,
   spawnFfmpeg: (args, label) => {
@@ -112,14 +112,14 @@ require.cache[ffmpegProcessPath].exports = {
   },
 };
 
-const ffmpegPathPath = require.resolve("../../src/ffmpegPath");
-const realFfmpegPath = require("../../src/ffmpegPath");
+const ffmpegPathPath = require.resolve("../../src/media/ffmpeg/path");
+const realFfmpegPath = require("../../src/media/ffmpeg/path");
 const caps = { ok: true, https: true, hls: true, segMaxRetry: true };
 require.cache[ffmpegPathPath].exports = { ...realFfmpegPath, capabilities: () => caps };
 
 // ── 3. 청크 스트림 ─────────────────────────────────────────────────────
-const chunkedPath = require.resolve("../../src/chunkedStream");
-const realChunked = require("../../src/chunkedStream");
+const chunkedPath = require.resolve("../../src/media/chunkedStream");
+const realChunked = require("../../src/media/chunkedStream");
 require.cache[chunkedPath].exports = {
   ...realChunked,
   openChunkedStream: async (opts) => {
@@ -139,7 +139,7 @@ CacheManager.initialize(path.join(TMP, "cache.db"));
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
 const MusicPlayer = require("../../src/MusicPlayer");
 const TrackResolver = require("../../src/sources/trackResolver");
-const TrackDownloader = require("../../src/TrackDownloader");
+const TrackDownloader = require("../../src/media/cacheDownload");
 const SponsorBlock = require("../../src/sources/sponsorBlock");
 const DirectLink = require("../../src/sources/direct");
 const VoiceConnectionManager = require("../../src/VoiceConnectionManager");

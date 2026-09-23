@@ -14,16 +14,16 @@ const { test, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = require("../src/sources/youtube/index");
-const TrackResolver = require("../src/sources/trackResolver");
-const DirectLink = require("../src/sources/direct");
-const SponsorBlock = require("../src/sources/sponsorBlock");
-const audioConvert = require("../src/audioConvert");
-const TrackDownloader = require("../src/TrackDownloader");
+const YouTube = require("../../src/sources/youtube/index");
+const TrackResolver = require("../../src/sources/trackResolver");
+const DirectLink = require("../../src/sources/direct");
+const SponsorBlock = require("../../src/sources/sponsorBlock");
+const audioConvert = require("../../src/media/convert");
+const TrackDownloader = require("../../src/media/cacheDownload");
 
 // 무엇이 불렸는지 모은다
 const calls = { ytdlp: [], direct: [], convert: [], sponsor: [], equivalent: [], reresolve: [] };

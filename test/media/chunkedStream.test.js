@@ -7,7 +7,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Writable } = require("stream");
-const { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } = require("../src/chunkedStream");
+const { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } = require("../../src/media/chunkedStream");
 
 const URL_ = "https://x/y";
 const FAST = { retryDelaysMs: [0, 0, 0] };

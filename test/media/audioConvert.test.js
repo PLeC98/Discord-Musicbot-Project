@@ -15,10 +15,10 @@ const fs = require("node:fs");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const audioConvert = require("../src/audioConvert");
+const audioConvert = require("../../src/media/convert");
 const { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } = audioConvert;
 const { argsFor } = audioConvert._internals;
-const { probeAudio, _internals: ffmpegInternals } = require("../src/ffmpegProcess");
+const { probeAudio, _internals: ffmpegInternals } = require("../../src/media/ffmpeg/process");
 const { parseProbeOutput } = ffmpegInternals;
 
 const idx = (args, flag) => args.indexOf(flag);
@@ -176,7 +176,7 @@ after(() => {
 });
 
 test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 나온다", async (t) => {
-  const { spawnFfmpeg } = require("../src/ffmpegProcess");
+  const { spawnFfmpeg } = require("../../src/media/ffmpeg/process");
   const made = await new Promise((resolve) => {
     let child;
     try {
@@ -208,7 +208,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
 test("음원을 빌려 오는 것은 스포티파이뿐이다. 사운드클라우드는 제 음원을 준다", () => {
   // 상류가 둘을 DRM 으로 묶어 둬서 `sc:` 키 안에 유튜브 음원이 들어갔다. 같은 곡이 처음 틀 때와
   // 캐시로 틀 때 서로 다른 녹음이 됐고, 유튜브 검색이 헛짚으면 그 키에 다른 곡이 박힌 채 남았다.
-  const { needsBorrowedAudio } = require("../src/TrackDownloader")._internals;
+  const { needsBorrowedAudio } = require("../../src/media/cacheDownload")._internals;
 
   assert.equal(needsBorrowedAudio({ platform: "spotify" }), true);
   assert.equal(needsBorrowedAudio({ platform: "soundcloud" }), false, "SC-4");

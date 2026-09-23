@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 
 const ytdlExec = require("youtube-dl-exec");
 const SafeUrl = require("../../src/infra/safeUrl");
-const ffmpegPath = require("../../src/ffmpegPath");
+const ffmpegPath = require("../../src/media/ffmpeg/path");
 const SoundCloud = require("../../src/sources/soundcloud");
 const DirectLink = require("../../src/sources/direct");
 

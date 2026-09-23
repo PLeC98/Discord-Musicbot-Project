@@ -10,7 +10,7 @@
 const h = require("./helpers/playerHarness");
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
-const { AudioSplicer } = require("../src/audioSplicer");
+const { AudioSplicer } = require("../src/media/audioSplicer");
 const { PassThrough } = require("node:stream");
 
 const { calls, behavior } = h;

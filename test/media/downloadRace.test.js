@@ -10,8 +10,8 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
-const TrackDownloader = require("../src/TrackDownloader");
-const CacheManager = require("../src/store/cacheManager");
+const TrackDownloader = require("../../src/media/cacheDownload");
+const CacheManager = require("../../src/store/cacheManager");
 
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;
 

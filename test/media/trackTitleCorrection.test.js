@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const TrackDownloader = require("../src/TrackDownloader");
+const TrackDownloader = require("../../src/media/cacheDownload");
 
 const take = TrackDownloader.prototype._takeInfoJson;
 const NONE = { title: null, durationSec: null };

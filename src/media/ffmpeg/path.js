@@ -3,8 +3,8 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
-const config = require("../config");
-const log = require("./infra/log/logger").child({ category: "ffmpeg" });
+const config = require("../../../config");
+const log = require("../../infra/log/logger").child({ category: "ffmpeg" });
 
 /**
  * ffmpeg 실행 파일 경로의 단일 출처. 재생(spawnFfmpeg)과 캐시 변환(yt-dlp --ffmpeg-location)이

@@ -5,7 +5,7 @@ const fs = require("fs");
 const youtubedl = require("../ytdlpSpawn");
 const config = require("../../../config");
 const CacheManager = require("../../store/cacheManager");
-const { ffmpegPath } = require("../../ffmpegPath");
+const { ffmpegPath } = require("../../media/ffmpeg/path");
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면

@@ -195,7 +195,7 @@
       "count": 2
     }
   },
-  "src/TrackDownloader.js": {
+  "src/media/cacheDownload.js": {
     "complexity": {
       "count": 1
     },
@@ -230,7 +230,7 @@
       "count": 5
     }
   },
-  "src/audioSplicer.js": {
+  "src/media/audioSplicer.js": {
     "complexity": {
       "count": 1
     },
@@ -254,7 +254,7 @@
       "count": 7
     }
   },
-  "src/chunkedStream.js": {
+  "src/media/chunkedStream.js": {
     "complexity": {
       "count": 1
     },

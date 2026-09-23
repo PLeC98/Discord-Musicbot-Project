@@ -13,8 +13,8 @@ const { spawn } = require("node:child_process");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { ffmpegPath } = require("../src/ffmpegPath");
-const { probeDurationSec } = require("../src/ffmpegProcess");
+const { ffmpegPath } = require("../../src/media/ffmpeg/path");
+const { probeDurationSec } = require("../../src/media/ffmpeg/process");
 
 const BIN = (() => {
   try {
@@ -52,7 +52,7 @@ test("실제 길이를 초 단위로 돌려준다", opts, async () => {
 });
 
 test("Content-Length 추정보다 정확하다", opts, async () => {
-  const DirectLink = require("../src/sources/direct");
+  const DirectLink = require("../../src/sources/direct");
   const size = String(fs.statSync(TONE).size);
 
   const estimated = DirectLink.estimateDuration(size, "audio/mpeg");

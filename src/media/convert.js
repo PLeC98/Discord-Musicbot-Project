@@ -1,7 +1,7 @@
 "use strict";
 
-const { spawnFfmpeg, probeAudio } = require("./ffmpegProcess");
-const log = require("./infra/log/logger").child({ category: "track" });
+const { spawnFfmpeg, probeAudio } = require("./ffmpeg/process");
+const log = require("../infra/log/logger").child({ category: "track" });
 
 /**
  * 받아 온 오디오를 캐시 규격(`.opus`)으로 만든다. 무엇을 할지 정하는 단일 출처다.

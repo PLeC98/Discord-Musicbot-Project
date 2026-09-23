@@ -9,7 +9,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const ffmpegPathModule = require("../src/ffmpegPath");
+const ffmpegPathModule = require("../../src/media/ffmpeg/path");
 const { resolve, ffmpegPath, logResolved } = ffmpegPathModule;
 const { probe, _reset } = ffmpegPathModule._internals;
 
@@ -27,7 +27,7 @@ test("resolve: 결과를 캐시한다 — 매 호출마다 프로세스를 띄�
 
 test("probe: ffmpeg가 아닌 것은 거부한다", () => {
   assert.equal(probe(null), null);
-  assert.equal(probe(path.join(__dirname, "does-not-exist-ffmpeg")), null);
+  assert.equal(probe(path.join(__dirname, "..", "does-not-exist-ffmpeg")), null);
   // node는 실행은 되지만 `-version`에 'ffmpeg version'을 출력하지 않는다 → 거부돼야 한다
   assert.equal(probe(process.execPath), null, "아무 실행 파일이나 통과시키면 안 됨");
 });
