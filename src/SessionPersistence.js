@@ -2,7 +2,7 @@
 
 const fsSync = require("fs");
 const log = require("./infra/log/logger").child({ category: "session" });
-const CacheManager = require("./CacheManager");
+const CacheManager = require("./store/cacheManager");
 const trackState = require("./trackState");
 const config = require("../config");
 const { formatDuration } = require("./utils");

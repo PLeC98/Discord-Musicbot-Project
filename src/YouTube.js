@@ -4,7 +4,7 @@ const fs = require("fs");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("./ytdlp");
 const config = require("../config");
-const CacheManager = require("./CacheManager");
+const CacheManager = require("./store/cacheManager");
 const { ffmpegPath } = require("./ffmpegPath");
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다

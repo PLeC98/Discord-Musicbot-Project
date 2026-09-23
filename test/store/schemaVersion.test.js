@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 const Database = require("better-sqlite3");
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 
 after(() => {
   CacheManager.close();

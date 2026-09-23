@@ -1,6 +1,6 @@
 const { Events, MessageFlags } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "events" });
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 const { checkAdd, checkSummon } = require("../src/permissions");
 const { requestPlayback } = require("../src/playRequest");
 const { channelResponder, scheduleDelete } = require("../src/playbackResponder");

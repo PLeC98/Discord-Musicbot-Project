@@ -2,7 +2,7 @@
 
 const MusicPlayer = require("./MusicPlayer");
 const TrackResolver = require("./TrackResolver");
-const GuildSettingsManager = require("./GuildSettingsManager");
+const GuildSettingsManager = require("./store/guildSettings");
 const { silentResponder } = require("./playbackResponder");
 const log = require("./infra/log/logger").child({ category: "player" });
 const config = require("../config");

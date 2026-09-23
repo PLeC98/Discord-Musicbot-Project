@@ -96,7 +96,7 @@
       "count": 1
     }
   },
-  "src/CacheManager.js": {
+  "src/store/cacheManager.js": {
     "max-params": {
       "count": 1
     },
@@ -114,7 +114,7 @@
       "count": 1
     }
   },
-  "src/GuildSettingsManager.js": {
+  "src/store/guildSettings.js": {
     "no-empty": {
       "count": 2
     }
@@ -286,7 +286,7 @@
       "count": 3
     }
   },
-  "src/playerSessionStore.js": {
+  "src/store/playerSessions.js": {
     "complexity": {
       "count": 1
     }

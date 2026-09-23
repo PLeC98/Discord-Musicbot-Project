@@ -12,11 +12,11 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guild-settings-"));
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
-const settings = require("../src/GuildSettingsManager");
-const config = require("../config");
+const settings = require("../../src/store/guildSettings");
+const config = require("../../config");
 
 beforeEach(() => {
   settings.cache.clear();

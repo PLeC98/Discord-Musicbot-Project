@@ -1,7 +1,7 @@
 "use strict";
 
 const { PermissionFlagsBits } = require("discord.js");
-const GuildSettingsManager = require("./GuildSettingsManager");
+const GuildSettingsManager = require("./store/guildSettings");
 const S = require("./strings");
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.

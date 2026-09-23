@@ -7,7 +7,7 @@ const log = require("./infra/log/logger").child({ category: "track" });
 const Spotify = require("./Spotify");
 const SoundCloud = require("./SoundCloud");
 const DirectLink = require("./DirectLink");
-const CacheManager = require("./CacheManager");
+const CacheManager = require("./store/cacheManager");
 const ErrorHandler = require("./ErrorHandler");
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./youtubeMatch");
 

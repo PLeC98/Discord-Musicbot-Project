@@ -7,7 +7,7 @@ const { test, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { Collection } = require("discord.js");
 const MusicEmbedManager = require("../src/MusicEmbedManager");
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 
 const BOT = "bot-chan";
 let botChannelId;

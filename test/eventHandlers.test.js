@@ -14,12 +14,12 @@ const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
 const S = require("../src/strings");
-const settings = require("../src/GuildSettingsManager");
+const settings = require("../src/store/guildSettings");
 const TrackResolver = require("../src/TrackResolver");
 const loader = require("../src/config/loader");
 const More = require("../src/playlistMore");

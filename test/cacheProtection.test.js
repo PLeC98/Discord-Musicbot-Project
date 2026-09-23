@@ -7,7 +7,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../src/store/cacheManager");
 const MusicPlayer = require("../src/MusicPlayer");
 
 const release = MusicPlayer.prototype.releaseAudioProtection;

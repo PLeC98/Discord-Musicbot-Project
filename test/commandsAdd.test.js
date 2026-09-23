@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const { MessageFlags } = require("discord.js");
 
 const S = require("../src/strings");
-const settings = require("../src/GuildSettingsManager");
+const settings = require("../src/store/guildSettings");
 const TrackResolver = require("../src/TrackResolver");
 const YouTube = require("../src/YouTube");
 const More = require("../src/playlistMore");

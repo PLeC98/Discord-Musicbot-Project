@@ -7,7 +7,7 @@ const ErrorHandler = require("./ErrorHandler");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
 const { silentResponder } = require("./playbackResponder");
-const GuildSettingsManager = require("./GuildSettingsManager");
+const GuildSettingsManager = require("./store/guildSettings");
 const trackState = require("./trackState");
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.

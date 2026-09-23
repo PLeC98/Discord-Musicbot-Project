@@ -23,7 +23,7 @@ require.cache[ytPath] = {
 
 const Spotify = require("../src/Spotify");
 const YouTube = require("../src/YouTube");
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../src/store/cacheManager");
 const TrackResolver = require("../src/TrackResolver");
 
 const { graphql, official } = Spotify._internals;

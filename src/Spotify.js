@@ -12,7 +12,7 @@
 const crypto = require("crypto");
 const log = require("./infra/log/logger").child({ category: "spotify" });
 const config = require("../config");
-const CacheManager = require("./CacheManager");
+const CacheManager = require("./store/cacheManager");
 
 const UA = config.userAgents.browser;
 const API_BASE = "https://api.spotify.com/v1";

@@ -9,7 +9,7 @@ const TrackResolver = require("../src/TrackResolver");
 const YouTube = require("../src/YouTube");
 const Spotify = require("../src/Spotify");
 const SoundCloud = require("../src/SoundCloud");
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../src/store/cacheManager");
 
 test("accepts supported media hosts by parsed hostname", () => {
   assert.equal(TrackResolver.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");

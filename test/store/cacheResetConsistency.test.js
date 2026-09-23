@@ -20,7 +20,7 @@ let CacheManager;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  CacheManager = require("../src/CacheManager");
+  CacheManager = require("../../src/store/cacheManager");
   CacheManager._cacheDir = CACHE_DIR; // 실 캐시 폴더를 건드리지 않는다
   CacheManager.initialize(DB_PATH);
 });

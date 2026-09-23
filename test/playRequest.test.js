@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
 let mockBotChannelId = null;
 let mockBatch = 50;
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async () => mockBotChannelId, resolvePlaylistAddMax: () => mockBatch } };
 
 let mockResolve = null;

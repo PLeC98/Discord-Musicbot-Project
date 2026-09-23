@@ -6,7 +6,7 @@ const { Events, MessageFlags } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "events" });
 const S = require("../src/strings");
 const { checkAdd } = require("../src/permissions");
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 const { continueCollection } = require("../src/playRequest");
 const More = require("../src/playlistMore");
 

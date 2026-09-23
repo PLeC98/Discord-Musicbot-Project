@@ -8,7 +8,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
 const store = { djRoles: new Map() };
 require.cache[gsmPath] = {
   id: gsmPath,

@@ -132,7 +132,7 @@ require.cache[chunkedPath].exports = {
 
 // ── 4. 캐시 장부: 진짜를 임시 DB 로 ──────────────────────────────────────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
-const CacheManager = require("../../src/CacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 

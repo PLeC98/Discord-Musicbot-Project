@@ -1,7 +1,7 @@
 "use strict";
 
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 const sponsorConfig = require("../events/sponsorConfigHandler");
 
 // 실제 저장/취소 처리는 events/sponsorConfigHandler.js (customId: sb:*)

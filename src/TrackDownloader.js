@@ -10,7 +10,7 @@ const audioConvert = require("./audioConvert");
 const YouTube = require("./YouTube");
 const TrackResolver = require("./TrackResolver");
 const DirectLink = require("./DirectLink");
-const CacheManager = require("./CacheManager");
+const CacheManager = require("./store/cacheManager");
 const SponsorBlock = require("./SponsorBlock");
 
 /**

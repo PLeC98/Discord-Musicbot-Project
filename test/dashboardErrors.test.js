@@ -52,7 +52,7 @@ require.cache[sessionPath] = {
 };
 
 // ── GuildSettingsManager 모킹 (라우터가 실 DB를 열지 않게) ─────────────────────
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = {
   id: gsmPath,
   filename: gsmPath,

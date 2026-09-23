@@ -24,7 +24,7 @@ require.cache[permPath] = {
   loaded: true,
   exports: { ...require(permPath), checkControl: gate, checkSkip: gate, checkRemoveTrack: gate, checkAdd: gate, checkSummon: gate, isModerator: () => false },
 };
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => [], getBotChannel: async () => null } };
 
 const express = require("express");

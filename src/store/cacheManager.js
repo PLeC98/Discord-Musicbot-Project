@@ -1,14 +1,14 @@
 "use strict";
 
 const Database = require("better-sqlite3");
-const log = require("./infra/log/logger").child({ category: "cache" });
+const log = require("../infra/log/logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-const { PlayerSessionStore, createTables: createSessionTables } = require("./playerSessionStore");
+const { PlayerSessionStore, createTables: createSessionTables } = require("./playerSessions");
 
-const DB_PATH = path.join(__dirname, "..", "database", "cache.db");
-const CACHE_DIR = path.join(__dirname, "..", "audio_cache");
+const DB_PATH = path.join(__dirname, "..", "..", "database", "cache.db");
+const CACHE_DIR = path.join(__dirname, "..", "..", "audio_cache");
 
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
 const SCHEMA_VERSION = 3;
@@ -209,7 +209,7 @@ class CacheManager {
   _normalizeSourceUrl(sourceUrl) {
     if (typeof sourceUrl !== "string") return sourceUrl;
     // 순환 의존성 문제를 피하기 위해 지연 require
-    const YouTube = require("./YouTube");
+    const YouTube = require("../YouTube");
     const videoId = YouTube.extractVideoId(sourceUrl);
     return videoId ? `https://www.youtube.com/watch?v=${videoId}` : sourceUrl;
   }
@@ -745,7 +745,7 @@ class CacheManager {
 
   async evictIfNeeded() {
     if (!this._initialized) this.initialize();
-    const cfg = require("../config").cache;
+    const cfg = require("../../config").cache;
 
     const totalSize = this._cacheSize();
     const fileCount = this._cacheCount();
@@ -835,7 +835,7 @@ class CacheManager {
 
   /** 백그라운드 주기적 제거 타이머 시작 */
   _startPeriodicEviction() {
-    const cfg = require("../config").cache;
+    const cfg = require("../../config").cache;
     if (this._evictInterval) clearInterval(this._evictInterval);
     this._evictInterval = setInterval(() => {
       this.evictIfNeeded().catch((err) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", err.message));
@@ -847,7 +847,7 @@ class CacheManager {
 
   getCacheStats() {
     if (!this._initialized) this.initialize();
-    const cfg = require("../config").cache;
+    const cfg = require("../../config").cache;
 
     const totalSize = this._cacheSize();
     const fileCount = this._cacheCount();

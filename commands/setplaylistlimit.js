@@ -1,7 +1,7 @@
 "use strict";
 
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require("discord.js");
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 const config = require("../config");
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.

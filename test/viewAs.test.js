@@ -17,7 +17,7 @@ const { PermissionFlagsBits } = require("discord.js");
 
 // permissions.js보다 먼저 모킹을 심어야 함 (실 SQLite 미접촉)
 let mockDjRoles = [];
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => mockDjRoles } };
 
 const { TIERS, getViewAs, shadowMember } = require("../dashboard/server/viewAs");

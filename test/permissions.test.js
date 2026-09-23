@@ -10,7 +10,7 @@ const { PermissionFlagsBits } = require("discord.js");
 
 // permissions.js보다 먼저 모킹을 심어야 함
 let mockDjRoles = [];
-const gsmPath = require.resolve(path.join(__dirname, "..", "src", "GuildSettingsManager.js"));
+const gsmPath = require.resolve(path.join(__dirname, "..", "src", "store", "guildSettings.js"));
 require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => mockDjRoles } };
 
 const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = require("../src/permissions");

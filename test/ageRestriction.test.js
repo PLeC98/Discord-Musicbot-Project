@@ -15,7 +15,7 @@ let YouTube;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  CacheManager = require("../src/CacheManager");
+  CacheManager = require("../src/store/cacheManager");
   CacheManager.initialize(DB_PATH);
   YouTube = require("../src/YouTube");
 });

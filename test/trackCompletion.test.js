@@ -7,7 +7,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { AudioPlayerStatus } = require("@discordjs/voice");
 const MusicPlayer = require("../src/MusicPlayer");
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../src/store/cacheManager");
 
 // ── 종료 워치독 ──────────────────────────────────────────────
 

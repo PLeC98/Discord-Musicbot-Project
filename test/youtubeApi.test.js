@@ -13,7 +13,7 @@ const { test, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 

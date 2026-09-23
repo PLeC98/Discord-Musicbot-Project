@@ -3,7 +3,7 @@
 // 서버당 하나뿐인 현재 재생 패널의 자리. 어느 채널의 어느 메시지인지 DB에 남긴다.
 // 메모리 참조(player.nowPlayingMessage)는 재생이 끝나거나 재시작하면 없어지므로, 옛 패널을 치우는 기준은 이 기록이다.
 
-const GuildSettingsManager = require("./GuildSettingsManager");
+const GuildSettingsManager = require("./store/guildSettings");
 
 const UNKNOWN_MESSAGE = 10008;
 

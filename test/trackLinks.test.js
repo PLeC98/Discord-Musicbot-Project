@@ -16,7 +16,7 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "track-links-"));
 let CacheManager;
 
 before(() => {
-  CacheManager = require("../src/CacheManager");
+  CacheManager = require("../src/store/cacheManager");
   CacheManager._cacheDir = path.join(TMP, "audio_cache");
   CacheManager.initialize(path.join(TMP, "cache.db"));
 });
@@ -37,7 +37,7 @@ function seed(key, track) {
 }
 
 test("세션 복원: 유튜브로 올라간 음원 곡은 페이지 링크가 남고, 음원으로 떨어진 곡은 잃는다", () => {
-  const { PlayerSessionStore, createTables } = require("../src/playerSessionStore");
+  const { PlayerSessionStore, createTables } = require("../src/store/playerSessions");
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
   createTables(db);

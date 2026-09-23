@@ -3,7 +3,7 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { toRequester } = require("../src/playRequest");
 const { interactionResponder } = require("../src/playbackResponder");
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 const { checkControl } = require("../src/permissions");
 
 module.exports = {

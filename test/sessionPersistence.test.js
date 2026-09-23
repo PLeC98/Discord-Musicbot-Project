@@ -14,7 +14,7 @@ const removeDb = () => {
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(DB_PATH + suffix, { force: true });
 };
 
-const CacheManager = require("../src/CacheManager");
+const CacheManager = require("../src/store/cacheManager");
 const SessionPersistence = require("../src/SessionPersistence");
 const trackState = require("../src/trackState");
 

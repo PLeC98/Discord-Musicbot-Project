@@ -1,7 +1,7 @@
 "use strict";
 
 const { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 const SponsorBlock = require("../src/SponsorBlock");
 const config = require("../config");
 

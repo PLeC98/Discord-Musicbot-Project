@@ -141,7 +141,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 // ── 끝난 패널 ──
 // 부르는 곳이 전부 현재 곡을 먼저 비워, 버튼 끄기가 한 번도 돌지 않았다(2026-09-16).
 
-const GuildSettingsManager = require("../src/GuildSettingsManager");
+const GuildSettingsManager = require("../src/store/guildSettings");
 
 function panelPlayer(over = {}) {
   return {
