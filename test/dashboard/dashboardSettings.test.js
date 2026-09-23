@@ -116,7 +116,7 @@ before(async () => {
     next();
   });
   app.locals.discordClient = client;
-  app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js").createGuildsRouter({ stream: require("../../dashboard/server/playerStream") }));
+  app.use("/api/guilds", require("../../dashboard/server/routes/guilds.js").createGuildsRouter({ stream: require("../../dashboard/server/playerStream").createPlayerStream() }));
   server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });

@@ -19,7 +19,6 @@ const { getViewAs } = require("./viewAs");
 const { createAuthRouter } = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const { createGuildsRouter } = require("./routes/guilds");
-const playerStream = require("./playerStream");
 
 const PORT = config.dashboard.port;
 const HOST = config.dashboard.host;
@@ -55,7 +54,7 @@ function plaintextAccessWarner(host) {
 
 // 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체가 회귀 대상이라(정적 자산이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
-function createApp(client) {
+function createApp(client, { stream }) {
   const app = express();
   const SESSION_SECRET = resolveSessionSecret();
 
@@ -143,7 +142,7 @@ function createApp(client) {
 
   // API 라우트
   app.use("/api/admin", adminRoutes);
-  app.use("/api/guilds", createGuildsRouter({ stream: playerStream }));
+  app.use("/api/guilds", createGuildsRouter({ stream }));
 
   // 지금 로그인한 사람
   // isOwner는 세션에 저장하지 않고 여기서 파생한다. UI 표시용이고 권한 판정은 서버가 매번 다시 한다.
@@ -172,8 +171,8 @@ function createApp(client) {
   return app;
 }
 
-function startDashboard(client) {
-  const app = createApp(client);
+function startDashboard(client, { stream }) {
+  const app = createApp(client, { stream });
 
   const { line, warnings } = describeBinding(HOST, PORT, DASHBOARD_URL);
   app.listen(PORT, HOST, () => {

@@ -4,13 +4,15 @@
 // 회귀 대상: 쓰기 실패 시 Set에서만 제거되고 perKey(연결 캡)·listGuildIds·빈 Set 정리가
 // close 이벤트에만 의존 — close가 안 오는 비정상 종료에서 캡이 영구 점유되던 문제.
 
-const { test } = require("node:test");
+const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
-const DashboardEvents = require("../../dashboard/server/playerStream");
+const { createPlayerStream } = require("../../dashboard/server/playerStream");
 const config = require("../../config");
 
 const { maxPerUser } = config.dashboard.sse;
+const DashboardEvents = createPlayerStream();
+after(() => DashboardEvents.close());
 
 function makeRes() {
   const res = new EventEmitter();

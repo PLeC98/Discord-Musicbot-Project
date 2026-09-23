@@ -29,7 +29,7 @@ const MusicEmbedManager = require("../ui/nowPlayingPanel");
 const StatusManager = require("../ui/botPresence");
 const { createFileDestination } = require("../infra/log/file");
 const { startDashboard } = require("../../dashboard/server/index");
-const playerStream = require("../../dashboard/server/playerStream");
+const { createPlayerStream } = require("../../dashboard/server/playerStream");
 const playerEvents = require("../player/events");
 const { sendNotice } = require("../ui/playerNotices");
 
@@ -78,8 +78,9 @@ function startBot({ potServer, logFile }) {
   client.commands = new Collection();
   client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
   client.musicEmbedManager = new MusicEmbedManager(client);
-  startDashboard(client);
-  listenToPlayers(client.musicEmbedManager);
+  startDashboard(client, { stream });
+  const stream = createPlayerStream();
+  listenToPlayers(client.musicEmbedManager, stream);
 
   client.once(Events.ClientReady, () => onReady(client));
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
@@ -94,13 +95,13 @@ function startBot({ potServer, logFile }) {
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다
-function listenToPlayers(panels) {
+function listenToPlayers(panels, stream) {
   playerEvents.on("refresh", (player) => panels.updateNowPlayingEmbed(player));
   playerEvents.on("ended", (player, reason) => panels.handlePlaybackEnd(player, { reason }));
   playerEvents.on("started", (player, requester) => panels.createNewMusicEmbed(player, player.currentTrack, requester));
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));
-  playerEvents.on("touched", (guildId) => playerStream.notify(guildId));
+  playerEvents.on("touched", (guildId) => stream.notify(guildId));
 }
 
 async function onReady(client) {

@@ -57,6 +57,7 @@ const store = openTempStore("dashboard-errors-");
 after(() => store.close());
 
 const { createApp } = require("../../dashboard/server/index.js");
+const { createPlayerStream } = require("../../dashboard/server/playerStream.js");
 const { describeBinding, isLoopbackHost } = require("../../dashboard/server/binding.js");
 const { _internals } = require("../../dashboard/server/middleware/errorHandler.js");
 const { errorHandler } = require("../../dashboard/server/middleware/errorHandler.js");
@@ -67,7 +68,7 @@ let server;
 let base;
 
 before(async () => {
-  server = createApp({ user: null }).listen(0, "127.0.0.1");
+  server = createApp({ user: null }, { stream: createPlayerStream() }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   base = `http://127.0.0.1:${server.address().port}`;
 });

@@ -21,7 +21,7 @@
     "commands/system.js": 1,
     "events/modalHandler.js": 1,
     "dashboard/server/index.js": 1,
-    "dashboard/server/routes/admin.js": 22,
+    "dashboard/server/routes/admin.js": 21,
     "dashboard/server/routes/player.js": 1
   },
   "configCapture": {
@@ -29,8 +29,7 @@
     "src/sources/sponsorBlock.js": 1,
     "src/sources/spotify.js": 1,
     "src/sources/youtube/ytdlpRun.js": 3,
-    "dashboard/server/index.js": 3,
-    "dashboard/server/playerStream.js": 1
+    "dashboard/server/index.js": 3
   },
   "requireCache": {
     "test/autoplay/autoplayAssist.test.js": 1,

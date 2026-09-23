@@ -2,10 +2,8 @@
 
 const config = require("../../config");
 
-const { heartbeatMs, maxPerUser, coalesceMs } = config.dashboard.sse;
-
 /**
- * DashboardEvents. 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
+ * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
  *
  * 두 종류의 구독:
  *  - 개별 서버(플레이어) 페이지: 서버 1개 구독 (this.guilds: guildId -> Set<res>)
@@ -15,8 +13,10 @@ const { heartbeatMs, maxPerUser, coalesceMs } = config.dashboard.sse;
  * 페이로드는 "어느 서버에 변화 발생"이라는 최소 신호(`{"t":"changed","g":"<guildId>"}`). 받으면 GET으로 재조회.
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 무엇을 구독 중인가"만 관리.
  */
-class DashboardEvents {
-  constructor() {
+class PlayerStream {
+  constructor({ heartbeatMs, maxPerUser, coalesceMs }) {
+    this.maxPerUser = maxPerUser;
+    this.coalesceMs = coalesceMs;
     this.guilds = new Map(); // guildId -> Set<res>       (개별 서버 페이지)
     this.listSubs = new Set(); // { res, guildIds:Set }   (서버 목록 페이지. 멀티플렉스)
     this.listGuildIds = new Map(); // guildId -> 그 서버를 구독 중인 목록 구독자 수 (notify 가드 O(1))
@@ -43,7 +43,7 @@ class DashboardEvents {
   /** 세션당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. */
   _capOk(res, userKey) {
     const count = this.perKey.get(userKey) || 0;
-    if (count >= maxPerUser) {
+    if (count >= this.maxPerUser) {
       res.status(429).json({ error: "이벤트 연결이 너무 많습니다" });
       return false;
     }
@@ -117,7 +117,7 @@ class DashboardEvents {
     const t = setTimeout(() => {
       this.coalesceTimers.delete(guildId);
       this._emit(guildId);
-    }, coalesceMs);
+    }, this.coalesceMs);
     if (t.unref) t.unref();
     this.coalesceTimers.set(guildId, t);
   }
@@ -168,6 +168,18 @@ class DashboardEvents {
       }
     }
   }
+
+  /** 하트비트와 예약한 넛지를 멈춘다 */
+  close() {
+    clearInterval(this.heartbeat);
+    for (const t of this.coalesceTimers.values()) clearTimeout(t);
+    this.coalesceTimers.clear();
+  }
 }
 
-module.exports = new DashboardEvents();
+/** 설정(`SSE_*`)으로 허브를 만든다. 조립이 하나 만들어 플레이어 알림과 대시보드 경로에 나눠 준다 */
+function createPlayerStream(options = config.dashboard.sse) {
+  return new PlayerStream(options);
+}
+
+module.exports = { createPlayerStream, PlayerStream };
