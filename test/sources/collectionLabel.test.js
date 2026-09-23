@@ -4,7 +4,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const TrackResolver = require("../../src/sources/trackResolver");
+const lookup = require("../../src/sources/lookup");
 const Spotify = require("../../src/sources/spotify");
 const YouTube = require("../../src/sources/youtube/index");
 const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
@@ -26,11 +26,11 @@ test("스포티파이 링크의 종류가 collection으로 실린다", async () 
       ["https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "playlist"],
       ["https://open.spotify.com/artist/0du5cEVh5yTK9QJze8zA0C", "artist"],
     ]) {
-      const r = await TrackResolver.getTrackData(url);
+      const r = await lookup.getTrackData(url);
       assert.equal(r.isPlaylist, true, url);
       assert.equal(r.collection, expected, url);
     }
-    const single = await TrackResolver.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa");
+    const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa");
     assert.equal(single.isPlaylist, false);
     assert.equal(single.collection, null);
   } finally {
@@ -41,7 +41,7 @@ test("스포티파이 링크의 종류가 collection으로 실린다", async () 
 test("유튜브 재생목록은 playlist", async () => {
   const restore = stub(YouTube, "getPlaylist", async () => ({ tracks: songs(2) }));
   try {
-    const r = await TrackResolver.getTrackData("https://www.youtube.com/playlist?list=PL123");
+    const r = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL123");
     assert.equal(r.collection, "playlist");
   } finally {
     restore();

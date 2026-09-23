@@ -14,17 +14,17 @@ const { MessageFlags } = require("discord.js");
 
 const S = require("../../src/ui/strings");
 const settings = require("../../src/store/guildSettings");
-const TrackResolver = require("../../src/sources/trackResolver");
+const lookup = require("../../src/sources/lookup");
 const YouTube = require("../../src/sources/youtube/index");
 const More = require("../../src/usecases/playlistMore");
 
 const USER = "111111111111111111";
-const real = { resolveQuery: TrackResolver.resolveQuery, search: YouTube.search, restore: h.MusicPlayer.prototype.restoreFromState };
+const real = { resolveQuery: lookup.resolveQuery, search: YouTube.search, restore: h.MusicPlayer.prototype.restoreFromState };
 const resolved = [];
 let resolveReply;
 
 after(() => {
-  TrackResolver.resolveQuery = real.resolveQuery;
+  lookup.resolveQuery = real.resolveQuery;
   YouTube.search = real.search;
   h.MusicPlayer.prototype.restoreFromState = real.restore;
 });
@@ -35,7 +35,7 @@ beforeEach(() => {
   audioCache.db.exec("DELETE FROM guild_settings; DELETE FROM player_sessions;");
   resolved.length = 0;
   resolveReply = () => ({ success: true, isPlaylist: false, tracks: [{ id: "aaaaaaaaaaa", title: "곡", url: "https://youtu.be/aaaaaaaaaaa" }] });
-  TrackResolver.resolveQuery = async (query, context, range) => {
+  lookup.resolveQuery = async (query, context, range) => {
     resolved.push({ query, context, range });
     return resolveReply(query);
   };

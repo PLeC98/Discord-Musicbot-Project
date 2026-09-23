@@ -138,7 +138,9 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
 const MusicPlayer = require("../../src/player/Player");
-const TrackResolver = require("../../src/sources/trackResolver");
+const equivalent = require("../../src/sources/youtube/equivalent");
+const lookup = require("../../src/sources/lookup");
+const streamUrl = require("../../src/sources/streamUrl");
 const TrackDownloader = require("../../src/media/cacheDownload");
 const SponsorBlock = require("../../src/sources/sponsorBlock");
 const DirectLink = require("../../src/sources/direct");
@@ -187,16 +189,16 @@ const behavior = {
   directStream: null, // (url) → Readable
 };
 
-TrackResolver.getStream = async (track, seekSec) => {
+streamUrl.getStream = async (track, seekSec) => {
   if (!behavior.stream) throw new Error("시험이 스트림을 정하지 않았다");
   return behavior.stream(track, seekSec);
 };
-TrackResolver.findYouTubeEquivalent = async (track) => {
+equivalent.findYouTubeEquivalent = async (track) => {
   calls.steps.push("equivalent");
   const url = behavior.equivalent ? behavior.equivalent(track) : null;
   if (url) {
     track.youtubeUrl = url;
-    TrackResolver.ensureAudioSourceKey(track);
+    lookup.ensureAudioSourceKey(track);
   }
   return url;
 };
@@ -302,7 +304,6 @@ const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE
 module.exports = {
   MusicPlayer,
   audioCache,
-  TrackResolver,
   AudioPlayerStatus,
   calls,
   behavior,

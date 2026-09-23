@@ -20,7 +20,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 const S = require("../../src/ui/strings");
 const settings = require("../../src/store/guildSettings");
-const TrackResolver = require("../../src/sources/trackResolver");
+const lookup = require("../../src/sources/lookup");
 const yamlStore = require("../../src/config/yamlStore");
 const More = require("../../src/usecases/playlistMore");
 const messageHandler = require("../../events/messageHandler");
@@ -31,7 +31,7 @@ const modalHandler = require("../../events/modalHandler");
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";
 
-const real = { resolveQuery: TrackResolver.resolveQuery, getCollection: TrackResolver.getCollection };
+const real = { resolveQuery: lookup.resolveQuery, getCollection: lookup.getCollection };
 const resolved = [];
 const CONFIG_DIR = path.join(TMP, "config");
 
@@ -42,7 +42,7 @@ before(() => {
 });
 
 after(() => {
-  Object.assign(TrackResolver, real);
+  Object.assign(lookup, real);
   yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
@@ -52,7 +52,7 @@ beforeEach(() => {
   settings.cache.clear();
   audioCache.db.exec("DELETE FROM guild_settings;");
   resolved.length = 0;
-  TrackResolver.resolveQuery = async (query, context, range) => {
+  lookup.resolveQuery = async (query, context, range) => {
     resolved.push({ query, context, range });
     return { success: true, isPlaylist: false, tracks: [{ id: "aaaaaaaaaaa", title: "곡", url: "https://youtu.be/aaaaaaaaaaa" }] };
   };
@@ -231,7 +231,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
   try {
     const w = world();
     await settings.setBotChannel("g1", "bot-channel");
-    TrackResolver.resolveQuery = async () => ({ success: false, message: "결과를 찾을 수 없습니다!" });
+    lookup.resolveQuery = async () => ({ success: false, message: "결과를 찾을 수 없습니다!" });
     const msg = message(w);
 
     await messageHandler.execute(msg);
@@ -270,7 +270,7 @@ test("전용 채널: 코어가 던지면 일반 오류 문장", async () => {
 test("전용 채널: 재생목록이 더 남았으면 채널에 더 넣기 메뉴를 띄운다", async () => {
   const w = world();
   await settings.setBotChannel("g1", "bot-channel");
-  TrackResolver.resolveQuery = async () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [{ id: "bbbbbbbbbbb", title: "첫 곡" }] });
+  lookup.resolveQuery = async () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [{ id: "bbbbbbbbbbb", title: "첫 곡" }] });
   const msg = message(w, { content: "https://www.youtube.com/playlist?list=PLabcdefghij" });
 
   await messageHandler.execute(msg);
@@ -371,7 +371,7 @@ test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거�
 test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 바꾼 뒤 30초 뒤 지우게 한다", async () => {
   const w = world();
   const asked = [];
-  TrackResolver.getCollection = async (url, range) => {
+  lookup.getCollection = async (url, range) => {
     asked.push({ url, range });
     return { tracks: [{ id: "bbbbbbbbbbb" }, { id: "ccccccccccc", title: "다음" }, { id: "ddddddddddd", title: "다음2" }], total: 12, nextOffset: 12 };
   };
@@ -379,7 +379,7 @@ test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 
   try {
     await playlistMoreHandler.execute(it);
   } finally {
-    TrackResolver.getCollection = real.getCollection;
+    lookup.getCollection = real.getCollection;
     More.clearExpiry(it.message.id);
   }
 

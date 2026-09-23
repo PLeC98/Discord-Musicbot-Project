@@ -31,7 +31,7 @@ const lookup = {
   // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, message }
   // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
   // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
-  async getTrackData(query, context = "TrackResolver.getTrackData", { offset = 0, limit } = {}) {
+  async getTrackData(query, context = "lookup.getTrackData", { offset = 0, limit } = {}) {
     try {
       let tracks = [];
       let isPlaylist = false;

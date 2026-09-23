@@ -19,7 +19,7 @@ audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const YouTube = require("../../src/sources/youtube/index");
-const TrackResolver = require("../../src/sources/trackResolver");
+const equivalent = require("../../src/sources/youtube/equivalent");
 const DirectLink = require("../../src/sources/direct");
 const SponsorBlock = require("../../src/sources/sponsorBlock");
 const audioConvert = require("../../src/media/convert");
@@ -36,8 +36,8 @@ const real = {
   getStream: DirectLink.getStream,
   toCacheOpus: audioConvert.toCacheOpus,
   ensureForTrack: SponsorBlock.ensureForTrack,
-  findYouTubeEquivalent: TrackResolver.findYouTubeEquivalent,
-  reresolveYouTube: TrackResolver.reresolveYouTube,
+  findYouTubeEquivalent: equivalent.findYouTubeEquivalent,
+  reresolveYouTube: equivalent.reresolveYouTube,
 };
 
 before(() => {
@@ -59,11 +59,11 @@ before(() => {
   SponsorBlock.ensureForTrack = async (track, guildId) => {
     calls.sponsor.push({ title: track.title, guildId });
   };
-  TrackResolver.findYouTubeEquivalent = async (track) => {
+  equivalent.findYouTubeEquivalent = async (track) => {
     calls.equivalent.push(track.title);
     return track._equivalent ?? null;
   };
-  TrackResolver.reresolveYouTube = async (track) => {
+  equivalent.reresolveYouTube = async (track) => {
     calls.reresolve.push(track.title);
     track.youtubeUrl = "https://www.youtube.com/watch?v=freshfresh01";
     track.audioSourceKey = "yt:freshfresh01";
@@ -77,7 +77,7 @@ after(() => {
   DirectLink.getStream = real.getStream;
   audioConvert.toCacheOpus = real.toCacheOpus;
   SponsorBlock.ensureForTrack = real.ensureForTrack;
-  Object.assign(TrackResolver, { findYouTubeEquivalent: real.findYouTubeEquivalent, reresolveYouTube: real.reresolveYouTube });
+  Object.assign(equivalent, { findYouTubeEquivalent: real.findYouTubeEquivalent, reresolveYouTube: real.reresolveYouTube });
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true });
 });
@@ -315,7 +315,7 @@ test("새로 검색한 영상(장부에서 온 것이 아님)이 내려갔으면
 
 test("예열: 열쇠를 못 정한 스포티파이 곡은 받기 전에 동등물부터 찾는다", async () => {
   const track = { title: "예열 곡", url: "https://open.spotify.com/track/sp5", platform: "spotify", _equivalent: "https://www.youtube.com/watch?v=ooooooooooo" };
-  TrackResolver.findYouTubeEquivalent = async (t) => {
+  equivalent.findYouTubeEquivalent = async (t) => {
     calls.equivalent.push(t.title);
     t.youtubeUrl = t._equivalent;
     t.audioSourceKey = "yt:ooooooooooo";
@@ -324,7 +324,7 @@ test("예열: 열쇠를 못 정한 스포티파이 곡은 받기 전에 동등�
   try {
     await downloader().warm(track);
   } finally {
-    TrackResolver.findYouTubeEquivalent = async (t) => {
+    equivalent.findYouTubeEquivalent = async (t) => {
       calls.equivalent.push(t.title);
       return t._equivalent ?? null;
     };

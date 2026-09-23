@@ -21,14 +21,14 @@ const youtube = {
   isVideoUnavailableError: () => false,
 };
 
-const TrackResolver = require("../../src/sources/trackResolver");
+const streamUrl = require("../../src/sources/streamUrl");
 
 test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온다", async () => {
   for (const platform of ["vocadb", "touhoudb", "utaitedb", "lastfm", "lbradio", "animethemes"]) {
     asked = null;
     const track = { platform, url: `https://${platform}.example/song/1`, youtubeUrl: "https://www.youtube.com/watch?v=abc", title: "곡" };
 
-    await TrackResolver.getStream(track, 12, { youtube });
+    await streamUrl.getStream(track, 12, { youtube });
 
     assert.equal(asked.url, "https://www.youtube.com/watch?v=abc", `${platform}: 출처 주소가 아니라 영상에서 가져와야 한다`);
     assert.equal(asked.seek, 12, `${platform}: 이어듣기 위치도 그대로 넘겨야 한다`);
@@ -37,15 +37,15 @@ test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온
 
 test("유튜브 곡은 그대로 자기 주소를 쓴다", async () => {
   asked = null;
-  await TrackResolver.getStream({ platform: "youtube", url: "https://www.youtube.com/watch?v=zzz" }, 0, { youtube });
+  await streamUrl.getStream({ platform: "youtube", url: "https://www.youtube.com/watch?v=zzz" }, 0, { youtube });
   assert.equal(asked.url, "https://www.youtube.com/watch?v=zzz");
 });
 
 test("음원을 직접 트는 곡은 주소 서술자만 돌려준다 — 여기서 열면 프리로드가 연결을 흘린다", async () => {
-  const got = await TrackResolver.getStream({ platform: "direct", url: "https://a.animethemes.moe/X.ogg" }, 0, { youtube });
+  const got = await streamUrl.getStream({ platform: "direct", url: "https://a.animethemes.moe/X.ogg" }, 0, { youtube });
   assert.deepEqual(got, { url: "https://a.animethemes.moe/X.ogg", platform: "direct", httpHeaders: {} });
 });
 
 test("영상도 없는 모르는 플랫폼은 여전히 거절한다", async () => {
-  await assert.rejects(() => TrackResolver.getStream({ platform: "없는것", url: "x" }, 0, { youtube }), /지원되지 않는 플랫폼/);
+  await assert.rejects(() => streamUrl.getStream({ platform: "없는것", url: "x" }, 0, { youtube }), /지원되지 않는 플랫폼/);
 });

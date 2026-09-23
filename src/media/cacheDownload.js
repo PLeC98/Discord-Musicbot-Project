@@ -8,7 +8,8 @@ const fsSync = require("fs");
 const { pipeline } = require("stream/promises");
 const audioConvert = require("./convert");
 const YouTube = require("../sources/youtube/index");
-const TrackResolver = require("../sources/trackResolver");
+const equivalent = require("../sources/youtube/equivalent");
+const lookup = require("../sources/lookup");
 const DirectLink = require("../sources/direct");
 const audioCache = require("../store/audioCache");
 const trackLookup = require("../store/trackLookup");
@@ -124,7 +125,7 @@ class TrackDownloader {
         // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
-          const fresh = await TrackResolver.reresolveYouTube(track);
+          const fresh = await equivalent.reresolveYouTube(track);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
         throw err;
@@ -159,7 +160,7 @@ class TrackDownloader {
       let downloadUrl = track.platform === "soundcloud" ? track.url : track.youtubeUrl || track.url;
 
       if (needsBorrowedAudio(track)) {
-        downloadUrl = await TrackResolver.findYouTubeEquivalent(track);
+        downloadUrl = await equivalent.findYouTubeEquivalent(track);
         if (!downloadUrl) {
           throw new Error("Could not find YouTube equivalent");
         }
@@ -355,8 +356,8 @@ class TrackDownloader {
     if (!track || !track.url) return;
     // 사운드클라우드는 제 음원을 주므로 동등물을 찾지 않는다. 키를 못 만드는 경우
     // (id 없는 트랙)에는 URL 해시 경로로 떨어지는데, 남의 음원을 넣는 것보다 낫다.
-    if (!TrackResolver.ensureAudioSourceKey(track) && track.platform !== "soundcloud") {
-      await TrackResolver.findYouTubeEquivalent(track);
+    if (!lookup.ensureAudioSourceKey(track) && track.platform !== "soundcloud") {
+      await equivalent.findYouTubeEquivalent(track);
     }
     await this.downloadTrack(track);
   }

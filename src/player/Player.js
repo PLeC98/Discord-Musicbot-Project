@@ -9,7 +9,9 @@ const { PermissionFlagsBits } = require("discord.js");
 const config = require("../../config");
 const autoplayRoute = require("../autoplay/route");
 const ErrorHandler = require("../ui/errorMessages");
-const TrackResolver = require("../sources/trackResolver");
+const equivalent = require("../sources/youtube/equivalent");
+const lookup = require("../sources/lookup");
+const streamUrl = require("../sources/streamUrl");
 const SponsorBlock = require("../sources/sponsorBlock");
 const SponsorSkipper = require("./sponsorSkipper");
 const DirectLink = require("../sources/direct");
@@ -129,7 +131,7 @@ class MusicPlayer {
       warm: (track) => this.downloader.warm(track),
       isCached: (track) => this.downloader.isCached(track),
       isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),
-      keyOf: (track) => TrackResolver.ensureAudioSourceKey(track),
+      keyOf: (track) => lookup.ensureAudioSourceKey(track),
       setProtection: (guildId, keys) => audioCache.setQueuedKeys(guildId, keys),
     });
     this.sponsorSkipper = new SponsorSkipper(this);
@@ -259,7 +261,7 @@ class MusicPlayer {
         try {
           await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
           if (!this.currentTrack._sponsorResolved && this.currentTrack.platform === "spotify") {
-            await TrackResolver.findYouTubeEquivalent(this.currentTrack); // 멱등. videoId 확정
+            await equivalent.findYouTubeEquivalent(this.currentTrack); // 멱등. videoId 확정
             await SponsorBlock.ensureForTrack(this.currentTrack, this.guild.id);
           }
           const introEnd = this._introOffsetMs(this.currentTrack);
@@ -285,7 +287,7 @@ class MusicPlayer {
       let streamInfo;
 
       // audioSourceKey를 미리 해석 (yt-dlp 호출 전 파일 조회 가능; spotify는 YouTube 검색 후 해석)
-      TrackResolver.ensureAudioSourceKey(this.currentTrack);
+      lookup.ensureAudioSourceKey(this.currentTrack);
 
       // 조기 파일 확인. 파일이 이미 캐시되어 있으면 yt-dlp 호출을 전부 건너뜀
       let downloadedFile;
@@ -316,7 +318,7 @@ class MusicPlayer {
         // spotify는 YouTube 동등물을 먼저 확보. 검색으로 audioSourceKey가 정해지므로
         // 캐시 파일을 한 번 더 확인해 있으면 스트림 획득을 통째로 건너뜀
         if (this.currentTrack.platform === "spotify") {
-          const ytUrl = await TrackResolver.findYouTubeEquivalent(this.currentTrack);
+          const ytUrl = await equivalent.findYouTubeEquivalent(this.currentTrack);
           if (!ytUrl) {
             throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
           }
@@ -331,7 +333,7 @@ class MusicPlayer {
 
         // 일반 방식으로 스트림 가져오기 (플랫폼 스위치는 TrackResolver 한 곳에서)
         if (!downloadedFile) {
-          streamInfo = await TrackResolver.getStream(this.currentTrack, resumeFromSeconds);
+          streamInfo = await streamUrl.getStream(this.currentTrack, resumeFromSeconds);
         }
       }
 

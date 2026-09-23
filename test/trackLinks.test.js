@@ -59,16 +59,16 @@ test("세션 복원: 유튜브로 올라간 음원 곡은 페이지 링크가 �
 });
 
 test("음원 곡의 url 에 페이지를 넣으면 재생도 받기도 못 한다", async () => {
-  const TrackResolver = require("../src/sources/trackResolver");
+  const streamUrl = require("../src/sources/streamUrl");
   const DirectLink = require("../src/sources/direct");
   const base = { title: "곡", platform: "anisongdb", audioSourceKey: "dl:abc", id: "amq:48944" };
 
   const audio = { ...base, url: "https://nawdist.animemusicquiz.com/abc.mp3" };
-  assert.deepEqual(await TrackResolver.getStream(audio), { url: audio.url, platform: "direct", httpHeaders: {} });
+  assert.deepEqual(await streamUrl.getStream(audio), { url: audio.url, platform: "direct", httpHeaders: {} });
   assert.equal(DirectLink.isDirectAudioLink(audio.url), true);
 
   const page = { ...base, url: "https://anilist.co/anime/21827" };
-  await assert.rejects(TrackResolver.getStream(page), /지원되지 않는 플랫폼: anisongdb/);
+  await assert.rejects(streamUrl.getStream(page), /지원되지 않는 플랫폼: anisongdb/);
   assert.equal(DirectLink.isDirectAudioLink(page.url), false, "다운로드의 직접 링크 갈래가 첫 관문에서 막힌다");
 });
 

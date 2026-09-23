@@ -17,7 +17,7 @@ const exec = async (url, options) => {
 const Spotify = require("../../src/sources/spotify");
 const YouTube = require("../../src/sources/youtube/index");
 const trackLookup = require("../../src/store/trackLookup");
-const TrackResolver = require("../../src/sources/trackResolver");
+const lookup = require("../../src/sources/lookup");
 
 const { graphql, official } = Spotify._internals;
 
@@ -171,12 +171,12 @@ test("해석기는 구간을 어댑터에 넘기고 총 곡 수·다음 위치�
     return { tracks: [{ title: "a" }], total: 9946, nextOffset: 1 };
   });
   try {
-    const r = await TrackResolver.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 });
+    const r = await lookup.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 });
     assert.deepEqual(seen[0], { offset: 0, limit: 7 });
     assert.equal(r.total, 9946);
     assert.equal(r.nextOffset, 1);
 
-    const single = await TrackResolver.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa");
+    const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa");
     assert.equal(single.total, null, "한 곡이면 총 곡 수가 없다");
   } finally {
     restore();

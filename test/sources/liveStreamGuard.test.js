@@ -33,7 +33,7 @@ after(() => {
 });
 
 const YouTube = require("../../src/sources/youtube/index");
-const TrackResolver = require("../../src/sources/trackResolver");
+const equivalent = require("../../src/sources/youtube/equivalent");
 
 test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
   assert.equal(YouTube._detectLive({ is_live: true }), true);
@@ -56,7 +56,7 @@ test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있�
   ];
 
   const track = { title: "''''''", artist: "x0o0x_", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/abc" };
-  const result = await TrackResolver.findYouTubeEquivalent(track, { search });
+  const result = await equivalent.findYouTubeEquivalent(track, { search });
   assert.equal(result, null, "라이브만 남으면 매칭 실패로 끝나야 한다 — 라이브를 골라선 안 된다");
   assert.equal(track.youtubeUrl, undefined);
 });
@@ -68,7 +68,7 @@ test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보�
   ];
 
   const track = { title: "테스트곡", artist: "테스트가수", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/def" };
-  const result = await TrackResolver.findYouTubeEquivalent(track, { search });
+  const result = await equivalent.findYouTubeEquivalent(track, { search });
   assert.equal(result, "https://www.youtube.com/watch?v=VVVVVVVVVVV");
 });
 

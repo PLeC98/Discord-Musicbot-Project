@@ -23,7 +23,9 @@ const YouTube = require("../../src/sources/youtube/index");
 const Spotify = require("../../src/sources/spotify");
 const SoundCloud = require("../../src/sources/soundcloud");
 const DirectLink = require("../../src/sources/direct");
-const TrackResolver = require("../../src/sources/trackResolver");
+const equivalent = require("../../src/sources/youtube/equivalent");
+const lookup = require("../../src/sources/lookup");
+const streamUrl = require("../../src/sources/streamUrl");
 
 // 바꿔 끼운 메서드를 시험 끝에 되돌린다
 const swaps = [];
@@ -64,9 +66,9 @@ test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · �
     ["https://anilist.co/anime/1", "youtube"],
     ["그냥 검색어", "youtube"],
   ];
-  for (const [q, want] of cases) assert.equal(TrackResolver.detectPlatform(q), want, q);
-  assert.equal(TrackResolver.isUnsupportedYouTubeLink("https://www.youtube.com/@channel"), true);
-  assert.equal(TrackResolver.isUnsupportedYouTubeLink("https://www.youtube.com/watch?v=aaaaaaaaaaa"), false);
+  for (const [q, want] of cases) assert.equal(lookup.detectPlatform(q), want, q);
+  assert.equal(lookup.isUnsupportedYouTubeLink("https://www.youtube.com/@channel"), true);
+  assert.equal(lookup.isUnsupportedYouTubeLink("https://www.youtube.com/watch?v=aaaaaaaaaaa"), false);
 });
 
 // ── 조회 ──────────────────────────────────────────────────────────────
@@ -77,58 +79,58 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받고, 못 받으면 �
     seen.push(range);
     return { tracks: [ytTrack("p1")], total: 40, nextOffset: 10 };
   });
-  const r = await TrackResolver.getTrackData("https://www.youtube.com/playlist?list=PL1", "t", { offset: 0, limit: 10 });
+  const r = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL1", "t", { offset: 0, limit: 10 });
   assert.deepEqual(seen, [{ offset: 0, limit: 10 }]);
   assert.deepEqual({ success: r.success, isPlaylist: r.isPlaylist, collection: r.collection, total: r.total, nextOffset: r.nextOffset }, { success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10 });
 
   swap(YouTube, "getPlaylist", async () => null);
   swap(YouTube, "search", async (q, n) => [ytTrack("s1", { q, n })]);
-  const fallback = await TrackResolver.getTrackData("https://www.youtube.com/playlist?list=PL2");
+  const fallback = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL2");
   assert.equal(fallback.isPlaylist, false);
   assert.deepEqual([fallback.tracks[0].q, fallback.tracks[0].n], ["https://www.youtube.com/playlist?list=PL2", 1]);
 });
 
 test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
   swap(YouTube, "search", async () => assert.fail("검색하면 안 된다"));
-  assert.deepEqual(await TrackResolver.getTrackData("https://www.youtube.com/@channel"), { success: false, message: "❌ 재생할 수 없는 유튜브 주소입니다." });
+  assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel"), { success: false, message: "❌ 재생할 수 없는 유튜브 주소입니다." });
 });
 
 test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
   swap(Spotify, "getCollection", async (url) => ({ tracks: [{ title: url }], total: 12, nextOffset: 1 }));
-  const album = await TrackResolver.getTrackData("https://open.spotify.com/album/al1");
+  const album = await lookup.getTrackData("https://open.spotify.com/album/al1");
   assert.deepEqual([album.isPlaylist, album.collection, album.total], [true, "album", 12]);
-  const one = await TrackResolver.getTrackData("https://open.spotify.com/track/tr1");
+  const one = await lookup.getTrackData("https://open.spotify.com/track/tr1");
   assert.deepEqual([one.isPlaylist, one.collection, one.total, one.nextOffset], [false, null, null, null]);
 });
 
 test("조회: 사운드클라우드 · 직접 링크는 한 곡", async () => {
   swap(SoundCloud, "search", async (q, n) => [{ title: "sc", q, n }]);
   swap(DirectLink, "getInfo", async (url) => [{ title: "file", url }]);
-  const sc = await TrackResolver.getTrackData("https://soundcloud.com/a/b");
+  const sc = await lookup.getTrackData("https://soundcloud.com/a/b");
   assert.deepEqual([sc.tracks[0].q, sc.tracks[0].n], ["https://soundcloud.com/a/b", 1]);
-  const direct = await TrackResolver.getTrackData("https://files.test/a.mp3");
+  const direct = await lookup.getTrackData("https://files.test/a.mp3");
   assert.equal(direct.tracks[0].url, "https://files.test/a.mp3");
 });
 
 test("조회: 결과가 없으면 문장, 던지면 ErrorHandler 의 안내문", async () => {
   swap(YouTube, "search", async () => []);
-  assert.deepEqual(await TrackResolver.getTrackData("없는 곡"), { success: false, message: "❌ 결과를 찾을 수 없습니다!" });
+  assert.deepEqual(await lookup.getTrackData("없는 곡"), { success: false, message: "❌ 결과를 찾을 수 없습니다!" });
   swap(YouTube, "search", async () => {
     throw new Error("ECONNRESET");
   });
-  const r = await TrackResolver.getTrackData("끊긴 곡");
+  const r = await lookup.getTrackData("끊긴 곡");
   assert.equal(r.success, false);
   assert.match(r.message, /네트워크 오류/);
 });
 
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
   swap(YouTube, "getPlaylist", async () => null);
-  assert.deepEqual(await TrackResolver.getCollection("https://www.youtube.com/playlist?list=PL", { offset: 50, limit: 10 }), { tracks: [], total: null, nextOffset: null });
+  assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", { offset: 50, limit: 10 }), { tracks: [], total: null, nextOffset: null });
   swap(YouTube, "getPlaylist", async () => ({ tracks: [1], total: 60 }));
-  assert.deepEqual(await TrackResolver.getCollection("https://www.youtube.com/playlist?list=PL"), { tracks: [1], total: 60, nextOffset: null });
+  assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL"), { tracks: [1], total: 60, nextOffset: null });
   swap(Spotify, "getCollection", async (url, range) => ({ url, range }));
-  assert.deepEqual(await TrackResolver.getCollection("https://open.spotify.com/playlist/p", { offset: 5 }), { url: "https://open.spotify.com/playlist/p", range: { offset: 5 } });
-  assert.deepEqual(await TrackResolver.getCollection("https://soundcloud.com/a/sets/b"), { tracks: [], total: null, nextOffset: null });
+  assert.deepEqual(await lookup.getCollection("https://open.spotify.com/playlist/p", { offset: 5 }), { url: "https://open.spotify.com/playlist/p", range: { offset: 5 } });
+  assert.deepEqual(await lookup.getCollection("https://soundcloud.com/a/sets/b"), { tracks: [], total: null, nextOffset: null });
 });
 
 test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 재생목록 · 모르는 유튜브 링크는 지름길을 안 탄다", async () => {
@@ -141,7 +143,7 @@ test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 
   trackLookup.recordTrackLookup(url, "youtube", "yt:ccccccccccc", "장부 제목", "장부 가수", null);
   swap(YouTube, "search", async () => assert.fail("조회하면 안 된다"));
 
-  const hit = await TrackResolver.resolveQuery(`https://youtu.be/ccccccccccc?si=share`);
+  const hit = await lookup.resolveQuery(`https://youtu.be/ccccccccccc?si=share`);
   assert.deepEqual([hit.success, hit.isPlaylist, hit.tracks[0].title, hit.tracks[0].duration, hit.tracks[0].audioSourceKey], [true, false, "장부 제목", 99, "yt:ccccccccccc"]);
 
   let playlistAsked = false;
@@ -150,14 +152,14 @@ test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 
     return null;
   });
   swap(YouTube, "search", async () => []);
-  await TrackResolver.resolveQuery(`${url}&list=PLx`);
+  await lookup.resolveQuery(`${url}&list=PLx`);
   assert.equal(playlistAsked, true, "list= 가 있으면 캐시의 한 곡이 재생목록을 가리지 않게 지름길을 건너뛴다");
 });
 
 // ── 열쇠 ──────────────────────────────────────────────────────────────
 
 test("캐시 열쇠: 유튜브 id · 사운드클라우드 숫자 id · 직접 링크 md5 · 찾아 둔 영상. 이미 있으면 그대로", () => {
-  const key = (t) => TrackResolver.ensureAudioSourceKey(t);
+  const key = (t) => lookup.ensureAudioSourceKey(t);
   assert.equal(key({ platform: "youtube", id: "aaaaaaaaaaa" }), "yt:aaaaaaaaaaa");
   assert.equal(key({ platform: "youtube", url: "https://youtu.be/bbbbbbbbbbb" }), "yt:bbbbbbbbbbb");
   assert.equal(key({ platform: "soundcloud", id: 12345, url: "https://soundcloud.com/a/b" }), "sc:12345");
@@ -177,7 +179,7 @@ test("동등물: 장부에 매핑이 있으면 검색하지 않고 쓰며, 장�
   swap(YouTube, "search", async () => assert.fail("검색하면 안 된다"));
   const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 };
 
-  const url = await TrackResolver.findYouTubeEquivalent(track);
+  const url = await equivalent.findYouTubeEquivalent(track);
 
   assert.equal(url, "https://www.youtube.com/watch?v=fffffffffff");
   assert.equal(track.audioSourceKey, "yt:fffffffffff");
@@ -195,7 +197,7 @@ test("동등물: 검색 결과에서 라이브를 빼고 점수로 고르고, �
   });
   const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp2", platform: "spotify", duration: 200 };
 
-  const url = await TrackResolver.findYouTubeEquivalent(track);
+  const url = await equivalent.findYouTubeEquivalent(track);
 
   assert.ok(queries.length >= 1);
   assert.ok(
@@ -210,11 +212,11 @@ test("동등물: 검색 결과에서 라이브를 빼고 점수로 고르고, �
 
 test("동등물: 이미 youtubeUrl 이 있으면 열쇠만 채우고, 후보가 없으면 null", async () => {
   const has = { platform: "lastfm", youtubeUrl: "https://www.youtube.com/watch?v=hhhhhhhhhhh" };
-  assert.equal(await TrackResolver.findYouTubeEquivalent(has), has.youtubeUrl);
+  assert.equal(await equivalent.findYouTubeEquivalent(has), has.youtubeUrl);
   assert.equal(has.audioSourceKey, "yt:hhhhhhhhhhh");
 
   swap(YouTube, "search", async () => []);
-  assert.equal(await TrackResolver.findYouTubeEquivalent({ title: "없음", artist: "?", url: "https://open.spotify.com/track/none", platform: "spotify" }), null);
+  assert.equal(await equivalent.findYouTubeEquivalent({ title: "없음", artist: "?", url: "https://open.spotify.com/track/none", platform: "spotify" }), null);
 });
 
 test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는다", async () => {
@@ -223,7 +225,7 @@ test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는�
   swap(YouTube, "search", async () => [{ id: "newnewnewne", url: "https://www.youtube.com/watch?v=newnewnewne", title: "곡", artist: "가수", duration: 200 }]);
   const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioSourceKey: "yt:deaddeaddea", _youtubeFromCache: true };
 
-  const url = await TrackResolver.reresolveYouTube(track);
+  const url = await equivalent.reresolveYouTube(track);
 
   assert.equal(url, "https://www.youtube.com/watch?v=newnewnewne");
   assert.equal(track._youtubeFromCache, false);
@@ -239,13 +241,13 @@ test("스트림: 장부에서 온 영상이 내려갔으면 한 번 다시 찾�
     if (url.includes("deaddeaddea")) throw new Error("ERROR: Video unavailable");
     return { url: "https://rr.googlevideo.com/new" };
   });
-  swap(TrackResolver, "reresolveYouTube", async (t) => {
+  swap(equivalent, "reresolveYouTube", async (t) => {
     t.youtubeUrl = "https://www.youtube.com/watch?v=newnewnewne";
     return t.youtubeUrl;
   });
   const track = { title: "곡", platform: "spotify", url: "https://open.spotify.com/track/sp4", youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", _youtubeFromCache: true };
 
-  const s = await TrackResolver.getStream(track, 5);
+  const s = await streamUrl.getStream(track, 5);
 
   assert.deepEqual(asked, ["https://www.youtube.com/watch?v=deaddeaddea", "https://www.youtube.com/watch?v=newnewnewne"]);
   assert.equal(s.url, "https://rr.googlevideo.com/new");
@@ -255,9 +257,9 @@ test("스트림: 새로 찾은 영상이 내려간 것은 다시 찾지 않는�
   swap(YouTube, "getStream", async () => {
     throw new Error("ERROR: Video unavailable");
   });
-  swap(TrackResolver, "reresolveYouTube", async () => assert.fail("다시 찾으면 안 된다"));
-  await assert.rejects(TrackResolver.getStream({ platform: "spotify", youtubeUrl: "https://www.youtube.com/watch?v=x", _youtubeFromCache: false }), /Video unavailable/);
+  swap(equivalent, "reresolveYouTube", async () => assert.fail("다시 찾으면 안 된다"));
+  await assert.rejects(streamUrl.getStream({ platform: "spotify", youtubeUrl: "https://www.youtube.com/watch?v=x", _youtubeFromCache: false }), /Video unavailable/);
 
   swap(SoundCloud, "getStream", async (url) => ({ url: `${url}#stream` }));
-  assert.deepEqual(await TrackResolver.getStream({ platform: "soundcloud", url: "https://soundcloud.com/a/b" }), { url: "https://soundcloud.com/a/b#stream" });
+  assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", url: "https://soundcloud.com/a/b" }), { url: "https://soundcloud.com/a/b#stream" });
 });

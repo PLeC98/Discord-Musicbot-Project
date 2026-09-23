@@ -5,17 +5,17 @@ process.env.CLIENT_ID ||= "test-client";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const TrackResolver = require("../../src/sources/trackResolver");
+const lookup = require("../../src/sources/lookup");
 const YouTube = require("../../src/sources/youtube/index");
 const Spotify = require("../../src/sources/spotify");
 const SoundCloud = require("../../src/sources/soundcloud");
 const trackLookup = require("../../src/store/trackLookup");
 
 test("accepts supported media hosts by parsed hostname", () => {
-  assert.equal(TrackResolver.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
-  assert.equal(TrackResolver.detectPlatform("https://open.spotify.com/track/123abc"), "spotify");
-  assert.equal(TrackResolver.detectPlatform("spotify:track:123abc"), "spotify");
-  assert.equal(TrackResolver.detectPlatform("https://soundcloud.com/artist/track"), "soundcloud");
+  assert.equal(lookup.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
+  assert.equal(lookup.detectPlatform("https://open.spotify.com/track/123abc"), "spotify");
+  assert.equal(lookup.detectPlatform("spotify:track:123abc"), "spotify");
+  assert.equal(lookup.detectPlatform("https://soundcloud.com/artist/track"), "soundcloud");
 });
 
 test("does not treat embedded domain text as a trusted media URL", () => {
@@ -61,16 +61,16 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
 
   for (const url of unsupported) {
     assert.equal(YouTube.isYouTubeURL(url), false, url);
-    assert.equal(TrackResolver.isUnsupportedYouTubeLink(url), true, url);
+    assert.equal(lookup.isUnsupportedYouTubeLink(url), true, url);
 
-    const result = await TrackResolver.getTrackData(url);
+    const result = await lookup.getTrackData(url);
     assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
     assert.match(result.message, /유튜브 주소/);
   }
 
   // 유튜브가 아닌 검색어는 그대로 검색으로 간다
-  assert.equal(TrackResolver.isUnsupportedYouTubeLink("아이유 밤편지"), false);
-  assert.equal(TrackResolver.isUnsupportedYouTubeLink("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), false);
+  assert.equal(lookup.isUnsupportedYouTubeLink("아이유 밤편지"), false);
+  assert.equal(lookup.isUnsupportedYouTubeLink("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), false);
 });
 
 test("cache normalization only canonicalizes genuine YouTube URLs", () => {

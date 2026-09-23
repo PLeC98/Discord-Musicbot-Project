@@ -1,7 +1,7 @@
 "use strict";
 
 const MusicPlayer = require("../player/Player");
-const TrackResolver = require("../sources/trackResolver");
+const songLookup = require("../sources/lookup");
 const GuildSettingsManager = require("../store/guildSettings");
 const { silentResponder } = require("./responders");
 const log = require("../infra/log/logger").child({ category: "player" });
@@ -97,7 +97,7 @@ async function resolveFallbackTextChannel(guild) {
  * @param {string} options.source           로그 라벨
  * @returns {Promise<{success: boolean, message?: string, isPlaylist?: boolean, tracks?: Array}>}
  */
-async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = TrackResolver }) {
+async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = songLookup }) {
   const guildId = guild.id;
   const who = toRequester(requester);
 
@@ -174,7 +174,7 @@ const MORE_BATCH = 100;
  * 받고, 찾으면 그 뒤부터, 못 찾으면 요청 위치부터 넣는다. 맨 앞에 넣었던 목록이면 앵커 곡 바로 뒤에 넣는다.
  * 곡은 묶음으로 나눠 받으며 onProgress(받은 수, 받을 수)를 부른다. 대기열에는 다 받은 뒤 한 번에 넣는다.
  */
-async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = TrackResolver }) {
+async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = songLookup }) {
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
   const want = Math.min(count, roomFor(player));
