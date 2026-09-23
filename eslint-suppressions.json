@@ -74,12 +74,9 @@
   },
   "index.js": {
     "complexity": {
-      "count": 2
-    },
-    "max-lines-per-function": {
       "count": 1
     },
-    "max-statements": {
+    "max-lines-per-function": {
       "count": 1
     },
     "no-empty-function": {
@@ -315,6 +312,14 @@
   "src/sources/youtube/match.js": {
     "complexity": {
       "count": 2
+    }
+  },
+  "src/player/voicePresence.js": {
+    "complexity": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
     }
   }
 }
