@@ -1,17 +1,13 @@
 "use strict";
 
-const Database = require("better-sqlite3");
 const log = require("../infra/log/logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-const { PlayerSessionStore, createTables: createSessionTables } = require("./playerSessions");
+const { PlayerSessionStore } = require("./playerSessions");
+const db = require("./db");
 
-const DB_PATH = path.join(__dirname, "..", "..", "database", "cache.db");
 const CACHE_DIR = path.join(__dirname, "..", "..", "audio_cache");
-
-// DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
-const SCHEMA_VERSION = 3;
 
 // 제거 점수 가중치
 const W_RECENCY = 0.4;
@@ -22,8 +18,6 @@ const SIZE_REF_BYTES = 50 * 1024 * 1024;
 
 class CacheManager {
   constructor() {
-    this.db = null;
-    this._initialized = false;
     this._protectedKeys = new Set(); // 현재 재생 중인 audio_source_key
     this._protectedFiles = new Set(); // 지금 받고 있는 임시 파일 경로. 기동 스윕이 건드리면 안 된다
     this._queuedKeys = new Map(); // guildId -> Set<audio_source_key>. 대기열 앞부분
@@ -35,112 +29,21 @@ class CacheManager {
   }
 
   // 초기화. dbPath는 테스트 주입용(임시 DB), 운영은 항상 기본 경로
-  initialize(dbPath = DB_PATH) {
+  initialize(dbPath = db.DB_PATH) {
     if (this._initialized) return;
-
-    const dbDir = path.dirname(dbPath);
-    if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
     if (!fs.existsSync(this._cacheDir)) fs.mkdirSync(this._cacheDir, { recursive: true });
-
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("synchronous = NORMAL");
-    this.db.pragma("foreign_keys = ON");
-    this.db.pragma("busy_timeout = 5000");
-
-    const hasTables = this.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'").get().n > 0;
-    const version = this.db.pragma("user_version", { simple: true });
-    if (hasTables && version !== SCHEMA_VERSION) {
-      this.db.close();
-      this.db = null;
-      const message = `캐시 DB 구조가 이 버전과 맞지 않습니다 (DB v${version}, 필요 v${SCHEMA_VERSION}). 봇을 끄고 ${dbPath} (-wal, -shm 포함)와 ${this._cacheDir} 폴더를 지운 뒤 다시 실행하세요. 서버별 설정(전용 채널·DJ 역할·SponsorBlock·재생목록 한 번에 넣는 곡 수)은 다시 해야 합니다.`;
-      throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
-    }
-
-    this._createTables();
-    if (!hasTables) this.db.pragma(`user_version = ${SCHEMA_VERSION}`);
-    this._initialized = true;
+    db.open(dbPath, { cacheDir: this._cacheDir });
     this._startPeriodicEviction();
     log.info({ tags: ["startup"] }, "SQLite 캐시 DB 준비 완료");
   }
 
-  _createTables() {
-    this.db.exec(`
-            CREATE TABLE IF NOT EXISTS audio_cache (
-                audio_source_key    TEXT PRIMARY KEY,
-                status              TEXT NOT NULL DEFAULT 'downloading',
-                file_path           TEXT,
-                file_size_bytes     INTEGER,
-                duration_sec        REAL,
-                title               TEXT,
-                channel             TEXT,
-                content_fingerprint TEXT,
-                verification_policy TEXT NOT NULL DEFAULT 'infrequent',
-                last_verified_at    INTEGER,
-                play_count          INTEGER NOT NULL DEFAULT 0,
-                last_played_at      INTEGER,
-                downloaded_at       INTEGER,
-                created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-                updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
-            );
+  // 열기 전에 부르면 던진다
+  get db() {
+    return db.get();
+  }
 
-            CREATE TABLE IF NOT EXISTS track_lookup (
-                source_url          TEXT PRIMARY KEY,
-                audio_source_key    TEXT NOT NULL,
-                platform            TEXT NOT NULL,
-                display_title       TEXT,
-                display_artist      TEXT,
-                display_thumbnail   TEXT,
-                -- 제목의 출처: 1=영상 자체에서 확인, 0=재생목록 페이지 등 간접 출처.
-                -- 재생목록이 주는 제목은 낡을 수 있어(같은 영상인데 다르다), 확인된 제목을 덮으면 안 된다.
-                title_verified      INTEGER NOT NULL DEFAULT 0,
-                created_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-                updated_at          INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-                FOREIGN KEY (audio_source_key)
-                    REFERENCES audio_cache(audio_source_key) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS guild_settings (
-                guild_id                 TEXT PRIMARY KEY,
-                bot_channel_id           TEXT,
-                dj_role_ids              TEXT,
-                sponsorblock_enabled     INTEGER,   -- NULL=상속(전역 기본), 0/1
-                sponsorblock_categories  TEXT,       -- NULL=상속, JSON 배열
-                playlist_add_max         INTEGER,    -- NULL=기본값, 재생목록을 넣을 때 한 번에 들어가는 곡 수
-                now_playing_channel_id   TEXT,       -- 서버당 하나뿐인 현재 재생 패널의 자리
-                now_playing_message_id   TEXT,
-                updated_at               INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
-            );
-
-            -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용. 라이브 조회 실패 시 사용).
-            -- data_json = 정규화 이전 원시 배열(카테고리 전부). 정규화/필터는 SponsorBlock.js가 읽을 때 수행.
-            CREATE TABLE IF NOT EXISTS sponsorblock_cache (
-                video_id    TEXT PRIMARY KEY,
-                data_json   TEXT NOT NULL,
-                fetched_at  INTEGER NOT NULL
-            );
-
-            -- 연령 제한 확인된 videoId. 재조회 시 bgutil 실패를 건너뛰고 바로 쿠키 폴백에 사용.
-            -- 캐시 퇴거에서도 이 영상들은 더 오래 잔존시킨다(재취득이 느리고 쿠키가 필요하므로).
-            CREATE TABLE IF NOT EXISTS age_restricted (
-                video_id    TEXT PRIMARY KEY,
-                marked_at   INTEGER NOT NULL
-            );
-
-            -- Spotify 익명 웹플레이어 상태(secret 목록/GraphQL 해시/clientVersion) 캐시.
-            -- 번들에서 추출한 값을 보관하고 TTL·실패 시 재추출로 갱신(자가치유). 단일 행(id=1) JSON 블롭.
-            CREATE TABLE IF NOT EXISTS spotify_anon (
-                id          INTEGER PRIMARY KEY CHECK (id = 1),
-                data_json   TEXT NOT NULL,
-                fetched_at  INTEGER NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
-            CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
-            CREATE INDEX IF NOT EXISTS idx_tl_audio_key   ON track_lookup(audio_source_key);
-        `);
-
-    createSessionTables(this.db);
+  get _initialized() {
+    return db.isOpen();
   }
 
   // 이 모듈은 인스턴스를 내보내므로 static이면 외부에서 닿지 않는다
@@ -215,7 +118,6 @@ class CacheManager {
   }
 
   resolveFromCache(sourceUrl) {
-    if (!this._initialized) this.initialize();
     sourceUrl = this._normalizeSourceUrl(sourceUrl);
 
     const row = this.db
@@ -261,14 +163,12 @@ class CacheManager {
 
   /** audio_source_key로 원시 조회 */
   lookupByAudioKey(audioSourceKey) {
-    if (!this._initialized) this.initialize();
     return this.db.prepare("SELECT * FROM audio_cache WHERE audio_source_key = ?").get(audioSourceKey) || null;
   }
 
   // 쓰기. audio_cache
 
   recordDownloadStart(audioSourceKey, track) {
-    if (!this._initialized) this.initialize();
     const now = Date.now();
     this.db
       .prepare(
@@ -287,7 +187,6 @@ class CacheManager {
 
   // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
   recordDownloadComplete(audioSourceKey, filePath, fileSizeBytes, track, { durationSec = null } = {}) {
-    if (!this._initialized) this.initialize();
     const now = Date.now();
     this.db
       .prepare(
@@ -315,12 +214,10 @@ class CacheManager {
   }
 
   recordError(audioSourceKey) {
-    if (!this._initialized) this.initialize();
     this.db.prepare(`UPDATE audio_cache SET status = 'error', updated_at = ? WHERE audio_source_key = ?`).run(Date.now(), audioSourceKey);
   }
 
   recordPlayback(audioSourceKey) {
-    if (!this._initialized) this.initialize();
     const now = Date.now();
     this.db
       .prepare(
@@ -344,7 +241,6 @@ class CacheManager {
    * 제목으로만 갱신한다. 매핑(audio_source_key)은 출처와 무관하게 항상 갱신한다.
    */
   recordTrackLookup(sourceUrl, platform, audioSourceKey, displayTitle, displayArtist, displayThumbnail, { verified = false } = {}) {
-    if (!this._initialized) this.initialize();
     sourceUrl = this._normalizeSourceUrl(sourceUrl);
     const now = Date.now();
     const v = verified ? 1 : 0;
@@ -372,7 +268,6 @@ class CacheManager {
 
   /** 영상 자체에서 확인된 제목만 돌려준다. 없으면 null. 재생목록이 준 제목은 여기 안 걸린다. */
   getVerifiedTitle(sourceUrl) {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT display_title FROM track_lookup WHERE source_url = ? AND title_verified = 1").get(this._normalizeSourceUrl(sourceUrl));
     return row?.display_title || null;
   }
@@ -383,14 +278,12 @@ class CacheManager {
    * "이 소스가 어느 audio_source_key인가"를 알려준다. 반환: audioSourceKey 또는 null.
    */
   getResolvedKey(sourceUrl) {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT audio_source_key FROM track_lookup WHERE source_url = ?").get(this._normalizeSourceUrl(sourceUrl));
     return row ? row.audio_source_key : null;
   }
 
   /** 스테일 매핑 삭제. 캐시된 영상이 내려간 경우 재검색 전에 호출. */
   removeResolution(sourceUrl) {
-    if (!this._initialized) this.initialize();
     this.db.prepare("DELETE FROM track_lookup WHERE source_url = ?").run(this._normalizeSourceUrl(sourceUrl));
   }
 
@@ -409,7 +302,6 @@ class CacheManager {
   // 플레이어 세션. 행 구조와 쓰기는 playerSessionStore
 
   get sessions() {
-    if (!this._initialized) this.initialize();
     if (!this._sessions) this._sessions = new PlayerSessionStore(this.db);
     return this._sessions;
   }
@@ -430,13 +322,11 @@ class CacheManager {
   // 서버 설정
 
   getBotChannel(guildId) {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT bot_channel_id FROM guild_settings WHERE guild_id = ?").get(guildId);
     return row?.bot_channel_id ?? null;
   }
 
   setBotChannel(guildId, channelId) {
-    if (!this._initialized) this.initialize();
     this.db
       .prepare(
         `
@@ -450,14 +340,12 @@ class CacheManager {
   }
 
   clearBotChannel(guildId) {
-    if (!this._initialized) this.initialize();
     // 행에는 다른 설정(dj_role_ids)도 담겨 있으므로 행 삭제가 아닌 컬럼 초기화
     this.db.prepare("UPDATE guild_settings SET bot_channel_id = NULL, updated_at = ? WHERE guild_id = ?").run(Date.now(), guildId);
   }
 
   /** DJ 역할 ID 목록. 미설정이면 빈 배열 */
   getDjRoles(guildId) {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT dj_role_ids FROM guild_settings WHERE guild_id = ?").get(guildId);
     if (!row?.dj_role_ids) return [];
     try {
@@ -469,7 +357,6 @@ class CacheManager {
   }
 
   setDjRoles(guildId, roleIds) {
-    if (!this._initialized) this.initialize();
     const value = roleIds.length ? JSON.stringify(roleIds) : null; // 빈 배열 = 미설정과 동일
     this.db
       .prepare(
@@ -484,13 +371,11 @@ class CacheManager {
   }
 
   clearDjRoles(guildId) {
-    if (!this._initialized) this.initialize();
     this.db.prepare("UPDATE guild_settings SET dj_role_ids = NULL, updated_at = ? WHERE guild_id = ?").run(Date.now(), guildId);
   }
 
   /** 서버별 SponsorBlock 설정. { enabled: null|bool, categories: null|string[] } (null=전역 상속) */
   getGuildSponsorBlock(guildId) {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT sponsorblock_enabled, sponsorblock_categories FROM guild_settings WHERE guild_id = ?").get(guildId);
     if (!row) return { enabled: null, categories: null };
     let categories = null;
@@ -508,7 +393,6 @@ class CacheManager {
 
   /** 서버별 SponsorBlock 설정 저장. enabled/categories 각각 null이면 "상속"으로 기록. */
   setGuildSponsorBlock(guildId, { enabled, categories }) {
-    if (!this._initialized) this.initialize();
     const encEnabled = enabled === null || enabled === undefined ? null : enabled ? 1 : 0;
     const encCats = Array.isArray(categories) ? JSON.stringify(categories) : null;
     this.db
@@ -524,14 +408,12 @@ class CacheManager {
 
   /** 재생목록을 넣을 때 한 번에 들어가는 곡 수. 미설정이면 null */
   getPlaylistAddMax(guildId) {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT playlist_add_max FROM guild_settings WHERE guild_id = ?").get(guildId);
     return row?.playlist_add_max ?? null;
   }
 
   /** null이면 기본값으로 되돌린다 */
   setPlaylistAddMax(guildId, count) {
-    if (!this._initialized) this.initialize();
     this.db
       .prepare(
         `INSERT INTO guild_settings (guild_id, playlist_add_max, updated_at) VALUES (?, ?, ?)
@@ -544,14 +426,12 @@ class CacheManager {
 
   /** 이 서버의 현재 재생 패널 자리. 없으면 null */
   getPanelRecord(guildId) {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT now_playing_channel_id AS channelId, now_playing_message_id AS messageId FROM guild_settings WHERE guild_id = ?").get(guildId);
     return row?.messageId ? { channelId: row.channelId, messageId: row.messageId } : null;
   }
 
   /** messageId가 null이면 비운다 */
   setPanelRecord(guildId, channelId, messageId) {
-    if (!this._initialized) this.initialize();
     this.db
       .prepare(
         `INSERT INTO guild_settings (guild_id, now_playing_channel_id, now_playing_message_id, updated_at) VALUES (?, ?, ?, ?)
@@ -566,8 +446,6 @@ class CacheManager {
   // 시작 시 정리
 
   async onStartup() {
-    if (!this._initialized) this.initialize();
-
     // 1. 다운로드 중 중단된 행 재설정
     const resetCount = this.db.prepare("UPDATE audio_cache SET status = 'error', updated_at = ? WHERE status = 'downloading'").run(Date.now()).changes;
     if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
@@ -601,8 +479,6 @@ class CacheManager {
    * 돌려준다. 재생은 이미 연 핸들로 계속되므로 끊기지 않는다.
    */
   resetCache() {
-    if (!this._initialized) this.initialize();
-
     const before = { files: this._cacheCount(), bytes: this._cacheSize() };
 
     // 파일을 먼저 지우고, 잠겨서 못 지운 것의 행은 남긴다.
@@ -744,7 +620,6 @@ class CacheManager {
   }
 
   async evictIfNeeded() {
-    if (!this._initialized) this.initialize();
     const cfg = require("../../config").cache;
 
     const totalSize = this._cacheSize();
@@ -767,8 +642,6 @@ class CacheManager {
   }
 
   async evict() {
-    if (!this._initialized) this.initialize();
-
     // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분.
     // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
     const live = this._liveKeys();
@@ -846,7 +719,6 @@ class CacheManager {
   // 통계
 
   getCacheStats() {
-    if (!this._initialized) this.initialize();
     const cfg = require("../../config").cache;
 
     const totalSize = this._cacheSize();
@@ -916,14 +788,12 @@ class CacheManager {
   /** videoId를 연령 제한으로 기록 (재조회 시 쿠키 폴백 직행 + 퇴거 잔존용) */
   markAgeRestricted(videoId) {
     if (!videoId) return;
-    if (!this._initialized) this.initialize();
     this.db.prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES (?, ?) ON CONFLICT(video_id) DO NOTHING").run(videoId, Date.now());
   }
 
   /** videoId가 연령 제한으로 알려져 있는가 */
   isAgeRestricted(videoId) {
     if (!videoId) return false;
-    if (!this._initialized) this.initialize();
     return !!this.db.prepare("SELECT 1 FROM age_restricted WHERE video_id = ?").get(videoId);
   }
 
@@ -931,7 +801,6 @@ class CacheManager {
 
   /** 저장된 익명 상태 반환 (없으면 null). `{ ...data, fetchedAt }` */
   getSpotifyAnonState() {
-    if (!this._initialized) this.initialize();
     const row = this.db.prepare("SELECT data_json, fetched_at FROM spotify_anon WHERE id = 1").get();
     if (!row) return null;
     try {
@@ -943,7 +812,6 @@ class CacheManager {
 
   /** 익명 상태 저장(단일 행 upsert). data는 JSON 직렬화 가능한 객체. */
   setSpotifyAnonState(data) {
-    if (!this._initialized) this.initialize();
     this.db.prepare("INSERT INTO spotify_anon (id, data_json, fetched_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at").run(JSON.stringify(data), Date.now());
   }
 
@@ -954,14 +822,12 @@ class CacheManager {
       clearInterval(this._evictInterval);
       this._evictInterval = null;
     }
-    if (this.db) {
-      this.db.close();
-      this.db = null;
+    if (db.isOpen()) {
+      db.close();
       this._sessions = null;
-      this._initialized = false;
     }
   }
 }
 
 module.exports = new CacheManager();
-module.exports.SCHEMA_VERSION = SCHEMA_VERSION;
+module.exports.SCHEMA_VERSION = db.SCHEMA_VERSION;

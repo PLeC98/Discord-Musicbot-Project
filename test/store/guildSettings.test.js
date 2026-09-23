@@ -106,14 +106,13 @@ test("재생목록 곡 수는 읽을 때마다 범위로 자른다(저장 뒤 �
 });
 
 test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", () => {
-  const saved = CacheManager._initialized;
-  CacheManager._initialized = false;
+  CacheManager.close();
   try {
     const { min, max, default: d } = settings.playlistAddLimits();
     assert.equal(settings.resolvePlaylistAddMax("g-unopened"), Math.max(min, Math.min(max, d)));
     assert.equal(settings.cache.has("g-unopened_playlistAdd"), false);
   } finally {
-    CacheManager._initialized = saved;
+    CacheManager.initialize(path.join(TMP, "cache.db"));
   }
 });
 

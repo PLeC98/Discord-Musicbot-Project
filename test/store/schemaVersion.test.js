@@ -47,7 +47,7 @@ test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다"
     (error) => error.code === "SCHEMA_MISMATCH" && error.message.includes("지운 뒤 다시 실행"),
   );
   assert.equal(CacheManager._initialized, false, "열다 만 상태로 남지 않는다");
-  assert.equal(CacheManager.db, null);
+  assert.throws(() => CacheManager.db, { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
 
   const check = new Database(legacy);
   const made = check.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'session_tracks'").get().n;
