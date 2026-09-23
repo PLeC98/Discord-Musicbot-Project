@@ -269,3 +269,14 @@ test("곡이 없을 때 /dashboard는 끝난 패널을 그 채널에 다시 올�
   assert.ok(calls.deleted.includes(`${BOT}:900`));
   assert.equal(records.get("g1").messageId, calls.sent[0].id);
 });
+
+test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있으면 켠다", async () => {
+  const { mem, guild, channels } = setup({});
+  const skipDisabled = async (over) => {
+    const rows = await mem.createControlButtons(makePlayer(guild, channels.get(BOT), over));
+    const buttons = rows.flatMap((row) => row.toJSON().components);
+    return buttons.find((b) => b.custom_id?.startsWith("music_skip:")).disabled;
+  };
+  assert.equal(await skipDisabled({}), true);
+  assert.equal(await skipDisabled({ autoplay: "pop" }), false);
+});

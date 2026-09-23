@@ -39,13 +39,13 @@ async function pause(player, actor) {
 
 /**
  * 지금 곡을 건너뛴다. 한곡 반복 중이면 처음부터 다시(restarted).
- * allowEmpty: 다음 곡이 없어도 건너뛴다(대기열 소진으로 간다)
+ * 대기열이 비었으면 거절한다. 자동재생이 켜져 있으면 다음 곡을 자동재생이 고르므로 넘긴다
  */
-async function skip(player, actor, { allowEmpty = false } = {}) {
+async function skip(player, actor) {
   const blocked = (await gate(player, actor, perm.checkSkip)) ?? needTrack(player);
   if (blocked) return blocked;
   const restarted = player.loop === "track";
-  if (!allowEmpty && player.queue.length === 0 && !restarted) return fail("nothing-to-skip");
+  if (player.queue.length === 0 && !restarted && !player.autoplay) return fail("nothing-to-skip");
   const track = player.currentTrack;
   if (!player.skip()) return fail("skip-failed");
   if (!restarted && player.currentTrack) await refresh(player);
@@ -64,12 +64,9 @@ async function stop(player, actor, players) {
   return { ok: true, track, cleared };
 }
 
-/**
- * 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted).
- * requireTrack: 틀고 있는 곡이 없으면 거절한다
- */
-async function previous(player, actor, { requireTrack = false } = {}) {
-  const blocked = (await gate(player, actor)) ?? (requireTrack ? needTrack(player) : null);
+/** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted) */
+async function previous(player, actor) {
+  const blocked = (await gate(player, actor)) ?? needTrack(player);
   if (blocked) return blocked;
   const restarted = player.loop === "track";
   if (player.previousTracks.length === 0 && !restarted) return fail("no-previous");
@@ -79,11 +76,11 @@ async function previous(player, actor, { requireTrack = false } = {}) {
 
 /**
  * 곡 안의 위치로. reason 은 로그에 남는 원인(seek · replay · highlight · dashboard).
- * refuseStarting: 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 일 전에 부른다(응답 미루기 등).
+ * 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 일 전에 부른다(응답 미루기 등).
  * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다)
  */
-async function seek(player, actor, ms, { reason = "seek", refuseStarting = false, onAccepted } = {}) {
-  const blocked = (await gate(player, actor)) ?? needTrack(player) ?? seekBlocked(player, refuseStarting);
+async function seek(player, actor, ms, { reason = "seek", onAccepted } = {}) {
+  const blocked = (await gate(player, actor)) ?? needTrack(player) ?? seekBlocked(player);
   if (blocked) return blocked;
   const durationMs = (Number(player.currentTrack.duration) || 0) * 1000;
   if (durationMs > 0 && ms >= durationMs) return fail("beyond-end", { durationMs });
@@ -93,10 +90,11 @@ async function seek(player, actor, ms, { reason = "seek", refuseStarting = false
   return { ok: true, ms, track: player.currentTrack };
 }
 
-function seekBlocked(player, refuseStarting) {
+function seekBlocked(player) {
   // 라이브에는 실시간밖에 없다. 옮길 자리가 없다
   if (player.isLive) return fail("live-no-seek");
-  if (refuseStarting && player.isPlayStarting) return fail("starting");
+  // 여는 중에는 옮길 곡이 아직 자리 잡지 않았다
+  if (player.isPlayStarting) return fail("starting");
   return null;
 }
 
@@ -105,7 +103,7 @@ const replay = (player, actor, opts = {}) => seek(player, actor, 0, { ...opts, r
 
 /** SponsorBlock 하이라이트 지점으로 */
 async function highlight(player, actor, opts = {}) {
-  const blocked = (await gate(player, actor)) ?? needTrack(player) ?? seekBlocked(player, opts.refuseStarting);
+  const blocked = (await gate(player, actor)) ?? needTrack(player) ?? seekBlocked(player);
   if (blocked) return blocked;
   const at = player.sponsor?.highlightAt;
   if (at === null || at === undefined) return fail("no-highlight");
@@ -164,17 +162,15 @@ async function remove(player, actor, index) {
 }
 
 /**
- * 대기열 안에서 옮기기. from · to 는 0부터.
- * allowSame: 같은 자리로 옮기기를 거절하지 않는다(아무 일도 안 일어난다)
- */
-async function move(player, actor, from, to, { allowSame = false } = {}) {
+/** 대기열 안에서 옮기기. from · to 는 0부터 */
+async function move(player, actor, from, to) {
   const blocked = await gate(player, actor);
   if (blocked) return blocked;
   const size = player.queue.length;
   if (size < 2) return fail("too-few-to-move");
   const inRange = (i) => Number.isInteger(i) && i >= 0 && i < size;
   if (!inRange(from) || !inRange(to)) return fail("bad-position", { size });
-  if (from === to && !allowSame) return fail("same-position");
+  if (from === to) return fail("same-position");
   const track = player.queue[from];
   player.moveInQueue(from, to);
   await refresh(player);

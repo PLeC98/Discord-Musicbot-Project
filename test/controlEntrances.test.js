@@ -222,7 +222,7 @@ const TABLE = {
   skip: {
     C: "x x x x skip skip skip skip",
     B: "x x x x skip skip skip skip",
-    D: "x x x skip skip skip skip skip", // 빈 대기열을 거절하지 않는다
+    D: "x x x x skip skip skip skip",
   },
   stop: {
     C: "x x stop stop stop stop stop stop", // 곡이 없어도 멈춘다
@@ -235,15 +235,15 @@ const TABLE = {
     D: "x x x x previous previous previous previous",
   },
   seek: {
-    C: "x x x seek seek seek x seek",
-    D: "x x x seek seek seek x x", // 대시보드만 play() 도는 중을 거절한다
+    C: "x x x seek seek seek x x",
+    D: "x x x seek seek seek x x",
   },
   replay: {
-    C: "x x x seek seek seek x seek",
+    C: "x x x seek seek seek x x",
   },
   highlight: {
-    C: "x x x seek seek seek x seek",
-    B: "x x x play play play play play", // 버튼은 seek 을 안 거치고 play 를 부르며, 라이브를 거절하지 않는다
+    C: "x x x seek seek seek x x",
+    B: "x x x seek seek seek x x",
   },
   volume: {
     C: "x x setVolume setVolume setVolume setVolume setVolume setVolume",

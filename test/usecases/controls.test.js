@@ -82,9 +82,9 @@ test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다",
   assert.equal((await controls.pause(fakePlayer({ pause: () => false }), DJ)).code, "failed");
 });
 
-test("건너뛰기: 다음 곡이 없으면 거절(한곡 반복은 처음부터라 허용), allowEmpty 면 넘어간다. 곡 요청자는 DJ 가 아니어도 된다", async () => {
+test("건너뛰기: 다음 곡이 없으면 거절(한곡 반복은 처음부터, 자동재생은 다음 곡을 골라 허용). 곡 요청자는 DJ 가 아니어도 된다", async () => {
   assert.equal((await controls.skip(fakePlayer({ queue: [] }), DJ)).code, "nothing-to-skip");
-  assert.equal((await controls.skip(fakePlayer({ queue: [] }), DJ, { allowEmpty: true })).ok, true);
+  assert.equal((await controls.skip(fakePlayer({ queue: [], autoplay: "pop" }), DJ)).ok, true);
 
   const looping = fakePlayer({ queue: [], loop: "track" });
   assert.deepEqual(await controls.skip(looping, DJ), { ok: true, track: looping.currentTrack, restarted: true });
@@ -104,17 +104,15 @@ test("정지: 멈추고 레지스트리에서 빼고 끝난 패널로 알린다"
   assert.deepEqual(seen, ["ended:stop"]);
 });
 
-test("이전 곡: 기록이 없으면 거절(한곡 반복은 허용), requireTrack 이면 곡이 없을 때 거절", async () => {
+test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복은 허용)", async () => {
   assert.equal((await controls.previous(fakePlayer({ previousTracks: [] }), DJ)).code, "no-previous");
   assert.deepEqual(await controls.previous(fakePlayer({ previousTracks: [], loop: "track" }), DJ), { ok: true, restarted: true });
-  assert.equal((await controls.previous(fakePlayer({ currentTrack: null }), DJ)).ok, true);
-  assert.equal((await controls.previous(fakePlayer({ currentTrack: null }), DJ, { requireTrack: true })).code, "no-track");
+  assert.equal((await controls.previous(fakePlayer({ currentTrack: null }), DJ)).code, "no-track");
 });
 
-test("위치 이동: 라이브는 거절, refuseStarting 이면 여는 중에 거절. 받아들이면 onAccepted 뒤에 옮긴다", async () => {
+test("위치 이동: 라이브 · 여는 중은 거절. 받아들이면 onAccepted 뒤에 옮긴다", async () => {
   assert.equal((await controls.seek(fakePlayer({ isLive: true }), DJ, 1000)).code, "live-no-seek");
-  assert.equal((await controls.seek(fakePlayer({ isPlayStarting: true }), DJ, 1000, { refuseStarting: true })).code, "starting");
-  assert.equal((await controls.seek(fakePlayer({ isPlayStarting: true }), DJ, 1000)).ok, true);
+  assert.equal((await controls.seek(fakePlayer({ isPlayStarting: true }), DJ, 1000)).code, "starting");
 
   const order = [];
   const p = fakePlayer({ seek: async (ms, reason) => order.push(`seek:${ms}:${reason}`) });
@@ -163,11 +161,10 @@ test("빼기: 빈 대기열 · 범위 밖 거절, 권한은 그 곡을 보고(�
   assert.equal((await controls.remove(p, requester, 1)).track.title, "내 곡");
 });
 
-test("옮기기: 두 곡 미만 · 범위 밖 · 같은 자리 거절(allowSame 이면 통과)", async () => {
+test("옮기기: 두 곡 미만 · 범위 밖 · 같은 자리 거절", async () => {
   assert.equal((await controls.move(fakePlayer({ queue: [track("a")] }), DJ, 0, 0)).code, "too-few-to-move");
   assert.equal((await controls.move(fakePlayer(), DJ, 0, 2)).code, "bad-position");
   assert.equal((await controls.move(fakePlayer(), DJ, 1, 1)).code, "same-position");
-  assert.equal((await controls.move(fakePlayer(), DJ, 1, 1, { allowSame: true })).ok, true);
   const p = fakePlayer();
   assert.equal((await controls.move(p, DJ, 1, 0)).track.title, "b");
   assert.deepEqual(p.calls, ["move:1->0"]);

@@ -72,7 +72,7 @@
                 </button>
 
                 <!-- Skip -->
-                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || ((player.queueTotal ?? player.queue.length) === 0 && player.loop !== 'track')">
+                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || ((player.queueTotal ?? player.queue.length) === 0 && player.loop !== 'track' && !player.autoplay)">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
                 </button>
 

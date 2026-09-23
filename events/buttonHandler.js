@@ -242,25 +242,11 @@ module.exports = {
   },
 
   async handleHighlight(interaction, player) {
-    const permErr = await checkControl(interaction.member);
-    if (permErr) {
-      return await interaction.reply({ content: permErr, flags: [1 << 6] });
-    }
-
-    // 버튼은 하이라이트가 없으면 비활성이라 정상적으론 여기 도달 안 함.
-    // 곡 전환 직전 stale 클릭 대비로만 조용히 무시(0초 재시작 방지).
-    const highlightAt = player.sponsor?.highlightAt;
-    if (highlightAt === null || highlightAt === undefined) {
-      return interaction.deferUpdate();
-    }
-
-    await interaction.deferReply({ flags: [1 << 6] });
-    await player.play(Math.max(0, Math.floor(highlightAt * 1000)));
+    const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
+    // 버튼은 하이라이트가 없으면 비활성이라 곡이 바뀌기 직전의 늦은 클릭뿐이다. 조용히 넘긴다
+    if (r.code === "no-highlight") return interaction.deferUpdate();
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
     await interaction.editReply({ content: "✨ 하이라이트 지점으로 이동했어요." });
-
-    if (interaction.client.musicEmbedManager) {
-      await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
-    }
   },
 
   async handleShuffle(interaction, player, _requesterId) {

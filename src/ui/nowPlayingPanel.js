@@ -698,7 +698,7 @@ class MusicEmbedManager {
       .setCustomId(`music_skip:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏭️")
-      .setDisabled(disabled || (player.queue.length === 0 && player.loop !== "track")); // 한곡 반복 = 재시작이라 대기열 비어도 활성
+      .setDisabled(disabled || (player.queue.length === 0 && player.loop !== "track" && !player.autoplay)); // 한곡 반복은 재시작, 자동재생은 다음 곡을 골라 대기열이 비어도 활성
 
     const stopButton = new ButtonBuilder().setCustomId(`music_stop:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
 

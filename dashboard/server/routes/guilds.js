@@ -158,6 +158,8 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
         }
       : null,
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
+    // 대기열이 비어도 자동재생이 켜져 있으면 넘기기가 된다
+    autoplay: Boolean(player.autoplay),
     // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
     hasLive: player.hasLiveTrack?.() ?? false,
     queue: (player.queue || []).slice(0, queueLimit).map(queueTrack),
@@ -524,7 +526,7 @@ router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
 router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const r = await controls.previous(ctx.player, actorOf(req, ctx.member), { requireTrack: true });
+  const r = await controls.previous(ctx.player, actorOf(req, ctx.member));
   if (!r.ok) return refuse(res, r);
   res.json({ ok: true });
 });
@@ -533,7 +535,7 @@ router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
 router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const r = await controls.skip(ctx.player, actorOf(req, ctx.member), { allowEmpty: true });
+  const r = await controls.skip(ctx.player, actorOf(req, ctx.member));
   if (!r.ok) return refuse(res, r);
   res.json({ ok: true });
 });
@@ -560,7 +562,7 @@ router.post("/:guildId/player/seek", requireAuth, async (req, res) => {
   const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
   try {
-    const r = await controls.seek(ctx.player, actorOf(req, ctx.member), Math.floor(clampedSec * 1000), { reason: "dashboard", refuseStarting: true });
+    const r = await controls.seek(ctx.player, actorOf(req, ctx.member), Math.floor(clampedSec * 1000), { reason: "dashboard" });
     if (!r.ok) return refuse(res, r);
     res.json({ ok: true, position: clampedSec });
   } catch (e) {
@@ -701,7 +703,7 @@ router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => 
 router.post("/:guildId/player/queue/move", requireAuth, async (req, res) => {
   const ctx = await getPlayer(req, res, req.params.guildId);
   if (!ctx) return;
-  const r = await controls.move(ctx.player, actorOf(req, ctx.member), toInt(req.body.from), toInt(req.body.to), { allowSame: true });
+  const r = await controls.move(ctx.player, actorOf(req, ctx.member), toInt(req.body.from), toInt(req.body.to));
   if (!r.ok) return refuse(res, r);
   res.json(playerState(ctx.player, queueWindow(req)));
 });
