@@ -16,6 +16,7 @@ after(() => store.close());
 
 const config = require("../../config");
 const MusicPlayer = require("../../src/player/Player");
+const IdleLeave = require("../../src/player/idleLeave");
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
 const GUILD = "g1";
@@ -33,10 +34,10 @@ after(() => {
 
 // playbackLoop.test.js와 같은 방식 — 코드가 건드리는 것만 나열한 목
 function makePlayer(players, current = { title: "곡", duration: 10 }) {
-  return {
+  const p = {
     isTransitioning: false,
     watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
-    queueEmptyTimer: null,
+    pauseReasons: new Set(),
     currentTrack: current,
     resource: { playbackDuration: (current?.duration || 0) * 1000 },
     currentTrackStartOffsetMs: 0,
@@ -56,10 +57,8 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     releasedResources: 0,
     _trackLabel: MusicPlayer.prototype._trackLabel,
     _isActivePlayer: MusicPlayer.prototype._isActivePlayer,
-    scheduleIdleLeave: MusicPlayer.prototype.scheduleIdleLeave,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
-    clearInactivityTimer() {},
     async persistState() {},
     async play() {},
     async updateVoiceStatus() {},
@@ -71,6 +70,8 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
       this.releasedResources++;
     },
   };
+  p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다
+  return p;
 }
 
 test("교체된 플레이어의 타이머는 현행 플레이어를 레지스트리에서 지우지 않는다", async () => {
@@ -108,7 +109,7 @@ test("/join만 하고 틀지 않아도 같은 타이머로 나간다", async () 
   const p = makePlayer(players, null);
   players.set(GUILD, p);
 
-  p.scheduleIdleLeave("곡 없이 대기");
+  p.idle.scheduleEmpty("곡 없이 대기");
   await sleep(DELAY * 3);
 
   assert.deepEqual(p.cleanupCalls, ["곡 없이 대기"]);
@@ -135,7 +136,7 @@ test("타이머는 쌓이지 않는다 — 새로 예약하면 이전 것을 취
 
   // 이전 트랙이 남긴 타이머를 흉내낸다. 취소되지 않으면 이게 깨어나 남의 플레이어를 지운다.
   let stalefired = false;
-  p.queueEmptyTimer = setTimeout(() => {
+  p.idle.emptyTimer = setTimeout(() => {
     stalefired = true;
   }, DELAY);
 

@@ -46,12 +46,15 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
     audioPlayer: { stop() {} },
     releaseAudioProtection() {},
     scheduleStatePersist() {},
-    clearInactivityTimer() {},
     async updateVoiceStatus() {
       calls.voiceStatus++;
     },
-    scheduleIdleLeave() {
-      calls.idleLeave++;
+    idle: {
+      cancelAlone() {},
+      cancelEmpty() {},
+      scheduleEmpty() {
+        calls.idleLeave++;
+      },
     },
     async handleAutoplay() {
       calls.autoplay++;

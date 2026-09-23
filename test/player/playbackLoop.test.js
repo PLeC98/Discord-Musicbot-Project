@@ -22,6 +22,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
   return {
     isTransitioning: false,
     watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
+    idle: { cancelAlone() {}, cancelEmpty() {}, scheduleEmpty() {}, stop() {} },
     currentTrack: current,
     // playbackDuration = 곡 길이 전체 → "자연 종료"로 판정 (endedUnexpectedly 아님)
     resource: current ? { playbackDuration: (current.duration || 0) * 1000 } : null,

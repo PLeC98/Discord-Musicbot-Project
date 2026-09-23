@@ -21,6 +21,7 @@ const audioCache = require("../store/audioCache");
 const trackLookup = require("../store/trackLookup");
 const VoiceConnectionManager = require("./voiceConnection");
 const PlaybackWatch = require("./playbackWatch");
+const IdleLeave = require("./idleLeave");
 const TrackDownloader = require("../media/cacheDownload");
 const createPlayerSessionId = require("./playerSessionId");
 const SessionPersistence = require("./sessionMirror");
@@ -99,10 +100,6 @@ class MusicPlayer {
     // 세션 관리 - 오래된 버튼 상호작용을 막기 위한 고유 ID
     this.sessionId = createPlayerSessionId();
 
-    // 사전 로드 시스템 - 대기열의 모든 트랙을 즉시 사전 로드
-
-    this.queueEmptyTimer = null;
-
     // 재생 생명주기 상태
     this.isTransitioning = false;
     this.pendingEndReason = null;
@@ -119,8 +116,6 @@ class MusicPlayer {
     this.pauseReasons = new Set();
 
     // 비활성 타임아웃
-    this.inactivityTimer = null;
-    this.inactivityTimeoutMs = config.bot.leaveDelayAloneMs;
 
     // 로컬 파일 캐싱
     this.currentDownloadedFile = null; // 현재 재생 중인 다운로드 파일 경로
@@ -128,6 +123,7 @@ class MusicPlayer {
     // 협력 모듈. 로직 분리 (상태 필드는 전부 이 인스턴스에 유지)
     this.voice = new VoiceConnectionManager(this);
     this.watch = new PlaybackWatch(this); // 종료 감시 · 버퍼링 감시
+    this.idle = new IdleLeave(this); // 혼자 남음 · 틀 게 없음 퇴장
     this.downloader = new TrackDownloader(this);
     this.persistence = new SessionPersistence(this);
     this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
@@ -941,76 +937,6 @@ class MusicPlayer {
     return false;
   }
 
-  startInactivityTimer() {
-    if (this.inactivityTimer) return;
-
-    log.info(`서버 ${this.guild?.name ?? this.guild?.id}의 채널 ${this.voiceChannel?.name ?? this.voiceChannel?.id}에 사람이 없습니다. ${Math.round(this.inactivityTimeoutMs / 1000)}초 뒤 정리합니다`);
-    this.pauseFor("alone");
-
-    this.inactivityTimer = setTimeout(
-      async () => {
-        this.inactivityTimer = null;
-
-        const channelId = this.voiceChannel?.id;
-        const channel = channelId ? this.guild.channels.cache.get(channelId) : null;
-        const hasListeners = channel ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
-
-        if (hasListeners) {
-          this.resumeFor("alone");
-          const embedManager = this.guild?.client?.musicEmbedManager;
-          if (embedManager) {
-            await embedManager.updateNowPlayingEmbed(this);
-          }
-          return;
-        }
-
-        this.pauseReasons.clear();
-        this.pendingEndReason = "inactivity-timeout";
-        trackState.reset(this);
-
-        try {
-          const embedManager = this.guild?.client?.musicEmbedManager;
-          await embedManager?.handlePlaybackEnd(this, { reason: "disconnected" });
-
-          await this.persistState("inactivity-timeout");
-        } catch (error) {
-          log.error("비활성 정리 후 재생 UI 갱신 실패:", error);
-        } finally {
-          // 교체된 뒤 남은 타이머가 현행 플레이어의 연결을 끊지 않도록 (대기열 소진 타이머와 같은 사고)
-          if (!this._isActivePlayer()) {
-            log.info(`밀려난 플레이어의 비활성 타이머. 자기 자원만 정리합니다 (${this.guild?.name ?? this.guild?.id})`);
-            this.releaseResources();
-            this.releaseAudioProtection();
-          } else {
-            try {
-              this.cleanup(false, "비활성 타임아웃");
-            } finally {
-              this.guild?.client?.players?.delete(this.guild.id);
-            }
-          }
-        }
-      },
-      Math.max(this.inactivityTimeoutMs, 0),
-    );
-  }
-
-  clearInactivityTimer(shouldResume = true) {
-    if (this.inactivityTimer) {
-      clearTimeout(this.inactivityTimer);
-      this.inactivityTimer = null;
-      // 여기가 "정리 예약이 취소된다"는 상태 변화가 실제로 일어나는 지점이다.
-      // 예약을 건 타이머 콜백 안에도 같은 로그가 있었는데, 사람이 돌아오면 음성 상태 이벤트가
-      // 이 함수를 먼저 불러 타이머를 지우므로 그 콜백은 아예 실행되지 않았다. 거의 안 찍혔다.
-      if (shouldResume) log.info(`서버 ${this.guild?.name ?? this.guild?.id}의 채널 ${this.voiceChannel?.name ?? this.voiceChannel?.id}에 사람이 복귀하여 정리를 취소합니다`);
-    }
-
-    if (shouldResume) {
-      this.resumeFor("alone");
-    } else {
-      this.pauseReasons.delete("alone");
-    }
-  }
-
   /**
    * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제.
    * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 함.
@@ -1027,17 +953,11 @@ class MusicPlayer {
   }
 
   releaseResources() {
-    this.clearInactivityTimer(false);
+    this.idle.stop();
     this.stopStateSync();
     this.voice.stopConnectionRecovery();
     this.voice.stopHealthCheck();
-
     this.watch.stop();
-
-    if (this.queueEmptyTimer) {
-      clearTimeout(this.queueEmptyTimer);
-      this.queueEmptyTimer = null;
-    }
   }
 
   // 재생 중 트랙의 캐시 퇴거 보호 해제. currentTrack이 이미 null이어도 기억된 키로 해제
@@ -1121,11 +1041,7 @@ class MusicPlayer {
       clog.info(`스킵: ${this._trackLabel()} | 원인=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
       // 트랙 타이머 정리
       this.watch.stopEnd();
-
-      if (this.queueEmptyTimer) {
-        clearTimeout(this.queueEmptyTimer);
-        this.queueEmptyTimer = null;
-      }
+      this.idle.cancelEmpty();
 
       this.pendingEndReason = reason;
       this.audioPlayer.stop(true);
@@ -1420,37 +1336,14 @@ class MusicPlayer {
 
       await this.guild?.client?.musicEmbedManager?.handlePlaybackEnd(this, { reason: "queue-end" });
 
-      this.clearInactivityTimer(false);
+      this.idle.cancelAlone(false);
       this.persistence?.removeSession();
 
-      this.scheduleIdleLeave();
+      this.idle.scheduleEmpty();
     } finally {
       this.isTransitioning = false;
       this.pendingEndReason = null;
     }
-  }
-
-  /**
-   * 틀 것 없이 음성에 남아 있으면 잠시 뒤 나간다. 대기열이 끝났을 때와 /join만 했을 때.
-   * 다시 예약할 때 이전 것을 반드시 지운다. 쌓아두면 이 플레이어가 교체된 뒤에도 하나씩 깨어나 남의 플레이어를 정리한다.
-   * 그 사이 곡을 틀었으면 깨어나도 아무것도 하지 않는다.
-   */
-  scheduleIdleLeave(reason = "대기열 소진") {
-    if (this.queueEmptyTimer) clearTimeout(this.queueEmptyTimer);
-    this.queueEmptyTimer = setTimeout(() => {
-      this.queueEmptyTimer = null;
-      if (this.queue.length !== 0 || this.currentTrack) return;
-      if (!this._isActivePlayer()) {
-        log.info(`밀려난 플레이어의 대기열 소진 타이머. 자기 자원만 정리합니다 (${this.guild?.name ?? this.guild?.id})`);
-        this.releaseResources();
-        this.releaseAudioProtection();
-        return;
-      }
-      this.cleanup(false, reason);
-      this.guild.client.players.delete(this.guild.id);
-      // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      this.guild.client.musicEmbedManager?.handlePlaybackEnd(this, { reason: "disconnected" }).catch(() => {});
-    }, config.bot.leaveDelayQueueEmptyMs);
   }
 
   /**
@@ -1662,7 +1555,7 @@ class MusicPlayer {
       }
 
       this.sponsorSkipper?.stop();
-      this.clearInactivityTimer(false);
+      this.idle.cancelAlone(false);
       this.stopStateSync();
 
       // 종료 중에는 정리 전에 상태 저장

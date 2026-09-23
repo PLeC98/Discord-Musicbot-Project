@@ -379,7 +379,7 @@ function startBot() {
       if (newChannelId && oldChannelId !== newChannelId) {
         if (newState.channel) {
           await player.moveToChannel(newState.channel);
-          player.clearInactivityTimer(false);
+          player.idle.cancelAlone(false);
           if (client.musicEmbedManager) {
             await client.musicEmbedManager.updateNowPlayingEmbed(player);
           }
@@ -418,13 +418,13 @@ function startBot() {
 
       if (listeners === 0) {
         const alreadyPaused = player.pauseReasons.has("alone");
-        player.startInactivityTimer();
+        player.idle.startAlone();
         if (!alreadyPaused && client.musicEmbedManager && player.currentTrack) {
           await client.musicEmbedManager.updateNowPlayingEmbed(player);
         }
       } else {
         const wasPausedForAlone = player.pauseReasons.has("alone");
-        player.clearInactivityTimer(true);
+        player.idle.cancelAlone(true);
         if (wasPausedForAlone && client.musicEmbedManager && player.currentTrack) {
           await client.musicEmbedManager.updateNowPlayingEmbed(player);
         }

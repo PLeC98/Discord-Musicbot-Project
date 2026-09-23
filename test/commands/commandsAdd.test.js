@@ -326,7 +326,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   assert.deepEqual(log, [["reply", { content: "✅ 음성 채널에 접속했어요!", flags: [64] }]]);
   await new Promise(setImmediate);
   assert.ok(w.seen.includes("end:joined"));
-  assert.ok(player.queueEmptyTimer, "곡 없이 대기");
+  assert.ok(player.idle.emptyTimer, "곡 없이 대기");
   h.dispose(player);
 });
 

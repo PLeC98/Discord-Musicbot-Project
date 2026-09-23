@@ -75,7 +75,7 @@ test("대기열이 비면 현재 곡을 비우고 패널을 끝내고 세션을 
   playing(p, yt("ccccccccccc"));
 
   await p.handleTrackEnd("idle");
-  const leaveTimer = p.queueEmptyTimer;
+  const leaveTimer = p.idle.emptyTimer;
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
@@ -415,11 +415,11 @@ test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도
   const p = h.makePlayer();
   const seen = embeds(p);
   voiceChannelWith(p, []);
-  p.inactivityTimeoutMs = 0;
+  p.idle.aloneMs = 0;
   p.audioPlayer.state = { status: AudioPlayerStatus.Playing };
   p.currentTrack = yt("xxxxxxxxxxx");
 
-  p.startInactivityTimer();
+  p.idle.startAlone();
   assert.ok(p.pauseReasons.has("alone"));
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused);
   await tick(10);
@@ -435,10 +435,10 @@ test("시간이 됐을 때 사람이 있으면 alone 을 풀고 패널만 갱신
   const p = h.makePlayer();
   const seen = embeds(p);
   voiceChannelWith(p, ["u1"]);
-  p.inactivityTimeoutMs = 0;
+  p.idle.aloneMs = 0;
   p.audioPlayer.state = { status: AudioPlayerStatus.Playing };
 
-  p.startInactivityTimer();
+  p.idle.startAlone();
   await tick(10);
   h.dispose(p);
 
@@ -454,9 +454,9 @@ test("밀려난 플레이어의 비활성 타이머는 자기 자원만 놓고 �
   voiceChannelWith(p, []);
   const current = {};
   p.guild.client.players.set("g1", current);
-  p.inactivityTimeoutMs = 0;
+  p.idle.aloneMs = 0;
 
-  p.startInactivityTimer();
+  p.idle.startAlone();
   await tick(10);
   h.dispose(p);
 
@@ -468,12 +468,12 @@ test("사람이 돌아오면 예약을 지우고 alone 만 푼다. 다른 멈춤
   const p = h.makePlayer();
   p.audioPlayer.state = { status: AudioPlayerStatus.Paused };
   p.pauseReasons.add("manual");
-  p.startInactivityTimer();
+  p.idle.startAlone();
 
-  p.clearInactivityTimer(true);
+  p.idle.cancelAlone(true);
   h.dispose(p);
 
-  assert.equal(p.inactivityTimer, null);
+  assert.equal(p.idle.aloneTimer, null);
   assert.deepEqual([...p.pauseReasons], ["manual"]);
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused, "manual 이 남아 멈춘 채");
 });
@@ -607,11 +607,11 @@ test("스킵: 곡이 있으면 원인을 적고 멈춘다. 없으면 false", () 
   const p = h.makePlayer();
   assert.equal(p.skip(), false);
   p.currentTrack = yt("g1ggggggggg");
-  p.queueEmptyTimer = setTimeout(() => {}, 1000);
+  p.idle.emptyTimer = setTimeout(() => {}, 1000);
   assert.equal(p.skip("jump"), true);
   h.dispose(p);
   assert.equal(p.pendingEndReason, "jump");
-  assert.equal(p.queueEmptyTimer, null);
+  assert.equal(p.idle.emptyTimer, null);
   assert.deepEqual(calls.persists, ["schedule:skip"]);
 });
 

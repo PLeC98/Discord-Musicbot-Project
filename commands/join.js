@@ -65,7 +65,7 @@ module.exports = {
       await player.connect();
       player.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
       // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
-      if (config.bot.leaveDelayQueueEmptyMs > 0) player.scheduleIdleLeave("곡 없이 대기");
+      if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
       client.musicEmbedManager?.handlePlaybackEnd(player, { reason: "joined" }).catch(() => {});
       await interaction.reply({ content: "✅ 음성 채널에 접속했어요!", flags: [1 << 6] });
     }
