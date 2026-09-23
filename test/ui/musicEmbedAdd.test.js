@@ -47,7 +47,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
   mem.createNewMusicEmbed = async (p, t) => {
     calls.push(["embed", t.id]);
     if (mem.embedFails) throw new Error("CV2 수정 제한");
-    return { success: true, message: "Now playing", isNewEmbed: true };
+    return { success: true };
   };
   mem.updateNowPlayingEmbed = async () => calls.push("update");
   const notices = [];
@@ -59,7 +59,7 @@ test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패�
   const { mem, player, calls } = setup();
   const r = await mem.handleMusicData("g1", { tracks: [track("a")] }, who);
 
-  assert.deepEqual(r, { success: true, message: "Now playing", isNewEmbed: true });
+  assert.deepEqual(r, { success: true });
   assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"]]);
   assert.equal(player.currentTrack.requestedBy, who);
   assert.equal(typeof player.currentTrack.addedAt, "number");
@@ -116,14 +116,14 @@ test("되살리기도 실패하면 첫 곡의 실패를 돌려준다", async () 
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {
   const { mem } = setup();
   mem.embedFails = true;
-  assert.deepEqual(await mem.handleMusicData("g1", { tracks: [track("a")] }, who), { success: true, message: "Now playing", isNewEmbed: false });
+  assert.deepEqual(await mem.handleMusicData("g1", { tracks: [track("a")] }, who), { success: true });
 });
 
 test("틀고 있으면 대기열에 넣고 응답 매체로 알린다. 패널이 있으면 갱신한다", async () => {
   const { mem, player, calls, notices, responder } = setup({ current: track("now"), queue: [track("q1")] });
   const r = await mem.handleMusicData("g1", { tracks: [track("a")] }, who, responder);
 
-  assert.deepEqual(r, { success: true, message: "Added to queue", isNewEmbed: false, dropped: 0, queueLimited: false });
+  assert.deepEqual(r, { success: true, dropped: 0, queueLimited: false });
   assert.deepEqual(
     player.queue.map((t) => t.id),
     ["q1", "a"],

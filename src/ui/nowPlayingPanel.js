@@ -163,7 +163,7 @@ class MusicEmbedManager {
               firstTrackResult = await this.createNewMusicEmbed(player, track, requester, responder);
             } catch (embedError) {
               log.error("재생 중 임베드 생성 실패:", embedError);
-              firstTrackResult = { success: true, message: "Now playing", isNewEmbed: false };
+              firstTrackResult = { success: true };
             }
           }
         } else {
@@ -190,7 +190,7 @@ class MusicEmbedManager {
             try {
               firstTrackResult = await this.createNewMusicEmbed(player, player.currentTrack, requester, responder);
             } catch {
-              firstTrackResult = { success: true, isNewEmbed: false };
+              firstTrackResult = { success: true };
             }
           }
         } catch (e) {
@@ -223,7 +223,7 @@ class MusicEmbedManager {
         return firstTrackResult;
       }
 
-      return { success: true, message: "Track processed successfully" };
+      return { success: true };
     } catch (error) {
       return { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." };
     }
@@ -264,7 +264,7 @@ class MusicEmbedManager {
     const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
     if (typeof channel?.send !== "function") {
-      return { success: true, message: "Now playing", isNewEmbed: false };
+      return { success: true };
     }
 
     player.requesterId = requester?.id ?? null; // 버튼 custom_id가 쓴다. 그리기 전에
@@ -283,7 +283,7 @@ class MusicEmbedManager {
 
     this.startProgressUpdate(player);
 
-    return { success: true, message: "Now playing", isNewEmbed: true };
+    return { success: true };
   }
 
   /**
@@ -297,7 +297,7 @@ class MusicEmbedManager {
 
     await responder.notifyQueued(this.createQueueAdditionMessage(tracks, sourceLabel, insertFirst, notice));
 
-    return { success: true, message: "Added to queue", isNewEmbed: false, dropped: notice.dropped ?? 0, queueLimited: Boolean(notice.queueLimited) };
+    return { success: true, dropped: notice.dropped ?? 0, queueLimited: Boolean(notice.queueLimited) };
   }
 
   /**
