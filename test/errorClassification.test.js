@@ -22,7 +22,7 @@ const TABLE = [
   ["ERROR: This video has been removed by the uploader", "youtube_unavailable", T, F, F, F, F],
   ["ERROR: This video is no longer available because the YouTube account associated with this video has been terminated", "youtube_unavailable", T, F, F, F, F],
   // 연령 제한 · 봇 감지 · 쿠키
-  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "youtube_bot_detection", F, T, F, F, F], // "sign in to confirm" 이 먼저 걸린다
+  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "youtube_bot_detection", F, T, F, F, F], // 순서 버그: 봇 감지의 "sign in to confirm" 이 연령 제한보다 먼저 걸린다
   ["ERROR: Sign in to confirm you're not a bot", "youtube_bot_detection", F, F, F, F, F],
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 가르지 않는다
   // 클라이언트 · 포맷
