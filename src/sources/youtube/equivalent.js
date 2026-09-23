@@ -24,8 +24,8 @@ const equivalent = {
 
     // Tier-1: 이미 해결된 매핑이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
     // 매핑의 영상이 내려간 경우는 소비(다운로드) 시점에서 감지해 reresolveYouTube로 재검색한다.
-    if (track.url) {
-      const cachedKey = trackLookup.getResolvedKey(track.url);
+    if (track.requestKey) {
+      const cachedKey = trackLookup.getResolvedKey(track.requestKey);
       if (cachedKey && cachedKey.startsWith("yt:")) {
         track.audioSourceKey = cachedKey;
         track.youtubeUrl = `https://www.youtube.com/watch?v=${cachedKey.slice(3)}`;
@@ -82,7 +82,7 @@ const equivalent = {
    * 재검색 결과는 _youtubeFromCache가 아니므로(신규 검색), 다시 실패해도 이 경로가 재발동하지 않는다(무한루프 방지).
    */
   async reresolveYouTube(track, deps) {
-    if (track.url) trackLookup.removeResolution(track.url);
+    if (track.requestKey) trackLookup.removeResolution(track.requestKey);
     track.youtubeUrl = null;
     track.audioUrl = null;
     track.youtubeTitle = null;

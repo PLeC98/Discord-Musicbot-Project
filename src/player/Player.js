@@ -626,7 +626,7 @@ class MusicPlayer {
       if (this.currentTrack.audioSourceKey && !this.currentTrack.isLive) {
         try {
           audioCache.recordPlayback(this.currentTrack.audioSourceKey);
-          trackLookup.recordTrackLookup(this.currentTrack.url, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
+          trackLookup.recordTrackLookup(this.currentTrack.requestKey, this.currentTrack.platform, this.currentTrack.audioSourceKey, this.currentTrack.title, this.currentTrack.artist, this.currentTrack.thumbnail, { verified: titleVerified });
         } catch (error) {
           log.warn(`캐시 장부 기록 실패(재생은 계속): ${error?.message || error}`);
         }

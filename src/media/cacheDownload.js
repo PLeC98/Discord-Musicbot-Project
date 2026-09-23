@@ -269,7 +269,7 @@ class TrackDownloader {
         try {
           const _finalSt = fsSync.statSync(filepath);
           audioCache.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
-          trackLookup.recordTrackLookup(track.url, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail, { verified: !!verifiedTitle && track.platform === "youtube" });
+          trackLookup.recordTrackLookup(track.requestKey, track.platform, audioSourceKey, track.title, track.artist, track.thumbnail, { verified: !!verifiedTitle && track.platform === "youtube" });
         } catch {
           /* 무시 */
         }

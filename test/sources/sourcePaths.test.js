@@ -166,7 +166,7 @@ test("캐시 열쇠: 유튜브 id · 사운드클라우드 경로 · 직접 링�
   assert.equal(key({ platform: "anisongdb", url: "https://files.test/b.webm" }), `dl:${audioCache.md5("https://files.test/b.webm")}`, "음원을 직접 받는 자동재생 곡");
   assert.equal(key({ platform: "direct", url: "https://files.test/a.mp3" }), `dl:${audioCache.md5("https://files.test/a.mp3")}`);
   assert.equal(key({ platform: "lastfm", youtubeUrl: "https://www.youtube.com/watch?v=ddddddddddd" }), "yt:ddddddddddd");
-  assert.equal(key({ platform: "spotify", url: "https://open.spotify.com/track/x" }), null, "동등물 전에는 없다");
+  assert.equal(key({ platform: "spotify", url: "https://open.spotify.com/track/x", requestKey: "https://open.spotify.com/track/x" }), null, "동등물 전에는 없다");
   assert.equal(key({ platform: "youtube", id: "eeeeeeeeeee", audioSourceKey: "yt:keep" }), "yt:keep");
   assert.equal(key(null), null);
 });
@@ -177,7 +177,7 @@ test("동등물: 장부에 매핑이 있으면 검색하지 않고 쓰며, 장�
   audioCache.recordDownloadStart("yt:fffffffffff", { title: "t" });
   trackLookup.recordTrackLookup("https://open.spotify.com/track/sp1", "spotify", "yt:fffffffffff", "곡", "가수", null);
   swap(YouTube, "search", async () => assert.fail("검색하면 안 된다"));
-  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 };
+  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp1", requestKey: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 };
 
   const url = await equivalent.findYouTubeEquivalent(track);
 
@@ -195,7 +195,7 @@ test("동등물: 검색 결과에서 라이브를 빼고 점수로 고르고, �
       { id: "goodgoodgoo", url: "https://www.youtube.com/watch?v=goodgoodgoo", title: "가수 - 곡", artist: "가수", duration: 200 },
     ];
   });
-  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp2", platform: "spotify", duration: 200 };
+  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify", duration: 200 };
 
   const url = await equivalent.findYouTubeEquivalent(track);
 
@@ -216,14 +216,14 @@ test("동등물: 이미 youtubeUrl 이 있으면 열쇠만 채우고, 후보가 
   assert.equal(has.audioSourceKey, "yt:hhhhhhhhhhh");
 
   swap(YouTube, "search", async () => []);
-  assert.equal(await equivalent.findYouTubeEquivalent({ title: "없음", artist: "?", url: "https://open.spotify.com/track/none", platform: "spotify" }), null);
+  assert.equal(await equivalent.findYouTubeEquivalent({ title: "없음", artist: "?", url: "https://open.spotify.com/track/none", requestKey: "https://open.spotify.com/track/none", platform: "spotify" }), null);
 });
 
 test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는다", async () => {
   audioCache.recordDownloadStart("yt:deaddeaddea", { title: "t" });
   trackLookup.recordTrackLookup("https://open.spotify.com/track/sp3", "spotify", "yt:deaddeaddea", "곡", "가수", null);
   swap(YouTube, "search", async () => [{ id: "newnewnewne", url: "https://www.youtube.com/watch?v=newnewnewne", title: "곡", artist: "가수", duration: 200 }]);
-  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioSourceKey: "yt:deaddeaddea", _youtubeFromCache: true };
+  const track = { title: "곡", artist: "가수", url: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioSourceKey: "yt:deaddeaddea", _youtubeFromCache: true };
 
   const url = await equivalent.reresolveYouTube(track);
 
@@ -245,7 +245,7 @@ test("스트림: 장부에서 온 영상이 내려갔으면 한 번 다시 찾�
     t.youtubeUrl = "https://www.youtube.com/watch?v=newnewnewne";
     return t.youtubeUrl;
   });
-  const track = { title: "곡", platform: "spotify", url: "https://open.spotify.com/track/sp4", youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", _youtubeFromCache: true };
+  const track = { title: "곡", platform: "spotify", url: "https://open.spotify.com/track/sp4", requestKey: "https://open.spotify.com/track/sp4", youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", _youtubeFromCache: true };
 
   const s = await streamUrl.getStream(track, 5);
 

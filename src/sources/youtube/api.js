@@ -307,7 +307,7 @@ class YouTubeApi {
             // 낡은 제목이 그대로 보인다.
             if (track.url) {
               try {
-                const known = trackLookup.getVerifiedTitle(track.url);
+                const known = trackLookup.getVerifiedTitle(track.requestKey);
                 if (known) track.title = known;
               } catch {
                 /* DB 미초기화 등. 재생목록 제목 그대로 간다 */

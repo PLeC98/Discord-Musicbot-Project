@@ -69,7 +69,7 @@ test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음�
   assert.equal(links.isDirectAudioLink(track.pageUrl), false);
 });
 
-test("장부 열쇠에 작품 페이지가 들어가면 같은 작품의 두 곡이 한 칸을 덮어쓴다", () => {
+test("장부는 받은 열쇠 그대로 적는다. 작품 페이지를 열쇠로 주면 두 곡이 한 칸을 덮는다(그래서 자동재생은 요청 열쇠를 준다)", () => {
   const page = "https://anilist.co/anime/150672";
   const fatal = { title: "Fatal", artist: "GEMN", url: page, platform: "anisongdb", audioSourceKey: "yt:fatalfatal1" };
   const burning = { title: "Burning", artist: "Hitsujibungaku", url: page, platform: "anisongdb", audioSourceKey: "yt:burningburn" };
