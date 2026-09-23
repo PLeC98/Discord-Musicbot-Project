@@ -205,6 +205,8 @@ function scan() {
     const targets = new Set();
     for (const d of f.deps) {
       targets.add(d.to);
+      // 루트 config.js 는 어느 층이든 읽는 환경이라 방향에서 뺀다. 순환에는 넣는다
+      if (d.to === "config.js") continue;
       const from = LAYERS.indexOf(f.layer);
       const to = LAYERS.indexOf(layerOf(d.to));
       if (from >= 0 && to >= 0 && from > to) direction.push(`${f.rel} -> ${d.to}`);

@@ -4,8 +4,6 @@
     "dashboard/server/routes/admin.js -> src/app/commandLoader.js",
     "src/config/loader.js -> src/autoplay/assist/index.js",
     "src/config/loader.js -> src/autoplay/sources/index.js",
-    "src/infra/log/sink.js -> config.js",
-    "src/infra/safeUrl.js -> config.js",
     "src/player/Player.js -> src/ui/errorMessages.js",
     "src/player/Player.js -> src/ui/strings.js",
     "src/player/sessionMirror.js -> src/ui/format.js",
