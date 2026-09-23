@@ -7,6 +7,7 @@
 // 생산자는 두 갈래: (1) src/infra/log/logger.js facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
 const util = require("util");
+const config = require("../../../config");
 const chalk = require("chalk");
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
@@ -221,7 +222,7 @@ class LogManager {
    * 상한을 넘으면 429. 느린 소비자는 _record가 정리한다(아래 write 반환값 확인).
    */
   addClient(res) {
-    const { maxPerUser, heartbeatMs } = require("../../../config").dashboard.sse;
+    const { maxPerUser, heartbeatMs } = config.dashboard.sse;
     if (this.clients.size >= maxPerUser) {
       res.status(429).json({ error: "로그 연결이 너무 많습니다" });
       return;

@@ -1,11 +1,15 @@
-const logSink = require("./src/infra/log/sink"); // intercept console before anything else logs
+const logSink = require("./src/infra/log/sink"); // 다른 무엇보다 먼저 콘솔을 가로챈다
 const log = require("./src/infra/log/logger").child({ category: "core" });
+const config = require("./config");
+
+// 설정 문제는 여기서 찍고 멈춘다. config 는 불러와도 멈추지 않고 목록만 낸다
+require("./src/app/configCheck").stopOnConfigProblems(config, require("./src/infra/log/logger").child({ category: "config" }));
+
 const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
 const { getVoiceConnections } = require("@discordjs/voice");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const config = require("./config");
 const audioCache = require("./src/store/audioCache");
 const procRegistry = require("./src/infra/processRegistry");
 const { logResolved: logResolvedFfmpeg } = require("./src/media/ffmpeg/path");

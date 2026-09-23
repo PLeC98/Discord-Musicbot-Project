@@ -1,6 +1,5 @@
 {
   "direction": [
-    "config.js -> src/sources/youtube/clients.js",
     "dashboard/server/routes/admin.js -> src/app/commandLoader.js",
     "src/player/Player.js -> src/ui/errorMessages.js",
     "src/player/Player.js -> src/ui/strings.js",
@@ -11,14 +10,13 @@
     "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js",
     "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"
   ],
-  "cycles": ["config.js -> src/infra/log/logger.js", "config.js -> src/sources/youtube/clients.js", "src/infra/log/logger.js -> src/infra/log/sink.js", "src/infra/log/sink.js -> config.js", "src/sources/youtube/clients.js -> src/infra/log/logger.js"],
+  "cycles": [],
   "unseen": ["src/app/moduleLoader.js"],
   "lazyRequire": {
     "src/autoplay/assist/index.js": 6,
     "src/autoplay/assist/tokens.js": 2,
     "src/autoplay/sources/keyword.js": 1,
     "src/autoplay/sources/playlists.js": 2,
-    "src/infra/log/sink.js": 1,
     "src/player/Player.js": 4,
     "src/player/queueWarmer.js": 4,
     "src/sources/sponsorBlock.js": 1,

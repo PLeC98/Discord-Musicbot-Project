@@ -23,17 +23,6 @@ const KNOWN = ["web", "web_safari", "web_embedded", "web_music", "web_creator", 
 // 정상 동작이므로 경고가 아니라 debug로 흘려야 한다.
 const NEEDS_POT = ["mweb", "tv_simply", "web_creator"];
 
-// 쉼표 구분 문자열 → 클라이언트 배열 정규화(소문자·공백·중복)
-function parseClients(raw) {
-  if (!raw) return [];
-  const out = [];
-  for (const piece of String(raw).split(",")) {
-    const name = piece.trim().toLowerCase();
-    if (name && !out.includes(name)) out.push(name);
-  }
-  return out;
-}
-
 class PlayerClients {
   /**
    * @param {string[]} order   시도할 순서. 비어 있으면 이 모듈은 아무것도 하지 않는다
@@ -99,4 +88,4 @@ class PlayerClients {
   }
 }
 
-module.exports = { PlayerClients, parseClients, KNOWN, NEEDS_POT };
+module.exports = { PlayerClients, KNOWN, NEEDS_POT };
