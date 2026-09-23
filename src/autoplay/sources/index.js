@@ -16,12 +16,12 @@
 
 const log = require("../../infra/log/logger").child({ category: "autoplay" });
 const { SPEC, usable, needsOf, opts } = require("../../config/schema/genreSources");
-const { getJson } = require("./http");
+const { getJson, remembered } = require("./http");
 const { keyword } = require("./keyword");
 const { lastfm } = require("./lastfm");
 const { lbradio, PLACEHOLDER } = require("./lbradio");
 const { animethemes } = require("./animethemes");
-const { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS } = require("./anisongdb");
+const { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } = require("./anisongdb");
 const { vocaFamily, lyricsFilter, someLanguages } = require("./voca");
 const { spotify, youtube } = require("./playlists");
 
@@ -37,25 +37,25 @@ const TYPES = Object.keys(FETCHERS);
  *
  * 필수 여부는 need 에서 끌어온다(중복해서 적지 않는다).
  */
-// 고를 수 있는 방영 연도. 저쪽이 알려 주므로 올해로 어림잡지 않는다.
-// 연말에는 다음 해 1분기가 이미 등록돼 있다. 하루에 한 번만 묻는다.
-let yearRange = null;
-let yearRangeAt = 0;
+// AnimeThemes 에서 고를 수 있는 방영 연도. 저쪽이 알려 주므로 올해로 어림잡지 않는다(연말에는 다음 해 1분기가 이미
+// 등록돼 있다). 하루 한 번 묻고, 화면은 오래 기다리지 않는다(http.remembered)
+const yearRange = remembered(
+  async () => {
+    try {
+      const ends = await Promise.all([getJson("https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson("https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
+      const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
+      return min && max && min <= max ? { min, max } : null;
+    } catch (error) {
+      log.debug(`AnimeThemes 연도 범위를 받아오지 못했습니다: ${error.message}`);
+      return null;
+    }
+  },
+  { ttlMs: YEAR_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS },
+);
 
 async function animeYearRange() {
-  if (yearRange && Date.now() - yearRangeAt < YEAR_TTL_MS) return yearRange;
-  try {
-    const ends = await Promise.all([getJson("https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson("https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
-    const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
-    if (min && max && min <= max) {
-      yearRange = { min, max };
-      yearRangeAt = Date.now();
-    }
-  } catch (error) {
-    log.debug(`AnimeThemes 연도 범위를 받아오지 못했습니다: ${error.message}`);
-  }
-  // 못 받으면 넉넉히 잡는다. 칸이 아예 안 그려지는 것보다 낫다
-  return yearRange || { min: 1960, max: new Date().getFullYear() + 1 };
+  // 못 받았거나 늦으면 넉넉히 잡는다. 칸이 아예 안 그려지는 것보다 낫다
+  return (await yearRange.get()) || { min: 1960, max: new Date().getFullYear() + 1 };
 }
 
 /**
@@ -119,8 +119,5 @@ module.exports = {
   _anisongCatalog: anisongCatalog,
   _seedAnisongStats,
   // 테스트가 바깥으로 나가지 않게 연도 범위를 미리 채워 둔다
-  _seedYearRange: (range) => {
-    yearRange = range;
-    yearRangeAt = range ? Date.now() : 0;
-  },
+  _seedYearRange: (range) => yearRange.seed(range),
 };

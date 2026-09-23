@@ -29,7 +29,9 @@
 
       <div v-show="!isFolded(sourceFoldId(genreIndex, i))" class="px-2.5 pb-2.5">
         <p v-if="spec(source.type)?.hint" class="text-muted text-[0.75rem]">{{ spec(source.type).hint }}</p>
-        <p v-if="!spec(source.type)" class="text-[0.75rem] text-[#f87171]">모르는 종류입니다. 이 봇이 지원하지 않습니다.</p>
+        <p v-if="typesState === 'loading'" class="text-muted text-[0.75rem]">출처 종류를 불러오는 중입니다.</p>
+        <p v-else-if="typesState === 'failed'" class="text-[0.75rem] text-[#fbbf24]">출처 종류 목록을 받지 못했습니다. 새로 고치면 다시 받습니다.</p>
+        <p v-else-if="!spec(source.type)" class="text-[0.75rem] text-[#f87171]">모르는 종류입니다. 이 봇이 지원하지 않습니다.</p>
         <p v-else-if="!spec(source.type).usable" class="text-[0.75rem] text-[#fbbf24]">{{ spec(source.type).needs }} 가 .env 에 없어 지금은 쓰이지 않습니다.</p>
 
         <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
@@ -90,6 +92,8 @@ import { isFolded, toggleFold, sourceFoldId } from "../composables/configFolds";
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
   types: { type: Array, default: () => [] },
+  // 종류 목록을 받는 중(loading) · 받음(ready) · 못 받음(failed). 받기 전에는 모르는 종류라고 하지 않는다
+  typesState: { type: String, default: "ready" },
   genreIndex: { type: Number, default: 0 },
 });
 const emit = defineEmits(["update:modelValue"]);

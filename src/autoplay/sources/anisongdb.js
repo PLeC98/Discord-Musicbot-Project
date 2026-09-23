@@ -4,7 +4,7 @@
 
 const log = require("../../infra/log/logger").child({ category: "autoplay" });
 const { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } = require("../../config/schema/genreSources");
-const { TIMEOUT_MS, userAgent, getJson } = require("./http");
+const { TIMEOUT_MS, userAgent, getJson, remembered } = require("./http");
 
 // getJson의 형제. 필터를 본문으로 받는 API용.
 // 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
@@ -29,14 +29,12 @@ async function postJson(url, body, timeoutMs = TIMEOUT_MS) {
 const ANISONG = "https://anisongdb.com/api";
 
 const YEAR_TTL_MS = 24 * 60 * 60 * 1000;
+// 화면(운영자 자동재생 설정)이 저쪽을 기다리는 한도와, 못 받았을 때 다시 묻기까지 쉬는 시간
+const CATALOG_WAIT_MS = 2000;
+const CATALOG_RETRY_MS = 10 * 60 * 1000;
 
-// 장르·태그 목록과 난이도 분포. 하루 한 번만 묻는다.
-let anisongStats = null;
-let anisongStatsAt = 0;
-
-/** 화면이 고를 값을 저쪽에 물어 채운다. 못 받으면 null(빈 목록으로 그린다). */
-async function anisongCatalog() {
-  if (anisongStats && Date.now() - anisongStatsAt < YEAR_TTL_MS) return anisongStats;
+// 저쪽의 통계. 못 받으면 까닭을 남기고 null
+async function loadAnisongStats() {
   try {
     const stats = await getJson(`${ANISONG}/database_stats`);
     const seasons = Object.keys(stats?.songs_by_season || {});
@@ -44,7 +42,7 @@ async function anisongCatalog() {
     // 0칸은 난이도가 아니라 결측이다(미디어가 없어 출제된 적 없는 곡). 범위 필터도 기본으로
     // 빼므로 여기서도 뺀다. 안 빼면 슬라이더 옆 분포에 없는 봉우리가 생긴다.
     const histogram = Array.isArray(stats?.songs_by_difficulty) ? stats.songs_by_difficulty.slice(1) : [];
-    anisongStats = {
+    return {
       genres: Object.keys(stats?.songs_by_genre || {}),
       tags: Object.keys(stats?.songs_by_tag || {}),
       difficulty: histogram,
@@ -52,12 +50,17 @@ async function anisongCatalog() {
       // 고를 수 있게 두므로 우리도 자르지 않는다.
       ...(years.length ? { min: Math.min(...years), max: Math.max(...years) } : {}),
     };
-    anisongStatsAt = Date.now();
   } catch (error) {
     log.debug(`AnisongDB 목록을 받아오지 못했습니다: ${error.message}`);
+    return null;
   }
-  return anisongStats;
 }
+
+// 장르·태그 목록과 난이도 분포. 하루 한 번 묻고, 화면은 오래 기다리지 않는다(http.remembered)
+const anisongStats = remembered(loadAnisongStats, { ttlMs: YEAR_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS });
+
+/** 화면이 고를 값을 저쪽에 물어 채운다. 못 받았거나 늦으면 null(빈 목록으로 그린다). */
+const anisongCatalog = () => anisongStats.get();
 
 /**
  * 설정 한 줄을 저쪽이 받는 filters 로.
@@ -189,9 +192,6 @@ async function anisongdb(source) {
 }
 
 // 테스트가 바깥으로 나가지 않게 통계를 미리 채워 둔다
-function _seedAnisongStats(stats) {
-  anisongStats = stats;
-  anisongStatsAt = stats ? Date.now() : 0;
-}
+const _seedAnisongStats = (stats) => anisongStats.seed(stats);
 
-module.exports = { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS };
+module.exports = { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };

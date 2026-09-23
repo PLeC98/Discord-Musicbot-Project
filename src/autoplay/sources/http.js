@@ -2,6 +2,7 @@
 
 // 자동재생 소스가 같이 쓰는 요청 도우미.
 
+const { setTimeout: sleep } = require("node:timers/promises");
 const config = require("../../../config");
 
 const userAgent = () => config.userAgents.bot;
@@ -31,4 +32,47 @@ function query(params) {
   return q.toString();
 }
 
-module.exports = { getJson, pick, rand, query, TIMEOUT_MS, userAgent };
+/**
+ * 저쪽에서 받아 기억해 두는 값(화면의 칸을 채우는 목록 · 범위).
+ *
+ * load() 는 값을 돌려주거나, 못 받았으면 스스로 까닭을 남기고 null 을 돌려준다.
+ * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 묻되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)으로 먼저 답한다.
+ * 받기는 뒤에서 마저 한다. 못 받았으면 retryMs 동안 다시 묻지 않는다. 저쪽이 죽어 있을 때 부를 때마다 시간 초과를 기다리지 않게.
+ */
+function remembered(load, { ttlMs, retryMs, waitMs }) {
+  let value = null;
+  let at = 0;
+  let failedAt = 0;
+  let running = null;
+  const refresh = () =>
+    (running ??= (async () => {
+      try {
+        const next = await load();
+        if (next == null) failedAt = Date.now();
+        else {
+          value = next;
+          at = Date.now();
+        }
+      } catch {
+        failedAt = Date.now(); // load 가 까닭을 남긴다
+      } finally {
+        running = null;
+      }
+    })());
+  return {
+    async get() {
+      const fresh = value !== null && Date.now() - at < ttlMs;
+      const resting = Date.now() - failedAt < retryMs;
+      if (!fresh && !resting) await Promise.race([refresh(), sleep(waitMs, undefined, { ref: false })]);
+      return value;
+    },
+    /** 테스트가 바깥으로 나가지 않게 값을 채운다. null 이면 처음 상태로 */
+    seed(next) {
+      value = next ?? null;
+      at = next ? Date.now() : 0;
+      failedAt = 0;
+    },
+  };
+}
+
+module.exports = { getJson, pick, rand, query, remembered, TIMEOUT_MS, userAgent };

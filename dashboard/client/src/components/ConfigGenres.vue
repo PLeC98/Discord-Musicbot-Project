@@ -78,7 +78,7 @@
           <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
           <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :genre-index="i" class="mt-2" />
+        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :genre-index="i" class="mt-2" />
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
@@ -120,6 +120,7 @@ const savedAt = ref(null);
 const loadError = ref("");
 const serverProblems = ref([]);
 const sourceTypes = ref([]);
+const sourceTypesState = ref("loading"); // loading · ready · failed. 목록이 오기 전에는 "모르는 종류"로 판정하지 않는다
 
 // 편집 중에는 배열로 다룬다. 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
 // 이름이 곧 키다. 따로 id를 두지 않는다.
@@ -251,8 +252,10 @@ async function fetchConfig() {
 async function fetchSourceTypes() {
   try {
     sourceTypes.value = (await axios.get("/api/admin/source-types")).data.types || [];
+    sourceTypesState.value = "ready";
   } catch {
     sourceTypes.value = [];
+    sourceTypesState.value = "failed";
   }
 }
 
