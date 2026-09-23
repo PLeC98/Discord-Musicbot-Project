@@ -3,6 +3,8 @@
 // 재생목록 소스(스포티파이 · 유튜브).
 
 const { rand } = require("./http");
+const Spotify = require("../../sources/spotify");
+const YouTube = require("../../sources/youtube/index");
 
 // ── 재생목록 ──────────────────────────────────────────────────────────────
 // 통째로 받지 않는다. total을 알면 무작위 오프셋으로 한 구간만 집어 온다.
@@ -10,7 +12,6 @@ const PLAYLIST_PAGE = 50;
 
 async function spotify(source) {
   if (!source.url) return [];
-  const Spotify = require("../../sources/spotify");
   const head = await Spotify.getCollection(source.url, { offset: 0, limit: 1 });
   const total = Number(head?.total) || 0;
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
@@ -20,7 +21,6 @@ async function spotify(source) {
 
 async function youtube(source) {
   if (!source.url) return [];
-  const YouTube = require("../../sources/youtube/index");
   const head = await YouTube.getPlaylist(source.url, { offset: 0, limit: 1 });
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다
   const total = Number(head?.total) || 0;

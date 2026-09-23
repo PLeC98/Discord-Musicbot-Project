@@ -2,6 +2,8 @@ const { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChan
 const log = require("../infra/log/logger").child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = require("../infra/log/logger").child({ category: "watchdog" });
+const YouTube = require("../sources/youtube/index");
+const genreConfig = require("../config/genres");
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
 const clog = require("../infra/log/logger").child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
@@ -314,7 +316,7 @@ class MusicPlayer {
       })
       .catch((err) => {
         if (err && err.message) {
-          log.warn(`백그라운드 캐시 다운로드 실패: ${require("../sources/youtube/index").briefError(err)}. 재생은 스트림으로 계속됩니다.`);
+          log.warn(`백그라운드 캐시 다운로드 실패: ${YouTube.briefError(err)}. 재생은 스트림으로 계속됩니다.`);
         }
       });
   }
@@ -828,7 +830,7 @@ class MusicPlayer {
       }
 
       if (this.autoplay) {
-        const { genres } = require("../config/genres").genres();
+        const { genres } = genreConfig.genres();
         if (!genres[this.autoplay]) {
           // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
           log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
@@ -982,7 +984,7 @@ class MusicPlayer {
 
   // 지금 장르의 자동재생 설정. 기준값 위에 장르 설정을 얹는다. 모르는 장르면 null.
   _autoplayConfig() {
-    const { defaults, genres } = require("../config/genres").genres();
+    const { defaults, genres } = genreConfig.genres();
     const genre = genres[this.autoplay];
     // 이름도 같이 넘긴다. AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplayAssist)
     return genre ? { ...defaults, ...genre, genreName: this.autoplay } : null;
@@ -1002,7 +1004,7 @@ class MusicPlayer {
     // 내려간 영상을 고른 자동재생 곡. 우리가 고른 것이니 사용자에게 알릴 일이 아니다.
     // 기억해 두고(다음에 또 고르지 않게) 조용히 다른 곡으로 넘어간다.
     const failed = this.currentTrack;
-    if (failed?.autoplay && require("../sources/youtube/index").isVideoUnavailableError(error)) {
+    if (failed?.autoplay && YouTube.isVideoUnavailableError(error)) {
       autoplayRoute.markDead(failed);
       log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${failed.title}"`);
       tell = false;

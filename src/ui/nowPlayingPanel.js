@@ -3,6 +3,7 @@ const log = require("../infra/log/logger").child({ category: "player" });
 const config = require("../../config");
 const { formatDuration } = require("./format");
 const { progressBar, emptyProgressBar } = require("./progressBar");
+const { labelOf, emojiOf } = require("./platforms");
 
 // 알릴 곳이 없는 매체. 결과를 알리는 매체는 부르는 쪽(usecases/responders)이 넘긴다
 const NO_RESPONDER = {
@@ -790,11 +791,11 @@ class MusicEmbedManager {
    * 플랫폼 이름에 해당하는 명칭과 이모지를 반환합니다. 모르는 값은 첫 글자만 대문자로 올립니다.
    */
   getPlatformLabel(platform) {
-    return require("./platforms").labelOf(platform);
+    return labelOf(platform);
   }
 
   getPlatformEmoji(platform) {
-    return require("./platforms").emojiOf(platform);
+    return emojiOf(platform);
   }
 
   /**

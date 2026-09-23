@@ -2,6 +2,9 @@
 
 const log = require("../infra/log/logger").child({ category: "track" });
 const config = require("../../config");
+const YouTube = require("../sources/youtube/index");
+const autoplayRoute = require("../autoplay/route");
+const trackState = require("./trackState");
 
 /**
  * 대기열 앞부분을 캐시에 올려둔 상태로 유지한다.
@@ -107,14 +110,13 @@ class QueueWarmer {
    * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
    */
   _dropDeadAutoplay(track, err) {
-    const YouTube = require("../sources/youtube/index");
     if (!YouTube.isVideoUnavailableError(err)) return false;
 
     const index = this.player.queue.indexOf(track);
     if (index < 0) return false;
 
-    require("../autoplay/route").markDead(track);
-    require("./trackState").removeAt(this.player, index);
+    autoplayRoute.markDead(track);
+    trackState.removeAt(this.player, index);
     log.info(`자동재생 곡을 뺍니다(영상 없음): "${track.title}". 다른 곡을 고릅니다`);
 
     // 뺀 자리를 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
@@ -188,7 +190,7 @@ class QueueWarmer {
 
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
           // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
-          log.warn(`사전 캐싱 실패 (${track.title}): ${require("../sources/youtube/index").briefError(err)}`);
+          log.warn(`사전 캐싱 실패 (${track.title}): ${YouTube.briefError(err)}`);
           this._failed.add(track);
         }
 

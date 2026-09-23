@@ -5,6 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require("discord.js");
 const config = require("../../config");
+const genreConfig = require("../config/genres");
 
 // 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
 const OFF_MENU_MS = 30_000;
@@ -15,7 +16,7 @@ const OFF_MENU_MS = 30_000;
  */
 function genreSelect(requesterId, sessionId, placeholder) {
   // 장르 정의는 config/genres.yaml 한 곳에서 관리. 부를 때마다 읽는다(파일이 바뀌면 곧바로 반영)
-  const { genres } = require("../config/genres").genres();
+  const { genres } = genreConfig.genres();
 
   return (
     new StringSelectMenuBuilder()

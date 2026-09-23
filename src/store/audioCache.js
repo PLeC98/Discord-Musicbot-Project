@@ -5,6 +5,7 @@
 const log = require("../infra/log/logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
+const config = require("../../config");
 const { md5, audioKeyOf } = require("../rules/audioKeyOf");
 const { sessions } = require("./playerSessions");
 const db = require("./db");
@@ -355,7 +356,7 @@ class AudioCache {
   }
 
   async evictIfNeeded() {
-    const cfg = require("../../config").cache;
+    const cfg = config.cache;
 
     const totalSize = this._cacheSize();
     const fileCount = this._cacheCount();
@@ -443,7 +444,7 @@ class AudioCache {
 
   /** 백그라운드 주기적 제거 타이머 시작 */
   _startPeriodicEviction() {
-    const cfg = require("../../config").cache;
+    const cfg = config.cache;
     if (this._evictInterval) clearInterval(this._evictInterval);
     this._evictInterval = setInterval(() => {
       this.evictIfNeeded().catch((err) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", err.message));
@@ -454,7 +455,7 @@ class AudioCache {
   // 통계
 
   getCacheStats() {
-    const cfg = require("../../config").cache;
+    const cfg = config.cache;
 
     const totalSize = this._cacheSize();
     const fileCount = this._cacheCount();

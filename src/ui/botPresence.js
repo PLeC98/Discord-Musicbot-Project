@@ -1,5 +1,6 @@
 const { ActivityType } = require("discord.js");
 const KoreanLunarCalendar = require("korean-lunar-calendar");
+const statusConfig = require("../config/status");
 
 // Custom은 말머리("듣는 중" 같은 것) 없이 문구만 보여준다.
 // discord.js가 알아서 state로 옮겨 주므로 여기서는 이름만 넘기면 된다(ClientPresence 참고).
@@ -34,7 +35,7 @@ class StatusManager {
   // 부를 때마다 읽는다. 로더가 mtime을 보고 바뀌었을 때만 실제로 다시 읽는다.
   // 코드에 박힌 기본값으로 조용히 넘어가지 않는다: 파일이 없으면 로더가 기동을 멈추고 무엇을 할지 알린다.
   load() {
-    return require("../config/status").status();
+    return statusConfig.status();
   }
 
   // 시작이 끝보다 크면 자정·연말을 걸친 범위다 (22:00~06:00, 12-28~01-05)

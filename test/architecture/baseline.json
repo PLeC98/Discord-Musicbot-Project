@@ -3,18 +3,7 @@
   "cycles": [],
   "unseen": ["src/app/moduleLoader.js"],
   "lazyRequire": {
-    "src/autoplay/assist/index.js": 6,
-    "src/autoplay/assist/tokens.js": 2,
-    "src/autoplay/sources/keyword.js": 1,
-    "src/autoplay/sources/playlists.js": 2,
-    "src/player/Player.js": 4,
-    "src/player/queueWarmer.js": 4,
-    "src/sources/sponsorBlock.js": 1,
-    "src/sources/youtube/auth.js": 1,
-    "src/store/audioCache.js": 3,
-    "src/ui/botPresence.js": 1,
-    "src/ui/genreMenu.js": 1,
-    "src/ui/nowPlayingPanel.js": 2
+    "src/autoplay/assist/tokens.js": 1
   },
   "configCapture": {},
   "requireCache": {},

@@ -13,6 +13,7 @@
 const crypto = require("crypto");
 const links = require("../rules/links");
 const config = require("../../config");
+const GuildSettingsManager = require("../store/guildSettings");
 const externalCaches = require("../store/externalCaches");
 
 // skip 지원 9개 카테고리 (config.js의 SB_SKIP_CATEGORIES와 동기 유지)
@@ -138,7 +139,6 @@ const SponsorBlock = {
     const videoId = this._trackVideoId(track);
     if (!videoId) return null;
 
-    const GuildSettingsManager = require("../store/guildSettings");
     const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
     if (!eff.enabled) return null;
     if (!config.sponsorblock.enabled) return { skipSegments: [], highlightAt: null, source: "disabled" };

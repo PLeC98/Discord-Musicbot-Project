@@ -10,6 +10,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const models = require("../../config/schema/aiModels");
 
 const GEMMA_FILE = path.join(__dirname, "..", "..", "..", "data", "gemma-tokenizer.model");
 
@@ -133,9 +134,7 @@ function countGemma(text, rank) {
 // 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림.
 function tokenizerFor(registry, model) {
   if (!registry || !model) return "tik";
-  const found = require("../../config/schema/aiModels")
-    .modelsOf(registry)
-    .find((one) => one.modelId === model);
+  const found = models.modelsOf(registry).find((one) => one.modelId === model);
   return found?.tokenizer || "tik";
 }
 

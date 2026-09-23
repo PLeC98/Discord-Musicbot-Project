@@ -10,6 +10,10 @@
 const aiConfig = require("../../config/ai");
 const links = require("../../rules/links");
 const yamlStore = require("../../config/yamlStore");
+const googleAuth = require("./googleAuth");
+const tokens = require("./tokens");
+const models = require("../../config/schema/aiModels");
+const YouTube = require("../../sources/youtube/index");
 const log = require("../../infra/log/logger").child({ category: "autoplay" });
 const { PROVIDER_SPECS, PROVIDERS } = require("../../config/schema/aiProviders");
 
@@ -429,7 +433,7 @@ const DIALECTS = {
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one) => {
-      const token = await require("./googleAuth").accessToken(aiConfig.aiKeyOf(one.provider), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs) });
+      const token = await googleAuth.accessToken(aiConfig.aiKeyOf(one.provider), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs) });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
     body: geminiBody,
@@ -451,7 +455,7 @@ const vertexHost = (one) => (vertexLocation(one) === "global" ? "aiplatform.goog
 
 function vertexBase(one) {
   const location = vertexLocation(one);
-  const project = String(one?.project || "").trim() || require("./googleAuth").projectOf(aiConfig.aiKeyOf(one?.provider), yamlStore.configDir());
+  const project = String(one?.project || "").trim() || googleAuth.projectOf(aiConfig.aiKeyOf(one?.provider), yamlStore.configDir());
   return `https://${vertexHost(one)}/v1/projects/${project}/locations/${location}`;
 }
 
@@ -498,7 +502,6 @@ const usable = (field, value) => {
  */
 async function countTokens(one, messages) {
   try {
-    const tokens = require("./tokens");
     const spec = specOf(one.provider);
     const by = tokens.tokenizerFor(spec?.registry, one.model);
 
@@ -516,7 +519,6 @@ function withParams(body, one) {
   const registry = specOf(one.provider)?.registry;
   if (!registry || !one.model) return body;
 
-  const models = require("../../config/schema/aiModels");
   const out = deepMerge(body, models.defaultsOf(registry, one.model));
   // 사용자가 안 고른 칸은 프로필이 적어 둔 기본값으로 간다. 값은 모델별로 따로 저장된다.
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
@@ -835,7 +837,6 @@ function safeHeaders(headers) {
  * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
  */
 async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
-  const YouTube = require("../../sources/youtube/index");
   const out = [];
   for (const raw of (urls || []).slice(0, 20)) {
     const url = String(raw || "").trim();
@@ -909,7 +910,7 @@ const REDACTED = "[REDACTED_SECRET_KEY]";
 function mask(text) {
   let out = String(text);
   // 받아 둔 액세스 토큰도 가린다. 서비스 계정에서 나온 것이라 키만큼 값이 나간다
-  for (const key of [...Object.values(aiConfig.aiKeys()), ...require("./googleAuth").heldTokens()]) {
+  for (const key of [...Object.values(aiConfig.aiKeys()), ...googleAuth.heldTokens()]) {
     if (!key || key.length <= 8) continue;
     out = out.split(key).join(REDACTED);
 
