@@ -6,7 +6,6 @@ const log = require("../infra/log/logger").child({ category: "core" });
 const DashboardEvents = require("./events");
 const trackState = require("./trackState");
 
-// Handle voice state updates for pause/resume and cleanup
 async function onVoiceStateUpdate(client, oldState, newState) {
   const guild = oldState.guild;
 
@@ -18,86 +17,67 @@ async function onVoiceStateUpdate(client, oldState, newState) {
   const player = client.players.get(guild.id);
   if (!player) return;
 
-  const botMember = guild.members.me;
-  const botId = botMember?.id ?? client.user.id;
-  const involvesBot = oldState.id === botId || newState.id === botId;
-
-  if (involvesBot) {
-    const oldChannelId = oldState.channelId;
-    const newChannelId = newState.channelId;
-
-    if (oldChannelId && !newChannelId) {
-      try {
-        const embedManager = client.musicEmbedManager;
-
-        // Mark state as ended so UI reflects the change
-        player.pendingEndReason = "forced-disconnect";
-        trackState.reset(player);
-
-        await embedManager?.handlePlaybackEnd(player, { reason: "disconnected" });
-      } catch (error) {
-        log.error("강제 연결 해제 후 재생 UI 갱신 실패:", error);
-      } finally {
-        player.cleanup("봇이 음성에서 강제 퇴장됨");
-        client.players.delete(guild.id);
-      }
-      return;
-    }
-
-    if (newChannelId && oldChannelId !== newChannelId) {
-      if (newState.channel) {
-        await player.moveToChannel(newState.channel);
-        player.idle.cancelAlone(false);
-        if (client.musicEmbedManager) {
-          await client.musicEmbedManager.updateNowPlayingEmbed(player);
-        }
-      }
-    }
-
-    const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
-    const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
-
-    if (!wasMuted && isMuted) {
-      const paused = player.pauseFor("mute");
-      if (paused && client.musicEmbedManager) {
-        await client.musicEmbedManager.updateNowPlayingEmbed(player);
-      }
-    } else if (wasMuted && !isMuted) {
-      const resumed = player.resumeFor("mute");
-      if (client.musicEmbedManager && (resumed || !player.pauseReasons.has("mute"))) {
-        await client.musicEmbedManager.updateNowPlayingEmbed(player);
-      }
-    }
+  const botId = guild.members.me?.id ?? client.user.id;
+  if (oldState.id === botId || newState.id === botId) {
+    if (oldState.channelId && !newState.channelId) return forcedOut(client, player, guild);
+    await botMoved(client, player, oldState, newState);
+    await botMuted(client, player, oldState, newState);
   }
+  await listenersChanged(client, player, guild, oldState, newState);
+}
 
+// 봇이 음성에서 쫓겨났다. 화면을 끝난 모양으로 바꾸고 플레이어를 버린다
+async function forcedOut(client, player, guild) {
+  try {
+    player.pendingEndReason = "forced-disconnect";
+    trackState.reset(player);
+    await client.musicEmbedManager?.handlePlaybackEnd(player, { reason: "disconnected" });
+  } catch (error) {
+    log.error("강제 연결 해제 후 재생 UI 갱신 실패:", error);
+  } finally {
+    player.cleanup("봇이 음성에서 강제 퇴장됨");
+    client.players.delete(guild.id);
+  }
+}
+
+// 누가 봇을 다른 채널로 옮겼다. 따라간다
+async function botMoved(client, player, oldState, newState) {
+  if (!newState.channelId || oldState.channelId === newState.channelId || !newState.channel) return;
+  await player.moveToChannel(newState.channel);
+  player.idle.cancelAlone(false);
+  await client.musicEmbedManager?.updateNowPlayingEmbed(player);
+}
+
+// 서버 음소거 · 헤드셋 끄기 · 무대 발언권 없음은 들을 수 없으니 멈춘다
+async function botMuted(client, player, oldState, newState) {
+  const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
+  const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
+  if (!wasMuted && isMuted) {
+    if (player.pauseFor("mute")) await client.musicEmbedManager?.updateNowPlayingEmbed(player);
+  } else if (wasMuted && !isMuted) {
+    const resumed = player.resumeFor("mute");
+    if (resumed || !player.pauseReasons.has("mute")) await client.musicEmbedManager?.updateNowPlayingEmbed(player);
+  }
+}
+
+// 봇의 채널에 사람이 남았나. 없으면 혼자 남음을 시작하고, 돌아오면 푼다
+async function listenersChanged(client, player, guild, oldState, newState) {
   const voiceChannelId = player.voiceChannel?.id;
-  if (!voiceChannelId) return;
+  if (!voiceChannelId || (oldState.channelId !== voiceChannelId && newState.channelId !== voiceChannelId)) return;
 
-  if (oldState.channelId === voiceChannelId || newState.channelId === voiceChannelId) {
-    const channel = guild.channels.cache.get(voiceChannelId);
-
-    if (!channel) {
-      player.cleanup("봇의 음성 채널이 사라짐");
-      client.players.delete(guild.id);
-      return;
-    }
-
-    const listeners = channel.members.filter((member) => !member.user.bot).size;
-
-    if (listeners === 0) {
-      const alreadyPaused = player.pauseReasons.has("alone");
-      player.idle.startAlone();
-      if (!alreadyPaused && client.musicEmbedManager && player.currentTrack) {
-        await client.musicEmbedManager.updateNowPlayingEmbed(player);
-      }
-    } else {
-      const wasPausedForAlone = player.pauseReasons.has("alone");
-      player.idle.cancelAlone(true);
-      if (wasPausedForAlone && client.musicEmbedManager && player.currentTrack) {
-        await client.musicEmbedManager.updateNowPlayingEmbed(player);
-      }
-    }
+  const channel = guild.channels.cache.get(voiceChannelId);
+  if (!channel) {
+    player.cleanup("봇의 음성 채널이 사라짐");
+    client.players.delete(guild.id);
+    return;
   }
+
+  const someone = channel.members.filter((member) => !member.user.bot).size > 0;
+  const wasAlone = player.pauseReasons.has("alone");
+  if (someone) player.idle.cancelAlone(true);
+  else player.idle.startAlone();
+  // 멈춤이 바뀌었을 때만 패널을 고친다(혼자 남아 멈춤 · 돌아와 풂)
+  if (wasAlone === someone && player.currentTrack) await client.musicEmbedManager?.updateNowPlayingEmbed(player);
 }
 
 module.exports = { onVoiceStateUpdate };

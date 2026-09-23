@@ -313,13 +313,5 @@
     "complexity": {
       "count": 2
     }
-  },
-  "src/player/voicePresence.js": {
-    "complexity": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
   }
 }
