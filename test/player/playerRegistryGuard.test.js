@@ -7,12 +7,12 @@
 // 기준으로 조건을 통과하고는 길드 키로 client.players에서 지웠다. 그 사이 새 플레이어가
 // 등록돼 재생 중이면 그것이 지워진다 — 소리는 나는데 /nowplaying·대시보드는 "재생 중 없음"이 된다.
 
-const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => [] } };
+const { openTempStore } = require("../helpers/tempStore");
+const store = openTempStore("registry-guard-");
+after(() => store.close());
 
 const config = require("../../config");
 const MusicPlayer = require("../../src/player/Player");

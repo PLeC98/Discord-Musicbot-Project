@@ -1,7 +1,7 @@
 "use strict";
 
 // dashboard/server/routes/admin.js — 봇 운영자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
-// 실 라우터 + fake client. GSM은 require.cache 모킹, REST.put은 프로토타입 패치(실 배포·실 DB 없음).
+// 실 라우터 + fake client. 서버 설정은 임시 DB, REST.put은 프로토타입 패치(실 배포·운영 DB 없음).
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
@@ -16,10 +16,10 @@ const assert = require("node:assert/strict");
 // 재배포 경로가 운영 배포 지문(database/deployed-commands.json)을 기록하지 않도록 임시 경로로 우회
 process.env.DEPLOYED_COMMANDS_HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
 
-// ── 모킹: GuildSettingsManager (공지 발송이 봇 채널 조회 시 실 DB를 열지 않도록) ──
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-let botChannelOf = () => null;
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async (g) => botChannelOf(g) } };
+// 서버 설정은 진짜를 임시 DB 로(공지 발송이 봇 채널을 읽는다)
+const { openTempStore, setGuild } = require("../helpers/tempStore");
+const store = openTempStore("dashboard-admin-");
+after(() => store.close());
 
 // ── 모킹: REST.put (재배포 버튼 경로) ──
 const { REST } = require("discord.js");
@@ -254,7 +254,6 @@ test("POST broadcast: 문자열·길이·종류를 검증한다", async () => {
 });
 
 test("POST broadcast: 한 곳도 못 보내면 성공으로 돌려주지 않는다", async () => {
-  const saved = botChannelOf;
   const guilds = client.guilds.cache;
   client.guilds.cache = new Map(); // 보낼 서버가 없는 상태
   try {
@@ -264,12 +263,13 @@ test("POST broadcast: 한 곳도 못 보내면 성공으로 돌려주지 않는�
     assert.equal(r.json.sent, 0);
   } finally {
     client.guilds.cache = guilds;
-    botChannelOf = saved;
   }
 });
 
 test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
-  botChannelOf = (guildId) => (guildId === "300" ? null : `bc-${guildId}`);
+  setGuild("100", { botChannel: "bc-100" });
+  setGuild("200", { botChannel: "bc-200" });
+  setGuild("300", { botChannel: null });
   for (const g of [g1, g2, gStuck]) g.botChannel.sent.length = 0;
 
   const r = await req("POST", "/api/admin/broadcast", { message: "점검 안내", type: "maintenance" });

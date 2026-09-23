@@ -24,4 +24,17 @@ function openTempStore(prefix = "store-") {
   };
 }
 
-module.exports = { openTempStore };
+// 서버 설정을 표에 바로 쓰고 메모리 캐시를 비운다. 준 칸만 쓴다
+function setGuild(guildId, { djRoles, botChannel, playlistAddMax, sponsorBlock } = {}) {
+  const settings = require("../../src/store/guildSettings");
+  if (djRoles !== undefined) settings.table.setDjRoles(guildId, djRoles);
+  if (botChannel !== undefined) {
+    if (botChannel === null) settings.table.clearBotChannel(guildId);
+    else settings.table.setBotChannel(guildId, botChannel);
+  }
+  if (playlistAddMax !== undefined) settings.table.setPlaylistAddMax(guildId, playlistAddMax);
+  if (sponsorBlock !== undefined) settings.table.setGuildSponsorBlock(guildId, sponsorBlock);
+  settings.cache.clear();
+}
+
+module.exports = { openTempStore, setGuild };

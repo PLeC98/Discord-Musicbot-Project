@@ -13,22 +13,10 @@ const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-// ── GuildSettingsManager 모킹 (라우터 require 전에 — 실 SQLite 미접촉) ──────
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = {
-  id: gsmPath,
-  filename: gsmPath,
-  loaded: true,
-  exports: {
-    getDjRoles: async () => [],
-    setDjRoles: async () => true,
-    clearDjRoles: async () => {},
-    getBotChannel: async () => null,
-    setBotChannel: async () => true,
-    clearBotChannel: async () => {},
-    resolvePlaylistAddMax: () => 50,
-  },
-};
+// ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
+const { openTempStore } = require("../helpers/tempStore");
+const store = openTempStore("dashboard-validation-");
+after(() => store.close());
 
 // ── TrackResolver 모킹 (코어가 실 해석/네트워크를 타지 않게) ──────────────
 const resolverCalls = [];

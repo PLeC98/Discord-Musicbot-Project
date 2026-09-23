@@ -6,17 +6,12 @@
 
 process.env.OWNER_ID = "owner";
 
-const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = {
-  id: gsmPath,
-  filename: gsmPath,
-  loaded: true,
-  exports: { getDjRoles: async () => [], getBotChannel: async () => null },
-};
+const { openTempStore } = require("../helpers/tempStore");
+const store = openTempStore("queue-paging-");
+after(() => store.close());
 
 const express = require("express");
 

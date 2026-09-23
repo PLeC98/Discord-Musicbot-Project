@@ -1,61 +1,54 @@
 "use strict";
 
 // dashboard/server/routes/guilds.js — 서버 설정 GET/PUT + /player 플래그 통합 테스트.
-// 실 라우터 + fake Discord client. GuildSettingsManager는 require.cache 주입으로 모킹(실 SQLite 미접촉).
+// 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
-const path = require("node:path");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-// ── GuildSettingsManager 모킹 (라우터 require 전에) ──────────
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-const store = { djRoles: new Map(), botChannel: new Map(), sponsorblock: new Map(), playlistAdd: new Map() };
-const gsmCalls = [];
-require.cache[gsmPath] = {
-  id: gsmPath,
-  filename: gsmPath,
-  loaded: true,
-  exports: {
-    getDjRoles: async (g) => store.djRoles.get(g) || [],
-    setDjRoles: async (g, ids) => {
-      gsmCalls.push(["setDjRoles", g, ids]);
-      store.djRoles.set(g, ids);
-      return true;
-    },
-    clearDjRoles: async (g) => {
-      gsmCalls.push(["clearDjRoles", g]);
-      store.djRoles.delete(g);
-    },
-    getBotChannel: async (g) => store.botChannel.get(g) || null,
-    setBotChannel: async (g, c) => {
-      gsmCalls.push(["setBotChannel", g, c]);
-      store.botChannel.set(g, c);
-      return true;
-    },
-    clearBotChannel: async (g) => {
-      gsmCalls.push(["clearBotChannel", g]);
-      store.botChannel.delete(g);
-    },
-    resolveSponsorBlock: (g) => store.sponsorblock.get(g) || { enabled: true, categories: ["music_offtopic", "intro", "outro"] },
-    setSponsorBlock: async (g, patch) => {
-      gsmCalls.push(["setSponsorBlock", g, patch]);
-      store.sponsorblock.set(g, patch);
-      return true;
-    },
-    playlistAddLimits: () => ({ min: 1, max: 250, default: 50 }),
-    getPlaylistAddMax: async (g) => store.playlistAdd.get(g) ?? null,
-    resolvePlaylistAddMax: (g) => store.playlistAdd.get(g) ?? 50,
-    setPlaylistAddMax: async (g, n) => {
-      gsmCalls.push(["setPlaylistAddMax", g, n]);
-      store.playlistAdd.set(g, n);
-      return true;
-    },
+// ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
+const { openTempStore, setGuild } = require("../helpers/tempStore");
+const temp = openTempStore("dashboard-settings-");
+const settings = require("../../src/store/guildSettings");
+const config = require("../../config");
+
+// 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250 · 기본 50 으로 본다
+const savedBot = { maxQueueSize: config.bot.maxQueueSize, playlistAddDefault: config.bot.playlistAddDefault };
+config.bot.maxQueueSize = 250;
+config.bot.playlistAddDefault = 50;
+after(() => {
+  Object.assign(config.bot, savedBot);
+  temp.close();
+});
+
+// 저장된 값을 표에서 바로 읽고 쓴다(Map 과 같은 모양)
+const orUndefined = (v) => (v === null || (Array.isArray(v) && v.length === 0) ? undefined : v);
+const store = {
+  djRoles: {
+    get: (g) => orUndefined(settings.table.getDjRoles(g)),
+    has: (g) => settings.table.getDjRoles(g).length > 0,
+    set: (g, ids) => setGuild(g, { djRoles: ids }),
+    delete: (g) => setGuild(g, { djRoles: [] }),
+  },
+  botChannel: {
+    get: (g) => orUndefined(settings.table.getBotChannel(g)),
+    has: (g) => settings.table.getBotChannel(g) !== null,
+    set: (g, c) => setGuild(g, { botChannel: c }),
+    delete: (g) => setGuild(g, { botChannel: null }),
+  },
+  sponsorblock: { get: (g) => settings.table.getGuildSponsorBlock(g) },
+  playlistAdd: {
+    get: (g) => settings.table.getPlaylistAddMax(g),
+    delete: (g) => setGuild(g, { playlistAddMax: null }),
   },
 };
+
+// 아무것도 쓰지 않았는지: 이 서버의 설정 행을 전후로 견준다
+const settingsRow = () => temp.db().prepare("SELECT * FROM guild_settings WHERE guild_id = ?").get(GUILD_ID) ?? null;
 
 const express = require("express");
 const { ChannelType, PermissionFlagsBits } = require("discord.js");
@@ -255,12 +248,12 @@ test("GET settings: SponsorBlock 유효값·카테고리 목록 포함", async (
 test("PUT settings: 검증 실패 시 아무것도 적용하지 않음 (부분 저장 방지)", async () => {
   currentMember = modMember();
   store.djRoles.set(GUILD_ID, ["r1"]);
-  gsmCalls.length = 0;
+  const rowBefore = settingsRow();
 
   const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r2"], botChannelId: "v1" });
   assert.equal(r.status, 400, "음성 채널은 거부");
   assert.deepEqual(store.djRoles.get(GUILD_ID), ["r1"], "역할 변경도 미반영");
-  assert.equal(gsmCalls.length, 0);
+  assert.deepEqual(settingsRow(), rowBefore);
 });
 
 test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () => {
@@ -295,12 +288,12 @@ test("PUT settings: 재생목록 한 번에 넣는 곡 수 — 저장 / null은 
   assert.equal(r.status, 200);
   assert.equal(store.playlistAdd.get(GUILD_ID), null);
 
-  gsmCalls.length = 0;
+  const rowBefore = settingsRow();
   for (const bad of [0, 251, 12.5, "50"]) {
     r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: bad, botChannelId: "c2" });
     assert.equal(r.status, 400, `거부: ${JSON.stringify(bad)}`);
   }
-  assert.equal(gsmCalls.length, 0, "다른 설정도 함께 미반영");
+  assert.deepEqual(settingsRow(), rowBefore, "다른 설정도 함께 미반영");
 });
 
 // ── GET /player의 음성 재적 플래그 ───────────────────────────

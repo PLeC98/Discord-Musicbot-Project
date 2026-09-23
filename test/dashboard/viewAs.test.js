@@ -10,15 +10,13 @@
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
-const path = require("node:path");
-const { test } = require("node:test");
+const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
-// permissions.js보다 먼저 모킹을 심어야 함 (실 SQLite 미접촉)
-let mockDjRoles = [];
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => mockDjRoles } };
+const { openTempStore, setGuild } = require("../helpers/tempStore");
+const store = openTempStore("perm-");
+after(() => store.close());
 
 const { TIERS, getViewAs, shadowMember } = require("../../dashboard/server/viewAs");
 const { isOwner, isRealOwner } = require("../../dashboard/server/owner");
@@ -57,7 +55,7 @@ test("moderator: 모더레이터로 승격돼 재적 규칙까지 면제된다",
 });
 
 test("dj: 모더레이터는 아니지만 DJ 역할 보유로 취급된다", async () => {
-  mockDjRoles = ["dj-role"];
+  setGuild("g", { djRoles: ["dj-role"] });
   const m = shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: "vc-A", botVoice: "vc-A" }));
 
   assert.equal(isModerator(m), false, "원본이 모더레이터여도 계층이 내려간다");
@@ -66,7 +64,7 @@ test("dj: 모더레이터는 아니지만 DJ 역할 보유로 취급된다", asy
 });
 
 test("dj: 모더레이터 면제가 사라지므로 재적 규칙을 받는다", async () => {
-  mockDjRoles = ["dj-role"];
+  setGuild("g", { djRoles: ["dj-role"] });
   const other = shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: "vc-B", botVoice: "vc-A" }));
   assert.equal(await checkControl(other), S.ERR_SAME_CHANNEL);
 
@@ -75,7 +73,7 @@ test("dj: 모더레이터 면제가 사라지므로 재적 규칙을 받는다",
 });
 
 test("user: DJ 역할이 설정된 서버에서는 조작이 막힌다", async () => {
-  mockDjRoles = ["dj-role"];
+  setGuild("g", { djRoles: ["dj-role"] });
   const m = shadowMember(req("user"), member({ perms: [PermissionFlagsBits.ManageGuild], roles: ["dj-role"], voice: "vc-A", botVoice: "vc-A" }));
 
   assert.equal(isModerator(m), false);
@@ -85,7 +83,7 @@ test("user: DJ 역할이 설정된 서버에서는 조작이 막힌다", async (
 });
 
 test("user: DJ 역할 미설정 서버에서는 전원 DJ라 그대로 통과한다 (그 서버의 진짜 동작)", async () => {
-  mockDjRoles = [];
+  setGuild("g", { djRoles: [] });
   const m = shadowMember(req("user"), member({ voice: "vc-A", botVoice: "vc-A" }));
   assert.equal(await isDj(m), true);
   assert.equal(await checkControl(m), null);

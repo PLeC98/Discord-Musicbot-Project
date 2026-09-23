@@ -1,17 +1,15 @@
 "use strict";
 
 // src/usecases/permissions.js — 권한 3계층(모더레이터/DJ/일반) 판정.
-// GuildSettingsManager는 require.cache 주입으로 모킹 (실 SQLite 미접촉).
+// 서버 설정은 진짜를 임시 DB 로 쓴다.
 
-const path = require("node:path");
-const { test } = require("node:test");
+const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
-// permissions.js보다 먼저 모킹을 심어야 함
-let mockDjRoles = [];
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getDjRoles: async () => mockDjRoles } };
+const { openTempStore, setGuild } = require("../helpers/tempStore");
+const store = openTempStore("perm-");
+after(() => store.close());
 
 const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = require("../../src/usecases/permissions");
 const S = require("../../src/ui/strings");
@@ -47,29 +45,29 @@ test("모더레이터: MOD_PERMISSIONS 중 하나라도 있으면 통과", () =>
 // ── isDj (복수 역할) ─────────────────────────────────────────
 
 test("DJ 판정: 미설정 서버는 전원 DJ", async () => {
-  mockDjRoles = [];
+  setGuild("g", { djRoles: [] });
   assert.equal(await isDj(fakeMember()), true);
 });
 
 test("DJ 판정: 복수 역할 중 하나만 보유해도 DJ", async () => {
-  mockDjRoles = ["r1", "r2"];
+  setGuild("g", { djRoles: ["r1", "r2"] });
   assert.equal(await isDj(fakeMember({ roles: ["r2"] })), true);
   assert.equal(await isDj(fakeMember({ roles: ["r1", "r2"] })), true);
   assert.equal(await isDj(fakeMember({ roles: ["other"] })), false);
 });
 
 test("DJ 판정: 미보유라도 모더레이터는 항상 DJ", async () => {
-  mockDjRoles = ["r1"];
+  setGuild("g", { djRoles: ["r1"] });
   assert.equal(await isDj(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), true);
 });
 
 test("DJ 판정: 설정 역할이 전부 삭제되면 전원 잠금 방지 위해 전원 DJ", async () => {
-  mockDjRoles = ["r1", "r2"];
+  setGuild("g", { djRoles: ["r1", "r2"] });
   assert.equal(await isDj(fakeMember({ guildRoles: [] })), true);
 });
 
 test("DJ 판정: 일부만 삭제되면 남은 역할로 판정", async () => {
-  mockDjRoles = ["r1", "r2"];
+  setGuild("g", { djRoles: ["r1", "r2"] });
   assert.equal(await isDj(fakeMember({ roles: ["r2"], guildRoles: ["r2"] })), true);
   assert.equal(await isDj(fakeMember({ roles: ["r1"], guildRoles: ["r2"] })), false);
 });
@@ -99,24 +97,24 @@ test("재적 규칙: 모더레이터는 어디서든 면제", () => {
 // ── checkControl (재생 조작 = 재적 + DJ) ─────────────────────
 
 test("재생 조작: 같은 채널 + DJ면 허용", async () => {
-  mockDjRoles = ["r1"];
+  setGuild("g", { djRoles: ["r1"] });
   assert.equal(await checkControl(fakeMember({ roles: ["r1"], voice: "vc1", botVoice: "vc1" })), null);
 });
 
 test("재생 조작: 재적 위반이 DJ 판정보다 먼저", async () => {
-  mockDjRoles = ["r1"];
+  setGuild("g", { djRoles: ["r1"] });
   assert.equal(await checkControl(fakeMember({ roles: ["r1"], voice: "vc2", botVoice: "vc1" })), S.ERR_SAME_CHANNEL);
 });
 
 test("재생 조작: 같은 채널이어도 비-DJ는 거부", async () => {
-  mockDjRoles = ["r1"];
+  setGuild("g", { djRoles: ["r1"] });
   assert.equal(await checkControl(fakeMember({ roles: [], voice: "vc1", botVoice: "vc1" })), S.ERR_NOT_AUTHORIZED);
 });
 
 // ── checkSkip / checkRemoveTrack (요청자 본인 예외) ──────────
 
 test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (재적 규칙은 적용)", async () => {
-  mockDjRoles = ["r1"];
+  setGuild("g", { djRoles: ["r1"] });
   const player = { currentTrack: { requestedBy: { id: "u1" } } };
 
   const requester = fakeMember({ voice: "vc1", botVoice: "vc1" });
@@ -133,7 +131,7 @@ test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (재적 규칙�
 });
 
 test("대기열 제거: 비-DJ여도 그 곡 요청자 본인은 가능", async () => {
-  mockDjRoles = ["r1"];
+  setGuild("g", { djRoles: ["r1"] });
   const track = { requestedBy: { id: "u1" } };
 
   const requester = fakeMember({ voice: "vc1", botVoice: "vc1" });

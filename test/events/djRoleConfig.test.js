@@ -1,28 +1,27 @@
 "use strict";
 
 // events/djRoleConfigHandler.js — /setdjrole GUI (드롭메뉴 선택 보류 → 저장/취소 확정) 흐름.
-// GuildSettingsManager는 require.cache 주입으로 모킹.
+// 서버 설정은 진짜를 임시 DB 로 쓴다.
 
-const path = require("node:path");
-const { test } = require("node:test");
+const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { PermissionFlagsBits } = require("discord.js");
 
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-const store = { djRoles: new Map() };
-require.cache[gsmPath] = {
-  id: gsmPath,
-  filename: gsmPath,
-  loaded: true,
-  exports: {
-    getDjRoles: async (g) => store.djRoles.get(g) || [],
-    setDjRoles: async (g, ids) => {
-      store.djRoles.set(g, ids);
-      return true;
+const { openTempStore, setGuild } = require("../helpers/tempStore");
+const temp = openTempStore("dj-role-");
+after(() => temp.close());
+const settings = require("../../src/store/guildSettings");
+
+// 저장된 DJ 역할을 표에서 바로 읽고 쓴다(Map 과 같은 모양)
+const store = {
+  djRoles: {
+    get: (g) => {
+      const ids = settings.table.getDjRoles(g);
+      return ids.length ? ids : undefined;
     },
-    clearDjRoles: async (g) => {
-      store.djRoles.delete(g);
-    },
+    has: (g) => settings.table.getDjRoles(g).length > 0,
+    set: (g, ids) => setGuild(g, { djRoles: ids }),
+    delete: (g) => setGuild(g, { djRoles: [] }),
   },
 };
 

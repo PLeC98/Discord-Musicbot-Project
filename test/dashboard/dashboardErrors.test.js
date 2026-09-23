@@ -51,22 +51,10 @@ require.cache[sessionPath] = {
   },
 };
 
-// ── GuildSettingsManager 모킹 (라우터가 실 DB를 열지 않게) ─────────────────────
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = {
-  id: gsmPath,
-  filename: gsmPath,
-  loaded: true,
-  exports: {
-    getDjRoles: async () => [],
-    setDjRoles: async () => true,
-    clearDjRoles: async () => {},
-    getBotChannel: async () => null,
-    setBotChannel: async () => true,
-    clearBotChannel: async () => {},
-    resolveSponsorBlock: () => ({ enabled: false, categories: [] }),
-  },
-};
+// ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
+const { openTempStore } = require("../helpers/tempStore");
+const store = openTempStore("dashboard-errors-");
+after(() => store.close());
 
 const { createApp } = require("../../dashboard/server/index.js");
 const { describeBinding, isLoopbackHost } = require("../../dashboard/server/binding.js");

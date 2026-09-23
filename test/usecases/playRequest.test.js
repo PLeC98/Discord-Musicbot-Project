@@ -6,14 +6,14 @@
 // 코어가 둘로 갈려 있었다. 같은 버그를 두 번 고쳐야 했고 요청자 모양도 서로 달랐다.
 
 const path = require("node:path");
-const { test } = require("node:test");
+const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
-let mockBotChannelId = null;
-let mockBatch = 50;
-const gsmPath = require.resolve(path.join(__dirname, "..", "..", "src", "store", "guildSettings.js"));
-require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports: { getBotChannel: async () => mockBotChannelId, resolvePlaylistAddMax: () => mockBatch } };
+const { openTempStore, setGuild } = require("../helpers/tempStore");
+const store = openTempStore("play-request-");
+after(() => store.close());
+setGuild("g1", { playlistAddMax: 50 });
 
 let mockResolve = null;
 const resolverCalls = [];
@@ -343,7 +343,7 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
 
 test("텍스트 채널이 없으면 서버가 지정한 봇 전용 채널로 채운다", async () => {
   mockResolve = () => ok("곡A");
-  mockBotChannelId = "botCh";
+  setGuild(GUILD_ID, { botChannel: "botCh" });
   const botChannel = makeChannel("botCh");
   const client = makeClient();
   const guild = makeGuild({ channels: [botChannel] });
@@ -355,7 +355,7 @@ test("텍스트 채널이 없으면 서버가 지정한 봇 전용 채널로 채
 
 test("봇 전용 채널이 미설정이면 아무 채널도 추측하지 않는다", async () => {
   mockResolve = () => ok("곡A");
-  mockBotChannelId = null;
+  setGuild(GUILD_ID, { botChannel: null });
   const client = makeClient();
   const guild = makeGuild({ channels: [makeChannel("random")] });
   client.players.set(GUILD_ID, { textChannel: null, voiceChannel: null, queue: [] });
@@ -366,7 +366,7 @@ test("봇 전용 채널이 미설정이면 아무 채널도 추측하지 않는�
 
 test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는다", async () => {
   mockResolve = () => ok("곡A");
-  mockBotChannelId = "botCh";
+  setGuild(GUILD_ID, { botChannel: "botCh" });
   const client = makeClient();
   const given = makeChannel("given");
   const guild = makeGuild({ channels: [makeChannel("botCh")] });
@@ -380,13 +380,14 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
 
 async function withLimits(queueMax, playlistMax, fn) {
   const config = require("../../config");
-  const saved = [config.bot.maxQueueSize, mockBatch];
+  const saved = config.bot.maxQueueSize;
   config.bot.maxQueueSize = queueMax;
-  mockBatch = playlistMax;
+  setGuild(GUILD_ID, { playlistAddMax: playlistMax });
   try {
     await fn();
   } finally {
-    [config.bot.maxQueueSize, mockBatch] = saved;
+    config.bot.maxQueueSize = saved;
+    setGuild(GUILD_ID, { playlistAddMax: 50 });
   }
 }
 
@@ -405,7 +406,8 @@ test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽",
   withLimits(30, 50, async () => {
     assert.equal((await requestWith({ playing: true })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
-    assert.equal((await requestWith({ playing: false })).limit, 31, "비어 있으면 첫 곡은 현재곡이 되니 한 자리 더");
+    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 셈하지만, 묶음이 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
+    assert.equal((await requestWith({ playing: false })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
     assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
   }));
@@ -420,8 +422,8 @@ test("자리가 모자라 덜 받았고 뒤에 곡이 더 있을 때만 queueLim
     const five = () => ({ ...ok("1", "2", "3", "4", "5"), total: 80 });
     assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData.queueLimited, true);
 
-    const fifty = () => ({ ...ok(...Array.from({ length: 30 }, (_, i) => `s${i}`)), total: 80 });
-    assert.equal((await requestWith({ playing: true, resolve: fifty })).trackData.queueLimited, true, "상한 30이 묶음 50보다 작다");
+    const room = () => ({ ...ok(...Array.from({ length: 25 }, (_, i) => `s${i}`)), total: 80 });
+    assert.equal((await requestWith({ playing: true, queued: 5, resolve: room })).trackData.queueLimited, true, "남은 자리 25가 묶음 30보다 작다");
 
     const whole = () => ({ ...ok("1", "2", "3"), total: 3 });
     assert.equal((await requestWith({ playing: true, queued: 25, resolve: whole })).trackData.queueLimited, undefined, "목록을 다 받았으면 아니다");
