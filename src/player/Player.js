@@ -10,7 +10,6 @@ const config = require("../../config");
 const autoplayRoute = require("../autoplay/route");
 const ErrorHandler = require("../ui/errorMessages");
 const equivalent = require("../sources/youtube/equivalent");
-const lookup = require("../sources/lookup");
 const streamUrl = require("../sources/streamUrl");
 const SponsorBlock = require("../sources/sponsorBlock");
 const SponsorSkipper = require("./sponsorSkipper");
@@ -30,6 +29,7 @@ const S = require("../ui/strings");
 const { spawnFfmpeg } = require("../media/ffmpeg/process");
 const { transportOf, isHlsStream } = require("../rules/transportOf");
 const { inputKind } = require("../rules/inputKind");
+const { audioKeyOf } = require("../rules/audioKeyOf");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 const { Readable } = require("stream");
 const fsSync = require("fs");
@@ -63,7 +63,7 @@ class MusicPlayer {
 
     // 대기열 관리. 현재곡·대기열·기록은 trackState로만 바꾼다
     trackState.init(this);
-    // 캐시 퇴거 보호 중인 audioSourceKey. currentTrack과 별도로 기억,
+    // 캐시 퇴거 보호 중인 캐시 열쇠. currentTrack과 별도로 기억,
     // 종료 경로가 currentTrack을 먼저 null해도 해제가 누락되지 않게
     this._protectedAudioKey = null;
 
@@ -132,7 +132,7 @@ class MusicPlayer {
       warm: (track) => this.downloader.warm(track),
       isCached: (track) => this.downloader.isCached(track),
       isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),
-      keyOf: (track) => lookup.ensureAudioSourceKey(track),
+      keyOf: (track) => audioKeyOf(track?.audioUrl),
       setProtection: (guildId, keys) => audioCache.setQueuedKeys(guildId, keys),
     });
     this.sponsorSkipper = new SponsorSkipper(this);
@@ -287,8 +287,8 @@ class MusicPlayer {
       // 오디오 스트림 가져오기 - 사전 로드된 항목 먼저 확인
       let streamInfo;
 
-      // audioSourceKey를 미리 해석 (yt-dlp 호출 전 파일 조회 가능; spotify는 YouTube 검색 후 해석)
-      lookup.ensureAudioSourceKey(this.currentTrack);
+      // 캐시 열쇠는 음원 주소에서 바로 나온다(yt-dlp 호출 전 파일 조회 가능; spotify는 YouTube 검색 후)
+      const earlyKey = audioKeyOf(this.currentTrack.audioUrl);
 
       // 조기 파일 확인. 파일이 이미 캐시되어 있으면 yt-dlp 호출을 전부 건너뜀
       let downloadedFile;
@@ -296,8 +296,8 @@ class MusicPlayer {
 
       if (this.currentDownloadedFile && fsSync.existsSync(this.currentDownloadedFile) && !TrackDownloader.isDownloading(this.currentDownloadedFile)) {
         downloadedFile = this.currentDownloadedFile;
-      } else if (this.currentTrack.audioSourceKey) {
-        const _earlyPath = this.currentTrack._cachedFilePath || audioCache.getFilePath(this.currentTrack.audioSourceKey);
+      } else if (earlyKey) {
+        const _earlyPath = audioCache.getFilePath(earlyKey);
         if (fsSync.existsSync(_earlyPath) && !TrackDownloader.isDownloading(_earlyPath)) {
           const _earlyStats = fsSync.statSync(_earlyPath);
           if (_earlyStats.size > 0) {
@@ -316,15 +316,16 @@ class MusicPlayer {
       }
 
       if (!streamInfo && !downloadedFile) {
-        // 음원 주소가 없는 곡(스포티파이)은 YouTube 동등물을 먼저 확보. 검색으로 audioSourceKey가 정해지므로
+        // 음원 주소가 없는 곡(스포티파이)은 YouTube 동등물을 먼저 확보. 검색으로 캐시 열쇠가 정해지므로
         // 캐시 파일을 한 번 더 확인해 있으면 스트림 획득을 통째로 건너뜀
         if (!this.currentTrack.audioUrl) {
           const ytUrl = await equivalent.findYouTubeEquivalent(this.currentTrack);
           if (!ytUrl) {
             throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${this.currentTrack.title}`);
           }
-          if (this.currentTrack.audioSourceKey) {
-            const _spotPath = audioCache.getFilePath(this.currentTrack.audioSourceKey);
+          const spotKey = audioKeyOf(this.currentTrack.audioUrl);
+          if (spotKey) {
+            const _spotPath = audioCache.getFilePath(spotKey);
             if (fsSync.existsSync(_spotPath) && fsSync.statSync(_spotPath).size > 0) {
               downloadedFile = _spotPath;
               this.currentDownloadedFile = _spotPath;
@@ -434,7 +435,7 @@ class MusicPlayer {
           inlineVolume: true,
           metadata: {
             title: this.currentTrack.title,
-            url: this.currentTrack.url,
+            url: this.currentTrack.pageUrl,
             duration: isLiveStream ? 0 : streamInfo.duration || this.currentTrack.duration,
             bitrate: streamInfo.bitrate || 128,
           },
@@ -565,7 +566,7 @@ class MusicPlayer {
             inlineVolume: true,
             metadata: {
               title: this.currentTrack.title,
-              url: this.currentTrack.url,
+              url: this.currentTrack.pageUrl,
               duration: streamInfo.duration || this.currentTrack.duration,
               bitrate: streamInfo.bitrate || 128,
             },
@@ -582,7 +583,7 @@ class MusicPlayer {
           inlineVolume: true,
           metadata: {
             title: this.currentTrack.title,
-            url: this.currentTrack.url,
+            url: this.currentTrack.pageUrl,
             duration: (streamInfo && streamInfo.duration) || this.currentTrack.duration,
             bitrate: (streamInfo && streamInfo.bitrate) || 128,
           },
@@ -606,12 +607,13 @@ class MusicPlayer {
       log.info(`재생: ${this.currentTrack.title} (${this.currentTrack.duration}s, offset: ${resumeFromMs}ms, 출처=${downloadedFile ? "캐시" : "스트림"})`);
 
       // 재생 중인 현재 트랙을 제거 대상에서 보호 (해제는 releaseAudioProtection)
-      if (this._protectedAudioKey && this._protectedAudioKey !== this.currentTrack.audioSourceKey) {
+      const audioKey = audioKeyOf(this.currentTrack.audioUrl);
+      if (this._protectedAudioKey && this._protectedAudioKey !== audioKey) {
         audioCache.unprotect(this._protectedAudioKey);
         this._protectedAudioKey = null;
       }
-      if (this.currentTrack.audioSourceKey) {
-        this._protectedAudioKey = this.currentTrack.audioSourceKey;
+      if (audioKey) {
+        this._protectedAudioKey = audioKey;
         audioCache.protect(this._protectedAudioKey);
       }
 
@@ -622,9 +624,9 @@ class MusicPlayer {
       // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
       //
       // 라이브는 받아 두지 않으므로 적을 것이 없다.
-      if (this.currentTrack.audioSourceKey && !this.currentTrack.isLive) {
+      if (audioKey && !this.currentTrack.isLive) {
         try {
-          audioCache.recordPlayback(this.currentTrack.audioSourceKey);
+          audioCache.recordPlayback(audioKey);
           trackLookup.recordTrackLookup(this.currentTrack, { verified: titleVerified });
         } catch (error) {
           log.warn(`캐시 장부 기록 실패(재생은 계속): ${error?.message || error}`);
@@ -685,8 +687,9 @@ class MusicPlayer {
 
   // 조기 종료·SponsorBlock 곡 끝 판정에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
   _audioDurationSec(streamInfo, downloadedFile) {
-    if (downloadedFile && this.currentTrack?.audioSourceKey) {
-      const cached = audioCache.lookupByAudioKey(this.currentTrack.audioSourceKey)?.duration_sec;
+    const key = audioKeyOf(this.currentTrack?.audioUrl);
+    if (downloadedFile && key) {
+      const cached = audioCache.lookupByAudioKey(key)?.duration_sec;
       if (cached > 0) return cached;
     }
     return streamInfo?.duration > 0 ? streamInfo.duration : null;
@@ -1169,7 +1172,7 @@ class MusicPlayer {
 
   // 재생 중 트랙의 캐시 퇴거 보호 해제. currentTrack이 이미 null이어도 기억된 키로 해제
   releaseAudioProtection() {
-    const key = this._protectedAudioKey || this.currentTrack?.audioSourceKey;
+    const key = this._protectedAudioKey || audioKeyOf(this.currentTrack?.audioUrl);
     if (key) audioCache.unprotect(key);
     this._protectedAudioKey = null;
   }

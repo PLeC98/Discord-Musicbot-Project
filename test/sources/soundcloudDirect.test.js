@@ -72,7 +72,7 @@ test("사운드클라우드 검색: scsearch 로 받고 사운드클라우드 �
   assert.equal(calls.ytdlp[0].url, "scsearch3:노래");
   assert.deepEqual({ dump: calls.ytdlp[0].flags.dumpSingleJson, flat: calls.ytdlp[0].flags.flatPlaylist, noWarnings: calls.ytdlp[0].flags.noWarnings }, { dump: true, flat: true, noWarnings: true });
   assert.deepEqual(
-    tracks.map((t) => t.url),
+    tracks.map((t) => t.pageUrl),
     ["https://soundcloud.com/artist/one", "https://soundcloud.com/artist/two"],
   );
   assert.deepEqual({ title: tracks[0].title, artist: tracks[0].artist, duration: tracks[0].duration, platform: tracks[0].platform, type: tracks[0].type, id: tracks[0].id }, { title: "SC one", artist: "올린 사람", duration: 180.4, platform: "soundcloud", type: "track", id: 1003 });

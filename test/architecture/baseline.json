@@ -18,7 +18,7 @@
   "lazyRequire": {
     "src/autoplay/assist/index.js": 6,
     "src/autoplay/assist/tokens.js": 2,
-    "src/autoplay/route.js": 2,
+    "src/autoplay/route.js": 1,
     "src/autoplay/sources/keyword.js": 1,
     "src/autoplay/sources/playlists.js": 2,
     "src/infra/log/sink.js": 1,

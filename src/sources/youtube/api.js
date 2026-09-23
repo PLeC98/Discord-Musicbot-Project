@@ -103,7 +103,6 @@ class YouTubeApi {
           const track = {
             title: this.titleOf(item) || unknownTitle,
             artist: item.uploader || item.channel || unknownArtist,
-            url,
             pageUrl: link,
             requestKey: link,
             audioUrl: link,
@@ -122,7 +121,7 @@ class YouTubeApi {
           // 검색 결과에 길이가 없으면 getInfo에서 가져오기 시도
           // (라이브는 여기서 duration이 늘 0이라 이 분기를 타고, 상세 정보로 isLive가 확정된다.)
           if (!track.duration || track.duration === 0) {
-            const detailedInfo = await this.getInfo(track.url);
+            const detailedInfo = await this.getInfo(url);
             if (detailedInfo && detailedInfo.duration) {
               track.duration = detailedInfo.duration;
             }
@@ -171,7 +170,6 @@ class YouTubeApi {
       const track = {
         title: this.titleOf(info) || unknownTitle,
         artist: info.uploader || info.channel || unknownArtist,
-        url: info.webpage_url || url,
         pageUrl: link,
         requestKey: link,
         audioUrl: link,
@@ -289,7 +287,6 @@ class YouTubeApi {
             const track = {
               title: this.titleOf(entry) || unknownTitle,
               artist: entry.uploader || entry.channel || entry.uploader_id || unknownArtist,
-              url: videoUrl,
               pageUrl: link,
               requestKey: link,
               audioUrl: link,
@@ -305,7 +302,7 @@ class YouTubeApi {
             // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
             // 재생목록 페이지의 제목은 낡을 수 있어서, 이게 없으면 곡이 재생되기 전까지 대기열에
             // 낡은 제목이 그대로 보인다.
-            if (track.url) {
+            if (track.requestKey) {
               try {
                 const known = trackLookup.getVerifiedTitle(track.requestKey);
                 if (known) track.title = known;

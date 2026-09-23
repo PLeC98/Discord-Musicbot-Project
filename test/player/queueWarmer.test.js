@@ -11,7 +11,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const QueueWarmer = require("../../src/player/queueWarmer");
 
-const track = (id, extra = {}) => ({ title: id, requestKey: `https://y/${id}`, audioSourceKey: `yt:${id}`, ...extra });
+const track = (id, extra = {}) => ({ title: id, requestKey: `https://y/${id}`, audioKey: `yt:${id}`, ...extra });
 
 function makeWarmer({ queue = [], currentTrack = null, loop = false, cached = new Set(), busy = new Set(), fail = new Set(), guildId = "g1" } = {}) {
   const warmed = [];
@@ -22,13 +22,13 @@ function makeWarmer({ queue = [], currentTrack = null, loop = false, cached = ne
     ahead: 5,
     gapMs: 0,
     intervalMs: 1000,
-    keyOf: (t) => t?.audioSourceKey || null,
-    isCached: (t) => cached.has(t.audioSourceKey),
-    isBusy: (t) => busy.has(t.audioSourceKey),
+    keyOf: (t) => t?.audioKey || null,
+    isCached: (t) => cached.has(t.audioKey),
+    isBusy: (t) => busy.has(t.audioKey),
     warm: async (t) => {
-      warmed.push(t.audioSourceKey);
-      if (fail.has(t.audioSourceKey)) throw new Error("boom");
-      cached.add(t.audioSourceKey);
+      warmed.push(t.audioKey);
+      if (fail.has(t.audioKey)) throw new Error("boom");
+      cached.add(t.audioKey);
     },
     setProtection: (gid, keys) => protection.push({ gid, keys: [...keys] }),
   });
@@ -149,14 +149,14 @@ test("루프 도중 대기열이 바뀌면 멈추고, 다음 안정된 틱이 �
     ahead: 5,
     gapMs: 0,
     intervalMs: 1000,
-    keyOf: (t) => t?.audioSourceKey || null,
-    isCached: (t) => cached.has(t.audioSourceKey),
+    keyOf: (t) => t?.audioKey || null,
+    isCached: (t) => cached.has(t.audioKey),
     isBusy: () => false,
     warm: (t) => {
-      warmed.push(t.audioSourceKey);
+      warmed.push(t.audioKey);
       return new Promise((resolve) => {
         release = () => {
-          cached.add(t.audioSourceKey);
+          cached.add(t.audioKey);
           resolve();
         };
       });
@@ -240,7 +240,7 @@ test("아직 캐시되지 않은 키도 보호한다 (예열이 끝나기 전에
 });
 
 test("키가 없는 트랙은 보호에서 빠진다 (미해석 스포티파이 — 보호할 파일이 없다)", async () => {
-  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioKey: null };
   const { warmer, protection } = makeWarmer({ queue: [spotify, track("b")] });
 
   warmer.tick();
@@ -289,16 +289,16 @@ test("대기열이 같아도 현재 곡이 바뀌면 서명이 달라진다 (이
 // 키가 생긴 다음 틱에는 키 경로가 비어 있어 또 받았다.
 
 test("키가 늦게 정해져도 지문은 흔들리지 않는다", () => {
-  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioKey: null };
   const { warmer } = makeWarmer({ queue: [spotify] });
 
   const before = warmer.signature();
-  spotify.audioSourceKey = "yt:resolved"; // 받는 도중에 동등물이 정해졌다
+  spotify.audioKey = "yt:resolved"; // 받는 도중에 동등물이 정해졌다
   assert.equal(warmer.signature(), before, "대기열은 그대로이므로 지문도 그대로여야 한다");
 });
 
 test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
-  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioSourceKey: null };
+  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioKey: null };
   const cached = new Set();
   const warmed = [];
 
@@ -307,14 +307,14 @@ test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
     ahead: 5,
     gapMs: 0,
     intervalMs: 1000,
-    keyOf: (t) => t?.audioSourceKey || null,
+    keyOf: (t) => t?.audioKey || null,
     // 파일 경로는 키에서 나온다 — 키가 없으면 요청 열쇠 해시로 갈라진다(실제 trackFilePath와 같은 규칙)
-    isCached: (t) => cached.has(t.audioSourceKey || t.requestKey),
+    isCached: (t) => cached.has(t.audioKey || t.requestKey),
     isBusy: () => false,
     warm: async (t) => {
       warmed.push(t.requestKey);
-      t.audioSourceKey = "yt:resolved"; // warm이 받기 전에 키를 확정한다
-      cached.add(t.audioSourceKey);
+      t.audioKey = "yt:resolved"; // warm이 받기 전에 키를 확정한다
+      cached.add(t.audioKey);
     },
     setProtection: () => {},
   });

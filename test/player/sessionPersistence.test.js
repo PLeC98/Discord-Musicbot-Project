@@ -55,7 +55,7 @@ function makePlayer(overrides = {}) {
 }
 
 let serial = 0;
-const t = (title = `t${serial++}`) => ({ title, url: `https://y/${title}`, audioSourceKey: `yt:${title}` });
+const t = (title = `t${serial++}`) => ({ title, pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
 const titles = (arr) => arr.map((x) => x.title);
 const memory = (p) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
 

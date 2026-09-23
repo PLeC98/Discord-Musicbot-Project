@@ -111,30 +111,26 @@ function requestKeyOf(cand) {
  *
  * 표시 이름은 소스 것을 앞세운다. 유튜브 채널명은 아티스트가 아니라 올린 사람이다.
  *
- * 이름만 바꿔서는 안 된다. `platform: "youtube"`이고 주소가 영상 주소면 캐시 장부의 그 영상 칸에
- * 우리 이름이 덮이고, TrackDownloader가 제목을 영상 제목으로 되돌려 놓는다.
- * 그래서 주소와 platform은 출처 것으로 두고, 영상은 `youtubeUrl`에, 소리는 `audioSourceKey`로
- * 나눠 쓴다. 장부에 칸이 따로 생기고 음원 파일은 하나만 받는다. 스포티파이와 같은 방식이다.
+ * 이름만 바꿔서는 안 된다. `platform: "youtube"`면 TrackDownloader가 제목을 영상 제목으로 되돌려 놓는다.
+ * 그래서 보여 줄 링크와 platform은 출처 것으로 두고 영상은 음원 주소에만 쓴다.
+ * 장부에는 요청 열쇠로 줄이 따로 생기고, 음원 파일은 영상 하나에 하나다. 스포티파이와 같은 방식이다.
  */
 function fromYouTube(video, cand) {
-  const videoId = video.id || links.extractVideoId(video.url);
   // 출처가 따로 있는 곡인가(Last.fm·LB Radio·VocaDB·AnimeThemes), 아니면 영상 자체가 출처인가(keyword·유튜브 재생목록)
   const sourced = !!cand.sourceUrl;
   const videoUrl = canonicalUrl(video.url);
-  const origin = sourced ? { url: cand.sourceUrl, youtubeUrl: video.url, pageUrl: cand.sourceUrl, platform: cand.platform || "youtube" } : { url: video.url, youtubeUrl: undefined, pageUrl: videoUrl, platform: "youtube" };
 
   return {
     title: cand.title || video.title,
     artist: cand.artist || video.channel || video.artist || "",
-    ...origin,
+    pageUrl: sourced ? cand.sourceUrl : videoUrl,
     requestKey: requestKeyOf(cand),
     audioUrl: videoUrl,
-    // 소리는 영상에서 온다. 출처가 달라도 같은 영상이면 파일 하나를 함께 쓴다
-    audioSourceKey: videoId ? `yt:${videoId}` : undefined,
+    platform: sourced ? cand.platform || "youtube" : "youtube",
     duration: Number(video.durationSec || video.duration) || 0,
     thumbnail: cand.thumbnail || video.thumbnail || null,
     type: "track",
-    id: videoId,
+    id: video.id || links.extractVideoId(video.url),
   };
 }
 
@@ -148,10 +144,7 @@ function fromYouTube(video, cand) {
 const fromAudio = (cand) => ({
   title: cand.title,
   artist: cand.artist || "",
-  // url 은 음원 그대로 둔다. 받는 쪽(DirectLink)이 이 주소로 가져오고, 세션 복원도 이것만 남긴다.
-  // 사람에게 보일 링크는 webUrl 로 따로 싣는다. 음원 파일 주소를 눌러 봐야 쓸모가 없다.
-  url: cand.audioUrl,
-  webUrl: cand.sourceUrl || undefined,
+  // 사람에게 보일 링크는 출처 페이지다. 음원 파일 주소를 눌러 봐야 쓸모가 없다(출처 페이지가 없을 때만 음원)
   pageUrl: cand.sourceUrl || cand.audioUrl,
   requestKey: requestKeyOf(cand),
   audioUrl: cand.audioUrl,
@@ -161,8 +154,6 @@ const fromAudio = (cand) => ({
   thumbnail: cand.thumbnail || null,
   // 패널에 "Direct"가 아니라 어디서 온 곡인지 보이게 한다
   platform: cand.platform || "direct",
-  // DirectLink와 같은 규약. 이 값이 있어야 캐시 장부에 이름·표지가 남는다
-  audioSourceKey: `dl:${require("../store/audioCache").md5(cand.audioUrl)}`,
   type: "track",
   id: cand.sourceKey,
 });
@@ -187,7 +178,7 @@ async function findOnYouTube(cand, genre) {
 
   // thumbnail을 꼭 실어야 한다. Last.fm·LB Radio는 표지를 안 주므로 영상 것이 유일한 그림이다.
   // 빠뜨리면 앨범아트 자리에 디스코드의 빈 그림이, 대시보드에는 파일 아이콘이 뜬다.
-  const shape = (list) => list.map((r) => ({ id: r.id, url: r.url, title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
+  const shape = (list) => list.map((r) => ({ id: r.id, url: r.audioUrl, title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
   const primaryLists = (await run(primary)).map(shape);
   const secondaryLists = primaryLists.some((l) => l.length) ? [] : (await run(secondary)).map(shape);
 

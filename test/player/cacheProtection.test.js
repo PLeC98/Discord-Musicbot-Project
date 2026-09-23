@@ -21,11 +21,11 @@ test("currentTrack이 먼저 null된 종료 경로에서도 기억된 키가 해
   assert.equal(player._protectedAudioKey, null);
 });
 
-test("기억된 키가 없으면 currentTrack의 키로 폴백 해제", () => {
-  audioCache.protect("k2");
-  const player = { _protectedAudioKey: null, currentTrack: { audioSourceKey: "k2" } };
+test("기억된 키가 없으면 currentTrack의 음원 주소에서 계산한 키로 폴백 해제", () => {
+  audioCache.protect("yt:k2k2k2k2k2k");
+  const player = { _protectedAudioKey: null, currentTrack: { audioUrl: "https://www.youtube.com/watch?v=k2k2k2k2k2k" } };
   release.call(player);
-  assert.equal(isProtected("k2"), false);
+  assert.equal(isProtected("yt:k2k2k2k2k2k"), false);
 });
 
 test("둘 다 없으면 no-op — 다른 보호 키에 무영향", () => {

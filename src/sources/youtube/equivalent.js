@@ -1,35 +1,29 @@
 "use strict";
 
-// 스포티파이 · 사운드클라우드 곡의 유튜브 동등물 찾기. 찾은 영상 주소와 캐시 열쇠를 트랙에 적는다.
+// 스포티파이 곡의 유튜브 동등물 찾기. 찾은 영상을 트랙의 음원 주소로 적는다.
 
 const YouTube = require("./index");
 const trackLookup = require("../../store/trackLookup");
-const lookup = require("../lookup");
 const links = require("../../rules/links");
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./match");
 
 const equivalent = {
   /**
-   * Spotify/SoundCloud 트랙의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.js).
+   * 음원 주소가 없는 곡(스포티파이)의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.js).
    * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치·정크를 타이브레이커로 삼아
-   * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.youtubeUrl(및 audioSourceKey)을
-   * 설정하고 URL 반환, 실패 시 null.
+   * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.audioUrl 과 audioFoundBy 를
+   * 설정하고 그 주소를 반환, 실패 시 null. 이미 음원 주소가 있으면 그대로 돌려준다.
    */
   // search: 유튜브 검색 함수. 생략하면 진짜
   async findYouTubeEquivalent(track, { search = (query, limit) => YouTube.search(query, limit) } = {}) {
-    if (track.audioUrl) {
-      lookup.ensureAudioSourceKey(track);
-      return track.audioUrl;
-    }
+    if (track.audioUrl) return track.audioUrl;
 
     // Tier-1: 장부에 이 요청의 영상이 있으면 유튜브 검색을 건너뛴다(파일 존재 여부 무관).
     // 그 영상이 내려간 경우는 소비(다운로드) 시점에서 감지해 reresolveYouTube로 재검색한다.
     const known = track.requestKey && trackLookup.getAudioUrl(track.requestKey);
     if (known && links.isYouTubeURL(known)) {
-      track.youtubeUrl = known;
       track.audioUrl = known;
-      track._youtubeFromCache = true; // 소비 시 unavailable이면 재검색 트리거
-      lookup.ensureAudioSourceKey(track);
+      track.audioFoundBy = "ledger"; // 소비 시 unavailable이면 재검색 트리거
       return known;
     }
 
@@ -45,7 +39,7 @@ const equivalent = {
           lists.push(
             (results || []).map((r) => ({
               id: r.id,
-              url: r.url || (r.id ? `https://www.youtube.com/watch?v=${r.id}` : null),
+              url: r.audioUrl || (r.id ? `https://www.youtube.com/watch?v=${r.id}` : null),
               title: r.title,
               channel: r.artist, // YouTube.search는 채널명을 artist 필드에 담는다
               durationSec: r.duration,
@@ -68,24 +62,19 @@ const equivalent = {
     const { best } = rankCandidates(candidates, target);
     if (!best || !best.url) return null;
 
-    track.youtubeUrl = best.url;
     track.audioUrl = best.url;
-    track.youtubeTitle = best.title;
-    lookup.ensureAudioSourceKey(track);
-    return track.youtubeUrl;
+    track.audioFoundBy = "search";
+    return track.audioUrl;
   },
 
   /**
-   * 캐시 매핑의 유튜브 영상이 내려간 경우: 스테일 매핑을 삭제하고 새로 검색한다.
-   * 재검색 결과는 _youtubeFromCache가 아니므로(신규 검색), 다시 실패해도 이 경로가 재발동하지 않는다(무한루프 방지).
+   * 장부에서 가져온 유튜브 영상이 내려간 경우: 그 줄을 지우고 새로 검색한다.
+   * 재검색 결과는 장부에서 온 것이 아니므로(audioFoundBy "search"), 다시 실패해도 이 경로가 재발동하지 않는다(무한루프 방지).
    */
   async reresolveYouTube(track, deps) {
     if (track.requestKey) trackLookup.removeResolution(track.requestKey);
-    track.youtubeUrl = null;
     track.audioUrl = null;
-    track.youtubeTitle = null;
-    track.audioSourceKey = null;
-    track._youtubeFromCache = false;
+    track.audioFoundBy = undefined;
     return this.findYouTubeEquivalent(track, deps);
   },
 };

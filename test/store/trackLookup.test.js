@@ -69,7 +69,7 @@ test("캐시 찾기: 장부의 음원 주소에서 열쇠를 계산해 audio_cac
   const hit = trackLookup.resolveFromCache("amq:77");
   assert.equal(hit.hit, true);
   assert.equal(hit.filePath, file);
-  assert.equal(hit.audioSourceKey, "yt:twostepvid");
+  assert.equal(hit.audioKey, "yt:twostepvid");
   assert.deepEqual([hit.track.pageUrl, hit.track.requestKey, hit.track.audioUrl], ["https://anilist.co/anime/77", "amq:77", "https://www.youtube.com/watch?v=twostepvid"]);
   assert.equal(hit.track.title, "곡", "장부의 표시 이름이 앞선다");
 });

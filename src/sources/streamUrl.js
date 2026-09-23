@@ -25,7 +25,7 @@ const streamUrl = {
           return await youtube.getStream(track.audioUrl, seekSeconds);
         } catch (err) {
           // 장부에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
-          if (youtube.isVideoUnavailableError(err) && track._youtubeFromCache) {
+          if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
             log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
             const ytUrl = await equivalent.reresolveYouTube(track);
             if (ytUrl) return await youtube.getStream(ytUrl, seekSeconds);

@@ -76,7 +76,7 @@ test("normApiTrack: 공식 API 트랙 → 표준 스키마", () => {
   assert.equal(t.artist, "A, B");
   assert.equal(t.duration, 187); // floor(187413/1000)
   assert.equal(t.album, "앨범");
-  assert.equal(t.url, "https://open.spotify.com/track/abc");
+  assert.equal(t.pageUrl, "https://open.spotify.com/track/abc");
   assert.equal(t.thumbnail, "u");
   assert.equal(t.platform, "spotify");
   assert.equal(t.id, "abc");
@@ -97,7 +97,7 @@ test("normGqlTrack: uri→URL/id, totalMilliseconds→초, coverArt", () => {
     albumOfTrack: { coverArt: { sources: [{ url: "https://i.scdn.co/image/ab67616d0000b273x" }] } },
   });
   assert.equal(t.id, "4CeeEOM32jQcH3eN9Q2dGj");
-  assert.equal(t.url, "https://open.spotify.com/track/4CeeEOM32jQcH3eN9Q2dGj");
+  assert.equal(t.pageUrl, "https://open.spotify.com/track/4CeeEOM32jQcH3eN9Q2dGj");
   assert.equal(t.title, "Smells Like Teen Spirit");
   assert.equal(t.artist, "Nirvana");
   assert.equal(t.duration, 301); // floor(301920/1000)

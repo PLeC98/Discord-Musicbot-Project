@@ -197,6 +197,7 @@ test("트랙 필드: 링크 칸 셋과 표시 정보가 저장한 그대로 돌�
     pageUrl: "https://anilist.co/anime/1",
     requestKey: "amq:1",
     audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
+    audioFoundBy: "ledger", // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 장부에서 온 것과 같은 처지다
     duration: 185,
     thumbnail: "https://img/1.jpg",
     artist: "가수",

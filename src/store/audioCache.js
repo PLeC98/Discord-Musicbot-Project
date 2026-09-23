@@ -54,20 +54,20 @@ class AudioCache {
   }
 
   /** audio_key에 대한 결정적 파일 경로 */
-  getFilePath(audioSourceKey) {
-    return path.join(this._cacheDir, `track_${this.md5(audioSourceKey)}.opus`);
+  getFilePath(audioKey) {
+    return path.join(this._cacheDir, `track_${this.md5(audioKey)}.opus`);
   }
 
   // 라이브 보호 (재생 중/사전 캐시된 트랙)
 
   /** 키를 사용 중으로 표시. 제거 대상에서 건너뜀 */
-  protect(audioSourceKey) {
-    if (audioSourceKey) this._protectedKeys.add(audioSourceKey);
+  protect(audioKey) {
+    if (audioKey) this._protectedKeys.add(audioKey);
   }
 
   /** 더 이상 필요하지 않은 키 해제 */
-  unprotect(audioSourceKey) {
-    if (audioSourceKey) this._protectedKeys.delete(audioSourceKey);
+  unprotect(audioKey) {
+    if (audioKey) this._protectedKeys.delete(audioKey);
   }
 
   /**
@@ -106,13 +106,13 @@ class AudioCache {
   }
 
   /** audio_key로 원시 조회 */
-  lookupByAudioKey(audioSourceKey) {
-    return this.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioSourceKey) || null;
+  lookupByAudioKey(audioKey) {
+    return this.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioKey) || null;
   }
 
   // 쓰기. audio_cache
 
-  recordDownloadStart(audioSourceKey, track) {
+  recordDownloadStart(audioKey, track) {
     const now = Date.now();
     this.db
       .prepare(
@@ -125,11 +125,11 @@ class AudioCache {
                 updated_at = excluded.updated_at
         `,
       )
-      .run(audioSourceKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, now, now);
+      .run(audioKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, now, now);
   }
 
   // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
-  recordDownloadComplete(audioSourceKey, filePath, fileSizeBytes, track, { durationSec = null } = {}) {
+  recordDownloadComplete(audioKey, filePath, fileSizeBytes, track, { durationSec = null } = {}) {
     const now = Date.now();
     this.db
       .prepare(
@@ -146,7 +146,7 @@ class AudioCache {
             WHERE audio_key = ?
         `,
       )
-      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, now, now, audioSourceKey);
+      .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, now, now, audioKey);
 
     // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다. evictIfNeeded는 닫힌 DB를 기본 경로로 다시 연다
     setImmediate(() => {
@@ -154,11 +154,11 @@ class AudioCache {
     });
   }
 
-  recordError(audioSourceKey) {
-    this.db.prepare(`UPDATE audio_cache SET status = 'error', updated_at = ? WHERE audio_key = ?`).run(Date.now(), audioSourceKey);
+  recordError(audioKey) {
+    this.db.prepare(`UPDATE audio_cache SET status = 'error', updated_at = ? WHERE audio_key = ?`).run(Date.now(), audioKey);
   }
 
-  recordPlayback(audioSourceKey) {
+  recordPlayback(audioKey) {
     const now = Date.now();
     this.db
       .prepare(
@@ -167,7 +167,7 @@ class AudioCache {
             WHERE audio_key = ?
         `,
       )
-      .run(now, now, audioSourceKey);
+      .run(now, now, audioKey);
   }
 
   // 플레이어 세션. 행 구조와 쓰기는 playerSessionStore

@@ -65,7 +65,7 @@ test("캐시에서 틀어도 장부에 재생을 적는다", async () => {
   await playOnce(p);
 
   assert.equal(h.audioRow("yt:bbbbbbbbbbb").play_count, 1);
-  const row = h.lookupRow(track.url);
+  const row = h.lookupRow(track.requestKey);
   assert.equal(row.audio_url, "https://www.youtube.com/watch?v=bbbbbbbbbbb");
   assert.equal(row.title_verified, 0, "캐시 갈래는 영상 제목을 못 받아 확인 안 됨으로 적는다");
 });
@@ -153,7 +153,7 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
 
 test("출처 이름을 platform 에 쓰는 음원 곡도 서술자가 direct 면 DirectLink 로 연다", async () => {
   const p = h.makePlayer();
-  p.currentTrack = { id: "amq:1", title: "애니", url: "https://nawdist.test/a.mp3", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.test/a.mp3", platform: "anisongdb", duration: 0, audioSourceKey: "dl:abc" };
+  p.currentTrack = { id: "amq:1", title: "애니", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.test/a.mp3", platform: "anisongdb", duration: 0 };
   behavior.stream = (t) => ({ url: t.audioUrl, platform: "direct" });
 
   await playOnce(p);
@@ -270,7 +270,7 @@ test("스포티파이: 동등물을 찾아 그 영상의 캐시가 있으면 파
   await playOnce(p);
 
   assert.equal(calls.spawns[0].label, "playback");
-  assert.equal(p.currentTrack.audioSourceKey, "yt:nnnnnnnnnnn");
+  assert.equal(p.currentTrack.audioUrl, "https://www.youtube.com/watch?v=nnnnnnnnnnn");
   const row = h.lookupRow("https://open.spotify.com/track/sp1");
   assert.equal(row.audio_url, "https://www.youtube.com/watch?v=nnnnnnnnnnn", "스포티파이 곡 → 영상 을 장부에 적는다");
 });
@@ -363,7 +363,7 @@ test("유튜브 곡은 스트림 응답의 제목으로 고치고 장부에 확�
   await playOnce(p);
 
   assert.equal(p.currentTrack.title, "영상 자체 제목");
-  const row = h.lookupRow(track.url);
+  const row = h.lookupRow(track.requestKey);
   assert.equal(row.display_title, "영상 자체 제목");
   assert.equal(row.title_verified, 1);
 });

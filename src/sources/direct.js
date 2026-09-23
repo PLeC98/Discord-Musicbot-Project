@@ -29,7 +29,6 @@ class DirectLink {
         {
           title: this.extractTitle(filename),
           artist: "직접 링크",
-          url: url,
           // 서명된 주소는 쿼리에 토큰이 있어 다듬지 않는다(canonicalUrl 도 그대로 돌려준다)
           pageUrl: url,
           requestKey: url,

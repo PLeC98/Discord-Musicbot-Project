@@ -178,7 +178,6 @@ class SoundCloud {
       const track = {
         title: soundcloudTrack.title || soundcloudTrack.fulltitle || unknownTitle,
         artist: soundcloudTrack.uploader || soundcloudTrack.artist || unknownArtist,
-        url,
         pageUrl: canonicalUrl(url),
         requestKey: canonicalUrl(url),
         audioUrl: url,

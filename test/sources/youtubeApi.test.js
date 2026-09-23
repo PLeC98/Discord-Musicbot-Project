@@ -85,7 +85,7 @@ test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(�
     tracks.map((t) => t.id),
     ["aaaaaaaaaaa", "bbbbbbbbbbb"],
   );
-  assert.deepEqual({ title: tracks[0].title, artist: tracks[0].artist, url: tracks[0].url, duration: tracks[0].duration, platform: tracks[0].platform, type: tracks[0].type, isLive: tracks[0].isLive, liveStatus: tracks[0].liveStatus }, { title: "영상 aaaaaaaaaaa", artist: "올린 사람", url: "https://www.youtube.com/watch?v=aaaaaaaaaaa", duration: 200, platform: "youtube", type: "track", isLive: false, liveStatus: null });
+  assert.deepEqual({ title: tracks[0].title, artist: tracks[0].artist, url: tracks[0].audioUrl, duration: tracks[0].duration, platform: tracks[0].platform, type: tracks[0].type, isLive: tracks[0].isLive, liveStatus: tracks[0].liveStatus }, { title: "영상 aaaaaaaaaaa", artist: "올린 사람", url: "https://www.youtube.com/watch?v=aaaaaaaaaaa", duration: 200, platform: "youtube", type: "track", isLive: false, liveStatus: null });
 });
 
 test("검색: 길이가 0 인 항목은 상세 정보를 한 번 더 받아 길이 · 라이브를 채운다", async () => {
@@ -189,7 +189,7 @@ test("재생목록: 필요한 구간만 받고, 영상 자체에서 확인해 �
   assert.equal(calls[0].flags.playlistItems, "21:30");
   assert.equal(calls[0].flags.flatPlaylist, true);
   assert.deepEqual(
-    list.tracks.map((t) => [t.title, t.url]),
+    list.tracks.map((t) => [t.title, t.pageUrl]),
     [
       ["확인된 제목", "https://www.youtube.com/watch?v=jjjjjjjjjjj"],
       ["주소만", "https://www.youtube.com/watch?v=kkkkkkkkkkk"],

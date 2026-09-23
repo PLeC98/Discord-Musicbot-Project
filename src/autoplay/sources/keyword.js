@@ -13,7 +13,7 @@ async function keyword(source) {
   const results = (await YouTube.search(word, 15)) || [];
   // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplayAssist)
   // 주소를 직접 주는 소스는 출처가 곧 정답이라 물을 것이 없다.
-  return results.filter((r) => r.url && !r.isLive).map((r) => ({ title: r.title, durationSec: r.duration, youtubeUrl: r.url, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }));
+  return results.filter((r) => r.audioUrl && !r.isLive).map((r) => ({ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }));
 }
 
 module.exports = { keyword };

@@ -265,8 +265,8 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
   const realSearch = YouTube.search;
 
   YouTube.search = async () => [
-    { id: "1", title: "Best Playlist Ever", url: "https://y/1", duration: 200 },
-    { id: "2", title: "그냥 좋은 노래", url: "https://y/2", duration: 200 },
+    { id: "1", title: "Best Playlist Ever", audioUrl: "https://y/1", duration: 200 },
+    { id: "2", title: "그냥 좋은 노래", audioUrl: "https://y/2", duration: 200 },
   ];
 
   try {
@@ -290,7 +290,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
     for (let i = 0; i < 8; i++) {
       pool._reset();
       const picked = await p.pickAutoplayTrack();
-      assert.equal(picked?.url, "https://y/2", "대문자로 적은 차단어도 걸러야 한다");
+      assert.equal(picked?.audioUrl, "https://y/2", "대문자로 적은 차단어도 걸러야 한다");
     }
   } finally {
     YouTube.search = realSearch;

@@ -80,6 +80,8 @@ function fromRow(row) {
     pageUrl: row.page_url,
     requestKey: row.request_key,
     audioUrl: row.audio_url ?? undefined,
+    // 저장하지 않고 되읽을 때 가린다. 요청과 다른 음원은 장부에서 온 것과 같은 처지다(내려갔으면 다시 찾는다)
+    audioFoundBy: row.audio_url ? (row.audio_url === row.request_key ? "given" : "ledger") : undefined,
     duration: row.duration_sec,
     thumbnail: row.thumbnail,
     artist: row.artist,

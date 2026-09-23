@@ -10,7 +10,6 @@ const DirectLink = require("./direct");
 const trackLookup = require("../store/trackLookup");
 const ErrorHandler = require("../ui/errorMessages");
 const { inputKind } = require("../rules/inputKind");
-const { audioKeyOf, audioUrlOf } = require("../rules/audioKeyOf");
 
 const lookup = {
   // 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 글은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
@@ -123,18 +122,6 @@ const lookup = {
       return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
     }
     return this.getTrackData(query, context, range);
-  },
-
-  /**
-   * 트랙의 공유 캐시 키(audioSourceKey) 산출. yt/sc/direct는 즉시, spotify는 YouTube 동등물이 정해진 뒤에만 가능(findYouTubeEquivalent가 설정).
-   * 이미 키가 있으면 그대로 둔다.
-   */
-  ensureAudioSourceKey(track) {
-    if (!track) return null;
-    if (track.audioSourceKey) return track.audioSourceKey;
-    const key = audioKeyOf(audioUrlOf(track));
-    if (key) track.audioSourceKey = key;
-    return track.audioSourceKey || null;
   },
 };
 

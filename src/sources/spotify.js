@@ -59,7 +59,6 @@ function normApiTrack(t, albumOverride) {
         .filter(Boolean)
         .join(", ") || "알 수 없는 아티스트",
     album: album?.name || null,
-    url,
     pageUrl: url,
     requestKey: url,
     duration: Math.floor((t.duration_ms || 0) / 1000),
@@ -85,7 +84,6 @@ function normGqlTrack(d) {
         .filter(Boolean)
         .join(", ") || "알 수 없는 아티스트",
     album: d.albumOfTrack?.name || null, // GraphQL은 앨범명이 없을 수 있음(표시용, 없으면 null)
-    url,
     pageUrl: url,
     requestKey: url,
     duration: Math.floor(durMs / 1000),

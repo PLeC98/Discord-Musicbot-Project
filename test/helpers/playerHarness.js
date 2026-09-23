@@ -218,7 +218,8 @@ TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
 TrackDownloader.waitFor = (filepath) => inFlight.get(filepath) ?? null;
 TrackDownloader.prototype.downloadTrack = function (track) {
   calls.downloads.push(track);
-  if (track.audioSourceKey) audioCache.recordDownloadStart(track.audioSourceKey, track);
+  const key = require("../../src/rules/audioKeyOf").audioKeyOf(track.audioUrl);
+  if (key) audioCache.recordDownloadStart(key, track);
   const filepath = this.trackFilePath(track);
   const running = behavior.download ? Promise.resolve().then(() => behavior.download(track)) : new Promise(() => {});
   inFlight.set(filepath, running);

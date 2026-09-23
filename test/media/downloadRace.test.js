@@ -20,7 +20,7 @@ after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const KEY = "a".repeat(32);
 const finalPath = path.join(dir, `track_${KEY}.opus`);
-const track = { url: "https://example.org/a", audioSourceKey: "yt:a", title: "곡", platform: "youtube" };
+const track = { requestKey: "https://www.youtube.com/watch?v=aaaaaaaaaaa", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", title: "곡", platform: "youtube" };
 
 function makeDownloader({ onDownload }) {
   const downloader = new TrackDownloader({ guild: { id: "g" } });

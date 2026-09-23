@@ -66,11 +66,9 @@ before(() => {
   };
   equivalent.reresolveYouTube = async (track) => {
     calls.reresolve.push(track.title);
-    track.youtubeUrl = "https://www.youtube.com/watch?v=freshfresh01";
-    track.audioUrl = track.youtubeUrl;
-    track.audioSourceKey = "yt:freshfresh01";
-    track._youtubeFromCache = false;
-    return track.youtubeUrl;
+    track.audioUrl = "https://www.youtube.com/watch?v=freshfresh01";
+    track.audioFoundBy = "search";
+    return track.audioUrl;
   };
 });
 
@@ -105,7 +103,7 @@ const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE
 const lookupRow = (requestKey) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const leftovers = () => fs.readdirSync(audioCache._cacheDir).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
 
-const yt = (id, extra = {}) => require("../helpers/tracks").youtube(id, { audioSourceKey: `yt:${id}`, ...extra });
+const yt = require("../helpers/tracks").youtube;
 
 // ── yt-dlp 갈래 ────────────────────────────────────────────────────────
 
@@ -118,7 +116,7 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
   assert.equal(fs.readFileSync(file, "utf8"), "opus-bytes");
   assert.equal(calls.ytdlp.length, 1);
   const { url, options } = calls.ytdlp[0];
-  assert.equal(url, track.url);
+  assert.equal(url, track.audioUrl);
   assert.match(path.basename(options.output), /\.tmp-\d+-[0-9a-f]{8}\.opus$/, "임시 경로에 받는다");
   assert.deepEqual({ format: options.format, matchFilter: options.matchFilter, extractAudio: options.extractAudio, audioFormat: options.audioFormat, writeInfoJson: options.writeInfoJson, preferFreeFormats: options.preferFreeFormats }, { format: "bestaudio/best", matchFilter: "!is_live", extractAudio: true, audioFormat: "opus", writeInfoJson: true, preferFreeFormats: true });
   assert.deepEqual(options.postprocessorArgs, audioConvert.ytdlpPostprocessorArgs());
@@ -127,7 +125,7 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
   const row = audioRow("yt:aaaaaaaaaaa");
   assert.equal(row.status, "cached");
   assert.equal(row.duration_sec, 201, "오디오 길이는 info.json 의 값");
-  const lookup = lookupRow(track.url);
+  const lookup = lookupRow(track.requestKey);
   assert.equal(lookup.audio_url, "https://www.youtube.com/watch?v=aaaaaaaaaaa");
   assert.equal(lookup.title_verified, 1, "유튜브는 영상 자체 제목으로 확인됨");
   assert.equal(track.title, "영상 자체 제목", "유튜브 곡은 제목을 영상 자체 제목으로 고친다");
@@ -135,28 +133,29 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
 });
 
 test("스포티파이: 동등물을 찾아 그 영상으로 받고 제목은 고치지 않는다", async () => {
-  const track = { title: "스포티파이 곡", artist: "가수", url: "https://open.spotify.com/track/sp1", requestKey: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200, audioSourceKey: "yt:bbbbbbbbbbb", _equivalent: "https://www.youtube.com/watch?v=bbbbbbbbbbb" };
+  const track = { title: "스포티파이 곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp1", requestKey: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200, _equivalent: "https://www.youtube.com/watch?v=bbbbbbbbbbb" };
 
   await downloader().downloadTrack(track);
 
   assert.deepEqual(calls.equivalent, ["스포티파이 곡"]);
   assert.equal(calls.ytdlp[0].url, "https://www.youtube.com/watch?v=bbbbbbbbbbb");
   assert.equal(track.title, "스포티파이 곡");
-  assert.equal(lookupRow(track.url).title_verified, 0);
+  assert.equal(lookupRow(track.requestKey).title_verified, 0);
+  assert.equal(audioRow("yt:bbbbbbbbbbb").status, "cached", "찾은 영상의 열쇠 자리에 받는다");
 });
 
-test("스포티파이: 동등물을 못 찾으면 실패하고 장부를 오류로, 조각은 치운다", async () => {
-  const track = { title: "못 찾는 곡", url: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify", audioSourceKey: "yt:ccccccccccc" };
+test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. 아무것도 적거나 남기지 않는다", async () => {
+  const track = { title: "못 찾는 곡", pageUrl: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify" };
 
   await assert.rejects(downloader().downloadTrack(track), /Could not find YouTube equivalent/);
 
   assert.equal(calls.ytdlp.length, 0);
-  assert.equal(audioRow("yt:ccccccccccc").status, "error");
+  assert.equal(audioCache.db.prepare("SELECT COUNT(*) AS n FROM audio_cache").get().n, 0);
   assert.deepEqual(leftovers(), []);
 });
 
-test("사운드클라우드: youtubeUrl 이 붙어 있어도 제 주소로 받는다", async () => {
-  const track = { title: "SC", url: "https://soundcloud.com/a/b", requestKey: "https://soundcloud.com/a/b", audioUrl: "https://soundcloud.com/a/b", platform: "soundcloud", youtubeUrl: "https://www.youtube.com/watch?v=ddddddddddd", audioSourceKey: "sc:123" };
+test("사운드클라우드: 제 주소로 받는다(유튜브에서 찾지 않는다)", async () => {
+  const track = { title: "SC", requestKey: "https://soundcloud.com/a/b", audioUrl: "https://soundcloud.com/a/b", platform: "soundcloud" };
 
   await downloader().downloadTrack(track);
 
@@ -164,20 +163,20 @@ test("사운드클라우드: youtubeUrl 이 붙어 있어도 제 주소로 받�
   assert.equal(track.title, "SC", "유튜브가 아니면 제목을 안 고친다");
 });
 
-test("자동재생 출처 곡: 찾아 둔 영상(youtubeUrl)으로 받는다. 다시 찾지 않는다", async () => {
-  const track = { title: "출처 곡", url: "https://www.last.fm/music/a/_/b", requestKey: "https://www.last.fm/music/a/_/b", platform: "lastfm", youtubeUrl: "https://www.youtube.com/watch?v=eeeeeeeeeee", audioUrl: "https://www.youtube.com/watch?v=eeeeeeeeeee", audioSourceKey: "yt:eeeeeeeeeee" };
+test("자동재생 출처 곡: 찾아 둔 영상(음원 주소)으로 받는다. 다시 찾지 않는다", async () => {
+  const track = { title: "출처 곡", requestKey: "https://www.last.fm/music/a/_/b", platform: "lastfm", audioUrl: "https://www.youtube.com/watch?v=eeeeeeeeeee" };
 
   await downloader().downloadTrack(track);
 
   assert.equal(calls.ytdlp[0].url, "https://www.youtube.com/watch?v=eeeeeeeeeee");
   assert.deepEqual(calls.equivalent, []);
-  assert.equal(lookupRow(track.url).platform, "lastfm");
+  assert.equal(lookupRow(track.requestKey).platform, "lastfm");
 });
 
 // 회귀 대상: 애니 소스 곡은 장부에 작품 페이지를 열쇠로 적어 같은 작품의 OP 와 ED 가 한 줄을 두고 서로 덮었다
 test("자동재생 곡은 장부에 요청 열쇠(소스 안의 곡)로 적힌다. 같은 작품의 두 곡이 따로 산다", async () => {
   const page = "https://anilist.co/anime/150672";
-  const song = (id, vid) => ({ title: `곡 ${id}`, url: page, pageUrl: page, requestKey: `amq:${id}`, platform: "anisongdb", youtubeUrl: `https://www.youtube.com/watch?v=${vid}`, audioUrl: `https://www.youtube.com/watch?v=${vid}`, audioSourceKey: `yt:${vid}` });
+  const song = (id, vid) => ({ title: `곡 ${id}`, pageUrl: page, requestKey: `amq:${id}`, platform: "anisongdb", audioUrl: `https://www.youtube.com/watch?v=${vid}` });
 
   await downloader().downloadTrack(song(1, "fatalfatal1"));
   await downloader().downloadTrack(song(2, "burningburn"));
@@ -220,13 +219,13 @@ test("info.json 이 없으면 제목 · 길이를 모르는 채로 받는다", a
 
   assert.equal(track.title, "곡 iiiiiiiiiii");
   assert.equal(audioRow("yt:iiiiiiiiiii").duration_sec, 180, "오디오 길이를 모르면 장부는 트랙이 가진 길이로 채운다");
-  assert.equal(lookupRow(track.url).title_verified, 0);
+  assert.equal(lookupRow(track.requestKey).title_verified, 0);
 });
 
 // ── 직접 링크 갈래 ─────────────────────────────────────────────────────
 
 test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 길이로 트랙을 고친다", async () => {
-  const track = { title: "파일", url: "https://files.test/a.flac", requestKey: "https://files.test/a.flac", audioUrl: "https://files.test/a.flac", platform: "direct", duration: 100, audioSourceKey: "dl:abc" };
+  const track = { title: "파일", pageUrl: "https://files.test/a.flac", requestKey: "https://files.test/a.flac", audioUrl: "https://files.test/a.flac", platform: "direct", duration: 100 };
 
   const file = await downloader().downloadTrack(track);
 
@@ -237,7 +236,7 @@ test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 �
   assert.equal(calls.convert[0].srcExists, true);
   assert.equal(track.duration, 222);
   assert.equal(track.durationSource, "실측");
-  assert.equal(audioRow("dl:abc").duration_sec, 222);
+  assert.equal(audioRow(`dl:${audioCache.md5("https://files.test/a.flac")}`).duration_sec, 222);
   assert.equal(fs.readFileSync(file, "utf8"), "opus");
   assert.deepEqual(leftovers(), [], ".raw 를 남기지 않는다");
 });
@@ -307,7 +306,7 @@ test("장부에서 가져온 영상이 내려갔으면 다시 찾아 한 번 더
     if (url.includes("deaddeaddea")) throw new Error("ERROR: [youtube] deaddeaddea: Video unavailable");
     writesFile()(url, options);
   };
-  const track = { title: "스포티파이 곡", url: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", youtubeUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioSourceKey: "yt:deaddeaddea", _youtubeFromCache: true };
+  const track = { title: "스포티파이 곡", pageUrl: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioFoundBy: "ledger" };
 
   const file = await downloader().downloadTrack(track);
 
@@ -321,7 +320,7 @@ test("새로 검색한 영상(장부에서 온 것이 아님)이 내려갔으면
   ytdlpBehavior = () => {
     throw new Error("ERROR: Video unavailable");
   };
-  const track = { title: "곡", url: "https://open.spotify.com/track/sp4", requestKey: "https://open.spotify.com/track/sp4", platform: "spotify", youtubeUrl: "https://www.youtube.com/watch?v=nnnnnnnnnnn", audioUrl: "https://www.youtube.com/watch?v=nnnnnnnnnnn", audioSourceKey: "yt:nnnnnnnnnnn", _youtubeFromCache: false };
+  const track = { title: "곡", requestKey: "https://open.spotify.com/track/sp4", platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=nnnnnnnnnnn", audioFoundBy: "search" };
 
   await assert.rejects(downloader().downloadTrack(track), /Video unavailable/);
   assert.deepEqual(calls.reresolve, []);
@@ -330,24 +329,10 @@ test("새로 검색한 영상(장부에서 온 것이 아님)이 내려갔으면
 // ── 예열 ──────────────────────────────────────────────────────────────
 
 test("예열: 열쇠를 못 정한 스포티파이 곡은 받기 전에 동등물부터 찾는다", async () => {
-  const track = { title: "예열 곡", url: "https://open.spotify.com/track/sp5", requestKey: "https://open.spotify.com/track/sp5", platform: "spotify", _equivalent: "https://www.youtube.com/watch?v=ooooooooooo" };
-  equivalent.findYouTubeEquivalent = async (t) => {
-    calls.equivalent.push(t.title);
-    t.youtubeUrl = t._equivalent;
-    t.audioUrl = t._equivalent;
-    t.audioSourceKey = "yt:ooooooooooo";
-    return t.youtubeUrl;
-  };
-  try {
-    await downloader().warm(track);
-  } finally {
-    equivalent.findYouTubeEquivalent = async (t) => {
-      calls.equivalent.push(t.title);
-      if (t._equivalent) t.audioUrl = t._equivalent;
-      return t._equivalent ?? null;
-    };
-  }
+  const track = { title: "예열 곡", requestKey: "https://open.spotify.com/track/sp5", platform: "spotify", _equivalent: "https://www.youtube.com/watch?v=ooooooooooo" };
 
-  assert.deepEqual(calls.equivalent, ["예열 곡"], "예열에서 한 번. 받기 안에서는 youtubeUrl 이 있어 다시 안 찾는다");
+  await downloader().warm(track);
+
+  assert.deepEqual(calls.equivalent, ["예열 곡"], "받기 전에 한 번. 음원 주소가 생긴 뒤에는 다시 안 찾는다");
   assert.ok(fs.existsSync(audioCache.getFilePath("yt:ooooooooooo")), "열쇠 자리에 받는다(URL 해시 자리가 아니라)");
 });

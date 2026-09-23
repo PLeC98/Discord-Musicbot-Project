@@ -15,7 +15,7 @@ async function spotify(source) {
   const total = Number(head?.total) || 0;
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
   const part = await Spotify.getCollection(source.url, { offset, limit: PLAYLIST_PAGE });
-  return (part?.tracks || []).filter((t) => t.title && t.artist).map((t) => ({ artist: t.artist, title: t.title, durationSec: Number(t.duration) || undefined, thumbnail: t.thumbnail, sourceUrl: t.url || undefined, platform: "spotify", sourceKey: t.url || `${t.artist}|${t.title}` }));
+  return (part?.tracks || []).filter((t) => t.title && t.artist).map((t) => ({ artist: t.artist, title: t.title, durationSec: Number(t.duration) || undefined, thumbnail: t.thumbnail, sourceUrl: t.pageUrl || undefined, platform: "spotify", sourceKey: t.requestKey || `${t.artist}|${t.title}` }));
 }
 
 async function youtube(source) {
@@ -29,7 +29,7 @@ async function youtube(source) {
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
   const part = await YouTube.getPlaylist(source.url, { offset, limit: PLAYLIST_PAGE });
   // 재생목록은 아티스트가 안 온다(제목뿐). 그래서 youtubeMatch를 거치지 않고 주소를 그대로 쓴다
-  return (part?.tracks || []).filter((t) => t.url && !t.isLive).map((t) => ({ title: t.title, durationSec: Number(t.duration) || undefined, youtubeUrl: t.url, thumbnail: t.thumbnail, sourceKey: t.url }));
+  return (part?.tracks || []).filter((t) => t.audioUrl && !t.isLive).map((t) => ({ title: t.title, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey }));
 }
 
 module.exports = { spotify, youtube };

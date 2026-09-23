@@ -22,7 +22,7 @@ class TrackLookup {
 
   /**
    * 요청을 받아 둔 파일과 트랙 정보로. 사용자가 넣은 링크면 다듬어서 찾는다.
-   * { hit: false } 또는 { hit: true, track, audioSourceKey, filePath }를 반환합니다.
+   * { hit: false } 또는 { hit: true, track, audioKey, filePath }를 반환합니다.
    */
   resolveFromCache(requestKey) {
     const row = this._row(requestKey);
@@ -45,10 +45,8 @@ class TrackLookup {
       artist: row.display_artist || cached.channel,
       thumbnail: row.display_thumbnail,
       duration: cached.duration_sec,
-      audioSourceKey: audioKey,
-      _cachedFilePath: filePath,
     };
-    return { hit: true, track: cachedTrack, audioSourceKey: audioKey, filePath };
+    return { hit: true, track: cachedTrack, audioKey, filePath };
   }
 
   // 쓰기. track_lookup

@@ -63,7 +63,7 @@ function withLookup(rows, fn) {
   }
 }
 
-const track = () => ({ duration: 314, audioSourceKey: "yt:x" });
+const track = () => ({ duration: 314, audioUrl: "https://www.youtube.com/watch?v=x" });
 
 test("캐시 파일로 틀면 캐시에 기록된 오디오 길이를 쓴다", () => {
   withLookup({ "yt:x": { duration_sec: 312 } }, () => {

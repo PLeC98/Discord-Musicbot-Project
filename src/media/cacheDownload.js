@@ -9,12 +9,12 @@ const { pipeline } = require("stream/promises");
 const audioConvert = require("./convert");
 const YouTube = require("../sources/youtube/index");
 const equivalent = require("../sources/youtube/equivalent");
-const lookup = require("../sources/lookup");
 const DirectLink = require("../sources/direct");
 const audioCache = require("../store/audioCache");
 const trackLookup = require("../store/trackLookup");
 const SponsorBlock = require("../sources/sponsorBlock");
 const { inputKind } = require("../rules/inputKind");
+const { audioKeyOf } = require("../rules/audioKeyOf");
 
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드
@@ -91,17 +91,27 @@ class TrackDownloader {
   }
 
   /**
-   * 트랙의 캐시 파일 경로 산출. audioSourceKey가 없으면(스포티파이 미해석 등) 요청 열쇠를 해시한다.
+   * 트랙의 캐시 파일 경로 산출. 음원 주소가 아직 없으면(스포티파이 미해석) 요청 열쇠를 해시한다.
    */
   trackFilePath(track) {
-    return audioCache.getFilePath(track.audioSourceKey || track.requestKey);
+    return audioCache.getFilePath(audioKeyOf(track.audioUrl) || track.requestKey);
   }
 
   /**
    * 오디오 스트림을 로컬 파일로 다운로드합니다.
    * YouTube, Spotify, SoundCloud, DirectLink를 지원합니다.
+   *
+   * 받기 전에 음원 주소부터 정한다. 캐시 열쇠가 곧 파일 경로인데, 스포티파이는 유튜브 동등물을 찾아야
+   * 열쇠가 정해진다. 그 검색을 받는 도중에 하면 파일이 요청 열쇠 자리에 저장되고 DB 행도 안 남아,
+   * 열쇠가 생긴 다음 번에 같은 곡을 또 받는다.
    */
   async downloadTrack(track) {
+    // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
+    // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
+    // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
+    if (needsBorrowedAudio(track) && !(await equivalent.findYouTubeEquivalent(track))) {
+      throw new Error("Could not find YouTube equivalent");
+    }
     const filepath = this.trackFilePath(track);
 
     // 이미 다운로드되었는지 확인 (캐시 적중)
@@ -121,8 +131,8 @@ class TrackDownloader {
         return await this._performDownload(track, filepath);
       } catch (err) {
         // 캐시 매핑의 유튜브 영상이 내려간(삭제/비공개) 경우 → 스테일 매핑 폐기 후 재검색해 새 대상으로 1회 재시도.
-        // (극히 드문 케이스. _youtubeFromCache가 false면 신규 검색이므로 재발동 안 함 → 무한루프 방지.)
-        if (YouTube.isVideoUnavailableError(err) && track._youtubeFromCache) {
+        // (극히 드문 케이스. 새로 검색한 영상이면 재발동 안 함 → 무한루프 방지.)
+        if (YouTube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
           const fresh = await equivalent.reresolveYouTube(track);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
@@ -141,26 +151,15 @@ class TrackDownloader {
 
   async _performDownload(track, filepath) {
     const player = this.player;
-    const audioSourceKey = track.audioSourceKey;
+    const audioKey = audioKeyOf(track.audioUrl);
     let verifiedTitle = null;
     let audioDurationSec = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
     audioCache.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
     try {
-      if (audioSourceKey) audioCache.recordDownloadStart(audioSourceKey, track);
-
-      // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
-      // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
-      // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
-      let downloadUrl = track.audioUrl;
-
-      if (needsBorrowedAudio(track)) {
-        downloadUrl = await equivalent.findYouTubeEquivalent(track);
-        if (!downloadUrl) {
-          throw new Error("Could not find YouTube equivalent");
-        }
-      }
+      if (audioKey) audioCache.recordDownloadStart(audioKey, track);
+      const downloadUrl = track.audioUrl;
 
       // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
@@ -265,10 +264,10 @@ class TrackDownloader {
       }
 
       // 완료된 다운로드를 DB에 저장
-      if (audioSourceKey) {
+      if (audioKey) {
         try {
           const _finalSt = fsSync.statSync(filepath);
-          audioCache.recordDownloadComplete(audioSourceKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
+          audioCache.recordDownloadComplete(audioKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec });
           trackLookup.recordTrackLookup(track, { verified: !!verifiedTitle && track.platform === "youtube" });
         } catch {
           /* 무시 */
@@ -287,7 +286,7 @@ class TrackDownloader {
       try {
         const removed = cleanTemp(tempPath);
         if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${track.title}`);
-        if (audioSourceKey) audioCache.recordError(audioSourceKey);
+        if (audioKey) audioCache.recordError(audioKey);
       } catch {
         /* 정리 실패는 원래 오류를 가리면 안 된다 */
       }
@@ -341,19 +340,10 @@ class TrackDownloader {
 
   /**
    * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
-   *
-   * 받기 전에 캐시 키를 확정해야 한다. 키가 곧 파일 경로인데, 스포티파이는 유튜브 동등물을
-   * 찾아야 키가 정해진다. 그 검색을 다운로드 안에서 하면 키가 아직 null이라 파일이 URL 해시
-   * 경로에 저장되고 DB 행도 안 남아, 키가 생긴 다음 번에 같은 곡을 또 받는다.
-   *
    * 이미 받았는지, 받는 중인지는 downloadTrack이 판정하므로 여기서 다시 하지 않는다.
    */
   async warm(track) {
     if (!track || !track.requestKey) return;
-    // 사운드클라우드는 제 음원을 주므로 동등물을 찾지 않는다
-    if (!lookup.ensureAudioSourceKey(track) && track.platform !== "soundcloud") {
-      await equivalent.findYouTubeEquivalent(track);
-    }
     await this.downloadTrack(track);
   }
 }
