@@ -1,4 +1,4 @@
-const { AudioPlayerStatus, createAudioPlayer, createAudioResource, StreamType } = require("@discordjs/voice");
+const { AudioPlayerStatus, createAudioPlayer, createAudioResource } = require("@discordjs/voice");
 const log = require("../infra/log/logger").child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = require("../infra/log/logger").child({ category: "watchdog" });
@@ -14,8 +14,8 @@ const streamUrl = require("../sources/streamUrl");
 const SponsorBlock = require("../sources/sponsorBlock");
 const SponsorSkipper = require("./sponsorSkipper");
 const DirectLink = require("../sources/direct");
-const { openChunkedStream, contentLengthFromUrl, describeStreamError } = require("../media/chunkedStream");
-const { AudioSplicer } = require("../media/audioSplicer");
+const { openChunkedStream } = require("../media/chunkedStream");
+const { openInput } = require("../media/playbackInput");
 const voiceChannelStatus = require("./voiceChannelStatus");
 const audioCache = require("../store/audioCache");
 const trackLookup = require("../store/trackLookup");
@@ -36,13 +36,10 @@ const { buildFfmpegArgs } = require("../media/ffmpeg/args");
 const { inputKind } = require("../rules/inputKind");
 const { audioKeyOf } = require("../rules/audioKeyOf");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
-const { Readable } = require("stream");
-const fsSync = require("fs");
 
 // 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
 const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가 (캐시 디코더 기동 실측 43ms)
-const SWITCH_FADE_MS = 40; // 등출력 크로스페이드 길이
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
 const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받아 다시 여는 횟수
 const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
@@ -290,7 +287,6 @@ class MusicPlayer {
 
       // 받아 둔 파일이 있으면 yt-dlp 호출을 전부 건너뛴다. 열쇠는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
       let downloadedFile = TrackDownloader.findCacheFile(this.currentTrack);
-      let shouldDownload = false;
 
       // 재개 시 캐시 재사용 시도
       if (resumeFromMs > 0) {
@@ -354,188 +350,30 @@ class MusicPlayer {
       if (streamInfo && typeof streamInfo === "object" && "liveStatus" in streamInfo) pb.isLive = streamInfo.liveStatus === "is_live";
       else if (downloadedFile) pb.isLive = false;
 
-      // 주소를 주는 갈래는 여기뿐이다(HLS). 이 자리의 답이다. 받기에 실패해 캐시 파일로 바꾸는 갈래는 아래에서 따로 간다
       const transport = transportOf({ file: downloadedFile, streamUrl: streamUrl_final, streamInfo });
-      const useUrlInput = transport.via === "url";
-      const isLiveStream = transport.live;
-
-      // 플래그: 스트림은 있지만 캐시 파일이 없으면 다운로드 필요. 라이브는 캐시하지 않는다
-      if (!downloadedFile && transport.cacheable) shouldDownload = true;
-
-      if (useUrlInput) {
-        // 입구(playRequest)와 사운드클라우드 포맷 선택이 먼저 거르지만, 여기까지 온 것은 막는다.
-        if (!this.io.ffmpegCapabilities().ok) {
-          throw new Error("이 ffmpeg 빌드로는 HLS 스트림을 재생할 수 없습니다");
-        }
-
-        // 라이브가 아닌 HLS(사운드클라우드 등)는 평소대로 캐시를 받아 둔다. 재생은 기다리지 않는다.
-        if (shouldDownload) this._startBackgroundDownload();
-        shouldDownload = false;
-
-        const ffmpeg = this.io.spawnFfmpeg(buildFfmpegArgs({ url: streamUrl_final, seekMs: isLiveStream ? 0 : resumeFromMs, caps: this.io.ffmpegCapabilities() }), "stream");
-        // 캐시 전환(AudioSplicer)은 걸지 않는다. 라이브는 갈아탈 캐시가 없고, 잔끊김은
-        // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(handleTrackEnd).
-        pb.live = isLiveStream;
-        ffmpeg.once("exit", (code, signal) => {
-          pb.liveExitCode = code === null && signal ? -1 : code;
-        });
-
-        // 파이프 갈래는 Node가 받는 바이트로 정체를 재지만 여기엔 그 스트림이 없다.
-        // ffmpeg 출력이 곧 "살아 있다"의 증거다.
-        ffmpeg.stdout.on("data", () => {
+      pb.live = transport.live; // 끝 처리가 재연결 여부를 이걸로 가른다
+      const track = this.currentTrack;
+      const input = await openInput({
+        io: this.io,
+        transport,
+        streamInfo,
+        cacheFile: downloadedFile,
+        startMs: resumeFromMs,
+        meta: { title: track.title, url: track.pageUrl, duration: track.duration },
+        // 스트림은 있지만 캐시 파일이 없으면 나란히 받는다. 라이브는 캐시하지 않는다
+        download: !downloadedFile && transport.cacheable ? { start: () => this._startBackgroundDownload(), filePath: this.downloader.trackFilePath(track), wait: (file) => TrackDownloader.waitFor(file) } : null,
+        // 오류는 곡이 바뀐 뒤에 도착할 수 있다. 이 재생의 곡을 붙잡아 두어 엉뚱한 곡의 캐시로 갈아타지 않게 한다
+        onStreamLost: (splicer) => this._planCacheSwitch(splicer, track),
+        onProgress: () => {
           pb.inputProgressAt = Date.now();
-        });
-
-        pb.resource = this.io.createAudioResource(ffmpeg.stdout, {
-          inputType: StreamType.Raw,
-          inlineVolume: true,
-          metadata: {
-            title: this.currentTrack.title,
-            url: this.currentTrack.pageUrl,
-            duration: isLiveStream ? 0 : streamInfo.duration || this.currentTrack.duration,
-            bitrate: streamInfo.bitrate || 128,
-          },
-        });
-      }
-
-      // 다운로드가 필요하면 백그라운드 다운로드와 동시에 즉시 스트리밍 시작
-      if (shouldDownload) {
-        const filepath = this.downloader.trackFilePath(this.currentTrack);
-        this._startBackgroundDownload();
-
-        // 다운로드 완료를 기다리지 않고 즉시 스트리밍. 이 갈래에서는 네트워크를 Node가 담당하고
-        // ffmpeg에는 pipe로만 넣는다. URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패
-        // 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 빌드는 SIGSEGV로 죽는다).
-        // 그래서 URL 입력은 그렇게 할 수밖에 없는 HLS 갈래에만 두었다.
-        let audioStream;
-        // 청크 스트림이 끊겼을 때 부를 훅. 스플라이서가 아래에서 만들어진 뒤 채운다
-        const streamHooks = { interrupt: () => false, resumed: () => {} };
-        if (typeof streamUrl_final === "string") {
-          try {
-            // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
-            // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
-            if (streamInfo?.platform === "direct") {
-              // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
-              audioStream = await this.io.directStream(streamUrl_final);
-            } else {
-              // 오프셋 재생이면 begin= 없는 원본 URL을 받아 `-ss`가 단독으로 위치를 정하게 한다(이중 seek 방지).
-              const fetchUrl = resumeFromMs > 0 && streamInfo?.rawUrl ? streamInfo.rawUrl : streamUrl_final;
-              // 평상시엔 yt-dlp가 준 것을 그대로 쓴다. 클라이언트마다 다른 값을 저쪽이 골라 준다.
-              // 폴백은 yt-dlp를 안 거친 입력을 위한 것이다.
-              const reqHeaders = streamInfo?.httpHeaders || { "User-Agent": config.userAgents.browser };
-
-              // 전체 길이를 알면 Range로 나눠 받는다. 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
-              // 길이를 모르는 입력은 나눌 수가 없으므로 예전 방식 그대로.
-              const totalBytes = contentLengthFromUrl(fetchUrl);
-              if (totalBytes) {
-                // await로 첫 요청까지 여기서 끝낸다. 실패가 아래 catch의 캐시 폴백으로 가도록
-                audioStream = await this.io.openChunkedStream({
-                  url: fetchUrl,
-                  headers: reqHeaders,
-                  totalBytes,
-                  chunkSize: config.stream.chunkBytes,
-                  onInterrupt: (err) => streamHooks.interrupt(err),
-                  onResumed: (info) => streamHooks.resumed(info),
-                });
-              } else {
-                const response = await this.io.fetch(fetchUrl, { headers: reqHeaders });
-
-                if (!response.ok) throw new Error(`Failed to fetch stream: ${response.status}`);
-
-                audioStream = typeof response.body?.getReader === "function" && typeof Readable.fromWeb === "function" ? Readable.fromWeb(response.body) : response.body;
-              }
-            }
-          } catch (fetchError) {
-            // 스트리밍 실패. 위에서 시작한 백그라운드 다운로드로 폴백
-            if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
-              // 이미 완료됨
-              shouldDownload = false; // 파일 모드로 전환
-              downloadedFile = filepath;
-            } else {
-              const inFlight = TrackDownloader.waitFor(filepath);
-              if (inFlight) {
-                try {
-                  downloadedFile = await inFlight;
-                  shouldDownload = false; // 파일 모드로 전환
-                } catch {
-                  /* 다운로드도 실패. 아래에서 원래 스트리밍 오류를 던짐 */
-                }
-              }
-            }
-
-            if (!downloadedFile) throw fetchError;
-          }
-        }
-
-        // 스트리밍에 실패했고 다운로드 파일이 있으면 파일 재생으로 건너뜀
-        if (!audioStream && downloadedFile) {
-          shouldDownload = false; // 파일 재생으로 이어서 진행
-        } else if (audioStream) {
-          const ffmpeg = this.io.spawnFfmpeg(buildFfmpegArgs({ seekMs: resumeFromMs }), "stream");
-          // 오류는 트랙이 바뀐 뒤에 도착할 수 있다. 그때 이 핸들러가 현재 트랙을 보면 엉뚱한 곡의
-          // 캐시로 전환한다. 이 재생이 어느 트랙의 것이었는지 붙잡아 둔다.
-          const playingTrack = this.currentTrack;
-
-          // 소스를 갈아끼울 수 있게 리소스 아래에 Splicer를 둔다. 스트림이 죽으면 AudioPlayer를
-          // 거치지 않고 캐시 파일로 넘어가므로 공백이 들리지 않는다(_planCacheSwitch).
-          const playSource = new AudioSplicer(ffmpeg.stdout, { fadeMs: SWITCH_FADE_MS });
-
-          const streamDetail = () => {
-            const st = audioStream.stats?.();
-            return st ? `청크 #${st.requests} · ${st.received}/${st.totalBytes}B · 마지막 수신 ${sec(st.idleMs)}초 전 · URL 만료 ${st.expiresInS ?? "?"}초 후` : "단일 GET";
-          };
-          // 끊기면 캐시 전환을 먼저 시도한다. 예약되면 청크 스트림은 이어받지 않고 받아 둔 데까지만 흘린다
-          streamHooks.interrupt = (err) => {
-            log.debug(`스트림 중단: ${describeStreamError(err)} | ${streamDetail()}`);
-            return playSource !== ffmpeg.stdout && this._planCacheSwitch(playSource, playingTrack);
-          };
-          streamHooks.resumed = ({ attempts, downtimeMs, starvedMs }) => {
-            const line = `스트림 이어받음: ${this._trackLabel(playingTrack)} | 재시도 ${attempts}회, ${sec(downtimeMs)}초`;
-            if (starvedMs > 0) log.warn({ tags: ["retry"] }, `${line}. 그동안 공급이 ${sec(starvedMs)}초 끊겼습니다`);
-            else log.info({ tags: ["retry", "recovered"] }, line);
-          };
-          // 이어받기로도 못 살렸다. ffmpeg 입력을 닫아야 출력이 끝나 예약된 전환이나 Idle(→ 끊긴 위치부터 재개)로 넘어간다
-          audioStream.on("error", (err) => {
-            log.debug(`스트림 중단(복구 불가): ${describeStreamError(err)} | ${streamDetail()}`);
-            if (playSource !== ffmpeg.stdout) this._planCacheSwitch(playSource, playingTrack);
-            if (!ffmpeg.stdin.destroyed && !ffmpeg.stdin.writableEnded) ffmpeg.stdin.end();
-          });
-          // ffmpeg가 끝나면 입력 스트림도 닫는다. .pipe 바깥이라 자동 정리 대상이 아니다.
-          ffmpeg.once("exit", () => audioStream.destroy());
-          audioStream.pipe(ffmpeg.stdin);
-          // pipe 뒤에 붙인다. 먼저 붙이면 흐르기 시작한 데이터가 목적지 없이 버려진다
-          audioStream.on("data", () => {
-            pb.inputProgressAt = Date.now();
-          });
-
-          pb.resource = this.io.createAudioResource(playSource, {
-            inputType: StreamType.Raw,
-            inlineVolume: true,
-            metadata: {
-              title: this.currentTrack.title,
-              url: this.currentTrack.pageUrl,
-              duration: streamInfo.duration || this.currentTrack.duration,
-              bitrate: streamInfo.bitrate || 128,
-            },
-          });
-        }
-      }
-
-      // 파일 재생 모드 (사전 다운로드 또는 스트리밍 폴백)
-      if (!shouldDownload && downloadedFile) {
-        const ffmpeg = this.io.spawnFfmpeg(buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }), "playback");
-
-        pb.resource = this.io.createAudioResource(ffmpeg.stdout, {
-          inputType: StreamType.Raw,
-          inlineVolume: true,
-          metadata: {
-            title: this.currentTrack.title,
-            url: this.currentTrack.pageUrl,
-            duration: (streamInfo && streamInfo.duration) || this.currentTrack.duration,
-            bitrate: (streamInfo && streamInfo.bitrate) || 128,
-          },
-        });
-      }
+        },
+        onExit: (code) => {
+          pb.liveExitCode = code;
+        },
+        label: this._trackLabel(track),
+      });
+      pb.resource = input.resource;
+      downloadedFile = input.cacheFile ?? downloadedFile;
 
       // 리소스가 있는지 확인
       if (!pb.resource) {

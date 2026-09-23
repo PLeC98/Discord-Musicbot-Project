@@ -135,9 +135,6 @@
     "complexity": {
       "count": 3
     },
-    "max-depth": {
-      "count": 7
-    },
     "max-lines-per-function": {
       "count": 1
     },
@@ -148,7 +145,7 @@
       "count": 2
     },
     "no-empty-function": {
-      "count": 12
+      "count": 11
     }
   },
   "src/player/idleLeave.js": {
