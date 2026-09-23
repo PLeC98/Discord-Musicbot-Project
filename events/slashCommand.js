@@ -1,13 +1,12 @@
 "use strict";
 
 // 슬래시 명령 실행. 명령을 찾아 부르고, 실패하면 본인에게만 보이게 알린다.
+// 본인에게만 보이는 응답의 수명은 이벤트를 거는 조립(index.js)이 상호작용 처리기마다 건다.
 
 const { Events } = require("discord.js");
 const log = require("../src/infra/log/logger").child({ category: "core" });
 const { isDeadInteraction } = require("../src/rules/deadInteraction");
-const { scheduleReplyCleanup } = require("../src/ui/replyLifetime");
 
-// Handle interactions (slash commands)
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction) {
@@ -33,8 +32,6 @@ module.exports = {
       const sending = interaction.replied || interaction.deferred ? interaction.followUp(payload) : interaction.reply(payload);
       // 안내 실패는 여기서 끝낸다. 리스너 밖으로 던지면 client "error"를 거쳐 uncaughtException이 된다.
       await sending.catch((err) => log.error("오류 안내 전송 실패:", err.message));
-    } finally {
-      scheduleReplyCleanup(interaction);
     }
   },
 };
