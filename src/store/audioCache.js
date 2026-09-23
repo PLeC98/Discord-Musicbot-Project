@@ -5,7 +5,7 @@
 const log = require("../infra/log/logger").child({ category: "cache" });
 const path = require("path");
 const fs = require("fs");
-const crypto = require("crypto");
+const { md5 } = require("../rules/audioKeyOf");
 const { PlayerSessionStore } = require("./playerSessions");
 const db = require("./db");
 
@@ -50,7 +50,7 @@ class AudioCache {
 
   // 이 모듈은 인스턴스를 내보내므로 static이면 외부에서 닿지 않는다
   md5(str) {
-    return crypto.createHash("md5").update(String(str)).digest("hex");
+    return md5(str);
   }
 
   /** audio_source_key에 대한 결정적 파일 경로 */

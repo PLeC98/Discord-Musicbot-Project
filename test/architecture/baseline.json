@@ -11,10 +11,9 @@
     "src/sources/trackResolver.js -> src/ui/errorMessages.js",
     "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js",
     "src/store/playerSessions.js -> src/player/trackState.js",
-    "src/store/trackLookup.js -> src/sources/youtube/index.js",
     "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"
   ],
-  "cycles": ["config.js -> src/infra/log/logger.js", "config.js -> src/sources/youtube/clients.js", "src/infra/log/logger.js -> src/infra/log/sink.js", "src/infra/log/sink.js -> config.js", "src/sources/youtube/api.js -> src/store/trackLookup.js", "src/sources/youtube/clients.js -> src/infra/log/logger.js", "src/sources/youtube/index.js -> src/sources/youtube/api.js", "src/store/trackLookup.js -> src/sources/youtube/index.js"],
+  "cycles": ["config.js -> src/infra/log/logger.js", "config.js -> src/sources/youtube/clients.js", "src/infra/log/logger.js -> src/infra/log/sink.js", "src/infra/log/sink.js -> config.js", "src/sources/youtube/clients.js -> src/infra/log/logger.js"],
   "unseen": ["src/app/moduleLoader.js"],
   "lazyRequire": {
     "src/autoplay/assist/index.js": 6,
@@ -28,7 +27,6 @@
     "src/sources/sponsorBlock.js": 2,
     "src/sources/youtube/auth.js": 1,
     "src/store/audioCache.js": 3,
-    "src/store/trackLookup.js": 1,
     "src/ui/botPresence.js": 1,
     "src/ui/genreMenu.js": 1,
     "src/ui/nowPlayingPanel.js": 2,

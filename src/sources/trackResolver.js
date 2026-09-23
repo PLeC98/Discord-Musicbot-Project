@@ -7,19 +7,17 @@ const log = require("../infra/log/logger").child({ category: "track" });
 const Spotify = require("./spotify");
 const SoundCloud = require("./soundcloud");
 const DirectLink = require("./direct");
-const audioCache = require("../store/audioCache");
 const trackLookup = require("../store/trackLookup");
 const ErrorHandler = require("../ui/errorMessages");
+const { inputKind } = require("../rules/inputKind");
+const { audioKeyOf } = require("../rules/audioKeyOf");
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./youtube/match");
 
 const TrackResolver = {
-  // 쿼리 문자열의 플랫폼 판별. direct 판정은 DirectLink.isDirectAudioLink 한 곳 기준
+  // 쿼리 문자열의 플랫폼 판별. 모르는 것은 아직 유튜브 검색으로 보낸다
   detectPlatform(query) {
-    if (YouTube.isYouTubeURL(query)) return "youtube";
-    if (Spotify.isSpotifyURL(query)) return "spotify";
-    if (SoundCloud.isSoundCloudURL(query)) return "soundcloud";
-    if (DirectLink.isDirectAudioLink(query)) return "direct";
-    return "youtube"; // 기본값은 YouTube 검색
+    const kind = inputKind(query);
+    return kind === "unknown" ? "youtube" : kind;
   },
 
   /**
@@ -134,20 +132,8 @@ const TrackResolver = {
   ensureAudioSourceKey(track) {
     if (!track) return null;
     if (track.audioSourceKey) return track.audioSourceKey;
-
-    if (track.platform === "youtube") {
-      const vid = track.id || YouTube.extractVideoId(track.url);
-      if (vid) track.audioSourceKey = `yt:${vid}`;
-    } else if (track.platform === "soundcloud" && track.id) {
-      track.audioSourceKey = `sc:${track.id}`;
-    } else if (track.platform === "direct") {
-      track.audioSourceKey = `dl:${audioCache.md5(track.url)}`;
-    } else if (track.youtubeUrl) {
-      // 스포티파이와, 자동재생이 출처에서 받아 온 곡들(lastfm·lbradio·vocadb 계열 …).
-      // 출처가 달라도 같은 영상이면 음원 파일 하나를 함께 쓴다.
-      const vid = YouTube.extractVideoId(track.youtubeUrl);
-      if (vid) track.audioSourceKey = `yt:${vid}`;
-    }
+    const key = audioKeyOf(track);
+    if (key) track.audioSourceKey = key;
     return track.audioSourceKey || null;
   },
 

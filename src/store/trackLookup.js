@@ -5,6 +5,7 @@
 const fs = require("fs");
 const db = require("./db");
 const audioCache = require("./audioCache");
+const { canonicalUrl } = require("../rules/canonicalUrl");
 
 class TrackLookup {
   get db() {
@@ -22,11 +23,7 @@ class TrackLookup {
    * { hit: false } 또는 { hit: true, track, audioSourceKey, filePath }를 반환합니다.
    */
   _normalizeSourceUrl(sourceUrl) {
-    if (typeof sourceUrl !== "string") return sourceUrl;
-    // 순환 의존성 문제를 피하기 위해 지연 require
-    const YouTube = require("../sources/youtube/index");
-    const videoId = YouTube.extractVideoId(sourceUrl);
-    return videoId ? `https://www.youtube.com/watch?v=${videoId}` : sourceUrl;
+    return canonicalUrl(sourceUrl);
   }
 
   resolveFromCache(sourceUrl) {
