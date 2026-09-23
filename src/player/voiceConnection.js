@@ -6,11 +6,16 @@ const log = require("../infra/log/logger").child({ category: "voice" });
 /**
  * VoiceConnectionManager. 음성 연결/자동 복구/헬스체크
  *
- * 연결 상태 필드(connection, isRecovering, recoveryAttempts, recoveryInterval, connectionHealthCheck 등)는 기존 외부 참조와 cleanup/releaseResources의 직접 해제를 깨지 않도록 player 인스턴스에 유지하고, 이 클래스는 로직만 보유
+ * 복구 상태(복구 중인가 · 몇 번째 시도인가)와 헬스체크 타이머는 이 인스턴스가 가진다. 연결 자체(connection)는
+ * 플레이어가 음성 라이브러리에 구독시키므로 플레이어에 있다.
  */
 class VoiceConnectionManager {
   constructor(player) {
     this.player = player;
+    this.isRecovering = false;
+    this.recoveryAttempts = 0;
+    this.maxRecoveryAttempts = 5;
+    this.healthCheck = null;
   }
 
   setupConnectionEvents() {
@@ -21,8 +26,8 @@ class VoiceConnectionManager {
 
     player.connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
       // 이미 복구 중이거나 사용자가 봇 연결을 끊은 경우 복구를 트리거하지 않음
-      if (player.isRecovering || newState.reason === "Manual disconnect") {
-        log.info(`연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 복구 안 함 (${player.isRecovering ? "이미 복구 중" : "수동 해제"})`);
+      if (this.isRecovering || newState.reason === "Manual disconnect") {
+        log.info(`연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 복구 안 함 (${this.isRecovering ? "이미 복구 중" : "수동 해제"})`);
         return;
       }
 
@@ -45,7 +50,7 @@ class VoiceConnectionManager {
 
     player.connection.on(VoiceConnectionStatus.Destroyed, () => {
       // 음악이 재생 중이고 아직 복구 중이 아닐 때만 복구 시작
-      const willRecover = !!player.currentTrack && !player.paused && !player.isRecovering;
+      const willRecover = !!player.currentTrack && !player.paused && !this.isRecovering;
       log.info(`음성 연결 종료됨: ${label()}${willRecover ? " | 재생 중이라 복구 시작" : ""}`);
       if (willRecover) {
         this.startConnectionRecovery();
@@ -68,11 +73,11 @@ class VoiceConnectionManager {
       }
       if (newState.status === VoiceConnectionStatus.Ready) {
         // 연결 복구 성공
-        if (player.isRecovering) {
-          log.info({ tags: ["recovered"] }, `연결 복구 완료: ${label()} | 시도 ${player.recoveryAttempts}회`);
+        if (this.isRecovering) {
+          log.info({ tags: ["recovered"] }, `연결 복구 완료: ${label()} | 시도 ${this.recoveryAttempts}회`);
           this.stopConnectionRecovery();
         }
-        player.recoveryAttempts = 0;
+        this.recoveryAttempts = 0;
       }
     });
   }
@@ -81,11 +86,12 @@ class VoiceConnectionManager {
     const player = this.player;
 
     // 30초마다 연결 상태 확인
-    player.connectionHealthCheck = setInterval(async () => {
+    this.stopHealthCheck();
+    this.healthCheck = setInterval(async () => {
       try {
         // 연결 상태 확인
         if (!player.connection || player.connection.state.status === VoiceConnectionStatus.Destroyed) {
-          if (player.currentTrack && !player.paused && !player.isRecovering) {
+          if (player.currentTrack && !player.paused && !this.isRecovering) {
             this.startConnectionRecovery();
           }
         }
@@ -111,14 +117,19 @@ class VoiceConnectionManager {
     }, 30000);
   }
 
+  stopHealthCheck() {
+    if (this.healthCheck) clearInterval(this.healthCheck);
+    this.healthCheck = null;
+  }
+
   async startConnectionRecovery() {
     const player = this.player;
-    if (player.isRecovering) return;
+    if (this.isRecovering) return;
 
-    player.isRecovering = true;
-    player.recoveryAttempts = 0;
+    this.isRecovering = true;
+    this.recoveryAttempts = 0;
 
-    log.warn(`연결 복구 시작: "${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id}) | 최대 ${player.maxRecoveryAttempts}회`);
+    log.warn(`연결 복구 시작: "${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id}) | 최대 ${this.maxRecoveryAttempts}회`);
 
     // 현재 재생 위치 저장
     this.savePlaybackPosition();
@@ -127,13 +138,13 @@ class VoiceConnectionManager {
     // "시도 → 완료 대기 → 휴지"를 순차 반복하고, 세대 토큰으로 중단↔재시작 경쟁을 차단
     // (stop 후 새 복구가 시작돼도 이전 루프의 늦은 await 복귀가 새 상태를 건드리지 못함).
     const gen = (this._recoveryGen = (this._recoveryGen || 0) + 1);
-    const active = () => player.isRecovering && gen === this._recoveryGen;
+    const active = () => this.isRecovering && gen === this._recoveryGen;
 
     try {
       while (active()) {
-        player.recoveryAttempts++;
-        if (player.recoveryAttempts > player.maxRecoveryAttempts) {
-          log.error(`연결 복구 포기: 최대 시도 ${player.maxRecoveryAttempts}회를 넘었습니다`);
+        this.recoveryAttempts++;
+        if (this.recoveryAttempts > this.maxRecoveryAttempts) {
+          log.error(`연결 복구 포기: 최대 시도 ${this.maxRecoveryAttempts}회를 넘었습니다`);
           break;
         }
 
@@ -155,7 +166,7 @@ class VoiceConnectionManager {
             break;
           }
         } catch (error) {
-          log.error(`연결 복구 ${player.recoveryAttempts}회차 실패:`, error);
+          log.error(`연결 복구 ${this.recoveryAttempts}회차 실패:`, error);
         }
 
         // 다음 시도까지 휴지 (테스트에서 재정의 가능)
@@ -170,15 +181,9 @@ class VoiceConnectionManager {
   }
 
   stopConnectionRecovery() {
-    const player = this.player;
     this._recoveryGen = (this._recoveryGen || 0) + 1; // 진행 중인 루프 무효화 (늦은 await 복귀 차단)
-    if (player.recoveryInterval) {
-      // 구 setInterval 경로의 잔재 방어. 현재 코드는 인터벌을 만들지 않음
-      clearInterval(player.recoveryInterval);
-      player.recoveryInterval = null;
-    }
-    player.isRecovering = false;
-    player.recoveryAttempts = 0;
+    this.isRecovering = false;
+    this.recoveryAttempts = 0;
   }
 
   savePlaybackPosition() {

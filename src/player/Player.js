@@ -101,12 +101,6 @@ class MusicPlayer {
 
     // 사전 로드 시스템 - 대기열의 모든 트랙을 즉시 사전 로드
 
-    // 음성 연결 복구 시스템
-    this.isRecovering = false;
-    this.maxRecoveryAttempts = 5;
-    this.recoveryAttempts = 0;
-    this.recoveryInterval = null;
-    this.connectionHealthCheck = null;
     this.queueEmptyTimer = null;
 
     // 재생 생명주기 상태
@@ -227,7 +221,12 @@ class MusicPlayer {
     this.voice.setupConnectionEvents();
   }
 
-  // ── 음성 연결. 로직은 VoiceConnectionManager, 상태 필드는 이 인스턴스에 유지 ──
+  // ── 음성 연결. 연결 복구 상태와 헬스체크는 VoiceConnectionManager 가 가진다 ──
+
+  /** 음성 연결을 스스로 복구하는 중인가(바깥의 복구 감시가 방해하지 않게 본다) */
+  get isRecovering() {
+    return this.voice?.isRecovering ?? false;
+  }
 
   connect() {
     return this.voice.connect();
@@ -1156,11 +1155,7 @@ class MusicPlayer {
     this.clearInactivityTimer(false);
     this.stopStateSync();
     this.voice.stopConnectionRecovery();
-
-    if (this.connectionHealthCheck) {
-      clearInterval(this.connectionHealthCheck);
-      this.connectionHealthCheck = null;
-    }
+    this.voice.stopHealthCheck();
 
     if (this.trackTimer) {
       clearTimeout(this.trackTimer);
@@ -1823,14 +1818,9 @@ class MusicPlayer {
         this.currentDownloadedFile = null;
       }
 
-      // 복구 시스템 중지
+      // 복구 시스템 · 상태 확인 타이머 중지
       this.voice.stopConnectionRecovery();
-
-      // 상태 확인 타이머 정리
-      if (this.connectionHealthCheck) {
-        clearInterval(this.connectionHealthCheck);
-        this.connectionHealthCheck = null;
-      }
+      this.voice.stopHealthCheck();
 
       // 트랙 타이머 정리
       if (this.trackTimer) {
@@ -1879,8 +1869,6 @@ class MusicPlayer {
       this.activeStreamInfo = null;
 
       // 복구 데이터 정리
-      this.isRecovering = false;
-      this.recoveryAttempts = 0;
       this.lastPlaybackPosition = 0;
       this.currentTrackStartOffsetMs = 0;
 

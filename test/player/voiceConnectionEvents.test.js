@@ -62,9 +62,6 @@ function makePlayer({ channel = true } = {}) {
     connection: fakeConnection(),
     currentTrack: { title: "곡" },
     paused: false,
-    isRecovering: false,
-    recoveryAttempts: 0,
-    maxRecoveryAttempts: 5,
     startTime: null,
     pausedTime: 0,
     currentTrackStartOffsetMs: 0,
@@ -95,7 +92,7 @@ test("끊김: 수동 해제거나 이미 복구 중이면 아무것도 안 한�
   vcm.setupConnectionEvents();
 
   player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: "Manual disconnect" });
-  player.isRecovering = true;
+  vcm.isRecovering = true;
   player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
   await flush();
 
@@ -142,14 +139,14 @@ test("파괴됨 · 오류: 재생 중이고 복구 중이 아니면 복구를 �
   player.connection.emit("error", new Error("x"));
   assert.equal(recoveries.length, 2);
 
-  player.isRecovering = true;
+  vcm.isRecovering = true;
   player.connection.emit(VoiceConnectionStatus.Destroyed);
   assert.equal(recoveries.length, 2, "파괴됨은 복구 중이면 건너뛴다");
   player.connection.emit("error", new Error("x"));
   assert.equal(recoveries.length, 3, "오류는 복구 중인지 보지 않는다(루프가 스스로 막는다)");
 
   player.currentTrack = null;
-  player.isRecovering = false;
+  vcm.isRecovering = false;
   player.connection.emit(VoiceConnectionStatus.Destroyed);
   assert.equal(recoveries.length, 3, "곡이 없으면 복구하지 않는다");
 });
@@ -157,13 +154,13 @@ test("파괴됨 · 오류: 재생 중이고 복구 중이 아니면 복구를 �
 test("Ready 로 넘어오면 복구를 끝내고 시도 횟수를 0 으로", () => {
   const { player, vcm } = makePlayer();
   vcm.setupConnectionEvents();
-  player.isRecovering = true;
-  player.recoveryAttempts = 3;
+  vcm.isRecovering = true;
+  vcm.recoveryAttempts = 3;
 
   player.connection.emit("stateChange", { status: VoiceConnectionStatus.Connecting }, { status: VoiceConnectionStatus.Ready });
 
-  assert.equal(player.isRecovering, false);
-  assert.equal(player.recoveryAttempts, 0);
+  assert.equal(vcm.isRecovering, false);
+  assert.equal(vcm.recoveryAttempts, 0);
 });
 
 test("연결이 없으면 이벤트를 걸지 않는다", () => {
@@ -194,7 +191,7 @@ test("헬스체크: 30초마다. 연결이 파괴됐고 재생 중이면 복구,
     await flush();
     assert.deepEqual(player.cleanups, ["헬스체크: 음성 채널을 찾을 수 없음"]);
     assert.equal(player.guild.client.players.has("g1"), false);
-    clearInterval(player.connectionHealthCheck);
+    vcm.stopHealthCheck();
   } finally {
     mock.timers.reset();
   }
@@ -212,7 +209,7 @@ test("헬스체크: 밀려난 플레이어는 정리하되 레지스트리의 �
     await flush();
     assert.equal(player.cleanups.length, 1);
     assert.equal(player.guild.client.players.get("g1"), current);
-    clearInterval(player.connectionHealthCheck);
+    vcm.stopHealthCheck();
   } finally {
     mock.timers.reset();
   }

@@ -22,14 +22,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function makeVcm({ maxAttempts = 5 } = {}) {
   const player = {
-    isRecovering: false,
-    recoveryAttempts: 0,
-    maxRecoveryAttempts: maxAttempts,
-    recoveryInterval: null,
     voiceChannel: { id: "vc1" },
     guild: { channels: { cache: new Map([["vc1", { id: "vc1" }]]) } },
   };
   const vcm = new VoiceConnectionManager(player);
+  vcm.maxRecoveryAttempts = maxAttempts;
   vcm.recoveryRetryDelayMs = 5; // 테스트용 휴지 단축 (기본 3000ms)
 
   const stats = { reconnects: 0, activeReconnects: 0, maxActiveReconnects: 0, resumes: 0, saves: 0 };
@@ -52,7 +49,7 @@ function makeVcm({ maxAttempts = 5 } = {}) {
 }
 
 test("성공 경로: 재연결 성공 → 위치 재개 1회 → 상태 초기화", async () => {
-  const { vcm, player, stats, setReconnect } = makeVcm();
+  const { vcm, stats, setReconnect } = makeVcm();
   setReconnect(async () => true);
 
   await vcm.startConnectionRecovery();
@@ -60,8 +57,8 @@ test("성공 경로: 재연결 성공 → 위치 재개 1회 → 상태 초기�
   assert.equal(stats.saves, 1, "시작 시 재생 위치 저장");
   assert.equal(stats.reconnects, 1);
   assert.equal(stats.resumes, 1);
-  assert.equal(player.isRecovering, false);
-  assert.equal(player.recoveryAttempts, 0);
+  assert.equal(vcm.isRecovering, false);
+  assert.equal(vcm.recoveryAttempts, 0);
 });
 
 test("동시 실행 금지: 느린 재연결 중에도 시도는 항상 1개 이하 (M-04 회귀)", async () => {
@@ -95,30 +92,30 @@ test("실패 반복: 완료를 기다렸다가 휴지 후 재시도, 성공 시 
 });
 
 test("상한: maxRecoveryAttempts 초과 시 재개 없이 중단 + 상태 초기화", async () => {
-  const { vcm, player, stats, setReconnect } = makeVcm({ maxAttempts: 3 });
+  const { vcm, stats, setReconnect } = makeVcm({ maxAttempts: 3 });
   setReconnect(async () => false);
 
   await vcm.startConnectionRecovery();
 
   assert.equal(stats.reconnects, 3, "상한만큼만 시도");
   assert.equal(stats.resumes, 0);
-  assert.equal(player.isRecovering, false);
+  assert.equal(vcm.isRecovering, false);
 });
 
 test("중단: 재연결 대기 중 stop되면 늦은 성공이 상태를 건드리지 않음", async () => {
-  const { vcm, player, stats, setReconnect } = makeVcm();
+  const { vcm, stats, setReconnect } = makeVcm();
   const gate = deferred();
   setReconnect(() => gate.p);
 
   const loop = vcm.startConnectionRecovery();
   await tick();
   vcm.stopConnectionRecovery(); // 대기 중 중단 (예: cleanup/새 연결 성립)
-  assert.equal(player.isRecovering, false);
+  assert.equal(vcm.isRecovering, false);
 
   gate.resolve(true); // 늦게 성공 복귀 — 이미 무효화된 세대
   await loop;
   assert.equal(stats.resumes, 0, "무효화된 루프는 재개를 실행하지 않음");
-  assert.equal(player.isRecovering, false);
+  assert.equal(vcm.isRecovering, false);
 });
 
 test("음성 채널이 사라졌으면 재연결 시도 없이 종료", async () => {
@@ -128,11 +125,11 @@ test("음성 채널이 사라졌으면 재연결 시도 없이 종료", async ()
   await vcm.startConnectionRecovery();
 
   assert.equal(stats.reconnects, 0);
-  assert.equal(player.isRecovering, false);
+  assert.equal(vcm.isRecovering, false);
 });
 
 test("forceReconnect가 던져도 루프는 reject 없이 재시도 후 정상 종료", async () => {
-  const { vcm, player, stats, setReconnect } = makeVcm({ maxAttempts: 2 });
+  const { vcm, stats, setReconnect } = makeVcm({ maxAttempts: 2 });
   setReconnect(async () => {
     throw new Error("reconnect boom");
   });
@@ -140,5 +137,5 @@ test("forceReconnect가 던져도 루프는 reject 없이 재시도 후 정상 �
   await vcm.startConnectionRecovery(); // reject되면 테스트 자체가 실패
 
   assert.equal(stats.reconnects, 2);
-  assert.equal(player.isRecovering, false);
+  assert.equal(vcm.isRecovering, false);
 });
