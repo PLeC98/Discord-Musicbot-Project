@@ -38,7 +38,7 @@ const playerClients = new PlayerClients(config.ytdlp.playerClients, { window: co
 const STALE_RETRY_MS = 700;
 
 // 쓸 때 부른다. configDataLoader 가 autoplaySources 를 거쳐 이 파일로 돌아오는 길이 있다
-const configData = () => require("./configDataLoader");
+const configData = () => require("./config/loader");
 
 // 지금 쿠키 파일을 쥔 채 도는 yt-dlp 가 몇 개인가. 대시보드가 쿠키를 갈아 끼울 때 본다.
 // yt-dlp 는 끝나면서 쿠키 항아리를 그 파일에 되쓰므로, 도는 중에 갈아 끼우면 옛것으로 되돌아간다.

@@ -11,8 +11,8 @@ const fs = require("node:fs");
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const loader = require("../src/configDataLoader");
-const { PROVIDERS } = require("../src/autoplayAssist"); // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
+const loader = require("../../src/config/loader");
+const { PROVIDERS } = require("../../src/autoplayAssist"); // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
 const GENRES = [
@@ -375,7 +375,7 @@ const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), t
 
 before(() => loader._setConfigDir(DIR));
 after(() => {
-  loader._setConfigDir(path.join(__dirname, "..", "config"));
+  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true });
 });
 

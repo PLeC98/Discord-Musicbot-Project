@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert");
-const models = require("../src/aiModels");
+const models = require("../../src/config/schema/aiModels");
 
 // 프로필은 base-provider 를 상속한다. 버텍스 프로필은 schema 가 비어 있고 알맹이가 베이스에 있다 —
 // 합치지 않으면 추론 칸이 통째로 빈다.

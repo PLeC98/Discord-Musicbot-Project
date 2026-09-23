@@ -12,7 +12,7 @@ const path = require("node:path");
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
 
-const configData = require("../src/configDataLoader");
+const configData = require("../src/config/loader");
 const assist = require("../src/autoplayAssist");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));

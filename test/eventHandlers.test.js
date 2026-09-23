@@ -21,7 +21,7 @@ CacheManager.initialize(path.join(TMP, "cache.db"));
 const S = require("../src/strings");
 const settings = require("../src/GuildSettingsManager");
 const TrackResolver = require("../src/TrackResolver");
-const loader = require("../src/configDataLoader");
+const loader = require("../src/config/loader");
 const More = require("../src/playlistMore");
 const messageHandler = require("../events/messageHandler");
 const panelPin = require("../events/panelPin");

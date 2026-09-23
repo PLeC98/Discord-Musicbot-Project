@@ -12,11 +12,11 @@ const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const YAML = require("yaml");
 
-const loader = require("../src/configDataLoader");
-const StatusManager = require("../src/StatusManager");
+const loader = require("../../src/config/loader");
+const StatusManager = require("../../src/StatusManager");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-status-"));
-const CONFIG = path.join(__dirname, "..", "config");
+const CONFIG = path.join(__dirname, "..", "..", "config");
 
 before(() => loader._setConfigDir(DIR));
 after(() => {

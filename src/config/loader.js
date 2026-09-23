@@ -14,16 +14,16 @@
 const fs = require("fs");
 const path = require("path");
 const YAML = require("yaml");
-const log = require("./infra/log/logger").child({ category: "config" });
+const log = require("../infra/log/logger").child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
-const sources = require("./autoplaySources");
+const sources = require("../autoplaySources");
 
 // 같은 말을 되풀이하지 않는다. genres()는 곡을 고를 때마다 불린다
 let warnedKeys = "";
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
 // (CacheManager._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
-let configDir = path.join(__dirname, "..", "config");
+let configDir = path.join(__dirname, "..", "..", "config");
 
 // name -> { mtimeMs, value }
 const cache = new Map();
@@ -643,7 +643,7 @@ function ai() {
 
 // 목록은 autoplayAssist 가 갖는다(주소·키 필요 여부까지 거기 있다).
 // 여기서 위로 require 하면 순환이다. 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
-const aiProviders = () => require("./autoplayAssist").PROVIDERS;
+const aiProviders = () => require("../autoplayAssist").PROVIDERS;
 
 function validateAi(data) {
   const problems = [];

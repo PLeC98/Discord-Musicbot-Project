@@ -8,7 +8,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/genreMenu");
-const { genres } = require("../src/configDataLoader").genres();
+const { genres } = require("../src/config/loader").genres();
 
 const ids = Object.keys(genres);
 const selectOf = (payload) => payload.components[0].toJSON().components[0];

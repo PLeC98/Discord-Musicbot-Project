@@ -4,7 +4,7 @@
  * 대시보드의 갱신 버튼과 같은 길(src/aiModels.refresh)을 쓴다.
  */
 const path = require("path");
-const models = require("../src/aiModels");
+const models = require("../src/config/schema/aiModels");
 const { PROVIDER_SPECS } = require("../src/autoplayAssist");
 
 (async () => {

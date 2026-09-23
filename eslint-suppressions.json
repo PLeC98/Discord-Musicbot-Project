@@ -268,7 +268,7 @@
       "count": 1
     }
   },
-  "src/configDataLoader.js": {
+  "src/config/loader.js": {
     "complexity": {
       "count": 6
     }

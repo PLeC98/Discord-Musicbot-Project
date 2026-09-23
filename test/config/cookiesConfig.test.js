@@ -17,15 +17,15 @@ const fs = require("node:fs");
 const { test, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
-const loader = require("../src/configDataLoader");
-const YouTube = require("../src/YouTube");
-const config = require("../config");
+const loader = require("../../src/config/loader");
+const YouTube = require("../../src/YouTube");
+const config = require("../../config");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookies-"));
 
 before(() => loader._setConfigDir(DIR));
 after(() => {
-  loader._setConfigDir(path.join(__dirname, "..", "config"));
+  loader._setConfigDir(path.join(__dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true });
 });
 beforeEach(() => loader.clearCookies());

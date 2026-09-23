@@ -286,7 +286,7 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
 // 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
 // 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
 
-const configData = require("../src/configDataLoader");
+const configData = require("../src/config/loader");
 const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 
 before(() => {

@@ -134,7 +134,7 @@ test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
 test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종류만 알린다", () => {
   // 대시보드는 운영자 전용이지만, 파일 경로는 알려야 할 이유가 없다.
   const raw = JSON.stringify(YouTube.statusSnapshot());
-  const cookiePath = require("../src/configDataLoader").cookiesPath();
+  const cookiePath = require("../src/config/loader").cookiesPath();
   assert.ok(!raw.includes(cookiePath), "쿠키 파일 경로가 응답에 실리면 안 된다");
 });
 

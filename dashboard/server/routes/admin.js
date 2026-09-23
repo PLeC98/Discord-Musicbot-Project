@@ -10,7 +10,7 @@ const logManager = require("../../../src/infra/log/sink");
 const procRegistry = require("../../../src/infra/processRegistry");
 const { TIERS, getViewAs } = require("../viewAs");
 const trackState = require("../../../src/trackState");
-const configData = require("../../../src/configDataLoader");
+const configData = require("../../../src/config/loader");
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
@@ -255,7 +255,7 @@ router.get("/ai/state", requireOwner, (req, res) => {
  */
 router.get("/ai/fields", requireOwner, (req, res) => {
   const assist = require("../../../src/autoplayAssist");
-  const models = require("../../../src/aiModels");
+  const models = require("../../../src/config/schema/aiModels");
   const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
   if (!registry) return res.json({ known: false, fields: [], models: [] });
 
@@ -302,7 +302,7 @@ router.post("/ai/tokens", requireOwner, async (req, res) => {
 /** 모델 프로필 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
 router.post("/ai/models/refresh", requireOwner, async (req, res) => {
   const assist = require("../../../src/autoplayAssist");
-  const models = require("../../../src/aiModels");
+  const models = require("../../../src/config/schema/aiModels");
   try {
     const registries = [
       ...new Set(

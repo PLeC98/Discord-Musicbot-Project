@@ -8,7 +8,7 @@ const fs = require("fs");
 const path = require("path");
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
-const FILE = path.join(__dirname, "..", "data", "ai-models.json");
+const FILE = path.join(__dirname, "..", "..", "..", "data", "ai-models.json");
 
 /**
  * 프로필은 base-provider 를 상속한다. 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
