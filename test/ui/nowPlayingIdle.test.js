@@ -8,6 +8,7 @@ const assert = require("node:assert/strict");
 const { Collection } = require("discord.js");
 const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 const GuildSettingsManager = require("../../src/store/guildSettings");
+const playerEvents = require("../../src/player/events");
 
 const BOT = "bot-chan";
 let botChannelId;
@@ -105,6 +106,18 @@ test("전용 채널: 끝난 패널이 맨 아래면 그 자리를 재생 화면�
   assert.match(textOf(calls.edited[0].payload), /현재 재생 중/);
   assert.equal(player.nowPlayingMessage.id, "900");
   assert.deepEqual(records.get("g1"), { channelId: BOT, messageId: "900" });
+});
+
+test("새로 틀기 시작하면 대시보드에 알린다", async () => {
+  const { mem, guild, channels } = setup({ record: { channelId: BOT, messageId: "900" } });
+  const seen = [];
+  const off = playerEvents.on("touched", (g) => seen.push(g));
+  try {
+    await play(mem, makePlayer(guild, channels.get(BOT)));
+  } finally {
+    off();
+  }
+  assert.deepEqual(seen, ["g1"]);
 });
 
 test("전용 채널: 끝난 패널이 묻혀 있으면 맨 아래에 새로 올리고 옛 패널을 지운다", async () => {

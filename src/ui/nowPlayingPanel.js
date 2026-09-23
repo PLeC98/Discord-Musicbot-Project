@@ -250,6 +250,7 @@ class MusicEmbedManager {
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
   async createNewMusicEmbed(player, track, requester, responder = silentResponder, { reuse = true } = {}) {
+    if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
     if (typeof channel?.send !== "function") {
