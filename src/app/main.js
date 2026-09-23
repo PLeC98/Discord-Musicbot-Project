@@ -79,7 +79,7 @@ function startBot({ potServer, logFile }) {
   client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
   client.musicEmbedManager = new MusicEmbedManager(client);
   const stream = createPlayerStream();
-  startDashboard(client, { stream });
+  startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
   listenToPlayers(client.musicEmbedManager, stream);
 
   client.once(Events.ClientReady, () => onReady(client));

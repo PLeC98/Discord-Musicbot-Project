@@ -71,7 +71,8 @@ function createSessionMiddleware() {
 // 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체가 회귀 대상이라(정적 자산이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
-function createApp(client, { stream, sessionMiddleware = createSessionMiddleware() }) {
+// deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼). 조립이 넘긴다
+function createApp(client, { stream, deployCommands, sessionMiddleware = createSessionMiddleware() }) {
   const app = express();
   const { host, url } = config.dashboard;
 
@@ -106,6 +107,7 @@ function createApp(client, { stream, sessionMiddleware = createSessionMiddleware
 
   // 라우트에서 디스코드 클라이언트를 쓸 수 있게
   app.locals.discordClient = client;
+  app.locals.deployCommands = deployCommands;
 
   // ── API 요청 제한 (express-rate-limit). 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
@@ -172,8 +174,8 @@ function createApp(client, { stream, sessionMiddleware = createSessionMiddleware
   return app;
 }
 
-function startDashboard(client, { stream }) {
-  const app = createApp(client, { stream });
+function startDashboard(client, { stream, deployCommands }) {
+  const app = createApp(client, { stream, deployCommands });
 
   const { port, host, url } = config.dashboard;
   const { line, warnings } = describeBinding(host, port, url);

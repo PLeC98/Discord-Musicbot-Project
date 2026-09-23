@@ -121,6 +121,7 @@ before(async () => {
     next();
   });
   app.locals.discordClient = client;
+  app.locals.deployCommands = require("../../src/app/commandLoader").deployCommands;
   app.use("/api/admin", require("../../dashboard/server/routes/admin.js"));
   server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
