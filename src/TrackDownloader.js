@@ -7,11 +7,11 @@ const log = require("./infra/log/logger").child({ category: "track" });
 const fsSync = require("fs");
 const { pipeline } = require("stream/promises");
 const audioConvert = require("./audioConvert");
-const YouTube = require("./YouTube");
-const TrackResolver = require("./TrackResolver");
-const DirectLink = require("./DirectLink");
+const YouTube = require("./sources/youtube/index");
+const TrackResolver = require("./sources/trackResolver");
+const DirectLink = require("./sources/direct");
 const CacheManager = require("./store/cacheManager");
-const SponsorBlock = require("./SponsorBlock");
+const SponsorBlock = require("./sources/sponsorBlock");
 
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드

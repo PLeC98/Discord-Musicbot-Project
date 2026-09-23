@@ -10,7 +10,7 @@ const assert = require("node:assert/strict");
 // yt-dlp 호출을 가로챈다 (YouTube보다 먼저)
 const ytCalls = [];
 let ytInfo = null;
-const ytPath = require.resolve(path.join(__dirname, "..", "src", "ytdlp.js"));
+const ytPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "ytdlpSpawn.js"));
 require.cache[ytPath] = {
   id: ytPath,
   filename: ytPath,
@@ -21,10 +21,10 @@ require.cache[ytPath] = {
   },
 };
 
-const Spotify = require("../src/Spotify");
-const YouTube = require("../src/YouTube");
-const CacheManager = require("../src/store/cacheManager");
-const TrackResolver = require("../src/TrackResolver");
+const Spotify = require("../../src/sources/spotify");
+const YouTube = require("../../src/sources/youtube/index");
+const CacheManager = require("../../src/store/cacheManager");
+const TrackResolver = require("../../src/sources/trackResolver");
 
 const { graphql, official } = Spotify._internals;
 

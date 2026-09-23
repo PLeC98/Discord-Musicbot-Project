@@ -5,11 +5,11 @@ process.env.CLIENT_ID ||= "test-client";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const TrackResolver = require("../src/TrackResolver");
-const YouTube = require("../src/YouTube");
-const Spotify = require("../src/Spotify");
-const SoundCloud = require("../src/SoundCloud");
-const CacheManager = require("../src/store/cacheManager");
+const TrackResolver = require("../../src/sources/trackResolver");
+const YouTube = require("../../src/sources/youtube/index");
+const Spotify = require("../../src/sources/spotify");
+const SoundCloud = require("../../src/sources/soundcloud");
+const CacheManager = require("../../src/store/cacheManager");
 
 test("accepts supported media hosts by parsed hostname", () => {
   assert.equal(TrackResolver.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");

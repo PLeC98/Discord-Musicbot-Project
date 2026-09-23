@@ -4,7 +4,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const Spotify = require("../src/Spotify");
+const Spotify = require("../../src/sources/spotify");
 const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = Spotify._internals;
 
 test("parseSpotifyURL: 타입/ID 추출 (open URL + spotify: URI)", () => {

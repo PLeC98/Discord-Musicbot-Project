@@ -19,7 +19,7 @@ const assert = require("node:assert/strict");
 
 // TrackResolver가 CacheManager(해석 캐시 조회)를 타므로 임시 DB로 돌린다 — 운영 DB 미접촉.
 const TEST_DB = path.join(os.tmpdir(), `musicbot-livestream-test-${process.pid}.db`);
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager.initialize(TEST_DB);
 after(() => {
   CacheManager.close();
@@ -32,7 +32,7 @@ after(() => {
   }
 });
 
-const YouTube = require("../src/YouTube");
+const YouTube = require("../../src/sources/youtube/index");
 
 test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
   assert.equal(YouTube._detectLive({ is_live: true }), true);
@@ -49,7 +49,7 @@ test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
 });
 
 test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있으면 null)", async () => {
-  const resolverPath = require.resolve(path.join(__dirname, "..", "src", "TrackResolver.js"));
+  const resolverPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
   delete require.cache[resolverPath];
 
   const originalSearch = YouTube.search;
@@ -71,7 +71,7 @@ test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있�
 });
 
 test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보가 선택된다", async () => {
-  const resolverPath = require.resolve(path.join(__dirname, "..", "src", "TrackResolver.js"));
+  const resolverPath = require.resolve(path.join(__dirname, "..", "..", "src", "sources", "trackResolver.js"));
   delete require.cache[resolverPath];
 
   const originalSearch = YouTube.search;

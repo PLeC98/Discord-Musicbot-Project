@@ -17,7 +17,7 @@ require.cache[gsmPath] = { id: gsmPath, filename: gsmPath, loaded: true, exports
 
 let mockResolve = null;
 const resolverCalls = [];
-const trPath = require.resolve(path.join(__dirname, "..", "src", "TrackResolver.js"));
+const trPath = require.resolve(path.join(__dirname, "..", "src", "sources", "trackResolver.js"));
 require.cache[trPath] = {
   id: trPath,
   filename: trPath,

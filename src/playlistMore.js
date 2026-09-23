@@ -6,8 +6,8 @@
 const { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
 const log = require("./infra/log/logger").child({ category: "player" });
 const config = require("../config");
-const YouTube = require("./YouTube");
-const Spotify = require("./Spotify");
+const YouTube = require("./sources/youtube/index");
+const Spotify = require("./sources/spotify");
 const trackState = require("./trackState");
 const { collectionLabel } = require("./strings");
 const { markTransient } = require("./transientMessages");

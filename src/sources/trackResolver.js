@@ -2,14 +2,14 @@
 
 // TrackResolver. 쿼리/트랙의 플랫폼 감지, 메타데이터 조회, 스트림 해석
 
-const YouTube = require("./YouTube");
-const log = require("./infra/log/logger").child({ category: "track" });
-const Spotify = require("./Spotify");
-const SoundCloud = require("./SoundCloud");
-const DirectLink = require("./DirectLink");
-const CacheManager = require("./store/cacheManager");
-const ErrorHandler = require("./ErrorHandler");
-const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./youtubeMatch");
+const YouTube = require("./youtube/index");
+const log = require("../infra/log/logger").child({ category: "track" });
+const Spotify = require("./spotify");
+const SoundCloud = require("./soundcloud");
+const DirectLink = require("./direct");
+const CacheManager = require("../store/cacheManager");
+const ErrorHandler = require("../ErrorHandler");
+const { buildSearchQueries, mergeCandidateLists, rankCandidates } = require("./youtube/match");
 
 const TrackResolver = {
   // 쿼리 문자열의 플랫폼 판별. direct 판정은 DirectLink.isDirectAudioLink 한 곳 기준

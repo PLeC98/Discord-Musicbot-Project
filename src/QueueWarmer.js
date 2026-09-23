@@ -107,7 +107,7 @@ class QueueWarmer {
    * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
    */
   _dropDeadAutoplay(track, err) {
-    const YouTube = require("./YouTube");
+    const YouTube = require("./sources/youtube/index");
     if (!YouTube.isVideoUnavailableError(err)) return false;
 
     const index = this.player.queue.indexOf(track);
@@ -188,7 +188,7 @@ class QueueWarmer {
 
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
           // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
-          log.warn(`사전 캐싱 실패 (${track.title}): ${require("./YouTube").briefError(err)}`);
+          log.warn(`사전 캐싱 실패 (${track.title}): ${require("./sources/youtube/index").briefError(err)}`);
           this._failed.add(track);
         }
 

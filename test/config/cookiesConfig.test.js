@@ -18,7 +18,7 @@ const { test, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
 const loader = require("../../src/config/loader");
-const YouTube = require("../../src/YouTube");
+const YouTube = require("../../src/sources/youtube/index");
 const config = require("../../config");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookies-"));

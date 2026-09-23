@@ -52,7 +52,7 @@ test("실제 길이를 초 단위로 돌려준다", opts, async () => {
 });
 
 test("Content-Length 추정보다 정확하다", opts, async () => {
-  const DirectLink = require("../src/DirectLink");
+  const DirectLink = require("../src/sources/direct");
   const size = String(fs.statSync(TONE).size);
 
   const estimated = DirectLink.estimateDuration(size, "audio/mpeg");

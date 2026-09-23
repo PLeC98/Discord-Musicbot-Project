@@ -11,10 +11,10 @@ const { test, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const ytdlExec = require("youtube-dl-exec");
-const SafeUrl = require("../src/infra/safeUrl");
-const ffmpegPath = require("../src/ffmpegPath");
-const SoundCloud = require("../src/SoundCloud");
-const DirectLink = require("../src/DirectLink");
+const SafeUrl = require("../../src/infra/safeUrl");
+const ffmpegPath = require("../../src/ffmpegPath");
+const SoundCloud = require("../../src/sources/soundcloud");
+const DirectLink = require("../../src/sources/direct");
 
 const calls = { ytdlp: [], head: [], stream: [] };
 let respond;

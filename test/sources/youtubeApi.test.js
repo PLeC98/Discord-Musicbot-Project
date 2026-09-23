@@ -13,12 +13,12 @@ const { test, before, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
 const ytdlExec = require("youtube-dl-exec");
-const YouTube = require("../src/YouTube");
+const YouTube = require("../../src/sources/youtube/index");
 const { playerClients } = YouTube._internals;
 
 const calls = [];
@@ -57,13 +57,13 @@ const video = (id, extra = {}) => ({ id, title: `영상 ${id}`, uploader: "올�
 
 test("yt-dlp 가 실패하면 stderr 를 message 로 담은 오류를 던진다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] abc: Video unavailable" });
-  const run = require("../src/ytdlp");
+  const run = require("../../src/sources/ytdlpSpawn");
   await assert.rejects(run("u", {}), (e) => e.message === "ERROR: [youtube] abc: Video unavailable" && e.exitCode === 1);
 });
 
 test("성공해도 stderr 의 경고를 _stderr 로 얹는다(열거되지 않게)", async () => {
   respond = () => ({ ok: 1, warn: "WARNING: something" });
-  const out = await require("../src/ytdlp")("u", {});
+  const out = await require("../../src/sources/ytdlpSpawn")("u", {});
   assert.equal(out._stderr, "WARNING: something");
   assert.deepEqual(Object.keys(out), ["ok", "warn"]);
 });

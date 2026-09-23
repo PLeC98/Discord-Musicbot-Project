@@ -11,7 +11,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TrackDownloader = require("../src/TrackDownloader");
-const YouTube = require("../src/YouTube");
+const YouTube = require("../src/sources/youtube/index");
 
 /** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 받지는 않는다. */
 async function captureOptions() {

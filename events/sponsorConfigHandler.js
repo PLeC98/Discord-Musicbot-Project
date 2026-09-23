@@ -2,7 +2,7 @@
 
 const { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const GuildSettingsManager = require("../src/store/guildSettings");
-const SponsorBlock = require("../src/SponsorBlock");
+const SponsorBlock = require("../src/sources/sponsorBlock");
 const config = require("../config");
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.

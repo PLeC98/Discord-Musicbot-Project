@@ -180,7 +180,7 @@
       "count": 1
     }
   },
-  "src/SoundCloud.js": {
+  "src/sources/soundcloud.js": {
     "max-depth": {
       "count": 1
     }
@@ -190,7 +190,7 @@
       "count": 2
     }
   },
-  "src/Spotify.js": {
+  "src/sources/spotify.js": {
     "complexity": {
       "count": 2
     }
@@ -206,7 +206,7 @@
       "count": 2
     }
   },
-  "src/TrackResolver.js": {
+  "src/sources/trackResolver.js": {
     "complexity": {
       "count": 1
     }
@@ -222,7 +222,7 @@
       "count": 1
     }
   },
-  "src/YouTube.js": {
+  "src/sources/youtube/index.js": {
     "complexity": {
       "count": 3
     },
@@ -301,7 +301,7 @@
       "count": 1
     }
   },
-  "src/youtubeMatch.js": {
+  "src/sources/youtube/match.js": {
     "complexity": {
       "count": 2
     }

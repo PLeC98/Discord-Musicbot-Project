@@ -66,7 +66,7 @@ function query(params) {
 async function keyword(source) {
   const word = pick(source.keywords || []);
   if (!word) return [];
-  const YouTube = require("./YouTube");
+  const YouTube = require("./sources/youtube/index");
   const results = (await YouTube.search(word, 15)) || [];
   // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplayAssist)
   // 주소를 직접 주는 소스는 출처가 곧 정답이라 물을 것이 없다.
@@ -512,7 +512,7 @@ const PLAYLIST_PAGE = 50;
 
 async function spotify(source) {
   if (!source.url) return [];
-  const Spotify = require("./Spotify");
+  const Spotify = require("./sources/spotify");
   const head = await Spotify.getCollection(source.url, { offset: 0, limit: 1 });
   const total = Number(head?.total) || 0;
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
@@ -522,7 +522,7 @@ async function spotify(source) {
 
 async function youtube(source) {
   if (!source.url) return [];
-  const YouTube = require("./YouTube");
+  const YouTube = require("./sources/youtube/index");
   const head = await YouTube.getPlaylist(source.url, { offset: 0, limit: 1 });
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다
   const total = Number(head?.total) || 0;

@@ -1,17 +1,17 @@
 const path = require("path");
-const log = require("./infra/log/logger").child({ category: "youtube" });
+const log = require("../../infra/log/logger").child({ category: "youtube" });
 const fs = require("fs");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-const youtubedl = require("./ytdlp");
-const config = require("../config");
-const CacheManager = require("./store/cacheManager");
-const { ffmpegPath } = require("./ffmpegPath");
+const youtubedl = require("../ytdlpSpawn");
+const config = require("../../../config");
+const CacheManager = require("../../store/cacheManager");
+const { ffmpegPath } = require("../../ffmpegPath");
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
 // 한 단계 더 들어가 찾다가 아무것도 못 찾고 조용히 넘어간다. 오류도 경고도 없다.
 // 그래서 plugin/ 이 아니라 그 부모인 저장소 루트를 넘긴다.
-const BGUTIL_DIR = path.join(__dirname, "..", "bgutil-ytdlp-pot-provider");
+const BGUTIL_DIR = path.join(__dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider");
 
 // 있는지 확인하는 것으로 그치지 않고 yt-dlp의 규칙 그대로 훑는다.
 // 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다. 그 사고가 이미 한 번 났다.
@@ -31,14 +31,14 @@ function findPluginRoot(dir) {
 const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 
-const { PlayerClients, NEEDS_POT, KNOWN } = require("./PlayerClients");
+const { PlayerClients, NEEDS_POT, KNOWN } = require("./clients");
 const playerClients = new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails });
 
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 
 // 쓸 때 부른다. configDataLoader 가 autoplaySources 를 거쳐 이 파일로 돌아오는 길이 있다
-const configData = () => require("./config/loader");
+const configData = () => require("../../config/loader");
 
 // 지금 쿠키 파일을 쥔 채 도는 yt-dlp 가 몇 개인가. 대시보드가 쿠키를 갈아 끼울 때 본다.
 // yt-dlp 는 끝나면서 쿠키 항아리를 그 파일에 되쓰므로, 도는 중에 갈아 끼우면 옛것으로 되돌아간다.

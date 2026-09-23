@@ -1,6 +1,6 @@
 const path = require("path");
-const log = require("./infra/log/logger").child({ category: "link" });
-const SafeUrl = require("./infra/safeUrl");
+const log = require("../infra/log/logger").child({ category: "link" });
+const SafeUrl = require("../infra/safeUrl");
 
 class DirectLink {
   static supportedFormats = [".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".wma", ".opus", ".webm", ".mp4", ".mkv", ".avi", ".mov"];

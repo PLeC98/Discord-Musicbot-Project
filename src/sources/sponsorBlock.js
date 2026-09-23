@@ -11,8 +11,8 @@
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
 const crypto = require("crypto");
-const config = require("../config");
-const CacheManager = require("./store/cacheManager");
+const config = require("../../config");
+const CacheManager = require("../store/cacheManager");
 
 // skip 지원 9개 카테고리 (config.js의 SB_SKIP_CATEGORIES와 동기 유지)
 const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
@@ -126,7 +126,7 @@ const SponsorBlock = {
     if (typeof track.audioSourceKey === "string" && track.audioSourceKey.startsWith("yt:")) {
       return track.audioSourceKey.slice(3);
     }
-    const YouTube = require("./YouTube");
+    const YouTube = require("./youtube/index");
     if (track.platform === "youtube") return track.id || YouTube.extractVideoId(track.url);
     if (track.youtubeUrl) return YouTube.extractVideoId(track.youtubeUrl);
     return null;
@@ -144,7 +144,7 @@ const SponsorBlock = {
     const videoId = this._trackVideoId(track);
     if (!videoId) return null; // videoId 미확정. 다음 호출 시 재시도
 
-    const GuildSettingsManager = require("./store/guildSettings");
+    const GuildSettingsManager = require("../store/guildSettings");
     const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
     if (!eff.enabled) {
       track._sponsorResolved = true;

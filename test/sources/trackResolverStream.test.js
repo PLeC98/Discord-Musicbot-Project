@@ -12,7 +12,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 // 실제로 유튜브에 붙지 않는다 — 어느 주소로 가는지만 본다
-const ytPath = require.resolve("../src/YouTube");
+const ytPath = require.resolve("../../src/sources/youtube/index");
 let asked = null;
 require.cache[ytPath] = {
   id: ytPath,
@@ -28,7 +28,7 @@ require.cache[ytPath] = {
   },
 };
 
-const TrackResolver = require("../src/TrackResolver");
+const TrackResolver = require("../../src/sources/trackResolver");
 
 test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온다", async () => {
   for (const platform of ["vocadb", "touhoudb", "utaitedb", "lastfm", "lbradio", "animethemes"]) {

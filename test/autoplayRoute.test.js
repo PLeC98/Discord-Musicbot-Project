@@ -9,7 +9,7 @@ const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
 // YouTube를 먼저 갈아 끼운다(라우터가 부를 때 이것을 집도록)
-const ytPath = require.resolve("../src/YouTube");
+const ytPath = require.resolve("../src/sources/youtube/index");
 let ytResults = [];
 let ytCalls = [];
 require.cache[ytPath] = {

@@ -138,10 +138,10 @@ CacheManager.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
 const MusicPlayer = require("../../src/MusicPlayer");
-const TrackResolver = require("../../src/TrackResolver");
+const TrackResolver = require("../../src/sources/trackResolver");
 const TrackDownloader = require("../../src/TrackDownloader");
-const SponsorBlock = require("../../src/SponsorBlock");
-const DirectLink = require("../../src/DirectLink");
+const SponsorBlock = require("../../src/sources/sponsorBlock");
+const DirectLink = require("../../src/sources/direct");
 const VoiceConnectionManager = require("../../src/VoiceConnectionManager");
 const SessionPersistence = require("../../src/SessionPersistence");
 const QueueWarmer = require("../../src/QueueWarmer");

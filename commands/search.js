@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const config = require("../config.js");
-const YouTube = require("../src/YouTube.js");
+const YouTube = require("../src/sources/youtube/index.js");
 const S = require("../src/strings");
 const { checkAdd, checkSummon } = require("../src/permissions");
 

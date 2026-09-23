@@ -1,7 +1,7 @@
 "use strict";
 
 const MusicPlayer = require("./MusicPlayer");
-const TrackResolver = require("./TrackResolver");
+const TrackResolver = require("./sources/trackResolver");
 const GuildSettingsManager = require("./store/guildSettings");
 const { silentResponder } = require("./playbackResponder");
 const log = require("./infra/log/logger").child({ category: "player" });

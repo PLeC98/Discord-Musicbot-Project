@@ -64,7 +64,7 @@ router.get("/status", requireOwner, (req, res) => {
       };
     })(),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
-    youtube: require("../../../src/YouTube").statusSnapshot(),
+    youtube: require("../../../src/sources/youtube/index").statusSnapshot(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면
     // 그 알약을 꺼진 채로 시작해야 한다(눌러 켜도 이후에 오는 것부터 보인다).
     logLevel: require("../../../config").logging.level,
@@ -381,7 +381,7 @@ router.put("/ai/prompt", requireOwner, (req, res) => {
 //
 // 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다.
 function cookieState() {
-  const YouTube = require("../../../src/YouTube");
+  const YouTube = require("../../../src/sources/youtube/index");
   return {
     source: YouTube.statusSnapshot().cookies,
     hasFile: configData.cookiesReady(),

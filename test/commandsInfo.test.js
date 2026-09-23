@@ -21,7 +21,7 @@ CacheManager.initialize(path.join(TMP, "cache.db"));
 const config = require("../config");
 const S = require("../src/strings");
 const settings = require("../src/store/guildSettings");
-const SponsorBlock = require("../src/SponsorBlock");
+const SponsorBlock = require("../src/sources/sponsorBlock");
 const sponsorConfig = require("../events/sponsorConfigHandler");
 
 after(() => {

@@ -18,8 +18,8 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 const youtubedl = require("youtube-dl-exec");
-const run = require("../src/ytdlp");
-const registry = require("../src/infra/processRegistry");
+const run = require("../../src/sources/ytdlpSpawn");
+const registry = require("../../src/infra/processRegistry");
 
 const BINARY = youtubedl.constants.YOUTUBE_DL_PATH;
 const hasBinary = fs.existsSync(BINARY);

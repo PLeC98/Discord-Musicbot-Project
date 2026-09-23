@@ -2,7 +2,7 @@ const path = require("path");
 const pkg = require("./package.json");
 const log = require("./src/infra/log/logger").child({ category: "config" });
 const fs = require("fs");
-const { parseClients } = require("./src/PlayerClients");
+const { parseClients } = require("./src/sources/youtube/clients");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.

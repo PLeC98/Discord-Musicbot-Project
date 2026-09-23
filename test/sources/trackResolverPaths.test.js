@@ -14,15 +14,15 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = require("../src/YouTube");
-const Spotify = require("../src/Spotify");
-const SoundCloud = require("../src/SoundCloud");
-const DirectLink = require("../src/DirectLink");
-const TrackResolver = require("../src/TrackResolver");
+const YouTube = require("../../src/sources/youtube/index");
+const Spotify = require("../../src/sources/spotify");
+const SoundCloud = require("../../src/sources/soundcloud");
+const DirectLink = require("../../src/sources/direct");
+const TrackResolver = require("../../src/sources/trackResolver");
 
 // 바꿔 끼운 메서드를 시험 끝에 되돌린다
 const swaps = [];

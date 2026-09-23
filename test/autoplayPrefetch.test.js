@@ -260,7 +260,7 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 // 규칙 자체는 autoplayFilter가 갖고 있다(test/autoplayFilter.test.js). 여기서 보는 것은
 // 설정에서 뽑기까지 그 규칙이 실제로 이어지는가다 — 소스에서 후보가 와서 필터를 지나는 길.
 test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가리지 않는다", async () => {
-  const YouTube = require("../src/YouTube");
+  const YouTube = require("../src/sources/youtube/index");
   const pool = require("../src/autoplayPool");
   const realSearch = YouTube.search;
 

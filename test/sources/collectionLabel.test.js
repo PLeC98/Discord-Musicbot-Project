@@ -4,11 +4,11 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const TrackResolver = require("../src/TrackResolver");
-const Spotify = require("../src/Spotify");
-const YouTube = require("../src/YouTube");
-const MusicEmbedManager = require("../src/MusicEmbedManager");
-const { collectionLabel } = require("../src/strings");
+const TrackResolver = require("../../src/sources/trackResolver");
+const Spotify = require("../../src/sources/spotify");
+const YouTube = require("../../src/sources/youtube/index");
+const MusicEmbedManager = require("../../src/MusicEmbedManager");
+const { collectionLabel } = require("../../src/strings");
 
 function stub(obj, key, fn) {
   const original = obj[key];

@@ -32,7 +32,7 @@ require.cache[gsmPath] = {
 
 // ── TrackResolver 모킹 (코어가 실 해석/네트워크를 타지 않게) ──────────────
 const resolverCalls = [];
-const trPath = require.resolve(path.join(__dirname, "..", "src", "TrackResolver.js"));
+const trPath = require.resolve(path.join(__dirname, "..", "src", "sources", "trackResolver.js"));
 require.cache[trPath] = {
   id: trPath,
   filename: trPath,

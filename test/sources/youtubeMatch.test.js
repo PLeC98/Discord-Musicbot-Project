@@ -10,7 +10,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { rankCandidates, scoreCandidate, W, _internal: I } = require("../src/youtubeMatch");
+const { rankCandidates, scoreCandidate, W, _internal: I } = require("../../src/sources/youtube/match");
 
 // ── 용어 판정 ────────────────────────────────────────────────
 

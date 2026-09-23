@@ -8,7 +8,7 @@ process.env.COOKIES_SOURCE = "";
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const YouTube = require("../src/YouTube");
+const YouTube = require("../../src/sources/youtube/index");
 
 test("쿠키 미설정이어도 player_client를 강제하지 않음 (우분투 재생 불능 회귀)", () => {
   const opts = YouTube.getYtDlpOptions();
@@ -77,7 +77,7 @@ test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (
 // potEnabled()는 부를 때마다 config를 보므로 값을 갈아 끼우면 그대로 듣는다.
 test("BGUTIL_ENABLED가 pluginDirs 전달을 가른다", (t) => {
   const { BGUTIL_AVAILABLE } = YouTube._internals;
-  const config = require("../config");
+  const config = require("../../config");
   const restore = config.bgutil.enabled;
   t.after(() => {
     config.bgutil.enabled = restore;
@@ -134,7 +134,7 @@ test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
 test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종류만 알린다", () => {
   // 대시보드는 운영자 전용이지만, 파일 경로는 알려야 할 이유가 없다.
   const raw = JSON.stringify(YouTube.statusSnapshot());
-  const cookiePath = require("../src/config/loader").cookiesPath();
+  const cookiePath = require("../../src/config/loader").cookiesPath();
   assert.ok(!raw.includes(cookiePath), "쿠키 파일 경로가 응답에 실리면 안 된다");
 });
 
@@ -144,7 +144,7 @@ test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종�
 // 몇 분 뒤 직접 틀면 멀쩡히 재생됐다. 영상 문제가 아니라 서명된 미디어 주소의 문제라
 // 다시 받으면 풀린다. 그런데 이 오류가 어디에도 걸리지 않아 한 번에 실패로 끝났다.
 test("내려받다 막힌 것과 영상이 없어진 것을 가른다", () => {
-  const YouTube = require("../src/YouTube");
+  const YouTube = require("../../src/sources/youtube/index");
   const err = (msg) => ({ stderr: msg });
 
   for (const msg of ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "ERROR: unable to download video data: HTTP Error 429: Too Many Requests", "ERROR: fragment 1 not found, unable to continue", "ERROR: unable to download fragment 3"]) {

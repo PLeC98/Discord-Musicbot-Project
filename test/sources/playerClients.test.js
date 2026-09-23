@@ -6,7 +6,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { PlayerClients, parseClients, KNOWN, NEEDS_POT } = require("../src/PlayerClients");
+const { PlayerClients, parseClients, KNOWN, NEEDS_POT } = require("../../src/sources/youtube/clients");
 
 test("빈 설정이면 idle — 폴백 루프를 아예 돌지 않는다 (기존 동작 보존)", () => {
   const pc = new PlayerClients([]);

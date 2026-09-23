@@ -12,12 +12,12 @@ const { test, beforeEach, after } = require("node:test");
 const assert = require("node:assert/strict");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
-const CacheManager = require("../src/store/cacheManager");
+const CacheManager = require("../../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const config = require("../config");
-const Spotify = require("../src/Spotify");
+const config = require("../../config");
+const Spotify = require("../../src/sources/spotify");
 const { official, graphql, deriveKey, totp } = Spotify._internals;
 
 const realFetch = global.fetch;

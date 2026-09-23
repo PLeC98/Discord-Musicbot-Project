@@ -13,8 +13,8 @@ const { MessageFlags } = require("discord.js");
 
 const S = require("../src/strings");
 const settings = require("../src/store/guildSettings");
-const TrackResolver = require("../src/TrackResolver");
-const YouTube = require("../src/YouTube");
+const TrackResolver = require("../src/sources/trackResolver");
+const YouTube = require("../src/sources/youtube/index");
 const More = require("../src/playlistMore");
 const CacheManager = h.CacheManager;
 

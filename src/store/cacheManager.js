@@ -209,7 +209,7 @@ class CacheManager {
   _normalizeSourceUrl(sourceUrl) {
     if (typeof sourceUrl !== "string") return sourceUrl;
     // 순환 의존성 문제를 피하기 위해 지연 require
-    const YouTube = require("../YouTube");
+    const YouTube = require("../sources/youtube/index");
     const videoId = YouTube.extractVideoId(sourceUrl);
     return videoId ? `https://www.youtube.com/watch?v=${videoId}` : sourceUrl;
   }

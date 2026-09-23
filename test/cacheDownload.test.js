@@ -18,10 +18,10 @@ const CacheManager = require("../src/store/cacheManager");
 CacheManager._cacheDir = path.join(TMP, "audio_cache");
 CacheManager.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = require("../src/YouTube");
-const TrackResolver = require("../src/TrackResolver");
-const DirectLink = require("../src/DirectLink");
-const SponsorBlock = require("../src/SponsorBlock");
+const YouTube = require("../src/sources/youtube/index");
+const TrackResolver = require("../src/sources/trackResolver");
+const DirectLink = require("../src/sources/direct");
+const SponsorBlock = require("../src/sources/sponsorBlock");
 const audioConvert = require("../src/audioConvert");
 const TrackDownloader = require("../src/TrackDownloader");
 

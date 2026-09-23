@@ -9,7 +9,7 @@ process.env.COOKIES_FILE = "";
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const YouTube = require("../src/YouTube");
+const YouTube = require("../../src/sources/youtube/index");
 
 const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are no longer valid.";
 const AGE_ERROR = "ERROR: [youtube] EahYs-8tTjQ: Sign in to confirm your age.";

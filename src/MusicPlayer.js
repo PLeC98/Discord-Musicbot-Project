@@ -9,10 +9,10 @@ const { PermissionFlagsBits } = require("discord.js");
 const config = require("../config");
 const autoplayRoute = require("./autoplayRoute");
 const ErrorHandler = require("./ErrorHandler");
-const TrackResolver = require("./TrackResolver");
-const SponsorBlock = require("./SponsorBlock");
+const TrackResolver = require("./sources/trackResolver");
+const SponsorBlock = require("./sources/sponsorBlock");
 const SponsorSkipper = require("./SponsorSkipper");
-const DirectLink = require("./DirectLink");
+const DirectLink = require("./sources/direct");
 const { openChunkedStream, contentLengthFromUrl, describeStreamError } = require("./chunkedStream");
 const { AudioSplicer } = require("./audioSplicer");
 const voiceChannelStatus = require("./voiceChannelStatus");
@@ -711,7 +711,7 @@ class MusicPlayer {
       })
       .catch((err) => {
         if (err && err.message) {
-          log.warn(`백그라운드 캐시 다운로드 실패: ${require("./YouTube").briefError(err)}. 재생은 스트림으로 계속됩니다.`);
+          log.warn(`백그라운드 캐시 다운로드 실패: ${require("./sources/youtube/index").briefError(err)}. 재생은 스트림으로 계속됩니다.`);
         }
       });
   }
@@ -1743,7 +1743,7 @@ class MusicPlayer {
     // 내려간 영상을 고른 자동재생 곡. 우리가 고른 것이니 사용자에게 알릴 일이 아니다.
     // 기억해 두고(다음에 또 고르지 않게) 조용히 다른 곡으로 넘어간다.
     const failed = this.currentTrack;
-    if (failed?.autoplay && require("./YouTube").isVideoUnavailableError(error)) {
+    if (failed?.autoplay && require("./sources/youtube/index").isVideoUnavailableError(error)) {
       autoplayRoute.markDead(failed);
       log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${failed.title}"`);
       userMessage = null;

@@ -874,7 +874,7 @@ function safeHeaders(headers) {
  * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
  */
 async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
-  const YouTube = require("./YouTube");
+  const YouTube = require("./sources/youtube/index");
   const out = [];
   for (const raw of (urls || []).slice(0, 20)) {
     const url = String(raw || "").trim();

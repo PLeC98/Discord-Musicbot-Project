@@ -12,12 +12,12 @@ process.env.COOKIES_SOURCE = "";
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const YouTube = require("../src/YouTube");
-const { NEEDS_POT } = require("../src/PlayerClients");
-const sink = require("../src/infra/log/sink");
+const YouTube = require("../../src/sources/youtube/index");
+const { NEEDS_POT } = require("../../src/sources/youtube/clients");
+const sink = require("../../src/infra/log/sink");
 
 // debug 로 흘리는 것까지 봐야 한다. 루트 레벨은 기동 코드가 올려 주므로 테스트에서 직접 올린다.
-require("../src/infra/log/logger").level = "trace";
+require("../../src/infra/log/logger").level = "trace";
 
 // 쿠키를 붙인 채 visionos 를 지정했을 때 실제로 오는 stderr
 const SKIPPED = ['WARNING: [youtube] Skipping client "visionos" since it does not support cookies', "ERROR: [youtube] hc0ZDaAZQT0: Requested format is not available. Use --list-formats for a list of available formats"].join("\n");
