@@ -20,7 +20,8 @@
     "src/autoplay/assist/index.js": 6,
     "src/autoplay/assist/tokens.js": 2,
     "src/autoplay/route.js": 5,
-    "src/autoplay/sources/index.js": 3,
+    "src/autoplay/sources/keyword.js": 1,
+    "src/autoplay/sources/playlists.js": 2,
     "src/infra/log/sink.js": 1,
     "src/player/Player.js": 4,
     "src/player/queueWarmer.js": 4,
@@ -43,7 +44,7 @@
     "index.js": 7
   },
   "configCapture": {
-    "src/autoplay/sources/index.js": 1,
+    "src/autoplay/sources/http.js": 1,
     "src/player/events.js": 1,
     "src/sources/sponsorBlock.js": 1,
     "src/sources/spotify.js": 1,

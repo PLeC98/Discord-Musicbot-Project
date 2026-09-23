@@ -251,9 +251,24 @@
       "count": 2
     }
   },
+  "src/autoplay/sources/animethemes.js": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/autoplay/sources/anisongdb.js": {
+    "complexity": {
+      "count": 2
+    }
+  },
   "src/autoplay/sources/index.js": {
     "complexity": {
-      "count": 7
+      "count": 1
+    }
+  },
+  "src/autoplay/sources/voca.js": {
+    "complexity": {
+      "count": 2
     }
   },
   "src/media/chunkedStream.js": {
