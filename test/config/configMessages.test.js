@@ -1,21 +1,20 @@
-"use strict";
-
 // 설정 파일 검사 문구를 고정한다(config/schema 의 zod 스키마).
 //
 // 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 차례까지 적었다.
 // 여러 문제가 겹치면 칸 검사가 먼저, 교차 검사(이름 · 칸끼리 비교)가 뒤에 나온다. 던질지 경고할지는 부르는 쪽이 정한다(아래 셋째 묶음).
 
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
-const genreConfig = require("../../src/config/genres");
-const statusConfig = require("../../src/config/status");
-const aiConfig = require("../../src/config/ai");
-const yamlStore = require("../../src/config/yamlStore");
-const { PROVIDERS } = require("../../src/autoplay/assist/index"); // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
+import genreConfig from "../../src/config/genres.js";
+import statusConfig from "../../src/config/status.js";
+import aiConfig from "../../src/config/ai.js";
+import yamlStore from "../../src/config/yamlStore.js";
+import assist from "../../src/autoplay/assist/index.js";
+const { PROVIDERS } = assist; // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
 const GENRES = [
@@ -378,7 +377,7 @@ const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), t
 
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
-  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 

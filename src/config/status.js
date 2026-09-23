@@ -1,14 +1,15 @@
-"use strict";
-
 // 봇 활동 문구 설정(status.yaml).
 //
 // 틀린 파일은 쓰지 않는다. 기동 때 틀렸으면 장르처럼 문제를 전부 알리고 기동을 멈춘다(index.js).
 // 돌던 중에 손으로 고친 파일이 틀렸으면 멈출 수 없으니(이 함수는 setInterval 안에서 불린다) 문제를 알리고
 // 직전에 맞던 설정으로 계속 돈다. 고치면 다음 회전부터 새 설정이 들어간다.
 
-const log = require("../infra/log/logger").child({ category: "config" });
-const { load } = require("./yamlStore");
-const { statusProblems, ACTIVITY_TYPES } = require("./schema/status");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "config" });
+import yamlStore from "./yamlStore.js";
+const { load } = yamlStore;
+import statusModule from "./schema/status.js";
+const { statusProblems, ACTIVITY_TYPES } = statusModule;
 
 const validateStatus = statusProblems;
 
@@ -40,4 +41,6 @@ function status() {
   }
 }
 
-module.exports = { status, validateStatus, ACTIVITY_TYPES, _reset: () => ((lastGood = null), (reported = "")) };
+const exported = { status, validateStatus, ACTIVITY_TYPES, _reset: () => ((lastGood = null), (reported = "")) };
+export default exported;
+export { exported as "module.exports" };

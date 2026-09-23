@@ -1,5 +1,3 @@
-"use strict";
-
 // 유튜브 쿠키. COOKIES_SOURCE 한 칸이 방식을 정하고, 파일 방식이면 config/cookies.txt 를 쓴다.
 //
 // 계약 셋:
@@ -11,22 +9,22 @@
 
 process.env.COOKIES_SOURCE = "file";
 
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after, beforeEach } = require("node:test");
-const assert = require("node:assert/strict");
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after, beforeEach } from "node:test";
+import assert from "node:assert/strict";
 
-const yamlStore = require("../../src/config/yamlStore");
-const cookieConfig = require("../../src/config/cookies");
-const YouTube = require("../../src/sources/youtube/index");
-const config = require("../../config");
+const yamlStore = (await import("../../src/config/yamlStore.js")).default;
+const cookieConfig = (await import("../../src/config/cookies.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const config = (await import("../../config.js")).default;
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookies-"));
 
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
-  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 beforeEach(() => cookieConfig.clearCookies());

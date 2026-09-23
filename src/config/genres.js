@@ -1,12 +1,13 @@
-"use strict";
-
 // 자동재생 장르 설정(genres.yaml). 읽을 때 모양과 소스 키를 본다.
 
-const log = require("../infra/log/logger").child({ category: "config" });
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
-const sources = require("./schema/genreSources");
-const { load } = require("./yamlStore");
-const { genreProblems } = require("./schema/genres");
+import sources from "./schema/genreSources.js";
+import yamlStore from "./yamlStore.js";
+const { load } = yamlStore;
+import genresModule from "./schema/genres.js";
+const { genreProblems } = genresModule;
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
@@ -83,4 +84,6 @@ function checkSourceKeys(genres) {
   warnedKeys = key;
 }
 
-module.exports = { genres, validateGenres };
+const exported = { genres, validateGenres };
+export default exported;
+export { exported as "module.exports" };

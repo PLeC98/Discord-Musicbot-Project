@@ -1,5 +1,3 @@
-"use strict";
-
 // src/config/yamlStore.js — config/*.yaml을 읽고 주석을 남긴 채 고쳐 쓰는 통로.
 //
 // 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와, 대시보드(계획 5단계). 그래서
@@ -7,13 +5,13 @@
 //  · 사람이 낸 문법 오류가 재생을 끊으면 안 되며(직전 값 유지),
 //  · 설치가 어긋난 것은 조용히 넘어가면 안 된다(기동 거부).
 
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
-const yamlStore = require("../../src/config/yamlStore");
+import yamlStore from "../../src/config/yamlStore.js";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
 const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
@@ -29,7 +27,7 @@ const touch = (name) => {
 
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
-  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
@@ -170,7 +168,7 @@ test("저장하면 다음 읽기가 새 값을 가져온다", () => {
 // 저장하면 서버가 보낸 차례대로 파일을 줄 세운다. 대시보드가 보내는 차례와 예시 파일이
 // 어긋나면, 새로 깐 사람이 한 번 저장하는 순간 주석과 값이 뒤섞인다.
 test("대시보드가 보내는 키 차례와 ai.example.yaml 의 차례가 같다", () => {
-  const root = path.join(__dirname, "..", "..");
+  const root = path.join(import.meta.dirname, "..", "..");
   const vue = fs.readFileSync(path.join(root, "dashboard/client/src/components/ConfigAI.vue"), "utf8");
   const at = vue.indexOf("const KEY_ORDER = [");
   assert.ok(at > 0, "ConfigAI.vue 에 KEY_ORDER 가 있어야 한다");

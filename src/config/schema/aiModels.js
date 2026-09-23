@@ -4,11 +4,11 @@
  * PocketRisu 공개 레지스트리를 `data/ai-models.json` 에 원본 그대로 둔다.
  * (CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry)
  */
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
-const FILE = path.join(__dirname, "..", "..", "..", "data", "ai-models.json");
+const FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "ai-models.json");
 
 /**
  * 프로필은 base-provider 를 상속한다. 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
@@ -151,4 +151,6 @@ async function refresh({ registries, force = false, timeoutMs = 30000 } = {}) {
   return { changed: true, count: Object.keys(got.profiles).length, fetchedAt: got.fetchedAt };
 }
 
-module.exports = { RAW, FILE, CANARY, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };
+const exported = { RAW, FILE, CANARY, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };
+export default exported;
+export { exported as "module.exports" };

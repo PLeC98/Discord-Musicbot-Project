@@ -1,15 +1,13 @@
-"use strict";
-
 // src/config/genres.js — 장르 설정을 읽을 때 거르는 이름 · 이모지와 저장 전 검사.
 
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
-const yamlStore = require("../../src/config/yamlStore");
-const genreConfig = require("../../src/config/genres");
+import yamlStore from "../../src/config/yamlStore.js";
+import genreConfig from "../../src/config/genres.js";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
 const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
@@ -25,7 +23,7 @@ const touch = (name) => {
 
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
-  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 

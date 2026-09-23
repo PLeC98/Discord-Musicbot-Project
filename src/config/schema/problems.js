@@ -1,8 +1,6 @@
-"use strict";
-
 // 설정 파일 스키마가 같이 쓰는 도우미. 스키마는 문제 목록만 낸다. 던질지 경고할지는 부르는 쪽이 정한다.
 
-const { z } = require("zod");
+import { z } from "zod";
 
 const ALWAYS = { when: () => true }; // 칸 하나가 틀려도 교차 검사를 돌린다. 문제를 한 번에 다 알린다
 
@@ -32,4 +30,6 @@ function problemsOf(schema, data, fill = () => ({})) {
   });
 }
 
-module.exports = { z, ALWAYS, present, keyed, plain, problemsOf };
+const exported = { z, ALWAYS, present, keyed, plain, problemsOf };
+export default exported;
+export { exported as "module.exports" };

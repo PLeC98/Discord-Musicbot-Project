@@ -1,23 +1,22 @@
-"use strict";
-
 // 상태 문구 설정 — config/status.yaml 과 그것을 읽는 StatusManager.
 //
 // 이 파일도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
 // 특히 날짜·시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
 
-const os = require("node:os");
-const path = require("node:path");
-const fs = require("node:fs");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
-const YAML = require("yaml");
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import YAML from "yaml";
 
-const yamlStore = require("../../src/config/yamlStore");
-const statusConfig = require("../../src/config/status");
-const StatusManager = require("../../src/ui/botPresence");
+import yamlStore from "../../src/config/yamlStore.js";
+import statusConfig from "../../src/config/status.js";
+import StatusManager from "../../src/ui/botPresence.js";
+import { ActivityType } from "discord.js";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-status-"));
-const CONFIG = path.join(__dirname, "..", "..", "config");
+const CONFIG = path.join(import.meta.dirname, "..", "..", "config");
 
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
@@ -193,7 +192,6 @@ function presenceClient() {
 }
 
 test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => {
-  const { ActivityType } = require("discord.js");
   const { set, client } = presenceClient();
   const manager = new StatusManager(client);
   manager.load = () => ({ messages: ["평소", { text: "놀아요", type: "Playing" }] });

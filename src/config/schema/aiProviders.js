@@ -1,5 +1,3 @@
-"use strict";
-
 // AI 설정(ai.yaml)의 제공자 규격. 설정 검증과 AI 보조와 대시보드가 같이 본다.
 
 /**
@@ -45,4 +43,6 @@ const PROVIDER_SPECS = {
 
 const PROVIDERS = Object.keys(PROVIDER_SPECS);
 
-module.exports = { PROVIDER_SPECS, PROVIDERS };
+const exported = { PROVIDER_SPECS, PROVIDERS };
+export default exported;
+export { exported as "module.exports" };

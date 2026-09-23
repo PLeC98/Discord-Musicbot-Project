@@ -1,11 +1,11 @@
-"use strict";
-
 // 유튜브 쿠키 파일(cookies.txt). 읽지 않고 자리만 맡는다.
 
-const fs = require("fs");
-const path = require("path");
-const log = require("../infra/log/logger").child({ category: "config" });
-const { configDir } = require("./yamlStore");
+import fs from "fs";
+import path from "path";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "config" });
+import yamlStore from "./yamlStore.js";
+const { configDir } = yamlStore;
 
 // ── cookies.txt ───────────────────────────────────────────────────────────
 //
@@ -68,4 +68,6 @@ function clearCookies() {
   return false;
 }
 
-module.exports = { cookiesPath, cookiesReady, saveCookies, clearCookies };
+const exported = { cookiesPath, cookiesReady, saveCookies, clearCookies };
+export default exported;
+export { exported as "module.exports" };

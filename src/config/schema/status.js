@@ -1,9 +1,9 @@
-"use strict";
-
 // 봇 활동 문구 설정(status.yaml)의 스키마.
 
-const { NUMERIC_NAME } = require("./genres");
-const { z, ALWAYS, present, plain, problemsOf } = require("./problems");
+import genres from "./genres.js";
+const { NUMERIC_NAME } = genres;
+import problems from "./problems.js";
+const { z, ALWAYS, present, plain, problemsOf } = problems;
 
 const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"];
 
@@ -93,4 +93,6 @@ function statusProblems(data) {
   });
 }
 
-module.exports = { statusProblems, ACTIVITY_TYPES };
+const exported = { statusProblems, ACTIVITY_TYPES };
+export default exported;
+export { exported as "module.exports" };

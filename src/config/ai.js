@@ -1,13 +1,15 @@
-"use strict";
-
 // AI 보조 설정(ai.yaml · ai-keys.yaml · ai-prompt.chatml).
 
-const fs = require("fs");
-const path = require("path");
-const log = require("../infra/log/logger").child({ category: "config" });
-const { PROVIDERS } = require("./schema/aiProviders");
-const { load, fileOf, save, configDir, cache } = require("./yamlStore");
-const { aiProblems, PROMPT_FILE } = require("./schema/ai");
+import fs from "fs";
+import path from "path";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "config" });
+import aiProvidersModule from "./schema/aiProviders.js";
+const { PROVIDERS } = aiProvidersModule;
+import yamlStore from "./yamlStore.js";
+const { load, fileOf, save, configDir, cache } = yamlStore;
+import aiModule from "./schema/ai.js";
+const { aiProblems, PROMPT_FILE } = aiModule;
 
 const validateAi = aiProblems;
 
@@ -149,4 +151,6 @@ function promptProblems(prompt, on) {
   return problems;
 }
 
-module.exports = { ai, aiKeys, aiKeyOf, saveAiKeys, aiPrompt, saveAiPrompt, validateAi, promptProblems, parseChatML, toChatML, promptPath };
+const exported = { ai, aiKeys, aiKeyOf, saveAiKeys, aiPrompt, saveAiPrompt, validateAi, promptProblems, parseChatML, toChatML, promptPath };
+export default exported;
+export { exported as "module.exports" };

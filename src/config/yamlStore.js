@@ -1,5 +1,3 @@
-"use strict";
-
 // config/*.yaml을 읽는 단일 통로.
 //
 // 왜 config/에 코드를 두지 않는가: 그 폴더는 운영자가 손으로 고치는 자리다. 편집 대상과 그것을 읽는
@@ -11,14 +9,15 @@
 // 왜 require 캐시를 건드리지 않는가: 데이터가 JS 모듈이 아니므로 모듈 캐시와 무관하다.
 // mtime이 바뀐 것만 다시 읽는다. 봇을 켜 둔 채로 고쳐도 다음 호출부터 반영된다.
 
-const fs = require("fs");
-const path = require("path");
-const YAML = require("yaml");
-const log = require("../infra/log/logger").child({ category: "config" });
+import fs from "fs";
+import path from "path";
+import YAML from "yaml";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "config" });
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
 // (audioCache._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
-let configDir = path.join(__dirname, "..", "..", "config");
+let configDir = path.join(import.meta.dirname, "..", "..", "config");
 
 // name -> { mtimeMs, value }
 const cache = new Map();
@@ -196,4 +195,6 @@ function _setConfigDir(dir) {
   cache.clear();
 }
 
-module.exports = { load, save, fileOf, exampleOf, _setConfigDir, cache, configDir: () => configDir, _cache: cache };
+const exported = { load, save, fileOf, exampleOf, _setConfigDir, cache, configDir: () => configDir, _cache: cache };
+export default exported;
+export { exported as "module.exports" };

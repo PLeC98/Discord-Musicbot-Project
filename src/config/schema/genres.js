@@ -1,9 +1,9 @@
-"use strict";
-
 // 장르 설정(genres.yaml)의 스키마. 문구는 무엇을 고쳐야 하는지까지 알려 주므로 그대로 둔다.
 
-const { SPEC, TYPES } = require("./genreSources");
-const { z, ALWAYS, present, keyed, plain, problemsOf } = require("./problems");
+import genreSources from "./genreSources.js";
+const { SPEC, TYPES } = genreSources;
+import problems from "./problems.js";
+const { z, ALWAYS, present, keyed, plain, problemsOf } = problems;
 
 // 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 코드포인트가 여럿인 것도 한 덩이로 센다.
 // g 플래그가 없어 test()에 상태가 남지 않는다.
@@ -103,4 +103,6 @@ function genreProblems(data) {
   return problemsOf(genresFile, data, ([, id, , index]) => ({ id, where: `${id}의 ${index + 1}번째 소스` }));
 }
 
-module.exports = { genreProblems, NUMERIC_NAME, ONE_EMOJI };
+const exported = { genreProblems, NUMERIC_NAME, ONE_EMOJI };
+export default exported;
+export { exported as "module.exports" };
