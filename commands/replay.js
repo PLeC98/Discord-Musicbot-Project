@@ -2,42 +2,26 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/ui/strings");
-const { checkControl } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("replay").setDescription("Restart the current track from the beginning").setDescriptionLocalizations({ ko: "현재 곡을 처음부터 재생합니다" }),
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-
-    const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    const permErr = await checkControl(member);
-    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
-
-    if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
-
-    // 라이브에는 실시간밖에 없다. 옮길 자리가 없다.
-    if (player.isLive) return interaction.reply({ content: S.ERR_LIVE_NO_SEEK, flags: [1 << 6] });
-
-    const track = player.currentTrack;
-
-    await interaction.deferReply({ flags: [1 << 6] });
-    await player.seek(0, "replay");
+    const r = await controls.replay(client.players.get(guild.id), { member }, { onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("🔄 처음부터 다시 재생")
-      .setDescription(`**[${track.title}](${track.pageUrl})**`)
+      .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "👤 요청한 사람", value: `${member}`, inline: true });
 
-    if (track.thumbnail) embed.setThumbnail(track.thumbnail);
+    if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
     await interaction.editReply({ embeds: [embed] });
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
   },
 };

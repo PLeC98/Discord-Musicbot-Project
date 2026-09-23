@@ -2,46 +2,28 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/ui/strings");
-const { checkControl } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("pause").setDescription("Pause or resume the current track").setDescriptionLocalizations({ ko: "일시정지를 토글합니다" }),
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
+    const r = await controls.pause(client.players.get(guild.id), { member });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
-    const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: 64 });
-    if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: 64 });
-
-    const permErr = await checkControl(member);
-    if (permErr) return interaction.reply({ content: permErr, flags: 64 });
-
-    let result, message, emoji;
-    if (player.paused) {
-      result = player.resume();
-      message = "음악 재개됨";
-      emoji = "▶️";
-    } else {
-      result = player.pause();
-      message = "음악 일시정지됨";
-      emoji = "⏸️";
-    }
-
-    if (!result) return interaction.reply({ content: "❌ 작업이 실패했습니다!", flags: 64 });
-
+    const message = r.paused ? "음악 일시정지됨" : "음악 재개됨";
+    const emoji = r.paused ? "⏸️" : "▶️";
     const embed = new EmbedBuilder()
       .setTitle(`${emoji} ${message}`)
-      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})** ${message}!`)
+      .setDescription(`**[${r.track.title}](${r.track.pageUrl})** ${message}!`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "👤 작업자", value: `${member}`, inline: true });
 
-    if (player.currentTrack.thumbnail) embed.setThumbnail(player.currentTrack.thumbnail);
+    if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-    await interaction.reply({ embeds: [embed], flags: 64 });
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
+    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 };

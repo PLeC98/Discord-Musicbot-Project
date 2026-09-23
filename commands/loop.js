@@ -2,8 +2,14 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/ui/strings");
-const { checkControl } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
+
+const LOOP_TEXT = {
+  track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
+  queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
+  false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
+};
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,44 +20,14 @@ module.exports = {
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-
     const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
+    const option = interaction.options.getString("mode");
+    // 모드를 안 고르면 반복 버튼처럼 다음 모드로
+    const mode = option ? (option === "off" ? false : option) : controls.nextLoopMode(player?.loop);
+    const r = await controls.loop(player, { member }, mode);
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
-    const permErr = await checkControl(member);
-    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
-
-    if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
-
-    // 끝이 없는 것은 반복할 수 없다. 라이브가 있으면 켤 수 없다고 알린다(끄는 것은 그대로 통한다).
-    if (player.hasLiveTrack() && interaction.options.getString("mode") !== "off") {
-      return interaction.reply({ content: S.ERR_LIVE_NO_LOOP, flags: [1 << 6] });
-    }
-
-    const modeOption = interaction.options.getString("mode");
-    let newLoopMode, modeMessage, modeEmoji;
-
-    if (modeOption) {
-      newLoopMode = modeOption === "off" ? false : modeOption;
-    } else {
-      if (player.loop === false || player.loop === "off") newLoopMode = "track";
-      else if (player.loop === "track") newLoopMode = "queue";
-      else newLoopMode = false;
-    }
-
-    if (newLoopMode === "track") {
-      modeMessage = "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다.";
-      modeEmoji = "🔂";
-    } else if (newLoopMode === "queue") {
-      modeMessage = "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다.";
-      modeEmoji = "🔁";
-    } else {
-      modeMessage = "반복 모드가 이제 **꺼졌습니다**";
-      modeEmoji = "➡️";
-    }
-
-    player.setLoop(newLoopMode);
-
+    const [modeEmoji, modeMessage] = LOOP_TEXT[String(r.mode)];
     const embed = new EmbedBuilder()
       .setTitle(`${modeEmoji} 🔁 반복 모드 변경됨`)
       .setDescription(modeMessage)
@@ -59,10 +35,8 @@ module.exports = {
       .setTimestamp()
       .addFields({ name: "👤 변경한 사람", value: `${member}`, inline: true });
 
-    if (player.currentTrack?.thumbnail) embed.setThumbnail(player.currentTrack.thumbnail);
+    if (r.track?.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
   },
 };

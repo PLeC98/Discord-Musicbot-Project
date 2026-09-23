@@ -45,6 +45,7 @@ function makePlayer(state, acts) {
       return typeof ret === "function" ? ret(...args) : ret;
     };
   const p = {
+    guild: { id: "g1" },
     sessionId: "S1",
     currentTrack: track("now"),
     queue: [track("q1"), track("q2")],

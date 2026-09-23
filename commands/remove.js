@@ -2,8 +2,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/ui/strings");
-const { checkRemoveTrack } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,33 +14,19 @@ module.exports = {
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-
-    const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    if (player.queue.length === 0) return interaction.reply({ content: S.ERR_NO_SONGS_IN_QUEUE, flags: [1 << 6] });
-
-    const position = interaction.options.getInteger("position");
-
-    if (position > player.queue.length) return interaction.reply({ content: `❌ 대기열에 ${player.queue.length}개의 곡만 있습니다. (1. ${player.queue.length} 범위로 입력하세요)`, flags: [1 << 6] });
-
-    // DJ 계층이 아니어도 자기가 추가한 곡은 제거 가능
-    const permErr = await checkRemoveTrack(member, player.queue[position - 1]);
-    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
-
-    const removed = player.removeFromQueue(position - 1);
+    // 사람은 1부터 센다
+    const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position") - 1);
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("🗑️ 곡 제거됨")
-      .setDescription(`**[${removed.title}](${removed.pageUrl})**`)
+      .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
-      .addFields({ name: "👤 제거한 사람", value: `${member}`, inline: true }, { name: "📋 남은 대기열", value: `${player.queue.length}곡`, inline: true });
+      .addFields({ name: "👤 제거한 사람", value: `${member}`, inline: true }, { name: "📋 남은 대기열", value: `${r.left}곡`, inline: true });
 
-    if (removed.thumbnail) embed.setThumbnail(removed.thumbnail);
+    if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
   },
 };

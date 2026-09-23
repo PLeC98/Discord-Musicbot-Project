@@ -2,41 +2,19 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/ui/strings");
-const { checkControl } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
 
 module.exports = {
   data: new SlashCommandBuilder().setName("leave").setDescription("Leave the voice channel and save the current queue for later").setDescriptionLocalizations({ ko: "음성 채널에서 나가고 현재 대기열을 저장합니다" }),
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
+    const r = await controls.leave(guild, { member }, client.players);
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
-    // 재적 규칙 + DJ 계층 (모더레이터는 어디서든). 두 분기 공통이므로 선두에서 한 번만
-    const permErr = await checkControl(member);
-    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
-
-    const player = client.players.get(guild.id);
-
-    // 플레이어는 없지만 봇은 아직 음성 채널에 있음 (음악 종료 후 자동 퇴장 타이머가 아직 실행되지 않음)
-    if (!player) {
-      if (!guild.members.me?.voice?.channel) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-      await guild.members.me.voice.disconnect();
-      return interaction.reply({
-        content: "👋 음성 채널에서 나갔습니다!",
-        flags: [1 << 6],
-      });
-    }
-
-    const currentTrack = player.currentTrack;
-    const queueLength = player.queue.length;
-    const positionSec = Math.floor((player.getCurrentTime?.() || 0) / 1000);
-
-    // 상태를 저장하고 연결 해제 (/join 복구용 세션은 DB에 보존)
-    await player.leaveAndSave();
-    client.players.delete(guild.id);
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.handlePlaybackEnd(player, { reason: currentTrack ? "leave" : "disconnected" });
+    // 플레이어는 없었지만 봇이 음성 채널에 남아 있었다(음악이 끝난 뒤 자동 퇴장 타이머가 아직 안 돌았다)
+    if (r.left === "voice-only") return interaction.reply({ content: "👋 음성 채널에서 나갔습니다!", flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("👋 채널에서 나갔습니다")
@@ -44,10 +22,10 @@ module.exports = {
       .setTimestamp()
       .addFields({ name: "👤 실행한 사람", value: `${member}`, inline: true });
 
-    if (currentTrack) {
-      const m = Math.floor(positionSec / 60);
-      const s = String(positionSec % 60).padStart(2, "0");
-      embed.setDescription(`**[${currentTrack.title}](${currentTrack.pageUrl})**`).addFields({ name: "⏱️ 저장된 위치", value: `\`${m}:${s}\``, inline: true }, { name: "📋 저장된 대기열", value: `${queueLength}곡`, inline: true });
+    if (r.track) {
+      const m = Math.floor(r.saved.positionSec / 60);
+      const s = String(r.saved.positionSec % 60).padStart(2, "0");
+      embed.setDescription(`**[${r.track.title}](${r.track.pageUrl})**`).addFields({ name: "⏱️ 저장된 위치", value: `\`${m}:${s}\``, inline: true }, { name: "📋 저장된 대기열", value: `${r.saved.queue}곡`, inline: true });
     }
 
     embed.setFooter({ text: "/join 으로 이전 세션을 복구할 수 있습니다." });

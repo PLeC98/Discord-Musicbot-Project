@@ -9,11 +9,6 @@
       "count": 2
     }
   },
-  "commands/loop.js": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "dashboard/server/routes/admin.js": {
     "complexity": {
       "count": 2

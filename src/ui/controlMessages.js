@@ -5,6 +5,15 @@
 
 const S = require("./strings");
 
+// 1:05 · 1:02:05
+function formatMs(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
+
 const TEXT = {
   "no-player": () => S.ERR_NO_MUSIC,
   "no-track": () => S.ERR_NO_SONG_PLAYING,
@@ -13,6 +22,7 @@ const TEXT = {
   "no-previous": () => "❌ 이전 노래가 없습니다!",
   "live-no-seek": () => S.ERR_LIVE_NO_SEEK,
   starting: () => "❌ 재생을 준비 중입니다. 잠시 후 다시 시도해 주세요.",
+  "beyond-end": ({ durationMs }) => `❌ 입력한 시간이 곡 길이를 초과합니다. (최대: ${formatMs(durationMs)})`,
   "no-highlight": () => "❌ 이 곡에는 SponsorBlock 하이라이트 지점이 없어요.",
   "bad-volume": () => "❌ 볼륨은 0에서 100 사이의 숫자여야 합니다!",
   "bad-loop-mode": () => "❌ 반복 모드가 올바르지 않습니다.",
@@ -25,7 +35,7 @@ const TEXT = {
 };
 
 // 대시보드의 HTTP 상태. 입력이 틀린 것은 400, 권한은 403, 지금 상태로는 못 하는 것은 409
-const STATUS = { "no-permission": 403, "bad-volume": 400, "bad-loop-mode": 400, "bad-position": 400, "same-position": 400 };
+const STATUS = { "no-permission": 403, "beyond-end": 400, "bad-volume": 400, "bad-loop-mode": 400, "bad-position": 400, "same-position": 400 };
 
 /** 거절 결과({ ok: false, code, message? })를 디스코드에 보일 문장으로 */
 function controlMessage(result) {

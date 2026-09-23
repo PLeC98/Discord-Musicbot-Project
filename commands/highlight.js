@@ -2,8 +2,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/ui/strings");
-const { checkControl } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
 
 function formatMs(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -20,36 +20,16 @@ module.exports = {
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-
-    const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    const permErr = await checkControl(member);
-    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
-
-    if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
-
-    // 라이브에는 실시간밖에 없다. 옮길 자리가 없다.
-    if (player.isLive) return interaction.reply({ content: S.ERR_LIVE_NO_SEEK, flags: [1 << 6] });
-
-    const highlightAt = player.sponsor?.highlightAt;
-    if (highlightAt === null || highlightAt === undefined) {
-      return interaction.reply({ content: "❌ 이 곡에는 SponsorBlock 하이라이트 지점이 없어요.", flags: [1 << 6] });
-    }
-
-    const seekMs = Math.max(0, Math.floor(highlightAt * 1000));
-    await interaction.deferReply({ flags: [1 << 6] });
-    await player.seek(seekMs, "highlight");
+    const r = await controls.highlight(client.players.get(guild.id), { member }, { onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("✨ 하이라이트로 이동")
-      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})**`)
+      .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
-      .addFields({ name: "⏱️ 위치", value: `\`${formatMs(seekMs)}\``, inline: true });
+      .addFields({ name: "⏱️ 위치", value: `\`${formatMs(r.ms)}\``, inline: true });
 
     await interaction.editReply({ embeds: [embed] });
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
   },
 };

@@ -2,8 +2,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const config = require("../config");
-const S = require("../src/ui/strings");
-const { checkControl } = require("../src/usecases/permissions");
+const controls = require("../src/usecases/controls");
+const { controlMessage } = require("../src/ui/controlMessages");
 
 /**
  * 시간 문자열을 밀리초로 파싱
@@ -57,39 +57,19 @@ module.exports = {
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-
-    const player = client.players.get(guild.id);
-    if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
-
-    const permErr = await checkControl(member);
-    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
-
-    if (!player.currentTrack) return interaction.reply({ content: S.ERR_NO_SONG_PLAYING, flags: [1 << 6] });
-
-    // 라이브에는 실시간밖에 없다. 옮길 자리가 없다.
-    if (player.isLive) return interaction.reply({ content: S.ERR_LIVE_NO_SEEK, flags: [1 << 6] });
-
-    const timeInput = interaction.options.getString("time");
-    const seekMs = parseTimeInput(timeInput);
-
+    const seekMs = parseTimeInput(interaction.options.getString("time"));
     if (seekMs === null) return interaction.reply({ content: "❌ 올바른 형식으로 입력하세요. (예: `1:30`, `3m20s`, `90`)", flags: [1 << 6] });
 
-    const durationMs = (player.currentTrack.duration || 0) * 1000;
-    if (durationMs > 0 && seekMs >= durationMs) return interaction.reply({ content: `❌ 입력한 시간이 곡 길이를 초과합니다. (최대: ${formatMs(durationMs)})`, flags: [1 << 6] });
-
-    await interaction.deferReply({ flags: [1 << 6] });
-
-    await player.seek(seekMs, "seek");
+    const r = await controls.seek(client.players.get(guild.id), { member }, seekMs, { reason: "seek", onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()
       .setTitle("⏩ 시간 이동")
-      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})**`)
+      .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
-      .addFields({ name: "⏱️ 이동한 위치", value: `\`${formatMs(seekMs)}\``, inline: true });
+      .addFields({ name: "⏱️ 이동한 위치", value: `\`${formatMs(r.ms)}\``, inline: true });
 
     await interaction.editReply({ embeds: [embed] });
-
-    if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
   },
 };
