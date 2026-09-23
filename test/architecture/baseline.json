@@ -1,5 +1,5 @@
 {
-  "direction": ["src/sources/lookup.js -> src/ui/errorMessages.js", "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js", "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"],
+  "direction": ["src/sources/lookup.js -> src/ui/errorMessages.js", "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js"],
   "cycles": [],
   "unseen": ["src/app/moduleLoader.js"],
   "lazyRequire": {

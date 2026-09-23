@@ -3,11 +3,20 @@ const log = require("../infra/log/logger").child({ category: "player" });
 const config = require("../../config");
 const { formatDuration } = require("./format");
 const { progressBar, emptyProgressBar } = require("./progressBar");
+
+// 알릴 곳이 없는 매체. 결과를 알리는 매체는 부르는 쪽(usecases/responders)이 넘긴다
+const NO_RESPONDER = {
+  async notifyQueued() {
+    // 알릴 곳이 없다
+  },
+  async dismissPlaceholder() {
+    // 치울 자리표시자가 없다
+  },
+};
 const playerEvents = require("../player/events");
 const ErrorHandler = require("./errorMessages");
 const S = require("./strings");
 const { ALLOWED_MENTIONS, escapeMd } = require("./mentions");
-const { silentResponder } = require("../usecases/responders");
 const GuildSettingsManager = require("../store/guildSettings");
 const trackState = require("../player/trackState");
 
@@ -85,7 +94,8 @@ class MusicEmbedManager {
    * 앞 작업의 finally가 뒤 작업의 Map 항목을 지우는 경쟁이 있었다(A/B/C 동시 시나리오).
    * 여기서는 get+set이 동기(사이에 await 없음)라 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다.
    */
-  handleMusicData(guildId, trackData, requester, responder = silentResponder) {
+  // responder: 결과를 알릴 매체(usecases/responders). 없으면(재생 시작 알림 등) 알리지 않는다
+  handleMusicData(guildId, trackData, requester, responder = NO_RESPONDER) {
     const tail = this.processingQueue.get(guildId) || Promise.resolve();
     // 앞 작업의 실패가 뒤 작업까지 실패시키면 안 됨. 각 작업의 결과/오류는 자기 호출자에게만 전달
     const processingPromise = tail.catch(() => {}).then(() => this._processMusic(guildId, trackData, requester, responder));
@@ -248,7 +258,7 @@ class MusicEmbedManager {
   /**
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
-  async createNewMusicEmbed(player, track, requester, responder = silentResponder, { reuse = true } = {}) {
+  async createNewMusicEmbed(player, track, requester, responder = NO_RESPONDER, { reuse = true } = {}) {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
