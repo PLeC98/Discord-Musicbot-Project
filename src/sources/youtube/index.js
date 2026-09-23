@@ -1,6 +1,6 @@
 "use strict";
 
-// 유튜브 인증·실행·오류·API를 한 이름으로 모은다. URL 해석은 여기 있다.
+// 유튜브 인증·실행·오류·API를 한 이름으로 모은다. URL 해석은 rules/links 에 있다.
 
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("../ytdlpSpawn");
