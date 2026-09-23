@@ -12,6 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { PassThrough } = require("node:stream");
 const MusicPlayer = require("../../src/player/Player");
 
 const planCacheSwitch = MusicPlayer.prototype._planCacheSwitch;
@@ -33,11 +34,15 @@ function fakeSplicer({ destroyed = false, switchPending = false, emittedMs = 500
   };
 }
 
+// 캐시 파일을 여는 디코더(ffmpeg)는 띄우지 않는다. 출력 자리만 있는 가짜
+const fakeFfmpeg = () => ({ stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true, once() {}, on() {} });
+
 function fakePlayer({ track, file = null, startOffsetMs = 0 } = {}) {
   return {
     currentTrack: track,
     currentDownloadedFile: file,
     currentTrackStartOffsetMs: startOffsetMs,
+    io: { spawnFfmpeg: fakeFfmpeg },
     _trackLabel: MusicPlayer.prototype._trackLabel,
   };
 }

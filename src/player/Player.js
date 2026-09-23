@@ -50,14 +50,29 @@ const SEG_MAX_RETRY = 5;
 
 const sec = (ms) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
+// 바깥 경계: 음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소. 기본은 진짜다.
+// 테스트는 생성자에 넘기거나, 플레이어를 직접 만들지 않는 경로(명령 · 곡 추가)를 시험할 때 useBoundary 로 기본을 바꾼다
+const REAL = {
+  createAudioPlayer,
+  createAudioResource,
+  spawnFfmpeg,
+  ffmpegCapabilities,
+  openChunkedStream,
+  fetch: (url, init) => fetch(url, init),
+  directStream: (url) => DirectLink.getStream(url),
+  getStream: (track, seekSeconds, options) => streamUrl.getStream(track, seekSeconds, options),
+};
+let defaultBoundary = REAL;
+
 class MusicPlayer {
-  constructor(guild, textChannel, voiceChannel) {
+  constructor(guild, textChannel, voiceChannel, boundary = {}) {
     this.guild = guild;
     this.textChannel = textChannel;
     this.voiceChannel = voiceChannel;
+    this.io = { ...defaultBoundary, ...boundary };
 
     // 오디오 플레이어 설정
-    this.audioPlayer = createAudioPlayer();
+    this.audioPlayer = this.io.createAudioPlayer();
     this.connection = null;
     this.resource = null;
 
@@ -327,7 +342,7 @@ class MusicPlayer {
 
         // 일반 방식으로 스트림 가져오기 (플랫폼 스위치는 sources/streamUrl 한 곳에서)
         if (!downloadedFile) {
-          streamInfo = await streamUrl.getStream(this.currentTrack, resumeFromSeconds);
+          streamInfo = await this.io.getStream(this.currentTrack, resumeFromSeconds, { canPlayHls: this.io.ffmpegCapabilities().ok });
         }
       }
 
@@ -395,7 +410,7 @@ class MusicPlayer {
 
       if (useUrlInput) {
         // 입구(playRequest)와 사운드클라우드 포맷 선택이 먼저 거르지만, 여기까지 온 것은 막는다.
-        if (!ffmpegCapabilities().ok) {
+        if (!this.io.ffmpegCapabilities().ok) {
           throw new Error("이 ffmpeg 빌드로는 HLS 스트림을 재생할 수 없습니다");
         }
 
@@ -403,7 +418,7 @@ class MusicPlayer {
         if (shouldDownload) this._startBackgroundDownload();
         shouldDownload = false;
 
-        const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ url: streamUrl_final, seekMs: isLiveStream ? 0 : resumeFromMs }), "stream");
+        const ffmpeg = this.io.spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ url: streamUrl_final, seekMs: isLiveStream ? 0 : resumeFromMs, caps: this.io.ffmpegCapabilities() }), "stream");
         // 캐시 전환(AudioSplicer)은 걸지 않는다. 라이브는 갈아탈 캐시가 없고, 잔끊김은
         // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(handleTrackEnd).
         this._playingLive = isLiveStream;
@@ -422,7 +437,7 @@ class MusicPlayer {
           if (this._inputToken === inputToken) this._inputProgressAt = Date.now();
         });
 
-        this.resource = createAudioResource(ffmpeg.stdout, {
+        this.resource = this.io.createAudioResource(ffmpeg.stdout, {
           inputType: StreamType.Raw,
           inlineVolume: true,
           metadata: {
@@ -454,7 +469,7 @@ class MusicPlayer {
             // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
             if (streamInfo?.platform === "direct") {
               // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
-              audioStream = await DirectLink.getStream(streamUrl_final);
+              audioStream = await this.io.directStream(streamUrl_final);
             } else {
               // 오프셋 재생이면 begin= 없는 원본 URL을 받아 `-ss`가 단독으로 위치를 정하게 한다(이중 seek 방지).
               const fetchUrl = resumeFromMs > 0 && streamInfo?.rawUrl ? streamInfo.rawUrl : streamUrl_final;
@@ -467,7 +482,7 @@ class MusicPlayer {
               const totalBytes = contentLengthFromUrl(fetchUrl);
               if (totalBytes) {
                 // await로 첫 요청까지 여기서 끝낸다. 실패가 아래 catch의 캐시 폴백으로 가도록
-                audioStream = await openChunkedStream({
+                audioStream = await this.io.openChunkedStream({
                   url: fetchUrl,
                   headers: reqHeaders,
                   totalBytes,
@@ -476,7 +491,7 @@ class MusicPlayer {
                   onResumed: (info) => streamHooks.resumed(info),
                 });
               } else {
-                const response = await fetch(fetchUrl, { headers: reqHeaders });
+                const response = await this.io.fetch(fetchUrl, { headers: reqHeaders });
 
                 if (!response.ok) throw new Error(`Failed to fetch stream: ${response.status}`);
 
@@ -514,7 +529,7 @@ class MusicPlayer {
         if (!audioStream && downloadedFile) {
           shouldDownload = false; // 파일 재생으로 이어서 진행
         } else if (audioStream) {
-          const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ seekMs: resumeFromMs }), "stream");
+          const ffmpeg = this.io.spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ seekMs: resumeFromMs }), "stream");
           // 오류는 트랙이 바뀐 뒤에 도착할 수 있다. 그때 이 핸들러가 현재 트랙을 보면 엉뚱한 곡의
           // 캐시로 전환한다. 이 재생이 어느 트랙의 것이었는지 붙잡아 둔다.
           const playingTrack = this.currentTrack;
@@ -553,7 +568,7 @@ class MusicPlayer {
             if (this._inputToken === inputToken) this._inputProgressAt = Date.now();
           });
 
-          this.resource = createAudioResource(playSource, {
+          this.resource = this.io.createAudioResource(playSource, {
             inputType: StreamType.Raw,
             inlineVolume: true,
             metadata: {
@@ -568,9 +583,9 @@ class MusicPlayer {
 
       // 파일 재생 모드 (사전 다운로드 또는 스트리밍 폴백)
       if (!shouldDownload && downloadedFile) {
-        const ffmpeg = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }), "playback");
+        const ffmpeg = this.io.spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file: downloadedFile, seekMs: resumeFromMs }), "playback");
 
-        this.resource = createAudioResource(ffmpeg.stdout, {
+        this.resource = this.io.createAudioResource(ffmpeg.stdout, {
           inputType: StreamType.Raw,
           inlineVolume: true,
           metadata: {
@@ -727,7 +742,8 @@ class MusicPlayer {
    *
    * @param {{file?: string|null, url?: string|null, seekMs?: number}} opts
    */
-  static buildFfmpegArgs({ file = null, url = null, seekMs = 0 } = {}) {
+  // caps: ffmpeg 능력(주소 갈래만 본다). 생략하면 진짜
+  static buildFfmpegArgs({ file = null, url = null, seekMs = 0, caps = null } = {}) {
     const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];
     const output = ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"];
 
@@ -737,7 +753,7 @@ class MusicPlayer {
       // 오류로 보고 무한히 다시 붙는다.
       const reconnect = ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1"];
       // 오래된 빌드에는 없는 옵션이다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로 확인하고 붙인다.
-      const retry = ffmpegCapabilities().segMaxRetry ? ["-seg_max_retry", String(SEG_MAX_RETRY)] : [];
+      const retry = (caps ?? ffmpegCapabilities()).segMaxRetry ? ["-seg_max_retry", String(SEG_MAX_RETRY)] : [];
       return [...reconnect, ...retry, "-analyzeduration", "0", "-loglevel", "error", ...seek, "-i", url, ...output];
     }
 
@@ -772,7 +788,7 @@ class MusicPlayer {
 
     let decoder;
     try {
-      decoder = spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file, seekMs }), "switch");
+      decoder = this.io.spawnFfmpeg(MusicPlayer.buildFfmpegArgs({ file, seekMs }), "switch");
     } catch (error) {
       log.warn(`캐시 재생용 ffmpeg를 띄우지 못했습니다: ${error.message}`);
       return false;
@@ -1925,5 +1941,10 @@ class MusicPlayer {
     return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
 }
+
+/** 이 뒤로 만드는 플레이어의 바깥 경계 기본값. 테스트만 쓴다. 인자 없이 부르면 진짜로 돌아간다 */
+MusicPlayer.useBoundary = (overrides) => {
+  defaultBoundary = overrides ? { ...REAL, ...overrides } : REAL;
+};
 
 module.exports = MusicPlayer;

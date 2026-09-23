@@ -4,7 +4,6 @@ const links = require("../rules/links");
 const { canonicalUrl } = require("../rules/canonicalUrl");
 const { readInfo } = require("./ytdlpInfo");
 const config = require("../../config");
-const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 
 class SoundCloud {
   // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용
@@ -77,11 +76,13 @@ class SoundCloud {
    * 재생 쪽이 `protocol`을 보고 주소를 주는 갈래로 보낸다.
    *
    * 탐색은 URL 매개변수가 아니라 ffmpeg가 처리한다.
+   *
+   * canPlayHls: 이 ffmpeg 빌드가 HLS 를 여는가. 재생 쪽이 안다(생략하면 연다고 본다)
    */
-  static async getStream(url) {
+  static async getStream(url, { canPlayHls = true } = {}) {
     // HLS를 못 여는 ffmpeg 빌드에서는 애초에 받아 합칠 수 있는 포맷을 고른다.
     // 사운드클라우드는 progressive(`http_mp3_1_0`)를 함께 주므로 음질을 조금 내주고 재생을 지킨다.
-    const format = ffmpegCapabilities().ok ? "bestaudio/best" : "bestaudio[protocol^=http]/best[protocol^=http]/bestaudio/best";
+    const format = canPlayHls ? "bestaudio/best" : "bestaudio[protocol^=http]/best[protocol^=http]/bestaudio/best";
 
     const info = readInfo(
       await youtubedl(url, {

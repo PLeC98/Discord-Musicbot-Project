@@ -13,8 +13,8 @@ const streamUrl = {
    * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
    * 곡이 어디서 왔는지(platform)는 보지 않는다. 자동재생 곡은 출처 이름을 들고 소리는 영상이나 음원에서 온다.
    */
-  // youtube: 유튜브 스트림을 여는 쪽. 생략하면 진짜
-  async getStream(track, seekSeconds = 0, { youtube = YouTube } = {}) {
+  // youtube: 유튜브 스트림을 여는 쪽. 생략하면 진짜. canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다)
+  async getStream(track, seekSeconds = 0, { youtube = YouTube, canPlayHls = true } = {}) {
     if (!track.audioUrl && !(await equivalent.findYouTubeEquivalent(track))) {
       throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
     }
@@ -34,7 +34,7 @@ const streamUrl = {
         }
 
       case "soundcloud":
-        return SoundCloud.getStream(track.audioUrl);
+        return SoundCloud.getStream(track.audioUrl, { canPlayHls });
 
       case "direct":
         // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.getStream(SafeUrl 가드)이

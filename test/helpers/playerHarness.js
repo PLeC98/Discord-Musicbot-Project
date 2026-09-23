@@ -5,13 +5,14 @@
 // 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 조각을 시험한다. 그래서 생성자와 협력자가 다 얽힌
 // play() 는 한 번도 돌지 않았다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 갈아 끼운다.
 //
-//   음성 라이브러리 · ffmpeg · 청크 스트림  MusicPlayer 가 불러올 때 구조 분해로 가져간다. 불러오기 전에 바꾼다
+//   음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소
+//                                          플레이어의 바깥 경계로 넘긴다(MusicPlayer.useBoundary). 명령 · 곡 추가가
+//                                          만드는 플레이어도 같은 가짜를 쓴다
 //   캐시 장부                              진짜 audioCache 를 임시 DB 로. "장부에 무엇을 적었나"를 그대로 본다
-//   스트림 주소 · 다운로드 · SponsorBlock   모듈 객체의 메서드를 시험마다 바꾼다
+//   다운로드 · SponsorBlock · 동등물        모듈 객체의 메서드를 시험마다 바꾼다
 //   음성 연결 · 세션 저장 · 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
 //
-// 이 파일을 MusicPlayer 보다 먼저 불러와야 한다. node --test 는 테스트 파일마다 프로세스를 따로 띄우므로
-// 여기서 바꿔 끼운 모듈이 다른 테스트 파일로 새지 않는다.
+// node --test 는 테스트 파일마다 프로세스를 따로 띄우므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
 
 const fs = require("fs");
 const os = require("os");
@@ -23,8 +24,7 @@ const { PassThrough, Writable } = require("stream");
 const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: [], persists: [], directStreams: [], sink: [], steps: [] };
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
-const realVoice = require("@discordjs/voice");
-const { AudioPlayerStatus } = realVoice;
+const { AudioPlayerStatus } = require("@discordjs/voice");
 
 class FakeAudioPlayer extends EventEmitter {
   constructor() {
@@ -78,12 +78,6 @@ function createAudioResource(input, options = {}) {
   return resource;
 }
 
-require.cache[require.resolve("@discordjs/voice")] = {
-  id: "@discordjs/voice",
-  loaded: true,
-  exports: { ...realVoice, createAudioPlayer: () => new FakeAudioPlayer(), createAudioResource },
-};
-
 // ── 2. ffmpeg ─────────────────────────────────────────────────────────
 function fakeChild(args, label) {
   const child = new EventEmitter();
@@ -101,34 +95,20 @@ function fakeChild(args, label) {
   };
   return child;
 }
-const ffmpegProcessPath = require.resolve("../../src/media/ffmpeg/process");
-const realFfmpegProcess = require("../../src/media/ffmpeg/process");
-require.cache[ffmpegProcessPath].exports = {
-  ...realFfmpegProcess,
-  spawnFfmpeg: (args, label) => {
-    const child = fakeChild(args, label);
-    calls.spawns.push(child);
-    return child;
-  },
-};
-
-const ffmpegPathPath = require.resolve("../../src/media/ffmpeg/path");
-const realFfmpegPath = require("../../src/media/ffmpeg/path");
+function spawnFfmpeg(args, label) {
+  const child = fakeChild(args, label);
+  calls.spawns.push(child);
+  return child;
+}
 const caps = { ok: true, https: true, hls: true, segMaxRetry: true };
-require.cache[ffmpegPathPath].exports = { ...realFfmpegPath, capabilities: () => caps };
 
 // ── 3. 청크 스트림 ─────────────────────────────────────────────────────
-const chunkedPath = require.resolve("../../src/media/chunkedStream");
-const realChunked = require("../../src/media/chunkedStream");
-require.cache[chunkedPath].exports = {
-  ...realChunked,
-  openChunkedStream: async (opts) => {
-    calls.chunked.push(opts);
-    const stream = new PassThrough();
-    stream.stats = () => ({ requests: 1, received: 0, totalBytes: opts.totalBytes, idleMs: 0, expiresInS: null });
-    return stream;
-  },
-};
+async function openChunkedStream(opts) {
+  calls.chunked.push(opts);
+  const stream = new PassThrough();
+  stream.stats = () => ({ requests: 1, received: 0, totalBytes: opts.totalBytes, idleMs: 0, expiresInS: null });
+  return stream;
+}
 
 // ── 4. 캐시 장부: 진짜를 임시 DB 로 ──────────────────────────────────────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
@@ -139,11 +119,8 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
 const MusicPlayer = require("../../src/player/Player");
 const equivalent = require("../../src/sources/youtube/equivalent");
-const lookup = require("../../src/sources/lookup");
-const streamUrl = require("../../src/sources/streamUrl");
 const TrackDownloader = require("../../src/media/cacheDownload");
 const SponsorBlock = require("../../src/sources/sponsorBlock");
-const DirectLink = require("../../src/sources/direct");
 const VoiceConnectionManager = require("../../src/player/voiceConnection");
 const SessionPersistence = require("../../src/player/sessionMirror");
 const QueueWarmer = require("../../src/player/queueWarmer");
@@ -189,17 +166,11 @@ const behavior = {
   directStream: null, // (url) → Readable
 };
 
-streamUrl.getStream = async (track, seekSec) => {
-  if (!behavior.stream) throw new Error("시험이 스트림을 정하지 않았다");
-  return behavior.stream(track, seekSec);
-};
 equivalent.findYouTubeEquivalent = async (track) => {
   calls.steps.push("equivalent");
   const url = behavior.equivalent ? behavior.equivalent(track) : null;
   if (url) {
-    track.youtubeUrl = url;
     track.audioUrl = url;
-    lookup.ensureAudioSourceKey(track);
   }
   return url;
 };
@@ -229,15 +200,27 @@ TrackDownloader.prototype.downloadTrack = function (track) {
   );
   return running;
 };
-DirectLink.getStream = async (url) => {
-  calls.directStreams.push(url);
-  return behavior.directStream ? behavior.directStream(url) : new PassThrough();
-};
-global.fetch = async (url, init) => {
-  calls.fetches.push({ url, init });
-  if (behavior.fetch) return behavior.fetch(url, init);
-  return { ok: true, status: 200, body: new PassThrough() };
-};
+// 플레이어의 바깥 경계. 이 뒤로 만드는 플레이어가 모두 쓴다
+MusicPlayer.useBoundary({
+  createAudioPlayer: () => new FakeAudioPlayer(),
+  createAudioResource,
+  spawnFfmpeg,
+  ffmpegCapabilities: () => caps,
+  openChunkedStream,
+  getStream: async (track, seekSec) => {
+    if (!behavior.stream) throw new Error("시험이 스트림을 정하지 않았다");
+    return behavior.stream(track, seekSec);
+  },
+  directStream: async (url) => {
+    calls.directStreams.push(url);
+    return behavior.directStream ? behavior.directStream(url) : new PassThrough();
+  },
+  fetch: async (url, init) => {
+    calls.fetches.push({ url, init });
+    if (behavior.fetch) return behavior.fetch(url, init);
+    return { ok: true, status: 200, body: new PassThrough() };
+  },
+});
 
 // ── 6. 도우미 ────────────────────────────────────────────────────────
 function fakeGuild(id = "g1") {

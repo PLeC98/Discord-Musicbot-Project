@@ -13,7 +13,6 @@ const assert = require("node:assert/strict");
 
 const ytdlExec = require("youtube-dl-exec");
 const SafeUrl = require("../../src/infra/safeUrl");
-const ffmpegPath = require("../../src/media/ffmpeg/path");
 const SoundCloud = require("../../src/sources/soundcloud");
 const DirectLink = require("../../src/sources/direct");
 
@@ -90,23 +89,15 @@ test("사운드클라우드 검색: 주소를 주면 그 곡의 정보를, 실�
   assert.deepEqual(await SoundCloud.search("아무거나"), []);
 });
 
-test("사운드클라우드 스트림: 서술자에 전송 방식을 싣는다. HLS 를 열 수 있는지는 불러올 때 쥔 함수로 본다", async () => {
+test("사운드클라우드 스트림: 서술자에 전송 방식을 싣는다. HLS 를 못 여는 빌드면 받아 합칠 수 있는 포맷을 고른다", async () => {
   respond = () => ({ url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", duration: 180.6, abr: 96, http_headers: { A: "b" } });
-  const realCaps = ffmpegPath.capabilities;
 
   const s = await SoundCloud.getStream("https://soundcloud.com/artist/track");
   assert.deepEqual(s, { url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", duration: 181, bitrate: 96, platform: "soundcloud", httpHeaders: { A: "b" } });
-  const usedFormat = calls.ytdlp[0].flags.format;
+  assert.equal(calls.ytdlp[0].flags.format, "bestaudio/best", "생략하면 HLS 를 연다고 본다");
 
-  ffmpegPath.capabilities = () => ({ ok: false });
-  try {
-    // SoundCloud 는 불러올 때 capabilities 를 구조 분해해 쥐고 있다. 바꿔 끼워도 안 보인다
-    await SoundCloud.getStream("https://soundcloud.com/artist/track");
-  } finally {
-    ffmpegPath.capabilities = realCaps;
-  }
-  assert.equal(calls.ytdlp[1].flags.format, usedFormat, "지금 동작: 불러올 때 쥔 함수를 쓴다(4 · 9단계에서 주입으로)");
-  assert.match(usedFormat, /^bestaudio/);
+  await SoundCloud.getStream("https://soundcloud.com/artist/track", { canPlayHls: false });
+  assert.equal(calls.ytdlp[1].flags.format, "bestaudio[protocol^=http]/best[protocol^=http]/bestaudio/best");
 });
 
 test("사운드클라우드 스트림: 주소가 없으면 던진다", async () => {

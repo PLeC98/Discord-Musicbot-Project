@@ -8,7 +8,6 @@
     "src/player/sessionMirror.js -> src/ui/mentions.js",
     "src/player/sessionMirror.js -> src/usecases/responders.js",
     "src/sources/lookup.js -> src/ui/errorMessages.js",
-    "src/sources/soundcloud.js -> src/media/ffmpeg/path.js",
     "src/sources/youtube/auth.js -> src/media/ffmpeg/path.js",
     "src/store/playerSessions.js -> src/player/trackState.js",
     "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"
@@ -55,7 +54,6 @@
     "test/autoplay/autoplayAssist.test.js": 1,
     "test/controlEntrances.test.js": 2,
     "test/dashboard/dashboardErrors.test.js": 3,
-    "test/helpers/playerHarness.js": 4,
     "test/player/voiceConnectionEvents.test.js": 1
   },
   "methodSwap": [
