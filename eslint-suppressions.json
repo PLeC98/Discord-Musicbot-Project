@@ -75,9 +75,6 @@
   "index.js": {
     "max-lines-per-function": {
       "count": 1
-    },
-    "no-empty-function": {
-      "count": 2
     }
   },
   "scripts/build-emoji-list.js": {
@@ -308,6 +305,11 @@
   },
   "src/sources/youtube/match.js": {
     "complexity": {
+      "count": 2
+    }
+  },
+  "src/app/resilience.js": {
+    "no-empty-function": {
       "count": 2
     }
   }
