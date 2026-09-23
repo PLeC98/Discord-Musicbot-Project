@@ -9,7 +9,7 @@ const logSink = require("../infra/log/sink");
 const logger = require("../infra/log/logger");
 const config = require("../../config");
 const audioCache = require("../store/audioCache");
-const { logResolved: logResolvedFfmpeg } = require("../media/ffmpeg/path");
+const { logResolved: logResolvedFfmpeg, ffmpegPath } = require("../media/ffmpeg/path");
 const MusicPlayer = require("../player/Player");
 const { restoreSavedPlayers } = require("../player/sessionRestore");
 const voiceChannelStatus = require("../player/voiceChannelStatus");
@@ -146,6 +146,8 @@ async function init(client, { potServer, logFile }) {
 function checkBeforeLogin() {
   // 재생·캐시 변환이 모두 ffmpeg에 의존하므로 여기서 확정하고 기록한다. 못 찾으면 여기서 기동을 멈춘다
   stopIfThrows(() => logResolvedFfmpeg());
+  // yt-dlp 도 재생과 같은 ffmpeg 를 쓴다
+  YouTube.useFfmpeg(ffmpegPath);
   // 캐시 DB 구조가 이 버전과 맞지 않으면 여기서 멈춘다
   stopIfThrows(() => audioCache.initialize());
 

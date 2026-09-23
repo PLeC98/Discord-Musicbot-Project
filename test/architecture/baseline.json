@@ -1,5 +1,5 @@
 {
-  "direction": ["src/sources/youtube/auth.js -> src/media/ffmpeg/path.js"],
+  "direction": [],
   "cycles": [],
   "unseen": ["src/app/moduleLoader.js"],
   "lazyRequire": {

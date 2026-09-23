@@ -28,6 +28,16 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
   assert.equal(opts.addHeader, undefined);
 });
 
+test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너리). 넘기기 전에는 칸이 없다", () => {
+  assert.equal(YouTube.getYtDlpOptions().ffmpegLocation, undefined);
+  YouTube.useFfmpeg(() => "/opt/ffmpeg/bin/ffmpeg");
+  try {
+    assert.equal(YouTube.getYtDlpOptions().ffmpegLocation, "/opt/ffmpeg/bin/ffmpeg");
+  } finally {
+    YouTube.useFfmpeg(() => null);
+  }
+});
+
 test("호출자가 extractorArgs를 명시하면 그대로 존중 (병합 계약)", () => {
   const opts = YouTube.getYtDlpOptions({ extractorArgs: "youtube:player_client=web" });
   assert.equal(opts.extractorArgs, "youtube:player_client=web");

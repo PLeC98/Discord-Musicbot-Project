@@ -6,7 +6,8 @@ const path = require("path");
 const fs = require("fs");
 const log = require("../../infra/log/logger").child({ category: "youtube" });
 const config = require("../../../config");
-const { ffmpegPath } = require("../../media/ffmpeg/path");
+// yt-dlp 에 줄 ffmpeg 경로. 재생과 같은 바이너리를 쓰게 조립(app/main)이 넘긴다(useFfmpeg). 안 넘기면 yt-dlp 가 PATH 에서 찾는다
+let ffmpegLocation = () => null;
 const { NEEDS_POT, KNOWN } = require("./clients");
 const { playerClients } = require("./ytdlpRun");
 
@@ -35,8 +36,14 @@ const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 const cookieConfig = () => require("../../config/cookies");
 
 class YouTubeAuth {
+  /** locate: ffmpeg 경로를 돌려주는 함수(media/ffmpeg/path 의 ffmpegPath) */
+  static useFfmpeg(locate) {
+    ffmpegLocation = locate;
+  }
+
   // yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
   static getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
+    const ffmpeg = ffmpegLocation();
     const baseOptions = {
       // noWarnings를 켜지 않는다. yt-dlp의 경고에는 우리가 봐야 할 것이 섞여 있다
       // ("이 클라이언트는 POToken이 필요하다" 등). ERROR는 원래 이 옵션과 무관하다.
@@ -44,7 +51,7 @@ class YouTubeAuth {
       fragmentRetries: 3,
       // 재생과 같은 ffmpeg를 쓰게 한다. 지정하지 않으면 yt-dlp가 PATH에서 제멋대로 찾아
       // 재생(ffmpegPath 해석기)과 캐시 변환이 서로 다른 바이너리를 쓰게 된다.
-      ffmpegLocation: ffmpegPath(),
+      ...(ffmpeg && { ffmpegLocation: ffmpeg }),
       jsRuntimes: `node:${process.execPath}`,
       // User-Agent를 우리가 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 골라 주고, 그 값이
       // http_headers로 실려 와 재생 요청 헤더가 된다. 우리가 덮으면 그게 낡은 단일 값으로 뭉개진다.
