@@ -270,9 +270,24 @@
       "count": 1
     }
   },
-  "src/config/loader.js": {
+  "src/config/ai.js": {
     "complexity": {
-      "count": 6
+      "count": 1
+    }
+  },
+  "src/config/genres.js": {
+    "complexity": {
+      "count": 3
+    }
+  },
+  "src/config/status.js": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/config/yamlStore.js": {
+    "complexity": {
+      "count": 1
     }
   },
   "src/usecases/addTracks.js": {
