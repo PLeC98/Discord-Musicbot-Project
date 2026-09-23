@@ -100,7 +100,17 @@ const GENRES = [
         },
       },
     },
-    ["소스의 1번째 소스: type과 값을 적어야 합니다.", "소스의 2번째 소스: 모르는 종류입니다(nope). 쓸 수 있는 것: keyword, lastfm, lbradio, animethemes, anisongdb, vocadb, utaitedb, touhoudb, spotify, youtube", "소스의 3번째 소스(키워드): keywords 를 적어야 합니다.", '소스의 4번째 소스(ListenBrainz Radio): mode에 "insane"는 쓸 수 없습니다. 쓸 수 있는 것: easy, medium, hard', '소스의 5번째 소스(AnisongDB): songTypes에 "bad"는 쓸 수 없습니다. 쓸 수 있는 것: opening, ending, insert', "소스의 6번째 소스: weight는 1 이상이어야 합니다.", "소스의 6번째 소스: minScore는 0 이상이어야 합니다.", "소스의 6번째 소스: yearFrom이 yearTo보다 큽니다.", "소스의 6번째 소스: minLength가 maxLength보다 큽니다."],
+    [
+      "소스의 1번째 소스: type과 값을 적어야 합니다.",
+      "소스의 2번째 소스: 모르는 종류입니다(nope). 쓸 수 있는 것: keyword, lastfm, lbradio, animethemes, anisongdb, vocadb, utaitedb, touhoudb, spotify, youtube",
+      "소스의 3번째 소스(키워드): keywords 를 적어야 합니다.",
+      '소스의 4번째 소스(ListenBrainz Radio): mode에 "insane"는 쓸 수 없습니다. 쓸 수 있는 것: easy, medium, hard',
+      '소스의 5번째 소스(AnisongDB): songTypes에 "bad"는 쓸 수 없습니다. 쓸 수 있는 것: opening, ending, insert',
+      "소스의 6번째 소스: weight는 1 이상이어야 합니다.",
+      "소스의 6번째 소스: minScore는 0 이상이어야 합니다.",
+      "소스의 6번째 소스: yearFrom이 yearTo보다 큽니다.",
+      "소스의 6번째 소스: minLength가 maxLength보다 큽니다.",
+    ],
   ],
   [
     "기본값 문제",
@@ -209,7 +219,17 @@ const STATUSES = [
         },
       },
     },
-    ["빈것: 내용이 비었습니다.", "조건없음: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).", '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 합니다', '범위의 lunar: "12-24 ~ 12-26"처럼 ~ 로 나눠 적어야 합니다', '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다', "숫자의 date: 글자로 적어야 합니다", "숫자: 문구가 하나는 있어야 합니다.", '"2026": 숫자만으로 된 이름은 차례가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.', '"true"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).'],
+    [
+      "빈것: 내용이 비었습니다.",
+      "조건없음: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).",
+      '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 합니다',
+      '범위의 lunar: "12-24 ~ 12-26"처럼 ~ 로 나눠 적어야 합니다',
+      '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다',
+      "숫자의 date: 글자로 적어야 합니다",
+      "숫자: 문구가 하나는 있어야 합니다.",
+      '"2026": 숫자만으로 된 이름은 차례가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.',
+      '"true"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).',
+    ],
   ],
 ];
 
