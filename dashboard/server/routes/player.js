@@ -11,27 +11,13 @@ const { checkControl, checkAdd, isModerator } = require("../../../src/usecases/p
 const controls = require("../../../src/usecases/controls");
 const { controlApiError } = require("../../../src/ui/controlMessages");
 const { requestPlayback, continueCollection, ensurePlayer } = require("../../../src/usecases/addTracks");
-const { validState, MAX_COUNT, LIFETIME_MS } = require("../../../src/usecases/playlistMore");
+const { validState, LIFETIME_MS } = require("../../../src/usecases/playlistMore");
 const config = require("../../../config");
 const { isOwner } = require("../owner");
 const { shadowMember } = require("../viewAs");
 const { getPlayer, voiceFlags, toInt } = require("../guildAccess");
-const { QUEUE_WINDOW_MAX, queueTrack, queueWindow, playerState } = require("../playerView");
-
-// ── 입력 검증 ─────────────────────────────────────────────────────────────────
-// 사용자 입력은 타입·범위를 먼저 확정. 비문자열 body의 TypeError(async 핸들러라 500조차 아닌
-// unhandled rejection), parseFloat/parseInt의 느슨한 허용("Infinity", "50junk")이
-// 하위 로직·로그·yt-dlp로 흘러가지 않게 한다.
-
-const QUERY_MAX_LEN = 500;
-
-// 문자열 확인 + 제어문자(CR/LF/NUL 등) 정규화. 로그 위조·외부 도구 인자 오염 방지.
-// 부적합 입력은 null (호출부에서 400)
-function sanitizeQuery(raw) {
-  if (typeof raw !== "string" || raw.length > QUERY_MAX_LEN) return null;
-  const query = raw.replace(/[\x00-\x1f\x7f]/g, " ").trim();
-  return query || null;
-}
+const { queueTrack, queueWindow, playerState } = require("../playerView");
+const { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } = require("../requestSchemas");
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
@@ -94,10 +80,9 @@ function readRoutes(router) {
     if (!ctx) return;
     const queue = ctx.player?.queue || [];
 
-    const offset = toInt(req.query.offset);
-    const limit = toInt(req.query.limit);
-    if (isNaN(offset) || offset < 0) return res.status(400).json({ error: "대기열 시작 위치가 올바르지 않습니다." });
-    if (isNaN(limit) || limit <= 0 || limit > QUEUE_WINDOW_MAX) return res.status(400).json({ error: "대기열 요청 개수가 올바르지 않습니다." });
+    const window = parse(QueueWindowQuery, req.query);
+    if (!window.ok) return res.status(400).json({ error: window.error });
+    const { offset, limit } = window.value;
 
     res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(t, offset + i)), total: queue.length });
   });
@@ -202,9 +187,9 @@ function controlRoutes(router) {
   router.post("/:guildId/player/seek", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const positionSec = Number(req.body.position);
-    // Number.isFinite: parseFloat와 달리 "Infinity"(라이브 duration 0에서 클램프를 뚫음)·비숫자 문자열 거부
-    if (!Number.isFinite(positionSec) || positionSec < 0) return res.status(400).json({ error: "재생 위치가 올바르지 않습니다." });
+    const body = parse(SeekBody, req.body ?? {});
+    if (!body.ok) return res.status(400).json({ error: body.error });
+    const positionSec = body.value.position;
 
     // 진행바를 끝까지 끌면 곡 길이와 같은 값이 온다. 끝 1초 앞으로 당긴다
     const durationSec = ctx.player?.currentTrack?.duration ?? 0;
@@ -293,8 +278,9 @@ function addRoutes(router) {
       if (err) return res.status(403).json({ error: toApiError(err) });
     }
 
-    const query = sanitizeQuery(req.body.query);
-    if (!query) return res.status(400).json({ error: `검색어를 입력해 주세요 (문자열, 최대 ${QUERY_MAX_LEN}자)` });
+    const body = parse(AddBody, req.body ?? {});
+    if (!body.ok) return res.status(400).json({ error: body.error });
+    const { query, single } = body.value;
 
     try {
       // responder를 주지 않으면 무동작. 디스코드에는 알리지 않고 결과를 이 응답으로만 전달한다.
@@ -306,7 +292,7 @@ function addRoutes(router) {
           username: req.session.user.globalName || req.session.user.username,
         },
         query,
-        single: req.body.single === true,
+        single,
         source: "대시보드",
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 자리. 없으면 진짜
       });
@@ -339,15 +325,15 @@ function addRoutes(router) {
 
     // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다
     const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });
-    const count = Number.isSafeInteger(req.body?.count) && req.body.count >= 1 && req.body.count <= MAX_COUNT ? req.body.count : null;
-    if (!state || !count) return res.status(400).json({ error: "더 넣을 목록 정보가 올바르지 않습니다" });
+    const count = parse(MoreCount, req.body?.count);
+    if (!state || !count.ok) return res.status(400).json({ error: "더 넣을 목록 정보가 올바르지 않습니다" });
 
     try {
       const result = await continueCollection(client, {
         guild,
         requester: { id: req.session.user.id, username: req.session.user.globalName || req.session.user.username },
         state,
-        count,
+        count: count.value,
         source: "대시보드 더 넣기",
         lookup: req.app.locals.lookup,
       });

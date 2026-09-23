@@ -31,9 +31,6 @@
     }
   },
   "dashboard/server/routes/player.js": {
-    "complexity": {
-      "count": 1
-    },
     "no-empty-function": {
       "count": 1
     }

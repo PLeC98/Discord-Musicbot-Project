@@ -251,3 +251,11 @@ test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다", async
   }
   assert.deepEqual(seen, [true, true]);
 });
+
+test("본문 없는 요청은 400 으로 답한다(본문을 읽다 던지지 않는다)", async () => {
+  freshPlayer();
+  const r = await fetch(`${base}/api/guilds/${GUILD_ID}/player/seek`, { method: "POST", signal: AbortSignal.timeout(3000) });
+  assert.equal(r.status, 400);
+  assert.deepEqual(await r.json(), { error: "재생 위치가 올바르지 않습니다." });
+  assert.equal(player.calls.length, 0);
+});
