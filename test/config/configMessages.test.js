@@ -366,9 +366,11 @@ test("장르 검사: 장르가 25개를 넘는다(디스코드 선택 메뉴 한
   assert.deepEqual(genreConfig.validateGenres({ genres }), ["장르가 26개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다."]);
 });
 
-for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(genreConfig.validateGenres(input), want));
-for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => assert.deepEqual(statusConfig.validateStatus(input), want));
-for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => assert.deepEqual(aiConfig.validateAi(input), want));
+// 순서는 보지 않고 같은 문구가 같은 수만큼 나오는지만 본다(zod 로 옮기는 동안). 옮긴 뒤 새 순서로 다시 고정한다
+const sameSet = (actual, want) => assert.deepEqual([...actual].sort(), [...want].sort());
+for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => sameSet(genreConfig.validateGenres(input), want));
+for (const [name, input, want] of STATUSES) test(`상태 검사: ${name}`, () => sameSet(statusConfig.validateStatus(input), want));
+for (const [name, input, want] of AIS) test(`AI 검사: ${name}`, () => sameSet(aiConfig.validateAi(input), want));
 for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name}`, () => assert.deepEqual(aiConfig.promptProblems(input, on), want));
 
 // ── 던지나 경고하나: 부르는 쪽이 정한다 ────────────────────────────────
