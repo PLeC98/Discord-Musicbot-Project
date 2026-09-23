@@ -195,6 +195,35 @@ test("유튜브로 올라가도 platform 은 그대로다 — 키가 yt: 로 바
   assert.equal(track.youtubeUrl, "https://www.youtube.com/watch?v=v1");
 });
 
+// ── 링크 칸 셋 ────────────────────────────────────────────────────────────
+
+test("링크 칸 셋: 보여 줄 곳은 출처 페이지, 요청은 소스 안의 곡, 소리는 영상이나 음원", async () => {
+  ytResults = [{ id: "v3", url: "https://www.youtube.com/watch?v=v3", title: "Song / Artist", artist: "아무 채널", duration: 260 }];
+  const up = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/b.mp3", sourceUrl: "https://anilist.co/anime/1", platform: "anisongdb", sourceKey: "amq:3" }, LIMITS);
+  assert.deepEqual([up.pageUrl, up.requestKey, up.audioUrl], ["https://anilist.co/anime/1", "amq:3", "https://www.youtube.com/watch?v=v3"], "작품 페이지는 보여 주기만 한다");
+
+  ytResults = [];
+  const down = await route.resolve({ artist: "Artist", title: "Song", audioUrl: "https://nawdist.animemusicquiz.com/c.mp3", sourceUrl: "https://anilist.co/anime/1", platform: "anisongdb", sourceKey: "amq:4" }, LIMITS);
+  assert.deepEqual([down.pageUrl, down.requestKey, down.audioUrl], ["https://anilist.co/anime/1", "amq:4", "https://nawdist.animemusicquiz.com/c.mp3"]);
+
+  const bare = await route.resolve({ title: "주제가", audioUrl: "https://a.animethemes.moe/X-OP2.ogg", sourceKey: "at:10", platform: "animethemes" }, LIMITS);
+  assert.equal(bare.pageUrl, "https://a.animethemes.moe/X-OP2.ogg", "출처 페이지가 없으면 음원 주소를 보여 준다. 비우지 않는다");
+});
+
+test("요청 열쇠: 곡 페이지는 다듬어서, 영상 후보는 그 영상, 곡 id 는 그대로, 이름뿐이면 소스 이름을 붙여", () => {
+  const cases = [
+    [{ sourceKey: "https://open.spotify.com/track/abc?si=x", sourceUrl: "https://open.spotify.com/track/abc", platform: "spotify" }, "https://open.spotify.com/track/abc"],
+    [{ sourceKey: "https://www.last.fm/music/A/_/B", sourceUrl: "https://www.last.fm/music/A/_/B", platform: "lastfm" }, "https://www.last.fm/music/A/_/B"],
+    [{ sourceKey: "yt:abcdefghijk", youtubeUrl: "https://youtu.be/abcdefghijk?si=1" }, "https://www.youtube.com/watch?v=abcdefghijk"],
+    [{ sourceKey: "https://www.youtube.com/watch?v=abcdefghijk&list=PL1", youtubeUrl: "https://www.youtube.com/watch?v=abcdefghijk&list=PL1" }, "https://www.youtube.com/watch?v=abcdefghijk"],
+    [{ sourceKey: "amq:48944", platform: "anisongdb", sourceUrl: "https://anilist.co/anime/1" }, "amq:48944"],
+    [{ sourceKey: "vocadb:757470", platform: "vocadb", sourceUrl: "https://vocadb.net/S/757470" }, "vocadb:757470"],
+    [{ sourceKey: "Re:Zero|Styx Helix", platform: "lastfm" }, "lastfm:Re:Zero|Styx Helix"],
+    [{ artist: "가수", title: "곡", platform: "lbradio" }, "lbradio:가수|곡"],
+  ];
+  for (const [cand, want] of cases) assert.equal(route.requestKeyOf(cand), want, JSON.stringify(cand));
+});
+
 // ── 썸네일 ────────────────────────────────────────────────────────────────
 
 // 회귀 대상: 유튜브 검색 결과를 후보 모양으로 옮길 때 thumbnail을 빠뜨렸다. Last.fm·LB Radio는

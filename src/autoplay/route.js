@@ -12,6 +12,7 @@
 
 const autoplayFilter = require("./filter");
 const links = require("../rules/links");
+const { canonicalUrl } = require("../rules/canonicalUrl");
 const { candidateKind } = require("../rules/candidateKind");
 const pool = require("./pool");
 const sources = require("./sources/index");
@@ -92,6 +93,20 @@ function* byWeight(list) {
 }
 
 /**
+ * 이 후보를 무엇이라 부르나(요청 열쇠). 링크 장부가 이것으로 찾는다.
+ * 소스가 곡 페이지를 주면 다듬은 그 주소(스포티파이 소스와 스포티파이 링크를 넣은 사용자가 같은 줄을 쓴다),
+ * 영상 자체가 후보면 그 영상, 소스 안의 곡 id 면 그대로(amq:48944 · vocadb:123 …),
+ * 이름뿐이면 소스 이름을 붙인다(lastfm:가수|제목). 작품 페이지처럼 곡 여럿을 가리키는 주소는 쓰지 않는다.
+ */
+function requestKeyOf(cand) {
+  const key = String(cand.sourceKey ?? "");
+  if (links.isHttpLink(key)) return canonicalUrl(key);
+  if (cand.youtubeUrl && !cand.sourceUrl) return canonicalUrl(cand.youtubeUrl);
+  if (/^[a-z]+:\d+$/.test(key)) return key;
+  return `${cand.platform || "autoplay"}:${key || `${cand.artist}|${cand.title}`}`;
+}
+
+/**
  * 유튜브 영상 하나를 재생 가능한 트랙으로.
  *
  * 표시 이름은 소스 것을 앞세운다. 유튜브 채널명은 아티스트가 아니라 올린 사람이다.
@@ -105,13 +120,15 @@ function fromYouTube(video, cand) {
   const videoId = video.id || links.extractVideoId(video.url);
   // 출처가 따로 있는 곡인가(Last.fm·LB Radio·VocaDB·AnimeThemes), 아니면 영상 자체가 출처인가(keyword·유튜브 재생목록)
   const sourced = !!cand.sourceUrl;
+  const videoUrl = canonicalUrl(video.url);
+  const origin = sourced ? { url: cand.sourceUrl, youtubeUrl: video.url, pageUrl: cand.sourceUrl, platform: cand.platform || "youtube" } : { url: video.url, youtubeUrl: undefined, pageUrl: videoUrl, platform: "youtube" };
 
   return {
     title: cand.title || video.title,
     artist: cand.artist || video.channel || video.artist || "",
-    url: sourced ? cand.sourceUrl : video.url,
-    youtubeUrl: sourced ? video.url : undefined,
-    platform: sourced ? cand.platform || "youtube" : "youtube",
+    ...origin,
+    requestKey: requestKeyOf(cand),
+    audioUrl: videoUrl,
     // 소리는 영상에서 온다. 출처가 달라도 같은 영상이면 파일 하나를 함께 쓴다
     audioSourceKey: videoId ? `yt:${videoId}` : undefined,
     duration: Number(video.durationSec || video.duration) || 0,
@@ -135,6 +152,9 @@ const fromAudio = (cand) => ({
   // 사람에게 보일 링크는 webUrl 로 따로 싣는다. 음원 파일 주소를 눌러 봐야 쓸모가 없다.
   url: cand.audioUrl,
   webUrl: cand.sourceUrl || undefined,
+  pageUrl: cand.sourceUrl || cand.audioUrl,
+  requestKey: requestKeyOf(cand),
+  audioUrl: cand.audioUrl,
   // 길이를 미리 재지 않는다. 어차피 받아야 하고, TrackDownloader가 받으면서 실측해 고쳐 준다.
   duration: 0,
   durationSource: "미상",
@@ -284,4 +304,4 @@ async function pickTrack(cfg, recent = []) {
   return null;
 }
 
-module.exports = { pickTrack, resolve, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };
+module.exports = { pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };

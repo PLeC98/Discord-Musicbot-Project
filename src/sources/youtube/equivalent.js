@@ -17,6 +17,7 @@ const equivalent = {
   // search: 유튜브 검색 함수. 생략하면 진짜
   async findYouTubeEquivalent(track, { search = (query, limit) => YouTube.search(query, limit) } = {}) {
     if (track.youtubeUrl) {
+      track.audioUrl ??= track.youtubeUrl;
       lookup.ensureAudioSourceKey(track);
       return track.youtubeUrl;
     }
@@ -28,6 +29,7 @@ const equivalent = {
       if (cachedKey && cachedKey.startsWith("yt:")) {
         track.audioSourceKey = cachedKey;
         track.youtubeUrl = `https://www.youtube.com/watch?v=${cachedKey.slice(3)}`;
+        track.audioUrl = track.youtubeUrl;
         track._youtubeFromCache = true; // 소비 시 unavailable이면 재검색 트리거
         return track.youtubeUrl;
       }
@@ -69,6 +71,7 @@ const equivalent = {
     if (!best || !best.url) return null;
 
     track.youtubeUrl = best.url;
+    track.audioUrl = best.url;
     track.youtubeTitle = best.title;
     lookup.ensureAudioSourceKey(track);
     return track.youtubeUrl;
@@ -81,6 +84,7 @@ const equivalent = {
   async reresolveYouTube(track, deps) {
     if (track.url) trackLookup.removeResolution(track.url);
     track.youtubeUrl = null;
+    track.audioUrl = null;
     track.youtubeTitle = null;
     track.audioSourceKey = null;
     track._youtubeFromCache = false;

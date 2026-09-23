@@ -93,7 +93,7 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   assert.equal(tokenCalls[0].init.body, "grant_type=client_credentials");
   const trackCall = requests.find((r) => r.url.endsWith("/tracks/aaa111"));
   assert.equal(trackCall.init.headers.Authorization, "Bearer T1");
-  assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", url: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", type: "track", id: "aaa111" });
+  assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", url: "https://open.spotify.com/track/aaa111", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", type: "track", id: "aaa111" });
 });
 
 test("검색: 공식 API 의 search 를 부르고, 실패하면 빈 배열", async () => {

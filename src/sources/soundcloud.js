@@ -1,6 +1,7 @@
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("./ytdlpSpawn");
 const links = require("../rules/links");
+const { canonicalUrl } = require("../rules/canonicalUrl");
 const config = require("../../config");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 
@@ -173,10 +174,14 @@ class SoundCloud {
       const unknownTitle = "알 수 없는 제목";
       const unknownArtist = "알 수 없는 아티스트";
 
+      const url = soundcloudTrack.webpage_url || soundcloudTrack.url;
       const track = {
         title: soundcloudTrack.title || soundcloudTrack.fulltitle || unknownTitle,
         artist: soundcloudTrack.uploader || soundcloudTrack.artist || unknownArtist,
-        url: soundcloudTrack.webpage_url || soundcloudTrack.url,
+        url,
+        pageUrl: canonicalUrl(url),
+        requestKey: canonicalUrl(url),
+        audioUrl: url,
         duration: soundcloudTrack.duration || 0,
         thumbnail: soundcloudTrack.thumbnail,
         platform: "soundcloud",

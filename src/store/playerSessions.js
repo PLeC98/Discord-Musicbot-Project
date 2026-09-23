@@ -5,6 +5,8 @@
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
 const { HISTORY_MAX } = require("../player/trackState");
+const { canonicalUrl } = require("../rules/canonicalUrl");
+const { audioUrlOf } = require("../rules/audioKeyOf");
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
 const GAP = 1_000_000_000;
@@ -78,6 +80,9 @@ function fromRow(row) {
     id: row.track_id,
     title: row.title,
     url: row.source_url,
+    pageUrl: row.source_url,
+    requestKey: canonicalUrl(row.source_url),
+    audioUrl: audioUrlOf({ platform: row.platform, url: row.source_url, youtubeUrl: row.youtube_url, id: row.track_id }) || undefined,
     duration: row.duration_sec,
     thumbnail: row.thumbnail,
     artist: row.artist,

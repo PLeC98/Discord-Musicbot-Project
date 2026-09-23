@@ -52,6 +52,9 @@ class TrackLookup {
 
     const cachedTrack = {
       url: row.source_url,
+      pageUrl: row.source_url,
+      requestKey: row.source_url,
+      audioUrl: row.source_url,
       platform: row.platform,
       title: row.display_title || row.title,
       artist: row.display_artist || row.channel,
@@ -65,6 +68,7 @@ class TrackLookup {
     // vocadb 계열 …)은 영상 주소를 되살려 준다. 없으면 스트림을 어디서 가져올지 알 수 없다.
     if (row.platform !== "youtube" && String(row.audio_source_key).startsWith("yt:")) {
       cachedTrack.youtubeUrl = `https://www.youtube.com/watch?v=${row.audio_source_key.slice(3)}`;
+      cachedTrack.audioUrl = cachedTrack.youtubeUrl;
     }
 
     return { hit: true, track: cachedTrack, audioSourceKey: row.audio_source_key, filePath };

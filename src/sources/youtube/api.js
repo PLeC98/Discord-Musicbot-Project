@@ -4,6 +4,7 @@
 
 const log = require("../../infra/log/logger").child({ category: "youtube" });
 const links = require("../../rules/links");
+const { canonicalUrl } = require("../../rules/canonicalUrl");
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 const youtubedl = require("../ytdlpSpawn");
 const config = require("../../../config");
@@ -97,10 +98,15 @@ class YouTubeApi {
           const unknownTitle = "알 수 없는 제목";
           const unknownArtist = "알 수 없는 아티스트";
 
+          const url = item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null);
+          const link = canonicalUrl(url);
           const track = {
             title: this.titleOf(item) || unknownTitle,
             artist: item.uploader || item.channel || unknownArtist,
-            url: item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null),
+            url,
+            pageUrl: link,
+            requestKey: link,
+            audioUrl: link,
             duration: item.duration || 0,
             thumbnail: item.thumbnail || item.thumbnails?.[0]?.url,
             platform: "youtube",
@@ -161,10 +167,14 @@ class YouTubeApi {
       const unknownTitle = "알 수 없는 제목";
       const unknownArtist = "알 수 없는 아티스트";
 
+      const link = canonicalUrl(info.webpage_url || url);
       const track = {
         title: this.titleOf(info) || unknownTitle,
         artist: info.uploader || info.channel || unknownArtist,
         url: info.webpage_url || url,
+        pageUrl: link,
+        requestKey: link,
+        audioUrl: link,
         duration: info.duration || 0,
         thumbnail: info.thumbnail || info.thumbnails?.[0]?.url,
         platform: "youtube",
@@ -274,10 +284,15 @@ class YouTubeApi {
       for (const entry of info.entries) {
         if (entry && (entry.id || entry.url)) {
           try {
+            const videoUrl = entry.webpage_url || entry.url || (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : null);
+            const link = canonicalUrl(videoUrl);
             const track = {
               title: this.titleOf(entry) || unknownTitle,
               artist: entry.uploader || entry.channel || entry.uploader_id || unknownArtist,
-              url: entry.webpage_url || entry.url || (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : null),
+              url: videoUrl,
+              pageUrl: link,
+              requestKey: link,
+              audioUrl: link,
               duration: entry.duration || 0,
               thumbnail: entry.thumbnail || entry.thumbnails?.[0]?.url,
               platform: "youtube",

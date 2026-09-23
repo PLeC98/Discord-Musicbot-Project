@@ -10,17 +10,7 @@ const DirectLink = require("./direct");
 const trackLookup = require("../store/trackLookup");
 const ErrorHandler = require("../ui/errorMessages");
 const { inputKind } = require("../rules/inputKind");
-const { audioKeyOf } = require("../rules/audioKeyOf");
-
-// 소리를 받아 올 주소. 찾아 둔 영상이 있으면 그것, 아니면 곡 주소가 곧 음원인 곡(유튜브 · 사운드클라우드 · 직접 링크)의 주소
-function audioUrlOf(track) {
-  if (track.audioUrl) return track.audioUrl;
-  if (track.platform === "soundcloud") return track.url; // 영상이 붙어 있어도 제 음원을 쓴다
-  if (track.youtubeUrl) return track.youtubeUrl;
-  if (track.platform === "youtube" && !track.url && track.id) return `https://www.youtube.com/watch?v=${track.id}`;
-  if (["youtube", "soundcloud", "direct"].includes(track.platform)) return track.url;
-  return links.isDirectAudioLink(track.url) ? track.url : null;
-}
+const { audioKeyOf, audioUrlOf } = require("../rules/audioKeyOf");
 
 const lookup = {
   // 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 글은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
