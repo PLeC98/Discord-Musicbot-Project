@@ -3,6 +3,9 @@
 const { VoiceConnectionStatus, joinVoiceChannel, entersState } = require("@discordjs/voice");
 const log = require("../infra/log/logger").child({ category: "voice" });
 
+const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
+const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
+
 /**
  * VoiceConnectionManager. 음성 연결/자동 복구/헬스체크
  *
@@ -16,6 +19,8 @@ class VoiceConnectionManager {
     this.recoveryAttempts = 0;
     this.maxRecoveryAttempts = 5;
     this.healthCheck = null;
+    this.lastMove = null; // 마지막으로 옮겨진 것 { from, to, at }
+    this.lastBounceFix = null;
   }
 
   setupConnectionEvents() {
@@ -273,35 +278,39 @@ class VoiceConnectionManager {
     }
   }
 
-  async moveToChannel(newChannel) {
+  /**
+   * 누가 봇을 다른 채널로 옮겼다(음성 상태 이벤트). 음성 라이브러리는 상태 패킷으로 목적지를 따라가므로
+   * 다시 붙지 않고 기록만 맞춘다. 이벤트마다 다시 붙으면 그 다시 붙기가 또 이벤트를 만들어 채널 사이를 오간다.
+   *
+   * 다만 라이브러리에 경쟁이 있다. 옮겨지는 순간 음성 서버 연결이 상태 패킷보다 먼저 닫히면 옛 설정으로
+   * 다시 참가해 원래 채널로 되돌아간다(@discordjs/voice onNetworkingClose). 방금 옮겨진 곳에서 곧바로
+   * 원래 채널로 돌아오면 그 되돌림으로 보고 목적지로 한 번 다시 붙는다. 되돌려 붙기는 드물게만 한다.
+   * @returns {boolean} 되돌려 붙었나
+   */
+  followMove(fromId, toChannel, now = Date.now()) {
     const player = this.player;
-    if (!newChannel) return false;
-
-    player.voiceChannel = newChannel;
-
-    if (player.connection) {
-      try {
-        player.connection.rejoin({
-          channelId: newChannel.id,
-          selfDeaf: false,
-          selfMute: false,
-        });
-
-        await entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
-        log.info(`음성 채널 이동: "${newChannel.name ?? newChannel.id}" (${player.guild?.name ?? player.guild?.id})`);
-        return true;
-      } catch (error) {
-        log.error("새 음성 채널 재참가 실패:", error);
-        try {
-          player.connection.destroy();
-        } catch (destroyError) {
-          log.error("옛 음성 연결 종료 실패:", destroyError);
-        }
-        player.connection = null;
-      }
+    const where = player.guild?.name ?? player.guild?.id;
+    const target = this._bouncedFrom(fromId, toChannel, now);
+    if (target) {
+      this.lastBounceFix = now;
+      this.lastMove = null;
+      player.voiceChannel = target;
+      log.warn(`음성 채널이 옮겨진 직후 원래 채널로 되돌아와 다시 옮깁니다: "${target.name ?? target.id}" (${where})`);
+      player.connection.rejoin({ channelId: target.id, selfDeaf: false, selfMute: false });
+      return true;
     }
+    this.lastMove = { from: fromId, to: toChannel.id, at: now };
+    player.voiceChannel = toChannel;
+    log.info(`음성 채널 이동: "${toChannel.name ?? toChannel.id}" (${where})`);
+    return false;
+  }
 
-    return await this.connect();
+  // 방금 옮겨진 곳에서 곧바로 원래 채널로 되돌아왔으면 다시 붙을 목적지. 아니면(또는 막 되돌려 붙었으면) null
+  _bouncedFrom(fromId, toChannel, now) {
+    const last = this.lastMove;
+    if (!last || now - last.at >= MOVE_BOUNCE_MS || last.from !== toChannel.id || last.to !== fromId) return null;
+    if (!this.player.connection || now - (this.lastBounceFix ?? -Infinity) < BOUNCE_FIX_GAP_MS) return null;
+    return this.player.guild.channels.cache.get(last.to) ?? null;
   }
 
   // 연결을 부수고 비운다. 리스너를 먼저 떼어 부서지는 연결이 복구를 부르지 않게 한다.

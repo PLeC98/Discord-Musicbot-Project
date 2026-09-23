@@ -24,7 +24,7 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = {
     pauseReasons: new Set(paused),
     pendingEndReason: null,
     cleanup: (reason) => calls.push(`cleanup:${reason}`),
-    moveToChannel: async (ch) => calls.push(`move:${ch.id}`),
+    voice: { followMove: (from, ch) => calls.push(`move:${from}->${ch.id}`) },
     pauseFor: (r) => (calls.push(`pause:${r}`), true),
     resumeFor: (r) => (calls.push(`resume:${r}`), true),
     idle: {
@@ -71,10 +71,10 @@ test("패널을 못 바꿔도 정리는 한다", async () => {
   assert.equal(players.has("g1"), false);
 });
 
-test("봇이 다른 채널로 옮겨지면 따라가고 혼자 남음을 풀고 패널을 고친다", async () => {
+test("봇이 다른 채널로 옮겨지면 기록을 맞추고 혼자 남음을 풀고 패널을 고친다", async () => {
   const { client, calls, state } = setup();
   await onVoiceStateUpdate(client, state(BOT, "vc0"), state(BOT, "vc2", { channel: { id: "vc2" } }));
-  assert.deepEqual(calls.slice(0, 3), ["move:vc2", "cancelAlone:false", "embed:update"]);
+  assert.deepEqual(calls.slice(0, 3), ["move:vc0->vc2", "cancelAlone:false", "embed:update"]);
 });
 
 test("봇이 서버 음소거되면 mute 로 멈추고, 풀리면 mute 를 푼다", async () => {

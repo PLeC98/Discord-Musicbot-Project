@@ -40,10 +40,10 @@ async function forcedOut(client, player, guild) {
   }
 }
 
-// 누가 봇을 다른 채널로 옮겼다. 따라간다
+// 누가 봇을 다른 채널로 옮겼다. 연결은 음성 라이브러리가 따라가고, 여기서는 기록과 화면을 맞춘다
 async function botMoved(client, player, oldState, newState) {
   if (!newState.channelId || oldState.channelId === newState.channelId || !newState.channel) return;
-  await player.moveToChannel(newState.channel);
+  player.voice.followMove(oldState.channelId, newState.channel);
   player.idle.cancelAlone(false);
   await client.musicEmbedManager?.updateNowPlayingEmbed(player);
 }

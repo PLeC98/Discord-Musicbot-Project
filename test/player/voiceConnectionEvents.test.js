@@ -290,29 +290,41 @@ test("Ready 가 안 오면 연결은 던진다", async () => {
   await assert.rejects(vcm.connect(), /시간 초과/);
 });
 
-test("이동: 연결이 있으면 rejoin, 실패하면 부수고 새로 연결한다", async () => {
+test("옮겨짐: 다시 붙지 않고 기록만 맞춘다. 연결은 음성 라이브러리가 따라간다", () => {
   const { player, vcm } = makePlayer();
   const conn = player.connection;
   const next = { id: "vc2", name: "다른 방" };
-
-  assert.equal(await vcm.moveToChannel(next), true);
+  assert.equal(vcm.followMove("vc1", next, 1000), false);
   assert.equal(player.voiceChannel, next);
+  assert.deepEqual(conn.rejoins, []);
+});
+
+test("옮겨짐: 곧바로 원래 채널로 되돌아오면 라이브러리의 되돌림으로 보고 목적지로 한 번 다시 붙는다", () => {
+  const { player, vcm } = makePlayer();
+  const conn = player.connection;
+  const vc2 = { id: "vc2", name: "다른 방" };
+  player.guild.channels.cache.set("vc2", vc2);
+
+  vcm.followMove("vc1", vc2, 1000);
+  assert.equal(vcm.followMove("vc2", { id: "vc1" }, 1500), true, "0.5초 만에 원래 채널로");
+  assert.equal(player.voiceChannel, vc2);
   assert.deepEqual(conn.rejoins, [{ channelId: "vc2", selfDeaf: false, selfMute: false }]);
-  assert.equal(joins.length, 0);
 
-  let first = true;
-  enters = async () => {
-    if (first) {
-      first = false;
-      throw new Error("시간 초과");
-    }
-  };
-  assert.equal(await vcm.moveToChannel({ id: "vc3" }), true);
-  assert.equal(conn.destroyed, 1);
-  assert.equal(joins.length, 1);
-  assert.equal(joins[0].opts.channelId, "vc3");
+  // 다시 붙은 뒤 또 되돌아와도 10초 안에는 다시 붙지 않는다(핑퐁 방지). 그냥 따라간다
+  vcm.followMove("vc1", vc2, 2000);
+  assert.equal(vcm.followMove("vc2", { id: "vc1" }, 2500), false);
+  assert.equal(player.voiceChannel.id, "vc1");
+  assert.equal(conn.rejoins.length, 1);
+});
 
-  assert.equal(await vcm.moveToChannel(null), false);
+test("옮겨짐: 한참 뒤에 원래 채널로 돌아오는 것은 사람이 옮긴 것이다", () => {
+  const { player, vcm } = makePlayer();
+  const vc2 = { id: "vc2" };
+  player.guild.channels.cache.set("vc2", vc2);
+  vcm.followMove("vc1", vc2, 1000);
+  assert.equal(vcm.followMove("vc2", { id: "vc1" }, 5000), false);
+  assert.equal(player.voiceChannel.id, "vc1");
+  assert.deepEqual(player.connection.rejoins, []);
 });
 
 test("끊기: 파괴되지 않은 연결만 부수고 비운다", () => {

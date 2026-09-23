@@ -229,10 +229,6 @@ class MusicPlayer {
     }
   }
 
-  moveToChannel(newChannel) {
-    return this.voice.moveToChannel(newChannel);
-  }
-
   disconnect(reason) {
     return this.voice.disconnect(reason);
   }
