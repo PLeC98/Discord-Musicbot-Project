@@ -89,3 +89,9 @@ test("음원 주소가 없는 곡은 장부에 적지 않는다(스포티파이�
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/noaudio", pageUrl: "https://open.spotify.com/track/noaudio", platform: "spotify", title: "곡" });
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/noaudio"), null);
 });
+
+test("모양이 틀린 장부 줄은 없는 것으로 본다", () => {
+  audioCache.db.prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, title_verified, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 1, 1)").run("https://open.spotify.com/track/badrow", "https://open.spotify.com/track/badrow", "", "spotify");
+  assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/badrow"), null, "빈 음원 주소");
+  assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/badrow").hit, false);
+});

@@ -8,6 +8,7 @@ const db = require("./db");
 const audioCache = require("./audioCache");
 const { canonicalUrl } = require("../rules/canonicalUrl");
 const { audioKeyOf } = require("../rules/audioKeyOf");
+const { LookupRow, checked } = require("./rows");
 
 class TrackLookup {
   get db() {
@@ -17,7 +18,7 @@ class TrackLookup {
   // 조회 (읽기)
 
   _row(requestKey) {
-    return this.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(canonicalUrl(requestKey)) || null;
+    return checked(LookupRow, this.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(canonicalUrl(requestKey)), "링크 장부");
   }
 
   /**

@@ -5,6 +5,7 @@
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
 const { HISTORY_MAX } = require("../player/trackState");
+const { SessionTrackRow, checked } = require("./rows");
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다
 const GAP = 1_000_000_000;
@@ -137,6 +138,7 @@ class PlayerSessionStore {
       rowidAt: q("SELECT rowid FROM session_tracks WHERE guild_id = ? AND slot = ? ORDER BY seq LIMIT 1 OFFSET ?"),
       lastRowid: q("SELECT rowid FROM session_tracks WHERE guild_id = ? AND slot = ? ORDER BY seq DESC LIMIT 1"),
       deleteRow: q("DELETE FROM session_tracks WHERE rowid = ?"),
+      deleteAt: q("DELETE FROM session_tracks WHERE guild_id = ? AND slot = ? AND seq = ?"),
       deleteSlot: q("DELETE FROM session_tracks WHERE guild_id = ? AND slot = ?"),
       toCurrent: q("UPDATE session_tracks SET slot = 'current', seq = 0 WHERE rowid = ?"),
       setSeq: q("UPDATE session_tracks SET seq = ? WHERE rowid = ?"),
@@ -350,7 +352,11 @@ class PlayerSessionStore {
   load(guildId) {
     const session = this.q.oneSession.get(guildId);
     if (!session) return null;
-    return { guildId, session: sessionFromRow(session), ...groupTracks(this.q.guildTracks.all(guildId)) };
+    return { guildId, session: sessionFromRow(session), ...this._group(this.q.guildTracks.all(guildId)) };
+  }
+
+  _group(rows) {
+    return groupTracks(rows, (row) => this.q.deleteAt.run(row.guild_id, row.slot, row.seq));
   }
 
   loadAll() {
@@ -359,7 +365,7 @@ class PlayerSessionStore {
       if (!byGuild.has(row.guild_id)) byGuild.set(row.guild_id, []);
       byGuild.get(row.guild_id).push(row);
     }
-    return this.q.allSessions.all().map((s) => ({ guildId: s.guild_id, session: sessionFromRow(s), ...groupTracks(byGuild.get(s.guild_id) || []) }));
+    return this.q.allSessions.all().map((s) => ({ guildId: s.guild_id, session: sessionFromRow(s), ...this._group(byGuild.get(s.guild_id) || []) }));
   }
 
   // 기동 시 고아 파일 청소가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 받으면 된다)
@@ -368,9 +374,15 @@ class PlayerSessionStore {
   }
 }
 
-function groupTracks(rows) {
+// 모양이 틀린 행은 버리고 DB 에서도 지운다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
+function groupTracks(rows, drop) {
   const out = { current: null, queue: [], history: [] };
-  for (const row of rows) {
+  for (const raw of rows) {
+    const row = checked(SessionTrackRow, raw, "세션 트랙");
+    if (!row) {
+      drop(raw);
+      continue;
+    }
     const track = fromRow(row);
     if (row.slot === "current") out.current = track;
     else out[row.slot].push(track);

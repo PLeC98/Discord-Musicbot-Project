@@ -28,7 +28,7 @@ test("새 DB는 현재 버전으로 만들어지고 세션 표를 쓴다", () =>
   open("fresh.db");
   assert.equal(audioCache.db.pragma("user_version", { simple: true }), storeDb.SCHEMA_VERSION);
 
-  audioCache.sessions.append("g", [{ title: "a" }]);
+  audioCache.sessions.append("g", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
   assert.equal(audioCache.sessions.load("g").queue.length, 1);
 });
 

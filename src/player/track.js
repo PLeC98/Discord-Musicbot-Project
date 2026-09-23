@@ -45,6 +45,11 @@
  */
 
 /**
+ * 세션 표의 한 줄. 되읽을 때 store/rows 의 스키마로 검사한 뒤 QueuedTrack 으로 바꾼다.
+ * @typedef {import("zod").infer<typeof import("../store/rows").SessionTrackRow>} PersistedTrack
+ */
+
+/**
  * 재생 직전. 음원 주소가 반드시 있다(스포티파이는 영상을 찾아야 이 타입이 된다).
  * @typedef {QueuedTrack & { audioUrl: string }} PlayableTrack
  */

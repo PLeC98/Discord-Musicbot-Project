@@ -176,7 +176,7 @@ function runResetChecks() {
   audioCache.recordDownloadComplete("yt:reset1", audioCache.getFilePath("yt:reset1"), 1234, { title: "t" });
   trackLookup.recordTrackLookup({ requestKey: "https://y/reset1", pageUrl: "https://y/reset1", audioUrl: "https://www.youtube.com/watch?v=reset1", platform: "youtube", title: "t" });
   externalCaches.markAgeRestricted("reset1");
-  audioCache.sessions.append("g-reset", [{ title: "t", url: "https://y/reset1" }]);
+  audioCache.sessions.append("g-reset", [{ title: "t", pageUrl: "https://y/reset1", requestKey: "https://y/reset1" }]);
 
   const result = audioCache.resetCache();
 

@@ -275,3 +275,14 @@ test("loadAll: 트랙이 없는 세션도 빈 목록으로 돌아온다", () => 
   assert.equal(all.idle.current, null);
   assert.deepEqual(titles(all[G].queue), ["A"]);
 });
+
+test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 지운다 — 남은 곡의 자리가 메모리와 맞는다", () => {
+  const { db, store } = open();
+  store.append(G, [t("A"), t("B"), t("C")]);
+  db.prepare("UPDATE session_tracks SET request_key = NULL WHERE title = 'B'").run(); // 손으로 고쳤거나 옛 코드가 남긴 행
+
+  assert.deepEqual(titles(store.load(G).queue), ["A", "C"]);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM session_tracks").get().n, 2, "지워야 i번째 곡이 i번째 행이다");
+  store.removeAt(G, 1);
+  assert.deepEqual(titles(store.load(G).queue), ["A"], "자리로 지우는 것이 맞는 곡을 지운다");
+});
