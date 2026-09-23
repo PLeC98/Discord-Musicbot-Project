@@ -60,7 +60,7 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     async play() {},
     async updateVoiceStatus() {},
     audioPlayer: { stop() {} },
-    cleanup(_isShutdown, reason) {
+    cleanup(reason) {
       this.cleanupCalls.push(reason);
     },
     releaseResources() {

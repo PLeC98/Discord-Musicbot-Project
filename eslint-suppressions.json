@@ -133,7 +133,7 @@
   },
   "src/player/Player.js": {
     "complexity": {
-      "count": 2
+      "count": 1
     },
     "max-statements": {
       "count": 1
@@ -142,7 +142,7 @@
       "count": 2
     },
     "no-empty-function": {
-      "count": 11
+      "count": 8
     }
   },
   "src/player/idleLeave.js": {
@@ -211,9 +211,6 @@
     },
     "max-depth": {
       "count": 2
-    },
-    "no-empty": {
-      "count": 1
     }
   },
   "src/sources/youtube/api.js": {

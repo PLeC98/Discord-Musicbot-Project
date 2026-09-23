@@ -104,7 +104,7 @@ class VoiceConnectionManager {
           // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
           // 이 서버는 재시작 전까지 계속 막힘
           log.warn(`헬스체크: 음성 채널을 찾을 수 없어 플레이어를 정리합니다 (${player.guild?.name ?? player.guild?.id})`);
-          player.cleanup(false, "헬스체크: 음성 채널을 찾을 수 없음");
+          player.cleanup("헬스체크: 음성 채널을 찾을 수 없음");
           const clientInstance = player.guild?.client;
           if (clientInstance?.players?.get(player.guild.id) === player) {
             clientInstance.players.delete(player.guild.id);
@@ -325,15 +325,21 @@ class VoiceConnectionManager {
     return await this.connect();
   }
 
-  disconnect() {
+  // 연결을 부수고 비운다. 리스너를 먼저 떼어 부서지는 연결이 복구를 부르지 않게 한다.
+  // 여기서 나가는 경우가 무음이면 "왜 나갔는지"를 사후에 알 수 없다. 원인을 남긴다
+  disconnect(reason = "정리") {
     const player = this.player;
-    if (player.connection && player.connection.state && player.connection.state.status !== "destroyed") {
-      try {
-        player.connection.destroy();
-        log.info(`음성 채널 떠남: "${player.voiceChannel?.name ?? player.voiceChannel?.id}" (${player.guild?.name ?? player.guild?.id})`);
-      } catch (error) {}
-    }
+    const connection = player.connection;
     player.connection = null;
+    if (!connection) return;
+    connection.removeAllListeners();
+    if (connection.state?.status === "destroyed") return;
+    try {
+      connection.destroy();
+      log.info(`음성 채널 떠남: "${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id}) | 원인=${reason}`);
+    } catch (error) {
+      log.error("음성 연결 종료 실패:", error);
+    }
   }
 }
 

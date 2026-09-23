@@ -62,7 +62,7 @@ class IdleLeave {
             player.releaseAudioProtection();
           } else {
             try {
-              player.cleanup(false, "비활성 타임아웃");
+              player.cleanup("비활성 타임아웃");
             } finally {
               player.guild?.client?.players?.delete(player.guild.id);
             }
@@ -106,7 +106,7 @@ class IdleLeave {
         player.releaseAudioProtection();
         return;
       }
-      player.cleanup(false, reason);
+      player.cleanup(reason);
       player.guild.client.players.delete(player.guild.id);
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
       player.guild.client.musicEmbedManager?.handlePlaybackEnd(player, { reason: "disconnected" }).catch(() => {});

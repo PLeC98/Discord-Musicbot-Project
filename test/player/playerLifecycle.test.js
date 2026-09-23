@@ -320,7 +320,7 @@ test("종료 감시: Idle 이면 손 떼고, 일시정지면 2초마다 다시 �
 
 // ── 정지 · 나가기 · 정리 ────────────────────────────────────────────────
 
-test("stop(): 대기열과 현재 곡을 비우고 세션을 지우고 연결을 끊는다. 기록은 남긴다", () => {
+test("stop(): 대기열 · 현재 곡 · 기록을 비우고 세션을 지우고 연결을 끊는다. 패널 참조는 남긴다", () => {
   const p = h.makePlayer();
   const track = cached("qqqqqqqqqqq");
   p.currentTrack = track;
@@ -335,7 +335,8 @@ test("stop(): 대기열과 현재 곡을 비우고 세션을 지우고 연결을
 
   assert.equal(p.currentTrack, null);
   assert.deepEqual(p.queue, []);
-  assert.equal(p.previousTracks.length, 1);
+  assert.deepEqual(p.previousTracks, []);
+  assert.ok(p.textChannel, "부른 쪽이 이어서 패널을 끝낸다");
   assert.deepEqual(calls.persists, ["remove"]);
   assert.equal(p.connection, null);
   assert.equal(p.audioPlayer.stops, 1);
@@ -369,7 +370,7 @@ test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다
   p.currentTrack = yt("vvvvvvvvvvv");
   p.previousTracks = [yt("wwwwwwwwwww")];
 
-  p.cleanup(false, "시험");
+  p.cleanup("시험");
   h.dispose(p);
 
   assert.equal(destroyed, 1);
@@ -381,15 +382,6 @@ test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다
   assert.equal(p.voiceChannel, null);
   assert.deepEqual(seen, ["webhook:text1"]);
   assert.equal(p.audioPlayer.listenerCount(AudioPlayerStatus.Idle), 0, "리스너를 뗀다");
-});
-
-test("cleanup(true)(종료): 세션을 지우지 않고 저장한다", () => {
-  const p = h.makePlayer();
-
-  p.cleanup(true);
-  h.dispose(p);
-
-  assert.deepEqual(calls.persists, ["shutdown"]);
 });
 
 // ── 혼자 남았을 때 ────────────────────────────────────────────────────

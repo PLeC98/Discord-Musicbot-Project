@@ -110,7 +110,7 @@ async function restoreSavedPlayers(client) {
       } catch (error) {
         log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, error.message);
         client.players.delete(guildId);
-        player.cleanup(false, "세션 복원 실패");
+        player.cleanup("세션 복원 실패");
         sessions().removeSession(guildId);
       }
     } catch (error) {
@@ -370,7 +370,7 @@ function startBot() {
         } catch (error) {
           log.error("강제 연결 해제 후 재생 UI 갱신 실패:", error);
         } finally {
-          player.cleanup(false, "봇이 음성에서 강제 퇴장됨");
+          player.cleanup("봇이 음성에서 강제 퇴장됨");
           client.players.delete(guild.id);
         }
         return;
@@ -409,7 +409,7 @@ function startBot() {
       const channel = guild.channels.cache.get(voiceChannelId);
 
       if (!channel) {
-        player.cleanup(false, "봇의 음성 채널이 사라짐");
+        player.cleanup("봇의 음성 채널이 사라짐");
         client.players.delete(guild.id);
         return;
       }

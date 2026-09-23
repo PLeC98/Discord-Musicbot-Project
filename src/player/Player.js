@@ -228,8 +228,8 @@ class MusicPlayer {
     return this.voice.moveToChannel(newChannel);
   }
 
-  disconnect() {
-    return this.voice.disconnect();
+  disconnect(reason) {
+    return this.voice.disconnect(reason);
   }
 
   // ── 다운로드/사전 로드. 로직은 TrackDownloader ──────────────────────────
@@ -475,50 +475,71 @@ class MusicPlayer {
     this._protectedAudioKey = null;
   }
 
+  /** /stop · 정지 버튼 · 대시보드. 세션을 지운다. 부른 쪽이 이어서 패널을 끝낸다 */
   stop() {
-    this.lifecycle.to("disposed", "정지");
     clog.info(`정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 비움`);
-    this.updateVoiceStatus("").catch(() => {});
-
-    this.sponsorSkipper?.stop();
-    this.pauseReasons.clear();
-    this.paused = false;
-
-    this.releaseResources();
-    this.persistence?.removeSession();
-
-    this.releaseAudioProtection();
-
-    // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
-    this._endingLabel = `"${this.currentTrack?.title ?? "?"}" (${this.currentTrack?.platform ?? "?"})`;
-    trackState.reset(this);
-    this.pendingEndReason = "stop";
-    this.playback = null;
-    this.lastPlaybackPosition = 0;
-    this.audioPlayer.stop(true);
-    this.disconnect();
+    this.dispose({ reason: "정지", keepPanel: true });
   }
 
-  async leaveAndSave() {
-    this.lifecycle.to("disposed", "나가며 저장");
-    this.updateVoiceStatus("").catch(() => {});
+  /** /leave. 세션을 남겨 /join 이 복구한다. 부른 쪽이 이어서 패널을 끝낸다 */
+  leaveAndSave() {
+    return this.dispose({ reason: "나가며 저장", keepSession: true, keepPanel: true });
+  }
 
-    // 연결 해제 전에 전체 상태(대기열, 위치, 설정) 저장
-    await this.persistState("leave", true);
+  /** 봇이 스스로 나갈 때(비활성 · 대기열 소진 · 헬스체크 · 강제 퇴장 · 복원 실패 · 운영자). 세션과 패널 참조를 지운다 */
+  cleanup(reason = "정리") {
+    this.dispose({ reason });
+  }
 
-    // stop()과 같은 연결 해제 절차이지만 세션은 지우지 않는다
-    this.pauseReasons.clear();
-    this.paused = false;
-    this.releaseResources();
+  /**
+   * 이 플레이어를 버린다. 부른 뒤에는 레지스트리에서 빼고 다시 쓰지 않는다.
+   * @param {object} o
+   * @param {string} o.reason  로그에 남길 원인
+   * @param {boolean} [o.keepSession]  세션을 남긴다(비우기 전에 저장한다). 아니면 지운다
+   * @param {boolean} [o.keepPanel]  패널 참조를 남긴다. 부른 쪽이 이어서 살아 있는 패널을 끝낸다
+   */
+  async dispose({ reason, keepSession = false, keepPanel = false }) {
+    this.lifecycle.to("disposed", reason);
+    try {
+      this.updateVoiceStatus("").catch(() => {});
+      if (keepSession) await this.persistState("leave", true);
+      else this.persistence?.removeSession();
 
-    this.releaseAudioProtection();
+      this.sponsorSkipper?.stop();
+      this.pauseReasons.clear();
+      this.paused = false;
+      this.releaseResources();
+      this.releaseAudioProtection(); // currentTrack 을 읽으므로 비우기 전에
 
-    trackState.reset(this);
-    this.pendingEndReason = "stop";
-    this.playback = null;
-    this.lastPlaybackPosition = 0;
-    this.audioPlayer.stop(true);
-    this.disconnect();
+      // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
+      this._endingLabel = this._trackLabel();
+      trackState.reset(this, { history: true });
+      this.pendingEndReason = "stop";
+      this.audioPlayer.stop(true);
+      this.audioPlayer.removeAllListeners();
+      try {
+        this.playback?.resource?.playStream?.destroy();
+      } catch {
+        // 스트림이 이미 제거되었을 수 있음
+      }
+      this.playback = null;
+      this.lastPlaybackPosition = 0;
+      this.voice.disconnect(reason);
+
+      if (!keepPanel) this._dropPanel();
+    } catch (error) {
+      log.error("정리 중 오류:", error);
+    }
+  }
+
+  // 패널 참조를 놓는다. 남은 패널은 ui 가 기록으로 찾아 끝낸다
+  _dropPanel() {
+    this.nowPlayingMessage = null;
+    this.requesterId = null;
+    this.voiceChannel = null;
+    const embedManager = this.guild?.client?.musicEmbedManager;
+    if (embedManager && this.textChannel?.id) embedManager.deleteWebhookCache(this.textChannel.id);
+    this.textChannel = null;
   }
 
   /**
@@ -1033,86 +1054,6 @@ class MusicPlayer {
 
   scheduleStatePersist(reason = "update", delay = 200) {
     this.persistence.scheduleStatePersist(reason, delay);
-  }
-
-  cleanup(isShutdown = false, reason = null) {
-    this.lifecycle.to("disposed", reason || "정리");
-    try {
-      if (!isShutdown) {
-        this.updateVoiceStatus("").catch(() => {});
-      }
-
-      this.sponsorSkipper?.stop();
-      this.idle.cancelAlone(false);
-      this.stopStateSync();
-
-      // 종료 중에는 정리 전에 상태 저장
-      if (isShutdown) {
-        this.persistState("shutdown").catch(() => {});
-      } else {
-        this.persistence?.removeSession();
-      }
-
-      // 복구 시스템 · 상태 확인 타이머 중지
-      this.voice.stopConnectionRecovery();
-      this.voice.stopHealthCheck();
-
-      // 트랙 타이머 정리
-      this.watch.stopEnd();
-
-      // 오디오 플레이어 중지
-      if (this.audioPlayer) {
-        this.audioPlayer.stop();
-        this.audioPlayer.removeAllListeners();
-      }
-
-      // 음성 채널 연결 해제.
-      // 여기서 나가는 경우가 무음이면 "왜 나갔는지"를 사후에 알 수 없다.
-      // 비활성 타임아웃·헬스체크·대기열 소진이 전부 이 경로를 지난다.
-      if (this.connection) {
-        this.connection.removeAllListeners();
-        if (this.connection.state && this.connection.state.status !== "destroyed") {
-          try {
-            this.connection.destroy();
-            log.info(`음성 채널 떠남: "${this.voiceChannel?.name ?? this.voiceChannel?.id ?? "?"}" (${this.guild?.name ?? this.guild?.id}) | 원인=${reason ?? (isShutdown ? "종료" : "정리")}`);
-          } catch (error) {
-            log.error("음성 연결 종료 실패:", error);
-          }
-        }
-        this.connection = null;
-      }
-
-      // 리소스 정리
-      if (this.playback?.resource) {
-        try {
-          this.playback.resource.playStream.destroy();
-        } catch (e) {
-          // 스트림이 이미 제거되었을 수 있음
-        }
-      }
-      this.playback = null;
-
-      // 플레이어 데이터 정리. 보호 해제가 currentTrack을 읽으므로 먼저
-      this.releaseAudioProtection();
-      trackState.reset(this, { history: true });
-      this.lastPlaybackPosition = 0;
-
-      // UI 참조 정리
-      this.nowPlayingMessage = null;
-      this.requesterId = null;
-      this.voiceChannel = null;
-      const embedManager = this.guild?.client?.musicEmbedManager;
-      if (embedManager && this.textChannel?.id) {
-        embedManager.deleteWebhookCache(this.textChannel.id);
-      }
-      this.textChannel = null;
-
-      // 일시정지 상태 재설정
-      this.pauseReasons.clear();
-      this.paused = false;
-    } catch (error) {
-      log.error("정리 중 오류:", error);
-    }
   }
 
   async updateVoiceStatus(status) {

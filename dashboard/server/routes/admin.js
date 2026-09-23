@@ -175,7 +175,7 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
       if (client.musicEmbedManager) {
         await client.musicEmbedManager.handlePlaybackEnd(player, { reason: "disconnected" }).catch(() => {});
       }
-      player.cleanup(false, "운영자 패널에서 서버 나가기");
+      player.cleanup("운영자 패널에서 서버 나가기");
       client.players.delete(guild.id);
     }
     await guild.leave();

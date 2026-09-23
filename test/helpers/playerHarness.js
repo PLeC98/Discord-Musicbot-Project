@@ -132,9 +132,6 @@ VoiceConnectionManager.prototype.connect = async function () {
   this.player.connection = fakeConnection();
   return true;
 };
-VoiceConnectionManager.prototype.disconnect = function () {
-  this.player.connection = null;
-};
 
 SessionPersistence.prototype._mirror = function () {};
 SessionPersistence.prototype.persistState = async function (reason) {

@@ -68,7 +68,7 @@ function makePlayer({ channel = true } = {}) {
       return this.positionMs;
     },
     cleanups: [],
-    cleanup(isShutdown, reason) {
+    cleanup(reason) {
       this.cleanups.push(reason);
     },
   };
