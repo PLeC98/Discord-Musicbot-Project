@@ -50,7 +50,7 @@ const fakeFfmpeg = () => ({ stdout: new PassThrough(), stderr: new PassThrough()
 function fakePlayer({ track, startOffsetMs = 0 } = {}) {
   return {
     currentTrack: track,
-    currentTrackStartOffsetMs: startOffsetMs,
+    playback: { startOffsetMs },
     io: { spawnFfmpeg: fakeFfmpeg },
     _trackLabel: MusicPlayer.prototype._trackLabel,
   };

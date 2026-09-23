@@ -53,7 +53,7 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   const done = playing(p, yt("aaaaaaaaaaa"));
   const next = cached("bbbbbbbbbbb");
   p.queue = [next];
-  p.currentTrackStartOffsetMs = 5000;
+  p.playback.startOffsetMs = 5000;
 
   await p.handleTrackEnd("idle");
   h.dispose(p);
@@ -61,7 +61,7 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   assert.equal(p.currentTrack, next);
   assert.deepEqual(p.queue, []);
   assert.equal(p.previousTracks.at(-1), done);
-  assert.equal(p.currentTrackStartOffsetMs, 0, "다음 곡은 0 부터");
+  assert.equal(p.playback.startOffsetMs, 0, "다음 곡은 0 부터");
   assert.equal(calls.spawns.length, 1);
   assert.deepEqual(seen, ["update"]);
   assert.deepEqual(calls.sink.slice(0, 2), ["onRetire", "onTake"], "끝난 곡 은퇴 → 다음 곡 꺼냄 순서");
@@ -96,7 +96,7 @@ test("일찍 끊긴 곡은 끊긴 자리부터 다시 튼다", async () => {
 
   assert.equal(p.currentTrack, track, "같은 곡");
   assert.equal(p.currentTrackRetries, 1);
-  assert.equal(p.currentTrackStartOffsetMs, 30000);
+  assert.equal(p.playback.startOffsetMs, 30000);
   assert.equal(p.queue.length, 1, "대기열은 그대로");
   assert.equal(p.previousTracks.length, 0, "기록에 넣지 않는다");
 });
@@ -240,12 +240,12 @@ test("Idle 이벤트는 미뤄 둔 종료 원인을 꺼내 60ms 뒤 종료 처�
   assert.deepEqual(reasons, ["skip"]);
 });
 
-test("Playing 이벤트: 첫 재생이면 시작 시각을 적고, 멈춤 사유가 있으면 그 자리에서 다시 멈춘다", () => {
+test("Playing 이벤트: 멈춤을 풀고, 멈춤 사유가 있으면 그 자리에서 다시 멈춘다", () => {
   const p = h.makePlayer();
   p.audioPlayer.state = { status: AudioPlayerStatus.Playing };
+  p.paused = true;
 
   p.audioPlayer.emit(AudioPlayerStatus.Playing);
-  assert.ok(p.startTime > 0);
   assert.equal(p.paused, false);
 
   p.pauseReasons.add("alone");
@@ -254,15 +254,13 @@ test("Playing 이벤트: 첫 재생이면 시작 시각을 적고, 멈춤 사유
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused);
 });
 
-test("Paused 이벤트는 흐른 시간을 pausedTime 에 더한다", () => {
+test("Paused 이벤트는 멈춤으로 적는다", () => {
   const p = h.makePlayer();
-  p.startTime = Date.now() - 3000;
 
   p.audioPlayer.emit(AudioPlayerStatus.Paused);
   h.dispose(p);
 
   assert.equal(p.paused, true);
-  assert.ok(p.pausedTime >= 3000 && p.pausedTime < 4000);
 });
 
 test("오디오 오류: stream/network 가 들어간 것은 연결 복구, 나머지는 오류 처리", () => {
@@ -606,17 +604,13 @@ test("스킵: 곡이 있으면 원인을 적고 멈춘다. 없으면 false", () 
   assert.deepEqual(calls.persists, ["schedule:skip"]);
 });
 
-test("재생 위치: 리소스 재생량 + 시작 오프셋, 리소스가 없으면 시계로", () => {
+test("재생 위치: 시작 오프셋 + 리소스 재생량, 재생이 없으면 적어 둔 위치", () => {
   const p = h.makePlayer();
-  p.currentTrackStartOffsetMs = 1000;
-  assert.equal(p.getCurrentTime(), 1000, "시작 전");
-  p.startTime = Date.now() - 2000;
-  p.pausedTime = 500;
-  p.paused = true;
-  assert.equal(p.getCurrentTime(), 1500, "멈춤 중에는 쌓인 시간만");
-  p.paused = false;
-  assert.ok(Math.abs(p.getCurrentTime() - 3500) < 100);
-  p.audioPlayer.state = { status: AudioPlayerStatus.Playing, resource: { playbackDuration: 7000 } };
+  p.lastPlaybackPosition = 4000;
+  assert.equal(p.getCurrentTime(), 4000, "재생 없음");
+  p.playback = { startOffsetMs: 1000, resource: null };
+  assert.equal(p.getCurrentTime(), 1000, "리소스를 열기 전");
+  p.playback.resource = { playbackDuration: 7000 };
   assert.equal(p.getCurrentTime(), 8000);
   h.dispose(p);
 });

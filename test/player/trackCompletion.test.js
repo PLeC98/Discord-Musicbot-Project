@@ -15,8 +15,7 @@ const audioCache = require("../../src/store/audioCache");
 function watchdogPlayer({ offsetMs = 0, playedMs = 0, duration = 200 } = {}) {
   return {
     currentTrack: { title: "곡", platform: "spotify", duration },
-    currentTrackStartOffsetMs: offsetMs,
-    resource: { playbackDuration: playedMs },
+    playback: { startOffsetMs: offsetMs, resource: { playbackDuration: playedMs } },
     audioPlayer: {
       state: { status: AudioPlayerStatus.Playing },
       stopped: false,
@@ -26,6 +25,7 @@ function watchdogPlayer({ offsetMs = 0, playedMs = 0, duration = 200 } = {}) {
     },
     pendingEndReason: null,
     _trackLabel: MusicPlayer.prototype._trackLabel,
+    getCurrentTime: MusicPlayer.prototype.getCurrentTime,
   };
 }
 const watchOf = (p) => (p.watch ??= new PlaybackWatch(p));

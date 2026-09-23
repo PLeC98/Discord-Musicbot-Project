@@ -62,11 +62,11 @@ function makePlayer({ channel = true } = {}) {
     connection: fakeConnection(),
     currentTrack: { title: "곡" },
     paused: false,
-    startTime: null,
-    pausedTime: 0,
-    currentTrackStartOffsetMs: 0,
     lastPlaybackPosition: 0,
-    resource: null,
+    positionMs: 0,
+    getCurrentTime() {
+      return this.positionMs;
+    },
     cleanups: [],
     cleanup(isShutdown, reason) {
       this.cleanups.push(reason);
@@ -217,19 +217,12 @@ test("헬스체크: 밀려난 플레이어는 정리하되 레지스트리의 �
 
 // ── 위치 저장 · 재연결 · 재개 ──────────────────────────────────────────
 
-test("위치 저장: 재생 중일 때만, 시작 오프셋 + 흐른 시간 + 쌓인 멈춤 시간", () => {
+test("위치 저장: 플레이어가 아는 지금 위치를 적어 둔다", () => {
   const { player, vcm } = makePlayer();
-  player.startTime = Date.now() - 2000;
-  player.pausedTime = 1000;
-  player.currentTrackStartOffsetMs = 10000;
+  player.positionMs = 13000;
 
   vcm.savePlaybackPosition();
-  assert.ok(Math.abs(player.lastPlaybackPosition - 13000) < 100);
-
-  player.paused = true;
-  player.lastPlaybackPosition = 0;
-  vcm.savePlaybackPosition();
-  assert.equal(player.lastPlaybackPosition, 0);
+  assert.equal(player.lastPlaybackPosition, 13000);
 });
 
 test("강제 재연결: 옛 연결을 부수고 같은 채널에 새로 붙어 구독하고 15초 Ready 를 기다린다", async () => {
@@ -259,20 +252,16 @@ test("강제 재연결: 이미 파괴된 연결은 다시 부수지 않고, Read
   assert.equal(old.destroyed, 0);
 });
 
-test("재개: 리소스가 있으면 오프셋 + 재생량, 없으면 저장해 둔 위치. 실패하면 error 로 곡을 끝낸다", async () => {
+test("재개: 플레이어가 아는 지금 위치에서 다시 튼다. 실패하면 error 로 곡을 끝낸다", async () => {
   const { player, vcm } = makePlayer();
   const seeks = [];
   const ends = [];
   player.play = async (ms) => seeks.push(ms);
   player.handleTrackEnd = async (r) => ends.push(r);
 
-  player.currentTrackStartOffsetMs = 1000;
-  player.resource = { playbackDuration: 4000 };
+  player.positionMs = 5000;
   await vcm.resumePlaybackAfterRecovery();
-  player.resource = null;
-  player.lastPlaybackPosition = 7000;
-  await vcm.resumePlaybackAfterRecovery();
-  assert.deepEqual(seeks, [5000, 7000]);
+  assert.deepEqual(seeks, [5000]);
 
   player.play = async () => {
     throw new Error("x");

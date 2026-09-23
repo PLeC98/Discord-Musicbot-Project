@@ -29,7 +29,7 @@ function beat() {
     const p = sp.player;
     if (sp.frozen || !p.guild?.id || !p.currentTrack || p.paused) continue;
     if (sp.dirty) sp.resync(store);
-    entries.push({ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0, startOffsetMs: p.currentTrackStartOffsetMs || 0 });
+    entries.push({ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0, startOffsetMs: p.playback?.startOffsetMs || 0 });
   }
   if (entries.length === 0) return;
   try {
@@ -128,7 +128,7 @@ class SessionPersistence {
       // 복원하는 건 수동 일시정지뿐이다. 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
       pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
       positionMs: p.getCurrentTime?.() || 0,
-      startOffsetMs: p.currentTrackStartOffsetMs || 0,
+      startOffsetMs: p.playback?.startOffsetMs || 0,
       requesterId: p.requesterId || null,
     };
   }
@@ -253,7 +253,6 @@ class SessionPersistence {
     // 라이브에 저장된 위치는 의미가 없다. 어차피 지금 시점(라이브 엣지)으로만 붙는다.
     if (player.currentTrack?.isLive) resumeMs = 0;
 
-    player.currentTrackStartOffsetMs = Math.max(Number(session.startOffsetMs) || 0, 0);
     player.lastPlaybackPosition = resumeMs;
     player.paused = false;
 

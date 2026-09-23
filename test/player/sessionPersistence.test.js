@@ -40,7 +40,7 @@ function makePlayer(overrides = {}) {
     autoplay: false,
     paused: false,
     pauseReasons: new Set(),
-    currentTrackStartOffsetMs: 0,
+    playback: null,
     requesterId: null,
     nowPlayingMessage: null,
     position: 0,

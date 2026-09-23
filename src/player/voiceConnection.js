@@ -188,11 +188,7 @@ class VoiceConnectionManager {
 
   savePlaybackPosition() {
     const player = this.player;
-    if (player.startTime && !player.paused) {
-      const elapsedMs = Date.now() - player.startTime + player.pausedTime;
-      const totalMs = player.currentTrackStartOffsetMs + elapsedMs;
-      player.lastPlaybackPosition = totalMs;
-    }
+    player.lastPlaybackPosition = player.getCurrentTime();
   }
 
   async forceReconnect() {
@@ -236,8 +232,7 @@ class VoiceConnectionManager {
     if (!player.currentTrack) return;
 
     try {
-      const resumeMs = player.resource ? player.currentTrackStartOffsetMs + (player.resource.playbackDuration || 0) : player.lastPlaybackPosition || 0;
-      await player.play(resumeMs);
+      await player.play(player.getCurrentTime());
     } catch (error) {
       log.error("재생 재개 실패:", error);
       // 다음 트랙으로 계속 진행 시도

@@ -36,8 +36,6 @@ function makePlayer(status) {
     audioPlayer: fakeAudioPlayer(status),
     pauseReasons: new Set(),
     paused: false,
-    startTime: null,
-    pausedTime: 0,
     currentTrack: null,
     voice: { startConnectionHealthCheck() {}, setupConnectionEvents() {} },
     scheduleStatePersist() {},

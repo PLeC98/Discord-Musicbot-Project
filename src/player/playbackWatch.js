@@ -40,7 +40,7 @@ class PlaybackWatch {
 
     if (durationSeconds && durationSeconds > 0) {
       // 시작 오프셋을 고려해 남은 시간 계산 (초)
-      const startOffsetSeconds = Math.floor((player.currentTrackStartOffsetMs || 0) / 1000);
+      const startOffsetSeconds = Math.floor((player.playback?.startOffsetMs || 0) / 1000);
       const remainingSeconds = Math.max(1, durationSeconds - startOffsetSeconds);
 
       // 4초 버퍼를 추가하되 최소 5초 타임아웃 보장
@@ -65,8 +65,7 @@ class PlaybackWatch {
     if (player.currentTrack.isLive) return;
 
     const status = player.audioPlayer.state?.status;
-    // playbackDuration은 이 리소스가 낸 양이라 시작 오프셋을 더해야 곡 안의 위치가 된다
-    const playedMs = (player.currentTrackStartOffsetMs || 0) + (player.resource?.playbackDuration || 0);
+    const playedMs = player.getCurrentTime();
     const playedSec = (playedMs / 1000).toFixed(1);
 
     if (status === AudioPlayerStatus.Playing) {

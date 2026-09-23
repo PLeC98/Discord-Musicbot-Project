@@ -207,7 +207,6 @@ test("종료 감시: 라이브는 길이로 가를 수 없어 감시를 걸지 �
       },
     },
     playback: { resource: { playbackDuration: 5000 } },
-    currentTrackStartOffsetMs: 0,
   });
   player.watch.endTimer = setTimeout(() => {}, 60_000).unref(); // 걸려 있던 감시. 프로세스를 붙잡지 않게
   player.watch.checkEnd();
@@ -222,7 +221,7 @@ test("종료 감시 예약: 라이브에는 5분 폴백 워치독을 걸지 않�
   assert.equal(live.watch.endTimer, null);
 
   // 라이브가 아니면 평소대로 걸린다
-  const normal = fakePlayer({ currentTrack: { isLive: false, duration: 200, title: "곡", platform: "youtube" }, currentTrackStartOffsetMs: 0 });
+  const normal = fakePlayer({ currentTrack: { isLive: false, duration: 200, title: "곡", platform: "youtube" } });
   normal.watch.scheduleEnd({ duration: 200 });
   assert.notEqual(normal.watch.endTimer, null);
   normal.watch.stop();
@@ -245,7 +244,6 @@ const endingPlayer = (overrides = {}) => {
     previousTracks: [],
     autoplay: false,
     playback: { resource: { playbackDuration: 30_000 } },
-    currentTrackStartOffsetMs: 0,
     releaseAudioProtection() {},
     play: async (ms) => {
       played.push(ms);

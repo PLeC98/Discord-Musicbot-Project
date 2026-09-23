@@ -91,10 +91,6 @@ class MusicPlayer {
     this.autoplay = false; // false 또는 장르 문자열: 'pop', 'rock', 'hiphop' 등
     this.paused = false;
 
-    // 타임스탬프
-    this.startTime = null;
-    this.pausedTime = 0;
-
     // UI 관리
     this.nowPlayingMessage = null;
     this.requesterId = null;
@@ -106,8 +102,7 @@ class MusicPlayer {
     this.pendingEndReason = null;
     this.currentTrackRetries = 0;
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
-    this.lastPlaybackPosition = 0;
-    this.currentTrackStartOffsetMs = 0;
+    this.lastPlaybackPosition = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
 
     // 음성 채널 상태 소유권
 
@@ -146,14 +141,6 @@ class MusicPlayer {
         this.audioPlayer.pause();
         return;
       }
-      // 재개 시 경과 오프셋을 반영해 startTime 조정
-      if (this.paused && this.pausedTime > 0) {
-        // 일시정지에서 재개 - 누적 pausedTime 유지
-        this.startTime = Date.now();
-      } else if (!this.startTime) {
-        // 첫 재생 - 오프셋을 반영해 시작 시간 설정
-        this.startTime = Date.now();
-      }
       this.paused = false;
       if (this.currentTrack) {
         const { playingPrefix } = config.voiceStatus;
@@ -162,9 +149,6 @@ class MusicPlayer {
     });
 
     this.audioPlayer.on(AudioPlayerStatus.Paused, () => {
-      if (this.startTime) {
-        this.pausedTime += Date.now() - this.startTime;
-      }
       this.paused = true;
       if (this.currentTrack) {
         const { pausedPrefix } = config.voiceStatus;
@@ -291,10 +275,7 @@ class MusicPlayer {
       // 새 재생. 위치 재개는 직전 재생이 남긴 스트림 정보를 쓴다(같은 곡일 때만)
       const previous = this.playback;
       const pb = (this.playback = new CurrentPlayback(this.currentTrack, { startOffsetMs: resumeFromMs }));
-      this.currentTrackStartOffsetMs = resumeFromMs;
       this.lastPlaybackPosition = resumeFromMs;
-      this.pausedTime = 0;
-      this.startTime = null; // Playing 이벤트 발생 시 설정됨
 
       // 오디오 스트림 가져오기 - 사전 로드된 항목 먼저 확인
       let streamInfo;
@@ -735,7 +716,7 @@ class MusicPlayer {
     // 전환 지점은 스플라이서 출력 기준이다. 리소스는 그보다 뒤처져 있으므로
     // resource.playbackDuration을 쓰면 자기 정합적이지 않다.
     const atMs = splicer.emittedMs + SWITCH_LEAD_MS;
-    const seekMs = this.currentTrackStartOffsetMs + atMs; // 캐시 파일 안에서의 절대 위치
+    const seekMs = (this.playback?.startOffsetMs || 0) + atMs; // 캐시 파일 안에서의 절대 위치
 
     let decoder;
     try {
@@ -942,7 +923,7 @@ class MusicPlayer {
     this._endingLabel = `"${this.currentTrack?.title ?? "?"}" (${this.currentTrack?.platform ?? "?"})`;
     trackState.reset(this);
     this.pendingEndReason = "stop";
-    this.currentTrackStartOffsetMs = 0;
+    this.playback = null;
     this.lastPlaybackPosition = 0;
     this.audioPlayer.stop(true);
     this.disconnect();
@@ -964,7 +945,7 @@ class MusicPlayer {
 
     trackState.reset(this);
     this.pendingEndReason = "stop";
-    this.currentTrackStartOffsetMs = 0;
+    this.playback = null;
     this.lastPlaybackPosition = 0;
     this.audioPlayer.stop(true);
     this.disconnect();
@@ -1153,17 +1134,11 @@ class MusicPlayer {
     return total;
   }
 
+  /** 곡 안의 지금 위치(ms). 리소스가 실제로 낸 양이라 멈춤 · 버퍼링은 세지 않는다 */
   getCurrentTime() {
-    const playbackDuration = this.audioPlayer?.state?.resource?.playbackDuration;
-    if (typeof playbackDuration === "number" && Number.isFinite(playbackDuration)) {
-      return this.currentTrackStartOffsetMs + playbackDuration;
-    }
-
-    if (!this.startTime) return this.currentTrackStartOffsetMs;
-    if (this.paused) {
-      return this.currentTrackStartOffsetMs + this.pausedTime;
-    }
-    return this.currentTrackStartOffsetMs + (Date.now() - this.startTime) + this.pausedTime;
+    const pb = this.playback;
+    if (!pb) return this.lastPlaybackPosition || 0;
+    return (pb.startOffsetMs || 0) + (pb.resource?.playbackDuration || 0);
   }
 
   // 타이머 기반 트랙 완료 처리
@@ -1178,8 +1153,7 @@ class MusicPlayer {
 
       const finishedTrack = this.currentTrack;
       this.releaseAudioProtection();
-      const playbackMs = this.resource?.playbackDuration || 0;
-      const totalPlaybackMs = this.currentTrackStartOffsetMs + playbackMs;
+      const totalPlaybackMs = this.getCurrentTime();
       this.lastPlaybackPosition = totalPlaybackMs;
       const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
       // "sponsorblock"(아웃트로 종료)은 스킵 버튼과 동일하게 트랙 완료로 취급. 조기 드롭 복구 대상 아님.
@@ -1240,10 +1214,7 @@ class MusicPlayer {
       }
 
       this.playback = null;
-      this.startTime = null;
-      this.pausedTime = 0;
       this.lastPlaybackPosition = 0;
-      this.currentTrackStartOffsetMs = 0;
 
       if (this.queue.length > 0) {
         trackState.shiftNext(this);
@@ -1277,7 +1248,6 @@ class MusicPlayer {
       }
 
       trackState.setCurrent(this, null);
-      this.currentTrackStartOffsetMs = 0;
 
       this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
 
@@ -1555,12 +1525,7 @@ class MusicPlayer {
       // 플레이어 데이터 정리. 보호 해제가 currentTrack을 읽으므로 먼저
       this.releaseAudioProtection();
       trackState.reset(this, { history: true });
-      this.startTime = null;
-      this.pausedTime = 0;
-
-      // 복구 데이터 정리
       this.lastPlaybackPosition = 0;
-      this.currentTrackStartOffsetMs = 0;
 
       // UI 참조 정리
       this.nowPlayingMessage = null;

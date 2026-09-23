@@ -26,16 +26,13 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     idle: { cancelAlone() {}, cancelEmpty() {}, scheduleEmpty() {}, stop() {} },
     currentTrack: current,
     // playbackDuration = 곡 길이 전체 → "자연 종료"로 판정 (endedUnexpectedly 아님)
-    resource: current ? { playbackDuration: (current.duration || 0) * 1000 } : null,
-    currentTrackStartOffsetMs: 0,
+    playback: current ? { resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
     lastPlaybackPosition: 0,
     currentTrackRetries: 0,
     previousTracks: history,
     loop,
     queue,
     autoplay: false,
-    startTime: null,
-    pausedTime: 0,
     pendingEndReason: null,
     guild: { id: "g1", client: null },
     played: [],
@@ -43,10 +40,11 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     scheduleStatePersist() {},
     // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)
     _trackLabel: MusicPlayer.prototype._trackLabel,
+    getCurrentTime: MusicPlayer.prototype.getCurrentTime,
     audioPlayer: { stop() {} },
     async play(ms) {
       this.played.push({ title: this.currentTrack?.title, ms });
-      this.resource = { playbackDuration: 0 };
+      this.playback = { startOffsetMs: ms, resource: { playbackDuration: 0 } };
     },
   };
 }
@@ -180,7 +178,7 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
 test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
   const [A, B] = ["A", "B"].map((t) => makeTrack(t));
   const p = makePlayer({ current: A, queue: [B] });
-  p.resource = { playbackDuration: 0 }; // 곡 길이보다 한참 덜 재생 = 조기 종료
+  p.playback = { resource: { playbackDuration: 0 } }; // 곡 길이보다 한참 덜 재생 = 조기 종료
 
   for (let i = 0; i < 4; i++) await handleTrackEnd.call(p, "idle");
 

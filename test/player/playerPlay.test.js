@@ -348,7 +348,7 @@ test("위치를 옮기면 지난 googlevideo 주소에 begin= 을 붙여 다시 
   assert.match(calls.fetches[1].url, /begin=30000/);
   const args = calls.spawns[1].args;
   assert.ok(args.indexOf("-ss") > args.indexOf("-i"), "파이프에서는 -ss 가 -i 뒤");
-  assert.equal(p.currentTrackStartOffsetMs, 30000);
+  assert.equal(p.playback.startOffsetMs, 30000);
 });
 
 test("새로 트는 곡의 첫 SponsorBlock 구간이 인트로면 그 끝에서 시작한다", async () => {
@@ -360,7 +360,7 @@ test("새로 트는 곡의 첫 SponsorBlock 구간이 인트로면 그 끝에서
 
   await playOnce(p);
 
-  assert.equal(p.currentTrackStartOffsetMs, 12500);
+  assert.equal(p.playback.startOffsetMs, 12500);
   const args = calls.spawns[0].args;
   assert.equal(args[args.indexOf("-ss") + 1], "12.500");
 });
