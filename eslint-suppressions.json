@@ -111,7 +111,7 @@
       "count": 1
     }
   },
-  "src/ui/errorMessages.js": {
+  "src/rules/errorKind.js": {
     "complexity": {
       "count": 1
     }

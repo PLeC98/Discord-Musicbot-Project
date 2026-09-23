@@ -11,6 +11,7 @@
 //
 
 const autoplayFilter = require("./filter");
+const { candidateKind } = require("../rules/candidateKind");
 const pool = require("./pool");
 const sources = require("./sources/index");
 const match = require("../sources/youtube/match");
@@ -215,8 +216,10 @@ function upgradeWorthIt(cand, confidence, top) {
  * @param {string} [genre] 장르 이름. AI 보조가 "이 장르가 맞나"를 물을 때만 쓴다
  */
 async function resolve(cand, limits, genre) {
+  const kind = candidateKind(cand);
+
   // 1) 유튜브 주소를 직접 받은 것. 검색을 안 했으니 제목을 못 믿는다
-  if (cand.youtubeUrl) {
+  if (kind === "youtube") {
     const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec }, cand);
     const verdict = autoplayFilter.judge(track, limits);
     if (!verdict.ok) {
@@ -232,7 +235,7 @@ async function resolve(cand, limits, genre) {
   }
 
   // 2) 이름으로 유튜브에서 찾기
-  if (cand.artist && cand.title) {
+  if (kind === "search") {
     const best = await findOnYouTube(cand, genre);
     if (best) {
       const track = fromYouTube(best, cand);

@@ -16,14 +16,14 @@ const T = true;
 const F = false;
 const TABLE = [
   // 영상이 없는 경우
-  ["ERROR: [youtube] abc: Video unavailable", "youtube_unavailable", T, F, F, F, F],
-  ["ERROR: [youtube] abc: This video is unavailable", "youtube_bot_detection", F, F, F, F, F], // 순서 버그: 봇 감지 규칙에 걸린다. 영상 없음 정규식도 "video is unavailable" 을 못 잡는다
-  ["ERROR: [youtube] abc: Private video. Sign in if you've been granted access", "youtube_unavailable", T, F, F, F, F],
-  ["ERROR: This video has been removed by the uploader", "youtube_unavailable", T, F, F, F, F],
-  ["ERROR: This video is no longer available because the YouTube account associated with this video has been terminated", "youtube_unavailable", T, F, F, F, F],
+  ["ERROR: [youtube] abc: Video unavailable", "video-unavailable", T, F, F, F, F],
+  ["ERROR: [youtube] abc: This video is unavailable", "bot-check", F, F, F, F, F], // 순서 버그: 봇 감지 규칙에 걸린다. 영상 없음 정규식도 "video is unavailable" 을 못 잡는다
+  ["ERROR: [youtube] abc: Private video. Sign in if you've been granted access", "video-unavailable", T, F, F, F, F],
+  ["ERROR: This video has been removed by the uploader", "video-unavailable", T, F, F, F, F],
+  ["ERROR: This video is no longer available because the YouTube account associated with this video has been terminated", "video-unavailable", T, F, F, F, F],
   // 연령 제한 · 봇 감지 · 쿠키
-  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "youtube_bot_detection", F, T, F, F, F], // 순서 버그: 봇 감지의 "sign in to confirm" 이 연령 제한보다 먼저 걸린다
-  ["ERROR: Sign in to confirm you're not a bot", "youtube_bot_detection", F, F, F, F, F],
+  ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "bot-check", F, T, F, F, F], // 순서 버그: 봇 감지의 "sign in to confirm" 이 연령 제한보다 먼저 걸린다
+  ["ERROR: Sign in to confirm you're not a bot", "bot-check", F, F, F, F, F],
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 가르지 않는다
   // 클라이언트 · 포맷
   ["ERROR: Requested format is not available", "unknown", F, F, T, F, F],
@@ -34,15 +34,15 @@ const TABLE = [
   // 미디어 주소 어긋남
   ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "unknown", F, F, T, T, F], // 봇 감지의 403 은 "youtube" 가 같이 있어야 한다
   ["ERROR: unable to download fragment 12", "unknown", F, F, T, T, F],
-  ["HTTP Error 429: Too Many Requests", "rate_limited", F, F, T, T, F],
+  ["HTTP Error 429: Too Many Requests", "rate-limited", F, F, T, T, F],
   // 그 밖
-  ["getaddrinfo ENOTFOUND youtube.com", "network_error", F, F, F, F, F],
-  ["fetch failed", "network_error", F, F, F, F, F],
-  ["ffmpeg exited with code 1", "stream_failed", F, F, F, F, F],
-  ["Missing Permissions", "voice_no_permission", F, F, F, F, F],
-  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡", "spotify_no_match", F, F, F, F, F],
-  ["No results found", "no_results", F, F, F, F, F],
-  ["This content is not available in your country", "youtube_geo_blocked", F, F, F, F, F],
+  ["getaddrinfo ENOTFOUND youtube.com", "network", F, F, F, F, F],
+  ["fetch failed", "network", F, F, F, F, F],
+  ["ffmpeg exited with code 1", "stream-failed", F, F, F, F, F],
+  ["Missing Permissions", "voice-permission", F, F, F, F, F],
+  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡", "no-youtube-match", F, F, F, F, F],
+  ["No results found", "no-results", F, F, F, F, F],
+  ["This content is not available in your country", "geo-blocked", F, F, F, F, F],
   ["무언가 알 수 없는 일", "unknown", F, F, F, F, F],
 ];
 
@@ -61,7 +61,7 @@ test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). classify 는
 });
 
 test("classify 는 문자열과 빈 값도 받는다", () => {
-  assert.equal(ErrorHandler.classify("fetch failed"), "network_error");
+  assert.equal(ErrorHandler.classify("fetch failed"), "network");
   assert.equal(ErrorHandler.classify(null), "unknown");
   assert.equal(ErrorHandler.classify(undefined), "unknown");
 });

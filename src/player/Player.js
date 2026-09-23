@@ -26,6 +26,7 @@ const QueueWarmer = require("./queueWarmer");
 const trackState = require("./trackState");
 const S = require("../ui/strings");
 const { spawnFfmpeg } = require("../media/ffmpeg/process");
+const { transportOf, isHlsStream } = require("../rules/transportOf");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
 const { Readable } = require("stream");
 const fsSync = require("fs");
@@ -388,14 +389,13 @@ class MusicPlayer {
         this.currentTrack.isLive = false;
       }
 
-      // HLS는 파이프로 먹일 수 없다. 재생목록 안이 상대 경로뿐이라 ffmpeg가 기준 위치를 알아야 하고,
-      // 세그먼트도 스스로 받아 와야 한다. 주소를 주는 갈래는 여기뿐이다.
-      const useUrlInput = !downloadedFile && typeof streamUrl_final === "string" && MusicPlayer.isHlsStream(streamInfo);
-      const isLiveStream = useUrlInput && streamInfo?.liveStatus === "is_live";
+      // 주소를 주는 갈래는 여기뿐이다(HLS). 이 자리의 답이다. 받기에 실패해 캐시 파일로 바꾸는 갈래는 아래에서 따로 간다
+      const transport = transportOf({ file: downloadedFile, streamUrl: streamUrl_final, streamInfo });
+      const useUrlInput = transport.via === "url";
+      const isLiveStream = transport.live;
 
-      // 플래그: 스트림은 있지만 캐시 파일이 없으면 다운로드 필요.
-      // 라이브만 예외다. 끝이 없어서 받기 시작하면 파일이 무한히 분다.
-      if (!downloadedFile && !isLiveStream) shouldDownload = true;
+      // 플래그: 스트림은 있지만 캐시 파일이 없으면 다운로드 필요. 라이브는 캐시하지 않는다
+      if (!downloadedFile && transport.cacheable) shouldDownload = true;
 
       if (useUrlInput) {
         // 입구(playRequest)와 사운드클라우드 포맷 선택이 먼저 거르지만, 여기까지 온 것은 막는다.
@@ -695,8 +695,7 @@ class MusicPlayer {
    * `m3u8_native`(ffmpeg에게 맡기는 방식) 둘 다 재생목록이라 주소로 열어야 한다.
    */
   static isHlsStream(streamInfo) {
-    const protocol = streamInfo && typeof streamInfo === "object" ? streamInfo.protocol : null;
-    return typeof protocol === "string" && protocol.startsWith("m3u8");
+    return isHlsStream(streamInfo);
   }
 
   /** 즉시 재생과 나란히 캐시를 받아 둔다. 기다리지 않으며, 실패해도 재생은 스트림으로 계속된다. */

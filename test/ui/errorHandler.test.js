@@ -8,18 +8,18 @@ const ErrorHandler = require("../../src/ui/errorMessages");
 
 const CASES = [
   // [실제 yt-dlp/네트워크에서 나오는 형태의 메시지, 기대 범주]
-  ["Sign in to confirm you're not a bot. This helps protect our community.", "youtube_bot_detection"],
-  ["ERROR: [youtube] abc: This video is age-restricted", "youtube_age_restricted"],
-  ["Private video. Sign in if you've been granted access", "youtube_unavailable"],
-  ["ERROR: [youtube] xyz: Video unavailable. This video has been removed", "youtube_unavailable"],
-  ["Video not available in your country", "youtube_geo_blocked"],
-  ["HTTP Error 429: Too Many Requests", "rate_limited"],
-  ["YouTube equivalent not found", "spotify_no_match"],
-  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ''''''", "spotify_no_match"], // MusicPlayer/TrackResolver가 던지는 한글 메시지
-  ["read ECONNRESET", "network_error"],
-  ["connect ETIMEDOUT 1.2.3.4:443", "network_error"],
-  ["FFmpeg exited with code 1", "stream_failed"],
-  ["Missing Permissions", "voice_no_permission"],
+  ["Sign in to confirm you're not a bot. This helps protect our community.", "bot-check"],
+  ["ERROR: [youtube] abc: This video is age-restricted", "age-restricted"],
+  ["Private video. Sign in if you've been granted access", "video-unavailable"],
+  ["ERROR: [youtube] xyz: Video unavailable. This video has been removed", "video-unavailable"],
+  ["Video not available in your country", "geo-blocked"],
+  ["HTTP Error 429: Too Many Requests", "rate-limited"],
+  ["YouTube equivalent not found", "no-youtube-match"],
+  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ''''''", "no-youtube-match"], // MusicPlayer/TrackResolver가 던지는 한글 메시지
+  ["read ECONNRESET", "network"],
+  ["connect ETIMEDOUT 1.2.3.4:443", "network"],
+  ["FFmpeg exited with code 1", "stream-failed"],
+  ["Missing Permissions", "voice-permission"],
   ["완전히 알 수 없는 무언가", "unknown"],
 ];
 
@@ -30,8 +30,8 @@ test("classify: 대표 메시지 분류", () => {
 });
 
 test("classify: Error 객체와 문자열 입력 동일 취급", () => {
-  assert.equal(ErrorHandler.classify("read ECONNRESET"), "network_error");
-  assert.equal(ErrorHandler.classify(new Error("read ECONNRESET")), "network_error");
+  assert.equal(ErrorHandler.classify("read ECONNRESET"), "network");
+  assert.equal(ErrorHandler.classify(new Error("read ECONNRESET")), "network");
 });
 
 test("classify: null/빈 입력은 unknown", () => {

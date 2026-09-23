@@ -10,13 +10,14 @@ const trackState = require("../player/trackState");
 const S = require("../ui/strings");
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
 const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
+const { liveBlockReason } = require("../rules/liveBlockReason");
 
-/** 이 곡을 대기열에 넣을 수 없는 이유. 넣을 수 있으면 null. */
-function liveBlockReason(track) {
-  if (!track?.isLive) return null;
-  // is_upcoming(예정)은 아직 소리가 없다. 열어 봐야 받을 것이 없다.
-  if (track.liveStatus !== "is_live") return S.ERR_LIVE_UPCOMING;
-  return ffmpegCapabilities().ok ? null : S.ERR_LIVE_NO_FFMPEG;
+const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
+
+/** 이 곡을 대기열에 넣을 수 없는 이유(사용자에게 보일 문장). 넣을 수 있으면 null. */
+function liveBlockText(track) {
+  const reason = liveBlockReason(track, { ffmpegReady: () => ffmpegCapabilities().ok });
+  return reason ? LIVE_BLOCK_TEXT[reason] : null;
 }
 
 /**
@@ -130,7 +131,7 @@ async function requestPlayback(client, { guild, requester, query = null, tracks 
   // 아직 시작하지 않은 방송(틀 것이 없다)과, 그 갈래를 열 수 없는 ffmpeg 빌드.
   // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
   if (trackData.tracks?.length) {
-    const judged = trackData.tracks.map((t) => [t, liveBlockReason(t)]);
+    const judged = trackData.tracks.map((t) => [t, liveBlockText(t)]);
     const playable = judged.filter(([, why]) => !why).map(([t]) => t);
     if (playable.length < trackData.tracks.length) {
       if (playable.length === 0) return { success: false, message: judged.find(([, why]) => why)[1] };
