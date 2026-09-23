@@ -17,12 +17,22 @@
       "count": 1
     }
   },
-  "dashboard/server/routes/guilds.js": {
+  "dashboard/server/playerView.js": {
     "complexity": {
-      "count": 4
+      "count": 1
+    }
+  },
+  "dashboard/server/routes/guildSettings.js": {
+    "complexity": {
+      "count": 1
     },
     "max-statements": {
       "count": 1
+    }
+  },
+  "dashboard/server/routes/player.js": {
+    "complexity": {
+      "count": 2
     },
     "no-empty-function": {
       "count": 1

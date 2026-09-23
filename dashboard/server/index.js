@@ -18,7 +18,8 @@ const { isOwner, isRealOwner } = require("./owner");
 const { getViewAs } = require("./viewAs");
 const { createAuthRouter } = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
-const guildsRoutes = require("./routes/guilds");
+const { createGuildsRouter } = require("./routes/guilds");
+const playerStream = require("./playerStream");
 
 const PORT = config.dashboard.port;
 const HOST = config.dashboard.host;
@@ -142,7 +143,7 @@ function createApp(client) {
 
   // API 라우트
   app.use("/api/admin", adminRoutes);
-  app.use("/api/guilds", guildsRoutes);
+  app.use("/api/guilds", createGuildsRouter({ stream: playerStream }));
 
   // 지금 로그인한 사람
   // isOwner는 세션에 저장하지 않고 여기서 파생한다. UI 표시용이고 권한 판정은 서버가 매번 다시 한다.
