@@ -22,7 +22,7 @@ const sources = require("../autoplay/sources/index");
 let warnedKeys = "";
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
-// (CacheManager._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
+// (audioCache._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
 let configDir = path.join(__dirname, "..", "..", "config");
 
 // name -> { mtimeMs, value }

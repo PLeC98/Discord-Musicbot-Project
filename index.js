@@ -44,12 +44,12 @@ if (logFile) {
   });
 }
 
-// Initialize CacheManager DB and clean up orphaned files on startup
+// 기동 시 오디오 캐시 정리(중단된 받기 · 고아 파일 · 퇴거)
 async function cleanupAudioCache() {
   try {
     await audioCache.onStartup();
   } catch (error) {
-    log.error("캐시 관리자(CacheManager) 시작 실패:", error.message);
+    log.error("오디오 캐시 기동 정리 실패:", error.message);
   }
 }
 

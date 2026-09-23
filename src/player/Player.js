@@ -1504,7 +1504,7 @@ class MusicPlayer {
         return;
       }
 
-      // 참조 해제 (파일은 디스크에 유지. 제거는 CacheManager가 처리)
+      // 참조 해제 (파일은 디스크에 유지. 제거는 audioCache 가 처리)
       this.currentDownloadedFile = null;
 
       if (this.loop === "track" && reason !== "stop" && reason !== "jump") {
