@@ -83,8 +83,16 @@ function scanSource(rel) {
     if (to) deps.push({ to, line: line(n), lazy: inFn });
   };
 
-  // config.js 를 받은 이름(맨 위의 const x = require("…/config"))
+  // config.js 를 받은 이름(맨 위의 const x = require("…/config") · import x from "…/config.js"). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
   for (const s of sf.statements) {
+    if (ts.isImportDeclaration(s) && ts.isStringLiteral(s.moduleSpecifier) && resolveSpec(rel, s.moduleSpecifier.text) === "config.js") {
+      const clause = s.importClause;
+      if (clause?.name) configNames.add(clause.name.text);
+      const named = clause?.namedBindings;
+      if (named && ts.isNamespaceImport(named)) configNames.add(named.name.text);
+      else if (named) captures.push(line(s));
+      continue;
+    }
     if (!ts.isVariableStatement(s)) continue;
     for (const d of s.declarationList.declarations) {
       if (d.initializer && isRequire(d.initializer) && resolveSpec(rel, literalArg(d.initializer) ?? "") === "config.js") {
@@ -131,9 +139,11 @@ function scanTest(rel) {
 
   const fromProject = (e) => {
     if (!e) return false;
-    if (isRequire(e)) return (literalArg(e) ?? "").startsWith(".");
+    // (await import("./x")).default · await import("./x")
+    while (ts.isParenthesizedExpression(e) || ts.isAwaitExpression(e)) e = e.expression;
+    if (isRequire(e) || isDynamicImport(e)) return (literalArg(e) ?? "").startsWith(".");
     const r = ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e) ? e.expression : null;
-    if (r && (isRequire(r) || ts.isPropertyAccessExpression(r))) return fromProject(r);
+    if (r && (isRequire(r) || ts.isPropertyAccessExpression(r) || ts.isParenthesizedExpression(r))) return fromProject(r);
     return project.has(rootName(e) ?? "");
   };
   const bind = (name, init) => {
@@ -142,7 +152,15 @@ function scanTest(rel) {
     else if (ts.isObjectBindingPattern(name)) for (const el of name.elements) if (ts.isIdentifier(el.name)) project.add(el.name.text);
   };
 
-  // 이름부터 모은다(before() 안에서 받는 것까지)
+  // 이름부터 모은다(before() 안에서 받는 것까지). import 로 받은 이름도
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || !st.moduleSpecifier.text.startsWith(".")) continue;
+    const clause = st.importClause;
+    if (clause?.name) project.add(clause.name.text);
+    const named = clause?.namedBindings;
+    if (named && ts.isNamespaceImport(named)) project.add(named.name.text);
+    else if (named) for (const el of named.elements) project.add(el.name.text);
+  }
   const collect = (n) => {
     if (ts.isVariableDeclaration(n)) bind(n.name, n.initializer);
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(n.left)) bind(n.left, n.right);
