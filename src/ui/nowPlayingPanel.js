@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBui
 const log = require("../infra/log/logger").child({ category: "player" });
 const config = require("../../config");
 const { formatDuration } = require("./format");
+const { progressBar, emptyProgressBar } = require("./progressBar");
 const playerEvents = require("../player/events");
 const ErrorHandler = require("./errorMessages");
 const S = require("./strings");
@@ -22,8 +23,6 @@ const { markTransient, isTransient } = require("./transientMessages");
 const blankThumbnail = require("./blankThumbnail");
 const { jumpDescription } = require("./queueDisplay");
 const NowPlayingPanel = require("./panelLocation");
-
-const BAR_LENGTH = 16;
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
@@ -420,7 +419,7 @@ class MusicEmbedManager {
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
     const currentSec = Math.floor(currentMs / 1000);
     const totalSec = track.duration || 0;
-    const progressBar = this.buildProgressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive) });
+    const bar = progressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive) });
 
     const artistValue = track.artist || "-";
     const platformValue = this.getPlatformLabel(track.platform);
@@ -452,7 +451,7 @@ class MusicEmbedManager {
     const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor));
     if (titleComponent) container.addSectionComponents(titleComponent);
     else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText));
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(progressBar));
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(bar));
 
     if (statusParts.length > 0) {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${statusParts.join(" • ")}`));
@@ -474,27 +473,6 @@ class MusicEmbedManager {
   /**
    * 진행 바 문자열을 빌드합니다.
    */
-  buildProgressBar(currentSec, totalSec, { live = false } = {}) {
-    const currentStr = this.formatDuration(currentSec);
-    const totalStr = this.formatDuration(totalSec);
-
-    // 라이브에는 끝이 없다. 어디쯤인지 찍을 지점도, 표시할 길이도 없다.
-    // 경과 시간 자리는 비워 두는 대신 표식을 넣는다. 그 값은 곡 안의 위치가 아니라
-    // "우리가 붙어 있은 시간"이라, 옆의 `--:--`과 나란히 두면 진행률처럼 읽힌다.
-    if (live) {
-      return `\`🔴LIVE\` ${"▬".repeat(BAR_LENGTH + 1)} \`-:--\``;
-    }
-
-    if (!totalSec || totalSec === 0) {
-      return `\`${currentStr}\` ●${"▬".repeat(BAR_LENGTH)} \`${totalStr}\``;
-    }
-
-    const progress = Math.min(currentSec / totalSec, 1);
-    const filledCount = Math.round(progress * BAR_LENGTH);
-    const bar = "▬".repeat(filledCount) + "●" + "▬".repeat(BAR_LENGTH - filledCount);
-    return `\`${currentStr}\` ${bar} \`${totalStr}\``;
-  }
-
   /**
    * 현재 재생 임베드를 제자리에서 갱신합니다.
    */
@@ -550,11 +528,7 @@ class MusicEmbedManager {
 
     const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`### 💤 재생 대기 중\n**${title}**\n-# ${status}`)).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
 
-    const container = new ContainerBuilder()
-      .setAccentColor(resolveColor(config.bot.embedColor))
-      .addSectionComponents(heading)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`\`--:--\` ●${"▬".repeat(BAR_LENGTH)} \`--:--\``))
-      .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+    const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor)).addSectionComponents(heading).addTextDisplayComponents(new TextDisplayBuilder().setContent(emptyProgressBar())).addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
     for (const row of await this.createControlButtons(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})`));
 

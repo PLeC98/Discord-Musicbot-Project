@@ -13,7 +13,6 @@ const MusicPlayer = require("../../src/player/Player");
 const PlaybackState = require("../../src/player/playbackState");
 const PlaybackWatch = require("../../src/player/playbackWatch");
 const YouTube = require("../../src/sources/youtube/index");
-const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 const { capabilities, _internals } = require("../../src/media/ffmpeg/path");
 const { buildFfmpegArgs } = require("../../src/media/ffmpeg/args");
 const { isHlsStream } = require("../../src/rules/transportOf");
@@ -63,17 +62,15 @@ test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () =>
 });
 
 test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를 비운다", () => {
-  const manager = Object.create(MusicEmbedManager.prototype);
-  manager.formatDuration = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
-
-  const live = manager.buildProgressBar(65, 0, { live: true });
+  const { progressBar } = require("../../src/ui/progressBar");
+  const live = progressBar(65, 0, { live: true });
   assert.match(live, /LIVE/, "라이브임을 알려야 한다");
   assert.doesNotMatch(live, /1:05/, "붙어 있은 시간은 곡 안의 위치가 아니다");
   assert.doesNotMatch(live, /●/, "찍을 지점이 없다");
   assert.ok(live.includes("-:--"), "길이는 모른다");
 
   // 보통 곡은 그대로다
-  const normal = manager.buildProgressBar(65, 200);
+  const normal = progressBar(65, 200);
   assert.match(normal, /1:05/);
   assert.match(normal, /3:20/);
   assert.match(normal, /●/);

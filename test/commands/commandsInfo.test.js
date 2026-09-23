@@ -100,7 +100,7 @@ test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상�
   assert.equal(f["🎤 아티스트"], "가수");
   assert.equal(f["💿 앨범"], "앨범");
   assert.match(f["🎵 플랫폼"], /YouTube/);
-  assert.match(f["⏱️ 진행"], /^1:30 \/ 3:20\n/);
+  assert.match(f["⏱️ 진행"], /^`1:30` ▬+●▬+ `3:20`$/, "재생 패널과 같은 막대");
   assert.equal(f["👤 요청자"], "<@u9>");
   assert.equal(f["📊 상태"], "▶️ 재생 중 • 🔊 70% • 🔂 트랙 반복");
   assert.equal(log[0][1].embeds[0].data.thumbnail.url, "https://thumb");

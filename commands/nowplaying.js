@@ -2,7 +2,14 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js"
 const config = require("../config");
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
 const { labelOf, emojiOf } = require("../src/ui/platforms");
-const { formatDuration } = require("../src/ui/format");
+const { progressBar } = require("../src/ui/progressBar");
+
+// 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다
+function progressField(player, track, currentMs) {
+  const live = Boolean(player.isLive ?? track.isLive);
+  if (!live && !(track.duration > 0)) return null;
+  return { name: "⏱️ 진행", value: progressBar(Math.floor(currentMs / 1000), track.duration || 0, { live }), inline: false };
+}
 
 module.exports = {
   data: new SlashCommandBuilder().setName("nowplaying").setDescription("Shows information about currently playing song").setDescriptionLocalizations({
@@ -50,17 +57,8 @@ module.exports = {
         inline: true,
       });
 
-      if (track.duration && track.duration > 0) {
-        const progressBar = this.createProgressBar(currentTime, track.duration * 1000);
-        const currentTimeFormatted = this.formatTime(currentTime);
-        const totalTimeFormatted = formatDuration(track.duration);
-
-        embed.addFields({
-          name: "⏱️ 진행",
-          value: `${currentTimeFormatted} / ${totalTimeFormatted}\n${progressBar}`,
-          inline: false,
-        });
-      }
+      const progress = progressField(player, track, currentTime);
+      if (progress) embed.addFields(progress);
 
       if (track.requestedBy) {
         embed.addFields({
@@ -107,31 +105,5 @@ module.exports = {
 
   createErrorEmbed(message) {
     return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
-  },
-
-  formatTime(milliseconds) {
-    const seconds = Math.floor(milliseconds / 1000);
-    return formatDuration(seconds);
-  },
-
-  createProgressBar(current, total, length = 15) {
-    if (!total || total === 0) return "▬".repeat(length);
-
-    const currentMs = typeof current === "number" ? current : 0;
-    const totalMs = total;
-    const progress = Math.min(currentMs / totalMs, 1);
-    const filledLength = Math.round(progress * length);
-
-    const filled = "▬".repeat(filledLength);
-    const empty = "▬".repeat(length - filledLength);
-    const indicator = "🔘";
-
-    if (filledLength === 0) {
-      return indicator + empty;
-    } else if (filledLength === length) {
-      return filled + indicator;
-    } else {
-      return filled + indicator + empty.substring(1);
-    }
   },
 };
