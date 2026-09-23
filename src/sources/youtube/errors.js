@@ -92,6 +92,19 @@ class YouTubeErrors {
     return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
   }
 
+  /**
+   * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlpSpawn)이 실패할 때 한 번 붙인다. 모르면 null.
+   * 차례는 위 판별들이 서로를 빼는 차례와 같다(연령 제한 → 영상 없음 → 건너뛴 클라이언트 → 클라이언트 탓 · 주소 어긋남).
+   */
+  static codeOf(error) {
+    if (this.isAgeRestrictedError(error)) return "age-restricted";
+    if (this.isVideoUnavailableError(error)) return "video-unavailable";
+    if (this.isSkippedClientError(error)) return "skipped-client";
+    if (this.isStaleMediaError(error)) return "stale-media";
+    if (this.isClientFault(error)) return "client-fault";
+    return null;
+  }
+
   static _faultReason(error) {
     const msg = (error && (error.stderr || error.message)) || String(error || "");
     if (/PO Token/i.test(msg)) return "POToken 필요";

@@ -2,6 +2,7 @@
 
 const youtubedl = require("youtube-dl-exec");
 const procRegistry = require("../infra/processRegistry");
+const { YouTubeErrors } = require("./youtube/errors");
 
 const IS_WIN = process.platform === "win32";
 
@@ -30,11 +31,14 @@ async function run(url, flags = {}, opts = {}) {
   } catch (error) {
     // tinyspawn의 오류를 youtube-dl-exec와 같은 모양(message = stderr)으로 맞춘다.
     // spawn 자체가 실패하면(ENOENT 등) stderr가 없으므로 원래 message를 쓴다.
-    throw Object.assign(new Error(error.stderr || error.message), {
+    // 어떤 실패인지는 여기서 한 번 가려 code 로 붙인다. 부르는 쪽은 글이 아니라 code 를 본다.
+    const shaped = Object.assign(new Error(error.stderr || error.message), {
       stderr: error.stderr,
       stdout: error.stdout,
       exitCode: error.exitCode,
     });
+    shaped.code = YouTubeErrors.codeOf(shaped) || error.code;
+    throw shaped;
   } finally {
     release();
   }

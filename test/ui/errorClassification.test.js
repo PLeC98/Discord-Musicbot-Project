@@ -76,3 +76,16 @@ test("분류 규칙의 겹침: 알고 있는 것만", () => {
   const overlaps = Object.fromEntries(TABLE.map(([msg]) => [msg, hits(msg)]).filter(([, kinds]) => kinds.length > 1));
   assert.deepEqual(overlaps, KNOWN);
 });
+
+// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 이름은 위 판별 칸과 어긋나면 안 된다
+test("yt-dlp 오류 이름(codeOf)은 판별 칸과 같은 뜻이다", () => {
+  const expected = ([, , gone, age, fault, stale, skipped]) => (age ? "age-restricted" : gone ? "video-unavailable" : skipped ? "skipped-client" : stale ? "stale-media" : fault ? "client-fault" : null);
+  for (const row of TABLE) assert.equal(YouTube.codeOf(new Error(row[0])), expected(row), row[0]);
+});
+
+test("errorKind 는 이름(code)이 있으면 글보다 먼저 본다", () => {
+  const e = Object.assign(new Error("exit 1"), { code: "video-unavailable" });
+  assert.equal(ErrorHandler.classify(e), "video-unavailable");
+  assert.equal(ErrorHandler.classify(Object.assign(new Error("Sign in to confirm you're not a bot"), { code: "age-restricted" })), "age-restricted");
+  assert.equal(ErrorHandler.classify(Object.assign(new Error("fetch failed"), { code: "ECONNRESET" })), "network", "모르는 이름이면 글로 가른다");
+});
