@@ -224,7 +224,7 @@
       "count": 1
     }
   },
-  "src/sources/youtube/index.js": {
+  "src/sources/youtube/api.js": {
     "complexity": {
       "count": 3
     },
