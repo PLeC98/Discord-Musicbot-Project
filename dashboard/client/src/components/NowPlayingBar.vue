@@ -34,8 +34,8 @@
       </div>
 
       <div class="flex items-center justify-end gap-2">
-        <Icon name="volume" :size="17" class="text-muted shrink-0" />
-        <input type="range" min="0" max="100" step="5" :value="np.data.volume" :disabled="!np.canControl" class="w-24 h-1 accent-accent cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40" v-tooltip="`볼륨: ${np.data.volume}%`" @change="np.setVolume($event.target.value)" />
+        <VolumeIcon :level="volumeShown" :size="17" class="text-muted" />
+        <input type="range" min="0" max="100" step="1" :value="volumeShown" :disabled="!np.canControl" class="w-24 h-1 accent-accent cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40" v-tooltip="`볼륨: ${volumeShown}%`" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" />
       </div>
     </div>
 
@@ -59,14 +59,25 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import Icon from "./BaseIcon.vue";
+import VolumeIcon from "./VolumeIcon.vue";
+import { useVolumeControl } from "../composables/volumeControl.js";
 import TrackArt from "./TrackArt.vue";
 import { useNowPlayingStore } from "../stores/nowPlaying.js";
 import { fmtTime } from "../utils/time.js";
 
 const np = useNowPlayingStore();
+// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volumeControl)
+const {
+  shown: volumeShown,
+  input: volumeInput,
+  change: volumeChange,
+} = useVolumeControl(
+  computed(() => np.data?.volume),
+  (level) => np.setVolume(level),
+);
 const router = useRouter();
 const trackEl = ref(null);
 
