@@ -29,7 +29,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("🔄 처음부터 다시 재생")
-      .setDescription(`**[${track.title}](${track.url})**`)
+      .setDescription(`**[${track.title}](${track.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "👤 요청한 사람", value: `${member}`, inline: true });

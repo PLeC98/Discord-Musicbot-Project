@@ -32,7 +32,7 @@ module.exports = {
     if (player.currentTrack) {
       embed.addFields({
         name: "🎵 현재 재생 중",
-        value: `**[${player.currentTrack.title}](${player.currentTrack.url})**`,
+        value: `**[${player.currentTrack.title}](${player.currentTrack.pageUrl})**`,
         inline: false,
       });
     }

@@ -9,7 +9,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { queueLine, jumpDescription, AUTOPLAY_MARK } = require("../../src/ui/queueDisplay");
 
-const song = (over = {}) => ({ title: "곡", url: "https://y/1", artist: "가수", duration: 100, ...over });
+const song = (over = {}) => ({ title: "곡", pageUrl: "https://y/1", artist: "가수", duration: 100, ...over });
 
 test("대기열 줄: 요청자는 멘션으로", () => {
   const line = queueLine(song({ requestedBy: { id: "u1" } }), 3);

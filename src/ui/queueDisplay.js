@@ -28,7 +28,7 @@ function requesterName(track) {
 
 /** 대기열 한 줄: `` `3.` [제목](url) | 요청자 `` (줄바꿈 포함) */
 function queueLine(track, number) {
-  const head = `\`${number}.\` **[${track.title}](${track.url})**`;
+  const head = `\`${number}.\` **[${track.title}](${track.pageUrl})**`;
   const who = requesterLabel(track);
   return `${who ? `${head} | ${who}` : head}\n`;
 }

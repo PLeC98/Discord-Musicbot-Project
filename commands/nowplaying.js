@@ -33,7 +33,7 @@ module.exports = {
 
       const platformCode = (track.platform || "").toString().toLowerCase();
 
-      const embed = new EmbedBuilder().setTitle("🎵 현재 재생 중").setDescription(`**[${track.title}](${track.url})**`).setColor(config.bot.embedColor).setTimestamp();
+      const embed = new EmbedBuilder().setTitle("🎵 현재 재생 중").setDescription(`**[${track.title}](${track.pageUrl})**`).setColor(config.bot.embedColor).setTimestamp();
 
       if (track.artist) {
         embed.addFields({ name: "🎤 아티스트", value: track.artist, inline: true });

@@ -138,6 +138,16 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
   }
 });
 
+test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보여 줄 링크(pageUrl)다", async () => {
+  const mem = new MusicEmbedManager({ players: new Map() });
+  const player = { getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, isPlaybackActive: () => true, getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }) };
+  const track = { title: "주제가", duration: 90, platform: "anisongdb", pageUrl: "https://anilist.co/anime/1", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3" };
+
+  const json = JSON.stringify((await mem.createNowPlayingContainer(player, track)).toJSON());
+  assert.ok(json.includes("[주제가](https://anilist.co/anime/1)"));
+  assert.ok(!json.includes("nawdist"));
+});
+
 // ── 끝난 패널 ──
 // 부르는 곳이 전부 현재 곡을 먼저 비워, 버튼 끄기가 한 번도 돌지 않았다(2026-09-16).
 

@@ -47,7 +47,7 @@ module.exports = {
     if (currentTrack) {
       const m = Math.floor(positionSec / 60);
       const s = String(positionSec % 60).padStart(2, "0");
-      embed.setDescription(`**[${currentTrack.title}](${currentTrack.url})**`).addFields({ name: "⏱️ 저장된 위치", value: `\`${m}:${s}\``, inline: true }, { name: "📋 저장된 대기열", value: `${queueLength}곡`, inline: true });
+      embed.setDescription(`**[${currentTrack.title}](${currentTrack.pageUrl})**`).addFields({ name: "⏱️ 저장된 위치", value: `\`${m}:${s}\``, inline: true }, { name: "📋 저장된 대기열", value: `${queueLength}곡`, inline: true });
     }
 
     embed.setFooter({ text: "/join 으로 이전 세션을 복구할 수 있습니다." });

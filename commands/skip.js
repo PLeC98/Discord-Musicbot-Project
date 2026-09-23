@@ -31,7 +31,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("⏭️ 노래 건너뜀")
-      .setDescription(`**[${currentTrack.title}](${currentTrack.url})** 건너뜀!`)
+      .setDescription(`**[${currentTrack.title}](${currentTrack.pageUrl})** 건너뜀!`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "👤 건너뛴 사람", value: `${member}`, inline: true });

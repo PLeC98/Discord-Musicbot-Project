@@ -37,7 +37,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("🔀 순서 변경됨")
-      .setDescription(`**[${track.title}](${track.url})**`)
+      .setDescription(`**[${track.title}](${track.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "📍 이동 전", value: `${from}번째`, inline: true }, { name: "📍 이동 후", value: `${to}번째`, inline: true }, { name: "👤 변경한 사람", value: `${member}`, inline: true });

@@ -143,14 +143,14 @@ test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
 });
 
 test("/queue: 쪽마다 나눠 보이고, 현재 곡은 첫 쪽에만. 없는 쪽은 마지막 쪽으로", async () => {
-  const queue = Array.from({ length: 25 }, (_, i) => ({ title: `곡${i + 1}`, url: `u${i}`, duration: 60 }));
-  const first = interaction({ player: queuePlayer({ title: "지금", url: "now" }, queue) });
+  const queue = Array.from({ length: 25 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
+  const first = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue) });
   await cmd("queue").execute(first.it, first.client);
   const p1 = first.log[0][1];
   assert.equal(fieldsOf(p1)["🎵 현재 재생 중"], "**[지금](now)**");
   assert.equal(p1.embeds[0].data.footer.text, "총 26개의 노래 • 1/3 페이지");
 
-  const last = interaction({ player: queuePlayer({ title: "지금", url: "now" }, queue), options: { page: 9 } });
+  const last = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue), options: { page: 9 } });
   await cmd("queue").execute(last.it, last.client);
   const p3 = last.log[0][1];
   assert.equal(fieldsOf(p3)["🎵 현재 재생 중"], undefined);

@@ -33,7 +33,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle(`${emoji} ${message}`)
-      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.url})** ${message}!`)
+      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})** ${message}!`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "👤 작업자", value: `${member}`, inline: true });

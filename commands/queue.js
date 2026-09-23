@@ -38,7 +38,7 @@ module.exports = {
     if (queueInfo.current && page === 1) {
       embed.addFields({
         name: "🎵 현재 재생 중",
-        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**`,
+        value: `**[${queueInfo.current.title}](${queueInfo.current.pageUrl})**`,
         inline: false,
       });
     }

@@ -24,7 +24,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("⏹️ 음악 중지됨")
-      .setDescription(`${currentTrack ? `**[${currentTrack.title}](${currentTrack.url})**` : "Music"} 중지됨!`)
+      .setDescription(`${currentTrack ? `**[${currentTrack.title}](${currentTrack.pageUrl})**` : "Music"} 중지됨!`)
       .setColor("#FF0000")
       .setTimestamp()
       .addFields({ name: "👤 중지한 사람", value: `${member}`, inline: true });

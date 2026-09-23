@@ -32,7 +32,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("🗑️ 곡 제거됨")
-      .setDescription(`**[${removed.title}](${removed.url})**`)
+      .setDescription(`**[${removed.title}](${removed.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "👤 제거한 사람", value: `${member}`, inline: true }, { name: "📋 남은 대기열", value: `${player.queue.length}곡`, inline: true });

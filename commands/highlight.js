@@ -43,7 +43,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("✨ 하이라이트로 이동")
-      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.url})**`)
+      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "⏱️ 위치", value: `\`${formatMs(seekMs)}\``, inline: true });

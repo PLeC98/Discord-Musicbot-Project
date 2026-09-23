@@ -145,7 +145,7 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
           artist: track.artist,
           duration: track.duration,
           thumbnail: track.thumbnail,
-          url: track.url,
+          url: track.pageUrl,
           platform: track.platform,
           platformLabel: labelOf(track.platform),
           isLive: Boolean(track.isLive),

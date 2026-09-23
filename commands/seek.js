@@ -83,7 +83,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("⏩ 시간 이동")
-      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.url})**`)
+      .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})**`)
       .setColor(config.bot.embedColor)
       .setTimestamp()
       .addFields({ name: "⏱️ 이동한 위치", value: `\`${formatMs(seekMs)}\``, inline: true });

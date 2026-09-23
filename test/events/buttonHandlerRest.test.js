@@ -189,8 +189,8 @@ test("대기열 버튼: 비었으면 알리고, 있으면 앞 10곡과 나머지
   await buttonHandler.execute(empty.it);
   assert.deepEqual(empty.log, [["reply", S.ERR_NO_SONGS_IN_QUEUE]]);
 
-  w.player.currentTrack = { title: "지금", url: "now" };
-  w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, url: `u${i}`, duration: 60 }));
+  w.player.currentTrack = { title: "지금", pageUrl: "now" };
+  w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
   const full = press(w, "music_queue:u:S1");
   let payload;
   full.it.reply = async (p) => (payload = p);

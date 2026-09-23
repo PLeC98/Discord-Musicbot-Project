@@ -151,7 +151,7 @@ module.exports = {
     if (result) {
       const embed = new EmbedBuilder()
         .setTitle(`${emoji} ${message}`)
-        .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.url})** ${message}!`)
+        .setDescription(`**[${player.currentTrack.title}](${player.currentTrack.pageUrl})** ${message}!`)
         .setColor(config.bot.embedColor)
         .setTimestamp()
         .addFields({ name: "👤 작업자", value: `${interaction.member}`, inline: true });
@@ -211,7 +211,7 @@ module.exports = {
     if (skipped) {
       const embed = new EmbedBuilder()
         .setTitle("⏭️ 노래 건너뜀")
-        .setDescription(`**[${currentTrack.title}](${currentTrack.url})** 건너뜀!`)
+        .setDescription(`**[${currentTrack.title}](${currentTrack.pageUrl})** 건너뜀!`)
         .setColor(config.bot.embedColor)
         .setTimestamp()
         .addFields({ name: "👤 건너뛴 사람", value: `${interaction.member}`, inline: true });
@@ -282,7 +282,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("⏹️ 음악 중지됨")
-      .setDescription(`${currentTrack ? `**[${currentTrack.title}](${currentTrack.url})**` : "Music"} 중지됨!`)
+      .setDescription(`${currentTrack ? `**[${currentTrack.title}](${currentTrack.pageUrl})**` : "Music"} 중지됨!`)
       .setColor("#FF0000")
       .setTimestamp()
       .addFields({ name: "👤 중지한 사람", value: `${interaction.member}`, inline: true });
@@ -313,7 +313,7 @@ module.exports = {
     if (queueInfo.current) {
       embed.addFields({
         name: "🎵 현재 재생 중",
-        value: `**[${queueInfo.current.title}](${queueInfo.current.url})**`,
+        value: `**[${queueInfo.current.title}](${queueInfo.current.pageUrl})**`,
         inline: false,
       });
     }
