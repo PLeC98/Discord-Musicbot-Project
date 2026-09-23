@@ -15,7 +15,7 @@ const MusicPlayer = require("./src/player/Player");
 const { restoreSavedPlayers } = require("./src/player/sessionRestore");
 const voiceChannelStatus = require("./src/player/voiceChannelStatus");
 const { onVoiceStateUpdate } = require("./src/player/voicePresence");
-const { startBgutilServer, stopBgutilServer, waitForBgutilReady } = require("./src/sources/youtube/potServer");
+const { createPotServer } = require("./src/sources/youtube/potServer");
 const { loadModules } = require("./src/app/moduleLoader");
 const { scheduleReplyCleanup } = require("./src/ui/replyLifetime");
 const PlayerRegistry = require("./src/player/registry");
@@ -56,8 +56,9 @@ async function cleanupAudioCache() {
   }
 }
 
-startBgutilServer();
-// ────────────────────────────────────────────────────────────────────────────
+// 유튜브 POToken 서버. 준비를 확인한 뒤 봇을 켠다(맨 아래)
+const potServer = createPotServer();
+potServer.start();
 
 // uncaughtException 복원력 헬퍼 (분류/표적 자가치유/빈도 가드/안전 종료). src/app/resilience.js
 const { isTransientNetworkError, healBrokenPlayers, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, isDeadInteraction, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX } = require("./src/app/resilience");
@@ -335,7 +336,7 @@ function startBot() {
           }
         }
         client.destroy();
-        stopBgutilServer();
+        potServer.stop();
 
         // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
         // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
@@ -376,4 +377,4 @@ function startBot() {
 }
 
 // bgutil 준비를 확인한 뒤 기동
-waitForBgutilReady().then(startBot);
+potServer.waitReady().then(startBot);
