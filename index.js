@@ -14,7 +14,7 @@ const audioCache = require("./src/store/audioCache");
 const procRegistry = require("./src/infra/processRegistry");
 const { logResolved: logResolvedFfmpeg } = require("./src/media/ffmpeg/path");
 const MusicPlayer = require("./src/player/Player");
-const { resolveGuildForRestore } = require("./src/player/sessionRestore");
+const { restoreSavedPlayers } = require("./src/player/sessionRestore");
 const voiceChannelStatus = require("./src/player/voiceChannelStatus");
 const { onVoiceStateUpdate } = require("./src/player/voicePresence");
 const { loadModules } = require("./src/app/moduleLoader");
@@ -23,7 +23,6 @@ const PlayerRegistry = require("./src/player/registry");
 const { ALLOWED_MENTIONS } = require("./src/ui/mentions");
 const { createFileDestination } = require("./src/infra/log/file");
 const statusConfig = require("./src/config/status");
-const { sessions } = require("./src/store/playerSessions");
 
 // 로그 레벨 적용. config를 읽은 직후. 이보다 앞선 레코드(config 검증 경고 등)는
 // 기본 레벨(info)로 이미 기록됐다. 그것들은 어차피 warn 이상이라 잘려나갈 일이 없다.
@@ -55,71 +54,6 @@ async function cleanupAudioCache() {
     await audioCache.onStartup();
   } catch (error) {
     log.error("오디오 캐시 기동 정리 실패:", error.message);
-  }
-}
-
-async function restoreSavedPlayers(client) {
-  const saved = sessions().loadAll();
-  if (saved.length === 0) return;
-
-  log.info(`저장된 재생 세션 ${saved.length}개를 복원합니다`);
-
-  for (const record of saved) {
-    const { guildId } = record;
-    try {
-      const { guild, gone } = await resolveGuildForRestore(client, guildId);
-
-      if (!guild) {
-        // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
-        if (gone) {
-          log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
-          sessions().removeSession(guildId);
-        }
-        continue;
-      }
-
-      const { voiceChannelId, textChannelId } = record.session;
-
-      if (!voiceChannelId || !textChannelId) {
-        sessions().removeSession(guildId);
-        continue;
-      }
-
-      let voiceChannel = guild.channels.cache.get(voiceChannelId) || null;
-      if (!voiceChannel) {
-        voiceChannel = await guild.channels.fetch(voiceChannelId).catch(() => null);
-      }
-
-      let textChannel = guild.channels.cache.get(textChannelId) || null;
-      if (!textChannel) {
-        textChannel = await guild.channels.fetch(textChannelId).catch(() => null);
-      }
-
-      const isVoiceValid = voiceChannel && typeof voiceChannel.isVoiceBased === "function" && voiceChannel.isVoiceBased();
-      const isTextValid = textChannel && typeof textChannel.isTextBased === "function" && textChannel.isTextBased();
-
-      if (!isVoiceValid || !isTextValid) {
-        log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
-        sessions().removeSession(guildId);
-        continue;
-      }
-
-      const player = new MusicPlayer(guild, textChannel, voiceChannel);
-      client.players.set(guildId, player);
-
-      try {
-        await player.restoreFromState(record);
-        log.info(`서버 ${guild.name}의 세션 복원 완료`);
-      } catch (error) {
-        log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, error.message);
-        client.players.delete(guildId);
-        player.cleanup("세션 복원 실패");
-        sessions().removeSession(guildId);
-      }
-    } catch (error) {
-      log.error(`서버 ID ${guildId} 세션 복원 중 오류:`, error.message);
-      sessions().removeSession(guildId);
-    }
   }
 }
 
@@ -301,7 +235,7 @@ function startBot() {
 
   client.restoreSessions = async function () {
     log.debug("세션 복원 시작");
-    await restoreSavedPlayers(client);
+    await restoreSavedPlayers(client, MusicPlayer);
     // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
     await client.musicEmbedManager?.restorePanels();
     // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록

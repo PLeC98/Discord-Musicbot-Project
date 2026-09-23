@@ -73,9 +73,6 @@
     }
   },
   "index.js": {
-    "complexity": {
-      "count": 1
-    },
     "max-lines-per-function": {
       "count": 1
     },
@@ -312,6 +309,11 @@
   "src/sources/youtube/match.js": {
     "complexity": {
       "count": 2
+    }
+  },
+  "src/player/sessionRestore.js": {
+    "complexity": {
+      "count": 1
     }
   }
 }
