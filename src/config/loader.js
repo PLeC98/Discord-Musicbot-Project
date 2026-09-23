@@ -16,7 +16,8 @@ const path = require("path");
 const YAML = require("yaml");
 const log = require("../infra/log/logger").child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
-const sources = require("../autoplay/sources/index");
+const sources = require("./schema/genreSources");
+const { PROVIDERS } = require("./schema/aiProviders");
 
 // 같은 말을 되풀이하지 않는다. genres()는 곡을 고를 때마다 불린다
 let warnedKeys = "";
@@ -643,7 +644,7 @@ function ai() {
 
 // 목록은 autoplayAssist 가 갖는다(주소·키 필요 여부까지 거기 있다).
 // 여기서 위로 require 하면 순환이다. 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
-const aiProviders = () => require("../autoplay/assist/index").PROVIDERS;
+const aiProviders = () => PROVIDERS;
 
 function validateAi(data) {
   const problems = [];

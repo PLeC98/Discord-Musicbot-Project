@@ -2,8 +2,6 @@
   "direction": [
     "config.js -> src/sources/youtube/clients.js",
     "dashboard/server/routes/admin.js -> src/app/commandLoader.js",
-    "src/config/loader.js -> src/autoplay/assist/index.js",
-    "src/config/loader.js -> src/autoplay/sources/index.js",
     "src/player/Player.js -> src/ui/errorMessages.js",
     "src/player/Player.js -> src/ui/strings.js",
     "src/player/sessionMirror.js -> src/ui/format.js",
@@ -16,28 +14,13 @@
     "src/store/trackLookup.js -> src/sources/youtube/index.js",
     "src/ui/nowPlayingPanel.js -> src/usecases/responders.js"
   ],
-  "cycles": [
-    "config.js -> src/infra/log/logger.js",
-    "config.js -> src/sources/youtube/clients.js",
-    "src/autoplay/assist/index.js -> src/config/loader.js",
-    "src/autoplay/assist/index.js -> src/sources/youtube/index.js",
-    "src/autoplay/sources/index.js -> src/sources/youtube/index.js",
-    "src/config/loader.js -> src/autoplay/assist/index.js",
-    "src/config/loader.js -> src/autoplay/sources/index.js",
-    "src/infra/log/logger.js -> src/infra/log/sink.js",
-    "src/infra/log/sink.js -> config.js",
-    "src/sources/youtube/clients.js -> src/infra/log/logger.js",
-    "src/sources/youtube/index.js -> src/config/loader.js",
-    "src/sources/youtube/index.js -> src/store/trackLookup.js",
-    "src/store/trackLookup.js -> src/sources/youtube/index.js"
-  ],
+  "cycles": ["config.js -> src/infra/log/logger.js", "config.js -> src/sources/youtube/clients.js", "src/infra/log/logger.js -> src/infra/log/sink.js", "src/infra/log/sink.js -> config.js", "src/sources/youtube/clients.js -> src/infra/log/logger.js", "src/sources/youtube/index.js -> src/store/trackLookup.js", "src/store/trackLookup.js -> src/sources/youtube/index.js"],
   "unseen": ["src/app/moduleLoader.js"],
   "lazyRequire": {
     "src/autoplay/assist/index.js": 6,
     "src/autoplay/assist/tokens.js": 2,
     "src/autoplay/route.js": 5,
     "src/autoplay/sources/index.js": 3,
-    "src/config/loader.js": 1,
     "src/infra/log/sink.js": 1,
     "src/player/Player.js": 4,
     "src/player/queueWarmer.js": 4,
