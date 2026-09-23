@@ -1,6 +1,6 @@
 "use strict";
 
-// MusicPlayer.buildFfmpegArgs — ffmpeg 인자 구성의 불변식.
+// media/ffmpeg/args buildFfmpegArgs — ffmpeg 인자 구성의 불변식.
 //
 // 회귀 대상: 오프셋 재생 시 ffmpeg에 URL을 직접 입력하던 것. httpHeaders가 빠지고,
 // 스트리밍 실패 폴백을 건너뛰며, 정적 링크 빌드에서는 SIGSEGV로 죽어 무음이 됐다.
@@ -12,9 +12,9 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-const MusicPlayer = require("../../src/player/Player");
+const { buildFfmpegArgs } = require("../../src/media/ffmpeg/args");
 
-const build = (opts) => MusicPlayer.buildFfmpegArgs(opts);
+const build = (opts) => buildFfmpegArgs(opts);
 const idx = (args, flag) => args.indexOf(flag);
 
 test("스트리밍: 입력은 pipe:0. 부르지 않은 곳에 URL이 새지 않는다", () => {

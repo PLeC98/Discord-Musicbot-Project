@@ -15,6 +15,8 @@ const PlaybackWatch = require("../../src/player/playbackWatch");
 const YouTube = require("../../src/sources/youtube/index");
 const MusicEmbedManager = require("../../src/ui/nowPlayingPanel");
 const { capabilities, _internals } = require("../../src/media/ffmpeg/path");
+const { buildFfmpegArgs } = require("../../src/media/ffmpeg/args");
+const { isHlsStream } = require("../../src/rules/transportOf");
 
 const idx = (args, flag) => args.indexOf(flag);
 
@@ -77,24 +79,24 @@ test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를
 });
 
 test("isHlsStream: m3u8 계열만 참", () => {
-  assert.equal(MusicPlayer.isHlsStream({ protocol: "m3u8_native" }), true);
-  assert.equal(MusicPlayer.isHlsStream({ protocol: "m3u8" }), true);
-  assert.equal(MusicPlayer.isHlsStream({ protocol: "https" }), false);
-  assert.equal(MusicPlayer.isHlsStream({ protocol: "http_dash_segments" }), false);
-  assert.equal(MusicPlayer.isHlsStream({}), false);
-  assert.equal(MusicPlayer.isHlsStream(null), false);
-  assert.equal(MusicPlayer.isHlsStream("https://x/y.m3u8"), false, "문자열 서술자에는 방식 정보가 없다");
+  assert.equal(isHlsStream({ protocol: "m3u8_native" }), true);
+  assert.equal(isHlsStream({ protocol: "m3u8" }), true);
+  assert.equal(isHlsStream({ protocol: "https" }), false);
+  assert.equal(isHlsStream({ protocol: "http_dash_segments" }), false);
+  assert.equal(isHlsStream({}), false);
+  assert.equal(isHlsStream(null), false);
+  assert.equal(isHlsStream("https://x/y.m3u8"), false, "문자열 서술자에는 방식 정보가 없다");
 });
 
 test("URL 입력: 주소는 -i 바로 뒤에 온다", () => {
   const url = "https://manifest.googlevideo.com/api/manifest/hls_playlist/x/index.m3u8";
-  const args = MusicPlayer.buildFfmpegArgs({ url });
+  const args = buildFfmpegArgs({ url });
   assert.equal(args[idx(args, "-i") + 1], url);
   assert.deepEqual(args.slice(-7), ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"]);
 });
 
 test("URL 입력: 잔끊김은 ffmpeg가 먹되 EOF로는 재접속하지 않는다", () => {
-  const args = MusicPlayer.buildFfmpegArgs({ url: "https://x/index.m3u8" });
+  const args = buildFfmpegArgs({ url: "https://x/index.m3u8" });
   for (const flag of ["-reconnect", "-reconnect_streamed", "-reconnect_on_network_error"]) {
     assert.equal(args[idx(args, flag) + 1], "1", `${flag}가 켜져 있어야 함`);
     assert.ok(idx(args, flag) < idx(args, "-i"), `${flag}는 입력 옵션이라 -i 앞이어야 함`);
@@ -105,7 +107,7 @@ test("URL 입력: 잔끊김은 ffmpeg가 먹되 EOF로는 재접속하지 않는
 
 test("URL 입력: -seg_max_retry는 빌드가 아는 경우에만 붙인다", () => {
   // ffmpeg는 모르는 옵션을 치명적 오류로 본다. 없는 빌드에 붙이면 재생이 시작조차 못 한다.
-  const args = MusicPlayer.buildFfmpegArgs({ url: "https://x/index.m3u8" });
+  const args = buildFfmpegArgs({ url: "https://x/index.m3u8" });
   const at = idx(args, "-seg_max_retry");
   if (capabilities().segMaxRetry) {
     assert.ok(at > -1, "아는 빌드에서는 붙어야 함");
@@ -117,19 +119,19 @@ test("URL 입력: -seg_max_retry는 빌드가 아는 경우에만 붙인다", ()
 });
 
 test("URL 입력 + 오프셋: -ss는 -i 앞(입력측). 재생목록은 탐색 가능하다", () => {
-  const args = MusicPlayer.buildFfmpegArgs({ url: "https://x/index.m3u8", seekMs: 30000 });
+  const args = buildFfmpegArgs({ url: "https://x/index.m3u8", seekMs: 30000 });
   assert.ok(idx(args, "-ss") < idx(args, "-i"), args.join(" "));
   assert.equal(args[idx(args, "-ss") + 1], "30.000");
 });
 
 test("URL을 주지 않으면 갈래가 바뀌지 않는다. 파이프가 기본이다", () => {
   for (const opts of [{}, { seekMs: 5000 }, { url: null }, { url: "" }]) {
-    const args = MusicPlayer.buildFfmpegArgs(opts);
+    const args = buildFfmpegArgs(opts);
     assert.equal(args[idx(args, "-i") + 1], "pipe:0", JSON.stringify(opts));
   }
   // 둘을 같이 주면 URL이 이긴다. 다만 "캐시가 있으면 캐시로 튼다"를 정하는 것은 여기가 아니라
   // _play 쪽이다(파일이 잡혀 있으면 URL 갈래를 아예 타지 않는다).
-  const withFile = MusicPlayer.buildFfmpegArgs({ file: "/cache/x.opus", url: "https://x/index.m3u8" });
+  const withFile = buildFfmpegArgs({ file: "/cache/x.opus", url: "https://x/index.m3u8" });
   assert.equal(withFile[idx(withFile, "-i") + 1], "https://x/index.m3u8");
 });
 
