@@ -16,7 +16,7 @@ const { playerClients } = require("./ytdlpRun");
 // 그래서 plugin/ 이 아니라 그 부모인 저장소 루트를 넘긴다.
 const BGUTIL_DIR = path.join(__dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider");
 // 있는지 확인하는 것으로 그치지 않고 yt-dlp의 규칙 그대로 훑는다.
-// 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다. 그 사고가 이미 한 번 났다.
+// 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다.
 function findPluginRoot(dir) {
   let entries;
   try {
@@ -39,12 +39,11 @@ class YouTubeAuth {
   static getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
     const baseOptions = {
       // noWarnings를 켜지 않는다. yt-dlp의 경고에는 우리가 봐야 할 것이 섞여 있다
-      // ("이 클라이언트는 POToken이 필요하다" 등). 평상시 경고량은 0건으로 실측했다
-      // (2026-09-11, 제목조회·스트림URL·검색·실다운로드 13회). ERROR는 원래 이 옵션과 무관하다.
+      // ("이 클라이언트는 POToken이 필요하다" 등). ERROR는 원래 이 옵션과 무관하다.
       retries: 3,
       fragmentRetries: 3,
       // 재생과 같은 ffmpeg를 쓰게 한다. 지정하지 않으면 yt-dlp가 PATH에서 제멋대로 찾아
-      // 재생(ffmpegPath 해석기)과 캐시 변환이 서로 다른 바이너리를 쓰게 된다. 실제로 그래왔다.
+      // 재생(ffmpegPath 해석기)과 캐시 변환이 서로 다른 바이너리를 쓰게 된다.
       ffmpegLocation: ffmpegPath(),
       jsRuntimes: `node:${process.execPath}`,
       // User-Agent를 우리가 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 골라 주고, 그 값이
@@ -55,8 +54,8 @@ class YouTubeAuth {
 
     // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
     // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다.
-    //    "player_client=ios 강제" 폴백은 금지. ios는 자체 POT 없이 포맷을 안 주고
-    //    bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다.
+    //   "player_client=ios 강제" 폴백은 금지. ios는 자체 POT 없이 포맷을 안 주고
+    //   bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다.
     if (forceCookies) {
       if (config.ytdlp.cookiesFromBrowser) {
         baseOptions.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
