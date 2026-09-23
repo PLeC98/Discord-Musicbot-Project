@@ -59,20 +59,32 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
 
   for (const url of unsupported) {
     assert.equal(links.isYouTubeURL(url), false, url);
-    assert.equal(lookup.isUnsupportedYouTubeLink(url), true, url);
+    assert.equal(lookup.isUnsupportedLink(url), true, url);
 
     const result = await lookup.getTrackData(url);
     assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
     assert.match(result.message, /유튜브 주소/);
   }
 
-  // 유튜브가 아닌 검색어는 그대로 검색으로 간다
-  assert.equal(lookup.isUnsupportedYouTubeLink("아이유 밤편지"), false);
-  assert.equal(lookup.isUnsupportedYouTubeLink("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), false);
+  // 검색어는 그대로 검색으로 간다
+  assert.equal(lookup.isUnsupportedLink("아이유 밤편지"), false);
+  assert.equal(lookup.isUnsupportedLink("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), false);
 });
 
 test("cache normalization only canonicalizes genuine YouTube URLs", () => {
   const disguised = "https://evil.example/youtube.com/watch?v=dQw4w9WgXcQ";
   assert.equal(trackLookup._normalizeSourceUrl(disguised), disguised);
   assert.equal(trackLookup._normalizeSourceUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+});
+
+// 유튜브가 아닌 사이트도 같다. 주소 글자를 검색어로 쓰면 엉뚱한 곡이 나오고, 장부가 맞으면 엉뚱한 캐시 곡이 나온다
+test("모르는 사이트의 링크도 거절하고, 캐시 장부를 보지 않는다", async () => {
+  for (const url of ["https://anilist.co/anime/21827", "https://chzzk.naver.com/live/abc", "http://example.com/page"]) {
+    assert.equal(lookup.isUnsupportedLink(url), true, url);
+    const result = await lookup.resolveQuery(url, "test");
+    assert.equal(result.success, false, url);
+    assert.equal(result.message, "❌ 지원하지 않는 링크입니다.", url);
+  }
+  assert.equal(lookup.isUnsupportedLink("spotify:track:abc"), false, "스포티파이 URI 는 링크 모양이 달라도 다룬다");
+  assert.equal(lookup.isUnsupportedLink("https://cdn.example.com/a.mp3"), false, "직접 링크");
 });

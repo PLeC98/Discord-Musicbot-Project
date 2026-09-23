@@ -55,19 +55,19 @@ const ytTrack = (id, extra = {}) => ({ id, title: `곡 ${id}`, artist: "가수",
 
 // ── 링크 종류 ─────────────────────────────────────────────────────────
 
-test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · 직접 링크, 모르는 것은 유튜브(검색)", () => {
+test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · 직접 링크, 검색어는 유튜브(검색), 모르는 링크는 unknown", () => {
   const cases = [
     ["https://youtu.be/aaaaaaaaaaa", "youtube"],
     ["https://open.spotify.com/track/abc", "spotify"],
     ["spotify:album:abc", "spotify"],
     ["https://soundcloud.com/a/b", "soundcloud"],
     ["https://files.test/a.mp3", "direct"],
-    ["https://anilist.co/anime/1", "youtube"],
+    ["https://anilist.co/anime/1", "unknown"],
     ["그냥 검색어", "youtube"],
   ];
   for (const [q, want] of cases) assert.equal(lookup.detectPlatform(q), want, q);
-  assert.equal(lookup.isUnsupportedYouTubeLink("https://www.youtube.com/@channel"), true);
-  assert.equal(lookup.isUnsupportedYouTubeLink("https://www.youtube.com/watch?v=aaaaaaaaaaa"), false);
+  assert.equal(lookup.isUnsupportedLink("https://www.youtube.com/@channel"), true);
+  assert.equal(lookup.isUnsupportedLink("https://www.youtube.com/watch?v=aaaaaaaaaaa"), false);
 });
 
 // ── 조회 ──────────────────────────────────────────────────────────────

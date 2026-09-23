@@ -120,4 +120,17 @@ function isDirectAudioLink(url) {
   }
 }
 
-module.exports = { parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, createThumbnailUrl, createVideoUrl, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
+// ── 링크인가 ──
+
+/** http · https 주소인가. 링크가 아닌 글(검색어)과 가른다 */
+function isHttpLink(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const { protocol } = new URL(value.trim());
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+module.exports = { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, createThumbnailUrl, createVideoUrl, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };

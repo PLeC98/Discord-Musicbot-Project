@@ -22,8 +22,10 @@ test("inputKind: 사이트 호스트를 먼저 보고 확장자는 마지막에 
     ["https://www.youtube.com/clip/abc", "unknown"],
     ["https://www.youtube.com/x.mp3", "direct"],
     ["https://anilist.co/anime/1", "unknown"],
-    ["그냥 검색어", "unknown"],
-    [undefined, "unknown"],
+    ["http://example.com/page", "unknown"],
+    ["그냥 검색어", "search"],
+    ["youtube.com/watch?v=abcdefghijk", "search"], // 주소처럼 생겨도 http(s) 가 없으면 검색어다
+    [undefined, "search"],
   ];
   for (const [input, want] of cases) assert.equal(inputKind(input), want, String(input));
 });
