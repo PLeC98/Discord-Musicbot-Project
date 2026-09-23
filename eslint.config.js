@@ -53,6 +53,8 @@ module.exports = [
       "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true }],
       // 제어문자 매칭은 이 코드베이스의 정당한 용례 (ANSI 이스케이프 제거, 입력 정규화 방어)
       "no-control-regex": "off",
+      // 같은 범위에서 선언보다 먼저 쓰면 불러오는 순간 던진다(TDZ). 안쪽 함수가 뒤에 선언된 것을 가리키는 것은 괜찮다
+      "no-use-before-define": ["error", { functions: false, classes: false, variables: false }],
     },
   },
 
