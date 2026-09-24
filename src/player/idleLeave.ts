@@ -9,6 +9,7 @@ import config from "../../config.ts";
 import * as trackState from "./trackState.ts";
 import * as playerEvents from "./events.ts";
 import type { MusicPlayer } from "./Player.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 class IdleLeave {
   player: MusicPlayer;
@@ -112,7 +113,7 @@ class IdleLeave {
       player.cleanup(reason);
       player.guild.client.players.delete(player.guild.id);
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      playerEvents.ended(player, "disconnected").catch(() => {});
+      bestEffort(log, playerEvents.ended(player, "disconnected"), "끝난 패널 고치기");
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 

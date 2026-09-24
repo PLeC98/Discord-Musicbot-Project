@@ -3,6 +3,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
 import type { MusicPlayer } from "./Player.ts";
 import type { SkipSegment } from "../sources/sponsorBlock.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 칸 */
 type SkipHost = Pick<MusicPlayer, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor">;
@@ -63,7 +64,7 @@ class SponsorSkipper {
   _start() {
     if (this._interval) return;
     this._interval = setInterval(() => {
-      this._tick().catch(() => {});
+      bestEffort(log, this._tick(), "건너뛸 구간 보기");
     }, TICK_MS);
     if (this._interval.unref) this._interval.unref();
   }
@@ -96,7 +97,7 @@ class SponsorSkipper {
     } else if (d.action === "seek") {
       log.info(`${p.currentTrack?.title ?? ""}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
-      p.play(Math.round(d.toSec * 1000)).catch(() => {});
+      bestEffort(log, p.play(Math.round(d.toSec * 1000)), "구간 건너뛰기");
     }
   }
 }

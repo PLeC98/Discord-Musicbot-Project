@@ -6,6 +6,7 @@ import * as autoplayRoute from "../autoplay/route.ts";
 import * as trackState from "./trackState.ts";
 import type { Tracks } from "./trackState.ts";
 import type { QueuedTrack } from "./track.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 /** 예열이 읽는 플레이어 칸. 뺀 자리를 메울 때 자동재생을 부른다 */
 type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string } | null; ensureAutoplayNext?(): Promise<unknown> };
@@ -152,7 +153,7 @@ class QueueWarmer {
     log.info(`자동재생 곡을 뺍니다(영상 없음): "${track.title}". 다른 곡을 고릅니다`);
 
     // 뺀 자리를 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
-    this.player.ensureAutoplayNext?.().catch(() => {});
+    if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 자리의 자동재생 곡 뽑기");
     return true;
   }
 

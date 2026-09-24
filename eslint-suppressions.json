@@ -101,17 +101,6 @@
     },
     "max-statements": {
       "count": 1
-    },
-    "no-empty": {
-      "count": 1
-    },
-    "no-empty-function": {
-      "count": 6
-    }
-  },
-  "src/player/idleLeave.ts": {
-    "no-empty-function": {
-      "count": 1
     }
   },
   "src/ui/panelLocation.ts": {
@@ -119,27 +108,14 @@
       "count": 2
     }
   },
-  "src/player/queueWarmer.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
   "src/player/sessionMirror.ts": {
     "complexity": {
-      "count": 1
-    },
-    "no-empty-function": {
       "count": 1
     }
   },
   "src/sources/soundcloud.ts": {
     "max-depth": {
       "count": 1
-    }
-  },
-  "src/player/sponsorSkipper.ts": {
-    "no-empty-function": {
-      "count": 2
     }
   },
   "src/sources/spotify.ts": {

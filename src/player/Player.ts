@@ -53,6 +53,7 @@ import { buildFfmpegArgs } from "../media/ffmpeg/args.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 // 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
@@ -211,7 +212,7 @@ class MusicPlayer {
       this.paused = false;
       if (this.currentTrack) {
         const { playingPrefix } = config.voiceStatus;
-        this.updateVoiceStatus(`${playingPrefix}${this.currentTrack.title}`).catch(() => {});
+        bestEffort(log, this.updateVoiceStatus(`${playingPrefix}${this.currentTrack.title}`), "음성 채널 상태 바꾸기");
       }
     });
 
@@ -219,7 +220,7 @@ class MusicPlayer {
       this.paused = true;
       if (this.currentTrack) {
         const { pausedPrefix } = config.voiceStatus;
-        this.updateVoiceStatus(`${pausedPrefix}${this.currentTrack.title}`).catch(() => {});
+        bestEffort(log, this.updateVoiceStatus(`${pausedPrefix}${this.currentTrack.title}`), "음성 채널 상태 바꾸기");
       }
     });
 
@@ -588,7 +589,7 @@ class MusicPlayer {
   async dispose({ reason, keepSession = false, keepPanel = false }: { reason: string; keepSession?: boolean; keepPanel?: boolean }) {
     this.lifecycle.to("disposed", reason);
     try {
-      this.updateVoiceStatus("").catch(() => {});
+      bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
       if (keepSession) await this.persistState("leave", true);
       else this.persistence?.removeSession();
 
@@ -755,7 +756,7 @@ class MusicPlayer {
     if (changed) {
       const dropped = trackState.dropAutoplay(this);
       if (dropped > 0) clog.info(`미리 뽑아 둔 자동재생 곡 ${dropped}곡을 대기열에서 뺐습니다`);
-      if (next) this.ensureAutoplayNext().catch(() => {});
+      if (next) bestEffort(log, this.ensureAutoplayNext(), "자동재생 곡 미리 뽑기");
     }
 
     this.scheduleStatePersist("autoplay", 200);
@@ -921,7 +922,7 @@ class MusicPlayer {
       // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다
       trackState.reset(this, { history: true });
 
-      this.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
+      bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
 
       await playerEvents.ended(this, "queue-end");
 
@@ -1048,7 +1049,7 @@ class MusicPlayer {
         added++;
       }
 
-      if (added) await playerEvents.refresh(this).catch(() => {});
+      if (added) await bestEffort(log, playerEvents.refresh(this), "패널 고치기");
       return added > 0;
     } finally {
       this._autoplayPicking = false;
@@ -1103,7 +1104,9 @@ class MusicPlayer {
       // 여기서 textChannel로 또 보내면 중복이 되므로 전송하지 않는다.
       try {
         this.audioPlayer.stop(true);
-      } catch (_) {}
+      } catch {
+        /* 이미 멈춘 플레이어다 */
+      }
     }
   }
 

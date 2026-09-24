@@ -9,6 +9,7 @@ import { messageOf } from "../rules/errorKind.ts";
 import type { MusicPlayer } from "./Player.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/playerSessions.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 const HEARTBEAT_MS = 5000;
 
@@ -199,7 +200,7 @@ class SessionPersistence {
     this.saveTimer = setTimeout(
       () => {
         this.saveTimer = null;
-        this.persistState(reason).catch(() => {});
+        bestEffort(log, this.persistState(reason), "세션 저장");
       },
       Math.max(delay, 0),
     );
