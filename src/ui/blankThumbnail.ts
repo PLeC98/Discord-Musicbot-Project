@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 썸네일 자리를 채우는 투명 PNG. CV2 섹션은 액세서리가 있어야 하고, 없으면 레이아웃이 달라진다.
 // 메시지에 첨부하고 attachment://로 가리킨다. 파일로 두지 않고 처음 쓸 때 만든다.
 
@@ -13,13 +12,13 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   return c >>> 0;
 });
 
-function crc32(buf) {
+function crc32(buf: Buffer) {
   let c = 0xffffffff;
   for (const byte of buf) c = CRC_TABLE[(c ^ byte) & 0xff] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 
-function chunk(type, data) {
+function chunk(type: string, data: Buffer) {
   const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
   const len = Buffer.alloc(4);
   len.writeUInt32BE(data.length);
@@ -28,7 +27,7 @@ function chunk(type, data) {
   return Buffer.concat([len, body, crc]);
 }
 
-function png(size) {
+function png(size: number) {
   const header = Buffer.alloc(13);
   header.writeUInt32BE(size, 0);
   header.writeUInt32BE(size, 4);
@@ -38,7 +37,7 @@ function png(size) {
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", header), chunk("IDAT", zlib.deflateSync(pixels)), chunk("IEND", Buffer.alloc(0))]);
 }
 
-let cached = null;
+let cached: Buffer | null = null;
 
 const exported = {
   url: `attachment://${NAME}`,

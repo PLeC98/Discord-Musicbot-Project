@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * 곡이 어디서 왔는지. 이름표와 이모지 하나를 디스코드 임베드와 슬래시 명령이 같이 본다.
  *
@@ -8,7 +7,7 @@
  * 점 색은 대시보드 테마에 달린 값이라 ServerView.vue 의 PLATFORM_COLORS 에 있다.
  * 브라우저가 src/ 를 못 읽어서 어쩔 수 없다.
  */
-const PLATFORM_NAMES = {
+const PLATFORM_NAMES: Record<string, string> = {
   youtube: "YouTube",
   spotify: "Spotify",
   soundcloud: "SoundCloud",
@@ -24,7 +23,7 @@ const PLATFORM_NAMES = {
 
 // 앞의 넷은 사용자가 직접 넣는 경로, 나머지는 자동재생이 출처에서 받아 온 곡들이다
 // (소리는 유튜브나 그쪽 음원에서 온다).
-const PLATFORM_EMOJI = {
+const PLATFORM_EMOJI: Record<string, string> = {
   youtube: "🔴",
   spotify: "🟢",
   soundcloud: "🟠",
@@ -39,14 +38,14 @@ const PLATFORM_EMOJI = {
 };
 
 /** 모르는 값은 첫 글자만 대문자로 올린다. */
-function labelOf(platform) {
+function labelOf(platform: string | null | undefined) {
   if (!platform) return "-";
   return PLATFORM_NAMES[platform] || platform.charAt(0).toUpperCase() + platform.slice(1);
 }
 
 /** 모르는 값은 음표. 빈 자리로 두면 줄이 어긋나 보인다. */
-function emojiOf(platform) {
-  return PLATFORM_EMOJI[platform] || "🎵";
+function emojiOf(platform: string | null | undefined) {
+  return (platform && PLATFORM_EMOJI[platform]) || "🎵";
 }
 
 const exported = { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf };

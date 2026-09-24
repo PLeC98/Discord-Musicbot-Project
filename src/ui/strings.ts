@@ -1,18 +1,17 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 여러 파일에서 공유되는 공통 한국어 문자열
 // 파일별 문자열은 각 파일에 인라인으로 하드코딩
 
 // 오류 문자열의 ❌ 접두 규약. 출처(strings · ErrorHandler · sources/lookup)마다 접두 유무가 달라
 // 표시 지점에서 반드시 정규화한다. 디스코드는 정확히 하나, 대시보드 JSON은 없음.
-const withErrorMark = (msg) => {
+const withErrorMark = (msg: unknown) => {
   const text = String(msg ?? "");
   return text.trimStart().startsWith("❌") ? text : `❌ ${text}`;
 };
-const withoutErrorMark = (msg) => String(msg ?? "").replace(/^\s*❌\s*/, "");
+const withoutErrorMark = (msg: unknown) => String(msg ?? "").replace(/^\s*❌\s*/, "");
 
 // 여러 곡을 한 번에 담은 출처의 표시 이름 (sources/lookup 의 collection 값). 모르면 재생목록
-const COLLECTION_LABELS = { playlist: "재생목록", album: "앨범", artist: "아티스트 인기곡" };
-const collectionLabel = (collection) => COLLECTION_LABELS[collection] || COLLECTION_LABELS.playlist;
+const COLLECTION_LABELS: Record<string, string> = { playlist: "재생목록", album: "앨범", artist: "아티스트 인기곡" };
+const collectionLabel = (collection: string | null | undefined) => (collection && COLLECTION_LABELS[collection]) || "재생목록";
 
 const exported = {
   withErrorMark,

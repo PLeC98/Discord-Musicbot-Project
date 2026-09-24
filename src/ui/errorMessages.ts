@@ -1,8 +1,7 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "error" });
-import { errorKind } from "../rules/errorKind.ts";
-const ERROR_MESSAGES = {
+import { errorKind, messageOf } from "../rules/errorKind.ts";
+const ERROR_MESSAGES: Record<string, string> = {
   "bot-check": "❌ **YouTube가 이 요청을 차단했습니다 (봇 감지)**\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** bgutil-ytdlp-pot-provider를 설치하거나, `.env` 파일에 `COOKIES_SOURCE=chrome` (또는 firefox/edge)를 추가하세요.",
   // 운영자가 쿠키를 일부러 안 걸어 둔 것일 수 있다. 사용자에게 설정 방법을 늘어놓지 않는다
   "age-restricted": "❌ 연령 제한 영상은 재생할 수 없어요.",
@@ -25,23 +24,24 @@ const ERROR_MESSAGES = {
  *   await interaction.editReply({ content: msg });
  */
 // play() 가 곡을 못 틀었을 때(code). 오류로 못 튼 것은 오류 종류로 안내한다
-const PLAY_FAILURE = {
+const PLAY_FAILURE: Record<string, string> = {
   "queue-empty": "대기열에 트랙이 없습니다!",
   "voice-failed": "음성 채널에 연결하지 못했습니다!",
 };
 
+// 실패 결과. 여기서 읽는 칸만
+type Failure = { code?: string; error?: unknown } | null | undefined;
+
 class ErrorHandler {
   // 종류는 rules/errorKind 가 가른다
-  static classify(error) {
+  static classify(error: unknown) {
     return errorKind(error);
   }
 
   /**
    * 수정 지침을 포함한 사용자 표시용 한국어 오류 메시지를 반환
-   * @param {Error|string} error
-   * @returns {string}
    */
-  static getMessage(error) {
+  static getMessage(error: unknown) {
     const category = this.classify(error);
     return ERROR_MESSAGES[category] || ERROR_MESSAGES.unknown;
   }
@@ -54,19 +54,19 @@ class ErrorHandler {
    * @returns {string}
    */
   /** play() 의 실패 결과({ ok: false, code, error })를 사용자 문장으로 */
-  static playFailure(result) {
-    return PLAY_FAILURE[result?.code] ?? (result?.error ? this.getMessage(result.error) : "재생을 시작할 수 없습니다.");
+  static playFailure(result: Failure) {
+    return (result?.code && PLAY_FAILURE[result.code]) || (result?.error ? this.getMessage(result.error) : "재생을 시작할 수 없습니다.");
   }
 
   /** 곡 찾기 실패({ code, error? }) → 안내문 */
-  static lookupFailure(result) {
+  static lookupFailure(result: Failure) {
     return result?.code === "no-result" ? "❌ 결과를 찾을 수 없습니다!" : this.getMessage(result?.error);
   }
 
-  static handle(error, context = "") {
+  static handle(error: unknown, context = "") {
     const category = this.classify(error);
     // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
-    log.error({ sub: context || undefined, kind: category }, `${error?.message || error}`);
+    log.error({ sub: context || undefined, kind: category }, messageOf(error));
     return this.getMessage(error);
   }
 }

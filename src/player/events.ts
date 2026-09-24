@@ -15,13 +15,21 @@ import type { MusicPlayer } from "./Player.ts";
 
 /** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
 type Requester = { id: string; username?: string };
+/** 글자 채널에 알릴 일과 그 세부 */
+type Notices = {
+  "autoplay-unknown-genre": { genre: string };
+  "autoplay-gave-up": { genre: string };
+  "skipped-after-error": { error: unknown };
+  restored: { title: string; atSec: number; paused: boolean };
+};
+type NoticeCode = keyof Notices;
 /** 알림마다 넘기는 것 */
 type EventArgs = {
   refresh: [player: MusicPlayer];
   ended: [player: MusicPlayer, reason: string];
   started: [player: MusicPlayer, requester: Requester];
   released: [player: MusicPlayer, textChannelId: string];
-  notice: [player: MusicPlayer, code: string, detail: Record<string, unknown>];
+  notice: [player: MusicPlayer, code: NoticeCode, detail: Notices[NoticeCode]];
   touched: [guildId: string];
 };
 type Listener<K extends keyof EventArgs> = (...args: EventArgs[K]) => unknown;
@@ -44,7 +52,7 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
 const refresh = (player: MusicPlayer) => emit("refresh", player);
 const ended = (player: MusicPlayer, reason: string) => emit("ended", player, reason);
 const started = (player: MusicPlayer, requester: Requester) => emit("started", player, requester);
-const notice = (player: MusicPlayer, code: string, detail: Record<string, unknown> = {}) => emit("notice", player, code, detail);
+const notice = <C extends NoticeCode>(player: MusicPlayer, code: C, detail: Notices[C]) => emit("notice", player, code, detail);
 
 function released(player: MusicPlayer, textChannelId: string) {
   for (const fn of listeners.released) fn(player, textChannelId);
@@ -66,4 +74,5 @@ function _reset() {
 }
 
 export { on, refresh, ended, started, notice, released, touched, _reset };
+export type { Notices, NoticeCode };
 export type { EventArgs, Requester };

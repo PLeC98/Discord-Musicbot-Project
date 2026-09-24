@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 본인에게만 보이는 응답을 얼마 뒤 지울지. 한 곳에서 정한다(2026-09-16). 쓰면서 불편하면 이 표만 고친다.
 //   거절·오류("재생 중인 음악이 없습니다", 권한 부족, 입력 오류)와 조작 결과(일시정지·스킵·볼륨 …) → 기본값
 //   읽는 화면과, 조작하는 동안 떠 있어야 하는 설정·선택 화면 → null(지우지 않는다. 사용자가 닫는다)
@@ -9,8 +8,19 @@
 
 const DEFAULT_MS = 10_000;
 
+// 응답을 낸 상호작용. 여기서 읽고 부르는 칸만
+type Replied = {
+  isChatInputCommand?(): boolean;
+  commandName?: string;
+  customId?: string;
+  replied: boolean;
+  deferred: boolean;
+  ephemeral: boolean | null;
+  deleteReply(): Promise<unknown>;
+};
+
 // 슬래시 명령. 이름으로
-const COMMANDS = {
+const COMMANDS: Record<string, number | null> = {
   leave: 30_000, // 저장된 위치·대기열을 알려 준다
   queue: null,
   nowplaying: null,
@@ -25,7 +35,7 @@ const COMMANDS = {
 };
 
 // 버튼·메뉴·모달. custom_id의 ":" 앞
-const COMPONENTS = {
+const COMPONENTS: Record<string, number | null> = {
   music_queue: null, // 대기열 보기
   help_refresh: null,
   system_refresh: null,
@@ -34,9 +44,9 @@ const COMPONENTS = {
 // 상호작용 토큰은 15분 뒤 죽는다. 그보다 긴 수명은 지울 수 없다
 const TOKEN_MS = 15 * 60_000;
 
-const scheduled = new WeakSet();
-const kept = new WeakSet(); // 핸들러가 "이건 두라"고 선언한 응답
-const expiring = new WeakMap(); // 핸들러가 "이건 지워라"고 선언한 응답 → 수명(ms)
+const scheduled = new WeakSet<object>();
+const kept = new WeakSet<object>(); // 핸들러가 "이건 두라"고 선언한 응답
+const expiring = new WeakMap<object, number>(); // 핸들러가 "이건 지워라"고 선언한 응답 → 수명(ms)
 
 /**
  * 이 응답은 지우지 않는다. 핸들러가 직접 선언한다.
@@ -44,7 +54,7 @@ const expiring = new WeakMap(); // 핸들러가 "이건 지워라"고 선언한 
  * 표는 "무엇을 눌렀나"만 알고 "무엇을 했나"는 모른다. 자동재생 버튼처럼 한 customId가 분기마다
  * 다른 화면을 내면(끄기=결과, 켜기=선택 메뉴) 표로는 가를 수 없다.
  */
-function keepReply(interaction) {
+function keepReply(interaction: object | null | undefined) {
   if (interaction) kept.add(interaction);
 }
 
@@ -54,21 +64,22 @@ function keepReply(interaction) {
  * update()로 답하면 discord.js가 ephemeral을 기록하지 않아 정리에서 빠진다. 설정 화면을 지키려는
  * 규칙이라 그대로 두되, 선택 메뉴를 결과로 덮은 경우처럼 지워야 하는 자리는 핸들러가 말한다.
  */
-function expireReply(interaction, ms = DEFAULT_MS) {
+function expireReply(interaction: object | null | undefined, ms = DEFAULT_MS) {
   if (interaction) expiring.set(interaction, ms);
 }
 
-function lifetimeOf(interaction) {
+function lifetimeOf(interaction: Omit<Replied, "replied" | "deferred" | "ephemeral" | "deleteReply">): number | null {
   if (kept.has(interaction)) return null;
-  if (expiring.has(interaction)) return expiring.get(interaction);
+  const expires = expiring.get(interaction);
+  if (expires !== undefined) return expires;
   const command = interaction.isChatInputCommand?.();
   const table = command ? COMMANDS : COMPONENTS;
-  const key = command ? interaction.commandName : String(interaction.customId ?? "").split(":")[0];
-  return Object.hasOwn(table, key) ? table[key] : DEFAULT_MS;
+  const key = (command ? interaction.commandName : String(interaction.customId ?? "").split(":")[0]) ?? "";
+  return Object.hasOwn(table, key) ? (table[key] ?? null) : DEFAULT_MS;
 }
 
 /** 핸들러가 끝난 뒤 부른다. 본인에게만 보이는 첫 응답이면 표에 따라 지우기를 예약한다. 여러 번 불려도 한 번만. */
-function scheduleReplyCleanup(interaction) {
+function scheduleReplyCleanup(interaction: Replied | null | undefined) {
   if (!interaction || scheduled.has(interaction)) return;
   if (!(interaction.replied || interaction.deferred)) return;
   if (!interaction.ephemeral && !expiring.has(interaction)) return;

@@ -1,11 +1,10 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 조작(usecases/controls)이 거절한 까닭(code)을 사람이 읽을 문장으로. 디스코드는 문장 그대로,
 // 대시보드는 ❌ 를 뗀 문장과 HTTP 상태 코드로 쓴다. 권한 거절은 권한 판정이 만든 안내(message)를 쓴다.
 
 import S from "./strings.ts";
 
 // 1:05 · 1:02:05
-function formatMs(ms) {
+function formatMs(ms: number) {
   const total = Math.floor(ms / 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
@@ -13,7 +12,10 @@ function formatMs(ms) {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
-const TEXT = {
+// 거절 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message 를 싣는다
+type Refusal = { code: string; message?: string; durationMs?: number; size?: number };
+
+const TEXT: Record<string, (r: Refusal) => string> = {
   "no-player": () => S.ERR_NO_MUSIC,
   "no-track": () => S.ERR_NO_SONG_PLAYING,
   failed: () => "❌ 작업이 실패했습니다!",
@@ -24,7 +26,7 @@ const TEXT = {
   "no-previous": () => "❌ 이전 노래가 없습니다!",
   "live-no-seek": () => S.ERR_LIVE_NO_SEEK,
   starting: () => "❌ 재생을 준비 중입니다. 잠시 후 다시 시도해 주세요.",
-  "beyond-end": ({ durationMs }) => `❌ 입력한 시간이 곡 길이를 초과합니다. (최대: ${formatMs(durationMs)})`,
+  "beyond-end": ({ durationMs }) => `❌ 입력한 시간이 곡 길이를 초과합니다. (최대: ${durationMs === undefined ? "?" : formatMs(durationMs)})`,
   "no-highlight": () => "❌ 이 곡에는 SponsorBlock 하이라이트 지점이 없어요.",
   "bad-volume": () => "❌ 볼륨은 0에서 100 사이의 숫자여야 합니다!",
   "bad-loop-mode": () => "❌ 반복 모드가 올바르지 않습니다.",
@@ -37,16 +39,16 @@ const TEXT = {
 };
 
 // 대시보드의 HTTP 상태. 입력이 틀린 것은 400, 권한은 403, 지금 상태로는 못 하는 것은 409
-const STATUS = { "no-permission": 403, "beyond-end": 400, "bad-volume": 400, "bad-loop-mode": 400, "bad-position": 400, "same-position": 400 };
+const STATUS: Record<string, number> = { "no-permission": 403, "beyond-end": 400, "bad-volume": 400, "bad-loop-mode": 400, "bad-position": 400, "same-position": 400 };
 
 /** 거절 결과({ ok: false, code, message? })를 디스코드에 보일 문장으로 */
-function controlMessage(result) {
-  if (result.code === "no-permission") return result.message;
+function controlMessage(result: Refusal) {
+  if (result.code === "no-permission" && result.message) return result.message;
   return TEXT[result.code]?.(result) ?? "❌ 작업이 실패했습니다!";
 }
 
 /** 거절 결과를 대시보드 응답으로 { status, error } */
-function controlApiError(result) {
+function controlApiError(result: Refusal) {
   return { status: STATUS[result.code] ?? 409, error: S.withoutErrorMark(controlMessage(result)) };
 }
 

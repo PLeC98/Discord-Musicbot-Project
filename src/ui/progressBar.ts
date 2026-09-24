@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 진행 막대. 재생 패널과 /nowplaying 이 같은 모양을 쓴다.
 
 import format from "./format.ts";
@@ -7,7 +6,7 @@ const { formatDuration } = format;
 const BAR_LENGTH = 16;
 
 /** `1:30` ▬▬▬●▬▬ `3:20`. 길이를 모르면 손잡이를 맨 앞에, 라이브는 끝이 없어 표식만 */
-function progressBar(currentSec, totalSec, { live = false } = {}) {
+function progressBar(currentSec: number, totalSec: number, { live = false } = {}) {
   // 라이브에는 끝이 없다. 어디쯤인지 찍을 지점도, 표시할 길이도 없다.
   // 경과 시간 자리는 비워 두는 대신 표식을 넣는다. 그 값은 곡 안의 위치가 아니라
   // "우리가 붙어 있은 시간"이라, 옆의 `--:--`과 나란히 두면 진행률처럼 읽힌다.

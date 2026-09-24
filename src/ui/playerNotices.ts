@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 플레이어가 알린 일(notice)을 그 서버의 글자 채널에 문장으로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
 
 import ErrorHandler from "./errorMessages.ts";
@@ -8,9 +7,11 @@ import mentions from "./mentions.ts";
 const { escapeMd } = mentions;
 import transientMessages from "./transientMessages.ts";
 const { scheduleDelete } = transientMessages;
+import type { MusicPlayer } from "../player/Player.ts";
+import type { Notices, NoticeCode } from "../player/events.ts";
 
 // 코드 → 문장. 세부(detail)는 알린 쪽이 준 것
-const TEXT = {
+const TEXT: { [C in NoticeCode]: (detail: Notices[C]) => string } = {
   // 장르 목록이 바뀌기 전에 저장된 세션 등
   "autoplay-unknown-genre": ({ genre }) => `❌ 자동재생 장르 \`${genre}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`,
   "autoplay-gave-up": ({ genre }) => `⏹️ \`${genre}\` 장르에서 틀 만한 곡을 찾지 못해 자동재생을 껐습니다.`,
@@ -26,7 +27,7 @@ const TEXT = {
 // 잠깐 보이고 지우는 알림
 const SHORT_LIVED = new Set(["restored"]);
 
-async function sendNotice(player, code, detail = {}) {
+async function sendNotice<C extends NoticeCode>(player: Pick<MusicPlayer, "textChannel">, code: C, detail: Notices[C]) {
   const text = TEXT[code]?.(detail);
   if (!text || typeof player.textChannel?.send !== "function") return;
   const sent = await player.textChannel.send(SHORT_LIVED.has(code) ? { content: text } : text);
