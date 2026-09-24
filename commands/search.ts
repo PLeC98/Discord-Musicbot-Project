@@ -4,7 +4,7 @@ import * as YouTube from "../src/sources/youtube/index.ts";
 import * as S from "../src/ui/strings.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
+import type { ChatInputCommandInteraction, Client, GuildMember } from "discord.js";
 import type { TrackInfo } from "../src/player/track.ts";
 
 async function validateRequest(member: GuildMember) {
@@ -112,7 +112,10 @@ function formatDuration(seconds: number | null | undefined, unknownLabel = "알 
   }
 }
 
-const exported: GuildCommand = {
+/** 유튜브 검색. 생략하면 진짜(시험이 가짜를 넘긴다) */
+type SearchDeps = { search?: (query: string, limit: number) => Promise<TrackInfo[]> };
+
+const exported: GuildCommand & { execute(interaction: ChatInputCommandInteraction<"cached">, client: Client<true>, deps?: SearchDeps): unknown } = {
   data: new SlashCommandBuilder()
     .setName("search")
     .setDescription("Search and select music on YouTube")
@@ -129,8 +132,7 @@ const exported: GuildCommand = {
         .setRequired(true),
     ),
 
-  // search: 유튜브 검색. 생략하면 진짜(시험이 가짜를 넘긴다)
-  async execute(interaction, _client, { search = (query: string, limit: number) => YouTube.search(query, limit) }: { search?: (query: string, limit: number) => Promise<TrackInfo[]> } = {}) {
+  async execute(interaction: ChatInputCommandInteraction<"cached">, _client: Client<true>, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
     const query = interaction.options.getString("query", true);
     const member = interaction.member;
 
