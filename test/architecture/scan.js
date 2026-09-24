@@ -8,7 +8,8 @@
 // 글자가 아닌 경로(명령 · 이벤트 불러오기)는 따로 목록으로 둔다.
 // config 꺼내 두기: 루트 config.js 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
 // 모듈 바꿔 끼우기: 테스트의 require.cache.
-// 메서드 바꿔 끼우기: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나 mock.method 로 덮는 파일.
+// 메서드 바꿔 끼우기: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = … · x[k] = …) mock.method 로 덮거나,
+// 받은 객체의 속성을 갈아 끼우는 도우미(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
 
 import fs from "fs";
 import path from "path";
@@ -142,6 +143,7 @@ function scanTest(rel) {
   let requireCache = 0;
   const swaps = [];
   const project = new Set(); // 프로젝트 모듈에서 온 이름
+  const configs = new Set(); // 그중 루트 config. 값을 바꾸는 창구(withConfig)는 바꿔 끼우기가 아니다
 
   const fromProject = (e) => {
     if (!e) return false;
@@ -162,6 +164,7 @@ function scanTest(rel) {
   for (const st of sf.statements) {
     if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || !st.moduleSpecifier.text.startsWith(".")) continue;
     const clause = st.importClause;
+    if (clause?.name && isRootConfig(resolveSpec(rel, st.moduleSpecifier.text) ?? "")) configs.add(clause.name.text);
     if (clause?.name) project.add(clause.name.text);
     const named = clause?.namedBindings;
     if (named && ts.isNamespaceImport(named)) project.add(named.name.text);
@@ -174,10 +177,30 @@ function scanTest(rel) {
   };
   collect(sf);
 
+  // 첫 매개변수의 속성을 갈아 끼우는 도우미(function swap(obj, key, fn) { obj[key] = fn } 꼴)
+  const swappers = new Set();
+  const findSwappers = (n) => {
+    const fn = ts.isFunctionDeclaration(n) ? n : ts.isVariableDeclaration(n) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) ? n.initializer : null;
+    const name = ts.isFunctionDeclaration(n) ? n.name?.text : ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) ? n.name.text : null;
+    const first = fn?.parameters[0]?.name;
+    if (name && first && ts.isIdentifier(first)) {
+      let assigns = false;
+      const look = (m) => {
+        if (ts.isBinaryExpression(m) && m.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isElementAccessExpression(m.left) && ts.isIdentifier(m.left.expression) && m.left.expression.text === first.text) assigns = true;
+        ts.forEachChild(m, look);
+      };
+      look(fn.body);
+      if (assigns) swappers.add(name);
+    }
+    ts.forEachChild(n, findSwappers);
+  };
+  findSwappers(sf);
+
   const visit = (n) => {
     if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "require" && n.name.text === "cache") requireCache++;
     const isFn = (e) => e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));
-    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isPropertyAccessExpression(n.left) && isFn(n.right) && project.has(rootName(n.left) ?? "")) swaps.push(line(n));
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isPropertyAccessExpression(n.left) || ts.isElementAccessExpression(n.left)) && isFn(n.right) && project.has(rootName(n.left) ?? "")) swaps.push(line(n));
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && swappers.has(n.expression.text) && n.arguments[0] && project.has(rootName(n.arguments[0]) ?? "") && !configs.has(rootName(n.arguments[0]) ?? "")) swaps.push(line(n));
     if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "method" && /(^|\.)mock$/.test(n.expression.expression.getText(sf)) && project.has(rootName(n.arguments[0] ?? n) ?? "")) swaps.push(line(n));
     ts.forEachChild(n, visit);
   };
