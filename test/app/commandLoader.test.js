@@ -6,7 +6,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { test, after } = require("node:test");
+const { test, after, before } = require("node:test");
 const assert = require("node:assert/strict");
 const { REST } = require("discord.js");
 
@@ -27,7 +27,15 @@ after(() => {
   REST.prototype.put = realPut;
 });
 
-const { commands, loaded, deployCommands, deployErrorLines } = require("../../src/app/commandLoader");
+const { loadedCommands, definitions, deployCommands, deployErrorLines } = require("../../src/app/commandLoader");
+
+// 명령 파일은 처음 필요할 때 읽는다(불러오기가 비동기)
+let commands;
+let loaded;
+before(async () => {
+  loaded = await loadedCommands();
+  commands = await definitions();
+});
 const config = require("../../config");
 
 test("commands/*.js 전부가 유효한 정의(name/description)로 로드됨", () => {
@@ -60,7 +68,7 @@ test("deployCommands: 성공 경로 — 현재 로드된 세트 전체를 1회 P
   assert.deepEqual(result.names.sort(), commands.map((c) => c.name).sort());
   assert.equal(result.scope, config.discord.guildId ? "guild" : "global", "GUILD_ID 유무로 스코프 자동 선택");
   assert.equal(putCalls.length, 1);
-  assert.equal(putCalls[0].options.body, commands, "로드된 배열을 그대로 등록");
+  assert.deepEqual(putCalls[0].options.body, commands, "로드된 정의를 그대로 등록");
 });
 
 test("deployCommands: 정의 무변경 재기동은 PUT 생략, force는 항상 PUT (§2.3)", async () => {

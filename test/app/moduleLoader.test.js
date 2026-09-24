@@ -18,7 +18,7 @@ function tmpModules(files) {
   return dir;
 }
 
-test("깨진 파일 하나가 나머지를 막지 않고, 이름과 함께 실패로 남는다", () => {
+test("깨진 파일 하나가 나머지를 막지 않고, 이름과 함께 실패로 남는다", async () => {
   const dir = tmpModules({
     "a.js": "module.exports = { name: 'a' };",
     "broken.js": "module.exports = { name: ",
@@ -26,7 +26,7 @@ test("깨진 파일 하나가 나머지를 막지 않고, 이름과 함께 실�
     "readme.md": "무시 대상",
   });
 
-  const { modules, failures, missing } = loadModules(dir);
+  const { modules, failures, missing } = await loadModules(dir);
 
   assert.equal(missing, false);
   assert.deepEqual(modules.map((m) => m.module.name).sort(), ["a", "b"], "깨진 파일 뒤의 것도 실린다");
@@ -35,15 +35,15 @@ test("깨진 파일 하나가 나머지를 막지 않고, 이름과 함께 실�
   assert.ok(failures[0].error, "무엇이 잘못됐는지 함께 남긴다");
 });
 
-test("디렉터리가 없으면 실패가 아니라 missing", () => {
-  const { modules, failures, missing } = loadModules(path.join(os.tmpdir(), "없는-디렉터리-" + process.pid));
+test("디렉터리가 없으면 실패가 아니라 missing", async () => {
+  const { modules, failures, missing } = await loadModules(path.join(os.tmpdir(), "없는-디렉터리-" + process.pid));
   assert.equal(missing, true);
   assert.deepEqual(modules, []);
   assert.deepEqual(failures, []);
 });
 
-test("빈 디렉터리는 그냥 빈 결과", () => {
-  const { modules, failures, missing } = loadModules(tmpModules({}));
+test("빈 디렉터리는 그냥 빈 결과", async () => {
+  const { modules, failures, missing } = await loadModules(tmpModules({}));
   assert.equal(missing, false);
   assert.deepEqual(modules, []);
   assert.deepEqual(failures, []);

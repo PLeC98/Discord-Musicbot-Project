@@ -131,8 +131,8 @@ async function init(client, { potServer, logFile }) {
   try {
     log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
     checkBeforeLogin();
-    loadCommands(client);
-    loadEvents(client);
+    await loadCommands(client);
+    await loadEvents(client);
     // 종료 신호를 받으면 저장하고 정리한 뒤 나간다
     installShutdown(client, { potServer, logFile });
     await client.login(config.discord.token);
@@ -180,8 +180,8 @@ function abortOnLoadFailure(what, failures) {
   process.exit(1);
 }
 
-function loadCommands(client) {
-  const { commands, failures, missing } = commandLoader.loaded;
+async function loadCommands(client) {
+  const { commands, failures, missing } = await commandLoader.loadedCommands();
   if (missing) return log.warn("commands 디렉터리가 없어 명령어 로딩을 건너뜁니다.");
 
   abortOnLoadFailure("슬래시 명령어", failures);
@@ -199,8 +199,8 @@ const withReplyCleanup =
     return done;
   };
 
-function loadEvents(client) {
-  const { modules, failures, missing } = loadModules(path.join(ROOT, "events"));
+async function loadEvents(client) {
+  const { modules, failures, missing } = await loadModules(path.join(ROOT, "events"));
   if (missing) return log.warn("events 디렉터리가 없어 기본 이벤트로 진행합니다.");
 
   abortOnLoadFailure("이벤트 핸들러", failures);

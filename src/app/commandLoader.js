@@ -11,8 +11,8 @@ const HASH_PATH = process.env.DEPLOYED_COMMANDS_HASH_PATH || path.join(__dirname
 
 // 명령 파일을 읽어 { file, command } 목록과 실패 목록으로 나눈다.
 // 등록(index.js)과 배포 정의가 같은 결과를 쓴다. 두 곳이 따로 읽으면 서로 다른 집합이 될 수 있다.
-function loadCommandModules(dir = path.join(__dirname, "..", "..", "commands")) {
-  const { modules, failures, missing } = loadModules(dir);
+async function loadCommandModules(dir = path.join(__dirname, "..", "..", "commands")) {
+  const { modules, failures, missing } = await loadModules(dir);
 
   const commands = [];
   for (const { file, module } of modules) {
@@ -22,13 +22,18 @@ function loadCommandModules(dir = path.join(__dirname, "..", "..", "commands")) 
   return { commands, failures, missing };
 }
 
-const loaded = loadCommandModules();
+// 명령 파일은 불러오는 순간이 아니라 처음 필요할 때 한 번 읽는다. 등록과 배포가 같은 결과를 쓴다
+let loading = null;
+const loadedCommands = () => (loading ??= loadCommandModules());
 
-// 배포용 JSON. 핸들러로 등록되는 것과 같은 집합이다.
-const commands = loaded.commands.map(({ command }) => command.data.toJSON());
+/** 배포용 JSON. 핸들러로 등록되는 것과 같은 집합이다 */
+async function definitions() {
+  const { commands } = await loadedCommands();
+  return commands.map(({ command }) => command.data.toJSON());
+}
 
 // 현재 명령어 세트 + 배포 대상의 지문. 어느 하나라도 바뀌면 재배포 대상
-function deployFingerprint(scope, guildId) {
+function deployFingerprint(scope, guildId, commands) {
   const src = JSON.stringify({ clientId: config.discord.clientId, scope, guildId, commands });
   return crypto.createHash("sha256").update(src).digest("hex");
 }
@@ -56,7 +61,8 @@ function writeDeployedFingerprint(hashPath, fingerprint) {
 async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;
-  const fingerprint = deployFingerprint(scope, guildId);
+  const commands = await definitions();
+  const fingerprint = deployFingerprint(scope, guildId, commands);
 
   if (!force && readDeployedFingerprint(hashPath) === fingerprint) {
     return { ok: true, skipped: true, count: commands.length, scope, guildId, names: commands.map((c) => c.name) };
@@ -83,4 +89,4 @@ function deployErrorLines(result) {
   return lines;
 }
 
-module.exports = { commands, loaded, deployCommands, loadCommandModules, deployErrorLines };
+module.exports = { loadedCommands, definitions, deployCommands, loadCommandModules, deployErrorLines };

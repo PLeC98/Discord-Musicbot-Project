@@ -5,9 +5,10 @@
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
 require("../src/app/configCheck").stopOnConfigProblems(require("../config"), console);
-const { deployCommands, commands, deployErrorLines } = require("../src/app/commandLoader");
+const { deployCommands, definitions, deployErrorLines } = require("../src/app/commandLoader");
 
 (async () => {
+  const commands = await definitions();
   console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);
   const r = await deployCommands({ force: true }); // 수동 스크립트 = 명시적 재배포 의도. 지문 무시
 
