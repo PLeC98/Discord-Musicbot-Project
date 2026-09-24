@@ -1,11 +1,13 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 판정: 이 오류는 어떤 종류인가. 오류 문장을 보고 종류 이름을 낸다. 문장은 ui/errorMessages 가 만든다.
 // 오류에 이름(code)이 붙어 있으면 그것을 먼저 본다. 없으면 표의 위에서부터 처음 맞는 것이 이긴다. 차례가 곧 우선순위다.
 //
 // 연령 제한이 봇 감지보다 앞이다. 연령 확인 문장("Sign in to confirm your age")이 봇 감지의 "sign in to confirm" 도
 // 품고 있어서, 차례가 거꾸로면 연령 제한이 봇 감지로 가려진다.
 
-const RULES = [
+// 글자(소문자로 찾는다) 또는 판정 함수
+type Test = string | ((msg: string) => boolean);
+
+const RULES: Array<[string, Test[]]> = [
   ["age-restricted", ["age-restricted", "age restricted", "confirm your age", "only available to registered users"]],
   // YouTube 봇 감지 / 로그인 필요
   ["bot-check", ["sign in to confirm", "confirm you", "bot detection", "not a robot", "please sign in", "inappropriate", (m) => m.includes("youtube") && m.includes("403")]],
@@ -23,12 +25,13 @@ const RULES = [
 ];
 
 // 오류를 만든 곳이 이름을 붙여 두었으면(code) 글보다 그것을 먼저 믿는다
-const CODE_KINDS = { "age-restricted": "age-restricted", "video-unavailable": "video-unavailable" };
+const CODE_KINDS: Record<string, string> = { "age-restricted": "age-restricted", "video-unavailable": "video-unavailable" };
 
-const matches = (msg, test) => (typeof test === "function" ? test(msg) : msg.includes(test));
+const matches = (msg: string, test: Test): boolean => (typeof test === "function" ? test(msg) : msg.includes(test));
 
-function errorKind(error) {
-  if (error && CODE_KINDS[error.code]) return CODE_KINDS[error.code];
+function errorKind(error: unknown): string {
+  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+  if (typeof code === "string" && CODE_KINDS[code]) return CODE_KINDS[code];
   const msg = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
   for (const [kind, tests] of RULES) if (tests.some((test) => matches(msg, test))) return kind;
   return "unknown";

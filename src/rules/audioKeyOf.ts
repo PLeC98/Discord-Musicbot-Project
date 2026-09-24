@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 판정: 이 소리의 캐시 열쇠는. 보는 것은 음원 주소 하나뿐이다. 모르면 null.
 //   유튜브        yt:<영상 id>
 //   사운드클라우드 sc:<다듬은 경로>(soundcloud.com/ 뒤. 다른 호스트면 호스트부터)
@@ -13,16 +12,17 @@ const { inputKind } = inputKindModule;
 import canonicalUrlModule from "./canonicalUrl.ts";
 const { canonicalUrl } = canonicalUrlModule;
 
-const md5 = (value) => crypto.createHash("md5").update(String(value)).digest("hex");
+const md5 = (value: unknown): string => crypto.createHash("md5").update(String(value)).digest("hex");
 
-function audioKeyOf(audioUrl) {
+function audioKeyOf(audioUrl: string | null | undefined): string | null {
   switch (inputKind(audioUrl)) {
     case "youtube": {
       const vid = extractVideoId(audioUrl);
       return vid ? `yt:${vid}` : null;
     }
     case "soundcloud":
-      return `sc:${canonicalUrl(audioUrl).replace(/^https:\/\/(soundcloud\.com\/)?/, "")}`;
+      // 사운드클라우드로 가려졌으면 글자다
+      return `sc:${canonicalUrl(String(audioUrl)).replace(/^https:\/\/(soundcloud\.com\/)?/, "")}`;
     case "direct":
       return `dl:${md5(audioUrl)}`;
     default:

@@ -85,4 +85,10 @@ export default [
       "no-empty-function": "error",
     },
   },
+
+  // .ts 는 타입을 아는 typescript-eslint 쪽 규칙이 본다(overload · 타입 안의 매개변수 이름을 미사용으로 잡지 않는다)
+  {
+    files: ["**/*.ts"],
+    rules: { "no-unused-vars": "off" },
+  },
 ];

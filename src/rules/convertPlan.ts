@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 판정: 받은 파일을 어떻게 굽나. probe 결과 하나로 copy 냐 transcode 냐만 답한다.
 
 /**
@@ -32,9 +31,12 @@ const TRANSCODE_TARGET_KBPS = 128;
  * @param {{codec: string|null, bitrateKbps: number|null}} info
  * @returns {{action: "copy"|"transcode", bitrateKbps: number|null, why: string}}
  */
-function planFor(info) {
+type CacheAudioInfo = { codec?: string | null; bitrateKbps?: number | string | null };
+type ConvertPlan = { action: "copy" | "transcode"; bitrateKbps: number | null; why: string };
+
+function planFor(info: CacheAudioInfo | null | undefined): ConvertPlan {
   const codec = info?.codec ? String(info.codec).toLowerCase() : null;
-  const kbps = Number(info?.bitrateKbps) > 0 ? Number(info.bitrateKbps) : null;
+  const kbps = Number(info?.bitrateKbps) > 0 ? Number(info?.bitrateKbps) : null;
 
   if (codec !== "opus") {
     // 코덱을 못 읽은 경우도 여기로 온다. 모르면 굽는 쪽이 안전하다(리먹싱은 컨테이너가 맞아야 한다).

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 판정: 이 링크는 누가 다루나. 보는 것은 주소 글자뿐이다.
 // 답: youtube · spotify · soundcloud · direct · search · unknown.
 //   search   링크가 아닌 글(검색어)
@@ -10,7 +9,9 @@ const { isYouTubeURL, isSpotifyURL, isSoundCloudURL, isDirectAudioLink, isHttpLi
 
 // 차례가 답을 바꾼다. 사이트 호스트를 먼저 보고, 확장자로 가리는 직접 링크는 마지막이다
 // (soundcloud.com/…/x.mp3 는 사운드클라우드다).
-function inputKind(value) {
+type InputKind = "youtube" | "spotify" | "soundcloud" | "direct" | "unknown" | "search";
+
+function inputKind(value: unknown): InputKind {
   if (isYouTubeURL(value)) return "youtube";
   if (isSpotifyURL(value)) return "spotify";
   if (isSoundCloudURL(value)) return "soundcloud";
