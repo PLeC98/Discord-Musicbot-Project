@@ -19,7 +19,6 @@
     "test/player/playerPlay.test.js",
     "test/player/trackCompletion.test.js",
     "test/sources/clientFaultAndPot.test.js",
-    "test/sources/soundcloudDirect.test.js",
     "test/sources/spotifyNetwork.test.js",
     "test/ui/musicEmbedManager.test.js",
     "test/ui/nowPlayingIdle.test.js",

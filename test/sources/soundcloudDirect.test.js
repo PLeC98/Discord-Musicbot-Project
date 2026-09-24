@@ -10,14 +10,24 @@ import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 import ytdlExec from "youtube-dl-exec";
-import SafeUrl from "../../src/infra/safeUrl.ts";
 import SoundCloud from "../../src/sources/soundcloud.js";
 import DirectLink from "../../src/sources/direct.js";
 
 const calls = { ytdlp: [], head: [], stream: [] };
 let respond;
 let headReply;
-const real = { exec: ytdlExec.exec, head: SafeUrl.head, getStream: SafeUrl.getStream };
+const real = { exec: ytdlExec.exec };
+// 직접 링크의 네트워크(SafeUrl 의 head · getStream) 가짜. DirectLink 에 넘긴다
+const net = {
+  head: async (url) => {
+    calls.head.push(url);
+    return headReply(url);
+  },
+  getStream: async (url) => {
+    calls.stream.push(url);
+    return Readable.from(["x"]);
+  },
+};
 
 before(() => {
   ytdlExec.exec = (url, flags) => {
@@ -26,20 +36,10 @@ before(() => {
     if (out && out.fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: out.fail }));
     return Promise.resolve({ stdout: JSON.stringify(out), stderr: "" });
   };
-  SafeUrl.head = async (url) => {
-    calls.head.push(url);
-    return headReply(url);
-  };
-  SafeUrl.getStream = async (url) => {
-    calls.stream.push(url);
-    return Readable.from(["x"]);
-  };
 });
 
 after(() => {
   ytdlExec.exec = real.exec;
-  SafeUrl.head = real.head;
-  SafeUrl.getStream = real.getStream;
 });
 
 beforeEach(() => {
@@ -117,7 +117,7 @@ test("직접 링크 판정: http(s) 이고 지원하는 확장자로 끝나야 �
 test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 보고 길이를 추정한다", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
 
-  const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1");
+  const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", net);
 
   assert.deepEqual(calls.head, ["https://files.test/my_song-name.mp3?x=1"]);
   assert.deepEqual({ title: t.title, artist: t.artist, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "My Song Name", artist: "직접 링크", duration: 100, durationSource: "추정", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
@@ -133,24 +133,26 @@ test("직접 링크 길이 추정: 종류마다 비트레이트가 다르고, �
 });
 
 test("직접 링크 정보: 지원하지 않는 링크나 HEAD 실패는 빈 배열", async () => {
-  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.txt"), []);
+  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.txt", net), []);
   assert.equal(calls.head.length, 0);
   headReply = () => {
     throw new Error("SSRF 차단: 사설 주소");
   };
-  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.mp3"), []);
+  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.mp3", net), []);
 });
 
 test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {
-  const s = await DirectLink.getStream("https://files.test/a.mp3");
+  const s = await DirectLink.getStream("https://files.test/a.mp3", net);
   assert.ok(s instanceof Readable);
   assert.deepEqual(calls.stream, ["https://files.test/a.mp3"]);
 
-  await assert.rejects(DirectLink.getStream("https://files.test/a.txt"), (e) => e.message === "재생할 수 없는 링크입니다" && /지원되지 않는 직접 오디오 파일 링크/.test(e.cause.message));
-  SafeUrl.getStream = async () => {
-    throw new Error("SSRF 차단: 127.0.0.1");
+  await assert.rejects(DirectLink.getStream("https://files.test/a.txt", net), (e) => e.message === "재생할 수 없는 링크입니다" && /지원되지 않는 직접 오디오 파일 링크/.test(e.cause.message));
+  const blocked = {
+    getStream: async () => {
+      throw new Error("SSRF 차단: 127.0.0.1");
+    },
   };
-  await assert.rejects(DirectLink.getStream("https://files.test/b.mp3"), (e) => e.message === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(e.cause.message));
+  await assert.rejects(DirectLink.getStream("https://files.test/b.mp3", blocked), (e) => e.message === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(e.cause.message));
 });
 
 test("파일 이름에서 제목: 구분자를 공백으로, 단어 첫 글자를 대문자로", () => {
