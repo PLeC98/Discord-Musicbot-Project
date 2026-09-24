@@ -1,11 +1,11 @@
 // 현재 재생 임베드의 자가 복구 — 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
 // 회귀 대상: 사용자가 임베드를 지우면 5초 갱신마다 10008(Unknown Message)을 error로 찍던 도배.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
-import GuildSettingsManager from "../../src/store/guildSettings.ts";
+import tempStore from "../helpers/tempStore.js";
 
 import { createRequire } from "node:module";
 
@@ -14,15 +14,10 @@ const require = createRequire(import.meta.url);
 
 const BOT_CHANNEL = "chan-1";
 
-// 패널 채널을 정할 때 전용 채널을 묻는다 — 실제 설정 DB를 열지 않게 기본은 "전용 채널 없음"
-GuildSettingsManager.getBotChannel = async () => null;
+// 패널 채널을 정할 때 전용 채널을 묻는다. 임시 DB 에 두고, 기본은 "전용 채널 없음"
+const store = tempStore.openTempStore("repost-");
+after(() => store.close());
 const gone = () => Object.assign(new Error("Unknown Message"), { code: 10008 });
-
-function stub(obj, key, fn) {
-  const original = obj[key];
-  obj[key] = fn;
-  return () => (obj[key] = original);
-}
 
 // 웹훅으로 보내고 편집하는 실사용 경로. state로 호출 내역과 실패를 조종한다.
 function makeSetup(state = {}) {
@@ -139,7 +134,7 @@ test("다시 올리지 못하면 참조를 버리고 갱신을 멈춘다", async
 
 test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
   const { mem, player } = makeSetup();
-  const restore = stub(GuildSettingsManager, "getBotChannel", async () => BOT_CHANNEL);
+  tempStore.setGuild("g1", { botChannel: BOT_CHANNEL });
   const now = Date.now();
   const cache = player.textChannel.messages.cache;
 
@@ -162,6 +157,6 @@ test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
     player.textChannel.id = "other";
     assert.equal(await mem._isBuried(player, now), false, "전용 채널이 아니면 건드리지 않는다");
   } finally {
-    restore();
+    tempStore.setGuild("g1", { botChannel: null });
   }
 });

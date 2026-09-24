@@ -1,12 +1,12 @@
 // 곡 길이 판정 — 종료 감시(playbackWatch)의 위치 계산, 판정에 쓰는 오디오 길이 선택(startPlayback)
 // 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import MusicPlayer from "../../src/player/Player.js";
 import PlaybackWatch from "../../src/player/playbackWatch.js";
-import audioCache from "../../src/store/audioCache.ts";
+import tempStore from "../helpers/tempStore.js";
 
 // ── 종료 워치독 ──────────────────────────────────────────────
 
@@ -50,13 +50,17 @@ test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
 
 const { audioDurationSec } = (await import("../../src/player/startPlayback.js")).default;
 
+// 캐시 기록은 임시 DB 에 적었다가 지운다
+const store = tempStore.openTempStore("track-completion-");
+after(() => store.close());
+
 function withLookup(rows, fn) {
-  const original = audioCache.lookupByAudioKey;
-  audioCache.lookupByAudioKey = (key) => rows[key] || null;
+  const insert = store.db().prepare("INSERT INTO audio_cache (audio_key, status, duration_sec) VALUES (?, 'cached', ?)");
+  for (const [key, row] of Object.entries(rows)) insert.run(key, row.duration_sec);
   try {
     return fn();
   } finally {
-    audioCache.lookupByAudioKey = original;
+    store.db().prepare("DELETE FROM audio_cache").run();
   }
 }
 

@@ -2,7 +2,7 @@
 // 실제 처리(_processMusic)는 스텁하고 직렬화 계약만 검증한다.
 // 회귀 대상: 구 "await 후 set" 방식의 A/B/C 경쟁 (앞 작업 finally가 뒤 작업 락을 삭제 → 동시 실행)
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 
@@ -149,7 +149,10 @@ test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보�
 // ── 끝난 패널 ──
 // 부르는 곳이 전부 현재 곡을 먼저 비워, 버튼 끄기가 한 번도 돌지 않았다(2026-09-16).
 
-const GuildSettingsManager = (await import("../../src/store/guildSettings.ts")).default;
+const tempStore = (await import("../helpers/tempStore.js")).default;
+// 전용 채널은 임시 DB 에 둔다
+const store = tempStore.openTempStore("embed-manager-");
+after(() => store.close());
 
 function panelPlayer(over = {}) {
   return {
@@ -203,13 +206,12 @@ test("종료 모양의 문구는 사유를 따른다", async () => {
 });
 
 test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다 — 종료 메시지는 전용 채널 밖에서만", async () => {
-  const restore = GuildSettingsManager.getBotChannel;
   try {
     for (const [botChannel, expectNotice] of [
       ["chan-1", false],
       [null, true],
     ]) {
-      GuildSettingsManager.getBotChannel = async () => botChannel;
+      tempStore.setGuild("g1", { botChannel });
       const mem = new MusicEmbedManager({ players: new Map() });
       const edits = [];
       const sent = [];
@@ -233,7 +235,7 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
       assert.equal(player.nowPlayingMessage, null);
     }
   } finally {
-    GuildSettingsManager.getBotChannel = restore;
+    tempStore.setGuild("g1", { botChannel: null });
   }
 });
 

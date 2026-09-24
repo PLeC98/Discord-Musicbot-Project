@@ -1,24 +1,19 @@
 // 전용 채널의 패널 — 끝난 패널 자리를 재생 화면으로 고쳐 쓰고, 묻히면 맨 아래로, 음성에서 나가면 문구를 고친다.
 // 전용 채널이 있으면 패널은 늘 그 채널에 둔다.
 
-import { test, beforeEach, afterEach } from "node:test";
+import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
-import GuildSettingsManager from "../../src/store/guildSettings.ts";
+import tempStore from "../helpers/tempStore.js";
 import playerEvents from "../../src/player/events.js";
 
 const BOT = "bot-chan";
-let botChannelId;
-let original;
-beforeEach(() => {
-  botChannelId = BOT;
-  original = GuildSettingsManager.getBotChannel;
-  GuildSettingsManager.getBotChannel = async () => botChannelId;
-});
-afterEach(() => {
-  GuildSettingsManager.getBotChannel = original;
-});
+// 전용 채널은 임시 DB 에 둔다. null 이면 없앤다
+const store = tempStore.openTempStore("idle-panel-");
+after(() => store.close());
+const setBotChannel = (id) => tempStore.setGuild("g1", { botChannel: id });
+beforeEach(() => setBotChannel(BOT));
 
 function makeChannel(id, calls) {
   return {
@@ -135,7 +130,7 @@ test("전용 채널이 있으면 다른 채널에서 틀어도 패널은 전용 
   await play(withBot.mem, makePlayer(withBot.guild, withBot.channels.get("general")));
   assert.equal(withBot.calls.sent[0].channel, BOT);
 
-  botChannelId = null;
+  setBotChannel(null);
   const noBot = setup({ record: { channelId: "general", messageId: "800" } });
   await play(noBot.mem, makePlayer(noBot.guild, noBot.channels.get("general")));
   assert.equal(noBot.calls.sent[0].channel, "general");
@@ -220,7 +215,7 @@ test("기동: 세션을 복원해 패널을 올린 서버는 건너뛰고, 전�
   await restored.mem.restorePanels();
   assert.equal(restored.calls.edited.length + restored.calls.sent.length, 0);
 
-  botChannelId = null;
+  setBotChannel(null);
   const plain = setup({ record: { channelId: "general", messageId: "800" } });
   await plain.mem.restorePanels();
   assert.equal(plain.calls.sent.length, 0);
@@ -234,7 +229,7 @@ test("전용 채널을 정하면 끝난 패널을 그 채널에 올리고 옛 �
   assert.equal(calls.sent[0].channel, BOT);
   assert.ok(calls.deleted.includes("general:800"));
 
-  botChannelId = null;
+  setBotChannel(null);
   const current = records.get("g1").messageId;
   await mem.onBotChannelChanged(guild);
   assert.ok(calls.deleted.includes(`${BOT}:${current}`));
@@ -252,7 +247,7 @@ test("재생 중에 전용 채널을 정하면 재생 패널을 옮기고, 풀�
   assert.match(textOf(calls.sent[0].payload), /현재 재생 중/);
   assert.ok(calls.deleted.includes("general:800"));
 
-  botChannelId = null;
+  setBotChannel(null);
   const deletedBefore = calls.deleted.length;
   await mem.onBotChannelChanged(guild);
   assert.equal(calls.sent.length, 1);
