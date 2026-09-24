@@ -53,10 +53,7 @@ function checked<T extends z.ZodType>(schema: T, row: unknown, what: string): z.
   return null;
 }
 
-const exported = { SessionTrackRow, LookupRow, checked };
-export default exported;
-export { exported as "module.exports" };
+export { SessionTrackRow, LookupRow, checked };
 
 type SessionTrackRow = z.infer<typeof SessionTrackRow>;
 type LookupRow = z.infer<typeof LookupRow>;
-export type { SessionTrackRow, LookupRow };

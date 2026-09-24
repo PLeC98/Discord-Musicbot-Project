@@ -28,6 +28,7 @@ const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: 
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
 import { AudioPlayerStatus } from "@discordjs/voice";
+import * as storeDb from "../../src/store/db.ts";
 
 class FakeAudioPlayer extends EventEmitter {
   constructor() {
@@ -115,8 +116,8 @@ async function openChunkedStream(opts) {
 
 // ── 4. 캐시 장부: 진짜를 임시 DB 로 ──────────────────────────────────────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const audioCache = await import("../../src/store/audioCache.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
@@ -304,9 +305,9 @@ function reset() {
   for (const k of Object.keys(behavior)) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
-  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true, maxRetries: 5 });
-  fs.mkdirSync(audioCache._cacheDir, { recursive: true });
+  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
+  fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
 }
 
 /** 타이머를 남기지 않게 정리한다. 시험 끝에 부른다. */
@@ -317,8 +318,8 @@ function dispose(player) {
 }
 
 /** 장부에서 한 줄. 없으면 null. */
-const lookupRow = (requestKey) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
-const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
+const lookupRow = (requestKey) => storeDb.get().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
+const audioRow = (key) => storeDb.get().prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
 
 const exported = {
   MusicPlayer,

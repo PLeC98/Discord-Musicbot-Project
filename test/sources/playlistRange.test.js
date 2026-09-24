@@ -1,7 +1,7 @@
 // 여러 곡 출처는 필요한 구간만 받는다 — 스포티파이 재생목록·앨범·인기곡, 유튜브 재생목록, 해석기 전달.
 // 회귀 대상: 1만 곡 재생목록을 전부 받은 뒤(61초) 대기열에서 잘랐다.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 // yt-dlp 실행 함수 가짜. getPlaylist 에 넘긴다
@@ -14,7 +14,9 @@ const exec = async (url, options) => {
 
 const Spotify = (await import("../../src/sources/spotify.js")).default;
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
-const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
+// 링크 장부는 빈 임시 DB 에서 읽는다(확인된 제목 없음)
+const store = (await import("../helpers/tempStore.js")).default.openTempStore("playlist-range-");
+after(() => store.close());
 const lookup = (await import("../../src/sources/lookup.js")).default;
 
 const { graphql, official } = Spotify._internals;
@@ -142,7 +144,7 @@ test("스포티파이 인기곡: 통째로 받은 뒤 구간을 자른다", asyn
 // ── 유튜브 재생목록 ──
 
 test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기준 다음 위치를 돌려준다", async () => {
-  const restores = [swap(YouTube, "getYtDlpOptions", (o) => o), swap(trackLookup, "getVerifiedTitle", () => null)];
+  const restores = [swap(YouTube, "getYtDlpOptions", (o) => o)];
   try {
     ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
     const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3, exec });

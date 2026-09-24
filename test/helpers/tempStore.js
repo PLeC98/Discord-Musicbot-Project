@@ -6,20 +6,21 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import audioCache from "../../src/store/audioCache.ts";
+import * as audioCache from "../../src/store/audioCache.ts";
 
 import { createRequire } from "node:module";
+import * as storeDb from "../../src/store/db.ts";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
 function openTempStore(prefix = "store-") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
-  audioCache._cacheDir = path.join(dir, "audio_cache");
+  audioCache._setCacheDir(path.join(dir, "audio_cache"));
   audioCache.initialize(path.join(dir, "cache.db"));
   return {
     dir,
-    db: () => audioCache.db,
+    db: () => storeDb.get(),
     close() {
       audioCache.close();
       fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
@@ -37,7 +38,7 @@ function setGuild(guildId, { djRoles, botChannel, playlistAddMax, sponsorBlock }
   }
   if (playlistAddMax !== undefined) settings.table.setPlaylistAddMax(guildId, playlistAddMax);
   if (sponsorBlock !== undefined) settings.table.setGuildSponsorBlock(guildId, sponsorBlock);
-  settings.cache.clear();
+  settings._reset();
 }
 
 const exported = { openTempStore, setGuild };

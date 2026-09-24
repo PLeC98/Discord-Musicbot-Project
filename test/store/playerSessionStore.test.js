@@ -5,10 +5,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import trackState from "../../src/player/trackState.js";
-import playerSessions from "../../src/store/playerSessions.ts";
-const { PlayerSessionStore, GAP, SEQ_LIMIT } = playerSessions;
-import dbModule from "../../src/store/db.ts";
-const { createTables } = dbModule;
+import { PlayerSessionStore, GAP, SEQ_LIMIT } from "../../src/store/playerSessions.ts";
+import { createTables } from "../../src/store/db.ts";
 
 const G = "g1";
 

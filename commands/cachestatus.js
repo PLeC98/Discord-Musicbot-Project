@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
 import config from "../config.ts";
-import audioCache from "../src/store/audioCache.ts";
+import * as audioCache from "../src/store/audioCache.ts";
 
 function formatBytes(bytes) {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;

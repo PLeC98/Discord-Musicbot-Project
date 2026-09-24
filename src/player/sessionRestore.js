@@ -1,8 +1,7 @@
 import { RESTJSONErrorCodes } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
-import playerSessions from "../store/playerSessions.ts";
-const { sessions } = playerSessions;
+import { sessions } from "../store/playerSessions.ts";
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;

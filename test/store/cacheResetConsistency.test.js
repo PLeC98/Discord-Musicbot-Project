@@ -13,6 +13,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { createRequire } from "node:module";
+import * as storeDb from "../../src/store/db.ts";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
@@ -26,7 +27,7 @@ before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
   audioCache = require("../../src/store/audioCache.ts");
   trackLookup = require("../../src/store/trackLookup.ts");
-  audioCache._cacheDir = CACHE_DIR; // 실 캐시 폴더를 건드리지 않는다
+  audioCache._setCacheDir(CACHE_DIR); // 실 캐시 폴더를 건드리지 않는다
   audioCache.initialize(DB_PATH);
 });
 
@@ -71,14 +72,14 @@ test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지
   assert.ok(fs.existsSync(playing.file), "잠긴 파일은 그대로");
   assert.equal(fs.existsSync(idle.file), false, "나머지 파일은 지워진다");
 
-  const rows = audioCache.db.prepare("SELECT audio_key FROM audio_cache").all();
+  const rows = storeDb.get().prepare("SELECT audio_key FROM audio_cache").all();
   assert.deepEqual(
     rows.map((r) => r.audio_key),
     ["yt:playing"],
     "파일이 남은 곡의 행만 살아남는다",
   );
   assert.equal(audioCache._protectedKeys.has("yt:playing"), true, "살아남은 키는 다시 보호한다");
-  assert.equal(audioCache.db.prepare("SELECT COUNT(*) AS n FROM track_lookup").get().n, 0, "링크 장부는 파일과 따로 살므로 통째로 비운다");
+  assert.equal(storeDb.get().prepare("SELECT COUNT(*) AS n FROM track_lookup").get().n, 0, "링크 장부는 파일과 따로 살므로 통째로 비운다");
 });
 
 test("초기화 뒤에도 재생 중인 곡의 장부 기록이 터지지 않는다 (회귀)", () => {
@@ -96,6 +97,6 @@ test("남길 것이 없으면 전부 비운다", () => {
   const result = audioCache.resetCache();
 
   assert.equal(result.kept, 0);
-  assert.equal(audioCache.db.prepare("SELECT COUNT(*) AS n FROM audio_cache").get().n, 0);
-  assert.equal(audioCache.db.prepare("SELECT COUNT(*) AS n FROM track_lookup").get().n, 0);
+  assert.equal(storeDb.get().prepare("SELECT COUNT(*) AS n FROM audio_cache").get().n, 0);
+  assert.equal(storeDb.get().prepare("SELECT COUNT(*) AS n FROM track_lookup").get().n, 0);
 });

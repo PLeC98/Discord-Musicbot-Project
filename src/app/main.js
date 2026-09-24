@@ -6,7 +6,7 @@ import { Client, GatewayIntentBits, Collection, Events } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../../config.ts";
-import audioCache from "../store/audioCache.ts";
+import * as audioCache from "../store/audioCache.ts";
 import pathModule from "../media/ffmpeg/path.js";
 const { logResolved: logResolvedFfmpeg, ffmpegPath } = pathModule;
 import MusicPlayer from "../player/Player.js";

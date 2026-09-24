@@ -9,8 +9,8 @@ const log = logger.child({ category: "player" });
 import equivalent from "../sources/youtube/equivalent.js";
 import SponsorBlock from "../sources/sponsorBlock.js";
 import TrackDownloader from "../media/cacheDownload.js";
-import audioCache from "../store/audioCache.ts";
-import trackLookup from "../store/trackLookup.ts";
+import * as audioCache from "../store/audioCache.ts";
+import * as trackLookup from "../store/trackLookup.ts";
 import trackState from "./trackState.js";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 // 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.

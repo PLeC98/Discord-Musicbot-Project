@@ -20,7 +20,7 @@ import sources from "./sources/index.js";
 import match from "../sources/youtube/match.js";
 import aiAssist from "./assist/index.js";
 import YouTube from "../sources/youtube/index.js";
-import trackLookup from "../store/trackLookup.ts";
+import * as trackLookup from "../store/trackLookup.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 

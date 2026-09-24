@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags, ActionRowBuilder, RoleSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import GuildSettingsManager from "../src/store/guildSettings.ts";
+import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 
 // 실제 저장/취소 처리는 events/djRoleConfigHandler.js (customId: djrole:*)
 // 복수 선택은 디스코드 셀렉트 메뉴 한계로 최대 25개.

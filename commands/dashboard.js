@@ -3,7 +3,7 @@ import addTracks from "../src/usecases/addTracks.js";
 const { toRequester } = addTracks;
 import responders from "../src/usecases/responders.js";
 const { interactionResponder } = responders;
-import GuildSettingsManager from "../src/store/guildSettings.ts";
+import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import permissions from "../src/usecases/permissions.js";
 const { checkControl } = permissions;
 

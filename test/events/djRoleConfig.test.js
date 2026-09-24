@@ -9,7 +9,7 @@ import tempStore from "../helpers/tempStore.js";
 const { openTempStore, setGuild } = tempStore;
 const temp = openTempStore("dj-role-");
 after(() => temp.close());
-const settings = (await import("../../src/store/guildSettings.ts")).default;
+const settings = await import("../../src/store/guildSettings.ts");
 
 // 저장된 DJ 역할을 표에서 바로 읽고 쓴다(Map 과 같은 모양)
 const store = {

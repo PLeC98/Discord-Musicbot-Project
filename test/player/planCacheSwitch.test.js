@@ -13,13 +13,13 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import MusicPlayer from "../../src/player/Player.js";
-import audioCache from "../../src/store/audioCache.ts";
+import * as audioCache from "../../src/store/audioCache.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
-const realDir = audioCache._cacheDir;
-audioCache._cacheDir = DIR;
+const realDir = audioCache.cacheDir();
+audioCache._setCacheDir(DIR);
 after(() => {
-  audioCache._cacheDir = realDir;
+  audioCache._setCacheDir(realDir);
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 

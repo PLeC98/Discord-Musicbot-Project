@@ -10,10 +10,12 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
+import * as storeDb from "../../src/store/db.ts";
+import { md5 } from "../../src/rules/audioKeyOf.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const audioCache = await import("../../src/store/audioCache.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
@@ -91,15 +93,15 @@ const writesFile =
 beforeEach(() => {
   for (const k of Object.keys(calls)) calls[k].length = 0;
   ytdlpBehavior = writesFile();
-  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true, maxRetries: 5 });
-  fs.mkdirSync(audioCache._cacheDir, { recursive: true });
+  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
+  fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
 });
 
 const downloader = () => new TrackDownloader({ guild: { id: "g1" } });
-const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
-const lookupRow = (requestKey) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
-const leftovers = () => fs.readdirSync(audioCache._cacheDir).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
+const audioRow = (key) => storeDb.get().prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
+const lookupRow = (requestKey) => storeDb.get().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
+const leftovers = () => fs.readdirSync(audioCache.cacheDir()).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));
 
 const yt = (await import("../helpers/tracks.js")).default.youtube;
 
@@ -150,7 +152,7 @@ test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. �
   await assert.rejects(downloader().downloadTrack(track), /Could not find YouTube equivalent/);
 
   assert.equal(calls.ytdlp.length, 0);
-  assert.equal(audioCache.db.prepare("SELECT COUNT(*) AS n FROM audio_cache").get().n, 0);
+  assert.equal(storeDb.get().prepare("SELECT COUNT(*) AS n FROM audio_cache").get().n, 0);
   assert.deepEqual(leftovers(), []);
 });
 
@@ -236,8 +238,8 @@ test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 �
   assert.equal(calls.convert[0].srcExists, true);
   assert.equal(track.duration, 222);
   assert.equal(track.durationSource, "실측");
-  assert.equal(audioRow(`dl:${audioCache.md5("https://files.test/a.flac")}`).audio_version, 'etag="v1";length=9', "응답 헤더에서 판을 읽는다");
-  assert.equal(audioRow(`dl:${audioCache.md5("https://files.test/a.flac")}`).duration_sec, 222);
+  assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`).audio_version, 'etag="v1";length=9', "응답 헤더에서 판을 읽는다");
+  assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`).duration_sec, 222);
   assert.equal(fs.readFileSync(file, "utf8"), "opus");
   assert.deepEqual(leftovers(), [], ".raw 를 남기지 않는다");
 });

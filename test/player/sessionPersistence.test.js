@@ -1,25 +1,25 @@
 // src/player/sessionMirror.js — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
-import playerSessions from "../../src/store/playerSessions.ts";
+import { sessions } from "../../src/store/playerSessions.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
-const { sessions } = playerSessions;
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
+import * as storeDb from "../../src/store/db.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-session-test-${process.pid}.db`);
 const removeDb = () => {
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(DB_PATH + suffix, { force: true });
 };
 
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
+const audioCache = await import("../../src/store/audioCache.ts");
 const SessionPersistence = (await import("../../src/player/sessionMirror.js")).default;
 const trackState = (await import("../../src/player/trackState.js")).default;
 
@@ -123,7 +123,7 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
 test("DB가 메모리와 어긋나 있으면 다음 변경에서 통째로 다시 맞춘다", () => {
   const { p, sp } = makePlayer();
   trackState.enqueue(p, [t("A"), t("B"), t("C")]);
-  audioCache.db.prepare("DELETE FROM session_tracks WHERE guild_id = ? AND slot = 'queue'").run(p.guild.id);
+  storeDb.get().prepare("DELETE FROM session_tracks WHERE guild_id = ? AND slot = 'queue'").run(p.guild.id);
 
   trackState.removeAt(p, 1); // DB에는 지울 행이 없다
   assert.deepEqual(stored(p.guild.id), memory(p));

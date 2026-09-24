@@ -5,7 +5,7 @@ import * as links from "../rules/links.ts";
 import Spotify from "./spotify.js";
 import SoundCloud from "./soundcloud.js";
 import DirectLink from "./direct.js";
-import trackLookup from "../store/trackLookup.ts";
+import * as trackLookup from "../store/trackLookup.ts";
 import { errorKind } from "../rules/errorKind.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";

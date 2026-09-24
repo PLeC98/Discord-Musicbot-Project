@@ -1,18 +1,18 @@
 // src/store/audioCache.ts — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
-import playerSessions from "../../src/store/playerSessions.ts";
+import { sessions } from "../../src/store/playerSessions.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
-const { sessions } = playerSessions;
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import * as storeDb from "../../src/store/db.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}.db`);
 
@@ -50,7 +50,7 @@ test("getFilePath: 같은 키 → 같은 경로 (결정적), 다른 키 → 다�
 test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근 재생은 생존", async () => {
   const now = Date.now();
   const OLD = now - 90 * 86_400_000; // 90일 전
-  const ins = audioCache.db.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
+  const ins = storeDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
 
   // 생존해야 할 것들: 최근에 자주 재생
   for (let i = 0; i < 8; i++) {
@@ -67,7 +67,8 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
     await audioCache.evict(); // 비보호 10개 중 상위 20% = 2개 제거
 
     const remaining = new Set(
-      audioCache.db
+      storeDb
+        .get()
         .prepare("SELECT audio_key FROM audio_cache")
         .all()
         .map((r) => r.audio_key),
@@ -99,12 +100,12 @@ test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치�
     fs.writeFileSync(path.join(dir, f), "x");
   }
 
-  const prevDir = audioCache._cacheDir;
-  audioCache._cacheDir = dir;
+  const prevDir = audioCache.cacheDir();
+  audioCache._setCacheDir(dir);
   try {
     audioCache._cleanOrphanFiles();
   } finally {
-    audioCache._cacheDir = prevDir;
+    audioCache._setCacheDir(prevDir);
   }
 
   const left = fs.readdirSync(dir);
@@ -118,8 +119,8 @@ test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", ()
   const temp = path.join(dir, `${stem}.tmp-1234-abcd.opus`);
   fs.writeFileSync(temp, "받는 중");
 
-  const prevDir = audioCache._cacheDir;
-  audioCache._cacheDir = dir;
+  const prevDir = audioCache.cacheDir();
+  audioCache._setCacheDir(dir);
   try {
     audioCache.protectFile(temp);
     audioCache._cleanOrphanFiles();
@@ -129,22 +130,20 @@ test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", ()
     audioCache._cleanOrphanFiles();
     assert.equal(fs.existsSync(temp), false, "받기가 끝났거나 죽은 뒤 남은 것은 정리된다");
   } finally {
-    audioCache._cacheDir = prevDir;
+    audioCache._setCacheDir(prevDir);
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
-// 저장소 모듈은 인스턴스를 내보낸다. static 메서드는 인스턴스에 없으므로 외부 호출자에게 undefined다.
-// md5가 static이라 직접 링크 재생이 "md5 is not a function"으로 통째로 죽어 있었다.
-test("외부 호출자가 쓰는 메서드는 내보낸 인스턴스에서 호출 가능해야 한다", () => {
+// 밖에서 부르는 함수가 내보내져 있는가
+test("외부 호출자가 쓰는 함수를 내보낸다", () => {
   for (const [mod, names] of [
-    [audioCache, ["md5", "getFilePath"]],
+    [audioCache, ["getFilePath"]],
     [trackLookup, ["resolveFromCache", "getAudioUrl", "removeResolution"]],
   ]) {
     for (const name of names) assert.equal(typeof mod[name], "function", name);
   }
 
-  assert.equal(audioCache.md5("x"), "9dd4e461268c8034f5c8564e155c67a6");
   assert.match(audioCache.getFilePath("dl:abc"), /track_[0-9a-f]{32}\.opus$/);
 });
 
@@ -155,12 +154,12 @@ test("외부 호출자가 쓰는 메서드는 내보낸 인스턴스에서 호�
 // (resetCache는 _cacheDir 안의 파일을 전부 지우고, getFilePath는 모듈 상수 CACHE_DIR를 쓴다.)
 function withTempCacheDir(fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-reset-"));
-  const prevDir = audioCache._cacheDir;
-  audioCache._cacheDir = dir;
+  const prevDir = audioCache.cacheDir();
+  audioCache._setCacheDir(dir);
   try {
     return fn(dir);
   } finally {
-    audioCache._cacheDir = prevDir;
+    audioCache._setCacheDir(prevDir);
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 }
@@ -234,5 +233,5 @@ test("다운로드 기록 직후 닫혀도 예약된 캐시 정리가 DB를 다�
   audioCache.recordDownloadComplete("yt:closed1", audioCache.getFilePath("yt:closed1"), 100, { title: "t" });
   audioCache.close();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(audioCache._initialized, false, "닫힌 DB를 기본 경로(운영 DB)로 다시 열면 안 된다");
+  assert.equal(storeDb.isOpen(), false, "닫힌 DB를 기본 경로(운영 DB)로 다시 열면 안 된다");
 });

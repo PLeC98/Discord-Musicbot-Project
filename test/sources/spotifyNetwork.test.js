@@ -8,11 +8,12 @@ import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
+import * as storeDb from "../../src/store/db.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-const externalCaches = (await import("../../src/store/externalCaches.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const audioCache = await import("../../src/store/audioCache.ts");
+const externalCaches = await import("../../src/store/externalCaches.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
@@ -55,7 +56,7 @@ beforeEach(() => {
   official._token = null;
   graphql._state = null;
   graphql._anonToken = null;
-  audioCache.db.exec("DELETE FROM spotify_anon;");
+  storeDb.get().exec("DELETE FROM spotify_anon;");
   Object.assign(config.spotify, { clientId: "cid", clientSecret: "csecret" });
 });
 

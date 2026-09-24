@@ -16,12 +16,13 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const audioCache = await import("../../src/store/audioCache.ts");
+const trackLookup = await import("../../src/store/trackLookup.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 import ytdlExec from "youtube-dl-exec";
+import * as storeDb from "../../src/store/db.ts";
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
 const { playerClients } = YouTube._internals;
 
@@ -52,7 +53,7 @@ after(() => {
 beforeEach(() => {
   calls.length = 0;
   respond = () => ({});
-  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
 const video = (id, extra = {}) => ({ id, title: `영상 ${id}`, uploader: "올린 사람", webpage_url: `https://www.youtube.com/watch?v=${id}`, duration: 200, thumbnail: `https://i.ytimg.com/${id}.jpg`, view_count: 5, upload_date: "20260101", ...extra });

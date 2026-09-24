@@ -104,7 +104,7 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 import { after } from "node:test";
 const { openTempStore } = (await import("../helpers/tempStore.js")).default;
 const { restoreSavedPlayers } = (await import("../../src/player/sessionRestore.js")).default;
-const { sessions } = (await import("../../src/store/playerSessions.ts")).default;
+const { sessions } = await import("../../src/store/playerSessions.ts");
 
 const store = openTempStore("session-restore-");
 after(() => store.close());

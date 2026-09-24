@@ -9,15 +9,16 @@ import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
+import * as storeDb from "../../src/store/db.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const audioCache = await import("../../src/store/audioCache.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
 const S = (await import("../../src/ui/strings.js")).default;
-const settings = (await import("../../src/store/guildSettings.ts")).default;
+const settings = await import("../../src/store/guildSettings.ts");
 const playerEvents = (await import("../../src/player/events.js")).default;
 const buttonHandler = (await import("../../events/buttonHandler.js")).default;
 
@@ -27,8 +28,8 @@ after(() => {
 });
 
 beforeEach(() => {
-  settings.cache.clear();
-  audioCache.db.exec("DELETE FROM guild_settings;");
+  settings._reset();
+  storeDb.get().exec("DELETE FROM guild_settings;");
 });
 
 const USER = "111111111111111111";

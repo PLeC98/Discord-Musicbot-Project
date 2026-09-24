@@ -12,20 +12,21 @@ import assert from "node:assert/strict";
 import { MessageFlags, PermissionFlagsBits } from "discord.js";
 
 import { createRequire } from "node:module";
+import * as storeDb from "../../src/store/db.ts";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
-const guildTable = (await import("../../src/store/guildSettings.ts")).default.table;
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const guildTable = (await import("../../src/store/guildSettings.ts")).table;
+const audioCache = await import("../../src/store/audioCache.ts");
+const trackLookup = await import("../../src/store/trackLookup.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
 const S = (await import("../../src/ui/strings.js")).default;
-const settings = (await import("../../src/store/guildSettings.ts")).default;
+const settings = await import("../../src/store/guildSettings.ts");
 const SponsorBlock = (await import("../../src/sources/sponsorBlock.js")).default;
 const sponsorConfig = (await import("../../events/sponsorConfigHandler.js")).default;
 
@@ -35,8 +36,8 @@ after(() => {
 });
 
 beforeEach(() => {
-  settings.cache.clear();
-  audioCache.db.exec("DELETE FROM guild_settings; DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  settings._reset();
+  storeDb.get().exec("DELETE FROM guild_settings; DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
 const cmd = (name) => require(`../../commands/${name}.js`);
@@ -250,14 +251,14 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 ·
 test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 채널을 안 주면 지금 채널", async () => {
   const { it, log, seen, client } = interaction({ channelId: "c5" });
   await cmd("setchannel").execute(it, client);
-  settings.cache.clear();
+  settings._reset();
   assert.equal(await settings.getBotChannel("g1"), "c5");
   assert.equal(log[0][1].embeds[0].data.title, "✅ 봇 채널 설정됨");
   assert.deepEqual(seen, ["movePanel"], "안내 뒤에 옮긴다");
 
   const other = interaction({ options: { channel: { id: "c6", toString: () => "<#c6>" } } });
   await cmd("setchannel").execute(other.it, other.client);
-  settings.cache.clear();
+  settings._reset();
   assert.equal(await settings.getBotChannel("g1"), "c6");
 });
 
@@ -265,7 +266,7 @@ test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패�
   await settings.setBotChannel("g1", "c5");
   const { it, log, seen, client } = interaction({ options: { action: "remove" } });
   await cmd("setchannel").execute(it, client);
-  settings.cache.clear();
+  settings._reset();
   assert.equal(await settings.getBotChannel("g1"), null);
   assert.deepEqual(seen, ["movePanel"]);
   assert.equal(log[0][1].embeds[0].data.title, "🔧 봇 채널 제거됨");
@@ -298,8 +299,8 @@ test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메�
     ["djrole:save", "djrole:cancel"],
   );
 
-  settings.cache.clear();
-  audioCache.db.exec("DELETE FROM guild_settings;");
+  settings._reset();
+  storeDb.get().exec("DELETE FROM guild_settings;");
   const none = interaction();
   await cmd("setdjrole").execute(none.it, none.client);
   assert.match(none.log[0][1].embeds[0].data.description, /모든 유저/);
@@ -356,7 +357,7 @@ test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저
 
   const save = sbInteraction({ customId: "sb:save", messageId: "m-save" });
   await sponsorConfig.execute(save.it);
-  settings.cache.clear();
+  settings._reset();
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
   assert.equal(save.log[0][1], "⏭️ SponsorBlock 설정 저장됨");
   assert.match(save.log[0][2], /인트로\/인터미션, 아웃트로\/엔드카드/);
@@ -370,8 +371,8 @@ test("SponsorBlock 화면: 끄고 저장하면 미사용, 구간을 비우고 �
   await sponsorConfig.execute(save.it);
   assert.match(save.log[0][2], /구간: 미사용/);
 
-  settings.cache.clear();
-  audioCache.db.exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "사용"에서 시작하게
+  settings._reset();
+  storeDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "사용"에서 시작하게
   const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
   await sponsorConfig.execute(empty.it);
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });

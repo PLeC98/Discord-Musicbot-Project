@@ -6,7 +6,7 @@
 // 갈래마다 셋을 본다. 어떤 ffmpeg 를 무엇으로 띄웠나, 캐시 장부에 무엇을 적었나, 끝난 뒤 플레이어 상태.
 
 import h from "../helpers/playerHarness.js";
-import audioCache from "../../src/store/audioCache.ts";
+import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import audioSplicer from "../../src/media/audioSplicer.js";

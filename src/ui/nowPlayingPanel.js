@@ -23,7 +23,7 @@ import ErrorHandler from "./errorMessages.js";
 import S from "./strings.js";
 import mentions from "./mentions.js";
 const { ALLOWED_MENTIONS, escapeMd } = mentions;
-import GuildSettingsManager from "../store/guildSettings.ts";
+import * as GuildSettingsManager from "../store/guildSettings.ts";
 import trackState from "../player/trackState.js";
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.

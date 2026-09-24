@@ -12,8 +12,8 @@ const { openTempStore } = tempStore;
 
 const store = openTempStore("track-lookup-");
 after(() => store.close());
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
+const audioCache = await import("../../src/store/audioCache.ts");
+const trackLookup = await import("../../src/store/trackLookup.ts");
 
 // ── 제목 출처 (title_verified) ───────────────────────────────
 // 재생목록 페이지가 주는 제목은 같은 영상인데도 다를 수 있다. 그걸로 확인된 제목을 덮으면
@@ -56,6 +56,7 @@ test("행이 없는 URL은 getVerifiedTitle이 null", () => {
 // ── 두 걸음으로 캐시 찾기 ─────────────────────────────────────
 
 import fs from "node:fs";
+import * as storeDb from "../../src/store/db.ts";
 
 function cacheFile(key) {
   const file = audioCache.getFilePath(key);
@@ -83,7 +84,7 @@ test("퇴거로 audio_cache 행이 지워져도 장부는 남는다. 다음에 �
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/ev1", pageUrl: "https://open.spotify.com/track/ev1", audioUrl: "https://www.youtube.com/watch?v=evictedvid", platform: "spotify", title: "곡" });
 
   fs.unlinkSync(file);
-  audioCache.db.prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict() 가 한 줄마다 하는 일
+  storeDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict() 가 한 줄마다 하는 일
 
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/ev1").hit, false, "파일이 없으니 캐시로는 못 튼다");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/ev1?si=x"), "https://www.youtube.com/watch?v=evictedvid", "검색은 건너뛴다");
@@ -95,7 +96,7 @@ test("음원 주소가 없는 곡은 장부에 적지 않는다(스포티파이�
 });
 
 test("모양이 틀린 장부 줄은 없는 것으로 본다", () => {
-  audioCache.db.prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, title_verified, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 1, 1)").run("https://open.spotify.com/track/badrow", "https://open.spotify.com/track/badrow", "", "spotify");
+  storeDb.get().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, title_verified, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 1, 1)").run("https://open.spotify.com/track/badrow", "https://open.spotify.com/track/badrow", "", "spotify");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/badrow"), null, "빈 음원 주소");
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/badrow").hit, false);
 });

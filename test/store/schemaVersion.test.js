@@ -1,7 +1,6 @@
 // src/store/db.ts — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
-import playerSessions from "../../src/store/playerSessions.ts";
-const { sessions } = playerSessions;
+import { sessions } from "../../src/store/playerSessions.ts";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -10,9 +9,9 @@ import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
-const guildTable = (await import("../../src/store/guildSettings.ts")).default.table;
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-const storeDb = (await import("../../src/store/db.ts")).default;
+const guildTable = (await import("../../src/store/guildSettings.ts")).table;
+const audioCache = await import("../../src/store/audioCache.ts");
+const storeDb = await import("../../src/store/db.ts");
 
 after(() => {
   audioCache.close();
@@ -26,7 +25,7 @@ function open(name) {
 
 test("새 DB는 현재 버전으로 만들어지고 세션 표를 쓴다", () => {
   open("fresh.db");
-  assert.equal(audioCache.db.pragma("user_version", { simple: true }), storeDb.SCHEMA_VERSION);
+  assert.equal(storeDb.get().pragma("user_version", { simple: true }), storeDb.SCHEMA_VERSION);
 
   sessions().append("g", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
   assert.equal(sessions().load("g").queue.length, 1);
@@ -48,8 +47,8 @@ test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다"
     () => audioCache.initialize(legacy),
     (error) => error.code === "SCHEMA_MISMATCH" && error.message.includes("지운 뒤 다시 실행"),
   );
-  assert.equal(audioCache._initialized, false, "열다 만 상태로 남지 않는다");
-  assert.throws(() => audioCache.db, { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
+  assert.equal(storeDb.isOpen(), false, "열다 만 상태로 남지 않는다");
+  assert.throws(() => storeDb.get(), { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
 
   const check = new Database(legacy);
   const made = check.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'session_tracks'").get().n;

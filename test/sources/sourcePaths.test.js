@@ -11,14 +11,15 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { createRequire } from "node:module";
+import * as storeDb from "../../src/store/db.ts";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const audioCache = await import("../../src/store/audioCache.ts");
+const trackLookup = await import("../../src/store/trackLookup.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
@@ -42,8 +43,8 @@ beforeEach(() => {
     const [obj, key, fn] = swaps.pop();
     obj[key] = fn;
   }
-  audioCache.db.exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
-  fs.rmSync(audioCache._cacheDir, { recursive: true, force: true, maxRetries: 5 });
+  storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
+  fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
 });
 
 after(() => {

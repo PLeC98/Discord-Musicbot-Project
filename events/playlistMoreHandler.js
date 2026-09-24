@@ -6,7 +6,7 @@ const log = logger.child({ category: "events" });
 import S from "../src/ui/strings.js";
 import permissions from "../src/usecases/permissions.js";
 const { checkAdd } = permissions;
-import GuildSettingsManager from "../src/store/guildSettings.ts";
+import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import addTracks from "../src/usecases/addTracks.js";
 const { continueCollection } = addTracks;
 import More from "../src/usecases/playlistMore.js";

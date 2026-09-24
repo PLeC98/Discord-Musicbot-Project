@@ -10,14 +10,15 @@ import path from "node:path";
 import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
+import * as storeDb from "../../src/store/db.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
-const audioCache = (await import("../../src/store/audioCache.ts")).default;
-audioCache._cacheDir = path.join(TMP, "audio_cache");
+const audioCache = await import("../../src/store/audioCache.ts");
+audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const S = (await import("../../src/ui/strings.js")).default;
-const settings = (await import("../../src/store/guildSettings.ts")).default;
+const settings = await import("../../src/store/guildSettings.ts");
 const lookup = (await import("../../src/sources/lookup.js")).default;
 const yamlStore = await import("../../src/config/yamlStore.ts");
 const More = (await import("../../src/usecases/playlistMore.js")).default;
@@ -47,8 +48,8 @@ after(() => {
 });
 
 beforeEach(() => {
-  settings.cache.clear();
-  audioCache.db.exec("DELETE FROM guild_settings;");
+  settings._reset();
+  storeDb.get().exec("DELETE FROM guild_settings;");
   resolved.length = 0;
   lookup.resolveQuery = async (query, context, range) => {
     resolved.push({ query, context, range });
@@ -160,8 +161,8 @@ test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 �
   await messageHandler.execute(message(w, { bot: true }));
   await messageHandler.execute(message(w, { content: "   " }));
   await messageHandler.execute(message(w, { channelId: "other" }));
-  settings.cache.clear();
-  audioCache.db.exec("DELETE FROM guild_settings;");
+  settings._reset();
+  storeDb.get().exec("DELETE FROM guild_settings;");
   await messageHandler.execute(message(w));
   assert.deepEqual(resolved, []);
 });

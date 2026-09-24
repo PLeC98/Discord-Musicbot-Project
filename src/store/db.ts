@@ -171,7 +171,5 @@ const SESSION_TABLES = `
   );
 `;
 
-const exported = { open, get, isOpen, close, createTables, SCHEMA_VERSION, DB_PATH };
-export default exported;
-export { exported as "module.exports" };
+export { open, get, isOpen, close, createTables, SCHEMA_VERSION, DB_PATH };
 export type { Db };

@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
 const { openTempStore, setGuild } = (await import("../helpers/tempStore.js")).default;
 const temp = openTempStore("dashboard-settings-");
-const settings = (await import("../../src/store/guildSettings.ts")).default;
+const settings = await import("../../src/store/guildSettings.ts");
 const config = (await import("../../config.ts")).default;
 
 // 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250 · 기본 50 으로 본다

@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { canonicalUrl } from "../src/rules/canonicalUrl.ts";
 import { createRequire } from "node:module";
+import * as storeDb from "../src/store/db.ts";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
@@ -22,7 +23,7 @@ let audioCache, trackLookup;
 before(() => {
   audioCache = require("../src/store/audioCache.ts");
   trackLookup = require("../src/store/trackLookup.ts");
-  audioCache._cacheDir = path.join(TMP, "audio_cache");
+  audioCache._setCacheDir(path.join(TMP, "audio_cache"));
   audioCache.initialize(path.join(TMP, "cache.db"));
 });
 
@@ -117,7 +118,7 @@ test("퇴거가 audio_cache 행을 지워도 링크 장부는 남는다", () => 
 
   // evict() 가 한 줄마다 하는 일 그대로
   fs.unlinkSync(file);
-  audioCache.db.prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictcasca");
+  storeDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictcasca");
 
   assert.equal(trackLookup.getAudioUrl(spotify), watch("evictcasca"));
   assert.equal(trackLookup.resolveFromCache(spotify).hit, false);

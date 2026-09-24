@@ -5,7 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import audioCache from "../../src/store/audioCache.ts";
+import * as audioCache from "../../src/store/audioCache.ts";
 import MusicPlayer from "../../src/player/Player.js";
 
 const release = MusicPlayer.prototype.releaseAudioProtection;

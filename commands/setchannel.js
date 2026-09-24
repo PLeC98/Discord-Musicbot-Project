@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } from "discord.js";
-import GuildSettingsManager from "../src/store/guildSettings.ts";
+import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 
