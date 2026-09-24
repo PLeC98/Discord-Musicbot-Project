@@ -441,8 +441,9 @@ test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽",
   withLimits(30, 50, async () => {
     assert.equal((await requestWith({ playing: true })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
-    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 셈하지만, 묶음이 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
-    assert.equal((await requestWith({ playing: false })).limit, 30);
+    // 쉬던 중이면 첫 곡은 곧바로 틀리니 한 곡 더. 묶음이 대기열 상한(30)으로 잘려 있어도 대기열 30 + 현재곡 1
+    assert.equal((await requestWith({ playing: false })).limit, 31);
+    assert.equal((await requestWith({ playing: false, queued: 25 })).limit, 6, "현재곡 없이 대기열만 남은 경우도 남은 자리 + 1");
     assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
     assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
   }));
@@ -450,6 +451,15 @@ test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽",
 test("받을 곡 수: 상한이 꺼져 있으면 묶음 크기", () =>
   withLimits(0, 50, async () => {
     assert.equal((await requestWith({ playing: true, queued: 400 })).limit, 50);
+    assert.equal((await requestWith({ playing: false })).limit, 51, "대기열에 50곡, 첫 곡은 곧바로 틀린다");
+  }));
+
+test("쉬던 중 재생목록을 넣으면 대기열을 상한까지 채운다", () =>
+  withLimits(30, 30, async () => {
+    const many = () => ({ ...ok(...Array.from({ length: 31 }, (_, i) => `s${i}`)), total: 80 });
+    const { trackData } = await requestWith({ playing: false, resolve: many });
+    assert.equal(trackData?.tracks.length, 31, "현재곡 1 + 대기열 30");
+    assert.equal(trackData?.queueLimited, undefined, "묶음만큼 다 받았으니 자리가 모자란 것이 아니다");
   }));
 
 test("자리가 모자라 덜 받았고 뒤에 곡이 더 있을 때만 queueLimited", () =>

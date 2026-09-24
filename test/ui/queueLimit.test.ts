@@ -56,6 +56,16 @@ test("넘치는 곡은 빼고, 몇 곡을 뺐는지 결과와 안내에 싣는�
   assert.match(notices[0], /5곡은 넣지 못했습니다 \(최대 30곡\)/);
 });
 
+test("쉬던 중 상한 + 1 곡을 넣으면 첫 곡을 틀고 대기열을 상한까지 채운다", async () => {
+  const { player, add } = setup({ max: 30, playing: false });
+  const result = await add(many("new", 31));
+
+  assert.equal(result.success, true);
+  assert.equal(result.dropped, 0);
+  assert.equal(player.currentTrack?.title, "new0");
+  assert.equal(player.queue.length, 30);
+});
+
 test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", async () => {
   const { player, add, notices } = setup({ max: 30, queued: 30 });
   const result = await add([t("x")]);
