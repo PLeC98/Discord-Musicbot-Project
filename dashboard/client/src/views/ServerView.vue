@@ -76,14 +76,16 @@
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
                 </button>
 
-                <!-- Volume: capsule hover-expand -->
-                <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
-                  <button :class="volBtn" v-tooltip="`볼륨: ${volumeShown}%`">
-                    <VolumeIcon :level="volumeShown" :size="17" />
-                  </button>
-                  <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-40 group-hover/vol:opacity-100 group-focus-within/vol:max-w-40 group-focus-within/vol:opacity-100">
-                    <input type="range" min="0" max="100" step="1" :value="volumeShown" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" class="w-24 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
-                    <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ volumeShown }}%</span>
+                <!-- Volume: capsule hover-expand. 모바일에서는 펼치면 오른쪽 버튼이 밀려 줄이 바뀌므로 처음부터 아랫줄에 둔다 -->
+                <div class="order-last basis-full flex sm:order-none sm:basis-auto">
+                  <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
+                    <button :class="volBtn" v-tooltip="`볼륨: ${volumeShown}%`">
+                      <VolumeIcon :level="volumeShown" :size="17" />
+                    </button>
+                    <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-44 group-hover/vol:opacity-100 group-focus-within/vol:max-w-44 group-focus-within/vol:opacity-100">
+                      <input type="range" min="0" max="100" step="1" :value="volumeShown" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" class="w-30 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
+                      <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ volumeShown }}%</span>
+                    </div>
                   </div>
                 </div>
 

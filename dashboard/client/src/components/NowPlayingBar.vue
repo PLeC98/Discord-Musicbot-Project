@@ -35,7 +35,7 @@
 
       <div class="flex items-center justify-end gap-2">
         <VolumeIcon :level="volumeShown" :size="17" class="text-muted" />
-        <input type="range" min="0" max="100" step="1" :value="volumeShown" :disabled="!np.canControl" class="w-24 h-1 accent-accent cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40" v-tooltip="`볼륨: ${volumeShown}%`" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" />
+        <input type="range" min="0" max="100" step="1" :value="volumeShown" :disabled="!np.canControl" class="w-30 h-1 accent-accent cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40" v-tooltip="`볼륨: ${volumeShown}%`" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" />
       </div>
     </div>
 

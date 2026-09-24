@@ -158,7 +158,7 @@ async function volume(player: MaybePlayer, actor: Actor, level: unknown) {
 }
 
 // 대시보드는 끄는 동안 음량을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
-const VOLUME_SETTLE_MS = 400;
+const VOLUME_SETTLE_MS = 1000;
 const settling = new WeakMap<MusicPlayer, { from: number; timer?: NodeJS.Timeout }>(); // player -> { from, timer }
 
 function settleVolume(player: MusicPlayer, before: number) {
