@@ -78,4 +78,3 @@ const exported: ClientEvent<Events.MessageCreate> = {
   },
 };
 export default exported;
-export { exported as "module.exports" };

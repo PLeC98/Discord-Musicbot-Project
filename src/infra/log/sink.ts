@@ -308,4 +308,3 @@ const singleton = Object.assign(new LogManager(), {
   _internals: { LEVELS, LEVEL_NAMES, WIRE_LEVEL, CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS },
 });
 export default singleton;
-export { singleton as "module.exports" };

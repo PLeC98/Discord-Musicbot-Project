@@ -80,4 +80,3 @@ const exported: GuildCommand = {
   },
 };
 export default exported;
-export { exported as "module.exports" };

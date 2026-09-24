@@ -95,4 +95,3 @@ const exported: ClientEvent<Events.InteractionCreate> = {
   },
 };
 export default exported;
-export { exported as "module.exports" };

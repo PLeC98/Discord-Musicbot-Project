@@ -164,6 +164,5 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
   },
 };
 export default exported;
-export { exported as "module.exports" };
 export { validateRequest, showSearchMenu, formatDuration };
 export type { SearchRecord };

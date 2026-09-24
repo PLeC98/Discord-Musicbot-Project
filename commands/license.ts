@@ -47,4 +47,3 @@ const exported: AnywhereCommand = {
   },
 };
 export default exported;
-export { exported as "module.exports" };

@@ -97,4 +97,3 @@ function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelNam
 
 const root = Object.assign(createLogger(), { _internals: { LEVELS, LEVEL_NAMES, buildRecord, createLogger } });
 export default root;
-export { root as "module.exports" };

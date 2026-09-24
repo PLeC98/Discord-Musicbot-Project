@@ -173,5 +173,4 @@ const exported: ClientEvent<Events.InteractionCreate> = {
   },
 };
 export default exported;
-export { exported as "module.exports" };
 export { handleAutoplayGenre, handleJumpTo, handleVolumeModal, createVolumeBar };

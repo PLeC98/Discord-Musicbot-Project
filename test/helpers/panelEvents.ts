@@ -24,4 +24,3 @@ function recordPanel({ player = null }: { player?: MusicPlayer | null } = {}): R
 
 const exported = { recordPanel };
 export default exported;
-export { exported as "module.exports" };

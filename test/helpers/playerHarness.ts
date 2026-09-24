@@ -426,4 +426,3 @@ const exported = {
 };
 export default exported;
 export type { FakeChild, FakeResource, Behavior };
-export { exported as "module.exports" };

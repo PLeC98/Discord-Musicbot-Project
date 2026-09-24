@@ -414,5 +414,4 @@ const exported: ClientEvent<Events.InteractionCreate> = {
   },
 };
 export default exported;
-export { exported as "module.exports" };
 export { handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleShuffle, handleHighlight, handleVolumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };

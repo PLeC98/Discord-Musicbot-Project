@@ -46,4 +46,3 @@ function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponso
 
 const exported = { openTempStore, setGuild };
 export default exported;
-export { exported as "module.exports" };

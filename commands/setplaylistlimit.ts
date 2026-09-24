@@ -45,7 +45,6 @@ const exported: GuildCommand = {
   },
 };
 export default exported;
-export { exported as "module.exports" };
 
 function card(title: string, description: string) {
   return new EmbedBuilder().setTitle(title).setDescription(description).setColor(config.bot.embedColor).setTimestamp();

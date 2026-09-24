@@ -16,4 +16,3 @@ const direct = (url: string, extra: Partial<QueuedTrack> = {}): QueuedTrack & { 
 
 const exported = { watch, youtube, spotify, direct };
 export default exported;
-export { exported as "module.exports" };

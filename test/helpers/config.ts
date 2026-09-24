@@ -46,4 +46,3 @@ function withConfig<R>(overrides: Plain, fn: () => R): R {
 
 const exported = { withConfig };
 export default exported;
-export { exported as "module.exports" };

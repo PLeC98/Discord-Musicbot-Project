@@ -26,4 +26,3 @@ function baseUrl(server: Server) {
 
 const exported = { listenForFetch, baseUrl };
 export default exported;
-export { exported as "module.exports" };

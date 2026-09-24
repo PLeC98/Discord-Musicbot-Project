@@ -55,7 +55,6 @@ async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {})
 }
 
 export default run;
-export { run as "module.exports" };
 /** yt-dlp 실행 함수. 테스트가 가짜를 넘기는 자리의 모양 */
 type RunYtDlp = typeof run;
 export type { YtDlpFlags, YtDlpError, RunYtDlp };

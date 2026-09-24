@@ -366,6 +366,5 @@ const { config, problems, warnings } = loadConfig(process.env, { envFileFound })
 type Config = typeof config;
 
 export default config;
-export { config as "module.exports" };
 export { problems, warnings, loadConfig, parseClients };
 export type { Config };
