@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 장르 설정(genres.yaml)의 스키마. 문구는 무엇을 고쳐야 하는지까지 알려 주므로 그대로 둔다.
 
 import genreSources from "./genreSources.ts";
@@ -17,10 +16,10 @@ const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
 // 키가 곧 이름이다. YAML이 값으로 읽어 버리는 말은 이름으로 쓸 수 없다.
 const YAML_WORDS = ["true", "false", "", "null"];
 
-const filled = (v) => (Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim());
+const filled = (v: unknown) => (Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim());
 
 // 소스 한 줄. 종류마다 SPEC 이 필요한 칸과 쓸 수 있는 값을 정한다
-function sourceOf(type) {
+function sourceOf(type: string) {
   const spec = SPEC[type];
   const at = `{where}(${spec.label})`;
   return z
@@ -38,7 +37,7 @@ function sourceOf(type) {
       for (const [key, allowed] of Object.entries(spec.enums || {})) {
         if (source[key] == null) continue;
         for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
-          if (!allowed.includes(one)) ctx.addIssue({ code: "custom", message: `${at}: ${key}에 "${one}"는 쓸 수 없습니다. 쓸 수 있는 것: ${allowed.join(", ")}` });
+          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: `${at}: ${key}에 "${one}"는 쓸 수 없습니다. 쓸 수 있는 것: ${allowed.join(", ")}` });
         }
       }
       if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) ctx.addIssue({ code: "custom", message: "{where}: yearFrom이 yearTo보다 큽니다." });
@@ -46,13 +45,10 @@ function sourceOf(type) {
     }, ALWAYS);
 }
 
-const source = z.discriminatedUnion(
-  "type",
-  TYPES.map((type) => sourceOf(type)),
-  {
-    error: (issue) => (!issue.input || typeof issue.input !== "object" ? "{where}: type과 값을 적어야 합니다." : `{where}: 모르는 종류입니다(${issue.input.type}). 쓸 수 있는 것: ${TYPES.join(", ")}`),
-  },
-);
+const [firstSource, ...restSources] = TYPES.map((type) => sourceOf(type));
+const source = z.discriminatedUnion("type", [firstSource, ...restSources], {
+  error: (issue) => (!issue.input || typeof issue.input !== "object" ? "{where}: type과 값을 적어야 합니다." : `{where}: 모르는 종류입니다(${(issue.input as { type?: unknown }).type}). 쓸 수 있는 것: ${TYPES.join(", ")}`),
+});
 
 const genre = z.preprocess(
   plain,
@@ -100,8 +96,8 @@ const defaults = z.preprocess(
 const genresFile = z.preprocess(plain, z.object({ genres, defaults }));
 
 /** 장르 설정의 문제 목록. 없으면 빈 배열 */
-function genreProblems(data) {
-  return problemsOf(genresFile, data, ([, id, , index]) => ({ id, where: `${id}의 ${index + 1}번째 소스` }));
+function genreProblems(data: unknown): string[] {
+  return problemsOf(genresFile, data, ([, id, , index]) => ({ id, where: `${String(id)}의 ${Number(index) + 1}번째 소스` }));
 }
 
 const exported = { genreProblems, NUMERIC_NAME, ONE_EMOJI };

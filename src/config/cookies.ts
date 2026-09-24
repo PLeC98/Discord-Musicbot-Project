@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 유튜브 쿠키 파일(cookies.txt). 읽지 않고 자리만 맡는다.
 
 import fs from "fs";
@@ -44,7 +43,7 @@ function cookiesReady() {
  * 들어 있는 쿠키가 아직 살아 있는지는 우리가 알 수 없다. 유튜브가 브라우저 쪽에서
  * 세션을 돌리면 만료 시각과 무관하게 무효가 되므로, 써 보기 전에는 판정이 불가능하다.
  */
-function saveCookies(text) {
+function saveCookies(text: unknown): boolean {
   const body = String(text ?? "")
     .replace(/\r\n/g, "\n")
     .trim();

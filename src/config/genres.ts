@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 장르 설정(genres.yaml). 읽을 때 모양과 소스 키를 본다.
 
 import logger from "../infra/log/logger.ts";
@@ -13,6 +12,13 @@ const { genreProblems } = genresModule;
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
 
+/** 소스 한 줄. type 말고 어떤 칸이 있는지는 종류마다 다르다(genreSources 의 SPEC) */
+type GenreSource = { type: string; [field: string]: unknown };
+type Genre = { emoji?: string; sources: GenreSource[] };
+// 수 칸은 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number 로 바꾼다
+type GenreDefaults = { prefetchCount?: unknown; minDurationSec?: unknown; maxDurationSec?: unknown };
+type GenresConfig = { defaults: GenreDefaults; genres: Record<string, Genre> };
+
 // 같은 말을 되풀이하지 않는다. genres()는 곡을 고를 때마다 불린다
 let warnedKeys = "";
 
@@ -23,13 +29,14 @@ let warnedKeys = "";
  * `true`/`false`/`null`은 값으로 읽혀 id가 조용히 뒤바뀐다(null 키는 빈 문자열이 된다).
  * 흔한 실수는 아니지만, 조용히 틀리는 종류라 거절하고 무엇을 고칠지 알린다.
  */
-function genres() {
-  const data = load("genres");
+function genres(): GenresConfig {
+  const loaded = load("genres");
   // 이름 · 숫자 이름 · 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
-  const shape = validateGenres(data);
+  const shape = validateGenres(loaded);
   if (shape.length) {
     throw Object.assign(new Error(["config/genres.yaml 을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
   }
+  const data = loaded as Partial<GenresConfig>; // 검사를 지났다
 
   checkSourceKeys(data.genres || {});
 
@@ -43,14 +50,14 @@ function genres() {
  * 장르 하나가 삐끗했다고 봇 전체를 못 띄우는 것은 과하지만, 그 장르를 고르면 아무 일도 일어나지
  * 않는 채로 두는 것은 더 나쁘다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
  */
-function checkSourceKeys(genres) {
+function checkSourceKeys(genres: Record<string, Genre>) {
   // 같은 키가 빠진 장르를 묶어 한 줄로 알린다. 장르마다 한 줄이면 기동 로그가 경고로 덮인다
-  const grouped = new Map();
-  const lines = [];
+  const grouped = new Map<string, string[]>();
+  const lines: string[] = [];
 
   for (const [name, genre] of Object.entries(genres)) {
     const list = Array.isArray(genre?.sources) ? genre.sources : [];
-    const missing = [];
+    const missing: string[] = [];
     let alive = 0;
 
     for (const source of list) {
@@ -69,8 +76,7 @@ function checkSourceKeys(genres) {
     }
     if (missing.length) {
       const key = missing.join(", ");
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key).push(name);
+      grouped.set(key, [...(grouped.get(key) ?? []), name]);
     }
   }
 
@@ -88,3 +94,4 @@ function checkSourceKeys(genres) {
 const exported = { genres, validateGenres };
 export default exported;
 export { exported as "module.exports" };
+export type { GenreSource, Genre, GenreDefaults, GenresConfig };

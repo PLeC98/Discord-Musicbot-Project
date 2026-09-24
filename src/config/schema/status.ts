@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 봇 활동 문구 설정(status.yaml)의 스키마.
 
 import genres from "./genres.ts";
@@ -12,7 +11,9 @@ const MAX_TEXT = 128; // 디스코드 활동 문구 길이 상한
 
 // "MM-DD ~ MM-DD" / "HH:MM ~ HH:MM". 비교가 문자열 비교라 두 자리로 적지 않으면
 // 형식이 틀린 게 아니라 "엉뚱한 날에 걸린다". 그래서 모양까지 본다.
-function rangeProblem(value, kind) {
+type RangeKind = "date" | "lunar" | "time";
+
+function rangeProblem(value: unknown, kind: RangeKind): string | null {
   if (typeof value !== "string") return "글자로 적어야 합니다";
   const parts = value.split("~");
   if (parts.length !== 2) return `"${kind === "time" ? "22:00 ~ 06:00" : "12-24 ~ 12-26"}"처럼 ~ 로 나눠 적어야 합니다`;
@@ -24,7 +25,7 @@ function rangeProblem(value, kind) {
   return null;
 }
 
-const range = (kind) =>
+const range = (kind: RangeKind) =>
   z
     .unknown()
     .superRefine((value, ctx) => {
@@ -44,10 +45,10 @@ const message = z.preprocess(
         .string({ error: "{where}: 빈 문구가 있습니다." })
         .refine((text) => text.trim(), { error: "{where}: 빈 문구가 있습니다." })
         // 빈 문구면 길이는 따지지 않는다(한 문구에 하나만 알린다)
-        .refine((text) => !text.trim() || text.length <= MAX_TEXT, { error: (issue) => `{where}: 문구가 ${MAX_TEXT}자를 넘습니다. "${issue.input.slice(0, 20)}…"` }),
+        .refine((text) => !text.trim() || text.length <= MAX_TEXT, { error: (issue) => `{where}: 문구가 ${MAX_TEXT}자를 넘습니다. "${String(issue.input).slice(0, 20)}…"` }),
       // 종류를 잘못 적으면 조용히 "듣는 중"이 된다. 오타가 말을 안 해 주는 종류라 여기서 잡는다
       type: present(
-        (type) => ACTIVITY_TYPES.includes(type),
+        (type) => typeof type === "string" && ACTIVITY_TYPES.includes(type),
         (issue) => `{where}: "${issue.input}"은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`,
       ),
     },
@@ -62,7 +63,7 @@ const entry = z
   // 조건이 하나도 없으면 항상 맞아서 아래 항목이 전부 죽는다. 손으로 고치다 범위만 지우면 밟는다
   .superRefine((one, ctx) => {
     if (!one || typeof one !== "object" || Array.isArray(one)) return; // 표가 아니면 위에서 이미 알렸다
-    if (!["date", "lunar", "time"].some((k) => one[k] != null)) ctx.addIssue({ code: "custom", message: "{name}: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다)." });
+    if (!(["date", "lunar", "time"] as const).some((k) => one[k] != null)) ctx.addIssue({ code: "custom", message: "{name}: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다)." });
   }, ALWAYS);
 
 const special = z
@@ -86,7 +87,7 @@ const statusFile = z.preprocess(
 );
 
 /** 상태 설정의 문제 목록. 없으면 빈 배열 */
-function statusProblems(data) {
+function statusProblems(data: unknown): string[] {
   // messages 는 평소 문구거나 special 아래 이름의 문구다
   return problemsOf(statusFile, data, (path) => {
     const name = path[0] === "special" ? path[1] : undefined;

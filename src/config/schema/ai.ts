@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // AI 보조 설정(ai.yaml)의 스키마. 프롬프트(ai-prompt.chatml)는 제 형식이 따로 있어 여기서 보지 않는다.
 
 import aiProviders from "./aiProviders.ts";
@@ -10,14 +9,14 @@ const PROMPT_FILE = "ai-prompt.chatml";
 const AI_UNKNOWN = ["hide", "text", "zero"];
 
 // 모델이 받는 수치 칸. 범위를 벗어나거나 수가 아니면 같은 문구
-const between = (key, min, max) =>
+const between = (key: string, min: number, max: number) =>
   present((v) => {
     const value = Number(v);
     return Number.isFinite(value) && value >= min && value <= max;
   }, `${key}는 ${min}~${max} 사이여야 합니다.`);
 
 // 옛 칸. 남아 있으면 조용히 무시되므로 알린다
-const gone = (message) => present(() => false, message);
+const gone = (message: string) => present(() => false, message);
 
 const list = z
   .object(
@@ -27,7 +26,7 @@ const list = z
         // 제목이 없으면 판정할 거리가 없다
         .refine((f) => !f.trim() || /\{\{\s*제목\s*\}\}/.test(f), { error: "list.lineFormat에 {{제목}} 이 있어야 합니다." })
         .nullish(),
-      unknownDuration: present((v) => AI_UNKNOWN.includes(v), `list.unknownDuration은 ${AI_UNKNOWN.join(" · ")} 중 하나여야 합니다.`),
+      unknownDuration: present((v) => typeof v === "string" && AI_UNKNOWN.includes(v), `list.unknownDuration은 ${AI_UNKNOWN.join(" · ")} 중 하나여야 합니다.`),
       unknownText: z.string({ error: "list.unknownText는 글로 적어야 합니다." }).nullish(),
     },
     { error: "list는 이름:값 꼴이어야 합니다." },
@@ -38,7 +37,7 @@ const aiFile = z.preprocess(
   plain,
   z
     .looseObject({
-      provider: present((v) => PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`),
+      provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`),
       enabled: gone("enabled 는 provider 로 바뀌었습니다. off 또는 openai 를 적으세요."),
       // 온도도 모델이 받는 칸 하나다. params 아래로 옮겼다
       temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
@@ -78,7 +77,7 @@ const aiFile = z.preprocess(
 );
 
 /** AI 설정의 문제 목록. 없으면 빈 배열 */
-function aiProblems(data) {
+function aiProblems(data: unknown): string[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 

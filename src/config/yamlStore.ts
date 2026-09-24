@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // config/*.yaml을 읽는 단일 통로.
 //
 // 왜 config/에 코드를 두지 않는가: 그 폴더는 운영자가 손으로 고치는 자리다. 편집 대상과 그것을 읽는
@@ -20,12 +19,19 @@ const log = logger.child({ category: "config" });
 // (audioCache._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
 let configDir = path.join(import.meta.dirname, "..", "..", "config");
 
-// name -> { mtimeMs, value }
-const cache = new Map();
+/** 설정 파일 하나의 내용. 맨 위는 늘 표다 */
+type ConfigData = Record<string, unknown>;
+// 문서 안의 자리(키 · 번호)
+type DocPath = Array<string | number>;
 
-const fileOf = (name) => path.join(configDir, `${name}.yaml`);
+// 이름 → 읽은 때와 값. 프롬프트(섹션 목록)도 같이 담는다. 폴더를 바꾸면 함께 버려야 해서다
+const cache = new Map<string, { mtimeMs: number; value: unknown }>();
+// 설정 파일(표)로 담아 둔 것
+const cachedData = (name: string) => cache.get(name) as { mtimeMs: number; value: ConfigData } | undefined;
 
-const exampleOf = (name) => path.join(configDir, `${name}.example.yaml`);
+const fileOf = (name: string) => path.join(configDir, `${name}.yaml`);
+
+const exampleOf = (name: string) => path.join(configDir, `${name}.example.yaml`);
 
 /**
  * 설정 파일 하나를 읽는다. 내용이 바뀌지 않았으면 읽은 것을 그대로 돌려준다.
@@ -34,14 +40,14 @@ const exampleOf = (name) => path.join(configDir, `${name}.example.yaml`);
  * 설치가 어긋나도 아무도 모른 채 엉뚱한 설정으로 운영된다.
  * 반면 돌던 중의 읽기·파싱 실패는 직전 값을 유지한다. 저장하다 만 파일 한 번에 재생이 멈추면 안 된다.
  */
-function load(name) {
+function load(name: string): ConfigData {
   const file = fileOf(name);
 
   let stat;
   try {
     stat = fs.statSync(file);
   } catch {
-    const cached = cache.get(name);
+    const cached = cachedData(name);
     if (cached) {
       log.warn(`설정 파일을 찾지 못했습니다(직전 값 유지): ${file}`);
       return cached.value;
@@ -49,16 +55,17 @@ function load(name) {
     throw Object.assign(new Error(`설정 파일이 없습니다: ${file}\n   ${exampleOf(name)} 를 복사해 만드세요 (pnpm install이 자동으로 만듭니다).`), { code: "CONFIG_MISSING" });
   }
 
-  const cached = cache.get(name);
+  const cached = cachedData(name);
   if (cached && cached.mtimeMs === stat.mtimeMs) return cached.value;
 
-  let value;
+  let value: ConfigData;
   try {
-    value = YAML.parse(fs.readFileSync(file, "utf8"));
-    if (!value || typeof value !== "object") throw new Error("내용이 비었습니다");
+    const parsed: unknown = YAML.parse(fs.readFileSync(file, "utf8"));
+    if (!parsed || typeof parsed !== "object") throw new Error("내용이 비었습니다");
+    value = parsed as ConfigData;
   } catch (error) {
     // 사람이 고치는 파일이라 문법 오류가 날 수 있다. 어디가 잘못됐는지 알려 주는 것이 중요하다.
-    const detail = error?.message || error;
+    const detail = (error instanceof Error && error.message) || error;
     if (cached) {
       log.warn(`설정 파일을 읽지 못했습니다(직전 값 유지): ${path.basename(file)}, ${detail}`);
       return cached.value;
@@ -84,7 +91,7 @@ function load(name) {
 // 목록도 자리마다 견줘 고친다. 통째로 갈아끼우면 그 안에 손으로 적어 둔 주석이 전부 날아간다.
 // 자리를 기준으로 맞추므로 중간에 하나를 끼워 넣으면 그 아래 주석은 한 칸씩 밀린다.
 // 통째로 날리는 것보다는 낫다는 선택이다.
-function syncSeq(doc, node, list, pathArr) {
+function syncSeq(doc: YAML.Document, node: YAML.YAMLSeq, list: unknown[], pathArr: DocPath) {
   // 남는 자리는 뒤에서부터 지운다(앞에서 지우면 뒤 자리가 당겨진다)
   for (let i = node.items.length - 1; i >= list.length; i--) doc.deleteIn([...pathArr, i]);
 
@@ -99,7 +106,7 @@ function syncSeq(doc, node, list, pathArr) {
 
     const current = doc.getIn(here, true);
     if (value && typeof value === "object" && !Array.isArray(value) && YAML.isMap(current)) {
-      syncMap(doc, current, value, here);
+      syncMap(doc, current, value as ConfigData, here);
       continue;
     }
     if (Array.isArray(value) && YAML.isSeq(current)) {
@@ -111,12 +118,15 @@ function syncSeq(doc, node, list, pathArr) {
   }
 }
 
-function syncMap(doc, node, data, pathArr) {
+// 맵 항목의 키 글자
+const keyOf = (item: YAML.Pair) => String(YAML.isScalar(item.key) ? (item.key.value ?? item.key) : item.key);
+
+function syncMap(doc: YAML.Document, node: YAML.YAMLMap | null, data: ConfigData, pathArr: DocPath) {
   const keys = new Set(Object.keys(data));
 
   // 사라진 키 제거. 그 키에 달린 주석도 함께 간다
   for (const item of [...(node?.items || [])]) {
-    const key = String(item.key?.value ?? item.key);
+    const key = keyOf(item);
     if (!keys.has(key)) doc.deleteIn([...pathArr, key]);
   }
 
@@ -127,7 +137,7 @@ function syncMap(doc, node, data, pathArr) {
 
     // 양쪽 다 맵이면 한 단계 더 들어가 바뀐 것만 고친다(안쪽 주석 보존)
     if (isPlainObject && YAML.isMap(current)) {
-      syncMap(doc, current, value, here);
+      syncMap(doc, current, value as ConfigData, here);
       continue;
     }
     if (Array.isArray(value) && YAML.isSeq(current)) {
@@ -144,7 +154,7 @@ function syncMap(doc, node, data, pathArr) {
     // (YAML 은 그렇게 접는다) 읽기 나쁘다. 되읽으면 같은 값이지만 손으로 고칠 파일이다.
     if (typeof value === "string" && value.includes("\n")) {
       const node = doc.getIn(here, true);
-      if (node) node.type = YAML.Scalar.BLOCK_LITERAL;
+      if (YAML.isScalar(node)) node.type = YAML.Scalar.BLOCK_LITERAL;
     }
   }
 
@@ -156,7 +166,6 @@ function syncMap(doc, node, data, pathArr) {
   if (!YAML.isMap(target)) return;
 
   const order = [...keys];
-  const keyOf = (item) => String(item.key?.value ?? item.key);
   const sorted = [...target.items].sort((a, b) => order.indexOf(keyOf(a)) - order.indexOf(keyOf(b)));
   if (sorted.some((item, i) => item !== target.items[i])) target.items = sorted;
 }
@@ -166,7 +175,7 @@ function syncMap(doc, node, data, pathArr) {
  *
  * 임시 파일에 쓰고 원자적으로 옮긴다. 반쯤 쓰인 파일을 로더가 읽는 일이 없어야 한다.
  */
-function save(name, data) {
+function save(name: string, data: unknown): ConfigData {
   if (!data || typeof data !== "object") throw Object.assign(new Error("저장할 내용이 없습니다"), { code: "CONFIG_INVALID" });
 
   const file = fileOf(name);
@@ -175,11 +184,11 @@ function save(name, data) {
     throw Object.assign(new Error(`설정 파일을 읽지 못해 저장할 수 없습니다: ${doc.errors[0].message}`), { code: "CONFIG_INVALID" });
   }
 
-  syncMap(doc, doc.contents, data, []);
+  syncMap(doc, YAML.isMap(doc.contents) ? doc.contents : null, data as ConfigData, []);
 
   const text = doc.toString({ lineWidth: 0 });
   // 쓴 것을 도로 읽어 확인한다. 깨진 파일을 남기느니 저장을 거절한다
-  const check = YAML.parse(text);
+  const check: unknown = YAML.parse(text);
   if (!check || typeof check !== "object") throw Object.assign(new Error("저장 결과가 올바르지 않습니다"), { code: "CONFIG_INVALID" });
 
   const tmp = `${file}.tmp-${process.pid}`;
@@ -187,11 +196,11 @@ function save(name, data) {
   fs.renameSync(tmp, file);
   cache.delete(name); // 다음 읽기가 새 내용을 가져간다
   log.info(`설정을 저장했습니다: ${path.basename(file)}`);
-  return check;
+  return check as ConfigData;
 }
 
 // 테스트 시임. 폴더를 바꾸면 읽어 둔 것도 버린다(다른 파일을 같은 이름으로 읽게 되므로).
-function _setConfigDir(dir) {
+function _setConfigDir(dir: string) {
   configDir = dir;
   cache.clear();
 }
@@ -199,3 +208,4 @@ function _setConfigDir(dir) {
 const exported = { load, save, fileOf, exampleOf, _setConfigDir, cache, configDir: () => configDir, _cache: cache };
 export default exported;
 export { exported as "module.exports" };
+export type { ConfigData };

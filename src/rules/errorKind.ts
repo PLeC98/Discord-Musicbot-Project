@@ -29,12 +29,24 @@ const CODE_KINDS: Record<string, string> = { "age-restricted": "age-restricted",
 
 const matches = (msg: string, test: Test): boolean => (typeof test === "function" ? test(msg) : msg.includes(test));
 
-function errorKind(error: unknown): string {
+/** 오류가 달고 온 이름(code). 글자도 수도 온다(디스코드 API 는 수) */
+function codeOf(error: unknown): string | number | undefined {
   const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+  return typeof code === "string" || typeof code === "number" ? code : undefined;
+}
+
+/** 알릴 오류 글. 글이 없으면 값을 그대로 글로 */
+function messageOf(error: unknown): string {
+  const message = error && typeof error === "object" && "message" in error ? error.message : undefined;
+  return (typeof message === "string" && message) || String(error);
+}
+
+function errorKind(error: unknown): string {
+  const code = codeOf(error);
   if (typeof code === "string" && CODE_KINDS[code]) return CODE_KINDS[code];
   const msg = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
   for (const [kind, tests] of RULES) if (tests.some((test) => matches(msg, test))) return kind;
   return "unknown";
 }
 
-export { errorKind, RULES };
+export { errorKind, codeOf, messageOf, RULES };

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // AI 보조 설정(ai.yaml · ai-keys.yaml · ai-prompt.chatml).
 
 import fs from "fs";
@@ -8,11 +7,15 @@ const log = logger.child({ category: "config" });
 import aiProvidersModule from "./schema/aiProviders.ts";
 const { PROVIDERS } = aiProvidersModule;
 import yamlStore from "./yamlStore.ts";
+import type { ConfigData } from "./yamlStore.ts";
 const { load, fileOf, save, configDir, cache } = yamlStore;
 import aiModule from "./schema/ai.ts";
 const { aiProblems, PROMPT_FILE } = aiModule;
 
 const validateAi = aiProblems;
+
+/** 프롬프트 섹션 하나. 역할(system · user · assistant)과 내용 */
+type PromptSection = { role: string; text: string };
 
 // ── ai-keys.yaml ──────────────────────────────────────────────────────────
 //
@@ -22,7 +25,7 @@ const validateAi = aiProblems;
 // .env 가 아니라 여기 두는 까닭: 프로바이더가 여럿이면 .env 한 칸을 돌려쓸 수 없고,
 // 키를 갈아 끼울 때마다 봇을 다시 띄워야 한다. 설정 파일은 mtime 이 바뀌면 다시 읽는다.
 
-function aiKeys() {
+function aiKeys(): Record<string, string> {
   try {
     const data = load("ai-keys");
     return Object.fromEntries(Object.entries(data).map(([name, value]) => [name, String(value ?? "").trim()]));
@@ -32,18 +35,18 @@ function aiKeys() {
 }
 
 /** 이 프로바이더의 키(없으면 빈 문자열). */
-const aiKeyOf = (provider) => aiKeys()[provider] || "";
+const aiKeyOf = (provider: string) => aiKeys()[provider] || "";
 
 /**
  * 키를 고쳐 쓴다. 적어 보낸 칸만 바꾸고 나머지는 그대로 둔다.
  * 돌려주는 것은 값이 아니라 있는지 없는지다. 값은 어느 통로로도 돌아나가지 않는다.
  */
-function saveAiKeys(changes) {
+function saveAiKeys(changes: unknown): Record<string, boolean> {
   if (!changes || typeof changes !== "object") throw Object.assign(new Error("저장할 내용이 없습니다"), { code: "CONFIG_INVALID" });
 
   const known = new Set(aiProviders());
   const next = { ...aiKeys() };
-  for (const [name, value] of Object.entries(changes)) {
+  for (const [name, value] of Object.entries(changes as Record<string, unknown>)) {
     if (!known.has(name)) continue; // 모르는 이름으로 칸을 늘리지 않는다
     if (value != null && typeof value !== "string") throw Object.assign(new Error(`${name}: 키는 글자여야 합니다`), { code: "CONFIG_INVALID" });
     next[name] = value == null ? "" : value.trim();
@@ -60,8 +63,8 @@ const CHATML = /<\|im_start\|>[ \t]*(\w+)[ \t]*\r?\n([\s\S]*?)<\|im_end\|>/g;
 const promptPath = () => path.join(configDir(), PROMPT_FILE);
 
 /** ChatML 글 → 섹션 목록. 블록 바깥의 글은 버린다(규격에 자리가 없다). */
-function parseChatML(text) {
-  const out = [];
+function parseChatML(text: unknown): PromptSection[] {
+  const out: PromptSection[] = [];
   for (const [, role, body] of String(text || "").matchAll(CHATML)) {
     out.push({ role: role.toLowerCase(), text: body.replace(/\r?\n$/, "") });
   }
@@ -69,12 +72,12 @@ function parseChatML(text) {
 }
 
 /** 섹션 목록 → ChatML 글. */
-function toChatML(sections) {
+function toChatML(sections: PromptSection[] | null | undefined): string {
   return `${(sections || []).map((one) => `<|im_start|>${one?.role || "system"}\n${String(one?.text ?? "")}\n<|im_end|>`).join("\n\n")}\n`;
 }
 
 /** 지금 프롬프트. 파일이 없거나 비면 빈 목록. 부르는 쪽이 기본 구성을 쓴다. */
-function aiPrompt() {
+function aiPrompt(): PromptSection[] {
   let stat;
   try {
     stat = fs.statSync(promptPath());
@@ -83,18 +86,19 @@ function aiPrompt() {
   }
 
   const cached = cache.get(PROMPT_FILE);
-  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.value;
+  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.value as PromptSection[];
 
   const value = parseChatML(fs.readFileSync(promptPath(), "utf8"));
   cache.set(PROMPT_FILE, { mtimeMs: stat.mtimeMs, value });
   return value;
 }
 
-function saveAiPrompt(sections) {
+function saveAiPrompt(sections: unknown): PromptSection[] {
   const problems = promptProblems(sections, true);
   if (problems.length) throw Object.assign(new Error(problems[0]), { code: "CONFIG_INVALID", problems });
 
-  fs.writeFileSync(promptPath(), toChatML(sections));
+  // 검사를 지났다. 비었거나 섹션 목록이다
+  fs.writeFileSync(promptPath(), toChatML(sections as PromptSection[] | null | undefined));
   cache.delete(PROMPT_FILE);
   log.info(`설정을 저장했습니다: ${PROMPT_FILE}`);
   return aiPrompt();
@@ -106,7 +110,8 @@ function saveAiPrompt(sections) {
 // 던지면 자동재생이 통째로 멈춘다. AI는 없어도 되는 기능이라 그건 과하다.
 let aiWarned = "";
 
-function ai() {
+/** 읽은 그대로의 ai.yaml. 문제가 있으면 enabled: false 를 얹는다 */
+function ai(): ConfigData {
   let data;
   try {
     data = load("ai");
@@ -131,16 +136,17 @@ const aiProviders = () => PROVIDERS;
 // 비우면 기본 구성을 쓰므로, 적었을 때만 따진다.
 const AI_ROLES = ["system", "user", "assistant"];
 
-function promptProblems(prompt, on) {
+function promptProblems(prompt: unknown, on: boolean): string[] {
   if (prompt == null) return [];
   if (!Array.isArray(prompt)) return ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."];
   if (!prompt.length) return [];
 
-  const problems = [];
-  prompt.forEach((section, i) => {
+  const problems: string[] = [];
+  prompt.forEach((item: unknown, i) => {
     const where = `${i + 1}번째 섹션`;
-    if (!section || typeof section !== "object") return problems.push(`${where}: 역할과 내용을 적어야 합니다.`);
-    if (!AI_ROLES.includes(section.role)) problems.push(`${where}: 역할은 ${AI_ROLES.join(" · ")} 중 하나여야 합니다.`);
+    if (!item || typeof item !== "object") return problems.push(`${where}: 역할과 내용을 적어야 합니다.`);
+    const section = item as { role?: unknown; text?: unknown };
+    if (!AI_ROLES.includes(section.role as string)) problems.push(`${where}: 역할은 ${AI_ROLES.join(" · ")} 중 하나여야 합니다.`);
     if (section.text != null && typeof section.text !== "string") problems.push(`${where}: 내용은 글로 적어야 합니다.`);
     // ChatML 은 블록 안에 끝 표시가 또 나오면 파일이 깨진다
     if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>·<|im_end|> 를 적을 수 없습니다.`);
@@ -155,3 +161,4 @@ function promptProblems(prompt, on) {
 const exported = { ai, aiKeys, aiKeyOf, saveAiKeys, aiPrompt, saveAiPrompt, validateAi, promptProblems, parseChatML, toChatML, promptPath };
 export default exported;
 export { exported as "module.exports" };
+export type { PromptSection };

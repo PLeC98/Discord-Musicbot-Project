@@ -1,7 +1,30 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 장르 설정(genres.yaml)의 소스 줄 규격. 종류마다 칸 · 값 목록 · 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
 
 import config from "../../../config.ts";
+
+// 곡 DB 셋. 같은 소프트웨어라 부르는 법이 같다
+type Site = "vocadb" | "utaitedb" | "touhoudb";
+/** 고를 값 하나. value 는 API 값, label 은 화면에 보일 말 */
+type Option = { value: string; label: string };
+/** 편집기가 그릴 입력칸의 종류(아래 f 의 설명) */
+type FieldKind = "list" | "text" | "url" | "number" | "range" | "enum" | "enumList" | "enumDrop" | "enumSearch";
+type Field = {
+  key: string;
+  kind: FieldKind;
+  label: string;
+  hint?: string;
+  deep?: boolean;
+  width?: "narrow" | "half" | "halfWide";
+  when?: string;
+  // range: 끝점을 담는 칸
+  to?: string;
+  min?: number;
+  max?: number;
+  options?: Option[];
+  emptyLabel?: string;
+};
+/** 소스 한 종류의 규격(아래 SPEC 의 설명) */
+type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; has?: () => boolean; fields: Field[] };
 
 // 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
 const ANISONG_SONG_TYPES = ["opening", "ending", "insert"];
@@ -21,7 +44,7 @@ const ANISONG_GENRES = ["Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fant
 //              아니라 보컬로이드 원곡이 온다(MARETU feat. 初音ミク 같은 것).
 //   touhoudb. 동방은 어레인지 문화다. Original은 ZUN의 게임 BGM 3,190곡뿐이고,
 //              사람들이 듣는 것은 Arrangement 46,557곡 쪽이다(Bad Apple!! · チルノのパーフェクトさんすう教室).
-const VOCA_DEFAULT_TYPES = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
+const VOCA_DEFAULT_TYPES: Partial<Record<Site, string[]>> = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
 /**
  * 소스 타입 명세. 설정 검증과 실행이 같은 표를 본다.
@@ -52,7 +75,7 @@ const SONG_SORT_OPTIONS = [
 const SONG_SORTS = SONG_SORT_OPTIONS.map((one) => one.value);
 
 // 검사도 사이트별이어야 한다. vocadb 에 Arrangement 를 적으면 0곡이 온다
-const vocaEnums = (site) => ({
+const vocaEnums = (site: Site): Record<string, string[]> => ({
   songTypes: VOCA_SONG_TYPES[site],
   sort: SONG_SORTS,
   languages: VOCA_LANGUAGES[site].map((one) => one.value),
@@ -67,10 +90,10 @@ const vocaEnums = (site) => ({
 // width 는 칸 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자칸) · half(늘 반 줄) ·
 // halfWide(모바일만 한 줄, 그 위로는 반 줄).
 // when: "다른칸" 은 그 칸이 채워졌을 때만 나온다.
-const f = (key, kind, label, extra = {}) => ({ key, kind, label, ...extra });
+const f = (key: string, kind: FieldKind, label: string, extra: Omit<Field, "key" | "kind" | "label"> = {}): Field => ({ key, kind, label, ...extra });
 
 // 고를 값이 정해진 칸. 화면에 보일 말이 API 값과 다르면 짝지어 준다.
-const opts = (list) => list.map((v) => (typeof v === "string" ? { value: v, label: v } : v));
+const opts = (list: Array<string | Option>): Option[] => list.map((v) => (typeof v === "string" ? { value: v, label: v } : v));
 
 const SEASON_OPTIONS = opts([
   { value: "Winter", label: "1분기" },
@@ -81,7 +104,7 @@ const SEASON_OPTIONS = opts([
 
 // 사이트마다 있는 것이 다르다. 돌려쓰면 없는 값을 고르게 되고, 그걸 넣으면 0곡이 온다.
 // (실측 2026-09-18. 유튜브 PV 있는 곡 기준으로 한 건이라도 있는 것만)
-const VOCA_SONG_TYPES = {
+const VOCA_SONG_TYPES: Record<Site, string[]> = {
   vocadb: ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Instrumental", "Mashup", "MusicPV", "DramaPV", "Other"],
   utaitedb: ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Instrumental", "Mashup", "MusicPV", "Live", "Other"],
   touhoudb: ["Unspecified", "Original", "Remaster", "Cover", "Arrangement", "Rearrangement", "ShortVersion", "Instrumental", "MusicPV", "DramaPV", "Other"],
@@ -89,7 +112,7 @@ const VOCA_SONG_TYPES = {
 
 // 부르는 쪽 분류. TouhouDB에는 아예 없다(0명). 동방은 사람이 부르는 어레인지라 그렇다.
 // UtaiteDB는 우타이테와 그 밖뿐이고, 보컬 합성 라이브러리 목록은 VocaDB에만 있다.
-const VOCA_ARTIST_TYPES = {
+const VOCA_ARTIST_TYPES: Record<Site, string[] | null> = {
   vocadb: ["Vocaloid", "UTAU", "CeVIO", "SynthesizerV", "VOICEVOX", "Voiceroid", "NEUTRINO", "VoiSona", "ACEVirtualSinger", "AIVOICE", "OtherVoiceSynthesizer", "NewType", "OtherVocalist"],
   utaitedb: ["Utaite", "OtherVocalist"],
   touhoudb: null,
@@ -102,7 +125,7 @@ const VOCA_ARTIST_TYPES = {
 // 있는 것이 아니라, 로마자 가사에 엉뚱한 코드가 붙어 있는 것이다.
 //
 // 번역 가사만 있는 곡도 걸린다(영어는 표본의 절반쯤). 그 언어로 부른 곡만 고를 길은 저쪽에 없다.
-const LANG_NAMES = {
+const LANG_NAMES: Record<string, string> = {
   ja: "일본어",
   en: "영어",
   zh: "중국어",
@@ -165,7 +188,7 @@ const LANG_NAMES = {
   te: "텔루구어",
 };
 
-const VOCA_LANG_CODES = {
+const VOCA_LANG_CODES: Record<Site, string[]> = {
   // prettier-ignore
   vocadb: ["ja","en","zh","ko","es","pt","fr","ru","id","tl","de","uk","it","tr","th","pl","vi","nl","la","ms","fi","sr","sv","cs","eo","be","ca","ro","so","ar","no","el","bs","bg","he","hi","hu","kk","yi","bn","da","eu","ga","mn","ur","cy","sa","sk","ta","tg","zu","et","gl","my","ba","bo","kn","oc","sw","te"],
   // prettier-ignore
@@ -174,9 +197,9 @@ const VOCA_LANG_CODES = {
   touhoudb: ["ja","en","de","zh","fr","ko","la","sa","pl","es","ga","el","it","ro","ru","cs","he","id","sv","th","vi"],
 };
 
-const VOCA_LANGUAGES = Object.fromEntries(Object.entries(VOCA_LANG_CODES).map(([site, codes]) => [site, codes.map((code) => ({ value: code, label: LANG_NAMES[code] }))]));
+const VOCA_LANGUAGES = Object.fromEntries(Object.entries(VOCA_LANG_CODES).map(([site, codes]) => [site, codes.map((code) => ({ value: code, label: LANG_NAMES[code] }))])) as Record<Site, Option[]>;
 
-const VOCA_SINGER = {
+const VOCA_SINGER: Record<Site, { typeLabel?: string; artistLabel: string; artistHint: string }> = {
   vocadb: { typeLabel: "보컬 라이브러리", artistLabel: "특정 보컬만", artistHint: "이름으로 적습니다. 예) UNI, 初音ミク" },
   utaitedb: { typeLabel: "가수 분류", artistLabel: "특정 우타이테만", artistHint: "이름으로 적습니다" },
   touhoudb: { artistLabel: "특정 아티스트만", artistHint: "이름으로 적습니다. 예) ZUN, 暁Records" },
@@ -185,7 +208,7 @@ const VOCA_SINGER = {
 // 척도는 사이트마다 크게 다르지만(예제 파일의 표 참고) 설명할 말은 같다
 const VOCA_SCORE_HINT = '해당 사이트의 "評価" 점수.';
 
-function vocaFields(site) {
+function vocaFields(site: Site): Field[] {
   const singer = VOCA_SINGER[site];
   const types = VOCA_ARTIST_TYPES[site];
   return [
@@ -193,7 +216,7 @@ function vocaFields(site) {
     f("minScore", "number", "최소 평가 점수", { width: "half", min: 0, hint: VOCA_SCORE_HINT }),
     // 언어마다 따로 받아 섞는다(vocaFamily). 저쪽이 한 번에 하나만 받는다
     f("languages", "enumDrop", "가사 언어", { width: "half", options: VOCA_LANGUAGES[site], hint: "번역 가사만 있는 곡도 섞입니다" }),
-    ...(types ? [f("artistTypes", "enumList", singer.typeLabel, { deep: true, options: opts(types) })] : []),
+    ...(types && singer.typeLabel ? [f("artistTypes", "enumList", singer.typeLabel, { deep: true, options: opts(types) })] : []),
     f("artists", "list", singer.artistLabel, { deep: true, hint: singer.artistHint }),
     f("songTypes", "enumList", "곡 종류", { deep: true, options: opts(VOCA_SONG_TYPES[site]), hint: `기본값: ${(VOCA_DEFAULT_TYPES[site] || ["Original"]).join(", ")}` }),
     f("excludeTags", "list", "제외할 태그", { deep: true }),
@@ -207,7 +230,7 @@ function vocaFields(site) {
   ];
 }
 
-const SPEC = {
+const SPEC: Record<string, SourceSpec> = {
   keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 뽑아 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 뽑아 사용합니다" })] },
   lastfm: {
     label: "Last.fm",
@@ -319,13 +342,14 @@ const SPEC = {
 };
 
 /** 이 타입을 지금 쓸 수 있나. 키가 필요한 소스는 키가 있어야 한다. */
-const usable = (type) => (SPEC[type] ? !SPEC[type].has || SPEC[type].has() : false);
+const usable = (type: string): boolean => (SPEC[type] ? !SPEC[type].has || SPEC[type].has() : false);
 
 /** 이 타입이 무엇을 필요로 하는지(없으면 null). 기동 시 문구를 만들 때 쓴다. */
-const needsOf = (type) => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);
+const needsOf = (type: string): { env: string; label: string } | null => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);
 
 const TYPES = Object.keys(SPEC);
 
 const exported = { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES };
 export default exported;
 export { exported as "module.exports" };
+export type { Site, Option, FieldKind, Field, SourceSpec };
