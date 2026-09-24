@@ -9,16 +9,17 @@
  * yt-dlp 가 알려 주는 전송 방식이 HLS 인가. `m3u8`(우리가 받아 합치는 방식)과
  * `m3u8_native`(ffmpeg 에게 맡기는 방식) 둘 다 재생목록이라 주소로 열어야 한다.
  */
-type StreamInfo = { protocol?: string | null; liveStatus?: string | null };
+// yt-dlp 가 주는 스트림 정보. 여기서 보는 칸만 적는다(나머지 칸도 붙어 온다)
+type StreamInfo = { protocol?: string | null; liveStatus?: string | null; [field: string]: unknown };
 
-function isHlsStream(streamInfo: StreamInfo | null | undefined): boolean {
-  const protocol = streamInfo && typeof streamInfo === "object" ? streamInfo.protocol : null;
+function isHlsStream(streamInfo: unknown): boolean {
+  const protocol = streamInfo && typeof streamInfo === "object" && "protocol" in streamInfo ? streamInfo.protocol : null;
   return typeof protocol === "string" && protocol.startsWith("m3u8");
 }
 
 /** 받아서 파이프로 흘릴 수 있나. 한 번의 HTTP 응답이 곧 음원인 것만 된다. 방식을 모르면 된다고 본다 */
-function pipeable(streamInfo: StreamInfo | null | undefined): boolean {
-  const protocol = streamInfo && typeof streamInfo === "object" ? streamInfo.protocol : null;
+function pipeable(streamInfo: unknown): boolean {
+  const protocol = streamInfo && typeof streamInfo === "object" && "protocol" in streamInfo ? streamInfo.protocol : null;
   return typeof protocol !== "string" || protocol === "https" || protocol === "http";
 }
 
