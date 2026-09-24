@@ -117,6 +117,9 @@ type PlaybackRequest = {
 /** 곡 담기 결과. 실패면 message 가 안내, 목록이 더 남았으면 이어 받을 상태(more) */
 type PlaybackResult = AddResult & { isPlaylist?: boolean; tracks?: TrackInfo[]; player?: MusicPlayer; more?: (More & { batch: number }) | null };
 
+/** 이어 넣은 결과. 넣은 수 · 목록의 남은 곡과 다음 위치(next) */
+type CollectionResult = PlaybackResult & { added?: number; total?: number | null; remaining?: number; next?: (More & { batch: number }) | null };
+
 /** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡 */
 type Found = { isPlaylist: boolean; collection?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; queueLimited?: boolean };
 
@@ -212,7 +215,7 @@ type CollectionRequest = {
   lookup?: Lookup;
 };
 
-async function continueCollection(client: Client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = defaultLookup }: CollectionRequest) {
+async function continueCollection(client: Client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = defaultLookup }: CollectionRequest): Promise<CollectionResult> {
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
   const want = Math.min(count, roomFor(player));
@@ -256,9 +259,9 @@ async function continueCollection(client: Client, { guild, requester, state, cou
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
   const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1)?.id }) : null;
-  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } };
+  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && total != null ? { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } : null };
 }
 
 export { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup };
 export const _internals = { resolveFallbackTextChannel };
-export type { PlaybackRequest, RequesterSource };
+export type { PlaybackRequest, RequesterSource, Lookup };

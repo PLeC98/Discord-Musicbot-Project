@@ -20,7 +20,7 @@ import type { MusicEmbedManager, Responder } from "../ui/nowPlayingPanel.ts";
  */
 
 // 두 번 불려도 한 번만 실행되는 정리 함수. 코어와 진입점이 모두 부를 수 있다.
-function onceDismiss(fn: (() => Promise<unknown>) | null | undefined) {
+function onceDismiss(fn: (() => unknown) | null | undefined) {
   let done = false;
   return async () => {
     if (done) return;
@@ -76,7 +76,7 @@ function interactionResponder(interaction: RepliableInteraction, embedManager: P
  * 자리표시자가 별도 메시지라 안내로 덮어쓸 수 없다 → 안내 전에 먼저 치운다.
  * onDismiss는 진입점이 자기 자리표시자를 지우는 방법을 넘긴다.
  */
-function channelResponder(channel: GuildTextBasedChannel | null | undefined, onDismiss: (() => Promise<unknown>) | null = null): Responder {
+function channelResponder(channel: GuildTextBasedChannel | null | undefined, onDismiss: (() => unknown) | null = null): Responder {
   const dismiss = onceDismiss(onDismiss);
 
   return {

@@ -2,7 +2,6 @@ import { PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as S from "../ui/strings.ts";
 import type { GuildMember } from "discord.js";
-import type { MusicPlayer } from "../player/Player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
@@ -86,7 +85,7 @@ function checkSummon(member: GuildMember) {
 }
 
 /** 스킵: DJ 계층이거나, 현재 곡의 요청자 본인 (요청자도 재적 규칙은 적용) */
-async function checkSkip(member: GuildMember, player: Pick<MusicPlayer, "currentTrack"> | null | undefined) {
+async function checkSkip(member: GuildMember, player: { currentTrack?: Pick<QueuedTrack, "requestedBy"> | null } | null | undefined) {
   const controlErr = await checkControl(member);
   if (!controlErr) return null;
 

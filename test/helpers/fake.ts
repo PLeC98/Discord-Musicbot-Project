@@ -9,9 +9,15 @@ function fake<T>(partial: object): T {
   return partial as T;
 }
 
-/** 가짜 플레이어. 플레이어의 칸은 플레이어 타입으로, 시험만 쓰는 칸(calls 등)은 그대로 */
-function fakePlayer<X extends object>(partial: X) {
-  return partial as unknown as MusicPlayer & Omit<X, keyof MusicPlayer>;
+/**
+ * 진짜 타입의 칸은 그 타입으로, 시험만 쓰는 칸(calls 등)은 그대로 읽는 가짜. 받을 타입을 먼저 정한다
+ *   const interaction = fakeWith<RepliableInteraction>()({ calls, editReply … });
+ */
+function fakeWith<T>() {
+  return <X extends object>(partial: X) => partial as unknown as T & Omit<X, keyof T>;
 }
 
-export { fake, fakePlayer };
+/** 가짜 플레이어 */
+const fakePlayer = fakeWith<MusicPlayer>();
+
+export { fake, fakeWith, fakePlayer };

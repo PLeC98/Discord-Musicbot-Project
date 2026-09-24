@@ -1,10 +1,10 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/usecases/permissions.js — 권한 3계층(모더레이터/DJ/일반) 판정.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits } from "discord.js";
+import { PermissionFlagsBits, type GuildMember } from "discord.js";
+import { fake } from "../helpers/fake.ts";
 
 import tempStore from "../helpers/tempStore.ts";
 const { openTempStore, setGuild } = tempStore;
@@ -17,19 +17,22 @@ const S = await import("../../src/ui/strings.ts");
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id
 // botChannelPerms: 유저의 음성 채널에서 봇이 가지는 권한 (checkSummon 검사 대상)
-function fakeMember({ perms = [], roles = [], guildRoles = ["r1", "r2"], voice = null, botVoice = null, botChannelPerms = [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] } = {}) {
-  return {
-    permissions: { has: (p) => perms.includes(p) },
+type MemberOptions = { id?: string; perms?: bigint[]; roles?: string[]; guildRoles?: string[]; voice?: string | null; botVoice?: string | null; botChannelPerms?: bigint[] | null };
+
+function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2"], voice = null, botVoice = null, botChannelPerms = [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] }: MemberOptions = {}) {
+  return fake<GuildMember>({
+    id,
+    permissions: { has: (p: bigint) => perms.includes(p) },
     guild: {
       id: "g",
-      roles: { cache: { has: (id) => guildRoles.includes(id) } },
+      roles: { cache: { has: (id: string) => guildRoles.includes(id) } },
       members: { me: { voice: { channel: botVoice ? { id: botVoice } : null } } },
     },
-    roles: { cache: { has: (id) => roles.includes(id) } },
+    roles: { cache: { has: (id: string) => roles.includes(id) } },
     voice: {
-      channel: voice ? { id: voice, permissionsFor: () => (botChannelPerms === null ? null : { has: (p) => botChannelPerms.includes(p) }) } : null,
+      channel: voice ? { id: voice, permissionsFor: () => (botChannelPerms === null ? null : { has: (p: bigint) => botChannelPerms.includes(p) }) } : null,
     },
-  };
+  });
 }
 
 // ── isModerator ──────────────────────────────────────────────
@@ -117,16 +120,13 @@ test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (재적 규칙�
   setGuild("g", { djRoles: ["r1"] });
   const player = { currentTrack: { requestedBy: { id: "u1" } } };
 
-  const requester = fakeMember({ voice: "vc1", botVoice: "vc1" });
-  requester.id = "u1";
+  const requester = fakeMember({ id: "u1", voice: "vc1", botVoice: "vc1" });
   assert.equal(await checkSkip(requester, player), null);
 
-  const requesterWrongChannel = fakeMember({ voice: "vc2", botVoice: "vc1" });
-  requesterWrongChannel.id = "u1";
+  const requesterWrongChannel = fakeMember({ id: "u1", voice: "vc2", botVoice: "vc1" });
   assert.notEqual(await checkSkip(requesterWrongChannel, player), null, "요청자도 재적 규칙은 적용");
 
-  const other = fakeMember({ voice: "vc1", botVoice: "vc1" });
-  other.id = "u2";
+  const other = fakeMember({ id: "u2", voice: "vc1", botVoice: "vc1" });
   assert.equal(await checkSkip(other, player), S.ERR_NOT_AUTHORIZED);
 });
 
@@ -134,12 +134,10 @@ test("대기열 제거: 비-DJ여도 그 곡 요청자 본인은 가능", async 
   setGuild("g", { djRoles: ["r1"] });
   const track = { requestedBy: { id: "u1" } };
 
-  const requester = fakeMember({ voice: "vc1", botVoice: "vc1" });
-  requester.id = "u1";
+  const requester = fakeMember({ id: "u1", voice: "vc1", botVoice: "vc1" });
   assert.equal(await checkRemoveTrack(requester, track), null);
 
-  const other = fakeMember({ voice: "vc1", botVoice: "vc1" });
-  other.id = "u2";
+  const other = fakeMember({ id: "u2", voice: "vc1", botVoice: "vc1" });
   assert.equal(await checkRemoveTrack(other, track), S.ERR_NOT_AUTHORIZED);
 });
 

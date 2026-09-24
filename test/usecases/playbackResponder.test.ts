@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/usecases/responders.js — 곡 추가 결과를 알리는 매체별 어댑터.
 //
 // 회귀 대상: 코어가 표현할 수 있는 출력이 "상호작용 응답" 아니면 "텍스트 채널"뿐이라
@@ -9,39 +8,46 @@ import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
 import { interactionResponder, channelResponder, silentResponder, _internals } from "../../src/usecases/responders.ts";
+import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
+import { fake, fakeWith } from "../helpers/fake.ts";
+
+// 보낸 것. 여기서 보는 칸만
+type Payload = { flags?: number; components?: unknown[]; content?: string };
+type Call = [name: string, payload?: Payload];
 
 function fakeInteraction({ deferred = true, replied = false } = {}) {
-  const calls = [];
-  return {
+  const calls: Call[] = [];
+  return fakeWith<RepliableInteraction>()({
     calls,
     deferred,
     replied,
-    async editReply(payload) {
+    async editReply(payload: Payload) {
       calls.push(["editReply", payload]);
       return { delete: async () => calls.push(["delete"]) };
     },
-    async reply(payload) {
+    async reply(payload: Payload) {
       calls.push(["reply", payload]);
       return { delete: async () => calls.push(["delete"]) };
     },
     async deleteReply() {
       calls.push(["deleteReply"]);
     },
-  };
+  });
 }
 
 function fakeChannel() {
-  const calls = [];
-  return {
+  const calls: Call[] = [];
+  return fakeWith<GuildTextBasedChannel>()({
     calls,
-    async send(payload) {
+    async send(payload: Payload) {
       calls.push(["send", payload]);
       return { delete: async () => {} };
     },
-  };
+  });
 }
+const channelOf = (partial: object) => fake<GuildTextBasedChannel>(partial);
 
-const embedManager = { createSearchingContainer: (msg) => ({ container: msg }) };
+const embedManager = { createSearchingContainer: (msg: string) => fake<ContainerBuilder>({ container: msg }) };
 
 // ── 공통 계약 ────────────────────────────────────────────────
 
@@ -54,11 +60,11 @@ test("세 어댑터가 같은 계약을 만족한다 (코어는 이 둘만 호�
 });
 
 test("안내 실패가 재생을 망가뜨리지 않는다 — 던지지 않는다", async () => {
-  const broken = {
+  const broken = channelOf({
     send: async () => {
       throw new Error("채널 권한 없음");
     },
-  };
+  });
   await channelResponder(broken).notifyQueued("x"); // 던지면 여기서 실패
 
   const brokenInteraction = fakeInteraction();
@@ -87,7 +93,7 @@ test("상호작용: 안내를 CV2 컨테이너로 보낸다 — content는 CV2 �
   const interaction = fakeInteraction({ deferred: true });
   await interactionResponder(interaction, embedManager).notifyQueued("추가됨");
 
-  const [name, payload] = interaction.calls[0];
+  const [name, payload = {}] = interaction.calls[0];
   assert.equal(name, "editReply");
   assert.equal(payload.flags, MessageFlags.IsComponentsV2);
   assert.deepEqual(payload.components, [{ container: "추가됨" }]);
@@ -106,13 +112,13 @@ test("상호작용: 아직 응답 전이면 reply로 확인만 하고 지운다"
 // ── channelResponder ─────────────────────────────────────────
 
 test("채널: 안내 전에 자리표시자를 먼저 치운다 — 별도 메시지라 덮어쓸 수 없다", async () => {
-  const order = [];
-  const channel = {
+  const order: string[] = [];
+  const channel = channelOf({
     async send() {
       order.push("send");
       return { delete: async () => {} };
     },
-  };
+  });
   const responder = channelResponder(channel, () => order.push("dismiss"));
 
   await responder.notifyQueued("추가됨");
@@ -121,7 +127,7 @@ test("채널: 안내 전에 자리표시자를 먼저 치운다 — 별도 메�
 
 test("채널: 보낼 곳이 없으면 조용히 넘어간다", async () => {
   await channelResponder(null).notifyQueued("x");
-  await channelResponder({}).notifyQueued("x");
+  await channelResponder(channelOf({})).notifyQueued("x");
 });
 
 // ── 멱등성 ───────────────────────────────────────────────────

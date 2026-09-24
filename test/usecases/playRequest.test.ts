@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/usecases/addTracks.js — 곡 추가 경로의 단일 코어.
 //
 // 회귀 대상: 슬래시 명령/전용 채널/검색 선택은 handleMusicData를, 대시보드는 addTrack을 타서
@@ -9,67 +8,86 @@ import assert from "node:assert/strict";
 
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
 import tempStore from "../helpers/tempStore.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import config from "../../config.ts";
+import * as S from "../../src/ui/strings.ts";
+import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { TrackInfo } from "../../src/player/track.ts";
+import type { Collection, LookupResult, Range } from "../../src/sources/lookup.ts";
+import type { Lookup, PlaybackRequest } from "../../src/usecases/addTracks.ts";
+import type { MoreState } from "../../src/usecases/playlistMore.ts";
+import type { Responder, TrackData } from "../../src/ui/nowPlayingPanel.ts";
+import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
 const { openTempStore, setGuild } = tempStore;
 const store = openTempStore("play-request-");
 after(() => store.close());
 setGuild("g1", { playlistAddMax: 50 });
 
-let mockResolve = null;
-const resolverCalls = [];
+// 시험마다 정하는 조회 · 모음 답
+let mockResolve: (query: string) => LookupResult = () => assert.fail("시험이 조회 답을 정하지 않았다");
+let mockCollection: (range: Range) => Collection = () => assert.fail("시험이 모음 답을 정하지 않았다");
+const resolverCalls: Array<{ query: string; context?: string | null; range?: Range }> = [];
+const collectionCalls: Array<{ url: string; range?: Range }> = [];
 // 조회 가짜. 곡 추가 코어에 lookup 으로 넘긴다
-const lookup = {
+const lookup: Lookup = {
   async resolveQuery(query, context, range) {
     resolverCalls.push({ query, context, range });
     return mockResolve(query);
   },
-  async getCollection(url, range) {
+  async getCollection(url, range = {}) {
     collectionCalls.push({ url, range });
     return mockCollection(range);
   },
 };
-let mockCollection = null;
-const collectionCalls = [];
 
 const { requestPlayback, continueCollection, toRequester, ensurePlayer } = await import("../../src/usecases/addTracks.ts");
 
 // ── 하네스 ───────────────────────────────────────────────────
 const GUILD_ID = "g1";
 
-function makeChannel(id) {
-  return { id, send: async () => ({ delete: async () => {} }) };
+function makeChannel(id: string) {
+  return fake<GuildTextBasedChannel>({ id, send: async () => ({ delete: async () => {} }) });
 }
+const voiceOf = (id: string) => fake<VoiceBasedChannel>({ id });
 
-function makeGuild({ botVoice = null, channels = [] } = {}) {
+function makeGuild({ botVoice = null, channels = [] }: { botVoice?: VoiceBasedChannel | null; channels?: GuildTextBasedChannel[] } = {}) {
   const cache = new Map(channels.map((c) => [c.id, c]));
-  return { id: GUILD_ID, channels: { cache }, members: { me: { voice: { channel: botVoice } } } };
+  return fake<Guild>({ id: GUILD_ID, channels: { cache }, members: { me: { voice: { channel: botVoice } } } });
 }
 
-function makeClient({ handleMusicData } = {}) {
-  const embedCalls = [];
-  return {
+// 곡 추가 코어가 패널 관리자에 넘긴 것
+type EmbedCall = { guildId: string; trackData: TrackData; requester: unknown; responder: Responder };
+
+function makeClient() {
+  const embedCalls: EmbedCall[] = [];
+  return fakeWith<Client>()({
     embedCalls,
-    players: new Map(),
+    players: new Map<string, MusicPlayer>(),
     musicEmbedManager: {
-      async handleMusicData(guildId, trackData, requester, responder) {
+      async handleMusicData(guildId: string, trackData: TrackData, requester: unknown, responder: Responder) {
         embedCalls.push({ guildId, trackData, requester, responder });
-        return handleMusicData ? handleMusicData(trackData) : { success: true };
+        return { success: true };
       },
       queueFullMessage: () => "대기열이 가득 찼습니다",
     },
-  };
+  });
+}
+type TestClient = ReturnType<typeof makeClient>;
+
+// 이 서버의 플레이어. 없으면 실패
+function playerOf(client: TestClient) {
+  const player = client.players.get(GUILD_ID);
+  assert.ok(player, "플레이어가 있다");
+  return player;
 }
 
-function track(title) {
-  return { title, url: `https://x/${title}`, platform: "youtube" };
+function track(title: string, extra: Partial<TrackInfo> = {}): TrackInfo {
+  return { title, pageUrl: `https://x/${title}`, requestKey: `https://x/${title}`, platform: "youtube", duration: 0, ...extra };
 }
 
-function ok(...titles) {
-  return { success: true, isPlaylist: titles.length > 1, tracks: titles.map(track) };
+function ok(...titles: string[]): Extract<LookupResult, { success: true }> {
+  return { success: true, isPlaylist: titles.length > 1, tracks: titles.map((t) => track(t)) };
 }
 
 // ── toRequester ──────────────────────────────────────────────
@@ -83,7 +101,7 @@ test("toRequester: GuildMember는 서버 닉네임(displayName)을 쓴다", () =
 
 test("toRequester: 닉네임이 없으면 전역 계정명으로 떨어진다", () => {
   const member = { id: "u1", user: { username: "carl", tag: "carl#0" } };
-  assert.equal(toRequester(member).username, "carl");
+  assert.equal(toRequester(member)?.username, "carl");
 });
 
 test("toRequester: 대시보드 세션 사용자와 세션 복구 스텁도 같은 모양이 된다", () => {
@@ -92,7 +110,7 @@ test("toRequester: 대시보드 세션 사용자와 세션 복구 스텁도 같�
 });
 
 test("toRequester: username이 없으면 displayName으로 떨어진다", () => {
-  assert.equal(toRequester({ id: "u4", displayName: "닉네임" }).username, "닉네임");
+  assert.equal(toRequester({ id: "u4", displayName: "닉네임" })?.username, "닉네임");
 });
 
 test("toRequester: null/문자열에 던지지 않는다", () => {
@@ -107,7 +125,7 @@ test("ensurePlayer: 없으면 만들고 맵에 넣는다", (t) => {
   const client = makeClient();
   const guild = makeGuild();
   const channel = makeChannel("t1");
-  const voice = { id: "v1" };
+  const voice = voiceOf("v1");
 
   const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: voice });
   // 진짜 플레이어는 30초 음성 점검 타이머를 건다. 끄지 않으면 테스트 프로세스가 그만큼 살아 있다
@@ -120,32 +138,32 @@ test("ensurePlayer: 없으면 만들고 맵에 넣는다", (t) => {
 test("ensurePlayer: 있으면 재사용한다 — 큐가 사라지면 안 된다", () => {
   const client = makeClient();
   const guild = makeGuild();
-  const existing = { queue: [track("a")], textChannel: makeChannel("old"), voiceChannel: { id: "v0" } };
+  const existing = fakePlayer({ queue: [track("a")], textChannel: makeChannel("old"), voiceChannel: voiceOf("v0") });
   client.players.set(GUILD_ID, existing);
 
-  const player = ensurePlayer(client, { guild, textChannel: makeChannel("new"), voiceChannel: { id: "v1" } });
+  const player = ensurePlayer(client, { guild, textChannel: makeChannel("new"), voiceChannel: voiceOf("v1") });
   assert.equal(player, existing);
   assert.equal(player.queue.length, 1);
 });
 
 test("ensurePlayer: 봇이 재생 중이면 voiceChannel을 갱신하지 않는다 (다른 채널 참조 오염 방지)", () => {
   const client = makeClient();
-  const botVoice = { id: "botVC" };
+  const botVoice = voiceOf("botVC");
   const guild = makeGuild({ botVoice });
-  const existing = { voiceChannel: botVoice, textChannel: null };
+  const existing = fakePlayer({ voiceChannel: botVoice, textChannel: null });
   client.players.set(GUILD_ID, existing);
 
-  ensurePlayer(client, { guild, textChannel: makeChannel("t"), voiceChannel: { id: "요청자VC" } });
+  ensurePlayer(client, { guild, textChannel: makeChannel("t"), voiceChannel: voiceOf("요청자VC") });
   assert.equal(existing.voiceChannel, botVoice);
 });
 
 test("ensurePlayer: 봇이 유휴면 요청자 채널로 갱신한다", () => {
   const client = makeClient();
   const guild = makeGuild({ botVoice: null });
-  const existing = { voiceChannel: null, textChannel: null };
+  const existing = fakePlayer({ voiceChannel: null, textChannel: null });
   client.players.set(GUILD_ID, existing);
 
-  const requesterVC = { id: "v9" };
+  const requesterVC = voiceOf("v9");
   ensurePlayer(client, { guild, textChannel: null, voiceChannel: requesterVC });
   assert.equal(existing.voiceChannel, requesterVC);
 });
@@ -154,7 +172,7 @@ test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드�
   const client = makeClient();
   const guild = makeGuild();
   const kept = makeChannel("keep");
-  const existing = { textChannel: kept, voiceChannel: null };
+  const existing = fakePlayer({ textChannel: kept, voiceChannel: null });
   client.players.set(GUILD_ID, existing);
 
   ensurePlayer(client, { guild, textChannel: null, voiceChannel: null });
@@ -163,14 +181,22 @@ test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드�
 
 // ── requestPlayback ──────────────────────────────────────────
 
-function baseArgs(client, guild, extra = {}) {
-  client.players.set(GUILD_ID, { textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive() {}, hasLiveTrack: () => false });
+// 이 서버에 붙어 있는 플레이어
+function seedPlayer(client: TestClient) {
+  client.players.set(GUILD_ID, fakePlayer({ textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive: () => true, hasLiveTrack: () => false }));
+}
+
+// 검색어나 찾은 곡 가운데 하나와 나머지 선택
+type Extra = Omit<Partial<PlaybackRequest>, "query" | "tracks"> & ({ query: string; tracks?: undefined } | { tracks: TrackInfo[]; query?: undefined });
+
+function baseArgs(client: TestClient, guild: Guild, extra: Extra): PlaybackRequest {
+  seedPlayer(client);
   return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, ...extra };
 }
 
 // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 더 이상 입구에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
-  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const client = makeClient();
   const guild = makeGuild();
 
@@ -181,28 +207,28 @@ test("방송 중인 라이브는 통과시킨다", async () => {
 });
 
 test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
-  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const client = makeClient();
   const guild = makeGuild();
 
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success, false);
-  assert.equal(result.message, require("../../src/ui/strings.ts").ERR_LIVE_NO_FFMPEG);
+  assert.equal(result.message, S.ERR_LIVE_NO_FFMPEG);
   assert.equal(client.embedCalls.length, 0);
 });
 
 // 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
 // 조용히 버리면 로그만 흐르고 디스코드에는 아무 반응이 없어 먹통처럼 보였다 — 이유를 말하고 거절한다.
 test("시작 전 방송은 거절하고 이유를 알린다", async () => {
-  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "곧 시작", url: "https://y/soon", duration: 0, isLive: true, liveStatus: "is_upcoming" }] });
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] });
   const client = makeClient();
   const guild = makeGuild();
 
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/soon", source: "/play" }));
 
   assert.equal(result.success, false);
-  assert.match(result.message, /시작하지 않은/);
+  assert.match(result.message ?? "", /시작하지 않은/);
   assert.equal(client.embedCalls.length, 0, "코어까지 가지 않는다");
 });
 
@@ -212,10 +238,7 @@ test("재생목록의 시작 전 방송만 걸러내고 나머지는 넣는다",
     success: true,
     isPlaylist: true,
     collection: "playlist",
-    tracks: [
-      { title: "곧 시작", url: "https://y/soon", duration: 0, isLive: true, liveStatus: "is_upcoming" },
-      { title: "보통곡", url: "https://y/ok", duration: 100 },
-    ],
+    tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" }), track("보통곡", { duration: 100 })],
   });
   const client = makeClient();
   const guild = makeGuild();
@@ -228,16 +251,17 @@ test("재생목록의 시작 전 방송만 걸러내고 나머지는 넣는다",
 
 // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
 test("라이브가 대기열에 들어오면 반복을 푼다", async () => {
-  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [{ title: "24/7 라디오", url: "https://y/live", duration: 0, isLive: true, liveStatus: "is_live" }] });
+  mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const client = makeClient();
   const guild = makeGuild();
   const args = baseArgs(client, guild, { query: "https://y/live", source: "/play" });
   let released = 0;
-  const player = client.players.get(GUILD_ID);
+  const player = playerOf(client);
   player.loop = "queue";
   player.releaseLoopForLive = () => {
     released++;
     player.loop = false;
+    return true;
   };
 
   await requestPlayback(client, args);
@@ -258,8 +282,8 @@ test("query 경로: 해석 결과를 코어에 그대로 넘긴다", async () =>
     client.embedCalls[0].trackData.tracks.map((t) => t.title),
     ["곡A"],
   );
-  assert.equal(resolverCalls.at(-1).query, "곡A");
-  assert.equal(resolverCalls.at(-1).context, "/play.resolveQuery");
+  assert.equal(resolverCalls.at(-1)?.query, "곡A");
+  assert.equal(resolverCalls.at(-1)?.context, "/play.resolveQuery");
 });
 
 test("tracks 경로: 이미 해석된 트랙은 해석기를 거치지 않는다 (검색 선택)", async () => {
@@ -360,10 +384,10 @@ test("텍스트 채널이 없으면 서버가 지정한 봇 전용 채널로 채
   const botChannel = makeChannel("botCh");
   const client = makeClient();
   const guild = makeGuild({ channels: [botChannel] });
-  client.players.set(GUILD_ID, { textChannel: null, voiceChannel: null, queue: [] });
+  client.players.set(GUILD_ID, fakePlayer({ textChannel: null, voiceChannel: null, queue: [] }));
 
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
-  assert.equal(client.players.get(GUILD_ID).textChannel, botChannel);
+  assert.equal(playerOf(client).textChannel, botChannel);
 });
 
 test("봇 전용 채널이 미설정이면 아무 채널도 추측하지 않는다", async () => {
@@ -371,10 +395,10 @@ test("봇 전용 채널이 미설정이면 아무 채널도 추측하지 않는�
   setGuild(GUILD_ID, { botChannel: null });
   const client = makeClient();
   const guild = makeGuild({ channels: [makeChannel("random")] });
-  client.players.set(GUILD_ID, { textChannel: null, voiceChannel: null, queue: [] });
+  client.players.set(GUILD_ID, fakePlayer({ textChannel: null, voiceChannel: null, queue: [] }));
 
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
-  assert.equal(client.players.get(GUILD_ID).textChannel, null);
+  assert.equal(playerOf(client).textChannel, null);
 });
 
 test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는다", async () => {
@@ -383,16 +407,15 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   const client = makeClient();
   const given = makeChannel("given");
   const guild = makeGuild({ channels: [makeChannel("botCh")] });
-  client.players.set(GUILD_ID, { textChannel: null, voiceChannel: null, queue: [] });
+  client.players.set(GUILD_ID, fakePlayer({ textChannel: null, voiceChannel: null, queue: [] }));
 
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given, lookup });
-  assert.equal(client.players.get(GUILD_ID).textChannel, given);
+  assert.equal(playerOf(client).textChannel, given);
 });
 
 // ── 받을 곡 수 (해석기에 넘기는 어림값) ──────────────────────
 
-async function withLimits(queueMax, playlistMax, fn) {
-  const config = require("../../config.ts");
+async function withLimits(queueMax: number, playlistMax: number, fn: () => Promise<void>) {
   const saved = config.bot.maxQueueSize;
   config.bot.maxQueueSize = queueMax;
   setGuild(GUILD_ID, { playlistAddMax: playlistMax });
@@ -404,15 +427,15 @@ async function withLimits(queueMax, playlistMax, fn) {
   }
 }
 
-async function requestWith({ queued = 0, playing = false, single = false, resolve = () => ok("곡A") }) {
+async function requestWith({ queued = 0, playing = false, single = false, resolve = () => ok("곡A") }: { queued?: number; playing?: boolean; single?: boolean; resolve?: () => LookupResult }) {
   mockResolve = resolve;
   const client = makeClient();
   const args = baseArgs(client, makeGuild(), { query: "목록", single });
-  const player = client.players.get(GUILD_ID);
+  const player = playerOf(client);
   player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
   if (playing) player.currentTrack = track("now");
   await requestPlayback(client, args);
-  return { limit: resolverCalls.at(-1).range.limit, trackData: client.embedCalls[0]?.trackData };
+  return { limit: resolverCalls.at(-1)?.range?.limit, trackData: client.embedCalls[0]?.trackData };
 }
 
 test("받을 곡 수: 한 번에 넣는 묶음과 남은 자리 중 작은 쪽", () =>
@@ -433,60 +456,60 @@ test("받을 곡 수: 상한이 꺼져 있으면 묶음 크기", () =>
 test("자리가 모자라 덜 받았고 뒤에 곡이 더 있을 때만 queueLimited", () =>
   withLimits(30, 50, async () => {
     const five = () => ({ ...ok("1", "2", "3", "4", "5"), total: 80 });
-    assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData.queueLimited, true);
+    assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData?.queueLimited, true);
 
     const room = () => ({ ...ok(...Array.from({ length: 25 }, (_, i) => `s${i}`)), total: 80 });
-    assert.equal((await requestWith({ playing: true, queued: 5, resolve: room })).trackData.queueLimited, true, "남은 자리 25가 묶음 30보다 작다");
+    assert.equal((await requestWith({ playing: true, queued: 5, resolve: room })).trackData?.queueLimited, true, "남은 자리 25가 묶음 30보다 작다");
 
     const whole = () => ({ ...ok("1", "2", "3"), total: 3 });
-    assert.equal((await requestWith({ playing: true, queued: 25, resolve: whole })).trackData.queueLimited, undefined, "목록을 다 받았으면 아니다");
+    assert.equal((await requestWith({ playing: true, queued: 25, resolve: whole })).trackData?.queueLimited, undefined, "목록을 다 받았으면 아니다");
   }));
 
 // ── 재생목록 이어 넣기 ───────────────────────────────────────
 
 const SP = "37i9dQZF1E3aglU7q0y10F";
-const idOf = (i) => `t${String(i).padStart(21, "0")}`; // 22자 트랙 ID
+const idOf = (i: number) => `t${String(i).padStart(21, "0")}`; // 22자 트랙 ID
 
 // 원본 목록 — shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 자리)
-function listSource(size, { shift = 0 } = {}) {
-  return ({ offset, limit }) => {
-    const tracks = [];
+function listSource(size: number, { shift = 0 } = {}) {
+  return ({ offset = 0, limit = 0 }: Range): Collection => {
+    const tracks: TrackInfo[] = [];
     for (let raw = offset; raw < Math.min(size + shift, offset + limit); raw++) {
       const i = raw - shift;
-      tracks.push(i < 0 ? { title: `new${raw}`, id: `n${String(raw).padStart(21, "0")}` } : { title: `s${i}`, id: idOf(i) });
+      tracks.push(i < 0 ? track(`new${raw}`, { id: `n${String(raw).padStart(21, "0")}` }) : track(`s${i}`, { id: idOf(i) }));
     }
     return { tracks, total: size + shift, nextOffset: offset + tracks.length };
   };
 }
 
-function stateAt(offset, extra = {}) {
+function stateAt(offset: number, extra: Partial<MoreState> = {}): MoreState {
   return { kind: "spp", listId: SP, offset, anchorId: idOf(offset - 1), insertFirst: false, requesterId: null, ...extra };
 }
 
-async function continueWith({ state, count, size = 300, shift = 0, queued = 0 }) {
+async function continueWith({ state, count, size = 300, shift = 0, queued = 0 }: { state: MoreState; count: number; size?: number; shift?: number; queued?: number }) {
   mockCollection = listSource(size, { shift });
   collectionCalls.length = 0;
   const client = makeClient();
   const guild = makeGuild();
-  baseArgs(client, guild);
-  const player = client.players.get(GUILD_ID);
+  seedPlayer(client);
+  const player = playerOf(client);
   player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
   player.currentTrack = track("now");
-  const progress = [];
+  const progress: Array<[number, number]> = [];
   const result = await continueCollection(client, { guild, requester: { id: "u1" }, state, count, lookup, onProgress: (done, want) => progress.push([done, want]) });
   return { result, progress, added: client.embedCalls[0]?.trackData };
 }
 
-const addedTitles = (trackData) => trackData.tracks.map((t) => t.title);
+const addedTitles = (trackData: TrackData | undefined) => trackData?.tracks.map((t) => t.title) ?? [];
 
 test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡을 넘겨준다", () =>
   withLimits(250, 50, async () => {
     const { result, added } = await continueWith({ state: stateAt(50), count: 50 });
     assert.deepEqual(collectionCalls[0].range, { offset: 45, limit: 55 }, "앵커를 찾으려고 앞으로 더 받는다");
     assert.deepEqual(addedTitles(added).slice(0, 2), ["s50", "s51"]);
-    assert.equal(added.tracks.length, 50);
+    assert.equal(added?.tracks.length, 50);
     assert.equal(result.added, 50);
-    assert.deepEqual({ offset: result.next.offset, anchorId: result.next.anchorId, remaining: result.next.remaining }, { offset: 100, anchorId: idOf(99), remaining: 200 });
+    assert.deepEqual({ offset: result.next?.offset, anchorId: result.next?.anchorId, remaining: result.next?.remaining }, { offset: 100, anchorId: idOf(99), remaining: 200 });
   }));
 
 test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준다 — 빠지거나 겹치는 곡이 없다", () =>
@@ -501,7 +524,7 @@ test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준�
 test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없으면 받지도 않는다", () =>
   withLimits(30, 50, async () => {
     const some = await continueWith({ state: stateAt(50), count: 100, queued: 25 });
-    assert.equal(some.added.tracks.length, 5);
+    assert.equal(some.added?.tracks.length, 5);
 
     const full = await continueWith({ state: stateAt(50), count: 100, queued: 30 });
     assert.equal(full.result.success, false);
@@ -517,13 +540,13 @@ test("이어 넣기: 여러 묶음으로 받으며 진행을 알린다", () =>
       [200, 250],
       [250, 250],
     ]);
-    assert.equal(added.tracks.length, 250);
+    assert.equal(added?.tracks.length, 250);
   }));
 
 test("이어 넣기: 목록 끝이면 넣을 수 있는 만큼 넣고 다음 상태가 없다", () =>
   withLimits(250, 50, async () => {
     const { result, added } = await continueWith({ state: stateAt(50), count: 50, size: 80 });
-    assert.equal(added.tracks.length, 30);
+    assert.equal(added?.tracks.length, 30);
     assert.equal(result.next, null);
     assert.equal(result.remaining, 0);
   }));
@@ -531,17 +554,17 @@ test("이어 넣기: 목록 끝이면 넣을 수 있는 만큼 넣고 다음 상
 test("이어 넣기: 맨 앞에 넣었던 목록은 앵커 곡 바로 뒤에 넣게 한다", () =>
   withLimits(250, 50, async () => {
     const front = await continueWith({ state: stateAt(50, { insertFirst: true }), count: 10 });
-    assert.equal(front.added.insertAfterId, idOf(49));
-    assert.equal(front.result.next.insertFirst, true, "다음 묶음도 같은 자리 규칙을 잇는다");
+    assert.equal(front.added?.insertAfterId, idOf(49));
+    assert.equal(front.result.next?.insertFirst, true, "다음 묶음도 같은 자리 규칙을 잇는다");
 
     const back = await continueWith({ state: stateAt(50), count: 10 });
-    assert.equal(back.added.insertAfterId, undefined);
+    assert.equal(back.added?.insertAfterId, undefined);
   }));
 
 test("재생목록을 넣으면 이어 받을 상태를 결과에 싣는다", async () => {
   mockResolve = () => ({ ...ok("1", "2"), collection: "playlist", total: 120, nextOffset: 2, tracks: [track("1"), { ...track("2"), id: idOf(1) }] });
   const client = makeClient();
   const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: `https://open.spotify.com/playlist/${SP}` }));
-  assert.equal(result.more.offset, 2);
-  assert.equal(result.more.remaining, 118);
+  assert.equal(result.more?.offset, 2);
+  assert.equal(result.more?.remaining, 118);
 });

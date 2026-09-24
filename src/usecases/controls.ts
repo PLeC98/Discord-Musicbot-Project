@@ -26,6 +26,8 @@ type MaybePlayer = MusicPlayer | null | undefined;
 type Check = (member: GuildMember, player: MusicPlayer) => Promise<string | null>;
 
 const fail = (code: string, extra: Omit<Refusal, "ok" | "code"> = {}): Refusal => ({ ok: false, code, ...extra });
+// 해낸 결과. 사실을 싣는다
+const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
 // 조작 뒤 패널을 지금 상태로. 패널을 못 고쳐도 조작은 된 것이다
 const refresh = (player: MusicPlayer) => playerEvents.refresh(player).catch((error) => log.warn(`조작 뒤 패널 갱신 실패: ${messageOf(error)}`));
@@ -37,6 +39,9 @@ async function permitted(player: MusicPlayer, actor: Actor, check: Check = perm.
   return message ? fail("no-permission", { message }) : null;
 }
 
+// 수는 입구가 받은 값 그대로 온다(없거나 수가 아닐 수 있다). 0 이상 size 미만의 정수인가
+const isIndex = (i: unknown, size: number): i is number => typeof i === "number" && Number.isInteger(i) && i >= 0 && i < size;
+
 const needTrack = (player: MusicPlayer) => (player.currentTrack ? null : fail("no-track"));
 
 /** 멈춤 · 재개를 뒤집는다 */
@@ -47,7 +52,7 @@ async function pause(player: MaybePlayer, actor: Actor) {
   const resuming = player.paused;
   if (!(resuming ? player.resume() : player.pause())) return fail("failed");
   await refresh(player);
-  return { ok: true, paused: !resuming, track: player.currentTrack };
+  return done({ paused: !resuming, track: player.currentTrack });
 }
 
 /**
@@ -63,7 +68,7 @@ async function skip(player: MaybePlayer, actor: Actor) {
   const track = player.currentTrack;
   if (!player.skip()) return fail("skip-failed");
   if (!restarted && player.currentTrack) await refresh(player);
-  return { ok: true, track, restarted };
+  return done({ track, restarted });
 }
 
 /** 멈추고 대기열을 비우고 나간다. 세션도 지운다 */
@@ -76,7 +81,7 @@ async function stop(player: MaybePlayer, actor: Actor, players: Pick<PlayerRegis
   player.stop();
   players.delete(player.guild.id);
   await playerEvents.ended(player, "stop").catch((error) => log.warn(`정지 뒤 패널 갱신 실패: ${messageOf(error)}`));
-  return { ok: true, track, cleared };
+  return done({ track, cleared });
 }
 
 /** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted) */
@@ -87,7 +92,7 @@ async function previous(player: MaybePlayer, actor: Actor) {
   const restarted = player.loop === "track";
   if (player.previousTracks.length === 0 && !restarted) return fail("no-previous");
   if (!player.previous()) return fail("previous-failed");
-  return { ok: true, restarted };
+  return done({ restarted });
 }
 
 /**
@@ -104,7 +109,7 @@ async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "s
   await onAccepted?.();
   await player.seek(ms, reason);
   await refresh(player);
-  return { ok: true, ms, track: player.currentTrack };
+  return done({ ms, track: player.currentTrack });
 }
 
 /** 위치 이동. reason 은 로그에 남는 원인, onAccepted 는 전제 조건을 지난 뒤 부른다 */
@@ -132,15 +137,15 @@ async function highlight(player: MaybePlayer, actor: Actor, opts: SeekOptions = 
 }
 
 /** 음량(0 ~ 100 정수). 소리는 바로 바뀐다. 로그와 패널은 잇단 변경이 멈춘 뒤 한 번 */
-async function volume(player: MaybePlayer, actor: Actor, level: number) {
+async function volume(player: MaybePlayer, actor: Actor, level: unknown) {
   if (!player) return fail("no-player");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
-  if (!Number.isInteger(level) || level < 0 || level > 100) return fail("bad-volume");
+  if (!isIndex(level, 101)) return fail("bad-volume");
   const before = player.volume;
   const applied = player.setVolume(level) ?? level;
   settleVolume(player, before);
-  return { ok: true, before, level: applied };
+  return done({ before, level: applied });
 }
 
 // 대시보드는 끄는 동안 음량을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
@@ -171,7 +176,7 @@ async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
   if (mode && player.hasLiveTrack()) return fail("live-no-loop");
   player.setLoop(mode);
   await refresh(player);
-  return { ok: true, mode, track: player.currentTrack };
+  return done({ mode, track: player.currentTrack });
 }
 
 /** 반복 버튼의 다음 모드: 끔 → 한곡 → 대기열 → 끔 */
@@ -188,35 +193,34 @@ async function shuffle(player: MaybePlayer, actor: Actor) {
   if (player.queue.length < 2) return fail("too-few-to-shuffle");
   player.shuffleQueue();
   await refresh(player);
-  return { ok: true, count: player.queue.length };
+  return done({ count: player.queue.length });
 }
 
 /** 대기열에서 한 곡 빼기. index 는 0부터. 자기가 넣은 곡은 DJ 가 아니어도 뺄 수 있어 권한은 곡을 보고 판정한다 */
-async function remove(player: MaybePlayer, actor: Actor, index: number) {
+async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
   if (!player) return fail("no-player");
   if (player.queue.length === 0) return fail("queue-empty");
-  if (!Number.isInteger(index) || index < 0 || index >= player.queue.length) return fail("bad-position", { size: player.queue.length });
+  if (!isIndex(index, player.queue.length)) return fail("bad-position", { size: player.queue.length });
   const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, player.queue[index]));
   if (blocked) return blocked;
   const track = player.removeFromQueue(index);
   await refresh(player);
-  return { ok: true, track, left: player.queue.length };
+  return done({ track, left: player.queue.length });
 }
 
 /** 대기열 안에서 옮기기. from · to 는 0부터 */
-async function move(player: MaybePlayer, actor: Actor, from: number, to: number) {
+async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknown) {
   if (!player) return fail("no-player");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   const size = player.queue.length;
   if (size < 2) return fail("too-few-to-move");
-  const inRange = (i: number) => Number.isInteger(i) && i >= 0 && i < size;
-  if (!inRange(from) || !inRange(to)) return fail("bad-position", { size });
+  if (!isIndex(from, size) || !isIndex(to, size)) return fail("bad-position", { size });
   if (from === to) return fail("same-position");
   const track = player.queue[from];
   player.moveInQueue(from, to);
   await refresh(player);
-  return { ok: true, track, from, to };
+  return done({ track, from, to });
 }
 
 /** 대기열 비우기(지금 곡은 그대로) */
@@ -228,22 +232,22 @@ async function clear(player: MaybePlayer, actor: Actor) {
   if (count === 0) return fail("queue-empty");
   player.clearQueue();
   await refresh(player);
-  return { ok: true, count, track: player.currentTrack };
+  return done({ count, track: player.currentTrack });
 }
 
 /** 대기열의 한 곡으로 바로 넘어간다. 한곡 반복 중에도 그 곡으로 간다 */
-async function jump(player: MaybePlayer, actor: Actor, index: number) {
+async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
   if (!player) return fail("no-player");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
-  if (!Number.isInteger(index) || index < 0 || index >= player.queue.length) return fail("bad-position", { size: player.queue.length });
+  if (!isIndex(index, player.queue.length)) return fail("bad-position", { size: player.queue.length });
   const track = player.queue[index];
   player.moveInQueue(index, 0);
   if (!player.skip("jump")) {
     player.moveInQueue(0, index);
     return fail("jump-failed");
   }
-  return { ok: true, track };
+  return done({ track });
 }
 
 /**
@@ -259,14 +263,15 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   if (!player) {
     if (!guild.members.me?.voice?.channel) return fail("no-player");
     await guild.members.me.voice.disconnect();
-    return { ok: true, left: "voice-only" };
+    return done({ left: "voice-only" as const });
   }
   const track = player.currentTrack;
   const saved = { queue: player.queue.length, positionSec: Math.floor((player.getCurrentTime?.() || 0) / 1000) };
   await player.leaveAndSave();
   players.delete(guild.id);
   await playerEvents.ended(player, track ? "leave" : "disconnected").catch((error) => log.warn(`나간 뒤 패널 갱신 실패: ${messageOf(error)}`));
-  return { ok: true, left: "player", track, saved };
+  return done({ left: "player" as const, track, saved });
 }
 
+export type { Actor };
 export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };
