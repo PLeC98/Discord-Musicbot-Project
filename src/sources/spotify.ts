@@ -453,7 +453,5 @@ function _reset() {
 // 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
-const exported = { getCollection, getFromURL, search, _reset, _internals };
-export default exported;
-export { exported as "module.exports" };
+export { getCollection, getFromURL, search, _reset, _internals };
 export type { SpotifyTrack, Part, Net };

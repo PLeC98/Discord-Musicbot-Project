@@ -7,7 +7,7 @@ process.env.COOKIES_FILE = "";
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
+const YouTube = await import("../../src/sources/youtube/index.ts");
 
 const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are no longer valid.";
 const AGE_ERROR = "ERROR: [youtube] EahYs-8tTjQ: Sign in to confirm your age.";

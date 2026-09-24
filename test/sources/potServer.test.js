@@ -6,8 +6,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import config from "../helpers/config.js";
 const { withConfig } = config;
-import potServer from "../../src/sources/youtube/potServer.ts";
-const { createPotServer, scrubBgutilLine, PORT } = potServer;
+import { createPotServer, scrubBgutilLine, PORT } from "../../src/sources/youtube/potServer.ts";
 
 test("토큰은 로그에 남기지 않는다", () => {
   assert.equal(scrubBgutilLine("Generated IntegrityToken: abc.def-123"), "Generated IntegrityToken: [REDACTED]");

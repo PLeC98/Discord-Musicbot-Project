@@ -2,8 +2,7 @@
 import youtubedl from "./ytdlpSpawn.ts";
 import * as links from "../rules/links.ts";
 import { canonicalUrl } from "../rules/canonicalUrl.ts";
-import ytdlpInfo from "./ytdlpInfo.ts";
-const { readInfo } = ytdlpInfo;
+import { readInfo } from "./ytdlpInfo.ts";
 import config from "../../config.ts";
 
 // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용
@@ -277,6 +276,4 @@ function createTrackUrl(username: string, trackSlug: string): string {
   return `https://soundcloud.com/${username}/${trackSlug}`;
 }
 
-const SoundCloud = { search, getInfo, getStream, getPlaylist, getUserTracks, formatTrack, isPlaylist, isTrack, isUser, extractUsername, extractTrackSlug, extractPlaylistSlug, validateUrl, formatDuration, createTrackUrl };
-export default SoundCloud;
-export { SoundCloud as "module.exports" };
+export { search, getInfo, getStream, getPlaylist, getUserTracks, formatTrack, isPlaylist, isTrack, isUser, extractUsername, extractTrackSlug, extractPlaylistSlug, validateUrl, formatDuration, createTrackUrl };

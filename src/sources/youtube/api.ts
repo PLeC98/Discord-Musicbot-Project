@@ -4,15 +4,14 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
 import { canonicalUrl } from "../../rules/canonicalUrl.ts";
-import ytdlpInfo from "../ytdlpInfo.ts";
-const { readInfo } = ytdlpInfo;
+import { readInfo } from "../ytdlpInfo.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 import youtubedl from "../ytdlpSpawn.ts";
 import config from "../../../config.ts";
 import * as trackLookup from "../../store/trackLookup.ts";
-import auth from "./auth.ts";
-import errors from "./errors.ts";
-import run from "./ytdlpRun.ts";
+import * as auth from "./auth.ts";
+import * as errors from "./errors.ts";
+import * as run from "./ytdlpRun.ts";
 import { messageOf } from "../../rules/errorKind.ts";
 import type { YtInfo } from "../ytdlpInfo.ts";
 import type { RunYtDlp } from "../ytdlpSpawn.ts";
@@ -362,6 +361,4 @@ async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlis
   }
 }
 
-const exported = { _detectLive, liveStatusOf, titleOf, _isVideoEntry, search, getInfo, getStream, getPlaylist };
-export default exported;
-export { exported as "module.exports" };
+export { _detectLive, liveStatusOf, titleOf, _isVideoEntry, search, getInfo, getStream, getPlaylist };

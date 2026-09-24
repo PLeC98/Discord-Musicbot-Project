@@ -8,8 +8,7 @@ const log = logger.child({ category: "youtube" });
 import config from "../../../config.ts";
 // yt-dlp 에 줄 ffmpeg 경로. 재생과 같은 바이너리를 쓰게 조립(app/main)이 넘긴다(useFfmpeg). 안 넘기면 yt-dlp 가 PATH 에서 찾는다
 let ffmpegLocation: () => string | null = () => null;
-import clientsModule from "./clients.ts";
-const { NEEDS_POT, KNOWN, playerClients } = clientsModule;
+import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
@@ -136,6 +135,4 @@ function cookiesConfigured() {
   return config.ytdlp.useCookieFile && cookieConfig.cookiesReady();
 }
 
-const exported = { useFfmpeg, getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
-export default exported;
-export { exported as "module.exports" };
+export { useFfmpeg, getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };

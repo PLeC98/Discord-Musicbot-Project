@@ -23,7 +23,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 import ytdlExec from "youtube-dl-exec";
 import * as storeDb from "../../src/store/db.ts";
-const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
+const YouTube = await import("../../src/sources/youtube/index.ts");
 const { playerClients } = YouTube._internals;
 
 const calls = [];

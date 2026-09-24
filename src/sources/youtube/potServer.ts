@@ -100,6 +100,4 @@ function createPotServer({ spawn = childProcess.spawn, exists = fs.existsSync, f
   return { start, stop, waitReady };
 }
 
-const exported = { createPotServer, scrubBgutilLine, PORT };
-export default exported;
-export { exported as "module.exports" };
+export { createPotServer, scrubBgutilLine, PORT };

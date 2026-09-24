@@ -4,8 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import clients from "../../src/sources/youtube/clients.ts";
-const { PlayerClients, KNOWN, NEEDS_POT } = clients;
+import { PlayerClients, KNOWN, NEEDS_POT } from "../../src/sources/youtube/clients.ts";
 import config from "../../config.ts";
 const { parseClients } = config;
 

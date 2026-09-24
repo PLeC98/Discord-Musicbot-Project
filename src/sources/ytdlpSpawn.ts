@@ -2,7 +2,7 @@ import youtubedl from "youtube-dl-exec";
 import type { Flags } from "youtube-dl-exec";
 import type { SpawnOptions } from "child_process";
 import * as procRegistry from "../infra/processRegistry.ts";
-import errors from "./youtube/errors.ts";
+import * as errors from "./youtube/errors.ts";
 
 const IS_WIN = process.platform === "win32";
 

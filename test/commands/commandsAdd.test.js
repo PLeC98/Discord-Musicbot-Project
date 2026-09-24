@@ -17,7 +17,7 @@ import { MessageFlags } from "discord.js";
 
 import S from "../../src/ui/strings.js";
 import * as settings from "../../src/store/guildSettings.ts";
-import lookup from "../../src/sources/lookup.ts";
+import * as lookup from "../../src/sources/lookup.ts";
 import addTracks from "../../src/usecases/addTracks.js";
 import More from "../../src/usecases/playlistMore.js";
 import * as storeDb from "../../src/store/db.ts";

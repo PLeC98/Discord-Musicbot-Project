@@ -2,8 +2,8 @@
 
 import http from "./http.js";
 const { rand } = http;
-import Spotify from "../../sources/spotify.ts";
-import YouTube from "../../sources/youtube/index.ts";
+import * as Spotify from "../../sources/spotify.ts";
+import * as YouTube from "../../sources/youtube/index.ts";
 
 // ── 재생목록 ──────────────────────────────────────────────────────────────
 // 통째로 받지 않는다. total을 알면 무작위 오프셋으로 한 구간만 집어 온다.

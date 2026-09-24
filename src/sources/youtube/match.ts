@@ -397,17 +397,6 @@ function rankCandidates(candidates: Candidate[], target: Target) {
   return { ranked: scored, best: top ? top.candidate : null, confidence };
 }
 
-const exported = {
-  buildSearchQueries,
-  mergeCandidateLists,
-  rankCandidates,
-  scoreCandidate,
-  W,
-  JUNK_TERMS,
-  VERSION_TERMS,
-  REUPLOAD_TERMS,
-  _internal: { normLoose, normChannel, analyzeChannel, durationScore, countJunk, countVersion, isReupload, splitArtists, detectVersionKind, stripVersionTag },
-};
-export default exported;
-export { exported as "module.exports" };
+export { buildSearchQueries, mergeCandidateLists, rankCandidates, scoreCandidate, W, JUNK_TERMS, VERSION_TERMS, REUPLOAD_TERMS };
+export const _internal = { normLoose, normChannel, analyzeChannel, durationScore, countJunk, countVersion, isReupload, splitArtists, detectVersionKind, stripVersionTag };
 export type { Candidate, Target };

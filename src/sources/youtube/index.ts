@@ -3,11 +3,8 @@
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 import youtubedl from "../ytdlpSpawn.ts";
 import * as links from "../../rules/links.ts";
-import auth from "./auth.ts";
-import run from "./ytdlpRun.ts";
-import errors from "./errors.ts";
-import api from "./api.ts";
-import clients from "./clients.ts";
+import * as auth from "./auth.ts";
+import * as clients from "./clients.ts";
 
 function parseDuration(durationString: string | null | undefined): number {
   if (!durationString) return 0;
@@ -44,25 +41,20 @@ async function validateUrl(url: string): Promise<boolean> {
   }
 }
 
-// 나눠 둔 부분의 함수를 한 이름으로 모은다. 밖에서는 YouTube.search 처럼 부른다
-const { BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot, ...authFns } = auth;
-const YouTube = {
-  parseDuration,
-  validateUrl,
-  ...authFns,
-  ...run,
-  ...errors,
-  ...api,
-  _internals: {
-    BGUTIL_DIR,
-    BGUTIL_PLUGIN_ROOT,
-    BGUTIL_AVAILABLE,
-    findPluginRoot,
-    get playerClients() {
-      return clients.playerClients();
-    },
+// 테스트 · 진단용
+const _internals = {
+  BGUTIL_DIR: auth.BGUTIL_DIR,
+  BGUTIL_PLUGIN_ROOT: auth.BGUTIL_PLUGIN_ROOT,
+  BGUTIL_AVAILABLE: auth.BGUTIL_AVAILABLE,
+  findPluginRoot: auth.findPluginRoot,
+  get playerClients() {
+    return clients.playerClients();
   },
 };
 
-export default YouTube;
-export { YouTube as "module.exports" };
+// 나눠 둔 부분의 함수를 한 이름으로 모은다. 밖에서는 YouTube.search 처럼 부른다
+export { useFfmpeg, getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured } from "./auth.ts";
+export * from "./ytdlpRun.ts";
+export * from "./errors.ts";
+export * from "./api.ts";
+export { parseDuration, validateUrl, _internals };

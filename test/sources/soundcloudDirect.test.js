@@ -10,8 +10,8 @@ import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 import ytdlExec from "youtube-dl-exec";
-import SoundCloud from "../../src/sources/soundcloud.ts";
-import DirectLink from "../../src/sources/direct.ts";
+import * as SoundCloud from "../../src/sources/soundcloud.ts";
+import * as DirectLink from "../../src/sources/direct.ts";
 
 const calls = { ytdlp: [], head: [], stream: [] };
 let respond;

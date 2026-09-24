@@ -99,6 +99,4 @@ class PlayerClients {
 let table: PlayerClients | null = null;
 const playerClients = () => (table ??= new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails }));
 
-const exported = { PlayerClients, KNOWN, NEEDS_POT, playerClients };
-export default exported;
-export { exported as "module.exports" };
+export { PlayerClients, KNOWN, NEEDS_POT, playerClients };

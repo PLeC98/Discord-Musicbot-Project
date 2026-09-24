@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 
 import * as audioCache from "../../src/store/audioCache.ts";
 import * as trackLookup from "../../src/store/trackLookup.ts";
-import YouTube from "../../src/sources/youtube/index.ts";
+import * as YouTube from "../../src/sources/youtube/index.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-cacheres-test-${process.pid}.db`);
 

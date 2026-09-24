@@ -11,7 +11,7 @@ process.env.COOKIES_SOURCE = "";
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
+const YouTube = await import("../../src/sources/youtube/index.ts");
 
 test("쿠키 미설정이어도 player_client를 강제하지 않음 (우분투 재생 불능 회귀)", () => {
   const opts = YouTube.getYtDlpOptions();

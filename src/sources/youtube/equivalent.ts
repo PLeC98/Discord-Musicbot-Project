@@ -1,12 +1,11 @@
 // 스포티파이 곡의 유튜브 동등물 찾기. 찾은 영상을 트랙의 음원 주소로 적는다.
 
-import YouTube from "./index.ts";
+import * as YouTube from "./index.ts";
 import * as trackLookup from "../../store/trackLookup.ts";
 import * as links from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import match from "./match.ts";
-const { buildSearchQueries, mergeCandidateLists, rankCandidates } = match;
+import { buildSearchQueries, mergeCandidateLists, rankCandidates } from "./match.ts";
 import type { Candidate } from "./match.ts";
 
 /** 동등물을 찾을 곡. 찾으면 audioUrl · audioFoundBy 를 적는다 */
@@ -86,8 +85,6 @@ async function reresolveYouTube(track: Seeking, deps?: { search?: Search }): Pro
   return findYouTubeEquivalent(track, deps);
 }
 
-const equivalent = { findYouTubeEquivalent, reresolveYouTube };
+export { findYouTubeEquivalent, reresolveYouTube };
 
-export default equivalent;
-export { equivalent as "module.exports" };
 export type { Seeking, Search };

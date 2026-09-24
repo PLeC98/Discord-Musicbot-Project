@@ -117,6 +117,4 @@ function _faultReason(error: unknown) {
   return "포맷 획득 실패";
 }
 
-const exported = { briefError, isAgeRestrictedError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };
-export default exported;
-export { exported as "module.exports" };
+export { briefError, isAgeRestrictedError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };

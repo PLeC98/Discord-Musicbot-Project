@@ -76,7 +76,5 @@ function readInfo(raw: unknown): YtInfo | null {
   return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as YtInfo;
 }
 
-const exported = { readInfo };
-export default exported;
-export { exported as "module.exports" };
+export { readInfo };
 export type { YtInfo };

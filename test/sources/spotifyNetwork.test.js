@@ -17,7 +17,7 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
-const Spotify = (await import("../../src/sources/spotify.ts")).default;
+const Spotify = await import("../../src/sources/spotify.ts");
 const { graphql, deriveKey, totp } = Spotify._internals;
 
 const realFetch = global.fetch;

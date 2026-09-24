@@ -18,7 +18,7 @@ const audioCache = await import("../../src/store/audioCache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
+const YouTube = await import("../../src/sources/youtube/index.ts");
 const audioConvert = (await import("../../src/media/convert.js")).default;
 const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
 

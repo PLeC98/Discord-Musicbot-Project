@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import tempStore from "../helpers/tempStore.js";
 const { openTempStore } = tempStore;
 import TrackDownloader from "../../src/media/cacheDownload.js";
-import YouTube from "../../src/sources/youtube/index.ts";
+import * as YouTube from "../../src/sources/youtube/index.ts";
 
 /** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 받지는 않는다. 받기 전에 캐시 행을 적으므로 임시 DB 를 연다 */
 async function captureOptions() {

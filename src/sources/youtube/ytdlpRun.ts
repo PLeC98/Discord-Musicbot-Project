@@ -11,10 +11,9 @@ import type { YtDlpFlags as Flags, RunYtDlp } from "../ytdlpSpawn.ts";
 /** forceCookies 를 받아 yt-dlp 옵션을 만든다(연령 제한이면 쿠키를 붙여 다시 만든다) */
 type BuildOptions = (forceCookies: boolean) => Flags;
 import * as externalCaches from "../../store/externalCaches.ts";
-import clientsModule from "./clients.ts";
-const { NEEDS_POT, playerClients } = clientsModule;
-import auth from "./auth.ts";
-import errors from "./errors.ts";
+import { NEEDS_POT, playerClients } from "./clients.ts";
+import * as auth from "./auth.ts";
+import * as errors from "./errors.ts";
 // 어긋난 미디어 주소를 다시 받기 전에 잠깐 쉰다. 곧바로 다시 물으면 같은 것을 받기 쉽다.
 const STALE_RETRY_MS = 700;
 // 지금 쿠키 파일을 쥔 채 도는 yt-dlp 가 몇 개인가. 대시보드가 쿠키를 갈아 끼울 때 본다.
@@ -158,7 +157,5 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
   }
 }
 
-const exported = { cookieRunsInFlight, runYtDlp, _runWithClients, _runOnce, _inspectWarnings };
-export default exported;
-export { exported as "module.exports" };
+export { cookieRunsInFlight, runYtDlp, _runWithClients, _runOnce, _inspectWarnings };
 export type { BuildOptions };

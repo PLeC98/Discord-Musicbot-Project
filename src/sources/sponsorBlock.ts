@@ -180,8 +180,7 @@ function shape({ raw, source }: Fetched, categories: Iterable<string>): Segments
   return { ...normalize(raw, categories), source };
 }
 
-const SponsorBlock = { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, _forget, SKIP_CATEGORIES, _internal: { mergeIntervals, normalize } };
+export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, _forget, SKIP_CATEGORIES };
+export const _internal = { mergeIntervals, normalize };
 
-export default SponsorBlock;
 export type { RawSegment, SkipSegment, Segments };
-export { SponsorBlock as "module.exports" };

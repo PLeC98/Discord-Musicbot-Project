@@ -26,7 +26,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 const config = (await import("../../config.ts")).default;
 const S = (await import("../../src/ui/strings.js")).default;
 const settings = await import("../../src/store/guildSettings.ts");
-const SponsorBlock = (await import("../../src/sources/sponsorBlock.ts")).default;
+const SponsorBlock = await import("../../src/sources/sponsorBlock.ts");
 const sponsorConfig = (await import("../../events/sponsorConfigHandler.js")).default;
 
 after(() => {

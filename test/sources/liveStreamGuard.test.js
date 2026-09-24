@@ -35,8 +35,8 @@ after(() => {
   }
 });
 
-const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
-const equivalent = (await import("../../src/sources/youtube/equivalent.ts")).default;
+const YouTube = await import("../../src/sources/youtube/index.ts");
+const equivalent = await import("../../src/sources/youtube/equivalent.ts");
 
 test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
   assert.equal(YouTube._detectLive({ is_live: true }), true);

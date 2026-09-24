@@ -19,7 +19,7 @@ const youtube = {
   isVideoUnavailableError: () => false,
 };
 
-const streamUrl = (await import("../../src/sources/streamUrl.ts")).default;
+const streamUrl = await import("../../src/sources/streamUrl.ts");
 
 test("출처가 따로 있는 곡은 찾아 둔 영상에서 소리를 가져온다", async () => {
   for (const platform of ["vocadb", "touhoudb", "utaitedb", "lastfm", "lbradio", "animethemes"]) {

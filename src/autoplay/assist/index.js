@@ -11,7 +11,7 @@ import * as yamlStore from "../../config/yamlStore.ts";
 import googleAuth from "./googleAuth.js";
 import tokens from "./tokens.js";
 import * as models from "../../config/schema/aiModels.ts";
-import YouTube from "../../sources/youtube/index.ts";
+import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/aiProviders.ts";

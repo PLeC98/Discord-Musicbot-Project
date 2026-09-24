@@ -123,7 +123,5 @@ function estimateDuration(fileSize: unknown, contentType: string): number {
   return Math.max(0, estimatedSeconds);
 }
 
-const DirectLink = { getInfo, getStream, extractTitle, generateId, estimateDuration };
-export default DirectLink;
-export { DirectLink as "module.exports" };
+export { getInfo, getStream, extractTitle, generateId, estimateDuration };
 export type { HeadNet, StreamNet };

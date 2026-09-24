@@ -22,11 +22,11 @@ const trackLookup = await import("../../src/store/trackLookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
-const Spotify = (await import("../../src/sources/spotify.ts")).default;
-const equivalent = (await import("../../src/sources/youtube/equivalent.ts")).default;
-const lookup = (await import("../../src/sources/lookup.ts")).default;
-const streamUrl = (await import("../../src/sources/streamUrl.ts")).default;
+const YouTube = await import("../../src/sources/youtube/index.ts");
+const Spotify = await import("../../src/sources/spotify.ts");
+const equivalent = await import("../../src/sources/youtube/equivalent.ts");
+const lookup = await import("../../src/sources/lookup.ts");
+const streamUrl = await import("../../src/sources/streamUrl.ts");
 const { audioKeyOf } = await import("../../src/rules/audioKeyOf.ts");
 
 beforeEach(() => {

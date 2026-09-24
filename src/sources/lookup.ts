@@ -1,10 +1,10 @@
 // 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 받는다.
 
-import YouTube from "./youtube/index.ts";
+import * as YouTube from "./youtube/index.ts";
 import * as links from "../rules/links.ts";
-import Spotify from "./spotify.ts";
-import SoundCloud from "./soundcloud.ts";
-import DirectLink from "./direct.ts";
+import * as Spotify from "./spotify.ts";
+import * as SoundCloud from "./soundcloud.ts";
+import * as DirectLink from "./direct.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import { errorKind, messageOf } from "../rules/errorKind.ts";
 import type { CacheHit } from "../store/trackLookup.ts";
@@ -143,8 +143,6 @@ async function resolveQuery(query: string, context?: string | null, range: Range
   return getTrackData(query, context, range, sources);
 }
 
-const lookup = { detectPlatform, isUnsupportedLink, getTrackData, getCollection, resolveQuery };
+export { detectPlatform, isUnsupportedLink, getTrackData, getCollection, resolveQuery };
 
-export default lookup;
-export { lookup as "module.exports" };
 export type { FoundTrack, Range, Collection, Sources };

@@ -8,8 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import match from "../../src/sources/youtube/match.ts";
-const { rankCandidates, scoreCandidate, W, _internal: I } = match;
+import { rankCandidates, scoreCandidate, W, _internal as I } from "../../src/sources/youtube/match.ts";
 
 // ── 용어 판정 ────────────────────────────────────────────────
 

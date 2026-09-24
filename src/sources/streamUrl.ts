@@ -1,11 +1,11 @@
 // 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 가른다.
 
-import YouTube from "./youtube/index.ts";
+import * as YouTube from "./youtube/index.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import SoundCloud from "./soundcloud.ts";
-import equivalentModule from "./youtube/equivalent.ts";
+import * as SoundCloud from "./soundcloud.ts";
+import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 
 // 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
@@ -55,7 +55,4 @@ async function getStream(track: Seeking & { platform?: string | null }, seekSeco
   }
 }
 
-const streamUrl = { getStream };
-
-export default streamUrl;
-export { streamUrl as "module.exports" };
+export { getStream };

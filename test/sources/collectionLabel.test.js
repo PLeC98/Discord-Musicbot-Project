@@ -2,9 +2,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import lookup from "../../src/sources/lookup.ts";
-import Spotify from "../../src/sources/spotify.ts";
-import YouTube from "../../src/sources/youtube/index.ts";
+import * as lookup from "../../src/sources/lookup.ts";
+import * as Spotify from "../../src/sources/spotify.ts";
+import * as YouTube from "../../src/sources/youtube/index.ts";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 import strings from "../../src/ui/strings.js";
 const { collectionLabel } = strings;
