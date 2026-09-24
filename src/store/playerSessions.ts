@@ -70,21 +70,24 @@ type SessionState = {
 type RawTrackRow = { guild_id: string; slot: Slot; seq: number; [column: string]: unknown };
 type TrackParams = ReturnType<typeof toRow>;
 
+// 빈 값(undefined · null · "")은 NULL 로
+const orNull = <T>(value: T | null | undefined) => value || null;
+
 function toRow(track: TrackIn) {
   return {
-    track_id: track.id || null,
-    page_url: track.pageUrl || null,
-    request_key: track.requestKey || null,
-    audio_url: track.audioUrl || null,
-    title: track.title || null,
-    artist: track.artist || null,
-    album: track.album || null,
-    uploader: track.uploader || null,
+    track_id: orNull(track.id),
+    page_url: orNull(track.pageUrl),
+    request_key: orNull(track.requestKey),
+    audio_url: orNull(track.audioUrl),
+    title: orNull(track.title),
+    artist: orNull(track.artist),
+    album: orNull(track.album),
+    uploader: orNull(track.uploader),
     duration_sec: typeof track.duration === "number" ? track.duration : Number(track.duration) || null,
-    thumbnail: track.thumbnail || null,
-    platform: track.platform || null,
+    thumbnail: orNull(track.thumbnail),
+    platform: orNull(track.platform),
     is_live: track.isLive || track.live ? 1 : 0,
-    requester_id: track.requestedBy?.id || track.requesterId || null,
+    requester_id: track.requestedBy?.id || orNull(track.requesterId),
     added_at: track.addedAt || Date.now(),
   };
 }

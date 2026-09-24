@@ -139,11 +139,6 @@
       "count": 2
     }
   },
-  "src/store/playerSessions.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/sources/youtube/match.ts": {
     "complexity": {
       "count": 2
