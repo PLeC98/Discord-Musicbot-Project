@@ -37,6 +37,14 @@ function isAgeRestrictedError(error: unknown) {
 }
 
 /**
+ * 걸어 둔 쿠키를 유튜브가 받지 않았는가. yt-dlp 는 이것을 WARNING 으로만 적고 ERROR 에는 연령 확인 요구만 적는다.
+ * 브라우저에서 그 계정을 계속 쓰면 세션이 갱신되며 내보낸 쿠키가 무효가 된다(만료 시각과 무관)
+ */
+function isCookiesInvalidError(error: unknown) {
+  return /cookies are no longer valid/i.test(textOf(error));
+}
+
+/**
  * yt-dlp 오류가 "영상 자체가 내려감/삭제/비공개"인지 판별.
  * 캐시된 매핑의 영상이 사라진 경우 재검색으로 보내기 위한 신호.
  *   일시적 네트워크·봇 감지·연령 제한과는 구별(그것들은 재검색 대상 아님).
@@ -101,6 +109,8 @@ function isStaleMediaError(error: unknown) {
  * 차례는 위 판별들이 서로를 빼는 차례와 같다(연령 제한 → 영상 없음 → 건너뛴 클라이언트 → 클라이언트 탓 · 주소 어긋남).
  */
 function codeOf(error: unknown) {
+  // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 넣으면 풀린다
+  if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "age-cookies-invalid";
   if (isAgeRestrictedError(error)) return "age-restricted";
   if (isVideoUnavailableError(error)) return "video-unavailable";
   if (isSkippedClientError(error)) return "skipped-client";
@@ -117,4 +127,4 @@ function _faultReason(error: unknown) {
   return "포맷 획득 실패";
 }
 
-export { briefError, isAgeRestrictedError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };
+export { briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, _faultReason };

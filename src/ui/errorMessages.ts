@@ -5,6 +5,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   "bot-check": "❌ **YouTube가 이 요청을 차단했습니다 (봇 감지)**\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** bgutil-ytdlp-pot-provider를 설치하거나, `.env` 파일에 `COOKIES_SOURCE=chrome` (또는 firefox/edge)를 추가하세요.",
   // 운영자가 쿠키를 일부러 안 걸어 둔 것일 수 있다. 사용자에게 설정 방법을 늘어놓지 않는다
   "age-restricted": "❌ 연령 제한 영상은 재생할 수 없어요.",
+  // 운영자가 쿠키를 다시 넣으면 풀린다
+  "age-cookies-invalid": "❌ 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.",
   "video-unavailable": "❌ 비공개이거나 삭제된 영상은 재생할 수 없어요.",
   "geo-blocked": "❌ **지역 차단 콘텐츠**\n이 동영상은 봇이 호스팅된 지역에서 제한되어 있습니다.\n\n**해결 방법:** 다른 링크를 시도해 보세요.",
   "rate-limited": "❌ **요청이 너무 많습니다 (속도 제한)**\nYouTube 또는 다른 플랫폼이 일시적으로 요청을 차단하고 있습니다.\n\n**해결 방법:** 몇 분 기다렸다가 다시 시도하세요. 자주 발생하면 `.env`에 `COOKIES_SOURCE`를 추가하세요.",

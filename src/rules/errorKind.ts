@@ -8,6 +8,8 @@
 type Test = string | ((msg: string) => boolean);
 
 const RULES: Array<[string, Test[]]> = [
+  // 쿠키로 다시 시도했는데 쿠키가 무효였던 연령 제한. yt-dlp 가 원인을 WARNING 에, 결과를 ERROR 에 나눠 적는다
+  ["age-cookies-invalid", [(m) => m.includes("cookies are no longer valid") && m.includes("confirm your age")]],
   ["age-restricted", ["age-restricted", "age restricted", "confirm your age", "only available to registered users"]],
   // YouTube 봇 감지 / 로그인 필요
   ["bot-check", ["sign in to confirm", "confirm you", "bot detection", "not a robot", "please sign in", "inappropriate", (m) => m.includes("youtube") && m.includes("403")]],
@@ -25,7 +27,7 @@ const RULES: Array<[string, Test[]]> = [
 ];
 
 // 오류를 만든 곳이 이름을 붙여 두었으면(code) 글보다 그것을 먼저 믿는다
-const CODE_KINDS: Record<string, string> = { "age-restricted": "age-restricted", "video-unavailable": "video-unavailable" };
+const CODE_KINDS: Record<string, string> = { "age-cookies-invalid": "age-cookies-invalid", "age-restricted": "age-restricted", "video-unavailable": "video-unavailable" };
 
 const matches = (msg: string, test: Test): boolean => (typeof test === "function" ? test(msg) : msg.includes(test));
 

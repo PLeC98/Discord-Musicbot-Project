@@ -200,56 +200,52 @@ function seekUrl(baseUrl: string, protocol: unknown, startSeconds: number) {
 }
 
 async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYtDlp } = {}) {
-  try {
-    if (!url) {
-      throw new Error("URL이 필요함");
-    }
-
-    // 단순 형식으로 스트림 URL 가져오기
-    const info = readInfo(
-      await run.runYtDlp(
-        url,
-        (forceCookies) =>
-          auth.getYtDlpOptions(
-            {
-              dumpSingleJson: true,
-              format: "bestaudio/best",
-            },
-            { forceCookies },
-          ),
-        exec,
-      ),
-    );
-
-    if (!info || !info.url) {
-      throw new Error("스트림 URL을 찾을 수 없음");
-    }
-
-    const baseUrl = info.url;
-    const { canSeek, finalUrl } = seekUrl(baseUrl, info.protocol, startSeconds);
-
-    return {
-      url: finalUrl,
-      rawUrl: baseUrl,
-      // 영상 자체의 제목. 재생목록 페이지가 주는 제목과 다를 수 있고, 이쪽이 정본이다
-      // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
-      title: titleOf(info),
-      type: info.acodec && info.acodec.includes("opus") ? "opus" : "arbitrary",
-      duration: info.duration || 0,
-      bitrate: info.abr || info.tbr || 0,
-      canSeek,
-      format: info.format,
-      httpHeaders: info.http_headers || {},
-      isLive: _detectLive(info),
-      liveStatus: liveStatusOf(info),
-      // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "받아 둔 바이트"가 아니라 "받아 올 주소"를
-      // 줘야 하는 형식이라 파이프로 먹일 수 없다. 재생 쪽이 이 값으로 갈래를 고른다.
-      protocol: info.protocol || null,
-    };
-  } catch (error) {
-    log.error("스트림 URL 획득 실패:", errors.briefError(error));
-    throw error;
+  // 실패는 부르는 쪽(재생)이 한 번 남긴다
+  if (!url) {
+    throw new Error("URL이 필요함");
   }
+
+  // 단순 형식으로 스트림 URL 가져오기
+  const info = readInfo(
+    await run.runYtDlp(
+      url,
+      (forceCookies) =>
+        auth.getYtDlpOptions(
+          {
+            dumpSingleJson: true,
+            format: "bestaudio/best",
+          },
+          { forceCookies },
+        ),
+      exec,
+    ),
+  );
+
+  if (!info || !info.url) {
+    throw new Error("스트림 URL을 찾을 수 없음");
+  }
+
+  const baseUrl = info.url;
+  const { canSeek, finalUrl } = seekUrl(baseUrl, info.protocol, startSeconds);
+
+  return {
+    url: finalUrl,
+    rawUrl: baseUrl,
+    // 영상 자체의 제목. 재생목록 페이지가 주는 제목과 다를 수 있고, 이쪽이 정본이다
+    // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
+    title: titleOf(info),
+    type: info.acodec && info.acodec.includes("opus") ? "opus" : "arbitrary",
+    duration: info.duration || 0,
+    bitrate: info.abr || info.tbr || 0,
+    canSeek,
+    format: info.format,
+    httpHeaders: info.http_headers || {},
+    isLive: _detectLive(info),
+    liveStatus: liveStatusOf(info),
+    // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "받아 둔 바이트"가 아니라 "받아 올 주소"를
+    // 줘야 하는 형식이라 파이프로 먹일 수 없다. 재생 쪽이 이 값으로 갈래를 고른다.
+    protocol: info.protocol || null,
+  };
 }
 
 // 재생목록 한 줄. url 이 없으면 id 가 있다(부르는 쪽이 거른다)
