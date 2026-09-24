@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
 // 파일 로직을 facade(src/infra/log/logger.js)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도

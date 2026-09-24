@@ -2,7 +2,7 @@
 // 칸 하나의 모양이 바뀌면(yt-dlp 가 칸을 바꾸면) 그 칸만 버리고 한 번 알린다. 곡 하나를 통째로 버리지 않는다.
 
 import { z } from "zod";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 
 const reported = new Set();

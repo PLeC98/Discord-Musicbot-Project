@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
 import config from "../../../config.js";
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**

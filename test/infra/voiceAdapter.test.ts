@@ -1,8 +1,9 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/infra/voiceAdapter.js — 참가 요청을 잠깐 붙잡아, 그사이 봇이 옮겨졌다고 알려 오면 그 채널로 고쳐 보낸다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import voiceAdapter from "../../src/infra/voiceAdapter.js";
+import voiceAdapter from "../../src/infra/voiceAdapter.ts";
 const { holdingAdapterCreator, HOLD_MS } = voiceAdapter;
 
 // 디스코드 쪽 어댑터 대신. 보낸 것을 적고, 게이트웨이 알림을 흘려 넣을 수 있게 한다

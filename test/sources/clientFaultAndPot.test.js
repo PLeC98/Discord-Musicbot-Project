@@ -17,10 +17,10 @@ import assert from "node:assert/strict";
 
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
 const { NEEDS_POT } = (await import("../../src/sources/youtube/clients.js")).default;
-const sink = (await import("../../src/infra/log/sink.js")).default;
+const sink = (await import("../../src/infra/log/sink.ts")).default;
 
 // debug 로 흘리는 것까지 봐야 한다. 루트 레벨은 기동 코드가 올려 주므로 테스트에서 직접 올린다.
-require("../../src/infra/log/logger").level = "trace";
+require("../../src/infra/log/logger.ts").level = "trace";
 
 // 쿠키를 붙인 채 visionos 를 지정했을 때 실제로 오는 stderr
 const SKIPPED = ['WARNING: [youtube] Skipping client "visionos" since it does not support cookies', "ERROR: [youtube] hc0ZDaAZQT0: Requested format is not available. Use --list-formats for a list of available formats"].join("\n");

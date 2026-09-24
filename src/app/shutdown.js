@@ -2,9 +2,9 @@
 
 import readline from "readline";
 import { getVoiceConnections } from "@discordjs/voice";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
-import procRegistry from "../infra/processRegistry.js";
+import procRegistry from "../infra/processRegistry.ts";
 
 // 바깥 경계. 시험은 가짜를 넘긴다
 const REAL = {

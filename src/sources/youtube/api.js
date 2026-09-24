@@ -1,6 +1,6 @@
 // 유튜브 검색 · 정보 · 스트림 · 재생목록.
 
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
 import { canonicalUrl } from "../../rules/canonicalUrl.ts";

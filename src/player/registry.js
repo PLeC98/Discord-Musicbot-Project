@@ -1,5 +1,5 @@
 import { Collection } from "discord.js";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
 
 /**

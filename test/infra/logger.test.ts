@@ -1,11 +1,12 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import logger from "../../src/infra/log/logger.js";
-import sink from "../../src/infra/log/sink.js";
+import logger from "../../src/infra/log/logger.ts";
+import sink from "../../src/infra/log/sink.ts";
 import config from "../../config.js";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogManager } = sink;

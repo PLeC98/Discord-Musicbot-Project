@@ -8,7 +8,7 @@
 //   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 
 const listeners = new Map(); // 알림 이름 → Set<fn>

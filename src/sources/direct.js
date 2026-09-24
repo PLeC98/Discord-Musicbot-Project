@@ -1,8 +1,8 @@
 import path from "path";
 import * as links from "../rules/links.ts";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
-import SafeUrl from "../infra/safeUrl.js";
+import SafeUrl from "../infra/safeUrl.ts";
 
 class DirectLink {
   /**

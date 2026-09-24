@@ -144,7 +144,7 @@ test("음량: 0 ~ 100 정수만, 전후를 돌려준다", async () => {
 test("음량: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고치기는 멈춘 뒤 한 번", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const lines = [];
-  require("../../src/infra/log/sink").addDestination((rec) => String(rec.msg).startsWith("볼륨:") && lines.push(rec.msg));
+  require("../../src/infra/log/sink.ts").addDestination((rec) => String(rec.msg).startsWith("볼륨:") && lines.push(rec.msg));
   const seen = panel();
   const p = fakePlayer({ setVolume: (v) => (p.calls.push(`volume:${v}`), (p.volume = v)) });
 

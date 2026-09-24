@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/infra/safeUrl.js — SSRF 방어가 실제로 버티는지 공격해 본다.
 //
 // CodeQL이 이 파일을 js/request-forgery(critical)로 지적한다. "URL이 사용자 입력에 의존한다"는
@@ -25,7 +26,7 @@ const deps = {
   lookup: (...args) => lookupImpl(...args),
 };
 
-const safeUrl = (await import("../../src/infra/safeUrl.js")).default;
+const safeUrl = (await import("../../src/infra/safeUrl.ts")).default;
 const { SsrfError } = safeUrl;
 const head = (url) => safeUrl.head(url, deps);
 const getStream = (url) => safeUrl.getStream(url, deps);

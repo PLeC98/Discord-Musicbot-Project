@@ -1,6 +1,6 @@
 // AnisongDB 소스. 표지는 AniList 에서.
 
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import genreSources from "../../config/schema/genreSources.js";
 const { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } = genreSources;

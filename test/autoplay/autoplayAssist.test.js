@@ -164,8 +164,8 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
   // 로그 싱크에 받는 곳을 달아 모든 레코드를 본다. debug 까지 남게 잠시 올린다
   const seen = [];
   let watching = true;
-  require("../../src/infra/log/sink").addDestination((rec) => watching && seen.push(JSON.stringify(rec)));
-  const logger = require("../../src/infra/log/logger");
+  require("../../src/infra/log/sink.ts").addDestination((rec) => watching && seen.push(JSON.stringify(rec)));
+  const logger = require("../../src/infra/log/logger.ts");
   const level = logger.level;
   logger.level = "debug";
   try {

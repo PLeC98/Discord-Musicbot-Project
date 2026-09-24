@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 
 import youtubedl from "youtube-dl-exec";
 import run from "../../src/sources/ytdlpSpawn.js";
-import registry from "../../src/infra/processRegistry.js";
+import registry from "../../src/infra/processRegistry.ts";
 
 const BINARY = youtubedl.constants.YOUTUBE_DL_PATH;
 const hasBinary = fs.existsSync(BINARY);

@@ -4,7 +4,7 @@
 //   commitPlaying  연 소리를 튼다. SponsorBlock · 음량 · 캐시 보호 · 장부 · 멈춤 사유 · 위치 재개 정보 · 감시와 저장
 // 플레이어의 상태를 읽고 쓰므로 플레이어를 받는다.
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import equivalent from "../sources/youtube/equivalent.js";
 import SponsorBlock from "../sources/sponsorBlock.js";

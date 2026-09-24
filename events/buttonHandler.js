@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
-import logger from "../src/infra/log/logger.js";
+import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.js";
 import S from "../src/ui/strings.js";

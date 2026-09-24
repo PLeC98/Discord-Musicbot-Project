@@ -3,16 +3,16 @@
 // 방침: 일시적 네트워크 오류는 프로세스를 살린 채 "영향받은 서버만" 표적 복구하고,
 //       진짜 치명적 오류는 안전하게 종료해 봇 운영자의 확인·수동 재시작을 대기.
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
 // 프로세스를 내리는 것은 음성 관심사가 아니다. 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
-import loggerModule from "../infra/log/logger.js";
+import loggerModule from "../infra/log/logger.ts";
 const flog = loggerModule.child({ category: "core", sub: "fatal" });
 import { VoiceConnectionStatus } from "@discordjs/voice";
 import { Events } from "discord.js";
 import { isDeadInteraction } from "../rules/deadInteraction.ts";
 // 새어 나온 오류 처리기의 로그. 봇 전체의 일이다
-import loggerModule2 from "../infra/log/logger.js";
+import loggerModule2 from "../infra/log/logger.ts";
 const coreLog = loggerModule2.child({ category: "core" });
 
 // 네트워크 오류 폭주 판정용 시간창

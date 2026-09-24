@@ -1,5 +1,5 @@
 import { Events, MessageFlags } from "discord.js";
-import logger from "../src/infra/log/logger.js";
+import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import GuildSettingsManager from "../src/store/guildSettings.js";
 import permissions from "../src/usecases/permissions.js";

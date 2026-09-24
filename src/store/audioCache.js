@@ -1,6 +1,6 @@
 // 오디오 캐시. 받아 둔 파일 · 보호 · 퇴거 · 오디오 장부(audio_cache) · 기동 정리 · 통계
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "cache" });
 import path from "path";
 import fs from "fs";

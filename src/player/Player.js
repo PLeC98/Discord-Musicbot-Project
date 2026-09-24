@@ -1,16 +1,16 @@
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } from "@discordjs/voice";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
-import loggerModule from "../infra/log/logger.js";
+import loggerModule from "../infra/log/logger.ts";
 const wlog = loggerModule.child({ category: "watchdog" });
 import YouTube from "../sources/youtube/index.js";
 import genreConfig from "../config/genres.js";
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
-import loggerModule2 from "../infra/log/logger.js";
+import loggerModule2 from "../infra/log/logger.ts";
 const clog = loggerModule2.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
-import loggerModule3 from "../infra/log/logger.js";
+import loggerModule3 from "../infra/log/logger.ts";
 const elog = loggerModule3.child({ category: "error" });
 import { PermissionFlagsBits } from "discord.js";
 

@@ -1,8 +1,8 @@
 import { spawn } from "child_process";
 import path from "./path.js";
 const { ffmpegPath } = path;
-import procRegistry from "../../infra/processRegistry.js";
-import logger from "../../infra/log/logger.js";
+import procRegistry from "../../infra/processRegistry.ts";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**

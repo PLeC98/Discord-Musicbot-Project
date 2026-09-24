@@ -12,7 +12,7 @@ import googleAuth from "./googleAuth.js";
 import tokens from "./tokens.js";
 import models from "../../config/schema/aiModels.js";
 import YouTube from "../../sources/youtube/index.js";
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import aiProviders from "../../config/schema/aiProviders.js";
 const { PROVIDER_SPECS, PROVIDERS } = aiProviders;

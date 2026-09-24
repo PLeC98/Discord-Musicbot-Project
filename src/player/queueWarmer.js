@@ -1,4 +1,4 @@
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import config from "../../config.js";
 import YouTube from "../sources/youtube/index.js";

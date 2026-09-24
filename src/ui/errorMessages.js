@@ -1,4 +1,4 @@
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "error" });
 import { errorKind } from "../rules/errorKind.ts";
 const ERROR_MESSAGES = {

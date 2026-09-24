@@ -2,13 +2,13 @@
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
 import express from "express";
-import logger from "../../../src/infra/log/logger.js";
+import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 const router = express.Router();
 import requireOwner from "../middleware/requireOwner.js";
 import os from "os";
-import logManager from "../../../src/infra/log/sink.js";
-import procRegistry from "../../../src/infra/processRegistry.js";
+import logManager from "../../../src/infra/log/sink.ts";
+import procRegistry from "../../../src/infra/processRegistry.ts";
 import viewAsModule from "../viewAs.js";
 const { TIERS, getViewAs } = viewAsModule;
 import trackState from "../../../src/player/trackState.js";

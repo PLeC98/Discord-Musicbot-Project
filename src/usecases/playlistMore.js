@@ -3,7 +3,7 @@
 
 import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from "discord.js";
 import * as links from "../rules/links.ts";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.js";
 import trackState from "../player/trackState.js";

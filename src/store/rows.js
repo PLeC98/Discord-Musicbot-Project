@@ -2,7 +2,7 @@
 // 모양이 틀린 행은 버리고 한 줄 남긴다. 한 행 때문에 대기열 전체를 못 되살리면 안 된다.
 
 import { z } from "zod";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "cache" });
 
 const text = z.string().min(1);

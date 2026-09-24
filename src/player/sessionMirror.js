@@ -1,4 +1,4 @@
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import db from "../store/db.js";
 import playerSessions from "../store/playerSessions.js";

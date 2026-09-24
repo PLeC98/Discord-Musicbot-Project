@@ -21,7 +21,7 @@ import match from "../sources/youtube/match.js";
 import aiAssist from "./assist/index.js";
 import YouTube from "../sources/youtube/index.js";
 import trackLookup from "../store/trackLookup.js";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 
 // 유튜브에서 찾은 것이 이보다 짧으면 풀버전이 아니라 TV 사이즈 립이다.

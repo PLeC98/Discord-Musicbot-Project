@@ -4,7 +4,7 @@
 import { StreamType } from "@discordjs/voice";
 import { Readable } from "stream";
 import fs from "fs";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.js";
 import audioSplicer from "./audioSplicer.js";

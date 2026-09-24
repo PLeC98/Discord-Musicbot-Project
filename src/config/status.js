@@ -4,7 +4,7 @@
 // 돌던 중에 손으로 고친 파일이 틀렸으면 멈출 수 없으니(이 함수는 setInterval 안에서 불린다) 문제를 알리고
 // 직전에 맞던 설정으로 계속 돈다. 고치면 다음 회전부터 새 설정이 들어간다.
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 import yamlStore from "./yamlStore.js";
 const { load } = yamlStore;

@@ -3,7 +3,7 @@ import songLookup from "../sources/lookup.js";
 import GuildSettingsManager from "../store/guildSettings.js";
 import responders from "./responders.js";
 const { silentResponder } = responders;
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.js";
 import trackState from "../player/trackState.js";

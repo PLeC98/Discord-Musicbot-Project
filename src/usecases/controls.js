@@ -6,7 +6,7 @@
 //
 // actor: 누가 시켰나. { member } 는 디스코드 멤버, { owner: true } 는 대시보드 운영자(권한 판정을 건너뛴다)
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
 import perm from "./permissions.js";
 import playerEvents from "../player/events.js";

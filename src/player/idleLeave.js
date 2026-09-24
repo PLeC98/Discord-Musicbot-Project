@@ -3,7 +3,7 @@
 //   틀 게 없음  대기열이 비면 정해진 시간 뒤 정리한다(leaveDelayQueueEmptyMs)
 // 누가 혼자 남았는지 알아보는 것(음성 상태 해석)은 부르는 쪽이 한다. 여기는 시간만 잰다.
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.js";
 import trackState from "./trackState.js";

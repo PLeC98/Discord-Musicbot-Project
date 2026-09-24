@@ -1,5 +1,5 @@
 import express from "express";
-import logger from "../../../src/infra/log/logger.js";
+import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import axios from "axios";
 import crypto from "crypto";

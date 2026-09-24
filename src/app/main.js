@@ -3,8 +3,8 @@
 
 import path from "path";
 import { Client, GatewayIntentBits, Collection, Events } from "discord.js";
-import logSink from "../infra/log/sink.js";
-import logger from "../infra/log/logger.js";
+import logSink from "../infra/log/sink.ts";
+import logger from "../infra/log/logger.ts";
 import config from "../../config.js";
 import audioCache from "../store/audioCache.js";
 import pathModule from "../media/ffmpeg/path.js";
@@ -35,7 +35,7 @@ import mentions from "../ui/mentions.js";
 const { ALLOWED_MENTIONS } = mentions;
 import MusicEmbedManager from "../ui/nowPlayingPanel.js";
 import StatusManager from "../ui/botPresence.js";
-import fileModule from "../infra/log/file.js";
+import fileModule from "../infra/log/file.ts";
 const { createFileDestination } = fileModule;
 import server from "../../dashboard/server/index.js";
 const { startDashboard } = server;

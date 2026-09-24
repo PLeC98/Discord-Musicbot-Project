@@ -1,6 +1,6 @@
 import process from "./ffmpeg/process.js";
 const { spawnFfmpeg, probeAudio } = process;
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } from "../rules/convertPlan.ts";
 /** yt-dlp 갈래도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다. */

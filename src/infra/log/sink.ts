@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // LogSink. 로그 레코드의 "진짜 매니저".
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등

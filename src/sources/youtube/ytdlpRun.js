@@ -1,6 +1,6 @@
 // yt-dlp 실행. 플레이어 클라이언트를 바꿔 가며 다시 묻고, 쿠키로 한 번 더 묻는다.
 
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.

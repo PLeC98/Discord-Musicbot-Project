@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import path from "path";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 import aiProvidersModule from "./schema/aiProviders.js";
 const { PROVIDERS } = aiProvidersModule;

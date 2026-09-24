@@ -2,7 +2,7 @@
 // 본인에게만 보이는 응답의 수명은 이벤트를 거는 조립(index.js)이 상호작용 처리기마다 건다.
 
 import { Events } from "discord.js";
-import logger from "../src/infra/log/logger.js";
+import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import { isDeadInteraction } from "../src/rules/deadInteraction.ts";
 const exported = {

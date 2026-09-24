@@ -1,7 +1,7 @@
 // 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터와 봇 운영자만
 
 import express from "express";
-import logger from "../../../src/infra/log/logger.js";
+import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType } from "discord.js";
 import requireAuth from "../middleware/requireAuth.js";

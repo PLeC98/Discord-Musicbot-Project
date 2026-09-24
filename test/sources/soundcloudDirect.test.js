@@ -10,7 +10,7 @@ import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 import ytdlExec from "youtube-dl-exec";
-import SafeUrl from "../../src/infra/safeUrl.js";
+import SafeUrl from "../../src/infra/safeUrl.ts";
 import SoundCloud from "../../src/sources/soundcloud.js";
 import DirectLink from "../../src/sources/direct.js";
 

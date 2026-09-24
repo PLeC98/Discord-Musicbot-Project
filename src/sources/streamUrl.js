@@ -2,7 +2,7 @@
 
 import YouTube from "./youtube/index.js";
 import { inputKind } from "../rules/inputKind.ts";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import SoundCloud from "./soundcloud.js";
 import equivalent from "./youtube/equivalent.js";

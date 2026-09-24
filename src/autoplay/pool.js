@@ -9,7 +9,7 @@
 // 메모리에만 둔다. 잃어도 비용이 호출 한 번이고, 저장하면 다시 채울 때 뽑는 무작위 오프셋이
 // 재기동을 넘어 살아남아 뜻이 없어진다.
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 
 const TTL_MS = 60 * 60 * 1000; // 며칠 켜 둔 봇이 같은 풀에 갇히지 않게

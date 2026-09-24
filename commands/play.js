@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
-import logger from "../src/infra/log/logger.js";
+import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import ErrorHandler from "../src/ui/errorMessages.js";
 import addTracks from "../src/usecases/addTracks.js";

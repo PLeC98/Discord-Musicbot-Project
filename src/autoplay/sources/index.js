@@ -12,7 +12,7 @@
 // 곳일 뿐이고, 표시 이름과 캐시 장부의 칸은 출처 것이 된다(autoplayRoute 참고).
 // keyword·유튜브 재생목록은 영상 자체가 출처라 이 칸을 비워 둔다.
 
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import genreSources from "../../config/schema/genreSources.js";
 const { SPEC, usable, needsOf, opts } = genreSources;

@@ -80,7 +80,7 @@
       "count": 1
     }
   },
-  "src/infra/processRegistry.js": {
+  "src/infra/processRegistry.ts": {
     "no-empty-function": {
       "count": 1
     }

@@ -3,7 +3,7 @@
 import YouTube from "./index.js";
 import trackLookup from "../../store/trackLookup.js";
 import * as links from "../../rules/links.ts";
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import match from "./match.js";
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = match;

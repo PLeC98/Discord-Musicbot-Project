@@ -2,7 +2,7 @@ import fsModule from "fs";
 const fs = fsModule.promises;
 import path from "path";
 import crypto from "crypto";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import fsSync from "fs";
 import { pipeline } from "stream/promises";

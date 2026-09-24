@@ -19,7 +19,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 const logLines = [];
-require("../../src/infra/log/sink").addDestination((rec) => logLines.push(JSON.stringify(rec)));
+require("../../src/infra/log/sink.ts").addDestination((rec) => logLines.push(JSON.stringify(rec)));
 
 // ── 로그인 세션: "언마운트로 스토어가 죽은" 상태. 실 SQLite를 건드리지 않는다 ──────────────
 let storeBroken = true;

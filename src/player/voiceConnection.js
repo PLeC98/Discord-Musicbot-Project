@@ -1,9 +1,9 @@
 import { VoiceConnectionStatus, joinVoiceChannel, entersState } from "@discordjs/voice";
 
 const VOICE_LIB = { joinVoiceChannel, entersState };
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice" });
-import voiceAdapter from "../infra/voiceAdapter.js";
+import voiceAdapter from "../infra/voiceAdapter.ts";
 const { holdingAdapterCreator } = voiceAdapter;
 
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다

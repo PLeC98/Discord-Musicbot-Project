@@ -1,4 +1,4 @@
-import logger from "../../src/infra/log/logger.js";
+import logger from "../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 
 const DEV_ORIGIN = "http://localhost:5173";

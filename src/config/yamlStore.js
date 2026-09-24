@@ -12,7 +12,7 @@
 import fs from "fs";
 import path from "path";
 import YAML from "yaml";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다

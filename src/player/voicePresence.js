@@ -1,6 +1,6 @@
 // 음성 상태 이벤트 해석. 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음을 가리고, 언제 나가는지는 idleLeave 가 정한다.
 
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import playerEvents from "./events.js";
 import trackState from "./trackState.js";

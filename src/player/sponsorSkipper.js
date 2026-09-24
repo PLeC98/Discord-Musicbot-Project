@@ -1,5 +1,5 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
 
 // SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.

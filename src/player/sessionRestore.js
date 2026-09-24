@@ -1,5 +1,5 @@
 import { RESTJSONErrorCodes } from "discord.js";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import playerSessions from "../store/playerSessions.js";
 const { sessions } = playerSessions;

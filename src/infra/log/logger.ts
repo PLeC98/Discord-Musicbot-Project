@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장·렌더·배포는 sink(LogManager)가 한다.
 // 나중에 pino를 넣으면 이 파일만 갈아끼운다.
 //
@@ -12,7 +13,7 @@
 //   - pino에 없는 logger.log()는 노출하지 않는다 (레거시 console.log은 LogManager 브리지가 흡수)
 
 import util from "util";
-import sink from "./sink.js"; // 속성 접근으로 호출(sink.record) → 테스트에서 스텁 가능
+import sink from "./sink.ts"; // 속성 접근으로 호출(sink.record) → 테스트에서 스텁 가능
 
 const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const LEVEL_NAMES = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };

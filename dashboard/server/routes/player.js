@@ -1,7 +1,7 @@
 // 재생. 상태 읽기 · 음성 참가 · 재생 조작(usecases/controls) · 곡 추가(usecases/addTracks)
 
 import express from "express";
-import logger from "../../../src/infra/log/logger.js";
+import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import requireAuth from "../middleware/requireAuth.js";

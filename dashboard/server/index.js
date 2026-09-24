@@ -1,5 +1,5 @@
 import config from "../../config.js";
-import logger from "../../src/infra/log/logger.js";
+import logger from "../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import express from "express";

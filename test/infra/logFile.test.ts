@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/infra/log/file.js — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
 
 import { test } from "node:test";
@@ -5,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import fileModule from "../../src/infra/log/file.js";
+import fileModule from "../../src/infra/log/file.ts";
 const { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } = fileModule;
 
 function tmpdir() {

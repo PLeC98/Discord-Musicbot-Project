@@ -1,4 +1,4 @@
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import db from "./db.js";
 import config from "../../config.js";

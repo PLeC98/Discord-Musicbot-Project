@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/infra/processRegistry.js — 외부 프로세스 트리 종료
 //
 // 회귀 대상: 라이브 방송이 잘못 매칭돼 캐시 다운로드가 시작되면 yt-dlp가 ffmpeg를 외부 다운로더로
@@ -12,7 +13,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const IS_WIN = process.platform === "win32";
-const registry = (await import("../../src/infra/processRegistry.js")).default;
+const registry = (await import("../../src/infra/processRegistry.ts")).default;
 
 /** pid가 아직 살아있는가 — 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
 function alive(pid) {

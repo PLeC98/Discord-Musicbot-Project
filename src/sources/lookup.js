@@ -8,7 +8,7 @@ import DirectLink from "./direct.js";
 import trackLookup from "../store/trackLookup.js";
 import { errorKind } from "../rules/errorKind.ts";
 import { inputKind } from "../rules/inputKind.ts";
-import logger from "../infra/log/logger.js";
+import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
 const lookup = {

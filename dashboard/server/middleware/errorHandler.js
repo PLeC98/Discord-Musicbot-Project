@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import logger from "../../../src/infra/log/logger.js";
+import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 
 // 오류 응답에 스택·내부 경로·의존성 버전이 실리지 않게 한다.

@@ -1,6 +1,6 @@
 // VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
 
-import logger from "../../infra/log/logger.js";
+import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import genreSources from "../../config/schema/genreSources.js";
 const { VOCA_DEFAULT_TYPES } = genreSources;

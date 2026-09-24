@@ -1,7 +1,7 @@
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.js).
 
 import { Events, MessageFlags } from "discord.js";
-import logger from "../src/infra/log/logger.js";
+import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import S from "../src/ui/strings.js";
 import permissions from "../src/usecases/permissions.js";
