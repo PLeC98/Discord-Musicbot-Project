@@ -134,16 +134,6 @@
       "count": 1
     }
   },
-  "src/config/genres.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/config/yamlStore.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/usecases/addTracks.ts": {
     "complexity": {
       "count": 2

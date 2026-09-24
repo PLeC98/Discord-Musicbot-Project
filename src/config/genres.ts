@@ -93,30 +93,35 @@ function genres(): GenresConfig {
  * 장르 하나가 삐끗했다고 봇 전체를 못 띄우는 것은 과하지만, 그 장르를 고르면 아무 일도 일어나지
  * 않는 채로 두는 것은 더 나쁘다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
  */
+// 그 장르의 소스 중 .env 키가 없어 못 쓰는 것의 키 이름. 쓸 수 있는 소스가 하나도 없으면 던진다
+function missingKeys(name: string, genre: Genre) {
+  const list = Array.isArray(genre?.sources) ? genre.sources : [];
+  if (!list.length) {
+    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. config/genres.yaml을 확인하세요.`), { code: "CONFIG_INVALID" });
+  }
+  const missing: string[] = [];
+  let alive = 0;
+  for (const source of list) {
+    if (sources.usable(source?.type)) {
+      alive++;
+      continue;
+    }
+    const need = sources.needsOf(source?.type);
+    if (need && !missing.includes(need.label)) missing.push(need.label);
+  }
+  if (!alive) {
+    throw Object.assign(new Error(`자동재생 장르 ${name}에 사용되는 소스인 ${missing.join(", ")}의 키가 .env에 없어 재생이 불가능합니다. 설정을 확인하세요.`), { code: "CONFIG_INVALID" });
+  }
+  return missing;
+}
+
 function checkSourceKeys(genres: Record<string, Genre>) {
   // 같은 키가 빠진 장르를 묶어 한 줄로 알린다. 장르마다 한 줄이면 기동 로그가 경고로 덮인다
   const grouped = new Map<string, string[]>();
   const lines: string[] = [];
 
   for (const [name, genre] of Object.entries(genres)) {
-    const list = Array.isArray(genre?.sources) ? genre.sources : [];
-    const missing: string[] = [];
-    let alive = 0;
-
-    for (const source of list) {
-      if (sources.usable(source?.type)) alive++;
-      else {
-        const need = sources.needsOf(source?.type);
-        if (need && !missing.includes(need.label)) missing.push(need.label);
-      }
-    }
-
-    if (!list.length) {
-      throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. config/genres.yaml을 확인하세요.`), { code: "CONFIG_INVALID" });
-    }
-    if (!alive) {
-      throw Object.assign(new Error(`자동재생 장르 ${name}에 사용되는 소스인 ${missing.join(", ")}의 키가 .env에 없어 재생이 불가능합니다. 설정을 확인하세요.`), { code: "CONFIG_INVALID" });
-    }
+    const missing = missingKeys(name, genre);
     if (missing.length) {
       const key = missing.join(", ");
       grouped.set(key, [...(grouped.get(key) ?? []), name]);

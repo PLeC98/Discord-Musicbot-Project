@@ -130,42 +130,39 @@ function syncMap(doc: YAML.Document, node: YAML.YAMLMap | null, data: ConfigData
     if (!keys.has(key)) doc.deleteIn([...pathArr, key]);
   }
 
-  for (const [key, value] of Object.entries(data)) {
-    const here = [...pathArr, key];
-    const current = doc.getIn(here, true);
-    const isPlainObject = value && typeof value === "object" && !Array.isArray(value);
+  for (const [key, value] of Object.entries(data)) syncValue(doc, [...pathArr, key], value);
+  reorder(doc, pathArr, [...keys]);
+}
 
-    // 양쪽 다 맵이면 한 단계 더 들어가 바뀐 것만 고친다(안쪽 주석 보존)
-    if (isPlainObject && YAML.isMap(current)) {
-      syncMap(doc, current, value as ConfigData, here);
-      continue;
-    }
-    if (Array.isArray(value) && YAML.isSeq(current)) {
-      syncSeq(doc, current, value, here);
-      continue;
-    }
+// 한 칸을 맞춘다
+function syncValue(doc: YAML.Document, here: DocPath, value: unknown) {
+  const current = doc.getIn(here, true);
+  const isPlainObject = value && typeof value === "object" && !Array.isArray(value);
 
-    // 값이 같으면 건드리지 않는다. 손대면 서식만 바뀐다
-    if (JSON.stringify(doc.getIn(here)) === JSON.stringify(value)) continue;
+  // 양쪽 다 맵이면 한 단계 더 들어가 바뀐 것만 고친다(안쪽 주석 보존)
+  if (isPlainObject && YAML.isMap(current)) return syncMap(doc, current, value as ConfigData, here);
+  if (Array.isArray(value) && YAML.isSeq(current)) return syncSeq(doc, current, value, here);
 
-    doc.setIn(here, value);
+  // 값이 같으면 건드리지 않는다. 손대면 서식만 바뀐다
+  if (JSON.stringify(doc.getIn(here)) === JSON.stringify(value)) return;
 
-    // 여러 줄 글은 블록 리터럴로 적는다. 큰따옴표로 적으면 줄바꿈 하나가 빈 줄로 나가서
-    // (YAML 은 그렇게 접는다) 읽기 나쁘다. 되읽으면 같은 값이지만 손으로 고칠 파일이다.
-    if (typeof value === "string" && value.includes("\n")) {
-      const node = doc.getIn(here, true);
-      if (YAML.isScalar(node)) node.type = YAML.Scalar.BLOCK_LITERAL;
-    }
+  doc.setIn(here, value);
+
+  // 여러 줄 글은 블록 리터럴로 적는다. 큰따옴표로 적으면 줄바꿈 하나가 빈 줄로 나가서
+  // (YAML 은 그렇게 접는다) 읽기 나쁘다. 되읽으면 같은 값이지만 손으로 고칠 파일이다.
+  if (typeof value === "string" && value.includes("\n")) {
+    const node = doc.getIn(here, true);
+    if (YAML.isScalar(node)) node.type = YAML.Scalar.BLOCK_LITERAL;
   }
+}
 
-  // 차례 맞추기. 키도 값도 그대로인 채 순서만 바뀔 수 있다(대시보드에서 끌어 옮긴다).
-  // 장르 차례는 선택 메뉴에 그대로 나오므로 저장되어야 한다.
-  // 쌍을 통째로 옮기는 것이라 거기 달린 주석도 함께 간다.
+// 차례 맞추기. 키도 값도 그대로인 채 순서만 바뀔 수 있다(대시보드에서 끌어 옮긴다).
+// 장르 차례는 선택 메뉴에 그대로 나오므로 저장되어야 한다.
+// 쌍을 통째로 옮기는 것이라 거기 달린 주석도 함께 간다.
+function reorder(doc: YAML.Document, pathArr: DocPath, order: string[]) {
   // 고치는 동안 갈아끼워졌을 수 있어 다시 집는다
   const target = pathArr.length ? doc.getIn(pathArr, true) : doc.contents;
   if (!YAML.isMap(target)) return;
-
-  const order = [...keys];
   const sorted = [...target.items].sort((a, b) => order.indexOf(keyOf(a)) - order.indexOf(keyOf(b)));
   if (sorted.some((item, i) => item !== target.items[i])) target.items = sorted;
 }
