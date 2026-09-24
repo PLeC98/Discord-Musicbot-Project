@@ -3,9 +3,8 @@
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import tempStore from "../helpers/tempStore.ts";
+import { openTempStore } from "../helpers/tempStore.ts";
 import { command as commandNamed, run } from "../helpers/commands.ts";
-const { openTempStore } = tempStore;
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());

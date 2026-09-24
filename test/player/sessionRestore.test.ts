@@ -104,7 +104,7 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 // ── 기동 때 저장 세션 모두 되살리기 ───────────────────────────────────────────
 
 import { after } from "node:test";
-const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
+const { openTempStore } = await import("../helpers/tempStore.ts");
 const { restoreSavedPlayers } = await import("../../src/player/sessionRestore.ts");
 const { sessions } = await import("../../src/store/playerSessions.ts");
 

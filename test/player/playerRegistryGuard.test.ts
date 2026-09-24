@@ -8,10 +8,9 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import tempStore from "../helpers/tempStore.ts";
+import { openTempStore } from "../helpers/tempStore.ts";
 import { fakePlayer } from "../helpers/fake.ts";
-import tracks from "../helpers/tracks.ts";
-const { openTempStore } = tempStore;
+import * as tracks from "../helpers/tracks.ts";
 const store = openTempStore("registry-guard-");
 after(() => store.close());
 

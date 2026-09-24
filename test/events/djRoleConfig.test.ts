@@ -5,8 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInteraction } from "discord.js";
 
-import tempStore from "../helpers/tempStore.ts";
-const { openTempStore, setGuild } = tempStore;
+import { openTempStore, setGuild } from "../helpers/tempStore.ts";
 const temp = openTempStore("dj-role-");
 after(() => temp.close());
 const settings = await import("../../src/store/guildSettings.ts");

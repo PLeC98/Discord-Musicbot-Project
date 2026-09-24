@@ -404,25 +404,5 @@ const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | nul
 /** 플레이어의 가짜 오디오 플레이어. 시험이 멈춘 횟수 · 튼 것을 본다 */
 const fakeAudioOf = (player: Player) => player.audioPlayer as unknown as FakeAudioPlayer;
 
-const exported = {
-  MusicPlayer,
-  audioCache,
-  AudioPlayerStatus,
-  calls,
-  behavior,
-  caps,
-  makePlayer,
-  writeCacheFile,
-  seedCache,
-  reset,
-  dispose,
-  lookupRow,
-  audioRow,
-  fakeAudioOf,
-  timerDelay,
-  fakeConnection,
-  fakeGuild,
-  TMP,
-};
-export default exported;
+export { MusicPlayer, audioCache, AudioPlayerStatus, calls, behavior, caps, makePlayer, writeCacheFile, seedCache, reset, dispose, lookupRow, audioRow, fakeAudioOf, timerDelay, fakeConnection, fakeGuild, TMP };
 export type { FakeChild, FakeResource, Behavior };

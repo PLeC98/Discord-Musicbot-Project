@@ -4,11 +4,11 @@
 
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
+const { openTempStore } = await import("../helpers/tempStore.ts");
 const { createGuildsRouter } = await import("../../dashboard/server/routes/guilds.ts");
 const { createPlayerStream } = await import("../../dashboard/server/playerStream.ts");
 const store = openTempStore("queue-paging-");

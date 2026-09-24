@@ -7,7 +7,7 @@
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
@@ -21,7 +21,7 @@ import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 type Reply = { error?: string; more?: { offset: number; requesterId?: unknown } };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
+const { openTempStore } = await import("../helpers/tempStore.ts");
 const { createGuildsRouter } = await import("../../dashboard/server/routes/guilds.ts");
 const { createPlayerStream } = await import("../../dashboard/server/playerStream.ts");
 const playerEvents = await import("../../src/player/events.ts");

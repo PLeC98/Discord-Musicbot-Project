@@ -44,5 +44,4 @@ function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponso
   settings._reset();
 }
 
-const exported = { openTempStore, setGuild };
-export default exported;
+export { openTempStore, setGuild };

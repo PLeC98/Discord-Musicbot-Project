@@ -5,7 +5,7 @@
 //
 // 갈래마다 셋을 본다. 어떤 ffmpeg 를 무엇으로 띄웠나, 캐시 장부에 무엇을 적었나, 끝난 뒤 플레이어 상태.
 
-import h from "../helpers/playerHarness.ts";
+import * as h from "../helpers/playerHarness.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -20,7 +20,7 @@ const { calls, behavior } = h;
 
 beforeEach(() => h.reset());
 
-const tracks = (await import("../helpers/tracks.ts")).default;
+const tracks = await import("../helpers/tracks.ts");
 
 const yt = tracks.youtube;
 const argsOf = (child: FakeChild) => child.args.join(" ");

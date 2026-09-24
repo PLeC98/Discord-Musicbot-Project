@@ -10,7 +10,7 @@ import type { ButtonInteraction, ChatInputCommandInteraction, Client } from "dis
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
-import tracks from "../helpers/tracks.ts";
+import * as tracks from "../helpers/tracks.ts";
 
 // 곡 추가 코어가 패널 관리자에 넘긴 것
 type EmbedCall = { guildId: string; trackData: TrackData; member: unknown; interaction: unknown };

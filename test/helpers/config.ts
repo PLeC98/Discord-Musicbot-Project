@@ -44,5 +44,4 @@ function withConfig<R>(overrides: Plain, fn: () => R): R {
   return result;
 }
 
-const exported = { withConfig };
-export default exported;
+export { withConfig };

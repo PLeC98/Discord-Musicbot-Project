@@ -5,7 +5,7 @@
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +32,7 @@ const HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`
 after(() => fs.rmSync(HASH_PATH, { force: true }));
 
 // 서버 설정은 진짜를 임시 DB 로(공지 발송이 봇 채널을 읽는다)
-const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
+const { openTempStore, setGuild } = await import("../helpers/tempStore.ts");
 const store = openTempStore("dashboard-admin-");
 after(() => store.close());
 

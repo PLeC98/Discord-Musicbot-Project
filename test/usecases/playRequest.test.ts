@@ -7,7 +7,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
-import tempStore from "../helpers/tempStore.ts";
+import { openTempStore, setGuild } from "../helpers/tempStore.ts";
 import config from "../../config.ts";
 import * as S from "../../src/ui/strings.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
@@ -19,7 +19,6 @@ import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import type { Responder, TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
-const { openTempStore, setGuild } = tempStore;
 const store = openTempStore("play-request-");
 after(() => store.close());
 setGuild("g1", { playlistAddMax: 50 });

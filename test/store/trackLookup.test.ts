@@ -2,8 +2,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import tempStore from "../helpers/tempStore.ts";
-const { openTempStore } = tempStore;
+import { openTempStore } from "../helpers/tempStore.ts";
 
 const store = openTempStore("track-lookup-");
 after(() => store.close());

@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MusicPlayer } from "../../src/player/Player.ts";
 import * as trackState from "../../src/player/trackState.ts";
-import panelEvents from "../helpers/panelEvents.ts";
+import { recordPanel } from "../helpers/panelEvents.ts";
 import { fakePlayer } from "../helpers/fake.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as playerNotices from "../../src/ui/playerNotices.ts";
@@ -20,8 +20,6 @@ import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/player/trackState.ts";
 import type { GenreSource } from "../../src/config/genres.ts";
-
-const { recordPanel } = panelEvents;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
 playerEvents.on("notice", playerNotices.sendNotice);

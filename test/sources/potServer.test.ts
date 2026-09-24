@@ -4,8 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import config from "../helpers/config.ts";
-const { withConfig } = config;
+import { withConfig } from "../helpers/config.ts";
 import { createPotServer, scrubBgutilLine, PORT } from "../../src/sources/youtube/potServer.ts";
 
 test("토큰은 로그에 남기지 않는다", () => {

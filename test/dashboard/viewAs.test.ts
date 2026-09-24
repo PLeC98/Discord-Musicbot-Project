@@ -14,7 +14,7 @@ import { PermissionFlagsBits, type GuildMember } from "discord.js";
 import type { Request } from "express";
 import { fake } from "../helpers/fake.ts";
 
-const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
+const { openTempStore, setGuild } = await import("../helpers/tempStore.ts");
 const store = openTempStore("perm-");
 after(() => store.close());
 

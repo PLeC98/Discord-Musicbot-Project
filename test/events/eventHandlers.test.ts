@@ -15,8 +15,7 @@ import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
-import tracks from "../helpers/tracks.ts";
-const { youtube } = tracks;
+import { youtube } from "../helpers/tracks.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audioCache.ts");

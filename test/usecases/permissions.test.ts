@@ -6,8 +6,7 @@ import assert from "node:assert/strict";
 import { PermissionFlagsBits, type GuildMember } from "discord.js";
 import { fake } from "../helpers/fake.ts";
 
-import tempStore from "../helpers/tempStore.ts";
-const { openTempStore, setGuild } = tempStore;
+import { openTempStore, setGuild } from "../helpers/tempStore.ts";
 const store = openTempStore("perm-");
 after(() => store.close());
 

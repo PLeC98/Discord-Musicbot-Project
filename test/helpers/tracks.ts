@@ -14,5 +14,4 @@ function spotify(id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack {
 
 const direct = (url: string, extra: Partial<QueuedTrack> = {}): QueuedTrack & { audioUrl: string } => ({ id: url, title: "직접", artist: "직접 링크", pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 0, ...extra });
 
-const exported = { watch, youtube, spotify, direct };
-export default exported;
+export { watch, youtube, spotify, direct };

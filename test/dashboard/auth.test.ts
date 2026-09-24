@@ -8,7 +8,7 @@ import session from "express-session";
 import type { Server } from "node:http";
 import { createAuthRouter, type DiscordHttp } from "../../dashboard/server/routes/auth.ts";
 import { fake } from "../helpers/fake.ts";
-import listen from "../helpers/listen.ts";
+import * as listen from "../helpers/listen.ts";
 const { listenForFetch } = listen;
 
 const servers: Server[] = [];

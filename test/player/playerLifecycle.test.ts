@@ -3,7 +3,7 @@
 // playerPlay.test.js 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
 // 리팩터링이 재생 상태를 한 칸으로 모으고 곡별 객체를 따로 떼어 낼 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
 
-import panelEvents from "../helpers/panelEvents.ts";
+import { recordPanel } from "../helpers/panelEvents.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as playerNotices from "../../src/ui/playerNotices.ts";
 import type { AudioResource } from "@discordjs/voice";
@@ -13,8 +13,7 @@ import type { CurrentPlayback } from "../../src/player/currentPlayback.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
 
-const { recordPanel } = panelEvents;
-import h from "../helpers/playerHarness.ts";
+import * as h from "../helpers/playerHarness.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +24,7 @@ const { calls, AudioPlayerStatus } = h;
 
 beforeEach(() => h.reset());
 
-const yt = (await import("../helpers/tracks.ts")).default.youtube;
+const yt = (await import("../helpers/tracks.ts")).youtube;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
 playerEvents.on("notice", playerNotices.sendNotice);

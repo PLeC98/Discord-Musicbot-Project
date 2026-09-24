@@ -5,7 +5,7 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
-import tempStore from "../helpers/tempStore.ts";
+import * as tempStore from "../helpers/tempStore.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, WebhookClient } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";

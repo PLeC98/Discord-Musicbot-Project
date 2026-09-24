@@ -22,5 +22,4 @@ function recordPanel({ player = null }: { player?: MusicPlayer | null } = {}): R
   return seen as Recorded;
 }
 
-const exported = { recordPanel };
-export default exported;
+export { recordPanel };

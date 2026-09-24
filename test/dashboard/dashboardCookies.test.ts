@@ -6,7 +6,7 @@
 process.env.OWNER_ID = "owner";
 process.env.COOKIES_SOURCE = "file";
 
-const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import { MusicPlayer } from "../../src/player/Player.ts";
 import { PlaybackWatch, type WatchHost } from "../../src/player/playbackWatch.ts";
-import tempStore from "../helpers/tempStore.ts";
+import * as tempStore from "../helpers/tempStore.ts";
 import { fake } from "../helpers/fake.ts";
 import type { StreamInfo } from "../../src/sources/streamUrl.ts";
 

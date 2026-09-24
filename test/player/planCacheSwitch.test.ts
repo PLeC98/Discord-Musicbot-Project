@@ -16,7 +16,7 @@ import { MusicPlayer } from "../../src/player/Player.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fakePlayer as asPlayer } from "../helpers/fake.ts";
-import tracks from "../helpers/tracks.ts";
+import * as tracks from "../helpers/tracks.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
 const realDir = audioCache.cacheDir();

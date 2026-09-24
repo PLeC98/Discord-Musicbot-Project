@@ -9,7 +9,7 @@ import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 import { collectionLabel } from "../../src/ui/strings.ts";
 import type { Client } from "discord.js";
 import { fake } from "../helpers/fake.ts";
-import tracks from "../helpers/tracks.ts";
+import * as tracks from "../helpers/tracks.ts";
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));
 

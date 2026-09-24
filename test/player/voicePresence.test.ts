@@ -9,7 +9,7 @@ import type { Client, Guild, VoiceState } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
-import tracks from "../helpers/tracks.ts";
+import * as tracks from "../helpers/tracks.ts";
 
 const BOT = "bot1";
 

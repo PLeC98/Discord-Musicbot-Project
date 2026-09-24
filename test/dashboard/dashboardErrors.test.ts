@@ -15,9 +15,8 @@ import type { Server } from "node:http";
 import type { Client } from "discord.js";
 import type { NextFunction, Request, Response } from "express";
 import { fake } from "../helpers/fake.ts";
-import listen from "../helpers/listen.ts";
+import { baseUrl } from "../helpers/listen.ts";
 import logSink from "../../src/infra/log/sink.ts";
-const { baseUrl } = listen;
 
 // ── 로그: 싱크에 받는 곳을 달아 본다(errorId가 로그에도 남는지 확인용) ──────
 const logLines: string[] = [];
@@ -35,7 +34,7 @@ const brokenSession = (req: Request, _res: Response, next: NextFunction) => {
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
+const { openTempStore } = await import("../helpers/tempStore.ts");
 const store = openTempStore("dashboard-errors-");
 after(() => store.close());
 

@@ -5,7 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 import type { Range } from "../../src/sources/lookup.ts";
-import tracks from "../helpers/tracks.ts";
+import * as tracks from "../helpers/tracks.ts";
 
 // yt-dlp 실행 함수 가짜. getPlaylist 에 넘긴다
 const ytCalls: Array<{ url: string; options: YtDlpFlags }> = [];
@@ -18,7 +18,7 @@ const exec = async (url: string, options: YtDlpFlags = {}) => {
 const Spotify = await import("../../src/sources/spotify.ts");
 const YouTube = await import("../../src/sources/youtube/index.ts");
 // 링크 장부는 빈 임시 DB 에서 읽는다(확인된 제목 없음)
-const store = (await import("../helpers/tempStore.ts")).default.openTempStore("playlist-range-");
+const store = (await import("../helpers/tempStore.ts")).openTempStore("playlist-range-");
 after(() => store.close());
 const lookup = await import("../../src/sources/lookup.ts");
 

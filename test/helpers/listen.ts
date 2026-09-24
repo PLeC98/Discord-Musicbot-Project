@@ -24,5 +24,4 @@ function baseUrl(server: Server) {
   return `http://127.0.0.1:${address.port}`;
 }
 
-const exported = { listenForFetch, baseUrl };
-export default exported;
+export { listenForFetch, baseUrl };

@@ -6,7 +6,7 @@
 
 import { sessions } from "../../src/store/playerSessions.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import tracks from "../helpers/tracks.ts";
+import * as tracks from "../helpers/tracks.ts";
 import { command, run as runCommand } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember } from "discord.js";
@@ -17,7 +17,7 @@ import type { LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
-import h from "../helpers/playerHarness.ts";
+import * as h from "../helpers/playerHarness.ts";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";

@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
-import tracks from "../helpers/tracks.ts";
+import * as tracks from "../helpers/tracks.ts";
 import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
