@@ -12,10 +12,7 @@ import { PlaybackState } from "../../src/player/playbackState.ts";
 import { PlaybackWatch } from "../../src/player/playbackWatch.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import { capabilities, _internals } from "../../src/media/ffmpeg/path.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import progressBars from "../../src/ui/progressBar.js";
 
 import { buildFfmpegArgs } from "../../src/media/ffmpeg/args.ts";
 import { isHlsStream } from "../../src/rules/transportOf.ts";
@@ -64,7 +61,7 @@ test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () =>
 });
 
 test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를 비운다", () => {
-  const { progressBar } = require("../../src/ui/progressBar");
+  const { progressBar } = progressBars;
   const live = progressBar(65, 0, { live: true });
   assert.match(live, /LIVE/, "라이브임을 알려야 한다");
   assert.doesNotMatch(live, /1:05/, "붙어 있은 시간은 곡 안의 위치가 아니다");

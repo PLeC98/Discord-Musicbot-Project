@@ -1,12 +1,15 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/sessionMirror.ts — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
-import { sessions } from "../../src/store/playerSessions.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import { sessions, type RestoredSession } from "../../src/store/playerSessions.ts";
+import * as playerEvents from "../../src/player/events.ts";
+import playerNotices from "../../src/ui/playerNotices.js";
+import transientMessages from "../../src/ui/transientMessages.js";
+import config from "../../config.ts";
+import type { GuildTextBasedChannel } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
 
 import os from "node:os";
 import path from "node:path";
@@ -25,7 +28,7 @@ const SessionPersistence = (await import("../../src/player/sessionMirror.ts")).S
 const trackState = await import("../../src/player/trackState.ts");
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
-require("../../src/player/events.ts").on("notice", require("../../src/ui/playerNotices").sendNotice);
+playerEvents.on("notice", playerNotices.sendNotice);
 
 before(() => {
   removeDb();
@@ -38,8 +41,9 @@ after(() => {
 });
 
 let guildSerial = 0;
-function makePlayer(overrides = {}) {
-  const p = {
+// 가짜 플레이어. 시험이 재생 위치(position)와 부른 것(calls)을 정하고 본다
+function makePlayer(overrides: object = {}) {
+  const p = fakePlayer({
     guild: { id: `g${guildSerial++}` },
     voiceChannel: { id: "v1" },
     textChannel: null,
@@ -52,11 +56,12 @@ function makePlayer(overrides = {}) {
     requesterId: null,
     nowPlayingMessage: null,
     position: 0,
+    calls: [] as unknown[][],
     getCurrentTime() {
       return this.position;
     },
     ...overrides,
-  };
+  });
   trackState.init(p);
   const sp = new SessionPersistence(p);
   p.trackSink = sp;
@@ -64,19 +69,26 @@ function makePlayer(overrides = {}) {
 }
 
 let serial = 0;
-const t = (title = `t${serial++}`) => ({ title, pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
-const titles = (arr) => arr.map((x) => x.title);
-const memory = (p) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
+const t = (title = `t${serial++}`): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
+const titles = (arr: Array<{ title: string | null }>) => arr.map((x) => x.title);
+const memory = (p: MusicPlayer) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
 
-function stored(guildId) {
+// 세션이 있어야 하는 자리. 없으면 실패
+function loaded(guildId: string) {
+  const s = sessions().load(guildId);
+  assert.ok(s, "세션이 있다");
+  return s;
+}
+
+function stored(guildId: string) {
   const s = sessions().load(guildId);
   if (!s) return { current: null, queue: [], history: [] };
   return { current: s.current?.title ?? null, queue: titles(s.queue), history: titles(s.history) };
 }
 
-function rng(seed) {
+function rng(seed: number) {
   let x = seed >>> 0;
-  return (n) => {
+  return (n: number) => {
     x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
     return Math.floor((x / 2 ** 32) * n);
   };
@@ -158,8 +170,8 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
   await sp.persistState("leave", true);
   trackState.reset(p);
 
-  const s = sessions().load(p.guild.id);
-  assert.equal(s.current.title, "now", "구 코드 구조였다면 비우는 순간 방금 저장한 트랙이 지워진다");
+  const s = loaded(p.guild.id);
+  assert.equal(s.current?.title, "now", "구 코드 구조였다면 비우는 순간 방금 저장한 트랙이 지워진다");
   assert.deepEqual(titles(s.queue), ["next"]);
 });
 
@@ -170,7 +182,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 수동 사유만 남�
   trackState.setCurrent(p, t("x"));
   await sp.persistState();
 
-  let { session } = sessions().load(p.guild.id);
+  let { session } = loaded(p.guild.id);
   assert.equal(session.loopMode, "off");
   assert.equal(session.autoplay, null);
   assert.equal(session.pausedManual, false, "혼자 남아 멈춘 것은 복원 대상이 아니다");
@@ -181,7 +193,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 수동 사유만 남�
   p.autoplay = "kpop";
   p.pauseReasons.add("manual");
   await sp.persistState();
-  ({ session } = sessions().load(p.guild.id));
+  ({ session } = loaded(p.guild.id));
   assert.equal(session.loopMode, "queue");
   assert.equal(session.autoplay, "kpop");
   assert.equal(session.pausedManual, true);
@@ -210,8 +222,8 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 
   try {
     SessionPersistence._beat();
-    assert.equal(sessions().load(a.p.guild.id).session.positionMs, 11_000);
-    assert.equal(sessions().load(b.p.guild.id).session.positionMs, 20_000, "멈춘 동안 위치는 그대로다");
+    assert.equal(loaded(a.p.guild.id).session.positionMs, 11_000);
+    assert.equal(loaded(b.p.guild.id).session.positionMs, 20_000, "멈춘 동안 위치는 그대로다");
   } finally {
     a.sp.stopStateSync();
     b.sp.stopStateSync();
@@ -220,30 +232,33 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 
 // ── 복원 ──
 
-function makeRestorePlayer(overrides = {}) {
-  const { p, sp } = makePlayer({ connection: { state: {} }, calls: [], ...overrides }); // 연결 재수립 경로 생략
-  p.play = async function (ms) {
+function makeRestorePlayer(overrides: object = {}) {
+  const { p, sp } = makePlayer({ connection: { state: {} }, ...overrides }); // 연결 재수립 경로 생략
+  p.play = fake<MusicPlayer["play"]>(async (ms: number) => {
     // play()는 시작 직후 pauseReasons를 보고 즉시 일시정지 — 그 시점의 사유 유무를 기록
-    this.calls.push(["play", ms, this.pauseReasons.has("manual")]);
-  };
-  p.pauseFor = function (reason) {
-    this.pauseReasons.add(reason);
-    this.paused = true;
-    this.calls.push(["pauseFor", reason]);
-  };
+    p.calls.push(["play", ms, p.pauseReasons.has("manual")]);
+  });
+  p.pauseFor = fake<MusicPlayer["pauseFor"]>((reason: string) => {
+    p.pauseReasons.add(reason);
+    p.paused = true;
+    p.calls.push(["pauseFor", reason]);
+  });
   return { p, sp };
 }
 
-function makeRecord(sessionOverrides = {}, current = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
-  return {
+// 세션 표에서 되읽은 것처럼. 곡은 시험이 보는 칸만
+function makeRecord(sessionOverrides: object = {}, current: object | null = { title: "곡", url: "https://y/1", duration: 100, requesterId: "u1" }) {
+  return fake<RestoredSession>({
     session: { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 30_000, startOffsetMs: 0, requesterId: null, ...sessionOverrides },
     current,
     queue: [],
     history: [],
-  };
+  });
 }
 
-async function restore(record, setup = () => {}) {
+type TestPlayer = ReturnType<typeof makePlayer>["p"];
+
+async function restore(record: RestoredSession, setup: (p: TestPlayer) => void = () => {}) {
   const { p, sp } = makeRestorePlayer();
   setup(p);
   await sp.restoreFromState(record);
@@ -269,6 +284,7 @@ test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 되살
 
 test("복원: 요청자는 id만 되살린다", async () => {
   const p = await restore(makeRecord());
+  assert.ok(p.currentTrack, "곡을 되살렸다");
   assert.deepEqual(p.currentTrack.requestedBy, { id: "u1" });
   assert.equal("requesterId" in p.currentTrack, false, "저장용 필드를 트랙에 남기지 않는다");
 });
@@ -278,7 +294,7 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   trackState.enqueue(saved, [t("a"), t("b"), t("c"), t("d")]);
   trackState.setCurrent(saved, t("now"));
   trackState.retire(saved, t("old"), { requeue: true });
-  const record = sessions().load(saved.guild.id);
+  const record = loaded(saved.guild.id);
 
   const store = sessions();
   const real = store.replaceTracks;
@@ -311,7 +327,7 @@ test("복원: 자동재생이 미리 뽑아 둔 곡은 되살리지 않고 DB도
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
   trackState.enqueue(saved, [t("내곡1"), { ...t("자동곡"), requestedBy: { id: BOT } }, t("내곡2")]);
-  const record = sessions().load(saved.guild.id);
+  const record = loaded(saved.guild.id);
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id, client: { user: { id: BOT } } } });
   await sp.restoreFromState(record);
@@ -326,7 +342,7 @@ test("복원: 봇 id를 알 수 없으면 대기열을 그대로 되살린다", 
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
   trackState.enqueue(saved, [t("내곡"), { ...t("자동곡"), requestedBy: { id: "bot1" } }]);
-  const record = sessions().load(saved.guild.id);
+  const record = loaded(saved.guild.id);
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } }); // client 없음
   await sp.restoreFromState(record);
@@ -336,7 +352,6 @@ test("복원: 봇 id를 알 수 없으면 대기열을 그대로 되살린다", 
 });
 
 test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다", async () => {
-  const config = require("../../config.ts");
   const realMax = config.bot.maxQueueSize;
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));
@@ -344,7 +359,7 @@ test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다"
     saved,
     Array.from({ length: 30 }, () => t()),
   );
-  const record = sessions().load(saved.guild.id);
+  const record = loaded(saved.guild.id);
 
   config.bot.maxQueueSize = 25;
   try {
@@ -366,12 +381,14 @@ test("복원: 곡 길이 끝에 거의 닿은 위치는 처음부터", async () 
   assert.deepEqual(p.calls[0], ["play", 0, false]);
 });
 
+type Sent = { content: string; deleted: boolean; delete(): Promise<void> };
+
 function fakeChannel() {
-  const sent = [];
+  const sent: Sent[] = [];
   return {
     id: "c1",
     sent,
-    async send({ content }) {
+    async send({ content }: { content: string }) {
       const message = {
         content,
         deleted: false,
@@ -387,21 +404,21 @@ function fakeChannel() {
 
 test("복원 안내: 멈춘 채 되살렸으면 재개됐다고 하지 않는다", async () => {
   const paused = fakeChannel();
-  await restore(makeRecord({ pausedManual: true }), (p) => (p.textChannel = paused));
+  await restore(makeRecord({ pausedManual: true }), (p) => (p.textChannel = fake<GuildTextBasedChannel>(paused)));
   assert.equal(paused.sent.length, 1);
   assert.ok(paused.sent[0].content.startsWith("⏸️ 일시정지 상태로 복원됨"), paused.sent[0].content);
 
   const playing = fakeChannel();
-  await restore(makeRecord(), (p) => (p.textChannel = playing));
+  await restore(makeRecord(), (p) => (p.textChannel = fake<GuildTextBasedChannel>(playing)));
   assert.ok(playing.sent[0].content.startsWith("▶️ 음악 재개됨"), playing.sent[0].content);
 });
 
 test("복원 안내는 잠시 뒤 지운다", async () => {
-  const { AUTO_DELETE_MS } = require("../../src/ui/transientMessages");
+  const { AUTO_DELETE_MS } = transientMessages;
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const channel = fakeChannel();
-    await restore(makeRecord(), (p) => (p.textChannel = channel));
+    await restore(makeRecord(), (p) => (p.textChannel = fake<GuildTextBasedChannel>(channel)));
     assert.equal(channel.sent[0].deleted, false);
 
     mock.timers.tick(AUTO_DELETE_MS);

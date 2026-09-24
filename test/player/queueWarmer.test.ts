@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/queueWarmer.ts — 대기열 앞부분을 캐시에 올린 상태로 유지하는 계약
 //
 // 핵심은 "언제 움직이지 않는가"다. 조작이 진행 중일 때 받기 시작하면 곧 쓸모없어질 곡을
@@ -8,33 +7,47 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { QueueWarmer } from "../../src/player/queueWarmer.ts";
+import { QueueWarmer, type WarmerDeps, type WarmerHost } from "../../src/player/queueWarmer.ts";
+import * as route from "../../src/autoplay/route.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import type { Loop } from "../../src/player/trackState.ts";
 
-import { createRequire } from "node:module";
+// 캐시 열쇠는 음원 주소 자리에 둔다. 주입한 keyOf 가 그대로 돌려준다. 열쇠가 아직 없는 곡(스포티파이)은 음원 주소가 없다
+const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: id, requestKey: `https://y/${id}`, pageUrl: "", platform: "youtube", duration: 0, audioUrl: `yt:${id}`, ...extra });
 
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+type Options = {
+  queue?: QueuedTrack[];
+  currentTrack?: QueuedTrack | null;
+  loop?: Loop;
+  cached?: Set<string | undefined>;
+  busy?: Set<string | undefined>;
+  fail?: Set<string | undefined>;
+  guildId?: string;
+  warm?: WarmerDeps["warm"];
+};
 
-const track = (id, extra = {}) => ({ title: id, requestKey: `https://y/${id}`, audioKey: `yt:${id}`, ...extra });
-
-function makeWarmer({ queue = [], currentTrack = null, loop = false, cached = new Set(), busy = new Set(), fail = new Set(), guildId = "g1" } = {}) {
-  const warmed = [];
-  const protection = [];
-  const player = { queue, currentTrack, loop, guild: { id: guildId } };
+function makeWarmer({ queue = [], currentTrack = null, loop = false, cached = new Set(), busy = new Set(), fail = new Set(), guildId = "g1", warm }: Options = {}) {
+  const warmed: Array<string | undefined> = [];
+  const protection: Array<{ gid: string; keys: string[] }> = [];
+  const player: WarmerHost = { queue, currentTrack, loop, guild: { id: guildId } };
 
   const warmer = new QueueWarmer(player, {
     ahead: 5,
     gapMs: 0,
     intervalMs: 1000,
-    keyOf: (t) => t?.audioKey || null,
-    isCached: (t) => cached.has(t.audioKey),
-    isBusy: (t) => busy.has(t.audioKey),
-    warm: async (t) => {
-      warmed.push(t.audioKey);
-      if (fail.has(t.audioKey)) throw new Error("boom");
-      cached.add(t.audioKey);
+    keyOf: (t) => t?.audioUrl || null,
+    isCached: (t) => cached.has(t.audioUrl),
+    isBusy: (t) => busy.has(t.audioUrl),
+    warm:
+      warm ??
+      (async (t) => {
+        warmed.push(t.audioUrl);
+        if (fail.has(t.audioUrl)) throw new Error("boom");
+        cached.add(t.audioUrl);
+      }),
+    setProtection: (gid, keys) => {
+      protection.push({ gid, keys: [...keys] });
     },
-    setProtection: (gid, keys) => protection.push({ gid, keys: [...keys] }),
   });
 
   return { warmer, player, warmed, protection, cached, busy };
@@ -144,23 +157,23 @@ test("루프 도중 대기열이 바뀌면 멈추고, 다음 안정된 틱이 �
   // 한 곡씩 세워 가며 본다 — gapMs=0이면 루프가 마이크로태스크만으로 끝까지 달려
   // "도중"이라는 시점 자체가 없어진다.
   const queue = [track("a"), track("b"), track("c")];
-  const cached = new Set();
-  const warmed = [];
-  let release;
+  const cached = new Set<string | undefined>();
+  const warmed: Array<string | undefined> = [];
+  let release = () => {};
 
-  const player = { queue, currentTrack: null, loop: false, guild: { id: "g1" } };
+  const player: WarmerHost = { queue, currentTrack: null, loop: false, guild: { id: "g1" } };
   const warmer = new QueueWarmer(player, {
     ahead: 5,
     gapMs: 0,
     intervalMs: 1000,
-    keyOf: (t) => t?.audioKey || null,
-    isCached: (t) => cached.has(t.audioKey),
+    keyOf: (t) => t?.audioUrl || null,
+    isCached: (t) => cached.has(t.audioUrl),
     isBusy: () => false,
     warm: (t) => {
-      warmed.push(t.audioKey);
-      return new Promise((resolve) => {
+      warmed.push(t.audioUrl);
+      return new Promise<void>((resolve) => {
         release = () => {
-          cached.add(t.audioKey);
+          cached.add(t.audioUrl);
           resolve();
         };
       });
@@ -223,14 +236,14 @@ test("보호 집합을 통째로 교체한다 — 큐에서 빠진 키는 사라
   warmer.tick();
   warmer.tick();
   await settle();
-  assert.deepEqual(protection.at(-1).keys, ["yt:a", "yt:b"]);
+  assert.deepEqual(protection.at(-1)?.keys, ["yt:a", "yt:b"]);
 
   queue.shift(); // a 제거
   warmer.tick();
   warmer.tick();
   await settle();
 
-  assert.deepEqual(protection.at(-1).keys, ["yt:b"], "해제를 따로 부르지 않아도 빠진다");
+  assert.deepEqual(protection.at(-1)?.keys, ["yt:b"], "해제를 따로 부르지 않아도 빠진다");
 });
 
 test("아직 캐시되지 않은 키도 보호한다 (예열이 끝나기 전에 퇴거가 돌 수 있다)", async () => {
@@ -240,18 +253,18 @@ test("아직 캐시되지 않은 키도 보호한다 (예열이 끝나기 전에
   warmer.tick();
   await settle();
 
-  assert.deepEqual(protection.at(-1).keys, ["yt:a"]);
+  assert.deepEqual(protection.at(-1)?.keys, ["yt:a"]);
 });
 
 test("키가 없는 트랙은 보호에서 빠진다 (미해석 스포티파이 — 보호할 파일이 없다)", async () => {
-  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioKey: null };
+  const spotify = track("s", { requestKey: "https://open.spotify.com/track/x", audioUrl: undefined });
   const { warmer, protection } = makeWarmer({ queue: [spotify, track("b")] });
 
   warmer.tick();
   warmer.tick();
   await settle();
 
-  assert.deepEqual(protection.at(-1).keys, ["yt:b"]);
+  assert.deepEqual(protection.at(-1)?.keys, ["yt:b"]);
 });
 
 test("stop()은 보호를 비우고 더 이상 움직이지 않는다", async () => {
@@ -259,7 +272,7 @@ test("stop()은 보호를 비우고 더 이상 움직이지 않는다", async ()
 
   warmer.tick();
   warmer.stop();
-  assert.deepEqual(protection.at(-1).keys, []);
+  assert.deepEqual(protection.at(-1)?.keys, []);
 
   warmer.tick();
   warmer.tick();
@@ -293,32 +306,32 @@ test("대기열이 같아도 현재 곡이 바뀌면 서명이 달라진다 (이
 // 키가 생긴 다음 틱에는 키 경로가 비어 있어 또 받았다.
 
 test("키가 늦게 정해져도 지문은 흔들리지 않는다", () => {
-  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioKey: null };
+  const spotify = track("s", { requestKey: "https://open.spotify.com/track/x", audioUrl: undefined });
   const { warmer } = makeWarmer({ queue: [spotify] });
 
   const before = warmer.signature();
-  spotify.audioKey = "yt:resolved"; // 받는 도중에 동등물이 정해졌다
+  spotify.audioUrl = "yt:resolved"; // 받는 도중에 동등물이 정해졌다
   assert.equal(warmer.signature(), before, "대기열은 그대로이므로 지문도 그대로여야 한다");
 });
 
 test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
-  const spotify = { title: "s", requestKey: "https://open.spotify.com/track/x", audioKey: null };
-  const cached = new Set();
-  const warmed = [];
+  const spotify = track("s", { requestKey: "https://open.spotify.com/track/x", audioUrl: undefined });
+  const cached = new Set<string | undefined>();
+  const warmed: string[] = [];
 
-  const player = { queue: [spotify], currentTrack: null, loop: false, guild: { id: "g1" } };
+  const player: WarmerHost = { queue: [spotify], currentTrack: null, loop: false, guild: { id: "g1" } };
   const warmer = new QueueWarmer(player, {
     ahead: 5,
     gapMs: 0,
     intervalMs: 1000,
-    keyOf: (t) => t?.audioKey || null,
+    keyOf: (t) => t?.audioUrl || null,
     // 파일 경로는 키에서 나온다 — 키가 없으면 요청 열쇠 해시로 갈라진다(실제 trackFilePath와 같은 규칙)
-    isCached: (t) => cached.has(t.audioKey || t.requestKey),
+    isCached: (t) => cached.has(t.audioUrl || t.requestKey),
     isBusy: () => false,
     warm: async (t) => {
       warmed.push(t.requestKey);
-      t.audioKey = "yt:resolved"; // warm이 받기 전에 키를 확정한다
-      cached.add(t.audioKey);
+      t.audioUrl = "yt:resolved"; // warm이 받기 전에 키를 확정한다
+      cached.add(t.audioUrl);
     },
     setProtection: () => {},
   });
@@ -341,15 +354,14 @@ test("키가 정해지면 다음 틱에 다시 받지 않는다", async () => {
 // 우리가 고른 곡이니 사용자에게 알릴 일이 아니라, 조용히 빼고 다른 곡을 고른다.
 test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 고른다", async () => {
   const gone = track("dead", { autoplay: true, audioUrl: "https://www.youtube.com/watch?v=BYlcTa9SQXs" });
-  const { warmer, player } = makeWarmer({ queue: [gone, track("ok")] });
+  // yt-dlp가 내는 것과 같은 모양의 오류
+  const warm = async () => {
+    throw new Error("ERROR: [youtube] BYlcTa9SQXs: Video unavailable");
+  };
+  const { warmer, player } = makeWarmer({ queue: [gone, track("ok")], warm });
 
   let refilled = 0;
   player.ensureAutoplayNext = async () => refilled++;
-
-  // yt-dlp가 내는 것과 같은 모양의 오류
-  warmer.warm = async () => {
-    throw new Error("ERROR: [youtube] BYlcTa9SQXs: Video unavailable");
-  };
 
   warmer.tick(); // 첫 관측
   await settle();
@@ -358,15 +370,15 @@ test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 고�
 
   assert.equal(player.queue.includes(gone), false, "대기열에 남아 있으면 재생 차례에 또 실패한다");
   assert.equal(refilled, 1, "뺀 자리를 메워야 한다");
-  assert.equal(require("../../src/autoplay/route.ts")._dead.has("BYlcTa9SQXs"), true, "다음 뽑기에서 또 고르면 안 된다");
+  assert.equal(route._dead.has("BYlcTa9SQXs"), true, "다음 뽑기에서 또 고르면 안 된다");
 });
 
 test("사용자가 넣은 곡은 빼지 않는다 — 없어졌다는 것을 알아야 한다", async () => {
-  const mine = track("mine", { youtubeUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" });
-  const { warmer, player } = makeWarmer({ queue: [mine] });
-  warmer.warm = async () => {
+  const mine = track("mine", { audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" });
+  const warm = async () => {
     throw new Error("ERROR: [youtube] aaaaaaaaaaa: Video unavailable");
   };
+  const { warmer, player } = makeWarmer({ queue: [mine], warm });
 
   warmer.tick();
   await settle();
