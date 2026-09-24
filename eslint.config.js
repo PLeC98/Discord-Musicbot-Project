@@ -21,7 +21,7 @@ export default [
 
   js.configs.recommended,
 
-  // 봇 본체 - Node ESM. require · __dirname 은 없는 이름이다(nodeBuiltin)
+  // 남은 .js(이 설정 파일 · 대시보드 클라이언트) - ESM. require · __dirname 은 없는 이름이다(nodeBuiltin). 클라이언트는 아래에서 브라우저로
   {
     files: ["**/*.js"],
     languageOptions: {
@@ -31,15 +31,13 @@ export default [
     },
   },
 
-  // TypeScript(리팩터링 10단계). 파서와 권장 규칙(타입 정보 없이 도는 것만). 봇 본체 규칙은 아래에서 .js 와 같이 건다
+  // 봇 본체는 TypeScript. 파서와 권장 규칙(타입 정보 없이 도는 것만). 봇 본체 품질 규칙은 아래에서 건다
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.ts"] })),
   {
     files: ["**/*.ts"],
     languageOptions: { globals: globals.nodeBuiltin },
     rules: {
-      // 이름 바꾸기 커밋의 @ts-nocheck 는 까닭을 적은 것만. 타입을 단 커밋이 뗀다
-      "@typescript-eslint/ban-ts-comment": ["error", { "ts-nocheck": "allow-with-description" }],
-      // .js 의 no-unused-vars 와 같은 기준
+      // 아래 no-unused-vars 와 같은 기준
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true }],
     },
   },
@@ -74,7 +72,7 @@ export default [
   // 위반을 줄인 커밋은 `eslint . --prune-suppressions` 로 억제 파일도 같이 줄인다. 새로 쓴 코드는 억제 목록에 못 들어간다.
   // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다).
   {
-    files: ["src/**/*.{js,ts}", "commands/**/*.{js,ts}", "events/**/*.{js,ts}", "dashboard/server/**/*.{js,ts}", "index.{js,ts}", "config.{js,ts}", "scripts/**/*.{js,ts}"],
+    files: ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts"],
     rules: {
       complexity: ["error", 15],
       "max-lines-per-function": ["error", { max: 120, skipBlankLines: true, skipComments: true }],

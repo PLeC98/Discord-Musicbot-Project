@@ -1,10 +1,9 @@
 {
-  // 타입 검사만 한다(빌드 없음). 1 ~ 8단계는 파일마다 `// @ts-check` 를 단 것만 본다.
+  // 타입 검사만 한다(빌드 없음). 봇 쪽은 전부 .ts 다.
   // TS 6 은 기본값이 여럿 바뀌었다(types · module · target · strict). 기본값에 기대지 않고 전부 적는다.
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": false,
     "noEmit": true,
+    "allowJs": false,
     "strict": true,
     "module": "nodenext",
     "moduleResolution": "nodenext",
@@ -19,5 +18,5 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.js", "commands/**/*.js", "events/**/*.js", "dashboard/server/**/*.js", "index.js", "config.js", "scripts/**/*.js", "src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts", "test/**/*.ts"]
 }
