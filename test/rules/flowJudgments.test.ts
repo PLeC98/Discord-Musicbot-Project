@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 흐름 앞의 판정 셋(candidateKind · liveBlockReason · transportOf). 입력과 답만 적는다.
 // convertPlan 과 errorKind 는 media/audioConvert.test.js · ui/errorClassification.test.js 가 표로 고정한다.
 

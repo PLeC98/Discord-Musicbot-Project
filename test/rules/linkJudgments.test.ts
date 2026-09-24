@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 링크 판정 셋(inputKind · canonicalUrl · audioKeyOf). 순수 함수라 입력과 답만 적는다.
 
 import { test } from "node:test";
