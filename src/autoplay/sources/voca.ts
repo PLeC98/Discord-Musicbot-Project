@@ -43,23 +43,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   // 등록부가 셋에만 이 함수를 준다
   if (!isSite(site)) throw new Error(`VocaDB 계열이 아닙니다: ${site}`);
   const base = `https://${VOCA_HOSTS[site]}/api/songs`;
-  const common = {
-    tagName: source.tags,
-    songTypes: (source.songTypes || VOCA_DEFAULT_TYPES[site] || ["Original"]).join(","),
-    minScore: source.minScore,
-    minLength: source.minLength,
-    maxLength: source.maxLength,
-    minMilliBpm: source.minBpm ? Number(source.minBpm) * 1000 : undefined,
-    maxMilliBpm: source.maxBpm ? Number(source.maxBpm) * 1000 : undefined,
-    afterDate: source.yearFrom ? `${source.yearFrom}-01-01` : undefined,
-    beforeDate: source.yearTo ? `${source.yearTo}-12-31` : undefined,
-    artistId: source.artistIds,
-    childVoicebanks: source.artistIds?.length ? true : undefined,
-    // 우리가 틀 수 있는 것만. 다른 서비스는 받아도 못 튼다.
-    pvServices: "Youtube",
-    onlyWithPvs: true,
-    sort: source.sort || "RatingScore",
-  };
+  const common = filtersOf(source, site);
 
   const out: Candidate[] = [];
   const seen = new Set<string>();
@@ -83,6 +67,27 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   return out;
 }
 
+// 언어를 뺀 검색 조건
+function filtersOf(source: GenreSource, site: Site) {
+  return {
+    tagName: source.tags,
+    songTypes: (source.songTypes || VOCA_DEFAULT_TYPES[site] || ["Original"]).join(","),
+    minScore: source.minScore,
+    minLength: source.minLength,
+    maxLength: source.maxLength,
+    minMilliBpm: source.minBpm ? Number(source.minBpm) * 1000 : undefined,
+    maxMilliBpm: source.maxBpm ? Number(source.maxBpm) * 1000 : undefined,
+    afterDate: source.yearFrom ? `${source.yearFrom}-01-01` : undefined,
+    beforeDate: source.yearTo ? `${source.yearTo}-12-31` : undefined,
+    artistId: source.artistIds,
+    childVoicebanks: source.artistIds?.length ? true : undefined,
+    // 우리가 틀 수 있는 것만. 다른 서비스는 받아도 못 튼다.
+    pvServices: "Youtube",
+    onlyWithPvs: true,
+    sort: source.sort || "RatingScore",
+  };
+}
+
 // 조건에 맞는 곡 중 아무 데나 한 창(50곡)을 떠 온다.
 async function vocaWindow(base: string, filters: Record<string, unknown>, type: Site): Promise<Candidate[]> {
   // 깊은 곳에서 집으려면 전체 개수를 먼저 알아야 한다
@@ -94,28 +99,31 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
   const start = total > VOCA_PAGE ? rand(total - VOCA_PAGE) : 0;
   const page = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`);
 
-  const out: Candidate[] = [];
-  for (const song of page?.items || []) {
-    // disabled 를 꼭 봐야 한다. 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
-    // 수 없음"으로 회색이 되는 그것), 그걸 무시하면 죽은 영상을 골라 재생이 실패한다.
-    // 실측: vocadb 100곡 중 10곡에 죽은 PV가 섞여 있다. Bad Apple!! 은 죽은 Original 다음에
-    // 멀쩡한 Original 이 있어서, 안 보면 정확히 틀린 것을 집는다.
-    const pvs = (song.pvs || []).filter((p) => p.service === "Youtube" && !p.disabled);
-    const pv = pvs.find((p) => p.pvType === "Original") || pvs[0];
-    if (!pv?.url || !song.name) continue;
-    out.push({
-      artist: creditOf(song) || song.artistString || "",
-      title: song.name,
-      youtubeUrl: pv.url,
-      // 기본 응답에 들어 있다(100곡 중 빈 것 0개). 없으면 길이 제한에 걸려 통째로 떨어진다.
-      durationSec: Number(song.lengthSeconds) || undefined,
-      thumbnail: song.thumbUrl || null,
-      sourceUrl: `https://${VOCA_HOSTS[type]}/S/${song.id}`,
-      platform: type,
-      sourceKey: `${type}:${song.id}`,
-    });
-  }
-  return out;
+  return (page?.items || []).flatMap((song) => {
+    const one = candidateOf(song, type);
+    return one ? [one] : [];
+  });
+}
+
+function candidateOf(song: Song, type: Site): Candidate | null {
+  // disabled 를 꼭 봐야 한다. 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
+  // 수 없음"으로 회색이 되는 그것), 그걸 무시하면 죽은 영상을 골라 재생이 실패한다.
+  // 실측: vocadb 100곡 중 10곡에 죽은 PV가 섞여 있다. Bad Apple!! 은 죽은 Original 다음에
+  // 멀쩡한 Original 이 있어서, 안 보면 정확히 틀린 것을 집는다.
+  const pvs = (song.pvs || []).filter((p) => p.service === "Youtube" && !p.disabled);
+  const pv = pvs.find((p) => p.pvType === "Original") || pvs[0];
+  if (!pv?.url || !song.name) return null;
+  return {
+    artist: creditOf(song) || song.artistString || "",
+    title: song.name,
+    youtubeUrl: pv.url,
+    // 기본 응답에 들어 있다(100곡 중 빈 것 0개). 없으면 길이 제한에 걸려 통째로 떨어진다.
+    durationSec: Number(song.lengthSeconds) || undefined,
+    thumbnail: song.thumbUrl || null,
+    sourceUrl: `https://${VOCA_HOSTS[type]}/S/${song.id}`,
+    platform: type,
+    sourceKey: `${type}:${song.id}`,
+  };
 }
 
 // artistString은 애니메이터·일러스트레이터까지 다 붙인 것이다. 만든 사람과 부른 쪽만 추린다.

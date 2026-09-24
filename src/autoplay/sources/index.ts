@@ -77,7 +77,10 @@ async function animeYearRange() {
  */
 function fill(field: Field, type: string, years: YearRange, anisong: AnisongStats | null) {
   if (type === "animethemes" && field.kind === "range") return years;
-  if (type !== "anisongdb") return {};
+  return type === "anisongdb" ? fillAnisong(field, years, anisong) : {};
+}
+
+function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | null) {
   if (field.key === "yearFrom") return anisong?.min ? { min: anisong.min, max: anisong.max } : years;
   // 분포를 같이 내린다. 화면이 슬라이더 옆에 그려야 사용자가 높은 쪽 후보가 얼마나
   // 적은지 알고 고른다. 쏠림이 심해서 안 보여 주면 "왜 같은 곡만 나오지"가 된다.

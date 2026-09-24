@@ -281,59 +281,47 @@ function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
 }
 
 function parseExtra(text: unknown): Extra {
-  const body: Body = {};
-  const headers: Record<string, string> = {};
-  const drop: string[] = [];
-  const dropHeaders: string[] = [];
-  const problems: string[] = [];
-
+  const out: Extra = { body: {}, headers: {}, drop: [], dropHeaders: [], problems: [] };
   for (const raw of String(text || "").split(/\r?\n/)) {
     const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-
-    const at = line.indexOf("=");
-    if (at < 1) {
-      problems.push(`이름이 없습니다: ${line}`);
-      continue;
-    }
-    const name = line.slice(0, at).trim();
-    const value = line.slice(at + 1).trim();
-    const isHeader = /^header::/i.test(name);
-    const header = isHeader ? name.slice(8).trim() : null;
-
-    // {{none}} 을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}" 을 넣게 된다
-    if (value === "{{none}}") {
-      if (header !== null) dropHeaders.push(header);
-      else drop.push(name);
-      continue;
-    }
-    if (header !== null) {
-      headers[header] = value;
-      continue;
-    }
-    if (value === "") {
-      problems.push(`값이 없습니다: ${name}`);
-      continue;
-    }
-    if (!safeKeys(name)) {
-      problems.push(`쓸 수 없는 이름입니다: ${name}`);
-      continue;
-    }
-
-    if (value.startsWith("json::")) {
-      const got = readJson(value.slice(6));
-      if (got.ok) setPath(body, name, got.value);
-      else problems.push(`JSON 으로 못 읽었습니다: ${name}`);
-      continue;
-    }
-    const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
-    if (quoted && value.length >= 2) setPath(body, name, value.slice(1, -1));
-    else if (value === "true" || value === "false") setPath(body, name, value === "true");
-    else if (value === "null") setPath(body, name, null);
-    else if (!Number.isNaN(Number(value))) setPath(body, name, Number(value));
-    else setPath(body, name, value);
+    if (line && !line.startsWith("#")) readExtraLine(line, out);
   }
-  return { body, headers, drop, dropHeaders, problems };
+  return out;
+}
+
+// 한 줄(이름=값)을 담는다. 못 읽으면 까닭을 problems 에
+function readExtraLine(line: string, out: Extra) {
+  const at = line.indexOf("=");
+  if (at < 1) return out.problems.push(`이름이 없습니다: ${line}`);
+  const name = line.slice(0, at).trim();
+  const value = line.slice(at + 1).trim();
+  const header = /^header::/i.test(name) ? name.slice(8).trim() : null;
+
+  // {{none}} 을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}" 을 넣게 된다
+  if (value === "{{none}}") return header !== null ? out.dropHeaders.push(header) : out.drop.push(name);
+  if (header !== null) {
+    out.headers[header] = value;
+    return;
+  }
+  if (value === "") return out.problems.push(`값이 없습니다: ${name}`);
+  if (!safeKeys(name)) return out.problems.push(`쓸 수 없는 이름입니다: ${name}`);
+
+  if (value.startsWith("json::")) {
+    const got = readJson(value.slice(6));
+    if (got.ok) setPath(out.body, name, got.value);
+    else out.problems.push(`JSON 으로 못 읽었습니다: ${name}`);
+    return;
+  }
+  setPath(out.body, name, scalarOf(value));
+}
+
+// 값 글 → 값. 따옴표로 싸면 글자, true · false · null · 수는 그 값, 나머지는 글자
+function scalarOf(value: string): unknown {
+  const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
+  if (quoted && value.length >= 2) return value.slice(1, -1);
+  if (value === "true" || value === "false") return value === "true";
+  if (value === "null") return null;
+  return Number.isNaN(Number(value)) ? value : Number(value);
 }
 
 /** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다. */

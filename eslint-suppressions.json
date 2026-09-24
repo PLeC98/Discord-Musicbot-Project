@@ -1,29 +1,4 @@
 {
-  "src/autoplay/assist/index.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/autoplay/sources/animethemes.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
-  "src/autoplay/sources/anisongdb.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
-  "src/autoplay/sources/index.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/autoplay/sources/voca.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/player/Player.ts": {
     "complexity": {
       "count": 1

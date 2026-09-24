@@ -133,22 +133,45 @@ const ANILIST_BATCH = 50;
 
 const COVER_QUERY = `query($ids:[Int]){Page(perPage:${ANILIST_BATCH}){media(id_in:$ids,type:ANIME){id coverImage{extraLarge large}}}}`;
 
+// 한 번 물은 답의 (작품 ID, 표지 주소). 큰 그림이 없으면 작은 것
+function coversIn(body: Covers | null): Array<[number, string]> {
+  return (body?.data?.Page?.media || []).flatMap((media) => {
+    const url = media?.coverImage?.extraLarge || media?.coverImage?.large;
+    return media?.id && url ? [[media.id, url] as [number, string]] : [];
+  });
+}
+
 /** 작품 ID 배열 → 표지 주소 Map. 못 받으면 그만큼 빈다(그림 없이 튼다). */
 async function anilistCovers(ids: number[]): Promise<Map<number, string>> {
   const covers = new Map<number, string>();
   for (let i = 0; i < ids.length; i += ANILIST_BATCH) {
     try {
       const body = await postJson<Covers | null>(ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
-      for (const media of body?.data?.Page?.media || []) {
-        const url = media?.coverImage?.extraLarge || media?.coverImage?.large;
-        if (media?.id && url) covers.set(media.id, url);
-      }
+      for (const [id, url] of coversIn(body)) covers.set(id, url);
     } catch (error) {
       // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
       log.debug(`AniList 표지를 받아오지 못했습니다: ${messageOf(error)}`);
     }
   }
   return covers;
+}
+
+// 후보 하나. 표지를 묶어 받는 동안 작품 ID 를 잠깐 싣는다(_anilist)
+function candidateOf(song: Song, title: string, id: number, file: string): Candidate & { _anilist?: number | null } {
+  const anilist = song.linked_ids?.anilist;
+  return {
+    artist: song.songArtist || song.animeENName || "",
+    title,
+    audioUrl: `${ANISONG_HOST}/${file}`,
+    // 곡마다 있는 웹페이지가 없어 작품 페이지를 쓴다.
+    // AniList가 드물게 비어 있고 annId는 늘 있으므로 이어 쓴다.
+    sourceUrl: anilist ? `https://anilist.co/anime/${anilist}` : `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}`,
+    platform: "anisongdb",
+    sourceKey: `amq:${id}`,
+    _anilist: anilist || null,
+    // songLength 를 durationSec 으로 싣지 않는다. 곡 길이가 아니라 AMQ 클립 길이라
+    // 유튜브에서 풀버전을 찾을 때 오답을 부른다.
+  };
 }
 
 async function anisongdb(source: GenreSource): Promise<Candidate[]> {
@@ -173,19 +196,7 @@ async function anisongdb(source: GenreSource): Promise<Candidate[]> {
     if (!file) continue;
 
     seen.add(id);
-    out.push({
-      artist: song.songArtist || song.animeENName || "",
-      title: song.songName,
-      audioUrl: `${ANISONG_HOST}/${file}`,
-      // 곡마다 있는 웹페이지가 없어 작품 페이지를 쓴다.
-      // AniList가 드물게 비어 있고 annId는 늘 있으므로 이어 쓴다.
-      sourceUrl: song.linked_ids?.anilist ? `https://anilist.co/anime/${song.linked_ids.anilist}` : `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${song.annId}`,
-      platform: "anisongdb",
-      sourceKey: `amq:${id}`,
-      _anilist: song.linked_ids?.anilist || null,
-      // songLength 를 durationSec 으로 싣지 않는다. 곡 길이가 아니라 AMQ 클립 길이라
-      // 유튜브에서 풀버전을 찾을 때 오답을 부른다.
-    });
+    out.push(candidateOf(song, song.songName, id, file));
   }
 
   const covers = await anilistCovers([...new Set(out.map((c) => c._anilist).filter((id): id is number => Boolean(id)))]);
