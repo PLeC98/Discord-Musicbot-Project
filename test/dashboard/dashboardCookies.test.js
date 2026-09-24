@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 process.env.OWNER_ID = "owner";
 process.env.COOKIES_SOURCE = "file";
 
-const { listenForFetch } = (await import("../helpers/listen.js")).default;
+const { listenForFetch } = (await import("../helpers/listen.ts")).default;
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";

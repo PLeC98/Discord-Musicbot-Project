@@ -7,7 +7,7 @@ import express from "express";
 import session from "express-session";
 import authModule from "../../dashboard/server/routes/auth.js";
 const { createAuthRouter } = authModule;
-import listen from "../helpers/listen.js";
+import listen from "../helpers/listen.ts";
 const { listenForFetch } = listen;
 
 const servers = [];

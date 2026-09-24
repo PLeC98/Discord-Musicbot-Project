@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = (await import("../helpers/listen.js")).default;
+const { listenForFetch } = (await import("../helpers/listen.ts")).default;
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +21,7 @@ import assert from "node:assert/strict";
 process.env.DEPLOYED_COMMANDS_HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
 
 // 서버 설정은 진짜를 임시 DB 로(공지 발송이 봇 채널을 읽는다)
-const { openTempStore, setGuild } = (await import("../helpers/tempStore.js")).default;
+const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("dashboard-admin-");
 after(() => store.close());
 

@@ -19,7 +19,7 @@ import { TrackDownloader, type DownloadTrack, type Sources } from "../../src/med
 import type { YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 import type { AudioRow } from "../../src/store/audioCache.ts";
 import type { LookupRow } from "../../src/store/rows.ts";
-import tracks from "../helpers/tracks.js";
+import tracks from "../helpers/tracks.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));

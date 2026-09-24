@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import config from "../helpers/config.js";
+import config from "../helpers/config.ts";
 const { withConfig } = config;
 import { createPotServer, scrubBgutilLine, PORT } from "../../src/sources/youtube/potServer.ts";
 

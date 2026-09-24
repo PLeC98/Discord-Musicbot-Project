@@ -5,7 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
-import tempStore from "../helpers/tempStore.js";
+import tempStore from "../helpers/tempStore.ts";
 
 import { createRequire } from "node:module";
 

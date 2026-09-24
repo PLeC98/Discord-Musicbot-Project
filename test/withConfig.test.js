@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import config from "../config.ts";
-import configModule from "./helpers/config.js";
+import configModule from "./helpers/config.ts";
 const { withConfig } = configModule;
 
 test("준 칸만 바꾸고 끝나면 되돌린다. 안쪽 객체는 합친다", () => {

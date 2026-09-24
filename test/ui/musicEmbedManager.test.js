@@ -149,7 +149,7 @@ test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보�
 // ── 끝난 패널 ──
 // 부르는 곳이 전부 현재 곡을 먼저 비워, 버튼 끄기가 한 번도 돌지 않았다(2026-09-16).
 
-const tempStore = (await import("../helpers/tempStore.js")).default;
+const tempStore = (await import("../helpers/tempStore.ts")).default;
 // 전용 채널은 임시 DB 에 둔다
 const store = tempStore.openTempStore("embed-manager-");
 after(() => store.close());

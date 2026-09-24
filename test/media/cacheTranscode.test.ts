@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import tempStore from "../helpers/tempStore.js";
+import tempStore from "../helpers/tempStore.ts";
 const { openTempStore } = tempStore;
 import { TrackDownloader } from "../../src/media/cacheDownload.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";

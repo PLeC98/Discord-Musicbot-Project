@@ -10,7 +10,7 @@ import { createRequire } from "node:module";
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
-import h from "../helpers/playerHarness.js";
+import h from "../helpers/playerHarness.ts";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
@@ -349,7 +349,7 @@ test("/join: 끊긴 채 남은 플레이어는 자원을 놓게 한 뒤 새것�
 
 test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재생 · 일시정지 · 곡 없음 · 실패)", async () => {
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loop: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
-  sessions().setCurrent("g1", require("../helpers/tracks").youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
+  sessions().setCurrent("g1", require("../helpers/tracks.ts").youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
 
   const run = async (restore) => {
     h.behavior.restore = restore;

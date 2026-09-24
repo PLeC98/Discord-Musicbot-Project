@@ -2,7 +2,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import tempStore from "../helpers/tempStore.js";
+import tempStore from "../helpers/tempStore.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로

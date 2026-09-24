@@ -12,12 +12,12 @@ const require = createRequire(import.meta.url);
 
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = (await import("../helpers/listen.js")).default;
+const { listenForFetch } = (await import("../helpers/listen.ts")).default;
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore } = (await import("../helpers/tempStore.js")).default;
+const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("dashboard-validation-");
 after(() => store.close());
 

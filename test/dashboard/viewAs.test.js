@@ -12,7 +12,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
 
-const { openTempStore, setGuild } = (await import("../helpers/tempStore.js")).default;
+const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("perm-");
 after(() => store.close());
 

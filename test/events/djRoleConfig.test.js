@@ -5,7 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
 
-import tempStore from "../helpers/tempStore.js";
+import tempStore from "../helpers/tempStore.ts";
 const { openTempStore, setGuild } = tempStore;
 const temp = openTempStore("dj-role-");
 after(() => temp.close());

@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MusicPlayer } from "../../src/player/Player.ts";
 import * as trackState from "../../src/player/trackState.ts";
-import panelEvents from "../helpers/panelEvents.js";
+import panelEvents from "../helpers/panelEvents.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import playerNotices from "../../src/ui/playerNotices.js";
 import * as pool from "../../src/autoplay/pool.ts";

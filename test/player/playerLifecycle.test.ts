@@ -4,14 +4,14 @@
 // playerPlay.test.js 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
 // 리팩터링이 재생 상태를 한 칸으로 모으고 곡별 객체를 따로 떼어 낼 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
 
-import panelEvents from "../helpers/panelEvents.js";
+import panelEvents from "../helpers/panelEvents.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
 const { recordPanel } = panelEvents;
-import h from "../helpers/playerHarness.js";
+import h from "../helpers/playerHarness.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -22,7 +22,7 @@ const { calls, AudioPlayerStatus } = h;
 
 beforeEach(() => h.reset());
 
-const yt = (await import("../helpers/tracks.js")).default.youtube;
+const yt = (await import("../helpers/tracks.ts")).default.youtube;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
 require("../../src/player/events.ts").on("notice", require("../../src/ui/playerNotices").sendNotice);

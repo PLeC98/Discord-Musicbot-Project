@@ -10,12 +10,12 @@ const require = createRequire(import.meta.url);
 
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = (await import("../helpers/listen.js")).default;
+const { listenForFetch } = (await import("../helpers/listen.ts")).default;
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore, setGuild } = (await import("../helpers/tempStore.js")).default;
+const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
 const temp = openTempStore("dashboard-settings-");
 const settings = await import("../../src/store/guildSettings.ts");
 const config = (await import("../../config.ts")).default;

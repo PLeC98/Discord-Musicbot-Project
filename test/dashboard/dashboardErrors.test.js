@@ -36,7 +36,7 @@ const brokenSession = (req, res, next) => {
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore } = (await import("../helpers/tempStore.js")).default;
+const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("dashboard-errors-");
 after(() => store.close());
 

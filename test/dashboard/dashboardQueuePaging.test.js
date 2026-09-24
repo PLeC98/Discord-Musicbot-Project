@@ -9,11 +9,11 @@ const require = createRequire(import.meta.url);
 
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = (await import("../helpers/listen.js")).default;
+const { listenForFetch } = (await import("../helpers/listen.ts")).default;
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-const { openTempStore } = (await import("../helpers/tempStore.js")).default;
+const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("queue-paging-");
 after(() => store.close());
 
