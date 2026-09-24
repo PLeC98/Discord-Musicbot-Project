@@ -23,13 +23,12 @@ import More from "../../src/usecases/playlistMore.js";
 import * as storeDb from "../../src/store/db.ts";
 
 const USER = "111111111111111111";
-const real = { restore: h.MusicPlayer.prototype.restoreFromState };
 const resolved = [];
 let resolveReply;
 
 after(() => {
   addTracks.useLookup(null);
-  h.MusicPlayer.prototype.restoreFromState = real.restore;
+  h.behavior.restore = null;
 });
 
 beforeEach(() => {
@@ -353,13 +352,13 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
   sessions().setCurrent("g1", require("../helpers/tracks").youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
 
   const run = async (restore) => {
-    h.MusicPlayer.prototype.restoreFromState = restore;
+    h.behavior.restore = restore;
     const w = world({ player: null });
     const { it, log } = interaction(w);
     try {
       await cmd("join").execute(it, w.client);
     } finally {
-      h.MusicPlayer.prototype.restoreFromState = real.restore;
+      h.behavior.restore = null;
       const p = w.client.players.get("g1");
       if (p) h.dispose(p);
     }

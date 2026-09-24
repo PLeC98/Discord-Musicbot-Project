@@ -7,5 +7,5 @@
   },
   "configCapture": {},
   "requireCache": {},
-  "methodSwap": ["test/commands/commandsAdd.test.js"]
+  "methodSwap": []
 }

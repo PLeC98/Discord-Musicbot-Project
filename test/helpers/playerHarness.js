@@ -149,6 +149,11 @@ class FakePersistence extends SessionPersistence {
   removeSession() {
     calls.persists.push("remove");
   }
+  // 시험이 되살리기를 정했으면 그것으로. 아니면 진짜
+  async restoreFromState(record) {
+    if (behavior.restore) return behavior.restore.call(this.player, record);
+    return super.restoreFromState(record);
+  }
   onSetCurrent() {
     calls.sink.push("onSetCurrent");
   }
@@ -193,6 +198,7 @@ const behavior = {
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
   fetch: null, // (url, init) → Response 비슷한 것
   directStream: null, // (url) → Readable
+  restore: null, // function (record) — this 는 플레이어. 세션 되살리기(명령 · 곡 추가의 갈래)
 };
 
 // 동등물 찾기 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
