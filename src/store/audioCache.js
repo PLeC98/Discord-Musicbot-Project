@@ -5,7 +5,7 @@ const log = logger.child({ category: "cache" });
 import path from "path";
 import fs from "fs";
 import config from "../../config.js";
-import audioKeyOfModule from "../rules/audioKeyOf.js";
+import audioKeyOfModule from "../rules/audioKeyOf.ts";
 const { md5, audioKeyOf } = audioKeyOfModule;
 import playerSessions from "./playerSessions.js";
 const { sessions } = playerSessions;

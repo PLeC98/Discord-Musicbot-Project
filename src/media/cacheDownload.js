@@ -16,9 +16,9 @@ import DirectLink from "../sources/direct.js";
 import audioCache from "../store/audioCache.js";
 import trackLookup from "../store/trackLookup.js";
 import SponsorBlock from "../sources/sponsorBlock.js";
-import inputKindModule from "../rules/inputKind.js";
+import inputKindModule from "../rules/inputKind.ts";
 const { inputKind } = inputKindModule;
-import audioKeyOfModule from "../rules/audioKeyOf.js";
+import audioKeyOfModule from "../rules/audioKeyOf.ts";
 const { audioKeyOf } = audioKeyOfModule;
 
 /**

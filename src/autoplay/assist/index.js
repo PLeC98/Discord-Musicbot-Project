@@ -6,7 +6,7 @@
 // 없어도 되는 기능이다. 못 부르면 규칙이 고른 것을 그대로 쓰고 재생은 멈추지 않는다.
 
 import aiConfig from "../../config/ai.js";
-import links from "../../rules/links.js";
+import links from "../../rules/links.ts";
 import yamlStore from "../../config/yamlStore.js";
 import googleAuth from "./googleAuth.js";
 import tokens from "./tokens.js";

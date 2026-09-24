@@ -20,7 +20,7 @@ const require = createRequire(import.meta.url);
 const { capabilities, _internals } = path;
 import argsModule from "../../src/media/ffmpeg/args.js";
 const { buildFfmpegArgs } = argsModule;
-import transportOf from "../../src/rules/transportOf.js";
+import transportOf from "../../src/rules/transportOf.ts";
 const { isHlsStream } = transportOf;
 
 const idx = (args, flag) => args.indexOf(flag);

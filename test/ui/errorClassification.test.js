@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import ErrorHandler from "../../src/ui/errorMessages.js";
 import YouTube from "../../src/sources/youtube/index.js";
-import errorKind from "../../src/rules/errorKind.js";
+import errorKind from "../../src/rules/errorKind.ts";
 const { RULES } = errorKind;
 
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]

@@ -2,8 +2,8 @@
 
 import logger from "../../infra/log/logger.js";
 const log = logger.child({ category: "youtube" });
-import links from "../../rules/links.js";
-import canonicalUrlModule from "../../rules/canonicalUrl.js";
+import links from "../../rules/links.ts";
+import canonicalUrlModule from "../../rules/canonicalUrl.ts";
 const { canonicalUrl } = canonicalUrlModule;
 import ytdlpInfo from "../ytdlpInfo.js";
 const { readInfo } = ytdlpInfo;

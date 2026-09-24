@@ -10,7 +10,7 @@ import loggerModule from "../infra/log/logger.js";
 const flog = loggerModule.child({ category: "core", sub: "fatal" });
 import { VoiceConnectionStatus } from "@discordjs/voice";
 import { Events } from "discord.js";
-import deadInteraction from "../rules/deadInteraction.js";
+import deadInteraction from "../rules/deadInteraction.ts";
 const { isDeadInteraction } = deadInteraction;
 // 새어 나온 오류 처리기의 로그. 봇 전체의 일이다
 import loggerModule2 from "../infra/log/logger.js";

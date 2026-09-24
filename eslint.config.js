@@ -36,6 +36,12 @@ export default [
   {
     files: ["**/*.ts"],
     languageOptions: { globals: globals.nodeBuiltin },
+    rules: {
+      // 이름 바꾸기 커밋의 @ts-nocheck 는 까닭을 적은 것만. 타입을 단 커밋이 뗀다
+      "@typescript-eslint/ban-ts-comment": ["error", { "ts-nocheck": "allow-with-description" }],
+      // .js 의 no-unused-vars 와 같은 기준
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none", ignoreRestSiblings: true }],
+    },
   },
 
   // 대시보드 클라이언트 - Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)

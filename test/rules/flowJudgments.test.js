@@ -3,13 +3,13 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import candidateKindModule from "../../src/rules/candidateKind.js";
+import candidateKindModule from "../../src/rules/candidateKind.ts";
 const { candidateKind } = candidateKindModule;
-import liveBlockReasonModule from "../../src/rules/liveBlockReason.js";
+import liveBlockReasonModule from "../../src/rules/liveBlockReason.ts";
 const { liveBlockReason } = liveBlockReasonModule;
-import transportOfModule from "../../src/rules/transportOf.js";
+import transportOfModule from "../../src/rules/transportOf.ts";
 const { transportOf, isHlsStream } = transportOfModule;
-import deadInteraction from "../../src/rules/deadInteraction.js";
+import deadInteraction from "../../src/rules/deadInteraction.ts";
 const { isDeadInteraction } = deadInteraction;
 
 test("candidateKind: 유튜브 주소 > 가수 · 제목 > 음원, 아무것도 없으면 null", () => {

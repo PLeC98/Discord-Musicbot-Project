@@ -4,13 +4,13 @@
 // 3단계가 칸을 가르면서 답을 바꿨다. 남은 것은 그 틀린 답이 다시 나오지 않게 하는 테스트다.
 
 import fs from "node:fs";
-import links from "../src/rules/links.js";
+import links from "../src/rules/links.ts";
 import os from "node:os";
 import path from "node:path";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import canonicalUrlModule from "../src/rules/canonicalUrl.js";
+import canonicalUrlModule from "../src/rules/canonicalUrl.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로

@@ -2,10 +2,10 @@ process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
 
 import test from "node:test";
-const links = (await import("../../src/rules/links.js")).default;
+const links = (await import("../../src/rules/links.ts")).default;
 import assert from "node:assert/strict";
 const lookup = (await import("../../src/sources/lookup.js")).default;
-const { canonicalUrl } = (await import("../../src/rules/canonicalUrl.js")).default;
+const { canonicalUrl } = (await import("../../src/rules/canonicalUrl.ts")).default;
 
 test("accepts supported media hosts by parsed hostname", () => {
   assert.equal(lookup.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");

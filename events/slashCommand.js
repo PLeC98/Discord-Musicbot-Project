@@ -4,7 +4,7 @@
 import { Events } from "discord.js";
 import logger from "../src/infra/log/logger.js";
 const log = logger.child({ category: "core" });
-import deadInteraction from "../src/rules/deadInteraction.js";
+import deadInteraction from "../src/rules/deadInteraction.ts";
 const { isDeadInteraction } = deadInteraction;
 
 const exported = {

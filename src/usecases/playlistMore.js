@@ -2,7 +2,7 @@
 // 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from "discord.js";
-import links from "../rules/links.js";
+import links from "../rules/links.ts";
 import logger from "../infra/log/logger.js";
 const log = logger.child({ category: "player" });
 import config from "../../config.js";

@@ -13,7 +13,7 @@ import playlistMore from "./playlistMore.js";
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = playlistMore;
 import path from "../media/ffmpeg/path.js";
 const { capabilities: ffmpegCapabilities } = path;
-import liveBlockReasonModule from "../rules/liveBlockReason.js";
+import liveBlockReasonModule from "../rules/liveBlockReason.ts";
 const { liveBlockReason } = liveBlockReasonModule;
 
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };

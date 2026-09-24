@@ -1,14 +1,14 @@
 // 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 받는다.
 
 import YouTube from "./youtube/index.js";
-import links from "../rules/links.js";
+import links from "../rules/links.ts";
 import Spotify from "./spotify.js";
 import SoundCloud from "./soundcloud.js";
 import DirectLink from "./direct.js";
 import trackLookup from "../store/trackLookup.js";
-import errorKindModule from "../rules/errorKind.js";
+import errorKindModule from "../rules/errorKind.ts";
 const { errorKind } = errorKindModule;
-import inputKindModule from "../rules/inputKind.js";
+import inputKindModule from "../rules/inputKind.ts";
 const { inputKind } = inputKindModule;
 import logger from "../infra/log/logger.js";
 const log = logger.child({ category: "track" });

@@ -8,7 +8,7 @@
 // TTL·실패 시 번들 재추출로 갱신(자가치유). 참고 구현: LavaSrc, discord-player-spotify(원리 교차검증만).
 
 import crypto from "crypto";
-import links from "../rules/links.js";
+import links from "../rules/links.ts";
 const { isSpotifyURL, parseSpotifyURL } = links;
 import logger from "../infra/log/logger.js";
 const log = logger.child({ category: "spotify" });

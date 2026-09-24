@@ -12,10 +12,10 @@
 //
 
 import autoplayFilter from "./filter.js";
-import links from "../rules/links.js";
-import canonicalUrlModule from "../rules/canonicalUrl.js";
+import links from "../rules/links.ts";
+import canonicalUrlModule from "../rules/canonicalUrl.ts";
 const { canonicalUrl } = canonicalUrlModule;
-import candidateKindModule from "../rules/candidateKind.js";
+import candidateKindModule from "../rules/candidateKind.ts";
 const { candidateKind } = candidateKindModule;
 import pool from "./pool.js";
 import sources from "./sources/index.js";

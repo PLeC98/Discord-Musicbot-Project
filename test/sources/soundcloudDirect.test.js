@@ -5,7 +5,7 @@
 // yt-dlp 는 youtube-dl-exec 의 exec 만, 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
 
 import { Readable } from "node:stream";
-import links from "../../src/rules/links.js";
+import links from "../../src/rules/links.ts";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 

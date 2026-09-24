@@ -12,7 +12,7 @@ import TrackDownloader from "../media/cacheDownload.js";
 import audioCache from "../store/audioCache.js";
 import trackLookup from "../store/trackLookup.js";
 import trackState from "./trackState.js";
-import audioKeyOfModule from "../rules/audioKeyOf.js";
+import audioKeyOfModule from "../rules/audioKeyOf.ts";
 const { audioKeyOf } = audioKeyOfModule;
 
 // 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.

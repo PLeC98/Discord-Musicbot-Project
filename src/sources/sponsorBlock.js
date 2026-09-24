@@ -9,7 +9,7 @@
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
 import crypto from "crypto";
-import links from "../rules/links.js";
+import links from "../rules/links.ts";
 import config from "../../config.js";
 import GuildSettingsManager from "../store/guildSettings.js";
 import externalCaches from "../store/externalCaches.js";

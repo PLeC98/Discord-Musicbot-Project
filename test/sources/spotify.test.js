@@ -1,7 +1,7 @@
 // Spotify 순수 함수 단위 테스트 (네트워크 없음) — URL 파싱, TOTP, 정규화, secret 추출.
 
 import { test } from "node:test";
-import links from "../../src/rules/links.js";
+import links from "../../src/rules/links.ts";
 import assert from "node:assert/strict";
 import Spotify from "../../src/sources/spotify.js";
 const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = Spotify._internals;

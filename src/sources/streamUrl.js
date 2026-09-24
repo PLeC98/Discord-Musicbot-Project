@@ -1,7 +1,7 @@
 // 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 가른다.
 
 import YouTube from "./youtube/index.js";
-import inputKindModule from "../rules/inputKind.js";
+import inputKindModule from "../rules/inputKind.ts";
 const { inputKind } = inputKindModule;
 import logger from "../infra/log/logger.js";
 const log = logger.child({ category: "track" });

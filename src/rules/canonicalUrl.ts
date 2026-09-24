@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 판정: 이 링크를 어떤 모양으로 적나. 링크 장부의 열쇠가 된다. 같은 곡을 가리키는 공유 링크 여럿이 한 모양으로 모인다.
 //
 //   유튜브        영상 id 로 모은다(list= · index= · si= · t= · 호스트 차이를 버린다). 재생목록 주소는 그대로
@@ -6,9 +7,9 @@
 //   직접 링크     그대로. 서명된 주소는 쿼리에 토큰이 있어 버리면 못 받는다
 //   그 밖         다듬지 않는다
 
-import links from "./links.js";
+import links from "./links.ts";
 const { extractVideoId, parseSpotifyURL } = links;
-import inputKindModule from "./inputKind.js";
+import inputKindModule from "./inputKind.ts";
 const { inputKind } = inputKindModule;
 
 function soundCloudPath(value) {
