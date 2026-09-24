@@ -4,9 +4,7 @@
 import { Events } from "discord.js";
 import logger from "../src/infra/log/logger.js";
 const log = logger.child({ category: "core" });
-import deadInteraction from "../src/rules/deadInteraction.ts";
-const { isDeadInteraction } = deadInteraction;
-
+import { isDeadInteraction } from "../src/rules/deadInteraction.ts";
 const exported = {
   name: Events.InteractionCreate,
   async execute(interaction) {

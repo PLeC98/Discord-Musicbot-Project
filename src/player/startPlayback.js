@@ -12,9 +12,7 @@ import TrackDownloader from "../media/cacheDownload.js";
 import audioCache from "../store/audioCache.js";
 import trackLookup from "../store/trackLookup.js";
 import trackState from "./trackState.js";
-import audioKeyOfModule from "../rules/audioKeyOf.ts";
-const { audioKeyOf } = audioKeyOfModule;
-
+import { audioKeyOf } from "../rules/audioKeyOf.ts";
 // 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
 const SEND_BITRATE = 128_000;

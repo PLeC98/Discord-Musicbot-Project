@@ -3,15 +3,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import candidateKindModule from "../../src/rules/candidateKind.ts";
-const { candidateKind } = candidateKindModule;
-import liveBlockReasonModule from "../../src/rules/liveBlockReason.ts";
-const { liveBlockReason } = liveBlockReasonModule;
-import transportOfModule from "../../src/rules/transportOf.ts";
-const { transportOf, isHlsStream } = transportOfModule;
-import deadInteraction from "../../src/rules/deadInteraction.ts";
-const { isDeadInteraction } = deadInteraction;
-
+import { candidateKind } from "../../src/rules/candidateKind.ts";
+import { liveBlockReason } from "../../src/rules/liveBlockReason.ts";
+import { transportOf, isHlsStream } from "../../src/rules/transportOf.ts";
+import { isDeadInteraction } from "../../src/rules/deadInteraction.ts";
 test("candidateKind: 유튜브 주소 > 가수 · 제목 > 음원, 아무것도 없으면 null", () => {
   assert.equal(candidateKind({ youtubeUrl: "u", artist: "a", title: "t", audioUrl: "x" }), "youtube");
   assert.equal(candidateKind({ artist: "a", title: "t", audioUrl: "x" }), "search");

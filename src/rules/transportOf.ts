@@ -37,6 +37,4 @@ function transportOf({ file, streamUrl, streamInfo }: { file?: string | null; st
   return { via: file ? "file" : "pipe", live: false, cacheable: true };
 }
 
-const exported = { transportOf, isHlsStream };
-export default exported;
-export { exported as "module.exports" };
+export { transportOf, isHlsStream };

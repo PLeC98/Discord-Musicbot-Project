@@ -6,6 +6,4 @@ function isDeadInteraction(err: unknown): boolean {
   return !!err && typeof err === "object" && "code" in err && (err.code === 10062 || err.code === 40060);
 }
 
-const exported = { isDeadInteraction };
-export default exported;
-export { exported as "module.exports" };
+export { isDeadInteraction };

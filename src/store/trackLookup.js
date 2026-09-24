@@ -4,10 +4,8 @@
 import fs from "fs";
 import db from "./db.js";
 import audioCache from "./audioCache.js";
-import canonicalUrlModule from "../rules/canonicalUrl.ts";
-const { canonicalUrl } = canonicalUrlModule;
-import audioKeyOfModule from "../rules/audioKeyOf.ts";
-const { audioKeyOf } = audioKeyOfModule;
+import { canonicalUrl } from "../rules/canonicalUrl.ts";
+import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import rows from "./rows.js";
 const { LookupRow, checked } = rows;
 

@@ -37,6 +37,4 @@ function errorKind(error: unknown): string {
   return "unknown";
 }
 
-const exported = { errorKind, RULES };
-export default exported;
-export { exported as "module.exports" };
+export { errorKind, RULES };

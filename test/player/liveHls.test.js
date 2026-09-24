@@ -20,9 +20,7 @@ const require = createRequire(import.meta.url);
 const { capabilities, _internals } = path;
 import argsModule from "../../src/media/ffmpeg/args.js";
 const { buildFfmpegArgs } = argsModule;
-import transportOf from "../../src/rules/transportOf.ts";
-const { isHlsStream } = transportOf;
-
+import { isHlsStream } from "../../src/rules/transportOf.ts";
 const idx = (args, flag) => args.indexOf(flag);
 
 test("능력 확인: 우리가 깔아 주는 빌드는 https와 hls를 갖췄다", () => {

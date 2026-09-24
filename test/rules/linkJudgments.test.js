@@ -2,13 +2,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import inputKindModule from "../../src/rules/inputKind.ts";
-const { inputKind } = inputKindModule;
-import canonicalUrlModule from "../../src/rules/canonicalUrl.ts";
-const { canonicalUrl } = canonicalUrlModule;
-import audioKeyOfModule from "../../src/rules/audioKeyOf.ts";
-const { audioKeyOf, md5 } = audioKeyOfModule;
-
+import { inputKind } from "../../src/rules/inputKind.ts";
+import { canonicalUrl } from "../../src/rules/canonicalUrl.ts";
+import { audioKeyOf, md5 } from "../../src/rules/audioKeyOf.ts";
 test("inputKind: 사이트 호스트를 먼저 보고 확장자는 마지막에 본다", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk", "youtube"],

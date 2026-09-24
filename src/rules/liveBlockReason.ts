@@ -9,6 +9,4 @@ function liveBlockReason(track: { isLive?: boolean; liveStatus?: string | null }
   return ffmpegReady() ? null : "live-no-ffmpeg";
 }
 
-const exported = { liveBlockReason };
-export default exported;
-export { exported as "module.exports" };
+export { liveBlockReason };

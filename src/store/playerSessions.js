@@ -2,8 +2,7 @@
 // DB는 재시작 복원용 사본이다. 재생 중의 진실은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
-import historyModule from "../rules/history.ts";
-const { HISTORY_MAX } = historyModule;
+import { HISTORY_MAX } from "../rules/history.ts";
 import db from "./db.js";
 import rowsModule from "./rows.js";
 const { SessionTrackRow, checked } = rowsModule;

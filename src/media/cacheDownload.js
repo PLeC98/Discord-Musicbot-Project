@@ -16,11 +16,8 @@ import DirectLink from "../sources/direct.js";
 import audioCache from "../store/audioCache.js";
 import trackLookup from "../store/trackLookup.js";
 import SponsorBlock from "../sources/sponsorBlock.js";
-import inputKindModule from "../rules/inputKind.ts";
-const { inputKind } = inputKindModule;
-import audioKeyOfModule from "../rules/audioKeyOf.ts";
-const { audioKeyOf } = audioKeyOfModule;
-
+import { inputKind } from "../rules/inputKind.ts";
+import { audioKeyOf } from "../rules/audioKeyOf.ts";
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드
  *

@@ -16,8 +16,7 @@ import { PermissionFlagsBits } from "discord.js";
 
 import config from "../../config.js";
 import autoplayRoute from "../autoplay/route.js";
-import errorKindModule from "../rules/errorKind.ts";
-const { errorKind } = errorKindModule;
+import { errorKind } from "../rules/errorKind.ts";
 import streamUrl from "../sources/streamUrl.js";
 import SponsorSkipper from "./sponsorSkipper.js";
 import DirectLink from "../sources/direct.js";
@@ -42,14 +41,11 @@ import QueueWarmer from "./queueWarmer.js";
 import trackState from "./trackState.js";
 import process from "../media/ffmpeg/process.js";
 const { spawnFfmpeg } = process;
-import transportOfModule from "../rules/transportOf.ts";
-const { transportOf } = transportOfModule;
+import { transportOf } from "../rules/transportOf.ts";
 import args from "../media/ffmpeg/args.js";
 const { buildFfmpegArgs } = args;
-import inputKindModule from "../rules/inputKind.ts";
-const { inputKind } = inputKindModule;
-import audioKeyOfModule from "../rules/audioKeyOf.ts";
-const { audioKeyOf } = audioKeyOfModule;
+import { inputKind } from "../rules/inputKind.ts";
+import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import path from "../media/ffmpeg/path.js";
 const { capabilities: ffmpegCapabilities } = path;
 

@@ -1,8 +1,7 @@
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 import youtubedl from "./ytdlpSpawn.js";
-import links from "../rules/links.ts";
-import canonicalUrlModule from "../rules/canonicalUrl.ts";
-const { canonicalUrl } = canonicalUrlModule;
+import * as links from "../rules/links.ts";
+import { canonicalUrl } from "../rules/canonicalUrl.ts";
 import ytdlpInfo from "./ytdlpInfo.js";
 const { readInfo } = ytdlpInfo;
 import config from "../../config.js";

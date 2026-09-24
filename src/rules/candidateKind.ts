@@ -11,6 +11,4 @@ function candidateKind(cand: { youtubeUrl?: string | null; artist?: string | nul
   return null;
 }
 
-const exported = { candidateKind };
-export default exported;
-export { exported as "module.exports" };
+export { candidateKind };

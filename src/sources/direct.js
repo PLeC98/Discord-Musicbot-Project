@@ -1,5 +1,5 @@
 import path from "path";
-import links from "../rules/links.ts";
+import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.js";
 const log = logger.child({ category: "link" });
 import SafeUrl from "../infra/safeUrl.js";

@@ -134,6 +134,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-const exported = { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, createThumbnailUrl, createVideoUrl, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
-export default exported;
-export { exported as "module.exports" };
+export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, createThumbnailUrl, createVideoUrl, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };

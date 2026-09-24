@@ -2,9 +2,7 @@ import process from "./ffmpeg/process.js";
 const { spawnFfmpeg, probeAudio } = process;
 import logger from "../infra/log/logger.js";
 const log = logger.child({ category: "track" });
-import convertPlan from "../rules/convertPlan.ts";
-const { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } = convertPlan;
-
+import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } from "../rules/convertPlan.ts";
 /** yt-dlp 갈래도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다. */
 const ytdlpPostprocessorArgs = () => ({ ffmpeg: ["-b:a", `${TRANSCODE_TARGET_KBPS}k`] });
 

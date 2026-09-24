@@ -6,11 +6,8 @@
 //   직접 링크     그대로. 서명된 주소는 쿼리에 토큰이 있어 버리면 못 받는다
 //   그 밖         다듬지 않는다
 
-import links from "./links.ts";
-const { extractVideoId, parseSpotifyURL } = links;
-import inputKindModule from "./inputKind.ts";
-const { inputKind } = inputKindModule;
-
+import { extractVideoId, parseSpotifyURL } from "./links.ts";
+import { inputKind } from "./inputKind.ts";
 function soundCloudPath(value: string): string {
   const url = new URL(value.trim());
   const host = url.hostname.toLowerCase().replace(/^(www|m)\./, "");
@@ -37,6 +34,4 @@ function canonicalUrl(value: unknown): unknown {
   }
 }
 
-const exported = { canonicalUrl };
-export default exported;
-export { exported as "module.exports" };
+export { canonicalUrl };

@@ -48,6 +48,4 @@ function planFor(info: CacheAudioInfo | null | undefined): ConvertPlan {
   return { action: "copy", bitrateKbps: kbps, why: kbps ? `이미 opus ${kbps}k` : "이미 opus" };
 }
 
-const exported = { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
-export default exported;
-export { exported as "module.exports" };
+export { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };

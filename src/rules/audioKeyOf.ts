@@ -5,13 +5,9 @@
 // 출처가 달라도 음원 주소가 같으면 파일 하나를 함께 쓴다. 열쇠는 저장하지 않고 쓸 때마다 이것으로 계산한다.
 
 import crypto from "crypto";
-import links from "./links.ts";
-const { extractVideoId } = links;
-import inputKindModule from "./inputKind.ts";
-const { inputKind } = inputKindModule;
-import canonicalUrlModule from "./canonicalUrl.ts";
-const { canonicalUrl } = canonicalUrlModule;
-
+import { extractVideoId } from "./links.ts";
+import { inputKind } from "./inputKind.ts";
+import { canonicalUrl } from "./canonicalUrl.ts";
 const md5 = (value: unknown): string => crypto.createHash("md5").update(String(value)).digest("hex");
 
 function audioKeyOf(audioUrl: string | null | undefined): string | null {
@@ -30,6 +26,4 @@ function audioKeyOf(audioUrl: string | null | undefined): string | null {
   }
 }
 
-const exported = { audioKeyOf, md5 };
-export default exported;
-export { exported as "module.exports" };
+export { audioKeyOf, md5 };

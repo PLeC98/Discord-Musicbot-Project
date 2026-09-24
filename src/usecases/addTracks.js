@@ -13,9 +13,7 @@ import playlistMore from "./playlistMore.js";
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = playlistMore;
 import path from "../media/ffmpeg/path.js";
 const { capabilities: ffmpegCapabilities } = path;
-import liveBlockReasonModule from "../rules/liveBlockReason.ts";
-const { liveBlockReason } = liveBlockReasonModule;
-
+import { liveBlockReason } from "../rules/liveBlockReason.ts";
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
 
 /** 이 곡을 대기열에 넣을 수 없는 이유(사용자에게 보일 문장). 넣을 수 있으면 null. */

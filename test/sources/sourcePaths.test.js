@@ -28,7 +28,7 @@ const DirectLink = (await import("../../src/sources/direct.js")).default;
 const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
 const lookup = (await import("../../src/sources/lookup.js")).default;
 const streamUrl = (await import("../../src/sources/streamUrl.js")).default;
-const { audioKeyOf } = (await import("../../src/rules/audioKeyOf.ts")).default;
+const { audioKeyOf } = await import("../../src/rules/audioKeyOf.ts");
 
 // 바꿔 끼운 메서드를 시험 끝에 되돌린다
 const swaps = [];
