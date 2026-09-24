@@ -56,8 +56,8 @@ type Payload = {
 type IdleView = { reason: string; leavesAt?: number | null };
 /** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
 type Opened = { success: true };
-/** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패 안내 */
-type FirstStart = { opened: Opened | null; failure: string | null };
+/** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패 안내, started 곧바로 튼 곡 */
+type FirstStart = { opened: Opened | null; failure: string | null; started?: QueuedTrack };
 /** 대기열에 담은 것과 안내에 붙일 것 */
 type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; total: number | null; queueLimited: boolean } };
 /** 조작 버튼을 그릴 때 읽는 칸. 끝난 패널은 플레이어 없이 그린다 */
@@ -105,6 +105,10 @@ function statusOf(player: MusicPlayer) {
   }
   return parts;
 }
+
+// 이번에 넣은 곡 전부. 곧바로 튼 첫 곡도 센다(재생목록에서 50곡을 받았으면 안내도 50곡).
+// 첫 곡이 실패해 다음 곡으로 살렸으면 그 곡은 이미 대기열 몫에 들어 있다
+const placedOf = (start: FirstStart, queued: QueuedTrack[]) => (start.started ? [start.started, ...queued] : queued);
 
 // 끝난 패널의 문구. 음성에 잠시 남을 때만 나갈 시각을 붙인다
 function idleViewOf(reason: string): IdleView {
@@ -223,7 +227,7 @@ class MusicEmbedManager {
     // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
     if (opened && tracks.length > 1) {
       // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
-      await this.showPlaylistAdditionMessage(player, addition.queued, addition.sourceLabel, addition.insertFirst, addition.notice);
+      await this.showPlaylistAdditionMessage(player, placedOf(start, addition.queued), addition.sourceLabel, addition.insertFirst, addition.notice);
       // 대기열 갱신. 임베드 새로고침
       await this.updateNowPlayingEmbed(player);
       return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
@@ -247,7 +251,7 @@ class MusicEmbedManager {
       trackState.setCurrent(player, null);
       return { opened: null, failure };
     }
-    return { opened: await this._openPanel(player, track, requester, responder), failure: null };
+    return { opened: await this._openPanel(player, track, requester, responder), failure: null, started: track };
   }
 
   // 음성 채널에 연결하고 재생 시작. 실패면 안내 문구
