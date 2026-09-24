@@ -1,5 +1,5 @@
 // dashboard/server/routes/admin.js — 봇 운영자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
-// 실 라우터 + fake client. 서버 설정은 임시 DB, REST.put은 프로토타입 패치(실 배포·운영 DB 없음).
+// 실 라우터 + fake client. 서버 설정은 임시 DB, 명령 등록 요청과 배포 지문 경로는 배포 함수에 넘긴다(실 배포·운영 DB 없음).
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
@@ -17,23 +17,14 @@ import path from "node:path";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-// 재배포 경로가 운영 배포 지문(database/deployed-commands.json)을 기록하지 않도록 임시 경로로 우회
-process.env.DEPLOYED_COMMANDS_HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
+// 재배포 경로가 운영 배포 지문(database/deployed-commands.json)을 기록하지 않도록 임시 경로로
+const HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
+after(() => fs.rmSync(HASH_PATH, { force: true }));
 
 // 서버 설정은 진짜를 임시 DB 로(공지 발송이 봇 채널을 읽는다)
 const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("dashboard-admin-");
 after(() => store.close());
-
-// ── 모킹: REST.put (재배포 버튼 경로) ──
-import { REST } from "discord.js";
-const realPut = REST.prototype.put;
-REST.prototype.put = async function (route, options) {
-  return options.body.map((c) => ({ name: c.name }));
-};
-after(() => {
-  REST.prototype.put = realPut;
-});
 
 import express from "express";
 
@@ -63,11 +54,7 @@ function makeGuild(id, name, { leaveError = null } = {}) {
     systemChannel: null,
     members: { me: {} },
     channels: {
-      cache: Object.assign(new Map([[botChannel.id, botChannel]]), {
-        filter() {
-          return { sort: () => ({ first: () => botChannel }) };
-        },
-      }),
+      cache: new Map([[botChannel.id, botChannel]]),
     },
     leave: async () => {
       if (leaveError) throw leaveError;
@@ -124,7 +111,10 @@ before(async () => {
     next();
   });
   app.locals.discordClient = client;
-  app.locals.deployCommands = require("../../src/app/commandLoader.ts").deployCommands;
+  // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다
+  const { deployCommands } = require("../../src/app/commandLoader.ts");
+  const put = async (route, body) => body.map((c) => ({ name: c.name }));
+  app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put });
   app.use("/api/admin", require("../../dashboard/server/routes/admin.ts"));
   server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
@@ -225,7 +215,7 @@ test("POST leave: 없는 서버 404 / leave 실패 502", async () => {
 
 // ── 커맨드 재배포 ────────────────────────────────────────────
 
-test("POST redeploy-commands: 목킹된 REST로 성공 응답", async () => {
+test("POST redeploy-commands: 등록 요청이 받으면 성공 응답", async () => {
   const r = await req("POST", "/api/admin/redeploy-commands");
   assert.equal(r.status, 200);
   assert.equal(r.json.success, true);

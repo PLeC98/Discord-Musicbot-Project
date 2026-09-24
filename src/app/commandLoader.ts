@@ -18,7 +18,7 @@ const isCommand = (module: unknown): module is SlashCommand => typeof module ===
 
 // 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
-const HASH_PATH = process.env.DEPLOYED_COMMANDS_HASH_PATH || path.join(import.meta.dirname, "..", "..", "database", "deployed-commands.json");
+const HASH_PATH = path.join(import.meta.dirname, "..", "..", "database", "deployed-commands.json");
 
 // 명령 파일을 읽어 { file, command } 목록과 실패 목록으로 나눈다.
 // 등록(index.js)과 배포 정의가 같은 결과를 쓴다. 두 곳이 따로 읽으면 서로 다른 집합이 될 수 있다.
