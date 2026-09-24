@@ -1,5 +1,3 @@
-"use strict";
-
 // 옮기기 커밋이 정말 옮기기만 했는지 본다.
 //
 //   node scripts/verify-move.js            마지막 커밋
@@ -12,7 +10,7 @@
 // 짝이 없는 더한 줄(함수 머리 · 내보내기 · 부르는 한 줄 같은 감싸는 줄)은 목록으로 보여 주기만 한다. 사람이 본다.
 // 지운 줄이 하나라도 사라졌으면 실패한다. 그것은 옮기기가 아니라 고치기다.
 
-const { execFileSync } = require("child_process");
+import { execFileSync } from "child_process";
 
 const arg = process.argv[2];
 const range = arg === "--staged" ? ["--staged"] : [`${arg || "HEAD"}^`, arg || "HEAD"];

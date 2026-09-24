@@ -1,18 +1,12 @@
-"use strict";
-
 // ESLint flat config. 목적은 버그 탐지(미사용 변수·미정의 참조·await 실수 등)
 // 코드 모양은 Prettier 담당 - eslint-config-prettier로 스타일 규칙을 전부 끔
 
-const js = require("@eslint/js");
-const globals = require("globals");
-const pluginVue = require("eslint-plugin-vue");
-const prettierConfig = require("eslint-config-prettier");
+import js from "@eslint/js";
+import globals from "globals";
+import pluginVue from "eslint-plugin-vue";
+import prettierConfig from "eslint-config-prettier";
 
-// ESM 으로 바꾼 봇 코드 폴더. 짝이 되는 test/ 폴더도 같이 바뀐다(src/x → test/x, dashboard/server → test/dashboard)
-const ESM_FOLDERS = ["src/infra", "src/rules", "src/config", "src/store", "src/sources", "src/media", "src/autoplay", "src/player", "src/ui", "src/usecases", "src/app", "commands", "events", "dashboard/server"];
-const testDirOf = (dir) => (dir.startsWith("src/") ? dir.replace(/^src/, "test") : `test/${dir.split("/")[0]}`);
-
-module.exports = [
+export default [
   {
     ignores: [
       "node_modules",
@@ -26,19 +20,9 @@ module.exports = [
 
   js.configs.recommended,
 
-  // 봇 본체 - Node CommonJS
+  // 봇 본체 - Node ESM. require · __dirname 은 없는 이름이다(nodeBuiltin)
   {
     files: ["**/*.js"],
-    languageOptions: {
-      ecmaVersion: 2024,
-      sourceType: "commonjs",
-      globals: globals.node,
-    },
-  },
-
-  // ESM 으로 바꾼 폴더(리팩터링 9단계, 아래층부터). require · __dirname 이 남으면 no-undef 로 드러난다
-  {
-    files: ESM_FOLDERS.flatMap((dir) => [`${dir}/**/*.js`, `${testDirOf(dir)}/**/*.js`]),
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",

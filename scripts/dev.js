@@ -7,8 +7,7 @@
  *
  * 환경 변수를 여기서 심는 이유: npm 스크립트의 `VAR=값 node ...` 표기는 Windows에서 동작하지 않는다.
  */
-"use strict";
-
 process.env.DASHBOARD_DEV_ORIGIN = "true";
 
-require("../index.js");
+// 환경 변수를 심은 뒤에 불러와야 한다(import 는 끌어올려진다)
+await import("../index.js");

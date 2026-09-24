@@ -1,11 +1,10 @@
-"use strict";
-
 // 테스트용 설정 덮어쓰기 창구(test/helpers/config.js)가 바꾼 것을 빠짐없이 되돌리는지 본다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const config = require("../config");
-const { withConfig } = require("./helpers/config");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import config from "../config.js";
+import configModule from "./helpers/config.js";
+const { withConfig } = configModule;
 
 test("준 칸만 바꾸고 끝나면 되돌린다. 안쪽 객체는 합친다", () => {
   const before = structuredClone(config.bot);

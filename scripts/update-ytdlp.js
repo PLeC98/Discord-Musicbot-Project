@@ -3,11 +3,11 @@
  * YouTube 추출 기능이 계속 작동하도록 `npm install` 후에 자동으로 실행됩니다.
  * YouTube는 API를 수시로 변경하므로, 오래된 버전의 yt-dlp를 사용하면 음악 검색이 작동하지 않을 수 있습니다.
  */
-const { execFileSync } = require("child_process");
-const path = require("path");
-const fs = require("fs");
+import { execFileSync } from "child_process";
+import path from "path";
+import fs from "fs";
 
-const binDir = path.join(__dirname, "..", "node_modules", "youtube-dl-exec", "bin");
+const binDir = path.join(import.meta.dirname, "..", "node_modules", "youtube-dl-exec", "bin");
 const binary = process.platform === "win32" ? path.join(binDir, "yt-dlp.exe") : path.join(binDir, "yt-dlp");
 
 if (!fs.existsSync(binary)) {

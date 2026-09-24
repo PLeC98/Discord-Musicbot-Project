@@ -1,5 +1,3 @@
-"use strict";
-
 // scripts/install-ffmpeg.js — 어느 릴리스에서 어느 자산을 받을지.
 //
 // 회귀 대상 둘:
@@ -8,10 +6,11 @@
 // 2. `FFMPEG_PATH=   # 설명` 처럼 값이 비고 주석만 있는 줄을 값으로 읽어, 설정한 적 없는 사용자가
 //    내려받기를 영영 건너뛰던 것(2026-09-15 사용자 보고 — --force로도 빠져나올 수 없었다).
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue } = require("../scripts/install-ffmpeg");
+import installFfmpeg from "../scripts/install-ffmpeg.js";
+const { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue } = installFfmpeg;
 
 // 실제 릴리스의 checksums.sha256 일부 — 한 릴리스에 브랜치가 여럿 들어 있다
 const CHECKSUMS = [

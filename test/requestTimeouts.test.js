@@ -1,14 +1,12 @@
-"use strict";
-
 // 외부 호출에 마감이 붙어 있는지 호출부 단위로 확인한다.
 // 값 자체(10초 등)가 아니라 "마감 없는 호출이 새로 들어오는 것"을 막는 게 목적이다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("fs");
-const path = require("path");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "fs";
+import path from "path";
 
-const read = (rel) => fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
+const read = (rel) => fs.readFileSync(path.join(import.meta.dirname, "..", rel), "utf8");
 
 // src에서 `name(...)` 호출을 괄호 균형으로 잘라낸다 (인자가 여러 줄이어도 통째로 잡기 위해).
 function callSites(src, name) {

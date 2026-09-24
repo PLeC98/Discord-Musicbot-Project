@@ -3,9 +3,10 @@
  *
  * 대시보드의 갱신 버튼과 같은 길(src/aiModels.refresh)을 쓴다.
  */
-const path = require("path");
-const models = require("../src/config/schema/aiModels");
-const { PROVIDER_SPECS } = require("../src/autoplay/assist/index");
+import path from "path";
+import models from "../src/config/schema/aiModels.js";
+import assist from "../src/autoplay/assist/index.js";
+const { PROVIDER_SPECS } = assist;
 
 (async () => {
   const registries = [

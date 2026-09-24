@@ -1,11 +1,14 @@
-"use strict";
-
 // 슬래시 커맨드를 Discord에 수동 (재)배포하는 독립 스크립트. `pnpm run cmddeploy`.
 // 봇 프로세스와 무관하게 실행되므로 봇 재시작 없이 언제든 커맨드 정의를 갱신한다.
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
-require("../src/app/configCheck").stopOnConfigProblems(require("../config"), console);
-const { deployCommands, definitions, deployErrorLines } = require("../src/app/commandLoader");
+import configCheck from "../src/app/configCheck.js";
+import config from "../config.js";
+import commandLoader from "../src/app/commandLoader.js";
+
+const { deployCommands, definitions, deployErrorLines } = commandLoader;
+
+configCheck.stopOnConfigProblems(config, console);
 
 (async () => {
   const commands = await definitions();

@@ -1,14 +1,13 @@
-"use strict";
-
 // 구조 게이트. 부르는 방향 · 순환 · 지연 부름 · config 꺼내 두기 · 모듈과 메서드 바꿔 끼우기를 기준선과 맞춘다.
 //
 // 기준선(baseline.json)은 1단계에서 한 번 만들고 줄이기만 한다. 새 위반은 실패한다. 위반을 없앴으면 기준선에서도 지운다.
 // 안 지우면 실패한다. 남은 자리만큼 새 위반이 숨기 때문이다(eslint 억제 파일과 같은 규칙). 끝 단계에서 전부 빈다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { scan, LAYERS } = require("./scan");
-const baseline = require("./baseline.json");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import scanModule from "./scan.js";
+const { scan, LAYERS } = scanModule;
+import baseline from "./baseline.json" with { type: "json" };
 
 const now = scan();
 

@@ -7,12 +7,10 @@
  *
  * 이미 있으면 절대 덮지 않는다. 안 그러면 pnpm install 한 번에 운영자가 만든 설정이 날아간다.
  */
-"use strict";
+import fs from "fs";
+import path from "path";
 
-const fs = require("fs");
-const path = require("path");
-
-const CONFIG_DIR = path.join(__dirname, "..", "config");
+const CONFIG_DIR = path.join(import.meta.dirname, "..", "config");
 // 이름 뒤에 확장자가 다른 것도 있다(프롬프트는 ChatML 글 파일이다)
 const NAMES = ["genres", "status", "ai", "ai-keys", "ai-prompt.chatml"];
 
@@ -40,7 +38,7 @@ function setup() {
   return { made, missing };
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   try {
     setup();
   } catch (error) {
@@ -49,4 +47,6 @@ if (require.main === module) {
   }
 }
 
-module.exports = { setup, NAMES, CONFIG_DIR };
+const exported = { setup, NAMES, CONFIG_DIR };
+export default exported;
+export { exported as "module.exports" };

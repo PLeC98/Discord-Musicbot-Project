@@ -1,5 +1,3 @@
-"use strict";
-
 // 테스트용 트랙. 소스가 만드는 모양 그대로 링크 칸 셋(pageUrl · requestKey · audioUrl)을 채운다.
 // 스포티파이는 영상을 찾기 전이라 audioUrl 이 없다.
 
@@ -14,4 +12,6 @@ function spotify(id, extra = {}) {
 
 const direct = (url, extra = {}) => ({ id: url, title: "직접", artist: "직접 링크", pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 0, ...extra });
 
-module.exports = { watch, youtube, spotify, direct };
+const exported = { watch, youtube, spotify, direct };
+export default exported;
+export { exported as "module.exports" };

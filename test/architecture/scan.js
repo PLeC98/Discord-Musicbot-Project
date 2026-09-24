@@ -1,5 +1,3 @@
-"use strict";
-
 // 구조 게이트가 보는 것을 한 번 훑어 모은다. typescript 파서를 쓰는 것은 CommonJS · ESM · .ts 를 같은 코드로 읽기 위해서다.
 //
 //   node test/architecture/scan.js    지금 숫자와 목록을 찍는다
@@ -11,11 +9,11 @@
 // 모듈 바꿔 끼우기: 테스트의 require.cache.
 // 메서드 바꿔 끼우기: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나 mock.method 로 덮는 파일.
 
-const fs = require("fs");
-const path = require("path");
-const ts = require("typescript");
+import fs from "fs";
+import path from "path";
+import ts from "typescript";
 
-const ROOT = path.join(__dirname, "..", "..");
+const ROOT = path.join(import.meta.dirname, "..", "..");
 
 // 왼쪽이 오른쪽을 부를 수 있다
 const LAYERS = ["app", "입구", "usecases", "ui", "player", "autoplay", "media", "sources", "store", "config", "rules", "infra"];
@@ -246,9 +244,11 @@ function scan() {
   };
 }
 
-module.exports = { scan, LAYERS, layerOf };
+const exported = { scan, LAYERS, layerOf };
+export default exported;
+export { exported as "module.exports" };
 
-if (require.main === module) {
+if (import.meta.main) {
   const r = scan();
   const total = (o) => Object.values(o).reduce((s, n) => s + n, 0);
   console.log(`파일 ${r.files} · 층 모름 ${r.unknownLayer.length} · 글자가 아닌 부름 ${r.unseen.length}`);

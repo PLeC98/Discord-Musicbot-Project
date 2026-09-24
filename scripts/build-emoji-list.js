@@ -1,5 +1,3 @@
-"use strict";
-
 // 대시보드 이모지 고르기 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.js
 //
@@ -12,15 +10,16 @@
 // 그리고 Twemoji에 그림 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 칸만 깨져 보인다.
 // 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
 
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
 const EMOJIBASE = "17.0.0";
 // 대시보드가 그림을 받아오는 곳과 같은 버전을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
-const TWEMOJI = require("../dashboard/client/node_modules/@twemoji/api/package.json").version;
+import twemojiPackage from "../dashboard/client/node_modules/@twemoji/api/package.json" with { type: "json" };
+const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
-const NOTES = path.join(__dirname, "..", "notes", "디스코드 이모지 카테고리 및 목록.md");
-const OUT = path.join(__dirname, "..", "dashboard", "client", "src", "emojiList.js");
+const NOTES = path.join(import.meta.dirname, "..", "notes", "디스코드 이모지 카테고리 및 목록.md");
+const OUT = path.join(import.meta.dirname, "..", "dashboard", "client", "src", "emojiList.js");
 
 const json = async (url) => {
   const res = await fetch(url);

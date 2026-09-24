@@ -1,5 +1,3 @@
-"use strict";
-
 // 테스트가 설정값을 잠깐 바꾸는 창구.
 //
 //   await withConfig({ bot: { maxQueueSize: 2 } }, async () => { … });
@@ -8,7 +6,7 @@
 // config 값은 모듈이 쓰는 순간에 읽으므로(계획서 §3.3) 모듈을 다시 불러오지 않아도 바뀐 값이 보인다.
 // 같은 파일 안의 시험은 차례로 돈다. 동시에 도는 시험(concurrency)에서는 쓰지 않는다.
 
-const config = require("../../config");
+import config from "../../config.js";
 
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
@@ -44,4 +42,6 @@ function withConfig(overrides, fn) {
   return result;
 }
 
-module.exports = { withConfig };
+const exported = { withConfig };
+export default exported;
+export { exported as "module.exports" };

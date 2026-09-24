@@ -1,5 +1,3 @@
-"use strict";
-
 // 재생 조작 세 입구(슬래시 명령 · 패널 버튼 · 대시보드)가 지금 무엇을 거절하고 무엇을 허용하나(구조 리팩터링 0단계).
 //
 // 같은 조작의 전제 조건이 입구마다 다르다. 6단계가 전제 조건을 코어 한 곳으로 모으면 이 표의 몇 칸이 바뀐다.
@@ -8,20 +6,25 @@
 // 칸의 값은 입구가 플레이어에 대고 부른 메서드 이름이다. 아무것도 안 불렀으면 x, 버튼이 모달만 띄웠으면 modal.
 // 답장 문구는 보지 않는다. 문구는 6단계에서 ui/ 로 옮겨 가며 바뀐다.
 
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = require("./helpers/listen");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+const { listenForFetch } = (await import("./helpers/listen.js")).default;
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
 // 권한은 진짜 판정을 쓴다. 판정 자체는 permissions.test.js 가 본다.
 // 봇이 음성에 없어 재적 규칙은 늘 통과한다. "denied" 칸만 서버에 DJ 역할을 걸어, 그 역할이 없는 이 멤버를 막는다
-const { openTempStore, setGuild } = require("./helpers/tempStore");
+const { openTempStore, setGuild } = (await import("./helpers/tempStore.js")).default;
 const store = openTempStore("control-entrances-");
 after(() => store.close());
 
-const express = require("express");
-const buttonHandler = require("../events/buttonHandler");
+import express from "express";
+const buttonHandler = (await import("../events/buttonHandler.js")).default;
 
 // ── 상태 ─────────────────────────────────────────────────────────────
 

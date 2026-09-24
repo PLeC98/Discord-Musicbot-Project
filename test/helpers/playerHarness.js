@@ -1,5 +1,3 @@
-"use strict";
-
 // 진짜 MusicPlayer 를 세워 play() 를 끝까지 돌리는 하네스.
 //
 // 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 조각을 시험한다. 그래서 생성자와 협력자가 다 얽힌
@@ -14,17 +12,22 @@
 //
 // node --test 는 테스트 파일마다 프로세스를 따로 띄우므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
 
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const { EventEmitter } = require("events");
-const { PassThrough, Writable } = require("stream");
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { EventEmitter } from "events";
+import { PassThrough, Writable } from "stream";
 
 // 판정 시험에서 무엇이 불렸는지 모은다. 시험마다 reset() 으로 비운다
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: [], persists: [], directStreams: [], sink: [], steps: [] };
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
-const { AudioPlayerStatus } = require("@discordjs/voice");
+import { AudioPlayerStatus } from "@discordjs/voice";
 
 class FakeAudioPlayer extends EventEmitter {
   constructor() {
@@ -112,18 +115,18 @@ async function openChunkedStream(opts) {
 
 // ── 4. 캐시 장부: 진짜를 임시 DB 로 ──────────────────────────────────────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
-const audioCache = require("../../src/store/audioCache");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
-const MusicPlayer = require("../../src/player/Player");
-const equivalent = require("../../src/sources/youtube/equivalent");
-const TrackDownloader = require("../../src/media/cacheDownload");
-const SponsorBlock = require("../../src/sources/sponsorBlock");
-const VoiceConnectionManager = require("../../src/player/voiceConnection");
-const SessionPersistence = require("../../src/player/sessionMirror");
-const QueueWarmer = require("../../src/player/queueWarmer");
+const MusicPlayer = (await import("../../src/player/Player.js")).default;
+const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
+const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
+const SponsorBlock = (await import("../../src/sources/sponsorBlock.js")).default;
+const VoiceConnectionManager = (await import("../../src/player/voiceConnection.js")).default;
+const SessionPersistence = (await import("../../src/player/sessionMirror.js")).default;
+const QueueWarmer = (await import("../../src/player/queueWarmer.js")).default;
 
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
 const fakeConnection = () => Object.assign(new EventEmitter(), { state: { status: "ready" }, destroy() {}, subscribe() {} });
@@ -317,7 +320,7 @@ function dispose(player) {
 const lookupRow = (requestKey) => audioCache.db.prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const audioRow = (key) => audioCache.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
 
-module.exports = {
+const exported = {
   MusicPlayer,
   audioCache,
   AudioPlayerStatus,
@@ -333,3 +336,5 @@ module.exports = {
   audioRow,
   TMP,
 };
+export default exported;
+export { exported as "module.exports" };

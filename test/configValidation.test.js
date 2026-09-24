@@ -1,5 +1,3 @@
-"use strict";
-
 // config.js — 잘못 적은 설정값은 기동을 멈춘다 (2026-09-15 사용자 결정).
 //
 // 회귀 대상: `parseInt`가 "120junk"를 120으로 삼켜, 오타가 조용히 다른 값으로 돌던 것.
@@ -8,13 +6,19 @@
 // config 는 불러와도 멈추지 않고 문제 목록을 낸다. 멈추는 것은 기동(index.js)의 첫 줄이다.
 // 값 계산은 loadConfig 순수 함수라 바로 부른다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const path = require("path");
-const { spawnSync } = require("child_process");
-const { loadConfig } = require("../config");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import path from "path";
+import { spawnSync } from "child_process";
+import configModule from "../config.js";
+import { createRequire } from "node:module";
 
-const ROOT = path.join(__dirname, "..");
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { loadConfig } = configModule;
+
+const ROOT = path.join(import.meta.dirname, "..");
 
 /** 주어진 환경 변수로 설정을 계산한다 — { problems, cfg } */
 function load(env, opts) {

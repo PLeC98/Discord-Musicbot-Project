@@ -10,19 +10,17 @@
  *
  * macOS와 미지원 아키텍처는 BtbN이 빌드를 주지 않아 건너뛴다. PATH의 ffmpeg나 FFMPEG_PATH를 쓴다.
  */
-"use strict";
-
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const crypto = require("crypto");
-const { spawnSync } = require("child_process");
+import fs from "fs";
+import os from "os";
+import path from "path";
+import crypto from "crypto";
+import { spawnSync } from "child_process";
 
 const DEFAULT_RELEASE = "autobuild-2026-08-31-13-27"; // 월말 빌드 (2년 보관)
 const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)은 불필요
 
 const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
-const ROOT = path.join(__dirname, "..");
+const ROOT = path.join(import.meta.dirname, "..");
 const BIN_DIR = path.join(ROOT, "bin");
 
 // BtbN이 제공하는 플랫폼만. 키는 `${process.platform}-${process.arch}`.
@@ -210,7 +208,7 @@ async function main() {
   console.log(`✅ [ffmpeg] ${reported[1]} → ${path.relative(ROOT, binPath)}`);
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   main().catch((error) => {
     // 설치 실패로 pnpm install 전체를 깨지 않는다. 기동 시 ffmpegPath가 PATH를 찾고,
     // 그것도 없으면 거기서 분명한 메시지와 함께 멈춘다.
@@ -220,4 +218,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue };
+const exported = { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue };
+export default exported;
+export { exported as "module.exports" };

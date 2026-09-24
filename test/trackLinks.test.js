@@ -1,18 +1,22 @@
-"use strict";
-
 // 트랙의 링크 칸 셋(pageUrl · requestKey · audioUrl)과 링크 장부.
 //
 // 한 칸(url)이 보여 줄 링크 · 장부 열쇠 · 음원 주소를 다 하던 때 여기서 틀린 답을 고정해 두었고(리팩터링 0단계),
 // 3단계가 칸을 가르면서 답을 바꿨다. 남은 것은 그 틀린 답이 다시 나오지 않게 하는 테스트다.
 
-const fs = require("node:fs");
-const links = require("../src/rules/links");
-const os = require("node:os");
-const path = require("node:path");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
-const Database = require("better-sqlite3");
-const { canonicalUrl } = require("../src/rules/canonicalUrl");
+import fs from "node:fs";
+import links from "../src/rules/links.js";
+import os from "node:os";
+import path from "node:path";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import Database from "better-sqlite3";
+import canonicalUrlModule from "../src/rules/canonicalUrl.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { canonicalUrl } = canonicalUrlModule;
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "track-links-"));
 let audioCache, trackLookup;

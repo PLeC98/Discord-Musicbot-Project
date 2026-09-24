@@ -1,16 +1,19 @@
-"use strict";
-
 // 봇 쪽 모듈을 전부 불러 본다.
 //
 // 옮기기만 하는 파일은 다른 테스트가 덜 덮어서, 경로가 깨져도 아무도 모를 수 있다. 폴더로 옮길 때 · ESM 으로 바꿀 때 ·
 // .ts 로 바꿀 때 불러오기 실패를 여기서 먼저 잡는다. index.js 는 불러오는 순간 봇을 켜므로 뺀다(node --check 가 본다).
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import path from "node:path";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const ROOT = path.join(__dirname, "..");
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const ROOT = path.join(import.meta.dirname, "..");
 const DIRS = ["src", "commands", "events", path.join("dashboard", "server")];
 
 function walk(dir, out = []) {

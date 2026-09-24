@@ -1,6 +1,7 @@
-const path = require("path");
-const fs = require("fs");
-const pkg = require("./package.json");
+import path from "path";
+import fs from "fs";
+import pkg from "./package.json" with { type: "json" };
+import dotenv from "dotenv";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
@@ -9,7 +10,7 @@ const pkg = require("./package.json");
 // 불러와도 멈추지 않는다. 잘못 적은 값은 문제 목록(problems)에, 기능만 꺼지는 빈 값은 경고 목록(warnings)에
 // 모으고, 기동(index.js)이 첫 줄에서 찍고 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
 
-const ENV_PATH = path.join(__dirname, ".env");
+const ENV_PATH = path.join(import.meta.dirname, ".env");
 
 // 대기열 상한. 0이면 끔. 켜면 하한이 있다: 그 아래는 사전 캐싱(앞 5곡) 버퍼밖에 안 된다
 const QUEUE_MAX_FLOOR = 25;
@@ -124,7 +125,7 @@ function envReaders(source, problems) {
 
 function resolveFromRoot(p) {
   if (!p) return null;
-  return path.isAbsolute(p) ? p : path.resolve(__dirname, p);
+  return path.isAbsolute(p) ? p : path.resolve(import.meta.dirname, p);
 }
 
 /**
@@ -338,7 +339,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl }, dashboardPort) {
 }
 
 const envFileFound = fs.existsSync(ENV_PATH);
-if (envFileFound) require("dotenv").config({ path: ENV_PATH, quiet: true });
+if (envFileFound) dotenv.config({ path: ENV_PATH, quiet: true });
 const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
 
 // 설정 값과 섞이지 않게 열거되지 않는 칸으로 붙인다
@@ -349,4 +350,5 @@ Object.defineProperties(config, {
   parseClients: { value: parseClients },
 });
 
-module.exports = config;
+export default config;
+export { config as "module.exports" };
