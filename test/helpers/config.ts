@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 테스트가 설정값을 잠깐 바꾸는 창구.
 //
 //   await withConfig({ bot: { maxQueueSize: 2 } }, async () => { … });
@@ -9,14 +8,16 @@
 
 import config from "../../config.ts";
 
-const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+type Plain = Record<string, unknown>;
+const isPlainObject = (v: unknown): v is Plain => v !== null && typeof v === "object" && !Array.isArray(v);
 
-function withConfig(overrides, fn) {
-  const undo = [];
-  const apply = (target, patch) => {
+function withConfig<R>(overrides: Plain, fn: () => R): R {
+  const undo: Array<[Plain, string, boolean, unknown]> = [];
+  const apply = (target: Plain, patch: Plain) => {
     for (const [key, value] of Object.entries(patch)) {
-      if (isPlainObject(value) && isPlainObject(target[key])) {
-        apply(target[key], value);
+      const inner = target[key];
+      if (isPlainObject(value) && isPlainObject(inner)) {
+        apply(inner, value);
         continue;
       }
       undo.push([target, key, Object.hasOwn(target, key), target[key]]);
@@ -31,14 +32,14 @@ function withConfig(overrides, fn) {
   };
 
   apply(config, overrides);
-  let result;
+  let result: R;
   try {
     result = fn();
   } catch (error) {
     restore();
     throw error;
   }
-  if (result && typeof result.then === "function") return result.finally(restore);
+  if (result instanceof Promise) return result.finally(restore) as R;
   restore();
   return result;
 }

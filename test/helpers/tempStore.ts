@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 저장소를 임시 폴더의 DB 로 연다. 운영 DB 와 audio_cache 를 건드리지 않는다.
 //
 //   const store = openTempStore("guild-");
@@ -9,11 +8,8 @@ import os from "node:os";
 import path from "node:path";
 import * as audioCache from "../../src/store/audioCache.ts";
 
-import { createRequire } from "node:module";
 import * as storeDb from "../../src/store/db.ts";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import * as settings from "../../src/store/guildSettings.ts";
 
 function openTempStore(prefix = "store-") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -30,8 +26,14 @@ function openTempStore(prefix = "store-") {
 }
 
 // 서버 설정을 표에 바로 쓰고 메모리 캐시를 비운다. 준 칸만 쓴다
-function setGuild(guildId, { djRoles, botChannel, playlistAddMax, sponsorBlock } = {}) {
-  const settings = require("../../src/store/guildSettings.ts");
+type GuildPatch = {
+  djRoles?: Parameters<typeof settings.table.setDjRoles>[1];
+  botChannel?: string | null;
+  playlistAddMax?: Parameters<typeof settings.table.setPlaylistAddMax>[1];
+  sponsorBlock?: Parameters<typeof settings.table.setGuildSponsorBlock>[1];
+};
+
+function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponsorBlock }: GuildPatch = {}) {
   if (djRoles !== undefined) settings.table.setDjRoles(guildId, djRoles);
   if (botChannel !== undefined) {
     if (botChannel === null) settings.table.clearBotChannel(guildId);

@@ -202,7 +202,6 @@ function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id:
     },
     panel: [] as string[],
   });
-  // @ts-expect-error 도우미(test/helpers)가 아직 JS 라 player 를 null 로만 추론한다
   player.panel = recordPanel({ player }); // 화면에 알린 것
   return player;
 }
