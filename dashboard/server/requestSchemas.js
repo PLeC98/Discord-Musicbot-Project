@@ -3,8 +3,7 @@
 // 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
 import { z } from "zod";
-import playlistMore from "../../src/usecases/playlistMore.ts";
-const { MAX_COUNT } = playlistMore;
+import { MAX_COUNT } from "../../src/usecases/playlistMore.ts";
 import playerView from "./playerView.js";
 const { QUEUE_WINDOW_MAX } = playerView;
 

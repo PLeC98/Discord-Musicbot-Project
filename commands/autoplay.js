@@ -1,8 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
-import permissions from "../src/usecases/permissions.ts";
-const { checkControl, checkSummon } = permissions;
-import addTracks from "../src/usecases/addTracks.ts";
-const { ensurePlayer } = addTracks;
+import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
+import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 

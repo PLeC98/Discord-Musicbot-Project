@@ -2,10 +2,9 @@ import { Events, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as genreConfig from "../src/config/genres.ts";
 import * as S from "../src/ui/strings.ts";
-import permissions from "../src/usecases/permissions.ts";
-const { checkControl } = permissions;
+import { checkControl } from "../src/usecases/permissions.ts";
 import { expireReply } from "../src/ui/replyLifetime.ts";
-import controls from "../src/usecases/controls.ts";
+import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const exported = {

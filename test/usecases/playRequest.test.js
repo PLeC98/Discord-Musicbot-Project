@@ -34,7 +34,7 @@ const lookup = {
 let mockCollection = null;
 const collectionCalls = [];
 
-const { requestPlayback, continueCollection, toRequester, ensurePlayer } = (await import("../../src/usecases/addTracks.ts")).default;
+const { requestPlayback, continueCollection, toRequester, ensurePlayer } = await import("../../src/usecases/addTracks.ts");
 
 // ── 하네스 ───────────────────────────────────────────────────
 const GUILD_ID = "g1";

@@ -2,15 +2,11 @@ import { Events, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import permissions from "../src/usecases/permissions.ts";
-const { checkAdd, checkSummon } = permissions;
-import addTracks from "../src/usecases/addTracks.ts";
-const { requestPlayback } = addTracks;
-import responders from "../src/usecases/responders.ts";
-const { channelResponder } = responders;
+import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
+import { requestPlayback } from "../src/usecases/addTracks.ts";
+import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
-import playlistMore from "../src/usecases/playlistMore.ts";
-const { offerOnChannel } = playlistMore;
+import { offerOnChannel } from "../src/usecases/playlistMore.ts";
 import * as S from "../src/ui/strings.ts";
 
 const exported = {

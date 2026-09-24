@@ -204,29 +204,5 @@ async function offerOnChannel(channel: TextBasedChannel | null | undefined, more
   }
 }
 
-const exported = {
-  LIFETIME_MS,
-  LOOKBACK,
-  MAX_COUNT,
-  SELECT_PREFIX,
-  MODAL_PREFIX,
-  KINDS,
-  continuation,
-  validState,
-  encodeState,
-  decodeState,
-  roomFor,
-  moreChoices,
-  clickError,
-  parseCount,
-  offerMessage,
-  resultMessage,
-  countModal,
-  expireLater,
-  clearExpiry,
-  offerOnInteraction,
-  offerOnChannel,
-};
-export default exported;
-export { exported as "module.exports" };
+export { LIFETIME_MS, LOOKBACK, MAX_COUNT, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, moreChoices, clickError, parseCount, offerMessage, resultMessage, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
 export type { Kind, MoreState, More, MoreResult };

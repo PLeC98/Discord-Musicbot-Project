@@ -107,6 +107,4 @@ async function checkRemoveTrack(member: GuildMember, track: Pick<QueuedTrack, "r
   return controlErr;
 }
 
-const exported = { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
-export default exported;
-export { exported as "module.exports" };
+export { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };

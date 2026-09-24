@@ -1,11 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
-import addTracks from "../src/usecases/addTracks.ts";
-const { toRequester } = addTracks;
-import responders from "../src/usecases/responders.ts";
-const { interactionResponder } = responders;
+import { toRequester } from "../src/usecases/addTracks.ts";
+import { interactionResponder } from "../src/usecases/responders.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import permissions from "../src/usecases/permissions.ts";
-const { checkControl } = permissions;
+import { checkControl } from "../src/usecases/permissions.ts";
 
 const exported = {
   data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "현재 재생 중 패널을 채널 하단에 띄웁니다" }),

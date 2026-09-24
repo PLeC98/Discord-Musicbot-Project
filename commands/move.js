@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
-import controls from "../src/usecases/controls.ts";
+import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const exported = {

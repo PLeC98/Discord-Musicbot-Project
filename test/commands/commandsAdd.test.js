@@ -18,8 +18,8 @@ import { MessageFlags } from "discord.js";
 import * as S from "../../src/ui/strings.ts";
 import * as settings from "../../src/store/guildSettings.ts";
 import * as lookup from "../../src/sources/lookup.ts";
-import addTracks from "../../src/usecases/addTracks.ts";
-import More from "../../src/usecases/playlistMore.ts";
+import * as addTracks from "../../src/usecases/addTracks.ts";
+import * as More from "../../src/usecases/playlistMore.ts";
 import * as storeDb from "../../src/store/db.ts";
 
 const USER = "111111111111111111";

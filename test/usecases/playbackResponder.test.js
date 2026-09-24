@@ -7,8 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
-import respondersModule from "../../src/usecases/responders.ts";
-const { interactionResponder, channelResponder, silentResponder, _internals } = respondersModule;
+import { interactionResponder, channelResponder, silentResponder, _internals } from "../../src/usecases/responders.ts";
 
 function fakeInteraction({ deferred = true, replied = false } = {}) {
   const calls = [];

@@ -2,14 +2,10 @@ import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { ErrorHandler } from "../src/ui/errorMessages.ts";
-import addTracks from "../src/usecases/addTracks.ts";
-const { requestPlayback } = addTracks;
-import responders from "../src/usecases/responders.ts";
-const { interactionResponder } = responders;
-import playlistMore from "../src/usecases/playlistMore.ts";
-const { offerOnInteraction } = playlistMore;
-import permissions from "../src/usecases/permissions.ts";
-const { checkAdd, checkSummon } = permissions;
+import { requestPlayback } from "../src/usecases/addTracks.ts";
+import { interactionResponder } from "../src/usecases/responders.ts";
+import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
+import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 
 const exported = {
   data: new SlashCommandBuilder()

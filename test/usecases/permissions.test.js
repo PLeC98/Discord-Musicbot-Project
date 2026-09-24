@@ -10,7 +10,7 @@ const { openTempStore, setGuild } = tempStore;
 const store = openTempStore("perm-");
 after(() => store.close());
 
-const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = (await import("../../src/usecases/permissions.ts")).default;
+const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = await import("../../src/usecases/permissions.ts");
 const S = await import("../../src/ui/strings.ts");
 
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할

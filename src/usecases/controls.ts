@@ -8,7 +8,7 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
-import perm from "./permissions.ts";
+import * as perm from "./permissions.ts";
 import * as playerEvents from "../player/events.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { Guild, GuildMember } from "discord.js";
@@ -269,6 +269,4 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   return { ok: true, left: "player", track, saved };
 }
 
-const exported = { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };
-export default exported;
-export { exported as "module.exports" };
+export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };

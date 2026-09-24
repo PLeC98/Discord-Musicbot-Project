@@ -100,6 +100,5 @@ const silentResponder: Responder = {
   async dismissPlaceholder() {},
 };
 
-const exported = { interactionResponder, channelResponder, silentResponder, _internals: { onceDismiss } };
-export default exported;
-export { exported as "module.exports" };
+export { interactionResponder, channelResponder, silentResponder };
+export const _internals = { onceDismiss };

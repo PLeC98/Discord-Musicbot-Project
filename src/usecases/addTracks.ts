@@ -1,23 +1,20 @@
 import { MusicPlayer } from "../player/Player.ts";
 import * as songLookup from "../sources/lookup.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
-import responders from "./responders.ts";
-const { silentResponder } = responders;
+import { silentResponder } from "./responders.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
 import * as S from "../ui/strings.ts";
 import { ErrorHandler } from "../ui/errorMessages.ts";
-import playlistMore from "./playlistMore.ts";
-const { continuation, validState, roomFor, KINDS, LOOKBACK } = playlistMore;
+import { continuation, validState, roomFor, KINDS, LOOKBACK, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
 import { canSend } from "../ui/channels.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { Requester, TrackInfo } from "../player/track.ts";
 import type { AddResult, Responder, TrackData } from "../ui/nowPlayingPanel.ts";
-import type { More, MoreState } from "./playlistMore.ts";
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
 
 /** 곡 찾기에서 부르는 것 */
@@ -262,7 +259,6 @@ async function continueCollection(client: Client, { guild, requester, state, cou
   return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } };
 }
 
-const exported = { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup, _internals: { resolveFallbackTextChannel } };
-export default exported;
-export { exported as "module.exports" };
+export { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup };
+export const _internals = { resolveFallbackTextChannel };
 export type { PlaybackRequest, RequesterSource };

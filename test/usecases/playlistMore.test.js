@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import More from "../../src/usecases/playlistMore.ts";
+import * as More from "../../src/usecases/playlistMore.ts";
 
 const PL = "37i9dQZF1E3aglU7q0y10F";
 const TRACK = "3385Kx5khQ1JpCVFJjKAPa";
