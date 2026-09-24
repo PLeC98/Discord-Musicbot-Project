@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 종료. 신호를 받으면 세션을 저장하고 음성 연결 · 봇 · 자식 프로세스를 정리한 뒤 나간다.
 
 import readline from "readline";
@@ -6,24 +5,25 @@ import { getVoiceConnections } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import * as procRegistry from "../infra/processRegistry.ts";
+import type { Client } from "discord.js";
 
 // 바깥 경계. 시험은 가짜를 넘긴다
 const REAL = {
-  proc: process,
+  proc: process as Pick<NodeJS.Process, "on" | "platform" | "stdin" | "stdout">,
   voiceConnections: () => getVoiceConnections(),
-  killAll: (reason) => procRegistry.killAll(reason),
-  exit: (code) => process.exit(code),
+  killAll: (reason: string) => procRegistry.killAll(reason),
+  exit: (code: number) => process.exit(code),
 };
+type Boundary = typeof REAL;
+/** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜) */
+type ShutdownDeps = { potServer: { stop(): unknown }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 
-/**
- * 종료 신호에 처리기를 건다.
- * @param {object} deps  potServer: 내릴 POToken 서버, logFile: 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜)
- */
-function installShutdown(client, { potServer, logFile, ...boundary }) {
+/** 종료 신호에 처리기를 건다 */
+function installShutdown(client: Pick<Client, "players" | "guilds" | "destroy">, { potServer, logFile, ...boundary }: ShutdownDeps) {
   const { proc, voiceConnections, killAll, exit } = { ...REAL, ...boundary };
 
   let shuttingDown = false;
-  const gracefulShutdown = async (signal) => {
+  const gracefulShutdown = async (signal: string) => {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
@@ -32,7 +32,7 @@ function installShutdown(client, { potServer, logFile, ...boundary }) {
     const saves = [];
     for (const [guildId, player] of client.players) {
       if (typeof player?.persistState !== "function") continue;
-      saves.push(player.persistState("shutdown", true).catch((err) => log.error(`세션 저장 실패 (서버 ID ${guildId}):`, err)));
+      saves.push(player.persistState("shutdown", true).catch((err: unknown) => log.error(`세션 저장 실패 (서버 ID ${guildId}):`, err)));
     }
     await Promise.all(saves);
 

@@ -1,11 +1,18 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-import { REST, Routes } from "discord.js";
+import { REST, Routes, type ChatInputCommandInteraction, type Client, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import moduleLoader from "./moduleLoader.ts";
 const { loadModules } = moduleLoader;
 import config from "../../config.ts";
+import { codeOf, messageOf } from "../rules/errorKind.ts";
+
+/** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
+type SlashCommand = {
+  data: { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
+  execute(interaction: ChatInputCommandInteraction, client: Client): unknown;
+};
+const isCommand = (module: unknown): module is SlashCommand => typeof module === "object" && module !== null && "data" in module && "execute" in module;
 
 // 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
@@ -16,16 +23,16 @@ const HASH_PATH = process.env.DEPLOYED_COMMANDS_HASH_PATH || path.join(import.me
 async function loadCommandModules(dir = path.join(import.meta.dirname, "..", "..", "commands")) {
   const { modules, failures, missing } = await loadModules(dir);
 
-  const commands = [];
+  const commands: Array<{ file: string; command: SlashCommand }> = [];
   for (const { file, module } of modules) {
-    if ("data" in module && "execute" in module) commands.push({ file, command: module });
+    if (isCommand(module)) commands.push({ file, command: module });
     else failures.push({ file, error: new Error("슬래시 명령 형식이 아닙니다 (data·execute 없음)") });
   }
   return { commands, failures, missing };
 }
 
 // 명령 파일은 불러오는 순간이 아니라 처음 필요할 때 한 번 읽는다. 등록과 배포가 같은 결과를 쓴다
-let loading = null;
+let loading: ReturnType<typeof loadCommandModules> | null = null;
 const loadedCommands = () => (loading ??= loadCommandModules());
 
 /** 배포용 JSON. 핸들러로 등록되는 것과 같은 집합이다 */
@@ -35,12 +42,12 @@ async function definitions() {
 }
 
 // 현재 명령어 세트 + 배포 대상의 지문. 어느 하나라도 바뀌면 재배포 대상
-function deployFingerprint(scope, guildId, commands) {
+function deployFingerprint(scope: string, guildId: string | null, commands: unknown[]) {
   const src = JSON.stringify({ clientId: config.discord.clientId, scope, guildId, commands });
   return crypto.createHash("sha256").update(src).digest("hex");
 }
 
-function readDeployedFingerprint(hashPath) {
+function readDeployedFingerprint(hashPath: string) {
   try {
     return JSON.parse(fs.readFileSync(hashPath, "utf8")).fingerprint || null;
   } catch {
@@ -48,7 +55,7 @@ function readDeployedFingerprint(hashPath) {
   }
 }
 
-function writeDeployedFingerprint(hashPath, fingerprint) {
+function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
   try {
     fs.mkdirSync(path.dirname(hashPath), { recursive: true });
     fs.writeFileSync(hashPath, JSON.stringify({ fingerprint, deployedAt: new Date().toISOString() }));
@@ -73,7 +80,8 @@ async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
   try {
     const rest = new REST().setToken(config.discord.token);
     const route = guildId ? Routes.applicationGuildCommands(config.discord.clientId, guildId) : Routes.applicationCommands(config.discord.clientId);
-    const data = await rest.put(route, { body: commands });
+    // 등록한 명령 목록(디스코드 API 의 답)
+    const data = (await rest.put(route, { body: commands })) as RESTPutAPIApplicationCommandsResult;
     writeDeployedFingerprint(hashPath, fingerprint); // 성공 시에만 기록. 실패하면 다음 기동에 재시도
     return { ok: true, skipped: false, count: data.length, scope, guildId, names: data.map((c) => c.name) };
   } catch (error) {
@@ -82,9 +90,9 @@ async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
 }
 
 // 배포 실패 로그 라인
-function deployErrorLines(result) {
-  const lines = [`❌ 명령어 배포 실패 (${result.scope}): ${result.error?.message || result.error}`];
-  if (result.error?.code === 50001) {
+function deployErrorLines(result: { scope: string; error?: unknown }) {
+  const lines = [`❌ 명령어 배포 실패 (${result.scope}): ${messageOf(result.error)}`];
+  if (codeOf(result.error) === 50001) {
     lines.push('   → 봇이 대상 서버에 없거나 "applications.commands" 스코프로 초대되지 않았습니다.');
     lines.push("   → .env의 GUILD_ID를 비우면 전역 배포로 전환됩니다.");
   }
@@ -94,3 +102,4 @@ function deployErrorLines(result) {
 const exported = { loadedCommands, definitions, deployCommands, loadCommandModules, deployErrorLines };
 export default exported;
 export { exported as "module.exports" };
+export type { SlashCommand };

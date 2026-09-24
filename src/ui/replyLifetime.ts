@@ -8,15 +8,15 @@
 
 const DEFAULT_MS = 10_000;
 
-// 응답을 낸 상호작용. 여기서 읽고 부르는 칸만
+// 핸들러가 받은 상호작용. 여기서 읽고 부르는 칸만. 응답할 수 없는 상호작용(자동완성)에는 응답 칸이 없다
 type Replied = {
   isChatInputCommand?(): boolean;
   commandName?: string;
   customId?: string;
-  replied: boolean;
-  deferred: boolean;
-  ephemeral: boolean | null;
-  deleteReply(): Promise<unknown>;
+  replied?: boolean;
+  deferred?: boolean;
+  ephemeral?: boolean | null;
+  deleteReply?(): Promise<unknown>;
 };
 
 // 슬래시 명령. 이름으로
@@ -88,7 +88,7 @@ function scheduleReplyCleanup(interaction: Replied | null | undefined) {
   scheduled.add(interaction);
   const timer = setTimeout(() => {
     Promise.resolve()
-      .then(() => interaction.deleteReply())
+      .then(() => interaction.deleteReply?.())
       .catch(() => {}); // 이미 닫았거나 지웠다
   }, ms);
   timer.unref?.();

@@ -1,7 +1,9 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 설정 문제를 찍고, 있으면 멈춘다. config 는 불러와도 멈추지 않고 목록만 내므로, 기동과 명령 배포 스크립트가
 // 첫 줄에서 이것을 부른다. out: warn · error 를 가진 것(로거나 console)
-function stopOnConfigProblems(config, out) {
+type Checked = { warnings: string[]; problems: string[] };
+type Out = { warn(line: string): unknown; error(line: string): unknown };
+
+function stopOnConfigProblems(config: Checked, out: Out) {
   config.warnings.forEach((line) => out.warn(line));
   if (config.problems.length === 0) return;
   config.problems.forEach((line) => out.error(line));

@@ -1,9 +1,8 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 봇 조립. index.js 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
 import path from "path";
-import { Client, GatewayIntentBits, Collection, Events } from "discord.js";
+import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type Interaction } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../../config.ts";
@@ -36,8 +35,15 @@ import playerStream from "../../dashboard/server/playerStream.js";
 const { createPlayerStream } = playerStream;
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/playerNotices.ts";
+import { messageOf } from "../rules/errorKind.ts";
 
 const log = logger.child({ category: "core" });
+
+type PotServer = ReturnType<typeof createPotServer>;
+type LogFile = ReturnType<typeof createFileDestination>;
+/** 이벤트 모듈. 디스코드 이벤트 이름과 실행 */
+type EventModule = { name: keyof ClientEvents; once?: boolean; execute(...args: unknown[]): unknown };
+const isEvent = (module: unknown): module is EventModule => typeof module === "object" && module !== null && "name" in module && "execute" in module;
 const ROOT = path.join(import.meta.dirname, "..", "..");
 
 function main() {
@@ -73,7 +79,7 @@ function deploySlashCommands() {
   });
 }
 
-function startBot({ potServer, logFile }) {
+function startBot({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
     // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.js)
@@ -86,7 +92,7 @@ function startBot({ potServer, logFile }) {
   startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
   listenToPlayers(client.musicEmbedManager, stream);
 
-  client.once(Events.ClientReady, () => onReady(client));
+  client.once(Events.ClientReady, (ready) => onReady(ready));
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
   client.on(Events.Raw, (packet) => voiceChannelStatus.consumePacket(packet));
@@ -99,16 +105,16 @@ function startBot({ potServer, logFile }) {
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다
-function listenToPlayers(panels, stream) {
+function listenToPlayers(panels: MusicEmbedManager, stream: ReturnType<typeof createPlayerStream>) {
   playerEvents.on("refresh", (player) => panels.updateNowPlayingEmbed(player));
   playerEvents.on("ended", (player, reason) => panels.handlePlaybackEnd(player, { reason }));
-  playerEvents.on("started", (player, requester) => panels.createNewMusicEmbed(player, player.currentTrack, requester));
+  playerEvents.on("started", (player, requester) => player.currentTrack && panels.createNewMusicEmbed(player, player.currentTrack, requester));
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));
   playerEvents.on("touched", (guildId) => stream.notify(guildId));
 }
 
-async function onReady(client) {
+async function onReady(client: Client<true>) {
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
@@ -127,11 +133,11 @@ async function cleanupAudioCache() {
   try {
     await audioCache.onStartup();
   } catch (error) {
-    log.error("오디오 캐시 기동 정리 실패:", error.message);
+    log.error("오디오 캐시 기동 정리 실패:", messageOf(error));
   }
 }
 
-async function init(client, { potServer, logFile }) {
+async function init(client: Client, { potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   try {
     log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
     checkBeforeLogin();
@@ -166,25 +172,25 @@ function checkBeforeLogin() {
   stopIfThrows(() => statusConfig.status(), "config/status.yaml 을 고친 뒤 다시 실행하세요.");
 }
 
-function stopIfThrows(check, hint = null) {
+function stopIfThrows(check: () => unknown, hint: string | null = null) {
   try {
     check();
   } catch (error) {
-    log.error(error.message);
+    log.error(messageOf(error));
     if (hint) log.error(hint);
     process.exit(1);
   }
 }
 
 // 로딩 실패는 기동을 멈춘다. 핸들러가 빠진 채로 로그인하면 운영자는 그걸 정상으로 본다.
-function abortOnLoadFailure(what, failures) {
+function abortOnLoadFailure(what: string, failures: Array<{ file: string; error: unknown }>) {
   if (failures.length === 0) return;
-  for (const { file, error } of failures) log.error(`${what} 로딩 실패: ${file}`, error?.stack || error?.message || error);
+  for (const { file, error } of failures) log.error(`${what} 로딩 실패: ${file}`, (error instanceof Error && (error.stack || error.message)) || error);
   log.error(`${what} ${failures.length}개를 불러오지 못해 기동을 멈춥니다.`);
   process.exit(1);
 }
 
-async function loadCommands(client) {
+async function loadCommands(client: Client) {
   const { commands, failures, missing } = await commandLoader.loadedCommands();
   if (missing) return log.warn("commands 디렉터리가 없어 명령어 로딩을 건너뜁니다.");
 
@@ -194,26 +200,29 @@ async function loadCommands(client) {
 }
 
 // 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/ui/replyLifetime.js). 핸들러의 결과·오류는 그대로 돌려준다.
-const withReplyCleanup =
-  (execute) =>
-  (interaction, ...rest) => {
-    const done = execute(interaction, ...rest);
-    const schedule = () => scheduleReplyCleanup(interaction);
-    Promise.resolve(done).then(schedule, schedule);
-    return done;
-  };
+const withReplyCleanup = (execute: (interaction: Interaction) => unknown) => (interaction: Interaction) => {
+  const done = execute(interaction);
+  const schedule = () => scheduleReplyCleanup(interaction);
+  Promise.resolve(done).then(schedule, schedule);
+  return done;
+};
 
-async function loadEvents(client) {
+async function loadEvents(client: Client) {
   const { modules, failures, missing } = await loadModules(path.join(ROOT, "events"));
   if (missing) return log.warn("events 디렉터리가 없어 기본 이벤트로 진행합니다.");
 
-  abortOnLoadFailure("이벤트 핸들러", failures);
-  for (const { module: event } of modules) {
-    const run = event.name === Events.InteractionCreate ? withReplyCleanup(event.execute.bind(event)) : (...args) => event.execute(...args);
-    if (event.once) client.once(event.name, run);
-    else client.on(event.name, run);
+  const events: EventModule[] = [];
+  for (const { file, module } of modules) {
+    if (isEvent(module)) events.push(module);
+    else failures.push({ file, error: new Error("이벤트 형식이 아닙니다 (name·execute 없음)") });
   }
-  log.info({ tags: ["startup"] }, `이벤트 핸들러 ${modules.length}개 등록 완료`);
+  abortOnLoadFailure("이벤트 핸들러", failures);
+  for (const event of events) {
+    const register = <K extends keyof ClientEvents>(name: K, listener: (...args: ClientEvents[K]) => unknown) => (event.once ? client.once(name, listener) : client.on(name, listener));
+    if (event.name === Events.InteractionCreate) register(Events.InteractionCreate, withReplyCleanup(event.execute.bind(event)));
+    else register(event.name, (...args) => event.execute(...args));
+  }
+  log.info({ tags: ["startup"] }, `이벤트 핸들러 ${events.length}개 등록 완료`);
 }
 
 const exported = { main };

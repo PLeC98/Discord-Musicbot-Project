@@ -1,34 +1,32 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 프로세스 레벨 오류 복원력. 기동이 installErrorHandlers 로 처리기를 건다.
 //
 // 방침: 일시적 네트워크 오류는 프로세스를 살린 채 "영향받은 서버만" 표적 복구하고,
 //       진짜 치명적 오류는 안전하게 종료해 봇 운영자의 확인·수동 재시작을 대기.
 
 import logger from "../infra/log/logger.ts";
+import { VoiceConnectionStatus } from "@discordjs/voice";
+import { Events, type Client } from "discord.js";
+import { isDeadInteraction } from "../rules/deadInteraction.ts";
+import { codeOf, messageOf } from "../rules/errorKind.ts";
 const log = logger.child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
 // 프로세스를 내리는 것은 음성 관심사가 아니다. 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
-import loggerModule from "../infra/log/logger.ts";
-const flog = loggerModule.child({ category: "core", sub: "fatal" });
-import { VoiceConnectionStatus } from "@discordjs/voice";
-import { Events } from "discord.js";
-import { isDeadInteraction } from "../rules/deadInteraction.ts";
+const flog = logger.child({ category: "core", sub: "fatal" });
 // 새어 나온 오류 처리기의 로그. 봇 전체의 일이다
-import loggerModule2 from "../infra/log/logger.ts";
-const coreLog = loggerModule2.child({ category: "core" });
+const coreLog = logger.child({ category: "core" });
 
 // 네트워크 오류 폭주 판정용 시간창
 const NET_ERR_WINDOW_MS = 60000;
 const NET_ERR_MAX = 8;
 
 // undici/Node 네트워크 계열 오류인지. 느슨한 message 부분문자열 대신 code/name을 우선 판정.
-function isTransientNetworkError(err) {
-  if (!err) return false;
-  const code = err.code;
-  if (code && ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "ENOTFOUND", "EAI_AGAIN", "ECONNABORTED"].includes(code)) return true;
+function isTransientNetworkError(err: unknown) {
+  if (!err || typeof err !== "object") return false;
+  const code = codeOf(err);
+  if (typeof code === "string" && ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "ENOTFOUND", "EAI_AGAIN", "ECONNABORTED"].includes(code)) return true;
   if (typeof code === "string" && code.startsWith("UND_ERR_")) return true; // undici
-  const name = err.name;
-  if (name && ["FetchError", "AbortError"].includes(name)) return true;
-  const msg = err.message || "";
+  const name = "name" in err ? err.name : undefined;
+  if (typeof name === "string" && ["FetchError", "AbortError"].includes(name)) return true;
+  const msg = String(("message" in err && err.message) || "");
   // "IP discovery"는 @discordjs/voice의 음성 연결 수립 단계(자기 공인 IP:포트 확인) 실패.
   // 일시적 UDP/네트워크 이슈라 해당 서버만 재연결로 복구 가능(전체 몰살할 이유 없음).
   return /terminated|socket hang up|ECONNRESET|ETIMEDOUT|network|IP discovery/i.test(msg);
@@ -38,7 +36,7 @@ function isTransientNetworkError(err) {
 // 각자의 기존 복구 루프(startConnectionRecovery: forceReconnect + 저장 위치 재개)로 되살린다.
 // 정상 재생 중인 서버(연결 Ready)와 이미 스스로 복구 중인 서버는 건드리지 않는다(무영향).
 let networkHealInProgress = false;
-async function healBrokenPlayers(client) {
+async function healBrokenPlayers(client: Pick<Client, "players"> | null | undefined) {
   if (networkHealInProgress) return; // 오류 폭풍에도 스윕 1회만
   networkHealInProgress = true;
   try {
@@ -47,14 +45,14 @@ async function healBrokenPlayers(client) {
       try {
         if (!player || !player.currentTrack || player.paused) continue; // 되살릴 게 없음
         if (player.isRecovering) continue; // 이미 자체 복구 중. 방해 금지
-        const status = player.connection && player.connection.state && player.connection.state.status;
+        const status = player.connection?.state?.status;
         if (status === VoiceConnectionStatus.Ready) continue; // 정상 서버. 무영향
         // 수립 진행 중은 자체 완료/실패를 기다림. 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
         if (status === VoiceConnectionStatus.Connecting || status === VoiceConnectionStatus.Signalling) continue;
         log.info(`서버 ID ${guildId}의 음성 연결이 끊겨 복구를 시작합니다`);
         player.voice.startConnectionRecovery();
       } catch (e) {
-        log.error(`플레이어 자가치유 실패 (서버 ID ${guildId}):`, e.message);
+        log.error(`플레이어 자가치유 실패 (서버 ID ${guildId}):`, messageOf(e));
       }
     }
   } finally {
@@ -65,7 +63,7 @@ async function healBrokenPlayers(client) {
 // 빈도 가드 팩토리. 짧은 시간창에 오류가 몰리면 시스템적 이상으로 보고 true(→ 안전 종료 승격).
 // 오류 종류별로 별도 인스턴스를 사용해 서로의 카운터를 오염시키지 않는다.
 function makeFloodGuard(windowMs = NET_ERR_WINDOW_MS, max = NET_ERR_MAX) {
-  let times = [];
+  let times: number[] = [];
   return function flooding() {
     const now = Date.now();
     times = times.filter((t) => now - t < windowMs);
@@ -81,21 +79,22 @@ const unknownRejectionFlooding = makeFloodGuard();
 const unknownClientErrorFlooding = makeFloodGuard();
 
 // 재시도해도 결과가 같은 Discord API 오류. 로그만 남기고 흘려보낸다(프로세스를 흔들 이유가 없음).
-const IGNORABLE_DISCORD_ERRORS = {
+const IGNORABLE_DISCORD_ERRORS: Record<string, { level: "info" | "error"; message: string }> = {
   10062: { level: "info", message: "ℹ️ 만료된 상호작용입니다 (10062 Unknown interaction)" },
   40060: { level: "info", message: "ℹ️ 이미 처리된 상호작용입니다 (40060 Interaction already acknowledged)" },
   50013: { level: "error", message: "❌ 해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)" },
 };
 
-function ignorableDiscordError(err) {
-  return (err && IGNORABLE_DISCORD_ERRORS[err.code]) || null;
+function ignorableDiscordError(err: unknown) {
+  const code = codeOf(err);
+  return (code !== undefined && IGNORABLE_DISCORD_ERRORS[code]) || null;
 }
 
 // 치명적 오류: 안전하게 정리하고 종료. 운영자 확인 후 수동 재시작을 기다린다.
 // 저장 세션은 초기화한다: 세션 상태 자체가 원인이면 재시작 시 크래시 루프가 되므로.
 // (정전 등은 5초 스냅샷이 그대로 남는 별개 경로라 정상 복구된다.)
 // exit는 테스트 주입용. 기본은 process.exit(1).
-function fatalShutdown(client, error, exit = () => process.exit(1)) {
+function fatalShutdown(client: Pick<Client, "players"> | null | undefined, error: unknown, exit: () => void = () => process.exit(1)) {
   try {
     if (client && client.players) {
       client.players.forEach((player) => {
@@ -109,19 +108,20 @@ function fatalShutdown(client, error, exit = () => process.exit(1)) {
   // 이 줄 다음에 프로세스가 죽는다. 레벨 판정의 fatal 정의 그대로다.
   // 레벨로 거를 때 "봇이 죽은 순간"만 뽑아낼 수 있어야 한다.
   // 구분선 두 줄은 뺐다. fatal 레벨과 색이 이미 눈에 띄고, 한 사건에 네 줄을 찍을 이유가 없다.
+  const stack = error && typeof error === "object" && "stack" in error ? error.stack : undefined;
   flog.fatal(
     `치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다.
-${String((error && error.stack) || error)}`,
+${String(stack || error)}`,
   );
   exit();
 }
 
 // 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다.
 // proc · exit: 처리기를 걸 곳과 안전 종료의 끝. 생략하면 진짜 프로세스
-function installErrorHandlers(client, { proc = process, exit } = {}) {
+function installErrorHandlers(client: Client, { proc = process, exit }: { proc?: Pick<NodeJS.Process, "on">; exit?: () => void } = {}) {
   // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정. client "error"와 unhandledRejection이 같은 기준을 쓴다.
   // true = 알려진 오류라 처리 완료, false = 알 수 없음(호출부가 빈도 가드로 판단).
-  const handleLooseError = (error, source) => {
+  const handleLooseError = (error: unknown, source: string) => {
     const known = ignorableDiscordError(error);
     if (known) {
       if (known.level === "error") coreLog.error(known.message);
