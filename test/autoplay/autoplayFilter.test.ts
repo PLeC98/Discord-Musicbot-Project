@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/autoplayFilter — 자동재생 후보를 걸러내는 규칙.
 //
 // 문턱은 짐작이 아니라 후보 840개를 세어 정했다(notes/research-autoplay-quality.md).

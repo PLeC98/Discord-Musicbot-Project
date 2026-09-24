@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/autoplay/assist/googleAuth.ts — 서비스 계정 JSON → 액세스 토큰.
 //
 // 이 파일이 다루는 private_key 는 이 기능에서 가장 값비싼 비밀이다.
