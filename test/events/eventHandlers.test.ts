@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 테스트가 한 번도 돌지 않던 이벤트 넷의 지금 동작을 고정한다(구조 리팩터링 0-B).
 // 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler).
 //
@@ -10,8 +9,14 @@ import os from "node:os";
 import path from "node:path";
 import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits } from "discord.js";
+import { PermissionFlagsBits, type ClientEvents, type Interaction, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Range } from "../../src/sources/lookup.ts";
+import type { MoreState } from "../../src/usecases/playlistMore.ts";
+import { fake, fakeWith } from "../helpers/fake.ts";
+import tracks from "../helpers/tracks.ts";
+const { youtube } = tracks;
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -35,7 +40,7 @@ const OTHER = "222222222222222222";
 // 곡 찾기 가짜. 곡 추가 코어에 넘기고, 시험마다 진짜로 되돌린 뒤 필요한 칸만 바꾼다
 const fakeLookup = { ...lookup };
 addTracks.useLookup(fakeLookup);
-const resolved = [];
+const resolved: { query: string; context?: string | null; range?: Range }[] = [];
 const CONFIG_DIR = path.join(TMP, "config");
 
 before(() => {
@@ -58,15 +63,18 @@ beforeEach(() => {
   Object.assign(fakeLookup, lookup);
   fakeLookup.resolveQuery = async (query, context, range) => {
     resolved.push({ query, context, range });
-    return { success: true, isPlaylist: false, tracks: [{ id: "aaaaaaaaaaa", title: "곡", url: "https://youtu.be/aaaaaaaaaaa" }] };
+    return { success: true, isPlaylist: false, tracks: [youtube("aaaaaaaaaaa", { title: "곡" })] };
   };
 });
 
 // ── 세계 ──────────────────────────────────────────────────────────────
 
+type Handled = { guildId: string; trackData: { tracks: { id?: string }[] }; who: { username: string } };
+type World = ReturnType<typeof world>;
+
 // 봇이 있는 음성 채널 · 사용자가 있는 음성 채널 · 모더레이터 여부 · DJ 역할로 세계를 만든다
-function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [], handle = async () => ({ success: true }) } = {}) {
-  const voice = (id) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
+function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [] as string[], handle = async (): Promise<object> => ({ success: true }) }: { botVoice?: string | null; userVoice?: string | null; moderator?: boolean; roles?: string[]; handle?: (trackData: object, responder: unknown) => Promise<object> } = {}) {
+  const voice = (id: string | null) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
   const guild = { id: "g1", name: "서버", members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map([["dj", { id: "dj" }]]) } };
   const member = {
     id: USER,
@@ -74,62 +82,67 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     displayName: "사용자",
     guild,
     voice: { channel: voice(userVoice) },
-    permissions: { has: (p) => moderator && p === PermissionFlagsBits.ManageGuild },
-    roles: { cache: { has: (r) => roles.includes(r) } },
+    permissions: { has: (p: bigint) => moderator && p === PermissionFlagsBits.ManageGuild },
+    roles: { cache: { has: (r: string) => roles.includes(r) } },
     toString: () => `<@${USER}>`,
   };
-  const seen = [];
+  const seen: (string | { repin: string })[] = [];
+  const handled: Handled[] = [];
   const embeds = {
     seen,
-    createSearchingContainer: (text) => ({ searching: text }),
-    handleMusicData: async (guildId, trackData, who, responder) => {
-      seen.push({ guildId, trackData, who });
+    createSearchingContainer: (text: string) => ({ searching: text }),
+    handleMusicData: async (guildId: string, trackData: Handled["trackData"], who: Handled["who"], responder: unknown) => {
+      handled.push({ guildId, trackData, who });
       return handle(trackData, responder);
     },
-    scheduleIdleRepin: async (g, channelId) => seen.push({ repin: channelId }),
+    scheduleIdleRepin: async (_g: unknown, channelId: string) => seen.push({ repin: channelId }),
     updateNowPlayingEmbed: async () => seen.push("update"),
     queueFullMessage: () => "❌ 대기열이 가득 찼어요.",
   };
   const player = {
     sessionId: "S1",
-    queue: [],
-    previousTracks: [],
-    currentTrack: null,
+    queue: [] as { title: string }[],
+    previousTracks: [] as { title: string }[],
+    currentTrack: null as { title: string } | null,
     volume: 50,
     textChannel: null,
+    skipResult: true,
     releaseLoopForLive() {},
-    setVolume(v) {
+    setVolume(v: number) {
       seen.push(`volume:${v}`);
       this.volume = v;
       return v;
     },
-    setAutoplay(g) {
+    setAutoplay(g: string) {
       seen.push(`autoplay:${g}`);
     },
     async handleAutoplay() {
       seen.push("handleAutoplay");
     },
-    moveInQueue(from, to) {
+    moveInQueue(from: number, to: number) {
       this.queue.splice(to, 0, this.queue.splice(from, 1)[0]);
       return true;
     },
-    skip(reason) {
+    skip(reason: string): boolean {
       seen.push(`skip:${reason}`);
-      return this.skipResult ?? true;
+      return this.skipResult;
     },
   };
-  const client = { players: new Map([["g1", player]]), musicEmbedManager: embeds, user: { id: "bot" } };
-  return { guild, member, client, player, seen };
+  const client = { players: new Map([["g1", fake<MusicPlayer>(player)]]), musicEmbedManager: embeds, user: { id: "bot" } };
+  return { guild, member, client, player, seen, handled };
 }
 
 // 채널 하나. 보낸 것과 지운 것을 모은다
+type Payload = { content?: string; components?: { searching?: string }[] };
+type Sent = { id: string; payload: Payload; deleted: boolean; delete(): Promise<boolean> };
+
 function channel(id = "c1") {
-  const sent = [];
+  const sent: Sent[] = [];
   return {
     id,
     sent,
-    send: async (payload) => {
-      const msg = { id: `m${sent.length}`, payload, deleted: false, delete: async () => (msg.deleted = true) };
+    send: async (payload: Payload) => {
+      const msg: Sent = { id: `m${sent.length}`, payload, deleted: false, delete: async () => (msg.deleted = true) };
       sent.push(msg);
       return msg;
     },
@@ -138,9 +151,14 @@ function channel(id = "c1") {
 
 // ── 전용 채널 메시지 ──────────────────────────────────────────────────
 
-function message(w, { content = "노래 제목", channelId = "bot-channel", bot = false } = {}) {
+// 이벤트가 받는 메시지(그룹 DM 제외)
+type Incoming = ClientEvents["messageCreate"][0];
+type Reply = { text: string; deleted: boolean; delete(): Promise<boolean> };
+
+// 채널에 보낸 것은 sent 로 본다
+function message(w: World, { content = "노래 제목", channelId = "bot-channel", bot = false } = {}) {
   const ch = channel(channelId);
-  const msg = {
+  const msg = fakeWith<Incoming>()({
     id: "user-msg",
     author: { bot },
     guild: w.guild,
@@ -148,16 +166,17 @@ function message(w, { content = "노래 제목", channelId = "bot-channel", bot 
     member: w.member,
     client: w.client,
     channel: ch,
+    sent: ch.sent,
     content,
     deleted: false,
-    replies: [],
+    replies: [] as Reply[],
     delete: async () => (msg.deleted = true),
-    reply: async (text) => {
-      const r = { text, deleted: false, delete: async () => (r.deleted = true) };
+    reply: async (text: string) => {
+      const r: Reply = { text, deleted: false, delete: async () => (r.deleted = true) };
       msg.replies.push(r);
       return r;
     },
-  };
+  });
   return msg;
 }
 
@@ -181,10 +200,10 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 지우고, 검색 
   await messageHandler.execute(msg);
 
   assert.equal(msg.deleted, true);
-  assert.deepEqual(msg.channel.sent[0].payload, { components: [{ searching: "🔍 **노래 제목** 검색 중..." }], flags: 32768 });
+  assert.deepEqual(msg.sent[0].payload, { components: [{ searching: "🔍 **노래 제목** 검색 중..." }], flags: 32768 });
   assert.equal(resolved[0].query, "노래 제목");
   assert.equal(resolved[0].context, "전용채널.resolveQuery");
-  assert.equal(w.seen[0].who.username, "사용자");
+  assert.equal(w.handled[0].who.username, "사용자");
 });
 
 test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다", async () => {
@@ -192,7 +211,7 @@ test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다",
   await settings.setBotChannel("g1", "bot-channel");
   const msg = message(w, { content: "가".repeat(70) });
   await messageHandler.execute(msg);
-  assert.equal(msg.channel.sent[0].payload.components[0].searching, `🔍 **${"가".repeat(60)}…** 검색 중...`);
+  assert.equal(msg.sent[0].payload.components?.[0].searching, `🔍 **${"가".repeat(60)}…** 검색 중...`);
 });
 
 test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 5초 뒤 지운다", async () => {
@@ -245,7 +264,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
 
     await messageHandler.execute(msg);
 
-    const [loading, err] = msg.channel.sent;
+    const [loading, err] = msg.sent;
     assert.equal(loading.deleted, true, "자리표시자를 치운다");
     assert.equal(err.payload.content, S.withErrorMark("결과를 찾을 수 없습니다!"));
     mock.timers.tick(7999);
@@ -270,7 +289,7 @@ test("전용 채널: 코어가 던지면 일반 오류 문장", async () => {
     await settings.setBotChannel("g1", "bot-channel");
     const msg = message(w);
     await messageHandler.execute(msg);
-    assert.equal(msg.channel.sent.at(-1).payload.content, "❌ 처리 중 오류가 발생했어요.");
+    assert.equal(msg.sent.at(-1)?.payload.content, "❌ 처리 중 오류가 발생했어요.");
   } finally {
     mock.timers.reset();
   }
@@ -279,13 +298,13 @@ test("전용 채널: 코어가 던지면 일반 오류 문장", async () => {
 test("전용 채널: 재생목록이 더 남았으면 채널에 더 넣기 메뉴를 띄운다", async () => {
   const w = world();
   await settings.setBotChannel("g1", "bot-channel");
-  fakeLookup.resolveQuery = async () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [{ id: "bbbbbbbbbbb", title: "첫 곡" }] });
+  fakeLookup.resolveQuery = async () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [youtube("bbbbbbbbbbb", { title: "첫 곡" })] });
   const msg = message(w, { content: "https://www.youtube.com/playlist?list=PLabcdefghij" });
 
   await messageHandler.execute(msg);
 
-  const offer = msg.channel.sent.at(-1);
-  assert.ok(offer.payload.components?.length > 0, "메뉴가 붙은 메시지");
+  const offer = msg.sent.at(-1);
+  assert.ok(offer && (offer.payload.components?.length ?? 0) > 0, "메뉴가 붙은 메시지");
   More.clearExpiry(offer.id);
 });
 
@@ -293,47 +312,52 @@ test("전용 채널: 재생목록이 더 남았으면 채널에 더 넣기 메�
 
 test("패널 올리기: 서버 메시지면 그 채널로 끝난 패널을 다시 올리라고 한다", async () => {
   const w = world();
-  await panelPin.execute({ guild: w.guild, client: w.client, channel: { id: "c9" } });
-  await panelPin.execute({ guild: null, client: w.client, channel: { id: "dm" } });
+  await panelPin.execute(fake<Incoming>({ guild: w.guild, client: w.client, channel: { id: "c9" } }));
+  await panelPin.execute(fake<Incoming>({ guild: null, client: w.client, channel: { id: "dm" } }));
   assert.deepEqual(w.seen, [{ repin: "c9" }]);
 });
 
 // ── 재생목록 더 넣기 ──────────────────────────────────────────────────
 
-const state = (extra = {}) => ({ kind: "ytp", listId: "PLabcdefghij", offset: 10, anchorId: "bbbbbbbbbbb", insertFirst: false, requesterId: USER, ...extra });
+const state = (extra: Partial<MoreState> = {}): MoreState => ({ kind: "ytp", listId: "PLabcdefghij", offset: 10, anchorId: "bbbbbbbbbbb", insertFirst: false, requesterId: USER, ...extra });
 
-function moreInteraction(w, { select = null, modalCount = null, customState = state(), userId = USER, touched = Date.now() } = {}) {
-  const log = [];
+type Entry = [string] | [string, string | undefined];
+type Menu = StringSelectMenuInteraction<"cached"> | ModalSubmitInteraction<"cached">;
+type Shown = { content?: string; embeds?: { data: { title?: string } }[] };
+
+// 메뉴 메시지 id 는 따로 돌려준다(모달 상호작용은 메시지가 없을 수 있다)
+function moreInteraction(w: World, { select = null, modalCount = null, customState = state(), customId = undefined, userId = USER, touched = Date.now() }: { select?: string | null; modalCount?: string | null; customState?: ReturnType<typeof state>; customId?: string; userId?: string; touched?: number } = {}) {
+  const log: Entry[] = [];
   const isSelect = select !== null;
-  const it = {
+  const messageId = `menu-${Math.random()}`;
+  const it = fakeWith<Menu>()({
     guild: w.guild,
     member: w.member,
     client: w.client,
     channel: channel("c1"),
     user: { id: userId },
-    customId: More.encodeState(isSelect ? More.SELECT_PREFIX : More.MODAL_PREFIX, customState),
+    customId: customId ?? More.encodeState(isSelect ? More.SELECT_PREFIX : More.MODAL_PREFIX, customState),
     values: isSelect ? [select] : [],
     fields: { getTextInputValue: () => modalCount },
-    message: { id: `menu-${Math.random()}`, createdTimestamp: touched, editedTimestamp: null },
+    message: { id: messageId, createdTimestamp: touched, editedTimestamp: null },
     isStringSelectMenu: () => isSelect,
     isModalSubmit: () => !isSelect,
     isFromMessage: () => true,
     inCachedGuild: () => true,
-    reply: async (p) => log.push(["reply", p.content]),
+    reply: async (p: Shown) => log.push(["reply", p.content]),
     deferUpdate: async () => log.push(["deferUpdate"]),
     deleteReply: async () => log.push(["deleteReply"]),
-    update: async (p) => log.push(["update", p.content]),
-    editReply: async (p) => log.push(["editReply", p.content ?? "(메뉴)"]),
-    showModal: async (m) => log.push(["showModal", m.data.custom_id]),
-  };
-  return { it, log };
+    update: async (p: Shown) => log.push(["update", p.content]),
+    editReply: async (p: Shown) => log.push(["editReply", p.content ?? "(메뉴)"]),
+    showModal: async (m: { data: { custom_id: string } }) => log.push(["showModal", m.data.custom_id]),
+  });
+  return { it, log, messageId };
 }
 
 test("더 넣기: 다른 상호작용 · 모르는 상태는 무시하거나 거절한다", async () => {
   const w = world();
-  await playlistMoreHandler.execute({ isStringSelectMenu: () => true, isModalSubmit: () => false, customId: "music_jumpto:x" });
-  const { it, log } = moreInteraction(w, { select: "10" });
-  it.customId = "plm:zzz:bad:1:x:b";
+  await playlistMoreHandler.execute(fake<Interaction>({ isStringSelectMenu: () => true, isModalSubmit: () => false, customId: "music_jumpto:x" }));
+  const { it, log } = moreInteraction(w, { select: "10", customId: "plm:zzz:bad:1:x:b" });
   await playlistMoreHandler.execute(it);
   assert.deepEqual(log, [["reply", S.withErrorMark("알 수 없는 메뉴예요.")]]);
 });
@@ -372,7 +396,7 @@ test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거�
   const custom = moreInteraction(w, { select: "custom" });
   await playlistMoreHandler.execute(custom.it);
   assert.equal(custom.log[0][0], "showModal");
-  assert.ok(custom.log[0][1].startsWith(`${More.MODAL_PREFIX}:`));
+  assert.ok(custom.log[0][1]?.startsWith(`${More.MODAL_PREFIX}:`));
 
   const bad = moreInteraction(w, { modalCount: "많이" });
   await playlistMoreHandler.execute(bad.it);
@@ -381,32 +405,32 @@ test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거�
 
 test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 바꾼 뒤 30초 뒤 지우게 한다", async () => {
   const w = world();
-  const asked = [];
+  const asked: { url: string; range?: Range }[] = [];
   fakeLookup.getCollection = async (url, range) => {
     asked.push({ url, range });
-    return { tracks: [{ id: "bbbbbbbbbbb" }, { id: "ccccccccccc", title: "다음" }, { id: "ddddddddddd", title: "다음2" }], total: 12, nextOffset: 12 };
+    return { tracks: [youtube("bbbbbbbbbbb"), youtube("ccccccccccc", { title: "다음" }), youtube("ddddddddddd", { title: "다음2" })], total: 12, nextOffset: 12 };
   };
-  const { it, log } = moreInteraction(w, { select: "2" });
+  const { it, log, messageId } = moreInteraction(w, { select: "2" });
   try {
     await playlistMoreHandler.execute(it);
   } finally {
-    More.clearExpiry(it.message.id);
+    More.clearExpiry(messageId);
   }
 
   assert.deepEqual(log[0], ["update", "⏳ 곡을 가져오는 중…"], "메뉴를 먼저 떼어 두 번 못 누르게 한다");
   assert.deepEqual(asked[0], { url: "https://www.youtube.com/playlist?list=PLabcdefghij", range: { offset: 5, limit: 7 } }, "앵커를 찾으려 다섯 곡(LOOKBACK) 앞부터, 그만큼 더");
   assert.deepEqual(
-    w.seen[0].trackData.tracks.map((t) => t.id),
+    w.handled[0].trackData.tracks.map((t) => t.id),
     ["ccccccccccc", "ddddddddddd"],
   );
-  assert.equal(log.at(-1)[0], "editReply");
+  assert.equal(log.at(-1)?.[0], "editReply");
 });
 
 // ── 모달 · 선택 메뉴 ──────────────────────────────────────────────────
 
-function menu(w, { customId, values = [], volume = null, select = true } = {}) {
-  const log = [];
-  const it = {
+function menu(w: World, { customId, values = [], volume = null, select = true }: { customId: string; values?: string[]; volume?: string | null; select?: boolean }) {
+  const log: Entry[] = [];
+  const it = fakeWith<Menu>()({
     guild: w.guild,
     member: w.member,
     client: w.client,
@@ -419,12 +443,12 @@ function menu(w, { customId, values = [], volume = null, select = true } = {}) {
     isModalSubmit: () => !select,
     isFromMessage: () => true,
     inCachedGuild: () => true,
-    reply: async (p) => {
+    reply: async (p: Shown) => {
       it.replied = true;
       log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title]);
     },
-    update: async (p) => log.push(["update", p.embeds?.[0]?.data?.title]),
-  };
+    update: async (p: Shown) => log.push(["update", p.embeds?.[0]?.data?.title]),
+  });
   return { it, log };
 }
 
@@ -452,7 +476,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으�
 
   const unknown = menu(world(), { customId: "autoplay_genre:x", values: ["없는장르"] });
   await modalHandler.execute(unknown.it);
-  assert.match(unknown.log[0][1], /알 수 없는 장르입니다: `없는장르`/);
+  assert.match(unknown.log[0][1] ?? "", /알 수 없는 장르입니다: `없는장르`/);
 
   await settings.setDjRoles("g1", ["dj"]);
   const denied = menu(world(), { customId: "autoplay_genre:x", values: ["가요"] });

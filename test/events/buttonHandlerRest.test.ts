@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 버튼 처리기의 나머지 갈래를 고정한다(구조 리팩터링 0-B). 조작 전제 조건은 controlEntrances.test.js 의 표가 본다.
 // 여기서는 검색 결과 버튼 · 도움말 · 시스템 새로고침 · 자동재생 버튼 · 대기열 버튼 · 옛 세션 · 모르는 버튼 · 조작이 실패했을 때를 본다.
 //
@@ -10,7 +9,13 @@ import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
+import type { ButtonInteraction } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { SearchRecord } from "../../commands/search.ts";
+import { fake, fakeWith } from "../helpers/fake.ts";
+import tracks from "../helpers/tracks.ts";
+const { youtube } = tracks;
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -35,59 +40,66 @@ beforeEach(() => {
 
 const USER = "111111111111111111";
 
-function world({ botVoice = "v1", userVoice = "v1", player = true, handle = async () => ({ success: true }) } = {}) {
-  const voice = (id) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
-  const guild = { id: "g1", members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map() } };
-  const member = { id: USER, user: { id: USER }, displayName: "사용자", guild, voice: { channel: voice(userVoice) }, permissions: { has: () => false }, roles: { cache: { has: () => false } }, toString: () => `<@${USER}>` };
-  const seen = [];
+type Seen = string | { handle: string[] };
+type FakeTrack = { title: string; url?: string; pageUrl?: string; thumbnail?: string; duration?: number };
+type World = ReturnType<typeof world>;
+
+function world({ botVoice = "v1", userVoice = "v1", player = true, handle = async (): Promise<object> => ({ success: true }) }: { botVoice?: string | null; userVoice?: string | null; player?: boolean; handle?: (trackData: object) => Promise<object> } = {}) {
+  const voice = (id: string | null) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
+  const seen: Seen[] = [];
   const client = {
-    players: new Map(),
-    guilds: { cache: Object.assign(new Map(), { reduce: (fn, init) => init }) },
+    players: new Map<string, MusicPlayer>(),
+    guilds: { cache: Object.assign(new Map(), { reduce: (_fn: unknown, init: number) => init }) },
     user: { id: "bot", username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
-    searchResults: new Map(),
+    searchResults: new Map<string, SearchRecord>(),
     musicEmbedManager: {
-      handleMusicData: async (guildId, trackData) => {
+      handleMusicData: async (_guildId: string, trackData: { tracks: FakeTrack[] }) => {
         seen.push({ handle: trackData.tracks.map((t) => t.title) });
         return handle(trackData);
       },
       updateNowPlayingEmbed: async () => seen.push("update"),
     },
   };
-  guild.client = client;
+  const guild = { id: "g1", client, members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map() } };
+  const member = { id: USER, user: { id: USER }, displayName: "사용자", guild, voice: { channel: voice(userVoice) }, permissions: { has: () => false }, roles: { cache: { has: () => false } }, toString: () => `<@${USER}>` };
   const p = {
     sessionId: "S1",
-    queue: [],
-    previousTracks: [],
-    currentTrack: null,
-    autoplay: false,
+    queue: [] as FakeTrack[],
+    previousTracks: [] as FakeTrack[],
+    currentTrack: null as FakeTrack | null,
+    autoplay: false as string | false,
     paused: false,
-    loop: false,
+    loop: false as string | false,
     releaseLoopForLive() {},
     getQueue() {
-      return { current: this.currentTrack, queue: this.queue };
+      return { current: p.currentTrack, queue: p.queue };
     },
-    setAutoplay(v) {
+    setAutoplay(v: string | false) {
       seen.push(`autoplay:${v}`);
-      this.autoplay = v;
+      p.autoplay = v;
     },
     pause: () => false,
     resume: () => false,
     skip: () => false,
     previous: () => false,
     hasLiveTrack: () => false,
-    setLoop(m) {
-      this.loop = m;
+    setLoop(m: string) {
+      p.loop = m;
     },
   };
-  if (player) client.players.set("g1", p);
+  const registered = fake<MusicPlayer>(p);
+  if (player) client.players.set("g1", registered);
   // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
-  playerEvents.on("refresh", async (x) => x === p && seen.push("update"));
+  playerEvents.on("refresh", async (x) => x === registered && seen.push("update"));
   return { guild, member, client, seen, player: p };
 }
 
-function press(w, customId, extra = {}) {
-  const log = [];
-  const it = {
+type Payload = { content?: string; embeds?: { data: { title?: string; description?: string } }[] };
+type Entry = [string] | [string, unknown];
+
+function press(w: World, customId: string, extra: object = {}) {
+  const log: Entry[] = [];
+  const it = fakeWith<ButtonInteraction>()({
     customId,
     guild: w.guild,
     member: w.member,
@@ -99,20 +111,20 @@ function press(w, customId, extra = {}) {
     deferred: false,
     isButton: () => true,
     inCachedGuild: () => true,
-    reply: async (p) => {
+    reply: async (p: Payload) => {
       it.replied = true;
       log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title ?? "(메뉴)"]);
     },
-    update: async (p) => log.push(["update", p.embeds[0].data.title]),
+    update: async (p: Payload) => log.push(["update", p.embeds?.[0]?.data.title]),
     deferUpdate: async () => {
       it.deferred = true;
       log.push(["deferUpdate"]);
     },
-    editReply: async (p) => log.push(["editReply", p.content ?? p.embeds?.[0]?.data?.title ?? p.embeds?.[0]?.data?.description]),
-    followUp: async (p) => log.push(["followUp", p.content]),
+    editReply: async (p: Payload) => log.push(["editReply", p.content ?? p.embeds?.[0]?.data?.title ?? p.embeds?.[0]?.data?.description]),
+    followUp: async (p: Payload) => log.push(["followUp", p.content]),
     deleteReply: async () => log.push(["deleteReply"]),
     ...extra,
-  };
+  });
   return { it, log };
 }
 
@@ -195,10 +207,16 @@ test("대기열 버튼: 비었으면 알리고, 있으면 앞 10곡과 나머지
 
   w.player.currentTrack = { title: "지금", pageUrl: "now" };
   w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
-  const full = press(w, "music_queue:u:S1");
-  let payload;
-  full.it.reply = async (p) => (payload = p);
+  type QueueEmbed = { data: { fields: { name: string; value: string }[]; footer: { text: string } } };
+  const got: { payload?: { embeds: QueueEmbed[] } } = {};
+  const full = press(w, "music_queue:u:S1", {
+    reply: async (p: { embeds: QueueEmbed[] }) => {
+      got.payload = p;
+    },
+  });
   await buttonHandler.execute(full.it);
+  const payload = got.payload;
+  assert.ok(payload);
   const fields = Object.fromEntries(payload.embeds[0].data.fields.map((f) => [f.name, f.value]));
   assert.equal(fields["🎵 현재 재생 중"], "**[지금](now)**");
   assert.match(fields["📋 다음 노래들 (12개)"], /\*\.\.\. 그리고 2개 더\*$/);
@@ -265,7 +283,7 @@ test("시스템 새로고침: 봇 운영자만", async () => {
 
 // ── 검색 결과 버튼 ────────────────────────────────────────────────────
 
-function withResults(w, { userId = USER, results = [{ title: "결과 1", url: "https://youtu.be/aaaaaaaaaaa" }] } = {}) {
+function withResults(w: World, { userId = USER, results = [youtube("aaaaaaaaaaa", { title: "결과 1" })] } = {}) {
   w.client.searchResults.set("search-msg", { userId, query: "q", results, timestamp: Date.now() });
 }
 

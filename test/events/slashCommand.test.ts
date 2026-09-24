@@ -1,27 +1,33 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // events/slashCommand.js — 슬래시 명령을 찾아 부르고, 실패하면 본인에게만 보이게 알린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Events } from "discord.js";
+import { Events, type ChatInputCommandInteraction } from "discord.js";
 import slashCommand from "../../events/slashCommand.ts";
+import type { SlashCommand } from "../../src/app/commandLoader.ts";
+import { fake, fakeWith } from "../helpers/fake.ts";
 
-function interaction({ name = "play", chat = true, commands = {}, replied = false, guild = true } = {}) {
-  const sent = [];
-  const it = {
+type Sent = [string, unknown];
+
+function interaction({ name = "play", chat = true, commands = {} as Record<string, object>, replied = false, guild = true, replyFails = false } = {}) {
+  const sent: Sent[] = [];
+  const it = fakeWith<ChatInputCommandInteraction>()({
     commandName: name,
     replied,
     deferred: false,
     isChatInputCommand: () => chat,
     inCachedGuild: () => guild,
-    reply: async (p) => sent.push(["reply", p]),
-    followUp: async (p) => sent.push(["followUp", p]),
-    client: { commands: new Map(Object.entries(commands)) },
-  };
+    reply: async (p: unknown) => {
+      if (replyFails) throw new Error("권한 없음");
+      sent.push(["reply", p]);
+    },
+    followUp: async (p: unknown) => sent.push(["followUp", p]),
+    client: { commands: new Map(Object.entries(commands).map(([k, c]) => [k, fake<SlashCommand>(c)])) },
+  });
   return { it, sent };
 }
 
-const failing = (error) => ({
+const failing = (error: Error) => ({
   execute: async () => {
     throw error;
   },
@@ -44,14 +50,14 @@ test("등록되지 않은 명령은 답하지 않는다", async () => {
 });
 
 test("명령을 상호작용과 클라이언트로 부른다", async () => {
-  const seen = [];
-  const { it } = interaction({ commands: { play: { execute: async (i, c) => seen.push([i, c]) } } });
+  const seen: unknown[] = [];
+  const { it } = interaction({ commands: { play: { execute: async (i: unknown, c: unknown) => seen.push([i, c]) } } });
   await slashCommand.execute(it);
   assert.deepEqual(seen, [[it, it.client]]);
 });
 
 test("서버 밖(DM)에서는 서버 명령을 부르지 않고 그렇다고 알린다", async () => {
-  const seen = [];
+  const seen: string[] = [];
   const { it, sent } = interaction({ guild: false, commands: { play: { execute: async () => seen.push("ran") } } });
   await slashCommand.execute(it);
   assert.deepEqual(seen, []);
@@ -59,7 +65,7 @@ test("서버 밖(DM)에서는 서버 명령을 부르지 않고 그렇다고 알
 });
 
 test("DM 에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", async () => {
-  const seen = [];
+  const seen: string[] = [];
   const { it, sent } = interaction({ name: "ping", guild: false, commands: { ping: { anywhere: true, execute: async () => seen.push("ran") } } });
   await slashCommand.execute(it);
   assert.deepEqual(seen, ["ran"]);
@@ -83,9 +89,6 @@ test("상호작용이 이미 죽었으면 알리려 하지 않는다", async () 
 });
 
 test("알리기가 실패해도 던지지 않는다", async () => {
-  const { it } = interaction({ commands: { play: failing(new Error("x")) } });
-  it.reply = async () => {
-    throw new Error("권한 없음");
-  };
+  const { it } = interaction({ commands: { play: failing(new Error("x")) }, replyFails: true });
   await slashCommand.execute(it);
 });
