@@ -1,0 +1,23 @@
+# 커버리지는 참고용이다. 수치로 PR 이나 CI 를 막지 않는다.
+# 기준에 매이면 숫자만 올리는 시험이 생긴다. 어디가 얇은지 보는 데 쓴다.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        target: 70%
+        informational: true
+
+# PR 댓글은 바뀐 줄(patch) 위주로 짧게
+comment:
+  layout: "condensed_header, condensed_files"
+  hide_project_coverage: true
+  require_changes: false
+
+# 집계는 봇 코드만 올린다(package.json 의 test:coverage). 혹시 섞여 와도 이것들은 뺀다
+ignore:
+  - "test/**"
+  - "scripts/**"
+  - "dashboard/client/**"
