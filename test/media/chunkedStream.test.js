@@ -5,8 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Writable } from "stream";
-import chunkedStream from "../../src/media/chunkedStream.ts";
-const { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } = chunkedStream;
+import { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } from "../../src/media/chunkedStream.ts";
 
 const URL_ = "https://x/y";
 const FAST = { retryDelaysMs: [0, 0, 0] };

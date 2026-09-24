@@ -8,12 +8,9 @@ import fs from "fs";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import audioSplicer from "./audioSplicer.ts";
-const { AudioSplicer } = audioSplicer;
-import chunkedStream from "./chunkedStream.ts";
-const { contentLengthFromUrl, describeStreamError } = chunkedStream;
-import args from "./ffmpeg/args.ts";
-const { buildFfmpegArgs } = args;
+import { AudioSplicer } from "./audioSplicer.ts";
+import { contentLengthFromUrl, describeStreamError } from "./chunkedStream.ts";
+import { buildFfmpegArgs } from "./ffmpeg/args.ts";
 import type { Capabilities } from "./ffmpeg/path.ts";
 import type { ChunkedOptions } from "./chunkedStream.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
@@ -234,6 +231,4 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
   return resourceOf(o, playSource, streamInfo.duration || o.meta.duration);
 }
 
-const exported = { openInput };
-export default exported;
-export { exported as "module.exports" };
+export { openInput };

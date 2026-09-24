@@ -1,7 +1,6 @@
 // 재생용 ffmpeg 인자.
 
-import path from "./path.ts";
-const { capabilities } = path;
+import { capabilities } from "./path.ts";
 
 // HLS 세그먼트 하나가 실패하면 기본값(0)으로는 재시도 없이 스트림이 죽는다.
 const SEG_MAX_RETRY = 5;
@@ -39,6 +38,4 @@ function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps
   return file ? [...seek, "-i", file, "-analyzeduration", "0", "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
 }
 
-const exported = { buildFfmpegArgs };
-export default exported;
-export { exported as "module.exports" };
+export { buildFfmpegArgs };

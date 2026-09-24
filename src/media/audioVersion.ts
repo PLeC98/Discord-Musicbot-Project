@@ -43,6 +43,4 @@ function fromHeaders(headers: ResponseHeaders | null | undefined): string | null
   return parts.length ? parts.map(([k, v]) => `${k}=${v}`).join(";") : null;
 }
 
-const exported = { fromYtDlpInfo, fromHeaders };
-export default exported;
-export { exported as "module.exports" };
+export { fromYtDlpInfo, fromHeaders };

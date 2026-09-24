@@ -8,7 +8,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import TrackDownloader from "../../src/media/cacheDownload.ts";
+import { TrackDownloader } from "../../src/media/cacheDownload.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;

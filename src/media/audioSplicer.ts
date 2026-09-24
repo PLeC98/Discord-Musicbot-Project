@@ -273,6 +273,4 @@ class AudioSplicer extends Readable {
   }
 }
 
-const exported = { AudioSplicer, BYTES_PER_MS, FRAME_BYTES };
-export default exported;
-export { exported as "module.exports" };
+export { AudioSplicer, BYTES_PER_MS, FRAME_BYTES };

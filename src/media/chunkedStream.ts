@@ -320,7 +320,5 @@ function describeStreamError(err: unknown): string {
   return parts.join(" ← ");
 }
 
-const exported = { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError };
-export default exported;
+export { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError };
 export type { ChunkedOptions, ChunkedStream, RangeFetch, StreamStats };
-export { exported as "module.exports" };

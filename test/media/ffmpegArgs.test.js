@@ -10,13 +10,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import argsModule from "../../src/media/ffmpeg/args.ts";
+import { buildFfmpegArgs } from "../../src/media/ffmpeg/args.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
-
-const { buildFfmpegArgs } = argsModule;
 
 const build = (opts) => buildFfmpegArgs(opts);
 

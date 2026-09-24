@@ -6,8 +6,8 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import fsSync from "fs";
 import { pipeline } from "stream/promises";
-import audioConvert from "./convert.ts";
-import versionOf from "./audioVersion.ts";
+import * as audioConvert from "./convert.ts";
+import * as versionOf from "./audioVersion.ts";
 import { readInfo } from "../sources/ytdlpInfo.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
@@ -398,6 +398,5 @@ class TrackDownloader {
   static _internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };
 }
 
-export default TrackDownloader;
+export { TrackDownloader };
 export type { Sources };
-export { TrackDownloader as "module.exports" };

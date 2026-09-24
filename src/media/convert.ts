@@ -1,5 +1,4 @@
-import process from "./ffmpeg/process.ts";
-const { spawnFfmpeg, probeAudio } = process;
+import { spawnFfmpeg, probeAudio } from "./ffmpeg/process.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS, type ConvertPlan } from "../rules/convertPlan.ts";
@@ -48,15 +47,6 @@ function run(args: string[]): Promise<void> {
   });
 }
 
-const exported = {
-  toCacheOpus,
-  planFor,
-  ytdlpPostprocessorArgs,
-  REMUX_MAX_KBPS,
-  REMUX_SLACK,
-  TRANSCODE_TARGET_KBPS,
-  _internals: { argsFor },
-};
-export default exported;
+export { toCacheOpus, planFor, ytdlpPostprocessorArgs, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
+export const _internals = { argsFor };
 export type { Converted };
-export { exported as "module.exports" };

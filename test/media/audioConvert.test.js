@@ -13,7 +13,7 @@ import fs from "node:fs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
-import audioConvert from "../../src/media/convert.ts";
+import * as audioConvert from "../../src/media/convert.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
@@ -21,7 +21,7 @@ const require = createRequire(import.meta.url);
 
 const { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } = audioConvert;
 const { argsFor } = audioConvert._internals;
-const { probeAudio, _internals: ffmpegInternals } = (await import("../../src/media/ffmpeg/process.ts")).default;
+const { probeAudio, _internals: ffmpegInternals } = await import("../../src/media/ffmpeg/process.ts");
 const { parseProbeOutput } = ffmpegInternals;
 
 const idx = (args, flag) => args.indexOf(flag);
@@ -211,7 +211,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
 test("음원을 빌려 오는 것은 음원 주소가 없는 곡(스포티파이)뿐이다. 사운드클라우드는 제 음원을 준다", () => {
   // 상류가 둘을 DRM 으로 묶어 둬서 `sc:` 키 안에 유튜브 음원이 들어갔다. 같은 곡이 처음 틀 때와
   // 캐시로 틀 때 서로 다른 녹음이 됐고, 유튜브 검색이 헛짚으면 그 키에 다른 곡이 박힌 채 남았다.
-  const { needsBorrowedAudio } = require("../../src/media/cacheDownload.ts")._internals;
+  const { needsBorrowedAudio } = require("../../src/media/cacheDownload.ts").TrackDownloader._internals;
 
   assert.equal(needsBorrowedAudio({ platform: "spotify" }), true);
   assert.equal(needsBorrowedAudio({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }), false, "SC-4");

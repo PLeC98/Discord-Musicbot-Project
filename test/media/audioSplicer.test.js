@@ -7,8 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "stream";
-import audioSplicer from "../../src/media/audioSplicer.ts";
-const { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } = audioSplicer;
+import { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } from "../../src/media/audioSplicer.ts";
 
 // 위치마다 값이 다른 PCM — 어긋나면 바로 드러난다. mark로 소스를 구분한다.
 function pcm(ms, mark) {

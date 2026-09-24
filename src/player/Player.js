@@ -22,10 +22,8 @@ import SponsorSkipper from "./sponsorSkipper.js";
 import * as DirectLink from "../sources/direct.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as SponsorBlock from "../sources/sponsorBlock.ts";
-import chunkedStream from "../media/chunkedStream.ts";
-const { openChunkedStream } = chunkedStream;
-import playbackInput from "../media/playbackInput.ts";
-const { openInput } = playbackInput;
+import { openChunkedStream } from "../media/chunkedStream.ts";
+import { openInput } from "../media/playbackInput.ts";
 import voiceChannelStatus from "./voiceChannelStatus.js";
 import * as audioCache from "../store/audioCache.ts";
 import VoiceConnectionManager from "./voiceConnection.js";
@@ -36,20 +34,17 @@ import CurrentPlayback from "./currentPlayback.js";
 import playerEvents from "./events.js";
 import startPlayback from "./startPlayback.js";
 const { prepareStart, resolveSource, commitPlaying } = startPlayback;
-import TrackDownloader from "../media/cacheDownload.ts";
+import { TrackDownloader } from "../media/cacheDownload.ts";
 import createPlayerSessionId from "./playerSessionId.js";
 import SessionPersistence from "./sessionMirror.js";
 import QueueWarmer from "./queueWarmer.js";
 import trackState from "./trackState.js";
-import process from "../media/ffmpeg/process.ts";
-const { spawnFfmpeg } = process;
+import { spawnFfmpeg } from "../media/ffmpeg/process.ts";
 import { transportOf } from "../rules/transportOf.ts";
-import args from "../media/ffmpeg/args.ts";
-const { buildFfmpegArgs } = args;
+import { buildFfmpegArgs } from "../media/ffmpeg/args.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
-import path from "../media/ffmpeg/path.ts";
-const { capabilities: ffmpegCapabilities } = path;
+import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 
 // 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.

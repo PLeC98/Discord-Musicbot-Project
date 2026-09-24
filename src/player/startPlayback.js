@@ -6,7 +6,7 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import TrackDownloader from "../media/cacheDownload.ts";
+import { TrackDownloader } from "../media/cacheDownload.ts";
 import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import trackState from "./trackState.js";

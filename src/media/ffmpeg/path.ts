@@ -134,7 +134,6 @@ function _reset() {
   caps = null;
 }
 
-const exported = { ffmpegPath, resolve, capabilities, logResolved, _internals: { probe, fromBundle, _reset } };
-export default exported;
+export { ffmpegPath, resolve, capabilities, logResolved };
+export const _internals = { probe, fromBundle, _reset };
 export type { Capabilities, Resolved };
-export { exported as "module.exports" };

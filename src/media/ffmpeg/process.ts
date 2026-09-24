@@ -1,6 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
-import path from "./path.ts";
-const { ffmpegPath } = path;
+import { ffmpegPath } from "./path.ts";
 import * as procRegistry from "../../infra/processRegistry.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "ffmpeg" });
@@ -152,7 +151,6 @@ async function probeDurationSec(file: string): Promise<number | null> {
   return (await probeAudio(file)).durationSec;
 }
 
-const exported = { spawnFfmpeg, probeAudio, probeDurationSec, _internals: { CRASH_SIGNALS, parseProbeOutput } };
-export default exported;
+export { spawnFfmpeg, probeAudio, probeDurationSec };
+export const _internals = { CRASH_SIGNALS, parseProbeOutput };
 export type { ProbeInfo };
-export { exported as "module.exports" };

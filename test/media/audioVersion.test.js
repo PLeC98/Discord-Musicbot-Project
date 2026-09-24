@@ -2,8 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import audioVersion from "../../src/media/audioVersion.ts";
-const { fromYtDlpInfo, fromHeaders } = audioVersion;
+import { fromYtDlpInfo, fromHeaders } from "../../src/media/audioVersion.ts";
 
 test("yt-dlp info: 유튜브는 포맷 주소의 lmt, 사운드클라우드는 경로 첫 칸이나 수정 시각", () => {
   const cases = [
