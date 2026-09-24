@@ -1,9 +1,9 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import config from "../../config.ts";
 import logger from "../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
-import express from "express";
+import express, { type NextFunction, type Request, type RequestHandler, type Response } from "express";
+import type { Client } from "discord.js";
 import session from "express-session";
 import cors from "cors";
 import path from "path";
@@ -32,6 +32,10 @@ const { createAuthRouter } = auth;
 import adminRoutes from "./routes/admin.ts";
 import guilds from "./routes/guilds.ts";
 const { createGuildsRouter } = guilds;
+import type { PlayerStream } from "./playerStream.ts";
+
+/** 조립이 넘기는 것. sessionMiddleware 는 시험이 바꿔 넘긴다 */
+type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; sessionMiddleware?: RequestHandler };
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
 // 보안은 유지되지만(추측 불가) 재시작마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
@@ -48,11 +52,11 @@ function resolveSessionSecret() {
 
 // 평문 접속 감지. 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
 // 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 그물.
-function plaintextAccessWarner(host) {
-  if (isLoopbackHost(host)) return (req, res, next) => next();
+function plaintextAccessWarner(host: string): RequestHandler {
+  if (isLoopbackHost(host)) return (_req, _res, next) => next();
 
   let warned = false;
-  return (req, res, next) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     if (!warned && !req.secure) {
       warned = true;
       log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
@@ -84,7 +88,7 @@ function createSessionMiddleware() {
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 띄워 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
 // deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼). 조립이 넘긴다
-function createApp(client, { stream, deployCommands, sessionMiddleware = createSessionMiddleware() }) {
+function createApp(client: Client, { stream, deployCommands, sessionMiddleware = createSessionMiddleware() }: AppDeps) {
   const app = express();
   const { host, url } = config.dashboard;
 
@@ -123,7 +127,7 @@ function createApp(client, { stream, deployCommands, sessionMiddleware = createS
 
   // ── API 요청 제한 (express-rate-limit). 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
-  const apiKey = (req) => req.session?.user?.id || ipKeyGenerator(req.ip);
+  const apiKey = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
 
   // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE(장수명 연결) 경로는 제외.
   app.use(
@@ -186,7 +190,7 @@ function createApp(client, { stream, deployCommands, sessionMiddleware = createS
   return app;
 }
 
-function startDashboard(client, { stream, deployCommands }) {
+function startDashboard(client: Client, { stream, deployCommands }: AppDeps) {
   const app = createApp(client, { stream, deployCommands });
 
   const { port, host, url } = config.dashboard;

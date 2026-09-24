@@ -1,4 +1,4 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
+import type { Request } from "express";
 import config from "../../config.ts";
 import viewAs from "./viewAs.ts";
 const { getViewAs } = viewAs;
@@ -12,16 +12,16 @@ const { getViewAs } = viewAs;
  *
  * `OWNER_ID` 미설정이면 아무도 운영자가 아니다. 양쪽이 `undefined`로 일치하는 일이 없게.
  */
-function isRealOwner(req) {
+function isRealOwner<P>(req: Request<P>) {
   const ownerId = config.dashboard.ownerId;
-  return !!ownerId && req?.session?.user?.id === ownerId;
+  return !!ownerId && req.session?.user?.id === ownerId;
 }
 
 /**
  * 권한 판정용 운영자 여부. 권한 수준 오버라이드(viewAs)가 걸려 있으면 그 계층을 따른다.
  * 오버라이드를 켜고 끄는 경로 자체는 isRealOwner를 써야 한다. 아니면 스스로를 잠근다.
  */
-function isOwner(req) {
+function isOwner<P>(req: Request<P>) {
   if (!isRealOwner(req)) return false;
   const tier = getViewAs(req);
   return !tier || tier === "owner";

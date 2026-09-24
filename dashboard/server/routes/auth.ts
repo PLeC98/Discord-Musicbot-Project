@@ -1,18 +1,21 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import express from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import axios from "axios";
+import axios, { type AxiosInstance } from "axios";
 import crypto from "crypto";
 import config from "../../../config.ts";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
+// 요청 실패에서 읽는 칸. 응답이 있으면 상태와 본문, 없으면(타임아웃 등) 코드나 문장
+type Failure = { response?: { status?: number; data?: unknown }; code?: string; message?: string };
+const failureOf = (error: unknown): Failure => (typeof error === "object" && error !== null ? error : {});
+
 /**
  * 디스코드 OAuth 로그인 · 로그아웃.
  * http: 디스코드를 부르는 HTTP 클라이언트(axios 모양). 생략하면 진짜
  */
-function createAuthRouter({ http = axios.create({ timeout: 10000 }) } = {}) {
+function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: Pick<AxiosInstance, "get" | "post"> } = {}) {
   // 응답 없는 요청이 로그인 콜백을 붙잡지 않도록 제한 시간을 둔 클라이언트로 부른다.
   const router = express.Router();
   const CLIENT_ID = config.discord.clientId;
@@ -44,7 +47,7 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) } = {}) {
   // OAuth2 콜백
   router.get("/callback", async (req, res) => {
     const { code, state } = req.query;
-    if (!code) return res.redirect("/?error=no_code");
+    if (typeof code !== "string" || !code) return res.redirect("/?error=no_code");
 
     // 로그인 CSRF 를 막으려고 state 를 맞춰 본다(RFC 6749)
     const expectedState = req.session.oauthState;
@@ -95,9 +98,9 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) } = {}) {
         req.session.save(() => res.redirect("/dashboard"));
       });
     } catch (error) {
-      const discordErr = error.response?.data;
-      const what = error.response ? `상태 코드 ${error.response.status}` : error.code || error.message; // 응답 없는 실패(타임아웃 등)도 읽히게
-      log.error({ status: error.response?.status, body: JSON.stringify(discordErr), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: ${what}`);
+      const { response, code, message } = failureOf(error);
+      const what = response ? `상태 코드 ${response.status}` : code || message; // 응답 없는 실패(타임아웃 등)도 읽히게
+      log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: ${what}`);
       res.redirect("/?error=auth_failed");
     }
   });

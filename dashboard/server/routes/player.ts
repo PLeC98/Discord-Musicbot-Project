@@ -1,16 +1,18 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생. 상태 읽기 · 음성 참가 · 재생 조작(usecases/controls) · 곡 추가(usecases/addTracks)
 
-import express from "express";
+import express, { type Request, type Response, type Router } from "express";
+import type { Guild, VoiceBasedChannel } from "discord.js";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
-import requireAuth from "../middleware/requireAuth.ts";
+import requireAuth, { signedIn } from "../middleware/requireAuth.ts";
 import requireControl from "../middleware/requireControl.ts";
 const { resolveMember, toApiError } = requireControl;
 import { checkControl, checkAdd, isModerator } from "../../../src/usecases/permissions.ts";
 import * as controls from "../../../src/usecases/controls.ts";
-import { controlApiError } from "../../../src/ui/controlMessages.ts";
+import { controlApiError, type Refusal } from "../../../src/ui/controlMessages.ts";
+import type { More } from "../../../src/usecases/playlistMore.ts";
+import { messageOf } from "../../../src/rules/errorKind.ts";
 import { requestPlayback, continueCollection, ensurePlayer } from "../../../src/usecases/addTracks.ts";
 import { validState, LIFETIME_MS } from "../../../src/usecases/playlistMore.ts";
 import config from "../../../config.ts";
@@ -28,22 +30,26 @@ const { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } = requestSchemas
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
 
-const actorOf = (req, member) => (isOwner(req) ? { owner: true } : { member });
-
-function refuse(res, result) {
+function refuse(res: Response, result: Refusal) {
   const { status, error } = controlApiError(result);
   return res.status(status).json({ error });
 }
 
 // 반복 모드  { mode: 'off' | 'track' | 'queue' }
-const LOOP_MODE = new Map([
+const LOOP_MODE = new Map<string, false | "track" | "queue">([
   ["off", false],
   ["track", "track"],
   ["queue", "queue"],
 ]);
 
 // 이어 넣기 상태를 화면에. 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
-const moreView = (more) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS } : null);
+const moreView = (more: More | null | undefined) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS } : null);
+
+// 대시보드에서 곡을 넣은 사람. 화면에 보이는 이름으로
+function requesterOf<P>(req: Request<P>) {
+  const user = signedIn(req);
+  return { id: user.id, username: user.globalName || user.username };
+}
 
 function createPlayerRouter() {
   const router = express.Router();
@@ -55,14 +61,15 @@ function createPlayerRouter() {
 }
 
 // 상태 읽기
-function readRoutes(router) {
+function readRoutes(router: Router) {
   // Player state
   router.get("/:guildId/player", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member } = ctx;
 
-    const voice = voiceFlags(guild, req.session.user.id);
+    const userId = signedIn(req).id;
+    const voice = voiceFlags(guild, userId);
 
     // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member는 getPlayer가 실멤버십으로 확보.
     let controllable = isOwner(req);
@@ -77,7 +84,7 @@ function readRoutes(router) {
 
     // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
     // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
-    res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId: req.session.user.id });
+    res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId });
   });
 
   // 대기열 더 보기. 화면이 바닥에 닿았을 때 다음 구간만 받아 간다.
@@ -94,8 +101,15 @@ function readRoutes(router) {
   });
 }
 
+// 봇이 그 음성 채널에 들어가 말할 수 있는가
+function botCanJoin(guild: Guild, channel: VoiceBasedChannel) {
+  const me = guild.members.me;
+  const permissions = me && channel.permissionsFor(me);
+  return Boolean(permissions?.has("Connect") && permissions.has("Speak"));
+}
+
 // 음성 참가
-function joinRoute(router) {
+function joinRoute(router: Router) {
   // Join user's voice channel
   router.post("/:guildId/player/join", requireAuth, async (req, res) => {
     const { guildId } = req.params;
@@ -106,18 +120,18 @@ function joinRoute(router) {
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return res.status(404).json({ error: "서버를 찾을 수 없습니다" });
 
+    const userId = signedIn(req).id;
     let member;
     try {
-      member = shadowMember(req, await guild.members.fetch(req.session.user.id));
-    } catch (e) {
+      member = shadowMember(req, await guild.members.fetch(userId));
+    } catch {
       return res.status(400).json({ error: "서버에서 사용자를 찾을 수 없습니다" });
     }
 
     const voiceChannel = member.voice.channel;
     if (!voiceChannel) return res.status(400).json({ error: "음성 채널에 참가해 있지 않습니다" });
 
-    const permissions = voiceChannel.permissionsFor(guild.members.me);
-    if (!permissions.has("Connect") || !permissions.has("Speak")) {
+    if (!botCanJoin(guild, voiceChannel)) {
       return res.status(403).json({ error: "봇이 해당 채널에 접속할 권한이 없습니다" });
     }
 
@@ -133,9 +147,9 @@ function joinRoute(router) {
 
     try {
       await player.connect();
-    } catch (e) {
+    } catch {
       player.releaseResources();
-      player.disconnect();
+      player.disconnect("접속 실패");
       client.players.delete(guildId);
       return res.status(500).json({ error: "음성 채널 접속에 실패했습니다" });
     }
@@ -147,17 +161,17 @@ function joinRoute(router) {
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = isOwner(req) || !(await checkControl(member));
     const addable = isOwner(req) || !checkAdd(member);
-    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, req.session.user.id), hasPlayer: true, canControl: controllable, canAdd: addable, userId: req.session.user.id });
+    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, userId), hasPlayer: true, canControl: controllable, canAdd: addable, userId });
   });
 }
 
 // 재생 조작
-function controlRoutes(router) {
+function controlRoutes(router: Router) {
   // Toggle pause / resume
   router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.pause(ctx.player, actorOf(req, ctx.member));
+    const r = await controls.pause(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     res.json(playerState(ctx.player, queueWindow(req)));
   });
@@ -166,7 +180,7 @@ function controlRoutes(router) {
   router.post("/:guildId/player/previous", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.previous(ctx.player, actorOf(req, ctx.member));
+    const r = await controls.previous(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     res.json({ ok: true });
   });
@@ -175,7 +189,7 @@ function controlRoutes(router) {
   router.post("/:guildId/player/skip", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.skip(ctx.player, actorOf(req, ctx.member));
+    const r = await controls.skip(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     res.json({ ok: true });
   });
@@ -184,7 +198,7 @@ function controlRoutes(router) {
   router.post("/:guildId/player/stop", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.stop(ctx.player, actorOf(req, ctx.member), ctx.client.players);
+    const r = await controls.stop(ctx.player, ctx.actor, ctx.client.players);
     if (!r.ok) return refuse(res, r);
     res.json({ ok: true });
   });
@@ -202,11 +216,11 @@ function controlRoutes(router) {
     const clampedSec = durationSec > 0 ? Math.min(positionSec, durationSec - 1) : positionSec;
 
     try {
-      const r = await controls.seek(ctx.player, actorOf(req, ctx.member), Math.floor(clampedSec * 1000), { reason: "dashboard" });
+      const r = await controls.seek(ctx.player, ctx.actor, Math.floor(clampedSec * 1000), { reason: "dashboard" });
       if (!r.ok) return refuse(res, r);
       res.json({ ok: true, position: clampedSec });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: messageOf(e) });
     }
   });
 
@@ -216,13 +230,13 @@ function controlRoutes(router) {
     limit: config.dashboard.rateLimit.apiMax,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip),
+    keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip ?? ""),
     message: { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
   });
-  router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req, res) => {
+  router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.volume(ctx.player, actorOf(req, ctx.member), toInt(req.body.volume));
+    const r = await controls.volume(ctx.player, ctx.actor, toInt(req.body.volume));
     if (!r.ok) return refuse(res, r);
     res.json(playerState(ctx.player, queueWindow(req)));
   });
@@ -231,7 +245,7 @@ function controlRoutes(router) {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
     // 모르는 값은 undefined 로 넘겨 bad-loop-mode 로 거절받는다
-    const r = await controls.loop(ctx.player, actorOf(req, ctx.member), LOOP_MODE.get(req.body.mode));
+    const r = await controls.loop(ctx.player, ctx.actor, LOOP_MODE.get(req.body.mode));
     if (!r.ok) return refuse(res, r);
     res.json(playerState(ctx.player, queueWindow(req)));
   });
@@ -240,7 +254,7 @@ function controlRoutes(router) {
   router.post("/:guildId/player/shuffle", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.shuffle(ctx.player, actorOf(req, ctx.member));
+    const r = await controls.shuffle(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     res.json(playerState(ctx.player, queueWindow(req)));
   });
@@ -249,7 +263,7 @@ function controlRoutes(router) {
   router.delete("/:guildId/player/queue/:index", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.remove(ctx.player, actorOf(req, ctx.member), toInt(req.params.index));
+    const r = await controls.remove(ctx.player, ctx.actor, toInt(req.params.index));
     if (!r.ok) return refuse(res, r);
     res.json(playerState(ctx.player, queueWindow(req)));
   });
@@ -258,26 +272,26 @@ function controlRoutes(router) {
   router.post("/:guildId/player/queue/move", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.move(ctx.player, actorOf(req, ctx.member), toInt(req.body.from), toInt(req.body.to));
+    const r = await controls.move(ctx.player, ctx.actor, toInt(req.body.from), toInt(req.body.to));
     if (!r.ok) return refuse(res, r);
     res.json(playerState(ctx.player, queueWindow(req)));
   });
 }
 
 // 곡 추가
-function addRoutes(router) {
+function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
   const queueLimiter = rateLimit({
     windowMs: config.dashboard.rateLimit.windowMs,
     limit: config.dashboard.rateLimit.queueMax,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip),
+    keyGenerator: (req) => req.session?.user?.id || ipKeyGenerator(req.ip ?? ""),
     message: { error: "곡 추가 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요" },
   });
 
   // Add track to queue  { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
-  router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req, res) => {
+  router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await getPlayer(req, res, guildId);
     if (!ctx) return;
@@ -301,10 +315,7 @@ function addRoutes(router) {
       // 재생 시작·임베드·로깅은 슬래시 명령과 같은 코어를 지난다.
       const result = await requestPlayback(client, {
         guild,
-        requester: {
-          id: req.session.user.id,
-          username: req.session.user.globalName || req.session.user.username,
-        },
+        requester: requesterOf(req),
         query,
         single,
         source: "대시보드",
@@ -322,7 +333,7 @@ function addRoutes(router) {
   });
 
   // Continue a playlist  POST /:guildId/player/queue/more. 곡 추가와 같은 권한·제한
-  router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req, res) => {
+  router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await getPlayer(req, res, guildId);
     if (!ctx) return;
@@ -345,7 +356,7 @@ function addRoutes(router) {
     try {
       const result = await continueCollection(client, {
         guild,
-        requester: { id: req.session.user.id, username: req.session.user.globalName || req.session.user.username },
+        requester: requesterOf(req),
         state,
         count: count.value,
         source: "대시보드 더 넣기",

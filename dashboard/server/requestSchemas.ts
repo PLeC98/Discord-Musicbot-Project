@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 대시보드 요청의 모양. 경로가 스스로 400 을 내는 값만 여기서 본다(문장은 그 경로의 것 그대로).
 // 재생 조작의 값(볼륨 · 반복 모드 · 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
 // 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
@@ -9,7 +8,7 @@ import playerView from "./playerView.ts";
 const { QUEUE_WINDOW_MAX } = playerView;
 
 /** 검사 → { ok: true, value } | { ok: false, error: 첫 문제의 문장 } */
-function parse(schema, input) {
+function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; value: z.output<T> } | { ok: false; error: string } {
   const result = schema.safeParse(input);
   return result.success ? { ok: true, value: result.data } : { ok: false, error: result.error.issues[0].message };
 }
@@ -52,7 +51,7 @@ const MoreCount = z.number().int().min(1).max(MAX_COUNT);
 // ── 서버 설정 ──
 
 // 없는 칸은 바꾸지 않는다. null 은 기본값으로 되돌린다(전용 채널 · 재생목록 곡 수). 차례는 문제를 알리는 차례다
-function settingsBody({ min, max }) {
+function settingsBody({ min, max }: { min: number; max: number }) {
   const BAD_PLAYLIST_ADD = { error: `재생목록 한 번에 넣는 곡 수는 ${min}~${max} 사이의 정수여야 합니다` };
   const BAD_CATEGORIES = { error: "sponsorblock.categories는 문자열 배열이어야 합니다" };
   const BAD_ROLES = { error: "djRoleIds는 역할 ID 문자열 배열이어야 합니다" };

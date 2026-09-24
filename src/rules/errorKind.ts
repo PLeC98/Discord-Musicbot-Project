@@ -35,10 +35,10 @@ function codeOf(error: unknown): string | number | undefined {
   return typeof code === "string" || typeof code === "number" ? code : undefined;
 }
 
-/** 알릴 오류 글. 글이 없으면 값을 그대로 글로 */
-function messageOf(error: unknown): string {
+/** 알릴 오류 글. 글이 없으면 fallback(주지 않으면 값을 그대로 글로) */
+function messageOf(error: unknown, fallback = String(error)): string {
   const message = error && typeof error === "object" && "message" in error ? error.message : undefined;
-  return (typeof message === "string" && message) || String(error);
+  return (typeof message === "string" && message) || fallback;
 }
 
 function errorKind(error: unknown): string {

@@ -1,5 +1,9 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
+import type { Response } from "express";
 import config from "../../config.ts";
+
+type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
+/** 서버 목록 페이지의 연결 하나 */
+type ListSub = { res: Response; guildIds: Set<string>; cleanup?: () => void };
 
 /**
  * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
@@ -13,34 +17,38 @@ import config from "../../config.ts";
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 무엇을 구독 중인가"만 관리.
  */
 class PlayerStream {
-  constructor({ heartbeatMs, maxPerUser, coalesceMs }) {
+  maxPerUser: number;
+  coalesceMs: number;
+  guilds = new Map<string, Set<Response>>(); // 개별 서버 페이지
+  listSubs = new Set<ListSub>(); // 서버 목록 페이지. 멀티플렉스
+  listGuildIds = new Map<string, number>(); // guildId -> 그 서버를 구독 중인 목록 구독자 수 (notify 가드 O(1))
+  perKey = new Map<string, number>(); // userKey -> 연결 수 (세션당 캡, 개별+목록 공유)
+  _cleanups = new WeakMap<Response, () => void>(); // idempotent cleanup (쓰기 실패 경로에서 호출)
+  coalesceTimers = new Map<string, NodeJS.Timeout>();
+  heartbeat: NodeJS.Timeout;
+
+  constructor({ heartbeatMs, maxPerUser, coalesceMs }: StreamOptions) {
     this.maxPerUser = maxPerUser;
     this.coalesceMs = coalesceMs;
-    this.guilds = new Map(); // guildId -> Set<res>       (개별 서버 페이지)
-    this.listSubs = new Set(); // { res, guildIds:Set }   (서버 목록 페이지. 멀티플렉스)
-    this.listGuildIds = new Map(); // guildId -> 그 서버를 구독 중인 목록 구독자 수 (notify 가드 O(1))
-    this.perKey = new Map(); // userKey -> 연결 수 (세션당 캡, 개별+목록 공유)
-    this._cleanups = new WeakMap(); // res -> idempotent cleanup (쓰기 실패 경로에서 호출)
-    this.coalesceTimers = new Map(); // guildId -> timer
 
     // 하트비트: 유휴 연결이 프록시 타임아웃으로 끊기지 않게 주기적 주석 전송
     this.heartbeat = setInterval(() => this._pingAll(), heartbeatMs);
-    if (this.heartbeat.unref) this.heartbeat.unref();
+    this.heartbeat.unref();
   }
 
-  _sseHead(res) {
+  _sseHead(res: Response) {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     });
-    if (res.flushHeaders) res.flushHeaders();
+    res.flushHeaders();
     res.write(": connected\n\n");
   }
 
   /** 세션당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. */
-  _capOk(res, userKey) {
+  _capOk(res: Response, userKey: string) {
     const count = this.perKey.get(userKey) || 0;
     if (count >= this.maxPerUser) {
       res.status(429).json({ error: "이벤트 연결이 너무 많습니다" });
@@ -50,22 +58,23 @@ class PlayerStream {
     return true;
   }
 
-  _releaseKey(userKey) {
+  _releaseKey(userKey: string) {
     const c = (this.perKey.get(userKey) || 1) - 1;
     if (c <= 0) this.perKey.delete(userKey);
     else this.perKey.set(userKey, c);
   }
 
   /** 개별 서버(플레이어) 페이지 구독. requireAuth + 멤버십 게이트 뒤 호출할 것. */
-  addClient(guildId, res, userKey) {
+  addClient(guildId: string, res: Response, userKey: string) {
     if (!this._capOk(res, userKey)) return;
     this._sseHead(res);
 
     let set = this.guilds.get(guildId);
     if (!set) {
-      set = new Set();
+      set = new Set<Response>();
       this.guilds.set(guildId, set);
     }
+    const subscribers = set;
     set.add(res);
 
     // idempotent cleanup. close/error/쓰기 실패 어느 경로로 와도 회계(Set·perKey 캡·빈 Set 정리)가 한 번만, 전부 정리.
@@ -73,8 +82,8 @@ class PlayerStream {
     const cleanup = () => {
       if (done) return;
       done = true;
-      set.delete(res);
-      if (set.size === 0 && this.guilds.get(guildId) === set) this.guilds.delete(guildId);
+      subscribers.delete(res);
+      if (subscribers.size === 0 && this.guilds.get(guildId) === subscribers) this.guilds.delete(guildId);
       this._releaseKey(userKey);
     };
     this._cleanups.set(res, cleanup);
@@ -83,11 +92,11 @@ class PlayerStream {
   }
 
   /** 서버 목록 페이지 구독. guildIds(사용자의 상호+멤버 서버 집합)의 이벤트를 한 연결로 멀티플렉스. */
-  addListClient(res, guildIds, userKey) {
+  addListClient(res: Response, guildIds: Set<string>, userKey: string) {
     if (!this._capOk(res, userKey)) return;
     this._sseHead(res);
 
-    const sub = { res, guildIds };
+    const sub: ListSub = { res, guildIds };
     this.listSubs.add(sub);
     for (const gid of guildIds) this.listGuildIds.set(gid, (this.listGuildIds.get(gid) || 0) + 1);
 
@@ -109,7 +118,7 @@ class PlayerStream {
   }
 
   /** 서버 상태 변화 알림. coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 구독자 없으면 타이머도 안 만듦. */
-  notify(guildId) {
+  notify(guildId: string | null | undefined) {
     if (!guildId) return;
     if (!this.guilds.has(guildId) && !this.listGuildIds.has(guildId)) return; // 이 서버를 보는 구독자 없음
     if (this.coalesceTimers.has(guildId)) return; // 이미 예약됨
@@ -117,11 +126,11 @@ class PlayerStream {
       this.coalesceTimers.delete(guildId);
       this._emit(guildId);
     }, this.coalesceMs);
-    if (t.unref) t.unref();
+    t.unref();
     this.coalesceTimers.set(guildId, t);
   }
 
-  _emit(guildId) {
+  _emit(guildId: string) {
     // guildId를 함께 보낸다. 목록 구독자는 여러 서버를 한 연결로 받으므로, 이게 없으면
     // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(전역 재생 바가 자기 대상만 고르는 근거).
     // 구독자는 이미 그 서버 멤버로 검증된 뒤라 ID 노출 문제는 없다.
@@ -177,10 +186,11 @@ class PlayerStream {
 }
 
 /** 설정(`SSE_*`)으로 허브를 만든다. 조립이 하나 만들어 플레이어 알림과 대시보드 경로에 나눠 준다 */
-function createPlayerStream(options = config.dashboard.sse) {
+function createPlayerStream(options: StreamOptions = config.dashboard.sse) {
   return new PlayerStream(options);
 }
 
 const exported = { createPlayerStream, PlayerStream };
 export default exported;
 export { exported as "module.exports" };
+export type { PlayerStream };

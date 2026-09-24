@@ -1,11 +1,11 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
+import type { CorsOptions } from "cors";
 import logger from "../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 
 const DEV_ORIGIN = "http://localhost:5173";
 let warnedDevOrigin = false;
 
-function normalizeDashboardOrigin(value) {
+function normalizeDashboardOrigin(value: string) {
   const parsed = new URL(value);
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error("DASHBOARD_URL must use http or https");
@@ -21,13 +21,13 @@ function normalizeDashboardOrigin(value) {
  *
  * Vite 개발 서버(5173)는 `pnpm run dev`로 띄웠을 때만 허용
  */
-function createCorsOptions(dashboardUrl, { allowDevOrigin = false } = {}) {
+function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { allowDevOrigin?: boolean } = {}): CorsOptions {
   const allowedOrigins = new Set([normalizeDashboardOrigin(dashboardUrl)]);
   if (allowDevOrigin) allowedOrigins.add(DEV_ORIGIN);
 
   return {
     credentials: true,
-    origin(origin, callback) {
+    origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
       if (!origin) return callback(null, true);
       let normalized;
       try {

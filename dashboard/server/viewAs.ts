@@ -1,5 +1,5 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-import { PermissionsBitField, PermissionFlagsBits } from "discord.js";
+import { PermissionsBitField, PermissionFlagsBits, type GuildMember } from "discord.js";
+import type { Request } from "express";
 
 /**
  * 권한 수준 오버라이드. 봇 운영자가 낮은 계층의 화면과 동작을 그대로 재현해 보기 위한 점검용.
@@ -9,12 +9,14 @@ import { PermissionsBitField, PermissionFlagsBits } from "discord.js";
  * 상향은 구조적으로 불가능하다. 설정은 진짜 운영자만 할 수 있고(requireOwner) 모든 계층이 운영자 이하다.
  */
 
-const TIERS = ["owner", "moderator", "dj", "user"];
+const TIERS = ["owner", "moderator", "dj", "user"] as const;
+type Tier = (typeof TIERS)[number];
+const isTier = (v: unknown): v is Tier => TIERS.some((t) => t === v);
 
 /** 세션에 걸린 오버라이드 계층. 없거나 알 수 없는 값이면 null(=오버라이드 없음). */
-function getViewAs(req) {
-  const tier = req?.session?.viewAs;
-  return TIERS.includes(tier) ? tier : null;
+function getViewAs<P>(req: Request<P>): Tier | null {
+  const tier = req.session?.viewAs;
+  return isTier(tier) ? tier : null;
 }
 
 // isModerator는 MOD_PERMISSIONS 중 하나만 있으면 통과하므로 대표값 하나면 충분하다.
@@ -26,7 +28,7 @@ const NO_BITS = new PermissionsBitField(0n);
 const ANY_ROLE = { cache: { has: () => true } };
 const NO_ROLE = { cache: { has: () => false } };
 
-const SPEC = {
+const SPEC: Partial<Record<Tier, { permissions: PermissionsBitField; roles: { cache: { has(id: string): boolean } } }>> = {
   moderator: { permissions: MOD_BITS, roles: NO_ROLE }, // isDj가 모더레이터에서 단락되므로 역할은 불필요
   dj: { permissions: NO_BITS, roles: ANY_ROLE },
   user: { permissions: NO_BITS, roles: NO_ROLE },
@@ -39,7 +41,7 @@ const SPEC = {
  * voice는 guild.voiceStates.cache를 읽는 getter라 프로토타입 체인으로 이어지고, 음성 재적은
  * 권한이 아니라 사실이므로 오버라이드 대상이 아니다.
  */
-function shadowMember(req, member) {
+function shadowMember<M extends GuildMember | null, P>(req: Request<P>, member: M): M {
   const tier = getViewAs(req);
   const spec = tier && SPEC[tier];
   if (!spec || !member) return member;

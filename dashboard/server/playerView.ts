@@ -1,6 +1,8 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 화면에 보내는 플레이어 모양
 
+import type { Request } from "express";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
 import { labelOf } from "../../src/ui/platforms.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
 import guildAccess from "./guildAccess.ts";
@@ -10,7 +12,7 @@ const { toInt } = guildAccess;
 const QUEUE_PAGE = 100;
 const QUEUE_WINDOW_MAX = 1000;
 
-function queueTrack(t, i) {
+function queueTrack(t: QueuedTrack, i: number) {
   return {
     index: i,
     title: t.title,
@@ -25,13 +27,13 @@ function queueTrack(t, i) {
 }
 
 // 화면이 이미 펼쳐 둔 만큼을 그대로 돌려줘야 조작 직후 목록이 접히지 않는다.
-function queueWindow(req) {
+function queueWindow(req: Request) {
   const n = toInt(req.query?.queue);
   if (isNaN(n) || n <= 0) return QUEUE_PAGE;
   return Math.min(n, QUEUE_WINDOW_MAX);
 }
 
-function playerState(player, queueLimit = QUEUE_PAGE) {
+function playerState(player: MusicPlayer | null | undefined, queueLimit = QUEUE_PAGE) {
   if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = player.getStatus();
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다. 그래야

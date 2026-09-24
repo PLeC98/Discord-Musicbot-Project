@@ -1,11 +1,10 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터와 봇 운영자만
 
 import express from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType } from "discord.js";
-import requireAuth from "../middleware/requireAuth.ts";
+import requireAuth, { signedIn } from "../middleware/requireAuth.ts";
 import { isModerator } from "../../../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as SponsorBlock from "../../../src/sources/sponsorBlock.ts";
@@ -18,7 +17,7 @@ import requestSchemas from "../requestSchemas.ts";
 const { parse, settingsBody } = requestSchemas;
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치
-const SB_CATEGORY_LABELS = {
+const SB_CATEGORY_LABELS: Record<string, string> = {
   music_offtopic: "음악이 아닌 구간",
   intro: "인트로/무음 구간",
   outro: "최종 화면 구간",
@@ -149,7 +148,8 @@ function createGuildSettingsRouter() {
       client?.musicEmbedManager?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
     }
 
-    log.info(`서버 설정 변경: ${guild.name} (${guild.id}). 실행 ${req.session.user.username || req.session.user.id}`);
+    const user = signedIn(req);
+    log.info(`서버 설정 변경: ${guild.name} (${guild.id}). 실행 ${user.username || user.id}`);
     res.json({ success: true });
   });
 

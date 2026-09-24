@@ -1,8 +1,7 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import path from "path";
 import fs from "fs";
-import { Store } from "express-session";
-import Database from "better-sqlite3";
+import { Store, type SessionData } from "express-session";
+import Database, { type Statement } from "better-sqlite3";
 
 // express-session의 기본 MemoryStore 대체:
 // 재시작 시 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
@@ -12,9 +11,19 @@ const DB_PATH = path.join(import.meta.dirname, "..", "..", "database", "sessions
 // maxAge 미설정 쿠키(브라우저 세션 쿠키)의 서버측 보관 기한 폴백
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+type Done = (err?: unknown) => void;
+
 class SqliteSessionStore extends Store {
+  db: Database.Database;
+  _getStmt: Statement<[string], { data: string; expires_at: number }>;
+  _setStmt: Statement<[string, string, number]>;
+  _touchStmt: Statement<[number, string]>;
+  _destroyStmt: Statement<[string]>;
+  _pruneStmt: Statement<[number]>;
+  _pruneTimer: NodeJS.Timeout;
+
   // dbPath는 테스트 시임 (임시 DB. 운영 DB 미접촉)
-  constructor({ dbPath = DB_PATH, pruneIntervalMs = 60 * 60 * 1000 } = {}) {
+  constructor({ dbPath = DB_PATH, pruneIntervalMs = 60 * 60 * 1000 }: { dbPath?: string; pruneIntervalMs?: number } = {}) {
     super();
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     this.db = new Database(dbPath);
@@ -41,17 +50,17 @@ class SqliteSessionStore extends Store {
         /* 정리 실패는 다음 주기에 재시도. 서비스에 영향 없음 */
       }
     }, pruneIntervalMs);
-    this._pruneTimer.unref?.();
+    this._pruneTimer.unref();
   }
 
-  _expiresAt(session) {
+  _expiresAt(session: SessionData) {
     const expires = session?.cookie?.expires;
     const ts = expires ? new Date(expires).getTime() : NaN;
     return Number.isFinite(ts) ? ts : Date.now() + FALLBACK_TTL_MS;
   }
 
   // express-session Store 계약: 콜백 (err, session|null). better-sqlite3는 동기라 즉시 호출.
-  get(sid, cb) {
+  get(sid: string, cb: (err: unknown, session?: SessionData | null) => void) {
     try {
       const row = this._getStmt.get(sid);
       if (!row || row.expires_at <= Date.now()) return cb(null, null);
@@ -61,7 +70,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  set(sid, session, cb = () => {}) {
+  set(sid: string, session: SessionData, cb: Done = () => {}) {
     try {
       this._setStmt.run(sid, JSON.stringify(session), this._expiresAt(session));
       cb(null);
@@ -71,7 +80,7 @@ class SqliteSessionStore extends Store {
   }
 
   // rolling/유휴 갱신. 데이터 재직렬화 없이 만료만 연장
-  touch(sid, session, cb = () => {}) {
+  touch(sid: string, session: SessionData, cb: Done = () => {}) {
     try {
       this._touchStmt.run(this._expiresAt(session), sid);
       cb(null);
@@ -80,7 +89,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  destroy(sid, cb = () => {}) {
+  destroy(sid: string, cb: Done = () => {}) {
     try {
       this._destroyStmt.run(sid);
       cb(null);

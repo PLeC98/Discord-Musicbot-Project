@@ -1,5 +1,5 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import crypto from "crypto";
+import type { NextFunction, Request, Response } from "express";
 
 // 세션에 토큰을 두고 헤더(x-csrf-token)로 받은 값과 맞춘다. 라우트를 걸기 전에 app.use 로
 // 통째로 씌우므로 상태를 바꾸는 경로가 이 검사 밖으로 새지 않는다.
@@ -9,14 +9,14 @@ import crypto from "crypto";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-function ensureCsrfToken(req) {
+function ensureCsrfToken(req: Request) {
   if (!req.session.csrfToken) {
     req.session.csrfToken = crypto.randomBytes(32).toString("base64url");
   }
   return req.session.csrfToken;
 }
 
-function issueCsrfToken(req, res) {
+function issueCsrfToken(req: Request, res: Response) {
   if (!req.session?.user) {
     return res.status(401).json({ error: "Authentication required." });
   }
@@ -25,7 +25,7 @@ function issueCsrfToken(req, res) {
   return res.json({ csrfToken: ensureCsrfToken(req) });
 }
 
-function requireCsrfToken(req, res, next) {
+function requireCsrfToken(req: Request, res: Response, next: NextFunction) {
   if (SAFE_METHODS.has(req.method)) return next();
 
   const expected = req.session?.csrfToken;

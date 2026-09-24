@@ -1,12 +1,13 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 봇 운영자(OWNER_ID) 전용 라우터. 모든 엔드포인트가 requireOwner를 지난다.
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
-import express from "express";
+import express, { type Request } from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 const router = express.Router();
 import requireOwner from "../middleware/requireOwner.ts";
+import { signedIn } from "../middleware/requireAuth.ts";
+import { codeOf, messageOf } from "../../../src/rules/errorKind.ts";
 import os from "os";
 import logManager from "../../../src/infra/log/sink.ts";
 import * as procRegistry from "../../../src/infra/processRegistry.ts";
@@ -19,7 +20,7 @@ import * as statusConfig from "../../../src/config/status.ts";
 import * as aiConfig from "../../../src/config/ai.ts";
 import * as cookieConfig from "../../../src/config/cookies.ts";
 import * as yamlStore from "../../../src/config/yamlStore.ts";
-import { EmbedBuilder } from "discord.js";
+import { EmbedBuilder, type Guild, type GuildBasedChannel, type HexColorString } from "discord.js";
 import config from "../../../config.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as audioCache from "../../../src/store/audioCache.ts";
@@ -28,6 +29,12 @@ import * as autoplaySources from "../../../src/autoplay/sources/index.ts";
 import * as assist from "../../../src/autoplay/assist/index.ts";
 import * as tokens from "../../../src/autoplay/assist/tokens.ts";
 import * as models from "../../../src/config/schema/aiModels.ts";
+
+// 로그에 남기는 실행한 사람
+function ranBy<P>(req: Request<P>) {
+  const user = signedIn(req);
+  return user.username || user.id;
+}
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
@@ -70,7 +77,7 @@ router.get("/status", requireOwner, (req, res) => {
     // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.
     processes: (() => {
       const all = procRegistry.list();
-      const byLabel = {};
+      const byLabel: Record<string, number> = {};
       for (const p of all) byLabel[p.label] = (byLabel[p.label] || 0) + 1;
       return {
         total: all.length,
@@ -89,13 +96,27 @@ router.get("/status", requireOwner, (req, res) => {
 });
 
 // 전체 서버 공지
-const ANNOUNCE_TYPES = {
+const ANNOUNCE_TYPES: Record<string, { color: HexColorString; emoji: string; title: string }> = {
   maintenance: { color: "#FFA500", emoji: "🔧", title: "봇 점검 안내" },
   update: { color: "#57F287", emoji: "🆕", title: "봇 업데이트 안내" },
   alert: { color: "#ED4245", emoji: "⚠️", title: "긴급 공지" },
   info: { color: "#5865F2", emoji: "ℹ️", title: "공지사항" },
 };
 const ANNOUNCE_MAX = 4096; // 디스코드 embed description 상한
+
+// 공지를 보낼 채널: 전용 채널 → 시스템 채널 → 보낼 수 있는 첫 글 채널
+async function announceChannel(guild: Guild) {
+  const me = guild.members.me;
+  const writable = (c: GuildBasedChannel | null | undefined) => (c && c.isTextBased() && !c.isThread() && me && c.permissionsFor(me)?.has("SendMessages") ? c : null);
+
+  const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+  const preferred = writable(botChannelId ? guild.channels.cache.get(botChannelId) : null) ?? writable(guild.systemChannel);
+  if (preferred) return preferred;
+  return [...guild.channels.cache.values()]
+    .map(writable)
+    .filter((c) => c !== null)
+    .sort((a, b) => a.position - b.position)[0];
+}
 
 router.post("/broadcast", requireOwner, async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
@@ -118,23 +139,7 @@ router.post("/broadcast", requireOwner, async (req, res) => {
 
   for (const [, guild] of client.guilds.cache) {
     try {
-      // Priority: bot channel → system channel → first available text channel
-      let ch = null;
-
-      const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
-      if (botChannelId) {
-        ch = guild.channels.cache.get(botChannelId);
-        if (ch && !ch.permissionsFor(guild.members.me)?.has("SendMessages")) ch = null;
-      }
-
-      if (!ch) ch = guild.systemChannel;
-      if (!ch || !ch.permissionsFor(guild.members.me)?.has("SendMessages")) {
-        ch = guild.channels.cache
-          .filter((c) => c.isTextBased() && !c.isThread() && c.permissionsFor(guild.members.me)?.has("SendMessages"))
-          .sort((a, b) => a.position - b.position)
-          .first();
-      }
-
+      const ch = await announceChannel(guild);
       if (ch) {
         await ch.send({ embeds: [embed] });
         sent++;
@@ -198,7 +203,7 @@ router.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
     res.json({ success: true, name });
   } catch (error) {
     log.error({ sub: "admin" }, "서버 나가기 실패:", error);
-    res.status(502).json({ error: error.message || "서버 나가기에 실패했습니다" });
+    res.status(502).json({ error: messageOf(error, "서버 나가기에 실패했습니다") });
   }
 });
 
@@ -212,8 +217,8 @@ router.post("/redeploy-commands", requireOwner, async (req, res) => {
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 다시 등록했습니다.`);
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names });
   }
-  log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${r.error?.message || r.error}`);
-  return res.status(502).json({ success: false, error: r.error?.message || "배포에 실패했습니다", code: r.error?.code || null });
+  log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}`);
+  return res.status(502).json({ success: false, error: messageOf(r.error, "배포에 실패했습니다"), code: codeOf(r.error) || null });
 });
 
 // 캐시 초기화. 오디오 파일과 파생 테이블을 비운다. 서버 설정(전용 채널·DJ 역할·SponsorBlock)은 남는다.
@@ -225,7 +230,7 @@ router.post("/reset-cache", requireOwner, (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     log.error({ sub: "admin" }, "캐시 초기화 실패:", error);
-    res.status(500).json({ error: error.message || "캐시 초기화에 실패했습니다" });
+    res.status(500).json({ error: messageOf(error, "캐시 초기화에 실패했습니다") });
   }
 });
 
@@ -235,7 +240,7 @@ router.post("/reset-cache", requireOwner, (req, res) => {
 // 바뀐 자리만 고친다(configDataLoader.save가 주석·빈 줄을 보존한다).
 
 // 검사기가 있는 것만 고칠 수 있다. 새 설정을 열면서 검사를 빠뜨리는 일이 없게 한 벌로 묶는다
-const VALIDATORS = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
+const VALIDATORS: Record<string, (data: unknown) => string[]> = { genres: genreConfig.validateGenres, status: statusConfig.validateStatus, ai: aiConfig.validateAi };
 const CONFIG_NAMES = Object.keys(VALIDATORS);
 
 // 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 칸을 받고, 지금 쓸 수 있는가.
@@ -291,7 +296,7 @@ router.post("/ai/tokens", requireOwner, async (req, res) => {
   const model = String(req.body?.model || "");
   const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
 
-  const texts = Array.isArray(req.body?.texts) ? req.body.texts : [];
+  const texts: unknown[] = Array.isArray(req.body?.texts) ? req.body.texts : [];
   if (texts.length > 50) return res.status(400).json({ error: "한 번에 50칸까지" });
   const cut = texts.map((one) => String(one ?? "").slice(0, 200000));
 
@@ -313,16 +318,10 @@ router.post("/ai/tokens", requireOwner, async (req, res) => {
 /** 모델 프로필 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */
 router.post("/ai/models/refresh", requireOwner, async (req, res) => {
   try {
-    const registries = [
-      ...new Set(
-        Object.values(assist.PROVIDER_SPECS)
-          .map((one) => one.registry)
-          .filter(Boolean),
-      ),
-    ];
+    const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
     res.json(await models.refresh({ registries, force: !!req.body?.force }));
   } catch (error) {
-    res.status(502).json({ error: error.message || "모델 정보를 받지 못했습니다." });
+    res.status(502).json({ error: messageOf(error, "모델 정보를 받지 못했습니다.") });
   }
 });
 
@@ -339,7 +338,7 @@ router.post("/ai/judge/lookup", requireOwner, async (req, res) => {
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식·장르를 고치는 대로 다시 그린다. */
 router.post("/ai/judge/lines", requireOwner, (req, res) => {
-  const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one) => one && !one.error && one.title).slice(0, 20);
+  const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one: { error?: unknown; title?: unknown } | null) => one && !one.error && one.title).slice(0, 20);
   res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "록")) });
 });
 
@@ -354,10 +353,10 @@ router.put("/ai/keys", requireOwner, (req, res) => {
   if (!keys || typeof keys !== "object") return res.status(400).json({ error: "저장할 내용이 없습니다." });
 
   try {
-    log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${req.session.user.username || req.session.user.id}`);
+    log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${ranBy(req)}`);
     res.json({ hasKey: aiConfig.saveAiKeys(keys) });
   } catch (error) {
-    res.status(409).json({ error: error.message });
+    res.status(409).json({ error: messageOf(error) });
   }
 });
 
@@ -375,10 +374,10 @@ router.put("/ai/prompt", requireOwner, (req, res) => {
   if (problems.length) return res.status(400).json({ error: problems[0], problems });
 
   try {
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml. 실행 ${req.session.user.username || req.session.user.id}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ai-prompt.chatml. 실행 ${ranBy(req)}`);
     res.json({ sections: aiConfig.saveAiPrompt(sections) });
   } catch (error) {
-    res.status(409).json({ error: error.message });
+    res.status(409).json({ error: messageOf(error) });
   }
 });
 
@@ -403,11 +402,11 @@ router.put("/cookies", requireOwner, (req, res) => {
 
   try {
     // 내용은 절대 남기지 않는다. 로그인된 세션 그 자체다
-    log.warn({ sub: "admin" }, `대시보드에서 유튜브 쿠키 ${text.trim() ? "저장" : "삭제"}. 실행 ${req.session.user.username || req.session.user.id}`);
+    log.warn({ sub: "admin" }, `대시보드에서 유튜브 쿠키 ${text.trim() ? "저장" : "삭제"}. 실행 ${ranBy(req)}`);
     cookieConfig.saveCookies(text);
     res.json(cookieState());
   } catch (error) {
-    res.status(409).json({ error: error.message });
+    res.status(409).json({ error: messageOf(error) });
   }
 });
 
@@ -437,7 +436,7 @@ router.get("/config/:name", requireOwner, (req, res) => {
     res.json({ name, data: yamlStore.load(name) });
   } catch (error) {
     // 파일이 없거나 문법이 깨졌다. 화면이 이유를 그대로 보여줄 수 있게 넘긴다
-    res.status(409).json({ error: error.message, code: error.code || null });
+    res.status(409).json({ error: messageOf(error), code: codeOf(error) || null });
   }
 });
 
@@ -454,11 +453,11 @@ router.put("/config/:name", requireOwner, (req, res) => {
 
   try {
     const saved = yamlStore.save(name, data);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml. 실행 ${req.session.user.username || req.session.user.id}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 저장: ${name}.yaml. 실행 ${ranBy(req)}`);
     res.json({ success: true, data: saved });
   } catch (error) {
-    log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${error.message}`);
-    res.status(409).json({ error: error.message, code: error.code || null });
+    log.error({ sub: "admin" }, `설정 저장 실패(${name}): ${messageOf(error)}`);
+    res.status(409).json({ error: messageOf(error), code: codeOf(error) || null });
   }
 });
 
@@ -478,7 +477,7 @@ router.post("/view-as", requireOwner, (req, res) => {
   if (tier === null) delete req.session.viewAs;
   else req.session.viewAs = tier;
 
-  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"}. 실행 ${req.session.user.username || req.session.user.id}`);
+  log.info({ sub: "admin" }, `권한 수준 오버라이드: ${tier || "해제"}. 실행 ${ranBy(req)}`);
   res.json({ viewAs: getViewAs(req) });
 });
 

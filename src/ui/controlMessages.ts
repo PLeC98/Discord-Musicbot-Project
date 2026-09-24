@@ -53,3 +53,4 @@ function controlApiError(result: Refusal) {
 }
 
 export { controlMessage, controlApiError };
+export type { Refusal };

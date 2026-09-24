@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 모든 응답에 붙는 보안 헤더. 정적 자산 응답에도 붙어야 하므로 체인 맨 앞에 등록한다.
 //
 // Helmet을 쓰지 않는 이유: 기본 14종 중 이 앱에서 값이 있는 건 아래 4개 + CSP뿐이고,
@@ -13,9 +12,11 @@
 //
 // style-src에 'unsafe-inline'이 없는 근거(실측): 빌드 산출물에 인라인 <style>도 style= 속성도
 // 없고, 컴포넌트의 :style 바인딩은 CSSOM(el.style)이라 CSP 대상이 아니다.
+import type { NextFunction, Request, Response } from "express";
+
 const CSP = ["default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data: https:", "connect-src 'self'", "font-src 'self'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "object-src 'none'"].join("; ");
 
-function securityHeaders(req, res, next) {
+function securityHeaders(_req: Request, res: Response, next: NextFunction) {
   res.setHeader("Content-Security-Policy", CSP);
   res.setHeader("X-Content-Type-Options", "nosniff"); // 정적 파일을 서빙하므로 MIME 스니핑 차단
   res.setHeader("X-Frame-Options", "DENY"); // 대시보드가 iframe에 들어갈 용례 없음

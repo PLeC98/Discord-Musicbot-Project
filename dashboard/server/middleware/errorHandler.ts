@@ -1,5 +1,5 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import crypto from "crypto";
+import type { NextFunction, Request, Response } from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 
@@ -25,8 +25,12 @@ const MSG_NOT_FOUND = "요청한 경로를 찾을 수 없습니다.";
 // (언마운트된 볼륨의 SQLite는 파일이 멀쩡해도 SQLITE_CORRUPT를 던진다.)
 const UNAVAILABLE_CODES = new Set(["EIO", "ENOENT", "EACCES", "ENOSPC", "EBUSY", "ENXIO", "EROFS"]);
 
-function isUnavailable(err) {
-  const code = err?.code;
+// 던져진 값에서 읽는 칸. 오류 객체가 아니면 빈 것으로 본다
+type Thrown = { code?: unknown; status?: unknown; statusCode?: unknown; type?: unknown; name?: unknown; stack?: unknown; message?: unknown };
+const fieldsOf = (err: unknown): Thrown => (typeof err === "object" && err !== null ? err : {});
+
+function isUnavailable(err: unknown) {
+  const code = fieldsOf(err).code;
   if (typeof code !== "string") return false;
   return code.startsWith("SQLITE_") || UNAVAILABLE_CODES.has(code);
 }
@@ -34,10 +38,11 @@ function isUnavailable(err) {
 // err.message는 절대 내보내지 않는다. "database disk image is malformed"도 내부 정보다.
 // 다만 무엇을 고쳐야 하는지는 알려 준다. "요청 형식이 올바르지 않습니다"만 돌려주면
 // 내용이 길어서 막힌 사람이 무엇을 줄여야 할지 알 수 없다.
-function classify(err) {
-  const status = err?.status ?? err?.statusCode;
+function classify(err: unknown) {
+  const e = fieldsOf(err);
+  const status = e.status ?? e.statusCode;
   // express.json()이 잘못된 본문에 400을, 한도를 넘은 본문에 413을 붙여 던진다.
-  if (Number.isInteger(status) && status >= 400 && status < 500) {
+  if (typeof status === "number" && Number.isInteger(status) && status >= 400 && status < 500) {
     if (status === 413) return { status, message: MSG_TOO_LARGE };
     if (status === 429) return { status, message: MSG_TOO_MANY };
     return { status, message: MSG_BAD_REQUEST };
@@ -46,7 +51,7 @@ function classify(err) {
   return { status: 500, message: MSG_INTERNAL };
 }
 
-function wantsJson(req) {
+function wantsJson(req: Request) {
   const p = req.path || "";
   return p.startsWith("/api") || p.startsWith("/auth");
 }
@@ -54,12 +59,12 @@ function wantsJson(req) {
 // 등록되지 않은 /api·/auth 경로. Express 기본 404는 HTML이라 클라이언트의
 // e.response?.data?.error가 읽지 못해 사용자에게는 그냥 실패한 것처럼 보인다.
 // 404에는 오류 객체가 없어 오류 미들웨어가 돌지 않으므로 별도 폴백이 필요하다.
-function notFoundJson(req, res, next) {
+function notFoundJson(req: Request, res: Response, next: NextFunction) {
   if (!wantsJson(req)) return next();
   res.status(404).json({ error: MSG_NOT_FOUND });
 }
 
-function errorHandler(err, req, res, next) {
+function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
   const errorId = crypto.randomBytes(4).toString("hex");
   const { status, message } = classify(err);
 
@@ -69,8 +74,9 @@ function errorHandler(err, req, res, next) {
   // 4xx는 보낸 쪽이 잘못한 것이라 우리 스택을 남길 이유가 없다. 긴 공지 한 번에 열 줄짜리
   // PayloadTooLargeError 스택이 쌓이면 그게 곧 도배다. 한 줄로 사실만 남긴다.
   const line = `[${errorId}] ${req.method} ${req.originalUrl} → ${status}`;
-  if (status >= 500) log.error(line, err?.stack || err?.message || err);
-  else log.warn(`${line} ${err?.type || err?.code || err?.name || ""}`.trimEnd());
+  const e = fieldsOf(err);
+  if (status >= 500) log.error(line, e.stack || e.message || err);
+  else log.warn(`${line} ${String(e.type || e.code || e.name || "")}`.trimEnd());
 
   // 헤더가 나간 뒤에 또 쓰면 ERR_HTTP_HEADERS_SENT로 사고가 커진다. 연결 정리는 express에 맡긴다.
   if (res.headersSent) return next(err);
