@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/cacheDownload.ts — 캐시 변환 옵션.
 //
 // 회귀 대상: `postprocessorArgs` 가 코덱을 못 박고 있었다. yt-dlp 의 ExtractAudio 는 소스 코덱을

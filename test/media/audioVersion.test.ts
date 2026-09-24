@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/audioVersion.ts — 받은 음원의 판. 받을 때 같은 응답에서 읽는다.
 
 import { test } from "node:test";

@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // media/ffmpeg/args buildFfmpegArgs — ffmpeg 인자 구성의 불변식.
 //
 // 회귀 대상: 오프셋 재생 시 ffmpeg에 URL을 직접 입력하던 것. httpHeaders가 빠지고,

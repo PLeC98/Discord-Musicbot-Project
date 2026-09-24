@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/ffmpeg/process.ts probeDurationSec — 받아둔 파일에서 실제 재생 길이를 읽는다.
 //
 // 회귀 대상: 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다.
