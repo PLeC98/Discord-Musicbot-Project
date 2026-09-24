@@ -121,6 +121,5 @@ function list() {
     .sort((a, b) => b.ageMs - a.ageMs);
 }
 
-const exported = { register, killAll, size, list, install, _internals: { active, killTree, _isAlive } };
-export default exported;
-export { exported as "module.exports" };
+export { register, killAll, size, list, install };
+export const _internals = { active, killTree, _isAlive };

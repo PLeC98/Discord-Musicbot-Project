@@ -8,7 +8,7 @@ const router = express.Router();
 import requireOwner from "../middleware/requireOwner.js";
 import os from "os";
 import logManager from "../../../src/infra/log/sink.ts";
-import procRegistry from "../../../src/infra/processRegistry.ts";
+import * as procRegistry from "../../../src/infra/processRegistry.ts";
 import viewAsModule from "../viewAs.js";
 const { TIERS, getViewAs } = viewAsModule;
 import trackState from "../../../src/player/trackState.js";

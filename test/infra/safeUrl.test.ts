@@ -4,9 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import safeUrl from "../../src/infra/safeUrl.ts";
-const { SsrfError, isBlockedIp, isAllowedContentType, validateAndResolve } = safeUrl;
-
+import { SsrfError, isBlockedIp, isAllowedContentType, validateAndResolve } from "../../src/infra/safeUrl.ts";
 test("isBlockedIp: 내부·예약 대역 차단 배터리", () => {
   const blocked = [
     "127.0.0.1", // 루프백

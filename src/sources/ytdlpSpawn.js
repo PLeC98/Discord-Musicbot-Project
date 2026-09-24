@@ -1,5 +1,5 @@
 import youtubedl from "youtube-dl-exec";
-import procRegistry from "../infra/processRegistry.ts";
+import * as procRegistry from "../infra/processRegistry.ts";
 import errors from "./youtube/errors.js";
 const { YouTubeErrors } = errors;
 

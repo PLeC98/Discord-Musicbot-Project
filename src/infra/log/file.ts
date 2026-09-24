@@ -171,6 +171,4 @@ function createFileDestination({ file, maxBytes, keep }: { file: string; maxByte
   return { write, close, path: file };
 }
 
-const exported = { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp };
-export default exported;
-export { exported as "module.exports" };
+export { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp };

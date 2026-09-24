@@ -2,7 +2,7 @@ import path from "path";
 import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
-import SafeUrl from "../infra/safeUrl.ts";
+import * as SafeUrl from "../infra/safeUrl.ts";
 
 class DirectLink {
   /**

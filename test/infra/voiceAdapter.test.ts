@@ -3,9 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import voiceAdapter from "../../src/infra/voiceAdapter.ts";
-const { holdingAdapterCreator, HOLD_MS } = voiceAdapter;
-
+import { holdingAdapterCreator, HOLD_MS } from "../../src/infra/voiceAdapter.ts";
 // 디스코드 쪽 어댑터 대신. 보낸 것을 적고, 게이트웨이 알림을 흘려 넣을 수 있게 한다
 function setup(t) {
   t.mock.timers.enable({ apis: ["setTimeout"] });

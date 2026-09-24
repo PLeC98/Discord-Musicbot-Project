@@ -6,9 +6,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import fileModule from "../../src/infra/log/file.ts";
-const { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } = fileModule;
-
+import { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } from "../../src/infra/log/file.ts";
 function tmpdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
 }

@@ -3,9 +3,7 @@ import { VoiceConnectionStatus, joinVoiceChannel, entersState } from "@discordjs
 const VOICE_LIB = { joinVoiceChannel, entersState };
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice" });
-import voiceAdapter from "../infra/voiceAdapter.ts";
-const { holdingAdapterCreator } = voiceAdapter;
-
+import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 

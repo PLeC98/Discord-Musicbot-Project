@@ -26,7 +26,7 @@ const deps = {
   lookup: (...args) => lookupImpl(...args),
 };
 
-const safeUrl = (await import("../../src/infra/safeUrl.ts")).default;
+const safeUrl = await import("../../src/infra/safeUrl.ts");
 const { SsrfError } = safeUrl;
 const head = (url) => safeUrl.head(url, deps);
 const getStream = (url) => safeUrl.getStream(url, deps);

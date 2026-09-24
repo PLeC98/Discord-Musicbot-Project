@@ -242,15 +242,4 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}) {
   return capped;
 }
 
-const exported = {
-  SsrfError,
-  head,
-  getStream,
-  // 테스트/재사용을 위한 내부 노출
-  isBlockedIp,
-  isAllowedContentType,
-  validateAndResolve,
-  MAX_BYTES,
-};
-export default exported;
-export { exported as "module.exports" };
+export { SsrfError, head, getStream, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES };

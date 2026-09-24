@@ -63,6 +63,4 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
   };
 }
 
-const exported = { holdingAdapterCreator, HOLD_MS };
-export default exported;
-export { exported as "module.exports" };
+export { holdingAdapterCreator, HOLD_MS };

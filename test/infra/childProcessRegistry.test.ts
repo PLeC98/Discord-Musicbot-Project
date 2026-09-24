@@ -13,7 +13,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 const IS_WIN = process.platform === "win32";
-const registry = (await import("../../src/infra/processRegistry.ts")).default;
+const registry = await import("../../src/infra/processRegistry.ts");
 
 /** pid가 아직 살아있는가 — 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
 function alive(pid) {
