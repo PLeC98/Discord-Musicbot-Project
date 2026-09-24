@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // scripts/install-ffmpeg.js — 어느 릴리스에서 어느 자산을 받을지.
 //
 // 회귀 대상 둘:
@@ -41,22 +40,23 @@ test("LGPL 빌드 — 오디오만 쓰므로 GPL 전용 코덱은 불필요하�
 
 test("BtbN이 제공하는 4개 플랫폼만 대상으로 한다", () => {
   assert.deepEqual(Object.keys(TARGETS).sort(), ["linux-arm64", "linux-x64", "win32-arm64", "win32-x64"]);
-  assert.equal(TARGETS["win32-x64"].ext, "zip");
-  assert.equal(TARGETS["linux-x64"].ext, "tar.xz");
-  assert.equal(TARGETS["win32-x64"].bin, "ffmpeg.exe");
-  assert.equal(TARGETS["linux-x64"].bin, "ffmpeg");
+  assert.equal(TARGETS["win32-x64"]?.ext, "zip");
+  assert.equal(TARGETS["linux-x64"]?.ext, "tar.xz");
+  assert.equal(TARGETS["win32-x64"]?.bin, "ffmpeg.exe");
+  assert.equal(TARGETS["linux-x64"]?.bin, "ffmpeg");
 });
 
 test("자산은 릴리스의 체크섬 목록에서 고른다 — 최신 릴리스 브랜치, 공유 라이브러리 아님", () => {
   const linux = resolveAsset(CHECKSUMS, "linux-x64");
+  assert.ok(linux);
   assert.equal(linux.assetName, "ffmpeg-n9.0.1-11-ge47273f4d9-linux64-lgpl-9.0.tar.xz", "8.1이 아니라 9.0");
   assert.equal(linux.sha256, "aaa3");
   assert.equal(linux.branch, "9.0");
   assert.equal(linux.version, "n9.0.1-11-ge47273f4d9");
 
-  assert.equal(resolveAsset(CHECKSUMS, "win32-x64").assetName, "ffmpeg-n9.0.1-11-ge47273f4d9-win64-lgpl-9.0.zip");
-  assert.equal(resolveAsset(CHECKSUMS, "linux-arm64").sha256, "ccc1");
-  assert.equal(resolveAsset(CHECKSUMS, "win32-arm64").sha256, "ddd1");
+  assert.equal(resolveAsset(CHECKSUMS, "win32-x64")?.assetName, "ffmpeg-n9.0.1-11-ge47273f4d9-win64-lgpl-9.0.zip");
+  assert.equal(resolveAsset(CHECKSUMS, "linux-arm64")?.sha256, "ccc1");
+  assert.equal(resolveAsset(CHECKSUMS, "win32-arm64")?.sha256, "ddd1");
 });
 
 test("미지원 플랫폼은 null — macOS는 PATH/FFMPEG_PATH로 처리한다", () => {

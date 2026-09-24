@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 외부 호출에 마감이 붙어 있는지 호출부 단위로 확인한다.
 // 값 자체(10초 등)가 아니라 "마감 없는 호출이 새로 들어오는 것"을 막는 게 목적이다.
 
@@ -7,11 +6,11 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 
-const read = (rel) => fs.readFileSync(path.join(import.meta.dirname, "..", rel), "utf8");
+const read = (rel: string) => fs.readFileSync(path.join(import.meta.dirname, "..", rel), "utf8");
 
 // src에서 `name(...)` 호출을 괄호 균형으로 잘라낸다 (인자가 여러 줄이어도 통째로 잡기 위해).
-function callSites(src, name) {
-  const out = [];
+function callSites(src: string, name: string) {
+  const out: string[] = [];
   const re = new RegExp(`\\b${name.replace(".", "\\.")}\\(`, "g");
   let m;
   while ((m = re.exec(src))) {

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 구조 게이트. 부르는 방향 · 순환 · 지연 부름 · config 꺼내 두기 · 모듈과 메서드 바꿔 끼우기를 기준선과 맞춘다.
 //
 // 기준선(baseline.json)은 1단계에서 한 번 만들고 줄이기만 한다. 새 위반은 실패한다. 위반을 없앴으면 기준선에서도 지운다.
@@ -12,7 +11,7 @@ import baseline from "./baseline.json" with { type: "json" };
 const now = scan();
 
 // 목록: 새로 생긴 것과 없어진 것을 따로 알린다
-function sameList(name, current, base) {
+function sameList(name: string, current: string[], base: string[]) {
   const cur = new Set(current);
   const old = new Set(base);
   const added = [...cur].filter((x) => !old.has(x));
@@ -22,7 +21,7 @@ function sameList(name, current, base) {
 }
 
 // 파일별 수: 늘면 실패, 줄면 기준선을 줄이라고 실패
-function sameCounts(name, current, base) {
+function sameCounts(name: string, current: Record<string, number>, base: Record<string, number>) {
   const lines = [];
   for (const file of new Set([...Object.keys(current), ...Object.keys(base)])) {
     const c = current[file] ?? 0;

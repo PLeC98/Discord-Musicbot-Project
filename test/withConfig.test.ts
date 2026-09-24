@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 테스트용 설정 덮어쓰기 창구(test/helpers/config.js)가 바꾼 것을 빠짐없이 되돌리는지 본다.
 
 import { test } from "node:test";
@@ -42,7 +41,7 @@ test("던져도 되돌린다(동기 · 비동기)", async () => {
 test("없던 칸은 끝나면 지운다. 배열은 통째로 바꾼다", () => {
   const cats = config.sponsorblock.categories;
   withConfig({ bot: { __probe: 1 }, sponsorblock: { categories: ["intro"] } }, () => {
-    assert.equal(config.bot.__probe, 1);
+    assert.equal(Reflect.get(config.bot, "__probe"), 1);
     assert.deepEqual(config.sponsorblock.categories, ["intro"]);
   });
   assert.equal(Object.hasOwn(config.bot, "__probe"), false);

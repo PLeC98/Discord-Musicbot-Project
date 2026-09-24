@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // config.js — 잘못 적은 설정값은 기동을 멈춘다 (2026-09-15 사용자 결정).
 //
 // 회귀 대상: `parseInt`가 "120junk"를 120으로 삼켜, 오타가 조용히 다른 값으로 돌던 것.
@@ -12,15 +11,12 @@ import assert from "node:assert/strict";
 import path from "path";
 import { spawnSync } from "child_process";
 import { loadConfig } from "../config.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import { stopOnConfigProblems } from "../src/app/configCheck.ts";
 
 const ROOT = path.join(import.meta.dirname, "..");
 
 /** 주어진 환경 변수로 설정을 계산한다 — { problems, cfg } */
-function load(env, opts) {
+function load(env: Record<string, string>, opts?: { envFileFound?: boolean }) {
   const { config: c, problems, warnings } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SPOTIFY_CLIENT_ID: "a", SPOTIFY_CLIENT_SECRET: "b", ...env }, opts);
   return { problems, warnings, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
@@ -91,19 +87,18 @@ test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내�
   const probe = "import('./config.ts').then((m) => console.log('CFG:' + JSON.stringify({ problems: m.problems, keys: Object.keys(m.default).includes('problems') })));";
   const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", CLIENT_ID: "1", DASHBOARD_PORT: "abc" } });
   assert.equal(r.status, 0);
-  const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)[1]);
+  const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)?.[1] ?? "null");
   assert.equal(out.problems.length, 1);
   assert.match(out.problems[0], /DASHBOARD_PORT/);
   assert.equal(out.keys, false);
 });
 
 test("기동 첫 줄: 경고는 찍고 지나가고, 문제가 있으면 전부 찍고 멈춘다", () => {
-  const { stopOnConfigProblems } = require("../src/app/configCheck.ts");
-  const exits = [];
-  const seen = [];
-  const out = { warn: (line) => seen.push(`warn ${line}`), error: (line) => seen.push(`error ${line}`) };
+  const exits: number[] = [];
+  const seen: string[] = [];
+  const out = { warn: (line: string) => seen.push(`warn ${line}`), error: (line: string) => seen.push(`error ${line}`) };
 
-  const exit = (code) => exits.push(code);
+  const exit = (code: number) => exits.push(code);
   stopOnConfigProblems({ warnings: ["w"], problems: [] }, out, exit);
   assert.deepEqual(exits, []);
   stopOnConfigProblems({ warnings: [], problems: ["a", "b"] }, out, exit);

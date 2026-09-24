@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 트랙의 링크 칸 셋(pageUrl · requestKey · audioUrl)과 링크 장부.
 //
 // 한 칸(url)이 보여 줄 링크 · 장부 열쇠 · 음원 주소를 다 하던 때 여기서 틀린 답을 고정해 두었고(리팩터링 0단계),
@@ -12,29 +11,26 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { canonicalUrl } from "../src/rules/canonicalUrl.ts";
-import { createRequire } from "node:module";
 import * as storeDb from "../src/store/db.ts";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import * as audioCache from "../src/store/audioCache.ts";
+import * as trackLookup from "../src/store/trackLookup.ts";
+import { PlayerSessionStore } from "../src/store/playerSessions.ts";
+import * as streamUrl from "../src/sources/streamUrl.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "track-links-"));
-let audioCache, trackLookup;
 
 before(() => {
-  audioCache = require("../src/store/audioCache.ts");
-  trackLookup = require("../src/store/trackLookup.ts");
   audioCache._setCacheDir(path.join(TMP, "audio_cache"));
   audioCache.initialize(path.join(TMP, "cache.db"));
 });
 
 after(() => {
-  audioCache?.close();
+  audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
 // 받아 둔 곡 하나. 파일과 audio_cache 행을 같이 만든다
-function seed(key, track) {
+function seed(key: string, track: audioCache.TrackMeta) {
   const file = audioCache.getFilePath(key);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, "opus");
@@ -43,31 +39,30 @@ function seed(key, track) {
   return file;
 }
 
-const watch = (id) => `https://www.youtube.com/watch?v=${id}`;
+const watch = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 
 // 전에는 음원으로 떨어진 곡의 작품 페이지(webUrl)를 저장할 칸이 없어 복원 뒤 링크가 음원 파일로 바뀌었다
 test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도 작품 페이지 링크를 지킨다", () => {
-  const { PlayerSessionStore } = require("../src/store/playerSessions.ts");
-  const { createTables } = require("../src/store/db.ts");
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
-  createTables(db);
+  storeDb.createTables(db);
   const store = new PlayerSessionStore(db);
-  store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loop: "off", autoplay: "x", pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: "u" });
+  store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loopMode: "off", autoplay: "x", pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: "u" });
 
   const page = "https://anilist.co/anime/1";
   const toYoutube = { title: "A", artist: "가수", platform: "anisongdb", pageUrl: page, requestKey: "amq:1", audioUrl: watch("v1"), id: "amq:1", addedAt: 1 };
   const toFile = { title: "B", artist: "가수", platform: "anisongdb", pageUrl: page, requestKey: "amq:2", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3", id: "amq:2", addedAt: 2 };
   store.append("g1", [toYoutube, toFile]);
 
-  const [a, b] = store.load("g1").queue;
+  const loaded = store.load("g1");
+  assert.ok(loaded);
+  const [a, b] = loaded.queue;
   assert.deepEqual([a.pageUrl, a.requestKey, a.audioUrl], [page, "amq:1", watch("v1")]);
   assert.deepEqual([b.pageUrl, b.requestKey, b.audioUrl], [page, "amq:2", "https://nawdist.animemusicquiz.com/a.mp3"]);
   db.close();
 });
 
 test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음원 주소에서만 온다", async () => {
-  const streamUrl = require("../src/sources/streamUrl.ts");
   const track = { title: "곡", platform: "anisongdb", id: "amq:48944", pageUrl: "https://anilist.co/anime/21827", requestKey: "amq:48944", audioUrl: "https://nawdist.animemusicquiz.com/abc.mp3" };
   assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {} });
 
@@ -87,8 +82,12 @@ test("장부: 같은 작품의 두 곡은 요청 열쇠가 달라 따로 산다.
   trackLookup.recordTrackLookup(fatal);
   trackLookup.recordTrackLookup(burning);
 
-  assert.equal(trackLookup.resolveFromCache("amq:9001").track.title, "Fatal");
-  assert.equal(trackLookup.resolveFromCache("amq:9002").track.title, "Burning");
+  const titleOf = (key: string) => {
+    const found = trackLookup.resolveFromCache(key);
+    return found.hit ? found.track.title : null;
+  };
+  assert.equal(titleOf("amq:9001"), "Fatal");
+  assert.equal(titleOf("amq:9002"), "Burning");
   assert.equal(trackLookup.resolveFromCache(page).hit, false);
 });
 
