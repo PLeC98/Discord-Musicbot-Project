@@ -2,7 +2,7 @@
 // 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler).
 //
 // 6단계가 입구를 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 바꿔 끼우지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
-// 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.musicEmbedManager)와 트랙 조회(sources/lookup 의 메서드)만 가짜로 둔다.
+// 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.musicEmbedManager)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -22,6 +22,7 @@ const settings = await import("../../src/store/guildSettings.ts");
 const lookup = (await import("../../src/sources/lookup.ts")).default;
 const yamlStore = await import("../../src/config/yamlStore.ts");
 const More = (await import("../../src/usecases/playlistMore.js")).default;
+const addTracks = (await import("../../src/usecases/addTracks.js")).default;
 const messageHandler = (await import("../../events/messageHandler.js")).default;
 const panelPin = (await import("../../events/panelPin.js")).default;
 const playlistMoreHandler = (await import("../../events/playlistMoreHandler.js")).default;
@@ -30,7 +31,9 @@ const modalHandler = (await import("../../events/modalHandler.js")).default;
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";
 
-const real = { resolveQuery: lookup.resolveQuery, getCollection: lookup.getCollection };
+// 곡 찾기 가짜. 곡 추가 코어에 넘기고, 시험마다 진짜로 되돌린 뒤 필요한 칸만 바꾼다
+const fakeLookup = { ...lookup };
+addTracks.useLookup(fakeLookup);
 const resolved = [];
 const CONFIG_DIR = path.join(TMP, "config");
 
@@ -41,7 +44,7 @@ before(() => {
 });
 
 after(() => {
-  Object.assign(lookup, real);
+  addTracks.useLookup(null);
   yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
@@ -51,7 +54,8 @@ beforeEach(() => {
   settings._reset();
   storeDb.get().exec("DELETE FROM guild_settings;");
   resolved.length = 0;
-  lookup.resolveQuery = async (query, context, range) => {
+  Object.assign(fakeLookup, lookup);
+  fakeLookup.resolveQuery = async (query, context, range) => {
     resolved.push({ query, context, range });
     return { success: true, isPlaylist: false, tracks: [{ id: "aaaaaaaaaaa", title: "곡", url: "https://youtu.be/aaaaaaaaaaa" }] };
   };
@@ -234,7 +238,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
   try {
     const w = world();
     await settings.setBotChannel("g1", "bot-channel");
-    lookup.resolveQuery = async () => ({ success: false, code: "no-result" });
+    fakeLookup.resolveQuery = async () => ({ success: false, code: "no-result" });
     const msg = message(w);
 
     await messageHandler.execute(msg);
@@ -273,7 +277,7 @@ test("전용 채널: 코어가 던지면 일반 오류 문장", async () => {
 test("전용 채널: 재생목록이 더 남았으면 채널에 더 넣기 메뉴를 띄운다", async () => {
   const w = world();
   await settings.setBotChannel("g1", "bot-channel");
-  lookup.resolveQuery = async () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [{ id: "bbbbbbbbbbb", title: "첫 곡" }] });
+  fakeLookup.resolveQuery = async () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [{ id: "bbbbbbbbbbb", title: "첫 곡" }] });
   const msg = message(w, { content: "https://www.youtube.com/playlist?list=PLabcdefghij" });
 
   await messageHandler.execute(msg);
@@ -374,7 +378,7 @@ test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거�
 test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 바꾼 뒤 30초 뒤 지우게 한다", async () => {
   const w = world();
   const asked = [];
-  lookup.getCollection = async (url, range) => {
+  fakeLookup.getCollection = async (url, range) => {
     asked.push({ url, range });
     return { tracks: [{ id: "bbbbbbbbbbb" }, { id: "ccccccccccc", title: "다음" }, { id: "ddddddddddd", title: "다음2" }], total: 12, nextOffset: 12 };
   };
@@ -382,7 +386,6 @@ test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 
   try {
     await playlistMoreHandler.execute(it);
   } finally {
-    lookup.getCollection = real.getCollection;
     More.clearExpiry(it.message.id);
   }
 

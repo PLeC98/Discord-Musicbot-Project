@@ -104,10 +104,11 @@ async function catalog() {
 }
 
 /** 설정에 적힌 소스 하나를 곡 목록으로. 던지면 부르는 쪽이 다음 소스로 넘어간다. */
-async function fetchFrom(source) {
+// deps: 소스가 부르는 것의 가짜(테스트). 지금은 keyword 의 search 뿐이다
+async function fetchFrom(source, deps = {}) {
   const fetcher = FETCHERS[source?.type];
   if (!fetcher) throw new Error(`모르는 소스입니다: ${source?.type}`);
-  const tracks = await fetcher(source);
+  const tracks = await fetcher(source, deps);
   log.debug(`${source.type}: ${tracks.length}곡`);
   return tracks;
 }

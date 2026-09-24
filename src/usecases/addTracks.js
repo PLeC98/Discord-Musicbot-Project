@@ -17,6 +17,12 @@ import { liveBlockReason } from "../rules/liveBlockReason.ts";
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
 
 /** 이 곡을 대기열에 넣을 수 없는 이유(사용자에게 보일 문장). 넣을 수 있으면 null. */
+// 곡 찾기. 입구(명령 · 이벤트 · 대시보드)를 거쳐 부르는 시험은 useLookup 으로 가짜를 넘긴다(플레이어의 useBoundary 와 같다)
+let defaultLookup = songLookup;
+function useLookup(fake) {
+  defaultLookup = fake ?? songLookup;
+}
+
 function liveBlockText(track, ffmpegReady) {
   const reason = liveBlockReason(track, { ffmpegReady });
   return reason ? LIVE_BLOCK_TEXT[reason] : null;
@@ -99,7 +105,7 @@ async function resolveFallbackTextChannel(guild) {
  * @param {string} options.source           로그 라벨
  * @returns {Promise<{success: boolean, message?: string, isPlaylist?: boolean, tracks?: Array}>}
  */
-async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = songLookup, ffmpegReady = () => ffmpegCapabilities().ok }) {
+async function requestPlayback(client, { guild, requester, query = null, tracks = null, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = defaultLookup, ffmpegReady = () => ffmpegCapabilities().ok }) {
   const guildId = guild.id;
   const who = toRequester(requester);
 
@@ -176,7 +182,7 @@ const MORE_BATCH = 100;
  * 받고, 찾으면 그 뒤부터, 못 찾으면 요청 위치부터 넣는다. 맨 앞에 넣었던 목록이면 앵커 곡 바로 뒤에 넣는다.
  * 곡은 묶음으로 나눠 받으며 onProgress(받은 수, 받을 수)를 부른다. 대기열에는 다 받은 뒤 한 번에 넣는다.
  */
-async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = songLookup }) {
+async function continueCollection(client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = defaultLookup }) {
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
   const want = Math.min(count, roomFor(player));
@@ -222,6 +228,6 @@ async function continueCollection(client, { guild, requester, state, count, text
   return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } };
 }
 
-const exported = { requestPlayback, continueCollection, toRequester, ensurePlayer, _internals: { resolveFallbackTextChannel } };
+const exported = { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup, _internals: { resolveFallbackTextChannel } };
 export default exported;
 export { exported as "module.exports" };

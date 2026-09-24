@@ -22,7 +22,8 @@ const exported = {
         .setRequired(true),
     ),
 
-  async execute(interaction) {
+  // search: 유튜브 검색. 생략하면 진짜(시험이 가짜를 넘긴다)
+  async execute(interaction, _client, { search = (query, limit) => YouTube.search(query, limit) } = {}) {
     const query = interaction.options.getString("query");
     const member = interaction.member;
 
@@ -38,7 +39,7 @@ const exported = {
       }
 
       // 검색 수행
-      const results = await YouTube.search(query, 9);
+      const results = await search(query, 9);
 
       if (!results || results.length === 0) {
         return await interaction.editReply({

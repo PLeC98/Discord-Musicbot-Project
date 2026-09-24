@@ -7,5 +7,5 @@
   },
   "configCapture": {},
   "requireCache": {},
-  "methodSwap": ["test/autoplay/autoplayPrefetch.test.js", "test/commands/commandsAdd.test.js", "test/commands/commandsInfo.test.js", "test/events/eventHandlers.test.js"]
+  "methodSwap": ["test/commands/commandsAdd.test.js"]
 }

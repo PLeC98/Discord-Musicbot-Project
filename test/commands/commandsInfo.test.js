@@ -18,7 +18,6 @@ import * as storeDb from "../../src/store/db.ts";
 const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
-const guildTable = (await import("../../src/store/guildSettings.ts")).table;
 const audioCache = await import("../../src/store/audioCache.ts");
 const trackLookup = await import("../../src/store/trackLookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
@@ -271,16 +270,14 @@ test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패�
   assert.deepEqual(seen, ["movePanel"]);
   assert.equal(log[0][1].embeds[0].data.title, "🔧 봇 채널 제거됨");
 
-  const real = guildTable.setBotChannel;
-  guildTable.setBotChannel = () => {
-    throw new Error("DB");
-  };
+  // 저장이 실패하게 DB 를 잠깐 닫는다(표를 부르면 던진다)
+  audioCache.close();
   try {
     const failed = interaction();
     await cmd("setchannel").execute(failed.it, failed.client);
     assert.deepEqual(failed.log[0][1], { content: "❌ 채널 설정 중 오류가 발생했어요.", flags: MessageFlags.Ephemeral });
   } finally {
-    guildTable.setBotChannel = real;
+    audioCache.initialize(path.join(TMP, "cache.db"));
   }
 });
 

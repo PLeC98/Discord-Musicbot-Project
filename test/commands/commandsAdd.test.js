@@ -18,18 +18,17 @@ import { MessageFlags } from "discord.js";
 import S from "../../src/ui/strings.js";
 import * as settings from "../../src/store/guildSettings.ts";
 import lookup from "../../src/sources/lookup.ts";
-import YouTube from "../../src/sources/youtube/index.ts";
+import addTracks from "../../src/usecases/addTracks.js";
 import More from "../../src/usecases/playlistMore.js";
 import * as storeDb from "../../src/store/db.ts";
 
 const USER = "111111111111111111";
-const real = { resolveQuery: lookup.resolveQuery, search: YouTube.search, restore: h.MusicPlayer.prototype.restoreFromState };
+const real = { restore: h.MusicPlayer.prototype.restoreFromState };
 const resolved = [];
 let resolveReply;
 
 after(() => {
-  lookup.resolveQuery = real.resolveQuery;
-  YouTube.search = real.search;
+  addTracks.useLookup(null);
   h.MusicPlayer.prototype.restoreFromState = real.restore;
 });
 
@@ -39,10 +38,14 @@ beforeEach(() => {
   storeDb.get().exec("DELETE FROM guild_settings; DELETE FROM player_sessions;");
   resolved.length = 0;
   resolveReply = () => ({ success: true, isPlaylist: false, tracks: [{ id: "aaaaaaaaaaa", title: "곡", url: "https://youtu.be/aaaaaaaaaaa" }] });
-  lookup.resolveQuery = async (query, context, range) => {
-    resolved.push({ query, context, range });
-    return resolveReply(query);
-  };
+  // 곡 찾기는 가짜. 입구를 거쳐 곡 추가 코어가 부른다
+  addTracks.useLookup({
+    ...lookup,
+    resolveQuery: async (query, context, range) => {
+      resolved.push({ query, context, range });
+      return resolveReply(query);
+    },
+  });
 });
 
 // ── 세계 ──────────────────────────────────────────────────────────────
@@ -247,17 +250,13 @@ test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
 
 test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 달고, 결과를 메시지 id 로 기억한다", async () => {
   const asked = [];
-  YouTube.search = async (q, n) => {
+  const search = async (q, n) => {
     asked.push([q, n]);
     return Array.from({ length: 6 }, (_, i) => ({ title: `결과 ${i + 1}`, artist: "채널", duration: i === 0 ? 3725 : 65 }));
   };
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
-  try {
-    await cmd("search").execute(it, w.client);
-  } finally {
-    YouTube.search = real.search;
-  }
+  await cmd("search").execute(it, w.client, { search });
 
   assert.deepEqual(asked, [["노래", 9]]);
   const [, payload] = log.at(-1);
@@ -279,21 +278,16 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   await cmd("search").execute(d.it, denied.client);
   assert.deepEqual(d.log.at(-1), ["editReply", { content: S.ERR_SAME_CHANNEL }]);
 
-  YouTube.search = async () => [];
-  try {
-    const none = interaction(world(), { options: { query: "x" } });
-    await cmd("search").execute(none.it, none.it.client);
-    assert.deepEqual(none.log.at(-1), ["editReply", { content: "❌ 검색 결과가 없습니다!" }]);
+  const none = interaction(world(), { options: { query: "x" } });
+  await cmd("search").execute(none.it, none.it.client, { search: async () => [] });
+  assert.deepEqual(none.log.at(-1), ["editReply", { content: "❌ 검색 결과가 없습니다!" }]);
 
-    YouTube.search = async () => {
-      throw new Error("boom");
-    };
-    const err = interaction(world(), { options: { query: "x" } });
-    await cmd("search").execute(err.it, err.it.client);
-    assert.deepEqual(err.log.at(-1), ["editReply", { content: S.ERR_PROCESSING }]);
-  } finally {
-    YouTube.search = real.search;
-  }
+  const boom = async () => {
+    throw new Error("boom");
+  };
+  const err = interaction(world(), { options: { query: "x" } });
+  await cmd("search").execute(err.it, err.it.client, { search: boom });
+  assert.deepEqual(err.log.at(-1), ["editReply", { content: S.ERR_PROCESSING }]);
   assert.equal(cmd("search").formatDuration(0), "알 수 없음");
 });
 
