@@ -40,7 +40,10 @@ function install() {
  */
 function register(child: Tracked | null | undefined, label = "child", { group = false }: { group?: boolean } = {}): () => void {
   const pid = child?.pid;
-  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 1 || !child) return () => {};
+  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 1 || !child)
+    return () => {
+      /* 등록하지 않았으니 풀 것도 없다 */
+    };
   install();
   active.set(pid, { pid, label, group, child, startedAt: Date.now() });
   return () => active.delete(pid);

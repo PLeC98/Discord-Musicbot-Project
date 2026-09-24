@@ -80,11 +80,6 @@
       "count": 1
     }
   },
-  "src/infra/processRegistry.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
   "src/store/guildSettings.ts": {
     "no-empty": {
       "count": 2
