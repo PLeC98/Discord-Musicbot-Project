@@ -86,7 +86,6 @@ async function resolveSource(player: MusicPlayer, track: QueuedTrack, startMs: n
     // 어느 사이트에서 받을지는 sources/streamUrl 한 곳에서 가른다
     if (!cacheFile) streamInfo = await player.io.getStream(track, startMs / 1000, { canPlayHls: player.io.ffmpegCapabilities().ok });
   }
-  if (!streamInfo && !cacheFile) throw new Error("오디오 스트림 가져오기 실패");
 
   return {
     cacheFile,

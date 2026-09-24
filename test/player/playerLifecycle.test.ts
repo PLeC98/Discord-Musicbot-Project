@@ -78,9 +78,6 @@ class Scripted extends h.MusicPlayer {
 }
 const scripted = () => h.makePlayer({ as: Scripted });
 
-// 걸어 둔 타이머의 시간(Node 타이머의 내부 칸)
-const delayOf = (timer: unknown) => (timer as { _idleTimeout?: number } | null)?._idleTimeout;
-
 // ── 곡이 끝났을 때 ─────────────────────────────────────────────────────
 
 test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부터 튼다", async () => {
@@ -337,7 +334,7 @@ test("종료 감시: Idle 이면 손 떼고, 일시정지면 2초마다 다시 �
 
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
   p.watch.checkEnd();
-  assert.equal(delayOf(p.watch.endTimer), 2000);
+  assert.equal(h.timerDelay(p.watch.endTimer), 2000);
   p.watch.stopEnd();
 
   track.isLive = true;

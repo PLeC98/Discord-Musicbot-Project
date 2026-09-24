@@ -42,12 +42,15 @@ type FakeResource = {
   playStream: { destroy(): void };
 };
 
+// 재생 입력이 fetch 에 넘기는 칸
+type FetchInit = { headers: Record<string, string> };
+
 // 판정 시험에서 무엇이 불렸는지 모은다. 시험마다 reset() 으로 비운다
 const calls = {
   spawns: [] as FakeChild[],
   resources: [] as FakeResource[],
   chunked: [] as ChunkedOptions[],
-  fetches: [] as Array<{ url: string; init: RequestInit }>,
+  fetches: [] as Array<{ url: string; init: FetchInit }>,
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
   directStreams: [] as string[],
@@ -241,7 +244,7 @@ type Behavior = {
   equivalent: ((track: QueuedTrack) => string | null) | null;
   sponsor: ((track: QueuedTrack) => Segments | null | Promise<Segments | null>) | null;
   download: ((track: DownloadTrack) => string | Promise<string>) | null;
-  fetch: ((url: string, init: RequestInit) => unknown) | null;
+  fetch: ((url: string, init: FetchInit) => unknown) | null;
   directStream: ((url: string) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined) => unknown) | null;
 };
@@ -312,7 +315,7 @@ const fakes: Partial<Boundary> = {
     calls.directStreams.push(url);
     return behavior.directStream ? behavior.directStream(url) : new PassThrough();
   },
-  fetch: (async (url: string, init: RequestInit) => {
+  fetch: (async (url: string, init: FetchInit) => {
     calls.fetches.push({ url, init });
     if (behavior.fetch) return behavior.fetch(url, init);
     return { ok: true, status: 200, body: new PassThrough() };
@@ -395,6 +398,9 @@ function dispose(player: Player) {
 const lookupRow = (requestKey: string) => storeDb.get().prepare<[string], LookupRow>("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const audioRow = (key: string) => storeDb.get().prepare<[string], AudioRow>("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
 
+/** 걸어 둔 타이머의 시간(Node 타이머의 내부 칸). 치운 타이머는 -1 */
+const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | null)?._idleTimeout;
+
 /** 플레이어의 가짜 오디오 플레이어. 시험이 멈춘 횟수 · 튼 것을 본다 */
 const fakeAudioOf = (player: Player) => player.audioPlayer as unknown as FakeAudioPlayer;
 
@@ -413,6 +419,7 @@ const exported = {
   lookupRow,
   audioRow,
   fakeAudioOf,
+  timerDelay,
   fakeConnection,
   fakeGuild,
   TMP,
