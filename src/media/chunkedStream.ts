@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // Range 요청으로 나눠 받는 읽기 스트림.
 //
 // googlevideo는 순차 GET을 재생 속도의 약 2배로 조이고(Range는 우회한다), 재생 속도 이하로 읽히는
@@ -6,18 +5,51 @@
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 
 import { Readable } from "stream";
+import { codeOf } from "../rules/errorKind.ts";
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000;
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 요청 함수에서 여기서 부르고 읽는 칸만. 기본은 전역 fetch
+type RangeResponse = {
+  status: number;
+  headers: { get?(name: string): string | null };
+  body: ReadableStream<Uint8Array> | null;
+};
+type RangeFetch = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<RangeResponse>;
+type Resumed = { attempts: number; downtimeMs: number; starvedMs: number };
+type ChunkedOptions = {
+  url: string;
+  headers?: Record<string, string>;
+  totalBytes: number;
+  chunkSize: number;
+  onInterrupt?: ((err: unknown) => boolean) | null;
+  onResumed?: ((info: Resumed) => void) | null;
+  fetchImpl?: RangeFetch;
+  retryDelaysMs?: number[];
+  stallMs?: number;
+};
+type StreamStats = {
+  requests: number;
+  received: number;
+  totalBytes: number;
+  queued: number;
+  chunkStart: number;
+  chunkReceived: number;
+  sinceOpenMs: number | null;
+  idleMs: number | null;
+  expiresInS: number | null;
+};
+type ChunkedStream = Readable & { prime(): Promise<void>; stats(): StreamStats };
 
 // 다시 요청해도 결과가 같은 실패. 4xx(만료·차단)와 구간 어긋남
-function permanent(message) {
+function permanent(message: string): Error & { permanent: boolean } {
   return Object.assign(new Error(message), { permanent: true });
 }
 
-function httpError(status) {
+function httpError(status: number): Error & { status: number } {
   const message = `Range 요청 실패: HTTP ${status}`;
   return status >= 500 ? Object.assign(new Error(message), { status }) : Object.assign(permanent(message), { status });
 }
@@ -34,7 +66,7 @@ function httpError(status) {
  * @param {Function} fetchImpl    테스트 주입용. 기본은 전역 fetch
  * @returns {Readable}
  */
-function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }) {
+function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: ChunkedOptions): ChunkedStream {
   if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않습니다: ${totalBytes}`);
   if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않습니다: ${chunkSize}`);
 
@@ -43,19 +75,19 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
 
   let pos = 0; // 받은 바이트 = 다음 요청의 시작 위치
   let target = 0; // 지금 받는 청크의 끝(미포함)
-  const queue = [];
+  const queue: Buffer[] = [];
   let queued = 0;
   let wanting = false;
   let fetching = false;
   let ended = false;
   let handedOff = false;
-  let aborter = null;
-  let stallTimer = null;
-  let wakeRoom = null;
+  let aborter: AbortController | null = null;
+  let stallTimer: NodeJS.Timeout | undefined;
+  let wakeRoom: (() => void) | null = null;
 
   let primed = false;
-  let settleReady = null;
-  let ready = null;
+  let settleReady: ((err: unknown) => void) | null = null;
+  let ready: Promise<void> | null = null;
 
   let failures = 0; // 연속 실패. 바이트를 받으면 0
   let interruptedAt = 0;
@@ -81,7 +113,7 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
 
   function drain() {
     while (wanting && queue.length > 0 && !stream.destroyed) {
-      const chunk = queue.shift();
+      const chunk = queue.shift() as Buffer;
       queued -= chunk.length;
       wanting = stream.push(chunk);
     }
@@ -100,7 +132,7 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
   }
 
   // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-  function assertRangeStart(res, expected) {
+  function assertRangeStart(res: RangeResponse, expected: number) {
     const cr = res.headers.get?.("content-range");
     if (!cr) return;
     const start = Number(/bytes\s+(\d+)-/i.exec(cr)?.[1]);
@@ -116,7 +148,7 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
     stallTimer.unref?.();
   }
 
-  function resumed(attempts) {
+  function resumed(attempts: number) {
     const now = Date.now();
     const info = { attempts, downtimeMs: now - interruptedAt, starvedMs: starvedSince ? now - starvedSince : 0 };
     interruptedAt = 0;
@@ -153,7 +185,7 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
         if (queued >= chunkSize + lowWater) {
           // Range를 무시한 200 응답에서만 걸린다. 파일 전체를 메모리에 올리지 않도록
           clearTimeout(stallTimer);
-          await new Promise((resolve) => (wakeRoom = resolve));
+          await new Promise<void>((resolve) => (wakeRoom = resolve));
           if (stream.destroyed) return;
           armStall();
         }
@@ -195,14 +227,14 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
               return;
             }
           }
-          if (err.permanent || failures >= retryDelaysMs.length) throw err;
+          if ((err as { permanent?: boolean }).permanent || failures >= retryDelaysMs.length) throw err;
           await sleep(retryDelaysMs[failures++]);
           if (stream.destroyed) return;
         }
       }
     } catch (err) {
       settleReady?.(err);
-      stream.destroy(err);
+      stream.destroy(err as Error);
     } finally {
       fetching = false;
       drain();
@@ -210,23 +242,23 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
   }
 
   // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 기존 fetch와 같은 자리에서 실패를 잡도록.
-  stream.prime = () => {
+  const prime = () => {
     if (!ready) {
-      ready = new Promise((resolve, reject) => {
+      ready = new Promise<void>((resolve, reject) => {
         settleReady = (err) => {
           settleReady = null;
           if (err) reject(err);
           else resolve();
         };
       });
-      if (primed) settleReady(null);
+      if (primed) settleReady?.(null);
       else if (!fetching) fill();
     }
     return ready;
   };
 
   const expire = Number(new URL(url, "http://_").searchParams.get("expire"));
-  stream.stats = () => {
+  const stats = (): StreamStats => {
     const now = Date.now();
     return {
       requests,
@@ -240,13 +272,13 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
       expiresInS: expire > 0 ? expire - Math.floor(now / 1000) : null,
     };
   };
-  return stream;
+  return Object.assign(stream, { prime, stats });
 }
 
 /**
  * createChunkedStream + 첫 요청 대기. 실패하면 여기서 던지므로 호출부의 폴백이 그대로 동작한다.
  */
-async function openChunkedStream(opts) {
+async function openChunkedStream(opts: ChunkedOptions): Promise<ChunkedStream> {
   const stream = createChunkedStream(opts);
   // 오류는 prime()의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException이 되는 것만 막는다.
   // 호출부는 여전히 자기 on("error")를 붙여야 한다.
@@ -261,7 +293,7 @@ async function openChunkedStream(opts) {
 }
 
 // googlevideo URL은 전체 길이를 clen 파라미터로 들고 있다. 값이 없으면(라이브 스트림 등) null.
-function contentLengthFromUrl(url) {
+function contentLengthFromUrl(url: string): number | null {
   try {
     const clen = Number(new URL(url).searchParams.get("clen"));
     return Number.isFinite(clen) && clen > 0 ? clen : null;
@@ -271,19 +303,24 @@ function contentLengthFromUrl(url) {
 }
 
 // undici fetch는 소켓 오류를 "terminated"로 감싸고 진짜 사유는 cause에 둔다
-function describeStreamError(err) {
-  const parts = [];
-  for (let e = err, depth = 0; e != null && depth < 4; e = e.cause, depth++) {
+function describeStreamError(err: unknown): string {
+  const parts: string[] = [];
+  let e = err;
+  for (let depth = 0; e != null && depth < 4; depth++) {
     if (typeof e !== "object") {
       parts.push(String(e));
       break;
     }
-    const msg = e.message || String(e);
-    parts.push(e.code && !msg.includes(e.code) ? `${e.code} ${msg}` : msg);
+    const { message, cause } = e as { message?: string; cause?: unknown };
+    const msg = message || String(e);
+    const code = codeOf(e);
+    parts.push(code && !msg.includes(String(code)) ? `${code} ${msg}` : msg);
+    e = cause;
   }
   return parts.join(" ← ");
 }
 
 const exported = { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError };
 export default exported;
+export type { ChunkedOptions, ChunkedStream, RangeFetch, StreamStats };
 export { exported as "module.exports" };

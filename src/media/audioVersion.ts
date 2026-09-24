@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 받은 음원의 판(audio_version). 같은 주소에서 음원이 바뀐 것을 나중에 알아볼 값이다.
 // 받을 때 같은 응답에서 공짜로 나온다. 값을 적기만 하고, 견주는 일(재검증)은 아직 없다.
 //
@@ -7,7 +6,7 @@
 //   직접 링크     응답 헤더 ETag · Last-Modified · Content-Length 중 있는 것을 이어 붙인 한 줄
 // 모르면 null.
 
-function parseUrl(value) {
+function parseUrl(value: unknown): URL | null {
   try {
     return typeof value === "string" ? new URL(value) : null;
   } catch {
@@ -16,7 +15,9 @@ function parseUrl(value) {
 }
 
 /** yt-dlp 가 받을 때 쓴 info.json 에서. 한 포맷을 받으면 그 주소가 url 이다 */
-function fromYtDlpInfo(info) {
+type YtDlpDownloadInfo = { url?: unknown; extractor_key?: unknown; extractor?: unknown; modified_timestamp?: unknown };
+
+function fromYtDlpInfo(info: YtDlpDownloadInfo | null | undefined): string | null {
   if (!info || typeof info !== "object") return null;
   const url = parseUrl(info.url);
   const lmt = url?.searchParams.get("lmt");
@@ -30,7 +31,9 @@ function fromYtDlpInfo(info) {
 }
 
 /** 직접 링크 GET 응답 헤더에서. 셋 다 빠질 수 있고 하나씩은 우연히 같을 수 있어 있는 것을 모두 쓴다 */
-function fromHeaders(headers) {
+type ResponseHeaders = Record<string, unknown>;
+
+function fromHeaders(headers: ResponseHeaders | null | undefined): string | null {
   if (!headers) return null;
   const parts = [
     ["etag", headers.etag],

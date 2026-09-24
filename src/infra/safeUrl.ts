@@ -35,7 +35,7 @@ const ALLOWED_CONTENT_TYPE = /^\s*(audio\/|video\/|application\/octet-stream|bin
 type LookupFn = (host: string, options: { all: true; verbatim: boolean }) => Promise<Array<{ address: string; family: number }>>;
 /** 바깥 경계. 생략하면 axios 와 dns.lookup */
 // 요청 함수(axios 와 같은 부름). 여기서 보는 응답 칸만
-type HttpRequest = (config: AxiosRequestConfig) => Promise<{ status: number; headers: object; data?: unknown }>;
+type HttpRequest = (config: AxiosRequestConfig) => Promise<{ status: number; headers: Record<string, unknown>; data?: unknown }>;
 type RequestDeps = { request?: HttpRequest; lookup?: LookupFn };
 
 class SsrfError extends Error {
@@ -174,7 +174,7 @@ async function guardedRequest(method: "head" | "get", rawUrl: string, { response
         body.destroy();
       }
       agent.destroy();
-      const location = (response.headers as Record<string, unknown>).location;
+      const location = response.headers.location;
       if (!location) throw new SsrfError("리다이렉트 응답에 Location 헤더 없음");
       currentUrl = new URL(String(location), url).href; // 상대 경로/프로토콜 상대 처리
       continue;

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
@@ -14,11 +13,14 @@ const log = logger.child({ category: "ffmpeg" });
  * FFMPEG_PATH가 유효하지 않으면 다음 후보로 넘어가지 않고 즉시 실패한다.
  */
 
-let resolved = null; // { path, version, source }
-let caps = null; // { https, hls, segMaxRetry, ok }
+type Resolved = { path: string; version: string; source: string };
+type Capabilities = { https: boolean; hls: boolean; dash: boolean; segMaxRetry: boolean; ok: boolean };
+
+let resolved: Resolved | null = null;
+let caps: Capabilities | null = null;
 
 /** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 뽑는다. 아니면 null. */
-function probe(candidate) {
+function probe(candidate: string | null | undefined): string | null {
   if (!candidate) return null;
   try {
     const result = spawnSync(candidate, ["-version"], { windowsHide: true, encoding: "utf8", timeout: 10000 });
@@ -31,17 +33,16 @@ function probe(candidate) {
 }
 
 /** scripts/install-ffmpeg.js가 내려받아 두는 위치. 미지원 플랫폼에서는 없다. */
-function fromBundle() {
+function fromBundle(): string | null {
   const p = path.join(import.meta.dirname, "..", "..", "..", "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   return fs.existsSync(p) ? p : null;
 }
 
 /**
  * ffmpeg 경로를 해석한다(결과는 프로세스 단위로 캐시).
- * @returns {{path: string, version: string, source: string}}
  * @throws 어느 후보도 실행 가능한 ffmpeg가 아니면 던진다.
  */
-function resolve() {
+function resolve(): Resolved {
   if (resolved) return resolved;
 
   const configured = config.ffmpeg && config.ffmpeg.path;
@@ -56,7 +57,7 @@ function resolve() {
     return resolved;
   }
 
-  const candidates = [
+  const candidates: Array<{ path: string | null; source: string }> = [
     { path: fromBundle(), source: "번들" },
     { path: "ffmpeg", source: "PATH" },
   ];
@@ -73,7 +74,7 @@ function resolve() {
 }
 
 /** 해석된 실행 파일 경로만 반환. 실행 지점에서 쓰는 기본 접근자. */
-function ffmpegPath() {
+function ffmpegPath(): string {
   return resolve().path;
 }
 
@@ -88,13 +89,11 @@ function ffmpegPath() {
  * 없는 빌드에 붙이면 재생이 시작조차 못 한다.
  *
  * `dash`는 DASH 조각 목록을 여는가. 지금 받는 곳에서는 드물다.
- *
- * @returns {{https: boolean, hls: boolean, dash: boolean, segMaxRetry: boolean, ok: boolean}}
  */
-function capabilities() {
+function capabilities(): Capabilities {
   if (caps) return caps;
 
-  const ask = (args) => {
+  const ask = (args: string[]): string => {
     try {
       const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
       if (result.error) return "";
@@ -122,7 +121,7 @@ function capabilities() {
 }
 
 /** 기동 시 1회 호출. 실제로 쓰는 바이너리를 로그에 남긴다. 못 찾으면 던진다. */
-function logResolved() {
+function logResolved(): Resolved {
   const info = resolve();
   const shown = info.source === "PATH" ? "PATH의 ffmpeg" : info.path;
   log.info({ tags: ["startup"] }, `ffmpeg ${info.version} (${info.source}: ${shown})`);
@@ -137,4 +136,5 @@ function _reset() {
 
 const exported = { ffmpegPath, resolve, capabilities, logResolved, _internals: { probe, fromBundle, _reset } };
 export default exported;
+export type { Capabilities, Resolved };
 export { exported as "module.exports" };

@@ -24,16 +24,13 @@ const REMUX_SLACK = 1.25;
 /** Opus 가 아닌 것을 구울 때의 목표. 소스가 무엇이든 같다. */
 const TRANSCODE_TARGET_KBPS = 128;
 
-/**
- * probe 결과로 무엇을 할지 정한다. 부수 효과가 없어 정책은 여기만 보면 되고,
- * 테스트도 ffmpeg 없이 이 함수만 고정한다.
- *
- * @param {{codec: string|null, bitrateKbps: number|null}} info
- * @returns {{action: "copy"|"transcode", bitrateKbps: number|null, why: string}}
- */
 type CacheAudioInfo = { codec?: string | null; bitrateKbps?: number | string | null };
 type ConvertPlan = { action: "copy" | "transcode"; bitrateKbps: number | null; why: string };
 
+/**
+ * probe 결과로 무엇을 할지 정한다. 부수 효과가 없어 정책은 여기만 보면 되고,
+ * 테스트도 ffmpeg 없이 이 함수만 고정한다.
+ */
 function planFor(info: CacheAudioInfo | null | undefined): ConvertPlan {
   const codec = info?.codec ? String(info.codec).toLowerCase() : null;
   const kbps = Number(info?.bitrateKbps) > 0 ? Number(info?.bitrateKbps) : null;
@@ -49,3 +46,4 @@ function planFor(info: CacheAudioInfo | null | undefined): ConvertPlan {
 }
 
 export { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS };
+export type { CacheAudioInfo, ConvertPlan };

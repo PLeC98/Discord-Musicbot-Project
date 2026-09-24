@@ -11,6 +11,7 @@
  */
 // yt-dlp 가 주는 스트림 정보. 여기서 보는 칸만 적는다(나머지 칸도 붙어 온다)
 type StreamInfo = { protocol?: string | null; liveStatus?: string | null; [field: string]: unknown };
+type Transport = { via: "url" | "file" | "pipe"; live: boolean; cacheable: boolean; list?: "hls" | "dash" | "other" };
 
 function isHlsStream(streamInfo: unknown): boolean {
   const protocol = streamInfo && typeof streamInfo === "object" && "protocol" in streamInfo ? streamInfo.protocol : null;
@@ -30,7 +31,7 @@ function listOf(streamInfo: StreamInfo | null | undefined): "hls" | "dash" | "ot
   return String(streamInfo?.protocol).startsWith("http_dash_segments") ? "dash" : "other";
 }
 
-function transportOf({ file, streamUrl, streamInfo }: { file?: string | null; streamUrl?: string | null; streamInfo?: StreamInfo | null }): { via: "url" | "file" | "pipe"; live: boolean; cacheable: boolean; list?: "hls" | "dash" | "other" } {
+function transportOf({ file, streamUrl, streamInfo }: { file?: string | null; streamUrl?: string | null; streamInfo?: StreamInfo | null }): Transport {
   if (!file && typeof streamUrl === "string" && !pipeable(streamInfo)) {
     const live = streamInfo?.liveStatus === "is_live";
     return { via: "url", live, cacheable: !live, list: listOf(streamInfo) };
@@ -39,3 +40,4 @@ function transportOf({ file, streamUrl, streamInfo }: { file?: string | null; st
 }
 
 export { transportOf, isHlsStream };
+export type { Transport };

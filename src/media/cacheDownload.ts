@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import fsModule from "fs";
 const fs = fsModule.promises;
 import path from "path";
@@ -18,6 +17,19 @@ import * as trackLookup from "../store/trackLookup.ts";
 import * as SponsorBlock from "../sources/sponsorBlock.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
+import type { TrackInfo } from "../player/track.js";
+import type { AudioStream } from "../sources/direct.ts";
+
+// 받는 데 부르는 소스와 변환에서 여기서 부르는 칸만
+type Sources = {
+  youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
+  direct: { getStream(url: string): Promise<AudioStream> };
+  convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null }> };
+  sponsor: { forTrack(track: TrackInfo, guildId: string): Promise<unknown> };
+  equivalent: { findYouTubeEquivalent(track: TrackInfo): Promise<string | null>; reresolveYouTube(track: TrackInfo): Promise<string | null> };
+};
+/** 받는 쪽 플레이어에서 읽는 칸 */
+type Owner = { guild: { id: string } };
 /**
  * TrackDownloader. 오디오 파일 다운로드/사전 로드
  *
@@ -29,7 +41,7 @@ import { audioKeyOf } from "../rules/audioKeyOf.ts";
  * 받는 동안에는 자기 임시 파일에만 쓰고 끝난 뒤 최종 경로로 옮긴다. 그래야 같은 곡이 어찌어찌 겹쳐도
  * 서로의 작업 파일에 쓰지 않고, 실패 정리가 남의 파일을 지우지 않는다.
  */
-const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역. 서버가 달라도 같은 곡은 한 번만 받는다.
+const inFlight = new Map<string, Promise<string>>(); // 최종 경로 → Promise<최종 경로>. 프로세스 전역. 서버가 달라도 같은 곡은 한 번만 받는다.
 
 /**
  * 이 트랙은 음원을 남에게서 빌려 와야 하는가. 음원 주소가 없는 곡, 곧 영상을 아직 못 찾은 스포티파이 곡뿐이다.
@@ -38,22 +50,22 @@ const inFlight = new Map(); // 최종 경로 → Promise<최종 경로>. 프로�
  * 유튜브 음원이 들어가, 같은 곡이 처음 틀 때와 캐시로 틀 때 서로 다른 녹음이 된다.
  * 조건문 안에 묻어 두면 다시 끼워 넣게 되므로 규칙에 이름을 준다.
  */
-function needsBorrowedAudio(track) {
+function needsBorrowedAudio(track: TrackInfo | null | undefined): boolean {
   return !!track && !track.audioUrl;
 }
 
 /** 내 임시 경로. 같은 폴더여야 옮기기가 원자적이고, .opus여야 yt-dlp가 확장자를 바꾸지 않는다 */
-function tempPathFor(filepath) {
+function tempPathFor(filepath: string): string {
   const stem = path.basename(filepath, ".opus");
   return path.join(path.dirname(filepath), `${stem}.tmp-${process.pid}-${crypto.randomBytes(4).toString("hex")}.opus`);
 }
 
 /** 내 임시 파일과 그 부스러기(.part·조각·info.json)만 지운다. 남이 받는 중인 파일은 건드리지 않는다 */
-function cleanTemp(tempPath) {
+function cleanTemp(tempPath: string): number {
   const dir = path.dirname(tempPath);
   const stem = path.basename(tempPath, ".opus");
   let removed = 0;
-  let names;
+  let names: string[];
   try {
     names = fsSync.readdirSync(dir);
   } catch {
@@ -77,7 +89,7 @@ function cleanTemp(tempPath) {
  * 올리기 전에 최종 경로를 보호한다. 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
  * 그 순간 기동 스윕이 돌면 고아로 보고 지운다. 푸는 것은 받기가 끝날 때(_performDownload의 finally).
  */
-async function publish(tempPath, filepath) {
+async function publish(tempPath: string, filepath: string): Promise<boolean> {
   if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
     await fs.unlink(tempPath).catch(() => {});
     return false;
@@ -88,10 +100,13 @@ async function publish(tempPath, filepath) {
 }
 
 // 받는 데 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
-const SOURCES = { youtube: YouTube, direct: DirectLink, convert: audioConvert, sponsor: SponsorBlock, equivalent };
+const SOURCES: Sources = { youtube: YouTube, direct: DirectLink, convert: audioConvert, sponsor: SponsorBlock, equivalent };
 
 class TrackDownloader {
-  constructor(player, deps = {}) {
+  player: Owner;
+  deps: Sources;
+
+  constructor(player: Owner, deps: Partial<Sources> = {}) {
     this.player = player;
     this.deps = { ...SOURCES, ...deps };
   }
@@ -99,7 +114,7 @@ class TrackDownloader {
   /**
    * 트랙의 캐시 파일 경로 산출. 음원 주소가 아직 없으면(스포티파이 미해석) 요청 열쇠를 해시한다.
    */
-  trackFilePath(track) {
+  trackFilePath(track: TrackInfo): string {
     return audioCache.getFilePath(audioKeyOf(track.audioUrl) || track.requestKey);
   }
 
@@ -111,7 +126,7 @@ class TrackDownloader {
    * 열쇠가 정해진다. 그 검색을 받는 도중에 하면 파일이 요청 열쇠 자리에 저장되고 DB 행도 안 남아,
    * 열쇠가 생긴 다음 번에 같은 곡을 또 받는다.
    */
-  async downloadTrack(track) {
+  async downloadTrack(track: TrackInfo): Promise<string> {
     // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
     // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
     // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
@@ -155,23 +170,25 @@ class TrackDownloader {
     }
   }
 
-  async _performDownload(track, filepath) {
+  async _performDownload(track: TrackInfo, filepath: string): Promise<string> {
     const player = this.player;
     const audioKey = audioKeyOf(track.audioUrl);
-    let verifiedTitle = null;
-    let audioDurationSec = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
-    let audioVersion; // 받은 음원의 판. 같은 주소에서 음원이 바뀐 것을 알아볼 값(audioVersion.js)
+    let verifiedTitle: string | null = null;
+    let audioDurationSec: number | null = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
+    let audioVersion: string | null; // 받은 음원의 판. 같은 주소에서 음원이 바뀐 것을 알아볼 값(audioVersion.js)
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
     audioCache.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
     try {
       if (audioKey) audioCache.recordDownloadStart(audioKey, track);
+      // 빌려 오는 곡은 downloadTrack 이 먼저 채웠다
       const downloadUrl = track.audioUrl;
+      if (!downloadUrl) throw new Error("음원 주소가 없어 받을 수 없습니다");
 
       // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
       try {
-        await this.deps.sponsor.forTrack(track, player.guild?.id);
+        await this.deps.sponsor.forTrack(track, player.guild.id);
       } catch {
         /* 무시 */
       }
@@ -314,9 +331,8 @@ class TrackDownloader {
    * yt-dlp는 출력 템플릿의 확장자를 벗기지 않고 `.info.json`을 덧붙이므로 `<파일>.info.json`이
    * 되지만, 버전에 따라 확장자를 바꾼 형태로 쓸 수도 있어 둘 다 본다.
    * 실패해도 다운로드 자체는 성공한 것이므로 모르는 값은 null로 돌려준다.
-   * @returns {{title: string|null, durationSec: number|null}}
    */
-  _takeInfoJson(filepath) {
+  _takeInfoJson(filepath: string): { title: string | null; durationSec: number | null; version: string | null } {
     const candidates = [`${filepath}.info.json`, filepath.replace(/\.opus$/, "") + ".info.json"];
     for (const p of candidates) {
       try {
@@ -325,7 +341,7 @@ class TrackDownloader {
         fsSync.unlinkSync(p);
         return {
           title: typeof info?.title === "string" && info.title.trim() ? info.title : null,
-          durationSec: Number(info?.duration) > 0 ? Number(info.duration) : null,
+          durationSec: Number(info?.duration) > 0 ? Number(info?.duration) : null,
           version: versionOf.fromYtDlpInfo(info),
         };
       } catch {
@@ -340,7 +356,7 @@ class TrackDownloader {
   }
 
   /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */
-  isCached(track) {
+  isCached(track: TrackInfo): boolean {
     return TrackDownloader.findCacheFile(track) !== null;
   }
 
@@ -348,34 +364,40 @@ class TrackDownloader {
    * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
    * 이미 받았는지, 받는 중인지는 downloadTrack이 판정하므로 여기서 다시 하지 않는다.
    */
-  async warm(track) {
+  async warm(track: TrackInfo | null | undefined): Promise<void> {
     if (!track || !track.requestKey) return;
     await this.downloadTrack(track);
   }
+
+  /** 이 경로를 지금 받고 있는가. 서버와 무관하다 */
+  static isDownloading(filepath: string): boolean {
+    return inFlight.has(filepath);
+  }
+
+  /** 받는 중이면 그 promise, 아니면 null */
+  static waitFor(filepath: string): Promise<string> | null {
+    return inFlight.get(filepath) ?? null;
+  }
+
+  /**
+   * 이 곡의 캐시 파일. 다 받아 둔 것만 돌려준다(열쇠 자리에 있고, 비어 있지 않고, 받는 중이 아님). 없으면 null.
+   * 받기는 임시 파일에 쓰고 끝나면 옮기므로 열쇠 자리에 있으면 다 받은 것이다. 받는 중 확인은 그래도 한 번 더 본다.
+   * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 열쇠도 없어 null 이다.
+   */
+  static findCacheFile(track: TrackInfo | null | undefined): string | null {
+    const key = audioKeyOf(track?.audioUrl);
+    if (!key) return null;
+    const file = audioCache.getFilePath(key);
+    try {
+      return fsSync.statSync(file).size > 0 && !TrackDownloader.isDownloading(file) ? file : null;
+    } catch {
+      return null;
+    }
+  }
+
+  static _internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };
 }
 
-/** 이 경로를 지금 받고 있는가. 서버와 무관하다 */
-TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
-
-/** 받는 중이면 그 promise, 아니면 null */
-TrackDownloader.waitFor = (filepath) => inFlight.get(filepath) ?? null;
-
-/**
- * 이 곡의 캐시 파일. 다 받아 둔 것만 돌려준다(열쇠 자리에 있고, 비어 있지 않고, 받는 중이 아님). 없으면 null.
- * 받기는 임시 파일에 쓰고 끝나면 옮기므로 열쇠 자리에 있으면 다 받은 것이다. 받는 중 확인은 그래도 한 번 더 본다.
- * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 열쇠도 없어 null 이다.
- */
-TrackDownloader.findCacheFile = (track) => {
-  const key = audioKeyOf(track?.audioUrl);
-  if (!key) return null;
-  const file = audioCache.getFilePath(key);
-  try {
-    return fsSync.statSync(file).size > 0 && !TrackDownloader.isDownloading(file) ? file : null;
-  } catch {
-    return null;
-  }
-};
-
 export default TrackDownloader;
+export type { Sources };
 export { TrackDownloader as "module.exports" };
-TrackDownloader._internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };

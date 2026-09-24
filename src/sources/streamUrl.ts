@@ -9,8 +9,18 @@ import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 
 // 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
-/** 스트림 서술자. 소스마다 칸이 더 있다 */
-type StreamInfo = { url: string; protocol?: string | null; [field: string]: unknown };
+/** 스트림 서술자. 재생 쪽이 읽는 칸만 적는다. 소스마다 칸이 더 있다 */
+type StreamInfo = {
+  url: string;
+  protocol?: string | null;
+  platform?: string;
+  rawUrl?: string;
+  httpHeaders?: Record<string, string>;
+  duration?: number;
+  bitrate?: number;
+  isLive?: boolean;
+  [field: string]: unknown;
+};
 // 여기서 부르는 것만
 type YouTubeStreams = { getStream(url: string, seekSeconds?: number): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };

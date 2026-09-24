@@ -1,5 +1,4 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-import { spawn } from "child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import path from "./path.ts";
 const { ffmpegPath } = path;
 import * as procRegistry from "../../infra/processRegistry.ts";
@@ -15,16 +14,15 @@ const log = logger.child({ category: "ffmpeg" });
  */
 
 // SIGKILL/SIGTERM은 스킵·정지·종료에서 우리가 보내는 것이므로 크래시가 아니다.
-const CRASH_SIGNALS = new Set(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
+const CRASH_SIGNALS = new Set<NodeJS.Signals>(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
 
 /**
  * @param {string[]} args 완전한 ffmpeg 인자. 출력 대상까지 호출부가 지정한다.
  *   재생은 `pipe:1`, 캐시 변환은 `-y <파일>`이라 여기서 임의로 붙일 수 없다.
  * @param {string} label 로그·레지스트리 표기용 ("stream" | "playback" | "download")
  * @param {{killOnStdoutClose?: boolean}} opts stdout을 소비하는 경로(재생)에서만 true
- * @returns {import("child_process").ChildProcess}
  */
-function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
+function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }: { killOnStdoutClose?: boolean } = {}): ChildProcessWithoutNullStreams {
   const bin = ffmpegPath();
   const child = spawn(bin, args, { windowsHide: true });
 
@@ -70,7 +68,7 @@ function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
   child.on("exit", (code, signal) => {
     release();
     const detail = stderrTail.trim() ? `: ${stderrTail.trim()}` : "";
-    if (CRASH_SIGNALS.has(signal)) {
+    if (signal !== null && CRASH_SIGNALS.has(signal)) {
       log.error(`ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
     } else if (closedByUs) {
       // 종료 코드는 남긴다. 조사할 때 "정리로 죽은 것"과 "정리 직전에 이미 이상했던 것"을 가른다.
@@ -83,17 +81,17 @@ function spawnFfmpeg(args, label, { killOnStdoutClose = true } = {}) {
   return child;
 }
 
+type ProbeInfo = { durationSec: number | null; codec: string | null; bitrateKbps: number | null };
+
 /**
  * ffmpeg가 파일을 열어 내놓는 안내문에서 우리가 쓰는 세 가지를 뽑는다.
  * 파싱만 한다. 프로세스를 띄우지 않으므로 테스트가 실물 파일 없이 고정할 수 있다.
  *
  * 비트레이트는 스트림 줄에 적힌 값이 있으면 그쪽을 쓴다. `Duration:` 줄의 값은 컨테이너 전체지만
  * 오디오 전용 파일에서는 둘이 거의 같고 스트림 줄에 없는 형식도 많아 폴백으로 쓴다.
- *
- * @returns {{durationSec: number|null, codec: string|null, bitrateKbps: number|null}}
  */
-function parseProbeOutput(text) {
-  const out = { durationSec: null, codec: null, bitrateKbps: null };
+function parseProbeOutput(text: unknown): ProbeInfo {
+  const out: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null };
   const str = String(text || "");
 
   const dur = str.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
@@ -114,7 +112,7 @@ function parseProbeOutput(text) {
     const container = str.match(/Duration:[^\r\n]*?bitrate:\s*(\d+)\s*kb\/s/);
     if (container) out.bitrateKbps = Number(container[1]);
   }
-  if (!(out.bitrateKbps > 0)) out.bitrateKbps = null;
+  if (out.bitrateKbps !== null && !(out.bitrateKbps > 0)) out.bitrateKbps = null;
 
   return out;
 }
@@ -125,10 +123,10 @@ function parseProbeOutput(text) {
  * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다. 길이·코덱·비트레이트가
  * 한 번에 나오므로 따로 물어볼 일이 없다.
  */
-function probeAudio(file) {
+function probeAudio(file: string): Promise<ProbeInfo> {
   return new Promise((resolve) => {
-    const unknown = { durationSec: null, codec: null, bitrateKbps: null };
-    let child;
+    const unknown: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null };
+    let child: ChildProcessWithoutNullStreams;
     try {
       child = spawnFfmpeg(["-hide_banner", "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
     } catch {
@@ -150,10 +148,11 @@ function probeAudio(file) {
  * 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다
  * (실측: 241초 파일이 비트레이트에 따라 137초 또는 509초로 나왔다).
  */
-async function probeDurationSec(file) {
+async function probeDurationSec(file: string): Promise<number | null> {
   return (await probeAudio(file)).durationSec;
 }
 
 const exported = { spawnFfmpeg, probeAudio, probeDurationSec, _internals: { CRASH_SIGNALS, parseProbeOutput } };
 export default exported;
+export type { ProbeInfo };
 export { exported as "module.exports" };

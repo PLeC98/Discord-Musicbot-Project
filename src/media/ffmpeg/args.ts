@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생용 ffmpeg 인자.
 
 import path from "./path.ts";
@@ -6,6 +5,8 @@ const { capabilities } = path;
 
 // HLS 세그먼트 하나가 실패하면 기본값(0)으로는 재시도 없이 스트림이 죽는다.
 const SEG_MAX_RETRY = 5;
+
+type ArgsOptions = { file?: string | null; url?: string | null; hls?: boolean; seekMs?: number; caps?: { segMaxRetry: boolean } | null };
 
 /**
  * 재생용 ffmpeg 인자 구성. 출력 대상(`pipe:1`)까지 포함한 완전한 인자를 돌려준다.
@@ -20,9 +21,8 @@ const SEG_MAX_RETRY = 5;
  * 스트리밍 실패 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존하게 된다.
  *
  * caps: ffmpeg 능력(주소 갈래만 본다). 생략하면 진짜. hls: 주소가 HLS 재생목록인가(세그먼트 재시도는 HLS 옵션이다)
- * @param {{file?: string|null, url?: string|null, hls?: boolean, seekMs?: number, caps?: object|null}} opts
  */
-function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps = null } = {}) {
+function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps = null }: ArgsOptions = {}): string[] {
   const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];
   const output = ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"];
 

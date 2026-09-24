@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생을 끊지 않고 오디오 소스를 갈아끼우는 스트림.
 //
 // ffmpeg와 createAudioResource 사이에 두면 AudioPlayer는 소스가 바뀐 줄 모르고 playbackDuration도 이어진다.
@@ -12,19 +11,33 @@ const BYTES_PER_MS = 192; // s16le 48kHz 스테레오
 const FRAME_BYTES = 20 * BYTES_PER_MS; // 20ms. @discordjs/voice의 프레임 주기
 
 // 소스가 끝났는지. 'end'는 버퍼를 다 비워야 오므로, 꼬리가 남은 동안에도 참이 되는 신호가 필요하다.
-const isEnded = (s) => s.readableEnded || s._readableState?.ended === true;
+const isEnded = (s: Readable) => s.readableEnded || (s as Readable & { _readableState?: { ended?: boolean } })._readableState?.ended === true;
 
 class AudioSplicer extends Readable {
+  a: Readable;
+  b: Readable | null;
+  fadeBytes: number;
+  switchAtBytes: number;
+  emitted: number;
+  faded: number;
+  switched: boolean;
+  pumping: boolean;
+  waiting: Readable | null;
+  _slips: number;
+  bDebt: number;
+  _ended: boolean;
+  _failFrom: (err: Error) => void;
+
   /**
    * @param {Readable} source  최초 소스 (ffmpeg stdout)
    * @param {number}   fadeMs  크로스페이드 길이
    */
-  constructor(source, { fadeMs = 40 } = {}) {
+  constructor(source: Readable, { fadeMs = 40 }: { fadeMs?: number } = {}) {
     super({ highWaterMark: 64 * 1024 });
     this.a = source; // 현재 소스
     this.b = null; // 갈아탈 소스
     this.fadeBytes = Math.max(FRAME_BYTES, Math.round(fadeMs * BYTES_PER_MS));
-    this.switchAtBytes = null;
+    this.switchAtBytes = 0;
     this.emitted = 0;
     this.faded = 0;
     this.switched = false;
@@ -62,7 +75,7 @@ class AudioSplicer extends Readable {
    * (캐시 파일을 그 위치로 seek해 띄운 ffmpeg 등). 이미 지난 지점이면 즉시 전환한다.
    * @returns {boolean} 예약 성공 여부
    */
-  planSwitch(next, atMs) {
+  planSwitch(next: Readable, atMs: number): boolean {
     // 이미 끝났으면 받지 않는다. destroyed만 보면 'end'와 autoDestroy 사이의 한 틱이 비어,
     // 그 사이에 예약되면 EOF 뒤에 push가 일어나 던진다.
     if (this.b || this.destroyed || this._ended) return false;
@@ -76,7 +89,7 @@ class AudioSplicer extends Readable {
 
   // 프레임 하나를 꺼낸다. 꼬리(프레임 미만)는 소스가 끝났을 때만 꺼내야
   // 중간에 조각난 읽기가 생기지 않는다. null이면 지금은 줄 게 없다는 뜻.
-  _take(s) {
+  _take(s: Readable): Buffer | null {
     return s.read(FRAME_BYTES) || (isEnded(s) ? s.read() : null);
   }
 
@@ -175,16 +188,18 @@ class AudioSplicer extends Readable {
 
   // 전환 지점을 민 만큼 새 소스 앞을 버린다. 데이터가 아직 없으면 빚으로 남겨 다음에 갚는다.
   _payDebt() {
-    while (this.bDebt > 0 && this.b.readableLength > 0) {
-      const d = this.b.read(Math.min(this.bDebt, this.b.readableLength));
+    const b = this.b;
+    if (!b) return;
+    while (this.bDebt > 0 && b.readableLength > 0) {
+      const d = b.read(Math.min(this.bDebt, b.readableLength));
       if (!d) break;
       this.bDebt -= d.length;
     }
     // 새 소스가 빚만큼도 남기지 않고 끝났다. 더 갚을 방법이 없으니 접는다
-    if (this.bDebt > 0 && isEnded(this.b) && this.b.readableLength === 0) this.bDebt = 0;
+    if (this.bDebt > 0 && isEnded(b) && b.readableLength === 0) this.bDebt = 0;
   }
 
-  _mix(a, b) {
+  _mix(a: Buffer, b: Buffer): Buffer {
     const out = Buffer.alloc(FRAME_BYTES);
     for (let i = 0; i < FRAME_BYTES; i += 2) {
       const t = Math.min(1, (this.faded + i) / this.fadeBytes);
@@ -196,11 +211,12 @@ class AudioSplicer extends Readable {
 
   // 페이드를 끝내고 b를 현재 소스로 삼는다. 여러 경로에서 불리므로 한 번만 동작해야 한다.
   _completeSwitch() {
-    if (this.switched) return;
+    const next = this.b;
+    if (this.switched || !next) return;
     this.switched = true;
     this.faded = this.fadeBytes;
     const old = this.a;
-    this.a = this.b;
+    this.a = next;
     // 옛 소스는 더 볼 일이 없다. 바로 파괴해야 그 뒤의 ffmpeg가 파이프에 막힌 채
     // 트랙 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
     // 버린 소스의 오류는 이제 이 재생과 무관하다. 그런데 핸들러를 그냥 떼면 듣는 사람이
@@ -211,7 +227,7 @@ class AudioSplicer extends Readable {
   }
 
   // 소스에 아직 데이터가 없다. endWhenDone이면 소스가 끝났을 때 이 스트림도 끝낸다.
-  _await(s, endWhenDone) {
+  _await(s: Readable, endWhenDone: boolean) {
     if (isEnded(s) && s.readableLength === 0) {
       if (endWhenDone) {
         this._ended = true;
@@ -237,7 +253,7 @@ class AudioSplicer extends Readable {
   // 소스까지 역전파한다. 그 사슬이 여기서 끊기면 ffmpeg의 stdout이 닫히지 않아
   // spawnFfmpeg의 killOnStdoutClose가 걸리지 않고, ffmpeg가 파이프에 막힌 채 남는다.
   // 레지스트리는 종료 백스톱이라 그때까지 좀비가 쌓인다. 곡을 넘길 때마다 하나씩.
-  _destroy(err, cb) {
+  _destroy(err: Error | null, cb: (err?: Error | null) => void) {
     this.waiting = null;
     for (const s of [this.a, this.b]) this._discard(s);
     cb(err);
@@ -245,7 +261,7 @@ class AudioSplicer extends Readable {
 
   // 더 쓰지 않을 소스를 손에서 놓는다. 오류 핸들러를 흡수기로 갈아끼운 뒤 파괴한다.
   // 그냥 떼면 듣는 사람이 없어 uncaughtException, 그냥 두면 이 파괴가 우리를 죽인다.
-  _discard(s) {
+  _discard(s: Readable | null) {
     if (!s) return;
     try {
       s.off("error", this._failFrom);

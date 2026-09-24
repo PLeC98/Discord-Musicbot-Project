@@ -8,7 +8,9 @@ import { messageOf } from "../rules/errorKind.ts";
 
 // 바깥 경계(SafeUrl). 테스트가 가짜를 넘긴다. 여기서 읽는 칸만
 type HeadNet = { head: (url: string) => Promise<{ headers: object }> };
-type StreamNet = { getStream: (url: string) => Promise<Readable> };
+/** 받는 쪽이 음원의 판을 헤더에서 읽는다 */
+type AudioStream = Readable & { headers?: Record<string, unknown> };
+type StreamNet = { getStream: (url: string) => Promise<AudioStream> };
 
 /**
  * 직접 오디오 링크의 메타데이터 조회.
@@ -65,7 +67,7 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
  * 직접 링크는 URL 기반 탐색을 지원하지 않음. 탐색은 MusicPlayer의 FFmpeg가 처리하므로
  * startSeconds는 여기서 무시한다. net 은 테스트가 가짜를 넘기는 자리
  */
-async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }): Promise<Readable> {
+async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }): Promise<AudioStream> {
   try {
     if (!links.isDirectAudioLink(url)) {
       throw new Error("지원되지 않는 직접 오디오 파일 링크");
@@ -124,4 +126,4 @@ function estimateDuration(fileSize: unknown, contentType: string): number {
 }
 
 export { getInfo, getStream, extractTitle, generateId, estimateDuration };
-export type { HeadNet, StreamNet };
+export type { AudioStream, HeadNet, StreamNet };
