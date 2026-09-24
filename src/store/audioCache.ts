@@ -165,7 +165,7 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
     )
     .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, now, audioKey);
 
-  // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다. evictIfNeeded는 닫힌 DB를 기본 경로로 다시 연다
+  // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
   setImmediate(() => {
     if (db.isOpen()) evictIfNeeded().catch(() => {});
   });
