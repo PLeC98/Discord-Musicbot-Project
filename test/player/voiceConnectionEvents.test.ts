@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // VoiceConnectionManager 의 연결 이벤트 · 헬스체크 · 재연결 · 재개 · 연결 · 이동의 지금 동작을 고정한다
 // (구조 리팩터링 0단계). 복구 루프 자체는 voiceConnectionManager.test.js 가 본다.
 //
@@ -9,68 +8,100 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "events";
 
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason } from "@discordjs/voice";
+import type { VoiceBasedChannel } from "discord.js";
+import type { VoiceHost, VoiceLib } from "../../src/player/voiceConnection.ts";
+import { fake } from "../helpers/fake.ts";
 
-const joins = [];
-let enters = async () => {}; // (connection, status, ms) → 성공이면 resolve
-const entered = [];
+// 가짜 연결. 부순 횟수 · 구독한 것 · 다시 붙은 곳을 적는다
+class FakeConnection extends EventEmitter {
+  state: { status: string } = { status: VoiceConnectionStatus.Ready };
+  destroyed = 0;
+  subscribed: unknown[] = [];
+  rejoins: unknown[] = [];
 
-function fakeConnection() {
-  const c = new EventEmitter();
-  c.state = { status: VoiceConnectionStatus.Ready };
-  c.destroyed = 0;
-  c.subscribed = [];
-  c.rejoins = [];
-  c.destroy = () => {
-    c.destroyed += 1;
-    c.state = { status: VoiceConnectionStatus.Destroyed };
-  };
-  c.subscribe = (p) => c.subscribed.push(p);
-  c.rejoin = (o) => c.rejoins.push(o);
-  return c;
+  destroy() {
+    this.destroyed += 1;
+    this.state = { status: VoiceConnectionStatus.Destroyed };
+  }
+  subscribe(p: unknown) {
+    this.subscribed.push(p);
+  }
+  rejoin(o: unknown) {
+    this.rejoins.push(o);
+  }
 }
+const fakeConnection = () => new FakeConnection();
 
-const voiceLib = {
-  joinVoiceChannel: (opts) => {
+const joins: Array<{ opts: { channelId: string; guildId: string }; connection: FakeConnection }> = [];
+let enters = async (_connection: unknown, _status: string, _ms: number): Promise<unknown> => undefined; // 성공이면 resolve
+const entered: Array<[string, number]> = [];
+
+const voiceLib = fake<VoiceLib>({
+  joinVoiceChannel: (opts: { channelId: string; guildId: string }) => {
     const c = fakeConnection();
     joins.push({ opts, connection: c });
     return c;
   },
-  entersState: async (connection, status, ms) => {
+  entersState: async (connection: unknown, status: string, ms: number) => {
     entered.push([status, ms]);
     return enters(connection, status, ms);
   },
-};
+});
 
 const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).VoiceConnectionManager;
 
+// 연결이 있어야 하는 자리. 없으면 실패
+function live(p: { connection: FakeConnection | null }) {
+  assert.ok(p.connection, "연결이 없다");
+  return p.connection;
+}
+
 const flush = () => new Promise((done) => setImmediate(done));
 
+// 채널 가짜. 옮겨짐 시험은 어느 객체로 옮겼는지 견준다
+const ch = (id: string, extra: object = {}) => fake<VoiceBasedChannel>({ id, ...extra });
+
+// 복구는 시작했는지만 센다
+class QuietVcm extends VoiceConnectionManager {
+  recoveries: boolean[] = [];
+  async startConnectionRecovery() {
+    this.recoveries.push(true);
+  }
+}
+
+type FakeGuild = {
+  id: string;
+  name: string;
+  channels: { cache: Map<string, unknown> };
+  voiceAdapterCreator: (() => object) | null;
+  client: { players: Map<string, unknown>; guilds?: { fetch(id: string): Promise<unknown> } };
+};
+
 function makePlayer({ channel = true } = {}) {
-  const guild = { id: "g1", name: "서버", channels: { cache: new Map() }, voiceAdapterCreator: () => ({}), client: { players: new Map() } };
-  if (channel) guild.channels.cache.set("vc1", { id: "vc1" });
+  const guild: FakeGuild = { id: "g1", name: "서버", channels: { cache: new Map() }, voiceAdapterCreator: () => ({}), client: { players: new Map() } };
+  if (channel) guild.channels.cache.set("vc1", { id: "vc1", isVoiceBased: () => true });
   const player = {
     guild,
-    voiceChannel: { id: "vc1", name: "음성" },
+    voiceChannel: { id: "vc1", name: "음성" } as { id: string; name?: string },
     audioPlayer: { name: "audioPlayer" },
-    connection: fakeConnection(),
-    currentTrack: { title: "곡" },
+    connection: fakeConnection() as FakeConnection | null,
+    currentTrack: { title: "곡" } as { title: string } | null,
     paused: false,
-    cleanups: [],
-    cleanup(reason) {
+    cleanups: [] as string[],
+    cleanup(reason: string) {
       this.cleanups.push(reason);
     },
   };
   guild.client.players.set("g1", player);
-  const vcm = new VoiceConnectionManager(player, voiceLib);
-  const recoveries = [];
-  vcm.startConnectionRecovery = async () => recoveries.push(true);
-  return { player, vcm, recoveries };
+  // 관리자는 이 가짜를 플레이어로 보고 바꾼다. 시험은 가짜의 칸으로 본다
+  const vcm = new QuietVcm(fake<VoiceHost>(player), voiceLib);
+  return { player, vcm, recoveries: vcm.recoveries };
 }
 
 beforeEach(() => {
   joins.length = 0;
   entered.length = 0;
-  enters = async () => {};
+  enters = async () => undefined;
 });
 
 // ── 연결 이벤트 ───────────────────────────────────────────────────────
@@ -79,9 +110,9 @@ test("끊김: 수동 해제거나 이미 복구 중이면 아무것도 안 한�
   const { player, vcm, recoveries } = makePlayer();
   vcm.setupConnectionEvents();
 
-  player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: VoiceConnectionDisconnectReason.Manual });
+  live(player).emit(VoiceConnectionStatus.Disconnected, {}, { reason: VoiceConnectionDisconnectReason.Manual });
   vcm.isRecovering = true;
-  player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
+  live(player).emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
   await flush();
 
   assert.equal(recoveries.length, 0);
@@ -92,7 +123,7 @@ test("끊김: Discord 자동 재연결을 5초 · 10초 기다리고, 붙으면 
   const { player, vcm, recoveries } = makePlayer();
   vcm.setupConnectionEvents();
 
-  player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
+  live(player).emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
   await flush();
 
   assert.deepEqual(entered, [
@@ -109,12 +140,12 @@ test("끊김: 자동 재연결이 안 되면 재생 중일 때만 자체 복구�
   };
   vcm.setupConnectionEvents();
 
-  player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
+  live(player).emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
   await flush();
   assert.equal(recoveries.length, 1);
 
   player.paused = true;
-  player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
+  live(player).emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
   await flush();
   assert.equal(recoveries.length, 1, "멈춘 중이면 복구하지 않는다");
 });
@@ -123,19 +154,19 @@ test("파괴됨 · 오류: 재생 중이고 복구 중이 아니면 복구를 �
   const { player, vcm, recoveries } = makePlayer();
   vcm.setupConnectionEvents();
 
-  player.connection.emit(VoiceConnectionStatus.Destroyed);
-  player.connection.emit("error", new Error("x"));
+  live(player).emit(VoiceConnectionStatus.Destroyed);
+  live(player).emit("error", new Error("x"));
   assert.equal(recoveries.length, 2);
 
   vcm.isRecovering = true;
-  player.connection.emit(VoiceConnectionStatus.Destroyed);
+  live(player).emit(VoiceConnectionStatus.Destroyed);
   assert.equal(recoveries.length, 2, "파괴됨은 복구 중이면 건너뛴다");
-  player.connection.emit("error", new Error("x"));
+  live(player).emit("error", new Error("x"));
   assert.equal(recoveries.length, 3, "오류는 복구 중인지 보지 않는다(루프가 스스로 막는다)");
 
   player.currentTrack = null;
   vcm.isRecovering = false;
-  player.connection.emit(VoiceConnectionStatus.Destroyed);
+  live(player).emit(VoiceConnectionStatus.Destroyed);
   assert.equal(recoveries.length, 3, "곡이 없으면 복구하지 않는다");
 });
 
@@ -145,7 +176,7 @@ test("Ready 로 넘어오면 복구를 끝내고 시도 횟수를 0 으로", () 
   vcm.isRecovering = true;
   vcm.recoveryAttempts = 3;
 
-  player.connection.emit("stateChange", { status: VoiceConnectionStatus.Connecting }, { status: VoiceConnectionStatus.Ready });
+  live(player).emit("stateChange", { status: VoiceConnectionStatus.Connecting }, { status: VoiceConnectionStatus.Ready });
 
   assert.equal(vcm.isRecovering, false);
   assert.equal(vcm.recoveryAttempts, 0);
@@ -164,7 +195,7 @@ test("헬스체크: 30초마다. 연결이 파괴됐고 재생 중이면 복구,
   try {
     const { player, vcm, recoveries } = makePlayer();
     vcm.startConnectionHealthCheck();
-    player.connection.state = { status: VoiceConnectionStatus.Destroyed };
+    live(player).state = { status: VoiceConnectionStatus.Destroyed };
 
     mock.timers.tick(29999);
     await flush();
@@ -207,7 +238,7 @@ test("헬스체크: 밀려난 플레이어는 정리하되 레지스트리의 �
 
 test("강제 재연결: 옛 연결을 부수고 같은 채널에 새로 붙어 구독하고 15초 Ready 를 기다린다", async () => {
   const { player, vcm } = makePlayer();
-  const old = player.connection;
+  const old = live(player);
 
   assert.equal(await vcm.forceReconnect(), true);
 
@@ -215,14 +246,14 @@ test("강제 재연결: 옛 연결을 부수고 같은 채널에 새로 붙어 �
   assert.equal(joins.length, 1);
   assert.deepEqual({ channelId: joins[0].opts.channelId, guildId: joins[0].opts.guildId }, { channelId: "vc1", guildId: "g1" });
   assert.equal(player.connection, joins[0].connection);
-  assert.deepEqual(player.connection.subscribed, [player.audioPlayer]);
+  assert.deepEqual(live(player).subscribed, [player.audioPlayer]);
   assert.deepEqual(entered, [[VoiceConnectionStatus.Ready, 15000]]);
-  assert.ok(player.connection.listenerCount(VoiceConnectionStatus.Disconnected) > 0, "새 연결에 이벤트를 건다");
+  assert.ok(live(player).listenerCount(VoiceConnectionStatus.Disconnected) > 0, "새 연결에 이벤트를 건다");
 });
 
 test("강제 재연결: 이미 파괴된 연결은 다시 부수지 않고, Ready 가 안 오면 false", async () => {
   const { player, vcm } = makePlayer();
-  const old = player.connection;
+  const old = live(player);
   old.state = { status: VoiceConnectionStatus.Destroyed };
   enters = async () => {
     throw new Error("시간 초과");
@@ -240,7 +271,7 @@ test("연결: 새로 붙고 구독하고 30초 Ready 를 기다린다", async ()
 
   assert.equal(await vcm.connect(), true);
   assert.equal(player.connection, joins[0].connection);
-  assert.deepEqual(player.connection.subscribed, [player.audioPlayer]);
+  assert.deepEqual(live(player).subscribed, [player.audioPlayer]);
   assert.deepEqual(entered, [[VoiceConnectionStatus.Ready, 30000]]);
 });
 
@@ -285,8 +316,8 @@ test("Ready 가 안 오면 연결은 던진다", async () => {
 
 test("옮겨짐: 다시 붙지 않고 기록만 맞춘다. 연결은 음성 라이브러리가 따라간다", () => {
   const { player, vcm } = makePlayer();
-  const conn = player.connection;
-  const next = { id: "vc2", name: "다른 방" };
+  const conn = live(player);
+  const next = ch("vc2", { name: "다른 방" });
   assert.equal(vcm.followMove("vc1", next, 1000), false);
   assert.equal(player.voiceChannel, next);
   assert.deepEqual(conn.rejoins, []);
@@ -294,35 +325,35 @@ test("옮겨짐: 다시 붙지 않고 기록만 맞춘다. 연결은 음성 라�
 
 test("옮겨짐: 곧바로 원래 채널로 되돌아오면 라이브러리의 되돌림으로 보고 목적지로 한 번 다시 붙는다", () => {
   const { player, vcm } = makePlayer();
-  const conn = player.connection;
-  const vc2 = { id: "vc2", name: "다른 방", isVoiceBased: () => true };
+  const conn = live(player);
+  const vc2 = ch("vc2", { name: "다른 방", isVoiceBased: () => true });
   player.guild.channels.cache.set("vc2", vc2);
 
   vcm.followMove("vc1", vc2, 1000);
-  assert.equal(vcm.followMove("vc2", { id: "vc1" }, 1500), true, "0.5초 만에 원래 채널로");
+  assert.equal(vcm.followMove("vc2", ch("vc1"), 1500), true, "0.5초 만에 원래 채널로");
   assert.equal(player.voiceChannel, vc2);
   assert.deepEqual(conn.rejoins, [{ channelId: "vc2", selfDeaf: false, selfMute: false }]);
 
   // 다시 붙은 뒤 또 되돌아와도 10초 안에는 다시 붙지 않는다(핑퐁 방지). 그냥 따라간다
   vcm.followMove("vc1", vc2, 2000);
-  assert.equal(vcm.followMove("vc2", { id: "vc1" }, 2500), false);
+  assert.equal(vcm.followMove("vc2", ch("vc1"), 2500), false);
   assert.equal(player.voiceChannel.id, "vc1");
   assert.equal(conn.rejoins.length, 1);
 });
 
 test("옮겨짐: 한참 뒤에 원래 채널로 돌아오는 것은 사람이 옮긴 것이다", () => {
   const { player, vcm } = makePlayer();
-  const vc2 = { id: "vc2", isVoiceBased: () => true };
+  const vc2 = ch("vc2", { isVoiceBased: () => true });
   player.guild.channels.cache.set("vc2", vc2);
   vcm.followMove("vc1", vc2, 1000);
-  assert.equal(vcm.followMove("vc2", { id: "vc1" }, 5000), false);
+  assert.equal(vcm.followMove("vc2", ch("vc1"), 5000), false);
   assert.equal(player.voiceChannel.id, "vc1");
-  assert.deepEqual(player.connection.rejoins, []);
+  assert.deepEqual(live(player).rejoins, []);
 });
 
 test("끊기: 파괴되지 않은 연결만 부수고 비운다", () => {
   const { player, vcm } = makePlayer();
-  const conn = player.connection;
+  const conn = live(player);
   vcm.disconnect();
   assert.equal(conn.destroyed, 1);
   assert.equal(player.connection, null);

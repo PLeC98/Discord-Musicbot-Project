@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/sessionRestore.ts — 부팅 시 저장 세션의 길드 확보.
 //
 // 회귀 대상 1: 구 코드는 `guilds.fetch().catch(() => null)`로 거부를 삼켜 바깥 catch의
@@ -9,25 +8,28 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RESTJSONErrorCodes } from "discord.js";
 import { resolveGuildForRestore } from "../../src/player/sessionRestore.ts";
+import type { Client, Guild } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import { fake } from "../helpers/fake.ts";
 
 // 재시도 대기는 0으로 — 검증 대상은 시도 횟수지 대기 시간이 아니다
 const NOW = { attempts: 3, delayMs: 0 };
 
-function makeClient(fetchImpl, cache = new Map()) {
-  const calls = [];
-  return {
-    calls,
+function makeClient(fetchImpl: (n: number) => unknown, cache = new Map<string, unknown>()) {
+  const calls: string[] = [];
+  const client = fake<Client>({
     guilds: {
       cache,
-      fetch: async (id) => {
+      fetch: async (id: string) => {
         calls.push(id);
         return fetchImpl(calls.length);
       },
     },
-  };
+  });
+  return Object.assign(client, { calls });
 }
 
-function apiError(code) {
+function apiError(code: number) {
   return Object.assign(new Error(`api ${code}`), { code });
 }
 
@@ -75,7 +77,7 @@ test("네트워크·레이트리밋 실패는 세션을 지우지 않는다", as
 
 test("재시도 중 성공하면 그 길드를 돌려준다", async () => {
   const guild = { id: "g1", name: "복구됨" };
-  const client = makeClient((n) => {
+  const client = makeClient((n: number) => {
     if (n < 3) throw new Error("일시적");
     return guild;
   });
@@ -109,38 +111,49 @@ const { sessions } = await import("../../src/store/playerSessions.ts");
 const store = openTempStore("session-restore-");
 after(() => store.close());
 
-const channel = (id, kind) => ({ id, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text" });
+const channel = (id: string, kind: "voice" | "text") => ({ id, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text" });
 
-function saved(guildId, { voice = "vc1", text = "tc1" } = {}) {
+function saved(guildId: string, { voice = "vc1", text = "tc1" }: { voice?: string | null; text?: string } = {}) {
   sessions().saveSession(guildId, { voiceChannelId: voice, textChannelId: text });
 }
 
-function guildWith(id, chans = [channel("vc1", "voice"), channel("tc1", "text")]) {
+function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", "text")]) {
   const cache = new Map(chans.map((c) => [c.id, c]));
-  return { id, name: `서버 ${id}`, channels: { cache, fetch: async () => null } };
+  return fake<Guild>({ id, name: `서버 ${id}`, channels: { cache, fetch: async () => null } });
 }
 
 // 플레이어 대신. 무엇으로 만들었고 무엇을 불렀는지 남긴다
 function fakePlayerClass({ restoreFails = false } = {}) {
-  const made = [];
+  const made: FakePlayer[] = [];
   class FakePlayer {
-    constructor(guild, text, voice) {
-      Object.assign(this, { guild, text, voice, calls: [] });
+    guild: Guild;
+    text: { id: string };
+    voice: { id: string };
+    calls: string[] = [];
+
+    constructor(guild: Guild, text: { id: string }, voice: { id: string }) {
+      this.guild = guild;
+      this.text = text;
+      this.voice = voice;
       made.push(this);
     }
-    async restoreFromState(record) {
+    async restoreFromState(record: { guildId: string }) {
       this.calls.push(`restore:${record.guildId}`);
       if (restoreFails) throw new Error("복원 실패");
     }
-    cleanup(reason) {
+    cleanup(reason: string) {
       this.calls.push(`cleanup:${reason}`);
     }
   }
-  return { FakePlayer, made };
+  // 플레이어를 만드는 자리에 넘긴다. 되살리기가 부르는 것(restoreFromState · cleanup)만 갖췄다
+  return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 
-function clientWith(guilds) {
-  return { players: new Map(), guilds: { cache: new Map(guilds.map((g) => [g.id, g])), fetch: async () => null } };
+type PlayerClass = Parameters<typeof restoreSavedPlayers>[1];
+
+function clientWith(guilds: Guild[], fetch: (id: string) => Promise<unknown> = async () => null) {
+  const players = new Map<string, unknown>();
+  return fake<Client>({ players, guilds: { cache: new Map(guilds.map((g) => [g.id, g])), fetch } });
 }
 
 const remaining = () =>
@@ -190,11 +203,10 @@ test("되살리기: 채널 기록이 없거나 채널이 음성 · 글자 채널
 test("되살리기: 서버가 사라졌으면 세션을 지우고, 잠깐 못 받은 것이면 남긴다", async () => {
   saved("gone1");
   saved("flaky1");
-  const client = clientWith([]);
-  client.guilds.fetch = async (id) => {
+  const client = clientWith([], async (id) => {
     if (id === "gone1") throw Object.assign(new Error("Unknown Guild"), { code: RESTJSONErrorCodes.UnknownGuild });
     throw new Error("네트워크");
-  };
+  });
   const { FakePlayer, made } = fakePlayerClass();
 
   await restoreSavedPlayers(client, FakePlayer);
@@ -214,7 +226,7 @@ test("되살리기: 저장 세션이 없으면 아무것도 안 한다", async (
 test("되살리기: 기다리는 사이 그 서버에서 재생이 시작됐으면 건드리지 않는다", async () => {
   saved("r5");
   const client = clientWith([guildWith("r5")]);
-  const live = { live: true };
+  const live = fake<MusicPlayer>({ live: true });
   client.players.set("r5", live);
   const { FakePlayer, made } = fakePlayerClass();
 

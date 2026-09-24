@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/Player.ts — 반복 모드 × 트랙 전이(자연 종료/스킵/이전곡) 계약
 // 회귀 대상 3종:
 //  1. 한곡 반복 중 스킵이 대기열을 진행시킴 (기대: 현재 곡 재시작, 대기열 불변)
@@ -10,22 +9,28 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MusicPlayer } from "../../src/player/Player.ts";
 import { PlaybackState } from "../../src/player/playbackState.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import type { Loop } from "../../src/player/trackState.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
+import type { CurrentPlayback } from "../../src/player/currentPlayback.ts";
 
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 const previous = MusicPlayer.prototype.previous;
 
-function makeTrack(title, duration = 100) {
-  return { title, requestKey: `https://y/${title}`, duration };
+function makeTrack(title: string, duration = 100): QueuedTrack {
+  return { title, requestKey: `https://y/${title}`, pageUrl: "", platform: "youtube", duration };
 }
 
-function makePlayer({ loop = false, current = null, queue = [], history = [] } = {}) {
-  return {
+type Options = { loop?: Loop; current?: QueuedTrack | null; queue?: QueuedTrack[]; history?: QueuedTrack[] };
+
+function makePlayer({ loop = false, current = null, queue = [], history = [] }: Options = {}) {
+  return fakePlayer({
     lifecycle: new PlaybackState(),
     watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
     idle: { cancelAlone() {}, cancelEmpty() {}, scheduleEmpty() {}, stop() {} },
     currentTrack: current,
     // playbackDuration = 곡 길이 전체 → "자연 종료"로 판정 (endedUnexpectedly 아님)
-    playback: current ? { resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
+    playback: current ? { startOffsetMs: 0, resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
     lastPlaybackPosition: 0,
     currentTrackRetries: 0,
     previousTracks: history,
@@ -34,21 +39,21 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] } =
     autoplay: false,
     pendingEndReason: null,
     guild: { id: "g1", client: null },
-    played: [],
+    played: [] as Array<{ title: string | undefined; ms: number }>,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)
     _trackLabel: MusicPlayer.prototype._trackLabel,
     getCurrentTime: MusicPlayer.prototype.getCurrentTime,
     audioPlayer: { stop() {} },
-    async play(ms) {
+    async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });
       this.playback = { startOffsetMs: ms, resource: { playbackDuration: 0 } };
     },
-  };
+  });
 }
 
-const titles = (arr) => arr.map((t) => t.title);
+const titles = (arr: QueuedTrack[]) => arr.map((t) => t.title);
 
 // ── 한곡 반복 ─────────────────────────────────────────────────
 
@@ -168,7 +173,7 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
   previous.call(p);
   await handleTrackEnd.call(p, "previous");
 
-  assert.equal(p.currentTrack.title, "A");
+  assert.equal(p.currentTrack?.title, "A");
   assert.deepEqual(titles(p.queue), ["B", "C"]);
 });
 
@@ -177,7 +182,7 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
 test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
   const [A, B] = ["A", "B"].map((t) => makeTrack(t));
   const p = makePlayer({ current: A, queue: [B] });
-  p.playback = { resource: { playbackDuration: 0 } }; // 곡 길이보다 한참 덜 재생 = 조기 종료
+  p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 0 } }); // 곡 길이보다 한참 덜 재생 = 조기 종료
 
   for (let i = 0; i < 4; i++) await handleTrackEnd.call(p, "idle");
 
