@@ -1,4 +1,3 @@
-// @ts-nocheck 플레이어의 메서드를 가짜 플레이어에 빌려 쓰는 시험이다. 타입은 10단계 player 폴더에서 Player 와 같이 단다
 // 자동재생 미리 뽑기(B-50) — src/player/Player.ts · src/player/trackState.ts
 //
 // 곡이 끝난 뒤에야 검색을 시작하면 그만큼 소리가 빈다. 곡이 시작될 때 다음 곡을 미리 대기열에 둬야
@@ -12,26 +11,37 @@ import assert from "node:assert/strict";
 import MusicPlayer from "../../src/player/Player.ts";
 import trackState from "../../src/player/trackState.ts";
 import panelEvents from "../helpers/panelEvents.js";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import playerEvents from "../../src/player/events.ts";
+import playerNotices from "../../src/ui/playerNotices.js";
+import * as pool from "../../src/autoplay/pool.ts";
+import * as sources from "../../src/autoplay/sources/index.ts";
+import * as route from "../../src/autoplay/route.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import type { Loop } from "../../src/player/trackState.ts";
+import type { GenreSource } from "../../src/config/genres.ts";
 
 const { recordPanel } = panelEvents;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
-require("../../src/player/events.ts").on("notice", require("../../src/ui/playerNotices").sendNotice);
+playerEvents.on("notice", playerNotices.sendNotice);
 
 const ensureAutoplayNext = MusicPlayer.prototype.ensureAutoplayNext;
 const setAutoplay = MusicPlayer.prototype.setAutoplay;
 
-const user = (title) => ({ title, url: `https://y/${title}` });
-const auto = (title) => ({ title, url: `https://y/${title}`, autoplay: true });
-const titles = (arr) => arr.map((t) => t.title);
+const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, ...extra });
+const user = (title: string) => track(title);
+const auto = (title: string) => track(title, { autoplay: true });
+const titles = (arr: QueuedTrack[]) => arr.map((t) => t.title);
 
-function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [], loop = false, pick, prefetch = 1 } = {}) {
+// 가짜 플레이어. 이 시험이 읽는 칸만 채운 것을 플레이어로 보고 플레이어의 메서드를 빌려 부른다
+// 플레이어의 칸은 플레이어 타입으로, 시험만 쓰는 칸(calls · panel)은 그대로
+const asPlayer = <T extends object>(fake: T) => fake as unknown as MusicPlayer & Omit<T, keyof MusicPlayer>;
+
+type Options = { autoplay?: string | false; current?: QueuedTrack | null; queue?: QueuedTrack[]; loop?: Loop; pick?: (this: { queue: QueuedTrack[] }) => Promise<QueuedTrack | null>; prefetch?: number };
+
+function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [], loop = false, pick, prefetch = 1 }: Options = {}) {
   const calls = { picks: 0 };
-  return {
+  return asPlayer({
     calls,
     autoplay,
     loop,
@@ -49,7 +59,7 @@ function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [],
       calls.picks++;
       return pick ? await pick.call(this) : auto(`자동${calls.picks}`);
     },
-  };
+  });
 }
 
 // ── trackState: 자동재생 곡의 자리 ────────────────────────────────────────
@@ -97,15 +107,15 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
 // 뽑기 한 번에 유튜브 검색이 여러 번 나간다. 다섯 곡을 붙여 뽑으면 수십 번이 몇 초 안에 몰려
 // 뒤이은 내려받기가 403을 맞는다. 급한 것은 첫 곡뿐이므로 나머지는 사이를 둔다.
 test("둘째 곡부터는 쉬었다 뽑는다 — 유튜브를 몰아치지 않는다", async () => {
-  const slept = [];
+  const slept: number[] = [];
   const p = makePlayer({ prefetch: 3 });
   p._prefetchGapMs = 5;
 
   const realTimeout = global.setTimeout;
-  global.setTimeout = (fn, ms) => {
+  global.setTimeout = ((fn: () => void, ms: number) => {
     slept.push(ms);
     return realTimeout(fn, 0);
-  };
+  }) as unknown as typeof setTimeout;
   try {
     await ensureAutoplayNext.call(p);
   } finally {
@@ -141,8 +151,8 @@ test("고르는 사이 사용자가 곡을 넣으면 미리 뽑기를 취소한�
 });
 
 test("겹쳐 불려도 한 곡만 들어간다", async () => {
-  let release;
-  const gate = new Promise((resolve) => (release = resolve));
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
   const p = makePlayer({
     async pick() {
       await gate;
@@ -163,9 +173,9 @@ test("겹쳐 불려도 한 곡만 들어간다", async () => {
 
 const handleAutoplay = MusicPlayer.prototype.handleAutoplay;
 
-function makeNowPlayer({ nowPlayingMessage = null } = {}) {
-  const calls = { sent: [] };
-  const player = {
+function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id: string } | null } = {}) {
+  const calls = { sent: [] as string[] };
+  const player = asPlayer({
     calls,
     autoplay: "팝",
     queue: [],
@@ -186,11 +196,13 @@ function makeNowPlayer({ nowPlayingMessage = null } = {}) {
     setAutoplay: MusicPlayer.prototype.setAutoplay,
     scheduleStatePersist() {},
     textChannel: {
-      async send(text) {
+      async send(text: string) {
         calls.sent.push(text);
       },
     },
-  };
+    panel: [] as string[],
+  });
+  // @ts-expect-error 도우미(test/helpers)가 아직 JS 라 player 를 null 로만 추론한다
   player.panel = recordPanel({ player }); // 화면에 알린 것
   return player;
 }
@@ -200,7 +212,7 @@ test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
   const p = makeNowPlayer();
 
   assert.equal(await handleAutoplay.call(p), true);
-  assert.equal(p.currentTrack.title, "첫곡");
+  assert.equal(p.currentTrack?.title, "첫곡");
   assert.deepEqual(p.panel, ["create:첫곡"], "빠뜨리면 소리만 나고 화면이 없다");
 });
 
@@ -259,8 +271,6 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 // 규칙 자체는 autoplayFilter가 갖고 있다(test/autoplay/autoplayFilter.test.ts). 여기서 보는 것은
 // 설정에서 뽑기까지 그 규칙이 실제로 이어지는가다 — 소스에서 후보가 와서 필터를 지나는 길.
 test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가리지 않는다", async () => {
-  const pool = require("../../src/autoplay/pool.ts");
-  const sources = require("../../src/autoplay/sources/index.ts");
   // 키워드 소스가 부르는 유튜브 검색만 가짜로. 후보가 필터를 지나는 길은 진짜다
   const search = async () => [
     { id: "1", title: "Best Playlist Ever", audioUrl: "https://y/1", duration: 200 },
@@ -268,7 +278,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
   ];
 
   try {
-    const p = {
+    const p = asPlayer({
       autoplay: "팝",
       previousTracks: [],
       queue: [],
@@ -282,8 +292,8 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
       }),
       pickAutoplayTrack: MusicPlayer.prototype.pickAutoplayTrack,
       // AI 보조는 운영 설정(config/ai.yaml)을 읽어 진짜로 부른다. 여기서는 규칙만 본다
-      autoplayDeps: { ...require("../../src/autoplay/route.ts").REAL, fetch: (source) => sources.fetchFrom(source, { search }), assist: { filter: async (c) => c, accepts: async () => true } },
-    };
+      autoplayDeps: { ...route.REAL, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
+    });
 
     // 후보가 둘인데 하나가 걸리므로 남는 것은 하나뿐이다.
     // 풀은 같은 곡을 두 번 내주지 않으므로 회마다 비우고 새로 받는다.
