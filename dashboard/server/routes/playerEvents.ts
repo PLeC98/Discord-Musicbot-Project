@@ -1,10 +1,11 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 상태가 바뀌었다는 알림(SSE). 받은 화면이 GET 으로 다시 읽는다
 
 import express from "express";
-import requireAuth from "../middleware/requireAuth.js";
-import owner from "../owner.js";
+import requireAuth from "../middleware/requireAuth.ts";
+import owner from "../owner.ts";
 const { isOwner } = owner;
-import guildAccess from "../guildAccess.js";
+import guildAccess from "../guildAccess.ts";
 const { getPlayer } = guildAccess;
 
 // 대시보드발 상태 변경(비-GET 성공) → 해당 서버 SSE 구독자에게 넛지.

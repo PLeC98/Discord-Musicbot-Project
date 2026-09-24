@@ -1,11 +1,12 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생. 상태 읽기 · 음성 참가 · 재생 조작(usecases/controls) · 곡 추가(usecases/addTracks)
 
 import express from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
-import requireAuth from "../middleware/requireAuth.js";
-import requireControl from "../middleware/requireControl.js";
+import requireAuth from "../middleware/requireAuth.ts";
+import requireControl from "../middleware/requireControl.ts";
 const { resolveMember, toApiError } = requireControl;
 import { checkControl, checkAdd, isModerator } from "../../../src/usecases/permissions.ts";
 import * as controls from "../../../src/usecases/controls.ts";
@@ -13,15 +14,15 @@ import { controlApiError } from "../../../src/ui/controlMessages.ts";
 import { requestPlayback, continueCollection, ensurePlayer } from "../../../src/usecases/addTracks.ts";
 import { validState, LIFETIME_MS } from "../../../src/usecases/playlistMore.ts";
 import config from "../../../config.ts";
-import ownerModule from "../owner.js";
+import ownerModule from "../owner.ts";
 const { isOwner } = ownerModule;
-import viewAs from "../viewAs.js";
+import viewAs from "../viewAs.ts";
 const { shadowMember } = viewAs;
-import guildAccess from "../guildAccess.js";
+import guildAccess from "../guildAccess.ts";
 const { getPlayer, voiceFlags, toInt } = guildAccess;
-import playerView from "../playerView.js";
+import playerView from "../playerView.ts";
 const { queueTrack, queueWindow, playerState } = playerView;
-import requestSchemas from "../requestSchemas.js";
+import requestSchemas from "../requestSchemas.ts";
 const { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } = requestSchemas;
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────

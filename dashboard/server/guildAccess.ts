@@ -1,8 +1,9 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십(운영자는 면제) · 권한 수준 오버라이드
 
-import owner from "./owner.js";
+import owner from "./owner.ts";
 const { isOwner } = owner;
-import viewAs from "./viewAs.js";
+import viewAs from "./viewAs.ts";
 const { shadowMember } = viewAs;
 
 async function getPlayer(req, res, guildId) {

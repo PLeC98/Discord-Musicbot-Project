@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import config from "../../config.ts";
 import logger from "../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
@@ -9,27 +10,27 @@ import path from "path";
 import fs from "fs";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
-import corsModule from "./cors.js";
+import corsModule from "./cors.ts";
 const { createCorsOptions } = corsModule;
-import bodyLimitModule from "./bodyLimit.js";
+import bodyLimitModule from "./bodyLimit.ts";
 const { bodyLimit } = bodyLimitModule;
-import SqliteSessionStore from "./sessionStore.js";
-import csrf from "./middleware/csrf.js";
+import SqliteSessionStore from "./sessionStore.ts";
+import csrf from "./middleware/csrf.ts";
 const { issueCsrfToken, requireCsrfToken } = csrf;
-import securityHeadersModule from "./middleware/securityHeaders.js";
+import securityHeadersModule from "./middleware/securityHeaders.ts";
 const { securityHeaders } = securityHeadersModule;
-import errorHandlerModule from "./middleware/errorHandler.js";
+import errorHandlerModule from "./middleware/errorHandler.ts";
 const { errorHandler, notFoundJson } = errorHandlerModule;
-import binding from "./binding.js";
+import binding from "./binding.ts";
 const { isLoopbackHost, describeBinding } = binding;
-import owner from "./owner.js";
+import owner from "./owner.ts";
 const { isOwner, isRealOwner } = owner;
-import viewAsModule from "./viewAs.js";
+import viewAsModule from "./viewAs.ts";
 const { getViewAs } = viewAsModule;
-import auth from "./routes/auth.js";
+import auth from "./routes/auth.ts";
 const { createAuthRouter } = auth;
-import adminRoutes from "./routes/admin.js";
-import guilds from "./routes/guilds.js";
+import adminRoutes from "./routes/admin.ts";
+import guilds from "./routes/guilds.ts";
 const { createGuildsRouter } = guilds;
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.

@@ -1,19 +1,20 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터와 봇 운영자만
 
 import express from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType } from "discord.js";
-import requireAuth from "../middleware/requireAuth.js";
+import requireAuth from "../middleware/requireAuth.ts";
 import { isModerator } from "../../../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as SponsorBlock from "../../../src/sources/sponsorBlock.ts";
 import config from "../../../config.ts";
-import owner from "../owner.js";
+import owner from "../owner.ts";
 const { isOwner } = owner;
-import guildAccess from "../guildAccess.js";
+import guildAccess from "../guildAccess.ts";
 const { getPlayer } = guildAccess;
-import requestSchemas from "../requestSchemas.js";
+import requestSchemas from "../requestSchemas.ts";
 const { parse, settingsBody } = requestSchemas;
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치

@@ -1,5 +1,6 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import config from "../../config.ts";
-import viewAs from "./viewAs.js";
+import viewAs from "./viewAs.ts";
 const { getViewAs } = viewAs;
 
 /**

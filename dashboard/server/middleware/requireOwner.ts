@@ -1,4 +1,5 @@
-import owner from "../owner.js";
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
+import owner from "../owner.ts";
 const { isRealOwner } = owner;
 
 // 봇 운영자(OWNER_ID) 전용 게이트. 디스코드 서버 쪽 권한과는 무관하다.

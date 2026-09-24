@@ -9,7 +9,7 @@
       "count": 1
     }
   },
-  "dashboard/server/routes/admin.js": {
+  "dashboard/server/routes/admin.ts": {
     "complexity": {
       "count": 2
     },
@@ -17,22 +17,22 @@
       "count": 1
     }
   },
-  "dashboard/server/playerView.js": {
+  "dashboard/server/playerView.ts": {
     "complexity": {
       "count": 1
     }
   },
-  "dashboard/server/routes/guildSettings.js": {
+  "dashboard/server/routes/guildSettings.ts": {
     "complexity": {
       "count": 1
     }
   },
-  "dashboard/server/routes/player.js": {
+  "dashboard/server/routes/player.ts": {
     "no-empty-function": {
       "count": 1
     }
   },
-  "dashboard/server/sessionStore.js": {
+  "dashboard/server/sessionStore.ts": {
     "no-empty-function": {
       "count": 3
     }

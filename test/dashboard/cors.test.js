@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import cors from "../../dashboard/server/cors.js";
+import cors from "../../dashboard/server/cors.ts";
 const { createCorsOptions, normalizeDashboardOrigin } = cors;
 
 function isAllowed(options, origin) {

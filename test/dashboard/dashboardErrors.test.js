@@ -40,11 +40,11 @@ const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("dashboard-errors-");
 after(() => store.close());
 
-const { createApp } = (await import("../../dashboard/server/index.js")).default;
-const { createPlayerStream } = (await import("../../dashboard/server/playerStream.js")).default;
-const { describeBinding, isLoopbackHost } = (await import("../../dashboard/server/binding.js")).default;
-const { _internals } = (await import("../../dashboard/server/middleware/errorHandler.js")).default;
-const { errorHandler } = (await import("../../dashboard/server/middleware/errorHandler.js")).default;
+const { createApp } = (await import("../../dashboard/server/index.ts")).default;
+const { createPlayerStream } = (await import("../../dashboard/server/playerStream.ts")).default;
+const { describeBinding, isLoopbackHost } = (await import("../../dashboard/server/binding.ts")).default;
+const { _internals } = (await import("../../dashboard/server/middleware/errorHandler.ts")).default;
+const { errorHandler } = (await import("../../dashboard/server/middleware/errorHandler.ts")).default;
 
 const HAS_DIST = fs.existsSync(path.join(import.meta.dirname, "..", "..", "dashboard", "client", "dist", "index.html"));
 

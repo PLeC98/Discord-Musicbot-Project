@@ -33,12 +33,12 @@ before(async () => {
   yamlStore._setConfigDir(DIR);
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(require("../../dashboard/server/bodyLimit").bodyLimit());
+  app.use(require("../../dashboard/server/bodyLimit.ts").bodyLimit());
   app.use((req, res, next) => {
     req.session = { user: currentUser };
     next();
   });
-  app.use("/api/admin", require("../../dashboard/server/routes/admin.js"));
+  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts"));
   server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });

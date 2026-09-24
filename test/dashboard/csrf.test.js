@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import csrf from "../../dashboard/server/middleware/csrf.js";
+import csrf from "../../dashboard/server/middleware/csrf.ts";
 const { issueCsrfToken, requireCsrfToken } = csrf;
 
 function response() {

@@ -1,8 +1,9 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 화면에 보내는 플레이어 모양
 
 import { labelOf } from "../../src/ui/platforms.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
-import guildAccess from "./guildAccess.js";
+import guildAccess from "./guildAccess.ts";
 const { toInt } = guildAccess;
 
 // 대기열은 앞에서부터 이만큼만 실어 보낸다. 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.

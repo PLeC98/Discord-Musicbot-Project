@@ -1,5 +1,6 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import * as S from "../../../src/ui/strings.ts";
-import viewAs from "../viewAs.js";
+import viewAs from "../viewAs.ts";
 const { shadowMember } = viewAs;
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리

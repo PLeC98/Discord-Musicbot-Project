@@ -1,10 +1,11 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 대시보드 요청의 모양. 경로가 스스로 400 을 내는 값만 여기서 본다(문장은 그 경로의 것 그대로).
 // 재생 조작의 값(볼륨 · 반복 모드 · 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
 // 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
 import { z } from "zod";
 import { MAX_COUNT } from "../../src/usecases/playlistMore.ts";
-import playerView from "./playerView.js";
+import playerView from "./playerView.ts";
 const { QUEUE_WINDOW_MAX } = playerView;
 
 /** 검사 → { ok: true, value } | { ok: false, error: 첫 문제의 문장 } */

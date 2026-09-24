@@ -118,14 +118,14 @@ let base;
 before(async () => {
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(require("../../dashboard/server/bodyLimit").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
+  app.use(require("../../dashboard/server/bodyLimit.ts").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
   app.use((req, res, next) => {
     req.session = { user: currentUser };
     next();
   });
   app.locals.discordClient = client;
   app.locals.deployCommands = require("../../src/app/commandLoader.ts").deployCommands;
-  app.use("/api/admin", require("../../dashboard/server/routes/admin.js"));
+  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts"));
   server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });

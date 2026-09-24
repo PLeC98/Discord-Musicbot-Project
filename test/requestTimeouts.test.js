@@ -34,7 +34,7 @@ test("Spotify의 모든 fetch에 중단 신호가 붙어 있다", () => {
 });
 
 test("OAuth 콜백은 타임아웃이 걸린 axios 인스턴스로만 나간다", () => {
-  const src = read("dashboard/server/routes/auth.js");
+  const src = read("dashboard/server/routes/auth.ts");
   assert.match(src, /axios\.create\(\{ timeout: \d+ \}\)/);
   const bare = callSites(src, "axios.post").concat(callSites(src, "axios.get"));
   assert.deepEqual(bare, [], "모듈 기본 axios는 타임아웃이 없다 — http 인스턴스를 쓸 것");

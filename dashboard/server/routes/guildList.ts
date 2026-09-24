@@ -1,10 +1,11 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 서버 목록. 봇과 함께 있는 서버 중 실제 멤버인 것
 
 import express from "express";
-import requireAuth from "../middleware/requireAuth.js";
-import owner from "../owner.js";
+import requireAuth from "../middleware/requireAuth.ts";
+import owner from "../owner.ts";
 const { isOwner } = owner;
-import guildAccess from "../guildAccess.js";
+import guildAccess from "../guildAccess.ts";
 const { voiceFlags } = guildAccess;
 
 const MANAGE_GUILD = 0x20;

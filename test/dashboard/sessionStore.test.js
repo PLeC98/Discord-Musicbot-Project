@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import SqliteSessionStore from "../../dashboard/server/sessionStore.js";
+import SqliteSessionStore from "../../dashboard/server/sessionStore.ts";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sess-"));
 const stores = [];
