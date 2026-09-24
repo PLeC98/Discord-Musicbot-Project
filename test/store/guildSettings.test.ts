@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다(구조 리팩터링 0-B).
 //
 // 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기 · 쓰기 · 지우기, 메모리 캐시,
@@ -33,7 +32,7 @@ after(() => {
 const fresh = () => settings._reset();
 
 // DB 를 잠깐 닫는다. 표를 부르면 던진다(DB_NOT_OPEN)
-async function whenDbDown(fn) {
+async function whenDbDown<T>(fn: () => T | Promise<T>): Promise<T> {
   audioCache.close();
   try {
     return await fn();
@@ -191,8 +190,8 @@ test("DJ 역할: 복수 저장/조회/해제", () => {
 test("DJ 역할: 빈 배열 저장 = 미설정(NULL)과 동일", () => {
   guildTable.setDjRoles("g2", []);
   assert.deepEqual(guildTable.getDjRoles("g2"), []);
-  const raw = storeDb.get().prepare("SELECT dj_role_ids FROM guild_settings WHERE guild_id = 'g2'").get();
-  assert.equal(raw.dj_role_ids, null);
+  const raw = storeDb.get().prepare<[], { dj_role_ids: string | null }>("SELECT dj_role_ids FROM guild_settings WHERE guild_id = 'g2'").get();
+  assert.equal(raw?.dj_role_ids, null);
 });
 
 test("DJ 역할: 손상된 JSON은 빈 배열로 폴백 (기동 불능 방지)", () => {

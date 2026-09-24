@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/store/trackLookup.ts — 링크 장부의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
 
 import { test, after } from "node:test";
@@ -57,11 +56,12 @@ test("행이 없는 URL은 getVerifiedTitle이 null", () => {
 // ── 두 걸음으로 캐시 찾기 ─────────────────────────────────────
 
 import fs from "node:fs";
+import path from "node:path";
 import * as storeDb from "../../src/store/db.ts";
 
-function cacheFile(key) {
+function cacheFile(key: string) {
   const file = audioCache.getFilePath(key);
-  fs.mkdirSync(require("node:path").dirname(file), { recursive: true });
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, "opus");
   audioCache.recordDownloadStart(key, { title: "영상 제목" });
   audioCache.recordDownloadComplete(key, file, 4, { title: "영상 제목" }, { durationSec: 90 });

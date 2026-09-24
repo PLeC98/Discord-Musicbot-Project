@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/store/playerSessions.ts — 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
 // 저장소는 행을 위치로 찾으므로, 둘이 한 번이라도 어긋나면 이후의 모든 증분 쓰기가 엉뚱한 행을 건드린다.
 
@@ -8,6 +7,11 @@ import Database from "better-sqlite3";
 import trackState from "../../src/player/trackState.js";
 import { PlayerSessionStore, GAP, SEQ_LIMIT } from "../../src/store/playerSessions.ts";
 import { createTables } from "../../src/store/db.ts";
+import type { TrackIn, SessionState } from "../../src/store/playerSessions.ts";
+
+// trackState 가 다루는 플레이어의 칸. 여기서 보는 것만
+type Titled = { title?: string | null };
+type State = { queue: Titled[]; previousTracks: Titled[]; currentTrack: Titled | null; loop: string | false; trackSink?: object };
 
 const G = "g1";
 
@@ -20,22 +24,29 @@ function open() {
 
 let serial = 0;
 const t = (title = `t${serial++}`) => ({ title, pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
-const titles = (arr) => arr.map((x) => x.title);
+const titles = (arr: Titled[]) => arr.map((x) => x.title);
 
-function snapshot(p) {
+function snapshot(p: State) {
   return { current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) };
 }
 
-function stored(store) {
+function stored(store: PlayerSessionStore) {
   const s = store.load(G);
   if (!s) return { current: null, queue: [], history: [] };
   return { current: s.current?.title ?? null, queue: titles(s.queue), history: titles(s.history) };
 }
 
+// 저장된 세션. 없으면 실패
+function loaded(store: PlayerSessionStore, guildId = G) {
+  const s = store.load(guildId);
+  assert.ok(s, `${guildId} 세션이 있다`);
+  return s;
+}
+
 // 시드 고정 난수 — 실패하면 같은 순서로 재현된다
-function rng(seed) {
+function rng(seed: number) {
   let x = seed >>> 0;
-  return (n) => {
+  return (n: number) => {
     x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
     return Math.floor((x / 2 ** 32) * n);
   };
@@ -43,11 +54,11 @@ function rng(seed) {
 
 test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 순서가 같다", () => {
   const { store } = open();
-  const p = {};
+  const p = {} as State; // init 이 칸을 채운다
   trackState.init(p);
   // 이전곡은 사본 위치를 trackState가 알려 준다 — 그 알림만 받아 저장소로 옮긴다
-  const onRewind = (track, copy, current) => store.rewind(G, track, { copy, current });
-  p.trackSink = new Proxy({ onRewind }, { get: (sink, name) => sink[name] ?? (() => {}) });
+  const onRewind = (track: TrackIn, copy: number, current: TrackIn | null) => store.rewind(G, track, { copy, current });
+  p.trackSink = new Proxy({ onRewind }, { get: (sink, name) => Reflect.get(sink, name) ?? (() => {}) });
   const pick = rng(20260915);
 
   const ops = [
@@ -125,7 +136,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
 
 test("같은 자리에 계속 끼우면 간격이 닳는다 — 재번호 후에도 순서가 맞다", () => {
   const { store } = open();
-  const p = {};
+  const p = {} as State; // init 이 칸을 채운다
   trackState.init(p);
   const ts = [t("A"), t("B"), t("C")];
   trackState.enqueue(p, ts);
@@ -154,7 +165,7 @@ test("정밀도 한계 가까이 가면 뒤에 붙이기 전에 재번호한다"
 
   store.append(G, [t("C")]);
   const seqs = db
-    .prepare("SELECT seq FROM session_tracks WHERE guild_id = ? AND slot = 'queue' ORDER BY seq")
+    .prepare<[string], { seq: number }>("SELECT seq FROM session_tracks WHERE guild_id = ? AND slot = 'queue' ORDER BY seq")
     .all(G)
     .map((r) => r.seq);
   assert.deepEqual(stored(store).queue, ["A", "B", "C"]);
@@ -165,7 +176,7 @@ test("정밀도 한계 가까이 가면 뒤에 붙이기 전에 재번호한다"
 test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () => {
   const { store } = open();
   for (let i = 0; i < trackState.HISTORY_MAX + 7; i++) store.retire(G, t(`h${i}`));
-  const { history } = store.load(G);
+  const { history } = loaded(store);
   assert.equal(history.length, trackState.HISTORY_MAX);
   assert.equal(history[0].title, "h7");
 });
@@ -191,7 +202,7 @@ test("트랙 필드: 링크 칸 셋과 표시 정보가 저장한 그대로 돌�
   };
   store.setCurrent(G, track);
 
-  assert.deepEqual(store.load(G).current, {
+  assert.deepEqual(loaded(store).current, {
     id: "amq:1",
     title: "노래",
     pageUrl: "https://anilist.co/anime/1",
@@ -225,7 +236,7 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
   });
   store.savePositions([{ guildId: G, positionMs: 99_000, startOffsetMs: 0 }]);
 
-  const { session } = store.load(G);
+  const { session } = loaded(store);
   assert.equal(session.positionMs, 99_000);
   assert.equal(session.startOffsetMs, 0);
   assert.deepEqual({ ...session, positionMs: undefined, startOffsetMs: undefined, updatedAt: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", pausedManual: true, positionMs: undefined, startOffsetMs: undefined, requesterId: "u1", updatedAt: undefined });
@@ -233,7 +244,8 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
 
 test("반복 모드는 세 값만 받는다", () => {
   const { store } = open();
-  assert.throws(() => store.saveSession(G, { loopMode: "false" }), /CHECK/);
+  const bad = { loopMode: "false" } as unknown as SessionState; // 타입 밖의 값을 표가 막는가
+  assert.throws(() => store.saveSession(G, bad), /CHECK/);
 });
 
 test("세션을 지우면 그 길드의 트랙도 사라지고 다른 길드는 남는다", () => {
@@ -242,7 +254,7 @@ test("세션을 지우면 그 길드의 트랙도 사라지고 다른 길드는 
   store.append("g2", [t("B")]);
   store.removeSession(G);
   assert.equal(store.load(G), null);
-  assert.deepEqual(titles(store.load("g2").queue), ["B"]);
+  assert.deepEqual(titles(loaded(store, "g2").queue), ["B"]);
 });
 
 test("replaceTracks: 주어진 목록으로 통째로 바꾸고 기록은 상한까지만", () => {
@@ -251,11 +263,11 @@ test("replaceTracks: 주어진 목록으로 통째로 바꾸고 기록은 상한
   const history = Array.from({ length: trackState.HISTORY_MAX + 3 }, (_, i) => t(`h${i}`));
   store.replaceTracks(G, { current: t("C"), queue: [t("Q1"), t("Q2")], history });
 
-  const s = store.load(G);
-  assert.equal(s.current.title, "C");
+  const s = loaded(store);
+  assert.equal(s.current?.title, "C");
   assert.deepEqual(titles(s.queue), ["Q1", "Q2"]);
   assert.equal(s.history.length, trackState.HISTORY_MAX);
-  assert.equal(s.history.at(-1).title, `h${trackState.HISTORY_MAX + 2}`);
+  assert.equal(s.history.at(-1)?.title, `h${trackState.HISTORY_MAX + 2}`);
 });
 
 test("liveAudioUrls: 현재곡과 대기열만 — 기록은 지킬 필요가 없다", () => {
@@ -281,8 +293,8 @@ test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 지운다 —
   store.append(G, [t("A"), t("B"), t("C")]);
   db.prepare("UPDATE session_tracks SET request_key = NULL WHERE title = 'B'").run(); // 손으로 고쳤거나 옛 코드가 남긴 행
 
-  assert.deepEqual(titles(store.load(G).queue), ["A", "C"]);
-  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM session_tracks").get().n, 2, "지워야 i번째 곡이 i번째 행이다");
+  assert.deepEqual(titles(loaded(store).queue), ["A", "C"]);
+  assert.equal(db.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM session_tracks").get()?.n, 2, "지워야 i번째 곡이 i번째 행이다");
   store.removeAt(G, 1);
-  assert.deepEqual(titles(store.load(G).queue), ["A"], "자리로 지우는 것이 맞는 곡을 지운다");
+  assert.deepEqual(titles(loaded(store).queue), ["A"], "자리로 지우는 것이 맞는 곡을 지운다");
 });

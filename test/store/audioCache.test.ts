@@ -1,12 +1,11 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/store/audioCache.ts — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 import { sessions } from "../../src/store/playerSessions.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import { table as guildTable } from "../../src/store/guildSettings.ts";
+import * as audioCache from "../../src/store/audioCache.ts";
+import * as externalCaches from "../../src/store/externalCaches.ts";
+import * as trackLookup from "../../src/store/trackLookup.ts";
 
 import os from "node:os";
 import path from "node:path";
@@ -17,14 +16,8 @@ import * as storeDb from "../../src/store/db.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}.db`);
 
-let guildTable, audioCache, externalCaches, trackLookup;
-
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  guildTable = require("../../src/store/guildSettings.ts").table;
-  audioCache = require("../../src/store/audioCache.ts");
-  externalCaches = require("../../src/store/externalCaches.ts");
-  trackLookup = require("../../src/store/trackLookup.ts");
   audioCache.initialize(DB_PATH);
 });
 
@@ -70,7 +63,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
     const remaining = new Set(
       storeDb
         .get()
-        .prepare("SELECT audio_key FROM audio_cache")
+        .prepare<[], { audio_key: string }>("SELECT audio_key FROM audio_cache")
         .all()
         .map((r) => r.audio_key),
     );
@@ -138,11 +131,12 @@ test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", ()
 
 // 밖에서 부르는 함수가 내보내져 있는가
 test("외부 호출자가 쓰는 함수를 내보낸다", () => {
-  for (const [mod, names] of [
+  const modules: Array<[object, string[]]> = [
     [audioCache, ["getFilePath"]],
     [trackLookup, ["resolveFromCache", "getAudioUrl", "removeResolution"]],
-  ]) {
-    for (const name of names) assert.equal(typeof mod[name], "function", name);
+  ];
+  for (const [mod, names] of modules) {
+    for (const name of names) assert.equal(typeof Reflect.get(mod, name), "function", name);
   }
 
   assert.match(audioCache.getFilePath("dl:abc"), /track_[0-9a-f]{32}\.opus$/);
@@ -153,7 +147,7 @@ test("외부 호출자가 쓰는 함수를 내보낸다", () => {
 
 // 실제 audio_cache/를 지우지 않도록 반드시 임시 디렉터리로 갈아끼운다.
 // (resetCache는 캐시 폴더 안의 파일을 전부 지운다.)
-function withTempCacheDir(fn) {
+function withTempCacheDir(fn: (dir: string) => void) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-reset-"));
   const prevDir = audioCache.cacheDir();
   audioCache._setCacheDir(dir);
@@ -166,7 +160,7 @@ function withTempCacheDir(fn) {
 }
 
 test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다", () => {
-  withTempCacheDir((dir) => {
+  withTempCacheDir((dir: string) => {
     fs.writeFileSync(path.join(dir, "track_deadbeef.opus"), "x");
     runResetChecks();
     assert.equal(fs.readdirSync(dir).length, 0, "캐시 폴더가 비워진다");
@@ -212,13 +206,13 @@ test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌�
 test("다운로드 완료는 받은 오디오의 실제 길이를 요청 쪽 길이보다 우선 저장한다", () => {
   audioCache.recordDownloadStart("yt:dur1", { title: "곡", duration: 314 });
   audioCache.recordDownloadComplete("yt:dur1", audioCache.getFilePath("yt:dur1"), 100, { title: "곡", duration: 314 }, { durationSec: 312 });
-  assert.equal(audioCache.lookupByAudioKey("yt:dur1").duration_sec, 312);
+  assert.equal(audioCache.lookupByAudioKey("yt:dur1")?.duration_sec, 312);
 });
 
 test("실제 길이를 모르면 요청 쪽 길이로 채운다", () => {
   audioCache.recordDownloadStart("yt:dur2", { title: "곡", duration: 200 });
   audioCache.recordDownloadComplete("yt:dur2", audioCache.getFilePath("yt:dur2"), 100, { title: "곡", duration: 200 });
-  assert.equal(audioCache.lookupByAudioKey("yt:dur2").duration_sec, 200);
+  assert.equal(audioCache.lookupByAudioKey("yt:dur2")?.duration_sec, 200);
 });
 
 test("같은 오디오를 다시 받으면 앞선 요청이 남긴 길이를 실제 길이로 고친다", () => {
@@ -226,7 +220,7 @@ test("같은 오디오를 다시 받으면 앞선 요청이 남긴 길이를 실
   audioCache.recordDownloadComplete("yt:dur3", audioCache.getFilePath("yt:dur3"), 100, { title: "곡", duration: 314 });
   audioCache.recordDownloadStart("yt:dur3", { title: "곡", duration: 314 });
   audioCache.recordDownloadComplete("yt:dur3", audioCache.getFilePath("yt:dur3"), 100, { title: "곡", duration: 314 }, { durationSec: 312 });
-  assert.equal(audioCache.lookupByAudioKey("yt:dur3").duration_sec, 312);
+  assert.equal(audioCache.lookupByAudioKey("yt:dur3")?.duration_sec, 312);
 });
 
 // 반드시 마지막 — DB를 닫는다

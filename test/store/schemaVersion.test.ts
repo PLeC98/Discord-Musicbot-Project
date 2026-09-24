@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/store/db.ts — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
 import { sessions } from "../../src/store/playerSessions.ts";
@@ -8,6 +7,7 @@ import fs from "node:fs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
+import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
 const guildTable = (await import("../../src/store/guildSettings.ts")).table;
@@ -19,7 +19,7 @@ after(() => {
   fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 });
 
-function open(name) {
+function open(name: string) {
   audioCache.close();
   audioCache.initialize(path.join(dir, name));
 }
@@ -29,12 +29,12 @@ test("새 DB는 현재 버전으로 만들어지고 세션 표를 쓴다", () =>
   assert.equal(storeDb.get().pragma("user_version", { simple: true }), storeDb.SCHEMA_VERSION);
 
   sessions().append("g", [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);
-  assert.equal(sessions().load("g").queue.length, 1);
+  assert.equal(sessions().load("g")?.queue.length, 1);
 });
 
 test("같은 버전의 DB는 다시 열리고 내용이 남아 있다", () => {
   open("fresh.db");
-  assert.equal(sessions().load("g").queue[0].title, "a");
+  assert.equal(sessions().load("g")?.queue[0].title, "a");
 });
 
 test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다", () => {
@@ -46,13 +46,13 @@ test("버전 표시가 없는 기존 DB는 열지 않고 지우라고 알린다"
   audioCache.close();
   assert.throws(
     () => audioCache.initialize(legacy),
-    (error) => error.code === "SCHEMA_MISMATCH" && error.message.includes("지운 뒤 다시 실행"),
+    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("지운 뒤 다시 실행"),
   );
   assert.equal(storeDb.isOpen(), false, "열다 만 상태로 남지 않는다");
   assert.throws(() => storeDb.get(), { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
 
   const check = new Database(legacy);
-  const made = check.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'session_tracks'").get().n;
+  const made = check.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM sqlite_master WHERE name = 'session_tracks'").get()?.n;
   check.close();
   assert.equal(made, 0, "맞지 않는 DB에 새 표를 만들지 않는다 — 파일은 손대지 않는다");
 });
