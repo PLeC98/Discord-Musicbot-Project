@@ -1,11 +1,10 @@
-"use strict";
-
 // src/app/resilience.js — 프로세스 오류 복원력 (일시 네트워크=표적 복구 / 치명적=안전 종료)
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { VoiceConnectionStatus } = require("@discordjs/voice");
-const { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_MAX } = require("../../src/app/resilience");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { VoiceConnectionStatus } from "@discordjs/voice";
+import resilience from "../../src/app/resilience.js";
+const { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_MAX } = resilience;
 
 // ── isTransientNetworkError ──────────────────────────────────
 
@@ -216,8 +215,8 @@ test("빈도 가드는 오류 종류별로 서로 다른 인스턴스다 (카운
 
 // ── 새어 나온 오류 처리기 ─────────────────────────────────────────────────────
 
-const { EventEmitter } = require("node:events");
-const { installErrorHandlers } = require("../../src/app/resilience");
+import { EventEmitter } from "node:events";
+const { installErrorHandlers } = (await import("../../src/app/resilience.js")).default;
 
 // 빈도 가드는 모듈에 하나씩이라 시험마다 시계를 한 시간씩 먼 미래로 옮겨 앞 시험의 기록을 창 밖으로 보낸다
 let clock = Date.UTC(2100, 0, 1);

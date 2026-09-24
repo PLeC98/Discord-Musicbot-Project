@@ -1,11 +1,10 @@
-"use strict";
-
 // 종료. 신호를 받으면 세션을 저장하고 음성 연결 · 봇 · 자식 프로세스를 정리한 뒤 나간다.
 
-const readline = require("readline");
-const { getVoiceConnections } = require("@discordjs/voice");
-const log = require("../infra/log/logger").child({ category: "core" });
-const procRegistry = require("../infra/processRegistry");
+import readline from "readline";
+import { getVoiceConnections } from "@discordjs/voice";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "core" });
+import procRegistry from "../infra/processRegistry.js";
 
 // 바깥 경계. 시험은 가짜를 넘긴다
 const REAL = {
@@ -72,4 +71,6 @@ function installShutdown(client, { potServer, logFile, ...boundary }) {
   }
 }
 
-module.exports = { installShutdown };
+const exported = { installShutdown };
+export default exported;
+export { exported as "module.exports" };

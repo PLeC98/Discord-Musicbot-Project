@@ -1,40 +1,52 @@
-"use strict";
-
 // 봇 조립. index.js 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
-const path = require("path");
-const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
-const logSink = require("../infra/log/sink");
-const logger = require("../infra/log/logger");
-const config = require("../../config");
-const audioCache = require("../store/audioCache");
-const { logResolved: logResolvedFfmpeg, ffmpegPath } = require("../media/ffmpeg/path");
-const MusicPlayer = require("../player/Player");
-const { restoreSavedPlayers } = require("../player/sessionRestore");
-const voiceChannelStatus = require("../player/voiceChannelStatus");
-const { onVoiceStateUpdate } = require("../player/voicePresence");
-const PlayerRegistry = require("../player/registry");
-const { createPotServer } = require("../sources/youtube/potServer");
-const YouTube = require("../sources/youtube/index");
-const { genres } = require("../config/genres");
-const statusConfig = require("../config/status");
-const { loadModules } = require("./moduleLoader");
-const commandLoader = require("./commandLoader");
-const { installErrorHandlers } = require("./resilience");
-const { installShutdown } = require("./shutdown");
-const { scheduleReplyCleanup } = require("../ui/replyLifetime");
-const { ALLOWED_MENTIONS } = require("../ui/mentions");
-const MusicEmbedManager = require("../ui/nowPlayingPanel");
-const StatusManager = require("../ui/botPresence");
-const { createFileDestination } = require("../infra/log/file");
-const { startDashboard } = require("../../dashboard/server/index");
-const { createPlayerStream } = require("../../dashboard/server/playerStream");
-const playerEvents = require("../player/events");
-const { sendNotice } = require("../ui/playerNotices");
+import path from "path";
+import { Client, GatewayIntentBits, Collection, Events } from "discord.js";
+import logSink from "../infra/log/sink.js";
+import logger from "../infra/log/logger.js";
+import config from "../../config.js";
+import audioCache from "../store/audioCache.js";
+import pathModule from "../media/ffmpeg/path.js";
+const { logResolved: logResolvedFfmpeg, ffmpegPath } = pathModule;
+import MusicPlayer from "../player/Player.js";
+import sessionRestore from "../player/sessionRestore.js";
+const { restoreSavedPlayers } = sessionRestore;
+import voiceChannelStatus from "../player/voiceChannelStatus.js";
+import voicePresence from "../player/voicePresence.js";
+const { onVoiceStateUpdate } = voicePresence;
+import PlayerRegistry from "../player/registry.js";
+import potServerModule from "../sources/youtube/potServer.js";
+const { createPotServer } = potServerModule;
+import YouTube from "../sources/youtube/index.js";
+import genresModule from "../config/genres.js";
+const { genres } = genresModule;
+import statusConfig from "../config/status.js";
+import moduleLoader from "./moduleLoader.js";
+const { loadModules } = moduleLoader;
+import commandLoader from "./commandLoader.js";
+import resilience from "./resilience.js";
+const { installErrorHandlers } = resilience;
+import shutdown from "./shutdown.js";
+const { installShutdown } = shutdown;
+import replyLifetime from "../ui/replyLifetime.js";
+const { scheduleReplyCleanup } = replyLifetime;
+import mentions from "../ui/mentions.js";
+const { ALLOWED_MENTIONS } = mentions;
+import MusicEmbedManager from "../ui/nowPlayingPanel.js";
+import StatusManager from "../ui/botPresence.js";
+import fileModule from "../infra/log/file.js";
+const { createFileDestination } = fileModule;
+import server from "../../dashboard/server/index.js";
+const { startDashboard } = server;
+import playerStream from "../../dashboard/server/playerStream.js";
+const { createPlayerStream } = playerStream;
+import playerEvents from "../player/events.js";
+import playerNotices from "../ui/playerNotices.js";
+const { sendNotice } = playerNotices;
 
 const log = logger.child({ category: "core" });
-const ROOT = path.join(__dirname, "..", "..");
+const ROOT = path.join(import.meta.dirname, "..", "..");
 
 function main() {
   const logFile = setUpLogging();
@@ -212,4 +224,6 @@ async function loadEvents(client) {
   log.info({ tags: ["startup"] }, `이벤트 핸들러 ${modules.length}개 등록 완료`);
 }
 
-module.exports = { main };
+const exported = { main };
+export default exported;
+export { exported as "module.exports" };

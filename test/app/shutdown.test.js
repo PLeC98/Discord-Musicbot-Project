@@ -1,11 +1,10 @@
-"use strict";
-
 // src/app/shutdown.js — 종료 신호를 받으면 저장하고 정리한 뒤 나간다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { EventEmitter } = require("node:events");
-const { installShutdown } = require("../../src/app/shutdown");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import shutdown from "../../src/app/shutdown.js";
+const { installShutdown } = shutdown;
 
 function setup({ saveFails = false } = {}) {
   const steps = [];

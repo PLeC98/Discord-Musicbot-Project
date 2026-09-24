@@ -1,14 +1,12 @@
-"use strict";
-
 // src/app/commandLoader.js — 커맨드 로드 + 배포 (REST.put은 프로토타입 패치로 목킹, 실 배포 없음).
 // 배포 지문은 임시 파일 사용 — 운영 database/deployed-commands.json 미접촉.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, after, before } = require("node:test");
-const assert = require("node:assert/strict");
-const { REST } = require("discord.js");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, after, before } from "node:test";
+import assert from "node:assert/strict";
+import { REST } from "discord.js";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cmdhash-"));
 let hashSeq = 0;
@@ -27,7 +25,7 @@ after(() => {
   REST.prototype.put = realPut;
 });
 
-const { loadedCommands, definitions, deployCommands, deployErrorLines } = require("../../src/app/commandLoader");
+const { loadedCommands, definitions, deployCommands, deployErrorLines } = (await import("../../src/app/commandLoader.js")).default;
 
 // 명령 파일은 처음 필요할 때 읽는다(불러오기가 비동기)
 let commands;
@@ -36,10 +34,10 @@ before(async () => {
   loaded = await loadedCommands();
   commands = await definitions();
 });
-const config = require("../../config");
+const config = (await import("../../config.js")).default;
 
 test("commands/*.js 전부가 유효한 정의(name/description)로 로드됨", () => {
-  const fileCount = fs.readdirSync(path.join(__dirname, "..", "..", "commands")).filter((f) => f.endsWith(".js")).length;
+  const fileCount = fs.readdirSync(path.join(import.meta.dirname, "..", "..", "commands")).filter((f) => f.endsWith(".js")).length;
   assert.equal(commands.length, fileCount, "data/execute 누락으로 스킵되는 커맨드 파일이 없어야 함");
   for (const c of commands) {
     assert.equal(typeof c.name, "string");

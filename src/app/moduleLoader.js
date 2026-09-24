@@ -1,8 +1,6 @@
-"use strict";
-
-const fs = require("fs");
-const path = require("path");
-const { pathToFileURL } = require("url");
+import fs from "fs";
+import path from "path";
+import { pathToFileURL } from "url";
 
 /**
  * 디렉터리의 .js를 하나씩 불러온다(import). CommonJS 파일이면 module.exports, ESM 이면 기본 내보내기를 준다.
@@ -31,4 +29,6 @@ async function loadModules(dir) {
   return { modules, failures, missing: false };
 }
 
-module.exports = { loadModules };
+const exported = { loadModules };
+export default exported;
+export { exported as "module.exports" };
