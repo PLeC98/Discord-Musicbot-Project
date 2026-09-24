@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/config/genres.ts — 장르 설정을 읽을 때 거르는 이름 · 이모지와 저장 전 검사.
 
 import os from "node:os";
