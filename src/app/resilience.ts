@@ -8,6 +8,7 @@ import { VoiceConnectionStatus } from "@discordjs/voice";
 import { Events } from "discord.js";
 import { isDeadInteraction } from "../rules/deadInteraction.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 const log = logger.child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
 // 프로세스를 내리는 것은 음성 관심사가 아니다. 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
 const flog = logger.child({ category: "core", sub: "fatal" });
@@ -144,7 +145,7 @@ function installErrorHandlers(client: WatchedClient, { proc = process, exit }: {
     // 일시적 네트워크/음성 오류(IP discovery 실패 등). 연결이 끊긴 서버만 표적 복구(정상 재생 중인 다른 서버는 무영향).
     if (isTransientNetworkError(error)) {
       coreLog.warn(`네트워크/음성 오류(${source}): 연결이 끊긴 서버의 복구를 시도합니다.`);
-      healBrokenPlayers(client).catch(() => {});
+      bestEffort(log, healBrokenPlayers(client), "끊긴 서버 복구");
       return true;
     }
     return false;
@@ -191,7 +192,7 @@ function installErrorHandlers(client: WatchedClient, { proc = process, exit }: {
     if (isTransientNetworkError(error)) {
       if (!networkErrorFlooding()) {
         coreLog.warn("네트워크 오류: 연결이 끊긴 서버의 복구를 시도합니다. 봇은 계속 실행됩니다.");
-        healBrokenPlayers(client).catch(() => {});
+        bestEffort(log, healBrokenPlayers(client), "끊긴 서버 복구");
         return;
       }
       coreLog.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 네트워크 오류가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);

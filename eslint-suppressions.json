@@ -209,10 +209,5 @@
     "complexity": {
       "count": 2
     }
-  },
-  "src/app/resilience.ts": {
-    "no-empty-function": {
-      "count": 2
-    }
   }
 }
