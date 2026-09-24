@@ -54,6 +54,12 @@ type Payload = {
 };
 /** 끝난 패널의 문구 */
 type IdleView = { reason: string; leavesAt?: number | null };
+/** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
+type Opened = { success: true };
+/** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패 안내 */
+type FirstStart = { opened: Opened | null; failure: string | null };
+/** 대기열에 담은 것과 안내에 붙일 것 */
+type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; total: number | null; queueLimited: boolean } };
 /** 조작 버튼을 그릴 때 읽는 칸. 끝난 패널은 플레이어 없이 그린다 */
 type Controls = Pick<MusicPlayer, "sessionId" | "requesterId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<MusicPlayer, "sponsor">>;
 
@@ -69,6 +75,42 @@ import { bestEffort } from "../infra/bestEffort.ts";
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
 const IDLE_CONTROLS: Controls = { sessionId: "idle", requesterId: "0", previousTracks: [], queue: [], loop: false, paused: false, autoplay: false };
+
+// 반복 버튼의 모양
+const LOOP_LOOKS = {
+  track: { label: "반복: 트랙", emoji: "🔂", style: ButtonStyle.Success },
+  queue: { label: "반복: 대기열", emoji: "🔁", style: ButtonStyle.Success },
+  off: { label: "반복: 꺼짐", emoji: "➡️", style: ButtonStyle.Secondary },
+} as const;
+
+// 한곡 반복 = 재시작이라 기록 없어도 활성
+const canGoBack = (p: Controls) => p.previousTracks.length > 0 || p.loop === "track";
+// 한곡 반복은 재시작, 자동재생은 다음 곡을 골라 대기열이 비어도 활성
+const canSkip = (p: Controls) => p.queue.length > 0 || p.loop === "track" || Boolean(p.autoplay);
+
+// 상태 줄 (일시정지 / 대기열 수)
+// 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar). 여기서 또 내지 않는다.
+function statusOf(player: MusicPlayer) {
+  const parts: string[] = [];
+  if (player.paused) {
+    if (player.pauseReasons?.has("mute")) parts.push("🔇 뮤트됨");
+    else if (player.pauseReasons?.has("alone")) parts.push("⏳ 혼자 남음");
+    else parts.push("⏸️ 일시정지");
+  }
+  if (player.queue.length > 0) {
+    parts.push(`${player.queue.length}개의 노래 대기 중`);
+  }
+  if (player.sponsor?.skipSegments?.length) {
+    parts.push(`건너 뛸 구간 ${player.sponsor.skipSegments.length}개`);
+  }
+  return parts;
+}
+
+// 끝난 패널의 문구. 음성에 잠시 남을 때만 나갈 시각을 붙인다
+function idleViewOf(reason: string): IdleView {
+  const leaveMs = config.bot.leaveDelayQueueEmptyMs;
+  return { reason, leavesAt: (reason === "queue-end" || reason === "joined") && leaveMs > 0 ? Date.now() + leaveMs : null };
+}
 
 class MusicEmbedManager {
   client: Client;
@@ -155,121 +197,116 @@ class MusicEmbedManager {
   async _processMusic(guildId: string, trackData: TrackData, requester: Requester, responder: Responder): Promise<AddResult> {
     const player = this.client.players.get(guildId);
     if (!player) return { success: false, message: "음악 플레이어를 찾을 수 없습니다." };
-
-    const wasPlayingBefore = player.currentTrack !== null;
-    // 여러 곡을 담았으면 그 출처의 표시 이름(재생목록·앨범 등), 한 곡이면 null
-    const sourceLabel = trackData.isPlaylist ? S.collectionLabel(trackData.collection) : null;
-    const insertFirst = trackData.insertFirst || false;
-    const tracks = trackData.tracks;
-
     try {
-      let firstTrackResult: { success: true } | null = null;
-      let startFailure: string | null = null; // 첫 곡 재생 시작 실패 메시지(있으면 유령 임베드 안 만들고 실패 전파)
-      const wasIdle = !player.currentTrack && player.queue.length === 0;
-      const tracksToQueue: QueuedTrack[] = [];
-
-      // 모든 트랙을 플레이어에 추가 (사전 로드 트리거)
-      for (let i = 0; i < tracks.length; i++) {
-        const track = { ...tracks[i] };
-        track.requestedBy = requester;
-        track.addedAt = Date.now();
-
-        // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
-        if (i === 0 && wasIdle) {
-          trackState.setCurrent(player, track);
-
-          // 음성 채널에 연결하고 재생 시작
-          let playbackStarted = false;
-          try {
-            if (!player.connection) {
-              await player.connect();
-            }
-            const playResult = await player.play();
-            // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
-            // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.
-            if (playResult && playResult.ok === false) {
-              startFailure = ErrorHandler.playFailure(playResult);
-            } else {
-              playbackStarted = true;
-            }
-          } catch (playError) {
-            log.error("재생 처리 중 오류:", playError);
-            startFailure = ErrorHandler.getMessage(playError);
-          }
-
-          if (startFailure) {
-            // 시작 실패. 유령 임베드 만들지 않음. 실패한 곡은 큐에 넣지 않는다(재시도해도 실패).
-            trackState.setCurrent(player, null);
-          } else if (playbackStarted) {
-            // UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
-            try {
-              firstTrackResult = await this.createNewMusicEmbed(player, track, requester, responder);
-            } catch (embedError) {
-              log.error("재생 중 임베드 생성 실패:", embedError);
-              firstTrackResult = { success: true };
-            }
-          }
-        } else {
-          tracksToQueue.push(track);
-        }
-      }
-
-      // 상한은 여기서 판정한다. 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
-      const queued = tracksToQueue.slice(0, trackState.roomLeft(player, config.bot.maxQueueSize));
-      const dropped = tracksToQueue.length - queued.length;
-      // 안내에 붙일 것. 전체 곡 수는 받은 것보다 많을 때만
-      const notice = { dropped, total: trackData.total && trackData.total > tracks.length ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) };
-      if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
-      else if (insertFirst) trackState.enqueue(player, queued, { front: true });
-      // 자동재생이 미리 뽑아 둔 곡보다는 앞에. 사용자가 고른 곡이 먼저다
-      else trackState.enqueueAheadOfAutoplay(player, queued);
-
-      // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
-      if (startFailure && !player.currentTrack && player.queue.length > 0) {
-        try {
-          const nextResult = await player.play(0);
-          if (nextResult && nextResult.ok !== false && player.currentTrack) {
-            startFailure = null;
-            try {
-              firstTrackResult = await this.createNewMusicEmbed(player, player.currentTrack, requester, responder);
-            } catch {
-              firstTrackResult = { success: true };
-            }
-          }
-        } catch (e) {
-          log.error("첫 곡 실패 후 다음 곡 시작 실패:", messageOf(e));
-        }
-      }
-
-      // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
-      if (startFailure && !firstTrackResult) {
-        return { success: false, message: startFailure };
-      }
-
-      // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
-      if (firstTrackResult && tracks.length > 1) {
-        // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
-        await this.showPlaylistAdditionMessage(player, queued, sourceLabel, insertFirst, notice);
-        // 대기열 갱신. 임베드 새로고침
-        await this.updateNowPlayingEmbed(player);
-        return { ...firstTrackResult, dropped, queueLimited: notice.queueLimited };
-      }
-
-      // 대기열에만 추가됨 (이미 음악 재생 중)
-      if (wasPlayingBefore || (!firstTrackResult && tracks.length > 0)) {
-        if (queued.length === 0 && dropped > 0) return { success: false, message: this.queueFullMessage(), dropped };
-        return await this.handleQueueAddition(player, queued, responder, sourceLabel, insertFirst, notice);
-      }
-
-      // 단일 트랙 재생 시작
-      if (firstTrackResult) {
-        return firstTrackResult;
-      }
-
-      return { success: true };
-    } catch {
+      return await this._addTracks(player, trackData, requester, responder);
+    } catch (error) {
+      log.error("곡 담기 처리 실패:", messageOf(error));
       return { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." };
     }
+  }
+
+  async _addTracks(player: MusicPlayer, trackData: TrackData, requester: Requester, responder: Responder): Promise<AddResult> {
+    const wasPlayingBefore = player.currentTrack !== null;
+    const { tracks } = trackData;
+    const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester, addedAt: Date.now() });
+
+    // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
+    const wasIdle = !player.currentTrack && player.queue.length === 0 && tracks.length > 0;
+    const start = wasIdle ? await this._startFirst(player, stamp(tracks[0]), requester, responder) : { opened: null, failure: null };
+    const addition = this._enqueue(player, trackData, (wasIdle ? tracks.slice(1) : tracks).map(stamp));
+    // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
+    const opened = start.failure ? await this._startNext(player, requester, responder) : start.opened;
+
+    // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
+    if (start.failure && !opened) return { success: false, message: start.failure };
+
+    // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
+    if (opened && tracks.length > 1) {
+      // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
+      await this.showPlaylistAdditionMessage(player, addition.queued, addition.sourceLabel, addition.insertFirst, addition.notice);
+      // 대기열 갱신. 임베드 새로고침
+      await this.updateNowPlayingEmbed(player);
+      return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
+    }
+
+    // 대기열에만 추가됨 (이미 음악 재생 중)
+    if (wasPlayingBefore || (!opened && tracks.length > 0)) {
+      return await this.handleQueueAddition(player, responder, addition);
+    }
+
+    // 단일 트랙 재생 시작
+    return opened ?? { success: true };
+  }
+
+  // 쉬던 플레이어에 첫 곡을 튼다
+  async _startFirst(player: MusicPlayer, track: QueuedTrack, requester: Requester, responder: Responder): Promise<FirstStart> {
+    trackState.setCurrent(player, track);
+    const failure = await this._startPlayback(player);
+    if (failure) {
+      // 시작 실패. 유령 임베드 만들지 않음. 실패한 곡은 큐에 넣지 않는다(재시도해도 실패).
+      trackState.setCurrent(player, null);
+      return { opened: null, failure };
+    }
+    return { opened: await this._openPanel(player, track, requester, responder), failure: null };
+  }
+
+  // 음성 채널에 연결하고 재생 시작. 실패면 안내 문구
+  async _startPlayback(player: MusicPlayer): Promise<string | null> {
+    try {
+      if (!player.connection) {
+        await player.connect();
+      }
+      const playResult = await player.play();
+      // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
+      // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.
+      return playResult && playResult.ok === false ? ErrorHandler.playFailure(playResult) : null;
+    } catch (playError) {
+      log.error("재생 처리 중 오류:", playError);
+      return ErrorHandler.getMessage(playError);
+    }
+  }
+
+  // 첫 곡이 실패한 뒤 대기열의 다음 곡을 튼다. 틀었으면 패널을 세운 결과
+  async _startNext(player: MusicPlayer, requester: Requester, responder: Responder): Promise<Opened | null> {
+    if (player.currentTrack || player.queue.length === 0) return null;
+    try {
+      const nextResult = await player.play(0);
+      if (nextResult && nextResult.ok !== false && player.currentTrack) {
+        return await this._openPanel(player, player.currentTrack, requester, responder);
+      }
+    } catch (e) {
+      log.error("첫 곡 실패 후 다음 곡 시작 실패:", messageOf(e));
+    }
+    return null;
+  }
+
+  // UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
+  async _openPanel(player: MusicPlayer, track: QueuedTrack, requester: Requester, responder: Responder): Promise<Opened> {
+    try {
+      return await this.createNewMusicEmbed(player, track, requester, responder);
+    } catch (embedError) {
+      log.error("재생 중 임베드 생성 실패:", embedError);
+      return { success: true };
+    }
+  }
+
+  // 대기열에 넣는다. 상한은 여기서 판정한다. 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
+  _enqueue(player: MusicPlayer, trackData: TrackData, tracks: QueuedTrack[]): Addition {
+    const queued = tracks.slice(0, trackState.roomLeft(player, config.bot.maxQueueSize));
+    const insertFirst = trackData.insertFirst || false;
+    if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
+    else if (insertFirst) trackState.enqueue(player, queued, { front: true });
+    // 자동재생이 미리 뽑아 둔 곡보다는 앞에. 사용자가 고른 곡이 먼저다
+    else trackState.enqueueAheadOfAutoplay(player, queued);
+    const received = trackData.tracks.length;
+    return {
+      queued,
+      // 여러 곡을 담았으면 그 출처의 표시 이름(재생목록·앨범 등), 한 곡이면 null
+      sourceLabel: trackData.isPlaylist ? S.collectionLabel(trackData.collection) : null,
+      insertFirst,
+      // 안내에 붙일 것. 전체 곡 수는 받은 것보다 많을 때만
+      notice: { dropped: tracks.length - queued.length, total: trackData.total && trackData.total > received ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) },
+    };
   }
 
   /**
@@ -331,15 +368,18 @@ class MusicEmbedManager {
   /**
    * 음악 재생 중 곡이 대기열에 추가되는 경우를 처리합니다.
    */
-  async handleQueueAddition(player: MusicPlayer, tracks: QueuedTrack[], responder: Responder, sourceLabel: string | null, insertFirst = false, notice: AdditionNotice = {}): Promise<AddResult> {
+  async handleQueueAddition(player: MusicPlayer, responder: Responder, { queued, sourceLabel, insertFirst, notice }: Addition): Promise<AddResult> {
+    // 자리가 없어 한 곡도 못 담았다
+    if (queued.length === 0 && notice.dropped > 0) return { success: false, message: this.queueFullMessage(), dropped: notice.dropped };
+
     // 기존 임베드 갱신
     if (player.nowPlayingMessage && player.currentTrack) {
       await this.updateNowPlayingEmbed(player);
     }
 
-    await responder.notifyQueued(this.createQueueAdditionMessage(tracks, sourceLabel, insertFirst, notice));
+    await responder.notifyQueued(this.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice));
 
-    return { success: true, dropped: notice.dropped ?? 0, queueLimited: Boolean(notice.queueLimited) };
+    return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
   }
 
   /**
@@ -487,20 +527,7 @@ class MusicEmbedManager {
     // 직접 링크는 썸네일이 없으므로(임의 URL이라 앨범아트를 알 수 없다) 텍스트만 넣는다.
     const titleComponent = track.thumbnail ? new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(track.thumbnail)) : null;
 
-    // 상태 줄 (일시정지 / 대기열 수)
-    // 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar). 여기서 또 내지 않는다.
-    const statusParts = [];
-    if (player.paused) {
-      if (player.pauseReasons?.has("mute")) statusParts.push("🔇 뮤트됨");
-      else if (player.pauseReasons?.has("alone")) statusParts.push("⏳ 혼자 남음");
-      else statusParts.push("⏸️ 일시정지");
-    }
-    if (player.queue.length > 0) {
-      statusParts.push(`${player.queue.length}개의 노래 대기 중`);
-    }
-    if (player.sponsor?.skipSegments?.length) {
-      statusParts.push(`건너 뛸 구간 ${player.sponsor.skipSegments.length}개`);
-    }
+    const statusParts = statusOf(player);
 
     const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor));
     if (titleComponent) container.addSectionComponents(titleComponent);
@@ -591,24 +618,11 @@ class MusicEmbedManager {
 
     const live = player.nowPlayingMessage;
     const textChannel = player.textChannel;
-    // 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다. textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다
-    const panelChannelId = live ? (channelIdOf(live) ?? (await this._panelChannel(player))?.id) : guild?.id && (await this.panel.store.getPanel(guild.id))?.channelId;
-    const botChannelId = guild?.id ? await GuildSettingsManager.getBotChannel(guild.id) : null;
-    const dedicated = Boolean(panelChannelId) && panelChannelId === botChannelId;
+    const dedicated = await this._panelIsDedicated(player, live);
 
-    const leaveMs = config.bot.leaveDelayQueueEmptyMs;
-    const view: IdleView = { reason, leavesAt: (reason === "queue-end" || reason === "joined") && leaveMs > 0 ? Date.now() + leaveMs : null };
+    const view = idleViewOf(reason);
     if (guild?.id) this.idleViews.set(guild.id, view);
-
-    try {
-      const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
-      if (live && player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(live.id, payload);
-      else if (live && "edit" in live) await live.edit(payload);
-      else if (guild?.id) await this.panel.edit(guild, payload);
-    } catch (error) {
-      // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
-      if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
-    }
+    await this._showIdle(player, live, { ...view, dedicated });
 
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다
     if (live && !dedicated && canSend(textChannel)) {
@@ -620,6 +634,27 @@ class MusicEmbedManager {
     trackState.setCurrent(player, null);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
+  }
+
+  // 패널이 전용 채널에 있나. 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다. textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다
+  async _panelIsDedicated(player: MusicPlayer, live: PanelMessage | null) {
+    const guildId = player.guild?.id;
+    if (!guildId) return false;
+    const panelChannelId = live ? (channelIdOf(live) ?? (await this._panelChannel(player))?.id) : (await this.panel.store.getPanel(guildId))?.channelId;
+    return Boolean(panelChannelId) && panelChannelId === (await GuildSettingsManager.getBotChannel(guildId));
+  }
+
+  // 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 패널을 고친다
+  async _showIdle(player: MusicPlayer, live: PanelMessage | null, look: IdleView & { dedicated: boolean }) {
+    try {
+      const payload: Payload = { ...(await this.createIdleContainer(look)), flags: MessageFlags.IsComponentsV2 };
+      if (live && player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(live.id, payload);
+      else if (live && "edit" in live) await live.edit(payload);
+      else if (player.guild?.id) await this.panel.edit(player.guild, payload);
+    } catch (error) {
+      // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
+      if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
+    }
   }
 
   /** 전용 채널에 메시지가 올라오면 끝난 패널이 묻혔는지 잠시 뒤에 본다. 재생 중인 패널은 5초 갱신이 맡는다. */
@@ -705,7 +740,7 @@ class MusicEmbedManager {
       .setCustomId(`music_previous:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏮️")
-      .setDisabled(disabled || (player.previousTracks.length === 0 && player.loop !== "track")); // 한곡 반복 = 재시작이라 기록 없어도 활성
+      .setDisabled(disabled || !canGoBack(player));
 
     const pauseButton = new ButtonBuilder()
       .setCustomId(`music_pause:${requesterId}:${sessionId}`)
@@ -717,7 +752,7 @@ class MusicEmbedManager {
       .setCustomId(`music_skip:${requesterId}:${sessionId}`)
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏭️")
-      .setDisabled(disabled || (player.queue.length === 0 && player.loop !== "track" && !player.autoplay)); // 한곡 반복은 재시작, 자동재생은 다음 곡을 골라 대기열이 비어도 활성
+      .setDisabled(disabled || !canSkip(player));
 
     const stopButton = new ButtonBuilder().setCustomId(`music_stop:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
 
@@ -727,22 +762,8 @@ class MusicEmbedManager {
     const shuffleButton = new ButtonBuilder().setCustomId(`music_shuffle:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
 
     // 반복 버튼. 꺼짐 → 트랙 → 대기열 순환
-    let loopLabel: string, loopEmoji: string, loopStyle: ButtonStyle;
-    if (player.loop === "track") {
-      loopLabel = "반복: 트랙";
-      loopEmoji = "🔂";
-      loopStyle = ButtonStyle.Success;
-    } else if (player.loop === "queue") {
-      loopLabel = "반복: 대기열";
-      loopEmoji = "🔁";
-      loopStyle = ButtonStyle.Success;
-    } else {
-      loopLabel = "반복: 꺼짐";
-      loopEmoji = "➡️";
-      loopStyle = ButtonStyle.Secondary;
-    }
-
-    const loopButton = new ButtonBuilder().setCustomId(`music_loop:${requesterId}:${sessionId}`).setLabel(loopLabel).setStyle(loopStyle).setEmoji(loopEmoji).setDisabled(disabled);
+    const loopLook = LOOP_LOOKS[player.loop || "off"];
+    const loopButton = new ButtonBuilder().setCustomId(`music_loop:${requesterId}:${sessionId}`).setLabel(loopLook.label).setStyle(loopLook.style).setEmoji(loopLook.emoji).setDisabled(disabled);
 
     const queueButton = new ButtonBuilder().setCustomId(`music_queue:${requesterId}:${sessionId}`).setLabel("대기열").setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(disabled);
 

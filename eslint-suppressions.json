@@ -1,18 +1,4 @@
 {
-  "src/ui/nowPlayingPanel.ts": {
-    "complexity": {
-      "count": 4
-    },
-    "max-depth": {
-      "count": 4
-    },
-    "max-params": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
-  },
   "src/usecases/addTracks.ts": {
     "complexity": {
       "count": 2
