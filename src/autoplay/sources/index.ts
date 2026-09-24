@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 소스. 설정 한 줄을 곡 목록으로 바꾼다. 부르는 곳이 다를 뿐 계약은 하나다.
 //
 //   { artist?, title, durationSec?, audioUrl?, youtubeUrl?, thumbnail?, sourceKey,
@@ -15,7 +14,12 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { SPEC, usable, needsOf, opts } from "../../config/schema/genreSources.ts";
+import { SPEC, usable, needsOf, opts, type Field } from "../../config/schema/genreSources.ts";
+import { messageOf } from "../../rules/errorKind.ts";
+import type { GenreSource } from "../../config/genres.ts";
+import type { Candidate } from "./candidate.ts";
+import type { Search } from "./keyword.ts";
+import type { AnisongStats } from "./anisongdb.ts";
 import http from "./http.ts";
 const { getJson, remembered } = http;
 import keywordModule from "./keyword.ts";
@@ -35,7 +39,14 @@ const { spotify, youtube } = playlists;
 
 // ── 등록부 ────────────────────────────────────────────────────────────────
 
-const FETCHERS = { keyword, lastfm, lbradio, animethemes, anisongdb, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
+/** 소스가 부르는 것의 가짜(테스트). 지금은 keyword 의 search 뿐이다 */
+type FetchDeps = { search?: Search };
+type Fetcher = (source: GenreSource, deps: FetchDeps) => Promise<Candidate[]>;
+type YearRange = { min: number; max: number };
+// 여기서 읽는 칸만
+type AnimePage = { anime?: Array<{ year?: number }> };
+
+const FETCHERS: Record<string, Fetcher> = { keyword, lastfm, lbradio, animethemes, anisongdb, vocadb: vocaFamily, utaitedb: vocaFamily, touhoudb: vocaFamily, spotify, youtube };
 
 const TYPES = Object.keys(FETCHERS);
 
@@ -47,14 +58,14 @@ const TYPES = Object.keys(FETCHERS);
  */
 // AnimeThemes 에서 고를 수 있는 방영 연도. 저쪽이 알려 주므로 올해로 어림잡지 않는다(연말에는 다음 해 1분기가 이미
 // 등록돼 있다). 하루 한 번 묻고, 화면은 오래 기다리지 않는다(http.remembered)
-const yearRange = remembered(
+const yearRange = remembered<YearRange>(
   async () => {
     try {
-      const ends = await Promise.all([getJson("https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson("https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
+      const ends = await Promise.all([getJson<AnimePage | null>("https://api.animethemes.moe/anime?sort=year&page[size]=1"), getJson<AnimePage | null>("https://api.animethemes.moe/anime?sort=-year&page[size]=1")]);
       const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
       return min && max && min <= max ? { min, max } : null;
     } catch (error) {
-      log.debug(`AnimeThemes 연도 범위를 받아오지 못했습니다: ${error.message}`);
+      log.debug(`AnimeThemes 연도 범위를 받아오지 못했습니다: ${messageOf(error)}`);
       return null;
     }
   },
@@ -72,7 +83,7 @@ async function animeYearRange() {
  * `kind === "range"` 로 가르지 않는 이유: 구간 칸이 둘인 소스가 있어(연도와 인지도)
  * 한쪽 값이 다른 쪽에 얹힌다. 칸 이름으로 가른다.
  */
-function fill(field, type, years, anisong) {
+function fill(field: Field, type: string, years: YearRange, anisong: AnisongStats | null) {
   if (type === "animethemes" && field.kind === "range") return years;
   if (type !== "anisongdb") return {};
   if (field.key === "yearFrom") return anisong?.min ? { min: anisong.min, max: anisong.max } : years;
@@ -106,7 +117,7 @@ async function catalog() {
 
 /** 설정에 적힌 소스 하나를 곡 목록으로. 던지면 부르는 쪽이 다음 소스로 넘어간다. */
 // deps: 소스가 부르는 것의 가짜(테스트). 지금은 keyword 의 search 뿐이다
-async function fetchFrom(source, deps = {}) {
+async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Candidate[]> {
   const fetcher = FETCHERS[source?.type];
   if (!fetcher) throw new Error(`모르는 소스입니다: ${source?.type}`);
   const tracks = await fetcher(source, deps);
@@ -128,7 +139,7 @@ const exported = {
   _anisongCatalog: anisongCatalog,
   _seedAnisongStats,
   // 테스트가 바깥으로 나가지 않게 연도 범위를 미리 채워 둔다
-  _seedYearRange: (range) => yearRange.seed(range),
+  _seedYearRange: (range: YearRange | null) => yearRange.seed(range),
 };
 export default exported;
 export { exported as "module.exports" };

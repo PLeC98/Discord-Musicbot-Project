@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 AI 보조. 유튜브에서 찾아온 후보를 모델에게 한 번 더 물어본다.
 //
 // 소스가 아니라 뒷거름망이다. 곡 이름만 아는 소스(키워드·Last.fm)에서만 쓸 자리가 있고,
@@ -16,6 +15,60 @@ import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/aiProviders.ts";
+import { messageOf } from "../../rules/errorKind.ts";
+import type { PromptSection } from "../../config/ai.ts";
+import type { ModelField } from "../../config/schema/aiModels.ts";
+
+/** 후보 목록 한 줄을 어떻게 적을지(ai.yaml 의 list) */
+type ListFormat = { unknownDuration?: string; unknownText?: string; lineFormat?: string };
+/**
+ * ai.yaml 한 벌. 저장된 것이거나 대시보드의 초안이다. 여기서 읽는 칸만.
+ * 수 칸은 글자일 수 있어 쓰는 자리에서 Number 로 바꾼다
+ */
+type AiSettings = {
+  provider?: string;
+  model?: string;
+  baseUrl?: string;
+  project?: string;
+  location?: string;
+  timeoutMs: number | string;
+  batchSize: number | string;
+  skipConfident: boolean;
+  extra?: string;
+  hideModels?: unknown;
+  list?: ListFormat;
+  /** 모델마다 고른 값 */
+  params?: Record<string, Record<string, unknown>>;
+  prompt?: PromptSection[];
+};
+type Draft = Partial<AiSettings> | null | undefined;
+/** 판정할 후보. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다 */
+type Judged = { title?: string | null; durationSec?: number | null; duration?: number | null };
+/** 판정 시험용 후보. 못 읽었으면 error */
+type TestCandidate = Judged & { url?: string; thumbnail?: string | null; channel?: string | null; error?: string };
+type Wire = { role: string; content: string };
+type Body = Record<string, unknown>;
+type Extra = { body: Body; headers: Record<string, string>; drop: string[]; dropHeaders: string[]; problems: string[] };
+type Verdict = { song: boolean; fits: boolean };
+type Usage = { input: number; output: number | null; thoughts: number | null };
+// 저쪽 응답에서 읽는 칸. 규격마다 다른 이름을 한 모양에 모았다. 검사하지 않으므로 모두 없을 수 있다
+type Reply = {
+  choices?: Array<{ message?: { content?: string } }>;
+  content?: Array<{ text?: string }>;
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    completion_tokens_details?: { reasoning_tokens?: number };
+    input_tokens?: number;
+    output_tokens?: number;
+    output_tokens_details?: { thinking_tokens?: number };
+  };
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+  data?: Array<{ id?: string }>;
+  models?: Array<{ name?: string }>;
+  publisherModels?: Array<{ name?: string }>;
+} | null;
 
 // 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
 // 걸러낼 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지
@@ -44,7 +97,7 @@ JSON 배열로만 답한다. 설명하지 않는다.
 
 // 기본 대화 구성. 섹션마다 역할이 따로 있고, {{목록}} 자리에 후보가 들어간다.
 // 이 둘이 곧 예전 모양(system=기준 · user=목록)이라 설정을 안 건드리면 지금까지와 같다.
-const DEFAULT_SECTIONS = [
+const DEFAULT_SECTIONS: PromptSection[] = [
   { role: "system", text: DEFAULT_PROMPT },
   { role: "user", text: "{{목록}}" },
 ];
@@ -59,8 +112,8 @@ const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
 const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
 const DEFAULTS = { timeoutMs: 60000, batchSize: 10, skipConfident: true };
 
-const specOf = (provider) => PROVIDER_SPECS[provider] || null;
-const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
+const specOf = (provider: string | undefined) => (provider && PROVIDER_SPECS[provider]) || null;
+const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
 
 /**
  * 어디로 보낼지. custom일 때만 설정에 적힌 주소를 쓴다.
@@ -68,20 +121,20 @@ const live = (one) => !!one?.provider && one.provider !== "off" && !!specOf(one.
  * 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom으로 간다.
  */
 // 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
-function stripTrailingSlash(text) {
+function stripTrailingSlash(text: unknown) {
   const str = String(text || "");
   let end = str.length;
   while (end > 0 && str[end - 1] === "/") end--;
   return str.slice(0, end);
 }
 
-function endpointOf(one) {
+function endpointOf(one: Partial<AiSettings> | null | undefined) {
   const spec = specOf(one?.provider);
   if (!spec) return "";
   return stripTrailingSlash(spec.editable ? one?.baseUrl : spec.baseUrl);
 }
 // 로컬 모델은 키를 안 받는다. 보내 봐야 쓸데없고, 어디로 새는지도 모른다.
-const wantsKey = (one) => !!specOf(one?.provider)?.key;
+const wantsKey = (one: Partial<AiSettings> | null | undefined) => !!specOf(one?.provider)?.key;
 
 /**
  * 키는 프로바이더마다 따로다(config/ai-keys.yaml). 로컬에는 안 붙인다.
@@ -89,8 +142,8 @@ const wantsKey = (one) => !!specOf(one?.provider)?.key;
  * custom은 저장된 주소와 같을 때만 붙인다. 대시보드 미리보기는 저장 안 한 초안을 그대로 받는데,
  * 그 주소로 키까지 보내면 운영자 세션을 쥔 쪽이 아무 데로나 키를 흘릴 수 있다.
  */
-async function keyFor(one) {
-  if (!wantsKey(one)) return "";
+async function keyFor(one: Partial<AiSettings>): Promise<string> {
+  if (!wantsKey(one) || !one.provider) return "";
 
   if (specOf(one.provider)?.editable) {
     const saved = stripTrailingSlash(aiConfig.ai()?.baseUrl);
@@ -99,14 +152,15 @@ async function keyFor(one) {
   return aiConfig.aiKeyOf(one.provider);
 }
 
-async function authOf(one) {
+async function authOf(one: Partial<AiSettings>): Promise<Record<string, string>> {
   const key = await keyFor(one);
   return key ? { Authorization: `Bearer ${key}` } : {};
 }
 
 /** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
-function settings() {
-  const one = { ...DEFAULTS, ...aiConfig.ai() };
+function settings(): AiSettings | null {
+  // 검사를 지났다(틀렸으면 enabled: false 가 얹힌다)
+  const one: AiSettings = { ...DEFAULTS, ...(aiConfig.ai() as Partial<AiSettings>) };
   // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
@@ -130,12 +184,12 @@ function settings() {
 // `__proto__` 한 마디면 Object.prototype이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
 // 모델 레지스트리(받아 오는 남의 데이터)의 mapsTo.path로도 들어오므로 여기서 막는다.
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-const safeKeys = (path) => {
+const safeKeys = (path: string) => {
   const keys = String(path).split(".");
   return keys.some((one) => UNSAFE_KEYS.has(one)) ? null : keys;
 };
 
-function setPath(obj, path, value) {
+function setPath(obj: Body, path: string, value: unknown): Body {
   const keys = safeKeys(path);
   if (!keys) return obj;
   let at = obj;
@@ -145,7 +199,7 @@ function setPath(obj, path, value) {
     if (k === "__proto__" || k === "constructor" || k === "prototype") return obj;
     // 앞 줄이 같은 자리에 값을 넣어 뒀으면 덮어쓴다. 안쪽에 더 넣을 수 없는 모양이다
     if (!at[k] || typeof at[k] !== "object" || Array.isArray(at[k])) at[k] = {};
-    at = at[k];
+    at = at[k] as Body;
   }
   const last = keys[keys.length - 1];
   if (last === "__proto__" || last === "constructor" || last === "prototype") return obj;
@@ -154,15 +208,16 @@ function setPath(obj, path, value) {
 }
 
 /** 점 경로로 지운다. 없는 길이면 아무 일도 안 한다. */
-function delPath(obj, path) {
+function delPath(obj: Body, path: string) {
   const keys = safeKeys(path);
   if (!keys) return;
-  let at = obj;
+  let at: Body | undefined = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     const k = keys[i];
     if (k === "__proto__" || k === "constructor" || k === "prototype") return;
-    at = at?.[k];
-    if (!at || typeof at !== "object") return;
+    const next: unknown = at?.[k];
+    if (!next || typeof next !== "object") return;
+    at = next as Body;
   }
   const last = keys[keys.length - 1];
   if (last === "__proto__" || last === "constructor" || last === "prototype") return;
@@ -170,14 +225,14 @@ function delPath(obj, path) {
 }
 
 // 파이썬 꼴 키워드를 JSON 이 읽을 수 있게 바꾼다. 따옴표 안은 건드리지 않는다.
-const RELAXED = [
+const RELAXED: Array<[string, string]> = [
   ["True", "true"],
   ["False", "false"],
   ["None", "null"],
 ];
-function relaxJson(text) {
+function relaxJson(text: string) {
   let out = "";
-  let quote = null;
+  let quote: string | null = null;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (quote) {
@@ -192,7 +247,7 @@ function relaxJson(text) {
       continue;
     }
     // 낱말 경계에서만 바꾼다. Nonetype 같은 것을 건드리면 안 된다
-    const edge = (c) => !c || !/[A-Za-z0-9_$]/.test(c);
+    const edge = (c: string | undefined) => !c || !/[A-Za-z0-9_$]/.test(c);
     const hit = RELAXED.find(([word]) => text.startsWith(word, i) && edge(text[i - 1]) && edge(text[i + word.length]));
     if (hit) {
       out += hit[1];
@@ -202,7 +257,7 @@ function relaxJson(text) {
   return out;
 }
 
-function readJson(text) {
+function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
   try {
     return { ok: true, value: JSON.parse(text) };
   } catch {}
@@ -215,12 +270,12 @@ function readJson(text) {
   return { ok: false };
 }
 
-function parseExtra(text) {
-  const body = {};
-  const headers = {};
-  const drop = [];
-  const dropHeaders = [];
-  const problems = [];
+function parseExtra(text: unknown): Extra {
+  const body: Body = {};
+  const headers: Record<string, string> = {};
+  const drop: string[] = [];
+  const dropHeaders: string[] = [];
+  const problems: string[] = [];
 
   for (const raw of String(text || "").split(/\r?\n/)) {
     const line = raw.trim();
@@ -238,11 +293,11 @@ function parseExtra(text) {
 
     // {{none}} 을 header:: 보다 먼저 본다. 안 그러면 헤더에 "{{none}}" 을 넣게 된다
     if (value === "{{none}}") {
-      if (isHeader) dropHeaders.push(header);
+      if (header !== null) dropHeaders.push(header);
       else drop.push(name);
       continue;
     }
-    if (isHeader) {
+    if (header !== null) {
       headers[header] = value;
       continue;
     }
@@ -272,14 +327,14 @@ function parseExtra(text) {
 }
 
 /** 후보 한 줄. 길이 칸 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다. */
-function renderLine(list, cand, genre, i) {
+function renderLine(list: ListFormat | undefined, cand: Judged, genre: string | undefined, i: number) {
   const sec = Number(cand.durationSec ?? cand.duration);
   const known = Number.isFinite(sec) && sec > 0;
   // 길이를 모르는데 "0분"이라고 적으면 거짓을 알려 주는 것이다. 기본은 그 칸을 뺀다
   const mode = list?.unknownDuration || "hide";
   const unknown = mode === "zero" ? "0" : mode === "text" ? String(list?.unknownText ?? "모름") : null;
 
-  const values = {
+  const values: Record<string, string | null> = {
     번호: String(i + 1),
     장르: genre || "랜덤",
     제목: String(cand.title ?? ""),
@@ -296,7 +351,7 @@ function renderLine(list, cand, genre, i) {
     .map((word) => {
       if (!word.includes("{{")) return word;
       let missing = false;
-      const filled = word.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (all, name) => {
+      const filled = word.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (all: string, name: string) => {
         if (!(name in values)) return all;
         if (values[name] == null) missing = true;
         return values[name] ?? "";
@@ -309,7 +364,7 @@ function renderLine(list, cand, genre, i) {
 }
 
 /** 실제로 보낼 messages. 미리보기도 이것을 쓴다. 화면이 흉내 내면 어긋난다. */
-function buildMessages(one, batch, genre) {
+function buildMessages(one: AiSettings, batch: Judged[], genre: string | undefined) {
   const list = batch.map((cand, i) => renderLine(one.list, cand, genre, i)).join("\n");
   const sections = Array.isArray(one.prompt) && one.prompt.length ? one.prompt : DEFAULT_SECTIONS;
 
@@ -343,7 +398,7 @@ function buildMessages(one, batch, genre) {
  * messages가 아니라 contents/parts이고 assistant를 model이라 부른다. system은 systemInstruction,
  * 온도 같은 것은 generationConfig 안에 있다(추가 파라미터도 경로를 적어 넣는다).
  */
-function geminiBody(one, messages) {
+function geminiBody(_one: AiSettings, messages: Wire[]): Body {
   const system = messages
     .filter((m) => m.role === "system")
     .map((m) => m.content)
@@ -355,9 +410,21 @@ function geminiBody(one, messages) {
     contents: messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
   };
 }
-const geminiAnswer = (json) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join("");
+const geminiAnswer = (json: Reply) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join("");
 
-const DIALECTS = {
+type Dialect = {
+  chatUrl(one: AiSettings): string;
+  modelsUrl(one: AiSettings): string;
+  /** 앞 주소가 404 면 차례로 물을 주소 */
+  modelsUrlFallbacks?(one: AiSettings): string[];
+  headers(one: AiSettings): Promise<Record<string, string>>;
+  body(one: AiSettings, messages: Wire[]): Body;
+  answerOf(json: Reply): string;
+  modelsOf(json: Reply): Array<string | undefined>;
+  usageOf?(json: Reply): Usage | null;
+};
+
+const DIALECTS: Record<string, Dialect> = {
   openai: {
     chatUrl: (one) => `${endpointOf(one)}/chat/completions`,
     modelsUrl: (one) => `${endpointOf(one)}/models`,
@@ -433,7 +500,7 @@ const DIALECTS = {
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one) => {
-      const token = await googleAuth.accessToken(aiConfig.aiKeyOf(one.provider), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs) });
+      const token = await googleAuth.accessToken(aiConfig.aiKeyOf(one.provider ?? ""), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs) });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
     body: geminiBody,
@@ -450,12 +517,12 @@ const DIALECTS = {
 };
 
 // 리전이 global 이면 호스트도 다르다(지역 호스트로 부르면 404 다)
-const vertexLocation = (one) => String(one?.location || "").trim() || "global";
-const vertexHost = (one) => (vertexLocation(one) === "global" ? "aiplatform.googleapis.com" : `${vertexLocation(one)}-aiplatform.googleapis.com`);
+const vertexLocation = (one: AiSettings) => String(one?.location || "").trim() || "global";
+const vertexHost = (one: AiSettings) => (vertexLocation(one) === "global" ? "aiplatform.googleapis.com" : `${vertexLocation(one)}-aiplatform.googleapis.com`);
 
-function vertexBase(one) {
+function vertexBase(one: AiSettings) {
   const location = vertexLocation(one);
-  const project = String(one?.project || "").trim() || googleAuth.projectOf(aiConfig.aiKeyOf(one?.provider), yamlStore.configDir());
+  const project = String(one?.project || "").trim() || googleAuth.projectOf(aiConfig.aiKeyOf(one?.provider ?? ""), yamlStore.configDir());
   return `https://${vertexHost(one)}/v1/projects/${project}/locations/${location}`;
 }
 
@@ -468,7 +535,7 @@ const ANTHROPIC_MAX_TOKENS = 1024;
  * 사고 토큰을 어디에 넣는지가 회사마다 다르다(OpenAI·앤트로픽은 출력 안, 제미니는 따로).
  * 출력은 늘 사고까지 합친 값으로 맞춰 둔다. 화면이 규격을 알 필요가 없게.
  */
-const pickUsage = (input, output, thoughts, { thoughtsInOutput = true } = {}) => {
+const pickUsage = (input: unknown, output: unknown, thoughts: unknown, { thoughtsInOutput = true } = {}): Usage | null => {
   if (typeof input !== "number") return null;
   const think = typeof thoughts === "number" ? thoughts : null;
   let out = typeof output === "number" ? output : null;
@@ -476,12 +543,12 @@ const pickUsage = (input, output, thoughts, { thoughtsInOutput = true } = {}) =>
   return { input, output: out, thoughts: think };
 };
 
-const dialectOf = (one) => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
+const dialectOf = (one: Partial<AiSettings> | null | undefined): Dialect => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
 /** 보낼 것 한 벌. 미리보기도 이것을 쓴다. */
 /** 모델이 받는다고 적혀 있는 칸만 싣는다. 안 받는 칸을 보내면 400이므로 모델을 바꾸면 저절로 빠져야 한다. */
 // 배열을 바라는 칸에 글자를 보내면 400이다. 설정을 손으로 고쳤거나 프로필이 바뀌었을 수 있어 한 번 본다.
-function typeOk(type, value) {
+function typeOk(type: string | undefined, value: unknown) {
   if (type === "stringArray") return Array.isArray(value);
   if (type === "json") return value !== null && typeof value === "object";
   if (type === "integer" || type === "number") return typeof value === "number" && Number.isFinite(value);
@@ -490,7 +557,7 @@ function typeOk(type, value) {
   return true;
 }
 
-const usable = (field, value) => {
+const usable = (field: ModelField, value: unknown) => {
   if (value === undefined || value === "") return false;
   if (field.enum && !field.enum.some((e) => e.value === value)) return false;
   return typeOk(field.type, value);
@@ -500,7 +567,7 @@ const usable = (field, value) => {
  * 이 요청이 몇 토큰짜리인지. 클로드는 공개 토크나이저가 없어 저쪽에 물어본다.
  * 무료이고, tik 로 어림하면 한국어에서 35% 가 모자란다.
  */
-async function countTokens(one, messages) {
+async function countTokens(one: AiSettings, messages: Wire[]) {
   try {
     const spec = specOf(one.provider);
     const by = tokens.tokenizerFor(spec?.registry, one.model);
@@ -515,7 +582,7 @@ async function countTokens(one, messages) {
   }
 }
 
-function withParams(body, one) {
+function withParams(body: Body, one: AiSettings): Body {
   const registry = specOf(one.provider)?.registry;
   if (!registry || !one.model) return body;
 
@@ -524,14 +591,15 @@ function withParams(body, one) {
   // 모델을 바꿨는데 앞 모델에서 고른 값이 따라오면 안 된다.
   const picked = one.params?.[one.model] || {};
   const fields = models.fieldsOf(registry, one.model);
-  const valueOf = (field) => [picked[field.key], field.default].find((one) => usable(field, one));
+  const valueOf = (field: ModelField) => [picked[field.key], field.default].find((one) => usable(field, one));
 
   for (const field of fields) {
     // 화면에서 가려진 칸은 보내지 않는다. 켰다 끈 값이 남아 있으면 저쪽이 거절한다.
     // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
-    if (field.showIf) {
-      const owner = fields.find((one) => one.key === field.showIf.key);
-      if (!owner || valueOf(owner) !== field.showIf.equals) continue;
+    const cond = field.showIf;
+    if (cond) {
+      const owner = fields.find((one) => one.key === cond.key);
+      if (!owner || valueOf(owner) !== cond.equals) continue;
     }
     // 고른 값이 못 쓸 것이면(종류가 틀리거나 그 모델이 안 받는 값) 프로필 기본값으로 떨어진다
     const value = valueOf(field);
@@ -540,7 +608,7 @@ function withParams(body, one) {
   return out;
 }
 
-async function buildRequest(one, batch, genre) {
+async function buildRequest(one: AiSettings, batch: Judged[], genre: string | undefined) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
   const messages = buildMessages(one, batch, genre);
@@ -557,20 +625,20 @@ async function buildRequest(one, batch, genre) {
  * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다.
  */
 /** 안쪽 칸까지 합친다. 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
-function deepMerge(base, add) {
-  const out = { ...base };
+function deepMerge(base: Body, add: Body): Body {
+  const out: Body = { ...base };
   for (const [key, value] of Object.entries(add)) {
     if (UNSAFE_KEYS.has(key)) continue; // setPath 와 같은 이유
     const mine = out[key];
-    const both = (v) => v && typeof v === "object" && !Array.isArray(v);
+    const both = (v: unknown): v is Body => !!v && typeof v === "object" && !Array.isArray(v);
     out[key] = both(mine) && both(value) ? deepMerge(mine, value) : value;
   }
   return out;
 }
 
 /** 헤더를 얹고, header::Name={{none}} 으로 지우라고 한 것을 뺀다. 이름의 대소문자는 안 가린다. */
-function headersWith(base, extra) {
-  const out = { ...base, ...extra.headers };
+function headersWith(base: Record<string, string>, extra: Extra) {
+  const out: Record<string, string> = { ...base, ...extra.headers };
   for (const name of extra.dropHeaders || []) {
     for (const key of Object.keys(out)) if (key.toLowerCase() === String(name).toLowerCase()) delete out[key];
   }
@@ -582,7 +650,7 @@ function headersWith(base, extra) {
  * 버텍스처럼 안쪽 칸을 쓰는 곳은 `generationConfig.topP=0.9` 로 적는다.
  * 모델 프로필의 mapsTo.path 도 같은 규칙이라, 두 길이 어긋나지 않는다.
  */
-function withExtra(_dialect, body, extra) {
+function withExtra(_dialect: Dialect, body: Body, extra: Extra) {
   const out = deepMerge(body, extra.body);
   // {{none}} 은 얹은 뒤에 지워야 앤트로픽 max_tokens 처럼 늘 붙는 것도 뺄 수 있다
   for (const path of extra.drop) delPath(out, path);
@@ -593,22 +661,22 @@ function withExtra(_dialect, body, extra) {
 // JSON.parse 가 `Unexpected token '▁'` 로 죽으므로 들여쓰기 자리의 그것만 공백으로 되돌린다.
 // 같은 자리에 오는 다른 폭의 공백(U+00A0 · U+3000)도 함께 본다.
 const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
-const despace = (text) => text.replace(ODD_SPACE, " ");
+const despace = (text: string) => text.replace(ODD_SPACE, " ");
 
 /**
  * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말을 곧잘 붙이므로 배열만 집는다.
  * 못 읽으면 null. 부르는 쪽이 원문을 그대로 보여 준다.
  */
-function readVerdicts(text, count) {
+function readVerdicts(text: unknown, count: number): Array<Verdict | null> | null {
   const found = String(text || "").match(/\[[\s\S]*\]/);
   if (!found) return null;
-  let parsed;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(despace(found[0]));
   } catch {
     return null;
   }
-  const out = new Array(count).fill(null);
+  const out: Array<Verdict | null> = new Array(count).fill(null);
   for (const verdict of Array.isArray(parsed) ? parsed : []) {
     const at = Number(verdict?.n) - 1;
     if (at >= 0 && at < count) out[at] = { song: !!verdict.song, fits: !!verdict.fits };
@@ -616,7 +684,7 @@ function readVerdicts(text, count) {
   return out;
 }
 
-async function askBatch(one, batch, genre) {
+async function askBatch(one: AiSettings, batch: Judged[], genre: string | undefined) {
   const request = await buildRequest(one, batch, genre);
 
   const res = await fetch(request.url, {
@@ -630,7 +698,7 @@ async function askBatch(one, batch, genre) {
   // 그대로 싣되 키는 가린다. 거절 응답에 보낸 값을 되비추는 서비스가 있다.
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${mask(await res.text()).slice(0, 300)}`);
 
-  const text = dialectOf(one).answerOf(await res.json()) || "";
+  const text = dialectOf(one).answerOf((await res.json()) as Reply) || "";
   const out = readVerdicts(text, batch.length);
   if (!out) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
   return out;
@@ -643,14 +711,14 @@ async function askBatch(one, batch, genre) {
  * @param {Array<{title: string, durationSec?: number}>} candidates 순위가 매겨진 후보
  * @param {{genre?: string, confident?: boolean}} about
  */
-async function filter(candidates, about = {}) {
+async function filter<T extends Judged>(candidates: T[] | null | undefined, about: { genre?: string; confident?: boolean } = {}): Promise<T[]> {
   const one = settings();
   if (!one || !candidates?.length) return candidates || [];
   // 규칙이 이미 확신한다면 물을 이유가 없다(설정에서 끌 수 있다)
   if (one.skipConfident && about.confident) return candidates;
 
   const size = Math.max(1, Number(one.batchSize));
-  const kept = [];
+  const kept: T[] = [];
   try {
     for (let at = 0; at < candidates.length; at += size) {
       const batch = candidates.slice(at, at + size);
@@ -662,7 +730,7 @@ async function filter(candidates, about = {}) {
       });
     }
   } catch (error) {
-    log.debug(`AI 보조를 건너뜁니다(${error.message}). 규칙만으로 고릅니다`);
+    log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
     return candidates;
   }
 
@@ -678,7 +746,7 @@ async function filter(candidates, about = {}) {
  *
  * @returns {Promise<boolean>} 틀어도 되는가
  */
-async function accepts(candidate, about = {}) {
+async function accepts(candidate: Judged | null | undefined, about: { genre?: string; confident?: boolean } = {}): Promise<boolean> {
   const one = settings();
   if (!one || !candidate) return true;
   if (one.skipConfident && about.confident) return true;
@@ -690,7 +758,7 @@ async function accepts(candidate, about = {}) {
     log.debug(`AI 보조가 거름(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${candidate.title}`);
     return false;
   } catch (error) {
-    log.debug(`AI 보조를 건너뜁니다(${error.message}). 규칙만으로 고릅니다`);
+    log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
     return true;
   }
 }
@@ -700,8 +768,8 @@ async function accepts(candidate, about = {}) {
  * 모델 목록만 받아 온다(`GET {baseUrl}/models`). 추론을 안 돌리므로 토큰이 안 든다.
  * 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있고, 받아 온 목록은 화면의 모델 칸을 채우는 데도 쓴다.
  */
-async function listModels(draft) {
-  const one = { ...DEFAULTS, ...(draft || {}) };
+async function listModels(draft: Draft) {
+  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
 
   const dialect = dialectOf(one);
@@ -716,7 +784,7 @@ async function listModels(draft) {
 
   try {
     const headers = await dialect.headers(one);
-    let res;
+    let res: Response | undefined;
     let text = "";
 
     for (const candidate of urls) {
@@ -726,13 +794,14 @@ async function listModels(draft) {
       if (res.ok || res.status !== 404) break;
     }
 
+    if (!res) throw new Error("물을 주소가 없습니다");
     const took = Date.now() - started;
     if (!res.ok) return { ok: false, url, status: res.status, response: text, tookMs: took, reason: `HTTP ${res.status}` };
 
     // 모양은 갈래마다 다르다. 못 읽어도 목록만 못 채우고 연결은 된 것이다.
-    let all = [];
+    let all: string[] = [];
     try {
-      all = (dialect.modelsOf(JSON.parse(text)) || []).filter((id) => typeof id === "string");
+      all = (dialect.modelsOf(JSON.parse(text)) || []).filter((id): id is string => typeof id === "string");
     } catch {
       /* 목록을 못 읽어도 응답 자체는 보여 준다 */
     }
@@ -743,7 +812,7 @@ async function listModels(draft) {
     const models = all.filter((id) => !hidden.some((rule) => rule.test(id))).sort();
     return { ok: true, url, status: res.status, models, hiddenCount: all.length - models.length, response: text, tookMs: took };
   } catch (error) {
-    return { ok: false, url, status: null, response: mask(error.message), tookMs: Date.now() - started, reason: mask(error.message) };
+    return { ok: false, url, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) };
   }
 }
 
@@ -751,14 +820,14 @@ async function listModels(draft) {
  * 목록에서 가릴 이름. `*` 만 있는 아주 좁은 글롭이다. 정규식을 설정 파일에 적게 하면
  * 오타 하나에 목록이 통째로 비고, 왜 빈지 알 길이 없다.
  */
-function hideRules(patterns) {
+function hideRules(patterns: unknown) {
   return (Array.isArray(patterns) ? patterns : [])
     .map((one) => String(one ?? "").trim())
     .filter(Boolean)
     .map((one) => new RegExp(`^${one.split("*").map(escapeRe).join(".*")}$`, "i"));
 }
 
-const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // 유료 확인에 쓰는 물음. 짧고, 답이 맞는지 사람이 바로 알아볼 수 있는 것으로.
 const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주세요.";
@@ -769,8 +838,8 @@ const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주�
  * 연결만 보고 싶은데 판정 프롬프트를 통째로 보내면 토큰도 들고, 모델이 헛소리를 했을 때
  * "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
  */
-async function ping(draft) {
-  const one = { ...DEFAULTS, ...(draft || {}) };
+async function ping(draft: Draft) {
+  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
   if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
 
@@ -795,12 +864,12 @@ async function ping(draft) {
     }
     return { ok: res.ok, url, headers: safeHeaders(headers), body, status: res.status, response: text, answer, tookMs: took, reason: res.ok ? "" : `HTTP ${res.status}` };
   } catch (error) {
-    return { ok: false, url, headers: safeHeaders(headers), body, status: null, response: mask(error.message), tookMs: Date.now() - started, reason: mask(error.message) };
+    return { ok: false, url, headers: safeHeaders(headers), body, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) };
   }
 }
 
 // 미리보기용 보기 곡. 판정이 갈리는 세 가지를 일부러 골랐다(멀쩡한 곡 · 믹스 · 길이 모름)
-const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
+const SAMPLE: TestCandidate[] = [{ title: "System Of A Down - Toxicity (Official HD Video)", durationSec: 210 }, { title: "Rock Mix 2024 · 1 Hour Best Rock Songs", durationSec: 3600 }, { title: "이름만 아는 곡 (길이를 모르는 후보)" }];
 
 /**
  * 저장하기 전의 설정으로 나갈 것을 만들어만 본다. 보내지 않는다.
@@ -808,8 +877,8 @@ const SAMPLE = [{ title: "System Of A Down - Toxicity (Official HD Video)", dura
  *
  * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
-async function preview(draft, genre = "록") {
-  const one = { ...DEFAULTS, ...(draft || {}) };
+async function preview(draft: Draft, genre = "록") {
+  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
   const request = await buildRequest(one, SAMPLE, genre);
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems };
 }
@@ -818,8 +887,8 @@ async function preview(draft, genre = "록") {
 const SECRET_HEADERS = ["authorization", "x-api-key", "x-goog-api-key", "api-key"];
 
 /** 화면에 보여도 되는 헤더. 키 값은 절대 나가지 않는다. */
-function safeHeaders(headers) {
-  const out = {};
+function safeHeaders(headers: Record<string, string> | null | undefined) {
+  const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers || {})) {
     if (!SECRET_HEADERS.includes(name.toLowerCase())) {
       out[name] = value;
@@ -836,8 +905,8 @@ function safeHeaders(headers) {
  * 유튜브 주소로 후보를 만든다. 판정 테스트가 진짜 곡으로 시험할 수 있게.
  * 못 읽은 줄은 버리지 않고 왜 안 됐는지 같이 돌려준다.
  */
-async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
-  const out = [];
+async function candidatesFromUrls(urls: unknown[] | null | undefined, { timeoutMs = 30000 }: { timeoutMs?: number } = {}): Promise<TestCandidate[]> {
+  const out: TestCandidate[] = [];
   for (const raw of (urls || []).slice(0, 20)) {
     const url = String(raw || "").trim();
     if (!url) continue;
@@ -846,18 +915,19 @@ async function candidatesFromUrls(urls, { timeoutMs = 30000 } = {}) {
       continue;
     }
     try {
-      const info = await Promise.race([YouTube.getInfo(url), new Promise((_, no) => setTimeout(() => no(new Error("시간이 걸려 그만뒀습니다.")), timeoutMs))]);
+      const info = await Promise.race([YouTube.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(new Error("시간이 걸려 그만뒀습니다.")), timeoutMs))]);
+      if (!info) throw new Error("정보를 읽지 못했습니다.");
       out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
     } catch (error) {
-      out.push({ url, error: error.message || "정보를 읽지 못했습니다." });
+      out.push({ url, error: (error as Error | null)?.message || "정보를 읽지 못했습니다." });
     }
   }
   return out;
 }
 
 /** 그 후보들이 실제로 프롬프트에 어떻게 적히는지. 모델에게 가는 그 줄 그대로다. */
-function renderList(draft, cands, genre = "록") {
-  const one = { ...DEFAULTS, ...settings(), ...(draft || {}) };
+function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "록") {
+  const one: AiSettings = { ...DEFAULTS, ...settings(), ...(draft || {}) };
   return (cands || []).map((cand, i) => renderLine(one.list, cand, genre, i));
 }
 
@@ -865,14 +935,26 @@ function renderList(draft, cands, genre = "록") {
  * 고른 후보들을 실제로 판정시킨다. SAMPLE 이 아니라 진짜 곡으로.
  * 나간 것·온 것·곡별 판정을 같이 준다.
  */
-async function judgeTest(draft, cands, genre = "록") {
-  const one = { ...DEFAULTS, ...(draft || {}) };
+async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "록") {
+  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
   // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
   const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
   const usable = picked.length ? picked : SAMPLE;
 
   const request = await buildRequest(one, usable, genre);
-  const out = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems, status: null, response: "", verdicts: null };
+  const out: {
+    url: string;
+    headers: Record<string, string>;
+    body: Body;
+    messages: Array<Wire & { at: number }>;
+    tokens: Awaited<ReturnType<typeof countTokens>>;
+    problems: string[];
+    status: number | null;
+    response: string;
+    verdicts: Array<{ title?: string | null; url?: string; song: boolean | null; fits: boolean | null }> | null;
+    usage?: Usage | null;
+    tookMs?: number;
+  } = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems, status: null, response: "", verdicts: null };
 
   const started = Date.now();
   try {
@@ -895,7 +977,7 @@ async function judgeTest(draft, cands, genre = "록") {
       out.verdicts = null;
     }
   } catch (error) {
-    out.response = mask(String(error.message));
+    out.response = mask(String((error as Error | null)?.message));
   }
   out.tookMs = Date.now() - started;
   return out;
@@ -907,7 +989,7 @@ const REDACTED = "[REDACTED_SECRET_KEY]";
 
 // 지금 쓰는 프로바이더 것만이 아니라 적혀 있는 키를 모두 가린다.
 // 어느 것이 되비쳐 올지 우리가 정할 수 없고, 넉넉히 가려서 손해 볼 것이 없다.
-function mask(text) {
+function mask(text: unknown): string {
   let out = String(text);
   // 받아 둔 액세스 토큰도 가린다. 서비스 계정에서 나온 것이라 키만큼 값이 나간다
   for (const key of [...Object.values(aiConfig.aiKeys()), ...googleAuth.heldTokens()]) {
@@ -930,4 +1012,5 @@ function mask(text) {
 
 const exported = { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
 export default exported;
+export type { AiSettings, Judged, TestCandidate };
 export { exported as "module.exports" };

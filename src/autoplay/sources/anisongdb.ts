@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // AnisongDB 소스. 표지는 AniList 에서.
 
 import logger from "../../infra/log/logger.ts";
@@ -6,11 +5,33 @@ const log = logger.child({ category: "autoplay" });
 import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genreSources.ts";
 import http from "./http.ts";
 const { TIMEOUT_MS, userAgent, getJson, remembered } = http;
+import { messageOf } from "../../rules/errorKind.ts";
+import type { GenreSource } from "../../config/genres.ts";
+import type { Candidate } from "./candidate.ts";
+
+// 여기서 읽는 칸만
+type RawStats = { songs_by_season?: Record<string, unknown>; songs_by_difficulty?: number[]; songs_by_genre?: Record<string, unknown>; songs_by_tag?: Record<string, unknown> };
+type Song = { songName?: string; amqSongId?: number; annSongId?: number; annId?: number; audio?: string; HQ?: string; songArtist?: string; animeENName?: string; linked_ids?: { anilist?: number | null } };
+type Covers = { data?: { Page?: { media?: Array<{ id?: number; coverImage?: { extraLarge?: string; large?: string } }> } } };
+/** 화면이 고를 값과 분포. 연도는 받았을 때만 */
+type AnisongStats = { genres: string[]; tags: string[]; difficulty: number[]; min?: number; max?: number };
+/** 저쪽이 받는 filters. 안 적은 칸은 아예 뺀다 */
+type Filters = {
+  song_types: string[];
+  song_categories: string[];
+  broadcasts: string[];
+  media_links: { require_any: string[] };
+  anime_types?: string[];
+  genres?: { require_any: string[] };
+  tags?: { require_any: string[] };
+  difficulty?: { start: number; end: number };
+  season?: { start?: string; end?: string };
+};
 
 // getJson의 형제. 필터를 본문으로 받는 API용.
 // 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
 // 설정이 조용히 빈손이 되는 이유를 알 수 없다.
-async function postJson(url, body, timeoutMs = TIMEOUT_MS) {
+async function postJson<T = unknown>(url: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": userAgent() },
@@ -21,7 +42,7 @@ async function postJson(url, body, timeoutMs = TIMEOUT_MS) {
     const detail = res.status === 422 ? await res.text().catch(() => "") : "";
     throw new Error(`HTTP ${res.status} (${new URL(url).host})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
   }
-  return res.json();
+  return (await res.json()) as T;
 }
 
 // ── anisongdb ─────────────────────────────────────────────────────────────
@@ -35,9 +56,9 @@ const CATALOG_WAIT_MS = 2000;
 const CATALOG_RETRY_MS = 10 * 60 * 1000;
 
 // 저쪽의 통계. 못 받으면 까닭을 남기고 null
-async function loadAnisongStats() {
+async function loadAnisongStats(): Promise<AnisongStats | null> {
   try {
-    const stats = await getJson(`${ANISONG}/database_stats`);
+    const stats = await getJson<RawStats | null>(`${ANISONG}/database_stats`);
     const seasons = Object.keys(stats?.songs_by_season || {});
     const years = seasons.map((one) => Number(String(one).match(/\d{4}/)?.[0])).filter(Boolean);
     // 0칸은 난이도가 아니라 결측이다(미디어가 없어 출제된 적 없는 곡). 범위 필터도 기본으로
@@ -52,7 +73,7 @@ async function loadAnisongStats() {
       ...(years.length ? { min: Math.min(...years), max: Math.max(...years) } : {}),
     };
   } catch (error) {
-    log.debug(`AnisongDB 목록을 받아오지 못했습니다: ${error.message}`);
+    log.debug(`AnisongDB 목록을 받아오지 못했습니다: ${messageOf(error)}`);
     return null;
   }
 }
@@ -69,19 +90,19 @@ const anisongCatalog = () => anisongStats.get();
  * 안 적은 칸은 아예 빼야 한다. 빈 배열은 minItems 1 에 걸려 422.
  * `include_no_difficulty` 는 켜지 않는다. 난이도 0·null 은 값이 아니라 결측이다.
  */
-function anisongFilters(source) {
-  const list = (v, allowed) => {
-    const kept = [].concat(v || []).map((one) => String(one).toLowerCase());
+function anisongFilters(source: GenreSource): Filters {
+  const list = (v: string | string[] | undefined, allowed: string[]) => {
+    const kept = ([] as string[]).concat(v || []).map((one) => String(one).toLowerCase());
     const ok = kept.filter((one) => allowed.includes(one));
     return ok.length ? ok : null;
   };
-  const labels = (v) => {
-    const kept = [].concat(v || []).filter((one) => String(one).trim());
+  const labels = (v: string | string[] | undefined) => {
+    const kept = ([] as string[]).concat(v || []).filter((one) => String(one).trim());
     return kept.length ? { require_any: kept } : null;
   };
-  const season = (s, y, fallback) => (y ? `${s || fallback} ${y}` : null);
+  const season = (s: string | undefined, y: number | string | undefined, fallback: string) => (y ? `${s || fallback} ${y}` : null);
 
-  const filters = {
+  const filters: Filters = {
     // 삽입곡은 기본으로 끈다. 폭이 쓸데없이 넓어진다
     song_types: list(source.songTypes, ANISONG_SONG_TYPES) || ["opening", "ending"],
     song_categories: list(source.songCategories, ANISONG_CATEGORIES) || ["standard"],
@@ -112,7 +133,7 @@ function anisongFilters(source) {
   // AnimeThemes와 달리 저쪽이 범위를 받으므로 우리가 양끝을 자를 일이 없다
   const start = season(source.seasonFrom, source.yearFrom, "Winter");
   const end = season(source.seasonTo, source.yearTo, "Fall");
-  if (start || end) filters.season = { ...(start && { start }), ...(end && { end }) };
+  if (start || end) filters.season = { ...(start ? { start } : {}), ...(end ? { end } : {}) };
 
   return filters;
 }
@@ -131,31 +152,32 @@ const ANILIST_BATCH = 50;
 const COVER_QUERY = `query($ids:[Int]){Page(perPage:${ANILIST_BATCH}){media(id_in:$ids,type:ANIME){id coverImage{extraLarge large}}}}`;
 
 /** 작품 ID 배열 → 표지 주소 Map. 못 받으면 그만큼 빈다(그림 없이 튼다). */
-async function anilistCovers(ids) {
-  const covers = new Map();
+async function anilistCovers(ids: number[]): Promise<Map<number, string>> {
+  const covers = new Map<number, string>();
   for (let i = 0; i < ids.length; i += ANILIST_BATCH) {
     try {
-      const body = await postJson(ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
+      const body = await postJson<Covers | null>(ANILIST, { query: COVER_QUERY, variables: { ids: ids.slice(i, i + ANILIST_BATCH) } });
       for (const media of body?.data?.Page?.media || []) {
         const url = media?.coverImage?.extraLarge || media?.coverImage?.large;
         if (media?.id && url) covers.set(media.id, url);
       }
     } catch (error) {
       // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
-      log.debug(`AniList 표지를 받아오지 못했습니다: ${error.message}`);
+      log.debug(`AniList 표지를 받아오지 못했습니다: ${messageOf(error)}`);
     }
   }
   return covers;
 }
 
-async function anisongdb(source) {
+async function anisongdb(source: GenreSource): Promise<Candidate[]> {
   // 500까지 받을 수 있지만 뽑는 것은 3분에 한 곡이라 100이면 풀 TTL을 버틴다.
   // 조건에 맞는 곡이 n보다 적으면 그 전부가 온다.
   const n = Math.min(500, Math.max(1, Number(source.n) || 100));
-  const songs = await postJson(`${ANISONG}/get_n_random_songs`, { n, filters: anisongFilters(source) });
+  const songs = await postJson<Song[] | null>(`${ANISONG}/get_n_random_songs`, { n, filters: anisongFilters(source) });
 
-  const out = [];
-  const seen = new Set();
+  // 표지를 묶어 받는 동안 작품 ID 를 곡에 잠깐 싣는다
+  const out: Array<Candidate & { _anilist?: number | null }> = [];
+  const seen = new Set<number>();
   for (const song of songs || []) {
     if (!song?.songName) continue;
     // amqSongId 가 곡 단위다. annSongId 는 (애니, 곡) 쌍이라 속편·OVA·극장판에 다시 쓰인
@@ -184,17 +206,18 @@ async function anisongdb(source) {
     });
   }
 
-  const covers = await anilistCovers([...new Set(out.map((c) => c._anilist).filter(Boolean))]);
+  const covers = await anilistCovers([...new Set(out.map((c) => c._anilist).filter((id): id is number => Boolean(id)))]);
   for (const cand of out) {
-    cand.thumbnail = covers.get(cand._anilist) || null;
+    cand.thumbnail = (cand._anilist && covers.get(cand._anilist)) || null;
     delete cand._anilist;
   }
   return out;
 }
 
 // 테스트가 바깥으로 나가지 않게 통계를 미리 채워 둔다
-const _seedAnisongStats = (stats) => anisongStats.seed(stats);
+const _seedAnisongStats = (stats: AnisongStats | null) => anisongStats.seed(stats);
 
 const exported = { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
 export default exported;
+export type { AnisongStats };
 export { exported as "module.exports" };

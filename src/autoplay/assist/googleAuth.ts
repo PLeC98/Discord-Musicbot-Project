@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 구글 서비스 계정 → 액세스 토큰.
 //
 // 버텍스 AI 는 API 키를 안 받는다. 서비스 계정 JSON 으로 JWT 를 만들어 서명하고,
@@ -18,13 +17,16 @@ const LIFETIME_SEC = 3600;
 // 만료 직전에 쓰면 요청이 가는 사이에 죽는다. 조금 일찍 새로 받는다.
 const EARLY_MS = 60_000;
 
-const b64url = (input) => Buffer.from(input).toString("base64url");
+/** 서비스 계정 JSON 에서 읽는 칸 */
+type Account = { client_email: string; private_key: string; token_uri?: string; project_id?: string };
+
+const b64url = (input: string) => Buffer.from(input).toString("base64url");
 
 /**
  * 서비스 계정 JSON 을 읽는다. 파일 경로로 적는 것이 보통이고, 통째로 적어도 받는다.
  * @param {string} where 경로 또는 JSON 글
  */
-function readAccount(where, baseDir) {
+function readAccount(where: unknown, baseDir?: string): Account {
   const raw = String(where || "").trim();
   if (!raw) throw new Error("서비스 계정이 설정돼 있지 않습니다");
 
@@ -39,25 +41,26 @@ function readAccount(where, baseDir) {
     }
   }
 
-  let account;
+  let account: Partial<Account> | null;
   try {
     account = JSON.parse(text);
   } catch {
     throw new Error("서비스 계정 JSON 을 읽지 못했습니다(형식이 깨졌습니다)");
   }
 
-  if (!account?.client_email || !account?.private_key) throw new Error("서비스 계정 JSON 에 client_email 또는 private_key 가 없습니다");
-  return account;
+  const { client_email, private_key } = account ?? {};
+  if (!client_email || !private_key) throw new Error("서비스 계정 JSON 에 client_email 또는 private_key 가 없습니다");
+  return { ...account, client_email, private_key };
 }
 
 // client_email -> { token, expiresAt }
-const cache = new Map();
+const cache = new Map<string, { token: string; expiresAt: number }>();
 
 /**
  * 액세스 토큰을 받는다. 한 시간짜리라 받아 두고 만료 직전까지 그대로 쓴다.
  * @returns {Promise<string>}
  */
-async function accessToken(where, { baseDir, timeoutMs = 15000 } = {}) {
+async function accessToken(where: unknown, { baseDir, timeoutMs = 15000 }: { baseDir?: string; timeoutMs?: number } = {}): Promise<string> {
   const account = readAccount(where, baseDir);
 
   const held = cache.get(account.client_email);
@@ -91,7 +94,7 @@ async function accessToken(where, { baseDir, timeoutMs = 15000 } = {}) {
   const text = await res.text();
   if (!res.ok) throw new Error(`토큰을 받지 못했습니다: HTTP ${res.status} ${text.slice(0, 200)}`);
 
-  let token;
+  let token: { access_token?: string; expires_in?: unknown } | null;
   try {
     token = JSON.parse(text);
   } catch {
@@ -107,7 +110,7 @@ async function accessToken(where, { baseDir, timeoutMs = 15000 } = {}) {
 }
 
 /** 이 서비스 계정의 프로젝트(설정에 안 적었으면 JSON 것을 쓴다). */
-function projectOf(where, baseDir) {
+function projectOf(where: unknown, baseDir?: string): string {
   try {
     return readAccount(where, baseDir).project_id || "";
   } catch {

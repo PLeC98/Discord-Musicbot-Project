@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 후보를 걸러내는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
 //
 // 따로 빼 둔 이유: 실제 재생과 실측 도구가 같은 코드를 지나야 잰 것이 뜻을 갖는다.
@@ -8,7 +7,7 @@
 
 // 제목이 "여러 곡을 이어 붙인 것"임을 알리는 생김새. 옆의 숫자는 그 표식이 있을 때
 // 실제로 한 곡이었던 비율이다(전체 평균은 82%). 낮을수록 센 표식이다.
-const MIX_SHAPES = [
+const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
   ["연도 둘 이상", (t) => (t.match(/\b(19|20)\d\d\b/g) || []).length >= 2], // 0%
   ["쉼표 셋 이상", (t) => (t.match(/,/g) || []).length >= 3], // 7%. 아티스트를 나열한 컴필레이션
   ["이모지 둘 이상", (t) => (t.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length >= 2], // 15%
@@ -23,11 +22,16 @@ const SONG_MARKS = /official|\bm\/?v\b|\bfe?a?t\.?\b/i;
 // 낱말 경계를 쓸 수 있는 차단어인지. 로마자·숫자·공백뿐이면 쓴다.
 // 한국어·일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
-const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** 판정에 쓰는 설정. 수 칸은 글자일 수 있다 */
+type FilterConfig = { blockedKeywords?: unknown[]; minDurationSec?: unknown; maxDurationSec?: unknown };
+type Limits = { minSec: number; maxSec: number; blocked: Array<{ word: string; test: RegExp | null }> };
+type Verdict = { ok: boolean; reason?: string; detail?: string };
 
 // 설정에서 판정에 필요한 것만 미리 꺼내 둔다. 후보마다 다시 만들 이유가 없다.
-function prepare(cfg) {
-  const blocked = [];
+function prepare(cfg: FilterConfig | null | undefined): Limits {
+  const blocked: Limits["blocked"] = [];
   for (const raw of cfg?.blockedKeywords || []) {
     // 제목을 소문자로 낮춰 견주므로 차단어도 낮춰 둔다
     const word = String(raw).trim().toLowerCase();
@@ -44,10 +48,7 @@ function prepare(cfg) {
   };
 }
 
-/**
- * @returns {{ok: boolean, reason?: string, detail?: string}}
- */
-function judge(track, limits) {
+function judge(track: { duration?: number | null; title?: string | null } | null | undefined, limits: Limits): Verdict {
   // 길이를 모르는 것은 대개 라이브다
   if (!track?.duration) return { ok: false, reason: "길이 없음" };
   if (track.duration < limits.minSec) return { ok: false, reason: "너무 짧음" };
@@ -69,4 +70,5 @@ function judge(track, limits) {
 
 const exported = { prepare, judge };
 export default exported;
+export type { FilterConfig, Limits, Verdict };
 export { exported as "module.exports" };

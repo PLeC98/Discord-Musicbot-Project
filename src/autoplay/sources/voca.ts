@@ -1,22 +1,30 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { VOCA_DEFAULT_TYPES } from "../../config/schema/genreSources.ts";
+import { VOCA_DEFAULT_TYPES, type Site } from "../../config/schema/genreSources.ts";
+import { messageOf } from "../../rules/errorKind.ts";
+import type { GenreSource } from "../../config/genres.ts";
+import type { Candidate } from "./candidate.ts";
 import http from "./http.ts";
 const { rand, getJson, query } = http;
 
 // ── vocadb 계열 ───────────────────────────────────────────────────────────
 // 유튜브 주소를 직접 준다. 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
-const VOCA_HOSTS = { vocadb: "vocadb.net", utaitedb: "utaitedb.net", touhoudb: "touhoudb.com" };
+const VOCA_HOSTS: Record<Site, string> = { vocadb: "vocadb.net", utaitedb: "utaitedb.net", touhoudb: "touhoudb.com" };
+const isSite = (type: string): type is Site => Object.hasOwn(VOCA_HOSTS, type);
+
+// 여기서 읽는 칸만
+type Pv = { service?: string; disabled?: boolean; pvType?: string; url?: string };
+type Song = { id?: number; name?: string; artistString?: string; lengthSeconds?: number; thumbUrl?: string; pvs?: Pv[]; artists?: Array<{ name?: string; categories?: string }> };
+type SongPage = { totalCount?: number; items?: Song[] };
 
 const VOCA_PAGE = 50;
 
 // 가사 언어. `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다.
 // 실제로 듣는 것은 웹이 쓰는 advancedFilters 쪽이고, 한 번에 하나만 걸린다:
 // 둘을 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 줄어든다(실측 2026-09-18).
-function lyricsFilter(one) {
+function lyricsFilter(one: string | null) {
   return one ? { "advancedFilters[0][filterType]": "Lyrics", "advancedFilters[0][param]": one } : {};
 }
 
@@ -24,23 +32,26 @@ function lyricsFilter(one) {
 // 그보다 많이 골랐으면 그때그때 몇 개만 뽑는다. 판마다 달라지니 여러 번 돌면 고르게 섞인다.
 const LANGS_PER_FETCH = 5;
 
-function someLanguages(list) {
+function someLanguages(list: string[] | undefined): Array<string | null> {
   const all = list || [];
   if (all.length <= LANGS_PER_FETCH) return all.length ? all : [null];
   const left = [...all];
   return Array.from({ length: LANGS_PER_FETCH }, () => left.splice(rand(left.length), 1)[0]);
 }
 
-async function vocaFamily(source) {
-  const base = `https://${VOCA_HOSTS[source.type]}/api/songs`;
+async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
+  const site = source.type;
+  // 등록부가 셋에만 이 함수를 준다
+  if (!isSite(site)) throw new Error(`VocaDB 계열이 아닙니다: ${site}`);
+  const base = `https://${VOCA_HOSTS[site]}/api/songs`;
   const common = {
     tagName: source.tags,
-    songTypes: (source.songTypes || VOCA_DEFAULT_TYPES[source.type] || ["Original"]).join(","),
+    songTypes: (source.songTypes || VOCA_DEFAULT_TYPES[site] || ["Original"]).join(","),
     minScore: source.minScore,
     minLength: source.minLength,
     maxLength: source.maxLength,
-    minMilliBpm: source.minBpm ? source.minBpm * 1000 : undefined,
-    maxMilliBpm: source.maxBpm ? source.maxBpm * 1000 : undefined,
+    minMilliBpm: source.minBpm ? Number(source.minBpm) * 1000 : undefined,
+    maxMilliBpm: source.maxBpm ? Number(source.maxBpm) * 1000 : undefined,
     afterDate: source.yearFrom ? `${source.yearFrom}-01-01` : undefined,
     beforeDate: source.yearTo ? `${source.yearTo}-12-31` : undefined,
     artistId: source.artistIds,
@@ -51,14 +62,14 @@ async function vocaFamily(source) {
     sort: source.sort || "RatingScore",
   };
 
-  const out = [];
-  const seen = new Set();
-  let failure = null;
+  const out: Candidate[] = [];
+  const seen = new Set<string>();
+  let failure: unknown = null;
   for (const lang of someLanguages(source.languages)) {
     // 언어마다 요청이 두 번이다. 하나가 실패했다고 나머지까지 버릴 이유는 없다.
     // 하나도 못 받았을 때만 던져서 부르는 쪽이 다음 소스로 넘어가게 한다.
     try {
-      for (const track of await vocaWindow(base, { ...common, ...lyricsFilter(lang) }, source.type)) {
+      for (const track of await vocaWindow(base, { ...common, ...lyricsFilter(lang) }, site)) {
         // 같은 곡이 여러 언어에 걸린다. 번역 가사까지 세기 때문이다
         if (seen.has(track.sourceKey)) continue;
         seen.add(track.sourceKey);
@@ -66,7 +77,7 @@ async function vocaFamily(source) {
       }
     } catch (error) {
       failure = failure || error;
-      log.debug(`${source.type} ${lang || "전체"}: ${error.message}`);
+      log.debug(`${site} ${lang || "전체"}: ${messageOf(error)}`);
     }
   }
   if (!out.length && failure) throw failure;
@@ -74,17 +85,17 @@ async function vocaFamily(source) {
 }
 
 // 조건에 맞는 곡 중 아무 데나 한 창(50곡)을 떠 온다.
-async function vocaWindow(base, filters, type) {
+async function vocaWindow(base: string, filters: Record<string, unknown>, type: Site): Promise<Candidate[]> {
   // 깊은 곳에서 집으려면 전체 개수를 먼저 알아야 한다
-  const head = await getJson(`${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`);
+  const head = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`);
   const total = Number(head?.totalCount) || 0;
   if (!total) return [];
 
   // fields=Names로 원어·로마자·영문이 한 번에 온다. 표기를 고를 일이 없다
   const start = total > VOCA_PAGE ? rand(total - VOCA_PAGE) : 0;
-  const page = await getJson(`${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`);
+  const page = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`);
 
-  const out = [];
+  const out: Candidate[] = [];
   for (const song of page?.items || []) {
     // disabled 를 꼭 봐야 한다. 저쪽은 영상이 내려간 것을 알고 표시해 두는데(웹에서 "PV 사용할
     // 수 없음"으로 회색이 되는 그것), 그걸 무시하면 죽은 영상을 골라 재생이 실패한다.
@@ -109,8 +120,8 @@ async function vocaWindow(base, filters, type) {
 }
 
 // artistString은 애니메이터·일러스트레이터까지 다 붙인 것이다. 만든 사람과 부른 쪽만 추린다.
-function creditOf(song) {
-  const roles = (want) => (song.artists || []).filter((a) => String(a.categories || "").includes(want)).map((a) => a.name);
+function creditOf(song: Song) {
+  const roles = (want: string) => (song.artists || []).filter((a) => String(a.categories || "").includes(want)).map((a) => a.name);
   const makers = roles("Producer");
   const singers = roles("Vocalist");
   return [makers.join(", "), singers.join(", ")].filter(Boolean).join(" feat. ");

@@ -12,7 +12,9 @@ const FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "ai-models
 
 // 레지스트리의 모양. 여기서 읽는 칸만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
-type UiField = { key: string; widget?: string; group?: string; visibility?: string; showIf?: unknown; order?: number };
+// showIf: 다른 칸(key)이 이 값(equals)일 때만 보인다
+type ShowIf = { key?: string; equals?: unknown };
+type UiField = { key: string; widget?: string; group?: string; visibility?: string; showIf?: ShowIf; order?: number };
 type UiGroup = { id: string; label?: string; labelI18n?: { ko?: string }; order?: number };
 type UiSchema = { fields?: UiField[]; groups?: UiGroup[] };
 type BaseProvider = { requestSchema?: SchemaField[]; uiSchema?: UiSchema; defaultBody?: Record<string, unknown> };
@@ -47,7 +49,7 @@ type ModelField = {
   widget?: string;
   group?: string;
   visibility?: string;
-  showIf?: unknown;
+  showIf?: ShowIf;
   order?: number;
 };
 

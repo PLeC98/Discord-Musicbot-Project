@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 소스가 같이 쓰는 요청 도우미.
 
 import { setTimeout as sleep } from "node:timers/promises";
@@ -8,25 +7,26 @@ const userAgent = () => config.userAgents.bot;
 
 const TIMEOUT_MS = 15000;
 
-const rand = (n) => Math.floor(Math.random() * n);
+const rand = (n: number) => Math.floor(Math.random() * n);
 
-const pick = (list) => (list.length ? list[rand(list.length)] : null);
+const pick = <T>(list: T[]): T | null => (list.length ? list[rand(list.length)] : null);
 
-async function getJson(url, headers = {}, timeoutMs = TIMEOUT_MS) {
+// T: 받는 쪽이 읽는 칸만 적은 응답 모양. 검사하지 않으므로 칸은 모두 없을 수 있게 적는다
+async function getJson<T = unknown>(url: string, headers: Record<string, string> = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
   const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
-  return res.json();
+  return (await res.json()) as T;
 }
 
 // 배열 옵션은 이름 뒤에 []를 붙여야 듣는다. 안 붙이면 400도 아니고 조용히 무시된다
 // VocaDB 계열에서 가장 흔한 함정이라 여기 한 곳에서 책임진다.
-function query(params) {
+function query(params: Record<string, unknown>): string {
   const q = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value == null || value === "") continue;
     if (Array.isArray(value)) {
-      for (const one of value) q.append(`${key}[]`, one);
-    } else q.append(key, value);
+      for (const one of value) q.append(`${key}[]`, String(one));
+    } else q.append(key, String(value));
   }
   return q.toString();
 }
@@ -38,11 +38,11 @@ function query(params) {
  * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 묻되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)으로 먼저 답한다.
  * 받기는 뒤에서 마저 한다. 못 받았으면 retryMs 동안 다시 묻지 않는다. 저쪽이 죽어 있을 때 부를 때마다 시간 초과를 기다리지 않게.
  */
-function remembered(load, { ttlMs, retryMs, waitMs }) {
-  let value = null;
+function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }: { ttlMs: number; retryMs: number; waitMs: number }) {
+  let value: T | null = null;
   let at = 0;
   let failedAt = 0;
-  let running = null;
+  let running: Promise<void> | null = null;
   const refresh = () =>
     (running ??= (async () => {
       try {
@@ -59,14 +59,14 @@ function remembered(load, { ttlMs, retryMs, waitMs }) {
       }
     })());
   return {
-    async get() {
+    async get(): Promise<T | null> {
       const fresh = value !== null && Date.now() - at < ttlMs;
       const resting = Date.now() - failedAt < retryMs;
       if (!fresh && !resting) await Promise.race([refresh(), sleep(waitMs, undefined, { ref: false })]);
       return value;
     },
     /** 테스트가 바깥으로 나가지 않게 값을 채운다. null 이면 처음 상태로 */
-    seed(next) {
+    seed(next: T | null | undefined) {
       value = next ?? null;
       at = next ? Date.now() : 0;
       failedAt = 0;

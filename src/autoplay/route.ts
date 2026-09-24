@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 한 곡을 고른다. 소스에서 후보를 받아 틀 수 있는 트랙으로 바꾸는 데까지가 여기 몫이다.
 //
 // 소스가 무엇을 주느냐에 따라 길이 셋으로 갈린다. 후보에 어느 칸이 찼는지가 그것을 정한다.
@@ -24,6 +23,46 @@ import * as YouTube from "../sources/youtube/index.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
+import type { GenreSource } from "../config/genres.ts";
+import type { Candidate } from "./sources/candidate.ts";
+import type { Search } from "./sources/keyword.ts";
+import type { Limits, FilterConfig } from "./filter.ts";
+import type { Judged } from "./assist/index.ts";
+
+/** 틀 수 있는 트랙. 대기열에 담는 곡의 모양에 자동재생이 붙이는 칸 */
+type PickedTrack = {
+  title: string;
+  artist: string;
+  pageUrl: string;
+  requestKey: string;
+  audioUrl: string;
+  platform: string;
+  duration: number;
+  durationSource?: string;
+  thumbnail: string | null;
+  type: "track";
+  id?: string | number | null;
+  audioFoundBy?: "ledger";
+  /** 어느 소스에서 왔나 */
+  pickedFrom?: string;
+};
+/** 유튜브 영상 하나. 검색 결과이거나 주소만 아는 것 */
+type Video = { url: string; id?: string | number | null; title?: string | null; channel?: string | null; artist?: string | null; durationSec?: number | null; duration?: number | null; thumbnail?: string | null };
+/** 최근에 튼 곡에서 읽는 칸 */
+type Played = { title?: string | null; artist?: string | null; audioUrl?: string | null };
+/** 장르 설정. 소스 목록과 거르기 설정 */
+type PickConfig = FilterConfig & { sources?: GenreSource[]; genreName?: string };
+// AI 보조에서 부르는 칸만
+type Assist = {
+  filter<T extends Judged>(candidates: T[], about: { genre?: string; confident: boolean }): Promise<T[]>;
+  accepts(track: PickedTrack, about: { genre?: string }): Promise<boolean>;
+};
+type Deps = {
+  search: Search;
+  known(requestKey: string): { audioUrl: string; durationSec?: number | null } | null;
+  fetch(source: GenreSource): Promise<Candidate[]>;
+  assist: Assist;
+};
 
 // 유튜브에서 찾은 것이 이보다 짧으면 풀버전이 아니라 TV 사이즈 립이다.
 // 그럴 바에는 AnimeThemes 음원을 그대로 트는 편이 낫다. 음질만 나쁘고 단계만 는다.
@@ -36,21 +75,22 @@ const CONFIDENCE_OK = new Set(["high", "medium"]);
 // 내려간 영상. 소스 DB는 그게 아직 살아 있다고 믿으므로 우리가 기억해야 다시 안 고른다.
 // (자동재생은 이 곡을 조용히 버리고 다음을 고른다. 사용자에게 알릴 일이 아니다.)
 const DEAD_MAX = 500;
-const dead = new Set();
+const dead = new Set<string>();
 
 /** 이 영상은 못 튼다고 표시한다. 다음 뽑기부터 후보에서 빠진다. */
-function markDead(urlOrTrack) {
+function markDead(urlOrTrack: string | { audioUrl?: string | null } | null | undefined): boolean {
   const url = typeof urlOrTrack === "string" ? urlOrTrack : urlOrTrack?.audioUrl;
   const id = url && links.extractVideoId(url);
   if (!id) return false;
   // 오래된 것부터 버린다. 영상이 되살아나는 일도 있고, 무한정 들고 있을 이유가 없다
-  if (dead.size >= DEAD_MAX) dead.delete(dead.values().next().value);
+  const oldest = dead.values().next().value;
+  if (dead.size >= DEAD_MAX && oldest !== undefined) dead.delete(oldest);
   dead.add(id);
   log.debug(`못 트는 영상으로 표시: ${id}`);
   return true;
 }
 
-const isDead = (url) => {
+const isDead = (url: string | null | undefined) => {
   if (!url || !dead.size) return false;
   const id = links.extractVideoId(url);
   return !!id && dead.has(id);
@@ -65,18 +105,18 @@ const isDead = (url) => {
 //
 // 판본 표기(`… Diavolo Ver.`)나 참여 표기(`… feat. Mummy-D`)는 글자가 남으므로 그대로 갈린다.
 // 로마자 표기 차이(`Iki o Suu`/`Iki wo Suu`)는 여기서 못 잡는다. 그건 ID 로 이어야 하는 일이다.
-const norm = (s) =>
+const norm = (s: unknown) =>
   String(s || "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]/gu, "");
 
 /** 소스를 가로질러 같은 곡을 잡으려면 주소가 아니라 이름을 봐야 한다. */
-const nameKey = (t) => `${norm(t.artist)}|${norm(t.title)}`;
+const nameKey = (t: Played) => `${norm(t.artist)}|${norm(t.title)}`;
 
 /** 최근에 튼 곡들을 "이건 싫다" 판정으로 바꾼다. 주소는 음원 주소끼리 다듬어 견준다(출처 페이지는 작품 하나에 곡이 여럿일 수 있다) */
-function rejector(recent) {
-  const names = new Set();
-  const audio = new Set();
+function rejector(recent: Array<Played | null | undefined> | null | undefined): (cand: Candidate) => boolean {
+  const names = new Set<string>();
+  const audio = new Set<string>();
   for (const t of recent || []) {
     if (!t) continue;
     if (t.title) names.add(nameKey(t));
@@ -86,7 +126,7 @@ function rejector(recent) {
 }
 
 // 가중치대로 하나 뽑되 뽑힌 것은 뺀다. 한 소스가 빈 손이면 다음 소스로 가야 하기 때문이다.
-function* byWeight(list) {
+function* byWeight(list: GenreSource[]): Generator<GenreSource> {
   const left = list.map((s) => ({ source: s, weight: Math.max(1, Number(s.weight) || 1) }));
   while (left.length) {
     const total = left.reduce((sum, x) => sum + x.weight, 0);
@@ -103,7 +143,7 @@ function* byWeight(list) {
  * 영상 자체가 후보면 그 영상, 소스 안의 곡 id 면 그대로(amq:48944 · vocadb:123 …),
  * 이름뿐이면 소스 이름을 붙인다(lastfm:가수|제목). 작품 페이지처럼 곡 여럿을 가리키는 주소는 쓰지 않는다.
  */
-function requestKeyOf(cand) {
+function requestKeyOf(cand: Candidate): string {
   const key = String(cand.sourceKey ?? "");
   if (links.isHttpLink(key)) return canonicalUrl(key);
   if (cand.youtubeUrl && !cand.sourceUrl) return canonicalUrl(cand.youtubeUrl);
@@ -120,15 +160,15 @@ function requestKeyOf(cand) {
  * 그래서 보여 줄 링크와 platform은 출처 것으로 두고 영상은 음원 주소에만 쓴다.
  * 장부에는 요청 열쇠로 줄이 따로 생기고, 음원 파일은 영상 하나에 하나다. 스포티파이와 같은 방식이다.
  */
-function fromYouTube(video, cand) {
+function fromYouTube(video: Video, cand: Candidate): PickedTrack {
   // 출처가 따로 있는 곡인가(Last.fm·LB Radio·VocaDB·AnimeThemes), 아니면 영상 자체가 출처인가(keyword·유튜브 재생목록)
   const sourced = !!cand.sourceUrl;
   const videoUrl = canonicalUrl(video.url);
 
   return {
-    title: cand.title || video.title,
+    title: cand.title || video.title || "",
     artist: cand.artist || video.channel || video.artist || "",
-    pageUrl: sourced ? cand.sourceUrl : videoUrl,
+    pageUrl: sourced && cand.sourceUrl ? cand.sourceUrl : videoUrl,
     requestKey: requestKeyOf(cand),
     audioUrl: videoUrl,
     platform: sourced ? cand.platform || "youtube" : "youtube",
@@ -146,7 +186,7 @@ function fromYouTube(video, cand) {
  * 제목을 파일명으로, 아티스트를 "직접 링크"로, 앨범아트를 빈 그림으로 채우기 때문이다.
  * 우리는 API에서 진짜 이름과 표지를 받아 왔으므로 그것을 그대로 싣는다.
  */
-const fromAudio = (cand) => ({
+const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
   title: cand.title,
   artist: cand.artist || "",
   // 사람에게 보일 링크는 출처 페이지다. 음원 파일 주소를 눌러 봐야 쓸모가 없다(출처 페이지가 없을 때만 음원)
@@ -164,7 +204,7 @@ const fromAudio = (cand) => ({
 });
 
 // 바깥 경계. 테스트는 이것을 넘겨 진짜 소스 · 검색 · 장부 · AI 보조를 부르지 않는다
-const REAL = {
+const REAL: Deps = {
   search: (query, limit) => YouTube.search(query, limit),
   // 장부가 아는 음원 주소. 받아 둔 파일이 있으면 그 길이도(후보가 길이를 안 주는 소스가 있다)
   known(requestKey) {
@@ -178,12 +218,12 @@ const REAL = {
 };
 
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
-async function findOnYouTube(cand, genre, { search, assist }) {
+async function findOnYouTube(cand: Candidate, genre: string | undefined, { search, assist }: Deps) {
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
   const { primary, secondary } = match.buildSearchQueries(target);
 
-  const run = async (queries) => {
-    const lists = [];
+  const run = async (queries: string[]) => {
+    const lists: Array<Awaited<ReturnType<Search>> & object> = [];
     for (const one of queries.slice(0, 2)) {
       try {
         lists.push((await search(one, 8)) || []);
@@ -196,12 +236,12 @@ async function findOnYouTube(cand, genre, { search, assist }) {
 
   // thumbnail을 꼭 실어야 한다. Last.fm·LB Radio는 표지를 안 주므로 영상 것이 유일한 그림이다.
   // 빠뜨리면 앨범아트 자리에 디스코드의 빈 그림이, 대시보드에는 파일 아이콘이 뜬다.
-  const shape = (list) => list.map((r) => ({ id: r.id, url: r.audioUrl, title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
+  const shape = (list: Awaited<ReturnType<Search>> & object) => list.map((r) => ({ id: r.id, url: r.audioUrl, title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
   const primaryLists = (await run(primary)).map(shape);
   const secondaryLists = primaryLists.some((l) => l.length) ? [] : (await run(secondary)).map(shape);
 
   // 라이브는 동등물로서 언제나 오답이고, 골라 두면 다운로드가 끝나지 않는다
-  const candidates = match.mergeCandidateLists(primaryLists, secondaryLists).filter((c) => c.url && !c.isLive);
+  const candidates = match.mergeCandidateLists(primaryLists, secondaryLists).filter((c): c is typeof c & { url: string } => !!c.url && !c.isLive);
   if (!candidates.length) return null;
 
   let { best, confidence, ranked } = match.rankCandidates(candidates, target);
@@ -231,39 +271,43 @@ async function findOnYouTube(cand, genre, { search, assist }) {
  * 올바른 녹음을 이미 손에 쥐고 있을 때는 그만큼으로는 부족하다. 최소한 영상 제목에
  * 곡 제목이 들어 있어야 바꾼다. 아니면 음원을 그대로 튼다.
  */
-function upgradeWorthIt(cand, confidence, top) {
+function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: { title?: number } } | undefined) {
   if (!cand.audioUrl) return true;
   const ok = confidence === "high" || !!top?.breakdown?.title;
   if (!ok) log.debug(`음원을 그대로 씁니다(유튜브 쪽 근거 부족: ${confidence}) [${cand.sourceKey}]: ${cand.title}`);
   return ok;
 }
 
+/** 유튜브 주소를 직접 받은 후보. candidateKind 가 youtube 면 주소가 있다 */
+async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | undefined, assist: Assist): Promise<PickedTrack | null> {
+  if (!cand.youtubeUrl) return null;
+  const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec }, cand);
+  const verdict = autoplayFilter.judge(track, limits);
+  if (!verdict.ok) {
+    // 소스를 같이 남긴다. "길이 없음"이 무더기로 나오면 그 소스가 길이를 안 준다는 뜻이고,
+    // 그건 후보가 나쁜 게 아니라 소스 쪽을 고쳐야 하는 일이다.
+    log.debug(`걸러냄(${verdict.reason}${verdict.detail ? `: ${verdict.detail}` : ""}) [${cand.sourceKey}]: ${track.title}`);
+    return null;
+  }
+  // 검색으로 얻은 것(키워드)만 한 번 더 묻는다. 주소를 직접 주는 소스는 출처가 곧 정답이다.
+  // 실측에서 AI가 규칙을 이긴 것이 바로 이 경로였다(86% → 95%).
+  if (cand.fromSearch && !(await assist.accepts(track, { genre }))) return null;
+  return track;
+}
+
 /**
  * 후보 하나를 틀 수 있는 트랙으로 바꾼다. 못 바꾸면 null.
- * @param {object} cand   소스가 준 후보
- * @param {object} limits autoplayFilter.prepare의 결과
- * @param {string} [genre] 장르 이름. AI 보조가 "이 장르가 맞나"를 물을 때만 쓴다
- * @param {object} [deps]  바깥 경계(REAL). 생략하면 진짜
+ * @param cand   소스가 준 후보
+ * @param limits autoplayFilter.prepare의 결과
+ * @param genre 장르 이름. AI 보조가 "이 장르가 맞나"를 물을 때만 쓴다
+ * @param deps  바깥 경계(REAL). 생략하면 진짜
  */
-async function resolve(cand, limits, genre, deps = REAL) {
+async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: Deps = REAL): Promise<PickedTrack | null> {
   const kind = candidateKind(cand);
   const { assist } = deps;
 
   // 1) 유튜브 주소를 직접 받은 것. 검색을 안 했으니 제목을 못 믿는다
-  if (kind === "youtube") {
-    const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec }, cand);
-    const verdict = autoplayFilter.judge(track, limits);
-    if (!verdict.ok) {
-      // 소스를 같이 남긴다. "길이 없음"이 무더기로 나오면 그 소스가 길이를 안 준다는 뜻이고,
-      // 그건 후보가 나쁜 게 아니라 소스 쪽을 고쳐야 하는 일이다.
-      log.debug(`걸러냄(${verdict.reason}${verdict.detail ? `: ${verdict.detail}` : ""}) [${cand.sourceKey}]: ${track.title}`);
-      return null;
-    }
-    // 검색으로 얻은 것(키워드)만 한 번 더 묻는다. 주소를 직접 주는 소스는 출처가 곧 정답이다.
-    // 실측에서 AI가 규칙을 이긴 것이 바로 이 경로였다(86% → 95%).
-    if (cand.fromSearch && !(await assist.accepts(track, { genre }))) return null;
-    return track;
-  }
+  if (kind === "youtube") return fromGivenVideo(cand, limits, genre, assist);
 
   // 2) 이름으로 유튜브에서 찾기. 장부에 이 요청의 음원이 있으면 찾지 않고 그것을 쓴다
   if (kind === "search") {
@@ -282,7 +326,7 @@ async function resolve(cand, limits, genre, deps = REAL) {
   }
 
   // 3) 음원을 직접 받은 것. 출처가 곧 정답이라 필터가 없다
-  if (cand.audioUrl) return fromAudio(cand);
+  if (cand.audioUrl) return fromAudio({ ...cand, audioUrl: cand.audioUrl });
 
   return null;
 }
@@ -292,7 +336,7 @@ async function resolve(cand, limits, genre, deps = REAL) {
  * 영상이면 그 영상(못 트는 것으로 표시된 영상은 빼고), 음원 파일이었으면 소스가 지금 준 음원을 쓴다.
  * 모르면 null(평소대로 찾는다).
  */
-function fromLedger(cand, known) {
+function fromLedger(cand: Candidate, known: ReturnType<Deps["known"]>): PickedTrack | null {
   if (!known?.audioUrl) return null;
   if (links.isYouTubeURL(known.audioUrl)) {
     if (isDead(known.audioUrl)) return null;
@@ -300,17 +344,17 @@ function fromLedger(cand, known) {
     track.audioFoundBy = "ledger"; // 내려갔으면 다시 찾는다
     return track;
   }
-  return cand.audioUrl ? fromAudio(cand) : null;
+  return cand.audioUrl ? fromAudio({ ...cand, audioUrl: cand.audioUrl }) : null;
 }
 
 /**
  * 이 장르에서 한 곡을 고른다. 못 고르면 null(부르는 쪽이 자동재생을 끈다).
  *
- * @param {object} cfg      { ...defaults, ...genres[이름] }. sources를 들고 있다
- * @param {object[]} recent 최근에 튼 곡들(중복 회피용)
- * @param {object} [deps]   바깥 경계(resolve 와 같다)
+ * @param cfg      { ...defaults, ...genres[이름] }. sources를 들고 있다
+ * @param recent 최근에 튼 곡들(중복 회피용)
+ * @param deps   바깥 경계(resolve 와 같다)
  */
-async function pickTrack(cfg, recent = [], deps = REAL) {
+async function pickTrack(cfg: PickConfig | null | undefined, recent: Array<Played | null | undefined> = [], deps: Deps = REAL): Promise<PickedTrack | null> {
   const list = (cfg?.sources || []).filter((s) => s && sources.usable(s.type));
   if (!list.length) return null;
 
@@ -336,4 +380,5 @@ async function pickTrack(cfg, recent = [], deps = REAL) {
 
 const exported = { REAL, pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };
 export default exported;
+export type { Deps, PickedTrack, PickConfig };
 export { exported as "module.exports" };

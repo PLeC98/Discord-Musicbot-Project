@@ -6,8 +6,17 @@
  *
  * 대부분 OpenAI 호환이라 코드가 하나다. 규격이 진짜로 다른 곳은 `dialect`로 갈래를 내고,
  * 차이는 DIALECTS 한 곳에만 둔다.
+ *
+ *   key            키를 받는가(로컬은 안 받는다)
+ *   editable       주소를 설정에 적는다(custom)
+ *   dialect        OpenAI 호환이 아닌 규격
+ *   registry       모델 레지스트리의 이름
+ *   serviceAccount 키 대신 서비스 계정 JSON(needsProject: 프로젝트도 적는다)
+ *   headers        그곳이 더 바라는 헤더(OpenAI 호환 갈래)
  */
-const PROVIDER_SPECS = {
+type ProviderSpec = { label: string; group: string; baseUrl?: string; key?: boolean; editable?: boolean; dialect?: string; registry?: string; serviceAccount?: boolean; needsProject?: boolean; headers?: Record<string, string> };
+
+const PROVIDER_SPECS: Record<string, ProviderSpec> = {
   off: { label: "사용하지 않음", group: "" },
 
   // ── 내 기기에서 도는 것 ── 키가 없다.
@@ -44,3 +53,4 @@ const PROVIDER_SPECS = {
 const PROVIDERS = Object.keys(PROVIDER_SPECS);
 
 export { PROVIDER_SPECS, PROVIDERS };
+export type { ProviderSpec };

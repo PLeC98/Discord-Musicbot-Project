@@ -10,8 +10,53 @@ import { genreProblems } from "./schema/genres.ts";
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
 
-/** 소스 한 줄. type 말고 어떤 칸이 있는지는 종류마다 다르다(genreSources 의 SPEC) */
-type GenreSource = { type: string; [field: string]: unknown };
+/**
+ * 소스 한 줄. type 말고 어떤 칸이 있는지는 종류마다 다르다(genreSources 의 SPEC).
+ * 검사는 필요한 칸과 고를 값만 본다. 목록 칸은 편집기가 배열로 쓰고, 수 칸은 글자로 적어도 통과해 읽는 쪽이 Number 로 바꾼다
+ */
+type GenreSource = {
+  type: string;
+  weight?: number | string;
+  minScore?: number | string;
+  // 목록
+  keywords?: string[];
+  tags?: string[];
+  artists?: string[];
+  artistTypes?: string[];
+  excludeTags?: string[];
+  season?: string[];
+  mediaFormat?: string[];
+  songTypes?: string[];
+  songCategories?: string[];
+  animeTypes?: string[];
+  broadcasts?: string[];
+  genres?: string[];
+  languages?: string[];
+  /** 하나만 적어도 된다 */
+  mode?: string | string[];
+  // 글자
+  url?: string;
+  prompt?: string;
+  sort?: string;
+  themeType?: string;
+  seasonFrom?: string;
+  seasonTo?: string;
+  // 수
+  pages?: number | string;
+  n?: number | string;
+  sequence?: number | string;
+  yearFrom?: number | string;
+  yearTo?: number | string;
+  difficultyFrom?: number | string;
+  difficultyTo?: number | string;
+  minLength?: number | string;
+  maxLength?: number | string;
+  minBpm?: number | string;
+  maxBpm?: number | string;
+  /** 편집기에는 없는 칸. 가수는 이름(artists)으로 적는데 아직 읽지 않는다 */
+  artistIds?: Array<number | string>;
+  [field: string]: unknown;
+};
 type Genre = { emoji?: string; sources: GenreSource[] };
 // 수 칸은 글자로 적어도 검사를 통과한다. 읽는 쪽이 Number 로 바꾼다
 type GenreDefaults = { prefetchCount?: unknown; minDurationSec?: unknown; maxDurationSec?: unknown };

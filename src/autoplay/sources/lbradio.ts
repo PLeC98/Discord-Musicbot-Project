@@ -1,9 +1,13 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // ListenBrainz Radio 소스.
 
 import config from "../../../config.ts";
 import http from "./http.ts";
 const { query, getJson } = http;
+import type { GenreSource } from "../../config/genres.ts";
+import type { Candidate } from "./candidate.ts";
+
+// 여기서 읽는 칸만
+type Radio = { payload?: { jspf?: { playlist?: { track?: Array<{ creator?: string; title?: string; duration?: number; identifier?: string[] }> } } } };
 
 // LB Radio는 재생목록을 그때그때 짜 주느라 느리다(실측 5~15초, 더 걸리기도 한다).
 // 15초로는 자주 끊겨 멀쩡한 소스가 빈손으로 취급된다.
@@ -11,12 +15,12 @@ const SLOW_MS = 30000;
 
 // ── lbradio ───────────────────────────────────────────────────────────────
 // 호출마다 50곡을 새로 짠다. 길이를 준다(병 유형). youtubeMatch의 길이 신호가 켜진다.
-async function lbradio(source) {
+async function lbradio(source: GenreSource): Promise<Candidate[]> {
   const token = config.sources?.listenbrainzToken;
   if (!token) throw new Error("LISTENBRAINZ_TOKEN이 없습니다");
   // 기본은 hard다. 이름과 반대로 hard 쪽이 더 알려진 곡을 준다. 모드는 태그 폭을 바꾼다
   // (easy는 적은 태그만, hard는 비슷한 태그까지 끌어와서 그만큼 큰 아티스트가 섞인다).
-  const modes = [].concat(source.mode || "hard");
+  const modes = ([] as string[]).concat(source.mode || "hard");
 
   // mode 파라미터는 하나만 받지만(둘을 주면 400), 프롬프트 안에서는 원소마다 지정할 수 있다.
   // 그래서 `mode: [easy, hard]` 를 한 번의 요청으로 섞을 수 있다. 50곡을 나눠 채워 준다.
@@ -25,7 +29,7 @@ async function lbradio(source) {
   if (!prompt) return [];
 
   const url = `https://api.listenbrainz.org/1/explore/lb-radio?${query({ prompt, mode: modes[0] })}`;
-  const list = (await getJson(url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
+  const list = (await getJson<Radio | null>(url, { Authorization: `Token ${token}` }, SLOW_MS))?.payload?.jspf?.playlist?.track || [];
   return list
     .map((t) => ({
       artist: t.creator || "",
@@ -47,7 +51,7 @@ async function lbradio(source) {
 const PLACEHOLDERS = new Set(["[no artist]", "[unknown]", "[anonymous]", "[nobody]", "[traditional]", "[data]", "[dialogue]", "[silence]", "[untitled]", "[unknown]"].map((s) => s.toLowerCase()));
 
 const PLACEHOLDER = {
-  test: (value) =>
+  test: (value: unknown) =>
     PLACEHOLDERS.has(
       String(value || "")
         .trim()

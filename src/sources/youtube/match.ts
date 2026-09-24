@@ -301,11 +301,12 @@ function buildSearchQueries(target: Target): { primary: string[]; secondary: str
  * 검색 결과 리스트들을 병합(id로 중복 제거). rank = 어느 쿼리에서든 가장 높았던 순위.
  * primaryLists(주 쿼리들): 그대로. secondaryLists(제목만 쿼리): 오프셋만큼 뒤로 밀어 오염 억제.
  */
-type CandidateLists = Array<Candidate[] | null | undefined> | null | undefined;
+type CandidateLists<C> = Array<C[] | null | undefined> | null | undefined;
 
-function mergeCandidateLists(primaryLists: CandidateLists, secondaryLists: CandidateLists = []) {
-  const byId = new Map<string | number, Candidate & { rank: number; listOrder: number }>();
-  const absorb = (lists: CandidateLists, isSecondary: boolean) => {
+// C: 부르는 쪽 후보의 모양. 붙여 온 칸이 그대로 돌아간다
+function mergeCandidateLists<C extends Candidate>(primaryLists: CandidateLists<C>, secondaryLists: CandidateLists<C> = []) {
+  const byId = new Map<string | number, C & { rank: number; listOrder: number }>();
+  const absorb = (lists: CandidateLists<C>, isSecondary: boolean) => {
     (lists || []).forEach((list) => {
       (list || []).forEach((c, i) => {
         if (!c || !c.id) return;
@@ -330,7 +331,7 @@ function mergeCandidateLists(primaryLists: CandidateLists, secondaryLists: Candi
  * candidate: { id, url, title, channel, durationSec, rank? }  (rank 없으면 0)
  * target:    { title, artist, durationSec }
  */
-function scoreCandidate(candidate: Candidate, target: Target) {
+function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
   const rank = candidate.rank !== undefined && Number.isInteger(candidate.rank) ? candidate.rank : 0;
   const b: Breakdown = { rank: 0, channel: 0, duration: 0, junk: 0, version: 0, reupload: 0, title: 0, artistInTitle: 0, officialTag: 0 };
   b.rank = Math.max(0, RANK_BASE - rank) * W.rankPerPosition;
@@ -378,8 +379,8 @@ function scoreCandidate(candidate: Candidate, target: Target) {
  * 후보 배열을 점수순으로 정렬(각 항목에 breakdown 포함). 동점은 순위→리스트 우선순위 순.
  * candidate.rank가 있으면 그걸(병합 결과) 순위로, 없으면 배열 인덱스를 순위로 사용.
  */
-function rankCandidates(candidates: Candidate[], target: Target) {
-  const withRank = candidates.map((c, i) => (Number.isInteger(c.rank) ? c : { ...c, rank: i }));
+function rankCandidates<C extends Candidate>(candidates: C[], target: Target) {
+  const withRank = candidates.map((c, i): C => (Number.isInteger(c.rank) ? c : { ...c, rank: i }));
   const scored = withRank.map((c) => scoreCandidate(c, target));
   scored.sort((a, b) => b.score - a.score || a.rank - b.rank || (a.candidate.listOrder ?? 0) - (b.candidate.listOrder ?? 0));
 

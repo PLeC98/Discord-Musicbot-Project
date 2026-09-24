@@ -1,13 +1,17 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // Last.fm 소스.
 
 import config from "../../../config.ts";
 import http from "./http.ts";
 const { pick, rand, query, getJson } = http;
+import type { GenreSource } from "../../config/genres.ts";
+import type { Candidate } from "./candidate.ts";
+
+// 여기서 읽는 칸만
+type TopTracks = { tracks?: { track?: Array<{ name?: string; url?: string; artist?: { name?: string } }> } };
 
 // ── lastfm ────────────────────────────────────────────────────────────────
 // 길이를 안 준다(정 유형). 깊은 쪽이 오히려 알차므로 무작위 쪽을 퍼 올린다.
-async function lastfm(source) {
+async function lastfm(source: GenreSource): Promise<Candidate[]> {
   const key = config.sources?.lastfmKey;
   if (!key) throw new Error("LASTFM_API_KEY가 없습니다");
   const tag = pick(source.tags || []);
@@ -15,7 +19,7 @@ async function lastfm(source) {
 
   const page = 1 + rand(Math.max(1, Number(source.pages) || 5));
   const url = `https://ws.audioscrobbler.com/2.0/?${query({ method: "tag.getTopTracks", tag, limit: 1000, page, api_key: key, format: "json" })}`;
-  const list = (await getJson(url))?.tracks?.track || [];
+  const list = (await getJson<TopTracks | null>(url))?.tracks?.track || [];
   return list
     .map((t) => ({
       artist: t.artist?.name || "",

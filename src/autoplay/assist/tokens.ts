@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * 토큰 세기. 요청이 몇 토큰짜리인지.
  *
@@ -17,8 +16,13 @@ import * as models from "../../config/schema/aiModels.ts";
 // gpt-tokenizer 는 표가 커서 불러오는 데 오래 걸린다. 처음 셀 때 부른다. 셈이 동기라 await import() 대신 require 로
 // (이름을 require 로 두어 구조 검사가 지연 부름으로 센다)
 const require = createRequire(import.meta.url);
-let tik = null;
-const tikCount = (body) => (tik ??= require("gpt-tokenizer")).encode(body).length;
+type Tik = { encode(text: string): number[] };
+let tik: Tik | null = null;
+const tikCount = (body: string) => (tik ??= require("gpt-tokenizer") as Tik).encode(body).length;
+
+/** 셀 메시지. 본문은 content 나 text 에 */
+type Message = { role?: string; content?: string; text?: string };
+type Counted = { tokens: number; by: string; exact: boolean };
 
 const GEMMA_FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "gemma-tokenizer.model");
 
@@ -30,7 +34,7 @@ const GEMMA_FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "gem
  *              (countTokens 엔드포인트는 1 을 더 세는데 그 값은 청구되지 않는다)
  *   anthropic  세대마다 다르다. 5(4.8~5) · 10(4.7) · 6(4.5~4.6)
  */
-const FRAMING = {
+const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
   openai: { perMessage: 3, perRequest: 3 },
   gemini: { perMessage: 0, perRequest: 0 },
   vertex: { perMessage: 0, perRequest: 0 },
@@ -39,9 +43,10 @@ const FRAMING = {
 
 // ── SentencePiece BPE ──────────────────────────────────────────────────────
 // 조각마다 점수가 있고 점수가 높은 짝부터 붙인다. merges 목록이 따로 없는 이유다.
-let gemma = null;
+// 조각 → 점수. 파일이 없으면 false
+let gemma: Map<string, number> | false | null = null;
 
-function varint(buf, at) {
+function varint(buf: Buffer, at: number): [number, number] {
   let out = 0;
   let shift = 0;
   let byte;
@@ -54,9 +59,9 @@ function varint(buf, at) {
 }
 
 /** ModelProto 에서 조각과 점수만 */
-function readPieces(buf) {
-  const piece = [];
-  const score = [];
+function readPieces(buf: Buffer) {
+  const piece: string[] = [];
+  const score: number[] = [];
   let at = 0;
   while (at < buf.length) {
     let tag;
@@ -102,11 +107,11 @@ function readPieces(buf) {
   return { piece, score };
 }
 
-function loadGemma() {
+function loadGemma(): Map<string, number> | false {
   if (gemma !== null) return gemma;
   try {
     const { piece, score } = readPieces(fs.readFileSync(GEMMA_FILE));
-    const rank = new Map();
+    const rank = new Map<string, number>();
     for (let i = 0; i < piece.length; i++) rank.set(piece[i], score[i]);
     gemma = rank;
   } catch {
@@ -116,10 +121,10 @@ function loadGemma() {
 }
 
 // 점수가 높은 짝부터 붙여 나간다. 더 붙일 것이 없으면 그것이 토큰 수.
-function countGemma(text, rank) {
+function countGemma(text: string, rank: Map<string, number>) {
   // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약임
   const prepared = "▁" + String(text).replace(/ /g, "▁");
-  let parts = [...prepared];
+  const parts = [...prepared];
   for (;;) {
     let bestAt = -1;
     let best = -Infinity;
@@ -140,14 +145,14 @@ function countGemma(text, rank) {
 // ── 바깥에서 쓰는 것 ────────────────────────────────────────────────────────
 
 // 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림.
-function tokenizerFor(registry, model) {
+function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | undefined, model: string | null | undefined): string {
   if (!registry || !model) return "tik";
   const found = models.modelsOf(registry).find((one) => one.modelId === model);
   return found?.tokenizer || "tik";
 }
 
 // 글 하나가 몇 토큰인지, 어느 기준으로 셌는지
-function count(text, tokenizer = "tik") {
+function count(text: unknown, tokenizer = "tik"): Counted {
   const body = String(text ?? "");
   if (tokenizer === "gemma") {
     const rank = loadGemma();
@@ -161,10 +166,10 @@ function count(text, tokenizer = "tik") {
  * 요청 하나가 몇 토큰인지. 메시지를 감싸는 몫까지 더한 값.
  * 본문만 세려면 `count` 를 쓴다(프롬프트 칸이 그렇게 쓴다).
  */
-function countMessages(messages, tokenizer = "tik", dialect = "openai") {
+function countMessages(messages: Message[] | null | undefined, tokenizer = "tik", dialect = "openai") {
   const wrap = FRAMING[dialect] || FRAMING.openai;
   let total = wrap.perRequest;
-  const each = [];
+  const each: number[] = [];
   for (const one of messages || []) {
     const got = count(one?.content ?? one?.text ?? "", tokenizer);
     each.push(got.tokens);
@@ -178,9 +183,9 @@ function countMessages(messages, tokenizer = "tik", dialect = "openai") {
  * 앤트로픽에 직접 물어 정확히 측정. 무과금, ~150ms
  * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 사용
  */
-async function countByAnthropic(messages, { model, apiKey, timeoutMs = 15000 } = {}) {
+async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000 }: { model?: string; apiKey?: string; timeoutMs?: number } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;
-  const body = {
+  const body: { model: string; messages: Array<{ role: string; content: string }>; system?: string } = {
     model,
     messages: (messages || []).map((one) => ({ role: one.role === "assistant" ? "assistant" : "user", content: String(one.content ?? one.text ?? "") })).filter((one) => one.content),
   };
@@ -199,10 +204,11 @@ async function countByAnthropic(messages, { model, apiKey, timeoutMs = 15000 } =
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) return null;
-  const json = await res.json();
+  const json = (await res.json()) as { input_tokens?: unknown } | null;
   return typeof json?.input_tokens === "number" ? json.input_tokens : null;
 }
 
 const exported = { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, _readPieces: readPieces };
 export default exported;
+export type { Message };
 export { exported as "module.exports" };
