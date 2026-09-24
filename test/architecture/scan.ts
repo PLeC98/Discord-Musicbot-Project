@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 구조 게이트가 보는 것을 한 번 훑어 모은다. typescript 파서를 쓰는 것은 CommonJS · ESM · .ts 를 같은 코드로 읽기 위해서다.
 //
 //   node test/architecture/scan.js    지금 숫자와 목록을 찍는다

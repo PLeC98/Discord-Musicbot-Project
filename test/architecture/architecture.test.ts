@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 구조 게이트. 부르는 방향 · 순환 · 지연 부름 · config 꺼내 두기 · 모듈과 메서드 바꿔 끼우기를 기준선과 맞춘다.
 //
 // 기준선(baseline.json)은 1단계에서 한 번 만들고 줄이기만 한다. 새 위반은 실패한다. 위반을 없앴으면 기준선에서도 지운다.
@@ -5,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import scanModule from "./scan.js";
+import scanModule from "./scan.ts";
 const { scan, LAYERS } = scanModule;
 import baseline from "./baseline.json" with { type: "json" };
 

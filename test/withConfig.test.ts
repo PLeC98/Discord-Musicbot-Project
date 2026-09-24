@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 테스트용 설정 덮어쓰기 창구(test/helpers/config.js)가 바꾼 것을 빠짐없이 되돌리는지 본다.
 
 import { test } from "node:test";

@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // scripts/install-ffmpeg.js — 어느 릴리스에서 어느 자산을 받을지.
 //
 // 회귀 대상 둘:
@@ -9,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import installFfmpeg from "../scripts/install-ffmpeg.js";
+import installFfmpeg from "../scripts/install-ffmpeg.ts";
 const { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue } = installFfmpeg;
 
 // 실제 릴리스의 checksums.sha256 일부 — 한 릴리스에 브랜치가 여럿 들어 있다

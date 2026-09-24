@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * 설정 파일 준비. config/*.example.yaml → config/*.yaml (없을 때만).
  *

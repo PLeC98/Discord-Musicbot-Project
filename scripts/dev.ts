@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * 개발 모드 실행. `pnpm run dev`.
  *
@@ -10,4 +11,4 @@
 process.env.DASHBOARD_DEV_ORIGIN = "true";
 
 // 환경 변수를 심은 뒤에 불러와야 한다(import 는 끌어올려진다)
-await import("../index.js");
+await import("../index.ts");

@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // bgutil-ytdlp-pot-provider (POToken 공급자) 설치/업데이트 스크립트.
 //   pnpm run install:bgutil. 없으면 git clone, 그 후 의존성 설치 + 빌드
 //   pnpm run update:bgutil. git pull 후 재설치 + 재빌드 (--update)
