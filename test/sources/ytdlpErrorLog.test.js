@@ -1,4 +1,4 @@
-// src/sources/youtube/index.js briefError — yt-dlp 오류를 로그에 남길 만큼으로 줄이는 계약.
+// src/sources/youtube/index.ts briefError — yt-dlp 오류를 로그에 남길 만큼으로 줄이는 계약.
 // 회귀 대상: yt-dlp 내부 재시도가 같은 경고를 stderr에 다시 써서 한 번 실패에 같은 줄이
 // 대여섯 개씩 쌓이던 것.
 
@@ -7,7 +7,7 @@ process.env.COOKIES_FILE = "";
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
 
 const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are no longer valid.";
 const AGE_ERROR = "ERROR: [youtube] EahYs-8tTjQ: Sign in to confirm your age.";

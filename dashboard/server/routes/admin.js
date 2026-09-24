@@ -22,7 +22,7 @@ import { EmbedBuilder } from "discord.js";
 import config from "../../../config.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as audioCache from "../../../src/store/audioCache.ts";
-import YouTube from "../../../src/sources/youtube/index.js";
+import YouTube from "../../../src/sources/youtube/index.ts";
 import autoplaySources from "../../../src/autoplay/sources/index.js";
 import assist from "../../../src/autoplay/assist/index.js";
 import tokens from "../../../src/autoplay/assist/tokens.js";

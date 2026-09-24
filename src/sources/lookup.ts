@@ -1,10 +1,11 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 받는다.
 
-import YouTube from "./youtube/index.js";
+import YouTube from "./youtube/index.ts";
 import * as links from "../rules/links.ts";
-import Spotify from "./spotify.js";
-import SoundCloud from "./soundcloud.js";
-import DirectLink from "./direct.js";
+import Spotify from "./spotify.ts";
+import SoundCloud from "./soundcloud.ts";
+import DirectLink from "./direct.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import { errorKind } from "../rules/errorKind.ts";
 import { inputKind } from "../rules/inputKind.ts";

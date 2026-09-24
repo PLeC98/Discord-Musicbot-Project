@@ -4,7 +4,7 @@ const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 import loggerModule from "../infra/log/logger.ts";
 const wlog = loggerModule.child({ category: "watchdog" });
-import YouTube from "../sources/youtube/index.js";
+import YouTube from "../sources/youtube/index.ts";
 import * as genreConfig from "../config/genres.ts";
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
 import loggerModule2 from "../infra/log/logger.ts";
@@ -17,9 +17,9 @@ import { PermissionFlagsBits } from "discord.js";
 import config from "../../config.ts";
 import autoplayRoute from "../autoplay/route.js";
 import { errorKind } from "../rules/errorKind.ts";
-import streamUrl from "../sources/streamUrl.js";
+import streamUrl from "../sources/streamUrl.ts";
 import SponsorSkipper from "./sponsorSkipper.js";
-import DirectLink from "../sources/direct.js";
+import DirectLink from "../sources/direct.ts";
 import chunkedStream from "../media/chunkedStream.js";
 const { openChunkedStream } = chunkedStream;
 import playbackInput from "../media/playbackInput.js";

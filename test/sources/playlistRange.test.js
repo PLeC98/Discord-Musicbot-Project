@@ -12,12 +12,12 @@ const exec = async (url, options) => {
   return ytInfo;
 };
 
-const Spotify = (await import("../../src/sources/spotify.js")).default;
-const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const Spotify = (await import("../../src/sources/spotify.ts")).default;
+const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
 // 링크 장부는 빈 임시 DB 에서 읽는다(확인된 제목 없음)
 const store = (await import("../helpers/tempStore.js")).default.openTempStore("playlist-range-");
 after(() => store.close());
-const lookup = (await import("../../src/sources/lookup.js")).default;
+const lookup = (await import("../../src/sources/lookup.ts")).default;
 
 const { graphql, official } = Spotify._internals;
 

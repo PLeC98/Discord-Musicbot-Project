@@ -18,10 +18,10 @@ const audioCache = await import("../../src/store/audioCache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = (await import("../../src/sources/youtube/index.js")).default;
-const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
-const DirectLink = (await import("../../src/sources/direct.js")).default;
-const SponsorBlock = (await import("../../src/sources/sponsorBlock.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
+const equivalent = (await import("../../src/sources/youtube/equivalent.ts")).default;
+const DirectLink = (await import("../../src/sources/direct.ts")).default;
+const SponsorBlock = (await import("../../src/sources/sponsorBlock.ts")).default;
 const audioConvert = (await import("../../src/media/convert.js")).default;
 const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
 

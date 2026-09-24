@@ -1,7 +1,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import config from "../../config.ts";
-import YouTube from "../sources/youtube/index.js";
+import YouTube from "../sources/youtube/index.ts";
 import autoplayRoute from "../autoplay/route.js";
 import trackState from "./trackState.js";
 

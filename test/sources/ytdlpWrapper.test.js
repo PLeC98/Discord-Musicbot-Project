@@ -1,4 +1,4 @@
-// src/sources/ytdlpSpawn.js — youtube-dl-exec 드롭인 래퍼의 계약.
+// src/sources/ytdlpSpawn.ts — youtube-dl-exec 드롭인 래퍼의 계약.
 //
 // 왜 래퍼가 필요한가: 원본 youtubedl(url, flags)는 Promise만 돌려줘 spawn된 프로세스를 잡을 수 없다.
 // 그래서 봇을 종료해도 yt-dlp와 그 자식 ffmpeg가 고아로 남아 무한 다운로드를 계속했다.
@@ -16,7 +16,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import youtubedl from "youtube-dl-exec";
-import run from "../../src/sources/ytdlpSpawn.js";
+import run from "../../src/sources/ytdlpSpawn.ts";
 import * as registry from "../../src/infra/processRegistry.ts";
 
 const BINARY = youtubedl.constants.YOUTUBE_DL_PATH;

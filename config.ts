@@ -16,7 +16,7 @@ const ENV_PATH = path.join(import.meta.dirname, ".env");
 // 대기열 상한. 0이면 끔. 켜면 하한이 있다: 그 아래는 사전 캐싱(앞 5곡) 버퍼밖에 안 된다
 const QUEUE_MAX_FLOOR = 25;
 
-// SponsorBlock skip 지원 카테고리 (권위 목록. src/sources/sponsorBlock.js의 SKIP_CATEGORIES와 동기 유지)
+// SponsorBlock skip 지원 카테고리 (권위 목록. src/sources/sponsorBlock.ts의 SKIP_CATEGORIES와 동기 유지)
 const SB_SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
 // 콤마 구분 문자열 → 유효 카테고리 배열 (오타·미지원 값은 조용히 제거, 원칙 4: 형식 오류는 걸러냄)
 function parseSbCategories(raw) {
@@ -238,10 +238,10 @@ function loadConfig(source, { envFileFound = true } = {}) {
       useCookieFile: USE_COOKIE_FILE,
 
       // 재생용 player_client 순서. 비우면 지정하지 않는다 = yt-dlp 기본값 그대로.
-      // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/sources/youtube/index.js).
+      // 여러 개를 한 번에 넘기면 yt-dlp가 전부 호출해 병합하므로, 우리가 하나씩 넘긴다(src/sources/youtube/index.ts).
       playerClients: parseClients(env("YTDLP_PLAYER_CLIENTS")),
       // "최근 window회 중 fails회 실패"면 그 클라이언트를 이번 실행 동안 제외한다.
-      // 연속 실패로 세지 않는 이유는 src/sources/youtube/clients.js 머리말 참조.
+      // 연속 실패로 세지 않는 이유는 src/sources/youtube/clients.ts 머리말 참조.
       clientWindow: envInt("YTDLP_CLIENT_WINDOW", 5, { min: 2, max: 50 }),
       clientFails: envInt("YTDLP_CLIENT_FAILS", 3, { min: 1, max: 50 }),
     },
@@ -298,7 +298,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl }, dashboardPort) {
       evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
     },
 
-    // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsorBlock.js). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
+    // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsorBlock.ts). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).
     // enabled=false 면 API 호출·캐싱이 전부 무동작. 상업적 이용 시 데이터 라이선스(비상업)를 피하는 마스터 스위치.
     sponsorblock: {
       enabled: env("SPONSORBLOCK_ENABLED", "true") !== "false",

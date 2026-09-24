@@ -1,6 +1,7 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import youtubedl from "youtube-dl-exec";
 import * as procRegistry from "../infra/processRegistry.ts";
-import errors from "./youtube/errors.js";
+import errors from "./youtube/errors.ts";
 const { YouTubeErrors } = errors;
 
 const IS_WIN = process.platform === "win32";

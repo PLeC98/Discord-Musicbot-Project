@@ -1,8 +1,8 @@
-// src/sources/ytdlpInfo.js — yt-dlp JSON 경계. 쓰는 칸만 뽑고, 모양이 바뀐 칸만 버린다.
+// src/sources/ytdlpInfo.ts — yt-dlp JSON 경계. 쓰는 칸만 뽑고, 모양이 바뀐 칸만 버린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import ytdlpInfo from "../../src/sources/ytdlpInfo.js";
+import ytdlpInfo from "../../src/sources/ytdlpInfo.ts";
 const { readInfo } = ytdlpInfo;
 
 test("쓰는 칸만 뽑고 나머지는 흘려보낸다", () => {

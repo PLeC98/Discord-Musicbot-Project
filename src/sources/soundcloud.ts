@@ -1,8 +1,9 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "./ytdlpSpawn.js";
+import youtubedl from "./ytdlpSpawn.ts";
 import * as links from "../rules/links.ts";
 import { canonicalUrl } from "../rules/canonicalUrl.ts";
-import ytdlpInfo from "./ytdlpInfo.js";
+import ytdlpInfo from "./ytdlpInfo.ts";
 const { readInfo } = ytdlpInfo;
 import config from "../../config.ts";
 

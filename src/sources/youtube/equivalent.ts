@@ -1,16 +1,17 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 스포티파이 곡의 유튜브 동등물 찾기. 찾은 영상을 트랙의 음원 주소로 적는다.
 
-import YouTube from "./index.js";
+import YouTube from "./index.ts";
 import * as trackLookup from "../../store/trackLookup.ts";
 import * as links from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import match from "./match.js";
+import match from "./match.ts";
 const { buildSearchQueries, mergeCandidateLists, rankCandidates } = match;
 
 const equivalent = {
   /**
-   * 음원 주소가 없는 곡(스포티파이)의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.js).
+   * 음원 주소가 없는 곡(스포티파이)의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.ts).
    * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치·정크를 타이브레이커로 삼아
    * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.audioUrl 과 audioFoundBy 를
    * 설정하고 그 주소를 반환, 실패 시 null. 이미 음원 주소가 있으면 그대로 돌려준다.

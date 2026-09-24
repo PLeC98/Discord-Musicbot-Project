@@ -1,4 +1,4 @@
-// src/sources/youtube/match.js — 후보 채점의 순수 로직 계약.
+// src/sources/youtube/match.ts — 후보 채점의 순수 로직 계약.
 //
 // 유튜브 검색 결과로 실제 선택을 검증하는 회귀 코퍼스는 여기 두지 않는다.
 // 그건 외부 서비스의 현재 순위를 얼린 데이터라 CI가 매번 확인할 성질이 아니다
@@ -8,7 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import match from "../../src/sources/youtube/match.js";
+import match from "../../src/sources/youtube/match.ts";
 const { rankCandidates, scoreCandidate, W, _internal: I } = match;
 
 // ── 용어 판정 ────────────────────────────────────────────────

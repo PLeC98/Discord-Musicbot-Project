@@ -1,13 +1,14 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // yt-dlp 실행. 플레이어 클라이언트를 바꿔 가며 다시 묻고, 쿠키로 한 번 더 묻는다.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "../ytdlpSpawn.js";
+import youtubedl from "../ytdlpSpawn.ts";
 import config from "../../../config.ts";
 import * as externalCaches from "../../store/externalCaches.ts";
-import clientsModule from "./clients.js";
+import clientsModule from "./clients.ts";
 const { PlayerClients, NEEDS_POT } = clientsModule;
 
 // 클라이언트 순번표. 설정은 처음 쓸 때 읽는다

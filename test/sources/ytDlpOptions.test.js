@@ -1,4 +1,4 @@
-// src/sources/youtube/index.js getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
+// src/sources/youtube/index.ts getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
 // 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백
 // dotenv는 기설정 process.env를 덮지 않으므로 require 전에 세팅한 빈 값이 .env보다 우선.
 
@@ -11,7 +11,7 @@ process.env.COOKIES_SOURCE = "";
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
 
 test("쿠키 미설정이어도 player_client를 강제하지 않음 (우분투 재생 불능 회귀)", () => {
   const opts = YouTube.getYtDlpOptions();
@@ -157,7 +157,7 @@ test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종�
 // 몇 분 뒤 직접 틀면 멀쩡히 재생됐다. 영상 문제가 아니라 서명된 미디어 주소의 문제라
 // 다시 받으면 풀린다. 그런데 이 오류가 어디에도 걸리지 않아 한 번에 실패로 끝났다.
 test("내려받다 막힌 것과 영상이 없어진 것을 가른다", () => {
-  const YouTube = require("../../src/sources/youtube/index");
+  const YouTube = require("../../src/sources/youtube/index.ts");
   const err = (msg) => ({ stderr: msg });
 
   for (const msg of ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "ERROR: unable to download video data: HTTP Error 429: Too Many Requests", "ERROR: fragment 1 not found, unable to continue", "ERROR: unable to download fragment 3"]) {

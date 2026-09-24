@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // Spotify 소스. 링크 타입별 투트랙 라우팅.
 //   track/album  → 공식 Web API(native fetch, client credentials)
 //   artist       → 공식 API, 실패 시 익명 GraphQL 폴백(정책 축소 대비)

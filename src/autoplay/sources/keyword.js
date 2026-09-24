@@ -2,7 +2,7 @@
 
 import http from "./http.js";
 const { pick } = http;
-import YouTube from "../../sources/youtube/index.js";
+import YouTube from "../../sources/youtube/index.ts";
 
 // ── keyword ───────────────────────────────────────────────────────────────
 // 옛 길. 유튜브 검색 결과를 그대로 후보로 삼는다. 품질이 제일 낮으니 weight를 낮게 주는 편이 낫다.

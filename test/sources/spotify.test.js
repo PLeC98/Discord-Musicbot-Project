@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import * as links from "../../src/rules/links.ts";
 import assert from "node:assert/strict";
-import Spotify from "../../src/sources/spotify.js";
+import Spotify from "../../src/sources/spotify.ts";
 const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = Spotify._internals;
 
 test("parseSpotifyURL: 타입/ID 추출 (open URL + spotify: URI)", () => {

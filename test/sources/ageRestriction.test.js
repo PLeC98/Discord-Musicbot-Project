@@ -21,7 +21,7 @@ before(() => {
   audioCache = require("../../src/store/audioCache.ts");
   externalCaches = require("../../src/store/externalCaches.ts");
   audioCache.initialize(DB_PATH);
-  YouTube = require("../../src/sources/youtube/index");
+  YouTube = require("../../src/sources/youtube/index.ts");
 });
 
 after(() => {

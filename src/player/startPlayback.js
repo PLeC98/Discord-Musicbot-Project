@@ -6,8 +6,8 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import equivalent from "../sources/youtube/equivalent.js";
-import SponsorBlock from "../sources/sponsorBlock.js";
+import equivalent from "../sources/youtube/equivalent.ts";
+import SponsorBlock from "../sources/sponsorBlock.ts";
 import TrackDownloader from "../media/cacheDownload.js";
 import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";

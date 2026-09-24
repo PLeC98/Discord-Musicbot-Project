@@ -4,7 +4,7 @@ process.env.CLIENT_ID ||= "test-client";
 import test from "node:test";
 const links = await import("../../src/rules/links.ts");
 import assert from "node:assert/strict";
-const lookup = (await import("../../src/sources/lookup.js")).default;
+const lookup = (await import("../../src/sources/lookup.ts")).default;
 const { canonicalUrl } = await import("../../src/rules/canonicalUrl.ts");
 
 test("accepts supported media hosts by parsed hostname", () => {

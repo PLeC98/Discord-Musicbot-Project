@@ -1,13 +1,14 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 유튜브 인증·실행·오류·API를 한 이름으로 모은다. URL 해석은 rules/links 에 있다.
 
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "../ytdlpSpawn.js";
+import youtubedl from "../ytdlpSpawn.ts";
 import * as links from "../../rules/links.ts";
-import auth from "./auth.js";
-import run from "./ytdlpRun.js";
-import errors from "./errors.js";
+import auth from "./auth.ts";
+import run from "./ytdlpRun.ts";
+import errors from "./errors.ts";
 const { YouTubeErrors } = errors;
-import api from "./api.js";
+import api from "./api.ts";
 const { YouTubeApi } = api;
 
 class YouTube {

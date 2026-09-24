@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // youtubeMatch. Spotify/외부 트랙의 YouTube 동등물을 "점수제"로 고르는 순수 로직 + 쿼리 구성.
 // 실제 검색(YouTube.search)은 호출측(probe · youtube/equivalent)이 하고, 결과 병합은 mergeCandidateLists로.
 

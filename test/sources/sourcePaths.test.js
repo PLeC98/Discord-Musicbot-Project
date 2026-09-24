@@ -22,13 +22,13 @@ const trackLookup = await import("../../src/store/trackLookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const YouTube = (await import("../../src/sources/youtube/index.js")).default;
-const Spotify = (await import("../../src/sources/spotify.js")).default;
-const SoundCloud = (await import("../../src/sources/soundcloud.js")).default;
-const DirectLink = (await import("../../src/sources/direct.js")).default;
-const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
-const lookup = (await import("../../src/sources/lookup.js")).default;
-const streamUrl = (await import("../../src/sources/streamUrl.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
+const Spotify = (await import("../../src/sources/spotify.ts")).default;
+const SoundCloud = (await import("../../src/sources/soundcloud.ts")).default;
+const DirectLink = (await import("../../src/sources/direct.ts")).default;
+const equivalent = (await import("../../src/sources/youtube/equivalent.ts")).default;
+const lookup = (await import("../../src/sources/lookup.ts")).default;
+const streamUrl = (await import("../../src/sources/streamUrl.ts")).default;
 const { audioKeyOf } = await import("../../src/rules/audioKeyOf.ts");
 
 // 바꿔 끼운 메서드를 시험 끝에 되돌린다

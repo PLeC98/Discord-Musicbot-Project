@@ -8,7 +8,7 @@ import requireAuth from "../middleware/requireAuth.js";
 import permissions from "../../../src/usecases/permissions.js";
 const { isModerator } = permissions;
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
-import SponsorBlock from "../../../src/sources/sponsorBlock.js";
+import SponsorBlock from "../../../src/sources/sponsorBlock.ts";
 import config from "../../../config.ts";
 import owner from "../owner.js";
 const { isOwner } = owner;

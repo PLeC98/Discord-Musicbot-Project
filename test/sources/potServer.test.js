@@ -1,4 +1,4 @@
-// src/sources/youtube/potServer.js — bgutil POToken 서버를 띄우고 지키기.
+// src/sources/youtube/potServer.ts — bgutil POToken 서버를 띄우고 지키기.
 // 프로세스 띄우기 · 설치 확인 · HTTP 는 가짜를 넘긴다.
 
 import { test } from "node:test";
@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import config from "../helpers/config.js";
 const { withConfig } = config;
-import potServer from "../../src/sources/youtube/potServer.js";
+import potServer from "../../src/sources/youtube/potServer.ts";
 const { createPotServer, scrubBgutilLine, PORT } = potServer;
 
 test("토큰은 로그에 남기지 않는다", () => {

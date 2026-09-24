@@ -1,7 +1,7 @@
 // YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 2b 가 오류를 코드로 바꾸고, 3 이 스트림 서술자에서 판(lmt)을 읽고, 7 이 파일을 쪼갠다.
-// 모듈을 통째로 바꿔 끼우지 않고 youtube-dl-exec 의 exec 하나만 가짜로 둔다. 그래서 src/sources/ytdlpSpawn.js 의 응답 · 오류 모양
+// 모듈을 통째로 바꿔 끼우지 않고 youtube-dl-exec 의 exec 하나만 가짜로 둔다. 그래서 src/sources/ytdlpSpawn.ts 의 응답 · 오류 모양
 // 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 시험마다 비워 설정과 무관하게 한 번에 부르게 한다.
 
 import fs from "node:fs";
@@ -23,7 +23,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 import ytdlExec from "youtube-dl-exec";
 import * as storeDb from "../../src/store/db.ts";
-const YouTube = (await import("../../src/sources/youtube/index.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
 const { playerClients } = YouTube._internals;
 
 const calls = [];
@@ -62,13 +62,13 @@ const video = (id, extra = {}) => ({ id, title: `영상 ${id}`, uploader: "올�
 
 test("yt-dlp 가 실패하면 stderr 를 message 로 담은 오류를 던진다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] abc: Video unavailable" });
-  const run = require("../../src/sources/ytdlpSpawn");
+  const run = require("../../src/sources/ytdlpSpawn.ts");
   await assert.rejects(run("u", {}), (e) => e.message === "ERROR: [youtube] abc: Video unavailable" && e.exitCode === 1);
 });
 
 test("성공해도 stderr 의 경고를 _stderr 로 얹는다(열거되지 않게)", async () => {
   respond = () => ({ ok: 1, warn: "WARNING: something" });
-  const out = await require("../../src/sources/ytdlpSpawn")("u", {});
+  const out = await require("../../src/sources/ytdlpSpawn.ts")("u", {});
   assert.equal(out._stderr, "WARNING: something");
   assert.deepEqual(Object.keys(out), ["ok", "warn"]);
 });
@@ -144,7 +144,7 @@ test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · �
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => e.code === "video-unavailable");
   await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => e.code === "video-unavailable");
 
-  const lookup = require("../../src/sources/lookup");
+  const lookup = require("../../src/sources/lookup.ts");
   const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.code, "lookup-failed");
   assert.equal(require("../../src/ui/errorMessages").lookupFailure(result), "❌ 비공개이거나 삭제된 영상은 재생할 수 없어요.");

@@ -122,9 +122,9 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
 const MusicPlayer = (await import("../../src/player/Player.js")).default;
-const equivalent = (await import("../../src/sources/youtube/equivalent.js")).default;
+const equivalent = (await import("../../src/sources/youtube/equivalent.ts")).default;
 const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
-const SponsorBlock = (await import("../../src/sources/sponsorBlock.js")).default;
+const SponsorBlock = (await import("../../src/sources/sponsorBlock.ts")).default;
 const VoiceConnectionManager = (await import("../../src/player/voiceConnection.js")).default;
 const SessionPersistence = (await import("../../src/player/sessionMirror.js")).default;
 const QueueWarmer = (await import("../../src/player/queueWarmer.js")).default;

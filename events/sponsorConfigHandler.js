@@ -1,6 +1,6 @@
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import SponsorBlock from "../src/sources/sponsorBlock.js";
+import SponsorBlock from "../src/sources/sponsorBlock.ts";
 import config from "../config.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.

@@ -1,11 +1,12 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 가른다.
 
-import YouTube from "./youtube/index.js";
+import YouTube from "./youtube/index.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import SoundCloud from "./soundcloud.js";
-import equivalent from "./youtube/equivalent.js";
+import SoundCloud from "./soundcloud.ts";
+import equivalent from "./youtube/equivalent.ts";
 
 const streamUrl = {
   /**

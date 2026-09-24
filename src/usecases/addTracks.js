@@ -1,5 +1,5 @@
 import MusicPlayer from "../player/Player.js";
-import songLookup from "../sources/lookup.js";
+import songLookup from "../sources/lookup.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import responders from "./responders.js";
 const { silentResponder } = responders;

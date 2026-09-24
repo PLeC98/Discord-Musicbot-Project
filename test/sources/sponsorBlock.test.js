@@ -1,4 +1,4 @@
-// src/sources/sponsorBlock.js — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
+// src/sources/sponsorBlock.ts — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
 // 네트워크는 global.fetch 스텁으로 대체, 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 import os from "node:os";
@@ -25,7 +25,7 @@ before(() => {
   audioCache = require("../../src/store/audioCache.ts");
   externalCaches = require("../../src/store/externalCaches.ts");
   audioCache.initialize(DB_PATH);
-  SponsorBlock = require("../../src/sources/sponsorBlock");
+  SponsorBlock = require("../../src/sources/sponsorBlock.ts");
   config = require("../../config.ts");
   config.sponsorblock.enabled = true; // 테스트 기준 활성
 });

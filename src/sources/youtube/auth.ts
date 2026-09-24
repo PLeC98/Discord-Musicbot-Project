@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · yt-dlp 공통 옵션 · 인증 상태 로그.
 
 import path from "path";
@@ -7,9 +8,9 @@ const log = logger.child({ category: "youtube" });
 import config from "../../../config.ts";
 // yt-dlp 에 줄 ffmpeg 경로. 재생과 같은 바이너리를 쓰게 조립(app/main)이 넘긴다(useFfmpeg). 안 넘기면 yt-dlp 가 PATH 에서 찾는다
 let ffmpegLocation = () => null;
-import clientsModule from "./clients.js";
+import clientsModule from "./clients.ts";
 const { NEEDS_POT, KNOWN } = clientsModule;
-import ytdlpRun from "./ytdlpRun.js";
+import ytdlpRun from "./ytdlpRun.ts";
 const { playerClients } = ytdlpRun;
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다

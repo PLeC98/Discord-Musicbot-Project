@@ -15,8 +15,8 @@ process.env.COOKIES_SOURCE = "";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const YouTube = (await import("../../src/sources/youtube/index.js")).default;
-const { NEEDS_POT } = (await import("../../src/sources/youtube/clients.js")).default;
+const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
+const { NEEDS_POT } = (await import("../../src/sources/youtube/clients.ts")).default;
 const sink = (await import("../../src/infra/log/sink.ts")).default;
 
 // debug 로 흘리는 것까지 봐야 한다. 루트 레벨은 기동 코드가 올려 주므로 테스트에서 직접 올린다.
