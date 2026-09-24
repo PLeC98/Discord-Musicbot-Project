@@ -28,6 +28,7 @@ import * as autoplaySources from "../../../src/autoplay/sources/index.ts";
 import * as assist from "../../../src/autoplay/assist/index.ts";
 import * as tokens from "../../../src/autoplay/assist/tokens.ts";
 import * as models from "../../../src/config/schema/aiModels.ts";
+import { bestEffort } from "../../../src/infra/bestEffort.ts";
 
 // 로그에 남기는 실행한 사람
 function ranBy<P>(req: Request<P>) {
@@ -188,7 +189,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
       player.pendingEndReason = "forced-disconnect";
       trackState.reset(player);
       if (client.musicEmbedManager) {
-        await client.musicEmbedManager.handlePlaybackEnd(player, { reason: "disconnected" }).catch(() => {});
+        await bestEffort(log, client.musicEmbedManager.handlePlaybackEnd(player, { reason: "disconnected" }), "끝난 패널 고치기");
       }
       player.cleanup("운영자 패널에서 서버 나가기");
       client.players.delete(guild.id);

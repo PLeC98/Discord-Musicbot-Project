@@ -12,6 +12,10 @@ const DB_PATH = path.join(import.meta.dirname, "..", "..", "database", "sessions
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 type Done = (err?: unknown) => void;
+// 부른 쪽이 결과를 기다리지 않을 때
+const unheard: Done = () => {
+  /* 들을 사람이 없다 */
+};
 
 class SqliteSessionStore extends Store {
   db: Database.Database;
@@ -70,7 +74,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  set(sid: string, session: SessionData, cb: Done = () => {}) {
+  set(sid: string, session: SessionData, cb: Done = unheard) {
     try {
       this._setStmt.run(sid, JSON.stringify(session), this._expiresAt(session));
       cb(null);
@@ -80,7 +84,7 @@ class SqliteSessionStore extends Store {
   }
 
   // rolling/유휴 갱신. 데이터 재직렬화 없이 만료만 연장
-  touch(sid: string, session: SessionData, cb: Done = () => {}) {
+  touch(sid: string, session: SessionData, cb: Done = unheard) {
     try {
       this._touchStmt.run(this._expiresAt(session), sid);
       cb(null);
@@ -89,7 +93,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  destroy(sid: string, cb: Done = () => {}) {
+  destroy(sid: string, cb: Done = unheard) {
     try {
       this._destroyStmt.run(sid);
       cb(null);

@@ -1,5 +1,8 @@
 import { Events, EmbedBuilder, MessageFlags, type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import config from "../config.ts";
+import logger from "../src/infra/log/logger.ts";
+import { messageOf } from "../src/rules/errorKind.ts";
+const log = logger.child({ category: "events" });
 import * as genreConfig from "../src/config/genres.ts";
 import * as S from "../src/ui/strings.ts";
 import { checkControl } from "../src/usecases/permissions.ts";
@@ -161,14 +164,9 @@ const exported: ClientEvent<Events.InteractionCreate> = {
         flags: MessageFlags.Ephemeral,
       });
     } catch (error) {
-      if (!interaction.replied && !interaction.deferred) {
-        try {
-          await interaction.reply({
-            content: S.ERR_PROCESSING,
-            flags: MessageFlags.Ephemeral,
-          });
-        } catch (replyError) {}
-      }
+      log.error(`모달 · 선택 메뉴 처리 실패(${interaction.customId}):`, error);
+      if (interaction.replied || interaction.deferred) return;
+      await interaction.reply({ content: S.ERR_PROCESSING, flags: MessageFlags.Ephemeral }).catch((replyError) => log.warn(`오류 안내 전송 실패: ${messageOf(replyError)}`));
     }
   },
 };

@@ -22,7 +22,10 @@ const exported: ClientEvent<Events.InteractionCreate> = {
     // 곡 수 입력 모달은 메뉴 메시지에서 연다(그 메시지를 고친다)
     if (interaction.isModalSubmit() && !interaction.isFromMessage()) return;
 
-    const refuse = (text: string) => interaction.reply({ content: S.withErrorMark(text), flags: MessageFlags.Ephemeral }).catch(() => {});
+    const refuse = (text: string) =>
+      interaction.reply({ content: S.withErrorMark(text), flags: MessageFlags.Ephemeral }).catch(() => {
+        /* 상호작용이 이미 닫혔다 */
+      });
 
     const state = More.decodeState(interaction.customId);
     if (!state) return refuse("알 수 없는 메뉴예요.");
@@ -33,8 +36,12 @@ const exported: ClientEvent<Events.InteractionCreate> = {
     if (isSelect && interaction.values[0] === "stop") {
       if (state.requesterId && state.requesterId !== interaction.user.id) return refuse("목록을 넣은 사람만 닫을 수 있어요.");
       if (message) More.clearExpiry(message.id);
-      await interaction.deferUpdate().catch(() => {});
-      return interaction.deleteReply().catch(() => {});
+      await interaction.deferUpdate().catch(() => {
+        /* 상호작용이 이미 닫혔다 */
+      });
+      return interaction.deleteReply().catch(() => {
+        /* 상호작용이 이미 닫혔다 */
+      });
     }
 
     const lastTouched = message?.editedTimestamp ?? message?.createdTimestamp ?? 0;
@@ -70,7 +77,9 @@ const exported: ClientEvent<Events.InteractionCreate> = {
       const now = Date.now();
       if (done >= want || now - lastEdit < PROGRESS_EVERY_MS) return;
       lastEdit = now;
-      interaction.editReply({ content: `⏳ ${done}/${want}곡 가져오는 중…` }).catch(() => {});
+      interaction.editReply({ content: `⏳ ${done}/${want}곡 가져오는 중…` }).catch(() => {
+        /* 진행 표시는 놓쳐도 된다 */
+      });
     };
 
     let payload: { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[] };
@@ -90,7 +99,9 @@ const exported: ClientEvent<Events.InteractionCreate> = {
       payload = { content: S.ERR_PROCESSING, components: [] };
     }
 
-    await interaction.editReply(payload).catch(() => {});
+    await interaction.editReply(payload).catch(() => {
+      /* 상호작용이 이미 닫혔다 */
+    });
     if (message) More.expireLater(message.id, () => interaction.deleteReply());
   },
 };

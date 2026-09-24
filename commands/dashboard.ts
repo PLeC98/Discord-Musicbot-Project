@@ -30,7 +30,9 @@ const exported: GuildCommand = {
     if (!player?.currentTrack) {
       await interaction.deferReply({ flags: [1 << 6] });
       await client.musicEmbedManager.repostIdlePanel(guild, channel);
-      return interaction.deleteReply().catch(() => {});
+      return interaction.deleteReply().catch(() => {
+        /* 상호작용이 이미 닫혔다 */
+      });
     }
 
     // 옛 패널은 새로 올릴 때 기록을 보고 치운다

@@ -1,19 +1,6 @@
 {
-  "commands/dashboard.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
-  "commands/join.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
   "dashboard/server/routes/admin.ts": {
     "complexity": {
-      "count": 1
-    },
-    "no-empty-function": {
       "count": 1
     }
   },
@@ -27,37 +14,9 @@
       "count": 1
     }
   },
-  "dashboard/server/routes/player.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
-  "dashboard/server/sessionStore.ts": {
-    "no-empty-function": {
-      "count": 3
-    }
-  },
-  "events/buttonHandler.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
-  "events/messageHandler.ts": {
-    "no-empty-function": {
-      "count": 2
-    }
-  },
-  "events/modalHandler.ts": {
-    "no-empty": {
-      "count": 1
-    }
-  },
   "events/playlistMoreHandler.ts": {
     "complexity": {
       "count": 1
-    },
-    "no-empty-function": {
-      "count": 5
     }
   },
   "events/sponsorConfigHandler.ts": {

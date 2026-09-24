@@ -20,6 +20,7 @@ import { shadowMember } from "../viewAs.ts";
 import { getPlayer, voiceFlags, toInt } from "../guildAccess.ts";
 import { queueTrack, queueWindow, playerState } from "../playerView.ts";
 import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } from "../requestSchemas.ts";
+import { bestEffort } from "../../../src/infra/bestEffort.ts";
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
@@ -149,7 +150,7 @@ function joinRoute(router: Router) {
     }
 
     if (!player.currentTrack) {
-      player.updateVoiceStatus(config.voiceStatus.idleText).catch(() => {});
+      bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
     }
 
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨

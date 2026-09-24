@@ -39,7 +39,9 @@ const exported: ClientEvent<Events.MessageCreate> = {
     }
 
     // 채널을 깔끔하게 유지하기 위해 사용자 메시지 삭제
-    await message.delete().catch(() => {});
+    await message.delete().catch(() => {
+      /* 이미 지워졌거나 지울 권한이 없다. 메시지가 남을 뿐이다 */
+    });
 
     // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
@@ -48,7 +50,11 @@ const exported: ClientEvent<Events.MessageCreate> = {
       flags: MessageFlags.IsComponentsV2,
     });
 
-    const responder = channelResponder(message.channel, () => loadingMsg.delete().catch(() => {}));
+    const responder = channelResponder(message.channel, () =>
+      loadingMsg.delete().catch(() => {
+        /* 이미 지워졌다 */
+      }),
+    );
 
     try {
       const result = await requestPlayback(client, {

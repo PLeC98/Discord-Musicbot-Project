@@ -374,7 +374,11 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 
   // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
   // 검색 메시지는 일반 임베드라 CV2 현재 재생 메시지로 수정할 수 없다.
-  const responder = channelResponder(interaction.channel, () => interaction.deleteReply().catch(() => {}));
+  const responder = channelResponder(interaction.channel, () =>
+    interaction.deleteReply().catch(() => {
+      /* 이미 지워졌다 */
+    }),
+  );
 
   try {
     const result = await requestPlayback(client, {
