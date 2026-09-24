@@ -5,8 +5,7 @@
  */
 import path from "path";
 import * as models from "../src/config/schema/aiModels.ts";
-import assist from "../src/autoplay/assist/index.ts";
-const { PROVIDER_SPECS } = assist;
+import { PROVIDER_SPECS } from "../src/autoplay/assist/index.ts";
 
 (async () => {
   const registries = [

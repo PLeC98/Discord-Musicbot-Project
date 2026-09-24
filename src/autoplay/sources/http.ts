@@ -74,6 +74,4 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
   };
 }
 
-const exported = { getJson, pick, rand, query, remembered, TIMEOUT_MS, userAgent };
-export default exported;
-export { exported as "module.exports" };
+export { getJson, pick, rand, query, remembered, TIMEOUT_MS, userAgent };

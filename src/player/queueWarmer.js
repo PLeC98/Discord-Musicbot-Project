@@ -2,7 +2,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import config from "../../config.ts";
 import * as YouTube from "../sources/youtube/index.ts";
-import autoplayRoute from "../autoplay/route.ts";
+import * as autoplayRoute from "../autoplay/route.ts";
 import trackState from "./trackState.js";
 
 /**

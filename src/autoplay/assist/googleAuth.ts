@@ -121,6 +121,5 @@ function projectOf(where: unknown, baseDir?: string): string {
 /** 받아 둔 토큰. 가려야 할 것이라 바깥에서도 알아야 한다(autoplayAssist.mask). */
 const heldTokens = () => [...cache.values()].map((one) => one.token).filter(Boolean);
 
-const exported = { accessToken, projectOf, heldTokens, readAccount, _reset: () => cache.clear() };
-export default exported;
-export { exported as "module.exports" };
+export { accessToken, projectOf, heldTokens, readAccount };
+export const _reset = () => cache.clear();

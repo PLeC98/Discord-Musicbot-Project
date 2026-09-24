@@ -23,9 +23,9 @@ import config from "../../../config.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as audioCache from "../../../src/store/audioCache.ts";
 import * as YouTube from "../../../src/sources/youtube/index.ts";
-import autoplaySources from "../../../src/autoplay/sources/index.ts";
-import assist from "../../../src/autoplay/assist/index.ts";
-import tokens from "../../../src/autoplay/assist/tokens.ts";
+import * as autoplaySources from "../../../src/autoplay/sources/index.ts";
+import * as assist from "../../../src/autoplay/assist/index.ts";
+import * as tokens from "../../../src/autoplay/assist/tokens.ts";
 import * as models from "../../../src/config/schema/aiModels.ts";
 
 // Bot/Node/System status

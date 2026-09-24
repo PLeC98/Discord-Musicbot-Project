@@ -1,7 +1,6 @@
 // AnimeThemes 소스.
 
-import http from "./http.ts";
-const { query, getJson } = http;
+import { query, getJson } from "./http.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
@@ -93,6 +92,4 @@ async function themesByAnime(source: GenreSource): Promise<Theme[]> {
   return out;
 }
 
-const exported = { animethemes };
-export default exported;
-export { exported as "module.exports" };
+export { animethemes };

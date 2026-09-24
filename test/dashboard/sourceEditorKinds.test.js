@@ -8,8 +8,7 @@ import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import sources from "../../src/autoplay/sources/index.ts";
-const { SPEC } = sources;
+import { SPEC } from "../../src/autoplay/sources/index.ts";
 
 const EDITOR = path.join(import.meta.dirname, "..", "..", "dashboard", "client", "src", "components", "SourceEditor.vue");
 

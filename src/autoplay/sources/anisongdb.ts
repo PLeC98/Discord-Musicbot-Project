@@ -3,8 +3,7 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genreSources.ts";
-import http from "./http.ts";
-const { TIMEOUT_MS, userAgent, getJson, remembered } = http;
+import { TIMEOUT_MS, userAgent, getJson, remembered } from "./http.ts";
 import { messageOf } from "../../rules/errorKind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
@@ -217,7 +216,5 @@ async function anisongdb(source: GenreSource): Promise<Candidate[]> {
 // 테스트가 바깥으로 나가지 않게 통계를 미리 채워 둔다
 const _seedAnisongStats = (stats: AnisongStats | null) => anisongStats.seed(stats);
 
-const exported = { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
-export default exported;
+export { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
 export type { AnisongStats };
-export { exported as "module.exports" };

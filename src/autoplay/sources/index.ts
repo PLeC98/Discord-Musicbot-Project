@@ -20,22 +20,14 @@ import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 import type { Search } from "./keyword.ts";
 import type { AnisongStats } from "./anisongdb.ts";
-import http from "./http.ts";
-const { getJson, remembered } = http;
-import keywordModule from "./keyword.ts";
-const { keyword } = keywordModule;
-import lastfmModule from "./lastfm.ts";
-const { lastfm } = lastfmModule;
-import lbradioModule from "./lbradio.ts";
-const { lbradio, PLACEHOLDER } = lbradioModule;
-import animethemesModule from "./animethemes.ts";
-const { animethemes } = animethemesModule;
-import anisongdbModule from "./anisongdb.ts";
-const { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } = anisongdbModule;
-import voca from "./voca.ts";
-const { vocaFamily, lyricsFilter, someLanguages } = voca;
-import playlists from "./playlists.ts";
-const { spotify, youtube } = playlists;
+import { getJson, remembered } from "./http.ts";
+import { keyword } from "./keyword.ts";
+import { lastfm } from "./lastfm.ts";
+import { lbradio, PLACEHOLDER } from "./lbradio.ts";
+import { animethemes } from "./animethemes.ts";
+import { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } from "./anisongdb.ts";
+import { vocaFamily, lyricsFilter, someLanguages } from "./voca.ts";
+import { spotify, youtube } from "./playlists.ts";
 
 // ── 등록부 ────────────────────────────────────────────────────────────────
 
@@ -125,21 +117,5 @@ async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Can
   return tracks;
 }
 
-const exported = {
-  fetchFrom,
-  TYPES,
-  SPEC,
-  catalog,
-  usable,
-  needsOf,
-  _placeholder: PLACEHOLDER,
-  _lyricsFilter: lyricsFilter,
-  _someLanguages: someLanguages,
-  _anisongFilters: anisongFilters,
-  _anisongCatalog: anisongCatalog,
-  _seedAnisongStats,
-  // 테스트가 바깥으로 나가지 않게 연도 범위를 미리 채워 둔다
-  _seedYearRange: (range: YearRange | null) => yearRange.seed(range),
-};
-export default exported;
-export { exported as "module.exports" };
+export { fetchFrom, TYPES, SPEC, catalog, usable, needsOf, PLACEHOLDER as _placeholder, lyricsFilter as _lyricsFilter, someLanguages as _someLanguages, anisongFilters as _anisongFilters, anisongCatalog as _anisongCatalog, _seedAnisongStats };
+export const _seedYearRange = (range: YearRange | null) => yearRange.seed(range);

@@ -6,7 +6,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import pool from "../../src/autoplay/pool.ts";
+import * as pool from "../../src/autoplay/pool.ts";
 
 const songs = (n, tag = "s") => Array.from({ length: n }, (_, i) => ({ artist: "A", title: `${tag}${i}`, sourceKey: `${tag}${i}` }));
 

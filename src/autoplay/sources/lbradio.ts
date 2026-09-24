@@ -1,8 +1,7 @@
 // ListenBrainz Radio 소스.
 
 import config from "../../../config.ts";
-import http from "./http.ts";
-const { query, getJson } = http;
+import { query, getJson } from "./http.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
@@ -59,6 +58,4 @@ const PLACEHOLDER = {
     ),
 };
 
-const exported = { lbradio, PLACEHOLDER };
-export default exported;
-export { exported as "module.exports" };
+export { lbradio, PLACEHOLDER };

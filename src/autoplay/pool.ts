@@ -106,6 +106,4 @@ function _reset() {
   pools.clear();
 }
 
-const exported = { take, stats, keyOf, _reset, TTL_MS, MAX_POOLS };
-export default exported;
-export { exported as "module.exports" };
+export { take, stats, keyOf, _reset, TTL_MS, MAX_POOLS };

@@ -1,7 +1,6 @@
 // 재생목록 소스(스포티파이 · 유튜브).
 
-import http from "./http.ts";
-const { rand } = http;
+import { rand } from "./http.ts";
 import * as Spotify from "../../sources/spotify.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
@@ -34,6 +33,4 @@ async function youtube(source: GenreSource): Promise<Candidate[]> {
   return (part?.tracks || []).flatMap((t) => (t.audioUrl && !t.isLive ? [{ title: t.title, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey ?? t.audioUrl }] : []));
 }
 
-const exported = { spotify, youtube };
-export default exported;
-export { exported as "module.exports" };
+export { spotify, youtube };

@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 
 import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yamlStore.ts";
-import assist from "../../src/autoplay/assist/index.ts";
+import * as assist from "../../src/autoplay/assist/index.ts";
 
 import { createRequire } from "node:module";
 

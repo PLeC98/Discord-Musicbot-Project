@@ -68,7 +68,5 @@ function judge(track: { duration?: number | null; title?: string | null } | null
   return { ok: true };
 }
 
-const exported = { prepare, judge };
-export default exported;
+export { prepare, judge };
 export type { FilterConfig, Limits, Verdict };
-export { exported as "module.exports" };

@@ -1,7 +1,6 @@
 // 키워드 소스.
 
-import http from "./http.ts";
-const { pick } = http;
+import { pick } from "./http.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
@@ -21,7 +20,5 @@ async function keyword(source: GenreSource, { search = (query, limit) => YouTube
   return results.filter((r) => r.audioUrl && !r.isLive).map((r) => ({ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }));
 }
 
-const exported = { keyword };
-export default exported;
+export { keyword };
 export type { Search };
-export { exported as "module.exports" };

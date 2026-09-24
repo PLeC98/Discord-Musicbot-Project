@@ -4,8 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import http from "../../src/autoplay/sources/http.ts";
-const { remembered } = http;
+import { remembered } from "../../src/autoplay/sources/http.ts";
 
 const opts = { ttlMs: 60_000, retryMs: 60_000, waitMs: 30 };
 

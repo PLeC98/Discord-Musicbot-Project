@@ -208,7 +208,5 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
   return typeof json?.input_tokens === "number" ? json.input_tokens : null;
 }
 
-const exported = { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, _readPieces: readPieces };
-export default exported;
+export { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, readPieces as _readPieces };
 export type { Message };
-export { exported as "module.exports" };

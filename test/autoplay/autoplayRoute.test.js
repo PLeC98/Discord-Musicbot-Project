@@ -6,16 +6,16 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import route from "../../src/autoplay/route.ts";
+import * as route from "../../src/autoplay/route.ts";
 import { audioKeyOf } from "../../src/rules/audioKeyOf.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
-import pool from "../../src/autoplay/pool.ts";
+import * as pool from "../../src/autoplay/pool.ts";
 
-import filterModule from "../../src/autoplay/filter.ts";
+import * as filterModule from "../../src/autoplay/filter.ts";
 const LIMITS = filterModule.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist"] });
 
 let ytResults = [];

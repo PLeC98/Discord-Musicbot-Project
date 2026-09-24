@@ -6,8 +6,7 @@ import { VOCA_DEFAULT_TYPES, type Site } from "../../config/schema/genreSources.
 import { messageOf } from "../../rules/errorKind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
-import http from "./http.ts";
-const { rand, getJson, query } = http;
+import { rand, getJson, query } from "./http.ts";
 
 // ── vocadb 계열 ───────────────────────────────────────────────────────────
 // 유튜브 주소를 직접 준다. 검색도 매칭도 없다. 셋이 같은 소프트웨어라 코드도 같다.
@@ -127,6 +126,4 @@ function creditOf(song: Song) {
   return [makers.join(", "), singers.join(", ")].filter(Boolean).join(" feat. ");
 }
 
-const exported = { vocaFamily, lyricsFilter, someLanguages };
-export default exported;
-export { exported as "module.exports" };
+export { vocaFamily, lyricsFilter, someLanguages };

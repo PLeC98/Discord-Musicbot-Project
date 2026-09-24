@@ -11,14 +11,14 @@
 // 검색을 아끼고, 같은 곡이 뽑힐 때마다 다른 영상이 나오지 않는다.
 //
 
-import autoplayFilter from "./filter.ts";
+import * as autoplayFilter from "./filter.ts";
 import * as links from "../rules/links.ts";
 import { canonicalUrl } from "../rules/canonicalUrl.ts";
 import { candidateKind } from "../rules/candidateKind.ts";
-import pool from "./pool.ts";
-import sources from "./sources/index.ts";
+import * as pool from "./pool.ts";
+import * as sources from "./sources/index.ts";
 import * as match from "../sources/youtube/match.ts";
-import aiAssist from "./assist/index.ts";
+import * as aiAssist from "./assist/index.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import logger from "../infra/log/logger.ts";
@@ -378,7 +378,5 @@ async function pickTrack(cfg: PickConfig | null | undefined, recent: Array<Playe
   return null;
 }
 
-const exported = { REAL, pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, _byWeight: byWeight, _dead: dead };
-export default exported;
+export { REAL, pickTrack, resolve, requestKeyOf, rejector, nameKey, markDead, FULL_SEC, byWeight as _byWeight, dead as _dead };
 export type { Deps, PickedTrack, PickConfig };
-export { exported as "module.exports" };

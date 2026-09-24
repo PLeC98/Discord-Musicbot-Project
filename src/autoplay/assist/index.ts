@@ -8,8 +8,8 @@
 import * as aiConfig from "../../config/ai.ts";
 import * as links from "../../rules/links.ts";
 import * as yamlStore from "../../config/yamlStore.ts";
-import googleAuth from "./googleAuth.ts";
-import tokens from "./tokens.ts";
+import * as googleAuth from "./googleAuth.ts";
+import * as tokens from "./tokens.ts";
 import * as models from "../../config/schema/aiModels.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
@@ -1010,7 +1010,5 @@ function mask(text: unknown): string {
   return out;
 }
 
-const exported = { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
-export default exported;
+export { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
 export type { AiSettings, Judged, TestCandidate };
-export { exported as "module.exports" };

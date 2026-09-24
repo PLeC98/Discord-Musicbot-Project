@@ -10,7 +10,7 @@ import crypto from "node:crypto";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
-import auth from "../../src/autoplay/assist/googleAuth.ts";
+import * as auth from "../../src/autoplay/assist/googleAuth.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sa-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));

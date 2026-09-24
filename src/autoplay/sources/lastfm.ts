@@ -1,8 +1,7 @@
 // Last.fm 소스.
 
 import config from "../../../config.ts";
-import http from "./http.ts";
-const { pick, rand, query, getJson } = http;
+import { pick, rand, query, getJson } from "./http.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
@@ -31,6 +30,4 @@ async function lastfm(source: GenreSource): Promise<Candidate[]> {
     .filter((t) => t.artist && t.title);
 }
 
-const exported = { lastfm };
-export default exported;
-export { exported as "module.exports" };
+export { lastfm };
