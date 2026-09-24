@@ -4,8 +4,12 @@ const { spawnFfmpeg, probeAudio } = process;
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } from "../rules/convertPlan.ts";
-/** yt-dlp 갈래도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다. */
-const ytdlpPostprocessorArgs = () => ({ ffmpeg: ["-b:a", `${TRANSCODE_TARGET_KBPS}k`] });
+/**
+ * yt-dlp 갈래도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다.
+ * `--postprocessor-args` 의 `이름:인자` 한 줄이다. youtube-dl-exec 는 객체 값을 인자로 바꾸지 않고 버린다.
+ * `ffmpeg:` 는 출력 파일 앞에 붙는다.
+ */
+const ytdlpPostprocessorArgs = () => `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`;
 
 /** 정해진 계획을 ffmpeg 인자로. 출력은 언제나 `.opus`(ogg/opus). 캐시 파일명이 그 전제다. */
 function argsFor(plan, srcFile, outFile) {

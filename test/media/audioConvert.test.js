@@ -110,7 +110,7 @@ test("인자: 출력은 언제나 opus 컨테이너이고 -vn 이 붙는다", ()
 });
 
 test("yt-dlp 갈래도 같은 목표 비트레이트를 쓴다. 숫자가 두 군데에 적히지 않게", () => {
-  assert.deepEqual(audioConvert.ytdlpPostprocessorArgs(), { ffmpeg: ["-b:a", `${TRANSCODE_TARGET_KBPS}k`] });
+  assert.equal(audioConvert.ytdlpPostprocessorArgs(), `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`);
 });
 
 // ── probe 파싱 ────────────────────────────────────────────────────────────────

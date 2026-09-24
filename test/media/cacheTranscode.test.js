@@ -4,6 +4,8 @@
 // 보고 `-acodec copy`(이미 Opus) 또는 `-acodec libopus`(그 밖)를 스스로 고르는데, 우리 값이
 // 그 뒤에 붙어 ffmpeg 에서 이겨 버렸다. 그래서 유튜브 251(Opus)까지 매번 다시 인코딩됐다.
 // 상류에서 내려온 뒤 아무도 다시 보지 않은 설정이다.
+//
+// 옵션 객체가 아니라 yt-dlp 가 받는 인자로 본다. youtube-dl-exec 는 객체 값을 조용히 버린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,6 +14,7 @@ import tempStore from "../helpers/tempStore.js";
 const { openTempStore } = tempStore;
 import TrackDownloader from "../../src/media/cacheDownload.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
+import youtubedl from "youtube-dl-exec";
 
 /** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 받지는 않는다. 받기 전에 캐시 행을 적으므로 임시 DB 를 연다 */
 async function captureOptions() {
@@ -37,14 +40,17 @@ test("캐시 변환은 코덱을 못 박지 않는다 — yt-dlp 가 소스를 �
   const options = await captureOptions();
   assert.ok(options, "옵션을 가로채지 못했습니다");
 
-  const args = options.postprocessorArgs?.ffmpeg || [];
-  assert.ok(!args.includes("-c:a") && !args.includes("-acodec"), `코덱을 못 박으면 251 이 다시 인코딩된다: ${args.join(" ")}`);
-  assert.ok(!args.includes("libopus"), `libopus 를 적으면 리먹싱 판단을 덮는다: ${args.join(" ")}`);
+  const argv = youtubedl.args(options);
+  const at = argv.indexOf("--postprocessor-args");
+  assert.ok(at >= 0, `후처리 인자가 yt-dlp 에 가지 않는다: ${argv.join(" ")}`);
+  const ppa = argv[at + 1];
+  assert.ok(!/-c:a|-acodec/.test(ppa), `코덱을 못 박으면 251 이 다시 인코딩된다: ${ppa}`);
+  assert.ok(!ppa.includes("libopus"), `libopus 를 적으면 리먹싱 판단을 덮는다: ${ppa}`);
 
   // 비트레이트는 남긴다 — 스트림 카피에는 무시되고, 진짜 변환이 필요한 AAC 소스에만 걸린다.
   // 빼면 그때 libopus 기본값(실측 95k)으로 떨어진다.
-  assert.deepEqual(args, ["-b:a", "128k"]);
+  assert.equal(ppa, "ffmpeg:-b:a 128k");
 
-  assert.equal(options.extractAudio, true);
-  assert.equal(options.audioFormat, "opus");
+  assert.ok(argv.includes("--extract-audio"));
+  assert.equal(argv[argv.indexOf("--audio-format") + 1], "opus");
 });
