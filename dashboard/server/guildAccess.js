@@ -1,9 +1,9 @@
-"use strict";
-
 // 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십(운영자는 면제) · 권한 수준 오버라이드
 
-const { isOwner } = require("./owner");
-const { shadowMember } = require("./viewAs");
+import owner from "./owner.js";
+const { isOwner } = owner;
+import viewAs from "./viewAs.js";
+const { shadowMember } = viewAs;
 
 async function getPlayer(req, res, guildId) {
   const client = req.app.locals.discordClient;
@@ -54,4 +54,6 @@ function toInt(value) {
   return Number.isInteger(n) ? n : NaN;
 }
 
-module.exports = { getPlayer, voiceFlags, toInt };
+const exported = { getPlayer, voiceFlags, toInt };
+export default exported;
+export { exported as "module.exports" };

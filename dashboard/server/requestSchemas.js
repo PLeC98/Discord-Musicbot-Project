@@ -1,12 +1,12 @@
-"use strict";
-
 // 대시보드 요청의 모양. 경로가 스스로 400 을 내는 값만 여기서 본다(문장은 그 경로의 것 그대로).
 // 재생 조작의 값(볼륨 · 반복 모드 · 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
 // 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
-const { z } = require("zod");
-const { MAX_COUNT } = require("../../src/usecases/playlistMore");
-const { QUEUE_WINDOW_MAX } = require("./playerView");
+import { z } from "zod";
+import playlistMore from "../../src/usecases/playlistMore.js";
+const { MAX_COUNT } = playlistMore;
+import playerView from "./playerView.js";
+const { QUEUE_WINDOW_MAX } = playerView;
 
 /** 검사 → { ok: true, value } | { ok: false, error: 첫 문제의 문장 } */
 function parse(schema, input) {
@@ -79,4 +79,6 @@ function settingsBody({ min, max }) {
   );
 }
 
-module.exports = { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, settingsBody };
+const exported = { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, settingsBody };
+export default exported;
+export { exported as "module.exports" };

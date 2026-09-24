@@ -1,6 +1,4 @@
-"use strict";
-
-const { PermissionsBitField, PermissionFlagsBits } = require("discord.js");
+import { PermissionsBitField, PermissionFlagsBits } from "discord.js";
 
 /**
  * 권한 수준 오버라이드. 봇 운영자가 낮은 계층의 화면과 동작을 그대로 재현해 보기 위한 점검용.
@@ -51,4 +49,6 @@ function shadowMember(req, member) {
   });
 }
 
-module.exports = { TIERS, getViewAs, shadowMember };
+const exported = { TIERS, getViewAs, shadowMember };
+export default exported;
+export { exported as "module.exports" };

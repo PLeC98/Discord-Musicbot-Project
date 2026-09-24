@@ -1,8 +1,7 @@
-"use strict";
-
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { issueCsrfToken, requireCsrfToken } = require("../../dashboard/server/middleware/csrf");
+import test from "node:test";
+import assert from "node:assert/strict";
+import csrf from "../../dashboard/server/middleware/csrf.js";
+const { issueCsrfToken, requireCsrfToken } = csrf;
 
 function response() {
   return {

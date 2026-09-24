@@ -1,11 +1,11 @@
-"use strict";
-
 // 서버 목록. 봇과 함께 있는 서버 중 실제 멤버인 것
 
-const express = require("express");
-const requireAuth = require("../middleware/requireAuth");
-const { isOwner } = require("../owner");
-const { voiceFlags } = require("../guildAccess");
+import express from "express";
+import requireAuth from "../middleware/requireAuth.js";
+import owner from "../owner.js";
+const { isOwner } = owner;
+import guildAccess from "../guildAccess.js";
+const { voiceFlags } = guildAccess;
 
 const MANAGE_GUILD = 0x20;
 
@@ -52,4 +52,6 @@ function createGuildListRouter() {
   return router;
 }
 
-module.exports = { createGuildListRouter };
+const exported = { createGuildListRouter };
+export default exported;
+export { exported as "module.exports" };

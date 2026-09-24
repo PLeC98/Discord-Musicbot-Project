@@ -1,14 +1,12 @@
-"use strict";
-
 // dashboard/server/sessionStore.js — SQLite 세션 스토어
 // 회귀 대상: MemoryStore의 재시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const SqliteSessionStore = require("../../dashboard/server/sessionStore");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import SqliteSessionStore from "../../dashboard/server/sessionStore.js";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sess-"));
 const stores = [];

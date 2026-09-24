@@ -1,5 +1,3 @@
-"use strict";
-
 // dashboard/server/routes/guilds.js — 플레이어 조작 API의 입력 검증
 // 회귀 대상: 비문자열 query의 TypeError(async 핸들러라 응답 없는 unhandled rejection),
 // parseFloat("Infinity")·parseInt("50junk")의 느슨한 통과, 제어문자의 로그/yt-dlp 유입.
@@ -7,14 +5,19 @@
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = require("../helpers/listen");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+const { listenForFetch } = (await import("../helpers/listen.js")).default;
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore } = require("../helpers/tempStore");
+const { openTempStore } = (await import("../helpers/tempStore.js")).default;
 const store = openTempStore("dashboard-validation-");
 after(() => store.close());
 
@@ -31,7 +34,7 @@ const lookup = {
   },
 };
 
-const express = require("express");
+import express from "express";
 
 // ── Fake client/player ───────────────────────────────────────
 const GUILD_ID = "100";

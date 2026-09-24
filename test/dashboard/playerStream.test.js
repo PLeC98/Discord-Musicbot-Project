@@ -1,14 +1,13 @@
-"use strict";
-
 // dashboard/server/playerStream.js — SSE 연결 회계의 idempotent cleanup
 // 회귀 대상: 쓰기 실패 시 Set에서만 제거되고 perKey(연결 캡)·listGuildIds·빈 Set 정리가
 // close 이벤트에만 의존 — close가 안 오는 비정상 종료에서 캡이 영구 점유되던 문제.
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { EventEmitter } = require("node:events");
-const { createPlayerStream } = require("../../dashboard/server/playerStream");
-const config = require("../../config");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import playerStream from "../../dashboard/server/playerStream.js";
+const { createPlayerStream } = playerStream;
+import config from "../../config.js";
 
 const { maxPerUser } = config.dashboard.sse;
 const DashboardEvents = createPlayerStream();

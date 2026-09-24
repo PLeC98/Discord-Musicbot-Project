@@ -1,20 +1,23 @@
-"use strict";
-
 // dashboard/server/routes/guilds.js — 대기열을 구간으로 나눠 싣는 경로.
 // 큐 전체를 매 응답에 담던 것을 바꿨다. 조작 응답도 상태를 통째로 돌려주므로,
 // 화면이 펼쳐 둔 창(?queue=n)을 그대로 지켜주지 않으면 목록이 접힌다.
 
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = require("../helpers/listen");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+const { listenForFetch } = (await import("../helpers/listen.js")).default;
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
-const { openTempStore } = require("../helpers/tempStore");
+const { openTempStore } = (await import("../helpers/tempStore.js")).default;
 const store = openTempStore("queue-paging-");
 after(() => store.close());
 
-const express = require("express");
+import express from "express";
 
 const GUILD_ID = "100";
 const QUEUE_LEN = 257;

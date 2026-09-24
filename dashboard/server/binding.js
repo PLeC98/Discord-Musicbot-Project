@@ -1,5 +1,3 @@
-"use strict";
-
 // 대시보드 바인딩 주소 → 기동 로그 문장.
 //
 // 로그는 실제 바인딩을 그대로 말해야 한다. 모든 인터페이스에 열어놓고 localhost라고 적으면
@@ -31,4 +29,6 @@ function describeBinding(host, port, dashboardUrl) {
   return { line: `🌐 Dashboard: ${host}:${port} (${scope})`, warnings };
 }
 
-module.exports = { isLoopbackHost, describeBinding };
+const exported = { isLoopbackHost, describeBinding };
+export default exported;
+export { exported as "module.exports" };

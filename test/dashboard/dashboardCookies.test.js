@@ -1,23 +1,26 @@
-"use strict";
-
 // dashboard/server/routes/admin.js — 유튜브 쿠키 통로.
 //
 // 키와 같은 규칙이다: 운영자만 들어오고, 값은 어느 통로로도 돌아나가지 않는다.
 // 로그인된 세션 그 자체라 응답에도 로그에도 내용이 남으면 안 된다.
 
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.OWNER_ID = "owner";
 process.env.COOKIES_SOURCE = "file";
 
-const { listenForFetch } = require("../helpers/listen");
-const os = require("node:os");
-const fs = require("node:fs");
-const path = require("node:path");
-const { test, before, after, beforeEach } = require("node:test");
-const assert = require("node:assert/strict");
-const express = require("express");
+const { listenForFetch } = (await import("../helpers/listen.js")).default;
+import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
+import { test, before, after, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import express from "express";
 
-const yamlStore = require("../../src/config/yamlStore");
-const cookieConfig = require("../../src/config/cookies");
+const yamlStore = (await import("../../src/config/yamlStore.js")).default;
+const cookieConfig = (await import("../../src/config/cookies.js")).default;
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-route-"));
 
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123"].join("\n");
@@ -42,7 +45,7 @@ before(async () => {
 
 after(() => {
   server.close();
-  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 

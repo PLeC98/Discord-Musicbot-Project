@@ -1,18 +1,17 @@
-"use strict";
-
 // SPEC 이 내는 칸 종류를 편집기가 다 그릴 수 있는가.
 //
 // 둘이 딴 파일에 있어서 한쪽만 고치면 그 칸이 조용히 일반 텍스트 입력으로 떨어진다.
 // 값이 정해진 칸인데 자유 입력이 되면 오타가 저장되고 그 소스가 빈손이 된다.
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import path from "node:path";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const { SPEC } = require("../../src/autoplay/sources/index");
+import sources from "../../src/autoplay/sources/index.js";
+const { SPEC } = sources;
 
-const EDITOR = path.join(__dirname, "..", "..", "dashboard", "client", "src", "components", "SourceEditor.vue");
+const EDITOR = path.join(import.meta.dirname, "..", "..", "dashboard", "client", "src", "components", "SourceEditor.vue");
 
 test("편집기가 SPEC 의 칸 종류를 전부 안다", () => {
   const src = fs.readFileSync(EDITOR, "utf8");

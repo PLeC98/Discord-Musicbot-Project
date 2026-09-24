@@ -2,7 +2,7 @@
  * 본문 크기 상한. 대부분은 설정 몇 줄과 공지문(4096자)뿐이라 32kb 면 넉넉하다.
  * 판정 프롬프트만 예외다: 로어북을 붙인 긴 프롬프트가 32kb 를 넘어 413 이 났다.
  */
-const express = require("express");
+import express from "express";
 
 const PROMPT_PATHS = ["/api/admin/ai/prompt", "/api/admin/ai/tokens", "/api/admin/ai/preview", "/api/admin/ai/judge/run"];
 
@@ -14,4 +14,6 @@ function bodyLimit() {
   return (req, res, next) => (isPrompt(req.path) ? prompt : small)(req, res, next);
 }
 
-module.exports = { bodyLimit, PROMPT_PATHS };
+const exported = { bodyLimit, PROMPT_PATHS };
+export default exported;
+export { exported as "module.exports" };

@@ -1,6 +1,4 @@
-"use strict";
-
-const config = require("../../config");
+import config from "../../config.js";
 
 /**
  * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
@@ -182,4 +180,6 @@ function createPlayerStream(options = config.dashboard.sse) {
   return new PlayerStream(options);
 }
 
-module.exports = { createPlayerStream, PlayerStream };
+const exported = { createPlayerStream, PlayerStream };
+export default exported;
+export { exported as "module.exports" };

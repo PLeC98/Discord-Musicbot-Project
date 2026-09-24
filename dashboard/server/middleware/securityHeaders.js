@@ -1,5 +1,3 @@
-"use strict";
-
 // 모든 응답에 붙는 보안 헤더. 정적 자산 응답에도 붙어야 하므로 체인 맨 앞에 등록한다.
 //
 // Helmet을 쓰지 않는 이유: 기본 14종 중 이 앱에서 값이 있는 건 아래 4개 + CSP뿐이고,
@@ -24,4 +22,6 @@ function securityHeaders(req, res, next) {
   next();
 }
 
-module.exports = { securityHeaders, CSP };
+const exported = { securityHeaders, CSP };
+export default exported;
+export { exported as "module.exports" };

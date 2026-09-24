@@ -1,9 +1,9 @@
-"use strict";
-
 // 화면에 보내는 플레이어 모양
 
-const { labelOf } = require("../../src/ui/platforms"); // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
-const { toInt } = require("./guildAccess");
+import platforms from "../../src/ui/platforms.js";
+const { labelOf } = platforms; // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
+import guildAccess from "./guildAccess.js";
+const { toInt } = guildAccess;
 
 // 대기열은 앞에서부터 이만큼만 실어 보낸다. 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.
 const QUEUE_PAGE = 100;
@@ -68,4 +68,6 @@ function playerState(player, queueLimit = QUEUE_PAGE) {
   };
 }
 
-module.exports = { QUEUE_PAGE, QUEUE_WINDOW_MAX, queueTrack, queueWindow, playerState };
+const exported = { QUEUE_PAGE, QUEUE_WINDOW_MAX, queueTrack, queueWindow, playerState };
+export default exported;
+export { exported as "module.exports" };

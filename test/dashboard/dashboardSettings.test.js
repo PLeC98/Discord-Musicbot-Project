@@ -1,21 +1,24 @@
-"use strict";
-
 // dashboard/server/routes/guilds.js — 서버 설정 GET/PUT + /player 플래그 통합 테스트.
 // 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = require("../helpers/listen");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+const { listenForFetch } = (await import("../helpers/listen.js")).default;
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore, setGuild } = require("../helpers/tempStore");
+const { openTempStore, setGuild } = (await import("../helpers/tempStore.js")).default;
 const temp = openTempStore("dashboard-settings-");
-const settings = require("../../src/store/guildSettings");
-const config = require("../../config");
+const settings = (await import("../../src/store/guildSettings.js")).default;
+const config = (await import("../../config.js")).default;
 
 // 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250 · 기본 50 으로 본다
 const savedBot = { maxQueueSize: config.bot.maxQueueSize, playlistAddDefault: config.bot.playlistAddDefault };
@@ -51,8 +54,8 @@ const store = {
 // 아무것도 쓰지 않았는지: 이 서버의 설정 행을 전후로 견준다
 const settingsRow = () => temp.db().prepare("SELECT * FROM guild_settings WHERE guild_id = ?").get(GUILD_ID) ?? null;
 
-const express = require("express");
-const { ChannelType, PermissionFlagsBits } = require("discord.js");
+import express from "express";
+import { ChannelType, PermissionFlagsBits } from "discord.js";
 
 // ── Fake Discord client ──────────────────────────────────────
 const GUILD_ID = "100";

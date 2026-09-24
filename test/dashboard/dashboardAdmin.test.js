@@ -1,29 +1,32 @@
-"use strict";
-
 // dashboard/server/routes/admin.js — 봇 운영자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
 // 실 라우터 + fake client. 서버 설정은 임시 DB, REST.put은 프로토타입 패치(실 배포·운영 DB 없음).
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = require("../helpers/listen");
-const os = require("node:os");
-const fs = require("node:fs");
-const path = require("node:path");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+const { listenForFetch } = (await import("../helpers/listen.js")).default;
+import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
 // 재배포 경로가 운영 배포 지문(database/deployed-commands.json)을 기록하지 않도록 임시 경로로 우회
 process.env.DEPLOYED_COMMANDS_HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
 
 // 서버 설정은 진짜를 임시 DB 로(공지 발송이 봇 채널을 읽는다)
-const { openTempStore, setGuild } = require("../helpers/tempStore");
+const { openTempStore, setGuild } = (await import("../helpers/tempStore.js")).default;
 const store = openTempStore("dashboard-admin-");
 after(() => store.close());
 
 // ── 모킹: REST.put (재배포 버튼 경로) ──
-const { REST } = require("discord.js");
+import { REST } from "discord.js";
 const realPut = REST.prototype.put;
 REST.prototype.put = async function (route, options) {
   return options.body.map((c) => ({ name: c.name }));
@@ -32,7 +35,7 @@ after(() => {
   REST.prototype.put = realPut;
 });
 
-const express = require("express");
+import express from "express";
 
 // ── Fake Discord client ──────────────────────────────────────
 function makeSendableChannel(id) {
@@ -288,7 +291,7 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
 // 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
 // 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
 
-const yamlStore = require("../../src/config/yamlStore");
+const yamlStore = (await import("../../src/config/yamlStore.js")).default;
 const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 
 before(() => {
@@ -300,7 +303,7 @@ before(() => {
 });
 
 after(() => {
-  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(CONFIG_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 

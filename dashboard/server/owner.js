@@ -1,7 +1,6 @@
-"use strict";
-
-const config = require("../../config");
-const { getViewAs } = require("./viewAs");
+import config from "../../config.js";
+import viewAs from "./viewAs.js";
+const { getViewAs } = viewAs;
 
 /**
  * 봇 운영자(`OWNER_ID`) 여부를 요청마다 현재 설정으로 다시 판정한다.
@@ -27,4 +26,6 @@ function isOwner(req) {
   return !tier || tier === "owner";
 }
 
-module.exports = { isOwner, isRealOwner };
+const exported = { isOwner, isRealOwner };
+export default exported;
+export { exported as "module.exports" };

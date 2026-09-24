@@ -1,7 +1,6 @@
-"use strict";
-
-const crypto = require("crypto");
-const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
+import crypto from "crypto";
+import logger from "../../../src/infra/log/logger.js";
+const log = logger.child({ category: "dashboard" });
 
 // 오류 응답에 스택·내부 경로·의존성 버전이 실리지 않게 한다.
 //
@@ -80,4 +79,6 @@ function errorHandler(err, req, res, next) {
   res.type("html").send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${message}</p><p>오류 ID: ${errorId}</p>`);
 }
 
-module.exports = { errorHandler, notFoundJson, _internals: { classify, isUnavailable } };
+const exported = { errorHandler, notFoundJson, _internals: { classify, isUnavailable } };
+export default exported;
+export { exported as "module.exports" };

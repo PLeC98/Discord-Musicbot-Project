@@ -1,7 +1,6 @@
-"use strict";
-
-const S = require("../../../src/ui/strings");
-const { shadowMember } = require("../viewAs");
+import S from "../../../src/ui/strings.js";
+import viewAs from "../viewAs.js";
+const { shadowMember } = viewAs;
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리
 const toApiError = S.withoutErrorMark;
@@ -32,4 +31,6 @@ async function resolveMember(req, res) {
   return { client, guild, member };
 }
 
-module.exports = { resolveMember, toApiError };
+const exported = { resolveMember, toApiError };
+export default exported;
+export { exported as "module.exports" };

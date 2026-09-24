@@ -1,14 +1,14 @@
-"use strict";
-
 // dashboard/server/routes/auth.js — 디스코드 OAuth 로그인 · 콜백 · 로그아웃.
 // 디스코드를 부르는 HTTP 클라이언트는 가짜를 넘긴다. 세션은 express-session 의 메모리 저장소.
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const express = require("express");
-const session = require("express-session");
-const { createAuthRouter } = require("../../dashboard/server/routes/auth");
-const { listenForFetch } = require("../helpers/listen");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import express from "express";
+import session from "express-session";
+import authModule from "../../dashboard/server/routes/auth.js";
+const { createAuthRouter } = authModule;
+import listen from "../helpers/listen.js";
+const { listenForFetch } = listen;
 
 const servers = [];
 after(() => servers.forEach((s) => s.close()));

@@ -1,15 +1,18 @@
-"use strict";
-
 // 이모지 고르기 목록이 지켜야 할 것들.
 //
 // 목록은 notes/디스코드 이모지 카테고리 및 목록.md를 원본으로 scripts/build-emoji-list.js가 만든다.
 // 그 스크립트는 인터넷을 쓰지만 여기서는 쓰지 않는다 — 만들어진 결과물만 본다.
 
-const test = require("node:test");
-const assert = require("node:assert");
-const path = require("path");
+import test from "node:test";
+import assert from "node:assert";
+import path from "path";
 
-const LIST = path.join(__dirname, "..", "..", "dashboard", "client", "src", "emojiList.js");
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const LIST = path.join(import.meta.dirname, "..", "..", "dashboard", "client", "src", "emojiList.js");
 const list = () => import("file://" + LIST.replace(/\\/g, "/"));
 const groups = () => list().then((m) => m.EMOJI_GROUPS);
 const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.name, e.char, e]));

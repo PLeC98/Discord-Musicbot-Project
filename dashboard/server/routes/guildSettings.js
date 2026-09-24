@@ -1,18 +1,21 @@
-"use strict";
-
 // 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수). 모더레이터와 봇 운영자만
 
-const express = require("express");
-const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
-const { ChannelType } = require("discord.js");
-const requireAuth = require("../middleware/requireAuth");
-const { isModerator } = require("../../../src/usecases/permissions");
-const GuildSettingsManager = require("../../../src/store/guildSettings");
-const SponsorBlock = require("../../../src/sources/sponsorBlock");
-const config = require("../../../config");
-const { isOwner } = require("../owner");
-const { getPlayer } = require("../guildAccess");
-const { parse, settingsBody } = require("../requestSchemas");
+import express from "express";
+import logger from "../../../src/infra/log/logger.js";
+const log = logger.child({ category: "dashboard" });
+import { ChannelType } from "discord.js";
+import requireAuth from "../middleware/requireAuth.js";
+import permissions from "../../../src/usecases/permissions.js";
+const { isModerator } = permissions;
+import GuildSettingsManager from "../../../src/store/guildSettings.js";
+import SponsorBlock from "../../../src/sources/sponsorBlock.js";
+import config from "../../../config.js";
+import owner from "../owner.js";
+const { isOwner } = owner;
+import guildAccess from "../guildAccess.js";
+const { getPlayer } = guildAccess;
+import requestSchemas from "../requestSchemas.js";
+const { parse, settingsBody } = requestSchemas;
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS = {
@@ -153,4 +156,6 @@ function createGuildSettingsRouter() {
   return router;
 }
 
-module.exports = { createGuildSettingsRouter };
+const exported = { createGuildSettingsRouter };
+export default exported;
+export { exported as "module.exports" };

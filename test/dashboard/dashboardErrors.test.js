@@ -1,5 +1,3 @@
-"use strict";
-
 // dashboard/server — 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
 // 미들웨어가 올바른 순서로 등록되는지.
 //
@@ -9,12 +7,17 @@
 // 실 앱(createApp)을 임의 포트에 띄운다 — 순서 자체가 검증 대상이라 축소판으로는 의미가 없다.
 // 세션 미들웨어만 "저장장치가 죽은 상태"로 넘긴다.
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { test, before, after } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import path from "node:path";
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
 
 // ── 로그: 싱크에 받는 곳을 달아 본다(errorId가 로그에도 남는지 확인용) ──────
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
 const logLines = [];
 require("../../src/infra/log/sink").addDestination((rec) => logLines.push(JSON.stringify(rec)));
 
@@ -33,17 +36,17 @@ const brokenSession = (req, res, next) => {
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore } = require("../helpers/tempStore");
+const { openTempStore } = (await import("../helpers/tempStore.js")).default;
 const store = openTempStore("dashboard-errors-");
 after(() => store.close());
 
-const { createApp } = require("../../dashboard/server/index.js");
-const { createPlayerStream } = require("../../dashboard/server/playerStream.js");
-const { describeBinding, isLoopbackHost } = require("../../dashboard/server/binding.js");
-const { _internals } = require("../../dashboard/server/middleware/errorHandler.js");
-const { errorHandler } = require("../../dashboard/server/middleware/errorHandler.js");
+const { createApp } = (await import("../../dashboard/server/index.js")).default;
+const { createPlayerStream } = (await import("../../dashboard/server/playerStream.js")).default;
+const { describeBinding, isLoopbackHost } = (await import("../../dashboard/server/binding.js")).default;
+const { _internals } = (await import("../../dashboard/server/middleware/errorHandler.js")).default;
+const { errorHandler } = (await import("../../dashboard/server/middleware/errorHandler.js")).default;
 
-const HAS_DIST = fs.existsSync(path.join(__dirname, "..", "..", "dashboard", "client", "dist", "index.html"));
+const HAS_DIST = fs.existsSync(path.join(import.meta.dirname, "..", "..", "dashboard", "client", "dist", "index.html"));
 
 let server;
 let base;

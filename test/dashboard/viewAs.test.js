@@ -1,5 +1,3 @@
-"use strict";
-
 // dashboard/server/viewAs.js — 권한 수준 오버라이드.
 //
 // 핵심 계약 두 가지:
@@ -10,18 +8,18 @@
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
 process.env.OWNER_ID = "owner";
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { PermissionFlagsBits } = require("discord.js");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import { PermissionFlagsBits } from "discord.js";
 
-const { openTempStore, setGuild } = require("../helpers/tempStore");
+const { openTempStore, setGuild } = (await import("../helpers/tempStore.js")).default;
 const store = openTempStore("perm-");
 after(() => store.close());
 
-const { TIERS, getViewAs, shadowMember } = require("../../dashboard/server/viewAs");
-const { isOwner, isRealOwner } = require("../../dashboard/server/owner");
-const { isModerator, isDj, checkVoice, checkControl, checkAdd } = require("../../src/usecases/permissions");
-const S = require("../../src/ui/strings");
+const { TIERS, getViewAs, shadowMember } = (await import("../../dashboard/server/viewAs.js")).default;
+const { isOwner, isRealOwner } = (await import("../../dashboard/server/owner.js")).default;
+const { isModerator, isDj, checkVoice, checkControl, checkAdd } = (await import("../../src/usecases/permissions.js")).default;
+const S = (await import("../../src/ui/strings.js")).default;
 
 const req = (tier, userId = "owner") => ({ session: { user: { id: userId }, ...(tier === undefined ? {} : { viewAs: tier }) } });
 

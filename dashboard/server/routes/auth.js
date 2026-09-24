@@ -1,8 +1,9 @@
-const express = require("express");
-const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
-const axios = require("axios");
-const crypto = require("crypto");
-const config = require("../../../config");
+import express from "express";
+import logger from "../../../src/infra/log/logger.js";
+const log = logger.child({ category: "dashboard" });
+import axios from "axios";
+import crypto from "crypto";
+import config from "../../../config.js";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
@@ -108,4 +109,6 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) } = {}) {
   return router;
 }
 
-module.exports = { createAuthRouter };
+const exported = { createAuthRouter };
+export default exported;
+export { exported as "module.exports" };

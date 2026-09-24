@@ -1,25 +1,36 @@
-const config = require("../../config");
-const log = require("../../src/infra/log/logger").child({ category: "dashboard" });
-const crypto = require("crypto");
-const express = require("express");
-const session = require("express-session");
-const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
-const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
+import config from "../../config.js";
+import logger from "../../src/infra/log/logger.js";
+const log = logger.child({ category: "dashboard" });
+import crypto from "crypto";
+import express from "express";
+import session from "express-session";
+import cors from "cors";
+import path from "path";
+import fs from "fs";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
-const { createCorsOptions } = require("./cors");
-const { bodyLimit } = require("./bodyLimit");
-const SqliteSessionStore = require("./sessionStore");
-const { issueCsrfToken, requireCsrfToken } = require("./middleware/csrf");
-const { securityHeaders } = require("./middleware/securityHeaders");
-const { errorHandler, notFoundJson } = require("./middleware/errorHandler");
-const { isLoopbackHost, describeBinding } = require("./binding");
-const { isOwner, isRealOwner } = require("./owner");
-const { getViewAs } = require("./viewAs");
-const { createAuthRouter } = require("./routes/auth");
-const adminRoutes = require("./routes/admin");
-const { createGuildsRouter } = require("./routes/guilds");
+import corsModule from "./cors.js";
+const { createCorsOptions } = corsModule;
+import bodyLimitModule from "./bodyLimit.js";
+const { bodyLimit } = bodyLimitModule;
+import SqliteSessionStore from "./sessionStore.js";
+import csrf from "./middleware/csrf.js";
+const { issueCsrfToken, requireCsrfToken } = csrf;
+import securityHeadersModule from "./middleware/securityHeaders.js";
+const { securityHeaders } = securityHeadersModule;
+import errorHandlerModule from "./middleware/errorHandler.js";
+const { errorHandler, notFoundJson } = errorHandlerModule;
+import binding from "./binding.js";
+const { isLoopbackHost, describeBinding } = binding;
+import owner from "./owner.js";
+const { isOwner, isRealOwner } = owner;
+import viewAsModule from "./viewAs.js";
+const { getViewAs } = viewAsModule;
+import auth from "./routes/auth.js";
+const { createAuthRouter } = auth;
+import adminRoutes from "./routes/admin.js";
+import guilds from "./routes/guilds.js";
+const { createGuildsRouter } = guilds;
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
 // 보안은 유지되지만(추측 불가) 재시작마다 쿠키 서명이 무효화되어 대시보드 로그인이 풀린다.
@@ -86,7 +97,7 @@ function createApp(client, { stream, deployCommands, sessionMiddleware = createS
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
-  const clientDist = path.join(__dirname, "../client/dist");
+  const clientDist = path.join(import.meta.dirname, "../client/dist");
   if (fs.existsSync(clientDist)) {
     app.use(express.static(clientDist));
     app.get("/{*path}", (req, res, next) => {
@@ -189,4 +200,6 @@ function startDashboard(client, { stream, deployCommands }) {
   return app;
 }
 
-module.exports = { startDashboard, createApp };
+const exported = { startDashboard, createApp };
+export default exported;
+export { exported as "module.exports" };

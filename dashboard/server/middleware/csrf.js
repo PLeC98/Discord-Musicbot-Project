@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+import crypto from "crypto";
 
 // 세션에 토큰을 두고 헤더(x-csrf-token)로 받은 값과 맞춘다. 라우트를 걸기 전에 app.use 로
 // 통째로 씌우므로 상태를 바꾸는 경로가 이 검사 밖으로 새지 않는다.
@@ -43,4 +43,6 @@ function requireCsrfToken(req, res, next) {
   return next();
 }
 
-module.exports = { ensureCsrfToken, issueCsrfToken, requireCsrfToken };
+const exported = { ensureCsrfToken, issueCsrfToken, requireCsrfToken };
+export default exported;
+export { exported as "module.exports" };

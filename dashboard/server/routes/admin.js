@@ -1,30 +1,32 @@
 // 봇 운영자(OWNER_ID) 전용 라우터. 모든 엔드포인트가 requireOwner를 지난다.
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
-const express = require("express");
-const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
+import express from "express";
+import logger from "../../../src/infra/log/logger.js";
+const log = logger.child({ category: "dashboard" });
 const router = express.Router();
-const requireOwner = require("../middleware/requireOwner");
-const os = require("os");
-const logManager = require("../../../src/infra/log/sink");
-const procRegistry = require("../../../src/infra/processRegistry");
-const { TIERS, getViewAs } = require("../viewAs");
-const trackState = require("../../../src/player/trackState");
-const playerEvents = require("../../../src/player/events");
-const genreConfig = require("../../../src/config/genres");
-const statusConfig = require("../../../src/config/status");
-const aiConfig = require("../../../src/config/ai");
-const cookieConfig = require("../../../src/config/cookies");
-const yamlStore = require("../../../src/config/yamlStore");
-const { EmbedBuilder } = require("discord.js");
-const config = require("../../../config");
-const GuildSettingsManager = require("../../../src/store/guildSettings");
-const audioCache = require("../../../src/store/audioCache");
-const YouTube = require("../../../src/sources/youtube/index");
-const autoplaySources = require("../../../src/autoplay/sources/index");
-const assist = require("../../../src/autoplay/assist/index");
-const tokens = require("../../../src/autoplay/assist/tokens");
-const models = require("../../../src/config/schema/aiModels");
+import requireOwner from "../middleware/requireOwner.js";
+import os from "os";
+import logManager from "../../../src/infra/log/sink.js";
+import procRegistry from "../../../src/infra/processRegistry.js";
+import viewAsModule from "../viewAs.js";
+const { TIERS, getViewAs } = viewAsModule;
+import trackState from "../../../src/player/trackState.js";
+import playerEvents from "../../../src/player/events.js";
+import genreConfig from "../../../src/config/genres.js";
+import statusConfig from "../../../src/config/status.js";
+import aiConfig from "../../../src/config/ai.js";
+import cookieConfig from "../../../src/config/cookies.js";
+import yamlStore from "../../../src/config/yamlStore.js";
+import { EmbedBuilder } from "discord.js";
+import config from "../../../config.js";
+import GuildSettingsManager from "../../../src/store/guildSettings.js";
+import audioCache from "../../../src/store/audioCache.js";
+import YouTube from "../../../src/sources/youtube/index.js";
+import autoplaySources from "../../../src/autoplay/sources/index.js";
+import assist from "../../../src/autoplay/assist/index.js";
+import tokens from "../../../src/autoplay/assist/tokens.js";
+import models from "../../../src/config/schema/aiModels.js";
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {
@@ -479,4 +481,5 @@ router.post("/view-as", requireOwner, (req, res) => {
   res.json({ viewAs: getViewAs(req) });
 });
 
-module.exports = router;
+export default router;
+export { router as "module.exports" };

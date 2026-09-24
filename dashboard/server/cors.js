@@ -1,4 +1,5 @@
-const log = require("../../src/infra/log/logger").child({ category: "dashboard" });
+import logger from "../../src/infra/log/logger.js";
+const log = logger.child({ category: "dashboard" });
 
 const DEV_ORIGIN = "http://localhost:5173";
 let warnedDevOrigin = false;
@@ -45,4 +46,6 @@ function createCorsOptions(dashboardUrl, { allowDevOrigin = false } = {}) {
   };
 }
 
-module.exports = { createCorsOptions, normalizeDashboardOrigin };
+const exported = { createCorsOptions, normalizeDashboardOrigin };
+export default exported;
+export { exported as "module.exports" };

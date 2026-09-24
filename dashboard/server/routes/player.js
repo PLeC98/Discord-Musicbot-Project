@@ -1,23 +1,32 @@
-"use strict";
-
 // 재생. 상태 읽기 · 음성 참가 · 재생 조작(usecases/controls) · 곡 추가(usecases/addTracks)
 
-const express = require("express");
-const log = require("../../../src/infra/log/logger").child({ category: "dashboard" });
-const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
-const requireAuth = require("../middleware/requireAuth");
-const { resolveMember, toApiError } = require("../middleware/requireControl");
-const { checkControl, checkAdd, isModerator } = require("../../../src/usecases/permissions");
-const controls = require("../../../src/usecases/controls");
-const { controlApiError } = require("../../../src/ui/controlMessages");
-const { requestPlayback, continueCollection, ensurePlayer } = require("../../../src/usecases/addTracks");
-const { validState, LIFETIME_MS } = require("../../../src/usecases/playlistMore");
-const config = require("../../../config");
-const { isOwner } = require("../owner");
-const { shadowMember } = require("../viewAs");
-const { getPlayer, voiceFlags, toInt } = require("../guildAccess");
-const { queueTrack, queueWindow, playerState } = require("../playerView");
-const { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } = require("../requestSchemas");
+import express from "express";
+import logger from "../../../src/infra/log/logger.js";
+const log = logger.child({ category: "dashboard" });
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
+import requireAuth from "../middleware/requireAuth.js";
+import requireControl from "../middleware/requireControl.js";
+const { resolveMember, toApiError } = requireControl;
+import permissionsModule from "../../../src/usecases/permissions.js";
+const { checkControl, checkAdd, isModerator } = permissionsModule;
+import controls from "../../../src/usecases/controls.js";
+import controlMessages from "../../../src/ui/controlMessages.js";
+const { controlApiError } = controlMessages;
+import addTracks from "../../../src/usecases/addTracks.js";
+const { requestPlayback, continueCollection, ensurePlayer } = addTracks;
+import playlistMore from "../../../src/usecases/playlistMore.js";
+const { validState, LIFETIME_MS } = playlistMore;
+import config from "../../../config.js";
+import ownerModule from "../owner.js";
+const { isOwner } = ownerModule;
+import viewAs from "../viewAs.js";
+const { shadowMember } = viewAs;
+import guildAccess from "../guildAccess.js";
+const { getPlayer, voiceFlags, toInt } = guildAccess;
+import playerView from "../playerView.js";
+const { queueTrack, queueWindow, playerState } = playerView;
+import requestSchemas from "../requestSchemas.js";
+const { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } = requestSchemas;
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
@@ -355,4 +364,6 @@ function addRoutes(router) {
   });
 }
 
-module.exports = { createPlayerRouter };
+const exported = { createPlayerRouter };
+export default exported;
+export { exported as "module.exports" };
