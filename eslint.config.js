@@ -68,8 +68,8 @@ export default [
     },
   },
 
-  // 봇 쪽 코드의 품질 게이트. 지금의 위반은 eslint-suppressions.json 에 기준선으로 둔다(한 번만 만들고 다시 만들지 않는다).
-  // 위반을 줄인 커밋은 `eslint . --prune-suppressions` 로 억제 파일도 같이 줄인다. 새로 쓴 코드는 억제 목록에 못 들어간다.
+  // 봇 쪽 코드의 품질 게이트. 억제 파일은 쓰지 않는다. 넘으면 고치고, 고칠 값이 없을 때만
+  // 그 줄에 `// eslint-disable-next-line <규칙> -- 이유` 를 단다.
   // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다).
   {
     files: ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts"],

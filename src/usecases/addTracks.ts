@@ -125,74 +125,95 @@ type CollectionResult = { success: false; message: string } | (PlaybackResult & 
 type Found = { isPlaylist: boolean; collection?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; queueLimited?: boolean };
 
 async function requestPlayback(client: Client, request: PlaybackRequest): Promise<PlaybackResult> {
-  const { guild, requester, collection = null, textChannel = null, voiceChannel = null, insertFirst = false, insertAfterId = null, single = false, responder = silentResponder, source = "play", lookup = defaultLookup, ffmpegReady = () => ffmpegCapabilities().ok } = request;
-  const query = request.query ?? null;
-  const guildId = guild.id;
-  const who = toRequester(requester);
-
-  let resolvedTextChannel = textChannel;
-  if (!resolvedTextChannel && !client.players.get(guildId)?.textChannel) {
-    resolvedTextChannel = await resolveFallbackTextChannel(guild);
-  }
-
-  const player = ensurePlayer(client, { guild, textChannel: resolvedTextChannel, voiceChannel });
+  const { guild, insertFirst = false, responder = silentResponder } = request;
+  const player = await playerFor(client, request);
   // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정, 더 넣기 선택지 단위이기도 하다
-  const batch = GuildSettingsManager.resolvePlaylistAddMax(guildId);
+  const batch = GuildSettingsManager.resolvePlaylistAddMax(guild.id);
 
-  let trackData: Found;
-  if (request.tracks) {
-    trackData = { isPlaylist: request.tracks.length > 1, collection, tracks: request.tracks };
-  } else {
-    log.debug({ sub: "play" }, `${source} | 서버=${guildId} | 검색어="${request.query}"`);
-    // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
-    // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
-    const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
-    const limit = single ? 1 : Math.max(1, Math.min(batch, room));
-    const found = await lookup.resolveQuery(request.query, `${source}.resolveQuery`, { limit });
-    if (!found.success) return { success: false, message: ErrorHandler.lookupFailure(found) };
-    trackData = found;
-
-    // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
-    const more = trackData.total == null ? trackData.tracks.length >= limit : trackData.total > trackData.tracks.length;
-    if (!single && trackData.isPlaylist && room < batch && more) trackData = { ...trackData, queueLimited: true };
-  }
-
-  // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 막는 것은 두 가지뿐이다.
-  // 아직 시작하지 않은 방송(틀 것이 없다)과, 그 갈래를 열 수 없는 ffmpeg 빌드.
-  // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
-  const blocked = trackData.tracks.map((t) => liveBlockText(t, ffmpegReady));
-  const firstBlock = blocked.find((why): why is string => Boolean(why));
-  if (firstBlock) {
-    const playable = trackData.tracks.filter((_, i) => !blocked[i]);
-    // 전부 막혔으면 처음 막힌 까닭을 알린다
-    if (playable.length === 0) return { success: false, message: firstBlock };
-    trackData = { ...trackData, tracks: playable };
-  }
+  const checked = await tracksFor(player, request, batch);
+  if (typeof checked === "string") return { success: false, message: checked };
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
-  if (trackData.tracks.some((t) => t.isLive)) player.releaseLoopForLive();
+  if (checked.tracks.some((t) => t.isLive)) player.releaseLoopForLive();
 
-  // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)
-  if (single && trackData.tracks.length > 1) {
-    trackData = { ...trackData, isPlaylist: false, collection: null, tracks: trackData.tracks.slice(0, 1) };
-  }
-  const toAdd: TrackData = { ...trackData, ...(insertFirst ? { insertFirst: true } : {}), ...(insertAfterId ? { insertAfterId } : {}) };
+  const trackData = trimmed(checked, request.single);
+  const toAdd: TrackData = { ...trackData, ...placement(request) };
 
-  const result = await client.musicEmbedManager.handleMusicData(guildId, toAdd, who, responder);
-
-  // 조작 하나에 한 줄. 요청(위 debug)과 결과를 따로 남기면 조작당 두 줄이 되는데,
-  // 운영상 필요한 것은 "누가 무엇을 넣었나"라 결과 줄에 요청자를 함께 싣는다.
-  // 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
-  const first = trackData.tracks[0];
-  const count = trackData.tracks.length;
-  const what = trackData.isPlaylist ? `${S.collectionLabel(trackData.collection)} ${count}곡 (첫 곡 "${first?.title ?? "?"}")` : `"${first?.title ?? "?"}"`;
-  const who_ = who?.tag ?? who?.username ?? who?.id ?? "?";
-  log.info({ sub: "play" }, `${result?.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${what} | 요청 ${who_} | 대기열 ${player.queue.length}곡${insertFirst ? " | 맨 앞" : ""}${result?.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : ""}${trackData.queueLimited ? " | 자리가 모자라 일부만 받음" : ""}`);
+  const who = toRequester(request.requester);
+  const result = await client.musicEmbedManager.handleMusicData(guild.id, toAdd, who, responder);
+  logAddition(trackData, result, who, player, insertFirst);
 
   // 목록이 더 남았으면 이어 받을 상태. 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
-  const more = result.success && !result.dropped ? continuation(query, trackData, { insertFirst }) : null;
+  const more = result.success && !result.dropped ? continuation(request.query ?? null, trackData, { insertFirst }) : null;
   return { ...result, isPlaylist: trackData.isPlaylist, tracks: trackData.tracks, player, more: more && { ...more, batch } };
 }
+
+// 서버의 플레이어. 요청에도 플레이어에도 텍스트 채널이 없으면 전용 채널을 쓴다
+async function playerFor(client: Client, { guild, textChannel = null, voiceChannel = null }: PlaybackRequest) {
+  let resolvedTextChannel = textChannel;
+  if (!resolvedTextChannel && !client.players.get(guild.id)?.textChannel) {
+    resolvedTextChannel = await resolveFallbackTextChannel(guild);
+  }
+  return ensurePlayer(client, { guild, textChannel: resolvedTextChannel, voiceChannel });
+}
+
+// 넣을 곡. 이미 찾은 곡이면 그대로, 검색어면 찾는다. 넣을 수 없으면 안내 문구
+async function tracksFor(player: MusicPlayer, request: PlaybackRequest, batch: number): Promise<Found | string> {
+  const found = request.tracks ? { isPlaylist: request.tracks.length > 1, collection: request.collection ?? null, tracks: request.tracks } : await search(player, request.query, request, batch);
+  return typeof found === "string" ? found : withoutBlocked(found, request.ffmpegReady);
+}
+
+async function search(player: MusicPlayer, query: string, { guild, single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
+  log.debug({ sub: "play" }, `${source} | 서버=${guild.id} | 검색어="${query}"`);
+  // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
+  // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
+  const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
+  const limit = single ? 1 : Math.max(1, Math.min(batch, room));
+  const found = await lookup.resolveQuery(query, `${source}.resolveQuery`, { limit });
+  if (!found.success) return ErrorHandler.lookupFailure(found);
+
+  // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
+  const more = found.total == null ? found.tracks.length >= limit : found.total > found.tracks.length;
+  return !single && found.isPlaylist && room < batch && more ? { ...found, queueLimited: true } : found;
+}
+
+// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 막는 것은 두 가지뿐이다.
+// 아직 시작하지 않은 방송(틀 것이 없다)과, 그 갈래를 열 수 없는 ffmpeg 빌드.
+// 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
+function withoutBlocked(found: Found, ffmpegReady = () => ffmpegCapabilities().ok): Found | string {
+  const blocked = found.tracks.map((t) => liveBlockText(t, ffmpegReady));
+  const firstBlock = blocked.find((why): why is string => Boolean(why));
+  if (!firstBlock) return found;
+  const playable = found.tracks.filter((_, i) => !blocked[i]);
+  // 전부 막혔으면 처음 막힌 까닭을 알린다
+  return playable.length === 0 ? firstBlock : { ...found, tracks: playable };
+}
+
+// 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)
+function trimmed(found: Found, single = false): Found {
+  return single && found.tracks.length > 1 ? { ...found, isPlaylist: false, collection: null, tracks: found.tracks.slice(0, 1) } : found;
+}
+
+// 넣을 자리. 적힌 것만 싣는다
+function placement({ insertFirst = false, insertAfterId = null }: PlaybackRequest) {
+  return { ...(insertFirst ? { insertFirst: true } : {}), ...(insertAfterId ? { insertAfterId } : {}) };
+}
+
+// 조작 하나에 한 줄. 요청(검색 debug)과 결과를 따로 남기면 조작당 두 줄이 되는데,
+// 운영상 필요한 것은 "누가 무엇을 넣었나"라 결과 줄에 요청자를 함께 싣는다.
+// 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
+function logAddition(found: Found, result: AddResult, who: Requester | null, player: MusicPlayer, insertFirst: boolean) {
+  const notes = [insertFirst ? " | 맨 앞" : "", result.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : "", found.queueLimited ? " | 자리가 모자라 일부만 받음" : ""].join("");
+  log.info({ sub: "play" }, `${result.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${whatOf(found)} | 요청 ${nameOf(who)} | 대기열 ${player.queue.length}곡${notes}`);
+}
+
+// 넣은 것. 목록이면 출처와 곡 수, 한 곡이면 제목
+function whatOf({ isPlaylist, collection, tracks }: Found) {
+  const title = tracks[0]?.title ?? "?";
+  return isPlaylist ? `${S.collectionLabel(collection)} ${tracks.length}곡 (첫 곡 "${title}")` : `"${title}"`;
+}
+
+const nameOf = (who: Requester | null) => who?.tag ?? who?.username ?? who?.id ?? "?";
 
 const MORE_BATCH = 100;
 
@@ -220,12 +241,37 @@ const ignoreProgress = () => {
   /* 진행을 알릴 곳이 없다 */
 };
 
-async function continueCollection(client: Client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = ignoreProgress, lookup = defaultLookup }: CollectionRequest): Promise<CollectionResult> {
+async function continueCollection(client: Client, request: CollectionRequest): Promise<CollectionResult> {
+  const { guild, state } = request;
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
-  const want = Math.min(count, roomFor(player));
+  const want = Math.min(request.count, roomFor(player));
   if (want <= 0) return { success: false, message: client.musicEmbedManager.queueFullMessage() };
 
+  const { found, cursor, total } = await gather(request, want);
+
+  // 앵커가 앞당겨져 더 받았으면 넘친 만큼 되돌린다. 다음 이어 받기는 앵커가 바로잡는다
+  const tracks = found.slice(0, want);
+  if (tracks.length === 0) return { success: false, message: "더 넣을 곡을 찾지 못했어요." };
+  const nextOffset = cursor - (found.length - tracks.length);
+
+  const result = await requestPlayback(client, {
+    guild,
+    requester: request.requester,
+    tracks,
+    collection: KINDS[state.kind].collection,
+    textChannel: request.textChannel,
+    voiceChannel: request.voiceChannel,
+    insertAfterId: state.insertFirst ? state.anchorId : null,
+    source: request.source ?? "더 넣기",
+  });
+  const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
+  const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1)?.id }) : null;
+  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && total != null ? { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } : null };
+}
+
+// 목록에서 want 곡을 묶음으로 나눠 받는다. 앵커를 찾으면 그 뒤부터, 못 찾으면 요청 위치부터
+async function gather({ state, onProgress = ignoreProgress, lookup = defaultLookup }: CollectionRequest, want: number) {
   const url = KINDS[state.kind].url(state.listId);
   const found: TrackInfo[] = [];
   let cursor = state.offset;
@@ -246,25 +292,7 @@ async function continueCollection(client: Client, { guild, requester, state, cou
     onProgress(Math.min(found.length, want), want);
     if (fresh.length === 0 || !advanced || (total != null && cursor >= total)) break;
   }
-
-  // 앵커가 앞당겨져 더 받았으면 넘친 만큼 되돌린다. 다음 이어 받기는 앵커가 바로잡는다
-  const tracks = found.slice(0, want);
-  if (tracks.length === 0) return { success: false, message: "더 넣을 곡을 찾지 못했어요." };
-  const nextOffset = cursor - (found.length - tracks.length);
-
-  const result = await requestPlayback(client, {
-    guild,
-    requester,
-    tracks,
-    collection: KINDS[state.kind].collection,
-    textChannel,
-    voiceChannel,
-    insertAfterId: state.insertFirst ? state.anchorId : null,
-    source,
-  });
-  const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
-  const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1)?.id }) : null;
-  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && total != null ? { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } : null };
+  return { found, cursor, total };
 }
 
 export { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup };
