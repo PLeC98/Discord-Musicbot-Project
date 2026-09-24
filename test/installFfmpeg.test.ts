@@ -10,8 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import installFfmpeg from "../scripts/install-ffmpeg.ts";
-const { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue } = installFfmpeg;
+import { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue } from "../scripts/install-ffmpeg.ts";
 
 // 실제 릴리스의 checksums.sha256 일부 — 한 릴리스에 브랜치가 여럿 들어 있다
 const CHECKSUMS = [

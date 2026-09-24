@@ -296,9 +296,7 @@ function scan() {
   };
 }
 
-const exported = { scan, LAYERS, layerOf };
-export default exported;
-export { exported as "module.exports" };
+export { scan, LAYERS, layerOf };
 
 if (import.meta.main) {
   const r = scan();

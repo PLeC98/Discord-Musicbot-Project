@@ -48,6 +48,4 @@ if (import.meta.main) {
   }
 }
 
-const exported = { setup, NAMES, CONFIG_DIR };
-export default exported;
-export { exported as "module.exports" };
+export { setup, NAMES, CONFIG_DIR };

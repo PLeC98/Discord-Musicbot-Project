@@ -224,6 +224,4 @@ if (import.meta.main) {
   });
 }
 
-const exported = { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue };
-export default exported;
-export { exported as "module.exports" };
+export { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue };

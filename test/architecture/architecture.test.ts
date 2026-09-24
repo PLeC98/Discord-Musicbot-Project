@@ -6,8 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import scanModule from "./scan.ts";
-const { scan, LAYERS } = scanModule;
+import { scan, LAYERS } from "./scan.ts";
 import baseline from "./baseline.json" with { type: "json" };
 
 const now = scan();
