@@ -5,6 +5,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import pluginVue from "eslint-plugin-vue";
 import prettierConfig from "eslint-config-prettier";
+import tseslint from "typescript-eslint";
 
 export default [
   {
@@ -28,6 +29,13 @@ export default [
       sourceType: "module",
       globals: globals.nodeBuiltin,
     },
+  },
+
+  // TypeScript(리팩터링 10단계). 파서와 권장 규칙(타입 정보 없이 도는 것만). 봇 본체 규칙은 아래에서 .js 와 같이 건다
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["**/*.ts"] })),
+  {
+    files: ["**/*.ts"],
+    languageOptions: { globals: globals.nodeBuiltin },
   },
 
   // 대시보드 클라이언트 - Vue 3 + 브라우저 (essential = 오류 방지 규칙만, 스타일은 Prettier)
@@ -60,7 +68,7 @@ export default [
   // 위반을 줄인 커밋은 `eslint . --prune-suppressions` 로 억제 파일도 같이 줄인다. 새로 쓴 코드는 억제 목록에 못 들어간다.
   // 일부러 비워 둔 catch · 함수는 안에 이유 주석을 적는다(주석이 있으면 빈 것으로 안 본다).
   {
-    files: ["src/**/*.js", "commands/**/*.js", "events/**/*.js", "dashboard/server/**/*.js", "index.js", "config.js", "scripts/**/*.js"],
+    files: ["src/**/*.{js,ts}", "commands/**/*.{js,ts}", "events/**/*.{js,ts}", "dashboard/server/**/*.{js,ts}", "index.{js,ts}", "config.{js,ts}", "scripts/**/*.{js,ts}"],
     rules: {
       complexity: ["error", 15],
       "max-lines-per-function": ["error", { max: 120, skipBlankLines: true, skipComments: true }],

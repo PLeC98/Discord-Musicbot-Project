@@ -12,7 +12,12 @@
     "lib": ["es2024"],
     "types": ["node"],
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // 10단계: Node 가 .ts 를 그대로 실행한다(타입만 지운다). 가져오는 경로에 .ts 를 적고, 지울 수 없는 문법(enum 등)은 막고,
+    // 타입만 가져올 때는 import type 을 쓴다(지우고 나면 없는 이름을 가져오지 않게)
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.js", "commands/**/*.js", "events/**/*.js", "dashboard/server/**/*.js", "index.js", "config.js", "scripts/**/*.js"]
+  "include": ["src/**/*.js", "commands/**/*.js", "events/**/*.js", "dashboard/server/**/*.js", "index.js", "config.js", "scripts/**/*.js", "src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts", "test/**/*.ts"]
 }

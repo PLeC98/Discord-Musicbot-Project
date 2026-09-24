@@ -32,9 +32,13 @@ function walk(dir, out = []) {
   return out;
 }
 
+// 루트의 기동 파일과 설정(10단계에서 .ts 가 된다)
+const isRootIndex = (rel) => rel === "index.js" || rel === "index.ts";
+const isRootConfig = (rel) => rel === "config.js" || rel === "config.ts";
+
 function layerOf(rel) {
-  if (rel === "index.js") return "app";
-  if (rel === "config.js") return "config";
+  if (isRootIndex(rel)) return "app";
+  if (isRootConfig(rel)) return "config";
   if (/^(commands|events|dashboard\/server)\//.test(rel)) return "입구";
   const m = /^src\/([^/]+)\//.exec(rel);
   return m ? m[1] : null;
@@ -43,7 +47,7 @@ function layerOf(rel) {
 function resolveSpec(fromRel, spec) {
   if (!spec.startsWith("./") && !spec.startsWith("../")) return null;
   const base = posix(path.join(path.dirname(fromRel), spec));
-  for (const cand of [base, `${base}.js`, `${base}/index.js`]) {
+  for (const cand of [base, `${base}.js`, `${base}.ts`, `${base}/index.js`, `${base}/index.ts`]) {
     if (fs.existsSync(path.join(ROOT, cand)) && fs.statSync(path.join(ROOT, cand)).isFile()) return cand;
   }
   return null;
@@ -83,7 +87,7 @@ function scanSource(rel) {
 
   // config.js 를 받은 이름(맨 위의 const x = require("…/config") · import x from "…/config.js"). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
   for (const s of sf.statements) {
-    if (ts.isImportDeclaration(s) && ts.isStringLiteral(s.moduleSpecifier) && resolveSpec(rel, s.moduleSpecifier.text) === "config.js") {
+    if (ts.isImportDeclaration(s) && ts.isStringLiteral(s.moduleSpecifier) && isRootConfig(resolveSpec(rel, s.moduleSpecifier.text) ?? "")) {
       const clause = s.importClause;
       if (clause?.name) configNames.add(clause.name.text);
       const named = clause?.namedBindings;
@@ -93,7 +97,7 @@ function scanSource(rel) {
     }
     if (!ts.isVariableStatement(s)) continue;
     for (const d of s.declarationList.declarations) {
-      if (d.initializer && isRequire(d.initializer) && resolveSpec(rel, literalArg(d.initializer) ?? "") === "config.js") {
+      if (d.initializer && isRequire(d.initializer) && isRootConfig(resolveSpec(rel, literalArg(d.initializer) ?? "") ?? "")) {
         if (ts.isIdentifier(d.name)) configNames.add(d.name.text);
         else captures.push(line(d));
       }
@@ -212,7 +216,7 @@ function cycleEdges(graph) {
 }
 
 function scan() {
-  const sources = [...walk("src"), ...walk("commands"), ...walk("events"), ...walk("dashboard/server"), "index.js", "config.js"].map(scanSource);
+  const sources = [...walk("src"), ...walk("commands"), ...walk("events"), ...walk("dashboard/server"), ...["index.js", "index.ts", "config.js", "config.ts"].filter((f) => fs.existsSync(path.join(ROOT, f)))].map(scanSource);
   const tests = walk("test").map(scanTest);
 
   const direction = [];
@@ -222,7 +226,7 @@ function scan() {
     for (const d of f.deps) {
       targets.add(d.to);
       // 루트 config.js 는 어느 층이든 읽는 환경이라 방향에서 뺀다. 순환에는 넣는다
-      if (d.to === "config.js") continue;
+      if (isRootConfig(d.to)) continue;
       const from = LAYERS.indexOf(f.layer);
       const to = LAYERS.indexOf(layerOf(d.to));
       if (from >= 0 && to >= 0 && from > to) direction.push(`${f.rel} -> ${d.to}`);
