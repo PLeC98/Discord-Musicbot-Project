@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 유튜브 인증·실행·오류·API를 한 이름으로 모은다. URL 해석은 rules/links 에 있다.
 
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
@@ -10,7 +9,7 @@ import errors from "./errors.ts";
 import api from "./api.ts";
 import clients from "./clients.ts";
 
-function parseDuration(durationString) {
+function parseDuration(durationString: string | null | undefined): number {
   if (!durationString) return 0;
 
   // "3:45", "1:23:45" 같은 형식 처리
@@ -24,7 +23,7 @@ function parseDuration(durationString) {
   return seconds;
 }
 
-async function validateUrl(url) {
+async function validateUrl(url: string): Promise<boolean> {
   try {
     if (!links.isYouTubeURL(url)) {
       return false;
@@ -39,7 +38,7 @@ async function validateUrl(url) {
       }),
     );
 
-    return !!info && !!info.title;
+    return !!info && !!(info as { title?: unknown }).title;
   } catch (error) {
     return false;
   }

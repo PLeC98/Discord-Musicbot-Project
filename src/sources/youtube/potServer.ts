@@ -1,8 +1,8 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // bgutil POToken 서버. 유튜브가 요구하는 토큰을 만들어 주는 로컬 HTTP 서버를 띄우고 지킨다.
 // 조립(index.js)이 하나 만들어 기동 때 띄우고 종료 때 내린다.
 
 import childProcess from "child_process";
+import type { ChildProcess } from "child_process";
 import fs from "fs";
 import path from "path";
 import logger from "../../infra/log/logger.ts";
@@ -16,7 +16,7 @@ const RESTART_MS = 5000; // 비정상 종료 뒤 다시 띄우기까지
 
 // bgutil이 발급한 토큰을 그대로 로그에 남기지 않는다. 세션 자격증명이다.
 // (sink의 레드액션은 access_token 계열 이름만 알아서 poToken은 그냥 통과한다.)
-function scrubBgutilLine(line) {
+function scrubBgutilLine(line: unknown): string {
   return String(line)
     .replace(/(Generated IntegrityToken:\s*).*/i, "$1[REDACTED]")
     .replace(/((?:poToken|integrityToken)"?\s*[:=]\s*"?)[A-Za-z0-9._~+/=-]{8,}/gi, "$1[REDACTED]");
@@ -25,7 +25,7 @@ function scrubBgutilLine(line) {
 // 남의 프로세스라 레벨을 직접 붙일 수 없다. 스트림(stdout/stderr)과 문구로 가른다.
 // bgutil의 stdout은 전량 요청 단위 상세(POT 생성·챌린지)라 debug로 내린다. 수명주기(시작·준비
 // 완료·비정상 종료)는 아래 우리 코드가 따로 남기므로 여기서 info로 올릴 것이 없다.
-function relay(chunk, stream) {
+function relay(chunk: Buffer | string, stream: "out" | "err") {
   for (const raw of chunk.toString().split("\n").filter(Boolean)) {
     const line = scrubBgutilLine(raw);
     if (stream === "out") log.debug({ sub: "bgutil" }, line);
@@ -37,8 +37,8 @@ function relay(chunk, stream) {
 /**
  * spawn · exists · fetch: 바깥 경계. 생략하면 진짜
  */
-function createPotServer({ spawn = childProcess.spawn, exists = fs.existsSync, fetch = (url, init) => globalThis.fetch(url, init) } = {}) {
-  let proc = null;
+function createPotServer({ spawn = childProcess.spawn, exists = fs.existsSync, fetch = (url: string, init?: RequestInit) => globalThis.fetch(url, init) }: { spawn?: typeof childProcess.spawn; exists?: (file: string) => boolean; fetch?: (url: string, init?: RequestInit) => Promise<Response> } = {}) {
+  let proc: ChildProcess | null = null;
   let stopping = false;
 
   function start() {
@@ -56,10 +56,11 @@ function createPotServer({ spawn = childProcess.spawn, exists = fs.existsSync, f
       log.error({ sub: "bgutil" }, "BGUTIL_ENABLED가 true로 설정되어 있으나, 설치되어 있지 않습니다! (pnpm run install:bgutil). POToken 없이 진행합니다");
       return;
     }
-    proc = spawn(process.execPath, ["build/main.js"], { cwd: SERVER_DIR, stdio: ["ignore", "pipe", "pipe"] });
-    proc.stdout.on("data", (d) => relay(d, "out"));
-    proc.stderr.on("data", (d) => relay(d, "err"));
-    proc.on("exit", (code) => {
+    const child = spawn(process.execPath, ["build/main.js"], { cwd: SERVER_DIR, stdio: ["ignore", "pipe", "pipe"] });
+    proc = child;
+    child.stdout?.on("data", (d: Buffer) => relay(d, "out"));
+    child.stderr?.on("data", (d: Buffer) => relay(d, "err"));
+    child.on("exit", (code) => {
       proc = null;
       if (stopping) return;
       log.warn({ sub: "bgutil" }, `서버 비정상 종료 (code=${code}), 5초 후 재시작합니다`);

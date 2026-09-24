@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // yt-dlp JSON 경계. 쓰는 칸만 뽑고 나머지는 흘려보낸다.
 // 칸 하나의 모양이 바뀌면(yt-dlp 가 칸을 바꾸면) 그 칸만 버리고 한 번 알린다. 곡 하나를 통째로 버리지 않는다.
 
@@ -6,10 +5,10 @@ import { z } from "zod";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 
-const reported = new Set();
+const reported = new Set<string>();
 
-function field(name, schema) {
-  return schema.nullish().catch((ctx) => {
+function field<T extends z.ZodType>(name: string, schema: T) {
+  return schema.nullish().catch((ctx: { input: unknown }) => {
     if (!reported.has(name)) {
       reported.add(name);
       log.warn(`yt-dlp 응답의 ${name} 칸 모양이 바뀌었습니다(받은 값: ${typeof ctx.input}). 이 칸 없이 계속합니다`);
@@ -66,14 +65,18 @@ const SHAPE = {
 
 const Info = z.object(Object.fromEntries(Object.entries(SHAPE).map(([name, schema]) => [name, field(name, schema)])));
 
+/** yt-dlp 가 준 정보에서 쓰는 칸. 모양이 틀린 칸은 없다(null 은 yt-dlp 가 준 그대로) */
+type YtInfo = { [K in keyof typeof SHAPE]?: z.infer<(typeof SHAPE)[K]> | null };
+
 /** yt-dlp 가 준 객체 → 쓰는 칸만 든 객체. 객체가 아니면 null */
-function readInfo(raw) {
+function readInfo(raw: unknown): YtInfo | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const data = Info.parse(raw);
   // 없던 칸은 없는 채로 둔다(undefined 칸을 만들지 않는다)
-  return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+  return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as YtInfo;
 }
 
 const exported = { readInfo };
 export default exported;
 export { exported as "module.exports" };
+export type { YtInfo };

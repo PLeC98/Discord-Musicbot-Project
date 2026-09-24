@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 import youtubedl from "./ytdlpSpawn.ts";
 import * as links from "../rules/links.ts";
@@ -9,7 +8,7 @@ import config from "../../config.ts";
 
 // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용
 
-async function search(query, limit = 1) {
+async function search(query: string, limit = 1) {
   try {
     // 이미 SoundCloud URL이면 직접 정보 가져오기
     if (links.isSoundCloudURL(query)) {
@@ -20,11 +19,13 @@ async function search(query, limit = 1) {
     // yt-dlp의 네이티브 SoundCloud 검색 접두사 사용. (ytsearch + "site:"는 YouTube 결과만 반환했고, 아래 soundcloud.com 필터가 이를 버려 항상 비어 있었음)
     const searchQuery = `scsearch${limit}:${query}`;
 
-    const results = await youtubedl(searchQuery, {
-      dumpSingleJson: true,
-      flatPlaylist: true,
-      noWarnings: true,
-    });
+    const results = readInfo(
+      await youtubedl(searchQuery, {
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        noWarnings: true,
+      }),
+    );
 
     if (!results || !results.entries) {
       return [];
@@ -34,7 +35,8 @@ async function search(query, limit = 1) {
     for (const item of results.entries.slice(0, limit)) {
       try {
         // SoundCloud 링크만 필터링
-        if (item.webpage_url && links.isSoundCloudURL(item.webpage_url)) {
+        const pageUrl = (item as { webpage_url?: unknown } | null)?.webpage_url;
+        if (typeof pageUrl === "string" && pageUrl && links.isSoundCloudURL(pageUrl)) {
           const track = await formatTrack(item);
           if (track) {
             tracks.push(track);
@@ -51,7 +53,7 @@ async function search(query, limit = 1) {
   }
 }
 
-async function getInfo(url) {
+async function getInfo(url: string) {
   try {
     // yt-dlp로 SoundCloud 정보 가져오기
     const info = await youtubedl(url, {
@@ -80,7 +82,7 @@ async function getInfo(url) {
  *
  * canPlayHls: 이 ffmpeg 빌드가 HLS 를 여는가. 재생 쪽이 안다(생략하면 연다고 본다)
  */
-async function getStream(url, { canPlayHls = true } = {}) {
+async function getStream(url: string, { canPlayHls = true } = {}) {
   // HLS를 못 여는 ffmpeg 빌드에서는 애초에 받아 합칠 수 있는 포맷을 고른다.
   // 사운드클라우드는 progressive(`http_mp3_1_0`)를 함께 주므로 음질을 조금 내주고 재생을 지킨다.
   const format = canPlayHls ? "bestaudio/best" : "bestaudio[protocol^=http]/best[protocol^=http]/bestaudio/best";
@@ -107,14 +109,16 @@ async function getStream(url, { canPlayHls = true } = {}) {
   };
 }
 
-async function getPlaylist(url) {
+async function getPlaylist(url: string) {
   try {
     // yt-dlp로 재생목록 정보 가져오기
-    const result = await youtubedl(url, {
-      dumpSingleJson: true,
-      flatPlaylist: true,
-      noWarnings: true,
-    });
+    const result = readInfo(
+      await youtubedl(url, {
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        noWarnings: true,
+      }),
+    );
 
     if (!result || !result.entries) {
       throw new Error("재생목록 트랙을 찾을 수 없음");
@@ -145,16 +149,18 @@ async function getPlaylist(url) {
   }
 }
 
-async function getUserTracks(userUrl, limit = 10) {
+async function getUserTracks(userUrl: string, limit = 10) {
   try {
     // SoundCloud 사용자 프로필에 yt-dlp 사용
     // 사용자의 최신 트랙 가져오기
-    const result = await youtubedl(userUrl, {
-      dumpSingleJson: true,
-      flatPlaylist: true,
-      playlistEnd: limit,
-      noWarnings: true,
-    });
+    const result = readInfo(
+      await youtubedl(userUrl, {
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        playlistEnd: limit,
+        noWarnings: true,
+      }),
+    );
 
     if (!result || !result.entries) {
       return [];
@@ -174,7 +180,7 @@ async function getUserTracks(userUrl, limit = 10) {
   }
 }
 
-async function formatTrack(raw) {
+async function formatTrack(raw: unknown) {
   try {
     const soundcloudTrack = readInfo(raw);
     if (!soundcloudTrack) return null;
@@ -207,36 +213,36 @@ async function formatTrack(raw) {
   }
 }
 
-function isPlaylist(url) {
+function isPlaylist(url: string): boolean {
   return url.includes("/sets/");
 }
 
-function isTrack(url) {
+function isTrack(url: string): boolean {
   return links.isSoundCloudURL(url) && !isPlaylist(url) && !isUser(url);
 }
 
-function isUser(url) {
+function isUser(url: string): boolean {
   // 사용자 프로필 URL인지 확인 (트랙 또는 재생목록 경로 없음)
   const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/([\w-]+)$/);
   return !!match;
 }
 
-function extractUsername(url) {
+function extractUsername(url: string): string | null {
   const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/([\w-]+)/);
   return match ? match[2] : null;
 }
 
-function extractTrackSlug(url) {
+function extractTrackSlug(url: string): string | null {
   const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/[\w-]+\/([\w-]+)/);
   return match ? match[2] : null;
 }
 
-function extractPlaylistSlug(url) {
+function extractPlaylistSlug(url: string): string | null {
   const match = url.match(/^https?:\/\/(www\.)?soundcloud\.com\/[\w-]+\/sets\/([\w-]+)/);
   return match ? match[2] : null;
 }
 
-async function validateUrl(url) {
+async function validateUrl(url: string): Promise<boolean> {
   try {
     if (!links.isSoundCloudURL(url)) {
       return false;
@@ -247,13 +253,13 @@ async function validateUrl(url) {
       dumpSingleJson: true,
       noWarnings: true,
     });
-    return !!info && !!info.title;
+    return !!info && !!(info as { title?: unknown }).title;
   } catch (error) {
     return false;
   }
 }
 
-function formatDuration(milliseconds) {
+function formatDuration(milliseconds: number): string {
   const seconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -267,7 +273,7 @@ function formatDuration(milliseconds) {
   }
 }
 
-function createTrackUrl(username, trackSlug) {
+function createTrackUrl(username: string, trackSlug: string): string {
   return `https://soundcloud.com/${username}/${trackSlug}`;
 }
 

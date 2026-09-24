@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 유튜브 검색 · 정보 · 스트림 · 재생목록.
 
 import logger from "../../infra/log/logger.ts";
@@ -14,6 +13,12 @@ import * as trackLookup from "../../store/trackLookup.ts";
 import auth from "./auth.ts";
 import errors from "./errors.ts";
 import run from "./ytdlpRun.ts";
+import { messageOf } from "../../rules/errorKind.ts";
+import type { YtInfo } from "../ytdlpInfo.ts";
+import type { RunYtDlp } from "../ytdlpSpawn.ts";
+
+// yt-dlp 정보 한 벌(검색 항목이거나 상세 정보). 없을 수 있다
+type Item = YtInfo | null | undefined;
 
 /**
  * ytsearch 결과 항목이 "재생 가능한 단일 비디오"인지 판별.
@@ -25,7 +30,7 @@ import run from "./ytdlpRun.ts";
  * 라이브는 끝이 없어 캐시 다운로드가 무한히 커지고(yt-dlp가 ffmpeg를 외부 다운로더로 띄운다),
  * Spotify 동등물 후보로서는 언제나 오답이다. flat 검색 항목/상세 정보 양쪽에 같은 필드가 온다.
  */
-function _detectLive(item) {
+function _detectLive(item: Item): boolean {
   if (!item) return false;
   return Boolean(item.is_live) || item.live_status === "is_live" || item.live_status === "is_upcoming";
 }
@@ -35,7 +40,7 @@ function _detectLive(item) {
  * 재생은 방송 중(is_live)과 시작 전(is_upcoming)을 다르게 다뤄야 한다. 틀 것이 없는 쪽은 거절한다.
  * @returns {"is_live"|"is_upcoming"|null}
  */
-function liveStatusOf(item) {
+function liveStatusOf(item: Item): "is_live" | "is_upcoming" | null {
   if (!item) return null;
   if (item.live_status === "is_live" || item.live_status === "is_upcoming") return item.live_status;
   // 구버전 응답이나 flat 검색 항목에는 live_status 없이 is_live만 올 수 있다.
@@ -48,27 +53,27 @@ function liveStatusOf(item) {
  * 조회할 때마다 달라지는 값이라 캐시·매칭에도 나쁘다. `fulltitle`이 그게 빠진 원제이고,
  * 라이브가 아니면 둘이 같다.
  */
-function titleOf(item) {
+function titleOf(item: Item): string | null {
   if (!item) return null;
-  const text = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
   const full = text(item.fulltitle);
   const title = text(item.title);
   if (liveStatusOf(item) && full) return full;
   return title || full;
 }
 
-function _isVideoEntry(item) {
+function _isVideoEntry(item: Item): item is YtInfo {
   if (!item) return false;
   if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
   const u = item.webpage_url || item.url || "";
   if (/youtube\.com\/(channel\/|@|playlist|user\/|results)/i.test(u)) return false;
-  if (item.id && /^[A-Za-z0-9_-]{11}$/.test(item.id)) return true; // 비디오 id
+  if (item.id && /^[A-Za-z0-9_-]{11}$/.test(String(item.id))) return true; // 비디오 id
   if (/[?&]v=[A-Za-z0-9_-]{11}/.test(u)) return true; // watch?v= URL
   return false;
 }
 
 // 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 진짜. getInfo · getStream · getPlaylist 도 같다
-async function search(query, limit = 1, { exec = youtubedl } = {}) {
+async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: RunYtDlp } = {}) {
   try {
     // 이미 YouTube URL인 경우 직접 정보를 가져옴
     if (links.isYouTubeURL(query)) {
@@ -79,13 +84,14 @@ async function search(query, limit = 1, { exec = youtubedl } = {}) {
     // 유튜브 검색에 yt-dlp 사용
     const searchQuery = `ytsearch${limit}:${query}`;
 
-    const results = await exec(
+    // 목록 모양만 본다. 항목은 하나씩 readInfo 로 읽는다
+    const results = (await exec(
       searchQuery,
       auth.getYtDlpOptions({
         dumpSingleJson: true,
         flatPlaylist: true,
       }),
-    );
+    )) as { entries?: unknown[] } | null;
 
     if (!results || !results.entries) {
       return [];
@@ -106,6 +112,7 @@ async function search(query, limit = 1, { exec = youtubedl } = {}) {
         const unknownArtist = "알 수 없는 아티스트";
 
         const url = item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null);
+        if (!url) continue; // 비디오 항목이면 늘 있다(_isVideoEntry)
         const link = canonicalUrl(url);
         const track = {
           title: titleOf(item) || unknownTitle,
@@ -147,12 +154,12 @@ async function search(query, limit = 1, { exec = youtubedl } = {}) {
     return tracks;
   } catch (error) {
     if (errors.codeOf(error)) throw error; // 링크 한 곡이 까닭이 분명하게 실패했다. getInfo 참조
-    log.error("유튜브 검색 실패:", error.message || error);
+    log.error("유튜브 검색 실패:", messageOf(error));
     return [];
   }
 }
 
-async function getInfo(url, { exec } = {}) {
+async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   try {
     const info = readInfo(
       await run.runYtDlp(
@@ -206,7 +213,7 @@ async function getInfo(url, { exec } = {}) {
   }
 }
 
-async function getStream(url, startSeconds = 0, { exec } = {}) {
+async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYtDlp } = {}) {
   try {
     if (!url) {
       throw new Error("URL이 필요함");
@@ -271,7 +278,7 @@ async function getStream(url, startSeconds = 0, { exec } = {}) {
 
 // offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
 // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-async function getPlaylist(url, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl } = {}) {
+async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
   try {
     const info = readInfo(
       await exec(
@@ -350,7 +357,7 @@ async function getPlaylist(url, { offset = 0, limit = config.bot.playlistAddDefa
       type: "playlist",
     };
   } catch (error) {
-    log.error("재생목록 조회 실패:", error.message || error);
+    log.error("재생목록 조회 실패:", messageOf(error));
     return null;
   }
 }

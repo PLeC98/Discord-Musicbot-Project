@@ -1,6 +1,11 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // youtubeMatch. Spotify/외부 트랙의 YouTube 동등물을 "점수제"로 고르는 순수 로직 + 쿼리 구성.
 // 실제 검색(YouTube.search)은 호출측(probe · youtube/equivalent)이 하고, 결과 병합은 mergeCandidateLists로.
+
+/** 채점할 후보(유튜브 검색 결과). rank 는 병합한 순위, listOrder 는 주 쿼리 0 · 보조 1 */
+type Candidate = { id?: string | number | null; url?: string | null; title?: string | null; channel?: string | null; durationSec?: number | null; isLive?: boolean; rank?: number; listOrder?: number };
+/** 찾는 곡 */
+type Target = { title?: string | null; artist?: string | null; durationSec?: number | null };
+type Breakdown = { rank: number; channel: number; duration: number; junk: number; version: number; reupload: number; title: number; artistInTitle: number; officialTag: number };
 
 // ── 튜닝 가능한 가중치 ─────────────────────────────────────────────────────
 const RANK_BASE = 8; // 순위 점수 = max(0, RANK_BASE - rank) * rankPerPosition
@@ -126,7 +131,7 @@ const REUPLOAD_TERMS = ["lyrics", "lyric video", "color coded", "가사", "발�
 const ZERO_WIDTH = /\p{Cf}/gu; // 제로폭·서식 문자(U+200B 등)는 전부 유니코드 카테고리 Cf
 
 // 느슨한 정규화. 소문자화, 제로폭·괄호·구두점을 공백으로, 유니코드 글자/숫자는 보존(일본어/한국어).
-function normLoose(s) {
+function normLoose(s: unknown): string {
   return String(s || "")
     .toLowerCase()
     .replace(ZERO_WIDTH, "")
@@ -135,7 +140,7 @@ function normLoose(s) {
 }
 
 // 채널명 정규화. 매칭 방해 접미사 제거(topic/vevo/official/music/records/channel/tv).
-function normChannel(s) {
+function normChannel(s: unknown): string {
   return normLoose(s)
     .replace(/\b(?:topic|vevo|official|officialchannel|channel|music|records?|tv)\b/g, " ")
     .replace(/\s+/g, " ")
@@ -143,21 +148,21 @@ function normChannel(s) {
 }
 
 // 다중 아티스트 분해: "A, B & C feat. D" → [a, b, c, d]
-function splitArtists(artist) {
+function splitArtists(artist: unknown): string[] {
   return String(artist || "")
     .split(/\s*(?:,|&|×|＋|\+|;|\/|feat\.?|ft\.?|with)\s*/i)
     .map(normLoose)
     .filter((a) => a.length >= 2);
 }
 
-const despace = (s) => s.replace(/\s+/g, "");
+const despace = (s: string) => s.replace(/\s+/g, "");
 
 // 부분 포함 최소 길이. "찾는 문자열(needle)"이 이보다 짧으면 부분일치로 인정하지 않는다.
 // ('a'·'the' 같은 짧은 조각이 긴 아티스트명에 우연히 들어가 매칭되는 오탐 방지. 예: 채널 "a." → "a")
 const CH_SUBSTR_MIN = 3;
 
 // 채널이 아티스트를 나타내는가 + 공식 계열(topic/vevo) 여부.
-function analyzeChannel(channel, artist) {
+function analyzeChannel(channel: unknown, artist: unknown) {
   const raw = normLoose(channel);
   const isTopic = /(?:^|\s)topic$/.test(raw) || raw.endsWith(" topic");
   const isVevo = raw.endsWith("vevo");
@@ -202,26 +207,26 @@ const LATIN_TERM = /^[a-z0-9 ]+$/;
  * normLoose가 구두점을 공백으로 바꾸므로 앞뒤에 공백을 붙이면 그게 곧 단어 경계다.
  * 일본어·한국어 용어는 띄어쓰기가 없으므로 부분 문자열이 맞다.
  */
-function countTerms(terms, candidateTitle, targetTitle) {
+function countTerms(terms: string[], candidateTitle: unknown, targetTitle: unknown): number {
   const t = " " + normLoose(candidateTitle) + " ";
   const target = " " + normLoose(targetTitle) + " ";
   let n = 0;
   for (const term of terms) {
     const nt = normLoose(term);
     if (!nt) continue;
-    const hit = LATIN_TERM.test(nt) ? (s) => s.includes(" " + nt + " ") : (s) => s.includes(nt);
+    const hit = LATIN_TERM.test(nt) ? (s: string) => s.includes(" " + nt + " ") : (s: string) => s.includes(nt);
     if (hit(target)) continue; // 곡 제목 자체에 있으면 감점 대상이 아니다
     if (hit(t)) n++;
   }
   return n;
 }
 
-const countJunk = (candidateTitle, targetTitle) => countTerms(JUNK_TERMS, candidateTitle, targetTitle);
-const countVersion = (candidateTitle, targetTitle) => countTerms(VERSION_TERMS, candidateTitle, targetTitle);
+const countJunk = (candidateTitle: unknown, targetTitle: unknown) => countTerms(JUNK_TERMS, candidateTitle, targetTitle);
+const countVersion = (candidateTitle: unknown, targetTitle: unknown) => countTerms(VERSION_TERMS, candidateTitle, targetTitle);
 // 재배포는 "몇 개나 걸렸나"가 아니라 "재배포인가"라는 한 가지 사실이다. 여러 개 걸려도 1회만 센다.
-const isReupload = (candidateTitle, targetTitle) => countTerms(REUPLOAD_TERMS, candidateTitle, targetTitle) > 0;
+const isReupload = (candidateTitle: unknown, targetTitle: unknown) => countTerms(REUPLOAD_TERMS, candidateTitle, targetTitle) > 0;
 
-function durationScore(candSec, targetSec) {
+function durationScore(candSec: unknown, targetSec: unknown): { score: number; label: string } {
   const c = Number(candSec) || 0;
   const t = Number(targetSec) || 0;
   if (c <= 0 || t <= 0) return { score: 0, label: "unknown" };
@@ -242,7 +247,7 @@ const OFFICIAL_TAG = /official\s*(?:video|audio|music\s*video|mv|m\/v|hd)|\bm\/v
 
 // 스포티파이 제목의 "버전 태그" 감지. 괄호/대시로 감쌌거나 size/ver가 붙은 형태만(오탐 방지).
 // 애니송 TV size/short는 공식이 유튜브에 다른 표기로 올리는 일이 많아, 스포티파이 제목 그대로 검색하면 못 찾는다 → 동의어 확장 대상.
-function detectVersionKind(title) {
+function detectVersionKind(title: unknown): "tv" | "short" | null {
   const t = String(title || "");
   if (/[-–—([（【\s]\s*tv\s*(?:size|ver\.?|version|anime|edit)?\s*[-–—)\]）】]/i.test(t) || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
   if (/[-–—([（【\s]\s*short\s*(?:size|ver\.?|version|edit)?\s*[-–—)\]）】]/i.test(t) || /ショート(?:サイズ|バージョン|ver)?/.test(t)) return "short";
@@ -250,7 +255,7 @@ function detectVersionKind(title) {
 }
 
 // 버전 태그를 제거한 기본 제목 (동의어 확장 쿼리의 베이스).
-function stripVersionTag(title) {
+function stripVersionTag(title: unknown): string {
   return String(title || "")
     .replace(/[([（【]\s*(?:tv|short|テレビ|ショート)[^)\]）】]*[)\]）】]/gi, " ") // (TV size), 【TVサイズ】
     .replace(/[-–—]\s*(?:tv|short|テレビ|ショート)[^-–—]*[-–—]?/gi, " ") // -TV ver.-, - Short version -
@@ -259,7 +264,7 @@ function stripVersionTag(title) {
     .trim();
 }
 
-const dedupe = (arr) => [...new Set(arr.filter(Boolean))];
+const dedupe = (arr: string[]) => [...new Set(arr.filter(Boolean))];
 
 /**
  * 사람이 검색하듯 따옴표 없는 쿼리들. { primary, secondary }로 반환한다.
@@ -267,11 +272,11 @@ const dedupe = (arr) => [...new Set(arr.filter(Boolean))];
  *  - secondary: `제목`만. 동명 다른 곡·우연 채널 오염을 막으려 병합 시 뒤로 밈
  * 따옴표 쿼리는 유튜브에서 과도하게 좁아져 정답을 누락시키므로 쓰지 않는다.
  */
-function buildSearchQueries(target) {
+function buildSearchQueries(target: Target): { primary: string[]; secondary: string[] } {
   const title = String(target.title || "").trim();
   const artist = String(target.artist || "").trim();
-  const primary = [];
-  const secondary = [];
+  const primary: string[] = [];
+  const secondary: string[] = [];
 
   if (title && artist) primary.push(`${title} ${artist}`);
 
@@ -296,9 +301,11 @@ function buildSearchQueries(target) {
  * 검색 결과 리스트들을 병합(id로 중복 제거). rank = 어느 쿼리에서든 가장 높았던 순위.
  * primaryLists(주 쿼리들): 그대로. secondaryLists(제목만 쿼리): 오프셋만큼 뒤로 밀어 오염 억제.
  */
-function mergeCandidateLists(primaryLists, secondaryLists = []) {
-  const byId = new Map();
-  const absorb = (lists, isSecondary) => {
+type CandidateLists = Array<Candidate[] | null | undefined> | null | undefined;
+
+function mergeCandidateLists(primaryLists: CandidateLists, secondaryLists: CandidateLists = []) {
+  const byId = new Map<string | number, Candidate & { rank: number; listOrder: number }>();
+  const absorb = (lists: CandidateLists, isSecondary: boolean) => {
     (lists || []).forEach((list) => {
       (list || []).forEach((c, i) => {
         if (!c || !c.id) return;
@@ -323,9 +330,9 @@ function mergeCandidateLists(primaryLists, secondaryLists = []) {
  * candidate: { id, url, title, channel, durationSec, rank? }  (rank 없으면 0)
  * target:    { title, artist, durationSec }
  */
-function scoreCandidate(candidate, target) {
-  const rank = Number.isInteger(candidate.rank) ? candidate.rank : 0;
-  const b = {};
+function scoreCandidate(candidate: Candidate, target: Target) {
+  const rank = candidate.rank !== undefined && Number.isInteger(candidate.rank) ? candidate.rank : 0;
+  const b: Breakdown = { rank: 0, channel: 0, duration: 0, junk: 0, version: 0, reupload: 0, title: 0, artistInTitle: 0, officialTag: 0 };
   b.rank = Math.max(0, RANK_BASE - rank) * W.rankPerPosition;
 
   const ch = analyzeChannel(candidate.channel, target.artist);
@@ -371,7 +378,7 @@ function scoreCandidate(candidate, target) {
  * 후보 배열을 점수순으로 정렬(각 항목에 breakdown 포함). 동점은 순위→리스트 우선순위 순.
  * candidate.rank가 있으면 그걸(병합 결과) 순위로, 없으면 배열 인덱스를 순위로 사용.
  */
-function rankCandidates(candidates, target) {
+function rankCandidates(candidates: Candidate[], target: Target) {
   const withRank = candidates.map((c, i) => (Number.isInteger(c.rank) ? c : { ...c, rank: i }));
   const scored = withRank.map((c) => scoreCandidate(c, target));
   scored.sort((a, b) => b.score - a.score || a.rank - b.rank || (a.candidate.listOrder ?? 0) - (b.candidate.listOrder ?? 0));
@@ -403,3 +410,4 @@ const exported = {
 };
 export default exported;
 export { exported as "module.exports" };
+export type { Candidate, Target };

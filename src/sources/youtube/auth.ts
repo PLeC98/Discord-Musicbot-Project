@@ -1,13 +1,13 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · yt-dlp 공통 옵션 · 인증 상태 로그.
 
 import path from "path";
+import type { YtDlpFlags as Flags } from "../ytdlpSpawn.ts";
 import fs from "fs";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import config from "../../../config.ts";
 // yt-dlp 에 줄 ffmpeg 경로. 재생과 같은 바이너리를 쓰게 조립(app/main)이 넘긴다(useFfmpeg). 안 넘기면 yt-dlp 가 PATH 에서 찾는다
-let ffmpegLocation = () => null;
+let ffmpegLocation: () => string | null = () => null;
 import clientsModule from "./clients.ts";
 const { NEEDS_POT, KNOWN, playerClients } = clientsModule;
 
@@ -18,7 +18,7 @@ const { NEEDS_POT, KNOWN, playerClients } = clientsModule;
 const BGUTIL_DIR = path.join(import.meta.dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider");
 // 있는지 확인하는 것으로 그치지 않고 yt-dlp의 규칙 그대로 훑는다.
 // 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다.
-function findPluginRoot(dir) {
+function findPluginRoot(dir: string): string | null {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -35,12 +35,12 @@ const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 import * as cookieConfig from "../../config/cookies.ts";
 
 /** locate: ffmpeg 경로를 돌려주는 함수(media/ffmpeg/path 의 ffmpegPath) */
-function useFfmpeg(locate) {
+function useFfmpeg(locate: () => string | null) {
   ffmpegLocation = locate;
 }
 
 // yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
-function getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
+function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {
   const ffmpeg = ffmpegLocation();
   const baseOptions = {
     // noWarnings를 켜지 않는다. yt-dlp의 경고에는 우리가 봐야 할 것이 섞여 있다
@@ -49,8 +49,8 @@ function getYtDlpOptions(extraOptions = {}, { forceCookies = false } = {}) {
     fragmentRetries: 3,
     // 재생과 같은 ffmpeg를 쓰게 한다. 지정하지 않으면 yt-dlp가 PATH에서 제멋대로 찾아
     // 재생(ffmpegPath 해석기)과 캐시 변환이 서로 다른 바이너리를 쓰게 된다.
-    ...(ffmpeg && { ffmpegLocation: ffmpeg }),
-    jsRuntimes: `node:${process.execPath}`,
+    ...(ffmpeg ? { ffmpegLocation: ffmpeg } : {}),
+    jsRuntimes: `node:${process.execPath}` as const,
     // User-Agent를 우리가 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 골라 주고, 그 값이
     // http_headers로 실려 와 재생 요청 헤더가 된다. 우리가 덮으면 그게 낡은 단일 값으로 뭉개진다.
     ...(potEnabled() && { pluginDirs: BGUTIL_DIR }),
@@ -109,7 +109,7 @@ function logAuthMode() {
  */
 function statusSnapshot() {
   const snap = playerClients().snapshot();
-  const fails = (h) => (h || []).filter((x) => x === "ng").length;
+  const fails = (h: Array<"ok" | "ng"> | undefined) => (h || []).filter((x) => x === "ng").length;
   return {
     pot: potEnabled() ? "on" : config.bgutil.enabled ? "missing" : "off",
     cookies: config.ytdlp.cookiesFromBrowser ? "browser" : config.ytdlp.useCookieFile ? "file" : "none",

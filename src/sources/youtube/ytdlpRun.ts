@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // yt-dlp 실행. 플레이어 클라이언트를 바꿔 가며 다시 묻고, 쿠키로 한 번 더 묻는다.
 
 import logger from "../../infra/log/logger.ts";
@@ -6,6 +5,11 @@ const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 import youtubedl from "../ytdlpSpawn.ts";
+
+import type { YtDlpFlags as Flags, RunYtDlp } from "../ytdlpSpawn.ts";
+
+/** forceCookies 를 받아 yt-dlp 옵션을 만든다(연령 제한이면 쿠키를 붙여 다시 만든다) */
+type BuildOptions = (forceCookies: boolean) => Flags;
 import * as externalCaches from "../../store/externalCaches.ts";
 import clientsModule from "./clients.ts";
 const { NEEDS_POT, playerClients } = clientsModule;
@@ -30,7 +34,7 @@ function cookieRunsInFlight() {
  * @param {(forceCookies:boolean)=>object} buildOptions  forceCookies를 받아 yt-dlp 옵션을 만드는 함수
  */
 // exec: yt-dlp 를 실행하는 함수. 생략하면 진짜(ytdlpSpawn)
-async function runYtDlp(url, buildOptions, exec = youtubedl) {
+async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp = youtubedl): Promise<unknown> {
   const videoId = links.extractVideoId(url);
   let known = false;
   try {
@@ -71,7 +75,7 @@ async function runYtDlp(url, buildOptions, exec = youtubedl) {
  * 연령 제한이거나 네트워크가 끊긴 것은 클라이언트 잘못이 아니므로 그대로 위로 던진다.
  * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다.
  */
-async function _runWithClients(url, buildOptions, forceCookies, exec) {
+async function _runWithClients(url: string, buildOptions: BuildOptions, forceCookies: boolean, exec: RunYtDlp): Promise<unknown> {
   const table = playerClients();
   const clients = table.idle ? [] : table.list();
 
@@ -80,7 +84,7 @@ async function _runWithClients(url, buildOptions, forceCookies, exec) {
     return _runOnce(url, buildOptions(forceCookies), null, exec);
   }
 
-  let lastError = null;
+  let lastError: unknown = null;
   for (let i = 0; i < clients.length; i++) {
     const client = clients[i];
     try {
@@ -110,14 +114,14 @@ async function _runWithClients(url, buildOptions, forceCookies, exec) {
  * 호출부가 extractorArgs를 직접 넘겼으면 그쪽이 이긴다. 명시적 지정을 폴백이 덮지 않는다.
  * 클라이언트를 하나씩만 넘기는 이유는 _runWithClients 머리말 참조.
  */
-async function _runOnce(url, options, client, exec = youtubedl) {
+async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = youtubedl): Promise<unknown> {
   const opts = client && !options.extractorArgs ? { ...options, extractorArgs: `youtube:player_client=${client}` } : options;
   // 쿠키 파일이 실제로 넘어간 호출만 센다. 무쿠키 캐싱까지 세면 경고가 거짓이 된다
   const holdsCookieFile = !!opts.cookies;
   if (holdsCookieFile) cookieRuns++;
   try {
     const result = await exec(url, opts);
-    _inspectWarnings(result?._stderr, client);
+    _inspectWarnings((result as { _stderr?: string } | null)?._stderr, client);
     return result;
   } finally {
     if (holdsCookieFile) cookieRuns--;
@@ -128,7 +132,7 @@ async function _runOnce(url, options, client, exec = youtubedl) {
  * 성공했어도 경고는 볼 값어치가 있다. 특히 "POToken이 필요하다"는, 안 쓰던 클라이언트가
  * 쓰기 시작했다는 신호다. 유튜브가 조이는 것을 우리가 제일 먼저 아는 지점이다.
  */
-function _inspectWarnings(stderr, client) {
+function _inspectWarnings(stderr: unknown, client: string | null) {
   if (!stderr) return;
   for (const line of String(stderr).split("\n")) {
     if (!/^WARNING/i.test(line)) continue;
@@ -146,7 +150,7 @@ function _inspectWarnings(stderr, client) {
       const named = line.match(/\b([a-z][\w-]*) client\b/i);
       const asked = named ? named[1] : client;
       const who = asked || "기본 클라이언트";
-      if (NEEDS_POT.includes(asked)) log.debug(`${who}: POToken을 요구했습니다 (알려진 특성)`);
+      if (asked && NEEDS_POT.includes(asked)) log.debug(`${who}: POToken을 요구했습니다 (알려진 특성)`);
       else log.warn({ tags: ["youtube-change"] }, `${who}가 POToken을 요구했습니다. 유튜브 정책이 바뀐 것으로 보입니다`);
       continue;
     }
@@ -157,3 +161,4 @@ function _inspectWarnings(stderr, client) {
 const exported = { cookieRunsInFlight, runYtDlp, _runWithClients, _runOnce, _inspectWarnings };
 export default exported;
 export { exported as "module.exports" };
+export type { BuildOptions };

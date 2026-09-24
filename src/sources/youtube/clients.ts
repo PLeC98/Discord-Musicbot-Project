@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // yt-dlp의 YouTube player_client 순서와 죽은 것 같은 클라이언트 판정
 //
 // yt-dlp에 클라이언트를 여러 개 넘기면 전부 호출해서 포맷을 병합함. 폴백하지 않음.
@@ -25,17 +24,24 @@ const KNOWN = ["web", "web_safari", "web_embedded", "web_music", "web_creator", 
 const NEEDS_POT = ["mweb", "tv_simply", "web_creator"];
 
 class PlayerClients {
+  order: string[];
+  window: number;
+  fails: number;
+  history: Map<string, Array<"ok" | "ng">>; // 최근 것이 뒤
+  excluded: Set<string>;
+  exhaustedLogged: boolean;
+
   /**
    * @param {string[]} order   시도할 순서. 비어 있으면 이 모듈은 아무것도 하지 않는다
    *                           (호출부가 yt-dlp 기본값으로 1회 호출하고 끝낸다)
    * @param {number} window    최근 몇 회를 보고 판정할지
    * @param {number} fails     그중 몇 회가 실패면 제외할지
    */
-  constructor(order = [], { window = 5, fails = 3 } = {}) {
+  constructor(order: string[] = [], { window = 5, fails = 3 } = {}) {
     this.order = order;
     this.window = Math.max(1, window);
     this.fails = Math.max(1, fails);
-    this.history = new Map(); // client → ("ok"|"ng")[] 최근 것이 뒤
+    this.history = new Map();
     this.excluded = new Set();
     this.exhaustedLogged = false;
   }
@@ -57,7 +63,7 @@ class PlayerClients {
    * @param {string} client
    * @param {boolean} ok
    */
-  record(client, ok) {
+  record(client: string | null | undefined, ok: boolean) {
     if (!client || this.excluded.has(client)) return;
     const h = this.history.get(client) || [];
     h.push(ok ? "ok" : "ng");
@@ -90,7 +96,7 @@ class PlayerClients {
 }
 
 // 클라이언트 순번표 한 벌. 설정은 처음 쓸 때 읽는다
-let table = null;
+let table: PlayerClients | null = null;
 const playerClients = () => (table ??= new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails }));
 
 const exported = { PlayerClients, KNOWN, NEEDS_POT, playerClients };

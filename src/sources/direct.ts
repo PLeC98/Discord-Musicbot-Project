@@ -1,24 +1,29 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import path from "path";
 import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 import * as SafeUrl from "../infra/safeUrl.ts";
+import type { Readable } from "stream";
+import { messageOf } from "../rules/errorKind.ts";
+
+// 바깥 경계(SafeUrl). 테스트가 가짜를 넘긴다. 여기서 읽는 칸만
+type HeadNet = { head: (url: string) => Promise<{ headers: object }> };
+type StreamNet = { getStream: (url: string) => Promise<Readable> };
 
 /**
  * 직접 오디오 링크의 메타데이터 조회.
  * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 성공 시 [track], 실패 시 [].
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. net 은 테스트가 가짜를 넘기는 자리
  */
-async function getInfo(url, net = { head: SafeUrl.head }) {
+async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
   try {
     if (!links.isDirectAudioLink(url)) {
       return [];
     }
 
     // SSRF 가드된 HEAD. Content-Type/크기 검증 포함
-    const { headers } = await net.head(url);
-    const contentType = headers["content-type"] || "";
+    const headers = (await net.head(url)).headers as Record<string, unknown>;
+    const contentType = String(headers["content-type"] || "");
     const contentLength = headers["content-length"];
 
     const urlPath = new URL(url).pathname;
@@ -42,7 +47,7 @@ async function getInfo(url, net = { head: SafeUrl.head }) {
         platform: "direct",
         type: "track",
         id: generateId(url),
-        fileSize: contentLength ? parseInt(contentLength) : null,
+        fileSize: contentLength ? parseInt(String(contentLength)) : null,
         contentType: contentType,
         extension: extension,
         filename: filename,
@@ -50,7 +55,7 @@ async function getInfo(url, net = { head: SafeUrl.head }) {
     ];
   } catch (error) {
     // SSRF 차단 등 실패 상세는 서버 로그로만 (사용자에겐 상위에서 "결과 없음")
-    log.error("직접 링크 정보 조회 실패:", error.message || error);
+    log.error("직접 링크 정보 조회 실패:", messageOf(error));
     return [];
   }
 }
@@ -60,7 +65,7 @@ async function getInfo(url, net = { head: SafeUrl.head }) {
  * 직접 링크는 URL 기반 탐색을 지원하지 않음. 탐색은 MusicPlayer의 FFmpeg가 처리하므로
  * startSeconds는 여기서 무시한다. net 은 테스트가 가짜를 넘기는 자리
  */
-async function getStream(url, net = { getStream: SafeUrl.getStream }) {
+async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }): Promise<Readable> {
   try {
     if (!links.isDirectAudioLink(url)) {
       throw new Error("지원되지 않는 직접 오디오 파일 링크");
@@ -68,14 +73,14 @@ async function getStream(url, net = { getStream: SafeUrl.getStream }) {
     return await net.getStream(url);
   } catch (error) {
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
-    log.error("직접 링크 스트림 실패:", error.message || error);
+    log.error("직접 링크 스트림 실패:", messageOf(error));
     throw new Error("재생할 수 없는 링크입니다", { cause: error });
   }
 }
 
 // 참고: 동기 함수로 유지해야 함. getInfo()가 반환값을
 // track.title에 직접 할당함 (비동기 버전은 "[object Promise]"를 생성했음)
-function extractTitle(filename) {
+function extractTitle(filename: string): string {
   // 확장자를 제거하고 파일명 정리
   const nameWithoutExt = path.parse(filename).name;
 
@@ -88,12 +93,12 @@ function extractTitle(filename) {
   return title || "알 수 없는 제목";
 }
 
-function generateId(url) {
+function generateId(url: string): string {
   // URL 기반의 간단한 ID 생성
   return Buffer.from(url).toString("base64").substring(0, 16);
 }
 
-function estimateDuration(fileSize, contentType) {
+function estimateDuration(fileSize: unknown, contentType: string): number {
   if (!fileSize) return 0;
 
   // 파일 크기와 타입을 바탕으로 대략 추정
@@ -111,7 +116,7 @@ function estimateDuration(fileSize, contentType) {
   }
 
   // 파일 크기를 비트로 변환한 뒤 비트레이트로 나누어 초 단위 계산
-  const fileSizeBits = fileSize * 8;
+  const fileSizeBits = Number(fileSize) * 8; // 헤더에서 온 글자일 수 있다
   const bitratePerSecond = estimatedBitrate * 1000;
   const estimatedSeconds = Math.floor(fileSizeBits / bitratePerSecond);
 
@@ -121,3 +126,4 @@ function estimateDuration(fileSize, contentType) {
 const DirectLink = { getInfo, getStream, extractTitle, generateId, estimateDuration };
 export default DirectLink;
 export { DirectLink as "module.exports" };
+export type { HeadNet, StreamNet };
