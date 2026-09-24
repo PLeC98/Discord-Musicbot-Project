@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/Player.ts releaseAudioProtection — 캐시 퇴거 보호 해제 계약
 // 회귀 대상: 비활성 종료·강제 퇴장 경로가 currentTrack을 먼저 null해서
 // cleanup의 unprotect(currentTrack 전제)가 건너뛰어져 보호 Set이 재시작까지 증가하던 누수.

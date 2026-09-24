@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/Player.ts — 자동재생이 곡을 못 고른 뒤의 상태.
 //
 // 회귀 대상: handleAutoplay가 후보를 하나도 못 찾으면 아무 말 없이 return했고, handleTrackEnd는

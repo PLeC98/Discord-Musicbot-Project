@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/events.ts — 플레이어가 화면과 대시보드에 알리는 창구.
 
 import { test, afterEach } from "node:test";

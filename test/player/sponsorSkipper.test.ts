@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/sponsorSkipper.ts — 발동 판정(decide) 순수 로직: 교차 감지, 수동 진입 배제, 아웃트로→종료.
 
 import { test } from "node:test";

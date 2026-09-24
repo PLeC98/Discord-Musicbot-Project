@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/voiceConnection.ts — 연결 복구 루프의 단일 실행 계약.
 // forceReconnect 와 플레이어의 onVoiceRecovered 는 스텁 — 루프 구조(중첩 금지·중단·상한)만 검증.
 // 회귀 대상: 구 setInterval(3초) 방식의 콜백 중첩 (forceReconnect 15초 대기와 겹침)

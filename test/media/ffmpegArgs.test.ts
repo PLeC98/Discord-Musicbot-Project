@@ -4,7 +4,7 @@
 // 스트리밍 실패 폴백을 건너뛰며, 정적 링크 빌드에서는 SIGSEGV로 죽어 무음이 됐다.
 // pipe 입력에서 `-ss`를 `-i` 앞에 두면 출력이 잘리는 것도 함께 고정한다.
 //
-// URL 입력은 HLS 갈래에만 있다(liveHls.test.js). 여기서 고정하는 것은 그 갈래를 부르지 않은
+// URL 입력은 HLS 갈래에만 있다(liveHls.test.ts). 여기서 고정하는 것은 그 갈래를 부르지 않은
 // 모든 경우가 여전히 pipe 로 간다는 것이다.
 
 import { test } from "node:test";

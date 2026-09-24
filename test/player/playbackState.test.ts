@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/playbackState.ts — 재생 단계와 끝 처리 중인가.
 
 import { test } from "node:test";

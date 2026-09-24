@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/startPlayback.ts introOffsetMs — 신규 재생의 인트로 초기 오프셋 산출.
 
 import { test } from "node:test";
