@@ -15,7 +15,7 @@ const elog = loggerModule3.child({ category: "error" });
 import { PermissionFlagsBits } from "discord.js";
 
 import config from "../../config.ts";
-import autoplayRoute from "../autoplay/route.js";
+import autoplayRoute from "../autoplay/route.ts";
 import { errorKind } from "../rules/errorKind.ts";
 import * as streamUrl from "../sources/streamUrl.ts";
 import SponsorSkipper from "./sponsorSkipper.js";

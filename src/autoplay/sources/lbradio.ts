@@ -1,7 +1,8 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // ListenBrainz Radio 소스.
 
 import config from "../../../config.ts";
-import http from "./http.js";
+import http from "./http.ts";
 const { query, getJson } = http;
 
 // LB Radio는 재생목록을 그때그때 짜 주느라 느리다(실측 5~15초, 더 걸리기도 한다).

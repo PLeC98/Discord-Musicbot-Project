@@ -6,16 +6,16 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import route from "../../src/autoplay/route.js";
+import route from "../../src/autoplay/route.ts";
 import { audioKeyOf } from "../../src/rules/audioKeyOf.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
-import pool from "../../src/autoplay/pool.js";
+import pool from "../../src/autoplay/pool.ts";
 
-import filterModule from "../../src/autoplay/filter.js";
+import filterModule from "../../src/autoplay/filter.ts";
 const LIMITS = filterModule.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist"] });
 
 let ytResults = [];
@@ -295,7 +295,7 @@ test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본
 //
 // 회귀 대상: 처음엔 "대괄호로 싸인 것"을 전부 걸렀는데, `[Alexandros]`가 실존하는 밴드다.
 test("MusicBrainz 자리표시 항목은 후보에서 뺀다", () => {
-  const { _placeholder } = require("../../src/autoplay/sources/index");
+  const { _placeholder } = require("../../src/autoplay/sources/index.ts");
 
   for (const bad of ["[no artist]", "[unknown]", "  [data]  ", "[TRADITIONAL]"]) assert.equal(_placeholder.test(bad), true, bad);
   for (const ok of ["YOASOBI", "Oasis", "[Alexandros]", "Song [Live]", ""]) assert.equal(_placeholder.test(ok), false, ok);
@@ -357,7 +357,7 @@ test("VocaDB 계열은 disabled 된 PV를 고르지 않는다", () => {
 
 // 기본값은 조용히 성격을 정한다. 뒤집히면 아무도 모른 채 딴 곡이 나오므로 여기 못 박는다.
 test("소스 기본값 — 안 적었을 때 무엇으로 도는가", () => {
-  const { SPEC } = require("../../src/autoplay/sources/index");
+  const { SPEC } = require("../../src/autoplay/sources/index.ts");
 
   // lbradio: 이름과 반대로 hard 가 더 알려진 곡을 준다. 자동재생은 아는 곡이 나오는 편이 낫다.
   assert.ok(SPEC.lbradio.enums.mode.includes("hard"));
@@ -371,7 +371,7 @@ test("소스 기본값 — 안 적었을 때 무엇으로 도는가", () => {
 // `languages` 파라미터는 저쪽이 조용히 무시한다 — 쓰레기 값을 넣어도 전체가 온다.
 // 실제로 듣는 것은 advancedFilters 쪽이고, 한 번에 하나만 걸린다.
 test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () => {
-  const { _lyricsFilter, _someLanguages, SPEC } = require("../../src/autoplay/sources/index");
+  const { _lyricsFilter, _someLanguages, SPEC } = require("../../src/autoplay/sources/index.ts");
 
   assert.deepEqual(_lyricsFilter(null), {}, "안 고르면 조건을 안 붙인다");
 
@@ -497,7 +497,7 @@ test("앞 소스가 빈 손이면 다음 소스로 넘어간다", async () => {
 });
 
 test("키가 없는 소스는 아예 후보에서 빠진다", () => {
-  const sources = require("../../src/autoplay/sources/index");
+  const sources = require("../../src/autoplay/sources/index.ts");
   // 키가 필요한 소스는 SPEC에 has()가 있고, 그 결과가 곧 쓸 수 있는지다
   for (const type of sources.TYPES) {
     const need = sources.needsOf(type);

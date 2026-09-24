@@ -258,8 +258,8 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 // 규칙 자체는 autoplayFilter가 갖고 있다(test/autoplay/autoplayFilter.test.js). 여기서 보는 것은
 // 설정에서 뽑기까지 그 규칙이 실제로 이어지는가다 — 소스에서 후보가 와서 필터를 지나는 길.
 test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가리지 않는다", async () => {
-  const pool = require("../../src/autoplay/pool");
-  const sources = require("../../src/autoplay/sources/index");
+  const pool = require("../../src/autoplay/pool.ts");
+  const sources = require("../../src/autoplay/sources/index.ts");
   // 키워드 소스가 부르는 유튜브 검색만 가짜로. 후보가 필터를 지나는 길은 진짜다
   const search = async () => [
     { id: "1", title: "Best Playlist Ever", audioUrl: "https://y/1", duration: 200 },
@@ -281,7 +281,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
       }),
       pickAutoplayTrack: MusicPlayer.prototype.pickAutoplayTrack,
       // AI 보조는 운영 설정(config/ai.yaml)을 읽어 진짜로 부른다. 여기서는 규칙만 본다
-      autoplayDeps: { ...require("../../src/autoplay/route").REAL, fetch: (source) => sources.fetchFrom(source, { search }), assist: { filter: async (c) => c, accepts: async () => true } },
+      autoplayDeps: { ...require("../../src/autoplay/route.ts").REAL, fetch: (source) => sources.fetchFrom(source, { search }), assist: { filter: async (c) => c, accepts: async () => true } },
     };
 
     // 후보가 둘인데 하나가 걸리므로 남는 것은 하나뿐이다.

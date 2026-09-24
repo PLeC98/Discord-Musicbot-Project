@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 소스. 설정 한 줄을 곡 목록으로 바꾼다. 부르는 곳이 다를 뿐 계약은 하나다.
 //
 //   { artist?, title, durationSec?, audioUrl?, youtubeUrl?, thumbnail?, sourceKey,
@@ -15,21 +16,21 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { SPEC, usable, needsOf, opts } from "../../config/schema/genreSources.ts";
-import http from "./http.js";
+import http from "./http.ts";
 const { getJson, remembered } = http;
-import keywordModule from "./keyword.js";
+import keywordModule from "./keyword.ts";
 const { keyword } = keywordModule;
-import lastfmModule from "./lastfm.js";
+import lastfmModule from "./lastfm.ts";
 const { lastfm } = lastfmModule;
-import lbradioModule from "./lbradio.js";
+import lbradioModule from "./lbradio.ts";
 const { lbradio, PLACEHOLDER } = lbradioModule;
-import animethemesModule from "./animethemes.js";
+import animethemesModule from "./animethemes.ts";
 const { animethemes } = animethemesModule;
-import anisongdbModule from "./anisongdb.js";
+import anisongdbModule from "./anisongdb.ts";
 const { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } = anisongdbModule;
-import voca from "./voca.js";
+import voca from "./voca.ts";
 const { vocaFamily, lyricsFilter, someLanguages } = voca;
-import playlists from "./playlists.js";
+import playlists from "./playlists.ts";
 const { spotify, youtube } = playlists;
 
 // ── 등록부 ────────────────────────────────────────────────────────────────

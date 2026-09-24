@@ -1,6 +1,7 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생목록 소스(스포티파이 · 유튜브).
 
-import http from "./http.js";
+import http from "./http.ts";
 const { rand } = http;
 import * as Spotify from "../../sources/spotify.ts";
 import * as YouTube from "../../sources/youtube/index.ts";

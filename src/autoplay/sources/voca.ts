@@ -1,9 +1,10 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { VOCA_DEFAULT_TYPES } from "../../config/schema/genreSources.ts";
-import http from "./http.js";
+import http from "./http.ts";
 const { rand, getJson, query } = http;
 
 // ── vocadb 계열 ───────────────────────────────────────────────────────────

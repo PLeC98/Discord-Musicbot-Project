@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 한 곡을 고른다. 소스에서 후보를 받아 틀 수 있는 트랙으로 바꾸는 데까지가 여기 몫이다.
 //
 // 소스가 무엇을 주느냐에 따라 길이 셋으로 갈린다. 후보에 어느 칸이 찼는지가 그것을 정한다.
@@ -11,14 +12,14 @@
 // 검색을 아끼고, 같은 곡이 뽑힐 때마다 다른 영상이 나오지 않는다.
 //
 
-import autoplayFilter from "./filter.js";
+import autoplayFilter from "./filter.ts";
 import * as links from "../rules/links.ts";
 import { canonicalUrl } from "../rules/canonicalUrl.ts";
 import { candidateKind } from "../rules/candidateKind.ts";
-import pool from "./pool.js";
-import sources from "./sources/index.js";
+import pool from "./pool.ts";
+import sources from "./sources/index.ts";
 import * as match from "../sources/youtube/match.ts";
-import aiAssist from "./assist/index.js";
+import aiAssist from "./assist/index.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import logger from "../infra/log/logger.ts";

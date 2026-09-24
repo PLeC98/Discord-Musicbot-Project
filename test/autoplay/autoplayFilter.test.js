@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import filter from "../../src/autoplay/filter.js";
+import filter from "../../src/autoplay/filter.ts";
 
 const limits = (over = {}) => filter.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist", "메들리"], ...over });
 const judge = (title, duration = 240, over) => filter.judge({ title, duration }, limits(over));

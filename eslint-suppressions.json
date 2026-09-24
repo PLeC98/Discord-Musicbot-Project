@@ -205,7 +205,7 @@
       "count": 1
     }
   },
-  "src/autoplay/assist/index.js": {
+  "src/autoplay/assist/index.ts": {
     "complexity": {
       "count": 1
     },
@@ -213,22 +213,22 @@
       "count": 2
     }
   },
-  "src/autoplay/sources/animethemes.js": {
+  "src/autoplay/sources/animethemes.ts": {
     "complexity": {
       "count": 2
     }
   },
-  "src/autoplay/sources/anisongdb.js": {
+  "src/autoplay/sources/anisongdb.ts": {
     "complexity": {
       "count": 2
     }
   },
-  "src/autoplay/sources/index.js": {
+  "src/autoplay/sources/index.ts": {
     "complexity": {
       "count": 1
     }
   },
-  "src/autoplay/sources/voca.js": {
+  "src/autoplay/sources/voca.ts": {
     "complexity": {
       "count": 2
     }

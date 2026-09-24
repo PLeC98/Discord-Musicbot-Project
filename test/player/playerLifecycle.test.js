@@ -14,7 +14,7 @@ import h from "../helpers/playerHarness.js";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import autoplayRoute from "../../src/autoplay/route.js";
+import autoplayRoute from "../../src/autoplay/route.ts";
 import voiceChannelStatus from "../../src/player/voiceChannelStatus.js";
 
 const { calls, AudioPlayerStatus } = h;

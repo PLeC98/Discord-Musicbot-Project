@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import tokens from "../../src/autoplay/assist/tokens.js";
+import tokens from "../../src/autoplay/assist/tokens.ts";
 
 // OpenAI API 가 이 문장 하나를 39 로 셌다(gpt-6-astra · gpt-5.6-luna · gpt-5 모두 같았다).
 const SENTENCE = "세차를 하려고 해. 세차장은 50미터 떨어져 있어. 걸어가야 할까, 운전해서 가야 할까?";

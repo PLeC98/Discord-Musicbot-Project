@@ -3,7 +3,7 @@ import assert from "node:assert";
 
 import platforms from "../../src/ui/platforms.js";
 const { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf } = platforms;
-import sources from "../../src/autoplay/sources/index.js";
+import sources from "../../src/autoplay/sources/index.ts";
 const { TYPES } = sources;
 
 // 소스를 더하고 이름표를 안 적으면 화면에 "Lbradio" 같은 것이 뜬다.

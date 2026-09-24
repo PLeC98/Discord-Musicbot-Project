@@ -1,9 +1,10 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // AnisongDB 소스. 표지는 AniList 에서.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genreSources.ts";
-import http from "./http.js";
+import http from "./http.ts";
 const { TIMEOUT_MS, userAgent, getJson, remembered } = http;
 
 // getJson의 형제. 필터를 본문으로 받는 API용.

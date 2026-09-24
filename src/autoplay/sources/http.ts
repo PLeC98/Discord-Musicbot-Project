@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 소스가 같이 쓰는 요청 도우미.
 
 import { setTimeout as sleep } from "node:timers/promises";

@@ -357,7 +357,7 @@ test("영상이 내려간 자동재생 곡은 대기열에서 빼고 다시 고�
 
   assert.equal(player.queue.includes(gone), false, "대기열에 남아 있으면 재생 차례에 또 실패한다");
   assert.equal(refilled, 1, "뺀 자리를 메워야 한다");
-  assert.equal(require("../../src/autoplay/route")._dead.has("BYlcTa9SQXs"), true, "다음 뽑기에서 또 고르면 안 된다");
+  assert.equal(require("../../src/autoplay/route.ts")._dead.has("BYlcTa9SQXs"), true, "다음 뽑기에서 또 고르면 안 된다");
 });
 
 test("사용자가 넣은 곡은 빼지 않는다 — 없어졌다는 것을 알아야 한다", async () => {

@@ -1,6 +1,7 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 키워드 소스.
 
-import http from "./http.js";
+import http from "./http.ts";
 const { pick } = http;
 import * as YouTube from "../../sources/youtube/index.ts";
 

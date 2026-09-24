@@ -14,7 +14,7 @@ import * as statusConfig from "../../src/config/status.ts";
 import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yamlStore.ts";
 import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
-import assist from "../../src/autoplay/assist/index.js";
+import assist from "../../src/autoplay/assist/index.ts";
 const { PROVIDERS } = assist; // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]

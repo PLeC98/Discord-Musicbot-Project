@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 AI 보조. 유튜브에서 찾아온 후보를 모델에게 한 번 더 물어본다.
 //
 // 소스가 아니라 뒷거름망이다. 곡 이름만 아는 소스(키워드·Last.fm)에서만 쓸 자리가 있고,
@@ -8,8 +9,8 @@
 import * as aiConfig from "../../config/ai.ts";
 import * as links from "../../rules/links.ts";
 import * as yamlStore from "../../config/yamlStore.ts";
-import googleAuth from "./googleAuth.js";
-import tokens from "./tokens.js";
+import googleAuth from "./googleAuth.ts";
+import tokens from "./tokens.ts";
 import * as models from "../../config/schema/aiModels.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";

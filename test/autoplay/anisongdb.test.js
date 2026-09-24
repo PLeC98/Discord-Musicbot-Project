@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import sources from "../../src/autoplay/sources/index.js";
+import sources from "../../src/autoplay/sources/index.ts";
 const build = sources._anisongFilters;
 
 // ── 기본값 ────────────────────────────────────────────────────────────────

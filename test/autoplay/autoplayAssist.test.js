@@ -1,4 +1,4 @@
-// src/autoplay/assist/index.js — 자동재생 AI 보조.
+// src/autoplay/assist/index.ts — 자동재생 AI 보조.
 //
 // 이 기능의 계약은 "맞히는 것"이 아니라 없어도 돌아가는 것이다.
 // 모델이 죽든, 느리든, 헛소리를 하든 자동재생이 멈추면 안 된다. 그 경계만 못 박는다.
@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 
 import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yamlStore.ts";
-import assist from "../../src/autoplay/assist/index.js";
+import assist from "../../src/autoplay/assist/index.ts";
 
 import { createRequire } from "node:module";
 
@@ -794,7 +794,7 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
     { role: "system", text: "기준이다" },
     { role: "user", text: "{{목록}}" },
   ]);
-  require("../../src/autoplay/assist/googleAuth")._reset();
+  require("../../src/autoplay/assist/googleAuth.ts")._reset();
 
   calls.length = 0;
   global.fetch = async (url, init) => {
@@ -910,7 +910,7 @@ test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", as
   // 다른 칸은 그대로 둔다 — 뒤에 오는 테스트가 같은 파일을 본다
   fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${JSON.stringify(inline)}\n`);
   yamlStore._setConfigDir(DIR);
-  require("../../src/autoplay/assist/googleAuth")._reset();
+  require("../../src/autoplay/assist/googleAuth.ts")._reset();
 
   calls.length = 0;
   global.fetch = async (url, init) => {
@@ -931,7 +931,7 @@ test("버텍스: 서비스 계정 키와 토큰이 밖으로 나가지 않는다
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.진짜같은토큰","expires_in":3600}' };
     return { ok: false, status: 401, text: async () => "denied for token ya29.진짜같은토큰" };
   };
-  require("../../src/autoplay/assist/googleAuth")._reset();
+  require("../../src/autoplay/assist/googleAuth.ts")._reset();
 
   const shown = await assist.judgeTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" }, []);
   const dump = JSON.stringify(shown);
@@ -1030,8 +1030,8 @@ test("업로더 이름은 넘기지 않는다", async () => {
 
 // 모듈이 멀쩡해도 배선이 빠지면 아무 일도 안 일어난다. 그 배선이 조용히 풀리는 것을 막는다.
 test("키워드 경로에서만 묻는다", async () => {
-  const route = require("../../src/autoplay/route");
-  const limits = require("../../src/autoplay/filter").prepare({ minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] });
+  const route = require("../../src/autoplay/route.ts");
+  const limits = require("../../src/autoplay/filter.ts").prepare({ minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] });
   const fromSearch = { title: "Pop Hits 2021 믹스", durationSec: 3600, youtubeUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", fromSearch: true, sourceKey: "yt:aaaaaaaaaaa" };
 
   useConfig(ON);
