@@ -68,7 +68,8 @@ function stripAnsi(s: unknown): unknown {
  *
  * file: 기록할 파일 경로(절대). maxBytes: 이 크기를 넘으면 회전(0이면 회전 안 함). keep: 보관할 회전본 개수(0이면 제한 없이 쌓음)
  */
-function createFileDestination({ file, maxBytes, keep }: { file: string; maxBytes: number; keep: number }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
+// notice: 파일 로그를 멈출 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다
+function createFileDestination({ file, maxBytes, keep, notice = (line: string) => process.stderr.write(line) }: { file: string; maxBytes: number; keep: number; notice?: (line: string) => unknown }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
   let fd: number | null = null;
   let size = 0;
 
@@ -82,7 +83,7 @@ function createFileDestination({ file, maxBytes, keep }: { file: string; maxByte
       }
       fd = null;
     }
-    process.stderr.write(`[logFile] ${what}. 파일 로그를 중단합니다 (${file}): ${(err as Error).message}\n`);
+    notice(`[logFile] ${what}. 파일 로그를 중단합니다 (${file}): ${(err as Error).message}\n`);
   }
 
   function open() {

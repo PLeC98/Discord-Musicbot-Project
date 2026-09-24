@@ -135,15 +135,11 @@ test("직렬화 불가(순환 참조)여도 던지지 않고 메시지는 남긴
 test("파일을 못 열면 던지지 않고 조용히 중단한다 (로깅이 봇을 멈추지 않는다)", () => {
   const blocker = path.join(tmpdir(), "blocked");
   fs.writeFileSync(blocker, "이건 파일이라 디렉터리로 못 만든다");
-  const realWrite = process.stderr.write;
-  process.stderr.write = () => true; // 안내 한 줄이 테스트 출력을 더럽히지 않게
-  try {
-    const dest = createFileDestination({ file: path.join(blocker, "bot.log"), maxBytes: 1e9, keep: 3 });
-    dest.write(rec("아무 데도 안 감"));
-    dest.close();
-  } finally {
-    process.stderr.write = realWrite;
-  }
+  const notices: string[] = []; // 안내 한 줄은 테스트 출력 대신 여기로
+  const dest = createFileDestination({ file: path.join(blocker, "bot.log"), maxBytes: 1e9, keep: 3, notice: (line) => notices.push(line) });
+  dest.write(rec("아무 데도 안 감"));
+  dest.close();
+  assert.equal(notices.length, 1, "멈춘다는 것을 한 번 알린다");
 });
 
 test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤에 붙인다", () => {

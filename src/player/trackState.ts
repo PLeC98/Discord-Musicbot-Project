@@ -132,10 +132,11 @@ function move(player: Queue, from: number, to: number) {
   return track;
 }
 
-function shuffle(player: Queue) {
+// random: [0, 1) 수를 주는 것. 시험이 정해진 수열을 넘긴다
+function shuffle(player: Queue, random: () => number = Math.random) {
   const q = player.queue;
   for (let i = q.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [q[i], q[j]] = [q[j], q[i]];
   }
   sinkOf(player)?.onReplace();

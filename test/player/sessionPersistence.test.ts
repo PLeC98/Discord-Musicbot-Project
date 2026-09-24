@@ -99,8 +99,7 @@ function rng(seed: number) {
 test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 1500회", () => {
   const { p } = makePlayer();
   const pick = rng(915);
-  const realRandom = Math.random;
-  Math.random = () => pick(1_000_000) / 1_000_000;
+  const random = () => pick(1_000_000) / 1_000_000;
 
   const ops = [
     () =>
@@ -117,19 +116,15 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
     },
     () => trackState.removeAt(p, pick(p.queue.length + 1)),
     () => trackState.move(p, pick(p.queue.length + 1), pick(p.queue.length + 1)),
-    () => trackState.shuffle(p),
+    () => trackState.shuffle(p, random),
     () => p.queue.length > 0 && trackState.insertAfter(p, p.queue[pick(p.queue.length)].title, [t(), t()]),
     () => trackState.setCurrent(p, pick(3) === 0 ? null : t()),
   ];
   const rare = [() => trackState.clearQueue(p), () => trackState.reset(p, { history: pick(2) === 0 }), () => trackState.restore(p, { current: t(), queue: [t(), t()], history: [t()] })];
 
-  try {
-    for (let step = 0; step < 1500; step++) {
-      (pick(30) === 0 ? rare[pick(rare.length)] : ops[pick(ops.length)])();
-      assert.deepEqual(stored(p.guild.id), memory(p), `조작 ${step}번째에서 어긋남`);
-    }
-  } finally {
-    Math.random = realRandom;
+  for (let step = 0; step < 1500; step++) {
+    (pick(30) === 0 ? rare[pick(rare.length)] : ops[pick(ops.length)])();
+    assert.deepEqual(stored(p.guild.id), memory(p), `조작 ${step}번째에서 어긋남`);
   }
 });
 
