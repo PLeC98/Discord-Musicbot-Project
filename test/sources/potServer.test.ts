@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/youtube/potServer.ts — bgutil POToken 서버를 띄우고 지키기.
 // 프로세스 띄우기 · 설치 확인 · HTTP 는 가짜를 넘긴다.
 
@@ -18,10 +17,12 @@ test("토큰은 로그에 남기지 않는다", () => {
 });
 
 // 띄운 프로세스 대신. 무엇으로 띄웠고 무엇을 받았는지 남긴다
+type FakeProc = EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; killed: NodeJS.Signals | null | undefined; kill(sig?: NodeJS.Signals): unknown };
+
 function fakeSpawn() {
-  const spawned = [];
-  const spawn = (cmd, args, opts) => {
-    const proc = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter(), killed: null, kill: (sig) => (proc.killed = sig) });
+  const spawned: Array<{ cmd: string; args: string[]; opts: { cwd: string }; proc: FakeProc }> = [];
+  const spawn = (cmd: string, args: string[], opts: { cwd: string }) => {
+    const proc: FakeProc = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter(), killed: null, kill: (sig?: NodeJS.Signals) => (proc.killed = sig) });
     spawned.push({ cmd, args, opts, proc });
     return proc;
   };
@@ -47,9 +48,9 @@ test("켜져 있어도 설치돼 있지 않으면 띄우지 않는다", async ()
 
 test("켜져 있고 설치돼 있으면 서버 폴더에서 띄우고, /ping 이 답하면 준비된 것이다", async () => {
   const { spawn, spawned } = fakeSpawn();
-  const pings = [];
+  const pings: string[] = [];
   let up = 0;
-  const fetch = async (url) => {
+  const fetch = async (url: string) => {
     pings.push(url);
     if (++up < 2) throw new Error("ECONNREFUSED");
     return { ok: true };

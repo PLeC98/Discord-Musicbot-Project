@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 사운드클라우드와 직접 링크가 무엇을 조회하고 무엇을 돌려주는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 링크 판정을 rules/links 로 옮기고, 3 이 사운드클라우드 열쇠 모양과 트랙 칸을 바꾼다. 사운드클라우드는 부르는 곳이
@@ -13,30 +12,36 @@ import assert from "node:assert/strict";
 import ytdlExec from "youtube-dl-exec";
 import * as SoundCloud from "../../src/sources/soundcloud.ts";
 import * as DirectLink from "../../src/sources/direct.ts";
+import { messageOf } from "../../src/rules/errorKind.ts";
+import type { YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
-const calls = { ytdlp: [], head: [], stream: [] };
-let respond;
-let headReply;
+// yt-dlp 가 줄 것. 실패면 fail 에 stderr
+type Reply = ({ fail?: string } & Record<string, unknown>) | null;
+
+const calls = { ytdlp: [] as Array<{ url: string; flags: YtDlpFlags }>, head: [] as string[], stream: [] as string[] };
+let respond: (url: string, flags: YtDlpFlags) => Reply;
+let headReply: (url: string) => { headers: object };
 const real = { exec: ytdlExec.exec };
 // 직접 링크의 네트워크(SafeUrl 의 head · getStream) 가짜. DirectLink 에 넘긴다
 const net = {
-  head: async (url) => {
+  head: async (url: string) => {
     calls.head.push(url);
     return headReply(url);
   },
-  getStream: async (url) => {
+  getStream: async (url: string) => {
     calls.stream.push(url);
     return Readable.from(["x"]);
   },
 };
 
 before(() => {
-  ytdlExec.exec = (url, flags) => {
+  // 가짜는 tinyspawn 약속의 stdout · stderr 만 준다
+  ytdlExec.exec = ((url: string, flags: YtDlpFlags = {}) => {
     calls.ytdlp.push({ url, flags });
     const out = respond(url, flags);
     if (out && out.fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: out.fail }));
     return Promise.resolve({ stdout: JSON.stringify(out), stderr: "" });
-  };
+  }) as unknown as typeof real.exec;
 });
 
 after(() => {
@@ -44,12 +49,12 @@ after(() => {
 });
 
 beforeEach(() => {
-  for (const k of Object.keys(calls)) calls[k].length = 0;
+  for (const list of Object.values(calls)) list.length = 0;
   respond = () => ({});
   headReply = () => ({ headers: {} });
 });
 
-const scItem = (slug, extra = {}) => ({ id: 1000 + slug.length, title: `SC ${slug}`, uploader: "올린 사람", webpage_url: `https://soundcloud.com/artist/${slug}`, duration: 180.4, thumbnail: "https://i1.sndcdn.com/a.jpg", ...extra });
+const scItem = (slug: string, extra: Record<string, unknown> = {}) => ({ id: 1000 + slug.length, title: `SC ${slug}`, uploader: "올린 사람", webpage_url: `https://soundcloud.com/artist/${slug}`, duration: 180.4, thumbnail: "https://i1.sndcdn.com/a.jpg", ...extra });
 
 // ── 사운드클라우드 ────────────────────────────────────────────────────
 
@@ -147,13 +152,13 @@ test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 �
   assert.ok(s instanceof Readable);
   assert.deepEqual(calls.stream, ["https://files.test/a.mp3"]);
 
-  await assert.rejects(DirectLink.getStream("https://files.test/a.txt", net), (e) => e.message === "재생할 수 없는 링크입니다" && /지원되지 않는 직접 오디오 파일 링크/.test(e.cause.message));
+  await assert.rejects(DirectLink.getStream("https://files.test/a.txt", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /지원되지 않는 직접 오디오 파일 링크/.test(messageOf((e as Error).cause)));
   const blocked = {
     getStream: async () => {
       throw new Error("SSRF 차단: 127.0.0.1");
     },
   };
-  await assert.rejects(DirectLink.getStream("https://files.test/b.mp3", blocked), (e) => e.message === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(e.cause.message));
+  await assert.rejects(DirectLink.getStream("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
 });
 
 test("파일 이름에서 제목: 구분자를 공백으로, 단어 첫 글자를 대문자로", () => {

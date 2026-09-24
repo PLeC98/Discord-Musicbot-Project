@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // Spotify 의 공식 API 경로와 익명 GraphQL 경로가 네트워크와 무엇을 주고받는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 3 이 트랙 칸을 바꾸고, 5 가 익명 상태를 저장하는 곳을 옮긴다. fetch 만 가짜로 두고
@@ -23,26 +22,31 @@ const { graphql, deriveKey, totp } = Spotify._internals;
 
 const realFetch = global.fetch;
 const savedCreds = { ...config.spotify };
-const requests = [];
-let routes; // [(url, init) => 응답 | undefined]
+// 보낸 요청. 여기서 보는 칸만
+type Init = { method?: string; headers?: Record<string, string>; body?: string };
+const requests: Array<{ url: string; init: Init }> = [];
 
 // Response 는 Set-Cookie 를 걸러 내므로 필요한 것만 가진 가짜를 쓴다
-const reply = (body, { status = 200, cookies = [] } = {}) => ({
+const reply = (body: unknown, { status = 200, cookies = [] as string[] } = {}) => ({
   ok: status >= 200 && status < 300,
   status,
   headers: { getSetCookie: () => cookies },
   json: async () => (typeof body === "string" ? JSON.parse(body) : body),
   text: async () => (typeof body === "string" ? body : JSON.stringify(body)),
 });
+// 요청 하나에 답하는 길. 모르는 요청이면 undefined
+type Route = (url: string, init: Init) => ReturnType<typeof reply> | undefined;
+let routes: Route[] = [];
 
-global.fetch = async (url, init = {}) => {
+// 가짜 응답은 스포티파이 모듈이 읽는 칸만 가진다
+global.fetch = (async (url: string | URL, init: Init = {}) => {
   requests.push({ url: String(url), init });
   for (const route of routes) {
     const r = route(String(url), init);
     if (r) return r;
   }
   throw new Error(`시험이 정하지 않은 요청: ${url}`);
-};
+}) as unknown as typeof fetch;
 
 after(() => {
   global.fetch = realFetch;
@@ -59,7 +63,7 @@ beforeEach(() => {
   Object.assign(config.spotify, { clientId: "cid", clientSecret: "csecret" });
 });
 
-const apiTrack = (id, name) => ({
+const apiTrack = (id: string, name: string) => ({
   id,
   name,
   artists: [{ name: "가수" }],
@@ -74,12 +78,12 @@ const apiTrack = (id, name) => ({
   external_urls: { spotify: `https://open.spotify.com/track/${id}` },
 });
 
-const tokenRoute = (url) => (url === "https://accounts.spotify.com/api/token" ? reply({ access_token: "T1", expires_in: 3600 }) : undefined);
+const tokenRoute: Route = (url) => (url === "https://accounts.spotify.com/api/token" ? reply({ access_token: "T1", expires_in: 3600 }) : undefined);
 
 // ── 공식 API ──────────────────────────────────────────────────────────
 
 test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양으로 바꾼다", async () => {
-  routes = [tokenRoute, (url) => (url.startsWith("https://api.spotify.com/v1/tracks/") ? reply(apiTrack(url.split("/").pop(), "곡")) : undefined)];
+  routes = [tokenRoute, (url) => (url.startsWith("https://api.spotify.com/v1/tracks/") ? reply(apiTrack(url.split("/").pop() ?? "", "곡")) : undefined)];
 
   const [a] = await Spotify.getFromURL("https://open.spotify.com/track/aaa111");
   await Spotify.getFromURL("https://open.spotify.com/track/bbb222");
@@ -87,10 +91,10 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   const tokenCalls = requests.filter((r) => r.url.includes("accounts.spotify.com"));
   assert.equal(tokenCalls.length, 1, "토큰은 만료 전까지 재사용");
   assert.equal(tokenCalls[0].init.method, "POST");
-  assert.equal(tokenCalls[0].init.headers.Authorization, `Basic ${Buffer.from("cid:csecret").toString("base64")}`);
+  assert.equal(tokenCalls[0]?.init.headers?.Authorization, `Basic ${Buffer.from("cid:csecret").toString("base64")}`);
   assert.equal(tokenCalls[0].init.body, "grant_type=client_credentials");
   const trackCall = requests.find((r) => r.url.endsWith("/tracks/aaa111"));
-  assert.equal(trackCall.init.headers.Authorization, "Bearer T1");
+  assert.equal(trackCall?.init.headers?.Authorization, "Bearer T1");
   assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", type: "track", id: "aaa111" });
 });
 
@@ -100,7 +104,7 @@ test("검색: 공식 API 의 search 를 부르고, 실패하면 빈 배열", asy
   const found = await Spotify.search("가수 곡", 1);
 
   const call = requests.find((r) => r.url.includes("/v1/search?"));
-  assert.equal(call.url, `https://api.spotify.com/v1/search?q=${encodeURIComponent("가수 곡")}&type=track&limit=1`);
+  assert.equal(call?.url, `https://api.spotify.com/v1/search?q=${encodeURIComponent("가수 곡")}&type=track&limit=1`);
   assert.deepEqual(
     found.map((t) => t.title),
     ["하나"],
@@ -124,7 +128,7 @@ test("자격증명이 없으면 곡 주소는 빈 결과(던지지 않는다)", 
 
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
   // GraphQL 질의는 가짜로 넘긴다(익명 토큰 · 상태는 아래 시험들이 본다)
-  const query = async (op, hash, vars) => {
+  const query = async (op: string, _hash: string, vars: Record<string, unknown>) => {
     assert.equal(op, "queryArtistOverview");
     assert.equal(vars.uri, "spotify:artist:ar1");
     return { artistUnion: { discography: { topTracks: { items: [{ track: { uri: "spotify:track:g1", name: "인기곡", artists: { items: [{ profile: { name: "가수" } }] }, duration: { totalMilliseconds: 90000 } } }] } } } };
@@ -147,7 +151,7 @@ test("모르는 주소는 요청 없이 빈 결과", async () => {
 const HOME = `<script id="appServerConfig" type="text">${Buffer.from(JSON.stringify({ clientVersion: "9.9.9" })).toString("base64")}</script><script src="https://open.spotifycdn.com/cdn/build/web-player/web-player.abc123.js"></script>`;
 const BUNDLE = `x={secret:'s3cr\\'et',version:12};"fetchPlaylist","query","${"a".repeat(64)}";"queryArtistOverview","query","${"b".repeat(64)}"`;
 
-const anonRoutes = ({ tokenStatus = [200] } = {}) => {
+const anonRoutes = ({ tokenStatus = [200] } = {}): Route[] => {
   let mint = 0;
   return [
     (url) => (url === "https://open.spotify.com/" ? reply(HOME, { cookies: ["sp_t=abc; Path=/", "sp_landing=x; Path=/"] }) : undefined),
@@ -171,7 +175,7 @@ test("익명 상태: 홈 · 번들에서 판 · secret · 해시를 뽑아 DB �
   assert.equal(state.hashes.fetchPlaylist, "a".repeat(64));
   assert.equal(state.hashes.queryArtistOverview, "b".repeat(64));
   const saved = externalCaches.getSpotifyAnonState();
-  assert.equal(saved.clientVersion, "9.9.9");
+  assert.equal(saved?.clientVersion, "9.9.9");
 
   const before = requests.length;
   await graphql._ensureState(false);
@@ -215,8 +219,8 @@ test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받
   assert.equal(qs.get("totpVer"), "12");
   assert.equal(qs.get("totpServer"), totp(key, 1700000000 * 1000));
   assert.equal(qs.get("reason"), "init");
-  assert.equal(mints[0].init.headers.Cookie, "sp_t=abc; sp_landing=x");
-  assert.equal(mints[0].init.headers["App-Platform"], "WebPlayer");
+  assert.equal(mints[0]?.init.headers?.Cookie, "sp_t=abc; sp_landing=x");
+  assert.equal(mints[0]?.init.headers?.["App-Platform"], "WebPlayer");
 });
 
 test("익명 토큰: 400 · 403 이면 secret 을 다시 뽑아 한 번 더", async () => {
@@ -239,7 +243,7 @@ test("GraphQL 질의: 파트너 머리와 저장된 해시로 보낸다. 해시�
     (url, init) => {
       if (url !== "https://api-partner.spotify.com/pathfinder/v2/query") return undefined;
       attempts += 1;
-      return attempts === 1 ? reply({ errors: [{ message: "PersistedQueryNotFound" }] }) : reply({ data: { ok: JSON.parse(init.body).operationName } });
+      return attempts === 1 ? reply({ errors: [{ message: "PersistedQueryNotFound" }] }) : reply({ data: { ok: JSON.parse(init.body ?? "{}").operationName } });
     },
   ];
 
@@ -248,11 +252,11 @@ test("GraphQL 질의: 파트너 머리와 저장된 해시로 보낸다. 해시�
   assert.deepEqual(data, { ok: "fetchPlaylist" });
   const q = requests.filter((r) => r.url.includes("api-partner"));
   assert.equal(q.length, 2);
-  const body = JSON.parse(q[0].init.body);
+  const body = JSON.parse(q[0]?.init.body ?? "{}");
   assert.equal(body.extensions.persistedQuery.sha256Hash, "a".repeat(64));
   assert.deepEqual(body.variables, { uri: "spotify:playlist:p" });
-  assert.equal(q[0].init.headers.Authorization, "Bearer A1");
-  assert.equal(q[0].init.headers["Spotify-App-Version"], "9.9.9");
+  assert.equal(q[0]?.init.headers?.Authorization, "Bearer A1");
+  assert.equal(q[0]?.init.headers?.["Spotify-App-Version"], "9.9.9");
 });
 
 test("GraphQL 질의: 다른 오류와 JSON 이 아닌 응답은 던진다", async () => {

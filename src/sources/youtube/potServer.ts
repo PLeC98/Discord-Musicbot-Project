@@ -2,7 +2,6 @@
 // 조립(index.js)이 하나 만들어 기동 때 띄우고 종료 때 내린다.
 
 import childProcess from "child_process";
-import type { ChildProcess } from "child_process";
 import fs from "fs";
 import path from "path";
 import logger from "../../infra/log/logger.ts";
@@ -13,6 +12,12 @@ const SERVER_DIR = path.join(import.meta.dirname, "..", "..", "..", "bgutil-ytdl
 const ENTRY = path.join(SERVER_DIR, "build", "main.js");
 const PORT = 4416; // bgutil 서버 기본 포트 (yt-dlp 플러그인 기본값과 동일)
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 띄우기까지
+
+// 띄운 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
+type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } | null;
+type PotProcess = { stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; kill(signal?: NodeJS.Signals): unknown };
+type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["ignore", "pipe", "pipe"] }) => PotProcess;
+type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean }>;
 
 // bgutil이 발급한 토큰을 그대로 로그에 남기지 않는다. 세션 자격증명이다.
 // (sink의 레드액션은 access_token 계열 이름만 알아서 poToken은 그냥 통과한다.)
@@ -37,8 +42,8 @@ function relay(chunk: Buffer | string, stream: "out" | "err") {
 /**
  * spawn · exists · fetch: 바깥 경계. 생략하면 진짜
  */
-function createPotServer({ spawn = childProcess.spawn, exists = fs.existsSync, fetch = (url: string, init?: RequestInit) => globalThis.fetch(url, init) }: { spawn?: typeof childProcess.spawn; exists?: (file: string) => boolean; fetch?: (url: string, init?: RequestInit) => Promise<Response> } = {}) {
-  let proc: ChildProcess | null = null;
+function createPotServer({ spawn = (command, args, options) => childProcess.spawn(command, args, options), exists = fs.existsSync, fetch = (url, init) => globalThis.fetch(url, init) }: { spawn?: Spawn; exists?: (file: string) => boolean; fetch?: Fetch } = {}) {
+  let proc: PotProcess | null = null;
   let stopping = false;
 
   function start() {

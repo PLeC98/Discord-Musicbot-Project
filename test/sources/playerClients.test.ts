@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/youtube/clients.ts — 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
 // 연속 실패가 아니라 슬라이딩 윈도우인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가
 // 갈려서(2026-09-11 실측) 성공이 섞이면 연속 카운터가 계속 리셋된다.
@@ -7,7 +6,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PlayerClients, KNOWN, NEEDS_POT } from "../../src/sources/youtube/clients.ts";
 import config from "../../config.ts";
-const { parseClients } = config;
+// config.ts 가 아직 nocheck 라 숨긴 칸(parseClients)이 타입에 없다. 루트 config 에 타입을 달 때 걷는다
+const { parseClients } = config as typeof config & { parseClients(raw: unknown): string[] };
 
 test("빈 설정이면 idle — 폴백 루프를 아예 돌지 않는다 (기존 동작 보존)", () => {
   const pc = new PlayerClients([]);

@@ -1,14 +1,15 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 여러 곡 출처는 필요한 구간만 받는다 — 스포티파이 재생목록·앨범·인기곡, 유튜브 재생목록, 해석기 전달.
 // 회귀 대상: 1만 곡 재생목록을 전부 받은 뒤(61초) 대기열에서 잘랐다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import type { YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
+import type { Range } from "../../src/sources/lookup.ts";
 
 // yt-dlp 실행 함수 가짜. getPlaylist 에 넘긴다
-const ytCalls = [];
-let ytInfo = null;
-const exec = async (url, options) => {
+const ytCalls: Array<{ url: string; options: YtDlpFlags }> = [];
+let ytInfo: unknown = null;
+const exec = async (url: string, options: YtDlpFlags = {}) => {
   ytCalls.push({ url, options });
   return ytInfo;
 };
@@ -24,9 +25,10 @@ const { graphql, official } = Spotify._internals;
 
 // ── 스포티파이 재생목록 (익명 GraphQL) ──
 
-function fakePlaylist(total, unavailable = new Set()) {
-  const calls = [];
-  const query = async (_op, _hash, { offset, limit }) => {
+function fakePlaylist(total: number, unavailable = new Set<number>()) {
+  const calls: Array<[number, number]> = [];
+  const query = async (_op: string, _hash: string, variables: Record<string, unknown>) => {
+    const { offset, limit } = variables as { offset: number; limit: number };
     calls.push([offset, limit]);
     const items = [];
     for (let i = offset; i < Math.min(total, offset + limit); i++) {
@@ -38,7 +40,7 @@ function fakePlaylist(total, unavailable = new Set()) {
   return { calls, query };
 }
 
-async function playlist(total, range, unavailable) {
+async function playlist(total: number, range: Range, unavailable?: Set<number>) {
   const fake = fakePlaylist(total, unavailable);
   return { ...(await graphql.playlist("P", range, { query: fake.query })), calls: fake.calls };
 }
@@ -82,18 +84,18 @@ test("스포티파이 재생목록: 목록 끝에서 멈춘다", async () => {
 
 // ── 스포티파이 앨범 (공식 API) ──
 
-function apiItems(from, to) {
+function apiItems(from: number, to: number) {
   return Array.from({ length: to - from }, (_, k) => ({ name: `곡${from + k}`, id: `t${from + k}`, artists: [], duration_ms: 1000 }));
 }
 
-async function album(range) {
-  const pages = {
+async function album(range: Range) {
+  const pages: Record<string, unknown> = {
     "/albums/A": { name: "앨범", images: [], tracks: { total: 120, items: apiItems(0, 50), next: "/albums/A/tracks?offset=50&limit=50" } },
     "/albums/A/tracks?offset=50&limit=50": { items: apiItems(50, 100), next: "/albums/A/tracks?offset=100&limit=50" },
     "/albums/A/tracks?offset=100&limit=50": { items: apiItems(100, 120), next: null },
   };
-  const gets = [];
-  const get = async (p) => {
+  const gets: string[] = [];
+  const get = async (p: string) => {
     gets.push(p);
     return pages[p];
   };
@@ -127,25 +129,27 @@ test("스포티파이 인기곡: 통째로 받은 뒤 구간을 자른다", asyn
 test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기준 다음 위치를 돌려준다", async () => {
   ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
   const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3, exec });
-  assert.equal(ytCalls.at(-1).options.playlistItems, "51:53");
+  assert.ok(r);
+  assert.equal(ytCalls.at(-1)?.options.playlistItems, "51:53");
   assert.equal(r.tracks.length, 2);
   assert.equal(r.total, 98);
   assert.equal(r.nextOffset, 53, "빈 항목도 원본 자리를 차지한다");
 
   ytInfo = { title: "Mix", entries: [{ id: "a", title: "A" }] };
   const mix = await YouTube.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa", { exec });
-  assert.equal(ytCalls.at(-1).options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 묶음만큼");
+  assert.ok(mix);
+  assert.equal(ytCalls.at(-1)?.options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 묶음만큼");
   assert.equal(mix.total, null, "믹스는 끝이 없어 총 곡 수가 없다");
 });
 
 // ── 해석기 ──
 
 test("해석기는 구간을 어댑터에 넘기고 총 곡 수·다음 위치를 싣는다", async () => {
-  const seen = [];
+  const seen: Array<Range | undefined> = [];
   const sources = {
     spotify: {
       ...Spotify,
-      getCollection: async (_url, range) => {
+      getCollection: async (_url: string, range?: Range) => {
         seen.push(range);
         return { tracks: [{ title: "a" }], total: 9946, nextOffset: 1 };
       },

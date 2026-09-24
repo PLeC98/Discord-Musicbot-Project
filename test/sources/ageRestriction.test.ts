@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 연령 제한 폴백: externalCaches 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별.
 
 import os from "node:os";
@@ -7,22 +6,15 @@ import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import * as audioCache from "../../src/store/audioCache.ts";
+import * as externalCaches from "../../src/store/externalCaches.ts";
+import * as YouTube from "../../src/sources/youtube/index.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-agerestrict-test-${process.pid}.db`);
 
-let audioCache, externalCaches;
-let YouTube;
-
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  audioCache = require("../../src/store/audioCache.ts");
-  externalCaches = require("../../src/store/externalCaches.ts");
   audioCache.initialize(DB_PATH);
-  YouTube = require("../../src/sources/youtube/index.ts");
 });
 
 after(() => {

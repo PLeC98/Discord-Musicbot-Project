@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
 
@@ -62,7 +61,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
 
     const result = await lookup.getTrackData(url);
     assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
-    assert.match(result.message, /유튜브 주소/);
+    assert.match(result.message ?? "", /유튜브 주소/);
   }
 
   // 검색어는 그대로 검색으로 간다

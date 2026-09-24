@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 쿠키가 붙으면 쓸 수 있는 클라이언트 집합이 바뀐다. 그 경계에서 생기던 두 가지를 고정한다.
 //
 //  1. yt-dlp 가 건너뛴 클라이언트를 실패로 세면 안 된다. 돌아 본 적이 없기 때문이다.
@@ -15,6 +14,7 @@ process.env.COOKIES_SOURCE = "";
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { LogRecord } from "../../src/infra/log/sink.ts";
 
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const { NEEDS_POT } = await import("../../src/sources/youtube/clients.ts");
@@ -29,12 +29,12 @@ const SKIPPED = ['WARNING: [youtube] Skipping client "visionos" since it does no
 // 연령 제한 영상을 POToken 없이 열 때 실제로 오는 경고
 const POT_LINE = "WARNING: [youtube] hc0ZDaAZQT0: web_creator client https formats require a GVS PO Token which was not provided. They will be skipped as they may yield HTTP Error 403.";
 
-const err = (stderr) => Object.assign(new Error(stderr), { stderr });
+const err = (stderr: string) => Object.assign(new Error(stderr), { stderr });
 
 /** _inspectWarnings 가 남긴 레코드를 받아 온다(로그의 듣는 자리에 잠깐 붙는다) */
-function capture(line, client) {
-  const records = [];
-  const listen = (r) => records.push(r);
+function capture(line: string, client: string | null) {
+  const records: LogRecord[] = [];
+  const listen = (r: LogRecord) => records.push(r);
   sink.destinations.push(listen);
   try {
     YouTube._inspectWarnings(line, client);

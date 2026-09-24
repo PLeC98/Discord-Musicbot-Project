@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/youtube/match.ts — 후보 채점의 순수 로직 계약.
 //
 // 유튜브 검색 결과로 실제 선택을 검증하는 회귀 코퍼스는 여기 두지 않는다.
@@ -35,7 +34,7 @@ test("곡 제목 자체에 든 용어는 감점하지 않는다", () => {
 // ── 면제 규칙 ────────────────────────────────────────────────
 
 const target = { title: "곡", artist: "아티스트", durationSec: 200 };
-const cand = (over) => ({ id: "x", url: "u", title: "곡", channel: "남의채널", durationSec: 200, rank: 0, ...over });
+const cand = (over: Record<string, unknown>) => ({ id: "x", url: "u", title: "곡", channel: "남의채널", durationSec: 200, rank: 0, ...over });
 
 test("버전 표기는 공식 채널이어도 면제되지 않는다", () => {
   const r = scoreCandidate(cand({ title: "곡 (English ver.)", channel: "아티스트" }), target);

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 곡 찾기(sources/lookup) · 유튜브 동등물(youtube/equivalent) · 스트림(streamUrl)의 갈래를 고정한다
 // (링크 종류별 조회 · 캐시 지름길 · 열쇠 만들기 · 동등물 찾기 · 재검색 · 스트림).
 //
@@ -13,6 +12,8 @@ import assert from "node:assert/strict";
 
 import { createRequire } from "node:module";
 import * as storeDb from "../../src/store/db.ts";
+import type { Range } from "../../src/sources/lookup.ts";
+import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
@@ -40,7 +41,7 @@ after(() => {
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
-const ytTrack = (id, extra = {}) => ({ id, title: `곡 ${id}`, artist: "가수", url: `https://www.youtube.com/watch?v=${id}`, duration: 200, platform: "youtube", ...extra });
+const ytTrack = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `곡 ${id}`, artist: "가수", url: `https://www.youtube.com/watch?v=${id}`, duration: 200, platform: "youtube", ...extra });
 
 // ── 링크 종류 ─────────────────────────────────────────────────────────
 
@@ -62,11 +63,11 @@ test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · �
 // ── 조회 ──────────────────────────────────────────────────────────────
 
 test("조회: 유튜브 재생목록은 구간을 넘겨 받고, 못 받으면 같은 주소로 검색한다", async () => {
-  const seen = [];
+  const seen: Array<Range | undefined> = [];
   const listed = {
     youtube: {
       ...YouTube,
-      getPlaylist: async (url, range) => {
+      getPlaylist: async (_url: string, range?: Range) => {
         seen.push(range);
         return { tracks: [ytTrack("p1")], total: 40, nextOffset: 10 };
       },
@@ -76,7 +77,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받고, 못 받으면 �
   assert.deepEqual(seen, [{ offset: 0, limit: 10 }]);
   assert.deepEqual({ success: r.success, isPlaylist: r.isPlaylist, collection: r.collection, total: r.total, nextOffset: r.nextOffset }, { success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10 });
 
-  const unlisted = { youtube: { ...YouTube, getPlaylist: async () => null, search: async (q, n) => [ytTrack("s1", { q, n })] } };
+  const unlisted = { youtube: { ...YouTube, getPlaylist: async () => null, search: async (q: string, n: number) => [ytTrack("s1", { q, n })] } };
   const fallback = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL2", undefined, undefined, unlisted);
   assert.equal(fallback.isPlaylist, false);
   assert.deepEqual([fallback.tracks[0].q, fallback.tracks[0].n], ["https://www.youtube.com/playlist?list=PL2", 1]);
@@ -88,7 +89,7 @@ test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않
 });
 
 test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
-  const spotify = { spotify: { ...Spotify, getCollection: async (url) => ({ tracks: [{ title: url }], total: 12, nextOffset: 1 }) } };
+  const spotify = { spotify: { ...Spotify, getCollection: async (url: string) => ({ tracks: [{ title: url }], total: 12, nextOffset: 1 }) } };
   const album = await lookup.getTrackData("https://open.spotify.com/album/al1", undefined, undefined, spotify);
   assert.deepEqual([album.isPlaylist, album.collection, album.total], [true, "album", 12]);
   const one = await lookup.getTrackData("https://open.spotify.com/track/tr1", undefined, undefined, spotify);
@@ -96,11 +97,11 @@ test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 
 });
 
 test("조회: 사운드클라우드 · 직접 링크는 한 곡", async () => {
-  const sources = { soundcloud: { search: async (q, n) => [{ title: "sc", q, n }] }, direct: { getInfo: async (url) => [{ title: "file", url }] } };
+  const sources = { soundcloud: { search: async (q: string, n: number) => [{ title: "sc", q, n }] }, direct: { getInfo: async (url: string) => [{ title: "file", url }] } };
   const sc = await lookup.getTrackData("https://soundcloud.com/a/b", undefined, undefined, sources);
-  assert.deepEqual([sc.tracks[0].q, sc.tracks[0].n], ["https://soundcloud.com/a/b", 1]);
+  assert.deepEqual([sc.tracks?.[0].q, sc.tracks?.[0].n], ["https://soundcloud.com/a/b", 1]);
   const direct = await lookup.getTrackData("https://files.test/a.mp3", undefined, undefined, sources);
-  assert.equal(direct.tracks[0].url, "https://files.test/a.mp3");
+  assert.equal(direct.tracks?.[0].url, "https://files.test/a.mp3");
 });
 
 test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
@@ -127,10 +128,10 @@ test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", () 
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
   const gone = { youtube: { ...YouTube, getPlaylist: async () => null } };
   assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", { offset: 50, limit: 10 }, gone), { tracks: [], total: null, nextOffset: null });
-  const part = { youtube: { ...YouTube, getPlaylist: async () => ({ tracks: [1], total: 60 }) } };
-  assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", undefined, part), { tracks: [1], total: 60, nextOffset: null });
-  const spotify = { spotify: { ...Spotify, getCollection: async (url, range) => ({ url, range }) } };
-  assert.deepEqual(await lookup.getCollection("https://open.spotify.com/playlist/p", { offset: 5 }, spotify), { url: "https://open.spotify.com/playlist/p", range: { offset: 5 } });
+  const part = { youtube: { ...YouTube, getPlaylist: async () => ({ tracks: [{ id: "1" }], total: 60 }) } };
+  assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", undefined, part), { tracks: [{ id: "1" }], total: 60, nextOffset: null });
+  const spotify = { spotify: { ...Spotify, getCollection: async (url: string, range?: Range) => ({ tracks: [{ url, range }] }) } };
+  assert.deepEqual(await lookup.getCollection("https://open.spotify.com/playlist/p", { offset: 5 }, spotify), { tracks: [{ url: "https://open.spotify.com/playlist/p", range: { offset: 5 } }] });
   assert.deepEqual(await lookup.getCollection("https://soundcloud.com/a/sets/b"), { tracks: [], total: null, nextOffset: null });
 });
 
@@ -145,7 +146,7 @@ test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 
   const noLookup = { youtube: { ...YouTube, search: async () => assert.fail("조회하면 안 된다") } };
 
   const hit = await lookup.resolveQuery(`https://youtu.be/ccccccccccc?si=share`, undefined, undefined, noLookup);
-  assert.deepEqual([hit.success, hit.isPlaylist, hit.tracks[0].title, hit.tracks[0].duration, hit.tracks[0].audioUrl], [true, false, "장부 제목", 99, url]);
+  assert.deepEqual([hit.success, hit.isPlaylist, hit.tracks?.[0].title, hit.tracks?.[0].duration, hit.tracks?.[0].audioUrl], [true, false, "장부 제목", 99, url]);
 
   let playlistAsked = false;
   const listed = {
@@ -167,7 +168,7 @@ test("동등물: 장부에 매핑이 있으면 검색하지 않고 쓰며, 장�
   audioCache.recordDownloadStart("yt:fffffffffff", { title: "t" });
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/sp1", pageUrl: "https://open.spotify.com/track/sp1", audioUrl: "https://www.youtube.com/watch?v=fffffffffff", platform: "spotify", title: "곡", artist: "가수" });
   const search = async () => assert.fail("검색하면 안 된다");
-  const track = { title: "곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp1", requestKey: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 };
+  const track: Seeking = { title: "곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp1", requestKey: "https://open.spotify.com/track/sp1", platform: "spotify", duration: 200 };
 
   const url = await equivalent.findYouTubeEquivalent(track, { search });
 
@@ -177,15 +178,15 @@ test("동등물: 장부에 매핑이 있으면 검색하지 않고 쓰며, 장�
 });
 
 test("동등물: 검색 결과에서 라이브를 빼고 점수로 고른다", async () => {
-  const queries = [];
-  const search = async (q, n) => {
+  const queries: Array<[string, number]> = [];
+  const search = async (q: string, n: number) => {
     queries.push([q, n]);
     return [
       { id: "livelivelil", audioUrl: "https://www.youtube.com/watch?v=livelivelil", title: "곡 라이브 방송", artist: "가수", duration: 0, isLive: true },
       { id: "goodgoodgoo", audioUrl: "https://www.youtube.com/watch?v=goodgoodgoo", title: "가수 - 곡", artist: "가수", duration: 200 },
     ];
   };
-  const track = { title: "곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify", duration: 200 };
+  const track: Seeking = { title: "곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify", duration: 200 };
 
   const url = await equivalent.findYouTubeEquivalent(track, { search });
 
@@ -211,7 +212,7 @@ test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는�
   audioCache.recordDownloadStart("yt:deaddeaddea", { title: "t" });
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/sp3", pageUrl: "https://open.spotify.com/track/sp3", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", platform: "spotify", title: "곡", artist: "가수" });
   const search = async () => [{ id: "newnewnewne", audioUrl: "https://www.youtube.com/watch?v=newnewnewne", title: "곡", artist: "가수", duration: 200 }];
-  const track = { title: "곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioFoundBy: "ledger" };
+  const track: Seeking = { title: "곡", artist: "가수", pageUrl: "https://open.spotify.com/track/sp3", requestKey: "https://open.spotify.com/track/sp3", platform: "spotify", duration: 200, audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioFoundBy: "ledger" };
 
   const url = await equivalent.reresolveYouTube(track, { search });
 
@@ -223,10 +224,10 @@ test("재검색: 장부의 매핑을 지우고 칸을 비운 뒤 새로 찾는�
 // ── 스트림 ────────────────────────────────────────────────────────────
 
 test("스트림: 장부에서 온 영상이 내려갔으면 한 번 다시 찾아 그것으로 연다", async () => {
-  const asked = [];
+  const asked: string[] = [];
   const youtube = {
     ...YouTube,
-    getStream: async (url) => {
+    getStream: async (url: string) => {
       asked.push(url);
       if (url.includes("deaddeaddea")) throw new Error("ERROR: Video unavailable");
       return { url: "https://rr.googlevideo.com/new" };
@@ -234,12 +235,12 @@ test("스트림: 장부에서 온 영상이 내려갔으면 한 번 다시 찾�
   };
   const found = {
     ...equivalent,
-    reresolveYouTube: async (t) => {
+    reresolveYouTube: async (t: Seeking) => {
       t.audioUrl = "https://www.youtube.com/watch?v=newnewnewne";
       return t.audioUrl;
     },
   };
-  const track = { title: "곡", platform: "spotify", pageUrl: "https://open.spotify.com/track/sp4", requestKey: "https://open.spotify.com/track/sp4", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioFoundBy: "ledger" };
+  const track: Seeking = { title: "곡", platform: "spotify", pageUrl: "https://open.spotify.com/track/sp4", requestKey: "https://open.spotify.com/track/sp4", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioFoundBy: "ledger" };
 
   const s = await streamUrl.getStream(track, 5, { youtube, equivalent: found });
 
@@ -257,6 +258,6 @@ test("스트림: 새로 찾은 영상이 내려간 것은 다시 찾지 않는�
   const noResearch = { ...equivalent, reresolveYouTube: async () => assert.fail("다시 찾으면 안 된다") };
   await assert.rejects(streamUrl.getStream({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=x", audioFoundBy: "search" }, 0, { youtube, equivalent: noResearch }), /Video unavailable/);
 
-  const soundcloud = { getStream: async (url) => ({ url: `${url}#stream` }) };
+  const soundcloud = { getStream: async (url: string) => ({ url: `${url}#stream` }) };
   assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }, 0, { soundcloud }), { url: "https://soundcloud.com/a/b#stream" });
 });

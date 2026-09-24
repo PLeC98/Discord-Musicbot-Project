@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 2b 가 오류를 코드로 바꾸고, 3 이 스트림 서술자에서 판(lmt)을 읽고, 7 이 파일을 쪼갠다.
@@ -24,24 +23,30 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 import ytdlExec from "youtube-dl-exec";
 import * as storeDb from "../../src/store/db.ts";
+import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
+import type { YtDlpFlags, YtDlpError } from "../../src/sources/ytdlpSpawn.ts";
+
+// yt-dlp 가 줄 것. 객체 · 글자, 또는 실패(fail: stderr) · 경고(warn)
+type Reply = ({ fail?: string; warn?: string } & Record<string, unknown>) | string | null;
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const { playerClients } = YouTube._internals;
 
-const calls = [];
-let respond; // (url, flags) → 응답 객체 · 문자열, 또는 { fail: stderr }
+const calls: Array<{ url: string; flags: YtDlpFlags }> = [];
+let respond: (url: string, flags: YtDlpFlags) => Reply;
 
 const realExec = ytdlExec.exec;
-let savedOrder;
+let savedOrder: string[] = [];
 
 before(() => {
   savedOrder = playerClients.order;
   playerClients.order = [];
-  ytdlExec.exec = (url, flags) => {
+  // 가짜는 tinyspawn 약속의 stdout · stderr 만 준다
+  ytdlExec.exec = ((url: string, flags: YtDlpFlags = {}) => {
     calls.push({ url, flags });
     const out = respond(url, flags);
-    if (out && out.fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: out.fail, exitCode: 1 }));
-    return Promise.resolve({ stdout: typeof out === "string" ? out : JSON.stringify(out), stderr: out?.warn ?? "" });
-  };
+    if (out && typeof out === "object" && out.fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: out.fail, exitCode: 1 }));
+    return Promise.resolve({ stdout: typeof out === "string" ? out : JSON.stringify(out), stderr: (typeof out === "object" && out?.warn) || "" });
+  }) as unknown as typeof realExec;
 });
 
 after(() => {
@@ -57,14 +62,14 @@ beforeEach(() => {
   storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
-const video = (id, extra = {}) => ({ id, title: `영상 ${id}`, uploader: "올린 사람", webpage_url: `https://www.youtube.com/watch?v=${id}`, duration: 200, thumbnail: `https://i.ytimg.com/${id}.jpg`, view_count: 5, upload_date: "20260101", ...extra });
+const video = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `영상 ${id}`, uploader: "올린 사람", webpage_url: `https://www.youtube.com/watch?v=${id}`, duration: 200, thumbnail: `https://i.ytimg.com/${id}.jpg`, view_count: 5, upload_date: "20260101", ...extra });
 
 // ── ytdlpSpawn.js ───────────────────────────────────────────────────────
 
 test("yt-dlp 가 실패하면 stderr 를 message 로 담은 오류를 던진다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] abc: Video unavailable" });
   const run = require("../../src/sources/ytdlpSpawn.ts");
-  await assert.rejects(run("u", {}), (e) => e.message === "ERROR: [youtube] abc: Video unavailable" && e.exitCode === 1);
+  await assert.rejects(run("u", {}), (e) => messageOf(e) === "ERROR: [youtube] abc: Video unavailable" && (e as YtDlpError).exitCode === 1);
 });
 
 test("성공해도 stderr 의 경고를 _stderr 로 얹는다(열거되지 않게)", async () => {
@@ -94,7 +99,7 @@ test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(�
 });
 
 test("검색: 길이가 0 인 항목은 상세 정보를 한 번 더 받아 길이 · 라이브를 채운다", async () => {
-  respond = (url) => (url.startsWith("ytsearch") ? { entries: [video("ccccccccccc", { duration: 0 })] } : video("ccccccccccc", { duration: 0, is_live: true, live_status: "is_live", fulltitle: "방송 원제", title: "방송 원제 2026-09-23 12:00" }));
+  respond = (url: string) => (url.startsWith("ytsearch") ? { entries: [video("ccccccccccc", { duration: 0 })] } : video("ccccccccccc", { duration: 0, is_live: true, live_status: "is_live", fulltitle: "방송 원제", title: "방송 원제 2026-09-23 12:00" }));
 
   const [t] = await YouTube.search("라이브", 1);
 
@@ -125,6 +130,7 @@ test("정보: 칸을 옮겨 담고 포맷 목록을 붙인다. 라이브는 조�
   respond = () => video("eeeeeeeeeee", { formats: [{ format_id: "251" }], live_status: "is_live", fulltitle: "원제", title: "원제 2026-09-23 12:00" });
 
   const t = await YouTube.getInfo("https://www.youtube.com/watch?v=eeeeeeeeeee");
+  assert.ok(t);
 
   assert.equal(calls[0].flags.dumpSingleJson, true);
   assert.equal(calls[0].flags.preferFreeFormats, true);
@@ -142,8 +148,8 @@ test("정보: 까닭을 모르는 실패는 null(던지지 않는다)", async ()
 // 회귀 대상: 비공개 · 연령 제한 영상 링크를 넣으면 까닭을 삼켜 "결과를 찾을 수 없습니다"로만 나왔다
 test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
-  await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => e.code === "video-unavailable");
-  await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => e.code === "video-unavailable");
+  await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "video-unavailable");
+  await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => codeOf(e) === "video-unavailable");
 
   const lookup = require("../../src/sources/lookup.ts");
   const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
@@ -202,6 +208,7 @@ test("재생목록: 필요한 구간만 받고, 영상 자체에서 확인해 �
   respond = () => ({ title: "목록", playlist_count: 57, entries: [video("jjjjjjjjjjj", { title: "재생목록이 준 낡은 제목" }), { id: "kkkkkkkkkkk", title: "주소만" }, null] });
 
   const list = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL1", { offset: 20, limit: 10 });
+  assert.ok(list);
 
   assert.equal(calls[0].flags.playlistItems, "21:30");
   assert.equal(calls[0].flags.flatPlaylist, true);
@@ -218,7 +225,7 @@ test("재생목록: 필요한 구간만 받고, 영상 자체에서 확인해 �
 test("재생목록: 끝이 없는 믹스는 total 이 null", async () => {
   respond = () => ({ title: "믹스", entries: [video("lllllllllll")] });
   const list = await YouTube.getPlaylist("https://www.youtube.com/watch?v=lllllllllll&list=RDlllllllllll");
-  assert.equal(list.total, null);
+  assert.equal(list?.total, null);
 });
 
 test("재생목록: 항목이 없거나 실패하면 null", async () => {

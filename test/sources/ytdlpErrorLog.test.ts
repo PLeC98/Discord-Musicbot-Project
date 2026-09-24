@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/youtube/index.ts briefError — yt-dlp 오류를 로그에 남길 만큼으로 줄이는 계약.
 // 회귀 대상: yt-dlp 내부 재시도가 같은 경고를 stderr에 다시 써서 한 번 실패에 같은 줄이
 // 대여섯 개씩 쌓이던 것.

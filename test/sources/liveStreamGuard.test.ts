@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 라이브 스트림 차단 — 캐시 다운로드가 끝나지 않아 ffmpeg가 무한히 파일을 불리던 문제의 방어선.
 //
 // 회귀 시나리오: 제목이 기호뿐인 Spotify 트랙("''''''")의 YouTube 동등물로
@@ -62,7 +61,7 @@ test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있�
   const track = { title: "''''''", artist: "x0o0x_", duration: 200, platform: "spotify", url: "https://open.spotify.com/track/abc" };
   const result = await equivalent.findYouTubeEquivalent(track, { search });
   assert.equal(result, null, "라이브만 남으면 매칭 실패로 끝나야 한다 — 라이브를 골라선 안 된다");
-  assert.equal(track.youtubeUrl, undefined);
+  assert.equal(Reflect.get(track, "youtubeUrl"), undefined);
 });
 
 test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보가 선택된다", async () => {

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // Spotify 순수 함수 단위 테스트 (네트워크 없음) — URL 파싱, TOTP, 정규화, secret 추출.
 
 import { test } from "node:test";
@@ -71,20 +70,20 @@ test("normApiTrack: 공식 API 트랙 → 표준 스키마", () => {
     external_urls: { spotify: "https://open.spotify.com/track/abc" },
     album: { name: "앨범", images: [{ url: "u", height: 640 }] },
   });
-  assert.equal(t.title, "곡");
-  assert.equal(t.artist, "A, B");
-  assert.equal(t.duration, 187); // floor(187413/1000)
-  assert.equal(t.album, "앨범");
-  assert.equal(t.pageUrl, "https://open.spotify.com/track/abc");
-  assert.equal(t.thumbnail, "u");
-  assert.equal(t.platform, "spotify");
-  assert.equal(t.id, "abc");
+  assert.equal(t?.title, "곡");
+  assert.equal(t?.artist, "A, B");
+  assert.equal(t?.duration, 187); // floor(187413/1000)
+  assert.equal(t?.album, "앨범");
+  assert.equal(t?.pageUrl, "https://open.spotify.com/track/abc");
+  assert.equal(t?.thumbnail, "u");
+  assert.equal(t?.platform, "spotify");
+  assert.equal(t?.id, "abc");
 });
 
 test("normApiTrack: album 트랙에 albumOverride로 앨범 메타 주입", () => {
   const t = normApiTrack({ id: "x", name: "n", artists: [{ name: "A" }], duration_ms: 1000, external_urls: { spotify: "u" } }, { name: "앨범명", images: [{ url: "cover", height: 300 }] });
-  assert.equal(t.album, "앨범명");
-  assert.equal(t.thumbnail, "cover");
+  assert.equal(t?.album, "앨범명");
+  assert.equal(t?.thumbnail, "cover");
 });
 
 test("normGqlTrack: uri→URL/id, totalMilliseconds→초, coverArt", () => {
@@ -95,17 +94,17 @@ test("normGqlTrack: uri→URL/id, totalMilliseconds→초, coverArt", () => {
     artists: { items: [{ profile: { name: "Nirvana" } }] },
     albumOfTrack: { coverArt: { sources: [{ url: "https://i.scdn.co/image/ab67616d0000b273x" }] } },
   });
-  assert.equal(t.id, "4CeeEOM32jQcH3eN9Q2dGj");
-  assert.equal(t.pageUrl, "https://open.spotify.com/track/4CeeEOM32jQcH3eN9Q2dGj");
-  assert.equal(t.title, "Smells Like Teen Spirit");
-  assert.equal(t.artist, "Nirvana");
-  assert.equal(t.duration, 301); // floor(301920/1000)
-  assert.equal(t.thumbnail, "https://i.scdn.co/image/ab67616d0000b273x");
-  assert.equal(t.platform, "spotify");
+  assert.equal(t?.id, "4CeeEOM32jQcH3eN9Q2dGj");
+  assert.equal(t?.pageUrl, "https://open.spotify.com/track/4CeeEOM32jQcH3eN9Q2dGj");
+  assert.equal(t?.title, "Smells Like Teen Spirit");
+  assert.equal(t?.artist, "Nirvana");
+  assert.equal(t?.duration, 301); // floor(301920/1000)
+  assert.equal(t?.thumbnail, "https://i.scdn.co/image/ab67616d0000b273x");
+  assert.equal(t?.platform, "spotify");
 });
 
 test("normGqlTrack: artist top-tracks 형태(duration.totalMilliseconds)도 처리", () => {
   const t = normGqlTrack({ uri: "spotify:track:z", name: "n", duration: { totalMilliseconds: 257265 }, artists: { items: [{ profile: { name: "OneRepublic" } }] } });
-  assert.equal(t.duration, 257);
-  assert.equal(t.album, null); // albumOfTrack.name 없음 → null
+  assert.equal(t?.duration, 257);
+  assert.equal(t?.album, null); // albumOfTrack.name 없음 → null
 });

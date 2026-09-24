@@ -1,4 +1,3 @@
-// @ts-nocheck sources/youtube 가 아직 JS 라 YouTube 의 메서드 타입이 없다. 10단계 sources 폴더에서 뗀다
 // Tier-1 매핑 조회/삭제 + 영상 내려감 판별 (Phase 2: 재생목록 항목 유튜브 검색 스킵 + 죽은 캐시 재검색).
 
 import os from "node:os";

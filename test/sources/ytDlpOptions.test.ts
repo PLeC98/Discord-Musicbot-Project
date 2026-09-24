@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/youtube/index.ts getYtDlpOptions — 쿠키 미설정 환경의 옵션 구성 계약.
 // 회귀 대상: 쿠키가 없으면 player_client=ios를 강제하던 폴백
 // dotenv는 기설정 process.env를 덮지 않으므로 require 전에 세팅한 빈 값이 .env보다 우선.
@@ -26,7 +25,7 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
   assert.equal(opts.dumpSingleJson, true);
   // noWarnings는 켜지 않는다 — yt-dlp 경고에 "이 클라이언트는 POToken이 필요하다"가 섞여 온다
   assert.equal(opts.noWarnings, undefined);
-  assert.match(opts.jsRuntimes, /^node:/, "JS 런타임은 자기 node 실행 파일 (deno 불필요)");
+  assert.match(String(opts.jsRuntimes), /^node:/, "JS 런타임은 자기 node 실행 파일 (deno 불필요)");
   // User-Agent를 덮지 않는다. yt-dlp가 클라이언트마다 고른 값이 http_headers로 실려 와
   // 재생 요청 헤더가 되므로, 우리가 끼어들면 낡은 단일 값으로 뭉개진다.
   assert.equal(opts.addHeader, undefined);
@@ -56,7 +55,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-function fixture(layout) {
+function fixture(layout: string) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "plugroot-"));
   fs.mkdirSync(path.join(root, layout), { recursive: true });
   return root;
@@ -82,6 +81,7 @@ test("설치되지 않은 경로는 조용히 null", () => {
 test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (t) => {
   const { BGUTIL_AVAILABLE, BGUTIL_PLUGIN_ROOT } = YouTube._internals;
   if (!BGUTIL_AVAILABLE) return t.skip("bgutil 미설치 (gitignore 대상)");
+  assert.ok(BGUTIL_PLUGIN_ROOT, "설치돼 있으면 경로가 있다");
   assert.ok(fs.existsSync(BGUTIL_PLUGIN_ROOT), "탐지된 yt_dlp_plugins가 실제로 존재해야 한다");
   assert.equal(path.basename(BGUTIL_PLUGIN_ROOT), "yt_dlp_plugins");
 });
@@ -159,7 +159,7 @@ test("statusSnapshot은 쿠키 파일 경로를 노출하지 않는다 — 종�
 // 다시 받으면 풀린다. 그런데 이 오류가 어디에도 걸리지 않아 한 번에 실패로 끝났다.
 test("내려받다 막힌 것과 영상이 없어진 것을 가른다", () => {
   const YouTube = require("../../src/sources/youtube/index.ts");
-  const err = (msg) => ({ stderr: msg });
+  const err = (msg: string) => ({ stderr: msg });
 
   for (const msg of ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "ERROR: unable to download video data: HTTP Error 429: Too Many Requests", "ERROR: fragment 1 not found, unable to continue", "ERROR: unable to download fragment 3"]) {
     assert.equal(YouTube.isStaleMediaError(err(msg)), true, msg);

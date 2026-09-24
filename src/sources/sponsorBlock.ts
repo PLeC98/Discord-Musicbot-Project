@@ -15,7 +15,7 @@ import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as externalCaches from "../store/externalCaches.ts";
 
 /** 원시 구간 하나(카테고리 전부). 캐시에도 이 모양으로 담는다 */
-type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes: number; locked: number };
+type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes?: number; locked?: number };
 /** 병합한 스킵 구간 */
 type SkipSegment = { start: number; end: number; categories: string[] };
 type Source = "live" | "cache" | "none" | "disabled";
@@ -132,7 +132,7 @@ async function _rawFor(videoId: string): Promise<Fetched> {
 }
 
 /** 트랙에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */
-function _trackVideoId(track: { audioUrl?: string | null } | null | undefined): string | null {
+function _trackVideoId(track: { audioUrl?: string | null; [field: string]: unknown } | null | undefined): string | null {
   return (track?.audioUrl && links.extractVideoId(track.audioUrl)) || null;
 }
 
@@ -142,7 +142,7 @@ function _trackVideoId(track: { audioUrl?: string | null } | null | undefined): 
  * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. 예외를 던지지 않는다.
  * @returns {Promise<{skipSegments:Array,highlightAt:number|null,source:string}|null>}
  */
-async function forTrack(track: { audioUrl?: string | null } | null | undefined, guildId: string): Promise<Segments | null> {
+async function forTrack(track: { audioUrl?: string | null; [field: string]: unknown } | null | undefined, guildId: string): Promise<Segments | null> {
   const videoId = _trackVideoId(track);
   if (!videoId) return null;
 

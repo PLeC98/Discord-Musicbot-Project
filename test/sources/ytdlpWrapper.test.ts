@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/ytdlpSpawn.ts — youtube-dl-exec 드롭인 래퍼의 계약.
 //
 // 왜 래퍼가 필요한가: 원본 youtubedl(url, flags)는 Promise만 돌려줘 spawn된 프로세스를 잡을 수 없다.
@@ -16,10 +15,13 @@ import fs from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import youtubedl from "youtube-dl-exec";
+import ytdlExec from "youtube-dl-exec";
 import run from "../../src/sources/ytdlpSpawn.ts";
+import type { YtDlpFlags, YtDlpError } from "../../src/sources/ytdlpSpawn.ts";
 import * as registry from "../../src/infra/processRegistry.ts";
 
+// 라이브러리 타입이 CJS 기본 내보내기(부를 수 있는 함수에 constants 가 붙은 것)를 담지 못한다. 실제 모양대로 좁힌다
+const youtubedl = ytdlExec as unknown as ((url: string, flags?: YtDlpFlags) => Promise<unknown>) & { constants: { YOUTUBE_DL_PATH: string } };
 const BINARY = youtubedl.constants.YOUTUBE_DL_PATH;
 const hasBinary = fs.existsSync(BINARY);
 const opts = { skip: hasBinary ? false : `yt-dlp 바이너리 없음 (${BINARY})` };
@@ -36,17 +38,19 @@ test("성공 계약: 원본과 같은 값을 돌려주고 프로세스 등록을
 test("실패 계약: stderr를 담은 Error — 연령제한/삭제영상 판별이 이걸 읽는다", opts, async () => {
   const before = registry.size();
 
-  const mine = await run("", { definitelyBogusFlag: true }).then(
+  // 모르는 플래그를 넘겨 본다
+  const bogus = { definitelyBogusFlag: true } as YtDlpFlags;
+  const mine = await run("", bogus).then(
     () => null,
-    (e) => e,
+    (e: YtDlpError) => e,
   );
-  const theirs = await youtubedl("", { definitelyBogusFlag: true }).then(
+  const theirs = await youtubedl("", bogus).then(
     () => null,
-    (e) => e,
+    (e: YtDlpError) => e,
   );
 
   assert.ok(mine instanceof Error, "실패는 Error로 던져야 한다");
-  assert.match(mine.stderr, /no such option/i, "stderr가 실려 있어야 한다");
+  assert.match(mine.stderr ?? "", /no such option/i, "stderr가 실려 있어야 한다");
   assert.equal(mine.message, mine.stderr, "원본과 같이 message = stderr");
   assert.equal(mine.stderr, theirs && theirs.stderr, "원본과 같은 stderr");
   assert.notEqual(mine.exitCode, 0);

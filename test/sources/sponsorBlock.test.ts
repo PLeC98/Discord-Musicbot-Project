@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/sponsorBlock.ts — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
 // 네트워크는 global.fetch 스텁으로 대체, 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
@@ -9,25 +8,24 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { createRequire } from "node:module";
+import { table as guildTable } from "../../src/store/guildSettings.ts";
+import * as audioCache from "../../src/store/audioCache.ts";
+import * as externalCaches from "../../src/store/externalCaches.ts";
+import * as SponsorBlock from "../../src/sources/sponsorBlock.ts";
+import config from "../../config.ts";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}.db`);
 
-let SponsorBlock;
-let guildTable, audioCache, externalCaches;
-let config;
 const realFetch = global.fetch;
+// 가짜 fetch 를 걸 자리. 가짜 응답은 SponsorBlock 이 읽는 칸(status · json)만 가진다
+const net = global as unknown as { fetch: () => Promise<{ status: number; json(): Promise<unknown> }> };
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  guildTable = require("../../src/store/guildSettings.ts").table;
-  audioCache = require("../../src/store/audioCache.ts");
-  externalCaches = require("../../src/store/externalCaches.ts");
   audioCache.initialize(DB_PATH);
-  SponsorBlock = require("../../src/sources/sponsorBlock.ts");
-  config = require("../../config.ts");
   config.sponsorblock.enabled = true; // 테스트 기준 활성
 });
 
@@ -48,14 +46,14 @@ beforeEach(() => {
 
 // SponsorBlock 해시 엔드포인트 응답 형태로 스텁 (우리 videoId의 세그먼트를 담은 한 항목).
 // 실제 API처럼 항목의 videoID를 조회 대상과 일치시켜 _fetchRaw 필터를 통과하게 한다.
-function stubFetch(videoId, segments, { status = 200 } = {}) {
-  global.fetch = async () => ({
+function stubFetch(videoId: string, segments: unknown[], { status = 200 } = {}) {
+  net.fetch = async () => ({
     status,
     json: async () => [{ videoID: videoId, hash: "0".repeat(64), segments }],
   });
 }
 
-function seg(category, start, end, actionType = "skip", extra = {}) {
+function seg(category: string, start: number, end: number, actionType = "skip", extra: Record<string, unknown> = {}) {
   return { category, actionType, segment: [start, end], votes: 0, locked: 0, ...extra };
 }
 
@@ -118,7 +116,7 @@ test("normalize: 잘못된 구간(끝<=시작, 비유한값) 제거", () => {
 test("lookup: 마스터 킬스위치 off면 fetch/캐시 없이 disabled", async () => {
   config.sponsorblock.enabled = false;
   let called = false;
-  global.fetch = async () => {
+  net.fetch = async () => {
     called = true;
     return { status: 200, json: async () => [] };
   };
@@ -132,11 +130,12 @@ test("lookup: 라이브 성공 → source live + write-through 캐시", async ()
   stubFetch("vidLive", [seg("music_offtopic", 0, 21, "skip", { locked: 1, votes: 41 })]);
   const r = await SponsorBlock.lookup("vidLive", { categories: ["music_offtopic"] });
   assert.equal(r.source, "live");
-  assert.equal(r.skipSegments.length, 1);
+  assert.equal(r?.skipSegments.length, 1);
   // 캐시에 원시 세그먼트가 저장됐는지
   const cached = externalCaches.getSponsorSegments("vidLive");
-  assert.ok(cached && cached.segments.length === 1);
-  assert.equal(cached.segments[0].category, "music_offtopic");
+  const segments = cached?.segments as Array<{ category: string }> | undefined;
+  assert.ok(segments && segments.length === 1);
+  assert.equal(segments[0].category, "music_offtopic");
 });
 
 test("lookup: 조회 실패 + 캐시 있음 → source cache (폴백)", async () => {
@@ -144,16 +143,16 @@ test("lookup: 조회 실패 + 캐시 있음 → source cache (폴백)", async ()
   stubFetch("vidFallback", [seg("intro", 0, 8, "skip")]);
   await SponsorBlock.lookup("vidFallback", { categories: ["intro"] });
   // 이후 조회는 실패
-  global.fetch = async () => {
+  net.fetch = async () => {
     throw new Error("network down");
   };
   const r = await SponsorBlock.lookup("vidFallback", { categories: ["intro"] });
   assert.equal(r.source, "cache");
-  assert.equal(r.skipSegments.length, 1);
+  assert.equal(r?.skipSegments.length, 1);
 });
 
 test("lookup: 조회 실패 + 캐시 없음 → source none, 스킵 없음", async () => {
-  global.fetch = async () => {
+  net.fetch = async () => {
     throw new Error("network down");
   };
   const r = await SponsorBlock.lookup("vidNoCache", { categories: ["intro"] });
@@ -224,11 +223,11 @@ test("forTrack: 서버 설정으로 거른 구간을 돌려주고, 영상 id 로
   stubFetch("ytVid1", [seg("music_offtopic", 0, 8, "skip")]);
   const track = { platform: "youtube", id: "ytVid1", audioUrl: "https://youtu.be/ytVid1" };
   const r = await SponsorBlock.forTrack(track, "gEnsure");
-  assert.equal(r.skipSegments.length, 1);
-  assert.equal(track.sponsor, undefined, "곡에는 붙이지 않는다");
+  assert.equal(r?.skipSegments.length, 1);
+  assert.equal(Reflect.get(track, "sponsor"), undefined, "곡에는 붙이지 않는다");
 
   // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작 · 복원) 묻지 않는다
-  global.fetch = async () => {
+  net.fetch = async () => {
     throw new Error("should not be called");
   };
   const r2 = await SponsorBlock.forTrack({ ...track }, "gEnsure");
@@ -238,7 +237,7 @@ test("forTrack: 서버 설정으로 거른 구간을 돌려주고, 영상 id 로
 test("forTrack: 겹쳐 불러도 한 번만 묻는다", async () => {
   SponsorBlock._forget();
   let asked = 0;
-  global.fetch = async () => {
+  net.fetch = async () => {
     asked++;
     return { status: 200, json: async () => [{ videoID: "ytVidTwice", hash: "0".repeat(64), segments: [] }] };
   };
@@ -251,7 +250,7 @@ test("forTrack: 서버가 껐으면 null, 조회 안 함", async () => {
   SponsorBlock._forget();
   guildTable.setGuildSponsorBlock("gEnsureOff", { enabled: false, categories: null });
   let called = false;
-  global.fetch = async () => {
+  net.fetch = async () => {
     called = true;
     return { status: 200, json: async () => [] };
   };
@@ -270,12 +269,12 @@ test("forTrack: 못 받은 것(none)은 잠시 기억했다가 시간이 지나�
   SponsorBlock._forget();
   t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
   let asked = 0;
-  global.fetch = async () => {
+  net.fetch = async () => {
     asked++;
     throw new Error("network down");
   };
   const track = { audioUrl: "https://youtu.be/ytVidNone" };
-  assert.equal((await SponsorBlock.forTrack(track, "gEnsure")).source, "none");
+  assert.equal((await SponsorBlock.forTrack(track, "gEnsure"))?.source, "none");
   await SponsorBlock.forTrack(track, "gEnsure");
   assert.equal(asked, 1, "바로 다시 틀 때는 묻지 않는다");
 

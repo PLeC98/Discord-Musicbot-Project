@@ -14,18 +14,21 @@ const log = logger.child({ category: "track" });
 
 /** 소스가 찾은 곡. 소스마다 칸이 더 있다. 트랙 모델(player/track)의 TrackInfo 에 맞추는 것은 player 를 TS 로 옮길 때 */
 type FoundTrack = { title?: string | null; pageUrl?: string | null; requestKey?: string | null; audioUrl?: string | null; duration?: number | null; platform?: string | null; [field: string]: unknown };
-/** 곡을 찾는 소스들. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
-type Sources = {
-  youtube: Pick<typeof YouTube, "getPlaylist" | "search">;
-  spotify: Pick<typeof Spotify, "getCollection" | "search">;
-  soundcloud: Pick<typeof SoundCloud, "search">;
-  direct: Pick<typeof DirectLink, "getInfo">;
-};
-const REAL: Sources = { youtube: YouTube, spotify: Spotify, soundcloud: SoundCloud, direct: DirectLink };
 /** 여러 곡 출처에서 받을 구간 */
 type Range = { offset?: number; limit?: number };
-/** 여러 곡 출처의 한 구간. total 은 모르면 null */
-type Collection = { tracks: FoundTrack[]; total: number | null; nextOffset: number | null };
+/** 여러 곡 출처의 한 구간. 소스가 준 그대로라 칸이 빠질 수 있다. total 은 모르면 null */
+type Collection = { tracks?: FoundTrack[]; total?: number | null; nextOffset?: number | null };
+/** 찾은 결과. 못 찾았으면 code(no-result · lookup-failed) 나 바로 보일 message */
+// 두 갈래가 서로의 칸을 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
+type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; code?: undefined; message?: undefined; error?: undefined } | { success: false; code?: "no-result" | "lookup-failed"; message?: string; error?: unknown; isPlaylist?: undefined; collection?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
+/** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
+type Sources = {
+  youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; search(query: string, limit: number): Promise<FoundTrack[]> };
+  spotify: { getCollection(url: string, range?: Range): Promise<Collection>; search(query: string, limit: number): Promise<FoundTrack[]> };
+  soundcloud: { search(query: string, limit: number): Promise<FoundTrack[]> };
+  direct: { getInfo(url: string): Promise<FoundTrack[]> };
+};
+const REAL: Sources = { youtube: YouTube, spotify: Spotify, soundcloud: SoundCloud, direct: DirectLink };
 
 // 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 글은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
 function detectPlatform(query: string) {
@@ -47,7 +50,7 @@ function isUnsupportedLink(query: string): boolean {
 //   code: no-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/errorMessages 로 만든다
 // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
 // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
-async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}) {
+async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
   const { youtube, spotify, soundcloud, direct } = { ...REAL, ...sources };
   try {
     let tracks: FoundTrack[] = [];
@@ -133,7 +136,7 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
  * 지원하지 않는 링크(모르는 사이트 · 유튜브 클립 등)도 우회한다. 예전에 검색으로 흘러 잘못 맺힌 매핑이 남아 있으면
  * 캐시가 그 엉뚱한 영상을 그대로 돌려준다.
  */
-async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}) {
+async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
   const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query);
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit) {
@@ -145,4 +148,4 @@ async function resolveQuery(query: string, context?: string | null, range: Range
 
 export { detectPlatform, isUnsupportedLink, getTrackData, getCollection, resolveQuery };
 
-export type { FoundTrack, Range, Collection, Sources };
+export type { FoundTrack, Range, Collection, Sources, LookupResult };

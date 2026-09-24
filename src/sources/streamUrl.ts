@@ -9,9 +9,12 @@ import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 
 // 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
-type YouTubeStreams = Pick<typeof YouTube, "getStream" | "isVideoUnavailableError">;
-type SoundCloudStreams = Pick<typeof SoundCloud, "getStream">;
-type Equivalent = Pick<typeof equivalentModule, "findYouTubeEquivalent" | "reresolveYouTube">;
+/** 스트림 서술자. 소스마다 칸이 더 있다 */
+type StreamInfo = { url: string; protocol?: string | null; [field: string]: unknown };
+// 여기서 부르는 것만
+type YouTubeStreams = { getStream(url: string, seekSeconds?: number): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
+type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
+type Equivalent = { findYouTubeEquivalent(track: Seeking): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
 /** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다) */
 type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; equivalent: Equivalent; canPlayHls: boolean };
 const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, equivalent: equivalentModule, canPlayHls: true };
@@ -56,3 +59,4 @@ async function getStream(track: Seeking & { platform?: string | null }, seekSeco
 }
 
 export { getStream };
+export type { StreamInfo };
