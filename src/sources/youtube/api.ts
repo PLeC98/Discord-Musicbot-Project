@@ -52,6 +52,9 @@ function liveStatusOf(item: Item): "is_live" | "is_upcoming" | null {
  * 조회할 때마다 달라지는 값이라 캐시·매칭에도 나쁘다. `fulltitle`이 그게 빠진 원제이고,
  * 라이브가 아니면 둘이 같다.
  */
+// 곡의 id 칸은 글자다. yt-dlp 는 수로 줄 때도 있다
+const idOf = (id: unknown) => (id == null ? undefined : String(id));
+
 function titleOf(item: Item): string | null {
   if (!item) return null;
   const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
@@ -123,7 +126,7 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
           thumbnail: item.thumbnail || item.thumbnails?.[0]?.url,
           platform: "youtube",
           type: "track",
-          id: item.id,
+          id: idOf(item.id),
           views: item.view_count,
           uploadDate: item.upload_date,
           description: item.description,
@@ -193,7 +196,7 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
       thumbnail: info.thumbnail || info.thumbnails?.[0]?.url,
       platform: "youtube",
       type: "track",
-      id: info.id,
+      id: idOf(info.id),
       views: info.view_count,
       uploadDate: info.upload_date,
       description: info.description,
@@ -305,7 +308,8 @@ async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlis
     for (const entry of info.entries.map(readInfo)) {
       if (entry && (entry.id || entry.url)) {
         try {
-          const videoUrl = entry.webpage_url || entry.url || (entry.id ? `https://www.youtube.com/watch?v=${entry.id}` : null);
+          // url 이 없으면 id 가 있다(위의 조건)
+          const videoUrl = entry.webpage_url || entry.url || `https://www.youtube.com/watch?v=${entry.id}`;
           const link = canonicalUrl(videoUrl);
           const track = {
             title: titleOf(entry) || unknownTitle,
@@ -317,7 +321,7 @@ async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlis
             thumbnail: entry.thumbnail || entry.thumbnails?.[0]?.url,
             platform: "youtube",
             type: "track",
-            id: entry.id,
+            id: idOf(entry.id),
             isLive: _detectLive(entry),
             liveStatus: liveStatusOf(entry),
           };

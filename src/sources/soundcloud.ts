@@ -187,6 +187,7 @@ async function formatTrack(raw: unknown) {
     const unknownArtist = "알 수 없는 아티스트";
 
     const url = soundcloudTrack.webpage_url || soundcloudTrack.url;
+    if (!url) return null; // 링크가 없는 곡은 열 수 없다
     const track = {
       title: soundcloudTrack.title || soundcloudTrack.fulltitle || unknownTitle,
       artist: soundcloudTrack.uploader || soundcloudTrack.artist || unknownArtist,
@@ -197,7 +198,7 @@ async function formatTrack(raw: unknown) {
       thumbnail: soundcloudTrack.thumbnail,
       platform: "soundcloud",
       type: "track",
-      id: soundcloudTrack.id,
+      id: soundcloudTrack.id == null ? undefined : String(soundcloudTrack.id),
       description: soundcloudTrack.description,
       uploadDate: soundcloudTrack.upload_date,
       viewCount: soundcloudTrack.view_count,

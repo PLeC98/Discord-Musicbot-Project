@@ -10,16 +10,7 @@ import { LookupRow, checked } from "./rows.ts";
 import type { TrackInfo } from "../player/track.ts";
 
 /** 받아 둔 파일로 되살린 트랙. 여기 칸은 장부와 캐시에서 온다 */
-type CachedTrack = {
-  pageUrl: string;
-  requestKey: string;
-  audioUrl: string;
-  platform: string;
-  title: string | null;
-  artist: string | null;
-  thumbnail: string | null;
-  duration: number | null;
-};
+type CachedTrack = TrackInfo & { audioUrl: string };
 type CacheHit = { hit: false } | { hit: true; track: CachedTrack; audioKey: string; filePath: string };
 
 // 열기 전에 부르면 던진다
@@ -52,10 +43,11 @@ function resolveFromCache(requestKey: string): CacheHit {
     requestKey: row.request_key,
     audioUrl: row.audio_url,
     platform: row.platform,
-    title: row.display_title || cached.title,
-    artist: row.display_artist || cached.channel,
+    // 행의 빈 칸은 곡 모양으로(세션 되살리기와 같다)
+    title: row.display_title || cached.title || "",
+    artist: row.display_artist || cached.channel || undefined,
     thumbnail: row.display_thumbnail,
-    duration: cached.duration_sec,
+    duration: cached.duration_sec ?? 0,
   };
   return { hit: true, track: cachedTrack, audioKey, filePath };
 }

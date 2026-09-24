@@ -1,6 +1,7 @@
 // 곡 찾기. 링크나 검색어 → 트랙 정보(메타데이터). 여러 곡 출처는 구간만 받는다.
 
 import * as YouTube from "./youtube/index.ts";
+import type { TrackInfo } from "../player/track.ts";
 import * as links from "../rules/links.ts";
 import * as Spotify from "./spotify.ts";
 import * as SoundCloud from "./soundcloud.ts";
@@ -13,11 +14,11 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
 /** 소스가 찾은 곡. 소스마다 칸이 더 있다. 트랙 모델(player/track)의 TrackInfo 에 맞추는 것은 player 를 TS 로 옮길 때 */
-type FoundTrack = { title?: string | null; pageUrl?: string | null; requestKey?: string | null; audioUrl?: string | null; duration?: number | null; platform?: string | null; [field: string]: unknown };
+type FoundTrack = TrackInfo;
 /** 여러 곡 출처에서 받을 구간 */
 type Range = { offset?: number; limit?: number };
 /** 여러 곡 출처의 한 구간. 소스가 준 그대로라 칸이 빠질 수 있다. total 은 모르면 null */
-type Collection = { tracks?: FoundTrack[]; total?: number | null; nextOffset?: number | null };
+type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null };
 /** 찾은 결과. 못 찾았으면 code(no-result · lookup-failed) 나 바로 보일 message */
 // 두 갈래가 서로의 칸을 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
 type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; code?: undefined; message?: undefined; error?: undefined } | { success: false; code?: "no-result" | "lookup-failed"; message?: string; error?: unknown; isPlaylist?: undefined; collection?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };

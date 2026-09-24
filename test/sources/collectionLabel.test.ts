@@ -9,8 +9,9 @@ import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 import { collectionLabel } from "../../src/ui/strings.ts";
 import type { Client } from "discord.js";
 import { fake } from "../helpers/fake.ts";
+import tracks from "../helpers/tracks.ts";
 
-const songs = (n: number) => Array.from({ length: n }, (_, i) => ({ title: `곡${i}` }));
+const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));
 
 test("스포티파이 링크의 종류가 collection으로 실린다", async () => {
   const sources = { spotify: { ...Spotify, getCollection: async () => ({ tracks: songs(3), total: 3, nextOffset: 3 }) } };

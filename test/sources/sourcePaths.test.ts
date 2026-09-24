@@ -12,6 +12,8 @@ import assert from "node:assert/strict";
 
 import * as storeDb from "../../src/store/db.ts";
 import type { Range } from "../../src/sources/lookup.ts";
+import type { TrackInfo } from "../../src/player/track.ts";
+import tracks from "../helpers/tracks.ts";
 import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
@@ -37,7 +39,9 @@ after(() => {
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
-const ytTrack = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `곡 ${id}`, artist: "가수", url: `https://www.youtube.com/watch?v=${id}`, duration: 200, platform: "youtube", ...extra });
+const ytTrack = (id: string, extra: Partial<TrackInfo> = {}): TrackInfo => tracks.youtube(id, { duration: 200, ...extra });
+// 소스가 준 곡. 받은 인자를 곡 칸에 실어 그대로 넘어왔는지 본다
+const found = (title: string, extra: Partial<TrackInfo> = {}): TrackInfo => ({ title, pageUrl: title, requestKey: title, platform: "test", duration: 0, ...extra });
 
 // ── 링크 종류 ─────────────────────────────────────────────────────────
 
@@ -73,10 +77,10 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받고, 못 받으면 �
   assert.deepEqual(seen, [{ offset: 0, limit: 10 }]);
   assert.deepEqual({ success: r.success, isPlaylist: r.isPlaylist, collection: r.collection, total: r.total, nextOffset: r.nextOffset }, { success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10 });
 
-  const unlisted = { youtube: { ...YouTube, getPlaylist: async () => null, search: async (q: string, n: number) => [ytTrack("s1", { q, n })] } };
+  const unlisted = { youtube: { ...YouTube, getPlaylist: async () => null, search: async (q: string, n: number) => [ytTrack("s1", { title: q, duration: n })] } };
   const fallback = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL2", undefined, undefined, unlisted);
   assert.equal(fallback.isPlaylist, false);
-  assert.deepEqual([fallback.tracks[0].q, fallback.tracks[0].n], ["https://www.youtube.com/playlist?list=PL2", 1]);
+  assert.deepEqual([fallback.tracks?.[0].title, fallback.tracks?.[0].duration], ["https://www.youtube.com/playlist?list=PL2", 1]);
 });
 
 test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
@@ -85,7 +89,7 @@ test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않
 });
 
 test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
-  const spotify = { spotify: { ...Spotify, getCollection: async (url: string) => ({ tracks: [{ title: url }], total: 12, nextOffset: 1 }) } };
+  const spotify = { spotify: { ...Spotify, getCollection: async (url: string) => ({ tracks: [found(url)], total: 12, nextOffset: 1 }) } };
   const album = await lookup.getTrackData("https://open.spotify.com/album/al1", undefined, undefined, spotify);
   assert.deepEqual([album.isPlaylist, album.collection, album.total], [true, "album", 12]);
   const one = await lookup.getTrackData("https://open.spotify.com/track/tr1", undefined, undefined, spotify);
@@ -93,11 +97,11 @@ test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 
 });
 
 test("조회: 사운드클라우드 · 직접 링크는 한 곡", async () => {
-  const sources = { soundcloud: { search: async (q: string, n: number) => [{ title: "sc", q, n }] }, direct: { getInfo: async (url: string) => [{ title: "file", url }] } };
+  const sources = { soundcloud: { search: async (q: string, n: number) => [found(q, { duration: n })] }, direct: { getInfo: async (url: string) => [found(url)] } };
   const sc = await lookup.getTrackData("https://soundcloud.com/a/b", undefined, undefined, sources);
-  assert.deepEqual([sc.tracks?.[0].q, sc.tracks?.[0].n], ["https://soundcloud.com/a/b", 1]);
+  assert.deepEqual([sc.tracks?.[0].title, sc.tracks?.[0].duration], ["https://soundcloud.com/a/b", 1]);
   const direct = await lookup.getTrackData("https://files.test/a.mp3", undefined, undefined, sources);
-  assert.equal(direct.tracks?.[0].url, "https://files.test/a.mp3");
+  assert.equal(direct.tracks?.[0].title, "https://files.test/a.mp3");
 });
 
 test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
@@ -124,10 +128,22 @@ test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", asy
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
   const gone = { youtube: { ...YouTube, getPlaylist: async () => null } };
   assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", { offset: 50, limit: 10 }, gone), { tracks: [], total: null, nextOffset: null });
-  const part = { youtube: { ...YouTube, getPlaylist: async () => ({ tracks: [{ id: "1" }], total: 60 }) } };
-  assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", undefined, part), { tracks: [{ id: "1" }], total: 60, nextOffset: null });
-  const spotify = { spotify: { ...Spotify, getCollection: async (url: string, range?: Range) => ({ tracks: [{ url, range }] }) } };
-  assert.deepEqual(await lookup.getCollection("https://open.spotify.com/playlist/p", { offset: 5 }, spotify), { tracks: [{ url: "https://open.spotify.com/playlist/p", range: { offset: 5 } }] });
+  const one = found("1", { id: "1" });
+  const part = { youtube: { ...YouTube, getPlaylist: async () => ({ tracks: [one], total: 60 }) } };
+  assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", undefined, part), { tracks: [one], total: 60, nextOffset: null });
+  // 스포티파이의 답은 그대로 넘긴다. 물은 주소와 구간을 적는다
+  const asked: Array<{ url: string; range?: Range }> = [];
+  const spotify = {
+    spotify: {
+      ...Spotify,
+      getCollection: async (url: string, range?: Range) => {
+        asked.push({ url, range });
+        return { tracks: [one] };
+      },
+    },
+  };
+  assert.deepEqual(await lookup.getCollection("https://open.spotify.com/playlist/p", { offset: 5 }, spotify), { tracks: [one] });
+  assert.deepEqual(asked, [{ url: "https://open.spotify.com/playlist/p", range: { offset: 5 } }]);
   assert.deepEqual(await lookup.getCollection("https://soundcloud.com/a/sets/b"), { tracks: [], total: null, nextOffset: null });
 });
 

@@ -17,7 +17,7 @@ type AudioFoundBy = "given" | "ledger" | "search";
 type TrackInfo = {
   title: string;
   artist?: string;
-  album?: string;
+  album?: string | null;
   /** 초. 모르면 0 */
   duration: number;
   /** "추정" · "실측" · "미상" */

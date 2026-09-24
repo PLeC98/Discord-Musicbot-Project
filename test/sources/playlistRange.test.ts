@@ -5,6 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 import type { Range } from "../../src/sources/lookup.ts";
+import tracks from "../helpers/tracks.ts";
 
 // yt-dlp 실행 함수 가짜. getPlaylist 에 넘긴다
 const ytCalls: Array<{ url: string; options: YtDlpFlags }> = [];
@@ -151,7 +152,7 @@ test("해석기는 구간을 어댑터에 넘기고 총 곡 수·다음 위치�
       ...Spotify,
       getCollection: async (_url: string, range?: Range) => {
         seen.push(range);
-        return { tracks: [{ title: "a" }], total: 9946, nextOffset: 1 };
+        return { tracks: [tracks.spotify("a")], total: 9946, nextOffset: 1 };
       },
     },
   };
