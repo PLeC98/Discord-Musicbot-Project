@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/ytdlpInfo.ts — yt-dlp JSON 경계. 쓰는 칸만 뽑고, 모양이 바뀐 칸만 버린다.
 
 import { test } from "node:test";

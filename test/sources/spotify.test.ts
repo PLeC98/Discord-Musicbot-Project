@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // Spotify 순수 함수 단위 테스트 (네트워크 없음) — URL 파싱, TOTP, 정규화, secret 추출.
 
 import { test } from "node:test";

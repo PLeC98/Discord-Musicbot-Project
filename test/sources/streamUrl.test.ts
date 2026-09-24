@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/streamUrl.ts — 재생용 스트림을 어디서 가져올지 고르는 자리. 곡이 어디서 왔는지(platform)가 아니라 음원 주소가 정한다.
 //
 // 회귀 대상: 자동재생 소스가 늘면서 platform 값이 vocadb·lastfm·lbradio·touhoudb 같은 것이

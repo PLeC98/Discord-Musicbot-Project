@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/youtube/potServer.ts — bgutil POToken 서버를 띄우고 지키기.
 // 프로세스 띄우기 · 설치 확인 · HTTP 는 가짜를 넘긴다.
 

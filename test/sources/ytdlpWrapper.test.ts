@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/sources/ytdlpSpawn.ts — youtube-dl-exec 드롭인 래퍼의 계약.
 //
 // 왜 래퍼가 필요한가: 원본 youtubedl(url, flags)는 Promise만 돌려줘 spawn된 프로세스를 잡을 수 없다.
