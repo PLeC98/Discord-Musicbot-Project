@@ -17,7 +17,7 @@ const log = logger.child({ category: "config" });
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
 // (audioCache._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
-let configDir = path.join(import.meta.dirname, "..", "..", "config");
+let dir = path.join(import.meta.dirname, "..", "..", "config");
 
 /** 설정 파일 하나의 내용. 맨 위는 늘 표다 */
 type ConfigData = Record<string, unknown>;
@@ -29,9 +29,9 @@ const cache = new Map<string, { mtimeMs: number; value: unknown }>();
 // 설정 파일(표)로 담아 둔 것
 const cachedData = (name: string) => cache.get(name) as { mtimeMs: number; value: ConfigData } | undefined;
 
-const fileOf = (name: string) => path.join(configDir, `${name}.yaml`);
+const fileOf = (name: string) => path.join(dir, `${name}.yaml`);
 
-const exampleOf = (name: string) => path.join(configDir, `${name}.example.yaml`);
+const exampleOf = (name: string) => path.join(dir, `${name}.example.yaml`);
 
 /**
  * 설정 파일 하나를 읽는다. 내용이 바뀌지 않았으면 읽은 것을 그대로 돌려준다.
@@ -200,12 +200,12 @@ function save(name: string, data: unknown): ConfigData {
 }
 
 // 테스트 시임. 폴더를 바꾸면 읽어 둔 것도 버린다(다른 파일을 같은 이름으로 읽게 되므로).
-function _setConfigDir(dir: string) {
-  configDir = dir;
+function _setConfigDir(next: string) {
+  dir = next;
   cache.clear();
 }
 
-const exported = { load, save, fileOf, exampleOf, _setConfigDir, cache, configDir: () => configDir, _cache: cache };
-export default exported;
-export { exported as "module.exports" };
+const configDir = () => dir;
+
+export { load, save, fileOf, exampleOf, _setConfigDir, cache, configDir, cache as _cache };
 export type { ConfigData };

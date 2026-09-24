@@ -43,6 +43,4 @@ const PROVIDER_SPECS = {
 
 const PROVIDERS = Object.keys(PROVIDER_SPECS);
 
-const exported = { PROVIDER_SPECS, PROVIDERS };
-export default exported;
-export { exported as "module.exports" };
+export { PROVIDER_SPECS, PROVIDERS };

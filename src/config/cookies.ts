@@ -4,8 +4,7 @@ import fs from "fs";
 import path from "path";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import yamlStore from "./yamlStore.ts";
-const { configDir } = yamlStore;
+import { configDir } from "./yamlStore.ts";
 
 // ── cookies.txt ───────────────────────────────────────────────────────────
 //
@@ -68,6 +67,4 @@ function clearCookies() {
   return false;
 }
 
-const exported = { cookiesPath, cookiesReady, saveCookies, clearCookies };
-export default exported;
-export { exported as "module.exports" };
+export { cookiesPath, cookiesReady, saveCookies, clearCookies };

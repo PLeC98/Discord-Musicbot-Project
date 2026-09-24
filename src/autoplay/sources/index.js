@@ -14,8 +14,7 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import genreSources from "../../config/schema/genreSources.ts";
-const { SPEC, usable, needsOf, opts } = genreSources;
+import { SPEC, usable, needsOf, opts } from "../../config/schema/genreSources.ts";
 import http from "./http.js";
 const { getJson, remembered } = http;
 import keywordModule from "./keyword.js";

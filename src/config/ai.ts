@@ -4,13 +4,10 @@ import fs from "fs";
 import path from "path";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import aiProvidersModule from "./schema/aiProviders.ts";
-const { PROVIDERS } = aiProvidersModule;
-import yamlStore from "./yamlStore.ts";
+import { PROVIDERS } from "./schema/aiProviders.ts";
+import { load, fileOf, save, configDir, cache } from "./yamlStore.ts";
 import type { ConfigData } from "./yamlStore.ts";
-const { load, fileOf, save, configDir, cache } = yamlStore;
-import aiModule from "./schema/ai.ts";
-const { aiProblems, PROMPT_FILE } = aiModule;
+import { aiProblems, PROMPT_FILE } from "./schema/ai.ts";
 
 const validateAi = aiProblems;
 
@@ -158,7 +155,5 @@ function promptProblems(prompt: unknown, on: boolean): string[] {
   return problems;
 }
 
-const exported = { ai, aiKeys, aiKeyOf, saveAiKeys, aiPrompt, saveAiPrompt, validateAi, promptProblems, parseChatML, toChatML, promptPath };
-export default exported;
-export { exported as "module.exports" };
+export { ai, aiKeys, aiKeyOf, saveAiKeys, aiPrompt, saveAiPrompt, validateAi, promptProblems, parseChatML, toChatML, promptPath };
 export type { PromptSection };

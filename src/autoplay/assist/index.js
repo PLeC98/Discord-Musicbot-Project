@@ -5,17 +5,16 @@
 //
 // 없어도 되는 기능이다. 못 부르면 규칙이 고른 것을 그대로 쓰고 재생은 멈추지 않는다.
 
-import aiConfig from "../../config/ai.ts";
+import * as aiConfig from "../../config/ai.ts";
 import * as links from "../../rules/links.ts";
-import yamlStore from "../../config/yamlStore.ts";
+import * as yamlStore from "../../config/yamlStore.ts";
 import googleAuth from "./googleAuth.js";
 import tokens from "./tokens.js";
-import models from "../../config/schema/aiModels.ts";
+import * as models from "../../config/schema/aiModels.ts";
 import YouTube from "../../sources/youtube/index.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import aiProviders from "../../config/schema/aiProviders.ts";
-const { PROVIDER_SPECS, PROVIDERS } = aiProviders;
+import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/aiProviders.ts";
 
 // 판정 기준을 그대로 글로 옮긴 것. 이 글이 정확도를 크게 좌우하므로 함부로 줄이지 말 것.
 // 걸러낼 것을 부정 목록으로 늘어놓으면 "Avicii - Wake Me Up (Official Video)" 같은 정상 곡까지

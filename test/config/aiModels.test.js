@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import models from "../../src/config/schema/aiModels.ts";
+import * as models from "../../src/config/schema/aiModels.ts";
 
 // 프로필은 base-provider 를 상속한다. 버텍스 프로필은 schema 가 비어 있고 알맹이가 베이스에 있다 —
 // 합치지 않으면 추론 칸이 통째로 빈다.

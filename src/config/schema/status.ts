@@ -1,9 +1,7 @@
 // 봇 활동 문구 설정(status.yaml)의 스키마.
 
-import genres from "./genres.ts";
-const { NUMERIC_NAME } = genres;
-import problems from "./problems.ts";
-const { z, ALWAYS, present, plain, problemsOf } = problems;
+import { NUMERIC_NAME } from "./genres.ts";
+import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
 const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"];
 
@@ -95,6 +93,4 @@ function statusProblems(data: unknown): string[] {
   });
 }
 
-const exported = { statusProblems, ACTIVITY_TYPES };
-export default exported;
-export { exported as "module.exports" };
+export { statusProblems, ACTIVITY_TYPES };

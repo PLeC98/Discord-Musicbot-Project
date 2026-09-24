@@ -11,7 +11,7 @@
 import fs from "fs";
 import path from "path";
 import { createRequire } from "node:module";
-import models from "../../config/schema/aiModels.ts";
+import * as models from "../../config/schema/aiModels.ts";
 
 // gpt-tokenizer 는 표가 커서 불러오는 데 오래 걸린다. 처음 셀 때 부른다. 셈이 동기라 await import() 대신 require 로
 // (이름을 require 로 두어 구조 검사가 지연 부름으로 센다)

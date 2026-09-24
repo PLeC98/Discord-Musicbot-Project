@@ -212,7 +212,5 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
   return { changed: true, count: Object.keys(got.profiles).length, fetchedAt: got.fetchedAt };
 }
 
-const exported = { RAW, FILE, CANARY, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };
-export default exported;
-export { exported as "module.exports" };
+export { RAW, FILE, CANARY, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };
 export type { Snapshot, Profile, ModelField };

@@ -32,7 +32,5 @@ function problemsOf(schema: z.ZodType, data: unknown, fill: Fill = () => ({})): 
   });
 }
 
-const exported = { z, ALWAYS, present, keyed, plain, problemsOf };
-export default exported;
-export { exported as "module.exports" };
+export { z, ALWAYS, present, keyed, plain, problemsOf };
 export type { Fill };

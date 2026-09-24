@@ -11,7 +11,7 @@ import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import yamlStore from "../../src/config/yamlStore.ts";
+import * as yamlStore from "../../src/config/yamlStore.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
 const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);

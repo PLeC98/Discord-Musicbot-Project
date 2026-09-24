@@ -10,8 +10,8 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import YAML from "yaml";
 
-import yamlStore from "../../src/config/yamlStore.ts";
-import statusConfig from "../../src/config/status.ts";
+import * as yamlStore from "../../src/config/yamlStore.ts";
+import * as statusConfig from "../../src/config/status.ts";
 import StatusManager from "../../src/ui/botPresence.js";
 import { ActivityType } from "discord.js";
 

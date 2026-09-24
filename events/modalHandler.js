@@ -1,6 +1,6 @@
 import { Events, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
-import genreConfig from "../src/config/genres.ts";
+import * as genreConfig from "../src/config/genres.ts";
 import S from "../src/ui/strings.js";
 import permissions from "../src/usecases/permissions.js";
 const { checkControl } = permissions;

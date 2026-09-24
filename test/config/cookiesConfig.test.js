@@ -15,8 +15,8 @@ import fs from "node:fs";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-const yamlStore = (await import("../../src/config/yamlStore.ts")).default;
-const cookieConfig = (await import("../../src/config/cookies.ts")).default;
+const yamlStore = await import("../../src/config/yamlStore.ts");
+const cookieConfig = await import("../../src/config/cookies.ts");
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
 const config = (await import("../../config.ts")).default;
 

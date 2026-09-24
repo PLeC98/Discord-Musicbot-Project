@@ -2,8 +2,7 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import genreSources from "../../config/schema/genreSources.ts";
-const { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } = genreSources;
+import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genreSources.ts";
 import http from "./http.js";
 const { TIMEOUT_MS, userAgent, getJson, remembered } = http;
 

@@ -2,8 +2,7 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import genreSources from "../../config/schema/genreSources.ts";
-const { VOCA_DEFAULT_TYPES } = genreSources;
+import { VOCA_DEFAULT_TYPES } from "../../config/schema/genreSources.ts";
 import http from "./http.js";
 const { rand, getJson, query } = http;
 

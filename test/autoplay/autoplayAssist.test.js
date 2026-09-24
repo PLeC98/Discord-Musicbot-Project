@@ -10,8 +10,8 @@ import path from "node:path";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
-import aiConfig from "../../src/config/ai.ts";
-import yamlStore from "../../src/config/yamlStore.ts";
+import * as aiConfig from "../../src/config/ai.ts";
+import * as yamlStore from "../../src/config/yamlStore.ts";
 import assist from "../../src/autoplay/assist/index.js";
 
 import { createRequire } from "node:module";

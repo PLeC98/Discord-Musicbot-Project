@@ -1,9 +1,7 @@
 // AI 보조 설정(ai.yaml)의 스키마. 프롬프트(ai-prompt.chatml)는 제 형식이 따로 있어 여기서 보지 않는다.
 
-import aiProviders from "./aiProviders.ts";
-const { PROVIDERS } = aiProviders;
-import problems from "./problems.ts";
-const { z, ALWAYS, present, plain, problemsOf } = problems;
+import { PROVIDERS } from "./aiProviders.ts";
+import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
 const PROMPT_FILE = "ai-prompt.chatml";
 const AI_UNKNOWN = ["hide", "text", "zero"];
@@ -81,6 +79,4 @@ function aiProblems(data: unknown): string[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 
-const exported = { aiProblems, PROMPT_FILE, AI_UNKNOWN };
-export default exported;
-export { exported as "module.exports" };
+export { aiProblems, PROMPT_FILE, AI_UNKNOWN };

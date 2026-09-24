@@ -1,6 +1,6 @@
 import { ActivityType } from "discord.js";
 import KoreanLunarCalendar from "korean-lunar-calendar";
-import statusConfig from "../config/status.ts";
+import * as statusConfig from "../config/status.ts";
 
 // Custom은 말머리("듣는 중" 같은 것) 없이 문구만 보여준다.
 // discord.js가 알아서 state로 옮겨 주므로 여기서는 이름만 넘기면 된다(ClientPresence 참고).

@@ -3,11 +3,9 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
-import sources from "./schema/genreSources.ts";
-import yamlStore from "./yamlStore.ts";
-const { load } = yamlStore;
-import genresModule from "./schema/genres.ts";
-const { genreProblems } = genresModule;
+import * as sources from "./schema/genreSources.ts";
+import { load } from "./yamlStore.ts";
+import { genreProblems } from "./schema/genres.ts";
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
@@ -91,7 +89,5 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   warnedKeys = key;
 }
 
-const exported = { genres, validateGenres };
-export default exported;
-export { exported as "module.exports" };
+export { genres, validateGenres };
 export type { GenreSource, Genre, GenreDefaults, GenresConfig };

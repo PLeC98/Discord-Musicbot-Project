@@ -5,7 +5,7 @@ const log = logger.child({ category: "player" });
 import loggerModule from "../infra/log/logger.ts";
 const wlog = loggerModule.child({ category: "watchdog" });
 import YouTube from "../sources/youtube/index.js";
-import genreConfig from "../config/genres.ts";
+import * as genreConfig from "../config/genres.ts";
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
 import loggerModule2 from "../infra/log/logger.ts";
 const clog = loggerModule2.child({ category: "control" });

@@ -349,7 +349,5 @@ const needsOf = (type: string): { env: string; label: string } | null => (SPEC[t
 
 const TYPES = Object.keys(SPEC);
 
-const exported = { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES };
-export default exported;
-export { exported as "module.exports" };
+export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES };
 export type { Site, Option, FieldKind, Field, SourceSpec };

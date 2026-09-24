@@ -6,11 +6,9 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import yamlStore from "./yamlStore.ts";
+import { load } from "./yamlStore.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
-const { load } = yamlStore;
-import statusModule from "./schema/status.ts";
-const { statusProblems, ACTIVITY_TYPES } = statusModule;
+import { statusProblems, ACTIVITY_TYPES } from "./schema/status.ts";
 
 const validateStatus = statusProblems;
 
@@ -50,7 +48,6 @@ function status(): StatusConfig {
   }
 }
 
-const exported = { status, validateStatus, ACTIVITY_TYPES, _reset: () => ((lastGood = null), (reported = "")) };
-export default exported;
-export { exported as "module.exports" };
+export { status, validateStatus, ACTIVITY_TYPES };
+export const _reset = () => ((lastGood = null), (reported = ""));
 export type { ActivityMessage, StatusEntry, StatusConfig };
