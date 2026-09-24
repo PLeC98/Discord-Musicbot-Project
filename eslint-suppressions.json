@@ -201,23 +201,10 @@
   "src/usecases/addTracks.ts": {
     "complexity": {
       "count": 2
-    },
-    "no-empty-function": {
-      "count": 1
-    }
-  },
-  "src/usecases/responders.ts": {
-    "no-empty-function": {
-      "count": 2
     }
   },
   "src/store/playerSessions.ts": {
     "complexity": {
-      "count": 1
-    }
-  },
-  "src/usecases/playlistMore.ts": {
-    "no-empty-function": {
       "count": 1
     }
   },

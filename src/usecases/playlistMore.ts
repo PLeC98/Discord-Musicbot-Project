@@ -169,7 +169,9 @@ function expireLater(messageId: string, remove: () => unknown, ms = LIFETIME_MS)
     expiries.delete(messageId);
     Promise.resolve()
       .then(remove)
-      .catch(() => {});
+      .catch(() => {
+        /* 이미 지워졌거나 지울 권한이 없다 */
+      });
   }, ms);
   timer.unref?.();
   expiries.set(messageId, timer);

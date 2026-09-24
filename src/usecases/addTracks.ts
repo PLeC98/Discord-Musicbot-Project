@@ -216,7 +216,11 @@ type CollectionRequest = {
   lookup?: Lookup;
 };
 
-async function continueCollection(client: Client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = () => {}, lookup = defaultLookup }: CollectionRequest): Promise<CollectionResult> {
+const ignoreProgress = () => {
+  /* 진행을 알릴 곳이 없다 */
+};
+
+async function continueCollection(client: Client, { guild, requester, state, count, textChannel = null, voiceChannel = null, source = "더 넣기", onProgress = ignoreProgress, lookup = defaultLookup }: CollectionRequest): Promise<CollectionResult> {
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
   const want = Math.min(count, roomFor(player));

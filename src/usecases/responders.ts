@@ -96,8 +96,12 @@ function channelResponder(channel: GuildTextBasedChannel | null | undefined, onD
 
 /** 디스코드 응답이 없는 경로(대시보드). 결과는 호출자가 HTTP 응답으로 전달한다. */
 const silentResponder: Responder = {
-  async notifyQueued() {},
-  async dismissPlaceholder() {},
+  async notifyQueued() {
+    /* 알릴 곳이 없다. 결과는 호출자가 HTTP 응답으로 */
+  },
+  async dismissPlaceholder() {
+    /* 자리표시자를 띄우지 않았다 */
+  },
 };
 
 export { interactionResponder, channelResponder, silentResponder };
