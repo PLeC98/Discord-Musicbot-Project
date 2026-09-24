@@ -1,7 +1,8 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { MusicPlayer } from "../player/Player.ts";
 import * as songLookup from "../sources/lookup.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
-import responders from "./responders.js";
+import responders from "./responders.ts";
 const { silentResponder } = responders;
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -9,7 +10,7 @@ import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
 import * as S from "../ui/strings.ts";
 import { ErrorHandler } from "../ui/errorMessages.ts";
-import playlistMore from "./playlistMore.js";
+import playlistMore from "./playlistMore.ts";
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = playlistMore;
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";

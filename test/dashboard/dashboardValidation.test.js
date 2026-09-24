@@ -249,7 +249,7 @@ test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨�
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
     await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/0`);
-    await new Promise((done) => setTimeout(done, require("../../src/usecases/controls").VOLUME_SETTLE_MS + 50));
+    await new Promise((done) => setTimeout(done, require("../../src/usecases/controls.ts").VOLUME_SETTLE_MS + 50));
   } finally {
     off();
   }

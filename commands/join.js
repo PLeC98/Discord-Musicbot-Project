@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
-import addTracks from "../src/usecases/addTracks.js";
+import addTracks from "../src/usecases/addTracks.ts";
 const { ensurePlayer } = addTracks;
 import * as playerEvents from "../src/player/events.ts";
 import { sessions } from "../src/store/playerSessions.ts";

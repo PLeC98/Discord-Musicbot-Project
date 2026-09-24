@@ -5,7 +5,7 @@ import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType } from "discord.js";
 import requireAuth from "../middleware/requireAuth.js";
-import permissions from "../../../src/usecases/permissions.js";
+import permissions from "../../../src/usecases/permissions.ts";
 const { isModerator } = permissions;
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as SponsorBlock from "../../../src/sources/sponsorBlock.ts";

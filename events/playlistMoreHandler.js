@@ -4,12 +4,12 @@ import { Events, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as S from "../src/ui/strings.ts";
-import permissions from "../src/usecases/permissions.js";
+import permissions from "../src/usecases/permissions.ts";
 const { checkAdd } = permissions;
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import addTracks from "../src/usecases/addTracks.js";
+import addTracks from "../src/usecases/addTracks.ts";
 const { continueCollection } = addTracks;
-import More from "../src/usecases/playlistMore.js";
+import More from "../src/usecases/playlistMore.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 

@@ -257,7 +257,7 @@
       "count": 1
     }
   },
-  "src/usecases/addTracks.js": {
+  "src/usecases/addTracks.ts": {
     "complexity": {
       "count": 2
     },
@@ -265,7 +265,7 @@
       "count": 1
     }
   },
-  "src/usecases/responders.js": {
+  "src/usecases/responders.ts": {
     "no-empty-function": {
       "count": 2
     }
@@ -275,7 +275,7 @@
       "count": 1
     }
   },
-  "src/usecases/playlistMore.js": {
+  "src/usecases/playlistMore.ts": {
     "no-empty-function": {
       "count": 1
     }

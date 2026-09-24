@@ -3,7 +3,7 @@
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import controls from "../../src/usecases/controls.js";
+import controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as S from "../../src/ui/strings.ts";
 import { controlMessage, controlApiError } from "../../src/ui/controlMessages.ts";

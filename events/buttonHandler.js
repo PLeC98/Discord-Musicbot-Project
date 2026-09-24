@@ -3,13 +3,13 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
 import * as S from "../src/ui/strings.ts";
-import addTracks from "../src/usecases/addTracks.js";
+import addTracks from "../src/usecases/addTracks.ts";
 const { requestPlayback, ensurePlayer } = addTracks;
-import responders from "../src/usecases/responders.js";
+import responders from "../src/usecases/responders.ts";
 const { channelResponder } = responders;
-import permissions from "../src/usecases/permissions.js";
+import permissions from "../src/usecases/permissions.ts";
 const { checkControl, checkAdd, checkSummon } = permissions;
-import controls from "../src/usecases/controls.js";
+import controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const LOOP_TEXT = {

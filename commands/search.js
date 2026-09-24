@@ -2,7 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, But
 import config from "../config.ts";
 import * as YouTube from "../src/sources/youtube/index.ts";
 import * as S from "../src/ui/strings.ts";
-import permissions from "../src/usecases/permissions.js";
+import permissions from "../src/usecases/permissions.ts";
 const { checkAdd, checkSummon } = permissions;
 
 const exported = {

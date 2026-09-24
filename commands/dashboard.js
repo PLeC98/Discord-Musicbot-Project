@@ -1,10 +1,10 @@
 import { SlashCommandBuilder } from "discord.js";
-import addTracks from "../src/usecases/addTracks.js";
+import addTracks from "../src/usecases/addTracks.ts";
 const { toRequester } = addTracks;
-import responders from "../src/usecases/responders.js";
+import responders from "../src/usecases/responders.ts";
 const { interactionResponder } = responders;
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import permissions from "../src/usecases/permissions.js";
+import permissions from "../src/usecases/permissions.ts";
 const { checkControl } = permissions;
 
 const exported = {

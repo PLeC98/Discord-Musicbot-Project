@@ -2,14 +2,14 @@ import { Events, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import permissions from "../src/usecases/permissions.js";
+import permissions from "../src/usecases/permissions.ts";
 const { checkAdd, checkSummon } = permissions;
-import addTracks from "../src/usecases/addTracks.js";
+import addTracks from "../src/usecases/addTracks.ts";
 const { requestPlayback } = addTracks;
-import responders from "../src/usecases/responders.js";
+import responders from "../src/usecases/responders.ts";
 const { channelResponder } = responders;
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
-import playlistMore from "../src/usecases/playlistMore.js";
+import playlistMore from "../src/usecases/playlistMore.ts";
 const { offerOnChannel } = playlistMore;
 import * as S from "../src/ui/strings.ts";
 

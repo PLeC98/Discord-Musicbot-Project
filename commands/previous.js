@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import controls from "../src/usecases/controls.js";
+import controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const exported = {

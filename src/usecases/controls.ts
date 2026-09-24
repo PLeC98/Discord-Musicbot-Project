@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 조작 코어. 입구(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/controlMessages).
 // 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 차례로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
@@ -8,7 +9,7 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
-import perm from "./permissions.js";
+import perm from "./permissions.ts";
 import * as playerEvents from "../player/events.ts";
 
 const fail = (code, extra = {}) => ({ ok: false, code, ...extra });
