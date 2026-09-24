@@ -2,18 +2,17 @@
 //
 // 2a 가 링크 판정을 rules/links 로 옮기고, 3 이 사운드클라우드 열쇠 모양과 트랙 칸을 바꾼다. 사운드클라우드는 부르는 곳이
 // 있는 것(링크 판정 · 검색 · 스트림)만 본다. 나머지 정적 메서드는 고아다(B-41, SC-1 때 판단).
-// yt-dlp 는 youtube-dl-exec 의 exec 만, 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
+// yt-dlp 는 띄우는 exec 만(useExec), 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
 
 import { Readable } from "node:stream";
 import * as links from "../../src/rules/links.ts";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
-import ytdlExec from "youtube-dl-exec";
 import * as SoundCloud from "../../src/sources/soundcloud.ts";
 import * as DirectLink from "../../src/sources/direct.ts";
 import { messageOf } from "../../src/rules/errorKind.ts";
-import type { YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
+import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
 // yt-dlp 가 줄 것. 실패면 fail 에 stderr
 type Reply = ({ fail?: string } & Record<string, unknown>) | null;
@@ -21,7 +20,6 @@ type Reply = ({ fail?: string } & Record<string, unknown>) | null;
 const calls = { ytdlp: [] as Array<{ url: string; flags: YtDlpFlags }>, head: [] as string[], stream: [] as string[] };
 let respond: (url: string, flags: YtDlpFlags) => Reply;
 let headReply: (url: string) => { headers: object };
-const real = { exec: ytdlExec.exec };
 // 직접 링크의 네트워크(SafeUrl 의 head · getStream) 가짜. DirectLink 에 넘긴다
 const net = {
   head: async (url: string) => {
@@ -36,16 +34,16 @@ const net = {
 
 before(() => {
   // 가짜는 tinyspawn 약속의 stdout · stderr 만 준다
-  ytdlExec.exec = ((url: string, flags: YtDlpFlags = {}) => {
+  useExec(((url: string, flags: YtDlpFlags = {}) => {
     calls.ytdlp.push({ url, flags });
     const out = respond(url, flags);
     if (out && out.fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: out.fail }));
     return Promise.resolve({ stdout: JSON.stringify(out), stderr: "" });
-  }) as unknown as typeof real.exec;
+  }) as unknown as Exec);
 });
 
 after(() => {
-  ytdlExec.exec = real.exec;
+  useExec(null);
 });
 
 beforeEach(() => {

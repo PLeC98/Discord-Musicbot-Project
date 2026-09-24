@@ -19,6 +19,14 @@ type YtDlpError = Error & { stderr?: string; stdout?: string; exitCode?: number;
 // 라이브러리가 내보내지만 타입에는 없는 것
 const { isJSON } = youtubedl as typeof youtubedl & { isJSON(text: string): boolean };
 
+/** yt-dlp 프로세스를 띄우는 것(라이브러리의 exec). 약속은 stdout · stderr 를 준다 */
+type Exec = typeof youtubedl.exec;
+// 시험은 useExec 로 가짜를 넘긴다(기본은 진짜). 응답 · 오류 모양 맞추기는 그대로 돈다
+let exec: Exec = youtubedl.exec;
+function useExec(fake: Exec | null) {
+  exec = fake ?? youtubedl.exec;
+}
+
 /**
  * youtube-dl-exec의 드롭인 대체. 반환·예외 계약은 원본과 같다(성공 시 JSON이나 문자열, 실패 시 stderr를 담은 Error).
  * 원본은 Promise만 돌려줘 pid를 잡을 수 없어서, pid가 나오는 `.exec()`로 우회해 레지스트리에 등록한다.
@@ -28,7 +36,7 @@ const { isJSON } = youtubedl as typeof youtubedl & { isJSON(text: string): boole
  * @param {object} opts child_process.spawn 옵션
  */
 async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {}): Promise<unknown> {
-  const sub = youtubedl.exec(url, flags, { ...SPAWN_OPTS, ...opts });
+  const sub = exec(url, flags, { ...SPAWN_OPTS, ...opts });
   const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN });
   try {
     const { stdout, stderr } = await sub;
@@ -55,6 +63,7 @@ async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {})
 }
 
 export default run;
+export { useExec };
 /** yt-dlp 실행 함수. 테스트가 가짜를 넘기는 자리의 모양 */
 type RunYtDlp = typeof run;
-export type { YtDlpFlags, YtDlpError, RunYtDlp };
+export type { YtDlpFlags, YtDlpError, RunYtDlp, Exec };

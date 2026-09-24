@@ -1,7 +1,7 @@
 // YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 2b 가 오류를 코드로 바꾸고, 3 이 스트림 서술자에서 판(lmt)을 읽고, 7 이 파일을 쪼갠다.
-// 모듈을 통째로 바꿔 끼우지 않고 youtube-dl-exec 의 exec 하나만 가짜로 둔다. 그래서 src/sources/ytdlpSpawn.ts 의 응답 · 오류 모양
+// 모듈을 통째로 바꿔 끼우지 않고 yt-dlp 를 띄우는 exec 하나만 가짜로 넘긴다(useExec). 그래서 src/sources/ytdlpSpawn.ts 의 응답 · 오류 모양
 // 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 시험마다 비워 설정과 무관하게 한 번에 부르게 한다.
 
 import fs from "node:fs";
@@ -16,38 +16,35 @@ const trackLookup = await import("../../src/store/trackLookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-import ytdlExec from "youtube-dl-exec";
 import * as storeDb from "../../src/store/db.ts";
 import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
-import type { YtDlpFlags, YtDlpError } from "../../src/sources/ytdlpSpawn.ts";
+import runYtDlp, { useExec, type Exec, type YtDlpFlags, type YtDlpError } from "../../src/sources/ytdlpSpawn.ts";
 
 // yt-dlp 가 줄 것. 객체 · 글자, 또는 실패(fail: stderr) · 경고(warn)
 type Reply = ({ fail?: string; warn?: string } & Record<string, unknown>) | string | null;
 const YouTube = await import("../../src/sources/youtube/index.ts");
-const { default: runYtDlp } = await import("../../src/sources/ytdlpSpawn.ts");
 const lookup = await import("../../src/sources/lookup.ts");
 const { playerClients } = YouTube._internals;
 
 const calls: Array<{ url: string; flags: YtDlpFlags }> = [];
 let respond: (url: string, flags: YtDlpFlags) => Reply;
 
-const realExec = ytdlExec.exec;
 let savedOrder: string[] = [];
 
 before(() => {
   savedOrder = playerClients.order;
   playerClients.order = [];
   // 가짜는 tinyspawn 약속의 stdout · stderr 만 준다
-  ytdlExec.exec = ((url: string, flags: YtDlpFlags = {}) => {
+  useExec(((url: string, flags: YtDlpFlags = {}) => {
     calls.push({ url, flags });
     const out = respond(url, flags);
     if (out && typeof out === "object" && out.fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: out.fail, exitCode: 1 }));
     return Promise.resolve({ stdout: typeof out === "string" ? out : JSON.stringify(out), stderr: (typeof out === "object" && out?.warn) || "" });
-  }) as unknown as typeof realExec;
+  }) as unknown as Exec);
 });
 
 after(() => {
-  ytdlExec.exec = realExec;
+  useExec(null);
   playerClients.order = savedOrder;
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
@@ -61,7 +58,7 @@ beforeEach(() => {
 
 const video = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `영상 ${id}`, uploader: "올린 사람", webpage_url: `https://www.youtube.com/watch?v=${id}`, duration: 200, thumbnail: `https://i.ytimg.com/${id}.jpg`, view_count: 5, upload_date: "20260101", ...extra });
 
-// ── ytdlpSpawn.js ───────────────────────────────────────────────────────
+// ── ytdlpSpawn.ts ───────────────────────────────────────────────────────
 
 test("yt-dlp 가 실패하면 stderr 를 message 로 담은 오류를 던진다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] abc: Video unavailable" });
