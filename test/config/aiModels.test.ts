@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import test from "node:test";
 import assert from "node:assert";
 import * as models from "../../src/config/schema/aiModels.ts";
@@ -50,7 +49,7 @@ test("키가 겹치면 프로필이 이긴다", () => {
 
   const effort = models.fieldsOf("p", "m", snapshot)[0];
   assert.deepEqual(
-    effort.enum.map((e) => e.value),
+    effort.enum?.map((e) => e.value),
     ["high", "max"],
   );
 });
@@ -98,12 +97,13 @@ test("받아 둔 파일에 현행 모델의 추론 칸이 있다", () => {
   const snapshot = models.load();
   assert.ok(Object.keys(snapshot.profiles).length > 100, "프로필이 실려 있다");
 
-  const hasKey = (registry, modelId, key) => models.fieldsOf(registry, modelId, snapshot).some((f) => f.key === key);
+  const hasKey = (registry: string, modelId: string, key: string) => models.fieldsOf(registry, modelId, snapshot).some((f) => f.key === key);
   assert.ok(hasKey("anthropic", "claude-opus-5", "effort"), "앤트로픽 5 는 output_config.effort 를 받는다");
   assert.ok(hasKey("vertex-gemini-native", "gemini-3.7-flash", "thinkingLevel"), "버텍스는 베이스에서 상속받는다");
   assert.ok(hasKey("openai", "gpt-6-astra", "reasoning_effort"));
 
   // 한 세대 차이로 값 집합이 갈린다 — Astra 는 none 을 안 받는다
   const astra = models.fieldsOf("openai", "gpt-6-astra", snapshot).find((f) => f.key === "reasoning_effort");
+  assert.ok(astra?.enum, "값 목록이 있다");
   assert.ok(!astra.enum.some((e) => e.value === "none"));
 });

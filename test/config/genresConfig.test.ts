@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/config/genres.ts — 장르 설정을 읽을 때 거르는 이름 · 이모지와 저장 전 검사.
 
 import os from "node:os";
@@ -11,13 +10,13 @@ import * as yamlStore from "../../src/config/yamlStore.ts";
 import * as genreConfig from "../../src/config/genres.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
-const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
+const write = (name: string, text: string) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
 
 // 로더는 mtimeMs가 정확히 같으면 캐시를 재사용한다. 테스트가 `Date.now()`로 찍으면 앞 테스트와
 // 같은 밀리초에 들어갈 수 있고, 그러면 새로 쓴 파일 대신 앞 테스트의 결과가 나온다.
 // 부를 때마다 반드시 커지는 값을 쓴다.
 let stamp = Date.now();
-const touch = (name) => {
+const touch = (name: string) => {
   stamp += 1000;
   fs.utimesSync(path.join(DIR, `${name}.yaml`), new Date(stamp), new Date(stamp));
 };
@@ -29,11 +28,11 @@ after(() => {
 });
 
 // assert.throws는 오류를 돌려주지 않는다 — 검증기로 받는다.
-const thrown = (fn) => {
+const thrown = (fn: () => unknown) => {
   try {
     fn();
   } catch (error) {
-    return error;
+    return error as Error & { code?: string };
   }
   throw new Error("던지지 않았습니다");
 };
@@ -66,7 +65,7 @@ test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
 test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
   // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 읽을 때 잡지 않으면
   // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 자리에서 죽는다.
-  const load = (emoji) => {
+  const load = (emoji: string) => {
     write("genres", ["defaults: {}", "genres:", "  팝:", `    emoji: ${emoji}`, "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
     touch("genres");
     return genreConfig.genres();
@@ -104,14 +103,14 @@ test("검사: 쓸 만하면 아무 말이 없다", () => {
 test("검사: 장르가 없거나 25개를 넘으면 걸린다", () => {
   assert.match(genreConfig.validateGenres({ genres: {} }).join(" "), /하나도 없습니다/);
 
-  const many = {};
+  const many: Record<string, unknown> = {};
   for (let i = 0; i < 26; i++) many["장르" + i] = { sources: [{ type: "keyword", keywords: ["a"] }] };
   assert.match(genreConfig.validateGenres({ genres: many }).join(" "), /25개까지/);
 });
 
 test("검사: 소스에 필요한 값이 비면 걸린다", () => {
   // keyword는 검색어가, lastfm은 태그가, 유튜브 재생목록은 주소가 있어야 한다
-  const of = (genre) => genreConfig.validateGenres({ genres: { 팝: genre } }).join(" ");
+  const of = (genre: unknown) => genreConfig.validateGenres({ genres: { 팝: genre } }).join(" ");
   assert.match(of({ sources: [{ type: "keyword", keywords: [] }] }), /keywords/);
   assert.match(of({ sources: [{ type: "keyword", keywords: ["  "] }] }), /keywords/, "공백뿐인 것도 빈 것이다");
   assert.match(of({ sources: [{ type: "lastfm" }] }), /tags/);
@@ -132,7 +131,7 @@ test("검사: 맨 위 keywords: 는 옮기라고 알려 준다", () => {
 // 값이 정해져 있는 칸은 오타를 여기서 잡는다. 안 잡으면 저쪽이 422를 주고 그 소스가 조용히
 // 빈손이 되어, 설정은 멀쩡해 보이는데 그 소스만 안 쓰이는 꼴이 된다.
 test("검사: 정해진 값이 아닌 것은 무엇을 쓸 수 있는지 알려 준다", () => {
-  const of = (source) => genreConfig.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
+  const of = (source: unknown) => genreConfig.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
 
   assert.match(of({ type: "animethemes", mediaFormat: ["TVShort"] }), /TV Short/, "띄어쓰기를 빠뜨린 것을 잡아야 한다");
   assert.match(of({ type: "animethemes", themeType: "OP1" }), /themeType/);
@@ -146,7 +145,7 @@ test("검사: 정해진 값이 아닌 것은 무엇을 쓸 수 있는지 알려 
 });
 
 test("검사: weight와 연도 범위도 본다", () => {
-  const of = (source) => genreConfig.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
+  const of = (source: unknown) => genreConfig.validateGenres({ genres: { 팝: { sources: [source] } } }).join(" ");
   assert.match(of({ type: "animethemes", weight: 0 }), /weight/);
   assert.match(of({ type: "animethemes", yearFrom: 2020, yearTo: 2010 }), /yearFrom/);
   assert.match(of({ type: "vocadb", minScore: -1 }), /minScore/);
@@ -155,7 +154,7 @@ test("검사: weight와 연도 범위도 본다", () => {
 test("검사: 이모지 자리에 이모지가 아닌 값이 있으면 걸린다", () => {
   // 대시보드는 선택기로만 넣지만 파일은 손으로도 고칠 수 있다. 여기서 막지 않으면
   // 디스코드 선택 메뉴가 원인에서 한참 떨어진 자리에서 거부한다.
-  const of = (emoji) => genreConfig.validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
+  const of = (emoji: string | undefined) => genreConfig.validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
 
   assert.deepEqual(of("🇰🇷"), [], "국기처럼 코드포인트가 여럿인 것도 한 글자다");
   assert.deepEqual(of("1️⃣"), [], "키캡도 한 글자다");

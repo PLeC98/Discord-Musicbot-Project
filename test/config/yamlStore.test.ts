@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/config/yamlStore.ts — config/*.yaml을 읽고 주석을 남긴 채 고쳐 쓰는 통로.
 //
 // 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와, 대시보드(계획 5단계). 그래서
@@ -15,13 +14,19 @@ import assert from "node:assert/strict";
 import * as yamlStore from "../../src/config/yamlStore.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
-const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
+// 테스트가 적어 둔 파일의 모양
+type GenresFile = { defaults: Record<string, unknown>; genres: Record<string, Record<string, unknown>> };
+type SampleFile = { value?: number; messages: string[] };
+const loadGenres = () => yamlStore.load("genres") as GenresFile;
+const loadSample = () => yamlStore.load("sample") as SampleFile;
+
+const write = (name: string, text: string) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
 
 // 로더는 mtimeMs가 정확히 같으면 캐시를 재사용한다. 테스트가 `Date.now()`로 찍으면 앞 테스트와
 // 같은 밀리초에 들어갈 수 있고, 그러면 새로 쓴 파일 대신 앞 테스트의 결과가 나온다.
 // 부를 때마다 반드시 커지는 값을 쓴다.
 let stamp = Date.now();
-const touch = (name) => {
+const touch = (name: string) => {
   stamp += 1000;
   fs.utimesSync(path.join(DIR, `${name}.yaml`), new Date(stamp), new Date(stamp));
 };
@@ -33,11 +38,11 @@ after(() => {
 });
 
 // assert.throws는 오류를 돌려주지 않는다 — 검증기로 받는다.
-const thrown = (fn) => {
+const thrown = (fn: () => unknown) => {
   try {
     fn();
   } catch (error) {
-    return error;
+    return error as Error & { code?: string };
   }
   throw new Error("던지지 않았습니다");
 };
@@ -51,15 +56,15 @@ test("없으면 기동을 멈추고 무엇을 할지 알린다", () => {
 
 test("주석이 있어도 읽고, 파일이 바뀌면 다시 읽는다", () => {
   write("sample", "# 주석\nvalue: 1\n");
-  assert.equal(yamlStore.load("sample").value, 1);
+  assert.equal(loadSample().value, 1);
 
   // mtime이 같으면 다시 읽지 않는다 — 매 호출 디스크를 때리지 않게
-  const first = yamlStore.load("sample");
-  assert.equal(yamlStore.load("sample"), first, "같은 것을 돌려준다");
+  const first = loadSample();
+  assert.equal(loadSample(), first, "같은 것을 돌려준다");
 
   write("sample", "# 주석\nvalue: 2\n");
   touch("sample");
-  assert.equal(yamlStore.load("sample").value, 2, "봇을 켜 둔 채 고쳐도 반영된다");
+  assert.equal(loadSample().value, 2, "봇을 켜 둔 채 고쳐도 반영된다");
 });
 
 // 사람이 고치는 파일이라 문법 오류가 난다. 저장하다 만 파일 한 번에 재생이 멈추면 안 된다.
@@ -87,7 +92,7 @@ test("처음부터 문법이 깨져 있으면 멈춘다 — 탭 안내까지", (
 test("저장해도 사람이 적은 주석이 남는다 — 값이 바뀐 자리의 주석까지", () => {
   write("genres", ["# 파일 머리", "", "defaults:", "  # 곡 수 메모", "  prefetchCount: 1", "genres:", "  pop:", "    # 손으로 적은 메모", "    label: 팝", "    sources: [{ type: keyword, keywords: [pop music] }]", ""].join("\n"));
 
-  const data = yamlStore.load("genres");
+  const data = loadGenres();
   data.genres.pop.label = "팝송";
   data.genres.rock = { label: "록", sources: [{ type: "keyword", keywords: ["rock music"] }] };
   yamlStore.save("genres", data);
@@ -105,12 +110,12 @@ test("저장해도 사람이 적은 주석이 남는다 — 값이 바뀐 자리
 test("차례만 바꿔도 저장된다 — 주석은 쌍을 따라간다", () => {
   write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", "  # 록 메모", "  록:", "    sources: [{ type: keyword, keywords: [rock] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", ""].join("\n"));
 
-  const data = yamlStore.load("genres");
+  const data = loadGenres();
   // 재즈를 맨 앞으로 — 값은 하나도 건드리지 않는다
   data.genres = { 재즈: data.genres.재즈, 팝: data.genres.팝, 록: data.genres.록 };
   yamlStore.save("genres", data);
 
-  assert.deepEqual(Object.keys(yamlStore.load("genres").genres), ["재즈", "팝", "록"]);
+  assert.deepEqual(Object.keys(loadGenres().genres), ["재즈", "팝", "록"]);
 
   const text = fs.readFileSync(path.join(DIR, "genres.yaml"), "utf8");
   assert.match(text, /# 록 메모[\s\S]*록:/, "쌍을 옮겨도 그 위 주석은 붙어 있어야 한다");
@@ -122,7 +127,7 @@ test("차례가 그대로면 파일을 건드리지 않는다", () => {
   const before = ["# 머리말", "defaults:", "  prefetchCount: 1", "genres:", "  팝:", "    sources:", "      - type: keyword", "        keywords:", "          - pop", "  록:", "    sources:", "      - type: keyword", "        keywords:", "          - rock", ""].join("\n");
   write("genres", before);
 
-  yamlStore.save("genres", yamlStore.load("genres"));
+  yamlStore.save("genres", loadGenres());
   assert.equal(fs.readFileSync(path.join(DIR, "genres.yaml"), "utf8"), before, "고칠 것이 없으면 서식도 그대로여야 한다");
 });
 
@@ -131,12 +136,12 @@ test("차례가 그대로면 파일을 건드리지 않는다", () => {
 test("목록을 고쳐도 그 안의 주석이 남는다", () => {
   write("sample", ["messages:", "  # 평소 문구", "  - 첫째", "  - 둘째", ""].join("\n"));
 
-  const data = yamlStore.load("sample");
+  const data = loadSample();
   data.messages[1] = "고친 둘째";
   yamlStore.save("sample", data);
   assert.match(fs.readFileSync(path.join(DIR, "sample.yaml"), "utf8"), /# 평소 문구/, "고칠 때");
 
-  const grown = yamlStore.load("sample");
+  const grown = loadSample();
   grown.messages.push("셋째");
   yamlStore.save("sample", grown);
 
@@ -148,7 +153,7 @@ test("목록을 고쳐도 그 안의 주석이 남는다", () => {
 
 test("사라진 키는 지워진다", () => {
   write("genres", "defaults: {}\ngenres:\n  pop:\n    label: 팝\n  rock:\n    label: 록\n");
-  const data = yamlStore.load("genres");
+  const data = loadGenres();
   delete data.genres.rock;
   yamlStore.save("genres", data);
 
@@ -157,13 +162,13 @@ test("사라진 키는 지워진다", () => {
 
 test("저장하면 다음 읽기가 새 값을 가져온다", () => {
   write("genres", "defaults:\n  prefetchCount: 1\ngenres:\n  pop:\n    label: 팝\n");
-  assert.equal(yamlStore.load("genres").defaults.prefetchCount, 1);
+  assert.equal(loadGenres().defaults.prefetchCount, 1);
 
-  const data = yamlStore.load("genres");
+  const data = loadGenres();
   data.defaults.prefetchCount = 3;
   yamlStore.save("genres", data);
 
-  assert.equal(yamlStore.load("genres").defaults.prefetchCount, 3, "읽어 둔 것을 그대로 돌려주면 안 된다");
+  assert.equal(loadGenres().defaults.prefetchCount, 3, "읽어 둔 것을 그대로 돌려주면 안 된다");
 });
 
 // 저장하면 서버가 보낸 차례대로 파일을 줄 세운다. 대시보드가 보내는 차례와 예시 파일이

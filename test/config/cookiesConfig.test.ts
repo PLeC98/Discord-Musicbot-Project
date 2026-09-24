@@ -1,4 +1,4 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
+// @ts-nocheck sources/youtube 가 아직 JS 라 YouTube 의 메서드 타입이 없다. 10단계 sources 폴더에서 뗀다
 // 유튜브 쿠키. COOKIES_SOURCE 한 칸이 방식을 정하고, 파일 방식이면 config/cookies.txt 를 쓴다.
 //
 // 계약 셋:

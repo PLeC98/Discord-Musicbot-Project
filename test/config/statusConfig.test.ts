@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 상태 문구 설정 — config/status.yaml 과 그것을 읽는 StatusManager.
 //
 // 이 파일도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
@@ -13,6 +12,7 @@ import YAML from "yaml";
 
 import * as yamlStore from "../../src/config/yamlStore.ts";
 import * as statusConfig from "../../src/config/status.ts";
+import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
 import StatusManager from "../../src/ui/botPresence.js";
 import { ActivityType } from "discord.js";
 
@@ -66,7 +66,7 @@ test("interval은 10초 미만일 수 없다", () => {
 
 test("날짜·시간은 두 자리로 적어야 한다", () => {
   // 비교가 문자열 비교라 "1-5"는 형식만 어긋나는 게 아니라 엉뚱한 날에 걸린다
-  const of = (special) => statusConfig.validateStatus({ ...ok, special }).join(" ");
+  const of = (special: unknown) => statusConfig.validateStatus({ ...ok, special }).join(" ");
 
   assert.match(of({ 봄: { date: "3-1 ~ 3-31", messages: ["x"] } }), /두 자리/);
   assert.match(of({ 심야: { time: "2:00 ~ 6:00", messages: ["x"] } }), /두 자리/);
@@ -97,7 +97,7 @@ test("처음 읽을 때 틀렸으면 문제를 한 줄씩 적어 던진다(기�
 
   assert.throws(
     () => statusConfig.status(),
-    (e) => e.code === "CONFIG_INVALID" && e.message === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
+    (e) => codeOf(e) === "CONFIG_INVALID" && messageOf(e) === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
   );
 });
 
@@ -105,7 +105,7 @@ test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈
   // status()는 회전 주기마다 setInterval 안에서 불린다 — 던지면 타이머에서 잡히지 않는 예외가 된다.
   statusConfig._reset();
   const file = path.join(DIR, "status.yaml");
-  const write = (text, mtime) => {
+  const write = (text: string, mtime: number) => {
     fs.writeFileSync(file, text);
     fs.utimesSync(file, mtime, mtime);
   };
@@ -187,9 +187,12 @@ test("풀어 적은 문구의 종류가 그대로 온다", () => {
 
 // ── 걸기 ──────────────────────────────────────────────────────────────────
 
+// 건 활동. 여기서 보는 칸만
+type Activity = { name: string; type: number };
+
 function presenceClient() {
-  const set = [];
-  return { set, client: { user: { setActivity: (a) => set.push(a) } } };
+  const set: Activity[] = [];
+  return { set, client: { user: { setActivity: (a: Activity) => set.push(a) } } };
 }
 
 test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => {

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 설정 파일 검사 문구를 고정한다(config/schema 의 zod 스키마).
 //
 // 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 차례까지 적었다.
@@ -14,11 +13,15 @@ import * as genreConfig from "../../src/config/genres.ts";
 import * as statusConfig from "../../src/config/status.ts";
 import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yamlStore.ts";
+import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
 import assist from "../../src/autoplay/assist/index.js";
 const { PROVIDERS } = assist; // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
-const GENRES = [
+// [이름, 넣는 것, 나올 문구들]
+type Case = [name: string, input: unknown, want: string[]];
+
+const GENRES: Case[] = [
   ["장르가 없다", {}, ["장르가 하나도 없습니다."]],
   [
     "YAML 이 값으로 읽는 이름 · 숫자 이름 · 이모지가 아닌 값",
@@ -155,7 +158,7 @@ const GENRES = [
   ],
 ];
 
-const STATUSES = [
+const STATUSES: Case[] = [
   [
     "문구가 없다 · interval 이 작다",
     {
@@ -233,7 +236,7 @@ const STATUSES = [
   ],
 ];
 
-const AIS = [
+const AIS: Case[] = [
   [
     "모르는 provider · 옛 enabled",
     {
@@ -319,7 +322,8 @@ const AIS = [
 ];
 
 // [이름, 프롬프트 섹션, 켜 둠, 지금 나오는 문구]
-const PROMPTS = [
+// [이름, 넣는 것, 켰나, 나올 문구들]
+const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]> = [
   ["목록이 아님", "text", true, ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."]],
   [
     "섹션 모양",
@@ -374,7 +378,7 @@ for (const [name, input, on, want] of PROMPTS) test(`프롬프트 검사: ${name
 // ── 던지나 경고하나: 부르는 쪽이 정한다 ────────────────────────────────
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "config-messages-"));
-const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
+const write = (name: string, text: string) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);
 
 before(() => yamlStore._setConfigDir(DIR));
 after(() => {
@@ -386,7 +390,7 @@ test("장르 파일이 검사에 걸리면 던진다(기동이 멈춰야 한다)
   write("genres", "genres:\n  가요:\n    sources: []\n");
   assert.throws(
     () => genreConfig.genres(),
-    (e) => e.code === "CONFIG_INVALID" && e.message === ["config/genres.yaml 을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n"),
+    (e) => codeOf(e) === "CONFIG_INVALID" && messageOf(e) === ["config/genres.yaml 을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n"),
   );
 });
 
@@ -395,7 +399,7 @@ test("상태 파일도 처음부터 검사에 걸리면 던진다. 문구는 장
   write("status", "interval: 5\nmessages: []\n");
   assert.throws(
     () => statusConfig.status(),
-    (e) => e.code === "CONFIG_INVALID" && e.message === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
+    (e) => codeOf(e) === "CONFIG_INVALID" && messageOf(e) === ["config/status.yaml 을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n"),
   );
 });
 
