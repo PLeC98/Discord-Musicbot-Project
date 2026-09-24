@@ -105,6 +105,23 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
   assert.match(r.message ?? "", /네트워크 오류/, "던진 것은 ErrorHandler 안내문으로");
 });
 
+test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 알린다", async () => {
+  const { mem, player, sent } = setup();
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    await mem.handleMusicData("g1", { isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
+
+    assert.equal(player.currentTrack?.id, "a");
+    assert.deepEqual(
+      player.queue.map((t) => t.id),
+      ["b", "c"],
+    );
+    assert.equal(sent[0].content, "✅ 재생목록의 3개 노래가 대기열에 추가되었습니다!", "받은 3곡 전부. 대기열 2곡만이 아니다");
+  } finally {
+    mock.timers.reset();
+  }
+});
+
 test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀어 되살린다", async () => {
   const { mem, player, calls, sent } = setup({ plays: [{ ok: false, code: "voice-failed" }, { ok: true }] });
   mock.timers.enable({ apis: ["setTimeout"] });
