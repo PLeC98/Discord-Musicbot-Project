@@ -1,6 +1,6 @@
 // NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
-// 파일 로직을 facade(src/infra/log/logger.js)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
+// 파일 로직을 facade(src/infra/log/logger.ts)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
 // 같은 자리에 transport가 앉으므로 호출부가 그대로 살아남는다.
 //
 // 한 줄에 레코드 하나. 가공은 ANSI 제거뿐이다(색은 터미널 사정이고, 파일에 남으면 grep이 깨진다).

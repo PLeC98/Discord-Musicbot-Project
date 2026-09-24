@@ -13,7 +13,6 @@
     "test/commands/commandsInfo.test.js",
     "test/events/eventHandlers.test.js",
     "test/helpers/playerHarness.js",
-    "test/infra/logger.test.ts",
     "test/media/cacheDownload.test.js",
     "test/media/cacheTranscode.test.js",
     "test/player/playerPlay.test.js",

@@ -12,7 +12,7 @@
 //   - pino에 없는 logger.log()는 노출하지 않는다 (레거시 console.log은 LogManager 브리지가 흡수)
 
 import util from "util";
-import sink from "./sink.ts"; // 속성 접근으로 호출(sink.record) → 테스트에서 스텁 가능
+import sink from "./sink.ts";
 import type { LevelName, LogRecord } from "./sink.ts";
 
 type LogFn = (...args: unknown[]) => void;
@@ -29,7 +29,7 @@ const LEVEL_NAMES: Record<number, LevelName> = { 10: "trace", 20: "debug", 30: "
 const isLevel = (v: unknown): v is LevelName => typeof v === "string" && v in LEVELS;
 
 // pino 호환 인자 → sink 레코드로 정규화.
-function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: unknown[]): LogRecord {
+function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: unknown[]): LogRecord & { msg: string } {
   let merge: Record<string, unknown> | null = null;
   let msg: string; // 아래 if/else-if/else 세 갈래가 모두 할당(exhaustive)
 
@@ -56,8 +56,7 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
     msg = msg ? `${msg} ${stack}` : stack;
   }
 
-  rec.msg = msg;
-  return rec;
+  return Object.assign(rec, { msg });
 }
 
 // 루트 레벨은 공유 상태다. 각 파일이 require 시점에 `child()`로 로거를 만들어 두는데,
@@ -65,7 +64,8 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
 // 자식들에게 닿지 않는다. 설정이 아무 효과가 없어진다. pino의 자식도 부모 레벨을 따른다.
 let rootLevelNum = LEVELS.info;
 
-function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelName | null = null): Logger {
+/** record: 레코드를 받는 곳. 생략하면 sink */
+function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelName | null = null, record: (rec: LogRecord) => void = (rec) => sink.record(rec)): Logger {
   let ownLevelNum: number | null = ownLevel != null ? (LEVELS[ownLevel] ?? null) : null;
   const isRoot = arguments.length === 0;
   const effective = () => ownLevelNum ?? rootLevelNum;
@@ -81,14 +81,14 @@ function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelNam
       else ownLevelNum = LEVELS[v];
     },
     child(childBindings: Record<string, unknown>): Logger {
-      return createLogger({ ...bindings, ...childBindings }, ownLevelNum != null ? LEVEL_NAMES[ownLevelNum] : null);
+      return createLogger({ ...bindings, ...childBindings }, ownLevelNum != null ? LEVEL_NAMES[ownLevelNum] : null, record);
     },
   } as Logger;
 
   for (const [name, num] of Object.entries(LEVELS)) {
     api[name as LevelName] = (...args: unknown[]) => {
       if (num < effective()) return; // 레벨 게이팅
-      sink.record(buildRecord(num, bindings, args));
+      record(buildRecord(num, bindings, args));
     };
   }
 

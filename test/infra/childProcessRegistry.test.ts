@@ -1,5 +1,4 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-// src/infra/processRegistry.js — 외부 프로세스 트리 종료
+// src/infra/processRegistry.ts — 외부 프로세스 트리 종료
 //
 // 회귀 대상: 라이브 방송이 잘못 매칭돼 캐시 다운로드가 시작되면 yt-dlp가 ffmpeg를 외부 다운로더로
 // 띄우는데(손자 프로세스), 봇을 종료해도 ffmpeg가 살아남아 끝나지 않는 방송을 계속 받아쓰던 문제.
@@ -16,7 +15,7 @@ const IS_WIN = process.platform === "win32";
 const registry = await import("../../src/infra/processRegistry.ts");
 
 /** pid가 아직 살아있는가 — 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
-function alive(pid) {
+function alive(pid: number) {
   try {
     process.kill(pid, 0);
     return true;
@@ -26,7 +25,7 @@ function alive(pid) {
 }
 
 /** cond()가 true가 될 때까지(또는 timeout까지) 대기 */
-async function waitFor(cond, timeoutMs = 5000) {
+async function waitFor(cond: () => boolean, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (cond()) return true;
@@ -53,7 +52,7 @@ function spawnChildWithGrandchild() {
     detached: !IS_WIN,
   });
 
-  const grandchildPid = new Promise((resolve, reject) => {
+  const grandchildPid = new Promise<number>((resolve, reject) => {
     let buf = "";
     child.stdout.on("data", (d) => {
       buf += d.toString();
@@ -70,8 +69,10 @@ function spawnChildWithGrandchild() {
 test("killAll: 자식과 손자 프로세스를 모두 종료한다 (좀비 ffmpeg 회귀)", async () => {
   const { child, grandchildPid } = spawnChildWithGrandchild();
   const gpid = await grandchildPid;
+  const pid = child.pid;
+  assert.ok(pid, "자식이 떠야 함");
 
-  assert.ok(alive(child.pid), "자식이 살아있어야 함");
+  assert.ok(alive(pid), "자식이 살아있어야 함");
   assert.ok(alive(gpid), "손자가 살아있어야 함");
 
   const release = registry.register(child, "test:child", { group: !IS_WIN });
@@ -81,7 +82,7 @@ test("killAll: 자식과 손자 프로세스를 모두 종료한다 (좀비 ffmp
   assert.equal(killed, 1, "1개 프로세스에 대해 kill을 시도해야 함");
   assert.equal(registry.size(), 0, "killAll 후 레지스트리는 비어야 함");
 
-  assert.ok(await waitFor(() => !alive(child.pid)), "자식이 종료되어야 함");
+  assert.ok(await waitFor(() => !alive(pid)), "자식이 종료되어야 함");
   assert.ok(await waitFor(() => !alive(gpid)), "손자(ffmpeg 대역)도 함께 종료되어야 함 — 이게 핵심");
 
   release();
@@ -90,7 +91,8 @@ test("killAll: 자식과 손자 프로세스를 모두 종료한다 (좀비 ffmp
 test("register: 유효하지 않은 pid는 추적하지 않는다 (pid 0 → -0 = 자기 그룹 자살 방지)", () => {
   assert.equal(registry.size(), 0);
   for (const pid of [undefined, null, 0, 1, -5, 1.5, "123", NaN]) {
-    const release = registry.register({ pid }, "bogus");
+    // 타입 밖의 값이 들어와도 막는지 본다
+    const release = registry.register({ pid } as { pid?: number }, "bogus");
     assert.equal(typeof release, "function");
     assert.equal(registry.size(), 0, `pid=${String(pid)}는 등록되면 안 됨`);
   }

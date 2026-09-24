@@ -13,6 +13,8 @@
  */
 
 import axios from "axios";
+import type { AxiosRequestConfig } from "axios";
+import type { Readable } from "stream";
 import { promises as dns } from "dns";
 import net from "net";
 import http from "http";
@@ -32,7 +34,9 @@ const ALLOWED_CONTENT_TYPE = /^\s*(audio\/|video\/|application\/octet-stream|bin
 // DNS 조회. 테스트가 가짜를 넘긴다
 type LookupFn = (host: string, options: { all: true; verbatim: boolean }) => Promise<Array<{ address: string; family: number }>>;
 /** 바깥 경계. 생략하면 axios 와 dns.lookup */
-type RequestDeps = { request?: typeof axios; lookup?: LookupFn };
+// 요청 함수(axios 와 같은 부름). 여기서 보는 응답 칸만
+type HttpRequest = (config: AxiosRequestConfig) => Promise<{ status: number; headers: object; data?: unknown }>;
+type RequestDeps = { request?: HttpRequest; lookup?: LookupFn };
 
 class SsrfError extends Error {
   constructor(message: string) {
@@ -165,13 +169,14 @@ async function guardedRequest(method: "head" | "get", rawUrl: string, { response
 
     if (response.status >= 300 && response.status < 400) {
       // 리다이렉트: 스트림/소켓 정리 후 다음 홉에서 재검증
-      if (responseType === "stream" && response.data && typeof response.data.destroy === "function") {
-        response.data.destroy();
+      const body = response.data as { destroy?: () => void } | null | undefined;
+      if (responseType === "stream" && body && typeof body.destroy === "function") {
+        body.destroy();
       }
       agent.destroy();
-      const location = response.headers.location;
+      const location = (response.headers as Record<string, unknown>).location;
       if (!location) throw new SsrfError("리다이렉트 응답에 Location 헤더 없음");
-      currentUrl = new URL(location, url).href; // 상대 경로/프로토콜 상대 처리
+      currentUrl = new URL(String(location), url).href; // 상대 경로/프로토콜 상대 처리
       continue;
     }
 
@@ -197,7 +202,8 @@ function byteCap(maxBytes: number) {
 }
 
 /** 응답 헤더의 Content-Type / Content-Length 심층방어 검사. @throws {SsrfError} */
-function assertResponseAllowed(headers: Record<string, unknown>) {
+function assertResponseAllowed(responseHeaders: object) {
+  const headers = responseHeaders as Record<string, unknown>;
   const ct = headers["content-type"] || "";
   if (!isAllowedContentType(ct)) {
     throw new SsrfError(`허용되지 않는 Content-Type: ${ct}`);
@@ -225,7 +231,7 @@ async function head(rawUrl: string, deps: RequestDeps = {}) {
 /** 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws */
 async function getStream(rawUrl: string, deps: RequestDeps = {}) {
   const { response, agent } = await guardedRequest("get", rawUrl, { ...deps, responseType: "stream" });
-  const source = response.data;
+  const source = response.data as Readable;
   try {
     assertResponseAllowed(response.headers);
   } catch (err) {
@@ -243,3 +249,4 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}) {
 }
 
 export { SsrfError, head, getStream, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES };
+export type { LookupFn, HttpRequest, RequestDeps };

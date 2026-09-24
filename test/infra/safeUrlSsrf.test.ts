@@ -1,5 +1,4 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-// src/infra/safeUrl.js — SSRF 방어가 실제로 버티는지 공격해 본다.
+// src/infra/safeUrl.ts — SSRF 방어가 실제로 버티는지 공격해 본다.
 //
 // CodeQL이 이 파일을 js/request-forgery(critical)로 지적한다. "URL이 사용자 입력에 의존한다"는
 // 사실이지만 그게 이 모듈의 존재 이유다. 실제 방어(IP 핀 접속·홉별 재검증)를 CodeQL이 추적하지
@@ -11,25 +10,29 @@ import dns from "dns";
 const dnsPromises = dns.promises;
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import type { AxiosRequestConfig } from "axios";
+import type { LookupFn, RequestDeps } from "../../src/infra/safeUrl.ts";
+
+type Reply = { status: number; headers: Record<string, string>; data: null };
 
 // ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head · getStream 에 넘긴다 ─────────────
-const calls = [];
-let responder = () => ({ status: 200, headers: { "content-type": "audio/mpeg" }, data: null });
+const calls: AxiosRequestConfig[] = [];
+let responder: (cfg: AxiosRequestConfig, n: number) => Reply = () => ({ status: 200, headers: { "content-type": "audio/mpeg" }, data: null });
 // 기본은 실제 해석에 위임
-const realLookup = dnsPromises.lookup.bind(dnsPromises);
-let lookupImpl = realLookup;
-const deps = {
+const realLookup: LookupFn = (host, options) => dnsPromises.lookup(host, options);
+let lookupImpl: LookupFn = realLookup;
+const deps: RequestDeps = {
   request: (cfg) => {
     calls.push(cfg);
     return Promise.resolve(responder(cfg, calls.length));
   },
-  lookup: (...args) => lookupImpl(...args),
+  lookup: (host, options) => lookupImpl(host, options),
 };
 
 const safeUrl = await import("../../src/infra/safeUrl.ts");
 const { SsrfError } = safeUrl;
-const head = (url) => safeUrl.head(url, deps);
-const getStream = (url) => safeUrl.getStream(url, deps);
+const head = (url: string) => safeUrl.head(url, deps);
+const getStream = (url: string) => safeUrl.getStream(url, deps);
 
 beforeEach(() => {
   calls.length = 0;
@@ -37,7 +40,8 @@ beforeEach(() => {
   responder = () => ({ status: 200, headers: { "content-type": "audio/mpeg" }, data: null });
 });
 
-const rejects = (p, re) => assert.rejects(p, (e) => e instanceof SsrfError && (!re || re.test(e.message)));
+// 세 번째 인자는 실패했을 때 어느 입력이었는지 읽으려고 붙인 이름표다
+const rejects = (p: Promise<unknown>, re?: RegExp | null, _label?: string) => assert.rejects(p, (e) => e instanceof SsrfError && (!re || re.test(e.message)));
 
 // ── 1. IP 우회 표기 ──────────────────────────────────────────────────────────
 
@@ -101,19 +105,22 @@ test("DNS 리바인딩: 소켓이 검증된 IP 밖으로 나가지 못한다", a
   assert.ok(agent, "핀 에이전트가 실려야 한다");
 
   const pinned = await new Promise((resolve, reject) => {
-    agent.options.lookup("rebind.example", {}, (err, address) => (err ? reject(err) : resolve(address)));
+    agent.options.lookup("rebind.example", {}, (err: Error | null, address: unknown) => (err ? reject(err) : resolve(address)));
   });
   assert.equal(pinned, "93.184.216.34", "재해석된 내부 IP가 나오면 리바인딩으로 뚫린다");
 
   const pinnedAll = await new Promise((resolve, reject) => {
-    agent.options.lookup("rebind.example", { all: true }, (err, addrs) => (err ? reject(err) : resolve(addrs)));
+    agent.options.lookup("rebind.example", { all: true }, (err: Error | null, addrs: unknown) => (err ? reject(err) : resolve(addrs)));
   });
   assert.deepEqual(pinnedAll, [{ address: "93.184.216.34", family: 4 }]);
 });
 
 // ── 3. 리다이렉트 ────────────────────────────────────────────────────────────
 
-const redirectTo = (location) => (cfg, n) => (n === 1 ? { status: 302, headers: { location }, data: null } : { status: 200, headers: { "content-type": "audio/mpeg" }, data: null });
+const redirectTo =
+  (location: string) =>
+  (_cfg: AxiosRequestConfig, n: number): Reply =>
+    n === 1 ? { status: 302, headers: { location }, data: null } : { status: 200, headers: { "content-type": "audio/mpeg" }, data: null };
 
 test("공인 → 내부 리다이렉트는 두 번째 요청 전에 차단된다", async () => {
   responder = redirectTo("http://127.0.0.1:8080/admin");
@@ -166,7 +173,7 @@ test("리다이렉트를 axios에 맡기지 않는다 (홉별 재검증의 전�
   // axios를 모킹한 상태에서는 동작으로 드러나지 않으므로 설정 자체를 고정한다.
   await head("https://1.1.1.1/x.mp3");
   assert.equal(calls[0].maxRedirects, 0);
-  assert.equal(calls[0].validateStatus(302), true, "3xx를 우리가 받아 처리해야 한다");
+  assert.equal(calls[0].validateStatus?.(302), true, "3xx를 우리가 받아 처리해야 한다");
 });
 
 // ── 4. 프록시 ────────────────────────────────────────────────────────────────
@@ -174,7 +181,7 @@ test("리다이렉트를 axios에 맡기지 않는다 (홉별 재검증의 전�
 test("프록시 환경변수가 설정돼 있어도 요청은 프록시를 타지 않는다", async () => {
   // 프록시를 타면 목적지를 프록시가 다시 해석하므로 핀 접속이 통째로 무의미해진다
   const keys = ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"];
-  const saved = {};
+  const saved: Record<string, string | undefined> = {};
   for (const k of keys) {
     saved[k] = process.env[k];
     process.env[k] = "http://127.0.0.1:9";

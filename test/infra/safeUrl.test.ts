@@ -1,5 +1,4 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-// src/infra/safeUrl.js — SSRF 방어의 오프라인 검증 배터리 (네트워크/DNS 미접촉 경로만).
+// src/infra/safeUrl.ts — SSRF 방어의 오프라인 검증 배터리 (네트워크/DNS 미접촉 경로만).
 // 회귀 대상: IPv6 리터럴 대괄호 미제거로 전 IPv6 리터럴이 DNS 경로로 빠지던 문제
 
 import { test } from "node:test";

@@ -2,7 +2,7 @@
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
 // 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
-// 생산자는 두 갈래: (1) src/infra/log/logger.js facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
+// 생산자는 두 갈래: (1) src/infra/log/logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
 
 import util from "util";
 import config from "../../../config.ts";
@@ -94,16 +94,19 @@ class LogManager {
   earlyRecords: LogRecord[];
   isTTY: boolean;
   useColor: boolean;
+  terminal: (rec: LogRecord) => void;
 
-  constructor({ maxLines = 500, intercept = true }: { maxLines?: number; intercept?: boolean } = {}) {
+  /** terminal: 터미널에 찍는 함수. 생략하면 _renderTerminal */
+  constructor({ maxLines = 500, intercept = true, terminal }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void } = {}) {
     this.maxLines = maxLines;
+    this.terminal = terminal ?? ((rec) => this._renderTerminal(rec));
     // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
     this.consoleLevel = 0;
     this.buffer = [];
     this.clients = new Set();
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
-    this.destinations = []; // file(file.js), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
+    this.destinations = []; // file(file.ts), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
     // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다. 그게 파일에서
     // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.
@@ -137,7 +140,7 @@ class LogManager {
   // facade와 브리지가 공통으로 부르는 입구.
   record(rec: LogRecord) {
     const safe = this._redact(rec);
-    if (safe.level >= this.consoleLevel) this._renderTerminal(safe);
+    if (safe.level >= this.consoleLevel) this.terminal(safe);
 
     const entry = this._toWire(safe);
     this.buffer.push(entry);

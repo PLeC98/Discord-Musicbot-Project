@@ -1,31 +1,38 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-// src/infra/voiceAdapter.js — 참가 요청을 잠깐 붙잡아, 그사이 봇이 옮겨졌다고 알려 오면 그 채널로 고쳐 보낸다.
+// src/infra/voiceAdapter.ts — 참가 요청을 잠깐 붙잡아, 그사이 봇이 옮겨졌다고 알려 오면 그 채널로 고쳐 보낸다.
 
 import { test } from "node:test";
+import type { TestContext } from "node:test";
+import type { DiscordGatewayAdapterCreator, DiscordGatewayAdapterLibraryMethods } from "@discordjs/voice";
 import assert from "node:assert/strict";
 import { holdingAdapterCreator, HOLD_MS } from "../../src/infra/voiceAdapter.ts";
+
+type VoiceState = Parameters<DiscordGatewayAdapterLibraryMethods["onVoiceStateUpdate"]>[0];
+// 게이트웨이로 보낸 것. 여기서 보는 칸만
+type Payload = { op: number; d: { channel_id: string | null } };
+
 // 디스코드 쪽 어댑터 대신. 보낸 것을 적고, 게이트웨이 알림을 흘려 넣을 수 있게 한다
-function setup(t) {
+function setup(t: TestContext) {
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  const sent = [];
-  const seen = [];
-  let gateway = null;
+  const sent: Payload[] = [];
+  const seen: VoiceState[] = [];
+  let gateway: DiscordGatewayAdapterLibraryMethods | null = null;
   let destroyed = false;
-  const creator = (methods) => {
+  const creator: DiscordGatewayAdapterCreator = (methods) => {
     gateway = methods;
     return { sendPayload: (p) => (sent.push(p), true), destroy: () => (destroyed = true) };
   };
-  const rewrites = [];
+  const rewrites: string[] = [];
   const adapter = holdingAdapterCreator(creator, { onRewrite: (from, to) => rewrites.push(`${from}->${to}`) })({
     onVoiceStateUpdate: (d) => seen.push(d),
     onVoiceServerUpdate() {},
     destroy() {},
   });
-  const state = (channelId, extra = {}) => gateway.onVoiceStateUpdate({ channel_id: channelId, ...extra });
+  // 알림은 봇의 채널만 본다. 나머지 칸은 비운다
+  const state = (channelId: string, extra = {}) => gateway!.onVoiceStateUpdate({ channel_id: channelId, ...extra } as VoiceState);
   return { adapter, sent, seen, state, rewrites, destroyed: () => destroyed };
 }
 
-const join = (channelId) => ({ op: 4, d: { guild_id: "g1", channel_id: channelId, self_deaf: false, self_mute: false } });
+const join = (channelId: string) => ({ op: 4, d: { guild_id: "g1", channel_id: channelId, self_deaf: false, self_mute: false } });
 
 test("참가 요청은 잠깐 붙잡았다 그대로 보낸다", (t) => {
   const { adapter, sent } = setup(t);

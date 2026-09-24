@@ -1,5 +1,4 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-// src/infra/log/file.js — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
+// src/infra/log/file.ts — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,8 +10,8 @@ function tmpdir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
 }
 
-const rec = (msg, extra = {}) => ({ time: 1757400000000, level: 30, msg, ...extra });
-const lines = (file) =>
+const rec = (msg: string, extra = {}) => ({ time: 1757400000000, level: 30, msg, ...extra });
+const lines = (file: string) =>
   fs
     .readFileSync(file, "utf8")
     .split("\n")
@@ -60,7 +59,7 @@ test("이어 쓰기 — 재시작해도 기존 내용을 덮지 않는다", () =
 // 분리된 파일에는 번호가 아니라 분리한 시각이 붙는다 (bot-2026-09-10T14-23-05.123.log).
 // 번호 방식은 회전마다 파일 전부를 rename해야 하고, 번호의 뜻이 회전할 때마다 바뀐다.
 // 이름순 정렬이 곧 시간순이라는 것이 이 방식의 계약이다.
-const rotated = (dir) =>
+const rotated = (dir: string) =>
   fs
     .readdirSync(dir)
     .filter((n) => /^bot-\d{4}-\d{2}-\d{2}T/.test(n))
@@ -125,7 +124,7 @@ test("keep=0이면 분리는 하되 오래된 것을 지우지 않는다", () =>
 test("직렬화 불가(순환 참조)여도 던지지 않고 메시지는 남긴다", () => {
   const file = path.join(tmpdir(), "bot.log");
   const dest = createFileDestination({ file, maxBytes: 1e9, keep: 3 });
-  const circular = {};
+  const circular: { self?: object } = {};
   circular.self = circular;
   dest.write(rec("순환 포함", { ctx: circular }));
   dest.close();
