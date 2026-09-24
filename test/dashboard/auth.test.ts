@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/routes/auth.js — 디스코드 OAuth 로그인 · 콜백 · 로그아웃.
 // 디스코드를 부르는 HTTP 클라이언트는 가짜를 넘긴다. 세션은 express-session 의 메모리 저장소.
 

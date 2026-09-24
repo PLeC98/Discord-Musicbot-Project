@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/sessionStore.js — SQLite 세션 스토어
 // 회귀 대상: MemoryStore의 재시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
 

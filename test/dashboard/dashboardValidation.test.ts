@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/routes/guilds.js — 플레이어 조작 API의 입력 검증
 // 회귀 대상: 비문자열 query의 TypeError(async 핸들러라 응답 없는 unhandled rejection),
 // parseFloat("Infinity")·parseInt("50junk")의 느슨한 통과, 제어문자의 로그/yt-dlp 유입.
