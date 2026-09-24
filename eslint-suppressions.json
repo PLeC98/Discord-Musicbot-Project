@@ -87,12 +87,6 @@
     },
     "max-statements": {
       "count": 1
-    },
-    "no-empty": {
-      "count": 1
-    },
-    "no-empty-function": {
-      "count": 2
     }
   },
   "src/player/Player.ts": {
@@ -101,11 +95,6 @@
     },
     "max-statements": {
       "count": 1
-    }
-  },
-  "src/ui/panelLocation.ts": {
-    "no-empty-function": {
-      "count": 2
     }
   },
   "src/player/sessionMirror.ts": {
@@ -232,11 +221,6 @@
       "count": 1
     }
   },
-  "src/ui/replyLifetime.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
   "src/sources/youtube/match.ts": {
     "complexity": {
       "count": 2
@@ -245,11 +229,6 @@
   "src/app/resilience.ts": {
     "no-empty-function": {
       "count": 2
-    }
-  },
-  "src/ui/transientMessages.ts": {
-    "no-empty-function": {
-      "count": 1
     }
   }
 }

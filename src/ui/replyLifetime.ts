@@ -89,7 +89,9 @@ function scheduleReplyCleanup(interaction: Replied | null | undefined) {
   const timer = setTimeout(() => {
     Promise.resolve()
       .then(() => interaction.deleteReply?.())
-      .catch(() => {}); // 이미 닫았거나 지웠다
+      .catch(() => {
+        /* 이미 닫았거나 지웠다 */
+      });
   }, ms);
   timer.unref?.();
 }

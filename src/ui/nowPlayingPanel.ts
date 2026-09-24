@@ -64,6 +64,7 @@ import { markTransient, isTransient } from "./transientMessages.ts";
 import * as blankThumbnail from "./blankThumbnail.ts";
 import { jumpDescription } from "./queueDisplay.ts";
 import { NowPlayingPanel, type PanelStore } from "./panelLocation.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
@@ -90,7 +91,9 @@ class MusicEmbedManager {
     if (webhookClient) {
       try {
         webhookClient.destroy();
-      } catch (_) {}
+      } catch {
+        /* 버리는 웹훅이다. 다시 쓰지 않는다 */
+      }
       this.webhookCache.delete(channelId);
     }
   }
@@ -135,8 +138,11 @@ class MusicEmbedManager {
   // responder: 결과를 알릴 매체(usecases/responders). 없으면(재생 시작 알림 등) 알리지 않는다
   handleMusicData(guildId: string, trackData: TrackData, requester: Requester, responder: Responder = NO_RESPONDER) {
     const tail = this.processingQueue.get(guildId) || Promise.resolve();
-    // 앞 작업의 실패가 뒤 작업까지 실패시키면 안 됨. 각 작업의 결과/오류는 자기 호출자에게만 전달
-    const processingPromise = tail.catch(() => {}).then(() => this._processMusic(guildId, trackData, requester, responder));
+    const processingPromise = tail
+      .catch(() => {
+        /* 앞 작업의 실패는 그 호출자가 받는다. 뒤 작업까지 실패시키지 않는다 */
+      })
+      .then(() => this._processMusic(guildId, trackData, requester, responder));
     this.processingQueue.set(guildId, processingPromise);
 
     return processingPromise.finally(() => {
@@ -607,7 +613,7 @@ class MusicEmbedManager {
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다
     if (live && !dedicated && canSend(textChannel)) {
       const endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
-      await textChannel.send({ embeds: [endEmbed] }).catch(() => {}); // 채널을 쓸 수 없거나 권한이 없음
+      await bestEffort(log, textChannel.send({ embeds: [endEmbed] }), "끝 안내 보내기");
     }
 
     // 플레이어 정리

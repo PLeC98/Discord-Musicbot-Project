@@ -34,7 +34,9 @@ function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_
   if (!message || typeof remove !== "function") return;
   markTransient(message.id, ms);
   setTimeout(() => {
-    Promise.resolve(remove.call(message)).catch(() => {});
+    Promise.resolve(remove.call(message)).catch(() => {
+      /* 이미 지워졌거나 지울 권한이 없다 */
+    });
   }, ms);
 }
 

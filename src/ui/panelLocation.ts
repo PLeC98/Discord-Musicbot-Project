@@ -27,7 +27,11 @@ class NowPlayingPanel {
   }
 
   _serial<T>(guildId: string, fn: () => Promise<T>): Promise<T> {
-    const run = (this.chains.get(guildId) || Promise.resolve()).catch(() => {}).then(fn);
+    const run = (this.chains.get(guildId) || Promise.resolve())
+      .catch(() => {
+        /* 앞 일의 실패는 그 호출자가 받는다. 뒤 일을 막지 않는다 */
+      })
+      .then(fn);
     this.chains.set(guildId, run);
     return run.finally(() => {
       if (this.chains.get(guildId) === run) this.chains.delete(guildId);
@@ -90,7 +94,10 @@ class NowPlayingPanel {
     } catch {
       /* 아래에서 채널 권한으로 */
     }
-    if ("messages" in channel) await Promise.resolve(channel.messages.delete(messageId)).catch(() => {});
+    if ("messages" in channel)
+      await Promise.resolve(channel.messages.delete(messageId)).catch(() => {
+        /* 이미 지워졌거나 지울 권한이 없다. 옛 패널이 남을 뿐이다 */
+      });
   }
 }
 
