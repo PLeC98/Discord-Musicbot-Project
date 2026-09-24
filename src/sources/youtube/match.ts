@@ -169,31 +169,28 @@ function analyzeChannel(channel: unknown, artist: unknown) {
 
   const nc = normChannel(channel);
   const ncTight = despace(nc);
+  const exactly = { match: true, exact: true, isTopic, isVevo };
   let match = false;
-  let exact = false;
   if (nc) {
     // 아티스트 전체(분해 전) 붙여쓰기 정확 일치. 등 구분자로 쪼개지는 이름 대응
     const fullTight = despace(normLoose(artist));
-    if (fullTight.length >= 2 && ncTight === fullTight) {
-      match = true;
-      exact = true;
-    }
+    if (fullTight.length >= 2 && ncTight === fullTight) return exactly;
     for (const part of splitArtists(artist)) {
-      if (match && exact) break;
-      const pTight = despace(part);
-      if (nc === part || ncTight === pTight) {
-        match = true;
-        exact = true;
-        break;
-      }
-      // 부분 포함(양방향, 공백 유무 모두). 단, "찾는 문자열"이 3자 이상일 때만 (짧은 조각 우연일치 방지)
-      if (part.length >= CH_SUBSTR_MIN && nc.includes(part)) match = true;
-      if (nc.length >= CH_SUBSTR_MIN && part.includes(nc)) match = true;
-      if (pTight.length >= CH_SUBSTR_MIN && ncTight.includes(pTight)) match = true;
-      if (ncTight.length >= CH_SUBSTR_MIN && pTight.includes(ncTight)) match = true;
+      const hit = partMatch(nc, ncTight, part);
+      if (hit === "exact") return exactly;
+      if (hit) match = true;
     }
   }
-  return { match, exact, isTopic, isVevo };
+  return { match, exact: false, isTopic, isVevo };
+}
+
+// 채널 이름과 가수 이름 한 조각. 같으면 exact, 한쪽이 다른 쪽을 품으면 partial
+function partMatch(nc: string, ncTight: string, part: string): "exact" | "partial" | null {
+  const pTight = despace(part);
+  if (nc === part || ncTight === pTight) return "exact";
+  // 부분 포함(양방향, 공백 유무 모두). 단, "찾는 문자열"이 3자 이상일 때만 (짧은 조각 우연일치 방지)
+  const holds = (hay: string, needle: string) => needle.length >= CH_SUBSTR_MIN && hay.includes(needle);
+  return holds(nc, part) || holds(part, nc) || holds(ncTight, pTight) || holds(pTight, ncTight) ? "partial" : null;
 }
 
 // 라틴 문자로만 된 용어인가. 단어 경계를 요구할지 정한다.
@@ -326,6 +323,23 @@ function mergeCandidateLists<C extends Candidate>(primaryLists: CandidateLists<C
   return [...byId.values()];
 }
 
+// 채널 점수. 가수 채널이면서 공식 계열이면 덤을 더 준다
+function channelScore(match: boolean, official: boolean) {
+  if (match) return W.channelMatch + (official ? W.channelOfficialBonus : 0);
+  return official ? W.channelOfficialStandalone : 0;
+}
+
+// 제목 점수. 곡 이름 · 가수 이름 · 공식 표지가 제목에 있나
+function titleScores(candidateTitle: string | null | undefined, target: Target) {
+  const nTitle = normLoose(candidateTitle);
+  const nTrack = normLoose(target.title);
+  return {
+    title: nTrack && nTitle.includes(nTrack) ? W.titleHasTrack : 0,
+    artistInTitle: splitArtists(target.artist).some((a) => nTitle.includes(a)) ? W.titleHasArtist : 0,
+    officialTag: OFFICIAL_TAG.test(candidateTitle || "") ? W.titleOfficialTag : 0,
+  };
+}
+
 /**
  * 후보 하나 채점.
  * candidate: { id, url, title, channel, durationSec, rank? }  (rank 없으면 0)
@@ -337,10 +351,9 @@ function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
   b.rank = Math.max(0, RANK_BASE - rank) * W.rankPerPosition;
 
   const ch = analyzeChannel(candidate.channel, target.artist);
-  const officialUploader = ch.match || ch.isTopic || ch.isVevo;
-  if (ch.match) b.channel = W.channelMatch + (ch.isTopic || ch.isVevo ? W.channelOfficialBonus : 0);
-  else if (ch.isTopic || ch.isVevo) b.channel = W.channelOfficialStandalone;
-  else b.channel = 0;
+  const official = ch.isTopic || ch.isVevo;
+  const officialUploader = ch.match || official;
+  b.channel = channelScore(ch.match, official);
 
   const d = durationScore(candidate.durationSec, target.durationSec);
   b.duration = d.score;
@@ -358,11 +371,7 @@ function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
   const reupload = !officialUploader && isReupload(candidate.title, target.title);
   b.reupload = reupload ? W.reuploadEach : 0;
 
-  const nTitle = normLoose(candidate.title);
-  const nTrack = normLoose(target.title);
-  b.title = nTrack && nTitle.includes(nTrack) ? W.titleHasTrack : 0;
-  b.artistInTitle = splitArtists(target.artist).some((a) => nTitle.includes(a)) ? W.titleHasArtist : 0;
-  b.officialTag = OFFICIAL_TAG.test(candidate.title || "") ? W.titleOfficialTag : 0;
+  Object.assign(b, titleScores(candidate.title, target));
 
   const score = b.rank + b.channel + b.duration + b.junk + b.version + b.reupload + b.title + b.artistInTitle + b.officialTag;
 
@@ -371,7 +380,7 @@ function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
     rank,
     score,
     breakdown: b,
-    flags: { channelMatch: ch.match, channelExact: ch.exact, official: ch.isTopic || ch.isVevo, junk, junkSuppressed: junkWaived, version, reupload, duration: d.label },
+    flags: { channelMatch: ch.match, channelExact: ch.exact, official, junk, junkSuppressed: junkWaived, version, reupload, duration: d.label },
   };
 }
 

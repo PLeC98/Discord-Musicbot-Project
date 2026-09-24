@@ -100,6 +100,12 @@ function normApiTrack(t: ApiTrack | null | undefined, albumOverride?: { name?: s
   };
 }
 
+// 가수 이름들. 없으면 "알 수 없는 아티스트"
+function artistsOf(d: GqlTrack) {
+  const names = (d.artists?.items || []).map((a) => a.profile?.name).filter(Boolean);
+  return names.join(", ") || "알 수 없는 아티스트";
+}
+
 // GraphQL 트랙 data(playlist item.itemV2.data / artist topTracks item.track) → 표준.
 function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
   if (!d || !d.name) return null;
@@ -109,11 +115,7 @@ function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
   const durMs = d.trackDuration?.totalMilliseconds ?? d.duration?.totalMilliseconds ?? 0;
   return {
     title: d.name,
-    artist:
-      (d.artists?.items || [])
-        .map((a) => a.profile?.name)
-        .filter(Boolean)
-        .join(", ") || "알 수 없는 아티스트",
+    artist: artistsOf(d),
     album: d.albumOfTrack?.name || null, // GraphQL은 앨범명이 없을 수 있음(표시용, 없으면 null)
     pageUrl: url,
     requestKey: url,
@@ -123,6 +125,27 @@ function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
     type: "track",
     id,
   };
+}
+
+/** 재생목록 한 쪽의 항목들 */
+type GqlItems = NonNullable<NonNullable<NonNullable<GqlPlaylist["playlistV2"]>["content"]>["items"]>;
+
+// 재생할 수 있는 곡만(지역 제한 · 지워진 곡은 NotFound 로 온다)
+function playable(items: GqlItems) {
+  const out: SpotifyTrack[] = [];
+  for (const it of items) {
+    const track = it.itemV2?.__typename === "TrackResponseWrapper" && it.itemV2.data?.__typename !== "NotFound" ? normGqlTrack(it.itemV2.data) : null;
+    if (track) out.push(track);
+  }
+  return out;
+}
+
+// 재생목록 한 쪽. 접근할 수 없으면 던진다
+async function playlistPage(query: Net["query"], id: string, offset: number, limit: number) {
+  const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset, limit, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
+  const pl = data?.playlistV2;
+  if (!pl || pl.__typename === "NotFound") throw new Error("플레이리스트 접근 불가(NotFound)");
+  return { items: pl.content?.items || [], total: pl.content?.totalCount ?? null };
 }
 
 // ── TOTP (익명 토큰용) ──
@@ -359,17 +382,10 @@ const graphql = {
     let total: number | null = null;
     for (let page = 0; page < MAX_PAGES && out.length < limit; page++) {
       const want = Math.min(PAGE, limit - out.length);
-      const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset: cursor, limit: want, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
-      const pl = data?.playlistV2;
-      if (!pl || pl.__typename === "NotFound") throw new Error("플레이리스트 접근 불가(NotFound)");
-      const items = pl.content?.items || [];
-      if (total == null) total = pl.content?.totalCount ?? null;
-      for (const it of items) {
-        if (it.itemV2?.__typename === "TrackResponseWrapper" && it.itemV2.data?.__typename !== "NotFound") {
-          const n = normGqlTrack(it.itemV2.data);
-          if (n) out.push(n);
-        }
-      }
+      const page = await playlistPage(query, id, cursor, want);
+      const items = page.items;
+      if (total == null) total = page.total;
+      out.push(...playable(items));
       // 재생할 수 없는 곡은 건너뛰므로 받은 곡 수와 원본 위치가 어긋난다. 다음 위치는 원본 기준으로 센다
       cursor += items.length;
       if (items.length < want) break;

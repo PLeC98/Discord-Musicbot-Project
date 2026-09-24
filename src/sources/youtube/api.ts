@@ -20,11 +20,6 @@ import type { RunYtDlp } from "../ytdlpSpawn.ts";
 type Item = YtInfo | null | undefined;
 
 /**
- * ytsearch 결과 항목이 "재생 가능한 단일 비디오"인지 판별.
- * yt-dlp flat 검색은 채널/재생목록/핸들을 섞어 반환하므로 이들을 제외한다.
- * 비디오 id는 11자, 채널은 UC…(24자)·/channel//@handle//playlist 형태.
- */
-/**
  * yt-dlp 응답이 "지금 진행 중이거나 예정된 라이브"인지 판별.
  * 라이브는 끝이 없어 캐시 다운로드가 무한히 커지고(yt-dlp가 ffmpeg를 외부 다운로더로 띄운다),
  * Spotify 동등물 후보로서는 언제나 오답이다. flat 검색 항목/상세 정보 양쪽에 같은 필드가 온다.
@@ -47,14 +42,14 @@ function liveStatusOf(item: Item): "is_live" | "is_upcoming" | null {
   return null;
 }
 
+// 곡의 id 칸은 글자다. yt-dlp 는 수로 줄 때도 있다
+const idOf = (id: unknown) => (id == null ? undefined : String(id));
+
 /**
  * 표시용 제목. 라이브는 yt-dlp가 `title` 뒤에 조회 시각을 붙여 준다(예: `제목 2026-01-02 03:04`).
  * 조회할 때마다 달라지는 값이라 캐시·매칭에도 나쁘다. `fulltitle`이 그게 빠진 원제이고,
  * 라이브가 아니면 둘이 같다.
  */
-// 곡의 id 칸은 글자다. yt-dlp 는 수로 줄 때도 있다
-const idOf = (id: unknown) => (id == null ? undefined : String(id));
-
 function titleOf(item: Item): string | null {
   if (!item) return null;
   const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
@@ -64,6 +59,11 @@ function titleOf(item: Item): string | null {
   return title || full;
 }
 
+/**
+ * ytsearch 결과 항목이 "재생 가능한 단일 비디오"인지 판별.
+ * yt-dlp flat 검색은 채널/재생목록/핸들을 섞어 반환하므로 이들을 제외한다.
+ * 비디오 id는 11자, 채널은 UC…(24자)·/channel//@handle//playlist 형태.
+ */
 function _isVideoEntry(item: Item): item is YtInfo {
   if (!item) return false;
   if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
@@ -72,6 +72,44 @@ function _isVideoEntry(item: Item): item is YtInfo {
   if (item.id && /^[A-Za-z0-9_-]{11}$/.test(String(item.id))) return true; // 비디오 id
   if (/[?&]v=[A-Za-z0-9_-]{11}/.test(u)) return true; // watch?v= URL
   return false;
+}
+
+const UNKNOWN_TITLE = "알 수 없는 제목";
+const UNKNOWN_ARTIST = "알 수 없는 아티스트";
+
+// yt-dlp 가 준 영상 하나 → 트랙의 공통 칸. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원)
+function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
+  const link = canonicalUrl(url);
+  return {
+    title: titleOf(item) || UNKNOWN_TITLE,
+    artist: artist || UNKNOWN_ARTIST,
+    pageUrl: link,
+    requestKey: link,
+    audioUrl: link,
+    duration: item.duration || 0,
+    thumbnail: item.thumbnail || item.thumbnails?.[0]?.url,
+    platform: "youtube",
+    type: "track",
+    id: idOf(item.id),
+    isLive: _detectLive(item),
+    liveStatus: liveStatusOf(item),
+  };
+}
+
+// 검색 결과 한 줄. 검색 결과에 길이가 없으면 상세 정보로 채운다
+// (라이브는 여기서 duration이 늘 0이라 이 갈래를 타고, 상세 정보로 isLive가 확정된다.)
+async function searchTrack(item: YtInfo) {
+  const url = item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null);
+  if (!url) return null; // 비디오 항목이면 늘 있다(_isVideoEntry)
+  const track = { ...trackOf(item, url, item.uploader || item.channel), views: item.view_count, uploadDate: item.upload_date, description: item.description };
+  if (track.duration) return track;
+  const detailed = await getInfo(url);
+  if (detailed?.duration) track.duration = detailed.duration;
+  if (detailed?.isLive) {
+    track.isLive = true;
+    track.liveStatus = detailed.liveStatus;
+  }
+  return track;
 }
 
 // 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 진짜. getInfo · getStream · getPlaylist 도 같다
@@ -107,50 +145,9 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
       .filter((e) => _isVideoEntry(e))
       .slice(0, limit);
     for (const item of videoEntries) {
-      try {
-        // 디버그: 항목 구조 기록
-
-        const unknownTitle = "알 수 없는 제목";
-        const unknownArtist = "알 수 없는 아티스트";
-
-        const url = item.webpage_url || item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : null);
-        if (!url) continue; // 비디오 항목이면 늘 있다(_isVideoEntry)
-        const link = canonicalUrl(url);
-        const track = {
-          title: titleOf(item) || unknownTitle,
-          artist: item.uploader || item.channel || unknownArtist,
-          pageUrl: link,
-          requestKey: link,
-          audioUrl: link,
-          duration: item.duration || 0,
-          thumbnail: item.thumbnail || item.thumbnails?.[0]?.url,
-          platform: "youtube",
-          type: "track",
-          id: idOf(item.id),
-          views: item.view_count,
-          uploadDate: item.upload_date,
-          description: item.description,
-          isLive: _detectLive(item),
-          liveStatus: liveStatusOf(item),
-        };
-
-        // 검색 결과에 길이가 없으면 getInfo에서 가져오기 시도
-        // (라이브는 여기서 duration이 늘 0이라 이 분기를 타고, 상세 정보로 isLive가 확정된다.)
-        if (!track.duration || track.duration === 0) {
-          const detailedInfo = await getInfo(url);
-          if (detailedInfo && detailedInfo.duration) {
-            track.duration = detailedInfo.duration;
-          }
-          if (detailedInfo && detailedInfo.isLive) {
-            track.isLive = true;
-            track.liveStatus = detailedInfo.liveStatus;
-          }
-        }
-
-        tracks.push(track);
-      } catch (error) {
-        continue;
-      }
+      // 한 곡의 상세 조회가 던지면(연령 제한 등) 그 곡만 건너뛴다. 검색은 다른 후보로 이어진다
+      const track = await searchTrack(item).catch(() => null);
+      if (track) tracks.push(track);
     }
 
     return tracks;
@@ -182,30 +179,7 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
       throw new Error("youtube-dl에서 정보를 반환하지 않음");
     }
 
-    const unknownTitle = "알 수 없는 제목";
-    const unknownArtist = "알 수 없는 아티스트";
-
-    const link = canonicalUrl(info.webpage_url || url);
-    const track = {
-      title: titleOf(info) || unknownTitle,
-      artist: info.uploader || info.channel || unknownArtist,
-      pageUrl: link,
-      requestKey: link,
-      audioUrl: link,
-      duration: info.duration || 0,
-      thumbnail: info.thumbnail || info.thumbnails?.[0]?.url,
-      platform: "youtube",
-      type: "track",
-      id: idOf(info.id),
-      views: info.view_count,
-      uploadDate: info.upload_date,
-      description: info.description,
-      formats: info.formats,
-      isLive: _detectLive(info),
-      liveStatus: liveStatusOf(info),
-    };
-
-    return track;
+    return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
   } catch (error) {
     // 못 트는 까닭이 분명한 실패(비공개 · 삭제 · 연령 제한)는 던진다. 찾는 쪽이 그 까닭을 사용자에게 알린다.
     // 삼키면 "결과를 찾을 수 없습니다"로 뭉개진다. 까닭을 모르는 실패만 null 이다
@@ -213,6 +187,16 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
     log.error("영상 정보 조회 실패:", errors.briefError(error));
     return null;
   }
+}
+
+// 그 위치부터 받는 주소. HLS 재생목록 주소에는 `begin=`을 붙일 수 없다. 위치는 ffmpeg의 `-ss`가 정한다
+function seekUrl(baseUrl: string, protocol: unknown, startSeconds: number) {
+  const isHls = typeof protocol === "string" && protocol.startsWith("m3u8");
+  const canSeek = !isHls && /googlevideo\.com/i.test(baseUrl);
+  const seekSeconds = Math.max(0, Number(startSeconds) || 0);
+  if (!(seekSeconds > 0 && canSeek)) return { canSeek, finalUrl: baseUrl };
+  const separator = baseUrl.includes("?") ? "&" : "?";
+  return { canSeek, finalUrl: `${baseUrl}${separator}begin=${Math.floor(seekSeconds * 1000)}` };
 }
 
 async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYtDlp } = {}) {
@@ -242,17 +226,7 @@ async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYt
     }
 
     const baseUrl = info.url;
-    // HLS 재생목록 주소에는 `begin=`을 붙일 수 없다. 위치는 ffmpeg의 `-ss`가 정한다.
-    const isHls = typeof info.protocol === "string" && info.protocol.startsWith("m3u8");
-    const canSeek = !isHls && /googlevideo\.com/i.test(baseUrl);
-    let finalUrl = baseUrl;
-
-    const seekSeconds = Math.max(0, Number(startSeconds) || 0);
-    if (seekSeconds > 0 && canSeek) {
-      const startMs = Math.floor(seekSeconds * 1000);
-      const separator = baseUrl.includes("?") ? "&" : "?";
-      finalUrl = `${baseUrl}${separator}begin=${startMs}`;
-    }
+    const { canSeek, finalUrl } = seekUrl(baseUrl, info.protocol, startSeconds);
 
     return {
       url: finalUrl,
@@ -278,6 +252,21 @@ async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYt
   }
 }
 
+// 재생목록 한 줄. url 이 없으면 id 가 있다(부르는 쪽이 거른다)
+function playlistTrack(entry: YtInfo) {
+  const track = trackOf(entry, entry.webpage_url || entry.url || `https://www.youtube.com/watch?v=${entry.id}`, entry.uploader || entry.channel || entry.uploader_id);
+  // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
+  // 재생목록 페이지의 제목은 낡을 수 있어서, 이게 없으면 곡이 재생되기 전까지 대기열에
+  // 낡은 제목이 그대로 보인다.
+  try {
+    const known = trackLookup.getVerifiedTitle(track.requestKey);
+    if (known) track.title = known;
+  } catch {
+    /* DB 미초기화 등. 재생목록 제목 그대로 간다 */
+  }
+  return track;
+}
+
 // offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
 // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
 async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
@@ -301,48 +290,7 @@ async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlis
       throw new Error("재생목록 항목을 찾을 수 없음");
     }
 
-    const unknownTitle = "알 수 없는 제목";
-    const unknownArtist = "알 수 없는 아티스트";
-
-    const tracks = [];
-    for (const entry of info.entries.map(readInfo)) {
-      if (entry && (entry.id || entry.url)) {
-        try {
-          // url 이 없으면 id 가 있다(위의 조건)
-          const videoUrl = entry.webpage_url || entry.url || `https://www.youtube.com/watch?v=${entry.id}`;
-          const link = canonicalUrl(videoUrl);
-          const track = {
-            title: titleOf(entry) || unknownTitle,
-            artist: entry.uploader || entry.channel || entry.uploader_id || unknownArtist,
-            pageUrl: link,
-            requestKey: link,
-            audioUrl: link,
-            duration: entry.duration || 0,
-            thumbnail: entry.thumbnail || entry.thumbnails?.[0]?.url,
-            platform: "youtube",
-            type: "track",
-            id: idOf(entry.id),
-            isLive: _detectLive(entry),
-            liveStatus: liveStatusOf(entry),
-          };
-
-          // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
-          // 재생목록 페이지의 제목은 낡을 수 있어서, 이게 없으면 곡이 재생되기 전까지 대기열에
-          // 낡은 제목이 그대로 보인다.
-          if (track.requestKey) {
-            try {
-              const known = trackLookup.getVerifiedTitle(track.requestKey);
-              if (known) track.title = known;
-            } catch {
-              /* DB 미초기화 등. 재생목록 제목 그대로 간다 */
-            }
-            tracks.push(track);
-          }
-        } catch (entryError) {
-          continue;
-        }
-      }
-    }
+    const tracks = info.entries.map(readInfo).flatMap((entry) => (entry && (entry.id || entry.url) ? [playlistTrack(entry)] : []));
 
     if (tracks.length === 0) {
       throw new Error("재생목록에서 유효한 트랙을 찾을 수 없음");

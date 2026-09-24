@@ -72,34 +72,6 @@
       "count": 2
     }
   },
-  "src/sources/lookup.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/sources/soundcloud.ts": {
-    "max-depth": {
-      "count": 1
-    }
-  },
-  "src/sources/spotify.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
-  "src/sources/youtube/api.ts": {
-    "complexity": {
-      "count": 3
-    },
-    "max-depth": {
-      "count": 5
-    }
-  },
-  "src/sources/youtube/match.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
   "src/ui/nowPlayingPanel.ts": {
     "complexity": {
       "count": 4

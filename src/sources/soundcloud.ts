@@ -7,6 +7,13 @@ import config from "../../config.ts";
 
 // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용
 
+// 검색 결과 한 줄. 사운드클라우드 곡 페이지가 아니면 null
+async function trackOfEntry(item: unknown) {
+  const pageUrl = (item as { webpage_url?: unknown } | null)?.webpage_url;
+  if (typeof pageUrl !== "string" || !pageUrl || !links.isSoundCloudURL(pageUrl)) return null;
+  return formatTrack(item);
+}
+
 async function search(query: string, limit = 1) {
   try {
     // 이미 SoundCloud URL이면 직접 정보 가져오기
@@ -32,18 +39,9 @@ async function search(query: string, limit = 1) {
 
     const tracks = [];
     for (const item of results.entries.slice(0, limit)) {
-      try {
-        // SoundCloud 링크만 필터링
-        const pageUrl = (item as { webpage_url?: unknown } | null)?.webpage_url;
-        if (typeof pageUrl === "string" && pageUrl && links.isSoundCloudURL(pageUrl)) {
-          const track = await formatTrack(item);
-          if (track) {
-            tracks.push(track);
-          }
-        }
-      } catch (error) {
-        continue;
-      }
+      // 모양이 깨진 결과 하나는 건너뛴다. 나머지는 쓸 수 있다
+      const track = await trackOfEntry(item).catch(() => null);
+      if (track) tracks.push(track);
     }
 
     return tracks;

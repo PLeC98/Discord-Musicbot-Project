@@ -51,67 +51,37 @@ function isUnsupportedLink(query: string): boolean {
 //   code: no-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/errorMessages 로 만든다
 // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
 // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
+/** 찾은 곡들과 그 출처. 한 곡이면 collection · total · nextOffset 이 null */
+type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; total: number | null; nextOffset: number | null };
+const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
+
+// 유튜브. 재생목록을 불러오지 못하면 그 주소로 검색한다
+async function fromYouTube(query: string, range: Range, youtube: Sources["youtube"]): Promise<Found> {
+  if (links.isYouTubePlaylist(query)) {
+    const list = await youtube.getPlaylist(query, range);
+    if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
+  }
+  return single(await youtube.search(query, 1));
+}
+
+// 스포티파이. 링크면 곡 · 앨범 · 재생목록 · 아티스트, 아니면 검색
+async function fromSpotify(query: string, range: Range, spotify: Sources["spotify"]): Promise<Found> {
+  if (!links.isSpotifyURL(query)) return single(await spotify.search(query, 1));
+  const part = await spotify.getCollection(query, range);
+  const { type } = links.parseSpotifyURL(query);
+  const isPlaylist = type === "playlist" || type === "album" || type === "artist";
+  if (!isPlaylist) return single(part.tracks);
+  return { tracks: part.tracks || [], isPlaylist, collection: type, total: part.total ?? null, nextOffset: part.nextOffset ?? null };
+}
+
 async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
   const { youtube, spotify, soundcloud, direct } = { ...REAL, ...sources };
+  const platform = detectPlatform(query);
+  if (platform === "unknown") return { success: false, message: links.isYouTubeHost(query) ? "❌ 재생할 수 없는 유튜브 주소입니다." : "❌ 지원하지 않는 링크입니다." };
   try {
-    let tracks: FoundTrack[] = [];
-    let isPlaylist = false;
-    let collection: string | null = null;
-    let total: number | null = null;
-    let nextOffset: number | null = null;
-
-    switch (detectPlatform(query)) {
-      case "unknown":
-        return { success: false, message: links.isYouTubeHost(query) ? "❌ 재생할 수 없는 유튜브 주소입니다." : "❌ 지원하지 않는 링크입니다." };
-
-      case "youtube":
-        if (links.isYouTubePlaylist(query)) {
-          const playlistData = await youtube.getPlaylist(query, { offset, limit });
-          if (playlistData && playlistData.tracks && playlistData.tracks.length > 0) {
-            tracks = playlistData.tracks;
-            isPlaylist = true;
-            collection = "playlist";
-            total = playlistData.total ?? null;
-            nextOffset = playlistData.nextOffset ?? null;
-          } else {
-            // 재생목록을 불러오지 못하면 일반 검색 수행
-            tracks = await youtube.search(query, 1);
-          }
-        } else {
-          tracks = await youtube.search(query, 1);
-        }
-        break;
-
-      case "spotify":
-        if (links.isSpotifyURL(query)) {
-          const part = await spotify.getCollection(query, { offset, limit });
-          tracks = part.tracks || [];
-          const { type } = links.parseSpotifyURL(query);
-          isPlaylist = type === "playlist" || type === "album" || type === "artist";
-          if (isPlaylist) {
-            collection = type;
-            total = part.total ?? null;
-            nextOffset = part.nextOffset ?? null;
-          }
-        } else {
-          tracks = (await spotify.search(query, 1)) || [];
-        }
-        break;
-
-      case "soundcloud":
-        tracks = (await soundcloud.search(query, 1)) || [];
-        break;
-
-      case "direct":
-        tracks = await direct.getInfo(query); // 배열 계약: [track] 또는 []
-        break;
-    }
-
-    if (!tracks || tracks.length === 0) {
-      return { success: false, code: "no-result" };
-    }
-
-    return { success: true, isPlaylist, collection, tracks, total, nextOffset };
+    const found = platform === "youtube" ? await fromYouTube(query, { offset, limit }, youtube) : platform === "spotify" ? await fromSpotify(query, { offset, limit }, spotify) : platform === "soundcloud" ? single(await soundcloud.search(query, 1)) : single(await direct.getInfo(query)); // 배열 계약: [track] 또는 []
+    if (!found.tracks.length) return { success: false, code: "no-result" };
+    return { success: true, ...found };
   } catch (error) {
     log.error({ sub: context || undefined, kind: errorKind(error) }, messageOf(error));
     return { success: false, code: "lookup-failed", error };
