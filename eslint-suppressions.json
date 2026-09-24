@@ -24,16 +24,6 @@
       "count": 1
     }
   },
-  "scripts/build-emoji-list.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "scripts/install-ffmpeg.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/ui/nowPlayingPanel.ts": {
     "complexity": {
       "count": 4

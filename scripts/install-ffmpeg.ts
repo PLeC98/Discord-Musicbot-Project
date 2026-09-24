@@ -160,6 +160,17 @@ function extractBinary(archiveName: string, binName: string, cwd: string) {
   throw new Error(`아카이브를 열 수 있는 tar가 없습니다 (.tar.xz는 xz-utils 필요)\n  ${errors.join("\n  ")}`);
 }
 
+// 같은 릴리스를 이미 받아 두었으면 그 판. 없거나 스탬프가 깨졌으면 null(다시 받는다)
+function installedVersion(binPath: string, stampPath: string, release: string): string | null {
+  if (!fs.existsSync(binPath) || !fs.existsSync(stampPath)) return null;
+  try {
+    const stamp = JSON.parse(fs.readFileSync(stampPath, "utf8"));
+    return stamp.release === release ? String(stamp.version || stamp.asset) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   // --force는 FFMPEG_PATH가 있어도 내려받는다. 명시적으로 요청한 갱신을 설정이 막으면 안 된다.
   const configured = readEnvValue("FFMPEG_PATH");
@@ -176,14 +187,8 @@ async function main() {
   const binPath = path.join(BIN_DIR, target.bin);
   const stampPath = path.join(BIN_DIR, ".ffmpeg-version.json");
 
-  if (!force && fs.existsSync(binPath) && fs.existsSync(stampPath)) {
-    try {
-      const stamp = JSON.parse(fs.readFileSync(stampPath, "utf8"));
-      if (stamp.release === release) skip(`이미 설치됨 (${stamp.version || stamp.asset})`);
-    } catch {
-      /* 스탬프가 깨졌으면 다시 받는다 */
-    }
-  }
+  const installed = force ? null : installedVersion(binPath, stampPath, release);
+  if (installed) skip(`이미 설치됨 (${installed})`);
 
   const checksums = (await download(`${baseUrl}/checksums.sha256`)).toString("utf8");
   const { assetName, sha256: wantSha, version } = assetFor(checksums, target, key);

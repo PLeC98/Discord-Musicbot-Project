@@ -81,6 +81,47 @@ async function readAssets() {
   return new Set(ids.map((n) => n.slice("/assets/svg/".length, -".svg".length)));
 }
 
+type Compacted = z.output<typeof Compact>[number];
+
+// 단축명 → 이모지. emojibase 를 먼저, 지스트는 emojibase 에 없는 디스코드 고유 이름만 메운다
+function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: z.output<typeof Gist>) {
+  const charOfHex = new Map(ko.map((e) => [e.hexcode, e.unicode]));
+  const charOfCode = new Map<string, string>();
+  const add = (code: string, char: string) => {
+    const name = code.replace(/:/g, "");
+    if (!charOfCode.has(name)) charOfCode.set(name, char);
+  };
+  for (const set of sets) {
+    for (const [hex, codes] of Object.entries(set)) {
+      const char = charOfHex.get(hex);
+      if (char) for (const code of [codes].flat()) add(String(code), char);
+    }
+  }
+  for (const [code, char] of Object.entries(gist)) add(code, char);
+  return charOfCode;
+}
+
+// 목록의 한 줄. 못 담으면 dropped, 그림 파일이 없으면 noAsset 에 까닭을 적는다
+function rowOf(group: string, code: string, charOfCode: Map<string, string>, korean: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
+  const found = charOfCode.get(code);
+  if (!found) return { dropped: `${group}:${code} (대응 없음)` };
+
+  const info = korean.get(key(found));
+  // 표준 표기로 바로잡는다. emojibase는 ⌚처럼 이미 그림으로 보이는 글자에도 VS16을 붙여 주는데,
+  // 그 꼴은 RGI가 아니라 저장 검사(/^\p{RGI_Emoji}$/v)가 거부한다. 고를 수는 있는데 저장은
+  // 안 되는 칸이 생기므로, 통과하는 쪽을 골라 담는다.
+  const standard = info?.unicode || found;
+  const char = [standard, bare(standard)].find((c) => ONE_EMOJI.test(c));
+  if (!char) return { dropped: `${group}:${code} (RGI 아님)` };
+
+  const label = clean(info?.label) || code.replace(/_/g, " ");
+  const tags = clean([...new Set(info?.tags || [])].join(" "));
+  // 단축명은 콜론째로 담는다. 디스코드에서 복사하면 ":thinking:" 꼴로 딸려오는데,
+  // 부분 일치로 찾으므로 콜론이 있으면 "thinking"도 ":thinking:"도 걸린다.
+  const line = [char, label, `${tags} :${code}:`.trim()].join("|");
+  return { line, noAsset: iconIds(char).some((id) => assets.has(id)) ? undefined : `${group}:${code} ${char}` };
+}
+
 async function main() {
   const notes = readNotes();
 
@@ -90,23 +131,7 @@ async function main() {
   // 디스코드 고유 이름을 메우는 데만 쓴다.
   const [assets, gist, ko, sets] = await Promise.all([readAssets(), json(GIST, Gist), base("ko/compact.json", Compact), Promise.all(["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map((file) => base(file, Shortcodes)))]);
 
-  const charOfHex = new Map(ko.map((e) => [e.hexcode, e.unicode]));
-  const charOfCode = new Map<string, string>();
-  for (const set of sets) {
-    for (const [hex, codes] of Object.entries(set)) {
-      const char = charOfHex.get(hex);
-      if (!char) continue;
-      for (const code of [codes].flat()) {
-        const name = String(code).replace(/:/g, "");
-        if (!charOfCode.has(name)) charOfCode.set(name, char);
-      }
-    }
-  }
-  for (const [code, char] of Object.entries(gist)) {
-    const name = code.replace(/:/g, "");
-    if (!charOfCode.has(name)) charOfCode.set(name, char);
-  }
-
+  const charOfCode = shortcodes(ko, sets, gist);
   const korean = new Map(ko.map((e) => [key(e.unicode), e]));
 
   const groups: [string, string[]][] = [];
@@ -116,29 +141,10 @@ async function main() {
   for (const section of notes) {
     const rows: string[] = [];
     for (const code of section.codes) {
-      const found = charOfCode.get(code);
-      if (!found) {
-        dropped.push(`${section.name}:${code} (대응 없음)`);
-        continue;
-      }
-
-      const info = korean.get(key(found));
-      // 표준 표기로 바로잡는다. emojibase는 ⌚처럼 이미 그림으로 보이는 글자에도 VS16을 붙여 주는데,
-      // 그 꼴은 RGI가 아니라 저장 검사(/^\p{RGI_Emoji}$/v)가 거부한다. 고를 수는 있는데 저장은
-      // 안 되는 칸이 생기므로, 통과하는 쪽을 골라 담는다.
-      const standard = info?.unicode || found;
-      const char = [standard, bare(standard)].find((c) => ONE_EMOJI.test(c));
-      if (!char) {
-        dropped.push(`${section.name}:${code} (RGI 아님)`);
-        continue;
-      }
-      if (!iconIds(char).some((id) => assets.has(id))) noAsset.push(`${section.name}:${code} ${char}`);
-
-      const label = clean(info?.label) || code.replace(/_/g, " ");
-      const tags = clean([...new Set(info?.tags || [])].join(" "));
-      // 단축명은 콜론째로 담는다. 디스코드에서 복사하면 ":thinking:" 꼴로 딸려오는데,
-      // 부분 일치로 찾으므로 콜론이 있으면 "thinking"도 ":thinking:"도 걸린다.
-      rows.push([char, label, `${tags} :${code}:`.trim()].join("|"));
+      const row = rowOf(section.name, code, charOfCode, korean, assets);
+      if (row.dropped) dropped.push(row.dropped);
+      if (row.noAsset) noAsset.push(row.noAsset);
+      if (row.line) rows.push(row.line);
     }
     groups.push([section.name, rows]);
   }
