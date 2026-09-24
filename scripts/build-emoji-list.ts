@@ -1,7 +1,7 @@
 // 대시보드 이모지 고르기 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.ts
 //
-// 목록의 원본은 로컬 메모에 있다. 분류와 순서를 디스코드 선택기에서
+// 목록의 원본은 scripts/data/discord-emoji-picker.md 다. 분류와 순서를 디스코드 선택기에서
 // 그대로 옮겨 적은 파일이라, 고르는 사람이 디스코드에서 보던 자리에서 찾을 수 있다.
 // 여기서는 거기에 두 가지를 붙인다.
 //   · 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 꼴로 붙는다.
@@ -13,6 +13,7 @@
 import fs from "fs";
 import path from "path";
 import { z } from "zod";
+import * as prettier from "prettier";
 import { messageOf } from "../src/rules/errorKind.ts";
 
 const EMOJIBASE = "17.0.0";
@@ -20,7 +21,7 @@ const EMOJIBASE = "17.0.0";
 import twemojiPackage from "../dashboard/client/node_modules/@twemoji/api/package.json" with { type: "json" };
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
-const NOTES = path.join(import.meta.dirname, "..", "notes", "디스코드 이모지 카테고리 및 목록.md");
+const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
 const OUT = path.join(import.meta.dirname, "..", "dashboard", "client", "src", "emojiList.js");
 
 // 받아 오는 것의 모양. 여기서 읽는 칸만 본다
@@ -61,9 +62,9 @@ const clean = (s: string | undefined) =>
     .replace(/[|\n\r]+/g, " ")
     .trim();
 
-function readNotes() {
+function readPicker() {
   return fs
-    .readFileSync(NOTES, "utf8")
+    .readFileSync(PICKER, "utf8")
     .split(/^# /m)
     .slice(1)
     .filter((section) => !section.startsWith("비고"))
@@ -123,7 +124,7 @@ function rowOf(group: string, code: string, charOfCode: Map<string, string>, kor
 }
 
 async function main() {
-  const notes = readNotes();
+  const picker = readPicker();
 
   // 단축명 → 이모지.
   // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
@@ -138,7 +139,7 @@ async function main() {
   const dropped: string[] = [];
   const noAsset: string[] = [];
 
-  for (const section of notes) {
+  for (const section of picker) {
     const rows: string[] = [];
     for (const code of section.codes) {
       const row = rowOf(section.name, code, charOfCode, korean, assets);
@@ -151,32 +152,31 @@ async function main() {
 
   const total = groups.reduce((sum, [, rows]) => sum + rows.length, 0);
 
-  fs.writeFileSync(
-    OUT,
-    [
-      "// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.",
-      "// 분류·순서는 디스코드 선택기 그대로.",
-      `// 이름·검색어: emojibase-data@${EMOJIBASE} (MIT, ko) + 디스코드 단축명`,
-      `// 그림: twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
-      "//",
-      "// 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
-      "// 줄은 줄바꿈으로, 칸은 |로 나뉜다: 이모지|이름|검색어",
-      `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
-      "",
-      "const RAW = [",
-      groups.map(([name, rows]) => `  [${JSON.stringify(name)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n"),
-      "];",
-      "",
-      "export const EMOJI_GROUPS = RAW.map(([name, rows]) => ({",
-      "  name,",
-      '  emoji: rows.split("\\n").map((row) => {',
-      '    const [char, label, tags] = row.split("|");',
-      "    return { char, label, search: `${label} ${tags}`.toLowerCase() };",
-      "  }),",
-      "}));",
-      "",
-    ].join("\n"),
-  );
+  // 저장소의 서식 검사를 지나도록 prettier 설정대로 맞춰 쓴다
+  const source = [
+    "// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.",
+    "// 분류·순서는 디스코드 선택기 그대로.",
+    `// 이름·검색어: emojibase-data@${EMOJIBASE} (MIT, ko) + 디스코드 단축명`,
+    `// 그림: twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
+    "//",
+    "// 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
+    "// 줄은 줄바꿈으로, 칸은 |로 나뉜다: 이모지|이름|검색어",
+    `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
+    "",
+    "const RAW = [",
+    groups.map(([name, rows]) => `  [${JSON.stringify(name)}, ${JSON.stringify(rows.join("\n"))}],`).join("\n"),
+    "];",
+    "",
+    "export const EMOJI_GROUPS = RAW.map(([name, rows]) => ({",
+    "  name,",
+    '  emoji: rows.split("\\n").map((row) => {',
+    '    const [char, label, tags] = row.split("|");',
+    "    return { char, label, search: `${label} ${tags}`.toLowerCase() };",
+    "  }),",
+    "}));",
+    "",
+  ].join("\n");
+  fs.writeFileSync(OUT, await prettier.format(source, { ...(await prettier.resolveConfig(OUT)), filepath: OUT }));
 
   console.log(groups.map(([n, r]) => `${n}(${r.length})`).join(" "));
   console.log(`총 ${total}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB · twemoji@${TWEMOJI}`);

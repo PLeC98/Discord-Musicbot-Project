@@ -1,6 +1,6 @@
 // 이모지 고르기 목록이 지켜야 할 것들.
 //
-// 목록은 notes/디스코드 이모지 카테고리 및 목록.md를 원본으로 scripts/build-emoji-list.ts가 만든다.
+// 목록은 scripts/data/discord-emoji-picker.md를 원본으로 scripts/build-emoji-list.ts가 만든다.
 // 그 스크립트는 인터넷을 쓰지만 여기서는 쓰지 않는다 — 만들어진 결과물만 본다.
 
 import test from "node:test";
