@@ -1,88 +1,4 @@
 {
-  "events/playlistMoreHandler.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "events/sponsorConfigHandler.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/ui/nowPlayingPanel.ts": {
-    "complexity": {
-      "count": 4
-    },
-    "max-depth": {
-      "count": 4
-    },
-    "max-params": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
-  },
-  "src/player/Player.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
-  },
-  "src/player/sessionMirror.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/sources/soundcloud.ts": {
-    "max-depth": {
-      "count": 1
-    }
-  },
-  "src/sources/spotify.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
-  "src/media/cacheDownload.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
-  },
-  "src/sources/lookup.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/player/voiceConnection.ts": {
-    "complexity": {
-      "count": 3
-    },
-    "max-depth": {
-      "count": 2
-    }
-  },
-  "src/sources/youtube/api.ts": {
-    "complexity": {
-      "count": 3
-    },
-    "max-depth": {
-      "count": 5
-    }
-  },
-  "src/media/audioSplicer.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-depth": {
-      "count": 1
-    }
-  },
   "src/autoplay/assist/index.ts": {
     "complexity": {
       "count": 1
@@ -108,6 +24,22 @@
       "count": 2
     }
   },
+  "src/media/audioSplicer.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-depth": {
+      "count": 1
+    }
+  },
+  "src/media/cacheDownload.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
+    }
+  },
   "src/media/chunkedStream.ts": {
     "complexity": {
       "count": 1
@@ -119,12 +51,70 @@
       "count": 1
     }
   },
-  "src/usecases/addTracks.ts": {
+  "src/player/Player.ts": {
+    "complexity": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
+    }
+  },
+  "src/player/sessionMirror.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/player/voiceConnection.ts": {
+    "complexity": {
+      "count": 3
+    },
+    "max-depth": {
+      "count": 2
+    }
+  },
+  "src/sources/lookup.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/sources/soundcloud.ts": {
+    "max-depth": {
+      "count": 1
+    }
+  },
+  "src/sources/spotify.ts": {
     "complexity": {
       "count": 2
     }
   },
+  "src/sources/youtube/api.ts": {
+    "complexity": {
+      "count": 3
+    },
+    "max-depth": {
+      "count": 5
+    }
+  },
   "src/sources/youtube/match.ts": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/ui/nowPlayingPanel.ts": {
+    "complexity": {
+      "count": 4
+    },
+    "max-depth": {
+      "count": 4
+    },
+    "max-params": {
+      "count": 1
+    },
+    "max-statements": {
+      "count": 1
+    }
+  },
+  "src/usecases/addTracks.ts": {
     "complexity": {
       "count": 2
     }

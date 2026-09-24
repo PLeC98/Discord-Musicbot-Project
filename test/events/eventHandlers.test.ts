@@ -355,7 +355,7 @@ function moreInteraction(w: World, { select = null, modalCount = null, customSta
 
 test("더 넣기: 다른 상호작용 · 모르는 상태는 무시하거나 거절한다", async () => {
   const w = world();
-  await playlistMoreHandler.execute(fake<Interaction>({ isStringSelectMenu: () => true, isModalSubmit: () => false, customId: "music_jumpto:x" }));
+  await playlistMoreHandler.execute(fake<Interaction>({ inCachedGuild: () => true, isStringSelectMenu: () => true, isModalSubmit: () => false, customId: "music_jumpto:x" }));
   const { it, log } = moreInteraction(w, { select: "10", customId: "plm:zzz:bad:1:x:b" });
   await playlistMoreHandler.execute(it);
   assert.deepEqual(log, [["reply", S.withErrorMark("알 수 없는 메뉴예요.")]]);

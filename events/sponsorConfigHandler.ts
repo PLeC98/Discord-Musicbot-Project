@@ -60,6 +60,24 @@ function registerPending(messageId: string, state: Draft) {
   pending.set(messageId, { enabled: state.enabled, categories: [...state.categories], at: Date.now() });
 }
 
+// 보류가 없으면(봇 재시작 등) 지금 설정에서 되살린다
+async function restoreDraft(messageId: string, guildId: string) {
+  const per = await GuildSettingsManager.getSponsorBlock(guildId);
+  const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
+  const state = { enabled: per.enabled === null ? true : per.enabled, categories: per.categories ?? eff.categories, at: Date.now() };
+  pending.set(messageId, state);
+  return state;
+}
+
+// 저장하고 무엇을 저장했는지 한 줄로. 모르는 카테고리는 걸러 낸다
+async function saveDraft(guildId: string, state: Draft) {
+  const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
+  const categories = [...new Set(state.categories.filter((c) => valid.has(c)))];
+  await GuildSettingsManager.setSponsorBlock(guildId, { enabled: state.enabled, categories });
+  if (!state.enabled) return "미사용";
+  return categories.length ? categories.map((c) => LABELS[c] || c).join(", ") : "선택된 구간 없음(사실상 미적용)";
+}
+
 const exported: ClientEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
 
@@ -76,14 +94,7 @@ const exported: ClientEvent<Events.InteractionCreate> = {
     }
 
     const mid = interaction.message.id;
-    let state = pending.get(mid);
-    if (!state) {
-      // 보류 유실(봇 재시작 등) 시 현재 설정에서 복원
-      const per = await GuildSettingsManager.getSponsorBlock(interaction.guild.id);
-      const eff = GuildSettingsManager.resolveSponsorBlock(interaction.guild.id);
-      state = { enabled: per.enabled === null ? true : per.enabled, categories: per.categories ?? eff.categories, at: Date.now() };
-      pending.set(mid, state);
-    }
+    const state = pending.get(mid) ?? (await restoreDraft(mid, interaction.guild.id));
 
     if (isSelect) {
       state.categories = [...interaction.values];
@@ -104,10 +115,7 @@ const exported: ClientEvent<Events.InteractionCreate> = {
 
     if (interaction.customId === "sb:save") {
       pending.delete(mid);
-      const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
-      const categories = [...new Set(state.categories.filter((c) => valid.has(c)))];
-      await GuildSettingsManager.setSponsorBlock(interaction.guild.id, { enabled: state.enabled, categories });
-      const summary = !state.enabled ? "미사용" : categories.length ? categories.map((c) => LABELS[c] || c).join(", ") : "선택된 구간 없음(사실상 미적용)";
+      const summary = await saveDraft(interaction.guild.id, state);
       return interaction.update({
         embeds: [
           new EmbedBuilder()
