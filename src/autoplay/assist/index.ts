@@ -266,12 +266,16 @@ function relaxJson(text: string) {
 function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
   try {
     return { ok: true, value: JSON.parse(text) };
-  } catch {}
+  } catch {
+    /* 그대로는 JSON 이 아니다. 흔한 흠을 고쳐 다시 본다 */
+  }
   const relaxed = relaxJson(text);
   if (relaxed !== text) {
     try {
       return { ok: true, value: JSON.parse(relaxed) };
-    } catch {}
+    } catch {
+      /* 고쳐도 JSON 이 아니다 */
+    }
   }
   return { ok: false };
 }

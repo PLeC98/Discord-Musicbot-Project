@@ -152,9 +152,6 @@
   "src/autoplay/assist/index.ts": {
     "complexity": {
       "count": 1
-    },
-    "no-empty": {
-      "count": 2
     }
   },
   "src/autoplay/sources/animethemes.ts": {
