@@ -131,22 +131,32 @@ const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k 
 const toMap = (list) => Object.fromEntries(list.map((r) => [r.name.trim(), { emoji: r.emoji, sources: r.sources.map(clean) }]));
 
 // 상한은 비울 수 있다(제한 없음). 빈 칸과 0을 가르려고 문자열로 다룬다.
+// 수로 읽을 수 없는 글자는 칸에 그대로 두고 저장을 막는다. 수로 바꿔 두면 NaN 이 JSON 에서 null 이 되어 "제한 없음"으로 저장된다
+const maxDurationBad = ref(null);
 const maxDurationText = computed({
-  get: () => (draft.value.defaults.maxDurationSec == null ? "" : String(draft.value.defaults.maxDurationSec)),
+  get: () => maxDurationBad.value ?? (draft.value.defaults.maxDurationSec == null ? "" : String(draft.value.defaults.maxDurationSec)),
   set: (v) => {
     const t = String(v).trim();
-    draft.value.defaults.maxDurationSec = t === "" ? null : Number(t);
+    const n = Number(t);
+    if (t !== "" && !Number.isFinite(n)) {
+      maxDurationBad.value = String(v);
+      return;
+    }
+    maxDurationBad.value = null;
+    draft.value.defaults.maxDurationSec = t === "" ? null : n;
   },
 });
 
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
-const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
+const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value || maxDurationBad.value !== null);
 
 // 서버도 같은 것을 검사하지만, 저장 버튼을 누르기 전에 알려 주는 편이 낫다.
 // 선택기로만 넣으니 여기서 걸릴 일은 없고, 파일을 손으로 고쳐 둔 경우를 잡는다.
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 const problems = computed(() => {
   const found = [];
+  const max = draft.value.defaults.maxDurationSec;
+  if (maxDurationBad.value !== null || (max != null && !(max > 0))) found.push("최대 길이(초)는 비우거나 0보다 큰 수로 적어 주세요.");
   const names = rows.value.map((r) => r.name.trim());
   if (rows.value.length > 25) found.push("장르는 25개까지만 메뉴에 나옵니다.");
   if (names.some((name) => !name)) found.push("이름이 빈 장르가 있습니다.");
@@ -233,6 +243,7 @@ function apply(data) {
   // 차단어는 제목을 소문자로 낮춰 견주므로, 적히는 값도 낮춰 둔다. 대문자로 적어 두면 아무것도 못 거른다
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
   draft.value = { defaults, genres: data.genres || {} };
+  maxDurationBad.value = null;
   rows.value = toRows(data.genres);
   snapshot.value = JSON.stringify(payload.value);
 }
