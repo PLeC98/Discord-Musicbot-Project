@@ -7,15 +7,12 @@ import fs from "node:fs";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { createRequire } from "node:module";
+import * as GSM from "../../src/store/guildSettings.ts";
 import { table as guildTable } from "../../src/store/guildSettings.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import * as externalCaches from "../../src/store/externalCaches.ts";
 import * as SponsorBlock from "../../src/sources/sponsorBlock.ts";
 import config from "../../config.ts";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}.db`);
 
@@ -183,7 +180,6 @@ test("lookup: videoId 없으면 none", async () => {
 // ── 서버별 유효 설정 해석 ─────────────────────────────────────────────────────
 
 test("resolveSponsorBlock: 마스터 off면 서버 설정 무관 하드 off", () => {
-  const GSM = require("../../src/store/guildSettings.ts");
   config.sponsorblock.enabled = false;
   guildTable.setGuildSponsorBlock("gMasterOff", { enabled: true, categories: ["filler"] });
   const eff = GSM.resolveSponsorBlock("gMasterOff");
@@ -192,7 +188,6 @@ test("resolveSponsorBlock: 마스터 off면 서버 설정 무관 하드 off", ()
 });
 
 test("resolveSponsorBlock: 마스터 on + 서버 미설정 → 기본 on + 전역 카테고리", () => {
-  const GSM = require("../../src/store/guildSettings.ts");
   config.sponsorblock.enabled = true;
   const eff = GSM.resolveSponsorBlock("gUnset");
   assert.equal(eff.enabled, true);
@@ -200,7 +195,6 @@ test("resolveSponsorBlock: 마스터 on + 서버 미설정 → 기본 on + 전�
 });
 
 test("resolveSponsorBlock: 서버가 enabled=false로 오버라이드", () => {
-  const GSM = require("../../src/store/guildSettings.ts");
   config.sponsorblock.enabled = true;
   guildTable.setGuildSponsorBlock("gOff", { enabled: false, categories: null });
   const eff = GSM.resolveSponsorBlock("gOff");
@@ -208,7 +202,6 @@ test("resolveSponsorBlock: 서버가 enabled=false로 오버라이드", () => {
 });
 
 test("resolveSponsorBlock: 서버가 categories 오버라이드", () => {
-  const GSM = require("../../src/store/guildSettings.ts");
   config.sponsorblock.enabled = true;
   guildTable.setGuildSponsorBlock("gCats", { enabled: null, categories: ["sponsor", "filler"] });
   const eff = GSM.resolveSponsorBlock("gCats");

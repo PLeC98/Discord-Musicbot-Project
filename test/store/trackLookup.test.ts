@@ -3,17 +3,13 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import tempStore from "../helpers/tempStore.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 const { openTempStore } = tempStore;
 
 const store = openTempStore("track-lookup-");
 after(() => store.close());
 const audioCache = await import("../../src/store/audioCache.ts");
 const trackLookup = await import("../../src/store/trackLookup.ts");
+const route = await import("../../src/autoplay/route.ts");
 
 // ── 제목 출처 (title_verified) ───────────────────────────────
 // 재생목록 페이지가 주는 제목은 같은 영상인데도 다를 수 있다. 그걸로 확인된 제목을 덮으면
@@ -103,7 +99,7 @@ test("모양이 틀린 장부 줄은 없는 것으로 본다", () => {
 });
 
 test("자동재생이 보는 장부(route.REAL.known): 받아 둔 파일이 있으면 길이까지, 없으면 음원 주소만", () => {
-  const { known } = require("../../src/autoplay/route.ts").REAL;
+  const { known } = route.REAL;
   cacheFile("yt:knowncache");
   trackLookup.recordTrackLookup({ requestKey: "amq:801", pageUrl: "https://anilist.co/anime/8", audioUrl: "https://www.youtube.com/watch?v=knowncache", platform: "anisongdb", title: "곡" });
   trackLookup.recordTrackLookup({ requestKey: "amq:802", pageUrl: "https://anilist.co/anime/8", audioUrl: "https://www.youtube.com/watch?v=notcached01", platform: "anisongdb", title: "곡2" });

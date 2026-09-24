@@ -10,11 +10,6 @@ import path from "node:path";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
 const audioCache = await import("../../src/store/audioCache.ts");
 const trackLookup = await import("../../src/store/trackLookup.ts");
@@ -29,6 +24,8 @@ import type { YtDlpFlags, YtDlpError } from "../../src/sources/ytdlpSpawn.ts";
 // yt-dlp 가 줄 것. 객체 · 글자, 또는 실패(fail: stderr) · 경고(warn)
 type Reply = ({ fail?: string; warn?: string } & Record<string, unknown>) | string | null;
 const YouTube = await import("../../src/sources/youtube/index.ts");
+const { default: runYtDlp } = await import("../../src/sources/ytdlpSpawn.ts");
+const lookup = await import("../../src/sources/lookup.ts");
 const { playerClients } = YouTube._internals;
 
 const calls: Array<{ url: string; flags: YtDlpFlags }> = [];
@@ -68,14 +65,14 @@ const video = (id: string, extra: Record<string, unknown> = {}) => ({ id, title:
 
 test("yt-dlp 가 실패하면 stderr 를 message 로 담은 오류를 던진다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] abc: Video unavailable" });
-  const run = require("../../src/sources/ytdlpSpawn.ts");
-  await assert.rejects(run("u", {}), (e) => messageOf(e) === "ERROR: [youtube] abc: Video unavailable" && (e as YtDlpError).exitCode === 1);
+  await assert.rejects(runYtDlp("u", {}), (e) => messageOf(e) === "ERROR: [youtube] abc: Video unavailable" && (e as YtDlpError).exitCode === 1);
 });
 
 test("성공해도 stderr 의 경고를 _stderr 로 얹는다(열거되지 않게)", async () => {
   respond = () => ({ ok: 1, warn: "WARNING: something" });
-  const out = await require("../../src/sources/ytdlpSpawn.ts")("u", {});
-  assert.equal(out._stderr, "WARNING: something");
+  const out = await runYtDlp("u", {});
+  assert.ok(out && typeof out === "object");
+  assert.equal(Reflect.get(out, "_stderr"), "WARNING: something");
   assert.deepEqual(Object.keys(out), ["ok", "warn"]);
 });
 
@@ -151,7 +148,6 @@ test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · �
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "video-unavailable");
   await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => codeOf(e) === "video-unavailable");
 
-  const lookup = require("../../src/sources/lookup.ts");
   const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.code, "lookup-failed");
   const { ErrorHandler } = await import("../../src/ui/errorMessages.ts");

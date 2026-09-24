@@ -5,11 +5,6 @@
 //  2. POToken 을 요구한 클라이언트 이름은 경고 본문에 적혀 온다. 우리가 지정한 값이 아니다.
 //     연령 제한 영상에서는 우리가 고르지 않은 web_creator 가 yt-dlp 판단으로 끼어든다.
 
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 process.env.COOKIES_SOURCE = "";
 
 import { test } from "node:test";
@@ -21,7 +16,7 @@ const { NEEDS_POT } = await import("../../src/sources/youtube/clients.ts");
 const sink = (await import("../../src/infra/log/sink.ts")).default;
 
 // debug 로 흘리는 것까지 봐야 한다. 루트 레벨은 기동 코드가 올려 주므로 테스트에서 직접 올린다.
-require("../../src/infra/log/logger.ts").level = "trace";
+(await import("../../src/infra/log/logger.ts")).default.level = "trace";
 
 // 쿠키를 붙인 채 visionos 를 지정했을 때 실제로 오는 stderr
 const SKIPPED = ['WARNING: [youtube] Skipping client "visionos" since it does not support cookies', "ERROR: [youtube] hc0ZDaAZQT0: Requested format is not available. Use --list-formats for a list of available formats"].join("\n");

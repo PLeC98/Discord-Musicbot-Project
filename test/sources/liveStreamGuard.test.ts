@@ -7,11 +7,6 @@
 //
 // 방어선 3중: (1) 매칭 후보에서 라이브 제외 (2) track.isLive면 다운로드 미시작 (3) yt-dlp --match-filter "!is_live"
 
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 process.env.COOKIES_SOURCE = "";
 
 import os from "node:os";
@@ -37,6 +32,8 @@ after(() => {
 
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const equivalent = await import("../../src/sources/youtube/equivalent.ts");
+// 라이브러리가 플래그를 인자로 펴는 함수. 내보내지만 타입에는 없다
+const { args: argsOf } = (await import("youtube-dl-exec")).default as unknown as { args(flags: object): string[] };
 
 test("_detectLive: is_live / live_status의 라이브·예정만 참", () => {
   assert.equal(YouTube._detectLive({ is_live: true }), true);
@@ -76,7 +73,7 @@ test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보�
 });
 
 test("다운로드 옵션에 --match-filter !is_live 가 실린다 (yt-dlp 자체 2차 방어선)", () => {
-  const args = require("youtube-dl-exec").args(YouTube.getYtDlpOptions({ matchFilter: "!is_live" }));
+  const args = argsOf(YouTube.getYtDlpOptions({ matchFilter: "!is_live" }));
   const i = args.indexOf("--match-filter");
   assert.ok(i >= 0, "--match-filter 플래그가 생성되어야 함");
   assert.equal(args[i + 1], "!is_live");
