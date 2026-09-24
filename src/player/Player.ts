@@ -26,6 +26,7 @@ import type { Seeking } from "../sources/youtube/equivalent.ts";
 import config from "../../config.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf } from "../rules/errorKind.ts";
+import { failureReason } from "./playFailure.ts";
 import * as streamUrl from "../sources/streamUrl.ts";
 import { SponsorSkipper } from "./sponsorSkipper.ts";
 import * as DirectLink from "../sources/direct.ts";
@@ -374,7 +375,9 @@ class MusicPlayer {
       this.lifecycle.to("playing");
       return { ok: true, track: this.currentTrack };
     } catch (error) {
-      elog.error({ sub: "MusicPlayer.play", kind: errorKind(error) }, messageOf(error));
+      // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
+      elog.error({ sub: "MusicPlayer.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
+      elog.debug({ sub: "MusicPlayer.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
       await this.handleError(error, { tell: true });
       return { ok: false, code: "play-failed", error };
     } finally {

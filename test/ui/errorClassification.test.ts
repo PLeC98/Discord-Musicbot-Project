@@ -24,6 +24,7 @@ const TABLE: Row[] = [
   ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "age-restricted", F, T, F, F, F], // 고친 순서: 연령 제한이 봇 감지("sign in to confirm")보다 앞
   ["ERROR: Sign in to confirm you're not a bot", "bot-check", F, F, F, F, F],
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 가르지 않는다
+  ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING 에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)
   // 클라이언트 · 포맷
   ["ERROR: Requested format is not available", "unknown", F, F, T, F, F],
   ["ERROR: Only images are available for download", "unknown", F, F, T, F, F],
@@ -70,6 +71,7 @@ test("classify 는 문자열과 빈 값도 받는다", () => {
 test("분류 규칙의 겹침: 알고 있는 것만", () => {
   const KNOWN = {
     "ERROR: Sign in to confirm your age. This video may be inappropriate for some users.": ["age-restricted", "bot-check"], // 연령 제한이 앞
+    "WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.": ["age-cookies-invalid", "age-restricted", "bot-check"], // 쿠키 무효가 앞
   };
   const hits = (msg: string) => RULES.filter(([, tests]) => tests.some((one) => (typeof one === "function" ? one(msg.toLowerCase()) : msg.toLowerCase().includes(one)))).map(([kind]) => kind);
   const overlaps = Object.fromEntries(TABLE.map(([msg]) => [msg, hits(msg)]).filter(([, kinds]) => kinds.length > 1));
@@ -78,7 +80,7 @@ test("분류 규칙의 겹침: 알고 있는 것만", () => {
 
 // yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 이름은 위 판별 칸과 어긋나면 안 된다
 test("yt-dlp 오류 이름(codeOf)은 판별 칸과 같은 뜻이다", () => {
-  const expected = ([, , gone, age, fault, stale, skipped]: Row) => (age ? "age-restricted" : gone ? "video-unavailable" : skipped ? "skipped-client" : stale ? "stale-media" : fault ? "client-fault" : null);
+  const expected = ([msg, , gone, age, fault, stale, skipped]: Row) => (age ? (msg.includes("cookies are no longer valid") ? "age-cookies-invalid" : "age-restricted") : gone ? "video-unavailable" : skipped ? "skipped-client" : stale ? "stale-media" : fault ? "client-fault" : null);
   for (const row of TABLE) assert.equal(YouTube.codeOf(new Error(row[0])), expected(row), row[0]);
 });
 
