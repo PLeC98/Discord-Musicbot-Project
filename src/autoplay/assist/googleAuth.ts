@@ -60,7 +60,7 @@ const cache = new Map<string, { token: string; expiresAt: number }>();
  * 액세스 토큰을 받는다. 한 시간짜리라 받아 두고 만료 직전까지 그대로 쓴다.
  * @returns {Promise<string>}
  */
-async function accessToken(where: unknown, { baseDir, timeoutMs = 15000 }: { baseDir?: string; timeoutMs?: number } = {}): Promise<string> {
+async function accessToken(where: unknown, { baseDir, timeoutMs = 15000, fetch: send = fetch }: { baseDir?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<string> {
   const account = readAccount(where, baseDir);
 
   const held = cache.get(account.client_email);
@@ -84,7 +84,7 @@ async function accessToken(where: unknown, { baseDir, timeoutMs = 15000 }: { bas
     throw new Error("서비스 계정 키로 서명하지 못했습니다(private_key 를 확인하세요)");
   }
 
-  const res = await fetch(account.token_uri || TOKEN_URL, {
+  const res = await send(account.token_uri || TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${signing}.${signature}` }),

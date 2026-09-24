@@ -9,6 +9,7 @@ import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
+import { fake } from "../helpers/fake.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -20,7 +21,6 @@ const config = (await import("../../config.ts")).default;
 const Spotify = await import("../../src/sources/spotify.ts");
 const { graphql, deriveKey, totp } = Spotify._internals;
 
-const realFetch = global.fetch;
 const savedCreds = { ...config.spotify };
 // 보낸 요청. 여기서 보는 칸만
 type Init = { method?: string; headers?: Record<string, string>; body?: string };
@@ -39,17 +39,19 @@ type Route = (url: string, init: Init) => ReturnType<typeof reply> | undefined;
 let routes: Route[] = [];
 
 // 가짜 응답은 스포티파이 모듈이 읽는 칸만 가진다
-global.fetch = (async (url: string | URL, init: Init = {}) => {
-  requests.push({ url: String(url), init });
-  for (const route of routes) {
-    const r = route(String(url), init);
-    if (r) return r;
-  }
-  throw new Error(`시험이 정하지 않은 요청: ${url}`);
-}) as unknown as typeof fetch;
+Spotify.useFetch(
+  fake<typeof fetch>(async (url: string | URL, init: Init = {}) => {
+    requests.push({ url: String(url), init });
+    for (const route of routes) {
+      const r = route(String(url), init);
+      if (r) return r;
+    }
+    throw new Error(`시험이 정하지 않은 요청: ${url}`);
+  }),
+);
 
 after(() => {
-  global.fetch = realFetch;
+  Spotify.useFetch(null);
   Object.assign(config.spotify, savedCreds);
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });

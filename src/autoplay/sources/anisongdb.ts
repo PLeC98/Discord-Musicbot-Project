@@ -3,7 +3,7 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS } from "../../config/schema/genreSources.ts";
-import { TIMEOUT_MS, userAgent, getJson, remembered } from "./http.ts";
+import { getJson, postJson, remembered } from "./http.ts";
 import { messageOf } from "../../rules/errorKind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
@@ -26,23 +26,6 @@ type Filters = {
   difficulty?: { start: number; end: number };
   season?: { start?: string; end?: string };
 };
-
-// getJson의 형제. 필터를 본문으로 받는 API용.
-// 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
-// 설정이 조용히 빈손이 되는 이유를 알 수 없다.
-async function postJson<T = unknown>(url: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": userAgent() },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) {
-    const detail = res.status === 422 ? await res.text().catch(() => "") : "";
-    throw new Error(`HTTP ${res.status} (${new URL(url).host})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
-  }
-  return (await res.json()) as T;
-}
 
 // ── anisongdb ─────────────────────────────────────────────────────────────
 // AMQ 기반 애니송 DB. AnimeThemes와 같은 갑 유형(음원 직접)이지만 곡 단위 인지도

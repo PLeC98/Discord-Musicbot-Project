@@ -14,6 +14,12 @@ import config from "../../config.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as externalCaches from "../store/externalCaches.ts";
 
+// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
+let send: typeof fetch = fetch;
+function useFetch(fake: typeof fetch | null) {
+  send = fake ?? fetch;
+}
+
 /** 원시 구간 하나(카테고리 전부). 캐시에도 이 모양으로 담는다 */
 type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes?: number; locked?: number };
 /** 병합한 스킵 구간 */
@@ -84,7 +90,7 @@ async function _fetchRaw(videoId: string): Promise<RawSegment[] | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), sb.timeoutMs);
   try {
-    const res = await fetch(url, { headers: { "User-Agent": config.userAgents.bot }, signal: controller.signal });
+    const res = await send(url, { headers: { "User-Agent": config.userAgents.bot }, signal: controller.signal });
     if (res.status !== 200) return null;
     const arr: unknown = await res.json();
     if (!Array.isArray(arr)) return null;
@@ -180,7 +186,7 @@ function shape({ raw, source }: Fetched, categories: Iterable<string>): Segments
   return { ...normalize(raw, categories), source };
 }
 
-export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, _forget, SKIP_CATEGORIES };
+export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, _forget, SKIP_CATEGORIES, useFetch };
 export const _internal = { mergeIntervals, normalize };
 
 export type { RawSegment, SkipSegment, Segments };

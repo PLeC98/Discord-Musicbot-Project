@@ -25,8 +25,11 @@ function callSites(src: string, name: string) {
   return out;
 }
 
-test("Spotify의 모든 fetch에 중단 신호가 붙어 있다", () => {
-  const calls = callSites(read("src/sources/spotify.ts"), "fetch");
+test("Spotify의 모든 요청에 중단 신호가 붙어 있다", () => {
+  const src = read("src/sources/spotify.ts");
+  // 요청은 모두 바깥 경계(send)로 나간다. fetch 를 바로 부르면 시험이 넘긴 가짜도 마감 검사도 비껴간다
+  assert.deepEqual(callSites(src, "fetch"), [], "fetch 를 바로 부르는 곳");
+  const calls = callSites(src, "send");
   assert.ok(calls.length >= 8, `호출부를 찾지 못했다 (${calls.length}개)`);
   for (const call of calls) {
     assert.match(call, /signal: AbortSignal\.timeout\(/, `마감 없는 요청: ${call.slice(0, 70)}`);

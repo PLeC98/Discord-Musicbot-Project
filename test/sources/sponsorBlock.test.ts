@@ -1,5 +1,5 @@
 // src/sources/sponsorBlock.ts — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
-// 네트워크는 global.fetch 스텁으로 대체, 캐시는 임시 SQLite로 실제 라운드트립 검증.
+// 네트워크는 가짜 fetch 를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 import os from "node:os";
 import path from "node:path";
@@ -13,21 +13,25 @@ import * as audioCache from "../../src/store/audioCache.ts";
 import * as externalCaches from "../../src/store/externalCaches.ts";
 import * as SponsorBlock from "../../src/sources/sponsorBlock.ts";
 import config from "../../config.ts";
+import { fake } from "../helpers/fake.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}.db`);
 
-const realFetch = global.fetch;
-// 가짜 fetch 를 걸 자리. 가짜 응답은 SponsorBlock 이 읽는 칸(status · json)만 가진다
-const net = global as unknown as { fetch: () => Promise<{ status: number; json(): Promise<unknown> }> };
+// 가짜 fetch 를 걸 자리. 시험마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다.
+// 가짜 응답은 SponsorBlock 이 읽는 칸(status · json)만 가진다. 정하지 않은 시험이 부르면 실패한다
+type Reply = { status: number; json(): Promise<unknown> };
+const unset = (): Promise<Reply> => Promise.reject(new Error("시험이 답을 정하지 않았다"));
+const net = { fetch: unset };
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
   audioCache.initialize(DB_PATH);
   config.sponsorblock.enabled = true; // 테스트 기준 활성
+  SponsorBlock.useFetch(fake<typeof fetch>(() => net.fetch()));
 });
 
 after(() => {
-  global.fetch = realFetch;
+  SponsorBlock.useFetch(null);
   if (guildTable) audioCache.close();
   try {
     fs.unlinkSync(DB_PATH);
@@ -37,7 +41,7 @@ after(() => {
 });
 
 beforeEach(() => {
-  global.fetch = realFetch;
+  net.fetch = unset;
   config.sponsorblock.enabled = true;
 });
 

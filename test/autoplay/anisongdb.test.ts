@@ -10,6 +10,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import * as sources from "../../src/autoplay/sources/index.ts";
+import { useFetch } from "../../src/autoplay/sources/http.ts";
+import { fake } from "../helpers/fake.ts";
 const build = sources._anisongFilters;
 
 // ── 기본값 ────────────────────────────────────────────────────────────────
@@ -116,16 +118,17 @@ test("장르 목록에 태그 이름이 섞여 있지 않다", () => {
 
 // 0칸은 난이도가 아니라 결측이다. 그대로 그리면 왼쪽 끝에 없는 봉우리가 생긴다.
 test("난이도 분포에서 0칸을 뺀다", async () => {
-  const real = global.fetch;
-  global.fetch = (async () => ({
-    ok: true,
-    json: async () => ({
-      songs_by_genre: { Comedy: 17494, Action: 13808 },
-      songs_by_tag: { School: 8787, Idol: 5489 },
-      songs_by_difficulty: [608, 22, 43, 78],
-      songs_by_season: { "Winter 1924": 1, "Summer 2026": 175 },
-    }),
-  })) as unknown as typeof fetch;
+  useFetch(
+    fake<typeof fetch>(async () => ({
+      ok: true,
+      json: async () => ({
+        songs_by_genre: { Comedy: 17494, Action: 13808 },
+        songs_by_tag: { School: 8787, Idol: 5489 },
+        songs_by_difficulty: [608, 22, 43, 78],
+        songs_by_season: { "Winter 1924": 1, "Summer 2026": 175 },
+      }),
+    })),
+  );
   try {
     sources._seedAnisongStats(null);
     const got = await sources._anisongCatalog();
@@ -136,19 +139,18 @@ test("난이도 분포에서 0칸을 뺀다", async () => {
     assert.equal(got.min, 1924);
     assert.equal(got.max, 2026);
   } finally {
-    global.fetch = real;
+    useFetch(null);
     sources._seedAnisongStats(null);
   }
 });
 
 test("목록을 못 받아도 던지지 않는다 — 칸이 안 그려지는 것보다 빈 목록이 낫다", async () => {
-  const real = global.fetch;
-  global.fetch = (async () => ({ ok: false, status: 503, text: async () => "" })) as unknown as typeof fetch;
+  useFetch(fake<typeof fetch>(async () => ({ ok: false, status: 503, text: async () => "" })));
   try {
     sources._seedAnisongStats(null);
     assert.equal(await sources._anisongCatalog(), null);
   } finally {
-    global.fetch = real;
+    useFetch(null);
   }
 });
 
@@ -157,17 +159,17 @@ test("목록을 못 받아도 던지지 않는다 — 칸이 안 그려지는 �
 // 가짜 fetch. AnisongDB 와 AniList 를 부르는 순서대로 답한다.
 function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; covers?: unknown[]; anilistFails?: boolean }) {
   const calls: Array<{ url: string; body: { variables?: { ids?: unknown[] } } | null }> = [];
-  const real = global.fetch;
   // 가짜 응답은 여기서 읽는 칸만 준다
-  global.fetch = (async (url: string, opts?: RequestInit) => {
+  const net = async (url: string, opts?: RequestInit) => {
     calls.push({ url: String(url), body: opts?.body ? JSON.parse(String(opts.body)) : null });
     if (String(url).includes("anilist")) {
       if (anilistFails) return { ok: false, status: 429, text: async () => "" };
       return { ok: true, json: async () => ({ data: { Page: { media: covers } } }) };
     }
     return { ok: true, json: async () => songs };
-  }) as unknown as typeof fetch;
-  return { calls, restore: () => (global.fetch = real) };
+  };
+  useFetch(fake<typeof fetch>(net));
+  return { calls, restore: () => useFetch(null) };
 }
 
 const song = (over: Record<string, unknown> = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });

@@ -11,6 +11,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as auth from "../../src/autoplay/assist/googleAuth.ts";
+import { fake } from "../helpers/fake.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sa-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
@@ -22,19 +23,16 @@ const ACCOUNT = { type: "service_account", project_id: "내-프로젝트", clien
 const SA_FILE = path.join(DIR, "vertex-sa.json");
 fs.writeFileSync(SA_FILE, JSON.stringify(ACCOUNT));
 
-const realFetch = global.fetch;
-after(() => {
-  global.fetch = realFetch;
-});
-
 const calls: Array<{ url: string; init?: RequestInit; body: string }> = [];
 // 가짜 응답은 여기서 읽는 칸(ok · status · text)만 준다
 type FakeReply = { ok: boolean; status: number; text: () => Promise<string> };
+// 토큰 요청을 받는 가짜. answers 로 답을 정하고 accessToken 에 넘긴다
+let net: typeof fetch = () => Promise.reject(new Error("시험이 답을 정하지 않았다"));
 function answers(reply: object | (() => FakeReply)) {
-  global.fetch = (async (url: string, init?: RequestInit) => {
+  net = fake<typeof fetch>(async (url: string, init?: RequestInit) => {
     calls.push({ url, init, body: String(init?.body) });
     return typeof reply === "function" ? reply() : { ok: true, status: 200, text: async () => JSON.stringify(reply) };
-  }) as unknown as typeof fetch;
+  });
 }
 
 test("JWT 로 토큰을 받아 온다", async () => {
@@ -42,7 +40,7 @@ test("JWT 로 토큰을 받아 온다", async () => {
   calls.length = 0;
   answers({ access_token: "ya29.토큰", expires_in: 3600 });
 
-  assert.equal(await auth.accessToken(SA_FILE), "ya29.토큰");
+  assert.equal(await auth.accessToken(SA_FILE, { fetch: net }), "ya29.토큰");
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://oauth2.googleapis.com/token");
 
@@ -65,9 +63,9 @@ test("받아 둔 토큰을 다시 쓴다", async () => {
   calls.length = 0;
   answers({ access_token: "ya29.한번만", expires_in: 3600 });
 
-  await auth.accessToken(SA_FILE);
-  await auth.accessToken(SA_FILE);
-  await auth.accessToken(SA_FILE);
+  await auth.accessToken(SA_FILE, { fetch: net });
+  await auth.accessToken(SA_FILE, { fetch: net });
+  await auth.accessToken(SA_FILE, { fetch: net });
   assert.equal(calls.length, 1, "세 번 불러도 토큰은 한 번만 받는다");
 });
 
@@ -76,15 +74,15 @@ test("곧 만료될 토큰은 새로 받는다", async () => {
   calls.length = 0;
   answers({ access_token: "ya29.곧죽음", expires_in: 30 });
 
-  await auth.accessToken(SA_FILE);
-  await auth.accessToken(SA_FILE);
+  await auth.accessToken(SA_FILE, { fetch: net });
+  await auth.accessToken(SA_FILE, { fetch: net });
   assert.equal(calls.length, 2, "만료 직전이면 다시 받는다");
 });
 
 test("JSON 을 통째로 적어도 받는다", async () => {
   auth._reset();
   answers({ access_token: "ya29.인라인", expires_in: 3600 });
-  assert.equal(await auth.accessToken(JSON.stringify(ACCOUNT)), "ya29.인라인");
+  assert.equal(await auth.accessToken(JSON.stringify(ACCOUNT), { fetch: net }), "ya29.인라인");
 });
 
 test("프로젝트는 JSON 에서 끌어온다", () => {
@@ -104,7 +102,7 @@ test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
   for (const where of [broken, JSON.stringify({ ...ACCOUNT, private_key: undefined }), "{깨진 JSON", path.join(DIR, "없다.json")]) {
     answers({ access_token: "x", expires_in: 3600 });
     await assert.rejects(
-      () => auth.accessToken(where),
+      () => auth.accessToken(where, { fetch: net }),
       (error: Error) => {
         said.push(error.message);
         return true;
@@ -115,7 +113,7 @@ test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
   // 저쪽이 거절하면서 우리가 보낸 것을 되비추는 경우까지
   answers(() => ({ ok: false, status: 401, text: async () => "invalid_grant" }));
   await assert.rejects(
-    () => auth.accessToken(SA_FILE),
+    () => auth.accessToken(SA_FILE, { fetch: net }),
     (error: Error) => {
       said.push(error.message);
       return /401/.test(error.message);

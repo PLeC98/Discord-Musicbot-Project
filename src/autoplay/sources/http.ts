@@ -7,14 +7,37 @@ const userAgent = () => config.userAgents.bot;
 
 const TIMEOUT_MS = 15000;
 
+// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
+let send: typeof fetch = fetch;
+function useFetch(fake: typeof fetch | null) {
+  send = fake ?? fetch;
+}
+
 const rand = (n: number) => Math.floor(Math.random() * n);
 
 const pick = <T>(list: T[]): T | null => (list.length ? list[rand(list.length)] : null);
 
 // T: 받는 쪽이 읽는 칸만 적은 응답 모양. 검사하지 않으므로 칸은 모두 없을 수 있게 적는다
 async function getJson<T = unknown>(url: string, headers: Record<string, string> = {}, timeoutMs = TIMEOUT_MS): Promise<T> {
-  const res = await fetch(url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
+  const res = await send(url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`HTTP ${res.status} (${new URL(url).host})`);
+  return (await res.json()) as T;
+}
+
+// getJson의 형제. 필터를 본문으로 받는 API용.
+// 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
+// 설정이 조용히 빈손이 되는 이유를 알 수 없다.
+async function postJson<T = unknown>(url: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
+  const res = await send(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", "User-Agent": userAgent() },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) {
+    const detail = res.status === 422 ? await res.text().catch(() => "") : "";
+    throw new Error(`HTTP ${res.status} (${new URL(url).host})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
   return (await res.json()) as T;
 }
 
@@ -74,4 +97,4 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
   };
 }
 
-export { getJson, pick, rand, query, remembered, TIMEOUT_MS, userAgent };
+export { getJson, postJson, pick, rand, query, remembered, useFetch };

@@ -15,6 +15,12 @@ import config from "../../config.ts";
 import * as externalCaches from "../store/externalCaches.ts";
 import { messageOf } from "../rules/errorKind.ts";
 
+// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
+let send: typeof fetch = fetch;
+function useFetch(fake: typeof fetch | null) {
+  send = fake ?? fetch;
+}
+
 // 응답의 모양. 여기서 읽는 칸만
 type ApiImage = { url?: string; height?: number | null };
 type ApiTrack = { id?: string; name?: string; duration_ms?: number; artists?: Array<{ name?: string }>; album?: { name?: string; images?: ApiImage[] }; external_urls?: { spotify?: string } };
@@ -173,7 +179,7 @@ const official = {
     if (!config.spotify.clientId || !config.spotify.clientSecret) throw new Error("Spotify 자격증명 미설정");
     if (this._token && Date.now() < this._token.expiresAt - 60000) return this._token.value;
     const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString("base64");
-    const r = await fetch("https://accounts.spotify.com/api/token", {
+    const r = await send("https://accounts.spotify.com/api/token", {
       method: "POST",
       headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded", "User-Agent": ua() },
       body: "grant_type=client_credentials",
@@ -188,7 +194,7 @@ const official = {
   async _get(path: string): Promise<unknown> {
     const tok = await this._accessToken();
     const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const r = await send(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!r.ok) throw new Error(`API ${r.status} (${path.slice(0, 40)})`);
     return r.json();
   },
@@ -257,7 +263,7 @@ const graphql = {
   },
 
   async _extract(): Promise<Omit<AnonState, "fetchedAt">> {
-    const home = await fetch("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.text());
+    const home = await send("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.text());
     let clientVersion = SEED.clientVersion;
     const cfg = home.match(/id="appServerConfig"[^>]*>([^<]+)</);
     if (cfg) {
@@ -271,7 +277,7 @@ const graphql = {
     let secrets: AnonState["secrets"] | null = null;
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];
     if (scriptUrl) {
-      const js = await fetch(scriptUrl, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) }).then((r) => r.text());
+      const js = await send(scriptUrl, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) }).then((r) => r.text());
       const s = parseSecrets(js);
       if (s.length) secrets = s;
       const fp = js.match(/"fetchPlaylist","query","([0-9a-f]{64})"/);
@@ -284,14 +290,14 @@ const graphql = {
 
   async _mintToken(): Promise<{ accessToken: string; accessTokenExpirationTimestampMs?: number }> {
     const state = await this._ensureState(false);
-    const home = await fetch("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const home = await send("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
     const cookies = (home.headers.getSetCookie?.() || []).map((c) => c.split(";")[0]).join("; ");
-    const stJson = (await fetch("https://open.spotify.com/api/server-time", { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER }, signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.json())) as { serverTime?: unknown };
+    const stJson = (await send("https://open.spotify.com/api/server-time", { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER }, signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.json())) as { serverTime?: unknown };
     const serverSec = Number(stJson.serverTime) || Math.floor(Date.now() / 1000);
     const { secret, version } = state.secrets[0];
     const key = deriveKey(secret);
     const qs = new URLSearchParams({ reason: "init", productType: "web-player", totp: totp(key, Date.now()), totpServer: totp(key, serverSec * 1000), totpVer: String(version) });
-    const r = await fetch(`https://open.spotify.com/api/token?${qs}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const r = await send(`https://open.spotify.com/api/token?${qs}`, { headers: { ...htmlHeaders(), Cookie: cookies, Referer: REFERER, "App-Platform": "WebPlayer" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!r.ok) throw Object.assign(new Error(`익명 토큰 ${r.status}`), { status: r.status });
     return (await r.json()) as { accessToken: string; accessTokenExpirationTimestampMs?: number };
   },
@@ -317,7 +323,7 @@ const graphql = {
     const run = async () => {
       const state = await this._ensureState(false);
       const tok = await this._token();
-      const r = await fetch(PARTNER, { method: "POST", headers: partnerHeaders(tok, state.clientVersion), body: JSON.stringify({ operationName, variables, extensions: { persistedQuery: { version: 1, sha256Hash: state.hashes[hashKey] } } }), signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const r = await send(PARTNER, { method: "POST", headers: partnerHeaders(tok, state.clientVersion), body: JSON.stringify({ operationName, variables, extensions: { persistedQuery: { version: 1, sha256Hash: state.hashes[hashKey] } } }), signal: AbortSignal.timeout(TIMEOUT_MS) });
       const text = await r.text();
       let j: { data?: unknown; errors?: Array<{ message?: string }> };
       try {
@@ -453,5 +459,5 @@ function _reset() {
 // 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
-export { getCollection, getFromURL, search, _reset, _internals };
+export { getCollection, getFromURL, search, _reset, _internals, useFetch };
 export type { SpotifyTrack, Part, Net };

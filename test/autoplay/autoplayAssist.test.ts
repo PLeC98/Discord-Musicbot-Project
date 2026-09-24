@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yamlStore.ts";
 import * as assist from "../../src/autoplay/assist/index.ts";
+import { fake } from "../helpers/fake.ts";
 import * as googleAuth from "../../src/autoplay/assist/googleAuth.ts";
 import * as route from "../../src/autoplay/route.ts";
 import { prepare } from "../../src/autoplay/filter.ts";
@@ -38,8 +39,9 @@ type SentBody = {
 };
 // 가짜 응답은 여기서 읽는 칸(ok · status · json · text)만 준다
 type FakeResponse = { ok: boolean; status?: number; json?: () => Promise<unknown>; text?: () => Promise<string> };
+// 보조가 바깥으로 보내는 요청(모델 · 토큰 셈 · 서비스 계정 토큰)을 이 가짜로 받는다
 function useFetch(fn: (url: string, init: SentInit) => FakeResponse | Promise<FakeResponse>) {
-  global.fetch = fn as unknown as typeof fetch;
+  assist.useFetch(fake<typeof fetch>(fn));
 }
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
@@ -78,9 +80,8 @@ batchSize: 10
 const calls: Array<{ url: string; init: SentInit; body?: SentBody }> = [];
 // 모델에 보낸 JSON 본문. 목록 요청(GET)과 토큰 요청(폼)에는 없다
 const bodyOf = (init: SentInit): SentBody | undefined => (typeof init.body === "string" ? JSON.parse(init.body) : undefined);
-const realFetch = global.fetch;
 after(() => {
-  global.fetch = realFetch;
+  assist.useFetch(null);
 });
 
 function answers(reply: string | (() => FakeResponse)) {

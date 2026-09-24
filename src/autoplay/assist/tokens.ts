@@ -179,7 +179,7 @@ async function countMessages(messages: Message[] | null | undefined, tokenizer =
  * 앤트로픽에 직접 물어 정확히 측정. 무과금, ~150ms
  * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 사용
  */
-async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000 }: { model?: string; apiKey?: string; timeoutMs?: number } = {}): Promise<number | null> {
+async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;
   const body: { model: string; messages: Array<{ role: string; content: string }>; system?: string } = {
     model,
@@ -193,7 +193,7 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
   body.messages = body.messages.filter((one) => one.role !== "system");
   if (!body.messages.length) return null;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages/count_tokens", {
+  const res = await send("https://api.anthropic.com/v1/messages/count_tokens", {
     method: "POST",
     headers: { "content-type": "application/json", "anthropic-version": "2023-06-01", "x-api-key": apiKey },
     body: JSON.stringify(body),

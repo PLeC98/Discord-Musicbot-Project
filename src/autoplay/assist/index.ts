@@ -19,6 +19,12 @@ import { messageOf } from "../../rules/errorKind.ts";
 import type { PromptSection } from "../../config/ai.ts";
 import type { ModelField } from "../../config/schema/aiModels.ts";
 
+// 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
+let send: typeof fetch = fetch;
+function useFetch(fake: typeof fetch | null) {
+  send = fake ?? fetch;
+}
+
 /** 후보 목록 한 줄을 어떻게 적을지(ai.yaml 의 list) */
 type ListFormat = { unknownDuration?: string; unknownText?: string; lineFormat?: string };
 /**
@@ -500,7 +506,7 @@ const DIALECTS: Record<string, Dialect> = {
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one) => {
-      const token = await googleAuth.accessToken(aiConfig.aiKeyOf(one.provider ?? ""), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs) });
+      const token = await googleAuth.accessToken(aiConfig.aiKeyOf(one.provider ?? ""), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs), fetch: send });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
     body: geminiBody,
@@ -573,7 +579,7 @@ async function countTokens(one: AiSettings, messages: Wire[]) {
     const by = tokens.tokenizerFor(spec?.registry, one.model);
 
     if (by === "claude") {
-      const exact = await tokens.countByAnthropic(messages, { model: one.model, apiKey: await keyFor(one), timeoutMs: Number(one.timeoutMs) });
+      const exact = await tokens.countByAnthropic(messages, { model: one.model, apiKey: await keyFor(one), timeoutMs: Number(one.timeoutMs), fetch: send });
       if (exact !== null) return { total: exact, body: exact - tokens.FRAMING.anthropic.perRequest, by: "claude", exact: true };
     }
     return await tokens.countMessages(messages, by, spec?.dialect || "openai");
@@ -687,7 +693,7 @@ function readVerdicts(text: unknown, count: number): Array<Verdict | null> | nul
 async function askBatch(one: AiSettings, batch: Judged[], genre: string | undefined) {
   const request = await buildRequest(one, batch, genre);
 
-  const res = await fetch(request.url, {
+  const res = await send(request.url, {
     method: "POST",
     headers: request.headers,
     body: JSON.stringify(request.body),
@@ -789,7 +795,7 @@ async function listModels(draft: Draft) {
 
     for (const candidate of urls) {
       url = candidate;
-      res = await fetch(url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+      res = await send(url, { headers, signal: AbortSignal.timeout(Number(one.timeoutMs)) });
       text = mask(await res.text());
       if (res.ok || res.status !== 404) break;
     }
@@ -852,7 +858,7 @@ async function ping(draft: Draft) {
 
   const started = Date.now();
   try {
-    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
+    const res = await send(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
     const text = mask(await res.text());
     const took = Date.now() - started;
 
@@ -958,7 +964,7 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
 
   const started = Date.now();
   try {
-    const res = await fetch(request.url, {
+    const res = await send(request.url, {
       method: "POST",
       headers: request.headers,
       body: JSON.stringify(request.body),
@@ -1010,5 +1016,5 @@ function mask(text: unknown): string {
   return out;
 }
 
-export { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE };
+export { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE, useFetch };
 export type { AiSettings, Judged, TestCandidate };
