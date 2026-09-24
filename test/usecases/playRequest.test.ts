@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/usecases/addTracks.js — 곡 추가 경로의 단일 코어.
 //
 // 회귀 대상: 슬래시 명령/전용 채널/검색 선택은 handleMusicData를, 대시보드는 addTrack을 타서

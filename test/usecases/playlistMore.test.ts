@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/usecases/playlistMore.js — 재생목록 이어 넣기의 상태(custom_id)·선택지·누를 때 판정
 
 import { test } from "node:test";
