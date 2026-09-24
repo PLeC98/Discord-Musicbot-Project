@@ -14,6 +14,14 @@ const log = logger.child({ category: "track" });
 
 /** 소스가 찾은 곡. 소스마다 칸이 더 있다. 트랙 모델(player/track)의 TrackInfo 에 맞추는 것은 player 를 TS 로 옮길 때 */
 type FoundTrack = { title?: string | null; pageUrl?: string | null; requestKey?: string | null; audioUrl?: string | null; duration?: number | null; platform?: string | null; [field: string]: unknown };
+/** 곡을 찾는 소스들. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
+type Sources = {
+  youtube: Pick<typeof YouTube, "getPlaylist" | "search">;
+  spotify: Pick<typeof Spotify, "getCollection" | "search">;
+  soundcloud: Pick<typeof SoundCloud, "search">;
+  direct: Pick<typeof DirectLink, "getInfo">;
+};
+const REAL: Sources = { youtube: YouTube, spotify: Spotify, soundcloud: SoundCloud, direct: DirectLink };
 /** 여러 곡 출처에서 받을 구간 */
 type Range = { offset?: number; limit?: number };
 /** 여러 곡 출처의 한 구간. total 은 모르면 null */
@@ -39,7 +47,8 @@ function isUnsupportedLink(query: string): boolean {
 //   code: no-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/errorMessages 로 만든다
 // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
 // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
-async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}) {
+async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}) {
+  const { youtube, spotify, soundcloud, direct } = { ...REAL, ...sources };
   try {
     let tracks: FoundTrack[] = [];
     let isPlaylist = false;
@@ -53,7 +62,7 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
 
       case "youtube":
         if (links.isYouTubePlaylist(query)) {
-          const playlistData = await YouTube.getPlaylist(query, { offset, limit });
+          const playlistData = await youtube.getPlaylist(query, { offset, limit });
           if (playlistData && playlistData.tracks && playlistData.tracks.length > 0) {
             tracks = playlistData.tracks;
             isPlaylist = true;
@@ -62,16 +71,16 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
             nextOffset = playlistData.nextOffset ?? null;
           } else {
             // 재생목록을 불러오지 못하면 일반 검색 수행
-            tracks = await YouTube.search(query, 1);
+            tracks = await youtube.search(query, 1);
           }
         } else {
-          tracks = await YouTube.search(query, 1);
+          tracks = await youtube.search(query, 1);
         }
         break;
 
       case "spotify":
         if (links.isSpotifyURL(query)) {
-          const part = await Spotify.getCollection(query, { offset, limit });
+          const part = await spotify.getCollection(query, { offset, limit });
           tracks = part.tracks || [];
           const { type } = links.parseSpotifyURL(query);
           isPlaylist = type === "playlist" || type === "album" || type === "artist";
@@ -81,16 +90,16 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
             nextOffset = part.nextOffset ?? null;
           }
         } else {
-          tracks = (await Spotify.search(query, 1)) || [];
+          tracks = (await spotify.search(query, 1)) || [];
         }
         break;
 
       case "soundcloud":
-        tracks = (await SoundCloud.search(query, 1)) || [];
+        tracks = (await soundcloud.search(query, 1)) || [];
         break;
 
       case "direct":
-        tracks = await DirectLink.getInfo(query); // 배열 계약: [track] 또는 []
+        tracks = await direct.getInfo(query); // 배열 계약: [track] 또는 []
         break;
     }
 
@@ -107,13 +116,14 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
 
 // 여러 곡 출처의 구간만. 이어 넣기용. getTrackData와 달리 못 받으면 검색으로 넘어가지 않는다
 // (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다).
-async function getCollection(url: string, range?: Range): Promise<Collection> {
+async function getCollection(url: string, range?: Range, sources: Partial<Sources> = {}): Promise<Collection> {
+  const { youtube, spotify } = { ...REAL, ...sources };
   const none: Collection = { tracks: [], total: null, nextOffset: null };
   if (links.isYouTubePlaylist(url)) {
-    const r = await YouTube.getPlaylist(url, range);
+    const r = await youtube.getPlaylist(url, range);
     return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null } : none;
   }
-  if (links.isSpotifyURL(url)) return Spotify.getCollection(url, range);
+  if (links.isSpotifyURL(url)) return spotify.getCollection(url, range);
   return none;
 }
 
@@ -123,18 +133,18 @@ async function getCollection(url: string, range?: Range): Promise<Collection> {
  * 지원하지 않는 링크(모르는 사이트 · 유튜브 클립 등)도 우회한다. 예전에 검색으로 흘러 잘못 맺힌 매핑이 남아 있으면
  * 캐시가 그 엉뚱한 영상을 그대로 돌려준다.
  */
-async function resolveQuery(query: string, context?: string | null, range: Range = {}) {
+async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}) {
   const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query);
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit) {
     log.debug(`캐시 히트(조회 · 검색 생략): "${cacheHit.track.title}" → ${cacheHit.track.audioUrl}`);
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }
-  return getTrackData(query, context, range);
+  return getTrackData(query, context, range, sources);
 }
 
 const lookup = { detectPlatform, isUnsupportedLink, getTrackData, getCollection, resolveQuery };
 
 export default lookup;
 export { lookup as "module.exports" };
-export type { FoundTrack, Range, Collection };
+export type { FoundTrack, Range, Collection, Sources };

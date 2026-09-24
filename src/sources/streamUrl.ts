@@ -5,18 +5,24 @@ import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import SoundCloud from "./soundcloud.ts";
-import equivalent from "./youtube/equivalent.ts";
+import equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 
-/** 유튜브 스트림을 여는 쪽. 테스트가 가짜를 넘긴다 */
+// 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
 type YouTubeStreams = Pick<typeof YouTube, "getStream" | "isVideoUnavailableError">;
+type SoundCloudStreams = Pick<typeof SoundCloud, "getStream">;
+type Equivalent = Pick<typeof equivalentModule, "findYouTubeEquivalent" | "reresolveYouTube">;
+/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다) */
+type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; equivalent: Equivalent; canPlayHls: boolean };
+const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, equivalent: equivalentModule, canPlayHls: true };
 
 /**
  * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
  * 곡이 어디서 왔는지(platform)는 보지 않는다. 자동재생 곡은 출처 이름을 들고 소리는 영상이나 음원에서 온다.
  */
-// youtube: 유튜브 스트림을 여는 쪽. 생략하면 진짜. canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다)
-async function getStream(track: Seeking & { platform?: string | null }, seekSeconds = 0, { youtube = YouTube, canPlayHls = true }: { youtube?: YouTubeStreams; canPlayHls?: boolean } = {}) {
+// options: 넘기지 않은 것은 진짜(youtube · soundcloud · equivalent)와 canPlayHls = true
+async function getStream(track: Seeking & { platform?: string | null }, seekSeconds = 0, options: Partial<StreamOptions> = {}) {
+  const { youtube, soundcloud, equivalent, canPlayHls } = { ...DEFAULTS, ...options };
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
     throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
@@ -37,7 +43,7 @@ async function getStream(track: Seeking & { platform?: string | null }, seekSeco
       }
 
     case "soundcloud":
-      return SoundCloud.getStream(audioUrl, { canPlayHls });
+      return soundcloud.getStream(audioUrl, { canPlayHls });
 
     case "direct":
       // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.getStream(SafeUrl 가드)이

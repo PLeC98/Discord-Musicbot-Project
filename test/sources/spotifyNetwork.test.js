@@ -18,7 +18,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
 const Spotify = (await import("../../src/sources/spotify.ts")).default;
-const { official, graphql, deriveKey, totp } = Spotify._internals;
+const { graphql, deriveKey, totp } = Spotify._internals;
 
 const realFetch = global.fetch;
 const savedCreds = { ...config.spotify };
@@ -53,9 +53,7 @@ after(() => {
 beforeEach(() => {
   requests.length = 0;
   routes = [];
-  official._token = null;
-  graphql._state = null;
-  graphql._anonToken = null;
+  Spotify._reset();
   storeDb.get().exec("DELETE FROM spotify_anon;");
   Object.assign(config.spotify, { clientId: "cid", clientSecret: "csecret" });
 });
@@ -124,22 +122,18 @@ test("자격증명이 없으면 곡 주소는 빈 결과(던지지 않는다)", 
 });
 
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
-  const realQuery = graphql._query;
-  graphql._query = async (op, hash, vars) => {
+  // GraphQL 질의는 가짜로 넘긴다(익명 토큰 · 상태는 아래 시험들이 본다)
+  const query = async (op, hash, vars) => {
     assert.equal(op, "queryArtistOverview");
     assert.equal(vars.uri, "spotify:artist:ar1");
     return { artistUnion: { discography: { topTracks: { items: [{ track: { uri: "spotify:track:g1", name: "인기곡", artists: { items: [{ profile: { name: "가수" } }] }, duration: { totalMilliseconds: 90000 } } }] } } } };
   };
   routes = [tokenRoute, () => reply({}, { status: 503 })];
-  try {
-    const list = await Spotify.getCollection("https://open.spotify.com/artist/ar1");
-    assert.deepEqual(
-      list.tracks.map((t) => [t.title, t.pageUrl, t.duration]),
-      [["인기곡", "https://open.spotify.com/track/g1", 90]],
-    );
-  } finally {
-    graphql._query = realQuery;
-  }
+  const list = await Spotify.getCollection("https://open.spotify.com/artist/ar1", undefined, { query });
+  assert.deepEqual(
+    list.tracks.map((t) => [t.title, t.pageUrl, t.duration]),
+    [["인기곡", "https://open.spotify.com/track/g1", 90]],
+  );
 });
 
 test("모르는 주소는 요청 없이 빈 결과", async () => {
@@ -182,7 +176,7 @@ test("익명 상태: 홈 · 번들에서 판 · secret · 해시를 뽑아 DB �
   await graphql._ensureState(false);
   assert.equal(requests.length, before, "12시간 안에는 다시 안 받는다");
 
-  graphql._state = null;
+  Spotify._reset(); // 프로세스를 다시 띄운 것처럼
   await graphql._ensureState(false);
   assert.equal(requests.length, before, "프로세스를 다시 띄워도 DB 에 남은 것이 새것이면 그것을 쓴다");
 });

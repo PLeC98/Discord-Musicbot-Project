@@ -9,42 +9,28 @@ import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 import strings from "../../src/ui/strings.js";
 const { collectionLabel } = strings;
 
-function stub(obj, key, fn) {
-  const original = obj[key];
-  obj[key] = fn;
-  return () => (obj[key] = original);
-}
-
 const songs = (n) => Array.from({ length: n }, (_, i) => ({ title: `곡${i}` }));
 
 test("스포티파이 링크의 종류가 collection으로 실린다", async () => {
-  const restore = stub(Spotify, "getCollection", async () => ({ tracks: songs(3), total: 3, nextOffset: 3 }));
-  try {
-    for (const [url, expected] of [
-      ["https://open.spotify.com/album/1IugbCvkbYTkcCcD0WbQHe", "album"],
-      ["https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "playlist"],
-      ["https://open.spotify.com/artist/0du5cEVh5yTK9QJze8zA0C", "artist"],
-    ]) {
-      const r = await lookup.getTrackData(url);
-      assert.equal(r.isPlaylist, true, url);
-      assert.equal(r.collection, expected, url);
-    }
-    const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa");
-    assert.equal(single.isPlaylist, false);
-    assert.equal(single.collection, null);
-  } finally {
-    restore();
+  const sources = { spotify: { ...Spotify, getCollection: async () => ({ tracks: songs(3), total: 3, nextOffset: 3 }) } };
+  for (const [url, expected] of [
+    ["https://open.spotify.com/album/1IugbCvkbYTkcCcD0WbQHe", "album"],
+    ["https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "playlist"],
+    ["https://open.spotify.com/artist/0du5cEVh5yTK9QJze8zA0C", "artist"],
+  ]) {
+    const r = await lookup.getTrackData(url, undefined, undefined, sources);
+    assert.equal(r.isPlaylist, true, url);
+    assert.equal(r.collection, expected, url);
   }
+  const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
+  assert.equal(single.isPlaylist, false);
+  assert.equal(single.collection, null);
 });
 
 test("유튜브 재생목록은 playlist", async () => {
-  const restore = stub(YouTube, "getPlaylist", async () => ({ tracks: songs(2) }));
-  try {
-    const r = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL123");
-    assert.equal(r.collection, "playlist");
-  } finally {
-    restore();
-  }
+  const sources = { youtube: { ...YouTube, getPlaylist: async () => ({ tracks: songs(2) }) } };
+  const r = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL123", undefined, undefined, sources);
+  assert.equal(r.collection, "playlist");
 });
 
 test("안내 문구가 출처 이름을 따른다", () => {

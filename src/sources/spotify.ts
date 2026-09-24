@@ -35,6 +35,11 @@ type AnonState = { secrets: Array<{ secret: string; version: number }>; hashes: 
 
 const isTrack = (t: SpotifyTrack | null): t is SpotifyTrack => t !== null;
 
+/** 요청 함수. get 은 공식 API, query 는 익명 GraphQL. 테스트가 가짜를 넘기는 자리(넘기지 않은 것은 진짜) */
+type Net = { get: (path: string) => Promise<unknown>; query: (operationName: string, hashKey: string, variables: Record<string, unknown>) => Promise<unknown> };
+// 진짜 요청 함수. 아래 두 프로바이더가 가진 것을 부른다
+const net = (over: Partial<Net> = {}): Net => ({ get: (p) => official._get(p), query: (op, hash, vars) => graphql._query(op, hash, vars), ...over });
+
 const ua = () => config.userAgents.browser;
 const API_BASE = "https://api.spotify.com/v1";
 const PARTNER = "https://api-partner.spotify.com/pathfinder/v2/query";
@@ -188,18 +193,19 @@ const official = {
     return r.json();
   },
 
-  async track(id: string) {
-    const n = normApiTrack((await this._get(`/tracks/${id}`)) as ApiTrack);
+  async track(id: string, over: Partial<Net> = {}) {
+    const n = normApiTrack((await net(over).get(`/tracks/${id}`)) as ApiTrack);
     return n ? [n] : [];
   },
 
-  async album(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}): Promise<Part> {
-    const a = (await this._get(`/albums/${id}`)) as ApiAlbum; // 앨범 이름·표지는 여기에만 있다
+  async album(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
+    const { get } = net(over);
+    const a = (await get(`/albums/${id}`)) as ApiAlbum; // 앨범 이름·표지는 여기에만 있다
     const albumMeta = { name: a.name, images: a.images };
     let items: ApiTrack[] = offset === 0 ? a.tracks?.items || [] : [];
     let next = offset === 0 ? a.tracks?.next : `/albums/${id}/tracks?offset=${offset}&limit=50`;
     while (next && items.length < limit) {
-      const p = (await this._get(next)) as ApiPage;
+      const p = (await get(next)) as ApiPage;
       items = items.concat(p.items || []);
       next = p.next;
     }
@@ -211,16 +217,16 @@ const official = {
     };
   },
 
-  async artist(id: string) {
-    const a = (await this._get(`/artists/${id}/top-tracks`)) as { tracks?: ApiTrack[] }; // market 생략 가능(실측)
+  async artist(id: string, over: Partial<Net> = {}) {
+    const a = (await net(over).get(`/artists/${id}/top-tracks`)) as { tracks?: ApiTrack[] }; // market 생략 가능(실측)
     return (a.tracks || [])
       .slice(0, 10)
       .map((t) => normApiTrack(t))
       .filter(isTrack);
   },
 
-  async search(query: string, limit: number) {
-    const r = (await this._get(`/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`)) as { tracks?: { items?: ApiTrack[] } };
+  async search(query: string, limit: number, over: Partial<Net> = {}) {
+    const r = (await net(over).get(`/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`)) as { tracks?: { items?: ApiTrack[] } };
     return (r.tracks?.items || [])
       .slice(0, limit)
       .map((t) => normApiTrack(t))
@@ -338,7 +344,8 @@ const graphql = {
   },
 
   // offset부터 재생 가능한 곡을 limit개까지. 원본 위치는 임의 접근이라 어느 구간이든 요청 비용이 같다.
-  async playlist(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}): Promise<Part> {
+  async playlist(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
+    const { query } = net(over);
     const PAGE = 100;
     const MAX_PAGES = 200; // 무한루프 가드
     const out: SpotifyTrack[] = [];
@@ -346,7 +353,7 @@ const graphql = {
     let total: number | null = null;
     for (let page = 0; page < MAX_PAGES && out.length < limit; page++) {
       const want = Math.min(PAGE, limit - out.length);
-      const data = (await this._query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset: cursor, limit: want, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
+      const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset: cursor, limit: want, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
       const pl = data?.playlistV2;
       if (!pl || pl.__typename === "NotFound") throw new Error("플레이리스트 접근 불가(NotFound)");
       const items = pl.content?.items || [];
@@ -365,8 +372,8 @@ const graphql = {
     return { tracks: out, total, nextOffset: cursor };
   },
 
-  async artist(id: string) {
-    const data = (await this._query("queryArtistOverview", "queryArtistOverview", { uri: `spotify:artist:${id}`, locale: "", includePrerelease: false })) as GqlArtist | null;
+  async artist(id: string, over: Partial<Net> = {}) {
+    const data = (await net(over).query("queryArtistOverview", "queryArtistOverview", { uri: `spotify:artist:${id}`, locale: "", includePrerelease: false })) as GqlArtist | null;
     const items = data?.artistUnion?.discography?.topTracks?.items || [];
     return items.map((it) => normGqlTrack(it.track)).filter(isTrack);
   },
@@ -381,22 +388,22 @@ function sliceWhole(tracks: SpotifyTrack[], { offset = 0, limit = config.bot.pla
   return { tracks: part, total: tracks.length, nextOffset: offset + part.length };
 }
 
-type Route = (id: string, o: Range) => Promise<Part>;
+type Route = (id: string, o: Range, over: Partial<Net>) => Promise<Part>;
 const ROUTES: Record<string, Route[]> = {
-  track: [async (id) => ({ tracks: await official.track(id), total: null, nextOffset: null })],
-  album: [(id, o) => official.album(id, o)],
-  artist: [async (id, o) => sliceWhole(await official.artist(id), o), async (id, o) => sliceWhole(await graphql.artist(id), o)],
-  playlist: [(id, o) => graphql.playlist(id, o)],
+  track: [async (id, _o, over) => ({ tracks: await official.track(id, over), total: null, nextOffset: null })],
+  album: [(id, o, over) => official.album(id, o, over)],
+  artist: [async (id, o, over) => sliceWhole(await official.artist(id, over), o), async (id, o, over) => sliceWhole(await graphql.artist(id, over), o)],
+  playlist: [(id, o, over) => graphql.playlist(id, o, over)],
 };
 
-async function resolveType(type: string, id: string, options: Range): Promise<Part> {
+async function resolveType(type: string, id: string, options: Range, over: Partial<Net>): Promise<Part> {
   const empty: Part = { tracks: [], total: null, nextOffset: null };
   const chain = Object.hasOwn(ROUTES, type) ? ROUTES[type] : undefined;
   if (!chain) return empty;
   for (let i = 0; i < chain.length; i++) {
     const last = i === chain.length - 1;
     try {
-      const result = await chain[i](id, options);
+      const result = await chain[i](id, options, over);
       if (result.tracks.length || last) return result;
       // 빈 결과 + 폴백 남음 → 다음 시도
     } catch (e) {
@@ -410,10 +417,11 @@ async function resolveType(type: string, id: string, options: Range): Promise<Pa
 // ── 외부 계약 (sources/lookup 이 쓰는 것) ──
 
 // 여러 곡 출처는 필요한 구간만 받는다
-async function getCollection(url: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}): Promise<Part> {
+// over: 요청 함수 가짜(테스트). 생략하면 진짜
+async function getCollection(url: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
   const { type, id } = parseSpotifyURL(url);
   if (!type || !id) return { tracks: [], total: null, nextOffset: null };
-  const result = await resolveType(type, id, { offset, limit });
+  const result = await resolveType(type, id, { offset, limit }, over);
   const { tracks, total } = result;
   const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
   const range = total != null && total > tracks.length ? ` (전체 ${total}곡 중 ${offset + 1}번째부터)` : "";
@@ -435,10 +443,17 @@ async function search(query: string, limit = 1): Promise<SpotifyTrack[]> {
   }
 }
 
-// 테스트용 노출. 프로바이더는 요청 함수(_query/_get)를 바꿔 끼워 네트워크 없이 검증한다
+// 테스트 시임. 받아 둔 토큰과 익명 상태를 버린다(프로세스를 새로 띄운 것처럼)
+function _reset() {
+  official._token = null;
+  graphql._anonToken = null;
+  graphql._state = null;
+}
+
+// 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
-const exported = { getCollection, getFromURL, search, _internals };
+const exported = { getCollection, getFromURL, search, _reset, _internals };
 export default exported;
 export { exported as "module.exports" };
-export type { SpotifyTrack, Part };
+export type { SpotifyTrack, Part, Net };

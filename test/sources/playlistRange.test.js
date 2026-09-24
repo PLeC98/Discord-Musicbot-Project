@@ -21,12 +21,6 @@ const lookup = (await import("../../src/sources/lookup.ts")).default;
 
 const { graphql, official } = Spotify._internals;
 
-function swap(obj, key, fn) {
-  const real = obj[key];
-  obj[key] = fn;
-  return () => (obj[key] = real);
-}
-
 // ── 스포티파이 재생목록 (익명 GraphQL) ──
 
 function fakePlaylist(total, unavailable = new Set()) {
@@ -45,12 +39,7 @@ function fakePlaylist(total, unavailable = new Set()) {
 
 async function playlist(total, range, unavailable) {
   const fake = fakePlaylist(total, unavailable);
-  const restore = swap(graphql, "_query", fake.query);
-  try {
-    return { ...(await graphql.playlist("P", range)), calls: fake.calls };
-  } finally {
-    restore();
-  }
+  return { ...(await graphql.playlist("P", range, { query: fake.query })), calls: fake.calls };
 }
 
 test("스포티파이 재생목록: 요청한 만큼만 페이지를 나눠 받고 총 곡 수를 돌려준다", async () => {
@@ -103,15 +92,11 @@ async function album(range) {
     "/albums/A/tracks?offset=100&limit=50": { items: apiItems(100, 120), next: null },
   };
   const gets = [];
-  const restore = swap(official, "_get", async (p) => {
+  const get = async (p) => {
     gets.push(p);
     return pages[p];
-  });
-  try {
-    return { ...(await official.album("A", range)), gets };
-  } finally {
-    restore();
-  }
+  };
+  return { ...(await official.album("A", range, { get })), gets };
 }
 
 test("스포티파이 앨범: 앞부분은 앨범 응답에 딸린 곡부터, 모자라면 다음 페이지", async () => {
@@ -131,54 +116,45 @@ test("스포티파이 앨범: 중간부터는 그 위치의 곡 페이지를 바
 });
 
 test("스포티파이 인기곡: 통째로 받은 뒤 구간을 자른다", async () => {
-  const restore = swap(official, "_get", async () => ({ tracks: apiItems(0, 10) }));
-  try {
-    const r = await Spotify.getCollection("https://open.spotify.com/artist/X", { limit: 3 });
-    assert.equal(r.tracks.length, 3);
-    assert.equal(r.total, 10);
-  } finally {
-    restore();
-  }
+  const r = await Spotify.getCollection("https://open.spotify.com/artist/X", { limit: 3 }, { get: async () => ({ tracks: apiItems(0, 10) }) });
+  assert.equal(r.tracks.length, 3);
+  assert.equal(r.total, 10);
 });
 
 // ── 유튜브 재생목록 ──
 
 test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기준 다음 위치를 돌려준다", async () => {
-  const restores = [swap(YouTube, "getYtDlpOptions", (o) => o)];
-  try {
-    ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
-    const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3, exec });
-    assert.equal(ytCalls.at(-1).options.playlistItems, "51:53");
-    assert.equal(r.tracks.length, 2);
-    assert.equal(r.total, 98);
-    assert.equal(r.nextOffset, 53, "빈 항목도 원본 자리를 차지한다");
+  ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
+  const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3, exec });
+  assert.equal(ytCalls.at(-1).options.playlistItems, "51:53");
+  assert.equal(r.tracks.length, 2);
+  assert.equal(r.total, 98);
+  assert.equal(r.nextOffset, 53, "빈 항목도 원본 자리를 차지한다");
 
-    ytInfo = { title: "Mix", entries: [{ id: "a", title: "A" }] };
-    const mix = await YouTube.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa", { exec });
-    assert.equal(ytCalls.at(-1).options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 묶음만큼");
-    assert.equal(mix.total, null, "믹스는 끝이 없어 총 곡 수가 없다");
-  } finally {
-    restores.forEach((r) => r());
-  }
+  ytInfo = { title: "Mix", entries: [{ id: "a", title: "A" }] };
+  const mix = await YouTube.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa", { exec });
+  assert.equal(ytCalls.at(-1).options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 묶음만큼");
+  assert.equal(mix.total, null, "믹스는 끝이 없어 총 곡 수가 없다");
 });
 
 // ── 해석기 ──
 
 test("해석기는 구간을 어댑터에 넘기고 총 곡 수·다음 위치를 싣는다", async () => {
   const seen = [];
-  const restore = swap(Spotify, "getCollection", async (_url, range) => {
-    seen.push(range);
-    return { tracks: [{ title: "a" }], total: 9946, nextOffset: 1 };
-  });
-  try {
-    const r = await lookup.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 });
-    assert.deepEqual(seen[0], { offset: 0, limit: 7 });
-    assert.equal(r.total, 9946);
-    assert.equal(r.nextOffset, 1);
+  const sources = {
+    spotify: {
+      ...Spotify,
+      getCollection: async (_url, range) => {
+        seen.push(range);
+        return { tracks: [{ title: "a" }], total: 9946, nextOffset: 1 };
+      },
+    },
+  };
+  const r = await lookup.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 }, sources);
+  assert.deepEqual(seen[0], { offset: 0, limit: 7 });
+  assert.equal(r.total, 9946);
+  assert.equal(r.nextOffset, 1);
 
-    const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa");
-    assert.equal(single.total, null, "한 곡이면 총 곡 수가 없다");
-  } finally {
-    restore();
-  }
+  const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
+  assert.equal(single.total, null, "한 곡이면 총 곡 수가 없다");
 });
