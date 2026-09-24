@@ -1,7 +1,6 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.js).
 
-import { Events, MessageFlags } from "discord.js";
+import { Events, MessageFlags, type ActionRowBuilder, type StringSelectMenuBuilder } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as S from "../src/ui/strings.ts";
@@ -9,17 +8,21 @@ import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { continueCollection } from "../src/usecases/addTracks.ts";
 import * as More from "../src/usecases/playlistMore.ts";
+import type { ClientEvent } from "../src/app/main.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 
-const exported = {
+const exported: ClientEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     const isSelect = interaction.isStringSelectMenu() && interaction.customId.startsWith(`${More.SELECT_PREFIX}:`);
     const isModal = interaction.isModalSubmit() && interaction.customId.startsWith(`${More.MODAL_PREFIX}:`);
     if (!isSelect && !isModal) return;
+    if (!interaction.inCachedGuild()) return;
+    // 곡 수 입력 모달은 메뉴 메시지에서 연다(그 메시지를 고친다)
+    if (interaction.isModalSubmit() && !interaction.isFromMessage()) return;
 
-    const refuse = (text) => interaction.reply({ content: S.withErrorMark(text), flags: MessageFlags.Ephemeral }).catch(() => {});
+    const refuse = (text: string) => interaction.reply({ content: S.withErrorMark(text), flags: MessageFlags.Ephemeral }).catch(() => {});
 
     const state = More.decodeState(interaction.customId);
     if (!state) return refuse("알 수 없는 메뉴예요.");
@@ -44,7 +47,7 @@ const exported = {
     const player = interaction.client.players.get(interaction.guild.id);
     if (!player) return refuse(S.ERR_NO_MUSIC);
 
-    let count;
+    let count: number | null = null;
     if (isSelect) {
       const value = interaction.values[0];
       if (value === "custom") {
@@ -53,7 +56,7 @@ const exported = {
         return interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : More.MAX_COUNT, GuildSettingsManager.resolvePlaylistAddMax(interaction.guild.id)));
       }
       count = More.parseCount(value);
-    } else {
+    } else if (interaction.isModalSubmit()) {
       count = More.parseCount(interaction.fields.getTextInputValue("count"));
     }
     if (!count) return refuse("넣을 곡 수를 1 이상의 숫자로 적어 주세요.");
@@ -63,14 +66,14 @@ const exported = {
     await interaction.update({ content: "⏳ 곡을 가져오는 중…", components: [] });
 
     let lastEdit = 0;
-    const onProgress = (done, want) => {
+    const onProgress = (done: number, want: number) => {
       const now = Date.now();
       if (done >= want || now - lastEdit < PROGRESS_EVERY_MS) return;
       lastEdit = now;
       interaction.editReply({ content: `⏳ ${done}/${want}곡 가져오는 중…` }).catch(() => {});
     };
 
-    let payload;
+    let payload: { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[] };
     try {
       const result = await continueCollection(interaction.client, {
         guild: interaction.guild,

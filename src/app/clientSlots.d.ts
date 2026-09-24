@@ -14,7 +14,7 @@ declare module "discord.js" {
     players: PlayerRegistry;
     /** 재생 패널 */
     musicEmbedManager: MusicEmbedManager;
-    /** /search 결과. 메시지 id 로. 처음 검색할 때 만든다 */
-    searchResults?: Map<string, SearchRecord>;
+    /** /search 결과. 메시지 id 로 */
+    searchResults: Map<string, SearchRecord>;
   }
 }

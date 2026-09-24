@@ -37,6 +37,7 @@ function fakeInteraction({ type, customId, values = [], messageId = "m1", canMan
     memberPermissions: { has: (p) => canManage && p === PermissionFlagsBits.ManageGuild },
     isRoleSelectMenu: () => type === "select",
     isButton: () => type === "button",
+    inCachedGuild: () => true,
     replied: null,
     updated: null,
     deferred: false,

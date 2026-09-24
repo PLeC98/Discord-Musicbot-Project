@@ -1,13 +1,13 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import * as SponsorBlock from "../src/sources/sponsorBlock.ts";
 import config from "../config.ts";
+import type { ClientEvent } from "../src/app/main.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
 
-const LABELS = {
+const LABELS: Record<string, string> = {
   music_offtopic: "비음악 구간",
   intro: "인트로/인터미션",
   outro: "아웃트로/엔드카드",
@@ -19,7 +19,9 @@ const LABELS = {
   filler: "잡담/농담",
 };
 
-const pending = new Map(); // messageId → { enabled, categories, at }
+/** 저장 전의 설정. 셀렉트 · 토글이 고치고 저장 버튼이 읽는다 */
+type Draft = { enabled: boolean; categories: string[] };
+const pending = new Map<string, Draft & { at: number }>(); // messageId → { enabled, categories, at }
 const PENDING_TTL_MS = 15 * 60 * 1000;
 
 function sweepPending() {
@@ -29,7 +31,7 @@ function sweepPending() {
   }
 }
 
-function buildSponsorConfigMessage({ enabled, categories }) {
+function buildSponsorConfigMessage({ enabled, categories }: Draft) {
   const cats = new Set(categories);
   const lines = [config.sponsorblock.enabled ? "" : "⚠️ 봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 설정은 적용되지 않습니다.", `현재: ${enabled ? "**사용**" : "**미사용**"}`, "", "건너뛸 구간 종류를 아래에서 고르고 **저장**을 누르세요. 사용 여부는 버튼으로 토글합니다."].filter((l) => l !== "");
 
@@ -42,7 +44,7 @@ function buildSponsorConfigMessage({ enabled, categories }) {
     .setMaxValues(SponsorBlock.SKIP_CATEGORIES.length)
     .addOptions(SponsorBlock.SKIP_CATEGORIES.map((id) => ({ label: LABELS[id] || id, value: id, default: cats.has(id) })));
 
-  const buttons = new ActionRowBuilder().addComponents(
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId("sb:toggle")
       .setLabel(enabled ? "사용 중 (끄기)" : "미사용 (켜기)")
@@ -51,22 +53,21 @@ function buildSponsorConfigMessage({ enabled, categories }) {
     new ButtonBuilder().setCustomId("sb:cancel").setLabel("취소").setStyle(ButtonStyle.Secondary),
   );
 
-  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(select), buttons] };
+  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select), buttons] };
 }
 
-function registerPending(messageId, state) {
+function registerPending(messageId: string, state: Draft) {
   pending.set(messageId, { enabled: state.enabled, categories: [...state.categories], at: Date.now() });
 }
 
-const exported = {
+const exported: ClientEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
-  buildSponsorConfigMessage,
-  registerPending,
 
   async execute(interaction) {
     const isSelect = interaction.isStringSelectMenu() && interaction.customId === "sb:cats";
     const isButton = interaction.isButton() && interaction.customId.startsWith("sb:");
     if (!isSelect && !isButton) return;
+    if (!interaction.inCachedGuild()) return;
 
     sweepPending();
 
@@ -122,3 +123,4 @@ const exported = {
 };
 export default exported;
 export { exported as "module.exports" };
+export { buildSponsorConfigMessage, registerPending };

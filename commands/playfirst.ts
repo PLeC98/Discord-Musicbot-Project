@@ -65,7 +65,7 @@ const exported: GuildCommand = {
           flags: MessageFlags.IsComponentsV2,
         });
       }
-      if (result.more && result.player) await offerOnInteraction(interaction, result.more, result.player);
+      if (result.more) await offerOnInteraction(interaction, result.more, result.player);
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, "playfirst.execute");
 

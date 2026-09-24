@@ -5,13 +5,14 @@ import assert from "node:assert/strict";
 import { Events } from "discord.js";
 import slashCommand from "../../events/slashCommand.ts";
 
-function interaction({ name = "play", chat = true, commands = {}, replied = false } = {}) {
+function interaction({ name = "play", chat = true, commands = {}, replied = false, guild = true } = {}) {
   const sent = [];
   const it = {
     commandName: name,
     replied,
     deferred: false,
     isChatInputCommand: () => chat,
+    inCachedGuild: () => guild,
     reply: async (p) => sent.push(["reply", p]),
     followUp: async (p) => sent.push(["followUp", p]),
     client: { commands: new Map(Object.entries(commands)) },
@@ -46,6 +47,22 @@ test("명령을 상호작용과 클라이언트로 부른다", async () => {
   const { it } = interaction({ commands: { play: { execute: async (i, c) => seen.push([i, c]) } } });
   await slashCommand.execute(it);
   assert.deepEqual(seen, [[it, it.client]]);
+});
+
+test("서버 밖(DM)에서는 서버 명령을 부르지 않고 그렇다고 알린다", async () => {
+  const seen = [];
+  const { it, sent } = interaction({ guild: false, commands: { play: { execute: async () => seen.push("ran") } } });
+  await slashCommand.execute(it);
+  assert.deepEqual(seen, []);
+  assert.deepEqual(sent, [["reply", { content: "❌ 서버에서만 쓸 수 있는 명령이에요.", flags: [64] }]]);
+});
+
+test("DM 에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", async () => {
+  const seen = [];
+  const { it, sent } = interaction({ name: "ping", guild: false, commands: { ping: { anywhere: true, execute: async () => seen.push("ran") } } });
+  await slashCommand.execute(it);
+  assert.deepEqual(seen, ["ran"]);
+  assert.deepEqual(sent, []);
 });
 
 test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으면 이어서 보낸다", async () => {

@@ -115,10 +115,11 @@ type PlaybackRequest = {
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
 /** 곡 담기 결과. 실패면 message 가 안내, 목록이 더 남았으면 이어 받을 상태(more) */
-type PlaybackResult = AddResult & { isPlaylist?: boolean; tracks?: TrackInfo[]; player?: MusicPlayer; more?: (More & { batch: number }) | null };
+type PlaybackResult = { success: false; message: string; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: MusicPlayer; more: (More & { batch: number }) | null });
 
 /** 이어 넣은 결과. 넣은 수 · 목록의 남은 곡과 다음 위치(next) */
-type CollectionResult = PlaybackResult & { added?: number; total?: number | null; remaining?: number; next?: (More & { batch: number }) | null };
+type Continued = { added: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
+type CollectionResult = { success: false; message: string } | (PlaybackResult & Continued);
 
 /** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡 */
 type Found = { isPlaylist: boolean; collection?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; queueLimited?: boolean };
@@ -264,4 +265,4 @@ async function continueCollection(client: Client, { guild, requester, state, cou
 
 export { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup };
 export const _internals = { resolveFallbackTextChannel };
-export type { PlaybackRequest, RequesterSource, Lookup };
+export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult };

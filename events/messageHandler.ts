@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { Events, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
@@ -9,13 +8,14 @@ import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import { offerOnChannel } from "../src/usecases/playlistMore.ts";
 import * as S from "../src/ui/strings.ts";
+import type { ClientEvent } from "../src/app/main.ts";
 
-const exported = {
+const exported: ClientEvent<Events.MessageCreate> = {
   name: Events.MessageCreate,
 
   async execute(message) {
     if (message.author.bot) return;
-    if (!message.guild) return;
+    if (!message.inGuild()) return;
 
     const guildId = message.guild.id;
     const content = message.content.trim();
@@ -27,6 +27,7 @@ const exported = {
 
     const client = message.client;
     const member = message.member;
+    if (!member) return; // 서버 메시지인데 멤버가 없다(웹훅 등)
 
     // 곡 추가 권한: 봇 동작 중에는 재적 규칙(모더레이터 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);

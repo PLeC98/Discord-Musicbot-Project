@@ -14,7 +14,7 @@ import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "di
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
 import type { Collection, LookupResult, Range } from "../../src/sources/lookup.ts";
-import type { Lookup, PlaybackRequest } from "../../src/usecases/addTracks.ts";
+import type { CollectionResult, Lookup, PlaybackRequest } from "../../src/usecases/addTracks.ts";
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import type { Responder, TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
@@ -500,6 +500,12 @@ async function continueWith({ state, count, size = 300, shift = 0, queued = 0 }:
   return { result, progress, added: client.embedCalls[0]?.trackData };
 }
 
+// 이어 넣은 결과(넣은 수 · 다음 위치). 넣기 전에 거절됐으면 실패
+function continued(r: CollectionResult) {
+  if (!("added" in r)) assert.fail(`거절됨: ${r.message}`);
+  return r;
+}
+
 const addedTitles = (trackData: TrackData | undefined) => trackData?.tracks.map((t) => t.title) ?? [];
 
 test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡을 넘겨준다", () =>
@@ -508,8 +514,9 @@ test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡�
     assert.deepEqual(collectionCalls[0].range, { offset: 45, limit: 55 }, "앵커를 찾으려고 앞으로 더 받는다");
     assert.deepEqual(addedTitles(added).slice(0, 2), ["s50", "s51"]);
     assert.equal(added?.tracks.length, 50);
-    assert.equal(result.added, 50);
-    assert.deepEqual({ offset: result.next?.offset, anchorId: result.next?.anchorId, remaining: result.next?.remaining }, { offset: 100, anchorId: idOf(99), remaining: 200 });
+    const done = continued(result);
+    assert.equal(done.added, 50);
+    assert.deepEqual({ offset: done.next?.offset, anchorId: done.next?.anchorId, remaining: done.next?.remaining }, { offset: 100, anchorId: idOf(99), remaining: 200 });
   }));
 
 test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준다 — 빠지거나 겹치는 곡이 없다", () =>
@@ -547,15 +554,15 @@ test("이어 넣기: 목록 끝이면 넣을 수 있는 만큼 넣고 다음 상
   withLimits(250, 50, async () => {
     const { result, added } = await continueWith({ state: stateAt(50), count: 50, size: 80 });
     assert.equal(added?.tracks.length, 30);
-    assert.equal(result.next, null);
-    assert.equal(result.remaining, 0);
+    assert.equal(continued(result).next, null);
+    assert.equal(continued(result).remaining, 0);
   }));
 
 test("이어 넣기: 맨 앞에 넣었던 목록은 앵커 곡 바로 뒤에 넣게 한다", () =>
   withLimits(250, 50, async () => {
     const front = await continueWith({ state: stateAt(50, { insertFirst: true }), count: 10 });
     assert.equal(front.added?.insertAfterId, idOf(49));
-    assert.equal(front.result.next?.insertFirst, true, "다음 묶음도 같은 자리 규칙을 잇는다");
+    assert.equal(continued(front.result).next?.insertFirst, true, "다음 묶음도 같은 자리 규칙을 잇는다");
 
     const back = await continueWith({ state: stateAt(50), count: 10 });
     assert.equal(back.added?.insertAfterId, undefined);

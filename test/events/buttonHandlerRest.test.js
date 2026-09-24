@@ -97,6 +97,7 @@ function press(w, customId, extra = {}) {
     replied: false,
     deferred: false,
     isButton: () => true,
+    inCachedGuild: () => true,
     reply: async (p) => {
       it.replied = true;
       log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title ?? "(메뉴)"]);

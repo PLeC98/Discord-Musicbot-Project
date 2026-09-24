@@ -143,6 +143,7 @@ function message(w, { content = "노래 제목", channelId = "bot-channel", bot 
     id: "user-msg",
     author: { bot },
     guild: w.guild,
+    inGuild: () => Boolean(w.guild),
     member: w.member,
     client: w.client,
     channel: ch,
@@ -315,6 +316,8 @@ function moreInteraction(w, { select = null, modalCount = null, customState = st
     message: { id: `menu-${Math.random()}`, createdTimestamp: touched, editedTimestamp: null },
     isStringSelectMenu: () => isSelect,
     isModalSubmit: () => !isSelect,
+    isFromMessage: () => true,
+    inCachedGuild: () => true,
     reply: async (p) => log.push(["reply", p.content]),
     deferUpdate: async () => log.push(["deferUpdate"]),
     deleteReply: async () => log.push(["deleteReply"]),
@@ -413,6 +416,8 @@ function menu(w, { customId, values = [], volume = null, select = true } = {}) {
     fields: { getTextInputValue: () => volume },
     isStringSelectMenu: () => select,
     isModalSubmit: () => !select,
+    isFromMessage: () => true,
+    inCachedGuild: () => true,
     reply: async (p) => {
       it.replied = true;
       log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title]);
@@ -460,7 +465,7 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   await modalHandler.execute(ok.it);
   assert.deepEqual(w.seen, ["volume:35"]);
   assert.deepEqual(ok.log, [["reply", "🔊 볼륨이 변경되었습니다"]]);
-  assert.equal(modalHandler.createVolumeBar(35), "`▓▓▓▓▓▓▓░░░░░░░░░░░░░` 35%");
+  assert.equal((await import("../../events/modalHandler.ts")).createVolumeBar(35), "`▓▓▓▓▓▓▓░░░░░░░░░░░░░` 35%");
 
   for (const bad of ["abc", "101", "-1"]) {
     const r = menu(world(), { customId: "volume_modal", volume: bad, select: false });

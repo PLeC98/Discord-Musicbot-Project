@@ -40,6 +40,8 @@ type PotServer = ReturnType<typeof createPotServer>;
 type LogFile = ReturnType<typeof createFileDestination>;
 /** 이벤트 모듈. 디스코드 이벤트 이름과 실행 */
 type EventModule = { name: keyof ClientEvents; once?: boolean; execute(...args: unknown[]): unknown };
+/** 이벤트 모듈을 쓸 때의 모양. 이름의 이벤트 인자로 부른다 */
+type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(...args: ClientEvents[K]): unknown };
 const isEvent = (module: unknown): module is EventModule => typeof module === "object" && module !== null && "name" in module && "execute" in module;
 const ROOT = path.join(import.meta.dirname, "..", "..");
 
@@ -84,6 +86,7 @@ function startBot({ potServer, logFile }: { potServer: PotServer; logFile: LogFi
   });
   client.commands = new Collection();
   client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
+  client.searchResults = new Map();
   client.musicEmbedManager = new MusicEmbedManager(client);
   const stream = createPlayerStream();
   startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
@@ -223,3 +226,4 @@ async function loadEvents(client: Client) {
 }
 
 export { main };
+export type { ClientEvent };

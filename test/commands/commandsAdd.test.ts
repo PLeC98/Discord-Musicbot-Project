@@ -95,7 +95,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     createNewMusicEmbed: async (_p: unknown, track: { title: string }, who: Requester | null, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, who: who?.username, opts }),
     deleteWebhookCache: () => {},
   };
-  const client = fakeWith<Client<true>>()({ players: new Map<string, MusicPlayer>(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
+  const client = fakeWith<Client<true>>()({ players: new Map<string, MusicPlayer>(), searchResults: new Map(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
   Object.assign(guild, { client });
   // 이미 있는 플레이어(가짜). 시험이 칸을 바꿔 본다
   const existing = fakePlayer({
@@ -290,7 +290,7 @@ test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 달고, 결과�
   ]);
   const ids = payload.components.flatMap((row) => row.components.map((b) => b.data.custom_id));
   assert.deepEqual(ids, ["search_select_0", "search_select_1", "search_select_2", "search_select_3", "search_cancel", "search_select_4", "search_select_5"]);
-  const saved = w.client.searchResults?.get("edited-msg");
+  const saved = w.client.searchResults.get("edited-msg");
   assert.ok(saved, "검색 결과를 기억한다");
   assert.equal(saved.userId, USER);
   assert.equal(saved.results.length, 6);

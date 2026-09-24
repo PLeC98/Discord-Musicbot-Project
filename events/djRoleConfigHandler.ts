@@ -1,11 +1,11 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
+import type { ClientEvent } from "../src/app/main.ts";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
 // 드롭메뉴 선택값은 셀렉트 인터랙션으로만 오므로, 저장 버튼이 읽을 수 있게
 // 메시지 ID 기준으로 보류 중 선택을 잠시 들고 있는다. (에페메랄이라 호출자만 조작 가능)
-const pending = new Map(); // messageId → { roleIds: string[], at: number }
+const pending = new Map<string, { roleIds: string[]; at: number }>(); // messageId → { roleIds, at }
 const PENDING_TTL_MS = 15 * 60 * 1000;
 
 function sweepPending() {
@@ -15,12 +15,13 @@ function sweepPending() {
   }
 }
 
-const exported = {
+const exported: ClientEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     const isSelect = interaction.isRoleSelectMenu() && interaction.customId === "djrole:select";
     const isButton = interaction.isButton() && interaction.customId.startsWith("djrole:");
     if (!isSelect && !isButton) return;
+    if (!interaction.inCachedGuild()) return;
 
     sweepPending();
 

@@ -127,6 +127,7 @@ function fakeInteraction({ customId = null, options = {} } = {}) {
     customId,
     channel: {},
     isButton: () => true,
+    inCachedGuild: () => true,
     options: { getString: (n) => options[n] ?? null, getInteger: (n) => options[n] ?? null },
     reply: async () => {
       it.replied = true;

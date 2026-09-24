@@ -5,8 +5,8 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { showSearchMenu } from "../../commands/search.ts";
-import buttonHandler from "../../events/buttonHandler.ts";
-import type { ChatInputCommandInteraction, Client } from "discord.js";
+import { handleSearchInteraction } from "../../events/buttonHandler.ts";
+import type { ButtonInteraction, ChatInputCommandInteraction, Client } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
@@ -20,6 +20,7 @@ function makeClient() {
   return fakeWith<Client<true>>()({
     embedCalls,
     players: new Map<string, MusicPlayer>(),
+    searchResults: new Map(),
     musicEmbedManager: {
       async handleMusicData(guildId: string, trackData: TrackData, member: unknown, interaction: unknown) {
         embedCalls.push({ guildId, trackData, member, interaction });
@@ -38,6 +39,9 @@ function makeSearchInteraction(client: TestClient, { userId = "u1", messageId }:
     editReply: async () => ({ id: messageId }),
   });
 }
+
+// 가짜 버튼 상호작용을 진짜 타입으로
+const asPress = (interaction: object) => fake<ButtonInteraction<"cached">>(interaction);
 
 // 응답 · 갱신한 것. 여기서 보는 칸만
 type Payload = { content?: string };
@@ -87,16 +91,16 @@ test("재검색해도 각 메시지의 버튼은 자기 검색 결과를 선택 
   const client = makeClient();
   const { trackA, trackB } = await seedTwoSearches(client, t);
 
-  assert.equal(client.searchResults?.size, 2, "두 검색이 독립 레코드로 공존");
+  assert.equal(client.searchResults.size, 2, "두 검색이 독립 레코드로 공존");
 
   // 첫 검색 메시지의 1번 버튼 — 구 코드라면 최신(두 번째) 결과가 선택됐음
-  await buttonHandler.handleSearchInteraction(makeButtonInteraction(client, { messageId: "m1", customId: "search_select_0" }), client);
+  await handleSearchInteraction(asPress(makeButtonInteraction(client, { messageId: "m1", customId: "search_select_0" })), client);
   assert.equal(client.embedCalls.length, 1);
   assert.equal(client.embedCalls[0].trackData.tracks[0], trackA);
-  assert.equal(client.searchResults?.has("m1"), false, "선택된 검색의 레코드는 정리됨");
+  assert.equal(client.searchResults.has("m1"), false, "선택된 검색의 레코드는 정리됨");
 
   // 두 번째 검색 메시지는 여전히 유효
-  await buttonHandler.handleSearchInteraction(makeButtonInteraction(client, { messageId: "m2", customId: "search_select_0" }), client);
+  await handleSearchInteraction(asPress(makeButtonInteraction(client, { messageId: "m2", customId: "search_select_0" })), client);
   assert.equal(client.embedCalls[1].trackData.tracks[0], trackB);
 });
 
@@ -105,8 +109,8 @@ test("만료 타이머는 자기 검색 레코드만 삭제 (조기 삭제 회�
   await seedTwoSearches(client, t);
 
   t.mock.timers.tick(5 * 60 * 1000 - 1000); // 첫 검색만 만료 — 구 코드라면 같은 사용자 키를 지워 최신 검색도 사라졌음
-  assert.equal(client.searchResults?.has("m1"), false);
-  assert.equal(client.searchResults?.has("m2"), true, "최신 검색은 이전 검색의 타이머에 영향받지 않음");
+  assert.equal(client.searchResults.has("m1"), false);
+  assert.equal(client.searchResults.has("m2"), true, "최신 검색은 이전 검색의 타이머에 영향받지 않음");
 });
 
 test("검색 요청자가 아닌 사용자는 선택 불가", async (t) => {
@@ -114,11 +118,11 @@ test("검색 요청자가 아닌 사용자는 선택 불가", async (t) => {
   await seedTwoSearches(client, t);
 
   const interaction = makeButtonInteraction(client, { messageId: "m1", userId: "u2", customId: "search_select_0" });
-  await buttonHandler.handleSearchInteraction(interaction, client);
+  await handleSearchInteraction(asPress(interaction), client);
 
   assert.equal(client.embedCalls.length, 0);
   assert.equal(interaction.replies.length, 1, "요청자 아님 안내 응답");
-  assert.equal(client.searchResults?.has("m1"), true, "레코드는 유지 — 요청자는 계속 사용 가능");
+  assert.equal(client.searchResults.has("m1"), true, "레코드는 유지 — 요청자는 계속 사용 가능");
 });
 
 test("취소 버튼은 레코드를 삭제하고 메시지를 갱신", async (t) => {
@@ -126,9 +130,9 @@ test("취소 버튼은 레코드를 삭제하고 메시지를 갱신", async (t)
   await seedTwoSearches(client, t);
 
   const interaction = makeButtonInteraction(client, { messageId: "m1", customId: "search_cancel" });
-  await buttonHandler.handleSearchInteraction(interaction, client);
+  await handleSearchInteraction(asPress(interaction), client);
 
-  assert.equal(client.searchResults?.has("m1"), false);
+  assert.equal(client.searchResults.has("m1"), false);
   assert.equal(interaction.updates.length, 1, "취소 임베드로 갱신");
   assert.equal(client.embedCalls.length, 0);
 });
@@ -138,7 +142,7 @@ test("만료/모르는 메시지의 버튼은 재검색 안내", async (t) => {
   await seedTwoSearches(client, t);
 
   const interaction = makeButtonInteraction(client, { messageId: "m-없음", customId: "search_select_0" });
-  await buttonHandler.handleSearchInteraction(interaction, client);
+  await handleSearchInteraction(asPress(interaction), client);
 
   assert.equal(client.embedCalls.length, 0);
   assert.equal(interaction.replies.length, 1);
