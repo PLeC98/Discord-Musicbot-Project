@@ -1,22 +1,25 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/trackState.ts — 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as trackState from "../../src/player/trackState.ts";
+import type { Tracks, TrackSink } from "../../src/player/trackState.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fake } from "../helpers/fake.ts";
 
-const t = (title) => ({ title });
-const titles = (arr) => arr.map((x) => x.title);
+// 곡 가짜. 요청 열쇠는 비워 둔다(큐 반복의 사본 찾기가 열쇠를 볼 때만 준다)
+const t = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: "", requestKey: "", ...extra });
+const titles = (arr: QueuedTrack[]) => arr.map((x) => x.title);
 
-function make({ current = null, queue = [], history = [] } = {}) {
-  const p = {};
+function make({ current = null, queue = [], history = [] }: { current?: QueuedTrack | null; queue?: QueuedTrack[]; history?: QueuedTrack[] } = {}) {
+  const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
   trackState.restore(p, { current, queue: [...queue], history: [...history] });
   return p;
 }
 
 test("init: 비어 있다", () => {
-  const p = {};
+  const p = fake<Pick<Tracks, "currentTrack" | "queue" | "previousTracks">>({}); // init 이 칸을 채운다
   trackState.init(p);
   assert.deepEqual(p, { currentTrack: null, queue: [], previousTracks: [] });
 });
@@ -37,7 +40,7 @@ test("enqueue: 뒤에 붙이거나 앞에 넣는다", () => {
 });
 
 test("insertAfter: 앵커 곡 바로 뒤에, 그 곡이 없으면 맨 앞에", () => {
-  const p = make({ current: t("X"), queue: ["a", "b", "c"].map((id) => ({ title: id.toUpperCase(), id })) });
+  const p = make({ current: t("X"), queue: ["a", "b", "c"].map((id) => t(id.toUpperCase(), { id })) });
   trackState.insertAfter(p, "b", [t("N1"), t("N2")]);
   assert.deepEqual(titles(p.queue), ["A", "B", "N1", "N2", "C"]);
 
@@ -47,12 +50,12 @@ test("insertAfter: 앵커 곡 바로 뒤에, 그 곡이 없으면 맨 앞에", (
 
 test("shiftNext: 맨 앞을 현재곡으로, 비었으면 현재곡을 건드리지 않는다", () => {
   const p = make({ queue: [t("A"), t("B")] });
-  assert.equal(trackState.shiftNext(p).title, "A");
+  assert.equal(trackState.shiftNext(p)?.title, "A");
   assert.deepEqual(titles(p.queue), ["B"]);
 
   const empty = make({ current: t("Z") });
   assert.equal(trackState.shiftNext(empty), null);
-  assert.equal(empty.currentTrack.title, "Z");
+  assert.equal(empty.currentTrack?.title, "Z");
 });
 
 test("retire: 기록에 남기고, 큐 반복이면 대기열 끝으로 — 현재곡은 그대로", () => {
@@ -73,7 +76,7 @@ test("retire: 기록은 상한을 넘으면 가장 오래된 것부터 버린다
 
 test("rewind: 이전 곡을 맨 앞에, 중단된 현재곡을 그 뒤에 둔다", () => {
   const p = make({ current: t("C"), queue: [t("D")], history: [t("A"), t("B")] });
-  assert.equal(trackState.rewind(p).title, "B");
+  assert.equal(trackState.rewind(p)?.title, "B");
   assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
   assert.deepEqual(titles(p.previousTracks), ["A"]);
 
@@ -88,14 +91,14 @@ test("removeAt·move: 범위 밖이면 null이고 아무것도 바꾸지 않는�
   assert.equal(trackState.move(p, 0, 3), null);
   assert.deepEqual(titles(p.queue), ["A", "B", "C"]);
 
-  assert.equal(trackState.move(p, 0, 2).title, "A");
+  assert.equal(trackState.move(p, 0, 2)?.title, "A");
   assert.deepEqual(titles(p.queue), ["B", "C", "A"]);
-  assert.equal(trackState.removeAt(p, 1).title, "C");
+  assert.equal(trackState.removeAt(p, 1)?.title, "C");
   assert.deepEqual(titles(p.queue), ["B", "A"]);
 });
 
 test("shuffle: 구성원은 그대로다", () => {
-  const p = make({ queue: ["A", "B", "C", "D", "E"].map(t) });
+  const p = make({ queue: ["A", "B", "C", "D", "E"].map((title) => t(title)) });
   trackState.shuffle(p);
   assert.deepEqual(titles(p.queue).sort(), ["A", "B", "C", "D", "E"]);
 });
@@ -104,7 +107,7 @@ test("clearQueue: 비운 개수를 돌려주고 현재곡·기록은 남긴다",
   const p = make({ current: t("X"), queue: [t("A"), t("B")], history: [t("H")] });
   assert.equal(trackState.clearQueue(p), 2);
   assert.deepEqual(p.queue, []);
-  assert.equal(p.currentTrack.title, "X");
+  assert.equal(p.currentTrack?.title, "X");
   assert.equal(p.previousTracks.length, 1);
 });
 
@@ -124,27 +127,28 @@ test("restore: 기록이 상한보다 길면 최근 것만 남긴다", () => {
   const history = Array.from({ length: trackState.HISTORY_MAX + 5 }, (_, i) => t(`h${i}`));
   const p = make({ current: t("X"), queue: [t("A")], history });
   assert.equal(p.previousTracks.length, trackState.HISTORY_MAX);
-  assert.equal(p.previousTracks.at(-1).title, `h${trackState.HISTORY_MAX + 4}`);
+  assert.equal(p.previousTracks.at(-1)?.title, `h${trackState.HISTORY_MAX + 4}`);
 });
 
 test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라가는 통로", () => {
-  const calls = [];
-  const brief = (a) => (Array.isArray(a) ? titles(a) : (a?.title ?? a));
+  const calls: unknown[][] = [];
+  const brief = (a: unknown) => (Array.isArray(a) ? titles(a) : ((a as QueuedTrack | null)?.title ?? a));
   const sink = new Proxy(
     {},
     {
       get:
         (_, name) =>
-        (...args) =>
+        (...args: unknown[]) =>
           calls.push([name, ...args.map(brief)]),
     },
   );
   const p = make({ current: t("X"), queue: [t("A"), t("B"), t("C")], history: [t("H")] });
-  p.trackSink = sink;
+  p.trackSink = fake<TrackSink>(sink); // 부른 이름을 다 적는다
 
   trackState.enqueue(p, [t("D")]);
   trackState.enqueue(p, [t("E")], { front: true });
   trackState.shiftNext(p);
+  assert.ok(p.currentTrack);
   trackState.retire(p, p.currentTrack, { requeue: true });
   trackState.removeAt(p, 99);
   trackState.removeAt(p, 0);
@@ -160,7 +164,7 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "E", 3, "E"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });
 
-const song = (title) => ({ title, requestKey: `https://y/${title}` });
+const song = (title: string) => t(title, { requestKey: `https://y/${title}` });
 
 test("rewind: 큐 반복으로 대기열 끝에 들어간 사본은 빼고 앞으로 가져온다 — 곡 수가 그대로다", () => {
   const A = song("A");

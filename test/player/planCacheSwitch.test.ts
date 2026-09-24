@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/Player.ts `_planCacheSwitch` — 스트림이 죽었을 때 캐시로 무이음 전환을 예약하는 판정
 //
 // 예약하지 '않아야' 하는 경우가 핵심이다. 잘못 예약하면 엉뚱한 곡·엉뚱한 위치로 갈아타거나,
@@ -15,6 +14,9 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { MusicPlayer } from "../../src/player/Player.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fakePlayer as asPlayer } from "../helpers/fake.ts";
+import tracks from "../helpers/tracks.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
 const realDir = audioCache.cacheDir();
@@ -27,14 +29,14 @@ after(() => {
 const planCacheSwitch = MusicPlayer.prototype._planCacheSwitch;
 
 function fakeSplicer({ destroyed = false, switchPending = false, emittedMs = 5000 } = {}) {
-  const calls = [];
+  const calls: Array<{ next: { destroy?(): void }; atMs: number }> = [];
   return {
     destroyed,
     switchPending,
     emittedMs,
     slips: 0,
     calls,
-    planSwitch(next, atMs) {
+    planSwitch(next: { destroy?(): void }, atMs: number) {
       calls.push({ next, atMs });
       this.switchPending = true;
       return true;
@@ -46,20 +48,20 @@ function fakeSplicer({ destroyed = false, switchPending = false, emittedMs = 500
 // 캐시 파일을 여는 디코더(ffmpeg)는 띄우지 않는다. 출력 자리만 있는 가짜
 const fakeFfmpeg = () => ({ stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true, once() {}, on() {} });
 
-function fakePlayer({ track, startOffsetMs = 0 } = {}) {
-  return {
+function fakePlayer({ track, startOffsetMs = 0 }: { track?: QueuedTrack; startOffsetMs?: number } = {}) {
+  return asPlayer({
     currentTrack: track,
     playback: { startOffsetMs },
     io: { spawnFfmpeg: fakeFfmpeg },
     _trackLabel: MusicPlayer.prototype._trackLabel,
-  };
+  });
 }
 
-const TRACK = { title: "곡", audioUrl: "https://www.youtube.com/watch?v=pcspcspcs01", duration: 200, platform: "youtube" };
+const TRACK = tracks.youtube("pcspcspcs01", { title: "곡", duration: 200 });
 const cacheFile = audioCache.getFilePath("yt:pcspcspcs01");
 
 // 이 곡의 캐시 파일을 둔다. null 이면 없앤다
-function cacheAs(content) {
+function cacheAs(content: string | Buffer | null) {
   fs.rmSync(cacheFile, { force: true });
   if (content != null) fs.writeFileSync(cacheFile, content);
 }

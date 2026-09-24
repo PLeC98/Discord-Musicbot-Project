@@ -89,6 +89,8 @@ const REAL = {
   sponsorFor: (track: QueuedTrack, guildId: string) => SponsorBlock.forTrack(track, guildId),
 };
 type Boundary = typeof REAL;
+/** 무이음 전환에서 스플라이서에게 묻고 부르는 칸 */
+type Switchable = Pick<AudioSplicer, "destroyed" | "switchPending" | "emittedMs" | "slips" | "planSwitch"> & { once(event: "switched", listener: (ms: number) => void): unknown };
 let defaultBoundary: Boundary = REAL;
 
 class MusicPlayer {
@@ -392,7 +394,7 @@ class MusicPlayer {
    * 스트림이 죽었을 때 캐시 파일로 소리 없이 갈아탄다. 예약했으면 true.
    * 캐시가 아직 없으면 하지 않는다. 스트림이 이어받거나, Idle → play(위치)가 받는다.
    */
-  _planCacheSwitch(splicer: AudioSplicer, track: QueuedTrack) {
+  _planCacheSwitch(splicer: Switchable | null, track: QueuedTrack) {
     const giveUp = (why: string) => {
       wlog.debug(`무지연 전환 포기: ${this._trackLabel()} | ${why}`);
       return false;

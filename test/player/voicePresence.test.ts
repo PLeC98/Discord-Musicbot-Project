@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/voicePresence.ts — 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음).
 // 가짜 서버 · 플레이어로 무엇을 불렀는지만 본다.
 
@@ -6,41 +5,50 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { onVoiceStateUpdate } from "../../src/player/voicePresence.ts";
 import * as playerEvents from "../../src/player/events.ts";
+import type { Client, Guild, VoiceState } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
+import tracks from "../helpers/tracks.ts";
 
 const BOT = "bot1";
 
-function setup({ humans = 1, channelExists = true, paused = [], currentTrack = { title: "곡" } } = {}) {
-  const calls = [];
-  const members = new Map([[BOT, { user: { bot: true } }]]);
-  for (let i = 0; i < humans; i++) members.set(`u${i}`, { user: { bot: false } });
-  members.filter = (fn) => ({ size: [...members.values()].filter(fn).length });
-  const channels = new Map(channelExists ? [["vc1", { id: "vc1", members, isVoiceBased: () => true }]] : []);
-  const guild = { id: "g1", members: { me: { id: BOT } }, channels: { cache: channels } };
+type Member = { user: { bot: boolean } };
 
-  const player = {
+type Options = { humans?: number; channelExists?: boolean; paused?: string[]; currentTrack?: QueuedTrack | null };
+
+function setup({ humans = 1, channelExists = true, paused = [], currentTrack = tracks.youtube("aaaaaaaaaaa", { title: "곡" }) }: Options = {}) {
+  const calls: string[] = [];
+  const pool = new Map<string, Member>([[BOT, { user: { bot: true } }]]);
+  for (let i = 0; i < humans; i++) pool.set(`u${i}`, { user: { bot: false } });
+  const members = Object.assign(pool, { filter: (fn: (member: Member) => boolean) => ({ size: [...pool.values()].filter(fn).length }) });
+  const channels = new Map(channelExists ? [["vc1", { id: "vc1", members, isVoiceBased: () => true }]] : []);
+  const guild = fake<Guild>({ id: "g1", members: { me: { id: BOT } }, channels: { cache: channels } });
+
+  const player = fakePlayer({
     voiceChannel: { id: "vc1" },
     currentTrack,
-    queue: [{ title: "다음" }],
+    queue: [tracks.youtube("bbbbbbbbbbb", { title: "다음" })],
     pauseReasons: new Set(paused),
     pendingEndReason: null,
-    cleanup: (reason) => calls.push(`cleanup:${reason}`),
-    voice: { followMove: (from, ch) => calls.push(`move:${from}->${ch.id}`) },
-    pauseFor: (r) => (calls.push(`pause:${r}`), true),
-    resumeFor: (r) => (calls.push(`resume:${r}`), true),
+    cleanup: (reason: string) => calls.push(`cleanup:${reason}`),
+    voice: { followMove: (from: string, ch: { id: string }) => calls.push(`move:${from}->${ch.id}`) },
+    pauseFor: (r: string) => (calls.push(`pause:${r}`), true),
+    resumeFor: (r: string) => (calls.push(`resume:${r}`), true),
     idle: {
       startAlone: () => calls.push("startAlone"),
-      cancelAlone: (resume) => calls.push(`cancelAlone:${resume}`),
+      cancelAlone: (resume: boolean) => calls.push(`cancelAlone:${resume}`),
     },
-  };
-  const players = new Map([["g1", player]]);
-  const client = {
+  });
+  const players = new Map<string, MusicPlayer>([["g1", player]]);
+  const client = fake<Client>({
     user: { id: BOT },
     players,
-  };
+  });
   // 이 플레이어가 화면에 알린 것
   playerEvents.on("refresh", async (p) => p === player && calls.push("embed:update"));
   playerEvents.on("ended", async (p, reason) => p === player && calls.push(`embed:end:${reason}`));
-  const state = (id, channelId, extra = {}) => ({ id, channelId, guild, ...extra });
+  const state = (id: string, channelId: string | null, extra: Record<string, unknown> = {}) => fake<VoiceState>({ id, channelId, guild, ...extra });
   return { calls, client, player, players, guild, state };
 }
 
