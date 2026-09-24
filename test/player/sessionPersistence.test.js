@@ -1,4 +1,4 @@
-// src/player/sessionMirror.js — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
+// src/player/sessionMirror.ts — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
 import { sessions } from "../../src/store/playerSessions.ts";
@@ -20,11 +20,11 @@ const removeDb = () => {
 };
 
 const audioCache = await import("../../src/store/audioCache.ts");
-const SessionPersistence = (await import("../../src/player/sessionMirror.js")).default;
-const trackState = (await import("../../src/player/trackState.js")).default;
+const SessionPersistence = (await import("../../src/player/sessionMirror.ts")).default;
+const trackState = (await import("../../src/player/trackState.ts")).default;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
-require("../../src/player/events").on("notice", require("../../src/ui/playerNotices").sendNotice);
+require("../../src/player/events.ts").on("notice", require("../../src/ui/playerNotices").sendNotice);
 
 before(() => {
   removeDb();

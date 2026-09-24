@@ -1,8 +1,8 @@
-// src/player/trackState.js — 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
+// src/player/trackState.ts — 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import trackState from "../../src/player/trackState.js";
+import trackState from "../../src/player/trackState.ts";
 
 const t = (title) => ({ title });
 const titles = (arr) => arr.map((x) => x.title);

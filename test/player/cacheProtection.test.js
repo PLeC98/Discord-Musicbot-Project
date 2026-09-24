@@ -1,4 +1,4 @@
-// src/player/Player.js releaseAudioProtection — 캐시 퇴거 보호 해제 계약
+// src/player/Player.ts releaseAudioProtection — 캐시 퇴거 보호 해제 계약
 // 회귀 대상: 비활성 종료·강제 퇴장 경로가 currentTrack을 먼저 null해서
 // cleanup의 unprotect(currentTrack 전제)가 건너뛰어져 보호 Set이 재시작까지 증가하던 누수.
 // protect/unprotect는 순수 in-memory Set — DB 미접촉.
@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as audioCache from "../../src/store/audioCache.ts";
-import MusicPlayer from "../../src/player/Player.js";
+import MusicPlayer from "../../src/player/Player.ts";
 
 const release = MusicPlayer.prototype.releaseAudioProtection;
 const isProtected = (key) => audioCache._protectedKeys.has(key);

@@ -110,7 +110,7 @@
       "count": 2
     }
   },
-  "src/player/Player.js": {
+  "src/player/Player.ts": {
     "complexity": {
       "count": 1
     },
@@ -124,7 +124,7 @@
       "count": 6
     }
   },
-  "src/player/idleLeave.js": {
+  "src/player/idleLeave.ts": {
     "no-empty-function": {
       "count": 1
     }
@@ -134,12 +134,12 @@
       "count": 2
     }
   },
-  "src/player/queueWarmer.js": {
+  "src/player/queueWarmer.ts": {
     "no-empty-function": {
       "count": 1
     }
   },
-  "src/player/sessionMirror.js": {
+  "src/player/sessionMirror.ts": {
     "complexity": {
       "count": 1
     },
@@ -152,7 +152,7 @@
       "count": 1
     }
   },
-  "src/player/sponsorSkipper.js": {
+  "src/player/sponsorSkipper.ts": {
     "no-empty-function": {
       "count": 2
     }
@@ -178,7 +178,7 @@
       "count": 1
     }
   },
-  "src/player/voiceConnection.js": {
+  "src/player/voiceConnection.ts": {
     "complexity": {
       "count": 3
     },

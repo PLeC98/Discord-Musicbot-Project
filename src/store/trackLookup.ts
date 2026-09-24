@@ -7,7 +7,7 @@ import * as audioCache from "./audioCache.ts";
 import { canonicalUrl } from "../rules/canonicalUrl.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import { LookupRow, checked } from "./rows.ts";
-import type { TrackInfo } from "../player/track.js";
+import type { TrackInfo } from "../player/track.ts";
 
 /** 받아 둔 파일로 되살린 트랙. 여기 칸은 장부와 캐시에서 온다 */
 type CachedTrack = {

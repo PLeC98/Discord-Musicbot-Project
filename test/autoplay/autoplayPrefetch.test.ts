@@ -1,5 +1,5 @@
 // @ts-nocheck 플레이어의 메서드를 가짜 플레이어에 빌려 쓰는 시험이다. 타입은 10단계 player 폴더에서 Player 와 같이 단다
-// 자동재생 미리 뽑기(B-50) — src/player/Player.js · src/player/trackState.js
+// 자동재생 미리 뽑기(B-50) — src/player/Player.ts · src/player/trackState.ts
 //
 // 곡이 끝난 뒤에야 검색을 시작하면 그만큼 소리가 빈다. 곡이 시작될 때 다음 곡을 미리 대기열에 둬야
 // QueueWarmer가 평소처럼 받아 두고 전환이 즉시가 된다.
@@ -9,8 +9,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import MusicPlayer from "../../src/player/Player.js";
-import trackState from "../../src/player/trackState.js";
+import MusicPlayer from "../../src/player/Player.ts";
+import trackState from "../../src/player/trackState.ts";
 import panelEvents from "../helpers/panelEvents.js";
 import { createRequire } from "node:module";
 
@@ -20,7 +20,7 @@ const require = createRequire(import.meta.url);
 const { recordPanel } = panelEvents;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
-require("../../src/player/events").on("notice", require("../../src/ui/playerNotices").sendNotice);
+require("../../src/player/events.ts").on("notice", require("../../src/ui/playerNotices").sendNotice);
 
 const ensureAutoplayNext = MusicPlayer.prototype.ensureAutoplayNext;
 const setAutoplay = MusicPlayer.prototype.setAutoplay;

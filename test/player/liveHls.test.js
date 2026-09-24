@@ -7,9 +7,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import MusicPlayer from "../../src/player/Player.js";
-import PlaybackState from "../../src/player/playbackState.js";
-import PlaybackWatch from "../../src/player/playbackWatch.js";
+import MusicPlayer from "../../src/player/Player.ts";
+import PlaybackState from "../../src/player/playbackState.ts";
+import PlaybackWatch from "../../src/player/playbackWatch.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import { capabilities, _internals } from "../../src/media/ffmpeg/path.ts";
 import { createRequire } from "node:module";

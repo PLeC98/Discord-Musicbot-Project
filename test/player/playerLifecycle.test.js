@@ -15,7 +15,7 @@ import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
-import voiceChannelStatus from "../../src/player/voiceChannelStatus.js";
+import voiceChannelStatus from "../../src/player/voiceChannelStatus.ts";
 
 const { calls, AudioPlayerStatus } = h;
 
@@ -24,7 +24,7 @@ beforeEach(() => h.reset());
 const yt = (await import("../helpers/tracks.js")).default.youtube;
 
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
-require("../../src/player/events").on("notice", require("../../src/ui/playerNotices").sendNotice);
+require("../../src/player/events.ts").on("notice", require("../../src/ui/playerNotices").sendNotice);
 const tick = (ms = 0) => new Promise((done) => setTimeout(done, ms));
 
 // 받아 둔 곡으로 만든다. 다음 곡을 틀 때 스트림 없이 파일 갈래로 가게 한다

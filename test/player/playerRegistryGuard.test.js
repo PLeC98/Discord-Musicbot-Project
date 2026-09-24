@@ -1,4 +1,4 @@
-// src/player/Player.js — 지연 정리 타이머가 "자기가 아직 현행 플레이어인지" 확인하고 움직이는지.
+// src/player/Player.ts — 지연 정리 타이머가 "자기가 아직 현행 플레이어인지" 확인하고 움직이는지.
 //
 // 회귀 대상 (2026-09-08 실서버 관측): 대기열 소진 타이머는 트랙이 끝날 때마다 새로 예약되는데
 // 이전 것을 지우지 않아 쌓였다. 그중 하나가 뒤늦게 깨어나면 자기(이미 비워진 구 플레이어)
@@ -14,9 +14,9 @@ const store = openTempStore("registry-guard-");
 after(() => store.close());
 
 const config = (await import("../../config.ts")).default;
-const MusicPlayer = (await import("../../src/player/Player.js")).default;
-const PlaybackState = (await import("../../src/player/playbackState.js")).default;
-const IdleLeave = (await import("../../src/player/idleLeave.js")).default;
+const MusicPlayer = (await import("../../src/player/Player.ts")).default;
+const PlaybackState = (await import("../../src/player/playbackState.ts")).default;
+const IdleLeave = (await import("../../src/player/idleLeave.ts")).default;
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
 const GUILD = "g1";

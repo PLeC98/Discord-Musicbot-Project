@@ -315,7 +315,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   const w = world({ player: null });
   const { it, log } = interaction(w);
   // 끝난 패널로 알리는 것은 플레이어 알림을 거친다
-  const off = require("../../src/player/events").on("ended", async (_p, reason) => w.seen.push(`end:${reason}`));
+  const off = require("../../src/player/events.ts").on("ended", async (_p, reason) => w.seen.push(`end:${reason}`));
 
   try {
     await cmd("join").execute(it, w.client);

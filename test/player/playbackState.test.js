@@ -1,8 +1,8 @@
-// src/player/playbackState.js — 재생 단계와 끝 처리 중인가.
+// src/player/playbackState.ts — 재생 단계와 끝 처리 중인가.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import PlaybackState from "../../src/player/playbackState.js";
+import PlaybackState from "../../src/player/playbackState.ts";
 
 test("단계: idle → starting → playing → (끝) idle → starting … 버리면 disposed", () => {
   const s = new PlaybackState();

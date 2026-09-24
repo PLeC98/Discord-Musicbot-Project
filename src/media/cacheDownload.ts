@@ -17,7 +17,7 @@ import * as trackLookup from "../store/trackLookup.ts";
 import * as SponsorBlock from "../sources/sponsorBlock.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
-import type { TrackInfo } from "../player/track.js";
+import type { TrackInfo } from "../player/track.ts";
 
 /** 받는 곡. 제목과 요청 열쇠 말고는 없을 수 있다. 담은 곡(TrackInfo)이 그대로 맞는다 */
 type DownloadTrack = Pick<TrackInfo, "title" | "requestKey"> & Partial<TrackInfo>;

@@ -1,8 +1,8 @@
-// src/player/sponsorSkipper.js — 발동 판정(decide) 순수 로직: 교차 감지, 수동 진입 배제, 아웃트로→종료.
+// src/player/sponsorSkipper.ts — 발동 판정(decide) 순수 로직: 교차 감지, 수동 진입 배제, 아웃트로→종료.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import SponsorSkipper from "../../src/player/sponsorSkipper.js";
+import SponsorSkipper from "../../src/player/sponsorSkipper.ts";
 
 const segs = (...pairs) => pairs.map(([start, end]) => ({ start, end, categories: ["music_offtopic"] }));
 

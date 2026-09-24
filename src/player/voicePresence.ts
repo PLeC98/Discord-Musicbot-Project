@@ -1,9 +1,10 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 음성 상태 이벤트 해석. 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음을 가리고, 언제 나가는지는 idleLeave 가 정한다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
-import playerEvents from "./events.js";
-import trackState from "./trackState.js";
+import playerEvents from "./events.ts";
+import trackState from "./trackState.ts";
 
 async function onVoiceStateUpdate(client, oldState, newState) {
   const guild = oldState.guild;

@@ -1,11 +1,11 @@
-// src/player/Player.js — 일시정지 의도가 버퍼링을 넘어 살아남는가.
+// src/player/Player.ts — 일시정지 의도가 버퍼링을 넘어 살아남는가.
 // @discordjs/voice의 pause()는 재생 중일 때만 받는다. play(resource) 직후는 버퍼링이라, 그때 건 일시정지가
 // 조용히 무시되고 곡이 재생됐다(재시작 복원에서 재현).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import MusicPlayer from "../../src/player/Player.js";
+import MusicPlayer from "../../src/player/Player.ts";
 
 // @discordjs/voice와 같은 규칙: 상태가 바뀌면 그 상태 이름으로 이벤트, pause()는 playing에서만, unpause()는 paused에서만
 function fakeAudioPlayer(status) {

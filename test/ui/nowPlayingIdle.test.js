@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 import tempStore from "../helpers/tempStore.js";
-import playerEvents from "../../src/player/events.js";
+import playerEvents from "../../src/player/events.ts";
 
 const BOT = "bot-chan";
 // 전용 채널은 임시 DB 에 둔다. null 이면 없앤다

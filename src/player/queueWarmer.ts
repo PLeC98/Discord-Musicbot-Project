@@ -1,9 +1,10 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import config from "../../config.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
-import trackState from "./trackState.js";
+import trackState from "./trackState.ts";
 
 /**
  * 대기열 앞부분을 캐시에 올려둔 상태로 유지한다.

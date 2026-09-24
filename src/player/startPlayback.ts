@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // play() 의 단계. play() 는 이 셋을 차례로 부르고, 둘째와 셋째 사이에서 소리를 연다(media/playbackInput).
 //   prepareStart   틀 곡과 시작 위치. 대기열에서 꺼내고 음성 채널에 붙고, 새로 트는 곡이면 인트로 끝을 시작 위치로
 //   resolveSource  소리를 어디서 받나. 받아 둔 파일, 위치 이동이면 직전 재생의 주소, 없으면 새 스트림
@@ -9,7 +10,7 @@ const log = logger.child({ category: "player" });
 import { TrackDownloader } from "../media/cacheDownload.ts";
 import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";
-import trackState from "./trackState.js";
+import trackState from "./trackState.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 // 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.

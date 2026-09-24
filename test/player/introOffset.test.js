@@ -1,8 +1,8 @@
-// src/player/startPlayback.js introOffsetMs — 신규 재생의 인트로 초기 오프셋 산출.
+// src/player/startPlayback.ts introOffsetMs — 신규 재생의 인트로 초기 오프셋 산출.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import startPlayback from "../../src/player/startPlayback.js";
+import startPlayback from "../../src/player/startPlayback.ts";
 const { introOffsetMs: intro } = startPlayback;
 
 test("introOffsetMs: 0 부근 시작 인트로 → 끝(ms)", () => {

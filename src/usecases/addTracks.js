@@ -1,4 +1,4 @@
-import MusicPlayer from "../player/Player.js";
+import MusicPlayer from "../player/Player.ts";
 import * as songLookup from "../sources/lookup.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import responders from "./responders.js";
@@ -6,7 +6,7 @@ const { silentResponder } = responders;
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import trackState from "../player/trackState.js";
+import trackState from "../player/trackState.ts";
 import S from "../ui/strings.js";
 import ErrorHandler from "../ui/errorMessages.js";
 import playlistMore from "./playlistMore.js";

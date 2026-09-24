@@ -1,10 +1,11 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import * as db from "../store/db.ts";
 import { sessions } from "../store/playerSessions.ts";
-import trackState from "./trackState.js";
+import trackState from "./trackState.ts";
 import config from "../../config.ts";
-import playerEvents from "./events.js";
+import playerEvents from "./events.ts";
 
 const HEARTBEAT_MS = 5000;
 

@@ -4,8 +4,8 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { AudioPlayerStatus } from "@discordjs/voice";
-import MusicPlayer from "../../src/player/Player.js";
-import PlaybackWatch from "../../src/player/playbackWatch.js";
+import MusicPlayer from "../../src/player/Player.ts";
+import PlaybackWatch from "../../src/player/playbackWatch.ts";
 import tempStore from "../helpers/tempStore.js";
 
 // ── 종료 워치독 ──────────────────────────────────────────────
@@ -48,7 +48,7 @@ test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
 // 재생목록으로 담은 스포티파이 곡은 스포티파이 길이를 들고 오는데, 실제 오디오는 수 초 짧을 수 있다.
 // 그 차이로 멀쩡한 종료가 조기 종료로 판정되고 SponsorBlock 곡 끝 구간이 파일 끝으로 건너뛰기가 됐다.
 
-const { audioDurationSec } = (await import("../../src/player/startPlayback.js")).default;
+const { audioDurationSec } = (await import("../../src/player/startPlayback.ts")).default;
 
 // 캐시 기록은 임시 DB 에 적었다가 지운다
 const store = tempStore.openTempStore("track-completion-");

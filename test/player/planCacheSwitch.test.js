@@ -1,4 +1,4 @@
-// src/player/Player.js `_planCacheSwitch` — 스트림이 죽었을 때 캐시로 무이음 전환을 예약하는 판정
+// src/player/Player.ts `_planCacheSwitch` — 스트림이 죽었을 때 캐시로 무이음 전환을 예약하는 판정
 //
 // 예약하지 '않아야' 하는 경우가 핵심이다. 잘못 예약하면 엉뚱한 곡·엉뚱한 위치로 갈아타거나,
 // 이미 끝난 재생에 손을 대게 된다. 그럴 땐 아무것도 안 해야 기존 경로(Idle → play(위치))가 받는다.
@@ -12,7 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import MusicPlayer from "../../src/player/Player.js";
+import MusicPlayer from "../../src/player/Player.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));

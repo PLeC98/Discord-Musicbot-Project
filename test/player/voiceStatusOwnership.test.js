@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import vcs from "../../src/player/voiceChannelStatus.js";
+import vcs from "../../src/player/voiceChannelStatus.ts";
 
 const reset = () => vcs._internals._reset();
 const CH = "chan-1";

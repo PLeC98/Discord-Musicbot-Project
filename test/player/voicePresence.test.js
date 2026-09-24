@@ -1,11 +1,11 @@
-// src/player/voicePresence.js — 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음).
+// src/player/voicePresence.ts — 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음).
 // 가짜 서버 · 플레이어로 무엇을 불렀는지만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import voicePresence from "../../src/player/voicePresence.js";
+import voicePresence from "../../src/player/voicePresence.ts";
 const { onVoiceStateUpdate } = voicePresence;
-import playerEvents from "../../src/player/events.js";
+import playerEvents from "../../src/player/events.ts";
 
 const BOT = "bot1";
 

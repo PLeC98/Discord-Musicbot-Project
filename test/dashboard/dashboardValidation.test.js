@@ -244,7 +244,7 @@ test("조작 거절은 디스코드와 같은 문장에서 ❌ 만 떼어 보낸
 
 test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
   const seen = [];
-  const off = require("../../src/player/events").on("refresh", async (p) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
+  const off = require("../../src/player/events.ts").on("refresh", async (p) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
   try {
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
