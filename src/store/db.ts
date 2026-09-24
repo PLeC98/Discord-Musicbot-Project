@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 캐시 DB 하나. 불러와도 열리지 않는다. 기동이 open() 으로 열고, 열기 전에 get() 을 부르면 던진다.
 
 import Database from "better-sqlite3";
@@ -10,9 +9,12 @@ const DB_PATH = path.join(import.meta.dirname, "..", "..", "database", "cache.db
 // DB 구조를 크게 바꿀 때마다 올린다. 맞지 않으면 열지 않고 지우라고 알린다
 const SCHEMA_VERSION = 4;
 
-let conn = null;
+type Db = Database.Database;
 
-function open(dbPath = DB_PATH, { cacheDir } = {}) {
+let conn: Db | null = null;
+
+/** cacheDir: 구조가 안 맞을 때 같이 지우라고 알릴 받아 둔 곡 폴더 */
+function open(dbPath = DB_PATH, { cacheDir }: { cacheDir?: string } = {}): Db {
   if (conn) return conn;
 
   const dbDir = path.dirname(dbPath);
@@ -24,7 +26,7 @@ function open(dbPath = DB_PATH, { cacheDir } = {}) {
   next.pragma("foreign_keys = ON");
   next.pragma("busy_timeout = 5000");
 
-  const hasTables = next.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'").get().n > 0;
+  const hasTables = (next.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'").get() as { n: number }).n > 0;
   const version = next.pragma("user_version", { simple: true });
   if (hasTables && version !== SCHEMA_VERSION) {
     next.close();
@@ -38,7 +40,7 @@ function open(dbPath = DB_PATH, { cacheDir } = {}) {
   return conn;
 }
 
-function get() {
+function get(): Db {
   if (!conn) throw Object.assign(new Error("캐시 DB 를 열기 전에 불렀다(store/db.open 을 먼저)"), { code: "DB_NOT_OPEN" });
   return conn;
 }
@@ -51,7 +53,7 @@ function close() {
   conn = null;
 }
 
-function createTables(db) {
+function createTables(db: Db) {
   db.exec(`
             -- 받아 둔 소리 하나. 열쇠는 audioKeyOf(음원 주소)다(yt:<id> · sc:<경로> · dl:<md5>).
             -- audio_version: 원본의 판(유튜브 lmt, 직접 링크 ETag 등). 같은 주소에서 음원이 바뀐 것을 알아볼 값
@@ -172,3 +174,4 @@ const SESSION_TABLES = `
 const exported = { open, get, isOpen, close, createTables, SCHEMA_VERSION, DB_PATH };
 export default exported;
 export { exported as "module.exports" };
+export type { Db };

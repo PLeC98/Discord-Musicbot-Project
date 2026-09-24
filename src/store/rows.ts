@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 저장소에서 되읽는 행의 모양. 밖(디스크)에서 들어오는 값이라 트랙으로 바꾸기 전에 한 번 본다.
 // 모양이 틀린 행은 버리고 한 줄 남긴다. 한 행 때문에 대기열 전체를 못 되살리면 안 된다.
 
@@ -7,7 +6,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "cache" });
 
 const text = z.string().min(1);
-const maybe = (schema) => schema.nullable();
+const maybe = <T extends z.ZodType>(schema: T) => schema.nullable();
 
 /** 세션 표의 트랙 한 줄(PersistedTrack). 음원 주소는 스포티파이가 영상을 찾기 전이면 없다 */
 const SessionTrackRow = z.object({
@@ -45,15 +44,19 @@ const LookupRow = z.object({
 });
 
 /** 맞으면 그 행, 틀리면 null(한 줄 남긴다) */
-function checked(schema, row, what) {
+function checked<T extends z.ZodType>(schema: T, row: unknown, what: string): z.infer<T> | null {
   if (!row) return null;
   const result = schema.safeParse(row);
   if (result.success) return result.data;
   const where = result.error.issues.map((i) => i.path.join(".")).join(", ");
-  log.warn(`${what} 행의 모양이 틀려 버립니다(${where}): ${row.request_key ?? "?"}`);
+  log.warn(`${what} 행의 모양이 틀려 버립니다(${where}): ${(row as { request_key?: unknown }).request_key ?? "?"}`);
   return null;
 }
 
 const exported = { SessionTrackRow, LookupRow, checked };
 export default exported;
 export { exported as "module.exports" };
+
+type SessionTrackRow = z.infer<typeof SessionTrackRow>;
+type LookupRow = z.infer<typeof LookupRow>;
+export type { SessionTrackRow, LookupRow };

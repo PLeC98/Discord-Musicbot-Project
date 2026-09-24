@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 오디오 캐시. 받아 둔 파일 · 보호 · 퇴거 · 오디오 장부(audio_cache) · 기동 정리 · 통계
 
 import logger from "../infra/log/logger.ts";
@@ -10,6 +9,7 @@ import { md5, audioKeyOf } from "../rules/audioKeyOf.ts";
 import playerSessions from "./playerSessions.ts";
 const { sessions } = playerSessions;
 import db from "./db.ts";
+import { messageOf } from "../rules/errorKind.ts";
 
 const CACHE_DIR = path.join(import.meta.dirname, "..", "..", "audio_cache");
 
@@ -20,7 +20,33 @@ const W_SIZE = 0.2;
 // 고정 크기 기준: opus 128kbps ≈ 1 MB/분 → 50 MB ≈ 50분
 const SIZE_REF_BYTES = 50 * 1024 * 1024;
 
+/** audio_cache 한 줄(표는 db.ts) */
+type AudioRow = {
+  audio_key: string;
+  status: "downloading" | "cached" | "error";
+  file_path: string | null;
+  file_size_bytes: number | null;
+  duration_sec: number | null;
+  title: string | null;
+  channel: string | null;
+  audio_version: string | null;
+  version_checked_at: number | null;
+  play_count: number;
+  last_played_at: number | null;
+  downloaded_at: number | null;
+  created_at: number;
+  updated_at: number;
+};
+// 장부에 적을 곡 정보. 여기서 읽는 칸만
+type TrackMeta = { title?: string | null; artist?: string | null; channel?: string | null; duration?: number | null };
+
 class AudioCache {
+  _protectedKeys: Set<string>;
+  _protectedFiles: Set<string>;
+  _queuedKeys: Map<string, Set<string>>;
+  _evictInterval: NodeJS.Timeout | null;
+  _cacheDir: string;
+
   constructor() {
     this._protectedKeys = new Set(); // 현재 재생 중인 audio_key
     this._protectedFiles = new Set(); // 지금 받고 있는 임시 파일 경로. 기동 스윕이 건드리면 안 된다
@@ -50,24 +76,24 @@ class AudioCache {
   }
 
   // 이 모듈은 인스턴스를 내보내므로 static이면 외부에서 닿지 않는다
-  md5(str) {
+  md5(str: string) {
     return md5(str);
   }
 
   /** audio_key에 대한 결정적 파일 경로 */
-  getFilePath(audioKey) {
+  getFilePath(audioKey: string) {
     return path.join(this._cacheDir, `track_${this.md5(audioKey)}.opus`);
   }
 
   // 라이브 보호 (재생 중/사전 캐시된 트랙)
 
   /** 키를 사용 중으로 표시. 제거 대상에서 건너뜀 */
-  protect(audioKey) {
+  protect(audioKey: string | null | undefined) {
     if (audioKey) this._protectedKeys.add(audioKey);
   }
 
   /** 더 이상 필요하지 않은 키 해제 */
-  unprotect(audioKey) {
+  unprotect(audioKey: string | null | undefined) {
     if (audioKey) this._protectedKeys.delete(audioKey);
   }
 
@@ -75,11 +101,11 @@ class AudioCache {
    * 파일 하나를 정리 대상에서 뺀다. 받는 중인 임시 파일용.
    * 키가 아니라 경로로 보호하는 이유: 임시 파일은 DB에도 없고 캐시 키로도 유도되지 않는다.
    */
-  protectFile(filepath) {
+  protectFile(filepath: string | null | undefined) {
     if (filepath) this._protectedFiles.add(path.resolve(filepath));
   }
 
-  unprotectFile(filepath) {
+  unprotectFile(filepath: string | null | undefined) {
     if (filepath) this._protectedFiles.delete(path.resolve(filepath));
   }
 
@@ -92,9 +118,9 @@ class AudioCache {
    * 길드별로 나누는 이유: 두 길드가 같은 곡을 대기열에 두었을 때 한쪽이 비운다고
    * 다른 쪽 보호까지 풀리면 안 된다.
    */
-  setQueuedKeys(guildId, keys) {
+  setQueuedKeys(guildId: string | null | undefined, keys: Array<string | null | undefined> | null | undefined) {
     if (!guildId) return;
-    const set = new Set((keys || []).filter(Boolean));
+    const set = new Set((keys || []).filter((k): k is string => Boolean(k)));
     if (set.size === 0) this._queuedKeys.delete(guildId);
     else this._queuedKeys.set(guildId, set);
   }
@@ -107,13 +133,13 @@ class AudioCache {
   }
 
   /** audio_key로 원시 조회 */
-  lookupByAudioKey(audioKey) {
-    return this.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioKey) || null;
+  lookupByAudioKey(audioKey: string): AudioRow | null {
+    return (this.db.prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioKey) as AudioRow | undefined) || null;
   }
 
   // 쓰기. audio_cache
 
-  recordDownloadStart(audioKey, track) {
+  recordDownloadStart(audioKey: string, track: TrackMeta | null | undefined) {
     const now = Date.now();
     this.db
       .prepare(
@@ -131,7 +157,7 @@ class AudioCache {
 
   // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
   // audioVersion: 받은 음원의 판(media/audioVersion). 모르면 null
-  recordDownloadComplete(audioKey, filePath, fileSizeBytes, track, { durationSec = null, audioVersion = null } = {}) {
+  recordDownloadComplete(audioKey: string, filePath: string, fileSizeBytes: number, track: TrackMeta | null | undefined, { durationSec = null, audioVersion = null }: { durationSec?: number | null; audioVersion?: string | null } = {}) {
     const now = Date.now();
     this.db
       .prepare(
@@ -158,11 +184,11 @@ class AudioCache {
     });
   }
 
-  recordError(audioKey) {
+  recordError(audioKey: string) {
     this.db.prepare(`UPDATE audio_cache SET status = 'error', updated_at = ? WHERE audio_key = ?`).run(Date.now(), audioKey);
   }
 
-  recordPlayback(audioKey) {
+  recordPlayback(audioKey: string) {
     const now = Date.now();
     this.db
       .prepare(
@@ -179,7 +205,7 @@ class AudioCache {
    * 그 시점엔 플레이어가 아직 없으므로 저장된 현재곡·대기열이 유일한 근거다.
    */
   getProtectedCacheFiles() {
-    const files = new Set();
+    const files = new Set<string>();
     for (const audioUrl of sessions().liveAudioUrls()) {
       const key = audioKeyOf(audioUrl);
       if (key) files.add(path.resolve(this.getFilePath(key)));
@@ -195,7 +221,7 @@ class AudioCache {
     if (resetCount > 0) log.info(`이전 실행에서 중단된 다운로드 ${resetCount}건 정리 완료`);
 
     // 2. 캐시된 행의 파일이 디스크에 아직 있는지 확인
-    const cachedRows = this.db.prepare("SELECT audio_key, file_path FROM audio_cache WHERE status = 'cached'").all();
+    const cachedRows = this.db.prepare("SELECT audio_key, file_path FROM audio_cache WHERE status = 'cached'").all() as Array<Pick<AudioRow, "audio_key" | "file_path">>;
     let orphanDbCount = 0;
     for (const row of cachedRows) {
       const fp = row.file_path || this.getFilePath(row.audio_key);
@@ -226,10 +252,10 @@ class AudioCache {
     const before = { files: this._cacheCount(), bytes: this._cacheSize() };
 
     // 파일을 먼저 지우고, 잠겨서 못 지운 것의 행은 남긴다. 행만 지우고 파일을 남기면 DB 가 모르는 파일이 된다.
-    const rows = this.db.prepare("SELECT audio_key, file_path FROM audio_cache").all();
-    const pathOf = (row) => path.resolve(row.file_path || this.getFilePath(row.audio_key));
-    const keptKeys = new Set();
-    const keptPaths = new Set();
+    const rows = this.db.prepare("SELECT audio_key, file_path FROM audio_cache").all() as Array<Pick<AudioRow, "audio_key" | "file_path">>;
+    const pathOf = (row: Pick<AudioRow, "audio_key" | "file_path">) => path.resolve(row.file_path || this.getFilePath(row.audio_key));
+    const keptKeys = new Set<string>();
+    const keptPaths = new Set<string>();
     let removed = 0;
     let kept = 0;
 
@@ -296,7 +322,7 @@ class AudioCache {
       this.db
         .prepare("SELECT file_path FROM audio_cache WHERE status = 'cached' AND file_path IS NOT NULL")
         .all()
-        .map((r) => path.resolve(r.file_path)),
+        .map((r) => path.resolve((r as { file_path: string }).file_path)),
     );
 
     // 보호 대상: 저장된 세션 + 실시간 재생/사전 캐시 키
@@ -348,12 +374,17 @@ class AudioCache {
     }
   }
 
-  _cacheSize() {
-    return this.db.prepare("SELECT COALESCE(SUM(file_size_bytes),0) AS t FROM audio_cache WHERE status='cached'").get().t;
+  _cacheSize(): number {
+    return this._number("SELECT COALESCE(SUM(file_size_bytes),0) AS n FROM audio_cache WHERE status='cached'");
   }
 
-  _cacheCount() {
-    return this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached'").get().c;
+  _cacheCount(): number {
+    return this._number("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached'");
+  }
+
+  // 수 하나를 내는 질의(칸 이름은 n)
+  _number(sql: string): number {
+    return (this.db.prepare(sql).get() as { n: number }).n;
   }
 
   async evictIfNeeded() {
@@ -382,10 +413,7 @@ class AudioCache {
     // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분.
     // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
     const live = this._liveKeys();
-    const rows = this.db
-      .prepare("SELECT * FROM audio_cache WHERE status = 'cached'")
-      .all()
-      .filter((r) => !live.has(r.audio_key));
+    const rows = (this.db.prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[]).filter((r) => !live.has(r.audio_key));
 
     if (rows.length === 0) return;
 
@@ -396,7 +424,7 @@ class AudioCache {
       this.db
         .prepare("SELECT video_id FROM age_restricted")
         .all()
-        .map((r) => r.video_id),
+        .map((r) => (r as { video_id: string }).video_id),
     );
 
     const scored = rows
@@ -448,7 +476,7 @@ class AudioCache {
     const cfg = config.cache;
     if (this._evictInterval) clearInterval(this._evictInterval);
     this._evictInterval = setInterval(() => {
-      this.evictIfNeeded().catch((err) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", err.message));
+      this.evictIfNeeded().catch((err: unknown) => log.error("정기적 오디오 캐시 자동 정리 중 오류:", messageOf(err)));
     }, cfg.evictIntervalMs);
     this._evictInterval.unref(); // 프로세스 종료를 막지 않음
   }
@@ -462,19 +490,19 @@ class AudioCache {
     const fileCount = this._cacheCount();
     const diskFree = this._diskFree();
 
-    const totalPlays = this.db.prepare("SELECT COALESCE(SUM(play_count),0) AS t FROM audio_cache WHERE status='cached'").get().t;
-    const totalDuration = this.db.prepare("SELECT COALESCE(SUM(duration_sec),0) AS t FROM audio_cache WHERE status='cached'").get().t;
-    const downloading = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='downloading'").get().c;
-    const lookupCount = this.db.prepare("SELECT COUNT(*) AS c FROM track_lookup").get().c;
-    const neverPlayed = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND (play_count IS NULL OR play_count=0)").get().c;
+    const totalPlays = this._number("SELECT COALESCE(SUM(play_count),0) AS n FROM audio_cache WHERE status='cached'");
+    const totalDuration = this._number("SELECT COALESCE(SUM(duration_sec),0) AS n FROM audio_cache WHERE status='cached'");
+    const downloading = this._number("SELECT COUNT(*) AS n FROM audio_cache WHERE status='downloading'");
+    const lookupCount = this._number("SELECT COUNT(*) AS n FROM track_lookup");
+    const neverPlayed = this._number("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND (play_count IS NULL OR play_count=0)");
 
-    const ytCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_key LIKE 'yt:%'").get().c;
-    const scCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_key LIKE 'sc:%'").get().c;
-    const dlCount = this.db.prepare("SELECT COUNT(*) AS c FROM audio_cache WHERE status='cached' AND audio_key LIKE 'dl:%'").get().c;
+    const ytCount = this._number("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'yt:%'");
+    const scCount = this._number("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'sc:%'");
+    const dlCount = this._number("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'dl:%'");
 
-    const topTracks = this.db.prepare("SELECT title, channel, play_count, duration_sec FROM audio_cache WHERE status='cached' AND play_count > 0 ORDER BY play_count DESC LIMIT 5").all();
+    const topTracks = this.db.prepare("SELECT title, channel, play_count, duration_sec FROM audio_cache WHERE status='cached' AND play_count > 0 ORDER BY play_count DESC LIMIT 5").all() as Array<Pick<AudioRow, "title" | "channel" | "play_count" | "duration_sec">>;
 
-    const recentTracks = this.db.prepare("SELECT title, channel, downloaded_at FROM audio_cache WHERE status='cached' AND downloaded_at IS NOT NULL ORDER BY downloaded_at DESC LIMIT 3").all();
+    const recentTracks = this.db.prepare("SELECT title, channel, downloaded_at FROM audio_cache WHERE status='cached' AND downloaded_at IS NOT NULL ORDER BY downloaded_at DESC LIMIT 3").all() as Array<Pick<AudioRow, "title" | "channel" | "downloaded_at">>;
 
     return {
       fileCount,
@@ -511,3 +539,4 @@ class AudioCache {
 const exported = new AudioCache();
 export default exported;
 export { exported as "module.exports" };
+export type { AudioRow, TrackMeta };
