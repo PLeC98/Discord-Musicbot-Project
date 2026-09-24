@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/store/audioCache.ts — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 

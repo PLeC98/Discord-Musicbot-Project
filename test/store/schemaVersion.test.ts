@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/store/db.ts — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
 import { sessions } from "../../src/store/playerSessions.ts";
