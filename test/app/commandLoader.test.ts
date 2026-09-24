@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/app/commandLoader.js — 커맨드 로드 + 배포 (REST.put은 프로토타입 패치로 목킹, 실 배포 없음).
 // 배포 지문은 임시 파일 사용 — 운영 database/deployed-commands.json 미접촉.
 
