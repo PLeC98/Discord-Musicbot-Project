@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/ui/nowPlayingPanel.js — 서버별 음악 처리 락 (Promise tail 체인).
 // 실제 처리(_processMusic)는 스텁하고 직렬화 계약만 검증한다.
 // 회귀 대상: 구 "await 후 set" 방식의 A/B/C 경쟁 (앞 작업 finally가 뒤 작업 락을 삭제 → 동시 실행)

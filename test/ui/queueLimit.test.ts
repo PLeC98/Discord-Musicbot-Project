@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 대기열 상한 — 추가 구간(MusicEmbedManager._processMusic)이 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
 
 import { test, afterEach } from "node:test";

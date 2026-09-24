@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/ui/replyLifetime.js — 본인에게만 보이는 응답의 수명 표와 지우기 예약
 
 import { test, mock } from "node:test";
