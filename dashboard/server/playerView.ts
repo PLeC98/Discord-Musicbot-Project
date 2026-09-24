@@ -32,6 +32,25 @@ function queueWindow(req: Request) {
   return Math.min(n, QUEUE_WINDOW_MAX);
 }
 
+// 지금 곡
+function playingView(player: MusicPlayer, track: QueuedTrack) {
+  return {
+    title: track.title,
+    artist: track.artist,
+    duration: track.duration,
+    thumbnail: track.thumbnail,
+    url: track.pageUrl,
+    platform: track.platform,
+    platformLabel: labelOf(track.platform),
+    isLive: Boolean(player.isLive),
+    currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
+    requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,
+    // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점. 대시보드 진행바 마커용
+    sponsorSegments: (player.sponsor?.skipSegments || []).map((s) => ({ start: s.start, end: s.end, categories: s.categories || [] })),
+    highlightAt: player.sponsor?.highlightAt ?? null,
+  };
+}
+
 function playerState(player: MusicPlayer | null | undefined, queueLimit = QUEUE_PAGE) {
   if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = player.getStatus();
@@ -43,23 +62,7 @@ function playerState(player: MusicPlayer | null | undefined, queueLimit = QUEUE_
     paused: status.paused,
     volume: status.volume,
     loop: status.loop,
-    currentTrack: track
-      ? {
-          title: track.title,
-          artist: track.artist,
-          duration: track.duration,
-          thumbnail: track.thumbnail,
-          url: track.pageUrl,
-          platform: track.platform,
-          platformLabel: labelOf(track.platform),
-          isLive: Boolean(player.isLive),
-          currentTime: Math.floor((player.getCurrentTime?.() || 0) / 1000),
-          requestedBy: track.requestedBy ? { id: track.requestedBy.id } : null,
-          // SponsorBlock 자동 스킵 구간(초, 카테고리 포함) + 하이라이트 지점. 대시보드 진행바 마커용
-          sponsorSegments: (player.sponsor?.skipSegments || []).map((s) => ({ start: s.start, end: s.end, categories: s.categories || [] })),
-          highlightAt: player.sponsor?.highlightAt ?? null,
-        }
-      : null,
+    currentTrack: track ? playingView(player, track) : null,
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
     // 대기열이 비어도 자동재생이 켜져 있으면 넘기기가 된다
     autoplay: Boolean(player.autoplay),

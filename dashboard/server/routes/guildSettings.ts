@@ -3,7 +3,8 @@
 import express from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { ChannelType } from "discord.js";
+import { ChannelType, type Guild } from "discord.js";
+import type { z } from "zod";
 import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import { isModerator } from "../../../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
@@ -25,6 +26,53 @@ const SB_CATEGORY_LABELS: Record<string, string> = {
   hook: "후킹/인사말",
   filler: "잡담/농담",
 };
+
+/** 검사를 지난 본문. 칸마다 undefined 는 변경 없음 */
+type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
+/** 반영할 것. undefined 는 변경 없음, null 은 해제 */
+type SettingsPlan = { roles?: string[]; channel?: string | null; sponsor?: { enabled: boolean | null; categories: string[] | null }; playlistAdd?: number | null };
+
+// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 걸러 내고, 받을 수 없는 값이면 까닭
+function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax }: SettingsBody): SettingsPlan | { error: string } {
+  const plan: SettingsPlan = { playlistAdd: playlistAddMax };
+
+  if (sponsorblock !== undefined) {
+    const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
+    const categories = sponsorblock.categories === undefined ? null : [...new Set(sponsorblock.categories.filter((c) => valid.has(c)))];
+    plan.sponsor = { enabled: sponsorblock.enabled, categories };
+  }
+
+  if (djRoleIds !== undefined) {
+    plan.roles = [...new Set(djRoleIds)].filter((id) => id !== guild.id && guild.roles.cache.has(id));
+    // 디스코드 /setdjrole GUI(셀렉트 메뉴 최대 25개)와 정합 유지
+    if (plan.roles.length > 25) return { error: "DJ 역할은 최대 25개까지 지정할 수 있습니다" };
+  }
+
+  if (botChannelId === null || botChannelId === "") plan.channel = null;
+  else if (botChannelId !== undefined) {
+    const ch = guild.channels.cache.get(botChannelId);
+    if (!ch || ch.type !== ChannelType.GuildText) return { error: "봇 전용 채널은 일반 텍스트 채널이어야 합니다" };
+    plan.channel = botChannelId;
+  }
+  return plan;
+}
+
+// 반영한다. 전용 채널이 실제로 바뀌었나(화면은 저장할 때마다 전용 채널을 함께 보낸다. 바뀌었을 때만 패널을 옮긴다)
+async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAdd }: SettingsPlan) {
+  if (roles !== undefined) {
+    if (roles.length) await GuildSettingsManager.setDjRoles(guild.id, roles);
+    else await GuildSettingsManager.clearDjRoles(guild.id);
+  }
+  let channelChanged = false;
+  if (channel !== undefined) {
+    channelChanged = channel !== (await GuildSettingsManager.getBotChannel(guild.id));
+    if (channel) await GuildSettingsManager.setBotChannel(guild.id, channel);
+    else await GuildSettingsManager.clearBotChannel(guild.id);
+  }
+  if (sponsor !== undefined) await GuildSettingsManager.setSponsorBlock(guild.id, sponsor);
+  if (playlistAdd !== undefined) await GuildSettingsManager.setPlaylistAddMax(guild.id, playlistAdd);
+  return channelChanged;
+}
 
 function createGuildSettingsRouter() {
   const router = express.Router();
@@ -91,56 +139,10 @@ function createGuildSettingsRouter() {
 
     const body = parse(settingsBody(GuildSettingsManager.playlistAddLimits()), req.body ?? {});
     if (!body.ok) return res.status(400).json({ error: body.error });
-    // 칸마다 undefined 는 변경 없음
-    const { djRoleIds, botChannelId, sponsorblock, playlistAddMax: nextPlaylistAdd } = body.value;
 
-    // SponsorBlock. 모르는 카테고리는 걸러 낸다
-    let nextSponsor;
-    if (sponsorblock !== undefined) {
-      const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
-      const categories = sponsorblock.categories === undefined ? null : [...new Set(sponsorblock.categories.filter((c) => valid.has(c)))];
-      nextSponsor = { enabled: sponsorblock.enabled, categories };
-    }
-
-    // DJ 역할. 이 서버에 없는 역할은 걸러 낸다
-    let nextRoles = null;
-    if (djRoleIds !== undefined) {
-      nextRoles = [...new Set(djRoleIds)].filter((id) => id !== guild.id && guild.roles.cache.has(id));
-      if (nextRoles.length > 25) {
-        // 디스코드 /setdjrole GUI(셀렉트 메뉴 최대 25개)와 정합 유지
-        return res.status(400).json({ error: "DJ 역할은 최대 25개까지 지정할 수 있습니다" });
-      }
-    }
-
-    let nextChannel; // undefined=변경 없음, null=해제, string=지정
-    if (botChannelId === null || botChannelId === "") {
-      nextChannel = null;
-    } else if (botChannelId !== undefined) {
-      const ch = guild.channels.cache.get(botChannelId);
-      if (!ch || ch.type !== ChannelType.GuildText) {
-        return res.status(400).json({ error: "봇 전용 채널은 일반 텍스트 채널이어야 합니다" });
-      }
-      nextChannel = botChannelId;
-    }
-
-    // 반영
-    if (nextRoles !== null) {
-      if (nextRoles.length) await GuildSettingsManager.setDjRoles(guild.id, nextRoles);
-      else await GuildSettingsManager.clearDjRoles(guild.id);
-    }
-    // 화면은 저장할 때마다 전용 채널을 함께 보낸다. 실제로 바뀌었을 때만 패널을 옮긴다
-    let channelChanged = false;
-    if (nextChannel !== undefined) {
-      channelChanged = nextChannel !== (await GuildSettingsManager.getBotChannel(guild.id));
-      if (nextChannel) await GuildSettingsManager.setBotChannel(guild.id, nextChannel);
-      else await GuildSettingsManager.clearBotChannel(guild.id);
-    }
-    if (nextSponsor !== undefined) {
-      await GuildSettingsManager.setSponsorBlock(guild.id, nextSponsor);
-    }
-    if (nextPlaylistAdd !== undefined) {
-      await GuildSettingsManager.setPlaylistAddMax(guild.id, nextPlaylistAdd);
-    }
+    const plan = planSettings(guild, body.value);
+    if ("error" in plan) return res.status(400).json({ error: plan.error });
+    const channelChanged = await applySettings(guild, plan);
     if (channelChanged) {
       client?.musicEmbedManager?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
     }

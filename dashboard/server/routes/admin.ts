@@ -19,7 +19,7 @@ import * as statusConfig from "../../../src/config/status.ts";
 import * as aiConfig from "../../../src/config/ai.ts";
 import * as cookieConfig from "../../../src/config/cookies.ts";
 import * as yamlStore from "../../../src/config/yamlStore.ts";
-import { EmbedBuilder, type Guild, type GuildBasedChannel, type HexColorString } from "discord.js";
+import { EmbedBuilder, type Client, type Guild, type GuildBasedChannel, type HexColorString } from "discord.js";
 import config from "../../../config.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as audioCache from "../../../src/store/audioCache.ts";
@@ -36,6 +36,37 @@ function ranBy<P>(req: Request<P>) {
   return user.username || user.id;
 }
 
+// 봇 연결 상태. 로그인 전이면 사용자가 없다
+function botStatus(client: Client, uptime: number) {
+  return {
+    tag: client.user?.tag || "Connecting...",
+    id: client.user?.id || null,
+    guilds: client.guilds.cache.size,
+    ping: client.ws.ping,
+    status: client.ws.status,
+    uptime: {
+      days: Math.floor(uptime / 86400),
+      hours: Math.floor((uptime % 86400) / 3600),
+      minutes: Math.floor((uptime % 3600) / 60),
+      seconds: Math.floor(uptime % 60),
+    },
+  };
+}
+
+// 자식 프로세스 요약. 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게
+function processSummary() {
+  const all = procRegistry.list();
+  const byLabel: Record<string, number> = {};
+  for (const p of all) byLabel[p.label] = (byLabel[p.label] || 0) + 1;
+  return {
+    total: all.length,
+    byLabel: Object.entries(byLabel)
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
+    oldest: all.slice(0, 8),
+  };
+}
+
 // Bot/Node/System status
 adminRouter.get("/status", requireOwner, (req, res) => {
   const client = req.app.locals.discordClient;
@@ -43,19 +74,7 @@ adminRouter.get("/status", requireOwner, (req, res) => {
   const mem = process.memoryUsage();
 
   res.json({
-    bot: {
-      tag: client?.user?.tag || "Connecting...",
-      id: client?.user?.id || null,
-      guilds: client?.guilds?.cache?.size || 0,
-      ping: client?.ws?.ping || 0,
-      status: client?.ws?.status ?? -1,
-      uptime: {
-        days: Math.floor(uptime / 86400),
-        hours: Math.floor((uptime % 86400) / 3600),
-        minutes: Math.floor((uptime % 3600) / 60),
-        seconds: Math.floor(uptime % 60),
-      },
-    },
+    bot: botStatus(client, uptime),
     node: {
       version: process.version,
       platform: process.platform,
@@ -75,18 +94,7 @@ adminRouter.get("/status", requireOwner, (req, res) => {
     activePlayers: client?.players?.size || 0,
     // 자식 프로세스(ffmpeg/yt-dlp). 오래 살아 있는 항목이 새는 신호다.
     // 목록은 오래된 순이라 앞쪽만 봐도 된다. 상한을 두는 건 응답이 부풀지 않게.
-    processes: (() => {
-      const all = procRegistry.list();
-      const byLabel: Record<string, number> = {};
-      for (const p of all) byLabel[p.label] = (byLabel[p.label] || 0) + 1;
-      return {
-        total: all.length,
-        byLabel: Object.entries(byLabel)
-          .map(([label, count]) => ({ label, count }))
-          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)),
-        oldest: all.slice(0, 8),
-      };
-    })(),
+    processes: processSummary(),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),
     // 로그 뷰어의 레벨 토글 초기 상태를 정하는 값. 서버가 debug를 안 보내고 있으면

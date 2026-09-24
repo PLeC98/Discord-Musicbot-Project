@@ -1,19 +1,4 @@
 {
-  "dashboard/server/routes/admin.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "dashboard/server/playerView.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "dashboard/server/routes/guildSettings.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "events/playlistMoreHandler.ts": {
     "complexity": {
       "count": 1
