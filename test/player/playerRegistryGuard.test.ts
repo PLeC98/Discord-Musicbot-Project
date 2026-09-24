@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/Player.ts — 지연 정리 타이머가 "자기가 아직 현행 플레이어인지" 확인하고 움직이는지.
 //
 // 회귀 대상 (2026-09-08 실서버 관측): 대기열 소진 타이머는 트랙이 끝날 때마다 새로 예약되는데
@@ -10,6 +9,8 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import tempStore from "../helpers/tempStore.ts";
+import { fakePlayer } from "../helpers/fake.ts";
+import tracks from "../helpers/tracks.ts";
 const { openTempStore } = tempStore;
 const store = openTempStore("registry-guard-");
 after(() => store.close());
@@ -22,9 +23,9 @@ const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
 const GUILD = "g1";
 const DELAY = 30; // 실 타이머를 그대로 쓰되 대기 시간만 줄인다 (전역 setTimeout을 갈아끼우면 러너가 멈춘다)
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-let savedDelay;
+let savedDelay = 0;
 before(() => {
   savedDelay = config.bot.leaveDelayQueueEmptyMs;
   config.bot.leaveDelayQueueEmptyMs = DELAY;
@@ -34,8 +35,8 @@ after(() => {
 });
 
 // playbackLoop.test.js와 같은 방식 — 코드가 건드리는 것만 나열한 목
-function makePlayer(players, current = { title: "곡", duration: 10 }) {
-  const p = {
+function makePlayer(players: Map<string, unknown>, current: { title: string; duration: number } | null = { title: "곡", duration: 10 }) {
+  const p = fakePlayer({
     lifecycle: new PlaybackState(),
     watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
     pauseReasons: new Set(),
@@ -49,7 +50,7 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     autoplay: false,
     pendingEndReason: null,
     guild: { id: GUILD, name: "TestGuild", client: { players } },
-    cleanupCalls: [],
+    cleanupCalls: [] as string[],
     releasedResources: 0,
     _trackLabel: MusicPlayer.prototype._trackLabel,
     getCurrentTime: MusicPlayer.prototype.getCurrentTime,
@@ -60,13 +61,13 @@ function makePlayer(players, current = { title: "곡", duration: 10 }) {
     async play() {},
     async updateVoiceStatus() {},
     audioPlayer: { stop() {} },
-    cleanup(reason) {
+    cleanup(reason: string) {
       this.cleanupCalls.push(reason);
     },
     releaseResources() {
       this.releasedResources++;
     },
-  };
+  });
   p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다
   return p;
 }
@@ -119,7 +120,7 @@ test("타이머가 깨어났을 때 다시 재생 중이면 아무것도 하지 
   players.set(GUILD, p);
 
   await handleTrackEnd.call(p, "idle");
-  p.currentTrack = { title: "새로 튼 곡", duration: 100 }; // 대기 시간 안에 다시 재생
+  p.currentTrack = tracks.youtube("aaaaaaaaaaa", { title: "새로 튼 곡", duration: 100 }); // 대기 시간 안에 다시 재생
   await sleep(DELAY * 3);
 
   assert.deepEqual(p.cleanupCalls, []);

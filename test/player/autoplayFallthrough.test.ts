@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/Player.ts — 자동재생이 곡을 못 고른 뒤의 상태.
 //
 // 회귀 대상: handleAutoplay가 후보를 하나도 못 찾으면 아무 말 없이 return했고, handleTrackEnd는
@@ -14,14 +13,16 @@ import { PlaybackState } from "../../src/player/playbackState.ts";
 
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
-function makeTrack(title, duration = 100) {
+import { fakePlayer } from "../helpers/fake.ts";
+
+function makeTrack(title: string, duration = 100) {
   return { title, url: `https://y/${title}`, duration };
 }
 
 // 대기열 소진 꼬리까지 받아 내는 하네스 — playbackLoop의 것은 반복 전이용이라 여기까지 오지 않는다.
-function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false } = {}) {
-  const calls = { idleLeave: 0, playbackEnd: [], autoplay: 0, voiceStatus: 0 };
-  return {
+function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false }: { autoplay?: string | false; current?: ReturnType<typeof makeTrack> | null; picked?: boolean } = {}) {
+  const calls = { idleLeave: 0, playbackEnd: [] as string[], autoplay: 0, voiceStatus: 0 };
+  return fakePlayer({
     calls,
     lifecycle: new PlaybackState(),
     watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
@@ -59,7 +60,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
       return true;
     },
     async play() {},
-  };
+  });
 }
 
 test("자동재생이 곡을 못 고르면 대기열 소진 흐름으로 떨어진다 (회귀: 좀비 상태)", async () => {

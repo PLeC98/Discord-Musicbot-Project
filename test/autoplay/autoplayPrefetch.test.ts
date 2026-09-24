@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { MusicPlayer } from "../../src/player/Player.ts";
 import * as trackState from "../../src/player/trackState.ts";
 import panelEvents from "../helpers/panelEvents.ts";
+import { fakePlayer } from "../helpers/fake.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import playerNotices from "../../src/ui/playerNotices.js";
 import * as pool from "../../src/autoplay/pool.ts";
@@ -33,9 +34,8 @@ const user = (title: string) => track(title);
 const auto = (title: string) => track(title, { autoplay: true });
 const titles = (arr: QueuedTrack[]) => arr.map((t) => t.title);
 
-// 가짜 플레이어. 이 시험이 읽는 칸만 채운 것을 플레이어로 보고 플레이어의 메서드를 빌려 부른다
-// 플레이어의 칸은 플레이어 타입으로, 시험만 쓰는 칸(calls · panel)은 그대로
-const asPlayer = <T extends object>(fake: T) => fake as unknown as MusicPlayer & Omit<T, keyof MusicPlayer>;
+// 가짜 플레이어에 플레이어의 메서드를 빌려 부른다
+const asPlayer = fakePlayer;
 
 type Options = { autoplay?: string | false; current?: QueuedTrack | null; queue?: QueuedTrack[]; loop?: Loop; pick?: (this: { queue: QueuedTrack[] }) => Promise<QueuedTrack | null>; prefetch?: number };
 

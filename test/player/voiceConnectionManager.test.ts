@@ -1,15 +1,16 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/voiceConnection.ts — 연결 복구 루프의 단일 실행 계약.
 // forceReconnect 와 플레이어의 onVoiceRecovered 는 스텁 — 루프 구조(중첩 금지·중단·상한)만 검증.
 // 회귀 대상: 구 setInterval(3초) 방식의 콜백 중첩 (forceReconnect 15초 대기와 겹침)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VoiceConnectionManager } from "../../src/player/voiceConnection.ts";
+import { VoiceConnectionManager, type VoiceHost } from "../../src/player/voiceConnection.ts";
+import { fake } from "../helpers/fake.ts";
 
 function deferred() {
-  let resolve, reject;
-  const p = new Promise((res, rej) => {
+  let resolve = (_ok: boolean) => {};
+  let reject = (_error: unknown) => {};
+  const p = new Promise<boolean>((res, rej) => {
     resolve = res;
     reject = rej;
   });
@@ -17,33 +18,38 @@ function deferred() {
 }
 
 const tick = () => new Promise((r) => setImmediate(r));
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function makeVcm({ maxAttempts = 5 } = {}) {
   const stats = { reconnects: 0, activeReconnects: 0, maxActiveReconnects: 0, resumes: 0 };
-  const player = {
+  const channels = new Map([["vc1", { id: "vc1" }]]);
+  const player = fake<VoiceHost>({
     voiceChannel: { id: "vc1" },
-    guild: { channels: { cache: new Map([["vc1", { id: "vc1" }]]) } },
-    onVoiceRecovered: async () => stats.resumes++,
-  };
-  const vcm = new VoiceConnectionManager(player);
+    guild: { channels: { cache: channels } },
+    onVoiceRecovered: async () => {
+      stats.resumes++;
+    },
+  });
+
+  // 재연결 한 번은 시험이 정한다. 그동안 겹쳐 도는 시도가 있는지 센다
+  let reconnectImpl = async () => false;
+  class CountingVcm extends VoiceConnectionManager {
+    async forceReconnect() {
+      stats.reconnects++;
+      stats.activeReconnects++;
+      stats.maxActiveReconnects = Math.max(stats.maxActiveReconnects, stats.activeReconnects);
+      try {
+        return await reconnectImpl();
+      } finally {
+        stats.activeReconnects--;
+      }
+    }
+  }
+  const vcm = new CountingVcm(player);
   vcm.maxRecoveryAttempts = maxAttempts;
   vcm.recoveryRetryDelayMs = 5; // 테스트용 휴지 단축 (기본 3000ms)
 
-  let reconnectImpl = async () => false;
-
-  vcm.forceReconnect = async () => {
-    stats.reconnects++;
-    stats.activeReconnects++;
-    stats.maxActiveReconnects = Math.max(stats.maxActiveReconnects, stats.activeReconnects);
-    try {
-      return await reconnectImpl();
-    } finally {
-      stats.activeReconnects--;
-    }
-  };
-
-  return { vcm, player, stats, setReconnect: (fn) => (reconnectImpl = fn) };
+  return { vcm, channels, stats, setReconnect: (fn: () => Promise<boolean>) => (reconnectImpl = fn) };
 }
 
 test("성공 경로: 재연결 성공 → 위치 재개 1회 → 상태 초기화", async () => {
@@ -116,8 +122,8 @@ test("중단: 재연결 대기 중 stop되면 늦은 성공이 상태를 건드�
 });
 
 test("음성 채널이 사라졌으면 재연결 시도 없이 종료", async () => {
-  const { vcm, player, stats } = makeVcm();
-  player.guild.channels.cache.clear();
+  const { vcm, channels, stats } = makeVcm();
+  channels.clear();
 
   await vcm.startConnectionRecovery();
 

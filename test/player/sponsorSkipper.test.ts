@@ -3,9 +3,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SponsorSkipper } from "../../src/player/sponsorSkipper.ts";
+import { SponsorSkipper, type SkipHost } from "../../src/player/sponsorSkipper.ts";
+import { AudioPlayerStatus } from "@discordjs/voice";
+import { fake } from "../helpers/fake.ts";
 
-const segs = (...pairs) => pairs.map(([start, end]) => ({ start, end, categories: ["music_offtopic"] }));
+const segs = (...pairs: Array<[number, number]>) => pairs.map(([start, end]) => ({ start, end, categories: ["music_offtopic"] }));
 
 test("decide: 인트로(start=0) — 신규 재생(prevSec=-1)에서 발동", () => {
   const d = SponsorSkipper.decide(segs([0, 8]), -1, 0.5, 200);
@@ -62,18 +64,22 @@ test("decide: 구간 없으면 null + prevSec 전진", () => {
   assert.equal(d.prevSec, 6);
 });
 
-function fakePlayer({ status = "playing", isPlayStarting = false, paused = false, curSec = 0, duration = 200 } = {}) {
-  const calls = { play: [], skip: [] };
-  return {
+function fakePlayer({ status = AudioPlayerStatus.Playing, isPlayStarting = false, paused = false, curSec = 0, duration = 200 } = {}) {
+  const calls = { play: [] as number[], skip: [] as string[] };
+  const player = fake<SkipHost>({
     currentTrack: { title: "t", duration },
     paused,
     isPlayStarting,
     audioPlayer: { state: { status } },
     getCurrentTime: () => curSec * 1000,
-    play: async (ms) => calls.play.push(ms),
-    skip: (r) => calls.skip.push(r),
-    _calls: calls,
-  };
+    play: async (ms: number) => {
+      calls.play.push(ms);
+    },
+    skip: (r: string) => {
+      calls.skip.push(r);
+    },
+  });
+  return Object.assign(player, { _calls: calls });
 }
 
 test("_tick: isPlayStarting 중엔 발동 보류(재진입 방지)", async () => {
@@ -86,7 +92,7 @@ test("_tick: isPlayStarting 중엔 발동 보류(재진입 방지)", async () =>
 });
 
 test("_tick: 실제 Playing 아니면 보류", async () => {
-  const p = fakePlayer({ status: "buffering", curSec: 5 });
+  const p = fakePlayer({ status: AudioPlayerStatus.Buffering, curSec: 5 });
   const sk = new SponsorSkipper(p);
   sk.segments = segs([0, 10]);
   sk._prevSec = -1;
@@ -114,8 +120,8 @@ test("_tick: 아웃트로 → skip('sponsorblock') (스킵 버튼과 동일 처�
 });
 
 test("onPlayStart: 구간 있으면 워처 시작, 없으면 정지 (인터벌 핸들 검증)", () => {
-  const fakePlayer = { currentTrack: { duration: 100 }, sponsor: { skipSegments: segs([0, 5]) }, paused: false, getCurrentTime: () => 0 };
-  const sk = new SponsorSkipper(fakePlayer);
+  const host = { currentTrack: { duration: 100 }, sponsor: { skipSegments: segs([0, 5]) }, paused: false, getCurrentTime: () => 0 };
+  const sk = new SponsorSkipper(fake<SkipHost>(host));
   sk.onPlayStart(0);
   assert.ok(sk._interval, "구간 있으면 인터벌 가동");
   assert.equal(sk._prevSec, -1);
@@ -123,7 +129,7 @@ test("onPlayStart: 구간 있으면 워처 시작, 없으면 정지 (인터벌 �
   assert.equal(sk._interval, null);
 
   // 구간 없는 트랙
-  fakePlayer.sponsor = { skipSegments: [] };
+  host.sponsor = { skipSegments: [] };
   sk.onPlayStart(30);
   assert.equal(sk._interval, null, "구간 없으면 워처 미가동");
 });

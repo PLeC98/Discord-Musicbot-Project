@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 라이브(HLS) 재생 경로의 불변식.
 //
 // HLS는 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열리는 형식이라, 이 갈래만 ffmpeg에
@@ -20,7 +19,7 @@ const require = createRequire(import.meta.url);
 
 import { buildFfmpegArgs } from "../../src/media/ffmpeg/args.ts";
 import { isHlsStream } from "../../src/rules/transportOf.ts";
-const idx = (args, flag) => args.indexOf(flag);
+const idx = (args: string[], flag: string) => args.indexOf(flag);
 
 test("능력 확인: 우리가 깔아 주는 빌드는 https와 hls를 갖췄다", () => {
   const caps = capabilities();
@@ -239,7 +238,7 @@ test("_reset 후에도 능력 확인이 다시 선다", () => {
 // 종료 코드로 가른다. 0이면 방송이 끝난 것, 그 밖은 사고다.
 
 const endingPlayer = (overrides = {}) => {
-  const played = [];
+  const played: number[] = [];
   const player = fakePlayer({
     lifecycle: new PlaybackState(),
     sponsorSkipper: { stop() {} },
@@ -247,7 +246,7 @@ const endingPlayer = (overrides = {}) => {
     autoplay: false,
     playback: { resource: { playbackDuration: 30_000 } },
     releaseAudioProtection() {},
-    play: async (ms) => {
+    play: async (ms: number) => {
       played.push(ms);
       return { ok: true };
     },

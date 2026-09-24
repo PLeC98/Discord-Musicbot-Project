@@ -57,7 +57,7 @@ async function prepareStart(player: MusicPlayer, seekMs: number): Promise<{ ok: 
 }
 
 /** 곡 첫머리(0 부근)에서 시작하는 건너뛸 구간의 끝(ms). 없으면 0 */
-function introOffsetMs(sponsor: Segments | null | undefined) {
+function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null | undefined) {
   const segs = sponsor?.skipSegments;
   if (!segs || !segs.length) return 0;
   const intro = segs.find((s) => s.start <= INTRO_START_TOL_SEC);
@@ -226,7 +226,7 @@ function resumeInfo(track: QueuedTrack, streamInfo: StreamInfo | null): Resume {
 }
 
 // 조기 종료 · SponsorBlock 곡 끝 판정에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
-function audioDurationSec(track: QueuedTrack | null, streamInfo: StreamInfo | null, cacheFile: string | null): number | null {
+function audioDurationSec(track: Pick<QueuedTrack, "audioUrl"> | null, streamInfo: Pick<StreamInfo, "duration"> | null, cacheFile: string | null): number | null {
   const key = audioKeyOf(track?.audioUrl);
   if (cacheFile && key) {
     const cached = audioCache.lookupByAudioKey(key)?.duration_sec;

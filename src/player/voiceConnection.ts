@@ -370,3 +370,4 @@ class VoiceConnectionManager {
 }
 
 export { VoiceConnectionManager };
+export type { VoiceHost, VoiceLib };

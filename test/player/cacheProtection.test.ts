@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/player/Player.ts releaseAudioProtection — 캐시 퇴거 보호 해제 계약
 // 회귀 대상: 비활성 종료·강제 퇴장 경로가 currentTrack을 먼저 null해서
 // cleanup의 unprotect(currentTrack 전제)가 건너뛰어져 보호 Set이 재시작까지 증가하던 누수.
@@ -10,7 +9,7 @@ import * as audioCache from "../../src/store/audioCache.ts";
 import { MusicPlayer } from "../../src/player/Player.ts";
 
 const release = MusicPlayer.prototype.releaseAudioProtection;
-const isProtected = (key) => audioCache._protectedKeys.has(key);
+const isProtected = (key: string) => audioCache._protectedKeys.has(key);
 
 test("currentTrack이 먼저 null된 종료 경로에서도 기억된 키가 해제됨 (L-02 회귀)", () => {
   audioCache.protect("k1");
