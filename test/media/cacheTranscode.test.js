@@ -16,17 +16,18 @@ import YouTube from "../../src/sources/youtube/index.ts";
 /** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 받지는 않는다. 받기 전에 캐시 행을 적으므로 임시 DB 를 연다 */
 async function captureOptions() {
   const store = openTempStore("cache-transcode-");
-  const real = YouTube.runYtDlp;
   let options = null;
-  YouTube.runYtDlp = async (_url, build) => {
-    options = build(false);
-    throw new Error("여기까지만");
+  const youtube = {
+    ...YouTube,
+    runYtDlp: async (_url, build) => {
+      options = build(false);
+      throw new Error("여기까지만");
+    },
   };
   try {
-    const downloader = new TrackDownloader({ guild: { id: "g" } });
+    const downloader = new TrackDownloader({ guild: { id: "g" } }, { youtube });
     await downloader._performDownload({ audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube", title: "곡" }, "/tmp/없는경로.opus").catch(() => {});
   } finally {
-    YouTube.runYtDlp = real;
     store.close();
   }
   return options;

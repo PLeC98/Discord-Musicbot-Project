@@ -2,13 +2,13 @@
 //
 // 3단계가 받을 때 `audio_version` 을 채우고 열쇠 모양을 바꾸고, 5단계가 CacheManager 를 쪼갠다. 그 전에 갈래마다
 // "무엇으로 받았나 · 장부에 무엇을 적었나 · 트랙에 무엇을 고쳤나"를 적어 둔다. 진짜 저장소를 임시 DB 로 쓰고
-// yt-dlp · 직접 링크 · 변환 · SponsorBlock · 동등물 찾기만 바꿔 끼운다.
+// yt-dlp · 직접 링크 · 변환 · SponsorBlock · 동등물 찾기만 가짜로 넘긴다.
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { test, before, beforeEach, after } from "node:test";
+import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
 import { md5 } from "../../src/rules/audioKeyOf.ts";
@@ -19,9 +19,6 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const YouTube = (await import("../../src/sources/youtube/index.ts")).default;
-const equivalent = (await import("../../src/sources/youtube/equivalent.ts")).default;
-const DirectLink = (await import("../../src/sources/direct.ts")).default;
-const SponsorBlock = (await import("../../src/sources/sponsorBlock.ts")).default;
 const audioConvert = (await import("../../src/media/convert.js")).default;
 const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
 
@@ -30,54 +27,52 @@ const calls = { ytdlp: [], direct: [], convert: [], sponsor: [], equivalent: [],
 // 시험마다 바꾸는 yt-dlp 의 행동. 기본은 "출력 경로에 파일과 info.json 을 쓴다"
 let ytdlpBehavior;
 
-const real = {
-  runYtDlp: YouTube.runYtDlp,
-  getYtDlpOptions: YouTube.getYtDlpOptions,
-  getStream: DirectLink.getStream,
-  toCacheOpus: audioConvert.toCacheOpus,
-  forTrack: SponsorBlock.forTrack,
-  findYouTubeEquivalent: equivalent.findYouTubeEquivalent,
-  reresolveYouTube: equivalent.reresolveYouTube,
+// 다운로더에 넘기는 가짜 소스와 변환. 무엇을 불렀는지 calls 에 모은다
+const deps = {
+  youtube: {
+    ...YouTube,
+    getYtDlpOptions: (options) => options, // 넘기는 선택지를 그대로 본다
+    runYtDlp: async (url, build) => {
+      const options = build(false);
+      calls.ytdlp.push({ url, options });
+      return ytdlpBehavior(url, options);
+    },
+  },
+  direct: {
+    getStream: async (url) => {
+      calls.direct.push(url);
+      return Object.assign(Readable.from([Buffer.from("raw-audio")]), { headers: { etag: '"v1"', "content-length": "9" } });
+    },
+  },
+  convert: {
+    ...audioConvert,
+    toCacheOpus: async (src, out) => {
+      calls.convert.push({ src, out, srcExists: fs.existsSync(src) });
+      fs.writeFileSync(out, "opus");
+      return { durationSec: 222 };
+    },
+  },
+  sponsor: {
+    forTrack: async (track, guildId) => {
+      calls.sponsor.push({ title: track.title, guildId });
+    },
+  },
+  equivalent: {
+    findYouTubeEquivalent: async (track) => {
+      calls.equivalent.push(track.title);
+      if (track._equivalent) track.audioUrl = track._equivalent;
+      return track._equivalent ?? null;
+    },
+    reresolveYouTube: async (track) => {
+      calls.reresolve.push(track.title);
+      track.audioUrl = "https://www.youtube.com/watch?v=freshfresh01";
+      track.audioFoundBy = "search";
+      return track.audioUrl;
+    },
+  },
 };
 
-before(() => {
-  YouTube.getYtDlpOptions = (options) => options; // 넘기는 선택지를 그대로 본다
-  YouTube.runYtDlp = async (url, build) => {
-    const options = build(false);
-    calls.ytdlp.push({ url, options });
-    return ytdlpBehavior(url, options);
-  };
-  DirectLink.getStream = async (url) => {
-    calls.direct.push(url);
-    return Object.assign(Readable.from([Buffer.from("raw-audio")]), { headers: { etag: '"v1"', "content-length": "9" } });
-  };
-  audioConvert.toCacheOpus = async (src, out) => {
-    calls.convert.push({ src, out, srcExists: fs.existsSync(src) });
-    fs.writeFileSync(out, "opus");
-    return { durationSec: 222 };
-  };
-  SponsorBlock.forTrack = async (track, guildId) => {
-    calls.sponsor.push({ title: track.title, guildId });
-  };
-  equivalent.findYouTubeEquivalent = async (track) => {
-    calls.equivalent.push(track.title);
-    if (track._equivalent) track.audioUrl = track._equivalent;
-    return track._equivalent ?? null;
-  };
-  equivalent.reresolveYouTube = async (track) => {
-    calls.reresolve.push(track.title);
-    track.audioUrl = "https://www.youtube.com/watch?v=freshfresh01";
-    track.audioFoundBy = "search";
-    return track.audioUrl;
-  };
-});
-
 after(() => {
-  Object.assign(YouTube, { runYtDlp: real.runYtDlp, getYtDlpOptions: real.getYtDlpOptions });
-  DirectLink.getStream = real.getStream;
-  audioConvert.toCacheOpus = real.toCacheOpus;
-  SponsorBlock.forTrack = real.forTrack;
-  Object.assign(equivalent, { findYouTubeEquivalent: real.findYouTubeEquivalent, reresolveYouTube: real.reresolveYouTube });
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
@@ -98,7 +93,7 @@ beforeEach(() => {
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
 });
 
-const downloader = () => new TrackDownloader({ guild: { id: "g1" } });
+const downloader = () => new TrackDownloader({ guild: { id: "g1" } }, deps);
 const audioRow = (key) => storeDb.get().prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(key) || null;
 const lookupRow = (requestKey) => storeDb.get().prepare("SELECT * FROM track_lookup WHERE request_key = ?").get(requestKey) || null;
 const leftovers = () => fs.readdirSync(audioCache.cacheDir()).filter((n) => n.includes(".tmp-") || n.endsWith(".raw") || n.endsWith(".info.json"));

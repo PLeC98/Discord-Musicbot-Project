@@ -17,13 +17,9 @@ import os from "os";
 import path from "path";
 import { EventEmitter } from "events";
 import { PassThrough, Writable } from "stream";
+import { audioKeyOf } from "../../src/rules/audioKeyOf.ts";
 
 // 판정 시험에서 무엇이 불렸는지 모은다. 시험마다 reset() 으로 비운다
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 const calls = { spawns: [], resources: [], chunked: [], fetches: [], downloads: [], persists: [], directStreams: [], sink: [], steps: [] };
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
@@ -122,7 +118,6 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
 const MusicPlayer = (await import("../../src/player/Player.js")).default;
-const equivalent = (await import("../../src/sources/youtube/equivalent.ts")).default;
 const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
 const SponsorBlock = (await import("../../src/sources/sponsorBlock.ts")).default;
 const VoiceConnectionManager = (await import("../../src/player/voiceConnection.js")).default;
@@ -200,7 +195,8 @@ const behavior = {
   directStream: null, // (url) → Readable
 };
 
-equivalent.findYouTubeEquivalent = async (track) => {
+// 동등물 찾기 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
+const findEquivalent = async (track) => {
   calls.steps.push("equivalent");
   const url = behavior.equivalent ? behavior.equivalent(track) : null;
   if (url) {
@@ -209,35 +205,39 @@ equivalent.findYouTubeEquivalent = async (track) => {
   return url;
 };
 // 진짜처럼 영상 id 를 알 때만 답한다(스포티파이는 동등물을 찾은 뒤)
-SponsorBlock.forTrack = async (track) => {
+const sponsorFor = async (track) => {
   calls.steps.push("sponsor");
   if (!SponsorBlock._trackVideoId(track)) return null;
   return behavior.sponsor ? behavior.sponsor(track) : null;
 };
 // 진짜 다운로드는 첫 await 전에 두 가지를 동기로 한다. 장부에 "받는 중" 행을 만들고(recordDownloadStart),
 // 받는 중 목록에 올린다. play() 끝의 링크 장부 기록이 그 행에 기대므로(외래 키) 가짜도 똑같이 해야 한다.
-const inFlight = new Map();
-TrackDownloader.isDownloading = (filepath) => inFlight.has(filepath);
-TrackDownloader.waitFor = (filepath) => inFlight.get(filepath) ?? null;
-TrackDownloader.prototype.downloadTrack = function (track) {
-  calls.downloads.push(track);
-  const key = require("../../src/rules/audioKeyOf.ts").audioKeyOf(track.audioUrl);
-  if (key) audioCache.recordDownloadStart(key, track);
-  const filepath = this.trackFilePath(track);
-  const running = behavior.download ? Promise.resolve().then(() => behavior.download(track)) : new Promise(() => {});
-  inFlight.set(filepath, running);
-  running.then(
-    () => inFlight.delete(filepath),
-    () => inFlight.delete(filepath),
-  );
-  return running;
-};
+// 받는 중 목록은 진짜 것을 쓴다. 그래야 받는 중인 파일을 캐시로 치지 않는 판정(findCacheFile)이 그대로 돈다
+const { inFlight } = TrackDownloader._internals;
+class FakeDownloader extends TrackDownloader {
+  downloadTrack(track) {
+    calls.downloads.push(track);
+    const key = audioKeyOf(track.audioUrl);
+    if (key) audioCache.recordDownloadStart(key, track);
+    const filepath = this.trackFilePath(track);
+    const running = behavior.download ? Promise.resolve().then(() => behavior.download(track)) : new Promise(() => {});
+    inFlight.set(filepath, running);
+    running.then(
+      () => inFlight.delete(filepath),
+      () => inFlight.delete(filepath),
+    );
+    return running;
+  }
+}
 // 플레이어의 바깥 경계. 이 뒤로 만드는 플레이어가 모두 쓴다
 MusicPlayer.useBoundary({
   createAudioPlayer: () => new FakeAudioPlayer(),
   createVoice: (player) => new FakeVoice(player),
   createPersistence: (player) => new FakePersistence(player),
   createWarmer: (player, deps) => new FakeWarmer(player, deps),
+  createDownloader: (player) => new FakeDownloader(player),
+  findEquivalent,
+  sponsorFor,
   createAudioResource,
   spawnFfmpeg,
   ffmpegCapabilities: () => caps,

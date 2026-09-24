@@ -6,8 +6,6 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import equivalent from "../sources/youtube/equivalent.ts";
-import SponsorBlock from "../sources/sponsorBlock.ts";
 import TrackDownloader from "../media/cacheDownload.js";
 import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";
@@ -38,8 +36,8 @@ async function prepareStart(player, seekMs) {
   if (wanted === 0) {
     const track = player.currentTrack;
     try {
-      if (!track.audioUrl) await equivalent.findYouTubeEquivalent(track); // 멱등. 영상 id 확정
-      const introEnd = introOffsetMs(await SponsorBlock.forTrack(track, player.guild.id));
+      if (!track.audioUrl) await player.io.findEquivalent(track); // 멱등. 영상 id 확정
+      const introEnd = introOffsetMs(await player.io.sponsorFor(track, player.guild.id));
       if (introEnd > 0) startMs = introEnd;
     } catch {
       /* 조회 실패는 무시(fail-open). 오프셋 없이 재생 */
@@ -72,7 +70,7 @@ async function resolveSource(player, track, startMs, previousResume) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 열쇠가 정해지므로
     // 캐시 파일을 한 번 더 보고, 있으면 스트림을 받지 않는다
     if (!track.audioUrl) {
-      const ytUrl = await equivalent.findYouTubeEquivalent(track);
+      const ytUrl = await player.io.findEquivalent(track);
       if (!ytUrl) throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
       cacheFile = TrackDownloader.findCacheFile(track);
     }
@@ -86,7 +84,7 @@ async function resolveSource(player, track, startMs, previousResume) {
     streamInfo,
     titleVerified: verifyTitle(track, streamInfo),
     isLive: liveAnswer(streamInfo, cacheFile),
-    sponsor: SponsorBlock.forTrack(track, player.guild.id).catch(() => null),
+    sponsor: player.io.sponsorFor(track, player.guild.id).catch(() => null),
   };
 }
 

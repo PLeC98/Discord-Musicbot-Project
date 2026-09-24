@@ -87,9 +87,13 @@ async function publish(tempPath, filepath) {
   return true;
 }
 
+// 받는 데 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
+const SOURCES = { youtube: YouTube, direct: DirectLink, convert: audioConvert, sponsor: SponsorBlock, equivalent };
+
 class TrackDownloader {
-  constructor(player) {
+  constructor(player, deps = {}) {
     this.player = player;
+    this.deps = { ...SOURCES, ...deps };
   }
 
   /**
@@ -111,7 +115,7 @@ class TrackDownloader {
     // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
     // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
     // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
-    if (needsBorrowedAudio(track) && !(await equivalent.findYouTubeEquivalent(track))) {
+    if (needsBorrowedAudio(track) && !(await this.deps.equivalent.findYouTubeEquivalent(track))) {
       throw new Error("Could not find YouTube equivalent");
     }
     const filepath = this.trackFilePath(track);
@@ -136,7 +140,7 @@ class TrackDownloader {
         // (극히 드문 케이스. 새로 검색한 영상이면 재발동 안 함 → 무한루프 방지.)
         if (YouTube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
-          const fresh = await equivalent.reresolveYouTube(track);
+          const fresh = await this.deps.equivalent.reresolveYouTube(track);
           if (fresh) return await this._performDownload(track, this.trackFilePath(track));
         }
         throw err;
@@ -167,7 +171,7 @@ class TrackDownloader {
       // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
       try {
-        await SponsorBlock.forTrack(track, player.guild?.id);
+        await this.deps.sponsor.forTrack(track, player.guild?.id);
       } catch {
         /* 무시 */
       }
@@ -184,8 +188,9 @@ class TrackDownloader {
       // 조립하므로 우리가 손댈 것이 없다.
       if (inputKind(downloadUrl) !== "direct") {
         // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
-        await YouTube.runYtDlp(downloadUrl, (forceCookies) =>
-          YouTube.getYtDlpOptions(
+        const { youtube } = this.deps;
+        await youtube.runYtDlp(downloadUrl, (forceCookies) =>
+          youtube.getYtDlpOptions(
             {
               output: tempPath,
               // 이 다운로드에 곁들여 메타데이터를 파일로 받는다. 왕복이 늘지 않는다.
@@ -223,7 +228,7 @@ class TrackDownloader {
       } else {
         // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
         // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
-        const audioStream = await DirectLink.getStream(downloadUrl);
+        const audioStream = await this.deps.direct.getStream(downloadUrl);
         audioVersion = versionOf.fromHeaders(audioStream.headers);
 
         // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
@@ -233,7 +238,7 @@ class TrackDownloader {
         try {
           await pipeline(audioStream, fsSync.createWriteStream(rawPath));
           // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
-          const made = await audioConvert.toCacheOpus(rawPath, tempPath);
+          const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
 
           // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다. 받아둔 파일의 실측으로 교정.
           // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
