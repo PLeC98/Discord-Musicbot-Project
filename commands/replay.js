@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import controls from "../src/usecases/controls.js";
-import controlMessages from "../src/ui/controlMessages.ts";
-const { controlMessage } = controlMessages;
+import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const exported = {
   data: new SlashCommandBuilder().setName("replay").setDescription("Restart the current track from the beginning").setDescriptionLocalizations({ ko: "현재 곡을 처음부터 재생합니다" }),

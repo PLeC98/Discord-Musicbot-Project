@@ -135,5 +135,4 @@ class StatusManager {
   }
 }
 
-export default StatusManager;
-export { StatusManager as "module.exports" };
+export { StatusManager };

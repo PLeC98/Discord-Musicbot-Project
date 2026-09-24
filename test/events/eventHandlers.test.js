@@ -17,7 +17,7 @@ const audioCache = await import("../../src/store/audioCache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const S = (await import("../../src/ui/strings.ts")).default;
+const S = await import("../../src/ui/strings.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const lookup = await import("../../src/sources/lookup.ts");
 const yamlStore = await import("../../src/config/yamlStore.ts");

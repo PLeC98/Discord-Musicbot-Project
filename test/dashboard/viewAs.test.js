@@ -19,7 +19,7 @@ after(() => store.close());
 const { TIERS, getViewAs, shadowMember } = (await import("../../dashboard/server/viewAs.js")).default;
 const { isOwner, isRealOwner } = (await import("../../dashboard/server/owner.js")).default;
 const { isModerator, isDj, checkVoice, checkControl, checkAdd } = (await import("../../src/usecases/permissions.js")).default;
-const S = (await import("../../src/ui/strings.ts")).default;
+const S = await import("../../src/ui/strings.ts");
 
 const req = (tier, userId = "owner") => ({ session: { user: { id: userId }, ...(tier === undefined ? {} : { viewAs: tier }) } });
 

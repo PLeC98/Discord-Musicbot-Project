@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import controls from "../src/usecases/controls.js";
-import controlMessages from "../src/ui/controlMessages.ts";
-const { controlMessage } = controlMessages;
+import { controlMessage } from "../src/ui/controlMessages.ts";
 
 /**
  * 시간 문자열을 밀리초로 파싱

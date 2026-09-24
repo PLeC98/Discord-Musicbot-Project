@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import zlib from "node:zlib";
-import blankThumbnail from "../../src/ui/blankThumbnail.ts";
+import * as blankThumbnail from "../../src/ui/blankThumbnail.ts";
 
 const { crc32, NAME, SIZE } = blankThumbnail._internals;
 

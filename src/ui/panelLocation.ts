@@ -94,5 +94,4 @@ class NowPlayingPanel {
   }
 }
 
-export default NowPlayingPanel;
-export { NowPlayingPanel as "module.exports" };
+export { NowPlayingPanel };

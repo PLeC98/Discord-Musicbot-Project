@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import controls from "../src/usecases/controls.js";
-import controlMessages from "../src/ui/controlMessages.ts";
-const { controlMessage } = controlMessages;
+import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const LOOP_TEXT = {
   track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],

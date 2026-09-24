@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import config from "../config.ts";
 import * as YouTube from "../src/sources/youtube/index.ts";
-import S from "../src/ui/strings.ts";
+import * as S from "../src/ui/strings.ts";
 import permissions from "../src/usecases/permissions.js";
 const { checkAdd, checkSummon } = permissions;
 

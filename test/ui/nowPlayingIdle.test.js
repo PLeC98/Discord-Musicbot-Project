@@ -4,7 +4,7 @@
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
+import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 import tempStore from "../helpers/tempStore.ts";
 import * as playerEvents from "../../src/player/events.ts";
 

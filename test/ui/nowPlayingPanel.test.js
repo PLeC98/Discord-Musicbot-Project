@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import NowPlayingPanel from "../../src/ui/panelLocation.ts";
+import { NowPlayingPanel } from "../../src/ui/panelLocation.ts";
 
 function memoryStore(initial = {}) {
   const records = new Map(Object.entries(initial));

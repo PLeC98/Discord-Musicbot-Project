@@ -5,14 +5,12 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import controls from "../../src/usecases/controls.js";
 import * as playerEvents from "../../src/player/events.ts";
-import S from "../../src/ui/strings.ts";
-import controlMessages from "../../src/ui/controlMessages.ts";
+import * as S from "../../src/ui/strings.ts";
+import { controlMessage, controlApiError } from "../../src/ui/controlMessages.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
-
-const { controlMessage, controlApiError } = controlMessages;
 
 afterEach(() => playerEvents._reset());
 

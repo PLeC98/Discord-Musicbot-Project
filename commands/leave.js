@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import controls from "../src/usecases/controls.js";
-import controlMessages from "../src/ui/controlMessages.ts";
-const { controlMessage } = controlMessages;
+import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const exported = {
   data: new SlashCommandBuilder().setName("leave").setDescription("Leave the voice channel and save the current queue for later").setDescriptionLocalizations({ ko: "음성 채널에서 나가고 현재 대기열을 저장합니다" }),

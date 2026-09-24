@@ -2,7 +2,7 @@ import { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder,
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
-import S from "../src/ui/strings.ts";
+import * as S from "../src/ui/strings.ts";
 import addTracks from "../src/usecases/addTracks.js";
 const { requestPlayback, ensurePlayer } = addTracks;
 import responders from "../src/usecases/responders.js";
@@ -10,20 +10,16 @@ const { channelResponder } = responders;
 import permissions from "../src/usecases/permissions.js";
 const { checkControl, checkAdd, checkSummon } = permissions;
 import controls from "../src/usecases/controls.js";
-import controlMessages from "../src/ui/controlMessages.ts";
-const { controlMessage } = controlMessages;
+import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const LOOP_TEXT = {
   track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
   queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
-import genreMenu from "../src/ui/genreMenu.ts";
-const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = genreMenu;
-import replyLifetime from "../src/ui/replyLifetime.ts";
-const { keepReply, expireReply } = replyLifetime;
-import queueDisplay from "../src/ui/queueDisplay.ts";
-const { queueLine } = queueDisplay;
+import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
+import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
+import { queueLine } from "../src/ui/queueDisplay.ts";
 import helpCommand from "../commands/help.js";
 import systemCommand from "../commands/system.js";
 

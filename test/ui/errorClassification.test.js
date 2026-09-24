@@ -5,7 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import ErrorHandler from "../../src/ui/errorMessages.ts";
+import { ErrorHandler } from "../../src/ui/errorMessages.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import { RULES } from "../../src/rules/errorKind.ts";
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]

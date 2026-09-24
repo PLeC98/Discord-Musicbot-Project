@@ -12,7 +12,7 @@ import { PlaybackState } from "../../src/player/playbackState.ts";
 import { PlaybackWatch } from "../../src/player/playbackWatch.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import { capabilities, _internals } from "../../src/media/ffmpeg/path.ts";
-import progressBars from "../../src/ui/progressBar.ts";
+import * as progressBars from "../../src/ui/progressBar.ts";
 
 import { buildFfmpegArgs } from "../../src/media/ffmpeg/args.ts";
 import { isHlsStream } from "../../src/rules/transportOf.ts";

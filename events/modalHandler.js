@@ -1,14 +1,12 @@
 import { Events, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as genreConfig from "../src/config/genres.ts";
-import S from "../src/ui/strings.ts";
+import * as S from "../src/ui/strings.ts";
 import permissions from "../src/usecases/permissions.js";
 const { checkControl } = permissions;
-import replyLifetime from "../src/ui/replyLifetime.ts";
-const { expireReply } = replyLifetime;
+import { expireReply } from "../src/ui/replyLifetime.ts";
 import controls from "../src/usecases/controls.js";
-import controlMessages from "../src/ui/controlMessages.ts";
-const { controlMessage } = controlMessages;
+import { controlMessage } from "../src/ui/controlMessages.ts";
 
 const exported = {
   name: Events.InteractionCreate,

@@ -5,9 +5,8 @@ import addTracks from "../src/usecases/addTracks.js";
 const { ensurePlayer } = addTracks;
 import * as playerEvents from "../src/player/events.ts";
 import { sessions } from "../src/store/playerSessions.ts";
-import mentions from "../src/ui/mentions.ts";
-const { escapeMd } = mentions;
-import S from "../src/ui/strings.ts";
+import { escapeMd } from "../src/ui/mentions.ts";
+import * as S from "../src/ui/strings.ts";
 import config from "../config.ts";
 
 const exported = {

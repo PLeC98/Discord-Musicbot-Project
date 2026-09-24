@@ -39,10 +39,6 @@ function png(size: number) {
 
 let cached: Buffer | null = null;
 
-const exported = {
-  url: `attachment://${NAME}`,
-  file: () => ({ attachment: (cached ??= png(SIZE)), name: NAME }),
-  _internals: { png, crc32, NAME, SIZE },
-};
-export default exported;
-export { exported as "module.exports" };
+export const url = `attachment://${NAME}`;
+export const file = () => ({ attachment: (cached ??= png(SIZE)), name: NAME });
+export const _internals = { png, crc32, NAME, SIZE };

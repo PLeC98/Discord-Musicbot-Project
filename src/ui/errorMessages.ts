@@ -71,5 +71,4 @@ class ErrorHandler {
   }
 }
 
-export default ErrorHandler;
-export { ErrorHandler as "module.exports" };
+export { ErrorHandler };

@@ -1,8 +1,7 @@
 import { MessageFlags } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import transientMessages from "../ui/transientMessages.ts";
-const { scheduleDelete } = transientMessages;
+import { scheduleDelete } from "../ui/transientMessages.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.

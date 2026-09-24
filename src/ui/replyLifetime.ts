@@ -94,6 +94,4 @@ function scheduleReplyCleanup(interaction: Replied | null | undefined) {
   timer.unref?.();
 }
 
-const exported = { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS, COMMANDS, COMPONENTS };
-export default exported;
-export { exported as "module.exports" };
+export { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS, COMMANDS, COMPONENTS };

@@ -3,10 +3,8 @@ import permissions from "../src/usecases/permissions.js";
 const { checkControl, checkSummon } = permissions;
 import addTracks from "../src/usecases/addTracks.js";
 const { ensurePlayer } = addTracks;
-import genreMenu from "../src/ui/genreMenu.ts";
-const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = genreMenu;
-import replyLifetime from "../src/ui/replyLifetime.ts";
-const { keepReply, expireReply } = replyLifetime;
+import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
+import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 
 // 장르는 옵션으로 받지 않는다. 자동재생 버튼과 같은 선택 화면을 띄운다.
 // 옵션으로 받으면 목록이 기동 시점에 굳어(choices) 장르를 고쳐도 재배포 전까지 반영되지 않는다.

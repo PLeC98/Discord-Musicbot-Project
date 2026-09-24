@@ -2,8 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import format from "../../src/ui/format.ts";
-const { formatDuration } = format;
+import { formatDuration } from "../../src/ui/format.ts";
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
   assert.equal(formatDuration(0), "0:00");

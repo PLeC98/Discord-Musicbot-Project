@@ -38,6 +38,4 @@ function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_
   }, ms);
 }
 
-const exported = { markTransient, isTransient, scheduleDelete, AUTO_DELETE_MS };
-export default exported;
-export { exported as "module.exports" };
+export { markTransient, isTransient, scheduleDelete, AUTO_DELETE_MS };

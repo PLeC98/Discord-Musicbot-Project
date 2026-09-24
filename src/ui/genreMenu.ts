@@ -49,6 +49,4 @@ function buildAutoplayOffMenu(requesterId: string, sessionId: string) {
   return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: [1 << 6] };
 }
 
-const exported = { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS };
-export default exported;
-export { exported as "module.exports" };
+export { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS };

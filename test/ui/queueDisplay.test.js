@@ -5,8 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import queueDisplay from "../../src/ui/queueDisplay.ts";
-const { queueLine, jumpDescription, AUTOPLAY_MARK } = queueDisplay;
+import { queueLine, jumpDescription, AUTOPLAY_MARK } from "../../src/ui/queueDisplay.ts";
 
 const song = (over = {}) => ({ title: "곡", pageUrl: "https://y/1", artist: "가수", duration: 100, ...over });
 

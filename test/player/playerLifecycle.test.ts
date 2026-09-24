@@ -5,7 +5,7 @@
 
 import panelEvents from "../helpers/panelEvents.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import playerNotices from "../../src/ui/playerNotices.ts";
+import * as playerNotices from "../../src/ui/playerNotices.ts";
 import type { AudioResource } from "@discordjs/voice";
 import type { Client, VoiceBasedChannel } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";

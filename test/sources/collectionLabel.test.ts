@@ -5,11 +5,10 @@ import assert from "node:assert/strict";
 import * as lookup from "../../src/sources/lookup.ts";
 import * as Spotify from "../../src/sources/spotify.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
-import strings from "../../src/ui/strings.ts";
+import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { collectionLabel } from "../../src/ui/strings.ts";
 import type { Client } from "discord.js";
 import { fake } from "../helpers/fake.ts";
-const { collectionLabel } = strings;
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => ({ title: `곡${i}` }));
 

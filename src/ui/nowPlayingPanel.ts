@@ -2,12 +2,9 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBu
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import format from "./format.ts";
-const { formatDuration } = format;
-import progressBarModule from "./progressBar.ts";
-const { progressBar, emptyProgressBar } = progressBarModule;
-import platforms from "./platforms.ts";
-const { labelOf, emojiOf } = platforms;
+import { formatDuration } from "./format.ts";
+import { progressBar, emptyProgressBar } from "./progressBar.ts";
+import { labelOf, emojiOf } from "./platforms.ts";
 
 /** 곡을 담은 결과를 알리는 매체(usecases/responders) */
 type Responder = { notifyQueued(text: string): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
@@ -22,10 +19,9 @@ const NO_RESPONDER: Responder = {
   },
 };
 import * as playerEvents from "../player/events.ts";
-import ErrorHandler from "./errorMessages.ts";
-import S from "./strings.ts";
-import mentions from "./mentions.ts";
-const { ALLOWED_MENTIONS, escapeMd } = mentions;
+import { ErrorHandler } from "./errorMessages.ts";
+import * as S from "./strings.ts";
+import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
@@ -65,12 +61,10 @@ type Controls = Pick<MusicPlayer, "sessionId" | "requesterId" | "previousTracks"
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
-import transientMessages from "./transientMessages.ts";
-const { markTransient, isTransient } = transientMessages;
-import blankThumbnail from "./blankThumbnail.ts";
-import queueDisplay from "./queueDisplay.ts";
-const { jumpDescription } = queueDisplay;
-import NowPlayingPanel from "./panelLocation.ts";
+import { markTransient, isTransient } from "./transientMessages.ts";
+import * as blankThumbnail from "./blankThumbnail.ts";
+import { jumpDescription } from "./queueDisplay.ts";
+import { NowPlayingPanel } from "./panelLocation.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
@@ -864,5 +858,4 @@ class MusicEmbedManager {
   }
 }
 
-export default MusicEmbedManager;
-export { MusicEmbedManager as "module.exports" };
+export { MusicEmbedManager };

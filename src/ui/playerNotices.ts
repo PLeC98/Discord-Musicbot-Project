@@ -1,12 +1,9 @@
 // 플레이어가 알린 일(notice)을 그 서버의 글자 채널에 문장으로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
 
-import ErrorHandler from "./errorMessages.ts";
-import format from "./format.ts";
-const { formatDuration } = format;
-import mentions from "./mentions.ts";
-const { escapeMd } = mentions;
-import transientMessages from "./transientMessages.ts";
-const { scheduleDelete } = transientMessages;
+import { ErrorHandler } from "./errorMessages.ts";
+import { formatDuration } from "./format.ts";
+import { escapeMd } from "./mentions.ts";
+import { scheduleDelete } from "./transientMessages.ts";
 import type { MusicPlayer } from "../player/Player.ts";
 import type { Notices, NoticeCode } from "../player/events.ts";
 
@@ -34,6 +31,4 @@ async function sendNotice<C extends NoticeCode>(player: Pick<MusicPlayer, "textC
   if (SHORT_LIVED.has(code)) scheduleDelete(sent);
 }
 
-const exported = { sendNotice, NOTICE_TEXT: TEXT };
-export default exported;
-export { exported as "module.exports" };
+export { sendNotice, TEXT as NOTICE_TEXT };

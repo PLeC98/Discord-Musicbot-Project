@@ -14,7 +14,7 @@ import * as yamlStore from "../../src/config/yamlStore.ts";
 import * as statusConfig from "../../src/config/status.ts";
 import type { StatusConfig } from "../../src/config/status.ts";
 import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
-import StatusManager from "../../src/ui/botPresence.ts";
+import { StatusManager } from "../../src/ui/botPresence.ts";
 import { ActivityType } from "discord.js";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-status-"));

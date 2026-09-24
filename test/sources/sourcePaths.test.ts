@@ -10,13 +10,9 @@ import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
-import { createRequire } from "node:module";
 import * as storeDb from "../../src/store/db.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -119,8 +115,8 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
   assert.deepEqual(await lookup.getTrackData("끊긴 곡", undefined, undefined, broken), { success: false, code: "lookup-failed", error: boom });
 });
 
-test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", () => {
-  const ErrorHandler = require("../../src/ui/errorMessages.ts");
+test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", async () => {
+  const { ErrorHandler } = await import("../../src/ui/errorMessages.ts");
   assert.equal(ErrorHandler.lookupFailure({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
   assert.match(ErrorHandler.lookupFailure({ code: "lookup-failed", error: new Error("ECONNRESET") }), /네트워크 오류/);
 });

@@ -8,11 +8,10 @@ import addTracks from "../src/usecases/addTracks.js";
 const { requestPlayback } = addTracks;
 import responders from "../src/usecases/responders.js";
 const { channelResponder } = responders;
-import transientMessages from "../src/ui/transientMessages.ts";
-const { scheduleDelete } = transientMessages;
+import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import playlistMore from "../src/usecases/playlistMore.js";
 const { offerOnChannel } = playlistMore;
-import S from "../src/ui/strings.ts";
+import * as S from "../src/ui/strings.ts";
 
 const exported = {
   name: Events.MessageCreate,

@@ -7,10 +7,8 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
-import strings from "../ui/strings.ts";
-const { collectionLabel } = strings;
-import transientMessages from "../ui/transientMessages.ts";
-const { markTransient } = transientMessages;
+import { collectionLabel } from "../ui/strings.ts";
+import { markTransient } from "../ui/transientMessages.ts";
 
 const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다

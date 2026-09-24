@@ -16,6 +16,4 @@ function formatDuration(seconds: number | null | undefined) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
-const exported = { formatDuration };
-export default exported;
-export { exported as "module.exports" };
+export { formatDuration };

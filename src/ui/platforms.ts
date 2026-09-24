@@ -48,6 +48,4 @@ function emojiOf(platform: string | null | undefined) {
   return (platform && PLATFORM_EMOJI[platform]) || "🎵";
 }
 
-const exported = { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf };
-export default exported;
-export { exported as "module.exports" };
+export { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf };

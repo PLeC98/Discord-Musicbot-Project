@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import S from "../../src/ui/strings.ts";
+import * as S from "../../src/ui/strings.ts";
 import requireControl from "../../dashboard/server/middleware/requireControl.js";
 const { toApiError } = requireControl;
 

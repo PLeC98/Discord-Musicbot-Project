@@ -3,9 +3,8 @@
 // `/queue`와 대기열 버튼은 거의 같은 임베드를 각자 만들고 있었다. 한쪽만 고치면 표시가 갈리므로
 // 줄 만드는 일을 여기로 모은다. 점프 메뉴 설명도 같은 규칙(요청자 표기)을 따른다.
 
-import format from "./format.ts";
+import { formatDuration } from "./format.ts";
 import type { QueuedTrack } from "../player/track.ts";
-const { formatDuration } = format;
 
 // 요청자 표기에서 읽는 칸
 type Requested = Pick<QueuedTrack, "autoplay" | "requestedBy"> | null | undefined;
@@ -50,6 +49,4 @@ function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration
   return tail ? `${trimmed} | ${tail}` : trimmed;
 }
 
-const exported = { queueLine, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };
-export default exported;
-export { exported as "module.exports" };
+export { queueLine, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };

@@ -1,8 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
-import S from "../src/ui/strings.ts";
-import queueDisplay from "../src/ui/queueDisplay.ts";
-const { queueLine } = queueDisplay;
+import * as S from "../src/ui/strings.ts";
+import { queueLine } from "../src/ui/queueDisplay.ts";
 
 const PAGE_SIZE = 10;
 

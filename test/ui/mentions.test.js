@@ -8,9 +8,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { WebhookClient, MessagePayload } from "discord.js";
-import mentions from "../../src/ui/mentions.ts";
-const { ALLOWED_MENTIONS, escapeMd } = mentions;
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
+import { ALLOWED_MENTIONS, escapeMd } from "../../src/ui/mentions.ts";
+import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
 const EVIL_LINK = "[여기를 클릭](https://evil.example)";

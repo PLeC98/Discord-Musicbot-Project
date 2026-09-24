@@ -9,6 +9,4 @@ const ALLOWED_MENTIONS = { parse: [], repliedUser: false };
 // 마스크드 링크 라벨 안에는 쓰지 말 것. 거기서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
 const escapeMd = (text: unknown) => escapeMarkdown(String(text ?? ""), { maskedLink: true });
 
-const exported = { ALLOWED_MENTIONS, escapeMd };
-export default exported;
-export { exported as "module.exports" };
+export { ALLOWED_MENTIONS, escapeMd };

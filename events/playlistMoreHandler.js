@@ -3,7 +3,7 @@
 import { Events, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import S from "../src/ui/strings.ts";
+import * as S from "../src/ui/strings.ts";
 import permissions from "../src/usecases/permissions.js";
 const { checkAdd } = permissions;
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
