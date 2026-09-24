@@ -4,6 +4,7 @@ import type { Collection } from "discord.js";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { MusicEmbedManager } from "../ui/nowPlayingPanel.ts";
 import type { SlashCommand } from "./commandLoader.ts";
+import type { SearchRecord } from "../../commands/search.ts";
 
 declare module "discord.js" {
   interface Client {
@@ -13,5 +14,7 @@ declare module "discord.js" {
     players: PlayerRegistry;
     /** 재생 패널 */
     musicEmbedManager: MusicEmbedManager;
+    /** /search 결과. 메시지 id 로. 처음 검색할 때 만든다 */
+    searchResults?: Map<string, SearchRecord>;
   }
 }

@@ -1,16 +1,16 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
 
-const LOOP_TEXT = {
+const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
   track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
   queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
 
-const exported = {
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("loop")
     .setDescription("Set loop mode")
@@ -22,7 +22,7 @@ const exported = {
     const player = client.players.get(guild.id);
     const option = interaction.options.getString("mode");
     // 모드를 안 고르면 반복 버튼처럼 다음 모드로
-    const mode = option ? (option === "off" ? false : option) : controls.nextLoopMode(player?.loop);
+    const mode = option ? (option === "off" ? false : option) : controls.nextLoopMode(player?.loop ?? false);
     const r = await controls.loop(player, { member }, mode);
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 

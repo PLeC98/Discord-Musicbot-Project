@@ -171,7 +171,7 @@ test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", a
   assert.match(f["📊 통계"], /서버:\*\* 1개/);
   assert.match(f["📊 통계"], /활성 서버:\*\* 1개/);
   assert.equal(log[0][1].components[0].components[0].data.custom_id, "help_refresh");
-  assert.equal(cmd("help").formatUptime(90061), "1일 1시간 1분");
+  assert.equal((await import("../../commands/help.ts")).formatUptime(90061), "1일 1시간 1분");
 });
 
 test("/help: 모든 명령을 적는다", async () => {

@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import searchCommand from "../../commands/search.ts";
+import { showSearchMenu } from "../../commands/search.ts";
 import buttonHandler from "../../events/buttonHandler.js";
 
 function makeClient() {
@@ -66,8 +66,8 @@ async function seedTwoSearches(client) {
     return { unref() {} };
   };
   try {
-    await searchCommand.showSearchMenu(makeSearchInteraction(client, { messageId: "m1" }), [trackA], "첫 검색");
-    await searchCommand.showSearchMenu(makeSearchInteraction(client, { messageId: "m2" }), [trackB], "재검색");
+    await showSearchMenu(makeSearchInteraction(client, { messageId: "m1" }), [trackA], "첫 검색");
+    await showSearchMenu(makeSearchInteraction(client, { messageId: "m2" }), [trackB], "재검색");
   } finally {
     global.setTimeout = origSetTimeout;
   }

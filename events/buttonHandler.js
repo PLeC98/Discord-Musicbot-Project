@@ -17,8 +17,8 @@ const LOOP_TEXT = {
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { queueLine } from "../src/ui/queueDisplay.ts";
-import helpCommand from "../commands/help.ts";
-import systemCommand from "../commands/system.ts";
+import { buildHelpEmbed } from "../commands/help.ts";
+import { buildSystemEmbed } from "../commands/system.ts";
 
 // customId 앞머리로 가르는 버튼. 플레이어 없이도 눌린다. null 은 다른 처리기(djRoleConfigHandler · sponsorConfigHandler)가 받는다.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
@@ -280,7 +280,7 @@ const exported = {
   },
 
   handleHelpRefresh(interaction) {
-    return this.refreshMessage(interaction, (client) => helpCommand.buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!" });
+    return this.refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!" });
   },
 
   async handleSystemRefresh(interaction) {
@@ -288,7 +288,7 @@ const exported = {
     if (interaction.user.id !== config.dashboard.ownerId) {
       return await interaction.reply({ content: "❌ 봇 운영자만 사용할 수 있습니다!", flags: [1 << 6] });
     }
-    return this.refreshMessage(interaction, (client) => systemCommand.buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!" });
+    return this.refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!" });
   },
 
   // 새로고침 버튼: 버튼이 달린 메시지를 새 내용으로 고친다

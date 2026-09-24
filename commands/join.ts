@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
@@ -8,8 +7,10 @@ import { sessions } from "../src/store/playerSessions.ts";
 import { escapeMd } from "../src/ui/mentions.ts";
 import * as S from "../src/ui/strings.ts";
 import config from "../config.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { messageOf } from "../src/rules/errorKind.ts";
 
-const exported = {
+const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시킵니다" }),
 
   async execute(interaction, client) {
@@ -17,8 +18,9 @@ const exported = {
 
     if (!member.voice.channel) return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: [1 << 6] });
 
-    const permissions = member.voice.channel.permissionsFor(guild.members.me);
-    if (!permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: S.ERR_NO_PERMISSIONS, flags: [1 << 6] });
+    const me = guild.members.me;
+    const permissions = me ? member.voice.channel.permissionsFor(me) : null;
+    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: S.ERR_NO_PERMISSIONS, flags: [1 << 6] });
 
     // 이미 채널에 접속해 있음
     const existing = client.players.get(guild.id);
@@ -56,9 +58,9 @@ const exported = {
         const title = escapeMd(player.currentTrack.title);
         await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}**. 일시정지 상태예요` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
       } catch (error) {
-        log.error({ sub: "join" }, "세션 복원 실패:", error.message);
+        log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
         player.releaseResources();
-        player.disconnect();
+        player.disconnect("세션 복원 실패");
         client.players.delete(guild.id);
         await interaction.editReply({ content: "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요." });
       }

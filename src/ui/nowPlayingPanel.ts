@@ -42,7 +42,7 @@ const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message
 type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; queueLimited?: boolean };
 type Requester = TrackRequester | null;
 /** 담은 결과. 실패면 message 가 안내 */
-type AddResult = { success: boolean; message?: string; dropped?: number; queueLimited?: boolean };
+type AddResult = { success: true; dropped?: number; queueLimited?: boolean } | { success: false; message: string; dropped?: number };
 /** 담은 안내에 붙일 것. dropped 상한으로 뺀 곡 수, total 받은 것보다 많은 전체 곡 수, queueLimited 자리가 모자라 덜 받음 */
 type AdditionNotice = { dropped?: number; total?: number | null; queueLimited?: boolean };
 /** 패널 내용. 채널 · 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을 붙이고, 재생 화면으로 되돌릴 때 뗀다 */
@@ -157,7 +157,7 @@ class MusicEmbedManager {
     const tracks = trackData.tracks;
 
     try {
-      let firstTrackResult: AddResult | null = null;
+      let firstTrackResult: { success: true } | null = null;
       let startFailure: string | null = null; // 첫 곡 재생 시작 실패 메시지(있으면 유령 임베드 안 만들고 실패 전파)
       const wasIdle = !player.currentTrack && player.queue.length === 0;
       const tracksToQueue: QueuedTrack[] = [];
@@ -295,7 +295,7 @@ class MusicEmbedManager {
   /**
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
-  async createNewMusicEmbed(player: MusicPlayer, track: QueuedTrack, requester: Requester, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<AddResult> {
+  async createNewMusicEmbed(player: MusicPlayer, track: QueuedTrack, requester: Requester, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다

@@ -4,7 +4,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { MusicEmbedManager, type TrackData } from "../../src/ui/nowPlayingPanel.ts";
+import { MusicEmbedManager, type AddResult, type TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -24,9 +24,10 @@ function deferred() {
 // 작업 이름. 첫 곡의 제목에 싣는다
 const job = (id: string): TrackData => ({ tracks: [{ title: id, pageUrl: "", requestKey: id, platform: "youtube", duration: 0 }] });
 
-// 실제 처리(_processMusic)를 시험이 끝낼 때까지 붙잡는 관리자. 끝나면 작업 이름을 message 로 돌려준다
+// 실제 처리(_processMusic)를 시험이 끝낼 때까지 붙잡는 관리자. 작업마다 따로 만든 결과를 돌려준다(results)
 class GatedManager extends MusicEmbedManager {
   events: string[] = [];
+  results = new Map<string, AddResult>();
   gates = new Map<string, ReturnType<typeof deferred>>(); // id -> deferred (테스트가 완료 시점을 제어)
   active = 0;
   maxActive = 0;
@@ -41,7 +42,9 @@ class GatedManager extends MusicEmbedManager {
     try {
       await gate.p;
       this.events.push(`end:${id}`);
-      return { success: true, message: id };
+      const result: AddResult = { success: true };
+      this.results.set(id, result);
+      return result;
     } finally {
       this.active--;
     }
@@ -59,8 +62,8 @@ function makeManager() {
   const mem = new GatedManager(fake<Client>({ players: new Map() }));
   return { mem, stats: mem };
 }
-// 끝난 작업의 이름
-const doneAs = async (p: Promise<{ message?: string }>) => (await p).message;
+// 그 작업이 자기 결과로 끝났나
+const doneAs = async (p: Promise<AddResult>, stats: GatedManager, id: string) => (await p) === stats.results.get(id);
 
 const tick = () => new Promise((r) => setImmediate(r));
 
@@ -76,7 +79,7 @@ test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행 — 구 락 경�
   assert.deepEqual(stats.events, ["start:A"], "A만 시작 — B/C는 대기");
 
   stats.gate("A").resolve();
-  assert.equal(await doneAs(pA), "A");
+  assert.ok(await doneAs(pA, stats, "A"));
   await tick();
   assert.deepEqual(stats.events, ["start:A", "end:A", "start:B"], "A 종료 후에야 B 시작");
 
@@ -86,12 +89,12 @@ test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행 — 구 락 경�
   assert.ok(!stats.events.includes("start:D"), "B 실행 중 도착한 D는 대기");
 
   stats.gate("B").resolve();
-  assert.equal(await doneAs(pB), "B");
+  assert.ok(await doneAs(pB, stats, "B"));
   stats.gate("C").resolve();
   await tick();
-  assert.equal(await doneAs(pC), "C");
+  assert.ok(await doneAs(pC, stats, "C"));
   stats.gate("D").resolve();
-  assert.equal(await doneAs(pD), "D");
+  assert.ok(await doneAs(pD, stats, "D"));
 
   assert.equal(stats.maxActive, 1, "동시 실행은 항상 최대 1");
   assert.deepEqual(stats.events, ["start:A", "end:A", "start:B", "end:B", "start:C", "end:C", "start:D", "end:D"]);
@@ -111,7 +114,7 @@ test("앞 작업 실패가 뒤 작업을 막지 않음 — 오류는 자기 호�
   await tick();
   assert.ok(stats.events.includes("start:B"), "A가 실패해도 B는 실행");
   stats.gate("B").resolve();
-  assert.equal(await doneAs(pB), "B");
+  assert.ok(await doneAs(pB, stats, "B"));
   assert.equal(mem.processingQueue.size, 0);
 });
 
@@ -125,9 +128,9 @@ test("다른 서버는 직렬화되지 않음 — 서버 간 병렬", async () =
   assert.ok(stats.events.includes("start:G1") && stats.events.includes("start:G2"), "두 서버 모두 즉시 시작");
 
   stats.gate("G2").resolve();
-  assert.equal(await doneAs(p2), "G2", "g1이 진행 중이어도 g2는 완료 가능");
+  assert.ok(await doneAs(p2, stats, "G2"), "g1이 진행 중이어도 g2는 완료 가능");
   stats.gate("G1").resolve();
-  assert.equal(await doneAs(p1), "G1");
+  assert.ok(await doneAs(p1, stats, "G1"));
   assert.equal(mem.processingQueue.size, 0);
 });
 

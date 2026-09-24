@@ -1,8 +1,9 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
+import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 
-const exported = {
+const exported: AnywhereCommand = {
+  anywhere: true,
   data: new SlashCommandBuilder().setName("license").setDescription("Shows license information and source code location").setDescriptionLocalizations({ ko: "라이선스 정보와 소스 코드 위치를 보여줍니다" }),
 
   async execute(interaction) {

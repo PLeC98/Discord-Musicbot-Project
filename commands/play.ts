@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
@@ -7,8 +6,17 @@ import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
+import type { GuildMember } from "discord.js";
 
-const exported = {
+async function validateRequest(member: GuildMember) {
+  // 곡 추가는 전 계층 가능. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
+  const permErr = checkAdd(member) || checkSummon(member);
+  if (permErr) return { success: false, message: permErr };
+  return { success: true };
+}
+
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("play")
     .setDescription("Plays music - Supports YouTube, Spotify, SoundCloud or direct links")
@@ -27,10 +35,10 @@ const exported = {
 
   async execute(interaction, client) {
     try {
-      const query = interaction.options.getString("query");
+      const query = interaction.options.getString("query", true);
       const { member, guild, channel } = interaction;
 
-      const validationResult = await this.validateRequest(member);
+      const validationResult = await validateRequest(member);
       if (!validationResult.success) {
         return await interaction.reply({ content: validationResult.message, flags: MessageFlags.Ephemeral });
       }
@@ -57,7 +65,7 @@ const exported = {
           flags: MessageFlags.IsComponentsV2,
         });
       }
-      if (result.more) await offerOnInteraction(interaction, result.more, result.player);
+      if (result.more && result.player) await offerOnInteraction(interaction, result.more, result.player);
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, "play.execute");
 
@@ -75,13 +83,7 @@ const exported = {
       }
     }
   },
-
-  async validateRequest(member) {
-    // 곡 추가는 전 계층 가능. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
-    const permErr = checkAdd(member) || checkSummon(member);
-    if (permErr) return { success: false, message: permErr };
-    return { success: true };
-  },
 };
 export default exported;
 export { exported as "module.exports" };
+export { validateRequest };

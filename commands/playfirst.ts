@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
@@ -7,8 +6,17 @@ import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
+import type { GuildMember } from "discord.js";
 
-const exported = {
+async function validateRequest(member: GuildMember) {
+  // 우선 추가(대기열 맨 앞 삽입)는 재생 순서를 바꾸는 조작. DJ 계층 필요
+  const permErr = (await checkControl(member)) || checkSummon(member);
+  if (permErr) return { success: false, message: permErr };
+  return { success: true };
+}
+
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("playfirst")
     .setDescription("Add a song to the front of the queue")
@@ -27,10 +35,10 @@ const exported = {
 
   async execute(interaction, client) {
     try {
-      const query = interaction.options.getString("query");
+      const query = interaction.options.getString("query", true);
       const { member, guild, channel } = interaction;
 
-      const validationResult = await this.validateRequest(member);
+      const validationResult = await validateRequest(member);
       if (!validationResult.success) {
         return await interaction.reply({ content: validationResult.message, flags: MessageFlags.Ephemeral });
       }
@@ -57,7 +65,7 @@ const exported = {
           flags: MessageFlags.IsComponentsV2,
         });
       }
-      if (result.more) await offerOnInteraction(interaction, result.more, result.player);
+      if (result.more && result.player) await offerOnInteraction(interaction, result.more, result.player);
     } catch (error) {
       const errorMsg = ErrorHandler.handle(error, "playfirst.execute");
 
@@ -75,13 +83,7 @@ const exported = {
       }
     }
   },
-
-  async validateRequest(member) {
-    // 우선 추가(대기열 맨 앞 삽입)는 재생 순서를 바꾸는 조작. DJ 계층 필요
-    const permErr = (await checkControl(member)) || checkSummon(member);
-    if (permErr) return { success: false, message: permErr };
-    return { success: true };
-  },
 };
 export default exported;
 export { exported as "module.exports" };
+export { validateRequest };

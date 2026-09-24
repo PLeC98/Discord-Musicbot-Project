@@ -6,11 +6,14 @@ import { loadModules } from "./moduleLoader.ts";
 import config from "../../config.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
 
+/** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
+type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
+/** 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다 */
+type GuildCommand = { data: CommandData; anywhere?: false; execute(interaction: ChatInputCommandInteraction<"cached">, client: Client<true>): unknown };
+/** 서버 밖(DM)에서도 쓰는 명령 */
+type AnywhereCommand = { data: CommandData; anywhere: true; execute(interaction: ChatInputCommandInteraction, client: Client<true>): unknown };
 /** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
-type SlashCommand = {
-  data: { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
-  execute(interaction: ChatInputCommandInteraction, client: Client): unknown;
-};
+type SlashCommand = GuildCommand | AnywhereCommand;
 const isCommand = (module: unknown): module is SlashCommand => typeof module === "object" && module !== null && "data" in module && "execute" in module;
 
 // 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
@@ -104,4 +107,4 @@ function deployErrorLines(result: { scope: string; error?: unknown }) {
 }
 
 export { loadedCommands, definitions, deployCommands, loadCommandModules, deployErrorLines };
-export type { SlashCommand, PutCommands, DeployResult };
+export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, DeployResult };

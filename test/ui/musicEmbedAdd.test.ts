@@ -27,7 +27,7 @@ class RecordingPanels extends MusicEmbedManager {
   async createNewMusicEmbed(_player: MusicPlayer, t: QueuedTrack) {
     this.calls.push(["embed", t.id]);
     if (this.embedFails) throw new Error("CV2 수정 제한");
-    return { success: true };
+    return { success: true as const };
   }
   async updateNowPlayingEmbed() {
     this.calls.push("update");

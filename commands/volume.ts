@@ -1,10 +1,10 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
 
-const exported = {
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("volume")
     .setDescription("Set the playback volume")
@@ -13,7 +13,7 @@ const exported = {
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-    const r = await controls.volume(client.players.get(guild.id), { member }, interaction.options.getInteger("level"));
+    const r = await controls.volume(client.players.get(guild.id), { member }, interaction.options.getInteger("level", true));
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const volumeBar = "█".repeat(Math.round(r.level / 10)) + "░".repeat(10 - Math.round(r.level / 10));

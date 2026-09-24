@@ -36,7 +36,7 @@ function makePlayer() {
     isPlaybackActive: () => true,
     getCurrentTime: () => 0,
     removeFromQueue(i) {
-      this.queue.splice(i, 1);
+      return this.queue.splice(i, 1)[0];
     },
   };
 }

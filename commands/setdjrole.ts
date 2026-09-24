@@ -1,10 +1,10 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags, ActionRowBuilder, RoleSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 // 실제 저장/취소 처리는 events/djRoleConfigHandler.js (customId: djrole:*)
 // 복수 선택은 디스코드 셀렉트 메뉴 한계로 최대 25개.
-const exported = {
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("setdjrole")
     .setDescription("Configure DJ roles for playback controls")
@@ -27,7 +27,7 @@ const exported = {
 
     await interaction.reply({
       embeds: [embed],
-      components: [new ActionRowBuilder().addComponents(select), new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("djrole:save").setLabel("저장").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("djrole:cancel").setLabel("취소").setStyle(ButtonStyle.Secondary))],
+      components: [new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(select), new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("djrole:save").setLabel("저장").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("djrole:cancel").setLabel("취소").setStyle(ButtonStyle.Secondary))],
       flags: MessageFlags.Ephemeral,
     });
   },

@@ -69,7 +69,7 @@ function makePlayer() {
     },
     removeFromQueue(i) {
       this.calls.push(["removeFromQueue", i]);
-      this.queue.splice(i, 1);
+      return this.queue.splice(i, 1)[0];
     },
     moveInQueue(from, to) {
       this.calls.push(["moveInQueue", from, to]);

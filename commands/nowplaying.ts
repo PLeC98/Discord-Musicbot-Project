@@ -1,18 +1,24 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
 import { labelOf, emojiOf } from "../src/ui/platforms.ts";
 import { progressBar } from "../src/ui/progressBar.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
+import type { MusicPlayer } from "../src/player/Player.ts";
+import type { QueuedTrack } from "../src/player/track.ts";
 
 // 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다
-function progressField(player, track, currentMs) {
+function progressField(player: MusicPlayer, track: QueuedTrack, currentMs: number) {
   const live = Boolean(player.isLive ?? track.isLive);
   if (!live && !(track.duration > 0)) return null;
   return { name: "⏱️ 진행", value: progressBar(Math.floor(currentMs / 1000), track.duration || 0, { live }), inline: false };
 }
 
-const exported = {
+function createErrorEmbed(message: string) {
+  return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
+}
+
+const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("nowplaying").setDescription("Shows information about currently playing song").setDescriptionLocalizations({
     ko: "현재 재생 중인 곡의 정보를 보여줍니다",
   }),
@@ -24,14 +30,14 @@ const exported = {
       const player = client.players.get(guild.id);
       if (!player) {
         return await interaction.reply({
-          embeds: [this.createErrorEmbed("현재 재생 중인 음악이 없습니다!")],
+          embeds: [createErrorEmbed("현재 재생 중인 음악이 없습니다!")],
           flags: MessageFlags.Ephemeral,
         });
       }
 
       if (!player.currentTrack) {
         return await interaction.reply({
-          embeds: [this.createErrorEmbed("현재 재생 중인 노래가 없습니다!")],
+          embeds: [createErrorEmbed("현재 재생 중인 노래가 없습니다!")],
           flags: MessageFlags.Ephemeral,
         });
       }
@@ -98,15 +104,12 @@ const exported = {
       });
     } catch (error) {
       await interaction.reply({
-        embeds: [this.createErrorEmbed("현재 재생 중인 정보를 가져오는 중 오류가 발생했습니다!")],
+        embeds: [createErrorEmbed("현재 재생 중인 정보를 가져오는 중 오류가 발생했습니다!")],
         flags: MessageFlags.Ephemeral,
       });
     }
   },
-
-  createErrorEmbed(message) {
-    return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
-  },
 };
 export default exported;
 export { exported as "module.exports" };
+export { createErrorEmbed };

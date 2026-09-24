@@ -1,15 +1,17 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import config from "../config.ts";
+import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 
-const exported = {
+const exported: AnywhereCommand = {
+  anywhere: true,
   data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇 응답 레이턴시를 확인합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, client) {
     const { resource } = await interaction.reply({ content: "핑 측정 중...", withResponse: true, flags: [1 << 6] });
-    const sent = resource.message;
+    // 보낸 응답의 시각. 응답이 안 실려 오면 지금으로 본다
+    const sentAt = resource?.message?.createdTimestamp ?? Date.now();
 
-    const botLatency = sent.createdTimestamp - interaction.createdTimestamp;
+    const botLatency = sentAt - interaction.createdTimestamp;
     const wsLatency = Math.round(client.ws.ping);
     const wsReady = wsLatency >= 0;
 

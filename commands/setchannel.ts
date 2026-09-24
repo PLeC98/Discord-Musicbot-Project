@@ -1,12 +1,14 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import logger from "../src/infra/log/logger.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { messageOf } from "../src/rules/errorKind.ts";
 const log = logger.child({ category: "commands" });
 
-const movePanel = (interaction) => interaction.client.musicEmbedManager?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
+const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.musicEmbedManager?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
 
-const exported = {
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("setchannel")
     .setDescription("Set a dedicated bot channel for music requests and announcements")
@@ -49,6 +51,7 @@ const exported = {
     }
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
+    if (!channel) return interaction.reply({ content: "❌ 채널 설정 중 오류가 발생했어요.", flags: MessageFlags.Ephemeral }); // 캐시에 없는 채널
     const success = await GuildSettingsManager.setBotChannel(guildId, channel.id);
 
     if (!success) {

@@ -1,15 +1,15 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
 import config from "../config.ts";
 import * as audioCache from "../src/store/audioCache.ts";
+import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 
-function formatBytes(bytes) {
+function formatBytes(bytes: number) {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
   if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-function formatDuration(seconds) {
+function formatDuration(seconds: number) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   if (h >= 100) return `${h}시간`;
@@ -17,7 +17,7 @@ function formatDuration(seconds) {
   return `${m}분`;
 }
 
-function usageBar(used, max, width = 12) {
+function usageBar(used: number, max: number, width = 12) {
   if (!max) return "─".repeat(width);
   const pct = Math.min(1, used / max);
   const filled = Math.round(pct * width);
@@ -25,7 +25,8 @@ function usageBar(used, max, width = 12) {
   return `${color} ${"█".repeat(filled)}${"░".repeat(width - filled)} ${(pct * 100).toFixed(1)}%`;
 }
 
-const exported = {
+const exported: AnywhereCommand = {
+  anywhere: true,
   data: new SlashCommandBuilder().setName("cachestatus").setDescription("Show audio cache statistics").setDescriptionLocalizations({ ko: "오디오 캐시 통계를 표시합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, _client) {
@@ -57,7 +58,7 @@ const exported = {
       topTracksText = stats.topTracks
         .map((t, i) => {
           const dur = t.duration_sec ? `${Math.floor(t.duration_sec / 60)}:${String(Math.round(t.duration_sec % 60)).padStart(2, "0")}` : "?:??";
-          const title = t.title?.length > 35 ? t.title.slice(0, 33) + "…" : (t.title ?? "제목 없음");
+          const title = t.title && t.title.length > 35 ? t.title.slice(0, 33) + "…" : (t.title ?? "제목 없음");
           return `\`${i + 1}.\` **${title}**. ${t.play_count}회 (${dur})`;
         })
         .join("\n");
@@ -69,7 +70,7 @@ const exported = {
       recentText = stats.recentTracks
         .map((t) => {
           const date = t.downloaded_at ? new Date(t.downloaded_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "알 수 없음";
-          const title = t.title?.length > 35 ? t.title.slice(0, 33) + "…" : (t.title ?? "제목 없음");
+          const title = t.title && t.title.length > 35 ? t.title.slice(0, 33) + "…" : (t.title ?? "제목 없음");
           return `**${title}** (${date})`;
         })
         .join("\n");

@@ -42,17 +42,23 @@ async function permitted(player: MusicPlayer, actor: Actor, check: Check = perm.
 // 수는 입구가 받은 값 그대로 온다(없거나 수가 아닐 수 있다). 0 이상 size 미만의 정수인가
 const isIndex = (i: unknown, size: number): i is number => typeof i === "number" && Number.isInteger(i) && i >= 0 && i < size;
 
-const needTrack = (player: MusicPlayer) => (player.currentTrack ? null : fail("no-track"));
+// 권한을 보고 틀고 있는 곡을 잡는다. 막히면 거절, 지나가면 그 곡
+async function permittedTrack(player: MusicPlayer, actor: Actor, check?: Check) {
+  const blocked = await permitted(player, actor, check);
+  if (blocked) return { blocked };
+  const track = player.currentTrack;
+  return track ? { track } : { blocked: fail("no-track") };
+}
 
 /** 멈춤 · 재개를 뒤집는다 */
 async function pause(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-player");
-  const blocked = (await permitted(player, actor)) ?? needTrack(player);
-  if (blocked) return blocked;
+  const { blocked, track } = await permittedTrack(player, actor);
+  if (!track) return blocked;
   const resuming = player.paused;
   if (!(resuming ? player.resume() : player.pause())) return fail("failed");
   await refresh(player);
-  return done({ paused: !resuming, track: player.currentTrack });
+  return done({ paused: !resuming, track });
 }
 
 /**
@@ -61,11 +67,10 @@ async function pause(player: MaybePlayer, actor: Actor) {
  */
 async function skip(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-player");
-  const blocked = (await permitted(player, actor, perm.checkSkip)) ?? needTrack(player);
-  if (blocked) return blocked;
+  const { blocked, track } = await permittedTrack(player, actor, perm.checkSkip);
+  if (!track) return blocked;
   const restarted = player.loop === "track";
   if (player.queue.length === 0 && !restarted && !player.autoplay) return fail("nothing-to-skip");
-  const track = player.currentTrack;
   if (!player.skip()) return fail("skip-failed");
   if (!restarted && player.currentTrack) await refresh(player);
   return done({ track, restarted });
@@ -87,8 +92,8 @@ async function stop(player: MaybePlayer, actor: Actor, players: Pick<PlayerRegis
 /** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted) */
 async function previous(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-player");
-  const blocked = (await permitted(player, actor)) ?? needTrack(player);
-  if (blocked) return blocked;
+  const { blocked, track } = await permittedTrack(player, actor);
+  if (!track) return blocked;
   const restarted = player.loop === "track";
   if (player.previousTracks.length === 0 && !restarted) return fail("no-previous");
   if (!player.previous()) return fail("previous-failed");
@@ -102,14 +107,16 @@ async function previous(player: MaybePlayer, actor: Actor) {
  */
 async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "seek", onAccepted }: SeekOptions = {}) {
   if (!player) return fail("no-player");
-  const blocked = (await permitted(player, actor)) ?? needTrack(player) ?? seekBlocked(player);
-  if (blocked) return blocked;
-  const durationMs = (Number(player.currentTrack?.duration) || 0) * 1000;
+  const { blocked, track } = await permittedTrack(player, actor);
+  if (!track) return blocked;
+  const unseekable = seekBlocked(player);
+  if (unseekable) return unseekable;
+  const durationMs = (Number(track.duration) || 0) * 1000;
   if (durationMs > 0 && ms >= durationMs) return fail("beyond-end", { durationMs });
   await onAccepted?.();
   await player.seek(ms, reason);
   await refresh(player);
-  return done({ ms, track: player.currentTrack });
+  return done({ ms, track });
 }
 
 /** 위치 이동. reason 은 로그에 남는 원인, onAccepted 는 전제 조건을 지난 뒤 부른다 */
@@ -129,8 +136,10 @@ const replay = (player: MaybePlayer, actor: Actor, opts: SeekOptions = {}) => se
 /** SponsorBlock 하이라이트 지점으로 */
 async function highlight(player: MaybePlayer, actor: Actor, opts: SeekOptions = {}) {
   if (!player) return fail("no-player");
-  const blocked = (await permitted(player, actor)) ?? needTrack(player) ?? seekBlocked(player);
-  if (blocked) return blocked;
+  const { blocked, track } = await permittedTrack(player, actor);
+  if (!track) return blocked;
+  const unseekable = seekBlocked(player);
+  if (unseekable) return unseekable;
   const at = player.sponsor?.highlightAt;
   if (at === null || at === undefined) return fail("no-highlight");
   return seek(player, actor, Math.max(0, Math.floor(at * 1000)), { ...opts, reason: "highlight" });
@@ -169,14 +178,14 @@ const isLoop = (mode: unknown): mode is Loop => mode === false || mode === "trac
 /** 반복 모드. mode: false(끔) · "track" · "queue". 입구가 받은 값 그대로 온다 */
 async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
   if (!player) return fail("no-player");
-  const blocked = (await permitted(player, actor)) ?? needTrack(player);
-  if (blocked) return blocked;
+  const { blocked, track } = await permittedTrack(player, actor);
+  if (!track) return blocked;
   if (!isLoop(mode)) return fail("bad-loop-mode");
   // 끝이 없는 것은 반복할 수 없다. 끄는 것은 언제나 통한다
   if (mode && player.hasLiveTrack()) return fail("live-no-loop");
   player.setLoop(mode);
   await refresh(player);
-  return done({ mode, track: player.currentTrack });
+  return done({ mode, track });
 }
 
 /** 반복 버튼의 다음 모드: 끔 → 한곡 → 대기열 → 끔 */
@@ -204,6 +213,7 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
   const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, player.queue[index]));
   if (blocked) return blocked;
   const track = player.removeFromQueue(index);
+  if (!track) return fail("bad-position", { size: player.queue.length }); // 위에서 본 자리라 늘 있다
   await refresh(player);
   return done({ track, left: player.queue.length });
 }

@@ -1,10 +1,10 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
 
-const exported = {
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("remove")
     .setDescription("Remove a specific track from the queue")
@@ -14,7 +14,7 @@ const exported = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     // 사람은 1부터 센다
-    const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position") - 1);
+    const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()

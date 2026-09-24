@@ -1,11 +1,12 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import config from "../config.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
+import type { ChatInputCommandInteraction } from "discord.js";
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
-const exported = {
+const exported: GuildCommand = {
   data: new SlashCommandBuilder()
     .setName("setplaylistlimit")
     .setDescription("Set how many songs a playlist adds at once")
@@ -46,10 +47,10 @@ const exported = {
 export default exported;
 export { exported as "module.exports" };
 
-function card(title, description) {
+function card(title: string, description: string) {
   return new EmbedBuilder().setTitle(title).setDescription(description).setColor(config.bot.embedColor).setTimestamp();
 }
 
-function failed(interaction) {
+function failed(interaction: ChatInputCommandInteraction) {
   return interaction.reply({ content: "❌ 설정을 저장하지 못했어요.", flags: MessageFlags.Ephemeral });
 }
