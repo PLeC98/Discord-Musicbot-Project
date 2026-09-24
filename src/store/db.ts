@@ -126,6 +126,12 @@ function createTables(db: Db) {
                 fetched_at  INTEGER NOT NULL
             );
 
+            -- 봇이 음성 채널 상태에 마지막으로 쓴 값. 재시작 뒤에도 올라와 있는 상태가 우리 것인지 알아본다
+            CREATE TABLE IF NOT EXISTS voice_status (
+                channel_id  TEXT PRIMARY KEY,
+                status      TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
         `);

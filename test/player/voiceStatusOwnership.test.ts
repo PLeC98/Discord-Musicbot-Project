@@ -69,3 +69,46 @@ test("상태와 무관한 패킷은 무시한다", () => {
   }
   assert.equal(vcs._internals.current.size, 0);
 });
+
+// ── 재시작을 건너서 ─────────────────────────────────────────────────
+
+// 저장소 대신 쓰는 가짜. 남긴 값을 들고 있다
+function keeperWith(entries: Array<[string, string]>, { fails = false } = {}) {
+  const saved = new Map(entries);
+  return {
+    saved,
+    load: () => [...saved.entries()],
+    save: (channelId: string, status: string) => {
+      if (fails) throw new Error("DB 없음");
+      if (status) saved.set(channelId, status);
+      else saved.delete(channelId);
+    },
+  };
+}
+
+test("재시작 전에 우리가 쓴 상태가 그대로 올라와 있으면 계속 우리 것", () => {
+  reset();
+  vcs.keepIn(keeperWith([[CH, "▶️ 노래 제목"]]));
+  vcs.consumePacket({ t: "GUILD_CREATE", d: { channels: [{ id: CH, type: 2, status: "▶️ 노래 제목" }] } });
+  assert.equal(vcs.canWrite(CH), true);
+});
+
+test("꺼져 있는 사이 사람이 바꿨으면 남의 것", () => {
+  reset();
+  vcs.keepIn(keeperWith([[CH, "▶️ 노래 제목"]]));
+  vcs.consumePacket({ t: "GUILD_CREATE", d: { channels: [{ id: CH, type: 2, status: "회의 중" }] } });
+  assert.equal(vcs.canWrite(CH), false);
+});
+
+test("우리가 쓴 값을 저장소에 남긴다. 남기지 못해도 던지지 않는다", () => {
+  reset();
+  const keeper = keeperWith([]);
+  vcs.keepIn(keeper);
+  vcs.mark(CH, "▶️ 노래 제목");
+  assert.equal(keeper.saved.get(CH), "▶️ 노래 제목");
+
+  reset();
+  vcs.keepIn(keeperWith([], { fails: true }));
+  assert.doesNotThrow(() => vcs.mark(CH, "▶️ 다른 곡"));
+  assert.equal(vcs.canWrite(CH), true, "메모리의 기록은 그대로 쓴다");
+});

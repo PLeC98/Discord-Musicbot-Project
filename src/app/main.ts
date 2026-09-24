@@ -11,6 +11,7 @@ import { logResolved as logResolvedFfmpeg, ffmpegPath } from "../media/ffmpeg/pa
 import { MusicPlayer } from "../player/Player.ts";
 import { restoreSavedPlayers } from "../player/sessionRestore.ts";
 import * as voiceChannelStatus from "../player/voiceChannelStatus.ts";
+import * as voiceStatusStore from "../store/voiceStatus.ts";
 import { onVoiceStateUpdate } from "../player/voicePresence.ts";
 import { PlayerRegistry } from "../player/registry.ts";
 import { createPotServer } from "../sources/youtube/potServer.ts";
@@ -161,6 +162,8 @@ function checkBeforeLogin() {
   YouTube.useFfmpeg(ffmpegPath);
   // 캐시 DB 구조가 이 버전과 맞지 않으면 여기서 멈춘다
   stopIfThrows(() => audioCache.initialize());
+  // 음성 채널 상태 중 우리가 쓴 것. 재시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다
+  voiceChannelStatus.keepIn(voiceStatusStore);
 
   // 지금 무엇으로 유튜브에 붙는지 한 줄. 이걸 안 남겨서 bgutil이 3개월간 죽어 있는 걸 몰랐다.
   YouTube.logAuthMode();

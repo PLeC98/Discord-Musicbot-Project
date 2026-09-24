@@ -6,12 +6,29 @@
  *
  * 값은 게이트웨이로만 온다. 기동 시 `GUILD_CREATE`의 채널 목록에 실려 오고(없으면 `null`),
  * 이후 바뀔 때마다 `VOICE_CHANNEL_STATUS_UPDATE`가 온다(우리가 쓴 것도 되돌아온다).
+ *
+ * 우리가 쓴 값은 저장소에도 남긴다(keepIn). 안 남기면 재시작 뒤 채널에 남아 있는 우리 글을
+ * 남의 것으로 보고 다시는 고치지 않는다.
  */
+
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "voice" });
+import { messageOf } from "../rules/errorKind.ts";
+
+/** 우리가 쓴 값을 남겨 두는 곳 */
+type Keeper = { load(): Array<[string, string]>; save(channelId: string, status: string): void };
 
 const current = new Map<string, string>(); // channelId -> 현재 상태 문자열 ("" = 비어 있음)
 const ours = new Map<string, string>(); // channelId -> 우리가 마지막으로 쓴 값
 
 const text = (v: unknown) => (typeof v === "string" ? v : "");
+let keeper: Keeper | null = null;
+
+/** 저장소에 남긴 우리 값을 읽어 오고, 앞으로 쓰는 값도 거기 남긴다. 기동 때 한 번 */
+function keepIn(next: Keeper) {
+  for (const [channelId, status] of next.load()) ours.set(channelId, status);
+  keeper = next;
+}
 
 /** 게이트웨이가 알려 준 현재 값. 누가 바꿨든 그대로 기록한다. */
 function observe(channelId: string | null | undefined, status: unknown) {
@@ -25,6 +42,11 @@ function mark(channelId: string | null | undefined, status: unknown) {
   const value = text(status);
   ours.set(channelId, value);
   current.set(channelId, value);
+  try {
+    keeper?.save(channelId, value);
+  } catch (error) {
+    log.warn(`음성 채널 상태를 저장소에 남기지 못했습니다(재시작 뒤 이 채널의 상태를 남의 것으로 봅니다): ${messageOf(error)}`);
+  }
 }
 
 /**
@@ -62,7 +84,8 @@ function consumePacket(packet: Packet | null | undefined) {
 function _reset() {
   current.clear();
   ours.clear();
+  keeper = null;
 }
 
-export { observe, mark, canWrite, consumePacket };
+export { observe, mark, canWrite, consumePacket, keepIn };
 export const _internals = { current, ours, _reset };
