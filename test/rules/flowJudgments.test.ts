@@ -1,5 +1,5 @@
 // 흐름 앞의 판정 셋(candidateKind · liveBlockReason · transportOf). 입력과 답만 적는다.
-// convertPlan 과 errorKind 는 media/audioConvert.test.js · ui/errorClassification.test.js 가 표로 고정한다.
+// convertPlan 과 errorKind 는 media/audioConvert.test.js · ui/errorClassification.test.js 가 표로 고정한다. 여기서는 오류에서 code · 글을 읽는 것만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,6 +7,7 @@ import { candidateKind } from "../../src/rules/candidateKind.ts";
 import { liveBlockReason } from "../../src/rules/liveBlockReason.ts";
 import { transportOf, isHlsStream } from "../../src/rules/transportOf.ts";
 import { isDeadInteraction } from "../../src/rules/deadInteraction.ts";
+import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
 test("candidateKind: 유튜브 주소 > 가수 · 제목 > 음원, 아무것도 없으면 null", () => {
   assert.equal(candidateKind({ youtubeUrl: "u", artist: "a", title: "t", audioUrl: "x" }), "youtube");
   assert.equal(candidateKind({ artist: "a", title: "t", audioUrl: "x" }), "search");
@@ -53,4 +54,18 @@ test("죽은 상호작용: 토큰 만료·중복 응답만 참", () => {
   assert.equal(isDeadInteraction({ code: 50013 }), false);
   assert.equal(isDeadInteraction(new Error("boom")), false);
   assert.equal(isDeadInteraction(null), false);
+});
+
+test("codeOf · messageOf: 무엇이 던져져도 읽는다", () => {
+  assert.equal(codeOf(Object.assign(new Error("x"), { code: "CONFIG_INVALID" })), "CONFIG_INVALID");
+  assert.equal(codeOf({ code: 10008 }), 10008, "디스코드 API 의 code 는 수다");
+  assert.equal(codeOf({ code: { nested: true } }), undefined);
+  assert.equal(codeOf(null), undefined);
+  assert.equal(codeOf("boom"), undefined);
+
+  assert.equal(messageOf(new Error("펑")), "펑");
+  assert.equal(messageOf({ message: "글" }), "글");
+  assert.equal(messageOf("그냥 글"), "그냥 글");
+  assert.equal(messageOf(new Error("")), "Error", "글이 비면 값 그대로");
+  assert.equal(messageOf(undefined), "undefined");
 });
