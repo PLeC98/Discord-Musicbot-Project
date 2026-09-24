@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // LogSink. 로그 레코드의 "진짜 매니저".
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
@@ -16,19 +15,37 @@ const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 // 위 정규식은 /g라 test()가 lastIndex를 들고 다닌다(호출마다 결과가 달라진다). 검사용은 따로.
 const HAS_ANSI = /\x1B\[/;
 
+export type LevelName = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
+
+/** 로그 레코드(pino JSON 부분집합). 바인딩(category · sub · tags · err …)이 같이 실린다 */
+export type LogRecord = { level: number; time: number; msg?: unknown; category?: string; sub?: string; tags?: string[]; [field: string]: unknown };
+/** 대시보드(SSE)로 보내는 한 줄 */
+type WireEntry = { ts: number; level: string; text: string; category?: string; sub?: string; tags?: string[] };
+/** 레코드를 받는 곳(파일 등) */
+type Destination = (rec: LogRecord) => void;
+/** 로그 스트림을 받는 HTTP 응답. 여기서 쓰는 것만 */
+type SseClient = {
+  write(chunk: string): boolean;
+  end(): void;
+  on(event: "close" | "error", fn: () => void): unknown;
+  status(code: number): { json(body: unknown): unknown };
+  writeHead(code: number, headers: Record<string, string>): unknown;
+  flushHeaders(): void;
+};
+
 // pino와 동일한 레벨 체계
-const LEVELS = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
-const LEVEL_NAMES = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
+const LEVELS: Record<LevelName, number> = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
+const LEVEL_NAMES: Record<number, LevelName> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // SSE 와이어 레벨 = 실제 레벨 이름. 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로
 // 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 영영 못 가른다.
 // 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
-const WIRE_LEVEL = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
+const WIRE_LEVEL: Record<number, string> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
 // info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
-const CONSOLE_LEVEL = { log: 20, info: 30, warn: 40, error: 50 };
+const CONSOLE_LEVEL: Record<"log" | "info" | "warn" | "error", number> = { log: 20, info: 30, warn: 40, error: 50 };
 
 // 레벨 라벨 색.
-const LEVEL_COLOR = {
+const LEVEL_COLOR: Record<LevelName, (text: string) => string> = {
   trace: chalk.gray,
   debug: chalk.gray,
   info: chalk.cyan,
@@ -40,7 +57,7 @@ const LEVEL_COLOR = {
 // 본문 색도 sink가 칠한다. 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
 // 79%가 흰 글씨였다(실측 86건 중 68건). 색이 위험도가 아니라 "그 줄을 쓴 사람이 chalk를 썼는지"를
 // 나타내던 셈이다. sink는 레벨을 알고 있으니 여기서 일관되게 칠한다.
-const TEXT_COLOR = {
+const TEXT_COLOR: Record<LevelName, (text: string) => string> = {
   trace: chalk.gray,
   debug: chalk.gray,
   info: (s) => s,
@@ -53,7 +70,7 @@ const TEXT_COLOR = {
 // 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 가르는 편이
 // 이모지로 가르는 것보다 확실하고, cmd에서 깨지지도 않는다.
 const CAT_COLORS = [chalk.magenta, chalk.blue, chalk.green, chalk.yellow, chalk.cyan, chalk.redBright, chalk.blueBright, chalk.greenBright];
-function catColor(name) {
+function catColor(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return CAT_COLORS[h % CAT_COLORS.length];
@@ -68,7 +85,17 @@ const MSG_PATTERNS = [
 ];
 
 class LogManager {
-  constructor({ maxLines = 500, intercept = true } = {}) {
+  maxLines: number;
+  consoleLevel: number;
+  buffer: WireEntry[];
+  clients: Set<SseClient>;
+  _cleanups: WeakMap<SseClient, () => void>;
+  destinations: Destination[];
+  earlyRecords: LogRecord[];
+  isTTY: boolean;
+  useColor: boolean;
+
+  constructor({ maxLines = 500, intercept = true }: { maxLines?: number; intercept?: boolean } = {}) {
     this.maxLines = maxLines;
     // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
@@ -95,8 +122,8 @@ class LogManager {
   // logger를 우회한 서드파티/의존성/누락 console.* → category:"external"로 태깅해 흡수.
   // (터미널 포맷 일관성 + 대시보드 완결성. pino 시대엔 console.*→pino로 그대로 생존.)
   _intercept() {
-    for (const method of ["log", "info", "warn", "error"]) {
-      console[method] = (...args) => {
+    for (const method of ["log", "info", "warn", "error"] as const) {
+      console[method] = (...args: unknown[]) => {
         this.record({
           level: CONSOLE_LEVEL[method],
           time: Date.now(),
@@ -108,7 +135,7 @@ class LogManager {
   }
 
   // facade와 브리지가 공통으로 부르는 입구.
-  record(rec) {
+  record(rec: LogRecord) {
     const safe = this._redact(rec);
     if (safe.level >= this.consoleLevel) this._renderTerminal(safe);
 
@@ -144,7 +171,7 @@ class LogManager {
   }
 
   // destination 등록. 첫 등록에 한해 그 이전 레코드를 재생한다(위 earlyRecords 설명).
-  addDestination(dest) {
+  addDestination(dest: Destination) {
     const first = this.destinations.length === 0;
     this.destinations.push(dest);
     if (!first) return;
@@ -159,8 +186,8 @@ class LogManager {
     }
   }
 
-  _redact(rec) {
-    const out = {};
+  _redact(rec: LogRecord): LogRecord {
+    const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rec)) {
       if (k === "msg" || k === "level" || k === "time") {
         out[k] = v;
@@ -169,19 +196,21 @@ class LogManager {
       out[k] = REDACT_KEYS.has(String(k).toLowerCase()) ? "[REDACTED]" : v;
     }
     if (typeof out.msg === "string") {
-      for (const { re, repl } of MSG_PATTERNS) out.msg = out.msg.replace(re, repl);
+      let msg = out.msg;
+      for (const { re, repl } of MSG_PATTERNS) msg = msg.replace(re, repl);
+      out.msg = msg;
     }
-    return out;
+    return out as LogRecord;
   }
 
   /** 터미널 출력 하한 설정. 이름(info 등)이나 빈 값(=제한 없음). */
-  setConsoleLevel(name) {
-    this.consoleLevel = LEVELS[name] ?? 0;
+  setConsoleLevel(name: string) {
+    this.consoleLevel = LEVELS[name as LevelName] ?? 0;
   }
 
-  _renderTerminal(rec) {
+  _renderTerminal(rec: LogRecord) {
     const name = LEVEL_NAMES[rec.level] || "info";
-    const paint = (fn, text) => (this.useColor && fn ? fn(text) : text);
+    const paint = (fn: ((text: string) => string) | undefined, text: string) => (this.useColor && fn ? fn(text) : text);
 
     const tag = paint(LEVEL_COLOR[name], name.toUpperCase().padEnd(5));
     // 카테고리 배지: sub 바인딩(하위 카테고리, pino child) 있으면 [category/sub]
@@ -198,8 +227,8 @@ class LogManager {
     (rec.level >= LEVELS.error ? REAL.error : REAL.log)(`${tag}${cat}${tags} ${msg}`);
   }
 
-  _toWire(rec) {
-    const entry = {
+  _toWire(rec: LogRecord): WireEntry {
+    const entry: WireEntry = {
       ts: rec.time,
       level: WIRE_LEVEL[rec.level] || "info",
       text: this._strip(rec.msg),
@@ -210,7 +239,7 @@ class LogManager {
     return entry;
   }
 
-  _strip(s) {
+  _strip(s: unknown): string {
     return typeof s === "string" ? s.replace(ANSI_RE, "") : String(s ?? "");
   }
 
@@ -220,7 +249,7 @@ class LogManager {
    *
    * 상한을 넘으면 429. 느린 소비자는 _record가 정리한다(아래 write 반환값 확인).
    */
-  addClient(res) {
+  addClient(res: SseClient) {
     const { maxPerUser, heartbeatMs } = config.dashboard.sse;
     if (this.clients.size >= maxPerUser) {
       res.status(429).json({ error: "로그 연결이 너무 많습니다" });
@@ -264,15 +293,16 @@ class LogManager {
   }
 
   /** 연결 정리. 쓰기 실패 경로에서도 하트비트까지 함께 걷는다. */
-  _dropClient(res) {
+  _dropClient(res: SseClient) {
     const cleanup = this._cleanups.get(res);
     if (cleanup) cleanup();
     else this.clients.delete(res);
   }
 }
 
-const singleton = new LogManager();
-singleton.LogManager = LogManager; // 테스트용 클래스(격리 인스턴스 생성)
-singleton._internals = { LEVELS, LEVEL_NAMES, WIRE_LEVEL, CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS };
+const singleton = Object.assign(new LogManager(), {
+  LogManager, // 테스트용 클래스(격리 인스턴스 생성)
+  _internals: { LEVELS, LEVEL_NAMES, WIRE_LEVEL, CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS },
+});
 export default singleton;
 export { singleton as "module.exports" };

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
 // 파일 로직을 facade(src/infra/log/logger.js)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
@@ -12,13 +11,14 @@
 
 import fs from "fs";
 import path from "path";
+import type { LogRecord } from "./sink.ts";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
 // 파일명에 박을 시각. 로컬 시간이고 파일명에 못 쓰는 `:`는 `-`로 바꾼다.
 //   2026-09-10T14-23-05.123
-function stamp(d = new Date()) {
-  const p = (n, w = 2) => String(n).padStart(w, "0");
+function stamp(d: Date = new Date()): string {
+  const p = (n: number, w = 2) => String(n).padStart(w, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
 }
 
@@ -30,7 +30,7 @@ function stamp(d = new Date()) {
 //  - 이름순 정렬이 곧 시간순이다.
 // 박는 값은 분리한 시각이다. "언제부터 기록했는지"는 재시작 후 기존 파일에 이어 쓸 때
 // 알 수가 없지만(첫 줄을 읽어야 한다), 분리 시각은 그 순간 확실하다.
-function backupPath(file, at = new Date()) {
+function backupPath(file: string, at: Date | string = new Date()): string {
   const ext = path.extname(file);
   const tag = typeof at === "string" ? at : stamp(at);
   return ext ? `${file.slice(0, -ext.length)}-${tag}${ext}` : `${file}-${tag}`;
@@ -43,7 +43,7 @@ function backupPath(file, at = new Date()) {
  * 번호가 붙은 쪽이 원본보다 앞으로 정렬되고, 이름순=시간순 계약이 깨진다.
  * 시각을 미는 쪽은 이름 모양이 하나로 유지된다.
  */
-function nextBackupPath(file, exists = fs.existsSync, at = new Date()) {
+function nextBackupPath(file: string, exists: (target: string) => boolean = fs.existsSync, at: Date = new Date()): string {
   let when = at;
   let target = backupPath(file, when);
   while (exists(target)) {
@@ -53,7 +53,7 @@ function nextBackupPath(file, exists = fs.existsSync, at = new Date()) {
   return target;
 }
 
-function stripAnsi(s) {
+function stripAnsi(s: unknown): unknown {
   return typeof s === "string" ? s.replace(ANSI_RE, "") : s;
 }
 
@@ -66,17 +66,14 @@ function stripAnsi(s) {
  *
  * 분리된 파일에는 분리한 시각이 붙는다 (bot-2026-09-10T14-23-05.123.log).
  *
- * @param {string} file      기록할 파일 경로(절대)
- * @param {number} maxBytes  이 크기를 넘으면 회전. 0이면 회전 안 함
- * @param {number} keep      보관할 회전본 개수. 0이면 제한 없이 쌓음
- * @returns {{write:(rec:object)=>void, close:()=>void, path:string}}
+ * file: 기록할 파일 경로(절대). maxBytes: 이 크기를 넘으면 회전(0이면 회전 안 함). keep: 보관할 회전본 개수(0이면 제한 없이 쌓음)
  */
-function createFileDestination({ file, maxBytes, keep }) {
-  let fd = null;
+function createFileDestination({ file, maxBytes, keep }: { file: string; maxBytes: number; keep: number }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
+  let fd: number | null = null;
   let size = 0;
 
   // 오류는 한 번만 알리고 조용히 멈춘다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
-  function giveUp(what, err) {
+  function giveUp(what: string, err: unknown) {
     if (fd !== null) {
       try {
         fs.closeSync(fd);
@@ -85,7 +82,7 @@ function createFileDestination({ file, maxBytes, keep }) {
       }
       fd = null;
     }
-    process.stderr.write(`[logFile] ${what}. 파일 로그를 중단합니다 (${file}): ${err.message}\n`);
+    process.stderr.write(`[logFile] ${what}. 파일 로그를 중단합니다 (${file}): ${(err as Error).message}\n`);
   }
 
   function open() {
@@ -103,7 +100,7 @@ function createFileDestination({ file, maxBytes, keep }) {
     const base = path.basename(file);
     const ext = path.extname(base);
     const stem = ext ? base.slice(0, -ext.length) : base;
-    const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp(`^${esc(stem)}-\\d{4}-\\d{2}-\\d{2}T[\\d.-]+${esc(ext)}$`);
     try {
       return fs
@@ -132,7 +129,7 @@ function createFileDestination({ file, maxBytes, keep }) {
   // 번호 방식과 달리 rename은 한 번뿐이다(파일 전부를 밀어 올리지 않는다).
   function rotate() {
     try {
-      fs.closeSync(fd);
+      fs.closeSync(fd as number); // 기록 중에만 회전한다. 그때는 열려 있다
       fd = null;
       fs.renameSync(file, nextBackupPath(file));
     } catch (err) {
@@ -142,9 +139,9 @@ function createFileDestination({ file, maxBytes, keep }) {
     open();
   }
 
-  function write(rec) {
+  function write(rec: LogRecord) {
     if (fd === null) return;
-    let line;
+    let line: string;
     try {
       line = `${JSON.stringify({ ...rec, msg: stripAnsi(rec.msg) })}\n`;
     } catch {

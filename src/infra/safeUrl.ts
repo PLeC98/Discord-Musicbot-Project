@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD·GET이 여기를 지난다.
  *
@@ -30,8 +29,13 @@ const GET_TIMEOUT_MS = 30000;
 const MAX_BYTES = 500 * 1024 * 1024; // 500 MB
 const ALLOWED_CONTENT_TYPE = /^\s*(audio\/|video\/|application\/octet-stream|binary\/octet-stream)/i;
 
+// DNS 조회. 테스트가 가짜를 넘긴다
+type LookupFn = (host: string, options: { all: true; verbatim: boolean }) => Promise<Array<{ address: string; family: number }>>;
+/** 바깥 경계. 생략하면 axios 와 dns.lookup */
+type RequestDeps = { request?: typeof axios; lookup?: LookupFn };
+
 class SsrfError extends Error {
-  constructor(message) {
+  constructor(message: string) {
     super(message);
     this.name = "SsrfError";
   }
@@ -41,32 +45,31 @@ class SsrfError extends Error {
  * 공인(global unicast) IP만 통과. 그 외(사설·루프백·링크로컬·CGNAT·예약·멀티캐스트 등)
  * 전부 차단. 파싱 불가·IPv4-매핑 IPv6(::ffff:x)는 내장 IPv4로 재판정.
  */
-function isBlockedIp(ip) {
+function isBlockedIp(ip: string): boolean {
   let addr;
   try {
     addr = ipaddr.parse(ip);
   } catch {
     return true; // 파싱 불가 → 차단
   }
-  if (addr.kind() === "ipv6" && addr.isIPv4MappedAddress()) {
+  if (addr instanceof ipaddr.IPv6 && addr.isIPv4MappedAddress()) {
     return isBlockedIp(addr.toIPv4Address().toString());
   }
   return addr.range() !== "unicast";
 }
 
 /** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략). IP 차단이 주 방어이고 이건 심층방어. */
-function isAllowedContentType(contentType) {
+function isAllowedContentType(contentType: unknown): boolean {
   if (!contentType) return true;
-  return ALLOWED_CONTENT_TYPE.test(contentType);
+  return ALLOWED_CONTENT_TYPE.test(String(contentType));
 }
 
 /**
  * URL 파싱 + 스키마/호스트 검증 + 접속할 IP 결정.
  * 호스트명은 모든 A/AAAA를 해석해 하나라도 내부면 거부하고, 통과 시 접속할 IP를 핀한다.
- * @returns {{ url: URL, pinnedIp: string, family: number }}
  * @throws {SsrfError}
  */
-async function validateAndResolve(rawUrl, lookup = dns.lookup.bind(dns)) {
+async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.bind(dns)): Promise<{ url: URL; pinnedIp: string; family: number }> {
   let url;
   try {
     url = new URL(rawUrl);
@@ -108,7 +111,7 @@ async function validateAndResolve(rawUrl, lookup = dns.lookup.bind(dns)) {
  * 소켓 레벨의 DNS 재해석(리바인딩)을 차단한다. autoSelectFamily(Node20+)가
  * all:true로 호출하는 경우까지 처리.
  */
-function createPinnedAgent(protocol, pinnedIp, family) {
+function createPinnedAgent(protocol: string, pinnedIp: string, family: number) {
   const Agent = protocol === "https:" ? https.Agent : http.Agent;
   return new Agent({
     keepAlive: false,
@@ -127,7 +130,7 @@ function createPinnedAgent(protocol, pinnedIp, family) {
  * @returns {{ response: import('axios').AxiosResponse, agent: import('http').Agent }}
  *   (호출측이 응답 소비 후 agent.destroy())
  */
-async function guardedRequest(method, rawUrl, { responseType, request = axios, lookup } = {}) {
+async function guardedRequest(method: "head" | "get", rawUrl: string, { responseType, request = axios, lookup }: RequestDeps & { responseType?: "stream" } = {}) {
   let currentUrl = rawUrl;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -179,7 +182,7 @@ async function guardedRequest(method, rawUrl, { responseType, request = axios, l
 }
 
 /** 최대 크기 초과 시 에러로 스트림을 끊는 통과 변환. */
-function byteCap(maxBytes) {
+function byteCap(maxBytes: number) {
   let total = 0;
   return new Transform({
     transform(chunk, _enc, cb) {
@@ -194,7 +197,7 @@ function byteCap(maxBytes) {
 }
 
 /** 응답 헤더의 Content-Type / Content-Length 심층방어 검사. @throws {SsrfError} */
-function assertResponseAllowed(headers) {
+function assertResponseAllowed(headers: Record<string, unknown>) {
   const ct = headers["content-type"] || "";
   if (!isAllowedContentType(ct)) {
     throw new SsrfError(`허용되지 않는 Content-Type: ${ct}`);
@@ -209,7 +212,7 @@ function assertResponseAllowed(headers) {
  * 가드된 HEAD. 최종 응답 헤더 반환(Content-Type/크기 검증 포함). @throws
  * deps: { request, lookup } 바깥 경계. 생략하면 axios 와 dns.lookup
  */
-async function head(rawUrl, deps = {}) {
+async function head(rawUrl: string, deps: RequestDeps = {}) {
   const { response, agent } = await guardedRequest("head", rawUrl, deps);
   try {
     assertResponseAllowed(response.headers);
@@ -220,7 +223,7 @@ async function head(rawUrl, deps = {}) {
 }
 
 /** 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws */
-async function getStream(rawUrl, deps = {}) {
+async function getStream(rawUrl: string, deps: RequestDeps = {}) {
   const { response, agent } = await guardedRequest("get", rawUrl, { ...deps, responseType: "stream" });
   const source = response.data;
   try {
@@ -231,8 +234,8 @@ async function getStream(rawUrl, deps = {}) {
     throw err;
   }
 
-  const capped = byteCap(MAX_BYTES);
-  capped.headers = response.headers; // 받는 쪽이 음원의 판(ETag 등)을 읽는다
+  // 받는 쪽이 음원의 판(ETag 등)을 읽는다
+  const capped = Object.assign(byteCap(MAX_BYTES), { headers: response.headers });
   pipeline(source, capped, () => {
     agent.destroy(); // 스트림 정상 종료/오류 어느 쪽이든 소켓 정리
   });

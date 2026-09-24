@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { spawnSync } from "node:child_process";
 import logger from "./log/logger.ts";
 const log = logger.child({ category: "proc" });
@@ -17,8 +16,11 @@ const IS_WIN = process.platform === "win32";
  *  2. 이미 종료한 자식은 건너뛴다. OS가 PID를 재사용한다.
  */
 
-/** @type {Map<number, {pid:number, label:string, group:boolean, child:import("node:child_process").ChildProcess}>} */
-const active = new Map();
+// spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 칸만
+type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null };
+type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number };
+
+const active = new Map<number, Entry>();
 let hooksInstalled = false;
 
 /**
@@ -33,21 +35,19 @@ function install() {
 
 /**
  * 자식 프로세스를 등록하고 등록 해제 함수를 돌려준다.
- * @param {import("node:child_process").ChildProcess|{pid?:number}} child spawn된 프로세스(또는 pid/kill을 가진 래퍼)
- * @param {string} label 로그용 이름
- * @param {{group?:boolean}} options group=true면 detached로 띄워 자체 프로세스 그룹을 가진 경우
- * @returns {() => void} 등록 해제 함수. 프로세스가 정상 종료하면 반드시 호출할 것
+ * label 은 로그용 이름, group=true 면 detached 로 띄워 자체 프로세스 그룹을 가진 경우.
+ * 돌려주는 것은 등록 해제 함수다. 프로세스가 정상 종료하면 반드시 호출할 것
  */
-function register(child, label = "child", { group = false } = {}) {
-  const pid = child && child.pid;
-  if (!Number.isInteger(pid) || pid <= 1) return () => {};
+function register(child: Tracked | null | undefined, label = "child", { group = false }: { group?: boolean } = {}): () => void {
+  const pid = child?.pid;
+  if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 1 || !child) return () => {};
   install();
   active.set(pid, { pid, label, group, child, startedAt: Date.now() });
   return () => active.delete(pid);
 }
 
 /** 자식이 아직 살아있는가. 종료했으면 PID 재사용 위험이 있으므로 시그널을 보내면 안 된다. */
-function _isAlive(child) {
+function _isAlive(child: Tracked | null | undefined): boolean {
   if (!child) return false;
   // ChildProcess는 종료 시 exitCode 또는 signalCode 중 하나가 채워진다(그 전엔 둘 다 null).
   return child.exitCode === null && child.signalCode === null;
@@ -55,10 +55,9 @@ function _isAlive(child) {
 
 /**
  * 프로세스와 그 자손을 강제 종료. 이미 종료된 프로세스는 건드리지 않는다.
- * @param {{pid:number, group:boolean, child:any}} entry
- * @returns {boolean} 실제로 kill을 시도했는가
+ * 돌려주는 것은 실제로 kill 을 시도했는가
  */
-function killTree(entry) {
+function killTree(entry: Entry): boolean {
   const { pid, group, child } = entry;
   if (!Number.isInteger(pid) || pid <= 1) return false; // pid 0 → -0 = 자기 그룹 자살 방지
   if (!_isAlive(child)) return false; // PID 재사용된 남의 프로세스 보호
@@ -85,10 +84,9 @@ function killTree(entry) {
 
 /**
  * 등록된 모든 프로세스를 트리째 종료한다. 멱등. 두 번 불러도 안전하다.
- * @param {string} reason 로그용
- * @returns {number} 실제로 종료를 시도한 프로세스 수
+ * reason 은 로그용. 돌려주는 것은 실제로 종료를 시도한 프로세스 수
  */
-function killAll(reason = "shutdown") {
+function killAll(reason = "shutdown"): number {
   if (active.size === 0) return 0;
   const entries = [...active.values()];
   active.clear();
