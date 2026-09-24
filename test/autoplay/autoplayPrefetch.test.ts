@@ -9,6 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MusicPlayer } from "../../src/player/Player.ts";
+import config from "../../config.ts";
 import * as trackState from "../../src/player/trackState.ts";
 import { recordPanel } from "../helpers/panelEvents.ts";
 import { fakePlayer } from "../helpers/fake.ts";
@@ -38,7 +39,7 @@ const asPlayer = fakePlayer;
 type Options = { autoplay?: string | false; current?: QueuedTrack | null; queue?: QueuedTrack[]; loop?: Loop; pick?: (this: { queue: QueuedTrack[] }) => Promise<QueuedTrack | null>; prefetch?: number };
 
 function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [], loop = false, pick, prefetch = 1 }: Options = {}) {
-  const calls = { picks: 0 };
+  const calls = { picks: 0, slept: [] as number[] };
   return asPlayer({
     calls,
     autoplay,
@@ -52,7 +53,12 @@ function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [],
     _canPrefetchAutoplay: MusicPlayer.prototype._canPrefetchAutoplay,
     // 실제 config/genres.yaml 을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
     _autoplayConfig: () => ({ prefetchCount: prefetch }),
-    _prefetchGapMs: 0, // 뽑기 사이 쉬는 시간 — 테스트에서는 기다릴 이유가 없다
+    // 뽑기 사이 쉬는 시간. 얼마나 쉬라고 했는지만 적고 기다리지 않는다
+    io: {
+      sleep: async (ms: number) => {
+        calls.slept.push(ms);
+      },
+    },
     async pickAutoplayTrack() {
       calls.picks++;
       return pick ? await pick.call(this) : auto(`자동${calls.picks}`);
@@ -105,23 +111,12 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
 // 뽑기 한 번에 유튜브 검색이 여러 번 나간다. 다섯 곡을 붙여 뽑으면 수십 번이 몇 초 안에 몰려
 // 뒤이은 내려받기가 403을 맞는다. 급한 것은 첫 곡뿐이므로 나머지는 사이를 둔다.
 test("둘째 곡부터는 쉬었다 뽑는다 — 유튜브를 몰아치지 않는다", async () => {
-  const slept: number[] = [];
   const p = makePlayer({ prefetch: 3 });
-  p._prefetchGapMs = 5;
-
-  const realTimeout = global.setTimeout;
-  global.setTimeout = ((fn: () => void, ms: number) => {
-    slept.push(ms);
-    return realTimeout(fn, 0);
-  }) as unknown as typeof setTimeout;
-  try {
-    await ensureAutoplayNext.call(p);
-  } finally {
-    global.setTimeout = realTimeout;
-  }
+  await ensureAutoplayNext.call(p);
 
   assert.equal(p.queue.length, 3);
-  assert.deepEqual(slept, [5, 5], "첫 곡은 바로, 나머지 둘은 쉬었다가");
+  const gap = config.preload.gapMs;
+  assert.deepEqual(p.calls.slept, [gap, gap], "첫 곡은 바로, 나머지 둘은 예열과 같은 간격을 쉬었다가");
 });
 
 test("prefetchCount만큼 채운다 — 한 번 불려도 끝까지", async () => {

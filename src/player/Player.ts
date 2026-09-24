@@ -77,6 +77,7 @@ const REAL = {
   ffmpegCapabilities,
   openChunkedStream,
   fetch: (url: string, init: RequestInit) => fetch(url, init),
+  sleep: (ms: number) => new Promise<void>((done) => setTimeout(done, ms)),
   directStream: (url: string) => DirectLink.getStream(url),
   getStream: (track: Seeking & { platform?: string | null }, seekSeconds?: number, options?: Partial<StreamOptions>) => streamUrl.getStream(track, seekSeconds, options),
   joinVoiceChannel,
@@ -137,8 +138,6 @@ class MusicPlayer {
   _endingLabel?: string | null;
   _retryTrack?: QueuedTrack | null;
   _autoplayPicking?: boolean;
-  /** 자동재생 뽑기 사이 쉬는 시간. 테스트가 줄인다 */
-  _prefetchGapMs?: number;
   /** 자동재생 길 찾기의 바깥 경계. 테스트만 넘긴다 */
   autoplayDeps?: AutoplayDeps;
 
@@ -1035,7 +1034,7 @@ class MusicPlayer {
       let added = 0;
       while (this._canPrefetchAutoplay()) {
         if (added > 0) {
-          await new Promise((done) => setTimeout(done, this._prefetchGapMs ?? config.preload.gapMs));
+          await this.io.sleep(config.preload.gapMs);
           if (!this._canPrefetchAutoplay()) break; // 쉬는 사이 사용자가 곡을 넣었을 수 있다
         }
 
