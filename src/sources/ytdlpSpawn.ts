@@ -2,7 +2,6 @@
 import youtubedl from "youtube-dl-exec";
 import * as procRegistry from "../infra/processRegistry.ts";
 import errors from "./youtube/errors.ts";
-const { YouTubeErrors } = errors;
 
 const IS_WIN = process.platform === "win32";
 
@@ -37,7 +36,7 @@ async function run(url, flags = {}, opts = {}) {
       stdout: error.stdout,
       exitCode: error.exitCode,
     });
-    shaped.code = YouTubeErrors.codeOf(shaped) || error.code;
+    shaped.code = errors.codeOf(shaped) || error.code;
     throw shaped;
   } finally {
     release();

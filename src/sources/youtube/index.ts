@@ -7,61 +7,61 @@ import * as links from "../../rules/links.ts";
 import auth from "./auth.ts";
 import run from "./ytdlpRun.ts";
 import errors from "./errors.ts";
-const { YouTubeErrors } = errors;
 import api from "./api.ts";
-const { YouTubeApi } = api;
+import clients from "./clients.ts";
 
-class YouTube {
-  static parseDuration(durationString) {
-    if (!durationString) return 0;
+function parseDuration(durationString) {
+  if (!durationString) return 0;
 
-    // "3:45", "1:23:45" 같은 형식 처리
-    const parts = durationString.split(":").reverse();
-    let seconds = 0;
+  // "3:45", "1:23:45" 같은 형식 처리
+  const parts = durationString.split(":").reverse();
+  let seconds = 0;
 
-    for (let i = 0; i < parts.length; i++) {
-      seconds += parseInt(parts[i]) * Math.pow(60, i);
-    }
-
-    return seconds;
+  for (let i = 0; i < parts.length; i++) {
+    seconds += parseInt(parts[i]) * Math.pow(60, i);
   }
 
-  static async validateUrl(url) {
-    try {
-      if (!links.isYouTubeURL(url)) {
-        return false;
-      }
+  return seconds;
+}
 
-      // 검증을 위해 기본 정보 가져오기 시도
-      const info = await youtubedl(
-        url,
-        this.getYtDlpOptions({
-          dumpSingleJson: true,
-          skipDownload: true,
-        }),
-      );
-
-      return !!info && !!info.title;
-    } catch (error) {
+async function validateUrl(url) {
+  try {
+    if (!links.isYouTubeURL(url)) {
       return false;
     }
+
+    // 검증을 위해 기본 정보 가져오기 시도
+    const info = await youtubedl(
+      url,
+      auth.getYtDlpOptions({
+        dumpSingleJson: true,
+        skipDownload: true,
+      }),
+    );
+
+    return !!info && !!info.title;
+  } catch (error) {
+    return false;
   }
 }
 
-// 나눠 둔 부분의 정적 메서드를 붙인다. 부분끼리는 this 로 서로 부르므로 여기 붙은 뒤에야 돈다
-for (const part of [auth.YouTubeAuth, run.YouTubeRun, YouTubeErrors, YouTubeApi]) {
-  for (const [name, desc] of Object.entries(Object.getOwnPropertyDescriptors(part))) {
-    if (name !== "length" && name !== "name" && name !== "prototype") Object.defineProperty(YouTube, name, desc);
-  }
-}
-
-YouTube._internals = {
-  BGUTIL_DIR: auth.BGUTIL_DIR,
-  BGUTIL_PLUGIN_ROOT: auth.BGUTIL_PLUGIN_ROOT,
-  BGUTIL_AVAILABLE: auth.BGUTIL_AVAILABLE,
-  findPluginRoot: auth.findPluginRoot,
-  get playerClients() {
-    return run.playerClients();
+// 나눠 둔 부분의 함수를 한 이름으로 모은다. 밖에서는 YouTube.search 처럼 부른다
+const { BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot, ...authFns } = auth;
+const YouTube = {
+  parseDuration,
+  validateUrl,
+  ...authFns,
+  ...run,
+  ...errors,
+  ...api,
+  _internals: {
+    BGUTIL_DIR,
+    BGUTIL_PLUGIN_ROOT,
+    BGUTIL_AVAILABLE,
+    findPluginRoot,
+    get playerClients() {
+      return clients.playerClients();
+    },
   },
 };
 

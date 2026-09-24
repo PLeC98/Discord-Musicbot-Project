@@ -9,6 +9,7 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
+import config from "../../../config.ts";
 
 // 2026-09-11 기준, yt-dlp가 알아듣는 것을 확인한 클라이언트 이름들.
 // 기동 시 "우리가 아는 목록에 없다"고 한 줄 알려주는 용도. 목록에 없어도 그대로 yt-dlp에 넘김.
@@ -88,6 +89,10 @@ class PlayerClients {
   }
 }
 
-const exported = { PlayerClients, KNOWN, NEEDS_POT };
+// 클라이언트 순번표 한 벌. 설정은 처음 쓸 때 읽는다
+let table = null;
+const playerClients = () => (table ??= new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails }));
+
+const exported = { PlayerClients, KNOWN, NEEDS_POT, playerClients };
 export default exported;
 export { exported as "module.exports" };
