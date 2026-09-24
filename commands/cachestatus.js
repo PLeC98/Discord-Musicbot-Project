@@ -1,8 +1,6 @@
-"use strict";
-
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } = require("discord.js");
-const config = require("../config");
-const audioCache = require("../src/store/audioCache");
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
+import config from "../config.js";
+import audioCache from "../src/store/audioCache.js";
 
 function formatBytes(bytes) {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
@@ -26,7 +24,7 @@ function usageBar(used, max, width = 12) {
   return `${color} ${"█".repeat(filled)}${"░".repeat(width - filled)} ${(pct * 100).toFixed(1)}%`;
 }
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("cachestatus").setDescription("Show audio cache statistics").setDescriptionLocalizations({ ko: "오디오 캐시 통계를 표시합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, _client) {
@@ -86,3 +84,5 @@ module.exports = {
     await interaction.editReply({ embeds: [embed] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

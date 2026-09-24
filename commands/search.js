@@ -1,10 +1,11 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const config = require("../config.js");
-const YouTube = require("../src/sources/youtube/index.js");
-const S = require("../src/ui/strings");
-const { checkAdd, checkSummon } = require("../src/usecases/permissions");
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import config from "../config.js";
+import YouTube from "../src/sources/youtube/index.js";
+import S from "../src/ui/strings.js";
+import permissions from "../src/usecases/permissions.js";
+const { checkAdd, checkSummon } = permissions;
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder()
     .setName("search")
     .setDescription("Search and select music on YouTube")
@@ -155,3 +156,5 @@ module.exports = {
     }
   },
 };
+export default exported;
+export { exported as "module.exports" };

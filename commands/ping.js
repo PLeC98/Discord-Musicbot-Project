@@ -1,9 +1,7 @@
-"use strict";
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from "discord.js";
+import config from "../config.js";
 
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("discord.js");
-const config = require("../config");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇 응답 레이턴시를 확인합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, client) {
@@ -26,3 +24,5 @@ module.exports = {
     await interaction.editReply({ content: "", embeds: [embed] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

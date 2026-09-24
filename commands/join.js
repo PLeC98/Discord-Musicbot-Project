@@ -1,15 +1,17 @@
-"use strict";
+import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "commands" });
+import addTracks from "../src/usecases/addTracks.js";
+const { ensurePlayer } = addTracks;
+import playerEvents from "../src/player/events.js";
+import playerSessions from "../src/store/playerSessions.js";
+const { sessions } = playerSessions;
+import mentions from "../src/ui/mentions.js";
+const { escapeMd } = mentions;
+import S from "../src/ui/strings.js";
+import config from "../config.js";
 
-const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
-const log = require("../src/infra/log/logger").child({ category: "commands" });
-const { ensurePlayer } = require("../src/usecases/addTracks");
-const playerEvents = require("../src/player/events");
-const { sessions } = require("../src/store/playerSessions");
-const { escapeMd } = require("../src/ui/mentions");
-const S = require("../src/ui/strings");
-const config = require("../config");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시킵니다" }),
 
   async execute(interaction, client) {
@@ -72,3 +74,5 @@ module.exports = {
     }
   },
 };
+export default exported;
+export { exported as "module.exports" };

@@ -1,20 +1,19 @@
-"use strict";
-
 // 재생목록 한 번에 넣는 곡 수 — 서버 설정의 범위 계산과 /setplaylistlimit.
 // 진짜 서버 설정을 임시 DB 로 쓴다.
 
-const { test, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { openTempStore } = require("../helpers/tempStore");
+import { test, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
+import tempStore from "../helpers/tempStore.js";
+const { openTempStore } = tempStore;
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());
-const guildTable = require("../../src/store/guildSettings").table;
+const guildTable = (await import("../../src/store/guildSettings.js")).default.table;
 const stored = { get: (g) => guildTable.getPlaylistAddMax(g), set: (g, n) => guildTable.setPlaylistAddMax(g, n), has: (g) => guildTable.getPlaylistAddMax(g) !== null };
 
-const config = require("../../config");
-const GuildSettingsManager = require("../../src/store/guildSettings");
-const command = require("../../commands/setplaylistlimit");
+const config = (await import("../../config.js")).default;
+const GuildSettingsManager = (await import("../../src/store/guildSettings.js")).default;
+const command = (await import("../../commands/setplaylistlimit.js")).default;
 
 const G = "g1";
 const savedQueueMax = config.bot.maxQueueSize;

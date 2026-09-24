@@ -1,10 +1,11 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } = require("discord.js");
-const GuildSettingsManager = require("../src/store/guildSettings");
-const log = require("../src/infra/log/logger").child({ category: "commands" });
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } from "discord.js";
+import GuildSettingsManager from "../src/store/guildSettings.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "commands" });
 
 const movePanel = (interaction) => interaction.client.musicEmbedManager?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder()
     .setName("setchannel")
     .setDescription("Set a dedicated bot channel for music requests and announcements")
@@ -74,3 +75,5 @@ module.exports = {
     await movePanel(interaction);
   },
 };
+export default exported;
+export { exported as "module.exports" };

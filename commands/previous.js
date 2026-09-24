@@ -1,10 +1,9 @@
-"use strict";
+import { SlashCommandBuilder } from "discord.js";
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
-const { SlashCommandBuilder } = require("discord.js");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("previous").setDescription("Play the previous track").setDescriptionLocalizations({ ko: "이전 곡을 재생합니다" }),
 
   async execute(interaction, client) {
@@ -15,3 +14,5 @@ module.exports = {
     await interaction.reply({ content: r.restarted ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!", flags: [1 << 6] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

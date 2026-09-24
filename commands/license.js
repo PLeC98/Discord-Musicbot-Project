@@ -1,9 +1,7 @@
-"use strict";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import config from "../config.js";
 
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("license").setDescription("Shows license information and source code location").setDescriptionLocalizations({ ko: "라이선스 정보와 소스 코드 위치를 보여줍니다" }),
 
   async execute(interaction) {
@@ -46,3 +44,5 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

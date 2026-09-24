@@ -1,10 +1,9 @@
-"use strict";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "commands" });
+import config from "../config.js";
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const log = require("../src/infra/log/logger").child({ category: "commands" });
-const config = require("../config");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("help").setDescription("Show all commands").setDescriptionLocalizations({ ko: "모든 명령어를 표시합니다" }),
 
   async buildHelpEmbed(client) {
@@ -99,3 +98,5 @@ module.exports = {
     return `${m}분`;
   },
 };
+export default exported;
+export { exported as "module.exports" };

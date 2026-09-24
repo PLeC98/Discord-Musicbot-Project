@@ -1,13 +1,12 @@
-"use strict";
-
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
-const S = require("../src/ui/strings");
-const { queueLine } = require("../src/ui/queueDisplay");
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import config from "../config.js";
+import S from "../src/ui/strings.js";
+import queueDisplay from "../src/ui/queueDisplay.js";
+const { queueLine } = queueDisplay;
 
 const PAGE_SIZE = 10;
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder()
     .setName("queue")
     .setDescription("Show the play queue")
@@ -64,3 +63,5 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

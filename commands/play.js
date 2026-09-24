@@ -1,12 +1,17 @@
-const { SlashCommandBuilder, MessageFlags } = require("discord.js");
-const log = require("../src/infra/log/logger").child({ category: "commands" });
-const ErrorHandler = require("../src/ui/errorMessages");
-const { requestPlayback } = require("../src/usecases/addTracks");
-const { interactionResponder } = require("../src/usecases/responders");
-const { offerOnInteraction } = require("../src/usecases/playlistMore");
-const { checkAdd, checkSummon } = require("../src/usecases/permissions");
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "commands" });
+import ErrorHandler from "../src/ui/errorMessages.js";
+import addTracks from "../src/usecases/addTracks.js";
+const { requestPlayback } = addTracks;
+import responders from "../src/usecases/responders.js";
+const { interactionResponder } = responders;
+import playlistMore from "../src/usecases/playlistMore.js";
+const { offerOnInteraction } = playlistMore;
+import permissions from "../src/usecases/permissions.js";
+const { checkAdd, checkSummon } = permissions;
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder()
     .setName("play")
     .setDescription("Plays music - Supports YouTube, Spotify, SoundCloud or direct links")
@@ -81,3 +86,5 @@ module.exports = {
     return { success: true };
   },
 };
+export default exported;
+export { exported as "module.exports" };

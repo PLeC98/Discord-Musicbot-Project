@@ -1,9 +1,8 @@
-"use strict";
-
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import config from "../config.js";
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
 /**
  * 시간 문자열을 밀리초로 파싱
@@ -48,7 +47,7 @@ function formatMs(ms) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder()
     .setName("seek")
     .setDescription("Seek to a specific time in the current track")
@@ -73,3 +72,5 @@ module.exports = {
     await interaction.editReply({ embeds: [embed] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

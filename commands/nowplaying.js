@@ -1,8 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
-const config = require("../config");
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
+import config from "../config.js";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
-const { labelOf, emojiOf } = require("../src/ui/platforms");
-const { progressBar } = require("../src/ui/progressBar");
+import platforms from "../src/ui/platforms.js";
+const { labelOf, emojiOf } = platforms;
+import progressBarModule from "../src/ui/progressBar.js";
+const { progressBar } = progressBarModule;
 
 // 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다
 function progressField(player, track, currentMs) {
@@ -11,7 +13,7 @@ function progressField(player, track, currentMs) {
   return { name: "⏱️ 진행", value: progressBar(Math.floor(currentMs / 1000), track.duration || 0, { live }), inline: false };
 }
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("nowplaying").setDescription("Shows information about currently playing song").setDescriptionLocalizations({
     ko: "현재 재생 중인 곡의 정보를 보여줍니다",
   }),
@@ -107,3 +109,5 @@ module.exports = {
     return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
   },
 };
+export default exported;
+export { exported as "module.exports" };

@@ -1,9 +1,8 @@
-"use strict";
-
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import config from "../config.js";
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
 const LOOP_TEXT = {
   track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
@@ -11,7 +10,7 @@ const LOOP_TEXT = {
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder()
     .setName("loop")
     .setDescription("Set loop mode")
@@ -40,3 +39,5 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

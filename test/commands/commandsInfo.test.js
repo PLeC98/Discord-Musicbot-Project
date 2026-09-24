@@ -1,30 +1,33 @@
-"use strict";
-
 // 표시 · 설정 명령과 SponsorBlock 설정 화면의 지금 동작을 고정한다(구조 리팩터링 0-B).
 // /nowplaying · /queue · /help · /system · /cachestatus · /setchannel · /setdjrole · /sponsorblock, 그리고 sponsorConfigHandler.
 //
 // 6단계가 표시 명령을 ui/ 의 같은 조각으로, 설정 명령을 store/guildSettings 로 돌린다. 문구 전부가 아니라 "무엇을 골라 담았나 ·
 // 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { MessageFlags, PermissionFlagsBits } = require("discord.js");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
+import { MessageFlags, PermissionFlagsBits } from "discord.js";
+
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
-const guildTable = require("../../src/store/guildSettings").table;
-const audioCache = require("../../src/store/audioCache");
-const trackLookup = require("../../src/store/trackLookup");
+const guildTable = (await import("../../src/store/guildSettings.js")).default.table;
+const audioCache = (await import("../../src/store/audioCache.js")).default;
+const trackLookup = (await import("../../src/store/trackLookup.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const config = require("../../config");
-const S = require("../../src/ui/strings");
-const settings = require("../../src/store/guildSettings");
-const SponsorBlock = require("../../src/sources/sponsorBlock");
-const sponsorConfig = require("../../events/sponsorConfigHandler");
+const config = (await import("../../config.js")).default;
+const S = (await import("../../src/ui/strings.js")).default;
+const settings = (await import("../../src/store/guildSettings.js")).default;
+const SponsorBlock = (await import("../../src/sources/sponsorBlock.js")).default;
+const sponsorConfig = (await import("../../events/sponsorConfigHandler.js")).default;
 
 after(() => {
   audioCache.close();
@@ -176,7 +179,8 @@ test("/help: 모든 명령을 적는다", async () => {
   await cmd("help").execute(it, client);
   const text = Object.values(fieldsOf(log[0][1])).join("\n");
   const names = fs
-    .readdirSync(path.join(__dirname, "../../commands"))
+    .readdirSync(path.join(import.meta.dirname, "../../commands"))
+    .filter((f) => f.endsWith(".js"))
     .map((f) => f.replace(/\.js$/, ""))
     .filter((name) => name !== "help");
   assert.deepEqual(

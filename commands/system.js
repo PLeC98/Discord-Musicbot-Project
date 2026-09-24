@@ -1,8 +1,6 @@
-"use strict";
-
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, version: djsVersion } = require("discord.js");
-const os = require("os");
-const config = require("../config");
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, version as djsVersion } from "discord.js";
+import os from "os";
+import config from "../config.js";
 
 function formatUptime(seconds) {
   const d = Math.floor(seconds / 86400);
@@ -26,7 +24,7 @@ function loadBar(used, total, width = 10) {
   return `${"█".repeat(filled)}${"░".repeat(width - filled)} ${(pct * 100).toFixed(1)}%`;
 }
 
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("system").setDescription("Show bot system information").setDescriptionLocalizations({ ko: "봇 시스템 정보를 표시합니다" }),
 
   buildSystemEmbed(client) {
@@ -93,3 +91,5 @@ module.exports = {
     await interaction.editReply({ embeds: [embed], components: [row] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

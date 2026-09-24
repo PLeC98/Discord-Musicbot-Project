@@ -1,12 +1,10 @@
-"use strict";
-
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require("discord.js");
-const GuildSettingsManager = require("../src/store/guildSettings");
-const config = require("../config");
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
+import GuildSettingsManager from "../src/store/guildSettings.js";
+import config from "../config.js";
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder()
     .setName("setplaylistlimit")
     .setDescription("Set how many songs a playlist adds at once")
@@ -44,6 +42,8 @@ module.exports = {
     return interaction.reply({ embeds: [card("✅ 재생목록 한 번에 넣는 곡 수를 바꿨어요", `이제 재생목록을 넣으면 한 번에 **${count}곡**씩 들어가요.\n남은 곡은 "더 넣기"로 이어 넣을 수 있어요.`)] });
   },
 };
+export default exported;
+export { exported as "module.exports" };
 
 function card(title, description) {
   return new EmbedBuilder().setTitle(title).setDescription(description).setColor(config.bot.embedColor).setTimestamp();

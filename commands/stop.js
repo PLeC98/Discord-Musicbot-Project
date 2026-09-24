@@ -1,10 +1,9 @@
-"use strict";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("stop").setDescription("Stop playback and disconnect from voice channel").setDescriptionLocalizations({ ko: "재생을 정지하고 음성 채널에서 퇴장합니다" }),
 
   async execute(interaction, client) {
@@ -24,3 +23,5 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

@@ -1,9 +1,8 @@
-"use strict";
-
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import config from "../config.js";
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
 function formatMs(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -15,7 +14,7 @@ function formatMs(ms) {
 }
 
 // SponsorBlock poi_highlight(커뮤니티 하이라이트 지점)로 점프. 핵심만 듣고 /skip 하는 용도.
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("highlight").setDescription("Jump to the community highlight of the current track").setDescriptionLocalizations({ ko: "현재 곡의 하이라이트 지점으로 이동합니다" }),
 
   async execute(interaction, client) {
@@ -33,3 +32,5 @@ module.exports = {
     await interaction.editReply({ embeds: [embed] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

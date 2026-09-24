@@ -1,11 +1,9 @@
-"use strict";
-
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
-const GuildSettingsManager = require("../src/store/guildSettings");
-const sponsorConfig = require("../events/sponsorConfigHandler");
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
+import GuildSettingsManager from "../src/store/guildSettings.js";
+import sponsorConfig from "../events/sponsorConfigHandler.js";
 
 // 실제 저장/취소 처리는 events/sponsorConfigHandler.js (customId: sb:*)
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("sponsorblock").setDescription("Configure SponsorBlock auto-skip").setDescriptionLocalizations({ ko: "SponsorBlock 자동 스킵을 설정합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction) {
@@ -22,3 +20,5 @@ module.exports = {
     sponsorConfig.registerPending(msg.id, state);
   },
 };
+export default exported;
+export { exported as "module.exports" };

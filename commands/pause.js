@@ -1,11 +1,10 @@
-"use strict";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import config from "../config.js";
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const config = require("../config");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("pause").setDescription("Pause or resume the current track").setDescriptionLocalizations({ ko: "일시정지를 토글합니다" }),
 
   async execute(interaction, client) {
@@ -27,3 +26,5 @@ module.exports = {
     await interaction.reply({ embeds: [embed], flags: [1 << 6] });
   },
 };
+export default exported;
+export { exported as "module.exports" };

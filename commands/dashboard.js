@@ -1,12 +1,13 @@
-"use strict";
+import { SlashCommandBuilder } from "discord.js";
+import addTracks from "../src/usecases/addTracks.js";
+const { toRequester } = addTracks;
+import responders from "../src/usecases/responders.js";
+const { interactionResponder } = responders;
+import GuildSettingsManager from "../src/store/guildSettings.js";
+import permissions from "../src/usecases/permissions.js";
+const { checkControl } = permissions;
 
-const { SlashCommandBuilder } = require("discord.js");
-const { toRequester } = require("../src/usecases/addTracks");
-const { interactionResponder } = require("../src/usecases/responders");
-const GuildSettingsManager = require("../src/store/guildSettings");
-const { checkControl } = require("../src/usecases/permissions");
-
-module.exports = {
+const exported = {
   data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "현재 재생 중 패널을 채널 하단에 띄웁니다" }),
 
   async execute(interaction, client) {
@@ -43,3 +44,5 @@ module.exports = {
     await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager), { reuse: false });
   },
 };
+export default exported;
+export { exported as "module.exports" };
