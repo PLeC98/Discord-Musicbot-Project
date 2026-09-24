@@ -1,10 +1,17 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
-import { VoiceConnectionStatus, joinVoiceChannel, entersState } from "@discordjs/voice";
+import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState } from "@discordjs/voice";
+import type { VoiceBasedChannel } from "discord.js";
+import type MusicPlayer from "./Player.ts";
 
-const VOICE_LIB = { joinVoiceChannel, entersState };
+/** 음성 라이브러리에서 부르는 것 */
+type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
+/** 연결을 맡으며 읽고 바꾸는 플레이어 칸 */
+type VoiceHost = Pick<MusicPlayer, "audioPlayer" | "cleanup" | "connection" | "currentTrack" | "guild" | "onVoiceRecovered" | "paused" | "voiceChannel">;
+
+const VOICE_LIB: VoiceLib = { joinVoiceChannel, entersState };
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice" });
 import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
+import { messageOf } from "../rules/errorKind.ts";
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 
@@ -16,7 +23,19 @@ const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되�
  */
 class VoiceConnectionManager {
   /** lib: 음성 라이브러리의 joinVoiceChannel · entersState. 기본은 진짜 */
-  constructor(player, lib = VOICE_LIB) {
+  player: VoiceHost;
+  lib: VoiceLib;
+  isRecovering: boolean;
+  recoveryAttempts: number;
+  maxRecoveryAttempts: number;
+  healthCheck: NodeJS.Timeout | null;
+  lastMove: { from: string; to: string; at: number } | null;
+  lastBounceFix: number | null;
+  _recoveryGen?: number;
+  /** 복구 시도 사이 쉬는 시간. 테스트가 줄인다 */
+  recoveryRetryDelayMs?: number;
+
+  constructor(player: VoiceHost, lib: VoiceLib = VOICE_LIB) {
     this.player = player;
     this.lib = lib;
     this.isRecovering = false;
@@ -35,7 +54,7 @@ class VoiceConnectionManager {
 
     player.connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
       // 이미 복구 중이거나 사용자가 봇 연결을 끊은 경우 복구를 트리거하지 않음
-      if (this.isRecovering || newState.reason === "Manual disconnect") {
+      if (this.isRecovering || newState.reason === VoiceConnectionDisconnectReason.Manual) {
         log.info(`연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 복구 안 함 (${this.isRecovering ? "이미 복구 중" : "수동 해제"})`);
         return;
       }
@@ -43,9 +62,11 @@ class VoiceConnectionManager {
       // 네트워크 연결 끊김에는 즉시 자동 재연결 시도
       log.warn(`연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 자동 재연결 대기`);
       try {
-        await this.lib.entersState(player.connection, VoiceConnectionStatus.Connecting, 5000);
+        const connection = player.connection;
+        if (!connection) throw new Error("연결이 없습니다");
+        await this.lib.entersState(connection, VoiceConnectionStatus.Connecting, 5000);
         // 여기에 도달하면 Discord가 자동 재연결을 시도 중임
-        await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, 10000);
+        await this.lib.entersState(connection, VoiceConnectionStatus.Ready, 10000);
         log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${label()}`);
       } catch (error) {
         // 자동 재연결 실패, 음악 재생 중이면 자체 복구 시스템 시작
@@ -66,7 +87,7 @@ class VoiceConnectionManager {
       }
     });
 
-    player.connection.on("error", (error) => {
+    player.connection.on("error", (error: Error) => {
       log.error("음성 연결 오류:", error);
       if (player.currentTrack && !player.paused) {
         this.startConnectionRecovery();
@@ -207,8 +228,10 @@ class VoiceConnectionManager {
       }
 
       // 새 연결 생성
+      const channelId = player.voiceChannel?.id;
+      if (!channelId) throw new Error("음성 채널이 없습니다");
       player.connection = this.lib.joinVoiceChannel({
-        channelId: player.voiceChannel.id,
+        channelId,
         guildId: player.guild.id,
         adapterCreator: this._adapterCreator(),
       });
@@ -243,14 +266,14 @@ class VoiceConnectionManager {
           if (player.guild.client) {
             try {
               const freshGuild = await player.guild.client.guilds.fetch(player.guild.id);
-              if (freshGuild && freshGuild.voiceAdapterCreator) {
+              if (freshGuild && typeof freshGuild.voiceAdapterCreator === "function") {
                 // 서버 참조 갱신. 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
                 // 신선 참조로 재할당. fetch()는 캐시된 동일 인스턴스를 갱신해 돌려주므로
                 // 재할당이 안전하고, 공유 객체의 내부 상태를 덮어쓸 위험이 없다.
                 player.guild = freshGuild;
                 break;
               }
-            } catch (e) {
+            } catch {
               // 가져오기 오류 무시
             }
           }
@@ -261,8 +284,10 @@ class VoiceConnectionManager {
         }
       }
 
+      const channelId = player.voiceChannel?.id;
+      if (!channelId) throw new Error("음성 채널이 없습니다");
       player.connection = this.lib.joinVoiceChannel({
-        channelId: player.voiceChannel.id,
+        channelId,
         guildId: player.guild.id,
         adapterCreator: this._adapterCreator(),
       });
@@ -277,7 +302,7 @@ class VoiceConnectionManager {
       log.info(`음성 채널 참가: "${player.voiceChannel?.name ?? player.voiceChannel?.id}" (${player.guild?.name ?? player.guild?.id})`);
       return true;
     } catch (error) {
-      log.error("음성 채널 연결 실패:", error.message);
+      log.error("음성 채널 연결 실패:", messageOf(error));
       throw error; // restoreFromState가 처리할 수 있도록 다시 던짐
     }
   }
@@ -286,7 +311,7 @@ class VoiceConnectionManager {
   _adapterCreator() {
     const player = this.player;
     return holdingAdapterCreator(player.guild.voiceAdapterCreator, {
-      onRewrite: (from, to) => log.info(`음성 재참가 요청을 옮겨진 채널로 고쳐 보냅니다: ${from} → ${to} (${player.guild?.name ?? player.guild?.id})`),
+      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청을 옮겨진 채널로 고쳐 보냅니다: ${from} → ${to} (${player.guild?.name ?? player.guild?.id})`),
     });
   }
 
@@ -299,7 +324,7 @@ class VoiceConnectionManager {
    * 원래 채널로 돌아오면 그 되돌림으로 보고 목적지로 한 번 다시 붙는다. 되돌려 붙기는 드물게만 한다.
    * @returns {boolean} 되돌려 붙었나
    */
-  followMove(fromId, toChannel, now = Date.now()) {
+  followMove(fromId: string, toChannel: VoiceBasedChannel, now = Date.now()) {
     const player = this.player;
     const where = player.guild?.name ?? player.guild?.id;
     const target = this._bouncedFrom(fromId, toChannel, now);
@@ -308,7 +333,7 @@ class VoiceConnectionManager {
       this.lastMove = null;
       player.voiceChannel = target;
       log.warn(`음성 채널이 옮겨진 직후 원래 채널로 되돌아와 다시 옮깁니다: "${target.name ?? target.id}" (${where})`);
-      player.connection.rejoin({ channelId: target.id, selfDeaf: false, selfMute: false });
+      player.connection?.rejoin({ channelId: target.id, selfDeaf: false, selfMute: false });
       return true;
     }
     this.lastMove = { from: fromId, to: toChannel.id, at: now };
@@ -318,11 +343,12 @@ class VoiceConnectionManager {
   }
 
   // 방금 옮겨진 곳에서 곧바로 원래 채널로 되돌아왔으면 다시 붙을 목적지. 아니면(또는 막 되돌려 붙었으면) null
-  _bouncedFrom(fromId, toChannel, now) {
+  _bouncedFrom(fromId: string, toChannel: VoiceBasedChannel, now: number): VoiceBasedChannel | null {
     const last = this.lastMove;
     if (!last || now - last.at >= MOVE_BOUNCE_MS || last.from !== toChannel.id || last.to !== fromId) return null;
     if (!this.player.connection || now - (this.lastBounceFix ?? -Infinity) < BOUNCE_FIX_GAP_MS) return null;
-    return this.player.guild.channels.cache.get(last.to) ?? null;
+    const channel = this.player.guild.channels.cache.get(last.to);
+    return channel?.isVoiceBased() ? channel : null;
   }
 
   // 연결을 부수고 비운다. 리스너를 먼저 떼어 부서지는 연결이 복구를 부르지 않게 한다.

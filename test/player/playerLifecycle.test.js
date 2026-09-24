@@ -416,7 +416,7 @@ test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀�
 function voiceChannelWith(player, humans) {
   const members = new Map(humans.map((id) => [id, { user: { bot: false, id } }]));
   members.filter = (fn) => ({ size: [...members.values()].filter(fn).length });
-  player.guild.channels.cache.set("voice1", { id: "voice1", members, permissionsFor: () => ({ has: () => false }) });
+  player.guild.channels.cache.set("voice1", { id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) });
 }
 
 test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도 없으면 정리하고 레지스트리에서 뺀다", async () => {

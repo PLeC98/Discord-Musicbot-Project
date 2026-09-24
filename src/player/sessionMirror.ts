@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import * as db from "../store/db.ts";
@@ -6,6 +5,10 @@ import { sessions } from "../store/playerSessions.ts";
 import trackState from "./trackState.ts";
 import config from "../../config.ts";
 import playerEvents from "./events.ts";
+import { messageOf } from "../rules/errorKind.ts";
+import type MusicPlayer from "./Player.ts";
+import type { QueuedTrack } from "./track.ts";
+import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/playerSessions.ts";
 
 const HEARTBEAT_MS = 5000;
 
@@ -16,13 +19,13 @@ const FINAL_REASONS = new Set(["leave", "shutdown"]);
 const liveStore = () => (db.isOpen() ? sessions() : null);
 
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
-const active = new Set();
-let heartbeat = null;
+const active = new Set<SessionPersistence>();
+let heartbeat: NodeJS.Timeout | null = null;
 
 function beat() {
   const store = liveStore();
   if (!store) return;
-  const entries = [];
+  const entries: Array<{ guildId: string; positionMs: number; startOffsetMs: number }> = [];
   for (const sp of active) {
     const p = sp.player;
     if (sp.frozen || !p.guild?.id || !p.currentTrack || p.paused) continue;
@@ -33,12 +36,19 @@ function beat() {
   try {
     store.savePositions(entries);
   } catch (error) {
-    log.error("재생 위치 저장 실패:", error.message);
+    log.error("재생 위치 저장 실패:", messageOf(error));
   }
 }
 
 class SessionPersistence {
-  constructor(player) {
+  static _beat = beat;
+  player: MusicPlayer;
+  frozen: boolean;
+  dirty: boolean;
+  saveTimer: NodeJS.Timeout | null;
+
+  // 알림(events)에 플레이어를 넘기므로 플레이어 그대로 받는다
+  constructor(player: MusicPlayer) {
     this.player = player;
     this.frozen = false; // 마지막 저장 뒤. 이후의 트랙 변경은 DB에 옮기지 않는다
     this.dirty = false; // 증분 쓰기가 실패해 DB가 메모리와 어긋났을 수 있다
@@ -47,7 +57,7 @@ class SessionPersistence {
 
   // ── 트랙 거울 (trackState가 부른다) ──
 
-  _mirror(write) {
+  _mirror(write: (store: PlayerSessionStore, guildId: string) => boolean | void) {
     const guildId = this.player.guild?.id;
     const store = liveStore();
     if (this.frozen || !guildId || !store) return;
@@ -57,11 +67,11 @@ class SessionPersistence {
       if (write(store, guildId) === false) this.resync(store);
     } catch (error) {
       this.dirty = true;
-      log.warn(`세션 트랙 저장 실패. 다음 변경에서 통째로 다시 씁니다 (서버 ID ${guildId}): ${error.message}`);
+      log.warn(`세션 트랙 저장 실패. 다음 변경에서 통째로 다시 씁니다 (서버 ID ${guildId}): ${messageOf(error)}`);
     }
   }
 
-  resync(store = liveStore()) {
+  resync(store: PlayerSessionStore | null = liveStore()) {
     const p = this.player;
     if (this.frozen || !store || !p.guild?.id) return;
     try {
@@ -69,35 +79,35 @@ class SessionPersistence {
       this.dirty = false;
     } catch (error) {
       this.dirty = true;
-      log.error(`세션 트랙 재기록 실패 (서버 ID ${p.guild.id}): ${error.message}`);
+      log.error(`세션 트랙 재기록 실패 (서버 ID ${p.guild.id}): ${messageOf(error)}`);
     }
   }
 
-  onSetCurrent(track) {
+  onSetCurrent(track: QueuedTrack | null) {
     this._mirror((s, g) => s.setCurrent(g, track));
   }
 
-  onEnqueue(tracks, front) {
+  onEnqueue(tracks: QueuedTrack[], front: boolean) {
     this._mirror((s, g) => s.append(g, tracks, { front }));
   }
 
-  onTake(index) {
+  onTake(index: number) {
     this._mirror((s, g) => s.take(g, index));
   }
 
-  onRetire(track, requeue) {
+  onRetire(track: QueuedTrack, requeue: boolean) {
     this._mirror((s, g) => s.retire(g, track, { requeue }));
   }
 
-  onRewind(track, copy, current) {
+  onRewind(track: QueuedTrack, copy: number, current: QueuedTrack | null) {
     this._mirror((s, g) => s.rewind(g, track, { copy, current }));
   }
 
-  onRemoveAt(index) {
+  onRemoveAt(index: number) {
     this._mirror((s, g) => s.removeAt(g, index));
   }
 
-  onMove(from, to) {
+  onMove(from: number, to: number) {
     this._mirror((s, g) => s.move(g, from, to));
   }
 
@@ -105,7 +115,7 @@ class SessionPersistence {
     this._mirror((s, g) => s.clearQueue(g));
   }
 
-  onReset(history) {
+  onReset(history: boolean) {
     this._mirror((s, g) => s.reset(g, { history }));
   }
 
@@ -121,7 +131,7 @@ class SessionPersistence {
       voiceChannelId: p.voiceChannel?.id || null,
       textChannelId: p.textChannel?.id || null,
       volume: p.volume,
-      loopMode: p.loop === "track" || p.loop === "queue" ? p.loop : "off",
+      loopMode: p.loop === "track" || p.loop === "queue" ? p.loop : ("off" as const),
       autoplay: p.autoplay || null,
       // 복원하는 건 수동 일시정지뿐이다. 혼자 남음 같은 사유는 복원 시점의 상황이 다시 건다
       pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
@@ -144,7 +154,7 @@ class SessionPersistence {
         store.saveSession(p.guild.id, this.sessionFields());
       }
     } catch (error) {
-      log.error(`세션 저장 실패 (서버 ID ${p.guild.id}):`, error.message || error);
+      log.error(`세션 저장 실패 (서버 ID ${p.guild.id}):`, messageOf(error));
     }
     if (FINAL_REASONS.has(reason)) this.frozen = true;
   }
@@ -156,7 +166,7 @@ class SessionPersistence {
     try {
       store.removeSession(guildId);
     } catch (error) {
-      log.error(`세션 삭제 실패 (서버 ID ${guildId}):`, error.message);
+      log.error(`세션 삭제 실패 (서버 ID ${guildId}):`, messageOf(error));
     }
   }
 
@@ -197,15 +207,17 @@ class SessionPersistence {
 
   // ── 복원 ──
 
-  reviveTrack(data) {
+  reviveTrack(data: RestoredTrack | null): QueuedTrack | null {
     if (!data) return null;
-    const { requesterId, ...track } = data;
+    const { requesterId, id, title, duration, platform, artist, album, ...rest } = data;
+    // 행은 빈 칸을 null 로 준다. 트랙의 모양으로 맞춘다(없는 칸은 비우고, 꼭 있어야 하는 칸은 빈 값)
+    const track: QueuedTrack = { ...rest, id: id ?? undefined, title: title ?? "", duration: duration ?? 0, platform: platform ?? "", artist: artist ?? undefined, album: album ?? undefined };
     // 요청자는 권한 판정과 멘션에 id만 쓰인다
     if (requesterId) track.requestedBy = { id: requesterId };
     return track;
   }
 
-  async restoreFromState(record) {
+  async restoreFromState(record: RestoredSession | null | undefined) {
     const player = this.player;
     if (!record || !player.guild?.id) return;
     const { session } = record;
@@ -232,8 +244,8 @@ class SessionPersistence {
       player,
       {
         current: this.reviveTrack(record.current),
-        queue: (cut ? queueRows.slice(0, max) : queueRows).map((t) => this.reviveTrack(t)),
-        history: record.history.map((t) => this.reviveTrack(t)),
+        queue: (cut ? queueRows.slice(0, max) : queueRows).flatMap((t) => this.reviveTrack(t) ?? []),
+        history: record.history.flatMap((t) => this.reviveTrack(t) ?? []),
       },
       // 잘랐거나 걸러냈으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
       { persisted: !cut && droppedAutoplay === 0 },
@@ -261,7 +273,7 @@ class SessionPersistence {
           throw new Error("Failed to reconnect to voice channel");
         }
       } catch (error) {
-        log.error("세션 복원 중 음성 연결 실패:", error.message);
+        log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
         throw new Error("Failed to reconnect to voice channel", { cause: error });
       }
     }
@@ -283,10 +295,10 @@ class SessionPersistence {
     if (player.textChannel) {
       try {
         // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
-        const requester = { id: session.requesterId || player.guild.client.user.id };
+        const requester = { id: session.requesterId || player.guild.client.user?.id || "" };
         await playerEvents.started(player, requester);
       } catch (error) {
-        log.error("세션 복원 중 재생 임베드 복구 실패:", error?.message || error);
+        log.error("세션 복원 중 재생 임베드 복구 실패:", messageOf(error));
       }
     }
 
@@ -304,4 +316,3 @@ class SessionPersistence {
 
 export default SessionPersistence;
 export { SessionPersistence as "module.exports" };
-SessionPersistence._beat = beat;

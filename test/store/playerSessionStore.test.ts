@@ -8,10 +8,10 @@ import trackState from "../../src/player/trackState.ts";
 import { PlayerSessionStore, GAP, SEQ_LIMIT } from "../../src/store/playerSessions.ts";
 import { createTables } from "../../src/store/db.ts";
 import type { TrackIn, SessionState } from "../../src/store/playerSessions.ts";
+import type { Tracks } from "../../src/player/trackState.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
 
-// trackState 가 다루는 플레이어의 칸. 여기서 보는 것만
 type Titled = { title?: string | null };
-type State = { queue: Titled[]; previousTracks: Titled[]; currentTrack: Titled | null; loop: string | false; trackSink?: object };
 
 const G = "g1";
 
@@ -23,10 +23,10 @@ function open() {
 }
 
 let serial = 0;
-const t = (title = `t${serial++}`) => ({ title, pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
+const t = (title = `t${serial++}`): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
 const titles = (arr: Titled[]) => arr.map((x) => x.title);
 
-function snapshot(p: State) {
+function snapshot(p: Tracks) {
   return { current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) };
 }
 
@@ -54,11 +54,12 @@ function rng(seed: number) {
 
 test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 순서가 같다", () => {
   const { store } = open();
-  const p = {} as State; // init 이 칸을 채운다
+  const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
   // 이전곡은 사본 위치를 trackState가 알려 준다 — 그 알림만 받아 저장소로 옮긴다
   const onRewind = (track: TrackIn, copy: number, current: TrackIn | null) => store.rewind(G, track, { copy, current });
-  p.trackSink = new Proxy({ onRewind }, { get: (sink, name) => Reflect.get(sink, name) ?? (() => {}) });
+  const skip = () => {};
+  p.trackSink = { onRewind, onSetCurrent: skip, onEnqueue: skip, onTake: skip, onRetire: skip, onRemoveAt: skip, onMove: skip, onClearQueue: skip, onReset: skip, onReplace: skip };
   const pick = rng(20260915);
 
   const ops = [
@@ -136,7 +137,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
 
 test("같은 자리에 계속 끼우면 간격이 닳는다 — 재번호 후에도 순서가 맞다", () => {
   const { store } = open();
-  const p = {} as State; // init 이 칸을 채운다
+  const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
   const ts = [t("A"), t("B"), t("C")];
   trackState.enqueue(p, ts);

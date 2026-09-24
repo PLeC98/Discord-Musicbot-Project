@@ -1,7 +1,7 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { Collection } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
+import type MusicPlayer from "./Player.ts";
 
 /**
  * client.players를 감싸 등록, 해제를 전부 기록
@@ -25,15 +25,15 @@ function caller() {
   return "?";
 }
 
-const label = (player, guildId) => `${player?.guild?.name ?? "?"} (${guildId})`;
+const label = (player: MusicPlayer | undefined, guildId: string) => `${player?.guild?.name ?? "?"} (${guildId})`;
 
-class PlayerRegistry extends Collection {
-  set(guildId, player) {
+class PlayerRegistry extends Collection<string, MusicPlayer> {
+  set(guildId: string, player: MusicPlayer) {
     log.debug(`등록: ${label(player, guildId)}${this.has(guildId) ? " | 기존 항목 교체" : ""} | ${caller()}`);
     return super.set(guildId, player);
   }
 
-  delete(guildId) {
+  delete(guildId: string) {
     const prev = this.get(guildId);
     if (prev) {
       const track = prev.currentTrack ? `"${prev.currentTrack.title}"` : "없음";

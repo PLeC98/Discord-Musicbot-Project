@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 언제 음성 채널을 떠나나. 타이머 둘을 이 모듈이 가지고 stop() 하나로 치운다.
 //   혼자 남음   채널에 사람이 없으면 멈추고, 정해진 시간 뒤에도 없으면 정리한다(leaveDelayAloneMs)
 //   틀 게 없음  대기열이 비면 정해진 시간 뒤 정리한다(leaveDelayQueueEmptyMs)
@@ -9,9 +8,16 @@ const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import trackState from "./trackState.ts";
 import playerEvents from "./events.ts";
+import type MusicPlayer from "./Player.ts";
 
 class IdleLeave {
-  constructor(player) {
+  player: MusicPlayer;
+  aloneTimer: NodeJS.Timeout | null;
+  emptyTimer: NodeJS.Timeout | null;
+  aloneMs: number;
+
+  // 알림(events)에 플레이어를 넘기므로 플레이어 그대로 받는다
+  constructor(player: MusicPlayer) {
     this.player = player;
     this.aloneTimer = null;
     this.emptyTimer = null;
@@ -33,7 +39,7 @@ class IdleLeave {
 
         const channelId = player.voiceChannel?.id;
         const channel = channelId ? player.guild.channels.cache.get(channelId) : null;
-        const hasListeners = channel ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
+        const hasListeners = channel?.isVoiceBased() ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
 
         if (hasListeners) {
           player.resumeFor("alone");

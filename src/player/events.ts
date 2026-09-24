@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 플레이어가 화면과 대시보드에 알리는 창구. 플레이어는 화면을 모르고 여기로 알린다.
 // 듣는 쪽은 조립(src/app/main.js)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
 //
@@ -11,42 +10,62 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
+import { messageOf } from "../rules/errorKind.ts";
+import type MusicPlayer from "./Player.ts";
 
-const listeners = new Map(); // 알림 이름 → Set<fn>
+/** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
+type Requester = { id: string; username?: string };
+/** 알림마다 넘기는 것 */
+type EventArgs = {
+  refresh: [player: MusicPlayer];
+  ended: [player: MusicPlayer, reason: string];
+  started: [player: MusicPlayer, requester: Requester];
+  released: [player: MusicPlayer, textChannelId: string];
+  notice: [player: MusicPlayer, code: string, detail: Record<string, unknown>];
+  touched: [guildId: string];
+};
+type Listener<K extends keyof EventArgs> = (...args: EventArgs[K]) => unknown;
+
+const listeners: { [K in keyof EventArgs]: Set<Listener<K>> } = { refresh: new Set(), ended: new Set(), started: new Set(), released: new Set(), notice: new Set(), touched: new Set() };
 
 /** 듣는 쪽을 건다. 떼는 함수를 돌려준다 */
-function on(name, fn) {
-  if (!listeners.has(name)) listeners.set(name, new Set());
-  listeners.get(name).add(fn);
-  return () => listeners.get(name)?.delete(fn);
+function on<K extends keyof EventArgs>(name: K, fn: Listener<K>) {
+  const set: Set<Listener<K>> = listeners[name];
+  set.add(fn);
+  return () => set.delete(fn);
 }
 
 // 듣는 쪽을 모두 부르고 모두 끝날 때까지 기다린다. 듣는 쪽의 실패는 알린 쪽으로 올라간다
-async function emit(name, ...args) {
-  const fns = [...(listeners.get(name) ?? [])];
-  await Promise.all(fns.map((fn) => fn(...args)));
+async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
+  const set: Set<Listener<K>> = listeners[name];
+  await Promise.all([...set].map((fn) => fn(...args)));
 }
 
-const refresh = (player) => emit("refresh", player);
-const ended = (player, reason) => emit("ended", player, reason);
-const started = (player, requester) => emit("started", player, requester);
-const notice = (player, code, detail = {}) => emit("notice", player, code, detail);
+const refresh = (player: MusicPlayer) => emit("refresh", player);
+const ended = (player: MusicPlayer, reason: string) => emit("ended", player, reason);
+const started = (player: MusicPlayer, requester: Requester) => emit("started", player, requester);
+const notice = (player: MusicPlayer, code: string, detail: Record<string, unknown> = {}) => emit("notice", player, code, detail);
 
-function released(player, textChannelId) {
-  for (const fn of listeners.get("released") ?? []) fn(player, textChannelId);
+function released(player: MusicPlayer, textChannelId: string) {
+  for (const fn of listeners.released) fn(player, textChannelId);
 }
 
 // 대시보드 알림은 기다리지 않고, 실패해도 알린 쪽을 멈추지 않는다
-function touched(guildId) {
-  for (const fn of listeners.get("touched") ?? []) {
+function touched(guildId: string) {
+  for (const fn of listeners.touched) {
     try {
       fn(guildId);
     } catch (error) {
-      log.warn(`대시보드 알림 실패: ${error.message}`);
+      log.warn(`대시보드 알림 실패: ${messageOf(error)}`);
     }
   }
 }
 
-const exported = { on, refresh, ended, started, notice, released, touched, _reset: () => listeners.clear() };
+function _reset() {
+  for (const set of Object.values(listeners)) set.clear();
+}
+
+const exported = { on, refresh, ended, started, notice, released, touched, _reset };
 export default exported;
+export type { EventArgs, Requester };
 export { exported as "module.exports" };

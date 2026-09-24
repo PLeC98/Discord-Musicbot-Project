@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // play() 의 단계. play() 는 이 셋을 차례로 부르고, 둘째와 셋째 사이에서 소리를 연다(media/playbackInput).
 //   prepareStart   틀 곡과 시작 위치. 대기열에서 꺼내고 음성 채널에 붙고, 새로 트는 곡이면 인트로 끝을 시작 위치로
 //   resolveSource  소리를 어디서 받나. 받아 둔 파일, 위치 이동이면 직전 재생의 주소, 없으면 새 스트림
@@ -12,6 +11,16 @@ import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import trackState from "./trackState.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
+import { messageOf } from "../rules/errorKind.ts";
+import type MusicPlayer from "./Player.ts";
+import type CurrentPlayback from "./currentPlayback.ts";
+import type { Resume } from "./currentPlayback.ts";
+import type { QueuedTrack } from "./track.ts";
+import type { StreamInfo } from "../sources/streamUrl.ts";
+import type { Segments } from "../sources/sponsorBlock.ts";
+
+/** 소리를 어디서 받을지 정한 것 */
+type Source = { cacheFile: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null> };
 // 안 정하면 libopus 기본값(실측 100k)으로 나간다. 캐시가 128k 라 거기에 맞춘다.
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
 const SEND_BITRATE = 128_000;
@@ -19,9 +28,8 @@ const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인
 
 /**
  * 틀 곡과 시작 위치.
- * @returns {Promise<{ok: true, startMs: number} | {ok: false, code: "queue-empty" | "voice-failed"}>}
  */
-async function prepareStart(player, seekMs) {
+async function prepareStart(player: MusicPlayer, seekMs: number): Promise<{ ok: true; startMs: number } | { ok: false; code: "queue-empty" | "voice-failed" }> {
   if (!player.currentTrack) {
     if (player.queue.length === 0) return { ok: false, code: "queue-empty" };
     trackState.shiftNext(player);
@@ -37,6 +45,7 @@ async function prepareStart(player, seekMs) {
   if (wanted === 0) {
     const track = player.currentTrack;
     try {
+      if (!track) throw new Error("틀 곡이 없습니다");
       if (!track.audioUrl) await player.io.findEquivalent(track); // 멱등. 영상 id 확정
       const introEnd = introOffsetMs(await player.io.sponsorFor(track, player.guild.id));
       if (introEnd > 0) startMs = introEnd;
@@ -48,7 +57,7 @@ async function prepareStart(player, seekMs) {
 }
 
 /** 곡 첫머리(0 부근)에서 시작하는 건너뛸 구간의 끝(ms). 없으면 0 */
-function introOffsetMs(sponsor) {
+function introOffsetMs(sponsor: Segments | null | undefined) {
   const segs = sponsor?.skipSegments;
   if (!segs || !segs.length) return 0;
   const intro = segs.find((s) => s.start <= INTRO_START_TOL_SEC);
@@ -58,14 +67,13 @@ function introOffsetMs(sponsor) {
 /**
  * 소리를 어디서 받나. 받아 둔 파일이 있으면 yt-dlp 를 부르지 않는다.
  * 음원 주소가 정해졌으니 SponsorBlock 조회도 여기서 시작해 둔다(여는 동안 나란히 묻는다).
- * @param {object | null} previousResume  직전 재생이 남긴 위치 재개 정보
- * @returns {Promise<{cacheFile: string | null, streamInfo: object | null, titleVerified: boolean, isLive: boolean | null, sponsor: Promise<object | null>}>}
+ * @param previousResume  직전 재생이 남긴 위치 재개 정보
  */
-async function resolveSource(player, track, startMs, previousResume) {
+async function resolveSource(player: MusicPlayer, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
   // 열쇠는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = TrackDownloader.findCacheFile(track);
   // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다
-  let streamInfo = startMs > 0 ? resumeStream(track, previousResume, startMs / 1000) : null;
+  let streamInfo: StreamInfo | null = startMs > 0 ? resumeStream(track, previousResume, startMs / 1000) : null;
 
   if (!streamInfo && !cacheFile) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 열쇠가 정해지므로
@@ -94,7 +102,7 @@ async function resolveSource(player, track, startMs, previousResume) {
 // (캐시로 재생하는 곡은 여기를 지나지 않는다. 그쪽은 받을 때 고친다.)
 // 스포티파이 곡은 제외한다: 유튜브 동등물의 제목은 다른 문자열이고, 사용자가 넣은 것은
 // 스포티파이 곡이므로 표시는 그쪽이 맞다.
-function verifyTitle(track, streamInfo) {
+function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
   if (track.platform !== "youtube" || !streamInfo?.title) return false;
   if (streamInfo.title !== track.title) {
     log.debug(`제목 교정: "${track.title}" → "${streamInfo.title}"`);
@@ -106,13 +114,13 @@ function verifyTitle(track, streamInfo) {
 // 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 담길 때 방송 중이었어도 그사이 끝나
 // 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 담긴 것도 있다(재생목록 · 믹스).
 // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 받지 않는다. 모르면 null
-function liveAnswer(streamInfo, cacheFile) {
+function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
   if (streamInfo && "liveStatus" in streamInfo) return streamInfo.liveStatus === "is_live";
   return cacheFile ? false : null;
 }
 
 /** 위치 재개 정보가 이 곡의 것이고 주소로 위치를 옮길 수 있으면, 그 위치의 스트림 서술자 */
-function resumeStream(track, resume, seekSeconds) {
+function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, seekSeconds: number): StreamInfo | null {
   if (!resume) return null;
   const key = resumeKeyOf(track);
   if (!key || resume.trackKey !== key) return null;
@@ -122,13 +130,13 @@ function resumeStream(track, resume, seekSeconds) {
   return { ...resume.info, url, canSeek: true, fromCache: true, duration: resume.info?.duration || track.duration };
 }
 
-function resumeKeyOf(track) {
+function resumeKeyOf(track: QueuedTrack | null) {
   if (!track) return null;
   return track.id || track.requestKey || `${track.title}-${track.duration}`;
 }
 
 // 주소에 시작 위치를 싣는다. 지금은 유튜브 스트림 주소만 된다
-function seekUrl(baseUrl, seekSeconds) {
+function seekUrl(baseUrl: string | null, seekSeconds: number) {
   if (!baseUrl) return null;
   if (seekSeconds <= 0) return baseUrl;
   const url = baseUrl.replace(/(&|\?)begin=\d+/g, "").replace(/(&|\?)start=\d+/g, "");
@@ -139,18 +147,19 @@ function seekUrl(baseUrl, seekSeconds) {
 
 /**
  * 연 소리를 튼다. 소리는 이미 pb.resource 에 있다.
- * @param {{streamInfo: object | null, titleVerified: boolean, sponsor: Promise<object | null>}} source
  */
-async function commitPlaying(player, pb, source) {
+async function commitPlaying(player: MusicPlayer, pb: CurrentPlayback, source: Source) {
   const track = pb.track;
   const { streamInfo } = source;
+  const { resource } = pb;
+  if (!resource) throw new Error("열린 소리가 없습니다");
 
   // 자동 스킵 워처 가동. 구간 있으면 시작, 위치 이동이면 기준점을 그 위치로(수동 진입 허용)
   pb.sponsor = await source.sponsor;
   player.sponsorSkipper.onPlayStart(pb.startOffsetMs);
 
-  pb.resource.volume?.setVolume(player.volume / 100);
-  pb.resource.encoder?.setBitrate(SEND_BITRATE);
+  resource.volume?.setVolume(player.volume / 100);
+  resource.encoder?.setBitrate(SEND_BITRATE);
 
   const durationSec = audioDurationSec(track, streamInfo, pb.cacheFile);
   if (durationSec) track.duration = durationSec;
@@ -158,7 +167,7 @@ async function commitPlaying(player, pb, source) {
 
   const audioKey = audioKeyOf(track.audioUrl);
   protectAudio(player, audioKey);
-  player.audioPlayer.play(pb.resource);
+  player.audioPlayer.play(resource);
   // 라이브는 받아 두지 않으므로 적을 것이 없다.
   if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified);
 
@@ -178,11 +187,11 @@ async function commitPlaying(player, pb, source) {
   await player.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
 
   // 다음 자동재생 곡을 미리 뽑아 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
-  player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 뽑기 실패: ${error?.message || error}`));
+  player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 뽑기 실패: ${messageOf(error)}`));
 }
 
 // 재생 중인 곡을 퇴거 대상에서 보호한다(해제는 releaseAudioProtection)
-function protectAudio(player, audioKey) {
+function protectAudio(player: MusicPlayer, audioKey: string | null) {
   if (player._protectedAudioKey && player._protectedAudioKey !== audioKey) {
     audioCache.unprotect(player._protectedAudioKey);
     player._protectedAudioKey = null;
@@ -195,17 +204,17 @@ function protectAudio(player, audioKey) {
 
 // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록.
 // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
-function recordPlayed(track, audioKey, titleVerified) {
+function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boolean) {
   try {
     audioCache.recordPlayback(audioKey);
     trackLookup.recordTrackLookup(track, { verified: titleVerified });
   } catch (error) {
-    log.warn(`캐시 장부 기록 실패(재생은 계속): ${error?.message || error}`);
+    log.warn(`캐시 장부 기록 실패(재생은 계속): ${messageOf(error)}`);
   }
 }
 
 // 같은 곡 안에서 위치를 옮길 때 주소를 다시 묻지 않도록 남겨 둔다
-function resumeInfo(track, streamInfo) {
+function resumeInfo(track: QueuedTrack, streamInfo: StreamInfo | null): Resume {
   return {
     trackKey: resumeKeyOf(track),
     platform: track.platform,
@@ -217,15 +226,17 @@ function resumeInfo(track, streamInfo) {
 }
 
 // 조기 종료 · SponsorBlock 곡 끝 판정에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
-function audioDurationSec(track, streamInfo, cacheFile) {
+function audioDurationSec(track: QueuedTrack | null, streamInfo: StreamInfo | null, cacheFile: string | null): number | null {
   const key = audioKeyOf(track?.audioUrl);
   if (cacheFile && key) {
     const cached = audioCache.lookupByAudioKey(key)?.duration_sec;
-    if (cached > 0) return cached;
+    if (cached && cached > 0) return cached;
   }
-  return streamInfo?.duration > 0 ? streamInfo.duration : null;
+  const streamed = streamInfo?.duration;
+  return streamed && streamed > 0 ? streamed : null;
 }
 
 const exported = { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec };
 export default exported;
+export type { Source };
 export { exported as "module.exports" };

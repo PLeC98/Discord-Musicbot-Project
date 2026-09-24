@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 감시 둘. 타이머는 이 모듈이 가지고 stop() 하나로 치운다.
 //   종료 감시     곡이 끝났는데 Idle 이 오지 않는 경우. 길이를 넘기면 멈춰 종료 처리에 맡긴다
 //   버퍼링 감시   재생이 시작되지 않은 채 입력도 없이 멈춘 경우. 멈춰 같은 곡을 다시 시도하게 한다
@@ -7,13 +6,25 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const wlog = logger.child({ category: "watchdog" });
+import type MusicPlayer from "./Player.ts";
+import type { StreamInfo } from "../sources/streamUrl.ts";
+
+/** 감시가 읽고 멈추는 플레이어 칸 */
+type WatchHost = Pick<MusicPlayer, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "pendingEndReason" | "playback">;
 
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 
-const sec = (ms) => (ms == null ? "?" : (ms / 1000).toFixed(1));
+const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 class PlaybackWatch {
-  constructor(player) {
+  static BUFFERING_STALL_MS = BUFFERING_STALL_MS;
+  player: WatchHost;
+  endTimer: NodeJS.Timeout | null;
+  bufferingTimer: NodeJS.Timeout | null;
+  bufferingSince: number | null;
+  _lastLine: string | null;
+
+  constructor(player: WatchHost) {
     this.player = player;
     this.endTimer = null;
     this.bufferingTimer = null;
@@ -24,7 +35,7 @@ class PlaybackWatch {
   // ── 종료 감시 ──
 
   /** 이 곡의 종료 감시를 건다. 길이는 스트림이 준 것을 먼저, 없으면 곡의 것 */
-  scheduleEnd(streamInfo = null) {
+  scheduleEnd(streamInfo: StreamInfo | null = null) {
     const player = this.player;
     this.stopEnd();
 
@@ -112,7 +123,7 @@ class PlaybackWatch {
   }
 
   // 2초 폴링이 같은 줄을 도배하지 않게, 직전과 다를 때만 남긴다
-  _logOnce(line) {
+  _logOnce(line: string) {
     if (this._lastLine === line) return;
     this._lastLine = line;
     wlog.debug(line);
@@ -128,13 +139,13 @@ class PlaybackWatch {
   }
 
   // 입력이 조금씩이라도 들어오면 정체가 아니다. Range를 못 쓰는 입력의 위치 재개는 앞부분을 읽어 넘기느라 오래 걸린다
-  checkBufferingStall(now = Date.now()) {
+  checkBufferingStall(now = Date.now()): void {
     const player = this.player;
     if (player.audioPlayer?.state?.status !== AudioPlayerStatus.Buffering) return this.stopBuffering();
     const quietSince = Math.max(this.bufferingSince ?? now, player.playback?.inputProgressAt ?? 0);
     if (now - quietSince < BUFFERING_STALL_MS) return;
     this.stopBuffering();
-    wlog.warn(`재생이 시작되지 않아 다시 시도합니다: ${player._trackLabel()} | 버퍼링 ${sec(now - this.bufferingSince)}초, 입력 없음 ${sec(now - quietSince)}초`);
+    wlog.warn(`재생이 시작되지 않아 다시 시도합니다: ${player._trackLabel()} | 버퍼링 ${sec(now - (this.bufferingSince ?? now))}초, 입력 없음 ${sec(now - quietSince)}초`);
     if (!player.pendingEndReason) player.pendingEndReason = "buffering-stall";
     // force 없이는 무음 패딩만 예약되고 Buffering에서 벗어나지 않는다(패딩은 Playing에서만 소비된다)
     player.audioPlayer.stop(true);
@@ -154,4 +165,4 @@ class PlaybackWatch {
 
 export default PlaybackWatch;
 export { PlaybackWatch as "module.exports" };
-PlaybackWatch.BUFFERING_STALL_MS = BUFFERING_STALL_MS;
+export type { WatchHost };

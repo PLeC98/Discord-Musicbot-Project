@@ -1,12 +1,13 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 음성 상태 이벤트 해석. 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음을 가리고, 언제 나가는지는 idleLeave 가 정한다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import playerEvents from "./events.ts";
 import trackState from "./trackState.ts";
+import type { Client, Guild, VoiceState } from "discord.js";
+import type MusicPlayer from "./Player.ts";
 
-async function onVoiceStateUpdate(client, oldState, newState) {
+async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState: VoiceState) {
   const guild = oldState.guild;
 
   // 채널 이동은 대시보드의 "봇 부르기 / 곡 추가 / 재생 조작" 노출 조건을 바꾼다.
@@ -17,7 +18,7 @@ async function onVoiceStateUpdate(client, oldState, newState) {
   const player = client.players.get(guild.id);
   if (!player) return;
 
-  const botId = guild.members.me?.id ?? client.user.id;
+  const botId = guild.members.me?.id ?? client.user?.id;
   if (oldState.id === botId || newState.id === botId) {
     if (oldState.channelId && !newState.channelId) return forcedOut(client, player, guild);
     await botMoved(client, player, oldState, newState);
@@ -27,7 +28,7 @@ async function onVoiceStateUpdate(client, oldState, newState) {
 }
 
 // 봇이 음성에서 쫓겨났다. 화면을 끝난 모양으로 바꾸고 플레이어를 버린다
-async function forcedOut(client, player, guild) {
+async function forcedOut(client: Client, player: MusicPlayer, guild: Guild) {
   try {
     player.pendingEndReason = "forced-disconnect";
     trackState.reset(player);
@@ -42,7 +43,7 @@ async function forcedOut(client, player, guild) {
 
 // 누가 봇을 다른 채널로 옮겼다. 연결은 음성 라이브러리가 따라가고, 여기서는 기록과 화면을 맞춘다.
 // 처음 참가(채널이 없다가 생김)는 옮겨진 것이 아니다
-async function botMoved(client, player, oldState, newState) {
+async function botMoved(_client: Client, player: MusicPlayer, oldState: VoiceState, newState: VoiceState) {
   if (!oldState.channelId || !newState.channelId || oldState.channelId === newState.channelId || !newState.channel) return;
   player.voice.followMove(oldState.channelId, newState.channel);
   player.idle.cancelAlone(false);
@@ -50,7 +51,7 @@ async function botMoved(client, player, oldState, newState) {
 }
 
 // 서버 음소거 · 헤드셋 끄기 · 무대 발언권 없음은 들을 수 없으니 멈춘다
-async function botMuted(client, player, oldState, newState) {
+async function botMuted(_client: Client, player: MusicPlayer, oldState: VoiceState, newState: VoiceState) {
   const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
   const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
   if (!wasMuted && isMuted) {
@@ -62,12 +63,12 @@ async function botMuted(client, player, oldState, newState) {
 }
 
 // 봇의 채널에 사람이 남았나. 없으면 혼자 남음을 시작하고, 돌아오면 푼다
-async function listenersChanged(client, player, guild, oldState, newState) {
+async function listenersChanged(client: Client, player: MusicPlayer, guild: Guild, oldState: VoiceState, newState: VoiceState) {
   const voiceChannelId = player.voiceChannel?.id;
   if (!voiceChannelId || (oldState.channelId !== voiceChannelId && newState.channelId !== voiceChannelId)) return;
 
   const channel = guild.channels.cache.get(voiceChannelId);
-  if (!channel) {
+  if (!channel?.isVoiceBased()) {
     player.cleanup("봇의 음성 채널이 사라짐");
     client.players.delete(guild.id);
     return;

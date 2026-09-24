@@ -14,7 +14,7 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = {
   const members = new Map([[BOT, { user: { bot: true } }]]);
   for (let i = 0; i < humans; i++) members.set(`u${i}`, { user: { bot: false } });
   members.filter = (fn) => ({ size: [...members.values()].filter(fn).length });
-  const channels = new Map(channelExists ? [["vc1", { id: "vc1", members }]] : []);
+  const channels = new Map(channelExists ? [["vc1", { id: "vc1", members, isVoiceBased: () => true }]] : []);
   const guild = { id: "g1", members: { me: { id: BOT } }, channels: { cache: channels } };
 
   const player = {

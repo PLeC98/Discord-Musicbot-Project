@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * 음성 채널 상태의 현재 값과 그게 우리가 쓴 것인지를 추적한다.
  *
@@ -9,19 +8,19 @@
  * 이후 바뀔 때마다 `VOICE_CHANNEL_STATUS_UPDATE`가 온다(우리가 쓴 것도 되돌아온다).
  */
 
-const current = new Map(); // channelId -> 현재 상태 문자열 ("" = 비어 있음)
-const ours = new Map(); // channelId -> 우리가 마지막으로 쓴 값
+const current = new Map<string, string>(); // channelId -> 현재 상태 문자열 ("" = 비어 있음)
+const ours = new Map<string, string>(); // channelId -> 우리가 마지막으로 쓴 값
 
-const text = (v) => (typeof v === "string" ? v : "");
+const text = (v: unknown) => (typeof v === "string" ? v : "");
 
 /** 게이트웨이가 알려 준 현재 값. 누가 바꿨든 그대로 기록한다. */
-function observe(channelId, status) {
+function observe(channelId: string | null | undefined, status: unknown) {
   if (!channelId) return;
   current.set(channelId, text(status));
 }
 
 /** 우리가 쓴 값. 되돌아오는 이벤트가 "남이 바꾼 것"으로 보이지 않게 해 준다. */
-function mark(channelId, status) {
+function mark(channelId: string | null | undefined, status: unknown) {
   if (!channelId) return;
   const value = text(status);
   ours.set(channelId, value);
@@ -34,15 +33,18 @@ function mark(channelId, status) {
  * 비어 있거나, 마지막으로 우리가 쓴 값 그대로면 우리 것이다.
  * 사람이 적어 둔 것이 올라와 있으면 건드리지 않는다.
  */
-function canWrite(channelId) {
+function canWrite(channelId: string | null | undefined) {
   if (!channelId) return false;
   const now = current.get(channelId);
   if (now === undefined) return true; // 아직 아무 소식도 못 들은 채널. 기동 시 GUILD_CREATE가 채운다
   return now === "" || now === ours.get(channelId);
 }
 
+// 게이트웨이 패킷에서 여기서 읽는 칸만
+type Packet = { t?: unknown; d?: { id?: string; status?: unknown; channels?: Array<{ id?: string; type?: number; status?: unknown } | null> } | null };
+
 /** 봇이 받는 모든 게이트웨이 패킷에서 상태 정보만 골라 담는다. */
-function consumePacket(packet) {
+function consumePacket(packet: Packet | null | undefined) {
   if (!packet || typeof packet.t !== "string") return;
 
   if (packet.t === "VOICE_CHANNEL_STATUS_UPDATE") {

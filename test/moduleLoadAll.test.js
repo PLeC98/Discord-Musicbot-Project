@@ -20,7 +20,8 @@ function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full, out);
-    else if (/\.(c?js|ts)$/.test(entry.name)) out.push(full);
+    // 선언 파일(.d.ts)은 타입만 있어 불러올 것이 없다
+    else if (/\.(c?js|ts)$/.test(entry.name) && !entry.name.endsWith(".d.ts")) out.push(full);
   }
   return out;
 }

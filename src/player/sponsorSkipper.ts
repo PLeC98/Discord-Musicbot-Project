@@ -1,7 +1,12 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
+import type MusicPlayer from "./Player.ts";
+import type { SkipSegment } from "../sources/sponsorBlock.ts";
+
+/** 구간을 넘기며 읽고 부르는 플레이어 칸 */
+type SkipHost = Pick<MusicPlayer, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor">;
+type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "end" | null; toSec?: undefined; prevSec: number };
 
 // SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.
 //
@@ -18,7 +23,12 @@ const TICK_MS = 500; // 워처 주기 (인트로 블리드 ≤ 이 값)
 const END_EPSILON_SEC = 1.5; // seg.end가 트랙 끝에서 이 이내면 아웃트로로 간주
 
 class SponsorSkipper {
-  constructor(player) {
+  player: SkipHost;
+  segments: SkipSegment[];
+  _prevSec: number;
+  _interval: NodeJS.Timeout | null;
+
+  constructor(player: SkipHost) {
     this.player = player;
     this.segments = [];
     this._prevSec = -1;
@@ -27,9 +37,8 @@ class SponsorSkipper {
 
   /**
    * 발동 판정(순수 함수, 테스트 가능). segments는 start 오름차순 가정(SponsorBlock 정규화 결과).
-   * @returns {{action: 'seek'|'end'|null, toSec?: number, prevSec: number}}
    */
-  static decide(segments, prevSec, curSec, durationSec, endEpsilon = END_EPSILON_SEC) {
+  static decide(segments: Array<Pick<SkipSegment, "start" | "end">>, prevSec: number, curSec: number, durationSec: number, endEpsilon = END_EPSILON_SEC): Decision {
     for (const seg of segments) {
       if (seg.start > prevSec && seg.start <= curSec) {
         if (durationSec > 0 && seg.end >= durationSec - endEpsilon) {
@@ -93,4 +102,5 @@ class SponsorSkipper {
 }
 
 export default SponsorSkipper;
+export type { SkipHost };
 export { SponsorSkipper as "module.exports" };

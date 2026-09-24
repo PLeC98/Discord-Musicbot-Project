@@ -7,7 +7,7 @@ import { test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "events";
 
-import { VoiceConnectionStatus } from "@discordjs/voice";
+import { VoiceConnectionStatus, VoiceConnectionDisconnectReason } from "@discordjs/voice";
 
 const joins = [];
 let enters = async () => {}; // (connection, status, ms) → 성공이면 resolve
@@ -78,7 +78,7 @@ test("끊김: 수동 해제거나 이미 복구 중이면 아무것도 안 한�
   const { player, vcm, recoveries } = makePlayer();
   vcm.setupConnectionEvents();
 
-  player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: "Manual disconnect" });
+  player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: VoiceConnectionDisconnectReason.Manual });
   vcm.isRecovering = true;
   player.connection.emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
   await flush();
@@ -294,7 +294,7 @@ test("옮겨짐: 다시 붙지 않고 기록만 맞춘다. 연결은 음성 라�
 test("옮겨짐: 곧바로 원래 채널로 되돌아오면 라이브러리의 되돌림으로 보고 목적지로 한 번 다시 붙는다", () => {
   const { player, vcm } = makePlayer();
   const conn = player.connection;
-  const vc2 = { id: "vc2", name: "다른 방" };
+  const vc2 = { id: "vc2", name: "다른 방", isVoiceBased: () => true };
   player.guild.channels.cache.set("vc2", vc2);
 
   vcm.followMove("vc1", vc2, 1000);
@@ -311,7 +311,7 @@ test("옮겨짐: 곧바로 원래 채널로 되돌아오면 라이브러리의 �
 
 test("옮겨짐: 한참 뒤에 원래 채널로 돌아오는 것은 사람이 옮긴 것이다", () => {
   const { player, vcm } = makePlayer();
-  const vc2 = { id: "vc2" };
+  const vc2 = { id: "vc2", isVoiceBased: () => true };
   player.guild.channels.cache.set("vc2", vc2);
   vcm.followMove("vc1", vc2, 1000);
   assert.equal(vcm.followMove("vc2", { id: "vc1" }, 5000), false);

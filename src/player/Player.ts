@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel, entersState } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -13,11 +12,20 @@ const clog = loggerModule2.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
 import loggerModule3 from "../infra/log/logger.ts";
 const elog = loggerModule3.child({ category: "error" });
-import { PermissionFlagsBits } from "discord.js";
+import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type Webhook } from "discord.js";
+import type { AudioPlayer, VoiceConnection } from "@discordjs/voice";
+import type { QueuedTrack } from "./track.ts";
+import type { Loop } from "./trackState.ts";
+import type { WarmerDeps } from "./queueWarmer.ts";
+import type { AudioSplicer } from "../media/audioSplicer.ts";
+import type { RestoredSession } from "../store/playerSessions.ts";
+import type { Deps as AutoplayDeps } from "../autoplay/route.ts";
+import type { StreamOptions } from "../sources/streamUrl.ts";
+import type { Seeking } from "../sources/youtube/equivalent.ts";
 
 import config from "../../config.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
-import { errorKind } from "../rules/errorKind.ts";
+import { errorKind, messageOf } from "../rules/errorKind.ts";
 import * as streamUrl from "../sources/streamUrl.ts";
 import SponsorSkipper from "./sponsorSkipper.ts";
 import * as DirectLink from "../sources/direct.ts";
@@ -55,9 +63,9 @@ const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받�
 const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
 
 // 채널 알림을 못 보낸 것(권한 · 지워진 채널)은 재생을 막지 않는다
-const noticeFailed = (error) => log.warn(`채널 알림을 보내지 못했습니다: ${error?.message || error}`);
+const noticeFailed = (error: unknown) => log.warn(`채널 알림을 보내지 못했습니다: ${messageOf(error)}`);
 
-const sec = (ms) => (ms == null ? "?" : (ms / 1000).toFixed(1));
+const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 // 바깥 경계: 음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소. 기본은 진짜다.
 // 음성 연결 · 세션 저장 · 대기열 미리 받기 · 캐시 다운로더를 만드는 함수와 동등물 · SponsorBlock 조회도 여기 둔다.
@@ -69,22 +77,66 @@ const REAL = {
   spawnFfmpeg,
   ffmpegCapabilities,
   openChunkedStream,
-  fetch: (url, init) => fetch(url, init),
-  directStream: (url) => DirectLink.getStream(url),
-  getStream: (track, seekSeconds, options) => streamUrl.getStream(track, seekSeconds, options),
+  fetch: (url: string, init: RequestInit) => fetch(url, init),
+  directStream: (url: string) => DirectLink.getStream(url),
+  getStream: (track: Seeking & { platform?: string | null }, seekSeconds?: number, options?: Partial<StreamOptions>) => streamUrl.getStream(track, seekSeconds, options),
   joinVoiceChannel,
   entersState,
-  createVoice: (player) => new VoiceConnectionManager(player, player.io),
-  createPersistence: (player) => new SessionPersistence(player),
-  createWarmer: (player, deps) => new QueueWarmer(player, deps),
-  createDownloader: (player) => new TrackDownloader(player),
-  findEquivalent: (track) => equivalent.findYouTubeEquivalent(track),
-  sponsorFor: (track, guildId) => SponsorBlock.forTrack(track, guildId),
+  createVoice: (player: MusicPlayer) => new VoiceConnectionManager(player, player.io),
+  createPersistence: (player: MusicPlayer) => new SessionPersistence(player),
+  createWarmer: (player: MusicPlayer, deps: WarmerDeps) => new QueueWarmer(player, deps),
+  createDownloader: (player: MusicPlayer) => new TrackDownloader(player),
+  findEquivalent: (track: QueuedTrack) => equivalent.findYouTubeEquivalent(track),
+  sponsorFor: (track: QueuedTrack, guildId: string) => SponsorBlock.forTrack(track, guildId),
 };
-let defaultBoundary = REAL;
+type Boundary = typeof REAL;
+let defaultBoundary: Boundary = REAL;
 
 class MusicPlayer {
-  constructor(guild, textChannel, voiceChannel, boundary = {}) {
+  guild: Guild;
+  textChannel: GuildTextBasedChannel | null;
+  voiceChannel: VoiceBasedChannel | null;
+  io: Boundary;
+  audioPlayer: AudioPlayer;
+  connection: VoiceConnection | null;
+  playback: CurrentPlayback | null;
+  // trackState.init 이 채운다
+  currentTrack!: QueuedTrack | null;
+  queue!: QueuedTrack[];
+  previousTracks!: QueuedTrack[];
+  _protectedAudioKey: string | null;
+  volume: number;
+  loop: Loop;
+  /** 끄면 false, 켜면 장르 이름 */
+  autoplay: string | false;
+  paused: boolean;
+  // 화면(ui)이 채우는 패널
+  nowPlayingMessage: Message | null;
+  nowPlayingWebhook?: Webhook | null;
+  requesterId: string | null;
+  sessionId: string;
+  pendingEndReason: string | null;
+  currentTrackRetries: number;
+  lifecycle: PlaybackState;
+  lastPlaybackPosition: number;
+  pauseReasons: Set<string>;
+  voice: VoiceConnectionManager;
+  watch: PlaybackWatch;
+  idle: IdleLeave;
+  downloader: TrackDownloader;
+  persistence: SessionPersistence;
+  trackSink: SessionPersistence;
+  warmer: QueueWarmer;
+  sponsorSkipper: SponsorSkipper;
+  _endingLabel?: string | null;
+  _retryTrack?: QueuedTrack | null;
+  _autoplayPicking?: boolean;
+  /** 자동재생 뽑기 사이 쉬는 시간. 테스트가 줄인다 */
+  _prefetchGapMs?: number;
+  /** 자동재생 길 찾기의 바깥 경계. 테스트만 넘긴다 */
+  autoplayDeps?: AutoplayDeps;
+
+  constructor(guild: Guild, textChannel: GuildTextBasedChannel | null, voiceChannel: VoiceBasedChannel | null, boundary: Partial<Boundary> = {}) {
     this.guild = guild;
     this.textChannel = textChannel;
     this.voiceChannel = voiceChannel;
@@ -254,7 +306,7 @@ class MusicPlayer {
     }
   }
 
-  disconnect(reason) {
+  disconnect(reason: string) {
     return this.voice.disconnect(reason);
   }
 
@@ -271,7 +323,10 @@ class MusicPlayer {
       // 새 재생. 위치 재개는 직전 재생이 남긴 스트림 정보를 쓴다(같은 곡일 때만)
       this.pendingEndReason = null;
       const previous = this.playback;
-      const pb = (this.playback = new CurrentPlayback(this.currentTrack, { startOffsetMs: start.startMs }));
+      // 틀 곡은 prepareStart 가 정했다
+      const current = this.currentTrack;
+      if (!current) return { ok: false, code: "queue-empty" };
+      const pb = (this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs }));
       this.lastPlaybackPosition = start.startMs;
       const track = pb.track;
 
@@ -308,7 +363,7 @@ class MusicPlayer {
       this.lifecycle.to("playing");
       return { ok: true, track: this.currentTrack };
     } catch (error) {
-      elog.error({ sub: "MusicPlayer.play", kind: errorKind(error) }, `${error?.message || error}`);
+      elog.error({ sub: "MusicPlayer.play", kind: errorKind(error) }, messageOf(error));
       await this.handleError(error, { tell: true });
       return { ok: false, code: "play-failed", error };
     } finally {
@@ -321,6 +376,7 @@ class MusicPlayer {
   _startBackgroundDownload() {
     // currentTrack은 다운로드가 끝나기 전에 바뀔 수 있다. 지금 곡을 붙잡아 둔다
     const trackToDownload = this.currentTrack;
+    if (!trackToDownload) return;
     this.downloader
       .downloadTrack(trackToDownload)
       .then((file) => {
@@ -337,8 +393,8 @@ class MusicPlayer {
    * 스트림이 죽었을 때 캐시 파일로 소리 없이 갈아탄다. 예약했으면 true.
    * 캐시가 아직 없으면 하지 않는다. 스트림이 이어받거나, Idle → play(위치)가 받는다.
    */
-  _planCacheSwitch(splicer, track) {
-    const giveUp = (why) => {
+  _planCacheSwitch(splicer: AudioSplicer, track: QueuedTrack) {
+    const giveUp = (why: string) => {
       wlog.debug(`무지연 전환 포기: ${this._trackLabel()} | ${why}`);
       return false;
     };
@@ -359,7 +415,7 @@ class MusicPlayer {
     try {
       decoder = this.io.spawnFfmpeg(buildFfmpegArgs({ file, seekMs }), "switch");
     } catch (error) {
-      log.warn(`캐시 재생용 ffmpeg를 띄우지 못했습니다: ${error.message}`);
+      log.warn(`캐시 재생용 ffmpeg를 띄우지 못했습니다: ${messageOf(error)}`);
       return false;
     }
 
@@ -367,7 +423,7 @@ class MusicPlayer {
       decoder.kill("SIGKILL");
       return false;
     }
-    splicer.once("switched", (ms) => {
+    splicer.once("switched", (ms: number) => {
       log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
       // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
       wlog.debug(`무지연 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
@@ -403,7 +459,7 @@ class MusicPlayer {
     return this.resumeFor(reason);
   }
 
-  pauseFor(reason = null) {
+  pauseFor(reason: string | null = null) {
     if (reason) {
       if (!this.pauseReasons.has(reason)) {
         log.info(`일시정지: 원인=${reason} | ${this._trackLabel()}`);
@@ -438,7 +494,7 @@ class MusicPlayer {
     return false;
   }
 
-  resumeFor(reason = null) {
+  resumeFor(reason: string | null = null) {
     if (reason) {
       if (this.pauseReasons.has(reason)) {
         log.info(`일시정지 해제: 원인=${reason} | ${this._trackLabel()}`);
@@ -524,7 +580,7 @@ class MusicPlayer {
    * @param {boolean} [o.keepSession]  세션을 남긴다(비우기 전에 저장한다). 아니면 지운다
    * @param {boolean} [o.keepPanel]  패널 참조를 남긴다. 부른 쪽이 이어서 살아 있는 패널을 끝낸다
    */
-  async dispose({ reason, keepSession = false, keepPanel = false }) {
+  async dispose({ reason, keepSession = false, keepPanel = false }: { reason: string; keepSession?: boolean; keepPanel?: boolean }) {
     this.lifecycle.to("disposed", reason);
     try {
       this.updateVoiceStatus("").catch(() => {});
@@ -576,7 +632,7 @@ class MusicPlayer {
    * @param {number} seekMs  이동할 위치(ms)
    * @param {string} reason  누가 시켰나. "seek" | "replay" | "highlight" | "dashboard"
    */
-  seek(seekMs, reason = "seek") {
+  seek(seekMs: number, reason = "seek") {
     // 라이브에는 실시간밖에 없다. 되감을 자리도, 앞서 갈 자리도 없다.
     if (this.isLive) {
       clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);
@@ -631,7 +687,7 @@ class MusicPlayer {
     return false;
   }
 
-  setVolume(volume) {
+  setVolume(volume: number) {
     // 조작 로그는 부르는 쪽(usecases/controls)이 잇단 변경을 모아 한 줄로 남긴다
     this.volume = Math.max(0, Math.min(100, volume));
     if (this.resource && this.resource.volume) {
@@ -665,7 +721,7 @@ class MusicPlayer {
     return true;
   }
 
-  setLoop(mode) {
+  setLoop(mode: Loop) {
     // 모드: false, 'track', 'queue'
     // 끝이 없는 것은 반복할 수 없다. 켜려는 요청만 막고 끄는 것은 언제나 통한다.
     if (mode && this.hasLiveTrack()) {
@@ -683,7 +739,7 @@ class MusicPlayer {
    * 그러면 대기열이 저절로 늘어난 이유를 로그에서 찾을 수 없다. 곡이 붙는 것만 보이고
    * 누가 켰는지가 없다. 반복·볼륨과 같은 조작이므로 같은 자리에 둔다.
    */
-  setAutoplay(genre) {
+  setAutoplay(genre: string | false | null | undefined) {
     const next = genre || false;
     const changed = this.autoplay !== next;
     if (changed) clog.info(`자동재생: ${this.autoplay || "off"} → ${next || "off"}`);
@@ -709,7 +765,7 @@ class MusicPlayer {
     return cleared;
   }
 
-  removeFromQueue(index) {
+  removeFromQueue(index: number) {
     const removed = trackState.removeAt(this, index);
     if (removed) {
       clog.info(`대기열 제거: [${index}] "${removed?.title ?? "?"}" | 남은 ${this.queue.length}곡`);
@@ -719,7 +775,7 @@ class MusicPlayer {
     return null;
   }
 
-  moveInQueue(from, to) {
+  moveInQueue(from: number, to: number) {
     const track = trackState.move(this, from, to);
     if (track) {
       clog.info(`대기열 이동: "${track?.title ?? "?"}" ${from}번 → ${to}번`);
@@ -776,7 +832,7 @@ class MusicPlayer {
       const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
       // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
       // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
-      const liveDropped = Boolean(this.playback?.live) && !manualSkip && this.playback.liveExitCode !== 0;
+      const liveDropped = Boolean(this.playback?.live) && !manualSkip && this.playback?.liveExitCode !== 0;
 
       const endedLabel = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
       this._endingLabel = null;
@@ -899,7 +955,7 @@ class MusicPlayer {
         return null;
       }
 
-      picked.requestedBy = this.guild.members.me.user;
+      picked.requestedBy = this.guild.members.me?.user;
       picked.addedAt = Date.now();
       picked.autoplay = true; // 대기열 표시·정리에서 사용자 곡과 가른다
 
@@ -911,7 +967,7 @@ class MusicPlayer {
       clog.info(`자동재생 뽑기: "${picked.title}" / ${picked.artist || "?"} (장르 ${this.autoplay}, 소스 ${picked.pickedFrom || "?"} → ${how})`);
       return picked;
     } catch (error) {
-      log.error("자동재생 오류:", error.message);
+      log.error("자동재생 오류:", messageOf(error));
       return null;
     }
   }
@@ -946,7 +1002,7 @@ class MusicPlayer {
     // 패널이 없을 수 있다. 아무것도 안 틀던 서버에서 자동재생으로 처음 트는 길.
     // 패널 고치기는 있는 패널을 고칠 뿐이라, 그대로 두면 소리만 나고 화면이 없다.
     if (this.nowPlayingMessage) await playerEvents.refresh(this);
-    else await playerEvents.started(this, this.guild.members.me.user);
+    else await playerEvents.started(this, this.guild.members.me?.user ?? { id: this.guild.client.user?.id ?? "" });
     return true;
   }
 
@@ -997,9 +1053,10 @@ class MusicPlayer {
   // 지금 장르의 자동재생 설정. 기준값 위에 장르 설정을 얹는다. 모르는 장르면 null.
   _autoplayConfig() {
     const { defaults, genres } = genreConfig.genres();
-    const genre = genres[this.autoplay];
+    const name = this.autoplay;
+    const genre = name ? genres[name] : undefined;
     // 이름도 같이 넘긴다. AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplayAssist)
-    return genre ? { ...defaults, ...genre, genreName: this.autoplay } : null;
+    return name && genre ? { ...defaults, ...genre, genreName: name } : null;
   }
 
   // 미리 뽑아 둘 수 있는 상태인가. 고르기 전과 넣기 직전에 같은 것을 본다.
@@ -1012,7 +1069,7 @@ class MusicPlayer {
   }
 
   // tell: 다음 곡으로 넘길 때 무엇이 잘못됐는지 채널에 알린다
-  async handleError(error, { tell = false } = {}) {
+  async handleError(error: unknown, { tell = false }: { tell?: boolean } = {}) {
     // 내려간 영상을 고른 자동재생 곡. 우리가 고른 것이니 사용자에게 알릴 일이 아니다.
     // 기억해 두고(다음에 또 고르지 않게) 조용히 다른 곡으로 넘어간다.
     const failed = this.currentTrack;
@@ -1047,7 +1104,7 @@ class MusicPlayer {
 
   // ── 세션 영속화. 로직은 SessionPersistence ────────────────────────────────
 
-  restoreFromState(state) {
+  restoreFromState(state: RestoredSession) {
     return this.persistence.restoreFromState(state);
   }
 
@@ -1068,12 +1125,14 @@ class MusicPlayer {
     this.persistence.scheduleStatePersist(reason, delay);
   }
 
-  async updateVoiceStatus(status) {
+  async updateVoiceStatus(status: string | null) {
     try {
       const channel = this.voiceChannel ? this.guild.channels.cache.get(this.voiceChannel.id) : null;
       if (!channel) return;
 
-      const perms = channel.permissionsFor(this.guild.members.me);
+      const me = this.guild.members.me;
+      if (!me) return;
+      const perms = channel.permissionsFor(me);
       if (!perms?.has(PermissionFlagsBits.SetVoiceChannelStatus)) return;
 
       // 사람이 적어 둔 상태는 건드리지 않는다. 현재 값은 게이트웨이로만 알 수 있다(voiceChannelStatus).
@@ -1106,12 +1165,13 @@ class MusicPlayer {
     const status = this.audioPlayer?.state?.status;
     return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
+
+  /** 이 뒤로 만드는 플레이어의 바깥 경계 기본값. 테스트만 쓴다. 인자 없이 부르면 진짜로 돌아간다 */
+  static useBoundary(overrides?: Partial<Boundary>) {
+    defaultBoundary = overrides ? { ...REAL, ...overrides } : REAL;
+  }
 }
 
-/** 이 뒤로 만드는 플레이어의 바깥 경계 기본값. 테스트만 쓴다. 인자 없이 부르면 진짜로 돌아간다 */
-MusicPlayer.useBoundary = (overrides) => {
-  defaultBoundary = overrides ? { ...REAL, ...overrides } : REAL;
-};
-
 export default MusicPlayer;
+export type { Boundary };
 export { MusicPlayer as "module.exports" };

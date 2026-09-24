@@ -16,7 +16,12 @@ type StreamInfo = {
   platform?: string;
   rawUrl?: string;
   httpHeaders?: Record<string, string>;
+  /** 영상 자체의 제목(유튜브). 모르면 null */
+  title?: string | null;
   duration?: number;
+  /** 주소로 위치를 옮길 수 있나 */
+  canSeek?: boolean;
+  liveStatus?: string | null;
   bitrate?: number;
   isLive?: boolean;
   [field: string]: unknown;
@@ -69,4 +74,4 @@ async function getStream(track: Seeking & { platform?: string | null }, seekSeco
 }
 
 export { getStream };
-export type { StreamInfo };
+export type { StreamInfo, StreamOptions };

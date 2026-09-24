@@ -24,27 +24,13 @@ import * as trackLookup from "../store/trackLookup.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import type { GenreSource } from "../config/genres.ts";
+import type { QueuedTrack } from "../player/track.ts";
 import type { Candidate } from "./sources/candidate.ts";
 import type { Limits, FilterConfig } from "./filter.ts";
 import type { Judged } from "./assist/index.ts";
 
-/** 틀 수 있는 트랙. 대기열에 담는 곡의 모양에 자동재생이 붙이는 칸 */
-type PickedTrack = {
-  title: string;
-  artist: string;
-  pageUrl: string;
-  requestKey: string;
-  audioUrl: string;
-  platform: string;
-  duration: number;
-  durationSource?: string;
-  thumbnail: string | null;
-  type: "track";
-  id?: string | number | null;
-  audioFoundBy?: "ledger";
-  /** 어느 소스에서 왔나 */
-  pickedFrom?: string;
-};
+/** 틀 수 있는 트랙. 대기열에 담는 곡이다 */
+type PickedTrack = QueuedTrack & { audioUrl: string; type: "track" };
 /** 유튜브 영상 하나. 검색 결과이거나 주소만 아는 것 */
 type Video = { url: string; id?: string | number | null; title?: string | null; channel?: string | null; artist?: string | null; durationSec?: number | null; duration?: number | null; thumbnail?: string | null };
 /** 최근에 튼 곡에서 읽는 칸 */
@@ -154,6 +140,9 @@ function requestKeyOf(cand: Partial<Candidate>): string {
   return `${cand.platform || "autoplay"}:${key || `${cand.artist}|${cand.title}`}`;
 }
 
+/** 트랙의 id 는 영상 id 다. 검색이 준 것이 없으면 주소에서 */
+const videoIdOf = (video: Video) => (typeof video.id === "string" && video.id) || links.extractVideoId(video.url) || undefined;
+
 /**
  * 유튜브 영상 하나를 재생 가능한 트랙으로.
  *
@@ -178,7 +167,7 @@ function fromYouTube(video: Video, cand: Candidate): PickedTrack {
     duration: Number(video.durationSec || video.duration) || 0,
     thumbnail: cand.thumbnail || video.thumbnail || null,
     type: "track",
-    id: video.id || links.extractVideoId(video.url),
+    id: videoIdOf(video),
   };
 }
 

@@ -1,10 +1,24 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import config from "../../config.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
-import trackState from "./trackState.ts";
+import trackState, { type Tracks } from "./trackState.ts";
+import type { QueuedTrack } from "./track.ts";
+
+/** 예열이 읽는 플레이어 칸. 뺀 자리를 메울 때 자동재생을 부른다 */
+type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string } | null; ensureAutoplayNext?(): Promise<unknown> };
+/** 협력자. 간격 셋은 생략하면 설정값 */
+type WarmerDeps = {
+  intervalMs?: number;
+  ahead?: number;
+  gapMs?: number;
+  warm(track: QueuedTrack): Promise<unknown>;
+  isCached(track: QueuedTrack): boolean;
+  isBusy(track: QueuedTrack): boolean;
+  keyOf(track: QueuedTrack | null | undefined): string | null;
+  setProtection(guildId: string, keys: string[]): void;
+};
 
 /**
  * 대기열 앞부분을 캐시에 올려둔 상태로 유지한다.
@@ -20,11 +34,28 @@ import trackState from "./trackState.ts";
  * 루프가 하나라는 사실만으로 동시 다운로드가 1로 묶인다.
  */
 class QueueWarmer {
+  player: WarmerHost;
+  intervalMs: number;
+  ahead: number;
+  gapMs: number;
+  warm: WarmerDeps["warm"];
+  isCached: WarmerDeps["isCached"];
+  isBusy: WarmerDeps["isBusy"];
+  keyOf: WarmerDeps["keyOf"];
+  setProtection: WarmerDeps["setProtection"];
+  _timer: NodeJS.Timeout | null;
+  _sleepTimer: NodeJS.Timeout | null;
+  _lastSeen: string | null;
+  _applied: string | null;
+  _running: boolean;
+  _stopped: boolean;
+  _failed: Set<QueuedTrack>;
+
   /**
-   * @param {object} player  MusicPlayer (queue / currentTrack / loop / guild 를 읽는다)
-   * @param {object} deps    협력자 주입. 생략하면 실제 모듈을 쓴다
+   * @param player  queue / currentTrack / loop / guild 를 읽는다
+   * @param deps    협력자 주입
    */
-  constructor(player, deps = {}) {
+  constructor(player: WarmerHost, deps: WarmerDeps) {
     this.player = player;
 
     this.intervalMs = deps.intervalMs ?? config.preload.tickMs;
@@ -93,7 +124,7 @@ class QueueWarmer {
     if (guildId) {
       const keys = this.targets()
         .map((t) => this.keyOf(t))
-        .filter(Boolean);
+        .filter((key): key is string => Boolean(key));
       log.debug(`사전 캐싱 보호 갱신: ${keys.length}곡`);
       this.setProtection(guildId, keys);
     }
@@ -109,7 +140,7 @@ class QueueWarmer {
    *
    * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
    */
-  _dropDeadAutoplay(track, err) {
+  _dropDeadAutoplay(track: QueuedTrack, err: unknown) {
     if (!YouTube.isVideoUnavailableError(err)) return false;
 
     const index = this.player.queue.indexOf(track);
@@ -132,7 +163,7 @@ class QueueWarmer {
    */
   targets() {
     if (this.player.loop === "track") return [];
-    const out = [];
+    const out: QueuedTrack[] = [];
     for (const track of this.player.queue) {
       if (out.length >= this.ahead) break;
       if (!track || track.isLive) continue;
@@ -150,7 +181,7 @@ class QueueWarmer {
    * 하는 것은 대기열이 바뀌었는가지 해석이 얼마나 진행됐는가가 아니다.
    */
   signature() {
-    const idOf = (track) => track?.requestKey || this.keyOf(track) || "-";
+    const idOf = (track: QueuedTrack | null) => track?.requestKey || this.keyOf(track) || "-";
     const parts = [idOf(this.player.currentTrack)];
     for (const track of this.targets()) parts.push(idOf(track));
     return parts.join("\n");
@@ -201,8 +232,8 @@ class QueueWarmer {
     }
   }
 
-  _sleep(ms) {
-    return new Promise((resolve) => {
+  _sleep(ms: number) {
+    return new Promise<void>((resolve) => {
       this._sleepTimer = setTimeout(() => {
         this._sleepTimer = null;
         resolve();
@@ -213,4 +244,5 @@ class QueueWarmer {
 }
 
 export default QueueWarmer;
+export type { WarmerDeps, WarmerHost };
 export { QueueWarmer as "module.exports" };

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 생명주기. 두 축이다.
 //   단계(phase)   idle → starting → playing, 버리면 disposed(이 플레이어를 더 안 쓴다. stop · leave · 정리)
 //   끝 처리(ending)  곡 끝을 처리하는 중인가. 끝 처리가 다음 곡을 틀기 때문에 단계와 따로 선다(끝 처리 중에 starting · playing 이 된다)
@@ -7,7 +6,9 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "watchdog" });
 
-const NEXT = {
+type Phase = "idle" | "starting" | "playing" | "disposed";
+
+const NEXT: Record<Phase, Phase[]> = {
   idle: ["starting", "disposed"],
   starting: ["playing", "idle", "disposed"],
   playing: ["idle", "starting", "disposed"],
@@ -15,14 +16,18 @@ const NEXT = {
 };
 
 class PlaybackState {
+  phase: Phase;
+  ending: boolean;
+  label: () => string;
+
   // label: 로그에 붙일 곡 이름
-  constructor(label = () => "") {
+  constructor(label: () => string = () => "") {
     this.phase = "idle";
     this.ending = false;
     this.label = label;
   }
 
-  to(next, why = "") {
+  to(next: Phase, why = "") {
     const prev = this.phase;
     if (prev === next) return;
     const tail = `${why ? ` | ${why}` : ""}${this.label() ? ` | ${this.label()}` : ""}`;
@@ -48,4 +53,5 @@ class PlaybackState {
 }
 
 export default PlaybackState;
+export type { Phase };
 export { PlaybackState as "module.exports" };
