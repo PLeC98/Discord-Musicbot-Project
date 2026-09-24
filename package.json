@@ -16,7 +16,7 @@
     "update:ytdlp": "node scripts/update-ytdlp.ts",
     "update:models": "node scripts/refresh-ai-models.ts",
     "test": "node --check index.ts && node --test \"test/**/*.test.ts\"",
-    "test:coverage": "node --test --experimental-test-coverage \"test/**/*.test.ts\"",
+    "test:coverage": "node --check index.ts && node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-include=\"commands/**\" --test-coverage-include=\"events/**\" --test-coverage-include=\"dashboard/server/**\" --test-coverage-include=\"index.ts\" --test-coverage-include=\"config.ts\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info \"test/**/*.test.ts\" && node scripts/lcov-relative.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

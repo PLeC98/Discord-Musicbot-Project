@@ -11,6 +11,7 @@
 [![Vite](https://img.shields.io/badge/vite-8-blueviolet?logo=vite&style=flat-square)](https://vite.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwindcss-4-%2306B6D4?logo=tailwindcss&style=flat-square)](https://tailwindcss.com/)
 ![라이선스](https://img.shields.io/github/license/PLeC98/Discord-Musicbot-Project?style=flat-square)
+[![커버리지](https://img.shields.io/codecov/c/github/PLeC98/Discord-Musicbot-Project?style=flat-square&logo=codecov)](https://codecov.io/gh/PLeC98/Discord-Musicbot-Project)
 
 ## 주요 기능
 

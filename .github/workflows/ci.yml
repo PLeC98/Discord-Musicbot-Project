@@ -65,7 +65,22 @@ jobs:
         run: pnpm run format:check
 
       - name: Run tests
+        if: matrix.os != 'ubuntu-latest'
         run: pnpm test
+
+      # 커버리지는 참고용이라 한 곳에서만 재서 올린다. 테스트는 같은 것을 돌린다
+      - name: Run tests with coverage
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run test:coverage
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v7.1.1
+        with:
+          files: lcov.info
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
       - name: Build dashboard
         run: pnpm run build:dashboard
