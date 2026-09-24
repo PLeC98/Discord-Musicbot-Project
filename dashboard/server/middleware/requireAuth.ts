@@ -14,7 +14,4 @@ function signedIn<P>(req: Request<P>): SessionUser {
   return user;
 }
 
-const exported = requireAuth;
-export default exported;
-export { exported as "module.exports" };
-export { signedIn };
+export { requireAuth, signedIn };

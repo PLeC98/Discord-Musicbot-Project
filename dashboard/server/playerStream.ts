@@ -190,7 +190,4 @@ function createPlayerStream(options: StreamOptions = config.dashboard.sse) {
   return new PlayerStream(options);
 }
 
-const exported = { createPlayerStream, PlayerStream };
-export default exported;
-export { exported as "module.exports" };
-export type { PlayerStream };
+export { createPlayerStream, PlayerStream };

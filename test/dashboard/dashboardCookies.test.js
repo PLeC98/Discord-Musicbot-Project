@@ -38,7 +38,7 @@ before(async () => {
     req.session = { user: currentUser };
     next();
   });
-  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts"));
+  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts").adminRouter);
   server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });

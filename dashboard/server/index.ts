@@ -10,28 +10,18 @@ import path from "path";
 import fs from "fs";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
-import corsModule from "./cors.ts";
-const { createCorsOptions } = corsModule;
-import bodyLimitModule from "./bodyLimit.ts";
-const { bodyLimit } = bodyLimitModule;
-import SqliteSessionStore from "./sessionStore.ts";
-import csrf from "./middleware/csrf.ts";
-const { issueCsrfToken, requireCsrfToken } = csrf;
-import securityHeadersModule from "./middleware/securityHeaders.ts";
-const { securityHeaders } = securityHeadersModule;
-import errorHandlerModule from "./middleware/errorHandler.ts";
-const { errorHandler, notFoundJson } = errorHandlerModule;
-import binding from "./binding.ts";
-const { isLoopbackHost, describeBinding } = binding;
-import owner from "./owner.ts";
-const { isOwner, isRealOwner } = owner;
-import viewAsModule from "./viewAs.ts";
-const { getViewAs } = viewAsModule;
-import auth from "./routes/auth.ts";
-const { createAuthRouter } = auth;
-import adminRoutes from "./routes/admin.ts";
-import guilds from "./routes/guilds.ts";
-const { createGuildsRouter } = guilds;
+import { createCorsOptions } from "./cors.ts";
+import { bodyLimit } from "./bodyLimit.ts";
+import { SqliteSessionStore } from "./sessionStore.ts";
+import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
+import { securityHeaders } from "./middleware/securityHeaders.ts";
+import { errorHandler, notFoundJson } from "./middleware/errorHandler.ts";
+import { isLoopbackHost, describeBinding } from "./binding.ts";
+import { isOwner, isRealOwner } from "./owner.ts";
+import { getViewAs } from "./viewAs.ts";
+import { createAuthRouter } from "./routes/auth.ts";
+import { adminRouter } from "./routes/admin.ts";
+import { createGuildsRouter } from "./routes/guilds.ts";
 import type { PlayerStream } from "./playerStream.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware 는 시험이 바꿔 넘긴다 */
@@ -160,7 +150,7 @@ function createApp(client: Client, { stream, deployCommands, sessionMiddleware =
   app.use("/auth", createAuthRouter());
 
   // API 라우트
-  app.use("/api/admin", adminRoutes);
+  app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
 
   // 지금 로그인한 사람
@@ -205,6 +195,4 @@ function startDashboard(client: Client, { stream, deployCommands }: AppDeps) {
   return app;
 }
 
-const exported = { startDashboard, createApp };
-export default exported;
-export { exported as "module.exports" };
+export { startDashboard, createApp };

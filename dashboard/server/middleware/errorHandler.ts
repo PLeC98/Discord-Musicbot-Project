@@ -86,6 +86,5 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   res.type("html").send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${message}</p><p>오류 ID: ${errorId}</p>`);
 }
 
-const exported = { errorHandler, notFoundJson, _internals: { classify, isUnavailable } };
-export default exported;
-export { exported as "module.exports" };
+export { errorHandler, notFoundJson };
+export const _internals = { classify, isUnavailable };

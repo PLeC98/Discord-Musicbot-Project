@@ -4,10 +4,8 @@ import type { Guild, GuildMember } from "discord.js";
 import type { Request, Response } from "express";
 import type { Actor } from "../../src/usecases/controls.ts";
 import { signedIn } from "./middleware/requireAuth.ts";
-import owner from "./owner.ts";
-const { isOwner } = owner;
-import viewAs from "./viewAs.ts";
-const { shadowMember } = viewAs;
+import { isOwner } from "./owner.ts";
+import { shadowMember } from "./viewAs.ts";
 
 async function getPlayer<P>(req: Request<P>, res: Response, guildId: string) {
   const client = req.app.locals.discordClient;
@@ -64,6 +62,4 @@ function toInt(value: unknown) {
   return Number.isInteger(n) ? n : NaN;
 }
 
-const exported = { getPlayer, voiceFlags, toInt };
-export default exported;
-export { exported as "module.exports" };
+export { getPlayer, voiceFlags, toInt };

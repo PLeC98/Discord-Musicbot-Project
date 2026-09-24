@@ -5,9 +5,8 @@ import type { Guild, VoiceBasedChannel } from "discord.js";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
-import requireAuth, { signedIn } from "../middleware/requireAuth.ts";
-import requireControl from "../middleware/requireControl.ts";
-const { resolveMember, toApiError } = requireControl;
+import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
+import { resolveMember, toApiError } from "../middleware/requireControl.ts";
 import { checkControl, checkAdd, isModerator } from "../../../src/usecases/permissions.ts";
 import * as controls from "../../../src/usecases/controls.ts";
 import { controlApiError, type Refusal } from "../../../src/ui/controlMessages.ts";
@@ -16,16 +15,11 @@ import { messageOf } from "../../../src/rules/errorKind.ts";
 import { requestPlayback, continueCollection, ensurePlayer } from "../../../src/usecases/addTracks.ts";
 import { validState, LIFETIME_MS } from "../../../src/usecases/playlistMore.ts";
 import config from "../../../config.ts";
-import ownerModule from "../owner.ts";
-const { isOwner } = ownerModule;
-import viewAs from "../viewAs.ts";
-const { shadowMember } = viewAs;
-import guildAccess from "../guildAccess.ts";
-const { getPlayer, voiceFlags, toInt } = guildAccess;
-import playerView from "../playerView.ts";
-const { queueTrack, queueWindow, playerState } = playerView;
-import requestSchemas from "../requestSchemas.ts";
-const { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } = requestSchemas;
+import { isOwner } from "../owner.ts";
+import { shadowMember } from "../viewAs.ts";
+import { getPlayer, voiceFlags, toInt } from "../guildAccess.ts";
+import { queueTrack, queueWindow, playerState } from "../playerView.ts";
+import { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount } from "../requestSchemas.ts";
 
 // ── 재생 조작 ─────────────────────────────────────────────────────────────────
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
@@ -372,6 +366,4 @@ function addRoutes(router: Router) {
   });
 }
 
-const exported = { createPlayerRouter };
-export default exported;
-export { exported as "module.exports" };
+export { createPlayerRouter };

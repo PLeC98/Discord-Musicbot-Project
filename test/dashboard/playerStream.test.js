@@ -5,8 +5,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import playerStream from "../../dashboard/server/playerStream.ts";
-const { createPlayerStream } = playerStream;
+import { createPlayerStream } from "../../dashboard/server/playerStream.ts";
 import config from "../../config.ts";
 
 const { maxPerUser } = config.dashboard.sse;

@@ -108,5 +108,4 @@ class SqliteSessionStore extends Store {
   }
 }
 
-export default SqliteSessionStore;
-export { SqliteSessionStore as "module.exports" };
+export { SqliteSessionStore };

@@ -1,8 +1,7 @@
 import type { Request, Response } from "express";
 import * as S from "../../../src/ui/strings.ts";
 import { signedIn } from "./requireAuth.ts";
-import viewAs from "../viewAs.ts";
-const { shadowMember } = viewAs;
+import { shadowMember } from "../viewAs.ts";
 
 // Discord 쪽 오류 문자열(❌ 접두)을 대시보드 JSON용으로 정리
 const toApiError = S.withoutErrorMark;
@@ -33,6 +32,4 @@ async function resolveMember(req: Request<{ guildId: string }>, res: Response) {
   return { client, guild, member };
 }
 
-const exported = { resolveMember, toApiError };
-export default exported;
-export { exported as "module.exports" };
+export { resolveMember, toApiError };

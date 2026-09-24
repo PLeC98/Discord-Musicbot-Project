@@ -7,8 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import * as S from "../../src/ui/strings.ts";
-import requireControl from "../../dashboard/server/middleware/requireControl.ts";
-const { toApiError } = requireControl;
+import { toApiError } from "../../dashboard/server/middleware/requireControl.ts";
 
 // 실제로 흘러다니는 두 종류의 출처
 const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // sources/lookup / ErrorHandler / strings

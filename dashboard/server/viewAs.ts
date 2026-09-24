@@ -52,6 +52,4 @@ function shadowMember<M extends GuildMember | null, P>(req: Request<P>, member: 
   });
 }
 
-const exported = { TIERS, getViewAs, shadowMember };
-export default exported;
-export { exported as "module.exports" };
+export { TIERS, getViewAs, shadowMember };

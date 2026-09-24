@@ -5,8 +5,7 @@ import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { labelOf } from "../../src/ui/platforms.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
-import guildAccess from "./guildAccess.ts";
-const { toInt } = guildAccess;
+import { toInt } from "./guildAccess.ts";
 
 // 대기열은 앞에서부터 이만큼만 실어 보낸다. 화면이 더 필요하면 ?queue=n으로 늘려 요청한다.
 const QUEUE_PAGE = 100;
@@ -71,6 +70,4 @@ function playerState(player: MusicPlayer | null | undefined, queueLimit = QUEUE_
   };
 }
 
-const exported = { QUEUE_PAGE, QUEUE_WINDOW_MAX, queueTrack, queueWindow, playerState };
-export default exported;
-export { exported as "module.exports" };
+export { QUEUE_PAGE, QUEUE_WINDOW_MAX, queueTrack, queueWindow, playerState };

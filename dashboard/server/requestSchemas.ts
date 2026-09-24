@@ -4,8 +4,7 @@
 
 import { z } from "zod";
 import { MAX_COUNT } from "../../src/usecases/playlistMore.ts";
-import playerView from "./playerView.ts";
-const { QUEUE_WINDOW_MAX } = playerView;
+import { QUEUE_WINDOW_MAX } from "./playerView.ts";
 
 /** 검사 → { ok: true, value } | { ok: false, error: 첫 문제의 문장 } */
 function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; value: z.output<T> } | { ok: false; error: string } {
@@ -78,6 +77,4 @@ function settingsBody({ min, max }: { min: number; max: number }) {
   );
 }
 
-const exported = { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, settingsBody };
-export default exported;
-export { exported as "module.exports" };
+export { parse, SeekBody, QueueWindowQuery, AddBody, MoreCount, settingsBody };

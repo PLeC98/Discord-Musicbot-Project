@@ -24,6 +24,4 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-const exported = { securityHeaders, CSP };
-export default exported;
-export { exported as "module.exports" };
+export { securityHeaders, CSP };

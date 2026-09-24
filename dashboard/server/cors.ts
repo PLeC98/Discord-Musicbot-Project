@@ -47,6 +47,4 @@ function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { a
   };
 }
 
-const exported = { createCorsOptions, normalizeDashboardOrigin };
-export default exported;
-export { exported as "module.exports" };
+export { createCorsOptions, normalizeDashboardOrigin };

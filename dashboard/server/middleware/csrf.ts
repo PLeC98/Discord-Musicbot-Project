@@ -44,6 +44,4 @@ function requireCsrfToken(req: Request, res: Response, next: NextFunction) {
   return next();
 }
 
-const exported = { ensureCsrfToken, issueCsrfToken, requireCsrfToken };
-export default exported;
-export { exported as "module.exports" };
+export { ensureCsrfToken, issueCsrfToken, requireCsrfToken };

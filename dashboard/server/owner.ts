@@ -1,7 +1,6 @@
 import type { Request } from "express";
 import config from "../../config.ts";
-import viewAs from "./viewAs.ts";
-const { getViewAs } = viewAs;
+import { getViewAs } from "./viewAs.ts";
 
 /**
  * 봇 운영자(`OWNER_ID`) 여부를 요청마다 현재 설정으로 다시 판정한다.
@@ -27,6 +26,4 @@ function isOwner<P>(req: Request<P>) {
   return !tier || tier === "owner";
 }
 
-const exported = { isOwner, isRealOwner };
-export default exported;
-export { exported as "module.exports" };
+export { isOwner, isRealOwner };

@@ -29,6 +29,4 @@ function describeBinding(host: string | null | undefined, port: number, dashboar
   return { line: `🌐 Dashboard: ${host}:${port} (${scope})`, warnings };
 }
 
-const exported = { isLoopbackHost, describeBinding };
-export default exported;
-export { exported as "module.exports" };
+export { isLoopbackHost, describeBinding };

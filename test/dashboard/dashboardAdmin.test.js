@@ -115,7 +115,7 @@ before(async () => {
   const { deployCommands } = require("../../src/app/commandLoader.ts");
   const put = async (route, body) => body.map((c) => ({ name: c.name }));
   app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put });
-  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts"));
+  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts").adminRouter);
   server = await listenForFetch(app);
   base = `http://127.0.0.1:${server.address().port}`;
 });

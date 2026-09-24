@@ -2,14 +2,10 @@
 
 import express from "express";
 import type { PlayerStream } from "../playerStream.ts";
-import guildList from "./guildList.ts";
-const { createGuildListRouter } = guildList;
-import playerEvents from "./playerEvents.ts";
-const { createPlayerEventsRouter, nudgeAfterChange } = playerEvents;
-import guildSettings from "./guildSettings.ts";
-const { createGuildSettingsRouter } = guildSettings;
-import player from "./player.ts";
-const { createPlayerRouter } = player;
+import { createGuildListRouter } from "./guildList.ts";
+import { createPlayerEventsRouter, nudgeAfterChange } from "./playerEvents.ts";
+import { createGuildSettingsRouter } from "./guildSettings.ts";
+import { createPlayerRouter } from "./player.ts";
 
 function createGuildsRouter({ stream }: { stream: PlayerStream }) {
   const router = express.Router();
@@ -17,6 +13,4 @@ function createGuildsRouter({ stream }: { stream: PlayerStream }) {
   return router;
 }
 
-const exported = { createGuildsRouter };
-export default exported;
-export { exported as "module.exports" };
+export { createGuildsRouter };

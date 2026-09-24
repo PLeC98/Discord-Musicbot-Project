@@ -1,12 +1,10 @@
 // 재생 상태가 바뀌었다는 알림(SSE). 받은 화면이 GET 으로 다시 읽는다
 
 import express, { type NextFunction, type Request, type Response } from "express";
-import requireAuth, { signedIn } from "../middleware/requireAuth.ts";
+import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import type { PlayerStream } from "../playerStream.ts";
-import owner from "../owner.ts";
-const { isOwner } = owner;
-import guildAccess from "../guildAccess.ts";
-const { getPlayer } = guildAccess;
+import { isOwner } from "../owner.ts";
+import { getPlayer } from "../guildAccess.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 해당 서버 SSE 구독자에게 넛지.
 // req.params는 스택이 풀리면 복원되므로, 요청 시작 시점의 라우터-상대 URL 첫 세그먼트(=guildId)를
@@ -66,6 +64,4 @@ function createPlayerEventsRouter({ stream }: { stream: PlayerStream }) {
   return router;
 }
 
-const exported = { createPlayerEventsRouter, nudgeAfterChange };
-export default exported;
-export { exported as "module.exports" };
+export { createPlayerEventsRouter, nudgeAfterChange };

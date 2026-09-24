@@ -4,17 +4,14 @@ import express from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { ChannelType } from "discord.js";
-import requireAuth, { signedIn } from "../middleware/requireAuth.ts";
+import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import { isModerator } from "../../../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
 import * as SponsorBlock from "../../../src/sources/sponsorBlock.ts";
 import config from "../../../config.ts";
-import owner from "../owner.ts";
-const { isOwner } = owner;
-import guildAccess from "../guildAccess.ts";
-const { getPlayer } = guildAccess;
-import requestSchemas from "../requestSchemas.ts";
-const { parse, settingsBody } = requestSchemas;
+import { isOwner } from "../owner.ts";
+import { getPlayer } from "../guildAccess.ts";
+import { parse, settingsBody } from "../requestSchemas.ts";
 
 // SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치
 const SB_CATEGORY_LABELS: Record<string, string> = {
@@ -156,6 +153,4 @@ function createGuildSettingsRouter() {
   return router;
 }
 
-const exported = { createGuildSettingsRouter };
-export default exported;
-export { exported as "module.exports" };
+export { createGuildSettingsRouter };

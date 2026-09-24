@@ -14,6 +14,4 @@ function bodyLimit() {
   return (req: Request, res: Response, next: NextFunction) => (isPrompt(req.path) ? prompt : small)(req, res, next);
 }
 
-const exported = { bodyLimit, PROMPT_PATHS };
-export default exported;
-export { exported as "module.exports" };
+export { bodyLimit, PROMPT_PATHS };

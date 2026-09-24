@@ -5,8 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import session from "express-session";
-import authModule from "../../dashboard/server/routes/auth.ts";
-const { createAuthRouter } = authModule;
+import { createAuthRouter } from "../../dashboard/server/routes/auth.ts";
 import listen from "../helpers/listen.ts";
 const { listenForFetch } = listen;
 

@@ -1,11 +1,9 @@
 // 서버 목록. 봇과 함께 있는 서버 중 실제 멤버인 것
 
 import express from "express";
-import requireAuth, { signedIn } from "../middleware/requireAuth.ts";
-import owner from "../owner.ts";
-const { isOwner } = owner;
-import guildAccess from "../guildAccess.ts";
-const { voiceFlags } = guildAccess;
+import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
+import { isOwner } from "../owner.ts";
+import { voiceFlags } from "../guildAccess.ts";
 
 const MANAGE_GUILD = 0x20;
 
@@ -55,6 +53,4 @@ function createGuildListRouter() {
   return router;
 }
 
-const exported = { createGuildListRouter };
-export default exported;
-export { exported as "module.exports" };
+export { createGuildListRouter };

@@ -113,6 +113,4 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: 
   return router;
 }
 
-const exported = { createAuthRouter };
-export default exported;
-export { exported as "module.exports" };
+export { createAuthRouter };
