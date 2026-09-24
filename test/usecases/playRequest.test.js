@@ -1,15 +1,19 @@
-"use strict";
-
 // src/usecases/addTracks.js — 곡 추가 경로의 단일 코어.
 //
 // 회귀 대상: 슬래시 명령/전용 채널/검색 선택은 handleMusicData를, 대시보드는 addTrack을 타서
 // 코어가 둘로 갈려 있었다. 같은 버그를 두 번 고쳐야 했고 요청자 모양도 서로 달랐다.
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
 
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
-const { openTempStore, setGuild } = require("../helpers/tempStore");
+import tempStore from "../helpers/tempStore.js";
+import { createRequire } from "node:module";
+
+// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
+const require = createRequire(import.meta.url);
+
+const { openTempStore, setGuild } = tempStore;
 const store = openTempStore("play-request-");
 after(() => store.close());
 setGuild("g1", { playlistAddMax: 50 });
@@ -30,7 +34,7 @@ const lookup = {
 let mockCollection = null;
 const collectionCalls = [];
 
-const { requestPlayback, continueCollection, toRequester, ensurePlayer } = require("../../src/usecases/addTracks");
+const { requestPlayback, continueCollection, toRequester, ensurePlayer } = (await import("../../src/usecases/addTracks.js")).default;
 
 // ── 하네스 ───────────────────────────────────────────────────
 const GUILD_ID = "g1";

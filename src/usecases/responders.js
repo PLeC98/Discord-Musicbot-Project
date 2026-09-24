@@ -1,8 +1,8 @@
-"use strict";
-
-const { MessageFlags } = require("discord.js");
-const log = require("../infra/log/logger").child({ category: "player" });
-const { scheduleDelete } = require("../ui/transientMessages");
+import { MessageFlags } from "discord.js";
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "player" });
+import transientMessages from "../ui/transientMessages.js";
+const { scheduleDelete } = transientMessages;
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -98,4 +98,6 @@ const silentResponder = {
   async dismissPlaceholder() {},
 };
 
-module.exports = { interactionResponder, channelResponder, silentResponder, _internals: { onceDismiss } };
+const exported = { interactionResponder, channelResponder, silentResponder, _internals: { onceDismiss } };
+export default exported;
+export { exported as "module.exports" };

@@ -1,10 +1,8 @@
-"use strict";
-
 // src/usecases/playlistMore.js — 재생목록 이어 넣기의 상태(custom_id)·선택지·누를 때 판정
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const More = require("../../src/usecases/playlistMore");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import More from "../../src/usecases/playlistMore.js";
 
 const PL = "37i9dQZF1E3aglU7q0y10F";
 const TRACK = "3385Kx5khQ1JpCVFJjKAPa";

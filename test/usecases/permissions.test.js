@@ -1,18 +1,17 @@
-"use strict";
-
 // src/usecases/permissions.js — 권한 3계층(모더레이터/DJ/일반) 판정.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { PermissionFlagsBits } = require("discord.js");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import { PermissionFlagsBits } from "discord.js";
 
-const { openTempStore, setGuild } = require("../helpers/tempStore");
+import tempStore from "../helpers/tempStore.js";
+const { openTempStore, setGuild } = tempStore;
 const store = openTempStore("perm-");
 after(() => store.close());
 
-const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = require("../../src/usecases/permissions");
-const S = require("../../src/ui/strings");
+const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = (await import("../../src/usecases/permissions.js")).default;
+const S = (await import("../../src/ui/strings.js")).default;
 
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id

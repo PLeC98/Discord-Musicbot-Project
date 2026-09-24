@@ -1,17 +1,20 @@
-"use strict";
-
-const MusicPlayer = require("../player/Player");
-const songLookup = require("../sources/lookup");
-const GuildSettingsManager = require("../store/guildSettings");
-const { silentResponder } = require("./responders");
-const log = require("../infra/log/logger").child({ category: "player" });
-const config = require("../../config");
-const trackState = require("../player/trackState");
-const S = require("../ui/strings");
-const ErrorHandler = require("../ui/errorMessages");
-const { continuation, validState, roomFor, KINDS, LOOKBACK } = require("./playlistMore");
-const { capabilities: ffmpegCapabilities } = require("../media/ffmpeg/path");
-const { liveBlockReason } = require("../rules/liveBlockReason");
+import MusicPlayer from "../player/Player.js";
+import songLookup from "../sources/lookup.js";
+import GuildSettingsManager from "../store/guildSettings.js";
+import responders from "./responders.js";
+const { silentResponder } = responders;
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "player" });
+import config from "../../config.js";
+import trackState from "../player/trackState.js";
+import S from "../ui/strings.js";
+import ErrorHandler from "../ui/errorMessages.js";
+import playlistMore from "./playlistMore.js";
+const { continuation, validState, roomFor, KINDS, LOOKBACK } = playlistMore;
+import path from "../media/ffmpeg/path.js";
+const { capabilities: ffmpegCapabilities } = path;
+import liveBlockReasonModule from "../rules/liveBlockReason.js";
+const { liveBlockReason } = liveBlockReasonModule;
 
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
 
@@ -221,4 +224,6 @@ async function continueCollection(client, { guild, requester, state, count, text
   return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } };
 }
 
-module.exports = { requestPlayback, continueCollection, toRequester, ensurePlayer, _internals: { resolveFallbackTextChannel } };
+const exported = { requestPlayback, continueCollection, toRequester, ensurePlayer, _internals: { resolveFallbackTextChannel } };
+export default exported;
+export { exported as "module.exports" };

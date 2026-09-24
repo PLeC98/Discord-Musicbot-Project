@@ -9,7 +9,7 @@ const pluginVue = require("eslint-plugin-vue");
 const prettierConfig = require("eslint-config-prettier");
 
 // ESM 으로 바꾼 봇 코드 폴더. 같은 이름의 test/ 폴더도 같이 바뀐다
-const ESM_FOLDERS = ["src/infra", "src/rules", "src/config", "src/store", "src/sources", "src/media", "src/autoplay", "src/player", "src/ui"];
+const ESM_FOLDERS = ["src/infra", "src/rules", "src/config", "src/store", "src/sources", "src/media", "src/autoplay", "src/player", "src/ui", "src/usecases"];
 
 module.exports = [
   {

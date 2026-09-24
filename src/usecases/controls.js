@@ -1,5 +1,3 @@
-"use strict";
-
 // 재생 조작 코어. 입구(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/controlMessages).
 // 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 차례로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
@@ -8,9 +6,10 @@
 //
 // actor: 누가 시켰나. { member } 는 디스코드 멤버, { owner: true } 는 대시보드 운영자(권한 판정을 건너뛴다)
 
-const log = require("../infra/log/logger").child({ category: "control" });
-const perm = require("./permissions");
-const playerEvents = require("../player/events");
+import logger from "../infra/log/logger.js";
+const log = logger.child({ category: "control" });
+import perm from "./permissions.js";
+import playerEvents from "../player/events.js";
 
 const fail = (code, extra = {}) => ({ ok: false, code, ...extra });
 
@@ -241,4 +240,6 @@ async function leave(guild, actor, players) {
   return { ok: true, left: "player", track, saved };
 }
 
-module.exports = { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };
+const exported = { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };
+export default exported;
+export { exported as "module.exports" };

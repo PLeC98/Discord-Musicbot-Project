@@ -1,8 +1,6 @@
-"use strict";
-
-const { PermissionFlagsBits } = require("discord.js");
-const GuildSettingsManager = require("../store/guildSettings");
-const S = require("../ui/strings");
+import { PermissionFlagsBits } from "discord.js";
+import GuildSettingsManager from "../store/guildSettings.js";
+import S from "../ui/strings.js";
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
 // 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 dashboard/server/owner.js.
@@ -106,4 +104,6 @@ async function checkRemoveTrack(member, track) {
   return controlErr;
 }
 
-module.exports = { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
+const exported = { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
+export default exported;
+export { exported as "module.exports" };

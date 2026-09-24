@@ -1,15 +1,14 @@
-"use strict";
-
 // src/usecases/responders.js — 곡 추가 결과를 알리는 매체별 어댑터.
 //
 // 회귀 대상: 코어가 표현할 수 있는 출력이 "상호작용 응답" 아니면 "텍스트 채널"뿐이라
 // 대시보드가 별도 경로로 갈라져 나갔던 문제. silentResponder가 그 세 번째 경우다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { MessageFlags } = require("discord.js");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { MessageFlags } from "discord.js";
 
-const { interactionResponder, channelResponder, silentResponder, _internals } = require("../../src/usecases/responders");
+import respondersModule from "../../src/usecases/responders.js";
+const { interactionResponder, channelResponder, silentResponder, _internals } = respondersModule;
 
 function fakeInteraction({ deferred = true, replied = false } = {}) {
   const calls = [];
