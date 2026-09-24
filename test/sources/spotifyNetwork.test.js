@@ -1,7 +1,7 @@
 // Spotify 의 공식 API 경로와 익명 GraphQL 경로가 네트워크와 무엇을 주고받는지 고정한다(구조 리팩터링 0-B).
 //
 // 2a 가 URL 지식을 떼어 내고, 3 이 트랙 칸을 바꾸고, 5 가 익명 상태를 저장하는 곳을 옮긴다. fetch 만 가짜로 두고
-// 토큰 발급 · 재사용 · 상태 추출 · 저장 · 재시도를 적어 둔다. 익명 상태는 진짜 CacheManager(임시 DB)에 남는다.
+// 토큰 발급 · 재사용 · 상태 추출 · 저장 · 재시도를 적어 둔다. 익명 상태는 진짜 저장소(externalCaches, 임시 DB)에 남는다.
 
 import fs from "node:fs";
 import os from "node:os";

@@ -1,4 +1,4 @@
-// 연령 제한 폴백: CacheManager 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별.
+// 연령 제한 폴백: externalCaches 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별.
 
 import os from "node:os";
 import path from "node:path";
@@ -33,7 +33,7 @@ after(() => {
   }
 });
 
-test("CacheManager: 연령 제한 videoId 기록/조회 라운드트립", () => {
+test("externalCaches: 연령 제한 videoId 기록/조회 라운드트립", () => {
   assert.equal(externalCaches.isAgeRestricted("vidAge1"), false);
   externalCaches.markAgeRestricted("vidAge1");
   assert.equal(externalCaches.isAgeRestricted("vidAge1"), true);
@@ -43,7 +43,7 @@ test("CacheManager: 연령 제한 videoId 기록/조회 라운드트립", () => 
   assert.equal(externalCaches.isAgeRestricted("other"), false);
 });
 
-test("CacheManager: 빈/누락 videoId는 무시", () => {
+test("externalCaches: 빈/누락 videoId는 무시", () => {
   externalCaches.markAgeRestricted("");
   externalCaches.markAgeRestricted(null);
   assert.equal(externalCaches.isAgeRestricted(""), false);

@@ -16,7 +16,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 
 // 설정 파일이 놓이는 곳. 테스트가 여기만 갈아끼우면 실제 설정을 건드리지 않는다
-// (audioCache._cacheDir와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
+// (audioCache._setCacheDir 와 같은 방식. 파일을 만지는 코드는 반드시 이 값을 거친다).
 let dir = path.join(import.meta.dirname, "..", "..", "config");
 
 /** 설정 파일 하나의 내용. 맨 위는 늘 표다 */

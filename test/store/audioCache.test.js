@@ -151,7 +151,7 @@ test("외부 호출자가 쓰는 함수를 내보낸다", () => {
 // 핵심은 "무엇이 남는가"다. 서버 설정은 사용자가 손으로 넣은 유일한 값이라 다시 만들 수 없다.
 
 // 실제 audio_cache/를 지우지 않도록 반드시 임시 디렉터리로 갈아끼운다.
-// (resetCache는 _cacheDir 안의 파일을 전부 지우고, getFilePath는 모듈 상수 CACHE_DIR를 쓴다.)
+// (resetCache는 캐시 폴더 안의 파일을 전부 지운다.)
 function withTempCacheDir(fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-reset-"));
   const prevDir = audioCache.cacheDir();
