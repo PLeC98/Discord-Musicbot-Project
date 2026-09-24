@@ -37,9 +37,12 @@ type TrackInfo = {
   liveStatus?: string | null;
 };
 
+/** 요청한 사람. 입구가 접은 표준형(usecases/addTracks 의 toRequester)이거나 디스코드 사용자. 복원한 곡은 id 뿐이다 */
+type Requester = { id: string | null; username?: string | null; displayName?: string; tag?: string | null };
+
 /** 대기열에 담은 것. */
 type QueuedTrack = TrackInfo & {
-  requestedBy?: { id: string; username?: string; displayName?: string };
+  requestedBy?: Requester | null;
   addedAt?: number;
   autoplay?: boolean;
   pickedFrom?: string;
@@ -51,4 +54,4 @@ type PersistedTrack = SessionTrackRow;
 /** 재생 직전. 음원 주소가 반드시 있다(스포티파이는 영상을 찾아야 이 타입이 된다). */
 type PlayableTrack = QueuedTrack & { audioUrl: string };
 
-export type { AudioFoundBy, TrackInfo, QueuedTrack, PersistedTrack, PlayableTrack };
+export type { AudioFoundBy, TrackInfo, QueuedTrack, PersistedTrack, PlayableTrack, Requester };

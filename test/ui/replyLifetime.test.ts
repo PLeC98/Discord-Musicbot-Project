@@ -1,17 +1,16 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/ui/replyLifetime.js — 본인에게만 보이는 응답의 수명 표와 지우기 예약
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS } from "../../src/ui/replyLifetime.ts";
 
-function command(name, over = {}) {
-  const calls = [];
+function command(name: string, over: object = {}) {
+  const calls: string[] = [];
   return { calls, isChatInputCommand: () => true, commandName: name, ephemeral: true, replied: true, deferred: false, deleteReply: async () => calls.push("deleted"), ...over };
 }
 
-function component(customId, over = {}) {
-  const calls = [];
+function component(customId: string, over: object = {}) {
+  const calls: string[] = [];
   return { calls, isChatInputCommand: () => false, customId, ephemeral: true, replied: true, deferred: false, deleteReply: async () => calls.push("deleted"), ...over };
 }
 

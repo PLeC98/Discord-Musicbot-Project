@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 오류 메시지의 ❌ 접두 규약 — src/ui/strings.js가 단일 출처.
 //
 // 회귀 대상: 표시 지점마다 접두를 제각기 추측해 전용 채널은 "❌ ❌ …"로 두 번 찍고,
@@ -51,7 +50,7 @@ test("대시보드 toApiError는 같은 규약을 쓴다 (자체 정규식 사�
 
 test("공유 문자열은 전부 ❌로 시작한다 — 표시 지점이 접두를 덧붙이지 않아도 되게", () => {
   for (const [key, value] of Object.entries(S)) {
-    if (!key.startsWith("ERR_")) continue;
+    if (!key.startsWith("ERR_") || typeof value !== "string") continue;
     assert.ok(value.startsWith("❌"), `${key}: ${value}`);
     assert.equal(S.withErrorMark(value), value, `${key}가 중복 접두를 유발함`);
   }

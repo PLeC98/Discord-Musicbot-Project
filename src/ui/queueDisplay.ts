@@ -25,7 +25,7 @@ function requesterLabel(track: Requested) {
 function requesterName(track: Requested) {
   if (track?.autoplay) return AUTOPLAY_MARK;
   const who = track?.requestedBy;
-  return who?.username || who?.displayName || null;
+  return who?.username || who?.displayName || who?.tag || null;
 }
 
 /** 대기열 한 줄: `` `3.` [제목](url) | 요청자 `` (줄바꿈 포함) */

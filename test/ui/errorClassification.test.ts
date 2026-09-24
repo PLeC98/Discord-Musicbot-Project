@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 오류를 가르는 두 집의 지금 답을 한 표로 고정한다(구조 리팩터링 0-B).
 //
 // ErrorHandler.classify(사용자에게 보일 범주)와 YouTube.is*Error(재시도 · 폴백 판단)가 같은 문장을 따로 가른다.
@@ -12,7 +11,9 @@ import { RULES } from "../../src/rules/errorKind.ts";
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;
 const F = false;
-const TABLE = [
+// 문장, 분류, 판별 칸(내려감 · 연령 제한 · 클라이언트 탓 · 낡은 주소 · 건너뛴 클라이언트)
+type Row = [msg: string, kind: string, gone: boolean, age: boolean, fault: boolean, stale: boolean, skipped: boolean];
+const TABLE: Row[] = [
   // 영상이 없는 경우
   ["ERROR: [youtube] abc: Video unavailable", "video-unavailable", T, F, F, F, F],
   ["ERROR: [youtube] abc: This video is unavailable", "video-unavailable", T, F, F, F, F], // 고친 순서: 봇 감지 규칙에 있던 것을 영상 없음으로. 영상 없음 정규식도 "is" 를 받는다
@@ -70,14 +71,14 @@ test("분류 규칙의 겹침: 알고 있는 것만", () => {
   const KNOWN = {
     "ERROR: Sign in to confirm your age. This video may be inappropriate for some users.": ["age-restricted", "bot-check"], // 연령 제한이 앞
   };
-  const hits = (msg) => RULES.filter(([, tests]) => tests.some((one) => (typeof one === "function" ? one(msg.toLowerCase()) : msg.toLowerCase().includes(one)))).map(([kind]) => kind);
+  const hits = (msg: string) => RULES.filter(([, tests]) => tests.some((one) => (typeof one === "function" ? one(msg.toLowerCase()) : msg.toLowerCase().includes(one)))).map(([kind]) => kind);
   const overlaps = Object.fromEntries(TABLE.map(([msg]) => [msg, hits(msg)]).filter(([, kinds]) => kinds.length > 1));
   assert.deepEqual(overlaps, KNOWN);
 });
 
 // yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 이름은 위 판별 칸과 어긋나면 안 된다
 test("yt-dlp 오류 이름(codeOf)은 판별 칸과 같은 뜻이다", () => {
-  const expected = ([, , gone, age, fault, stale, skipped]) => (age ? "age-restricted" : gone ? "video-unavailable" : skipped ? "skipped-client" : stale ? "stale-media" : fault ? "client-fault" : null);
+  const expected = ([, , gone, age, fault, stale, skipped]: Row) => (age ? "age-restricted" : gone ? "video-unavailable" : skipped ? "skipped-client" : stale ? "stale-media" : fault ? "client-fault" : null);
   for (const row of TABLE) assert.equal(YouTube.codeOf(new Error(row[0])), expected(row), row[0]);
 });
 

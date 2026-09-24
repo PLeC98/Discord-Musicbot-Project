@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/ui/genreMenu.js — 자동재생 장르 선택 화면.
 //
 // 회귀 대상: 켜기(버튼)와 끄기·명령이 각자 화면을 만들던 시절, 명령 쪽만 영문 키를 보여줬다.
@@ -11,7 +10,7 @@ import * as genresModule from "../../src/config/genres.ts";
 const { genres } = genresModule.genres();
 
 const ids = Object.keys(genres);
-const selectOf = (payload) => payload.components[0].toJSON().components[0];
+const selectOf = (payload: ReturnType<typeof buildGenreMenu>) => payload.components[0].toJSON().components[0];
 
 test("켜기·끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () => {
   const on = selectOf(buildGenreMenu("u1", "s1"));
@@ -39,7 +38,7 @@ test("장르 수가 디스코드 셀렉트 상한을 넘지 않는다", () => {
 
 test("끄기 화면: 이미 꺼졌음을 알리고 30초 동안 다시 고를 기회를 준다", () => {
   const off = buildAutoplayOffMenu("u1", "s1");
-  assert.match(off.embeds[0].data.title, /비활성화/);
+  assert.match(off.embeds[0].data.title ?? "", /비활성화/);
   assert.equal(OFF_MENU_MS, 30_000, '"더 넣기" 메뉴와 같은 수명');
 });
 

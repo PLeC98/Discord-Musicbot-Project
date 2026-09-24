@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 대기열 상한 — 추가 구간(MusicEmbedManager._processMusic)이 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
 
 import { test, afterEach } from "node:test";
@@ -6,35 +5,42 @@ import assert from "node:assert/strict";
 import config from "../../config.ts";
 import * as trackState from "../../src/player/trackState.ts";
 import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import type { Client } from "discord.js";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {
   config.bot.maxQueueSize = realMax;
 });
 
-const t = (title) => ({ title, url: `https://y/${title}` });
-const titles = (arr) => arr.map((x) => x.title);
-const many = (prefix, n) => Array.from({ length: n }, (_, i) => t(`${prefix}${i}`));
+const t = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, platform: "youtube", duration: 0, ...extra });
+const titles = (arr: QueuedTrack[]) => arr.map((x) => x.title);
+const many = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => t(`${prefix}${i}`));
 
-function setup({ max, queued = 0, playing = true }) {
+// 가짜 플레이어에는 패널이 없다. 갱신은 하지 않는다
+class NoPanelRefresh extends MusicEmbedManager {
+  async updateNowPlayingEmbed() {}
+}
+
+function setup({ max, queued = 0, playing = true }: { max: number; queued?: number; playing?: boolean }) {
   config.bot.maxQueueSize = max;
-  const player = {
+  const player = fakePlayer({
     textChannel: null,
     nowPlayingMessage: null,
     connection: {},
     async play() {
-      return { success: true };
+      return { ok: true };
     },
-  };
+  });
   trackState.init(player);
   if (playing) trackState.setCurrent(player, t("now"));
   trackState.enqueue(player, many("old", queued));
 
-  const mem = new MusicEmbedManager({ players: new Map([["g", player]]) });
-  mem.updateNowPlayingEmbed = async () => {};
-  const notices = [];
-  const responder = { notifyQueued: async (text) => notices.push(text), dismissPlaceholder: async () => {} };
-  const add = (tracks, extra = {}) => mem._processMusic("g", { success: true, isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
+  const mem = new NoPanelRefresh(fake<Client>({ players: new Map([["g", player]]) }));
+  const notices: string[] = [];
+  const responder = { notifyQueued: async (text: string) => notices.push(text), dismissPlaceholder: async () => {} };
+  const add = (tracks: QueuedTrack[], extra = {}) => mem._processMusic("g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
   return { player, add, notices };
 }
 
@@ -55,7 +61,7 @@ test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", 
   const result = await add([t("x")]);
 
   assert.equal(result.success, false);
-  assert.match(result.message, /대기열이 가득 찼습니다 \(최대 30곡\)/);
+  assert.match(result.message ?? "", /대기열이 가득 찼습니다 \(최대 30곡\)/);
   assert.equal(player.queue.length, 30);
   assert.deepEqual(notices, [], "추가 안내는 보내지 않는다 — 진입점이 실패를 알린다");
 });
@@ -71,7 +77,7 @@ test("맨 앞에 넣을 때도 새 목록의 앞부분이 들어간다", async (
 test("이어 넣기: 앵커 곡 뒤에 들어가고, 넘치면 역시 뒤쪽이 빠진다", async () => {
   const { player, add } = setup({ max: 30 });
   // 맨 앞에 넣었던 목록(p0, p1) 뒤에 기존 대기열이 있는 모양
-  trackState.enqueue(player, [{ title: "p0", id: "p0" }, { title: "p1", id: "p1" }, ...many("old", 26)]);
+  trackState.enqueue(player, [t("p0", { id: "p0" }), t("p1", { id: "p1" }), ...many("old", 26)]);
   const result = await add(many("new", 5), { insertAfterId: "p1" });
 
   assert.equal(result.dropped, 3);
@@ -82,7 +88,7 @@ test("현재곡은 세지 않는다 — 비어 있을 때 넣으면 첫 곡은 �
   const { player, add } = setup({ max: 25, playing: false });
   const result = await add(many("new", 26));
 
-  assert.equal(player.currentTrack.title, "new0");
+  assert.equal(player.currentTrack?.title, "new0");
   assert.equal(player.queue.length, 25);
   assert.equal(result.dropped, 0);
 });

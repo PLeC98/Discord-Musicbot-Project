@@ -1,7 +1,7 @@
 // 프로젝트 공용 소형 유틸
 
 /** 초 단위 길이를 H:MM:SS 또는 M:SS 문자열로 변환 */
-function formatDuration(seconds: number | null | undefined) {
+function formatDuration(seconds: number | string | null | undefined) {
   if (!seconds || seconds === 0) return "0:00";
 
   // 부동소수점 오류를 피하도록 정수로 처리

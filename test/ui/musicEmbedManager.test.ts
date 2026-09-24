@@ -1,48 +1,66 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/ui/nowPlayingPanel.js — 서버별 음악 처리 락 (Promise tail 체인).
 // 실제 처리(_processMusic)는 스텁하고 직렬화 계약만 검증한다.
 // 회귀 대상: 구 "await 후 set" 방식의 A/B/C 경쟁 (앞 작업 finally가 뒤 작업 락을 삭제 → 동시 실행)
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { MusicEmbedManager, type TrackData } from "../../src/ui/nowPlayingPanel.ts";
+import type { Client } from "discord.js";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
+
+const newManager = () => new MusicEmbedManager(fake<Client>({ players: new Map() }));
 
 function deferred() {
-  let resolve, reject;
-  const p = new Promise((res, rej) => {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const p = new Promise<void>((res, rej) => {
     resolve = res;
     reject = rej;
   });
   return { p, resolve, reject };
 }
 
-// _processMusic을 수동 제어 가능한 스텁으로 교체한 인스턴스
-function makeManager() {
-  const mem = new MusicEmbedManager({ players: new Map() });
-  const events = [];
-  const gates = new Map(); // id -> deferred (테스트가 완료 시점을 제어)
-  let active = 0;
-  let maxActive = 0;
+// 작업 이름. 첫 곡의 제목에 싣는다
+const job = (id: string): TrackData => ({ tracks: [{ title: id, pageUrl: "", requestKey: id, platform: "youtube", duration: 0 }] });
 
-  mem._processMusic = async (guildId, trackData) => {
-    active++;
-    maxActive = Math.max(maxActive, active);
-    events.push(`start:${trackData.id}`);
+// 실제 처리(_processMusic)를 시험이 끝낼 때까지 붙잡는 관리자. 끝나면 작업 이름을 message 로 돌려준다
+class GatedManager extends MusicEmbedManager {
+  events: string[] = [];
+  gates = new Map<string, ReturnType<typeof deferred>>(); // id -> deferred (테스트가 완료 시점을 제어)
+  active = 0;
+  maxActive = 0;
+
+  async _processMusic(_guildId: string, trackData: TrackData) {
+    const id = trackData.tracks[0].title;
+    this.active++;
+    this.maxActive = Math.max(this.maxActive, this.active);
+    this.events.push(`start:${id}`);
     const gate = deferred();
-    gates.set(trackData.id, gate);
+    this.gates.set(id, gate);
     try {
       await gate.p;
-      events.push(`end:${trackData.id}`);
-      return trackData.id;
+      this.events.push(`end:${id}`);
+      return { success: true, message: id };
     } finally {
-      active--;
+      this.active--;
     }
-  };
+  }
 
-  const stats = { events, gates };
-  Object.defineProperty(stats, "maxActive", { get: () => maxActive });
-  return { mem, stats };
+  // 붙잡아 둔 작업 하나
+  gate(id: string) {
+    const gate = this.gates.get(id);
+    assert.ok(gate, `${id} 가 시작했다`);
+    return gate;
+  }
 }
+
+function makeManager() {
+  const mem = new GatedManager(fake<Client>({ players: new Map() }));
+  return { mem, stats: mem };
+}
+// 끝난 작업의 이름
+const doneAs = async (p: Promise<{ message?: string }>) => (await p).message;
 
 const tick = () => new Promise((r) => setImmediate(r));
 
@@ -50,30 +68,30 @@ test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행 — 구 락 경�
   const { mem, stats } = makeManager();
 
   // 동기적으로 연속 진입 (실사용: 동시 /play + 메시지 추가 + 검색 선택)
-  const pA = mem.handleMusicData("g1", { id: "A" }, null);
-  const pB = mem.handleMusicData("g1", { id: "B" }, null);
-  const pC = mem.handleMusicData("g1", { id: "C" }, null);
+  const pA = mem.handleMusicData("g1", job("A"), null);
+  const pB = mem.handleMusicData("g1", job("B"), null);
+  const pC = mem.handleMusicData("g1", job("C"), null);
 
   await tick();
   assert.deepEqual(stats.events, ["start:A"], "A만 시작 — B/C는 대기");
 
-  stats.gates.get("A").resolve();
-  assert.equal(await pA, "A");
+  stats.gate("A").resolve();
+  assert.equal(await doneAs(pA), "A");
   await tick();
   assert.deepEqual(stats.events, ["start:A", "end:A", "start:B"], "A 종료 후에야 B 시작");
 
   // 원 버그의 핵심 시나리오: B 실행 중에 D가 도착 — A의 정리가 락을 지웠다면 D는 B와 동시 실행됐다
-  const pD = mem.handleMusicData("g1", { id: "D" }, null);
+  const pD = mem.handleMusicData("g1", job("D"), null);
   await tick();
   assert.ok(!stats.events.includes("start:D"), "B 실행 중 도착한 D는 대기");
 
-  stats.gates.get("B").resolve();
-  assert.equal(await pB, "B");
-  stats.gates.get("C").resolve();
+  stats.gate("B").resolve();
+  assert.equal(await doneAs(pB), "B");
+  stats.gate("C").resolve();
   await tick();
-  assert.equal(await pC, "C");
-  stats.gates.get("D").resolve();
-  assert.equal(await pD, "D");
+  assert.equal(await doneAs(pC), "C");
+  stats.gate("D").resolve();
+  assert.equal(await doneAs(pD), "D");
 
   assert.equal(stats.maxActive, 1, "동시 실행은 항상 최대 1");
   assert.deepEqual(stats.events, ["start:A", "end:A", "start:B", "end:B", "start:C", "end:C", "start:D", "end:D"]);
@@ -83,33 +101,33 @@ test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행 — 구 락 경�
 test("앞 작업 실패가 뒤 작업을 막지 않음 — 오류는 자기 호출자에게만", async () => {
   const { mem, stats } = makeManager();
 
-  const pA = mem.handleMusicData("g1", { id: "A" }, null);
-  const pB = mem.handleMusicData("g1", { id: "B" }, null);
+  const pA = mem.handleMusicData("g1", job("A"), null);
+  const pB = mem.handleMusicData("g1", job("B"), null);
 
   await tick();
-  stats.gates.get("A").reject(new Error("A boom"));
+  stats.gate("A").reject(new Error("A boom"));
   await assert.rejects(pA, /A boom/);
 
   await tick();
   assert.ok(stats.events.includes("start:B"), "A가 실패해도 B는 실행");
-  stats.gates.get("B").resolve();
-  assert.equal(await pB, "B");
+  stats.gate("B").resolve();
+  assert.equal(await doneAs(pB), "B");
   assert.equal(mem.processingQueue.size, 0);
 });
 
 test("다른 서버는 직렬화되지 않음 — 서버 간 병렬", async () => {
   const { mem, stats } = makeManager();
 
-  const p1 = mem.handleMusicData("g1", { id: "G1" }, null);
-  const p2 = mem.handleMusicData("g2", { id: "G2" }, null);
+  const p1 = mem.handleMusicData("g1", job("G1"), null);
+  const p2 = mem.handleMusicData("g2", job("G2"), null);
 
   await tick();
   assert.ok(stats.events.includes("start:G1") && stats.events.includes("start:G2"), "두 서버 모두 즉시 시작");
 
-  stats.gates.get("G2").resolve();
-  assert.equal(await p2, "G2", "g1이 진행 중이어도 g2는 완료 가능");
-  stats.gates.get("G1").resolve();
-  assert.equal(await p1, "G1");
+  stats.gate("G2").resolve();
+  assert.equal(await doneAs(p2), "G2", "g1이 진행 중이어도 g2는 완료 가능");
+  stats.gate("G1").resolve();
+  assert.equal(await doneAs(p1), "G1");
   assert.equal(mem.processingQueue.size, 0);
 });
 
@@ -117,8 +135,8 @@ test("다른 서버는 직렬화되지 않음 — 서버 간 병렬", async () =
 // 직접 링크는 thumbnail이 null이라 now-playing 갱신이 매번 CombinedError로 죽었다
 // (2026-09-08 실사용 발견 — 재생은 되는데 임베드만 계속 실패).
 test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능한 형태여야 한다", async () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
-  const player = {
+  const mem = newManager();
+  const player = fakePlayer({
     getCurrentTime: () => 0,
     queue: [],
     previousTracks: [],
@@ -126,8 +144,8 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
     paused: false,
     isPlaybackActive: () => true,
     getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }),
-  };
-  const base = { title: "Test", url: "https://example.org/a.mp3", duration: 127, platform: "direct" };
+  });
+  const base: QueuedTrack = { title: "Test", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 127, platform: "direct" };
 
   for (const thumbnail of [null, undefined, "", "https://example.org/t.jpg"]) {
     const container = await mem.createNowPlayingContainer(player, { ...base, thumbnail });
@@ -138,9 +156,9 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 });
 
 test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보여 줄 링크(pageUrl)다", async () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
-  const player = { getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, isPlaybackActive: () => true, getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }) };
-  const track = { title: "주제가", duration: 90, platform: "anisongdb", pageUrl: "https://anilist.co/anime/1", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3" };
+  const mem = newManager();
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, isPlaybackActive: () => true, getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }) });
+  const track: QueuedTrack = { title: "주제가", duration: 90, platform: "anisongdb", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3" };
 
   const json = JSON.stringify((await mem.createNowPlayingContainer(player, track)).toJSON());
   assert.ok(json.includes("[주제가](https://anilist.co/anime/1)"));
@@ -155,8 +173,8 @@ const tempStore = (await import("../helpers/tempStore.ts")).default;
 const store = tempStore.openTempStore("embed-manager-");
 after(() => store.close());
 
-function panelPlayer(over = {}) {
-  return {
+function panelPlayer(over: object = {}) {
+  return fakePlayer({
     guild: { id: "g1" },
     sessionId: "s1",
     requesterId: "u1",
@@ -167,17 +185,21 @@ function panelPlayer(over = {}) {
     paused: false,
     currentTrack: null,
     ...over,
-  };
+  });
 }
-const shape = (json) => json.components.map((c) => c.type);
-const buttonsOf = (json) => json.components.filter((c) => c.type === 1).flatMap((row) => row.components);
+// 컨테이너 JSON 에서 보는 칸
+type Json = { components: Array<{ type: number; components?: Array<{ disabled?: boolean; custom_id?: string }>; accessory?: { media: { url: string } } }> };
+const shape = (json: Json) => json.components.map((c) => c.type);
+const buttonsOf = (json: Json) => json.components.filter((c) => c.type === 1).flatMap((row) => row.components ?? []);
+// 빌더를 JSON 으로
+const jsonOf = (builder: { toJSON(): unknown }) => builder.toJSON() as Json;
 
 test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리고, 썸네일 자리는 첨부한 투명 이미지다", async () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
+  const mem = newManager();
   const player = panelPlayer();
-  const playing = (await mem.createNowPlayingContainer(player, { title: "곡", url: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" })).toJSON();
+  const playing = jsonOf(await mem.createNowPlayingContainer(player, { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" }));
   const { components, files } = await mem.createIdleContainer({ reason: "stop" });
-  const idle = components[0].toJSON();
+  const idle = jsonOf(components[0]);
 
   assert.deepEqual(shape(idle), shape(playing));
   assert.equal(buttonsOf(idle).length, buttonsOf(playing).length);
@@ -189,13 +211,13 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
     "자동재생 하나만 눌린다",
   );
   assert.ok(buttonsOf(idle).length > 1, "나머지 버튼도 같은 자리에 그려진다(모양 유지)");
-  assert.equal(idle.components[0].accessory.media.url, "attachment://blank.png");
+  assert.equal(idle.components[0].accessory?.media.url, "attachment://blank.png");
   assert.equal(files[0].name, "blank.png");
 });
 
 test("종료 모양의 문구는 사유를 따른다", async () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
-  const text = async (opts) => JSON.stringify((await mem.createIdleContainer(opts)).components[0].toJSON());
+  const mem = newManager();
+  const text = async (opts: Parameters<MusicEmbedManager["createIdleContainer"]>[0]) => JSON.stringify((await mem.createIdleContainer(opts)).components[0].toJSON());
 
   const waiting = await text({ reason: "queue-end", leavesAt: 1_600_000 });
   assert.match(waiting, /재생 대기 중/);
@@ -208,25 +230,27 @@ test("종료 모양의 문구는 사유를 따른다", async () => {
 
 test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다 — 종료 메시지는 전용 채널 밖에서만", async () => {
   try {
-    for (const [botChannel, expectNotice] of [
+    const cases: Array<[botChannel: string | null, expectNotice: boolean]> = [
       ["chan-1", false],
       [null, true],
-    ]) {
+    ];
+    for (const [botChannel, expectNotice] of cases) {
       tempStore.setGuild("g1", { botChannel });
-      const mem = new MusicEmbedManager({ players: new Map() });
-      const edits = [];
-      const sent = [];
+      const mem = newManager();
+      // 패널을 고친 내용. 여기서 보는 칸만
+      const edits: Array<{ id: string; payload: { components: Array<{ toJSON(): unknown }>; files: Array<{ name: string }> } }> = [];
+      const sent: unknown[] = [];
       const player = panelPlayer({
         nowPlayingMessage: { id: "100" },
-        nowPlayingWebhook: { editMessage: async (id, payload) => edits.push({ id, payload }) },
-        textChannel: { id: "chan-1", send: async (payload) => sent.push(payload) },
+        nowPlayingWebhook: { editMessage: async (id: string, payload: (typeof edits)[number]["payload"]) => edits.push({ id, payload }) },
+        textChannel: { id: "chan-1", send: async (payload: unknown) => sent.push(payload) },
       });
 
       await mem.handlePlaybackEnd(player, { reason: "stop" });
 
       assert.equal(edits.length, 1, `패널을 고친다 (전용 채널=${botChannel})`);
       assert.equal(edits[0].id, "100");
-      const idleButtons = buttonsOf(edits[0].payload.components[0].toJSON());
+      const idleButtons = buttonsOf(jsonOf(edits[0].payload.components[0]));
       assert.ok(
         idleButtons.filter((b) => !b.disabled).every((b) => (b.custom_id || "").startsWith("music_autoplay:")),
         "자동재생 외에는 전부 꺼진다",
@@ -241,7 +265,7 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
 });
 
 test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
+  const mem = newManager();
   const json = JSON.stringify((await mem.createIdleContainer({ reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());
   assert.match(json, /곡을 기다리고 있어요/);
   assert.match(json, /<t:1600:R> 쉬러 갈게요/);
@@ -252,7 +276,7 @@ test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async (
 // 회귀 대상: platform 을 그대로 첫 글자만 올려 썼다. platform 은 내부 분류 코드라
 // "Lbradio"·"Vocadb"·"Lastfm" 처럼 아무도 안 쓰는 표기가 패널에 그대로 나왔다.
 test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
-  const label = (p) => MusicEmbedManager.prototype.getPlatformLabel.call({}, p);
+  const label = (p: string | null) => newManager().getPlatformLabel(p);
 
   assert.equal(label("lbradio"), "ListenBrainz Radio");
   assert.equal(label("lastfm"), "Last.fm");

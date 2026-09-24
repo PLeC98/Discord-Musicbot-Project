@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/ui/queueDisplay.js — 대기열을 보여 주는 자리들의 공통 생김새.
 //
 // `/queue`와 대기열 버튼이 거의 같은 임베드를 각자 만들고 있었다(한쪽만 고치면 표시가 갈린다).
@@ -7,8 +6,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { queueLine, jumpDescription, AUTOPLAY_MARK } from "../../src/ui/queueDisplay.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
 
-const song = (over = {}) => ({ title: "곡", pageUrl: "https://y/1", artist: "가수", duration: 100, ...over });
+const song = (over: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: "곡", pageUrl: "https://y/1", requestKey: "https://y/1", platform: "youtube", artist: "가수", duration: 100, ...over });
 
 test("대기열 줄: 요청자는 멘션으로", () => {
   const line = queueLine(song({ requestedBy: { id: "u1" } }), 3);
@@ -37,13 +37,14 @@ test("점프 설명: 이름을 모르면 요청자를 적지 않는다", () => {
 });
 
 test("점프 설명: 아티스트가 없으면 나머지만, 아무것도 없으면 undefined", () => {
-  assert.equal(jumpDescription(song({ artist: null, autoplay: true })), `1:40 | ${AUTOPLAY_MARK}`);
-  assert.equal(jumpDescription({ title: "곡" }), undefined);
+  assert.equal(jumpDescription(song({ artist: undefined, autoplay: true })), `1:40 | ${AUTOPLAY_MARK}`);
+  assert.equal(jumpDescription(song({ artist: undefined, duration: 0 })), undefined);
 });
 
 // 디스코드는 설명이 100자를 넘으면 메뉴 자체를 거부한다 — 길이·요청자를 지키고 아티스트부터 줄인다.
 test("점프 설명: 100자를 넘지 않는다", () => {
   const long = jumpDescription(song({ artist: "가".repeat(300), requestedBy: { id: "u1", username: "아주긴이름".repeat(4) } }));
+  assert.ok(long, "설명이 있다");
   assert.ok(long.length <= 100, `${long.length}자`);
   assert.ok(long.endsWith("| 1:40 | 아주긴이름아주긴이름아주긴이름아주긴이름"), "뒤쪽 정보는 남는다");
   assert.ok(long.includes("…"), "아티스트가 잘렸음을 보인다");

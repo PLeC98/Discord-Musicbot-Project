@@ -33,7 +33,7 @@ type TrackIn = {
   platform?: string | null;
   isLive?: boolean | null;
   live?: boolean | null;
-  requestedBy?: { id?: string } | null;
+  requestedBy?: { id?: string | null } | null;
   requesterId?: string | null;
   addedAt?: number | null;
 };

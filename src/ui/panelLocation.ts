@@ -95,3 +95,4 @@ class NowPlayingPanel {
 }
 
 export { NowPlayingPanel };
+export type { Store as PanelStore };

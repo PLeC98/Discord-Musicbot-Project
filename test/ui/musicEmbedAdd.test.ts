@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 곡 추가 코어(MusicEmbedManager._processMusic)의 흐름을 고정한다(구조 리팩터링 0-B).
 //
 // 6단계가 이것을 화면 모듈에서 usecases/addTracks 로 옮긴다. 첫 곡 재생 · 실패 · 다음 곡으로 되살리기 · 대기열 상한 · 넣을 자리 ·
@@ -7,24 +6,51 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import config from "../../config.ts";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { MusicEmbedManager, type TrackData } from "../../src/ui/nowPlayingPanel.ts";
+import type { Client } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
 
-const track = (id, extra = {}) => ({ id, title: `곡 ${id}`, url: `https://youtu.be/${id}`, ...extra });
+const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
 const who = { id: "u1", username: "사용자" };
 
+// 패널 만들기 · 갱신은 부른 것만 적는다. embedFails 면 만들기가 던진다
+class RecordingPanels extends MusicEmbedManager {
+  calls: unknown[];
+  embedFails = false;
+
+  constructor(client: Client, calls: unknown[]) {
+    super(client);
+    this.calls = calls;
+  }
+  async createNewMusicEmbed(_player: MusicPlayer, t: QueuedTrack) {
+    this.calls.push(["embed", t.id]);
+    if (this.embedFails) throw new Error("CV2 수정 제한");
+    return { success: true };
+  }
+  async updateNowPlayingEmbed() {
+    this.calls.push("update");
+  }
+}
+
+// 글 채널에 보낸 안내. 지웠는지 본다
+type Sent = { id: string; content: string; deleted: boolean; delete(): Promise<unknown> };
+type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Array<{ ok: boolean; code?: string } | Error>; connected?: boolean };
+
 // 연결 · 재생 결과를 시험마다 정하는 가짜 플레이어
-function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false } = {}) {
-  const calls = [];
-  const sent = [];
-  const player = {
+function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false }: Setup = {}) {
+  const calls: unknown[] = [];
+  const sent: Sent[] = [];
+  const player = fakePlayer({
     currentTrack: current,
     queue: [...queue],
     previousTracks: [],
     connection: connected ? {} : null,
     nowPlayingMessage: current ? {} : null,
     textChannel: {
-      send: async (p) => {
-        const m = { id: `info${sent.length}`, content: p.content, deleted: false, delete: async () => (m.deleted = true) };
+      send: async (p: { content: string }) => {
+        const m: Sent = { id: `info${sent.length}`, content: p.content, deleted: false, delete: async () => (m.deleted = true) };
         sent.push(m);
         return m;
       },
@@ -33,24 +59,18 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
       calls.push("connect");
       this.connection = {};
     },
-    async play(...args) {
+    async play(...args: unknown[]) {
       calls.push(["play", ...args]);
       const next = plays.shift() ?? { ok: true };
       if (next instanceof Error) throw next;
       // 진짜 play() 는 현재 곡이 없으면 대기열에서 꺼낸다
-      if (!this.currentTrack && this.queue.length) this.currentTrack = this.queue.shift();
+      if (!this.currentTrack && this.queue.length) this.currentTrack = this.queue.shift() ?? null;
       return next;
     },
-  };
-  const mem = new MusicEmbedManager({ players: new Map([["g1", player]]), user: { id: "bot" } });
-  mem.createNewMusicEmbed = async (p, t) => {
-    calls.push(["embed", t.id]);
-    if (mem.embedFails) throw new Error("CV2 수정 제한");
-    return { success: true };
-  };
-  mem.updateNowPlayingEmbed = async () => calls.push("update");
-  const notices = [];
-  const responder = { notifyQueued: async (text) => notices.push(text) };
+  });
+  const mem = new RecordingPanels(fake<Client>({ players: new Map([["g1", player]]), user: { id: "bot" } }), calls);
+  const notices: string[] = [];
+  const responder = { notifyQueued: async (text: string) => notices.push(text), dismissPlaceholder: async () => {} };
   return { mem, player, calls, sent, notices, responder };
 }
 
@@ -60,8 +80,8 @@ test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패�
 
   assert.deepEqual(r, { success: true });
   assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"]]);
-  assert.equal(player.currentTrack.requestedBy, who);
-  assert.equal(typeof player.currentTrack.addedAt, "number");
+  assert.equal(player.currentTrack?.requestedBy, who);
+  assert.equal(typeof player.currentTrack?.addedAt, "number");
 });
 
 test("이미 붙어 있으면 연결하지 않는다", async () => {
@@ -74,7 +94,7 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
   const withCode = setup({ plays: [{ ok: false, code: "voice-failed" }] });
   assert.deepEqual(await withCode.mem.handleMusicData("g1", { tracks: [track("a")] }, who), { success: false, message: "음성 채널에 연결하지 못했습니다!" });
   assert.equal(withCode.player.currentTrack, null);
-  assert.ok(!withCode.calls.some((c) => c[0] === "embed"));
+  assert.ok(!withCode.calls.some((c) => Array.isArray(c) && c[0] === "embed"));
 
   const noMessage = setup({ plays: [{ ok: false }] });
   assert.deepEqual(await noMessage.mem.handleMusicData("g1", { tracks: [track("a")] }, who), { success: false, message: "재생을 시작할 수 없습니다." });
@@ -82,7 +102,7 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
   const thrown = setup({ plays: [new Error("fetch failed")] });
   const r = await thrown.mem.handleMusicData("g1", { tracks: [track("a")] }, who);
   assert.equal(r.success, false);
-  assert.match(r.message, /네트워크 오류/, "던진 것은 ErrorHandler 안내문으로");
+  assert.match(r.message ?? "", /네트워크 오류/, "던진 것은 ErrorHandler 안내문으로");
 });
 
 test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀어 되살린다", async () => {
@@ -92,7 +112,7 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
     const r = await mem.handleMusicData("g1", { isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
 
     assert.equal(r.success, true);
-    assert.equal(player.currentTrack.id, "b", "실패한 곡은 대기열에 안 넣는다");
+    assert.equal(player.currentTrack?.id, "b", "실패한 곡은 대기열에 안 넣는다");
     assert.deepEqual(
       player.queue.map((t) => t.id),
       ["c"],
@@ -173,16 +193,17 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
 });
 
 test("자리가 모자라 덜 받았으면(queueLimited) 그렇다고 덧붙인다", () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
+  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
   assert.equal(mem.createQueueAdditionMessage([track("a")], "재생목록", false, { queueLimited: true }), `✅ 재생목록의 1개 노래가 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
 test("플레이어가 없거나 처리 중 던지면 실패 문장", async () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
+  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
   assert.deepEqual(await mem.handleMusicData("g1", { tracks: [] }, who), { success: false, message: "음악 플레이어를 찾을 수 없습니다." });
 
+  // 곡 목록이 없는 요청(처리 중 던진다)
   const { mem: m2 } = setup({ current: track("now") });
-  assert.deepEqual(await m2.handleMusicData("g1", { tracks: null }, who), { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." });
+  assert.deepEqual(await m2.handleMusicData("g1", fake<TrackData>({ tracks: null }), who), { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." });
 });
 
 test("재생목록 안내는 텍스트 채널이 없으면(대시보드) 보내지 않는다", async () => {

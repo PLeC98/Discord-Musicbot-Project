@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 현재 재생 임베드의 자가 복구 — 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
 // 회귀 대상: 사용자가 임베드를 지우면 5초 갱신마다 10008(Unknown Message)을 error로 찍던 도배.
 
@@ -7,11 +6,13 @@ import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 import tempStore from "../helpers/tempStore.ts";
-
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import { markTransient } from "../../src/ui/transientMessages.ts";
+import type { Client, GuildTextBasedChannel, WebhookClient } from "discord.js";
+import type { MusicPlayer, PanelMessage } from "../../src/player/Player.ts";
+import type { QueuedTrack } from "../../src/player/track.ts";
+import type { PanelStore } from "../../src/ui/panelLocation.ts";
+import type { PanelRecord } from "../../src/store/guildSettings.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
 
 const BOT_CHANNEL = "chan-1";
 
@@ -20,12 +21,36 @@ const store = tempStore.openTempStore("repost-");
 after(() => store.close());
 const gone = () => Object.assign(new Error("Unknown Message"), { code: 10008 });
 
+type Sent = { message: PanelMessage; webhook: WebhookClient | null };
+
+// 웹훅은 시험의 가짜로. 보내기를 시험이 정하면(sendAs) 그것으로
+class TestPanels extends MusicEmbedManager {
+  webhook: WebhookClient;
+  sendAs: (() => Promise<Sent>) | null = null;
+
+  constructor(client: Client, webhook: WebhookClient, panelStore: PanelStore) {
+    super(client, { panelStore });
+    this.webhook = webhook;
+  }
+  async getOrCreateWebhook() {
+    return this.webhook;
+  }
+  async _sendNowPlaying(player: MusicPlayer, track: QueuedTrack, channel: GuildTextBasedChannel) {
+    return this.sendAs ? this.sendAs() : super._sendNowPlaying(player, track, channel);
+  }
+}
+
+// 시험이 조종하는 것: 보내기 · 고치기 실패, 보내기 직전에 할 일
+type State = { sendError?: Error | null; editError?: Error | null; onSend?: () => unknown };
+// 채널 캐시에 둔 메시지. 묻혔는지 볼 때 읽는 칸
+type Cached = { id: string; createdTimestamp: number };
+
 // 웹훅으로 보내고 편집하는 실사용 경로. state로 호출 내역과 실패를 조종한다.
-function makeSetup(state = {}) {
-  const calls = { sent: [], edited: [], deleted: [] };
+function makeSetup(state: State = {}) {
+  const calls = { sent: [] as string[], edited: [] as string[], deleted: [] as string[] };
   let nextId = 200;
 
-  const webhook = {
+  const webhook = fake<WebhookClient>({
     async send() {
       if (state.sendError) throw state.sendError;
       if (state.onSend) await state.onSend();
@@ -33,25 +58,36 @@ function makeSetup(state = {}) {
       calls.sent.push(message.id);
       return message;
     },
-    async editMessage(id) {
+    async editMessage(id: string) {
       calls.edited.push(id);
       if (state.editError) throw state.editError;
     },
-    async deleteMessage(id) {
+    async deleteMessage(id: string) {
       calls.deleted.push(id);
     },
-  };
+  });
 
-  const mem = new MusicEmbedManager({
+  // 패널 자리 기록은 메모리로 — 실제 DB를 열지 않는다
+  const records = new Map<string, PanelRecord | null>([["g1", { channelId: BOT_CHANNEL, messageId: "100" }]]);
+  const panelStore: PanelStore = {
+    getPanel: async (g) => records.get(g) ?? null,
+    setPanel: async (g, channelId, messageId) => {
+      records.set(g, messageId ? { channelId, messageId } : null);
+    },
+  };
+  const client = fake<Client>({
     players: new Map(),
     user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" },
   });
-  mem.getOrCreateWebhook = async () => webhook;
-  // 패널 자리 기록은 메모리로 — 실제 DB를 열지 않는다
-  const records = new Map([["g1", { channelId: BOT_CHANNEL, messageId: "100" }]]);
-  mem.panel.store = { getPanel: async (g) => records.get(g) ?? null, setPanel: async (g, channelId, messageId) => records.set(g, messageId ? { channelId, messageId } : null) };
+  const mem = new TestPanels(client, webhook, panelStore);
 
-  const player = {
+  const cache = new Collection<string, Cached>();
+  const text = {
+    id: BOT_CHANNEL,
+    send: async () => ({ id: String(nextId++) }),
+    messages: { cache, delete: async (id: string) => calls.deleted.push(id) },
+  };
+  const player = fakePlayer({
     guild: { id: "g1" },
     sessionId: "s1",
     requesterId: "u1",
@@ -63,17 +99,13 @@ function makeSetup(state = {}) {
     getCurrentTime: () => 1000,
     isPlaybackActive: () => true,
     getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }),
-    currentTrack: { title: "곡", url: "https://example.org/a.mp3", duration: 100, platform: "direct" },
+    currentTrack: { title: "곡", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 100, platform: "direct" },
     nowPlayingMessage: { id: "100" },
     nowPlayingWebhook: webhook,
-    textChannel: {
-      id: BOT_CHANNEL,
-      send: async () => ({ id: String(nextId++) }),
-      messages: { cache: new Collection(), delete: async (id) => calls.deleted.push(id) },
-    },
-  };
+    textChannel: text,
+  });
 
-  return { mem, player, calls, state };
+  return { mem, player, calls, state, cache, text };
 }
 
 test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 않는다", async () => {
@@ -82,7 +114,7 @@ test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 
   await mem.updateNowPlayingEmbed(player);
 
   assert.equal(calls.sent.length, 1, "새 메시지를 한 번 보낸다");
-  assert.equal(player.nowPlayingMessage.id, calls.sent[0], "참조가 새 메시지로 바뀐다");
+  assert.equal(player.nowPlayingMessage?.id, calls.sent[0], "참조가 새 메시지로 바뀐다");
   assert.ok(calls.deleted.includes("100"), "지워진 옛 메시지도 정리를 시도한다");
 
   // 다음 갱신은 새 메시지를 편집한다 — 사라진 id로 계속 두드리지 않는다
@@ -92,8 +124,8 @@ test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 
 });
 
 test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않는다", async () => {
-  let release;
-  const blocked = new Promise((r) => (release = r));
+  let release = () => {};
+  const blocked = new Promise<void>((r) => (release = r));
   const { mem, player, calls } = makeSetup({ editError: gone(), onSend: () => blocked });
 
   const first = mem.updateNowPlayingEmbed(player);
@@ -108,10 +140,10 @@ test("보내는 사이 재생이 끝나면 방금 올린 메시지를 도로 지
   const { mem, player, calls } = makeSetup();
 
   // 전송이 끝나기 직전 handlePlaybackEnd가 참조를 비우는 상황
-  mem._sendNowPlaying = async () => {
+  mem.sendAs = async () => {
     player.nowPlayingMessage = null;
     player.currentTrack = null;
-    return { message: { id: "999" }, webhook: player.nowPlayingWebhook };
+    return { message: { id: "999", channel_id: BOT_CHANNEL }, webhook: mem.webhook };
   };
 
   await mem._repostNowPlaying(player, "테스트");
@@ -134,10 +166,9 @@ test("다시 올리지 못하면 참조를 버리고 갱신을 멈춘다", async
 });
 
 test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
-  const { mem, player } = makeSetup();
+  const { mem, player, cache, text } = makeSetup();
   tempStore.setGuild("g1", { botChannel: BOT_CHANNEL });
   const now = Date.now();
-  const cache = player.textChannel.messages.cache;
 
   try {
     assert.equal(await mem._isBuried(player, now), false, "혼자면 맨 아래다");
@@ -149,13 +180,13 @@ test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
     assert.equal(await mem._isBuried(player, now), false, "곧 스스로 지워질 안내는 쫓지 않는다");
 
     cache.set("155", { id: "155", createdTimestamp: now - 20000 });
-    require("../../src/ui/transientMessages.ts").markTransient("155", 30000, now - 20000);
+    markTransient("155", 30000, now - 20000);
     assert.equal(await mem._isBuried(player, now), false, "오래 떠 있어도 스스로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
 
     cache.set("160", { id: "160", createdTimestamp: now - 30000 });
     assert.equal(await mem._isBuried(player, now), true, "남아 있는 새 메시지 밑이면 묻힌 것");
 
-    player.textChannel.id = "other";
+    text.id = "other";
     assert.equal(await mem._isBuried(player, now), false, "전용 채널이 아니면 건드리지 않는다");
   } finally {
     tempStore.setGuild("g1", { botChannel: null });

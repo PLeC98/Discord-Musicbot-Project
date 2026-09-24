@@ -27,7 +27,7 @@ import * as trackState from "../player/trackState.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
 import type { MusicPlayer, PanelMessage } from "../player/Player.ts";
-import type { QueuedTrack } from "../player/track.ts";
+import type { QueuedTrack, Requester as TrackRequester } from "../player/track.ts";
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
 const UNKNOWN_MESSAGE = 10008;
@@ -41,7 +41,7 @@ const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
 type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number; queueLimited?: boolean };
-type Requester = QueuedTrack["requestedBy"];
+type Requester = TrackRequester | null;
 /** 담은 결과. 실패면 message 가 안내 */
 type AddResult = { success: boolean; message?: string; dropped?: number; queueLimited?: boolean };
 /** 담은 안내에 붙일 것. dropped 상한으로 뺀 곡 수, total 받은 것보다 많은 전체 곡 수, queueLimited 자리가 모자라 덜 받음 */
@@ -64,7 +64,7 @@ const PIN_SETTLE_MS = 12000;
 import { markTransient, isTransient } from "./transientMessages.ts";
 import * as blankThumbnail from "./blankThumbnail.ts";
 import { jumpDescription } from "./queueDisplay.ts";
-import { NowPlayingPanel } from "./panelLocation.ts";
+import { NowPlayingPanel, type PanelStore } from "./panelLocation.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
@@ -80,9 +80,10 @@ class MusicEmbedManager {
   idleViews = new Map<string, IdleView>(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
 
-  constructor(client: Client) {
+  // panelStore: 패널 자리 기록. 시험은 메모리 가짜를 준다
+  constructor(client: Client, { panelStore }: { panelStore?: PanelStore } = {}) {
     this.client = client;
-    this.panel = new NowPlayingPanel(this);
+    this.panel = new NowPlayingPanel(this, panelStore);
   }
 
   deleteWebhookCache(channelId: string) {
@@ -810,7 +811,7 @@ class MusicEmbedManager {
   /**
    * 초 단위 길이를 H:MM:SS 또는 M:SS 형식으로 변환합니다. (공용 구현: src/ui/format.js)
    */
-  formatDuration(seconds: number | null | undefined) {
+  formatDuration(seconds: number | string | null | undefined) {
     return formatDuration(seconds);
   }
 
@@ -859,3 +860,4 @@ class MusicEmbedManager {
 }
 
 export { MusicEmbedManager };
+export type { TrackData, AddResult, Responder };
