@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/cacheDownload.ts `_takeInfoJson` — 다운로드에 곁들여 받은 info.json에서 제목과 오디오 길이를 꺼낸다.
 // 읽고 지우는 것까지가 계약이다 — 남기면 캐시 폴더에 영상마다 100KB대 찌꺼기가 쌓인다.
 
@@ -12,7 +11,7 @@ import { TrackDownloader } from "../../src/media/cacheDownload.ts";
 const take = TrackDownloader.prototype._takeInfoJson;
 const NONE = { title: null, durationSec: null, version: null };
 
-function withTemp(fn) {
+function withTemp(fn: (filepath: string) => void) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "title-"));
   try {
     return fn(path.join(dir, "track_abc.opus"));

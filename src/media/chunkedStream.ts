@@ -16,7 +16,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 type RangeResponse = {
   status: number;
   headers: { get?(name: string): string | null };
-  body: ReadableStream<Uint8Array> | null;
+  body: { getReader(): { read(): Promise<{ done: true; value?: undefined } | { done: false; value: Uint8Array }> } } | null;
 };
 type RangeFetch = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<RangeResponse>;
 type Resumed = { attempts: number; downtimeMs: number; starvedMs: number };

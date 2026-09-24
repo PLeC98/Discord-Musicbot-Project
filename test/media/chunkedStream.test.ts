@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/chunkedStream.ts — Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
 //
 // 네트워크는 fetch를 주입해 흉내낸다. 실 소켓 없이 전부 검증한다.
@@ -6,13 +5,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Writable } from "stream";
-import { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } from "../../src/media/chunkedStream.ts";
+import { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError, type RangeFetch } from "../../src/media/chunkedStream.ts";
+import type { Readable } from "stream";
 
 const URL_ = "https://x/y";
 const FAST = { retryDelaysMs: [0, 0, 0] };
 
 // 결정적인 본문 — 어긋나면 바로 드러나도록 위치마다 다른 값
-function makeBody(size) {
+function makeBody(size: number) {
   const b = Buffer.alloc(size);
   for (let i = 0; i < size; i++) b[i] = (i * 7 + (i >> 8)) & 0xff;
   return b;
@@ -22,16 +22,25 @@ function makeBody(size) {
 //  sliceBytes   응답을 몇 바이트씩 나눠 줄지
 //  readDelayMs  조각 사이 지연 — 요청이 오래 진행 중이게 할 때
 //  plan(n, start) 요청마다 행동: { status, throws, dieAfter: 이 응답에서 몇 바이트 뒤 끊김, hangAfter: 몇 바이트 뒤 멈춤 }
-function fakeFetch(body, { sliceBytes = 4096, status = 206, onRequest, readDelayMs = 0, plan } = {}) {
+type Act = { status?: number; throws?: unknown; dieAfter?: number; hangAfter?: number };
+type FakeOptions = {
+  sliceBytes?: number;
+  status?: number;
+  onRequest?: (req: { start: number; end: number; signal: AbortSignal }) => void;
+  readDelayMs?: number;
+  plan?: (n: number, start: number) => Act | null | undefined;
+};
+
+function fakeFetch(body: Buffer, { sliceBytes = 4096, status = 206, onRequest, readDelayMs = 0, plan }: FakeOptions = {}): RangeFetch {
   let n = 0;
-  return async (url, opts) => {
+  return async (_url, opts) => {
     const range = /bytes=(\d+)-(\d+)/.exec(opts?.headers?.Range || "");
     const start = range ? Number(range[1]) : 0;
     const end = range ? Number(range[2]) : body.length - 1;
     const signal = opts?.signal;
     onRequest?.({ start, end, signal });
 
-    const act = plan?.(n++, start) || {};
+    const act: Act = plan?.(n++, start) || {};
     if (act.throws) throw act.throws;
     const st = act.status ?? status;
     const payload = st === 200 ? body : body.subarray(start, end + 1);
@@ -40,7 +49,7 @@ function fakeFetch(body, { sliceBytes = 4096, status = 206, onRequest, readDelay
     let off = 0;
     return {
       status: st,
-      headers: { get: (k) => (k.toLowerCase() === "content-range" && st === 206 ? `bytes ${start}-${end}/${body.length}` : null) },
+      headers: { get: (k: string) => (k.toLowerCase() === "content-range" && st === 206 ? `bytes ${start}-${end}/${body.length}` : null) },
       body:
         st >= 400
           ? null
@@ -64,10 +73,10 @@ function fakeFetch(body, { sliceBytes = 4096, status = 206, onRequest, readDelay
   };
 }
 
-const collect = (stream) =>
-  new Promise((resolve, reject) => {
-    const cs = [];
-    stream.on("data", (c) => cs.push(c));
+const collect = (stream: Readable) =>
+  new Promise<Buffer>((resolve, reject) => {
+    const cs: Buffer[] = [];
+    stream.on("data", (c: Buffer) => cs.push(c));
     stream.on("end", () => resolve(Buffer.concat(cs)));
     stream.on("error", reject);
   });
@@ -97,7 +106,7 @@ test("청크가 전체보다 크면 요청 한 번으로 끝난다", async () =>
 
 test("요청 구간이 이어진다 — 겹치거나 빠지는 바이트가 없다", async () => {
   const body = makeBody(30_000);
-  const seen = [];
+  const seen: Array<{ start: number; end: number }> = [];
   const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl: fakeFetch(body, { onRequest: (r) => seen.push(r) }) });
   await collect(s);
   assert.deepEqual(
@@ -146,10 +155,10 @@ test("느린 소비자에게도 한 바이트도 빠뜨리지 않는다 (중단�
   const body = makeBody(120_000);
   const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 16_384, fetchImpl: fakeFetch(body, { sliceBytes: 2048 }) });
 
-  const got = [];
+  const got: Buffer[] = [];
   const slow = new Writable({
     highWaterMark: 4096,
-    write(c, _e, cb) {
+    write(c: Buffer, _e, cb) {
       got.push(c);
       setTimeout(cb, 2);
     },
@@ -169,8 +178,8 @@ test("느린 소비자에게도 한 바이트도 빠뜨리지 않는다 (중단�
 
 test("중간에 끊기면 받은 위치부터 이어받는다 — 결과는 원본과 같다", async () => {
   const body = makeBody(50_000);
-  const seen = [];
-  const resumed = [];
+  const seen: number[] = [];
+  const resumed: Array<{ attempts: number; downtimeMs: number; starvedMs: number }> = [];
   const s = createChunkedStream({
     url: URL_,
     totalBytes: body.length,
@@ -187,8 +196,8 @@ test("중간에 끊기면 받은 위치부터 이어받는다 — 결과는 원�
 
 test("넘겨받았다고 하면 이어받지 않고 받아 둔 데까지 내보낸 뒤 정상 종료한다", async () => {
   const body = makeBody(50_000);
-  const seen = [];
-  const errors = [];
+  const seen: number[] = [];
+  const errors: unknown[] = [];
   const s = createChunkedStream({
     url: URL_,
     totalBytes: body.length,
@@ -280,15 +289,15 @@ test("첫 요청이 네트워크 오류로 실패해도 다시 시도해 연다 
 
 test("destroy()는 진행 중인 요청을 abort하고 더 밀어내지 않는다", async () => {
   const body = makeBody(200_000);
-  let signal = null;
-  const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 16_384, fetchImpl: fakeFetch(body, { sliceBytes: 512, readDelayMs: 2, onRequest: (r) => (signal = r.signal) }) });
+  const req: { signal?: AbortSignal } = {};
+  const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 16_384, fetchImpl: fakeFetch(body, { sliceBytes: 512, readDelayMs: 2, onRequest: (r) => (req.signal = r.signal) }) });
 
   let pushed = 0;
   s.on("data", (c) => (pushed += c.length));
   await new Promise((r) => s.once("data", r));
 
   s.destroy();
-  assert.equal(signal.aborted, true, "진행 중이던 요청이 abort됐다");
+  assert.equal(req.signal?.aborted, true, "진행 중이던 요청이 abort됐다");
 
   const atDestroy = pushed;
   await new Promise((r) => setTimeout(r, 30));
@@ -375,7 +384,7 @@ test("openChunkedStream은 성공하면 내용이 온전한 스트림을 돌려�
 });
 
 test("선행 요청 실패는 스트림을 정리한다 (죽은 요청을 남기지 않음)", async () => {
-  let signal = null;
+  const req: { signal?: AbortSignal } = {};
   await assert.rejects(
     openChunkedStream({
       url: URL_,
@@ -383,13 +392,13 @@ test("선행 요청 실패는 스트림을 정리한다 (죽은 요청을 남기
       chunkSize: 500,
       ...FAST,
       fetchImpl: async (_u, o) => {
-        signal = o.signal;
+        req.signal = o.signal;
         throw new Error("network down");
       },
     }),
     /network down/,
   );
-  assert.equal(signal.aborted, true);
+  assert.equal(req.signal?.aborted, true);
 });
 
 // ── 오류 설명·관측 ───────────────────────────────────────────
@@ -412,9 +421,10 @@ test("stats: 마지막 수신 이후 시간이 흐른다", async () => {
   await new Promise((r) => s.once("data", r));
   s.pause();
   await new Promise((r) => setTimeout(r, 80));
-  const st = s.stats();
-  assert.ok(st.idleMs >= 60, `idleMs=${st.idleMs}`);
-  assert.ok(st.sinceOpenMs >= st.idleMs);
+  const { idleMs, sinceOpenMs } = s.stats();
+  assert.ok(idleMs !== null && sinceOpenMs !== null, "요청을 연 적이 있다");
+  assert.ok(idleMs >= 60, `idleMs=${idleMs}`);
+  assert.ok(sinceOpenMs >= idleMs);
   s.destroy();
 });
 
@@ -430,7 +440,8 @@ test("stats: 현재 청크의 시작 위치와 받은 양", async () => {
 test("stats: URL의 expire로 만료까지 남은 초를 낸다", () => {
   const expire = Math.floor(Date.now() / 1000) + 100;
   const s = createChunkedStream({ url: `${URL_}?expire=${expire}`, totalBytes: 10, chunkSize: 10, fetchImpl: fakeFetch(makeBody(10)) });
-  assert.ok(s.stats().expiresInS > 90 && s.stats().expiresInS <= 100);
+  const left = s.stats().expiresInS;
+  assert.ok(left !== null && left > 90 && left <= 100, `expiresInS=${left}`);
   const bare = createChunkedStream({ url: URL_, totalBytes: 10, chunkSize: 10, fetchImpl: fakeFetch(makeBody(10)) });
   assert.equal(bare.stats().expiresInS, null);
 });
@@ -438,8 +449,14 @@ test("stats: URL의 expire로 만료까지 남은 초를 낸다", () => {
 // ── 인자 검증 ────────────────────────────────────────────────
 
 test("totalBytes·chunkSize가 올바르지 않으면 만들 때 거부한다", () => {
-  const base = { url: URL_, fetchImpl: async () => {} };
-  for (const bad of [0, -1, NaN, null, undefined]) {
+  const base = {
+    url: URL_,
+    fetchImpl: async () => {
+      throw new Error("부르지 않는다");
+    },
+  };
+  // 타입 밖 값(null · undefined)도 막는다
+  for (const bad of [0, -1, NaN, null, undefined] as unknown as number[]) {
     assert.throws(() => createChunkedStream({ ...base, totalBytes: bad, chunkSize: 1024 }), /totalBytes/);
     assert.throws(() => createChunkedStream({ ...base, totalBytes: 1024, chunkSize: bad }), /chunkSize/);
   }

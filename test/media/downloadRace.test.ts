@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/cacheDownload.ts — 같은 곡을 두 서버가 동시에 받는 경쟁 (백로그 B-23)
 //
 // 회귀 대상: 진행 중 다운로드 맵이 MusicPlayer마다 따로였다. 서버가 다르면 같은 전역 캐시 경로에
@@ -9,7 +8,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { TrackDownloader } from "../../src/media/cacheDownload.ts";
+import { TrackDownloader, type DownloadTrack } from "../../src/media/cacheDownload.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;
@@ -21,20 +20,35 @@ const KEY = "a".repeat(32);
 const finalPath = path.join(dir, `track_${KEY}.opus`);
 const track = { requestKey: "https://www.youtube.com/watch?v=aaaaaaaaaaa", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", title: "곡", platform: "youtube" };
 
-function makeDownloader({ onDownload }) {
-  const downloader = new TrackDownloader({ guild: { id: "g" } });
-  downloader.trackFilePath = () => finalPath;
-  downloader._performDownload = async (t, file) => {
-    await onDownload(t, file);
+type OnDownload = (track: DownloadTrack, file: string) => Promise<void>;
+
+// 같은 파일을 받고, 받는 일은 onDownload 가 대신한다
+class RaceDownloader extends TrackDownloader {
+  onDownload: OnDownload;
+
+  constructor(onDownload: OnDownload) {
+    super({ guild: { id: "g" } });
+    this.onDownload = onDownload;
+  }
+
+  trackFilePath() {
+    return finalPath;
+  }
+
+  async _performDownload(t: DownloadTrack, file: string) {
+    await this.onDownload(t, file);
     return file;
-  };
-  return downloader;
+  }
+}
+
+function makeDownloader({ onDownload }: { onDownload: OnDownload }) {
+  return new RaceDownloader(onDownload);
 }
 
 test("같은 곡을 서버 둘이 동시에 받으면 실제 다운로드는 한 번뿐", async () => {
   let started = 0;
-  let release;
-  const gate = new Promise((resolve) => (release = resolve));
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
   const onDownload = async () => {
     started++;
     await gate;
@@ -97,8 +111,8 @@ test("실패 정리는 내 임시 파일과 그 부스러기만 — 남이 받�
   const removed = cleanTemp(mine);
 
   assert.equal(removed, 4);
-  for (const key of ["mine", "myPart", "myFragment", "myInfo"]) assert.equal(fs.existsSync(files[key]), false, key);
-  for (const key of ["theirs", "theirPart", "done"]) assert.equal(fs.existsSync(files[key]), true, key);
+  for (const key of ["mine", "myPart", "myFragment", "myInfo"] as const) assert.equal(fs.existsSync(files[key]), false, key);
+  for (const key of ["theirs", "theirPart", "done"] as const) assert.equal(fs.existsSync(files[key]), true, key);
   fs.rmSync(files.theirs);
   fs.rmSync(files.theirPart);
   fs.rmSync(files.done);

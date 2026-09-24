@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/audioSplicer.ts — 재생을 끊지 않고 소스를 갈아끼우는 스트림
 //
 // 지키는 것: 전환 전후로 한 바이트도 새지 않고, 지정한 지점에서 갈아타며,
@@ -7,11 +6,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PassThrough } from "stream";
+import { PassThrough, type Readable } from "stream";
 import { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } from "../../src/media/audioSplicer.ts";
 
 // 위치마다 값이 다른 PCM — 어긋나면 바로 드러난다. mark로 소스를 구분한다.
-function pcm(ms, mark) {
+function pcm(ms: number, mark: number) {
   const buf = Buffer.alloc(ms * BYTES_PER_MS);
   for (let i = 0; i < buf.length; i += 2) buf.writeInt16LE(((i / 2 + mark * 1000) % 20000) - 10000, i);
   return buf;
@@ -19,17 +18,17 @@ function pcm(ms, mark) {
 
 function feed(chunkMs = 100) {
   const s = new PassThrough();
-  s.writeAll = (buf) => {
+  const writeAll = (buf: Buffer) => {
     for (let o = 0; o < buf.length; o += chunkMs * BYTES_PER_MS) s.write(buf.subarray(o, o + chunkMs * BYTES_PER_MS));
     s.end();
   };
-  return s;
+  return Object.assign(s, { writeAll });
 }
 
-const collect = (s) =>
-  new Promise((resolve, reject) => {
-    const cs = [];
-    s.on("data", (c) => cs.push(c));
+const collect = (s: Readable) =>
+  new Promise<Buffer>((resolve, reject) => {
+    const cs: Buffer[] = [];
+    s.on("data", (c: Buffer) => cs.push(c));
     s.on("end", () => resolve(Buffer.concat(cs)));
     s.on("error", reject);
   });
@@ -124,12 +123,12 @@ test("새 소스가 늦으면 전환 지점을 뒤로 밀되 되풀이를 만들
   const b = pcm(600, 2);
   src.end(pcm(600, 1));
 
-  let switchedAt = null;
-  sp.on("switched", (ms) => (switchedAt = ms));
+  let switchedAt: number | null = null;
+  sp.on("switched", (ms: number) => (switchedAt = ms));
   sp.planSwitch(nxt, cueAt); // 이 시점에 nxt는 비어 있다 → 민다
 
-  const out = [];
-  sp.on("data", (c) => out.push(c));
+  const out: Buffer[] = [];
+  sp.on("data", (c: Buffer) => out.push(c));
   await new Promise((r) => setTimeout(r, 30));
   nxt.end(b); // 뒤늦게 도착
   await new Promise((r) => sp.on("end", r));
@@ -139,6 +138,7 @@ test("새 소스가 늦으면 전환 지점을 뒤로 밀되 되풀이를 만들
 
   // 불변식: 전환 뒤 출력 위치 P의 내용 == 새 소스의 (P - cueAt) 위치
   const merged = Buffer.concat(out);
+  assert.ok(switchedAt !== null, "전환하지 않았다");
   for (const p of [switchedAt + 60, switchedAt + 120]) {
     const got = merged.subarray(p * BYTES_PER_MS, (p + 40) * BYTES_PER_MS);
     const exp = b.subarray((p - cueAt) * BYTES_PER_MS, (p - cueAt + 40) * BYTES_PER_MS);
@@ -179,8 +179,8 @@ test("switched 이벤트가 전환 위치와 함께 한 번 발생한다", async
   const nxt = feed();
   const sp = new AudioSplicer(src, { fadeMs: 40 });
   src.writeAll(pcm(400, 1));
-  const events = [];
-  sp.on("switched", (ms) => events.push(ms));
+  const events: number[] = [];
+  sp.on("switched", (ms: number) => events.push(ms));
   sp.planSwitch(nxt, 200);
   nxt.writeAll(pcm(400, 2));
   await collect(sp);
@@ -302,7 +302,7 @@ test("소스 오류는 이 스트림의 오류가 된다 (기존 캐시 폴백�
   const src = new PassThrough();
   const sp = new AudioSplicer(src);
   sp.on("data", () => {});
-  const err = new Promise((r) => sp.on("error", r));
+  const err = new Promise<Error>((r) => sp.on("error", r));
   src.destroy(new Error("terminated"));
   assert.match((await err).message, /terminated/);
 });

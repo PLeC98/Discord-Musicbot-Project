@@ -1,18 +1,14 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/ffmpeg/path.ts — ffmpeg 경로 해석의 단일 출처.
 //
 // 회귀 대상: 재생과 캐시 변환이 서로 다른 ffmpeg를 쓰던 문제. 어느 바이너리가 도는지
 // 알 수 없어 플랫폼별 빌드 결함을 진단할 수 없었다.
 
 import path from "node:path";
+import fs from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import * as ffmpegPathModule from "../../src/media/ffmpeg/path.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
 
 const { resolve, ffmpegPath, logResolved } = ffmpegPathModule;
 const { probe, _reset } = ffmpegPathModule._internals;
@@ -56,5 +52,5 @@ test("_reset 후에도 같은 바이너리로 다시 해석된다 (캐시 초기
 test("번들 ffmpeg 는 저장소 뿌리의 bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
   const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
   const expected = path.join(import.meta.dirname, "..", "..", "bin", exe);
-  assert.equal(ffmpegPathModule._internals.fromBundle(), require("node:fs").existsSync(expected) ? expected : null);
+  assert.equal(ffmpegPathModule._internals.fromBundle(), fs.existsSync(expected) ? expected : null);
 });

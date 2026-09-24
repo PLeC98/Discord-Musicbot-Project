@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/ffmpeg/process.ts probeDurationSec — 받아둔 파일에서 실제 재생 길이를 읽는다.
 //
 // 회귀 대상: 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다.
@@ -13,10 +12,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { ffmpegPath } from "../../src/media/ffmpeg/path.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import * as DirectLink from "../../src/sources/direct.ts";
 
 import { probeDurationSec } from "../../src/media/ffmpeg/process.ts";
 
@@ -33,7 +29,7 @@ const TONE = path.join(os.tmpdir(), `musicbot-probe-${process.pid}.mp3`);
 const SECONDS = 7;
 
 before((t, done) => {
-  if (opts.skip) return done();
+  if (opts.skip || !BIN) return done();
   // 길이를 아는 톤을 만든다. -q:a 0 = VBR 최고품질 — 추정식이 가장 크게 빗나가는 조건
   const p = spawn(BIN, ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `sine=frequency=440:duration=${SECONDS}`, "-c:a", "libmp3lame", "-q:a", "0", "-y", TONE], { windowsHide: true });
   p.on("exit", () => done());
@@ -50,17 +46,17 @@ after(() => {
 
 test("실제 길이를 초 단위로 돌려준다", opts, async () => {
   const sec = await probeDurationSec(TONE);
-  assert.equal(typeof sec, "number");
+  assert.ok(typeof sec === "number", `숫자가 아니다: ${sec}`);
   // 인코더가 프레임 경계로 반올림하므로 1초 오차는 허용
   assert.ok(Math.abs(sec - SECONDS) <= 1, `${sec}초 (기대 ${SECONDS}초)`);
 });
 
 test("Content-Length 추정보다 정확하다", opts, async () => {
-  const DirectLink = require("../../src/sources/direct.ts");
   const size = String(fs.statSync(TONE).size);
 
   const estimated = DirectLink.estimateDuration(size, "audio/mpeg");
   const probed = await probeDurationSec(TONE);
+  assert.ok(probed !== null, "길이를 읽지 못했다");
 
   assert.ok(Math.abs(probed - SECONDS) < Math.abs(estimated - SECONDS), `프로브 ${probed}초가 추정 ${estimated}초보다 정확해야 한다 (실제 ${SECONDS}초)`);
 });

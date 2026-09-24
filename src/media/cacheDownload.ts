@@ -18,6 +18,11 @@ import * as SponsorBlock from "../sources/sponsorBlock.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import type { TrackInfo } from "../player/track.js";
+
+/** 받는 곡. 제목과 요청 열쇠 말고는 없을 수 있다. 담은 곡(TrackInfo)이 그대로 맞는다 */
+type DownloadTrack = Pick<TrackInfo, "title" | "requestKey"> & Partial<TrackInfo>;
+/** 음원 주소만 보는 판정 */
+type HasAudio = Partial<TrackInfo> | null | undefined;
 import type { AudioStream } from "../sources/direct.ts";
 
 // 받는 데 부르는 소스와 변환에서 여기서 부르는 칸만
@@ -25,8 +30,8 @@ type Sources = {
   youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
   direct: { getStream(url: string): Promise<AudioStream> };
   convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null }> };
-  sponsor: { forTrack(track: TrackInfo, guildId: string): Promise<unknown> };
-  equivalent: { findYouTubeEquivalent(track: TrackInfo): Promise<string | null>; reresolveYouTube(track: TrackInfo): Promise<string | null> };
+  sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
+  equivalent: { findYouTubeEquivalent(track: DownloadTrack): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
 };
 /** 받는 쪽 플레이어에서 읽는 칸 */
 type Owner = { guild: { id: string } };
@@ -50,7 +55,7 @@ const inFlight = new Map<string, Promise<string>>(); // 최종 경로 → Promis
  * 유튜브 음원이 들어가, 같은 곡이 처음 틀 때와 캐시로 틀 때 서로 다른 녹음이 된다.
  * 조건문 안에 묻어 두면 다시 끼워 넣게 되므로 규칙에 이름을 준다.
  */
-function needsBorrowedAudio(track: TrackInfo | null | undefined): boolean {
+function needsBorrowedAudio(track: HasAudio): boolean {
   return !!track && !track.audioUrl;
 }
 
@@ -114,7 +119,7 @@ class TrackDownloader {
   /**
    * 트랙의 캐시 파일 경로 산출. 음원 주소가 아직 없으면(스포티파이 미해석) 요청 열쇠를 해시한다.
    */
-  trackFilePath(track: TrackInfo): string {
+  trackFilePath(track: DownloadTrack): string {
     return audioCache.getFilePath(audioKeyOf(track.audioUrl) || track.requestKey);
   }
 
@@ -126,7 +131,7 @@ class TrackDownloader {
    * 열쇠가 정해진다. 그 검색을 받는 도중에 하면 파일이 요청 열쇠 자리에 저장되고 DB 행도 안 남아,
    * 열쇠가 생긴 다음 번에 같은 곡을 또 받는다.
    */
-  async downloadTrack(track: TrackInfo): Promise<string> {
+  async downloadTrack(track: DownloadTrack): Promise<string> {
     // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
     // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
     // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
@@ -170,7 +175,7 @@ class TrackDownloader {
     }
   }
 
-  async _performDownload(track: TrackInfo, filepath: string): Promise<string> {
+  async _performDownload(track: DownloadTrack, filepath: string): Promise<string> {
     const player = this.player;
     const audioKey = audioKeyOf(track.audioUrl);
     let verifiedTitle: string | null = null;
@@ -356,7 +361,7 @@ class TrackDownloader {
   }
 
   /** 캐시 파일이 이미 준비돼 있는가. "받을 필요가 없다"의 유일한 근거다. */
-  isCached(track: TrackInfo): boolean {
+  isCached(track: HasAudio): boolean {
     return TrackDownloader.findCacheFile(track) !== null;
   }
 
@@ -364,7 +369,7 @@ class TrackDownloader {
    * 한 곡을 캐시에 올린다. QueueWarmer가 부르는 유일한 진입점.
    * 이미 받았는지, 받는 중인지는 downloadTrack이 판정하므로 여기서 다시 하지 않는다.
    */
-  async warm(track: TrackInfo | null | undefined): Promise<void> {
+  async warm(track: DownloadTrack | null | undefined): Promise<void> {
     if (!track || !track.requestKey) return;
     await this.downloadTrack(track);
   }
@@ -384,7 +389,7 @@ class TrackDownloader {
    * 받기는 임시 파일에 쓰고 끝나면 옮기므로 열쇠 자리에 있으면 다 받은 것이다. 받는 중 확인은 그래도 한 번 더 본다.
    * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 열쇠도 없어 null 이다.
    */
-  static findCacheFile(track: TrackInfo | null | undefined): string | null {
+  static findCacheFile(track: HasAudio): string | null {
     const key = audioKeyOf(track?.audioUrl);
     if (!key) return null;
     const file = audioCache.getFilePath(key);
@@ -399,4 +404,4 @@ class TrackDownloader {
 }
 
 export { TrackDownloader };
-export type { Sources };
+export type { DownloadTrack, Sources };

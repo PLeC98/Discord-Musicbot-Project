@@ -13,7 +13,7 @@ type Converted = ConvertPlan & { durationSec: number | null };
 const ytdlpPostprocessorArgs = () => `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`;
 
 /** 정해진 계획을 ffmpeg 인자로. 출력은 언제나 `.opus`(ogg/opus). 캐시 파일명이 그 전제다. */
-function argsFor(plan: ConvertPlan, srcFile: string, outFile: string): string[] {
+function argsFor(plan: Pick<ConvertPlan, "action" | "bitrateKbps">, srcFile: string, outFile: string): string[] {
   const codec = plan.action === "copy" ? ["-c:a", "copy"] : ["-c:a", "libopus", "-b:a", `${plan.bitrateKbps}k`];
   // `-vn` 은 두 경우 모두 붙인다. 앨범아트가 붙은 파일을 리먹싱하면 그림까지 따라 들어온다.
   return ["-hide_banner", "-loglevel", "error", "-i", srcFile, "-vn", ...codec, "-f", "opus", "-y", outFile];

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // media/ffmpeg/args buildFfmpegArgs — ffmpeg 인자 구성의 불변식.
 //
 // 회귀 대상: 오프셋 재생 시 ffmpeg에 URL을 직접 입력하던 것. httpHeaders가 빠지고,
@@ -12,12 +11,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildFfmpegArgs } from "../../src/media/ffmpeg/args.ts";
-import { createRequire } from "node:module";
+import { _internals as processInternals } from "../../src/media/ffmpeg/process.ts";
 
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
-const build = (opts) => buildFfmpegArgs(opts);
+const build = buildFfmpegArgs;
 
 test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpeg 는 모르는 옵션에 멈춘다", () => {
   const caps = { segMaxRetry: true };
@@ -26,7 +22,7 @@ test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpe
   assert.ok(!dash.includes("-seg_max_retry"));
   assert.equal(dash[dash.indexOf("-i") + 1], "https://x/a.mpd");
 });
-const idx = (args, flag) => args.indexOf(flag);
+const idx = (args: string[], flag: string) => args.indexOf(flag);
 
 test("스트리밍: 입력은 pipe:0. 부르지 않은 곳에 URL이 새지 않는다", () => {
   for (const seekMs of [0, 1, 5000, 180000]) {
@@ -73,7 +69,7 @@ test("-loglevel은 error — 0(무음)이면 SIGSEGV가 단서 없이 묻힌다"
 
 test("크래시 시그널 집합: 정상 종료용 SIGKILL/SIGTERM은 크래시로 치지 않는다", () => {
   // 스킵·정지·종료에서 우리가 SIGKILL을 보낸다 — 이걸 크래시로 찍으면 오탐이 쏟아진다.
-  const { CRASH_SIGNALS } = require("../../src/media/ffmpeg/process.ts")._internals;
+  const { CRASH_SIGNALS } = processInternals;
   assert.ok(CRASH_SIGNALS.has("SIGSEGV"));
   assert.ok(CRASH_SIGNALS.has("SIGABRT"));
   assert.ok(!CRASH_SIGNALS.has("SIGKILL"));

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/media/convert.ts: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
 // 회귀 대상: 직접 링크 갈래가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
@@ -15,17 +14,14 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as audioConvert from "../../src/media/convert.ts";
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+import { probeAudio, spawnFfmpeg, _internals as ffmpegInternals } from "../../src/media/ffmpeg/process.ts";
+import { TrackDownloader } from "../../src/media/cacheDownload.ts";
 
 const { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } = audioConvert;
 const { argsFor } = audioConvert._internals;
-const { probeAudio, _internals: ffmpegInternals } = await import("../../src/media/ffmpeg/process.ts");
 const { parseProbeOutput } = ffmpegInternals;
 
-const idx = (args, flag) => args.indexOf(flag);
+const idx = (args: string[], flag: string) => args.indexOf(flag);
 
 test("이미 Opus 면 그대로 옮긴다. 손실 세대를 쓰지 않는다", () => {
   for (const kbps of [96, 128, 186, 205, 318, 329, REMUX_MAX_KBPS]) {
@@ -62,7 +58,7 @@ test("Opus 가 아니면 소스 비트레이트와 무관하게 같은 목표로
     ["flac", 1000],
     ["vorbis", 500],
     ["pcm_s16le", 1411],
-  ]) {
+  ] as const) {
     const plan = planFor({ codec, bitrateKbps: kbps });
     assert.equal(plan.action, "transcode", `${codec} ${kbps}k`);
     assert.equal(plan.bitrateKbps, TRANSCODE_TARGET_KBPS, `${codec} ${kbps}k, 목표는 소스와 무관하다`);
@@ -101,7 +97,7 @@ test("인자: 출력은 언제나 opus 컨테이너이고 -vn 이 붙는다", ()
   for (const plan of [
     { action: "copy", bitrateKbps: 200 },
     { action: "transcode", bitrateKbps: 128 },
-  ]) {
+  ] as const) {
     const args = argsFor(plan, "/in", "/out.opus");
     assert.equal(args[idx(args, "-f") + 1], "opus", plan.action);
     assert.ok(args.includes("-vn"), plan.action);
@@ -180,7 +176,6 @@ after(() => {
 });
 
 test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 나온다", async (t) => {
-  const { spawnFfmpeg } = require("../../src/media/ffmpeg/process.ts");
   const made = await new Promise((resolve) => {
     let child;
     try {
@@ -212,7 +207,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
 test("음원을 빌려 오는 것은 음원 주소가 없는 곡(스포티파이)뿐이다. 사운드클라우드는 제 음원을 준다", () => {
   // 상류가 둘을 DRM 으로 묶어 둬서 `sc:` 키 안에 유튜브 음원이 들어갔다. 같은 곡이 처음 틀 때와
   // 캐시로 틀 때 서로 다른 녹음이 됐고, 유튜브 검색이 헛짚으면 그 키에 다른 곡이 박힌 채 남았다.
-  const { needsBorrowedAudio } = require("../../src/media/cacheDownload.ts").TrackDownloader._internals;
+  const { needsBorrowedAudio } = TrackDownloader._internals;
 
   assert.equal(needsBorrowedAudio({ platform: "spotify" }), true);
   assert.equal(needsBorrowedAudio({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }), false, "SC-4");
