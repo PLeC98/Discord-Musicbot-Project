@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 대시보드 이모지 고르기 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.js
 //
@@ -13,6 +12,8 @@
 
 import fs from "fs";
 import path from "path";
+import { z } from "zod";
+import { messageOf } from "../src/rules/errorKind.ts";
 
 const EMOJIBASE = "17.0.0";
 // 대시보드가 그림을 받아오는 곳과 같은 버전을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
@@ -22,18 +23,24 @@ const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5d
 const NOTES = path.join(import.meta.dirname, "..", "notes", "디스코드 이모지 카테고리 및 목록.md");
 const OUT = path.join(import.meta.dirname, "..", "dashboard", "client", "src", "emojiList.js");
 
-const json = async (url) => {
+// 받아 오는 것의 모양. 여기서 읽는 칸만 본다
+const Listing = z.object({ files: z.array(z.object({ name: z.string() })).optional() });
+const Gist = z.record(z.string(), z.string());
+const Compact = z.array(z.object({ hexcode: z.string(), unicode: z.string(), label: z.string().optional(), tags: z.array(z.string()).optional() }));
+const Shortcodes = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
+
+const json = async <T extends z.ZodType>(url: string, schema: T): Promise<z.output<T>> => {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
-  return res.json();
+  return schema.parse(await res.json());
 };
-const base = (file) => json(`https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJIBASE}/${file}`);
+const base = <T extends z.ZodType>(file: string, schema: T) => json(`https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJIBASE}/${file}`, schema);
 
 // Twemoji 파일 이름 규칙. ZWJ가 없는 이모지에서만 VS16(FE0F)을 뗀다.
 // 예외로 👁️‍🗨️처럼 ZWJ가 있는데도 전부 뗀 이름인 것이 있어 두 후보를 다 본다.
 // TwemojiImage.vue도 같은 순서로 시도한다.
-const toId = (s) => [...s].map((c) => c.codePointAt(0).toString(16)).join("-");
-const iconIds = (char) => {
+const toId = (s: string) => [...s].map((c) => (c.codePointAt(0) ?? 0).toString(16)).join("-");
+const iconIds = (char: string) => {
   const strict = toId(char.includes("‍") ? char : char.replace(/️/g, ""));
   const loose = toId(char.replace(/️/g, ""));
   return strict === loose ? [strict] : [strict, loose];
@@ -42,14 +49,14 @@ const iconIds = (char) => {
 // 출처마다 VS16과 ZWJ를 붙이기도 빼기도 한다. 뺀 꼴을 열쇠로 삼아 짝을 찾는다.
 // 특히 지스트는 ZWJ를 흘려서 :woman_police_officer:를 1F46E 2640(= 두 글자)으로 준다.
 // emojibase 쪽 표기가 표준이므로 그쪽으로 바로잡는다. 이 열쇠로는 겹치는 항목이 없다.
-const key = (s) => [...s].filter((c) => c !== "️" && c !== "‍").join("");
+const key = (s: string) => [...s].filter((c) => c !== "️" && c !== "‍").join("");
 
 // 저장 검사와 같은 잣대. 고를 수는 있는데 저장이 안 되는 칸을 만들지 않는다
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 // 군더더기 VS16만 뗀다(ZWJ는 두어야 조합이 유지된다)
-const bare = (s) => [...s].filter((c) => c !== "️").join("");
+const bare = (s: string) => [...s].filter((c) => c !== "️").join("");
 // 구분자로 쓰는 글자가 값에 들어 있으면 줄이 깨진다
-const clean = (s) =>
+const clean = (s: string | undefined) =>
   String(s || "")
     .replace(/[|\n\r]+/g, " ")
     .trim();
@@ -68,7 +75,7 @@ function readNotes() {
 
 // Twemoji 저장소에 있는 svg 파일 이름들
 async function readAssets() {
-  const listing = await json(`https://data.jsdelivr.com/v1/packages/gh/jdecked/twemoji@${TWEMOJI}?structure=flat`);
+  const listing = await json(`https://data.jsdelivr.com/v1/packages/gh/jdecked/twemoji@${TWEMOJI}?structure=flat`, Listing);
   const ids = (listing.files || []).map((f) => f.name).filter((n) => n.startsWith("/assets/svg/"));
   if (!ids.length) throw new Error("Twemoji 파일 목록을 읽지 못했다");
   return new Set(ids.map((n) => n.slice("/assets/svg/".length, -".svg".length)));
@@ -81,15 +88,15 @@ async function main() {
   // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
   // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다). 지스트는 emojibase에 없는
   // 디스코드 고유 이름을 메우는 데만 쓴다.
-  const [assets, gist, ko, ...sets] = await Promise.all([readAssets(), json(GIST), base("ko/compact.json"), ...["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map(base)]);
+  const [assets, gist, ko, sets] = await Promise.all([readAssets(), json(GIST, Gist), base("ko/compact.json", Compact), Promise.all(["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map((file) => base(file, Shortcodes)))]);
 
   const charOfHex = new Map(ko.map((e) => [e.hexcode, e.unicode]));
-  const charOfCode = new Map();
+  const charOfCode = new Map<string, string>();
   for (const set of sets) {
     for (const [hex, codes] of Object.entries(set)) {
       const char = charOfHex.get(hex);
       if (!char) continue;
-      for (const code of [].concat(codes)) {
+      for (const code of [codes].flat()) {
         const name = String(code).replace(/:/g, "");
         if (!charOfCode.has(name)) charOfCode.set(name, char);
       }
@@ -102,12 +109,12 @@ async function main() {
 
   const korean = new Map(ko.map((e) => [key(e.unicode), e]));
 
-  const groups = [];
-  const dropped = [];
-  const noAsset = [];
+  const groups: [string, string[]][] = [];
+  const dropped: string[] = [];
+  const noAsset: string[] = [];
 
   for (const section of notes) {
-    const rows = [];
+    const rows: string[] = [];
     for (const code of section.codes) {
       const found = charOfCode.get(code);
       if (!found) {
@@ -172,6 +179,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error.message);
+  console.error(messageOf(error));
   process.exit(1);
 });

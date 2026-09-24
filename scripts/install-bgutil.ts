@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // bgutil-ytdlp-pot-provider (POToken 공급자) 설치/업데이트 스크립트.
 //   pnpm run install:bgutil. 없으면 git clone, 그 후 의존성 설치 + 빌드
 //   pnpm run update:bgutil. git pull 후 재설치 + 재빌드 (--update)
@@ -9,6 +8,7 @@
 import { execSync } from "child_process";
 import path from "path";
 import fs from "fs";
+import { messageOf } from "../src/rules/errorKind.ts";
 
 const ROOT = path.join(import.meta.dirname, "..");
 const DIR = path.join(ROOT, "bgutil-ytdlp-pot-provider");
@@ -16,7 +16,7 @@ const SERVER = path.join(DIR, "server");
 const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
 const isUpdate = process.argv.includes("--update");
 
-function run(cmd, cwd) {
+function run(cmd: string, cwd: string) {
   console.log(`\n$ ${cmd}   (${path.relative(ROOT, cwd) || "."})`);
   execSync(cmd, { cwd, stdio: "inherit" });
 }
@@ -64,7 +64,7 @@ try {
     console.log("   플러그인과 메이저 버전이 다르면 토큰 발급이 거부됩니다.");
   }
 } catch (e) {
-  console.error("\n❌ bgutil 설치/업데이트 실패:", e.message);
+  console.error("\n❌ bgutil 설치/업데이트 실패:", messageOf(e));
   console.error("   git / node / (canvas 네이티브 모듈용 빌드 툴체인)이 설치돼 있는지 확인하세요.");
   process.exit(1);
 }

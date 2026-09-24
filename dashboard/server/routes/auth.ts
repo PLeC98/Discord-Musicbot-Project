@@ -22,7 +22,7 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: 
   // 응답 없는 요청이 로그인 콜백을 붙잡지 않도록 제한 시간을 둔 클라이언트로 부른다.
   const router = express.Router();
   const CLIENT_ID = config.discord.clientId;
-  const CLIENT_SECRET = config.discord.clientSecret;
+  const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 없으면 기동 때 경고. 로그인이 디스코드에서 거절된다
   const REDIRECT_URI = `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
   // 리다이렉트 불일치 디버깅용 REDIRECT_URI만.

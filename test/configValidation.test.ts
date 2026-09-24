@@ -11,13 +11,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "path";
 import { spawnSync } from "child_process";
-import configModule from "../config.ts";
+import { loadConfig } from "../config.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
-
-const { loadConfig } = configModule;
 
 const ROOT = path.join(import.meta.dirname, "..");
 
@@ -41,6 +39,13 @@ test("주소 설정은 형식과 스킴을 본다", () => {
   assert.equal(load({ WEBSITE: "그냥 글자" }).problems.length, 1);
   assert.equal(load({ WEBSITE: "javascript:alert(1)" }).problems.length, 1, "http·https만");
   assert.deepEqual(load({ WEBSITE: "https://example.com" }).problems, []);
+});
+
+// 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 기동에서 멈춘다
+test("임베드 색은 #RRGGBB 만 받는다", () => {
+  assert.deepEqual(load({ EMBED_COLOR: "#2743d2" }).problems, []);
+  for (const bad of ["blue", "#12345", "2743D2", "#GGGGGG"]) assert.equal(load({ EMBED_COLOR: bad }).problems.length, 1, bad);
+  assert.equal(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1" }).config.bot.embedColor, "#2743D2", "비우면 기본 색");
 });
 
 test("비워 두는 것은 기본값을 쓰겠다는 뜻이라 통과한다", () => {
@@ -82,8 +87,8 @@ test(".env 가 없으면 그 문제 하나만 알린다", () => {
   assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없습니다. 프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요."]);
 });
 
-test("불러와도 멈추지 않는다. 문제는 목록으로 붙어 있고 설정 값에는 섞이지 않는다", () => {
-  const probe = "const c = require('./config.ts'); console.log('CFG:' + JSON.stringify({ problems: c.problems, keys: Object.keys(c).includes('problems') }));";
+test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내고 설정 값에는 섞이지 않는다", () => {
+  const probe = "import('./config.ts').then((m) => console.log('CFG:' + JSON.stringify({ problems: m.problems, keys: Object.keys(m.default).includes('problems') })));";
   const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", CLIENT_ID: "1", DASHBOARD_PORT: "abc" } });
   assert.equal(r.status, 0);
   const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)[1]);

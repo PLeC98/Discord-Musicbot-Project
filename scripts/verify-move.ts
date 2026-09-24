@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 옮기기 커밋이 정말 옮기기만 했는지 본다.
 //
 //   node scripts/verify-move.js            마지막 커밋
@@ -18,7 +17,7 @@ const range = arg === "--staged" ? ["--staged"] : [`${arg || "HEAD"}^`, arg || "
 const diff = execFileSync("git", ["diff", "-M", "--no-color", "--unified=0", ...range], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 
 // 경로 글자를 지운 모양. 옮기면 달라지는 곳만 가린다
-const normalize = (line) =>
+const normalize = (line: string) =>
   line
     .trim()
     .replace(/require(\.resolve)?\(\s*(["'`])[^"'`]*\2\s*\)/g, "require$1(<경로>)")

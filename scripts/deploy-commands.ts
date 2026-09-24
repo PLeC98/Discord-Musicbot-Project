@@ -1,13 +1,12 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 슬래시 커맨드를 Discord에 수동 (재)배포하는 독립 스크립트. `pnpm run cmddeploy`.
 // 봇 프로세스와 무관하게 실행되므로 봇 재시작 없이 언제든 커맨드 정의를 갱신한다.
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
 import * as configCheck from "../src/app/configCheck.ts";
-import config from "../config.ts";
+import * as loadedConfig from "../config.ts"; // 설정 값과 함께 문제 · 경고 목록
 import { deployCommands, definitions, deployErrorLines } from "../src/app/commandLoader.ts";
 
-configCheck.stopOnConfigProblems(config, console);
+configCheck.stopOnConfigProblems(loadedConfig, console);
 
 (async () => {
   const commands = await definitions();

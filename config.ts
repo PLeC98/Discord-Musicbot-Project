@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import path from "path";
 import fs from "fs";
 import pkg from "./package.json" with { type: "json" };
@@ -19,7 +18,7 @@ const QUEUE_MAX_FLOOR = 25;
 // SponsorBlock skip 지원 카테고리 (권위 목록. src/sources/sponsorBlock.ts의 SKIP_CATEGORIES와 동기 유지)
 const SB_SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
 // 콤마 구분 문자열 → 유효 카테고리 배열 (오타·미지원 값은 조용히 제거, 원칙 4: 형식 오류는 걸러냄)
-function parseSbCategories(raw) {
+function parseSbCategories(raw: string | null) {
   const valid = new Set(SB_SKIP_CATEGORIES);
   return [
     ...new Set(
@@ -32,9 +31,9 @@ function parseSbCategories(raw) {
 }
 
 // yt-dlp 재생 클라이언트 목록. 쉼표 구분, 공백 · 대소문자 정리, 중복은 한 번. 이름이 맞는지는 yt-dlp 가 가린다
-function parseClients(raw) {
+function parseClients(raw: string | null | undefined) {
   if (!raw) return [];
-  const out = [];
+  const out: string[] = [];
   for (const piece of String(raw).split(",")) {
     const name = piece.trim().toLowerCase();
     if (name && !out.includes(name)) out.push(name);
@@ -58,10 +57,18 @@ const USER_AGENTS = {
   bot: `Discord-Musicbot-Project/${pkg.version} (+${PROJECT_REPO})`,
 };
 
+/** 환경 변수. 보통 process.env */
+type EnvSource = Record<string, string | undefined>;
+/** #RRGGBB 꼴의 색(디스코드가 받는 모양) */
+type HexColor = `#${string}`;
+const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
+
 // .env 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다
-function envReaders(source, problems) {
+function envReaders(source: EnvSource, problems: string[]) {
   // .env 값 읽기. 키가 없거나 공백뿐이면 def 반환
-  function env(key, def = null) {
+  function env(key: string): string | null;
+  function env(key: string, def: string): string;
+  function env(key: string, def: string | null = null) {
     const v = source[key];
     return v !== undefined && v.trim() !== "" ? v : def;
   }
@@ -72,21 +79,20 @@ function envReaders(source, problems) {
    * 조용히 기본값으로 돌면 "왜 내가 설정한 값이 안 먹지"가 되고, 경고만 남기면 로그를 보지 않는
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
-  function invalid(key, value, reason, def) {
+  function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
     problems.push(`.env의 ${key} 값이 잘못됐습니다 (${value}): ${reason}. 고친 뒤 다시 실행하세요.`);
     return def;
   }
 
-  function envEnum(key, def, allowed) {
+  function envEnum<T extends string>(key: string, def: T, allowed: readonly T[]): T {
     const v = env(key);
     if (v === null) return def;
     const lower = String(v).trim().toLowerCase();
-    if (allowed.includes(lower)) return lower;
-    return invalid(key, v, `${allowed.join("·")} 중 하나여야 합니다`, def);
+    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join("·")} 중 하나여야 합니다`, def);
   }
 
   // parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
-  function envInt(key, def, { min, max } = {}) {
+  function envInt(key: string, def: number, { min, max }: { min?: number; max?: number } = {}) {
     const v = env(key);
     if (v === null) return def;
 
@@ -101,7 +107,9 @@ function envReaders(source, problems) {
   }
 
   // 링크로 내보내는 주소. 형식이 깨졌거나 javascript: 같은 스킴이면 기동을 멈춘다.
-  function envUrl(key, def = null) {
+  function envUrl(key: string): string | null;
+  function envUrl(key: string, def: string): string;
+  function envUrl(key: string, def: string | null = null) {
     const v = env(key);
     if (v === null) return def;
 
@@ -115,33 +123,40 @@ function envReaders(source, problems) {
     return v;
   }
 
-  function envQueueMax(key, def) {
+  // 임베드 색. 틀린 값을 그대로 두면 임베드를 보낼 때마다 던진다
+  function envColor(key: string, def: HexColor) {
+    const v = env(key);
+    if (v === null) return def;
+    const color = v.trim();
+    return isHexColor(color) ? color : invalid(key, v, "#RRGGBB 꼴의 색이어야 합니다 (예: #2743D2)", def);
+  }
+
+  function envQueueMax(key: string, def: number) {
     const n = envInt(key, def, { min: 0 });
     if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 합니다`, def);
     return n;
   }
 
-  return { env, envEnum, envInt, envUrl, envQueueMax };
+  return { env, envEnum, envInt, envUrl, envColor, envQueueMax };
 }
 
-function resolveFromRoot(p) {
+function resolveFromRoot(p: string): string;
+function resolveFromRoot(p: string | null): string | null;
+function resolveFromRoot(p: string | null) {
   if (!p) return null;
   return path.isAbsolute(p) ? p : path.resolve(import.meta.dirname, p);
 }
 
 /**
- * 환경 변수 → 설정. 순수 함수다(읽기만 한다).
- * @param {Record<string, string | undefined>} source  환경 변수(보통 process.env)
- * @param {{envFileFound?: boolean}} [opts]  .env 파일이 있었나
- * @returns {{config: object, problems: string[], warnings: string[]}}
+ * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나
  */
-function loadConfig(source, { envFileFound = true } = {}) {
-  const problems = [];
-  const warnings = [];
+function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?: boolean } = {}) {
+  const problems: string[] = [];
+  const warnings: string[] = [];
   if (!envFileFound) problems.push(".env 파일이 없습니다. 프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
 
   const readers = envReaders(source, problems);
-  const { env, envInt, envUrl, envQueueMax } = readers;
+  const { env, envInt, envUrl, envColor, envQueueMax } = readers;
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
@@ -167,9 +182,10 @@ function loadConfig(source, { envFileFound = true } = {}) {
     userAgents: USER_AGENTS,
 
     // 디스코드 봇 설정
+    // 토큰 · 클라이언트 id 는 필수다. 비었으면 문제로 적혀 기동이 멈춘다
     discord: {
-      token: env("DISCORD_TOKEN"),
-      clientId: env("CLIENT_ID"),
+      token: env("DISCORD_TOKEN", ""),
+      clientId: env("CLIENT_ID", ""),
       clientSecret: env("CLIENT_SECRET"),
       guildId: env("GUILD_ID"),
     },
@@ -192,7 +208,7 @@ function loadConfig(source, { envFileFound = true } = {}) {
       defaultVolume: 100,
       maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", 250), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
       playlistAddDefault: 50, // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(/setplaylistlimit)이 없을 때
-      embedColor: env("EMBED_COLOR", "#2743D2"),
+      embedColor: envColor("EMBED_COLOR", "#2743D2"),
       supportServer: envUrl("SUPPORT_SERVER"),
       website: envUrl("WEBSITE"),
       projectRepo: PROJECT_REPO,
@@ -258,8 +274,10 @@ function loadConfig(source, { envFileFound = true } = {}) {
   return { config, problems, warnings };
 }
 
+const LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] as const;
+
 // 대시보드 · 캐시 · SponsorBlock · 음성 상태 · 스트림 · 로그. 한 함수가 너무 길어 나눴다
-function serviceConfig({ env, envInt, envEnum, envUrl }, dashboardPort) {
+function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     // 대시보드 설정
     dashboard: {
@@ -325,10 +343,10 @@ function serviceConfig({ env, envInt, envEnum, envUrl }, dashboardPort) {
     logging: {
       // 무엇을 기록할 것인가 (터미널·파일·대시보드 전부의 상한).
       // 조사용 로그를 지우지 않고 debug로 내려둔 뒤, 필요할 때만 이걸 낮춰 되살린다.
-      level: envEnum("LOG_LEVEL", "info", ["trace", "debug", "info", "warn", "error", "fatal"]),
+      level: envEnum("LOG_LEVEL", "info", LEVELS),
       // 그중 터미널에 찍을 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info 로 두면
       // 파일·대시보드는 debug를 받고 터미널만 조용하다.
-      consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", "trace", "debug", "info", "warn", "error", "fatal"]),
+      consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", ...LEVELS]),
       // 기본은 끔. 모든 운영자가 파일 로그를 원하지는 않는다. 필요한 사람이 켠다.
       fileEnabled: env("LOG_FILE_ENABLED", "false") === "true",
       file: resolveFromRoot(env("LOG_FILE", "logs/bot.log")),
@@ -341,15 +359,13 @@ function serviceConfig({ env, envInt, envEnum, envUrl }, dashboardPort) {
 
 const envFileFound = fs.existsSync(ENV_PATH);
 if (envFileFound) dotenv.config({ path: ENV_PATH, quiet: true });
+// 문제 · 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
 const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
 
-// 설정 값과 섞이지 않게 열거되지 않는 칸으로 붙인다
-Object.defineProperties(config, {
-  problems: { value: problems },
-  warnings: { value: warnings },
-  loadConfig: { value: loadConfig },
-  parseClients: { value: parseClients },
-});
+/** 설정 */
+type Config = typeof config;
 
 export default config;
 export { config as "module.exports" };
+export { problems, warnings, loadConfig, parseClients };
+export type { Config };

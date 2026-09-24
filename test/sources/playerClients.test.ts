@@ -5,9 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PlayerClients, KNOWN, NEEDS_POT } from "../../src/sources/youtube/clients.ts";
-import config from "../../config.ts";
-// config.ts 가 아직 nocheck 라 숨긴 칸(parseClients)이 타입에 없다. 루트 config 에 타입을 달 때 걷는다
-const { parseClients } = config as typeof config & { parseClients(raw: unknown): string[] };
+import { parseClients } from "../../config.ts";
 
 test("빈 설정이면 idle — 폴백 루프를 아예 돌지 않는다 (기존 동작 보존)", () => {
   const pc = new PlayerClients([]);

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * 설정 파일 준비. config/*.example.yaml → config/*.yaml (없을 때만).
  *
@@ -10,6 +9,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { messageOf } from "../src/rules/errorKind.ts";
 
 const CONFIG_DIR = path.join(import.meta.dirname, "..", "config");
 // 이름 뒤에 확장자가 다른 것도 있다(프롬프트는 ChatML 글 파일이다)
@@ -44,7 +44,7 @@ if (import.meta.main) {
     setup();
   } catch (error) {
     // 설치 전체를 깨지 않는다. 파일이 없으면 기동 시 로더가 무엇을 해야 하는지 알려주며 멈춘다.
-    console.warn(`⚠️  [config] 설정 파일 준비 실패: ${error.message}`);
+    console.warn(`⚠️  [config] 설정 파일 준비 실패: ${messageOf(error)}`);
   }
 }
 

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 /**
  * ffmpeg 바이너리 설치. BtbN/FFmpeg-Builds 릴리스에서 받아 `bin/`에 둔다.
  *
@@ -24,8 +23,13 @@ const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
 const ROOT = path.join(import.meta.dirname, "..");
 const BIN_DIR = path.join(ROOT, "bin");
 
+/** BtbN 빌드 하나. 자산 이름 조각 · 아카이브 확장자 · 실행 파일 이름 */
+type Target = { slug: string; ext: string; bin: string };
+/** 고른 자산 */
+type Asset = { assetName: string; sha256: string; version: string; branch: string };
+
 // BtbN이 제공하는 플랫폼만. 키는 `${process.platform}-${process.arch}`.
-const TARGETS = {
+const TARGETS: Record<string, Target | undefined> = {
   "linux-x64": { slug: "linux64", ext: "tar.xz", bin: "ffmpeg" },
   "linux-arm64": { slug: "linuxarm64", ext: "tar.xz", bin: "ffmpeg" },
   "win32-x64": { slug: "win64", ext: "zip", bin: "ffmpeg.exe" },
@@ -34,7 +38,7 @@ const TARGETS = {
 
 const force = process.argv.includes("--force");
 
-function skip(reason) {
+function skip(reason: string): never {
   console.log(`ℹ️  [ffmpeg] ${reason}`);
   process.exit(0);
 }
@@ -46,7 +50,7 @@ function skip(reason) {
  * 인라인 주석을 떼는 것이 핵심이다. `FFMPEG_PATH=   # 설명`처럼 값이 비고 주석만 있는 줄을
  * 그대로 읽으면 설명문이 경로가 되어, 설정한 적 없는 사용자가 내려받기를 영영 건너뛴다.
  */
-function readEnvValue(name, source = null) {
+function readEnvValue(name: string, source: string | null = null) {
   const fromProcess = process.env[name];
   if (fromProcess && fromProcess.trim()) return fromProcess.trim();
 
@@ -71,7 +75,7 @@ function readEnvValue(name, source = null) {
   return value || null;
 }
 
-async function download(url) {
+async function download(url: string) {
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}. ${url}`);
   return Buffer.from(await res.arrayBuffer());
@@ -86,16 +90,17 @@ async function download(url) {
  *
  * 자산 이름을 코드에 박지 않는 이유: 이름에 커밋 해시가 들어가 릴리스마다 달라진다.
  * 태그 하나만 바꾸면 되도록 이름은 릴리스가 알려주는 것을 쓴다.
- *
- * @returns {{assetName: string, sha256: string, version: string, branch: string}}
+ * 이 플랫폼용 빌드가 없으면 null.
  */
-function resolveAsset(checksumsText, key) {
+function resolveAsset(checksumsText: string, key: string): Asset | null {
   const target = TARGETS[key];
-  if (!target) return null;
+  return target ? assetFor(checksumsText, target, key) : null;
+}
 
+function assetFor(checksumsText: string, target: Target, key: string): Asset {
   const pattern = new RegExp(`^ffmpeg-(n\\d[^\\s]*?)-${target.slug}-${VARIANT}-(\\d+\\.\\d+)\\.${target.ext.replace(".", "\\.")}$`);
 
-  let best = null;
+  let best: (Asset & { order: number[] }) | null = null;
   for (const line of checksumsText.split(/\r?\n/)) {
     const [hash, name] = line.trim().split(/\s+/);
     if (!hash || !name) continue;
@@ -134,10 +139,10 @@ function tarCandidates() {
  * 경로는 전부 상대경로로 넘기고 cwd로 위치를 잡는다. GNU tar는 `-f C:\...`의 콜론을
  * 원격 호스트 지정으로 해석해 실패한다.
  */
-function extractBinary(archiveName, binName, cwd) {
-  const errors = [];
+function extractBinary(archiveName: string, binName: string, cwd: string) {
+  const errors: string[] = [];
   for (const tar of tarCandidates()) {
-    const run = (args) => spawnSync(tar, args, { cwd, encoding: "utf8", windowsHide: true });
+    const run = (args: string[]) => spawnSync(tar, args, { cwd, encoding: "utf8", windowsHide: true });
 
     const list = run(["-tf", archiveName]);
     if (list.status !== 0) {
@@ -181,7 +186,7 @@ async function main() {
   }
 
   const checksums = (await download(`${baseUrl}/checksums.sha256`)).toString("utf8");
-  const { assetName, sha256: wantSha, version } = resolveAsset(checksums, key);
+  const { assetName, sha256: wantSha, version } = assetFor(checksums, target, key);
 
   console.log(`🔄 [ffmpeg] 내려받는 중: ${assetName}`);
   const archiveBuf = await download(`${baseUrl}/${assetName}`);
