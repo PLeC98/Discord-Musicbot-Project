@@ -272,6 +272,8 @@ function scan() {
     configCapture: perFile(sources, (f) => f.captures.length),
     requireCache: perFile(tests, (f) => f.requireCache),
     methodSwap: tests.filter((f) => f.swaps.length).map((f) => f.rel),
+    // 어느 줄인가(진단용. 기준선은 파일만 본다)
+    methodSwapLines: Object.fromEntries(tests.filter((f) => f.swaps.length).map((f) => [f.rel, f.swaps])),
   };
 }
 
