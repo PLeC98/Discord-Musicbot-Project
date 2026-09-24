@@ -1,10 +1,10 @@
 {
-  "commands/dashboard.js": {
+  "commands/dashboard.ts": {
     "no-empty-function": {
       "count": 1
     }
   },
-  "commands/join.js": {
+  "commands/join.ts": {
     "no-empty-function": {
       "count": 1
     }

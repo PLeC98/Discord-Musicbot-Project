@@ -145,7 +145,7 @@ async function viaCommand(op, state) {
   const { name, options } = COMMAND[op];
   const acts = arrange(state);
   const { it, shown } = fakeInteraction({ options });
-  await require(`../commands/${name}.js`).execute(it, client);
+  await require(`../commands/${name}.ts`).execute(it, client);
   return outcome(acts, shown);
 }
 

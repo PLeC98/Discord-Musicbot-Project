@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import searchCommand from "../../commands/search.js";
+import searchCommand from "../../commands/search.ts";
 import buttonHandler from "../../events/buttonHandler.js";
 
 function makeClient() {

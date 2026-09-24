@@ -146,7 +146,7 @@ function interaction(w, { options = {}, channelId = "c1" } = {}) {
   return { it, log, sentOnChannel };
 }
 
-const cmd = (name) => require(`../../commands/${name}.js`);
+const cmd = (name) => require(`../../commands/${name}.ts`);
 
 // ── /play · /playfirst ────────────────────────────────────────────────
 

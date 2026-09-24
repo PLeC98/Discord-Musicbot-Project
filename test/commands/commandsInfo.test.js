@@ -39,7 +39,7 @@ beforeEach(() => {
   storeDb.get().exec("DELETE FROM guild_settings; DELETE FROM track_lookup; DELETE FROM audio_cache;");
 });
 
-const cmd = (name) => require(`../../commands/${name}.js`);
+const cmd = (name) => require(`../../commands/${name}.ts`);
 const fieldsOf = (payload) => Object.fromEntries((payload.embeds[0].data.fields || []).map((f) => [f.name, f.value]));
 
 function interaction({ player = null, options = {}, userId = "u1", guildRoles = [], manage = true, channelId = "c1" } = {}) {
@@ -180,8 +180,8 @@ test("/help: 모든 명령을 적는다", async () => {
   const text = Object.values(fieldsOf(log[0][1])).join("\n");
   const names = fs
     .readdirSync(path.join(import.meta.dirname, "../../commands"))
-    .filter((f) => f.endsWith(".js"))
-    .map((f) => f.replace(/\.js$/, ""))
+    .filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"))
+    .map((f) => f.replace(/\.ts$/, ""))
     .filter((name) => name !== "help");
   assert.deepEqual(
     names.filter((name) => !text.includes(`\`/${name}`)),

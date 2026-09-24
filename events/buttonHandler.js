@@ -17,8 +17,8 @@ const LOOP_TEXT = {
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { queueLine } from "../src/ui/queueDisplay.ts";
-import helpCommand from "../commands/help.js";
-import systemCommand from "../commands/system.js";
+import helpCommand from "../commands/help.ts";
+import systemCommand from "../commands/system.ts";
 
 // customId 앞머리로 가르는 버튼. 플레이어 없이도 눌린다. null 은 다른 처리기(djRoleConfigHandler · sponsorConfigHandler)가 받는다.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다

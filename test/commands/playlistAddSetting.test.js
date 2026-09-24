@@ -13,7 +13,7 @@ const stored = { get: (g) => guildTable.getPlaylistAddMax(g), set: (g, n) => gui
 
 const config = (await import("../../config.ts")).default;
 const GuildSettingsManager = await import("../../src/store/guildSettings.ts");
-const command = (await import("../../commands/setplaylistlimit.js")).default;
+const command = (await import("../../commands/setplaylistlimit.ts")).default;
 
 const G = "g1";
 const savedQueueMax = config.bot.maxQueueSize;
