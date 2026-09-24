@@ -1,0 +1,88 @@
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import logger from "../src/infra/log/logger.ts";
+const log = logger.child({ category: "commands" });
+import { ErrorHandler } from "../src/ui/errorMessages.ts";
+import { requestPlayback } from "../src/usecases/addTracks.ts";
+import { interactionResponder } from "../src/usecases/responders.ts";
+import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
+import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
+import type { GuildCommand } from "../src/app/commandLoader.ts";
+import type { GuildMember } from "discord.js";
+
+async function validateRequest(member: GuildMember) {
+  // 우선 추가(대기열 맨 앞 삽입)는 재생 순서를 바꾸는 조작. DJ 계층 필요
+  const permErr = (await checkControl(member)) || checkSummon(member);
+  if (permErr) return { success: false, message: permErr };
+  return { success: true };
+}
+
+const exported: GuildCommand = {
+  data: new SlashCommandBuilder()
+    .setName("playfirst")
+    .setDescription("Add a song to the front of the queue")
+    .setDescriptionLocalizations({
+      ko: "대기열 맨 앞에 곡을 추가합니다",
+    })
+    .addStringOption((option) =>
+      option
+        .setName("query")
+        .setDescription("Song name, artist, YouTube/Spotify/SoundCloud URL or direct link")
+        .setDescriptionLocalizations({
+          ko: "곡 이름, 아티스트, YouTube/Spotify/SoundCloud URL 또는 직접 링크",
+        })
+        .setRequired(true),
+    ),
+
+  async execute(interaction, client) {
+    try {
+      const query = interaction.options.getString("query", true);
+      const { member, guild, channel } = interaction;
+
+      const validationResult = await validateRequest(member);
+      if (!validationResult.success) {
+        return await interaction.reply({ content: validationResult.message, flags: MessageFlags.Ephemeral });
+      }
+
+      await interaction.reply({
+        components: [client.musicEmbedManager.createSearchingContainer(`**${query}** 검색 중...`)],
+        flags: MessageFlags.IsComponentsV2,
+      });
+
+      const result = await requestPlayback(client, {
+        guild,
+        requester: member,
+        query,
+        textChannel: channel,
+        voiceChannel: member.voice.channel ?? null,
+        insertFirst: true,
+        responder: interactionResponder(interaction, client.musicEmbedManager),
+        source: "/playfirst",
+      });
+
+      if (!result.success) {
+        return await interaction.editReply({
+          components: [client.musicEmbedManager.createErrorContainer(result.message)],
+          flags: MessageFlags.IsComponentsV2,
+        });
+      }
+      if (result.more) await offerOnInteraction(interaction, result.more, result.player);
+    } catch (error) {
+      const errorMsg = ErrorHandler.handle(error, "playfirst.execute");
+
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.editReply({
+            components: [client.musicEmbedManager.createErrorContainer(errorMsg)],
+            flags: MessageFlags.IsComponentsV2,
+          });
+        } else {
+          await interaction.reply({ content: errorMsg, flags: MessageFlags.Ephemeral });
+        }
+      } catch (responseError) {
+        log.error("오류 안내 전송 실패:", responseError);
+      }
+    }
+  },
+};
+export default exported;
+export { validateRequest };

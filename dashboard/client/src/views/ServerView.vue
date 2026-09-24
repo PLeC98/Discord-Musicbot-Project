@@ -72,18 +72,20 @@
                 </button>
 
                 <!-- Skip -->
-                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || ((player.queueTotal ?? player.queue.length) === 0 && player.loop !== 'track')">
+                <button :class="iconBtn" @click="action('skip')" v-tooltip="'다음곡'" :disabled="!canSkip || ((player.queueTotal ?? player.queue.length) === 0 && player.loop !== 'track' && !player.autoplay)">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
                 </button>
 
-                <!-- Volume: capsule hover-expand -->
-                <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
-                  <button :class="volBtn" v-tooltip="`볼륨: ${player.volume}%`">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
-                  </button>
-                  <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-40 group-hover/vol:opacity-100 group-focus-within/vol:max-w-40 group-focus-within/vol:opacity-100">
-                    <input type="range" min="0" max="100" step="5" :value="player.volume" @change="setVolume($event.target.value)" class="w-24 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
-                    <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ player.volume }}%</span>
+                <!-- Volume: capsule hover-expand. 모바일에서는 펼치면 오른쪽 버튼이 밀려 줄이 바뀌므로 처음부터 아랫줄에 둔다 -->
+                <div class="order-last basis-full flex sm:order-none sm:basis-auto">
+                  <div class="group/vol flex items-center h-10 rounded-[20px] overflow-hidden transition-[background-color] duration-200 ease-smooth hover:bg-white/9 focus-within:bg-white/9">
+                    <button :class="volBtn" v-tooltip="`볼륨: ${volumeShown}%`">
+                      <VolumeIcon :level="volumeShown" :size="17" />
+                    </button>
+                    <div class="flex items-center gap-1.5 max-w-0 opacity-0 whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-500 ease-smooth group-hover/vol:max-w-44 group-hover/vol:opacity-100 group-focus-within/vol:max-w-44 group-focus-within/vol:opacity-100">
+                      <input type="range" min="0" max="100" step="1" :value="volumeShown" @input="volumeInput($event.target.value)" @change="volumeChange($event.target.value)" class="w-30 h-1 accent-accent cursor-pointer rounded shrink-0 disabled:cursor-not-allowed" :disabled="!player.canControl" />
+                      <span class="text-muted text-[0.76rem] min-w-7 pr-2.5 tabular-nums">{{ volumeShown }}%</span>
+                    </div>
                   </div>
                 </div>
 
@@ -231,6 +233,8 @@ import BaseCard from "../components/BaseCard.vue";
 import BaseButton from "../components/BaseButton.vue";
 import Icon from "../components/BaseIcon.vue";
 import PlaylistMore from "../components/PlaylistMore.vue";
+import VolumeIcon from "../components/VolumeIcon.vue";
+import { useVolumeControl } from "../composables/volumeControl.js";
 import { fmtTime } from "../utils/time.js";
 
 // ── 반복 유틸리티 클래스 (구 scoped CSS) ───────────────────────────────────────
@@ -361,14 +365,18 @@ async function action(type) {
   }
 }
 
-async function setVolume(vol) {
-  try {
-    const res = await axios.post(`/api/guilds/${guildId}/player/volume${qs()}`, { volume: parseInt(vol) });
+// 끄는 동안 바로 틀고 끄는 값을 보여 준다(composables/volumeControl)
+const {
+  shown: volumeShown,
+  input: volumeInput,
+  change: volumeChange,
+} = useVolumeControl(
+  computed(() => player.value.volume),
+  async (level) => {
+    const res = await axios.post(`/api/guilds/${guildId}/player/volume${qs()}`, { volume: level });
     if (res.data?.volume !== undefined) applyState(res.data);
-  } catch (e) {
-    console.error("volume", e);
-  }
-}
+  },
+);
 
 async function setLoop(mode) {
   try {
@@ -667,7 +675,7 @@ const fmt = fmtTime;
 
 // 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다.
 // 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
-// 키는 src/platforms.js 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
+// 키는 src/ui/platforms.ts 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
 const PLATFORM_COLORS = {
   youtube: "#ff0000",
   spotify: "#1db954",

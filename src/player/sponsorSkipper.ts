@@ -1,0 +1,106 @@
+import { AudioPlayerStatus } from "@discordjs/voice";
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "sponsor" });
+import type { MusicPlayer } from "./Player.ts";
+import type { SkipSegment } from "../sources/sponsorBlock.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
+
+/** 구간을 넘기며 읽고 부르는 플레이어 칸 */
+type SkipHost = Pick<MusicPlayer, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor">;
+type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "end" | null; toSec?: undefined; prevSec: number };
+
+// SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.
+//
+// 핵심: "구간 시작 경계를 자연 재생으로 넘어설 때만" 발동(§계획 5). prevSec→curSec 사이에
+// seg.start가 들어오면 발동하고, 매 play(seek 포함)마다 prevSec를 seek 지점으로 리셋한다.
+// → 사용자가 구간 안으로 직접 seek하면 seg.start > prevSec 가 거짓이 되어 자동 스킵이 안 걸림
+//   (= "수동 진입 허용"을 별도 상태 없이 교차 감지만으로 처리).
+//
+// 구간 처리:
+//  - 인트로/중간: 기존 seek 재사용(play(end*1000))으로 구간 끝으로 점프.
+//  - 아웃트로/끝(seg.end ≈ 트랙 길이): 다음 트랙으로 진행(handleTrackEnd).
+
+const TICK_MS = 500; // 워처 주기 (인트로 블리드 ≤ 이 값)
+const END_EPSILON_SEC = 1.5; // seg.end가 트랙 끝에서 이 이내면 아웃트로로 간주
+
+class SponsorSkipper {
+  player: SkipHost;
+  segments: SkipSegment[];
+  _prevSec: number;
+  _interval: NodeJS.Timeout | null;
+
+  constructor(player: SkipHost) {
+    this.player = player;
+    this.segments = [];
+    this._prevSec = -1;
+    this._interval = null;
+  }
+
+  /**
+   * 발동 판정(순수 함수, 테스트 가능). segments는 start 오름차순 가정(SponsorBlock 정규화 결과).
+   */
+  static decide(segments: Array<Pick<SkipSegment, "start" | "end">>, prevSec: number, curSec: number, durationSec: number, endEpsilon = END_EPSILON_SEC): Decision {
+    for (const seg of segments) {
+      if (seg.start > prevSec && seg.start <= curSec) {
+        if (durationSec > 0 && seg.end >= durationSec - endEpsilon) {
+          return { action: "end", prevSec: seg.end };
+        }
+        return { action: "seek", toSec: seg.end, prevSec: seg.end };
+      }
+    }
+    return { action: null, prevSec: curSec };
+  }
+
+  /** 재생 시작/seek 시 호출. 이번 재생 세션의 구간·기준점 설정 후 워처 가동. */
+  onPlayStart(seekMs = 0) {
+    const segs = this.player.sponsor?.skipSegments;
+    this.segments = Array.isArray(segs) ? segs : [];
+    // 신규 재생(seekMs 0)은 prevSec=-1로 두어 인트로(start=0)도 넘어섬 판정되게 함.
+    this._prevSec = seekMs > 0 ? seekMs / 1000 : -1;
+    if (this.segments.length) this._start();
+    else this.stop(); // 구간 없으면 워처 불필요
+  }
+
+  _start() {
+    if (this._interval) return;
+    this._interval = setInterval(() => {
+      bestEffort(log, this._tick(), "건너뛸 구간 보기");
+    }, TICK_MS);
+    if (this._interval.unref) this._interval.unref();
+  }
+
+  stop() {
+    if (this._interval) {
+      clearInterval(this._interval);
+      this._interval = null;
+    }
+  }
+
+  async _tick() {
+    const p = this.player;
+    if (!p.currentTrack || p.paused || !this.segments.length) return;
+    // 셋업(play 진행) 중이거나 아직 실제 Playing이 아니면 발동 보류. 비캐시 곡의 초반
+    // 스킵이 셋업 중인 play()에 재진입해 재생을 깨는 것을 방지(버그 수정).
+    if (p.isPlayStarting) return;
+    if (p.audioPlayer?.state?.status !== AudioPlayerStatus.Playing) return;
+
+    const curSec = p.getCurrentTime() / 1000;
+    const durationSec = Number(p.currentTrack.duration) || 0;
+
+    const d = SponsorSkipper.decide(this.segments, this._prevSec, curSec, durationSec);
+    this._prevSec = d.prevSec;
+
+    if (d.action === "end") {
+      // 스킵과 트랙 종료가 원인=sponsorblock 을 달고 따라나온다. 세 줄이 한 사건이다.
+      log.debug(`${p.currentTrack?.title ?? ""}: 종료 구간 도달, 트랙 종료`);
+      p.skip("sponsorblock"); // 스킵 버튼과 동일 처리 (다음 곡/루프 존중)
+    } else if (d.action === "seek") {
+      log.info(`${p.currentTrack?.title ?? ""}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
+      // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
+      bestEffort(log, p.play(Math.round(d.toSec * 1000)), "구간 건너뛰기");
+    }
+  }
+}
+
+export type { SkipHost };
+export { SponsorSkipper };

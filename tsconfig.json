@@ -1,0 +1,22 @@
+{
+  // 타입 검사만 한다(빌드 없음). 봇 쪽은 전부 .ts 다.
+  // TS 6 은 기본값이 여럿 바뀌었다(types · module · target · strict). 기본값에 기대지 않고 전부 적는다.
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": false,
+    "strict": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2024",
+    "lib": ["es2024"],
+    "types": ["node"],
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    // 10단계: Node 가 .ts 를 그대로 실행한다(타입만 지운다). 가져오는 경로에 .ts 를 적고, 지울 수 없는 문법(enum 등)은 막고,
+    // 타입만 가져올 때는 import type 을 쓴다(지우고 나면 없는 이름을 가져오지 않게)
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts", "test/**/*.ts"]
+}

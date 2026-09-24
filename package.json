@@ -2,27 +2,28 @@
   "name": "musicbot",
   "private": true,
   "version": "1.0.0",
-  "main": "index.js",
-  "type": "commonjs",
+  "main": "index.ts",
+  "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node scripts/dev.js",
-    "cmddeploy": "node scripts/deploy-commands.js",
-    "install:bgutil": "node scripts/install-bgutil.js",
-    "update:bgutil": "node scripts/install-bgutil.js --update",
+    "start": "node index.ts",
+    "dev": "node scripts/dev.ts",
+    "cmddeploy": "node scripts/deploy-commands.ts",
+    "install:bgutil": "node scripts/install-bgutil.ts",
+    "update:bgutil": "node scripts/install-bgutil.ts --update",
     "install:dashboard": "pnpm --dir dashboard/client run build",
     "build:dashboard": "pnpm --dir dashboard/client run build",
     "dev:dashboard": "pnpm --dir dashboard/client run dev",
-    "update:ytdlp": "node scripts/update-ytdlp.js",
-    "update:models": "node scripts/refresh-ai-models.js",
-    "test": "node --check index.js && node --test \"test/*.test.js\"",
-    "test:coverage": "node --test --experimental-test-coverage \"test/*.test.js\"",
+    "update:ytdlp": "node scripts/update-ytdlp.ts",
+    "update:models": "node scripts/refresh-ai-models.ts",
+    "test": "node --check index.ts && node --test \"test/**/*.test.ts\"",
+    "test:coverage": "node --test --experimental-test-coverage \"test/**/*.test.ts\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "postinstall": "node scripts/setup-config.js && node scripts/install-ffmpeg.js && node scripts/update-ytdlp.js",
-    "install:ffmpeg": "node scripts/install-ffmpeg.js"
+    "postinstall": "node scripts/setup-config.ts && node scripts/install-ffmpeg.ts && node scripts/update-ytdlp.ts",
+    "install:ffmpeg": "node scripts/install-ffmpeg.ts",
+    "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
@@ -40,17 +41,25 @@
     "ipaddr.js": "^2.5.0",
     "korean-lunar-calendar": "^0.4.0",
     "yaml": "^2.9.1",
-    "youtube-dl-exec": "^3.1.15"
+    "youtube-dl-exec": "^3.1.15",
+    "zod": "^4.6.5"
   },
   "engines": {
-    "node": ">=24.11.1"
+    "node": ">=24.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/node": "^24.13.6",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.11.0",
     "globals": "^17.12.0",
-    "prettier": "^3.9.8"
+    "prettier": "^3.9.8",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1"
   }
 }

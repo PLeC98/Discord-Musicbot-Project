@@ -1,0 +1,259 @@
+// dashboard/server/routes/guilds.ts — 플레이어 조작 API의 입력 검증
+// 회귀 대상: 비문자열 query의 TypeError(async 핸들러라 응답 없는 unhandled rejection),
+// parseFloat("Infinity")·parseInt("50junk")의 느슨한 통과, 제어문자의 로그/yt-dlp 유입.
+// 실 라우터 + fake client/player, 봇 운영자 세션으로 권한 게이트를 우회해 검증 로직만 조준.
+
+// 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
+// dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
+process.env.OWNER_ID = "owner";
+
+const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import type { Server } from "node:http";
+import type { Client } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Lookup } from "../../src/usecases/addTracks.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
+import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+
+/** 이 시험이 읽는 답의 칸 */
+type Reply = { error?: string; more?: { offset: number; requesterId?: unknown } };
+
+// ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
+const { openTempStore } = await import("../helpers/tempStore.ts");
+const { createGuildsRouter } = await import("../../dashboard/server/routes/guilds.ts");
+const { createPlayerStream } = await import("../../dashboard/server/playerStream.ts");
+const playerEvents = await import("../../src/player/events.ts");
+const { VOLUME_SETTLE_MS } = await import("../../src/usecases/controls.ts");
+const store = openTempStore("dashboard-validation-");
+after(() => store.close());
+
+// ── 조회 가짜(코어가 실 해석/네트워크를 타지 않게). 라우터가 app.locals.lookup 을 코어에 넘긴다 ──
+const resolverCalls: string[] = [];
+const lookup = fake<Lookup>({
+  async resolveQuery(query: string) {
+    resolverCalls.push(query);
+    return { success: true, isPlaylist: false, tracks: [makeTrack("추가곡")] };
+  },
+  async getCollection(_url: string, { offset, limit }: { offset: number; limit: number }) {
+    const tracks = Array.from({ length: limit }, (_, k) => ({ ...makeTrack(`c${offset + k}`), id: `c${String(offset + k).padStart(21, "0")}` }));
+    return { tracks, total: 1000, nextOffset: offset + limit };
+  },
+});
+
+import express from "express";
+
+// ── Fake client/player ───────────────────────────────────────
+const GUILD_ID = "100";
+
+function makeTrack(title: string) {
+  return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };
+}
+
+function makePlayer() {
+  return fakePlayer({
+    calls: [] as unknown[][],
+    currentTrack: makeTrack("현재곡"),
+    queue: [makeTrack("q0"), makeTrack("q1"), makeTrack("q2")],
+    previousTracks: [],
+    volume: 50,
+    getStatus() {
+      return { playing: true, paused: false, volume: this.volume, loop: false };
+    },
+    isPlaybackActive: () => true,
+    getCurrentTime: () => 0,
+    async play(ms: number) {
+      this.calls.push(["play", ms]);
+    },
+    // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다 — 진입점마다 로그를 다는 대신
+    // 통로를 하나로 뒀다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 갈라야 한다).
+    async seek(ms: number, reason: string) {
+      this.calls.push(["seek", ms, reason]);
+    },
+    setVolume(v: number) {
+      this.calls.push(["setVolume", v]);
+      this.volume = v;
+    },
+    removeFromQueue(i: number) {
+      this.calls.push(["removeFromQueue", i]);
+      return this.queue.splice(i, 1)[0];
+    },
+    moveInQueue(from: number, to: number) {
+      this.calls.push(["moveInQueue", from, to]);
+    },
+  });
+}
+
+let player: ReturnType<typeof makePlayer>;
+const guild = {
+  id: GUILD_ID,
+  name: "TestGuild",
+  roles: { cache: new Map() },
+  channels: { cache: new Map() },
+  members: {
+    fetch: async () => {
+      throw new Error("Unknown Member"); // 운영자 세션이라 비멤버여도 통과해야 함
+    },
+    me: null,
+  },
+};
+const embedCalls: [string, { tracks: object[]; insertAfterId?: string }][] = [];
+const client = {
+  isReady: () => true,
+  guilds: { cache: new Map([[GUILD_ID, guild]]) },
+  players: new Map<string, MusicPlayer>(),
+  musicEmbedManager: {
+    async handleMusicData(guildId: string, trackData: { tracks: object[]; insertAfterId?: string }) {
+      embedCalls.push([guildId, trackData]);
+      return { success: true };
+    },
+    updateNowPlayingEmbed: async () => {},
+  },
+};
+
+let server: Server;
+let base: string;
+
+before(async () => {
+  const app = express();
+  app.use(express.json());
+  app.use(signedInAs(() => ({ id: "owner", username: "owner", guilds: [] })));
+  app.locals.discordClient = fake<Client>(client);
+  app.locals.lookup = lookup;
+  app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
+  server = await listenForFetch(app);
+  base = baseUrl(server);
+});
+
+after(() => server.close());
+
+// 응답이 없으면 기다리지 않고 실패한다(구 코드의 무응답 회귀를 행 대신 실패로)
+const req = (method: string, urlPath: string, body?: unknown) => requestJson<Reply>(base, method, urlPath, body, { timeoutMs: 3000 });
+
+function freshPlayer() {
+  player = makePlayer();
+  client.players.set(GUILD_ID, player);
+  resolverCalls.length = 0;
+  embedCalls.length = 0;
+  return player;
+}
+
+test("queue add: 비문자열 query(배열/객체/숫자)는 400 — 구 코드는 TypeError로 응답 없음", async () => {
+  freshPlayer();
+  for (const query of [["a", "b"], { q: "x" }, 42]) {
+    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query });
+    assert.equal(r.status, 400, JSON.stringify(query));
+  }
+  assert.equal(resolverCalls.length, 0, "검증 실패 시 해석까지 가지 않음");
+});
+
+test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 후 전달", async () => {
+  freshPlayer();
+  const long = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "가".repeat(501) });
+  assert.equal(long.status, 400);
+
+  const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "hello\r\nworld\x00!" });
+  assert.equal(r.status, 200);
+  const sent = resolverCalls.at(-1) ?? "";
+  assert.doesNotMatch(sent, /[\x00-\x1f\x7f]/, "제어문자가 yt-dlp/로그로 흘러가지 않음");
+  assert.match(sent, /hello +world +!/);
+  assert.equal(embedCalls.length, 1, "대시보드도 슬래시 명령과 같은 코어를 지난다");
+});
+
+test("seek: Infinity/비숫자/음수는 400 (라이브 duration 0 클램프 우회 차단), 정상값은 ms로 재생", async () => {
+  freshPlayer();
+  for (const position of ["Infinity", "-Infinity", "junk", -1]) {
+    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/seek`, { position });
+    assert.equal(r.status, 400, String(position));
+  }
+  assert.equal(player.calls.length, 0);
+
+  const ok = await req("POST", `/api/guilds/${GUILD_ID}/player/seek`, { position: 30 });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(player.calls[0], ["seek", 30000, "dashboard"]);
+});
+
+test("volume: '50junk'/소수는 400 — 구 parseInt는 50으로 통과", async () => {
+  freshPlayer();
+  for (const volume of ["50junk", 50.5, "1e2junk", [50, 60]]) {
+    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume });
+    assert.equal(r.status, 400, JSON.stringify(volume));
+  }
+  const ok = await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 70 });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(player.calls, [["setVolume", 70]]);
+});
+
+test("queue delete/move: '1junk'·소수 인덱스는 400, 정수만 통과", async () => {
+  freshPlayer();
+  const junkDelete = await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/1junk`);
+  assert.equal(junkDelete.status, 400);
+
+  const junkMove = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: "0junk", to: 1 });
+  assert.equal(junkMove.status, 400);
+  const floatMove = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0.5, to: 1 });
+  assert.equal(floatMove.status, 400);
+  assert.equal(player.calls.length, 0);
+
+  const okMove = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 2 });
+  assert.equal(okMove.status, 200);
+  const okDelete = await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/1`);
+  assert.equal(okDelete.status, 200);
+  assert.deepEqual(player.calls, [
+    ["moveInQueue", 0, 2],
+    ["removeFromQueue", 1],
+  ]);
+});
+
+test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400, 본문의 맨 앞 넣기는 무시한다", async () => {
+  freshPlayer();
+  const state = { kind: "spp", listId: "37i9dQZF1E3aglU7q0y10F", offset: 50, anchorId: `c${String(49).padStart(21, "0")}` };
+  for (const body of [
+    { ...state, kind: "xx", count: 10 },
+    { ...state, listId: "../../x", count: 10 },
+    { ...state, count: 0 },
+    { ...state, count: "10" },
+    { ...state, count: 10.5 },
+  ]) {
+    const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/more`, body);
+    assert.equal(r.status, 400, JSON.stringify(body));
+  }
+  assert.equal(embedCalls.length, 0);
+
+  const ok = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/more`, { ...state, count: 10, insertFirst: true });
+  assert.equal(ok.status, 200);
+  assert.equal(embedCalls.at(-1)?.[1].tracks.length, 10);
+  assert.equal(embedCalls.at(-1)?.[1].insertAfterId, undefined, "대시보드는 맨 앞에 넣는 경로가 없다");
+  assert.equal(ok.json.more?.offset, 60);
+  assert.equal(ok.json.more?.requesterId, undefined);
+});
+
+test("조작 거절은 디스코드와 같은 문장에서 ❌ 만 떼어 보낸다", async () => {
+  freshPlayer().currentTrack = null;
+  const r = await req("POST", `/api/guilds/${GUILD_ID}/player/pause`);
+  assert.equal(r.status, 409);
+  assert.deepEqual(r.json, { error: "현재 재생 중인 노래가 없습니다!" });
+});
+
+test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
+  const seen: boolean[] = [];
+  const off = playerEvents.on("refresh", async (p: MusicPlayer) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
+  try {
+    freshPlayer();
+    await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
+    await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/0`);
+    await new Promise((done) => setTimeout(done, VOLUME_SETTLE_MS + 50));
+  } finally {
+    off();
+  }
+  assert.deepEqual(seen, [true, true]);
+});
+
+test("본문 없는 요청은 400 으로 답한다(본문을 읽다 던지지 않는다)", async () => {
+  freshPlayer();
+  const r = await fetch(`${base}/api/guilds/${GUILD_ID}/player/seek`, { method: "POST", signal: AbortSignal.timeout(3000) });
+  assert.equal(r.status, 400);
+  assert.deepEqual(await r.json(), { error: "재생 위치가 올바르지 않습니다." });
+  assert.equal(player.calls.length, 0);
+});

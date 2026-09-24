@@ -1,0 +1,310 @@
+// 구조 게이트가 보는 것을 한 번 훑어 모은다. typescript 파서를 쓰는 것은 CommonJS · ESM · .ts 를 같은 코드로 읽기 위해서다.
+//
+//   node test/architecture/scan.ts    지금 숫자와 목록을 찍는다
+//
+// 부름: require("…") · require.resolve("…") · import … from "…" · export … from "…" · import("…"). 글자로 된 상대 경로만 따라간다.
+// import type · export type 은 실행 때 지워지므로 부름이 아니다. 타입은 주인 모듈에서 어느 층이든 가져온다.
+// 지연 부름: 함수 안(ts.isFunctionLike)에 있는 프로젝트 모듈(상대 경로)의 require · import(). 맨 위의 if · try 안은 지연으로 치지 않는다.
+// 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환 · 방향 위반은 프로젝트 모듈에서만 생긴다.
+// 글자가 아닌 경로(명령 · 이벤트 불러오기)는 따로 목록으로 둔다.
+// config 꺼내 두기: 루트 config.ts 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
+// 모듈 바꿔 끼우기: 테스트의 require.cache.
+// 메서드 바꿔 끼우기: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = … · x[k] = … · x.prototype.m = 무엇이든) mock.method 로 덮거나,
+// 받은 객체의 속성을 갈아 끼우는 도우미(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
+// 테스트 도우미(test/…)가 내준 이름의 칸에 바로 넣는 것(하네스의 가짜 설정)은 세지 않는다. 도우미를 거친 제품 값(h.X.m = …)은 센다.
+
+import fs from "fs";
+import path from "path";
+import ts from "typescript";
+
+const ROOT = path.join(import.meta.dirname, "..", "..");
+
+// 왼쪽이 오른쪽을 부를 수 있다
+const LAYERS = ["app", "입구", "usecases", "ui", "player", "autoplay", "media", "sources", "store", "config", "rules", "infra"];
+
+const posix = (p: string) => p.split(path.sep).join("/");
+
+function walk(dir: string, out: string[] = []) {
+  const abs = path.join(ROOT, dir);
+  if (!fs.existsSync(abs)) return out;
+  for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
+    if (e.name === "node_modules") continue;
+    const rel = posix(path.join(dir, e.name));
+    if (e.isDirectory()) walk(rel, out);
+    else if (/\.(c?js|mjs|ts)$/.test(e.name)) out.push(rel);
+  }
+  return out;
+}
+
+// 루트의 기동 파일과 설정
+const isRootIndex = (rel: string) => rel === "index.ts";
+const isRootConfig = (rel: string) => rel === "config.ts";
+
+function layerOf(rel: string) {
+  if (isRootIndex(rel)) return "app";
+  if (isRootConfig(rel)) return "config";
+  if (/^(commands|events|dashboard\/server)\//.test(rel)) return "입구";
+  const m = /^src\/([^/]+)\//.exec(rel);
+  return m ? m[1] : null;
+}
+
+function resolveSpec(fromRel: string, spec: string) {
+  if (!spec.startsWith("./") && !spec.startsWith("../")) return null;
+  const file = posix(path.join(path.dirname(fromRel), spec)); // ESM 이라 가져오는 경로에 확장자까지 적는다
+  return fs.existsSync(path.join(ROOT, file)) && fs.statSync(path.join(ROOT, file)).isFile() ? file : null;
+}
+
+const isRequire = (n: ts.Node): n is ts.CallExpression => ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "require";
+const isRequireResolve = (n: ts.Node): n is ts.CallExpression => ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && ts.isIdentifier(n.expression.expression) && n.expression.expression.text === "require" && n.expression.name.text === "resolve";
+const isDynamicImport = (n: ts.Node): n is ts.CallExpression => ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword;
+const literalArg = (n: ts.CallExpression) => (n.arguments[0] && ts.isStringLiteralLike(n.arguments[0]) ? n.arguments[0].text : null);
+
+// 타입만 가져오기 · 내보내기(실행 때 지워진다)
+const typeOnly = (n: ts.Node) => (ts.isImportDeclaration(n) && !!n.importClause?.isTypeOnly) || (ts.isExportDeclaration(n) && n.isTypeOnly);
+
+// 속성 접근 사슬의 맨 앞 이름(a.b.c → a)
+function rootName(n: ts.Expression) {
+  while (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)) n = n.expression;
+  return ts.isIdentifier(n) ? n.text : null;
+}
+
+function parse(rel: string) {
+  const text = fs.readFileSync(path.join(ROOT, rel), "utf8");
+  const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, false, rel.endsWith(".ts") ? ts.ScriptKind.TS : ts.ScriptKind.JS);
+  const line = (n: ts.Node) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+  return { sf, line };
+}
+
+// 봇 코드 한 파일: 부름 · 지연 부름 · 글자가 아닌 부름 · config 꺼내 두기
+function scanSource(rel: string) {
+  const { sf, line } = parse(rel);
+  const deps: { to: string; line: number; lazy: boolean }[] = [];
+  const unseen: string[] = [];
+  let lazy = 0;
+  const configNames = new Set<string>();
+  const captures: number[] = [];
+
+  const addDep = (spec: string, n: ts.Node, inFn: boolean) => {
+    const to = resolveSpec(rel, spec);
+    if (to) deps.push({ to, line: line(n), lazy: inFn });
+  };
+
+  // config.ts 를 받은 이름(맨 위의 import x from "…/config.ts" · import * as x · const x = require("…/config.ts")). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
+  for (const s of sf.statements) {
+    if (ts.isImportDeclaration(s) && !typeOnly(s) && ts.isStringLiteral(s.moduleSpecifier) && isRootConfig(resolveSpec(rel, s.moduleSpecifier.text) ?? "")) {
+      const clause = s.importClause;
+      if (clause?.name) configNames.add(clause.name.text);
+      const named = clause?.namedBindings;
+      if (named && ts.isNamespaceImport(named)) configNames.add(named.name.text);
+      else if (named) captures.push(line(s));
+      continue;
+    }
+    if (!ts.isVariableStatement(s)) continue;
+    for (const d of s.declarationList.declarations) {
+      if (d.initializer && isRequire(d.initializer) && isRootConfig(resolveSpec(rel, literalArg(d.initializer) ?? "") ?? "")) {
+        if (ts.isIdentifier(d.name)) configNames.add(d.name.text);
+        else captures.push(line(d));
+      }
+    }
+  }
+
+  const visit = (n: ts.Node, inFn: boolean) => {
+    if (ts.isFunctionLike(n)) inFn = true;
+    if (ts.isPropertyDeclaration(n) && !n.modifiers?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword)) inFn = true;
+
+    if (isRequire(n) || isDynamicImport(n)) {
+      const spec = literalArg(n);
+      if (spec !== null) {
+        if (inFn && spec.startsWith(".")) lazy++;
+        addDep(spec, n, inFn);
+      } else unseen.push(`${rel}:${line(n)}`);
+    } else if (isRequireResolve(n)) {
+      const spec = literalArg(n);
+      if (spec !== null) addDep(spec, n, inFn);
+    } else if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && !typeOnly(n) && n.moduleSpecifier && ts.isStringLiteral(n.moduleSpecifier)) {
+      addDep(n.moduleSpecifier.text, n, false);
+    }
+
+    if (!inFn && configNames.size) {
+      if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && configNames.has(n.expression.text)) captures.push(line(n));
+      // const { a } = config 만. const { a } = config.x 는 위의 속성 접근으로 이미 센다
+      if (ts.isVariableDeclaration(n) && ts.isObjectBindingPattern(n.name) && n.initializer && ts.isIdentifier(n.initializer) && configNames.has(n.initializer.text)) captures.push(line(n));
+    }
+    ts.forEachChild(n, (c) => visit(c, inFn));
+  };
+  visit(sf, false);
+  return { rel, layer: layerOf(rel), deps, unseen, lazy, captures };
+}
+
+// 테스트 한 파일: require.cache · 메서드 바꿔 끼우기
+function scanTest(rel: string) {
+  const { sf, line } = parse(rel);
+  let requireCache = 0;
+  const swaps: number[] = [];
+  const project = new Set<string>(); // 프로젝트 모듈에서 온 이름
+  const configs = new Set<string>(); // 그중 루트 config. 값을 바꾸는 창구(withConfig)는 바꿔 끼우기가 아니다
+  // 그중 테스트 도우미(test/…)가 내준 것. 도우미의 가짜 설정(behavior.stream = …)은 제품 모듈을 덮는 것이 아니다
+  const fixtures = new Set<string>();
+
+  const fromProject = (e: ts.Expression | undefined): boolean => {
+    if (!e) return false;
+    // (await import("./x")).default · await import("./x")
+    while (ts.isParenthesizedExpression(e) || ts.isAwaitExpression(e)) e = e.expression;
+    if (isRequire(e) || isDynamicImport(e)) return (literalArg(e) ?? "").startsWith(".");
+    const r = ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e) ? e.expression : null;
+    if (r && (isRequire(r) || ts.isPropertyAccessExpression(r) || ts.isParenthesizedExpression(r))) return fromProject(r);
+    return project.has(rootName(e) ?? "");
+  };
+  const bind = (name: ts.BindingName, init: ts.Expression | undefined) => {
+    if (!init || !fromProject(init)) return;
+    let e = init;
+    while (ts.isParenthesizedExpression(e) || ts.isAwaitExpression(e)) e = e.expression;
+    const fixture = fixtures.has(rootName(e) ?? "");
+    const add = (n: string) => {
+      project.add(n);
+      if (fixture) fixtures.add(n);
+    };
+    if (ts.isIdentifier(name)) add(name.text);
+    else if (ts.isObjectBindingPattern(name)) for (const el of name.elements) if (ts.isIdentifier(el.name)) add(el.name.text);
+  };
+
+  // 이름부터 모은다(before() 안에서 받는 것까지). import 로 받은 이름도
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || !st.moduleSpecifier.text.startsWith(".")) continue;
+    const clause = st.importClause;
+    const from = resolveSpec(rel, st.moduleSpecifier.text) ?? "";
+    if (clause?.name && isRootConfig(from)) configs.add(clause.name.text);
+    const add = (n: string) => {
+      project.add(n);
+      if (from.startsWith("test/")) fixtures.add(n);
+    };
+    if (clause?.name) add(clause.name.text);
+    const named = clause?.namedBindings;
+    if (named && ts.isNamespaceImport(named)) add(named.name.text);
+    else if (named) for (const el of named.elements) add(el.name.text);
+  }
+  const collect = (n: ts.Node) => {
+    if (ts.isVariableDeclaration(n)) bind(n.name, n.initializer);
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isIdentifier(n.left)) bind(n.left, n.right);
+    ts.forEachChild(n, collect);
+  };
+  collect(sf);
+
+  // 첫 매개변수의 속성을 갈아 끼우는 도우미(function swap(obj, key, fn) { obj[key] = fn } 꼴)
+  const swappers = new Set<string>();
+  const findSwappers = (n: ts.Node) => {
+    const fn = ts.isFunctionDeclaration(n) ? n : ts.isVariableDeclaration(n) && n.initializer && (ts.isArrowFunction(n.initializer) || ts.isFunctionExpression(n.initializer)) ? n.initializer : null;
+    const name = ts.isFunctionDeclaration(n) ? n.name?.text : ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) ? n.name.text : null;
+    const first = fn?.parameters[0]?.name;
+    if (name && first && ts.isIdentifier(first)) {
+      let assigns = false;
+      const look = (m: ts.Node) => {
+        if (ts.isBinaryExpression(m) && m.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isElementAccessExpression(m.left) && ts.isIdentifier(m.left.expression) && m.left.expression.text === first.text) assigns = true;
+        ts.forEachChild(m, look);
+      };
+      if (fn.body) look(fn.body);
+      if (assigns) swappers.add(name);
+    }
+    ts.forEachChild(n, findSwappers);
+  };
+  findSwappers(sf);
+
+  const visit = (n: ts.Node) => {
+    if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "require" && n.name.text === "cache") requireCache++;
+    const isFn = (e: ts.Node | undefined) => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));
+    const fixtureSlot = (left: ts.PropertyAccessExpression | ts.ElementAccessExpression) => ts.isIdentifier(left.expression) && fixtures.has(left.expression.text); // 도우미가 내준 이름의 칸에 바로 넣기
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isPropertyAccessExpression(n.left) || ts.isElementAccessExpression(n.left)) && isFn(n.right) && project.has(rootName(n.left) ?? "") && !fixtureSlot(n.left)) swaps.push(line(n));
+    // prototype 에 넣는 것은 무엇이든(변수에 담아 둔 함수로 갈아 끼우는 것까지)
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isPropertyAccessExpression(n.left) && ts.isPropertyAccessExpression(n.left.expression) && n.left.expression.name.text === "prototype" && project.has(rootName(n.left) ?? "")) swaps.push(line(n));
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && swappers.has(n.expression.text) && n.arguments[0] && project.has(rootName(n.arguments[0]) ?? "") && !configs.has(rootName(n.arguments[0]) ?? "")) swaps.push(line(n));
+    if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "method" && /(^|\.)mock$/.test(n.expression.expression.getText(sf)) && project.has(rootName(n.arguments[0] ?? n) ?? "")) swaps.push(line(n));
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return { rel, requireCache, swaps };
+}
+
+// 순환: 강하게 이어진 덩어리(Tarjan) 안의 선
+function cycleEdges(graph: Map<string, Set<string>>) {
+  let index = 0;
+  const idx = new Map<string, number>();
+  const low = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const comp = new Map<string, string>();
+  // 매긴 번호. 들른 점만 묻는다
+  const at = (m: Map<string, number>, k: string) => {
+    const n = m.get(k);
+    if (n === undefined) throw new Error(`번호 없는 점: ${k}`);
+    return n;
+  };
+  const strong = (v: string) => {
+    idx.set(v, index);
+    low.set(v, index++);
+    stack.push(v);
+    onStack.add(v);
+    for (const w of graph.get(v) ?? []) {
+      if (!idx.has(w)) {
+        strong(w);
+        low.set(v, Math.min(at(low, v), at(low, w)));
+      } else if (onStack.has(w)) low.set(v, Math.min(at(low, v), at(idx, w)));
+    }
+    if (at(low, v) === at(idx, v)) {
+      for (let w = stack.pop(); w !== undefined; w = w === v ? undefined : stack.pop()) {
+        onStack.delete(w);
+        comp.set(w, v);
+      }
+    }
+  };
+  for (const v of graph.keys()) if (!idx.has(v)) strong(v);
+  const edges: string[] = [];
+  for (const [v, ws] of graph) for (const w of ws) if (comp.get(v) === comp.get(w)) edges.push(`${v} -> ${w}`);
+  return edges.sort();
+}
+
+function scan() {
+  const sources = [...walk("src"), ...walk("commands"), ...walk("events"), ...walk("dashboard/server"), "index.ts", "config.ts"].map(scanSource);
+  const tests = walk("test").map(scanTest);
+
+  const direction: string[] = [];
+  const graph = new Map<string, Set<string>>();
+  for (const f of sources) {
+    const targets = new Set<string>();
+    for (const d of f.deps) {
+      targets.add(d.to);
+      // 루트 config.ts 는 어느 층이든 읽는 환경이라 방향에서 뺀다. 순환에는 넣는다
+      if (isRootConfig(d.to)) continue;
+      const from = LAYERS.indexOf(f.layer ?? "");
+      const to = LAYERS.indexOf(layerOf(d.to) ?? "");
+      if (from >= 0 && to >= 0 && from > to) direction.push(`${f.rel} -> ${d.to}`);
+    }
+    graph.set(f.rel, targets);
+  }
+
+  const perFile = <T extends { rel: string }>(list: T[], pick: (f: T) => number) => Object.fromEntries(list.map((f): [string, number] => [f.rel, pick(f)]).filter(([, n]) => n > 0));
+  return {
+    files: sources.length,
+    unknownLayer: sources.filter((f) => !f.layer || !LAYERS.includes(f.layer)).map((f) => f.rel),
+    unseen: sources.flatMap((f) => f.unseen),
+    direction: [...new Set(direction)].sort(),
+    cycles: cycleEdges(graph),
+    lazyRequire: perFile(sources, (f) => f.lazy),
+    configCapture: perFile(sources, (f) => f.captures.length),
+    requireCache: perFile(tests, (f) => f.requireCache),
+    methodSwap: tests.filter((f) => f.swaps.length).map((f) => f.rel),
+    // 어느 줄인가(진단용. 기준선은 파일만 본다)
+    methodSwapLines: Object.fromEntries(tests.filter((f) => f.swaps.length).map((f) => [f.rel, f.swaps])),
+  };
+}
+
+export { scan, LAYERS, layerOf };
+
+if (import.meta.main) {
+  const r = scan();
+  const total = (o: Record<string, number>) => Object.values(o).reduce((s, n) => s + n, 0);
+  console.log(`파일 ${r.files} · 층 모름 ${r.unknownLayer.length} · 글자가 아닌 부름 ${r.unseen.length}`);
+  console.log(`방향 위반 ${r.direction.length} · 순환 선 ${r.cycles.length}`);
+  console.log(`지연 부름 ${total(r.lazyRequire)}(${Object.keys(r.lazyRequire).length}개 파일) · config 꺼내 두기 ${total(r.configCapture)}(${Object.keys(r.configCapture).length}개 파일)`);
+  console.log(`require.cache ${total(r.requireCache)}(${Object.keys(r.requireCache).length}개 파일) · 메서드 바꿔 끼우기 ${r.methodSwap.length}개 파일`);
+  if (process.argv[2] === "--json") console.log(JSON.stringify(r, null, 2));
+}

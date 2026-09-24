@@ -20,7 +20,7 @@
         </label>
         <label class="block">
           <span :class="labelCls">최대 길이(초)</span>
-          <input v-model="maxDurationText" inputmode="numeric" placeholder="제한 없음" :class="inputCls" />
+          <NumberInput v-model="draft.defaults.maxDurationSec" placeholder="제한 없음" :class="inputCls" />
         </label>
       </div>
 
@@ -78,7 +78,7 @@
           <span v-if="isFolded(genreFoldId(i))" class="text-[0.78rem] shrink-0" :class="row.sources.length ? 'text-muted' : 'text-[#f87171]'">출처 {{ row.sources.length }}개</span>
           <button :class="removeBtn" v-tooltip="'삭제'" @click="rows.splice(i, 1)"><Icon name="trash" :size="15" /></button>
         </div>
-        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :genre-index="i" class="mt-2" />
+        <SourceEditor v-show="!isFolded(genreFoldId(i))" v-model="row.sources" :types="sourceTypes" :types-state="sourceTypesState" :genre-index="i" class="mt-2" />
       </div>
 
       <div v-if="problems.length" class="mt-3 text-[0.82rem] text-[#f87171]">
@@ -120,6 +120,7 @@ const savedAt = ref(null);
 const loadError = ref("");
 const serverProblems = ref([]);
 const sourceTypes = ref([]);
+const sourceTypesState = ref("loading"); // loading · ready · failed. 목록이 오기 전에는 "모르는 종류"로 판정하지 않는다
 
 // 편집 중에는 배열로 다룬다. 맵으로 두면 이름을 고치는 순간 키가 바뀌어 입력이 튄다.
 // 이름이 곧 키다. 따로 id를 두지 않는다.
@@ -129,15 +130,6 @@ const toRows = (genres) => Object.entries(genres || {}).map(([name, g]) => ({ ke
 const clean = (one) => Object.fromEntries(Object.entries(one).filter(([k]) => k !== "_key"));
 const toMap = (list) => Object.fromEntries(list.map((r) => [r.name.trim(), { emoji: r.emoji, sources: r.sources.map(clean) }]));
 
-// 상한은 비울 수 있다(제한 없음). 빈 칸과 0을 가르려고 문자열로 다룬다.
-const maxDurationText = computed({
-  get: () => (draft.value.defaults.maxDurationSec == null ? "" : String(draft.value.defaults.maxDurationSec)),
-  set: (v) => {
-    const t = String(v).trim();
-    draft.value.defaults.maxDurationSec = t === "" ? null : Number(t);
-  },
-});
-
 const payload = computed(() => ({ defaults: draft.value.defaults, genres: toMap(rows.value) }));
 const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
 
@@ -146,6 +138,8 @@ const dirty = computed(() => JSON.stringify(payload.value) !== snapshot.value);
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 const problems = computed(() => {
   const found = [];
+  // 상한은 비우면 제한 없음이다. 0 은 서버가 받지 않는다
+  if (draft.value.defaults.maxDurationSec === 0) found.push("최대 길이(초)는 비우거나 0보다 크게 적어 주세요.");
   const names = rows.value.map((r) => r.name.trim());
   if (rows.value.length > 25) found.push("장르는 25개까지만 메뉴에 나옵니다.");
   if (names.some((name) => !name)) found.push("이름이 빈 장르가 있습니다.");
@@ -251,8 +245,10 @@ async function fetchConfig() {
 async function fetchSourceTypes() {
   try {
     sourceTypes.value = (await axios.get("/api/admin/source-types")).data.types || [];
+    sourceTypesState.value = "ready";
   } catch {
     sourceTypes.value = [];
+    sourceTypesState.value = "failed";
   }
 }
 

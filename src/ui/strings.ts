@@ -1,0 +1,29 @@
+// 여러 파일에서 공유되는 공통 한국어 문자열
+// 파일별 문자열은 각 파일에 인라인으로 하드코딩
+
+// 오류 문자열의 ❌ 접두 규약. 출처(strings · ErrorHandler · sources/lookup)마다 접두 유무가 달라
+// 표시 지점에서 반드시 정규화한다. 디스코드는 정확히 하나, 대시보드 JSON은 없음.
+const withErrorMark = (msg: unknown) => {
+  const text = String(msg ?? "");
+  return text.trimStart().startsWith("❌") ? text : `❌ ${text}`;
+};
+const withoutErrorMark = (msg: unknown) => String(msg ?? "").replace(/^\s*❌\s*/, "");
+
+// 여러 곡을 한 번에 담은 출처의 표시 이름 (sources/lookup 의 collection 값). 모르면 재생목록
+const COLLECTION_LABELS: Record<string, string> = { playlist: "재생목록", album: "앨범", artist: "아티스트 인기곡" };
+const collectionLabel = (collection: string | null | undefined) => (collection && COLLECTION_LABELS[collection]) || "재생목록";
+
+export { withErrorMark, withoutErrorMark, collectionLabel };
+export const ERR_VOICE_REQUIRED = "❌ 음성 채널에 있어야 합니다!";
+export const ERR_NO_MUSIC = "❌ 현재 재생 중인 음악이 없습니다!";
+export const ERR_SAME_CHANNEL = "❌ 봇과 같은 음성 채널에 있어야 합니다!";
+export const ERR_NOT_AUTHORIZED = "❌ 음악 컨트롤 권한이 없습니다. (DJ 역할 필요)";
+export const ERR_NO_SONG_PLAYING = "❌ 현재 재생 중인 노래가 없습니다!";
+export const ERR_NO_PERMISSIONS = "❌ 이 음성 채널에서 말할 권한이 없습니다!";
+export const ERR_NO_SONGS_IN_QUEUE = "❌ 대기열에 노래가 없습니다!";
+export const ERR_SESSION_INVALID = "❌ 이 버튼은 더 이상 유효하지 않습니다! 음악 시스템이 재시작되었습니다.";
+export const ERR_PROCESSING = "❌ 처리 중 오류가 발생했습니다!";
+export const ERR_LIVE_UPCOMING = "❌ 아직 시작하지 않은 방송이에요. 방송이 시작된 뒤에 다시 넣어 주세요!";
+export const ERR_LIVE_NO_FFMPEG = "❌ 지금 설치된 ffmpeg로는 라이브 방송을 재생할 수 없어요. `pnpm run install:ffmpeg`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인해 주세요.";
+export const ERR_LIVE_NO_SEEK = "❌ 라이브 방송은 구간 이동을 할 수 없어요.";
+export const ERR_LIVE_NO_LOOP = "❌ 라이브 방송이 있으면 반복을 켤 수 없어요.";

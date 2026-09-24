@@ -1,0 +1,13 @@
+// 설정 문제를 찍고, 있으면 멈춘다. config 는 불러와도 멈추지 않고 목록만 내므로, 기동과 명령 배포 스크립트가
+// 첫 줄에서 이것을 부른다. out: warn · error 를 가진 것(로거나 console). exit: 멈추는 법(시험이 넘긴다)
+type Checked = { warnings: string[]; problems: string[] };
+type Out = { warn(line: string): unknown; error(line: string): unknown };
+
+function stopOnConfigProblems(config: Checked, out: Out, exit: (code: number) => void = (code) => process.exit(code)) {
+  config.warnings.forEach((line) => out.warn(line));
+  if (config.problems.length === 0) return;
+  config.problems.forEach((line) => out.error(line));
+  exit(1);
+}
+
+export { stopOnConfigProblems };

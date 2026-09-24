@@ -6,6 +6,7 @@
 
 [![discord.js](https://img.shields.io/badge/discord.js-14-blue?style=flat-square&logo=discord.js)](https://discord.js.org/)
 [![Node.js](https://img.shields.io/badge/24.11%2B-x?logo=Node.js&logoColor=green&label=Node.js&color=green&style=flat-square)](https://nodejs.org/)
+[![Typescript](https://img.shields.io/badge/typescript-6.0-blue?logo=typescript&style=flat-square)](https://www.typescriptlang.org/)
 [![Vue](https://img.shields.io/badge/Vue-3-mediumseagreen?logo=vue.js&style=flat-square)](https://vuejs.org/)
 [![Vite](https://img.shields.io/badge/vite-8-blueviolet?logo=vite&style=flat-square)](https://vite.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwindcss-4-%2306B6D4?logo=tailwindcss&style=flat-square)](https://tailwindcss.com/)
@@ -54,8 +55,9 @@
 
 ### 요구 사항
 
-- Windows / Linux (개발 / 유지보수 환경: Windows 10, Ubuntu 24)
-- [Node.js](https://nodejs.org/ko/download) >= 24.11.1 (2026/07/07 기준, 기술적 하한은 `@discordjs/voice`가 요구하는 22.12.\*)
+- Windows / Linux (개발 / 유지보수 환경: **Windows 10, Ubuntu 24**)
+- [Node.js](https://nodejs.org/ko/download) >=24.3.0 (개발 / 유지보수 환경: **>= 24.14.0**)
+  - 이론상 동작 하한치는 22.18.0부터이나, 테스트 스크립트가 24.3.0부터 정상 동작.
 - C++ 빌드 툴체인 (C++20 지원 컴파일러): `@discordjs/opus`의 프리빌드 바이너리가 Node 22 이하 ABI까지만 배포되어 있어, Node 23 이상에서는 소스 컴파일로 폴백. 툴체인이 없으면 `pnpm install`이 실패함.
   - Windows: [Visual Studio Build Tools](https://visualstudio.microsoft.com/ko/downloads/) 2022(17.x) 이상 + "C++를 사용한 데스크톱 개발" 워크로드, Python 3.9 이상
     - VS2019 이하는 Node 22+ 지원 대상이 아니라 사용 불가
@@ -312,7 +314,7 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.
 
 **ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `bin/`의 바이너리가 없어졌을 때만 쓰세요.
-내려받는 릴리스는 `scripts/install-ffmpeg.js`의 기본값으로 고정되어 있고 sha256으로 검증합니다. 다른 버전을 쓰려면 `.env`의 `FFMPEG_RELEASE`에 태그를 적고 `pnpm run install:ffmpeg --force`로 다시 받으세요.
+내려받는 릴리스는 `scripts/install-ffmpeg.ts`의 기본값으로 고정되어 있고 sha256으로 검증합니다. 다른 버전을 쓰려면 `.env`의 `FFMPEG_RELEASE`에 태그를 적고 `pnpm run install:ffmpeg --force`로 다시 받으세요.
 **각 달의 마지막 빌드만 쓸 수 있습니다** — BtbN은 그 외 autobuild를 2주 뒤 삭제하므로, 중간 날짜로 고정하면 얼마 못 가 내려받기가 404가 됩니다(월말 빌드는 2년 보존).
 
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
