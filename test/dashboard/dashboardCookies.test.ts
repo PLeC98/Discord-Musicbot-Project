@@ -1,47 +1,45 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/routes/admin.js — 유튜브 쿠키 통로.
 //
 // 키와 같은 규칙이다: 운영자만 들어오고, 값은 어느 통로로도 돌아나가지 않는다.
 // 로그인된 세션 그 자체라 응답에도 로그에도 내용이 남으면 안 된다.
 
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 process.env.OWNER_ID = "owner";
 process.env.COOKIES_SOURCE = "file";
 
-const { listenForFetch } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
+import type { Server } from "node:http";
+import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+
+/** 쿠키 경로의 답. 값은 없고 유무만 있다 */
+type CookieReply = { source?: string; hasFile?: boolean; inFlight?: number; error?: string };
 
 const yamlStore = await import("../../src/config/yamlStore.ts");
 const cookieConfig = await import("../../src/config/cookies.ts");
+const { bodyLimit } = await import("../../dashboard/server/bodyLimit.ts");
+const { adminRouter } = await import("../../dashboard/server/routes/admin.ts");
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-route-"));
 
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123"].join("\n");
 
-let currentUser;
-let server;
-let base;
+let currentUser: object | null;
+let server: Server;
+let base: string;
 
 before(async () => {
   yamlStore._setConfigDir(DIR);
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(require("../../dashboard/server/bodyLimit.ts").bodyLimit());
-  app.use((req, res, next) => {
-    req.session = { user: currentUser };
-    next();
-  });
-  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts").adminRouter);
+  app.use(bodyLimit());
+  app.use(signedInAs(() => currentUser));
+  app.use("/api/admin", adminRouter);
   server = await listenForFetch(app);
-  base = `http://127.0.0.1:${server.address().port}`;
+  base = baseUrl(server);
 });
 
 after(() => {
@@ -52,18 +50,7 @@ after(() => {
 
 beforeEach(() => cookieConfig.clearCookies());
 
-async function req(method, urlPath, body) {
-  const res = await fetch(base + urlPath, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {}
-  return { status: res.status, json };
-}
+const req = (method: string, urlPath: string, body?: unknown) => requestJson<CookieReply>(base, method, urlPath, body);
 
 test("운영자만 들어온다", async () => {
   currentUser = null;

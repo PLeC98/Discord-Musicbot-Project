@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/playerStream.js — SSE 연결 회계의 idempotent cleanup
 // 회귀 대상: 쓰기 실패 시 Set에서만 제거되고 perKey(연결 캡)·listGuildIds·빈 Set 정리가
 // close 이벤트에만 의존 — close가 안 오는 비정상 종료에서 캡이 영구 점유되던 문제.
@@ -6,6 +5,8 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import type { Response } from "express";
+import { fakeWith } from "../helpers/fake.ts";
 import { createPlayerStream } from "../../dashboard/server/playerStream.ts";
 import config from "../../config.ts";
 
@@ -13,20 +14,24 @@ const { maxPerUser } = config.dashboard.sse;
 const DashboardEvents = createPlayerStream();
 after(() => DashboardEvents.close());
 
+// 연결 하나. 쓴 것을 모으고, failWrite 면 쓰기가 던진다
 function makeRes() {
-  const res = new EventEmitter();
-  res.writes = [];
-  res.failWrite = false;
-  res.writeHead = () => {};
-  res.flushHeaders = () => {};
-  res.write = (s) => {
-    if (res.failWrite) throw new Error("EPIPE");
-    res.writes.push(s);
-  };
-  res.status = (code) => {
-    res.statusCode = code;
-    return { json: () => {} };
-  };
+  const res = fakeWith<Response>()(
+    Object.assign(new EventEmitter(), {
+      writes: [] as string[],
+      failWrite: false,
+      writeHead: () => {},
+      flushHeaders: () => {},
+      write: (s: string) => {
+        if (res.failWrite) throw new Error("EPIPE");
+        res.writes.push(s);
+      },
+      status: (code: number) => {
+        res.statusCode = code;
+        return { json: () => {} };
+      },
+    }),
+  );
   return res;
 }
 

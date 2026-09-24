@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server — 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
 // 미들웨어가 올바른 순서로 등록되는지.
 //
@@ -12,27 +11,26 @@ import fs from "node:fs";
 import path from "node:path";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import type { Server } from "node:http";
+import type { Client } from "discord.js";
+import type { NextFunction, Request, Response } from "express";
+import { fake } from "../helpers/fake.ts";
+import listen from "../helpers/listen.ts";
+import logSink from "../../src/infra/log/sink.ts";
+const { baseUrl } = listen;
 
 // ── 로그: 싱크에 받는 곳을 달아 본다(errorId가 로그에도 남는지 확인용) ──────
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
-const logLines = [];
-require("../../src/infra/log/sink.ts").addDestination((rec) => logLines.push(JSON.stringify(rec)));
+const logLines: string[] = [];
+logSink.addDestination((rec: unknown) => logLines.push(JSON.stringify(rec)));
 
 // ── 로그인 세션: "언마운트로 스토어가 죽은" 상태. 실 SQLite를 건드리지 않는다 ──────────────
 let storeBroken = true;
-const brokenSession = (req, res, next) => {
+const brokenSession = (req: Request, _res: Response, next: NextFunction) => {
   if (storeBroken) {
     // better-sqlite3가 언마운트된 볼륨에서 실제로 던지는 모양
-    const err = new Error("database disk image is malformed");
-    err.name = "SqliteError";
-    err.code = "SQLITE_CORRUPT";
-    return next(err);
+    return next(Object.assign(new Error("database disk image is malformed"), { name: "SqliteError", code: "SQLITE_CORRUPT" }));
   }
-  req.session = {};
+  req.session = fake<Request["session"]>({});
   next();
 };
 
@@ -49,18 +47,19 @@ const { errorHandler } = await import("../../dashboard/server/middleware/errorHa
 
 const HAS_DIST = fs.existsSync(path.join(import.meta.dirname, "..", "..", "dashboard", "client", "dist", "index.html"));
 
-let server;
-let base;
+let server: Server;
+let base: string;
 
 before(async () => {
-  server = createApp({ user: null }, { stream: createPlayerStream(), sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
+  const deployCommands = () => assert.fail("이 시험은 명령을 등록하지 않는다");
+  server = createApp(fake<Client>({ user: null }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: brokenSession }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
-  base = `http://127.0.0.1:${server.address().port}`;
+  base = baseUrl(server);
 });
 
 after(() => server.close());
 
-async function req(urlPath, init = {}) {
+async function req(urlPath: string, init: RequestInit = {}) {
   const res = await fetch(base + urlPath, { signal: AbortSignal.timeout(3000), ...init });
   return { status: res.status, headers: res.headers, body: await res.text() };
 }
@@ -68,7 +67,7 @@ async function req(urlPath, init = {}) {
 // ── 오류 분류 (순수) ───────────────────────────────────────────────────────────
 
 test("분류: SQLITE_*·I/O 오류는 503, 4xx는 그대로, 나머지는 500", () => {
-  const c = (err) => _internals.classify(err).status;
+  const c = (err: unknown) => _internals.classify(err).status;
 
   assert.equal(c(Object.assign(new Error("x"), { code: "SQLITE_CORRUPT" })), 503);
   assert.equal(c(Object.assign(new Error("x"), { code: "SQLITE_NOTADB" })), 503);
@@ -113,7 +112,7 @@ test("헤더가 이미 나간 응답(SSE)은 건드리지 않고 넘긴다", () 
     },
   };
   const err = new Error("boom");
-  errorHandler(err, { method: "GET", originalUrl: "/api/x", path: "/api/x" }, res, (e) => (passed = e));
+  errorHandler(err, fake<Request>({ method: "GET", originalUrl: "/api/x", path: "/api/x" }), fake<Response>(res), (e) => (passed = e));
   assert.equal(passed, err);
 });
 

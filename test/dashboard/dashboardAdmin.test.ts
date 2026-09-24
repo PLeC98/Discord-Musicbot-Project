@@ -1,22 +1,31 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/routes/admin.js — 봇 운영자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
 // 실 라우터 + fake client. 서버 설정은 임시 DB, 명령 등록 요청과 배포 지문 경로는 배포 함수에 넘긴다(실 배포·운영 DB 없음).
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import type { Server } from "node:http";
+import type { Client } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { PutCommands } from "../../src/app/commandLoader.ts";
+import { fake } from "../helpers/fake.ts";
+import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+
+const { bodyLimit } = await import("../../dashboard/server/bodyLimit.ts");
+const { deployCommands } = await import("../../src/app/commandLoader.ts");
+const { adminRouter } = await import("../../dashboard/server/routes/admin.ts");
+const autoplaySources = await import("../../src/autoplay/sources/index.ts");
+const assist = await import("../../src/autoplay/assist/index.ts");
+
+/** 거절 · 확인 답의 칸. 경로마다 읽는 칸이 더 있으면 부를 때 모양을 적는다 */
+type Reply = { error?: string; success?: boolean };
 
 // 재배포 경로가 운영 배포 지문(database/deployed-commands.json)을 기록하지 않도록 임시 경로로
 const HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
@@ -30,20 +39,20 @@ after(() => store.close());
 import express from "express";
 
 // ── Fake Discord client ──────────────────────────────────────
-function makeSendableChannel(id) {
+function makeSendableChannel(id: string) {
   const ch = {
     id,
     position: 0,
-    sent: [],
+    sent: [] as { embeds: unknown[] }[],
     isTextBased: () => true,
     isThread: () => false,
-    send: async (payload) => ch.sent.push(payload),
+    send: async (payload: { embeds: unknown[] }) => ch.sent.push(payload),
     permissionsFor: () => ({ has: () => true }),
   };
   return ch;
 }
 
-function makeGuild(id, name, { leaveError = null } = {}) {
+function makeGuild(id: string, name: string, { leaveError = null as Error | null } = {}) {
   const botChannel = makeSendableChannel(`bc-${id}`);
   const g = {
     id,
@@ -71,6 +80,7 @@ const gStuck = makeGuild("300", "StuckGuild", { leaveError: new Error("Cannot le
 
 const playerG1 = {
   cleaned: 0,
+  pendingEndReason: null as string | null,
   queue: [{ title: "q1" }],
   currentTrack: { title: "playing" },
   cleanup() {
@@ -89,52 +99,37 @@ const client = {
       [gStuck.id, gStuck],
     ]),
   },
-  players: new Map([[g1.id, playerG1]]),
+  players: new Map([[g1.id, fake<MusicPlayer>(playerG1)]]),
   musicEmbedManager: {
-    endedPlayers: [],
-    async handlePlaybackEnd(player) {
+    endedPlayers: [] as unknown[],
+    async handlePlaybackEnd(player: unknown) {
       this.endedPlayers.push(player);
     },
   },
 };
 
 // ── 앱 구성 ──────────────────────────────────────────────────
-let currentUser;
-let server;
-let base;
+let currentUser: object | null;
+let server: Server;
+let base: string;
 
 before(async () => {
   currentUser = { id: "owner", username: "owner" };
   const app = express();
-  app.use(require("../../dashboard/server/bodyLimit.ts").bodyLimit()); // 실제 서버와 같은 상한을 쓴다
-  app.use((req, res, next) => {
-    req.session = { user: currentUser };
-    next();
-  });
-  app.locals.discordClient = client;
-  // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다
-  const { deployCommands } = require("../../src/app/commandLoader.ts");
-  const put = async (route, body) => body.map((c) => ({ name: c.name }));
+  app.use(bodyLimit()); // 실제 서버와 같은 상한을 쓴다
+  app.use(signedInAs(() => currentUser));
+  app.locals.discordClient = fake<Client>(client);
+  // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다(디스코드가 돌려주는 칸 중 이름만)
+  const put = fake<PutCommands>(async (_route: string, body: { name: string }[]) => body.map((c) => ({ name: c.name })));
   app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put });
-  app.use("/api/admin", require("../../dashboard/server/routes/admin.ts").adminRouter);
+  app.use("/api/admin", adminRouter);
   server = await listenForFetch(app);
-  base = `http://127.0.0.1:${server.address().port}`;
+  base = baseUrl(server);
 });
 
 after(() => server.close());
 
-async function req(method, urlPath, body) {
-  const res = await fetch(base + urlPath, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {}
-  return { status: res.status, json };
-}
+const req = <T = Reply>(method: string, urlPath: string, body?: unknown) => requestJson<T>(base, method, urlPath, body);
 
 // ── 인가 ─────────────────────────────────────────────────────
 
@@ -163,7 +158,7 @@ test("requireOwner: 구버전 세션의 isAdmin=true는 인가에 쓰이지 않�
 // ── 상태 / 서버 목록 ─────────────────────────────────────────
 
 test("GET status: 봇/노드/시스템 상태 형태", async () => {
-  const r = await req("GET", "/api/admin/status");
+  const r = await req<{ bot: { tag: string; guilds: number }; activePlayers: number; node: { version: string }; system: { cpus: number }; logLevel: string }>("GET", "/api/admin/status");
   assert.equal(r.status, 200);
   assert.equal(r.json.bot.tag, "TestBot#1");
   assert.equal(r.json.bot.guilds, 3);
@@ -176,20 +171,21 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
 });
 
 test("GET guilds: 참가 서버 목록 + 재생 여부", async () => {
-  const r = await req("GET", "/api/admin/guilds");
+  const r = await req<{ guilds: { id: string; name: string; memberCount: number; hasPlayer: boolean }[] }>("GET", "/api/admin/guilds");
   assert.equal(r.status, 200);
   assert.equal(r.json.guilds.length, 3);
   const alpha = r.json.guilds.find((g) => g.id === "100");
+  assert.ok(alpha);
   assert.equal(alpha.name, "AlphaGuild");
   assert.equal(alpha.memberCount, 42);
   assert.equal(alpha.hasPlayer, true);
-  assert.equal(r.json.guilds.find((g) => g.id === "200").hasPlayer, false);
+  assert.equal(r.json.guilds.find((g) => g.id === "200")?.hasPlayer, false);
 });
 
 // ── 서버 나가기 ──────────────────────────────────────────────
 
 test("POST leave: 재생 중 서버 — 플레이어 마감(임베드 종료+cleanup+맵 제거) 후 leave", async () => {
-  const r = await req("POST", "/api/admin/guilds/100/leave");
+  const r = await req<{ name: string }>("POST", "/api/admin/guilds/100/leave");
   assert.equal(r.status, 200);
   assert.equal(r.json.name, "AlphaGuild");
   assert.equal(g1.leftCount, 1);
@@ -211,13 +207,13 @@ test("POST leave: 없는 서버 404 / leave 실패 502", async () => {
 
   const r = await req("POST", "/api/admin/guilds/300/leave");
   assert.equal(r.status, 502);
-  assert.ok(r.json.error.includes("Cannot leave"));
+  assert.ok(r.json.error?.includes("Cannot leave"));
 });
 
 // ── 커맨드 재배포 ────────────────────────────────────────────
 
 test("POST redeploy-commands: 등록 요청이 받으면 성공 응답", async () => {
-  const r = await req("POST", "/api/admin/redeploy-commands");
+  const r = await req<{ success: boolean; count: number; scope: string }>("POST", "/api/admin/redeploy-commands");
   assert.equal(r.status, 200);
   assert.equal(r.json.success, true);
   assert.ok(r.json.count > 0);
@@ -240,7 +236,7 @@ test("POST broadcast: 문자열·길이·종류를 검증한다", async () => {
 
   const tooLong = await req("POST", "/api/admin/broadcast", { message: "가".repeat(4097) });
   assert.equal(tooLong.status, 400, "embed description 상한(4096)");
-  assert.match(tooLong.json.error, /4096/);
+  assert.match(tooLong.json.error ?? "", /4096/);
 
   const badType = await req("POST", "/api/admin/broadcast", { message: "안내", type: "없는종류" });
   assert.equal(badType.status, 400, "모르는 종류를 info로 조용히 바꾸지 않는다");
@@ -253,7 +249,7 @@ test("POST broadcast: 한 곳도 못 보내면 성공으로 돌려주지 않는�
   const guilds = client.guilds.cache;
   client.guilds.cache = new Map(); // 보낼 서버가 없는 상태
   try {
-    const r = await req("POST", "/api/admin/broadcast", { message: "아무도 못 받음" });
+    const r = await req<{ success: boolean; sent: number }>("POST", "/api/admin/broadcast", { message: "아무도 못 받음" });
     assert.equal(r.status, 502);
     assert.equal(r.json.success, false);
     assert.equal(r.json.sent, 0);
@@ -268,7 +264,7 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
   setGuild("300", { botChannel: null });
   for (const g of [g1, g2, gStuck]) g.botChannel.sent.length = 0;
 
-  const r = await req("POST", "/api/admin/broadcast", { message: "점검 안내", type: "maintenance" });
+  const r = await req<{ success: boolean; sent: number; total: number }>("POST", "/api/admin/broadcast", { message: "점검 안내", type: "maintenance" });
   assert.equal(r.status, 200);
   assert.equal(r.json.success, true);
   assert.equal(r.json.total, 3);
@@ -283,6 +279,9 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
 // 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
 
 const yamlStore = await import("../../src/config/yamlStore.ts");
+
+/** 장르 설정을 읽은 답 */
+type GenresConfig = { data: { genres: Record<string, { sources: { type: string; keywords: string[] }[] }> } };
 const CONFIG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-admincfg-"));
 
 before(() => {
@@ -311,13 +310,13 @@ test("설정: 모르는 이름은 404", async () => {
 });
 
 test("설정: 읽으면 현재 값이 온다", async () => {
-  const { status, json } = await req("GET", "/api/admin/config/genres");
+  const { status, json } = await req<GenresConfig>("GET", "/api/admin/config/genres");
   assert.equal(status, 200);
   assert.deepEqual(json.data.genres.팝.sources, [{ type: "keyword", keywords: ["pop music"] }]);
 });
 
 test("설정: 저장하면 값이 바뀌고 주석은 남는다", async () => {
-  const { json: before } = await req("GET", "/api/admin/config/genres");
+  const { json: before } = await req<GenresConfig>("GET", "/api/admin/config/genres");
   before.data.genres.팝.sources[0].keywords = ["pop music", "top pop"];
 
   const { status } = await req("PUT", "/api/admin/config/genres", { data: before.data });
@@ -331,7 +330,7 @@ test("설정: 저장하면 값이 바뀌고 주석은 남는다", async () => {
 // 깨진 값을 파일에 남기느니 거절한다 — 봇이 그 파일로 돈다.
 test("설정: 쓸 수 없는 값은 저장 전에 거절한다", async () => {
   const bad = { defaults: {}, genres: { true: { sources: [{ type: "keyword", keywords: [] }] } } };
-  const { status, json } = await req("PUT", "/api/admin/config/genres", { data: bad });
+  const { status, json } = await req<{ problems: string[] }>("PUT", "/api/admin/config/genres", { data: bad });
   assert.equal(status, 400);
   assert.ok(json.problems.length >= 2, "무엇이 문제인지 모두 알려준다");
 
@@ -348,13 +347,18 @@ test("설정: 내용이 없으면 400", async () => {
 // 편집기가 그릴 표는 서버가 준다. 화면이 목록을 따로 들면 소스를 더할 때 한쪽만 고치게 된다.
 test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준다", async () => {
   // 방영 연도 범위는 평소 AnimeThemes 에 묻는다 — 테스트는 바깥에 나가지 않는다
-  require("../../src/autoplay/sources/index.ts")._seedYearRange({ min: 1963, max: 2026 });
-  const { status, json } = await req("GET", "/api/admin/source-types");
+  autoplaySources._seedYearRange({ min: 1963, max: 2026 });
+  const { status, json } = await req<{ types: Awaited<ReturnType<typeof autoplaySources.catalog>> }>("GET", "/api/admin/source-types");
   assert.equal(status, 200);
 
   const types = json.types;
   const byType = Object.fromEntries(types.map((t) => [t.type, t]));
   assert.ok(types.length >= 9, "소스 종류가 다 와야 한다");
+  const fieldOf = (type: string, key: string) => {
+    const field = byType[type]?.fields.find((f) => f.key === key);
+    assert.ok(field, `${type}.${key}`);
+    return field;
+  };
 
   // 이름은 그 서비스 표기로 — 내부 코드명을 그대로 보여주지 않는다
   assert.equal(byType.lbradio.label, "ListenBrainz Radio");
@@ -366,34 +370,34 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   assert.equal(typeof byType.keyword.usable, "boolean");
 
   // 필수 칸은 need 에서 끌어온다 — 화면이 따로 적지 않는다
-  assert.equal(byType.keyword.fields.find((f) => f.key === "keywords").required, true);
-  assert.equal(byType.youtube.fields.find((f) => f.key === "url").required, true);
+  assert.equal(fieldOf("keyword", "keywords").required, true);
+  assert.equal(fieldOf("youtube", "url").required, true);
   // "둘 중 하나"는 따로 알려 준다
   assert.deepEqual(byType.lbradio.either, [["tags", "prompt"]]);
 
   // 고를 값이 정해진 칸은 목록을 같이 준다 — 보일 말과 API 값이 다를 수 있어 짝으로 준다
-  const media = byType.animethemes.fields.find((f) => f.key === "mediaFormat");
+  const media = fieldOf("animethemes", "mediaFormat");
   assert.equal(media.kind, "enumList");
   assert.ok(
-    media.options.some((o) => o.value === "TV Short"),
+    media.options?.some((o) => o.value === "TV Short"),
     "매체 목록에 TV Short 가 있어야 한다",
   );
   // 분기는 계절 이름 대신 분기로 보여준다 — 값은 저쪽 이름 그대로 나가야 한다
-  const season = byType.animethemes.fields.find((f) => f.key === "season");
+  const season = fieldOf("animethemes", "season");
   assert.deepEqual(
-    season.options.map((o) => o.value),
+    season.options?.map((o) => o.value),
     ["Winter", "Spring", "Summer", "Fall"],
   );
-  season.options.forEach((one, i) => assert.ok(one.label.startsWith(`${i + 1}분기`), `${one.value} → ${one.label}`));
+  (season.options ?? []).forEach((one, i) => assert.ok(one.label.startsWith(`${i + 1}분기`), `${one.value} → ${one.label}`));
 
   // 구간 슬라이더는 고를 수 있는 양 끝을 서버가 알려 준다 — 화면이 올해로 어림잡지 않는다
-  const year = byType.animethemes.fields.find((f) => f.key === "yearFrom");
+  const year = fieldOf("animethemes", "yearFrom");
   assert.equal(year.kind, "range");
   assert.equal(year.to, "yearTo");
-  assert.ok(year.min > 1900 && year.max >= year.min);
+  assert.ok(year.min !== undefined && year.max !== undefined && year.min > 1900 && year.max >= year.min);
 
   // 가족 사이트라고 값까지 같지는 않다 — 사이트마다 받는 것만 준다
-  const songTypes = (type) => byType[type].fields.find((f) => f.key === "songTypes").options.map((o) => o.value);
+  const songTypes = (type: string) => fieldOf(type, "songTypes").options?.map((o) => o.value) ?? [];
   assert.ok(songTypes("touhoudb").includes("Arrangement"), "동방은 어레인지를 받는다");
   assert.ok(!songTypes("vocadb").includes("Arrangement"), "보카로는 어레인지를 받지 않는다");
   assert.ok(!byType.touhoudb.fields.some((f) => f.key === "artistTypes"), "동방에는 분류 자체가 없다");
@@ -403,7 +407,7 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
 
 // 판정 테스트는 보기 곡이 아니라 진짜 곡으로 시험한다. 링크 조회는 아무것도 안 보낸다.
 test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
-  const bad = await req("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
+  const bad = await req<{ candidates: { error?: string }[] }>("POST", "/api/admin/ai/judge/lookup", { urls: ["https://example.com/노래"] });
   assert.equal(bad.status, 200);
   assert.equal(bad.json.candidates[0].error, "유튜브 주소가 아닙니다.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
 
@@ -417,16 +421,16 @@ test("AI 보조: 후보를 프롬프트에 적히는 줄로 그린다", async ()
     { url: "a", error: "못 읽음" },
     { url: "b", title: "노래", durationSec: 245 },
   ];
-  const got = await req("POST", "/api/admin/ai/judge/lines", { candidates: cands, genre: "재즈", list: { lineFormat: "{{번호}}. {{제목}} ({{길이분}}분, {{장르}})" } });
+  const got = await req<{ lines: string[] }>("POST", "/api/admin/ai/judge/lines", { candidates: cands, genre: "재즈", list: { lineFormat: "{{번호}}. {{제목}} ({{길이분}}분, {{장르}})" } });
   assert.equal(got.status, 200);
   assert.deepEqual(got.json.lines, ["1. 노래 (4분, 재즈)"], "못 읽은 것은 빼고 번호는 남은 것만 센다");
 
-  assert.deepEqual((await req("POST", "/api/admin/ai/judge/lines", { candidates: [] })).json.lines, []);
+  assert.deepEqual((await req<{ lines: string[] }>("POST", "/api/admin/ai/judge/lines", { candidates: [] })).json.lines, []);
 });
 
 // 조회를 안 하고 눌러도 무엇이 나가는지는 보여야 한다 — 보기 곡으로 돌린다.
 test("AI 보조: 고른 후보가 없으면 보기 곡으로 판정한다", async () => {
-  const got = await req("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }], data: { provider: "off" } });
+  const got = await req<{ body: unknown }>("POST", "/api/admin/ai/judge/run", { candidates: [{ url: "x", error: "못 읽음" }], data: { provider: "off" } });
   assert.equal(got.status, 200);
   assert.ok(got.json.body, "요청은 만들어진다");
 });
@@ -435,7 +439,7 @@ test("AI 보조: 고른 후보가 없으면 보기 곡으로 판정한다", asyn
 test("AI 보조: 긴 프롬프트도 받는다", async () => {
   const long = "가".repeat(60000); // 32kb 를 훌쩍 넘는다
 
-  const counted = await req("POST", "/api/admin/ai/tokens", { provider: "off", model: "", texts: [long] });
+  const counted = await req<{ total: number }>("POST", "/api/admin/ai/tokens", { provider: "off", model: "", texts: [long] });
   assert.equal(counted.status, 200, "토큰 세기는 긴 글을 받아야 한다");
   assert.ok(counted.json.total > 1000);
 
@@ -447,13 +451,17 @@ test("AI 보조: 긴 프롬프트도 받는다", async () => {
   assert.equal(other.status, 413, "딴 길은 여전히 32kb 에서 막힌다");
 });
 
+/** 그 모델이 받는 칸을 물은 답 */
+type ModelFields = { known: boolean; fields: { key: string; path: string; widget: string; enum: { value: string }[] }[]; models: unknown[] };
+
 // 값이 본문 어디로 가는지는 모델 프로필이 안다 — 화면이 베껴 두면 한쪽만 고치게 된다.
 test("AI 보조: 그 모델이 받는 칸을 알려 준다", async () => {
-  const { status, json } = await req("GET", "/api/admin/ai/fields?provider=anthropic&model=claude-opus-5");
+  const { status, json } = await req<ModelFields>("GET", "/api/admin/ai/fields?provider=anthropic&model=claude-opus-5");
   assert.equal(status, 200);
   assert.equal(json.known, true);
 
   const effort = json.fields.find((f) => f.key === "effort");
+  assert.ok(effort);
   assert.equal(effort.path, "output_config.effort", "경로는 본문 맨 위부터다");
   assert.equal(effort.widget, "select", "위젯도 프로필이 정한다");
   assert.ok(effort.enum.some((e) => e.value === "max"));
@@ -462,11 +470,11 @@ test("AI 보조: 그 모델이 받는 칸을 알려 준다", async () => {
 });
 
 test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", async () => {
-  const local = await req("GET", "/api/admin/ai/fields?provider=ollama&model=gemma3n:e2b");
+  const local = await req<ModelFields>("GET", "/api/admin/ai/fields?provider=ollama&model=gemma3n:e2b");
   assert.equal(local.json.known, false, "로컬은 프로필이 없다");
   assert.deepEqual(local.json.fields, []);
 
-  const unknown = await req("GET", "/api/admin/ai/fields?provider=anthropic&model=없는모델");
+  const unknown = await req<ModelFields>("GET", "/api/admin/ai/fields?provider=anthropic&model=없는모델");
   assert.equal(unknown.json.known, false);
   assert.deepEqual(unknown.json.fields, [], "모르는 모델이라고 던지지 않는다");
   assert.ok(unknown.json.models.length > 0, "모델 목록은 그대로 준다");
@@ -474,7 +482,7 @@ test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", 
 
 // 키는 .env 에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
 test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
-  const { status, json } = await req("GET", "/api/admin/ai/state");
+  const { status, json } = await req<{ hasKey: Record<string, boolean>; defaultSections: unknown }>("GET", "/api/admin/ai/state");
   assert.equal(status, 200);
   // 프로바이더마다 있는지 없는지만 — 값은 어디에도 없다
   assert.equal(typeof json.hasKey, "object");
@@ -482,10 +490,10 @@ test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", 
   assert.equal(json.hasKey.groq, false, "안 적은 것은 없음");
   assert.ok(!("apiKey" in json), "값을 실으면 안 된다");
   // 화면이 기본 프롬프트를 따로 베껴 두면 한쪽만 고치게 된다 — 서버가 준다
-  assert.deepEqual(json.defaultSections, require("../../src/autoplay/assist/index.ts").DEFAULT_SECTIONS);
+  assert.deepEqual(json.defaultSections, assist.DEFAULT_SECTIONS);
 
   const body = JSON.stringify(json);
-  for (const secret of [process.env.AI_API_KEY, process.env.DISCORD_TOKEN, process.env.CLIENT_SECRET].filter(Boolean)) {
+  for (const secret of [process.env.AI_API_KEY, process.env.DISCORD_TOKEN, process.env.CLIENT_SECRET].filter((v): v is string => Boolean(v))) {
     assert.ok(!body.includes(secret), "응답에 비밀이 섞였다");
   }
 });
@@ -501,10 +509,13 @@ test("AI 보조: 운영자만 본다", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
+/** 키를 저장한 답. 값이 아니라 있는지만 */
+type Keys = { hasKey: Record<string, boolean> };
+
 // 키는 쓰기 전용이다. 넣을 수는 있어도 되읽을 수는 없다 —
 // 운영자 세션이 털려도 덮어쓰기지 읽기가 아니어야 한다.
 test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
-  const saved = await req("PUT", "/api/admin/ai/keys", { keys: { groq: "sk-groq-새키" } });
+  const saved = await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { groq: "sk-groq-새키" } });
   assert.equal(saved.status, 200);
   assert.equal(saved.json.hasKey.groq, true);
   assert.equal(saved.json.hasKey.openai, true, "적어 보내지 않은 칸은 그대로 둔다");
@@ -518,10 +529,10 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   assert.ok(!JSON.stringify(state.json).includes("sk-groq-새키"));
 
   // 빈 값이면 지운다
-  assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: { groq: "" } })).json.hasKey.groq, false);
+  assert.equal((await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { groq: "" } })).json.hasKey.groq, false);
 
   // 모르는 이름으로 칸을 늘리지 않는다
-  const odd = await req("PUT", "/api/admin/ai/keys", { keys: { 엉뚱한것: "x" } });
+  const odd = await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { 엉뚱한것: "x" } });
   assert.equal(odd.status, 200);
   assert.ok(!("엉뚱한것" in odd.json.hasKey));
 
@@ -531,9 +542,12 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
+/** 프롬프트를 읽거나 쓴 답 */
+type Sections = { sections: { role: string; text: string }[] };
+
 // 프롬프트는 설정과 딴 파일이다(ChatML). /config/:name 통로를 안 탄다.
 test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
-  const saved = await req("PUT", "/api/admin/ai/prompt", {
+  const saved = await req<Sections>("PUT", "/api/admin/ai/prompt", {
     sections: [
       { role: "system", text: "기준이다" },
       { role: "user", text: "{{목록}}" },
@@ -545,13 +559,13 @@ test("AI 프롬프트: ChatML 파일로 따로 오간다", async () => {
   const text = fs.readFileSync(path.join(CONFIG_DIR, "ai-prompt.chatml"), "utf8");
   assert.match(text, /<\|im_start\|>system\n기준이다\n<\|im_end\|>/);
 
-  const read = await req("GET", "/api/admin/ai/prompt");
+  const read = await req<Sections>("GET", "/api/admin/ai/prompt");
   assert.deepEqual(read.json.sections, saved.json.sections, "읽은 것과 쓴 것이 같아야 한다");
 
   // 후보를 어디에도 안 넣으면 모델은 무엇을 판정할지 모른다
   const noList = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "system", text: "목록이 없다" }] });
   assert.equal(noList.status, 400);
-  assert.match(noList.json.error, /\{\{목록\}\}/);
+  assert.match(noList.json.error ?? "", /\{\{목록\}\}/);
 
   // 블록 안에 끝 표시가 또 나오면 파일이 깨진다
   const broken = await req("PUT", "/api/admin/ai/prompt", { sections: [{ role: "user", text: "{{목록}}<|im_end|>" }] });
@@ -566,7 +580,7 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   const ok = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", baseUrl: "", model: "" } });
   assert.equal(ok.status, 200, "꺼 둔 설정이 반쯤 비어 있는 것은 문제가 아니다");
 
-  const bad = await req("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "", model: "" } });
+  const bad = await req<{ problems: string[] }>("PUT", "/api/admin/config/ai", { data: { provider: "custom", baseUrl: "", model: "" } });
   assert.equal(bad.status, 400);
   assert.ok(bad.json.problems.length >= 2);
 
@@ -585,7 +599,7 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   assert.equal(range.status, 400);
 
   // 온도는 모델이 받는 칸 하나가 됐다 — 맨 위에 남아 있으면 조용히 무시되므로 막는다
-  const moved = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 0 } });
+  const moved = await req<{ problems: string[] }>("PUT", "/api/admin/config/ai", { data: { provider: "off", temperature: 0 } });
   assert.equal(moved.status, 400);
   assert.match(moved.json.problems.join(" "), /params 아래에 모델별로/);
 
@@ -595,15 +609,15 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
   // enabled 는 provider 로 바뀌었다 — 옛 이름을 적으면 알려 준다
   const oldKey = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", enabled: true } });
   assert.equal(oldKey.status, 400);
-  assert.match(oldKey.json.error, /provider/);
+  assert.match(oldKey.json.error ?? "", /provider/);
 
   // 프롬프트는 딴 파일에 산다 — 설정 파일에 적으면 쓰이지 않으니 알려 준다
   const wrongPlace = await req("PUT", "/api/admin/config/ai", { data: { provider: "off", prompt: "여기 적으면 안 된다" } });
   assert.equal(wrongPlace.status, 400);
-  assert.match(wrongPlace.json.error, /ai-prompt\.chatml/);
+  assert.match(wrongPlace.json.error ?? "", /ai-prompt\.chatml/);
 
   // 손으로 적은 주석은 저장해도 남는다(장르·상태 설정과 같은 규약)
-  const saved = await req("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b", promptNames: ["기준", "목록"] } });
+  const saved = await req<{ data: { promptNames: string[] } }>("PUT", "/api/admin/config/ai", { data: { provider: "openai", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b", promptNames: ["기준", "목록"] } });
   assert.equal(saved.status, 200);
   assert.deepEqual(saved.json.data.promptNames, ["기준", "목록"], "섹션 이름은 설정 쪽에 남는다");
   assert.match(fs.readFileSync(path.join(CONFIG_DIR, "ai.yaml"), "utf8"), /손으로 적은 메모/);
@@ -611,7 +625,7 @@ test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
 
 // 나갈 것을 만들어만 본다. 보내지 않는다 — 테스트와 가르는 것이 이 엔드포인트의 요점이다.
 test("AI 미리보기: 응답 칸이 없다", async () => {
-  const { status, json } = await req("POST", "/api/admin/ai/preview", { data: { provider: "custom", baseUrl: "http://127.0.0.1:1/v1", model: "m" } });
+  const { status, json } = await req<{ url: string; body: { messages: unknown } }>("POST", "/api/admin/ai/preview", { data: { provider: "custom", baseUrl: "http://127.0.0.1:1/v1", model: "m" } });
   assert.equal(status, 200);
   assert.equal(json.url, "http://127.0.0.1:1/v1/chat/completions");
   assert.ok(Array.isArray(json.body.messages));

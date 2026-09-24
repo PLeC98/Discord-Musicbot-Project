@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 이모지 고르기 목록이 지켜야 할 것들.
 //
 // 목록은 notes/디스코드 이모지 카테고리 및 목록.md를 원본으로 scripts/build-emoji-list.js가 만든다.
@@ -6,17 +5,16 @@
 
 import test from "node:test";
 import assert from "node:assert";
+import fs from "node:fs";
 import path from "path";
 
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 const LIST = path.join(import.meta.dirname, "..", "..", "dashboard", "client", "src", "emojiList.js");
-const list = () => import("file://" + LIST.replace(/\\/g, "/"));
+// 화면 쪽 모듈이라 타입이 없다. 시험이 읽는 칸만 적는다
+type Emoji = { char: string; label?: string; search: string };
+type EmojiGroup = { name: string; emoji: Emoji[] };
+const list = (): Promise<{ EMOJI_GROUPS: EmojiGroup[]; TWEMOJI_VERSION: string }> => import("file://" + LIST.replace(/\\/g, "/"));
 const groups = () => list().then((m) => m.EMOJI_GROUPS);
-const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.name, e.char, e]));
+const all = async () => (await groups()).flatMap((g) => g.emoji.map((e) => [g.name, e.char, e] as const));
 
 test("분류는 디스코드 한국어 선택기 그대로다", async () => {
   // 고르는 사람이 디스코드에서 보던 자리에서 찾을 수 있어야 한다.
@@ -34,8 +32,8 @@ test("고르기 목록은 이모지 한 글자씩만 담는다", async () => {
 });
 
 test("고르기 목록에 같은 이모지가 두 번 나오지 않는다", async () => {
-  const seen = new Map();
-  const dupes = [];
+  const seen = new Map<string, string>();
+  const dupes: string[] = [];
   for (const [group, char] of await all()) {
     if (seen.has(char)) dupes.push(`${char} — ${seen.get(char)}, ${group}`);
     else seen.set(char, group);
@@ -52,7 +50,7 @@ test("항목마다 이름과 검색어가 있다", async () => {
 test("디스코드에서 복사한 이름으로 찾을 수 있다", async () => {
   // 디스코드에서 이모지를 복사하면 ":shushing_face:" 꼴로 붙는다 — 그대로 쳐도 찾아져야 한다.
   const flat = (await groups()).flatMap((g) => g.emoji);
-  const find = (q) => flat.find((e) => e.search.includes(q))?.char;
+  const find = (q: string) => flat.find((e) => e.search.includes(q))?.char;
 
   // 콜론째로 붙여넣는 쪽이 흔하므로 그게 먼저다. 부분 일치라 콜론 없는 꼴도 같이 걸린다.
   assert.equal(find(":shushing_face:"), "🤫");
@@ -70,7 +68,7 @@ test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
   const bad = [];
 
   for (const [group, char] of await all()) {
-    const id = [...(char.includes("‍") ? char : char.replace(/️/g, ""))].map((c) => c.codePointAt(0).toString(16)).join("-");
+    const id = [...(char.includes("‍") ? char : char.replace(/️/g, ""))].map((c) => c.codePointAt(0)?.toString(16)).join("-");
     if (!shape.test(id)) bad.push(`${group} ${char} → ${id}`);
     // ZWJ가 없는데 fe0f가 남아 있으면 규칙을 잘못 적용한 것이다
     if (!char.includes("‍") && id.includes("fe0f")) bad.push(`${group} ${char} → ${id} (VS16이 남음)`);
@@ -82,6 +80,6 @@ test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
 test("기록된 Twemoji 버전이 설치된 것과 같다", async () => {
   // 그림은 twemoji 패키지가 가리키는 CDN에서 온다. 패키지만 올리고 목록을 다시 만들지 않으면
   // 새로 생긴 이모지가 목록에 없는 채로 남는다 — 그때 여기서 걸린다.
-  const installed = require("../../dashboard/client/node_modules/@twemoji/api/package.json").version;
+  const installed: string = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "dashboard", "client", "node_modules", "@twemoji", "api", "package.json"), "utf8")).version;
   assert.equal((await list()).TWEMOJI_VERSION, installed, "scripts/build-emoji-list.js를 다시 실행해야 한다");
 });

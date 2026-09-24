@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // SPEC 이 내는 칸 종류를 편집기가 다 그릴 수 있는가.
 //
 // 둘이 딴 파일에 있어서 한쪽만 고치면 그 칸이 조용히 일반 텍스트 입력으로 떨어진다.
@@ -18,7 +17,7 @@ test("편집기가 SPEC 의 칸 종류를 전부 안다", () => {
   const drawn = new Set([...src.matchAll(/field\.kind === '([a-zA-Z]+)'/g)].map((m) => m[1]));
   assert.ok(drawn.size > 3, `편집기에서 kind 를 못 읽었다 (찾은 것 ${drawn.size}개)`);
 
-  const used = new Set();
+  const used = new Set<string>();
   for (const spec of Object.values(SPEC)) for (const one of spec.fields || []) used.add(one.kind);
 
   // text·url 은 마지막 v-else 가 받는다. 그 둘만 예외다.

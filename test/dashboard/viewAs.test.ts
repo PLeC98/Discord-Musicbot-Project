@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/viewAs.js — 권한 수준 오버라이드.
 //
 // 핵심 계약 두 가지:
@@ -11,7 +10,9 @@ process.env.OWNER_ID = "owner";
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits } from "discord.js";
+import { PermissionFlagsBits, type GuildMember } from "discord.js";
+import type { Request } from "express";
+import { fake } from "../helpers/fake.ts";
 
 const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
 const store = openTempStore("perm-");
@@ -22,18 +23,19 @@ const { isOwner, isRealOwner } = await import("../../dashboard/server/owner.ts")
 const { isModerator, isDj, checkVoice, checkControl, checkAdd } = await import("../../src/usecases/permissions.ts");
 const S = await import("../../src/ui/strings.ts");
 
-const req = (tier, userId = "owner") => ({ session: { user: { id: userId }, ...(tier === undefined ? {} : { viewAs: tier }) } });
+// 세션의 오버라이드 칸에는 무엇이든 들어올 수 있다고 본다(모르는 값 · 글자가 아닌 값)
+const req = (tier: unknown, userId = "owner") => fake<Request>({ session: { user: { id: userId }, ...(tier === undefined ? {} : { viewAs: tier }) } });
 
 // 실 GuildMember를 흉내내되 permissions/roles를 프로토타입 쪽 getter가 아닌 own 프로퍼티로 둔다.
 // shadowMember는 Object.create로 이걸 프로토타입에 놓으므로 어느 쪽이든 가려진다.
-function member({ perms = [], roles = [], voice = null, botVoice = null } = {}) {
-  return {
+function member({ perms = [] as bigint[], roles = [] as string[], voice = null as string | null, botVoice = null as string | null } = {}) {
+  return fake<GuildMember>({
     id: "u1",
-    permissions: { has: (p) => perms.includes(p) },
-    roles: { cache: { has: (id) => roles.includes(id) } },
+    permissions: { has: (p: bigint) => perms.includes(p) },
+    roles: { cache: { has: (id: string) => roles.includes(id) } },
     guild: { id: "g", roles: { cache: { has: () => true } }, members: { me: { voice: { channel: botVoice ? { id: botVoice } : null } } } },
     voice: { channel: voice ? { id: voice } : null },
-  };
+  });
 }
 
 // ── 대역 멤버 ────────────────────────────────────────────────────────────────
@@ -94,7 +96,7 @@ test("대역 멤버도 id·guild·voice는 원본 그대로다 (음성 재적은
 
   assert.equal(m.id, "u1");
   assert.equal(m.guild.id, "g");
-  assert.equal(m.voice.channel.id, "vc-A");
+  assert.equal(m.voice.channel?.id, "vc-A");
   assert.equal(checkVoice(m), null, "같은 채널이면 계층과 무관하게 통과");
   assert.equal(orig.permissions.has(PermissionFlagsBits.ManageGuild), false, "원본은 변형되지 않는다");
 });
@@ -121,5 +123,5 @@ test("운영자가 아니면 오버라이드로 권한을 얻을 수 없다", ()
 test("getViewAs는 알려진 계층만 통과시킨다", () => {
   for (const tier of TIERS) assert.equal(getViewAs(req(tier)), tier);
   for (const bad of [undefined, null, "", "admin", "OWNER", 1, {}]) assert.equal(getViewAs(req(bad)), null);
-  assert.equal(getViewAs({}), null, "세션이 없어도 던지지 않는다");
+  assert.equal(getViewAs(fake<Request>({})), null, "세션이 없어도 던지지 않는다");
 });

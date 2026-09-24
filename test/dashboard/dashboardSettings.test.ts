@@ -1,22 +1,44 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/routes/guilds.js — 서버 설정 GET/PUT + /player 플래그 통합 테스트.
 // 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import type { Server } from "node:http";
+import type { Client } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
+import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+
+/** 이 시험이 읽는 답의 칸(서버 설정 · 플레이어 · 서버 목록) */
+type Reply = {
+  error?: string;
+  canEdit?: boolean;
+  guildName?: string;
+  djRoleIds?: string[];
+  botChannelId?: string | null;
+  roles?: { id: string; name: string; color: string | null }[];
+  channels?: { id: string; name: string }[];
+  sponsorblock?: { masterEnabled: boolean; available: unknown[] };
+  playlistAdd?: unknown;
+  canManage?: boolean;
+  canControl?: boolean;
+  canAdd?: boolean;
+  hasPlayer?: boolean;
+  botInVoice?: boolean;
+  userInVoice?: boolean;
+  sameVoice?: boolean;
+  guilds?: { listening: boolean }[];
+};
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
 const { openTempStore, setGuild } = (await import("../helpers/tempStore.ts")).default;
+const { createGuildsRouter } = await import("../../dashboard/server/routes/guilds.ts");
+const { createPlayerStream } = await import("../../dashboard/server/playerStream.ts");
 const temp = openTempStore("dashboard-settings-");
 const settings = await import("../../src/store/guildSettings.ts");
 const config = (await import("../../config.ts")).default;
@@ -31,24 +53,24 @@ after(() => {
 });
 
 // 저장된 값을 표에서 바로 읽고 쓴다(Map 과 같은 모양)
-const orUndefined = (v) => (v === null || (Array.isArray(v) && v.length === 0) ? undefined : v);
+const orUndefined = <T>(v: T) => (v === null || (Array.isArray(v) && v.length === 0) ? undefined : v);
 const store = {
   djRoles: {
-    get: (g) => orUndefined(settings.table.getDjRoles(g)),
-    has: (g) => settings.table.getDjRoles(g).length > 0,
-    set: (g, ids) => setGuild(g, { djRoles: ids }),
-    delete: (g) => setGuild(g, { djRoles: [] }),
+    get: (g: string) => orUndefined(settings.table.getDjRoles(g)),
+    has: (g: string) => settings.table.getDjRoles(g).length > 0,
+    set: (g: string, ids: string[]) => setGuild(g, { djRoles: ids }),
+    delete: (g: string) => setGuild(g, { djRoles: [] }),
   },
   botChannel: {
-    get: (g) => orUndefined(settings.table.getBotChannel(g)),
-    has: (g) => settings.table.getBotChannel(g) !== null,
-    set: (g, c) => setGuild(g, { botChannel: c }),
-    delete: (g) => setGuild(g, { botChannel: null }),
+    get: (g: string) => orUndefined(settings.table.getBotChannel(g)),
+    has: (g: string) => settings.table.getBotChannel(g) !== null,
+    set: (g: string, c: string) => setGuild(g, { botChannel: c }),
+    delete: (g: string) => setGuild(g, { botChannel: null }),
   },
-  sponsorblock: { get: (g) => settings.table.getGuildSponsorBlock(g) },
+  sponsorblock: { get: (g: string) => settings.table.getGuildSponsorBlock(g) },
   playlistAdd: {
-    get: (g) => settings.table.getPlaylistAddMax(g),
-    delete: (g) => setGuild(g, { playlistAddMax: null }),
+    get: (g: string) => settings.table.getPlaylistAddMax(g),
+    delete: (g: string) => setGuild(g, { playlistAddMax: null }),
   },
 };
 
@@ -61,7 +83,7 @@ import { ChannelType, PermissionFlagsBits } from "discord.js";
 // ── Fake Discord client ──────────────────────────────────────
 const GUILD_ID = "100";
 
-function makeRole(id, name, position, color = 0) {
+function makeRole(id: string, name: string, position: number, color = 0) {
   return { id, name, position, color, hexColor: color ? "#" + color.toString(16).padStart(6, "0") : "#000000" };
 }
 
@@ -77,8 +99,8 @@ const channels = new Map([
   ["v1", { id: "v1", name: "voice", type: ChannelType.GuildVoice, rawPosition: 2 }],
 ]);
 
-let currentMember; // 테스트마다 교체 (null = 비멤버)
-const voiceStates = new Map(); // userId -> VoiceState (게이트웨이가 채우는 캐시 흉내)
+let currentMember: object | null; // 테스트마다 교체 (null = 비멤버)
+const voiceStates = new Map<string, object>(); // userId -> VoiceState (게이트웨이가 채우는 캐시 흉내)
 const guild = {
   id: GUILD_ID,
   name: "TestGuild",
@@ -90,55 +112,41 @@ const guild = {
       if (!currentMember) throw new Error("Unknown Member");
       return currentMember;
     },
-    me: null,
+    me: null as object | null,
   },
 };
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
-  players: new Map(),
+  players: new Map<string, MusicPlayer>(),
 };
 
 function modMember() {
-  return { permissions: { has: (p) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
+  return { permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
 }
 function plainMember() {
   return { permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
 }
 
 // ── 앱 구성 ──────────────────────────────────────────────────
-let currentUser;
-let server;
-let base;
+let currentUser: object | null;
+let server: Server;
+let base: string;
 
 before(async () => {
   currentUser = { id: "u1", username: "tester", guilds: [] };
   const app = express();
   app.use(express.json());
-  app.use((req, res, next) => {
-    req.session = { user: currentUser };
-    next();
-  });
-  app.locals.discordClient = client;
-  app.use("/api/guilds", require("../../dashboard/server/routes/guilds.ts").createGuildsRouter({ stream: require("../../dashboard/server/playerStream.ts").createPlayerStream() }));
+  app.use(signedInAs(() => currentUser));
+  app.locals.discordClient = fake<Client>(client);
+  app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
-  base = `http://127.0.0.1:${server.address().port}`;
+  base = baseUrl(server);
 });
 
 after(() => server.close());
 
-async function req(method, urlPath, body) {
-  const res = await fetch(base + urlPath, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {}
-  return { status: res.status, json };
-}
+const req = (method: string, urlPath: string, body?: unknown) => requestJson<Reply>(base, method, urlPath, body);
 
 // ── GET /settings ────────────────────────────────────────────
 
@@ -154,13 +162,13 @@ test("GET settings: 모더레이터 — 현황 + 드롭다운 목록", async () 
   assert.deepEqual(r.json.djRoleIds, ["r1"], "삭제된 역할은 응답에서 필터링");
   assert.equal(r.json.botChannelId, "c2");
   assert.deepEqual(
-    r.json.roles.map((x) => x.id),
+    r.json.roles?.map((x) => x.id),
     ["r3", "r1", "r2"],
     "@everyone 제외 + position 내림차순",
   );
-  assert.equal(r.json.roles.find((x) => x.id === "r2").color, null, "무색 역할은 color null");
+  assert.equal(r.json.roles?.find((x) => x.id === "r2")?.color, null, "무색 역할은 color null");
   assert.deepEqual(
-    r.json.channels.map((x) => x.id),
+    r.json.channels?.map((x) => x.id),
     ["c1", "c2"],
     "일반 텍스트 채널만",
   );
@@ -246,8 +254,8 @@ test("GET settings: SponsorBlock 유효값·카테고리 목록 포함", async (
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
   assert.ok(r.json.sponsorblock);
-  assert.equal(typeof r.json.sponsorblock.masterEnabled, "boolean");
-  assert.ok(Array.isArray(r.json.sponsorblock.available) && r.json.sponsorblock.available.length === 9);
+  assert.equal(typeof r.json.sponsorblock?.masterEnabled, "boolean");
+  assert.ok(Array.isArray(r.json.sponsorblock?.available) && r.json.sponsorblock?.available.length === 9);
 });
 
 test("PUT settings: 검증 실패 시 아무것도 적용하지 않음 (부분 저장 방지)", async () => {
@@ -311,11 +319,11 @@ const noVoice = () => voiceStates.clear();
 
 // 실 VoiceState는 channelId와 channel을 모두 갖는다 — 한쪽만 두면 라우터와 permissions.js 중
 // 하나만 만족시켜 통과 여부가 뒤바뀐다.
-const voiceState = (channelId) => (channelId ? { channelId, channel: { id: channelId } } : { channelId: null, channel: null });
+const voiceState = (channelId: string | null) => (channelId ? { channelId, channel: { id: channelId } } : { channelId: null, channel: null });
 
 // 라우터는 guild.voiceStates에서, permissions.js는 member.voice에서 읽는다. 실제로는 같은 출처이므로
 // 픽스처도 반드시 함께 맞춘다 — 한쪽만 두면 통과 여부가 갈려 테스트가 거짓말을 한다.
-function inVoice(channelId, userId = "u1") {
+function inVoice(channelId: string | null, userId = "u1") {
   voiceStates.set(userId, voiceState(channelId));
   return { id: userId, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: voiceState(channelId) };
 }
@@ -390,18 +398,18 @@ test("GET guilds: listening — 봇과 같은 채널일 때만 참", async () =>
   noVoice();
   guild.members.me = null;
   let r = await req("GET", "/api/guilds");
-  assert.equal(r.json.guilds[0].listening, false);
+  assert.equal(r.json.guilds?.[0].listening, false);
 
   // 봇은 v1, 사용자는 v2
   guild.members.me = { voice: voiceState("v1") };
   voiceStates.set("u1", voiceState("v2"));
   r = await req("GET", "/api/guilds");
-  assert.equal(r.json.guilds[0].listening, false, "같은 서버라도 다른 채널이면 거짓");
+  assert.equal(r.json.guilds?.[0].listening, false, "같은 서버라도 다른 채널이면 거짓");
 
   // 둘 다 v1
   voiceStates.set("u1", voiceState("v1"));
   r = await req("GET", "/api/guilds");
-  assert.equal(r.json.guilds[0].listening, true);
+  assert.equal(r.json.guilds?.[0].listening, true);
 
   noVoice();
   guild.members.me = null;
@@ -417,7 +425,7 @@ test("GET guilds: listening은 멤버 캐시가 비어 있어도 판정된다", 
   voiceStates.set("u1", voiceState("v1"));
 
   const r = await req("GET", "/api/guilds");
-  assert.equal(r.json.guilds[0].listening, true);
+  assert.equal(r.json.guilds?.[0].listening, true);
 
   noVoice();
   guild.members.me = null;
@@ -438,7 +446,7 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   assert.equal(r.json.hasPlayer, false, "그런데 플레이어는 없다 — 조작은 전부 409");
   assert.equal(r.json.canAdd, true, "권한은 통과하므로 이것만 보면 폼이 열린다");
 
-  client.players.set(GUILD_ID, { getStatus: () => ({ playing: false, paused: false, volume: 100, loop: false }), isPlaybackActive: () => false, currentTrack: null, previousTracks: [], queue: [] });
+  client.players.set(GUILD_ID, fakePlayer({ getStatus: () => ({ playing: false, paused: false, volume: 100, loop: false }), isPlaybackActive: () => false, currentTrack: null, previousTracks: [], queue: [] }));
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.hasPlayer, true);
 

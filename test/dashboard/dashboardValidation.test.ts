@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/routes/guilds.js — 플레이어 조작 API의 입력 검증
 // 회귀 대상: 비문자열 query의 TypeError(async 핸들러라 응답 없는 unhandled rejection),
 // parseFloat("Infinity")·parseInt("50junk")의 느슨한 통과, 제어문자의 로그/yt-dlp 유입.
@@ -6,47 +5,55 @@
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
-
 process.env.OWNER_ID = "owner";
 
-const { listenForFetch } = (await import("../helpers/listen.ts")).default;
+const { listenForFetch, baseUrl } = (await import("../helpers/listen.ts")).default;
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import type { Server } from "node:http";
+import type { Client } from "discord.js";
+import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Lookup } from "../../src/usecases/addTracks.ts";
+import { fake, fakePlayer } from "../helpers/fake.ts";
+import { signedInAs, requestJson } from "../helpers/dashboard.ts";
+
+/** 이 시험이 읽는 답의 칸 */
+type Reply = { error?: string; more?: { offset: number; requesterId?: unknown } };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
 const { openTempStore } = (await import("../helpers/tempStore.ts")).default;
+const { createGuildsRouter } = await import("../../dashboard/server/routes/guilds.ts");
+const { createPlayerStream } = await import("../../dashboard/server/playerStream.ts");
+const playerEvents = await import("../../src/player/events.ts");
+const { VOLUME_SETTLE_MS } = await import("../../src/usecases/controls.ts");
 const store = openTempStore("dashboard-validation-");
 after(() => store.close());
 
 // ── 조회 가짜(코어가 실 해석/네트워크를 타지 않게). 라우터가 app.locals.lookup 을 코어에 넘긴다 ──
-const resolverCalls = [];
-const lookup = {
-  async resolveQuery(query) {
+const resolverCalls: string[] = [];
+const lookup = fake<Lookup>({
+  async resolveQuery(query: string) {
     resolverCalls.push(query);
     return { success: true, isPlaylist: false, tracks: [makeTrack("추가곡")] };
   },
-  async getCollection(_url, { offset, limit }) {
+  async getCollection(_url: string, { offset, limit }: { offset: number; limit: number }) {
     const tracks = Array.from({ length: limit }, (_, k) => ({ ...makeTrack(`c${offset + k}`), id: `c${String(offset + k).padStart(21, "0")}` }));
     return { tracks, total: 1000, nextOffset: offset + limit };
   },
-};
+});
 
 import express from "express";
 
 // ── Fake client/player ───────────────────────────────────────
 const GUILD_ID = "100";
 
-function makeTrack(title) {
+function makeTrack(title: string) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };
 }
 
 function makePlayer() {
-  return {
-    calls: [],
+  return fakePlayer({
+    calls: [] as unknown[][],
     currentTrack: makeTrack("현재곡"),
     queue: [makeTrack("q0"), makeTrack("q1"), makeTrack("q2")],
     previousTracks: [],
@@ -56,29 +63,29 @@ function makePlayer() {
     },
     isPlaybackActive: () => true,
     getCurrentTime: () => 0,
-    async play(ms) {
+    async play(ms: number) {
       this.calls.push(["play", ms]);
     },
     // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다 — 진입점마다 로그를 다는 대신
     // 통로를 하나로 뒀다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 갈라야 한다).
-    async seek(ms, reason) {
+    async seek(ms: number, reason: string) {
       this.calls.push(["seek", ms, reason]);
     },
-    setVolume(v) {
+    setVolume(v: number) {
       this.calls.push(["setVolume", v]);
       this.volume = v;
     },
-    removeFromQueue(i) {
+    removeFromQueue(i: number) {
       this.calls.push(["removeFromQueue", i]);
       return this.queue.splice(i, 1)[0];
     },
-    moveInQueue(from, to) {
+    moveInQueue(from: number, to: number) {
       this.calls.push(["moveInQueue", from, to]);
     },
-  };
+  });
 }
 
-let player;
+let player: ReturnType<typeof makePlayer>;
 const guild = {
   id: GUILD_ID,
   name: "TestGuild",
@@ -91,13 +98,13 @@ const guild = {
     me: null,
   },
 };
-const embedCalls = [];
+const embedCalls: [string, { tracks: object[]; insertAfterId?: string }][] = [];
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
-  players: new Map(),
+  players: new Map<string, MusicPlayer>(),
   musicEmbedManager: {
-    async handleMusicData(guildId, trackData) {
+    async handleMusicData(guildId: string, trackData: { tracks: object[]; insertAfterId?: string }) {
       embedCalls.push([guildId, trackData]);
       return { success: true };
     },
@@ -105,38 +112,24 @@ const client = {
   },
 };
 
-let server;
-let base;
+let server: Server;
+let base: string;
 
 before(async () => {
   const app = express();
   app.use(express.json());
-  app.use((req, res, next) => {
-    req.session = { user: { id: "owner", username: "owner", guilds: [] } };
-    next();
-  });
-  app.locals.discordClient = client;
+  app.use(signedInAs(() => ({ id: "owner", username: "owner", guilds: [] })));
+  app.locals.discordClient = fake<Client>(client);
   app.locals.lookup = lookup;
-  app.use("/api/guilds", require("../../dashboard/server/routes/guilds.ts").createGuildsRouter({ stream: require("../../dashboard/server/playerStream.ts").createPlayerStream() }));
+  app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
-  base = `http://127.0.0.1:${server.address().port}`;
+  base = baseUrl(server);
 });
 
 after(() => server.close());
 
-async function req(method, urlPath, body) {
-  const res = await fetch(base + urlPath, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(3000), // 구 코드의 무응답(unhandled rejection) 회귀를 행 대신 실패로
-  });
-  let json = null;
-  try {
-    json = await res.json();
-  } catch {}
-  return { status: res.status, json };
-}
+// 응답이 없으면 기다리지 않고 실패한다(구 코드의 무응답 회귀를 행 대신 실패로)
+const req = (method: string, urlPath: string, body?: unknown) => requestJson<Reply>(base, method, urlPath, body, { timeoutMs: 3000 });
 
 function freshPlayer() {
   player = makePlayer();
@@ -162,7 +155,7 @@ test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 �
 
   const r = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "hello\r\nworld\x00!" });
   assert.equal(r.status, 200);
-  const sent = resolverCalls.at(-1);
+  const sent = resolverCalls.at(-1) ?? "";
   assert.doesNotMatch(sent, /[\x00-\x1f\x7f]/, "제어문자가 yt-dlp/로그로 흘러가지 않음");
   assert.match(sent, /hello +world +!/);
   assert.equal(embedCalls.length, 1, "대시보드도 슬래시 명령과 같은 코어를 지난다");
@@ -230,10 +223,10 @@ test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400,
 
   const ok = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/more`, { ...state, count: 10, insertFirst: true });
   assert.equal(ok.status, 200);
-  assert.equal(embedCalls.at(-1)[1].tracks.length, 10);
-  assert.equal(embedCalls.at(-1)[1].insertAfterId, undefined, "대시보드는 맨 앞에 넣는 경로가 없다");
-  assert.equal(ok.json.more.offset, 60);
-  assert.equal(ok.json.more.requesterId, undefined);
+  assert.equal(embedCalls.at(-1)?.[1].tracks.length, 10);
+  assert.equal(embedCalls.at(-1)?.[1].insertAfterId, undefined, "대시보드는 맨 앞에 넣는 경로가 없다");
+  assert.equal(ok.json.more?.offset, 60);
+  assert.equal(ok.json.more?.requesterId, undefined);
 });
 
 test("조작 거절은 디스코드와 같은 문장에서 ❌ 만 떼어 보낸다", async () => {
@@ -244,13 +237,13 @@ test("조작 거절은 디스코드와 같은 문장에서 ❌ 만 떼어 보낸
 });
 
 test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
-  const seen = [];
-  const off = require("../../src/player/events.ts").on("refresh", async (p) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
+  const seen: boolean[] = [];
+  const off = playerEvents.on("refresh", async (p: MusicPlayer) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
   try {
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
     await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/0`);
-    await new Promise((done) => setTimeout(done, require("../../src/usecases/controls.ts").VOLUME_SETTLE_MS + 50));
+    await new Promise((done) => setTimeout(done, VOLUME_SETTLE_MS + 50));
   } finally {
     off();
   }

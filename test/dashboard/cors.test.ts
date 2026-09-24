@@ -1,9 +1,8 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCorsOptions, normalizeDashboardOrigin } from "../../dashboard/server/cors.ts";
 
-function isAllowed(options, origin) {
+function isAllowed(options: ReturnType<typeof createCorsOptions>, origin: string | undefined) {
   return new Promise((resolve, reject) => {
     options.origin(origin, (error, allowed) => {
       if (error) reject(error);

@@ -17,6 +17,13 @@ async function listenForFetch(app: { listen(port: number): Server }): Promise<Se
   }
 }
 
-const exported = { listenForFetch };
+/** 연 서버의 주소 */
+function baseUrl(server: Server) {
+  const address = server.address();
+  if (!address || typeof address !== "object") throw new Error("포트로 연 서버가 아니다");
+  return `http://127.0.0.1:${address.port}`;
+}
+
+const exported = { listenForFetch, baseUrl };
 export default exported;
 export { exported as "module.exports" };

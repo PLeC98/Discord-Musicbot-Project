@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // dashboard/server/sessionStore.js — SQLite 세션 스토어
 // 회귀 대상: MemoryStore의 재시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
 
@@ -6,11 +5,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test, after } from "node:test";
+import type { SessionData } from "express-session";
 import assert from "node:assert/strict";
 import { SqliteSessionStore } from "../../dashboard/server/sessionStore.ts";
+import { fake } from "../helpers/fake.ts";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sess-"));
-const stores = [];
+const stores: SqliteSessionStore[] = [];
 
 function makeStore(name = "s.db") {
   const store = new SqliteSessionStore({ dbPath: path.join(tmpDir, name) });
@@ -27,10 +28,11 @@ after(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 });
 });
 
-const getAsync = (store, sid) => new Promise((res, rej) => store.get(sid, (e, s) => (e ? rej(e) : res(s))));
+const getAsync = (store: SqliteSessionStore, sid: string) => new Promise<SessionData | null | undefined>((res, rej) => store.get(sid, (e, s) => (e ? rej(e) : res(s))));
 
-function makeSession(user, expiresInMs = 60_000) {
-  return { cookie: { expires: new Date(Date.now() + expiresInMs).toISOString() }, user };
+// 저장소가 받는 모양 그대로(JSON 으로 오가 만료는 글자다). 사용자는 시험이 보는 칸만
+function makeSession(user: object, expiresInMs = 60_000) {
+  return fake<SessionData>({ cookie: { expires: new Date(Date.now() + expiresInMs).toISOString() }, user });
 }
 
 test("set/get 라운드트립: 세션 객체 보존", async () => {
@@ -52,7 +54,7 @@ test("재시작 생존: 같은 DB 파일을 다시 열어도 세션 유지 (Memo
   const second = new SqliteSessionStore({ dbPath });
   stores.push(second);
   const loaded = await getAsync(second, "sid1");
-  assert.equal(loaded.user.id, "u1", "재시작 후에도 로그인 유지");
+  assert.equal(loaded?.user?.id, "u1", "재시작 후에도 로그인 유지");
 });
 
 test("만료: 지난 세션은 null, prune이 만료분만 제거", async () => {
@@ -72,24 +74,19 @@ test("destroy: 로그아웃 시 즉시 제거", async () => {
   assert.equal(await getAsync(store, "sid1"), null);
 });
 
-test("touch: 만료를 연장해 prune에서 생존", async () => {
+test("touch: 만료를 연장해 prune에서 생존", async (t) => {
   const store = makeStore("touch.db");
   store.set("sid1", makeSession({ id: "u1" }, 1_000));
   store.touch("sid1", makeSession({ id: "u1" }, 120_000));
 
-  const realNow = Date.now;
-  Date.now = () => realNow() + 60_000; // 원래 만료(1초)보다 뒤, 연장(120초) 안쪽
-  try {
-    assert.equal(store.prune(), 0, "연장된 세션은 정리되지 않음");
-    assert.notEqual(await getAsync(store, "sid1"), null);
-  } finally {
-    Date.now = realNow;
-  }
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 60_000 }); // 원래 만료(1초)보다 뒤, 연장(120초) 안쪽
+  assert.equal(store.prune(), 0, "연장된 세션은 정리되지 않음");
+  assert.notEqual(await getAsync(store, "sid1"), null);
 });
 
 test("cookie.expires 없는 세션(브라우저 세션 쿠키)은 폴백 TTL로 보관", async () => {
   const store = makeStore("fallback.db");
-  store.set("sid1", { cookie: {}, user: { id: "u1" } });
+  store.set("sid1", fake<SessionData>({ cookie: {}, user: { id: "u1" } }));
   assert.notEqual(await getAsync(store, "sid1"), null, "즉시 만료되지 않음");
   assert.equal(store.prune(), 0);
 });

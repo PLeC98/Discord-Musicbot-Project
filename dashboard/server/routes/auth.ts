@@ -7,6 +7,9 @@ import config from "../../../config.ts";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
+/** 디스코드를 부르는 HTTP 클라이언트(axios 모양) */
+type DiscordHttp = Pick<AxiosInstance, "get" | "post">;
+
 // 요청 실패에서 읽는 칸. 응답이 있으면 상태와 본문, 없으면(타임아웃 등) 코드나 문장
 type Failure = { response?: { status?: number; data?: unknown }; code?: string; message?: string };
 const failureOf = (error: unknown): Failure => (typeof error === "object" && error !== null ? error : {});
@@ -15,7 +18,7 @@ const failureOf = (error: unknown): Failure => (typeof error === "object" && err
  * 디스코드 OAuth 로그인 · 로그아웃.
  * http: 디스코드를 부르는 HTTP 클라이언트(axios 모양). 생략하면 진짜
  */
-function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: Pick<AxiosInstance, "get" | "post"> } = {}) {
+function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: DiscordHttp } = {}) {
   // 응답 없는 요청이 로그인 콜백을 붙잡지 않도록 제한 시간을 둔 클라이언트로 부른다.
   const router = express.Router();
   const CLIENT_ID = config.discord.clientId;
@@ -114,3 +117,4 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: 
 }
 
 export { createAuthRouter };
+export type { DiscordHttp };

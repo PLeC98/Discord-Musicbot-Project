@@ -21,7 +21,7 @@ function normalizeDashboardOrigin(value: string) {
  *
  * Vite 개발 서버(5173)는 `pnpm run dev`로 띄웠을 때만 허용
  */
-function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { allowDevOrigin?: boolean } = {}): CorsOptions {
+function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { allowDevOrigin?: boolean } = {}) {
   const allowedOrigins = new Set([normalizeDashboardOrigin(dashboardUrl)]);
   if (allowDevOrigin) allowedOrigins.add(DEV_ORIGIN);
 
@@ -44,7 +44,7 @@ function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { a
       }
       return callback(null, allowed);
     },
-  };
+  } satisfies CorsOptions;
 }
 
 export { createCorsOptions, normalizeDashboardOrigin };
