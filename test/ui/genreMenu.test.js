@@ -48,3 +48,27 @@ test("두 화면 다 본인에게만 보인다", () => {
     assert.deepEqual(payload.flags, [1 << 6]);
   }
 });
+
+test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const yamlStore = await import("../../src/config/yamlStore.ts");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-genre-menu-"));
+  fs.writeFileSync(path.join(dir, "genres.yaml"), ["defaults: {}", "genres:", "  팝:", '    emoji: ""', "    sources: [{ type: keyword, keywords: [pop] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", "  록:", "    emoji: 🤘", "    sources: [{ type: keyword, keywords: [rock] }]", ""].join("\n"));
+  yamlStore._setConfigDir(dir);
+  try {
+    const menu = selectOf(buildGenreMenu("u1", "s1"));
+    assert.deepEqual(
+      menu.options.map((o) => [o.value, o.emoji?.name]),
+      [
+        ["팝", undefined],
+        ["재즈", undefined],
+        ["록", "🤘"],
+      ],
+    );
+  } finally {
+    yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
