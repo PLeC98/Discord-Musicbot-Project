@@ -230,54 +230,12 @@ class SessionPersistence {
     player.autoplay = session.autoplay || false;
     player.requesterId = session.requesterId || player.requesterId;
 
-    // 미리 뽑아 둔 자동재생 곡은 복원하지 않는다. 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
-    // 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 뽑힌다. 요청자가 봇인 것으로 가른다.
-    const botId = player.guild?.client?.user?.id || null;
-    const queueRows = botId ? record.queue.filter((t) => t.requesterId !== botId) : record.queue;
-    const droppedAutoplay = record.queue.length - queueRows.length;
-    if (droppedAutoplay > 0) log.info(`복원에서 자동재생 곡 ${droppedAutoplay}곡 제외 (서버 ID ${player.guild.id})`);
-
-    // 상한을 줄인 뒤 재시작하면 저장된 대기열이 넘친다. 잘라낸다. 잘랐으면 DB도 맞춰야 하니 다시 쓴다.
-    const max = config.bot.maxQueueSize;
-    const cut = max > 0 && queueRows.length > max;
-    if (cut) log.info(`복원한 대기열이 상한을 넘어 잘라냄: ${queueRows.length}곡 → ${max}곡 (서버 ID ${player.guild.id})`);
-    trackState.restore(
-      player,
-      {
-        current: this.reviveTrack(record.current),
-        queue: (cut ? queueRows.slice(0, max) : queueRows).flatMap((t) => this.reviveTrack(t) ?? []),
-        history: record.history.flatMap((t) => this.reviveTrack(t) ?? []),
-      },
-      // 잘랐거나 걸러냈으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
-      { persisted: !cut && droppedAutoplay === 0 },
-    );
-
-    if (!player.currentTrack && player.queue.length > 0) {
-      trackState.shiftNext(player);
-    }
-
-    const trackDurationMs = player.currentTrack?.duration ? Number(player.currentTrack.duration) * 1000 : null;
-    let resumeMs = Math.max(0, Number(session.positionMs) || 0);
-    if (trackDurationMs && resumeMs > Math.max(trackDurationMs - 2000, 0)) {
-      resumeMs = 0;
-    }
-    // 라이브에 저장된 위치는 의미가 없다. 어차피 지금 시점(라이브 엣지)으로만 붙는다.
-    if (player.currentTrack?.isLive) resumeMs = 0;
-
+    this._restoreTracks(record, player.guild.id);
+    const resumeMs = resumeAt(player.currentTrack, session.positionMs);
     player.lastPlaybackPosition = resumeMs;
     player.paused = false;
 
-    if (!player.connection) {
-      try {
-        const connected = await player.connect();
-        if (!connected) {
-          throw new Error("Failed to reconnect to voice channel");
-        }
-      } catch (error) {
-        log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
-        throw new Error("Failed to reconnect to voice channel", { cause: error });
-      }
-    }
+    await this._reconnect();
 
     if (!player.currentTrack) {
       this.removeSession();
@@ -293,10 +251,60 @@ class SessionPersistence {
       player.resource.volume.setVolume(player.volume / 100);
     }
 
+    await this._announceRestored(session.requesterId, resumeMs);
+    this.scheduleStatePersist("restored", 1000);
+  }
+
+  // 저장된 트랙을 메모리에 올린다
+  _restoreTracks(record: RestoredSession, guildId: string) {
+    const player = this.player;
+    // 미리 뽑아 둔 자동재생 곡은 복원하지 않는다. 사용자가 고른 곡만 세션에 남는 것이 자연스럽고,
+    // 장르는 함께 복원되므로 첫 곡이 시작될 때 다시 뽑힌다. 요청자가 봇인 것으로 가른다.
+    const botId = player.guild?.client?.user?.id || null;
+    const queueRows = botId ? record.queue.filter((t) => t.requesterId !== botId) : record.queue;
+    const droppedAutoplay = record.queue.length - queueRows.length;
+    if (droppedAutoplay > 0) log.info(`복원에서 자동재생 곡 ${droppedAutoplay}곡 제외 (서버 ID ${guildId})`);
+
+    // 상한을 줄인 뒤 재시작하면 저장된 대기열이 넘친다. 잘라낸다. 잘랐으면 DB도 맞춰야 하니 다시 쓴다.
+    const max = config.bot.maxQueueSize;
+    const cut = max > 0 && queueRows.length > max;
+    if (cut) log.info(`복원한 대기열이 상한을 넘어 잘라냄: ${queueRows.length}곡 → ${max}곡 (서버 ID ${guildId})`);
+    trackState.restore(
+      player,
+      {
+        current: this.reviveTrack(record.current),
+        queue: (cut ? queueRows.slice(0, max) : queueRows).flatMap((t) => this.reviveTrack(t) ?? []),
+        history: record.history.flatMap((t) => this.reviveTrack(t) ?? []),
+      },
+      // 잘랐거나 걸러냈으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
+      { persisted: !cut && droppedAutoplay === 0 },
+    );
+
+    if (!player.currentTrack && player.queue.length > 0) {
+      trackState.shiftNext(player);
+    }
+  }
+
+  async _reconnect() {
+    if (this.player.connection) return;
+    try {
+      const connected = await this.player.connect();
+      if (!connected) {
+        throw new Error("Failed to reconnect to voice channel");
+      }
+    } catch (error) {
+      log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
+      throw new Error("Failed to reconnect to voice channel", { cause: error });
+    }
+  }
+
+  // 패널을 다시 세우고 이어 튼다고 알린다
+  async _announceRestored(requesterId: string | null | undefined, resumeMs: number) {
+    const player = this.player;
     if (player.textChannel) {
       try {
         // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
-        const requester = { id: session.requesterId || player.guild.client.user?.id || "" };
+        const requester = { id: requesterId || player.guild.client.user?.id || "" };
         await playerEvents.started(player, requester);
       } catch (error) {
         log.error("세션 복원 중 재생 임베드 복구 실패:", messageOf(error));
@@ -310,9 +318,16 @@ class SessionPersistence {
         // 메시지를 보낼 수 없으면 무시
       }
     }
-
-    this.scheduleStatePersist("restored", 1000);
   }
+}
+
+// 이어 틀 위치. 끝나기 직전이었으면 처음부터
+function resumeAt(track: QueuedTrack | null, positionMs: number | null | undefined) {
+  // 라이브에 저장된 위치는 의미가 없다. 어차피 지금 시점(라이브 엣지)으로만 붙는다.
+  if (track?.isLive) return 0;
+  const trackDurationMs = track?.duration ? Number(track.duration) * 1000 : null;
+  const resumeMs = Math.max(0, Number(positionMs) || 0);
+  return trackDurationMs && resumeMs > Math.max(trackDurationMs - 2000, 0) ? 0 : resumeMs;
 }
 
 export { SessionPersistence };

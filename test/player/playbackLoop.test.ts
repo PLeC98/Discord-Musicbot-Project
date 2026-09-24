@@ -45,6 +45,11 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)
     _trackLabel: MusicPlayer.prototype._trackLabel,
     getCurrentTime: MusicPlayer.prototype.getCurrentTime,
+    _describeEnd: MusicPlayer.prototype._describeEnd,
+    _recoverDrop: MusicPlayer.prototype._recoverDrop,
+    _playNext: MusicPlayer.prototype._playNext,
+    _continueAutoplay: MusicPlayer.prototype._continueAutoplay,
+    _finishQueue: MusicPlayer.prototype._finishQueue,
     audioPlayer: { stop() {} },
     async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });

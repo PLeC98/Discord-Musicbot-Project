@@ -61,6 +61,11 @@ const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 �
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
 const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받아 다시 여는 횟수
 const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
+// 사용자가 끝낸 곡. 일찍 끝나도 끊긴 것이 아니다. "sponsorblock"(아웃트로 종료)도 스킵 버튼과 같다
+const MANUAL_ENDS = new Set(["skip", "stop", "previous", "jump", "sponsorblock"]);
+
+// 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
+type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean };
 
 // 채널 알림을 못 보낸 것(권한 · 지워진 채널)은 재생을 막지 않는다
 const noticeFailed = (error: unknown) => log.warn(`채널 알림을 보내지 못했습니다: ${messageOf(error)}`);
@@ -830,110 +835,128 @@ class MusicPlayer {
 
       const finishedTrack = this.currentTrack;
       this.releaseAudioProtection();
-      const totalPlaybackMs = this.getCurrentTime();
-      this.lastPlaybackPosition = totalPlaybackMs;
-      const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
-      // "sponsorblock"(아웃트로 종료)은 스킵 버튼과 동일하게 트랙 완료로 취급. 조기 드롭 복구 대상 아님.
-      const manualSkip = reason === "skip" || reason === "stop" || reason === "previous" || reason === "jump" || reason === "sponsorblock";
-      const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && totalPlaybackMs + 1500 < durationMs;
-      // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
-      // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
-      const liveDropped = Boolean(this.playback?.live) && !manualSkip && this.playback?.liveExitCode !== 0;
-
-      const endedLabel = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
-      this._endingLabel = null;
-      log.info(`트랙 종료: ${endedLabel} | 원인=${reason}`);
-      // 재생/길이 대조는 종료 감시 판정용 수치라 조사할 때만 본다.
-      wlog.debug(`트랙 종료 상세: 재생 ${(totalPlaybackMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}`);
-
-      if (endedUnexpectedly || liveDropped) {
-        // 곡이 바뀌는 경로가 여기만이 아니라서, 포기할 때 비우는 대신 곡으로 가른다
-        if (this._retryTrack !== finishedTrack) {
-          this._retryTrack = finishedTrack;
-          this.currentTrackRetries = 0;
-        }
-        this.currentTrackRetries += 1;
-        const at = `${sec(totalPlaybackMs)}초`;
-        if (liveDropped) {
-          if (this.currentTrackRetries <= MAX_LIVE_REOPENS) {
-            log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 엽니다: ${endedLabel} (${this.currentTrackRetries}/${MAX_LIVE_REOPENS})`);
-            // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
-            // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
-            await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * this.currentTrackRetries));
-            await this.play(0);
-            return;
-          }
-          log.error(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${endedLabel} | 재시도 ${MAX_LIVE_REOPENS}회 소진`);
-        } else if (this.currentTrackRetries <= MAX_TRACK_RETRIES) {
-          log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${endedLabel} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
-          await this.play(totalPlaybackMs);
-          return;
-        } else {
-          log.error(`재생을 복구하지 못해 다음 곡으로 넘깁니다: ${endedLabel} | ${at} 지점, 재시도 ${MAX_TRACK_RETRIES}회 소진`);
-        }
-      } else {
-        this.currentTrackRetries = 0;
-      }
+      if (await this._recoverDrop(finishedTrack, this._describeEnd(finishedTrack, reason))) return;
 
       if (!finishedTrack) {
         this.playback = null;
         return;
       }
-
-      if (this.loop === "track" && reason !== "stop" && reason !== "jump") {
-        // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생
-        // 대기열·이전 곡 기록은 불변. 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
-        await this.play(0);
-        return;
-      }
-      if (reason !== "previous") {
-        trackState.retire(this, finishedTrack, { requeue: this.loop === "queue" });
-      }
-
-      this.playback = null;
-      this.lastPlaybackPosition = 0;
-
-      if (this.queue.length > 0) {
-        trackState.shiftNext(this);
-
-        // 다음 트랙을 처음부터 재생
-        await this.play(0);
-        await playerEvents.refresh(this);
-
-        return;
-      }
-
-      if (this.autoplay) {
-        const { genres } = genreConfig.genres();
-        if (!genres[this.autoplay]) {
-          // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 아래의 일반 대기열 종료 흐름으로
-          log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${this.autoplay}`);
-          playerEvents.notice(this, "autoplay-unknown-genre", { genre: this.autoplay }).catch(noticeFailed);
-          this.autoplay = false;
-        } else {
-          this.currentTrackRetries = 0;
-          // 틀었을 때만 여기서 끝낸다. 못 골랐으면 아래 대기열 소진 흐름으로 떨어진다.
-          // 그냥 return하면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가·스킵이 전부 먹통이 된다.
-          // 이때 자동재생은 켜 둔 채로 둔다. 후보를 한 번 못 찾은 것이 장르를 끌 이유는 아니다.
-          if (await this.handleAutoplay()) return;
-        }
-      }
-
-      // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다
-      trackState.reset(this, { history: true });
-
-      bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
-
-      await playerEvents.ended(this, "queue-end");
-
-      this.idle.cancelAlone(false);
-      this.persistence?.removeSession();
-
-      this.idle.scheduleEmpty();
+      if (await this._playNext(finishedTrack, reason)) return;
+      await this._finishQueue();
     } finally {
       this.lifecycle.finishEnd();
       this.pendingEndReason = null;
     }
+  }
+
+  // 어떻게 끝났는지 재고 로그로 남긴다
+  _describeEnd(finishedTrack: QueuedTrack | null, reason: string): EndShape {
+    const playedMs = this.getCurrentTime();
+    this.lastPlaybackPosition = playedMs;
+    const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
+    const manualSkip = MANUAL_ENDS.has(reason);
+    const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && playedMs + 1500 < durationMs;
+    // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
+    // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
+    const liveDropped = Boolean(this.playback?.live) && !manualSkip && this.playback?.liveExitCode !== 0;
+
+    const label = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
+    this._endingLabel = null;
+    log.info(`트랙 종료: ${label} | 원인=${reason}`);
+    // 재생/길이 대조는 종료 감시 판정용 수치라 조사할 때만 본다.
+    wlog.debug(`트랙 종료 상세: 재생 ${(playedMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}`);
+    return { playedMs, label, dropped: endedUnexpectedly || liveDropped, live: liveDropped };
+  }
+
+  // 사고로 끊겼으면 다시 튼다. 틀었으면 true, 재시도를 다 썼거나 사고가 아니면 false
+  async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live }: EndShape) {
+    if (!dropped) {
+      this.currentTrackRetries = 0;
+      return false;
+    }
+    // 곡이 바뀌는 경로가 여기만이 아니라서, 포기할 때 비우는 대신 곡으로 가른다
+    if (this._retryTrack !== finishedTrack) {
+      this._retryTrack = finishedTrack;
+      this.currentTrackRetries = 0;
+    }
+    this.currentTrackRetries += 1;
+    if (live) {
+      if (this.currentTrackRetries <= MAX_LIVE_REOPENS) {
+        log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 엽니다: ${label} (${this.currentTrackRetries}/${MAX_LIVE_REOPENS})`);
+        // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
+        // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
+        await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * this.currentTrackRetries));
+        await this.play(0);
+        return true;
+      }
+      log.error(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | 재시도 ${MAX_LIVE_REOPENS}회 소진`);
+      return false;
+    }
+    const at = `${sec(playedMs)}초`;
+    if (this.currentTrackRetries <= MAX_TRACK_RETRIES) {
+      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
+      await this.play(playedMs);
+      return true;
+    }
+    log.error(`재생을 복구하지 못해 다음 곡으로 넘깁니다: ${label} | ${at} 지점, 재시도 ${MAX_TRACK_RETRIES}회 소진`);
+    return false;
+  }
+
+  // 한곡 반복 · 다음 곡 · 자동재생 중 하나를 튼다. 틀었으면 true
+  async _playNext(finishedTrack: QueuedTrack, reason: string) {
+    if (this.loop === "track" && reason !== "stop" && reason !== "jump") {
+      // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생
+      // 대기열·이전 곡 기록은 불변. 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
+      await this.play(0);
+      return true;
+    }
+    if (reason !== "previous") {
+      trackState.retire(this, finishedTrack, { requeue: this.loop === "queue" });
+    }
+
+    this.playback = null;
+    this.lastPlaybackPosition = 0;
+
+    if (this.queue.length > 0) {
+      trackState.shiftNext(this);
+
+      // 다음 트랙을 처음부터 재생
+      await this.play(0);
+      await playerEvents.refresh(this);
+      return true;
+    }
+    return this.autoplay ? this._continueAutoplay(this.autoplay) : false;
+  }
+
+  // 대기열이 비어 자동재생으로 잇는다. 틀었으면 true
+  async _continueAutoplay(genre: string) {
+    const { genres } = genreConfig.genres();
+    if (!genres[genre]) {
+      // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 일반 대기열 종료 흐름으로
+      log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${genre}`);
+      playerEvents.notice(this, "autoplay-unknown-genre", { genre }).catch(noticeFailed);
+      this.autoplay = false;
+      return false;
+    }
+    this.currentTrackRetries = 0;
+    // 못 골랐으면 false 로 대기열 소진 흐름으로 떨어진다.
+    // 그냥 끝내면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가·스킵이 전부 먹통이 된다.
+    // 이때 자동재생은 켜 둔 채로 둔다. 후보를 한 번 못 찾은 것이 장르를 끌 이유는 아니다.
+    return this.handleAutoplay();
+  }
+
+  // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다
+  async _finishQueue() {
+    trackState.reset(this, { history: true });
+
+    bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+
+    await playerEvents.ended(this, "queue-end");
+
+    this.idle.cancelAlone(false);
+    this.persistence?.removeSession();
+
+    this.idle.scheduleEmpty();
   }
 
   /**

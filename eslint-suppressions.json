@@ -1,25 +1,4 @@
 {
-  "src/player/Player.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
-  },
-  "src/player/sessionMirror.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
-  "src/player/voiceConnection.ts": {
-    "complexity": {
-      "count": 3
-    },
-    "max-depth": {
-      "count": 2
-    }
-  },
   "src/ui/nowPlayingPanel.ts": {
     "complexity": {
       "count": 4

@@ -14,6 +14,11 @@ import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
 import { messageOf } from "../rules/errorKind.ts";
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
+const ADAPTER_WAIT_MS = 10_000; // 서버 음성 어댑터가 준비되기를 기다리는 한도
+
+// 로그에 찍을 이름
+const guildName = (p: VoiceHost) => p.guild?.name ?? p.guild?.id;
+const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id ?? "?";
 
 /**
  * VoiceConnectionManager. 음성 연결/자동 복구/헬스체크
@@ -50,7 +55,7 @@ class VoiceConnectionManager {
     const player = this.player;
     if (!player.connection) return;
 
-    const label = () => `"${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id})`;
+    const label = () => `"${channelName(player)}" (${guildName(player)})`;
 
     player.connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
       // 이미 복구 중이거나 사용자가 봇 연결을 끊은 경우 복구를 트리거하지 않음
@@ -80,7 +85,7 @@ class VoiceConnectionManager {
 
     player.connection.on(VoiceConnectionStatus.Destroyed, () => {
       // 음악이 재생 중이고 아직 복구 중이 아닐 때만 복구 시작
-      const willRecover = !!player.currentTrack && !player.paused && !this.isRecovering;
+      const willRecover = this._shouldRecover();
       log.info(`음성 연결 종료됨: ${label()}${willRecover ? " | 재생 중이라 복구 시작" : ""}`);
       if (willRecover) {
         this.startConnectionRecovery();
@@ -113,38 +118,44 @@ class VoiceConnectionManager {
   }
 
   startConnectionHealthCheck() {
-    const player = this.player;
-
     // 30초마다 연결 상태 확인
     this.stopHealthCheck();
-    this.healthCheck = setInterval(async () => {
-      try {
-        // 연결 상태 확인
-        if (!player.connection || player.connection.state.status === VoiceConnectionStatus.Destroyed) {
-          if (player.currentTrack && !player.paused && !this.isRecovering) {
-            this.startConnectionRecovery();
-          }
-        }
+    this.healthCheck = setInterval(() => this._checkHealth(), 30000);
+  }
 
-        // 음성 채널이 아직 존재하는지 확인
-        const channelId = player.voiceChannel?.id;
-        const channel = channelId ? player.guild.channels.cache.get(channelId) : null;
-        if (!channel) {
-          // 클라이언트 레지스트리에서도 제거. 정리된 플레이어를
-          // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
-          // 이 서버는 재시작 전까지 계속 막힘
-          log.warn(`헬스체크: 음성 채널을 찾을 수 없어 플레이어를 정리합니다 (${player.guild?.name ?? player.guild?.id})`);
-          player.cleanup("헬스체크: 음성 채널을 찾을 수 없음");
-          const clientInstance = player.guild?.client;
-          if (clientInstance?.players?.get(player.guild.id) === player) {
-            clientInstance.players.delete(player.guild.id);
-          }
-          return;
+  _checkHealth() {
+    const player = this.player;
+    try {
+      // 연결 상태 확인
+      const dead = !player.connection || player.connection.state.status === VoiceConnectionStatus.Destroyed;
+      if (dead && this._shouldRecover()) this.startConnectionRecovery();
+
+      // 음성 채널이 아직 존재하는지 확인
+      if (!this._liveChannel()) {
+        // 클라이언트 레지스트리에서도 제거. 정리된 플레이어를
+        // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
+        // 이 서버는 재시작 전까지 계속 막힘
+        log.warn(`헬스체크: 음성 채널을 찾을 수 없어 플레이어를 정리합니다 (${guildName(player)})`);
+        player.cleanup("헬스체크: 음성 채널을 찾을 수 없음");
+        const clientInstance = player.guild?.client;
+        if (clientInstance?.players?.get(player.guild.id) === player) {
+          clientInstance.players.delete(player.guild.id);
         }
-      } catch (error) {
-        log.error("연결 헬스체크 오류:", error);
       }
-    }, 30000);
+    } catch (error) {
+      log.error("연결 헬스체크 오류:", error);
+    }
+  }
+
+  // 재생 중이고 아직 복구 중이 아니다
+  _shouldRecover() {
+    return !!this.player.currentTrack && !this.player.paused && !this.isRecovering;
+  }
+
+  // 서버에 아직 있는 음성 채널. 지워졌으면 없다
+  _liveChannel() {
+    const channelId = this.player.voiceChannel?.id;
+    return channelId ? this.player.guild.channels.cache.get(channelId) : null;
   }
 
   stopHealthCheck() {
@@ -159,7 +170,7 @@ class VoiceConnectionManager {
     this.isRecovering = true;
     this.recoveryAttempts = 0;
 
-    log.warn(`연결 복구 시작: "${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id}) | 최대 ${this.maxRecoveryAttempts}회`);
+    log.warn(`연결 복구 시작: "${channelName(player)}" (${guildName(player)}) | 최대 ${this.maxRecoveryAttempts}회`);
 
     // 단일 실행 복구 루프.
     // "시도 → 완료 대기 → 휴지"를 순차 반복하고, 세대 토큰으로 중단↔재시작 경쟁을 차단
@@ -175,26 +186,9 @@ class VoiceConnectionManager {
           break;
         }
 
-        try {
-          // 음성 채널이 아직 존재하는지 확인
-          const channel = player.voiceChannel?.id ? player.guild.channels.cache.get(player.voiceChannel.id) : null;
-          if (!channel) {
-            log.warn("연결 복구 중단: 음성 채널을 찾을 수 없음");
-            break;
-          }
-
-          // 재연결 시도. 완료(성공/실패/15초 타임아웃)까지 기다린 뒤에만 다음 단계로
-          const reconnected = await this.forceReconnect();
-          if (!active()) return; // 대기 중 중단됨. 상태를 건드리지 않고 종료
-
-          if (reconnected) {
-            // 재생을 이어 트는 것은 플레이어가 한다. 연결 모듈은 알리기만 한다
-            await player.onVoiceRecovered();
-            break;
-          }
-        } catch (error) {
-          log.error(`연결 복구 ${this.recoveryAttempts}회차 실패:`, error);
-        }
+        const step = await this._attemptRecovery(active);
+        if (step === "gone") return; // 대기 중 중단됨. 상태를 건드리지 않고 종료
+        if (step === "done") break;
 
         // 다음 시도까지 휴지 (테스트에서 재정의 가능)
         await new Promise((resolve) => setTimeout(resolve, this.recoveryRetryDelayMs ?? 3000));
@@ -205,6 +199,30 @@ class VoiceConnectionManager {
     } finally {
       if (active()) this.stopConnectionRecovery();
     }
+  }
+
+  // 복구 한 차례. done: 붙었거나 붙을 채널이 없다 · gone: 기다리는 사이 복구가 중단됐다 · retry: 쉬고 다시
+  async _attemptRecovery(active: () => boolean): Promise<"done" | "gone" | "retry"> {
+    try {
+      // 음성 채널이 아직 존재하는지 확인
+      if (!this._liveChannel()) {
+        log.warn("연결 복구 중단: 음성 채널을 찾을 수 없음");
+        return "done";
+      }
+
+      // 재연결 시도. 완료(성공/실패/15초 타임아웃)까지 기다린 뒤에만 다음 단계로
+      const reconnected = await this.forceReconnect();
+      if (!active()) return "gone";
+
+      if (reconnected) {
+        // 재생을 이어 트는 것은 플레이어가 한다. 연결 모듈은 알리기만 한다
+        await this.player.onVoiceRecovered();
+        return "done";
+      }
+    } catch (error) {
+      log.error(`연결 복구 ${this.recoveryAttempts}회차 실패:`, error);
+    }
+    return "retry";
   }
 
   stopConnectionRecovery() {
@@ -227,23 +245,7 @@ class VoiceConnectionManager {
         }
       }
 
-      // 새 연결 생성
-      const channelId = player.voiceChannel?.id;
-      if (!channelId) throw new Error("음성 채널이 없습니다");
-      player.connection = this.lib.joinVoiceChannel({
-        channelId,
-        guildId: player.guild.id,
-        adapterCreator: this._adapterCreator(),
-      });
-
-      // 새 연결의 이벤트 설정
-      this.setupConnectionEvents();
-
-      // 오디오 플레이어 구독
-      player.connection.subscribe(player.audioPlayer);
-
-      // 연결 준비 대기
-      await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, 15000);
+      await this._join(15000);
       return true;
     } catch (error) {
       log.error("강제 재연결 실패:", error);
@@ -254,52 +256,9 @@ class VoiceConnectionManager {
   async connect() {
     const player = this.player;
     try {
-      // 서버 WebSocket 준비 대기 (샤딩에 중요)
-      if (!player.guild.voiceAdapterCreator) {
-        // 어댑터 사용 가능 상태를 최대 10초 대기
-        const maxWait = 10000;
-        const startTime = Date.now();
-
-        while (!player.guild.voiceAdapterCreator && Date.now() - startTime < maxWait) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          // 상태 갱신을 위해 서버 다시 가져오기 시도
-          if (player.guild.client) {
-            try {
-              const freshGuild = await player.guild.client.guilds.fetch(player.guild.id);
-              if (freshGuild && typeof freshGuild.voiceAdapterCreator === "function") {
-                // 서버 참조 갱신. 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
-                // 신선 참조로 재할당. fetch()는 캐시된 동일 인스턴스를 갱신해 돌려주므로
-                // 재할당이 안전하고, 공유 객체의 내부 상태를 덮어쓸 위험이 없다.
-                player.guild = freshGuild;
-                break;
-              }
-            } catch {
-              // 가져오기 오류 무시
-            }
-          }
-        }
-
-        if (!player.guild.voiceAdapterCreator) {
-          throw new Error("Guild voice adapter not ready after waiting");
-        }
-      }
-
-      const channelId = player.voiceChannel?.id;
-      if (!channelId) throw new Error("음성 채널이 없습니다");
-      player.connection = this.lib.joinVoiceChannel({
-        channelId,
-        guildId: player.guild.id,
-        adapterCreator: this._adapterCreator(),
-      });
-
-      // 연결 이벤트 설정
-      this.setupConnectionEvents();
-
-      player.connection.subscribe(player.audioPlayer);
-
-      // 연결 준비 대기
-      await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, 30000);
-      log.info(`음성 채널 참가: "${player.voiceChannel?.name ?? player.voiceChannel?.id}" (${player.guild?.name ?? player.guild?.id})`);
+      await this._waitForAdapter();
+      await this._join(30000);
+      log.info(`음성 채널 참가: "${channelName(player)}" (${guildName(player)})`);
       return true;
     } catch (error) {
       log.error("음성 채널 연결 실패:", messageOf(error));
@@ -307,11 +266,57 @@ class VoiceConnectionManager {
     }
   }
 
+  // 새 연결을 만들어 이벤트를 걸고 오디오 플레이어를 구독시킨 뒤, 준비될 때까지 기다린다
+  async _join(readyMs: number) {
+    const player = this.player;
+    const channelId = player.voiceChannel?.id;
+    if (!channelId) throw new Error("음성 채널이 없습니다");
+    player.connection = this.lib.joinVoiceChannel({
+      channelId,
+      guildId: player.guild.id,
+      adapterCreator: this._adapterCreator(),
+    });
+    this.setupConnectionEvents();
+    player.connection.subscribe(player.audioPlayer);
+    await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, readyMs);
+  }
+
+  // 서버 WebSocket 준비 대기 (샤딩에 중요). 어댑터 사용 가능 상태를 최대 10초 대기
+  async _waitForAdapter() {
+    const player = this.player;
+    const startTime = Date.now();
+    while (!player.guild.voiceAdapterCreator && Date.now() - startTime < ADAPTER_WAIT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (await this._refreshGuild()) break;
+    }
+    if (!player.guild.voiceAdapterCreator) {
+      throw new Error("Guild voice adapter not ready after waiting");
+    }
+  }
+
+  // 상태 갱신을 위해 서버를 다시 가져온다. 어댑터가 생겼으면 true
+  async _refreshGuild() {
+    const player = this.player;
+    if (!player.guild.client) return false;
+    try {
+      const freshGuild = await player.guild.client.guilds.fetch(player.guild.id);
+      if (typeof freshGuild?.voiceAdapterCreator !== "function") return false;
+      // 서버 참조 갱신. 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
+      // 신선 참조로 재할당. fetch()는 캐시된 동일 인스턴스를 갱신해 돌려주므로
+      // 재할당이 안전하고, 공유 객체의 내부 상태를 덮어쓸 위험이 없다.
+      player.guild = freshGuild;
+      return true;
+    } catch {
+      // 가져오기 오류 무시. 다음 차례에 다시 가져온다
+      return false;
+    }
+  }
+
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voiceAdapter)
   _adapterCreator() {
     const player = this.player;
     return holdingAdapterCreator(player.guild.voiceAdapterCreator, {
-      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청을 옮겨진 채널로 고쳐 보냅니다: ${from} → ${to} (${player.guild?.name ?? player.guild?.id})`),
+      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청을 옮겨진 채널로 고쳐 보냅니다: ${from} → ${to} (${guildName(player)})`),
     });
   }
 
@@ -326,7 +331,7 @@ class VoiceConnectionManager {
    */
   followMove(fromId: string, toChannel: VoiceBasedChannel, now = Date.now()) {
     const player = this.player;
-    const where = player.guild?.name ?? player.guild?.id;
+    const where = guildName(player);
     const target = this._bouncedFrom(fromId, toChannel, now);
     if (target) {
       this.lastBounceFix = now;
@@ -362,7 +367,7 @@ class VoiceConnectionManager {
     if (connection.state?.status === "destroyed") return;
     try {
       connection.destroy();
-      log.info(`음성 채널 떠남: "${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "?"}" (${player.guild?.name ?? player.guild?.id}) | 원인=${reason}`);
+      log.info(`음성 채널 떠남: "${channelName(player)}" (${guildName(player)}) | 원인=${reason}`);
     } catch (error) {
       log.error("음성 연결 종료 실패:", error);
     }
