@@ -180,7 +180,7 @@ test("반복: 라이브가 들어오면 걸려 있던 반복을 푼다", () => {
   assert.equal(player.releaseLoopForLive(), false, "이미 꺼져 있으면 할 일이 없다");
 });
 
-test("탐색: 라이브에는 옮길 자리가 없다. 재생을 다시 걸지 않는다", () => {
+test("탐색: 라이브에는 옮길 자리가 없다. 재생을 다시 걸지 않는다", async () => {
   let played = 0;
   const player = fakePlayer({
     currentTrack: { isLive: true },
@@ -188,7 +188,7 @@ test("탐색: 라이브에는 옮길 자리가 없다. 재생을 다시 걸지 �
       played++;
     },
   });
-  const result = player.seek(30000, "seek");
+  const result = await player.seek(30000, "seek");
   assert.deepEqual(result, { ok: false, code: "live-no-seek" });
   assert.equal(played, 0, "play()까지 가면 안 된다");
 });

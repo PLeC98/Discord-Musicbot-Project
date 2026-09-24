@@ -633,7 +633,7 @@ class MusicPlayer {
    * @param {number} seekMs  이동할 위치(ms)
    * @param {string} reason  누가 시켰나. "seek" | "replay" | "highlight" | "dashboard"
    */
-  seek(seekMs: number, reason = "seek") {
+  async seek(seekMs: number, reason = "seek") {
     // 라이브에는 실시간밖에 없다. 되감을 자리도, 앞서 갈 자리도 없다.
     if (this.isLive) {
       clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);

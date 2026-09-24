@@ -53,6 +53,8 @@ const calls = {
   directStreams: [] as string[],
   sink: [] as string[],
   steps: [] as string[],
+  sent: [] as unknown[], // 글 채널에 보낸 것
+  recoveries: [] as string[], // 연결 복구를 시작한 것
 };
 
 // ── 1. 음성 라이브러리 ──────────────────────────────────────────────────
@@ -166,6 +168,9 @@ const fakeConnection = () => Object.assign(new EventEmitter(), { state: { status
 class FakeVoice extends VoiceConnectionManager {
   startConnectionHealthCheck() {}
   setupConnectionEvents() {}
+  async startConnectionRecovery() {
+    calls.recoveries.push("recover");
+  }
   async connect() {
     this.player.connection = fakeConnection();
     return true;
@@ -329,12 +334,22 @@ function fakeGuild(id = "g1"): Guild {
   return guild as unknown as Guild;
 }
 
-/** 플레이어 하나. 연결은 이미 붙은 것으로 둔다(play() 의 "연결" 단계는 따로 시험한다). */
-function makePlayer({ connected = true, guildId = "g1" } = {}) {
+type PlayerClass<P extends Player> = new (...args: ConstructorParameters<typeof MusicPlayer>) => P;
+
+/**
+ * 플레이어 하나. 연결은 이미 붙은 것으로 둔다(play() 의 "연결" 단계는 따로 시험한다).
+ * as 로 하위 클래스를 주면 그것으로 세운다(시험이 일부 메서드를 정할 때).
+ */
+function makePlayer<P extends Player = Player>({ connected = true, guildId = "g1", as }: { connected?: boolean; guildId?: string; as?: PlayerClass<P> } = {}): P {
   const guild = fakeGuild(guildId);
-  const text = { id: "text1", name: "text", send: async () => ({}) } as unknown as GuildTextBasedChannel;
+  const send = async (message: unknown) => {
+    calls.sent.push(message);
+    return {};
+  };
+  const text = { id: "text1", name: "text", send } as unknown as GuildTextBasedChannel;
   const voice = { id: "voice1", name: "voice" } as unknown as VoiceBasedChannel;
-  const player = new MusicPlayer(guild, text, voice);
+  const Cls = as ?? (MusicPlayer as unknown as PlayerClass<P>);
+  const player = new Cls(guild, text, voice);
   guild.client.players.set(guild.id, player);
   if (connected) player.connection = fakeConnection();
   return player;
