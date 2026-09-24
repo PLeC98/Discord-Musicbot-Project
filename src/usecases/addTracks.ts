@@ -165,11 +165,10 @@ async function tracksFor(player: MusicPlayer, request: PlaybackRequest, batch: n
 
 async function search(player: MusicPlayer, query: string, { guild, single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
   log.debug({ sub: "play" }, `${source} | 서버=${guild.id} | 검색어="${query}"`);
-  // 받을 곡 수. 묶음은 대기열에 들어가는 곡 수라 대기열의 남은 자리와 견준다. 쉬던 중이면 첫 곡은 대기열이 아니라
-  // 곧바로 틀리니 한 곡을 더 받는다(묶음이 대기열 상한으로 잘려 있어도 대기열을 다 채운다).
+  // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
   // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
-  const room = trackState.roomLeft(player, config.bot.maxQueueSize);
-  const limit = single ? 1 : Math.max(1, Math.min(batch, room) + (player.currentTrack ? 0 : 1));
+  const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
+  const limit = single ? 1 : Math.max(1, Math.min(batch, room));
   const found = await lookup.resolveQuery(query, `${source}.resolveQuery`, { limit });
   if (!found.success) return ErrorHandler.lookupFailure(found);
 
