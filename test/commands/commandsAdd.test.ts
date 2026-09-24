@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard)의 지금 동작을 고정한다(구조 리팩터링 0-B).
 //
 // 6단계가 명령을 얇게 만들고 곡 추가 코어를 usecases/addTracks 로 옮긴다. 입력 · 권한 · 결과마다 무엇을 불렀는지 적어 둔다.
