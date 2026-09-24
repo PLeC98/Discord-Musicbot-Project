@@ -1,6 +1,6 @@
 import MusicPlayer from "../player/Player.js";
 import songLookup from "../sources/lookup.js";
-import GuildSettingsManager from "../store/guildSettings.js";
+import GuildSettingsManager from "../store/guildSettings.ts";
 import responders from "./responders.js";
 const { silentResponder } = responders;
 import logger from "../infra/log/logger.ts";

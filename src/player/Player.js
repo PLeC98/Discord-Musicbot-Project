@@ -25,7 +25,7 @@ const { openChunkedStream } = chunkedStream;
 import playbackInput from "../media/playbackInput.js";
 const { openInput } = playbackInput;
 import voiceChannelStatus from "./voiceChannelStatus.js";
-import audioCache from "../store/audioCache.js";
+import audioCache from "../store/audioCache.ts";
 import VoiceConnectionManager from "./voiceConnection.js";
 import PlaybackWatch from "./playbackWatch.js";
 import IdleLeave from "./idleLeave.js";

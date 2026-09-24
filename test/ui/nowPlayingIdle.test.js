@@ -5,7 +5,7 @@ import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
-import GuildSettingsManager from "../../src/store/guildSettings.js";
+import GuildSettingsManager from "../../src/store/guildSettings.ts";
 import playerEvents from "../../src/player/events.js";
 
 const BOT = "bot-chan";

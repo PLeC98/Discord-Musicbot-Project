@@ -1,6 +1,7 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 바깥 서비스의 답을 담아 두는 표. SponsorBlock 구간 · 연령 제한 영상 · 스포티파이 익명 상태
 
-import db from "./db.js";
+import db from "./db.ts";
 
 class ExternalCaches {
   get db() {

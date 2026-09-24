@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 
 const { recordPanel } = panelEvents;
 import h from "../helpers/playerHarness.js";
-import audioCache from "../../src/store/audioCache.js";
+import audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import autoplayRoute from "../../src/autoplay/route.js";

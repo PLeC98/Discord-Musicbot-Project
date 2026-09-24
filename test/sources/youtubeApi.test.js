@@ -16,8 +16,8 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "youtube-api-"));
-const audioCache = (await import("../../src/store/audioCache.js")).default;
-const trackLookup = (await import("../../src/store/trackLookup.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
+const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 

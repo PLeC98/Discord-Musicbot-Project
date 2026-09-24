@@ -12,7 +12,7 @@ import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
-const audioCache = (await import("../../src/store/audioCache.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 

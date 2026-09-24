@@ -1,5 +1,5 @@
 import { PermissionFlagsBits } from "discord.js";
-import GuildSettingsManager from "../store/guildSettings.js";
+import GuildSettingsManager from "../store/guildSettings.ts";
 import S from "../ui/strings.js";
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.

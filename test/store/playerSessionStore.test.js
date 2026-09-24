@@ -1,13 +1,13 @@
-// src/store/playerSessions.js — 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
+// src/store/playerSessions.ts — 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
 // 저장소는 행을 위치로 찾으므로, 둘이 한 번이라도 어긋나면 이후의 모든 증분 쓰기가 엉뚱한 행을 건드린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import trackState from "../../src/player/trackState.js";
-import playerSessions from "../../src/store/playerSessions.js";
+import playerSessions from "../../src/store/playerSessions.ts";
 const { PlayerSessionStore, GAP, SEQ_LIMIT } = playerSessions;
-import dbModule from "../../src/store/db.js";
+import dbModule from "../../src/store/db.ts";
 const { createTables } = dbModule;
 
 const G = "g1";

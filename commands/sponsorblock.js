@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
-import GuildSettingsManager from "../src/store/guildSettings.js";
+import GuildSettingsManager from "../src/store/guildSettings.ts";
 import sponsorConfig from "../events/sponsorConfigHandler.js";
 
 // 실제 저장/취소 처리는 events/sponsorConfigHandler.js (customId: sb:*)

@@ -1,7 +1,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
-import db from "../store/db.js";
-import playerSessions from "../store/playerSessions.js";
+import db from "../store/db.ts";
+import playerSessions from "../store/playerSessions.ts";
 const { sessions } = playerSessions;
 import trackState from "./trackState.js";
 import config from "../../config.ts";

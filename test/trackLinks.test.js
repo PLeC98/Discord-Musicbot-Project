@@ -20,8 +20,8 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "track-links-"));
 let audioCache, trackLookup;
 
 before(() => {
-  audioCache = require("../src/store/audioCache");
-  trackLookup = require("../src/store/trackLookup");
+  audioCache = require("../src/store/audioCache.ts");
+  trackLookup = require("../src/store/trackLookup.ts");
   audioCache._cacheDir = path.join(TMP, "audio_cache");
   audioCache.initialize(path.join(TMP, "cache.db"));
 });
@@ -45,8 +45,8 @@ const watch = (id) => `https://www.youtube.com/watch?v=${id}`;
 
 // 전에는 음원으로 떨어진 곡의 작품 페이지(webUrl)를 저장할 칸이 없어 복원 뒤 링크가 음원 파일로 바뀌었다
 test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도 작품 페이지 링크를 지킨다", () => {
-  const { PlayerSessionStore } = require("../src/store/playerSessions");
-  const { createTables } = require("../src/store/db");
+  const { PlayerSessionStore } = require("../src/store/playerSessions.ts");
+  const { createTables } = require("../src/store/db.ts");
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
   createTables(db);

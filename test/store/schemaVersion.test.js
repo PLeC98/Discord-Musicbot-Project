@@ -1,6 +1,6 @@
-// src/store/db.js — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
+// src/store/db.ts — DB 구조 버전이 맞지 않으면 열지 않는다. 마이그레이션은 두지 않는다.
 
-import playerSessions from "../../src/store/playerSessions.js";
+import playerSessions from "../../src/store/playerSessions.ts";
 const { sessions } = playerSessions;
 import os from "node:os";
 import path from "node:path";
@@ -10,9 +10,9 @@ import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
-const guildTable = (await import("../../src/store/guildSettings.js")).default.table;
-const audioCache = (await import("../../src/store/audioCache.js")).default;
-const storeDb = (await import("../../src/store/db.js")).default;
+const guildTable = (await import("../../src/store/guildSettings.ts")).default.table;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
+const storeDb = (await import("../../src/store/db.ts")).default;
 
 after(() => {
   audioCache.close();

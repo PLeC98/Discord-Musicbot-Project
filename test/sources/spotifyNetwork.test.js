@@ -10,8 +10,8 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
-const audioCache = (await import("../../src/store/audioCache.js")).default;
-const externalCaches = (await import("../../src/store/externalCaches.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
+const externalCaches = (await import("../../src/store/externalCaches.ts")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 

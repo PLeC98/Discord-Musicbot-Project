@@ -1,6 +1,7 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
-import db from "./db.js";
+import db from "./db.ts";
 import config from "../../config.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 위쪽 끝. 대기열 상한이 더 작으면 그쪽을 따른다

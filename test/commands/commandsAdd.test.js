@@ -4,7 +4,7 @@
 // /join 과 플레이어가 없을 때의 /autoplay 는 진짜 MusicPlayer 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
-import playerSessions from "../../src/store/playerSessions.js";
+import playerSessions from "../../src/store/playerSessions.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
@@ -12,13 +12,13 @@ const require = createRequire(import.meta.url);
 
 const { sessions } = playerSessions;
 import h from "../helpers/playerHarness.js";
-import audioCache from "../../src/store/audioCache.js";
+import audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
 import S from "../../src/ui/strings.js";
-import settings from "../../src/store/guildSettings.js";
+import settings from "../../src/store/guildSettings.ts";
 import lookup from "../../src/sources/lookup.js";
 import YouTube from "../../src/sources/youtube/index.js";
 import More from "../../src/usecases/playlistMore.js";

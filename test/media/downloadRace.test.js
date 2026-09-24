@@ -9,7 +9,7 @@ import fs from "node:fs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import TrackDownloader from "../../src/media/cacheDownload.js";
-import audioCache from "../../src/store/audioCache.js";
+import audioCache from "../../src/store/audioCache.ts";
 
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;
 

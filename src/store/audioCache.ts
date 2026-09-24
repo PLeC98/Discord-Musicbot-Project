@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 오디오 캐시. 받아 둔 파일 · 보호 · 퇴거 · 오디오 장부(audio_cache) · 기동 정리 · 통계
 
 import logger from "../infra/log/logger.ts";
@@ -6,9 +7,9 @@ import path from "path";
 import fs from "fs";
 import config from "../../config.ts";
 import { md5, audioKeyOf } from "../rules/audioKeyOf.ts";
-import playerSessions from "./playerSessions.js";
+import playerSessions from "./playerSessions.ts";
 const { sessions } = playerSessions;
-import db from "./db.js";
+import db from "./db.ts";
 
 const CACHE_DIR = path.join(import.meta.dirname, "..", "..", "audio_cache");
 

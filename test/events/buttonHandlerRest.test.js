@@ -11,13 +11,13 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
-const audioCache = (await import("../../src/store/audioCache.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
 const S = (await import("../../src/ui/strings.js")).default;
-const settings = (await import("../../src/store/guildSettings.js")).default;
+const settings = (await import("../../src/store/guildSettings.ts")).default;
 const playerEvents = (await import("../../src/player/events.js")).default;
 const buttonHandler = (await import("../../events/buttonHandler.js")).default;
 

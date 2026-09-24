@@ -1,4 +1,4 @@
-// src/store/trackLookup.js — 링크 장부의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
+// src/store/trackLookup.ts — 링크 장부의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,8 +12,8 @@ const { openTempStore } = tempStore;
 
 const store = openTempStore("track-lookup-");
 after(() => store.close());
-const audioCache = (await import("../../src/store/audioCache.js")).default;
-const trackLookup = (await import("../../src/store/trackLookup.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
+const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
 
 // ── 제목 출처 (title_verified) ───────────────────────────────
 // 재생목록 페이지가 주는 제목은 같은 영상인데도 다를 수 있다. 그걸로 확인된 제목을 덮으면

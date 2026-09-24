@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import MusicPlayer from "../../src/player/Player.js";
 import PlaybackWatch from "../../src/player/playbackWatch.js";
-import audioCache from "../../src/store/audioCache.js";
+import audioCache from "../../src/store/audioCache.ts";
 
 // ── 종료 워치독 ──────────────────────────────────────────────
 

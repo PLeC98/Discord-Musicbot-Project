@@ -8,11 +8,11 @@ const { openTempStore } = tempStore;
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());
-const guildTable = (await import("../../src/store/guildSettings.js")).default.table;
+const guildTable = (await import("../../src/store/guildSettings.ts")).default.table;
 const stored = { get: (g) => guildTable.getPlaylistAddMax(g), set: (g, n) => guildTable.setPlaylistAddMax(g, n), has: (g) => guildTable.getPlaylistAddMax(g) !== null };
 
 const config = (await import("../../config.ts")).default;
-const GuildSettingsManager = (await import("../../src/store/guildSettings.js")).default;
+const GuildSettingsManager = (await import("../../src/store/guildSettings.ts")).default;
 const command = (await import("../../commands/setplaylistlimit.js")).default;
 
 const G = "g1";

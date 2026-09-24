@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import GuildSettingsManager from "../src/store/guildSettings.js";
+import GuildSettingsManager from "../src/store/guildSettings.ts";
 import SponsorBlock from "../src/sources/sponsorBlock.js";
 import config from "../config.ts";
 

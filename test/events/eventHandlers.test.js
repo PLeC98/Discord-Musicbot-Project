@@ -12,12 +12,12 @@ import assert from "node:assert/strict";
 import { PermissionFlagsBits } from "discord.js";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
-const audioCache = (await import("../../src/store/audioCache.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const S = (await import("../../src/ui/strings.js")).default;
-const settings = (await import("../../src/store/guildSettings.js")).default;
+const settings = (await import("../../src/store/guildSettings.ts")).default;
 const lookup = (await import("../../src/sources/lookup.js")).default;
 const yamlStore = await import("../../src/config/yamlStore.ts");
 const More = (await import("../../src/usecases/playlistMore.js")).default;

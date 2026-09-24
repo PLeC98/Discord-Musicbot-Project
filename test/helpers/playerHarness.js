@@ -115,7 +115,7 @@ async function openChunkedStream(opts) {
 
 // ── 4. 캐시 장부: 진짜를 임시 DB 로 ──────────────────────────────────────
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "player-harness-"));
-const audioCache = (await import("../../src/store/audioCache.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 

@@ -1,7 +1,7 @@
 // src/player/sessionMirror.js — 트랙 변경을 DB로 옮기는 거울, 세션 행, 복원.
 // 임시 DB로 연다 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
-import playerSessions from "../../src/store/playerSessions.js";
+import playerSessions from "../../src/store/playerSessions.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
@@ -19,7 +19,7 @@ const removeDb = () => {
   for (const suffix of ["", "-wal", "-shm"]) fs.rmSync(DB_PATH + suffix, { force: true });
 };
 
-const audioCache = (await import("../../src/store/audioCache.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
 const SessionPersistence = (await import("../../src/player/sessionMirror.js")).default;
 const trackState = (await import("../../src/player/trackState.js")).default;
 

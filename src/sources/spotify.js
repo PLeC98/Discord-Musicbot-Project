@@ -12,7 +12,7 @@ import { isSpotifyURL, parseSpotifyURL } from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "spotify" });
 import config from "../../config.ts";
-import externalCaches from "../store/externalCaches.js";
+import externalCaches from "../store/externalCaches.ts";
 
 const ua = () => config.userAgents.browser;
 const API_BASE = "https://api.spotify.com/v1";

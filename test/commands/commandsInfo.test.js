@@ -17,15 +17,15 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
-const guildTable = (await import("../../src/store/guildSettings.js")).default.table;
-const audioCache = (await import("../../src/store/audioCache.js")).default;
-const trackLookup = (await import("../../src/store/trackLookup.js")).default;
+const guildTable = (await import("../../src/store/guildSettings.ts")).default.table;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
+const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const config = (await import("../../config.ts")).default;
 const S = (await import("../../src/ui/strings.js")).default;
-const settings = (await import("../../src/store/guildSettings.js")).default;
+const settings = (await import("../../src/store/guildSettings.ts")).default;
 const SponsorBlock = (await import("../../src/sources/sponsorBlock.js")).default;
 const sponsorConfig = (await import("../../events/sponsorConfigHandler.js")).default;
 

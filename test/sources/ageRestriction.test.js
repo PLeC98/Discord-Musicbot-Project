@@ -18,8 +18,8 @@ let YouTube;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  audioCache = require("../../src/store/audioCache");
-  externalCaches = require("../../src/store/externalCaches");
+  audioCache = require("../../src/store/audioCache.ts");
+  externalCaches = require("../../src/store/externalCaches.ts");
   audioCache.initialize(DB_PATH);
   YouTube = require("../../src/sources/youtube/index");
 });

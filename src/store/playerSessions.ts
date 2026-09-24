@@ -1,10 +1,11 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 플레이어 세션 저장소. 길드당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
 // DB는 재시작 복원용 사본이다. 재생 중의 진실은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
 import { HISTORY_MAX } from "../rules/history.ts";
-import db from "./db.js";
-import rowsModule from "./rows.js";
+import db from "./db.ts";
+import rowsModule from "./rows.ts";
 const { SessionTrackRow, checked } = rowsModule;
 
 // 끼워넣을 때 양옆의 중간값을 쓰므로 간격이 클수록 재번호 없이 오래 버틴다

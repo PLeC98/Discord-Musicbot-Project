@@ -4,7 +4,7 @@ const log = logger.child({ category: "commands" });
 import addTracks from "../src/usecases/addTracks.js";
 const { ensurePlayer } = addTracks;
 import playerEvents from "../src/player/events.js";
-import playerSessions from "../src/store/playerSessions.js";
+import playerSessions from "../src/store/playerSessions.ts";
 const { sessions } = playerSessions;
 import mentions from "../src/ui/mentions.js";
 const { escapeMd } = mentions;

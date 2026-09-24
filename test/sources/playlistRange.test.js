@@ -14,7 +14,7 @@ const exec = async (url, options) => {
 
 const Spotify = (await import("../../src/sources/spotify.js")).default;
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
-const trackLookup = (await import("../../src/store/trackLookup.js")).default;
+const trackLookup = (await import("../../src/store/trackLookup.ts")).default;
 const lookup = (await import("../../src/sources/lookup.js")).default;
 
 const { graphql, official } = Spotify._internals;

@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import audioCache from "../../src/store/audioCache.js";
+import audioCache from "../../src/store/audioCache.ts";
 
 import { createRequire } from "node:module";
 
@@ -29,7 +29,7 @@ function openTempStore(prefix = "store-") {
 
 // 서버 설정을 표에 바로 쓰고 메모리 캐시를 비운다. 준 칸만 쓴다
 function setGuild(guildId, { djRoles, botChannel, playlistAddMax, sponsorBlock } = {}) {
-  const settings = require("../../src/store/guildSettings");
+  const settings = require("../../src/store/guildSettings.ts");
   if (djRoles !== undefined) settings.table.setDjRoles(guildId, djRoles);
   if (botChannel !== undefined) {
     if (botChannel === null) settings.table.clearBotChannel(guildId);

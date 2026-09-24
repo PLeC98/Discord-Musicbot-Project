@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import MusicPlayer from "../../src/player/Player.js";
-import audioCache from "../../src/store/audioCache.js";
+import audioCache from "../../src/store/audioCache.ts";
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "pcs-"));
 const realDir = audioCache._cacheDir;

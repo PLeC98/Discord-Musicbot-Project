@@ -1,12 +1,13 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 링크 장부(track_lookup). 요청 열쇠 → 보여 줄 링크 · 음원 주소 · 표시 정보.
 // 캐시 파일은 두 걸음으로 찾는다. 장부 줄의 음원 주소에서 열쇠를 계산하고, 그 열쇠로 audio_cache 를 본다.
 
 import fs from "fs";
-import db from "./db.js";
-import audioCache from "./audioCache.js";
+import db from "./db.ts";
+import audioCache from "./audioCache.ts";
 import { canonicalUrl } from "../rules/canonicalUrl.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
-import rows from "./rows.js";
+import rows from "./rows.ts";
 const { LookupRow, checked } = rows;
 
 class TrackLookup {

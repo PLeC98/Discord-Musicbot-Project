@@ -1,4 +1,4 @@
-// src/store/audioCache.js — 캐시 초기화와 재생 중인 곡.
+// src/store/audioCache.ts — 캐시 초기화와 재생 중인 곡.
 //
 // 회귀 대상: 초기화가 DB를 먼저 통째로 비우고 파일을 지웠다. 재생 중인 파일은 잠겨서 남는데
 // 행은 사라지므로, 다음 재생이 "이미 캐시됨"으로 판단해 다운로더(=audio_cache 행을 만드는 곳)를
@@ -24,8 +24,8 @@ let audioCache, trackLookup;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  audioCache = require("../../src/store/audioCache");
-  trackLookup = require("../../src/store/trackLookup");
+  audioCache = require("../../src/store/audioCache.ts");
+  trackLookup = require("../../src/store/trackLookup.ts");
   audioCache._cacheDir = CACHE_DIR; // 실 캐시 폴더를 건드리지 않는다
   audioCache.initialize(DB_PATH);
 });

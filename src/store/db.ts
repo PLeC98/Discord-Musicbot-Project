@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 캐시 DB 하나. 불러와도 열리지 않는다. 기동이 open() 으로 열고, 열기 전에 get() 을 부르면 던진다.
 
 import Database from "better-sqlite3";

@@ -22,7 +22,7 @@ import assert from "node:assert/strict";
 
 // 동등물 찾기가 링크 장부를 타므로 임시 DB로 돌린다 — 운영 DB 미접촉.
 const TEST_DB = path.join(os.tmpdir(), `musicbot-livestream-test-${process.pid}.db`);
-const audioCache = (await import("../../src/store/audioCache.js")).default;
+const audioCache = (await import("../../src/store/audioCache.ts")).default;
 audioCache.initialize(TEST_DB);
 after(() => {
   audioCache.close();

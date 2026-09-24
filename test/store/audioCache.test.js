@@ -1,7 +1,7 @@
-// src/store/audioCache.js — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
+// src/store/audioCache.ts — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
 // initialize(dbPath) 테스트 시임 사용 — 운영 DB(database/cache.db)는 건드리지 않는다.
 
-import playerSessions from "../../src/store/playerSessions.js";
+import playerSessions from "../../src/store/playerSessions.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
@@ -20,10 +20,10 @@ let guildTable, audioCache, externalCaches, trackLookup;
 
 before(() => {
   if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  guildTable = require("../../src/store/guildSettings").table;
-  audioCache = require("../../src/store/audioCache");
-  externalCaches = require("../../src/store/externalCaches");
-  trackLookup = require("../../src/store/trackLookup");
+  guildTable = require("../../src/store/guildSettings.ts").table;
+  audioCache = require("../../src/store/audioCache.ts");
+  externalCaches = require("../../src/store/externalCaches.ts");
+  trackLookup = require("../../src/store/trackLookup.ts");
   audioCache.initialize(DB_PATH);
 });
 

@@ -75,7 +75,7 @@
       "count": 1
     }
   },
-  "src/store/audioCache.js": {
+  "src/store/audioCache.ts": {
     "no-empty-function": {
       "count": 1
     }
@@ -85,7 +85,7 @@
       "count": 1
     }
   },
-  "src/store/guildSettings.js": {
+  "src/store/guildSettings.ts": {
     "no-empty": {
       "count": 2
     }
@@ -270,7 +270,7 @@
       "count": 2
     }
   },
-  "src/store/playerSessions.js": {
+  "src/store/playerSessions.ts": {
     "complexity": {
       "count": 1
     }

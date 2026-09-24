@@ -11,8 +11,8 @@
 import crypto from "crypto";
 import * as links from "../rules/links.ts";
 import config from "../../config.ts";
-import GuildSettingsManager from "../store/guildSettings.js";
-import externalCaches from "../store/externalCaches.js";
+import GuildSettingsManager from "../store/guildSettings.ts";
+import externalCaches from "../store/externalCaches.ts";
 
 // skip 지원 9개 카테고리 (config.js의 SB_SKIP_CATEGORIES와 동기 유지)
 const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];

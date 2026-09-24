@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
-import GuildSettingsManager from "../src/store/guildSettings.js";
+import GuildSettingsManager from "../src/store/guildSettings.ts";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
 // 드롭메뉴 선택값은 셀렉트 인터랙션으로만 오므로, 저장 버튼이 읽을 수 있게
