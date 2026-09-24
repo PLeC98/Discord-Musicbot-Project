@@ -1,4 +1,5 @@
 // 종료. 신호를 받으면 세션을 저장하고 음성 연결 · 봇 · 자식 프로세스를 정리한 뒤 나간다.
+// 기동이 실패했을 때도 띄운 것을 내리고 나간다.
 
 import readline from "readline";
 import { getVoiceConnections } from "@discordjs/voice";
@@ -24,6 +25,10 @@ const REAL: Boundary = {
 type ShutdownDeps = { potServer: { stop(): unknown }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성을 끊을 플레이어 */
 type Saver = { persistState(reason: string, immediate: boolean): Promise<unknown>; disconnect?(reason: string): unknown };
+// 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인 · 명령 배포)의 핸들 정리와 겹쳐
+// Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
+const FAILED_START_GRACE_MS = 1000;
+
 /** 종료할 때 쓰는 클라이언트 칸 */
 type ShutdownClient = { players: Iterable<readonly [string, Saver | null]>; guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown };
 
@@ -60,14 +65,7 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
         log.error(`음성 연결 정리 실패: ${name}`, error);
       }
     }
-    client.destroy();
-    potServer.stop();
-
-    // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
-    // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
-    killAll(signal || "shutdown");
-
-    if (logFile) logFile.close();
+    release(client, { potServer, logFile, killAll }, signal || "shutdown");
     exit(0);
   };
 
@@ -81,5 +79,24 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
   }
 }
 
-export { installShutdown };
+/** 기동이 실패했다. 띄운 것을 내리고 잠시 뒤 1 로 나간다 */
+function stopFailedStart(client: { destroy(): unknown }, { potServer, logFile, ...boundary }: ShutdownDeps, graceMs = FAILED_START_GRACE_MS) {
+  const { killAll, exit } = { ...REAL, ...boundary };
+  release(client, { potServer, logFile, killAll }, "기동 실패");
+  setTimeout(() => exit(1), graceMs);
+}
+
+// 봇이 띄운 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일
+function release(client: { destroy(): unknown }, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">, reason: string) {
+  client.destroy();
+  potServer.stop();
+
+  // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
+  // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
+  killAll(reason);
+
+  if (logFile) logFile.close();
+}
+
+export { installShutdown, stopFailedStart };
 export type { Boundary as ShutdownBoundary };

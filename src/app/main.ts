@@ -20,7 +20,7 @@ import * as statusConfig from "../config/status.ts";
 import { loadModules } from "./moduleLoader.ts";
 import * as commandLoader from "./commandLoader.ts";
 import { installErrorHandlers } from "./resilience.ts";
-import { installShutdown } from "./shutdown.ts";
+import { installShutdown, stopFailedStart } from "./shutdown.ts";
 import { scheduleReplyCleanup } from "../ui/replyLifetime.ts";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
 import { MusicEmbedManager } from "../ui/nowPlayingPanel.ts";
@@ -42,6 +42,9 @@ type EventModule = { name: keyof ClientEvents; once?: boolean; execute(...args: 
 type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(...args: ClientEvents[K]): unknown };
 const isEvent = (module: unknown): module is EventModule => typeof module === "object" && module !== null && "name" in module && "execute" in module;
 const ROOT = path.join(import.meta.dirname, "..", "..");
+
+// 기동을 멈춘다. 까닭은 던지기 전에 로그에 남겼다
+class StartupStopped extends Error {}
 
 function main() {
   const logFile = setUpLogging();
@@ -145,8 +148,8 @@ async function init(client: Client, { potServer, logFile }: { potServer: PotServ
     installShutdown(client, { potServer, logFile });
     await client.login(config.discord.token);
   } catch (error) {
-    log.error("봇 기동 실패:", error);
-    process.exit(1);
+    if (!(error instanceof StartupStopped)) log.error("봇 기동 실패:", error);
+    stopFailedStart(client, { potServer, logFile });
   }
 }
 
@@ -176,7 +179,7 @@ function stopIfThrows(check: () => unknown, hint: string | null = null) {
   } catch (error) {
     log.error(messageOf(error));
     if (hint) log.error(hint);
-    process.exit(1);
+    throw new StartupStopped(messageOf(error), { cause: error });
   }
 }
 
@@ -185,7 +188,7 @@ function abortOnLoadFailure(what: string, failures: Array<{ file: string; error:
   if (failures.length === 0) return;
   for (const { file, error } of failures) log.error(`${what} 로딩 실패: ${file}`, (error instanceof Error && (error.stack || error.message)) || error);
   log.error(`${what} ${failures.length}개를 불러오지 못해 기동을 멈춥니다.`);
-  process.exit(1);
+  throw new StartupStopped(`${what} 로딩 실패`);
 }
 
 async function loadCommands(client: Client) {

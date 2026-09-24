@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { installShutdown, type ShutdownBoundary } from "../../src/app/shutdown.ts";
+import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../src/app/shutdown.ts";
 import { fakeWith } from "../helpers/fake.ts";
 
 function setup({ saveFails = false } = {}) {
@@ -80,4 +80,25 @@ test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다
   await new Promise((r) => setImmediate(r));
   assert.equal(exits(), 1);
   assert.equal(steps.filter((s) => s.startsWith("save:")).length, 1);
+});
+
+test("기동이 실패하면 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 내리고, 곧바로가 아니라 잠시 뒤 1 로 나간다", async () => {
+  const steps: string[] = [];
+  const exited = new Promise((resolve) => {
+    stopFailedStart(
+      { destroy: () => steps.push("client:destroy") },
+      {
+        potServer: { stop: () => steps.push("pot:stop") },
+        logFile: { close: () => steps.push("log:close") },
+        killAll: (reason: string) => steps.push(`kill:${reason}`),
+        exit: (code: number) => {
+          steps.push(`exit:${code}`);
+          resolve(code);
+        },
+      },
+      0,
+    );
+  });
+  assert.deepEqual(steps, ["client:destroy", "pot:stop", "kill:기동 실패", "log:close"], "나가기는 아직");
+  assert.equal(await exited, 1);
 });
