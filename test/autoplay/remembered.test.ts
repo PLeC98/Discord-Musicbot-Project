@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/autoplay/sources/http.ts remembered — 화면을 위해 저쪽에서 받아 기억하는 값.
 // 회귀 대상: AnimeThemes 가 죽어 있으면(522) 운영자 자동재생 설정이 소스 종류 목록을 받느라 시간 초과까지 기다렸고,
 // 요청마다 다시 기다렸다. 그동안 화면은 모든 소스를 "모르는 종류"로 그렸다.
@@ -11,10 +10,10 @@ const opts = { ttlMs: 60_000, retryMs: 60_000, waitMs: 30 };
 
 test("느리면 waitMs 까지만 기다리고 먼저 답한다. 받은 값은 기억해 다음부터 쓴다", async () => {
   let loads = 0;
-  let finish;
-  const slow = remembered(() => {
+  let finish = (_value: { min: number; max: number }) => {};
+  const slow = remembered<{ min: number; max: number }>(() => {
     loads++;
-    return new Promise((done) => (finish = done));
+    return new Promise<{ min: number; max: number }>((done) => (finish = done));
   }, opts);
   const started = Date.now();
   assert.equal(await slow.get(), null);

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/autoplayPool — 소스에서 받아 온 곡을 쥐고 한 곡씩 내주는 풀.
 //
 // 여기서 지키려는 성질은 넷이다: 같은 곡을 두 번 안 낸다 · 다 쓰면 다시 채운다 ·
@@ -8,8 +7,9 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import * as pool from "../../src/autoplay/pool.ts";
+import type { GenreSource } from "../../src/config/genres.ts";
 
-const songs = (n, tag = "s") => Array.from({ length: n }, (_, i) => ({ artist: "A", title: `${tag}${i}`, sourceKey: `${tag}${i}` }));
+const songs = (n: number, tag = "s") => Array.from({ length: n }, (_, i) => ({ artist: "A", title: `${tag}${i}`, sourceKey: `${tag}${i}` }));
 
 beforeEach(() => pool._reset());
 
@@ -30,7 +30,7 @@ test("같은 곡을 두 번 내지 않는다", async () => {
   const src = { type: "lastfm", tags: ["pop"] };
 
   const got = [];
-  for (let i = 0; i < 10; i++) got.push((await pool.take(src, fill)).sourceKey);
+  for (let i = 0; i < 10; i++) got.push((await pool.take(src, fill))?.sourceKey);
   assert.equal(new Set(got).size, 10);
 });
 
@@ -42,14 +42,15 @@ test("다 쓰면 다시 채운다 — 소진과 장애를 같은 일로 다룬�
   for (let i = 0; i < 3; i++) await pool.take(src, fill);
   const next = await pool.take(src, fill);
   assert.equal(round, 2, "풀이 비면 한 번 더 불러야 한다");
-  assert.ok(next.sourceKey.startsWith("r2-"));
+  assert.ok(next?.sourceKey.startsWith("r2-"));
 });
 
 test("설정이 다르면 풀도 다르다 — 같은 소스라도 태그가 다르면 섞이지 않는다", async () => {
-  const seen = [];
-  const fill = async (s) => {
-    seen.push(s.tags[0]);
-    return songs(2, s.tags[0]);
+  const seen: string[] = [];
+  const fill = async (s: GenreSource) => {
+    const [tag = ""] = s.tags ?? [];
+    seen.push(tag);
+    return songs(2, tag);
   };
 
   await pool.take({ type: "lbradio", tags: ["anime"] }, fill);
@@ -83,7 +84,7 @@ test("싫다고 한 곡은 건너뛰되 썼다고 치지 않는다 — 다른 �
 
   // s0을 싫다고 하면 s1이나 s2가 온다
   const first = await pool.take(src, fill, (t) => t.sourceKey === "s0");
-  assert.notEqual(first.sourceKey, "s0");
+  assert.notEqual(first?.sourceKey, "s0");
 
   // s0은 아직 안 쓴 것으로 남아 있다
   const rest = [];

@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/autoplayFilter — 자동재생 후보를 걸러내는 규칙.
 //
 // 문턱은 짐작이 아니라 후보 840개를 세어 정했다(notes/research-autoplay-quality.md).
@@ -10,7 +9,7 @@ import assert from "node:assert/strict";
 import * as filter from "../../src/autoplay/filter.ts";
 
 const limits = (over = {}) => filter.prepare({ minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: ["mix", "playlist", "메들리"], ...over });
-const judge = (title, duration = 240, over) => filter.judge({ title, duration }, limits(over));
+const judge = (title: string, duration = 240, over?: filter.FilterConfig) => filter.judge({ title, duration }, limits(over));
 
 // ── 길이 ──────────────────────────────────────────────────────────────────
 

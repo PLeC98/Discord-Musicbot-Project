@@ -89,7 +89,7 @@ const anisongCatalog = () => anisongStats.get();
  * 안 적은 칸은 아예 빼야 한다. 빈 배열은 minItems 1 에 걸려 422.
  * `include_no_difficulty` 는 켜지 않는다. 난이도 0·null 은 값이 아니라 결측이다.
  */
-function anisongFilters(source: GenreSource): Filters {
+function anisongFilters(source: Partial<GenreSource>): Filters {
   const list = (v: string | string[] | undefined, allowed: string[]) => {
     const kept = ([] as string[]).concat(v || []).map((one) => String(one).toLowerCase());
     const ok = kept.filter((one) => allowed.includes(one));

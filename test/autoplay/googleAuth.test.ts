@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/autoplay/assist/googleAuth.ts — 서비스 계정 JSON → 액세스 토큰.
 //
 // 이 파일이 다루는 private_key 는 이 기능에서 가장 값비싼 비밀이다.
@@ -28,12 +27,14 @@ after(() => {
   global.fetch = realFetch;
 });
 
-const calls = [];
-function answers(reply) {
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: String(init.body) });
+const calls: Array<{ url: string; init?: RequestInit; body: string }> = [];
+// 가짜 응답은 여기서 읽는 칸(ok · status · text)만 준다
+type FakeReply = { ok: boolean; status: number; text: () => Promise<string> };
+function answers(reply: object | (() => FakeReply)) {
+  global.fetch = (async (url: string, init?: RequestInit) => {
+    calls.push({ url, init, body: String(init?.body) });
     return typeof reply === "function" ? reply() : { ok: true, status: 200, text: async () => JSON.stringify(reply) };
-  };
+  }) as unknown as typeof fetch;
 }
 
 test("JWT 로 토큰을 받아 온다", async () => {
@@ -50,9 +51,9 @@ test("JWT 로 토큰을 받아 온다", async () => {
   assert.equal(sent.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer");
   assert.ok(!calls[0].body.includes("PRIVATE KEY"), "키가 그대로 실리면 안 된다");
 
-  const [head, claims] = sent.get("assertion").split(".");
-  assert.equal(JSON.parse(Buffer.from(head, "base64url")).alg, "RS256");
-  const parsed = JSON.parse(Buffer.from(claims, "base64url"));
+  const [head, claims] = String(sent.get("assertion")).split(".");
+  assert.equal(JSON.parse(Buffer.from(head, "base64url").toString()).alg, "RS256");
+  const parsed = JSON.parse(Buffer.from(claims, "base64url").toString());
   assert.equal(parsed.iss, ACCOUNT.client_email);
   assert.equal(parsed.scope, "https://www.googleapis.com/auth/cloud-platform");
   assert.ok(parsed.exp > parsed.iat);
@@ -99,12 +100,12 @@ test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
   const broken = path.join(DIR, "broken-sa.json");
   fs.writeFileSync(broken, JSON.stringify({ ...ACCOUNT, private_key: "-----BEGIN PRIVATE KEY-----\n망가진키\n-----END PRIVATE KEY-----\n" }));
 
-  const said = [];
+  const said: string[] = [];
   for (const where of [broken, JSON.stringify({ ...ACCOUNT, private_key: undefined }), "{깨진 JSON", path.join(DIR, "없다.json")]) {
     answers({ access_token: "x", expires_in: 3600 });
     await assert.rejects(
       () => auth.accessToken(where),
-      (error) => {
+      (error: Error) => {
         said.push(error.message);
         return true;
       },
@@ -115,7 +116,7 @@ test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
   answers(() => ({ ok: false, status: 401, text: async () => "invalid_grant" }));
   await assert.rejects(
     () => auth.accessToken(SA_FILE),
-    (error) => {
+    (error: Error) => {
       said.push(error.message);
       return /401/.test(error.message);
     },

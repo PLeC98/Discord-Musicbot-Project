@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // AnisongDB 소스. 설정 한 줄이 저쪽 filters 로 어떻게 바뀌는가.
 //
 // 지키려는 계약:
@@ -35,7 +34,7 @@ test("안 적은 칸은 아예 없다 — 빈 배열을 보내면 422다", () =>
 test("include_no_difficulty 를 켜지 않는다", () => {
   for (const source of [{}, { difficultyFrom: 50 }, { difficultyFrom: 0, difficultyTo: 100 }]) {
     const f = build(source);
-    assert.equal(f.difficulty?.include_no_difficulty, undefined);
+    assert.ok(!f.difficulty || !("include_no_difficulty" in f.difficulty));
   }
 });
 
@@ -103,7 +102,7 @@ test("장르와 태그는 require_any 로 싣는다", () => {
 // SPEC 의 enums 가 설정 시점에 잡는다.
 test("장르 목록에 태그 이름이 섞여 있지 않다", () => {
   const { SPEC } = sources;
-  const genres = SPEC.anisongdb.enums.genres;
+  const genres = SPEC.anisongdb.enums?.genres ?? [];
   assert.equal(genres.length, 18);
   for (const tagOnly of ["Idol", "School", "Isekai", "Shounen"]) {
     assert.ok(!genres.includes(tagOnly), `${tagOnly} 는 태그다`);
@@ -118,7 +117,7 @@ test("장르 목록에 태그 이름이 섞여 있지 않다", () => {
 // 0칸은 난이도가 아니라 결측이다. 그대로 그리면 왼쪽 끝에 없는 봉우리가 생긴다.
 test("난이도 분포에서 0칸을 뺀다", async () => {
   const real = global.fetch;
-  global.fetch = async () => ({
+  global.fetch = (async () => ({
     ok: true,
     json: async () => ({
       songs_by_genre: { Comedy: 17494, Action: 13808 },
@@ -126,10 +125,11 @@ test("난이도 분포에서 0칸을 뺀다", async () => {
       songs_by_difficulty: [608, 22, 43, 78],
       songs_by_season: { "Winter 1924": 1, "Summer 2026": 175 },
     }),
-  });
+  })) as unknown as typeof fetch;
   try {
     sources._seedAnisongStats(null);
     const got = await sources._anisongCatalog();
+    assert.ok(got, "목록을 받았다");
     assert.deepEqual(got.difficulty, [22, 43, 78], "608(결측)이 빠져야 한다");
     assert.deepEqual(got.genres, ["Comedy", "Action"]);
     assert.deepEqual(got.tags, ["School", "Idol"]);
@@ -143,7 +143,7 @@ test("난이도 분포에서 0칸을 뺀다", async () => {
 
 test("목록을 못 받아도 던지지 않는다 — 칸이 안 그려지는 것보다 빈 목록이 낫다", async () => {
   const real = global.fetch;
-  global.fetch = async () => ({ ok: false, status: 503, text: async () => "" });
+  global.fetch = (async () => ({ ok: false, status: 503, text: async () => "" })) as unknown as typeof fetch;
   try {
     sources._seedAnisongStats(null);
     assert.equal(await sources._anisongCatalog(), null);
@@ -155,21 +155,22 @@ test("목록을 못 받아도 던지지 않는다 — 칸이 안 그려지는 �
 // ── 후보 모양 ─────────────────────────────────────────────────────────────
 
 // 가짜 fetch. AnisongDB 와 AniList 를 부르는 순서대로 답한다.
-function stub({ songs, covers = [], anilistFails = false }) {
-  const calls = [];
+function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; covers?: unknown[]; anilistFails?: boolean }) {
+  const calls: Array<{ url: string; body: { variables?: { ids?: unknown[] } } | null }> = [];
   const real = global.fetch;
-  global.fetch = async (url, opts) => {
-    calls.push({ url: String(url), body: opts?.body ? JSON.parse(opts.body) : null });
+  // 가짜 응답은 여기서 읽는 칸만 준다
+  global.fetch = (async (url: string, opts?: RequestInit) => {
+    calls.push({ url: String(url), body: opts?.body ? JSON.parse(String(opts.body)) : null });
     if (String(url).includes("anilist")) {
       if (anilistFails) return { ok: false, status: 429, text: async () => "" };
       return { ok: true, json: async () => ({ data: { Page: { media: covers } } }) };
     }
     return { ok: true, json: async () => songs };
-  };
+  }) as unknown as typeof fetch;
   return { calls, restore: () => (global.fetch = real) };
 }
 
-const song = (over = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });
+const song = (over: Record<string, unknown> = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });
 
 test("후보 모양 — 음원 주소·출처·열쇠", async () => {
   const s = stub({ songs: [song()], covers: [{ id: 7, coverImage: { extraLarge: "https://cover/7.jpg" } }] });
@@ -206,7 +207,7 @@ test("음원이 없으면 영상 주소로 떨어진다", async () => {
   try {
     const got = await sources.fetchFrom({ type: "anisongdb" });
     assert.equal(got.length, 1, "MQ 는 쓰지 않는다. 있는 곡이 적어 후보가 훅 준다");
-    assert.match(got[0].audioUrl, /\/v\.webm$/);
+    assert.match(String(got[0]?.audioUrl), /\/v\.webm$/);
   } finally {
     s.restore();
   }
@@ -217,7 +218,7 @@ test("음원 호스트가 하나로 고정된다", async () => {
   const s = stub({ songs: [song(), song({ amqSongId: 2, audio: "b.mp3" }), song({ amqSongId: 3, audio: "c.mp3" })] });
   try {
     const got = await sources.fetchFrom({ type: "anisongdb" });
-    assert.equal(new Set(got.map((c) => new URL(c.audioUrl).host)).size, 1);
+    assert.equal(new Set(got.map((c) => new URL(String(c.audioUrl)).host)).size, 1);
   } finally {
     s.restore();
   }
@@ -242,7 +243,7 @@ test("표지는 묶어서 묻는다 — 곡마다 치지 않는다", async () =>
     await sources.fetchFrom({ type: "anisongdb" });
     const toAniList = s.calls.filter((c) => c.url.includes("anilist"));
     assert.equal(toAniList.length, 3, "120개면 50씩 세 번");
-    assert.ok(toAniList.every((c) => c.body.variables.ids.length <= 50));
+    assert.ok(toAniList.every((c) => Number(c.body?.variables?.ids?.length) <= 50));
   } finally {
     s.restore();
   }

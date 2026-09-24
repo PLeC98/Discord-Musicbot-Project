@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/autoplay/assist/index.ts — 자동재생 AI 보조.
 //
 // 이 기능의 계약은 "맞히는 것"이 아니라 없어도 돌아가는 것이다.
@@ -14,11 +13,34 @@ import assert from "node:assert/strict";
 import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yamlStore.ts";
 import * as assist from "../../src/autoplay/assist/index.ts";
+import * as googleAuth from "../../src/autoplay/assist/googleAuth.ts";
+import * as route from "../../src/autoplay/route.ts";
+import { prepare } from "../../src/autoplay/filter.ts";
+import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
+import { parse as parseYaml } from "yaml";
+import type { PromptSection } from "../../src/config/ai.ts";
 
-import { createRequire } from "node:module";
-
-// 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
-const require = createRequire(import.meta.url);
+// 보낸 요청. 우리 코드는 본문을 글로, 헤더를 객체로 보낸다
+type SentInit = { method?: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal };
+// 보낸 본문에서 시험이 읽는 칸. 규격마다 다른 이름을 한 모양에 모았다
+type Message = { role: string; content: string };
+type SentBody = {
+  model?: string;
+  messages: Message[];
+  system?: string;
+  systemInstruction: { parts: Array<{ text: string }> };
+  contents: Array<{ role: string; parts: Array<{ text: string }> }>;
+  generationConfig: { temperature?: unknown; topP?: unknown };
+  output_config: { effort?: unknown };
+  thinking?: { type?: unknown };
+  [key: string]: unknown;
+};
+// 가짜 응답은 여기서 읽는 칸(ok · status · json · text)만 준다
+type FakeResponse = { ok: boolean; status?: number; json?: () => Promise<unknown>; text?: () => Promise<string> };
+function useFetch(fn: (url: string, init: SentInit) => FakeResponse | Promise<FakeResponse>) {
+  global.fetch = fn as unknown as typeof fetch;
+}
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-ai-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
@@ -34,7 +56,7 @@ const { privateKey: PRIVATE_KEY } = nodecrypto.generateKeyPairSync("rsa", { modu
 const SA_PATH = path.join(DIR, "vertex-sa.json").replace(/\\/g, "/");
 fs.writeFileSync(SA_PATH, JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: PRIVATE_KEY, project_id: "json-프로젝트" }));
 
-function useConfig(yaml, sections) {
+function useConfig(yaml: string, sections?: PromptSection[]) {
   fs.writeFileSync(path.join(DIR, "ai.yaml"), yaml);
   fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\naistudio: ${KEY}\nvertex: ${SA_PATH}\n`);
   if (sections === undefined) fs.rmSync(path.join(DIR, "ai-prompt.chatml"), { force: true });
@@ -53,21 +75,37 @@ batchSize: 10
 `;
 
 // fetch 를 갈아끼운다 — 진짜로 나가면 테스트가 남의 서버에 기댄다
-const calls = [];
+const calls: Array<{ url: string; init: SentInit; body?: SentBody }> = [];
+// 모델에 보낸 JSON 본문. 목록 요청(GET)과 토큰 요청(폼)에는 없다
+const bodyOf = (init: SentInit): SentBody | undefined => (typeof init.body === "string" ? JSON.parse(init.body) : undefined);
 const realFetch = global.fetch;
 after(() => {
   global.fetch = realFetch;
 });
 
-function answers(reply) {
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+function answers(reply: string | (() => FakeResponse)) {
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     if (typeof reply === "function") return reply();
     return { ok: true, json: async () => ({ choices: [{ message: { content: reply } }] }) };
-  };
+  });
 }
 
-const cand = (title, durationSec = 200) => ({ title, durationSec });
+// 마지막으로 나간 요청. 안 나갔으면 실패
+function lastCall() {
+  const call = calls.at(-1);
+  assert.ok(call, "요청이 나가지 않았다");
+  return call;
+}
+
+// 마지막 요청이 모델에 보낸 본문까지. 본문이 없으면 실패
+function lastSent() {
+  const call = lastCall();
+  assert.ok(call.body, "본문을 실은 요청이 아니다");
+  return { ...call, body: call.body };
+}
+
+const cand = (title: string, durationSec = 200) => ({ title, durationSec });
 
 // ── 꺼져 있을 때 ──────────────────────────────────────────────────────────
 
@@ -163,10 +201,9 @@ test("오류 어디에도 키가 나오지 않는다", async () => {
   answers(() => ({ ok: false, status: 401, text: async () => `Invalid key: ${KEY}` }));
 
   // 로그 싱크에 받는 곳을 달아 모든 레코드를 본다. debug 까지 남게 잠시 올린다
-  const seen = [];
+  const seen: string[] = [];
   let watching = true;
-  require("../../src/infra/log/sink.ts").addDestination((rec) => watching && seen.push(JSON.stringify(rec)));
-  const logger = require("../../src/infra/log/logger.ts");
+  sink.addDestination((rec) => watching && seen.push(JSON.stringify(rec)));
   const level = logger.level;
   logger.level = "debug";
   try {
@@ -191,7 +228,7 @@ test("설정한 것이 그대로 요청에 실린다", async () => {
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("A"), { genre: "록" });
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.url, "http://127.0.0.1:11434/v1/chat/completions");
   assert.equal(sent.body.model, "test-model");
   assert.equal(sent.body.think, false, "서비스마다 다른 값은 extra 로 그대로 얹는다");
@@ -208,7 +245,7 @@ test("프롬프트를 안 적으면 기본 구성을 쓴다", async () => {
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1).body.messages;
+  const sent = lastSent().body.messages;
   assert.equal(sent.length, 2);
   assert.equal(sent[0].role, "system");
   assert.equal(sent[0].content, assist.DEFAULT_PROMPT);
@@ -227,7 +264,7 @@ test("섹션마다 역할을 정해 적은 차례대로 보낸다", async () => 
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("Toxicity", 210), { genre: "록" });
-  const sent = calls.at(-1).body.messages;
+  const sent = lastSent().body.messages;
   assert.deepEqual(
     sent.map((one) => one.role),
     ["system", "assistant", "user"],
@@ -242,7 +279,7 @@ test("{{목록}} 자리에 후보가 들어간다 — 어느 역할이든", asyn
   answers('[{"n":1,"song":true,"fits":true},{"n":2,"song":true,"fits":true}]');
 
   await assist.filter([cand("A", 60), cand("B", 120)], { genre: "록" });
-  const sent = calls.at(-1).body.messages;
+  const sent = lastSent().body.messages;
   assert.equal(sent.length, 1, "섹션이 하나면 메시지도 하나다");
   assert.equal(sent[0].content, "기준. 목록: 1. 장르=록 길이=1분 제목=A\n2. 장르=록 길이=2분 제목=B 끝.");
 });
@@ -257,7 +294,7 @@ test("내용이 빈 섹션은 보내지 않는다", async () => {
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.messages.length, 2);
+  assert.equal(lastSent().body.messages.length, 2);
 });
 
 // ── 후보 목록의 모양 ──────────────────────────────────────────────────────
@@ -268,18 +305,18 @@ test("줄 형식을 직접 짤 수 있다", async () => {
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("Toxicity", 210), { genre: "록" });
-  assert.equal(calls.at(-1).body.messages[0].content, "1) Toxicity [210s]");
+  assert.equal(lastSent().body.messages[0].content, "1) Toxicity [210s]");
 });
 
 // 길이를 모르는데 "0분"이라고 적으면 모델에게 거짓을 알려 주는 것이다.
 test("길이를 모르는 후보 — 낱말째 빼거나, 글자로 적거나, 0으로", async () => {
   const unknown = { title: "이름만 아는 곡" };
-  const ask = async (yaml) => {
+  const ask = async (yaml: string) => {
     useConfig(`${ON}${yaml}`, [{ role: "user", text: "{{목록}}" }]);
     calls.length = 0;
     answers('[{"n":1,"song":true,"fits":true}]');
     await assist.accepts(unknown, { genre: "록" });
-    return calls.at(-1).body.messages[0].content;
+    return lastSent().body.messages[0].content;
   };
 
   assert.equal(await ask(""), "1. 장르=록 제목=이름만 아는 곡", "기본은 길이 칸을 통째로 뺀다");
@@ -291,7 +328,7 @@ test("길이를 모르는 후보 — 낱말째 빼거나, 글자로 적거나, 0
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
   await assist.accepts(cand("Toxicity", 210), { genre: "록" });
-  assert.equal(calls.at(-1).body.messages[1].content, "1. 장르=록 길이=3분 제목=Toxicity");
+  assert.equal(lastSent().body.messages[1].content, "1. 장르=록 길이=3분 제목=Toxicity");
 });
 
 // ── 추가 파라미터 ─────────────────────────────────────────────────────────
@@ -345,7 +382,7 @@ test("헤더도 {{none}} 으로 지운다", async () => {
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.init.headers.Authorization, undefined, "지우라고 한 헤더는 안 나간다");
   assert.equal(sent.init.headers["X-Title"], "지움 확인", "나머지 헤더는 그대로");
 });
@@ -356,7 +393,7 @@ test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.init.headers["X-Title"], "Musicbot");
   assert.ok(!("temperature" in sent.body), "{{none}} 은 아예 안 보낸다");
   assert.equal(sent.body.top_p, 0.5);
@@ -368,13 +405,13 @@ test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
 test("params 는 프로필이 적어 둔 경로로 간다", async () => {
   useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: high\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
-  };
+  });
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.body.output_config.effort, "high");
   assert.equal(sent.body.thinking?.type, "adaptive", "안 고른 칸은 프로필 기본값으로");
 });
@@ -387,7 +424,7 @@ test("그 모델이 안 받는 값은 안 보낸다", async () => {
   answers("[]");
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.body.reasoning_effort, undefined, "enum 에 없는 값은 버린다");
   assert.equal(sent.body["없는칸"], undefined, "프로필이 모르는 칸도 버린다");
 });
@@ -402,7 +439,7 @@ test("{{장르}} 는 프롬프트에서도 풀린다", async () => {
   answers("[]");
 
   await assist.accepts(cand("A"), { genre: "재즈" });
-  assert.equal(calls.at(-1).body.messages[0].content, "너는 재즈 판정기다");
+  assert.equal(lastSent().body.messages[0].content, "너는 재즈 판정기다");
 });
 
 // 저쪽이 배열을 바라는 칸에 글자를 보내면 400 이다. 설정 파일을 손으로 고쳤을 수 있다.
@@ -412,7 +449,7 @@ test("종류가 안 맞는 값은 안 보낸다", async () => {
   answers("[]");
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.body.stop, undefined, "배열 칸에 글자는 안 보낸다");
   assert.equal(sent.body.seed, undefined, "숫자 칸에 글자는 안 보낸다");
   assert.equal(sent.body.logprobs, false, "종류가 틀리면 프로필 기본값으로 떨어진다");
@@ -425,7 +462,7 @@ test("배열과 JSON 칸은 제 모양이면 실린다", async () => {
   answers("[]");
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.deepEqual(sent.body.stop, ["끝", "그만"]);
   assert.deepEqual(sent.body.metadata, { who: "musicbot" });
 });
@@ -437,7 +474,7 @@ test("프로필 기본값은 고르지 않아도 붙는다", async () => {
   answers("[]");
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.body.max_completion_tokens, 8192);
   assert.equal(sent.body.parallel_tool_calls, true);
   assert.equal(sent.body.logprobs, false);
@@ -446,17 +483,17 @@ test("프로필 기본값은 고르지 않아도 붙는다", async () => {
 // 켰다 끈 값이 params 에 남는다. 그대로 보내면 저쪽이 거절한다 —
 // top_logprobs 는 logprobs 가 꺼져 있으면 400 이다.
 test("조건이 안 맞는 칸은 보내지 않는다", async () => {
-  const withLogprobs = (on) => "provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-5.5:\n    logprobs: " + on + "\n    top_logprobs: 5\n";
+  const withLogprobs = (on: string) => "provider: openai\nmodel: gpt-5.5\nparams:\n  gpt-5.5:\n    logprobs: " + on + "\n    top_logprobs: 5\n";
 
   useConfig(withLogprobs("true"), [{ role: "user", text: "{{목록}}" }]);
   answers("[]");
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.top_logprobs, 5, "켜 두었으면 나간다");
+  assert.equal(lastSent().body.top_logprobs, 5, "켜 두었으면 나간다");
 
   useConfig(withLogprobs("false"), [{ role: "user", text: "{{목록}}" }]);
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.logprobs, false);
-  assert.ok(!("top_logprobs" in calls.at(-1).body), "끄면 딸린 칸도 안 나간다");
+  assert.equal(lastSent().body.logprobs, false);
+  assert.ok(!("top_logprobs" in lastSent().body), "끄면 딸린 칸도 안 나간다");
 });
 
 // 온도도 모델이 받는 칸 하나다 — 프로필이 적어 둔 자리로 들어간다(제미니는 generationConfig 안).
@@ -479,7 +516,7 @@ test("점 경로로 Object.prototype 을 오염시킬 수 없다", () => {
     assert.deepEqual(got.body, {}, name);
     assert.match(got.problems.join(" "), /쓸 수 없는 이름/, `${name} — 조용히 버리지 않고 알려 준다`);
   }
-  assert.equal({}.뚫림, undefined, "Object.prototype 이 멀쩡해야 한다");
+  assert.equal(({} as { 뚫림?: unknown }).뚫림, undefined, "Object.prototype 이 멀쩡해야 한다");
 });
 
 // 멀쩡한 점 경로는 그대로 통해야 한다 — 위 가드가 과하게 막으면 안 된다
@@ -492,19 +529,19 @@ test("평범한 점 경로는 막지 않는다", () => {
 test("온도는 params 를 타고 프로필이 적은 자리로 간다", async () => {
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\nparams:\n  gemini-3.7-flash:\n    temperature: 0.7\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
     return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
-  };
+  });
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.generationConfig.temperature, 0.7);
+  assert.equal(lastSent().body.generationConfig.temperature, 0.7);
 
   // 안 적으면 아예 안 보낸다 — 저쪽이 안 받는 모델도 있다
   useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{목록}}" }]);
   await assist.accepts(cand("A"), {});
-  assert.ok(!("temperature" in (calls.at(-1).body.generationConfig || {})));
+  assert.ok(!("temperature" in (lastSent().body.generationConfig || {})));
 });
 
 // 모델을 바꾸면 앞 모델에서 고른 값이 따라오면 안 된다.
@@ -514,33 +551,33 @@ test("params 는 모델마다 따로 기억한다", async () => {
   answers("[]");
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.reasoning_effort, "none", "고른 모델 것만 쓴다");
+  assert.equal(lastSent().body.reasoning_effort, "none", "고른 모델 것만 쓴다");
 });
 
 // 앤트로픽은 max_tokens 가 필수다 — 프로필의 defaults 가 채운다.
 test("프로필의 기본값은 늘 붙는다", async () => {
   useConfig("provider: anthropic\nmodel: claude-opus-5\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
-  };
+  });
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.max_tokens, 4096);
+  assert.equal(lastSent().body.max_tokens, 4096);
 });
 
 // 추가 파라미터는 프로필이 모르는 것을 넣는 비상구다 — 마지막 말을 갖는다.
 test("추가 파라미터가 params 를 이긴다", async () => {
   useConfig("provider: anthropic\nmodel: claude-opus-5\nparams:\n  claude-opus-5:\n    effort: low\nextra: output_config.effort=max\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, json: async () => ({ content: [{ text: "[]" }] }) };
-  };
+  });
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.output_config.effort, "max");
+  assert.equal(lastSent().body.output_config.effort, "max");
 });
 
 // ── 프롬프트 파일(ChatML) ─────────────────────────────────────────────────
@@ -567,7 +604,7 @@ test("프롬프트 파일이 없으면 기본 구성으로 돈다", async () => 
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.messages[0].content, assist.DEFAULT_PROMPT);
+  assert.equal(lastSent().body.messages[0].content, assist.DEFAULT_PROMPT);
 });
 
 // ── 미리보기 ─────────────────────────────────────────────────────────────
@@ -591,17 +628,18 @@ test("미리보기는 만들기만 하고 보내지 않는다", async () => {
   assert.ok(!JSON.stringify(shown).includes(KEY));
 
   // 보기 곡 셋 중 하나는 길이를 모르는 것이다 — 그 처리를 눈으로 보라고 넣었다
-  const asked = shown.body.messages.at(-1).content;
+  const asked = (shown.body as SentBody).messages.at(-1)?.content;
+  assert.ok(asked, "목록 섹션이 있어야 한다");
   assert.equal(asked.split("\n").length, 3);
   assert.match(asked, /^3\. 장르=록 제목=/m, "길이를 모르는 줄은 그 칸이 빠진다");
 });
 
 test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다", async () => {
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"[]"}}]}' };
-  };
+  });
 
   const shown = await assist.judgeTest(DRAFT, [], "록");
   assert.equal(calls.length, 1, "한 번 나간다");
@@ -611,9 +649,9 @@ test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다",
 });
 
 test("테스트는 못 보내도 던지지 않는다", async () => {
-  global.fetch = async () => {
+  useFetch(async () => {
     throw new Error("연결 실패");
-  };
+  });
   const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, null);
   assert.match(shown.response, /연결 실패/);
@@ -621,7 +659,7 @@ test("테스트는 못 보내도 던지지 않는다", async () => {
 
 // 거절 응답에 보낸 값을 되비추는 서비스가 있다 — 화면에도 로그에도 키가 남으면 안 된다
 test("응답에 키가 섞여 와도 가려서 준다", async () => {
-  global.fetch = async () => ({ ok: false, status: 401, text: async () => `bad key: ${KEY}` });
+  useFetch(async () => ({ ok: false, status: 401, text: async () => `bad key: ${KEY}` }));
 
   const shown = await assist.judgeTest({ provider: "openai", baseUrl: "http://x/v1", model: "m" }, []);
   assert.equal(shown.status, 401);
@@ -634,14 +672,14 @@ test("응답에 키가 섞여 와도 가려서 준다", async () => {
 
 // 왜 거절됐는지는 본문에만 있다(모델 이름 오타 · 사용량 초과 …). 상태 코드만으론 못 고친다.
 test("확인 실패는 상태 코드와 본문을 그대로 전한다", async () => {
-  global.fetch = async () => ({ ok: false, status: 429, text: async () => '{"error":"rate limit exceeded"}' });
+  useFetch(async () => ({ ok: false, status: 429, text: async () => '{"error":"rate limit exceeded"}' }));
 
   const got = await assist.listModels({ provider: "openai", baseUrl: "http://x/v1" });
   assert.equal(got.ok, false);
-  assert.match(got.reason, /429/);
-  assert.match(got.response, /rate limit exceeded/);
+  assert.match(String(got.reason), /429/);
+  assert.match(String(got.response), /rate limit exceeded/);
 
-  assert.match((await assist.listModels({ provider: "off" })).reason, /provider=off/, "왜 안 도는지도 그대로 말한다");
+  assert.match(String((await assist.listModels({ provider: "off" })).reason), /provider=off/, "왜 안 도는지도 그대로 말한다");
 });
 
 // ── 무료 확인(모델 목록)과 유료 확인(짧은 생성) ───────────────────────────
@@ -650,10 +688,10 @@ test("확인 실패는 상태 코드와 본문을 그대로 전한다", async ()
 // "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
 test("무료 확인은 모델 목록만 받는다 — 추론이 없다", async () => {
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, status: 200, text: async () => '{"data":[{"id":"gemma3n:e2b"},{"id":"qwen3:8b"}]}' };
-  };
+  });
 
   // 적어 둔 baseUrl 은 무시되고 ollama 에 박힌 주소로 간다
   const got = await assist.listModels({ provider: "ollama", baseUrl: "http://엉뚱한곳/v1" });
@@ -681,7 +719,7 @@ test("baseUrl 은 custom 일 때만 쓴다", () => {
 
 // 키 칸 이름은 provider 이름과 같아야 한다. 어긋나면 키를 적어 두고도 안 붙어 나간다.
 test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", () => {
-  const example = require("yaml").parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "config", "ai-keys.example.yaml"), "utf8"));
+  const example = parseYaml(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "config", "ai-keys.example.yaml"), "utf8"));
   const slots = Object.keys(example);
   const needs = assist.PROVIDERS.filter((one) => assist.PROVIDER_SPECS[one].key);
 
@@ -702,41 +740,41 @@ test("키가 필요한 프로바이더는 예제 키 파일에 칸이 있다", (
 test("custom 은 저장된 주소와 같을 때만 키를 붙인다", async () => {
   useConfig("provider: custom\nbaseUrl: https://내가저장한곳/v1\nmodel: m\n");
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, status: 200, text: async () => "{}" };
-  };
+  });
 
   await assist.ping({ provider: "custom", baseUrl: "https://공격자/v1", model: "m" });
-  assert.ok(!calls.at(-1).init.headers.Authorization, "저장 안 한 주소에는 키를 안 붙인다");
+  assert.ok(!lastCall().init.headers.Authorization, "저장 안 한 주소에는 키를 안 붙인다");
 
   await assist.ping({ provider: "custom", baseUrl: "https://내가저장한곳/v1", model: "m" });
-  assert.equal(calls.at(-1).init.headers.Authorization, `Bearer ${KEY}`, "저장된 주소면 붙인다");
+  assert.equal(lastCall().init.headers.Authorization, `Bearer ${KEY}`, "저장된 주소면 붙인다");
 
   // 주소가 박힌 프로바이더는 애초에 초안이 주소를 못 바꾼다
   await assist.ping({ provider: "openai", baseUrl: "https://공격자/v1", model: "m" });
-  assert.equal(calls.at(-1).url, "https://api.openai.com/v1/chat/completions");
+  assert.equal(lastCall().url, "https://api.openai.com/v1/chat/completions");
 });
 
 // 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다 —
 // 저쪽 목록에는 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
 test("모델 목록에서 가릴 것을 설정으로 정한다", async () => {
-  global.fetch = async () => ({
+  useFetch(async () => ({
     ok: true,
     status: 200,
     text: async () => JSON.stringify({ data: [{ id: "gpt-5" }, { id: "sora-2" }, { id: "gpt-3.5-turbo" }, { id: "nano-banana-pro-preview" }, { id: "text-embedding-3-small" }] }),
-  });
+  }));
 
   const got = await assist.listModels({ provider: "openai", hideModels: ["*sora*", "gpt-3.5*", "*banana*", "*embedding*"] });
   assert.deepEqual(got.models, ["gpt-5"]);
   assert.equal(got.hiddenCount, 4, "몇 개를 가렸는지 알려 준다 — 조용히 사라지면 안 된다");
 
   // 안 적으면 그대로 다 온다
-  assert.equal((await assist.listModels({ provider: "openai" })).models.length, 5);
+  assert.equal((await assist.listModels({ provider: "openai" })).models?.length, 5);
 
   // 글롭이지 정규식이 아니다 — 점은 점이다
   const dots = await assist.listModels({ provider: "openai", hideModels: ["gpt.5"] });
-  assert.ok(dots.models.includes("gpt-5"), "gpt.5 가 gpt-5 를 가리면 안 된다");
+  assert.ok(dots.models?.includes("gpt-5"), "gpt.5 가 gpt-5 를 가리면 안 된다");
 });
 
 // ── 앤트로픽 네이티브 ─────────────────────────────────────────────────────
@@ -749,21 +787,21 @@ test("앤트로픽은 네이티브 규격으로 보낸다", async () => {
     { role: "user", text: "{{목록}}" },
   ]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, json: async () => ({ content: [{ type: "text", text: '[{"n":1,"song":true,"fits":true}]' }] }) };
-  };
+  });
 
   assert.equal(await assist.accepts(cand("A"), { genre: "록" }), true, "content[].text 에서 판정을 읽는다");
 
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.url, "https://api.anthropic.com/v1/messages");
   assert.equal(sent.init.headers["x-api-key"], KEY, "Authorization 이 아니라 x-api-key 다");
   assert.ok(!sent.init.headers.Authorization);
   assert.equal(sent.init.headers["anthropic-version"], "2023-06-01");
 
   assert.equal(sent.body.system, "기준 하나\n\n기준 둘", "system 은 본문 맨 위 칸으로 올리고 여럿이면 붙인다");
-  assert.ok(sent.body.max_tokens > 0, "없으면 400 이다");
+  assert.ok(Number(sent.body.max_tokens) > 0, "없으면 400 이다");
   assert.deepEqual(
     sent.body.messages.map((m) => m.role),
     ["user"],
@@ -774,17 +812,17 @@ test("앤트로픽은 네이티브 규격으로 보낸다", async () => {
 test("앤트로픽 모델 목록과 max_tokens 덮어쓰기", async () => {
   useConfig("provider: anthropic\nmodel: claude-x\nextra: max_tokens=4096\n", [{ role: "user", text: "{{목록}}" }]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: init.body ? JSON.parse(init.body) : null });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, status: 200, text: async () => '{"data":[{"id":"claude-opus-5"},{"id":"claude-sonnet-5"}]}', json: async () => ({ content: [{ text: "[]" }] }) };
-  };
+  });
 
   const got = await assist.listModels({ provider: "anthropic" });
   assert.deepEqual(got.models, ["claude-opus-5", "claude-sonnet-5"]);
-  assert.equal(calls.at(-1).url, "https://api.anthropic.com/v1/models");
+  assert.equal(lastCall().url, "https://api.anthropic.com/v1/models");
 
   await assist.accepts(cand("A"), {});
-  assert.equal(calls.at(-1).body.max_tokens, 4096, "모자라면 extra 로 늘린다");
+  assert.equal(lastSent().body.max_tokens, 4096, "모자라면 extra 로 늘린다");
 });
 
 // ── 버텍스 AI(제미니 네이티브) ────────────────────────────────────────────
@@ -795,21 +833,21 @@ test("버텍스는 주소를 조립하고 제미니 본문으로 보낸다", asy
     { role: "system", text: "기준이다" },
     { role: "user", text: "{{목록}}" },
   ]);
-  require("../../src/autoplay/assist/googleAuth.ts")._reset();
+  googleAuth._reset();
 
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
     return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: '[{"n":1,"song":true,"fits":true}]' }] } }] }) };
-  };
+  });
 
   assert.equal(await assist.accepts(cand("A"), { genre: "록" }), true, "candidates[].content.parts[].text 를 읽는다");
 
   const token = calls.find((one) => String(one.url).includes("oauth2"));
   assert.ok(token, "먼저 서비스 계정으로 토큰을 받는다");
 
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.equal(sent.url, "https://us-central1-aiplatform.googleapis.com/v1/projects/json-프로젝트/locations/us-central1/publishers/google/models/gemini-3-pro:generateContent");
   assert.equal(sent.init.headers.Authorization, "Bearer ya29.가짜");
   assert.deepEqual(sent.body.systemInstruction, { parts: [{ text: "기준이다" }] }, "system 은 딴 칸이다");
@@ -826,14 +864,14 @@ test("버텍스: assistant 는 model 이고, 추가 파라미터는 적은 경�
     { role: "user", text: "{{목록}}" },
   ]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: init.body && !String(url).includes("oauth2") ? JSON.parse(init.body) : null });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
     return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
-  };
+  });
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
   assert.deepEqual(
     sent.body.contents.map((c) => c.role),
     ["model", "user"],
@@ -854,13 +892,13 @@ test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
     { role: "user", text: "{{목록}}" },
   ]);
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
-  };
+  });
 
   await assist.accepts(cand("A"), {});
-  const sent = calls.at(-1);
+  const sent = lastSent();
 
   assert.match(sent.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-3\.7-flash:generateContent$/);
   assert.equal(sent.init.headers["x-goog-api-key"], KEY, "키는 x-goog-api-key 로 간다");
@@ -873,13 +911,13 @@ test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
 // 모델 목록은 생성과 주소 체계가 다르다(프로젝트·리전이 안 붙는다).
 // 생성 주소를 그대로 썼다가 404 를 봤다. 문서판이 갈려 있어 차례로 물어본다.
 test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () => {
-  const tried = [];
-  global.fetch = async (url) => {
+  const tried: string[] = [];
+  useFetch(async (url) => {
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
     tried.push(String(url));
     if (tried.length < 2) return { ok: false, status: 404, text: async () => '{"error":"not found"}' };
     return { ok: true, status: 200, text: async () => '{"publisherModels":[{"name":"publishers/google/models/gemini-3-pro"},{"name":"publishers/google/models/gemini-3-flash"}]}' };
-  };
+  });
 
   const got = await assist.listModels({ provider: "vertex", location: "us-central1", project: "p" });
   assert.deepEqual(got.models, ["gemini-3-flash", "gemini-3-pro"], "name 앞의 publishers/google/models/ 를 떼어낸다");
@@ -888,11 +926,11 @@ test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () 
 
   // 404 가 아니면 그 답이 곧 사실이다 — 더 물어보지 않는다
   tried.length = 0;
-  global.fetch = async (url) => {
+  useFetch(async (url) => {
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
     tried.push(String(url));
     return { ok: false, status: 403, text: async () => "denied" };
-  };
+  });
   const denied = await assist.listModels({ provider: "vertex", location: "us-central1", project: "p" });
   assert.equal(denied.status, 403);
   assert.equal(tried.length, 1);
@@ -911,28 +949,28 @@ test("버텍스: 서비스 계정 JSON 을 그대로 붙여넣어도 된다", as
   // 다른 칸은 그대로 둔다 — 뒤에 오는 테스트가 같은 파일을 본다
   fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\ncustom: ${KEY}\nanthropic: ${KEY}\nvertex: ${JSON.stringify(inline)}\n`);
   yamlStore._setConfigDir(DIR);
-  require("../../src/autoplay/assist/googleAuth.ts")._reset();
+  googleAuth._reset();
 
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.가짜","expires_in":3600}' };
     return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "[]" }] } }] }) };
-  };
+  });
 
   await assist.accepts(cand("A"), {});
   // 프로젝트를 안 적었으면 붙여넣은 JSON 의 project_id 를 쓴다
-  assert.match(calls.at(-1).url, /\/projects\/인라인-프로젝트\//);
-  assert.equal(calls.at(-1).init.headers.Authorization, "Bearer ya29.가짜");
+  assert.match(lastCall().url, /\/projects\/인라인-프로젝트\//);
+  assert.equal(lastCall().init.headers.Authorization, "Bearer ya29.가짜");
 });
 
 // 서비스 계정 JSON 은 이 기능에서 가장 값비싼 비밀이다. 화면에도 응답에도 있으면 안 된다.
 test("버텍스: 서비스 계정 키와 토큰이 밖으로 나가지 않는다", async () => {
-  global.fetch = async (url) => {
+  useFetch(async (url) => {
     if (String(url).includes("oauth2")) return { ok: true, status: 200, text: async () => '{"access_token":"ya29.진짜같은토큰","expires_in":3600}' };
     return { ok: false, status: 401, text: async () => "denied for token ya29.진짜같은토큰" };
-  };
-  require("../../src/autoplay/assist/googleAuth.ts")._reset();
+  });
+  googleAuth._reset();
 
   const shown = await assist.judgeTest({ provider: "vertex", model: "gemini-3-pro", location: "us-central1", project: "p" }, []);
   const dump = JSON.stringify(shown);
@@ -953,10 +991,10 @@ test("인증이 실린 헤더는 어느 이름이든 가린다", async () => {
 
 test("클라우드 프로바이더에는 키를 붙인다", async () => {
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, status: 200, text: async () => "{}" };
-  };
+  });
 
   await assist.listModels({ provider: "openai", baseUrl: "https://api.openai.com/v1" });
   assert.equal(calls[0].init.headers.Authorization, `Bearer ${KEY}`);
@@ -964,16 +1002,17 @@ test("클라우드 프로바이더에는 키를 붙인다", async () => {
 
 test("유료 확인은 짧은 물음 하나만 보낸다 — 판정 프롬프트가 아니다", async () => {
   calls.length = 0;
-  global.fetch = async (url, init) => {
-    calls.push({ url, init, body: JSON.parse(init.body) });
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
     return { ok: true, status: 200, text: async () => '{"choices":[{"message":{"content":"안녕하세요. 42입니다."}}]}' };
-  };
+  });
 
   const got = await assist.ping({ provider: "ollama", baseUrl: "http://127.0.0.1:11434/v1", model: "gemma3n:e2b" });
   assert.equal(got.ok, true);
   assert.equal(got.answer, "안녕하세요. 42입니다.");
 
-  const sent = calls[0].body;
+  const sent = calls[0]?.body;
+  assert.ok(sent, "본문을 보냈다");
   assert.equal(sent.messages.length, 1, "한 마디만 보낸다");
   assert.equal(sent.messages[0].content, assist.PING_TEXT);
   assert.ok(!JSON.stringify(sent).includes("{{목록}}"), "판정 프롬프트는 안 실린다");
@@ -1002,7 +1041,7 @@ test("줄 형식의 모르는 자리표시자는 그대로 남는다", async () 
   answers('[{"n":1,"song":true,"fits":true}]');
 
   await assist.accepts(cand("Toxicity", 210), {});
-  assert.equal(calls.at(-1).body.messages[0].content, "Toxicity / {{아티스트}} / 3분");
+  assert.equal(lastSent().body.messages[0].content, "Toxicity / {{아티스트}} / 3분");
 });
 
 test("묶음 크기대로 나눠 묻는다", async () => {
@@ -1021,8 +1060,9 @@ test("업로더 이름은 넘기지 않는다", async () => {
   calls.length = 0;
   answers('[{"n":1,"song":true,"fits":true}]');
 
-  await assist.accepts({ title: "Girls Like You", durationSec: 200, channel: "Maroon5VEVO", artist: "Vevo" }, { genre: "팝" });
-  const asked = calls.at(-1).body.messages[1].content;
+  const video = { title: "Girls Like You", durationSec: 200, channel: "Maroon5VEVO", artist: "Vevo" };
+  await assist.accepts(video, { genre: "팝" });
+  const asked = lastSent().body.messages[1].content;
   assert.ok(!asked.includes("Vevo"), asked);
   assert.ok(!asked.includes("Maroon5VEVO"), asked);
 });
@@ -1031,8 +1071,7 @@ test("업로더 이름은 넘기지 않는다", async () => {
 
 // 모듈이 멀쩡해도 배선이 빠지면 아무 일도 안 일어난다. 그 배선이 조용히 풀리는 것을 막는다.
 test("키워드 경로에서만 묻는다", async () => {
-  const route = require("../../src/autoplay/route.ts");
-  const limits = require("../../src/autoplay/filter.ts").prepare({ minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] });
+  const limits = prepare({ minDurationSec: 0, maxDurationSec: null, blockedKeywords: [] });
   const fromSearch = { title: "Pop Hits 2021 믹스", durationSec: 3600, youtubeUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", fromSearch: true, sourceKey: "yt:aaaaaaaaaaa" };
 
   useConfig(ON);
@@ -1101,7 +1140,7 @@ test("섹션 번호 표시는 저쪽에 보내는 본문에 섞이지 않는다"
   });
 
   assert.ok(!JSON.stringify(out.body).includes('"at"'), "본문에 at 이 새면 저쪽이 400 을 줄 수 있다");
-  for (const message of out.body.messages || []) {
+  for (const message of (out.body as SentBody).messages || []) {
     assert.deepEqual(Object.keys(message).sort(), ["content", "role"]);
   }
 });

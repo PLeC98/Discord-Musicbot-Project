@@ -25,7 +25,6 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import type { GenreSource } from "../config/genres.ts";
 import type { Candidate } from "./sources/candidate.ts";
-import type { Search } from "./sources/keyword.ts";
 import type { Limits, FilterConfig } from "./filter.ts";
 import type { Judged } from "./assist/index.ts";
 
@@ -49,7 +48,9 @@ type PickedTrack = {
 /** 유튜브 영상 하나. 검색 결과이거나 주소만 아는 것 */
 type Video = { url: string; id?: string | number | null; title?: string | null; channel?: string | null; artist?: string | null; durationSec?: number | null; duration?: number | null; thumbnail?: string | null };
 /** 최근에 튼 곡에서 읽는 칸 */
-type Played = { title?: string | null; artist?: string | null; audioUrl?: string | null };
+type Played = { title?: string | null; artist?: string | null; audioUrl?: string | null; [field: string]: unknown };
+/** 싫다고 할지 볼 때 후보에서 읽는 칸 */
+type Rejectable = Pick<Candidate, "title" | "artist" | "youtubeUrl" | "audioUrl">;
 /** 장르 설정. 소스 목록과 거르기 설정 */
 type PickConfig = FilterConfig & { sources?: GenreSource[]; genreName?: string };
 // AI 보조에서 부르는 칸만
@@ -57,6 +58,8 @@ type Assist = {
   filter<T extends Judged>(candidates: T[], about: { genre?: string; confident: boolean }): Promise<T[]>;
   accepts(track: PickedTrack, about: { genre?: string }): Promise<boolean>;
 };
+/** 유튜브 검색. 여기서 읽는 칸만 */
+type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean; thumbnail?: string | null }> | null | undefined>;
 type Deps = {
   search: Search;
   known(requestKey: string): { audioUrl: string; durationSec?: number | null } | null;
@@ -78,7 +81,7 @@ const DEAD_MAX = 500;
 const dead = new Set<string>();
 
 /** 이 영상은 못 튼다고 표시한다. 다음 뽑기부터 후보에서 빠진다. */
-function markDead(urlOrTrack: string | { audioUrl?: string | null } | null | undefined): boolean {
+function markDead(urlOrTrack: string | { audioUrl?: string | null; [field: string]: unknown } | null | undefined): boolean {
   const url = typeof urlOrTrack === "string" ? urlOrTrack : urlOrTrack?.audioUrl;
   const id = url && links.extractVideoId(url);
   if (!id) return false;
@@ -114,7 +117,7 @@ const norm = (s: unknown) =>
 const nameKey = (t: Played) => `${norm(t.artist)}|${norm(t.title)}`;
 
 /** 최근에 튼 곡들을 "이건 싫다" 판정으로 바꾼다. 주소는 음원 주소끼리 다듬어 견준다(출처 페이지는 작품 하나에 곡이 여럿일 수 있다) */
-function rejector(recent: Array<Played | null | undefined> | null | undefined): (cand: Candidate) => boolean {
+function rejector(recent: Array<Played | null | undefined> | null | undefined): (cand: Rejectable) => boolean {
   const names = new Set<string>();
   const audio = new Set<string>();
   for (const t of recent || []) {
@@ -143,7 +146,7 @@ function* byWeight(list: GenreSource[]): Generator<GenreSource> {
  * 영상 자체가 후보면 그 영상, 소스 안의 곡 id 면 그대로(amq:48944 · vocadb:123 …),
  * 이름뿐이면 소스 이름을 붙인다(lastfm:가수|제목). 작품 페이지처럼 곡 여럿을 가리키는 주소는 쓰지 않는다.
  */
-function requestKeyOf(cand: Candidate): string {
+function requestKeyOf(cand: Partial<Candidate>): string {
   const key = String(cand.sourceKey ?? "");
   if (links.isHttpLink(key)) return canonicalUrl(key);
   if (cand.youtubeUrl && !cand.sourceUrl) return canonicalUrl(cand.youtubeUrl);
