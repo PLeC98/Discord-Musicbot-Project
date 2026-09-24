@@ -75,16 +75,6 @@
       "count": 1
     }
   },
-  "src/store/audioCache.ts": {
-    "no-empty-function": {
-      "count": 1
-    }
-  },
-  "src/store/guildSettings.ts": {
-    "no-empty": {
-      "count": 2
-    }
-  },
   "src/ui/nowPlayingPanel.ts": {
     "complexity": {
       "count": 4

@@ -2,6 +2,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import * as db from "./db.ts";
 import config from "../../config.ts";
+import { codeOf } from "../rules/errorKind.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 위쪽 끝. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -13,6 +14,11 @@ type PanelRecord = { channelId: string | null; messageId: string };
 
 // 열기 전에 부르면 던진다
 const conn = () => db.get();
+
+// 열기 전에 부른 것은 조립 순서가 틀린 것이다. 그 서버의 설정이 없다는 뜻이 아니니 기본값으로 삼키지 않는다
+function unlessNotOpen(error: unknown) {
+  if (codeOf(error) === "DB_NOT_OPEN") throw error;
+}
 
 // 서버 설정 표(guild_settings)를 한 칸씩 읽고 쓴다. 아래 함수들이 메모리 캐시를 얹는다
 const table = {
@@ -165,6 +171,7 @@ async function setBotChannel(guildId: string, channelId: string) {
     remember(guildId, "botChannel", channelId);
     return true;
   } catch (error) {
+    unlessNotOpen(error);
     log.error("전용 채널 저장 실패:", error);
     return false;
   }
@@ -177,8 +184,9 @@ async function getBotChannel(guildId: string): Promise<string | null> {
     const channelId = table.getBotChannel(guildId);
     remember(guildId, "botChannel", channelId);
     return channelId;
-  } catch {
-    remember(guildId, "botChannel", null);
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("전용 채널 읽기 실패:", error);
     return null;
   }
 }
@@ -186,7 +194,10 @@ async function getBotChannel(guildId: string): Promise<string | null> {
 async function clearBotChannel(guildId: string) {
   try {
     table.clearBotChannel(guildId);
-  } catch {}
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("전용 채널 지우기 실패:", error);
+  }
   cache.delete(`${guildId}_botChannel`);
 }
 
@@ -196,6 +207,7 @@ async function setDjRoles(guildId: string, roleIds: string[]) {
     remember(guildId, "djRoles", roleIds);
     return true;
   } catch (error) {
+    unlessNotOpen(error);
     log.error("DJ 역할 저장 실패:", error);
     return false;
   }
@@ -209,8 +221,9 @@ async function getDjRoles(guildId: string): Promise<string[]> {
     const roleIds = table.getDjRoles(guildId);
     remember(guildId, "djRoles", roleIds);
     return roleIds;
-  } catch {
-    remember(guildId, "djRoles", []);
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("DJ 역할 읽기 실패:", error);
     return [];
   }
 }
@@ -218,7 +231,10 @@ async function getDjRoles(guildId: string): Promise<string[]> {
 async function clearDjRoles(guildId: string) {
   try {
     table.clearDjRoles(guildId);
-  } catch {}
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("DJ 역할 지우기 실패:", error);
+  }
   cache.delete(`${guildId}_djRoles`);
 }
 
@@ -228,14 +244,15 @@ async function clearDjRoles(guildId: string) {
 async function getPanel(guildId: string): Promise<PanelRecord | null> {
   const hit = cached(guildId, "panel");
   if (hit !== undefined) return hit;
-  let record = null;
   try {
-    record = table.getPanelRecord(guildId);
-  } catch {
-    /* 읽지 못하면 옛 패널을 못 치울 뿐이다 */
+    const record = table.getPanelRecord(guildId);
+    remember(guildId, "panel", record);
+    return record;
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("현재 재생 패널 자리 읽기 실패(옛 패널을 못 치운다):", error);
+    return null;
   }
-  remember(guildId, "panel", record);
-  return record;
 }
 
 /** messageId가 null이면 비운다 */
@@ -244,6 +261,7 @@ async function setPanel(guildId: string, channelId: string | null, messageId: st
     table.setPanelRecord(guildId, channelId, messageId);
     remember(guildId, "panel", messageId ? { channelId, messageId } : null);
   } catch (error) {
+    unlessNotOpen(error);
     log.error("현재 재생 패널 자리 저장 실패:", error);
   }
 }
@@ -261,14 +279,15 @@ function playlistAddLimits() {
 async function getPlaylistAddMax(guildId: string): Promise<number | null> {
   const hit = cached(guildId, "playlistAdd");
   if (hit !== undefined) return hit;
-  let value = null;
   try {
-    value = table.getPlaylistAddMax(guildId);
-  } catch {
-    /* 읽지 못하면 기본값 */
+    const value = table.getPlaylistAddMax(guildId);
+    remember(guildId, "playlistAdd", value);
+    return value;
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("재생목록 한 번에 넣는 곡 수 읽기 실패(기본값을 쓴다):", error);
+    return null;
   }
-  remember(guildId, "playlistAdd", value);
-  return value;
 }
 
 /** null이면 기본값으로 되돌린다. 범위 검증은 호출자 몫(명령·대시보드가 사용자에게 알린다). */
@@ -278,6 +297,7 @@ async function setPlaylistAddMax(guildId: string, count: number | null | undefin
     remember(guildId, "playlistAdd", count ?? null);
     return true;
   } catch (error) {
+    unlessNotOpen(error);
     log.error("재생목록 한 번에 넣는 곡 수 저장 실패:", error);
     return false;
   }
@@ -294,7 +314,8 @@ function resolvePlaylistAddMax(guildId: string): number {
     try {
       stored = table.getPlaylistAddMax(guildId);
       remember(guildId, "playlistAdd", stored);
-    } catch {
+    } catch (error) {
+      log.error("재생목록 한 번에 넣는 곡 수 읽기 실패(기본값을 쓴다):", error);
       stored = null;
     }
   }
@@ -307,14 +328,15 @@ function resolvePlaylistAddMax(guildId: string): number {
 async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
   const hit = cached(guildId, "sb");
   if (hit !== undefined) return hit;
-  let v;
   try {
-    v = table.getGuildSponsorBlock(guildId);
-  } catch {
-    v = { enabled: null, categories: null };
+    const v = table.getGuildSponsorBlock(guildId);
+    remember(guildId, "sb", v);
+    return v;
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("SponsorBlock 설정 읽기 실패(전역을 따른다):", error);
+    return { enabled: null, categories: null };
   }
-  remember(guildId, "sb", v);
-  return v;
 }
 
 /** 부분 갱신. patch에 준 키만 변경(enabled/categories). null 전달 시 "상속"으로 되돌림. */
@@ -329,6 +351,7 @@ async function setSponsorBlock(guildId: string, patch: Partial<SponsorBlockSetti
     remember(guildId, "sb", next);
     return true;
   } catch (error) {
+    unlessNotOpen(error);
     log.error("SponsorBlock 설정 저장 실패:", error);
     return false;
   }
@@ -345,7 +368,9 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   let per: SponsorBlockSetting;
   try {
     per = table.getGuildSponsorBlock(guildId);
-  } catch {
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("SponsorBlock 설정 읽기 실패(전역을 따른다):", error);
     per = { enabled: null, categories: null };
   }
   return {

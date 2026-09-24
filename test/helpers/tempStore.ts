@@ -44,4 +44,15 @@ function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponso
   settings._reset();
 }
 
-export { openTempStore, setGuild };
+/** 서버 설정 표가 망가진 동안 fn 을 부른다(표를 치워 두었다가 되돌린다). 표를 부르면 진짜 SQLite 오류가 난다 */
+async function whenSettingsBroken<T>(fn: () => T | Promise<T>): Promise<T> {
+  const db = storeDb.get();
+  db.exec("ALTER TABLE guild_settings RENAME TO guild_settings_off");
+  try {
+    return await fn();
+  } finally {
+    db.exec("ALTER TABLE guild_settings_off RENAME TO guild_settings");
+  }
+}
+
+export { openTempStore, setGuild, whenSettingsBroken };

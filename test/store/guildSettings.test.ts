@@ -9,6 +9,8 @@ import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
+import { whenSettingsBroken } from "../helpers/tempStore.ts";
+import { codeOf } from "../../src/rules/errorKind.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guild-settings-"));
 const guildTable = (await import("../../src/store/guildSettings.ts")).table;
@@ -32,14 +34,8 @@ after(() => {
 const fresh = () => settings._reset();
 
 // DB 를 잠깐 닫는다. 표를 부르면 던진다(DB_NOT_OPEN)
-async function whenDbDown<T>(fn: () => T | Promise<T>): Promise<T> {
-  audioCache.close();
-  try {
-    return await fn();
-  } finally {
-    audioCache.initialize(path.join(TMP, "cache.db"));
-  }
-}
+// 표가 망가진 동안(읽기 · 쓰기가 SQLite 오류로 실패한다)
+const whenDbDown = whenSettingsBroken;
 
 test("전용 채널: 저장 · 읽기 · 지우기. 미설정은 null", async () => {
   assert.equal(await settings.getBotChannel("g1"), null);
@@ -165,11 +161,28 @@ test("DB 가 실패하면 쓰기는 false, 읽기는 비어 있는 값(null · �
   await assert.doesNotReject(() => whenDbDown(() => settings.setPanel("g2", "c", "m")), "패널 자리 저장도 실패를 삼킨다");
 });
 
-test("실패한 읽기의 빈 값도 메모리에 남는다(DB 가 돌아와도 다시 안 읽는다)", async () => {
+test("실패한 읽기는 기억하지 않는다. DB 가 돌아오면 다시 읽는다", async () => {
   await settings.setBotChannel("g3", "c3");
   fresh();
-  await whenDbDown(() => settings.getBotChannel("g3"));
-  assert.equal(await settings.getBotChannel("g3"), null);
+  assert.equal(await whenDbDown(() => settings.getBotChannel("g3")), null);
+  assert.equal(await settings.getBotChannel("g3"), "c3");
+});
+
+// 열기 전에 부른 것은 조립 순서가 틀린 것이다. 그 서버의 설정이 없다는 뜻이 아니다
+test("DB 를 열기 전에 부르면 기본값으로 삼키지 않고 던진다", async () => {
+  fresh();
+  audioCache.close();
+  try {
+    for (const call of [() => settings.getBotChannel("g4"), () => settings.setBotChannel("g4", "c"), () => settings.getDjRoles("g4"), () => settings.clearDjRoles("g4"), () => settings.getSponsorBlock("g4")]) {
+      await assert.rejects(call, (e) => codeOf(e) === "DB_NOT_OPEN");
+    }
+    assert.throws(
+      () => settings.resolveSponsorBlock("g4"),
+      (e) => codeOf(e) === "DB_NOT_OPEN",
+    );
+  } finally {
+    audioCache.initialize(path.join(TMP, "cache.db"));
+  }
 });
 
 // ── 표(guildTable)를 직접: 메모리 캐시 없이 한 칸씩 ─────────────

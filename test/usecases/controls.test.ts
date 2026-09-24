@@ -1,13 +1,14 @@
 // src/usecases/controls.ts — 재생 조작 코어. 전제 조건을 같은 차례로 보고, 조작하고, 패널에 알린다.
 // 플레이어는 부른 것을 적는 가짜. 권한은 진짜 판정에 가짜 멤버를 넘긴다(모더레이터는 통과, 봇과 다른 곳에 있으면 거절).
 
-import { test, afterEach } from "node:test";
+import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as S from "../../src/ui/strings.ts";
 import { controlMessage, controlApiError } from "../../src/ui/controlMessages.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { openTempStore } from "../helpers/tempStore.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Actor } from "../../src/usecases/controls.ts";
 import type { MusicPlayer } from "../../src/player/Player.ts";
@@ -16,6 +17,10 @@ import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
 
 afterEach(() => playerEvents._reset());
+
+// 권한 판정이 서버 설정(DJ 역할)을 읽는다. 임시 DB 로
+const store = openTempStore("controls-");
+after(() => store.close());
 
 // 거절 까닭. 해냈으면 undefined
 const codeOf = (r: object) => ("code" in r ? r.code : undefined);

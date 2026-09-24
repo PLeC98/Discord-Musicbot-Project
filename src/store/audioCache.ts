@@ -9,6 +9,7 @@ import { md5, audioKeyOf } from "../rules/audioKeyOf.ts";
 import { sessions } from "./playerSessions.ts";
 import * as db from "./db.ts";
 import { messageOf } from "../rules/errorKind.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 const CACHE_DIR = path.join(import.meta.dirname, "..", "..", "audio_cache");
 
@@ -167,7 +168,7 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
 
   // 다운로드 후 제거 검사 (논블로킹). 그 사이 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
   setImmediate(() => {
-    if (db.isOpen()) evictIfNeeded().catch(() => {});
+    if (db.isOpen()) bestEffort(log, evictIfNeeded(), "다운로드 뒤 캐시 비우기");
   });
 }
 
