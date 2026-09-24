@@ -6,7 +6,7 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import config from "../../config.ts";
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
 
 const track = (id, extra = {}) => ({ id, title: `곡 ${id}`, url: `https://youtu.be/${id}`, ...extra });
 const who = { id: "u1", username: "사용자" };

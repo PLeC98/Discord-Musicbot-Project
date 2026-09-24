@@ -15,7 +15,7 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
-import S from "../../src/ui/strings.js";
+import S from "../../src/ui/strings.ts";
 import * as settings from "../../src/store/guildSettings.ts";
 import * as lookup from "../../src/sources/lookup.ts";
 import addTracks from "../../src/usecases/addTracks.js";

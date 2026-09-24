@@ -1,11 +1,12 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 플레이어가 알린 일(notice)을 그 서버의 글자 채널에 문장으로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
 
-import ErrorHandler from "./errorMessages.js";
-import format from "./format.js";
+import ErrorHandler from "./errorMessages.ts";
+import format from "./format.ts";
 const { formatDuration } = format;
-import mentions from "./mentions.js";
+import mentions from "./mentions.ts";
 const { escapeMd } = mentions;
-import transientMessages from "./transientMessages.js";
+import transientMessages from "./transientMessages.ts";
 const { scheduleDelete } = transientMessages;
 
 // 코드 → 문장. 세부(detail)는 알린 쪽이 준 것

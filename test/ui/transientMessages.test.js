@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import transientMessages from "../../src/ui/transientMessages.js";
+import transientMessages from "../../src/ui/transientMessages.ts";
 const { markTransient, isTransient } = transientMessages;
 
 test("스스로 지워질 메시지: 지울 시각(+여유)까지만 기억하고, 다시 표시하면 기한이 늘어난다", () => {

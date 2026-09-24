@@ -1,7 +1,8 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 조작(usecases/controls)이 거절한 까닭(code)을 사람이 읽을 문장으로. 디스코드는 문장 그대로,
 // 대시보드는 ❌ 를 뗀 문장과 HTTP 상태 코드로 쓴다. 권한 거절은 권한 판정이 만든 안내(message)를 쓴다.
 
-import S from "./strings.js";
+import S from "./strings.ts";
 
 // 1:05 · 1:02:05
 function formatMs(ms) {

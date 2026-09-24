@@ -1,4 +1,4 @@
-import S from "../../../src/ui/strings.js";
+import S from "../../../src/ui/strings.ts";
 import viewAs from "../viewAs.js";
 const { shadowMember } = viewAs;
 

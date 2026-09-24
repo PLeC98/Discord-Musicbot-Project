@@ -120,7 +120,7 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
 });
 
 test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", () => {
-  const ErrorHandler = require("../../src/ui/errorMessages");
+  const ErrorHandler = require("../../src/ui/errorMessages.ts");
   assert.equal(ErrorHandler.lookupFailure({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
   assert.match(ErrorHandler.lookupFailure({ code: "lookup-failed", error: new Error("ECONNRESET") }), /네트워크 오류/);
 });

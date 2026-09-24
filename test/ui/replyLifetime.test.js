@@ -2,7 +2,7 @@
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import replyLifetime from "../../src/ui/replyLifetime.js";
+import replyLifetime from "../../src/ui/replyLifetime.ts";
 const { scheduleReplyCleanup, keepReply, expireReply, lifetimeOf, DEFAULT_MS } = replyLifetime;
 
 function command(name, over = {}) {

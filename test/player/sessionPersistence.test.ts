@@ -3,8 +3,8 @@
 
 import { sessions, type RestoredSession } from "../../src/store/playerSessions.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import playerNotices from "../../src/ui/playerNotices.js";
-import transientMessages from "../../src/ui/transientMessages.js";
+import playerNotices from "../../src/ui/playerNotices.ts";
+import transientMessages from "../../src/ui/transientMessages.ts";
 import config from "../../config.ts";
 import type { GuildTextBasedChannel } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";

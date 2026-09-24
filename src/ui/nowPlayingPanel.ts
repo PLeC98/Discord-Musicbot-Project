@@ -1,12 +1,13 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import format from "./format.js";
+import format from "./format.ts";
 const { formatDuration } = format;
-import progressBarModule from "./progressBar.js";
+import progressBarModule from "./progressBar.ts";
 const { progressBar, emptyProgressBar } = progressBarModule;
-import platforms from "./platforms.js";
+import platforms from "./platforms.ts";
 const { labelOf, emojiOf } = platforms;
 
 // 알릴 곳이 없는 매체. 결과를 알리는 매체는 부르는 쪽(usecases/responders)이 넘긴다
@@ -19,9 +20,9 @@ const NO_RESPONDER = {
   },
 };
 import * as playerEvents from "../player/events.ts";
-import ErrorHandler from "./errorMessages.js";
-import S from "./strings.js";
-import mentions from "./mentions.js";
+import ErrorHandler from "./errorMessages.ts";
+import S from "./strings.ts";
+import mentions from "./mentions.ts";
 const { ALLOWED_MENTIONS, escapeMd } = mentions;
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
@@ -34,12 +35,12 @@ const isGone = (error) => error?.code === UNKNOWN_MESSAGE || error?.code === UNK
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
-import transientMessages from "./transientMessages.js";
+import transientMessages from "./transientMessages.ts";
 const { markTransient, isTransient } = transientMessages;
-import blankThumbnail from "./blankThumbnail.js";
-import queueDisplay from "./queueDisplay.js";
+import blankThumbnail from "./blankThumbnail.ts";
+import queueDisplay from "./queueDisplay.ts";
 const { jumpDescription } = queueDisplay;
-import NowPlayingPanel from "./panelLocation.js";
+import NowPlayingPanel from "./panelLocation.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).

@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import ErrorHandler from "../../src/ui/errorMessages.js";
+import ErrorHandler from "../../src/ui/errorMessages.ts";
 
 const CASES = [
   // [실제 yt-dlp/네트워크에서 나오는 형태의 메시지, 기대 범주]

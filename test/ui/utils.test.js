@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import format from "../../src/ui/format.js";
+import format from "../../src/ui/format.ts";
 const { formatDuration } = format;
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {

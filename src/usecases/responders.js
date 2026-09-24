@@ -1,7 +1,7 @@
 import { MessageFlags } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import transientMessages from "../ui/transientMessages.js";
+import transientMessages from "../ui/transientMessages.ts";
 const { scheduleDelete } = transientMessages;
 
 /**

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import controls from "../src/usecases/controls.js";
-import controlMessages from "../src/ui/controlMessages.js";
+import controlMessages from "../src/ui/controlMessages.ts";
 const { controlMessage } = controlMessages;
 
 const LOOP_TEXT = {

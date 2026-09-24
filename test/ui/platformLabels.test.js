@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import platforms from "../../src/ui/platforms.js";
+import platforms from "../../src/ui/platforms.ts";
 const { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf } = platforms;
 import { TYPES } from "../../src/autoplay/sources/index.ts";
 

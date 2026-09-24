@@ -187,7 +187,7 @@ test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브�
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success, false);
-  assert.equal(result.message, require("../../src/ui/strings").ERR_LIVE_NO_FFMPEG);
+  assert.equal(result.message, require("../../src/ui/strings.ts").ERR_LIVE_NO_FFMPEG);
   assert.equal(client.embedCalls.length, 0);
 });
 

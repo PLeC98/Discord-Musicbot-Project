@@ -4,7 +4,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
 
 function deferred() {
   let resolve, reject;

@@ -4,7 +4,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import config from "../../config.ts";
 import * as trackState from "../../src/player/trackState.ts";
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {

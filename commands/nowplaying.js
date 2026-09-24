@@ -1,9 +1,9 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
-import platforms from "../src/ui/platforms.js";
+import platforms from "../src/ui/platforms.ts";
 const { labelOf, emojiOf } = platforms;
-import progressBarModule from "../src/ui/progressBar.js";
+import progressBarModule from "../src/ui/progressBar.ts";
 const { progressBar } = progressBarModule;
 
 // 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다

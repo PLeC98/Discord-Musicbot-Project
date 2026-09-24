@@ -7,9 +7,9 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
-import strings from "../ui/strings.js";
+import strings from "../ui/strings.ts";
 const { collectionLabel } = strings;
-import transientMessages from "../ui/transientMessages.js";
+import transientMessages from "../ui/transientMessages.ts";
 const { markTransient } = transientMessages;
 
 const LIFETIME_MS = 30_000;

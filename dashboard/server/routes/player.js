@@ -10,7 +10,7 @@ const { resolveMember, toApiError } = requireControl;
 import permissionsModule from "../../../src/usecases/permissions.js";
 const { checkControl, checkAdd, isModerator } = permissionsModule;
 import controls from "../../../src/usecases/controls.js";
-import controlMessages from "../../../src/ui/controlMessages.js";
+import controlMessages from "../../../src/ui/controlMessages.ts";
 const { controlApiError } = controlMessages;
 import addTracks from "../../../src/usecases/addTracks.js";
 const { requestPlayback, continueCollection, ensurePlayer } = addTracks;

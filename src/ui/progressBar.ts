@@ -1,6 +1,7 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생 진행 막대. 재생 패널과 /nowplaying 이 같은 모양을 쓴다.
 
-import format from "./format.js";
+import format from "./format.ts";
 const { formatDuration } = format;
 
 const BAR_LENGTH = 16;

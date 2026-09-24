@@ -1,6 +1,6 @@
 // 화면에 보내는 플레이어 모양
 
-import platforms from "../../src/ui/platforms.js";
+import platforms from "../../src/ui/platforms.ts";
 const { labelOf } = platforms; // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
 import guildAccess from "./guildAccess.js";
 const { toInt } = guildAccess;

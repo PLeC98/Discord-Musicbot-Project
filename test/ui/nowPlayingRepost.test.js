@@ -4,7 +4,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
 import tempStore from "../helpers/tempStore.ts";
 
 import { createRequire } from "node:module";
@@ -148,7 +148,7 @@ test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
     assert.equal(await mem._isBuried(player, now), false, "곧 스스로 지워질 안내는 쫓지 않는다");
 
     cache.set("155", { id: "155", createdTimestamp: now - 20000 });
-    require("../../src/ui/transientMessages").markTransient("155", 30000, now - 20000);
+    require("../../src/ui/transientMessages.ts").markTransient("155", 30000, now - 20000);
     assert.equal(await mem._isBuried(player, now), false, "오래 떠 있어도 스스로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
 
     cache.set("160", { id: "160", createdTimestamp: now - 30000 });

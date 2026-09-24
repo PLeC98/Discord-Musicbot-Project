@@ -13,7 +13,7 @@ import * as trackState from "../../src/player/trackState.ts";
 import panelEvents from "../helpers/panelEvents.ts";
 import { fakePlayer } from "../helpers/fake.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import playerNotices from "../../src/ui/playerNotices.js";
+import playerNotices from "../../src/ui/playerNotices.ts";
 import * as pool from "../../src/autoplay/pool.ts";
 import * as sources from "../../src/autoplay/sources/index.ts";
 import * as route from "../../src/autoplay/route.ts";

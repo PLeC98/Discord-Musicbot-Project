@@ -5,8 +5,8 @@ import assert from "node:assert/strict";
 import * as lookup from "../../src/sources/lookup.ts";
 import * as Spotify from "../../src/sources/spotify.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
-import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
-import strings from "../../src/ui/strings.js";
+import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
+import strings from "../../src/ui/strings.ts";
 const { collectionLabel } = strings;
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => ({ title: `곡${i}` }));

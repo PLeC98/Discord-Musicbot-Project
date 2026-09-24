@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { ActivityType } from "discord.js";
 import KoreanLunarCalendar from "korean-lunar-calendar";
 import * as statusConfig from "../config/status.ts";
@@ -26,6 +27,14 @@ function toMessage(item) {
 }
 
 class StatusManager {
+  static TYPE_MAP = TYPE_MAP;
+  static parseRange = parseRange;
+  static toMessage = toMessage;
+
+  client;
+  rotationIndex;
+  intervalId;
+
   constructor(client) {
     this.client = client;
     this.rotationIndex = 0;
@@ -113,6 +122,3 @@ class StatusManager {
 
 export default StatusManager;
 export { StatusManager as "module.exports" };
-StatusManager.TYPE_MAP = TYPE_MAP;
-StatusManager.parseRange = parseRange;
-StatusManager.toMessage = toMessage;

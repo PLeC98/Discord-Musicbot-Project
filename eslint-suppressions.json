@@ -90,7 +90,7 @@
       "count": 2
     }
   },
-  "src/ui/nowPlayingPanel.js": {
+  "src/ui/nowPlayingPanel.ts": {
     "complexity": {
       "count": 5
     },
@@ -129,7 +129,7 @@
       "count": 1
     }
   },
-  "src/ui/panelLocation.js": {
+  "src/ui/panelLocation.ts": {
     "no-empty-function": {
       "count": 2
     }
@@ -280,7 +280,7 @@
       "count": 1
     }
   },
-  "src/ui/replyLifetime.js": {
+  "src/ui/replyLifetime.ts": {
     "no-empty-function": {
       "count": 1
     }
@@ -295,7 +295,7 @@
       "count": 2
     }
   },
-  "src/ui/transientMessages.js": {
+  "src/ui/transientMessages.ts": {
     "no-empty-function": {
       "count": 1
     }
