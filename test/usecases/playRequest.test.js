@@ -391,7 +391,7 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
 // ── 받을 곡 수 (해석기에 넘기는 어림값) ──────────────────────
 
 async function withLimits(queueMax, playlistMax, fn) {
-  const config = require("../../config");
+  const config = require("../../config.ts");
   const saved = config.bot.maxQueueSize;
   config.bot.maxQueueSize = queueMax;
   setGuild(GUILD_ID, { playlistAddMax: playlistMax });

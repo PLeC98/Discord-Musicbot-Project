@@ -4,7 +4,7 @@ import * as links from "../rules/links.ts";
 import { canonicalUrl } from "../rules/canonicalUrl.ts";
 import ytdlpInfo from "./ytdlpInfo.js";
 const { readInfo } = ytdlpInfo;
-import config from "../../config.js";
+import config from "../../config.ts";
 
 class SoundCloud {
   // SoundCloud는 더 이상 클라이언트 ID가 필요 없으므로 yt-dlp를 직접 사용

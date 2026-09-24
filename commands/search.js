@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 import YouTube from "../src/sources/youtube/index.js";
 import S from "../src/ui/strings.js";
 import permissions from "../src/usecases/permissions.js";

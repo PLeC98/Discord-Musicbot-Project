@@ -6,7 +6,7 @@ import { Readable } from "stream";
 import fs from "fs";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import config from "../../config.js";
+import config from "../../config.ts";
 import audioSplicer from "./audioSplicer.js";
 const { AudioSplicer } = audioSplicer;
 import chunkedStream from "./chunkedStream.js";

@@ -26,7 +26,7 @@ before(() => {
   externalCaches = require("../../src/store/externalCaches");
   audioCache.initialize(DB_PATH);
   SponsorBlock = require("../../src/sources/sponsorBlock");
-  config = require("../../config");
+  config = require("../../config.ts");
   config.sponsorblock.enabled = true; // 테스트 기준 활성
 });
 

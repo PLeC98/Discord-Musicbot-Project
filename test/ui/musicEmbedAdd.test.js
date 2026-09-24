@@ -5,7 +5,7 @@
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import config from "../../config.js";
+import config from "../../config.ts";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 
 const track = (id, extra = {}) => ({ id, title: `곡 ${id}`, url: `https://youtu.be/${id}`, ...extra });

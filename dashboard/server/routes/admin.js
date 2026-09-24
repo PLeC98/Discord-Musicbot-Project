@@ -19,7 +19,7 @@ import aiConfig from "../../../src/config/ai.js";
 import cookieConfig from "../../../src/config/cookies.js";
 import yamlStore from "../../../src/config/yamlStore.js";
 import { EmbedBuilder } from "discord.js";
-import config from "../../../config.js";
+import config from "../../../config.ts";
 import GuildSettingsManager from "../../../src/store/guildSettings.js";
 import audioCache from "../../../src/store/audioCache.js";
 import YouTube from "../../../src/sources/youtube/index.js";

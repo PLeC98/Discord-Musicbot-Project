@@ -34,7 +34,7 @@ before(async () => {
   loaded = await loadedCommands();
   commands = await definitions();
 });
-const config = (await import("../../config.js")).default;
+const config = (await import("../../config.ts")).default;
 
 test("commands/*.js 전부가 유효한 정의(name/description)로 로드됨", () => {
   const fileCount = fs.readdirSync(path.join(import.meta.dirname, "..", "..", "commands")).filter((f) => f.endsWith(".js")).length;

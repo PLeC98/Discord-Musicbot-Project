@@ -4,7 +4,7 @@ import db from "../store/db.js";
 import playerSessions from "../store/playerSessions.js";
 const { sessions } = playerSessions;
 import trackState from "./trackState.js";
-import config from "../../config.js";
+import config from "../../config.ts";
 import playerEvents from "./events.js";
 
 const HEARTBEAT_MS = 5000;

@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 const yamlStore = (await import("../../src/config/yamlStore.js")).default;
 const cookieConfig = (await import("../../src/config/cookies.js")).default;
 const YouTube = (await import("../../src/sources/youtube/index.js")).default;
-const config = (await import("../../config.js")).default;
+const config = (await import("../../config.ts")).default;
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookies-"));
 

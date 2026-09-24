@@ -1,7 +1,7 @@
 import { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import config from "../config.js";
+import config from "../config.ts";
 import S from "../src/ui/strings.js";
 import addTracks from "../src/usecases/addTracks.js";
 const { requestPlayback, ensurePlayer } = addTracks;

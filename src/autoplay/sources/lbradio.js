@@ -1,6 +1,6 @@
 // ListenBrainz Radio 소스.
 
-import config from "../../../config.js";
+import config from "../../../config.ts";
 import http from "./http.js";
 const { query, getJson } = http;
 

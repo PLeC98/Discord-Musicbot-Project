@@ -6,7 +6,7 @@ import fs from "fs";
 import path from "path";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
-import config from "../../../config.js";
+import config from "../../../config.ts";
 
 const SERVER_DIR = path.join(import.meta.dirname, "..", "..", "..", "bgutil-ytdlp-pot-provider", "server");
 const ENTRY = path.join(SERVER_DIR, "build", "main.js");

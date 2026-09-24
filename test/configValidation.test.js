@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "path";
 import { spawnSync } from "child_process";
-import configModule from "../config.js";
+import configModule from "../config.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
@@ -82,7 +82,7 @@ test(".env 가 없으면 그 문제 하나만 알린다", () => {
 });
 
 test("불러와도 멈추지 않는다. 문제는 목록으로 붙어 있고 설정 값에는 섞이지 않는다", () => {
-  const probe = "const c = require('./config'); console.log('CFG:' + JSON.stringify({ problems: c.problems, keys: Object.keys(c).includes('problems') }));";
+  const probe = "const c = require('./config.ts'); console.log('CFG:' + JSON.stringify({ problems: c.problems, keys: Object.keys(c).includes('problems') }));";
   const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", CLIENT_ID: "1", DASHBOARD_PORT: "abc" } });
   assert.equal(r.status, 0);
   const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)[1]);

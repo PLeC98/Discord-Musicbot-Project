@@ -3,7 +3,7 @@
 // (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
 
 import configCheck from "../src/app/configCheck.js";
-import config from "../config.js";
+import config from "../config.ts";
 import commandLoader from "../src/app/commandLoader.js";
 
 const { deployCommands, definitions, deployErrorLines } = commandLoader;

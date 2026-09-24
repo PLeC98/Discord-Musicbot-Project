@@ -1,7 +1,7 @@
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import GuildSettingsManager from "../src/store/guildSettings.js";
 import SponsorBlock from "../src/sources/sponsorBlock.js";
-import config from "../config.js";
+import config from "../config.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)

@@ -9,7 +9,7 @@ const { sessions } = playerSessions;
 import mentions from "../src/ui/mentions.js";
 const { escapeMd } = mentions;
 import S from "../src/ui/strings.js";
-import config from "../config.js";
+import config from "../config.ts";
 
 const exported = {
   data: new SlashCommandBuilder().setName("join").setDescription("Join your voice channel").setDescriptionLocalizations({ ko: "봇을 음성 채널에 참가시킵니다" }),

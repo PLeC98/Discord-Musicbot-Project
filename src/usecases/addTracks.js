@@ -5,7 +5,7 @@ import responders from "./responders.js";
 const { silentResponder } = responders;
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import config from "../../config.js";
+import config from "../../config.ts";
 import trackState from "../player/trackState.js";
 import S from "../ui/strings.js";
 import ErrorHandler from "../ui/errorMessages.js";

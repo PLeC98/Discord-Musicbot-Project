@@ -5,7 +5,7 @@ import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuild
 import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import config from "../../config.js";
+import config from "../../config.ts";
 import trackState from "../player/trackState.js";
 import strings from "../ui/strings.js";
 const { collectionLabel } = strings;

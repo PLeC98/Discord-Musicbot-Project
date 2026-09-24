@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 
 import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
-import config from "../../config.js";
+import config from "../../config.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
 const { LogManager } = sink;
 

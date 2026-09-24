@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
 import platforms from "../src/ui/platforms.js";
 const { labelOf, emojiOf } = platforms;

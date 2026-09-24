@@ -14,7 +14,7 @@ import loggerModule3 from "../infra/log/logger.ts";
 const elog = loggerModule3.child({ category: "error" });
 import { PermissionFlagsBits } from "discord.js";
 
-import config from "../../config.js";
+import config from "../../config.ts";
 import autoplayRoute from "../autoplay/route.js";
 import { errorKind } from "../rules/errorKind.ts";
 import streamUrl from "../sources/streamUrl.js";

@@ -20,7 +20,7 @@ import http from "http";
 import https from "https";
 import { pipeline, Transform } from "stream";
 import ipaddr from "ipaddr.js";
-import config from "../../config.js";
+import config from "../../config.ts";
 
 // --- 보안 상수 (코드 고정: 오설정으로 방어가 꺼지지 않도록 .env화하지 않음) ---
 const ALLOWED_SCHEMES = new Set(["http:", "https:"]);

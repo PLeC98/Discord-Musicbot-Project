@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import moduleLoader from "./moduleLoader.js";
 const { loadModules } = moduleLoader;
-import config from "../../config.js";
+import config from "../../config.ts";
 
 // 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)

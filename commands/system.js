@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, version as djsVersion } from "discord.js";
 import os from "os";
-import config from "../config.js";
+import config from "../config.ts";
 
 function formatUptime(seconds) {
   const d = Math.floor(seconds / 86400);

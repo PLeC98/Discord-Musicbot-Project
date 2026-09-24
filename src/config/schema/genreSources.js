@@ -1,6 +1,6 @@
 // 장르 설정(genres.yaml)의 소스 줄 규격. 종류마다 칸 · 값 목록 · 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
 
-import config from "../../../config.js";
+import config from "../../../config.ts";
 
 // 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
 const ANISONG_SONG_TYPES = ["opening", "ending", "insert"];

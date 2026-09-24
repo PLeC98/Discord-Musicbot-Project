@@ -1,7 +1,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import db from "./db.js";
-import config from "../../config.js";
+import config from "../../config.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 위쪽 끝. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;

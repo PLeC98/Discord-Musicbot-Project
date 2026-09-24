@@ -13,7 +13,7 @@ const { openTempStore } = tempStore;
 const store = openTempStore("registry-guard-");
 after(() => store.close());
 
-const config = (await import("../../config.js")).default;
+const config = (await import("../../config.ts")).default;
 const MusicPlayer = (await import("../../src/player/Player.js")).default;
 const PlaybackState = (await import("../../src/player/playbackState.js")).default;
 const IdleLeave = (await import("../../src/player/idleLeave.js")).default;

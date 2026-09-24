@@ -10,7 +10,7 @@
 
 import crypto from "crypto";
 import * as links from "../rules/links.ts";
-import config from "../../config.js";
+import config from "../../config.ts";
 import GuildSettingsManager from "../store/guildSettings.js";
 import externalCaches from "../store/externalCaches.js";
 

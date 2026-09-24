@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import config from "../config.js";
+import config from "../config.ts";
 import configModule from "./helpers/config.js";
 const { withConfig } = configModule;
 

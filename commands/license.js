@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 
 const exported = {
   data: new SlashCommandBuilder().setName("license").setDescription("Shows license information and source code location").setDescriptionLocalizations({ ko: "라이선스 정보와 소스 코드 위치를 보여줍니다" }),

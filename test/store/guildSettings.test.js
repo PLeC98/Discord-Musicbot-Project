@@ -15,7 +15,7 @@ const audioCache = (await import("../../src/store/audioCache.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 const settings = (await import("../../src/store/guildSettings.js")).default;
-const config = (await import("../../config.js")).default;
+const config = (await import("../../config.ts")).default;
 
 beforeEach(() => {
   settings.cache.clear();

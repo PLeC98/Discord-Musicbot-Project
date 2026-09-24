@@ -16,7 +16,7 @@ import addTracks from "../../../src/usecases/addTracks.js";
 const { requestPlayback, continueCollection, ensurePlayer } = addTracks;
 import playlistMore from "../../../src/usecases/playlistMore.js";
 const { validState, LIFETIME_MS } = playlistMore;
-import config from "../../../config.js";
+import config from "../../../config.ts";
 import ownerModule from "../owner.js";
 const { isOwner } = ownerModule;
 import viewAs from "../viewAs.js";

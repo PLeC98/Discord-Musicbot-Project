@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 import controls from "../src/usecases/controls.js";
 import controlMessages from "../src/ui/controlMessages.js";
 const { controlMessage } = controlMessages;

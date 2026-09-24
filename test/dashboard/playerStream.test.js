@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import playerStream from "../../dashboard/server/playerStream.js";
 const { createPlayerStream } = playerStream;
-import config from "../../config.js";
+import config from "../../config.ts";
 
 const { maxPerUser } = config.dashboard.sse;
 const DashboardEvents = createPlayerStream();

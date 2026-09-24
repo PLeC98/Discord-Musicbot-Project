@@ -1,5 +1,5 @@
 import { Events, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 import genreConfig from "../src/config/genres.js";
 import S from "../src/ui/strings.js";
 import permissions from "../src/usecases/permissions.js";

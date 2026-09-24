@@ -6,7 +6,7 @@
 // config 값은 모듈이 쓰는 순간에 읽으므로(계획서 §3.3) 모듈을 다시 불러오지 않아도 바뀐 값이 보인다.
 // 같은 파일 안의 시험은 차례로 돈다. 동시에 도는 시험(concurrency)에서는 쓰지 않는다.
 
-import config from "../../config.js";
+import config from "../../config.ts";
 
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 

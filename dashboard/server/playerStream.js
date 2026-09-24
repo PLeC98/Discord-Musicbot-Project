@@ -1,4 +1,4 @@
-import config from "../../config.js";
+import config from "../../config.ts";
 
 /**
  * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).

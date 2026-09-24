@@ -1,4 +1,4 @@
-import config from "../../config.js";
+import config from "../../config.ts";
 import logger from "../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";

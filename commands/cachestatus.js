@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 import audioCache from "../src/store/audioCache.js";
 
 function formatBytes(bytes) {

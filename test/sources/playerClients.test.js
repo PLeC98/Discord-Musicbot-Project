@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import clients from "../../src/sources/youtube/clients.js";
 const { PlayerClients, KNOWN, NEEDS_POT } = clients;
-import config from "../../config.js";
+import config from "../../config.ts";
 const { parseClients } = config;
 
 test("빈 설정이면 idle — 폴백 루프를 아예 돌지 않는다 (기존 동작 보존)", () => {

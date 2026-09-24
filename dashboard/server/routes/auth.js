@@ -3,7 +3,7 @@ import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import axios from "axios";
 import crypto from "crypto";
-import config from "../../../config.js";
+import config from "../../../config.ts";
 
 const DISCORD_API = "https://discord.com/api/v10";
 

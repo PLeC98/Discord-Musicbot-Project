@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
-import config from "../../../config.js";
+import config from "../../../config.ts";
 // yt-dlp 에 줄 ffmpeg 경로. 재생과 같은 바이너리를 쓰게 조립(app/main)이 넘긴다(useFfmpeg). 안 넘기면 yt-dlp 가 PATH 에서 찾는다
 let ffmpegLocation = () => null;
 import clientsModule from "./clients.js";

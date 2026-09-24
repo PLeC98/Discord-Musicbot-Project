@@ -90,7 +90,7 @@ test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (
 // potEnabled()는 부를 때마다 config를 보므로 값을 갈아 끼우면 그대로 듣는다.
 test("BGUTIL_ENABLED가 pluginDirs 전달을 가른다", (t) => {
   const { BGUTIL_AVAILABLE } = YouTube._internals;
-  const config = require("../../config");
+  const config = require("../../config.ts");
   const restore = config.bgutil.enabled;
   t.after(() => {
     config.bgutil.enabled = restore;

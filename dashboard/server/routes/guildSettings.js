@@ -9,7 +9,7 @@ import permissions from "../../../src/usecases/permissions.js";
 const { isModerator } = permissions;
 import GuildSettingsManager from "../../../src/store/guildSettings.js";
 import SponsorBlock from "../../../src/sources/sponsorBlock.js";
-import config from "../../../config.js";
+import config from "../../../config.ts";
 import owner from "../owner.js";
 const { isOwner } = owner;
 import guildAccess from "../guildAccess.js";

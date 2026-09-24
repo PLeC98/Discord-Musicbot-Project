@@ -1,4 +1,4 @@
-import config from "../../config.js";
+import config from "../../config.ts";
 import viewAs from "./viewAs.js";
 const { getViewAs } = viewAs;
 

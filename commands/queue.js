@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 import S from "../src/ui/strings.js";
 import queueDisplay from "../src/ui/queueDisplay.js";
 const { queueLine } = queueDisplay;

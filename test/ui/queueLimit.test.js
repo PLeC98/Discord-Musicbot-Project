@@ -2,7 +2,7 @@
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import config from "../../config.js";
+import config from "../../config.ts";
 import trackState from "../../src/player/trackState.js";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.js";
 

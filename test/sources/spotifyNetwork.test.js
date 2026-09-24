@@ -15,7 +15,7 @@ const externalCaches = (await import("../../src/store/externalCaches.js")).defau
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const config = (await import("../../config.js")).default;
+const config = (await import("../../config.ts")).default;
 const Spotify = (await import("../../src/sources/spotify.js")).default;
 const { official, graphql, deriveKey, totp } = Spotify._internals;
 

@@ -11,7 +11,7 @@ import crypto from "crypto";
 import { isSpotifyURL, parseSpotifyURL } from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "spotify" });
-import config from "../../config.js";
+import config from "../../config.ts";
 import externalCaches from "../store/externalCaches.js";
 
 const ua = () => config.userAgents.browser;

@@ -4,7 +4,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "cache" });
 import path from "path";
 import fs from "fs";
-import config from "../../config.js";
+import config from "../../config.ts";
 import { md5, audioKeyOf } from "../rules/audioKeyOf.ts";
 import playerSessions from "./playerSessions.js";
 const { sessions } = playerSessions;

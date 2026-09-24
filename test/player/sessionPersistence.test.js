@@ -335,7 +335,7 @@ test("복원: 봇 id를 알 수 없으면 대기열을 그대로 되살린다", 
 });
 
 test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다", async () => {
-  const config = require("../../config");
+  const config = require("../../config.ts");
   const realMax = config.bot.maxQueueSize;
   const { p: saved } = makePlayer();
   trackState.setCurrent(saved, t("now"));

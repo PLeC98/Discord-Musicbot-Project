@@ -5,7 +5,7 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import config from "../../config.js";
+import config from "../../config.ts";
 import trackState from "./trackState.js";
 import playerEvents from "./events.js";
 

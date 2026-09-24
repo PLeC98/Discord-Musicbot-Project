@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from "discord.js";
-import config from "../config.js";
+import config from "../config.ts";
 
 const exported = {
   data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇 응답 레이턴시를 확인합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
