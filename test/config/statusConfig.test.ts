@@ -12,6 +12,7 @@ import YAML from "yaml";
 
 import * as yamlStore from "../../src/config/yamlStore.ts";
 import * as statusConfig from "../../src/config/status.ts";
+import type { StatusConfig } from "../../src/config/status.ts";
 import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
 import StatusManager from "../../src/ui/botPresence.ts";
 import { ActivityType } from "discord.js";
@@ -124,16 +125,19 @@ test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈
 
 // ── 고르기 ────────────────────────────────────────────────────────────────
 
-// 오늘이 언제인지를 갈아끼워 조건을 시험한다
+// 오늘이 언제인지를 정해 조건을 시험한다
 function managerAt({ date = "06-15", lunar = "05-10", time = "12:00" }) {
-  const manager = new StatusManager({});
-  manager.today = () => date;
-  manager.todayLunar = () => lunar;
-  manager.now = () => time;
-  return manager;
+  return new StatusManager({}, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
 }
 
-const CONFIG_SAMPLE = {
+// 고른 문구의 글자. 못 고르면 실패
+function textOf(manager: StatusManager, config: StatusConfig) {
+  const entry = manager.getCurrentEntry(config);
+  assert.ok(entry, "고른 문구가 있다");
+  return entry.text;
+}
+
+const CONFIG_SAMPLE: StatusConfig = {
   messages: ["평소"],
   special: {
     크리스마스: { date: "12-24 ~ 12-26", messages: ["성탄"] },
@@ -144,38 +148,38 @@ const CONFIG_SAMPLE = {
 };
 
 test("맞는 것이 없으면 평소 문구", () => {
-  assert.equal(managerAt({}).getCurrentEntry(CONFIG_SAMPLE).text, "평소");
+  assert.equal(textOf(managerAt({}), CONFIG_SAMPLE), "평소");
 });
 
 test("위에서부터 먼저 맞는 것 하나를 쓴다", () => {
   // 크리스마스(12-24~26)가 겨울(12-01~31)보다 위에 있으므로 이긴다
-  assert.equal(managerAt({ date: "12-25" }).getCurrentEntry(CONFIG_SAMPLE).text, "성탄");
-  assert.equal(managerAt({ date: "12-10" }).getCurrentEntry(CONFIG_SAMPLE).text, "겨울");
+  assert.equal(textOf(managerAt({ date: "12-25" }), CONFIG_SAMPLE), "성탄");
+  assert.equal(textOf(managerAt({ date: "12-10" }), CONFIG_SAMPLE), "겨울");
 });
 
 test("자정을 걸친 시간대도 맞는다", () => {
-  assert.equal(managerAt({ time: "23:30" }).getCurrentEntry(CONFIG_SAMPLE).text, "밤1");
-  assert.equal(managerAt({ time: "03:00" }).getCurrentEntry(CONFIG_SAMPLE).text, "밤1");
-  assert.equal(managerAt({ time: "12:00" }).getCurrentEntry(CONFIG_SAMPLE).text, "평소");
+  assert.equal(textOf(managerAt({ time: "23:30" }), CONFIG_SAMPLE), "밤1");
+  assert.equal(textOf(managerAt({ time: "03:00" }), CONFIG_SAMPLE), "밤1");
+  assert.equal(textOf(managerAt({ time: "12:00" }), CONFIG_SAMPLE), "평소");
 });
 
 test("음력 조건도 맞는다", () => {
-  assert.equal(managerAt({ lunar: "01-03" }).getCurrentEntry(CONFIG_SAMPLE).text, "설");
+  assert.equal(textOf(managerAt({ lunar: "01-03" }), CONFIG_SAMPLE), "설");
 });
 
 test("조건을 둘 이상 적으면 전부 맞아야 한다", () => {
   const config = { messages: ["평소"], special: { 이브밤: { date: "12-24 ~ 12-24", time: "20:00 ~ 23:59", messages: ["산타"] } } };
 
-  assert.equal(managerAt({ date: "12-24", time: "21:00" }).getCurrentEntry(config).text, "산타");
-  assert.equal(managerAt({ date: "12-24", time: "10:00" }).getCurrentEntry(config).text, "평소", "시간이 안 맞으면 안 쓴다");
-  assert.equal(managerAt({ date: "12-23", time: "21:00" }).getCurrentEntry(config).text, "평소", "날짜가 안 맞으면 안 쓴다");
+  assert.equal(textOf(managerAt({ date: "12-24", time: "21:00" }), config), "산타");
+  assert.equal(textOf(managerAt({ date: "12-24", time: "10:00" }), config), "평소", "시간이 안 맞으면 안 쓴다");
+  assert.equal(textOf(managerAt({ date: "12-23", time: "21:00" }), config), "평소", "날짜가 안 맞으면 안 쓴다");
 });
 
 test("문구는 차례로 돌아간다", () => {
   const manager = managerAt({ time: "23:30" });
   const picked = [0, 1, 2].map((i) => {
     manager.rotationIndex = i;
-    return manager.getCurrentEntry(CONFIG_SAMPLE).text;
+    return textOf(manager, CONFIG_SAMPLE);
   });
   assert.deepEqual(picked, ["밤1", "밤2", "밤1"]);
 });
@@ -197,8 +201,8 @@ function presenceClient() {
 
 test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => {
   const { set, client } = presenceClient();
-  const manager = new StatusManager(client);
-  manager.load = () => ({ messages: ["평소", { text: "놀아요", type: "Playing" }] });
+  let config: StatusConfig = { messages: ["평소", { text: "놀아요", type: "Playing" }] };
+  const manager = new StatusManager(client, { load: () => config });
 
   manager.apply();
   manager.rotationIndex = 1;
@@ -209,10 +213,9 @@ test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => 
   ]);
 
   // 로그인 전이거나 고를 문구가 없으면 건드리지 않는다
-  const loggedOut = new StatusManager({});
-  loggedOut.load = () => ({ messages: ["x"] });
+  const loggedOut = new StatusManager({}, { load: () => ({ messages: ["x"] }) });
   loggedOut.apply();
-  manager.load = () => ({ messages: [] });
+  config = { messages: [] };
   manager.apply();
   assert.equal(set.length, 2);
 });
@@ -220,8 +223,7 @@ test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => 
 test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지지 않는다. stop 이 멈춘다", (t) => {
   t.mock.timers.enable({ apis: ["setInterval"] });
   const { set, client } = presenceClient();
-  const manager = new StatusManager(client);
-  manager.load = () => ({ interval: 3, messages: ["하나", "둘"] });
+  const manager = new StatusManager(client, { load: () => ({ interval: 3, messages: ["하나", "둘"] }) });
 
   manager.start();
   assert.deepEqual(
@@ -244,10 +246,11 @@ test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지�
 });
 
 test("오늘 · 음력 오늘 · 지금은 MM-DD · HH:MM 모양", () => {
-  const manager = new StatusManager({});
-  assert.match(manager.today(), /^\d{2}-\d{2}$/);
-  assert.match(manager.todayLunar(), /^\d{2}-\d{2}$/);
-  assert.match(manager.now(), /^\d{2}:\d{2}$/);
+  const calendar = new StatusManager({}).calendar;
+  assert.equal(calendar, StatusManager.CALENDAR, "정하지 않으면 진짜 달력");
+  assert.match(calendar.today(), /^\d{2}-\d{2}$/);
+  assert.match(calendar.todayLunar(), /^\d{2}-\d{2}$/);
+  assert.match(calendar.now(), /^\d{2}:\d{2}$/);
 });
 
 test("load 는 설정 로더의 status() 를 부른다", () => {
