@@ -10,15 +10,11 @@
  */
 import fs from "fs";
 import path from "path";
-import { createRequire } from "node:module";
 import * as models from "../../config/schema/aiModels.ts";
 
-// gpt-tokenizer 는 표가 커서 불러오는 데 오래 걸린다. 처음 셀 때 부른다. 셈이 동기라 await import() 대신 require 로
-// (이름을 require 로 두어 구조 검사가 지연 부름으로 센다)
-const require = createRequire(import.meta.url);
-type Tik = { encode(text: string): number[] };
-let tik: Tik | null = null;
-const tikCount = (body: string) => (tik ??= require("gpt-tokenizer") as Tik).encode(body).length;
+// gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다(힙 16MB 남짓). AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
+let tik: Promise<{ encode(text: string): number[] }> | null = null;
+const tikCount = async (body: string) => (await (tik ??= import("gpt-tokenizer"))).encode(body).length;
 
 /** 셀 메시지. 본문은 content 나 text 에 */
 type Message = { role?: string; content?: string; text?: string };
@@ -152,30 +148,30 @@ function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | u
 }
 
 // 글 하나가 몇 토큰인지, 어느 기준으로 셌는지
-function count(text: unknown, tokenizer = "tik"): Counted {
+async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
   const body = String(text ?? "");
   if (tokenizer === "gemma") {
     const rank = loadGemma();
     if (rank) return { tokens: body ? countGemma(body, rank) : 0, by: "gemma", exact: true };
   }
   // claude 는 공개 토크나이저가 없다. gemma 파일이 없을 때도 여기로 온다.
-  return { tokens: body ? tikCount(body) : 0, by: "tik", exact: tokenizer === "tik" };
+  return { tokens: body ? await tikCount(body) : 0, by: "tik", exact: tokenizer === "tik" };
 }
 
 /**
  * 요청 하나가 몇 토큰인지. 메시지를 감싸는 몫까지 더한 값.
  * 본문만 세려면 `count` 를 쓴다(프롬프트 칸이 그렇게 쓴다).
  */
-function countMessages(messages: Message[] | null | undefined, tokenizer = "tik", dialect = "openai") {
+async function countMessages(messages: Message[] | null | undefined, tokenizer = "tik", dialect = "openai") {
   const wrap = FRAMING[dialect] || FRAMING.openai;
   let total = wrap.perRequest;
   const each: number[] = [];
   for (const one of messages || []) {
-    const got = count(one?.content ?? one?.text ?? "", tokenizer);
+    const got = await count(one?.content ?? one?.text ?? "", tokenizer);
     each.push(got.tokens);
     total += got.tokens + wrap.perMessage;
   }
-  const got = count("", tokenizer);
+  const got = await count("", tokenizer);
   return { total, body: total - wrap.perRequest - (messages || []).length * wrap.perMessage, each, by: got.by, exact: got.exact };
 }
 

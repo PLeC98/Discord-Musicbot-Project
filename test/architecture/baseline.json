@@ -2,9 +2,7 @@
   "direction": [],
   "cycles": [],
   "unseen": ["src/app/moduleLoader.ts"],
-  "lazyRequire": {
-    "src/autoplay/assist/tokens.ts": 1
-  },
+  "lazyRequire": {},
   "configCapture": {},
   "requireCache": {},
   "methodSwap": []

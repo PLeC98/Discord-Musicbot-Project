@@ -576,7 +576,7 @@ async function countTokens(one: AiSettings, messages: Wire[]) {
       const exact = await tokens.countByAnthropic(messages, { model: one.model, apiKey: await keyFor(one), timeoutMs: Number(one.timeoutMs) });
       if (exact !== null) return { total: exact, body: exact - tokens.FRAMING.anthropic.perRequest, by: "claude", exact: true };
     }
-    return tokens.countMessages(messages, by, spec?.dialect || "openai");
+    return await tokens.countMessages(messages, by, spec?.dialect || "openai");
   } catch {
     return null; // 못 세도 요청은 나가야 한다
   }

@@ -4,7 +4,8 @@
 //
 // 부름: require("…") · require.resolve("…") · import … from "…" · export … from "…" · import("…"). 글자로 된 상대 경로만 따라간다.
 // import type · export type 은 실행 때 지워지므로 부름이 아니다. 타입은 주인 모듈에서 어느 층이든 가져온다.
-// 지연 부름: 함수 안(ts.isFunctionLike)에 있는 글자 경로의 require · import(). 맨 위의 if · try 안은 지연으로 치지 않는다.
+// 지연 부름: 함수 안(ts.isFunctionLike)에 있는 프로젝트 모듈(상대 경로)의 require · import(). 맨 위의 if · try 안은 지연으로 치지 않는다.
+// 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환 · 방향 위반은 프로젝트 모듈에서만 생긴다.
 // 글자가 아닌 경로(명령 · 이벤트 불러오기)는 따로 목록으로 둔다.
 // config 꺼내 두기: 루트 config.js 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
 // 모듈 바꿔 끼우기: 테스트의 require.cache.
@@ -117,7 +118,7 @@ function scanSource(rel: string) {
     if (isRequire(n) || isDynamicImport(n)) {
       const spec = literalArg(n);
       if (spec !== null) {
-        if (inFn) lazy++;
+        if (inFn && spec.startsWith(".")) lazy++;
         addDep(spec, n, inFn);
       } else unseen.push(`${rel}:${line(n)}`);
     } else if (isRequireResolve(n)) {

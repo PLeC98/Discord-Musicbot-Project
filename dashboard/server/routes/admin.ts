@@ -309,7 +309,7 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
     }
   }
 
-  const counted = cut.map((one) => tokens.count(one, by));
+  const counted = await Promise.all(cut.map((one) => tokens.count(one, by)));
   const each = counted.map((one) => one.tokens);
   res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by: counted[0]?.by ?? by, exact: counted[0]?.exact ?? true });
 });
