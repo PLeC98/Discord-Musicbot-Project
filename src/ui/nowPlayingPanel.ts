@@ -25,6 +25,7 @@ import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
+import { canSend } from "./channels.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
 import type { MusicPlayer, PanelMessage } from "../player/Player.ts";
 import type { QueuedTrack, Requester as TrackRequester } from "../player/track.ts";
@@ -34,13 +35,11 @@ const UNKNOWN_MESSAGE = 10008;
 const UNKNOWN_WEBHOOK = 10015;
 const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(error) === UNKNOWN_WEBHOOK;
 
-// 글을 보낼 수 있는 채널. 가짜 채널도 같은 칸(send)으로 가른다
-const canSend = (channel: GuildBasedChannel | null | undefined): channel is GuildTextBasedChannel => typeof (channel as { send?: unknown } | null | undefined)?.send === "function";
 // 패널 메시지가 있는 채널. 웹훅으로 올린 것은 API 모양이다
 const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message.channelId : message.channel_id);
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
-type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number; queueLimited?: boolean };
+type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; queueLimited?: boolean };
 type Requester = TrackRequester | null;
 /** 담은 결과. 실패면 message 가 안내 */
 type AddResult = { success: boolean; message?: string; dropped?: number; queueLimited?: boolean };

@@ -1,7 +1,9 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as S from "../ui/strings.ts";
+import type { GuildMember } from "discord.js";
+import type { MusicPlayer } from "../player/Player.ts";
+import type { QueuedTrack } from "../player/track.ts";
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
 // 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 dashboard/server/owner.js.
@@ -9,7 +11,7 @@ import * as S from "../ui/strings.ts";
 // 기준을 조정하려면 이 배열만 수정하면 된다.
 const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
 
-function isModerator(member) {
+function isModerator(member: GuildMember) {
   return MOD_PERMISSIONS.some((perm) => member.permissions.has(perm));
 }
 
@@ -20,7 +22,7 @@ function isModerator(member) {
  *  - 미설정 서버: 전원 DJ (DJ 역할 설정은 opt-in 제한)
  *  - 설정된 역할이 서버에서 전부 삭제된 경우: 전원 잠금 사고를 막기 위해 미설정과 동일 취급
  */
-async function isDj(member) {
+async function isDj(member: GuildMember) {
   if (isModerator(member)) return true;
 
   const djRoleIds = await GuildSettingsManager.getDjRoles(member.guild.id);
@@ -38,7 +40,7 @@ async function isDj(member) {
  *  - 봇이 유휴(음성 미접속)면 채널 제약 없음
  * 통과 시 null, 거부 시 사용자에게 보여줄 오류 문자열 반환.
  */
-function checkVoice(member) {
+function checkVoice(member: GuildMember) {
   if (isModerator(member)) return null;
 
   const botChannelId = member.guild.members.me?.voice?.channel?.id;
@@ -49,7 +51,7 @@ function checkVoice(member) {
 }
 
 /** 모든 재생 조작(🔒)의 단일 기준: 재적 규칙 + DJ 계층 */
-async function checkControl(member) {
+async function checkControl(member: GuildMember) {
   const voiceErr = checkVoice(member);
   if (voiceErr) return voiceErr;
 
@@ -58,7 +60,7 @@ async function checkControl(member) {
 }
 
 /** 곡 추가(일반 추가): 계층 무관 전원 가능, 재적 규칙만 적용 (우선 추가는 checkControl 사용) */
-function checkAdd(member) {
+function checkAdd(member: GuildMember) {
   return checkVoice(member);
 }
 
@@ -69,14 +71,14 @@ function checkAdd(member) {
  * 재적 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
  * 이 검사를 이어 붙여야 두 상태가 모두 덮인다.
  */
-function checkSummon(member) {
+function checkSummon(member: GuildMember) {
   const me = member.guild.members.me;
   if (me?.voice?.channel) return null;
 
   const target = member.voice.channel;
   if (!target) return S.ERR_VOICE_REQUIRED;
 
-  const permissions = target.permissionsFor(me);
+  const permissions = me ? target.permissionsFor(me) : null;
   if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
     return S.ERR_NO_PERMISSIONS;
   }
@@ -84,7 +86,7 @@ function checkSummon(member) {
 }
 
 /** 스킵: DJ 계층이거나, 현재 곡의 요청자 본인 (요청자도 재적 규칙은 적용) */
-async function checkSkip(member, player) {
+async function checkSkip(member: GuildMember, player: Pick<MusicPlayer, "currentTrack"> | null | undefined) {
   const controlErr = await checkControl(member);
   if (!controlErr) return null;
 
@@ -95,7 +97,7 @@ async function checkSkip(member, player) {
 }
 
 /** 대기열 곡 제거: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 재적 규칙은 적용) */
-async function checkRemoveTrack(member, track) {
+async function checkRemoveTrack(member: GuildMember, track: Pick<QueuedTrack, "requestedBy"> | null | undefined) {
   const controlErr = await checkControl(member);
   if (!controlErr) return null;
 

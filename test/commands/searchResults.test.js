@@ -73,7 +73,7 @@ async function seedTwoSearches(client) {
   }
 
   // 대기 중인 플레이어가 있는 것처럼 — MusicPlayer 생성 없이 기존 플레이어 갱신 경로 사용
-  client.players.set("g1", { voiceChannel: null, textChannel: null });
+  client.players.set("g1", { voiceChannel: null, textChannel: null, queue: [] });
 
   return { trackA, trackB, timers };
 }

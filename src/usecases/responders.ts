@@ -1,8 +1,10 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { MessageFlags } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { scheduleDelete } from "../ui/transientMessages.ts";
+import { messageOf } from "../rules/errorKind.ts";
+import type { GuildTextBasedChannel, RepliableInteraction } from "discord.js";
+import type { MusicEmbedManager, Responder } from "../ui/nowPlayingPanel.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -18,7 +20,7 @@ import { scheduleDelete } from "../ui/transientMessages.ts";
  */
 
 // 두 번 불려도 한 번만 실행되는 정리 함수. 코어와 진입점이 모두 부를 수 있다.
-function onceDismiss(fn) {
+function onceDismiss(fn: (() => Promise<unknown>) | null | undefined) {
   let done = false;
   return async () => {
     if (done) return;
@@ -35,7 +37,7 @@ function onceDismiss(fn) {
  * 슬래시 명령. 자리표시자가 상호작용 응답 그 자체다.
  * 초기 응답이 CV2 컨테이너라 `content`로는 수정할 수 없어(디스코드가 거부) 컨테이너로 보낸다.
  */
-function interactionResponder(interaction, embedManager) {
+function interactionResponder(interaction: RepliableInteraction, embedManager: Pick<MusicEmbedManager, "createSearchingContainer">): Responder {
   const dismiss = onceDismiss(async () => {
     if (interaction.deferred || interaction.replied) {
       await interaction.deleteReply();
@@ -48,7 +50,7 @@ function interactionResponder(interaction, embedManager) {
 
   return {
     // 자리표시자를 안내 문구로 덮어쓴다. 별도 메시지를 만들지 않으므로 dismiss가 필요 없다
-    async notifyQueued(text) {
+    async notifyQueued(text: string) {
       try {
         if (interaction.deferred || interaction.replied) {
           scheduleDelete(
@@ -61,7 +63,7 @@ function interactionResponder(interaction, embedManager) {
           scheduleDelete(await interaction.reply({ content: text, flags: MessageFlags.Ephemeral }));
         }
       } catch (error) {
-        log.error("대기열 안내 전송 실패:", error?.message || error);
+        log.error("대기열 안내 전송 실패:", messageOf(error));
       }
     },
 
@@ -74,17 +76,17 @@ function interactionResponder(interaction, embedManager) {
  * 자리표시자가 별도 메시지라 안내로 덮어쓸 수 없다 → 안내 전에 먼저 치운다.
  * onDismiss는 진입점이 자기 자리표시자를 지우는 방법을 넘긴다.
  */
-function channelResponder(channel, onDismiss = null) {
+function channelResponder(channel: GuildTextBasedChannel | null | undefined, onDismiss: (() => Promise<unknown>) | null = null): Responder {
   const dismiss = onceDismiss(onDismiss);
 
   return {
-    async notifyQueued(text) {
+    async notifyQueued(text: string) {
       await dismiss();
       if (!channel || typeof channel.send !== "function") return;
       try {
         scheduleDelete(await channel.send({ content: text }));
       } catch (error) {
-        log.error("대기열 안내 전송 실패:", error?.message || error);
+        log.error("대기열 안내 전송 실패:", messageOf(error));
       }
     },
 
@@ -93,7 +95,7 @@ function channelResponder(channel, onDismiss = null) {
 }
 
 /** 디스코드 응답이 없는 경로(대시보드). 결과는 호출자가 HTTP 응답으로 전달한다. */
-const silentResponder = {
+const silentResponder: Responder = {
   async notifyQueued() {},
   async dismissPlaceholder() {},
 };
