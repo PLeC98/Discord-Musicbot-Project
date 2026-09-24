@@ -54,8 +54,9 @@
 
 ### 요구 사항
 
-- Windows / Linux (개발 / 유지보수 환경: Windows 10, Ubuntu 24)
-- [Node.js](https://nodejs.org/ko/download) >= 24.11.1 권장 (2026/07/07 기준). 돌아가는 하한은 22 계열 22.18.0, 24 계열 24.3.0이고 23 계열은 안 됨 (2026/09/24 실측). `.ts`를 빌드 없이 실행하는 것이 22.18.0부터이고, 설치 스크립트가 쓰는 `import.meta.main`이 `.ts` 파일에서 맞게 동작하는 것이 22.18.0 · 24.3.0부터임(24.2.0은 늘 거짓이라 설치 스크립트가 아무것도 하지 않음). 테스트(`pnpm test`)가 전부 통과하는 것은 24.3.0 이상 (22 계열에서는 테스트 러너 차이로 일부가 취소됨)
+- Windows / Linux (개발 / 유지보수 환경: **Windows 10, Ubuntu 24**)
+- [Node.js](https://nodejs.org/ko/download) >=24.3.0 (개발 / 유지보수 환경: **>= 24.14.0**)
+  - 이론상 동작 하한치는 22.18.0부터이나, 테스트 스크립트가 24.3.0부터 정상 동작.
 - C++ 빌드 툴체인 (C++20 지원 컴파일러): `@discordjs/opus`의 프리빌드 바이너리가 Node 22 이하 ABI까지만 배포되어 있어, Node 23 이상에서는 소스 컴파일로 폴백. 툴체인이 없으면 `pnpm install`이 실패함.
   - Windows: [Visual Studio Build Tools](https://visualstudio.microsoft.com/ko/downloads/) 2022(17.x) 이상 + "C++를 사용한 데스크톱 개발" 워크로드, Python 3.9 이상
     - VS2019 이하는 Node 22+ 지원 대상이 아니라 사용 불가
