@@ -1,4 +1,4 @@
-// src/media/ffmpeg/process.js probeDurationSec — 받아둔 파일에서 실제 재생 길이를 읽는다.
+// src/media/ffmpeg/process.ts probeDurationSec — 받아둔 파일에서 실제 재생 길이를 읽는다.
 //
 // 회귀 대상: 직접 링크는 Content-Length로 길이를 추정하는데 VBR에서 양방향으로 크게 어긋난다.
 // 실측(2026-09-08): 4분 1초(241초) 파일이 268kbps에서 509초, 72kbps에서 137초로 잡혔다.
@@ -11,14 +11,14 @@ import { spawn } from "node:child_process";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import pathModule from "../../src/media/ffmpeg/path.js";
+import pathModule from "../../src/media/ffmpeg/path.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
 const require = createRequire(import.meta.url);
 
 const { ffmpegPath } = pathModule;
-import processModule from "../../src/media/ffmpeg/process.js";
+import processModule from "../../src/media/ffmpeg/process.ts";
 const { probeDurationSec } = processModule;
 
 const BIN = (() => {

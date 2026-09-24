@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import fsModule from "fs";
 const fs = fsModule.promises;
 import path from "path";
@@ -6,8 +7,8 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import fsSync from "fs";
 import { pipeline } from "stream/promises";
-import audioConvert from "./convert.js";
-import versionOf from "./audioVersion.js";
+import audioConvert from "./convert.ts";
+import versionOf from "./audioVersion.ts";
 import { readInfo } from "../sources/ytdlpInfo.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";

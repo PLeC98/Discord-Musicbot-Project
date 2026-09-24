@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";

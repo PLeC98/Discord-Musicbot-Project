@@ -1,4 +1,4 @@
-// src/media/cacheDownload.js `_takeInfoJson` — 다운로드에 곁들여 받은 info.json에서 제목과 오디오 길이를 꺼낸다.
+// src/media/cacheDownload.ts `_takeInfoJson` — 다운로드에 곁들여 받은 info.json에서 제목과 오디오 길이를 꺼낸다.
 // 읽고 지우는 것까지가 계약이다 — 남기면 캐시 폴더에 영상마다 100KB대 찌꺼기가 쌓인다.
 
 import { test } from "node:test";
@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import TrackDownloader from "../../src/media/cacheDownload.js";
+import TrackDownloader from "../../src/media/cacheDownload.ts";
 
 const take = TrackDownloader.prototype._takeInfoJson;
 const NONE = { title: null, durationSec: null, version: null };

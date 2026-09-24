@@ -1,4 +1,4 @@
-// src/media/convert.js: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
+// src/media/convert.ts: 받아 온 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
 // 회귀 대상: 직접 링크 갈래가 무엇이 들어오든 무조건 재인코딩하던 것. AnimeThemes 음원이
 // 이미 Opus 186~329k 인데 그걸 128k 로 다시 구워 저장했다(2026-09-21 실측).
@@ -13,7 +13,7 @@ import fs from "node:fs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
-import audioConvert from "../../src/media/convert.js";
+import audioConvert from "../../src/media/convert.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
@@ -21,7 +21,7 @@ const require = createRequire(import.meta.url);
 
 const { planFor, REMUX_MAX_KBPS, REMUX_SLACK, TRANSCODE_TARGET_KBPS } = audioConvert;
 const { argsFor } = audioConvert._internals;
-const { probeAudio, _internals: ffmpegInternals } = (await import("../../src/media/ffmpeg/process.js")).default;
+const { probeAudio, _internals: ffmpegInternals } = (await import("../../src/media/ffmpeg/process.ts")).default;
 const { parseProbeOutput } = ffmpegInternals;
 
 const idx = (args, flag) => args.indexOf(flag);
@@ -179,7 +179,7 @@ after(() => {
 });
 
 test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 나온다", async (t) => {
-  const { spawnFfmpeg } = require("../../src/media/ffmpeg/process");
+  const { spawnFfmpeg } = require("../../src/media/ffmpeg/process.ts");
   const made = await new Promise((resolve) => {
     let child;
     try {
@@ -211,7 +211,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
 test("음원을 빌려 오는 것은 음원 주소가 없는 곡(스포티파이)뿐이다. 사운드클라우드는 제 음원을 준다", () => {
   // 상류가 둘을 DRM 으로 묶어 둬서 `sc:` 키 안에 유튜브 음원이 들어갔다. 같은 곡이 처음 틀 때와
   // 캐시로 틀 때 서로 다른 녹음이 됐고, 유튜브 검색이 헛짚으면 그 키에 다른 곡이 박힌 채 남았다.
-  const { needsBorrowedAudio } = require("../../src/media/cacheDownload")._internals;
+  const { needsBorrowedAudio } = require("../../src/media/cacheDownload.ts")._internals;
 
   assert.equal(needsBorrowedAudio({ platform: "spotify" }), true);
   assert.equal(needsBorrowedAudio({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }), false, "SC-4");

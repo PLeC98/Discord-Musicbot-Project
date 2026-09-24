@@ -19,8 +19,8 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const YouTube = await import("../../src/sources/youtube/index.ts");
-const audioConvert = (await import("../../src/media/convert.js")).default;
-const TrackDownloader = (await import("../../src/media/cacheDownload.js")).default;
+const audioConvert = (await import("../../src/media/convert.ts")).default;
+const TrackDownloader = (await import("../../src/media/cacheDownload.ts")).default;
 
 // 무엇이 불렸는지 모은다
 const calls = { ytdlp: [], direct: [], convert: [], sponsor: [], equivalent: [], reresolve: [] };

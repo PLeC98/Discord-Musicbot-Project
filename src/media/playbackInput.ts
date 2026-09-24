@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 소리를 여는 곳. 받아 둔 파일 · HLS 주소 · 스트림 파이프 셋 중 하나로 ffmpeg 를 띄우고 오디오 리소스를 만든다.
 // 어느 갈래로 갈지는 transportOf 가 정했다. 스트림 파이프가 열리지 않으면 나란히 받던 캐시 파일로 연다.
 
@@ -7,11 +8,11 @@ import fs from "fs";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import audioSplicer from "./audioSplicer.js";
+import audioSplicer from "./audioSplicer.ts";
 const { AudioSplicer } = audioSplicer;
-import chunkedStream from "./chunkedStream.js";
+import chunkedStream from "./chunkedStream.ts";
 const { contentLengthFromUrl, describeStreamError } = chunkedStream;
-import args from "./ffmpeg/args.js";
+import args from "./ffmpeg/args.ts";
 const { buildFfmpegArgs } = args;
 
 const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이드 길이

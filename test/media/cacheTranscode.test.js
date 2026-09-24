@@ -1,4 +1,4 @@
-// src/media/cacheDownload.js — 캐시 변환 옵션.
+// src/media/cacheDownload.ts — 캐시 변환 옵션.
 //
 // 회귀 대상: `postprocessorArgs` 가 코덱을 못 박고 있었다. yt-dlp 의 ExtractAudio 는 소스 코덱을
 // 보고 `-acodec copy`(이미 Opus) 또는 `-acodec libopus`(그 밖)를 스스로 고르는데, 우리 값이
@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 
 import tempStore from "../helpers/tempStore.js";
 const { openTempStore } = tempStore;
-import TrackDownloader from "../../src/media/cacheDownload.js";
+import TrackDownloader from "../../src/media/cacheDownload.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 
 /** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다 — 실제로 받지는 않는다. 받기 전에 캐시 행을 적으므로 임시 DB 를 연다 */

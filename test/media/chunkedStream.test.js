@@ -1,11 +1,11 @@
-// src/media/chunkedStream.js — Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
+// src/media/chunkedStream.ts — Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
 //
 // 네트워크는 fetch를 주입해 흉내낸다. 실 소켓 없이 전부 검증한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Writable } from "stream";
-import chunkedStream from "../../src/media/chunkedStream.js";
+import chunkedStream from "../../src/media/chunkedStream.ts";
 const { createChunkedStream, openChunkedStream, contentLengthFromUrl, describeStreamError } = chunkedStream;
 
 const URL_ = "https://x/y";

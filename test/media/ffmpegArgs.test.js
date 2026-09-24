@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import argsModule from "../../src/media/ffmpeg/args.js";
+import argsModule from "../../src/media/ffmpeg/args.ts";
 import { createRequire } from "node:module";
 
 // 함수 안에서 부르는 것과 글자가 아닌 경로는 그대로 require 로
@@ -74,7 +74,7 @@ test("-loglevel은 error — 0(무음)이면 SIGSEGV가 단서 없이 묻힌다"
 
 test("크래시 시그널 집합: 정상 종료용 SIGKILL/SIGTERM은 크래시로 치지 않는다", () => {
   // 스킵·정지·종료에서 우리가 SIGKILL을 보낸다 — 이걸 크래시로 찍으면 오탐이 쏟아진다.
-  const { CRASH_SIGNALS } = require("../../src/media/ffmpeg/process")._internals;
+  const { CRASH_SIGNALS } = require("../../src/media/ffmpeg/process.ts")._internals;
   assert.ok(CRASH_SIGNALS.has("SIGSEGV"));
   assert.ok(CRASH_SIGNALS.has("SIGABRT"));
   assert.ok(!CRASH_SIGNALS.has("SIGKILL"));

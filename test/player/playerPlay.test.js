@@ -9,7 +9,7 @@ import h from "../helpers/playerHarness.js";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import audioSplicer from "../../src/media/audioSplicer.js";
+import audioSplicer from "../../src/media/audioSplicer.ts";
 const { AudioSplicer } = audioSplicer;
 import { PassThrough } from "node:stream";
 

@@ -1,4 +1,4 @@
-// src/media/audioSplicer.js — 재생을 끊지 않고 소스를 갈아끼우는 스트림
+// src/media/audioSplicer.ts — 재생을 끊지 않고 소스를 갈아끼우는 스트림
 //
 // 지키는 것: 전환 전후로 한 바이트도 새지 않고, 지정한 지점에서 갈아타며,
 // 크로스페이드 구간 밖은 원본과 완전히 같다. 소스가 끝나면 이 스트림도 끝난다
@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "stream";
-import audioSplicer from "../../src/media/audioSplicer.js";
+import audioSplicer from "../../src/media/audioSplicer.ts";
 const { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } = audioSplicer;
 
 // 위치마다 값이 다른 PCM — 어긋나면 바로 드러난다. mark로 소스를 구분한다.

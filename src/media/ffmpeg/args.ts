@@ -1,6 +1,7 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 재생용 ffmpeg 인자.
 
-import path from "./path.js";
+import path from "./path.ts";
 const { capabilities } = path;
 
 // HLS 세그먼트 하나가 실패하면 기본값(0)으로는 재시도 없이 스트림이 죽는다.

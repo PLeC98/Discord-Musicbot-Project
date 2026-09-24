@@ -11,7 +11,7 @@ import S from "../ui/strings.js";
 import ErrorHandler from "../ui/errorMessages.js";
 import playlistMore from "./playlistMore.js";
 const { continuation, validState, roomFor, KINDS, LOOKBACK } = playlistMore;
-import path from "../media/ffmpeg/path.js";
+import path from "../media/ffmpeg/path.ts";
 const { capabilities: ffmpegCapabilities } = path;
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };

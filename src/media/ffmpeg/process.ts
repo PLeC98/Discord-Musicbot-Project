@@ -1,5 +1,6 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { spawn } from "child_process";
-import path from "./path.js";
+import path from "./path.ts";
 const { ffmpegPath } = path;
 import * as procRegistry from "../../infra/processRegistry.ts";
 import logger from "../../infra/log/logger.ts";

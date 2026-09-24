@@ -162,7 +162,7 @@
       "count": 2
     }
   },
-  "src/media/cacheDownload.js": {
+  "src/media/cacheDownload.ts": {
     "complexity": {
       "count": 1
     },
@@ -194,7 +194,7 @@
       "count": 5
     }
   },
-  "src/media/audioSplicer.js": {
+  "src/media/audioSplicer.ts": {
     "complexity": {
       "count": 1
     },
@@ -233,7 +233,7 @@
       "count": 2
     }
   },
-  "src/media/chunkedStream.js": {
+  "src/media/chunkedStream.ts": {
     "complexity": {
       "count": 1
     },

@@ -222,7 +222,7 @@ function loadConfig(source, { envFileFound = true } = {}) {
       },
     },
 
-    // ffmpeg 실행 파일. 미지정이면 src/media/ffmpeg/path.js가 자동 탐색(bin/의 번들 → PATH).
+    // ffmpeg 실행 파일. 미지정이면 src/media/ffmpeg/path.ts가 자동 탐색(bin/의 번들 → PATH).
     // macOS는 자동 다운로드 대상이 아니므로 여기로 지정하거나 PATH에 두어야 한다(brew install ffmpeg).
     ffmpeg: {
       path: resolveFromRoot(env("FFMPEG_PATH")),
@@ -316,7 +316,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl }, dashboardPort) {
       idleText: env("VOICE_IDLE_STATUS", ""),
     },
 
-    // 재생 스트림 수신. googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/media/chunkedStream.js).
+    // 재생 스트림 수신. googlevideo는 순차 GET을 재생시간의 약 2배속으로 조인다(src/media/chunkedStream.ts).
     stream: {
       chunkBytes: envInt("STREAM_CHUNK_KB", 1024, { min: 64, max: 65536 }) * 1024,
     },

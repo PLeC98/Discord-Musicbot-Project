@@ -1,4 +1,4 @@
-// src/media/cacheDownload.js — 같은 곡을 두 서버가 동시에 받는 경쟁 (백로그 B-23)
+// src/media/cacheDownload.ts — 같은 곡을 두 서버가 동시에 받는 경쟁 (백로그 B-23)
 //
 // 회귀 대상: 진행 중 다운로드 맵이 MusicPlayer마다 따로였다. 서버가 다르면 같은 전역 캐시 경로에
 // yt-dlp/ffmpeg가 둘 다 쓰고, 한쪽의 실패 정리가 다른 쪽 작업 파일을 지웠다.
@@ -8,7 +8,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import TrackDownloader from "../../src/media/cacheDownload.js";
+import TrackDownloader from "../../src/media/cacheDownload.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 
 const { inFlight, tempPathFor, cleanTemp, publish } = TrackDownloader._internals;
