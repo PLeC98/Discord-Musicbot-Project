@@ -153,9 +153,6 @@
     },
     "max-statements": {
       "count": 1
-    },
-    "no-empty-function": {
-      "count": 2
     }
   },
   "src/sources/lookup.ts": {
@@ -184,9 +181,6 @@
       "count": 1
     },
     "max-depth": {
-      "count": 1
-    },
-    "no-empty-function": {
       "count": 1
     }
   },
@@ -226,9 +220,6 @@
       "count": 1
     },
     "max-lines-per-function": {
-      "count": 1
-    },
-    "no-empty-function": {
       "count": 1
     }
   },

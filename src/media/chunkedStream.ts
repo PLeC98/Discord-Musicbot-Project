@@ -280,9 +280,10 @@ function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInter
  */
 async function openChunkedStream(opts: ChunkedOptions): Promise<ChunkedStream> {
   const stream = createChunkedStream(opts);
-  // 오류는 prime()의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException이 되는 것만 막는다.
   // 호출부는 여전히 자기 on("error")를 붙여야 한다.
-  stream.on("error", () => {});
+  stream.on("error", () => {
+    /* 오류는 prime() 의 거부로도 전달된다. 듣는 사람 없는 error 이벤트가 uncaughtException 이 되는 것만 막는다 */
+  });
   try {
     await stream.prime();
   } catch (err) {

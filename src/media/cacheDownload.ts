@@ -24,6 +24,7 @@ type DownloadTrack = Pick<TrackInfo, "title" | "requestKey"> & Partial<TrackInfo
 /** 음원 주소만 보는 판정 */
 type HasAudio = Partial<TrackInfo> | null | undefined;
 import type { AudioStream } from "../sources/direct.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 // 받는 데 부르는 소스와 변환에서 여기서 부르는 칸만
 type Sources = {
@@ -96,7 +97,7 @@ function cleanTemp(tempPath: string): number {
  */
 async function publish(tempPath: string, filepath: string): Promise<boolean> {
   if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
-    await fs.unlink(tempPath).catch(() => {});
+    await bestEffort(log, fs.unlink(tempPath), "받던 임시 파일 지우기");
     return false;
   }
   audioCache.protectFile(filepath);
@@ -282,7 +283,7 @@ class TrackDownloader {
       // 파일 검증. 최종 경로로 올리기 전에
       const stats = await fs.stat(tempPath);
       if (stats.size === 0) {
-        await fs.unlink(tempPath).catch(() => {});
+        await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 지우기");
         throw new Error("Downloaded file is empty");
       }
       const mine = await publish(tempPath, filepath);

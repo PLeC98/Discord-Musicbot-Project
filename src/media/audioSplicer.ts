@@ -265,7 +265,9 @@ class AudioSplicer extends Readable {
     if (!s) return;
     try {
       s.off("error", this._failFrom);
-      s.on("error", () => {});
+      s.on("error", () => {
+        /* 버리는 스트림이다. 부수는 중에 나는 오류가 듣는 사람 없이 프로세스를 죽이지 않게만 */
+      });
       s.destroy();
     } catch {
       /* 이미 정리됨 */
