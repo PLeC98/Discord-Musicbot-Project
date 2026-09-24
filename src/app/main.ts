@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 봇 조립. index.js 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
@@ -17,12 +18,12 @@ import { createPotServer } from "../sources/youtube/potServer.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
-import moduleLoader from "./moduleLoader.js";
+import moduleLoader from "./moduleLoader.ts";
 const { loadModules } = moduleLoader;
-import commandLoader from "./commandLoader.js";
-import resilience from "./resilience.js";
+import commandLoader from "./commandLoader.ts";
+import resilience from "./resilience.ts";
 const { installErrorHandlers } = resilience;
-import shutdown from "./shutdown.js";
+import shutdown from "./shutdown.ts";
 const { installShutdown } = shutdown;
 import { scheduleReplyCleanup } from "../ui/replyLifetime.ts";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";

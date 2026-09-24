@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import moduleLoader from "../../src/app/moduleLoader.js";
+import moduleLoader from "../../src/app/moduleLoader.ts";
 const { loadModules } = moduleLoader;
 
 function tmpModules(files) {

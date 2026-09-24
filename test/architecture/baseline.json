@@ -1,7 +1,7 @@
 {
   "direction": [],
   "cycles": [],
-  "unseen": ["src/app/moduleLoader.js"],
+  "unseen": ["src/app/moduleLoader.ts"],
   "lazyRequire": {
     "src/autoplay/assist/tokens.ts": 1
   },

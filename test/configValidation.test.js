@@ -92,7 +92,7 @@ test("불러와도 멈추지 않는다. 문제는 목록으로 붙어 있고 설
 });
 
 test("기동 첫 줄: 경고는 찍고 지나가고, 문제가 있으면 전부 찍고 멈춘다", (t) => {
-  const { stopOnConfigProblems } = require("../src/app/configCheck");
+  const { stopOnConfigProblems } = require("../src/app/configCheck.ts");
   const exits = [];
   t.mock.method(process, "exit", (code) => exits.push(code));
   const seen = [];

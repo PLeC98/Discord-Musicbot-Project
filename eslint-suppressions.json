@@ -290,7 +290,7 @@
       "count": 2
     }
   },
-  "src/app/resilience.js": {
+  "src/app/resilience.ts": {
     "no-empty-function": {
       "count": 2
     }
