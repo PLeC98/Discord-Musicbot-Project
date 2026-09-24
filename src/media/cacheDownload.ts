@@ -180,7 +180,7 @@ class TrackDownloader {
     const audioKey = audioKeyOf(track.audioUrl);
     let verifiedTitle: string | null = null;
     let audioDurationSec: number | null = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
-    let audioVersion: string | null; // 받은 음원의 판. 같은 주소에서 음원이 바뀐 것을 알아볼 값(audioVersion.js)
+    let audioVersion: string | null; // 받은 음원의 판. 같은 주소에서 음원이 바뀐 것을 알아볼 값(audioVersion.ts)
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
     audioCache.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
