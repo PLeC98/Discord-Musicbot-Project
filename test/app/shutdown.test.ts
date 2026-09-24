@@ -1,16 +1,16 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/app/shutdown.js — 종료 신호를 받으면 저장하고 정리한 뒤 나간다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { installShutdown } from "../../src/app/shutdown.ts";
+import { installShutdown, type ShutdownBoundary } from "../../src/app/shutdown.ts";
+import { fakeWith } from "../helpers/fake.ts";
 
 function setup({ saveFails = false } = {}) {
-  const steps = [];
+  const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 플레이어가 끊으면 빠진다(진짜도 destroy 가 목록에서 뺀다)
   const live = new Map();
-  const connection = (id, fails = false) => ({
+  const connection = (id: string, fails = false) => ({
     destroy: () => {
       if (fails) throw new Error("이미 끊김");
       steps.push(`voice:${id}`);
@@ -21,12 +21,12 @@ function setup({ saveFails = false } = {}) {
   live.set("g9", connection("g9"));
   live.set("g8", connection("g8", true));
 
-  const player = (id) => ({
-    persistState: async (reason, immediate) => {
+  const player = (id: string) => ({
+    persistState: async (reason: string, immediate: boolean) => {
       steps.push(`save:${id}:${reason}:${immediate}`);
       if (saveFails) throw new Error("저장 실패");
     },
-    disconnect: (reason) => {
+    disconnect: (reason: string) => {
       steps.push(`disconnect:${id}:${reason}`);
       live.get(id)?.destroy();
     },
@@ -39,7 +39,7 @@ function setup({ saveFails = false } = {}) {
     guilds: { cache: new Map([["g1", { name: "서버1" }]]) },
     destroy: () => steps.push("client:destroy"),
   };
-  const proc = Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } });
+  const proc = fakeWith<ShutdownBoundary["proc"]>()(Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } }));
   let exits = 0;
   const exited = new Promise((resolve) => {
     installShutdown(client, {
@@ -47,8 +47,8 @@ function setup({ saveFails = false } = {}) {
       logFile: { close: () => steps.push("log:close") },
       proc,
       voiceConnections: () => new Map(live),
-      killAll: (reason) => steps.push(`kill:${reason}`),
-      exit: (code) => {
+      killAll: (reason: string) => steps.push(`kill:${reason}`),
+      exit: (code: number) => {
         exits++;
         resolve(code);
       },

@@ -63,10 +63,17 @@ function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
   }
 }
 
+/** 명령 등록 요청. 경로와 정의를 받아 디스코드가 등록한 명령 목록을 돌려준다 */
+type PutCommands = (route: `/${string}`, body: RESTPostAPIApplicationCommandsJSONBody[]) => Promise<RESTPutAPIApplicationCommandsResult>;
+// 디스코드 API 의 답을 등록한 명령 목록으로 본다
+const putCommands: PutCommands = async (route, body) => (await new REST().setToken(config.discord.token).put(route, { body })) as RESTPutAPIApplicationCommandsResult;
+
+type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null };
+
 // 슬래시 명령어를 Discord에 (재)배포하는 재사용 함수.
 // 기동 경로는 정의 무변경이면 PUT 생략(지문 비교), 대시보드 재배포·수동 스크립트는 force로 항상 PUT.
-// hashPath는 테스트 시임 (임시 파일. 운영 지문 미접촉).
-async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
+// hashPath · put 은 테스트 시임 (임시 파일. 운영 지문 미접촉, 실제 등록 없음).
+async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands }: { force?: boolean; hashPath?: string; put?: PutCommands } = {}): Promise<DeployResult> {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;
   const commands = await definitions();
@@ -77,10 +84,8 @@ async function deployCommands({ force = false, hashPath = HASH_PATH } = {}) {
   }
 
   try {
-    const rest = new REST().setToken(config.discord.token);
     const route = guildId ? Routes.applicationGuildCommands(config.discord.clientId, guildId) : Routes.applicationCommands(config.discord.clientId);
-    // 등록한 명령 목록(디스코드 API 의 답)
-    const data = (await rest.put(route, { body: commands })) as RESTPutAPIApplicationCommandsResult;
+    const data = await put(route, commands);
     writeDeployedFingerprint(hashPath, fingerprint); // 성공 시에만 기록. 실패하면 다음 기동에 재시도
     return { ok: true, skipped: false, count: data.length, scope, guildId, names: data.map((c) => c.name) };
   } catch (error) {
@@ -99,4 +104,4 @@ function deployErrorLines(result: { scope: string; error?: unknown }) {
 }
 
 export { loadedCommands, definitions, deployCommands, loadCommandModules, deployErrorLines };
-export type { SlashCommand };
+export type { SlashCommand, PutCommands, DeployResult };

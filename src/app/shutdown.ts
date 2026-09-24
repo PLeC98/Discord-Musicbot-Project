@@ -5,21 +5,30 @@ import { getVoiceConnections } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import * as procRegistry from "../infra/processRegistry.ts";
-import type { Client } from "discord.js";
 
 // 바깥 경계. 시험은 가짜를 넘긴다
-const REAL = {
-  proc: process as Pick<NodeJS.Process, "on" | "platform" | "stdin" | "stdout">,
-  voiceConnections: () => getVoiceConnections(),
-  killAll: (reason: string) => procRegistry.killAll(reason),
-  exit: (code: number) => process.exit(code),
+type Boundary = {
+  proc: Pick<NodeJS.Process, "on" | "platform" | "stdin" | "stdout">;
+  /** 음성 라이브러리가 들고 있는 연결 */
+  voiceConnections(): Iterable<readonly [string, { destroy(): unknown }]>;
+  killAll(reason: string): unknown;
+  exit(code: number): unknown;
 };
-type Boundary = typeof REAL;
+const REAL: Boundary = {
+  proc: process,
+  voiceConnections: () => getVoiceConnections(),
+  killAll: (reason) => procRegistry.killAll(reason),
+  exit: (code) => process.exit(code),
+};
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜) */
 type ShutdownDeps = { potServer: { stop(): unknown }; logFile: { close(): unknown } | null } & Partial<Boundary>;
+/** 종료할 때 세션을 저장하고 음성을 끊을 플레이어 */
+type Saver = { persistState(reason: string, immediate: boolean): Promise<unknown>; disconnect?(reason: string): unknown };
+/** 종료할 때 쓰는 클라이언트 칸 */
+type ShutdownClient = { players: Iterable<readonly [string, Saver | null]>; guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown };
 
 /** 종료 신호에 처리기를 건다 */
-function installShutdown(client: Pick<Client, "players" | "guilds" | "destroy">, { potServer, logFile, ...boundary }: ShutdownDeps) {
+function installShutdown(client: ShutdownClient, { potServer, logFile, ...boundary }: ShutdownDeps) {
   const { proc, voiceConnections, killAll, exit } = { ...REAL, ...boundary };
 
   let shuttingDown = false;
@@ -73,3 +82,4 @@ function installShutdown(client: Pick<Client, "players" | "guilds" | "destroy">,
 }
 
 export { installShutdown };
+export type { Boundary as ShutdownBoundary };

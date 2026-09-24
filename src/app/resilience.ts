@@ -5,7 +5,7 @@
 
 import logger from "../infra/log/logger.ts";
 import { VoiceConnectionStatus } from "@discordjs/voice";
-import { Events, type Client } from "discord.js";
+import { Events } from "discord.js";
 import { isDeadInteraction } from "../rules/deadInteraction.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
 const log = logger.child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
@@ -13,6 +13,18 @@ const log = logger.child({ category: "voice" }); // 표적 복구는 음성 연�
 const flog = logger.child({ category: "core", sub: "fatal" });
 // 새어 나온 오류 처리기의 로그. 봇 전체의 일이다
 const coreLog = logger.child({ category: "core" });
+
+/** 표적 복구로 볼 플레이어. 여기서 읽고 부르는 칸만 */
+type Healable = { currentTrack: unknown; paused: boolean; isRecovering?: boolean; connection?: { state?: { status?: string } } | null; voice: { startConnectionRecovery(): unknown } };
+/** 치명적 오류로 내릴 플레이어 */
+type Cleanable = { cleanup?(reason: string): unknown };
+/** 플레이어 레지스트리에서 쓰는 것 */
+type HealClient = { players?: Iterable<readonly [string, Healable | null]> };
+type FatalClient = { players?: Pick<Map<string, Cleanable | null>, "forEach" | "clear"> };
+/** 오류 처리기를 걸 클라이언트 */
+type WatchedClient = HealClient & FatalClient & { on(event: "error", listener: (error: Error) => void): unknown };
+/** 처리되지 않은 거부 · 예외를 알리는 곳(프로세스) */
+type Proc = { on(event: "unhandledRejection" | "uncaughtException", listener: (error: unknown) => void): unknown };
 
 // 네트워크 오류 폭주 판정용 시간창
 const NET_ERR_WINDOW_MS = 60000;
@@ -36,7 +48,7 @@ function isTransientNetworkError(err: unknown) {
 // 각자의 기존 복구 루프(startConnectionRecovery: forceReconnect + 저장 위치 재개)로 되살린다.
 // 정상 재생 중인 서버(연결 Ready)와 이미 스스로 복구 중인 서버는 건드리지 않는다(무영향).
 let networkHealInProgress = false;
-async function healBrokenPlayers(client: Pick<Client, "players"> | null | undefined) {
+async function healBrokenPlayers(client: HealClient | null | undefined) {
   if (networkHealInProgress) return; // 오류 폭풍에도 스윕 1회만
   networkHealInProgress = true;
   try {
@@ -94,7 +106,7 @@ function ignorableDiscordError(err: unknown) {
 // 저장 세션은 초기화한다: 세션 상태 자체가 원인이면 재시작 시 크래시 루프가 되므로.
 // (정전 등은 5초 스냅샷이 그대로 남는 별개 경로라 정상 복구된다.)
 // exit는 테스트 주입용. 기본은 process.exit(1).
-function fatalShutdown(client: Pick<Client, "players"> | null | undefined, error: unknown, exit: () => void = () => process.exit(1)) {
+function fatalShutdown(client: FatalClient | null | undefined, error: unknown, exit: () => void = () => process.exit(1)) {
   try {
     if (client && client.players) {
       client.players.forEach((player) => {
@@ -118,7 +130,7 @@ ${String(stack || error)}`,
 
 // 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다.
 // proc · exit: 처리기를 걸 곳과 안전 종료의 끝. 생략하면 진짜 프로세스
-function installErrorHandlers(client: Client, { proc = process, exit }: { proc?: Pick<NodeJS.Process, "on">; exit?: () => void } = {}) {
+function installErrorHandlers(client: WatchedClient, { proc = process, exit }: { proc?: Proc; exit?: () => void } = {}) {
   // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정. client "error"와 unhandledRejection이 같은 기준을 쓴다.
   // true = 알려진 오류라 처리 완료, false = 알 수 없음(호출부가 빈도 가드로 판단).
   const handleLooseError = (error: unknown, source: string) => {

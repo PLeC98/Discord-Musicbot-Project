@@ -1,4 +1,3 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/app/moduleLoader.js — 디렉터리가 없는 것과 파일이 깨진 것을 구분한다.
 //
 // 회귀(감사 M-06): 로더가 루프 전체를 하나의 try/catch로 감싸 어떤 오류든 "디렉터리가 없습니다"로
@@ -11,7 +10,7 @@ import os from "os";
 import path from "path";
 import { loadModules } from "../../src/app/moduleLoader.ts";
 
-function tmpModules(files) {
+function tmpModules(files: Record<string, string>) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "modload-"));
   for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
   return dir;
@@ -28,7 +27,7 @@ test("깨진 파일 하나가 나머지를 막지 않고, 이름과 함께 실�
   const { modules, failures, missing } = await loadModules(dir);
 
   assert.equal(missing, false);
-  assert.deepEqual(modules.map((m) => m.module.name).sort(), ["a", "b"], "깨진 파일 뒤의 것도 실린다");
+  assert.deepEqual(modules.map((m) => (m.module as { name: string }).name).sort(), ["a", "b"], "깨진 파일 뒤의 것도 실린다");
   assert.equal(failures.length, 1);
   assert.equal(failures[0].file, "broken.js");
   assert.ok(failures[0].error, "무엇이 잘못됐는지 함께 남긴다");

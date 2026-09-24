@@ -1,9 +1,9 @@
-// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // src/app/resilience.js — 프로세스 오류 복원력 (일시 네트워크=표적 복구 / 치명적=안전 종료)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { VoiceConnectionStatus } from "@discordjs/voice";
+import type { TestContext } from "node:test";
 import { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_MAX } from "../../src/app/resilience.ts";
 
 // ── isTransientNetworkError ──────────────────────────────────
@@ -40,21 +40,26 @@ test("무관한 버그는 네트워크로 오인하지 않음 (삼킴 방지)", 
 
 // ── healBrokenPlayers ────────────────────────────────────────
 
-function fakePlayer({ track = true, paused = false, recovering = false, ready = false, status = null, throwOnRecover = false } = {}) {
-  const p = {
+type PlayerOptions = { track?: boolean; paused?: boolean; recovering?: boolean; ready?: boolean; status?: VoiceConnectionStatus | null; throwOnRecover?: boolean };
+
+// 복구를 시작한 횟수(recovered)를 센다
+function fakePlayer({ track = true, paused = false, recovering = false, ready = false, status = null, throwOnRecover = false }: PlayerOptions = {}) {
+  const counts = { recovered: 0 };
+  return {
     currentTrack: track ? { title: "t" } : null,
     paused,
     isRecovering: recovering,
     connection: { state: { status: status ?? (ready ? VoiceConnectionStatus.Ready : VoiceConnectionStatus.Disconnected) } },
-    recovered: 0,
-  };
-  p.voice = {
-    startConnectionRecovery() {
-      if (throwOnRecover) throw new Error("recover boom");
-      p.recovered++;
+    get recovered() {
+      return counts.recovered;
+    },
+    voice: {
+      startConnectionRecovery() {
+        if (throwOnRecover) throw new Error("recover boom");
+        counts.recovered++;
+      },
     },
   };
-  return p;
 }
 
 test("표적 복구: 끊긴 플레이어만 복구, 정상·복구중·트랙없음·일시정지·수립중은 무영향", async () => {
@@ -108,51 +113,33 @@ test("client 없음/players 없음은 조용히 통과", async () => {
 
 // ── networkErrorFlooding ─────────────────────────────────────
 
-test(`빈도 가드: 60초 창 내 ${NET_ERR_MAX}회까지 false, 초과 시 true, 창 지나면 리셋`, () => {
-  const realNow = Date.now;
-  let now = 1_000_000_000;
-  Date.now = () => now;
-  try {
-    for (let i = 1; i <= NET_ERR_MAX; i++) {
-      assert.equal(networkErrorFlooding(), false, `${i}번째는 허용`);
-    }
-    assert.equal(networkErrorFlooding(), true, `${NET_ERR_MAX + 1}번째는 폭주 판정`);
-    now += 61_000; // 창 밖으로
-    assert.equal(networkErrorFlooding(), false, "창이 지나면 카운터 리셋");
-  } finally {
-    Date.now = realNow;
+test(`빈도 가드: 60초 창 내 ${NET_ERR_MAX}회까지 false, 초과 시 true, 창 지나면 리셋`, (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_000_000_000 });
+  for (let i = 1; i <= NET_ERR_MAX; i++) {
+    assert.equal(networkErrorFlooding(), false, `${i}번째는 허용`);
   }
+  assert.equal(networkErrorFlooding(), true, `${NET_ERR_MAX + 1}번째는 폭주 판정`);
+  t.mock.timers.tick(61_000); // 창 밖으로
+  assert.equal(networkErrorFlooding(), false, "창이 지나면 카운터 리셋");
 });
 
-test("빈도 가드: 인스턴스별 독립 카운터 — 네트워크 폭주가 unknown rejection 판정을 오염시키지 않음", () => {
-  const realNow = Date.now;
-  let now = 2_000_000_000;
-  Date.now = () => now;
-  try {
-    const a = makeFloodGuard();
-    const b = makeFloodGuard();
-    for (let i = 1; i <= NET_ERR_MAX; i++) a();
-    assert.equal(a(), true, "a는 폭주 판정");
-    assert.equal(b(), false, "b의 카운터는 무영향");
-  } finally {
-    Date.now = realNow;
-  }
+test("빈도 가드: 인스턴스별 독립 카운터 — 네트워크 폭주가 unknown rejection 판정을 오염시키지 않음", (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 2_000_000_000 });
+  const a = makeFloodGuard();
+  const b = makeFloodGuard();
+  for (let i = 1; i <= NET_ERR_MAX; i++) a();
+  assert.equal(a(), true, "a는 폭주 판정");
+  assert.equal(b(), false, "b의 카운터는 무영향");
 });
 
-test("빈도 가드: unknownRejectionFlooding 인스턴스 동작", () => {
-  const realNow = Date.now;
-  let now = 3_000_000_000;
-  Date.now = () => now;
-  try {
-    for (let i = 1; i <= NET_ERR_MAX; i++) {
-      assert.equal(unknownRejectionFlooding(), false, `${i}번째 단발은 봇 유지`);
-    }
-    assert.equal(unknownRejectionFlooding(), true, "반복되면 안전 종료 승격");
-    now += 61_000;
-    assert.equal(unknownRejectionFlooding(), false, "창이 지나면 리셋");
-  } finally {
-    Date.now = realNow;
+test("빈도 가드: unknownRejectionFlooding 인스턴스 동작", (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 3_000_000_000 });
+  for (let i = 1; i <= NET_ERR_MAX; i++) {
+    assert.equal(unknownRejectionFlooding(), false, `${i}번째 단발은 봇 유지`);
   }
+  assert.equal(unknownRejectionFlooding(), true, "반복되면 안전 종료 승격");
+  t.mock.timers.tick(61_000);
+  assert.equal(unknownRejectionFlooding(), false, "창이 지나면 리셋");
 });
 
 // ── fatalShutdown ────────────────────────────────────────────
@@ -196,10 +183,10 @@ test("안전 종료: client 없음도 exit 호출", () => {
 // ── Discord API 오류 분류 ─────────────────────────────────────
 
 test("무해한 Discord 오류: 코드별 안내와 로그 등급", () => {
-  assert.equal(ignorableDiscordError({ code: 10062 }).level, "info");
-  assert.equal(ignorableDiscordError({ code: 40060 }).level, "info");
-  assert.equal(ignorableDiscordError({ code: 50013 }).level, "error");
-  assert.match(ignorableDiscordError({ code: 10062 }).message, /10062/);
+  assert.equal(ignorableDiscordError({ code: 10062 })?.level, "info");
+  assert.equal(ignorableDiscordError({ code: 40060 })?.level, "info");
+  assert.equal(ignorableDiscordError({ code: 50013 })?.level, "error");
+  assert.match(ignorableDiscordError({ code: 10062 })?.message ?? "", /10062/);
 });
 
 test("무해한 Discord 오류: 그 외에는 null (알 수 없는 오류로 넘긴다)", () => {
@@ -222,11 +209,11 @@ const { installErrorHandlers } = await import("../../src/app/resilience.ts");
 let clock = Date.UTC(2100, 0, 1);
 
 // 끊긴 음성 연결을 가진 플레이어 하나. 표적 복구가 불렸는지 센다
-function installed(t) {
+function installed(t: TestContext) {
   clock += 3_600_000;
   t.mock.timers.enable({ apis: ["Date"], now: clock });
-  const heals = [];
-  const exits = [];
+  const heals: number[] = [];
+  const exits: number[] = [];
   const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1) }, cleanup() {} };
   const client = Object.assign(new EventEmitter(), { players: new Map([["g1", player]]) });
   const proc = new EventEmitter();
