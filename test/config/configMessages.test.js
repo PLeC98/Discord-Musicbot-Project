@@ -9,10 +9,10 @@ import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import genreConfig from "../../src/config/genres.js";
-import statusConfig from "../../src/config/status.js";
-import aiConfig from "../../src/config/ai.js";
-import yamlStore from "../../src/config/yamlStore.js";
+import genreConfig from "../../src/config/genres.ts";
+import statusConfig from "../../src/config/status.ts";
+import aiConfig from "../../src/config/ai.ts";
+import yamlStore from "../../src/config/yamlStore.ts";
 import assist from "../../src/autoplay/assist/index.js";
 const { PROVIDERS } = assist; // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 

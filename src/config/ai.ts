@@ -1,14 +1,15 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // AI 보조 설정(ai.yaml · ai-keys.yaml · ai-prompt.chatml).
 
 import fs from "fs";
 import path from "path";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import aiProvidersModule from "./schema/aiProviders.js";
+import aiProvidersModule from "./schema/aiProviders.ts";
 const { PROVIDERS } = aiProvidersModule;
-import yamlStore from "./yamlStore.js";
+import yamlStore from "./yamlStore.ts";
 const { load, fileOf, save, configDir, cache } = yamlStore;
-import aiModule from "./schema/ai.js";
+import aiModule from "./schema/ai.ts";
 const { aiProblems, PROMPT_FILE } = aiModule;
 
 const validateAi = aiProblems;

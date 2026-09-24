@@ -1,4 +1,4 @@
-// src/config/yamlStore.js — config/*.yaml을 읽고 주석을 남긴 채 고쳐 쓰는 통로.
+// src/config/yamlStore.ts — config/*.yaml을 읽고 주석을 남긴 채 고쳐 쓰는 통로.
 //
 // 이 파일들은 주인이 둘이다: 손으로 고치는 운영자와, 대시보드(계획 5단계). 그래서
 //  · 봇을 켜 둔 채 고쳐도 반영돼야 하고(mtime),
@@ -11,7 +11,7 @@ import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import yamlStore from "../../src/config/yamlStore.js";
+import yamlStore from "../../src/config/yamlStore.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
 const write = (name, text) => fs.writeFileSync(path.join(DIR, `${name}.yaml`), text);

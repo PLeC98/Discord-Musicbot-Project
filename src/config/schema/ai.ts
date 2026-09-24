@@ -1,8 +1,9 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // AI 보조 설정(ai.yaml)의 스키마. 프롬프트(ai-prompt.chatml)는 제 형식이 따로 있어 여기서 보지 않는다.
 
-import aiProviders from "./aiProviders.js";
+import aiProviders from "./aiProviders.ts";
 const { PROVIDERS } = aiProviders;
-import problems from "./problems.js";
+import problems from "./problems.ts";
 const { z, ALWAYS, present, plain, problemsOf } = problems;
 
 const PROMPT_FILE = "ai-prompt.chatml";

@@ -1,10 +1,11 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 유튜브 쿠키 파일(cookies.txt). 읽지 않고 자리만 맡는다.
 
 import fs from "fs";
 import path from "path";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import yamlStore from "./yamlStore.js";
+import yamlStore from "./yamlStore.ts";
 const { configDir } = yamlStore;
 
 // ── cookies.txt ───────────────────────────────────────────────────────────

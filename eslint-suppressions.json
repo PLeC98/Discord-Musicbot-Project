@@ -247,12 +247,12 @@
       "count": 1
     }
   },
-  "src/config/genres.js": {
+  "src/config/genres.ts": {
     "complexity": {
       "count": 1
     }
   },
-  "src/config/yamlStore.js": {
+  "src/config/yamlStore.ts": {
     "complexity": {
       "count": 1
     }

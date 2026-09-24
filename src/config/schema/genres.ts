@@ -1,8 +1,9 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 장르 설정(genres.yaml)의 스키마. 문구는 무엇을 고쳐야 하는지까지 알려 주므로 그대로 둔다.
 
-import genreSources from "./genreSources.js";
+import genreSources from "./genreSources.ts";
 const { SPEC, TYPES } = genreSources;
-import problems from "./problems.js";
+import problems from "./problems.ts";
 const { z, ALWAYS, present, keyed, plain, problemsOf } = problems;
 
 // 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 코드포인트가 여럿인 것도 한 덩이로 센다.

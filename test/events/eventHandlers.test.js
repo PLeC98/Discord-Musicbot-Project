@@ -19,7 +19,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 const S = (await import("../../src/ui/strings.js")).default;
 const settings = (await import("../../src/store/guildSettings.js")).default;
 const lookup = (await import("../../src/sources/lookup.js")).default;
-const yamlStore = (await import("../../src/config/yamlStore.js")).default;
+const yamlStore = (await import("../../src/config/yamlStore.ts")).default;
 const More = (await import("../../src/usecases/playlistMore.js")).default;
 const messageHandler = (await import("../../events/messageHandler.js")).default;
 const panelPin = (await import("../../events/panelPin.js")).default;

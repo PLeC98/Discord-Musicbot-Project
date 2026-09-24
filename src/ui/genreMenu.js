@@ -3,7 +3,7 @@
 
 import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
 import config from "../../config.ts";
-import genreConfig from "../config/genres.js";
+import genreConfig from "../config/genres.ts";
 
 // 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
 const OFF_MENU_MS = 30_000;

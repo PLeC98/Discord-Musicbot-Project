@@ -13,11 +13,11 @@ import viewAsModule from "../viewAs.js";
 const { TIERS, getViewAs } = viewAsModule;
 import trackState from "../../../src/player/trackState.js";
 import playerEvents from "../../../src/player/events.js";
-import genreConfig from "../../../src/config/genres.js";
-import statusConfig from "../../../src/config/status.js";
-import aiConfig from "../../../src/config/ai.js";
-import cookieConfig from "../../../src/config/cookies.js";
-import yamlStore from "../../../src/config/yamlStore.js";
+import genreConfig from "../../../src/config/genres.ts";
+import statusConfig from "../../../src/config/status.ts";
+import aiConfig from "../../../src/config/ai.ts";
+import cookieConfig from "../../../src/config/cookies.ts";
+import yamlStore from "../../../src/config/yamlStore.ts";
 import { EmbedBuilder } from "discord.js";
 import config from "../../../config.ts";
 import GuildSettingsManager from "../../../src/store/guildSettings.js";
@@ -26,7 +26,7 @@ import YouTube from "../../../src/sources/youtube/index.js";
 import autoplaySources from "../../../src/autoplay/sources/index.js";
 import assist from "../../../src/autoplay/assist/index.js";
 import tokens from "../../../src/autoplay/assist/tokens.js";
-import models from "../../../src/config/schema/aiModels.js";
+import models from "../../../src/config/schema/aiModels.ts";
 
 // Bot/Node/System status
 router.get("/status", requireOwner, (req, res) => {

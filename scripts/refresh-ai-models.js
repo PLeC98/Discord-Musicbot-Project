@@ -4,7 +4,7 @@
  * 대시보드의 갱신 버튼과 같은 길(src/aiModels.refresh)을 쓴다.
  */
 import path from "path";
-import models from "../src/config/schema/aiModels.js";
+import models from "../src/config/schema/aiModels.ts";
 import assist from "../src/autoplay/assist/index.js";
 const { PROVIDER_SPECS } = assist;
 

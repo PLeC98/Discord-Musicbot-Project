@@ -1,8 +1,9 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 봇 활동 문구 설정(status.yaml)의 스키마.
 
-import genres from "./genres.js";
+import genres from "./genres.ts";
 const { NUMERIC_NAME } = genres;
-import problems from "./problems.js";
+import problems from "./problems.ts";
 const { z, ALWAYS, present, plain, problemsOf } = problems;
 
 const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"];

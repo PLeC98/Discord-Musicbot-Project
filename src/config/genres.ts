@@ -1,12 +1,13 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 자동재생 장르 설정(genres.yaml). 읽을 때 모양과 소스 키를 본다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
 // 설정 검증과 실제 실행이 같은 표를 봐야 한다. 어긋나면 저장은 되는데 재생이 안 된다
-import sources from "./schema/genreSources.js";
-import yamlStore from "./yamlStore.js";
+import sources from "./schema/genreSources.ts";
+import yamlStore from "./yamlStore.ts";
 const { load } = yamlStore;
-import genresModule from "./schema/genres.js";
+import genresModule from "./schema/genres.ts";
 const { genreProblems } = genresModule;
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다

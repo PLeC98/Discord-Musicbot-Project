@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // 봇 활동 문구 설정(status.yaml).
 //
 // 틀린 파일은 쓰지 않는다. 기동 때 틀렸으면 장르처럼 문제를 전부 알리고 기동을 멈춘다(index.js).
@@ -6,9 +7,9 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
-import yamlStore from "./yamlStore.js";
+import yamlStore from "./yamlStore.ts";
 const { load } = yamlStore;
-import statusModule from "./schema/status.js";
+import statusModule from "./schema/status.ts";
 const { statusProblems, ACTIVITY_TYPES } = statusModule;
 
 const validateStatus = statusProblems;

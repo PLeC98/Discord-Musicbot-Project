@@ -33,7 +33,7 @@ function findPluginRoot(dir) {
 }
 const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
-import cookieConfig from "../../config/cookies.js";
+import cookieConfig from "../../config/cookies.ts";
 
 class YouTubeAuth {
   /** locate: ffmpeg 경로를 돌려주는 함수(media/ffmpeg/path 의 ffmpegPath) */

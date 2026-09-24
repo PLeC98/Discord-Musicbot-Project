@@ -19,8 +19,8 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 
-const yamlStore = (await import("../../src/config/yamlStore.js")).default;
-const cookieConfig = (await import("../../src/config/cookies.js")).default;
+const yamlStore = (await import("../../src/config/yamlStore.ts")).default;
+const cookieConfig = (await import("../../src/config/cookies.ts")).default;
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-cookie-route-"));
 
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123"].join("\n");

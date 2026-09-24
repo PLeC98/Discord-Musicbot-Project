@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import genreMenu from "../../src/ui/genreMenu.js";
 const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = genreMenu;
-import genresModule from "../../src/config/genres.js";
+import genresModule from "../../src/config/genres.ts";
 const { genres } = genresModule.genres();
 
 const ids = Object.keys(genres);
