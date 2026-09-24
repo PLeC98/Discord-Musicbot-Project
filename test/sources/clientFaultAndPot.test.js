@@ -30,15 +30,15 @@ const POT_LINE = "WARNING: [youtube] hc0ZDaAZQT0: web_creator client https forma
 
 const err = (stderr) => Object.assign(new Error(stderr), { stderr });
 
-/** _inspectWarnings 가 남긴 레코드를 받아 온다 */
+/** _inspectWarnings 가 남긴 레코드를 받아 온다(로그의 듣는 자리에 잠깐 붙는다) */
 function capture(line, client) {
   const records = [];
-  const original = sink.record;
-  sink.record = (r) => records.push(r);
+  const listen = (r) => records.push(r);
+  sink.destinations.push(listen);
   try {
     YouTube._inspectWarnings(line, client);
   } finally {
-    sink.record = original;
+    sink.destinations.splice(sink.destinations.indexOf(listen), 1);
   }
   return records;
 }
