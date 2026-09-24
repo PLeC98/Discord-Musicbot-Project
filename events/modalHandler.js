@@ -1,13 +1,16 @@
-const { Events, EmbedBuilder, MessageFlags } = require("discord.js");
-const config = require("../config");
-const genreConfig = require("../src/config/genres");
-const S = require("../src/ui/strings");
-const { checkControl } = require("../src/usecases/permissions");
-const { expireReply } = require("../src/ui/replyLifetime");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
+import { Events, EmbedBuilder, MessageFlags } from "discord.js";
+import config from "../config.js";
+import genreConfig from "../src/config/genres.js";
+import S from "../src/ui/strings.js";
+import permissions from "../src/usecases/permissions.js";
+const { checkControl } = permissions;
+import replyLifetime from "../src/ui/replyLifetime.js";
+const { expireReply } = replyLifetime;
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
-module.exports = {
+const exported = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
@@ -173,3 +176,5 @@ module.exports = {
     });
   },
 };
+export default exported;
+export { exported as "module.exports" };

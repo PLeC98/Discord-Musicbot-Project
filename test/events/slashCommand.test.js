@@ -1,11 +1,9 @@
-"use strict";
-
 // events/slashCommand.js — 슬래시 명령을 찾아 부르고, 실패하면 본인에게만 보이게 알린다.
 
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
-const { Events } = require("discord.js");
-const slashCommand = require("../../events/slashCommand");
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { Events } from "discord.js";
+import slashCommand from "../../events/slashCommand.js";
 
 function interaction({ name = "play", chat = true, commands = {}, replied = false } = {}) {
   const sent = [];

@@ -1,32 +1,30 @@
-"use strict";
-
 // 테스트가 한 번도 돌지 않던 이벤트 넷의 지금 동작을 고정한다(구조 리팩터링 0-B).
 // 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler).
 //
 // 6단계가 입구를 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 바꿔 끼우지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
 // 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.musicEmbedManager)와 트랙 조회(sources/lookup 의 메서드)만 가짜로 둔다.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, before, beforeEach, after, mock } = require("node:test");
-const assert = require("node:assert/strict");
-const { PermissionFlagsBits } = require("discord.js");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, before, beforeEach, after, mock } from "node:test";
+import assert from "node:assert/strict";
+import { PermissionFlagsBits } from "discord.js";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
-const audioCache = require("../../src/store/audioCache");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const S = require("../../src/ui/strings");
-const settings = require("../../src/store/guildSettings");
-const lookup = require("../../src/sources/lookup");
-const yamlStore = require("../../src/config/yamlStore");
-const More = require("../../src/usecases/playlistMore");
-const messageHandler = require("../../events/messageHandler");
-const panelPin = require("../../events/panelPin");
-const playlistMoreHandler = require("../../events/playlistMoreHandler");
-const modalHandler = require("../../events/modalHandler");
+const S = (await import("../../src/ui/strings.js")).default;
+const settings = (await import("../../src/store/guildSettings.js")).default;
+const lookup = (await import("../../src/sources/lookup.js")).default;
+const yamlStore = (await import("../../src/config/yamlStore.js")).default;
+const More = (await import("../../src/usecases/playlistMore.js")).default;
+const messageHandler = (await import("../../events/messageHandler.js")).default;
+const panelPin = (await import("../../events/panelPin.js")).default;
+const playlistMoreHandler = (await import("../../events/playlistMoreHandler.js")).default;
+const modalHandler = (await import("../../events/modalHandler.js")).default;
 
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";
@@ -43,7 +41,7 @@ before(() => {
 
 after(() => {
   Object.assign(lookup, real);
-  yamlStore._setConfigDir(path.join(__dirname, "..", "..", "config"));
+  yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });

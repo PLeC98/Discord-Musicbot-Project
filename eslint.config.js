@@ -9,7 +9,7 @@ const pluginVue = require("eslint-plugin-vue");
 const prettierConfig = require("eslint-config-prettier");
 
 // ESM 으로 바꾼 봇 코드 폴더. 짝이 되는 test/ 폴더도 같이 바뀐다(src/x → test/x, dashboard/server → test/dashboard)
-const ESM_FOLDERS = ["src/infra", "src/rules", "src/config", "src/store", "src/sources", "src/media", "src/autoplay", "src/player", "src/ui", "src/usecases", "src/app", "commands"];
+const ESM_FOLDERS = ["src/infra", "src/rules", "src/config", "src/store", "src/sources", "src/media", "src/autoplay", "src/player", "src/ui", "src/usecases", "src/app", "commands", "events"];
 const testDirOf = (dir) => (dir.startsWith("src/") ? dir.replace(/^src/, "test") : `test/${dir.split("/")[0]}`);
 
 module.exports = [

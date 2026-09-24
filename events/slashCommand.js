@@ -1,13 +1,13 @@
-"use strict";
-
 // 슬래시 명령 실행. 명령을 찾아 부르고, 실패하면 본인에게만 보이게 알린다.
 // 본인에게만 보이는 응답의 수명은 이벤트를 거는 조립(index.js)이 상호작용 처리기마다 건다.
 
-const { Events } = require("discord.js");
-const log = require("../src/infra/log/logger").child({ category: "core" });
-const { isDeadInteraction } = require("../src/rules/deadInteraction");
+import { Events } from "discord.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "core" });
+import deadInteraction from "../src/rules/deadInteraction.js";
+const { isDeadInteraction } = deadInteraction;
 
-module.exports = {
+const exported = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     const client = interaction.client;
@@ -35,3 +35,5 @@ module.exports = {
     }
   },
 };
+export default exported;
+export { exported as "module.exports" };

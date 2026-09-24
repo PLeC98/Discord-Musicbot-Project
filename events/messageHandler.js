@@ -1,14 +1,20 @@
-const { Events, MessageFlags } = require("discord.js");
-const log = require("../src/infra/log/logger").child({ category: "events" });
-const GuildSettingsManager = require("../src/store/guildSettings");
-const { checkAdd, checkSummon } = require("../src/usecases/permissions");
-const { requestPlayback } = require("../src/usecases/addTracks");
-const { channelResponder } = require("../src/usecases/responders");
-const { scheduleDelete } = require("../src/ui/transientMessages");
-const { offerOnChannel } = require("../src/usecases/playlistMore");
-const S = require("../src/ui/strings");
+import { Events, MessageFlags } from "discord.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "events" });
+import GuildSettingsManager from "../src/store/guildSettings.js";
+import permissions from "../src/usecases/permissions.js";
+const { checkAdd, checkSummon } = permissions;
+import addTracks from "../src/usecases/addTracks.js";
+const { requestPlayback } = addTracks;
+import responders from "../src/usecases/responders.js";
+const { channelResponder } = responders;
+import transientMessages from "../src/ui/transientMessages.js";
+const { scheduleDelete } = transientMessages;
+import playlistMore from "../src/usecases/playlistMore.js";
+const { offerOnChannel } = playlistMore;
+import S from "../src/ui/strings.js";
 
-module.exports = {
+const exported = {
   name: Events.MessageCreate,
 
   async execute(message) {
@@ -74,3 +80,5 @@ module.exports = {
     }
   },
 };
+export default exported;
+export { exported as "module.exports" };

@@ -1,16 +1,15 @@
-"use strict";
-
 // events/djRoleConfigHandler.js — /setdjrole GUI (드롭메뉴 선택 보류 → 저장/취소 확정) 흐름.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
-const { test, after } = require("node:test");
-const assert = require("node:assert/strict");
-const { PermissionFlagsBits } = require("discord.js");
+import { test, after } from "node:test";
+import assert from "node:assert/strict";
+import { PermissionFlagsBits } from "discord.js";
 
-const { openTempStore, setGuild } = require("../helpers/tempStore");
+import tempStore from "../helpers/tempStore.js";
+const { openTempStore, setGuild } = tempStore;
 const temp = openTempStore("dj-role-");
 after(() => temp.close());
-const settings = require("../../src/store/guildSettings");
+const settings = (await import("../../src/store/guildSettings.js")).default;
 
 // 저장된 DJ 역할을 표에서 바로 읽고 쓴다(Map 과 같은 모양)
 const store = {
@@ -25,7 +24,7 @@ const store = {
   },
 };
 
-const handler = require("../../events/djRoleConfigHandler");
+const handler = (await import("../../events/djRoleConfigHandler.js")).default;
 
 const guild = { id: "g1", roles: { cache: { has: (id) => ["r1", "r2"].includes(id) } } };
 

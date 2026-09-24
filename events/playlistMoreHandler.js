@@ -1,18 +1,19 @@
-"use strict";
-
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.js).
 
-const { Events, MessageFlags } = require("discord.js");
-const log = require("../src/infra/log/logger").child({ category: "events" });
-const S = require("../src/ui/strings");
-const { checkAdd } = require("../src/usecases/permissions");
-const GuildSettingsManager = require("../src/store/guildSettings");
-const { continueCollection } = require("../src/usecases/addTracks");
-const More = require("../src/usecases/playlistMore");
+import { Events, MessageFlags } from "discord.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "events" });
+import S from "../src/ui/strings.js";
+import permissions from "../src/usecases/permissions.js";
+const { checkAdd } = permissions;
+import GuildSettingsManager from "../src/store/guildSettings.js";
+import addTracks from "../src/usecases/addTracks.js";
+const { continueCollection } = addTracks;
+import More from "../src/usecases/playlistMore.js";
 
 const PROGRESS_EVERY_MS = 2000;
 
-module.exports = {
+const exported = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     const isSelect = interaction.isStringSelectMenu() && interaction.customId.startsWith(`${More.SELECT_PREFIX}:`);
@@ -91,3 +92,5 @@ module.exports = {
     if (message) More.expireLater(message.id, () => interaction.deleteReply());
   },
 };
+export default exported;
+export { exported as "module.exports" };

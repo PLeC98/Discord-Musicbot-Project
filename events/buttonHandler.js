@@ -1,23 +1,31 @@
-const { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
-const log = require("../src/infra/log/logger").child({ category: "events" });
-const config = require("../config");
-const S = require("../src/ui/strings");
-const { requestPlayback, ensurePlayer } = require("../src/usecases/addTracks");
-const { channelResponder } = require("../src/usecases/responders");
-const { checkControl, checkAdd, checkSummon } = require("../src/usecases/permissions");
-const controls = require("../src/usecases/controls");
-const { controlMessage } = require("../src/ui/controlMessages");
+import { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
+import logger from "../src/infra/log/logger.js";
+const log = logger.child({ category: "events" });
+import config from "../config.js";
+import S from "../src/ui/strings.js";
+import addTracks from "../src/usecases/addTracks.js";
+const { requestPlayback, ensurePlayer } = addTracks;
+import responders from "../src/usecases/responders.js";
+const { channelResponder } = responders;
+import permissions from "../src/usecases/permissions.js";
+const { checkControl, checkAdd, checkSummon } = permissions;
+import controls from "../src/usecases/controls.js";
+import controlMessages from "../src/ui/controlMessages.js";
+const { controlMessage } = controlMessages;
 
 const LOOP_TEXT = {
   track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
   queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
-const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = require("../src/ui/genreMenu");
-const { keepReply, expireReply } = require("../src/ui/replyLifetime");
-const { queueLine } = require("../src/ui/queueDisplay");
-const helpCommand = require("../commands/help");
-const systemCommand = require("../commands/system");
+import genreMenu from "../src/ui/genreMenu.js";
+const { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } = genreMenu;
+import replyLifetime from "../src/ui/replyLifetime.js";
+const { keepReply, expireReply } = replyLifetime;
+import queueDisplay from "../src/ui/queueDisplay.js";
+const { queueLine } = queueDisplay;
+import helpCommand from "../commands/help.js";
+import systemCommand from "../commands/system.js";
 
 // customId 앞머리로 가르는 버튼. 플레이어 없이도 눌린다. null 은 다른 처리기(djRoleConfigHandler · sponsorConfigHandler)가 받는다.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
@@ -43,7 +51,7 @@ const PANEL = {
   music_previous: (h, it, player) => h.handlePrevious(it, player),
 };
 
-module.exports = {
+const exported = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     if (!interaction.isButton()) return;
@@ -403,3 +411,5 @@ module.exports = {
     }
   },
 };
+export default exported;
+export { exported as "module.exports" };

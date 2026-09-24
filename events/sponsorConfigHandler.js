@@ -1,9 +1,7 @@
-"use strict";
-
-const { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-const GuildSettingsManager = require("../src/store/guildSettings");
-const SponsorBlock = require("../src/sources/sponsorBlock");
-const config = require("../config");
+import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import GuildSettingsManager from "../src/store/guildSettings.js";
+import SponsorBlock from "../src/sources/sponsorBlock.js";
+import config from "../config.js";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -59,7 +57,7 @@ function registerPending(messageId, state) {
   pending.set(messageId, { enabled: state.enabled, categories: [...state.categories], at: Date.now() });
 }
 
-module.exports = {
+const exported = {
   name: Events.InteractionCreate,
   buildSponsorConfigMessage,
   registerPending,
@@ -121,3 +119,5 @@ module.exports = {
     }
   },
 };
+export default exported;
+export { exported as "module.exports" };

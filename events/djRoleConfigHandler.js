@@ -1,7 +1,5 @@
-"use strict";
-
-const { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require("discord.js");
-const GuildSettingsManager = require("../src/store/guildSettings");
+import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
+import GuildSettingsManager from "../src/store/guildSettings.js";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
 // 드롭메뉴 선택값은 셀렉트 인터랙션으로만 오므로, 저장 버튼이 읽을 수 있게
@@ -16,7 +14,7 @@ function sweepPending() {
   }
 }
 
-module.exports = {
+const exported = {
   name: Events.InteractionCreate,
   async execute(interaction) {
     const isSelect = interaction.isRoleSelectMenu() && interaction.customId === "djrole:select";
@@ -83,3 +81,5 @@ module.exports = {
     }
   },
 };
+export default exported;
+export { exported as "module.exports" };

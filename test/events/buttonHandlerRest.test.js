@@ -1,27 +1,25 @@
-"use strict";
-
 // 버튼 처리기의 나머지 갈래를 고정한다(구조 리팩터링 0-B). 조작 전제 조건은 controlEntrances.test.js 의 표가 본다.
 // 여기서는 검색 결과 버튼 · 도움말 · 시스템 새로고침 · 자동재생 버튼 · 대기열 버튼 · 옛 세션 · 모르는 버튼 · 조작이 실패했을 때를 본다.
 //
 // 6단계가 이 파일을 customId 앞머리별 처리기 표로 바꾼다. 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜(서버 설정은 임시 DB),
 // 화면 관리자만 가짜다.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { test, beforeEach, after } = require("node:test");
-const assert = require("node:assert/strict");
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { test, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
-const audioCache = require("../../src/store/audioCache");
+const audioCache = (await import("../../src/store/audioCache.js")).default;
 audioCache._cacheDir = path.join(TMP, "audio_cache");
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-const config = require("../../config");
-const S = require("../../src/ui/strings");
-const settings = require("../../src/store/guildSettings");
-const playerEvents = require("../../src/player/events");
-const buttonHandler = require("../../events/buttonHandler");
+const config = (await import("../../config.js")).default;
+const S = (await import("../../src/ui/strings.js")).default;
+const settings = (await import("../../src/store/guildSettings.js")).default;
+const playerEvents = (await import("../../src/player/events.js")).default;
+const buttonHandler = (await import("../../events/buttonHandler.js")).default;
 
 after(() => {
   audioCache.close();
