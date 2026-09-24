@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import trackState from "../../src/player/trackState.ts";
+import * as trackState from "../../src/player/trackState.ts";
 import { PlayerSessionStore, GAP, SEQ_LIMIT } from "../../src/store/playerSessions.ts";
 import { createTables } from "../../src/store/db.ts";
 import type { TrackIn, SessionState } from "../../src/store/playerSessions.ts";

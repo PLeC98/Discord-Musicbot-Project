@@ -6,7 +6,7 @@ import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import trackState from "../player/trackState.ts";
+import * as trackState from "../player/trackState.ts";
 import strings from "../ui/strings.js";
 const { collectionLabel } = strings;
 import transientMessages from "../ui/transientMessages.js";

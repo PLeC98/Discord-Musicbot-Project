@@ -2,10 +2,10 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
-import playerEvents from "./events.ts";
-import trackState from "./trackState.ts";
+import * as playerEvents from "./events.ts";
+import * as trackState from "./trackState.ts";
 import type { Client, Guild, VoiceState } from "discord.js";
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 
 async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState: VoiceState) {
   const guild = oldState.guild;
@@ -82,6 +82,4 @@ async function listenersChanged(client: Client, player: MusicPlayer, guild: Guil
   if (wasAlone === someone && player.currentTrack) await playerEvents.refresh(player);
 }
 
-const exported = { onVoiceStateUpdate };
-export default exported;
-export { exported as "module.exports" };
+export { onVoiceStateUpdate };

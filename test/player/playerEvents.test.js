@@ -2,7 +2,7 @@
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import playerEvents from "../../src/player/events.ts";
+import * as playerEvents from "../../src/player/events.ts";
 
 afterEach(() => playerEvents._reset());
 

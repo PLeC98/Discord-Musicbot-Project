@@ -11,7 +11,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { messageOf } from "../rules/errorKind.ts";
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 
 /** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
 type Requester = { id: string; username?: string };
@@ -65,7 +65,5 @@ function _reset() {
   for (const set of Object.values(listeners)) set.clear();
 }
 
-const exported = { on, refresh, ended, started, notice, released, touched, _reset };
-export default exported;
+export { on, refresh, ended, started, notice, released, touched, _reset };
 export type { EventArgs, Requester };
-export { exported as "module.exports" };

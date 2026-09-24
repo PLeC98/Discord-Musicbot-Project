@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import createPlayerSessionId from "../../src/player/playerSessionId.ts";
+import { createPlayerSessionId } from "../../src/player/playerSessionId.ts";
 
 test("creates compact URL-safe player session IDs", () => {
   const id = createPlayerSessionId();

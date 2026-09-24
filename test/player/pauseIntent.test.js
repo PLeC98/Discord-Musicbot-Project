@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import MusicPlayer from "../../src/player/Player.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
 
 // @discordjs/voice와 같은 규칙: 상태가 바뀌면 그 상태 이름으로 이벤트, pause()는 playing에서만, unpause()는 paused에서만
 function fakeAudioPlayer(status) {

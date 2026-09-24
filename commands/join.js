@@ -3,7 +3,7 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import addTracks from "../src/usecases/addTracks.js";
 const { ensurePlayer } = addTracks;
-import playerEvents from "../src/player/events.ts";
+import * as playerEvents from "../src/player/events.ts";
 import { sessions } from "../src/store/playerSessions.ts";
 import mentions from "../src/ui/mentions.js";
 const { escapeMd } = mentions;

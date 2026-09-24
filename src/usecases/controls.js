@@ -9,7 +9,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
 import perm from "./permissions.js";
-import playerEvents from "../player/events.ts";
+import * as playerEvents from "../player/events.ts";
 
 const fail = (code, extra = {}) => ({ ok: false, code, ...extra });
 

@@ -8,8 +8,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import MusicPlayer from "../../src/player/Player.ts";
-import PlaybackState from "../../src/player/playbackState.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
+import { PlaybackState } from "../../src/player/playbackState.ts";
 
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 

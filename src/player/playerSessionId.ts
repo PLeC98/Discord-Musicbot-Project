@@ -5,5 +5,4 @@ function createPlayerSessionId(): string {
   return crypto.randomBytes(18).toString("base64url");
 }
 
-export default createPlayerSessionId;
-export { createPlayerSessionId as "module.exports" };
+export { createPlayerSessionId };

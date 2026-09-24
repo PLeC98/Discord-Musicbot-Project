@@ -6,7 +6,7 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const wlog = logger.child({ category: "watchdog" });
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
 
 /** 감시가 읽고 멈추는 플레이어 칸 */
@@ -163,6 +163,5 @@ class PlaybackWatch {
   }
 }
 
-export default PlaybackWatch;
-export { PlaybackWatch as "module.exports" };
+export { PlaybackWatch };
 export type { WatchHost };

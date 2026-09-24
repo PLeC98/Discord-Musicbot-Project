@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import PlaybackState from "../../src/player/playbackState.ts";
+import { PlaybackState } from "../../src/player/playbackState.ts";
 
 test("단계: idle → starting → playing → (끝) idle → starting … 버리면 disposed", () => {
   const s = new PlaybackState();

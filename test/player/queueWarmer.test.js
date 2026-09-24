@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import QueueWarmer from "../../src/player/queueWarmer.ts";
+import { QueueWarmer } from "../../src/player/queueWarmer.ts";
 
 import { createRequire } from "node:module";
 

@@ -1,6 +1,6 @@
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState } from "@discordjs/voice";
 import type { VoiceBasedChannel } from "discord.js";
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 
 /** 음성 라이브러리에서 부르는 것 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
@@ -369,5 +369,4 @@ class VoiceConnectionManager {
   }
 }
 
-export default VoiceConnectionManager;
-export { VoiceConnectionManager as "module.exports" };
+export { VoiceConnectionManager };

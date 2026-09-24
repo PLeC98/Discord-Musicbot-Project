@@ -3,7 +3,8 @@ const log = logger.child({ category: "track" });
 import config from "../../config.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
-import trackState, { type Tracks } from "./trackState.ts";
+import * as trackState from "./trackState.ts";
+import type { Tracks } from "./trackState.ts";
 import type { QueuedTrack } from "./track.ts";
 
 /** 예열이 읽는 플레이어 칸. 뺀 자리를 메울 때 자동재생을 부른다 */
@@ -243,6 +244,5 @@ class QueueWarmer {
   }
 }
 
-export default QueueWarmer;
 export type { WarmerDeps, WarmerHost };
-export { QueueWarmer as "module.exports" };
+export { QueueWarmer };

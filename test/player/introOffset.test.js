@@ -2,8 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import startPlayback from "../../src/player/startPlayback.ts";
-const { introOffsetMs: intro } = startPlayback;
+import { introOffsetMs as intro } from "../../src/player/startPlayback.ts";
 
 test("introOffsetMs: 0 부근 시작 인트로 → 끝(ms)", () => {
   assert.equal(intro({ skipSegments: [{ start: 0, end: 138, categories: ["intro"] }] }), 138000);

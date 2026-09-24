@@ -1,7 +1,7 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 import type { SkipSegment } from "../sources/sponsorBlock.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 칸 */
@@ -101,6 +101,5 @@ class SponsorSkipper {
   }
 }
 
-export default SponsorSkipper;
 export type { SkipHost };
-export { SponsorSkipper as "module.exports" };
+export { SponsorSkipper };

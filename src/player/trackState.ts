@@ -164,25 +164,5 @@ function restore(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks
   if (!persisted) sinkOf(player)?.onReplace();
 }
 
-const exported = {
-  HISTORY_MAX,
-  roomLeft,
-  init,
-  setCurrent,
-  enqueue,
-  enqueueAheadOfAutoplay,
-  dropAutoplay,
-  insertAfter,
-  shiftNext,
-  retire,
-  rewind,
-  removeAt,
-  move,
-  shuffle,
-  clearQueue,
-  reset,
-  restore,
-};
-export default exported;
+export { HISTORY_MAX, roomLeft, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, removeAt, move, shuffle, clearQueue, reset, restore };
 export type { Loop, TrackSink, Tracks };
-export { exported as "module.exports" };

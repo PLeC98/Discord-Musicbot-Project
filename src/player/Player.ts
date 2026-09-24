@@ -27,27 +27,26 @@ import config from "../../config.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf } from "../rules/errorKind.ts";
 import * as streamUrl from "../sources/streamUrl.ts";
-import SponsorSkipper from "./sponsorSkipper.ts";
+import { SponsorSkipper } from "./sponsorSkipper.ts";
 import * as DirectLink from "../sources/direct.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as SponsorBlock from "../sources/sponsorBlock.ts";
 import { openChunkedStream } from "../media/chunkedStream.ts";
 import { openInput } from "../media/playbackInput.ts";
-import voiceChannelStatus from "./voiceChannelStatus.ts";
+import * as voiceChannelStatus from "./voiceChannelStatus.ts";
 import * as audioCache from "../store/audioCache.ts";
-import VoiceConnectionManager from "./voiceConnection.ts";
-import PlaybackWatch from "./playbackWatch.ts";
-import IdleLeave from "./idleLeave.ts";
-import PlaybackState from "./playbackState.ts";
-import CurrentPlayback from "./currentPlayback.ts";
-import playerEvents from "./events.ts";
-import startPlayback from "./startPlayback.ts";
-const { prepareStart, resolveSource, commitPlaying } = startPlayback;
+import { VoiceConnectionManager } from "./voiceConnection.ts";
+import { PlaybackWatch } from "./playbackWatch.ts";
+import { IdleLeave } from "./idleLeave.ts";
+import { PlaybackState } from "./playbackState.ts";
+import { CurrentPlayback } from "./currentPlayback.ts";
+import * as playerEvents from "./events.ts";
+import { prepareStart, resolveSource, commitPlaying } from "./startPlayback.ts";
 import { TrackDownloader } from "../media/cacheDownload.ts";
-import createPlayerSessionId from "./playerSessionId.ts";
-import SessionPersistence from "./sessionMirror.ts";
-import QueueWarmer from "./queueWarmer.ts";
-import trackState from "./trackState.ts";
+import { createPlayerSessionId } from "./playerSessionId.ts";
+import { SessionPersistence } from "./sessionMirror.ts";
+import { QueueWarmer } from "./queueWarmer.ts";
+import * as trackState from "./trackState.ts";
 import { spawnFfmpeg } from "../media/ffmpeg/process.ts";
 import { transportOf } from "../rules/transportOf.ts";
 import { buildFfmpegArgs } from "../media/ffmpeg/args.ts";
@@ -1172,6 +1171,5 @@ class MusicPlayer {
   }
 }
 
-export default MusicPlayer;
 export type { Boundary };
-export { MusicPlayer as "module.exports" };
+export { MusicPlayer };

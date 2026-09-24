@@ -19,7 +19,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 const config = (await import("../../config.ts")).default;
 const S = (await import("../../src/ui/strings.js")).default;
 const settings = await import("../../src/store/guildSettings.ts");
-const playerEvents = (await import("../../src/player/events.ts")).default;
+const playerEvents = await import("../../src/player/events.ts");
 const buttonHandler = (await import("../../events/buttonHandler.js")).default;
 
 after(() => {

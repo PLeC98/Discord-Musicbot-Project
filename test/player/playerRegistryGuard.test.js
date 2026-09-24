@@ -14,9 +14,9 @@ const store = openTempStore("registry-guard-");
 after(() => store.close());
 
 const config = (await import("../../config.ts")).default;
-const MusicPlayer = (await import("../../src/player/Player.ts")).default;
-const PlaybackState = (await import("../../src/player/playbackState.ts")).default;
-const IdleLeave = (await import("../../src/player/idleLeave.ts")).default;
+const MusicPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
+const PlaybackState = (await import("../../src/player/playbackState.ts")).PlaybackState;
+const IdleLeave = (await import("../../src/player/idleLeave.ts")).IdleLeave;
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
 const GUILD = "g1";

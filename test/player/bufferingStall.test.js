@@ -4,8 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AudioPlayerStatus } from "@discordjs/voice";
-import MusicPlayer from "../../src/player/Player.ts";
-import PlaybackWatch from "../../src/player/playbackWatch.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
+import { PlaybackWatch } from "../../src/player/playbackWatch.ts";
 
 function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reason = null } = {}) {
   return {

@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import SponsorSkipper from "../../src/player/sponsorSkipper.ts";
+import { SponsorSkipper } from "../../src/player/sponsorSkipper.ts";
 
 const segs = (...pairs) => pairs.map(([start, end]) => ({ start, end, categories: ["music_offtopic"] }));
 

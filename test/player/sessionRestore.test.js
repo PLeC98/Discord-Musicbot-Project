@@ -7,8 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RESTJSONErrorCodes } from "discord.js";
-import sessionRestore from "../../src/player/sessionRestore.ts";
-const { resolveGuildForRestore } = sessionRestore;
+import { resolveGuildForRestore } from "../../src/player/sessionRestore.ts";
 
 // 재시도 대기는 0으로 — 검증 대상은 시도 횟수지 대기 시간이 아니다
 const NOW = { attempts: 3, delayMs: 0 };
@@ -103,7 +102,7 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 
 import { after } from "node:test";
 const { openTempStore } = (await import("../helpers/tempStore.js")).default;
-const { restoreSavedPlayers } = (await import("../../src/player/sessionRestore.ts")).default;
+const { restoreSavedPlayers } = await import("../../src/player/sessionRestore.ts");
 const { sessions } = await import("../../src/store/playerSessions.ts");
 
 const store = openTempStore("session-restore-");

@@ -6,9 +6,9 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import trackState from "./trackState.ts";
-import playerEvents from "./events.ts";
-import type MusicPlayer from "./Player.ts";
+import * as trackState from "./trackState.ts";
+import * as playerEvents from "./events.ts";
+import type { MusicPlayer } from "./Player.ts";
 
 class IdleLeave {
   player: MusicPlayer;
@@ -128,5 +128,4 @@ class IdleLeave {
   }
 }
 
-export default IdleLeave;
-export { IdleLeave as "module.exports" };
+export { IdleLeave };

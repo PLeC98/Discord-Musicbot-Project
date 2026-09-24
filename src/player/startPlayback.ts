@@ -9,11 +9,11 @@ const log = logger.child({ category: "player" });
 import { TrackDownloader } from "../media/cacheDownload.ts";
 import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";
-import trackState from "./trackState.ts";
+import * as trackState from "./trackState.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import { messageOf } from "../rules/errorKind.ts";
-import type MusicPlayer from "./Player.ts";
-import type CurrentPlayback from "./currentPlayback.ts";
+import type { MusicPlayer } from "./Player.ts";
+import type { CurrentPlayback } from "./currentPlayback.ts";
 import type { Resume } from "./currentPlayback.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
@@ -236,7 +236,5 @@ function audioDurationSec(track: QueuedTrack | null, streamInfo: StreamInfo | nu
   return streamed && streamed > 0 ? streamed : null;
 }
 
-const exported = { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec };
-export default exported;
+export { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec };
 export type { Source };
-export { exported as "module.exports" };

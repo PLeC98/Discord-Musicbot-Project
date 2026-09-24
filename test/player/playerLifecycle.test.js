@@ -15,7 +15,7 @@ import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
-import voiceChannelStatus from "../../src/player/voiceChannelStatus.ts";
+import * as voiceChannelStatus from "../../src/player/voiceChannelStatus.ts";
 
 const { calls, AudioPlayerStatus } = h;
 

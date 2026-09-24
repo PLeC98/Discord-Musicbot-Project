@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import VoiceConnectionManager from "../../src/player/voiceConnection.ts";
+import { VoiceConnectionManager } from "../../src/player/voiceConnection.ts";
 
 function deferred() {
   let resolve, reject;

@@ -3,7 +3,7 @@
 //
 //   refresh → "update" · ended → "end:<reason>" · started → "create:<곡 제목>" · released → "webhook:<채널 id>"
 
-import playerEvents from "../../src/player/events.ts";
+import * as playerEvents from "../../src/player/events.ts";
 
 function recordPanel({ player = null } = {}) {
   const seen = [];

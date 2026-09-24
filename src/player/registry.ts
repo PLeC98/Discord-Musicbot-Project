@@ -1,7 +1,7 @@
 import { Collection } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 
 /**
  * client.players를 감싸 등록, 해제를 전부 기록
@@ -44,5 +44,4 @@ class PlayerRegistry extends Collection<string, MusicPlayer> {
   }
 }
 
-export default PlayerRegistry;
-export { PlayerRegistry as "module.exports" };
+export { PlayerRegistry };

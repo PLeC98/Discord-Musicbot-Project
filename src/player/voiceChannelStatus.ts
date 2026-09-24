@@ -64,6 +64,5 @@ function _reset() {
   ours.clear();
 }
 
-const exported = { observe, mark, canWrite, consumePacket, _internals: { current, ours, _reset } };
-export default exported;
-export { exported as "module.exports" };
+export { observe, mark, canWrite, consumePacket };
+export const _internals = { current, ours, _reset };

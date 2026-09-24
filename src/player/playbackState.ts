@@ -52,6 +52,5 @@ class PlaybackState {
   }
 }
 
-export default PlaybackState;
 export type { Phase };
-export { PlaybackState as "module.exports" };
+export { PlaybackState };

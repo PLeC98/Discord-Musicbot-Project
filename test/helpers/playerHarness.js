@@ -117,12 +117,12 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 // ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
-const MusicPlayer = (await import("../../src/player/Player.ts")).default;
+const MusicPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
 const { TrackDownloader } = await import("../../src/media/cacheDownload.ts");
 const SponsorBlock = await import("../../src/sources/sponsorBlock.ts");
-const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).default;
-const SessionPersistence = (await import("../../src/player/sessionMirror.ts")).default;
-const QueueWarmer = (await import("../../src/player/queueWarmer.ts")).default;
+const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).VoiceConnectionManager;
+const SessionPersistence = (await import("../../src/player/sessionMirror.ts")).SessionPersistence;
+const QueueWarmer = (await import("../../src/player/queueWarmer.ts")).QueueWarmer;
 
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
 const fakeConnection = () => Object.assign(new EventEmitter(), { state: { status: "ready" }, destroy() {}, subscribe() {} });

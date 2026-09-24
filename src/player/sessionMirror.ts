@@ -2,11 +2,11 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import * as db from "../store/db.ts";
 import { sessions } from "../store/playerSessions.ts";
-import trackState from "./trackState.ts";
+import * as trackState from "./trackState.ts";
 import config from "../../config.ts";
-import playerEvents from "./events.ts";
+import * as playerEvents from "./events.ts";
 import { messageOf } from "../rules/errorKind.ts";
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/playerSessions.ts";
 
@@ -314,5 +314,4 @@ class SessionPersistence {
   }
 }
 
-export default SessionPersistence;
-export { SessionPersistence as "module.exports" };
+export { SessionPersistence };

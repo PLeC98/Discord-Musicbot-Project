@@ -3,9 +3,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import voicePresence from "../../src/player/voicePresence.ts";
-const { onVoiceStateUpdate } = voicePresence;
-import playerEvents from "../../src/player/events.ts";
+import { onVoiceStateUpdate } from "../../src/player/voicePresence.ts";
+import * as playerEvents from "../../src/player/events.ts";
 
 const BOT = "bot1";
 

@@ -4,7 +4,7 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import controls from "../../src/usecases/controls.js";
-import playerEvents from "../../src/player/events.ts";
+import * as playerEvents from "../../src/player/events.ts";
 import S from "../../src/ui/strings.js";
 import controlMessages from "../../src/ui/controlMessages.js";
 import { createRequire } from "node:module";

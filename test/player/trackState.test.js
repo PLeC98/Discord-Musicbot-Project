@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import trackState from "../../src/player/trackState.ts";
+import * as trackState from "../../src/player/trackState.ts";
 
 const t = (title) => ({ title });
 const titles = (arr) => arr.map((x) => x.title);

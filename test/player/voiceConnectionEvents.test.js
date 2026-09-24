@@ -40,7 +40,7 @@ const voiceLib = {
   },
 };
 
-const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).default;
+const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).VoiceConnectionManager;
 
 const flush = () => new Promise((done) => setImmediate(done));
 

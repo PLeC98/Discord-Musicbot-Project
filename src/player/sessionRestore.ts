@@ -3,7 +3,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import { sessions, type RestoredSession, type SessionState } from "../store/playerSessions.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
-import type MusicPlayer from "./Player.ts";
+import type { MusicPlayer } from "./Player.ts";
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
@@ -109,6 +109,4 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   return null;
 }
 
-const exported = { resolveGuildForRestore, restoreSavedPlayers, ATTEMPTS, RETRY_DELAY_MS };
-export default exported;
-export { exported as "module.exports" };
+export { resolveGuildForRestore, restoreSavedPlayers, ATTEMPTS, RETRY_DELAY_MS };

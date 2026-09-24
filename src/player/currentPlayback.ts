@@ -41,6 +41,5 @@ class CurrentPlayback {
   }
 }
 
-export default CurrentPlayback;
 export type { Resume };
-export { CurrentPlayback as "module.exports" };
+export { CurrentPlayback };
