@@ -7,6 +7,8 @@ import * as Spotify from "../../src/sources/spotify.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import MusicEmbedManager from "../../src/ui/nowPlayingPanel.ts";
 import strings from "../../src/ui/strings.ts";
+import type { Client } from "discord.js";
+import { fake } from "../helpers/fake.ts";
 const { collectionLabel } = strings;
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => ({ title: `곡${i}` }));
@@ -34,7 +36,7 @@ test("유튜브 재생목록은 playlist", async () => {
 });
 
 test("안내 문구가 출처 이름을 따른다", () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
+  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
   assert.equal(mem.createQueueAdditionMessage(songs(11), collectionLabel("album")), "✅ 앨범의 11개 노래가 대기열에 추가되었습니다!");
   assert.equal(mem.createQueueAdditionMessage(songs(10), collectionLabel("artist"), true), "⏫ 아티스트 인기곡의 10개 노래가 대기열 맨 앞에 추가되었습니다!");
   assert.equal(mem.createQueueAdditionMessage(songs(5), collectionLabel(undefined)), "✅ 재생목록의 5개 노래가 대기열에 추가되었습니다!", "종류를 모르면 재생목록");
@@ -42,11 +44,9 @@ test("안내 문구가 출처 이름을 따른다", () => {
 });
 
 test("안내 문구: 받은 것보다 목록이 크면 전체 곡 수를, 자리가 모자라 덜 받았으면 그 사실을 붙인다", () => {
-  const mem = new MusicEmbedManager({ players: new Map() });
+  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
   const label = collectionLabel("playlist");
-  // @ts-expect-error ui(JS) 의 기본값 total = null 을 타입으로 읽는다. ui 를 TS 로 옮기면 없어진다
   assert.equal(mem.createQueueAdditionMessage(songs(50), label, false, { total: 9946 }), "✅ 재생목록의 50개 노래가 대기열에 추가되었습니다! (전체 9,946곡)");
   assert.match(mem.createQueueAdditionMessage(songs(5), label, false, { queueLimited: true }), /\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다/);
-  // @ts-expect-error ui(JS) 의 기본값 total = null 을 타입으로 읽는다. ui 를 TS 로 옮기면 없어진다
   assert.doesNotMatch(mem.createQueueAdditionMessage([{ title: "곡" }], null, false, { total: 9946 }), /전체/, "한 곡 안내에는 붙이지 않는다");
 });

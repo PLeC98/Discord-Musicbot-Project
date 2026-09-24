@@ -5,11 +5,10 @@ import * as GuildSettingsManager from "../store/guildSettings.ts";
 import { codeOf } from "../rules/errorKind.ts";
 import type { Guild, GuildBasedChannel, WebhookClient } from "discord.js";
 import type { PanelRecord } from "../store/guildSettings.ts";
+import type { PanelHook as Hook } from "../player/Player.ts";
 
 const UNKNOWN_MESSAGE = 10008;
 
-/** 패널을 올린 웹훅. 여기서 부르는 것만 */
-type Hook = Pick<WebhookClient, "editMessage" | "deleteMessage">;
 /** 웹훅을 다시 찾는 쪽(MusicEmbedManager) */
 type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null> };
 /** 기록 저장소. 시험은 가짜를 준다 */

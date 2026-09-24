@@ -12,7 +12,7 @@ const clog = loggerModule2.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
 import loggerModule3 from "../infra/log/logger.ts";
 const elog = loggerModule3.child({ category: "error" });
-import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type Webhook } from "discord.js";
+import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
 import type { AudioPlayer, VoiceConnection } from "@discordjs/voice";
 import type { QueuedTrack } from "./track.ts";
 import type { Loop } from "./trackState.ts";
@@ -93,6 +93,11 @@ type Boundary = typeof REAL;
 type Switchable = Pick<AudioSplicer, "destroyed" | "switchPending" | "emittedMs" | "slips" | "planSwitch"> & { once(event: "switched", listener: (ms: number) => void): unknown };
 let defaultBoundary: Boundary = REAL;
 
+/** 재생 패널. 웹훅으로 올렸으면 API 메시지 모양(channel_id), 채널로 보냈으면 Message */
+type PanelMessage = Message | { id: string; channel_id: string };
+/** 재생 패널을 올린 웹훅. 고치고 지우는 것만 */
+type PanelHook = Pick<WebhookClient, "editMessage" | "deleteMessage">;
+
 class MusicPlayer {
   guild: Guild;
   textChannel: GuildTextBasedChannel | null;
@@ -112,8 +117,8 @@ class MusicPlayer {
   autoplay: string | false;
   paused: boolean;
   // 화면(ui)이 채우는 패널
-  nowPlayingMessage: Message | null;
-  nowPlayingWebhook?: Webhook | null;
+  nowPlayingMessage: PanelMessage | null;
+  nowPlayingWebhook?: PanelHook | null;
   requesterId: string | null;
   sessionId: string;
   pendingEndReason: string | null;
@@ -1173,5 +1178,5 @@ class MusicPlayer {
   }
 }
 
-export type { Boundary };
+export type { Boundary, PanelMessage, PanelHook };
 export { MusicPlayer };
