@@ -1,4 +1,4 @@
-// src/app/commandLoader.js — 커맨드 로드 + 배포 (등록 요청은 가짜를 넘긴다, 실 배포 없음).
+// src/app/commandLoader.ts — 커맨드 로드 + 배포 (등록 요청은 가짜를 넘긴다, 실 배포 없음).
 // 배포 지문은 임시 파일 사용 — 운영 database/deployed-commands.json 미접촉.
 
 import fs from "node:fs";

@@ -1,4 +1,4 @@
-// dashboard/server/routes/admin.js — 유튜브 쿠키 통로.
+// dashboard/server/routes/admin.ts — 유튜브 쿠키 통로.
 //
 // 키와 같은 규칙이다: 운영자만 들어오고, 값은 어느 통로로도 돌아나가지 않는다.
 // 로그인된 세션 그 자체라 응답에도 로그에도 내용이 남으면 안 된다.

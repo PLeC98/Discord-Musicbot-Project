@@ -1,4 +1,4 @@
-// src/usecases/permissions.js — 권한 3계층(모더레이터/DJ/일반) 판정.
+// src/usecases/permissions.ts — 권한 3계층(모더레이터/DJ/일반) 판정.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after } from "node:test";

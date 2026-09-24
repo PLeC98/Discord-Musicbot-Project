@@ -1,5 +1,5 @@
 // VoiceConnectionManager 의 연결 이벤트 · 헬스체크 · 재연결 · 재개 · 연결 · 이동의 지금 동작을 고정한다
-// (구조 리팩터링 0단계). 복구 루프 자체는 voiceConnectionManager.test.js 가 본다.
+// (구조 리팩터링 0단계). 복구 루프 자체는 voiceConnectionManager.test.ts 가 본다.
 //
 // 음성 라이브러리의 joinVoiceChannel · entersState 는 관리자를 만들 때 가짜로 넘긴다.
 

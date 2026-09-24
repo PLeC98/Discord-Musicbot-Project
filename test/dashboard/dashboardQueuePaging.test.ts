@@ -1,4 +1,4 @@
-// dashboard/server/routes/guilds.js — 대기열을 구간으로 나눠 싣는 경로.
+// dashboard/server/routes/guilds.ts — 대기열을 구간으로 나눠 싣는 경로.
 // 큐 전체를 매 응답에 담던 것을 바꿨다. 조작 응답도 상태를 통째로 돌려주므로,
 // 화면이 펼쳐 둔 창(?queue=n)을 그대로 지켜주지 않으면 목록이 접힌다.
 
@@ -27,7 +27,7 @@ type QueueReply = { items: ReturnType<typeof queueTrack>[]; total: number };
 
 const GUILD_ID = "100";
 const QUEUE_LEN = 257;
-const PAGE = 100; // guilds.js QUEUE_PAGE
+const PAGE = 100; // guilds.ts QUEUE_PAGE
 
 function makeTrack(title: string) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };

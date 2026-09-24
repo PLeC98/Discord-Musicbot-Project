@@ -1,4 +1,4 @@
-// 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.js).
+// 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.ts).
 
 import { Events, MessageFlags, type ActionRowBuilder, type StringSelectMenuBuilder } from "discord.js";
 import logger from "../src/infra/log/logger.ts";

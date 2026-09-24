@@ -134,7 +134,7 @@ const exported: ClientEvent<Events.InteractionCreate> = {
   async execute(interaction) {
     if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
     if (!interaction.inCachedGuild()) return;
-    if (/^plmm?:/.test(interaction.customId)) return; // 재생목록 더 넣기. playlistMoreHandler.js
+    if (/^plmm?:/.test(interaction.customId)) return; // 재생목록 더 넣기. playlistMoreHandler.ts
 
     const client = interaction.client;
 

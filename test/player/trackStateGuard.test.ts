@@ -25,8 +25,7 @@ function codeFiles(dir: string): string[] {
 }
 
 test("현재곡·대기열·기록을 trackState 밖에서 직접 바꾸지 않는다", () => {
-  const roots = ["index.js", "index.ts"].filter((f) => fs.existsSync(path.join(ROOT, f)));
-  const files = [...DIRS.flatMap(codeFiles), ...roots].filter((f) => f !== OWNER);
+  const files = [...DIRS.flatMap(codeFiles), "index.ts"].filter((f) => f !== OWNER);
   assert.ok(files.length > 50, `검사 대상이 너무 적다 (${files.length}개)`);
 
   const hits: string[] = [];

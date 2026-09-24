@@ -1,5 +1,5 @@
 // 플레이어가 화면과 대시보드에 알리는 창구. 플레이어는 화면을 모르고 여기로 알린다.
-// 듣는 쪽은 조립(src/app/main.js)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
+// 듣는 쪽은 조립(src/app/main.ts)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
 //
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
 //   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · disconnected)

@@ -1,4 +1,4 @@
-// src/ui/replyLifetime.js — 본인에게만 보이는 응답의 수명 표와 지우기 예약
+// src/ui/replyLifetime.ts — 본인에게만 보이는 응답의 수명 표와 지우기 예약
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";

@@ -184,7 +184,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
   try {
     const player = client.players?.get(guild.id);
     if (player) {
-      // 강제 연결 해제와 동일한 마감 절차 (index.js VoiceStateUpdate 참조)
+      // 강제 연결 해제와 동일한 마감 절차 (index.ts VoiceStateUpdate 참조)
       player.pendingEndReason = "forced-disconnect";
       trackState.reset(player);
       if (client.musicEmbedManager) {

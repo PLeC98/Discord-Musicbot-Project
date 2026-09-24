@@ -33,7 +33,7 @@ type ApiVideo = { hash?: string; videoID?: string; segments?: Array<{ category: 
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
-// skip 지원 9개 카테고리 (config.js의 SB_SKIP_CATEGORIES와 동기 유지)
+// skip 지원 9개 카테고리 (config.ts의 SB_SKIP_CATEGORIES와 동기 유지)
 const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
 // 조회 시 항상 전 카테고리 + 하이라이트를 받아 캐시를 카테고리-완전하게 유지 (서버별 필터는 읽을 때)
 const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];

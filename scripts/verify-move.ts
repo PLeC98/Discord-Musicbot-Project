@@ -1,8 +1,8 @@
 // 옮기기 커밋이 정말 옮기기만 했는지 본다.
 //
-//   node scripts/verify-move.js            마지막 커밋
-//   node scripts/verify-move.js <커밋>     그 커밋
-//   node scripts/verify-move.js --staged   커밋 전, 스테이지에 올린 것
+//   node scripts/verify-move.ts            마지막 커밋
+//   node scripts/verify-move.ts <커밋>     그 커밋
+//   node scripts/verify-move.ts --staged   커밋 전, 스테이지에 올린 것
 //
 // 지운 줄이 전부 더한 줄 어딘가에 다시 나타나야 한다(앞뒤 공백 무시). 불러오는 경로는 옮기면 바뀌는 것이 당연하므로
 // require · require.resolve · import 의 경로 글자, path.join/resolve(__dirname, …) 의 인자, 저장소 기준 경로 글자("src/…")는

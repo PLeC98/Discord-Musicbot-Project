@@ -10,7 +10,7 @@ const OFF_MENU_MS = 30_000;
 
 /**
  * 본인에게만 보이는 장르 선택 메시지. 그대로 reply에 넘긴다.
- * 고른 결과는 events/modalHandler.js의 autoplay_genre 처리가 받는다.
+ * 고른 결과는 events/modalHandler.ts의 autoplay_genre 처리가 받는다.
  */
 function genreSelect(requesterId: string, sessionId: string, placeholder: string) {
   // 장르 정의는 config/genres.yaml 한 곳에서 관리. 부를 때마다 읽는다(파일이 바뀌면 곧바로 반영)

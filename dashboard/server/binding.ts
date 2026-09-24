@@ -14,7 +14,7 @@ function isLoopbackHost(host: string | null | undefined) {
  * @returns {{line: string, warnings: string[]}} 기동 로그 한 줄과 경고 목록.
  *
  * 경고는 설정만으로 확정되는 조합에서만 낸다(외부 바인딩 + DASHBOARD_URL이 http://).
- * 실제 연결이 평문인지는 기동 시점에 알 수 없다. 그건 요청 시점의 그물(index.js)이 맡는다.
+ * 실제 연결이 평문인지는 기동 시점에 알 수 없다. 그건 요청 시점의 그물(index.ts)이 맡는다.
  */
 function describeBinding(host: string | null | undefined, port: number, dashboardUrl: string | null | undefined) {
   if (isLoopbackHost(host)) {

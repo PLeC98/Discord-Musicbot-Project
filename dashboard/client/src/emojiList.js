@@ -1,4 +1,4 @@
-// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.js를 고치고 다시 만든다.
+// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.
 // 분류·순서는 디스코드 선택기 그대로.
 // 이름·검색어: emojibase-data@17.0.0 (MIT, ko) + 디스코드 단축명
 // 그림: twemoji@17.0.3. 전부 실제로 있는 파일인지 대조했다

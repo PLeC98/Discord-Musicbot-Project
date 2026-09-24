@@ -22,7 +22,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/player/trackState.ts";
 import type { GenreSource } from "../../src/config/genres.ts";
 
-// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
+// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.ts)이 거는 것과 같다
 playerEvents.on("notice", playerNotices.sendNotice);
 
 const ensureAutoplayNext = MusicPlayer.prototype.ensureAutoplayNext;

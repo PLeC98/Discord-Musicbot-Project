@@ -1,7 +1,7 @@
 // 봇 쪽 모듈을 전부 불러 본다.
 //
 // 옮기기만 하는 파일은 다른 테스트가 덜 덮어서, 경로가 깨져도 아무도 모를 수 있다. 폴더로 옮길 때 · ESM 으로 바꿀 때 ·
-// .ts 로 바꿀 때 불러오기 실패를 여기서 먼저 잡는다. index.js 는 불러오는 순간 봇을 켜므로 뺀다(node --check 가 본다).
+// .ts 로 바꿀 때 불러오기 실패를 여기서 먼저 잡는다. index.ts 는 불러오는 순간 봇을 켜므로 뺀다(node --check 가 본다).
 
 import fs from "node:fs";
 import path from "node:path";

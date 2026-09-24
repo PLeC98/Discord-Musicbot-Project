@@ -1,4 +1,4 @@
-// commands/search.js + events/buttonHandler.js — 검색 결과 저장/선택 계약.
+// commands/search.ts + events/buttonHandler.ts — 검색 결과 저장/선택 계약.
 // 회귀 대상: 사용자 ID 하나로만 키잉되어 같은 사용자의 재검색이 이전 메시지의 버튼과
 // 뒤섞이고, 각 검색의 5분 타이머가 최신 결과를 조기 삭제하던 문제
 

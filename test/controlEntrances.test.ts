@@ -18,7 +18,7 @@ import { fake, fakeWith } from "./helpers/fake.ts";
 import { command, run } from "./helpers/commands.ts";
 import { signedInAs } from "./helpers/dashboard.ts";
 
-// 권한은 진짜 판정을 쓴다. 판정 자체는 permissions.test.js 가 본다.
+// 권한은 진짜 판정을 쓴다. 판정 자체는 permissions.test.ts 가 본다.
 // 봇이 음성에 없어 재적 규칙은 늘 통과한다. "denied" 칸만 서버에 DJ 역할을 걸어, 그 역할이 없는 이 멤버를 막는다
 const { openTempStore, setGuild } = await import("./helpers/tempStore.ts");
 const store = openTempStore("control-entrances-");

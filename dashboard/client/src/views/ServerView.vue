@@ -673,7 +673,7 @@ const fmt = fmtTime;
 
 // 각 서비스를 대표하는 색. 자동재생 출처도 여기 있어야 한다.
 // 없으면 회색 점이 되어 어디서 온 곡인지 안 보인다.
-// 키는 src/platforms.js 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
+// 키는 src/ui/platforms.ts 의 이름표와 같은 값들이다(툴팁이 그 이름표를 쓴다).
 const PLATFORM_COLORS = {
   youtube: "#ff0000",
   spotify: "#1db954",

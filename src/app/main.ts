@@ -1,4 +1,4 @@
-// 봇 조립. index.js 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
+// 봇 조립. index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
 import path from "path";
@@ -79,7 +79,7 @@ function deploySlashCommands() {
 function startBot({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
-    // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.js)
+    // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
     allowedMentions: ALLOWED_MENTIONS,
   });
   client.commands = new Collection();
@@ -197,7 +197,7 @@ async function loadCommands(client: Client) {
   log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
 }
 
-// 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/ui/replyLifetime.js). 핸들러의 결과·오류는 그대로 돌려준다.
+// 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/ui/replyLifetime.ts). 핸들러의 결과·오류는 그대로 돌려준다.
 const withReplyCleanup = (execute: (interaction: Interaction) => unknown) => (interaction: Interaction) => {
   const done = execute(interaction);
   const schedule = () => scheduleReplyCleanup(interaction);

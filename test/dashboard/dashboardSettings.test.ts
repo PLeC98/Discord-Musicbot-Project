@@ -1,4 +1,4 @@
-// dashboard/server/routes/guilds.js — 서버 설정 GET/PUT + /player 플래그 통합 테스트.
+// dashboard/server/routes/guilds.ts — 서버 설정 GET/PUT + /player 플래그 통합 테스트.
 // 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.
@@ -192,7 +192,7 @@ test("GET settings: 비멤버 403 / 봇 운영자는 비멤버여도 200", async
   currentUser = { id: "u1", username: "tester", guilds: [] };
 });
 
-// guilds.js의 운영자 우회 분기도 세션 값이 아니라 현재 OWNER_ID로 판정한다
+// guilds.ts의 운영자 우회 분기도 세션 값이 아니라 현재 OWNER_ID로 판정한다
 test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 되지 않는다", async () => {
   currentMember = null;
   currentUser = { id: "former-owner", username: "이전 운영자", isAdmin: true, guilds: [] };
@@ -317,11 +317,11 @@ test("PUT settings: 재생목록 한 번에 넣는 곡 수 — 저장 / null은 
 const noDjRoles = () => store.djRoles.delete(GUILD_ID);
 const noVoice = () => voiceStates.clear();
 
-// 실 VoiceState는 channelId와 channel을 모두 갖는다 — 한쪽만 두면 라우터와 permissions.js 중
+// 실 VoiceState는 channelId와 channel을 모두 갖는다 — 한쪽만 두면 라우터와 permissions.ts 중
 // 하나만 만족시켜 통과 여부가 뒤바뀐다.
 const voiceState = (channelId: string | null) => (channelId ? { channelId, channel: { id: channelId } } : { channelId: null, channel: null });
 
-// 라우터는 guild.voiceStates에서, permissions.js는 member.voice에서 읽는다. 실제로는 같은 출처이므로
+// 라우터는 guild.voiceStates에서, permissions.ts는 member.voice에서 읽는다. 실제로는 같은 출처이므로
 // 픽스처도 반드시 함께 맞춘다 — 한쪽만 두면 통과 여부가 갈려 테스트가 거짓말을 한다.
 function inVoice(channelId: string | null, userId = "u1") {
   voiceStates.set(userId, voiceState(channelId));

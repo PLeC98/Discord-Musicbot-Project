@@ -1,6 +1,6 @@
 // 이모지 고르기 목록이 지켜야 할 것들.
 //
-// 목록은 notes/디스코드 이모지 카테고리 및 목록.md를 원본으로 scripts/build-emoji-list.js가 만든다.
+// 목록은 notes/디스코드 이모지 카테고리 및 목록.md를 원본으로 scripts/build-emoji-list.ts가 만든다.
 // 그 스크립트는 인터넷을 쓰지만 여기서는 쓰지 않는다 — 만들어진 결과물만 본다.
 
 import test from "node:test";
@@ -81,5 +81,5 @@ test("기록된 Twemoji 버전이 설치된 것과 같다", async () => {
   // 그림은 twemoji 패키지가 가리키는 CDN에서 온다. 패키지만 올리고 목록을 다시 만들지 않으면
   // 새로 생긴 이모지가 목록에 없는 채로 남는다 — 그때 여기서 걸린다.
   const installed: string = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "dashboard", "client", "node_modules", "@twemoji", "api", "package.json"), "utf8")).version;
-  assert.equal((await list()).TWEMOJI_VERSION, installed, "scripts/build-emoji-list.js를 다시 실행해야 한다");
+  assert.equal((await list()).TWEMOJI_VERSION, installed, "scripts/build-emoji-list.ts를 다시 실행해야 한다");
 });

@@ -7,7 +7,7 @@
 // 지연 부름: 함수 안(ts.isFunctionLike)에 있는 프로젝트 모듈(상대 경로)의 require · import(). 맨 위의 if · try 안은 지연으로 치지 않는다.
 // 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환 · 방향 위반은 프로젝트 모듈에서만 생긴다.
 // 글자가 아닌 경로(명령 · 이벤트 불러오기)는 따로 목록으로 둔다.
-// config 꺼내 두기: 루트 config.js 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
+// config 꺼내 두기: 루트 config.ts 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
 // 모듈 바꿔 끼우기: 테스트의 require.cache.
 // 메서드 바꿔 끼우기: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = … · x[k] = … · x.prototype.m = 무엇이든) mock.method 로 덮거나,
 // 받은 객체의 속성을 갈아 끼우는 도우미(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
@@ -36,9 +36,9 @@ function walk(dir: string, out: string[] = []) {
   return out;
 }
 
-// 루트의 기동 파일과 설정(10단계에서 .ts 가 된다)
-const isRootIndex = (rel: string) => rel === "index.js" || rel === "index.ts";
-const isRootConfig = (rel: string) => rel === "config.js" || rel === "config.ts";
+// 루트의 기동 파일과 설정
+const isRootIndex = (rel: string) => rel === "index.ts";
+const isRootConfig = (rel: string) => rel === "config.ts";
 
 function layerOf(rel: string) {
   if (isRootIndex(rel)) return "app";
@@ -50,11 +50,8 @@ function layerOf(rel: string) {
 
 function resolveSpec(fromRel: string, spec: string) {
   if (!spec.startsWith("./") && !spec.startsWith("../")) return null;
-  const base = posix(path.join(path.dirname(fromRel), spec));
-  for (const cand of [base, `${base}.js`, `${base}.ts`, `${base}/index.js`, `${base}/index.ts`]) {
-    if (fs.existsSync(path.join(ROOT, cand)) && fs.statSync(path.join(ROOT, cand)).isFile()) return cand;
-  }
-  return null;
+  const file = posix(path.join(path.dirname(fromRel), spec)); // ESM 이라 가져오는 경로에 확장자까지 적는다
+  return fs.existsSync(path.join(ROOT, file)) && fs.statSync(path.join(ROOT, file)).isFile() ? file : null;
 }
 
 const isRequire = (n: ts.Node): n is ts.CallExpression => ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "require";
@@ -92,7 +89,7 @@ function scanSource(rel: string) {
     if (to) deps.push({ to, line: line(n), lazy: inFn });
   };
 
-  // config.js 를 받은 이름(맨 위의 const x = require("…/config") · import x from "…/config.js"). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
+  // config.ts 를 받은 이름(맨 위의 import x from "…/config.ts" · import * as x · const x = require("…/config.ts")). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
   for (const s of sf.statements) {
     if (ts.isImportDeclaration(s) && !typeOnly(s) && ts.isStringLiteral(s.moduleSpecifier) && isRootConfig(resolveSpec(rel, s.moduleSpecifier.text) ?? "")) {
       const clause = s.importClause;
@@ -266,7 +263,7 @@ function cycleEdges(graph: Map<string, Set<string>>) {
 }
 
 function scan() {
-  const sources = [...walk("src"), ...walk("commands"), ...walk("events"), ...walk("dashboard/server"), ...["index.js", "index.ts", "config.js", "config.ts"].filter((f) => fs.existsSync(path.join(ROOT, f)))].map(scanSource);
+  const sources = [...walk("src"), ...walk("commands"), ...walk("events"), ...walk("dashboard/server"), "index.ts", "config.ts"].map(scanSource);
   const tests = walk("test").map(scanTest);
 
   const direction: string[] = [];
@@ -275,7 +272,7 @@ function scan() {
     const targets = new Set<string>();
     for (const d of f.deps) {
       targets.add(d.to);
-      // 루트 config.js 는 어느 층이든 읽는 환경이라 방향에서 뺀다. 순환에는 넣는다
+      // 루트 config.ts 는 어느 층이든 읽는 환경이라 방향에서 뺀다. 순환에는 넣는다
       if (isRootConfig(d.to)) continue;
       const from = LAYERS.indexOf(f.layer ?? "");
       const to = LAYERS.indexOf(layerOf(d.to) ?? "");

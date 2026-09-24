@@ -1,4 +1,4 @@
-// scripts/install-ffmpeg.js — 어느 릴리스에서 어느 자산을 받을지.
+// scripts/install-ffmpeg.ts — 어느 릴리스에서 어느 자산을 받을지.
 //
 // 회귀 대상 둘:
 // 1. 움직이는 태그(latest)를 쓰면 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.

@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 
-// 권한 수준 오버라이드 계층. 서버 dashboard/server/viewAs.js의 TIERS와 순서·키를 맞춘다.
+// 권한 수준 오버라이드 계층. 서버 dashboard/server/viewAs.ts의 TIERS와 순서·키를 맞춘다.
 // null(해제)은 목록에 넣지 않는다. 선택지가 아니라 "오버라이드 없음" 상태다.
 export const VIEW_AS_TIERS = [
   { id: "owner", label: "봇 운영자", desc: "모든 서버·모든 조작. 오버라이드 없음과 같은 상태입니다." },

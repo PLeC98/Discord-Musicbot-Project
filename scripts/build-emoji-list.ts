@@ -1,5 +1,5 @@
 // 대시보드 이모지 고르기 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
-//   node scripts/build-emoji-list.js
+//   node scripts/build-emoji-list.ts
 //
 // 목록의 원본은 로컬 메모에 있다. 분류와 순서를 디스코드 선택기에서
 // 그대로 옮겨 적은 파일이라, 고르는 사람이 디스코드에서 보던 자리에서 찾을 수 있다.
@@ -148,7 +148,7 @@ async function main() {
   fs.writeFileSync(
     OUT,
     [
-      "// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.js를 고치고 다시 만든다.",
+      "// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.",
       "// 분류·순서는 디스코드 선택기 그대로.",
       `// 이름·검색어: emojibase-data@${EMOJIBASE} (MIT, ko) + 디스코드 단축명`,
       `// 그림: twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,

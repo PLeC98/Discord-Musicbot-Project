@@ -1,4 +1,4 @@
-// src/app/shutdown.js — 종료 신호를 받으면 저장하고 정리한 뒤 나간다.
+// src/app/shutdown.ts — 종료 신호를 받으면 저장하고 정리한 뒤 나간다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

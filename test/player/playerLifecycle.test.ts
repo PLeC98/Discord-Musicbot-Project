@@ -1,6 +1,6 @@
 // MusicPlayer 의 곡 종료 · 정지 · 정리 · 오류 처리 · 조작의 지금 동작을 고정한다(구조 리팩터링 0단계).
 //
-// playerPlay.test.js 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
+// playerPlay.test.ts 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
 // 리팩터링이 재생 상태를 한 칸으로 모으고 곡별 객체를 따로 떼어 낼 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
 
 import { recordPanel } from "../helpers/panelEvents.ts";
@@ -26,7 +26,7 @@ beforeEach(() => h.reset());
 
 const yt = (await import("../helpers/tracks.ts")).youtube;
 
-// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
+// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.ts)이 거는 것과 같다
 playerEvents.on("notice", playerNotices.sendNotice);
 const tick = (ms = 0) => new Promise((done) => setTimeout(done, ms));
 

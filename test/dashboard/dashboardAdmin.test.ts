@@ -1,4 +1,4 @@
-// dashboard/server/routes/admin.js — 봇 운영자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
+// dashboard/server/routes/admin.ts — 봇 운영자 API 통합 테스트 (상태/서버 목록/나가기/재배포/공지).
 // 실 라우터 + fake client. 서버 설정은 임시 DB, 명령 등록 요청과 배포 지문 경로는 배포 함수에 넘긴다(실 배포·운영 DB 없음).
 
 // 봇 운영자 판정은 요청마다 config.dashboard.ownerId와 대조한다 — 세션에 굳은 값이 아니라.

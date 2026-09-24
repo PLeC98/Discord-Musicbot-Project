@@ -27,7 +27,7 @@ const audioCache = await import("../../src/store/audioCache.ts");
 const SessionPersistence = (await import("../../src/player/sessionMirror.ts")).SessionPersistence;
 const trackState = await import("../../src/player/trackState.ts");
 
-// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.js)이 거는 것과 같다
+// 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.ts)이 거는 것과 같다
 playerEvents.on("notice", playerNotices.sendNotice);
 
 before(() => {

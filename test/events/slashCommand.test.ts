@@ -1,4 +1,4 @@
-// events/slashCommand.js — 슬래시 명령을 찾아 부르고, 실패하면 본인에게만 보이게 알린다.
+// events/slashCommand.ts — 슬래시 명령을 찾아 부르고, 실패하면 본인에게만 보이게 알린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

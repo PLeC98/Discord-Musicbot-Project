@@ -1,4 +1,4 @@
-// src/ui/format.js — 공용 소형 유틸
+// src/ui/format.ts — 공용 소형 유틸
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

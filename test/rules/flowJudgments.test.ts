@@ -1,5 +1,5 @@
 // 흐름 앞의 판정 셋(candidateKind · liveBlockReason · transportOf). 입력과 답만 적는다.
-// convertPlan 과 errorKind 는 media/audioConvert.test.js · ui/errorClassification.test.js 가 표로 고정한다. 여기서는 오류에서 code · 글을 읽는 것만 본다.
+// convertPlan 과 errorKind 는 media/audioConvert.test.ts · ui/errorClassification.test.ts 가 표로 고정한다. 여기서는 오류에서 code · 글을 읽는 것만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

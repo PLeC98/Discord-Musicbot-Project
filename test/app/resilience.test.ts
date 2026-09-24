@@ -1,4 +1,4 @@
-// src/app/resilience.js — 프로세스 오류 복원력 (일시 네트워크=표적 복구 / 치명적=안전 종료)
+// src/app/resilience.ts — 프로세스 오류 복원력 (일시 네트워크=표적 복구 / 치명적=안전 종료)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

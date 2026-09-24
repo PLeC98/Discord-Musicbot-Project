@@ -17,7 +17,7 @@ type PromptSection = { role: string; text: string };
 // ── ai-keys.yaml ──────────────────────────────────────────────────────────
 //
 // 프로바이더마다 키가 따로다. 이 값은 대시보드로 내려보내지 않는다.
-// 화면에는 있는지 없는지만 간다(dashboard/server/routes/admin.js).
+// 화면에는 있는지 없는지만 간다(dashboard/server/routes/admin.ts).
 //
 // .env 가 아니라 여기 두는 까닭: 프로바이더가 여럿이면 .env 한 칸을 돌려쓸 수 없고,
 // 키를 갈아 끼울 때마다 봇을 다시 띄워야 한다. 설정 파일은 mtime 이 바뀌면 다시 읽는다.

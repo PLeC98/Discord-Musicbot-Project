@@ -1,4 +1,4 @@
-// src/usecases/playlistMore.js — 재생목록 이어 넣기의 상태(custom_id)·선택지·누를 때 판정
+// src/usecases/playlistMore.ts — 재생목록 이어 넣기의 상태(custom_id)·선택지·누를 때 판정
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

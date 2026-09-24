@@ -46,13 +46,6 @@ class ErrorHandler {
     return ERROR_MESSAGES[category] || ERROR_MESSAGES.unknown;
   }
 
-  /**
-   * 실제 오류를 전체 상세 정보와 함께 콘솔에 기록한 뒤 사용자 표시용 메시지를 반환
-   * catch 블록에서 바로 사용할 수 있음
-   * @param {Error|string} error
-   * @param {string} context. 예: 'play.js search', 'MusicPlayer.play'
-   * @returns {string}
-   */
   /** play() 의 실패 결과({ ok: false, code, error })를 사용자 문장으로 */
   static playFailure(result: Failure) {
     return (result?.code && PLAY_FAILURE[result.code]) || (result?.error ? this.getMessage(result.error) : "재생을 시작할 수 없습니다.");

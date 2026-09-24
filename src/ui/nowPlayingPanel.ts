@@ -473,7 +473,7 @@ class MusicEmbedManager {
     const platformValue = this.getPlatformLabel(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
-    // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.js).
+    // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.ts).
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
     const linkText = `### ${nowPlayingTitle}\n**[${track.title}](${track.pageUrl})**${artistLine}`;
 
@@ -808,7 +808,7 @@ class MusicEmbedManager {
   }
 
   /**
-   * 초 단위 길이를 H:MM:SS 또는 M:SS 형식으로 변환합니다. (공용 구현: src/ui/format.js)
+   * 초 단위 길이를 H:MM:SS 또는 M:SS 형식으로 변환합니다. (공용 구현: src/ui/format.ts)
    */
   formatDuration(seconds: number | string | null | undefined) {
     return formatDuration(seconds);

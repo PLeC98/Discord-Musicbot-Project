@@ -1,4 +1,4 @@
-// dashboard/server/routes/auth.js — 디스코드 OAuth 로그인 · 콜백 · 로그아웃.
+// dashboard/server/routes/auth.ts — 디스코드 OAuth 로그인 · 콜백 · 로그아웃.
 // 디스코드를 부르는 HTTP 클라이언트는 가짜를 넘긴다. 세션은 express-session 의 메모리 저장소.
 
 import { test, after } from "node:test";

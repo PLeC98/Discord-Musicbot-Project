@@ -46,7 +46,7 @@ async function getPlayer<P>(req: Request<P>, res: Response, guildId: string) {
 // 음성 재적 상태. 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
 // botInVoice/userInVoice를 따로 보면 같은 서버 다른 채널을 구분하지 못한다.
 function voiceFlags(guild: Guild | null | undefined, userId: string | null | undefined) {
-  // channelId가 아니라 channel?.id로 읽는다. permissions.js의 checkVoice와 같은 경로여야
+  // channelId가 아니라 channel?.id로 읽는다. permissions.ts의 checkVoice와 같은 경로여야
   // 채널이 캐시에 없을 때 "화면은 조작 가능이라는데 서버는 막는" 어긋남이 생기지 않는다.
   //
   // 멤버가 아니라 voiceStates에서 읽는 이유: 멤버 캐시는 비어 있을 수 있지만 음성 상태는

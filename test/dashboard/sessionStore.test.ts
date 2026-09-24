@@ -1,4 +1,4 @@
-// dashboard/server/sessionStore.js — SQLite 세션 스토어
+// dashboard/server/sessionStore.ts — SQLite 세션 스토어
 // 회귀 대상: MemoryStore의 재시작 시 세션 소실. 임시 DB 사용 — 운영 sessions.db 미접촉.
 
 import fs from "node:fs";

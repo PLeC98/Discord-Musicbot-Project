@@ -2,7 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags, A
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
-// 실제 저장/취소 처리는 events/djRoleConfigHandler.js (customId: djrole:*)
+// 실제 저장/취소 처리는 events/djRoleConfigHandler.ts (customId: djrole:*)
 // 복수 선택은 디스코드 셀렉트 메뉴 한계로 최대 25개.
 const exported: GuildCommand = {
   data: new SlashCommandBuilder()

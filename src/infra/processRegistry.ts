@@ -25,7 +25,7 @@ let hooksInstalled = false;
 
 /**
  * exit 훅 설치. 첫 register 때 한 번만.
- * SIGINT/SIGTERM/SIGHUP은 index.js의 gracefulShutdown이 killAll을 직접 부르고, 여기는 그 밖의 경로용 백스톱이다.
+ * SIGINT/SIGTERM/SIGHUP은 index.ts의 gracefulShutdown이 killAll을 직접 부르고, 여기는 그 밖의 경로용 백스톱이다.
  */
 function install() {
   if (hooksInstalled) return;

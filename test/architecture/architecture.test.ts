@@ -34,7 +34,7 @@ function sameCounts(name: string, current: Record<string, number>, base: Record<
 
 test("봇 코드 파일을 전부 읽었고, 모든 파일이 층에 속한다", () => {
   assert.ok(now.files > 100, `읽은 파일이 너무 적다(${now.files}개)`);
-  assert.deepEqual(now.unknownLayer, [], `층 차례(${LAYERS.join(" → ")})에 없는 폴더. scan.js 의 LAYERS 에 자리를 정한다`);
+  assert.deepEqual(now.unknownLayer, [], `층 차례(${LAYERS.join(" → ")})에 없는 폴더. scan.ts 의 LAYERS 에 자리를 정한다`);
 });
 
 test("층 차례를 거슬러 부르지 않는다", () => {

@@ -1,5 +1,5 @@
 // bgutil POToken 서버. 유튜브가 요구하는 토큰을 만들어 주는 로컬 HTTP 서버를 띄우고 지킨다.
-// 조립(index.js)이 하나 만들어 기동 때 띄우고 종료 때 내린다.
+// 조립(index.ts)이 하나 만들어 기동 때 띄우고 종료 때 내린다.
 
 import childProcess from "child_process";
 import fs from "fs";

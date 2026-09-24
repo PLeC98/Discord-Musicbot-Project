@@ -33,7 +33,7 @@ after(() => {
   config.bot.leaveDelayQueueEmptyMs = savedDelay;
 });
 
-// playbackLoop.test.js와 같은 방식 — 코드가 건드리는 것만 나열한 목
+// playbackLoop.test.ts와 같은 방식 — 코드가 건드리는 것만 나열한 목
 function makePlayer(players: Map<string, unknown>, current: { title: string; duration: number } | null = { title: "곡", duration: 10 }) {
   const p = fakePlayer({
     lifecycle: new PlaybackState(),

@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // 불러와도 멈추지 않는다. 잘못 적은 값은 문제 목록(problems)에, 기능만 꺼지는 빈 값은 경고 목록(warnings)에
-// 모으고, 기동(index.js)이 첫 줄에서 찍고 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
+// 모으고, 기동(index.ts)이 첫 줄에서 찍고 멈춘다. 이 파일은 아무것도 부르지 않는다(로거도).
 
 const ENV_PATH = path.join(import.meta.dirname, ".env");
 
@@ -291,7 +291,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",
       // 세션 쿠키 서명 비밀. 미설정 시 기동마다 랜덤 생성(보안은 유지되나 재시작 시 대시보드 로그인 풀림). 기동 로그에 경고
       sessionSecret: env("SESSION_SECRET"),
-      // API 요청 제한 (config.js 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을
+      // API 요청 제한 (config.ts 기본값 + .env 오버라이드). 정상 사용(5초 폴링=12/분, 플레이리스트도 1요청)을
       // 넉넉히 넘는 값. 도배만 차단.
       rateLimit: {
         windowMs: envInt("RATE_LIMIT_WINDOW_SEC", 60, { min: 1, max: 3600 }) * 1000,
@@ -300,7 +300,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
         authWindowMs: envInt("RATE_LIMIT_AUTH_WINDOW_SEC", 600, { min: 1, max: 86400 }) * 1000,
         authMax: envInt("RATE_LIMIT_AUTH_MAX", 30, { min: 1, max: 100000 }), // 로그인/OAuth (/auth/*)
       },
-      // 실시간 갱신(SSE). 플레이어 상태 변화 넛지. 값은 config.js 기본값 + .env 오버라이드.
+      // 실시간 갱신(SSE). 플레이어 상태 변화 넛지. 값은 config.ts 기본값 + .env 오버라이드.
       sse: {
         heartbeatMs: envInt("SSE_HEARTBEAT_SEC", 20, { min: 5, max: 300 }) * 1000, // 유휴 연결 keepalive
         maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5, { min: 1, max: 100 }), // 세션당 동시 연결 캡

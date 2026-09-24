@@ -1,4 +1,4 @@
-// events/djRoleConfigHandler.js — /setdjrole GUI (드롭메뉴 선택 보류 → 저장/취소 확정) 흐름.
+// events/djRoleConfigHandler.ts — /setdjrole GUI (드롭메뉴 선택 보류 → 저장/취소 확정) 흐름.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after } from "node:test";
