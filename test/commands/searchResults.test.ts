@@ -5,7 +5,7 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { showSearchMenu } from "../../commands/search.ts";
-import buttonHandler from "../../events/buttonHandler.js";
+import buttonHandler from "../../events/buttonHandler.ts";
 import type { ChatInputCommandInteraction, Client } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";

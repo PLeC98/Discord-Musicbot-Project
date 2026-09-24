@@ -37,22 +37,22 @@
       "count": 3
     }
   },
-  "events/buttonHandler.js": {
+  "events/buttonHandler.ts": {
     "no-empty-function": {
       "count": 1
     }
   },
-  "events/messageHandler.js": {
+  "events/messageHandler.ts": {
     "no-empty-function": {
       "count": 2
     }
   },
-  "events/modalHandler.js": {
+  "events/modalHandler.ts": {
     "no-empty": {
       "count": 1
     }
   },
-  "events/playlistMoreHandler.js": {
+  "events/playlistMoreHandler.ts": {
     "complexity": {
       "count": 1
     },
@@ -60,7 +60,7 @@
       "count": 5
     }
   },
-  "events/sponsorConfigHandler.js": {
+  "events/sponsorConfigHandler.ts": {
     "complexity": {
       "count": 1
     }

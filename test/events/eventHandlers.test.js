@@ -23,10 +23,10 @@ const lookup = await import("../../src/sources/lookup.ts");
 const yamlStore = await import("../../src/config/yamlStore.ts");
 const More = await import("../../src/usecases/playlistMore.ts");
 const addTracks = await import("../../src/usecases/addTracks.ts");
-const messageHandler = (await import("../../events/messageHandler.js")).default;
-const panelPin = (await import("../../events/panelPin.js")).default;
-const playlistMoreHandler = (await import("../../events/playlistMoreHandler.js")).default;
-const modalHandler = (await import("../../events/modalHandler.js")).default;
+const messageHandler = (await import("../../events/messageHandler.ts")).default;
+const panelPin = (await import("../../events/panelPin.ts")).default;
+const playlistMoreHandler = (await import("../../events/playlistMoreHandler.ts")).default;
+const modalHandler = (await import("../../events/modalHandler.ts")).default;
 
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";

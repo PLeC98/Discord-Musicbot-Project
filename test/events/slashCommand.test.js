@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Events } from "discord.js";
-import slashCommand from "../../events/slashCommand.js";
+import slashCommand from "../../events/slashCommand.ts";
 
 function interaction({ name = "play", chat = true, commands = {}, replied = false } = {}) {
   const sent = [];

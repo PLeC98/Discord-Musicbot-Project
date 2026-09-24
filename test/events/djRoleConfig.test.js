@@ -24,7 +24,7 @@ const store = {
   },
 };
 
-const handler = (await import("../../events/djRoleConfigHandler.js")).default;
+const handler = (await import("../../events/djRoleConfigHandler.ts")).default;
 
 const guild = { id: "g1", roles: { cache: { has: (id) => ["r1", "r2"].includes(id) } } };
 

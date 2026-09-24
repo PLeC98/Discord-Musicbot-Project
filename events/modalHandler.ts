@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 import { Events, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as genreConfig from "../src/config/genres.ts";

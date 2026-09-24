@@ -24,7 +24,7 @@ const store = openTempStore("control-entrances-");
 after(() => store.close());
 
 import express from "express";
-const buttonHandler = (await import("../events/buttonHandler.js")).default;
+const buttonHandler = (await import("../events/buttonHandler.ts")).default;
 
 // ── 상태 ─────────────────────────────────────────────────────────────
 

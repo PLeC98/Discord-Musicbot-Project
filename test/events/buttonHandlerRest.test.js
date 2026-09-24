@@ -20,7 +20,7 @@ const config = (await import("../../config.ts")).default;
 const S = await import("../../src/ui/strings.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const playerEvents = await import("../../src/player/events.ts");
-const buttonHandler = (await import("../../events/buttonHandler.js")).default;
+const buttonHandler = (await import("../../events/buttonHandler.ts")).default;
 
 after(() => {
   audioCache.close();
