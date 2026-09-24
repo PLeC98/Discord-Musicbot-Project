@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // events/djRoleConfigHandler.js — /setdjrole GUI (드롭메뉴 선택 보류 → 저장/취소 확정) 흐름.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 

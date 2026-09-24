@@ -1,3 +1,4 @@
+// @ts-nocheck 타입은 다음 커밋에서 단다(10단계: 이름 바꾸기와 타입 달기를 나눈다)
 // events/slashCommand.js — 슬래시 명령을 찾아 부르고, 실패하면 본인에게만 보이게 알린다.
 
 import { test } from "node:test";
