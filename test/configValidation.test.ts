@@ -97,16 +97,16 @@ test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내�
   assert.equal(out.keys, false);
 });
 
-test("기동 첫 줄: 경고는 찍고 지나가고, 문제가 있으면 전부 찍고 멈춘다", (t) => {
+test("기동 첫 줄: 경고는 찍고 지나가고, 문제가 있으면 전부 찍고 멈춘다", () => {
   const { stopOnConfigProblems } = require("../src/app/configCheck.ts");
   const exits = [];
-  t.mock.method(process, "exit", (code) => exits.push(code));
   const seen = [];
   const out = { warn: (line) => seen.push(`warn ${line}`), error: (line) => seen.push(`error ${line}`) };
 
-  stopOnConfigProblems({ warnings: ["w"], problems: [] }, out);
+  const exit = (code) => exits.push(code);
+  stopOnConfigProblems({ warnings: ["w"], problems: [] }, out, exit);
   assert.deepEqual(exits, []);
-  stopOnConfigProblems({ warnings: [], problems: ["a", "b"] }, out);
+  stopOnConfigProblems({ warnings: [], problems: ["a", "b"] }, out, exit);
   assert.deepEqual(exits, [1]);
   assert.deepEqual(seen, ["warn w", "error a", "error b"]);
 });
