@@ -66,213 +66,248 @@ function httpError(status: number): Error & { status: number } {
  * @param {Function} fetchImpl    테스트 주입용. 기본은 전역 fetch
  * @returns {Readable}
  */
-function createChunkedStream({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: ChunkedOptions): ChunkedStream {
+function createChunkedStream(options: ChunkedOptions): ChunkedStream {
+  const { totalBytes, chunkSize } = options;
   if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않습니다: ${totalBytes}`);
   if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않습니다: ${chunkSize}`);
+  const reader = new ChunkedReader(options);
+  return Object.assign(reader.stream, { prime: () => reader.prime(), stats: () => reader.stats() });
+}
 
+// Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
+function assertRangeStart(res: RangeResponse, expected: number) {
+  const cr = res.headers.get?.("content-range");
+  if (!cr) return;
+  const start = Number(/bytes\s+(\d+)-/i.exec(cr)?.[1]);
+  if (Number.isFinite(start) && start !== expected) {
+    throw permanent(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
+  }
+}
+
+// 스트림 하나의 상태. 청크를 받아 줄에 쌓고, 소비자가 원하는 만큼 흘려보낸다
+class ChunkedReader {
+  readonly stream: Readable;
+  readonly o: Required<Omit<ChunkedOptions, "onInterrupt" | "onResumed">> & Pick<ChunkedOptions, "onInterrupt" | "onResumed">;
   // 남은 양이 이 아래로 떨어지면 다음 청크를 받는다
-  const lowWater = Math.max(1, Math.floor(chunkSize / 4));
+  readonly lowWater: number;
+  readonly expire: number;
 
-  let pos = 0; // 받은 바이트 = 다음 요청의 시작 위치
-  let target = 0; // 지금 받는 청크의 끝(미포함)
-  const queue: Buffer[] = [];
-  let queued = 0;
-  let wanting = false;
-  let fetching = false;
-  let ended = false;
-  let handedOff = false;
-  let aborter: AbortController | null = null;
-  let stallTimer: NodeJS.Timeout | undefined;
-  let wakeRoom: (() => void) | null = null;
+  pos = 0; // 받은 바이트 = 다음 요청의 시작 위치
+  target = 0; // 지금 받는 청크의 끝(미포함)
+  chunks: Buffer[] = []; // 받아 두고 아직 내보내지 않은 조각
+  queued = 0;
+  wanting = false;
+  fetching = false;
+  ended = false;
+  handedOff = false;
+  aborter: AbortController | null = null;
+  stallTimer: NodeJS.Timeout | undefined;
+  wakeRoom: (() => void) | null = null;
 
-  let primed = false;
-  let settleReady: ((err: unknown) => void) | null = null;
-  let ready: Promise<void> | null = null;
+  primed = false;
+  settleReady: ((err: unknown) => void) | null = null;
+  ready: Promise<void> | null = null;
 
-  let failures = 0; // 연속 실패. 바이트를 받으면 0
-  let interruptedAt = 0;
-  let starvedSince = 0;
+  failures = 0; // 연속 실패. 바이트를 받으면 0
+  interruptedAt = 0;
+  starvedSince = 0;
 
-  let requests = 0;
-  let chunkStart = 0;
-  let openedAt = 0;
-  let lastReadAt = 0;
+  requests = 0;
+  chunkStart = 0;
+  openedAt = 0;
+  lastReadAt = 0;
 
-  const stream = new Readable({
-    read() {
-      wanting = true;
-      drain();
-    },
-    destroy(err, cb) {
-      clearTimeout(stallTimer);
-      aborter?.abort();
-      wakeRoom?.();
-      cb(err);
-    },
-  });
+  constructor({ url, headers = {}, totalBytes, chunkSize, onInterrupt = null, onResumed = null, fetchImpl = fetch, retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: ChunkedOptions) {
+    this.o = { url, headers, totalBytes, chunkSize, onInterrupt, onResumed, fetchImpl, retryDelaysMs, stallMs };
+    this.lowWater = Math.max(1, Math.floor(chunkSize / 4));
+    this.expire = Number(new URL(url, "http://_").searchParams.get("expire"));
+    this.stream = new Readable({
+      read: () => {
+        this.wanting = true;
+        this.drain();
+      },
+      destroy: (err, cb) => {
+        clearTimeout(this.stallTimer);
+        this.aborter?.abort();
+        this.wakeRoom?.();
+        cb(err);
+      },
+    });
+  }
 
-  function drain() {
-    while (wanting && queue.length > 0 && !stream.destroyed) {
-      const chunk = queue.shift() as Buffer;
-      queued -= chunk.length;
-      wanting = stream.push(chunk);
-    }
-    if (wakeRoom && queued < chunkSize) {
-      wakeRoom();
-      wakeRoom = null;
-    }
-    if (stream.destroyed || ended) return;
-    if (queue.length === 0 && !fetching && (handedOff || pos >= totalBytes)) {
-      ended = true;
-      stream.push(null);
+  // 줄에 있는 것을 원하는 만큼 내보내고, 다 받았으면 끝내고, 모자라면 더 받는다
+  drain() {
+    this.flush();
+    if (this.stream.destroyed || this.ended) return;
+    if (this.chunks.length === 0 && !this.fetching && (this.handedOff || this.pos >= this.o.totalBytes)) {
+      this.ended = true;
+      this.stream.push(null);
       return;
     }
-    if (wanting && queue.length === 0 && interruptedAt && !starvedSince) starvedSince = Date.now();
-    if (!fetching && !handedOff && pos < totalBytes && queued < lowWater) fill();
+    if (this.wanting && this.chunks.length === 0 && this.interruptedAt && !this.starvedSince) this.starvedSince = Date.now();
+    if (!this.fetching && !this.handedOff && this.pos < this.o.totalBytes && this.queued < this.lowWater) this.fill();
   }
 
-  // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-  function assertRangeStart(res: RangeResponse, expected: number) {
-    const cr = res.headers.get?.("content-range");
-    if (!cr) return;
-    const start = Number(/bytes\s+(\d+)-/i.exec(cr)?.[1]);
-    if (Number.isFinite(start) && start !== expected) {
-      throw permanent(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
+  flush() {
+    while (this.wanting && this.chunks.length > 0 && !this.stream.destroyed) {
+      const chunk = this.chunks.shift() as Buffer;
+      this.queued -= chunk.length;
+      this.wanting = this.stream.push(chunk);
+    }
+    if (this.wakeRoom && this.queued < this.o.chunkSize) {
+      this.wakeRoom();
+      this.wakeRoom = null;
     }
   }
 
-  function armStall() {
-    clearTimeout(stallTimer);
-    const request = aborter;
-    stallTimer = setTimeout(() => request?.abort(Object.assign(new Error(`${stallMs / 1000}초 동안 받은 데이터가 없습니다`), { code: "STREAM_STALL" })), stallMs);
-    stallTimer.unref?.();
+  armStall() {
+    clearTimeout(this.stallTimer);
+    const request = this.aborter;
+    const { stallMs } = this.o;
+    this.stallTimer = setTimeout(() => request?.abort(Object.assign(new Error(`${stallMs / 1000}초 동안 받은 데이터가 없습니다`), { code: "STREAM_STALL" })), stallMs);
+    this.stallTimer.unref?.();
   }
 
-  function resumed(attempts: number) {
+  resumed(attempts: number) {
     const now = Date.now();
-    const info = { attempts, downtimeMs: now - interruptedAt, starvedMs: starvedSince ? now - starvedSince : 0 };
-    interruptedAt = 0;
-    starvedSince = 0;
-    onResumed?.(info);
+    const info = { attempts, downtimeMs: now - this.interruptedAt, starvedMs: this.starvedSince ? now - this.starvedSince : 0 };
+    this.interruptedAt = 0;
+    this.starvedSince = 0;
+    this.o.onResumed?.(info);
   }
 
-  async function receive() {
-    aborter = new AbortController();
-    requests++;
-    chunkStart = pos;
-    openedAt = lastReadAt = Date.now();
-    armStall();
+  // 지금 청크를 요청한다. 응답이 맞지 않으면 던진다
+  async open() {
+    const { url, headers, fetchImpl, totalBytes } = this.o;
+    const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=${this.pos}-${this.target - 1}` }, signal: (this.aborter as AbortController).signal });
+    if (res.status === 206) {
+      assertRangeStart(res, this.pos);
+    } else if (res.status === 200 && this.pos === 0) {
+      // Range를 무시했다. 첫 요청이면 본문이 곧 전체 파일이다(조임은 못 피해도 재생은 된다)
+      this.target = totalBytes;
+    } else {
+      throw httpError(res.status);
+    }
+    if (!res.body) throw permanent("응답 본문이 없습니다");
+    return res.body.getReader();
+  }
+
+  // Range를 무시한 200 응답에서만 걸린다. 파일 전체를 메모리에 올리지 않도록 줄이 빌 때까지 기다린다.
+  // 기다리는 사이 스트림이 부서졌으면 false
+  async waitForRoom() {
+    clearTimeout(this.stallTimer);
+    await new Promise<void>((resolve) => (this.wakeRoom = resolve));
+    if (this.stream.destroyed) return false;
+    this.armStall();
+    return true;
+  }
+
+  async receive() {
+    this.aborter = new AbortController();
+    this.requests++;
+    this.chunkStart = this.pos;
+    this.openedAt = this.lastReadAt = Date.now();
+    this.armStall();
     try {
-      const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=${pos}-${target - 1}` }, signal: aborter.signal });
-
-      if (res.status === 206) {
-        assertRangeStart(res, pos);
-      } else if (res.status === 200 && pos === 0) {
-        // Range를 무시했다. 첫 요청이면 본문이 곧 전체 파일이다(조임은 못 피해도 재생은 된다)
-        target = totalBytes;
-      } else {
-        throw httpError(res.status);
+      const reader = await this.open();
+      if (!this.primed) {
+        this.primed = true;
+        this.settleReady?.(null);
       }
-      if (!res.body) throw permanent("응답 본문이 없습니다");
-
-      if (!primed) {
-        primed = true;
-        settleReady?.(null);
-      }
-
-      const reader = res.body.getReader();
-      while (pos < target) {
-        if (queued >= chunkSize + lowWater) {
-          // Range를 무시한 200 응답에서만 걸린다. 파일 전체를 메모리에 올리지 않도록
-          clearTimeout(stallTimer);
-          await new Promise<void>((resolve) => (wakeRoom = resolve));
-          if (stream.destroyed) return;
-          armStall();
-        }
+      while (this.pos < this.target) {
+        if (this.queued >= this.o.chunkSize + this.lowWater && !(await this.waitForRoom())) return;
         const { done, value } = await reader.read();
         if (done) break;
-        queue.push(Buffer.from(value));
-        queued += value.length;
-        pos += value.length;
-        lastReadAt = Date.now();
-        armStall();
-        if (interruptedAt) resumed(failures);
-        failures = 0;
-        drain();
+        this.take(value);
       }
-      if (pos < target) throw new Error(`응답이 일찍 끝났습니다 (${pos}/${target}B)`);
+      if (this.pos < this.target) throw new Error(`응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`);
     } catch (err) {
-      aborter?.abort(); // 버린 요청이 열린 채 남지 않게
+      this.aborter?.abort(); // 버린 요청이 열린 채 남지 않게
       throw err;
     } finally {
-      clearTimeout(stallTimer);
-      aborter = null;
+      clearTimeout(this.stallTimer);
+      this.aborter = null;
     }
   }
 
-  async function fill() {
-    fetching = true;
-    target = Math.min(pos + chunkSize, totalBytes);
+  // 받은 바이트를 줄에 쌓는다
+  take(value: Uint8Array) {
+    this.chunks.push(Buffer.from(value));
+    this.queued += value.length;
+    this.pos += value.length;
+    this.lastReadAt = Date.now();
+    this.armStall();
+    if (this.interruptedAt) this.resumed(this.failures);
+    this.failures = 0;
+    this.drain();
+  }
+
+  // 한 번 실패했다. 계속 받을지(true), 호출부가 넘겨받아 끝낼지(false). 다시 받아도 안 될 실패면 던진다
+  async retryAfter(err: unknown) {
+    if (this.primed && !this.interruptedAt) {
+      this.interruptedAt = Date.now();
+      if (this.o.onInterrupt?.(err)) {
+        this.handedOff = true;
+        return false;
+      }
+    }
+    const delays = this.o.retryDelaysMs;
+    if ((err as { permanent?: boolean }).permanent || this.failures >= delays.length) throw err;
+    await sleep(delays[this.failures++]);
+    return !this.stream.destroyed;
+  }
+
+  async fill() {
+    this.fetching = true;
+    this.target = Math.min(this.pos + this.o.chunkSize, this.o.totalBytes);
     try {
       for (;;) {
         try {
-          await receive();
+          await this.receive();
           return;
         } catch (err) {
-          if (stream.destroyed) return;
-          if (primed && !interruptedAt) {
-            interruptedAt = Date.now();
-            if (onInterrupt?.(err)) {
-              handedOff = true;
-              return;
-            }
-          }
-          if ((err as { permanent?: boolean }).permanent || failures >= retryDelaysMs.length) throw err;
-          await sleep(retryDelaysMs[failures++]);
-          if (stream.destroyed) return;
+          if (this.stream.destroyed || !(await this.retryAfter(err))) return;
         }
       }
     } catch (err) {
-      settleReady?.(err);
-      stream.destroy(err as Error);
+      this.settleReady?.(err);
+      this.stream.destroy(err as Error);
     } finally {
-      fetching = false;
-      drain();
+      this.fetching = false;
+      this.drain();
     }
   }
 
   // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 기존 fetch와 같은 자리에서 실패를 잡도록.
-  const prime = () => {
-    if (!ready) {
-      ready = new Promise<void>((resolve, reject) => {
-        settleReady = (err) => {
-          settleReady = null;
+  prime() {
+    if (!this.ready) {
+      this.ready = new Promise<void>((resolve, reject) => {
+        this.settleReady = (err) => {
+          this.settleReady = null;
           if (err) reject(err);
           else resolve();
         };
       });
-      if (primed) settleReady?.(null);
-      else if (!fetching) fill();
+      if (this.primed) this.settleReady?.(null);
+      else if (!this.fetching) this.fill();
     }
-    return ready;
-  };
+    return this.ready;
+  }
 
-  const expire = Number(new URL(url, "http://_").searchParams.get("expire"));
-  const stats = (): StreamStats => {
+  stats(): StreamStats {
     const now = Date.now();
     return {
-      requests,
-      received: pos,
-      totalBytes,
-      queued,
-      chunkStart,
-      chunkReceived: pos - chunkStart,
-      sinceOpenMs: openedAt ? now - openedAt : null,
-      idleMs: lastReadAt ? now - lastReadAt : null,
-      expiresInS: expire > 0 ? expire - Math.floor(now / 1000) : null,
+      requests: this.requests,
+      received: this.pos,
+      totalBytes: this.o.totalBytes,
+      queued: this.queued,
+      chunkStart: this.chunkStart,
+      chunkReceived: this.pos - this.chunkStart,
+      sinceOpenMs: this.openedAt ? now - this.openedAt : null,
+      idleMs: this.lastReadAt ? now - this.lastReadAt : null,
+      expiresInS: this.expire > 0 ? this.expire - Math.floor(now / 1000) : null,
     };
-  };
-  return Object.assign(stream, { prime, stats });
+  }
 }
 
 /**

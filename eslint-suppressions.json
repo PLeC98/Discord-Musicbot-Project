@@ -24,33 +24,6 @@
       "count": 2
     }
   },
-  "src/media/audioSplicer.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-depth": {
-      "count": 1
-    }
-  },
-  "src/media/cacheDownload.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-statements": {
-      "count": 1
-    }
-  },
-  "src/media/chunkedStream.ts": {
-    "complexity": {
-      "count": 1
-    },
-    "max-depth": {
-      "count": 1
-    },
-    "max-lines-per-function": {
-      "count": 1
-    }
-  },
   "src/player/Player.ts": {
     "complexity": {
       "count": 1

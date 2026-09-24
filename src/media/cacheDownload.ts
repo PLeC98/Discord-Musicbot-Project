@@ -95,6 +95,39 @@ function cleanTemp(tempPath: string): number {
  * 올리기 전에 최종 경로를 보호한다. 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
  * 그 순간 기동 스윕이 돌면 고아로 보고 지운다. 푸는 것은 받기가 끝날 때(_performDownload의 finally).
  */
+/**
+ * 받은 것. verifiedTitle: 영상 자체의 제목(유튜브만) · audioDurationSec: 캐시에 남길 오디오 길이(track.duration은 요청 쪽
+ * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 받은 음원의 판(같은 주소에서 음원이 바뀐 것을 알아볼 값, audioVersion.ts)
+ */
+type Fetched = { verifiedTitle: string | null; audioDurationSec: number | null; audioVersion: string | null };
+
+// 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
+// (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
+function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
+  if (!verifiedTitle || track.platform !== "youtube" || verifiedTitle === track.title) return;
+  log.debug(`제목 교정: "${track.title}" → "${verifiedTitle}"`);
+  track.title = verifiedTitle;
+}
+
+// 파일 검증. 최종 경로로 올리기 전에
+async function ensureNotEmpty(tempPath: string) {
+  const stats = await fs.stat(tempPath);
+  if (stats.size > 0) return;
+  await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 지우기");
+  throw new Error("Downloaded file is empty");
+}
+
+// 완료된 다운로드를 DB에 남긴다. 못 남겨도 파일은 이미 올라갔다. 기록 없는 파일은 기동 정리가 치운다
+function record(audioKey: string, filepath: string, track: DownloadTrack, { verifiedTitle, audioDurationSec, audioVersion }: Fetched) {
+  try {
+    const { size } = fsSync.statSync(filepath);
+    audioCache.recordDownloadComplete(audioKey, filepath, size, track, { durationSec: audioDurationSec, audioVersion });
+    trackLookup.recordTrackLookup(track, { verified: !!verifiedTitle && track.platform === "youtube" });
+  } catch (error) {
+    log.warn(`캐시 기록 실패 ("${track.title}"): ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function publish(tempPath: string, filepath: string): Promise<boolean> {
   if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
     await bestEffort(log, fs.unlink(tempPath), "받던 임시 파일 지우기");
@@ -179,9 +212,6 @@ class TrackDownloader {
   async _performDownload(track: DownloadTrack, filepath: string): Promise<string> {
     const player = this.player;
     const audioKey = audioKeyOf(track.audioUrl);
-    let verifiedTitle: string | null = null;
-    let audioDurationSec: number | null = null; // 캐시에 남길 오디오 길이. track.duration은 요청 쪽 메타데이터라 오디오와 다를 수 있다
-    let audioVersion: string | null; // 받은 음원의 판. 같은 주소에서 음원이 바뀐 것을 알아볼 값(audioVersion.ts)
     const tempPath = tempPathFor(filepath); // 다 받은 뒤 최종 경로로 옮긴다
     audioCache.protectFile(tempPath); // 기동 스윕이 받는 중인 파일을 고아로 보고 지우지 않게
 
@@ -193,11 +223,7 @@ class TrackDownloader {
 
       // videoId가 확정된 지점(preload 경로). SponsorBlock 구간을 미리 확보해 재생 시 지연 0.
       // 실패해도 다운로드/재생을 막지 않는다(fail-open, 내부 타임아웃 보유).
-      try {
-        await this.deps.sponsor.forTrack(track, player.guild.id);
-      } catch {
-        /* 무시 */
-      }
+      await bestEffort(log, this.deps.sponsor.forTrack(track, player.guild.id), "SponsorBlock 구간 미리 받기");
 
       // ⚠️ 라이브 스트림은 캐시 다운로드 대상이 아니다. 끝이 없어서 yt-dlp가 ffmpeg를 외부 다운로더로
       //    띄운 뒤 무한히 파일을 불린다. 재생(스트리밍)은 정상 진행되므로 여기서만 끊는다.
@@ -207,105 +233,15 @@ class TrackDownloader {
 
       // yt-dlp가 받아 오는 것들: 유튜브 영상(스포티파이 · 자동재생 곡이 찾아 둔 것 포함)과 사운드클라우드.
       // 남는 것은 직접 링크뿐이다. 곡이 어디서 왔는지가 아니라 음원 주소가 가른다.
-      // 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
-      // 조립하므로 우리가 손댈 것이 없다.
-      if (inputKind(downloadUrl) !== "direct") {
-        // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
-        const { youtube } = this.deps;
-        await youtube.runYtDlp(downloadUrl, (forceCookies) =>
-          youtube.getYtDlpOptions(
-            {
-              output: tempPath,
-              // 이 다운로드에 곁들여 메타데이터를 파일로 받는다. 왕복이 늘지 않는다.
-              // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
-              // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
-              // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
-              writeInfoJson: true,
-              format: "bestaudio/best",
-              preferFreeFormats: true,
-              // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
-              // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
-              matchFilter: "!is_live",
-              // 코덱은 yt-dlp 가 소스를 보고 정한다. 이미 Opus 면 리먹싱, 아니면 libopus.
-              // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
-              // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
-              // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다. 숫자가 갈라지지 않게.
-              postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
-              extractAudio: true,
-              audioFormat: "opus",
-            },
-            { forceCookies },
-          ),
-        );
+      const got = inputKind(downloadUrl) !== "direct" ? await this._fetchWithYtDlp(downloadUrl, tempPath) : await this._fetchDirect(downloadUrl, tempPath, track);
 
-        // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
-        // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
-        if (!fsSync.existsSync(tempPath)) {
-          throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등). 캐시 다운로드 불가");
-        }
-
-        const info = this._takeInfoJson(tempPath);
-        verifiedTitle = info.title;
-        audioDurationSec = info.durationSec;
-        audioVersion = info.version;
-      } else {
-        // DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
-        // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
-        const audioStream = await this.deps.direct.getStream(downloadUrl);
-        audioVersion = versionOf.fromHeaders(audioStream.headers);
-
-        // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
-        // 모르면 이미 Opus 인 음원까지 다시 굽게 된다.
-        const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
-        audioCache.protectFile(rawPath);
-        try {
-          await pipeline(audioStream, fsSync.createWriteStream(rawPath));
-          // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
-          const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
-
-          // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다. 받아둔 파일의 실측으로 교정.
-          // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
-          if (made.durationSec) {
-            track.duration = made.durationSec;
-            track.durationSource = "실측";
-            audioDurationSec = made.durationSec;
-          }
-        } finally {
-          audioCache.unprotectFile(rawPath);
-          try {
-            fsSync.unlinkSync(rawPath);
-          } catch {
-            /* 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다 */
-          }
-        }
-      }
-
-      // 파일 검증. 최종 경로로 올리기 전에
-      const stats = await fs.stat(tempPath);
-      if (stats.size === 0) {
-        await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 지우기");
-        throw new Error("Downloaded file is empty");
-      }
+      await ensureNotEmpty(tempPath);
       const mine = await publish(tempPath, filepath);
       if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${track.title}"`);
 
-      // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
-      // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
-      if (verifiedTitle && track.platform === "youtube" && verifiedTitle !== track.title) {
-        log.debug(`제목 교정: "${track.title}" → "${verifiedTitle}"`);
-        track.title = verifiedTitle;
-      }
+      correctTitle(track, got.verifiedTitle);
 
-      // 완료된 다운로드를 DB에 저장
-      if (audioKey) {
-        try {
-          const _finalSt = fsSync.statSync(filepath);
-          audioCache.recordDownloadComplete(audioKey, filepath, _finalSt.size, track, { durationSec: audioDurationSec, audioVersion });
-          trackLookup.recordTrackLookup(track, { verified: !!verifiedTitle && track.platform === "youtube" });
-        } catch {
-          /* 무시 */
-        }
-      }
+      if (audioKey) record(audioKey, filepath, track, got);
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
       // 예열이 앞으로 여러 곡을 미리 받으므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
@@ -328,6 +264,78 @@ class TrackDownloader {
     } finally {
       audioCache.unprotectFile(tempPath);
       audioCache.unprotectFile(filepath);
+    }
+  }
+
+  // yt-dlp 로 받는다. 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
+  // 조립하므로 우리가 손댈 것이 없다.
+  async _fetchWithYtDlp(downloadUrl: string, tempPath: string): Promise<Fetched> {
+    // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
+    const { youtube } = this.deps;
+    await youtube.runYtDlp(downloadUrl, (forceCookies) =>
+      youtube.getYtDlpOptions(
+        {
+          output: tempPath,
+          // 이 다운로드에 곁들여 메타데이터를 파일로 받는다. 왕복이 늘지 않는다.
+          // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
+          // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
+          // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
+          writeInfoJson: true,
+          format: "bestaudio/best",
+          preferFreeFormats: true,
+          // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
+          // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
+          matchFilter: "!is_live",
+          // 코덱은 yt-dlp 가 소스를 보고 정한다. 이미 Opus 면 리먹싱, 아니면 libopus.
+          // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
+          // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
+          // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다. 숫자가 갈라지지 않게.
+          postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
+          extractAudio: true,
+          audioFormat: "opus",
+        },
+        { forceCookies },
+      ),
+    );
+
+    // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
+    // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
+    if (!fsSync.existsSync(tempPath)) {
+      throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등). 캐시 다운로드 불가");
+    }
+    const info = this._takeInfoJson(tempPath);
+    return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version };
+  }
+
+  // 직접 링크. DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
+  // 즉시재생과 별개의 요청이므로 소비 시점에 음원 주소를 다시 가드 fetch 한다.
+  async _fetchDirect(downloadUrl: string, tempPath: string, track: DownloadTrack): Promise<Fetched> {
+    const audioStream = await this.deps.direct.getStream(downloadUrl);
+    const audioVersion = versionOf.fromHeaders(audioStream.headers);
+
+    // 일단 받아 둔 다음에 무엇인지 물어본다. 스트림인 채로는 알 수 없고, 안에 든 것을
+    // 모르면 이미 Opus 인 음원까지 다시 굽게 된다.
+    const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
+    audioCache.protectFile(rawPath);
+    try {
+      await pipeline(audioStream, fsSync.createWriteStream(rawPath));
+      // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
+      const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
+
+      // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다. 받아둔 파일의 실측으로 교정.
+      // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
+      if (made.durationSec) {
+        track.duration = made.durationSec;
+        track.durationSource = "실측";
+      }
+      return { verifiedTitle: null, audioDurationSec: made.durationSec || null, audioVersion };
+    } finally {
+      audioCache.unprotectFile(rawPath);
+      try {
+        fsSync.unlinkSync(rawPath);
+      } catch {
+        /* 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다 */
+      }
     }
   }
 

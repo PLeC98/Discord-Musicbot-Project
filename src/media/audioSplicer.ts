@@ -107,83 +107,86 @@ class AudioSplicer extends Readable {
     }
   }
 
+  // 상태마다 한 걸음씩 뗀다. 걸음은 계속할지(true) 멈출지(false. 기다리거나 받는 쪽이 찼다)를 돌려준다
   _pump() {
-    for (;;) {
-      if (this.destroyed) return;
-
-      // ── 전환 완료: 새 소스만 읽는다 (this.a === this.b) ──
-      if (this.switched) {
-        // 페이드를 거치지 않고 곧장 전환된 경로에서도 빚은 남아 있다. 갚기 전에 읽으면
-        // 민 길이만큼 되풀이해 들린다.
-        this._payDebt();
-        if (this.bDebt > 0 && !isEnded(this.a)) return this._await(this.a, true);
-        const c = this._take(this.a);
-        if (!c) return this._await(this.a, true);
-        this.emitted += c.length;
-        if (!this.push(c)) return;
-        continue;
-      }
-
-      // ── 크로스페이드 구간 ──
-      if (this.b && this.emitted >= this.switchAtBytes) {
-        // 밀린 만큼 새 소스에서 버린다. b는 고정 위치로 seek돼 있고 우리 시계만 흘렀으므로,
-        // 버리지 않으면 민 길이만큼 그대로 되풀이해 들린다.
-        this._payDebt();
-
-        const bReady = this.bDebt === 0 && (this.b.readableLength >= FRAME_BYTES || isEnded(this.b));
-        if (!bReady) {
-          // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 멈추지 말고 전환 지점을 뒤로 민다.
-          // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 무이음으로 갈 이유가 없어진다.
-          const c = this._take(this.a);
-          if (c) {
-            this.switchAtBytes = this.emitted + c.length;
-            this.bDebt += c.length;
-            this._slips++;
-            this.emitted += c.length;
-            if (!this.push(c)) return;
-            continue;
-          }
-          // 옛 소스도 말랐다. 더 밀 여유가 없다
-          if (isEnded(this.a)) {
-            this._completeSwitch();
-            continue;
-          }
-          return this._await(this.b, false);
-        }
-
-        const b = this.b.read(FRAME_BYTES);
-        if (!b) {
-          // 새 소스가 끝났거나 프레임이 안 된다. 페이드를 접고 넘어간다
-          this._completeSwitch();
-          continue;
-        }
-        const a = this.a.readableLength >= FRAME_BYTES || isEnded(this.a) ? this.a.read(FRAME_BYTES) : null;
-        if (!a) {
-          // 옛 소스가 말랐다. 남은 페이드를 포기하고 b로. 공백보다 짧은 이음매가 낫다.
-          this.b.unshift(b);
-          this._completeSwitch();
-          continue;
-        }
-        this.push(this._mix(a, b));
-        this.faded += FRAME_BYTES;
-        this.emitted += FRAME_BYTES;
-        if (this.faded >= this.fadeBytes) this._completeSwitch();
-        continue;
-      }
-
-      // ── 평소: a ──
-      const c = this._take(this.a);
-      if (!c) {
-        // a가 말랐는데 전환이 예약돼 있으면 기다리지 않고 넘어간다(공백 최소화)
-        if (this.b && isEnded(this.a)) {
-          this._completeSwitch();
-          continue;
-        }
-        return this._await(this.a, !this.b);
-      }
-      this.emitted += c.length;
-      if (!this.push(c)) return;
+    while (!this.destroyed) {
+      const go = this.switched ? this._stepSwitched() : this.b && this.emitted >= this.switchAtBytes ? this._stepFade(this.b) : this._stepPlain();
+      if (!go) return;
     }
+  }
+
+  // 전환을 끝내고 이어 읽는다
+  _switchNow() {
+    this._completeSwitch();
+    return true;
+  }
+
+  // 내보낸다. 받는 쪽이 찼으면 false
+  _emit(chunk: Buffer) {
+    this.emitted += chunk.length;
+    return this.push(chunk);
+  }
+
+  // ── 전환 완료: 새 소스만 읽는다 (this.a === this.b) ──
+  _stepSwitched() {
+    // 페이드를 거치지 않고 곧장 전환된 경로에서도 빚은 남아 있다. 갚기 전에 읽으면
+    // 민 길이만큼 되풀이해 들린다.
+    this._payDebt();
+    const c = this.bDebt > 0 && !isEnded(this.a) ? null : this._take(this.a);
+    if (c) return this._emit(c);
+    this._await(this.a, true);
+    return false;
+  }
+
+  // ── 크로스페이드 구간 ──
+  _stepFade(b: Readable) {
+    // 밀린 만큼 새 소스에서 버린다. b는 고정 위치로 seek돼 있고 우리 시계만 흘렀으므로,
+    // 버리지 않으면 민 길이만큼 그대로 되풀이해 들린다.
+    this._payDebt();
+
+    const bReady = this.bDebt === 0 && (b.readableLength >= FRAME_BYTES || isEnded(b));
+    if (!bReady) return this._slipOrWait(b);
+
+    const next = b.read(FRAME_BYTES);
+    // 새 소스가 끝났거나 프레임이 안 된다. 페이드를 접고 넘어간다
+    if (!next) return this._switchNow();
+    const prev = this.a.readableLength >= FRAME_BYTES || isEnded(this.a) ? this.a.read(FRAME_BYTES) : null;
+    if (!prev) {
+      // 옛 소스가 말랐다. 남은 페이드를 포기하고 b로. 공백보다 짧은 이음매가 낫다.
+      b.unshift(next);
+      return this._switchNow();
+    }
+    this.push(this._mix(prev, next));
+    this.faded += FRAME_BYTES;
+    this.emitted += FRAME_BYTES;
+    if (this.faded >= this.fadeBytes) this._completeSwitch();
+    return true;
+  }
+
+  // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 멈추지 말고 전환 지점을 뒤로 민다.
+  // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 무이음으로 갈 이유가 없어진다.
+  _slipOrWait(b: Readable) {
+    const c = this._take(this.a);
+    if (c) {
+      this.switchAtBytes = this.emitted + c.length;
+      this.bDebt += c.length;
+      this._slips++;
+      return this._emit(c);
+    }
+    // 옛 소스도 말랐다. 더 밀 여유가 없다
+    if (isEnded(this.a)) return this._switchNow();
+    this._await(b, false);
+    return false;
+  }
+
+  // ── 평소: a ──
+  _stepPlain() {
+    const c = this._take(this.a);
+    if (c) return this._emit(c);
+    // a가 말랐는데 전환이 예약돼 있으면 기다리지 않고 넘어간다(공백 최소화)
+    if (this.b && isEnded(this.a)) return this._switchNow();
+    this._await(this.a, !this.b);
+    return false;
   }
 
   // 전환 지점을 민 만큼 새 소스 앞을 버린다. 데이터가 아직 없으면 빚으로 남겨 다음에 갚는다.
