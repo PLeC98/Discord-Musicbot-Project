@@ -17,13 +17,10 @@ import { createPotServer } from "../sources/youtube/potServer.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
-import moduleLoader from "./moduleLoader.ts";
-const { loadModules } = moduleLoader;
-import commandLoader from "./commandLoader.ts";
-import resilience from "./resilience.ts";
-const { installErrorHandlers } = resilience;
-import shutdown from "./shutdown.ts";
-const { installShutdown } = shutdown;
+import { loadModules } from "./moduleLoader.ts";
+import * as commandLoader from "./commandLoader.ts";
+import { installErrorHandlers } from "./resilience.ts";
+import { installShutdown } from "./shutdown.ts";
 import { scheduleReplyCleanup } from "../ui/replyLifetime.ts";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
 import { MusicEmbedManager } from "../ui/nowPlayingPanel.ts";
@@ -225,6 +222,4 @@ async function loadEvents(client: Client) {
   log.info({ tags: ["startup"] }, `이벤트 핸들러 ${events.length}개 등록 완료`);
 }
 
-const exported = { main };
-export default exported;
-export { exported as "module.exports" };
+export { main };

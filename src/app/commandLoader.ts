@@ -2,8 +2,7 @@ import { REST, Routes, type ChatInputCommandInteraction, type Client, type RESTP
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import moduleLoader from "./moduleLoader.ts";
-const { loadModules } = moduleLoader;
+import { loadModules } from "./moduleLoader.ts";
 import config from "../../config.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
 
@@ -99,7 +98,5 @@ function deployErrorLines(result: { scope: string; error?: unknown }) {
   return lines;
 }
 
-const exported = { loadedCommands, definitions, deployCommands, loadCommandModules, deployErrorLines };
-export default exported;
-export { exported as "module.exports" };
+export { loadedCommands, definitions, deployCommands, loadCommandModules, deployErrorLines };
 export type { SlashCommand };

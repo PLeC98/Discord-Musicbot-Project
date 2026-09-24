@@ -8,8 +8,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import moduleLoader from "../../src/app/moduleLoader.ts";
-const { loadModules } = moduleLoader;
+import { loadModules } from "../../src/app/moduleLoader.ts";
 
 function tmpModules(files) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "modload-"));

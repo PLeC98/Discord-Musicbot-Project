@@ -3,10 +3,10 @@
 
 import "./src/infra/log/sink.ts"; // 다른 무엇보다 먼저 콘솔을 가로챈다
 import config from "./config.ts";
-import configCheck from "./src/app/configCheck.ts";
+import * as configCheck from "./src/app/configCheck.ts";
 import logger from "./src/infra/log/logger.ts";
 
 configCheck.stopOnConfigProblems(config, logger.child({ category: "config" }));
 
-const { main } = (await import("./src/app/main.ts")).default;
+const { main } = await import("./src/app/main.ts");
 main();

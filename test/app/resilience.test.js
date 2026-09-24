@@ -3,8 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { VoiceConnectionStatus } from "@discordjs/voice";
-import resilience from "../../src/app/resilience.ts";
-const { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_MAX } = resilience;
+import { isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_MAX } from "../../src/app/resilience.ts";
 
 // ── isTransientNetworkError ──────────────────────────────────
 
@@ -216,7 +215,7 @@ test("빈도 가드는 오류 종류별로 서로 다른 인스턴스다 (카운
 // ── 새어 나온 오류 처리기 ─────────────────────────────────────────────────────
 
 import { EventEmitter } from "node:events";
-const { installErrorHandlers } = (await import("../../src/app/resilience.ts")).default;
+const { installErrorHandlers } = await import("../../src/app/resilience.ts");
 
 // 빈도 가드는 모듈에 하나씩이라 시험마다 시계를 한 시간씩 먼 미래로 옮겨 앞 시험의 기록을 창 밖으로 보낸다
 let clock = Date.UTC(2100, 0, 1);

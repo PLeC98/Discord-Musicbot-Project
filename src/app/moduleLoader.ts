@@ -28,6 +28,4 @@ async function loadModules(dir: string) {
   return { modules, failures, missing: false };
 }
 
-const exported = { loadModules };
-export default exported;
-export { exported as "module.exports" };
+export { loadModules };

@@ -72,6 +72,4 @@ function installShutdown(client: Pick<Client, "players" | "guilds" | "destroy">,
   }
 }
 
-const exported = { installShutdown };
-export default exported;
-export { exported as "module.exports" };
+export { installShutdown };

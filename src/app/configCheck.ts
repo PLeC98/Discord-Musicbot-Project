@@ -10,6 +10,4 @@ function stopOnConfigProblems(config: Checked, out: Out) {
   process.exit(1);
 }
 
-const exported = { stopOnConfigProblems };
-export default exported;
-export { exported as "module.exports" };
+export { stopOnConfigProblems };

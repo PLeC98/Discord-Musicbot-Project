@@ -25,7 +25,7 @@ after(() => {
   REST.prototype.put = realPut;
 });
 
-const { loadedCommands, definitions, deployCommands, deployErrorLines } = (await import("../../src/app/commandLoader.ts")).default;
+const { loadedCommands, definitions, deployCommands, deployErrorLines } = await import("../../src/app/commandLoader.ts");
 
 // 명령 파일은 처음 필요할 때 읽는다(불러오기가 비동기)
 let commands;

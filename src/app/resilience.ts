@@ -190,18 +190,4 @@ function installErrorHandlers(client: Client, { proc = process, exit }: { proc?:
   });
 }
 
-const exported = {
-  installErrorHandlers,
-  isTransientNetworkError,
-  healBrokenPlayers,
-  makeFloodGuard,
-  networkErrorFlooding,
-  unknownRejectionFlooding,
-  unknownClientErrorFlooding,
-  ignorableDiscordError,
-  fatalShutdown,
-  NET_ERR_WINDOW_MS,
-  NET_ERR_MAX,
-};
-export default exported;
-export { exported as "module.exports" };
+export { installErrorHandlers, isTransientNetworkError, healBrokenPlayers, makeFloodGuard, networkErrorFlooding, unknownRejectionFlooding, unknownClientErrorFlooding, ignorableDiscordError, fatalShutdown, NET_ERR_WINDOW_MS, NET_ERR_MAX };

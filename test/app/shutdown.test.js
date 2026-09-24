@@ -3,8 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import shutdown from "../../src/app/shutdown.ts";
-const { installShutdown } = shutdown;
+import { installShutdown } from "../../src/app/shutdown.ts";
 
 function setup({ saveFails = false } = {}) {
   const steps = [];
