@@ -189,9 +189,9 @@ test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () 
   assert.deepEqual(asked, ["rock", "jazz", "jazz"], "rock 은 한 번만, jazz 는 없던 때를 기억하지 않아 다시 묻는다");
 });
 
-test("가수 · 가수 분류를 걸면 정렬 순서의 앞쪽에서만 고른다. 저쪽이 깊은 창을 못 준다", async (t) => {
+test("정렬 순서의 앞쪽에서만 고른다. 가수 · 가수 분류를 걸면 더 앞쪽. 저쪽이 깊은 창을 못 준다", async (t) => {
   t.mock.method(Math, "random", () => 0.999); // 가장 깊은 창
-  const starts = async (extra: Partial<GenreSource>) => {
+  const starts = async (extra: Partial<GenreSource>, total = 300_000) => {
     _forgetIds();
     const urls: URL[] = [];
     useFetch(
@@ -199,13 +199,15 @@ test("가수 · 가수 분류를 걸면 정렬 순서의 앞쪽에서만 고른�
         const url = new URL(String(input));
         urls.push(url);
         if (url.pathname === "/api/artists") return json({ items: [{ id: 1, name: "初音ミク" }] });
-        return json(url.searchParams.get("maxResults") === "1" ? { totalCount: 100_000 } : { items: [] });
+        return json(url.searchParams.get("maxResults") === "1" ? { totalCount: total } : { items: [] });
       }),
     );
     await vocaFamily(source(extra));
     return Number(urls.find((u) => u.pathname === "/api/songs" && u.searchParams.get("maxResults") !== "1")?.searchParams.get("start"));
   };
-  assert.ok((await starts({})) > 90_000, "조건이 없으면 전체에서");
+  const plain = await starts({});
+  assert.ok(plain > 2000 && plain < 30_000, `조건이 없으면 앞 30,000곡에서: ${plain}`);
+  assert.ok((await starts({ minScore: 50 }, 7082)) > 7000, "그보다 적으면 전체에서");
   assert.ok((await starts({ artists: ["初音ミク"] })) < 2000);
   assert.ok((await starts({ artistTypes: ["UTAU"] })) < 2000);
 });

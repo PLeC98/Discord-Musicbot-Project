@@ -23,14 +23,16 @@ type Artist = { id?: number; name?: string; names?: Array<{ value?: string }> };
 const VOCA_PAGE = 50;
 
 // 곡 검색은 오래 기다린다. 가수를 걸면 저쪽이 느리다(UNI 1,235곡도 첫 창에 6~12초, 깊은 창은 30초에서 저쪽이 500).
-// 조건이 없으면 1~3초다(실측 2026-09-25). 곡이 도는 동안 다음 곡을 미리 고르고 풀이 한 시간 가므로 기다려도 티가 안 난다.
+// 곡이 도는 동안 다음 곡을 미리 고르고 풀이 한 시간 가므로 기다려도 티가 안 난다.
 // 저쪽이 30초에서 끊으니 그보다 조금 길게 잡아 저쪽 답을 받는다.
 const VOCA_TIMEOUT_MS = 35_000;
 
-// 가수 · 가수 분류를 걸면 깊은 창을 저쪽이 못 준다. 분류는 깊이에 비례해 느려진다(UTAU: 0 → 1초, 1,000 → 3~7초,
-// 5,000 → 13~20초, 15,000 이상은 대개 500). 그래서 이 둘을 걸었을 때만 정렬 순서의 앞쪽에서 고른다.
-// 기본 정렬이면 조건에 맞는 곡 중 평가 높은 쪽이다. 조건이 없으면 깊은 창도 1~3초라 전체에서 고른다
+// 정렬 순서에서 몇 번째까지 볼지. 깊은 창은 저쪽이 못 준다(실측 2026-09-25/26, vocadb):
+//   가수 · 가수 분류  깊이에 비례해 느려진다. UTAU 0 → 1초, 1,000 → 3~7초, 5,000 → 13~20초, 15,000 이상은 대개 500
+//   그 밖             조건이 없으면 30,000 → 10초, 120,000 이상은 500. minScore 를 걸면 빠르다(7,000번째도 0.6초)
+// 기본 정렬이면 조건에 맞는 곡 중 평가 높은 쪽에서 고르게 된다. 보통 설정(minScore 등)은 기본 깊이보다 적어 전체에서 고른다
 const HEAVY_DEPTH = 2000;
+const DEPTH = 30_000;
 
 // 가사 언어 · 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
 // 가사 언어: `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다. 그리고 한 번에 하나만 건다:
@@ -65,7 +67,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   const artistTypes = source.artistTypes || [];
   if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw new Error(`${site}에는 가수 분류가 없습니다`);
   const common = await filtersOf(source, site);
-  const depth = common.artistId.length || artistTypes.length ? HEAVY_DEPTH : Infinity;
+  const depth = common.artistId.length || artistTypes.length ? HEAVY_DEPTH : DEPTH;
 
   const out: Candidate[] = [];
   const seen = new Set<string>();
