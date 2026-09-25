@@ -114,6 +114,7 @@ function listenToPlayers(panels: MusicEmbedManager, stream: ReturnType<typeof cr
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));
   playerEvents.on("touched", (guildId) => stream.notify(guildId));
+  playerEvents.on("leaving", (player, leavesAt) => panels.updateIdleLeave(player, leavesAt));
 }
 
 async function onReady(client: Client<true>) {

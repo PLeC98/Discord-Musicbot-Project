@@ -7,6 +7,7 @@
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
 //   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
+//   leaving(player, leavesAt)   곡이 없을 때 음성에서 나갈 시각이 바뀌었다(혼자 남음 · 복귀). 끝난 패널의 문구를 고친다
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -31,10 +32,11 @@ type EventArgs = {
   released: [player: MusicPlayer, textChannelId: string];
   notice: [player: MusicPlayer, code: NoticeCode, detail: Notices[NoticeCode]];
   touched: [guildId: string];
+  leaving: [player: MusicPlayer, leavesAt: number | null];
 };
 type Listener<K extends keyof EventArgs> = (...args: EventArgs[K]) => unknown;
 
-const listeners: { [K in keyof EventArgs]: Set<Listener<K>> } = { refresh: new Set(), ended: new Set(), started: new Set(), released: new Set(), notice: new Set(), touched: new Set() };
+const listeners: { [K in keyof EventArgs]: Set<Listener<K>> } = { refresh: new Set(), ended: new Set(), started: new Set(), released: new Set(), notice: new Set(), touched: new Set(), leaving: new Set() };
 
 /** 듣는 쪽을 건다. 떼는 함수를 돌려준다 */
 function on<K extends keyof EventArgs>(name: K, fn: Listener<K>) {
@@ -52,6 +54,7 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
 const refresh = (player: MusicPlayer) => emit("refresh", player);
 const ended = (player: MusicPlayer, reason: string) => emit("ended", player, reason);
 const started = (player: MusicPlayer, requester: Requester) => emit("started", player, requester);
+const leaving = (player: MusicPlayer, leavesAt: number | null) => emit("leaving", player, leavesAt);
 const notice = <C extends NoticeCode>(player: MusicPlayer, code: C, detail: Notices[C]) => emit("notice", player, code, detail);
 
 function released(player: MusicPlayer, textChannelId: string) {
@@ -73,6 +76,6 @@ function _reset() {
   for (const set of Object.values(listeners)) set.clear();
 }
 
-export { on, refresh, ended, started, notice, released, touched, _reset };
+export { on, refresh, ended, started, notice, leaving, released, touched, _reset };
 export type { Notices, NoticeCode };
 export type { EventArgs, Requester };
