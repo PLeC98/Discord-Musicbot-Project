@@ -1,15 +1,21 @@
-// scripts/install-ffmpeg.ts — 어느 릴리스에서 어느 자산을 받을지.
+// scripts/install-ffmpeg.ts · install-bgutil.ts — 어느 판을 받을지. 기본값은 config.ts, .env 로 바꾼다.
 //
 // 회귀 대상 둘:
 // 1. 움직이는 태그(latest)를 쓰면 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
 //    게다가 BtbN은 일반 autobuild를 2주만 보관하므로 월말 빌드여야 고정이 유지된다(2년 보관).
 // 2. `FFMPEG_PATH=   # 설명` 처럼 값이 비고 주석만 있는 줄을 값으로 읽어, 설정한 적 없는 사용자가
-//    내려받기를 영영 건너뛰던 것(2026-09-15 사용자 보고 — --force로도 빠져나올 수 없었다).
+//    내려받기를 영영 건너뛰던 것. 사용자가 복사해 쓰는 .env.example 그대로 읽어 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import dotenv from "dotenv";
 
-import { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue } from "../scripts/install-ffmpeg.ts";
+import { loadConfig } from "../config.ts";
+import { VARIANT, TARGETS, RELEASES_URL, resolveAsset } from "../scripts/install-ffmpeg.ts";
+
+const DEFAULTS = loadConfig({}).config;
 
 // 실제 릴리스의 checksums.sha256 일부 — 한 릴리스에 브랜치가 여럿 들어 있다
 const CHECKSUMS = [
@@ -25,12 +31,13 @@ const CHECKSUMS = [
 ].join("\n");
 
 test("릴리스는 월말 autobuild 태그로 고정한다 — 그 외에는 2주 뒤 404", () => {
-  const match = /^autobuild-(\d{4})-(\d{2})-(\d{2})-\d{2}-\d{2}$/.exec(DEFAULT_RELEASE);
-  assert.ok(match, `latest 같은 움직이는 태그 금지: ${DEFAULT_RELEASE}`);
+  const release = DEFAULTS.ffmpeg.release;
+  const match = /^autobuild-(\d{4})-(\d{2})-(\d{2})-\d{2}-\d{2}$/.exec(release);
+  assert.ok(match, `latest 같은 움직이는 태그 금지: ${release}`);
 
   const [, year, month, day] = match.map(Number);
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  assert.equal(day, lastDay, `${year}-${month}의 마지막 날이어야 한다 (월말 빌드만 2년 보관): ${DEFAULT_RELEASE}`);
+  assert.equal(day, lastDay, `${year}-${month}의 마지막 날이어야 한다 (월말 빌드만 2년 보관): ${release}`);
   assert.ok(RELEASES_URL.startsWith("https://github.com/BtbN/FFmpeg-Builds/"), RELEASES_URL);
 });
 
@@ -70,13 +77,21 @@ test("쓸 수 있는 빌드가 없으면 조용히 엉뚱한 것을 받지 않�
   assert.throws(() => resolveAsset(onlyShared, "linux-x64"), /빌드가 없습니다/);
 });
 
-test(".env 값 읽기: 인라인 주석은 값이 아니다", () => {
-  const env = ["# 주석 줄", "FFMPEG_PATH=                    # macOS는 번들을 제공하지 않으므로 여기서 지정하세요", "FFMPEG_RELEASE=autobuild-2026-08-31-13-27   # 월말 빌드", 'QUOTED="C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe"', "export EXPORTED=/usr/bin/ffmpeg", "EMPTY="].join("\n");
+test("bgutil 은 기본 브랜치가 아니라 릴리스 태그로 고정한다", () => {
+  assert.match(DEFAULTS.bgutil.version, /^\d+\.\d+\.\d+$/);
+});
 
-  assert.equal(readEnvValue("FFMPEG_PATH", env), null, "설명문을 경로로 읽으면 안 된다");
-  assert.equal(readEnvValue("FFMPEG_RELEASE", env), "autobuild-2026-08-31-13-27");
-  assert.equal(readEnvValue("QUOTED", env), "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe", "따옴표 안의 공백·#은 값이다");
-  assert.equal(readEnvValue("EXPORTED", env), "/usr/bin/ffmpeg");
-  assert.equal(readEnvValue("EMPTY", env), null);
-  assert.equal(readEnvValue("ABSENT", env), null);
+test(".env.example 을 그대로 복사하면 기본값으로 설치한다 — 주석만 있는 칸은 값이 아니다", () => {
+  const example = dotenv.parse(fs.readFileSync(path.join(import.meta.dirname, "..", ".env.example"), "utf8"));
+  const { ffmpeg, bgutil } = loadConfig(example).config;
+
+  assert.equal(ffmpeg.path, null, "설명문을 경로로 읽으면 내려받기를 건너뛴다");
+  assert.equal(ffmpeg.release, DEFAULTS.ffmpeg.release);
+  assert.equal(bgutil.version, DEFAULTS.bgutil.version);
+});
+
+test(".env 에 적은 판이 기본값을 이긴다", () => {
+  const { ffmpeg, bgutil } = loadConfig({ FFMPEG_RELEASE: "autobuild-2026-07-31-13-10", BGUTIL_VERSION: "1.3.2" }).config;
+  assert.equal(ffmpeg.release, "autobuild-2026-07-31-13-10");
+  assert.equal(bgutil.version, "1.3.2");
 });

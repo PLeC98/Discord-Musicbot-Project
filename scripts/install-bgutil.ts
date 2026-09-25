@@ -1,38 +1,73 @@
 // bgutil-ytdlp-pot-provider (POToken 공급자) 설치/업데이트 스크립트.
-//   pnpm run install:bgutil. 없으면 git clone, 그 후 의존성 설치 + 빌드
-//   pnpm run update:bgutil. git pull 후 재설치 + 재빌드 (--update)
+//   pnpm run install:bgutil · update:bgutil. 둘은 같은 일을 한다:
+//   없으면 git clone, 설정한 태그로 체크아웃, 의존성 설치 + 빌드
+//
+// 받는 판은 config.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
+// 기본 브랜치를 따라가지 않는다. 설치한 날에 따라 다른 코드가 깔린다.
 //
 // bgutil은 별도로 가져와야 한다.
 // 봇 실행 시 자동 감지되어 POToken 서버(포트 4416)를 함께 시작한다.
 
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
+import config from "../config.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
 
 const ROOT = path.join(import.meta.dirname, "..");
 const DIR = path.join(ROOT, "bgutil-ytdlp-pot-provider");
 const SERVER = path.join(DIR, "server");
 const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
-const isUpdate = process.argv.includes("--update");
+const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
+const VERSION = config.bgutil.version;
 
 function run(cmd: string, cwd: string) {
   console.log(`\n$ ${cmd}   (${path.relative(ROOT, cwd) || "."})`);
   execSync(cmd, { cwd, stdio: "inherit" });
 }
 
-try {
-  const exists = fs.existsSync(DIR);
+// 태그는 .env 에서 온다. 셸을 거치지 않고 인자로 넘긴다
+function git(args: string[], cwd: string) {
+  console.log(`\n$ git ${args.join(" ")}   (${path.relative(ROOT, cwd) || "."})`);
+  execFileSync("git", args, { cwd, stdio: "inherit" });
+}
 
-  if (!exists) {
-    if (isUpdate) console.log("ℹ️  bgutil 디렉터리가 없어 새로 clone합니다.");
-    run(`git clone ${REPO} bgutil-ytdlp-pot-provider`, ROOT);
-  } else if (isUpdate) {
-    // npm audit fix가 server/package-lock.json을 로컬 변경하므로, pull 전에 원복해야 --ff-only가 통과한다
-    run("git checkout -- .", DIR);
-    run("git pull --ff-only", DIR);
+// 지금 체크아웃이 가리키는 태그. 태그 위가 아니면 null
+function currentTag() {
+  try {
+    return execFileSync("git", ["describe", "--tags", "--exact-match", "HEAD"], { cwd: DIR, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function hasTag(tag: string) {
+  try {
+    execFileSync("git", ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`], { cwd: DIR, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+try {
+  const existed = fs.existsSync(DIR);
+  if (!existed) git(["clone", REPO, "bgutil-ytdlp-pot-provider"], ROOT);
+
+  const before = currentTag();
+  const moved = before !== VERSION;
+  if (!moved) {
+    console.log(`ℹ️  bgutil ${VERSION}이 이미 체크아웃돼 있습니다. 의존성 설치 + 빌드만 진행합니다.`);
   } else {
-    console.log("ℹ️  bgutil 디렉터리가 이미 있습니다. 의존성 설치 + 빌드만 진행합니다. (업데이트는 pnpm run update:bgutil)");
+    // npm audit fix가 server/package-lock.json을 로컬 변경하므로, 원복해야 다른 태그로 옮길 수 있다
+    git(["checkout", "--", "."], DIR);
+    if (!hasTag(VERSION)) git(["fetch", "--tags", "origin"], DIR);
+    if (!hasTag(VERSION)) {
+      console.error(`\n❌ bgutil에 ${VERSION} 태그가 없습니다. .env의 BGUTIL_VERSION을 확인하세요 (태그 목록: ${TAGS_URL})`);
+      process.exit(1);
+    }
+    git(["-c", "advice.detachedHead=false", "checkout", "--detach", `refs/tags/${VERSION}`], DIR);
+    console.log(`ℹ️  bgutil ${before ?? "(태그 밖)"} → ${VERSION}`);
   }
 
   if (!fs.existsSync(SERVER)) throw new Error(`server 디렉터리를 찾을 수 없습니다: ${SERVER}`);
@@ -46,7 +81,7 @@ try {
   }
 
   // upstream 잠금 파일의 알려진 취약 전이 의존성을 semver 범위 내에서 교체 (예: form-data GHSA-hmw2-7cc7-3qxx).
-  // 로컬 변경분은 다음 update 때 원복 후 재적용. upstream이 잠금을 고치면 자연히 no-op.
+  // 로컬 변경분은 태그를 옮길 때 원복 후 재적용. upstream이 잠금을 고치면 자연히 no-op.
   try {
     run("npm audit fix", SERVER);
   } catch {
@@ -56,7 +91,7 @@ try {
   run("npx tsc", SERVER); // build/main.js 생성 (tsconfig outDir=./build)
 
   console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 포트 4416에서 함께 시작됩니다.");
-  if (isUpdate) {
+  if (existed && moved) {
     // yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부한다(경고가 아니라 중단).
     // 봇이 띄워 둔 서버는 예전 코드를 그대로 물고 있으므로, 재시작 전까지 POToken이 아예 나오지 않는다.
     console.log("\n⚠️  봇이 실행 중이라면 재시작하세요.");
