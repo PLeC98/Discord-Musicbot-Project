@@ -189,6 +189,27 @@ test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () 
   assert.deepEqual(asked, ["rock", "jazz", "jazz"], "rock 은 한 번만, jazz 는 없던 때를 기억하지 않아 다시 묻는다");
 });
 
+test("가수 · 가수 분류를 걸면 정렬 순서의 앞쪽에서만 고른다. 저쪽이 깊은 창을 못 준다", async (t) => {
+  t.mock.method(Math, "random", () => 0.999); // 가장 깊은 창
+  const starts = async (extra: Partial<GenreSource>) => {
+    _forgetIds();
+    const urls: URL[] = [];
+    useFetch(
+      fake<typeof fetch>(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        urls.push(url);
+        if (url.pathname === "/api/artists") return json({ items: [{ id: 1, name: "初音ミク" }] });
+        return json(url.searchParams.get("maxResults") === "1" ? { totalCount: 100_000 } : { items: [] });
+      }),
+    );
+    await vocaFamily(source(extra));
+    return Number(urls.find((u) => u.pathname === "/api/songs" && u.searchParams.get("maxResults") !== "1")?.searchParams.get("start"));
+  };
+  assert.ok((await starts({})) > 90_000, "조건이 없으면 전체에서");
+  assert.ok((await starts({ artists: ["初音ミク"] })) < 2000);
+  assert.ok((await starts({ artistTypes: ["UTAU"] })) < 2000);
+});
+
 test("가수 분류는 advancedFilters 로, 가사 언어 뒤에 번호를 이어 건다", async () => {
   const urls = serve(() => []);
   await vocaFamily(source({ languages: ["ja"], artistTypes: ["Vocaloid", "UTAU"] }));

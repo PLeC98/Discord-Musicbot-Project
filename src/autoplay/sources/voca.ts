@@ -27,6 +27,11 @@ const VOCA_PAGE = 50;
 // 저쪽이 30초에서 끊으니 그보다 조금 길게 잡아 저쪽 답을 받는다.
 const VOCA_TIMEOUT_MS = 35_000;
 
+// 가수 · 가수 분류를 걸면 깊은 창을 저쪽이 못 준다. 분류는 깊이에 비례해 느려진다(UTAU: 0 → 1초, 1,000 → 3~7초,
+// 5,000 → 13~20초, 15,000 이상은 대개 500). 그래서 이 둘을 걸었을 때만 정렬 순서의 앞쪽에서 고른다.
+// 기본 정렬이면 조건에 맞는 곡 중 평가 높은 쪽이다. 조건이 없으면 깊은 창도 1~3초라 전체에서 고른다
+const HEAVY_DEPTH = 2000;
+
 // 가사 언어 · 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
 // 가사 언어: `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다. 그리고 한 번에 하나만 건다:
 // 둘을 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 줄어든다(실측 2026-09-18).
@@ -60,6 +65,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   const artistTypes = source.artistTypes || [];
   if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw new Error(`${site}에는 가수 분류가 없습니다`);
   const common = await filtersOf(source, site);
+  const depth = common.artistId.length || artistTypes.length ? HEAVY_DEPTH : Infinity;
 
   const out: Candidate[] = [];
   const seen = new Set<string>();
@@ -68,7 +74,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
     // 언어마다 요청이 두 번이다. 하나가 실패했다고 나머지까지 버릴 이유는 없다.
     // 하나도 못 받았을 때만 던져서 부르는 쪽이 다음 소스로 넘어가게 한다.
     try {
-      for (const track of await vocaWindow(base, { ...common, ...advancedFilters(lang, artistTypes) }, site)) {
+      for (const track of await vocaWindow(base, { ...common, ...advancedFilters(lang, artistTypes) }, site, depth)) {
         // 같은 곡이 여러 언어에 걸린다. 번역 가사까지 세기 때문이다
         if (seen.has(track.sourceKey)) continue;
         seen.add(track.sourceKey);
@@ -154,14 +160,16 @@ function _forgetIds() {
 }
 
 // 조건에 맞는 곡 중 아무 데나 한 창(50곡)을 떠 온다.
-async function vocaWindow(base: string, filters: Record<string, unknown>, type: Site): Promise<Candidate[]> {
+// depth: 정렬 순서에서 몇 번째까지만 볼지
+async function vocaWindow(base: string, filters: Record<string, unknown>, type: Site, depth: number): Promise<Candidate[]> {
   // 깊은 곳에서 집으려면 전체 개수를 먼저 알아야 한다
   const head = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`, {}, VOCA_TIMEOUT_MS);
   const total = Number(head?.totalCount) || 0;
   if (!total) return [];
 
+  const span = Math.min(total, depth);
+  const start = span > VOCA_PAGE ? rand(span - VOCA_PAGE) : 0;
   // fields=Names로 원어·로마자·영문이 한 번에 온다. 표기를 고를 일이 없다
-  const start = total > VOCA_PAGE ? rand(total - VOCA_PAGE) : 0;
   const page = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`, {}, VOCA_TIMEOUT_MS);
 
   return (page?.items || []).flatMap((song) => {
