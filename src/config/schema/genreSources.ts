@@ -24,7 +24,18 @@ type Field = {
   emptyLabel?: string;
 };
 /** 소스 한 종류의 규격(아래 SPEC 의 설명) */
-type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; has?: () => boolean; fields: Field[] };
+/** 곡이 많을 때 고르는 범위. 정렬 순서의 앞 depth 곡에서만 고르고, narrow 의 칸을 채우면 더 앞쪽(narrowDepth)에서 */
+type Window = { depth: number; narrow: string[]; narrowDepth: number };
+type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; has?: () => boolean; fields: Field[]; window?: Window };
+
+// VocaDB 계열은 깊은 곳을 저쪽이 못 준다(실측은 sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 고른다
+const VOCA_WINDOW: Window = { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 };
+
+/** 이 설정으로 몇 번째 곡까지 보는지. 화면(SourceEditor)도 같은 셈을 한다 */
+function windowDepth(win: Window, source: Record<string, unknown>) {
+  const filled = (v: unknown) => (Array.isArray(v) ? v : [v]).some((one) => one != null && String(one).trim() !== "");
+  return win.narrow.some((key) => filled(source[key])) ? win.narrowDepth : win.depth;
+}
 
 // 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
 const ANISONG_SONG_TYPES = ["opening", "ending", "insert"];
@@ -334,9 +345,9 @@ const SPEC: Record<string, SourceSpec> = {
       f("n", "number", "한 번에 받아 올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, hint: "기본 100" }),
     ],
   },
-  vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb") },
-  utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb") },
-  touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있습니다.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb") },
+  vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb"), window: VOCA_WINDOW },
+  utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb"), window: VOCA_WINDOW },
+  touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있습니다.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb"), window: VOCA_WINDOW },
   spotify: { label: "스포티파이 재생목록", need: [["url"]], env: "SPOTIFY_CLIENT_ID", has: () => !!config.spotify?.clientId, fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트" })] },
   youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "자동 생성 믹스(list=RD…)는 곡 수에 끝이 없어 사용이 불가능합니다" })] },
 };
@@ -349,5 +360,5 @@ const needsOf = (type: string): { env: string; label: string } | null => (SPEC[t
 
 const TYPES = Object.keys(SPEC);
 
-export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES };
-export type { Site, Option, FieldKind, Field, SourceSpec };
+export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW, windowDepth };
+export type { Site, Option, FieldKind, Field, SourceSpec, Window };

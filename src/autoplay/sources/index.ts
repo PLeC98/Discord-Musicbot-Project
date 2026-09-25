@@ -106,6 +106,8 @@ async function catalog() {
       // need 가 [["tags","prompt"]] 꼴이면 "둘 중 하나"라는 뜻이다
       either: spec.need.filter((g) => g.length > 1).map((g) => [...g]),
       fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key), ...fill(one, type, years, anisong) })),
+      // 곡이 많을 때 고르는 범위. 화면이 "상위 n곡 중에서"를 띄운다
+      window: spec.window || null,
     };
   });
 }

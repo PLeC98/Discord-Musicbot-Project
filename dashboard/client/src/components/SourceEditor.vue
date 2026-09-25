@@ -65,6 +65,7 @@
         <button v-if="deepCount(source.type)" :class="deepBtn" @click="toggleDeep(source._key)">
           {{ open.has(source._key) ? "접기" : `상세 설정 ${deepCount(source.type)}개 펼치기` }}
         </button>
+        <p v-if="spec(source.type)?.window" class="text-muted text-[0.75rem] mt-1.5">곡이 너무 많으면 상위 {{ depthOf(source).toLocaleString("ko-KR") }}곡 중에서 고릅니다.</p>
       </div>
     </div>
 
@@ -165,6 +166,13 @@ const deepCount = (type) => fieldsOf(type).filter((f) => f.deep).length;
 const shown = (source) => fieldsOf(source.type).filter((f) => (!f.deep || open.value.has(source._key)) && (!f.when || hasRange(source, f.when)));
 // 구간은 두 칸으로 적히니 한쪽만 손으로 적어 둔 설정도 있다
 const hasRange = (source, key) => source[key] != null || source[fieldsOf(source.type).find((f) => f.key === key)?.to] != null;
+
+// 곡이 많을 때 몇 번째 곡까지 보는지. 셈은 서버와 같다(genreSources 의 windowDepth)
+const filled = (v) => asList(v).some((one) => one != null && String(one).trim() !== "");
+const depthOf = (source) => {
+  const win = spec(source.type).window;
+  return win.narrow.some((key) => filled(source[key])) ? win.narrowDepth : win.depth;
+};
 
 function toggleDeep(key) {
   const next = new Set(open.value);

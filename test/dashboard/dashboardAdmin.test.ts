@@ -364,6 +364,10 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   assert.equal(byType.lbradio.label, "ListenBrainz Radio");
   assert.equal(byType.vocadb.label, "VocaDB");
 
+  // 곡이 많을 때 고르는 범위. 화면이 "상위 n곡 중에서"를 채운 칸에 따라 셈한다
+  assert.deepEqual(byType.vocadb.window, { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 });
+  assert.equal(byType.keyword.window, null);
+
   // 키가 필요한 것은 무엇이 필요한지 밝힌다(화면이 "키 없음"을 띄운다)
   assert.equal(byType.lbradio.needs, "LISTENBRAINZ_TOKEN");
   assert.equal(byType.keyword.needs, null, "키워드는 키가 필요 없다");

@@ -2,7 +2,7 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, type Site } from "../../config/schema/genreSources.ts";
+import { VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, VOCA_WINDOW, windowDepth, type Site } from "../../config/schema/genreSources.ts";
 import { messageOf } from "../../rules/errorKind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
@@ -27,12 +27,10 @@ const VOCA_PAGE = 50;
 // 저쪽이 30초에서 끊으니 그보다 조금 길게 잡아 저쪽 답을 받는다.
 const VOCA_TIMEOUT_MS = 35_000;
 
-// 정렬 순서에서 몇 번째까지 볼지. 깊은 창은 저쪽이 못 준다(실측 2026-09-25/26, vocadb):
+// 정렬 순서에서 몇 번째까지 볼지는 VOCA_WINDOW(genreSources). 깊은 창은 저쪽이 못 준다(실측 2026-09-25/26, vocadb):
 //   가수 · 가수 분류  깊이에 비례해 느려진다. UTAU 0 → 1초, 1,000 → 3~7초, 5,000 → 13~20초, 15,000 이상은 대개 500
 //   그 밖             조건이 없으면 30,000 → 10초, 120,000 이상은 500. minScore 를 걸면 빠르다(7,000번째도 0.6초)
 // 기본 정렬이면 조건에 맞는 곡 중 평가 높은 쪽에서 고르게 된다. 보통 설정(minScore 등)은 기본 깊이보다 적어 전체에서 고른다
-const HEAVY_DEPTH = 2000;
-const DEPTH = 30_000;
 
 // 가사 언어 · 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
 // 가사 언어: `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다. 그리고 한 번에 하나만 건다:
@@ -67,7 +65,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   const artistTypes = source.artistTypes || [];
   if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw new Error(`${site}에는 가수 분류가 없습니다`);
   const common = await filtersOf(source, site);
-  const depth = common.artistId.length || artistTypes.length ? HEAVY_DEPTH : DEPTH;
+  const depth = windowDepth(VOCA_WINDOW, source);
 
   const out: Candidate[] = [];
   const seen = new Set<string>();
@@ -169,6 +167,7 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
   const total = Number(head?.totalCount) || 0;
   if (!total) return [];
 
+  if (total > depth) log.debug(`${type}: 조건에 맞는 ${total.toLocaleString("en-US")}곡 중 상위 ${depth.toLocaleString("en-US")}곡에서 고릅니다`);
   const span = Math.min(total, depth);
   const start = span > VOCA_PAGE ? rand(span - VOCA_PAGE) : 0;
   // fields=Names로 원어·로마자·영문이 한 번에 온다. 표기를 고를 일이 없다

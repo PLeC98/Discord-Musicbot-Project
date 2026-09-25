@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import { vocaFamily, _forgetIds } from "../../src/autoplay/sources/voca.ts";
 import { useFetch } from "../../src/autoplay/sources/http.ts";
 import type { GenreSource } from "../../src/config/genres.ts";
+import { VOCA_WINDOW } from "../../src/config/schema/genreSources.ts";
 import { fake } from "../helpers/fake.ts";
 
 after(() => useFetch(null));
@@ -205,11 +206,13 @@ test("정렬 순서의 앞쪽에서만 고른다. 가수 · 가수 분류를 걸
     await vocaFamily(source(extra));
     return Number(urls.find((u) => u.pathname === "/api/songs" && u.searchParams.get("maxResults") !== "1")?.searchParams.get("start"));
   };
+  const { depth, narrowDepth } = VOCA_WINDOW;
   const plain = await starts({});
-  assert.ok(plain > 2000 && plain < 30_000, `조건이 없으면 앞 30,000곡에서: ${plain}`);
+  assert.ok(plain > narrowDepth && plain < depth, `조건이 없으면 앞 ${depth}곡에서: ${plain}`);
   assert.ok((await starts({ minScore: 50 }, 7082)) > 7000, "그보다 적으면 전체에서");
-  assert.ok((await starts({ artists: ["初音ミク"] })) < 2000);
-  assert.ok((await starts({ artistTypes: ["UTAU"] })) < 2000);
+  assert.ok((await starts({ artists: ["初音ミク"] })) < narrowDepth);
+  assert.ok((await starts({ artistTypes: ["UTAU"] })) < narrowDepth);
+  assert.ok((await starts({ artists: ["  "] })) > narrowDepth, "빈 칸은 조건이 아니다(화면도 같은 셈)");
 });
 
 test("가수 분류는 advancedFilters 로, 가사 언어 뒤에 번호를 이어 건다", async () => {

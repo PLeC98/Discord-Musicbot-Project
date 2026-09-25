@@ -145,6 +145,8 @@
 #   minBpm    / maxBpm    : BPM 범위.
 #   yearFrom  / yearTo    : 발표 연도 범위.
 #   sort                  : 기본 RatingScore(평가 점수 높은 순). 대시보드에는 한국어로 나옵니다.
+#                           곡이 너무 많으면 이 순서의 상위 30,000곡 중에서 고릅니다(artists · artistTypes 를 적으면 2,000곡).
+#                           사이트가 목록의 깊은 곳을 제때 주지 못해서입니다. minScore 등으로 좁혀 그보다 적으면 전체에서 고릅니다.
 #                             FavoritedTimes 즐겨찾기 많은 순 · PublishDate 발표 최신순
 #                             AdditionDate 등록 최신순 · TagUsageCount 태그 많은 순
 #                             SongType 곡 종류순 · Name 이름순
