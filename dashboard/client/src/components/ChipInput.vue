@@ -26,12 +26,16 @@
 
     <Teleport to="body">
       <!-- mousedown.prevent: 누르는 순간 입력칸이 blur 되면 치던 말이 먼저 칩이 된다 -->
-      <div v-if="suggest && open && hits.length" ref="panel" :class="panelCls" :style="style">
+      <div v-if="suggest && open && hits.length && state === 'done'" ref="panel" :class="panelCls" :style="style">
         <button v-for="(one, i) in hits" :key="one.value" type="button" :class="[rowCls, i === at ? 'bg-white/10' : '']" @mouseenter="at = i" @mousedown.prevent @click="take(one)">
           <span class="truncate">{{ one.value }}</span>
           <span v-if="one.hint" class="ml-auto pl-2 text-muted text-[0.72rem] shrink-0">{{ one.hint }}</span>
         </button>
       </div>
+      <!-- 저쪽이 느릴 때가 있다. 묻는 중인지 알 수 있어야 기다린다 -->
+      <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[noteCls, 'flex items-center gap-2']" :style="style"><Icon name="spinner" :size="14" class="animate-spin" />후보를 찾는 중입니다</p>
+      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="noteCls" :style="style">후보를 받지 못했습니다. Enter 로 그대로 넣을 수 있습니다</p>
+      <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="noteCls" :style="style">후보가 없습니다. Enter 로 그대로 넣을 수 있습니다</p>
     </Teleport>
   </div>
 </template>
@@ -52,6 +56,7 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 
 const panelCls = "overflow-auto rounded-lg border border-white/12 bg-[#141833] shadow-[0_12px_32px_rgba(0,0,0,0.5)] py-1";
+const noteCls = "rounded-lg border border-white/12 bg-[#141833] px-2.5 py-2 text-[0.8rem] text-muted";
 const rowCls = "w-full flex items-center px-2.5 py-1.5 text-[0.82rem] text-fg-soft text-left cursor-pointer transition-colors duration-100 hover:bg-white/8";
 
 const entry = ref("");
@@ -64,6 +69,8 @@ const box = ref(null);
 const panel = ref(null);
 const open = ref(false);
 const hits = ref([]);
+// 후보 받기: idle(칠 말이 없다) · loading · done · failed
+const state = ref("idle");
 // 방향키로 고른 후보. -1 이면 고른 것이 없어 Enter 가 친 말을 그대로 넣는다
 const at = ref(-1);
 const { style } = useAnchoredPanel({ root, anchor: box, panel, open, maxHeight: 240 });
@@ -77,21 +84,30 @@ watch(entry, (text) => {
   clearTimeout(timer);
   at.value = -1;
   const term = text.trim();
+  hits.value = [];
   if (!props.suggest || !term) {
-    hits.value = [];
+    state.value = "idle";
     return;
   }
+  // 기다리는 동안에도 묻는 중으로 보인다. 치자마자 반응이 있어야 한다
+  state.value = "loading";
   timer = setTimeout(async () => {
     let found;
+    let failed = false;
     try {
       found = await props.suggest(term);
     } catch {
       found = []; // 후보를 못 받아도 적는 것은 된다
+      failed = true;
     }
     if (entry.value.trim() !== term) return;
     hits.value = found.filter((one) => !props.modelValue.includes(one.value));
+    state.value = failed ? "failed" : "done";
   }, SUGGEST_WAIT_MS);
 });
+
+// 방향키로 내려간 줄이 잘려 있으면 고를 수가 없다. 눈에 들어오게 밀어 준다(TagPicker 와 같다)
+watch(at, () => nextTick(() => panel.value?.children?.[at.value]?.scrollIntoView({ block: "nearest" })));
 
 const move = (by) => {
   if (!hits.value.length) return;
