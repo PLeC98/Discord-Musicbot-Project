@@ -5,25 +5,37 @@
 //  · 만든 사람과 부른 쪽만 이름으로 쓴다("제작 feat. 가수"). 애니메이터 · 일러스트레이터까지 붙은 artistString 은 마지막 수단
 //  · 가사 언어는 언어마다 따로 묻고 합친다. 같은 곡은 한 번. 한 언어가 실패해도 나머지는 살린다. 다 실패하면 던진다
 //  · 설정 칸이 저쪽 파라미터로 바뀐다(BPM 은 천 배, 연도는 날짜, 가수를 걸면 하위 보이스뱅크까지)
+//  · 이름으로 적는 칸(태그 · 제외 태그 · 가수)은 id 로 풀어 건다. 못 풀면 던진다(없는 태그를 이름으로 걸면 저쪽이 0곡을 조용히 준다)
 
-import { test, after } from "node:test";
+import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { vocaFamily } from "../../src/autoplay/sources/voca.ts";
+import { vocaFamily, _forgetIds } from "../../src/autoplay/sources/voca.ts";
 import { useFetch } from "../../src/autoplay/sources/http.ts";
 import type { GenreSource } from "../../src/config/genres.ts";
 import { fake } from "../helpers/fake.ts";
 
 after(() => useFetch(null));
+beforeEach(() => _forgetIds());
 
 type Song = { id: number; name?: string; artistString?: string; lengthSeconds?: number; pvs?: Array<Record<string, unknown>>; artists?: Array<{ name: string; categories: string }> };
+type Artist = { id: number; name: string; names?: Array<{ value: string }> };
+/** 이름 풀기에 저쪽이 줄 것. 태그는 이름(별칭 포함) → id, 가수는 검색 결과 그대로 */
+type Lookup = { tags?: Record<string, number>; artists?: Artist[] };
+
+const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
 
 // 곡 목록을 주는 가짜. 전체 개수를 묻는 요청(maxResults=1)과 목록 요청을 가르고, 언어별로 다른 곡을 줄 수 있다
-function serve(songsFor: (lang: string | null) => Song[] | Error) {
+function serve(songsFor: (lang: string | null) => Song[] | Error, lookup: Lookup = {}) {
   const urls: URL[] = [];
   useFetch(
     fake<typeof fetch>(async (input: string | URL | Request) => {
       const url = new URL(String(input));
       urls.push(url);
+      if (url.pathname.startsWith("/api/tags/byName/")) {
+        const id = lookup.tags?.[decodeURIComponent(url.pathname.slice("/api/tags/byName/".length))];
+        return json(id ? { id } : null);
+      }
+      if (url.pathname === "/api/artists") return json({ items: lookup.artists || [] });
       const got = songsFor(url.searchParams.get("advancedFilters[0][param]"));
       if (got instanceof Error) return { ok: false, status: 500, json: async () => ({}) };
       if (url.searchParams.get("maxResults") === "1") return { ok: true, status: 200, json: async () => ({ totalCount: got.length }) };
@@ -100,11 +112,14 @@ test("곡이 없으면 목록을 묻지 않는다", async () => {
   assert.equal(urls.length, 1, "개수만 묻고 끝");
 });
 
+const songsAsked = (urls: URL[]) => urls.filter((u) => u.pathname === "/api/songs");
+
 test("설정 칸이 저쪽 파라미터로 바뀐다", async () => {
-  const urls = serve(() => []);
-  await vocaFamily(source({ tags: ["rock"], minBpm: 120, maxBpm: 180, yearFrom: 2010, yearTo: 2015, artistIds: [7], sort: "PublishDate" }));
-  const q = urls[0].searchParams;
-  assert.equal(urls[0].host, "vocadb.net");
+  const urls = serve(() => [], { tags: { rock: 481 }, artists: [{ id: 1, name: "初音ミク" }] });
+  await vocaFamily(source({ tags: ["rock"], minBpm: 120, maxBpm: 180, yearFrom: 2010, yearTo: 2015, artists: ["初音ミク"], sort: "PublishDate" }));
+  const [asked] = songsAsked(urls);
+  const q = asked.searchParams;
+  assert.equal(asked.host, "vocadb.net");
   assert.equal(q.get("minMilliBpm"), "120000");
   assert.equal(q.get("maxMilliBpm"), "180000");
   assert.equal(q.get("afterDate"), "2010-01-01");
@@ -112,7 +127,104 @@ test("설정 칸이 저쪽 파라미터로 바뀐다", async () => {
   assert.equal(q.get("childVoicebanks"), "true", "가수를 걸면 하위 보이스뱅크까지");
   assert.equal(q.get("pvServices"), "Youtube", "틀 수 있는 것만");
   assert.equal(q.get("sort"), "PublishDate");
-  assert.deepEqual(q.getAll("tagName[]"), ["rock"]);
+  assert.deepEqual(q.getAll("tagId[]"), ["481"]);
+  assert.deepEqual(q.getAll("tagName[]"), [], "이름으로 걸면 없는 태그가 0곡으로 조용히 끝난다");
+  assert.deepEqual(q.getAll("artistId[]"), ["1"]);
+});
+
+test("태그 · 제외 태그 · 가수는 id 로 풀어 건다. 가수는 칸이 뜻하는 분류에서만 찾는다", async () => {
+  const urls = serve(() => [], { tags: { rock: 481, ロック: 481, 和風: 90, cover: 12 }, artists: [{ id: 28174, name: "UNI" }] });
+  await vocaFamily(source({ tags: ["ロック", "和風"], excludeTags: ["cover"], artists: ["UNI"] }));
+  const q = songsAsked(urls)[0].searchParams;
+  assert.deepEqual(q.getAll("tagId[]"), ["481", "90"], "별칭도 저쪽이 푼다");
+  assert.deepEqual(q.getAll("excludedTagIds[]"), ["12"]);
+  assert.deepEqual(q.getAll("artistId[]"), ["28174"]);
+
+  const [vocal] = urls.filter((u) => u.pathname === "/api/artists");
+  assert.equal(vocal.searchParams.get("query"), "UNI");
+  assert.ok(vocal.searchParams.get("artistTypes")?.split(",").includes("Vocaloid"), "vocadb 의 「특정 보컬만」은 보컬 라이브러리에서 찾는다");
+
+  _forgetIds();
+  const touhou = serve(() => [], { artists: [{ id: 1, name: "ZUN" }] });
+  await vocaFamily(source({ type: "touhoudb", artists: ["ZUN"] }));
+  assert.equal(touhou.find((u) => u.pathname === "/api/artists")?.searchParams.get("artistTypes"), null, "touhoudb 는 서클 · 작곡가라 거르지 않는다");
+});
+
+test("같은 이름이 여럿 오면 대표 이름, 별칭, 대소문자만 다른 것 순으로 고른다", async () => {
+  // 저쪽은 곡 많은 순으로 준다. Exact 로 물어도 별칭 · 대소문자 다른 것이 섞여 온다
+  const found = [
+    { id: 136671, name: "ユニちゃん", names: [{ value: "UNI" }] },
+    { id: 193691, name: "Urchin", names: [{ value: "Uni" }] },
+    { id: 28174, name: "UNI" },
+  ];
+  const picked = async (name: string) => {
+    _forgetIds();
+    const urls = serve(() => [], { artists: found });
+    await vocaFamily(source({ artists: [name] }));
+    return songsAsked(urls)[0].searchParams.get("artistId[]");
+  };
+  assert.equal(await picked("UNI"), "28174", "대표 이름이 똑같은 것");
+  assert.equal(await picked("Uni"), "193691", "별칭이 똑같은 것");
+  assert.equal(await picked("uni"), "136671", "대소문자만 다르면 곡 많은 쪽");
+});
+
+test("사이트에 없는 이름이면 곡을 묻지 않고 던진다. 부르는 쪽이 다음 소스로 넘어간다", async () => {
+  const urls = serve(() => [song(1, [yt("https://y/1")])], { tags: { rock: 481 }, artists: [{ id: 5, name: "初音ミクP" }] });
+  await assert.rejects(vocaFamily(source({ tags: ["rock", "없는태그"] })), /vocadb에 없는 태그입니다: 없는태그/);
+  await assert.rejects(vocaFamily(source({ excludeTags: ["없는태그"] })), /없는 태그입니다/);
+  await assert.rejects(vocaFamily(source({ artists: ["初音ミク"] })), /vocadb에서 찾지 못한 이름입니다: 初音ミク/, "이름이 비슷하기만 한 것은 고르지 않는다");
+  assert.deepEqual(songsAsked(urls), []);
+});
+
+test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () => {
+  const lookup: Lookup = { tags: { rock: 481 } };
+  const urls = serve(() => [], lookup);
+  const one = source({ tags: ["rock", "jazz"] });
+  await assert.rejects(vocaFamily(one), /jazz/);
+
+  lookup.tags = { rock: 481, jazz: 7 }; // 나중에 생겼다
+  await vocaFamily(one);
+  await vocaFamily(one);
+  const asked = urls.filter((u) => u.pathname.startsWith("/api/tags/")).map((u) => decodeURIComponent(u.pathname.split("/").pop() || ""));
+  assert.deepEqual(asked, ["rock", "jazz", "jazz"], "rock 은 한 번만, jazz 는 없던 때를 기억하지 않아 다시 묻는다");
+});
+
+test("가수 · 가수 분류를 걸면 정렬 순서의 앞쪽에서만 고른다. 저쪽이 깊은 창을 못 준다", async (t) => {
+  t.mock.method(Math, "random", () => 0.999); // 가장 깊은 창
+  const starts = async (extra: Partial<GenreSource>) => {
+    _forgetIds();
+    const urls: URL[] = [];
+    useFetch(
+      fake<typeof fetch>(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        urls.push(url);
+        if (url.pathname === "/api/artists") return json({ items: [{ id: 1, name: "初音ミク" }] });
+        return json(url.searchParams.get("maxResults") === "1" ? { totalCount: 100_000 } : { items: [] });
+      }),
+    );
+    await vocaFamily(source(extra));
+    return Number(urls.find((u) => u.pathname === "/api/songs" && u.searchParams.get("maxResults") !== "1")?.searchParams.get("start"));
+  };
+  assert.ok((await starts({})) > 90_000, "조건이 없으면 전체에서");
+  assert.ok((await starts({ artists: ["初音ミク"] })) < 2000);
+  assert.ok((await starts({ artistTypes: ["UTAU"] })) < 2000);
+});
+
+test("가수 분류는 advancedFilters 로, 가사 언어 뒤에 번호를 이어 건다", async () => {
+  const urls = serve(() => []);
+  await vocaFamily(source({ languages: ["ja"], artistTypes: ["Vocaloid", "UTAU"] }));
+  const q = songsAsked(urls)[0].searchParams;
+  assert.deepEqual(
+    [0, 1, 2].map((i) => [q.get(`advancedFilters[${i}][filterType]`), q.get(`advancedFilters[${i}][param]`)]),
+    [
+      ["Lyrics", "ja"],
+      ["ArtistType", "Vocaloid"],
+      ["ArtistType", "UTAU"],
+    ],
+    "번호가 겹치면 앞의 조건을 덮는다",
+  );
+
+  await assert.rejects(vocaFamily(source({ type: "touhoudb", artistTypes: ["Vocaloid"] })), /touhoudb에는 가수 분류가 없습니다/);
 });
 
 test("VocaDB 계열이 아닌 종류로 부르면 던진다", async () => {

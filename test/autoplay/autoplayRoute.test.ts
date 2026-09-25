@@ -383,11 +383,11 @@ test("소스 기본값 — 안 적었을 때 무엇으로 도는가", () => {
 // `languages` 파라미터는 저쪽이 조용히 무시한다 — 쓰레기 값을 넣어도 전체가 온다.
 // 실제로 듣는 것은 advancedFilters 쪽이고, 한 번에 하나만 걸린다.
 test("가사 언어는 advancedFilters 로 건다 — 한 번에 하나씩", () => {
-  const { _lyricsFilter, _someLanguages, SPEC } = sources;
+  const { _advancedFilters, _someLanguages, SPEC } = sources;
 
-  assert.deepEqual(_lyricsFilter(null), {}, "안 고르면 조건을 안 붙인다");
+  assert.deepEqual(_advancedFilters(null), {}, "안 고르면 조건을 안 붙인다");
 
-  const one = _lyricsFilter("ko");
+  const one = _advancedFilters("ko");
   assert.equal(one["advancedFilters[0][filterType]"], "Lyrics");
   assert.equal(one["advancedFilters[0][param]"], "ko");
   assert.ok(!("languages" in one), "languages 로는 안 건다");
