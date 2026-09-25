@@ -57,12 +57,12 @@
 ### 요구 사항
 
 - Windows / Linux (개발 / 유지보수 환경: Windows 10, Ubuntu 24)
-- [Node.js](https://nodejs.org/ko/download): **>〓 24.14.0** (개발 / 유지보수 환경)
+- [Node.js](https://nodejs.org/ko/download): >〓 24.14.0 (개발 / 유지보수 환경)
   - 이론상 동작 하한치는 22.18.0부터이나, 테스트 스크립트가 24.3.0부터 정상 동작.
-- **C++ 빌드 툴체인** (C++20 지원 컴파일러): `@discordjs/opus`의 프리빌드 바이너리가 Node 22 이하 ABI까지만 배포되어 있어, Node 23 이상에서는 소스 컴파일로 폴백. 툴체인이 없으면 `pnpm install`이 실패함.
-  - Windows: [Visual Studio Build Tools](https://visualstudio.microsoft.com/ko/downloads/) **2022(17.x) 이상** + **"C++를 사용한 데스크톱 개발" 워크로드**, **Python 3.9 이상**
+- C++ 빌드 툴체인 (C++20 지원 컴파일러): `@discordjs/opus`의 프리빌드 바이너리가 Node 22 이하 ABI까지만 배포되어 있어, Node 23 이상에서는 소스 컴파일로 폴백. 툴체인이 없으면 `pnpm install`이 실패함.
+  - Windows: [Visual Studio Build Tools](https://visualstudio.microsoft.com/ko/downloads/) 2022(17.x) 이상 + "C++를 사용한 데스크톱 개발" 워크로드, Python 3.9 이상
     - VS2019 이하는 Node 22+ 지원 대상이 아니라 사용 불가
-  - Linux: **g++ 12.2 이상** (또는 상응하는 clang) + **make** + **python3 3.9 이상**
+  - Linux: g++ 12.2 이상 (또는 상응하는 clang) + make + python3 3.9 이상
     - Ubuntu 24.04 이상은 `sudo apt install -y build-essential python3`로 충족. 기본 gcc가 12 미만인 배포판(Ubuntu 22.04 = gcc 11 등)은 `g++-12` 이상을 별도 설치. 시스템 libopus 패키지는 불필요. (opus 소스가 번들되어 함께 컴파일됨)
 - [pnpm](https://pnpm.io/)
 - 저장소 `clone`을 위한 [git](https://git-scm.com/)
