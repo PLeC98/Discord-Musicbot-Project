@@ -53,8 +53,6 @@ type GenreSource = {
   maxLength?: number | string;
   minBpm?: number | string;
   maxBpm?: number | string;
-  /** 편집기에는 없는 칸. 가수는 이름(artists)으로 적는데 아직 읽지 않는다 */
-  artistIds?: Array<number | string>;
   [field: string]: unknown;
 };
 type Genre = { emoji?: string; sources: GenreSource[] };

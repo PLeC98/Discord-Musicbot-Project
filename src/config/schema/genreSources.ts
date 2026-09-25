@@ -200,9 +200,9 @@ const VOCA_LANG_CODES: Record<Site, string[]> = {
 const VOCA_LANGUAGES = Object.fromEntries(Object.entries(VOCA_LANG_CODES).map(([site, codes]) => [site, codes.map((code) => ({ value: code, label: LANG_NAMES[code] }))])) as Record<Site, Option[]>;
 
 const VOCA_SINGER: Record<Site, { typeLabel?: string; artistLabel: string; artistHint: string }> = {
-  vocadb: { typeLabel: "보컬 라이브러리", artistLabel: "특정 보컬만", artistHint: "이름으로 적습니다. 예) UNI, 初音ミク" },
-  utaitedb: { typeLabel: "가수 분류", artistLabel: "특정 우타이테만", artistHint: "이름으로 적습니다" },
-  touhoudb: { artistLabel: "특정 아티스트만", artistHint: "이름으로 적습니다. 예) ZUN, 暁Records" },
+  vocadb: { typeLabel: "보컬 라이브러리", artistLabel: "특정 보컬만", artistHint: "이름으로 적습니다. 예) 初音ミク. 여럿이면 모두 참여한 곡" },
+  utaitedb: { typeLabel: "가수 분류", artistLabel: "특정 우타이테만", artistHint: "이름으로 적습니다. 여럿이면 모두 참여한 곡" },
+  touhoudb: { artistLabel: "특정 아티스트만", artistHint: "이름으로 적습니다. 예) ZUN. 여럿이면 모두 참여한 곡" },
 };
 
 // 척도는 사이트마다 크게 다르지만(예제 파일의 표 참고) 설명할 말은 같다
@@ -212,14 +212,14 @@ function vocaFields(site: Site): Field[] {
   const singer = VOCA_SINGER[site];
   const types = VOCA_ARTIST_TYPES[site];
   return [
-    f("tags", "list", "장르 태그", { hint: "rock, pop, ballad, EDM, 和風 등" }),
+    f("tags", "list", "장르 태그", { hint: "rock, pop, ballad, EDM, 和風 등. 여럿이면 모두 붙은 곡" }),
     f("minScore", "number", "최소 평가 점수", { width: "half", min: 0, hint: VOCA_SCORE_HINT }),
     // 언어마다 따로 받아 섞는다(vocaFamily). 저쪽이 한 번에 하나만 받는다
     f("languages", "enumDrop", "가사 언어", { width: "half", options: VOCA_LANGUAGES[site], hint: "번역 가사만 있는 곡도 섞입니다" }),
-    ...(types && singer.typeLabel ? [f("artistTypes", "enumList", singer.typeLabel, { deep: true, options: opts(types) })] : []),
+    ...(types && singer.typeLabel ? [f("artistTypes", "enumList", singer.typeLabel, { deep: true, options: opts(types), hint: "여럿 고르면 모두 참여한 곡" })] : []),
     f("artists", "list", singer.artistLabel, { deep: true, hint: singer.artistHint }),
     f("songTypes", "enumList", "곡 종류", { deep: true, options: opts(VOCA_SONG_TYPES[site]), hint: `기본값: ${(VOCA_DEFAULT_TYPES[site] || ["Original"]).join(", ")}` }),
-    f("excludeTags", "list", "제외할 태그", { deep: true }),
+    f("excludeTags", "list", "제외할 태그", { deep: true, hint: "하나라도 붙은 곡은 뺍니다" }),
     f("minLength", "number", "최소 길이(초)", { deep: true, width: "narrow", min: 0 }),
     f("maxLength", "number", "최대 길이(초)", { deep: true, width: "narrow", min: 0 }),
     f("minBpm", "number", "최소 BPM", { deep: true, width: "narrow", min: 0 }),
@@ -349,5 +349,5 @@ const needsOf = (type: string): { env: string; label: string } | null => (SPEC[t
 
 const TYPES = Object.keys(SPEC);
 
-export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES };
+export { SPEC, TYPES, usable, needsOf, opts, ANISONG_SONG_TYPES, ANISONG_ANIME_TYPES, ANISONG_CATEGORIES, ANISONG_BROADCASTS, VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES };
 export type { Site, Option, FieldKind, Field, SourceSpec };

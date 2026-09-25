@@ -2,7 +2,7 @@
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
-import { VOCA_DEFAULT_TYPES, type Site } from "../../config/schema/genreSources.ts";
+import { VOCA_DEFAULT_TYPES, VOCA_ARTIST_TYPES, type Site } from "../../config/schema/genreSources.ts";
 import { messageOf } from "../../rules/errorKind.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
@@ -17,14 +17,28 @@ const isSite = (type: string): type is Site => Object.hasOwn(VOCA_HOSTS, type);
 type Pv = { service?: string; disabled?: boolean; pvType?: string; url?: string };
 type Song = { id?: number; name?: string; artistString?: string; lengthSeconds?: number; thumbUrl?: string; pvs?: Pv[]; artists?: Array<{ name?: string; categories?: string }> };
 type SongPage = { totalCount?: number; items?: Song[] };
+type Tag = { id?: number } | null;
+type Artist = { id?: number; name?: string; names?: Array<{ value?: string }> };
 
 const VOCA_PAGE = 50;
 
-// 가사 언어. `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다.
-// 실제로 듣는 것은 웹이 쓰는 advancedFilters 쪽이고, 한 번에 하나만 걸린다:
+// 곡 검색은 오래 기다린다. 가수를 걸면 저쪽이 느리다(UNI 1,235곡도 첫 창에 6~12초, 깊은 창은 30초에서 저쪽이 500).
+// 조건이 없으면 1~3초다(실측 2026-09-25). 곡이 도는 동안 다음 곡을 미리 고르고 풀이 한 시간 가므로 기다려도 티가 안 난다.
+// 저쪽이 30초에서 끊으니 그보다 조금 길게 잡아 저쪽 답을 받는다.
+const VOCA_TIMEOUT_MS = 35_000;
+
+// 가사 언어 · 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
+// 가사 언어: `languages` 파라미터는 조용히 무시된다. 쓰레기 값을 넣어도 전체가 온다. 그리고 한 번에 하나만 건다:
 // 둘을 걸면 "둘 다 있는 곡"이 되어 ja+ko 가 2,054곡에서 347곡으로 줄어든다(실측 2026-09-18).
-function lyricsFilter(one: string | null) {
-  return one ? { "advancedFilters[0][filterType]": "Lyrics", "advancedFilters[0][param]": one } : {};
+// 가수 분류: 웹은 아티스트 검색에만 보이지만 곡에도 걸린다. 여럿 고르면 모두 참여한 곡이다
+function advancedFilters(lang: string | null, artistTypes: string[] = []) {
+  const list = [...(lang ? [["Lyrics", lang]] : []), ...artistTypes.map((type) => ["ArtistType", type])];
+  return Object.fromEntries(
+    list.flatMap(([type, param], i) => [
+      [`advancedFilters[${i}][filterType]`, type],
+      [`advancedFilters[${i}][param]`, param],
+    ]),
+  );
 }
 
 // 그래서 고른 언어마다 따로 받아 섞는다. 언어 하나에 요청이 두 번이라 한 판에 도는 수를 묶어 두고,
@@ -43,7 +57,9 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   // 등록부가 셋에만 이 함수를 준다
   if (!isSite(site)) throw new Error(`VocaDB 계열이 아닙니다: ${site}`);
   const base = `https://${VOCA_HOSTS[site]}/api/songs`;
-  const common = filtersOf(source, site);
+  const artistTypes = source.artistTypes || [];
+  if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw new Error(`${site}에는 가수 분류가 없습니다`);
+  const common = await filtersOf(source, site);
 
   const out: Candidate[] = [];
   const seen = new Set<string>();
@@ -52,7 +68,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
     // 언어마다 요청이 두 번이다. 하나가 실패했다고 나머지까지 버릴 이유는 없다.
     // 하나도 못 받았을 때만 던져서 부르는 쪽이 다음 소스로 넘어가게 한다.
     try {
-      for (const track of await vocaWindow(base, { ...common, ...lyricsFilter(lang) }, site)) {
+      for (const track of await vocaWindow(base, { ...common, ...advancedFilters(lang, artistTypes) }, site)) {
         // 같은 곡이 여러 언어에 걸린다. 번역 가사까지 세기 때문이다
         if (seen.has(track.sourceKey)) continue;
         seen.add(track.sourceKey);
@@ -67,10 +83,14 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   return out;
 }
 
-// 언어를 뺀 검색 조건
-function filtersOf(source: GenreSource, site: Site) {
+// 언어 · 가수 분류를 뺀 검색 조건. 이름으로 적는 칸은 id 로 푼다(못 풀면 던진다)
+async function filtersOf(source: GenreSource, site: Site) {
+  const names = (list: string[] | undefined) => (list || []).map((one) => String(one).trim()).filter(Boolean);
+  const [tags, excluded, artists] = await Promise.all([Promise.all(names(source.tags).map((one) => tagId(site, one))), Promise.all(names(source.excludeTags).map((one) => tagId(site, one))), Promise.all(names(source.artists).map((one) => artistId(site, one)))]);
   return {
-    tagName: source.tags,
+    // 여럿이면 전부 붙은 곡. 제외는 하나라도 붙으면 뺀다
+    tagId: tags,
+    excludedTagIds: excluded,
     songTypes: (source.songTypes || VOCA_DEFAULT_TYPES[site] || ["Original"]).join(","),
     minScore: source.minScore,
     minLength: source.minLength,
@@ -79,8 +99,9 @@ function filtersOf(source: GenreSource, site: Site) {
     maxMilliBpm: source.maxBpm ? Number(source.maxBpm) * 1000 : undefined,
     afterDate: source.yearFrom ? `${source.yearFrom}-01-01` : undefined,
     beforeDate: source.yearTo ? `${source.yearTo}-12-31` : undefined,
-    artistId: source.artistIds,
-    childVoicebanks: source.artistIds?.length ? true : undefined,
+    // 여럿이면 모두 참여한 곡. 하위 보이스뱅크(Append 등)까지
+    artistId: artists,
+    childVoicebanks: artists.length ? true : undefined,
     // 우리가 틀 수 있는 것만. 다른 서비스는 받아도 못 튼다.
     pvServices: "Youtube",
     onlyWithPvs: true,
@@ -88,16 +109,60 @@ function filtersOf(source: GenreSource, site: Site) {
   };
 }
 
+// ── 이름 → id ─────────────────────────────────────────────────────────────
+// 가수 · 제외 태그는 저쪽이 id 로만 받는다. 태그는 이름(tagName)도 받지만 없는 이름이면 0곡을 조용히 돌려준다.
+// 그래서 전부 id 로 풀고, 못 풀면 던진다. 부르는 쪽이 로그에 남기고 다음 소스로 넘어간다.
+// 푼 것은 기억한다. 못 푼 것은 기억하지 않는다(나중에 생길 수 있고, 요청이 실패한 것일 수도 있다).
+const ids = new Map<string, number>();
+
+async function tagId(site: Site, name: string) {
+  const key = `${site}:tag:${name}`;
+  const known = ids.get(key);
+  if (known !== undefined) return known;
+  // 별칭 · 대소문자도 풀린다(ロック → rock). 없으면 null
+  const tag = await getJson<Tag>(`https://${VOCA_HOSTS[site]}/api/tags/byName/${encodeURIComponent(name)}`);
+  if (!tag?.id) throw new Error(`${site}에 없는 태그입니다: ${name}`);
+  ids.set(key, tag.id);
+  return tag.id;
+}
+
+async function artistId(site: Site, name: string) {
+  const key = `${site}:artist:${name}`;
+  const known = ids.get(key);
+  if (known !== undefined) return known;
+  // 칸이 뜻하는 쪽만 찾는다(vocadb 는 보컬, utaitedb 는 우타이테). touhoudb 는 서클 · 작곡가라 거르지 않는다
+  const types = VOCA_ARTIST_TYPES[site];
+  const page = await getJson<{ items?: Artist[] } | null>(`https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
+  const found = sameName(page?.items || [], name);
+  if (!found?.id) throw new Error(`${site}에서 찾지 못한 이름입니다: ${name}`);
+  log.debug(`${site} 이름 풀기: ${name} → ${found.name} (${found.id})`);
+  ids.set(key, found.id);
+  return found.id;
+}
+
+// Exact 로 물어도 딱 같은 이름만 오지 않는다. 대소문자를 안 가리고 별칭까지 본다(UNI 에 ユニちゃん · Urchin 이 같이 온다).
+// 대표 이름이 똑같은 것, 별칭이 똑같은 것, 대소문자만 다른 것 순으로 고른다. 같은 단계에서는 곡이 많은 쪽(저쪽 정렬 그대로)
+function sameName(items: Artist[], name: string) {
+  const all = (one: Artist) => [one.name, ...(one.names || []).map((n) => n.value)].filter((v): v is string => !!v);
+  const lower = name.toLowerCase();
+  return items.find((one) => one.name === name) || items.find((one) => all(one).includes(name)) || items.find((one) => all(one).some((v) => v.toLowerCase() === lower)) || null;
+}
+
+/** 테스트 시임. 기억한 id 를 버린다 */
+function _forgetIds() {
+  ids.clear();
+}
+
 // 조건에 맞는 곡 중 아무 데나 한 창(50곡)을 떠 온다.
 async function vocaWindow(base: string, filters: Record<string, unknown>, type: Site): Promise<Candidate[]> {
   // 깊은 곳에서 집으려면 전체 개수를 먼저 알아야 한다
-  const head = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`);
+  const head = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: 1, getTotalCount: true })}`, {}, VOCA_TIMEOUT_MS);
   const total = Number(head?.totalCount) || 0;
   if (!total) return [];
 
   // fields=Names로 원어·로마자·영문이 한 번에 온다. 표기를 고를 일이 없다
   const start = total > VOCA_PAGE ? rand(total - VOCA_PAGE) : 0;
-  const page = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`);
+  const page = await getJson<SongPage | null>(`${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`, {}, VOCA_TIMEOUT_MS);
 
   return (page?.items || []).flatMap((song) => {
     const one = candidateOf(song, type);
@@ -134,4 +199,4 @@ function creditOf(song: Song) {
   return [makers.join(", "), singers.join(", ")].filter(Boolean).join(" feat. ");
 }
 
-export { vocaFamily, lyricsFilter, someLanguages };
+export { vocaFamily, advancedFilters, someLanguages, _forgetIds };

@@ -101,8 +101,9 @@
 #     vocadb  : https://vocadb.net/
 #     touhoudb: https://touhoudb.com/
 #     utaitedb: https://utaitedb.net/
-#   tags                  : 장르 태그(rock, pop, ballad, EDM, technopop, metal, 和風 …).
-#   excludeTags           : 제외하고 싶은 태그.
+#   tags                  : 장르 태그(rock, pop, ballad, EDM, technopop, metal, 和風 …). 여럿이면 모두 붙은 곡입니다.
+#   (이름으로 적는 tags · excludeTags · artists 가 사이트에 없으면 이 소스는 건너뛰고 로그에 남깁니다.)
+#   excludeTags           : 제외하고 싶은 태그. 하나라도 붙은 곡은 뺍니다.
 #   songTypes             : 곡 종류. 웹은 일본어 버튼이지만 여기는 영어로 적습니다.
 #                             指定なし        → Unspecified
 #                             オリジナル曲    → Original        (vocadb 기본값)
@@ -131,6 +132,7 @@
 #                             utaitedb → Utaite, OtherVocalist
 #                             touhoudb → 미사용
 #   artists               : 특정 가수·아티스트만. 이름으로 적습니다. 예) [UNI], [ZUN]
+#                           여럿이면 모두 참여한 곡입니다(합작). 분류(artistTypes)도 여럿이면 같습니다.
 #   minScore              : 최소 평가 점수 기준 (웹의 評価 점수)
 #                           사이트마다 척도가 완전히 다릅니다. 같은 50이라도 남는 곡이 이만큼 다릅니다:
 #                                         vocadb   utaitedb   touhoudb
