@@ -112,7 +112,9 @@ watch(at, () => nextTick(() => panel.value?.children?.[at.value]?.scrollIntoView
 const move = (by) => {
   if (!hits.value.length) return;
   open.value = true;
-  at.value = (at.value + by + hits.value.length) % hits.value.length;
+  const n = hits.value.length;
+  // 아직 고른 것이 없으면(-1) 위는 마지막 줄, 아래는 첫 줄이다. 그냥 더하면 위가 끝에서 두 번째가 된다
+  at.value = at.value < 0 ? (by > 0 ? 0 : n - 1) : (at.value + by + n) % n;
 };
 
 function take(one) {
