@@ -26,7 +26,7 @@ import { lastfm } from "./lastfm.ts";
 import { lbradio, PLACEHOLDER } from "./lbradio.ts";
 import { animethemes } from "./animethemes.ts";
 import { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } from "./anisongdb.ts";
-import { vocaFamily, advancedFilters, someLanguages } from "./voca.ts";
+import { vocaFamily, advancedFilters, someLanguages, suggest, isSite } from "./voca.ts";
 import { spotify, youtube } from "./playlists.ts";
 
 // ── 등록부 ────────────────────────────────────────────────────────────────
@@ -106,6 +106,8 @@ async function catalog() {
       // need 가 [["tags","prompt"]] 꼴이면 "둘 중 하나"라는 뜻이다
       either: spec.need.filter((g) => g.length > 1).map((g) => [...g]),
       fields: (spec.fields || []).map((one) => ({ ...one, required: required.has(one.key), ...fill(one, type, years, anisong) })),
+      // 곡이 많을 때 고르는 범위. 화면이 "상위 n곡 중에서"를 띄운다
+      window: spec.window || null,
     };
   });
 }
@@ -120,5 +122,5 @@ async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Can
   return tracks;
 }
 
-export { fetchFrom, TYPES, SPEC, catalog, usable, needsOf, PLACEHOLDER as _placeholder, advancedFilters as _advancedFilters, someLanguages as _someLanguages, anisongFilters as _anisongFilters, anisongCatalog as _anisongCatalog, _seedAnisongStats };
+export { fetchFrom, TYPES, SPEC, catalog, suggest, isSite, usable, needsOf, PLACEHOLDER as _placeholder, advancedFilters as _advancedFilters, someLanguages as _someLanguages, anisongFilters as _anisongFilters, anisongCatalog as _anisongCatalog, _seedAnisongStats };
 export const _seedYearRange = (range: YearRange | null) => yearRange.seed(range);

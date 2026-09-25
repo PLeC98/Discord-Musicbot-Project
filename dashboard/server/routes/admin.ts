@@ -259,6 +259,24 @@ adminRouter.get("/source-types", requireOwner, async (req, res) => {
   res.json({ types: await autoplaySources.catalog() });
 });
 
+// 소스 편집기의 자동완성(VocaDB 계열의 태그 · 가수). 브라우저가 저쪽에 바로 묻지 않고 여기를 거친다.
+// 저쪽 CORS 를 모르고, 바깥으로 나가는 요청은 봇 User-Agent 로 나가야 한다
+const SUGGEST_TERM_MAX = 100;
+adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
+  const type = String(req.query.type || "");
+  const what = String(req.query.field || "");
+  const term = String(req.query.q || "").trim();
+  if (!autoplaySources.isSite(type)) return res.status(400).json({ error: "자동완성이 없는 종류입니다." });
+  if (what !== "tags" && what !== "artists") return res.status(400).json({ error: "자동완성이 없는 칸입니다." });
+  if (!term || term.length > SUGGEST_TERM_MAX) return res.status(400).json({ error: `검색어는 1~${SUGGEST_TERM_MAX}자여야 합니다.` });
+  try {
+    res.json({ items: await autoplaySources.suggest(type, what, term) });
+  } catch (error) {
+    log.debug(`자동완성 실패 (${type} ${what}): ${messageOf(error)}`);
+    res.status(502).json({ error: messageOf(error, "후보를 받지 못했습니다") });
+  }
+});
+
 // AI 보조. 키는 .env 에 있고 값을 내려보내지 않는다. 있는지 없는지만 알려 준다.
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 유무뿐이다.
 // 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
