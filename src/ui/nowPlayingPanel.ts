@@ -110,10 +110,13 @@ function statusOf(player: MusicPlayer) {
 // 첫 곡이 실패해 다음 곡으로 살렸으면 그 곡은 이미 대기열 몫에 들어 있다
 const placedOf = (start: FirstStart, queued: QueuedTrack[]) => (start.started ? [start.started, ...queued] : queued);
 
+// 끝난 패널 가운데 음성에 남아 기다리는 모양. 나갈 시각을 붙인다
+const WAITING = new Set(["queue-end", "joined"]);
+
 // 끝난 패널의 문구. 음성에 잠시 남을 때만 나갈 시각을 붙인다
 function idleViewOf(reason: string): IdleView {
   const leaveMs = config.bot.leaveDelayQueueEmptyMs;
-  return { reason, leavesAt: (reason === "queue-end" || reason === "joined") && leaveMs > 0 ? Date.now() + leaveMs : null };
+  return { reason, leavesAt: WAITING.has(reason) && leaveMs > 0 ? Date.now() + leaveMs : null };
 }
 
 class MusicEmbedManager {
@@ -659,6 +662,19 @@ class MusicEmbedManager {
       // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
       if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
     }
+  }
+
+  /**
+   * 곡이 없을 때 나갈 시각이 바뀌었다(혼자 남음 · 복귀). 음성에 남아 기다리는 끝난 패널만 고친다.
+   * 재생 중이거나 이미 음성을 떠난 모양이면 할 일이 없다
+   */
+  async updateIdleLeave(player: MusicPlayer, leavesAt: number | null) {
+    const guildId = player.guild?.id;
+    const view = guildId ? this.idleViews.get(guildId) : undefined;
+    if (!guildId || !view || player.currentTrack || !WAITING.has(view.reason) || view.leavesAt === leavesAt) return;
+    const next: IdleView = { ...view, leavesAt };
+    this.idleViews.set(guildId, next);
+    await this._showIdle(player, null, { ...next, dedicated: await this._panelIsDedicated(player, null) });
   }
 
   /** 전용 채널에 메시지가 올라오면 끝난 패널이 묻혔는지 잠시 뒤에 본다. 재생 중인 패널은 5초 갱신이 맡는다. */
