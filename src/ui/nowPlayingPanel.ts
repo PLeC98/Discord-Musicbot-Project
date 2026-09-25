@@ -4,7 +4,7 @@ const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import { formatDuration } from "./format.ts";
 import { progressBar, emptyProgressBar } from "./progressBar.ts";
-import { labelOf, emojiOf } from "./platforms.ts";
+import { labelOf } from "./platforms.ts";
 
 /** 곡을 담은 결과를 알리는 매체(usecases/responders) */
 type Responder = { notifyQueued(text: string): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
@@ -866,10 +866,6 @@ class MusicEmbedManager {
    */
   getPlatformLabel(platform: string | null | undefined) {
     return labelOf(platform);
-  }
-
-  getPlatformEmoji(platform: string | null | undefined) {
-    return emojiOf(platform);
   }
 
   /**

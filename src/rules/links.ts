@@ -61,14 +61,6 @@ function extractPlaylistId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-function createThumbnailUrl(videoId: string, quality = "maxresdefault"): string {
-  return `https://img.youtube.com/vi/${videoId}/${quality}.jpg`;
-}
-
-function createVideoUrl(videoId: string): string {
-  return `https://www.youtube.com/watch?v=${videoId}`;
-}
-
 // ── 스포티파이 ──
 
 // 공유 링크에는 지역 경로(intl-ko/ 등)가 붙을 수 있다. 같은 곡이다
@@ -134,4 +126,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, createThumbnailUrl, createVideoUrl, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };
+export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, DIRECT_AUDIO_FORMATS, isDirectAudioLink };

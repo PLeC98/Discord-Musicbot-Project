@@ -30,6 +30,7 @@ function useExec(fake: Exec | null) {
 /**
  * youtube-dl-exec의 드롭인 대체. 반환·예외 계약은 원본과 같다(성공 시 JSON이나 문자열, 실패 시 stderr를 담은 Error).
  * 원본은 Promise만 돌려줘 pid를 잡을 수 없어서, pid가 나오는 `.exec()`로 우회해 레지스트리에 등록한다.
+ * yt-dlp 는 이것으로만 부른다. youtube-dl-exec 를 바로 부르면 띄운 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
  *
  * @param {string} url
  * @param {object} flags yt-dlp 플래그(camelCase)
