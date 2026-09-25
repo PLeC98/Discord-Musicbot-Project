@@ -4,7 +4,7 @@
  * 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀐다.
  * 그중 월말 빌드를 쓴다. 일반 autobuild는 2주 뒤 지워져서 고정해 두면 404가 난다.
  *
- * 다른 릴리스를 쓰려면 .env의 FFMPEG_RELEASE에 태그를 적는다. 자산 이름은 그 릴리스의
+ * 기본 태그는 config.ts 에 있고, .env의 FFMPEG_RELEASE로 바꾼다. 자산 이름은 그 릴리스의
  * checksums.sha256에서 찾으므로 버전 문자열을 따로 맞출 필요가 없다.
  * 태그 목록: https://github.com/BtbN/FFmpeg-Builds/releases
  *
@@ -15,8 +15,8 @@ import os from "os";
 import path from "path";
 import crypto from "crypto";
 import { spawnSync } from "child_process";
+import config from "../config.ts";
 
-const DEFAULT_RELEASE = "autobuild-2026-08-31-13-27"; // 월말 빌드 (2년 보관)
 const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)은 불필요
 
 const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
@@ -41,38 +41,6 @@ const force = process.argv.includes("--force");
 function skip(reason: string): never {
   console.log(`ℹ️  [ffmpeg] ${reason}`);
   process.exit(0);
-}
-
-/**
- * .env 값 하나를 가볍게 읽는다. 이 스크립트는 .env가 없을 수도 있는 시점(postinstall)에 돌아
- * dotenv를 쓸 수 없다. 그래서 dotenv의 규칙 중 필요한 것만 흉내 낸다.
- *
- * 인라인 주석을 떼는 것이 핵심이다. `FFMPEG_PATH=   # 설명`처럼 값이 비고 주석만 있는 줄을
- * 그대로 읽으면 설명문이 경로가 되어, 설정한 적 없는 사용자가 내려받기를 영영 건너뛴다.
- */
-function readEnvValue(name: string, source: string | null = null) {
-  const fromProcess = process.env[name];
-  if (fromProcess && fromProcess.trim()) return fromProcess.trim();
-
-  let text = source;
-  if (text == null) {
-    try {
-      text = fs.readFileSync(path.join(ROOT, ".env"), "utf8");
-    } catch {
-      return null;
-    }
-  }
-
-  const line = text.split(/\r?\n/).find((l) => new RegExp(`^\\s*(export\\s+)?${name}\\s*=`).test(l));
-  if (!line) return null;
-
-  let value = line.slice(line.indexOf("=") + 1).trim();
-  const quoted = /^(['"])([\s\S]*?)\1/.exec(value);
-  if (quoted) return quoted[2].trim() || null;
-
-  value = value.replace(/\s+#.*$/, "").trim(); // 값 뒤의 주석 (dotenv와 같은 규칙)
-  if (value.startsWith("#")) return null; // 값이 비고 주석만 있는 줄
-  return value || null;
 }
 
 async function download(url: string) {
@@ -173,7 +141,7 @@ function installedVersion(binPath: string, stampPath: string, release: string): 
 
 async function main() {
   // --force는 FFMPEG_PATH가 있어도 내려받는다. 명시적으로 요청한 갱신을 설정이 막으면 안 된다.
-  const configured = readEnvValue("FFMPEG_PATH");
+  const configured = config.ffmpeg.path;
   if (configured && !force) skip(`.env의 FFMPEG_PATH가 설정돼 있어 내려받지 않습니다 (${configured}). 그래도 받으려면 --force`);
 
   const key = `${process.platform}-${process.arch}`;
@@ -182,8 +150,8 @@ async function main() {
     skip(`${key}용 빌드가 제공되지 않습니다. ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${process.platform === "darwin" ? " (brew install ffmpeg)" : ""}.`);
   }
 
-  const release = readEnvValue("FFMPEG_RELEASE") || DEFAULT_RELEASE;
-  const baseUrl = `${RELEASES_URL}/${release}`;
+  const release = config.ffmpeg.release;
+  const baseUrl = `${RELEASES_URL}/${encodeURIComponent(release)}`;
   const binPath = path.join(BIN_DIR, target.bin);
   const stampPath = path.join(BIN_DIR, ".ffmpeg-version.json");
 
@@ -229,4 +197,4 @@ if (import.meta.main) {
   });
 }
 
-export { DEFAULT_RELEASE, VARIANT, TARGETS, RELEASES_URL, resolveAsset, readEnvValue };
+export { VARIANT, TARGETS, RELEASES_URL, resolveAsset };

@@ -9,7 +9,7 @@
     "dev": "node scripts/dev.ts",
     "cmddeploy": "node scripts/deploy-commands.ts",
     "install:bgutil": "node scripts/install-bgutil.ts",
-    "update:bgutil": "node scripts/install-bgutil.ts --update",
+    "update:bgutil": "node scripts/install-bgutil.ts",
     "install:dashboard": "pnpm --dir dashboard/client run build",
     "build:dashboard": "pnpm --dir dashboard/client run build",
     "dev:dashboard": "pnpm --dir dashboard/client run dev",

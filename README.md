@@ -164,6 +164,8 @@ YTDLP_PLAYER_CLIENTS=web_embedded,mweb,visionos,tv_simply
 pnpm run install:bgutil    # 클론 + 의존성 설치 + 빌드
 ```
 
+받는 버전은 고정된 릴리스 태그입니다. 다른 버전을 쓰려면 `.env`의 `BGUTIL_VERSION`에 태그를 적고 `pnpm run update:bgutil`로 다시 받으세요.
+
 설치한 뒤 `.env`에서 `BGUTIL_ENABLED=true`로 켜야 동작합니다. 켜면 봇 실행 시 POToken 서버(포트 4416)를 함께 띄웁니다. 켜두고 설치를 안 했으면 오류를 남기고 POToken 없이 진행합니다.
 
 ### 쿠키 설정 (연령 제한 영상 전용)
@@ -306,7 +308,7 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 | -------------------------- | ---------------------------------------------------------------------- |
 | `pnpm install`             | 루트 의존성 갱신 (+ `postinstall`로 ffmpeg 설치, yt-dlp 자동 업데이트) |
 | `pnpm run build:dashboard` | 대시보드(Vue) 변경분 재빌드                                            |
-| `pnpm run update:bgutil`   | bgutil POToken 공급자 `git pull` + 재빌드                              |
+| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 재빌드                    |
 | `pnpm run update:ytdlp`    | yt-dlp 바이너리 최신화                                                 |
 | `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                   |
 | `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                              |
@@ -315,7 +317,7 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.
 
 **ffmpeg 설치**: `pnpm install`이 알아서 처리하므로 `install:ffmpeg`를 직접 칠 일은 보통 없습니다. 다운로드가 실패했거나 `bin/`의 바이너리가 없어졌을 때만 쓰세요.
-내려받는 릴리스는 `scripts/install-ffmpeg.ts`의 기본값으로 고정되어 있고 sha256으로 검증합니다. 다른 버전을 쓰려면 `.env`의 `FFMPEG_RELEASE`에 태그를 적고 `pnpm run install:ffmpeg --force`로 다시 받으세요.
+내려받는 릴리스는 `config.ts`의 기본값으로 고정되어 있고 sha256으로 검증합니다. 다른 버전을 쓰려면 `.env`의 `FFMPEG_RELEASE`에 태그를 적고 `pnpm run install:ffmpeg --force`로 다시 받으세요.
 **각 달의 마지막 빌드만 쓸 수 있습니다** — BtbN은 그 외 autobuild를 2주 뒤 삭제하므로, 중간 날짜로 고정하면 얼마 못 가 내려받기가 404가 됩니다(월말 빌드는 2년 보존).
 
 **yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
