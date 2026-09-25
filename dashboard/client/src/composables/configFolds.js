@@ -34,3 +34,31 @@ export function toggleFold(id) {
     // 사생활 보호 모드 등. 이번 세션 동안만 접힌다
   }
 }
+
+// 출처의 상세 설정을 펼쳐 둔 것. 접기와 반대로 펼친 것만 적는다(상세 설정은 접힌 채로 나온다).
+// 편집기 안에 두면 저장할 때 사라진다. 저장하면 장르 목록을 새로 받아 편집기를 다시 그리기 때문이다.
+const DEEP_KEY = "configGenres.deepOpen";
+
+function loadDeep() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(DEEP_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+const deepOpen = ref(loadDeep());
+
+export const isDeepOpen = (id) => deepOpen.value.has(id);
+
+export function toggleDeepOpen(id) {
+  const next = new Set(deepOpen.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  deepOpen.value = next;
+  try {
+    localStorage.setItem(DEEP_KEY, JSON.stringify([...next]));
+  } catch {
+    // 사생활 보호 모드 등. 이번 세션 동안만 펼쳐 둔다
+  }
+}

@@ -36,13 +36,13 @@
 
         <!-- 칸 너비는 서버가 정한다(width). 짧은 칸이 한 줄을 다 먹을 이유가 없다 -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-x-2.5 gap-y-3 mt-2.5">
-          <div v-for="field in shown(source)" :key="field.key" class="min-w-0" :class="widthCls(field)">
+          <div v-for="field in shown(source, i)" :key="field.key" class="min-w-0" :class="widthCls(field)">
             <!-- 1/6 너비 칸은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
             <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
               {{ field.label }}<span v-if="field.required" class="text-[#f87171]">*</span><span v-if="field.hint && field.width !== 'narrow'" class="text-muted font-normal ml-1">{{ field.hint }}</span>
             </span>
 
-            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key])" placeholder="하나씩 적고 Enter" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key])" :placeholder="field.suggest ? '치면 후보가 뜹니다. 없는 말은 적고 Enter' : '하나씩 적고 Enter'" :suggest="field.suggest ? (term) => suggestFor(source.type, field.suggest, term) : null" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
             <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
@@ -62,8 +62,8 @@
           </div>
         </div>
 
-        <button v-if="deepCount(source.type)" :class="deepBtn" @click="toggleDeep(source._key)">
-          {{ open.has(source._key) ? "접기" : `상세 설정 ${deepCount(source.type)}개 펼치기` }}
+        <button v-if="deepCount(source.type)" :class="deepBtn" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))">
+          {{ isDeepOpen(sourceFoldId(genreIndex, i)) ? "접기" : `상세 설정 ${deepCount(source.type)}개 펼치기` }}
         </button>
         <p v-if="spec(source.type)?.window" class="text-muted text-[0.75rem] mt-1.5">곡이 너무 많으면 상위 {{ depthOf(source).toLocaleString("ko-KR") }}곡 중에서 고릅니다.</p>
       </div>
@@ -81,6 +81,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
+import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import ChipInput from "./ChipInput.vue";
 import RangeSlider from "./RangeSlider.vue";
@@ -88,7 +89,7 @@ import MultiSelect from "./MultiSelect.vue";
 import SingleSelect from "./SingleSelect.vue";
 import TagPicker from "./TagPicker.vue";
 import NumberInput from "./NumberInput.vue";
-import { isFolded, toggleFold, sourceFoldId } from "../composables/configFolds";
+import { isFolded, toggleFold, sourceFoldId, isDeepOpen, toggleDeepOpen } from "../composables/configFolds";
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
@@ -147,7 +148,6 @@ function remove(i) {
   push();
 }
 
-const open = ref(new Set());
 const adding = ref("");
 
 const spec = (type) => props.types.find((t) => t.type === type) || null;
@@ -163,9 +163,12 @@ const typeOptions = (current) => choosable(current).map((t) => ({ value: t.type,
 const fieldsOf = (type) => spec(type)?.fields || [];
 const deepCount = (type) => fieldsOf(type).filter((f) => f.deep).length;
 // when 이 있는 칸은 그 칸이 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
-const shown = (source) => fieldsOf(source.type).filter((f) => (!f.deep || open.value.has(source._key)) && (!f.when || hasRange(source, f.when)));
+const shown = (source, i) => fieldsOf(source.type).filter((f) => (!f.deep || isDeepOpen(sourceFoldId(props.genreIndex, i))) && (!f.when || hasRange(source, f.when)));
 // 구간은 두 칸으로 적히니 한쪽만 손으로 적어 둔 설정도 있다
 const hasRange = (source, key) => source[key] != null || source[fieldsOf(source.type).find((f) => f.key === key)?.to] != null;
+
+// 자동완성 후보. 브라우저가 저쪽에 바로 묻지 않고 서버를 거친다(GET /api/admin/source-suggest)
+const suggestFor = async (type, field, term) => (await axios.get("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
 
 // 곡이 많을 때 몇 번째 곡까지 보는지. 셈은 서버와 같다(genreSources 의 windowDepth)
 const filled = (v) => asList(v).some((one) => one != null && String(one).trim() !== "");
@@ -173,13 +176,6 @@ const depthOf = (source) => {
   const win = spec(source.type).window;
   return win.narrow.some((key) => filled(source[key])) ? win.narrowDepth : win.depth;
 };
-
-function toggleDeep(key) {
-  const next = new Set(open.value);
-  if (next.has(key)) next.delete(key);
-  else next.add(key);
-  open.value = next;
-}
 
 function write(i, patch) {
   const row = list.value[i];

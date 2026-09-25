@@ -22,6 +22,7 @@ const { bodyLimit } = await import("../../dashboard/server/bodyLimit.ts");
 const { deployCommands } = await import("../../src/app/commandLoader.ts");
 const { adminRouter } = await import("../../dashboard/server/routes/admin.ts");
 const autoplaySources = await import("../../src/autoplay/sources/index.ts");
+const { useFetch } = await import("../../src/autoplay/sources/http.ts");
 const assist = await import("../../src/autoplay/assist/index.ts");
 
 /** 거절 · 확인 답의 칸. 경로마다 읽는 칸이 더 있으면 부를 때 모양을 적는다 */
@@ -342,6 +343,37 @@ test("설정: 내용이 없으면 400", async () => {
   assert.equal((await req("PUT", "/api/admin/config/genres", {})).status, 400);
 });
 
+// ── 소스 편집기 자동완성 ─────────────────────────────────────────────────────
+
+test("자동완성: 받을 수 있는 종류 · 칸 · 검색어만 저쪽에 묻고, 저쪽이 실패하면 502", async () => {
+  const asked: URL[] = [];
+  let down = false;
+  useFetch(
+    fake<typeof fetch>(async (input: string | URL | Request) => {
+      asked.push(new URL(String(input)));
+      if (down) return { ok: false, status: 503, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ items: [{ name: "rock" }] }) };
+    }),
+  );
+  try {
+    const ask = (q: string) => req<{ items?: unknown[]; error?: string }>("GET", `/api/admin/source-suggest?${q}`);
+    assert.equal((await ask("type=lastfm&field=tags&q=a")).status, 400, "VocaDB 계열만");
+    assert.equal((await ask("type=vocadb&field=songTypes&q=a")).status, 400, "태그 · 가수 칸만");
+    assert.equal((await ask("type=vocadb&field=tags&q=%20%20")).status, 400, "빈 검색어");
+    assert.equal((await ask(`type=vocadb&field=tags&q=${"a".repeat(101)}`)).status, 400, "너무 긴 검색어");
+    assert.equal(asked.length, 0, "막은 요청은 저쪽에 가지 않는다");
+
+    const ok = await ask("type=vocadb&field=tags&q=%E3%83%AD%E3%83%83");
+    assert.equal(ok.status, 200);
+    assert.deepEqual(ok.json.items, [{ value: "rock" }]);
+
+    down = true;
+    assert.equal((await ask("type=vocadb&field=tags&q=rock")).status, 502);
+  } finally {
+    useFetch(null);
+  }
+});
+
 // ── 소스 종류 목록 ────────────────────────────────────────────────────────
 
 // 편집기가 그릴 표는 서버가 준다. 화면이 목록을 따로 들면 소스를 더할 때 한쪽만 고치게 된다.
@@ -367,6 +399,9 @@ test("소스 종류: 무엇을 받고 지금 쓸 수 있는지까지 알려준�
   // 곡이 많을 때 고르는 범위. 화면이 "상위 n곡 중에서"를 채운 칸에 따라 셈한다
   assert.deepEqual(byType.vocadb.window, { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 });
   assert.equal(byType.keyword.window, null);
+  // 치는 동안 후보를 받는 칸. 화면이 이걸 보고 자동완성을 켠다
+  assert.equal(fieldOf("vocadb", "artists").suggest, "artists");
+  assert.equal(fieldOf("vocadb", "excludeTags").suggest, "tags");
 
   // 키가 필요한 것은 무엇이 필요한지 밝힌다(화면이 "키 없음"을 띄운다)
   assert.equal(byType.lbradio.needs, "LISTENBRAINZ_TOKEN");

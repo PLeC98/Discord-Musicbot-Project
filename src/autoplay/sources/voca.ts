@@ -18,7 +18,7 @@ type Pv = { service?: string; disabled?: boolean; pvType?: string; url?: string 
 type Song = { id?: number; name?: string; artistString?: string; lengthSeconds?: number; thumbUrl?: string; pvs?: Pv[]; artists?: Array<{ name?: string; categories?: string }> };
 type SongPage = { totalCount?: number; items?: Song[] };
 type Tag = { id?: number } | null;
-type Artist = { id?: number; name?: string; names?: Array<{ value?: string }> };
+type Artist = { id?: number; name?: string; artistType?: string; names?: Array<{ value?: string }> };
 
 const VOCA_PAGE = 50;
 
@@ -154,6 +154,27 @@ function sameName(items: Artist[], name: string) {
   return items.find((one) => one.name === name) || items.find((one) => all(one).includes(name)) || items.find((one) => all(one).some((v) => v.toLowerCase() === lower)) || null;
 }
 
+// ── 자동완성 ──────────────────────────────────────────────────────────────
+// 편집기가 칸에 치는 동안 후보를 보인다. 가수는 대표 이름을 넣으므로 이름 풀기(sameName)가 첫 단계에서 맞는다.
+// 치는 동안이라 오래 기다리지 않는다
+const SUGGEST_MAX = 8;
+const SUGGEST_TIMEOUT_MS = 8000;
+type Suggestion = { value: string; hint?: string };
+
+async function suggest(site: Site, what: "tags" | "artists", term: string): Promise<Suggestion[]> {
+  const host = VOCA_HOSTS[site];
+  if (what === "tags") {
+    // 앞부분이 맞는 것을 많이 쓰인 순으로. 별칭으로 쳐도 대표 이름이 온다(ロッ → rock).
+    // /api/tags/names 는 가운데가 맞는 것까지 가나다순이라 roc 에 rock 이 안 뜬다
+    const page = await getJson<{ items?: Array<{ name?: string; categoryName?: string }> } | null>(`https://${host}/api/tags?${query({ query: term, nameMatchMode: "StartsWith", sort: "UsageCount", maxResults: SUGGEST_MAX })}`, {}, SUGGEST_TIMEOUT_MS);
+    return (page?.items || []).flatMap((one) => (one.name ? [{ value: one.name, ...(one.categoryName ? { hint: one.categoryName } : {}) }] : []));
+  }
+  // 이름 풀기와 같은 분류로 거른다. 후보에 있는데 풀리지 않으면 안 된다
+  const types = VOCA_ARTIST_TYPES[site];
+  const page = await getJson<{ items?: Artist[] } | null>(`https://${host}/api/artists?${query({ query: term, nameMatchMode: "StartsWith", sort: "SongCount", maxResults: SUGGEST_MAX, artistTypes: types?.join(",") })}`, {}, SUGGEST_TIMEOUT_MS);
+  return (page?.items || []).flatMap((one) => (one.name ? [{ value: one.name, hint: one.artistType }] : []));
+}
+
 /** 테스트 시임. 기억한 id 를 버린다 */
 function _forgetIds() {
   ids.clear();
@@ -208,4 +229,4 @@ function creditOf(song: Song) {
   return [makers.join(", "), singers.join(", ")].filter(Boolean).join(" feat. ");
 }
 
-export { vocaFamily, advancedFilters, someLanguages, _forgetIds };
+export { vocaFamily, advancedFilters, someLanguages, suggest, isSite, _forgetIds };

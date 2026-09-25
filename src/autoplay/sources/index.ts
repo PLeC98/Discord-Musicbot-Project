@@ -26,7 +26,7 @@ import { lastfm } from "./lastfm.ts";
 import { lbradio, PLACEHOLDER } from "./lbradio.ts";
 import { animethemes } from "./animethemes.ts";
 import { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } from "./anisongdb.ts";
-import { vocaFamily, advancedFilters, someLanguages } from "./voca.ts";
+import { vocaFamily, advancedFilters, someLanguages, suggest, isSite } from "./voca.ts";
 import { spotify, youtube } from "./playlists.ts";
 
 // ── 등록부 ────────────────────────────────────────────────────────────────
@@ -122,5 +122,5 @@ async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Can
   return tracks;
 }
 
-export { fetchFrom, TYPES, SPEC, catalog, usable, needsOf, PLACEHOLDER as _placeholder, advancedFilters as _advancedFilters, someLanguages as _someLanguages, anisongFilters as _anisongFilters, anisongCatalog as _anisongCatalog, _seedAnisongStats };
+export { fetchFrom, TYPES, SPEC, catalog, suggest, isSite, usable, needsOf, PLACEHOLDER as _placeholder, advancedFilters as _advancedFilters, someLanguages as _someLanguages, anisongFilters as _anisongFilters, anisongCatalog as _anisongCatalog, _seedAnisongStats };
 export const _seedYearRange = (range: YearRange | null) => yearRange.seed(range);

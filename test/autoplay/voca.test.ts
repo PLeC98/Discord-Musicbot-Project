@@ -9,7 +9,7 @@
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { vocaFamily, _forgetIds } from "../../src/autoplay/sources/voca.ts";
+import { vocaFamily, suggest, _forgetIds } from "../../src/autoplay/sources/voca.ts";
 import { useFetch } from "../../src/autoplay/sources/http.ts";
 import type { GenreSource } from "../../src/config/genres.ts";
 import { VOCA_WINDOW } from "../../src/config/schema/genreSources.ts";
@@ -234,4 +234,28 @@ test("가수 분류는 advancedFilters 로, 가사 언어 뒤에 번호를 이�
 
 test("VocaDB 계열이 아닌 종류로 부르면 던진다", async () => {
   await assert.rejects(vocaFamily(source({ type: "lastfm" })), /VocaDB 계열이 아닙니다/);
+});
+
+test("자동완성: 태그는 이름 목록, 가수는 이름 풀기와 같은 분류로 거른 대표 이름", async () => {
+  const urls: URL[] = [];
+  useFetch(
+    fake<typeof fetch>(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      urls.push(url);
+      if (url.pathname === "/api/tags") return json({ items: [{ name: "rock", categoryName: "Genres" }, { name: "rock ballad" }, {}] });
+      return json({ items: [{ id: 1, name: "初音ミク", artistType: "Vocaloid" }, { id: 2 }] });
+    }),
+  );
+
+  assert.deepEqual(await suggest("vocadb", "tags", "roc"), [{ value: "rock", hint: "Genres" }, { value: "rock ballad" }]);
+  assert.equal(urls[0].searchParams.get("nameMatchMode"), "StartsWith", "가운데가 맞는 것까지 주면 roc 에 rock 이 안 뜬다");
+  assert.equal(urls[0].searchParams.get("sort"), "UsageCount");
+
+  assert.deepEqual(await suggest("vocadb", "artists", "初音"), [{ value: "初音ミク", hint: "Vocaloid" }], "이름 없는 항목은 뺀다");
+  const artists = urls[1].searchParams;
+  assert.equal(artists.get("nameMatchMode"), "StartsWith");
+  assert.ok(artists.get("artistTypes")?.split(",").includes("Vocaloid"), "후보에 뜬 것은 이름 풀기에서도 찾혀야 한다");
+
+  await suggest("touhoudb", "artists", "ZU");
+  assert.equal(urls[2].searchParams.get("artistTypes"), null, "touhoudb 는 거르지 않는다");
 });
