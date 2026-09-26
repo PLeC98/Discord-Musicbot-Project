@@ -3,7 +3,7 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { test, before, after } from "node:test";
+import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as yamlStore from "../../src/config/yamlStore.ts";
@@ -22,6 +22,8 @@ const touch = (name: string) => {
 };
 
 before(() => yamlStore._setConfigDir(DIR));
+// 시험마다 기동한 것처럼 본다. 직전에 맞던 설정이 남아 있으면 틀린 파일에도 던지지 않는다
+beforeEach(() => genreConfig._reset());
 after(() => {
   yamlStore._setConfigDir(path.join(import.meta.dirname, "..", "..", "config"));
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
@@ -74,6 +76,7 @@ test("emoji 자리에 이모지가 아닌 값이 있으면 읽을 때 걸린다"
   assert.equal(load("🇰🇷").genres.팝.emoji, "🇰🇷", "국기처럼 코드포인트가 여럿인 것도 한 글자다");
   assert.equal(load('""').genres.팝.emoji, "", "비워 두는 것은 괜찮다");
 
+  genreConfig._reset(); // 기동 때처럼. 직전 값이 있으면 던지지 않고 그것으로 돈다
   const err = thrown(() => load("abc"));
   assert.equal(err.code, "CONFIG_INVALID");
   assert.match(err.message, /이모지/);
@@ -180,4 +183,14 @@ test("기동 오류는 문제를 한 번에 모두 나열한다(대시보드 저
   assert.match(err.message, /"80": 숫자만으로 된 이름은/);
   assert.match(err.message, /팝: emoji는 이모지 한 글자여야/);
   assert.match(err.message, /팝: 소스\(sources\)가 하나는 있어야/);
+});
+
+test("돌던 중 파일이 틀리면 직전에 맞던 설정으로 돈다(던지지 않는다)", () => {
+  write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: [{ type: keyword, keywords: [pop] }]", ""].join("\n"));
+  touch("genres");
+  assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"]);
+
+  write("genres", ["defaults: {}", "genres:", "  팝:", "    sources: []", ""].join("\n"));
+  touch("genres");
+  assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"], "틀린 파일 대신 직전 값");
 });

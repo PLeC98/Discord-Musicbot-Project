@@ -6,6 +6,7 @@ const log = logger.child({ category: "config" });
 import * as sources from "./schema/genreSources.ts";
 import { load } from "./yamlStore.ts";
 import { genreProblems } from "./schema/genres.ts";
+import { codeOf, messageOf } from "../rules/errorKind.ts";
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
 const validateGenres = genreProblems;
@@ -70,7 +71,26 @@ let warnedKeys = "";
  * `true`/`false`/`null`은 값으로 읽혀 id가 조용히 뒤바뀐다(null 키는 빈 문자열이 된다).
  * 흔한 실수는 아니지만, 조용히 틀리는 종류라 거절하고 무엇을 고칠지 알린다.
  */
+// 직전에 검사를 지난 설정. 돌던 중 파일이 틀리면 이것으로 계속 돈다(status 와 같다)
+let lastGood: GenresConfig | null = null;
+let reported = "";
+
+/** 장르 설정. 기동 때 틀렸으면 던지고, 돌던 중에 틀리면 알리고 직전에 맞던 설정을 돌려준다 */
 function genres(): GenresConfig {
+  try {
+    lastGood = checkedGenres();
+    reported = "";
+    return lastGood;
+  } catch (error) {
+    if (codeOf(error) !== "CONFIG_INVALID" || !lastGood) throw error;
+    const message = messageOf(error);
+    if (message !== reported) log.error(`${message}\n   고칠 때까지 직전에 맞던 설정으로 돕니다.`);
+    reported = message;
+    return lastGood;
+  }
+}
+
+function checkedGenres(): GenresConfig {
   const loaded = load("genres");
   // 이름 · 숫자 이름 · 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
@@ -138,4 +158,5 @@ function checkSourceKeys(genres: Record<string, Genre>) {
 }
 
 export { genres, validateGenres };
+export const _reset = () => ((lastGood = null), (reported = ""));
 export type { GenreSource, Genre, GenreDefaults, GenresConfig };

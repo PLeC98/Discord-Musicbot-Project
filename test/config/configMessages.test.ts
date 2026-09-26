@@ -387,6 +387,7 @@ after(() => {
 });
 
 test("장르 파일이 검사에 걸리면 던진다(기동이 멈춰야 한다). 문구는 한 줄씩 들여 쓴다", () => {
+  genreConfig._reset();
   write("genres", "genres:\n  가요:\n    sources: []\n");
   assert.throws(
     () => genreConfig.genres(),
