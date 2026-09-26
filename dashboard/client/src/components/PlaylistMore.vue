@@ -28,7 +28,7 @@
     <div v-else class="mt-3.5 flex flex-col">
       <div class="flex flex-wrap gap-2 pt-1">
         <button v-for="n in steps" :key="n" type="button" :class="chip" :disabled="busy" @click="$emit('add', n)">+{{ fmt(n) }}곡</button>
-        <button type="button" :class="chip" :disabled="busy" @click="$emit('add', cap)">{{ cap < more.remaining ? `넣을 수 있는 만큼 · ${fmt(cap)}곡` : `남은 곡 전부 · ${fmt(cap)}곡` }}</button>
+        <button type="button" :class="chip" :disabled="busy" @click="$emit('add', cap)">{{ capLabel }}</button>
       </div>
 
       <div class="flex items-center gap-3 pt-1">
@@ -53,7 +53,7 @@ import Icon from "./BaseIcon.vue";
 // 자주 쓰는 양은 한 번 누르면 끝나고, 그 밖의 양은 슬라이더나 숫자로 고른다.
 // 남은 자리는 대기열이 바뀌는 대로 다시 센다(대시보드 이벤트가 queueTotal을 갱신한다).
 const props = defineProps({
-  more: { type: Object, required: true }, // 서버가 준 이어 넣기 상태 { kind, offset, total, remaining, batch, lifetimeMs, ... }
+  more: { type: Object, required: true }, // 서버가 준 이어 넣기 상태 { kind, offset, total, remaining, batch, perClick, lifetimeMs, ... }
   queueTotal: { type: Number, default: 0 },
   queueMax: { type: Number, default: 0 }, // 0이면 상한 없음
   busy: { type: Boolean, default: false },
@@ -66,7 +66,13 @@ const fmt = (n) => Number(n).toLocaleString("ko-KR");
 const batch = computed(() => props.more.batch || 50);
 const label = computed(() => (props.more.kind === "spa" ? "앨범" : "재생목록"));
 const room = computed(() => (props.queueMax > 0 ? Math.max(0, props.queueMax - props.queueTotal) : Infinity));
-const cap = computed(() => Math.max(0, Math.min(props.more.remaining, room.value)));
+// 출처가 한 번에 넣게 하는 상한(사운드클라우드 세트 10). 없으면 없다
+const perClick = computed(() => props.more.perClick ?? Infinity);
+const cap = computed(() => Math.max(0, Math.min(props.more.remaining, room.value, perClick.value)));
+const capLabel = computed(() => {
+  if (cap.value >= props.more.remaining) return `남은 곡 전부 · ${fmt(cap.value)}곡`;
+  return cap.value === perClick.value ? `+${fmt(cap.value)}곡` : `넣을 수 있는 만큼 · ${fmt(cap.value)}곡`;
+});
 const steps = computed(() => [batch.value, batch.value * 2].filter((n) => n < cap.value));
 const progress = computed(() => Math.min(100, (props.more.offset / Math.max(1, props.more.total)) * 100));
 

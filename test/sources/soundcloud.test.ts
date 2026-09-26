@@ -12,15 +12,15 @@ type Reply = { json?: unknown; fail?: string };
 const calls: Array<{ url: string; flags: YtDlpFlags }> = [];
 let respond: (url: string, flags: YtDlpFlags) => Reply;
 
-before(() => {
-  useExec(((url: string, flags: YtDlpFlags = {}) => {
-    calls.push({ url, flags });
-    const { json, fail } = respond(url, flags);
-    const stdout = json === undefined ? "" : JSON.stringify(json);
-    if (fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: fail, stdout, exitCode: 1 }));
-    return Promise.resolve({ stdout, stderr: "" });
-  }) as unknown as Exec);
-});
+const harness = ((url: string, flags: YtDlpFlags = {}) => {
+  calls.push({ url, flags });
+  const { json, fail } = respond(url, flags);
+  const stdout = json === undefined ? "" : JSON.stringify(json);
+  if (fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: fail, stdout, exitCode: 1 }));
+  return Promise.resolve({ stdout, stderr: "" });
+}) as unknown as Exec;
+
+before(() => useExec(harness));
 after(() => useExec(null));
 beforeEach(() => {
   calls.length = 0;
@@ -149,4 +149,49 @@ test("캐시 받기: AAC 를 받고, AAC 가 없는 곡은 미리듣기 조각�
 test("캐시 받기: 미리듣기 곡은 고를 포맷이 없어 '포맷 없음'으로 끝난다(유튜브의 클라이언트 탓이 아니다)", async () => {
   respond = (_url, flags) => ({ fail: flags.extractorArgs === "soundcloud:formats=hls_aac" ? "ERROR: [soundcloud] 1: No video formats found!" : "ERROR: [soundcloud] 1: Requested format is not available. Use --list-formats for a list of available formats" });
   await assert.rejects(SoundCloud.download("https://soundcloud.com/artist/preview", { output: "x.opus" }), (e: unknown) => codeOf(e) === "no-formats");
+});
+
+// 세트 하나가 곡마다 요청을 30개 남짓 쓴다. 서버 여럿이 동시에 넣어 겹치면 IP 가 막힌다(실측)
+test("세트 읽기는 한 번에 하나씩, 곡 하나는 기다리지 않는다", async () => {
+  const order: string[] = [];
+  const held: Array<() => void> = [];
+  useExec(((url: string) => {
+    order.push(`시작 ${url.slice(-5)}`);
+    const json = url.includes("/sets/") ? { _type: "playlist", id: "1", entries: [] } : item("t");
+    return new Promise((done) => {
+      const finish = () => {
+        order.push(`끝 ${url.slice(-5)}`);
+        done({ stdout: JSON.stringify(json), stderr: "" });
+      };
+      if (url.endsWith("set-a")) held.push(finish);
+      else finish();
+    });
+  }) as unknown as Exec);
+  try {
+    const a = SoundCloud.find("https://soundcloud.com/x/sets/set-a", { what: "set" });
+    const b = SoundCloud.find("https://soundcloud.com/x/sets/set-b", { what: "set" });
+    const one = SoundCloud.find("https://soundcloud.com/x/trk-1");
+    await one;
+    await new Promise((done) => setImmediate(done));
+    // 시작 차례(세트 a 와 곡)는 보지 않는다. 곡이 끝났고, 세트 b 는 세트 a 가 끝나기 전에 시작하지 않았는지만
+    assert.ok(order.includes("끝 trk-1"), "곡은 세트를 기다리지 않는다");
+    assert.ok(order.includes("시작 set-a"));
+    assert.ok(!order.some((line) => line.includes("set-b")), `둘째 세트는 첫 세트를 기다린다: ${order.join(", ")}`);
+    held.shift()?.();
+    await Promise.all([a, b]);
+    assert.deepEqual(order.slice(-3), ["끝 set-a", "시작 set-b", "끝 set-b"]);
+  } finally {
+    // 단언이 실패해도 붙잡은 세트를 푼다. 안 풀면 줄 선 세트 읽기가 모두 영영 기다린다
+    for (const finish of held) finish();
+    useExec(harness);
+  }
+});
+
+// 요청 제한에 걸린 곡은 받을 수 없는 곡이 아니다. 받을 수 없는 곡으로 세면 까닭이 묻힌다
+test("세트 읽기 중 요청 제한(403 · 429)이 섞이면 뺀 곡으로 세지 않고 요청 제한으로 알린다", async () => {
+  respond = () => ({
+    json: { _type: "playlist", id: "1", playlist_count: 3, entries: [item("a"), null, null] },
+    fail: "ERROR: [soundcloud] 2: Unable to download JSON metadata: HTTP Error 429: Too Many Requests\nERROR: [soundcloud] 3: Unable to download JSON metadata: HTTP Error 429: Too Many Requests",
+  });
+  await assert.rejects(SoundCloud.find("https://soundcloud.com/x/sets/busy", { what: "set" }), (e: unknown) => errorKind(e) === "rate-limited");
 });

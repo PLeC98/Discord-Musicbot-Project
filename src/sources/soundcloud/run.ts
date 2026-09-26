@@ -8,6 +8,8 @@ import youtubedl from "../ytdlpSpawn.ts";
 import { baseOptions } from "../ytdlpOptions.ts";
 import { codedError, codeOf } from "../../rules/errorKind.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlpSpawn.ts";
+import logger from "../../infra/log/logger.ts";
+const log = logger.child({ category: "track" });
 
 /**
  * 묻는 포맷(yt-dlp 의 soundcloud:formats).
@@ -42,16 +44,26 @@ function nameOf(error: unknown, what: What): string | null {
   return typeof code === "string" ? code : null;
 }
 
-// 여러 곡 중 일부를 받지 못하면 yt-dlp 는 1 로 끝나지만 JSON 은 끝까지 낸다(못 받은 곡은 null). 그 JSON 이면 쓴다
+// 여러 곡 중 일부를 받지 못하면 yt-dlp 는 1 로 끝나지만 JSON 은 끝까지 낸다(못 받은 곡은 null). 그 JSON 이면 쓴다.
+// 다만 요청 제한(403 · 429)에 걸린 곡이 섞였으면 쓰지 않는다. 그 곡들은 받을 수 없는 곡이 아니라 막힌 것이다
 function partialPlaylist(error: unknown): unknown {
   const stdout = (error as { stdout?: unknown } | null)?.stdout;
   if (typeof stdout !== "string" || !stdout.trim()) return null;
+  if (/HTTP Error (?:403|429)/.test(textOf(error))) return null;
   try {
     const out = JSON.parse(stdout) as { _type?: unknown; entries?: unknown };
     return out && out._type === "playlist" && Array.isArray(out.entries) ? out : null;
   } catch {
     return null;
   }
+}
+
+// 세트 읽기는 한 번에 하나씩(곡마다 요청이 들어 10곡이면 30). 서버 여럿이 동시에 넣어도 겹치지 않게. 곡 하나(재생 · 캐시 받기)는 막지 않는다
+let setReads: Promise<unknown> = Promise.resolve();
+function oneAtATime<T>(job: () => Promise<T>): Promise<T> {
+  const turn = setReads.then(job, job);
+  setReads = turn.catch(() => undefined);
+  return turn;
 }
 
 /** 사운드클라우드에 쓸 yt-dlp 옵션. 공통 옵션 위에 포맷 줄이기와 extra */
@@ -64,11 +76,23 @@ function flagsFor(formats: Formats, extra: YtDlpFlags = {}): YtDlpFlags {
  * 여러 곡에서 일부만 못 받은 것은 실패가 아니다.
  */
 async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = youtubedl): Promise<unknown> {
+  const once = () => exec(url, flagsFor(formats, extra));
   try {
-    return await exec(url, flagsFor(formats, extra));
+    return await (what === "set" ? oneAtATime(once) : once());
   } catch (error) {
     const partial = partialPlaylist(error);
-    if (partial) return partial;
+    if (partial) {
+      // 곡마다의 까닭(지역 제한 · 포맷 없음 등). 안내는 수만 알리므로 여기 남긴다
+      const reasons = [
+        ...new Set(
+          textOf(error)
+            .split("\n")
+            .filter((line) => /^ERROR/.test(line)),
+        ),
+      ];
+      log.debug(`사운드클라우드 세트에서 받지 못한 곡의 까닭: ${reasons.join(" / ")}`);
+      return partial;
+    }
     const name = nameOf(error, what);
     if (!name) throw error;
     const text = textOf(error);

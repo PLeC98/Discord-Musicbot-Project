@@ -13,7 +13,7 @@ import { controlApiError, type Refusal } from "../../../src/ui/controlMessages.t
 import type { More } from "../../../src/usecases/playlistMore.ts";
 import { messageOf } from "../../../src/rules/errorKind.ts";
 import { requestPlayback, continueCollection, ensurePlayer } from "../../../src/usecases/addTracks.ts";
-import { validState, LIFETIME_MS } from "../../../src/usecases/playlistMore.ts";
+import { validState, LIFETIME_MS, KINDS } from "../../../src/usecases/playlistMore.ts";
 import config from "../../../config.ts";
 import { isOwner } from "../owner.ts";
 import { shadowMember } from "../viewAs.ts";
@@ -38,7 +38,8 @@ const LOOP_MODE = new Map<string, false | "track" | "queue">([
 ]);
 
 // 이어 넣기 상태를 화면에. 선택지 단위(batch)는 코어가 서버 설정으로 채워 둔다
-const moreView = (more: More | null | undefined) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS } : null);
+// perClick: 출처가 한 번에 넣게 하는 곡 수 상한(사운드클라우드 세트 10). 없으면 null
+const moreView = (more: More | null | undefined) => (more ? { ...more, requesterId: undefined, lifetimeMs: LIFETIME_MS, perClick: Number.isFinite(KINDS[more.kind].perClick) ? KINDS[more.kind].perClick : null } : null);
 
 // 대시보드에서 곡을 넣은 사람. 화면에 보이는 이름으로
 function requesterOf<P>(req: Request<P>) {
