@@ -47,6 +47,7 @@ class QueueWarmer {
   setProtection: WarmerDeps["setProtection"];
   _timer: NodeJS.Timeout | null;
   _sleepTimer: NodeJS.Timeout | null;
+  _wake: (() => void) | null;
   _lastSeen: string | null;
   _applied: string | null;
   _running: boolean;
@@ -76,6 +77,7 @@ class QueueWarmer {
 
     this._timer = null;
     this._sleepTimer = null;
+    this._wake = null; // 쉬는 약속을 푸는 함수. 멈출 때 불러 루프가 끝나게 한다
     this._lastSeen = null; // 직전 틱의 서명. 안정 여부 판정용
     this._applied = null; // 실제로 반영한 서명
     this._running = false;
@@ -100,6 +102,8 @@ class QueueWarmer {
       clearTimeout(this._sleepTimer);
       this._sleepTimer = null;
     }
+    // 쉬던 약속을 풀어야 루프가 멈춤을 보고 끝난다. 타이머만 지우면 루프가 돌던 채로 남아 다시 켜도 돌지 않는다
+    this._wake?.();
     this._lastSeen = null;
     this._applied = null;
     this._failed = new Set();
@@ -236,9 +240,13 @@ class QueueWarmer {
 
   _sleep(ms: number) {
     return new Promise<void>((resolve) => {
+      this._wake = () => {
+        this._wake = null;
+        resolve();
+      };
       this._sleepTimer = setTimeout(() => {
         this._sleepTimer = null;
-        resolve();
+        this._wake?.();
       }, ms);
       if (typeof this._sleepTimer.unref === "function") this._sleepTimer.unref();
     });

@@ -387,3 +387,40 @@ test("사용자가 넣은 곡은 빼지 않는다 — 없어졌다는 것을 알
 
   assert.equal(player.queue.includes(mine), true);
 });
+
+// ── 멈추고 다시 켜기 ──────────────────────────────────────────
+
+test("곡 사이에 쉬는 도중 멈추면 루프가 끝나고, 다시 켜면 이어 받는다", async () => {
+  const warmed: Array<string | undefined> = [];
+  const cached = new Set<string | undefined>();
+  const player: WarmerHost = { queue: [track("a"), track("b")], currentTrack: null, loop: false, guild: { id: "g1" } };
+  const warmer = new QueueWarmer(player, {
+    ahead: 5,
+    gapMs: 60_000, // 곡 사이 쉬기. 멈추지 않으면 시험 동안 깨지 않는다
+    intervalMs: 1000,
+    keyOf: (t) => t?.audioUrl || null,
+    isCached: (t) => cached.has(t.audioUrl),
+    isBusy: () => false,
+    warm: async (t) => {
+      warmed.push(t.audioUrl);
+      cached.add(t.audioUrl);
+    },
+    setProtection: () => {},
+  });
+
+  warmer.tick();
+  warmer.tick();
+  await settle();
+  assert.deepEqual(warmed, ["yt:a"], "첫 곡을 받고 쉬는 중");
+
+  warmer.stop();
+  await settle();
+  assert.equal(warmer._running, false, "쉬던 약속이 풀려 루프가 끝났다");
+
+  warmer.start();
+  warmer.tick();
+  warmer.tick();
+  await settle();
+  warmer.stop();
+  assert.deepEqual(warmed, ["yt:a", "yt:b"], "다시 켜면 남은 곡을 받는다");
+});
