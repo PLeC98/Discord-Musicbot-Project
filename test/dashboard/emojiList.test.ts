@@ -7,6 +7,7 @@ import test from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";
 import path from "path";
+import YAML from "yaml";
 
 const LIST = path.join(import.meta.dirname, "..", "..", "dashboard", "client", "src", "emojiList.js");
 // 화면 쪽 모듈이라 타입이 없다. 시험이 읽는 칸만 적는다
@@ -77,9 +78,11 @@ test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
   assert.deepEqual(bad, []);
 });
 
-test("기록된 Twemoji 버전이 설치된 것과 같다", async () => {
+test("기록된 Twemoji 버전이 잠금 파일의 판과 같다", async () => {
   // 그림은 twemoji 패키지가 가리키는 CDN에서 온다. 패키지만 올리고 목록을 다시 만들지 않으면
   // 새로 생긴 이모지가 목록에 없는 채로 남는다 — 그때 여기서 걸린다.
-  const installed: string = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "dashboard", "client", "node_modules", "@twemoji", "api", "package.json"), "utf8")).version;
-  assert.equal((await list()).TWEMOJI_VERSION, installed, "scripts/build-emoji-list.ts를 다시 실행해야 한다");
+  // 설치물이 아니라 잠금 파일을 본다. 클라이언트를 깔지 않은 작업 트리에서도 같은 답이다
+  const lock = YAML.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "pnpm-lock.yaml"), "utf8"));
+  const locked: string = lock.importers["dashboard/client"].dependencies["@twemoji/api"].version;
+  assert.equal((await list()).TWEMOJI_VERSION, locked, "scripts/build-emoji-list.ts를 다시 실행해야 한다");
 });

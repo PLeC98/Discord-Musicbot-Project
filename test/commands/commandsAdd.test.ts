@@ -28,6 +28,9 @@ import * as lookup from "../../src/sources/lookup.ts";
 import * as addTracks from "../../src/usecases/addTracks.ts";
 import * as More from "../../src/usecases/playlistMore.ts";
 import * as storeDb from "../../src/store/db.ts";
+import { useExampleConfig } from "../helpers/exampleConfig.ts";
+
+useExampleConfig();
 
 const USER = "111111111111111111";
 const resolved: Array<{ query: string; context?: string | null; range?: Range }> = [];

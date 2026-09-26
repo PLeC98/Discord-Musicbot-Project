@@ -14,6 +14,9 @@ import { PlaybackState } from "../../src/player/playbackState.ts";
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
 import { fakePlayer } from "../helpers/fake.ts";
+import { useExampleConfig } from "../helpers/exampleConfig.ts";
+
+useExampleConfig();
 
 function makeTrack(title: string, duration = 100) {
   return { title, url: `https://y/${title}`, duration };

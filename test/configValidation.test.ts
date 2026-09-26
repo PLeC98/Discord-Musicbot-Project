@@ -88,8 +88,8 @@ test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내�
   const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", CLIENT_ID: "1", DASHBOARD_PORT: "abc" } });
   assert.equal(r.status, 0);
   const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)?.[1] ?? "null");
-  assert.equal(out.problems.length, 1);
-  assert.match(out.problems[0], /DASHBOARD_PORT/);
+  // 자식은 저장소의 .env 를 읽는다. 있고 없고에 따라 다른 문제가 더 붙을 수 있어 넣은 값의 문제만 센다
+  assert.equal(out.problems.filter((p: string) => /DASHBOARD_PORT/.test(p)).length, 1);
   assert.equal(out.keys, false);
 });
 

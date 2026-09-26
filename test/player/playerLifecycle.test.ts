@@ -20,6 +20,9 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
 import * as voiceChannelStatus from "../../src/player/voiceChannelStatus.ts";
+import { useExampleConfig } from "../helpers/exampleConfig.ts";
+
+useExampleConfig();
 
 const { calls, AudioPlayerStatus } = h;
 

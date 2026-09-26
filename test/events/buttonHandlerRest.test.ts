@@ -15,6 +15,9 @@ import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { SearchRecord } from "../../commands/search.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
+import { useExampleConfig } from "../helpers/exampleConfig.ts";
+
+useExampleConfig();
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "button-rest-"));
 const audioCache = await import("../../src/store/audioCache.ts");
