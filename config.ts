@@ -320,6 +320,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
       maxFiles: envInt("CACHE_MAX_FILES", 500, { min: 1, max: 1000000 }),
       minFreeDiskBytes: envInt("CACHE_MIN_FREE_DISK_MB", 2048, { min: 0, max: 1048576 }) * 1024 * 1024,
       evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
+      // 상한을 넘으면 상한의 이 비율(%)까지 지운다. 여유를 두어 곧바로 다시 넘지 않게
+      evictTargetPercent: envInt("CACHE_EVICT_TARGET_PERCENT", 90, { min: 50, max: 99 }),
     },
 
     // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsorBlock.ts). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).

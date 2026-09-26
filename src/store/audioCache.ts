@@ -396,10 +396,14 @@ async function evictIfNeeded() {
     log.info(`오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개). 오래된 파일부터 정리합니다.`);
   }
 
-  await evict();
+  await evict({ totalSize, fileCount, diskFree });
 }
 
-async function evict() {
+/**
+ * 넘친 만큼 지운다. 점수가 높은(지울 만한) 것부터 지우며, 용량과 파일 수가 목표선(상한의 CACHE_EVICT_TARGET_PERCENT)
+ * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 부르는 쪽이 넘기고, 생략하면 잰다
+ */
+async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFree = freeDiskBytes() }: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
   // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분.
   // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
   const live = liveKeys();
@@ -445,10 +449,19 @@ async function evict() {
     })
     .sort((a, b) => b._score - a._score);
 
-  // 점수가 높은(지울 만한) 쪽 20%를 지운다. 실행당 최대 50개
-  const target = Math.min(Math.ceil(rows.length * 0.2), 50);
+  const cfg = config.cache;
+  const goal = cfg.evictTargetPercent / 100;
+  let size = totalSize;
+  let files = fileCount;
+  let free = diskFree;
+  const enough = () => size <= cfg.maxSizeBytes * goal && files <= cfg.maxFiles * goal && free >= cfg.minFreeDiskBytes;
   let evicted = 0;
-  for (const row of scored.slice(0, target)) {
+  for (const row of scored) {
+    if (enough()) break;
+    const bytes = row.file_size_bytes || 0;
+    size -= bytes;
+    files -= 1;
+    free += bytes;
     const fp = row.file_path || getFilePath(row.audio_key);
     try {
       if (fs.existsSync(fp)) fs.unlinkSync(fp);
@@ -458,7 +471,7 @@ async function evict() {
     conn().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run(row.audio_key);
     evicted++;
   }
-  if (evicted > 0) log.info(`${evicted}개의 오디오 캐시 파일 삭제 완료`);
+  if (evicted > 0) log.info(`오디오 캐시 ${evicted}개를 지웠습니다(남은 ${files}개 · ${Math.round(size / 1024 / 1024)}MB)`);
 }
 
 /** 백그라운드 주기적 제거 타이머 시작 */

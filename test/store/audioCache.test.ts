@@ -13,6 +13,7 @@ import fs from "node:fs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
+import config from "../../config.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}.db`);
 
@@ -58,7 +59,8 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
   audioCache.protect("protected1");
 
   try {
-    await audioCache.evict(); // 비보호 10개 중 상위 20% = 2개 제거
+    // 파일 11개, 상한 10 → 목표선 90%(9개)까지 2개를 지운다
+    await withCacheLimits({ maxFiles: 10 }, () => audioCache.evict());
 
     const remaining = new Set(
       storeDb
@@ -75,6 +77,36 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
     audioCache.unprotect("protected1");
   }
 });
+
+// 넘친 정도와 상관없이 20% · 한 번에 50개를 지우면 큰 캐시는 50개 상한에 걸려 상한 바로 밑을 오갔다
+test("evict: 넘친 만큼, 목표선(상한의 90%)까지 지운다. 한 번에 지우는 수의 상한은 없다", async () => {
+  const conn = storeDb.get();
+  conn.prepare("DELETE FROM audio_cache").run();
+  const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
+  for (let i = 0; i < 120; i++) ins.run(`many${i}`, `/nx/many${i}.opus`, 1_000_000, Date.now() - i * 60_000);
+  const count = () => (conn.prepare("SELECT COUNT(*) AS n FROM audio_cache").get() as { n: number }).n;
+
+  await withCacheLimits({ maxFiles: 20 }, () => audioCache.evict());
+  assert.equal(count(), 18, "120개에서 상한 20의 90%까지(102개)");
+
+  await withCacheLimits({ maxFiles: 20 }, () => audioCache.evict());
+  assert.equal(count(), 18, "목표선 아래면 지우지 않는다");
+
+  await withCacheLimits({ maxSizeBytes: 10_000_000, maxFiles: 1000 }, () => audioCache.evict());
+  assert.equal(count(), 9, "용량 상한 10MB 의 90%(9MB)까지");
+  conn.prepare("DELETE FROM audio_cache").run();
+});
+
+// 상한만 잠시 바꾼다(디스크 여유 조건은 끈다)
+async function withCacheLimits(limits: { maxFiles?: number; maxSizeBytes?: number }, fn: () => Promise<unknown>) {
+  const saved = { ...config.cache };
+  Object.assign(config.cache, { maxSizeBytes: 1e15, minFreeDiskBytes: 0, evictTargetPercent: 90, ...limits });
+  try {
+    await fn();
+  } finally {
+    Object.assign(config.cache, saved);
+  }
+}
 
 // ── 중단된 다운로드 잔해 정리 ──────────────────────────────────────
 // 회귀 대상: 라이브 매칭 등으로 다운로드가 중단되면 yt-dlp가 track_<md5>.opus.part 등을 남기는데,
