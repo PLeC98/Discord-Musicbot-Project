@@ -10,6 +10,7 @@ import type { MusicPlayer } from "./Player.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/playerSessions.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { repeatingFailure } from "../infra/repeatingFailure.ts";
 
 const HEARTBEAT_MS = 5000;
 
@@ -22,6 +23,8 @@ const liveStore = () => (db.isOpen() ? sessions() : null);
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
 const active = new Set<SessionPersistence>();
 let heartbeat: NodeJS.Timeout | null = null;
+// DB 가 잠기면 5초마다 같은 실패가 난다. 처음 한 번만 error, 풀리면 한 줄
+const positionSave = repeatingFailure(log, "재생 위치 저장");
 
 function beat() {
   const store = liveStore();
@@ -36,8 +39,9 @@ function beat() {
   if (entries.length === 0) return;
   try {
     store.savePositions(entries);
+    positionSave.ok();
   } catch (error) {
-    log.error("재생 위치 저장 실패:", messageOf(error));
+    positionSave.fail(messageOf(error));
   }
 }
 
