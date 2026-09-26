@@ -56,16 +56,14 @@ const htmlHeaders = () => ({ "User-Agent": ua(), "Accept-Language": "en" });
 const TIMEOUT_MS = 10000;
 const BUNDLE_TIMEOUT_MS = 30000;
 
-// 씨앗값. 최초 추출 실패 시 폴백. 자가치유가 최신값으로 덮어씀.
-const SEED = {
-  secrets: [{ secret: ',7/*F("rLJ2oxaKL^f+E1xvP@N', version: 61 }],
-  hashes: {
-    fetchPlaylist: "86dde7b9d9356e2369414647cf6950cfed96e778e129cfdfc99aea6c1613b3b0",
-    queryArtistOverview: "ae0e2958a4ab645b35ca19ac04d0495ae12d9c5d7b7286217674801a9aab281a",
-  },
-  clientVersion: "1.2.80.289.gd6b01cc3",
-};
+// 웹플레이어 판(Spotify-App-Version 머리). 홈에서 못 읽고 저장값도 없을 때만 쓴다. 머리 값이라 기본을 둔다
+const CLIENT_VERSION = "1.2.80.289.gd6b01cc3";
+// secret · 해시는 코드에 두지 않는다. 늘 번들에서 뽑고 DB 에 남긴다. 낡은 값을 코드에 두면 뽑기 실패를 가린다
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
+// 뽑기에 실패하면 이만큼은 다시 뽑지 않고 저장값을 쓴다. 저쪽이 죽어 있을 때 요청마다 번들(수 MB)을 받지 않게
+const EXTRACT_RETRY_MS = 10 * 60 * 1000;
+// 번들에서 해시를 뽑는 질의
+const OPERATIONS = ["fetchPlaylist", "queryArtistOverview"];
 
 // ── 정규화 (양 경로 공통 출력 계약) ──
 function pickImageUrl(sources: ApiImage[] | null | undefined): string | null {
@@ -184,7 +182,7 @@ function parseSecrets(js: string): Array<{ secret: string; version: number }> {
 function partnerHeaders(tok: string, clientVersion: string | undefined) {
   return {
     Authorization: `Bearer ${tok}`,
-    "Spotify-App-Version": clientVersion || SEED.clientVersion,
+    "Spotify-App-Version": clientVersion || CLIENT_VERSION,
     "App-Platform": "WebPlayer",
     Referer: REFERER,
     Origin: "https://open.spotify.com",
@@ -267,48 +265,63 @@ const official = {
 const graphql = {
   _anonToken: null as Token | null,
   _state: null as AnonState | null,
+  _failedAt: 0,
+
+  // 뽑지 않고 쓸 수 있는 상태. 없으면 null(뽑는다)
+  _reusable(forceRefresh: boolean, usable: AnonState | null): AnonState | null {
+    if (forceRefresh || !usable) return null;
+    if (Date.now() - usable.fetchedAt < STATE_TTL_MS) return usable;
+    // 방금 뽑기에 실패했으면 쉬는 동안은 저장값으로. 토큰 · 해시 오류로 부른 강제 뽑기는 쉬지 않는다
+    return Date.now() - this._failedAt < EXTRACT_RETRY_MS ? usable : null;
+  },
 
   async _ensureState(forceRefresh: boolean): Promise<AnonState> {
-    if (!forceRefresh && this._state && Date.now() - this._state.fetchedAt < STATE_TTL_MS) return this._state;
-    if (!forceRefresh && !this._state) {
-      const db = externalCaches.getSpotifyAnonState() as AnonState | null; // 우리가 적은 모양
-      if (db && db.secrets?.length && Date.now() - db.fetchedAt < STATE_TTL_MS) return (this._state = db);
-    }
+    const stored = this._state ?? (externalCaches.getSpotifyAnonState() as AnonState | null); // 우리가 적은 모양
+    const usable = stored?.secrets?.length ? stored : null;
+    const reused = this._reusable(forceRefresh, usable);
+    if (reused) return (this._state = reused);
     try {
-      const extracted = await this._extract();
+      const extracted = await this._extract(usable);
       this._state = { ...extracted, fetchedAt: Date.now() };
+      this._failedAt = 0;
       externalCaches.setSpotifyAnonState(extracted);
     } catch (e) {
-      log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${messageOf(e)}. 저장값/시드값 사용`);
-      this._state = this._state || (externalCaches.getSpotifyAnonState() as AnonState | null) || { ...SEED, fetchedAt: 0 };
+      this._failedAt = Date.now();
+      if (!usable) throw new Error(`익명 상태를 얻지 못했습니다: ${messageOf(e)}`, { cause: e });
+      log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${messageOf(e)}. 저장값 사용`);
+      this._state = usable;
     }
     return this._state;
   },
 
-  async _extract(): Promise<Omit<AnonState, "fetchedAt">> {
-    const home = await send("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) }).then((r) => r.text());
-    let clientVersion = SEED.clientVersion;
+  // 홈과 웹플레이어 번들에서 뽑는다. 응답이 오류이거나 secret 을 못 찾으면 던진다(부르는 쪽이 저장값으로 넘어간다).
+  // 못 찾은 해시는 직전 값을 둔다. 그 질의만 해시 만료로 실패해 다시 뽑게 된다
+  async _extract(previous: AnonState | null = null): Promise<Omit<AnonState, "fetchedAt">> {
+    const homeRes = await send("https://open.spotify.com/", { headers: htmlHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
+    if (!homeRes.ok) throw new Error(`홈 ${homeRes.status}`);
+    const home = await homeRes.text();
+    let clientVersion = previous?.clientVersion || CLIENT_VERSION;
     const cfg = home.match(/id="appServerConfig"[^>]*>([^<]+)</);
     if (cfg) {
       try {
         clientVersion = JSON.parse(Buffer.from(cfg[1], "base64").toString()).clientVersion || clientVersion;
       } catch {
-        /* 무시 */
+        /* 판을 못 읽으면 직전 값 */
       }
     }
-    const hashes = { ...SEED.hashes };
-    let secrets: AnonState["secrets"] | null = null;
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];
-    if (scriptUrl) {
-      const js = await send(scriptUrl, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) }).then((r) => r.text());
-      const s = parseSecrets(js);
-      if (s.length) secrets = s;
-      const fp = js.match(/"fetchPlaylist","query","([0-9a-f]{64})"/);
-      if (fp) hashes.fetchPlaylist = fp[1];
-      const ao = js.match(/"queryArtistOverview","query","([0-9a-f]{64})"/);
-      if (ao) hashes.queryArtistOverview = ao[1];
+    if (!scriptUrl) throw new Error("홈에 웹플레이어 번들 주소가 없습니다");
+    const jsRes = await send(scriptUrl, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) });
+    if (!jsRes.ok) throw new Error(`번들 ${jsRes.status}`);
+    const js = await jsRes.text();
+    const secrets = parseSecrets(js);
+    if (!secrets.length) throw new Error("번들에서 secret 을 찾지 못했습니다");
+    const hashes = { ...previous?.hashes };
+    for (const name of OPERATIONS) {
+      const found = js.match(new RegExp(`"${name}","query","([0-9a-f]{64})"`));
+      if (found) hashes[name] = found[1];
     }
-    return { secrets: secrets || SEED.secrets, hashes, clientVersion };
+    return { secrets, hashes, clientVersion };
   },
 
   async _mintToken(): Promise<{ accessToken: string; accessTokenExpirationTimestampMs?: number }> {
@@ -345,6 +358,8 @@ const graphql = {
   async _query(operationName: string, hashKey: string, variables: Record<string, unknown>): Promise<unknown> {
     const run = async () => {
       const state = await this._ensureState(false);
+      // 번들에서 못 찾은 해시. 해시 만료와 같이 다시 뽑게 한다
+      if (!state.hashes[hashKey]) throw Object.assign(new Error(`${hashKey} 해시가 없습니다(번들에서 못 찾음)`), { persistedNotFound: true });
       const tok = await this._token();
       const r = await send(PARTNER, { method: "POST", headers: partnerHeaders(tok, state.clientVersion), body: JSON.stringify({ operationName, variables, extensions: { persistedQuery: { version: 1, sha256Hash: state.hashes[hashKey] } } }), signal: AbortSignal.timeout(TIMEOUT_MS) });
       const text = await r.text();
@@ -470,6 +485,7 @@ function _reset() {
   official._token = null;
   graphql._anonToken = null;
   graphql._state = null;
+  graphql._failedAt = 0;
 }
 
 // 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다

@@ -188,23 +188,74 @@ test("익명 상태: 홈 · 번들에서 판 · secret · 해시를 뽑아 DB �
   assert.equal(requests.length, before, "프로세스를 다시 띄워도 DB 에 남은 것이 새것이면 그것을 쓴다");
 });
 
-test("익명 상태: 요청이 던지면 저장값, 그것도 없으면 코드에 적힌 시드로", async () => {
-  routes = [
-    () => {
-      throw new Error("네트워크 끊김");
-    },
-  ];
-  const seeded = await graphql._ensureState(true);
-  assert.ok(seeded.secrets.length > 0, "시드 secret");
-  assert.equal(seeded.fetchedAt, 0, "시드는 새것으로 치지 않는다");
-  assert.equal(externalCaches.getSpotifyAnonState(), null, "DB 에 적지 않는다");
+const down = (): Route[] => [
+  () => {
+    throw new Error("네트워크 끊김");
+  },
+];
+
+test("익명 상태: 뽑기가 실패하면 저장값, 그것도 없으면 던진다(코드에 박힌 값으로 돌지 않는다)", async () => {
+  routes = down();
+  await assert.rejects(graphql._ensureState(true), /익명 상태를 얻지 못했습니다: 네트워크 끊김/);
+  assert.equal(externalCaches.getSpotifyAnonState(), null);
+
+  routes = anonRoutes();
+  await graphql._ensureState(false);
+  Spotify._reset(); // 프로세스를 다시 띄운 것처럼. 저장값은 DB 에만
+  routes = down();
+  const state = await graphql._ensureState(true);
+  assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }], "DB 에 남은 값");
 });
 
-test("익명 상태: 홈이 오류 상태(500)를 줘도 뽑기가 성공한 것으로 치고, 시드값을 새것으로 DB 에 적는다", async () => {
+test("익명 상태: 홈 · 번들이 오류이거나 secret 이 없으면 뽑기 실패다. 저장값을 새것으로 덮지 않는다", async () => {
   routes = [() => reply("", { status: 500 })];
-  const state = await graphql._ensureState(true);
-  assert.ok(state.fetchedAt > 0, "지금 동작: 새것으로 친다");
-  assert.ok(externalCaches.getSpotifyAnonState(), "지금 동작: DB 에 남는다(12시간 동안 다시 안 뽑는다)");
+  await assert.rejects(graphql._ensureState(true), /홈 500/);
+  assert.equal(externalCaches.getSpotifyAnonState(), null, "실패를 새 값으로 적지 않는다");
+
+  const home = (url: string) => (url === "https://open.spotify.com/" ? reply(HOME) : undefined);
+  routes = [home, (url) => (url.includes("web-player") ? reply("", { status: 404 }) : undefined)];
+  await assert.rejects(graphql._ensureState(true), /번들 404/);
+  routes = [home, (url) => (url.includes("web-player") ? reply("아무것도 없는 번들") : undefined)];
+  await assert.rejects(graphql._ensureState(true), /secret 을 찾지 못했습니다/);
+  routes = [() => reply("<html>번들 주소 없음</html>")];
+  await assert.rejects(graphql._ensureState(true), /번들 주소가 없습니다/);
+
+  routes = anonRoutes();
+  const fresh = await graphql._ensureState(true);
+  routes = [() => reply("", { status: 500 })];
+  const kept = await graphql._ensureState(true);
+  assert.equal(kept.fetchedAt, fresh.fetchedAt, "저장값을 그대로 쓴다(새것으로 치지 않는다)");
+});
+
+test("익명 상태: 뽑기에 실패하면 한동안 다시 뽑지 않는다. 토큰 · 해시 오류의 강제 뽑기는 예외", async () => {
+  routes = anonRoutes();
+  await graphql._ensureState(false);
+  if (graphql._state) graphql._state.fetchedAt = 0; // 낡았다
+
+  routes = down();
+  await graphql._ensureState(false);
+  const afterFail = requests.length;
+  await graphql._ensureState(false);
+  assert.equal(requests.length, afterFail, "쉬는 동안은 저장값으로");
+  await graphql._ensureState(true);
+  assert.equal(requests.length, afterFail + 1, "강제 뽑기는 쉬지 않는다");
+});
+
+test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아예 없으면 그 질의만 실패한다", async () => {
+  routes = anonRoutes();
+  await graphql._ensureState(false);
+
+  const onlyPlaylist = `x={secret:'s3cr\\'et',version:12};"fetchPlaylist","query","${"c".repeat(64)}"`;
+  const withBundle = (bundle: string): Route[] => [(url) => (url === "https://open.spotify.com/" ? reply(HOME) : undefined), (url) => (url.includes("web-player") ? reply(bundle) : undefined)];
+  routes = withBundle(onlyPlaylist);
+  const next = await graphql._ensureState(true);
+  assert.equal(next.hashes.fetchPlaylist, "c".repeat(64), "찾은 것은 새 값");
+  assert.equal(next.hashes.queryArtistOverview, "b".repeat(64), "못 찾은 것은 직전 값");
+
+  Spotify._reset();
+  storeDb.get().exec("DELETE FROM spotify_anon;");
+  routes = [...withBundle(onlyPlaylist), ...anonRoutes().slice(2)];
+  await assert.rejects(graphql._query("queryArtistOverview", "queryArtistOverview", {}), /queryArtistOverview 해시가 없습니다/);
 });
 
 test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받고, 만료 전까지 재사용", async () => {
