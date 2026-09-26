@@ -108,3 +108,20 @@ test("서버 출력은 토큰을 가려 흘린다(오류 줄도 멈추지 않는
   proc.stderr.emit("data", Buffer.from("warn line\n"));
   server.stop();
 });
+
+// 치명적 종료는 stop() 을 부르지 않는다. 등록부가 프로세스가 끝날 때 함께 내리게 등록해 둔다
+test("띄운 서버를 프로세스 등록부에 올리고, 끝나면 내린다", async () => {
+  const procRegistry = await import("../../src/infra/processRegistry.ts");
+  const { spawn: base, spawned } = fakeSpawn();
+  // 등록부는 pid 가 있는 것만 받는다. 실제로 없는 번호를 쓰고, 시험 안에서 반드시 끝낸다
+  const spawn = (cmd: string, args: string[], opts: { cwd: string }) => Object.assign(base(cmd, args, opts), { pid: 2_000_000_001, exitCode: null, signalCode: null });
+  const server = createPotServer({ spawn, exists: () => true });
+  await withConfig({ bgutil: { enabled: true } }, () => server.start());
+  try {
+    assert.ok(procRegistry.list().some((e) => e.label === "bgutil"));
+  } finally {
+    server.stop();
+    spawned[0].proc.emit("exit", 0);
+  }
+  assert.ok(!procRegistry.list().some((e) => e.label === "bgutil"));
+});

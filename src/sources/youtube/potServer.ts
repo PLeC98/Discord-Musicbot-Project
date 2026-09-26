@@ -5,6 +5,7 @@ import childProcess from "child_process";
 import fs from "fs";
 import path from "path";
 import logger from "../../infra/log/logger.ts";
+import * as processRegistry from "../../infra/processRegistry.ts";
 const log = logger.child({ category: "core" });
 import config from "../../../config.ts";
 
@@ -15,7 +16,7 @@ const RESTART_MS = 5000; // 비정상 종료 뒤 다시 띄우기까지
 
 // 띄운 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
 type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } | null;
-type PotProcess = { stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; kill(signal?: NodeJS.Signals): unknown };
+type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; kill(signal?: NodeJS.Signals): unknown };
 type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["ignore", "pipe", "pipe"] }) => PotProcess;
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean }>;
 
@@ -63,9 +64,12 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     }
     const child = spawn(process.execPath, ["build/main.js"], { cwd: SERVER_DIR, stdio: ["ignore", "pipe", "pipe"] });
     proc = child;
+    // 등록부가 프로세스가 끝날 때(치명적 종료 포함) 함께 내린다. stop() 을 못 부르고 나가도 서버가 포트를 쥔 채 남지 않게
+    const release = processRegistry.register(child, "bgutil");
     child.stdout?.on("data", (d: Buffer) => relay(d, "out"));
     child.stderr?.on("data", (d: Buffer) => relay(d, "err"));
     child.on("exit", (code) => {
+      release();
       proc = null;
       if (stopping) return;
       log.warn({ sub: "bgutil" }, `서버 비정상 종료 (code=${code}), 5초 후 재시작합니다`);
