@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { formatDuration } from "../src/ui/format.ts";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -22,9 +23,7 @@ const exported: GuildCommand = {
       .addFields({ name: "👤 실행한 사람", value: `${member}`, inline: true });
 
     if (r.track) {
-      const m = Math.floor(r.saved.positionSec / 60);
-      const s = String(r.saved.positionSec % 60).padStart(2, "0");
-      embed.setDescription(`**[${r.track.title}](${r.track.pageUrl})**`).addFields({ name: "⏱️ 저장된 위치", value: `\`${m}:${s}\``, inline: true }, { name: "📋 저장된 대기열", value: `${r.saved.queue}곡`, inline: true });
+      embed.setDescription(`**[${r.track.title}](${r.track.pageUrl})**`).addFields({ name: "⏱️ 저장된 위치", value: `\`${formatDuration(r.saved.positionSec)}\``, inline: true }, { name: "📋 저장된 대기열", value: `${r.saved.queue}곡`, inline: true });
     }
 
     embed.setFooter({ text: "/join 으로 이전 세션을 복구할 수 있습니다." });

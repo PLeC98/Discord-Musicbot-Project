@@ -255,6 +255,7 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 ·
   const f = fieldsOf(log[1][1]);
   assert.match(f["▶️ 재생 통계"], /총 재생 횟수:\*\* 4회/);
   assert.match(f["▶️ 재생 통계"], /한 번도 안 재생:\*\* 1개/);
+  assert.match(f["▶️ 재생 통계"], /평균 곡 길이:\*\* 2분 5초/);
   assert.equal(f["🌐 플랫폼 분포"], "🔴 YouTube: **1**개\n🟠 SoundCloud: **1**개\n🔗 직접 링크: **1**개");
   assert.match(f["🔧 기타"], /URL 매핑:\*\* 1개/);
   assert.match(f["🏆 재생 TOP 5"], /^`1\.` \*\*많이 튼 곡\*\*: 3회 \(2:05\)/);

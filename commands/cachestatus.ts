@@ -1,4 +1,4 @@
-import { formatBytes, formatSpan } from "../src/ui/format.ts";
+import { formatBytes, formatDuration, formatSpan } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
 import config from "../config.ts";
 import * as audioCache from "../src/store/audioCache.ts";
@@ -39,7 +39,7 @@ const exported: AnywhereCommand = {
     // 재생 통계
     const avgDuration = stats.fileCount > 0 ? Math.round(stats.totalDuration / stats.fileCount) : 0;
 
-    const playStats = [`**총 재생 횟수:** ${stats.totalPlays.toLocaleString()}회`, `**총 재생 시간:** ${totalPlayed(stats.totalDuration)}`, `**평균 곡 길이:** ${Math.floor(avgDuration / 60)}분 ${avgDuration % 60}초`, `**한 번도 안 재생:** ${stats.neverPlayed}개`].join("\n");
+    const playStats = [`**총 재생 횟수:** ${stats.totalPlays.toLocaleString()}회`, `**총 재생 시간:** ${totalPlayed(stats.totalDuration)}`, `**평균 곡 길이:** ${formatSpan(avgDuration, { days: false, withSeconds: true })}`, `**한 번도 안 재생:** ${stats.neverPlayed}개`].join("\n");
 
     // 플랫폼 분포
     const platforms = [`🔴 YouTube: **${stats.platforms.youtube}**개`, `🟠 SoundCloud: **${stats.platforms.soundcloud}**개`, `🔗 직접 링크: **${stats.platforms.direct}**개`].join("\n");
@@ -52,7 +52,7 @@ const exported: AnywhereCommand = {
     if (stats.topTracks.length > 0) {
       topTracksText = stats.topTracks
         .map((t, i) => {
-          const dur = t.duration_sec ? `${Math.floor(t.duration_sec / 60)}:${String(Math.round(t.duration_sec % 60)).padStart(2, "0")}` : "?:??";
+          const dur = formatDuration(t.duration_sec, "?:??");
           const title = t.title && t.title.length > 35 ? t.title.slice(0, 33) + "…" : (t.title ?? "제목 없음");
           return `\`${i + 1}.\` **${title}**: ${t.play_count}회 (${dur})`;
         })
