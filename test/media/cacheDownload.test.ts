@@ -20,6 +20,7 @@ import type { YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 import type { AudioRow } from "../../src/store/audioCache.ts";
 import type { LookupRow } from "../../src/store/rows.ts";
 import * as tracks from "../helpers/tracks.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
@@ -173,7 +174,14 @@ test("스포티파이: 동등물을 찾아 그 영상으로 받고 제목은 고
 test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. 아무것도 적거나 남기지 않는다", async () => {
   const track = { title: "못 찾는 곡", pageUrl: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify" };
 
+  const from = sink.buffer.length;
   await assert.rejects(downloader().downloadTrack(track), { code: "no-youtube-match" });
+  // 받기 전 실패도 받기가 한 번 남긴다(부르는 쪽은 debug 로 결과만)
+  const failed = sink.buffer.slice(from).filter((e) => e.text.includes("캐시 다운로드 실패"));
+  assert.deepEqual(
+    failed.map((e) => e.level),
+    ["error"],
+  );
 
   assert.equal(calls.ytdlp.length, 0);
   assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);

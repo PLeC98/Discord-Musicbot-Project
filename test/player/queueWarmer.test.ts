@@ -8,6 +8,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { QueueWarmer, type WarmerDeps, type WarmerHost } from "../../src/player/queueWarmer.ts";
+import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
 import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/player/trackState.ts";
@@ -201,13 +203,19 @@ test("루프 도중 대기열이 바뀌면 멈추고, 다음 안정된 틱이 �
 
 test("실패한 곡을 무한히 재시도하지 않는다", async () => {
   const { warmer, warmed } = makeWarmer({ queue: [track("bad"), track("ok")], fail: new Set(["yt:bad"]) });
+  const level = logger.level;
+  logger.level = "debug";
 
   warmer.tick();
   warmer.tick();
   await settle(200);
+  logger.level = level;
 
   assert.equal(warmed.filter((k) => k === "yt:bad").length, 1, "이번 서명에서는 한 번만 시도한다");
   assert.ok(warmed.includes("yt:ok"), "실패가 나머지를 막지 않는다");
+  // 까닭은 받기가 error 로 남긴다. 여기서는 결과만 debug 로(두 줄이 되지 않게)
+  const lines = sink.buffer.filter((e) => e.text.includes("사전 캐싱 실패"));
+  assert.ok(lines.length > 0 && lines.every((e) => e.level === "debug"), JSON.stringify(lines.map((e) => e.level)));
 });
 
 test("대기열이 움직이면 실패 기록을 버리고 다시 시도한다", async () => {

@@ -172,8 +172,11 @@ class TrackDownloader {
     // 빌려 와야 하는 곡은 대응되는 YouTube 영상에서 받는다(검색·캐시는 youtube/equivalent 한 곳에서).
     // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
     // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
-    if (needsBorrowedAudio(track) && !(await this.deps.equivalent.findYouTubeEquivalent(track))) {
-      throw codedError("no-youtube-match", "유튜브에서 같은 곡을 찾지 못했습니다");
+    if (needsBorrowedAudio(track)) {
+      const found = await this.deps.equivalent.findYouTubeEquivalent(track).catch((error: unknown) => {
+        throw this._failed(track, error);
+      });
+      if (!found) throw this._failed(track, codedError("no-youtube-match", "유튜브에서 같은 곡을 찾지 못했습니다"));
     }
     const filepath = this.trackFilePath(track);
 
@@ -210,6 +213,12 @@ class TrackDownloader {
     } finally {
       if (inFlight.get(filepath) === downloadPromise) inFlight.delete(filepath);
     }
+  }
+
+  // 받기 실패는 여기서 한 번만 남긴다(까닭까지). 부르는 쪽(백그라운드 받기 · 사전 캐싱)은 그 결과만 debug 로 남긴다
+  _failed(track: DownloadTrack, error: unknown) {
+    log.error(`캐시 다운로드 실패 ("${track.title}"):`, YouTube.briefError(error));
+    return error;
   }
 
   async _performDownload(track: DownloadTrack, filepath: string): Promise<string> {
@@ -262,8 +271,7 @@ class TrackDownloader {
       } catch {
         /* 정리 실패는 원래 오류를 가리면 안 된다 */
       }
-      log.error(`캐시 다운로드 실패 ("${track.title}"):`, YouTube.briefError(error));
-      throw error;
+      throw this._failed(track, error);
     } finally {
       audioCache.unprotectFile(tempPath);
       audioCache.unprotectFile(filepath);

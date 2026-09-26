@@ -227,7 +227,8 @@ class QueueWarmer {
 
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
           // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 받는다.
-          log.warn(`사전 캐싱 실패 (${track.title}): ${YouTube.briefError(err)}`);
+          // 까닭은 받기가 남겼다(캐시 다운로드 실패 줄)
+          log.debug(`사전 캐싱 실패, 재생할 때 다시 받습니다: "${track.title}"`);
           this._failed.add(track);
         }
 

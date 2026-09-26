@@ -394,10 +394,9 @@ class MusicPlayer {
           bestEffort(log, playerEvents.refresh(this), "패널 고치기");
         }
       })
-      .catch((err) => {
-        if (err && err.message) {
-          log.warn(`백그라운드 캐시 다운로드 실패: ${YouTube.briefError(err)}. 재생은 스트림으로 계속됩니다.`);
-        }
+      .catch(() => {
+        // 까닭은 받기가 남겼다(캐시 다운로드 실패 줄)
+        log.debug(`백그라운드 캐시 받기 실패, 재생은 스트림으로 계속합니다: ${this._trackLabel(trackToDownload)}`);
       });
   }
 
