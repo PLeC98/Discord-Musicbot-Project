@@ -130,3 +130,17 @@ test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더
   const result = More.resultMessage(more, { added: 7, skipped: 3, total: 41, remaining: 21, next: { ...more, offset: 20, remaining: 21 } }, 200);
   assert.match(result.content, /7곡을 더 넣었어요\. 받을 수 없는 3곡\(미리듣기 · 지역 제한 등\)은 뺐어요\./);
 });
+
+// 사운드클라우드가 만든 믹스는 숫자 id 가 없다(yt-dlp: soundcloud:system-playlists:…). 주소의 이름으로 이어 받는다
+test("사운드클라우드 믹스: 주소의 이름으로 이어 받고, 이름의 ':'는 custom_id 를 깨지 않게 싣는다", () => {
+  const mix = { isPlaylist: true, collectionId: "soundcloud:system-playlists:trending-by-genre:indie", total: 50, nextOffset: 10, tracks: [{ id: "2227247837" }] };
+  const more = More.continuation("https://soundcloud.com/discover/sets/trending-by-genre:indie?si=abc", mix);
+  assert.deepEqual(more && { kind: more.kind, listId: more.listId }, { kind: "scd", listId: "trending-by-genre~indie" });
+  assert.equal(More.KINDS.scd.url("trending-by-genre~indie"), "https://soundcloud.com/discover/sets/trending-by-genre:indie");
+  assert.equal(More.batchFor("https://soundcloud.com/discover/sets/trending-by-genre:indie", 50), 10);
+  if (!more) return;
+  const state: MoreState = { kind: more.kind, listId: more.listId, offset: more.offset, anchorId: more.anchorId, insertFirst: true, requesterId: "12345678901234567890" };
+  const id = More.encodeState(More.MODAL_PREFIX, state);
+  assert.ok(id.length <= 100, `${id.length}자`);
+  assert.deepEqual(More.decodeState(id), state);
+});

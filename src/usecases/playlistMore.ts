@@ -27,7 +27,7 @@ const NUMERIC_ID = /^\d{1,20}$/;
 
 // 이어 받을 수 있는 출처. 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 받을 게 없다.
 // anchor: 곡 id 모양 · perClick: 한 번에 넣는 곡 수 상한 · lookback: 앵커를 찾으려고 앞에서부터 다시 받는 곡 수 · reads: 한 번에 부르는 구간 수 상한
-type Kind = "ytp" | "spp" | "spa" | "scs";
+type Kind = "ytp" | "spp" | "spa" | "scs" | "scd";
 type KindSpec = { id: RegExp; url: (id: string) => string; collection: string; anchor: RegExp; perClick: number; lookback: number; reads: number };
 const KINDS: Record<Kind, KindSpec> = {
   ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
@@ -36,6 +36,9 @@ const KINDS: Record<Kind, KindSpec> = {
   // 사운드클라우드 세트. 주소 대신 숫자 id 로 부른다. 곡마다 요청이 들어(요청이 몰리면 IP 가 막힌다) 한 번에 한 구간만:
   // 앞을 다시 받지 않고, 틀 수 있는 곡이 모자라도 더 읽지 않는다(받을 수 없는 곡이 많은 세트에서 요청이 불어나지 않게)
   scs: { id: NUMERIC_ID, url: (id) => `https://api.soundcloud.com/playlists/${id}`, collection: "playlist", anchor: NUMERIC_ID, perClick: SOUNDCLOUD_BATCH, lookback: 0, reads: 1 },
+  // 사운드클라우드가 만든 믹스(discover/sets/trending-by-genre:indie 등). 숫자 id 가 없어 주소의 이름으로 부른다.
+  // 이름의 ":"는 custom_id 의 칸 가름과 겹쳐 "~"로 싣는다
+  scd: { id: /^[\w~-]{1,60}$/, url: (id) => `https://soundcloud.com/discover/sets/${id.replaceAll("~", ":")}`, collection: "playlist", anchor: NUMERIC_ID, perClick: SOUNDCLOUD_BATCH, lookback: 0, reads: 1 },
 };
 const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Object.hasOwn(KINDS, kind);
 
@@ -54,7 +57,11 @@ const fmt = (n: number | null) => Number(n).toLocaleString("ko-KR");
 // collectionId: 곡 찾기가 알려 준 목록 id(주소만으로는 모르는 출처)
 function sourceOf(query: string, collectionId?: string | null): { kind: Kind; listId: string } | null {
   const soundcloud = links.parseSoundCloudURL(query);
-  if (soundcloud === "set" || soundcloud === "short") return collectionId ? { kind: "scs", listId: collectionId } : null;
+  if (soundcloud === "set" || soundcloud === "short") {
+    if (collectionId && NUMERIC_ID.test(collectionId)) return { kind: "scs", listId: collectionId };
+    const mix = /^\/discover\/sets\/([\w:-]+)\/?$/.exec(new URL(query).pathname);
+    return mix ? { kind: "scd", listId: mix[1].replaceAll(":", "~") } : null;
+  }
   if (links.isYouTubePlaylist(query)) {
     const listId = links.extractPlaylistId(query);
     return listId && !listId.startsWith("RD") ? { kind: "ytp", listId } : null;
