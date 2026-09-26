@@ -15,7 +15,7 @@ const _internals = {
 };
 
 // 나눠 둔 부분의 함수를 한 이름으로 모은다. 밖에서는 YouTube.search 처럼 부른다
-export { useFfmpeg, getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured } from "./auth.ts";
+export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured } from "./auth.ts";
 export * from "./ytdlpRun.ts";
 export * from "./errors.ts";
 export * from "./api.ts";

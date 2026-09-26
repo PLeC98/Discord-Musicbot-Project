@@ -16,6 +16,7 @@ import { onVoiceStateUpdate } from "../player/voicePresence.ts";
 import { PlayerRegistry } from "../player/registry.ts";
 import { createPotServer } from "../sources/youtube/potServer.ts";
 import * as YouTube from "../sources/youtube/index.ts";
+import * as ytdlpOptions from "../sources/ytdlpOptions.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
 import { loadModules } from "./moduleLoader.ts";
@@ -164,7 +165,7 @@ function checkBeforeLogin() {
   // 능력 확인(spawnSync 셋)도 여기서 해 둔다. 처음 곡을 틀 때 부르면 그동안 이벤트 루프가 멈춰 다른 서버의 음성이 밀린다
   ffmpegCapabilities();
   // yt-dlp 도 재생과 같은 ffmpeg 를 쓴다
-  YouTube.useFfmpeg(ffmpegPath);
+  ytdlpOptions.useFfmpeg(ffmpegPath);
   // 캐시 DB 구조가 이 버전과 맞지 않으면 여기서 멈춘다
   stopIfThrows(() => audioCache.initialize());
   // 음성 채널 상태 중 우리가 쓴 것. 재시작 전에 쓴 것도 계속 고치려면 게이트웨이에 붙기 전에 읽어 둔다

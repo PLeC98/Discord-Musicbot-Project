@@ -11,7 +11,7 @@ const IS_WIN = process.platform === "win32";
 const SPAWN_OPTS = IS_WIN ? {} : { detached: true };
 
 /** yt-dlp 플래그(camelCase). 라이브러리 타입에 없는 것 중 우리가 쓰는 칸을 더한다 */
-type YtDlpFlags = Flags & { cookiesFromBrowser?: string; extractorArgs?: string; pluginDirs?: string };
+type YtDlpFlags = Flags & { cookiesFromBrowser?: string; extractorArgs?: string; pluginDirs?: string; fragmentRetries?: number };
 
 /** yt-dlp 가 실패했을 때 던지는 것. message 는 stderr 와 같고, 어떤 실패인지 code 로 가려 붙인다 */
 type YtDlpError = Error & { stderr?: string; stdout?: string; exitCode?: number; code?: string };

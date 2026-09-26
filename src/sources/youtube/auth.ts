@@ -1,4 +1,4 @@
-// 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · yt-dlp 공통 옵션 · 인증 상태 로그.
+// 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · 유튜브용 yt-dlp 옵션 · 인증 상태 로그.
 
 import path from "path";
 import type { YtDlpFlags as Flags } from "../ytdlpSpawn.ts";
@@ -6,8 +6,7 @@ import fs from "fs";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import config from "../../../config.ts";
-// yt-dlp 에 줄 ffmpeg 경로. 재생과 같은 바이너리를 쓰게 조립(app/main)이 넘긴다(useFfmpeg). 안 넘기면 yt-dlp 가 PATH 에서 찾는다
-let ffmpegLocation: () => string | null = () => null;
+import { baseOptions } from "../ytdlpOptions.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
@@ -33,28 +32,15 @@ const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 import * as cookieConfig from "../../config/cookies.ts";
 
-/** locate: ffmpeg 경로를 돌려주는 함수(media/ffmpeg/path 의 ffmpegPath) */
-function useFfmpeg(locate: () => string | null) {
-  ffmpegLocation = locate;
-}
-
-// yt-dlp용 공통 매개변수를 반환하는 헬퍼 함수
+// 유튜브용 yt-dlp 옵션. 공통(ytdlpOptions) 위에 유튜브 전용을 얹는다
 function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {
-  const ffmpeg = ffmpegLocation();
-  const baseOptions = {
-    // noWarnings를 켜지 않는다. yt-dlp의 경고에는 우리가 봐야 할 것이 섞여 있다
-    // ("이 클라이언트는 POToken이 필요하다" 등). ERROR는 원래 이 옵션과 무관하다.
-    retries: 3,
-    fragmentRetries: 3,
-    // 재생과 같은 ffmpeg를 쓰게 한다. 지정하지 않으면 yt-dlp가 PATH에서 제멋대로 찾아
-    // 재생(ffmpegPath 해석기)과 캐시 변환이 서로 다른 바이너리를 쓰게 된다.
-    ...(ffmpeg ? { ffmpegLocation: ffmpeg } : {}),
+  const options = baseOptions({
     jsRuntimes: `node:${process.execPath}` as const,
     // User-Agent를 우리가 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 골라 주고, 그 값이
     // http_headers로 실려 와 재생 요청 헤더가 된다. 우리가 덮으면 그게 낡은 단일 값으로 뭉개진다.
     ...(potEnabled() && { pluginDirs: BGUTIL_DIR }),
     ...extraOptions,
-  };
+  });
 
   // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
   // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다.
@@ -62,13 +48,13 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
   //   bgutil도 ios용 POT은 못 만들어 전 영상 재생 불능이 됐다.
   if (forceCookies) {
     if (config.ytdlp.cookiesFromBrowser) {
-      baseOptions.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
+      options.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
     } else if (config.ytdlp.useCookieFile && cookieConfig.cookiesReady()) {
-      baseOptions.cookies = cookieConfig.cookiesPath();
+      options.cookies = cookieConfig.cookiesPath();
     }
   }
 
-  return baseOptions;
+  return options;
 }
 
 /** POToken 공급자를 실제로 쓰는가. 설치돼 있고 + 켜져 있을 때만 */
@@ -135,4 +121,4 @@ function cookiesConfigured() {
   return config.ytdlp.useCookieFile && cookieConfig.cookiesReady();
 }
 
-export { useFfmpeg, getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
+export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };

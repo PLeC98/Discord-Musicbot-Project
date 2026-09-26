@@ -7,6 +7,7 @@ process.env.COOKIES_SOURCE = "";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 const YouTube = await import("../../src/sources/youtube/index.ts");
+const ytdlpOptions = await import("../../src/sources/ytdlpOptions.ts");
 const config = (await import("../../config.ts")).default;
 const { cookiesPath } = await import("../../src/config/cookies.ts");
 
@@ -30,12 +31,23 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
 
 test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너리). 넘기기 전에는 칸이 없다", () => {
   assert.equal(YouTube.getYtDlpOptions().ffmpegLocation, undefined);
-  YouTube.useFfmpeg(() => "/opt/ffmpeg/bin/ffmpeg");
+  ytdlpOptions.useFfmpeg(() => "/opt/ffmpeg/bin/ffmpeg");
   try {
     assert.equal(YouTube.getYtDlpOptions().ffmpegLocation, "/opt/ffmpeg/bin/ffmpeg");
+    assert.equal(ytdlpOptions.baseOptions().ffmpegLocation, "/opt/ffmpeg/bin/ffmpeg", "공통 층에 있다");
   } finally {
-    YouTube.useFfmpeg(() => null);
+    ytdlpOptions.useFfmpeg(() => null);
   }
+});
+
+// 공통 층은 어느 출처에나 붙는 것만. 유튜브 전용(JS 런타임 · 플러그인 · 쿠키)은 유튜브가 얹는다
+test("공통 옵션은 재시도뿐이고 유튜브 전용 칸이 없다. 경고를 끄지 않는다", () => {
+  const base = ytdlpOptions.baseOptions({ dumpSingleJson: true });
+  assert.deepEqual(base, { retries: 3, fragmentRetries: 3, dumpSingleJson: true });
+  const youtube = YouTube.getYtDlpOptions();
+  assert.equal(youtube.retries, 3);
+  assert.ok(youtube.jsRuntimes, "유튜브는 JS 런타임을 얹는다");
+  assert.equal(youtube.noWarnings, undefined);
 });
 
 test("호출자가 extractorArgs를 명시하면 그대로 존중 (병합 계약)", () => {
