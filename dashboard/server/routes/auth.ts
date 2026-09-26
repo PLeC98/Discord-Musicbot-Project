@@ -1,25 +1,53 @@
 import express from "express";
 import logger from "../../../src/infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import axios, { type AxiosInstance } from "axios";
 import crypto from "crypto";
 import config from "../../../config.ts";
+import type { SessionUser } from "../expressSlots.d.ts";
 
 const DISCORD_API = "https://discord.com/api/v10";
 
-/** 디스코드를 부르는 HTTP 클라이언트(axios 모양) */
-type DiscordHttp = Pick<AxiosInstance, "get" | "post">;
+// 응답 없는 요청이 로그인 콜백을 붙잡지 않도록 제한 시간을 둔다
+const TIMEOUT_MS = 10_000;
 
-// 요청 실패에서 읽는 칸. 응답이 있으면 상태와 본문, 없으면(타임아웃 등) 코드나 문장
-type Failure = { response?: { status?: number; data?: unknown }; code?: string; message?: string };
+/** 디스코드 답. 부르는 쪽이 모양(T)을 정한다 */
+type Reply<T> = { data: T };
+/** 디스코드를 부르는 HTTP 클라이언트. 2xx 가 아니면 상태와 본문(response)을 실은 오류를 던진다 */
+type DiscordHttp = {
+  post<T>(url: string, body: URLSearchParams, init?: { headers?: Record<string, string> }): Promise<Reply<T>>;
+  get<T>(url: string, init?: { headers?: Record<string, string> }): Promise<Reply<T>>;
+};
+/** 여기서 읽는 칸만 */
+type TokenReply = { access_token: string; token_type: string };
+type UserReply = { id: string; username: string; global_name: string | null; avatar: string | null };
+
+async function call<T>(url: string, init: RequestInit): Promise<Reply<T>> {
+  const res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const text = await res.text();
+  let data: unknown = text;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // JSON 이 아니면 글 그대로
+  }
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { response: { status: res.status, data } });
+  return { data: data as T };
+}
+
+const discordHttp: DiscordHttp = {
+  post: (url, body, { headers } = {}) => call(url, { method: "POST", body, headers }),
+  get: (url, { headers } = {}) => call(url, { headers }),
+};
+
+// 요청 실패에서 읽는 칸. 응답이 있으면 상태와 본문, 없으면(시간 초과 · 연결 실패) 이름과 문장
+type Failure = { response?: { status?: number; data?: unknown }; name?: string; message?: string; cause?: { code?: string } };
 const failureOf = (error: unknown): Failure => (typeof error === "object" && error !== null ? error : {});
 
 /**
  * 디스코드 OAuth 로그인 · 로그아웃.
- * http: 디스코드를 부르는 HTTP 클라이언트(axios 모양). 생략하면 진짜
+ * http: 디스코드를 부르는 HTTP 클라이언트. 생략하면 진짜(fetch)
  */
-function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: DiscordHttp } = {}) {
-  // 응답 없는 요청이 로그인 콜백을 붙잡지 않도록 제한 시간을 둔 클라이언트로 부른다.
+function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
   const CLIENT_ID = config.discord.clientId;
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 없으면 기동 때 경고. 로그인이 디스코드에서 거절된다
@@ -61,7 +89,7 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: 
 
     try {
       // 코드를 접근 토큰으로 바꾼다
-      const tokenRes = await http.post(
+      const tokenRes = await http.post<TokenReply>(
         `${DISCORD_API}/oauth2/token`,
         new URLSearchParams({
           client_id: CLIENT_ID,
@@ -78,7 +106,7 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: 
 
       // 사용자 및 길드 정보를 병렬로 Fetch
       const opts = { headers: { Authorization: authHeader } };
-      const [userRes, guildsRes] = await Promise.all([http.get(`${DISCORD_API}/users/@me`, opts), http.get(`${DISCORD_API}/users/@me/guilds`, opts)]);
+      const [userRes, guildsRes] = await Promise.all([http.get<UserReply>(`${DISCORD_API}/users/@me`, opts), http.get<SessionUser["guilds"]>(`${DISCORD_API}/users/@me/guilds`, opts)]);
 
       const user = userRes.data;
 
@@ -101,8 +129,9 @@ function createAuthRouter({ http = axios.create({ timeout: 10000 }) }: { http?: 
         req.session.save(() => res.redirect("/dashboard"));
       });
     } catch (error) {
-      const { response, code, message } = failureOf(error);
-      const what = response ? `상태 코드 ${response.status}` : code || message; // 응답 없는 실패(타임아웃 등)도 읽히게
+      const { response, name, message, cause } = failureOf(error);
+      // 응답 없는 실패(시간 초과 · 연결 실패)도 읽히게
+      const what = response ? `상태 코드 ${response.status}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
       log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri: REDIRECT_URI }, `OAuth 콜백 오류: ${what}`);
       res.redirect("/?error=auth_failed");
     }
