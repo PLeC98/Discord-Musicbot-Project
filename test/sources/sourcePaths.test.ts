@@ -16,6 +16,7 @@ import type { TrackInfo } from "../../src/player/track.ts";
 import * as tracks from "../helpers/tracks.ts";
 import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 import { networkError } from "../helpers/errors.ts";
+import { codedError } from "../../src/rules/errorKind.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -63,7 +64,7 @@ test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · �
 
 // ── 조회 ──────────────────────────────────────────────────────────────
 
-test("조회: 유튜브 재생목록은 구간을 넘겨 받고, 못 받으면 같은 주소로 검색한다", async () => {
+test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 가리키는 주소만 목록을 못 받으면 그 영상으로 간다", async () => {
   const seen: Array<Range | undefined> = [];
   const listed = {
     youtube: {
@@ -78,10 +79,33 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받고, 못 받으면 �
   assert.deepEqual(seen, [{ offset: 0, limit: 10 }]);
   assert.deepEqual({ success: r.success, isPlaylist: r.isPlaylist, collection: r.collection, total: r.total, nextOffset: r.nextOffset }, { success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10 });
 
-  const unlisted = { youtube: { ...YouTube, getPlaylist: async () => null, search: async (q: string, n: number) => [ytTrack("s1", { title: q, duration: n })] } };
-  const fallback = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL2", undefined, undefined, unlisted);
-  assert.equal(fallback.isPlaylist, false);
-  assert.deepEqual([fallback.tracks?.[0].title, fallback.tracks?.[0].duration], ["https://www.youtube.com/playlist?list=PL2", 1]);
+  // 목록만 가리키는 주소: 비면 없음, 못 받으면 그 까닭(검색으로 흘리지 않는다)
+  const noSearch = (getPlaylist: () => Promise<null>) => ({ youtube: { ...YouTube, getPlaylist, search: async () => assert.fail("검색하면 안 된다") } });
+  assert.deepEqual(
+    await lookup.getTrackData(
+      "https://www.youtube.com/playlist?list=PL2",
+      undefined,
+      undefined,
+      noSearch(async () => null),
+    ),
+    { success: false, code: "no-result" },
+  );
+  const gone = codedError("playlist-unavailable", "ERROR: [youtube:tab] PL3: The playlist does not exist.");
+  const failed = await lookup.getTrackData(
+    "https://www.youtube.com/playlist?list=PL3",
+    undefined,
+    undefined,
+    noSearch(async () => Promise.reject(gone)),
+  );
+  assert.deepEqual([failed.success, failed.code, failed.error], [false, "lookup-failed", gone]);
+
+  // 영상도 가리키는 주소: 목록을 못 받거나 비면 그 영상 하나
+  for (const getPlaylist of [async () => null, async () => Promise.reject(gone)]) {
+    const video = { youtube: { ...YouTube, getPlaylist, search: async (q: string, n: number) => [ytTrack("s1", { title: q, duration: n })] } };
+    const one = await lookup.getTrackData("https://www.youtube.com/watch?v=aaaaaaaaaaa&list=PL4", undefined, undefined, video);
+    assert.equal(one.isPlaylist, false);
+    assert.deepEqual([one.tracks?.[0].title, one.tracks?.[0].duration], ["https://www.youtube.com/watch?v=aaaaaaaaaaa&list=PL4", 1]);
+  }
 });
 
 test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {

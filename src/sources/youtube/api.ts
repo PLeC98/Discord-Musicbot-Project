@@ -12,7 +12,6 @@ import * as trackLookup from "../../store/trackLookup.ts";
 import * as auth from "./auth.ts";
 import * as errors from "./errors.ts";
 import * as run from "./ytdlpRun.ts";
-import { messageOf } from "../../rules/errorKind.ts";
 import type { YtInfo } from "../ytdlpInfo.ts";
 import type { RunYtDlp } from "../ytdlpSpawn.ts";
 
@@ -111,84 +110,71 @@ async function searchTrack(item: YtInfo) {
   return track;
 }
 
-// 던지는 실패. 나머지는 삼킨다(2단계 3번째 커밋이 걷는다)
-const THROWN = new Set(["age-cookies-invalid", "age-restricted", "video-unavailable", "skipped-client", "stale-media", "client-fault", "rate-limited"]);
-
 // 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 진짜. getInfo · getStream · getPlaylist 도 같다
+// 찾은 것이 없으면 빈 배열, 찾지 못한 것(yt-dlp · 네트워크 실패)은 던진다. 오류의 이름은 yt-dlp 를 실행하는 곳이 붙였다
 async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: RunYtDlp } = {}) {
-  try {
-    // 이미 YouTube URL인 경우 직접 정보를 가져옴
-    if (links.isYouTubeURL(query)) {
-      const info = await getInfo(query);
-      return info ? [info] : [];
-    }
+  // 이미 YouTube URL인 경우 직접 정보를 가져옴
+  if (links.isYouTubeURL(query)) {
+    return [await getInfo(query)];
+  }
 
-    // 유튜브 검색에 yt-dlp 사용
-    const searchQuery = `ytsearch${limit}:${query}`;
+  // 유튜브 검색에 yt-dlp 사용
+  const searchQuery = `ytsearch${limit}:${query}`;
 
-    // 목록 모양만 본다. 항목은 하나씩 readInfo 로 읽는다
-    const results = (await exec(
-      searchQuery,
-      auth.getYtDlpOptions({
-        dumpSingleJson: true,
-        flatPlaylist: true,
-      }),
-    )) as { entries?: unknown[] } | null;
+  // 목록 모양만 본다. 항목은 하나씩 readInfo 로 읽는다
+  const results = (await exec(
+    searchQuery,
+    auth.getYtDlpOptions({
+      dumpSingleJson: true,
+      flatPlaylist: true,
+    }),
+  )) as { entries?: unknown[] } | null;
 
-    if (!results || !results.entries) {
-      return [];
-    }
-
-    const tracks = [];
-    // 비디오가 아닌 검색 결과(채널·재생목록·핸들)를 제외. ytsearch가 이들을 섞어 반환하는데,
-    // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 순위로 우승).
-    const videoEntries = results.entries
-      .map(readInfo)
-      .filter((e) => _isVideoEntry(e))
-      .slice(0, limit);
-    for (const item of videoEntries) {
-      // 한 곡의 상세 조회가 던지면(연령 제한 등) 그 곡만 건너뛴다. 검색은 다른 후보로 이어진다
-      const track = await searchTrack(item).catch(() => null);
-      if (track) tracks.push(track);
-    }
-
-    return tracks;
-  } catch (error) {
-    if (THROWN.has(errors.codeOf(error) ?? "")) throw error; // 링크 한 곡이 까닭이 분명하게 실패했다. getInfo 참조
-    log.error("유튜브 검색 실패:", messageOf(error));
+  if (!results || !results.entries) {
     return [];
   }
+
+  const tracks = [];
+  // 비디오가 아닌 검색 결과(채널·재생목록·핸들)를 제외. ytsearch가 이들을 섞어 반환하는데,
+  // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 순위로 우승).
+  const videoEntries = results.entries
+    .map(readInfo)
+    .filter((e) => _isVideoEntry(e))
+    .slice(0, limit);
+  for (const item of videoEntries) {
+    // 한 곡의 상세 조회가 던지면(연령 제한 등) 그 곡만 건너뛴다. 검색은 다른 후보로 이어진다
+    const track = await searchTrack(item).catch((error) => {
+      log.warn(`검색 결과 한 곡을 건너뜁니다: ${errors.briefError(error, 1)}`);
+      return null;
+    });
+    if (track) tracks.push(track);
+  }
+
+  return tracks;
 }
 
+// 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 까닭을 알린다
 async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
-  try {
-    const info = readInfo(
-      await run.runYtDlp(
-        url,
-        (forceCookies) =>
-          auth.getYtDlpOptions(
-            {
-              dumpSingleJson: true,
-              preferFreeFormats: true,
-            },
-            { forceCookies },
-          ),
-        exec,
-      ),
-    );
+  const info = readInfo(
+    await run.runYtDlp(
+      url,
+      (forceCookies) =>
+        auth.getYtDlpOptions(
+          {
+            dumpSingleJson: true,
+            preferFreeFormats: true,
+          },
+          { forceCookies },
+        ),
+      exec,
+    ),
+  );
 
-    if (!info) {
-      throw new Error("youtube-dl에서 정보를 반환하지 않음");
-    }
-
-    return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
-  } catch (error) {
-    // 못 트는 까닭이 분명한 실패(비공개 · 삭제 · 연령 제한)는 던진다. 찾는 쪽이 그 까닭을 사용자에게 알린다.
-    // 삼키면 "결과를 찾을 수 없습니다"로 뭉개진다. 까닭을 모르는 실패만 null 이다
-    if (THROWN.has(errors.codeOf(error) ?? "")) throw error;
-    log.error("영상 정보 조회 실패:", errors.briefError(error));
-    return null;
+  if (!info) {
+    throw new Error("yt-dlp 가 정보를 주지 않았습니다");
   }
+
+  return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
 }
 
 // 그 위치부터 받는 주소. HLS 재생목록 주소에는 `begin=`을 붙일 수 없다. 위치는 ffmpeg의 `-ss`가 정한다
@@ -266,47 +252,39 @@ function playlistTrack(entry: YtInfo) {
 
 // offset부터 limit개만 받는다. 유튜브는 시작점까지 이어 받기를 걸어가야 해서 비용이 끝 위치에 비례한다.
 // 총 곡 수(playlist_count)는 구간만 받아도 오지만, 믹스(RD…)는 끝이 없어 null이다.
+// 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 받기 등). 목록을 받지 못한 것(없는 · 비공개 목록, 네트워크)은 던진다
 async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
-  try {
-    const info = readInfo(
-      await exec(
-        url,
-        auth.getYtDlpOptions({
-          dumpSingleJson: true,
-          flatPlaylist: true,
-          playlistItems: `${offset + 1}:${offset + limit}`,
-        }),
-      ),
-    );
+  const info = readInfo(
+    await exec(
+      url,
+      auth.getYtDlpOptions({
+        dumpSingleJson: true,
+        flatPlaylist: true,
+        playlistItems: `${offset + 1}:${offset + limit}`,
+      }),
+    ),
+  );
 
-    if (!info) {
-      throw new Error("재생목록 정보를 가져올 수 없음");
-    }
-
-    if (!info.entries || info.entries.length === 0) {
-      throw new Error("재생목록 항목을 찾을 수 없음");
-    }
-
-    const tracks = info.entries.map(readInfo).flatMap((entry) => (entry && (entry.id || entry.url) ? [playlistTrack(entry)] : []));
-
-    if (tracks.length === 0) {
-      throw new Error("재생목록에서 유효한 트랙을 찾을 수 없음");
-    }
-
-    const unknownPlaylist = "알 수 없는 재생목록";
-
-    return {
-      title: info.title || unknownPlaylist,
-      tracks: tracks,
-      total: info.playlist_count ?? null,
-      nextOffset: offset + info.entries.length,
-      url: url,
-      platform: "youtube",
-    };
-  } catch (error) {
-    log.error("재생목록 조회 실패:", messageOf(error));
-    return null;
+  if (!info) {
+    throw new Error("yt-dlp 가 재생목록 정보를 주지 않았습니다");
   }
+
+  if (!info.entries || info.entries.length === 0) return null;
+
+  const tracks = info.entries.map(readInfo).flatMap((entry) => (entry && (entry.id || entry.url) ? [playlistTrack(entry)] : []));
+
+  if (tracks.length === 0) return null;
+
+  const unknownPlaylist = "알 수 없는 재생목록";
+
+  return {
+    title: info.title || unknownPlaylist,
+    tracks: tracks,
+    total: info.playlist_count ?? null,
+    nextOffset: offset + info.entries.length,
+    url: url,
+    platform: "youtube",
+  };
 }
 
 export { _detectLive, liveStatusOf, titleOf, _isVideoEntry, search, getInfo, getStream, getPlaylist };

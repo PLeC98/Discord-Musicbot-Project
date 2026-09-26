@@ -21,9 +21,11 @@ async function spotify(source: GenreSource): Promise<Candidate[]> {
 
 async function youtube(source: GenreSource): Promise<Candidate[]> {
   if (!source.url) return [];
+  // 목록을 받지 못하면 그 까닭(없는 · 비공개 목록, 네트워크)을 단 채로 던진다
   const head = await YouTube.getPlaylist(source.url, { offset: 0, limit: 1 });
+  if (!head) throw new Error("재생목록에 곡이 없습니다");
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다
-  const total = Number(head?.total) || 0;
+  const total = Number(head.total) || 0;
   if (!total) throw new Error("재생목록의 곡 수를 알 수 없습니다(유튜브 믹스는 소스로 쓸 수 없습니다)");
 
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;

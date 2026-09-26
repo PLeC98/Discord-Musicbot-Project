@@ -11,6 +11,7 @@ import { ErrorHandler } from "../ui/errorMessages.ts";
 import { continuation, validState, roomFor, KINDS, LOOKBACK, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
+import { messageOf } from "../rules/errorKind.ts";
 import { canSend } from "../ui/channels.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { Requester, TrackInfo } from "../player/track.ts";
@@ -270,6 +271,17 @@ async function continueCollection(client: Client, request: CollectionRequest): P
   return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && total != null ? { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } : null };
 }
 
+// 한 구간을 받는다. 앞서 모은 곡이 있으면 실패는 거기서 멈춤(null)으로, 하나도 없으면 까닭을 던진다
+async function nextPart(lookup: Lookup, url: string, range: { offset: number; limit: number }, gathered: number) {
+  try {
+    return await lookup.getCollection(url, range);
+  } catch (error) {
+    if (gathered === 0) throw error;
+    log.warn(`이어 받기를 ${gathered}곡에서 멈춥니다: ${messageOf(error)}`);
+    return null;
+  }
+}
+
 // 목록에서 want 곡을 묶음으로 나눠 받는다. 앵커를 찾으면 그 뒤부터, 못 찾으면 요청 위치부터
 async function gather({ state, onProgress = ignoreProgress, lookup = defaultLookup }: CollectionRequest, want: number) {
   const url = KINDS[state.kind].url(state.listId);
@@ -280,7 +292,8 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
   while (found.length < want) {
     const back = Math.min(LOOKBACK, cursor);
     const limit = Math.min(MORE_BATCH, want - found.length) + back;
-    const part = await lookup.getCollection(url, { offset: cursor - back, limit });
+    const part = await nextPart(lookup, url, { offset: cursor - back, limit }, found.length);
+    if (!part) break;
     if (part.total != null) total = part.total;
     const hit = part.tracks.findIndex((t) => t.id === anchor);
     const fresh = hit >= 0 ? part.tracks.slice(hit + 1) : part.tracks.slice(back);

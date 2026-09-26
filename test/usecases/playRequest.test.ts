@@ -18,6 +18,7 @@ import type { CollectionResult, Lookup, PlaybackRequest } from "../../src/usecas
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import type { Responder, TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
+import { codedError } from "../../src/rules/errorKind.ts";
 
 const store = openTempStore("play-request-");
 after(() => store.close());
@@ -501,8 +502,8 @@ function stateAt(offset: number, extra: Partial<MoreState> = {}): MoreState {
   return { kind: "spp", listId: SP, offset, anchorId: idOf(offset - 1), insertFirst: false, requesterId: null, ...extra };
 }
 
-async function continueWith({ state, count, size = 300, shift = 0, queued = 0 }: { state: MoreState; count: number; size?: number; shift?: number; queued?: number }) {
-  mockCollection = listSource(size, { shift });
+async function continueWith({ state, count, size = 300, shift = 0, queued = 0, source }: { state: MoreState; count: number; size?: number; shift?: number; queued?: number; source?: (range: Range) => Collection }) {
+  mockCollection = source ?? listSource(size, { shift });
   collectionCalls.length = 0;
   const client = makeClient();
   const guild = makeGuild();
@@ -551,6 +552,29 @@ test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없�
     const full = await continueWith({ state: stateAt(50), count: 100, queued: 30 });
     assert.equal(full.result.success, false);
     assert.equal(collectionCalls.length, 0);
+  }));
+
+test("이어 넣기: 다음 묶음을 못 받으면 모은 곡까지만 넣고, 첫 묶음부터 못 받으면 그 까닭을 던진다", () =>
+  withLimits(0, 50, async () => {
+    const gone = codedError("playlist-unavailable", "목록이 사라졌다");
+    const whole = listSource(1000);
+    const secondFails = (range: Range) => {
+      if (collectionCalls.length > 1) throw gone;
+      return whole(range);
+    };
+    const { added } = await continueWith({ state: stateAt(50), count: 250, source: secondFails });
+    assert.equal(added?.tracks.length, 100, "첫 묶음만");
+
+    await assert.rejects(
+      continueWith({
+        state: stateAt(50),
+        count: 250,
+        source: () => {
+          throw gone;
+        },
+      }),
+      (e) => e === gone,
+    );
   }));
 
 test("이어 넣기: 여러 묶음으로 받으며 진행을 알린다", () =>

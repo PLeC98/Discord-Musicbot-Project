@@ -55,11 +55,21 @@ function isUnsupportedLink(query: string): boolean {
 type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; total: number | null; nextOffset: number | null };
 const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
 
-// 유튜브. 재생목록을 불러오지 못하면 그 주소로 검색한다
+// 유튜브. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 받을 때 그 영상 하나로 간다.
+// 목록만 가리키는 주소는 목록이 비면 없음, 목록을 못 받으면 그 까닭을 그대로 던진다
 async function fromYouTube(query: string, range: Range, youtube: Sources["youtube"]): Promise<Found> {
   if (links.isYouTubePlaylist(query)) {
-    const list = await youtube.getPlaylist(query, range);
+    const video = links.extractVideoId(query);
+    let list: Collection | null;
+    try {
+      list = await youtube.getPlaylist(query, range);
+    } catch (error) {
+      if (!video) throw error;
+      log.warn(`재생목록을 받지 못해 영상 하나로 갑니다: ${messageOf(error).split("\n")[0]}`);
+      list = null;
+    }
     if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
+    if (!video) return single([]);
   }
   return single(await youtube.search(query, 1));
 }
@@ -87,8 +97,8 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
   }
 }
 
-// 여러 곡 출처의 구간만. 이어 넣기용. getTrackData와 달리 못 받으면 검색으로 넘어가지 않는다
-// (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다).
+// 여러 곡 출처의 구간만. 이어 넣기용. getTrackData와 달리 못 받으면 검색으로 넘어가지 않고 던진다
+// (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다. 그건 없음이다).
 async function getCollection(url: string, range?: Range, sources: Partial<Sources> = {}): Promise<Collection> {
   const { youtube, spotify } = { ...REAL, ...sources };
   const none: Collection = { tracks: [], total: null, nextOffset: null };

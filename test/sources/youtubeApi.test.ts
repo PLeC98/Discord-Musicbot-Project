@@ -111,11 +111,11 @@ test("검색: 유튜브 주소를 주면 검색하지 않고 정보를 받는다
   assert.equal(t.id, "ddddddddddd");
 });
 
-test("검색: 실패하거나 결과가 없으면 빈 배열", async () => {
-  respond = () => ({ fail: "ERROR: network" });
-  assert.deepEqual(await YouTube.search("x"), []);
+test("검색: 결과가 없으면 빈 배열, 실패하면 이름을 단 채로 던진다", async () => {
   respond = () => ({});
   assert.deepEqual(await YouTube.search("x"), []);
+  respond = () => ({ fail: "ERROR: Unable to download API page: <urlopen error [Errno 11001] getaddrinfo failed>" });
+  await assert.rejects(YouTube.search("x"), (e) => codeOf(e) === "network");
 });
 
 // ── 정보 ──────────────────────────────────────────────────────────────
@@ -134,9 +134,9 @@ test("정보: 칸을 옮겨 담고 포맷 목록을 붙인다. 라이브는 조�
   assert.equal(t.liveStatus, "is_live");
 });
 
-test("정보: 까닭을 모르는 실패는 null(던지지 않는다)", async () => {
+test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없는 오류로 알린다)", async () => {
   respond = () => ({ fail: "ERROR: [youtube] fffffffffff: Some other failure" });
-  assert.equal(await YouTube.getInfo("https://www.youtube.com/watch?v=fffffffffff"), null);
+  await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=fffffffffff"), /Some other failure/);
 });
 
 // 회귀 대상: 비공개 · 연령 제한 영상 링크를 넣으면 까닭을 삼켜 "결과를 찾을 수 없습니다"로만 나왔다
@@ -220,18 +220,21 @@ test("재생목록: 끝이 없는 믹스는 total 이 null", async () => {
   assert.equal(list?.total, null);
 });
 
-test("재생목록: 항목이 없거나 실패하면 null", async () => {
+test("재생목록: 항목이 없으면 null, 목록을 받지 못하면 까닭을 단 채로 던진다", async () => {
   respond = () => ({ title: "빈 목록", entries: [] });
   assert.equal(await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL2"), null);
-  respond = () => ({ fail: "ERROR: private playlist" });
-  assert.equal(await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL3"), null);
+  respond = () => ({ fail: "ERROR: [youtube:tab] PL3: This playlist is private" });
+  await assert.rejects(YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL3"), (e) => codeOf(e) === "playlist-unavailable");
 });
 
-// 지금 답. 목록 조회 실패가 null 이 되어 자동재생 소스는 믹스 안내를 한다. 2단계가 실패의 까닭을 알리게 바꾼다(계획서 G2 · CQ-5)
-test("자동재생 재생목록 소스: 목록 조회가 실패해도 믹스라서 못 쓴다고 알린다", async () => {
+// 회귀 대상: 목록 조회 실패가 null 이 되어 없는 목록도 "믹스라서 못 쓴다"로 알렸다
+test("자동재생 재생목록 소스: 목록을 못 받으면 그 까닭, 곡 수를 모르는 목록(믹스)만 믹스 안내", async () => {
   const playlists = await import("../../src/autoplay/sources/playlists.ts");
+  const url = "https://www.youtube.com/playlist?list=PLzzz";
   respond = () => ({ fail: "ERROR: [youtube:tab] PLzzz: The playlist does not exist." });
-  await assert.rejects(playlists.youtube({ type: "playlist", url: "https://www.youtube.com/playlist?list=PLzzz" }), /유튜브 믹스는 소스로 쓸 수 없습니다/);
+  await assert.rejects(playlists.youtube({ type: "playlist", url }), (e) => codeOf(e) === "playlist-unavailable");
+  respond = () => ({ title: "믹스", entries: [video("mmmmmmmmmmm")], playlist_count: null });
+  await assert.rejects(playlists.youtube({ type: "playlist", url }), /유튜브 믹스는 소스로 쓸 수 없습니다/);
 });
 
 // ── 다시 받기 ─────────────────────────────────────────────────────────
