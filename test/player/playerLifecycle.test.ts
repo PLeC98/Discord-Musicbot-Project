@@ -20,6 +20,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
 import * as voiceChannelStatus from "../../src/player/voiceChannelStatus.ts";
+import config from "../../config.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 
 useExampleConfig();
@@ -735,6 +736,34 @@ test("음성 채널 상태: 권한이 있고 사람이 쓴 문구가 아니면 �
   h.dispose(p);
 
   assert.deepEqual(puts, [["/channels/voice1/voice-status", "곡 제목"]]);
+});
+
+// 직접 링크는 재생과 나란히 받으며 파일 태그로 제목을 고친다. 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다
+test("음성 채널 상태: 곁에서 받으며 지금 곡의 제목을 고치면 채널 상태도 고친다", async () => {
+  voiceChannelStatus._internals._reset();
+  const p = h.makePlayer();
+  const puts: string[] = [];
+  p.guild.client.rest = fake<Client["rest"]>({ put: async (_route: string, { body }: { body: { status: string } }) => puts.push(body.status) });
+  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", permissionsFor: () => ({ has: () => true }) }));
+  p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice1" });
+  const track = yt("tagged", { title: "track_01" });
+  p.currentTrack = track;
+  const { playingPrefix } = config.voiceStatus;
+
+  p.downloader.downloadTrack = async (one) => {
+    one.title = "태그의 제목";
+    return "file";
+  };
+  p._startBackgroundDownload();
+  await tick(10);
+  assert.deepEqual(puts, [`${playingPrefix}태그의 제목`]);
+
+  // 제목이 그대로면 쓰지 않는다
+  p.downloader.downloadTrack = async () => "file";
+  p._startBackgroundDownload();
+  await tick(10);
+  h.dispose(p);
+  assert.equal(puts.length, 1);
 });
 
 test("음성 채널 상태: 쓰기가 실패하면 던진다(부르는 쪽의 bestEffort 가 남긴다)", async () => {

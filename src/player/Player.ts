@@ -213,18 +213,12 @@ class MusicPlayer {
         return;
       }
       this.paused = false;
-      if (this.currentTrack) {
-        const { playingPrefix } = config.voiceStatus;
-        bestEffort(log, this.updateVoiceStatus(`${playingPrefix}${this.currentTrack.title}`), "음성 채널 상태 바꾸기");
-      }
+      this._showTrackInVoiceStatus();
     });
 
     this.audioPlayer.on(AudioPlayerStatus.Paused, () => {
       this.paused = true;
-      if (this.currentTrack) {
-        const { pausedPrefix } = config.voiceStatus;
-        bestEffort(log, this.updateVoiceStatus(`${pausedPrefix}${this.currentTrack.title}`), "음성 채널 상태 바꾸기");
-      }
+      this._showTrackInVoiceStatus();
     });
 
     this.audioPlayer.on(AudioPlayerStatus.Idle, () => {
@@ -389,10 +383,16 @@ class MusicPlayer {
     // currentTrack은 다운로드가 끝나기 전에 바뀔 수 있다. 지금 곡을 붙잡아 둔다
     const trackToDownload = this.currentTrack;
     if (!trackToDownload) return;
+    const title = trackToDownload.title;
     this.downloader
       .downloadTrack(trackToDownload)
       .then((file) => {
         log.debug(`백그라운드 캐시 다운로드 끝: ${this._trackLabel(trackToDownload)} → ${file}`);
+        // 받으면서 제목을 고쳤다(직접 링크의 파일 태그 등). 패널은 다음 갱신에 따라오지만 채널 상태는 재생을 시작할 때만 쓴다
+        if (this.currentTrack === trackToDownload && trackToDownload.title !== title) {
+          this._showTrackInVoiceStatus();
+          bestEffort(log, playerEvents.refresh(this), "패널 고치기");
+        }
       })
       .catch((err) => {
         if (err && err.message) {
@@ -1139,6 +1139,13 @@ class MusicPlayer {
 
   scheduleStatePersist(reason = "update", delay = 200) {
     this.persistence.scheduleStatePersist(reason, delay);
+  }
+
+  /** 지금 곡을 음성 채널 상태에. 일시정지면 그 앞머리로 */
+  _showTrackInVoiceStatus() {
+    if (!this.currentTrack) return;
+    const { playingPrefix, pausedPrefix } = config.voiceStatus;
+    bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title}`), "음성 채널 상태 바꾸기");
   }
 
   // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다
