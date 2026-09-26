@@ -184,12 +184,13 @@ async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImp
   return out;
 }
 
-// 저쪽이 모양을 바꾸면 칸이 통째로 빈 채로 저장될 수 있다. 아는 모델로 한 번 보고 쓴다.
-const CANARY: Array<[registry: string, modelId: string, key: string]> = [
-  ["anthropic", "claude-opus-5", "effort"],
-  ["vertex-gemini-native", "gemini-3.7-flash", "thinkingLevel"],
-  ["openai", "gpt-5.5", "reasoning_effort"],
-];
+// 저쪽이 모양을 바꾸면 칸이 통째로 빈 채로 저장될 수 있다. 모델 이름이 아니라 모양으로 본다(저쪽이 옛 모델을 빼도 멀쩡하다):
+// 지금 가진 판에서 칸이 있던 레지스트리가 새 판에서 칸을 통째로 잃으면 쓰지 않는다. 가진 판이 없으면 칸이 하나라도 있어야 한다
+function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[] {
+  const fields = (registry: string, snapshot: Snapshot) => modelsOf(registry, snapshot).reduce((n, m) => n + fieldsOf(registry, m.modelId, snapshot).length, 0);
+  if (!Object.keys(held.profiles || {}).length) return registries.some((r) => fields(r, got) > 0) ? [] : registries;
+  return registries.filter((r) => fields(r, held) > 0 && fields(r, got) === 0);
+}
 
 /**
  * 받아서 파일에 쓴다. 해시가 같으면 받지 않는다.
@@ -203,11 +204,8 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
   }
 
   const got = await fetchRegistry(registries, { timeoutMs, index });
-  for (const [registry, modelId, key] of CANARY) {
-    if (!fieldsOf(registry, modelId, got).some((one) => one.key === key)) {
-      throw new Error(`${modelId} 에 ${key} 가 없습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
-    }
-  }
+  const lost = lostShape(registries, held, got);
+  if (lost.length) throw new Error(`${lost.join(" · ")} 의 모델 칸이 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 
   fs.mkdirSync(path.dirname(FILE), { recursive: true });
   fs.writeFileSync(FILE, JSON.stringify(got, null, 2) + String.fromCharCode(10));
@@ -215,5 +213,5 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
   return { changed: true, count: Object.keys(got.profiles).length, fetchedAt: got.fetchedAt };
 }
 
-export { RAW, FILE, CANARY, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas };
+export { RAW, FILE, fetchRegistry, refresh, load, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas, lostShape };
 export type { Snapshot, Profile, ModelField };

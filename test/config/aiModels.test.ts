@@ -107,3 +107,21 @@ test("받아 둔 파일에 현행 모델의 추론 칸이 있다", () => {
   assert.ok(astra?.enum, "값 목록이 있다");
   assert.ok(!astra.enum.some((e) => e.value === "none"));
 });
+
+// 회귀 대상: 모양 검사가 모델 이름 셋(claude-opus-5 · gemini-3.7-flash · gpt-5.5)에 묶여, 저쪽이 옛 모델을 빼면 멀쩡해도 갱신을 거부했다
+test("갱신 모양 검사: 모델 이름이 아니라 칸이 통째로 비었는지로 본다", () => {
+  const field = { key: "topP", type: "number", mapsTo: { target: "body", path: "top_p" } };
+  const snap = (profiles: Record<string, { modelId: string; schema: unknown[] }>) => ({ baseProviders: {}, profiles }) as Parameters<typeof models.lostShape>[1];
+  const held = snap({ "a:old": { modelId: "old", schema: [field] }, "b:x": { modelId: "x", schema: [] } });
+
+  assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [field] } })), [], "옛 모델이 빠지고 새 모델이 와도 된다. 칸이 없던 b 는 보지 않는다");
+  assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "칸이 있던 a 가 통째로 비면 거부");
+  assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "가진 판이 없으면 칸이 하나라도 있어야 한다");
+  assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [field] } })), []);
+});
+
+test("갱신 모양 검사: 저장소의 판은 스스로와 견줘 통과한다", () => {
+  const held = models.load();
+  const registries = [...new Set(Object.keys(held.profiles).map((id) => id.split(":")[0]))];
+  assert.deepEqual(models.lostShape(registries, held, held), []);
+});
