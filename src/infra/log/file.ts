@@ -11,6 +11,7 @@
 
 import fs from "fs";
 import path from "path";
+import { repeatingFailure } from "../repeatingFailure.ts";
 import type { LogRecord } from "./sink.ts";
 
 const ANSI_RE = /\x1B(?:[@-Z\-_]|\[[0-?]*[ -/]*[@-~])/g;
@@ -68,22 +69,35 @@ function stripAnsi(s: unknown): unknown {
  *
  * file: 기록할 파일 경로(절대). maxBytes: 이 크기를 넘으면 회전(0이면 회전 안 함). keep: 보관할 회전본 개수(0이면 제한 없이 쌓음)
  */
-// notice: 파일 로그를 멈출 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다
-function createFileDestination({ file, maxBytes, keep, notice = (line: string) => process.stderr.write(line) }: { file: string; maxBytes: number; keep: number; notice?: (line: string) => unknown }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
+// 멈춘 파일 로그를 다시 열어 보는 간격
+const RETRY_MS = 30_000;
+
+// notice: 파일 로그가 멈추고 풀릴 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다
+// retryMs · now: 다시 열어 보는 간격과 시계(시험이 넘긴다)
+function createFileDestination({ file, maxBytes, keep, notice = (line: string) => process.stderr.write(line), retryMs = RETRY_MS, now = Date.now }: { file: string; maxBytes: number; keep: number; notice?: (line: string) => unknown; retryMs?: number; now?: () => number }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
   let fd: number | null = null;
   let size = 0;
+  let closed = false;
+  // 멈춘 때 · 마지막으로 열어 본 때 · 그동안 남기지 못한 줄 수. 멈추지 않았으면 down 이 null
+  let down: number | null = null;
+  let lastTry = 0;
+  let lost = 0;
+  // 처음 한 번 알리고, 같은 까닭은 세기만 하고, 풀리면 한 줄(표준 오류로)
+  const failures = repeatingFailure({ error: (line) => notice(`[logFile] ${line}\n`), info: (line) => notice(`[logFile] ${line}\n`) }, `파일 로그(${file})`);
 
-  // 오류는 한 번만 알리고 조용히 멈춘다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
-  function giveUp(what: string, err: unknown) {
+  // 멈춘다. 그동안의 줄은 버리고 retryMs 마다 다시 열어 본다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
+  function fail(what: string, err: unknown) {
     if (fd !== null) {
       try {
         fs.closeSync(fd);
       } catch {
-        /* 이미 닫혔거나 못 닫음. 어차피 포기하는 길 */
+        /* 이미 닫혔거나 못 닫음. 어차피 다시 연다 */
       }
       fd = null;
     }
-    notice(`[logFile] ${what}. 파일 로그를 중단합니다 (${file}): ${(err as Error).message}\n`);
+    down ??= now();
+    lastTry = now();
+    failures.fail(`${what}: ${(err as Error).message}`);
   }
 
   function open() {
@@ -91,9 +105,25 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       fs.mkdirSync(path.dirname(file), { recursive: true });
       size = fs.existsSync(file) ? fs.statSync(file).size : 0;
       fd = fs.openSync(file, "a");
+      return true;
     } catch (err) {
-      giveUp("파일을 열 수 없습니다", err);
+      fail("파일을 열 수 없습니다", err);
+      return false;
     }
+  }
+
+  // 멈춘 동안이면 때가 됐을 때 다시 열어 본다. 열리면 멈췄던 동안을 파일에도 한 줄 남긴다(사후 분석은 파일만 본다)
+  function ready() {
+    if (fd !== null) return true;
+    if (closed || down === null || now() - lastTry < retryMs) return false;
+    lastTry = now();
+    if (!open()) return false;
+    failures.ok();
+    const gap = `${JSON.stringify({ time: now(), level: 40, category: "log", msg: `파일 로그가 ${Math.round((now() - down) / 1000)}초 동안 멈췄다가 다시 씁니다. 그동안 ${lost}줄을 남기지 못했습니다` })}\n`;
+    down = null;
+    lost = 0;
+    writeLine(gap);
+    return fd !== null;
   }
 
   // 지금까지 분리해 둔 파일들. 이름순이 곧 시간순이다(파일명이 로컬 시각이라).
@@ -134,14 +164,28 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       fd = null;
       fs.renameSync(file, nextBackupPath(file));
     } catch (err) {
-      return giveUp("로그 회전 실패", err);
+      return fail("로그 회전 실패", err);
     }
     prune();
     open();
   }
 
+  // 한 줄 쓴다. 실패하면 멈춘다
+  function writeLine(line: string) {
+    try {
+      fs.writeSync(fd as number, line);
+    } catch (err) {
+      return fail("기록 실패", err);
+    }
+    size += Buffer.byteLength(line);
+    if (maxBytes > 0 && size >= maxBytes) rotate();
+  }
+
   function write(rec: LogRecord) {
-    if (fd === null) return;
+    if (!ready()) {
+      if (!closed && down !== null) lost++;
+      return;
+    }
     let line: string;
     try {
       line = `${JSON.stringify({ ...rec, msg: stripAnsi(rec.msg) })}\n`;
@@ -149,16 +193,11 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       // 순환 참조 등으로 직렬화가 안 되면 최소한 메시지는 남긴다.
       line = `${JSON.stringify({ time: rec.time, level: rec.level, msg: String(stripAnsi(rec.msg)) })}\n`;
     }
-    try {
-      fs.writeSync(fd, line);
-    } catch (err) {
-      return giveUp("기록 실패", err);
-    }
-    size += Buffer.byteLength(line);
-    if (maxBytes > 0 && size >= maxBytes) rotate();
+    writeLine(line);
   }
 
   function close() {
+    closed = true;
     if (fd === null) return;
     try {
       fs.closeSync(fd);

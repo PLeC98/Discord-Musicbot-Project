@@ -142,6 +142,34 @@ test("파일을 못 열면 던지지 않고 조용히 중단한다 (로깅이 �
   assert.equal(notices.length, 1, "멈춘다는 것을 한 번 알린다");
 });
 
+// 한 번 실패하면 실행 내내 멈췄다. 이제 간격을 두고 다시 열고, 멈췄던 동안을 파일에도 남긴다
+test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 줄 알리고 멈췄던 동안을 파일에 남긴다", () => {
+  const dir = path.join(tmpdir(), "later");
+  fs.writeFileSync(dir, "지금은 파일이라 디렉터리로 못 만든다");
+  let clock = 1_000_000;
+  const notices: string[] = [];
+  const dest = createFileDestination({ file: path.join(dir, "bot.log"), maxBytes: 1e9, keep: 3, notice: (line) => notices.push(line), retryMs: 30_000, now: () => clock });
+  dest.write(rec("못 남김 1"));
+  clock += 10_000;
+  dest.write(rec("못 남김 2")); // 아직 간격 전: 다시 열어 보지 않는다
+  assert.equal(notices.length, 1, "처음 한 번만 알린다");
+  assert.match(notices[0], /파일 로그\(.*\) 실패: 파일을 열 수 없습니다/);
+
+  clock += 30_000;
+  dest.write(rec("못 남김 3")); // 간격이 지났지만 아직 막혀 있다: 같은 까닭은 다시 알리지 않는다
+  assert.equal(notices.length, 1);
+
+  fs.rmSync(dir);
+  clock += 30_000;
+  dest.write(rec("다시 남김"));
+  dest.close();
+  assert.equal(notices.length, 2);
+  assert.match(notices[1], /다시 됩니다\(잇단 실패 2회 뒤\)/);
+  const got = lines(path.join(dir, "bot.log"));
+  assert.match(String(got[0].msg), /^파일 로그가 70초 동안 멈췄다가 다시 씁니다\. 그동안 3줄을 남기지 못했습니다$/);
+  assert.equal(got[1].msg, "다시 남김");
+});
+
 test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤에 붙인다", () => {
   const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터 — 9월
   assert.equal(backupPath("/a/bot.log", at), "/a/bot-2026-09-10T14-23-05.123.log");
