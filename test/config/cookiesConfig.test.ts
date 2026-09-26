@@ -91,3 +91,9 @@ test("상태 응답은 방식만 알리고 경로는 싣지 않는다", () => {
   assert.equal(snap.cookies, "file");
   assert.ok(!JSON.stringify(snap).includes(cookieConfig.cookiesPath()));
 });
+
+// 로그인 쿠키다. 같은 서버의 다른 사용자가 읽으면 안 된다(Windows 는 이 권한 비트를 쓰지 않는다)
+test("쿠키 파일은 소유자만 읽고 쓴다", { skip: process.platform === "win32" }, () => {
+  cookieConfig.saveCookies(SAMPLE);
+  assert.equal(fs.statSync(cookieConfig.cookiesPath()).mode & 0o777, 0o600);
+});

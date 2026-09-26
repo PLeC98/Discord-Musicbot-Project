@@ -188,3 +188,10 @@ test("대시보드가 보내는 키 차례와 ai.example.yaml 의 차례가 같�
 
   assert.deepEqual(sending, inFile);
 });
+
+// 키 파일(ai-keys)은 소유자만 읽고 쓴다(Windows 는 이 권한 비트를 쓰지 않는다)
+test("비밀 파일로 저장하면 소유자만 읽고 쓴다", { skip: process.platform === "win32" }, () => {
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), "openai: old\n", { mode: 0o644 });
+  yamlStore.save("ai-keys", { openai: "new" }, { secret: true });
+  assert.equal(fs.statSync(path.join(DIR, "ai-keys.yaml")).mode & 0o777, 0o600);
+});

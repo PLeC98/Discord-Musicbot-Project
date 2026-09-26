@@ -50,8 +50,8 @@ function saveAiKeys(changes: unknown): Record<string, boolean> {
   }
 
   // 파일이 없으면 만들어 둔다. 설치 때 복사되지만 지웠을 수도 있다
-  if (!fs.existsSync(fileOf("ai-keys"))) fs.writeFileSync(fileOf("ai-keys"), "");
-  save("ai-keys", next);
+  if (!fs.existsSync(fileOf("ai-keys"))) fs.writeFileSync(fileOf("ai-keys"), "", { mode: 0o600 });
+  save("ai-keys", next, { secret: true });
   return Object.fromEntries(Object.entries(next).map(([name, value]) => [name, !!value]));
 }
 

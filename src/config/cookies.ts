@@ -50,7 +50,8 @@ function saveCookies(text: unknown): boolean {
 
   // 같은 폴더에 쓰고 옮긴다. 쓰는 도중의 반쪽짜리 파일을 yt-dlp 가 읽으면 안 된다
   const temp = `${cookiesPath()}.tmp-${process.pid}`;
-  fs.writeFileSync(temp, `${body}\n`);
+  // 로그인 쿠키다. 소유자만 읽고 쓴다(0600, Windows 는 이 비트를 안 본다)
+  fs.writeFileSync(temp, `${body}\n`, { mode: 0o600 });
   fs.renameSync(temp, cookiesPath());
   log.info(`설정을 저장했습니다: ${COOKIES_FILE}`);
   return true;

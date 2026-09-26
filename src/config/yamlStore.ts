@@ -172,7 +172,8 @@ function reorder(doc: YAML.Document, pathArr: DocPath, order: string[]) {
  *
  * 임시 파일에 쓰고 원자적으로 옮긴다. 반쯤 쓰인 파일을 로더가 읽는 일이 없어야 한다.
  */
-function save(name: string, data: unknown): ConfigData {
+// secret: 비밀이 든 파일(ai-keys). 소유자만 읽고 쓴다(0600, Windows 는 이 비트를 안 본다)
+function save(name: string, data: unknown, { secret = false }: { secret?: boolean } = {}): ConfigData {
   if (!data || typeof data !== "object") throw Object.assign(new Error("저장할 내용이 없습니다"), { code: "CONFIG_INVALID" });
 
   const file = fileOf(name);
@@ -189,7 +190,7 @@ function save(name: string, data: unknown): ConfigData {
   if (!check || typeof check !== "object") throw Object.assign(new Error("저장 결과가 올바르지 않습니다"), { code: "CONFIG_INVALID" });
 
   const tmp = `${file}.tmp-${process.pid}`;
-  fs.writeFileSync(tmp, text);
+  fs.writeFileSync(tmp, text, secret ? { mode: 0o600 } : undefined);
   fs.renameSync(tmp, file);
   cache.delete(name); // 다음 읽기가 새 내용을 가져간다
   log.info(`설정을 저장했습니다: ${path.basename(file)}`);
