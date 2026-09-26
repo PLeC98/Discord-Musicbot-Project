@@ -266,25 +266,29 @@ test("고르기 안에서 한 번 끝내 실패하면 그 고르기의 다음 �
   assert.equal(await assist.accepts(cand("D"), { pick: { failed: false } }), false, "새 고르기는 다시 부른다");
 });
 
-// 켜 둔 기능이 한도 · 서버 오류로 계속 죽어도 평소 로그 수준에서 보여야 한다. 대신 같은 줄이 쌓이지는 않게
-test("판정 실패는 처음 한 번 error 로 알리고, 같은 까닭은 세기만 하고, 풀리면 한 줄", async () => {
-  useConfig(`${ON}retries: 0\n`);
-  replies(ok1);
-  await assist.accepts(cand("A"), {}); // 앞 시험의 실패 상태를 풀어 둔다
+// 켜 둔 기능이 한도 · 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다. 재시도 하나하나는 debug
+test("재시도까지 모두 실패한 판정마다 warn 한 줄, 성공하면 아무것도", async () => {
+  useConfig(ON);
   const from = sink.buffer.length;
+  const overloaded = '{"error":{"code":503,"status":"UNAVAILABLE","message":"The model is overloaded."}}';
 
-  replies(status(503, '{"error":{"code":503,"status":"UNAVAILABLE","message":"The model is overloaded."}}'));
-  for (let i = 0; i < 3; i++) await assist.accepts(cand("A"), {});
-  replies(ok1);
+  replies(status(503, overloaded));
   await assist.accepts(cand("A"), {});
+  await assist.accepts(cand("B"), {});
+  replies(status(401, '{"error":{"message":"bad key"}}'));
+  await assist.accepts(cand("C"), {});
+  replies(status(503, overloaded), ok1);
+  await assist.accepts(cand("D"), {});
 
-  const lines = sink.buffer.slice(from).filter((e) => /^AI 보조( 실패|: 다시)/.test(e.text));
+  const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("AI 보조") && e.level !== "debug");
   assert.deepEqual(
     lines.map((e) => [e.level, e.text]),
     [
-      ["error", "AI 보조 실패: HTTP 503 UNAVAILABLE (The model is overloaded.)"],
-      ["info", "AI 보조: 다시 됩니다(잇단 실패 3회 뒤)"],
+      ["warn", "AI 보조 실패(3번 불러 모두 실패): HTTP 503 UNAVAILABLE (The model is overloaded.). 이번 판정은 규칙만으로 고릅니다"],
+      ["warn", "AI 보조 실패(3번 불러 모두 실패): HTTP 503 UNAVAILABLE (The model is overloaded.). 이번 판정은 규칙만으로 고릅니다"],
+      ["warn", "AI 보조 실패: HTTP 401 (bad key). 이번 판정은 규칙만으로 고릅니다"],
     ],
+    "다시 불러 된 판정(D)은 남기지 않는다",
   );
 });
 

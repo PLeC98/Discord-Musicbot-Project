@@ -13,7 +13,6 @@ import * as tokens from "./tokens.ts";
 import * as models from "../../config/aiModels.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
-import { repeatingFailure } from "../../infra/repeatingFailure.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/aiProviders.ts";
 import { errorKind, messageOf } from "../../rules/errorKind.ts";
@@ -766,24 +765,25 @@ function arraysIn(text: string): string[] {
   return out;
 }
 
-/** 판정 하나(재시도 · 다시 묻기까지 끝낸 것)의 실패. reason 은 같은 실패끼리 같은 글, detail 은 저쪽 문구 */
-// 판정 실패는 처음 한 번 error, 같은 까닭이 이어지면 세기만 하고 풀리면 한 줄. 켜 둔 기능이 조용히 죽어 있지 않게
-const failures = repeatingFailure(log, "AI 보조");
-
-// 판정을 못 해 규칙만으로 고른다. 까닭은 한 번 알리고, 매번의 건너뜀은 debug 로
+/**
+ * 판정 하나를 못 해 규칙만으로 고른다. 재시도까지 모두 실패한 판정마다 한 줄(재시도 하나하나는 debug).
+ * 켜 둔 기능이 한도 · 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다
+ */
 function skipped(error: unknown) {
-  if (error instanceof AskFailure) failures.fail(error.reason, error.detail);
-  else failures.fail(messageOf(error));
-  log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
+  const calls = error instanceof AskFailure && error.calls > 1 ? `(${error.calls}번 불러 모두 실패)` : "";
+  log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 고릅니다`);
 }
 
+/** 판정 하나(재시도 · 다시 묻기까지 끝낸 것)의 실패. reason 은 까닭, detail 은 저쪽 문구, calls 는 부른 수 */
 class AskFailure extends Error {
   reason: string;
   detail: string;
-  constructor(reason: string, detail: string) {
-    super(detail ? `${reason}: ${detail}` : reason);
+  calls: number;
+  constructor(reason: string, detail: string, calls: number) {
+    super(detail ? `${reason} (${detail})` : reason);
     this.reason = reason;
     this.detail = detail;
+    this.calls = calls;
   }
 }
 
@@ -847,19 +847,16 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
   try {
     let used = 0;
     let reasked = false;
-    for (;;) {
+    for (let calls = 1; ; calls++) {
       const got = await attempt(limited, request, total?.signal ?? null);
-      if (got.ok) {
-        failures.ok();
-        return got.verdicts;
-      }
+      if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
         log.debug(`AI 보조: 판정을 읽지 못해 한 번 더 묻습니다(${got.detail.slice(0, 80)})`);
         continue;
       }
       const wait = waitBefore(limited, used, got, endsAt);
-      if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).join(". "));
+      if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).join(". "), calls);
       used++;
       log.debug(`AI 보조 재시도 ${used}/${retries}(${got.reason}) ${(wait.ms / 1000).toFixed(1)}초 뒤`);
       await sleep(wait.ms);

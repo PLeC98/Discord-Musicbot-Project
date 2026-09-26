@@ -22,14 +22,6 @@ test("같은 까닭의 잇단 실패는 한 번만 남기고, 풀리면 횟수�
   ]);
 });
 
-test("덧붙인 글은 처음에만 싣고, 같은 사건인지는 까닭으로만 본다", () => {
-  const { lines, log } = recorder();
-  const ask = repeatingFailure(log, "AI 보조");
-  ask.fail("HTTP 429 rate_limit_error", "try again in 20s");
-  ask.fail("HTTP 429 rate_limit_error", "try again in 7s");
-  assert.deepEqual(lines, [["error", "AI 보조 실패: HTTP 429 rate_limit_error (try again in 20s)"]]);
-});
-
 test("까닭이 바뀌면 새 사건으로 다시 남긴다", () => {
   const { lines, log } = recorder();
   const save = repeatingFailure(log, "재생 위치 저장");
