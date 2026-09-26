@@ -48,6 +48,24 @@ test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
   watch.stop();
 });
 
+// 지금 답. 길이만 믿고 판단한다. 7단계가 믿을 수 없는 길이는 진행 정체로 가르게 바꾼다(계획서 #10 · B-53)
+test("길이를 알면 남은 시간 + 4초 뒤에, 모르면 5분 뒤에 보고, 모르는 곡은 그때 재생 중이면 멈춘다", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const known = watchdogPlayer({ duration: 200 });
+  known.watch.scheduleEnd(null);
+  t.mock.timers.tick(203_999);
+  assert.equal(known.audio.stopped, false);
+  known.watch.stop();
+
+  const unknown = watchdogPlayer({ duration: 0, playedMs: 300_000 });
+  unknown.watch.scheduleEnd(null);
+  t.mock.timers.tick(299_999);
+  assert.equal(unknown.audio.stopped, false);
+  t.mock.timers.tick(1);
+  assert.equal(unknown.audio.stopped, true, "길이를 모르는 곡은 5분에 끊긴다");
+  assert.equal(unknown.player.pendingEndReason, "watchdog");
+});
+
 // ── 판정용 오디오 길이 ───────────────────────────────────────
 // 재생목록으로 담은 스포티파이 곡은 스포티파이 길이를 들고 오는데, 실제 오디오는 수 초 짧을 수 있다.
 // 그 차이로 멀쩡한 종료가 조기 종료로 판정되고 SponsorBlock 곡 끝 구간이 파일 끝으로 건너뛰기가 됐다.
