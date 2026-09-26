@@ -2,7 +2,7 @@
 // 회귀 대상: 쓰기 실패 시 Set에서만 제거되고 perKey(연결 캡)·listGuildIds·빈 Set 정리가
 // close 이벤트에만 의존 — close가 안 오는 비정상 종료에서 캡이 영구 점유되던 문제.
 
-import { test, after } from "node:test";
+import { test, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import type { Response } from "express";
@@ -124,4 +124,33 @@ test("구독하지 않은 서버의 넛지는 받지 않는다 (guildId 스코�
   assert.equal(res.writes.length, 0);
 
   res.emit("close");
+});
+
+// 넛지 합치기: 몰린 알림은 창 하나에 한 번, 창이 끝나면 다시 받는다
+test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다시 예약한다. 보는 이가 없으면 예약도 안 한다", () => {
+  mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const hub = createPlayerStream({ heartbeatMs: 60_000, maxPerUser: 5, coalesceMs: 250 });
+  try {
+    const res = makeRes();
+    hub.addClient("cG1", res, "cU1");
+    const nudges = () => res.writes.filter((w) => w.includes('"t":"changed"')).length;
+
+    hub.notify("cG1");
+    hub.notify("cG1");
+    mock.timers.tick(249);
+    hub.notify("cG1");
+    assert.equal(nudges(), 0, "창이 끝나기 전에는 보내지 않는다");
+    mock.timers.tick(1);
+    assert.equal(nudges(), 1, "창 안의 세 번이 한 번으로");
+
+    hub.notify("cG1");
+    mock.timers.tick(250);
+    assert.equal(nudges(), 2, "보낸 뒤의 알림은 새 창을 연다");
+
+    hub.notify("cG-nobody");
+    assert.equal(hub.coalesceTimers.has("cG-nobody"), false);
+  } finally {
+    hub.close();
+    mock.timers.reset();
+  }
 });
