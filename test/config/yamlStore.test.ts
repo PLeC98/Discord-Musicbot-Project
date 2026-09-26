@@ -78,6 +78,41 @@ test("돌던 중 문법이 깨지면 직전 값을 유지한다", () => {
   assert.equal(yamlStore.load("broken").value, 1, "직전 값으로 계속 돈다");
 });
 
+// 설정은 요청마다 읽는다. 깨진 채로 두면 읽을 때마다 같은 경고가 쌓였다
+test("직전 값으로 버티는 동안 같은 상태는 한 번만 알리고, 풀리면 한 줄", () => {
+  const seen: string[] = [];
+  let watching = true;
+  sink.addDestination((rec) => watching && seen.push(JSON.stringify(rec)));
+  // 로그는 늦게 닿는다. 앞 시험의 줄이 섞이지 않게 이 파일 것만 센다
+  const count = (what: string) => seen.filter((one) => one.includes(what) && one.includes("holding.yaml")).length;
+  try {
+    write("holding", "value: 1\n");
+    touch("holding");
+    yamlStore.load("holding");
+
+    write("holding", "value: [\n");
+    touch("holding");
+    for (let i = 0; i < 3; i++) assert.equal(yamlStore.load("holding").value, 1);
+    assert.equal(count("읽지 못했습니다"), 1, "깨진 동안 한 번");
+
+    fs.rmSync(path.join(DIR, "holding.yaml"));
+    for (let i = 0; i < 3; i++) yamlStore.load("holding");
+    assert.equal(count("찾지 못했습니다"), 1, "없는 동안 한 번");
+
+    write("holding", "value: 2\n");
+    touch("holding");
+    assert.equal(yamlStore.load("holding").value, 2);
+    assert.equal(count("다시 읽었습니다"), 1);
+
+    write("holding", "value: [\n");
+    touch("holding");
+    yamlStore.load("holding");
+    assert.equal(count("읽지 못했습니다"), 2, "다시 깨지면 새로 알린다");
+  } finally {
+    watching = false;
+  }
+});
+
 test("처음부터 문법이 깨져 있으면 멈춘다 — 탭 안내까지", () => {
   yamlStore._cache.delete("bad");
   write("bad", "value: [\n");

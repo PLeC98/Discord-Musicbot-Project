@@ -35,6 +35,14 @@ const exampleOf = (name: string) => path.join(dir, `${name}.example.yaml`);
 
 // 비밀이 든 파일. YAML 문법 오류는 잘못된 줄을 그대로 인용하므로 이 파일들은 첫 줄(무엇이 · 몇째 줄 몇째 칸)만 남긴다
 const SECRET_FILES = new Set(["ai-keys"]);
+// 직전 값으로 버티는 파일 → 알린 상태(없음 · 깨진 내용의 mtime). 설정은 요청마다 읽으므로 같은 상태는 한 번만 알린다
+const holding = new Map<string, string>();
+function holdOn(name: string, state: string, line: string) {
+  if (holding.get(name) === state) return;
+  holding.set(name, state);
+  log.warn(line);
+}
+
 const yamlProblem = (name: string, message: string) => (SECRET_FILES.has(name) ? message.split("\n")[0] : message);
 
 /**
@@ -53,7 +61,7 @@ function load(name: string): ConfigData {
   } catch {
     const cached = cachedData(name);
     if (cached) {
-      log.warn(`설정 파일을 찾지 못했습니다(직전 값 유지): ${file}`);
+      holdOn(name, "missing", `설정 파일을 찾지 못했습니다(직전 값 유지): ${file}`);
       return cached.value;
     }
     throw Object.assign(new Error(`설정 파일이 없습니다: ${file}\n   ${exampleOf(name)} 를 복사해 만드세요 (pnpm install이 자동으로 만듭니다).`), { code: "CONFIG_MISSING" });
@@ -71,13 +79,14 @@ function load(name: string): ConfigData {
     // 사람이 고치는 파일이라 문법 오류가 날 수 있다. 어디가 잘못됐는지 알려 주는 것이 중요하다.
     const detail = yamlProblem(name, String((error instanceof Error && error.message) || error));
     if (cached) {
-      log.warn(`설정 파일을 읽지 못했습니다(직전 값 유지): ${path.basename(file)}, ${detail}`);
+      holdOn(name, `broken ${stat.mtimeMs}`, `설정 파일을 읽지 못했습니다(직전 값 유지): ${path.basename(file)}, ${detail}`);
       return cached.value;
     }
     throw Object.assign(new Error(`설정 파일을 읽지 못했습니다: ${file}\n   ${detail}\n   들여쓰기에 탭을 쓰지 않았는지 확인하세요(YAML은 공백만 받습니다).`), { code: "CONFIG_INVALID" });
   }
 
   if (cached) log.info(`설정을 다시 읽었습니다: ${path.basename(file)}`);
+  holding.delete(name);
   cache.set(name, { mtimeMs: stat.mtimeMs, value });
   return value;
 }
@@ -205,6 +214,7 @@ function save(name: string, data: unknown, { secret = false }: { secret?: boolea
 function _setConfigDir(next: string) {
   dir = next;
   cache.clear();
+  holding.clear();
 }
 
 const configDir = () => dir;
