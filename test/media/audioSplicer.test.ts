@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PassThrough, type Readable } from "stream";
+import { PassThrough, Readable } from "stream";
 import { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } from "../../src/media/audioSplicer.ts";
 
 // 위치마다 값이 다른 PCM — 어긋나면 바로 드러난다. mark로 소스를 구분한다.
@@ -315,3 +315,32 @@ test("emittedMs는 내보낸 양을 따라간다", async () => {
   await collect(sp);
   assert.equal(sp.emittedMs, 200);
 });
+
+// ── 페이드 중 끝난 소스의 짧은 꼬리 ──────────────────────────────
+
+// 끝남(push(null))이 이미 확정된 소스. 페이드 중에 프레임보다 짧은 꼬리만 남은 상황을 만든다
+function ended(bytes: number, mark: number) {
+  const s = new Readable({ read() {} });
+  s.push(pcm(Math.ceil(bytes / BYTES_PER_MS) + 1, mark).subarray(0, bytes));
+  s.push(null);
+  return s;
+}
+
+for (const [label, aBytes, bBytes, expected] of [
+  // 옛 소스: 전환 지점(100ms) 뒤 한 프레임 + 1000바이트에서 끝난다. 다음 프레임은 꼬리와 섞는다
+  ["옛 소스의 꼬리", 100 * BYTES_PER_MS + FRAME_BYTES + 1000, 5 * FRAME_BYTES, 100 * BYTES_PER_MS + 5 * FRAME_BYTES],
+  // 새 소스: 한 프레임도 못 채우고 끝난다
+  ["새 소스의 꼬리", 400 * BYTES_PER_MS, 1000, 100 * BYTES_PER_MS + FRAME_BYTES],
+  ["새 소스의 한 프레임 + 꼬리", 400 * BYTES_PER_MS, FRAME_BYTES + 1000, 100 * BYTES_PER_MS + 2 * FRAME_BYTES],
+] as const) {
+  test(`페이드 중 ${label}가 프레임보다 짧아도 섞고 넘어간다(버퍼 밖을 읽지 않는다)`, async () => {
+    const a = ended(aBytes, 1);
+    const b = ended(bBytes, 2);
+    await new Promise((r) => setImmediate(r));
+    const sp = new AudioSplicer(a, { fadeMs: 80 });
+    assert.equal(sp.planSwitch(b, 100), true);
+    const out = await collect(sp);
+    assert.equal(sp.switched, true);
+    assert.equal(out.length, expected);
+  });
+}

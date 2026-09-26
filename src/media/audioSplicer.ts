@@ -156,9 +156,11 @@ class AudioSplicer extends Readable {
       b.unshift(next);
       return this._switchNow();
     }
-    this.push(this._mix(prev, next));
-    this.faded += FRAME_BYTES;
-    this.emitted += FRAME_BYTES;
+    // 끝난 소스는 프레임보다 짧은 꼬리를 줄 수 있다. 섞은 길이만큼 센다
+    const mixed = this._mix(prev, next);
+    this.push(mixed);
+    this.faded += mixed.length;
+    this.emitted += mixed.length;
     if (this.faded >= this.fadeBytes) this._completeSwitch();
     return true;
   }
@@ -202,11 +204,14 @@ class AudioSplicer extends Readable {
     if (this.bDebt > 0 && isEnded(b) && b.readableLength === 0) this.bDebt = 0;
   }
 
+  // 두 조각의 길이가 다를 수 있다(끝난 소스의 꼬리). 긴 쪽에 맞추고 모자란 쪽은 무음으로 본다
   _mix(a: Buffer, b: Buffer): Buffer {
-    const out = Buffer.alloc(FRAME_BYTES);
-    for (let i = 0; i < FRAME_BYTES; i += 2) {
+    const length = Math.max(a.length, b.length) & ~1;
+    const sample = (buf: Buffer, i: number) => (i + 1 < buf.length ? buf.readInt16LE(i) : 0);
+    const out = Buffer.alloc(length);
+    for (let i = 0; i < length; i += 2) {
       const t = Math.min(1, (this.faded + i) / this.fadeBytes);
-      const v = a.readInt16LE(i) * Math.cos((t * Math.PI) / 2) + b.readInt16LE(i) * Math.sin((t * Math.PI) / 2);
+      const v = sample(a, i) * Math.cos((t * Math.PI) / 2) + sample(b, i) * Math.sin((t * Math.PI) / 2);
       out.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(v))), i);
     }
     return out;
