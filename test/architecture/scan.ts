@@ -221,7 +221,18 @@ function scanTest(rel: string) {
     ts.forEachChild(n, visit);
   };
   visit(sf);
-  return { rel, requireCache, swaps };
+
+  // 첫 시험을 등록한 뒤 맨 위에서 기다리는 줄. 기다리는 동안 앞 시험이 끝나면 맨 위 after() 가 먼저 돌아
+  // 뒤에 등록되는 시험이 닫힌 서버 · 저장소를 만난다(앞 시험만 걸러 돌리면 늘 그렇다)
+  const lateAwaits: number[] = [];
+  const awaits = (n: ts.Node): boolean => ts.isAwaitExpression(n) || (ts.isForOfStatement(n) && !!n.awaitModifier) || (!ts.isFunctionLike(n) && !!ts.forEachChild(n, (c) => awaits(c) || undefined));
+  const registersTest = (st: ts.Statement) => ts.isExpressionStatement(st) && ts.isCallExpression(st.expression) && ts.isIdentifier(st.expression.expression) && st.expression.expression.text === "test";
+  let registered = false;
+  for (const st of sf.statements) {
+    if (registered && awaits(st)) lateAwaits.push(line(st));
+    if (registersTest(st)) registered = true;
+  }
+  return { rel, requireCache, swaps, lateAwaits };
 }
 
 // 순환: 강하게 이어진 덩어리(Tarjan) 안의 선
@@ -292,6 +303,7 @@ function scan() {
     configCapture: perFile(sources, (f) => f.captures.length),
     requireCache: perFile(tests, (f) => f.requireCache),
     methodSwap: tests.filter((f) => f.swaps.length).map((f) => f.rel),
+    lateAwait: tests.filter((f) => f.lateAwaits.length).map((f) => `${f.rel}:${f.lateAwaits.join(",")}`),
     // 어느 줄인가(진단용. 기준선은 파일만 본다)
     methodSwapLines: Object.fromEntries(tests.filter((f) => f.swaps.length).map((f) => [f.rel, f.swaps])),
   };

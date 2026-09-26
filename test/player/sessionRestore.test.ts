@@ -4,10 +4,12 @@
 // `retries--`가 도달 불가였다. 길드 하나가 계속 실패하면 1초 간격 무한 루프 = 부팅 정지.
 // 회귀 대상 2: 일시적 조회 실패에도 저장 세션을 삭제했다.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { RESTJSONErrorCodes } from "discord.js";
-import { resolveGuildForRestore } from "../../src/player/sessionRestore.ts";
+import { resolveGuildForRestore, restoreSavedPlayers } from "../../src/player/sessionRestore.ts";
+import { sessions } from "../../src/store/playerSessions.ts";
+import { openTempStore } from "../helpers/tempStore.ts";
 import type { Client, Guild } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import { fake } from "../helpers/fake.ts";
@@ -102,11 +104,6 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 });
 
 // ── 기동 때 저장 세션 모두 되살리기 ───────────────────────────────────────────
-
-import { after } from "node:test";
-const { openTempStore } = await import("../helpers/tempStore.ts");
-const { restoreSavedPlayers } = await import("../../src/player/sessionRestore.ts");
-const { sessions } = await import("../../src/store/playerSessions.ts");
 
 const store = openTempStore("session-restore-");
 after(() => store.close());

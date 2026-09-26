@@ -24,6 +24,7 @@ const { adminRouter } = await import("../../dashboard/server/routes/admin.ts");
 const autoplaySources = await import("../../src/autoplay/sources/index.ts");
 const { useFetch } = await import("../../src/autoplay/sources/http.ts");
 const assist = await import("../../src/autoplay/assist/index.ts");
+const yamlStore = await import("../../src/config/yamlStore.ts");
 
 /** 거절 · 확인 답의 칸. 경로마다 읽는 칸이 더 있으면 부를 때 모양을 적는다 */
 type Reply = { error?: string; success?: boolean };
@@ -278,8 +279,6 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
 //
 // 봇 전체 동작을 바꾸는 자리다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
 // 실제 config/ 폴더는 건드리지 않는다 — 로더의 디렉터리를 임시 폴더로 돌려 둔다.
-
-const yamlStore = await import("../../src/config/yamlStore.ts");
 
 /** 장르 설정을 읽은 답 */
 type GenresConfig = { data: { genres: Record<string, { sources: { type: string; keywords: string[] }[] }> } };
