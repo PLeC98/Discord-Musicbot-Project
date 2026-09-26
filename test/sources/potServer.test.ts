@@ -5,6 +5,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { withConfig } from "../helpers/config.ts";
+import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
 import { createPotServer, scrubBgutilLine, PORT } from "../../src/sources/youtube/potServer.ts";
 
 test("토큰은 로그에 남기지 않는다", () => {
@@ -103,10 +105,33 @@ test("서버 출력은 토큰을 가려 흘린다(오류 줄도 멈추지 않는
   const server = createPotServer({ spawn, exists: () => true });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());
   const { proc } = spawned[0];
-  proc.stdout.emit("data", Buffer.from("Generated IntegrityToken: secret\n\nnext\n"));
-  proc.stderr.emit("data", Buffer.from("Error: could not listen on port\n"));
-  proc.stderr.emit("data", Buffer.from("warn line\n"));
-  server.stop();
+  // 표준 출력은 debug 로 흘리므로 그동안만 debug 를 남긴다
+  const level = logger.level;
+  logger.level = "debug";
+  const from = sink.buffer.length;
+  try {
+    proc.stdout.emit("data", Buffer.from("Generated IntegrityToken: secret\n\nnext\n"));
+    proc.stderr.emit("data", Buffer.from("Error: could not listen on port\n"));
+    proc.stderr.emit("data", Buffer.from("warn line\n"));
+  } finally {
+    logger.level = level;
+    server.stop();
+  }
+
+  const lines = sink.buffer
+    .slice(from)
+    .filter((e) => e.sub === "bgutil")
+    .map((e) => ({ level: e.level, text: e.text }));
+  assert.ok(
+    lines.every(({ text }) => !text.includes("secret")),
+    "토큰 값이 로그에 남지 않는다",
+  );
+  assert.deepEqual(
+    lines.map(({ level }) => level),
+    ["debug", "debug", "error", "warn"],
+    "표준 출력은 debug, 오류 줄은 error, 나머지 표준 오류는 warn. 빈 줄은 버린다",
+  );
+  assert.match(lines[0].text, /Generated IntegrityToken: \[REDACTED\]/);
 });
 
 // 치명적 종료는 stop() 을 부르지 않는다. 등록부가 프로세스가 끝날 때 함께 내리게 등록해 둔다

@@ -11,6 +11,7 @@ import type { Client } from "discord.js";
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
 const who = { id: "u1", username: "사용자" };
@@ -224,7 +225,21 @@ test("플레이어가 없거나 처리 중 던지면 실패 문장", async () =>
 });
 
 test("재생목록 안내는 텍스트 채널이 없으면(대시보드) 보내지 않는다", async () => {
-  const { mem, player } = setup();
-  player.textChannel = null;
-  await mem.showPlaylistAdditionMessage(player, [track("a")], "재생목록");
+  const { mem, player, sent } = setup();
+  const channel = player.textChannel;
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    player.textChannel = null;
+    const from = sink.buffer.length;
+    await mem.showPlaylistAdditionMessage(player, [track("a")], "재생목록");
+    assert.deepEqual(sent, []);
+    assert.deepEqual(sink.buffer.slice(from), [], "보내려다 실패한 것이 아니라 아예 보내지 않는다");
+
+    // 대조: 채널이 있으면 보낸다
+    player.textChannel = channel;
+    await mem.showPlaylistAdditionMessage(player, [track("a")], "재생목록");
+    assert.equal(sent.length, 1);
+  } finally {
+    mock.timers.reset();
+  }
 });
