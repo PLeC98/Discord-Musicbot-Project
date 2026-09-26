@@ -2,6 +2,7 @@
 // 원문 전체(yt-dlp 의 WARNING 줄 포함)는 부르는 쪽이 debug 로 남긴다.
 
 import { errorKind, messageOf } from "../rules/errorKind.ts";
+import { operatorHint } from "../rules/operatorHints.ts";
 
 // 로그에 적을 이름. 문장이 넓게 걸리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 잃는다
 const LABELS: Record<string, string> = {
@@ -28,7 +29,7 @@ function firstLine(text: string) {
 function failureReason(error: unknown, cookiesConfigured: boolean): string {
   const kind = errorKind(error);
   const text = messageOf(error);
-  const why = kind === "age-restricted" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : (LABELS[kind] ?? firstLine(text));
+  const why = kind === "age-restricted" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? firstLine(text)}${operatorHint(kind)}`;
   const id = VIDEO_ID.exec(text)?.[1];
   return id ? `${why} (${id})` : why;
 }

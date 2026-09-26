@@ -8,6 +8,7 @@ import * as SoundCloud from "./soundcloud.ts";
 import * as DirectLink from "./direct.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import { errorKind, messageOf } from "../rules/errorKind.ts";
+import { operatorHint } from "../rules/operatorHints.ts";
 import type { CacheHit } from "../store/trackLookup.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
@@ -92,7 +93,8 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
     if (!found.tracks.length) return { success: false, code: "no-result" };
     return { success: true, ...found };
   } catch (error) {
-    log.error({ sub: context || undefined, kind: errorKind(error) }, messageOf(error));
+    const kind = errorKind(error);
+    log.error({ sub: context || undefined, kind }, `${messageOf(error)}${operatorHint(kind)}`);
     return { success: false, code: "lookup-failed", error };
   }
 }

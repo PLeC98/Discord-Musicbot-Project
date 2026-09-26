@@ -33,3 +33,16 @@ test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {
   assert.equal(failureReason(new Error("ffmpeg exited with code 1\n자세한 것"), false), "ffmpeg exited with code 1", "문장이 넓게 걸리는 종류는 이름으로 덮지 않는다");
   assert.equal(failureReason("그냥 글자", false), "그냥 글자");
 });
+
+// 사용자는 설정을 만질 수 없다. 사용자 문장에는 무엇이 안 됐는지만, 고치는 법은 운영자 로그에(계획서 #24)
+test("봇 감지 · 요청 제한: 고치는 법(쿠키 · bgutil)은 로그 줄에만 붙고 사용자 문장에는 없다", () => {
+  const bot = ytdlpError("ERROR: [youtube] abcdefghijk: Sign in to confirm you're not a bot");
+  const limited = ytdlpError("ERROR: [youtube] abcdefghijk: HTTP Error 429: Too Many Requests");
+  assert.match(failureReason(bot, false), /^봇 감지 \(운영자: .*COOKIES_SOURCE.*\) \(abcdefghijk\)$/);
+  assert.match(failureReason(limited, false), /^요청 제한 \(운영자: .*COOKIES_SOURCE.*\) \(abcdefghijk\)$/);
+  for (const error of [bot, limited]) {
+    const told = errorMessage(error);
+    assert.doesNotMatch(told, /\.env|COOKIES_SOURCE|bgutil/, told);
+    assert.match(told, /봇 운영자에게 알려 주세요/);
+  }
+});
