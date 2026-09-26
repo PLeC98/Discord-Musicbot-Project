@@ -193,12 +193,17 @@ function recordPlayback(audioKey: string) {
  * 그 시점엔 플레이어가 아직 없으므로 저장된 현재곡·대기열이 유일한 근거다.
  */
 function getProtectedCacheFiles() {
-  const files = new Set<string>();
+  return new Set([...sessionKeys()].map((key) => path.resolve(getFilePath(key))));
+}
+
+// 저장된 세션(지금 곡 · 대기열)이 쓰는 캐시 키. 퇴거 · 고아 청소가 같은 근거로 지킨다(복원된 곡이 예열 전에 지워지지 않게)
+function sessionKeys() {
+  const keys = new Set<string>();
   for (const audioUrl of sessions().liveAudioUrls()) {
     const key = audioKeyOf(audioUrl);
-    if (key) files.add(path.resolve(getFilePath(key)));
+    if (key) keys.add(key);
   }
-  return files;
+  return keys;
 }
 
 // 시작 시 정리
@@ -404,9 +409,10 @@ async function evictIfNeeded() {
  * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 부르는 쪽이 넘기고, 생략하면 잰다
  */
 async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFree = freeDiskBytes() }: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
-  // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분.
+  // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분, 저장된 세션의 곡.
   // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
-  const live = liveKeys();
+  // 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다
+  const live = new Set([...liveKeys(), ...sessionKeys()]);
   const rows = (conn().prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[]).filter((r) => !live.has(r.audio_key));
 
   if (rows.length === 0) return;

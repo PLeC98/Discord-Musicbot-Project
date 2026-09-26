@@ -125,12 +125,13 @@ async function onReady(client: Client<true>) {
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
 
+  // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(받다 만 행 · 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
+  // 이번 실행이 받기 시작한 행까지 받다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
+  await cleanupAudioCache();
   log.debug("세션 복원 시작");
   await restoreSavedPlayers(client, MusicPlayer);
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await client.musicEmbedManager?.restorePanels();
-  // 캐시 정리는 세션 복원 뒤에 - 복원된 세션이 참조하는 파일이 고아로 오인되지 않도록
-  await cleanupAudioCache();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
 }
 

@@ -97,6 +97,29 @@ test("evict: 넘친 만큼, 목표선(상한의 90%)까지 지운다. 한 번에
   conn.prepare("DELETE FROM audio_cache").run();
 });
 
+// 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다. 퇴거도 고아 청소처럼 저장된 세션을 본다
+test("evict: 저장된 세션의 곡은 조건이 나빠도 지우지 않는다", async () => {
+  const conn = storeDb.get();
+  conn.prepare("DELETE FROM audio_cache").run();
+  const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
+  const OLD = Date.now() - 90 * 86_400_000;
+  ins.run("yt:sessvid0001", "/nx/sess.opus", 60_000_000, OLD); // 가장 지울 만한 곡
+  for (let i = 0; i < 5; i++) ins.run(`fresh${i}`, `/nx/fresh${i}.opus`, 1_000_000, Date.now());
+  sessions().append("g-evict", [{ title: "복원될 곡", pageUrl: "https://www.youtube.com/watch?v=sessvid0001", requestKey: "https://www.youtube.com/watch?v=sessvid0001", audioUrl: "https://www.youtube.com/watch?v=sessvid0001" }]);
+  try {
+    await withCacheLimits({ maxFiles: 3 }, () => audioCache.evict());
+    const left = conn
+      .prepare<[], { audio_key: string }>("SELECT audio_key FROM audio_cache")
+      .all()
+      .map((r) => r.audio_key);
+    assert.ok(left.includes("yt:sessvid0001"), "세션이 쓰는 곡은 남는다");
+    assert.equal(left.length, 2, "나머지로 목표선(3의 90%)을 맞춘다");
+  } finally {
+    sessions().removeSession("g-evict");
+    conn.prepare("DELETE FROM audio_cache").run();
+  }
+});
+
 // 상한만 잠시 바꾼다(디스크 여유 조건은 끈다)
 async function withCacheLimits(limits: { maxFiles?: number; maxSizeBytes?: number }, fn: () => Promise<unknown>) {
   const saved = { ...config.cache };
