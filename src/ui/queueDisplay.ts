@@ -49,4 +49,26 @@ function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration
   return tail ? `${trimmed} | ${tail}` : trimmed;
 }
 
-export { queueLine, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };
+// 임베드 칸 하나에 들어가는 글 길이(디스코드 상한)
+const FIELD_MAX = 1024;
+
+/**
+ * 대기열 줄들을 임베드 칸들로. 칸 하나는 1024자까지라 링크가 붙은 긴 제목 열 줄이면 넘친다.
+ * 넘치면 다음 칸으로 잇는다(이름은 첫 칸에만). 한 줄이 칸보다 길면 그 줄을 자른다
+ */
+function queueFields(name: string, lines: string[]) {
+  const fields: Array<{ name: string; value: string; inline: false }> = [];
+  let value = "";
+  for (const raw of lines) {
+    const line = raw.length > FIELD_MAX ? `${raw.slice(0, FIELD_MAX - 2)}…\n` : raw;
+    if (value && value.length + line.length > FIELD_MAX) {
+      fields.push({ name: fields.length ? "\u200b" : name, value, inline: false });
+      value = "";
+    }
+    value += line;
+  }
+  if (value) fields.push({ name: fields.length ? "\u200b" : name, value, inline: false });
+  return fields;
+}
+
+export { queueLine, queueFields, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };

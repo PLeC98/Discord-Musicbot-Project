@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import * as S from "../src/ui/strings.ts";
-import { queueLine } from "../src/ui/queueDisplay.ts";
+import { queueLine, queueFields } from "../src/ui/queueDisplay.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const PAGE_SIZE = 10;
@@ -44,16 +44,8 @@ const exported: GuildCommand = {
 
     if (totalQueueTracks > 0) {
       const tracks = queueInfo.queue.slice(offset, offset + PAGE_SIZE);
-      let queueText = "";
-      tracks.forEach((track, i) => {
-        queueText += queueLine(track, offset + i + 1);
-      });
-
-      embed.addFields({
-        name: `📋 다음 노래들 (${totalQueueTracks}개)`,
-        value: queueText,
-        inline: false,
-      });
+      const lines = tracks.map((track, i) => queueLine(track, offset + i + 1));
+      embed.addFields(...queueFields(`📋 다음 노래들 (${totalQueueTracks}개)`, lines));
     }
 
     embed.setFooter({

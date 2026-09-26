@@ -175,6 +175,27 @@ test("/queue: 쪽마다 나눠 보이고, 현재 곡은 첫 쪽에만. 없는 �
   assert.equal(p3.embeds[0].data.footer?.text, "총 26개의 노래 • 3/3 페이지");
 });
 
+// 링크가 붙은 긴 유튜브 제목 열 줄이면 칸 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용)
+test("/queue: 긴 제목 열 줄은 칸을 나눠 싣고, 칸마다 1024자를 넘지 않는다", async () => {
+  const title = "Tears For Fears - Everybody Wants To Rule The World (Official Archive Video)";
+  const queue = Array.from({ length: 10 }, (_, i) => ({ title, pageUrl: `https://www.youtube.com/watch?v=aaaaaaaaaa${i}`, duration: 60, requestedBy: { id: "151864213755789312" } }));
+  const it = interaction({ player: queuePlayer(null, queue) });
+  await run(await command("queue"), it.it, it.client);
+  const fields = it.log[0][1].embeds[0].data.fields ?? [];
+  assert.ok(fields.length >= 2, "한 칸에 다 못 담는다");
+  assert.ok(fields.every((f: { value: string }) => f.value.length <= 1024));
+  assert.equal(
+    fields
+      .map((f: { value: string }) => f.value)
+      .join("")
+      .split("\n")
+      .filter(Boolean).length,
+    10,
+    "줄은 빠지지 않는다",
+  );
+  assert.equal(fields[0].name, "📋 다음 노래들 (10개)");
+});
+
 // ── /help · /system ───────────────────────────────────────────────────
 
 test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", async () => {

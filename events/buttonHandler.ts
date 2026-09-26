@@ -16,7 +16,7 @@ const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
 };
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
-import { queueLine } from "../src/ui/queueDisplay.ts";
+import { queueLine, queueFields } from "../src/ui/queueDisplay.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import type { ClientEvent } from "../src/app/main.ts";
@@ -159,22 +159,9 @@ async function handleQueue(interaction: Press, player: MusicPlayer) {
   }
 
   if (queueInfo.queue.length > 0) {
-    let queueText = "";
-    const tracks = queueInfo.queue.slice(0, 10);
-
-    tracks.forEach((track, index) => {
-      queueText += queueLine(track, index + 1);
-    });
-
-    if (queueInfo.queue.length > 10) {
-      queueText += `\n*... 그리고 ${queueInfo.queue.length - 10}개 더*`;
-    }
-
-    embed.addFields({
-      name: `📋 다음 노래들 (${queueInfo.queue.length}개)`,
-      value: queueText,
-      inline: false,
-    });
+    const lines = queueInfo.queue.slice(0, 10).map((track, index) => queueLine(track, index + 1));
+    if (queueInfo.queue.length > 10) lines.push(`\n*... 그리고 ${queueInfo.queue.length - 10}개 더*`);
+    embed.addFields(...queueFields(`📋 다음 노래들 (${queueInfo.queue.length}개)`, lines));
   }
 
   embed.setFooter({
