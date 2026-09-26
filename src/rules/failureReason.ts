@@ -9,6 +9,8 @@ const LABELS: Record<string, string> = {
   "age-cookies-invalid": "연령 제한 · 쿠키가 무효. 쿠키를 다시 넣어 주세요",
   "bot-check": "봇 감지",
   "video-unavailable": "비공개이거나 삭제된 영상",
+  "track-unavailable": "없거나 비공개인 곡",
+  "preview-only": "미리듣기만 열린 곡",
   "geo-blocked": "지역 차단",
   "rate-limited": "요청 제한",
   "no-youtube-match": "유튜브에서 같은 곡을 못 찾음",

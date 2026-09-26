@@ -9,6 +9,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   // 운영자가 쿠키를 다시 넣으면 풀린다
   "age-cookies-invalid": "❌ 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.",
   "video-unavailable": "❌ 비공개이거나 삭제된 영상은 재생할 수 없어요.",
+  "track-unavailable": "❌ 없거나 비공개인 곡이에요.",
+  // 사운드클라우드 Go+ · 음반사 곡은 30초 조각만 열린다. 조각을 곡처럼 틀지 않는다
+  "preview-only": "❌ 미리듣기(30초)만 열린 곡이라 틀 수 없어요.",
   "playlist-unavailable": "❌ 없거나 비공개인 재생목록이에요.",
   // 운영자 설정이 없다. 까닭은 운영자 로그에만
   "spotify-unavailable": "❌ 지금은 스포티파이 링크를 재생할 수 없어요.",

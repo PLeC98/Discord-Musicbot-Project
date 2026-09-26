@@ -3,7 +3,7 @@
 // 글은 보지 않는다. 이름이 없으면 unknown 이다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
-const KINDS = new Set(["age-cookies-invalid", "age-restricted", "bot-check", "video-unavailable", "playlist-unavailable", "geo-blocked", "rate-limited", "no-youtube-match", "spotify-unavailable", "link-unavailable", "network", "stream-failed", "voice-permission"]);
+const KINDS = new Set(["age-cookies-invalid", "age-restricted", "bot-check", "video-unavailable", "track-unavailable", "preview-only", "playlist-unavailable", "geo-blocked", "rate-limited", "no-youtube-match", "spotify-unavailable", "link-unavailable", "network", "stream-failed", "voice-permission"]);
 // 연결이 끊기거나 닿지 않은 것(Node · undici 가 붙이는 이름)
 const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
 // 디스코드 API 오류 번호. 50001 접근 없음 · 50013 권한 없음

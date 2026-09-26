@@ -21,7 +21,8 @@ const str = z.string();
 const num = z.number();
 
 const SHAPE = {
-  // 무엇인가
+  // 무엇인가. _type 은 여러 곡이면 "playlist"(짧은 링크처럼 주소만으로는 모를 때 본다)
+  _type: str,
   id: z.union([str, num]),
   ie_key: str,
   extractor: str,

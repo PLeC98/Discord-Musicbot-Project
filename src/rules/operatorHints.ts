@@ -3,7 +3,7 @@
 
 const HINTS: Record<string, string> = {
   "bot-check": "bgutil(POToken)을 켜거나 .env 의 COOKIES_SOURCE 로 쿠키를 걸면 풀릴 수 있다",
-  "rate-limited": "잦으면 .env 의 COOKIES_SOURCE 로 쿠키를 건다",
+  "rate-limited": "유튜브면 잦을 때 .env 의 COOKIES_SOURCE 로 쿠키를 건다. 사운드클라우드는 요청이 몰리면 IP 를 몇 분 막는다",
 };
 
 /** 로그 줄 끝에 붙일 안내. 없으면 빈 글 */
