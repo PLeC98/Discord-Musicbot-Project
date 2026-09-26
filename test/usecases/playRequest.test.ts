@@ -204,6 +204,8 @@ test("방송 중인 라이브는 통과시킨다", async () => {
 
   const sent = client.embedCalls[0].trackData.tracks.map((t) => t.title);
   assert.deepEqual(sent, ["24/7 라디오"]);
+  // 로그의 하위 이름에 슬래시 명령의 "/"가 들어가면 track//play 가 된다
+  assert.equal(resolverCalls.at(-1)?.context, "play.resolveQuery");
 });
 
 test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브도 거절한다", async () => {
@@ -283,7 +285,7 @@ test("query 경로: 해석 결과를 코어에 그대로 넘긴다", async () =>
     ["곡A"],
   );
   assert.equal(resolverCalls.at(-1)?.query, "곡A");
-  assert.equal(resolverCalls.at(-1)?.context, "/play.resolveQuery");
+  assert.equal(resolverCalls.at(-1)?.context, "play.resolveQuery");
 });
 
 test("tracks 경로: 이미 해석된 트랙은 해석기를 거치지 않는다 (검색 선택)", async () => {

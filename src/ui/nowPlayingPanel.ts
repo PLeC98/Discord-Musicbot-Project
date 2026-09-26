@@ -842,14 +842,13 @@ class MusicEmbedManager {
    * sourceLabel 은 여러 곡을 담은 출처의 표시 이름(재생목록·앨범 등). 없으면 한 곡 안내
    */
   createQueueAdditionMessage(tracks: Array<Pick<QueuedTrack, "title">>, sourceLabel: string | null, insertFirst = false, { dropped = 0, skipped = 0, total = null, queueLimited = false }: AdditionNotice = {}) {
+    const where = insertFirst ? "대기열 맨 앞에" : "대기열에";
+    const mark = insertFirst ? "⏫" : "✅";
     let text: string;
-    if (sourceLabel) {
-      text = insertFirst ? `⏫ ${sourceLabel}의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ ${sourceLabel}의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
-    } else {
-      const title = escapeMd(tracks[0]?.title || "알 수 없는 트랙");
-      text = insertFirst ? `⏫ **${title}**이(가) 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**이(가) 대기열에 추가되었습니다!`;
-    }
-    if (sourceLabel && total) text += ` (전체 ${total.toLocaleString("ko-KR")}곡)`;
+    // 목록의 일부만 넣었으면 전체 중 몇 곡인지. "N개 (전체 M곡)"은 넣은 수인지 대기열 수인지 헷갈렸다
+    if (sourceLabel && total) text = `${mark} ${sourceLabel} 전체 ${total.toLocaleString("ko-KR")}곡 중 ${tracks.length}곡이 ${where} 추가되었습니다!`;
+    else if (sourceLabel) text = `${mark} ${sourceLabel}의 ${tracks.length}개 노래가 ${where} 추가되었습니다!`;
+    else text = `${mark} **${escapeMd(tracks[0]?.title || "알 수 없는 트랙")}**이(가) ${where} 추가되었습니다!`;
     return text + noticeLines({ dropped, skipped, queueLimited });
   }
 

@@ -46,7 +46,7 @@ test("안내 문구가 출처 이름을 따른다", () => {
 test("안내 문구: 받은 것보다 목록이 크면 전체 곡 수를, 자리가 모자라 덜 받았으면 그 사실을 붙인다", () => {
   const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
   const label = collectionLabel("playlist");
-  assert.equal(mem.createQueueAdditionMessage(songs(50), label, false, { total: 9946 }), "✅ 재생목록의 50개 노래가 대기열에 추가되었습니다! (전체 9,946곡)");
+  assert.equal(mem.createQueueAdditionMessage(songs(50), label, false, { total: 9946 }), "✅ 재생목록 전체 9,946곡 중 50곡이 대기열에 추가되었습니다!");
   assert.match(mem.createQueueAdditionMessage(songs(5), label, false, { queueLimited: true }), /\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다/);
   assert.doesNotMatch(mem.createQueueAdditionMessage([{ title: "곡" }], null, false, { total: 9946 }), /전체/, "한 곡 안내에는 붙이지 않는다");
 });

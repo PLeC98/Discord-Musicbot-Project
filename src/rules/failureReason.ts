@@ -9,6 +9,7 @@ const LABELS: Record<string, string> = {
   "age-cookies-invalid": "연령 제한 · 쿠키가 무효. 쿠키를 다시 넣어 주세요",
   "bot-check": "봇 감지",
   "video-unavailable": "비공개이거나 삭제된 영상",
+  "playlist-unavailable": "없거나 비공개인 재생목록",
   "track-unavailable": "없거나 비공개인 곡",
   "preview-only": "미리듣기만 열린 곡",
   "geo-blocked": "지역 차단",
@@ -27,17 +28,20 @@ function firstLine(text: string) {
   return lines.find((line) => line.startsWith("ERROR:")) ?? lines[0] ?? text;
 }
 
-// 감싼 오류의 까닭(원인의 첫 줄). 사용자 문장을 일반화하려 감싼 것은 사유가 원인에만 있다(직접 링크)
-function causeOf(error: unknown) {
+// 감싼 오류의 까닭(원인의 첫 줄). 사용자 문장을 일반화하려 감싼 것은 사유가 원인에만 있다(직접 링크).
+// 원인의 첫 줄이 오류의 첫 줄과 같으면(원인의 ERROR 줄을 그대로 글로 삼은 것) 붙이지 않는다
+function causeOf(error: unknown, text: string) {
   const cause = error && typeof error === "object" && "cause" in error ? error.cause : undefined;
-  return cause ? ` (${firstLine(messageOf(cause))})` : "";
+  if (!cause) return "";
+  const line = firstLine(messageOf(cause));
+  return line === firstLine(text) ? "" : ` (${line})`;
 }
 
 /** cookiesConfigured: 쿠키를 걸어 두었나. 연령 제한이 쿠키가 없어서인지 쿠키로도 안 되는지를 가른다 */
 function failureReason(error: unknown, cookiesConfigured: boolean): string {
   const kind = errorKind(error);
   const text = messageOf(error);
-  const why = kind === "age-restricted" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? `${firstLine(text)}${causeOf(error)}`}${operatorHint(kind)}`;
+  const why = kind === "age-restricted" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? `${firstLine(text)}${causeOf(error, text)}`}${operatorHint(kind)}`;
   const id = VIDEO_ID.exec(text)?.[1];
   return id ? `${why} (${id})` : why;
 }

@@ -191,7 +191,7 @@ test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /p
   const { it, log } = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("play"), it, w.client);
   assert.deepEqual(log[0], ["reply", { components: [{ searching: "**노래** 검색 중..." }], flags: MessageFlags.IsComponentsV2 }]);
-  assert.equal(resolved[0].context, "/play.resolveQuery");
+  assert.equal(resolved[0].context, "play.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, undefined);
   assert.equal(w.handled[0].who?.username, "사용자");
 });
@@ -241,7 +241,7 @@ test("/playfirst: DJ 계층이 필요하고, 맨 앞에 넣으라고 코어에 �
   const w = world({ roles: ["dj"] });
   const ok = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("playfirst"), ok.it, w.client);
-  assert.equal(resolved[0].context, "/playfirst.resolveQuery");
+  assert.equal(resolved[0].context, "playfirst.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, true);
 });
 

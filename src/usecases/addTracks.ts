@@ -171,7 +171,8 @@ async function search(player: MusicPlayer, query: string, { guild, single = fals
   // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
   const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
-  const found = await lookup.resolveQuery(query, `${source}.resolveQuery`, { limit });
+  // 로그의 하위 이름. 입구 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/" 로 이어 붙여 track//play 가 됐다
+  const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });
   if (!found.success) return lookupFailureMessage(found);
 
   // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)

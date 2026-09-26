@@ -202,7 +202,7 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
     const some = setup({ current: track("now"), queue: [track("q1")] });
     const r = await some.mem.handleMusicData("g1", { isPlaylist: true, collection: "album", total: 30, tracks: [track("a"), track("b")] }, who, some.responder);
     assert.equal(r.dropped, 1);
-    assert.deepEqual(some.notices, ["✅ 앨범의 1개 노래가 대기열에 추가되었습니다! (전체 30곡)\n⚠️ 대기열이 가득 차 1곡은 넣지 못했습니다 (최대 2곡)"]);
+    assert.deepEqual(some.notices, ["✅ 앨범 전체 30곡 중 1곡이 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 1곡은 넣지 못했습니다 (최대 2곡)"]);
 
     const full = setup({ current: track("now"), queue: [track("q1"), track("q2")] });
     assert.deepEqual(await full.mem.handleMusicData("g1", { tracks: [track("a")] }, who, full.responder), { success: false, message: "대기열이 가득 찼습니다 (최대 2곡)", dropped: 1 });
@@ -219,7 +219,7 @@ test("자리가 모자라 덜 받았으면(queueLimited) 그렇다고 덧붙인�
 // 사운드클라우드 세트는 받을 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
 test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
   const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
-  assert.equal(mem.createQueueAdditionMessage([track("a")], "재생목록", false, { skipped: 3, total: 41 }), "✅ 재생목록의 1개 노래가 대기열에 추가되었습니다! (전체 41곡)\n⚠️ 받을 수 없는 3곡(미리듣기 · 지역 제한 등)은 뺐습니다");
+  assert.equal(mem.createQueueAdditionMessage([track("a")], "재생목록", false, { skipped: 3, total: 41 }), "✅ 재생목록 전체 41곡 중 1곡이 대기열에 추가되었습니다!\n⚠️ 받을 수 없는 3곡(미리듣기 · 지역 제한 등)은 뺐습니다");
 
   const { mem: live, notices, responder } = setup({ current: track("now") });
   await live.handleMusicData("g1", { tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);
