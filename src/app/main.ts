@@ -7,7 +7,7 @@ import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../../config.ts";
 import * as audioCache from "../store/audioCache.ts";
-import { logResolved as logResolvedFfmpeg, ffmpegPath } from "../media/ffmpeg/path.ts";
+import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { MusicPlayer } from "../player/Player.ts";
 import { restoreSavedPlayers } from "../player/sessionRestore.ts";
 import * as voiceChannelStatus from "../player/voiceChannelStatus.ts";
@@ -159,6 +159,8 @@ async function init(client: Client, { potServer, logFile }: { potServer: PotServ
 function checkBeforeLogin() {
   // 재생·캐시 변환이 모두 ffmpeg에 의존하므로 여기서 확정하고 기록한다. 못 찾으면 여기서 기동을 멈춘다
   stopIfThrows(() => logResolvedFfmpeg());
+  // 능력 확인(spawnSync 셋)도 여기서 해 둔다. 처음 곡을 틀 때 부르면 그동안 이벤트 루프가 멈춰 다른 서버의 음성이 밀린다
+  ffmpegCapabilities();
   // yt-dlp 도 재생과 같은 ffmpeg 를 쓴다
   YouTube.useFfmpeg(ffmpegPath);
   // 캐시 DB 구조가 이 버전과 맞지 않으면 여기서 멈춘다
