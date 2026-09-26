@@ -4,20 +4,25 @@
 // 사실이지만 그게 이 모듈의 존재 이유다. 실제 방어(IP 핀 접속·홉별 재검증)를 CodeQL이 추적하지
 // 못하는 것인지, 아니면 진짜 구멍이 있는지 확인한다.
 //
-// 요청 함수와 DNS 해석을 가짜로 넘겨 네트워크 없이 검증한다. 실 소켓은 열리지 않는다.
+// 요청 함수와 DNS 해석을 가짜로 넘겨 네트워크 없이 검증한다. 요청 함수 자체(고정 접속 · 리다이렉트 · 시간 제한 · 프록시)는
+// 맨 아래에서 로컬 서버로 진짜 소켓을 연다.
 
 import dns from "dns";
 const dnsPromises = dns.promises;
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import type { AxiosRequestConfig } from "axios";
-import type { LookupFn, RequestDeps } from "../../src/infra/safeUrl.ts";
+import http from "node:http";
+import { spawn } from "node:child_process";
+import { Readable } from "node:stream";
+import type { Incoming, LookupFn, Outgoing, RequestDeps } from "../../src/infra/safeUrl.ts";
 
-type Reply = { status: number; headers: Record<string, string>; data: null };
+type Reply = Incoming;
+const reply = (status: number, headers: Record<string, string> = {}): Reply => ({ status, headers, body: Readable.from([]) });
+const AUDIO = { "content-type": "audio/mpeg" };
 
 // ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head · getStream 에 넘긴다 ─────────────
-const calls: AxiosRequestConfig[] = [];
-let responder: (cfg: AxiosRequestConfig, n: number) => Reply = () => ({ status: 200, headers: { "content-type": "audio/mpeg" }, data: null });
+const calls: Outgoing[] = [];
+let responder: (request: Outgoing, n: number) => Reply = () => reply(200, AUDIO);
 // 기본은 실제 해석에 위임
 const realLookup: LookupFn = (host, options) => dnsPromises.lookup(host, options);
 let lookupImpl: LookupFn = realLookup;
@@ -37,7 +42,7 @@ const getStream = (url: string) => safeUrl.getStream(url, deps);
 beforeEach(() => {
   calls.length = 0;
   lookupImpl = realLookup;
-  responder = () => ({ status: 200, headers: { "content-type": "audio/mpeg" }, data: null });
+  responder = () => reply(200, AUDIO);
 });
 
 // 세 번째 인자는 실패했을 때 어느 입력이었는지 읽으려고 붙인 이름표다
@@ -101,7 +106,7 @@ test("DNS 리바인딩: 소켓이 검증된 IP 밖으로 나가지 못한다", a
   assert.equal(calls.length, 1);
 
   // 핀 에이전트의 lookup이 실제 소켓 연결에 쓰인다. 재해석 결과가 아니라 검증된 IP여야 한다.
-  const agent = calls[0].httpsAgent;
+  const agent = calls[0].agent as unknown as { options: { lookup: (host: string, options: object, cb: (err: Error | null, address: unknown) => void) => void } };
   assert.ok(agent, "핀 에이전트가 실려야 한다");
 
   const pinned = await new Promise((resolve, reject) => {
@@ -119,8 +124,8 @@ test("DNS 리바인딩: 소켓이 검증된 IP 밖으로 나가지 못한다", a
 
 const redirectTo =
   (location: string) =>
-  (_cfg: AxiosRequestConfig, n: number): Reply =>
-    n === 1 ? { status: 302, headers: { location }, data: null } : { status: 200, headers: { "content-type": "audio/mpeg" }, data: null };
+  (_request: Outgoing, n: number): Reply =>
+    n === 1 ? reply(302, { location }) : reply(200, AUDIO);
 
 test("공인 → 내부 리다이렉트는 두 번째 요청 전에 차단된다", async () => {
   responder = redirectTo("http://127.0.0.1:8080/admin");
@@ -151,62 +156,25 @@ test("상대 경로 리다이렉트도 재검증을 거친다", async () => {
 });
 
 test("리다이렉트 무한 루프는 상한에서 끊긴다", async () => {
-  responder = () => ({ status: 302, headers: { location: "https://1.1.1.1/loop" }, data: null });
+  responder = () => reply(302, { location: "https://1.1.1.1/loop" });
   await rejects(head("https://1.1.1.1/x.mp3"), /리다이렉트 횟수 초과/);
   assert.ok(calls.length <= 5, `요청 ${calls.length}회 — 상한이 없으면 무한히 돈다`);
 });
 
 test("Location 없는 3xx는 오류로 끊는다", async () => {
-  responder = () => ({ status: 302, headers: {}, data: null });
+  responder = () => reply(302);
   await rejects(head("https://1.1.1.1/x.mp3"), /Location/);
-});
-
-test("어댑터를 고정한다 — fetch 어댑터는 핀 에이전트를 무시한다", async () => {
-  // axios 기본값은 ["xhr","http","fetch"] 중 첫 지원 어댑터. Node에서는 http가 이기지만,
-  // fetch로 넘어가면 httpAgent/httpsAgent가 무시돼 IP 핀이 조용히 사라진다(실측).
-  await head("https://1.1.1.1/x.mp3");
-  assert.equal(calls[0].adapter, "http");
-});
-
-test("리다이렉트를 axios에 맡기지 않는다 (홉별 재검증의 전제)", async () => {
-  // maxRedirects가 0이 아니면 axios가 내부적으로 따라가버려 위 재검증이 전부 무의미해진다.
-  // axios를 모킹한 상태에서는 동작으로 드러나지 않으므로 설정 자체를 고정한다.
-  await head("https://1.1.1.1/x.mp3");
-  assert.equal(calls[0].maxRedirects, 0);
-  assert.equal(calls[0].validateStatus?.(302), true, "3xx를 우리가 받아 처리해야 한다");
-});
-
-// ── 4. 프록시 ────────────────────────────────────────────────────────────────
-
-test("프록시 환경변수가 설정돼 있어도 요청은 프록시를 타지 않는다", async () => {
-  // 프록시를 타면 목적지를 프록시가 다시 해석하므로 핀 접속이 통째로 무의미해진다
-  const keys = ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"];
-  const saved: Record<string, string | undefined> = {};
-  for (const k of keys) {
-    saved[k] = process.env[k];
-    process.env[k] = "http://127.0.0.1:9";
-  }
-  try {
-    await head("https://1.1.1.1/audio.mp3");
-    assert.equal(calls[0].proxy, false, "proxy:false가 없으면 axios가 환경변수 프록시를 쓴다");
-    assert.ok(calls[0].httpsAgent, "핀 에이전트가 실려야 한다");
-  } finally {
-    for (const k of keys) {
-      if (saved[k] === undefined) delete process.env[k];
-      else process.env[k] = saved[k];
-    }
-  }
 });
 
 // ── 5. 응답 가드 ─────────────────────────────────────────────────────────────
 
 test("허용되지 않는 Content-Type은 거부한다 (내부 서비스 응답 유출 방지)", async () => {
-  responder = () => ({ status: 200, headers: { "content-type": "text/html" }, data: null });
+  responder = () => reply(200, { "content-type": "text/html" });
   await rejects(head("https://1.1.1.1/x.mp3"), /Content-Type/);
 });
 
 test("Content-Length 상한을 넘으면 거부한다", async () => {
-  responder = () => ({ status: 200, headers: { "content-type": "audio/mpeg", "content-length": String(600 * 1024 * 1024) }, data: null });
+  responder = () => reply(200, { ...AUDIO, "content-length": String(600 * 1024 * 1024) });
   await rejects(head("https://1.1.1.1/x.mp3"), /최대 크기/);
 });
 
@@ -225,4 +193,86 @@ test("차단 사유에 내부 주소가 담기지만 SsrfError로만 던진다 (
     assert.equal(e.name, "SsrfError");
     return true;
   });
+});
+
+test("2xx 가 아닌 응답은 실패로 끊는다", async () => {
+  responder = () => reply(404, AUDIO);
+  await assert.rejects(head("https://1.1.1.1/x.mp3"), /HTTP 404/);
+});
+
+// ── 7. 요청 함수: 진짜 소켓 ──────────────────────────────────────────────────
+// 풀리지 않는 호스트(pinned.invalid)로 보낸다. 응답이 오면 고정 IP 로 접속한 것이다.
+
+const { send, createPinnedAgent } = safeUrl._internals;
+
+async function localServer(handler: http.RequestListener) {
+  const server = http.createServer(handler);
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+  const { port } = server.address() as { port: number };
+  return { server, url: (p: string) => new URL(`http://pinned.invalid:${port}${p}`) };
+}
+const pinned = () => createPinnedAgent("http:", "127.0.0.1", 4);
+const drain = async (body: Readable) => {
+  let bytes = 0;
+  for await (const chunk of body) bytes += (chunk as Buffer).length;
+  return bytes;
+};
+
+test("진짜 소켓: 고정 IP 로 접속하고, 리다이렉트는 따라가지 않고 그대로 돌려준다", async () => {
+  const { server, url } = await localServer((req, res) => {
+    if (req.url === "/redirect") return res.writeHead(302, { Location: "/final" }).end();
+    res.writeHead(200, AUDIO).end(Buffer.alloc(4096, 1));
+  });
+  try {
+    const moved = await send({ method: "GET", url: url("/redirect"), agent: pinned(), timeoutMs: 2000, headers: {} });
+    assert.equal(moved.status, 302);
+    assert.equal(moved.headers.location, "/final");
+    moved.body.destroy();
+
+    const ok = await send({ method: "GET", url: url("/final"), agent: pinned(), timeoutMs: 2000, headers: {} });
+    assert.equal(ok.status, 200);
+    assert.equal(await drain(ok.body), 4096, "본문을 스트림으로 받는다");
+  } finally {
+    server.close();
+  }
+});
+
+test("진짜 소켓: 응답이 없거나 본문을 받다 멎으면 시간 제한으로 끊는다", async () => {
+  const { server, url } = await localServer((req, res) => {
+    if (req.url === "/silent") return; // 헤더도 안 보낸다
+    res.writeHead(200, AUDIO);
+    res.write(Buffer.alloc(1024, 1)); // 조금 보내고 멎는다
+  });
+  try {
+    await assert.rejects(send({ method: "GET", url: url("/silent"), agent: pinned(), timeoutMs: 200, headers: {} }), /200ms/);
+    const stalled = await send({ method: "GET", url: url("/stall"), agent: pinned(), timeoutMs: 200, headers: {} });
+    await assert.rejects(drain(stalled.body));
+  } finally {
+    server.closeAllConnections();
+    server.close();
+  }
+});
+
+// Node 24 는 NODE_USE_ENV_PROXY=1 이면 전역 에이전트가 HTTP_PROXY 를 탄다. 프로세스를 띄울 때 읽으므로 자식으로 본다.
+// 프록시를 타면 목적지를 프록시가 다시 풀어 고정 접속이 무의미해진다
+test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 프록시를 타지 않는다", async () => {
+  const { server, url } = await localServer((_req, res) => res.writeHead(200, AUDIO).end("직접"));
+  try {
+    const probe = `
+      const { _internals } = await import(${JSON.stringify(new URL("../../src/infra/safeUrl.ts", import.meta.url).href)});
+      const r = await _internals.send({ method: "GET", url: new URL(${JSON.stringify(url("/").href)}), agent: _internals.createPinnedAgent("http:", "127.0.0.1", 4), timeoutMs: 2000, headers: {} });
+      let body = ""; for await (const c of r.body) body += c;
+      console.log("PROBE " + r.status + " " + body);`;
+    const env = { ...process.env, NODE_USE_ENV_PROXY: "1", HTTP_PROXY: "http://127.0.0.1:9", http_proxy: "http://127.0.0.1:9", NO_PROXY: "", no_proxy: "" };
+    const child = await new Promise<{ stdout: string }>((done) => {
+      // spawnSync 은 이 프로세스의 서버를 막으므로 비동기로 띄운다
+      const c = spawn(process.execPath, ["--input-type=module", "-e", probe], { env });
+      let stdout = "";
+      c.stdout.on("data", (d) => (stdout += d));
+      c.on("close", () => done({ stdout }));
+    });
+    assert.match(child.stdout, /PROBE 200 직접/);
+  } finally {
+    server.close();
+  }
 });
