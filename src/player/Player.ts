@@ -1139,24 +1139,21 @@ class MusicPlayer {
     this.persistence.scheduleStatePersist(reason, delay);
   }
 
+  // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다
   async updateVoiceStatus(status: string | null) {
-    try {
-      const channel = this.voiceChannel ? this.guild.channels.cache.get(this.voiceChannel.id) : null;
-      if (!channel) return;
+    const channel = this.voiceChannel ? this.guild.channels.cache.get(this.voiceChannel.id) : null;
+    if (!channel) return;
 
-      const me = this.guild.members.me;
-      if (!me) return;
-      const perms = channel.permissionsFor(me);
-      if (!perms?.has(PermissionFlagsBits.SetVoiceChannelStatus)) return;
+    const me = this.guild.members.me;
+    if (!me) return;
+    const perms = channel.permissionsFor(me);
+    if (!perms?.has(PermissionFlagsBits.SetVoiceChannelStatus)) return;
 
-      // 사람이 적어 둔 상태는 건드리지 않는다. 현재 값은 게이트웨이로만 알 수 있다(voiceChannelStatus).
-      if (!voiceChannelStatus.canWrite(channel.id)) return;
+    // 사람이 적어 둔 상태는 건드리지 않는다. 현재 값은 게이트웨이로만 알 수 있다(voiceChannelStatus).
+    if (!voiceChannelStatus.canWrite(channel.id)) return;
 
-      await this.guild.client.rest.put(`/channels/${channel.id}/voice-status`, { body: { status: status ?? "" } });
-      voiceChannelStatus.mark(channel.id, status ?? "");
-    } catch {
-      // 중요하지 않음
-    }
+    await this.guild.client.rest.put(`/channels/${channel.id}/voice-status`, { body: { status: status ?? "" } });
+    voiceChannelStatus.mark(channel.id, status ?? "");
   }
 
   getStatus() {

@@ -719,3 +719,16 @@ test("음성 채널 상태: 권한이 있고 사람이 쓴 문구가 아니면 �
 
   assert.deepEqual(puts, [["/channels/voice1/voice-status", "곡 제목"]]);
 });
+
+test("음성 채널 상태: 쓰기가 실패하면 던진다(부르는 쪽의 bestEffort 가 남긴다)", async () => {
+  voiceChannelStatus._internals._reset();
+  const p = h.makePlayer();
+  p.guild.client.rest = fake<Client["rest"]>({
+    put: async () => {
+      throw new Error("Missing Access");
+    },
+  });
+  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", permissionsFor: () => ({ has: () => true }) }));
+  await assert.rejects(p.updateVoiceStatus("곡 제목"), /Missing Access/);
+  h.dispose(p);
+});
