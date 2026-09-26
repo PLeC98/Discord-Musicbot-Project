@@ -67,6 +67,9 @@ type EnvSource = Record<string, string | undefined>;
 type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
+// yt-dlp 가 쿠키를 가져올 수 있는 브라우저(--cookies-from-browser, yt-dlp 2026.08.19)
+const COOKIE_BROWSERS = ["brave", "chrome", "chromium", "edge", "firefox", "opera", "safari", "vivaldi", "whale"];
+
 // .env 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다
 function envReaders(source: EnvSource, problems: string[]) {
   // .env 값 읽기. 키가 없거나 공백뿐이면 def 반환
@@ -141,7 +144,16 @@ function envReaders(source: EnvSource, problems: string[]) {
     return n;
   }
 
-  return { env, envEnum, envInt, envUrl, envColor, envQueueMax };
+  // 쿠키 출처. file 이거나 yt-dlp 의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
+  // 그대로 넘기므로 모양은 깨지 않고(`chrome:Profile 1`), 앞의 브라우저 이름만 yt-dlp 가 받는 것인지 본다.
+  // 모르는 이름이면 yt-dlp 가 사용법 오류로 끝나 모든 곡 찾기가 실패한다
+  function envCookies(key: string) {
+    const v = String(env(key) || "").trim();
+    if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.includes(v.split(/[+:]/)[0].toLowerCase())) return v;
+    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join("·")})이어야 합니다`, "");
+  }
+
+  return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies };
 }
 
 function resolveFromRoot(p: string): string;
@@ -175,9 +187,8 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
     warnings.push("Spotify API 키 미설정. 트랙 · 앨범은 비활성, 재생목록 · 아티스트는 자격증명 없이 동작합니다.");
   }
 
-  // 쿠키 출처. 브라우저 이름은 yt-dlp에 그대로 넘기므로 소문자로만 맞춘다
-  // (`chrome:Profile 1` 처럼 프로필이 붙은 형태를 깨면 안 된다).
-  const COOKIES_SOURCE = String(env("COOKIES_SOURCE") || "").trim();
+  // 쿠키 출처(file 이거나 브라우저). 모양은 envCookies 가 본다
+  const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");
   const USE_COOKIE_FILE = COOKIES_SOURCE.toLowerCase() === "file";
 
   const dashboardPort = envInt("DASHBOARD_PORT", 33333, { min: 1, max: 65535 });

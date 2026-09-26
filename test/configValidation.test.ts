@@ -64,6 +64,17 @@ test("범위 안의 값은 그대로 쓴다", () => {
   assert.equal(cfg.apiMax, 300);
 });
 
+// 모르는 브라우저 이름을 yt-dlp 에 넘기면 사용법 오류로 끝나 모든 곡 찾기가 실패했다(none 으로 실측)
+test("쿠키 출처는 file 이거나 yt-dlp 가 받는 브라우저 이름이다(프로필 모양은 그대로 둔다)", () => {
+  assert.match(load({ COOKIES_SOURCE: "none" }).problems.join(), /COOKIES_SOURCE 값이 잘못됐습니다 \(none\): file 또는 브라우저 이름/);
+  for (const ok of ["file", "FILE", "chrome", "Firefox", "chrome:Profile 1", "chromium+gnomekeyring:Work", "whale"]) {
+    const { problems } = load({ COOKIES_SOURCE: ok });
+    assert.deepEqual(problems, [], ok);
+  }
+  const { config: c } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", COOKIES_SOURCE: "chrome:Profile 1" });
+  assert.equal(c.ytdlp.cookiesFromBrowser, "chrome:Profile 1");
+});
+
 test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
   const { problems } = load({ DASHBOARD_PORT: "x", WEBSITE: "y", LOG_LEVEL: "loud" });
   assert.equal(problems.length, 3);
