@@ -250,6 +250,22 @@ test("일시 오류는 retries 만큼 다시 부르고, 되면 그 판정을 쓴
   assert.equal(calls.length, 1, "0 이면 다시 부르지 않는다");
 });
 
+test("고르기 안에서 한 번 끝내 실패하면 그 고르기의 다음 판정은 한 번만 부른다", async () => {
+  useConfig(ON);
+  const pick = { failed: false };
+  replies(status(503));
+  await assist.accepts(cand("A"), { pick });
+  assert.equal(calls.length, 3);
+  assert.equal(pick.failed, true);
+
+  replies(status(503));
+  assert.deepEqual(await assist.filter([cand("B"), cand("C")], { pick }), [cand("B"), cand("C")]);
+  assert.equal(calls.length, 1, "다시 부르지 않는다");
+
+  replies(status(503), ok1);
+  assert.equal(await assist.accepts(cand("D"), { pick: { failed: false } }), false, "새 고르기는 다시 부른다");
+});
+
 test("다시 해도 같은 답인 것은 다시 부르지 않는다", async () => {
   useConfig(ON);
   for (const [reply, why] of [

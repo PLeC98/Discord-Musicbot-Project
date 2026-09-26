@@ -64,6 +64,18 @@ type Wire = { role: string; content: string };
 type Body = Record<string, unknown>;
 type Extra = { body: Body; headers: Record<string, string>; drop: string[]; dropHeaders: string[]; problems: string[] };
 type Verdict = { song: boolean; fits: boolean };
+/**
+ * 자동재생 고르기 하나. 고르기는 출처마다 후보를 몇 번 판정하는데, 그중 하나가 재시도 끝에 실패하면
+ * 나머지 판정은 한 번만 부른다. 미리 뽑은 곡이 없으면 사용자가 소리 없이 기다리는 동안이다
+ */
+type AiPick = { failed: boolean };
+/** 판정에 딸려 오는 것 */
+type About = { genre?: string; confident?: boolean; pick?: AiPick };
+// 고르기 안에서 이미 실패했으면 다시 부르지 않는다(0). 아니면 설정대로
+const retriesIn = (about: About) => (about.pick?.failed ? 0 : undefined);
+const failedIn = (about: About) => {
+  if (about.pick) about.pick.failed = true;
+};
 type Usage = { input: number; output: number | null; thoughts: number | null };
 // 저쪽 응답에서 읽는 칸. 규격마다 다른 이름을 한 모양에 모았다. 검사하지 않으므로 모두 없을 수 있다
 type Reply = {
@@ -848,7 +860,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
  * @param {Array<{title: string, durationSec?: number}>} candidates 순위가 매겨진 후보
  * @param {{genre?: string, confident?: boolean}} about
  */
-async function filter<T extends Judged>(candidates: T[] | null | undefined, about: { genre?: string; confident?: boolean } = {}): Promise<T[]> {
+async function filter<T extends Judged>(candidates: T[] | null | undefined, about: About = {}): Promise<T[]> {
   const one = settings();
   if (!one || !candidates?.length) return candidates || [];
   // 규칙이 이미 확신한다면 물을 이유가 없다(설정에서 끌 수 있다)
@@ -860,9 +872,10 @@ async function filter<T extends Judged>(candidates: T[] | null | undefined, abou
     const batch = candidates.slice(at, at + size);
     let verdicts: Array<Verdict | null>;
     try {
-      verdicts = await askBatch(one, batch, about.genre);
+      verdicts = await askBatch(one, batch, about.genre, { retries: retriesIn(about) });
     } catch (error) {
       // 남은 후보는 규칙이 고른 그대로 둔다. 이미 판정한 앞 묶음은 살린다
+      failedIn(about);
       log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
       kept.push(...candidates.slice(at));
       break;
@@ -886,18 +899,19 @@ async function filter<T extends Judged>(candidates: T[] | null | undefined, abou
  *
  * @returns {Promise<boolean>} 틀어도 되는가
  */
-async function accepts(candidate: Judged | null | undefined, about: { genre?: string; confident?: boolean } = {}): Promise<boolean> {
+async function accepts(candidate: Judged | null | undefined, about: About = {}): Promise<boolean> {
   const one = settings();
   if (!one || !candidate) return true;
   if (one.skipConfident && about.confident) return true;
 
   try {
-    const [verdict] = await askBatch(one, [candidate], about.genre);
+    const [verdict] = await askBatch(one, [candidate], about.genre, { retries: retriesIn(about) });
     if (!verdict) return true; // 판정을 못 읽었다. 버릴 근거가 없다
     if (verdict.song && verdict.fits) return true;
     log.debug(`AI 보조가 거름(${verdict.song ? "장르가 다름" : "곡 하나가 아님"})${about.genre ? ` [${about.genre}]` : ""}: ${candidate.title}`);
     return false;
   } catch (error) {
+    failedIn(about);
     log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
     return true;
   }
@@ -1159,4 +1173,4 @@ function mask(text: unknown): string {
 }
 
 export { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE, useFetch };
-export type { AiSettings, Judged, TestCandidate };
+export type { AiSettings, Judged, TestCandidate, AiPick };

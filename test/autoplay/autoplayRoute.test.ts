@@ -303,6 +303,38 @@ test("어느 소스에서 왔는지 남긴다 — 이상할 때 이것부터 본
   assert.equal(track.pickedFrom, "keyword");
 });
 
+// AI 보조가 한 번 실패하면 같은 고르기의 나머지 판정은 다시 부르지 않는다. 그러려면 고르기 하나가 같은 것을 넘겨야 한다
+test("고르기 하나의 판정은 모두 같은 고르기 표시를 받고, 고르기마다 새것이다", async () => {
+  ytResults = ["v1", "v2", "v3"].map((id) => ({ id, audioUrl: `https://www.youtube.com/watch?v=${id}`, title: `Song ${id}`, artist: "Ch", duration: 240 }));
+  const seen: unknown[] = [];
+  const before: unknown[] = []; // 부를 때의 실패 표시
+  const failing: route.Deps = {
+    ...deps,
+    assist: {
+      filter: async (candidates) => candidates,
+      accepts: async (_track, about) => {
+        seen.push(about.pick);
+        before.push(about.pick?.failed);
+        if (about.pick) about.pick.failed = true;
+        return false; // 거절해 다음 후보로 가게
+      },
+    },
+  };
+  const cfg = { minDurationSec: 60, maxDurationSec: 3600, blockedKeywords: [], sources: [{ type: "keyword" as const, keywords: ["아무거나"] }] };
+  assert.equal(await route.pickTrack(cfg, [], failing), null);
+  assert.equal(seen.length, 3, "후보 세 개를 판정했다");
+  assert.ok(seen[0] && seen.every((one) => one === seen[0]), "같은 표시");
+  assert.deepEqual(before, [false, true, true], "첫 실패 뒤의 판정은 실패를 안다");
+
+  pool._reset();
+  const first = seen[0];
+  seen.length = 0;
+  before.length = 0;
+  await route.pickTrack(cfg, [], failing);
+  assert.notEqual(seen[0], first, "고르기마다 새것");
+  assert.deepEqual(before, [false, true, true]);
+});
+
 // MusicBrainz는 모르는 아티스트·곡을 정해진 이름으로 채운다([no artist]·[unknown] 등).
 // 그대로 두면 그걸 유튜브에 검색하게 된다.
 //

@@ -27,7 +27,7 @@ import type { GenreSource } from "../config/genres.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import type { Candidate } from "./sources/candidate.ts";
 import type { Limits, FilterConfig } from "./filter.ts";
-import type { Judged } from "./assist/index.ts";
+import type { Judged, AiPick } from "./assist/index.ts";
 
 /** 틀 수 있는 트랙. 대기열에 담는 곡이다 */
 type PickedTrack = QueuedTrack & { audioUrl: string };
@@ -41,8 +41,8 @@ type Rejectable = Pick<Candidate, "title" | "artist" | "youtubeUrl" | "audioUrl"
 type PickConfig = FilterConfig & { sources?: GenreSource[]; genreName?: string };
 // AI 보조에서 부르는 칸만
 type Assist = {
-  filter<T extends Judged>(candidates: T[], about: { genre?: string; confident: boolean }): Promise<T[]>;
-  accepts(track: PickedTrack, about: { genre?: string }): Promise<boolean>;
+  filter<T extends Judged>(candidates: T[], about: { genre?: string; confident: boolean; pick?: AiPick }): Promise<T[]>;
+  accepts(track: PickedTrack, about: { genre?: string; pick?: AiPick }): Promise<boolean>;
 };
 /** 유튜브 검색. 여기서 읽는 칸만 */
 type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean; thumbnail?: string | null }> | null | undefined>;
@@ -208,7 +208,7 @@ const REAL: Deps = {
 };
 
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
-async function findOnYouTube(cand: Candidate, genre: string | undefined, { search, assist }: Deps) {
+async function findOnYouTube(cand: Candidate, genre: string | undefined, { search, assist }: Deps, pick: AiPick) {
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
   // thumbnail 을 꼭 싣는다(searchCandidates). Last.fm · LB Radio 는 표지를 안 주므로 영상 것이 유일한 그림이다.
   // 빠뜨리면 앨범아트 자리에 디스코드의 빈 그림이, 대시보드에는 파일 아이콘이 뜬다.
@@ -219,7 +219,7 @@ async function findOnYouTube(cand: Candidate, genre: string | undefined, { searc
   if (!best) return null;
 
   // 규칙이 고른 뒤에 한 번 더 묻는다. 꺼져 있거나 못 부르면 같은 배열이 그대로 돌아온다.
-  const kept = await assist.filter(candidates, { genre, confident: confidence === "high" });
+  const kept = await assist.filter(candidates, { genre, confident: confidence === "high", pick });
   if (kept !== candidates) {
     ({ best, confidence, ranked } = match.rankCandidates(kept, target));
     if (!best) return null;
@@ -250,7 +250,7 @@ function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: 
 }
 
 /** 유튜브 주소를 직접 받은 후보. candidateKind 가 youtube 면 주소가 있다 */
-async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | undefined, assist: Assist): Promise<PickedTrack | null> {
+async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | undefined, assist: Assist, pick: AiPick): Promise<PickedTrack | null> {
   if (!cand.youtubeUrl) return null;
   const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec }, cand);
   const verdict = autoplayFilter.judge(track, limits);
@@ -262,7 +262,7 @@ async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | u
   }
   // 검색으로 얻은 것(키워드)만 한 번 더 묻는다. 주소를 직접 주는 소스는 출처가 곧 정답이다.
   // 실측에서 AI가 규칙을 이긴 것이 바로 이 경로였다(86% → 95%).
-  if (cand.fromSearch && !(await assist.accepts(track, { genre }))) return null;
+  if (cand.fromSearch && !(await assist.accepts(track, { genre, pick }))) return null;
   return track;
 }
 
@@ -272,19 +272,20 @@ async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | u
  * @param limits autoplayFilter.prepare의 결과
  * @param genre 장르 이름. AI 보조가 "이 장르가 맞나"를 물을 때만 쓴다
  * @param deps  바깥 경계(REAL). 생략하면 진짜
+ * @param pick  고르기 하나(AI 보조가 그 안에서 한 번 실패하면 나머지는 다시 부르지 않는다). 생략하면 이 후보 하나
  */
-async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: Deps = REAL): Promise<PickedTrack | null> {
+async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: Deps = REAL, pick: AiPick = { failed: false }): Promise<PickedTrack | null> {
   const kind = candidateKind(cand);
   const { assist } = deps;
 
   // 1) 유튜브 주소를 직접 받은 것. 검색을 안 했으니 제목을 못 믿는다
-  if (kind === "youtube") return fromGivenVideo(cand, limits, genre, assist);
+  if (kind === "youtube") return fromGivenVideo(cand, limits, genre, assist, pick);
 
   // 2) 이름으로 유튜브에서 찾기. 장부에 이 요청의 음원이 있으면 찾지 않고 그것을 쓴다
   if (kind === "search") {
     const ledger = fromLedger(cand, deps.known(requestKeyOf(cand)));
     if (ledger) return ledger;
-    const best = await findOnYouTube(cand, genre, deps);
+    const best = await findOnYouTube(cand, genre, deps, pick);
     if (best) {
       const track = fromYouTube(best, cand);
       const verdict = autoplayFilter.judge(track, limits);
@@ -331,6 +332,7 @@ async function pickTrack(cfg: PickConfig | null | undefined, recent: Array<Playe
 
   const limits = autoplayFilter.prepare(cfg);
   const reject = rejector(recent);
+  const pick = { failed: false };
 
   // 가중치대로 훑되 한 소스가 빈 손이면 다음으로 간다. 목록이 곧 폴백 사슬이다.
   for (const source of byWeight(list)) {
@@ -338,7 +340,7 @@ async function pickTrack(cfg: PickConfig | null | undefined, recent: Array<Playe
     for (let tries = 0; tries < 3; tries++) {
       const cand = await pool.take(source, deps.fetch, reject);
       if (!cand) break;
-      const track = await resolve(cand, limits, cfg?.genreName, deps);
+      const track = await resolve(cand, limits, cfg?.genreName, deps, pick);
       if (track) {
         // 어느 소스에서 어떻게 왔는지. 뭐가 이상할 때 이것부터 본다
         track.pickedFrom = source.type;
