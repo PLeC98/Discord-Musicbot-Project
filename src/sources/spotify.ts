@@ -13,7 +13,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "spotify" });
 import config from "../../config.ts";
 import * as externalCaches from "../store/externalCaches.ts";
-import { messageOf } from "../rules/errorKind.ts";
+import { messageOf, codedError, codeOf } from "../rules/errorKind.ts";
 
 // 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
 let send: typeof fetch = fetch;
@@ -140,7 +140,7 @@ function playable(items: GqlItems) {
 async function playlistPage(query: Net["query"], id: string, offset: number, limit: number) {
   const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset, limit, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
   const pl = data?.playlistV2;
-  if (!pl || pl.__typename === "NotFound") throw new Error("플레이리스트 접근 불가(NotFound)");
+  if (!pl || pl.__typename === "NotFound") throw codedError("playlist-unavailable", "플레이리스트 접근 불가(NotFound)");
   return { items: pl.content?.items || [], total: pl.content?.totalCount ?? null };
 }
 
@@ -195,7 +195,8 @@ const official = {
   _token: null as Token | null,
 
   async _accessToken(): Promise<string> {
-    if (!config.spotify.clientId || !config.spotify.clientSecret) throw new Error("Spotify 자격증명 미설정");
+    // 운영자 설정이 없는 것이다. 사용자에게는 이 링크를 지금 못 튼다고만 알린다
+    if (!config.spotify.clientId || !config.spotify.clientSecret) throw codedError("spotify-unavailable", "Spotify 자격증명 미설정(.env 의 SPOTIFY_CLIENT_ID · SPOTIFY_CLIENT_SECRET)");
     if (this._token && Date.now() < this._token.expiresAt - 60000) return this._token.value;
     const auth = Buffer.from(`${config.spotify.clientId}:${config.spotify.clientSecret}`).toString("base64");
     const r = await send("https://accounts.spotify.com/api/token", {
@@ -214,7 +215,8 @@ const official = {
     const tok = await this._accessToken();
     const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
     const r = await send(url, { headers: { Authorization: `Bearer ${tok}`, "User-Agent": ua() }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-    if (!r.ok) throw new Error(`API ${r.status} (${path.slice(0, 40)})`);
+    // 없는 곡 · 앨범 · 가수는 없음이다(resolveType). 요청 제한은 그렇다고 단다
+    if (!r.ok) throw codedError(r.status === 404 ? "not-found" : r.status === 429 ? "rate-limited" : "spotify-failed", `API ${r.status} (${path.slice(0, 40)})`);
     return r.json();
   },
 
@@ -423,22 +425,27 @@ const ROUTES: Record<string, Route[]> = {
   playlist: [(id, o, over) => graphql.playlist(id, o, over)],
 };
 
+// 한 경로라도 답했으면(빈 결과 포함) 그 답이다. 주 경로가 실패하고 폴백이 빈 결과면 없음이다(주 경로 실패는 경고로 남는다).
+// 모든 경로가 실패하면 마지막 까닭을 던진다. 없는 곡 · 앨범(404)은 실패가 아니라 없음이다
 async function resolveType(type: string, id: string, options: Range, over: Partial<Net>): Promise<Part> {
   const empty: Part = { tracks: [], total: null, nextOffset: null };
   const chain = Object.hasOwn(ROUTES, type) ? ROUTES[type] : undefined;
   if (!chain) return empty;
+  let answered = false;
+  let failure: unknown = null;
   for (let i = 0; i < chain.length; i++) {
     const last = i === chain.length - 1;
     try {
       const result = await chain[i](id, options, over);
       if (result.tracks.length || last) return result;
-      // 빈 결과 + 폴백 남음 → 다음 시도
+      answered = true; // 빈 결과 + 폴백 남음 → 다음 시도
     } catch (e) {
       log.warn({ sub: type }, `${i === 0 ? "주 경로" : "폴백"} 실패: ${messageOf(e)}${last ? "" : ", 폴백 전환"}`);
-      if (last) return empty;
+      failure = e;
     }
   }
-  return empty;
+  if (answered || codeOf(failure) === "not-found") return empty;
+  throw failure;
 }
 
 // ── 외부 계약 (sources/lookup 이 쓰는 것) ──

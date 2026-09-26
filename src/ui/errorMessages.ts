@@ -9,6 +9,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   "age-cookies-invalid": "❌ 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.",
   "video-unavailable": "❌ 비공개이거나 삭제된 영상은 재생할 수 없어요.",
   "playlist-unavailable": "❌ 없거나 비공개인 재생목록이에요.",
+  // 운영자 설정이 없다. 까닭은 운영자 로그에만
+  "spotify-unavailable": "❌ 지금은 스포티파이 링크를 재생할 수 없어요.",
+  // 막힌 주소 같은 까닭은 운영자 로그에만(내부망 탐지 도구가 되지 않게)
+  "link-unavailable": "❌ 재생할 수 없는 링크예요.",
   "geo-blocked": "❌ **지역 차단 콘텐츠**\n이 동영상은 봇이 호스팅된 지역에서 제한되어 있습니다.\n\n**해결 방법:** 다른 링크를 시도해 보세요.",
   "rate-limited": "❌ **요청이 너무 많습니다 (속도 제한)**\nYouTube 또는 다른 플랫폼이 일시적으로 요청을 차단하고 있습니다.\n\n**해결 방법:** 몇 분 기다렸다가 다시 시도하세요. 자주 발생하면 `.env`에 `COOKIES_SOURCE`를 추가하세요.",
   "no-youtube-match": "❌ **Spotify 트랙을 YouTube에서 찾을 수 없습니다**\n이 곡에 대한 일치하는 YouTube 동영상을 찾을 수 없었습니다.\n\n**해결 방법:** Spotify 링크 대신 곡 이름으로 직접 검색하거나 YouTube 링크를 붙여넣으세요.",

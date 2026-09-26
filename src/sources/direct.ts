@@ -4,7 +4,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 import * as SafeUrl from "../infra/safeUrl.ts";
 import type { Readable } from "stream";
-import { messageOf } from "../rules/errorKind.ts";
+import { messageOf, codedError } from "../rules/errorKind.ts";
 
 // 바깥 경계(SafeUrl). 테스트가 가짜를 넘긴다. 여기서 읽는 칸만
 type HeadNet = { head: (url: string) => Promise<{ headers: object }> };
@@ -14,7 +14,7 @@ type StreamNet = { getStream: (url: string) => Promise<AudioStream> };
 
 /**
  * 직접 오디오 링크의 메타데이터 조회.
- * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 성공 시 [track], 실패 시 [].
+ * 다른 플랫폼의 search()와 동일한 배열 계약을 따른다. 직접 링크가 아니면 [], 링크를 열지 못하면 던진다.
  * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. net 은 테스트가 가짜를 넘기는 자리
  */
 async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
@@ -55,9 +55,9 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
       },
     ];
   } catch (error) {
-    // SSRF 차단 등 실패 상세는 서버 로그로만 (사용자에겐 상위에서 "결과 없음")
+    // SSRF 오라클 방지: 차단 사유(막힌 주소)는 로그로만, 사용자에겐 일반화된 오류만
     log.error("직접 링크 정보 조회 실패:", messageOf(error));
-    return [];
+    throw codedError("link-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   }
 }
 
@@ -75,7 +75,7 @@ async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getS
   } catch (error) {
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
     log.error("직접 링크 스트림 실패:", messageOf(error));
-    throw new Error("재생할 수 없는 링크입니다", { cause: error });
+    throw codedError("link-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   }
 }
 

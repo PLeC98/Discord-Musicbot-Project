@@ -12,7 +12,8 @@ import assert from "node:assert/strict";
 import * as SoundCloud from "../../src/sources/soundcloud.ts";
 import * as DirectLink from "../../src/sources/direct.ts";
 import { getTrackData } from "../../src/sources/lookup.ts";
-import { messageOf } from "../../src/rules/errorKind.ts";
+import { messageOf, codeOf } from "../../src/rules/errorKind.ts";
+import { ErrorHandler } from "../../src/ui/errorMessages.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
 // yt-dlp 가 줄 것. 실패면 fail 에 stderr
@@ -163,13 +164,21 @@ test("직접 링크 길이 추정: 종류마다 비트레이트가 다르고, �
   assert.equal(DirectLink.estimateDuration(null, "audio/mpeg"), 0);
 });
 
-test("직접 링크 정보: 지원하지 않는 링크나 HEAD 실패는 빈 배열", async () => {
+test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못하면 사유를 숨긴 일반 문장으로 던진다", async () => {
   assert.deepEqual(await DirectLink.getInfo("https://files.test/a.txt", net), []);
   assert.equal(calls.head.length, 0);
   headReply = () => {
-    throw new Error("SSRF 차단: 사설 주소");
+    throw new Error("SSRF 차단: 10.0.0.5");
   };
-  assert.deepEqual(await DirectLink.getInfo("https://files.test/a.mp3", net), []);
+  const thrown = await DirectLink.getInfo("https://files.test/a.mp3", net).then(
+    () => assert.fail("던져야 한다"),
+    (e: unknown) => e,
+  );
+  assert.equal(codeOf(thrown), "link-unavailable");
+  assert.match(messageOf((thrown as Error).cause), /10\.0\.0\.5/, "사유는 원인에(서버 로그용)");
+  // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
+  const told = ErrorHandler.lookupFailure({ code: "lookup-failed", error: thrown });
+  assert.equal(told, "❌ 재생할 수 없는 링크예요.");
 });
 
 test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {

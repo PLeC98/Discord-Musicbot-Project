@@ -314,12 +314,13 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.it.client, { search: async () => [] });
   assert.deepEqual(none.log.at(-1), ["editReply", { content: "❌ 검색 결과가 없습니다!" }]);
 
-  const boom = async () => {
-    throw new Error("boom");
+  // 검색이 찾지 못한 까닭을 그 종류의 문장으로 알린다
+  const offline = async () => {
+    throw networkError();
   };
   const err = interaction(world(), { options: { query: "x" } });
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(err.it), err.it.client, { search: boom });
-  assert.deepEqual(err.log.at(-1), ["editReply", { content: S.ERR_PROCESSING }]);
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(err.it), err.it.client, { search: offline });
+  assert.match(String((err.log.at(-1)?.[1] as { content?: string })?.content), /네트워크 오류/);
 });
 
 // ── /join ─────────────────────────────────────────────────────────────

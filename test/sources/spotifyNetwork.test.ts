@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
 import { fake } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { codeOf, messageOf } from "../../src/rules/errorKind.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -101,9 +102,10 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "aaa111" });
 });
 
-test("자격증명이 없으면 곡 주소는 빈 결과(던지지 않는다)", async () => {
+// 운영자 설정이 없는 것이다. 없음이 아니다. 사용자에게는 이 링크를 지금 못 튼다고, 까닭은 운영자 로그에
+test("자격증명이 없으면 곡 주소는 요청 없이 spotify-unavailable 로 던진다", async () => {
   Object.assign(config.spotify, { clientId: null, clientSecret: null });
-  assert.deepEqual((await Spotify.getCollection("https://open.spotify.com/track/e1")).tracks, []);
+  await assert.rejects(Spotify.getCollection("https://open.spotify.com/track/e1"), (e) => codeOf(e) === "spotify-unavailable" && /SPOTIFY_CLIENT_ID/.test(messageOf(e)));
   assert.equal(requests.length, 0);
 });
 
@@ -122,17 +124,21 @@ test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간
   );
 });
 
-// 지금 동작. 2단계가 실패를 코드를 가진 오류로 던지게 바꾼다(계획서 CQ-5)
-test("모든 경로가 실패하면 빈 결과로 돌려주고 경고만 남긴다(없음과 실패가 같은 모양)", async () => {
+// 회귀 대상: 모든 경로가 실패해도 빈 결과를 돌려줘 "결과 없음"으로만 보였다
+test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범(404)은 없음이다", async () => {
   routes = [tokenRoute, () => reply({}, { status: 503 })];
   const from = sink.buffer.length;
-  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/album/al1"), { tracks: [], total: null, nextOffset: null });
+  await assert.rejects(Spotify.getCollection("https://open.spotify.com/album/al1"), /API 503/);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
     lines.some((l) => l.startsWith("warn") && l.includes("주 경로 실패")),
     lines.join("\n"),
   );
-  assert.ok(lines.some((l) => l.startsWith("info") && l.includes("album al1 → 0곡: 결과 없음")));
+
+  routes = [tokenRoute, () => reply({}, { status: 404 })];
+  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/album/al2"), { tracks: [], total: null, nextOffset: null });
+  routes = [tokenRoute, () => reply({}, { status: 429 })];
+  await assert.rejects(Spotify.getCollection("https://open.spotify.com/album/al3"), (e) => codeOf(e) === "rate-limited");
 });
 
 test("모르는 주소는 요청 없이 빈 결과", async () => {
