@@ -215,7 +215,6 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", 250), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
       playlistAddDefault: 50, // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(/setplaylistlimit)이 없을 때
       embedColor: envColor("EMBED_COLOR", "#2743D2"),
-      supportServer: envUrl("SUPPORT_SERVER"),
       website: envUrl("WEBSITE"),
       projectRepo: PROJECT_REPO,
       sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
@@ -229,19 +228,6 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       ahead: 5, // 대기열 앞쪽 몇 곡을 미리 준비할지 (한 번에 전부는 YouTube에 부담)
       gapMs: 3000, // 사전 로드 사이 간격 (YouTube 속도 제한 회피)
       tickMs: 3000, // 대기열 점검 주기. 실제 반응은 최대 2틱. 조작이 멎은 뒤에 움직이므로
-    },
-
-    // 오디오 설정
-    audio: {
-      quality: "highestaudio",
-      format: "mp3",
-      bitrate: 320,
-      filters: {
-        bassboost: "bass=g=20",
-        nightcore: "aresample=48000,asetrate=48000*1.25",
-        vaporwave: "aresample=48000,asetrate=48000*0.8",
-        _8d: "apulsator=hz=0.09",
-      },
     },
 
     // ffmpeg 실행 파일. 미지정이면 src/media/ffmpeg/path.ts가 자동 탐색(bin/의 번들 → PATH).
