@@ -6,7 +6,7 @@
 
 import util from "util";
 import config from "../../../config.ts";
-import chalk from "chalk";
+import { styleText } from "node:util";
 
 // 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
@@ -42,30 +42,34 @@ const WIRE_LEVEL: Record<number, string> = { 10: "trace", 20: "debug", 30: "info
 // info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
 const CONSOLE_LEVEL: Record<"log" | "info" | "warn" | "error", number> = { log: 20, info: 30, warn: 40, error: 50 };
 
+// 색 입히기. 칠할지는 sink 가 정하므로(useColor) 스트림을 보지 않는다
+type Style = Parameters<typeof styleText>[0];
+const style = (format: Style) => (text: string) => styleText(format, text, { validateStream: false });
+
 // 레벨 라벨 색.
 const LEVEL_COLOR: Record<LevelName, (text: string) => string> = {
-  trace: chalk.gray,
-  debug: chalk.gray,
-  info: chalk.cyan,
-  warn: chalk.yellow,
-  error: chalk.red,
-  fatal: chalk.bgRed.white,
+  trace: style("gray"),
+  debug: style("gray"),
+  info: style("cyan"),
+  warn: style("yellow"),
+  error: style("red"),
+  fatal: style(["bgRed", "white"]),
 };
 
 // 본문 색도 sink가 레벨로 칠한다. 부르는 쪽은 색을 붙이지 않는다.
 const TEXT_COLOR: Record<LevelName, (text: string) => string> = {
-  trace: chalk.gray,
-  debug: chalk.gray,
+  trace: style("gray"),
+  debug: style("gray"),
   info: (s) => s,
-  warn: chalk.yellow,
-  error: chalk.red,
-  fatal: chalk.red.bold,
+  warn: style("yellow"),
+  error: style("red"),
+  fatal: style(["red", "bold"]),
 };
 
 // 카테고리 배지 색. 이름 해시로 고른다(대시보드 뷰어의 catColor와 같은 방식).
 // 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 가르는 편이
 // 이모지로 가르는 것보다 확실하고, cmd에서 깨지지도 않는다.
-const CAT_COLORS = [chalk.magenta, chalk.blue, chalk.green, chalk.yellow, chalk.cyan, chalk.redBright, chalk.blueBright, chalk.greenBright];
+const CAT_COLORS = (["magenta", "blue", "green", "yellow", "cyan", "redBright", "blueBright", "greenBright"] as const).map(style);
 function catColor(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -215,7 +219,7 @@ class LogManager {
     const cat = catLabel ? paint(catColor(rec.category || rec.sub || ""), ` [${catLabel}]`) : "";
     // 태그: 교차 성질(직교) 라벨 집합 → 배지 뒤 #tag
     const tagsRaw = Array.isArray(rec.tags) && rec.tags.length ? " " + rec.tags.map((t) => `#${t}`).join(" ") : "";
-    const tags = tagsRaw ? paint(chalk.gray, tagsRaw) : "";
+    const tags = tagsRaw ? paint(style("gray"), tagsRaw) : "";
 
     const raw = typeof rec.msg === "string" ? rec.msg : String(rec.msg ?? "");
     // 호출부가 이미 색을 넣었으면 덧칠하지 않는다(ANSI가 겹치면 리셋 위치가 어긋난다).
