@@ -1,7 +1,6 @@
 import path from "path";
 import fs from "fs";
 import pkg from "./package.json" with { type: "json" };
-import dotenv from "dotenv";
 import { SKIP_CATEGORIES } from "./src/rules/sponsorCategories.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -353,7 +352,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
 }
 
 const envFileFound = fs.existsSync(ENV_PATH);
-if (envFileFound) dotenv.config({ path: ENV_PATH, quiet: true });
+// 이미 있는 환경 변수는 덮지 않는다(셸 · 시험이 준 값이 이긴다)
+if (envFileFound) process.loadEnvFile(ENV_PATH);
 // 문제 · 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
 const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
 

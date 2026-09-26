@@ -9,8 +9,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import util from "node:util";
 import path from "node:path";
-import dotenv from "dotenv";
 
 import { loadConfig } from "../config.ts";
 import { VARIANT, TARGETS, RELEASES_URL, resolveAsset } from "../scripts/install-ffmpeg.ts";
@@ -82,7 +82,7 @@ test("bgutil 은 기본 브랜치가 아니라 릴리스 태그로 고정한다"
 });
 
 test(".env.example 을 그대로 복사하면 기본값으로 설치한다 — 주석만 있는 칸은 값이 아니다", () => {
-  const example = dotenv.parse(fs.readFileSync(path.join(import.meta.dirname, "..", ".env.example"), "utf8"));
+  const example = util.parseEnv(fs.readFileSync(path.join(import.meta.dirname, "..", ".env.example"), "utf8"));
   const { ffmpeg, bgutil } = loadConfig(example).config;
 
   assert.equal(ffmpeg.path, null, "설명문을 경로로 읽으면 내려받기를 건너뛴다");
