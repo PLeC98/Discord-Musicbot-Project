@@ -415,7 +415,8 @@ type Dialect = {
   modelsUrl(one: AiSettings): string;
   /** 앞 주소가 404 면 차례로 물을 주소 */
   modelsUrlFallbacks?(one: AiSettings): string[];
-  headers(one: AiSettings): Promise<Record<string, string>>;
+  /** live: false 면 밖으로 나가지 않는다(미리보기). 토큰을 받아야 하는 곳은 자리표시로 채운다 */
+  headers(one: AiSettings, opts?: { live?: boolean }): Promise<Record<string, string>>;
   body(one: AiSettings, messages: Wire[]): Body;
   answerOf(json: Reply): string;
   modelsOf(json: Reply): Array<string | undefined>;
@@ -497,7 +498,8 @@ const DIALECTS: Record<string, Dialect> = {
     // 생성 주소를 그대로 쓰면 404 다. 문서판이 갈려 있어 차례로 물어본다.
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
-    headers: async (one) => {
+    headers: async (one, { live = true } = {}) => {
+      if (!live) return { "Content-Type": "application/json", Authorization: `Bearer ${REDACTED}` };
       const token = await googleAuth.accessToken(aiConfig.aiKeyOf(one.provider ?? ""), { baseDir: yamlStore.configDir(), timeoutMs: Number(one.timeoutMs), fetch: send });
       return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
     },
@@ -570,7 +572,8 @@ async function countTokens(one: AiSettings, messages: Wire[]) {
     const spec = specOf(one.provider);
     const by = tokens.tokenizerFor(spec?.registry, one.model);
 
-    if (by === "claude") {
+    // 저쪽에 묻는 것은 앤트로픽에 직접 붙을 때뿐이다. 게이트웨이(OpenRouter 등)의 키를 앤트로픽으로 보내지 않는다
+    if (by === "claude" && spec?.dialect === "anthropic") {
       const exact = await tokens.countByAnthropic(messages, { model: one.model, apiKey: await keyFor(one), timeoutMs: Number(one.timeoutMs), fetch: send });
       if (exact !== null) return { total: exact, body: exact - tokens.FRAMING.anthropic.perRequest, by: "claude", exact: true };
     }
@@ -606,7 +609,8 @@ function withParams(body: Body, one: AiSettings): Body {
   return out;
 }
 
-async function buildRequest(one: AiSettings, batch: Judged[], genre: string | undefined) {
+// 판정 요청은 토큰을 세지 않는다. 판정은 그 수를 안 쓰고, 세기가 이벤트 루프를 멈춘다(gemma 세기가 요청마다 수백 ms)
+async function buildRequest(one: AiSettings, batch: Judged[], genre: string | undefined, { live = true }: { live?: boolean } = {}) {
   const dialect = dialectOf(one);
   const extra = parseExtra(one.extra);
   const messages = buildMessages(one, batch, genre);
@@ -615,7 +619,7 @@ async function buildRequest(one: AiSettings, batch: Judged[], genre: string | un
 
   // 추가 파라미터가 맨 나중이다. 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
   const body = withExtra(dialect, withParams(dialect.body(one, wire), one), extra);
-  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one), extra), body, messages, problems: extra.problems, tokens: await countTokens(one, wire) };
+  return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one, { live }), extra), body, messages, wire, problems: extra.problems };
 }
 
 /**
@@ -662,22 +666,57 @@ const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
 const despace = (text: string) => text.replace(ODD_SPACE, " ");
 
 /**
- * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말을 곧잘 붙이므로 배열만 집는다.
+ * 답에서 곡별 판정을 읽는다. 작은 모델은 ```json 울타리나 앞말 · 뒷말을 곧잘 붙이므로
+ * 대괄호로 싼 덩어리 중 판정 모양(`n` 이 있는 표의 배열)인 마지막 것을 집는다. 설명 속 `[1]` 같은 것은 건너뛴다.
  * 못 읽으면 null. 부르는 쪽이 원문을 그대로 보여 준다.
  */
 function readVerdicts(text: unknown, count: number): Array<Verdict | null> | null {
-  const found = String(text || "").match(/\[[\s\S]*\]/);
-  if (!found) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(despace(found[0]));
-  } catch {
-    return null;
-  }
+  const verdicts = arraysIn(despace(String(text || "")))
+    .map(parseArray)
+    .filter((arr): arr is Array<Record<string, unknown>> => !!arr && arr.some((v) => v && typeof v === "object" && "n" in v))
+    .at(-1);
+  if (!verdicts) return null;
   const out: Array<Verdict | null> = new Array(count).fill(null);
-  for (const verdict of Array.isArray(parsed) ? parsed : []) {
+  for (const verdict of verdicts) {
     const at = Number(verdict?.n) - 1;
-    if (at >= 0 && at < count) out[at] = { song: !!verdict.song, fits: !!verdict.fits };
+    if (at >= 0 && at < count) out[at] = { song: yes(verdict.song), fits: yes(verdict.fits) };
+  }
+  return out;
+}
+
+// 참은 true 와 글자 "true" 뿐이다. "false" 를 !! 로 읽으면 참이 된다
+const yes = (value: unknown) => value === true || value === "true";
+
+function parseArray(text: string): Array<Record<string, unknown>> | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null; // 설명 속 대괄호다
+  }
+}
+
+// 맨 바깥 대괄호 덩어리들. 따옴표 안의 괄호는 세지 않는다
+function arraysIn(text: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === "\\") i++;
+      else if (ch === '"') quoted = false;
+      continue;
+    }
+    if (ch === '"') quoted = depth > 0;
+    else if (ch === "[") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "]" && depth > 0) {
+      depth--;
+      if (depth === 0) out.push(text.slice(start, i + 1));
+    }
   }
   return out;
 }
@@ -698,7 +737,7 @@ async function askBatch(one: AiSettings, batch: Judged[], genre: string | undefi
 
   const text = dialectOf(one).answerOf((await res.json()) as Reply) || "";
   const out = readVerdicts(text, batch.length);
-  if (!out) throw new Error(`JSON 배열을 못 찾았습니다: ${text.slice(0, 160)}`);
+  if (!out) throw new Error(`판정을 읽지 못했습니다(답 ${text.length}자): ${text.slice(0, 160)}`);
   return out;
 }
 
@@ -717,19 +756,22 @@ async function filter<T extends Judged>(candidates: T[] | null | undefined, abou
 
   const size = Math.max(1, Number(one.batchSize));
   const kept: T[] = [];
-  try {
-    for (let at = 0; at < candidates.length; at += size) {
-      const batch = candidates.slice(at, at + size);
-      const verdicts = await askBatch(one, batch, about.genre);
-      // 답을 못 받은 자리는 살린다. 모델이 빠뜨린 것을 떨어뜨릴 이유가 없다
-      batch.forEach((cand, i) => {
-        const verdict = verdicts[i];
-        if (!verdict || (verdict.song && verdict.fits)) kept.push(cand);
-      });
+  for (let at = 0; at < candidates.length; at += size) {
+    const batch = candidates.slice(at, at + size);
+    let verdicts: Array<Verdict | null>;
+    try {
+      verdicts = await askBatch(one, batch, about.genre);
+    } catch (error) {
+      // 남은 후보는 규칙이 고른 그대로 둔다. 이미 판정한 앞 묶음은 살린다
+      log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
+      kept.push(...candidates.slice(at));
+      break;
     }
-  } catch (error) {
-    log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
-    return candidates;
+    // 답을 못 받은 자리는 살린다. 모델이 빠뜨린 것을 떨어뜨릴 이유가 없다
+    batch.forEach((cand, i) => {
+      const verdict = verdicts[i];
+      if (!verdict || (verdict.song && verdict.fits)) kept.push(cand);
+    });
   }
 
   if (kept.length !== candidates.length) log.debug(`AI 보조: ${candidates.length}개 중 ${kept.length}개 남김${about.genre ? ` [${about.genre}]` : ""}`);
@@ -846,10 +888,10 @@ async function ping(draft: Draft) {
   const extra = parseExtra(one.extra);
   const body = withExtra(dialect, dialect.body(one, [{ role: "user", content: PING_TEXT }]), extra);
 
-  const headers = headersWith(await dialect.headers(one), extra);
-
   const started = Date.now();
+  let headers: Record<string, string> = {};
   try {
+    headers = headersWith(await dialect.headers(one), extra);
     const res = await send(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(Number(one.timeoutMs)) });
     const text = mask(await res.text());
     const took = Date.now() - started;
@@ -877,8 +919,8 @@ const SAMPLE: TestCandidate[] = [{ title: "System Of A Down - Toxicity (Official
  */
 async function preview(draft: Draft, genre = "록") {
   const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
-  const request = await buildRequest(one, SAMPLE, genre);
-  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems };
+  const request = await buildRequest(one, SAMPLE, genre, { live: false });
+  return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
 }
 
 // 인증이 실리는 헤더는 규격마다 다르다. 하나를 더할 때 여기도 같이 봐야 한다.
@@ -933,28 +975,37 @@ function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "�
  * 고른 후보들을 실제로 판정시킨다. SAMPLE 이 아니라 진짜 곡으로.
  * 나간 것·온 것·곡별 판정을 같이 준다.
  */
-async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "록") {
+/** 판정 시험의 답. 나간 것 · 온 것 · 곡별 판정 */
+type JudgeResult = {
+  url: string;
+  headers: Record<string, string>;
+  body: Body;
+  messages: Array<Wire & { at: number }>;
+  tokens: Awaited<ReturnType<typeof countTokens>>;
+  problems: string[];
+  status: number | null;
+  response: string;
+  verdicts: Array<{ title?: string | null; url?: string; song: boolean | null; fits: boolean | null }> | null;
+  usage?: Usage | null;
+  tookMs?: number;
+};
+
+async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "록"): Promise<JudgeResult> {
   const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
   // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
   const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
   const usable = picked.length ? picked : SAMPLE;
 
-  const request = await buildRequest(one, usable, genre);
-  const out: {
-    url: string;
-    headers: Record<string, string>;
-    body: Body;
-    messages: Array<Wire & { at: number }>;
-    tokens: Awaited<ReturnType<typeof countTokens>>;
-    problems: string[];
-    status: number | null;
-    response: string;
-    verdicts: Array<{ title?: string | null; url?: string; song: boolean | null; fits: boolean | null }> | null;
-    usage?: Usage | null;
-    tookMs?: number;
-  } = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: request.tokens, problems: request.problems, status: null, response: "", verdicts: null };
-
   const started = Date.now();
+  let request: Awaited<ReturnType<typeof buildRequest>>;
+  try {
+    request = await buildRequest(one, usable, genre);
+  } catch (error) {
+    // 헤더를 못 만들었다(버텍스 토큰을 못 받는 등). 까닭을 화면에 돌려준다
+    return { url: "", headers: {}, body: {}, messages: [], tokens: null, problems: [], status: null, response: mask(messageOf(error)), verdicts: null, tookMs: Date.now() - started } satisfies JudgeResult;
+  }
+  const out: JudgeResult = { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems, status: null, response: "", verdicts: null };
+
   try {
     const res = await send(request.url, {
       method: "POST",

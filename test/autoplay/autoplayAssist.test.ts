@@ -191,7 +191,7 @@ test("모델이 죽어도 자동재생은 돈다", async () => {
     () => ({ ok: true, json: async () => ({}) }),
   ]) {
     answers(broken);
-    assert.equal(await assist.filter(list, {}), list, "목록은 그대로");
+    assert.deepEqual(await assist.filter(list, {}), list, "목록은 그대로");
     assert.equal(await assist.accepts(list[0], {}), true, "한 곡은 살린다");
   }
 });
@@ -1166,4 +1166,79 @@ test("미리보기는 URL 을 돌려준다. 화면이 주소를 흉내 내지 �
   // 클라이언트가 같은 계산을 다시 하면 어긋난다.
   const out = await assist.preview({ provider: "custom", baseUrl: "http://127.0.0.1:11434/v1///", model: "test-model" });
   assert.equal(out.url, "http://127.0.0.1:11434/v1/chat/completions");
+});
+
+// ── 묶음 실패 · 판정 읽기 ─────────────────────────────────────────────────
+
+test("묶음 하나가 실패해도 앞 묶음의 판정은 살리고 남은 후보는 그대로 둔다", async () => {
+  useConfig(`${ON.replace("batchSize: 10", "batchSize: 2")}`);
+  let n = 0;
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
+    n++;
+    if (n === 1) return { ok: true, json: async () => ({ choices: [{ message: { content: '[{"n":1,"song":false,"fits":true},{"n":2,"song":true,"fits":true}]' } }] }) };
+    return { ok: false, status: 429, text: async () => "Resource exhausted" };
+  });
+  const got = await assist.filter([cand("A"), cand("B"), cand("C"), cand("D")], {});
+  assert.deepEqual(
+    got.map((c) => c.title),
+    ["B", "C", "D"],
+  );
+});
+
+test("답 앞뒤 설명에 대괄호가 있어도 판정 배열을 읽고, 글자 \"false\" 는 거짓이다", async () => {
+  useConfig(ON);
+  const list = [cand("A"), cand("B"), cand("C")];
+  answers('Checking item [1] first.\n```json\n[{"n":1,"song":true,"fits":true},{"n":2,"song":"false","fits":"true"},{"n":3,"song":true,"fits":"false"}]\n```\nSee [3].');
+  assert.deepEqual(
+    (await assist.filter(list, {})).map((c) => c.title),
+    ["A"],
+  );
+});
+
+// ── 토큰 세기 ─────────────────────────────────────────────────────────────
+
+test("판정 요청은 토큰을 세지 않는다(앤트로픽이어도 count_tokens 를 부르지 않는다)", async () => {
+  useConfig("provider: anthropic\nmodel: claude-opus-5\n", [{ role: "user", text: "{{목록}}" }]);
+  calls.length = 0;
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
+    return { ok: true, json: async () => ({ content: [{ text: '[{"n":1,"song":true,"fits":true}]' }] }) };
+  });
+  await assist.filter([cand("A")], {});
+  assert.deepEqual(
+    calls.map((c) => new URL(c.url).pathname),
+    ["/v1/messages"],
+  );
+});
+
+test("게이트웨이의 클로드 모델은 앤트로픽에 토큰을 묻지 않는다(그 키가 앤트로픽으로 나가지 않는다)", async () => {
+  useConfig("provider: off\n");
+  fs.appendFileSync(path.join(DIR, "ai-keys.yaml"), `openrouter: ${KEY}\n`);
+  calls.length = 0;
+  answers("[]");
+  const shown = await assist.preview({ provider: "openrouter", model: "anthropic/claude-fable-5" });
+  assert.deepEqual(calls, [], "미리보기는 밖으로 나가지 않는다");
+  assert.equal(shown.tokens?.by, "tik");
+});
+
+test("버텍스 미리보기는 토큰을 받으러 나가지 않는다. 연결 확인은 토큰을 못 받으면 까닭을 돌려준다", async () => {
+  useConfig("provider: vertex\nmodel: gemini-3.7-flash\nlocation: global\n", [{ role: "user", text: "{{목록}}" }]);
+  googleAuth._reset(); // 앞 시험이 받아 둔 토큰이 있으면 받으러 나가지 않아 시험이 안 된다
+  calls.length = 0;
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
+    throw new Error("network down");
+  });
+  const shown = await assist.preview({ provider: "vertex", model: "gemini-3.7-flash", location: "global", project: "p" });
+  assert.deepEqual(calls, []);
+  assert.match(shown.headers.Authorization, /^Bearer \[REDACTED/);
+
+  const pinged = await assist.ping({ provider: "vertex", model: "gemini-3.7-flash", location: "global", project: "p" });
+  assert.equal(pinged.ok, false);
+  assert.match(String(pinged.reason), /network down/);
+
+  const judged = await assist.judgeTest({ provider: "vertex", model: "gemini-3.7-flash", location: "global", project: "p" }, []);
+  assert.equal(judged.status, null);
+  assert.match(judged.response, /network down/);
 });

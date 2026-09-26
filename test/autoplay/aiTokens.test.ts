@@ -59,3 +59,21 @@ test("토크나이저는 프로필이 정한다", () => {
   assert.equal(tokens.tokenizerFor("openai", "gpt-6-astra"), "tik");
   assert.equal(tokens.tokenizerFor("vertex-gemini-native", "gemini-3.7-flash"), "gemma");
 });
+
+test("앤트로픽에 물을 때 system 글은 system 칸에 한 번만 싣는다", async () => {
+  let sent: { system?: string; messages: Array<{ role: string; content: string }> } | null = null;
+  const fake = (async (_url: string, init: { body: string }) => {
+    sent = JSON.parse(init.body);
+    return new Response(JSON.stringify({ input_tokens: 7 }), { status: 200 });
+  }) as unknown as typeof fetch;
+  const got = await tokens.countByAnthropic(
+    [
+      { role: "system", content: "기준" },
+      { role: "user", content: "목록" },
+    ],
+    { model: "claude-x", apiKey: "k", fetch: fake },
+  );
+  assert.equal(got, 7);
+  assert.equal(sent!.system, "기준");
+  assert.deepEqual(sent!.messages, [{ role: "user", content: "목록" }]);
+});

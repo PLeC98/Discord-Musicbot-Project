@@ -181,16 +181,20 @@ async function countMessages(messages: Message[] | null | undefined, tokenizer =
  */
 async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;
+  // system 은 본문 맨 위 칸 하나로. 역할을 바꾸기 전에 갈라야 user 로 한 번 더 들어가지 않는다
+  const all = messages || [];
   const body: { model: string; messages: Array<{ role: string; content: string }>; system?: string } = {
     model,
-    messages: (messages || []).map((one) => ({ role: one.role === "assistant" ? "assistant" : "user", content: String(one.content ?? one.text ?? "") })).filter((one) => one.content),
+    messages: all
+      .filter((one) => one.role !== "system")
+      .map((one) => ({ role: one.role === "assistant" ? "assistant" : "user", content: String(one.content ?? one.text ?? "") }))
+      .filter((one) => one.content),
   };
-  const system = (messages || [])
+  const system = all
     .filter((one) => one.role === "system")
     .map((one) => one.content ?? one.text)
     .join(String.fromCharCode(10, 10));
   if (system) body.system = system;
-  body.messages = body.messages.filter((one) => one.role !== "system");
   if (!body.messages.length) return null;
 
   const res = await send("https://api.anthropic.com/v1/messages/count_tokens", {
