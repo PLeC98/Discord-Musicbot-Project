@@ -144,3 +144,8 @@ test("캐시 받기: AAC 를 받고, AAC 가 없는 곡은 미리듣기 조각�
   );
   assert.equal(calls[0].flags.dumpSingleJson, undefined, "받는 것이지 정보만 읽는 것이 아니다");
 });
+
+test("캐시 받기: 미리듣기 곡은 고를 포맷이 없어 '포맷 없음'으로 끝난다(유튜브의 클라이언트 탓이 아니다)", async () => {
+  respond = (_url, flags) => ({ fail: flags.extractorArgs === "soundcloud:formats=hls_aac" ? "ERROR: [soundcloud] 1: No video formats found!" : "ERROR: [soundcloud] 1: Requested format is not available. Use --list-formats for a list of available formats" });
+  await assert.rejects(SoundCloud.download("https://soundcloud.com/artist/preview", { output: "x.opus" }), (e: unknown) => codeOf(e) === "no-formats");
+});

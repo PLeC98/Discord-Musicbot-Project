@@ -29,13 +29,13 @@ const textOf = (error: unknown) => {
 
 /**
  * 사운드클라우드 실패의 이름. yt-dlp 를 실행하는 곳이 붙인 이름(지역 차단 · 네트워크 · 429 등) 위에 사운드클라우드만의 뜻을 얹는다.
- *   no-formats  물은 포맷이 없다(부르는 쪽이 가른다: 미리듣기 · AAC 없는 곡)
+ *   no-formats  물은 포맷이 없거나 고를 것이 없다(부르는 쪽이 가른다: 미리듣기 · AAC 없는 곡). 유튜브의 "클라이언트 탓"과 뜻이 다르다
  *   404         없거나 비공개인 곡 · 세트
  *   403         사운드클라우드가 요청이 몰린 IP 를 막았다(client_id 가 낡은 경우는 yt-dlp 가 다시 받아 한 번 더 묻는다)
  */
 function nameOf(error: unknown, what: What): string | null {
   const text = textOf(error);
-  if (/No video formats found/i.test(text)) return "no-formats";
+  if (/No video formats found|Requested format is not available/i.test(text)) return "no-formats";
   if (/HTTP Error 404/.test(text)) return what === "set" ? "playlist-unavailable" : "track-unavailable";
   if (/HTTP Error 403/.test(text)) return "rate-limited";
   const code = codeOf(error);
