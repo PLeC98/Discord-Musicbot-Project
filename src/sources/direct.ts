@@ -47,7 +47,6 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
         // 임의의 오디오 URL이라 앨범아트를 알 방법이 없다. 대시보드가 파일 아이콘으로 대체 표시한다.
         thumbnail: null,
         platform: "direct",
-        type: "track",
         id: generateId(url),
         fileSize: contentLength ? parseInt(String(contentLength)) : null,
         contentType: contentType,

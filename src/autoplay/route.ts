@@ -30,7 +30,7 @@ import type { Limits, FilterConfig } from "./filter.ts";
 import type { Judged } from "./assist/index.ts";
 
 /** 틀 수 있는 트랙. 대기열에 담는 곡이다 */
-type PickedTrack = QueuedTrack & { audioUrl: string; type: "track" };
+type PickedTrack = QueuedTrack & { audioUrl: string };
 /** 유튜브 영상 하나. 검색 결과이거나 주소만 아는 것 */
 type Video = { url: string; id?: string | number | null; title?: string | null; channel?: string | null; artist?: string | null; durationSec?: number | null; duration?: number | null; thumbnail?: string | null };
 /** 최근에 튼 곡에서 읽는 칸 */
@@ -166,7 +166,6 @@ function fromYouTube(video: Video, cand: Candidate): PickedTrack {
     platform: sourced ? cand.platform || "youtube" : "youtube",
     duration: Number(video.durationSec || video.duration) || 0,
     thumbnail: cand.thumbnail || video.thumbnail || null,
-    type: "track",
     id: videoIdOf(video),
   };
 }
@@ -191,7 +190,6 @@ const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
   thumbnail: cand.thumbnail || null,
   // 패널에 "Direct"가 아니라 어디서 온 곡인지 보이게 한다
   platform: cand.platform || "direct",
-  type: "track",
   id: cand.sourceKey,
 });
 

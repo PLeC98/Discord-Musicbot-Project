@@ -592,14 +592,13 @@ test("볼륨은 0~100 으로 자르고 지금 리소스에 바로 건다", () =>
   assert.deepEqual(calls.persists, ["schedule:volume", "schedule:volume"]);
 });
 
-test("대기열 조작: 섞기 · 비우기 · 빼기 · 옮기기 · 합계", () => {
+test("대기열 조작: 빼기 · 옮기기", () => {
   const p = h.makePlayer();
   const [a, b, c] = [yt("c1ccccccccc", { duration: 10 }), yt("c2ccccccccc", { duration: 20 }), yt("c3ccccccccc", { duration: 0 })];
   p.currentTrack = yt("c0ccccccccc", { duration: 5 });
   p.queue = [a, b, c];
 
-  assert.equal(p.getTotalDuration(), 35);
-  assert.deepEqual(p.getQueue().totalTracks, 4);
+  assert.deepEqual(p.getQueue(), { current: p.currentTrack, queue: [a, b, c] });
   assert.equal(p.moveInQueue(0, 2), true);
   assert.deepEqual(p.queue, [b, c, a]);
   assert.equal(p.removeFromQueue(1), c);
@@ -692,7 +691,7 @@ test("상태 요약과 재생 여부", () => {
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
   const s = p.getStatus();
   h.dispose(p);
-  assert.deepEqual({ connected: s.connected, playing: s.playing, paused: s.paused, queue: s.queue, voice: s.voiceChannel, text: s.textChannel }, { connected: true, playing: false, paused: true, queue: 0, voice: "voice", text: "text" });
+  assert.deepEqual(s, { playing: false, paused: true, volume: p.volume, loop: false });
 });
 
 // ── 음성 채널 상태 문구 ────────────────────────────────────────────────

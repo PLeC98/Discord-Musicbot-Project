@@ -87,8 +87,8 @@ const tokenRoute: Route = (url) => (url === "https://accounts.spotify.com/api/to
 test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양으로 바꾼다", async () => {
   routes = [tokenRoute, (url) => (url.startsWith("https://api.spotify.com/v1/tracks/") ? reply(apiTrack(url.split("/").pop() ?? "", "곡")) : undefined)];
 
-  const [a] = await Spotify.getFromURL("https://open.spotify.com/track/aaa111");
-  await Spotify.getFromURL("https://open.spotify.com/track/bbb222");
+  const [a] = (await Spotify.getCollection("https://open.spotify.com/track/aaa111")).tracks;
+  await Spotify.getCollection("https://open.spotify.com/track/bbb222");
 
   const tokenCalls = requests.filter((r) => r.url.includes("accounts.spotify.com"));
   assert.equal(tokenCalls.length, 1, "토큰은 만료 전까지 재사용");
@@ -97,34 +97,12 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   assert.equal(tokenCalls[0].init.body, "grant_type=client_credentials");
   const trackCall = requests.find((r) => r.url.endsWith("/tracks/aaa111"));
   assert.equal(trackCall?.init.headers?.Authorization, "Bearer T1");
-  assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", type: "track", id: "aaa111" });
-});
-
-test("검색: 공식 API 의 search 를 부르고, 실패하면 빈 배열", async () => {
-  routes = [tokenRoute, (url) => (url.includes("/v1/search?") ? reply({ tracks: { items: [apiTrack("c1", "하나"), apiTrack("c2", "둘")] } }) : undefined)];
-
-  const found = await Spotify.search("가수 곡", 1);
-
-  const call = requests.find((r) => r.url.includes("/v1/search?"));
-  assert.equal(call?.url, `https://api.spotify.com/v1/search?q=${encodeURIComponent("가수 곡")}&type=track&limit=1`);
-  assert.deepEqual(
-    found.map((t) => t.title),
-    ["하나"],
-  );
-
-  routes = [tokenRoute, () => reply({}, { status: 500 })];
-  assert.deepEqual(await Spotify.search("아무거나"), []);
-});
-
-test("검색에 스포티파이 주소를 주면 그 곡을 받는다", async () => {
-  routes = [tokenRoute, (url) => (url.endsWith("/tracks/d1") ? reply(apiTrack("d1", "주소 곡")) : undefined)];
-  const [t] = await Spotify.search("https://open.spotify.com/track/d1");
-  assert.equal(t.title, "주소 곡");
+  assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "aaa111" });
 });
 
 test("자격증명이 없으면 곡 주소는 빈 결과(던지지 않는다)", async () => {
   Object.assign(config.spotify, { clientId: null, clientSecret: null });
-  assert.deepEqual(await Spotify.getFromURL("https://open.spotify.com/track/e1"), []);
+  assert.deepEqual((await Spotify.getCollection("https://open.spotify.com/track/e1")).tracks, []);
   assert.equal(requests.length, 0);
 });
 

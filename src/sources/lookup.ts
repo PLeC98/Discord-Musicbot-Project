@@ -25,7 +25,7 @@ type LookupResult = { success: true; isPlaylist: boolean; collection?: string | 
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
 type Sources = {
   youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; search(query: string, limit: number): Promise<FoundTrack[]> };
-  spotify: { getCollection(url: string, range?: Range): Promise<Collection>; search(query: string, limit: number): Promise<FoundTrack[]> };
+  spotify: { getCollection(url: string, range?: Range): Promise<Collection> };
   soundcloud: { search(query: string, limit: number): Promise<FoundTrack[]> };
   direct: { getInfo(url: string): Promise<FoundTrack[]> };
 };
@@ -64,9 +64,8 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
   return single(await youtube.search(query, 1));
 }
 
-// 스포티파이. 링크면 곡 · 앨범 · 재생목록 · 아티스트, 아니면 검색
+// 스포티파이 링크(곡 · 앨범 · 재생목록 · 아티스트). 링크가 아닌 글은 유튜브로 간다(detectPlatform)
 async function fromSpotify(query: string, range: Range, spotify: Sources["spotify"]): Promise<Found> {
-  if (!links.isSpotifyURL(query)) return single(await spotify.search(query, 1));
   const part = await spotify.getCollection(query, range);
   const { type } = links.parseSpotifyURL(query);
   const isPlaylist = type === "playlist" || type === "album" || type === "artist";

@@ -800,24 +800,7 @@ class MusicPlayer {
   }
 
   getQueue() {
-    return {
-      current: this.currentTrack,
-      queue: this.queue,
-      previous: this.previousTracks,
-      totalTracks: (this.currentTrack ? 1 : 0) + this.queue.length,
-      duration: this.getTotalDuration(),
-    };
-  }
-
-  getTotalDuration() {
-    let total = 0;
-    if (this.currentTrack && this.currentTrack.duration) {
-      total += this.currentTrack.duration;
-    }
-    this.queue.forEach((track) => {
-      if (track.duration) total += track.duration;
-    });
-    return total;
+    return { current: this.currentTrack, queue: this.queue };
   }
 
   /** 곡 안의 지금 위치(ms). 리소스가 실제로 낸 양이라 멈춤 · 버퍼링은 세지 않는다 */
@@ -1181,15 +1164,10 @@ class MusicPlayer {
 
   getStatus() {
     return {
-      connected: !!this.connection,
       playing: this.audioPlayer?.state?.status === AudioPlayerStatus.Playing,
       paused: this.audioPlayer?.state?.status === AudioPlayerStatus.Paused,
-      queue: this.queue.length,
       volume: this.volume,
       loop: this.loop,
-      currentTrack: this.currentTrack,
-      voiceChannel: this.voiceChannel?.name,
-      textChannel: this.textChannel?.name,
     };
   }
 

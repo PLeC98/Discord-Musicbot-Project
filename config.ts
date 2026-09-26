@@ -174,7 +174,7 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
     warnings.push("CLIENT_SECRET 미설정. 대시보드의 Discord 로그인(OAuth)이 동작하지 않습니다.");
   }
   if (!env("SPOTIFY_CLIENT_ID") || !env("SPOTIFY_CLIENT_SECRET")) {
-    warnings.push("Spotify API 키 미설정. 트랙/앨범/검색은 비활성, 재생목록/아티스트는 자격증명 없이 동작합니다.");
+    warnings.push("Spotify API 키 미설정. 트랙 · 앨범은 비활성, 재생목록 · 아티스트는 자격증명 없이 동작합니다.");
   }
 
   // 쿠키 출처. 브라우저 이름은 yt-dlp에 그대로 넘기므로 소문자로만 맞춘다

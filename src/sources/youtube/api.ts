@@ -89,7 +89,6 @@ function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
     duration: item.duration || 0,
     thumbnail: item.thumbnail || item.thumbnails?.[0]?.url,
     platform: "youtube",
-    type: "track",
     id: idOf(item.id),
     isLive: _detectLive(item),
     liveStatus: liveStatusOf(item),
@@ -234,7 +233,6 @@ async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYt
     // 영상 자체의 제목. 재생목록 페이지가 주는 제목과 다를 수 있고, 이쪽이 정본이다
     // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
     title: titleOf(info),
-    type: info.acodec && info.acodec.includes("opus") ? "opus" : "arbitrary",
     duration: info.duration || 0,
     bitrate: info.abr || info.tbr || 0,
     canSeek,
@@ -301,7 +299,6 @@ async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlis
       nextOffset: offset + info.entries.length,
       url: url,
       platform: "youtube",
-      type: "playlist",
     };
   } catch (error) {
     log.error("재생목록 조회 실패:", messageOf(error));

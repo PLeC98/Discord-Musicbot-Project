@@ -8,7 +8,7 @@
 // TTL·실패 시 번들 재추출로 갱신(자가치유). 참고 구현: LavaSrc, discord-player-spotify(원리 교차검증만).
 
 import crypto from "crypto";
-import { isSpotifyURL, parseSpotifyURL } from "../rules/links.ts";
+import { parseSpotifyURL } from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "spotify" });
 import config from "../../config.ts";
@@ -31,7 +31,7 @@ type GqlPlaylist = { playlistV2?: { __typename?: string; content?: { totalCount?
 type GqlArtist = { artistUnion?: { discography?: { topTracks?: { items?: Array<{ track?: GqlTrack }> } } } };
 
 /** 스포티파이 곡(두 경로 공통 출력) */
-type SpotifyTrack = { title: string; artist: string; album: string | null; pageUrl: string; requestKey: string; duration: number; thumbnail: string | null; platform: "spotify"; type: "track"; id?: string };
+type SpotifyTrack = { title: string; artist: string; album: string | null; pageUrl: string; requestKey: string; duration: number; thumbnail: string | null; platform: "spotify"; id?: string };
 /** 여러 곡 출처의 한 구간. total 은 모르면 null */
 type Part = { tracks: SpotifyTrack[]; total: number | null; nextOffset: number | null };
 type Range = { offset?: number; limit?: number };
@@ -93,7 +93,6 @@ function normApiTrack(t: ApiTrack | null | undefined, albumOverride?: { name?: s
     duration: Math.floor((t.duration_ms || 0) / 1000),
     thumbnail: pickImageUrl(album?.images),
     platform: "spotify",
-    type: "track",
     id: t.id,
   };
 }
@@ -120,7 +119,6 @@ function normGqlTrack(d: GqlTrack | null | undefined): SpotifyTrack | null {
     duration: Math.floor(durMs / 1000),
     thumbnail: pickImageUrl(d.albumOfTrack?.coverArt?.sources),
     platform: "spotify",
-    type: "track",
     id,
   };
 }
@@ -248,14 +246,6 @@ const official = {
     const a = (await net(over).get(`/artists/${id}/top-tracks`)) as { tracks?: ApiTrack[] }; // market 생략 가능(실측)
     return (a.tracks || [])
       .slice(0, 10)
-      .map((t) => normApiTrack(t))
-      .filter(isTrack);
-  },
-
-  async search(query: string, limit: number, over: Partial<Net> = {}) {
-    const r = (await net(over).get(`/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`)) as { tracks?: { items?: ApiTrack[] } };
-    return (r.tracks?.items || [])
-      .slice(0, limit)
       .map((t) => normApiTrack(t))
       .filter(isTrack);
   },
@@ -466,20 +456,6 @@ async function getCollection(url: string, { offset = 0, limit = config.bot.playl
   return result;
 }
 
-async function getFromURL(url: string): Promise<SpotifyTrack[]> {
-  return (await getCollection(url)).tracks;
-}
-
-async function search(query: string, limit = 1): Promise<SpotifyTrack[]> {
-  if (isSpotifyURL(query)) return getFromURL(query);
-  try {
-    return await official.search(query, limit);
-  } catch (e) {
-    log.warn(`검색 실패: ${messageOf(e)}`);
-    return [];
-  }
-}
-
 // 테스트 시임. 받아 둔 토큰과 익명 상태를 버린다(프로세스를 새로 띄운 것처럼)
 function _reset() {
   official._token = null;
@@ -491,5 +467,5 @@ function _reset() {
 // 테스트용 노출. 프로바이더는 요청 함수(get · query)를 인자로 받아 네트워크 없이 검증한다
 const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets, official, graphql };
 
-export { getCollection, getFromURL, search, _reset, _internals, useFetch };
+export { getCollection, _reset, _internals, useFetch };
 export type { SpotifyTrack, Part, Net };
