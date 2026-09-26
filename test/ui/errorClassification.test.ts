@@ -44,6 +44,13 @@ const TABLE: Row[] = [
   ["No results found", "no-results", F, F, F, F, F],
   ["This content is not available in your country", "geo-blocked", F, F, F, F, F],
   ["무언가 알 수 없는 일", "unknown", F, F, F, F, F],
+  // 지금 답. 낱말이 넓어 프로그램 버그가 엉뚱한 종류가 된다. 2단계가 오류를 만든 곳이 코드를 달게 바꾼다(계획서 #33)
+  ["Cannot read properties of undefined (reading 'geometry')", "geo-blocked", F, F, F, F, F],
+  ["Invalid regional indicator", "geo-blocked", F, F, F, F, F],
+  ["Cannot read properties of undefined (reading 'audioUrl')", "stream-failed", F, F, F, F, F],
+  ["player.stream is not a function", "stream-failed", F, F, F, F, F],
+  // 지금 답. 영어 문장에 기대 가른다. 2단계가 코드를 가진 오류로 바꾼다(계획서 #6)
+  ["Could not find YouTube equivalent", "no-youtube-match", F, F, F, F, F],
 ];
 
 test("오류 분류 표: 두 집의 지금 답", () => {

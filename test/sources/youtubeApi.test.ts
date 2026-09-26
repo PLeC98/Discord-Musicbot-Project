@@ -227,6 +227,13 @@ test("재생목록: 항목이 없거나 실패하면 null", async () => {
   assert.equal(await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL3"), null);
 });
 
+// 지금 답. 목록 조회 실패가 null 이 되어 자동재생 소스는 믹스 안내를 한다. 2단계가 실패의 까닭을 알리게 바꾼다(계획서 G2 · CQ-5)
+test("자동재생 재생목록 소스: 목록 조회가 실패해도 믹스라서 못 쓴다고 알린다", async () => {
+  const playlists = await import("../../src/autoplay/sources/playlists.ts");
+  respond = () => ({ fail: "ERROR: [youtube:tab] PLzzz: The playlist does not exist." });
+  await assert.rejects(playlists.youtube({ type: "playlist", url: "https://www.youtube.com/playlist?list=PLzzz" }), /유튜브 믹스는 소스로 쓸 수 없습니다/);
+});
+
 // ── 다시 받기 ─────────────────────────────────────────────────────────
 
 test("미디어 주소가 어긋나면(403) 잠깐 뒤 한 번 더 받는다", async () => {

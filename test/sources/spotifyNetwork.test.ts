@@ -10,6 +10,7 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
 import { fake } from "../helpers/fake.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "spotify-net-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -119,6 +120,19 @@ test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간
     list.tracks.map((t) => [t.title, t.pageUrl, t.duration]),
     [["인기곡", "https://open.spotify.com/track/g1", 90]],
   );
+});
+
+// 지금 동작. 2단계가 실패를 코드를 가진 오류로 던지게 바꾼다(계획서 CQ-5)
+test("모든 경로가 실패하면 빈 결과로 돌려주고 경고만 남긴다(없음과 실패가 같은 모양)", async () => {
+  routes = [tokenRoute, () => reply({}, { status: 503 })];
+  const from = sink.buffer.length;
+  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/album/al1"), { tracks: [], total: null, nextOffset: null });
+  const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
+  assert.ok(
+    lines.some((l) => l.startsWith("warn") && l.includes("주 경로 실패")),
+    lines.join("\n"),
+  );
+  assert.ok(lines.some((l) => l.startsWith("info") && l.includes("album al1 → 0곡: 결과 없음")));
 });
 
 test("모르는 주소는 요청 없이 빈 결과", async () => {
