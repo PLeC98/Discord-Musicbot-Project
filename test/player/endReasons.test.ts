@@ -50,6 +50,32 @@ async function endLines(act: () => unknown) {
 
 const registered = (p: MusicPlayer) => p.guild.client.players.get(p.guild.id) === p;
 
+test("곡이 끝까지 돌면: 원인=idle, 다음 곡을 튼다", async () => {
+  const next = yt("fffffffffff", { title: "다음 곡" });
+  h.seedCache("yt:fffffffffff", next);
+  const p = playingPlayer(yt("ggggggggggg", { title: "끝난 곡", duration: 200 }), 200_000);
+  p.queue = [next];
+  const lines = await endLines(() => h.fakeAudioOf(p).emit(AudioPlayerStatus.Idle));
+  h.dispose(p);
+  assert.deepEqual(lines, ['트랙 종료: "끝난 곡" (youtube) | 원인=idle']);
+  assert.equal(p.currentTrack?.title, "다음 곡");
+});
+
+test("이전 곡: 원인=previous. 한곡 반복이면 같은 곡을, 아니면 이전 곡을 다시 튼다", async () => {
+  const a = playingPlayer(yt("hhhhhhhhhhh", { title: "반복 곡" }));
+  a.loop = "track";
+  assert.deepEqual(await endLines(() => a.previous()), ['트랙 종료: "반복 곡" (youtube) | 원인=previous']);
+  h.dispose(a);
+
+  const before = yt("iiiiiiiiiii", { title: "앞 곡" });
+  h.seedCache("yt:iiiiiiiiiii", before);
+  const b = playingPlayer(yt("jjjjjjjjjjj", { title: "지금 곡" }));
+  b.previousTracks = [before];
+  assert.deepEqual(await endLines(() => b.previous()), ['트랙 종료: "지금 곡" (youtube) | 원인=previous']);
+  h.dispose(b);
+  assert.equal(b.currentTrack?.title, "앞 곡");
+});
+
 test("스킵: 원인=skip, 곡 이름이 남는다. 등록부에 남는다", async () => {
   const p = playingPlayer(yt("aaaaaaaaaaa", { title: "첫 곡" }));
   const lines = await endLines(() => p.skip());

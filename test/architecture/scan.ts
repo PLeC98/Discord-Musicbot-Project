@@ -226,7 +226,8 @@ function scanTest(rel: string) {
   // 뒤에 등록되는 시험이 닫힌 서버 · 저장소를 만난다(앞 시험만 걸러 돌리면 늘 그렇다)
   const lateAwaits: number[] = [];
   const awaits = (n: ts.Node): boolean => ts.isAwaitExpression(n) || (ts.isForOfStatement(n) && !!n.awaitModifier) || (!ts.isFunctionLike(n) && !!ts.forEachChild(n, (c) => awaits(c) || undefined));
-  const registersTest = (st: ts.Statement) => ts.isExpressionStatement(st) && ts.isCallExpression(st.expression) && ts.isIdentifier(st.expression.expression) && st.expression.expression.text === "test";
+  // 줄 안 어디서든(for 로 여럿 등록하는 것까지) test(…) 를 부르면 등록한 것이다. 함수 안은 그 함수가 불릴 때라 보지 않는다
+  const registersTest = (n: ts.Node): boolean => (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "test") || (!ts.isFunctionLike(n) && !!ts.forEachChild(n, (c) => registersTest(c) || undefined));
   let registered = false;
   for (const st of sf.statements) {
     if (registered && awaits(st)) lateAwaits.push(line(st));
