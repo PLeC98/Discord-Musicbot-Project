@@ -148,9 +148,10 @@ function normChannel(s: unknown): string {
 }
 
 // 다중 아티스트 분해: "A, B & C feat. D" → [a, b, c, d]
+// feat · ft · with 는 낱말일 때만 가른다. 안 그러면 "Daft Punk" 가 da · punk, "Drift" 가 dri 로 잘린다
 function splitArtists(artist: unknown): string[] {
   return String(artist || "")
-    .split(/\s*(?:,|&|×|＋|\+|;|\/|feat\.?|ft\.?|with)\s*/i)
+    .split(/\s*(?:,|&|×|＋|\+|;|\/|\bfeat\b\.?|\bft\b\.?|\bwith\b)\s*/i)
     .map(normLoose)
     .filter((a) => a.length >= 2);
 }
@@ -246,19 +247,23 @@ const OFFICIAL_TAG = /official\s*(?:video|audio|music\s*video|mv|m\/v|hd)|\bm\/v
 // 애니송 TV size/short는 공식이 유튜브에 다른 표기로 올리는 일이 많아, 스포티파이 제목 그대로 검색하면 못 찾는다 → 동의어 확장 대상.
 function detectVersionKind(title: unknown): "tv" | "short" | null {
   const t = String(title || "");
-  if (/[-–—([（【\s]\s*tv\s*(?:size|ver\.?|version|anime|edit)?\s*[-–—)\]）】]/i.test(t) || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
-  if (/[-–—([（【\s]\s*short\s*(?:size|ver\.?|version|edit)?\s*[-–—)\]）】]/i.test(t) || /ショート(?:サイズ|バージョン|ver)?/.test(t)) return "short";
+  // 끝에 닫는 표시 없이 제목이 끝나는 꼴("Idol - TV Size")은 size · ver 따위가 붙었을 때만 본다. "… on TV" 를 버전으로 보지 않게
+  if (/[-–—([（【\s]\s*tv\s*(?:size|ver\.?|version|anime|edit)?\s*[-–—)\]）】]/i.test(t) || /[-–—([（【]\s*tv\s*(?:size|ver\.?|version|edit)\s*$/i.test(t) || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
+  if (/[-–—([（【\s]\s*short\s*(?:size|ver\.?|version|edit)?\s*[-–—)\]）】]/i.test(t) || /[-–—([（【]\s*short\s*(?:size|ver\.?|version|edit)\s*$/i.test(t) || /ショート(?:サイズ|バージョン|ver)?/.test(t)) return "short";
   return null;
 }
 
 // 버전 태그를 제거한 기본 제목 (동의어 확장 쿼리의 베이스).
 function stripVersionTag(title: unknown): string {
-  return String(title || "")
-    .replace(/[([（【]\s*(?:tv|short|テレビ|ショート)[^)\]）】]*[)\]）】]/gi, " ") // (TV size), 【TVサイズ】
-    .replace(/[-–—]\s*(?:tv|short|テレビ|ショート)[^-–—]*[-–—]?/gi, " ") // -TV ver.-, - Short version -
-    .replace(/\btvサイズ\b|テレビサイズ|ショート(?:サイズ|バージョン)?/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    String(title || "")
+      .replace(/[([（【]\s*(?:tv|short|テレビ|ショート)[^)\]）】]*[)\]）】]/gi, " ") // (TV size), 【TVサイズ】
+      .replace(/[-–—]\s*(?:tv|short|テレビ|ショート)[^-–—]*[-–—]?/gi, " ") // -TV ver.-, - Short version -
+      // 가나 뒤에는 \b 가 서지 않는다(가나는 낱말 글자가 아니다). 붙여 쓴 "TVサイズ"도 뗀다
+      .replace(/tvサイズ|テレビサイズ|ショート(?:サイズ|バージョン)?/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 const dedupe = (arr: string[]) => [...new Set(arr.filter(Boolean))];

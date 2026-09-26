@@ -92,3 +92,21 @@ test("버전·재배포가 걸린 후보에는 high를 주지 않는다", () => 
   const clean = rankCandidates([cand({ channel: "아티스트" })], target);
   assert.equal(clean.confidence, "high");
 });
+
+test("아티스트 쪼개기: feat · ft · with 는 낱말일 때만 가른다", () => {
+  assert.deepEqual(I.splitArtists("Daft Punk"), ["daft punk"]);
+  assert.deepEqual(I.splitArtists("Drift"), ["drift"]);
+  assert.deepEqual(I.splitArtists("Within Temptation"), ["within temptation"]);
+  assert.deepEqual(I.splitArtists("Taylor Swift"), ["taylor swift"]);
+  assert.deepEqual(I.splitArtists("YOASOBI feat. Ayase"), ["yoasobi", "ayase"]);
+  assert.deepEqual(I.splitArtists("Artist ft Other with Third"), ["artist", "other", "third"]);
+  assert.deepEqual(I.splitArtists("Madeon & Porter Robinson"), ["madeon", "porter robinson"]);
+});
+
+test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝나는 - TV Size 도 알아본다", () => {
+  assert.equal(I.stripVersionTag("紅蓮華 TVサイズ"), "紅蓮華");
+  assert.equal(I.detectVersionKind("Idol - TV Size"), "tv");
+  assert.equal(I.stripVersionTag("Idol - TV Size"), "Idol");
+  assert.equal(I.detectVersionKind("Song - Short Ver"), "short");
+  assert.equal(I.detectVersionKind("Video Killed the Radio Star on TV"), null, "끝의 TV 만으로는 버전이 아니다");
+});
