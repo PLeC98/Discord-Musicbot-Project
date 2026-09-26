@@ -89,6 +89,7 @@ class LogManager {
   consoleLevel: number;
   buffer: WireEntry[];
   clients: Set<SseClient>;
+  _owners: Map<SseClient, string>;
   _cleanups: WeakMap<SseClient, () => void>;
   destinations: Destination[];
   earlyRecords: LogRecord[];
@@ -105,6 +106,7 @@ class LogManager {
     this.consoleLevel = 0;
     this.buffer = [];
     this.clients = new Set();
+    this._owners = new Map(); // res -> 연 사람(상한을 사람마다 센다)
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
     this.destinations = []; // file(file.ts) 등 레코드를 받는 함수
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
@@ -246,13 +248,13 @@ class LogManager {
 
   /**
    * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
-   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). "SSE 연결을 몇 개까지 두느냐"는 한 가지 질문이다.
+   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE 처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
    *
    * 상한을 넘으면 429. 느린 소비자는 record 가 정리한다(write 반환값을 본다).
    */
-  addClient(res: SseClient) {
+  addClient(res: SseClient, userKey: string) {
     const { maxPerUser, heartbeatMs } = config.dashboard.sse;
-    if (this.clients.size >= maxPerUser) {
+    if ([...this._owners.values()].filter((key) => key === userKey).length >= maxPerUser) {
       res.status(429).json({ error: "로그 연결이 너무 많습니다" });
       return;
     }
@@ -285,9 +287,11 @@ class LogManager {
       done = true;
       clearInterval(ping);
       this.clients.delete(res);
+      this._owners.delete(res);
     };
 
     this.clients.add(res);
+    this._owners.set(res, userKey);
     this._cleanups.set(res, cleanup);
     res.on("close", cleanup);
     res.on("error", cleanup);

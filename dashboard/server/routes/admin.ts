@@ -503,7 +503,7 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
 
 // Real-time log stream (SSE)
 adminRouter.get("/logs/stream", requireOwner, (req, res) => {
-  logManager.addClient(res);
+  logManager.addClient(res, signedIn(req).id);
 });
 
 // 권한 수준 오버라이드. { tier: "owner"|"moderator"|"dj"|"user"|null }. null이면 해제.

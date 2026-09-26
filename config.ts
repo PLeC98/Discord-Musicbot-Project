@@ -309,7 +309,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
       // 실시간 갱신(SSE). 플레이어 상태 변화 넛지. 값은 config.ts 기본값 + .env 오버라이드.
       sse: {
         heartbeatMs: envInt("SSE_HEARTBEAT_SEC", 20, { min: 5, max: 300 }) * 1000, // 유휴 연결 keepalive
-        maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5, { min: 1, max: 100 }), // 세션당 동시 연결 캡
+        maxPerUser: envInt("SSE_MAX_CONNECTIONS", 5, { min: 1, max: 100 }), // 사용자당 동시 연결 상한(플레이어 · 로그 스트림이 따로 센다)
         coalesceMs: envInt("SSE_COALESCE_MS", 300, { min: 0, max: 5000 }), // 서버당 넛지 합치기 창
       },
     },

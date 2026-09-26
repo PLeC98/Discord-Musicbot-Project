@@ -180,24 +180,29 @@ function fakeRes({ writeResult = true } = {}) {
   return res;
 }
 
-test("관리자 SSE: 연결 상한을 넘으면 429 — 무한정 받지 않는다", () => {
+test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429 — 무한정 받지 않는다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   const { maxPerUser } = config.dashboard.sse;
 
-  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes());
+  for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes(), "owner");
   assert.equal(lm.clients.size, maxPerUser);
 
   const over = fakeRes();
-  lm.addClient(over);
+  lm.addClient(over, "owner");
   assert.equal(over.statusCode, 429);
   assert.equal(lm.clients.size, maxPerUser, "상한을 넘는 연결은 등록하지 않는다");
+
+  const other = fakeRes();
+  lm.addClient(other, "someone-else");
+  assert.notEqual(other.statusCode, 429, "다른 사용자는 따로 센다");
+  assert.equal(lm.clients.size, maxPerUser + 1);
 });
 
 test("관리자 SSE: 읽지 않는 소비자는 끊는다 — 버퍼가 쌓이게 두지 않는다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
 
   const slow = fakeRes({ writeResult: false }); // write가 false = 커널 버퍼가 참
-  lm.addClient(slow);
+  lm.addClient(slow, "owner");
   assert.equal(lm.clients.size, 1);
 
   lm.record({ level: 30, time: 1, msg: "한 줄" });
@@ -209,7 +214,7 @@ test("관리자 SSE: 연결이 닫히면 하트비트도 함께 걷는다", () =
   const lm = new LogManager({ intercept: false, terminal: quiet });
 
   const res = fakeRes();
-  lm.addClient(res);
+  lm.addClient(res, "owner");
   assert.equal(typeof res.handlers.close, "function");
   assert.equal(typeof res.handlers.error, "function");
 
