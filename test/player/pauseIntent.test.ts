@@ -49,6 +49,7 @@ function makePlayer(status: string) {
     _trackLabel: MusicPlayer.prototype._trackLabel,
     pauseFor: MusicPlayer.prototype.pauseFor,
     resumeFor: MusicPlayer.prototype.resumeFor,
+    _showTrackInVoiceStatus: MusicPlayer.prototype._showTrackInVoiceStatus,
   });
   MusicPlayer.prototype.setupEvents.call(p);
   // 가짜 오디오 플레이어의 상태를 옮기는 손잡이
