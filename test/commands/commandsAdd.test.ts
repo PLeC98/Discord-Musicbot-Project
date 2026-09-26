@@ -319,7 +319,6 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   const err = interaction(world(), { options: { query: "x" } });
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(err.it), err.it.client, { search: boom });
   assert.deepEqual(err.log.at(-1), ["editReply", { content: S.ERR_PROCESSING }]);
-  assert.equal((await import("../../commands/search.ts")).formatDuration(0), "알 수 없음");
 });
 
 // ── /join ─────────────────────────────────────────────────────────────

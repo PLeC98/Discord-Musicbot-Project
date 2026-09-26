@@ -1,3 +1,4 @@
+import { formatDuration } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import config from "../config.ts";
 import * as YouTube from "../src/sources/youtube/index.ts";
@@ -30,7 +31,7 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
     const result = results[index];
     const title = result.title || "알 수 없는 제목";
     const uploader = result.artist || "알 수 없는 채널";
-    const duration = formatDuration(result?.duration);
+    const duration = formatDuration(result?.duration, "알 수 없음");
     const value = `👤 ${uploader} • ⏱️ ${duration}`;
 
     embed.addFields({
@@ -97,20 +98,6 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
   timer.unref?.();
 }
 
-function formatDuration(seconds: number | null | undefined, unknownLabel = "알 수 없음") {
-  if (!seconds || seconds === 0) return unknownLabel;
-
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-
-  if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  } else {
-    return `${minutes}:${secs.toString().padStart(2, "0")}`;
-  }
-}
-
 /** 유튜브 검색. 생략하면 진짜(시험이 가짜를 넘긴다) */
 type SearchDeps = { search?: (query: string, limit: number) => Promise<TrackInfo[]> };
 
@@ -164,5 +151,5 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
   },
 };
 export default exported;
-export { validateRequest, showSearchMenu, formatDuration };
+export { validateRequest, showSearchMenu };
 export type { SearchRecord };

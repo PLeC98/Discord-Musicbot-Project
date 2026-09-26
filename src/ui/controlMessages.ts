@@ -2,15 +2,7 @@
 // 대시보드는 ❌ 를 뗀 문장과 HTTP 상태 코드로 쓴다. 권한 거절은 권한 판정이 만든 안내(message)를 쓴다.
 
 import * as S from "./strings.ts";
-
-// 1:05 · 1:02:05
-function formatMs(ms: number) {
-  const total = Math.floor(ms / 1000);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = String(total % 60).padStart(2, "0");
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
-}
+import { formatMs } from "./format.ts";
 
 // 거절 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message 를 싣는다
 type Refusal = { code: string; message?: string; durationMs?: number; size?: number };

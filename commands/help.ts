@@ -1,3 +1,4 @@
+import { formatSpan } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
@@ -48,7 +49,7 @@ async function buildHelpEmbed(client: Client<true>) {
   });
   embed.addFields({
     name: "📊 통계",
-    value: [`🏠 **서버:** ${guilds}개`, `👥 **사용자:** ${users.toLocaleString()}명`, `🎵 **활성 서버:** ${activeServers}개`, `⏱️ **업타임:** ${formatUptime(process.uptime())}`].join("\n"),
+    value: [`🏠 **서버:** ${guilds}개`, `👥 **사용자:** ${users.toLocaleString()}명`, `🎵 **활성 서버:** ${activeServers}개`, `⏱️ **업타임:** ${formatSpan(process.uptime())}`].join("\n"),
     inline: true,
   });
   // WEBSITE는 선택 설정(null 허용). 없으면 링크/버튼을 생략한다
@@ -68,15 +69,6 @@ async function buildHelpEmbed(client: Client<true>) {
   buttons.push(new ButtonBuilder().setCustomId("help_refresh").setLabel("새로고침").setEmoji("🔄").setStyle(ButtonStyle.Secondary));
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
   return { embed, row };
-}
-
-function formatUptime(seconds: number) {
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d}일 ${h}시간 ${m}분`;
-  if (h > 0) return `${h}시간 ${m}분`;
-  return `${m}분`;
 }
 
 const exported: GuildCommand = {
@@ -102,4 +94,4 @@ const exported: GuildCommand = {
   },
 };
 export default exported;
-export { buildHelpEmbed, formatUptime };
+export { buildHelpEmbed };

@@ -1,24 +1,11 @@
+import { formatBytes, formatSpan } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, version as djsVersion } from "discord.js";
 import os from "os";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
 
-function formatUptime(seconds: number) {
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (d > 0) return `${d}일 ${h}시간 ${m}분`;
-  if (h > 0) return `${h}시간 ${m}분 ${s}초`;
-  return `${m}분 ${s}초`;
-}
-
-function formatBytes(bytes: number) {
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
-}
+const UPTIME = { withSeconds: true };
 
 function loadBar(used: number, total: number, width = 10) {
   const pct = Math.min(1, used / total);
@@ -43,7 +30,7 @@ function buildSystemEmbed(client: Client<true>) {
     .addFields(
       {
         name: "⏱️ 업타임",
-        value: [`**봇:** ${formatUptime(process.uptime())}`, `**OS:** ${formatUptime(os.uptime())}`].join("\n"),
+        value: [`**봇:** ${formatSpan(process.uptime(), UPTIME)}`, `**OS:** ${formatSpan(os.uptime(), UPTIME)}`].join("\n"),
         inline: true,
       },
       {
