@@ -8,10 +8,10 @@ let warnedDevOrigin = false;
 function normalizeDashboardOrigin(value: string) {
   const parsed = new URL(value);
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("DASHBOARD_URL must use http or https");
+    throw new Error("DASHBOARD_URL 은 http 나 https 주소여야 합니다");
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error("DASHBOARD_URL must be a plain origin");
+    throw new Error("DASHBOARD_URL 은 계정 · 쿼리 · 조각 없는 주소(출처)여야 합니다");
   }
   return parsed.origin;
 }

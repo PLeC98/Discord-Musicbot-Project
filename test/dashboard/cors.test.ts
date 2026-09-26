@@ -44,7 +44,7 @@ test("형식이 깨졌거나 출처를 헷갈리게 만든 값은 거부", async
 
 test("DASHBOARD_URL은 평범한 http·https 출처여야 한다", () => {
   assert.equal(normalizeDashboardOrigin("https://discord.plec.moe/path"), "https://discord.plec.moe");
-  assert.throws(() => normalizeDashboardOrigin("javascript:alert(1)"), /http or https/);
-  assert.throws(() => normalizeDashboardOrigin("https://user:pass@example.com"), /plain origin/);
-  assert.throws(() => normalizeDashboardOrigin("https://example.com/?next=evil"), /plain origin/);
+  assert.throws(() => normalizeDashboardOrigin("javascript:alert(1)"), /http 나 https/);
+  assert.throws(() => normalizeDashboardOrigin("https://user:pass@example.com"), /계정 · 쿼리 · 조각 없는 주소/);
+  assert.throws(() => normalizeDashboardOrigin("https://example.com/?next=evil"), /계정 · 쿼리 · 조각 없는 주소/);
 });
