@@ -476,7 +476,8 @@ test("AI 보조: 고른 후보가 없으면 보기 곡으로 판정한다", asyn
 
 // 로어북을 붙인 프롬프트는 32kb 를 넘어 413 이 났다. 프롬프트가 오가는 길만 넓혀 두었다.
 test("AI 보조: 긴 프롬프트도 받는다", async () => {
-  const long = "가".repeat(60000); // 32kb 를 훌쩍 넘는다
+  // 32kb 를 훌쩍 넘는다. 띄어 쓴 글로 한다. 공백 없는 긴 글은 토큰 세기(tik)가 수십 초 걸려 시험이 그 시간을 잰다
+  const long = "가나다 ".repeat(15000);
 
   const counted = await req<{ total: number }>("POST", "/api/admin/ai/tokens", { provider: "off", model: "", texts: [long] });
   assert.equal(counted.status, 200, "토큰 세기는 긴 글을 받아야 한다");
