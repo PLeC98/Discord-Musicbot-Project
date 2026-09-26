@@ -205,7 +205,8 @@ const official = {
       body: "grant_type=client_credentials",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (!r.ok) throw new Error(`토큰 발급 실패 ${r.status}`);
+    // 400 · 401 은 자격증명이 틀린 것이다(운영자 설정). 없을 때와 같이 알린다
+    if (!r.ok) throw codedError(r.status === 400 || r.status === 401 ? "spotify-unavailable" : "spotify-failed", `토큰 발급 실패 ${r.status}`);
     const j = (await r.json()) as { access_token: string; expires_in?: number };
     this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000 };
     return this._token.value;

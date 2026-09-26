@@ -1,5 +1,5 @@
 // 판정: 이 오류는 어떤 종류인가. 종류 이름을 낸다. 문장은 ui/errorMessages 가 만든다.
-// 오류를 만든 곳이 이름(code)을 붙인다(codedError). 여기서는 그 이름을 먼저 본다: 오류 자신 → 원인(cause) → 시스템 · 디스코드 코드.
+// 오류를 만든 곳이 이름(code)을 붙인다(codedError). 여기서는 그 이름을 본다: 오류 자신부터 원인(cause) 사슬을 따라가며, 종류 · 시스템 · 디스코드 이름 순으로.
 // 글은 보지 않는다. 이름이 없으면 unknown 이다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
@@ -35,12 +35,25 @@ function kindOfCode(code: string | number | undefined): string | null {
   return null;
 }
 
+// 원인 사슬. 가까운 것부터 몇 겹만(fetch 오류는 원인의 원인에 시스템 이름이 붙는다)
+function chainOf(error: unknown, depth = 4): unknown[] {
+  const out: unknown[] = [];
+  let one = error;
+  while (one && typeof one === "object" && out.length < depth) {
+    out.push(one);
+    one = "cause" in one ? one.cause : undefined;
+  }
+  return out;
+}
+
 function errorKind(error: unknown): string {
-  const cause = error && typeof error === "object" && "cause" in error ? error.cause : undefined;
-  const coded = kindOfCode(codeOf(error)) ?? kindOfCode(codeOf(cause));
-  if (coded) return coded;
+  const chain = chainOf(error);
+  for (const one of chain) {
+    const coded = kindOfCode(codeOf(one));
+    if (coded) return coded;
+  }
   // AbortSignal.timeout 이 끊은 요청. (음성 연결의 기다림이 끝난 것은 AbortError 라 여기 들지 않는다)
-  if (error && typeof error === "object" && "name" in error && error.name === "TimeoutError") return "network";
+  if (chain.some((one) => "name" in (one as object) && (one as { name?: unknown }).name === "TimeoutError")) return "network";
   return "unknown";
 }
 

@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import { errorKind, codedError } from "../../src/rules/errorKind.ts";
+import { ytDlpError } from "../helpers/errors.ts";
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;
 const F = false;
@@ -44,7 +45,7 @@ const TABLE: Row[] = [
 ];
 
 // ytdlpSpawn 이 내는 모양: 글은 그대로, 이름은 codeOf
-const shaped = (msg: string) => Object.assign(new Error(msg), { code: YouTube.codeOf(new Error(msg)) ?? undefined });
+const shaped = ytDlpError;
 
 test("오류 분류 표: yt-dlp 가 단 이름으로 가른 종류와 판별 칸", () => {
   const actual = TABLE.map(([msg]) => {
@@ -138,6 +139,8 @@ test("errorKind 는 오류 자신 → 원인(cause) → 시스템 · 디스코�
   assert.equal(errorKind(codedError("stream-failed", "무언가")), "stream-failed");
   assert.equal(errorKind(new Error("무언가", { cause: quiet("ENOTFOUND") })), "network", "fetch 는 원인에 시스템 이름을 단다");
   assert.equal(errorKind(quiet("UND_ERR_CONNECT_TIMEOUT")), "network");
+  // 감싼 오류의 원인의 원인(fetch 오류는 원인에 시스템 이름이 붙는다)
+  assert.equal(errorKind(new Error("익명 상태를 얻지 못했습니다", { cause: new TypeError("fetch failed", { cause: quiet("ECONNREFUSED") }) })), "network");
   assert.equal(errorKind(Object.assign(new Error("무언가"), { name: "TimeoutError" })), "network", "AbortSignal.timeout");
   assert.equal(errorKind(Object.assign(new Error("무언가"), { name: "AbortError" })), "unknown", "음성 연결 기다림이 끝난 것은 네트워크가 아니다");
   assert.equal(errorKind(quiet(50013)), "voice-permission");

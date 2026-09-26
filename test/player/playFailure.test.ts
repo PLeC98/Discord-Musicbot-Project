@@ -4,14 +4,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { failureReason } from "../../src/player/playFailure.ts";
 import { errorMessage } from "../../src/ui/errorMessages.ts";
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import { ytDlpError } from "../helpers/errors.ts";
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
 const AGE = `ERROR: [youtube] hc0ZDaAZQT0: Sign in to confirm your age.${HINT}`;
 const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.";
 
 // yt-dlp 를 실행하는 곳이 붙이는 모양(message = stderr, code = 이름)
-const ytdlpError = (stderr: string) => Object.assign(new Error(stderr), { stderr, code: YouTube.codeOf(new Error(stderr)) ?? undefined });
+const ytdlpError = ytDlpError;
 
 test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 가른다. 영상 id 를 붙인다", () => {
   assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한 · 쿠키 없음 (hc0ZDaAZQT0)");

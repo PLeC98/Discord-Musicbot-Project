@@ -1,3 +1,4 @@
+import { codedError } from "../rules/errorKind.ts";
 import { spawnFfmpeg, probeAudio } from "./ffmpeg/process.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
@@ -42,7 +43,7 @@ function run(args: string[]): Promise<void> {
     child.on("error", reject);
     child.on("exit", (code, signal) => {
       if (code === 0) resolve();
-      else reject(new Error(`FFmpeg 종료 (code=${code}, signal=${signal})`));
+      else reject(codedError("stream-failed", `FFmpeg 종료 (code=${code}, signal=${signal})`));
     });
   });
 }

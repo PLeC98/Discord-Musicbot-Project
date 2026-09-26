@@ -109,6 +109,11 @@ test("자격증명이 없으면 곡 주소는 요청 없이 spotify-unavailable 
   assert.equal(requests.length, 0);
 });
 
+test("자격증명이 틀려 토큰을 못 받으면(401) 역시 spotify-unavailable", async () => {
+  routes = [(url) => (url === "https://accounts.spotify.com/api/token" ? reply({ error: "invalid_client" }, { status: 401 }) : undefined)];
+  await assert.rejects(Spotify.getCollection("https://open.spotify.com/track/e2"), (e) => codeOf(e) === "spotify-unavailable");
+});
+
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
   // GraphQL 질의는 가짜로 넘긴다(익명 토큰 · 상태는 아래 시험들이 본다)
   const query = async (op: string, _hash: string, vars: Record<string, unknown>) => {
