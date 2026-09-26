@@ -13,8 +13,9 @@ import path from "path";
 import * as models from "../../config/aiModels.ts";
 
 // gpt-tokenizer 는 표가 커서 불러 두면 메모리를 꽤 쓴다(힙 16MB 남짓). AI 보조를 안 쓰는 봇이 떠안지 않게 처음 셀 때 부른다
-let tik: Promise<{ encode(text: string): number[] }> | null = null;
-const tikCount = async (body: string) => (await (tik ??= import("gpt-tokenizer"))).encode(body).length;
+let tik: Promise<typeof import("gpt-tokenizer")> | null = null;
+// 본문에 적힌 <|endoftext|> 같은 특수 토큰 글자는 글자 그대로 센다(API 도 사용자 글을 그렇게 받는다). 기본값은 예외를 던진다
+const tikCount = async (body: string) => (await (tik ??= import("gpt-tokenizer"))).countTokens(body, { disallowedSpecial: new Set() });
 
 /** 셀 메시지. 본문은 content 나 text 에 */
 type Message = { role?: string; content?: string; text?: string };

@@ -72,6 +72,11 @@ test("gemma 는 긴 글도 곧바로 센다", async () => {
   assert.ok(performance.now() - started < 2000, "6만 자가 2초 안에");
 });
 
+test("tik 은 특수 토큰 글자를 글자 그대로 센다", async () => {
+  // 기본값이면 예외를 던진다
+  assert.equal((await tokens.count("hi <|endoftext|> there", "tik")).tokens, 9);
+});
+
 // 앤트로픽은 공개 토크나이저가 없다. 어림수라는 것을 숨기지 않는다.
 test("어느 기준으로 셌는지 밝힌다", async () => {
   assert.deepEqual(await tokens.count("a", "tik"), { tokens: 1, by: "tik", exact: true });
