@@ -98,4 +98,4 @@ function genreProblems(data: unknown): string[] {
   return problemsOf(genresFile, data, ([, id, , index]) => ({ id, where: `${String(id)}의 ${Number(index) + 1}번째 소스` }));
 }
 
-export { genreProblems, NUMERIC_NAME, ONE_EMOJI };
+export { genreProblems, NUMERIC_NAME, ONE_EMOJI, YAML_WORDS };

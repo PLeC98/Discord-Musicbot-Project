@@ -1,6 +1,6 @@
 // 봇 활동 문구 설정(status.yaml)의 스키마.
 
-import { NUMERIC_NAME } from "./genres.ts";
+import { NUMERIC_NAME, YAML_WORDS } from "./genres.ts";
 import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 
 const ACTIVITY_TYPES = ["Playing", "Listening", "Watching", "Competing", "Custom"];
@@ -69,7 +69,7 @@ const special = z
   .superRefine((all, ctx) => {
     if (!all || typeof all !== "object" || Array.isArray(all)) return; // 표가 아니면 위에서 이미 알렸다
     for (const name of Object.keys(all)) {
-      if (["true", "false", "", "null"].includes(name)) ctx.addIssue({ code: "custom", message: `"${name || "null"}"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
+      if (YAML_WORDS.includes(name)) ctx.addIssue({ code: "custom", message: `"${name || "null"}"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).` });
       if (NUMERIC_NAME.test(name)) ctx.addIssue({ code: "custom", message: `"${name}": 숫자만으로 된 이름은 차례가 어긋납니다. "${name}년"처럼 글자를 붙여 주세요.` });
     }
   }, ALWAYS)

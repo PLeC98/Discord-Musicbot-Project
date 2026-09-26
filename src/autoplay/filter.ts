@@ -17,7 +17,8 @@ const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
 
 // 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 셋 다 "한 곡"일 확률이 97~100%였다.
 // (공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다.)
-const SONG_MARKS = /official|\bm\/?v\b|\bfe?a?t\.?\b/i;
+// feat · ft 만 센다. fe?a?t 로 적으면 "fat" · "fet" 도 걸린다
+const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 
 // 낱말 경계를 쓸 수 있는 차단어인지. 로마자·숫자·공백뿐이면 쓴다.
 // 한국어·일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.

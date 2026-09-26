@@ -40,7 +40,7 @@ test("안내 문구가 출처 이름을 따른다", () => {
   assert.equal(mem.createQueueAdditionMessage(songs(11), collectionLabel("album")), "✅ 앨범의 11개 노래가 대기열에 추가되었습니다!");
   assert.equal(mem.createQueueAdditionMessage(songs(10), collectionLabel("artist"), true), "⏫ 아티스트 인기곡의 10개 노래가 대기열 맨 앞에 추가되었습니다!");
   assert.equal(mem.createQueueAdditionMessage(songs(5), collectionLabel(undefined)), "✅ 재생목록의 5개 노래가 대기열에 추가되었습니다!", "종류를 모르면 재생목록");
-  assert.match(mem.createQueueAdditionMessage([{ title: "곡" }], null), /\*\*곡\*\*가 대기열에 추가/, "한 곡이면 제목 안내");
+  assert.match(mem.createQueueAdditionMessage([{ title: "곡" }], null), /\*\*곡\*\*이\(가\) 대기열에 추가/, "한 곡이면 제목 안내");
 });
 
 test("안내 문구: 받은 것보다 목록이 크면 전체 곡 수를, 자리가 모자라 덜 받았으면 그 사실을 붙인다", () => {

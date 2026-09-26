@@ -165,7 +165,7 @@ test("틀고 있으면 대기열에 넣고 응답 매체로 알린다. 패널이
     ["q1", "a"],
   );
   assert.deepEqual(calls, ["update"]);
-  assert.deepEqual(notices, ["✅ **곡 a**가 대기열에 추가되었습니다!"]);
+  assert.deepEqual(notices, ["✅ **곡 a**이(가) 대기열에 추가되었습니다!"]);
 });
 
 test("넣을 자리: 맨 앞 · 특정 곡 뒤 · 기본은 자동재생이 뽑아 둔 곡 앞", async () => {
@@ -176,7 +176,7 @@ test("넣을 자리: 맨 앞 · 특정 곡 뒤 · 기본은 자동재생이 뽑�
     front.player.queue.map((t) => t.id),
     ["a", "q1", "auto"],
   );
-  assert.deepEqual(front.notices, ["⏫ **곡 a**가 대기열 맨 앞에 추가되었습니다!"]);
+  assert.deepEqual(front.notices, ["⏫ **곡 a**이(가) 대기열 맨 앞에 추가되었습니다!"]);
 
   const after = setup({ current: track("now"), queue: [track("q1"), track("q2")] });
   await after.mem.handleMusicData("g1", { insertAfterId: "q1", tracks: [track("a")] }, who, after.responder);

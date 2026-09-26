@@ -28,7 +28,7 @@ const exported: GuildCommand = {
 
     const [modeEmoji, modeMessage] = LOOP_TEXT[String(r.mode)];
     const embed = new EmbedBuilder()
-      .setTitle(`${modeEmoji} 🔁 반복 모드 변경됨`)
+      .setTitle(`${modeEmoji} 반복 모드 변경됨`)
       .setDescription(modeMessage)
       .setColor(config.bot.embedColor)
       .setTimestamp()

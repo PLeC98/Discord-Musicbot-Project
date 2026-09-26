@@ -25,7 +25,7 @@ import { keyword } from "./keyword.ts";
 import { lastfm } from "./lastfm.ts";
 import { lbradio, PLACEHOLDER } from "./lbradio.ts";
 import { animethemes } from "./animethemes.ts";
-import { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } from "./anisongdb.ts";
+import { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, CATALOG_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS } from "./anisongdb.ts";
 import { vocaFamily, advancedFilters, someLanguages, suggest, isSite } from "./voca.ts";
 import { spotify, youtube } from "./playlists.ts";
 
@@ -61,7 +61,7 @@ const yearRange = remembered<YearRange>(
       return null;
     }
   },
-  { ttlMs: YEAR_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS },
+  { ttlMs: CATALOG_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS },
 );
 
 async function animeYearRange() {

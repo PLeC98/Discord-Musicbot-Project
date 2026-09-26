@@ -47,7 +47,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
 //
 // 대괄호로 싸였다고 다 거르면 안 된다. `[Alexandros]`는 실존하는 일본 록밴드다.
 // 그래서 정해진 목록만 본다. https://musicbrainz.org/doc/Style/Unknown_and_untitled
-const PLACEHOLDERS = new Set(["[no artist]", "[unknown]", "[anonymous]", "[nobody]", "[traditional]", "[data]", "[dialogue]", "[silence]", "[untitled]", "[unknown]"].map((s) => s.toLowerCase()));
+const PLACEHOLDERS = new Set(["[no artist]", "[unknown]", "[anonymous]", "[nobody]", "[traditional]", "[data]", "[dialogue]", "[silence]", "[untitled]"].map((s) => s.toLowerCase()));
 
 const PLACEHOLDER = {
   test: (value: unknown) =>

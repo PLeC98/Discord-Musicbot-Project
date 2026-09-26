@@ -32,7 +32,7 @@ type Filters = {
 // (songDifficulty)가 있어 "유명한 곡만"을 걸 수 있다.
 const ANISONG = "https://anisongdb.com/api";
 
-const YEAR_TTL_MS = 24 * 60 * 60 * 1000;
+const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
 // 화면(운영자 자동재생 설정)이 저쪽을 기다리는 한도와, 못 받았을 때 다시 묻기까지 쉬는 시간
 const CATALOG_WAIT_MS = 2000;
 const CATALOG_RETRY_MS = 10 * 60 * 1000;
@@ -61,7 +61,7 @@ async function loadAnisongStats(): Promise<AnisongStats | null> {
 }
 
 // 장르·태그 목록과 난이도 분포. 하루 한 번 묻고, 화면은 오래 기다리지 않는다(http.remembered)
-const anisongStats = remembered(loadAnisongStats, { ttlMs: YEAR_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS });
+const anisongStats = remembered(loadAnisongStats, { ttlMs: CATALOG_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS });
 
 /** 화면이 고를 값을 저쪽에 물어 채운다. 못 받았거나 늦으면 null(빈 목록으로 그린다). */
 const anisongCatalog = () => anisongStats.get();
@@ -210,5 +210,5 @@ async function anisongdb(source: GenreSource): Promise<Candidate[]> {
 // 테스트가 바깥으로 나가지 않게 통계를 미리 채워 둔다
 const _seedAnisongStats = (stats: AnisongStats | null) => anisongStats.seed(stats);
 
-export { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, YEAR_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
+export { anisongdb, anisongCatalog, anisongFilters, _seedAnisongStats, CATALOG_TTL_MS, CATALOG_WAIT_MS, CATALOG_RETRY_MS };
 export type { AnisongStats };

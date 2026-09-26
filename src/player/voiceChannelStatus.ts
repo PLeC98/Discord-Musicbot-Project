@@ -14,6 +14,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice" });
 import { messageOf } from "../rules/errorKind.ts";
+import { ChannelType } from "discord.js";
 
 /** 우리가 쓴 값을 남겨 두는 곳 */
 type Keeper = { load(): Array<[string, string]>; save(channelId: string, status: string): void };
@@ -75,7 +76,7 @@ function consumePacket(packet: Packet | null | undefined) {
   }
   if (packet.t === "GUILD_CREATE") {
     for (const channel of packet.d?.channels ?? []) {
-      if (channel?.type === 2) observe(channel.id, channel.status);
+      if (channel?.type === ChannelType.GuildVoice) observe(channel.id, channel.status);
     }
   }
 }

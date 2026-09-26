@@ -839,7 +839,7 @@ class MusicEmbedManager {
       text = insertFirst ? `⏫ ${sourceLabel}의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ ${sourceLabel}의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
     } else {
       const title = escapeMd(tracks[0]?.title || "알 수 없는 트랙");
-      text = insertFirst ? `⏫ **${title}**가 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**가 대기열에 추가되었습니다!`;
+      text = insertFirst ? `⏫ **${title}**이(가) 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**이(가) 대기열에 추가되었습니다!`;
     }
     if (sourceLabel && total) text += ` (전체 ${total.toLocaleString("ko-KR")}곡)`;
     if (dropped > 0) text += `\n⚠️ 대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${config.bot.maxQueueSize}곡)`;

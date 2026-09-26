@@ -66,6 +66,12 @@ test("곡 표식이 있으면 생김새 규칙을 면제한다", () => {
   assert.equal(judge("아이돌 '노래' 🌊🔥 (Official Music Video)").ok, true);
   assert.equal(judge("Artist - Song 🎉🎊 M/V").ok, true);
   assert.equal(judge("A, B, C, D - Song (feat. E)").ok, true);
+  assert.equal(judge("A, B, C, D - Song (ft E)").ok, true);
+});
+
+test("fat · fet 같은 낱말은 곡 표식이 아니다", () => {
+  // 생김새 규칙(이모지)에만 걸리는 제목. fat 을 표식으로 보면 면제돼 지나간다
+  assert.equal(judge("Fat Cat 🌊🔥").reason, "믹스 생김새");
 });
 
 test("표식이 없는 평범한 제목은 그대로 지난다", () => {
