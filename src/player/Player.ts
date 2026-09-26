@@ -649,7 +649,8 @@ class MusicPlayer {
       clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);
       return { ok: false, code: "live-no-seek" };
     }
-    const from = Math.round((this.lastPlaybackPosition || 0) / 1000);
+    // 출발은 지금 재생 위치다. lastPlaybackPosition 은 이번 재생을 시작한 자리라 재생 중에 안 바뀐다
+    const from = Math.round(this.getCurrentTime() / 1000);
     clog.info(`위치 이동: ${this._trackLabel()} | ${from}초 → ${Math.round(seekMs / 1000)}초 | 원인=${reason}`);
     return this.play(seekMs);
   }

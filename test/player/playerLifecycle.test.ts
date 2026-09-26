@@ -14,6 +14,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
 
 import * as h from "../helpers/playerHarness.ts";
+import sink from "../../src/infra/log/sink.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -633,6 +634,19 @@ test("위치 이동: 라이브는 거절, 아니면 그 자리에서 play", asyn
 
   assert.equal(r.ok, false);
   assert.deepEqual(seeks, [20000]);
+});
+
+test("위치 이동 로그: 출발은 지금 재생 위치다(앞 이동의 목표가 아니다)", async () => {
+  const p = scripted();
+  p.playAs = () => {};
+  p.currentTrack = yt("e3eeeeeeeee");
+  // 43초로 옮겨 1초 틀었다
+  p.lastPlaybackPosition = 43000;
+  p.playback = fake<CurrentPlayback>({ startOffsetMs: 43000, resource: fake<AudioResource>({ playbackDuration: 1000 }) });
+  await p.seek(12000);
+  h.dispose(p);
+  const line = sink.buffer.findLast((e) => e.text.includes("위치 이동:"))?.text ?? "";
+  assert.match(line, /44초 → 12초/);
 });
 
 test("이전곡: 기록이 있으면 되감고 previous 로 멈춘다. 없으면 false", () => {
