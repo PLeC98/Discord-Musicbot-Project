@@ -322,6 +322,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl }: ReturnType<typeof envRe
       evictIntervalMs: envInt("CACHE_EVICT_INTERVAL_HOURS", 4, { min: 1, max: 168 }) * 3600 * 1000,
       // 상한을 넘으면 상한의 이 비율(%)까지 지운다. 여유를 두어 곧바로 다시 넘지 않게
       evictTargetPercent: envInt("CACHE_EVICT_TARGET_PERCENT", 90, { min: 50, max: 99 }),
+      // 이보다 긴 곡은 캐시하지 않고 스트림으로만 튼다(초). 0 이면 상한 없음
+      maxTrackSec: envInt("CACHE_MAX_TRACK_MINUTES", 60, { min: 0, max: 10080 }) * 60,
     },
 
     // SponsorBlock. 비음악 구간 자동 스킵 (src/sources/sponsorBlock.ts). 세그먼트 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0).

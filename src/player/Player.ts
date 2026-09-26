@@ -40,7 +40,7 @@ import { PlaybackState } from "./playbackState.ts";
 import { CurrentPlayback } from "./currentPlayback.ts";
 import * as playerEvents from "./events.ts";
 import { prepareStart, resolveSource, commitPlaying } from "./startPlayback.ts";
-import { TrackDownloader } from "../media/cacheDownload.ts";
+import { TrackDownloader, tooLongToCache } from "../media/cacheDownload.ts";
 import { createPlayerSessionId } from "./playerSessionId.ts";
 import { SessionPersistence } from "./sessionMirror.ts";
 import { QueueWarmer } from "./queueWarmer.ts";
@@ -347,8 +347,7 @@ class MusicPlayer {
         cacheFile,
         startMs: start.startMs,
         meta: { title: track.title, url: track.pageUrl, duration: track.duration },
-        // 스트림은 있지만 캐시 파일이 없으면 나란히 받는다. 라이브는 캐시하지 않는다
-        download: !cacheFile && transport.cacheable ? { start: () => this._startBackgroundDownload(), filePath: this.downloader.trackFilePath(track), wait: (file) => TrackDownloader.waitFor(file) } : null,
+        download: !cacheFile && transport.cacheable ? this._downloadAlongside(track, streamInfo) : null,
         // 오류는 곡이 바뀐 뒤에 도착할 수 있다. 이 재생의 곡을 붙잡아 두어 엉뚱한 곡의 캐시로 갈아타지 않게 한다
         onStreamLost: (splicer) => this._planCacheSwitch(splicer, track),
         onProgress: () => {
@@ -376,6 +375,19 @@ class MusicPlayer {
       // 틀지 못하고 나왔다(대기열이 비었거나 실패). 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰다
       if (this.lifecycle.starting) this.lifecycle.to("idle", "시작 못 함");
     }
+  }
+
+  /**
+   * 스트림과 나란히 받는 캐시. 너무 긴 곡은 받지 않고 스트림으로만 튼다(디스크 · 변환 비용).
+   * 곡 길이는 아직 스트림 정보로 채우기 전이라 스트림이 알려 준 길이를 먼저 본다
+   */
+  _downloadAlongside(track: QueuedTrack, streamInfo: { duration?: number | null } | null) {
+    const seconds = streamInfo?.duration || track.duration;
+    if (tooLongToCache(seconds)) {
+      log.debug(`길이 ${Math.round(seconds / 60)}분이라 캐시하지 않고 스트림으로만 틉니다: ${this._trackLabel(track)}`);
+      return null;
+    }
+    return { start: () => this._startBackgroundDownload(), filePath: this.downloader.trackFilePath(track), wait: (file: string) => TrackDownloader.waitFor(file) };
   }
 
   /** 즉시 재생과 나란히 캐시를 받아 둔다. 기다리지 않으며, 실패해도 재생은 스트림으로 계속된다. */

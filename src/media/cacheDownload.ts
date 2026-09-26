@@ -1,4 +1,5 @@
 import { codedError } from "../rules/errorKind.ts";
+import config from "../../config.ts";
 import fsModule from "fs";
 const fs = fsModule.promises;
 import path from "path";
@@ -422,5 +423,11 @@ class TrackDownloader {
   static _internals = { inFlight, tempPathFor, cleanTemp, publish, needsBorrowedAudio };
 }
 
-export { TrackDownloader };
+/** 캐시하기에 너무 긴 길이(초)인가(CACHE_MAX_TRACK_MINUTES, 0 이면 상한 없음). 길이를 모르면 아니다 */
+function tooLongToCache(seconds: number | null | undefined) {
+  const max = config.cache.maxTrackSec;
+  return max > 0 && (seconds ?? 0) > max;
+}
+
+export { TrackDownloader, tooLongToCache };
 export type { DownloadTrack, Sources };

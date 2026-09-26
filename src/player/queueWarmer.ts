@@ -7,6 +7,7 @@ import * as trackState from "./trackState.ts";
 import type { Tracks } from "./trackState.ts";
 import type { QueuedTrack } from "./track.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { tooLongToCache } from "../media/cacheDownload.ts";
 
 /** 예열이 읽는 플레이어 칸. 뺀 자리를 메울 때 자동재생을 부른다 */
 type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string } | null; ensureAutoplayNext?(): Promise<unknown> };
@@ -164,7 +165,7 @@ class QueueWarmer {
   /**
    * 예열 대상. 대기열 앞 N곡.
    *
-   * 현재 곡은 제외한다(재생 경로가 이미 받고 있다). 라이브는 끝이 없어 캐시 대상이 아니다.
+   * 현재 곡은 제외한다(재생 경로가 이미 받고 있다). 라이브는 끝이 없어, 너무 긴 곡은 비용이 커 캐시 대상이 아니다.
    * 한곡 반복 중에는 다음 곡이 현재 곡이므로 앞을 받아둘 이유가 없다.
    */
   targets() {
@@ -172,7 +173,7 @@ class QueueWarmer {
     const out: QueuedTrack[] = [];
     for (const track of this.player.queue) {
       if (out.length >= this.ahead) break;
-      if (!track || track.isLive) continue;
+      if (!track || track.isLive || tooLongToCache(track.duration)) continue;
       out.push(track);
     }
     return out;

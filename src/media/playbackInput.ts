@@ -58,7 +58,7 @@ const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).t
  * @param o.startMs  곡 안의 시작 위치
  * @param o.meta  리소스에 붙일 곡 정보
  * @param o.download
- *   나란히 받는 캐시. 받아 둔 파일이 없고 캐시할 수 있을 때만 있다
+ *   나란히 받는 캐시. 받아 둔 파일이 없고 캐시할 수 있을 때만 있다. 없으면 스트림만 튼다
  * @param o.onStreamLost  스트림이 끊기면 캐시로 갈아탈 예약. 예약했으면 true
  * @param o.onProgress  입력이 들어왔다(버퍼링 감시가 본다)
  * @param o.onExit  주소 갈래 ffmpeg 가 끝났다. 신호로 죽었으면 -1
@@ -68,7 +68,7 @@ const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).t
 async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
   // 주소 갈래는 스트림 주소가 있어야 정해진다(transportOf)
   if (o.transport.via === "url" && o.streamInfo) return openUrl(o, o.streamInfo);
-  if (o.transport.via === "pipe" && o.download) {
+  if (o.transport.via === "pipe") {
     const opened = await openPipe(o, o.download);
     if (opened.resource || !opened.cacheFile) return opened;
     return openFile({ ...o, cacheFile: opened.cacheFile });
@@ -125,8 +125,8 @@ function openFile<R>(o: InputOptions<R>): Opened<R> {
 // ffmpeg에는 pipe로만 넣는다. URL을 직접 주면 yt-dlp가 준 httpHeaders가 빠지고, 아래 실패
 // 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 빌드는 SIGSEGV로 죽는다).
 // 그래서 URL 입력은 그렇게 할 수밖에 없는 HLS 갈래에만 두었다.
-async function openPipe<R>(o: InputOptions<R>, download: Download): Promise<Opened<R>> {
-  download.start();
+async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promise<Opened<R>> {
+  download?.start();
 
   // 청크 스트림이 끊겼을 때 부를 훅. 스플라이서가 만들어진 뒤 채운다
   const hooks: Hooks = {
@@ -141,7 +141,8 @@ async function openPipe<R>(o: InputOptions<R>, download: Download): Promise<Open
     try {
       audioStream = await openStream(o, streamInfo, hooks);
     } catch (error) {
-      // 스트리밍 실패. 위에서 시작한 받기로 넘어간다
+      // 스트리밍 실패. 위에서 시작한 받기로 넘어간다. 받지 않는 곡이면 원래 오류
+      if (!download) throw error;
       return { resource: null, cacheFile: await cacheFallback(download, error) };
     }
   }

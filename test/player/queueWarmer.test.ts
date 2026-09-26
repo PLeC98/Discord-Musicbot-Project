@@ -133,6 +133,15 @@ test("라이브 스트림은 대상이 아니다 (끝이 없어 캐시할 수 �
   assert.deepEqual(warmed, ["yt:b"]);
 });
 
+test("캐시 상한보다 긴 곡은 대상이 아니다. 길이를 모르는 곡은 받는다", async () => {
+  const { warmer, warmed } = makeWarmer({ queue: [track("long", { duration: 2 * 3600 }), track("edge", { duration: 3600 }), track("unknown")] });
+
+  for (let i = 0; i < 4; i++) warmer.tick();
+  await settle();
+
+  assert.deepEqual(warmed, ["yt:edge", "yt:unknown"], "기본 상한 60분. 딱 60분은 받는다");
+});
+
 test("한곡 반복 중에는 예열하지 않는다 (다음 곡이 현재 곡이다)", async () => {
   const { warmer, warmed } = makeWarmer({ queue: [track("a"), track("b")], loop: "track" });
 

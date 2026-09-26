@@ -143,6 +143,19 @@ test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시�
   assert.equal(p.currentTrack.duration, 190, "캐시가 없으면 스트림이 준 길이");
 });
 
+test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 받지 않는다. 길이는 스트림이 알려 준 것을 본다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("lllllllllll");
+  behavior.stream = () => ({ url: "https://media.test/long", duration: 2 * 3600 });
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, true);
+  assert.equal(calls.fetches.length, 1);
+  assert.equal(calls.downloads.length, 0, "기본 상한 60분");
+  assert.ok(calls.resources[0].input instanceof AudioSplicer, "받기 없이도 스트림 갈래로 연다");
+});
+
 test("헤더를 안 준 스트림은 브라우저 User-Agent 로 받는다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("fffffffffff");
@@ -219,6 +232,22 @@ test("스트림도 캐시도 안 되면 실패를 돌려주고 멈춘다", async
   assert.ok(r.error, "문장은 화면이 만든다. 오류를 그대로 넘긴다");
   assert.equal(p.currentTrack, null, "대기열이 비어 있으면 현재 곡을 비운다");
   assert.ok(h.fakeAudioOf(p).stops >= 1, "말하는 중 상태를 푼다");
+});
+
+test("캐시하지 않는 곡은 스트림이 안 열리면 기다릴 받기가 없어 그 오류로 실패한다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("mmmmmmmmmmm");
+  behavior.stream = () => ({ url: "https://media.test/long2", duration: 2 * 3600 });
+  behavior.fetch = () => {
+    throw new Error("끊김");
+  };
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, false);
+  assert.equal(r.code, "play-failed");
+  assert.equal((r.error as Error).message, "끊김");
+  assert.equal(calls.downloads.length, 0);
 });
 
 test("스트림 주소를 못 받으면 실패", async () => {
