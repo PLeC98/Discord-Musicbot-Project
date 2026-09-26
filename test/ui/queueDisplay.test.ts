@@ -49,3 +49,9 @@ test("점프 설명: 100자를 넘지 않는다", () => {
   assert.ok(long.endsWith("| 1:40 | 아주긴이름아주긴이름아주긴이름아주긴이름"), "뒤쪽 정보는 남는다");
   assert.ok(long.includes("…"), "아티스트가 잘렸음을 보인다");
 });
+
+test("대기열 한 줄의 제목은 60자에서 잘라 ...을 붙인다(끝 표시까지 60자)", () => {
+  const line = queueLine(song({ title: "a".repeat(80) }), 1);
+  assert.ok(line.includes(`[${"a".repeat(57)}...]`), line);
+  assert.ok(queueLine(song({ title: "a".repeat(60) }), 1).includes(`[${"a".repeat(60)}]`), "60자는 그대로");
+});

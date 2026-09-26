@@ -210,7 +210,7 @@ test("대기열 버튼: 비었으면 알리고, 있으면 앞 10곡과 나머지
 
   w.player.currentTrack = { title: "지금", pageUrl: "now" };
   w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
-  type QueueEmbed = { data: { fields: { name: string; value: string }[]; footer: { text: string } } };
+  type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
   const got: { payload?: { embeds: QueueEmbed[] } } = {};
   const full = press(w, "music_queue:u:S1", {
     reply: async (p: { embeds: QueueEmbed[] }) => {
@@ -220,9 +220,13 @@ test("대기열 버튼: 비었으면 알리고, 있으면 앞 10곡과 나머지
   await buttonHandler.execute(full.it);
   const payload = got.payload;
   assert.ok(payload);
-  const fields = Object.fromEntries(payload.embeds[0].data.fields.map((f) => [f.name, f.value]));
-  assert.equal(fields["🎵 현재 재생 중"], "**[지금](now)**");
-  assert.match(fields["📋 다음 노래들 (12개)"], /\*\.\.\. 그리고 2개 더\*$/);
+  // 본문(description)에 싣는다. /queue 와 같은 그림
+  const text = String(payload.embeds[0].data.description);
+  assert.match(text, /^\*\*🎵 현재 재생 중\*\*\n\*\*\[지금\]\(now\)\*\*\n\n\*\*📋 다음 노래들 \(12개\)\*\*\n/);
+  assert.match(text, /`10\.` \*\*\[곡10\]/);
+  assert.doesNotMatch(text, /곡11/, "앞 10곡만");
+  assert.match(text, /\*\.\.\. 그리고 2개 더\*$/);
+  assert.equal(payload.embeds[0].data.fields, undefined);
   assert.equal(payload.embeds[0].data.footer.text, "총 13개의 노래");
 });
 

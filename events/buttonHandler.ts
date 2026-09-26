@@ -16,7 +16,7 @@ const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
 };
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
-import { queueLine, queueFields } from "../src/ui/queueDisplay.ts";
+import { queueDescription } from "../src/ui/queueDisplay.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import type { ClientEvent } from "../src/app/main.ts";
@@ -150,19 +150,8 @@ async function handleQueue(interaction: Press, player: MusicPlayer) {
 
   const embed = new EmbedBuilder().setTitle("📝 재생 대기열").setColor(config.bot.embedColor).setTimestamp();
 
-  if (queueInfo.current) {
-    embed.addFields({
-      name: "🎵 현재 재생 중",
-      value: `**[${queueInfo.current.title}](${queueInfo.current.pageUrl})**`,
-      inline: false,
-    });
-  }
-
-  if (queueInfo.queue.length > 0) {
-    const lines = queueInfo.queue.slice(0, 10).map((track, index) => queueLine(track, index + 1));
-    if (queueInfo.queue.length > 10) lines.push(`\n*... 그리고 ${queueInfo.queue.length - 10}개 더*`);
-    embed.addFields(...queueFields(`📋 다음 노래들 (${queueInfo.queue.length}개)`, lines));
-  }
+  const more = queueInfo.queue.length > 10 ? `\n*... 그리고 ${queueInfo.queue.length - 10}개 더*` : null;
+  embed.setDescription(queueDescription({ current: queueInfo.current, header: `📋 다음 노래들 (${queueInfo.queue.length}개)`, tracks: queueInfo.queue.slice(0, 10), more }));
 
   embed.setFooter({
     text: `총 ${queueInfo.queue.length + (queueInfo.current ? 1 : 0)}개의 노래`,

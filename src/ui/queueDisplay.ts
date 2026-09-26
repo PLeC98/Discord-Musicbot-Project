@@ -28,9 +28,17 @@ function requesterName(track: Requested) {
   return who?.username || who?.displayName || who?.tag || null;
 }
 
-/** 대기열 한 줄: `` `3.` [제목](url) | 요청자 `` (줄바꿈 포함) */
-function queueLine(track: Pick<QueuedTrack, "title" | "pageUrl" | "autoplay" | "requestedBy">, number: number) {
-  const head = `\`${number}.\` **[${track.title}](${track.pageUrl})**`;
+// 목록에 적는 곡
+type Listed = Pick<QueuedTrack, "title" | "pageUrl" | "autoplay" | "requestedBy">;
+
+// 한 줄에 적는 제목의 상한. 넘치면 잘라 "..."을 붙인다(끝 표시까지 이 길이)
+const TITLE_MAX = 60;
+const shorten = (title: string) => (title.length > TITLE_MAX ? `${title.slice(0, TITLE_MAX - 3)}...` : title);
+
+/** 대기열 한 줄: `` `3.` [제목](url) | 요청자 `` (줄바꿈 포함). link 가 거짓이면 제목만 */
+function queueLine(track: Listed, number: number, { link = true }: { link?: boolean } = {}) {
+  const title = shorten(track.title || "");
+  const head = `\`${number}.\` **${link && track.pageUrl ? `[${title}](${track.pageUrl})` : title}**`;
   const who = requesterLabel(track);
   return `${who ? `${head} | ${who}` : head}\n`;
 }
@@ -49,26 +57,36 @@ function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration
   return tail ? `${trimmed} | ${tail}` : trimmed;
 }
 
-// 임베드 칸 하나에 들어가는 글 길이(디스코드 상한)
-const FIELD_MAX = 1024;
+// 임베드 본문(description)의 상한
+const DESCRIPTION_MAX = 4096;
 
 /**
- * 대기열 줄들을 임베드 칸들로. 칸 하나는 1024자까지라 링크가 붙은 긴 제목 열 줄이면 넘친다.
- * 넘치면 다음 칸으로 잇는다(이름은 첫 칸에만). 한 줄이 칸보다 길면 그 줄을 자른다
+ * 대기열 임베드의 본문. 칸(field)은 1024자라 나눠 실어야 하고, 나누면 칸마다 이름 줄이 생겨 빈 여백이 끼어 본문(4096자)에 싣는다.
+ * 제목은 60자에서 줄이고, 그래도 넘치면 주소가 가장 긴 곡부터 링크를 떼 제목만 남긴다(서명된 직접 링크 · 한글이 인코딩된 출처 주소는
+ * 수백 자다). 링크를 다 떼면 줄마다 150자 안쪽이라 한 쪽이 반드시 들어간다.
+ * first: 첫 곡의 번호, more: 목록 뒤에 붙일 한 줄
  */
-function queueFields(name: string, lines: string[]) {
-  const fields: Array<{ name: string; value: string; inline: false }> = [];
-  let value = "";
-  for (const raw of lines) {
-    const line = raw.length > FIELD_MAX ? `${raw.slice(0, FIELD_MAX - 2)}…\n` : raw;
-    if (value && value.length + line.length > FIELD_MAX) {
-      fields.push({ name: fields.length ? "\u200b" : name, value, inline: false });
-      value = "";
+function queueDescription({ current, header, tracks, first = 1, more = null }: { current?: Listed | null; header: string; tracks: Listed[]; first?: number; more?: string | null }) {
+  // 링크를 다는 곡. 현재 곡은 -1
+  const linked = new Set<number>(tracks.map((_, i) => i));
+  if (current) linked.add(-1);
+  const urlOf = (i: number) => (i < 0 ? current?.pageUrl : tracks[i]?.pageUrl) || "";
+  const render = () => {
+    const parts: string[] = [];
+    if (current) {
+      const title = shorten(current.title || "");
+      parts.push(`**🎵 현재 재생 중**\n**${linked.has(-1) && current.pageUrl ? `[${title}](${current.pageUrl})` : title}**`);
     }
-    value += line;
+    if (tracks.length) parts.push(`**${header}**\n${tracks.map((track, i) => queueLine(track, first + i, { link: linked.has(i) })).join("")}${more ?? ""}`);
+    return parts.join("\n\n");
+  };
+  let text = render();
+  while (text.length > DESCRIPTION_MAX && linked.size) {
+    const longest = [...linked].reduce((a, b) => (urlOf(b).length > urlOf(a).length ? b : a));
+    linked.delete(longest);
+    text = render();
   }
-  if (value) fields.push({ name: fields.length ? "\u200b" : name, value, inline: false });
-  return fields;
+  return text.length > DESCRIPTION_MAX ? `${text.slice(0, DESCRIPTION_MAX - 1)}…` : text;
 }
 
-export { queueLine, queueFields, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };
+export { queueLine, queueDescription, jumpDescription, requesterLabel, requesterName, AUTOPLAY_MARK };

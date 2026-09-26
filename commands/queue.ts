@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import config from "../config.ts";
 import * as S from "../src/ui/strings.ts";
-import { queueLine, queueFields } from "../src/ui/queueDisplay.ts";
+import { queueDescription } from "../src/ui/queueDisplay.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const PAGE_SIZE = 10;
@@ -34,19 +34,7 @@ const exported: GuildCommand = {
 
     const embed = new EmbedBuilder().setTitle("📝 재생 대기열").setColor(config.bot.embedColor).setTimestamp();
 
-    if (queueInfo.current && page === 1) {
-      embed.addFields({
-        name: "🎵 현재 재생 중",
-        value: `**[${queueInfo.current.title}](${queueInfo.current.pageUrl})**`,
-        inline: false,
-      });
-    }
-
-    if (totalQueueTracks > 0) {
-      const tracks = queueInfo.queue.slice(offset, offset + PAGE_SIZE);
-      const lines = tracks.map((track, i) => queueLine(track, offset + i + 1));
-      embed.addFields(...queueFields(`📋 다음 노래들 (${totalQueueTracks}개)`, lines));
-    }
+    embed.setDescription(queueDescription({ current: page === 1 ? queueInfo.current : null, header: `📋 다음 노래들 (${totalQueueTracks}개)`, tracks: queueInfo.queue.slice(offset, offset + PAGE_SIZE), first: offset + 1 }));
 
     embed.setFooter({
       text: `총 ${totalQueueTracks + (queueInfo.current ? 1 : 0)}개의 노래${totalPages > 1 ? ` • ${page}/${totalPages} 페이지` : ""}`,

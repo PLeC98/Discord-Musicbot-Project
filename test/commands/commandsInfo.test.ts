@@ -159,41 +159,40 @@ test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   assert.deepEqual(empty.log[0][1], { content: S.ERR_NO_SONGS_IN_QUEUE, flags: [64] });
 });
 
+// 대기열은 본문(description)에 싣는다. 칸(field)에 나눠 실으면 칸마다 이름 줄이 생겨 빈 여백이 끼었다
+const descriptionOf = (payload: Sent) => String(payload.embeds[0].data.description ?? "");
+
 test("/queue: 쪽마다 나눠 보이고, 현재 곡은 첫 쪽에만. 없는 쪽은 마지막 쪽으로", async () => {
   const queue = Array.from({ length: 25 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
   const first = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue) });
   await run(await command("queue"), first.it, first.client);
   const p1 = first.log[0][1];
-  assert.equal(fieldsOf(p1)["🎵 현재 재생 중"], "**[지금](now)**");
+  assert.match(descriptionOf(p1), /^\*\*🎵 현재 재생 중\*\*\n\*\*\[지금\]\(now\)\*\*\n\n\*\*📋 다음 노래들 \(25개\)\*\*\n`1\.` \*\*\[곡1\]\(u0\)\*\*/);
+  assert.equal(p1.embeds[0].data.fields, undefined, "칸을 쓰지 않는다");
   assert.equal(p1.embeds[0].data.footer?.text, "총 26개의 노래 • 1/3 페이지");
 
   const last = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue), options: { page: 9 } });
   await run(await command("queue"), last.it, last.client);
   const p3 = last.log[0][1];
-  assert.equal(fieldsOf(p3)["🎵 현재 재생 중"], undefined);
-  assert.match(fieldsOf(p3)["📋 다음 노래들 (25개)"], /곡21/);
+  assert.doesNotMatch(descriptionOf(p3), /현재 재생 중/);
+  assert.match(descriptionOf(p3), /`21\.` \*\*\[곡21\]/, "번호는 쪽을 이어 센다");
   assert.equal(p3.embeds[0].data.footer?.text, "총 26개의 노래 • 3/3 페이지");
 });
 
-// 링크가 붙은 긴 유튜브 제목 열 줄이면 칸 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용)
-test("/queue: 긴 제목 열 줄은 칸을 나눠 싣고, 칸마다 1024자를 넘지 않는다", async () => {
-  const title = "Tears For Fears - Everybody Wants To Rule The World (Official Archive Video)";
-  const queue = Array.from({ length: 10 }, (_, i) => ({ title, pageUrl: `https://www.youtube.com/watch?v=aaaaaaaaaa${i}`, duration: 60, requestedBy: { id: "151864213755789312" } }));
-  const it = interaction({ player: queuePlayer(null, queue) });
+// 링크가 붙은 긴 유튜브 제목 열 줄이면 칸 하나(1024자)를 넘어 명령이 통째로 실패했다(실사용).
+// 본문은 4096자지만 서명된 직접 링크 · 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
+test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
+  const who = { id: "151864213755789312" };
+  const long = (i: number) => ({ title: "가".repeat(150), pageUrl: `https://cdn.example.com/${"x".repeat(1000)}/${i}.mp3`, duration: 60, requestedBy: who });
+  const short = { title: "짧은 곡", pageUrl: "https://www.youtube.com/watch?v=bbbbbbbbbbb", duration: 60, requestedBy: who };
+  const queue = [long(1), short, ...Array.from({ length: 8 }, (_, i) => long(i + 2))];
+  const it = interaction({ player: queuePlayer(long(0), queue) });
   await run(await command("queue"), it.it, it.client);
-  const fields = it.log[0][1].embeds[0].data.fields ?? [];
-  assert.ok(fields.length >= 2, "한 칸에 다 못 담는다");
-  assert.ok(fields.every((f: { value: string }) => f.value.length <= 1024));
-  assert.equal(
-    fields
-      .map((f: { value: string }) => f.value)
-      .join("")
-      .split("\n")
-      .filter(Boolean).length,
-    10,
-    "줄은 빠지지 않는다",
-  );
-  assert.equal(fields[0].name, "📋 다음 노래들 (10개)");
+  const text = descriptionOf(it.log[0][1]);
+  assert.ok(text.length <= 4096, `${text.length}자`);
+  assert.equal(text.split("\n").filter((line) => /^`\d+\.`/.test(line)).length, 10, "줄은 빠지지 않는다");
+  assert.match(text, /\[짧은 곡\]\(https:\/\/www\.youtube\.com/, "짧은 주소는 링크가 남는다");
+  assert.match(text, /\*\*가{57}\.\.\.\*\*/, "제목은 60자에서 잘라 ...을 붙이고, 링크를 뗀 곡은 제목만");
 });
 
 // ── /help · /system ───────────────────────────────────────────────────
