@@ -196,6 +196,38 @@ test("모델이 죽어도 자동재생은 돈다", async () => {
   }
 });
 
+// 지금 답. 3단계가 재시도(횟수 설정)와 잇단 실패 알림을 넣으며 바꾼다(계획서 G5)
+test("실패하면 묶음마다 한 번만 묻고 다시 묻지 않는다. 까닭은 debug 한 줄", async () => {
+  useConfig(ON);
+  const list = [cand("A"), cand("B")];
+  const level = logger.level;
+  logger.level = "debug";
+  try {
+    for (const [broken, why] of [
+      [() => ({ ok: false, status: 429, text: async () => "slow down" }), "429"],
+      [() => ({ ok: false, status: 503, text: async () => "overloaded" }), "503"],
+      [
+        () => {
+          throw new Error("fetch failed");
+        },
+        "fetch failed",
+      ],
+    ] as const) {
+      answers(broken);
+      calls.length = 0;
+      const from = sink.buffer.length;
+      assert.deepEqual(await assist.filter(list, {}), list);
+      assert.equal(calls.length, 1, `${why}: 다시 묻지 않는다`);
+      const lines = sink.buffer.slice(from).filter((e) => e.text.includes("AI 보조를 건너뜁니다"));
+      assert.equal(lines.length, 1, why);
+      assert.equal(lines[0].level, "debug");
+      assert.ok(lines[0].text.includes(why), lines[0].text);
+    }
+  } finally {
+    logger.level = level;
+  }
+});
+
 // 어떤 서비스는 거절 응답에 보낸 헤더를 되비춘다. 그 본문을 오류에 실으면 로그에 키가 남는다.
 test("오류 어디에도 키가 나오지 않는다", async () => {
   useConfig(ON);

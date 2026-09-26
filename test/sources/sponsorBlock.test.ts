@@ -152,6 +152,21 @@ test("lookup: 조회 실패 + 캐시 있음 → source cache (폴백)", async ()
   assert.equal(r?.skipSegments.length, 1);
 });
 
+// 지금 답. 캐시가 있어도 라이브를 먼저 기다린다. 3단계가 캐시를 먼저 쓰고 라이브는 뒤에서 고치게 바꾼다(계획서 G10)
+test("lookup: 캐시가 있어도 라이브를 먼저 묻고 그 답을 쓴다", async () => {
+  stubFetch("vidBoth", [seg("intro", 0, 8, "skip")]);
+  await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });
+  let asked = 0;
+  net.fetch = async () => {
+    asked += 1;
+    return { status: 200, json: async () => [{ videoID: "vidBoth", hash: "0".repeat(64), segments: [seg("intro", 0, 12, "skip")] }] };
+  };
+  const r = await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });
+  assert.equal(asked, 1);
+  assert.equal(r.source, "live");
+  assert.equal(r.skipSegments[0].end, 12, "캐시(8초)가 아니라 라이브 답");
+});
+
 test("lookup: 조회 실패 + 캐시 없음 → source none, 스킵 없음", async () => {
   net.fetch = async () => {
     throw new Error("network down");

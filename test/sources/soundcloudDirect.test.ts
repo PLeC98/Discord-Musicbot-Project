@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 
 import * as SoundCloud from "../../src/sources/soundcloud.ts";
 import * as DirectLink from "../../src/sources/direct.ts";
+import { getTrackData } from "../../src/sources/lookup.ts";
 import { messageOf } from "../../src/rules/errorKind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
@@ -107,6 +108,32 @@ test("사운드클라우드 스트림: 주소가 없으면 던진다", async () 
   await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/track"), /스트림 URL을 찾을 수 없음/);
 });
 
+// 곡 찾기(바깥 계약)로 본 지금 답. 3S 단계가 사운드클라우드를 새로 짜며 바꾼다(계획서 SC-1 · SC-5 · SC-6)
+test("곡 찾기: 사운드클라우드 세트 링크는 한 곡으로 들어간다(제목은 세트 이름, 길이는 곡 길이의 합)", async () => {
+  respond = () => ({ _type: "playlist", id: "set1", title: "세트 이름", uploader: "올린 사람", webpage_url: "https://soundcloud.com/artist/sets/list", duration: 194, entries: [scItem("a"), scItem("b")] });
+  const r = await getTrackData("https://soundcloud.com/artist/sets/list");
+  assert.equal(r.success, true);
+  assert.equal(r.isPlaylist, false);
+  assert.deepEqual(
+    r.tracks?.map((t) => [t.title, t.duration]),
+    [["세트 이름", 194]],
+  );
+});
+
+test("곡 찾기: 미리듣기만 열린 곡도 30초짜리 곡으로 들어간다", async () => {
+  respond = () => scItem("preview", { duration: 30, formats: [{ format_id: "hls_mp3_1_0_preview" }, { format_id: "http_mp3_1_0_preview" }] });
+  const r = await getTrackData("https://soundcloud.com/artist/preview");
+  assert.deepEqual(
+    r.tracks?.map((t) => [t.title, t.duration]),
+    [["SC preview", 30]],
+  );
+});
+
+test("곡 찾기: 지역 제한은 결과 없음과 같게 보인다", async () => {
+  respond = () => ({ fail: "ERROR: [soundcloud] 123: This video is not available from your location due to geo restriction" });
+  assert.deepEqual(await getTrackData("https://soundcloud.com/artist/blocked"), { success: false, code: "no-result" });
+});
+
 // ── 직접 링크 ─────────────────────────────────────────────────────────
 
 test("직접 링크 판정: http(s) 이고 지원하는 확장자로 끝나야 한다(쿼리는 상관없다)", () => {
@@ -162,4 +189,11 @@ test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 �
 test("파일 이름에서 제목: 구분자를 공백으로, 단어 첫 글자를 대문자로", () => {
   assert.equal(DirectLink.extractTitle("hello_world-2.mp3"), "Hello World 2");
   assert.equal(DirectLink.extractTitle(".mp3"), "Mp3", "점으로 시작하는 이름은 확장자가 아니라 이름으로 읽힌다");
+});
+
+// 지금 답. 3단계가 바꾼다(계획서 #3 · #23)
+test("직접 링크 곡 ID 는 주소 앞 12글자에서 나와 같은 호스트의 곡이 모두 같다. 제목은 퍼센트 인코딩을 풀지 않는다", () => {
+  assert.equal(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/b.mp3"));
+  assert.equal(DirectLink.extractTitle("%EB%85%B8%EB%9E%98%20live.mp3"), "%EB%85%B8%EB%9E%98%20live");
+  assert.equal(DirectLink.extractTitle("iPhone_demo.mp3"), "IPhone Demo");
 });
