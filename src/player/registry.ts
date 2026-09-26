@@ -11,12 +11,14 @@ import type { MusicPlayer } from "./Player.ts";
  * 아직 찾지 못한 경로가 있을 수 있어, 호출부마다 로그를 다는 대신 맵 자체를 감쌌다.
  */
 
+// 이 파일의 경로. 스택에서 이 파일의 프레임을 건너뛰는 데 쓴다(파일 이름을 적어 두면 옮길 때 어긋난다)
+const SELF = import.meta.filename.split("\\").join("/");
+
 // 스택에서 이 파일 바깥 첫 프레임을 "파일:줄"로 뽑는다. 경로 구분자는 미리 /로 통일.
-function caller() {
-  const frames = (new Error().stack || "").split("\n").slice(2);
-  for (const raw of frames) {
-    if (raw.includes("playerRegistry")) continue;
+function callerOf(stack: string, self = SELF) {
+  for (const raw of stack.split("\n").slice(1)) {
     const frame = raw.split("\\").join("/");
+    if (frame.includes(self)) continue;
     const withDir = frame.match(/([^/]+\/[^/]+):(\d+):\d+\)?\s*$/);
     if (withDir) return `${withDir[1]}:${withDir[2]}`;
     const bare = frame.match(/([^/(\s]+):(\d+):\d+\)?\s*$/);
@@ -24,6 +26,8 @@ function caller() {
   }
   return "?";
 }
+
+const caller = () => callerOf(new Error().stack || "");
 
 const label = (player: MusicPlayer | undefined, guildId: string) => `${player?.guild?.name ?? "?"} (${guildId})`;
 
@@ -44,4 +48,4 @@ class PlayerRegistry extends Collection<string, MusicPlayer> {
   }
 }
 
-export { PlayerRegistry };
+export { PlayerRegistry, callerOf, caller };
