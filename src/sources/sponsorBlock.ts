@@ -124,16 +124,31 @@ async function lookup(videoId: string | null | undefined, { categories = config.
   return shape(await _rawFor(videoId), categories);
 }
 
-/** 원시 구간과 출처. 라이브 조회를 먼저, 실패하면 DB 캐시 */
+/**
+ * 원시 구간과 출처. DB 캐시가 있으면 곧바로 그것을 쓰고 라이브는 뒤에서 고친다(바로 트는 첫 곡이 라이브 응답을 기다리지 않게).
+ * 캐시가 없는 영상만 라이브를 기다린다. 뒤에서 받은 답은 다음 재생부터 쓴다(지금 곡은 캐시의 구간으로 건너뛴다)
+ */
 async function _rawFor(videoId: string): Promise<Fetched> {
+  const cached = externalCaches.getSponsorSegments(videoId);
+  if (cached) {
+    void _refresh(videoId);
+    return { raw: cached.segments as RawSegment[], source: "cache" }; // 우리가 적은 모양
+  }
   const raw = await _fetchRaw(videoId);
   if (raw) {
     externalCaches.setSponsorSegments(videoId, raw); // write-through (빈 배열도 저장)
     return { raw, source: "live" };
   }
-  const cached = externalCaches.getSponsorSegments(videoId);
-  if (cached) return { raw: cached.segments as RawSegment[], source: "cache" }; // 우리가 적은 모양
   return { raw: null, source: "none" };
+}
+
+// 캐시로 답한 뒤 라이브로 고친다. 못 받으면 캐시를 그대로 둔다. 기억해 둔 답(forTrack)도 새 답으로 바꾼다
+async function _refresh(videoId: string) {
+  const raw = await _fetchRaw(videoId).catch(() => null);
+  if (!raw) return;
+  externalCaches.setSponsorSegments(videoId, raw);
+  const entry = remembered.get(videoId);
+  if (entry) entry.promise = Promise.resolve({ raw, source: "live" });
 }
 
 /** 트랙에서 YouTube videoId 추출. 소리가 영상에서 올 때만 있다(스포티파이는 영상을 찾은 뒤) */

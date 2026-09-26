@@ -152,19 +152,45 @@ test("lookup: 조회 실패 + 캐시 있음 → source cache (폴백)", async ()
   assert.equal(r?.skipSegments.length, 1);
 });
 
-// 지금 답. 캐시가 있어도 라이브를 먼저 기다린다. 3단계가 캐시를 먼저 쓰고 라이브는 뒤에서 고치게 바꾼다(계획서 G10)
-test("lookup: 캐시가 있어도 라이브를 먼저 묻고 그 답을 쓴다", async () => {
+// 회귀 대상: 캐시가 있어도 라이브(320~565ms)를 먼저 기다려, 바로 트는 첫 곡이 그만큼 늦었다
+test("lookup: 캐시가 있으면 곧바로 캐시로 답하고, 라이브는 뒤에서 받아 다음 답을 고친다", async () => {
   stubFetch("vidBoth", [seg("intro", 0, 8, "skip")]);
   await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });
   let asked = 0;
+  let answer = (_: unknown) => {};
+  const answered = new Promise((done) => (answer = done));
   net.fetch = async () => {
     asked += 1;
+    answer(null);
     return { status: 200, json: async () => [{ videoID: "vidBoth", hash: "0".repeat(64), segments: [seg("intro", 0, 12, "skip")] }] };
   };
   const r = await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });
-  assert.equal(asked, 1);
-  assert.equal(r.source, "live");
-  assert.equal(r.skipSegments[0].end, 12, "캐시(8초)가 아니라 라이브 답");
+  assert.equal(r.source, "cache");
+  assert.equal(r.skipSegments[0].end, 8, "지금은 캐시(8초)");
+  await answered;
+  await new Promise((done) => setImmediate(done));
+  assert.equal(asked, 1, "라이브는 뒤에서 한 번");
+  const cached = externalCaches.getSponsorSegments("vidBoth")?.segments as Array<{ end: number }>;
+  assert.equal(cached[0].end, 12, "다음 재생부터는 라이브 답");
+});
+
+// 기억해 둔 답(forTrack)도 뒤에서 받은 라이브 답으로 바뀐다
+test("forTrack: 캐시로 답한 뒤 뒤에서 받은 라이브 답을 기억한다", async () => {
+  SponsorBlock._forget();
+  stubFetch("ytVid9", [seg("intro", 0, 5, "skip")]);
+  await SponsorBlock.lookup("ytVid9", { categories: ["intro"] }); // 캐시를 채운다
+  let answer = (_: unknown) => {};
+  const answered = new Promise((done) => (answer = done));
+  net.fetch = async () => {
+    answer(null);
+    return { status: 200, json: async () => [{ videoID: "ytVid9", hash: "0".repeat(64), segments: [seg("intro", 0, 9, "skip")] }] };
+  };
+  const track = { platform: "youtube", id: "ytVid9", audioUrl: "https://youtu.be/ytVid9" };
+  assert.equal((await SponsorBlock.forTrack(track, "gFresh"))?.source, "cache");
+  await answered;
+  await new Promise((done) => setImmediate(done));
+  const again = await SponsorBlock.forTrack({ ...track }, "gFresh");
+  assert.deepEqual([again?.source, again?.skipSegments[0]?.end], ["live", 9]);
 });
 
 test("lookup: 조회 실패 + 캐시 없음 → source none, 스킵 없음", async () => {
