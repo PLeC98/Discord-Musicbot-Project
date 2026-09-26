@@ -816,6 +816,8 @@ async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof build
     if (total?.aborted) return { ok: false, reason: "판정 상한 초과", detail: `${Number(one.totalTimeoutMs) / 1000}초`, retry: false };
     if (perCall.aborted) return { ok: false, reason: "시간 초과", detail: `${Number(one.timeoutMs) / 1000}초`, retry: !!one.retryTimeouts };
     if (errorKind(error) === "network") return { ok: false, reason: "네트워크 오류", detail: messageOf(error), retry: true };
+    // 200 인데 본문이 JSON 이 아니다(앞에 둔 프록시의 안내 쪽 등). 판정을 못 읽은 답과 같이 한 번 더 묻는다
+    if (error instanceof SyntaxError) return { ok: false, reason: "판정을 읽지 못함", detail: `JSON 이 아닌 답(${messageOf(error)})`, retry: false, unreadable: true };
     return { ok: false, reason: messageOf(error), detail: "", retry: false };
   }
 }

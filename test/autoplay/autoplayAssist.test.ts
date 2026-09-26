@@ -435,6 +435,17 @@ test("판정을 읽지 못한 답은 재시도와 따로 한 번만 다시 묻�
   replies(babble);
   assert.equal(await assist.accepts(cand("A"), {}), true);
   assert.equal(calls.length, 2, "한 번만 더");
+
+  // 200 인데 JSON 이 아닌 본문도 못 읽은 답이다
+  const html = () => ({
+    ok: true,
+    json: async () => {
+      throw new SyntaxError("Unexpected token '<'");
+    },
+  });
+  replies(html, ok1);
+  assert.equal(await assist.accepts(cand("A"), {}), false);
+  assert.equal(calls.length, 2);
 });
 
 // 어떤 서비스는 거절 응답에 보낸 헤더를 되비춘다. 그 본문을 오류에 실으면 로그에 키가 남는다.
