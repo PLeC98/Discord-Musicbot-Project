@@ -35,7 +35,7 @@ function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps
     return [...reconnect, ...retry, "-analyzeduration", "0", "-loglevel", "error", ...seek, "-i", url, ...output];
   }
 
-  return file ? [...seek, "-i", file, "-analyzeduration", "0", "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
+  return file ? [...seek, "-i", file, "-loglevel", "error", ...output] : ["-analyzeduration", "0", "-loglevel", "error", "-i", "pipe:0", ...seek, ...output];
 }
 
 export { buildFfmpegArgs };
