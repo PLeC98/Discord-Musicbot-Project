@@ -184,7 +184,9 @@ test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", a
   assert.ok(f["🎵 재생"].includes("`/play <곡/URL>`"));
   assert.match(f["📊 통계"], /서버:\*\* 1개/);
   assert.match(f["📊 통계"], /활성 서버:\*\* 1개/);
-  assert.equal(log[0][1].components[0].components[0].data.custom_id, "help_refresh");
+  // 웹사이트 버튼은 WEBSITE 가 있을 때만 앞에 붙는다. 순서가 아니라 ID 로 찾는다
+  const buttons: Array<{ data: { custom_id?: string } }> = log[0][1].components[0].components;
+  assert.ok(buttons.some((b) => b.data.custom_id === "help_refresh"));
   assert.equal((await import("../../commands/help.ts")).formatUptime(90061), "1일 1시간 1분");
 });
 
@@ -256,7 +258,7 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수 · 플랫폼 분포 ·
   assert.match(f["▶️ 재생 통계"], /한 번도 안 재생:\*\* 1개/);
   assert.equal(f["🌐 플랫폼 분포"], "🔴 YouTube: **1**개\n🟠 SoundCloud: **1**개\n🔗 직접 링크: **1**개");
   assert.match(f["🔧 기타"], /URL 매핑:\*\* 1개/);
-  assert.match(f["🏆 재생 TOP 5"], /^`1\.` \*\*많이 튼 곡\*\*\. 3회 \(2:05\)/);
+  assert.match(f["🏆 재생 TOP 5"], /^`1\.` \*\*많이 튼 곡\*\*: 3회 \(2:05\)/);
 });
 
 // ── 설정 명령 ─────────────────────────────────────────────────────────

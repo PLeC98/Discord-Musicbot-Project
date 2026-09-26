@@ -9,7 +9,7 @@ const exported: GuildCommand = {
     .setName("volume")
     .setDescription("Set the playback volume")
     .setDescriptionLocalizations({ ko: "재생 볼륨을 설정합니다" })
-    .addIntegerOption((option) => option.setName("level").setDescription("Volume level (0. 100)").setDescriptionLocalizations({ ko: "볼륨 크기 (0. 100)" }).setRequired(true).setMinValue(0).setMaxValue(100)),
+    .addIntegerOption((option) => option.setName("level").setDescription("Volume level (0 ~ 100)").setDescriptionLocalizations({ ko: "볼륨 크기 (0 ~ 100)" }).setRequired(true).setMinValue(0).setMaxValue(100)),
 
   async execute(interaction, client) {
     const { guild, member } = interaction;

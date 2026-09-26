@@ -358,7 +358,7 @@
           <div v-for="(cand, i) in judgeCands" :key="cand.url" class="flex items-start gap-2 py-1.5 border-b border-white/6 last:border-0">
             <span v-if="judgeVerdicts" class="shrink-0 text-[0.78rem] mt-0.5 w-16" :class="verdictOk(judgeVerdicts[i]) ? 'text-[#4ade80]' : 'text-[#f87171]'">{{ verdictText(judgeVerdicts[i]) }}</span>
             <div class="min-w-0 flex-1">
-              <p v-if="cand.error" class="text-danger text-[0.78rem] break-all">{{ cand.url }}. {{ cand.error }}</p>
+              <p v-if="cand.error" class="text-danger text-[0.78rem] break-all">{{ cand.url }}: {{ cand.error }}</p>
               <p v-else class="font-mono text-[0.75rem] text-fg-soft break-all">{{ lineFor(cand) }}</p>
             </div>
           </div>

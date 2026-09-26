@@ -402,7 +402,7 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
     this.paused = true;
   });
-  assert.deepEqual(paused.log[1], ["editReply", { content: "⏸️ 이전 세션을 복구했어요! **저장된 곡**. 일시정지 상태예요" }]);
+  assert.deepEqual(paused.log[1], ["editReply", { content: "⏸️ 이전 세션을 복구했어요! **저장된 곡** 일시정지 중" }]);
 
   const empty = await run(async () => {});
   assert.deepEqual(empty.log[1], ["editReply", { content: "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)" }]);

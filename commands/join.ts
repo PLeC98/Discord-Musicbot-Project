@@ -57,7 +57,7 @@ const exported: GuildCommand = {
         // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
         // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
         const title = escapeMd(player.currentTrack.title);
-        await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}**. 일시정지 상태예요` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
+        await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}** 일시정지 중` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
       } catch (error) {
         log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
         player.releaseResources();
