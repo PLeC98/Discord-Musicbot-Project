@@ -33,6 +33,10 @@ const fileOf = (name: string) => path.join(dir, `${name}.yaml`);
 
 const exampleOf = (name: string) => path.join(dir, `${name}.example.yaml`);
 
+// 비밀이 든 파일. YAML 문법 오류는 잘못된 줄을 그대로 인용하므로 이 파일들은 첫 줄(무엇이 · 몇째 줄 몇째 칸)만 남긴다
+const SECRET_FILES = new Set(["ai-keys"]);
+const yamlProblem = (name: string, message: string) => (SECRET_FILES.has(name) ? message.split("\n")[0] : message);
+
 /**
  * 설정 파일 하나를 읽는다. 내용이 바뀌지 않았으면 읽은 것을 그대로 돌려준다.
  *
@@ -65,7 +69,7 @@ function load(name: string): ConfigData {
     value = parsed as ConfigData;
   } catch (error) {
     // 사람이 고치는 파일이라 문법 오류가 날 수 있다. 어디가 잘못됐는지 알려 주는 것이 중요하다.
-    const detail = (error instanceof Error && error.message) || error;
+    const detail = yamlProblem(name, String((error instanceof Error && error.message) || error));
     if (cached) {
       log.warn(`설정 파일을 읽지 못했습니다(직전 값 유지): ${path.basename(file)}, ${detail}`);
       return cached.value;
@@ -179,7 +183,7 @@ function save(name: string, data: unknown, { secret = false }: { secret?: boolea
   const file = fileOf(name);
   const doc = YAML.parseDocument(fs.readFileSync(file, "utf8"));
   if (doc.errors?.length) {
-    throw Object.assign(new Error(`설정 파일을 읽지 못해 저장할 수 없습니다: ${doc.errors[0].message}`), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(`설정 파일을 읽지 못해 저장할 수 없습니다: ${yamlProblem(name, doc.errors[0].message)}`), { code: "CONFIG_INVALID" });
   }
 
   syncMap(doc, YAML.isMap(doc.contents) ? doc.contents : null, data as ConfigData, []);

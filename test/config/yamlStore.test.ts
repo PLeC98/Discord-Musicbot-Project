@@ -12,6 +12,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as yamlStore from "../../src/config/yamlStore.ts";
+import sink from "../../src/infra/log/sink.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-config-"));
 
 // 테스트가 적어 둔 파일의 모양
@@ -83,6 +84,42 @@ test("처음부터 문법이 깨져 있으면 멈춘다 — 탭 안내까지", (
   const err = thrown(() => yamlStore.load("bad"));
   assert.equal(err.code, "CONFIG_INVALID");
   assert.match(err.message, /탭/, "YAML에서 가장 흔한 실수를 짚어준다");
+});
+
+// YAML 문법 오류는 잘못된 줄을 인용한다. 키 파일이면 그 줄이 곧 키다
+test("키 파일의 문법 오류는 줄 번호만 알리고 줄을 인용하지 않는다", () => {
+  const KEY = "sk-yamlstore-do-not-log";
+  const seen: string[] = [];
+  let watching = true;
+  sink.addDestination((rec) => watching && seen.push(JSON.stringify(rec)));
+  try {
+    yamlStore._cache.delete("ai-keys");
+    write("ai-keys", `openai: ${KEY}\n  broken: [\n`);
+    const err = thrown(() => yamlStore.load("ai-keys"));
+    assert.equal(err.code, "CONFIG_INVALID");
+    assert.match(err.message, /line 1, column/, "어디가 틀렸는지는 알린다");
+    assert.ok(!err.message.includes(KEY), err.message);
+
+    // 돌던 중 깨지면 경고 한 줄로 알린다. 거기에도 없다
+    write("ai-keys", `openai: ${KEY}\n`);
+    touch("ai-keys");
+    yamlStore.load("ai-keys");
+    write("ai-keys", `openai: ${KEY}\nopenai: again\n`);
+    touch("ai-keys");
+    yamlStore.load("ai-keys");
+    assert.ok(
+      seen.some((one) => one.includes("ai-keys")),
+      "경고는 남는다",
+    );
+    assert.ok(!seen.some((one) => one.includes(KEY)), "로그에 키가 없다");
+
+    // 깨진 파일에 저장하려 하면 거절한다. 그 까닭(대시보드로 간다)에도 없다
+    const refused = thrown(() => yamlStore.save("ai-keys", { openai: "new" }, { secret: true }));
+    assert.match(refused.message, /저장할 수 없습니다/);
+    assert.ok(!refused.message.includes(KEY), refused.message);
+  } finally {
+    watching = false;
+  }
 });
 
 // ── 쓰기 (대시보드) ───────────────────────────────────────────────────────
