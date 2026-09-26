@@ -109,7 +109,8 @@ function isStaleMediaError(error: unknown) {
 const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
 const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
 const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded/i;
-const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|timed out|network is unreachable|urlopen error/i;
+// 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection · [WinError 10061] 등)
+const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|failed to establish a new connection|unable to connect to proxy|timed out|network is unreachable|urlopen error|\[(?:WinError|Errno) (?:10060|10061|10065|110|111|113)\]/i;
 const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;
 const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
 

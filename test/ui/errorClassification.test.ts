@@ -111,6 +111,13 @@ test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
   assert.equal(YouTube.codeOf(new Error("ERROR: [youtube] abc: unable to download video data: HTTP Error 403: Forbidden")), "stale-media");
 });
 
+// 2026-09-26 실측: 닿을 수 없는 프록시로 yt-dlp 를 돌렸을 때의 줄
+test("yt-dlp 가 쓰는 연결 실패 문장은 네트워크다", () => {
+  for (const stderr of ["WARNING: [youtube:search] ('Unable to connect to proxy', NewConnectionError(\"HTTPSConnection(host='127.0.0.1', port=9): Failed to establish a new connection: [WinError 10061] …\")). Retrying (1/3)...", "ERROR: [youtube] abc: Unable to download API page: HTTPSConnection(host='www.youtube.com', port=443): Failed to establish a new connection: [Errno 111] Connection refused", "ERROR: Unable to download webpage: <urlopen error [Errno 11001] getaddrinfo failed>"]) {
+    assert.equal(YouTube.codeOf(new Error(stderr)), "network", stderr);
+  }
+});
+
 test("yt-dlp 가 쓰는 재생목록 · 지역 차단 문장", () => {
   assert.equal(YouTube.codeOf(new Error("ERROR: [youtube:tab] PLzzz: The playlist does not exist.")), "playlist-unavailable");
   assert.equal(YouTube.codeOf(new Error("ERROR: [youtube:tab] PLzzz: This playlist is private")), "playlist-unavailable");
