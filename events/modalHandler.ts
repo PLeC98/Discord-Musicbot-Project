@@ -137,7 +137,8 @@ const exported: ClientEvent<Events.InteractionCreate> = {
   async execute(interaction) {
     if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
     if (!interaction.inCachedGuild()) return;
-    if (/^plmm?:/.test(interaction.customId)) return; // 재생목록 더 넣기. playlistMoreHandler.ts
+    // 다른 처리기가 맡는 것. 재생목록 더 넣기(playlistMoreHandler.ts) · SponsorBlock 설정(sponsorConfigHandler.ts)
+    if (/^(plmm?|sb):/.test(interaction.customId)) return;
 
     const client = interaction.client;
 

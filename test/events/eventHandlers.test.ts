@@ -451,11 +451,15 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
   return { it, log };
 }
 
-test("모달: 재생목록 더 넣기(plm · plmm)는 건드리지 않는다. 모르는 모달은 알린다", async () => {
+test("모달: 다른 처리기가 맡는 것(재생목록 더 넣기 · SponsorBlock)은 건드리지 않는다. 모르는 모달은 알린다", async () => {
   const w = world();
   const plm = menu(w, { customId: "plm:x" });
   await modalHandler.execute(plm.it);
   assert.deepEqual(plm.log, []);
+  // SponsorBlock 카테고리 선택은 sponsorConfigHandler 가 답한다. 여기서도 답하면 한 상호작용에 두 번 응답한다
+  const sb = menu(w, { customId: "sb:cats" });
+  await modalHandler.execute(sb.it);
+  assert.deepEqual(sb.log, []);
   const unknown = menu(w, { customId: "who_knows", select: false });
   await modalHandler.execute(unknown.it);
   assert.deepEqual(unknown.log, [["reply", "❌ 알 수 없는 모달!"]]);
