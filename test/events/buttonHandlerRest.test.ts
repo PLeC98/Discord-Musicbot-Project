@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import type { ButtonInteraction } from "discord.js";
+import type { ButtonInteraction, GuildMember } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { SearchRecord } from "../../commands/search.ts";
@@ -29,6 +29,7 @@ const S = await import("../../src/ui/strings.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const playerEvents = await import("../../src/player/events.ts");
 const buttonHandler = (await import("../../events/buttonHandler.ts")).default;
+const permissions = await import("../../src/usecases/permissions.ts");
 
 after(() => {
   audioCache.close();
@@ -299,6 +300,18 @@ test("검색 버튼: 봇이 음성에 있으면 재적 규칙, 쉬면 본인이 
   const b = press(idle, "search_select_0");
   await buttonHandler.execute(b.it);
   assert.deepEqual(b.log, [["reply", S.ERR_VOICE_REQUIRED]]);
+});
+
+// 지금 답. /play 의 소환 검사(checkSummon)는 봇이 쉬면 봇의 연결 · 말하기 권한을 보는데, 검색 버튼은 보지 않고 곡을 넘긴다.
+// 8단계가 입구를 하나로 모으며 같은 검사를 쓴다(계획서 #41)
+test("검색 버튼: 봇이 쉴 때 봇에게 연결 권한이 없어도 거절하지 않고 넘긴다", async () => {
+  const w = world({ botVoice: null, userVoice: "v1" });
+  w.member.voice.channel = { id: "v1", name: "v1", permissionsFor: () => ({ has: () => false }) };
+  assert.equal(permissions.checkSummon(fake<GuildMember>(w.member)), S.ERR_NO_PERMISSIONS, "대조: /play 는 여기서 막는다");
+
+  withResults(w);
+  await buttonHandler.execute(press(w, "search_select_0").it);
+  assert.deepEqual(w.seen, [{ handle: ["결과 1"] }]);
 });
 
 test("검색 버튼: 결과가 없거나 남의 검색이거나 번호가 틀리면 거절, 취소하면 지운다", async () => {

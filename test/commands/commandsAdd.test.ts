@@ -303,7 +303,11 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   const denied = world({ userVoice: "v2" });
   const d = interaction(denied, { options: { query: "x" } });
   await runCommand(await command("search"), d.it, denied.client);
-  assert.deepEqual(d.log.at(-1), ["editReply", { content: S.ERR_SAME_CHANNEL }]);
+  // 지금 답. 공개로 미뤄 둔 뒤 권한을 봐서 거절이 채널 전체에 보인다. 8단계가 권한을 먼저 보고 본인에게만 알리게 바꾼다(계획서 #22)
+  assert.deepEqual(d.log, [
+    ["deferReply", undefined],
+    ["editReply", { content: S.ERR_SAME_CHANNEL }],
+  ]);
 
   const none = interaction(world(), { options: { query: "x" } });
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.it.client, { search: async () => [] });
