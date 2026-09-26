@@ -27,7 +27,7 @@ import * as YouTube from "../../../src/sources/youtube/index.ts";
 import * as autoplaySources from "../../../src/autoplay/sources/index.ts";
 import * as assist from "../../../src/autoplay/assist/index.ts";
 import * as tokens from "../../../src/autoplay/assist/tokens.ts";
-import * as models from "../../../src/config/schema/aiModels.ts";
+import * as models from "../../../src/config/aiModels.ts";
 import { bestEffort } from "../../../src/infra/bestEffort.ts";
 
 // 로그에 남기는 실행한 사람

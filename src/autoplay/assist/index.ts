@@ -10,14 +10,14 @@ import * as links from "../../rules/links.ts";
 import * as yamlStore from "../../config/yamlStore.ts";
 import * as googleAuth from "./googleAuth.ts";
 import * as tokens from "./tokens.ts";
-import * as models from "../../config/schema/aiModels.ts";
+import * as models from "../../config/aiModels.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/aiProviders.ts";
 import { messageOf } from "../../rules/errorKind.ts";
 import type { PromptSection } from "../../config/ai.ts";
-import type { ModelField } from "../../config/schema/aiModels.ts";
+import type { ModelField } from "../../config/aiModels.ts";
 
 // 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
 let send: typeof fetch = fetch;

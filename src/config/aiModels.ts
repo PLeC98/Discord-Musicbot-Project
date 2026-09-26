@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
-const FILE = path.join(import.meta.dirname, "..", "..", "..", "data", "ai-models.json");
+const FILE = path.join(import.meta.dirname, "..", "..", "data", "ai-models.json");
 
 // 레지스트리의 모양. 여기서 읽는 칸만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
