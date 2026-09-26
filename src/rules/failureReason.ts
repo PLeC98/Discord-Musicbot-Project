@@ -1,8 +1,8 @@
 // 재생 실패를 로그 한 줄로. 무엇이 막았는지가 분명한 종류는 그 이름만, 나머지는 오류의 첫 줄.
 // 원문 전체(yt-dlp 의 WARNING 줄 포함)는 부르는 쪽이 debug 로 남긴다.
 
-import { errorKind, messageOf } from "../rules/errorKind.ts";
-import { operatorHint } from "../rules/operatorHints.ts";
+import { errorKind, messageOf } from "./errorKind.ts";
+import { operatorHint } from "./operatorHints.ts";
 
 // 로그에 적을 이름. 문장이 넓게 걸리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 잃는다
 const LABELS: Record<string, string> = {

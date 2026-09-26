@@ -23,7 +23,7 @@ import type { Seeking } from "../sources/youtube/equivalent.ts";
 import config from "../../config.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf, codedError, codeOf } from "../rules/errorKind.ts";
-import { failureReason } from "./playFailure.ts";
+import { failureReason } from "../rules/failureReason.ts";
 import * as streamUrl from "../sources/streamUrl.ts";
 import { SponsorSkipper } from "./sponsorSkipper.ts";
 import * as DirectLink from "../sources/direct.ts";

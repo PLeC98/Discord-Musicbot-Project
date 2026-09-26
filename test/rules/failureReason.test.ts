@@ -1,8 +1,8 @@
-// src/player/playFailure.ts — 재생 실패를 로그 한 줄로. 같은 실패가 두 줄씩, yt-dlp 원문 그대로 찍히던 것을 줄였다.
+// src/rules/failureReason.ts — 재생 실패를 로그 한 줄로. 같은 실패가 두 줄씩, yt-dlp 원문 그대로 찍히던 것을 줄였다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { failureReason } from "../../src/player/playFailure.ts";
+import { failureReason } from "../../src/rules/failureReason.ts";
 import { errorMessage } from "../../src/ui/errorMessages.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 
