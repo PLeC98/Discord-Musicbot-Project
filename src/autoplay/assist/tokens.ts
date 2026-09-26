@@ -7,9 +7,15 @@
  *   claude  앤트로픽은 공개 토크나이저가 없다. tik 로 세면 한국어에서 35% 가 모자람
  *           (실측 50 vs 33). 그래서 저쪽 count_tokens 로 측정: 무료이고 정확
  *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치
+ * 토크나이저로 세는 것은 따로 도는 스레드가 맡는다(아래 "세는 스레드")
  */
+import { Worker } from "worker_threads";
 import * as models from "../../config/aiModels.ts";
-import { count, GEMMA_FILE, readPieces } from "./tokenizers.ts";
+import logger from "../../infra/log/logger.ts";
+import { GEMMA_FILE, readPieces } from "./tokenizers.ts";
+import type { Counted } from "./tokenizers.ts";
+
+const log = logger.child({ category: "autoplay" });
 
 /** 셀 메시지. 본문은 content 나 text 에 */
 type Message = { role?: string; content?: string; text?: string };
@@ -29,6 +35,73 @@ const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
   anthropic: { perMessage: 0, perRequest: 6 },
 };
 
+// ── 세는 스레드 ────────────────────────────────────────────────────────────
+// 세기는 따로 도는 스레드 하나가 맡는다. tik 은 공백 없는 긴 글에서 글 길이의 제곱이 들어(1.6만 자 2.5초)
+// 이 스레드에서 세면 그동안 봇 전체가 멈춘다. 스레드는 처음 셀 때 띄우고 계속 쓴다(표를 다시 읽지 않게).
+
+// 맡긴 일 하나의 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 띄운다
+const COUNT_TIMEOUT_MS = 10_000;
+
+type Waiting = { resolve: (counted: Counted[]) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
+let thread: Worker | null = null;
+const waiting = new Map<number, Waiting>();
+let lastId = 0;
+
+function spawn() {
+  const one = new Worker(new URL("./tokenizerWorker.ts", import.meta.url));
+  one.on("message", ({ id, counted, error }: { id: number; counted?: Counted[]; error?: string }) => {
+    const job = waiting.get(id);
+    if (!job) return;
+    waiting.delete(id);
+    clearTimeout(job.timer);
+    if (counted) job.resolve(counted);
+    else job.reject(new Error(error || "토큰을 세지 못했습니다"));
+  });
+  one.on("error", (error) => {
+    log.warn(`토큰 세는 스레드가 멈췄습니다(${error.message}). 다음 세기에 다시 띄웁니다`);
+    stop(one, error);
+  });
+  one.on("exit", () => stop(one, new Error("토큰 세는 스레드가 끝났습니다")));
+  one.unref(); // 봇이 끝날 때 붙잡지 않는다. message 를 들으면 다시 붙잡으므로 들은 뒤에 푼다
+  return one;
+}
+
+// 스레드를 끝내고 맡긴 일을 전부 실패로 돌린다
+function stop(one: Worker, error: Error) {
+  if (thread !== one) return;
+  thread = null;
+  for (const job of waiting.values()) {
+    clearTimeout(job.timer);
+    job.reject(error);
+  }
+  waiting.clear();
+  void one.terminate();
+}
+
+/**
+ * 글 여러 개를 각각 센다. 따로 도는 스레드에서 세므로 긴 글도 봇을 멈추지 않는다.
+ * 상한(맡긴 때부터)을 넘기면 예외. 그때 함께 기다리던 세기도 실패로 돌린다
+ */
+function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<Counted[]> {
+  const worker = (thread ??= spawn());
+  const id = ++lastId;
+  const bodies = texts.map((one) => String(one ?? ""));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const chars = bodies.reduce((sum, one) => sum + one.length, 0);
+      log.warn(`토큰 세기가 ${timeoutMs / 1000}초를 넘겨 멈춥니다(${tokenizer} · ${chars}자). 다음 세기에 다시 띄웁니다`);
+      stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘겼습니다`));
+    }, timeoutMs);
+    waiting.set(id, { resolve, reject, timer });
+    worker.postMessage({ id, texts: bodies, tokenizer });
+  });
+}
+
+// 글 하나가 몇 토큰인지, 어느 기준으로 셌는지
+async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
+  return (await countAll([text], tokenizer))[0];
+}
+
 // ── 바깥에서 쓰는 것 ────────────────────────────────────────────────────────
 
 // 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림.
@@ -44,14 +117,11 @@ function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | u
  */
 async function countMessages(messages: Message[] | null | undefined, tokenizer = "tik", dialect = "openai") {
   const wrap = FRAMING[dialect] || FRAMING.openai;
-  let total = wrap.perRequest;
-  const each: number[] = [];
-  for (const one of messages || []) {
-    const got = await count(one?.content ?? one?.text ?? "", tokenizer);
-    each.push(got.tokens);
-    total += got.tokens + wrap.perMessage;
-  }
-  const got = await count("", tokenizer);
+  // 끝의 빈 글은 어느 기준으로 셌는지 알려고 붙인다(메시지가 없어도 알 수 있게)
+  const counted = await countAll([...(messages || []).map((one) => one?.content ?? one?.text ?? ""), ""], tokenizer);
+  const got = counted.pop() as Counted;
+  const each = counted.map((one) => one.tokens);
+  const total = each.reduce((sum, one) => sum + one + wrap.perMessage, wrap.perRequest);
   return { total, body: total - wrap.perRequest - (messages || []).length * wrap.perMessage, each, by: got.by, exact: got.exact };
 }
 
@@ -88,5 +158,5 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
   return typeof json?.input_tokens === "number" ? json.input_tokens : null;
 }
 
-export { count, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, readPieces as _readPieces };
+export { count, countAll, countMessages, countByAnthropic, tokenizerFor, FRAMING, GEMMA_FILE, readPieces as _readPieces };
 export type { Message };

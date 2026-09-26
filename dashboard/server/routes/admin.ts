@@ -313,32 +313,44 @@ adminRouter.get("/ai/fields", requireOwner, (req, res) => {
   });
 });
 
+// 앤트로픽에 물은 칸마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 어림한다)
+async function countByClaude(texts: string[], provider: string, model: string) {
+  const apiKey = aiConfig.aiKeyOf(provider);
+  const wrap = tokens.FRAMING.anthropic.perRequest;
+  const ask = (one: string) =>
+    tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }).then(
+      (got) => (got === null ? null : got - wrap),
+      () => null,
+    );
+  const each = await Promise.all(texts.map((one) => (one ? ask(one) : 0)));
+  return each.every((one): one is number => one !== null) ? each : null;
+}
+
+// 칸마다의 본문 토큰. 클로드는 저쪽에 묻고, 못 받으면 tik 로 어림한다
+async function countBodies(texts: string[], provider: string, model: string) {
+  const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
+  const exact = by === "claude" ? await countByClaude(texts, provider, model) : null;
+  if (exact) return { each: exact, by: "claude", exact: true };
+  const counted = await tokens.countAll(texts, by);
+  return { each: counted.map((one) => one.tokens), by: counted[0]?.by ?? by, exact: counted[0]?.exact ?? true };
+}
+
 /**
  * 프롬프트 칸이 적는 동안 세어 보는 곳. 본문만 센다(감싸는 몫은 미리보기에서 본다).
  * 클로드는 공개 토크나이저가 없어 저쪽에 물어본다. 무료이고 그쪽이 정확하다.
+ * 세기가 상한에 걸리면(공백 없는 아주 긴 글) 503 으로 답한다
  */
 adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
-  const provider = String(req.body?.provider || "");
-  const model = String(req.body?.model || "");
-  const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
-
   const texts: unknown[] = Array.isArray(req.body?.texts) ? req.body.texts : [];
   if (texts.length > 50) return res.status(400).json({ error: "한 번에 50칸까지" });
   const cut = texts.map((one) => String(one ?? "").slice(0, 200000));
 
-  if (by === "claude") {
-    const apiKey = aiConfig.aiKeyOf(provider);
-    const wrap = tokens.FRAMING.anthropic.perRequest;
-    const each = await Promise.all(cut.map(async (one) => (one ? await tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }) : 0)));
-    if (each.every((one) => one !== null)) {
-      const bare = each.map((one) => (one ? one - wrap : 0));
-      return res.json({ each: bare, total: bare.reduce((sum, one) => sum + one, 0), by: "claude", exact: true });
-    }
+  try {
+    const { each, by, exact } = await countBodies(cut, String(req.body?.provider || ""), String(req.body?.model || ""));
+    res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact });
+  } catch (error) {
+    res.status(503).json({ error: messageOf(error, "토큰을 세지 못했습니다.") });
   }
-
-  const counted = await Promise.all(cut.map((one) => tokens.count(one, by)));
-  const each = counted.map((one) => one.tokens);
-  res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by: counted[0]?.by ?? by, exact: counted[0]?.exact ?? true });
 });
 
 /** 모델 프로필 갱신. 해시가 같으면 받지 않는다. pnpm run update:models 와 같은 길이다. */

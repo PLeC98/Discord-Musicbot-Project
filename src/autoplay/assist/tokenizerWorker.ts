@@ -1,0 +1,18 @@
+/**
+ * 토큰 세기를 도는 스레드. 긴 글을 세는 동안 봇의 이벤트 루프가 멈추지 않게 따로 돈다.
+ * 받는 것 { id, texts, tokenizer } → 주는 것 { id, counted } 또는 { id, error }
+ */
+import { parentPort } from "worker_threads";
+import { count } from "./tokenizers.ts";
+
+type Job = { id: number; texts: string[]; tokenizer: string };
+
+parentPort?.on("message", async ({ id, texts, tokenizer }: Job) => {
+  try {
+    const counted = [];
+    for (const one of texts) counted.push(await count(one, tokenizer));
+    parentPort?.postMessage({ id, counted });
+  } catch (error) {
+    parentPort?.postMessage({ id, error: error instanceof Error ? error.message : String(error) });
+  }
+});

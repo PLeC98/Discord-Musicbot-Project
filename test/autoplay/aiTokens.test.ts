@@ -77,6 +77,27 @@ test("tik 은 특수 토큰 글자를 글자 그대로 센다", async () => {
   assert.equal((await tokens.count("hi <|endoftext|> there", "tik")).tokens, 9);
 });
 
+// tik 은 공백 없는 긴 글에서 느리다. 세는 동안에도 이쪽 타이머는 돌아야 한다
+test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
+  await tokens.count("a", "tik"); // 스레드와 표를 먼저 띄운다
+  let ticks = 0;
+  const ticking = setInterval(() => ticks++, 20);
+  const started = performance.now();
+  await tokens.count("가".repeat(8000), "tik");
+  clearInterval(ticking);
+  const took = performance.now() - started;
+  assert.ok(took > 200, `느린 글이어야 시험이 된다(${Math.round(took)}ms)`);
+  assert.ok(ticks >= (took / 20) * 0.5, `타이머가 ${ticks}번 돌았다(${Math.round(took)}ms)`);
+});
+
+test("상한을 넘기면 실패로 답하고 다음 세기는 새로 띄운 스레드가 한다", async () => {
+  await assert.rejects(tokens.countAll(["가".repeat(16000)], "tik", { timeoutMs: 100 }), /넘겼습니다/);
+  assert.deepEqual(await tokens.countAll(["a", "hello world"], "tik"), [
+    { tokens: 1, by: "tik", exact: true },
+    { tokens: 2, by: "tik", exact: true },
+  ]);
+});
+
 // 앤트로픽은 공개 토크나이저가 없다. 어림수라는 것을 숨기지 않는다.
 test("어느 기준으로 셌는지 밝힌다", async () => {
   assert.deepEqual(await tokens.count("a", "tik"), { tokens: 1, by: "tik", exact: true });
