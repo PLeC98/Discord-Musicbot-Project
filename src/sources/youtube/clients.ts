@@ -4,7 +4,7 @@
 //
 // "죽은 것 같은"인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가 갈리는 것을 확인함.
 // (유튜브의 SABR 적용이 세션·영상 단위로 굴러가기 때문)
-// 그래서 확정 판정이 불가능하므로 최근 N회 중 M회 실패라는 빈도로만 다룸.
+// 그래서 확정 판정이 불가능하므로 최근 N회 중 M회 실패라는 빈도로만 다루고, 제외한 것도 시간이 지나면 다시 시험함.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube", sub: "client" });
@@ -28,7 +28,9 @@ class PlayerClients {
   window: number;
   fails: number;
   history: Map<string, Array<"ok" | "ng">>; // 최근 것이 뒤
-  excluded: Set<string>;
+  excluded: Map<string, number>; // 클라이언트 → 제외한 때
+  retryMs: number;
+  now: () => number;
   exhaustedLogged: boolean;
 
   /**
@@ -36,13 +38,16 @@ class PlayerClients {
    *                           (호출부가 yt-dlp 기본값으로 1회 호출하고 끝낸다)
    * @param {number} window    최근 몇 회를 보고 판정할지
    * @param {number} fails     그중 몇 회가 실패면 제외할지
+   * @param {number} retryMs   제외한 뒤 다시 시험하기까지. 0 이면 실행 내내 제외
    */
-  constructor(order: string[] = [], { window = 5, fails = 3 } = {}) {
+  constructor(order: string[] = [], { window = 5, fails = 3, retryMs = 0, now = Date.now }: { window?: number; fails?: number; retryMs?: number; now?: () => number } = {}) {
     this.order = order;
     this.window = Math.max(1, window);
     this.fails = Math.max(1, fails);
+    this.retryMs = Math.max(0, retryMs);
+    this.now = now;
     this.history = new Map();
-    this.excluded = new Set();
+    this.excluded = new Map();
     this.exhaustedLogged = false;
   }
 
@@ -51,8 +56,17 @@ class PlayerClients {
     return this.order.length === 0;
   }
 
-  /** 지금 시도할 순서. 전부 제외됐으면 빈 배열 */
+  /** 지금 시도할 순서. 전부 제외됐으면 빈 배열. 제외한 지 retryMs 가 지난 것은 기록을 비우고 다시 넣는다 */
   list() {
+    if (this.retryMs > 0) {
+      for (const [client, at] of this.excluded) {
+        if (this.now() - at < this.retryMs) continue;
+        this.excluded.delete(client);
+        this.history.delete(client);
+        this.exhaustedLogged = false;
+        log.info(`${client} 를 다시 시험합니다 (제외한 지 ${Math.round((this.now() - at) / 60000)}분)`);
+      }
+    }
     return this.order.filter((c) => !this.excluded.has(c));
   }
 
@@ -74,8 +88,9 @@ class PlayerClients {
     const ng = h.filter((x) => x === "ng").length;
     if (ng < this.fails) return;
 
-    this.excluded.add(client);
-    log.warn(`${client} 를 이번 실행 동안 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). .env에서 빼는 것을 검토하세요`);
+    this.excluded.set(client, this.now());
+    const until = this.retryMs > 0 ? `${Math.round(this.retryMs / 60000)}분 동안` : "이번 실행 동안";
+    log.warn(`${client} 를 ${until} 건너뜁니다 (최근 ${h.length}회 중 ${ng}회 실패). 계속 되풀이되면 .env에서 빼는 것을 검토하세요`);
   }
 
   // 전멸했을 때 한 번만. 매 곡마다 같은 줄을 쌓지 않도록.
@@ -89,7 +104,7 @@ class PlayerClients {
   snapshot() {
     return {
       order: [...this.order],
-      excluded: [...this.excluded],
+      excluded: [...this.excluded.keys()],
       history: Object.fromEntries(this.history),
     };
   }
@@ -97,6 +112,6 @@ class PlayerClients {
 
 // 클라이언트 순번표 한 벌. 설정은 처음 쓸 때 읽는다
 let table: PlayerClients | null = null;
-const playerClients = () => (table ??= new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails }));
+const playerClients = () => (table ??= new PlayerClients(config.ytdlp.playerClients, { window: config.ytdlp.clientWindow, fails: config.ytdlp.clientFails, retryMs: config.ytdlp.clientRetryMs }));
 
 export { PlayerClients, KNOWN, NEEDS_POT, playerClients };

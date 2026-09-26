@@ -252,6 +252,7 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       // 연속 실패로 세지 않는 이유는 src/sources/youtube/clients.ts 머리말 참조.
       clientWindow: envInt("YTDLP_CLIENT_WINDOW", 5, { min: 2, max: 50 }),
       clientFails: envInt("YTDLP_CLIENT_FAILS", 3, { min: 1, max: 50 }),
+      clientRetryMs: envInt("YTDLP_CLIENT_RETRY_MINUTES", 60, { min: 0, max: 10080 }) * 60 * 1000,
     },
 
     // POToken 공급자(bgutil). 설치돼 있어도 이 값이 true일 때만 띄운다.

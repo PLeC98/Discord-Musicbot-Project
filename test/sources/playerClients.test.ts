@@ -94,3 +94,23 @@ test("안내용 목록끼리 어긋나지 않는다", () => {
     assert.ok(!KNOWN.includes(gone), `${gone}은 이 yt-dlp가 모르는 이름이다`);
   }
 });
+
+// 회귀 대상: 한 번 제외하면 실행 내내 되살리지 않아, 오래 켜 두면 운 나쁜 실패로 주력이 영구히 빠졌다
+test("제외한 지 retryMs 가 지나면 기록을 비우고 다시 순서에 넣는다. 0 이면 실행 내내 제외", () => {
+  let now = 0;
+  const pc = new PlayerClients(["visionos", "web_embedded"], { window: 2, fails: 2, retryMs: 60_000, now: () => now });
+  pc.record("visionos", false);
+  pc.record("visionos", false);
+  assert.deepEqual(pc.list(), ["web_embedded"]);
+  now = 59_999;
+  assert.deepEqual(pc.list(), ["web_embedded"], "아직 이르다");
+  now = 60_000;
+  assert.deepEqual(pc.list(), ["visionos", "web_embedded"], "다시 시험한다");
+  pc.record("visionos", false);
+  assert.deepEqual(pc.list(), ["visionos", "web_embedded"], "옛 실패는 잊었다. 창이 다시 차야 판정한다");
+
+  const forever = new PlayerClients(["visionos"], { window: 1, fails: 1, retryMs: 0, now: () => now });
+  forever.record("visionos", false);
+  now = 10 ** 9;
+  assert.deepEqual(forever.list(), []);
+});
