@@ -116,26 +116,73 @@ function loadGemma(): Map<string, number> | false {
   return gemma;
 }
 
-// 점수가 높은 짝부터 붙여 나간다. 더 붙일 것이 없으면 그것이 토큰 수.
+// 붙일 짝 하나. left · right 는 처음 글자 자리(왼쪽이 먼저인 차례를 지킨다)
+type Pair = { score: number; left: number; right: number; joined: string };
+// 점수가 높은 것, 같으면 왼쪽이 먼저
+const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score && a.left < b.left);
+
+/**
+ * 점수가 높은 짝부터 붙여 나간다(같으면 왼쪽 먼저). 더 붙일 것이 없으면 그것이 토큰 수.
+ * 조각을 연결 목록으로, 붙일 짝을 힙으로 둔다. 붙일 때마다 전부 훑으면 글 길이의 제곱이 든다(6만 자 36초)
+ */
 function countGemma(text: string, rank: Map<string, number>) {
   // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약임
-  const prepared = "▁" + String(text).replace(/ /g, "▁");
-  const parts = [...prepared];
-  for (;;) {
-    let bestAt = -1;
-    let best = -Infinity;
-    for (let i = 0; i < parts.length - 1; i++) {
-      const joined = parts[i] + parts[i + 1];
-      const got = rank.get(joined);
-      if (got !== undefined && got > best) {
-        best = got;
-        bestAt = i;
+  const parts = [...("▁" + String(text).replace(/ /g, "▁"))];
+  const n = parts.length;
+  const prev = Array.from({ length: n }, (_, i) => i - 1);
+  const next = Array.from({ length: n }, (_, i) => (i + 1 < n ? i + 1 : -1));
+  const gone = new Uint8Array(n); // 왼쪽 조각에 붙어 사라진 자리
+  const heap: Pair[] = [];
+  const push = (pair: Pair) => {
+    heap.push(pair);
+    for (let i = heap.length - 1; i > 0;) {
+      const up = (i - 1) >> 1;
+      if (!before(heap[i], heap[up])) break;
+      [heap[i], heap[up]] = [heap[up], heap[i]];
+      i = up;
+    }
+  };
+  const pop = () => {
+    const top = heap[0];
+    const last = heap.pop() as Pair;
+    if (heap.length) {
+      heap[0] = last;
+      for (let i = 0; ;) {
+        const l = 2 * i + 1;
+        const r = l + 1;
+        let best = i;
+        if (l < heap.length && before(heap[l], heap[best])) best = l;
+        if (r < heap.length && before(heap[r], heap[best])) best = r;
+        if (best === i) break;
+        [heap[i], heap[best]] = [heap[best], heap[i]];
+        i = best;
       }
     }
-    if (bestAt < 0) break;
-    parts.splice(bestAt, 2, parts[bestAt] + parts[bestAt + 1]);
+    return top;
+  };
+  const offer = (left: number) => {
+    const right = left >= 0 ? next[left] : -1;
+    if (right < 0) return;
+    const joined = parts[left] + parts[right];
+    const score = rank.get(joined);
+    if (score !== undefined) push({ score, left, right, joined });
+  };
+
+  for (let i = 0; i < n - 1; i++) offer(i);
+  let count = n;
+  while (heap.length) {
+    const { left, right, joined } = pop();
+    // 그 사이 한쪽이 다른 짝에 붙었으면 낡은 짝이다
+    if (gone[left] || next[left] !== right || parts[left] + parts[right] !== joined) continue;
+    parts[left] = joined;
+    gone[right] = 1;
+    next[left] = next[right];
+    if (next[right] >= 0) prev[next[right]] = left;
+    count--;
+    offer(prev[left]);
+    offer(left);
   }
-  return parts.length;
+  return count;
 }
 
 // ── 바깥에서 쓰는 것 ────────────────────────────────────────────────────────

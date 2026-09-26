@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
+import fs from "node:fs";
 import * as tokens from "../../src/autoplay/assist/tokens.ts";
 
 // OpenAI API 가 이 문장 하나를 39 로 셌다(gpt-6-astra · gpt-5.6-luna · gpt-5 모두 같았다).
@@ -30,6 +31,45 @@ test("gemma 는 tik 과 다르게 센다", async () => {
   assert.equal((await tokens.count("안녕하세요", "gemma")).tokens, 1);
   assert.equal((await tokens.count("안녕하세요", "tik")).tokens, 2);
   assert.equal((await tokens.count("가나다라마바사", "gemma")).tokens, 6);
+});
+
+// 붙일 때마다 전부 훑는 단순한 셈. 빠른 셈이 이것과 같은 수를 내야 한다
+let rank: Map<string, number> | null = null;
+function naiveGemma(text: string) {
+  if (!rank) {
+    const { piece, score } = tokens._readPieces(fs.readFileSync(tokens.GEMMA_FILE));
+    rank = new Map(piece.map((one, i) => [one, score[i]]));
+  }
+  const parts = [...("▁" + text.replace(/ /g, "▁"))];
+  for (;;) {
+    let bestAt = -1;
+    let best = -Infinity;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const got = rank.get(parts[i] + parts[i + 1]);
+      if (got !== undefined && got > best) {
+        best = got;
+        bestAt = i;
+      }
+    }
+    if (bestAt < 0) return parts.length;
+    parts.splice(bestAt, 2, parts[bestAt] + parts[bestAt + 1]);
+  }
+}
+
+test("gemma 는 단순한 셈과 같은 수를 낸다", async () => {
+  const fixed = ["hello world", "안녕하세요, 오늘 들을 곡을 추천해 주세요.", "a".repeat(40), "abab   aaa  bbb", "🎵 IU - 좋은 날 (Good Day) [MV] 😀", "   ", "x\n\ty"];
+  const alphabet = "가나다라마바사 abcdefg 곡재생의이는을를 ,.!?\n\t日本語";
+  let seed = 7;
+  const next = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
+  const random = Array.from({ length: 60 }, () => Array.from({ length: 1 + Math.floor(next() * 120) }, () => alphabet[Math.floor(next() * alphabet.length)]).join(""));
+  for (const text of [...fixed, ...random]) assert.equal((await tokens.count(text, "gemma")).tokens, naiveGemma(text), JSON.stringify(text));
+});
+
+test("gemma 는 긴 글도 곧바로 센다", async () => {
+  const long = "가나다라마바사아자차카타파하 곡을 재생해요. The quick brown fox. ".repeat(1500).slice(0, 60000);
+  const started = performance.now();
+  await tokens.count(long, "gemma");
+  assert.ok(performance.now() - started < 2000, "6만 자가 2초 안에");
 });
 
 // 앤트로픽은 공개 토크나이저가 없다. 어림수라는 것을 숨기지 않는다.
