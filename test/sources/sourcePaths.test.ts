@@ -17,6 +17,7 @@ import * as tracks from "../helpers/tracks.ts";
 import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 import { networkError } from "../helpers/errors.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -102,8 +103,10 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
   // 영상도 가리키는 주소: 목록을 못 받거나 비면 그 영상 하나
   for (const getPlaylist of [async () => null, async () => Promise.reject(gone)]) {
     const video = { youtube: { ...YouTube, getPlaylist, search: async (q: string, n: number) => [ytTrack("s1", { title: q, duration: n })] } };
+    const from = sink.buffer.length;
     const one = await lookup.getTrackData("https://www.youtube.com/watch?v=aaaaaaaaaaa&list=PL4", undefined, undefined, video);
     assert.equal(one.isPlaylist, false);
+    assert.equal(sink.buffer.slice(from).filter((e) => e.text.includes("영상 하나로")).length, 1, "영상 하나로 간 것을 한 줄 남긴다");
     assert.deepEqual([one.tracks?.[0].title, one.tracks?.[0].duration], ["https://www.youtube.com/watch?v=aaaaaaaaaaa&list=PL4", 1]);
   }
 });

@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { failureReason } from "../../src/rules/failureReason.ts";
 import { errorMessage } from "../../src/ui/errorMessages.ts";
 import { ytDlpError } from "../helpers/errors.ts";
+import { codedError } from "../../src/rules/errorKind.ts";
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
 const AGE = `ERROR: [youtube] hc0ZDaAZQT0: Sign in to confirm your age.${HINT}`;
@@ -45,4 +46,10 @@ test("봇 감지 · 요청 제한: 고치는 법(쿠키 · bgutil)은 로그 줄
     assert.doesNotMatch(told, /\.env|COOKIES_SOURCE|bgutil/, told);
     assert.match(told, /봇 운영자에게 알려 주세요/);
   }
+});
+
+// 사용자 문장을 일반화하려 감싼 오류(직접 링크)는 사유가 원인에만 있다. 로그 한 줄에 붙인다
+test("감싼 오류는 원인의 첫 줄을 붙인다", () => {
+  const wrapped = codedError("link-unavailable", "재생할 수 없는 링크입니다", { cause: new Error("요청 실패: HTTP 404\n자세한 것") });
+  assert.equal(failureReason(wrapped, false), "재생할 수 없는 링크입니다 (요청 실패: HTTP 404)");
 });

@@ -1,4 +1,4 @@
-// 재생 실패를 로그 한 줄로. 무엇이 막았는지가 분명한 종류는 그 이름만, 나머지는 오류의 첫 줄.
+// 재생 · 곡 찾기 실패를 로그 한 줄로. 무엇이 막았는지가 분명한 종류는 그 이름만, 나머지는 오류의 첫 줄.
 // 원문 전체(yt-dlp 의 WARNING 줄 포함)는 부르는 쪽이 debug 로 남긴다.
 
 import { errorKind, messageOf } from "./errorKind.ts";
@@ -25,11 +25,17 @@ function firstLine(text: string) {
   return lines.find((line) => line.startsWith("ERROR:")) ?? lines[0] ?? text;
 }
 
+// 감싼 오류의 까닭(원인의 첫 줄). 사용자 문장을 일반화하려 감싼 것은 사유가 원인에만 있다(직접 링크)
+function causeOf(error: unknown) {
+  const cause = error && typeof error === "object" && "cause" in error ? error.cause : undefined;
+  return cause ? ` (${firstLine(messageOf(cause))})` : "";
+}
+
 /** cookiesConfigured: 쿠키를 걸어 두었나. 연령 제한이 쿠키가 없어서인지 쿠키로도 안 되는지를 가른다 */
 function failureReason(error: unknown, cookiesConfigured: boolean): string {
   const kind = errorKind(error);
   const text = messageOf(error);
-  const why = kind === "age-restricted" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? firstLine(text)}${operatorHint(kind)}`;
+  const why = kind === "age-restricted" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? `${firstLine(text)}${causeOf(error)}`}${operatorHint(kind)}`;
   const id = VIDEO_ID.exec(text)?.[1];
   return id ? `${why} (${id})` : why;
 }

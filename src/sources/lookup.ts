@@ -8,7 +8,7 @@ import * as SoundCloud from "./soundcloud.ts";
 import * as DirectLink from "./direct.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import { errorKind, messageOf } from "../rules/errorKind.ts";
-import { operatorHint } from "../rules/operatorHints.ts";
+import { failureReason } from "../rules/failureReason.ts";
 import type { CacheHit } from "../store/trackLookup.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
@@ -67,10 +67,12 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
     } catch (error) {
       if (!video) throw error;
       log.warn(`재생목록을 받지 못해 영상 하나로 갑니다: ${messageOf(error).split("\n")[0]}`);
-      list = null;
+      return single(await youtube.search(query, 1));
     }
     if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
     if (!video) return single([]);
+    // yt-dlp 가 비공개 · 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
+    log.info(`재생목록이 비었거나 열리지 않아 영상 하나로 갑니다 (${video})`);
   }
   return single(await youtube.search(query, 1));
 }
@@ -93,8 +95,9 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
     if (!found.tracks.length) return { success: false, code: "no-result" };
     return { success: true, ...found };
   } catch (error) {
-    const kind = errorKind(error);
-    log.error({ sub: context || undefined, kind }, `${messageOf(error)}${operatorHint(kind)}`);
+    // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
+    log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, YouTube.cookiesConfigured())}`);
+    log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${YouTube.briefError(error)}`);
     return { success: false, code: "lookup-failed", error };
   }
 }

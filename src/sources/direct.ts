@@ -55,8 +55,7 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
       },
     ];
   } catch (error) {
-    // SSRF 오라클 방지: 차단 사유(막힌 주소)는 로그로만, 사용자에겐 일반화된 오류만
-    log.error("직접 링크 정보 조회 실패:", messageOf(error));
+    // SSRF 오라클 방지: 차단 사유(막힌 주소)는 원인에만 둔다. 곡 찾기가 로그 한 줄에 원인을 붙인다
     throw codedError("link-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   }
 }
