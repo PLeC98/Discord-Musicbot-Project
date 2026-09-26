@@ -1,13 +1,14 @@
-// 오류를 가르는 두 집의 지금 답을 한 표로 고정한다(구조 리팩터링 0-B).
+// yt-dlp 문장을 가르는 두 쓰임을 한 표로 본다.
 //
-// ErrorHandler.classify(사용자에게 보일 범주)와 YouTube.is*Error(재시도 · 폴백 판단)가 같은 문장을 따로 가른다.
-// 두 집이 같은 문장을 같은 뜻으로 가르는지 이 표가 본다. "고친 순서" 라고 적은 행은 예전에 봇 감지로 잘못 가르던 것이다.
+// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(YouTube.codeOf), 사용자에게 보일 종류(classify)는 그 이름으로 정해진다.
+// 재시도 · 폴백(YouTube.is*Error)은 같은 문장을 따로 가른다. 두 쓰임이 같은 문장을 같은 뜻으로 가르는지 이 표가 본다.
+// "고친 순서" 라고 적은 행은 예전에 봇 감지로 잘못 가르던 것이다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ErrorHandler } from "../../src/ui/errorMessages.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
-import { RULES, errorKind, codedError } from "../../src/rules/errorKind.ts";
+import { errorKind, codedError } from "../../src/rules/errorKind.ts";
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
 const T = true;
 const F = false;
@@ -32,31 +33,23 @@ const TABLE: Row[] = [
   ['WARNING: Skipping client "android" since it does not support cookies\nERROR: Requested format is not available', "unknown", F, F, F, F, T],
   ["ERROR: nsig extraction failed: Some formats may be missing", "unknown", F, F, T, F, F],
   // 미디어 주소 어긋남
-  ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "unknown", F, F, T, T, F], // 봇 감지의 403 은 "youtube" 가 같이 있어야 한다
+  ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "unknown", F, F, T, T, F], // 403 은 봇 감지가 아니다
   ["ERROR: unable to download fragment 12", "unknown", F, F, T, T, F],
   ["HTTP Error 429: Too Many Requests", "rate-limited", F, F, T, T, F],
   // 그 밖
   ["getaddrinfo ENOTFOUND youtube.com", "network", F, F, F, F, F],
-  ["fetch failed", "network", F, F, F, F, F],
   ["ffmpeg exited with code 1", "stream-failed", F, F, F, F, F],
-  ["Missing Permissions", "voice-permission", F, F, F, F, F],
-  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡", "no-youtube-match", F, F, F, F, F],
-  ["No results found", "no-results", F, F, F, F, F],
   ["This content is not available in your country", "geo-blocked", F, F, F, F, F],
   ["무언가 알 수 없는 일", "unknown", F, F, F, F, F],
-  // 지금 답. 낱말이 넓어 프로그램 버그가 엉뚱한 종류가 된다. 2단계가 오류를 만든 곳이 코드를 달게 바꾼다(계획서 #33)
-  ["Cannot read properties of undefined (reading 'geometry')", "geo-blocked", F, F, F, F, F],
-  ["Invalid regional indicator", "geo-blocked", F, F, F, F, F],
-  ["Cannot read properties of undefined (reading 'audioUrl')", "stream-failed", F, F, F, F, F],
-  ["player.stream is not a function", "stream-failed", F, F, F, F, F],
-  // 지금 답. 영어 문장에 기대 가른다. 2단계가 코드를 가진 오류로 바꾼다(계획서 #6)
-  ["Could not find YouTube equivalent", "no-youtube-match", F, F, F, F, F],
 ];
 
-test("오류 분류 표: 두 집의 지금 답", () => {
+// ytdlpSpawn 이 내는 모양: 글은 그대로, 이름은 codeOf
+const shaped = (msg: string) => Object.assign(new Error(msg), { code: YouTube.codeOf(new Error(msg)) ?? undefined });
+
+test("오류 분류 표: yt-dlp 가 단 이름으로 가른 종류와 판별 칸", () => {
   const actual = TABLE.map(([msg]) => {
     const e = new Error(msg);
-    return [msg, ErrorHandler.classify(e), YouTube.isVideoUnavailableError(e), YouTube.isAgeRestrictedError(e), YouTube.isClientFault(e), YouTube.isStaleMediaError(e), YouTube.isSkippedClientError(e)];
+    return [msg, ErrorHandler.classify(shaped(msg)), YouTube.isVideoUnavailableError(e), YouTube.isAgeRestrictedError(e), YouTube.isClientFault(e), YouTube.isStaleMediaError(e), YouTube.isSkippedClientError(e)];
   });
   assert.deepEqual(actual, TABLE); // 한 번에 비교해 어긋난 칸을 전부 보인다
 });
@@ -67,22 +60,14 @@ test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). classify 는
   assert.equal(ErrorHandler.classify(e), "unknown");
 });
 
-test("classify 는 문자열과 빈 값도 받는다", () => {
-  assert.equal(ErrorHandler.classify("fetch failed"), "network");
+// 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown 이다(예전에는 낱말로 갈라 프로그램 버그가 엉뚱한 종류가 됐다)
+test("classify 는 이름이 없으면 unknown. 문자열과 빈 값도 받는다", () => {
+  for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "Could not find YouTube equivalent"]) {
+    assert.equal(ErrorHandler.classify(new Error(msg)), "unknown", msg);
+  }
+  assert.equal(ErrorHandler.classify("ERROR: Video unavailable"), "unknown");
   assert.equal(ErrorHandler.classify(null), "unknown");
   assert.equal(ErrorHandler.classify(undefined), "unknown");
-});
-
-// 한 문장이 규칙 둘에 걸리면 표의 차례가 답을 정한다. 그런 겹침은 여기 적은 것만 있어야 한다
-// (새로 겹치면 차례를 다시 보고 이 목록에 이유와 함께 더한다).
-test("분류 규칙의 겹침: 알고 있는 것만", () => {
-  const KNOWN = {
-    "ERROR: Sign in to confirm your age. This video may be inappropriate for some users.": ["age-restricted", "bot-check"], // 연령 제한이 앞
-    "WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.": ["age-cookies-invalid", "age-restricted", "bot-check"], // 쿠키 무효가 앞
-  };
-  const hits = (msg: string) => RULES.filter(([, tests]) => tests.some((one) => (typeof one === "function" ? one(msg.toLowerCase()) : msg.toLowerCase().includes(one)))).map(([kind]) => kind);
-  const overlaps = Object.fromEntries(TABLE.map(([msg]) => [msg, hits(msg)]).filter(([, kinds]) => kinds.length > 1));
-  assert.deepEqual(overlaps, KNOWN);
 });
 
 // yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 칸과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지 · 지역 차단 ·
@@ -107,18 +92,9 @@ test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
     "ERROR: unable to download fragment 12": "stale-media",
     "HTTP Error 429: Too Many Requests": "rate-limited", // 요청 제한이 주소 어긋남보다 앞이다. 다시 받을지는 isStaleMediaError 가 따로 본다
     "getaddrinfo ENOTFOUND youtube.com": "network",
-    "fetch failed": null,
     "ffmpeg exited with code 1": "stream-failed",
-    "Missing Permissions": null,
-    "Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡": null,
-    "No results found": null,
     "This content is not available in your country": "geo-blocked",
     "무언가 알 수 없는 일": null,
-    "Cannot read properties of undefined (reading 'geometry')": null,
-    "Invalid regional indicator": null,
-    "Cannot read properties of undefined (reading 'audioUrl')": null,
-    "player.stream is not a function": null,
-    "Could not find YouTube equivalent": null,
   };
   assert.deepEqual(
     Object.keys(CODES),

@@ -15,6 +15,7 @@ import type { Range } from "../../src/sources/lookup.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
 import * as tracks from "../helpers/tracks.ts";
 import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
+import { networkError } from "../helpers/errors.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -107,7 +108,7 @@ test("조회: 사운드클라우드 · 직접 링크는 한 곡", async () => {
 test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
   const empty = { youtube: { ...YouTube, search: async () => [] } };
   assert.deepEqual(await lookup.getTrackData("없는 곡", undefined, undefined, empty), { success: false, code: "no-result" });
-  const boom = new Error("ECONNRESET");
+  const boom = Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" });
   const broken = {
     youtube: {
       ...YouTube,
@@ -122,7 +123,7 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
 test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", async () => {
   const { ErrorHandler } = await import("../../src/ui/errorMessages.ts");
   assert.equal(ErrorHandler.lookupFailure({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
-  assert.match(ErrorHandler.lookupFailure({ code: "lookup-failed", error: new Error("ECONNRESET") }), /네트워크 오류/);
+  assert.match(ErrorHandler.lookupFailure({ code: "lookup-failed", error: networkError() }), /네트워크 오류/);
 });
 
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {

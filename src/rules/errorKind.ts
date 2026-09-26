@@ -1,32 +1,6 @@
 // 판정: 이 오류는 어떤 종류인가. 종류 이름을 낸다. 문장은 ui/errorMessages 가 만든다.
 // 오류를 만든 곳이 이름(code)을 붙인다(codedError). 여기서는 그 이름을 먼저 본다: 오류 자신 → 원인(cause) → 시스템 · 디스코드 코드.
-//
-// 낱말 표(RULES)는 이름이 없는 오류의 마지막 길이다. 2단계에서 걷는다.
-//
-// 연령 제한이 봇 감지보다 앞이다. 연령 확인 문장("Sign in to confirm your age")이 봇 감지의 "sign in to confirm" 도
-// 품고 있어서, 차례가 거꾸로면 연령 제한이 봇 감지로 가려진다.
-
-// 글자(소문자로 찾는다) 또는 판정 함수
-type Test = string | ((msg: string) => boolean);
-
-const RULES: Array<[string, Test[]]> = [
-  // 쿠키로 다시 시도했는데 쿠키가 무효였던 연령 제한. yt-dlp 가 원인을 WARNING 에, 결과를 ERROR 에 나눠 적는다
-  ["age-cookies-invalid", [(m) => m.includes("cookies are no longer valid") && m.includes("confirm your age")]],
-  ["age-restricted", ["age-restricted", "age restricted", "confirm your age", "only available to registered users"]],
-  // YouTube 봇 감지 / 로그인 필요
-  ["bot-check", ["sign in to confirm", "confirm you", "bot detection", "not a robot", "please sign in", "inappropriate", (m) => m.includes("youtube") && m.includes("403")]],
-  // 비공개 / 삭제됨 / 사용할 수 없는 영상
-  ["video-unavailable", ["private video", "video unavailable", "this video is unavailable", "this video has been removed", "no longer available", "has been deleted", "video is not available"]],
-  ["geo-blocked", ["not available in your country", "geo", "blocked in", "region"]],
-  ["rate-limited", ["429", "too many requests", "rate limit", "quota"]],
-  // Spotify 트랙을 YouTube 에서 찾을 수 없음
-  ["no-youtube-match", ["youtube equivalent not found", "no youtube match", "could not find youtube", "동등물"]],
-  ["no-results", ["no results", "not found", "no entries", "no tracks"]],
-  ["network", ["econnreset", "econnrefused", "etimedout", "fetch failed", "socket hang up", "network", "connection refused", "getaddrinfo"]],
-  // FFmpeg / 스트림 처리
-  ["stream-failed", ["ffmpeg", "pipe", "stream", "audio", "codec"]],
-  ["voice-permission", ["missing access", "missing permissions", "voice_join", "speak"]],
-];
+// 글은 보지 않는다. 이름이 없으면 unknown 이다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
 const KINDS = new Set(["age-cookies-invalid", "age-restricted", "bot-check", "video-unavailable", "geo-blocked", "rate-limited", "no-youtube-match", "network", "stream-failed", "voice-permission"]);
@@ -39,8 +13,6 @@ const DISCORD_KINDS: Record<number, string> = { 50001: "voice-permission", 50013
 function codedError(code: string, message: string, options?: { cause?: unknown }) {
   return Object.assign(new Error(message, options), { code });
 }
-
-const matches = (msg: string, test: Test): boolean => (typeof test === "function" ? test(msg) : msg.includes(test));
 
 /** 오류가 달고 온 이름(code). 글자도 수도 온다(디스코드 API 는 수) */
 function codeOf(error: unknown): string | number | undefined {
@@ -69,9 +41,7 @@ function errorKind(error: unknown): string {
   if (coded) return coded;
   // AbortSignal.timeout 이 끊은 요청. (음성 연결의 기다림이 끝난 것은 AbortError 라 여기 들지 않는다)
   if (error && typeof error === "object" && "name" in error && error.name === "TimeoutError") return "network";
-  const msg = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
-  for (const [kind, tests] of RULES) if (tests.some((test) => matches(msg, test))) return kind;
   return "unknown";
 }
 
-export { errorKind, codedError, codeOf, messageOf, RULES };
+export { errorKind, codedError, codeOf, messageOf };

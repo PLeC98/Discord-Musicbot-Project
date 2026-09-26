@@ -3,33 +3,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ErrorHandler } from "../../src/ui/errorMessages.ts";
+import { codedError } from "../../src/rules/errorKind.ts";
+import { networkError, ytDlpError } from "../helpers/errors.ts";
 
-const CASES = [
-  // [실제 yt-dlp/네트워크에서 나오는 형태의 메시지, 기대 범주]
-  ["Sign in to confirm you're not a bot. This helps protect our community.", "bot-check"],
-  ["ERROR: [youtube] abc: This video is age-restricted", "age-restricted"],
-  ["Private video. Sign in if you've been granted access", "video-unavailable"],
-  ["ERROR: [youtube] xyz: Video unavailable. This video has been removed", "video-unavailable"],
-  ["Video not available in your country", "geo-blocked"],
-  ["HTTP Error 429: Too Many Requests", "rate-limited"],
-  ["YouTube equivalent not found", "no-youtube-match"],
-  ["Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ''''''", "no-youtube-match"], // MusicPlayer · streamUrl 이 던지는 한글 메시지
-  ["read ECONNRESET", "network"],
-  ["connect ETIMEDOUT 1.2.3.4:443", "network"],
-  ["FFmpeg exited with code 1", "stream-failed"],
-  ["Missing Permissions", "voice-permission"],
-  ["완전히 알 수 없는 무언가", "unknown"],
+// [실제로 들어오는 모양의 오류, 기대 범주]. yt-dlp 는 실행하는 곳이, 우리 코드는 만든 곳이, Node · 디스코드는 저마다 이름을 단다
+const CASES: Array<[Error, string]> = [
+  [ytDlpError("Sign in to confirm you're not a bot. This helps protect our community."), "bot-check"],
+  [ytDlpError("ERROR: [youtube] abc: This video is age-restricted"), "age-restricted"],
+  [ytDlpError("Private video. Sign in if you've been granted access"), "video-unavailable"],
+  [ytDlpError("ERROR: [youtube] xyz: Video unavailable. This video has been removed"), "video-unavailable"],
+  [ytDlpError("Video not available in your country"), "geo-blocked"],
+  [ytDlpError("HTTP Error 429: Too Many Requests"), "rate-limited"],
+  [codedError("no-youtube-match", "Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡"), "no-youtube-match"], // MusicPlayer · streamUrl
+  [Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }), "network"],
+  [Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT" }), "network"],
+  [networkError(), "network"],
+  [codedError("stream-failed", "오디오 리소스를 만들지 못했습니다"), "stream-failed"],
+  [Object.assign(new Error("Missing Permissions"), { code: 50013 }), "voice-permission"], // DiscordAPIError
+  [new Error("완전히 알 수 없는 무언가"), "unknown"],
 ];
 
-test("classify: 대표 메시지 분류", () => {
-  for (const [msg, expected] of CASES) {
-    assert.equal(ErrorHandler.classify(new Error(msg)), expected, JSON.stringify(msg));
+test("classify: 대표 오류 분류", () => {
+  for (const [error, expected] of CASES) {
+    assert.equal(ErrorHandler.classify(error), expected, error.message);
   }
 });
 
-test("classify: Error 객체와 문자열 입력 동일 취급", () => {
-  assert.equal(ErrorHandler.classify("read ECONNRESET"), "network");
-  assert.equal(ErrorHandler.classify(new Error("read ECONNRESET")), "network");
+test("classify: 글만 있는 문자열은 이름이 없어 unknown", () => {
+  assert.equal(ErrorHandler.classify("read ECONNRESET"), "unknown");
 });
 
 test("classify: null/빈 입력은 unknown", () => {
@@ -38,8 +39,8 @@ test("classify: null/빈 입력은 unknown", () => {
 });
 
 test("getMessage: 모든 범주가 한국어 안내 문자열을 반환", () => {
-  for (const [msg] of CASES) {
-    const out = ErrorHandler.getMessage(new Error(msg));
+  for (const [error] of CASES) {
+    const out = ErrorHandler.getMessage(error);
     assert.equal(typeof out, "string");
     assert.ok(out.startsWith("❌"), out.slice(0, 20));
   }

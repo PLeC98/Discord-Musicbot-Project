@@ -29,6 +29,7 @@ import * as addTracks from "../../src/usecases/addTracks.ts";
 import * as More from "../../src/usecases/playlistMore.ts";
 import * as storeDb from "../../src/store/db.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
+import { networkError } from "../helpers/errors.ts";
 
 useExampleConfig();
 
@@ -203,7 +204,7 @@ test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던
   assert.deepEqual(failed.log.at(-1), ["editReply", { components: [{ error: "❌ 결과를 찾을 수 없습니다!" }], flags: MessageFlags.IsComponentsV2 }]);
 
   resolveReply = () => {
-    throw new Error("fetch failed");
+    throw networkError();
   };
   const thrown = interaction(w, { options: { query: "끊김" } });
   await runCommand(await command("play"), thrown.it, w.client);
@@ -252,7 +253,7 @@ test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
   assert.deepEqual(failed.log.at(-1), ["editReply", { components: [{ error: "❌ 결과를 찾을 수 없습니다!" }], flags: MessageFlags.IsComponentsV2 }]);
 
   resolveReply = () => {
-    throw new Error("fetch failed");
+    throw networkError();
   };
   const thrown = interaction(w, { options: { query: "끊김" } });
   await runCommand(await command("playfirst"), thrown.it, w.client);

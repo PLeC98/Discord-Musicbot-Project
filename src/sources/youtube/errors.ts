@@ -33,7 +33,7 @@ function briefError(error: unknown, maxLines = 4) {
 /** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별 */
 function isAgeRestrictedError(error: unknown) {
   const msg = textOf(error);
-  return /confirm your age|inappropriate for some users/i.test(msg);
+  return /confirm your age|inappropriate for some users|age.?restricted|only available to registered users/i.test(msg);
 }
 
 /**
