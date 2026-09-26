@@ -82,6 +82,8 @@ function deploySlashCommands() {
 
 function startBot({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   const client = new Client({
+    // GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다. 권한 판정 · 서버 목록이 멤버를 캐시에서 먼저 보는데,
+    // 역할 · 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
     // 외부에서 온 트랙 제목·파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
     allowedMentions: ALLOWED_MENTIONS,

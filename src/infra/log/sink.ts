@@ -36,9 +36,7 @@ type SseClient = {
 // pino와 동일한 레벨 체계
 const LEVELS: Record<LevelName, number> = { trace: 10, debug: 20, info: 30, warn: 40, error: 50, fatal: 60 };
 const LEVEL_NAMES: Record<number, LevelName> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
-// SSE 와이어 레벨 = 실제 레벨 이름. 예전엔 대시보드가 아는 네 가지(log/info/warn/error)로
-// 접어서 보냈는데, 그러면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 영영 못 가른다.
-// 레벨을 실제로 쓰기 시작한 이상 접으면 안 된다.
+// SSE 와이어 레벨 = 실제 레벨 이름. 몇 가지로 접으면 debug와 trace가, fatal과 error가 합쳐져 대시보드가 가르지 못한다.
 const WIRE_LEVEL: Record<number, string> = { 10: "trace", 20: "debug", 30: "info", 40: "warn", 50: "error", 60: "fatal" };
 // 브리지: console 메서드 → pino 레벨(숫자). log는 debug로 내린다. 여기 걸리는 건 전부 서드파티라
 // info 칸을 채우면 우리 로그가 묻힌다. 대시보드도 DEBUG 알약에서 본다.
@@ -54,9 +52,7 @@ const LEVEL_COLOR: Record<LevelName, (text: string) => string> = {
   fatal: chalk.bgRed.white,
 };
 
-// 본문 색도 sink가 칠한다. 예전엔 호출부가 chalk로 감쌌을 때만 색이 붙어서, 같은 error인데
-// 79%가 흰 글씨였다(실측 86건 중 68건). 색이 위험도가 아니라 "그 줄을 쓴 사람이 chalk를 썼는지"를
-// 나타내던 셈이다. sink는 레벨을 알고 있으니 여기서 일관되게 칠한다.
+// 본문 색도 sink가 레벨로 칠한다. 부르는 쪽은 색을 붙이지 않는다.
 const TEXT_COLOR: Record<LevelName, (text: string) => string> = {
   trace: chalk.gray,
   debug: chalk.gray,
@@ -112,11 +108,9 @@ class LogManager {
     // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.
     this.earlyRecords = [];
 
-    // 터미널 사정(코드페이지·색·TTY)의 단일 홈.
+    // 터미널 사정(색·TTY)의 단일 홈.
     this.isTTY = !!process.stdout.isTTY;
     this.useColor = this.isTTY;
-    // TODO(Phase3): Windows cmd 기본 코드페이지(레거시 949/437)에서 UTF-8 깨짐 →
-    //   cmd 판별 후 `chcp 65001` 적용 + pino-pretty를 여기 렌더러 자리에 연결.
 
     if (intercept) this._intercept();
   }

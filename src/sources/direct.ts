@@ -79,8 +79,6 @@ async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getS
   }
 }
 
-// 참고: 동기 함수로 유지해야 함. getInfo()가 반환값을
-// track.title에 직접 할당함 (비동기 버전은 "[object Promise]"를 생성했음)
 function extractTitle(filename: string): string {
   // 확장자를 제거하고 파일명 정리
   const nameWithoutExt = path.parse(filename).name;
