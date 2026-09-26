@@ -12,6 +12,7 @@ import type { GenreSource } from "../../src/config/genres.ts";
 import type { Limits } from "../../src/autoplay/filter.ts";
 import { audioKeyOf } from "../../src/rules/audioKeyOf.ts";
 import * as sources from "../../src/autoplay/sources/index.ts";
+import { withConfig } from "../helpers/config.ts";
 import * as pool from "../../src/autoplay/pool.ts";
 
 import * as filterModule from "../../src/autoplay/filter.ts";
@@ -516,4 +517,11 @@ test("키가 없는 소스는 아예 후보에서 빠진다", () => {
     else assert.equal(typeof need.env, "string", `${type}는 무엇이 필요한지 말할 수 있어야 한다`);
   }
   assert.equal(sources.usable("없는소스"), false);
+});
+
+test("스포티파이 재생목록 소스는 키 없이도 쓴다(재생목록 · 아티스트는 익명 경로)", async () => {
+  await withConfig({ spotify: { clientId: null, clientSecret: null } }, () => {
+    assert.equal(sources.usable("spotify"), true);
+    assert.equal(sources.needsOf("spotify"), null);
+  });
 });
