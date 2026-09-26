@@ -56,6 +56,15 @@ const deps: Sources = {
       return ytdlpBehavior(url, options);
     },
   },
+  // 사운드클라우드는 유튜브 실행기(클라이언트 바꾸기 · 쿠키)를 거치지 않는다. 어느 길로 갔는지 via 에 적는다
+  soundcloud: {
+    download: async (url, flags) => {
+      assert.ok(flags.output, "출력 경로가 없다");
+      const options = { ...flags, output: String(flags.output), via: "soundcloud" };
+      calls.ytdlp.push({ url, options });
+      return ytdlpBehavior(url, options);
+    },
+  },
   direct: {
     getStream: async (url: string) => {
       calls.direct.push(url);
@@ -171,12 +180,14 @@ test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. �
   assert.deepEqual(leftovers(), []);
 });
 
-test("사운드클라우드: 제 주소로 받는다(유튜브에서 찾지 않는다)", async () => {
+test("사운드클라우드: 제 주소로, 사운드클라우드 출처가 받는다(유튜브에서 찾지 않고 유튜브 옵션도 안 쓴다)", async () => {
   const track = { title: "SC", requestKey: "https://soundcloud.com/a/b", audioUrl: "https://soundcloud.com/a/b", platform: "soundcloud" };
 
   await downloader().downloadTrack(track);
 
   assert.equal(calls.ytdlp[0].url, "https://soundcloud.com/a/b");
+  assert.equal((calls.ytdlp[0].options as { via?: string }).via, "soundcloud");
+  assert.equal(calls.ytdlp[0].options.writeInfoJson, true, "받는 옵션은 유튜브와 같다");
   assert.equal(track.title, "SC", "유튜브가 아니면 제목을 안 고친다");
 });
 

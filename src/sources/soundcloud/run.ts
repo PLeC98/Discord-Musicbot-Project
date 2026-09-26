@@ -60,27 +60,24 @@ function flagsFor(formats: Formats, extra: YtDlpFlags = {}): YtDlpFlags {
 }
 
 /**
- * yt-dlp 로 한 번 읽는다(JSON). 실패는 사운드클라우드의 이름을 단 오류로 던진다(원래 오류는 cause).
+ * yt-dlp 를 한 번 부른다. 실패는 사운드클라우드의 이름을 단 오류로 던진다(원래 오류는 cause).
  * 여러 곡에서 일부만 못 받은 것은 실패가 아니다.
  */
-async function read(url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = youtubedl): Promise<unknown> {
+async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = youtubedl): Promise<unknown> {
   try {
-    return await exec(url, flagsFor(formats, { dumpSingleJson: true, ...extra }));
+    return await exec(url, flagsFor(formats, extra));
   } catch (error) {
     const partial = partialPlaylist(error);
     if (partial) return partial;
     const name = nameOf(error, what);
-    throw name
-      ? codedError(
-          name,
-          textOf(error)
-            .split("\n")
-            .find((line) => /^ERROR/.test(line)) || textOf(error),
-          { cause: error },
-        )
-      : error;
+    if (!name) throw error;
+    const text = textOf(error);
+    throw codedError(name, text.split("\n").find((line) => /^ERROR/.test(line)) || text, { cause: error });
   }
 }
 
-export { FORMATS, flagsFor, read, nameOf, partialPlaylist };
+/** 정보만 읽는다(JSON) */
+const read = (url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = youtubedl) => call(url, formats, what, { dumpSingleJson: true, ...extra }, exec);
+
+export { FORMATS, flagsFor, call, read, nameOf, partialPlaylist };
 export type { Formats, What };

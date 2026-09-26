@@ -38,12 +38,12 @@ const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(e
 const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message.channelId : message.channel_id);
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
-type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; queueLimited?: boolean };
+type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean };
 type Requester = TrackRequester | null;
 /** 담은 결과. 실패면 message 가 안내 */
 type AddResult = { success: true; dropped?: number; queueLimited?: boolean } | { success: false; message: string; dropped?: number };
-/** 담은 안내에 붙일 것. dropped 상한으로 뺀 곡 수, total 받은 것보다 많은 전체 곡 수, queueLimited 자리가 모자라 덜 받음 */
-type AdditionNotice = { dropped?: number; total?: number | null; queueLimited?: boolean };
+/** 담은 안내에 붙일 것. dropped 상한으로 뺀 곡 수, skipped 출처가 받을 수 없어 뺀 곡 수, total 받은 것보다 많은 전체 곡 수, queueLimited 자리가 모자라 덜 받음 */
+type AdditionNotice = { dropped?: number; skipped?: number; total?: number | null; queueLimited?: boolean };
 /** 패널 내용. 채널 · 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을 붙이고, 재생 화면으로 되돌릴 때 뗀다 */
 type Payload = {
   components: Array<ContainerBuilder | ActionRowBuilder<StringSelectMenuBuilder>>;
@@ -58,7 +58,7 @@ type Opened = { success: true };
 /** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패 안내, started 곧바로 튼 곡 */
 type FirstStart = { opened: Opened | null; failure: string | null; started?: QueuedTrack };
 /** 대기열에 담은 것과 안내에 붙일 것 */
-type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; total: number | null; queueLimited: boolean } };
+type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
 /** 조작 버튼을 그릴 때 읽는 칸. 끝난 패널은 플레이어 없이 그린다 */
 type Controls = Pick<MusicPlayer, "sessionId" | "requesterId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<MusicPlayer, "sponsor">>;
 
@@ -116,6 +116,15 @@ const WAITING = new Set(["queue-end", "joined"]);
 function idleViewOf(reason: string): IdleView {
   const leaveMs = config.bot.leaveDelayQueueEmptyMs;
   return { reason, leavesAt: WAITING.has(reason) && leaveMs > 0 ? Date.now() + leaveMs : null };
+}
+
+// 담은 안내 밑에 붙는 경고 줄들. 뺀 곡(출처가 받을 수 없음) · 대기열이 차서 못 넣은 곡
+function noticeLines({ dropped, skipped, queueLimited }: { dropped: number; skipped: number; queueLimited: boolean }) {
+  let text = "";
+  if (skipped > 0) text += `\n⚠️ 받을 수 없는 ${skipped}곡(미리듣기 · 지역 제한 등)은 뺐습니다`;
+  if (dropped > 0) text += `\n⚠️ 대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${config.bot.maxQueueSize}곡)`;
+  else if (queueLimited) text += `\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`;
+  return text;
 }
 
 class MusicEmbedManager {
@@ -311,7 +320,7 @@ class MusicEmbedManager {
       sourceLabel: trackData.isPlaylist ? S.collectionLabel(trackData.collection) : null,
       insertFirst,
       // 안내에 붙일 것. 전체 곡 수는 받은 것보다 많을 때만
-      notice: { dropped: tracks.length - queued.length, total: trackData.total && trackData.total > received ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) },
+      notice: { dropped: tracks.length - queued.length, skipped: trackData.skipped ?? 0, total: trackData.total && trackData.total > received ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) },
     };
   }
 
@@ -832,7 +841,7 @@ class MusicEmbedManager {
    * 대기열 추가 메시지를 빌드합니다.
    * sourceLabel 은 여러 곡을 담은 출처의 표시 이름(재생목록·앨범 등). 없으면 한 곡 안내
    */
-  createQueueAdditionMessage(tracks: Array<Pick<QueuedTrack, "title">>, sourceLabel: string | null, insertFirst = false, { dropped = 0, total = null, queueLimited = false }: AdditionNotice = {}) {
+  createQueueAdditionMessage(tracks: Array<Pick<QueuedTrack, "title">>, sourceLabel: string | null, insertFirst = false, { dropped = 0, skipped = 0, total = null, queueLimited = false }: AdditionNotice = {}) {
     let text: string;
     if (sourceLabel) {
       text = insertFirst ? `⏫ ${sourceLabel}의 ${tracks.length}개 노래가 대기열 맨 앞에 추가되었습니다!` : `✅ ${sourceLabel}의 ${tracks.length}개 노래가 대기열에 추가되었습니다!`;
@@ -841,9 +850,7 @@ class MusicEmbedManager {
       text = insertFirst ? `⏫ **${title}**이(가) 대기열 맨 앞에 추가되었습니다!` : `✅ **${title}**이(가) 대기열에 추가되었습니다!`;
     }
     if (sourceLabel && total) text += ` (전체 ${total.toLocaleString("ko-KR")}곡)`;
-    if (dropped > 0) text += `\n⚠️ 대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${config.bot.maxQueueSize}곡)`;
-    else if (queueLimited) text += `\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`;
-    return text;
+    return text + noticeLines({ dropped, skipped, queueLimited });
   }
 
   queueFullMessage() {

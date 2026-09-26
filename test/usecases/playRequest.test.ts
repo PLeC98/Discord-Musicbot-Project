@@ -607,6 +607,27 @@ test("이어 넣기: 맨 앞에 넣었던 목록은 앵커 곡 바로 뒤에 넣
     assert.equal(back.added?.insertAfterId, undefined);
   }));
 
+// 사운드클라우드 세트는 곡마다 요청이 들어 IP 가 막힐 수 있다. 한 번 누르면 한 구간(10곡)만, 앞을 다시 받지 않고,
+// 받을 수 없는 곡이 섞여 모자라도 더 읽지 않는다
+test("이어 넣기(사운드클라우드 세트): 한 구간만 읽고, 뺀 곡을 센다", () =>
+  withLimits(250, 50, async () => {
+    const scSet = ({ offset = 0, limit = 0 }: Range): Collection => {
+      const size = Math.min(limit, 10);
+      const tracks = Array.from({ length: size - 3 }, (_, i) => track(`sc${offset + i}`, { id: String(3000 + offset + i) }));
+      return { tracks, total: 41, nextOffset: offset + size, skipped: 3 };
+    };
+    const state: MoreState = { kind: "scs", listId: "2284916349", offset: 10, anchorId: "3009", insertFirst: false, requesterId: null };
+    const { result, added } = await continueWith({ state, count: 50, source: scSet });
+    assert.deepEqual(
+      collectionCalls.map((c) => [c.url, c.range]),
+      [["https://api.soundcloud.com/playlists/2284916349", { offset: 10, limit: 10 }]],
+      "숫자 id 로 한 구간만, 앞을 다시 받지 않는다",
+    );
+    assert.equal(added?.tracks.length, 7);
+    const done = continued(result);
+    assert.deepEqual({ added: done.added, skipped: done.skipped, offset: done.next?.offset, batch: done.next?.batch }, { added: 7, skipped: 3, offset: 20, batch: 10 });
+  }));
+
 test("재생목록을 넣으면 이어 받을 상태를 결과에 싣는다", async () => {
   mockResolve = () => ({ ...ok("1", "2"), collection: "playlist", total: 120, nextOffset: 2, tracks: [track("1"), { ...track("2"), id: idOf(1) }] });
   const client = makeClient();

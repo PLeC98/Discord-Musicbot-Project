@@ -216,6 +216,16 @@ test("자리가 모자라 덜 받았으면(queueLimited) 그렇다고 덧붙인�
   assert.equal(mem.createQueueAdditionMessage([track("a")], "재생목록", false, { queueLimited: true }), `✅ 재생목록의 1개 노래가 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
+// 사운드클라우드 세트는 받을 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
+test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
+  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
+  assert.equal(mem.createQueueAdditionMessage([track("a")], "재생목록", false, { skipped: 3, total: 41 }), "✅ 재생목록의 1개 노래가 대기열에 추가되었습니다! (전체 41곡)\n⚠️ 받을 수 없는 3곡(미리듣기 · 지역 제한 등)은 뺐습니다");
+
+  const { mem: live, notices, responder } = setup({ current: track("now") });
+  await live.handleMusicData("g1", { tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);
+  assert.match(String(notices.at(-1)), /받을 수 없는 2곡/, "곡 찾기가 넘긴 수가 안내까지 간다");
+});
+
 test("플레이어가 없거나 처리 중 던지면 실패 문장", async () => {
   const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
   assert.deepEqual(await mem.handleMusicData("g1", { tracks: [] }, who), { success: false, message: "음악 플레이어를 찾을 수 없습니다." });

@@ -124,12 +124,47 @@ test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 
   assert.deepEqual([one.isPlaylist, one.collection, one.total, one.nextOffset], [false, null, null, null]);
 });
 
-test("조회: 사운드클라우드 · 직접 링크는 한 곡", async () => {
-  const sources = { soundcloud: { search: async (q: string, n: number) => [found(q, { duration: n })] }, direct: { getInfo: async (url: string) => [found(url)] } };
+// 사운드클라우드 곡 · 세트의 한 구간, 곡 찾기가 넘기는 것. 물은 주소와 구간을 적는다
+const scAsked: Array<{ url: string; range?: Range & { what?: string } }> = [];
+const scTrack = (url: string) => ({ ...found(url), platform: "soundcloud" as const, audioUrl: url, pageUrl: url, requestKey: url });
+const soundcloud = (kind: "track" | "set", skipped = { preview: 0, unavailable: 0 }, tracks = 2) => ({
+  find: async (url: string, range?: Range & { what?: "track" | "set" }) => {
+    scAsked.push({ url, range });
+    if (kind === "track") return { kind, track: scTrack(url) };
+    return { kind, title: "세트", setId: "123", tracks: Array.from({ length: tracks }, (_, i) => scTrack(`${url}#${i}`)), total: 30, nextOffset: 10, skipped };
+  },
+});
+
+test("조회: 사운드클라우드 곡 링크 · 직접 링크는 한 곡", async () => {
+  const sources = { soundcloud: soundcloud("track"), direct: { getInfo: async (url: string) => [found(url)] } };
+  scAsked.length = 0;
   const sc = await lookup.getTrackData("https://soundcloud.com/a/b", undefined, undefined, sources);
-  assert.deepEqual([sc.tracks?.[0].title, sc.tracks?.[0].duration], ["https://soundcloud.com/a/b", 1]);
+  assert.deepEqual([sc.isPlaylist, sc.tracks?.[0].title], [false, "https://soundcloud.com/a/b"]);
+  assert.equal(scAsked[0].range?.what, "track");
   const direct = await lookup.getTrackData("https://files.test/a.mp3", undefined, undefined, sources);
   assert.equal(direct.tracks?.[0].title, "https://files.test/a.mp3");
+});
+
+// 받는 범위: 곡 · 세트 · 짧은 링크. 프로필 · 좋아요 같은 모음은 조회하지 않고 알린다
+test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 곡 수), 모음 링크는 거절", async () => {
+  scAsked.length = 0;
+  const set = await lookup.getTrackData("https://soundcloud.com/a/sets/b", undefined, { limit: 50 }, { soundcloud: soundcloud("set", { preview: 1, unavailable: 2 }) });
+  assert.deepEqual([set.isPlaylist, set.collection, set.collectionId, set.total, set.nextOffset, set.skipped, set.tracks?.length], [true, "playlist", "123", 30, 10, 3, 2]);
+  assert.deepEqual(scAsked[0].range, { offset: 0, limit: 50, what: "set" }, "10곡으로 자르는 것은 출처다");
+
+  const secret = await lookup.getTrackData("https://soundcloud.com/a/sets/b/s-Tok3n", undefined, undefined, { soundcloud: soundcloud("set") });
+  assert.equal(secret.collectionId, null, "비밀 공유 세트는 숫자 id 로 다시 부를 수 없다");
+
+  const nothing = await lookup.getTrackData("https://soundcloud.com/a/sets/b", undefined, undefined, { soundcloud: soundcloud("set", { preview: 10, unavailable: 0 }, 0) });
+  assert.equal(nothing.success, false);
+  assert.match(String(nothing.message), /모두 틀 수 없어요/);
+
+  scAsked.length = 0;
+  for (const url of ["https://soundcloud.com/artist", "https://soundcloud.com/artist/likes"]) {
+    const r = await lookup.getTrackData(url, undefined, undefined, { soundcloud: soundcloud("track") });
+    assert.match(String(r.message), /지원하지 않는 사운드클라우드 링크/, url);
+  }
+  assert.equal(scAsked.length, 0, "모음은 부르지 않는다");
 });
 
 test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
@@ -153,7 +188,7 @@ test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", asy
   assert.match(lookupFailureMessage({ code: "lookup-failed", error: networkError() }), /네트워크 오류/);
 });
 
-test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
+test("모음 이어 받기: 유튜브 재생목록 · 스포티파이 · 사운드클라우드 세트. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
   const gone = { youtube: { ...YouTube, getPlaylist: async () => null } };
   assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", { offset: 50, limit: 10 }, gone), { tracks: [], total: null, nextOffset: null });
   const one = found("1", { id: "1" });
@@ -172,7 +207,9 @@ test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 �
   };
   assert.deepEqual(await lookup.getCollection("https://open.spotify.com/playlist/p", { offset: 5 }, spotify), { tracks: [one] });
   assert.deepEqual(asked, [{ url: "https://open.spotify.com/playlist/p", range: { offset: 5 } }]);
-  assert.deepEqual(await lookup.getCollection("https://soundcloud.com/a/sets/b"), { tracks: [], total: null, nextOffset: null });
+  const part2 = await lookup.getCollection("https://api.soundcloud.com/playlists/123", { offset: 10, limit: 11 }, { soundcloud: soundcloud("set", { preview: 1, unavailable: 0 }) });
+  assert.deepEqual([part2.tracks.length, part2.total, part2.nextOffset, part2.skipped], [2, 30, 10, 1]);
+  assert.deepEqual(await lookup.getCollection("https://soundcloud.com/a/b", undefined, { soundcloud: soundcloud("track") }), { tracks: [], total: null, nextOffset: null }, "곡 링크는 모음이 아니다");
 });
 
 test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 재생목록 · 모르는 유튜브 링크는 지름길을 안 탄다", async () => {
@@ -200,6 +237,17 @@ test("캐시 지름길: 받아 둔 곡은 조회 없이 장부의 트랙으로. 
   };
   await lookup.resolveQuery(`${url}&list=PLx`, undefined, undefined, listed);
   assert.equal(playlistAsked, true, "list= 가 있으면 캐시의 한 곡이 재생목록을 가리지 않게 지름길을 건너뛴다");
+
+  // 사운드클라우드 세트가 한 곡으로 캐시돼 있어도(예전에는 세트를 한 곡으로 받았다) 세트로 다시 읽는다
+  const setUrl = "https://soundcloud.com/a/sets/b";
+  const setFile = audioCache.getFilePath("sc:a/sets/b");
+  fs.writeFileSync(setFile, "x");
+  audioCache.recordDownloadStart("sc:a/sets/b", { title: "t" });
+  audioCache.recordDownloadComplete("sc:a/sets/b", setFile, 1, { title: "t" }, { durationSec: 194 });
+  trackLookup.recordTrackLookup({ requestKey: setUrl, pageUrl: setUrl, audioUrl: setUrl, platform: "soundcloud", title: "세트를 한 곡으로" });
+  scAsked.length = 0;
+  const set = await lookup.resolveQuery(setUrl, undefined, undefined, { soundcloud: soundcloud("set") });
+  assert.deepEqual([set.isPlaylist, scAsked.length], [true, 1]);
 });
 
 // ── 동등물 찾기 · 재검색 ──────────────────────────────────────────────

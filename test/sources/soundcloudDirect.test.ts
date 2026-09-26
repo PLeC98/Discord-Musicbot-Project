@@ -1,7 +1,4 @@
-// 사운드클라우드와 직접 링크가 무엇을 조회하고 무엇을 돌려주는지 고정한다(구조 리팩터링 0-B).
-//
-// 2a 가 링크 판정을 rules/links 로 옮기고, 3 이 사운드클라우드 열쇠 모양과 트랙 칸을 바꾼다. 사운드클라우드는 부르는 곳이
-// 있는 것(링크 판정 · 검색 · 스트림)만 본다. 나머지 정적 메서드는 고아다(B-41, SC-1 때 판단).
+// 사운드클라우드와 직접 링크를 곡 찾기(바깥 계약)로 본다. 사운드클라우드 출처 자체는 soundcloud.test.ts.
 // yt-dlp 는 띄우는 exec 만(useExec), 직접 링크는 SafeUrl 의 head · getStream 만 가짜로 둔다.
 
 import { Readable } from "node:stream";
@@ -9,10 +6,9 @@ import * as links from "../../src/rules/links.ts";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
-import * as SoundCloud from "../../src/sources/soundcloud.ts";
 import * as DirectLink from "../../src/sources/direct.ts";
 import { getTrackData } from "../../src/sources/lookup.ts";
-import { messageOf, codeOf } from "../../src/rules/errorKind.ts";
+import { messageOf, codeOf, errorKind } from "../../src/rules/errorKind.ts";
 import { lookupFailureMessage } from "../../src/ui/errorMessages.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
@@ -67,72 +63,35 @@ test("사운드클라우드 링크 판정: 곡 · 세트 · 사용자 · 앱 짧
   }
 });
 
-test("사운드클라우드 검색: scsearch 로 받고 사운드클라우드 주소인 항목만 표준 모양으로", async () => {
-  respond = () => ({ entries: [scItem("one"), { title: "다른 곳", webpage_url: "https://example.com/x" }, scItem("two")] });
+const aac = [{ format_id: "hls_aac_96k" }, { format_id: "hls_aac_160k" }];
 
-  const tracks = await SoundCloud.search("노래", 3);
-
-  assert.equal(calls.ytdlp[0].url, "scsearch3:노래");
-  assert.deepEqual({ dump: calls.ytdlp[0].flags.dumpSingleJson, flat: calls.ytdlp[0].flags.flatPlaylist, noWarnings: calls.ytdlp[0].flags.noWarnings }, { dump: true, flat: true, noWarnings: true });
-  assert.deepEqual(
-    tracks.map((t) => t.pageUrl),
-    ["https://soundcloud.com/artist/one", "https://soundcloud.com/artist/two"],
-  );
-  assert.deepEqual({ title: tracks[0].title, artist: tracks[0].artist, duration: tracks[0].duration, platform: tracks[0].platform, type: tracks[0].type, id: tracks[0].id }, { title: "SC one", artist: "올린 사람", duration: 180.4, platform: "soundcloud", type: "track", id: "1003" }, "곡 id 는 글자로");
-});
-
-test("사운드클라우드 검색: 주소를 주면 그 곡의 정보를, 실패하면 빈 배열", async () => {
-  respond = () => scItem("direct");
-  const [t] = await SoundCloud.search("https://soundcloud.com/artist/direct");
-  assert.equal(calls.ytdlp[0].url, "https://soundcloud.com/artist/direct");
-  assert.equal(calls.ytdlp[0].flags.flatPlaylist, undefined);
-  assert.equal(t.title, "SC direct");
-
-  respond = () => ({ fail: "ERROR: 404" });
-  assert.deepEqual(await SoundCloud.search("https://soundcloud.com/artist/gone"), [], "정보 조회 실패는 null → 빈 배열");
-  assert.deepEqual(await SoundCloud.search("아무거나"), []);
-});
-
-test("사운드클라우드 스트림: 서술자에 전송 방식을 싣는다. HLS 를 못 여는 빌드면 받아 합칠 수 있는 포맷을 고른다", async () => {
-  respond = () => ({ url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", duration: 180.6, abr: 96, http_headers: { A: "b" } });
-
-  const s = await SoundCloud.getStream("https://soundcloud.com/artist/track");
-  assert.deepEqual(s, { url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", duration: 181, bitrate: 96, platform: "soundcloud", httpHeaders: { A: "b" } });
-  assert.equal(calls.ytdlp[0].flags.format, "bestaudio/best", "생략하면 HLS 를 연다고 본다");
-
-  await SoundCloud.getStream("https://soundcloud.com/artist/track", { canPlayHls: false });
-  assert.equal(calls.ytdlp[1].flags.format, "bestaudio[protocol^=http]/best[protocol^=http]/bestaudio/best");
-});
-
-test("사운드클라우드 스트림: 주소가 없으면 던진다", async () => {
-  respond = () => ({ title: "x" });
-  await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/track"), /스트림 URL을 찾을 수 없음/);
-});
-
-// 곡 찾기(바깥 계약)로 본 지금 답. 3S 단계가 사운드클라우드를 새로 짜며 바꾼다(계획서 SC-1 · SC-5 · SC-6)
-test("곡 찾기: 사운드클라우드 세트 링크는 한 곡으로 들어간다(제목은 세트 이름, 길이는 곡 길이의 합)", async () => {
-  respond = () => ({ _type: "playlist", id: "set1", title: "세트 이름", uploader: "올린 사람", webpage_url: "https://soundcloud.com/artist/sets/list", duration: 194, entries: [scItem("a"), scItem("b")] });
+test("곡 찾기: 사운드클라우드 세트 링크는 재생목록으로 들어간다(한 구간, 곡마다 곡 페이지 주소)", async () => {
+  respond = () => ({ _type: "playlist", id: "123", title: "세트 이름", uploader: "올린 사람", webpage_url: "https://soundcloud.com/artist/sets/list", playlist_count: 2, entries: [scItem("a", { formats: aac }), scItem("b", { formats: aac })] });
   const r = await getTrackData("https://soundcloud.com/artist/sets/list");
   assert.equal(r.success, true);
-  assert.equal(r.isPlaylist, false);
+  assert.deepEqual([r.isPlaylist, r.collection, r.total, r.collectionId], [true, "playlist", 2, "123"]);
   assert.deepEqual(
-    r.tracks?.map((t) => [t.title, t.duration]),
-    [["세트 이름", 194]],
+    r.tracks?.map((t) => [t.title, t.requestKey]),
+    [
+      ["SC a", "https://soundcloud.com/artist/a"],
+      ["SC b", "https://soundcloud.com/artist/b"],
+    ],
   );
 });
 
-test("곡 찾기: 미리듣기만 열린 곡도 30초짜리 곡으로 들어간다", async () => {
-  respond = () => scItem("preview", { duration: 30, formats: [{ format_id: "hls_mp3_1_0_preview" }, { format_id: "http_mp3_1_0_preview" }] });
+test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린다", async () => {
+  respond = () => scItem("preview", { duration: 30, formats: [{ format_id: "http_mp3_1_0_preview" }] });
   const r = await getTrackData("https://soundcloud.com/artist/preview");
-  assert.deepEqual(
-    r.tracks?.map((t) => [t.title, t.duration]),
-    [["SC preview", 30]],
-  );
+  assert.equal(r.success, false);
+  assert.equal(errorKind(r.error), "preview-only");
+  assert.equal(lookupFailureMessage(r), "❌ 미리듣기(30초)만 열린 곡이라 틀 수 없어요.");
 });
 
-test("곡 찾기: 지역 제한은 결과 없음과 같게 보인다", async () => {
+test("곡 찾기: 지역 제한은 그 까닭으로 알린다(결과 없음이 아니다)", async () => {
   respond = () => ({ fail: "ERROR: [soundcloud] 123: This video is not available from your location due to geo restriction" });
-  assert.deepEqual(await getTrackData("https://soundcloud.com/artist/blocked"), { success: false, code: "no-result" });
+  const r = await getTrackData("https://soundcloud.com/artist/blocked");
+  assert.equal(r.success, false);
+  assert.equal(errorKind(r.error), "geo-blocked");
 });
 
 // ── 직접 링크 ─────────────────────────────────────────────────────────

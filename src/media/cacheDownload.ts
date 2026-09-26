@@ -13,6 +13,7 @@ import { readInfo } from "../sources/ytdlpInfo.ts";
 import * as YouTube from "../sources/youtube/index.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as DirectLink from "../sources/direct.ts";
+import * as SoundCloud from "../sources/soundcloud/index.ts";
 import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import * as SponsorBlock from "../sources/sponsorBlock.ts";
@@ -30,6 +31,7 @@ import { bestEffort } from "../infra/bestEffort.ts";
 // 받는 데 부르는 소스와 변환에서 여기서 부르는 칸만
 type Sources = {
   youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
+  soundcloud: Pick<typeof SoundCloud, "download">;
   direct: { getStream(url: string): Promise<AudioStream> };
   convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null; title?: string | null; artist?: string | null }> };
   sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
@@ -140,7 +142,7 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
 }
 
 // 받는 데 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
-const SOURCES: Sources = { youtube: YouTube, direct: DirectLink, convert: audioConvert, sponsor: SponsorBlock, equivalent };
+const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, sponsor: SponsorBlock, equivalent };
 
 class TrackDownloader {
   player: Owner;
@@ -271,33 +273,30 @@ class TrackDownloader {
   // yt-dlp 로 받는다. 변환은 yt-dlp의 ExtractAudio가 소스 코덱을 보고 한다. 사운드클라우드의 HLS도 스스로
   // 조립하므로 우리가 손댈 것이 없다.
   async _fetchWithYtDlp(downloadUrl: string, tempPath: string): Promise<Fetched> {
+    const flags = {
+      output: tempPath,
+      // 이 다운로드에 곁들여 메타데이터를 파일로 받는다. 왕복이 늘지 않는다.
+      // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
+      // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
+      // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
+      writeInfoJson: true,
+      format: "bestaudio/best",
+      preferFreeFormats: true,
+      // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
+      // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
+      matchFilter: "!is_live",
+      // 코덱은 yt-dlp 가 소스를 보고 정한다. 이미 Opus 면 리먹싱, 아니면 libopus.
+      // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
+      // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
+      // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다. 숫자가 갈라지지 않게.
+      postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
+      extractAudio: true,
+      audioFormat: "opus",
+    };
+    // 사운드클라우드는 공통 옵션과 재생 포맷만(유튜브 전용 옵션 · 클라이언트 바꾸기 · 쿠키가 없다)
+    if (inputKind(downloadUrl) === "soundcloud") await this.deps.soundcloud.download(downloadUrl, flags);
     // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
-    const { youtube } = this.deps;
-    await youtube.runYtDlp(downloadUrl, (forceCookies) =>
-      youtube.getYtDlpOptions(
-        {
-          output: tempPath,
-          // 이 다운로드에 곁들여 메타데이터를 파일로 받는다. 왕복이 늘지 않는다.
-          // stdout으로 받는 --print는 쓸 수 없다: yt-dlp가 시스템 코드페이지로 써서
-          // 일본어·한국어 제목이 깨지고(실측 cp949), PYTHONIOENCODING으로도 안 바뀐다.
-          // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
-          writeInfoJson: true,
-          format: "bestaudio/best",
-          preferFreeFormats: true,
-          // 2차 방어선: track.isLive를 못 잡은 경우(캐시된 매핑 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
-          // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 뜨지 않는다.
-          matchFilter: "!is_live",
-          // 코덱은 yt-dlp 가 소스를 보고 정한다. 이미 Opus 면 리먹싱, 아니면 libopus.
-          // 여기서 코덱을 못 박으면 그 판단을 덮어 251 까지 다시 인코딩된다.
-          // `-b:a` 는 스트림 카피에 무시되므로 두 경우 모두 맞는다.
-          // 목표 비트레이트는 직접 링크 갈래와 같은 자리에서 가져온다. 숫자가 갈라지지 않게.
-          postprocessorArgs: audioConvert.ytdlpPostprocessorArgs(),
-          extractAudio: true,
-          audioFormat: "opus",
-        },
-        { forceCookies },
-      ),
-    );
+    else await this.deps.youtube.runYtDlp(downloadUrl, (forceCookies) => this.deps.youtube.getYtDlpOptions(flags, { forceCookies }));
 
     // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
     // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.

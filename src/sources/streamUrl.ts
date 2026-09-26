@@ -5,7 +5,7 @@ import * as YouTube from "./youtube/index.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import * as SoundCloud from "./soundcloud.ts";
+import * as SoundCloud from "./soundcloud/index.ts";
 import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 

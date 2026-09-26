@@ -96,3 +96,37 @@ test("슬래시 명령 메뉴: 채널 메시지로 띄우고(요청자 기록), 
   assert.ok(followUps[0].flags, "본인 전용");
   More.clearExpiry("f1");
 });
+
+// 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id 로 이어 받고, 한 번에 10곡까지(곡마다 요청이 들어 IP 가 막히지 않게)
+test("사운드클라우드 세트: 숫자 id 로 이어 받고, 서버 설정과 상관없이 한 번에 10곡", () => {
+  const set = { isPlaylist: true, collectionId: "2284916349", total: 41, nextOffset: 10, tracks: [{ id: "2227247837" }] };
+  const more = More.continuation("https://soundcloud.com/chillhopdotcom/sets/best-of-essentials-fall", set);
+  assert.deepEqual(more && { kind: more.kind, listId: more.listId, anchorId: more.anchorId, remaining: more.remaining }, { kind: "scs", listId: "2284916349", anchorId: "2227247837", remaining: 31 });
+  assert.equal(More.continuation("https://soundcloud.com/a/sets/b", { ...set, collectionId: null }), null, "id 가 없으면(비밀 공유 세트) 권하지 않는다");
+  assert.equal(More.KINDS.scs.url("2284916349"), "https://api.soundcloud.com/playlists/2284916349");
+
+  assert.equal(More.batchFor("https://soundcloud.com/a/sets/b", 50), 10);
+  assert.equal(More.batchFor("https://on.soundcloud.com/AbCd", 50), 10, "짧은 링크는 세트일 수 있다");
+  assert.equal(More.batchFor("https://www.youtube.com/playlist?list=PLx", 50), 50);
+
+  const s: MoreState = { kind: "scs", listId: "2284916349", offset: 99990, anchorId: "22272478371", insertFirst: true, requesterId: "12345678901234567890" };
+  assert.deepEqual(More.decodeState(More.encodeState(More.MODAL_PREFIX, s)), s);
+});
+
+test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더', 남은 곡이 적으면 전부. 결과 문장에 뺀 곡", () => {
+  const more: Offer = { kind: "scs", listId: "123", offset: 10, anchorId: "2227247837", insertFirst: false, requesterId: null, total: 41, remaining: 31, batch: 10 };
+  const menu = More.offerMessage(more, 200).components[0].components[0].toJSON();
+  assert.deepEqual(
+    menu.options.map((o) => [o.value, o.label]),
+    [
+      ["10", "10곡 더"],
+      ["custom", "직접 입력…"],
+      ["stop", "그만 넣기"],
+    ],
+  );
+  const last = More.offerMessage({ ...more, remaining: 4 }, 200).components[0].components[0].toJSON();
+  assert.equal(last.options[0].label, "남은 곡 전부 (4곡)");
+
+  const result = More.resultMessage(more, { added: 7, skipped: 3, total: 41, remaining: 21, next: { ...more, offset: 20, remaining: 21 } }, 200);
+  assert.match(result.content, /7곡을 더 넣었어요\. 받을 수 없는 3곡\(미리듣기 · 지역 제한 등\)은 뺐어요\./);
+});

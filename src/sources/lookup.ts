@@ -4,7 +4,7 @@ import * as YouTube from "./youtube/index.ts";
 import type { TrackInfo } from "../player/track.ts";
 import * as links from "../rules/links.ts";
 import * as Spotify from "./spotify.ts";
-import * as SoundCloud from "./soundcloud.ts";
+import * as SoundCloud from "./soundcloud/index.ts";
 import * as DirectLink from "./direct.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import { errorKind, messageOf } from "../rules/errorKind.ts";
@@ -18,16 +18,18 @@ const log = logger.child({ category: "track" });
 type FoundTrack = TrackInfo;
 /** 여러 곡 출처에서 받을 구간 */
 type Range = { offset?: number; limit?: number };
-/** 여러 곡 출처의 한 구간. 소스가 준 그대로라 칸이 빠질 수 있다. total 은 모르면 null */
-type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null };
+/** 여러 곡 출처의 한 구간. 소스가 준 그대로라 칸이 빠질 수 있다. total 은 모르면 null, skipped 는 받을 수 없어 뺀 곡 수 */
+type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number };
 /** 찾은 결과. 못 찾았으면 code(no-result · lookup-failed) 나 바로 보일 message */
 // 두 갈래가 서로의 칸을 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
-type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; code?: undefined; message?: undefined; error?: undefined } | { success: false; code?: "no-result" | "lookup-failed"; message?: string; error?: unknown; isPlaylist?: undefined; collection?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
+// collectionId: 이어 받을 때 목록을 부를 id(주소만으로는 모르는 출처. 사운드클라우드 세트의 숫자 id)
+type LookupResult =
+  { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; message?: undefined; error?: undefined } | { success: false; code?: "no-result" | "lookup-failed"; message?: string; error?: unknown; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined; skipped?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
 type Sources = {
   youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; search(query: string, limit: number): Promise<FoundTrack[]> };
   spotify: { getCollection(url: string, range?: Range): Promise<Collection> };
-  soundcloud: { search(query: string, limit: number): Promise<FoundTrack[]> };
+  soundcloud: { find(url: string, range?: Range & { what?: "track" | "set" }): Promise<SoundCloud.Found> };
   direct: { getInfo(url: string): Promise<FoundTrack[]> };
 };
 const REAL: Sources = { youtube: YouTube, spotify: Spotify, soundcloud: SoundCloud, direct: DirectLink };
@@ -53,7 +55,7 @@ function isUnsupportedLink(query: string): boolean {
 // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
 // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
 /** 찾은 곡들과 그 출처. 한 곡이면 collection · total · nextOffset 이 null */
-type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; total: number | null; nextOffset: number | null };
+type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; collectionId?: string | null; total: number | null; nextOffset: number | null; skipped?: number };
 const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
 
 // 유튜브. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 받을 때 그 영상 하나로 간다.
@@ -86,13 +88,37 @@ async function fromSpotify(query: string, range: Range, spotify: Sources["spotif
   return { tracks: part.tracks || [], isPlaylist, collection: type, total: part.total ?? null, nextOffset: part.nextOffset ?? null };
 }
 
+// 사운드클라우드 링크(곡 · 세트 · 짧은 링크). 세트는 한 구간만(출처가 10곡으로 자른다), 받을 수 없는 곡은 빼고 센다.
+// 비밀 공유 세트는 숫자 id 만으로 다시 부를 수 없어 이어 받기를 권하지 않는다
+async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["soundcloud"]): Promise<Found> {
+  const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloudURL(query) === "set" ? "set" : "track" });
+  if (found.kind === "track") return single([found.track]);
+  const skipped = found.skipped.preview + found.skipped.unavailable;
+  if (skipped > 0) log.info(`사운드클라우드 세트에서 ${skipped}곡을 뺍니다(미리듣기 ${found.skipped.preview} · 받을 수 없음 ${found.skipped.unavailable}): ${found.title ?? query}`);
+  const secret = /\/s-[\w-]+\/?$/.test(new URL(query).pathname);
+  return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
+}
+
+// 받은 구간에 틀 수 있는 곡이 하나도 없는 세트. 뺀 까닭을 알린다
+const NOTHING_PLAYABLE = "❌ 이 세트의 앞 곡들은 모두 틀 수 없어요(미리듣기만 열린 곡 · 지역 제한 등).";
+const UNSUPPORTED_SOUNDCLOUD = "❌ 지원하지 않는 사운드클라우드 링크예요. 곡이나 세트 링크를 넣어 주세요.";
+
+// 링크 종류마다 부르는 곳
+function findOn(platform: string, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources): Promise<Found> {
+  if (platform === "youtube") return fromYouTube(query, range, youtube);
+  if (platform === "spotify") return fromSpotify(query, range, spotify);
+  if (platform === "soundcloud") return fromSoundCloud(query, range, soundcloud);
+  return direct.getInfo(query).then(single); // 배열 계약: [track] 또는 []
+}
+
 async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
-  const { youtube, spotify, soundcloud, direct } = { ...REAL, ...sources };
   const platform = detectPlatform(query);
   if (platform === "unknown") return { success: false, message: links.isYouTubeHost(query) ? "❌ 재생할 수 없는 유튜브 주소입니다." : "❌ 지원하지 않는 링크입니다." };
+  // 프로필 · 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
+  if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, message: UNSUPPORTED_SOUNDCLOUD };
   try {
-    const found = platform === "youtube" ? await fromYouTube(query, { offset, limit }, youtube) : platform === "spotify" ? await fromSpotify(query, { offset, limit }, spotify) : platform === "soundcloud" ? single(await soundcloud.search(query, 1)) : single(await direct.getInfo(query)); // 배열 계약: [track] 또는 []
-    if (!found.tracks.length) return { success: false, code: "no-result" };
+    const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources });
+    if (!found.tracks.length) return found.skipped ? { success: false, message: NOTHING_PLAYABLE } : { success: false, code: "no-result" };
     return { success: true, ...found };
   } catch (error) {
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
@@ -105,24 +131,30 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
 // 여러 곡 출처의 구간만. 이어 넣기용. getTrackData와 달리 못 받으면 검색으로 넘어가지 않고 던진다
 // (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다. 그건 없음이다).
 async function getCollection(url: string, range?: Range, sources: Partial<Sources> = {}): Promise<Collection> {
-  const { youtube, spotify } = { ...REAL, ...sources };
+  const { youtube, spotify, soundcloud } = { ...REAL, ...sources };
   const none: Collection = { tracks: [], total: null, nextOffset: null };
   if (links.isYouTubePlaylist(url)) {
     const r = await youtube.getPlaylist(url, range);
     return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null } : none;
   }
   if (links.isSpotifyURL(url)) return spotify.getCollection(url, range);
+  if (links.parseSoundCloudURL(url) === "set") {
+    const found = await soundcloud.find(url, { ...range, what: "set" });
+    return found.kind === "set" ? { tracks: found.tracks, total: found.total, nextOffset: found.nextOffset, skipped: found.skipped.preview + found.skipped.unavailable } : none;
+  }
   return none;
 }
 
 /**
  * 캐시 숏컷 포함 해석. 캐시된 단일 곡은 yt-dlp 호출 없이 즉시 반환.
  * 재생목록 URL은 캐시를 우회: URL 정규화가 list=를 제거하므로 캐시된 단일 영상이 재생목록 전체를 가릴 수 있음.
+ * 사운드클라우드도 곡 링크만 캐시를 본다(세트 · 곡인지 모르는 짧은 링크 · 모음은 우회).
  * 지원하지 않는 링크(모르는 사이트 · 유튜브 클립 등)도 우회한다. 예전에 검색으로 흘러 잘못 맺힌 매핑이 남아 있으면
  * 캐시가 그 엉뚱한 영상을 그대로 돌려준다.
  */
 async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
-  const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query);
+  const soundcloud = links.parseSoundCloudURL(query);
+  const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query) || (soundcloud !== null && soundcloud !== "track");
   const cacheHit: CacheHit = skipCache ? { hit: false } : trackLookup.resolveFromCache(query);
   if (cacheHit.hit) {
     log.debug(`캐시 히트(조회 · 검색 생략): "${cacheHit.track.title}" → ${cacheHit.track.audioUrl}`);

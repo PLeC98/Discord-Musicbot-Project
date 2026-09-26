@@ -6,7 +6,7 @@ import { codedError, codeOf } from "../../rules/errorKind.ts";
 import youtubedl from "../ytdlpSpawn.ts";
 import * as run from "./run.ts";
 import type { YtInfo } from "../ytdlpInfo.ts";
-import type { RunYtDlp } from "../ytdlpSpawn.ts";
+import type { RunYtDlp, YtDlpFlags } from "../ytdlpSpawn.ts";
 
 /** 세트에서 한 번에 받는 곡 수. 곡마다 요청이 들어(4) 서버의 재생목록 곡 수 설정과 상관없이 이만큼씩 받고 나머지는 "더 넣기"로 */
 const SET_BATCH = 10;
@@ -116,5 +116,18 @@ async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: bool
   };
 }
 
-export { SET_BATCH, find, getStream, trackOf, previewOnly };
+/**
+ * 캐시로 받는다(extra 는 받을 파일 · 변환 옵션). AAC 를 받고, AAC 가 없는 곡은 mp3 까지 물어 미리듣기 조각이 아닌 것을 받는다.
+ * 미리듣기만 열린 곡은 받을 것이 없어 "포맷 없음"으로 실패한다
+ */
+async function download(url: string, extra: YtDlpFlags, exec: RunYtDlp = youtubedl) {
+  try {
+    return await run.call(url, "play", "track", extra, exec);
+  } catch (error) {
+    if (codeOf(error) !== "no-formats") throw error;
+    return run.call(url, "lookup", "track", { ...extra, format: "bestaudio[format_id!*=preview]/best[format_id!*=preview]" }, exec);
+  }
+}
+
+export { SET_BATCH, find, getStream, download, trackOf, previewOnly };
 export type { ScTrack, ScSet, Found };

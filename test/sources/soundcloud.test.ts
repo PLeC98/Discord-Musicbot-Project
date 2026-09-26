@@ -130,3 +130,17 @@ test("캐시 받기용 옵션: 공통 옵션 위에 재생 포맷", () => {
   assert.equal(flags.output, "x.opus");
   assert.equal(flags.retries, 3);
 });
+
+test("캐시 받기: AAC 를 받고, AAC 가 없는 곡은 미리듣기 조각이 아닌 mp3 를 받는다", async () => {
+  const NO_FORMATS = "ERROR: [soundcloud] 123: No video formats found!";
+  respond = (_url, flags) => (flags.extractorArgs === "soundcloud:formats=hls_aac" ? { fail: NO_FORMATS } : { json: {} });
+  await SoundCloud.download("https://soundcloud.com/artist/old", { output: "x.opus", format: "bestaudio/best" });
+  assert.deepEqual(
+    calls.map((c) => [c.flags.extractorArgs, c.flags.format, c.flags.output]),
+    [
+      ["soundcloud:formats=hls_aac", "bestaudio/best", "x.opus"],
+      ["soundcloud:formats=hls_aac,http_mp3", "bestaudio[format_id!*=preview]/best[format_id!*=preview]", "x.opus"],
+    ],
+  );
+  assert.equal(calls[0].flags.dumpSingleJson, undefined, "받는 것이지 정보만 읽는 것이 아니다");
+});

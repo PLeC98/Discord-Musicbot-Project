@@ -8,7 +8,7 @@ import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
 import * as S from "../ui/strings.ts";
 import { lookupFailureMessage } from "../ui/errorMessages.ts";
-import { continuation, validState, roomFor, KINDS, LOOKBACK, type More, type MoreState } from "./playlistMore.ts";
+import { continuation, validState, roomFor, batchFor, KINDS, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
 import { messageOf } from "../rules/errorKind.ts";
@@ -119,17 +119,18 @@ type PlaybackRequest = {
 type PlaybackResult = { success: false; message: string; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: MusicPlayer; more: (More & { batch: number }) | null });
 
 /** 이어 넣은 결과. 넣은 수 · 목록의 남은 곡과 다음 위치(next) */
-type Continued = { added: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
+type Continued = { added: number; skipped: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
 type CollectionResult = { success: false; message: string } | (PlaybackResult & Continued);
 
 /** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡 */
-type Found = { isPlaylist: boolean; collection?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; queueLimited?: boolean };
+// skipped: 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기 · 지역 제한)
+type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
 
 async function requestPlayback(client: Client, request: PlaybackRequest): Promise<PlaybackResult> {
   const { guild, insertFirst = false, responder = silentResponder } = request;
   const player = await playerFor(client, request);
-  // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정, 더 넣기 선택지 단위이기도 하다
-  const batch = GuildSettingsManager.resolvePlaylistAddMax(guild.id);
+  // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(출처가 더 작게 자르면 그쪽), 더 넣기 선택지 단위이기도 하다
+  const batch = batchFor(request.query, GuildSettingsManager.resolvePlaylistAddMax(guild.id));
 
   const checked = await tracksFor(player, request, batch);
   if (typeof checked === "string") return { success: false, message: checked };
@@ -204,7 +205,7 @@ function placement({ insertFirst = false, insertAfterId = null }: PlaybackReques
 // 운영상 필요한 것은 "누가 무엇을 넣었나"라 결과 줄에 요청자를 함께 싣는다.
 // 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
 function logAddition(found: Found, result: AddResult, who: Requester | null, player: MusicPlayer, insertFirst: boolean) {
-  const notes = [insertFirst ? " | 맨 앞" : "", result.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : "", found.queueLimited ? " | 자리가 모자라 일부만 받음" : ""].join("");
+  const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 받을 수 없어 ${found.skipped}곡 뺌` : "", result.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : "", found.queueLimited ? " | 자리가 모자라 일부만 받음" : ""].join("");
   log.info({ sub: "play" }, `${result.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${whatOf(found)} | 요청 ${nameOf(who)} | 대기열 ${player.queue.length}곡${notes}`);
 }
 
@@ -221,7 +222,7 @@ const MORE_BATCH = 100;
 /**
  * 재생목록 이어 넣기. 디스코드 메뉴와 대시보드가 같이 쓴다.
  *
- * 받는 곡 수는 누른 시점의 남은 자리로 다시 자른다. 앵커(직전 마지막 곡)를 찾으려고 LOOKBACK만큼 앞에서부터
+ * 받는 곡 수는 누른 시점의 남은 자리와 출처의 한 번 상한으로 다시 자른다. 앵커(직전 마지막 곡)를 찾으려고 출처의 lookback 만큼 앞에서부터
  * 받고, 찾으면 그 뒤부터, 못 찾으면 요청 위치부터 넣는다. 맨 앞에 넣었던 목록이면 앵커 곡 바로 뒤에 넣는다.
  * 곡은 묶음으로 나눠 받으며 onProgress(받은 수, 받을 수)를 부른다. 대기열에는 다 받은 뒤 한 번에 넣는다.
  */
@@ -246,14 +247,14 @@ async function continueCollection(client: Client, request: CollectionRequest): P
   const { guild, state } = request;
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
-  const want = Math.min(request.count, roomFor(player));
+  const want = Math.min(request.count, roomFor(player), KINDS[state.kind].perClick);
   if (want <= 0) return { success: false, message: client.musicEmbedManager.queueFullMessage() };
 
-  const { found, cursor, total } = await gather(request, want);
+  const { found, cursor, total, skipped } = await gather(request, want);
 
   // 앵커가 앞당겨져 더 받았으면 넘친 만큼 되돌린다. 다음 이어 받기는 앵커가 바로잡는다
   const tracks = found.slice(0, want);
-  if (tracks.length === 0) return { success: false, message: "더 넣을 곡을 찾지 못했어요." };
+  if (tracks.length === 0) return { success: false, message: skipped > 0 ? `받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(${skipped}곡).` : "더 넣을 곡을 찾지 못했어요." };
   const nextOffset = cursor - (found.length - tracks.length);
 
   const result = await requestPlayback(client, {
@@ -268,7 +269,8 @@ async function continueCollection(client: Client, request: CollectionRequest): P
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
   const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1)?.id }) : null;
-  return { ...result, added: tracks.length - (result.dropped || 0), total, remaining, next: next && total != null ? { ...next, total, remaining, batch: GuildSettingsManager.resolvePlaylistAddMax(guild.id) } : null };
+  const batch = Math.min(GuildSettingsManager.resolvePlaylistAddMax(guild.id), KINDS[state.kind].perClick);
+  return { ...result, added: tracks.length - (result.dropped || 0), skipped, total, remaining, next: next && total != null ? { ...next, total, remaining, batch } : null };
 }
 
 // 한 구간을 받는다. 앞서 모은 곡이 있으면 실패는 거기서 멈춤(null)으로, 하나도 없으면 까닭을 던진다
@@ -282,30 +284,41 @@ async function nextPart(lookup: Lookup, url: string, range: { offset: number; li
   }
 }
 
+// 받은 구간에서 새 곡. 앵커(직전 마지막 곡)를 찾으면 그 뒤, 못 찾으면 다시 받은 앞 back 곡을 건너뛴 뒤
+function freshOf(tracks: TrackInfo[], anchor: string | undefined, back: number) {
+  const hit = tracks.findIndex((t) => t.id === anchor);
+  return hit >= 0 ? tracks.slice(hit + 1) : tracks.slice(back);
+}
+
+// 목록 끝까지 왔나(전체 곡 수를 모르면 아니다)
+const atEnd = (cursor: number, total: number | null) => total != null && cursor >= total;
+
 // 목록에서 want 곡을 묶음으로 나눠 받는다. 앵커를 찾으면 그 뒤부터, 못 찾으면 요청 위치부터
 async function gather({ state, onProgress = ignoreProgress, lookup = defaultLookup }: CollectionRequest, want: number) {
-  const url = KINDS[state.kind].url(state.listId);
+  const { url: urlOf, lookback, reads } = KINDS[state.kind];
+  const url = urlOf(state.listId);
   const found: TrackInfo[] = [];
   let cursor = state.offset;
   let anchor: string | undefined = state.anchorId;
   let total: number | null = null;
-  while (found.length < want) {
-    const back = Math.min(LOOKBACK, cursor);
+  let skipped = 0;
+  for (let read = 0; found.length < want && read < reads; read++) {
+    const back = Math.min(lookback, cursor);
     const limit = Math.min(MORE_BATCH, want - found.length) + back;
     const part = await nextPart(lookup, url, { offset: cursor - back, limit }, found.length);
     if (!part) break;
     if (part.total != null) total = part.total;
-    const hit = part.tracks.findIndex((t) => t.id === anchor);
-    const fresh = hit >= 0 ? part.tracks.slice(hit + 1) : part.tracks.slice(back);
+    skipped += part.skipped ?? 0;
+    const fresh = freshOf(part.tracks, anchor, back);
     found.push(...fresh);
-    if (fresh.length > 0) anchor = fresh.at(-1)?.id;
+    anchor = fresh.at(-1)?.id ?? anchor;
     const next = part.nextOffset;
     const advanced = next != null && next > cursor;
     if (advanced) cursor = next;
     onProgress(Math.min(found.length, want), want);
-    if (fresh.length === 0 || !advanced || (total != null && cursor >= total)) break;
+    if (fresh.length === 0 || !advanced || atEnd(cursor, total)) break;
   }
-  return { found, cursor, total };
+  return { found, cursor, total, skipped };
 }
 
 export { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup };

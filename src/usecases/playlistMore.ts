@@ -3,6 +3,7 @@
 
 import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from "discord.js";
 import * as links from "../rules/links.ts";
+import { SET_BATCH as SOUNDCLOUD_BATCH } from "../sources/soundcloud/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
@@ -21,12 +22,20 @@ const MAX_COUNT = 10_000;
 const SELECT_PREFIX = "plm";
 const MODAL_PREFIX = "plmm";
 
+const TRACK_ID = /^[A-Za-z0-9_-]{11,22}$/;
+const NUMERIC_ID = /^\d{1,20}$/;
+
 // 이어 받을 수 있는 출처. 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 받을 게 없다.
-type Kind = "ytp" | "spp" | "spa";
-const KINDS: Record<Kind, { id: RegExp; url: (id: string) => string; collection: string }> = {
-  ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist" },
-  spp: { id: /^[A-Za-z0-9]{22}$/, url: (id) => `https://open.spotify.com/playlist/${id}`, collection: "playlist" },
-  spa: { id: /^[A-Za-z0-9]{22}$/, url: (id) => `https://open.spotify.com/album/${id}`, collection: "album" },
+// anchor: 곡 id 모양 · perClick: 한 번에 넣는 곡 수 상한 · lookback: 앵커를 찾으려고 앞에서부터 다시 받는 곡 수 · reads: 한 번에 부르는 구간 수 상한
+type Kind = "ytp" | "spp" | "spa" | "scs";
+type KindSpec = { id: RegExp; url: (id: string) => string; collection: string; anchor: RegExp; perClick: number; lookback: number; reads: number };
+const KINDS: Record<Kind, KindSpec> = {
+  ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
+  spp: { id: /^[A-Za-z0-9]{22}$/, url: (id) => `https://open.spotify.com/playlist/${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
+  spa: { id: /^[A-Za-z0-9]{22}$/, url: (id) => `https://open.spotify.com/album/${id}`, collection: "album", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
+  // 사운드클라우드 세트. 주소 대신 숫자 id 로 부른다. 곡마다 요청이 들어(요청이 몰리면 IP 가 막힌다) 한 번에 한 구간만:
+  // 앞을 다시 받지 않고, 틀 수 있는 곡이 모자라도 더 읽지 않는다(받을 수 없는 곡이 많은 세트에서 요청이 불어나지 않게)
+  scs: { id: NUMERIC_ID, url: (id) => `https://api.soundcloud.com/playlists/${id}`, collection: "playlist", anchor: NUMERIC_ID, perClick: SOUNDCLOUD_BATCH, lookback: 0, reads: 1 },
 };
 const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Object.hasOwn(KINDS, kind);
 
@@ -37,13 +46,15 @@ type More = MoreState & { total: number; remaining: number; batch?: number };
 /** 검사 전의 위치(custom_id · 요청 본문에서 온 것) */
 type RawState = { kind?: unknown; listId?: unknown; offset?: unknown; anchorId?: unknown; insertFirst?: unknown; requesterId?: unknown };
 /** 이어 넣은 결과. 메뉴를 다시 띄울 때 읽는 칸 */
-type MoreResult = { added: number; dropped?: number; total: number | null; remaining: number; next: More | null };
-const TRACK_ID = /^[A-Za-z0-9_-]{11,22}$/;
+type MoreResult = { added: number; dropped?: number; skipped?: number; total: number | null; remaining: number; next: More | null };
 const USER_ID = /^\d{17,20}$/;
 
 const fmt = (n: number | null) => Number(n).toLocaleString("ko-KR");
 
-function sourceOf(query: string): { kind: Kind; listId: string } | null {
+// collectionId: 곡 찾기가 알려 준 목록 id(주소만으로는 모르는 출처)
+function sourceOf(query: string, collectionId?: string | null): { kind: Kind; listId: string } | null {
+  const soundcloud = links.parseSoundCloudURL(query);
+  if (soundcloud === "set" || soundcloud === "short") return collectionId ? { kind: "scs", listId: collectionId } : null;
   if (links.isYouTubePlaylist(query)) {
     const listId = links.extractPlaylistId(query);
     return listId && !listId.startsWith("RD") ? { kind: "ytp", listId } : null;
@@ -61,18 +72,18 @@ function validState(s: RawState | null | undefined): MoreState | null {
   if (!s || !isKind(s.kind) || !KINDS[s.kind].id.test(String(s.listId))) return null;
   const offset = Number(s.offset);
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 1_000_000) return null;
-  if (!TRACK_ID.test(String(s.anchorId))) return null;
+  if (!KINDS[s.kind].anchor.test(String(s.anchorId))) return null;
   if (s.requesterId != null && !USER_ID.test(String(s.requesterId))) return null;
   return { kind: s.kind, listId: String(s.listId), offset, anchorId: String(s.anchorId), insertFirst: s.insertFirst === true, requesterId: s.requesterId == null ? null : String(s.requesterId) };
 }
 
 // 방금 넣은 목록을 이어 받을 수 있으면 그 상태. 총 곡 수를 모르거나(믹스) 끝까지 넣었으면 null.
 // 곡 찾기 결과에서 읽는 칸
-type Found = { isPlaylist?: boolean; total?: number | null; nextOffset?: number | null; tracks?: Array<{ id?: string }> };
+type Found = { isPlaylist?: boolean; collectionId?: string | null; total?: number | null; nextOffset?: number | null; tracks?: Array<{ id?: string }> };
 
 function continuation(query: string | null | undefined, trackData: Found | null | undefined, { insertFirst = false } = {}): More | null {
   if (!query || !trackData?.isPlaylist || trackData.total == null || trackData.nextOffset == null) return null;
-  const source = sourceOf(query);
+  const source = sourceOf(query, trackData.collectionId);
   if (!source) return null;
   const remaining = trackData.total - trackData.nextOffset;
   const state = validState({ ...source, offset: trackData.nextOffset, anchorId: trackData.tracks?.at(-1)?.id, insertFirst });
@@ -94,9 +105,15 @@ function roomFor(player: Pick<MusicPlayer, "queue" | "currentTrack">) {
   return trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
 }
 
-// 선택지. 한 번에 넣는 묶음 단위로, 남은 곡과 남은 자리 중 작은 쪽(cap)을 넘지 않게
-function moreChoices({ remaining, room, batch }: { remaining: number; room: number; batch: number }) {
-  const cap = Math.max(0, Math.min(remaining, room));
+/** 이 링크의 한 번에 넣는 곡 수. 서버 설정(batch)을 출처의 상한으로 자른다(사운드클라우드 세트는 10곡) */
+function batchFor(query: string | null | undefined, batch: number) {
+  const soundcloud = query ? links.parseSoundCloudURL(query) : null;
+  return soundcloud === "set" || soundcloud === "short" ? Math.min(batch, SOUNDCLOUD_BATCH) : batch;
+}
+
+// 선택지. 한 번에 넣는 묶음 단위로, 남은 곡 · 남은 자리 · 출처의 한 번 상한(perClick) 중 가장 작은 쪽(cap)을 넘지 않게
+function moreChoices({ remaining, room, batch, perClick = Infinity }: { remaining: number; room: number; batch: number; perClick?: number }) {
+  const cap = Math.max(0, Math.min(remaining, room, perClick));
   return { cap, steps: cap > 0 ? [batch, batch * 2].filter((n) => n < cap) : [] };
 }
 
@@ -115,7 +132,8 @@ function parseCount(raw: unknown) {
 }
 
 function menuMessage(head: string, state: MoreState, { remaining, room, batch = config.bot.playlistAddDefault }: { remaining: number; room: number; batch?: number }) {
-  const { cap, steps } = moreChoices({ remaining, room, batch });
+  const { perClick } = KINDS[state.kind];
+  const { cap, steps } = moreChoices({ remaining, room, batch, perClick });
   if (cap === 0) return { content: `${head}\n대기열이 가득 차 지금은 더 넣을 수 없어요.`, components: [] };
   // 모달 ID가 한 글자 더 길다. 둘 다 100자 안이어야 한다
   if (encodeState(MODAL_PREFIX, state).length > 100) return { content: head, components: [] };
@@ -123,8 +141,14 @@ function menuMessage(head: string, state: MoreState, { remaining, room, batch = 
   const menu = new StringSelectMenuBuilder()
     .setCustomId(encodeState(SELECT_PREFIX, state))
     .setPlaceholder(`더 넣기 (남은 ${fmt(remaining)}곡)`)
-    .addOptions(...steps.map((n) => ({ label: `${fmt(n)}곡 더`, value: String(n) })), { label: cap < remaining ? `넣을 수 있는 만큼 (${fmt(cap)}곡)` : `남은 곡 전부 (${fmt(cap)}곡)`, value: String(cap) }, { label: "직접 입력…", value: "custom" }, { label: "그만 넣기", value: "stop" });
+    .addOptions(...steps.map((n) => ({ label: `${fmt(n)}곡 더`, value: String(n) })), { label: capLabel(cap, remaining, perClick), value: String(cap) }, { label: "직접 입력…", value: "custom" }, { label: "그만 넣기", value: "stop" });
   return { content: head, components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] };
+}
+
+// 가장 큰 선택지의 이름. 출처의 한 번 상한에 걸렸으면 "N곡 더"(더 넣을 수는 있다)
+function capLabel(cap: number, remaining: number, perClick: number) {
+  if (cap >= remaining) return `남은 곡 전부 (${fmt(cap)}곡)`;
+  return cap === perClick ? `${fmt(cap)}곡 더` : `넣을 수 있는 만큼 (${fmt(cap)}곡)`;
 }
 
 function offerMessage(more: More, room: number) {
@@ -135,13 +159,14 @@ function offerMessage(more: More, room: number) {
 function resultMessage(state: MoreState, result: MoreResult, room: number) {
   const label = collectionLabel(KINDS[state.kind].collection);
   let head = `✅ ${label}에서 ${fmt(result.added)}곡을 더 넣었어요.`;
+  if (result.skipped && result.skipped > 0) head += ` 받을 수 없는 ${fmt(result.skipped)}곡(미리듣기 · 지역 제한 등)은 뺐어요.`;
   if (result.dropped && result.dropped > 0) head += ` 대기열이 가득 차 ${fmt(result.dropped)}곡은 빠졌어요.`;
   if (!result.next) return { content: result.remaining > 0 ? head : `${head} 목록을 끝까지 넣었어요.`, components: [] };
   return menuMessage(`${head} (전체 ${fmt(result.total)}곡 중 ${fmt(result.next.offset)}곡까지)`, result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }
 
 function countModal(state: MoreState, cap: number, batch = config.bot.playlistAddDefault) {
-  const max = Math.min(cap, MAX_COUNT);
+  const max = Math.min(cap, MAX_COUNT, KINDS[state.kind].perClick);
   const input = new TextInputBuilder()
     .setCustomId("count")
     .setLabel(`넣을 곡 수 (1~${fmt(max)})`)
@@ -206,5 +231,5 @@ async function offerOnChannel(channel: TextBasedChannel | null | undefined, more
   }
 }
 
-export { LIFETIME_MS, LOOKBACK, MAX_COUNT, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, moreChoices, clickError, parseCount, offerMessage, resultMessage, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
+export { LIFETIME_MS, LOOKBACK, MAX_COUNT, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, moreChoices, clickError, parseCount, offerMessage, resultMessage, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
 export type { Kind, MoreState, More, MoreResult };
