@@ -372,7 +372,7 @@ test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저
   settings._reset();
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
   assert.equal(save.log[0][1], "⏭️ SponsorBlock 설정 저장됨");
-  assert.match(String(save.log[0][2]), /인트로\/인터미션, 아웃트로\/엔드카드/);
+  assert.match(String(save.log[0][2]), /인트로\/무음 구간, 최종 화면 구간/);
   assert.ok(SKIP_CATEGORIES.includes("intro"));
 });
 

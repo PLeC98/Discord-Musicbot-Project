@@ -1,23 +1,11 @@
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import { SKIP_CATEGORIES } from "../src/rules/sponsorCategories.ts";
+import { SKIP_CATEGORIES, categoryLabel } from "../src/rules/sponsorCategories.ts";
 import config from "../config.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
-
-const LABELS: Record<string, string> = {
-  music_offtopic: "비음악 구간",
-  intro: "인트로/인터미션",
-  outro: "아웃트로/엔드카드",
-  sponsor: "스폰서",
-  selfpromo: "자기홍보",
-  interaction: "상호작용(구독 유도)",
-  preview: "프리뷰/요약",
-  hook: "후킹/인사말",
-  filler: "잡담/농담",
-};
 
 /** 저장 전의 설정. 셀렉트 · 토글이 고치고 저장 버튼이 읽는다 */
 type Draft = { enabled: boolean; categories: string[] };
@@ -42,7 +30,7 @@ function buildSponsorConfigMessage({ enabled, categories }: Draft) {
     .setPlaceholder("건너뛸 구간 종류 선택")
     .setMinValues(0)
     .setMaxValues(SKIP_CATEGORIES.length)
-    .addOptions(SKIP_CATEGORIES.map((id) => ({ label: LABELS[id] || id, value: id, default: cats.has(id) })));
+    .addOptions(SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: cats.has(id) })));
 
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -75,7 +63,7 @@ async function saveDraft(guildId: string, state: Draft) {
   const categories = [...new Set(state.categories.filter((c) => valid.has(c)))];
   await GuildSettingsManager.setSponsorBlock(guildId, { enabled: state.enabled, categories });
   if (!state.enabled) return "미사용";
-  return categories.length ? categories.map((c) => LABELS[c] || c).join(", ") : "선택된 구간 없음(사실상 미적용)";
+  return categories.length ? categories.map(categoryLabel).join(", ") : "선택된 구간 없음(사실상 미적용)";
 }
 
 const exported: ClientEvent<Events.InteractionCreate> = {
