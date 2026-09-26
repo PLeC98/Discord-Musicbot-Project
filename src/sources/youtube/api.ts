@@ -73,15 +73,15 @@ function _isVideoEntry(item: Item): item is YtInfo {
   return false;
 }
 
+// 제목이 없는 영상은 없다시피 해 표시 문구로 채운다. 가수(올린 사람)는 비워 둔다. 표시 문구가 매칭 검색어 · 중복 판정에 들어가지 않게
 const UNKNOWN_TITLE = "알 수 없는 제목";
-const UNKNOWN_ARTIST = "알 수 없는 아티스트";
 
 // yt-dlp 가 준 영상 하나 → 트랙의 공통 칸. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원)
 function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
   const link = canonicalUrl(url);
   return {
     title: titleOf(item) || UNKNOWN_TITLE,
-    artist: artist || UNKNOWN_ARTIST,
+    artist: artist || undefined,
     pageUrl: link,
     requestKey: link,
     audioUrl: link,

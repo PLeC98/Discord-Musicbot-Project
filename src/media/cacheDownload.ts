@@ -329,8 +329,8 @@ class TrackDownloader {
         track.duration = made.durationSec;
         track.durationSource = "실측";
       }
-      // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 자리표시일 때만 바꾼다
-      if (made.artist && track.artist === "직접 링크") track.artist = made.artist;
+      // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 비어 있을 때만 채운다
+      if (made.artist && !track.artist) track.artist = made.artist;
       return { verifiedTitle: made.title ?? null, audioDurationSec: made.durationSec || null, audioVersion };
     } finally {
       audioCache.unprotectFile(rawPath);

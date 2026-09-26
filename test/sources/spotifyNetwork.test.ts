@@ -323,3 +323,10 @@ test("GraphQL 질의: 다른 오류와 JSON 이 아닌 응답은 던진다", asy
   routes = [...anonRoutes(), (url) => (url.includes("api-partner") ? reply("<html>", { status: 502 }) : undefined)];
   await assert.rejects(graphql._query("fetchPlaylist", "fetchPlaylist", {}), /GraphQL 응답 파싱 실패 502/);
 });
+
+// 회귀 대상: 가수가 없으면 "알 수 없는 아티스트"를 칸에 넣어, 자동재생 거르기를 지나 매칭 검색어가 됐다
+test("가수가 없는 곡은 가수 칸을 비워 둔다(표시 문구는 그릴 때)", () => {
+  const { normApiTrack } = Spotify._internals;
+  const t = normApiTrack({ id: "x", name: "곡", artists: [], duration_ms: 1000, album: { name: "앨범", images: [] }, external_urls: { spotify: "https://open.spotify.com/track/x" } });
+  assert.equal(t?.artist, undefined);
+});

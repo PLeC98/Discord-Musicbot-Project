@@ -12,6 +12,6 @@ function spotify(id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack {
   return { id, title: "스포티파이 곡", artist: "가수", pageUrl: url, requestKey: url, platform: "spotify", duration: 200, ...extra };
 }
 
-const direct = (url: string, extra: Partial<QueuedTrack> = {}): QueuedTrack & { audioUrl: string } => ({ id: url, title: "직접", artist: "직접 링크", pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 0, ...extra });
+const direct = (url: string, extra: Partial<QueuedTrack> = {}): QueuedTrack & { audioUrl: string } => ({ id: url, title: "직접", pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 0, ...extra });
 
 export { watch, youtube, spotify, direct };

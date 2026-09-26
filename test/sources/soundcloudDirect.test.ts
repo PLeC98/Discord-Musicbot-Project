@@ -152,7 +152,7 @@ test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 보고 길이�
   const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", net);
 
   assert.deepEqual(calls.head, ["https://files.test/my_song-name.mp3?x=1"]);
-  assert.deepEqual({ title: t.title, artist: t.artist, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", artist: "직접 링크", duration: 100, durationSource: "추정", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
+  assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", duration: 100, durationSource: "추정", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
   assert.equal(t.id, DirectLink.generateId("https://files.test/my_song-name.mp3?x=1"));
 });
 

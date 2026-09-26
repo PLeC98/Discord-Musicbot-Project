@@ -38,7 +38,6 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
     return [
       {
         title: extractTitle(filename),
-        artist: "직접 링크",
         // 서명된 주소는 쿼리에 토큰이 있어 다듬지 않는다(canonicalUrl 도 그대로 돌려준다)
         pageUrl: url,
         requestKey: url,

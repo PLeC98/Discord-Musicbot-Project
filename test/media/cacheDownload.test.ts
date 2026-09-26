@@ -241,8 +241,8 @@ test("info.json 이 없으면 제목 · 길이를 모르는 채로 받는다", a
 
 // ── 직접 링크 갈래 ─────────────────────────────────────────────────────
 
-test("직접 링크: 받은 파일에 태그가 있으면 제목과(자리표시일 때) 가수를 그것으로 고친다", async () => {
-  const track: DownloadTrack = { title: "a", artist: "직접 링크", pageUrl: "https://files.test/t.mp3", requestKey: "https://files.test/t.mp3", audioUrl: "https://files.test/t.mp3", platform: "direct", duration: 100 };
+test("직접 링크: 받은 파일에 태그가 있으면 제목과(비어 있으면) 가수를 그것으로 고친다", async () => {
+  const track: DownloadTrack = { title: "a", pageUrl: "https://files.test/t.mp3", requestKey: "https://files.test/t.mp3", audioUrl: "https://files.test/t.mp3", platform: "direct", duration: 100 };
   convertTags = { title: "태그 제목", artist: "태그 가수" };
   try {
     await downloader().downloadTrack(track);

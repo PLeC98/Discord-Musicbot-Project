@@ -31,7 +31,7 @@ type GqlPlaylist = { playlistV2?: { __typename?: string; content?: { totalCount?
 type GqlArtist = { artistUnion?: { discography?: { topTracks?: { items?: Array<{ track?: GqlTrack }> } } } };
 
 /** 스포티파이 곡(두 경로 공통 출력) */
-type SpotifyTrack = { title: string; artist: string; album: string | null; pageUrl: string; requestKey: string; duration: number; thumbnail: string | null; platform: "spotify"; id?: string };
+type SpotifyTrack = { title: string; artist?: string; album: string | null; pageUrl: string; requestKey: string; duration: number; thumbnail: string | null; platform: "spotify"; id?: string };
 /** 여러 곡 출처의 한 구간. total 은 모르면 null */
 type Part = { tracks: SpotifyTrack[]; total: number | null; nextOffset: number | null };
 type Range = { offset?: number; limit?: number };
@@ -86,7 +86,7 @@ function normApiTrack(t: ApiTrack | null | undefined, albumOverride?: { name?: s
       (t.artists || [])
         .map((a) => a.name)
         .filter(Boolean)
-        .join(", ") || "알 수 없는 아티스트",
+        .join(", ") || undefined,
     album: album?.name || null,
     pageUrl: url,
     requestKey: url,
@@ -97,10 +97,10 @@ function normApiTrack(t: ApiTrack | null | undefined, albumOverride?: { name?: s
   };
 }
 
-// 가수 이름들. 없으면 "알 수 없는 아티스트"
+// 가수 이름들. 없으면 비워 둔다(표시 문구는 그릴 때)
 function artistsOf(d: GqlTrack) {
   const names = (d.artists?.items || []).map((a) => a.profile?.name).filter(Boolean);
-  return names.join(", ") || "알 수 없는 아티스트";
+  return names.join(", ") || undefined;
 }
 
 // GraphQL 트랙 data(playlist item.itemV2.data / artist topTracks item.track) → 표준.
@@ -458,7 +458,7 @@ async function getCollection(url: string, { offset = 0, limit = config.bot.playl
   if (!type || !id) return { tracks: [], total: null, nextOffset: null };
   const result = await resolveType(type, id, { offset, limit }, over);
   const { tracks, total } = result;
-  const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
+  const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist ?? "?"}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";
   const range = total != null && total > tracks.length ? ` (전체 ${total}곡 중 ${offset + 1}번째부터)` : "";
   log.info(`${type} ${id} → ${tracks.length}곡${range}: ${head}`);
   return result;

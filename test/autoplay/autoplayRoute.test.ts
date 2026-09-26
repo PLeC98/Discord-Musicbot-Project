@@ -186,7 +186,7 @@ test("음원을 직접 트는 곡은 DirectLink와 같은 규약으로 캐시된
   const track = await resolved({ title: "주제가", artist: "누군가", audioUrl: "https://a.animethemes.moe/X-OP1.ogg", sourceKey: "at:9" }, LIMITS);
 
   assert.match(String(audioKeyOf(track.audioUrl)), /^dl:[0-9a-f]{32}$/);
-  // getInfo를 안 거치므로 제목이 파일명이 되거나 아티스트가 "직접 링크"가 되지 않는다
+  // getInfo를 안 거치므로 제목이 파일명이 되거나 아티스트가 비지 않는다
   assert.equal(track.title, "주제가");
   assert.equal(track.artist, "누군가");
 });
