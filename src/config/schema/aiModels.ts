@@ -165,14 +165,15 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
 }
 
 /** 저쪽에서 한 판 받아 온다. 원본 그대로 담되 우리 프로바이더 것만 고른다. */
-async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = fetch }: { timeoutMs?: number; fetchImpl?: typeof fetch } = {}): Promise<Snapshot> {
+// index: 이미 받아 둔 목차(갱신은 해시를 보려고 먼저 받는다). 없으면 여기서 받는다
+async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
   const get = async <T>(at: string): Promise<T> => {
     const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) throw new Error(`레지스트리 ${res.status}: ${at}`);
     return (await res.json()) as T;
   };
 
-  const index = await get<RegistryIndex>("index.json");
+  const index = known ?? (await get<RegistryIndex>("index.json"));
   const out: Snapshot = { fetchedAt: new Date().toISOString(), hash: index.hash, baseProviders: {}, profiles: {} };
   for (const one of index.baseProviders || []) {
     if (registries.includes(one.id)) out.baseProviders[one.id] = await get<BaseProvider>(one.url);
@@ -201,7 +202,7 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
     return { changed: false, count: Object.keys(held.profiles || {}).length, fetchedAt: held.fetchedAt };
   }
 
-  const got = await fetchRegistry(registries, { timeoutMs });
+  const got = await fetchRegistry(registries, { timeoutMs, index });
   for (const [registry, modelId, key] of CANARY) {
     if (!fieldsOf(registry, modelId, got).some((one) => one.key === key)) {
       throw new Error(`${modelId} 에 ${key} 가 없습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
