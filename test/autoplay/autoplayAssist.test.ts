@@ -1186,7 +1186,7 @@ test("묶음 하나가 실패해도 앞 묶음의 판정은 살리고 남은 후
   );
 });
 
-test("답 앞뒤 설명에 대괄호가 있어도 판정 배열을 읽고, 글자 \"false\" 는 거짓이다", async () => {
+test('답 앞뒤 설명에 대괄호가 있어도 판정 배열을 읽고, 글자 "false" 는 거짓이다', async () => {
   useConfig(ON);
   const list = [cand("A"), cand("B"), cand("C")];
   answers('Checking item [1] first.\n```json\n[{"n":1,"song":true,"fits":true},{"n":2,"song":"false","fits":"true"},{"n":3,"song":true,"fits":"false"}]\n```\nSee [3].');
