@@ -152,8 +152,17 @@ test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 보고 길이�
   const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", net);
 
   assert.deepEqual(calls.head, ["https://files.test/my_song-name.mp3?x=1"]);
-  assert.deepEqual({ title: t.title, artist: t.artist, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "My Song Name", artist: "직접 링크", duration: 100, durationSource: "추정", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
-  assert.equal(t.id, Buffer.from("https://files.test/my_song-name.mp3?x=1").toString("base64").substring(0, 16));
+  assert.deepEqual({ title: t.title, artist: t.artist, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", artist: "직접 링크", duration: 100, durationSource: "추정", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
+  assert.equal(t.id, DirectLink.generateId("https://files.test/my_song-name.mp3?x=1"));
+});
+
+test("직접 링크 정보: 서버가 알려 준 파일 이름(Content-Disposition)이 주소보다 먼저다", async () => {
+  headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-disposition": "attachment; filename=\"x.mp3\"; filename*=UTF-8''%EB%85%B8%EB%9E%98%20%EC%A0%9C%EB%AA%A9.mp3" } });
+  const [t] = await DirectLink.getInfo("https://files.test/get/7.mp3", net);
+  assert.equal(t.title, "노래 제목");
+  headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-disposition": 'attachment; filename="Artist - Song.mp3"' } });
+  const [u] = await DirectLink.getInfo("https://files.test/get/8.mp3", net);
+  assert.equal(u.title, "Artist - Song");
 });
 
 test("직접 링크 길이 추정: 종류마다 비트레이트가 다르고, 크기를 모르면 0", () => {
@@ -195,14 +204,18 @@ test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 �
   await assert.rejects(DirectLink.getStream("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
 });
 
-test("파일 이름에서 제목: 구분자를 공백으로, 단어 첫 글자를 대문자로", () => {
-  assert.equal(DirectLink.extractTitle("hello_world-2.mp3"), "Hello World 2");
-  assert.equal(DirectLink.extractTitle(".mp3"), "Mp3", "점으로 시작하는 이름은 확장자가 아니라 이름으로 읽힌다");
+test("파일 이름에서 제목: 인코딩을 풀고, 띄어쓰기 없는 이름만 구분자를 공백으로, 대소문자는 그대로", () => {
+  assert.equal(DirectLink.extractTitle("hello_world-2.mp3"), "hello world 2");
+  assert.equal(DirectLink.extractTitle(".mp3"), "mp3", "점으로 시작하는 이름은 확장자가 아니라 이름으로 읽힌다");
+  assert.equal(DirectLink.extractTitle("%EB%85%B8%EB%9E%98%20live.mp3"), "노래 live");
+  assert.equal(DirectLink.extractTitle("iPhone_demo.mp3"), "iPhone demo");
+  assert.equal(DirectLink.extractTitle("Artist - Song_Title.mp3"), "Artist - Song Title", "띄어 쓴 이름의 - 는 그대로");
+  assert.equal(DirectLink.extractTitle("broken%E0%A4.mp3"), "broken%E0%A4", "깨진 인코딩은 그대로");
 });
 
-// 지금 답. 3단계가 바꾼다(계획서 #3 · #23)
-test("직접 링크 곡 ID 는 주소 앞 12글자에서 나와 같은 호스트의 곡이 모두 같다. 제목은 퍼센트 인코딩을 풀지 않는다", () => {
-  assert.equal(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/b.mp3"));
-  assert.equal(DirectLink.extractTitle("%EB%85%B8%EB%9E%98%20live.mp3"), "%EB%85%B8%EB%9E%98%20live");
-  assert.equal(DirectLink.extractTitle("iPhone_demo.mp3"), "IPhone Demo");
+// 회귀 대상: 주소 앞 12글자로 만들어 같은 호스트의 곡이 모두 같은 ID 였다
+test("직접 링크 곡 ID 는 주소 전체에서 나온다", () => {
+  assert.notEqual(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/b.mp3"));
+  assert.equal(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/a.mp3"));
+  assert.equal(DirectLink.generateId("https://example.com/a.mp3").length, 16);
 });

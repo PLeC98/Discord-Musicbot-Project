@@ -31,7 +31,7 @@ import { bestEffort } from "../infra/bestEffort.ts";
 type Sources = {
   youtube: Pick<typeof YouTube, "runYtDlp" | "getYtDlpOptions">;
   direct: { getStream(url: string): Promise<AudioStream> };
-  convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null }> };
+  convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null; title?: string | null; artist?: string | null }> };
   sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
   equivalent: { findYouTubeEquivalent(track: DownloadTrack): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
 };
@@ -105,7 +105,7 @@ type Fetched = { verifiedTitle: string | null; audioDurationSec: number | null; 
 // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
 // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
 function correctTitle(track: DownloadTrack, verifiedTitle: string | null) {
-  if (!verifiedTitle || track.platform !== "youtube" || verifiedTitle === track.title) return;
+  if (!verifiedTitle || (track.platform !== "youtube" && track.platform !== "direct") || verifiedTitle === track.title) return;
   log.debug(`제목 교정: "${track.title}" → "${verifiedTitle}"`);
   track.title = verifiedTitle;
 }
@@ -329,7 +329,9 @@ class TrackDownloader {
         track.duration = made.durationSec;
         track.durationSource = "실측";
       }
-      return { verifiedTitle: null, audioDurationSec: made.durationSec || null, audioVersion };
+      // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 자리표시일 때만 바꾼다
+      if (made.artist && track.artist === "직접 링크") track.artist = made.artist;
+      return { verifiedTitle: made.title ?? null, audioDurationSec: made.durationSec || null, audioVersion };
     } finally {
       audioCache.unprotectFile(rawPath);
       try {

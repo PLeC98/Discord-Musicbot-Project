@@ -80,7 +80,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   return child;
 }
 
-type ProbeInfo = { durationSec: number | null; codec: string | null; bitrateKbps: number | null };
+type ProbeInfo = { durationSec: number | null; codec: string | null; bitrateKbps: number | null; title: string | null; artist: string | null };
 
 /**
  * ffmpeg가 파일을 열어 내놓는 안내문에서 우리가 쓰는 세 가지를 뽑는다.
@@ -90,8 +90,14 @@ type ProbeInfo = { durationSec: number | null; codec: string | null; bitrateKbps
  * 오디오 전용 파일에서는 둘이 거의 같고 스트림 줄에 없는 형식도 많아 폴백으로 쓴다.
  */
 function parseProbeOutput(text: unknown): ProbeInfo {
-  const out: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null };
+  const out: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null, title: null, artist: null };
   const str = String(text || "");
+
+  // 입력 파일의 태그. 입력 머리(Input #0)부터 길이 줄 앞까지의 Metadata 칸만 본다(출력 쪽에도 같은 칸이 되풀이된다)
+  const head = str.slice(Math.max(0, str.indexOf("Input #0")), str.indexOf("Duration:") >= 0 ? str.indexOf("Duration:") : undefined);
+  const tag = (name: string) => head.match(new RegExp(`^\\s+${name}\\s*: (.+)$`, "mi"))?.[1].trim() || null;
+  out.title = tag("title");
+  out.artist = tag("artist");
 
   const dur = str.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
   if (dur) {
@@ -124,7 +130,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
  */
 function probeAudio(file: string): Promise<ProbeInfo> {
   return new Promise((resolve) => {
-    const unknown: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null };
+    const unknown: ProbeInfo = { durationSec: null, codec: null, bitrateKbps: null, title: null, artist: null };
     let child: ChildProcessWithoutNullStreams;
     try {
       child = spawnFfmpeg(["-hide_banner", "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
@@ -133,8 +139,9 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     }
 
     let out = "";
+    // 필요한 것(태그 · 길이 · 스트림 줄)은 모두 앞쪽에 나온다. 앞 64KB 만 둔다
     child.stderr.on("data", (chunk) => {
-      out = (out + chunk.toString()).slice(-4000);
+      if (out.length < 65536) out += chunk.toString();
     });
     child.on("error", () => resolve(unknown));
     child.on("exit", () => resolve(parseProbeOutput(out)));

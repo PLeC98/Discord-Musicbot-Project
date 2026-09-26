@@ -31,6 +31,7 @@ type TestTrack = DownloadTrack & { _equivalent?: string };
 type Options = YtDlpFlags & { output: string };
 
 // 무엇이 불렸는지 모은다
+let convertTags: { title?: string; artist?: string } = {};
 const calls = {
   ytdlp: [] as Array<{ url: string; options: Options }>,
   direct: [] as string[],
@@ -66,7 +67,7 @@ const deps: Sources = {
     toCacheOpus: async (src: string, out: string) => {
       calls.convert.push({ src, out, srcExists: fs.existsSync(src) });
       fs.writeFileSync(out, "opus");
-      return { durationSec: 222 };
+      return { durationSec: 222, ...convertTags };
     },
   },
   sponsor: {
@@ -239,6 +240,18 @@ test("info.json 이 없으면 제목 · 길이를 모르는 채로 받는다", a
 });
 
 // ── 직접 링크 갈래 ─────────────────────────────────────────────────────
+
+test("직접 링크: 받은 파일에 태그가 있으면 제목과(자리표시일 때) 가수를 그것으로 고친다", async () => {
+  const track: DownloadTrack = { title: "a", artist: "직접 링크", pageUrl: "https://files.test/t.mp3", requestKey: "https://files.test/t.mp3", audioUrl: "https://files.test/t.mp3", platform: "direct", duration: 100 };
+  convertTags = { title: "태그 제목", artist: "태그 가수" };
+  try {
+    await downloader().downloadTrack(track);
+  } finally {
+    convertTags = {};
+  }
+  assert.equal(track.title, "태그 제목");
+  assert.equal(track.artist, "태그 가수");
+});
 
 test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 길이로 트랙을 고친다", async () => {
   const track: DownloadTrack = { title: "파일", pageUrl: "https://files.test/a.flac", requestKey: "https://files.test/a.flac", audioUrl: "https://files.test/a.flac", platform: "direct", duration: 100 };

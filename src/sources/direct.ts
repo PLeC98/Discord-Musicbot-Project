@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "path";
 import * as links from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
@@ -28,8 +29,9 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
     const contentType = String(headers["content-type"] || "");
     const contentLength = headers["content-length"];
 
+    // 서버가 알려 준 파일 이름이 먼저다(서명된 주소 · 다운로드 주소는 경로가 파일 이름이 아닐 수 있다)
     const urlPath = new URL(url).pathname;
-    const filename = path.basename(urlPath) || "알 수 없는 파일";
+    const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath) || "알 수 없는 파일";
     const extension = path.extname(filename).toLowerCase();
     const estimatedDuration = estimateDuration(contentLength, contentType);
 
@@ -78,22 +80,37 @@ async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getS
   }
 }
 
-function extractTitle(filename: string): string {
-  // 확장자를 제거하고 파일명 정리
-  const nameWithoutExt = path.parse(filename).name;
-
-  // 일반적인 구분자를 공백으로 교체
-  let title = nameWithoutExt.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim();
-
-  // 각 단어의 첫 글자를 대문자로 변환
-  title = title.replace(/\b\w/g, (l) => l.toUpperCase());
-
-  return title || "알 수 없는 제목";
+// 주소의 퍼센트 인코딩을 푼다. 깨진 인코딩이면 그대로
+function decoded(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
 }
 
+/**
+ * 파일 이름에서 제목. 확장자를 떼고 인코딩을 푼다. 띄어쓰기가 없는 이름(my-song_name)만 구분자를 공백으로 바꾼다.
+ * 대소문자는 건드리지 않는다(iPhone 같은 이름을 바꾼다). 받은 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cacheDownload)
+ */
+function extractTitle(filename: string): string {
+  const name = decoded(path.parse(filename).name);
+  const title = /\s/.test(name) ? name.replace(/_+/g, " ") : name.replace(/[-_.]+/g, " ");
+  return title.replace(/\s+/g, " ").trim() || "알 수 없는 제목";
+}
+
+/** Content-Disposition 의 파일 이름(filename* 가 먼저). 없으면 null */
+function dispositionName(header: unknown): string | null {
+  const text = String(header || "");
+  const star = text.match(/filename\*\s*=\s*[^']*'[^']*'([^;]+)/i);
+  if (star) return decoded(star[1].trim());
+  const plain = text.match(/filename\s*=\s*"([^"]+)"|filename\s*=\s*([^;]+)/i);
+  return plain ? (plain[1] ?? plain[2]).trim() : null;
+}
+
+// 주소 전체의 해시. 같은 호스트의 다른 파일이 같은 ID 가 되지 않게
 function generateId(url: string): string {
-  // URL 기반의 간단한 ID 생성
-  return Buffer.from(url).toString("base64").substring(0, 16);
+  return createHash("sha256").update(url).digest("base64url").slice(0, 16);
 }
 
 function estimateDuration(fileSize: unknown, contentType: string): number {
