@@ -365,3 +365,35 @@ test("끊기: 파괴되지 않은 연결만 부수고 비운다", () => {
   assert.equal(gone.destroyed, 0);
   assert.equal(player.connection, null);
 });
+
+// ── 6단계가 바꿀 지금 답 ────────────────────────────────────────────────
+
+// 끊김마다 자동 재연결 대기를 새로 건다. 채널을 빠르게 옮겨 끊김이 연달아 오면 대기가 겹쳐 쌓인다(백로그 B-85)
+test("끊김이 연달아 오면 자동 재연결 대기가 끊김마다 겹쳐 걸린다", async () => {
+  const { player, vcm } = makePlayer();
+  enters = () => new Promise(() => {}); // 아직 붙지도 못하지도 않았다
+  vcm.setupConnectionEvents();
+
+  for (let i = 0; i < 3; i++) live(player).emit(VoiceConnectionStatus.Disconnected, {}, { reason: 4014 });
+  await flush();
+
+  assert.equal(entered.filter(([status]) => status === VoiceConnectionStatus.Connecting).length, 3);
+});
+
+// 복구를 포기해도 마지막에 만든(붙지 못한) 연결을 비우지 않는다. /join 은 연결이 있으면 "이미 접속"으로 끝난다(백로그 B-18)
+test("복구를 포기하면 붙지 못한 연결이 플레이어에 남는다", async () => {
+  const guild = { id: "g1", name: "서버", channels: { cache: new Map([["vc1", { id: "vc1", isVoiceBased: () => true }]]) }, voiceAdapterCreator: () => ({}), client: { players: new Map() } };
+  const player = { guild, voiceChannel: { id: "vc1", name: "음성" }, audioPlayer: {}, connection: fakeConnection() as FakeConnection | null, currentTrack: { title: "곡" }, paused: false, onVoiceRecovered: async () => {} };
+  enters = async () => {
+    throw new Error("시간 초과");
+  };
+  const vcm = new VoiceConnectionManager(fake<VoiceHost>(player), voiceLib);
+  vcm.maxRecoveryAttempts = 2;
+  vcm.recoveryRetryDelayMs = 1;
+
+  await vcm.startConnectionRecovery();
+
+  assert.equal(vcm.isRecovering, false);
+  assert.equal(joins.length, 2, "시도마다 새로 붙어 본다");
+  assert.equal(player.connection, joins[1].connection, "마지막으로 만든 연결이 남는다");
+});
