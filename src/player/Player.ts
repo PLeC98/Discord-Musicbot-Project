@@ -22,7 +22,7 @@ import type { Seeking } from "../sources/youtube/equivalent.ts";
 
 import config from "../../config.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
-import { errorKind, messageOf } from "../rules/errorKind.ts";
+import { errorKind, messageOf, codedError, codeOf } from "../rules/errorKind.ts";
 import { failureReason } from "./playFailure.ts";
 import * as streamUrl from "../sources/streamUrl.ts";
 import { SponsorSkipper } from "./sponsorSkipper.ts";
@@ -259,7 +259,8 @@ class MusicPlayer {
       if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
         this.voice.startConnectionRecovery();
       } else {
-        this.handleError(error);
+        // 재생 스트림이 깨진 것이다. 이름이 없으면 그렇게 단다
+        this.handleError(codeOf(error) ? error : codedError("stream-failed", error.message, { cause: error }));
       }
     });
 
@@ -364,7 +365,7 @@ class MusicPlayer {
         },
         label: this._trackLabel(track),
       });
-      if (!input.resource) throw new Error("Failed to create audio resource");
+      if (!input.resource) throw codedError("stream-failed", "오디오 리소스를 만들지 못했습니다");
       pb.resource = input.resource;
       pb.cacheFile = input.cacheFile;
 

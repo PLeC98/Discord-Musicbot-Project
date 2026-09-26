@@ -5,7 +5,7 @@ import { sessions } from "../store/playerSessions.ts";
 import * as trackState from "./trackState.ts";
 import config from "../../config.ts";
 import * as playerEvents from "./events.ts";
-import { messageOf } from "../rules/errorKind.ts";
+import { messageOf, codedError } from "../rules/errorKind.ts";
 import type { MusicPlayer } from "./Player.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/playerSessions.ts";
@@ -294,11 +294,11 @@ class SessionPersistence {
     try {
       const connected = await this.player.connect();
       if (!connected) {
-        throw new Error("Failed to reconnect to voice channel");
+        throw codedError("voice-failed", "음성 채널에 다시 연결하지 못했습니다");
       }
     } catch (error) {
       log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
-      throw new Error("Failed to reconnect to voice channel", { cause: error });
+      throw codedError("voice-failed", "음성 채널에 다시 연결하지 못했습니다", { cause: error });
     }
   }
 

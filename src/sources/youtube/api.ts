@@ -111,6 +111,9 @@ async function searchTrack(item: YtInfo) {
   return track;
 }
 
+// 던지는 실패. 나머지는 삼킨다(2단계 3번째 커밋이 걷는다)
+const THROWN = new Set(["age-cookies-invalid", "age-restricted", "video-unavailable", "skipped-client", "stale-media", "client-fault", "rate-limited"]);
+
 // 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 진짜. getInfo · getStream · getPlaylist 도 같다
 async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: RunYtDlp } = {}) {
   try {
@@ -151,7 +154,7 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
 
     return tracks;
   } catch (error) {
-    if (errors.codeOf(error)) throw error; // 링크 한 곡이 까닭이 분명하게 실패했다. getInfo 참조
+    if (THROWN.has(errors.codeOf(error) ?? "")) throw error; // 링크 한 곡이 까닭이 분명하게 실패했다. getInfo 참조
     log.error("유튜브 검색 실패:", messageOf(error));
     return [];
   }
@@ -182,7 +185,7 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   } catch (error) {
     // 못 트는 까닭이 분명한 실패(비공개 · 삭제 · 연령 제한)는 던진다. 찾는 쪽이 그 까닭을 사용자에게 알린다.
     // 삼키면 "결과를 찾을 수 없습니다"로 뭉개진다. 까닭을 모르는 실패만 null 이다
-    if (errors.codeOf(error)) throw error;
+    if (THROWN.has(errors.codeOf(error) ?? "")) throw error;
     log.error("영상 정보 조회 실패:", errors.briefError(error));
     return null;
   }

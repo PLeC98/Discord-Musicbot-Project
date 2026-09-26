@@ -1,6 +1,7 @@
 // 소리를 여는 곳. 받아 둔 파일 · HLS 주소 · 스트림 파이프 셋 중 하나로 ffmpeg 를 띄우고 오디오 리소스를 만든다.
 // 어느 갈래로 갈지는 transportOf 가 정했다. 스트림 파이프가 열리지 않으면 나란히 받던 캐시 파일로 연다.
 
+import { codedError } from "../rules/errorKind.ts";
 import { StreamType } from "@discordjs/voice";
 import { Readable, type Writable } from "stream";
 import type { ReadableStream as WebStream } from "stream/web";
@@ -95,7 +96,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   // 입구(playRequest)와 사운드클라우드 포맷 선택이 먼저 거르지만, 여기까지 온 것은 막는다.
   const list = o.transport.list ?? "hls";
   if (!CAN_OPEN[list](o.io.ffmpegCapabilities())) {
-    throw new Error(`이 ffmpeg 빌드로는 ${list === "other" ? streamInfo.protocol : list.toUpperCase()} 스트림을 재생할 수 없습니다`);
+    throw codedError("stream-failed", `이 ffmpeg 빌드로는 ${list === "other" ? streamInfo.protocol : list.toUpperCase()} 스트림을 재생할 수 없습니다`);
   }
 
   // 라이브가 아닌 HLS(사운드클라우드 등)는 평소대로 캐시를 받아 둔다. 재생은 기다리지 않는다.
@@ -175,7 +176,7 @@ async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: 
     });
   }
   const response = await o.io.fetch(url, { headers });
-  if (!response.ok) throw new Error(`Failed to fetch stream: ${response.status}`);
+  if (!response.ok) throw codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`);
   const { body } = response;
   return body && "getReader" in body ? Readable.fromWeb(body) : body;
 }

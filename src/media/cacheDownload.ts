@@ -1,3 +1,4 @@
+import { codedError } from "../rules/errorKind.ts";
 import fsModule from "fs";
 const fs = fsModule.promises;
 import path from "path";
@@ -114,7 +115,7 @@ async function ensureNotEmpty(tempPath: string) {
   const stats = await fs.stat(tempPath);
   if (stats.size > 0) return;
   await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 지우기");
-  throw new Error("Downloaded file is empty");
+  throw codedError("stream-failed", "받은 파일이 비어 있습니다");
 }
 
 // 완료된 다운로드를 DB에 남긴다. 못 남겨도 파일은 이미 올라갔다. 기록 없는 파일은 기동 정리가 치운다
@@ -170,7 +171,7 @@ class TrackDownloader {
     // 자동재생이 출처에서 받아 온 곡(Last.fm·LB Radio·VocaDB·AnimeThemes)은 영상을 이미
     // 찾아 두었으므로 다시 찾지 않는다. 규칙은 needsBorrowedAudio 참조.
     if (needsBorrowedAudio(track) && !(await this.deps.equivalent.findYouTubeEquivalent(track))) {
-      throw new Error("Could not find YouTube equivalent");
+      throw codedError("no-youtube-match", "유튜브에서 같은 곡을 찾지 못했습니다");
     }
     const filepath = this.trackFilePath(track);
 

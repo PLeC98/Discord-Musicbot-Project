@@ -5,7 +5,7 @@
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 
 import { Readable } from "stream";
-import { codeOf } from "../rules/errorKind.ts";
+import { codeOf, codedError } from "../rules/errorKind.ts";
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000;
@@ -220,7 +220,7 @@ class ChunkedReader {
         if (done) break;
         this.take(value);
       }
-      if (this.pos < this.target) throw new Error(`응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`);
+      if (this.pos < this.target) throw codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`);
     } catch (err) {
       this.aborter?.abort(); // 버린 요청이 열린 채 남지 않게
       throw err;

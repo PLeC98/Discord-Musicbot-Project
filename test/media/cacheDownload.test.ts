@@ -163,7 +163,7 @@ test("스포티파이: 동등물을 찾아 그 영상으로 받고 제목은 고
 test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. 아무것도 적거나 남기지 않는다", async () => {
   const track = { title: "못 찾는 곡", pageUrl: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify" };
 
-  await assert.rejects(downloader().downloadTrack(track), /Could not find YouTube equivalent/);
+  await assert.rejects(downloader().downloadTrack(track), { code: "no-youtube-match" });
 
   assert.equal(calls.ytdlp.length, 0);
   assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);
@@ -222,7 +222,7 @@ test("yt-dlp 가 건너뛰면(파일 없음) 이유를 알 수 있는 오류로 
 test("빈 파일은 버린다", async () => {
   ytdlpBehavior = (_url, options) => fs.writeFileSync(options.output, "");
 
-  await assert.rejects(downloader().downloadTrack(yt("hhhhhhhhhhh")), /Downloaded file is empty/);
+  await assert.rejects(downloader().downloadTrack(yt("hhhhhhhhhhh")), { code: "stream-failed", message: "받은 파일이 비어 있습니다" });
   assert.equal(fs.existsSync(audioCache.getFilePath("yt:hhhhhhhhhhh")), false);
   assert.deepEqual(leftovers(), []);
 });

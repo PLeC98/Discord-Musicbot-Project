@@ -1,5 +1,7 @@
-// 판정: 이 오류는 어떤 종류인가. 오류 문장을 보고 종류 이름을 낸다. 문장은 ui/errorMessages 가 만든다.
-// 오류에 이름(code)이 붙어 있으면 그것을 먼저 본다. 없으면 표의 위에서부터 처음 맞는 것이 이긴다. 차례가 곧 우선순위다.
+// 판정: 이 오류는 어떤 종류인가. 종류 이름을 낸다. 문장은 ui/errorMessages 가 만든다.
+// 오류를 만든 곳이 이름(code)을 붙인다(codedError). 여기서는 그 이름을 먼저 본다: 오류 자신 → 원인(cause) → 시스템 · 디스코드 코드.
+//
+// 낱말 표(RULES)는 이름이 없는 오류의 마지막 길이다. 2단계에서 걷는다.
 //
 // 연령 제한이 봇 감지보다 앞이다. 연령 확인 문장("Sign in to confirm your age")이 봇 감지의 "sign in to confirm" 도
 // 품고 있어서, 차례가 거꾸로면 연령 제한이 봇 감지로 가려진다.
@@ -26,8 +28,17 @@ const RULES: Array<[string, Test[]]> = [
   ["voice-permission", ["missing access", "missing permissions", "voice_join", "speak"]],
 ];
 
-// 오류를 만든 곳이 이름을 붙여 두었으면(code) 글보다 그것을 먼저 믿는다
-const CODE_KINDS: Record<string, string> = { "age-cookies-invalid": "age-cookies-invalid", "age-restricted": "age-restricted", "video-unavailable": "video-unavailable" };
+// 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
+const KINDS = new Set(["age-cookies-invalid", "age-restricted", "bot-check", "video-unavailable", "geo-blocked", "rate-limited", "no-youtube-match", "network", "stream-failed", "voice-permission"]);
+// 연결이 끊기거나 닿지 않은 것(Node · undici 가 붙이는 이름)
+const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
+// 디스코드 API 오류 번호. 50001 접근 없음 · 50013 권한 없음
+const DISCORD_KINDS: Record<number, string> = { 50001: "voice-permission", 50013: "voice-permission" };
+
+/** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다 */
+function codedError(code: string, message: string, options?: { cause?: unknown }) {
+  return Object.assign(new Error(message, options), { code });
+}
 
 const matches = (msg: string, test: Test): boolean => (typeof test === "function" ? test(msg) : msg.includes(test));
 
@@ -43,12 +54,24 @@ function messageOf(error: unknown, fallback = String(error)): string {
   return (typeof message === "string" && message) || fallback;
 }
 
+// 이름 하나를 종류로. 모르는 이름이면 null
+function kindOfCode(code: string | number | undefined): string | null {
+  if (typeof code === "number") return DISCORD_KINDS[code] ?? null;
+  if (!code) return null;
+  if (KINDS.has(code)) return code;
+  if (NETWORK_CODES.has(code) || code.startsWith("UND_ERR_")) return "network";
+  return null;
+}
+
 function errorKind(error: unknown): string {
-  const code = codeOf(error);
-  if (typeof code === "string" && CODE_KINDS[code]) return CODE_KINDS[code];
+  const cause = error && typeof error === "object" && "cause" in error ? error.cause : undefined;
+  const coded = kindOfCode(codeOf(error)) ?? kindOfCode(codeOf(cause));
+  if (coded) return coded;
+  // AbortSignal.timeout 이 끊은 요청. (음성 연결의 기다림이 끝난 것은 AbortError 라 여기 들지 않는다)
+  if (error && typeof error === "object" && "name" in error && error.name === "TimeoutError") return "network";
   const msg = (error instanceof Error ? error.message : String(error || "")).toLowerCase();
   for (const [kind, tests] of RULES) if (tests.some((test) => matches(msg, test))) return kind;
   return "unknown";
 }
 
-export { errorKind, codeOf, messageOf, RULES };
+export { errorKind, codedError, codeOf, messageOf, RULES };

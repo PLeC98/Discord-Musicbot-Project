@@ -1,5 +1,6 @@
 // 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 가른다.
 
+import { codedError } from "../rules/errorKind.ts";
 import * as YouTube from "./youtube/index.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import logger from "../infra/log/logger.ts";
@@ -43,7 +44,7 @@ async function getStream(track: Seeking & { platform?: string | null }, seekSeco
   const { youtube, soundcloud, equivalent, canPlayHls } = { ...DEFAULTS, ...options };
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
-    throw new Error(`Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
+    throw codedError("no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
   }
 
   switch (inputKind(audioUrl)) {

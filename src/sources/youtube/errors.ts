@@ -104,18 +104,36 @@ function isStaleMediaError(error: unknown) {
   return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
 }
 
+// yt-dlp 가 적는 문장으로만 가르는 것. 우리가 고칠 수 없는 문장이라 여기서 읽는다.
+// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube" · 숫자 하나로는 가르지 않는다(영상 ID 에 429 가 들 수 있다)
+const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
+const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
+const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded/i;
+const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|timed out|network is unreachable|urlopen error/i;
+const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;
+const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
+
 /**
  * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlpSpawn)이 실패할 때 한 번 붙인다. 모르면 null.
- * 차례는 위 판별들이 서로를 빼는 차례와 같다(연령 제한 → 영상 없음 → 건너뛴 클라이언트 → 클라이언트 탓 · 주소 어긋남).
+ * 연령 제한 → 지역 차단 → 영상 없음 차례다. 요청 제한(429)은 주소 어긋남보다 앞이다
+ * (다시 받을지는 ytdlpRun 이 isStaleMediaError 로 따로 본다).
  */
 function codeOf(error: unknown) {
+  const msg = textOf(error);
   // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 넣으면 풀린다
   if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "age-cookies-invalid";
   if (isAgeRestrictedError(error)) return "age-restricted";
+  // 지역 차단 문장은 "this video is not available ... from your location" 처럼 영상 없음의 문장을 품는다. 먼저 본다
+  if (GEO_BLOCKED.test(msg)) return "geo-blocked";
   if (isVideoUnavailableError(error)) return "video-unavailable";
+  if (PLAYLIST_UNAVAILABLE.test(msg)) return "playlist-unavailable";
+  if (BOT_CHECK.test(msg)) return "bot-check";
+  if (RATE_LIMITED.test(msg)) return "rate-limited";
   if (isSkippedClientError(error)) return "skipped-client";
   if (isStaleMediaError(error)) return "stale-media";
   if (isClientFault(error)) return "client-fault";
+  if (NETWORK.test(msg)) return "network";
+  if (FFMPEG.test(msg)) return "stream-failed";
   return null;
 }
 

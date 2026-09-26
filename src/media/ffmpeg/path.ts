@@ -1,3 +1,4 @@
+import { codedError } from "../../rules/errorKind.ts";
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
@@ -51,7 +52,7 @@ function resolve(): Resolved {
     if (!version) {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 안 먹지"로 이어진다.
-      throw new Error(`FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`);
+      throw codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`);
     }
     resolved = { path: configured, version, source: "FFMPEG_PATH" };
     return resolved;
@@ -70,7 +71,7 @@ function resolve(): Resolved {
     }
   }
 
-  throw new Error("ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 내려받거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
+  throw codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 내려받거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
 }
 
 /** 해석된 실행 파일 경로만 반환. 실행 지점에서 쓰는 기본 접근자. */
