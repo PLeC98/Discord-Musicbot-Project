@@ -1,7 +1,7 @@
 // 같은 곡 매칭을 부르는 두 곳의 검색 방식. 동등물(스포티파이 곡 → 유튜브)과 자동재생(후보 → 유튜브)이
 // 같은 곡을 찾을 때 어떤 검색어를 몇 개씩 묻는지 적어 둔다.
 //
-// 지금 답. 둘이 다르고 까닭이 적혀 있지 않다. 3단계가 한 방식으로 모으거나 까닭을 적는다(계획서 G12)
+// 둘은 match.searchCandidates 의 이름 붙은 방식(exact · cheap)을 쓴다. 다른 까닭은 그 방식 표에 적었다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -47,7 +47,7 @@ test("동등물: 1차 전부와 2차 전부를 6개씩 묻는다. 1차에 답이
   }
 });
 
-test("자동재생: 1차 앞 둘을 8개씩 묻고, 1차에 답이 없을 때만 2차 앞 둘을 묻는다", async () => {
+test("자동재생: 1차 앞 둘을 6개씩 묻고, 1차에 답이 없을 때만 2차 앞 둘을 묻는다", async () => {
   for (const primaryHits of [false, true]) {
     const { asked, search } = searcher(primaryHits);
     const deps: route.Deps = { ...route.REAL, search, known: () => null, assist: { filter: async (c) => c, accepts: async () => true } };
@@ -55,7 +55,7 @@ test("자동재생: 1차 앞 둘을 8개씩 묻고, 1차에 답이 없을 때만
     const expected = primaryHits ? primary.slice(0, 2) : [...primary.slice(0, 2), ...secondary.slice(0, 2)];
     assert.deepEqual(
       asked,
-      expected.map((q) => [q, 8]),
+      expected.map((q) => [q, 6]),
       `1차 답 ${primaryHits}`,
     );
   }

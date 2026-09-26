@@ -210,28 +210,9 @@ const REAL: Deps = {
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
 async function findOnYouTube(cand: Candidate, genre: string | undefined, { search, assist }: Deps) {
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
-  const { primary, secondary } = match.buildSearchQueries(target);
-
-  const run = async (queries: string[]) => {
-    const lists: Array<Awaited<ReturnType<Search>> & object> = [];
-    for (const one of queries.slice(0, 2)) {
-      try {
-        lists.push((await search(one, 8)) || []);
-      } catch {
-        lists.push([]); // 한 검색어가 실패해도 나머지로 계속한다
-      }
-    }
-    return lists;
-  };
-
-  // thumbnail을 꼭 실어야 한다. Last.fm·LB Radio는 표지를 안 주므로 영상 것이 유일한 그림이다.
+  // thumbnail 을 꼭 싣는다(searchCandidates). Last.fm · LB Radio 는 표지를 안 주므로 영상 것이 유일한 그림이다.
   // 빠뜨리면 앨범아트 자리에 디스코드의 빈 그림이, 대시보드에는 파일 아이콘이 뜬다.
-  const shape = (list: Awaited<ReturnType<Search>> & object) => list.map((r) => ({ id: r.id, url: r.audioUrl, title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail }));
-  const primaryLists = (await run(primary)).map(shape);
-  const secondaryLists = primaryLists.some((l) => l.length) ? [] : (await run(secondary)).map(shape);
-
-  // 라이브는 동등물로서 언제나 오답이고, 골라 두면 다운로드가 끝나지 않는다
-  const candidates = match.mergeCandidateLists(primaryLists, secondaryLists).filter((c): c is typeof c & { url: string } => !!c.url && !c.isLive);
+  const candidates = await match.searchCandidates(target, search, "cheap");
   if (!candidates.length) return null;
 
   let { best, confidence, ranked } = match.rankCandidates(candidates, target);

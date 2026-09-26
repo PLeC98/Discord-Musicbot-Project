@@ -414,6 +414,46 @@ function rankCandidates<C extends Candidate>(candidates: C[], target: Target) {
   return { ranked: scored, best: top ? top.candidate : null, confidence };
 }
 
-export { buildSearchQueries, mergeCandidateLists, rankCandidates, scoreCandidate, W, JUNK_TERMS, VERSION_TERMS, REUPLOAD_TERMS };
+// ── 검색해서 후보 모으기 ─────────────────────────────────────────────
+
+/**
+ * 같은 곡을 찾는 검색 방식. 둘 다 검색어마다 6개씩 받는다(회귀 도구 notes/match-corpus 가 두 방식을 같은 결과로 잰다).
+ *  - exact: 동등물(스포티파이 곡 → 유튜브). 사용자가 고른 곡이라 정확도가 먼저다. 1차 검색어 전부, 2차도 늘 합친다
+ *  - cheap: 자동재생. 한 번 고르는 데 후보를 여럿 찾아 yt-dlp 호출 수가 먼저다. 1차 앞 둘, 1차가 비었을 때만 2차
+ */
+const SEARCH_PROFILES = {
+  exact: { queries: Infinity, perQuery: 6, secondary: "always" },
+  cheap: { queries: 2, perQuery: 6, secondary: "if-empty" },
+} as const;
+type SearchProfile = keyof typeof SEARCH_PROFILES;
+/** 유튜브 검색 결과 하나. 여기서 읽는 칸만(검색은 채널명을 artist 에 담는다) */
+type Found = { id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean; thumbnail?: string | null };
+type Search = (query: string, limit: number) => Promise<Found[] | null | undefined>;
+
+/**
+ * target 을 검색해 후보를 모은다. 합친 순서(순위) 그대로, 주소가 없거나 라이브인 것은 뺀다
+ * (라이브는 같은 곡으로서 언제나 오답이고, 골라 두면 캐시 받기가 끝나지 않는다). 한 검색어가 실패해도 나머지로 간다
+ */
+async function searchCandidates(target: Target, search: Search, profile: SearchProfile) {
+  const p = SEARCH_PROFILES[profile];
+  const { primary, secondary } = buildSearchQueries(target);
+  const run = async (queries: string[]) => {
+    const lists = [];
+    for (const query of queries.slice(0, p.queries)) {
+      try {
+        const results = (await search(query, p.perQuery)) || [];
+        lists.push(results.map((r) => ({ id: r.id, url: r.audioUrl || (r.id ? `https://www.youtube.com/watch?v=${r.id}` : null), title: r.title, channel: r.artist, durationSec: r.duration, isLive: r.isLive, thumbnail: r.thumbnail })));
+      } catch {
+        lists.push([]);
+      }
+    }
+    return lists;
+  };
+  const primaryLists = await run(primary);
+  const secondaryLists = p.secondary === "always" || !primaryLists.some((l) => l.length) ? await run(secondary) : [];
+  return mergeCandidateLists(primaryLists, secondaryLists).filter((c): c is typeof c & { url: string } => !!c.url && !c.isLive);
+}
+
+export { buildSearchQueries, mergeCandidateLists, rankCandidates, scoreCandidate, searchCandidates, SEARCH_PROFILES, W, JUNK_TERMS, VERSION_TERMS, REUPLOAD_TERMS };
 export const _internal = { normLoose, normChannel, analyzeChannel, durationScore, countJunk, countVersion, isReupload, splitArtists, detectVersionKind, stripVersionTag };
-export type { Candidate, Target };
+export type { Candidate, Target, SearchProfile };

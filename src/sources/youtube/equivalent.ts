@@ -5,8 +5,7 @@ import * as trackLookup from "../../store/trackLookup.ts";
 import * as links from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import { buildSearchQueries, mergeCandidateLists, rankCandidates } from "./match.ts";
-import type { Candidate } from "./match.ts";
+import { rankCandidates, searchCandidates } from "./match.ts";
 
 /** 동등물을 찾을 곡. 찾으면 audioUrl · audioFoundBy 를 적는다 */
 type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: "given" | "ledger" | "search"; [field: string]: unknown };
@@ -35,34 +34,7 @@ async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) =
 
   // 타겟: 스포티파이 duration(초)을 durationSec로 넘겨야 길이 신호가 동작한다
   const target = { title: track.title, artist: track.artist, durationSec: Number(track.duration) || 0 };
-  const { primary, secondary } = buildSearchQueries(target);
-
-  const runGroup = async (queries: string[]) => {
-    const lists: Candidate[][] = [];
-    for (const query of queries) {
-      try {
-        const results = await search(query, 6);
-        lists.push(
-          (results || []).map((r) => ({
-            id: r.id,
-            url: r.audioUrl || (r.id ? `https://www.youtube.com/watch?v=${r.id}` : null),
-            title: r.title,
-            channel: r.artist, // YouTube.search는 채널명을 artist 필드에 담는다
-            durationSec: r.duration,
-            isLive: r.isLive,
-          })),
-        );
-      } catch {
-        lists.push([]); // 한 쿼리 실패가 전체를 막지 않게
-      }
-    }
-    return lists;
-  };
-
-  // 라이브 방송은 후보에서 제외한다. 동등물로서 언제나 오답인 데다(원곡이 라이브일 리 없다),
-  // 일단 선택되면 캐시 다운로드가 끝나지 않아 ffmpeg가 무한히 파일을 불린다.
-  // 제목이 기호뿐인 곡처럼 신호가 약한 경우 duration 0인 라이브가 우승하는 일이 실제로 있었다.
-  const candidates = mergeCandidateLists(await runGroup(primary), await runGroup(secondary)).filter((c) => c.url && !c.isLive);
+  const candidates = await searchCandidates(target, search, "exact");
   if (!candidates.length) return null;
 
   const { best } = rankCandidates(candidates, target);
