@@ -110,3 +110,13 @@ test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝
   assert.equal(I.detectVersionKind("Song - Short Ver"), "short");
   assert.equal(I.detectVersionKind("Video Killed the Radio Star on TV"), null, "끝의 TV 만으로는 버전이 아니다");
 });
+
+// 회귀 대상: 공백 뒤의 맨 낱말도 받아 "Love on TV - Live" 를 TV 판으로 봤다
+test("버전 표기: 공백 뒤의 낱말은 수식어가 붙어야 버전이다. 괄호 · 대시로 연 표시는 낱말만으로도", () => {
+  assert.equal(I.detectVersionKind("Love on TV - Live"), null);
+  assert.equal(I.detectVersionKind("Life is Short - Live"), null);
+  assert.equal(I.detectVersionKind("Idol TV size - Anime"), "tv");
+  assert.equal(I.detectVersionKind("Idol (TV)"), "tv");
+  assert.equal(I.detectVersionKind("Idol【TV】"), "tv");
+  assert.equal(I.detectVersionKind("Song - Short -"), "short");
+});

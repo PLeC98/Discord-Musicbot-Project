@@ -247,9 +247,11 @@ const OFFICIAL_TAG = /official\s*(?:video|audio|music\s*video|mv|m\/v|hd)|\bm\/v
 // 애니송 TV size/short는 공식이 유튜브에 다른 표기로 올리는 일이 많아, 스포티파이 제목 그대로 검색하면 못 찾는다 → 동의어 확장 대상.
 function detectVersionKind(title: unknown): "tv" | "short" | null {
   const t = String(title || "");
-  // 끝에 닫는 표시 없이 제목이 끝나는 꼴("Idol - TV Size")은 size · ver 따위가 붙었을 때만 본다. "… on TV" 를 버전으로 보지 않게
-  if (/[-–—([（【\s]\s*tv\s*(?:size|ver\.?|version|anime|edit)?\s*[-–—)\]）】]/i.test(t) || /[-–—([（【]\s*tv\s*(?:size|ver\.?|version|edit)\s*$/i.test(t) || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
-  if (/[-–—([（【\s]\s*short\s*(?:size|ver\.?|version|edit)?\s*[-–—)\]）】]/i.test(t) || /[-–—([（【]\s*short\s*(?:size|ver\.?|version|edit)\s*$/i.test(t) || /ショート(?:サイズ|バージョン|ver)?/.test(t)) return "short";
+  // 괄호나 대시로 연 표시("(TV)" · "- TV Size -")는 낱말만 있어도 버전이다. 공백 뒤의 낱말은 size · ver 따위가 붙었을 때만 본다
+  // ("Love on TV - Live" · "Life is Short - Live" 는 제목의 낱말이다). 끝에 닫는 표시 없이 끝나는 꼴("Idol - TV Size")도 같다
+  const marked = (word: string, suffix: string) => new RegExp(`[-–—([（【]\\s*${word}\\s*(?:${suffix})?\\s*[-–—)\\]）】]`, "i").test(t) || new RegExp(`\\s${word}\\s*(?:${suffix})\\s*[-–—)\\]）】]`, "i").test(t) || new RegExp(`[-–—([（【]\\s*${word}\\s*(?:${suffix})\\s*$`, "i").test(t);
+  if (marked("tv", "size|ver\\.?|version|anime|edit") || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
+  if (marked("short", "size|ver\\.?|version|edit") || /ショート(?:サイズ|バージョン|ver)?/.test(t)) return "short";
   return null;
 }
 
