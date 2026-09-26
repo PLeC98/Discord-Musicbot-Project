@@ -8,13 +8,13 @@ import type { z } from "zod";
 import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import { isModerator } from "../../../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../../../src/store/guildSettings.ts";
-import * as SponsorBlock from "../../../src/sources/sponsorBlock.ts";
+import { SKIP_CATEGORIES } from "../../../src/rules/sponsorCategories.ts";
 import config from "../../../config.ts";
 import { isOwner } from "../owner.ts";
 import { getPlayer } from "../guildAccess.ts";
 import { parse, settingsBody } from "../requestSchemas.ts";
 
-// SponsorBlock 카테고리 라벨 (대시보드 표시용). SKIP_CATEGORIES와 키 일치
+// SponsorBlock 카테고리 라벨 (대시보드 표시용). rules/sponsorCategories 의 SKIP_CATEGORIES 와 키가 같다
 const SB_CATEGORY_LABELS: Record<string, string> = {
   music_offtopic: "음악이 아닌 구간",
   intro: "인트로/무음 구간",
@@ -37,7 +37,7 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
   const plan: SettingsPlan = { playlistAdd: playlistAddMax };
 
   if (sponsorblock !== undefined) {
-    const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
+    const valid = new Set(SKIP_CATEGORIES);
     const categories = sponsorblock.categories === undefined ? null : [...new Set(sponsorblock.categories.filter((c) => valid.has(c)))];
     plan.sponsor = { enabled: sponsorblock.enabled, categories };
   }
@@ -113,7 +113,7 @@ function createGuildSettingsRouter() {
       masterEnabled: config.sponsorblock.enabled, // 전역 off면 서버 설정 무의미
       enabled: sbEff.enabled,
       categories: sbEff.categories,
-      available: SponsorBlock.SKIP_CATEGORIES.map((id) => ({ id, label: SB_CATEGORY_LABELS[id] || id })),
+      available: SKIP_CATEGORIES.map((id) => ({ id, label: SB_CATEGORY_LABELS[id] || id })),
     };
 
     // 재생목록 한 번에 넣는 곡 수. 저장값(null=기본), 실제 값, 설정할 수 있는 범위

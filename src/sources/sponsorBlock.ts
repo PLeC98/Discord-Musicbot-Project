@@ -13,6 +13,7 @@ import * as links from "../rules/links.ts";
 import config from "../../config.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as externalCaches from "../store/externalCaches.ts";
+import { SKIP_CATEGORIES } from "../rules/sponsorCategories.ts";
 
 // 바깥으로 나가는 요청. 시험은 useFetch 로 가짜를 넘긴다(기본은 진짜 fetch)
 let send: typeof fetch = fetch;
@@ -33,8 +34,6 @@ type ApiVideo = { hash?: string; videoID?: string; segments?: Array<{ category: 
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
-// skip 지원 9개 카테고리 (config.ts의 SB_SKIP_CATEGORIES와 동기 유지)
-const SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
 // 조회 시 항상 전 카테고리 + 하이라이트를 받아 캐시를 카테고리-완전하게 유지 (서버별 필터는 읽을 때)
 const FETCH_CATEGORIES = [...SKIP_CATEGORIES, "poi_highlight"];
 const FETCH_ACTION_TYPES = ["skip", "poi"];
@@ -186,7 +185,7 @@ function shape({ raw, source }: Fetched, categories: Iterable<string>): Segments
   return { ...normalize(raw, categories), source };
 }
 
-export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, _forget, SKIP_CATEGORIES, useFetch };
+export { _fetchRaw, lookup, _rawFor, _trackVideoId, forTrack, _remember, _forget, useFetch };
 export const _internal = { mergeIntervals, normalize };
 
 export type { RawSegment, SkipSegment, Segments };

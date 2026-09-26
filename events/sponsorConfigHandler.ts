@@ -1,6 +1,6 @@
 import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import * as SponsorBlock from "../src/sources/sponsorBlock.ts";
+import { SKIP_CATEGORIES } from "../src/rules/sponsorCategories.ts";
 import config from "../config.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
@@ -41,8 +41,8 @@ function buildSponsorConfigMessage({ enabled, categories }: Draft) {
     .setCustomId("sb:cats")
     .setPlaceholder("건너뛸 구간 종류 선택")
     .setMinValues(0)
-    .setMaxValues(SponsorBlock.SKIP_CATEGORIES.length)
-    .addOptions(SponsorBlock.SKIP_CATEGORIES.map((id) => ({ label: LABELS[id] || id, value: id, default: cats.has(id) })));
+    .setMaxValues(SKIP_CATEGORIES.length)
+    .addOptions(SKIP_CATEGORIES.map((id) => ({ label: LABELS[id] || id, value: id, default: cats.has(id) })));
 
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -71,7 +71,7 @@ async function restoreDraft(messageId: string, guildId: string) {
 
 // 저장하고 무엇을 저장했는지 한 줄로. 모르는 카테고리는 걸러 낸다
 async function saveDraft(guildId: string, state: Draft) {
-  const valid = new Set(SponsorBlock.SKIP_CATEGORIES);
+  const valid = new Set(SKIP_CATEGORIES);
   const categories = [...new Set(state.categories.filter((c) => valid.has(c)))];
   await GuildSettingsManager.setSponsorBlock(guildId, { enabled: state.enabled, categories });
   if (!state.enabled) return "미사용";

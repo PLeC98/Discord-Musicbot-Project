@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import pkg from "./package.json" with { type: "json" };
 import dotenv from "dotenv";
+import { SKIP_CATEGORIES } from "./src/rules/sponsorCategories.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일을 편집하십시오.
@@ -15,11 +16,9 @@ const ENV_PATH = path.join(import.meta.dirname, ".env");
 // 대기열 상한. 0이면 끔. 켜면 하한이 있다: 그 아래는 사전 캐싱(앞 5곡) 버퍼밖에 안 된다
 const QUEUE_MAX_FLOOR = 25;
 
-// SponsorBlock skip 지원 카테고리 (권위 목록. src/sources/sponsorBlock.ts의 SKIP_CATEGORIES와 동기 유지)
-const SB_SKIP_CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"];
 // 콤마 구분 문자열 → 유효 카테고리 배열 (오타·미지원 값은 조용히 제거, 원칙 4: 형식 오류는 걸러냄)
 function parseSbCategories(raw: string | null) {
-  const valid = new Set(SB_SKIP_CATEGORIES);
+  const valid = new Set(SKIP_CATEGORIES);
   return [
     ...new Set(
       String(raw)

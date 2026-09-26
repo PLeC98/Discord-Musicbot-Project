@@ -26,7 +26,7 @@ audioCache.initialize(path.join(TMP, "cache.db"));
 const config = (await import("../../config.ts")).default;
 const S = await import("../../src/ui/strings.ts");
 const settings = await import("../../src/store/guildSettings.ts");
-const SponsorBlock = await import("../../src/sources/sponsorBlock.ts");
+const { SKIP_CATEGORIES } = await import("../../src/rules/sponsorCategories.ts");
 const sponsorConfig = (await import("../../events/sponsorConfigHandler.ts")).default;
 const { buildSponsorConfigMessage } = await import("../../events/sponsorConfigHandler.ts");
 
@@ -373,7 +373,7 @@ test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
   assert.equal(save.log[0][1], "⏭️ SponsorBlock 설정 저장됨");
   assert.match(String(save.log[0][2]), /인트로\/인터미션, 아웃트로\/엔드카드/);
-  assert.ok(SponsorBlock.SKIP_CATEGORIES.includes("intro"));
+  assert.ok(SKIP_CATEGORIES.includes("intro"));
 });
 
 test("SponsorBlock 화면: 끄고 저장하면 미사용, 구간을 비우고 저장하면 사실상 미적용, 취소하면 그대로 닫는다", async () => {
