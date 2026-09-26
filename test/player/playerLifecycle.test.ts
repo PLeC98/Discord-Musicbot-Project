@@ -683,6 +683,15 @@ test("재생 위치: 시작 오프셋 + 리소스 재생량, 재생이 없으면
   h.dispose(p);
 });
 
+test("자동재생: 모르는 장르면 setAutoplay 로 끈다(로그 · 미리 뽑은 곡 정리 · 저장이 따라온다)", async () => {
+  const p = h.makePlayer();
+  p.autoplay = "지금은 없는 장르";
+  assert.equal(await p._continueAutoplay("지금은 없는 장르"), false);
+  h.dispose(p);
+  assert.equal(p.autoplay, false);
+  assert.ok(calls.persists.includes("schedule:autoplay"), "대입만 하면 저장 예약이 빠진다");
+});
+
 test("상태 요약과 재생 여부", () => {
   const p = h.makePlayer();
   assert.equal(p.isPlaybackActive(), false);

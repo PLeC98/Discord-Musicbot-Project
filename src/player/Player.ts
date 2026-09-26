@@ -2,16 +2,13 @@ import { AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceCha
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 // 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
-import loggerModule from "../infra/log/logger.ts";
-const wlog = loggerModule.child({ category: "watchdog" });
+const wlog = logger.child({ category: "watchdog" });
 import * as YouTube from "../sources/youtube/index.ts";
 import * as genreConfig from "../config/genres.ts";
 // 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 갈라야 한다
-import loggerModule2 from "../infra/log/logger.ts";
-const clog = loggerModule2.child({ category: "control" });
+const clog = logger.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
-import loggerModule3 from "../infra/log/logger.ts";
-const elog = loggerModule3.child({ category: "error" });
+const elog = logger.child({ category: "error" });
 import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
 import type { AudioPlayer, VoiceConnection } from "@discordjs/voice";
 import type { QueuedTrack } from "./track.ts";
@@ -921,7 +918,7 @@ class MusicPlayer {
       // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 일반 대기열 종료 흐름으로
       log.warn(`자동재생을 종료합니다. 알 수 없는 장르: ${genre}`);
       playerEvents.notice(this, "autoplay-unknown-genre", { genre }).catch(noticeFailed);
-      this.autoplay = false;
+      this.setAutoplay(false);
       return false;
     }
     this.currentTrackRetries = 0;
