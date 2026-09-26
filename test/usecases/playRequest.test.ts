@@ -355,6 +355,22 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
   assert.equal(client.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
+// 지금 답. 곡을 찾기 전에 플레이어를 만들어 두어, 찾지 못하면 연결도 곡도 없는 플레이어가 남는다.
+// 5단계가 찾은 뒤에 만들게 바꾼다(계획서 #19)
+test("봇이 쉬는 서버에서 곡을 못 찾아도 빈 플레이어가 등록부에 남는다", async (t) => {
+  mockResolve = () => ({ success: false, code: "no-result" });
+  const client = makeClient();
+  const guild = makeGuild();
+
+  const result = await requestPlayback(client, { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, query: "없는곡", textChannel: makeChannel("t1"), voiceChannel: voiceOf("v1") });
+
+  assert.equal(result.success, false);
+  const player = playerOf(client);
+  t.after(() => player.voice.stopHealthCheck());
+  assert.equal(player.currentTrack, null);
+  assert.equal(player.connection, null);
+});
+
 test("요청자는 정규화된 모양으로 코어에 들어간다 (대시보드 username undefined 회귀)", async () => {
   mockResolve = () => ok("곡A");
   const client = makeClient();
