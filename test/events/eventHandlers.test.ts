@@ -493,9 +493,9 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   await modalHandler.execute(ok.it);
   assert.deepEqual(w.seen, ["volume:35"]);
   assert.deepEqual(ok.log, [["reply", "🔊 볼륨이 변경되었습니다"]]);
-  assert.equal((await import("../../events/modalHandler.ts")).createVolumeBar(35), "`▓▓▓▓▓▓▓░░░░░░░░░░░░░` 35%");
 
-  for (const bad of ["abc", "101", "-1"]) {
+  // "50abc" 를 50 으로 읽지 않는다(parseInt 가 그랬다)
+  for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
     const r = menu(world(), { customId: "volume_modal", volume: bad, select: false });
     await modalHandler.execute(r.it);
     assert.deepEqual(r.log, [["reply", "❌ 볼륨은 0에서 100 사이의 숫자여야 합니다!"]], bad);

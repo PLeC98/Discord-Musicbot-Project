@@ -9,6 +9,7 @@ import { checkControl } from "../src/usecases/permissions.ts";
 import { expireReply } from "../src/ui/replyLifetime.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import { volumeChanged } from "../src/ui/volumeReply.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, client: Client<true>) {
@@ -98,38 +99,13 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
 }
 
 async function handleVolumeModal(interaction: ModalSubmitInteraction<"cached">, client: Client<true>) {
-  const volume = parseInt(interaction.fields.getTextInputValue("volume_input"));
+  // 숫자만 받는다. parseInt 는 "50abc" 를 50 으로 읽는다. 범위는 controls.volume 이 본다
+  const raw = interaction.fields.getTextInputValue("volume_input").trim();
+  const volume = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
   const r = await controls.volume(client.players.get(interaction.guild.id), { member: interaction.member }, volume);
   if (!r.ok) return await interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
-  const embed = new EmbedBuilder()
-    .setTitle("🔊 볼륨이 변경되었습니다")
-    .setDescription(`볼륨이 **${r.level}%**로 설정되었습니다!`)
-    .setColor(config.bot.embedColor)
-    .setTimestamp()
-    .addFields({
-      name: "👤 설정한 사람",
-      value: `${interaction.member}`,
-      inline: true,
-    });
-
-  // 시각적 볼륨 바
-  embed.addFields({
-    name: "🔉 레벨",
-    value: createVolumeBar(r.level),
-    inline: false,
-  });
-
-  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-}
-
-function createVolumeBar(volume: number) {
-  const barLength = 20;
-  const filledBars = Math.floor((volume / 100) * barLength);
-  const emptyBars = barLength - filledBars;
-
-  const bar = "▓".repeat(filledBars) + "░".repeat(emptyBars);
-  return `\`${bar}\` ${volume}%`;
+  await interaction.reply({ embeds: [volumeChanged({ before: r.before, level: r.level, by: interaction.member })], flags: MessageFlags.Ephemeral });
 }
 
 const exported: ClientEvent<Events.InteractionCreate> = {
@@ -172,4 +148,4 @@ const exported: ClientEvent<Events.InteractionCreate> = {
   },
 };
 export default exported;
-export { handleAutoplayGenre, handleJumpTo, handleVolumeModal, createVolumeBar };
+export { handleAutoplayGenre, handleJumpTo, handleVolumeModal };
