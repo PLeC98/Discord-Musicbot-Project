@@ -2,7 +2,6 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBu
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import { formatDuration } from "./format.ts";
 import { progressBar, emptyProgressBar } from "./progressBar.ts";
 import { labelOf } from "./platforms.ts";
 
@@ -523,7 +522,7 @@ class MusicEmbedManager {
     const bar = progressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive) });
 
     const artistValue = track.artist || "-";
-    const platformValue = this.getPlatformLabel(track.platform);
+    const platformValue = labelOf(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# 👤 ${escapeMd(artistValue)}` : "";
     // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.ts).
@@ -849,20 +848,6 @@ class MusicEmbedManager {
 
   queueFullMessage() {
     return `대기열이 가득 찼습니다 (최대 ${config.bot.maxQueueSize}곡)`;
-  }
-
-  /**
-   * 초 단위 길이를 H:MM:SS 또는 M:SS 형식으로 변환합니다. (공용 구현: src/ui/format.ts)
-   */
-  formatDuration(seconds: number | string | null | undefined) {
-    return formatDuration(seconds);
-  }
-
-  /**
-   * 플랫폼 이름에 해당하는 명칭과 이모지를 반환합니다. 모르는 값은 첫 글자만 대문자로 올립니다.
-   */
-  getPlatformLabel(platform: string | null | undefined) {
-    return labelOf(platform);
   }
 
   /**

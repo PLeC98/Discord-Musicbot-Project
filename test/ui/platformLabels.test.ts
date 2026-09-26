@@ -32,3 +32,24 @@ test("이름표가 있는 플랫폼은 이모지도 있다", () => {
   assert.equal(emojiOf("bandcamp"), "🎵");
   assert.equal(emojiOf(""), "🎵");
 });
+
+// 회귀 대상: platform 을 그대로 첫 글자만 올려 썼다. platform 은 내부 분류 코드라
+// "Lbradio"·"Vocadb"·"Lastfm" 처럼 아무도 안 쓰는 표기가 패널에 그대로 나왔다.
+test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
+  const label = labelOf;
+
+  assert.equal(label("lbradio"), "ListenBrainz Radio");
+  assert.equal(label("lastfm"), "Last.fm");
+  assert.equal(label("vocadb"), "VocaDB");
+  assert.equal(label("utaitedb"), "UtaiteDB");
+  assert.equal(label("touhoudb"), "TouhouDB");
+  assert.equal(label("animethemes"), "AnimeThemes");
+  assert.equal(label("youtube"), "YouTube");
+  assert.equal(label("soundcloud"), "SoundCloud");
+  assert.equal(label("direct"), "직접 링크");
+
+  // 모르는 값은 첫 글자만 올린다 — 없는 것보다 낫다
+  assert.equal(label("새소스"), "새소스");
+  assert.equal(label("mixcloud"), "Mixcloud");
+  assert.equal(label(null), "-");
+});
