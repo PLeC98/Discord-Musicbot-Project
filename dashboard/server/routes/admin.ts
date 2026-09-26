@@ -290,6 +290,8 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
     pingText: assist.PING_TEXT,
     defaultSections: assist.DEFAULT_SECTIONS,
     defaultLine: assist.DEFAULT_LINE,
+    // 비운 칸이 쓰는 값. 화면이 흐리게 보여 준다(베껴 두지 않는다)
+    settingDefaults: assist.DEFAULTS,
   });
 });
 

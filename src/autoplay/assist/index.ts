@@ -1185,5 +1185,5 @@ function mask(text: unknown): string {
   return out;
 }
 
-export { filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE, useFetch };
+export { DEFAULTS, filter, accepts, settings, preview, judgeTest, candidatesFromUrls, renderList, listModels, ping, parseExtra, endpointOf, PROVIDER_SPECS, PROVIDERS, REDACTED, PING_TEXT, DEFAULT_PROMPT, DEFAULT_SECTIONS, DEFAULT_LINE, useFetch };
 export type { AiSettings, Judged, TestCandidate, AiPick };

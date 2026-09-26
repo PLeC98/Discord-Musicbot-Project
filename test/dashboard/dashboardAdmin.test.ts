@@ -521,7 +521,10 @@ test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", 
 
 // 키는 .env 에 있고 화면으로 내려가면 안 된다. XSS 하나로 새어 나가는 자리다.
 test("AI 보조: 키 값은 내려보내지 않고 있는지만 알려 준다", async () => {
-  const { status, json } = await req<{ hasKey: Record<string, boolean>; defaultSections: unknown }>("GET", "/api/admin/ai/state");
+  const { status, json } = await req<{ hasKey: Record<string, boolean>; defaultSections: unknown; settingDefaults: Record<string, unknown> }>("GET", "/api/admin/ai/state");
+  // 비운 칸이 쓰는 값. 화면이 흐리게 보여 준다
+  assert.equal(json.settingDefaults.retries, 2);
+  assert.deepEqual(json.settingDefaults.retryStatus, [408, 409, 429, 500, 502, 503, 504, 529]);
   assert.equal(status, 200);
   // 프로바이더마다 있는지 없는지만 — 값은 어디에도 없다
   assert.equal(typeof json.hasKey, "object");

@@ -192,12 +192,42 @@
         </div>
       </BaseCard>
 
+      <BaseCard icon="gear" title="부르기 · 재시도" class="mb-3">
+        <p class="text-muted text-[0.82rem] mb-3">실패하면 설정대로 다시 부르고, 끝내 실패하면 그 판정은 규칙만으로 고릅니다. 비워 두면 흐린 값(기본값)을 씁니다.</p>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'부르기 한 번의 상한. 경량 모델도 30초 넘게 걸리는 일이 흔합니다'">타임아웃(초)</span>
+            <NumberInput v-model="timeoutSec" :placeholder="defaultSec('timeoutMs')" :class="inputCls" />
+          </label>
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'실패 시 다시 부르는 횟수. 0 이면 다시 부르지 않습니다'">재요청 횟수</span>
+            <NumberInput v-model="draft.retries" :placeholder="defaultOf('retries')" :class="inputCls" />
+          </label>
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'재시도와 대기를 합친 판정 하나의 상한. 0 은 상한 없음'">판정 전체 상한(초)</span>
+            <NumberInput v-model="totalSec" :placeholder="defaultSec('totalTimeoutMs')" :class="inputCls" />
+          </label>
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'처음 대기. 그 뒤 두 배씩 늘려 상한까지'">재시도 대기(초)</span>
+            <NumberInput v-model="delaySec" decimal :placeholder="defaultSec('retryDelayMs')" :class="inputCls" />
+          </label>
+          <label class="block">
+            <span :class="labelCls" v-tooltip="'서버가 이보다 길게 기다리라고 하면 다시 부르지 않습니다. 제미니 API 는 30~60초를 요구합니다'">대기 상한(초)</span>
+            <NumberInput v-model="delayMaxSec" decimal :placeholder="defaultSec('retryDelayMaxMs')" :class="inputCls" />
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer self-end pb-2.5">
+            <input v-model="draft.retryTimeouts" type="checkbox" class="size-4 accent-accent shrink-0" />
+            <span class="text-[0.82rem]" v-tooltip="'이미 오래 기다린 뒤라 기본은 끔입니다'">시간 초과도 다시 부르기</span>
+          </label>
+        </div>
+        <label class="block mt-3">
+          <span :class="labelCls" v-tooltip="'연결 실패는 따로 적지 않아도 다시 부릅니다. 400 · 401 · 403 · 404 는 넣지 마세요(다시 불러도 같은 답)'">다시 부를 상태 코드</span>
+          <ChipInput :model-value="(draft.retryStatus ?? []).map(String)" :placeholder="defaultOf('retryStatus')" @update:model-value="setRetryStatus" />
+        </label>
+      </BaseCard>
+
       <BaseCard icon="list" title="후보 목록 형식" class="mb-3">
         <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 pb-4 border-b border-white/8">
-          <label class="block">
-            <span :class="labelCls" v-tooltip="'이 시간을 넘기면 포기하고 규칙으로 고릅니다'">타임아웃(초)</span>
-            <NumberInput v-model="timeoutSec" :class="inputCls" />
-          </label>
           <label class="block">
             <span :class="labelCls" v-tooltip="'곡마다 따로 물으면 느립니다'">리퀘스트당 판정을 맡길 곡 수</span>
             <NumberInput v-model="draft.batchSize" :class="inputCls" />
@@ -698,12 +728,30 @@ const extraText = computed({
 });
 
 // 파일은 밀리초로 적히지만 사람에게는 초가 낫다
-const timeoutSec = computed({
-  get: () => (draft.value.timeoutMs == null ? null : Math.round(draft.value.timeoutMs / 1000)),
-  set: (v) => {
-    draft.value.timeoutMs = v == null ? null : v * 1000;
-  },
-});
+const secondsOf = (key, round = true) =>
+  computed({
+    get: () => (draft.value[key] == null ? null : round ? Math.round(draft.value[key] / 1000) : draft.value[key] / 1000),
+    set: (v) => {
+      draft.value[key] = v == null ? null : Math.round(v * 1000);
+    },
+  });
+const timeoutSec = secondsOf("timeoutMs");
+const totalSec = secondsOf("totalTimeoutMs");
+const delaySec = secondsOf("retryDelayMs", false);
+const delayMaxSec = secondsOf("retryDelayMaxMs", false);
+
+// 비운 칸이 쓰는 값(서버의 기본값). 흐린 글로 보여 준다
+const settingDefaults = ref({});
+const defaultOf = (key) => {
+  const value = settingDefaults.value[key];
+  return value == null ? "" : Array.isArray(value) ? value.join(" · ") : String(value);
+};
+const defaultSec = (key) => (settingDefaults.value[key] == null ? "" : String(settingDefaults.value[key] / 1000));
+// 상태 코드는 수로 적는다. 수가 아닌 것은 버린다. 다 지우면 칸을 비운다(기본값)
+function setRetryStatus(values) {
+  const codes = values.map(Number).filter((n) => Number.isInteger(n));
+  draft.value.retryStatus = codes.length ? codes : null;
+}
 
 // 설정과 프롬프트는 딴 파일이라 저장도 따로 간다.
 // 섹션 이름은 ChatML 에 적을 자리가 없어 설정 쪽에 같이 실어 보낸다(차례가 곧 짝이다).
@@ -1095,6 +1143,7 @@ async function fetchState() {
     if (state.providers?.length) providers.value = state.providers;
     pingText.value = state.pingText || "";
     defaults.value = { sections: state.defaultSections || [], line: state.defaultLine || "" };
+    settingDefaults.value = state.settingDefaults || {};
   } catch {
     keyPresence.value = {};
   }
