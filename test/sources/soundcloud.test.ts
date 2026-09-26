@@ -91,8 +91,9 @@ test("세트: 한 구간을 온전히 읽고, 받을 수 없는 곡과 미리듣
     found.tracks.map((t) => t.title),
     ["SC a", "SC b"],
   );
-  assert.deepEqual({ total: found.total, nextOffset: found.nextOffset, setId: found.setId, skipped: found.skipped }, { total: 50, nextOffset: 15, setId: "1860035430", skipped: { preview: 1, unavailable: 2 } });
+  assert.deepEqual({ total: found.total, nextOffset: found.nextOffset, setId: found.setId, skipped: found.skipped }, { total: 50, nextOffset: 15, setId: "1860035430", skipped: 3 });
   assert.equal(calls[0].flags.playlistItems, "11:20", "서버 설정이 50이어도 10곡씩");
+  assert.equal(calls[0].flags.extractorArgs, "soundcloud:formats=hls_aac", "세트는 AAC 만 묻는다(요청을 줄인다)");
 });
 
 test("짧은 링크가 세트를 가리키면 세트로 읽는다", async () => {

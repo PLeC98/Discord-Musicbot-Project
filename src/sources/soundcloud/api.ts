@@ -8,7 +8,7 @@ import * as run from "./run.ts";
 import type { YtInfo } from "../ytdlpInfo.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlpSpawn.ts";
 
-/** 세트에서 한 번에 받는 곡 수. 곡마다 요청이 들어(4) 서버의 재생목록 곡 수 설정과 상관없이 이만큼씩 받고 나머지는 "더 넣기"로 */
+/** 세트에서 한 번에 받는 곡 수. 곡마다 요청이 들어(3) 서버의 재생목록 곡 수 설정과 상관없이 이만큼씩 받고 나머지는 "더 넣기"로 */
 const SET_BATCH = 10;
 
 // 제목이 없는 곡은 없다시피 해 표시 문구로 채운다. 가수(올린 사람)는 비워 둔다
@@ -16,8 +16,8 @@ const UNKNOWN_TITLE = "알 수 없는 제목";
 
 /** 찾은 곡. 트랙 모델(player/track)의 TrackInfo 와 같은 칸 */
 type ScTrack = { title: string; artist?: string; duration: number; thumbnail?: string | null; platform: "soundcloud"; id?: string; pageUrl: string; requestKey: string; audioUrl: string };
-/** 세트 한 구간. total 은 세트 전체 곡 수, setId 는 이어 받을 때 부를 숫자 id. 뺀 곡은 미리듣기 · 받을 수 없음(지역 제한 등)으로 센다 */
-type ScSet = { title: string | null; setId: string | null; tracks: ScTrack[]; total: number | null; nextOffset: number; skipped: { preview: number; unavailable: number } };
+/** 세트 한 구간. total 은 세트 전체 곡 수, setId 는 이어 받을 때 부를 숫자 id, skipped 는 받을 수 없어 뺀 곡 수(미리듣기 · 지역 제한 등) */
+type ScSet = { title: string | null; setId: string | null; tracks: ScTrack[]; total: number | null; nextOffset: number; skipped: number };
 /** 곡 찾기가 받는 것. 짧은 링크는 풀어 봐야 곡인지 세트인지 안다 */
 type Found = { kind: "track"; track: ScTrack } | ({ kind: "set" } & ScSet);
 
@@ -56,31 +56,25 @@ function oneTrack(item: YtInfo): ScTrack {
   return track;
 }
 
-// 세트의 한 구간. 받을 수 없는 곡(null)과 미리듣기는 빼고 센다
+// 세트의 한 구간. 받을 수 없는 곡(null. 세트는 AAC 만 물어 미리듣기도 여기로 온다)과 미리듣기(짧은 링크로 들어온 세트)는 빼고 센다
 function setOf(info: YtInfo, offset: number): ScSet {
-  const skipped = { preview: 0, unavailable: 0 };
-  const tracks: ScTrack[] = [];
   const entries = info.entries || [];
-  for (const raw of entries) {
+  const tracks = entries.flatMap((raw) => {
     const item = readInfo(raw);
-    if (!item) skipped.unavailable++;
-    else if (previewOnly(item)) skipped.preview++;
-    else {
-      const track = trackOf(item);
-      if (track) tracks.push(track);
-      else skipped.unavailable++;
-    }
-  }
-  return { title: info.title || null, setId: idOf(info.id) ?? null, tracks, total: info.playlist_count ?? null, nextOffset: offset + entries.length, skipped };
+    const track = item && !previewOnly(item) ? trackOf(item) : null;
+    return track ? [track] : [];
+  });
+  return { title: info.title || null, setId: idOf(info.id) ?? null, tracks, total: info.playlist_count ?? null, nextOffset: offset + entries.length, skipped: entries.length - tracks.length };
 }
 
 /**
  * 곡 찾기. 곡 링크면 그 곡, 세트 링크면 offset 부터 한 구간(SET_BATCH 를 넘지 않는다). 짧은 링크는 yt-dlp 가 푼 결과로 가른다.
+ * 곡(과 곡인지 모르는 짧은 링크)은 mp3 까지 물어 미리듣기를 까닭으로 알리고, 세트는 AAC 만 물어 요청을 줄인다(미리듣기도 받을 수 없는 곡으로 센다).
  * 실패는 이름을 단 오류로 던진다(없는 곡 · 세트, 지역 차단, 미리듣기, 요청 제한, 네트워크)
  */
 async function find(url: string, { offset = 0, limit = SET_BATCH, what = "track" }: { offset?: number; limit?: number; what?: run.What } = {}, exec: RunYtDlp = youtubedl): Promise<Found> {
   const size = Math.max(1, Math.min(limit, SET_BATCH));
-  const info = readInfo(await run.read(url, "lookup", what, { playlistItems: `${offset + 1}:${offset + size}` }, exec));
+  const info = readInfo(await run.read(url, what === "set" ? "play" : "lookup", what, { playlistItems: `${offset + 1}:${offset + size}` }, exec));
   if (!info) throw new Error("yt-dlp 가 정보를 주지 않았습니다");
   if (info._type === "playlist") return { kind: "set", ...setOf(info, offset) };
   return { kind: "track", track: oneTrack(info) };

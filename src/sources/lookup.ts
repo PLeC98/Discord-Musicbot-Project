@@ -93,8 +93,8 @@ async function fromSpotify(query: string, range: Range, spotify: Sources["spotif
 async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["soundcloud"]): Promise<Found> {
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloudURL(query) === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
-  const skipped = found.skipped.preview + found.skipped.unavailable;
-  if (skipped > 0) log.info(`사운드클라우드 세트에서 ${skipped}곡을 뺍니다(미리듣기 ${found.skipped.preview} · 받을 수 없음 ${found.skipped.unavailable}): ${found.title ?? query}`);
+  const { skipped } = found;
+  if (skipped > 0) log.info(`사운드클라우드 세트에서 받을 수 없는 ${skipped}곡을 뺍니다(미리듣기 · 지역 제한 등): ${found.title ?? query}`);
   const secret = /\/s-[\w-]+\/?$/.test(new URL(query).pathname);
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
@@ -140,7 +140,7 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
   if (links.isSpotifyURL(url)) return spotify.getCollection(url, range);
   if (links.parseSoundCloudURL(url) === "set") {
     const found = await soundcloud.find(url, { ...range, what: "set" });
-    return found.kind === "set" ? { tracks: found.tracks, total: found.total, nextOffset: found.nextOffset, skipped: found.skipped.preview + found.skipped.unavailable } : none;
+    return found.kind === "set" ? { tracks: found.tracks, total: found.total, nextOffset: found.nextOffset, skipped: found.skipped } : none;
   }
   return none;
 }

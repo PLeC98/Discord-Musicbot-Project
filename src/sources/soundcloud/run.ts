@@ -11,9 +11,9 @@ import type { RunYtDlp, YtDlpFlags } from "../ytdlpSpawn.ts";
 
 /**
  * 묻는 포맷(yt-dlp 의 soundcloud:formats).
- *   play         재생 · 캐시 받기. AAC 160k 가 SoundCloud 가 권하는 것이다(mp3 · opus 는 공식 API 에서 없앤다고 발표했다). 요청 3
+ *   play         재생 · 캐시 받기 · 세트 읽기. AAC 160k 가 SoundCloud 가 권하는 것이다(mp3 · opus 는 공식 API 에서 없앤다고 발표했다). 요청 3
  *   progressive  HLS 를 못 여는 ffmpeg. 파일 하나로 받는 mp3. 요청 2
- *   lookup       곡 찾기. 미리듣기는 mp3 조각만 있어 aac 만 물으면 "포맷 없음"이 된다. mp3 까지 물어야 미리듣기(_preview)와 다른 실패를 가른다. AAC 가 없는 곡도 이것으로 튼다. 요청 4
+ *   lookup       곡 링크 찾기. 미리듣기는 mp3 조각만 있어 aac 만 물으면 "포맷 없음"이 된다. mp3 까지 물어야 미리듣기(_preview)와 다른 실패를 가른다. AAC 가 없는 곡도 이것으로 튼다. 요청 4
  */
 const FORMATS = { play: "hls_aac", progressive: "http_mp3", lookup: "hls_aac,http_mp3" } as const;
 type Formats = keyof typeof FORMATS;
