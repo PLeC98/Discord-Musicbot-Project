@@ -202,7 +202,13 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────
 
-test("대기열 버튼: 비었으면 알리고, 있으면 앞 10곡과 나머지 수를 보인다", async () => {
+// 대기열 화면은 /queue 와 한 벌이다(ui/queueView). 한 쪽 10곡, 넘치면 넘기기 버튼(◀ ▶)
+type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
+type QueueRow = { components: Array<{ data: { custom_id?: string; label?: string; disabled?: boolean } }> };
+type QueuePayload = { content?: string; embeds: QueueEmbed[]; components: QueueRow[] };
+const buttonsOf = (p: QueuePayload) => p.components.flatMap((row) => row.components.map((c) => [c.data.label, c.data.custom_id, !!c.data.disabled]));
+
+test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 쪽과 넘기기 버튼", async () => {
   const w = world();
   const empty = press(w, "music_queue:u:S1");
   await buttonHandler.execute(empty.it);
@@ -210,24 +216,51 @@ test("대기열 버튼: 비었으면 알리고, 있으면 앞 10곡과 나머지
 
   w.player.currentTrack = { title: "지금", pageUrl: "now" };
   w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
-  type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
-  const got: { payload?: { embeds: QueueEmbed[] } } = {};
+  const got: { payload?: QueuePayload } = {};
   const full = press(w, "music_queue:u:S1", {
-    reply: async (p: { embeds: QueueEmbed[] }) => {
+    reply: async (p: QueuePayload) => {
       got.payload = p;
     },
   });
   await buttonHandler.execute(full.it);
   const payload = got.payload;
   assert.ok(payload);
-  // 본문(description)에 싣는다. /queue 와 같은 그림
   const text = String(payload.embeds[0].data.description);
   assert.match(text, /^\*\*🎵 현재 재생 중\*\*\n\*\*\[지금\]\(now\)\*\*\n\n\*\*📋 다음 노래들 \(12개\)\*\*\n/);
   assert.match(text, /`10\.` \*\*\[곡10\]/);
-  assert.doesNotMatch(text, /곡11/, "앞 10곡만");
-  assert.match(text, /\*\.\.\. 그리고 2개 더\*$/);
-  assert.equal(payload.embeds[0].data.fields, undefined);
-  assert.equal(payload.embeds[0].data.footer.text, "총 13개의 노래");
+  assert.doesNotMatch(text, /곡11/, "한 쪽 10곡");
+  assert.equal(payload.embeds[0].data.footer.text, "총 13개의 노래 • 1/2 페이지");
+  assert.deepEqual(buttonsOf(payload), [
+    ["◀", "queue_page:0", true],
+    ["▶", "queue_page:2", false],
+  ]);
+});
+
+test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린다. 곡이 없으면 그렇다고 고친다", async () => {
+  const w = world();
+  w.player.currentTrack = { title: "지금", pageUrl: "now" };
+  w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
+  const updates: QueuePayload[] = [];
+  const next = press(w, "queue_page:2", { update: async (p: QueuePayload) => updates.push(p) });
+  await buttonHandler.execute(next.it);
+  const text = String(updates[0].embeds[0].data.description);
+  assert.match(text, /^\*\*📋 다음 노래들 \(12개\)\*\*\n`11\.` \*\*\[곡11\]/, "현재 곡은 첫 쪽에만, 번호는 이어 센다");
+  assert.equal(updates[0].embeds[0].data.footer.text, "총 13개의 노래 • 2/2 페이지");
+  assert.deepEqual(buttonsOf(updates[0]), [
+    ["◀", "queue_page:1", false],
+    ["▶", "queue_page:3", true],
+  ]);
+
+  // 그사이 곡이 줄어 쪽이 없어졌으면 끝 쪽으로
+  w.player.queue = w.player.queue.slice(0, 3);
+  await buttonHandler.execute(press(w, "queue_page:2", { update: async (p: QueuePayload) => updates.push(p) }).it);
+  assert.equal(updates[1].embeds[0].data.footer.text, "총 4개의 노래");
+  assert.deepEqual(updates[1].components, [], "한 쪽이면 버튼이 없다");
+
+  w.player.currentTrack = null;
+  w.player.queue = [];
+  await buttonHandler.execute(press(w, "queue_page:1", { update: async (p: QueuePayload) => updates.push(p) }).it);
+  assert.deepEqual(updates[2], { content: S.ERR_NO_SONGS_IN_QUEUE, embeds: [], components: [] });
 });
 
 // ── 자동재생 버튼 ─────────────────────────────────────────────────────

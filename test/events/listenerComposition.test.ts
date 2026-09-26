@@ -87,6 +87,7 @@ async function answerers(kind: Kind, customId: string) {
 const PANEL = ["music_pause", "music_skip", "music_previous", "music_stop", "music_shuffle", "music_queue", "music_loop", "music_highlight", "music_volume", "music_autoplay"].map((n) => `${n}:u1:s1`);
 const CASES: [Kind, string, string][] = [
   ...PANEL.map((id): [Kind, string, string] => ["button", id, "buttonHandler"]),
+  ["button", "queue_page:2", "buttonHandler"],
   ["button", "help_refresh", "buttonHandler"],
   ["button", "system_refresh", "buttonHandler"],
   ["button", "search_select_0", "buttonHandler"],

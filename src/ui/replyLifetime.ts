@@ -37,6 +37,7 @@ const COMMANDS: Record<string, number | null> = {
 // 버튼·메뉴·모달. custom_id의 ":" 앞
 const COMPONENTS: Record<string, number | null> = {
   music_queue: null, // 대기열 보기
+  queue_page: null, // 대기열 넘기기(같은 화면을 고친다)
   help_refresh: null,
   system_refresh: null,
 };

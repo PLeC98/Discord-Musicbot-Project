@@ -16,7 +16,7 @@ const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
 };
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
-import { queueDescription } from "../src/ui/queueDisplay.ts";
+import { queueView, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import type { ClientEvent } from "../src/app/main.ts";
@@ -35,6 +35,7 @@ const FREE: Array<[prefix: string, ((it: Press) => unknown) | null]> = [
   ["help_refresh", (it) => handleHelpRefresh(it)],
   ["system_refresh", (it) => handleSystemRefresh(it)],
   ["music_autoplay:", (it) => handleAutoplayButton(it)],
+  [PAGE_PREFIX, (it) => handleQueuePage(it)],
 ];
 
 // 재생 패널의 버튼. customId 는 "이름:요청자:세션"
@@ -148,16 +149,17 @@ async function handleQueue(interaction: Press, player: MusicPlayer) {
     });
   }
 
-  const embed = new EmbedBuilder().setTitle("📝 재생 대기열").setColor(config.bot.embedColor).setTimestamp();
+  await interaction.reply({ ...queueView(queueInfo), flags: [1 << 6] });
+}
 
-  const more = queueInfo.queue.length > 10 ? `\n*... 그리고 ${queueInfo.queue.length - 10}개 더*` : null;
-  embed.setDescription(queueDescription({ current: queueInfo.current, header: `📋 다음 노래들 (${queueInfo.queue.length}개)`, tracks: queueInfo.queue.slice(0, 10), more }));
-
-  embed.setFooter({
-    text: `총 ${queueInfo.queue.length + (queueInfo.current ? 1 : 0)}개의 노래`,
-  });
-
-  await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+// 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그렇다고 고친다
+async function handleQueuePage(interaction: Press) {
+  const player = interaction.client.players.get(interaction.guild.id);
+  const info = player?.getQueue();
+  if (!info || (!info.current && info.queue.length === 0)) {
+    return interaction.update({ content: player ? S.ERR_NO_SONGS_IN_QUEUE : S.ERR_NO_MUSIC, embeds: [], components: [] });
+  }
+  return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
 
 async function handleShuffle(interaction: Press, player: MusicPlayer) {
@@ -394,4 +396,4 @@ const exported: ClientEvent<Events.InteractionCreate> = {
   },
 };
 export default exported;
-export { handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleShuffle, handleHighlight, handleVolumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
+export { handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };

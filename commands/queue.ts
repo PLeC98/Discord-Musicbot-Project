@@ -1,10 +1,7 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import config from "../config.ts";
+import { SlashCommandBuilder } from "discord.js";
 import * as S from "../src/ui/strings.ts";
-import { queueDescription } from "../src/ui/queueDisplay.ts";
+import { queueView } from "../src/ui/queueView.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-
-const PAGE_SIZE = 10;
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder()
@@ -27,20 +24,7 @@ const exported: GuildCommand = {
       return interaction.reply({ content: S.ERR_NO_SONGS_IN_QUEUE, flags: [1 << 6] });
     }
 
-    const totalQueueTracks = queueInfo.queue.length;
-    const totalPages = Math.max(1, Math.ceil(totalQueueTracks / PAGE_SIZE));
-    const page = Math.min(interaction.options.getInteger("page") ?? 1, totalPages);
-    const offset = (page - 1) * PAGE_SIZE;
-
-    const embed = new EmbedBuilder().setTitle("📝 재생 대기열").setColor(config.bot.embedColor).setTimestamp();
-
-    embed.setDescription(queueDescription({ current: page === 1 ? queueInfo.current : null, header: `📋 다음 노래들 (${totalQueueTracks}개)`, tracks: queueInfo.queue.slice(offset, offset + PAGE_SIZE), first: offset + 1 }));
-
-    embed.setFooter({
-      text: `총 ${totalQueueTracks + (queueInfo.current ? 1 : 0)}개의 노래${totalPages > 1 ? ` • ${page}/${totalPages} 페이지` : ""}`,
-    });
-
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    await interaction.reply({ ...queueView(queueInfo, interaction.options.getInteger("page") ?? 1), flags: [1 << 6] });
   },
 };
 export default exported;
