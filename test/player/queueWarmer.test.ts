@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { QueueWarmer, type WarmerDeps, type WarmerHost } from "../../src/player/queueWarmer.ts";
 import sink from "../../src/infra/log/sink.ts";
+import config from "../../config.ts";
 import logger from "../../src/infra/log/logger.ts";
 import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -140,6 +141,20 @@ test("캐시 상한보다 긴 곡은 대상이 아니다. 길이를 모르는 �
   await settle();
 
   assert.deepEqual(warmed, ["yt:edge", "yt:unknown"], "기본 상한 60분. 딱 60분은 받는다");
+});
+
+test("캐시 길이 상한이 0 이면 긴 곡도 받는다", async () => {
+  const saved = config.cache.maxTrackSec;
+  config.cache.maxTrackSec = 0;
+  try {
+    const { warmer, warmed } = makeWarmer({ queue: [track("long", { duration: 6 * 3600 })] });
+    warmer.tick();
+    warmer.tick();
+    await settle();
+    assert.deepEqual(warmed, ["yt:long"]);
+  } finally {
+    config.cache.maxTrackSec = saved;
+  }
 });
 
 test("한곡 반복 중에는 예열하지 않는다 (다음 곡이 현재 곡이다)", async () => {
