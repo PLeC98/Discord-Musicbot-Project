@@ -80,14 +80,21 @@ test("tik 은 특수 토큰 글자를 글자 그대로 센다", async () => {
 // tik 은 공백 없는 긴 글에서 느리다. 세는 동안에도 이쪽 타이머는 돌아야 한다
 test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
   await tokens.count("a", "tik"); // 스레드와 표를 먼저 띄운다
-  let ticks = 0;
-  const ticking = setInterval(() => ticks++, 20);
+  // 타이머 사이의 가장 긴 틈을 잰다. 이 스레드에서 세면 틈이 세는 시간 전체가 된다(횟수로 재면 다른 시험이 함께 돌 때 흔들린다)
+  let last = performance.now();
+  let widest = 0;
+  const ticking = setInterval(() => {
+    const now = performance.now();
+    widest = Math.max(widest, now - last);
+    last = now;
+  }, 20);
   const started = performance.now();
   await tokens.count("가".repeat(8000), "tik");
   clearInterval(ticking);
+  widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
   const took = performance.now() - started;
   assert.ok(took > 200, `느린 글이어야 시험이 된다(${Math.round(took)}ms)`);
-  assert.ok(ticks >= (took / 20) * 0.5, `타이머가 ${ticks}번 돌았다(${Math.round(took)}ms)`);
+  assert.ok(widest < took * 0.5, `타이머 틈이 ${Math.round(widest)}ms 까지 벌어졌다(세기 ${Math.round(took)}ms)`);
 });
 
 test("상한을 넘기면 실패로 답하고 다음 세기는 새로 띄운 스레드가 한다", async () => {
