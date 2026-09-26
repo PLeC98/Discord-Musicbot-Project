@@ -25,9 +25,9 @@ type Field = {
   // list: 치는 동안 사이트에서 후보를 받는다(/api/admin/source-suggest). 아무 말이나 적을 수도 있다
   suggest?: "tags" | "artists";
 };
-/** 소스 한 종류의 규격(아래 SPEC 의 설명) */
 /** 곡이 많을 때 고르는 범위. 정렬 순서의 앞 depth 곡에서만 고르고, narrow 의 칸을 채우면 더 앞쪽(narrowDepth)에서 */
 type Window = { depth: number; narrow: string[]; narrowDepth: number };
+/** 소스 한 종류의 규격(아래 SPEC 의 설명) */
 type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; has?: () => boolean; fields: Field[]; window?: Window };
 
 // VocaDB 계열은 깊은 곳을 저쪽이 못 준다(실측은 sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 고른다
@@ -59,13 +59,6 @@ const ANISONG_GENRES = ["Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fant
 //              사람들이 듣는 것은 Arrangement 46,557곡 쪽이다(Bad Apple!! · チルノのパーフェクトさんすう教室).
 const VOCA_DEFAULT_TYPES: Partial<Record<Site, string[]>> = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
-/**
- * 소스 타입 명세. 설정 검증과 실행이 같은 표를 본다.
- *
- *   label  사람에게 보일 이름(기동 경고 문구에 쓴다)
- *   need   반드시 있어야 하는 값. 안쪽 배열은 "이 중 하나는 있어야 한다"
- *   env    .env에 있어야 하는 이름(없으면 그 소스만 못 쓴다)
- */
 // 값이 정해져 있는 칸들. 오타를 설정 시점에 잡는다. 안 그러면 저쪽이 422/400을 돌려주고
 // 그 소스가 조용히 빈손이 되어, 설정은 멀쩡한데 그 소스만 안 쓰이는 꼴이 된다.
 const SEASONS = ["Winter", "Spring", "Summer", "Fall"];
@@ -243,6 +236,13 @@ function vocaFields(site: Site): Field[] {
   ];
 }
 
+/**
+ * 소스 타입 명세. 설정 검증과 실행이 같은 표를 본다.
+ *
+ *   label  사람에게 보일 이름(기동 경고 문구에 쓴다)
+ *   need   반드시 있어야 하는 값. 안쪽 배열은 "이 중 하나는 있어야 한다"
+ *   env    .env에 있어야 하는 이름(없으면 그 소스만 못 쓴다)
+ */
 const SPEC: Record<string, SourceSpec> = {
   keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 뽑아 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 뽑아 사용합니다" })] },
   lastfm: {

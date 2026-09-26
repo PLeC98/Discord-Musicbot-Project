@@ -559,9 +559,6 @@ class MusicEmbedManager {
   }
 
   /**
-   * 진행 바 문자열을 빌드합니다.
-   */
-  /**
    * 현재 재생 임베드를 제자리에서 갱신합니다.
    */
   async updateNowPlayingEmbed(player: MusicPlayer) {

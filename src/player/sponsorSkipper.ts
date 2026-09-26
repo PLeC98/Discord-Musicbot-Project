@@ -11,7 +11,7 @@ type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "
 
 // SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.
 //
-// 핵심: "구간 시작 경계를 자연 재생으로 넘어설 때만" 발동(§계획 5). prevSec→curSec 사이에
+// 핵심: "구간 시작 경계를 자연 재생으로 넘어설 때만" 발동. prevSec→curSec 사이에
 // seg.start가 들어오면 발동하고, 매 play(seek 포함)마다 prevSec를 seek 지점으로 리셋한다.
 // → 사용자가 구간 안으로 직접 seek하면 seg.start > prevSec 가 거짓이 되어 자동 스킵이 안 걸림
 //   (= "수동 진입 허용"을 별도 상태 없이 교차 감지만으로 처리).

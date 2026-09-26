@@ -2,7 +2,7 @@
 // 듣는 쪽은 조립(src/app/main.ts)이 건다. 알림을 기다리면(await) 듣는 쪽이 끝날 때까지 기다린다.
 //
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
-//   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · disconnected)
+//   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · stop · leave · disconnected · joined)
 //   started(player, requester)  패널 없이 재생이 시작됐다(자동재생 첫 곡). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
 //   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)

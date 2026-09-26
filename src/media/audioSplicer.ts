@@ -3,7 +3,7 @@
 // ffmpeg와 createAudioResource 사이에 두면 AudioPlayer는 소스가 바뀐 줄 모르고 playbackDuration도 이어진다.
 // 이음매는 등출력(cos/sin) 크로스페이드로 덮는다. 선형으로 섞으면 교차점에서 -6dB 딥이 생긴다.
 //
-// 입출력 모두 s16le 48kHz 스테레오 PCM (MusicPlayer.buildFfmpegArgs의 출력 형식).
+// 입출력 모두 s16le 48kHz 스테레오 PCM (media/ffmpeg/args.ts 의 출력 형식).
 
 import { Readable } from "stream";
 

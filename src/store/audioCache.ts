@@ -445,7 +445,7 @@ async function evict() {
     })
     .sort((a, b) => b._score - a._score);
 
-  // 하위 20% 제거, 실행당 최대 50개
+  // 점수가 높은(지울 만한) 쪽 20%를 지운다. 실행당 최대 50개
   const target = Math.min(Math.ceil(rows.length * 0.2), 50);
   let evicted = 0;
   for (const row of scored.slice(0, target)) {

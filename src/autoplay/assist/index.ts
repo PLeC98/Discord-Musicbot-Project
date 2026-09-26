@@ -121,11 +121,6 @@ const DEFAULTS = { timeoutMs: 60000, batchSize: 10, skipConfident: true };
 const specOf = (provider: string | undefined) => (provider && PROVIDER_SPECS[provider]) || null;
 const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
 
-/**
- * 어디로 보낼지. custom일 때만 설정에 적힌 주소를 쓴다.
- * 프로바이더를 골랐으면 그곳의 주소로 간다. 설정에 남은 옛 주소로 조용히 나가지 않게.
- * 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom으로 간다.
- */
 // 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
 function stripTrailingSlash(text: unknown) {
   const str = String(text || "");
@@ -134,6 +129,11 @@ function stripTrailingSlash(text: unknown) {
   return str.slice(0, end);
 }
 
+/**
+ * 어디로 보낼지. custom일 때만 설정에 적힌 주소를 쓴다.
+ * 프로바이더를 골랐으면 그곳의 주소로 간다. 설정에 남은 옛 주소로 조용히 나가지 않게.
+ * 주소가 틀렸거나 프록시를 앞에 두고 싶으면 custom으로 간다.
+ */
 function endpointOf(one: Partial<AiSettings> | null | undefined) {
   const spec = specOf(one?.provider);
   if (!spec) return "";
@@ -174,19 +174,6 @@ function settings(): AiSettings | null {
   return { ...one, prompt: aiConfig.aiPrompt() };
 }
 
-/**
- * 추가 파라미터. 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
- *
- *   key=value            그대로 (true · false · null · 숫자는 알아서 바꾼다)
- *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
- *   a.b.c=value          점으로 안쪽 칸에 넣는다 (thinking.budget_tokens 처럼)
- *   key=json::{...}      JSON 으로 읽어 넣는다 (객체·배열)
- *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
- *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}} 이면 헤더를 뺀다)
- *   # 주석
- *
- * RisuAI와 같은 입력법이다. 못 읽은 줄은 조용히 버리지 않고 problems로 돌려준다.
- */
 // `__proto__` 한 마디면 Object.prototype이 통째로 오염된다. 점 경로는 설정 글뿐 아니라
 // 모델 레지스트리(받아 오는 남의 데이터)의 mapsTo.path로도 들어오므로 여기서 막는다.
 const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -280,6 +267,19 @@ function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
   return { ok: false };
 }
 
+/**
+ * 추가 파라미터. 한 줄에 하나씩. 서비스마다 이름도 자리도 달라 글로 받는다.
+ *
+ *   key=value            그대로 (true · false · null · 숫자는 알아서 바꾼다)
+ *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
+ *   a.b.c=value          점으로 안쪽 칸에 넣는다 (thinking.budget_tokens 처럼)
+ *   key=json::{...}      JSON 으로 읽어 넣는다 (객체·배열)
+ *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
+ *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}} 이면 헤더를 뺀다)
+ *   # 주석
+ *
+ * RisuAI와 같은 입력법이다. 못 읽은 줄은 조용히 버리지 않고 problems로 돌려준다.
+ */
 function parseExtra(text: unknown): Extra {
   const out: Extra = { body: {}, headers: {}, drop: [], dropHeaders: [], problems: [] };
   for (const raw of String(text || "").split(/\r?\n/)) {
@@ -381,17 +381,6 @@ function buildMessages(one: AiSettings, batch: Judged[], genre: string | undefin
 }
 
 /**
- * 저쪽 규격의 차이를 여기 한 곳에 모은다.
- * 갈래마다 이 여섯 가지만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
- *
- *   chatUrl   생성 요청을 보낼 주소
- *   modelsUrl 모델 목록 주소 (없으면 목록을 못 받는 곳이다)
- *   headers   그 규격이 요구하는 헤더 + 인증 (토큰을 받아야 할 수 있어 async)
- *   body      우리 {role, content} 목록을 저쪽 본문으로
- *   answerOf  응답에서 모델이 쓴 글
- *   modelsOf  모델 목록 응답에서 이름들
- */
-/**
  * 제미니 네이티브 본문. AI 스튜디오와 버텍스가 같은 모양을 쓰고 갈리는 것은 주소와 인증뿐이다.
  * messages가 아니라 contents/parts이고 assistant를 model이라 부른다. system은 systemInstruction,
  * 온도 같은 것은 generationConfig 안에 있다(추가 파라미터도 경로를 적어 넣는다).
@@ -410,6 +399,17 @@ function geminiBody(_one: AiSettings, messages: Wire[]): Body {
 }
 const geminiAnswer = (json: Reply) => (json?.candidates?.[0]?.content?.parts || []).map((part) => part?.text || "").join("");
 
+/**
+ * 저쪽 규격의 차이를 여기 한 곳에 모은다.
+ * 갈래마다 이 여섯 가지만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
+ *
+ *   chatUrl   생성 요청을 보낼 주소
+ *   modelsUrl 모델 목록 주소 (없으면 목록을 못 받는 곳이다)
+ *   headers   그 규격이 요구하는 헤더 + 인증 (토큰을 받아야 할 수 있어 async)
+ *   body      우리 {role, content} 목록을 저쪽 본문으로
+ *   answerOf  응답에서 모델이 쓴 글
+ *   modelsOf  모델 목록 응답에서 이름들
+ */
 type Dialect = {
   chatUrl(one: AiSettings): string;
   modelsUrl(one: AiSettings): string;
@@ -545,8 +545,6 @@ const pickUsage = (input: unknown, output: unknown, thoughts: unknown, { thought
 
 const dialectOf = (one: Partial<AiSettings> | null | undefined): Dialect => DIALECTS[specOf(one?.provider)?.dialect || "openai"] || DIALECTS.openai;
 
-/** 보낼 것 한 벌. 미리보기도 이것을 쓴다. */
-/** 모델이 받는다고 적혀 있는 칸만 싣는다. 안 받는 칸을 보내면 400이므로 모델을 바꾸면 저절로 빠져야 한다. */
 // 배열을 바라는 칸에 글자를 보내면 400이다. 설정을 손으로 고쳤거나 프로필이 바뀌었을 수 있어 한 번 본다.
 function typeOk(type: string | undefined, value: unknown) {
   if (type === "stringArray") return Array.isArray(value);
@@ -583,6 +581,7 @@ async function countTokens(one: AiSettings, messages: Wire[]) {
   }
 }
 
+/** 모델이 받는다고 적혀 있는 칸만 싣는다. 안 받는 칸을 보내면 400이므로 모델을 바꾸면 저절로 빠져야 한다. */
 function withParams(body: Body, one: AiSettings): Body {
   const registry = specOf(one.provider)?.registry;
   if (!registry || !one.model) return body;
@@ -609,6 +608,7 @@ function withParams(body: Body, one: AiSettings): Body {
   return out;
 }
 
+/** 보낼 것 한 벌. 미리보기도 이것을 쓴다. */
 // 판정 요청은 토큰을 세지 않는다. 판정은 그 수를 안 쓰고, 세기가 이벤트 루프를 멈춘다(gemma 세기가 요청마다 수백 ms)
 async function buildRequest(one: AiSettings, batch: Judged[], genre: string | undefined, { live = true }: { live?: boolean } = {}) {
   const dialect = dialectOf(one);
@@ -618,14 +618,10 @@ async function buildRequest(one: AiSettings, batch: Judged[], genre: string | un
   const wire = messages.map(({ role, content }) => ({ role, content }));
 
   // 추가 파라미터가 맨 나중이다. 프로필이 모르는 것을 넣는 비상구이므로 마지막 말을 갖는다
-  const body = withExtra(dialect, withParams(dialect.body(one, wire), one), extra);
+  const body = withExtra(withParams(dialect.body(one, wire), one), extra);
   return { url: dialect.chatUrl(one), headers: headersWith(await dialect.headers(one, { live }), extra), body, messages, wire, problems: extra.problems };
 }
 
-/**
- * 추가 파라미터를 본문에 얹는다. 버텍스는 온도 같은 것이 generationConfig 안에 있어서,
- * 거기로 안 넣으면 적어 둔 값이 조용히 무시된다.
- */
 /** 안쪽 칸까지 합친다. 점 표기로 만든 중첩을 통째로 덮어쓰지 않게. */
 function deepMerge(base: Body, add: Body): Body {
   const out: Body = { ...base };
@@ -652,7 +648,7 @@ function headersWith(base: Record<string, string>, extra: Extra) {
  * 버텍스처럼 안쪽 칸을 쓰는 곳은 `generationConfig.topP=0.9` 로 적는다.
  * 모델 프로필의 mapsTo.path 도 같은 규칙이라, 두 길이 어긋나지 않는다.
  */
-function withExtra(_dialect: Dialect, body: Body, extra: Extra) {
+function withExtra(body: Body, extra: Extra) {
   const out = deepMerge(body, extra.body);
   // {{none}} 은 얹은 뒤에 지워야 앤트로픽 max_tokens 처럼 늘 붙는 것도 뺄 수 있다
   for (const path of extra.drop) delPath(out, path);
@@ -803,7 +799,6 @@ async function accepts(candidate: Judged | null | undefined, about: { genre?: st
   }
 }
 
-/** 지금 설정으로 실제로 부를 수 있는지 재 본다. 대시보드의 "연결 확인" 버튼용. */
 /**
  * 모델 목록만 받아 온다(`GET {baseUrl}/models`). 추론을 안 돌리므로 토큰이 안 든다.
  * 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있고, 받아 온 목록은 화면의 모델 칸을 채우는 데도 쓴다.
@@ -886,7 +881,7 @@ async function ping(draft: Draft) {
   const dialect = dialectOf(one);
   const url = dialect.chatUrl(one);
   const extra = parseExtra(one.extra);
-  const body = withExtra(dialect, dialect.body(one, [{ role: "user", content: PING_TEXT }]), extra);
+  const body = withExtra(dialect.body(one, [{ role: "user", content: PING_TEXT }]), extra);
 
   const started = Date.now();
   let headers: Record<string, string> = {};

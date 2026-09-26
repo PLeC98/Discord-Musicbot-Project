@@ -106,7 +106,7 @@ class LogManager {
     this.buffer = [];
     this.clients = new Set();
     this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
-    this.destinations = []; // file(file.ts), 미래의 샤드 ipc-forward 등 (레코드를 받는 함수)
+    this.destinations = []; // file(file.ts) 등 레코드를 받는 함수
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
     // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다. 그게 파일에서
     // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.
@@ -250,7 +250,7 @@ class LogManager {
    * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
    * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). "SSE 연결을 몇 개까지 두느냐"는 한 가지 질문이다.
    *
-   * 상한을 넘으면 429. 느린 소비자는 _record가 정리한다(아래 write 반환값 확인).
+   * 상한을 넘으면 429. 느린 소비자는 record 가 정리한다(write 반환값을 본다).
    */
   addClient(res: SseClient) {
     const { maxPerUser, heartbeatMs } = config.dashboard.sse;

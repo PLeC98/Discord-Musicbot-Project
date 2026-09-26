@@ -7,7 +7,7 @@
 //                                          플레이어의 바깥 경계로 넘긴다(MusicPlayer.useBoundary). 명령 · 곡 추가가
 //                                          만드는 플레이어도 같은 가짜를 쓴다
 //   캐시 장부                              진짜 audioCache 를 임시 DB 로. "장부에 무엇을 적었나"를 그대로 본다
-//   다운로드 · SponsorBlock · 동등물        모듈 객체의 메서드를 시험마다 바꾼다
+//   다운로드 · SponsorBlock · 동등물        시험마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
 //   음성 연결 · 세션 저장 · 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
 //
 // node --test 는 테스트 파일마다 프로세스를 따로 띄우므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
@@ -157,7 +157,7 @@ const audioCache = await import("../../src/store/audioCache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-// ── 5. 이제 MusicPlayer 와 협력자를 불러 메서드를 바꾼다 ────────────────
+// ── 5. MusicPlayer 와 협력자를 불러 바깥 경계에 가짜를 넘긴다 ────────────────
 const MusicPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
 const { TrackDownloader } = await import("../../src/media/cacheDownload.ts");
 const SponsorBlock = await import("../../src/sources/sponsorBlock.ts");

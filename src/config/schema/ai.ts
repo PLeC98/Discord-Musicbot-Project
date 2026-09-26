@@ -41,13 +41,13 @@ const aiFile = z.preprocess(
       temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
       timeoutMs: between("timeoutMs", 1000, 600000),
       batchSize: between("batchSize", 1, 50),
-      // 추가 파라미터는 한 줄에 하나씩 적는 글이다(autoplayAssist.parseExtra)
+      // 추가 파라미터는 한 줄에 하나씩 적는 글이다(assist/index 의 parseExtra)
       extra: z.string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." }).nullish(),
       prompt: gone(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`),
       project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
       location: z.string({ error: "location는 글자로 적어야 합니다." }).nullish(),
       // 모델이 받는 칸의 값. 모델 이름으로 한 겹 나뉜다. 안 그러면 모델을 바꿨을 때
-      // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(autoplayAssist.withParams).
+      // 앞 모델 값이 따라온다. 칸 이름이 맞는지는 모델 프로필이 판단한다(assist/index 의 withParams).
       params: z
         .record(
           z.string(),
@@ -65,7 +65,7 @@ const aiFile = z.preprocess(
     // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
     .superRefine((data, ctx) => {
       if (!data.provider || data.provider === "off") return;
-      // baseUrl 은 custom 일 때만 쓴다. 나머지는 프로바이더에 박힌 주소로 간다(autoplayAssist)
+      // baseUrl 은 custom 일 때만 쓴다. 나머지는 프로바이더에 박힌 주소로 간다(assist/index)
       if (data.provider === "custom") {
         if (!String(data.baseUrl || "").trim()) ctx.addIssue({ code: "custom", message: "provider가 custom이면 baseUrl을 적어야 합니다." });
         else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) ctx.addIssue({ code: "custom", message: "baseUrl은 http:// 또는 https:// 로 시작해야 합니다." });

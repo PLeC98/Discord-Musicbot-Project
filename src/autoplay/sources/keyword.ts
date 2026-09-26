@@ -15,7 +15,7 @@ async function keyword(source: GenreSource, { search = (query, limit) => YouTube
   const word = pick(source.keywords || []);
   if (!word) return [];
   const results = (await search(word, 15)) || [];
-  // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplayAssist)
+  // fromSearch: 검색 결과라 제목을 못 믿는다는 표시다. AI 보조가 이것만 판정한다(autoplay/assist)
   // 주소를 직접 주는 소스는 출처가 곧 정답이라 물을 것이 없다.
   return results.flatMap((r) => (r.audioUrl && !r.isLive ? [{ title: r.title, durationSec: r.duration, youtubeUrl: r.audioUrl, thumbnail: r.thumbnail, fromSearch: true, sourceKey: `yt:${r.id}` }] : []));
 }

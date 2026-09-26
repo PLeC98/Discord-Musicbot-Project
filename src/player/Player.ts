@@ -1068,7 +1068,7 @@ class MusicPlayer {
     const { defaults, genres } = genreConfig.genres();
     const name = this.autoplay;
     const genre = name ? genres[name] : undefined;
-    // 이름도 같이 넘긴다. AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplayAssist)
+    // 이름도 같이 넘긴다. AI 보조가 "이 장르가 맞나"를 물을 때 쓴다(autoplay/assist)
     return name && genre ? { ...defaults, ...genre, genreName: name } : null;
   }
 

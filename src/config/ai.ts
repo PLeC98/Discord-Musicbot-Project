@@ -125,8 +125,7 @@ function ai(): ConfigData {
   return problems.length ? { ...data, enabled: false } : data;
 }
 
-// 목록은 autoplayAssist 가 갖는다(주소·키 필요 여부까지 거기 있다).
-// 여기서 위로 require 하면 순환이다. 그쪽이 이 파일을 먼저 부른다. 쓸 때 부른다.
+// 목록은 schema/aiProviders 가 갖는다(주소 · 키 필요 여부까지 거기 있다).
 const aiProviders = () => PROVIDERS;
 
 // 프롬프트는 섹션 목록이다. 섹션마다 역할(system·user·assistant)과 내용을 갖는다.
