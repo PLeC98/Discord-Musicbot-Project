@@ -14,7 +14,6 @@ import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
 import { messageOf } from "../rules/errorKind.ts";
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
-const ADAPTER_WAIT_MS = 10_000; // 서버 음성 어댑터가 준비되기를 기다리는 한도
 
 // 로그에 찍을 이름
 const guildName = (p: VoiceHost) => p.guild?.name ?? p.guild?.id;
@@ -256,7 +255,6 @@ class VoiceConnectionManager {
   async connect() {
     const player = this.player;
     try {
-      await this._waitForAdapter();
       await this._join(30000);
       log.info(`음성 채널 참가: "${channelName(player)}" (${guildName(player)})`);
       return true;
@@ -279,37 +277,6 @@ class VoiceConnectionManager {
     this.setupConnectionEvents();
     player.connection.subscribe(player.audioPlayer);
     await this.lib.entersState(player.connection, VoiceConnectionStatus.Ready, readyMs);
-  }
-
-  // 서버 WebSocket 준비 대기 (샤딩에 중요). 어댑터 사용 가능 상태를 최대 10초 대기
-  async _waitForAdapter() {
-    const player = this.player;
-    const startTime = Date.now();
-    while (!player.guild.voiceAdapterCreator && Date.now() - startTime < ADAPTER_WAIT_MS) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      if (await this._refreshGuild()) break;
-    }
-    if (!player.guild.voiceAdapterCreator) {
-      throw new Error("Guild voice adapter not ready after waiting");
-    }
-  }
-
-  // 상태 갱신을 위해 서버를 다시 가져온다. 어댑터가 생겼으면 true
-  async _refreshGuild() {
-    const player = this.player;
-    if (!player.guild.client) return false;
-    try {
-      const freshGuild = await player.guild.client.guilds.fetch(player.guild.id);
-      if (typeof freshGuild?.voiceAdapterCreator !== "function") return false;
-      // 서버 참조 갱신. 캐시된 Guild 인스턴스를 직접 변조(Object.assign)하지 않고
-      // 신선 참조로 재할당. fetch()는 캐시된 동일 인스턴스를 갱신해 돌려주므로
-      // 재할당이 안전하고, 공유 객체의 내부 상태를 덮어쓸 위험이 없다.
-      player.guild = freshGuild;
-      return true;
-    } catch {
-      // 가져오기 오류 무시. 다음 차례에 다시 가져온다
-      return false;
-    }
   }
 
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voiceAdapter)

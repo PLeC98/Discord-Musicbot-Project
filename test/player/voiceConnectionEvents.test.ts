@@ -275,37 +275,6 @@ test("연결: 새로 붙고 구독하고 30초 Ready 를 기다린다", async ()
   assert.deepEqual(entered, [[VoiceConnectionStatus.Ready, 30000]]);
 });
 
-test("연결: 어댑터가 없으면 서버를 다시 받아 오며 기다린다", async () => {
-  const { player, vcm } = makePlayer();
-  const fresh = { ...player.guild, voiceAdapterCreator: () => ({}) };
-  player.guild.voiceAdapterCreator = null;
-  player.guild.client.guilds = { fetch: async () => fresh };
-
-  assert.equal(await vcm.connect(), true);
-  assert.equal(player.guild, fresh, "새 서버 참조로 바꾼다");
-});
-
-test("연결: 10초 기다려도 어댑터가 없으면 던진다", async () => {
-  mock.timers.enable({ apis: ["setTimeout", "Date"] });
-  try {
-    const { player, vcm } = makePlayer();
-    player.guild.voiceAdapterCreator = null;
-    player.guild.client.guilds = { fetch: async () => null };
-
-    const result = vcm.connect().then(
-      () => "ok",
-      (e) => e.message,
-    );
-    for (let i = 0; i < 25; i++) {
-      mock.timers.tick(500);
-      await flush();
-    }
-    assert.equal(await result, "Guild voice adapter not ready after waiting");
-  } finally {
-    mock.timers.reset();
-  }
-});
-
 test("Ready 가 안 오면 연결은 던진다", async () => {
   const { vcm } = makePlayer();
   enters = async () => {
