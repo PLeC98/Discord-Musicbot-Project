@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { inputKind } from "../../src/rules/inputKind.ts";
 import { canonicalUrl } from "../../src/rules/canonicalUrl.ts";
 import { audioKeyOf, md5 } from "../../src/rules/audioKeyOf.ts";
+import { parseSoundCloudURL } from "../../src/rules/links.ts";
 test("inputKind: 사이트 호스트를 먼저 보고 확장자는 마지막에 본다", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk", "youtube"],
@@ -65,4 +66,27 @@ test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 열쇠 모양",
     [undefined, null],
   ];
   for (const [input, want] of cases) assert.equal(audioKeyOf(input), want, String(input));
+});
+
+// 받는 것은 곡과 세트뿐이다. 프로필 · 좋아요 같은 모음은 곡 링크로 잘못 알아보지 않는다
+test("사운드클라우드 주소가 가리키는 것: 곡 · 세트 · 짧은 링크 · 그 밖", () => {
+  const cases = [
+    ["https://soundcloud.com/artist/track-name", "track"],
+    ["https://m.soundcloud.com/artist/track?in=a/sets/b", "track"],
+    ["https://soundcloud.com/artist/track/s-AbC123", "track"], // 비밀 공유
+    ["https://api.soundcloud.com/tracks/368141150", "track"],
+    ["https://api-v2.soundcloud.com/tracks/368141150", "track"],
+    ["https://soundcloud.com/artist/sets/list", "set"],
+    ["https://soundcloud.com/artist/sets/list/s-XyZ9", "set"],
+    ["https://api.soundcloud.com/playlists/2284916349", "set"],
+    ["https://on.soundcloud.com/AbCd", "short"],
+    ["https://soundcloud.com/artist", "other"],
+    ["https://soundcloud.com/artist/likes", "other"],
+    ["https://soundcloud.com/artist/reposts", "other"],
+    ["https://soundcloud.com/artist/sets", "other"],
+    ["https://soundcloud.com/artist/tracks", "other"],
+    ["https://soundcloud.com/artist/track/extra/more", "other"],
+    ["https://www.youtube.com/watch?v=abcdefghijk", null],
+  ];
+  for (const [input, want] of cases) assert.equal(parseSoundCloudURL(input), want, String(input));
 });
