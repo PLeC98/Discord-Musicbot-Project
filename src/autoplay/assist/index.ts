@@ -15,7 +15,9 @@ import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/aiProviders.ts";
-import { messageOf } from "../../rules/errorKind.ts";
+import { errorKind, messageOf } from "../../rules/errorKind.ts";
+import { setTimeout as sleep } from "timers/promises";
+import * as retry from "./retry.ts";
 import type { PromptSection } from "../../config/ai.ts";
 import type { ModelField } from "../../config/aiModels.ts";
 
@@ -40,6 +42,12 @@ type AiSettings = {
   timeoutMs: number | string;
   batchSize: number | string;
   skipConfident: boolean;
+  retries: number | string;
+  totalTimeoutMs: number | string;
+  retryTimeouts: boolean;
+  retryDelayMs: number | string;
+  retryDelayMaxMs: number | string;
+  retryStatus: number[];
   extra?: string;
   hideModels?: unknown;
   list?: ListFormat;
@@ -116,7 +124,33 @@ const ROLES = new Set(["system", "user", "assistant"]);
 const LIST_MARK = /\{\{\s*목록\s*\}\}/g;
 // 장르는 한 요청에 하나다(모든 줄이 같은 값을 쓴다). 그래서 프롬프트에서도 쓸 수 있다.
 const GENRE_MARK = /\{\{\s*장르\s*\}\}/g;
-const DEFAULTS = { timeoutMs: 60000, batchSize: 10, skipConfident: true };
+// 빠진 칸의 기본값. ai.example.yaml 에 같은 값과 뜻을 적어 둔다
+const DEFAULTS = {
+  timeoutMs: 60000,
+  batchSize: 10,
+  skipConfident: true,
+  retries: 2,
+  totalTimeoutMs: 0,
+  retryTimeouts: false,
+  retryDelayMs: 1000,
+  retryDelayMaxMs: 16000,
+  retryStatus: [408, 409, 429, 500, 502, 503, 504, 529],
+};
+
+/**
+ * 기본값 위에 설정을 차례로 얹는다. 기본값이 있는 칸을 비워 두면(null · "") 앞의 값을 쓴다.
+ * 그대로 얹으면 비운 timeoutMs 가 Number(null) = 0 이 되어 부르자마자 끊긴다
+ */
+function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>): AiSettings {
+  const out: Record<string, unknown> = { ...DEFAULTS };
+  for (const layer of layers) {
+    for (const [key, value] of Object.entries(layer || {})) {
+      if ((value === null || value === "") && key in DEFAULTS) continue;
+      out[key] = value;
+    }
+  }
+  return out as AiSettings;
+}
 
 const specOf = (provider: string | undefined) => (provider && PROVIDER_SPECS[provider]) || null;
 const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
@@ -165,8 +199,10 @@ async function authOf(one: Partial<AiSettings>): Promise<Record<string, string>>
 
 /** 지금 쓸 수 있나. 설정을 읽는 유일한 곳이다(파일을 고치면 곧바로 반영된다). */
 function settings(): AiSettings | null {
-  // 검사를 지났다(틀렸으면 enabled: false 가 얹힌다)
-  const one: AiSettings = { ...DEFAULTS, ...(aiConfig.ai() as Partial<AiSettings>) };
+  // 검사에 걸린 칸이 하나라도 있으면 enabled: false 가 얹혀 온다. 켜지 않는다(까닭은 ai() 가 알린다)
+  const saved = aiConfig.ai();
+  if (saved.enabled === false) return null;
+  const one = withDefaults(saved as Partial<AiSettings>);
   // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
@@ -717,24 +753,92 @@ function arraysIn(text: string): string[] {
   return out;
 }
 
-async function askBatch(one: AiSettings, batch: Judged[], genre: string | undefined) {
-  const request = await buildRequest(one, batch, genre);
+/** 판정 하나(재시도 · 다시 묻기까지 끝낸 것)의 실패. reason 은 같은 실패끼리 같은 글, detail 은 저쪽 문구 */
+class AskFailure extends Error {
+  reason: string;
+  detail: string;
+  constructor(reason: string, detail: string) {
+    super(detail ? `${reason}: ${detail}` : reason);
+    this.reason = reason;
+    this.detail = detail;
+  }
+}
 
-  const res = await send(request.url, {
-    method: "POST",
-    headers: request.headers,
-    body: JSON.stringify(request.body),
-    signal: AbortSignal.timeout(Number(one.timeoutMs)),
-  });
+/** 부르기 한 번의 결과. 실패면 다시 해도 되는지와 저쪽이 기다리라고 한 시간 */
+type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reason: string; detail: string; retry: boolean; adviceMs?: number | null; unreadable?: boolean };
 
-  // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타 · 남은 토큰 없음 · 사용량 초과 …).
-  // 그대로 싣되 키는 가린다. 거절 응답에 보낸 값을 되비추는 서비스가 있다.
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${mask(await res.text()).slice(0, 300)}`);
+// 판정 하나의 상한(totalTimeoutMs)으로 끊었을 때의 까닭. 부르기 한 번의 시간 초과와 가른다
+const OVER_TOTAL = new Error("판정 상한");
 
-  const text = dialectOf(one).answerOf((await res.json()) as Reply) || "";
-  const out = readVerdicts(text, batch.length);
-  if (!out) throw new Error(`판정을 읽지 못했습니다(답 ${text.length}자): ${text.slice(0, 160)}`);
-  return out;
+async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof buildRequest>> & { size: number }, total: AbortSignal | null): Promise<Attempt> {
+  const perCall = AbortSignal.timeout(Number(one.timeoutMs));
+  const signal = total ? AbortSignal.any([perCall, total]) : perCall;
+  try {
+    const res = await send(request.url, { method: "POST", headers: request.headers, body: JSON.stringify(request.body), signal });
+
+    // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타 · 남은 토큰 없음 · 사용량 초과 …).
+    // 그대로 싣되 키는 가린다. 거절 응답에 보낸 값을 되비추는 서비스가 있다.
+    if (!res.ok) {
+      const text = mask(await res.text());
+      const { key, detail } = retry.summaryOf(res.status, text);
+      const again = one.retryStatus.map(Number).includes(res.status) && !retry.exhausted(text);
+      return { ok: false, reason: key, detail, retry: again, adviceMs: retry.adviceMs(res.headers, text) };
+    }
+
+    const text = dialectOf(one).answerOf((await res.json()) as Reply) || "";
+    const verdicts = readVerdicts(text, request.size);
+    if (verdicts) return { ok: true, verdicts };
+    return { ok: false, reason: "판정을 읽지 못함", detail: `답 ${text.length}자: ${text.slice(0, 160)}`, retry: false, unreadable: true };
+  } catch (error) {
+    if (total?.aborted) return { ok: false, reason: "판정 상한 초과", detail: `${Number(one.totalTimeoutMs) / 1000}초`, retry: false };
+    if (perCall.aborted) return { ok: false, reason: "시간 초과", detail: `${Number(one.timeoutMs) / 1000}초`, retry: !!one.retryTimeouts };
+    if (errorKind(error) === "network") return { ok: false, reason: "네트워크 오류", detail: messageOf(error), retry: true };
+    return { ok: false, reason: messageOf(error), detail: "", retry: false };
+  }
+}
+
+/** 다음 재시도 앞의 대기. 다시 하지 않을 것이면 까닭 */
+function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false }, endsAt: number | null): { ms: number } | { stop: string } {
+  if (!failed.retry) return { stop: "" };
+  if (used >= Number(one.retries)) return { stop: "" };
+  const maxMs = Number(one.retryDelayMaxMs);
+  if (failed.adviceMs != null && failed.adviceMs > maxMs) return { stop: `서버가 ${Math.ceil(failed.adviceMs / 1000)}초 뒤라고 함, 대기 상한 ${maxMs / 1000}초` };
+  const ms = failed.adviceMs ?? retry.backoffMs(used + 1, Number(one.retryDelayMs), maxMs);
+  if (endsAt !== null && Date.now() + ms >= endsAt) return { stop: "판정 상한까지 남은 시간이 모자람" };
+  return { ms };
+}
+
+/**
+ * 후보 묶음 하나를 판정한다. 실패하면 설정대로 다시 부르고(retries · 대기), 끝내 실패하면 AskFailure.
+ * 판정을 읽지 못한 답은 재시도와 따로 한 번만 곧바로 다시 묻는다. retries 를 0 으로 주면 한 번만 부른다
+ */
+async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefined, { retries = Number(one.retries) }: { retries?: number } = {}) {
+  const request = { ...(await buildRequest(one, cands, genre)), size: cands.length };
+  const totalMs = Number(one.totalTimeoutMs);
+  const total = totalMs > 0 ? new AbortController() : null;
+  const timer = total ? setTimeout(() => total.abort(OVER_TOTAL), totalMs) : null;
+  const endsAt = total ? Date.now() + totalMs : null;
+  const limited = { ...one, retries };
+  try {
+    let used = 0;
+    let reasked = false;
+    for (;;) {
+      const got = await attempt(limited, request, total?.signal ?? null);
+      if (got.ok) return got.verdicts;
+      if (got.unreadable && !reasked) {
+        reasked = true;
+        log.debug(`AI 보조: 판정을 읽지 못해 한 번 더 묻습니다(${got.detail.slice(0, 80)})`);
+        continue;
+      }
+      const wait = waitBefore(limited, used, got, endsAt);
+      if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).join(". "));
+      used++;
+      log.debug(`AI 보조 재시도 ${used}/${retries}(${got.reason}) ${(wait.ms / 1000).toFixed(1)}초 뒤`);
+      await sleep(wait.ms);
+    }
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /**
@@ -804,7 +908,7 @@ async function accepts(candidate: Judged | null | undefined, about: { genre?: st
  * 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있고, 받아 온 목록은 화면의 모델 칸을 채우는 데도 쓴다.
  */
 async function listModels(draft: Draft) {
-  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
+  const one = withDefaults(draft);
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
 
   const dialect = dialectOf(one);
@@ -874,7 +978,7 @@ const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주�
  * "연결이 안 되는 것"과 "판정을 못 읽은 것"이 섞인다.
  */
 async function ping(draft: Draft) {
-  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
+  const one = withDefaults(draft);
   if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
   if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
 
@@ -913,7 +1017,7 @@ const SAMPLE: TestCandidate[] = [{ title: "System Of A Down - Toxicity (Official
  * 키 값은 돌려주지 않는다. 헤더에는 있었다는 표시만 남긴다.
  */
 async function preview(draft: Draft, genre = "록") {
-  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
+  const one = withDefaults(draft);
   const request = await buildRequest(one, SAMPLE, genre, { live: false });
   return { url: request.url, headers: safeHeaders(request.headers), body: request.body, messages: request.messages, tokens: await countTokens(one, request.wire), problems: request.problems };
 }
@@ -962,7 +1066,7 @@ async function candidatesFromUrls(urls: unknown[] | null | undefined, { timeoutM
 
 /** 그 후보들이 실제로 프롬프트에 어떻게 적히는지. 모델에게 가는 그 줄 그대로다. */
 function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "록") {
-  const one: AiSettings = { ...DEFAULTS, ...settings(), ...(draft || {}) };
+  const one = withDefaults(settings(), draft);
   return (cands || []).map((cand, i) => renderLine(one.list, cand, genre, i));
 }
 
@@ -986,7 +1090,7 @@ type JudgeResult = {
 };
 
 async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "록"): Promise<JudgeResult> {
-  const one: AiSettings = { ...DEFAULTS, ...(draft || {}) };
+  const one = withDefaults(draft);
   // 고른 것이 없으면 보기 곡으로 돌린다. 목록을 안 만들고 눌러도 무엇이 나가는지는 보여야 한다
   const picked = (cands || []).filter((cand) => cand && !cand.error && cand.title);
   const usable = picked.length ? picked : SAMPLE;

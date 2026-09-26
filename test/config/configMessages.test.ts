@@ -294,6 +294,19 @@ const AIS: Case[] = [
     ],
   ],
   [
+    "재시도 칸 모양",
+    {
+      provider: "off",
+      retries: 11,
+      totalTimeoutMs: 999,
+      retryTimeouts: "true",
+      retryDelayMs: -1,
+      retryDelayMaxMs: 600001,
+      retryStatus: [429, 200],
+    },
+    ["retries는 0~10 사이여야 합니다.", "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 합니다.", "retryTimeouts는 true 또는 false여야 합니다.", "retryDelayMs는 0~60000 사이여야 합니다.", "retryDelayMaxMs는 0~600000 사이여야 합니다.", "retryStatus는 400~599 사이 상태 코드 목록이어야 합니다(예: [429, 503])."],
+  ],
+  [
     "params 안쪽 · list 칸",
     {
       provider: "off",

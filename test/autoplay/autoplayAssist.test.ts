@@ -14,6 +14,7 @@ import * as aiConfig from "../../src/config/ai.ts";
 import * as yamlStore from "../../src/config/yamlStore.ts";
 import * as assist from "../../src/autoplay/assist/index.ts";
 import { fake } from "../helpers/fake.ts";
+import { networkError } from "../helpers/errors.ts";
 import * as googleAuth from "../../src/autoplay/assist/googleAuth.ts";
 import * as route from "../../src/autoplay/route.ts";
 import { prepare } from "../../src/autoplay/filter.ts";
@@ -38,7 +39,7 @@ type SentBody = {
   [key: string]: unknown;
 };
 // 가짜 응답은 여기서 읽는 칸(ok · status · json · text)만 준다
-type FakeResponse = { ok: boolean; status?: number; json?: () => Promise<unknown>; text?: () => Promise<string> };
+type FakeResponse = { ok: boolean; status?: number; headers?: Headers; json?: () => Promise<unknown>; text?: () => Promise<string> };
 // 보조가 바깥으로 보내는 요청(모델 · 토큰 셈 · 서비스 계정 토큰)을 이 가짜로 받는다
 function useFetch(fn: (url: string, init: SentInit) => FakeResponse | Promise<FakeResponse>) {
   assist.useFetch(fake<typeof fetch>(fn));
@@ -74,6 +75,7 @@ baseUrl: http://127.0.0.1:11434/v1
 model: test-model
 timeoutMs: 5000
 batchSize: 10
+retryDelayMs: 0
 `;
 
 // fetch 를 갈아끼운다 — 진짜로 나가면 테스트가 남의 서버에 기댄다
@@ -130,6 +132,25 @@ test("설정이 어긋나면 켜지지 않는다", async () => {
   assert.equal(assist.settings(), null);
   assert.equal(await assist.accepts(cand("A"), {}), true);
   assert.equal(calls.length, 0);
+});
+
+// 비운 칸이 Number(null) = 0 이 되면 부르자마자 끊긴다
+test("비워 둔 칸은 기본값을 쓴다", () => {
+  useConfig(`${ON.replace("timeoutMs: 5000", "timeoutMs:")}retries:\nretryStatus:\n`);
+  const one = assist.settings();
+  assert.ok(one);
+  assert.equal(one.timeoutMs, 60000);
+  assert.equal(one.retries, 2);
+  assert.deepEqual(one.retryStatus, [408, 409, 429, 500, 502, 503, 504, 529]);
+});
+
+test("재시도 칸이 범위를 벗어나면 켜지지 않는다", () => {
+  for (const bad of ["retries: 99", "retries: -1", "totalTimeoutMs: 500", "retryTimeouts: yes please", "retryDelayMs: 99999999", "retryStatus: [200]", 'retryStatus: "429"']) {
+    useConfig(`${ON}${bad}\n`);
+    assert.equal(assist.settings(), null, bad);
+  }
+  useConfig(`${ON}retries: 0\ntotalTimeoutMs: 0\nretryTimeouts: true\nretryDelayMaxMs: 60000\nretryStatus: [429]\n`);
+  assert.ok(assist.settings(), "범위 안이면 켜진다");
 });
 
 // ── 판정 ─────────────────────────────────────────────────────────────────
@@ -196,36 +217,161 @@ test("모델이 죽어도 자동재생은 돈다", async () => {
   }
 });
 
-// 지금 답. 3단계가 재시도(횟수 설정)와 잇단 실패 알림을 넣으며 바꾼다(계획서 G5)
-test("실패하면 묶음마다 한 번만 묻고 다시 묻지 않는다. 까닭은 debug 한 줄", async () => {
+// ── 재시도 ────────────────────────────────────────────────────────────────
+
+const ok1 = () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '[{"n":1,"song":false,"fits":true}]' } }] }) });
+const status =
+  (code: number, body = "", headers?: Headers) =>
+  () => ({ ok: false, status: code, headers, text: async () => body });
+
+// 차례대로 답하고 마지막 것을 되풀이한다. 부른 수를 센다
+function replies(...list: Array<() => FakeResponse>) {
+  let n = 0;
+  useFetch(async (url, init) => {
+    calls.push({ url, init, body: bodyOf(init) });
+    return list[Math.min(n++, list.length - 1)]();
+  });
+  calls.length = 0;
+}
+
+test("일시 오류는 retries 만큼 다시 부르고, 되면 그 판정을 쓴다", async () => {
   useConfig(ON);
-  const list = [cand("A"), cand("B")];
+  replies(status(503), status(500), ok1);
+  assert.equal(await assist.accepts(cand("믹스"), {}), false, "세 번째 답(아니다)을 쓴다");
+  assert.equal(calls.length, 3);
+
+  replies(status(503));
+  assert.equal(await assist.accepts(cand("A"), {}), true, "끝내 실패하면 규칙만으로");
+  assert.equal(calls.length, 3, "기본 retries 2: 처음 한 번 + 두 번");
+
+  useConfig(`${ON}retries: 0\n`);
+  replies(status(503));
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.length, 1, "0 이면 다시 부르지 않는다");
+});
+
+test("다시 해도 같은 답인 것은 다시 부르지 않는다", async () => {
+  useConfig(ON);
+  for (const [reply, why] of [
+    [status(429, '{"error":{"type":"insufficient_quota","message":"You exceeded your current quota"}}'), "OpenAI 크레딧 소진"],
+    [status(429, '{"type":"error","error":{"type":"rate_limit_error","message":"enforced_spend_limit_reached"}}'), "앤트로픽 지출 상한"],
+    [status(401, "bad key"), "401"],
+    [status(400, "bad request"), "400"],
+    [
+      () => {
+        throw new Error("알 수 없는 실패");
+      },
+      "네트워크가 아닌 예외",
+    ],
+  ] as const) {
+    replies(reply);
+    assert.equal(await assist.accepts(cand("A"), {}), true);
+    assert.equal(calls.length, 1, why);
+  }
+
+  replies(status(429, '{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}'));
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.length, 3, "버텍스 429 는 일시 경합이라 다시 부른다");
+
+  replies(() => {
+    throw networkError();
+  });
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.length, 3, "연결 실패는 다시 부른다");
+});
+
+test("다시 부를 상태 코드는 설정으로 정한다", async () => {
+  useConfig(`${ON}retryStatus: [418]\n`);
+  replies(status(503));
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.length, 1, "목록에 없는 503");
+
+  replies(status(418), ok1);
+  assert.equal(await assist.accepts(cand("A"), {}), false);
+  assert.equal(calls.length, 2);
+});
+
+// 저쪽이 멈출 때까지 붙들고 있는 부르기. 끊기면(시간 초과) 예외
+function hangs() {
+  useFetch(async (url, init) => {
+    calls.push({ url, init });
+    return new Promise((_, reject) => init.signal?.addEventListener("abort", () => reject(init.signal?.reason)));
+  });
+  calls.length = 0;
+}
+
+test("시간 초과는 기본으로 다시 부르지 않고, retryTimeouts 를 켜면 다시 부른다", async () => {
+  useConfig(ON.replace("timeoutMs: 5000", "timeoutMs: 1000"));
+  hangs();
+  assert.equal(await assist.accepts(cand("A"), {}), true);
+  assert.equal(calls.length, 1);
+
+  useConfig(`${ON.replace("timeoutMs: 5000", "timeoutMs: 1000")}retryTimeouts: true\nretries: 1\n`);
+  hangs();
+  await assist.accepts(cand("A"), {});
+  assert.equal(calls.length, 2);
+});
+
+test("판정 하나의 상한(totalTimeoutMs)을 넘기면 재시도 중이어도 그만둔다", async () => {
+  // 부르기 한 번은 5초까지 기다리지만 판정 전체는 1초
+  useConfig(`${ON}totalTimeoutMs: 1000\nretryTimeouts: true\n`);
+  hangs();
+  const started = Date.now();
   const level = logger.level;
   logger.level = "debug";
+  const from = sink.buffer.length;
   try {
-    for (const [broken, why] of [
-      [() => ({ ok: false, status: 429, text: async () => "slow down" }), "429"],
-      [() => ({ ok: false, status: 503, text: async () => "overloaded" }), "503"],
-      [
-        () => {
-          throw new Error("fetch failed");
-        },
-        "fetch failed",
-      ],
-    ] as const) {
-      answers(broken);
-      calls.length = 0;
-      const from = sink.buffer.length;
-      assert.deepEqual(await assist.filter(list, {}), list);
-      assert.equal(calls.length, 1, `${why}: 다시 묻지 않는다`);
-      const lines = sink.buffer.slice(from).filter((e) => e.text.includes("AI 보조를 건너뜁니다"));
-      assert.equal(lines.length, 1, why);
-      assert.equal(lines[0].level, "debug");
-      assert.ok(lines[0].text.includes(why), lines[0].text);
-    }
+    assert.equal(await assist.accepts(cand("A"), {}), true);
   } finally {
     logger.level = level;
   }
+  assert.ok(Date.now() - started < 3000, "상한에서 끊는다");
+  assert.equal(calls.length, 1, "상한으로 끊긴 것은 다시 부르지 않는다");
+  assert.ok(
+    sink.buffer.slice(from).some((e) => e.text.includes("판정 상한 초과")),
+    "부르기 한 번의 시간 초과와 가려 적는다",
+  );
+
+  // 대기가 남은 시간을 넘으면 기다리지 않고 그만둔다
+  useConfig(`${ON.replace("retryDelayMs: 0", "retryDelayMs: 8000")}totalTimeoutMs: 2000\n`);
+  replies(status(503));
+  const again = Date.now();
+  await assist.accepts(cand("A"), {});
+  assert.ok(Date.now() - again < 1000, "대기에 들어가지 않는다");
+  assert.equal(calls.length, 1);
+});
+
+test("저쪽이 기다리라는 시간을 쓰고, 대기 상한보다 길면 다시 부르지 않는다", async () => {
+  useConfig(ON);
+  // 제미니 API 는 헤더 없이 본문에 적는다
+  const gemini = '{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"34s"}]}}';
+  const level = logger.level;
+  logger.level = "debug";
+  const from = sink.buffer.length;
+  try {
+    replies(status(429, gemini));
+    await assist.accepts(cand("A"), {});
+    assert.equal(calls.length, 1, "34초는 기본 상한 16초를 넘는다");
+    assert.ok(sink.buffer.slice(from).some((e) => e.text.includes("서버가 34초 뒤라고 함")));
+  } finally {
+    logger.level = level;
+  }
+
+  replies(status(429, "", new Headers({ "retry-after": "0" })), ok1);
+  assert.equal(await assist.accepts(cand("A"), {}), false);
+  assert.equal(calls.length, 2, "Retry-After 0 이면 곧바로 다시");
+});
+
+test("판정을 읽지 못한 답은 재시도와 따로 한 번만 다시 묻는다", async () => {
+  useConfig(`${ON}retries: 0\n`);
+  const babble = () => ({ ok: true, json: async () => ({ choices: [{ message: { content: "죄송합니다, 판단할 수 없습니다." } }] }) });
+  replies(babble, ok1);
+  assert.equal(await assist.accepts(cand("A"), {}), false, "다시 물은 답을 쓴다");
+  assert.equal(calls.length, 2);
+
+  replies(babble);
+  assert.equal(await assist.accepts(cand("A"), {}), true);
+  assert.equal(calls.length, 2, "한 번만 더");
 });
 
 // 어떤 서비스는 거절 응답에 보낸 헤더를 되비춘다. 그 본문을 오류에 실으면 로그에 키가 남는다.

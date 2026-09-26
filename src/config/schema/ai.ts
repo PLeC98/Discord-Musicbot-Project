@@ -43,6 +43,13 @@ const aiFile = z.preprocess(
       batchSize: between("batchSize", 1, 50),
       // 글자 "false" 는 참으로 읽힌다. 참 · 거짓으로만 받는다
       skipConfident: present((v) => typeof v === "boolean", "skipConfident는 true 또는 false여야 합니다."),
+      // 재시도. 빠진 칸의 기본값은 assist 의 DEFAULTS
+      retries: between("retries", 0, 10),
+      totalTimeoutMs: present((v) => Number(v) === 0 || (Number(v) >= 1000 && Number(v) <= 3600000), "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 합니다."),
+      retryTimeouts: present((v) => typeof v === "boolean", "retryTimeouts는 true 또는 false여야 합니다."),
+      retryDelayMs: between("retryDelayMs", 0, 60000),
+      retryDelayMaxMs: between("retryDelayMaxMs", 0, 600000),
+      retryStatus: present((v) => Array.isArray(v) && v.every((one) => Number.isInteger(one) && one >= 400 && one <= 599), "retryStatus는 400~599 사이 상태 코드 목록이어야 합니다(예: [429, 503])."),
       // 추가 파라미터는 한 줄에 하나씩 적는 글이다(assist/index 의 parseExtra)
       extra: z.string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." }).nullish(),
       prompt: gone(`프롬프트는 ${PROMPT_FILE} 에 적습니다. ai.yaml 의 prompt 는 쓰이지 않습니다.`),

@@ -751,7 +751,7 @@ const paramLimits = computed(() => {
 
 // 저장하면 서버가 보낸 차례대로 파일을 줄 세운다(configDataLoader.syncMap).
 // config/ai.example.yaml 과 같은 차례로 보내야 새로 깐 파일이 뒤섞이지 않는다.
-const KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"];
+const KEY_ORDER = ["provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"];
 
 const payload = computed(() => {
   const all = { ...draft.value, params: cleanParams.value, list: { ...listCfg.value }, promptNames: sections.value.map((one) => one.name || "") };
