@@ -7,7 +7,7 @@ const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
 import * as S from "../ui/strings.ts";
-import { ErrorHandler } from "../ui/errorMessages.ts";
+import { lookupFailureMessage } from "../ui/errorMessages.ts";
 import { continuation, validState, roomFor, KINDS, LOOKBACK, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
@@ -171,7 +171,7 @@ async function search(player: MusicPlayer, query: string, { guild, single = fals
   const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
   const found = await lookup.resolveQuery(query, `${source}.resolveQuery`, { limit });
-  if (!found.success) return ErrorHandler.lookupFailure(found);
+  if (!found.success) return lookupFailureMessage(found);
 
   // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
   const more = found.total == null ? found.tracks.length >= limit : found.total > found.tracks.length;

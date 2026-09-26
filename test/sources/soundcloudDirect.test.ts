@@ -13,7 +13,7 @@ import * as SoundCloud from "../../src/sources/soundcloud.ts";
 import * as DirectLink from "../../src/sources/direct.ts";
 import { getTrackData } from "../../src/sources/lookup.ts";
 import { messageOf, codeOf } from "../../src/rules/errorKind.ts";
-import { ErrorHandler } from "../../src/ui/errorMessages.ts";
+import { lookupFailureMessage } from "../../src/ui/errorMessages.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
 // yt-dlp 가 줄 것. 실패면 fail 에 stderr
@@ -177,7 +177,7 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
   assert.equal(codeOf(thrown), "link-unavailable");
   assert.match(messageOf((thrown as Error).cause), /10\.0\.0\.5/, "사유는 원인에(서버 로그용)");
   // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
-  const told = ErrorHandler.lookupFailure({ code: "lookup-failed", error: thrown });
+  const told = lookupFailureMessage({ code: "lookup-failed", error: thrown });
   assert.equal(told, "❌ 재생할 수 없는 링크예요.");
 });
 

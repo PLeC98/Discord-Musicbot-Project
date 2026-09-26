@@ -4,7 +4,7 @@ import { Events, MessageFlags, type ActionRowBuilder, type ModalMessageModalSubm
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as S from "../src/ui/strings.ts";
-import { ErrorHandler } from "../src/ui/errorMessages.ts";
+import { errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { continueCollection } from "../src/usecases/addTracks.ts";
@@ -81,7 +81,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: S.withErrorMark(result.message), components: [] };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
-    payload = { content: ErrorHandler.getMessage(error), components: [] };
+    payload = { content: errorMessage(error), components: [] };
   }
 
   await interaction.editReply(payload).catch(closed);

@@ -23,13 +23,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   unknown: "❌ **예상치 못한 오류가 발생했습니다**\n요청을 처리하는 중 문제가 발생했습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 문제가 계속되면 봇 콘솔 로그를 확인하세요.",
 };
 
-/**
- * 원시 오류를 알려진 범주로 분류하고 수정 제안을 포함한 한국어 메시지를 반환
- *
- * 사용 예:
- *   const msg = await ErrorHandler.getMessage(error);
- *   await interaction.editReply({ content: msg });
- */
 // play() 가 곡을 못 틀었을 때(code). 오류로 못 튼 것은 오류 종류로 안내한다
 const PLAY_FAILURE: Record<string, string> = {
   "queue-empty": "대기열에 트랙이 없습니다!",
@@ -39,36 +32,26 @@ const PLAY_FAILURE: Record<string, string> = {
 // 실패 결과. 여기서 읽는 칸만
 type Failure = { code?: string; error?: unknown } | null | undefined;
 
-class ErrorHandler {
-  // 종류는 rules/errorKind 가 가른다
-  static classify(error: unknown) {
-    return errorKind(error);
-  }
-
-  /**
-   * 수정 지침을 포함한 사용자 표시용 한국어 오류 메시지를 반환
-   */
-  static getMessage(error: unknown) {
-    const category = this.classify(error);
-    return ERROR_MESSAGES[category] || ERROR_MESSAGES.unknown;
-  }
-
-  /** play() 의 실패 결과({ ok: false, code, error })를 사용자 문장으로 */
-  static playFailure(result: Failure) {
-    return (result?.code && PLAY_FAILURE[result.code]) || (result?.error ? this.getMessage(result.error) : "재생을 시작할 수 없습니다.");
-  }
-
-  /** 곡 찾기 실패({ code, error? }) → 안내문 */
-  static lookupFailure(result: Failure) {
-    return result?.code === "no-result" ? "❌ 결과를 찾을 수 없습니다!" : this.getMessage(result?.error);
-  }
-
-  static handle(error: unknown, context = "") {
-    const category = this.classify(error);
-    // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
-    log.error({ sub: context || undefined, kind: category }, messageOf(error));
-    return this.getMessage(error);
-  }
+/** 오류 → 사용자에게 보일 문장. 종류는 rules/errorKind 가 가른다 */
+function errorMessage(error: unknown) {
+  return ERROR_MESSAGES[errorKind(error)] || ERROR_MESSAGES.unknown;
 }
 
-export { ErrorHandler };
+/** play() 의 실패 결과({ ok: false, code, error })를 사용자 문장으로 */
+function playFailureMessage(result: Failure) {
+  return (result?.code && PLAY_FAILURE[result.code]) || (result?.error ? errorMessage(result.error) : "재생을 시작할 수 없습니다.");
+}
+
+/** 곡 찾기 실패({ code, error? }) → 안내문 */
+function lookupFailureMessage(result: Failure) {
+  return result?.code === "no-result" ? "❌ 결과를 찾을 수 없습니다!" : errorMessage(result?.error);
+}
+
+/** 처리하지 못한 오류를 남기고 사용자 문장을 돌려준다(catch 블록에서) */
+function reportError(error: unknown, context = "") {
+  // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
+  log.error({ sub: context || undefined, kind: errorKind(error) }, messageOf(error));
+  return errorMessage(error);
+}
+
+export { errorMessage, playFailureMessage, lookupFailureMessage, reportError };

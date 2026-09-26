@@ -2,7 +2,7 @@ import { formatDuration } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import config from "../config.ts";
 import * as YouTube from "../src/sources/youtube/index.ts";
-import { ErrorHandler } from "../src/ui/errorMessages.ts";
+import { reportError } from "../src/ui/errorMessages.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction, Client, GuildMember } from "discord.js";
@@ -145,7 +145,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
       await showSearchMenu(interaction, results, query);
     } catch (error) {
       // 검색이 찾지 못한 까닭(네트워크 · 봇 감지 등)을 남기고 그 종류로 알린다
-      await interaction.editReply({ content: ErrorHandler.handle(error, "search.execute") });
+      await interaction.editReply({ content: reportError(error, "search.execute") });
     }
   },
 };

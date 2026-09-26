@@ -104,7 +104,7 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
   const thrown = setup({ plays: [networkError()] });
   const r = await thrown.mem.handleMusicData("g1", { tracks: [track("a")] }, who);
   assert.equal(r.success, false);
-  assert.match(r.message ?? "", /네트워크 오류/, "던진 것은 ErrorHandler 안내문으로");
+  assert.match(r.message ?? "", /네트워크 오류/, "던진 것은 그 오류의 문장으로");
 });
 
 test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 알린다", async () => {

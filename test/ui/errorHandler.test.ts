@@ -2,7 +2,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ErrorHandler } from "../../src/ui/errorMessages.ts";
+import { errorMessage, reportError } from "../../src/ui/errorMessages.ts";
+import { errorKind } from "../../src/rules/errorKind.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";
 
@@ -25,28 +26,28 @@ const CASES: Array<[Error, string]> = [
 
 test("classify: 대표 오류 분류", () => {
   for (const [error, expected] of CASES) {
-    assert.equal(ErrorHandler.classify(error), expected, error.message);
+    assert.equal(errorKind(error), expected, error.message);
   }
 });
 
 test("classify: 글만 있는 문자열은 이름이 없어 unknown", () => {
-  assert.equal(ErrorHandler.classify("read ECONNRESET"), "unknown");
+  assert.equal(errorKind("read ECONNRESET"), "unknown");
 });
 
 test("classify: null/빈 입력은 unknown", () => {
-  assert.equal(ErrorHandler.classify(null), "unknown");
-  assert.equal(ErrorHandler.classify(""), "unknown");
+  assert.equal(errorKind(null), "unknown");
+  assert.equal(errorKind(""), "unknown");
 });
 
 test("getMessage: 모든 범주가 한국어 안내 문자열을 반환", () => {
   for (const [error] of CASES) {
-    const out = ErrorHandler.getMessage(error);
+    const out = errorMessage(error);
     assert.equal(typeof out, "string");
     assert.ok(out.startsWith("❌"), out.slice(0, 20));
   }
 });
 
 test("handle: 던지지 않고 사용자 메시지 반환 (catch 블록 계약)", () => {
-  const out = ErrorHandler.handle(new Error("read ECONNRESET"), "test-context");
-  assert.equal(out, ErrorHandler.getMessage(new Error("read ECONNRESET")));
+  const out = reportError(new Error("read ECONNRESET"), "test-context");
+  assert.equal(out, errorMessage(new Error("read ECONNRESET")));
 });

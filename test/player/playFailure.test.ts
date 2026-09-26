@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { failureReason } from "../../src/player/playFailure.ts";
-import { ErrorHandler } from "../../src/ui/errorMessages.ts";
+import { errorMessage } from "../../src/ui/errorMessages.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
@@ -20,8 +20,8 @@ test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {
-  assert.equal(ErrorHandler.getMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`)), "❌ 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.");
-  assert.equal(ErrorHandler.getMessage(ytdlpError(AGE)), "❌ 연령 제한 영상은 재생할 수 없어요.");
+  assert.equal(errorMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`)), "❌ 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.");
+  assert.equal(errorMessage(ytdlpError(AGE)), "❌ 연령 제한 영상은 재생할 수 없어요.");
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {

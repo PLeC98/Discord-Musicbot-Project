@@ -196,7 +196,7 @@ test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /p
   assert.equal(w.handled[0].who?.username, "사용자");
 });
 
-test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 ErrorHandler 문장으로", async () => {
+test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 그 오류의 문장으로", async () => {
   const w = world();
   resolveReply = () => ({ success: false, code: "no-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });

@@ -18,7 +18,7 @@ const NO_RESPONDER: Responder = {
   },
 };
 import * as playerEvents from "../player/events.ts";
-import { ErrorHandler } from "./errorMessages.ts";
+import { errorMessage, playFailureMessage } from "./errorMessages.ts";
 import * as S from "./strings.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
@@ -265,10 +265,10 @@ class MusicEmbedManager {
       const playResult = await player.play();
       // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
       // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.
-      return playResult && playResult.ok === false ? ErrorHandler.playFailure(playResult) : null;
+      return playResult && playResult.ok === false ? playFailureMessage(playResult) : null;
     } catch (playError) {
       log.error("재생 처리 중 오류:", playError);
-      return ErrorHandler.getMessage(playError);
+      return errorMessage(playError);
     }
   }
 

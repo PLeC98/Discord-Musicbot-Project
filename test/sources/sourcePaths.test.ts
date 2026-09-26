@@ -145,9 +145,9 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
 });
 
 test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", async () => {
-  const { ErrorHandler } = await import("../../src/ui/errorMessages.ts");
-  assert.equal(ErrorHandler.lookupFailure({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
-  assert.match(ErrorHandler.lookupFailure({ code: "lookup-failed", error: networkError() }), /네트워크 오류/);
+  const { lookupFailureMessage } = await import("../../src/ui/errorMessages.ts");
+  assert.equal(lookupFailureMessage({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
+  assert.match(lookupFailureMessage({ code: "lookup-failed", error: networkError() }), /네트워크 오류/);
 });
 
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이만. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {

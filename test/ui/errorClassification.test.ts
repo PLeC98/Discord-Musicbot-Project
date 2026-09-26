@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ErrorHandler } from "../../src/ui/errorMessages.ts";
+
 import * as YouTube from "../../src/sources/youtube/index.ts";
 import { errorKind, codedError } from "../../src/rules/errorKind.ts";
 // [문장, classify, 영상없음, 연령제한, 클라이언트탓, 주소어긋남, 클라이언트건너뜀]
@@ -49,7 +49,7 @@ const shaped = (msg: string) => Object.assign(new Error(msg), { code: YouTube.co
 test("오류 분류 표: yt-dlp 가 단 이름으로 가른 종류와 판별 칸", () => {
   const actual = TABLE.map(([msg]) => {
     const e = new Error(msg);
-    return [msg, ErrorHandler.classify(shaped(msg)), YouTube.isVideoUnavailableError(e), YouTube.isAgeRestrictedError(e), YouTube.isClientFault(e), YouTube.isStaleMediaError(e), YouTube.isSkippedClientError(e)];
+    return [msg, errorKind(shaped(msg)), YouTube.isVideoUnavailableError(e), YouTube.isAgeRestrictedError(e), YouTube.isClientFault(e), YouTube.isStaleMediaError(e), YouTube.isSkippedClientError(e)];
   });
   assert.deepEqual(actual, TABLE); // 한 번에 비교해 어긋난 칸을 전부 보인다
 });
@@ -57,17 +57,17 @@ test("오류 분류 표: yt-dlp 가 단 이름으로 가른 종류와 판별 칸
 test("분류는 stderr 가 있으면 그것을 본다(YouTube 쪽). classify 는 message 만 본다", () => {
   const e = Object.assign(new Error("exit 1"), { stderr: "ERROR: Video unavailable" });
   assert.equal(YouTube.isVideoUnavailableError(e), true);
-  assert.equal(ErrorHandler.classify(e), "unknown");
+  assert.equal(errorKind(e), "unknown");
 });
 
 // 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown 이다(예전에는 낱말로 갈라 프로그램 버그가 엉뚱한 종류가 됐다)
 test("classify 는 이름이 없으면 unknown. 문자열과 빈 값도 받는다", () => {
   for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "Could not find YouTube equivalent"]) {
-    assert.equal(ErrorHandler.classify(new Error(msg)), "unknown", msg);
+    assert.equal(errorKind(new Error(msg)), "unknown", msg);
   }
-  assert.equal(ErrorHandler.classify("ERROR: Video unavailable"), "unknown");
-  assert.equal(ErrorHandler.classify(null), "unknown");
-  assert.equal(ErrorHandler.classify(undefined), "unknown");
+  assert.equal(errorKind("ERROR: Video unavailable"), "unknown");
+  assert.equal(errorKind(null), "unknown");
+  assert.equal(errorKind(undefined), "unknown");
 });
 
 // yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 칸과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지 · 지역 차단 ·
@@ -120,9 +120,9 @@ test("yt-dlp 가 쓰는 재생목록 · 지역 차단 문장", () => {
 
 test("errorKind 는 이름(code)이 있으면 글보다 먼저 본다", () => {
   const e = Object.assign(new Error("exit 1"), { code: "video-unavailable" });
-  assert.equal(ErrorHandler.classify(e), "video-unavailable");
-  assert.equal(ErrorHandler.classify(Object.assign(new Error("Sign in to confirm you're not a bot"), { code: "age-restricted" })), "age-restricted");
-  assert.equal(ErrorHandler.classify(Object.assign(new Error("fetch failed"), { code: "ECONNRESET" })), "network", "모르는 이름이면 글로 가른다");
+  assert.equal(errorKind(e), "video-unavailable");
+  assert.equal(errorKind(Object.assign(new Error("Sign in to confirm you're not a bot"), { code: "age-restricted" })), "age-restricted");
+  assert.equal(errorKind(Object.assign(new Error("fetch failed"), { code: "ECONNRESET" })), "network", "모르는 이름이면 글로 가른다");
 });
 
 test("errorKind 는 오류 자신 → 원인(cause) → 시스템 · 디스코드 번호 차례로 이름을 본다", () => {

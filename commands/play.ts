@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
-import { ErrorHandler } from "../src/ui/errorMessages.ts";
+import { reportError } from "../src/ui/errorMessages.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
@@ -67,7 +67,7 @@ const exported: GuildCommand = {
       }
       if (result.more) await offerOnInteraction(interaction, result.more, result.player);
     } catch (error) {
-      const errorMsg = ErrorHandler.handle(error, "play.execute");
+      const errorMsg = reportError(error, "play.execute");
 
       try {
         if (interaction.replied || interaction.deferred) {

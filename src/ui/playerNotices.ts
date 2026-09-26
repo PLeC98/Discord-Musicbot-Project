@@ -1,6 +1,6 @@
 // 플레이어가 알린 일(notice)을 그 서버의 글자 채널에 문장으로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
 
-import { ErrorHandler } from "./errorMessages.ts";
+import { errorMessage } from "./errorMessages.ts";
 import { formatDuration } from "./format.ts";
 import { escapeMd } from "./mentions.ts";
 import { scheduleDelete } from "./transientMessages.ts";
@@ -13,7 +13,7 @@ const TEXT: { [C in NoticeCode]: (detail: Notices[C]) => string } = {
   "autoplay-unknown-genre": ({ genre }) => `❌ 자동재생 장르 \`${genre}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`,
   "autoplay-gave-up": ({ genre }) => `⏹️ \`${genre}\` 장르에서 틀 만한 곡을 찾지 못해 자동재생을 껐습니다.`,
   // 곡을 못 틀어 다음 곡으로 넘긴다
-  "skipped-after-error": ({ error }) => ErrorHandler.getMessage(error),
+  "skipped-after-error": ({ error }) => errorMessage(error),
   restored: ({ title, atSec, paused }) => {
     const shown = escapeMd(title || "Unknown");
     const at = formatDuration(atSec);
