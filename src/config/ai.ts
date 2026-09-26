@@ -3,6 +3,8 @@
 import fs from "fs";
 import path from "path";
 import logger from "../infra/log/logger.ts";
+import { repeatingFailure } from "../infra/repeatingFailure.ts";
+import { codeOf, messageOf } from "../rules/errorKind.ts";
 const log = logger.child({ category: "config" });
 import { PROVIDERS } from "./schema/aiProviders.ts";
 import { load, fileOf, save, configDir, cache } from "./yamlStore.ts";
@@ -22,12 +24,18 @@ type PromptSection = { role: string; text: string };
 // .env 가 아니라 여기 두는 까닭: 프로바이더가 여럿이면 .env 한 칸을 돌려쓸 수 없고,
 // 키를 갈아 끼울 때마다 봇을 다시 띄워야 한다. 설정 파일은 mtime 이 바뀌면 다시 읽는다.
 
+// 키 파일을 못 읽는 것(문법 오류). 키 없이 부르면 401 로만 보여 까닭을 모른다
+const keysUnreadable = repeatingFailure(log, "ai-keys.yaml 읽기");
+
 function aiKeys(): Record<string, string> {
   try {
     const data = load("ai-keys");
+    keysUnreadable.ok();
     return Object.fromEntries(Object.entries(data).map(([name, value]) => [name, String(value ?? "").trim()]));
-  } catch {
-    return {}; // 파일이 없으면 키가 없는 것이다. 로컬 모델만 쓰면 이게 정상이다.
+  } catch (error) {
+    // 파일이 없으면 키가 없는 것이다. 로컬 모델만 쓰면 이게 정상이다. 나머지는 알리고 키 없이 간다
+    if (codeOf(error) !== "CONFIG_MISSING") keysUnreadable.fail(messageOf(error));
+    return {};
   }
 }
 

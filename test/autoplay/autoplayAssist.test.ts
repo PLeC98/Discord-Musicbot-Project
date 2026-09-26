@@ -266,6 +266,53 @@ test("고르기 안에서 한 번 끝내 실패하면 그 고르기의 다음 �
   assert.equal(await assist.accepts(cand("D"), { pick: { failed: false } }), false, "새 고르기는 다시 부른다");
 });
 
+// 켜 둔 기능이 한도 · 서버 오류로 계속 죽어도 평소 로그 수준에서 보여야 한다. 대신 같은 줄이 쌓이지는 않게
+test("판정 실패는 처음 한 번 error 로 알리고, 같은 까닭은 세기만 하고, 풀리면 한 줄", async () => {
+  useConfig(`${ON}retries: 0\n`);
+  replies(ok1);
+  await assist.accepts(cand("A"), {}); // 앞 시험의 실패 상태를 풀어 둔다
+  const from = sink.buffer.length;
+
+  replies(status(503, '{"error":{"code":503,"status":"UNAVAILABLE","message":"The model is overloaded."}}'));
+  for (let i = 0; i < 3; i++) await assist.accepts(cand("A"), {});
+  replies(ok1);
+  await assist.accepts(cand("A"), {});
+
+  const lines = sink.buffer.slice(from).filter((e) => /^AI 보조( 실패|: 다시)/.test(e.text));
+  assert.deepEqual(
+    lines.map((e) => [e.level, e.text]),
+    [
+      ["error", "AI 보조 실패: HTTP 503 UNAVAILABLE (The model is overloaded.)"],
+      ["info", "AI 보조: 다시 됩니다(잇단 실패 3회 뒤)"],
+    ],
+  );
+});
+
+test("키 파일을 못 읽으면 키 없이 가되 까닭을 한 번 알린다(키는 적지 않는다)", () => {
+  useConfig(ON);
+  fs.writeFileSync(path.join(DIR, "ai-keys.yaml"), `openai: ${KEY}\n  broken: [\n`);
+  yamlStore._setConfigDir(DIR);
+  const from = sink.buffer.length;
+  assert.equal(aiConfig.aiKeyOf("openai"), "");
+  assert.equal(aiConfig.aiKeyOf("openai"), "");
+  const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("ai-keys.yaml 읽기"));
+  assert.equal(lines.length, 1, "두 번 읽어도 한 번");
+  assert.equal(lines[0].level, "error");
+  assert.ok(!lines[0].text.includes(KEY), lines[0].text);
+
+  useConfig(ON); // 고친 파일
+  assert.equal(aiConfig.aiKeyOf("openai"), KEY);
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("ai-keys.yaml 읽기: 다시 됩니다")));
+
+  // 파일이 없는 것은 정상이다(로컬 모델만 쓰는 경우)
+  fs.rmSync(path.join(DIR, "ai-keys.yaml"));
+  yamlStore._setConfigDir(DIR);
+  const quiet = sink.buffer.length;
+  assert.equal(aiConfig.aiKeyOf("openai"), "");
+  assert.ok(!sink.buffer.slice(quiet).some((e) => e.text.startsWith("ai-keys.yaml 읽기")));
+  useConfig(ON);
+});
+
 test("다시 해도 같은 답인 것은 다시 부르지 않는다", async () => {
   useConfig(ON);
   for (const [reply, why] of [

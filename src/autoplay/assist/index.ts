@@ -13,6 +13,7 @@ import * as tokens from "./tokens.ts";
 import * as models from "../../config/aiModels.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
+import { repeatingFailure } from "../../infra/repeatingFailure.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/aiProviders.ts";
 import { errorKind, messageOf } from "../../rules/errorKind.ts";
@@ -766,6 +767,16 @@ function arraysIn(text: string): string[] {
 }
 
 /** 판정 하나(재시도 · 다시 묻기까지 끝낸 것)의 실패. reason 은 같은 실패끼리 같은 글, detail 은 저쪽 문구 */
+// 판정 실패는 처음 한 번 error, 같은 까닭이 이어지면 세기만 하고 풀리면 한 줄. 켜 둔 기능이 조용히 죽어 있지 않게
+const failures = repeatingFailure(log, "AI 보조");
+
+// 판정을 못 해 규칙만으로 고른다. 까닭은 한 번 알리고, 매번의 건너뜀은 debug 로
+function skipped(error: unknown) {
+  if (error instanceof AskFailure) failures.fail(error.reason, error.detail);
+  else failures.fail(messageOf(error));
+  log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
+}
+
 class AskFailure extends Error {
   reason: string;
   detail: string;
@@ -836,7 +847,10 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
     let reasked = false;
     for (;;) {
       const got = await attempt(limited, request, total?.signal ?? null);
-      if (got.ok) return got.verdicts;
+      if (got.ok) {
+        failures.ok();
+        return got.verdicts;
+      }
       if (got.unreadable && !reasked) {
         reasked = true;
         log.debug(`AI 보조: 판정을 읽지 못해 한 번 더 묻습니다(${got.detail.slice(0, 80)})`);
@@ -876,7 +890,7 @@ async function filter<T extends Judged>(candidates: T[] | null | undefined, abou
     } catch (error) {
       // 남은 후보는 규칙이 고른 그대로 둔다. 이미 판정한 앞 묶음은 살린다
       failedIn(about);
-      log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
+      skipped(error);
       kept.push(...candidates.slice(at));
       break;
     }
@@ -912,7 +926,7 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
     return false;
   } catch (error) {
     failedIn(about);
-    log.debug(`AI 보조를 건너뜁니다(${messageOf(error)}). 규칙만으로 고릅니다`);
+    skipped(error);
     return true;
   }
 }
