@@ -29,6 +29,7 @@ type InputIo<R> = {
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
   fetch(url: string, init: { headers: Record<string, string> }): Promise<{ ok: boolean; status: number; body: WebStream<Uint8Array> | Readable | null }>;
   directStream(url: string): Promise<Readable>;
+  sleep(ms: number): Promise<void>;
 };
 type Download = { start(): void; filePath: string; wait(file: string): Promise<string> | null };
 type InputOptions<R> = {
@@ -150,8 +151,34 @@ async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promi
   return { resource: pipeResource(o, streamInfo, audioStream, hooks), cacheFile: null };
 }
 
-// 스트림을 연다. 첫 요청까지 여기서 끝내 실패가 캐시 폴백으로 가게 한다
+// 앞 광고를 이보다 오래 기다리지는 않는다. 넘으면 원래 오류로 캐시 폴백에 맡긴다
+const AD_WAIT_MAX_MS = 60_000;
+
+/**
+ * 스트림을 연다. 첫 요청까지 여기서 끝내 실패가 캐시 폴백으로 가게 한다.
+ * 유튜브는 앞 광고가 붙은 응답이면 광고가 끝날 때까지 본편 요청을 403 으로 막는다(클라이언트에 따라 막지 않기도 한다).
+ * 곧바로 열어 보고, 막혔는데 광고가 끝나는 시각(availableAt)이 아직이면 그때까지 기다려 한 번 더 연다
+ */
 async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: Hooks): Promise<OpenedStream | null> {
+  try {
+    return await openStreamOnce(o, streamInfo, hooks);
+  } catch (error) {
+    const waitMs = adWaitMs(error, streamInfo.availableAt, Date.now());
+    if (waitMs === null) throw error;
+    log.debug(`스트림이 앞 광고 시간이라 막혀 있어 ${sec(waitMs)}초 기다렸다 다시 엽니다: ${o.label}`);
+    await o.io.sleep(waitMs);
+    return openStreamOnce(o, streamInfo, hooks);
+  }
+}
+
+// 403 이고 광고가 끝나는 시각(초)이 아직이면 기다릴 ms. 아니면 null(다른 까닭의 실패)
+function adWaitMs(error: unknown, availableAt: number | null | undefined, now: number): number | null {
+  if ((error as { status?: unknown } | null)?.status !== 403 || typeof availableAt !== "number") return null;
+  const ms = availableAt * 1000 - now;
+  return ms > 0 && ms <= AD_WAIT_MAX_MS ? ms : null;
+}
+
+async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: Hooks): Promise<OpenedStream | null> {
   // 트랙의 platform이 아니라 서술자를 본다. AnimeThemes처럼 출처 이름을 platform에
   // 쓰면서 음원을 직접 받는 곡이 있다(streamUrl.getStream이 direct 서술자를 돌려준다).
   // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
@@ -177,7 +204,7 @@ async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: 
     });
   }
   const response = await o.io.fetch(url, { headers });
-  if (!response.ok) throw codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`);
+  if (!response.ok) throw Object.assign(codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`), { status: response.status });
   const { body } = response;
   return body && "getReader" in body ? Readable.fromWeb(body) : body;
 }

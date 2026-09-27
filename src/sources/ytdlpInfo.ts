@@ -56,6 +56,7 @@ const SHAPE = {
   abr: num,
   tbr: num,
   http_headers: z.record(str, str),
+  available_at: num,
   formats: z.array(z.unknown()),
   // 여러 곡(항목은 부르는 쪽이 하나씩 다시 읽는다)
   entries: z.array(z.unknown()),

@@ -232,6 +232,8 @@ async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYt
     // yt-dlp가 알려주는 전송 방식. m3u8 계열은 "받아 둔 바이트"가 아니라 "받아 올 주소"를
     // 줘야 하는 형식이라 파이프로 먹일 수 없다. 재생 쪽이 이 값으로 갈래를 고른다.
     protocol: info.protocol || null,
+    // 앞 광고가 붙은 응답이면 광고가 끝나는 시각. 그 전에는 본편 요청이 403 일 수 있다(yt-dlp 가 광고 길이로 매긴다)
+    availableAt: info.available_at ?? null,
   };
 }
 

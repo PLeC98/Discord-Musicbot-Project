@@ -148,6 +148,7 @@ const caps = { ok: true, https: true, hls: true, dash: true, segMaxRetry: true }
 // ── 3. 청크 스트림 ─────────────────────────────────────────────────────
 async function openChunkedStream(opts: ChunkedOptions) {
   calls.chunked.push(opts);
+  if (behavior.chunked) await behavior.chunked(opts);
   return Object.assign(new PassThrough(), { stats: () => ({ requests: 1, received: 0, totalBytes: opts.totalBytes, idleMs: 0, expiresInS: null }) });
 }
 
@@ -245,6 +246,7 @@ type Behavior = {
   sponsor: ((track: QueuedTrack) => Segments | null | Promise<Segments | null>) | null;
   download: ((track: DownloadTrack) => string | Promise<string>) | null;
   fetch: ((url: string, init: FetchInit) => unknown) | null;
+  chunked: ((opts: ChunkedOptions) => unknown) | null;
   directStream: ((url: string) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined) => unknown) | null;
 };
@@ -254,6 +256,7 @@ const behavior: Behavior = {
   sponsor: null, // (track) → SponsorBlock.forTrack 의 답
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
   fetch: null, // (url, init) → Response 비슷한 것
+  chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
   directStream: null, // (url) → Readable
   restore: null, // function (record) — this 는 플레이어. 세션 되살리기(명령 · 곡 추가의 갈래)
 };

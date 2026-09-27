@@ -154,7 +154,7 @@ test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · �
 // ── 스트림 ────────────────────────────────────────────────────────────
 
 test("스트림: 서술자의 모양. googlevideo 주소에 위치 재개면 begin= 을 붙이고 원래 주소는 rawUrl 에", async () => {
-  respond = () => ({ ...video("ggggggggggg"), url: "https://rr1.googlevideo.com/videoplayback?x=1", acodec: "opus", abr: 130, format: "251 - audio only", http_headers: { "User-Agent": "UA" }, protocol: "https" });
+  respond = () => ({ ...video("ggggggggggg"), url: "https://rr1.googlevideo.com/videoplayback?x=1", acodec: "opus", abr: 130, format: "251 - audio only", http_headers: { "User-Agent": "UA" }, protocol: "https", available_at: 1790500000 });
 
   const s = await YouTube.getStream("https://www.youtube.com/watch?v=ggggggggggg", 12.5);
 
@@ -171,6 +171,7 @@ test("스트림: 서술자의 모양. googlevideo 주소에 위치 재개면 beg
     isLive: false,
     liveStatus: null,
     protocol: "https",
+    availableAt: 1790500000,
   });
 });
 
@@ -182,6 +183,7 @@ test("스트림: HLS 주소에는 begin= 을 붙이지 않는다(위치는 ffmpe
   assert.equal(s.url, "https://manifest.googlevideo.com/x.m3u8");
   assert.equal(s.canSeek, false);
   assert.deepEqual(s.httpHeaders, {}, "헤더가 없으면 빈 객체");
+  assert.equal(s.availableAt, null, "앞 광고 시각이 없으면 null");
 });
 
 test("스트림: 주소가 없거나 yt-dlp 가 실패하면 던진다", async () => {

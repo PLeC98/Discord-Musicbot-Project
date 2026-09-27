@@ -196,6 +196,66 @@ test("전체 길이(clen)를 아는 주소는 청크로 나눠 받는다", async
   assert.equal(calls.chunked[0].totalBytes, 4096);
 });
 
+// 유튜브는 앞 광고가 붙은 응답이면 광고가 끝날 때까지 본편 요청을 403 으로 막는다. yt-dlp 는 그 시각을 available_at 으로 준다
+test("앞 광고로 막힌 스트림(403)은 광고가 끝나는 시각까지 기다렸다 한 번 더 연다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("ddddddddddd");
+  behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?clen=4096&x=2", duration: 100, availableAt: Date.now() / 1000 + 0.2 });
+  let opens = 0;
+  behavior.chunked = () => {
+    opens++;
+    if (opens === 1) throw Object.assign(new Error("Range 요청 실패: HTTP 403"), { status: 403 });
+  };
+  behavior.download = () => Promise.reject(new Error("받기 실패")); // 캐시로 넘어가 가려지지 않게
+  const started = Date.now();
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, true);
+  assert.equal(calls.chunked.length, 2, "곧바로 한 번, 기다린 뒤 한 번");
+  assert.ok(Date.now() - started >= 150, "광고가 끝나는 시각까지 기다렸다");
+  assert.equal(calls.downloads.length, 1);
+});
+
+test("앞 광고로 막힌 것이 아니면(시각 없음 · 지남 · 403 아님 · 60초 넘게 남음) 기다리지 않고 그대로 실패로 넘긴다", async () => {
+  const soon = () => Date.now() / 1000 + 0.1;
+  const cases = [
+    { availableAt: null, status: 403 },
+    { availableAt: Date.now() / 1000 - 5, status: 403 },
+    { availableAt: soon(), status: 404 },
+    { availableAt: Date.now() / 1000 + 120, status: 403 },
+  ];
+  for (const { availableAt, status } of cases) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("eeeeeeeeeee");
+    behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?clen=4096&x=3", duration: 100, availableAt });
+    behavior.chunked = () => {
+      throw Object.assign(new Error(`Range 요청 실패: HTTP ${status}`), { status });
+    };
+    behavior.download = () => Promise.reject(new Error("받기도 실패"));
+
+    const r = await playOnce(p);
+
+    assert.equal(r.ok, false, JSON.stringify({ availableAt, status }));
+    assert.equal(calls.chunked.length, 1, "다시 열지 않는다");
+  }
+});
+
+test("앞 광고로 막힌 스트림은 길이를 모르는 주소(단일 GET)에서도 기다렸다 다시 연다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("fffffffffff");
+  behavior.stream = () => ({ url: "https://media.test/ad", duration: 100, availableAt: Date.now() / 1000 + 0.1 });
+  let gets = 0;
+  behavior.fetch = () => (++gets === 1 ? { ok: false, status: 403, body: null } : { ok: true, status: 200, body: new PassThrough() });
+  behavior.download = () => Promise.reject(new Error("받기 실패")); // 캐시로 넘어가 가려지지 않게
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, true);
+  assert.equal(calls.fetches.length, 2);
+});
+
 test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://files.test/a.mp3");

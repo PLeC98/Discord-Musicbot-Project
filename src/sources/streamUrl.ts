@@ -25,6 +25,8 @@ type StreamInfo = {
   liveStatus?: string | null;
   bitrate?: number;
   isLive?: boolean;
+  /** 이 시각(유닉스 초) 전에는 본편 요청이 막힐 수 있다. 앞 광고가 끝나는 때(yt-dlp 의 available_at) */
+  availableAt?: number | null;
   [field: string]: unknown;
 };
 // 여기서 부르는 것만
