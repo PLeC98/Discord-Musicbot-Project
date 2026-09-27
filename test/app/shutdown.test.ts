@@ -6,14 +6,15 @@ import { EventEmitter } from "node:events";
 import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../src/app/shutdown.ts";
 import { fakeWith } from "../helpers/fake.ts";
 
-function setup({ saveFails = false } = {}) {
+function setup({ saveFails = false, status = async () => {} }: { saveFails?: boolean; status?: () => Promise<unknown> } = {}) {
   const steps: string[] = [];
-  // 음성 라이브러리가 들고 있는 연결. 플레이어가 끊으면 빠진다(진짜도 destroy 가 목록에서 뺀다)
+  // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
+  // destroy(false) 는 나감 메시지를 보내지 않는다(채널에 남는다)
   const live = new Map();
   const connection = (id: string, fails = false) => ({
-    destroy: () => {
+    destroy: (adapterAvailable = true) => {
       if (fails) throw new Error("이미 끊김");
-      steps.push(`voice:${id}`);
+      steps.push(`voice:${id}:${adapterAvailable ? "leave" : "stay"}`);
       live.delete(id);
     },
   });
@@ -29,10 +30,14 @@ function setup({ saveFails = false } = {}) {
       },
     },
     voice: {
-      disconnect: (reason: string) => {
-        steps.push(`disconnect:${id}:${reason}`);
-        live.get(id)?.destroy();
+      release: (reason: string) => {
+        steps.push(`release:${id}:${reason}`);
+        live.get(id)?.destroy(false);
       },
+    },
+    updateVoiceStatus: async (text: string) => {
+      steps.push(`status:${id}:${JSON.stringify(text)}`);
+      await status();
     },
   });
   const client = {
@@ -61,19 +66,29 @@ function setup({ saveFails = false } = {}) {
   return { steps, proc, exited, exits: () => exits };
 }
 
-test("신호를 받으면 세션을 저장하고, 플레이어가 음성을 끊고, 남은 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
+test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 채널에는 남긴 채 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
-  assert.deepEqual(steps, ["save:g1:shutdown", "disconnect:g1:프로세스 종료(SIGTERM)", "voice:g1", "voice:g9", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
+  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
 });
 
-test("레지스트리에 없는 음성 연결도 끊는다. 저장이나 끊기가 실패해도 끝까지 간다", async () => {
-  const { steps, proc, exited } = setup({ saveFails: true });
+test("레지스트리에 없는 음성 연결도 채널에는 남긴 채 정리한다. 저장 · 상태 지우기 · 정리가 실패해도 끝까지 간다", async () => {
+  const { steps, proc, exited } = setup({ saveFails: true, status: async () => Promise.reject(new Error("권한 없음")) });
   proc.emit("SIGHUP");
   assert.equal(await exited, 0);
-  assert.ok(steps.includes("voice:g9"), "레지스트리에 없던 연결");
+  assert.ok(steps.includes("voice:g9:stay"), "레지스트리에 없던 연결");
   assert.equal(steps.at(-2), "kill:SIGHUP");
+});
+
+test("상태 문구 지우기가 멈춰도 상한만 기다리고 끝낸다", async () => {
+  const { steps, proc, exited } = setup({ status: () => new Promise(() => {}) });
+  proc.emit("SIGTERM");
+  let late: NodeJS.Timeout | undefined;
+  const outcome = await Promise.race([exited, new Promise((done) => (late = setTimeout(done, 4000, "상한 없이 기다림")))]);
+  clearTimeout(late);
+  assert.equal(outcome, 0, "상한(2초) 근처에서 끝난다");
+  assert.ok(steps.includes("voice:g1:stay"));
 });
 
 test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다", async () => {

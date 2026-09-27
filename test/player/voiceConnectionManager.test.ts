@@ -3,6 +3,7 @@
 // 회귀 대상: 구 setInterval(3초) 방식의 콜백 중첩 (forceReconnect 15초 대기와 겹침)
 
 import { test } from "node:test";
+import { EventEmitter } from "node:events";
 import assert from "node:assert/strict";
 import { VoiceConnectionManager, type VoiceHost } from "../../src/player/voiceConnection.ts";
 import { fake } from "../helpers/fake.ts";
@@ -141,4 +142,29 @@ test("forceReconnect가 던져도 루프는 reject 없이 재시도 후 정상 �
 
   assert.equal(stats.reconnects, 2);
   assert.equal(vcm.isRecovering, false);
+});
+
+// 종료는 채널에 남긴 채 이 쪽 연결만 정리한다(release). 나가기(disconnect)는 나감 메시지를 보낸다
+function withConnection() {
+  const calls: Array<boolean | undefined> = [];
+  const connection = Object.assign(new EventEmitter(), { state: { status: "ready" }, destroy: (adapterAvailable?: boolean) => calls.push(adapterAvailable) });
+  connection.on("stateChange", () => {});
+  const player = fake<VoiceHost>({ voiceChannel: { id: "vc1", name: "음성" }, guild: { id: "g1", name: "서버" }, connection });
+  return { vcm: new VoiceConnectionManager(player), player, connection, calls };
+}
+
+test("release: 나감 메시지 없이(destroy(false)) 부수고, 리스너를 떼고, 연결을 비운다", () => {
+  const { vcm, player, connection, calls } = withConnection();
+  vcm.release("프로세스 종료(SIGINT)");
+  assert.deepEqual(calls, [false]);
+  assert.equal(connection.listenerCount("stateChange"), 0);
+  assert.equal(player.connection, null);
+  vcm.release("두 번째");
+  assert.deepEqual(calls, [false], "비운 뒤에는 아무것도 안 한다");
+});
+
+test("disconnect: 나감 메시지를 보내며 부순다", () => {
+  const { vcm, calls } = withConnection();
+  vcm.disconnect("leave");
+  assert.deepEqual(calls, [undefined]);
 });

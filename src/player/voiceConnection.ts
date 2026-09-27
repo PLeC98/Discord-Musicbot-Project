@@ -321,6 +321,22 @@ class VoiceConnectionManager {
 
   // 연결을 부수고 비운다. 리스너를 먼저 떼어 부서지는 연결이 복구를 부르지 않게 한다.
   // 여기서 나가는 경우가 무음이면 "왜 나갔는지"를 사후에 알 수 없다. 원인을 남긴다
+  /** 채널에는 남긴 채 이 쪽 연결만 정리한다(나감 메시지를 보내지 않는다). 재시작 뒤 같은 채널에 다시 붙는다 */
+  release(reason: string) {
+    const player = this.player;
+    const connection = player.connection;
+    player.connection = null;
+    if (!connection) return;
+    connection.removeAllListeners();
+    if (connection.state?.status === "destroyed") return;
+    try {
+      connection.destroy(false);
+      log.info(`음성 연결 정리(채널에는 남음): "${channelName(player)}" (${guildName(player)}) | 원인=${reason}`);
+    } catch (error) {
+      log.error("음성 연결 정리 실패:", error);
+    }
+  }
+
   disconnect(reason = "정리") {
     const player = this.player;
     const connection = player.connection;

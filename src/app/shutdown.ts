@@ -1,4 +1,4 @@
-// 종료. 신호를 받으면 세션을 저장하고 음성 연결 · 봇 · 자식 프로세스를 정리한 뒤 나간다.
+// 종료. 신호를 받으면 세션을 저장하고 음성 연결(채널에는 남는다) · 봇 · 자식 프로세스를 정리한 뒤 나간다.
 // 기동이 실패했을 때도 띄운 것을 내리고 나간다.
 
 import readline from "readline";
@@ -6,12 +6,13 @@ import { getVoiceConnections } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import * as procRegistry from "../infra/processRegistry.ts";
+import { messageOf } from "../rules/errorKind.ts";
 
 // 바깥 경계. 시험은 가짜를 넘긴다
 type Boundary = {
   proc: Pick<NodeJS.Process, "on" | "platform" | "stdin" | "stdout">;
   /** 음성 라이브러리가 들고 있는 연결 */
-  voiceConnections(): Iterable<readonly [string, { destroy(): unknown }]>;
+  voiceConnections(): Iterable<readonly [string, { destroy(adapterAvailable?: boolean): unknown }]>;
   killAll(reason: string): unknown;
   exit(code: number): unknown;
 };
@@ -23,8 +24,10 @@ const REAL: Boundary = {
 };
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜) */
 type ShutdownDeps = { potServer: { stop(): unknown }; logFile: { close(): unknown } | null } & Partial<Boundary>;
-/** 종료할 때 세션을 저장하고 음성을 끊을 플레이어 */
-type Saver = { persistence: { persistState(reason: string): Promise<unknown> }; voice: { disconnect(reason: string): unknown } };
+/** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
+type Saver = { persistence: { persistState(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
+// 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
+const STATUS_CLEAR_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인 · 명령 배포)의 핸들 정리와 겹쳐
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
@@ -50,17 +53,22 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
     }
     await Promise.all(saves);
 
-    // 플레이어의 음성 연결은 플레이어가 끊는다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
-    const reason = `프로세스 종료(${signal})`;
-    for (const [, player] of client.players) player?.voice.disconnect(reason);
+    // 음성 채널에는 남는다(짧은 재시작이면 나갔다 들어오지 않고 이어 튼다). 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 상태 문구만 지운다
+    const clears = [];
+    for (const [, player] of client.players) if (player) clears.push(player.updateVoiceStatus("").catch((error: unknown) => log.warn(`음성 채널 상태 지우기 실패: ${messageOf(error)}`)));
+    let cap: NodeJS.Timeout | undefined;
+    await Promise.race([Promise.all(clears), new Promise((done) => (cap = setTimeout(done, STATUS_CLEAR_MS)))]);
+    clearTimeout(cap);
 
-    // 남은 것은 레지스트리에 없던 연결이다. 그대로 두면 프로세스가 죽은 뒤에도 봇이 음성 채널에
-    // 유령으로 남는다. 재시작하면 "봇은 음성에 있는데 플레이어가 없는" 상태가 된다.
+    // 이 쪽 연결만 정리한다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
+    const reason = `프로세스 종료(${signal})`;
+    for (const [, player] of client.players) player?.voice.release(reason);
+    // 레지스트리에 없던 연결도 채널에는 남긴 채 정리한다
     for (const [guildId, connection] of voiceConnections()) {
       const name = client.guilds.cache.get(guildId)?.name ?? guildId;
       try {
-        connection.destroy();
-        log.info(`음성 채널 떠남: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
+        connection.destroy(false);
+        log.info(`음성 연결 정리(채널에는 남음): ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
       } catch (error) {
         log.error(`음성 연결 정리 실패: ${name}`, error);
       }
