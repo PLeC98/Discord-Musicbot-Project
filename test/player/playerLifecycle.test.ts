@@ -645,7 +645,7 @@ test("볼륨은 0~100 으로 자르고 지금 리소스에 바로 건다", () =>
   assert.equal(applied, 1);
   assert.equal(p.setVolume(-3), 0);
   h.dispose(p);
-  assert.deepEqual(calls.persists, ["schedule:volume", "schedule:volume"]);
+  assert.deepEqual(calls.persists, [], "조작은 저장을 모른다(세션 거울이 주기 저장 때 바뀐 칸을 쓴다)");
 });
 
 test("대기열 조작: 빼기 · 옮기기", () => {
@@ -737,7 +737,7 @@ test("스킵: 곡이 있으면 원인을 적고 멈춘다. 없으면 false", () 
   h.dispose(p);
   assert.equal(p._endReason, "jump");
   assert.equal(p.idle.emptyTimer, null);
-  assert.deepEqual(calls.persists, ["schedule:skip"]);
+  assert.deepEqual(calls.persists, []);
 });
 
 test("재생 위치: 시작 오프셋 + 리소스 재생량, 재생이 없으면 적어 둔 위치", () => {
@@ -752,13 +752,12 @@ test("재생 위치: 시작 오프셋 + 리소스 재생량, 재생이 없으면
   h.dispose(p);
 });
 
-test("자동재생: 모르는 장르면 setAutoplay 로 끈다(로그 · 미리 뽑은 곡 정리 · 저장이 따라온다)", async () => {
+test("자동재생: 모르는 장르면 setAutoplay 로 끈다(로그 · 미리 뽑은 곡 정리. 세션은 주기 저장이 쓴다)", async () => {
   const p = h.makePlayer();
   p.autoplay = "지금은 없는 장르";
   assert.equal(await p._continueAutoplay("지금은 없는 장르"), false);
   h.dispose(p);
   assert.equal(p.autoplay, false);
-  assert.ok(calls.persists.includes("schedule:autoplay"), "대입만 하면 저장 예약이 빠진다");
 });
 
 test("상태 요약과 재생 여부", () => {

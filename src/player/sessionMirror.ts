@@ -32,7 +32,9 @@ function beat() {
   const entries: Array<{ guildId: string; positionMs: number; startOffsetMs: number }> = [];
   for (const sp of active) {
     const p = sp.player;
-    if (sp.frozen || !p.guild?.id || !p.currentTrack || p.paused) continue;
+    if (sp.frozen || !p.guild?.id) continue;
+    sp.saveRowIfChanged();
+    if (!p.currentTrack || p.paused) continue;
     if (sp.dirty) sp.resync(store);
     entries.push({ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0, startOffsetMs: p.playback?.startOffsetMs || 0 });
   }
@@ -50,14 +52,15 @@ class SessionPersistence {
   player: MusicPlayer;
   frozen: boolean;
   dirty: boolean;
-  saveTimer: NodeJS.Timeout | null;
+  /** 지난번에 쓴 세션 행(위치 뺀 칸). 주기 저장이 이것과 비교한다 */
+  lastRow: string | null;
 
   // 알림(events)에 플레이어를 넘기므로 플레이어 그대로 받는다
   constructor(player: MusicPlayer) {
     this.player = player;
     this.frozen = false; // 마지막 저장 뒤. 이후의 트랙 변경은 DB에 옮기지 않는다
     this.dirty = false; // 증분 쓰기가 실패해 DB가 메모리와 어긋났을 수 있다
-    this.saveTimer = null;
+    this.lastRow = null;
   }
 
   // ── 트랙 거울 (trackState가 부른다) ──
@@ -146,17 +149,31 @@ class SessionPersistence {
     };
   }
 
-  async persistState(reason = "manual", immediate = false) {
+  /** 세션 행 칸(음량 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 조작은 저장을 모르고 주기 저장이 이걸 부른다 */
+  saveRowIfChanged() {
     const p = this.player;
-    if (immediate) this.cancelStateSave();
+    if (!p.currentTrack && p.queue.length === 0) return;
+    if (this._rowKey() !== this.lastRow) bestEffort(log, this.persistState("changed"), "세션 저장");
+  }
+
+  // 세션 행에서 위치를 뺀 칸. 위치는 주기 저장이 따로 쓴다
+  _rowKey() {
+    const { positionMs: _position, startOffsetMs: _offset, ...row } = this.sessionFields();
+    return JSON.stringify(row);
+  }
+
+  async persistState(reason = "manual") {
+    const p = this.player;
     const store = liveStore();
     if (this.frozen || !p.guild?.id || !store) return;
     try {
       if (!p.currentTrack && p.queue.length === 0) {
         store.removeSession(p.guild.id);
+        this.lastRow = null;
       } else {
         if (this.dirty) this.resync(store);
         store.saveSession(p.guild.id, this.sessionFields());
+        this.lastRow = this._rowKey();
       }
     } catch (error) {
       log.error(`세션 저장 실패 (서버 ID ${p.guild.id}):`, messageOf(error));
@@ -170,6 +187,7 @@ class SessionPersistence {
     if (!store || !guildId) return;
     try {
       store.removeSession(guildId);
+      this.lastRow = null;
     } catch (error) {
       log.error(`세션 삭제 실패 (서버 ID ${guildId}):`, messageOf(error));
     }
@@ -189,25 +207,6 @@ class SessionPersistence {
       clearInterval(heartbeat);
       heartbeat = null;
     }
-    this.cancelStateSave();
-  }
-
-  cancelStateSave() {
-    if (this.saveTimer) {
-      clearTimeout(this.saveTimer);
-      this.saveTimer = null;
-    }
-  }
-
-  scheduleStatePersist(reason = "update", delay = 200) {
-    this.cancelStateSave();
-    this.saveTimer = setTimeout(
-      () => {
-        this.saveTimer = null;
-        bestEffort(log, this.persistState(reason), "세션 저장");
-      },
-      Math.max(delay, 0),
-    );
   }
 
   // ── 복원 ──
@@ -256,7 +255,6 @@ class SessionPersistence {
     }
 
     await this._announceRestored(session.requesterId, resumeMs);
-    this.scheduleStatePersist("restored", 1000);
   }
 
   // 저장된 트랙을 메모리에 올린다

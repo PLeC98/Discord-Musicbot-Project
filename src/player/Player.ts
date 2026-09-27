@@ -492,13 +492,11 @@ class MusicPlayer {
         log.info(`일시정지: 원인=${reason} | ${this._trackLabel()}`);
       }
       this.pauseReasons.add(reason);
-      this.scheduleStatePersist("pause-update", 200);
     }
 
     const status = this.audioPlayer.state.status;
     if (status === AudioPlayerStatus.Paused) {
       this.paused = true;
-      this.scheduleStatePersist("pause", 0);
       return true;
     }
 
@@ -506,7 +504,6 @@ class MusicPlayer {
       const paused = this.audioPlayer.pause();
       if (paused) {
         this.paused = true;
-        this.scheduleStatePersist("pause", 0);
         return true;
       }
     }
@@ -514,7 +511,6 @@ class MusicPlayer {
     // 버퍼링 중이면 의도만 받아 둔다. 재생으로 넘어오는 순간 Playing 리스너가 멈춘다
     if (status === AudioPlayerStatus.Buffering && this.pauseReasons.size > 0) {
       this.paused = true;
-      this.scheduleStatePersist("pause", 0);
       return true;
     }
 
@@ -527,7 +523,6 @@ class MusicPlayer {
         log.info(`일시정지 해제: 원인=${reason} | ${this._trackLabel()}`);
       }
       this.pauseReasons.delete(reason);
-      this.scheduleStatePersist("resume-update", 200);
     }
 
     if (this.pauseReasons.size > 0) {
@@ -539,7 +534,6 @@ class MusicPlayer {
       const resumed = this.audioPlayer.unpause();
       if (resumed) {
         this.paused = false;
-        this.scheduleStatePersist("resume", 0);
         return true;
       }
       return false;
@@ -547,7 +541,6 @@ class MusicPlayer {
 
     if (status === AudioPlayerStatus.Playing || status === AudioPlayerStatus.Buffering) {
       this.paused = false;
-      this.scheduleStatePersist("resume", 0);
       return true;
     }
 
@@ -586,7 +579,7 @@ class MusicPlayer {
     this.lifecycle.to("disposed", reason);
     try {
       bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
-      if (session === "save") await this.persistState("leave", true);
+      if (session === "save") await this.persistState("leave");
       else if (session === "remove") this.persistence?.removeSession();
 
       this.sponsorSkipper?.stop();
@@ -657,7 +650,6 @@ class MusicPlayer {
       this.idle.cancelEmpty();
 
       this._stopWith(reason);
-      this.scheduleStatePersist("skip", 0);
       return true;
     }
     return false;
@@ -671,7 +663,6 @@ class MusicPlayer {
     if (this.loop === "track") {
       this.watch.stopEnd();
       this._stopWith("previous");
-      this.scheduleStatePersist("previous", 0);
       return true;
     }
 
@@ -683,7 +674,6 @@ class MusicPlayer {
       this.watch.stopEnd();
 
       this._stopWith("previous");
-      this.scheduleStatePersist("previous", 0);
       return true;
     }
     return false;
@@ -695,7 +685,6 @@ class MusicPlayer {
     if (this.resource && this.resource.volume) {
       this.resource.volume.setVolume(this.volume / 100);
     }
-    this.scheduleStatePersist("volume", 200);
     return this.volume;
   }
 
@@ -703,7 +692,6 @@ class MusicPlayer {
     if (this.queue.length > 1) {
       clog.info(`대기열 섞음: ${this.queue.length}곡`);
       trackState.shuffle(this);
-      this.scheduleStatePersist("shuffle-queue", 200);
       return true;
     }
     return false;
@@ -732,7 +720,6 @@ class MusicPlayer {
     }
     if (this.loop !== mode) clog.info(`반복: ${this.loop || "off"} → ${mode || "off"}`);
     this.loop = mode;
-    this.scheduleStatePersist("loop", 200);
     return this.loop;
   }
 
@@ -754,8 +741,6 @@ class MusicPlayer {
       if (dropped > 0) clog.info(`미리 뽑아 둔 자동재생 곡 ${dropped}곡을 대기열에서 뺐습니다`);
       if (next) bestEffort(log, this.ensureAutoplayNext(), "자동재생 곡 미리 뽑기");
     }
-
-    this.scheduleStatePersist("autoplay", 200);
     return this.autoplay;
   }
 
@@ -763,7 +748,6 @@ class MusicPlayer {
     const cleared = this.queue.length;
     if (cleared) clog.info(`대기열 비움: ${cleared}곡`);
     trackState.clearQueue(this);
-    this.scheduleStatePersist("clear-queue", 0);
     return cleared;
   }
 
@@ -771,7 +755,6 @@ class MusicPlayer {
     const removed = trackState.removeAt(this, index);
     if (removed) {
       clog.info(`대기열 제거: [${index}] "${removed?.title ?? "?"}" | 남은 ${this.queue.length}곡`);
-      this.scheduleStatePersist("queue-remove", 200);
       return removed;
     }
     return null;
@@ -781,7 +764,6 @@ class MusicPlayer {
     const track = trackState.move(this, from, to);
     if (track) {
       clog.info(`대기열 이동: "${track?.title ?? "?"}" ${from}번 → ${to}번`);
-      this.scheduleStatePersist("queue-move", 200);
       return true;
     }
     return false;
@@ -1112,8 +1094,8 @@ class MusicPlayer {
     return this.persistence.restoreFromState(state);
   }
 
-  persistState(reason = "manual", immediate = false) {
-    return this.persistence.persistState(reason, immediate);
+  persistState(reason = "manual") {
+    return this.persistence.persistState(reason);
   }
 
   startStateSync() {
@@ -1123,10 +1105,6 @@ class MusicPlayer {
   stopStateSync() {
     this.warmer.stop();
     this.persistence.stopStateSync();
-  }
-
-  scheduleStatePersist(reason = "update", delay = 200) {
-    this.persistence.scheduleStatePersist(reason, delay);
   }
 
   /** 지금 곡을 음성 채널 상태에. 일시정지면 그 앞머리로 */

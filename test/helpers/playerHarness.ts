@@ -196,9 +196,6 @@ class FakePersistence extends SessionPersistence {
   }
   startStateSync() {}
   stopStateSync() {}
-  scheduleStatePersist(reason: string) {
-    calls.persists.push(`schedule:${reason}`);
-  }
   removeSession() {
     calls.persists.push("remove");
   }

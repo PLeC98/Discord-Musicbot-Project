@@ -157,12 +157,53 @@ test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다�
   assert.deepEqual(stored(p.guild.id).queue, ["A", "B"]);
 });
 
+// 조작은 저장을 모른다. 세션 행 칸이 바뀌면 주기 저장(beat)이 쓴다
+test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위치만 바뀌었으면 다시 쓰지 않는다. 곡이 없으면 쓰지 않는다", async () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.persistState("play");
+  const store = sessions();
+  const save = store.saveSession.bind(store);
+  const remove = store.removeSession.bind(store);
+  let writes = 0;
+  let removals = 0;
+  store.saveSession = (...args: Parameters<typeof save>) => (writes++, save(...args));
+  store.removeSession = (...args: Parameters<typeof remove>) => (removals++, remove(...args));
+  sp.startStateSync();
+  try {
+    SessionPersistence._beat();
+    assert.equal(writes, 0, "바뀐 칸이 없다");
+
+    p.lastPlaybackPosition = 90_000; // 위치만
+    SessionPersistence._beat();
+    assert.equal(writes, 0, "위치는 행을 다시 쓰지 않는다(위치는 따로 쓴다)");
+
+    p.volume = 40;
+    SessionPersistence._beat();
+    assert.equal(writes, 1);
+    assert.equal(loaded(p.guild.id).session.volume, 40);
+
+    SessionPersistence._beat();
+    assert.equal(writes, 1, "한 번 쓴 뒤로는 같다");
+
+    trackState.reset(p, { history: true });
+    p.loop = "queue";
+    SessionPersistence._beat();
+    assert.equal(writes, 1, "곡도 대기열도 없으면 쓰지 않는다");
+    assert.equal(removals, 0, "지우는 것도 주기 저장의 일이 아니다(대기열이 끝날 때 지운다)");
+  } finally {
+    sp.stopStateSync();
+    store.saveSession = save;
+    store.removeSession = remove;
+  }
+});
+
 test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 남는다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
   trackState.enqueue(p, [t("next")]);
 
-  await sp.persistState("leave", true);
+  await sp.persistState("leave");
   trackState.reset(p);
 
   const s = loaded(p.guild.id);
@@ -257,7 +298,6 @@ async function restore(record: RestoredSession, setup: (p: TestPlayer) => void =
   const { p, sp } = makeRestorePlayer();
   setup(p);
   await sp.restoreFromState(record);
-  sp.cancelStateSave(); // scheduleStatePersist("restored") 타이머 정리
   return p;
 }
 
@@ -301,7 +341,6 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   try {
     const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } });
     await sp.restoreFromState(record);
-    sp.cancelStateSave();
     assert.deepEqual(stored(p.guild.id), memory(p));
 
     p.loop = "queue";
@@ -326,7 +365,6 @@ test("복원: 자동재생이 미리 뽑아 둔 곡은 되살리지 않고 DB도
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id, client: { user: { id: BOT } } } });
   await sp.restoreFromState(record);
-  sp.cancelStateSave();
 
   assert.deepEqual(titles(p.queue), ["내곡1", "내곡2"]);
   assert.deepEqual(stored(p.guild.id), memory(p), "걸러낸 뒤 DB를 맞추지 않으면 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
@@ -341,7 +379,6 @@ test("복원: 봇 id를 알 수 없으면 대기열을 그대로 되살린다", 
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } }); // client 없음
   await sp.restoreFromState(record);
-  sp.cancelStateSave();
 
   assert.deepEqual(titles(p.queue), ["내곡", "자동곡"]);
 });
@@ -360,7 +397,6 @@ test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다"
   try {
     const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } });
     await sp.restoreFromState(record);
-    sp.cancelStateSave();
     assert.equal(p.queue.length, 25);
     assert.deepEqual(stored(p.guild.id), memory(p), "메모리만 자르면 넘친 행이 DB에 남아 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
 

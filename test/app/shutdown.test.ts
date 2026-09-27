@@ -22,8 +22,8 @@ function setup({ saveFails = false } = {}) {
   live.set("g8", connection("g8", true));
 
   const player = (id: string) => ({
-    persistState: async (reason: string, immediate: boolean) => {
-      steps.push(`save:${id}:${reason}:${immediate}`);
+    persistState: async (reason: string) => {
+      steps.push(`save:${id}:${reason}`);
       if (saveFails) throw new Error("저장 실패");
     },
     disconnect: (reason: string) => {
@@ -61,7 +61,7 @@ test("신호를 받으면 세션을 저장하고, 플레이어가 음성을 끊�
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
-  assert.deepEqual(steps, ["save:g1:shutdown:true", "disconnect:g1:프로세스 종료(SIGTERM)", "voice:g1", "voice:g9", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
+  assert.deepEqual(steps, ["save:g1:shutdown", "disconnect:g1:프로세스 종료(SIGTERM)", "voice:g1", "voice:g9", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
 });
 
 test("레지스트리에 없는 음성 연결도 끊는다. 저장이나 끊기가 실패해도 끝까지 간다", async () => {
