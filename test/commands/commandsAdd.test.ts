@@ -9,7 +9,9 @@ import * as playerEvents from "../../src/player/events.ts";
 import * as tracks from "../helpers/tracks.ts";
 import { command, run as runCommand } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
-import type { ChatInputCommandInteraction, Client, Guild, GuildMember } from "discord.js";
+import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
+import modalHandler from "../../events/modalHandler.ts";
+import * as genreConfig from "../../src/config/genres.ts";
 import type { VoiceConnection } from "@discordjs/voice";
 import { Player, type PanelMessage } from "../../src/player/Player.ts";
 import type { Requester } from "../../src/player/track.ts";
@@ -18,6 +20,7 @@ import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
 import * as h from "../helpers/playerHarness.ts";
+const { behavior } = h; // 하네스의 가짜 설정
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
@@ -447,7 +450,7 @@ test("/autoplay: 켜져 있으면 끄고 30초짜리 다시 고르기 메뉴를,
   assert.match(JSON.stringify(b.log[0][1]), /autoplay_genre/);
 });
 
-test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어야 한다. 플레이어가 없으면 만든다", async () => {
+test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어야 한다. 플레이어가 없으면 만들지 않고 메뉴만 띄운다", async () => {
   await settings.setDjRoles("g1", ["dj"]);
   const denied = world();
   const d = interaction(denied);
@@ -462,9 +465,63 @@ test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어�
   const fresh = world({ player: null, roles: ["dj"] });
   const f = interaction(fresh);
   await runCommand(await command("autoplay"), f.it, fresh.client);
+  assert.equal(fresh.client.players.has("g1"), false, "메뉴만 닫아도 빈 플레이어가 남지 않게, 고른 뒤에 만든다");
+  assert.match(JSON.stringify(f.log[0][1]), /autoplay_genre:[^"]*:idle/);
+});
+
+test("/autoplay 장르 선택: 플레이어가 없으면 고른 그때 만들어 장르를 걸고 첫 곡을 뽑아 튼다", async () => {
+  const fresh = world({ player: null, roles: ["dj"] });
+  const [genre] = Object.keys(genreConfig.genres().genres); // 지금 설정에 있는 장르
+  behavior.autoplay = () => tracks.youtube("apapapapapa", { title: "뽑은 곡" });
+  behavior.stream = () => ({ url: "https://media.test/ap", duration: 100 });
+  const log: unknown[] = [];
+  const pick = fakeWith<StringSelectMenuInteraction<"cached">>()({
+    guild: fresh.guild,
+    member: fresh.member,
+    client: fresh.client,
+    channel: { id: "c1", send: async () => ({}) },
+    customId: `autoplay_genre:${USER}:idle`,
+    values: [genre],
+    isStringSelectMenu: () => true,
+    isModalSubmit: () => false,
+    inCachedGuild: () => true,
+    reply: async (m: unknown) => log.push(["reply", m]),
+    update: async () => log.push("update"),
+  });
+
+  await modalHandler.execute(pick);
+
   const created = fresh.client.players.get("g1");
-  assert.ok(created instanceof h.Player);
+  assert.ok(created instanceof h.Player, JSON.stringify(log));
+  assert.equal(created.autoplay, genre);
+  assert.equal(created.currentTrack?.title, "뽑은 곡", "틀고 있지 않았으니 첫 곡을 뽑아 튼다");
   h.dispose(created);
+  behavior.autoplay = null;
+  behavior.stream = null;
+});
+
+test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(음성 채널 밖) 만들지 않고 거절한다", async () => {
+  const away = world({ player: null, roles: ["dj"], botVoice: null, userVoice: null });
+  const [genre] = Object.keys(genreConfig.genres().genres);
+  const log: unknown[] = [];
+  const pick = fakeWith<StringSelectMenuInteraction<"cached">>()({
+    guild: away.guild,
+    member: away.member,
+    client: away.client,
+    channel: { id: "c1", send: async () => ({}) },
+    customId: `autoplay_genre:${USER}:idle`,
+    values: [genre],
+    isStringSelectMenu: () => true,
+    isModalSubmit: () => false,
+    inCachedGuild: () => true,
+    reply: async (m: { content?: string }) => log.push(m.content),
+    update: async () => log.push("update"),
+  });
+
+  await modalHandler.execute(pick);
+
+  assert.deepEqual(log, [S.ERR_VOICE_REQUIRED]);
+  assert.equal(away.client.players.has("g1"), false);
 });
 
 // ── /dashboard ────────────────────────────────────────────────────────

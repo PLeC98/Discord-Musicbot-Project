@@ -283,6 +283,15 @@ test("자동재생 버튼: 플레이어가 없어도 받는다. 켜져 있으면
   assert.equal(b.log[0][0], "reply");
 });
 
+test("자동재생 버튼: 플레이어가 없으면 만들지 않고 장르 메뉴만 띄운다(고른 뒤에 만든다)", async () => {
+  const none = world({ player: false });
+  const { it, log } = press(none, "music_autoplay:u:idle");
+  await buttonHandler.execute(it);
+  assert.equal(log.length, 1);
+  assert.equal(log[0][0], "reply");
+  assert.equal(none.client.players.size, 0);
+});
+
 test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한다", async () => {
   const idle = world({ botVoice: null, userVoice: null });
   const { it, log } = press(idle, "music_autoplay:u:S1");

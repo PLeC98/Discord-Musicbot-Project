@@ -283,6 +283,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
         blockedKeywords: ["Playlist"],
       }),
       pickAutoplayTrack: Player.prototype.pickAutoplayTrack,
+      io: { pickAutoplay: route.pickTrack }, // 길 찾기는 진짜(안쪽 경계는 아래 autoplayDeps)
       // AI 보조는 운영 설정(config/ai.yaml)을 읽어 진짜로 부른다. 여기서는 규칙만 본다
       autoplayDeps: { ...route.REAL, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
     });

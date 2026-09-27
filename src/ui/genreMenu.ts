@@ -31,6 +31,9 @@ function genreSelect(requesterId: string, sessionId: string, placeholder: string
 }
 
 /** 켤 때. 장르를 고르면 그 장르로 켜진다. 고르는 동안 떠 있어야 한다(keepReply). */
+/** 플레이어 없이 띄운 장르 메뉴의 표식. 고르면 그때 플레이어를 만든다(끝난 패널의 버튼과 같은 표식) */
+const IDLE_SESSION = "idle";
+
 function buildGenreMenu(requesterId: string, sessionId: string) {
   const embed = new EmbedBuilder().setTitle("🎲 음악 장르 선택").setDescription("어떤 장르를 재생할까요?").setColor(config.bot.embedColor);
 
@@ -49,4 +52,4 @@ function buildAutoplayOffMenu(requesterId: string, sessionId: string) {
   return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: [1 << 6] };
 }
 
-export { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS };
+export { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS, IDLE_SESSION };

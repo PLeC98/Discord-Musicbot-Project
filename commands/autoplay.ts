@@ -1,7 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
-import { ensurePlayer } from "../src/usecases/addTracks.ts";
-import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
+import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS, IDLE_SESSION } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
@@ -12,14 +11,19 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("autoplay").setDescription("Toggle autoplay. Pick a genre when turning it on.").setDescriptionLocalizations({ ko: "자동재생을 토글합니다" }),
 
   async execute(interaction, client) {
-    const { guild, member, channel } = interaction;
+    const { guild, member } = interaction;
 
     // 재생 조작이므로 DJ 계층. 봇이 유휴면 재적 검사가 통과해 버리므로 소환 가능 여부를 이어 붙인다.
     const permErr = (await checkControl(member)) || checkSummon(member);
     if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 
-    // 틀고 있지 않아도 켤 수 있다. 장르를 고르면 그 자리에서 첫 곡을 뽑아 재생한다.
-    const player = client.players.get(guild.id) ?? ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice?.channel ?? null });
+    // 틀고 있지 않아도 켤 수 있다. 장르를 고르면 그 자리에서 플레이어를 만들어 첫 곡을 뽑아 재생한다.
+    // 플레이어는 고른 뒤에 만든다(메뉴를 닫으면 아무것도 남지 않게). 그때까지 메뉴는 쉬는 중의 표식(idle)을 단다
+    const player = client.players.get(guild.id);
+    if (!player) {
+      keepReply(interaction);
+      return interaction.reply(buildGenreMenu(member.id, IDLE_SESSION));
+    }
 
     if (player.autoplay) {
       player.setAutoplay(false);

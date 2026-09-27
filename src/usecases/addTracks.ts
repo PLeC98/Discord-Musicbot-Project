@@ -128,12 +128,13 @@ type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: s
 
 async function requestPlayback(client: Client, request: PlaybackRequest): Promise<PlaybackResult> {
   const { guild, insertFirst = false, responder = silentResponder } = request;
-  const player = await playerFor(client, request);
   // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(출처가 더 작게 자르면 그쪽), 더 넣기 선택지 단위이기도 하다
   const batch = batchFor(request.query, GuildSettingsManager.resolvePlaylistAddMax(guild.id));
 
-  const checked = await tracksFor(player, request, batch);
+  // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 등록부에 남는다
+  const checked = await tracksFor(client.players.get(guild.id) ?? null, request, batch);
   if (typeof checked === "string") return { success: false, message: checked };
+  const player = await playerFor(client, request);
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
   if (checked.tracks.some((t) => t.isLive)) player.releaseLoopForLive();
@@ -160,16 +161,17 @@ async function playerFor(client: Client, { guild, textChannel = null, voiceChann
 }
 
 // 넣을 곡. 이미 찾은 곡이면 그대로, 검색어면 찾는다. 넣을 수 없으면 안내 문구
-async function tracksFor(player: Player, request: PlaybackRequest, batch: number): Promise<Found | string> {
+// 플레이어가 아직 없으면(곡을 찾은 뒤에 만든다) 빈 대기열로 센다
+async function tracksFor(player: Player | null, request: PlaybackRequest, batch: number): Promise<Found | string> {
   const found = request.tracks ? { isPlaylist: request.tracks.length > 1, collection: request.collection ?? null, tracks: request.tracks } : await search(player, request.query, request, batch);
   return typeof found === "string" ? found : withoutBlocked(found, request.ffmpegReady);
 }
 
-async function search(player: Player, query: string, { guild, single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
+async function search(player: Player | null, query: string, { guild, single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
   log.debug({ sub: "play" }, `${source} | 서버=${guild.id} | 검색어="${query}"`);
   // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
   // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
-  const room = trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
+  const room = trackState.roomLeft(player ?? { queue: [] }, config.bot.maxQueueSize) + (player?.currentTrack ? 0 : 1);
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
   // 로그의 하위 이름. 입구 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/" 로 이어 붙여 track//play 가 됐다
   const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });

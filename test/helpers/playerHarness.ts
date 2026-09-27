@@ -254,6 +254,7 @@ type Behavior = {
   chunked: ((opts: ChunkedOptions) => unknown) | null;
   directStream: ((url: string) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined) => unknown) | null;
+  autoplay: (() => QueuedTrack | null) | null;
 };
 const behavior: Behavior = {
   stream: null, // (track, seekSec) → streamInfo. 던지면 스트림 실패
@@ -264,6 +265,7 @@ const behavior: Behavior = {
   chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
   directStream: null, // (url) → Readable
   restore: null, // function (record) — this 는 플레이어. 세션 되살리기(명령 · 곡 추가의 갈래)
+  autoplay: null, // () → 자동재생이 뽑을 곡. 기본은 못 찾음
 };
 
 // 동등물 찾기 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
@@ -311,6 +313,8 @@ const fakes: Partial<Boundary> = {
   createDownloader: (player) => new FakeDownloader(player),
   findEquivalent,
   sponsorFor,
+  // 자동재생 길 찾기. 기본은 "못 찾음"(밖으로 나가지 않는다)
+  pickAutoplay: async () => (behavior.autoplay ? behavior.autoplay() : null) as Awaited<ReturnType<Boundary["pickAutoplay"]>>,
   createAudioResource: createAudioResource as unknown as Boundary["createAudioResource"],
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,

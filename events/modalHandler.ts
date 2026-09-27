@@ -5,7 +5,8 @@ import { messageOf } from "../src/rules/errorKind.ts";
 const log = logger.child({ category: "events" });
 import * as genreConfig from "../src/config/genres.ts";
 import * as S from "../src/ui/strings.ts";
-import { checkControl } from "../src/usecases/permissions.ts";
+import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
+import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import { expireReply } from "../src/ui/replyLifetime.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -16,17 +17,9 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
   const guild = interaction.guild;
   const member = interaction.member;
 
-  // 음악 플레이어 가져오기
-  const player = client.players.get(guild.id);
-  if (!player) {
-    return await interaction.reply({
-      content: S.ERR_NO_MUSIC,
-      flags: [1 << 6],
-    });
-  }
-
-  // 자동재생 설정은 재생 조작. DJ 계층 + 재적 규칙 (모더레이터 면제)
-  const permErr = await checkControl(member);
+  const existing = client.players.get(guild.id);
+  // 자동재생 설정은 재생 조작. DJ 계층 + 재적 규칙 (모더레이터 면제). 봇이 쉬고 있으면 부를 수 있어야 한다
+  const permErr = (await checkControl(member)) || (existing ? null : checkSummon(member));
   if (permErr) {
     return await interaction.reply({
       content: permErr,
@@ -45,6 +38,8 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
     });
   }
 
+  // 플레이어는 장르를 고른 지금 만든다(메뉴를 닫으면 아무것도 남지 않게)
+  const player = existing ?? ensurePlayer(client, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
   // 선택한 장르로 자동재생 활성화
   player.setAutoplay(selectedGenre);
 
