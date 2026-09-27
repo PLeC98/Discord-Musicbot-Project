@@ -35,13 +35,8 @@ const exported: GuildCommand = {
       });
     }
 
-    // 옛 패널은 새로 올릴 때 기록을 보고 치운다
-    player.nowPlayingMessage = null;
-    player.nowPlayingWebhook = null;
-
+    player.movePanel(channel);
     client.musicEmbedManager.stopProgressUpdate(guild.id);
-
-    player.textChannel = channel;
 
     await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager), { reuse: false });
   },

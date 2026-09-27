@@ -75,8 +75,8 @@ function ensurePlayer(client: Client, { guild, textChannel = null, voiceChannel 
     return player;
   }
 
-  if (!botVoiceChannel && voiceChannel) player.voiceChannel = voiceChannel;
-  if (textChannel) player.textChannel = textChannel;
+  // 봇이 이미 음성에 있으면 음성 채널은 그대로(바꾸면 재연결이 엉뚱한 채널로 간다)
+  player.bindChannels({ voice: botVoiceChannel ? null : voiceChannel, text: textChannel });
   return player;
 }
 

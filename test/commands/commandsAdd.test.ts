@@ -11,7 +11,7 @@ import { command, run as runCommand } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember } from "discord.js";
 import type { VoiceConnection } from "@discordjs/voice";
-import type { MusicPlayer, PanelMessage } from "../../src/player/Player.ts";
+import { MusicPlayer, type PanelMessage } from "../../src/player/Player.ts";
 import type { Requester } from "../../src/player/track.ts";
 import type { LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
@@ -103,6 +103,9 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
   Object.assign(guild, { client });
   // 이미 있는 플레이어(가짜). 시험이 칸을 바꿔 본다
   const existing = fakePlayer({
+    bindChannels: MusicPlayer.prototype.bindChannels,
+    movePanel: MusicPlayer.prototype.movePanel,
+    restoreSettings: MusicPlayer.prototype.restoreSettings,
     sessionId: "S1",
     queue: [],
     previousTracks: [],

@@ -11,7 +11,7 @@ import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits, type ClientEvents, type Interaction, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
@@ -99,6 +99,9 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     queueFullMessage: () => "❌ 대기열이 가득 찼어요.",
   };
   const player = {
+    bindChannels: MusicPlayer.prototype.bindChannels,
+    movePanel: MusicPlayer.prototype.movePanel,
+    restoreSettings: MusicPlayer.prototype.restoreSettings,
     sessionId: "S1",
     queue: [] as { title: string }[],
     previousTracks: [] as { title: string }[],

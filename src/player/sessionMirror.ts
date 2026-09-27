@@ -226,12 +226,12 @@ class SessionPersistence {
     if (!record || !player.guild?.id) return;
     const { session } = record;
     this.stopStateSync();
-    player.pauseReasons = new Set();
-
-    player.volume = typeof session.volume === "number" ? session.volume : player.volume;
-    player.loop = session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false;
-    player.autoplay = session.autoplay || false;
-    player.requesterId = session.requesterId || player.requesterId;
+    player.restoreSettings({
+      volume: session.volume,
+      loop: session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false,
+      autoplay: session.autoplay || false,
+      requesterId: session.requesterId,
+    });
 
     this._restoreTracks(record, player.guild.id);
     const resumeMs = resumeAt(player.currentTrack, session.positionMs);

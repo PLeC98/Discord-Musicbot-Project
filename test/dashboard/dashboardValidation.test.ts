@@ -26,6 +26,8 @@ const { createGuildsRouter } = await import("../../dashboard/server/routes/guild
 const { createPlayerStream } = await import("../../dashboard/server/playerStream.ts");
 const playerEvents = await import("../../src/player/events.ts");
 const { VOLUME_SETTLE_MS } = await import("../../src/usecases/controls.ts");
+// 가짜 플레이어가 빌려 쓰는 진짜 메서드. 설정(OWNER_ID)을 정한 뒤에 불러야 한다
+const RealPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
 const store = openTempStore("dashboard-validation-");
 after(() => store.close());
 
@@ -53,6 +55,9 @@ function makeTrack(title: string) {
 
 function makePlayer() {
   return fakePlayer({
+    bindChannels: RealPlayer.prototype.bindChannels,
+    movePanel: RealPlayer.prototype.movePanel,
+    restoreSettings: RealPlayer.prototype.restoreSettings,
     calls: [] as unknown[][],
     currentTrack: makeTrack("현재곡"),
     queue: [makeTrack("q0"), makeTrack("q1"), makeTrack("q2")],

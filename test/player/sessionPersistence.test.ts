@@ -7,7 +7,7 @@ import * as playerNotices from "../../src/ui/playerNotices.ts";
 import * as transientMessages from "../../src/ui/transientMessages.ts";
 import config from "../../config.ts";
 import type { GuildTextBasedChannel } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 
@@ -44,6 +44,9 @@ let guildSerial = 0;
 // 가짜 플레이어. 시험이 재생 위치(position)와 부른 것(calls)을 정하고 본다
 function makePlayer(overrides: object = {}) {
   const p = fakePlayer({
+    bindChannels: MusicPlayer.prototype.bindChannels,
+    movePanel: MusicPlayer.prototype.movePanel,
+    restoreSettings: MusicPlayer.prototype.restoreSettings,
     guild: { id: `g${guildSerial++}` },
     voiceChannel: { id: "v1" },
     textChannel: null,
@@ -316,6 +319,15 @@ test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 되살
   assert.equal(p.volume, 80);
   assert.equal(p.loop, false, "DB의 off는 메모리에서 false다 — 대시보드가 참/거짓으로 읽는다");
   assert.equal(p.autoplay, "rock");
+});
+
+test("복원: 전의 멈춤 사유(혼자 남음 등)는 비운다. 복원한 뒤의 상황이 다시 건다", async () => {
+  const p = await restore(makeRecord(), (q) => {
+    q.pauseReasons.add("alone");
+    q.pauseReasons.add("mute");
+  });
+  assert.deepEqual([...p.pauseReasons], []);
+  assert.deepEqual(p.calls, [["play", 30_000, false]]);
 });
 
 test("복원: 요청자는 id만 되살린다", async () => {

@@ -83,6 +83,9 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     skip: () => false,
     previous: () => false,
     _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
+    bindChannels: MusicPlayer.prototype.bindChannels,
+    movePanel: MusicPlayer.prototype.movePanel,
+    restoreSettings: MusicPlayer.prototype.restoreSettings,
     hasLiveTrack: () => false,
     setLoop(m: string) {
       p.loop = m;

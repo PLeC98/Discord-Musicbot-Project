@@ -11,7 +11,7 @@ import { openTempStore, setGuild } from "../helpers/tempStore.ts";
 import config from "../../config.ts";
 import * as S from "../../src/ui/strings.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
 import type { Collection, LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { CollectionResult, Lookup, PlaybackRequest } from "../../src/usecases/addTracks.ts";
@@ -138,7 +138,7 @@ test("ensurePlayer: 없으면 만들고 맵에 넣는다", (t) => {
 test("ensurePlayer: 있으면 재사용한다 — 큐가 사라지면 안 된다", () => {
   const client = makeClient();
   const guild = makeGuild();
-  const existing = fakePlayer({ queue: [track("a")], textChannel: makeChannel("old"), voiceChannel: voiceOf("v0") });
+  const existing = fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, queue: [track("a")], textChannel: makeChannel("old"), voiceChannel: voiceOf("v0") });
   client.players.set(GUILD_ID, existing);
 
   const player = ensurePlayer(client, { guild, textChannel: makeChannel("new"), voiceChannel: voiceOf("v1") });
@@ -150,7 +150,7 @@ test("ensurePlayer: 봇이 재생 중이면 voiceChannel을 갱신하지 않는�
   const client = makeClient();
   const botVoice = voiceOf("botVC");
   const guild = makeGuild({ botVoice });
-  const existing = fakePlayer({ voiceChannel: botVoice, textChannel: null });
+  const existing = fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, voiceChannel: botVoice, textChannel: null });
   client.players.set(GUILD_ID, existing);
 
   ensurePlayer(client, { guild, textChannel: makeChannel("t"), voiceChannel: voiceOf("요청자VC") });
@@ -160,7 +160,7 @@ test("ensurePlayer: 봇이 재생 중이면 voiceChannel을 갱신하지 않는�
 test("ensurePlayer: 봇이 유휴면 요청자 채널로 갱신한다", () => {
   const client = makeClient();
   const guild = makeGuild({ botVoice: null });
-  const existing = fakePlayer({ voiceChannel: null, textChannel: null });
+  const existing = fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, voiceChannel: null, textChannel: null });
   client.players.set(GUILD_ID, existing);
 
   const requesterVC = voiceOf("v9");
@@ -172,7 +172,7 @@ test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드�
   const client = makeClient();
   const guild = makeGuild();
   const kept = makeChannel("keep");
-  const existing = fakePlayer({ textChannel: kept, voiceChannel: null });
+  const existing = fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, textChannel: kept, voiceChannel: null });
   client.players.set(GUILD_ID, existing);
 
   ensurePlayer(client, { guild, textChannel: null, voiceChannel: null });
@@ -183,7 +183,7 @@ test("ensurePlayer: textChannel을 null로 덮어쓰지 않는다 (대시보드�
 
 // 이 서버에 붙어 있는 플레이어
 function seedPlayer(client: TestClient) {
-  client.players.set(GUILD_ID, fakePlayer({ textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive: () => true, hasLiveTrack: () => false }));
+  client.players.set(GUILD_ID, fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, textChannel: makeChannel("t"), voiceChannel: null, queue: [], loop: false, releaseLoopForLive: () => true, hasLiveTrack: () => false }));
 }
 
 // 검색어나 찾은 곡 가운데 하나와 나머지 선택
@@ -402,7 +402,7 @@ test("텍스트 채널이 없으면 서버가 지정한 봇 전용 채널로 채
   const botChannel = makeChannel("botCh");
   const client = makeClient();
   const guild = makeGuild({ channels: [botChannel] });
-  client.players.set(GUILD_ID, fakePlayer({ textChannel: null, voiceChannel: null, queue: [] }));
+  client.players.set(GUILD_ID, fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
 
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
   assert.equal(playerOf(client).textChannel, botChannel);
@@ -413,7 +413,7 @@ test("봇 전용 채널이 미설정이면 아무 채널도 추측하지 않는�
   setGuild(GUILD_ID, { botChannel: null });
   const client = makeClient();
   const guild = makeGuild({ channels: [makeChannel("random")] });
-  client.players.set(GUILD_ID, fakePlayer({ textChannel: null, voiceChannel: null, queue: [] }));
+  client.players.set(GUILD_ID, fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
 
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", lookup });
   assert.equal(playerOf(client).textChannel, null);
@@ -425,7 +425,7 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   const client = makeClient();
   const given = makeChannel("given");
   const guild = makeGuild({ channels: [makeChannel("botCh")] });
-  client.players.set(GUILD_ID, fakePlayer({ textChannel: null, voiceChannel: null, queue: [] }));
+  client.players.set(GUILD_ID, fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, textChannel: null, voiceChannel: null, queue: [] }));
 
   await requestPlayback(client, { guild, requester: { id: "u1" }, query: "곡A", textChannel: given, lookup });
   assert.equal(playerOf(client).textChannel, given);

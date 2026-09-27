@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { showSearchMenu } from "../../commands/search.ts";
 import { handleSearchInteraction } from "../../events/buttonHandler.ts";
 import type { ButtonInteraction, ChatInputCommandInteraction, Client } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
@@ -82,7 +82,7 @@ async function seedTwoSearches(client: TestClient, t: TestContext) {
   await showSearchMenu(makeSearchInteraction(client, { messageId: "m2" }), [trackB], "재검색");
 
   // 대기 중인 플레이어가 있는 것처럼 — MusicPlayer 생성 없이 기존 플레이어 갱신 경로 사용
-  client.players.set("g1", fakePlayer({ voiceChannel: null, textChannel: null, queue: [] }));
+  client.players.set("g1", fakePlayer({ bindChannels: MusicPlayer.prototype.bindChannels, movePanel: MusicPlayer.prototype.movePanel, restoreSettings: MusicPlayer.prototype.restoreSettings, voiceChannel: null, textChannel: null, queue: [] }));
 
   return { trackA, trackB };
 }

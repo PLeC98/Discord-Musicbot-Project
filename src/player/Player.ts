@@ -1081,6 +1081,28 @@ class MusicPlayer {
 
   // ── 세션 영속화. 로직은 SessionPersistence ────────────────────────────────
 
+  /** 쓸 채널을 정한다. 준 것만 바꾸고 null 은 덮지 않는다(대시보드처럼 글자 채널이 없는 입구가 지우지 않게) */
+  bindChannels({ voice = null, text = null }: { voice?: VoiceBasedChannel | null; text?: GuildTextBasedChannel | null }) {
+    if (voice) this.voiceChannel = voice;
+    if (text) this.textChannel = text;
+  }
+
+  /** 패널을 다른 글자 채널로 옮긴다. 옛 패널 참조를 놓는다(옛 패널은 새로 올릴 때 기록을 보고 치운다) */
+  movePanel(channel: GuildTextBasedChannel) {
+    this.nowPlayingMessage = null;
+    this.nowPlayingWebhook = null;
+    this.textChannel = channel;
+  }
+
+  /** 저장된 설정을 되돌린다(세션 복원). 멈춤 사유는 비운다. 복원한 뒤의 상황(혼자 남음 등)이 다시 건다 */
+  restoreSettings({ volume, loop, autoplay, requesterId }: { volume?: number | null; loop: Loop; autoplay: string | false; requesterId?: string | null }) {
+    this.pauseReasons = new Set();
+    if (typeof volume === "number") this.volume = volume;
+    this.loop = loop;
+    this.autoplay = autoplay;
+    if (requesterId) this.requesterId = requesterId;
+  }
+
   /** 지금 곡을 음성 채널 상태에. 일시정지면 그 앞머리로 */
   _showTrackInVoiceStatus() {
     if (!this.currentTrack) return;
