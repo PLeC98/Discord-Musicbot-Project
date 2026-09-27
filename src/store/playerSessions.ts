@@ -164,6 +164,7 @@ function queries(conn: Db) {
     guildTracks: conn.prepare<[string], RawTrackRow>("SELECT * FROM session_tracks WHERE guild_id = ? ORDER BY slot, seq"),
     allTracks: conn.prepare<[], RawTrackRow>("SELECT * FROM session_tracks ORDER BY guild_id, slot, seq"),
     liveRefs: conn.prepare<[], { audio_url: string }>("SELECT audio_url FROM session_tracks WHERE slot IN ('current', 'queue') AND audio_url IS NOT NULL"),
+    frontRefs: conn.prepare<[number], { audio_url: string }>("SELECT audio_url FROM (SELECT audio_url, slot, ROW_NUMBER() OVER (PARTITION BY guild_id, slot ORDER BY seq) AS n FROM session_tracks WHERE slot IN ('current', 'queue')) WHERE audio_url IS NOT NULL AND (slot = 'current' OR n <= ?)"),
   };
 }
 
@@ -398,6 +399,11 @@ class PlayerSessionStore {
   // 기동 시 고아 파일 청소가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 받으면 된다)
   liveAudioUrls(): string[] {
     return this.q.liveRefs.all().map((r) => r.audio_url);
+  }
+
+  // 퇴거가 지켜야 할 곡의 음원 주소. 서버마다 현재곡과 대기열 앞 `ahead` 곡(미리 받기가 곧 받을 곳)
+  frontAudioUrls(ahead: number): string[] {
+    return this.q.frontRefs.all(ahead).map((r) => r.audio_url);
   }
 }
 

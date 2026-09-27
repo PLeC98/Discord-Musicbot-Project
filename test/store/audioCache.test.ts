@@ -121,6 +121,53 @@ test("evict: 저장된 세션의 곡은 조건이 나빠도 지우지 않는다"
   }
 });
 
+// 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 먹지 않는다(140곡 대기열 · 상한 100에서 하나도 못 지웠다)
+test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(미리 받기 범위)만 지킨다", async () => {
+  const conn = storeDb.get();
+  conn.prepare("DELETE FROM audio_cache").run();
+  const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
+  const OLD = Date.now() - 90 * 86_400_000;
+  const id = (i: number) => `qvid${String(i).padStart(7, "0")}`; // 11자 영상 id
+  const url = (i: number) => `https://www.youtube.com/watch?v=${id(i)}`;
+  for (let i = 0; i < 9; i++) ins.run(`yt:${id(i)}`, `/nx/${id(i)}.opus`, 1_000_000, OLD);
+  const tracks = Array.from({ length: 9 }, (_, i) => ({ title: `곡${i}`, pageUrl: url(i), requestKey: url(i), audioUrl: url(i) }));
+  sessions().append("g-front", tracks);
+  const from = sink.buffer.length;
+  try {
+    // 대기열 9곡, 앞 5곡만 지킨다. 상한 1 → 지킬 수 있는 것을 빼고 전부 지운다
+    await withCacheLimits({ maxFiles: 1 }, () => audioCache.evict());
+    const left = conn
+      .prepare<[], { audio_key: string }>("SELECT audio_key FROM audio_cache ORDER BY audio_key")
+      .all()
+      .map((r) => r.audio_key);
+    assert.equal(config.preload.ahead, 5);
+    assert.deepEqual(
+      left,
+      [0, 1, 2, 3, 4].map((i) => `yt:${id(i)}`),
+    );
+    const line = sink.buffer.slice(from).find((e) => e.text.startsWith("오디오 캐시 4개를 지웠습니다"));
+    assert.equal(line?.text, "오디오 캐시 4개를 지웠습니다(남은 5개 · 5MB). 목표선까지 내려가지 못했습니다(재생 중 · 대기열 앞 곡 5개는 지키고)");
+  } finally {
+    sessions().removeSession("g-front");
+    conn.prepare("DELETE FROM audio_cache").run();
+  }
+});
+
+test("evict: 지울 수 있는 곡이 없어도 결과 줄을 남긴다", async () => {
+  const conn = storeDb.get();
+  conn.prepare("DELETE FROM audio_cache").run();
+  conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES ('onlylive', 'cached', '/nx/onlylive.opus', 1000000, 0, NULL, 0)").run();
+  audioCache.protect("onlylive");
+  const from = sink.buffer.length;
+  try {
+    await withCacheLimits({ maxFiles: 0 }, () => audioCache.evict());
+    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 지웠습니다(남은 1개 · 1MB). 목표선까지 내려가지 못했습니다(재생 중 · 대기열 앞 곡 1개는 지키고)"));
+  } finally {
+    audioCache.unprotect("onlylive");
+    conn.prepare("DELETE FROM audio_cache").run();
+  }
+});
+
 // 다른 프로그램(탐색기 등)이 파일을 쥐고 있으면 지우기가 풀릴 때까지 멈춘다. 동기로 지우면 봇 전체가 같이 멈췄다
 test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이번 실행 동안 다시 지우지 않는다", async () => {
   const conn = storeDb.get();

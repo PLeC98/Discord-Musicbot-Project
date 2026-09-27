@@ -243,10 +243,10 @@ function getProtectedCacheFiles() {
   return new Set([...sessionKeys()].map((key) => path.resolve(getFilePath(key))));
 }
 
-// 저장된 세션(지금 곡 · 대기열)이 쓰는 캐시 키. 퇴거 · 고아 청소가 같은 근거로 지킨다(복원된 곡이 예열 전에 지워지지 않게)
-function sessionKeys() {
+// 저장된 세션이 쓰는 캐시 키. 고아 청소는 지금 곡 · 대기열 전부를, 퇴거는 지금 곡 · 대기열 앞부분을 지킨다
+function sessionKeys(audioUrls = sessions().liveAudioUrls()) {
   const keys = new Set<string>();
-  for (const audioUrl of sessions().liveAudioUrls()) {
+  for (const audioUrl of audioUrls) {
     const key = audioKeyOf(audioUrl);
     if (key) keys.add(key);
   }
@@ -500,15 +500,14 @@ async function evictOne(row: AudioRow): Promise<"gone" | "protected" | "failed" 
  * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 부르는 쪽이 넘기고, 생략하면 잰다
  */
 async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFree = freeDiskBytes() }: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
-  // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분, 저장된 세션의 곡.
+  // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분(메모리 · 저장된 세션 양쪽).
   // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
-  // 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다
-  const live = new Set([...liveKeys(), ...sessionKeys()]);
-  const rows = (conn().prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[]).filter((r) => !live.has(r.audio_key));
-
-  if (rows.length === 0) return;
-
-  const scored = rankForEviction(rows);
+  // 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다.
+  // 대기열 전부를 지키면 긴 대기열이 저장된 동안 상한이 먹지 않는다. 앞부분만(미리 받기 범위)
+  const live = new Set([...liveKeys(), ...sessionKeys(sessions().frontAudioUrls(config.preload.ahead))]);
+  const all = conn().prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[];
+  const scored = rankForEviction(all.filter((r) => !live.has(r.audio_key)));
+  const guarded = all.length - scored.length;
 
   const cfg = config.cache;
   const goal = cfg.evictTargetPercent / 100;
@@ -532,7 +531,15 @@ async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFr
     free += bytes;
     evicted++;
   }
-  if (evicted > 0 || failed > 0) log.info(`오디오 캐시 ${evicted}개를 지웠습니다(남은 ${files}개 · ${MB(size)}MB)${failed > 0 ? `. ${failed}개는 지우지 못했습니다` : ""}`);
+  reportEviction({ evicted, failed, guarded, files, size, reached: enough() });
+}
+
+// 퇴거 결과 한 줄. 시작 줄("상한을 넘었습니다")에는 늘 이 줄이 따른다
+function reportEviction({ evicted, failed, guarded, files, size, reached }: { evicted: number; failed: number; guarded: number; files: number; size: number; reached: boolean }) {
+  const why = [guarded > 0 && `재생 중 · 대기열 앞 곡 ${guarded}개는 지키고`, failed > 0 && `${failed}개는 지우지 못해`].filter(Boolean).join(", ");
+  const short = reached ? "" : `. 목표선까지 내려가지 못했습니다${why ? `(${why})` : ""}`;
+  const unremoved = reached && failed > 0 ? `. ${failed}개는 지우지 못했습니다` : "";
+  log.info(`오디오 캐시 ${evicted}개를 지웠습니다(남은 ${files}개 · ${MB(size)}MB)${short}${unremoved}`);
 }
 
 /** 백그라운드 주기적 제거 타이머 시작 */
