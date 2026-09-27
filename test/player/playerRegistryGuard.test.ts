@@ -20,6 +20,8 @@ const PlaybackState = (await import("../../src/player/playbackState.ts")).Playba
 const IdleLeave = (await import("../../src/player/idleLeave.ts")).IdleLeave;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
 const playerEvents = await import("../../src/player/events.ts");
+const sink = (await import("../../src/infra/log/sink.ts")).default;
+const logger = (await import("../../src/infra/log/logger.ts")).default;
 const onTrackEnd = Player.prototype.onTrackEnd;
 
 const GUILD = "g1";
@@ -71,7 +73,7 @@ function makePlayer(players: Map<string, unknown>, current: { title: string; dur
       if (this.lifecycle.disposed) return;
       this.disposeCalls.push(reason);
       this.lifecycle.to("disposed", reason);
-      playerEvents.disposed(this as unknown as InstanceType<typeof Player>);
+      playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason);
     },
   });
   p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다
@@ -114,6 +116,30 @@ test("늦게 버려진 옛 플레이어는 등록부의 새 플레이어를 빼�
 
   await fresh.dispose({ reason: "정리", session: "remove" });
   assert.equal(players.has(GUILD), false);
+});
+
+test("등록부의 해제 줄은 버린 까닭을 남긴다. 빼지 않은 옛 플레이어는 줄이 없다", async (t) => {
+  const players = registry(t);
+  const stale = makePlayer(players);
+  players.set(GUILD, stale);
+  const fresh = makePlayer(players);
+  players.set(GUILD, fresh);
+  const level = logger.level; // 등록부 줄은 debug
+  logger.level = "debug";
+  t.after(() => (logger.level = level));
+  const from = sink.buffer.length;
+
+  await stale.dispose({ reason: "늦은 정리", session: "keep" });
+  await fresh.dispose({ reason: "inactivity-timeout", session: "remove" });
+
+  const lines = sink.buffer
+    .slice(from)
+    .map((e) => e.text)
+    .filter((text) => text.includes("해제:"));
+  assert.deepEqual(
+    lines.map((text) => text.slice(text.indexOf("해제:"))),
+    ["해제: TestGuild (g1) | 원인=inactivity-timeout"],
+  );
 });
 
 test("현행 플레이어의 타이머는 버리고, 등록부에서 빠진다", async (t) => {

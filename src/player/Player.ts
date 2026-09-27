@@ -594,7 +594,7 @@ class Player {
     } catch (error) {
       log.error("정리 중 오류:", error);
     }
-    playerEvents.disposed(this);
+    playerEvents.disposed(this, reason);
     // 패널은 정리가 끝난 뒤에. 패널 참조(글자 채널 · 메시지)를 놓기 전에 끝난 모양으로 고친다
     if (panel) await playerEvents.ended(this, panel).catch((error) => log.warn(`끝난 패널 고치기 실패: ${messageOf(error)}`));
     this._dropPanel();
