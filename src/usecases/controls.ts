@@ -93,8 +93,9 @@ async function previous(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-player");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
-  const restarted = player.loop === "track";
-  if (player.previousTracks.length === 0 && !restarted) return fail("no-previous");
+  const restarted = player._restartsOnPrevious();
+  // 대기열 반복은 대기열이 고리라 기록이 없어도 이전 곡이 있다
+  if (player.previousTracks.length === 0 && !restarted && player.loop !== "queue") return fail("no-previous");
   if (!player.previous()) return fail("previous-failed");
   return done({ restarted });
 }

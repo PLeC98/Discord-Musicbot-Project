@@ -39,6 +39,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     autoplay: false,
     _endReason: null,
     _stopWith: MusicPlayer.prototype._stopWith,
+    _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
     guild: { id: "g1", client: null },
     played: [] as Array<{ title: string | undefined; ms: number }>,
     releaseAudioProtection() {},
@@ -108,6 +109,36 @@ test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변 (버그 3 
   assert.equal(p.previousTracks.length, 0);
 });
 
+// 대기열 반복에서는 끝난 곡이 대기열 끝으로 돌아가 대기열이 고리가 된다. 이전 곡은 고리 순서를 따른다(기록이 아니다)
+test("큐 반복 + 이전곡: 지금 곡 바로 앞(대기열 맨 끝)을 튼다. 기록은 그대로", async () => {
+  const [A, B, C, D] = ["A", "B", "C", "D"].map((t) => makeTrack(t));
+  // A 가 끝나 대기열 끝으로 돌아갔고(기록에도 남음) B 를 트는 중에 D 를 더했다
+  const p = makePlayer({ loop: "queue", current: B, queue: [C, A, D], history: [A] });
+
+  assert.equal(previous.call(p), true);
+  await handleTrackEnd.call(p, "previous");
+  assert.equal(p.currentTrack, D, "기록의 A 가 아니라 고리에서 B 바로 앞인 D");
+  assert.deepEqual(titles(p.queue), ["B", "C", "A"]);
+  assert.deepEqual(titles(p.previousTracks), ["A"], "기록은 그대로");
+
+  assert.equal(previous.call(p), true);
+  await handleTrackEnd.call(p, "previous");
+  assert.equal(p.currentTrack, A);
+  assert.deepEqual(titles(p.queue), ["D", "B", "C"]);
+});
+
+test("큐 반복 + 이전곡: 대기열이 비었으면(고리에 지금 곡뿐) 지금 곡을 처음부터", async () => {
+  const A = makeTrack("A");
+  const p = makePlayer({ loop: "queue", current: A, queue: [], history: [] });
+
+  assert.equal(previous.call(p), true, "기록이 없어도 된다");
+  await handleTrackEnd.call(p, "previous");
+  assert.deepEqual(p.played, [{ title: "A", ms: 0 }]);
+  assert.equal(p.currentTrack, A);
+  assert.deepEqual(titles(p.queue), []);
+  assert.equal(p.previousTracks.length, 0);
+});
+
 test("한곡 반복 + 대기열 점프(jump): 재시작이 아니라 선택한 곡으로 이동", async () => {
   const [A, B, C] = ["A", "B", "C"].map((t) => makeTrack(t));
   // jump 핸들러가 선택곡 C를 맨 앞으로 옮긴 상태
@@ -140,13 +171,13 @@ test("큐 반복 + 이전곡: 복제 없이 총 곡 수 보존 (버그 2 회귀 
   const p = makePlayer({ loop: "queue", current: C, queue: [D, E], history: [A, B] });
 
   previous.call(p);
-  assert.deepEqual(titles(p.queue), ["B", "C", "D", "E"], "이전곡 B가 앞에, 중단곡 C가 그 뒤에");
+  assert.deepEqual(titles(p.queue), ["E", "C", "D"], "고리에서 C 바로 앞인 E 가 앞에, 중단곡 C가 그 뒤에");
 
   await handleTrackEnd.call(p, "previous");
 
-  assert.equal(p.currentTrack, B);
-  assert.deepEqual(titles(p.queue), ["C", "D", "E"], "중단곡 C는 한 번만 존재 — 큐 반복 재삽입 없음");
-  assert.deepEqual(titles(p.previousTracks), ["A"], "끝나지 않은 C는 기록에 안 들어감");
+  assert.equal(p.currentTrack, E);
+  assert.deepEqual(titles(p.queue), ["C", "D"], "중단곡 C는 한 번만 존재 — 큐 반복 재삽입 없음");
+  assert.deepEqual(titles(p.previousTracks), ["A", "B"], "기록은 건드리지 않고, 끝나지 않은 C는 기록에 안 들어감");
 });
 
 test("큐 반복: 자연 종료/스킵은 끝난 곡을 대기열 끝으로 (기존 동작 보존)", async () => {

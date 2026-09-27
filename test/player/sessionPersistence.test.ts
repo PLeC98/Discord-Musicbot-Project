@@ -114,6 +114,7 @@ test("trackState의 모든 변경이 DB에 그대로 옮겨진다 — 무작위 
       p.loop = pick(2) === 0 ? "queue" : false;
       trackState.rewind(p);
     },
+    () => trackState.rewindRing(p),
     () => trackState.removeAt(p, pick(p.queue.length + 1)),
     () => trackState.move(p, pick(p.queue.length + 1), pick(p.queue.length + 1)),
     () => trackState.shuffle(p, random),

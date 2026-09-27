@@ -12,7 +12,7 @@ type TrackSink = {
   onEnqueue(tracks: QueuedTrack[], front: boolean): void;
   onTake(index: number): void;
   onRetire(track: QueuedTrack, requeue: boolean): void;
-  onRewind(track: QueuedTrack, copy: number, current: QueuedTrack | null): void;
+  onRewind(track: QueuedTrack, copy: number, current: QueuedTrack | null, fromHistory: boolean): void;
   onRemoveAt(index: number): void;
   onMove(from: number, to: number): void;
   onClearQueue(): void;
@@ -91,29 +91,31 @@ function retire(player: Pick<Tracks, "previousTracks" | "queue" | "trackSink">, 
   sinkOf(player)?.onRetire(track, requeue);
 }
 
-// 이전 곡을 맨 앞에, 중단된 현재곡을 그 바로 뒤에. 이전 곡이 끝나면 원래 자리부터 이어진다.
+// 이전 곡(기록 끝)을 맨 앞에, 중단된 현재곡을 그 바로 뒤에. 이전 곡이 끝나면 원래 자리부터 이어진다.
+// 대기열 반복이 아닐 때 쓴다(반복이면 rewindRing)
 function rewind(player: Tracks) {
   const prev = player.previousTracks.pop();
   if (!prev) return null;
-  // 큐 반복이면 끝난 곡은 대기열 끝에도 다시 들어가 있다. 그 사본을 빼지 않으면 곡이 하나 늘어난다
-  const copy = requeuedCopyOf(player, prev);
+  // 반복을 끄기 전에 대기열 끝으로 돌아간 사본이 남아 있을 수 있다. 빼지 않으면 곡이 하나 늘어난다
+  const copy = player.queue.lastIndexOf(prev);
   if (copy >= 0) player.queue.splice(copy, 1);
   player.queue.unshift(prev);
   const current = player.currentTrack;
   if (current) player.queue.splice(1, 0, current);
-  sinkOf(player)?.onRewind(prev, copy, current);
+  sinkOf(player)?.onRewind(prev, copy, current, true);
   return prev;
 }
 
-function requeuedCopyOf(player: Pick<Tracks, "queue" | "loop">, track: QueuedTrack) {
-  const same = player.queue.lastIndexOf(track);
-  if (same >= 0) return same;
-  // 복원한 뒤에는 기록과 대기열이 서로 다른 객체다. 반복이 아니면 같은 곡은 사용자가 일부러 넣은 것이다.
-  if (player.loop !== "queue" || !track.requestKey) return -1;
-  for (let i = player.queue.length - 1; i >= 0; i--) {
-    if (player.queue[i].requestKey === track.requestKey) return i;
-  }
-  return -1;
+// 대기열 반복의 이전 곡. 대기열이 고리라 지금 곡 바로 앞은 대기열 맨 끝 곡이다. 기록은 건드리지 않는다
+function rewindRing(player: Tracks) {
+  const copy = player.queue.length - 1;
+  if (copy < 0) return null;
+  const [prev] = player.queue.splice(copy, 1);
+  player.queue.unshift(prev);
+  const current = player.currentTrack;
+  if (current) player.queue.splice(1, 0, current);
+  sinkOf(player)?.onRewind(prev, copy, current, false);
+  return prev;
 }
 
 function removeAt(player: Queue, index: number) {
@@ -165,5 +167,5 @@ function restore(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks
   if (!persisted) sinkOf(player)?.onReplace();
 }
 
-export { HISTORY_MAX, roomLeft, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, removeAt, move, shuffle, clearQueue, reset, restore };
+export { HISTORY_MAX, roomLeft, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, removeAt, move, shuffle, clearQueue, reset, restore };
 export type { Loop, TrackSink, Tracks };

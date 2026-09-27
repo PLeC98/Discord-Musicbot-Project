@@ -154,6 +154,7 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.removeAt(p, 0);
   trackState.move(p, 0, 1);
   trackState.rewind(p); // 큐 반복으로 끝에 들어간 E(3번째)를 빼고 앞으로 — 현재곡 E도 그 뒤에
+  trackState.rewindRing(p); // 대기열 [E, E, C, B, D] 의 맨 끝(D, 4번째)을 앞으로. 기록은 그대로
   trackState.shuffle(p);
   trackState.clearQueue(p);
   trackState.setCurrent(p, null);
@@ -161,26 +162,26 @@ test("바꾼 뒤 한 번씩 알린다 — 세션 저장이 메모리를 따라�
   trackState.rewind(p);
   trackState.restore(p, { current: t("R") }, { persisted: true }); // 저장소에서 읽은 그대로 — 알리지 않는다
 
-  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "E", 3, "E"], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
+  assert.deepEqual(calls, [["onEnqueue", ["D"], false], ["onEnqueue", ["E"], true], ["onTake", 0], ["onRetire", "E", true], ["onRemoveAt", 0], ["onMove", 0, 1], ["onRewind", "E", 3, "E", true], ["onRewind", "D", 4, "E", false], ["onReplace"], ["onClearQueue"], ["onSetCurrent", null], ["onReset", true]]);
 });
 
 const song = (title: string) => t(title, { requestKey: `https://y/${title}` });
 
-test("rewind: 큐 반복으로 대기열 끝에 들어간 사본은 빼고 앞으로 가져온다 — 곡 수가 그대로다", () => {
+test("rewind: 반복을 끄기 전에 대기열 끝으로 돌아간 사본은 빼고 앞으로 가져온다 — 곡 수가 그대로다", () => {
   const A = song("A");
   const p = make({ current: song("B"), queue: [song("C")] });
-  p.loop = "queue";
-  trackState.retire(p, A, { requeue: true }); // A가 끝나 기록과 대기열 끝 양쪽에 들어간 상태
+  trackState.retire(p, A, { requeue: true }); // 반복 중에 A가 끝나 기록과 대기열 끝 양쪽에 들어간 뒤 반복을 껐다
 
   trackState.rewind(p);
   assert.deepEqual(titles(p.queue), ["A", "B", "C"], "구 코드는 A가 앞과 끝에 두 번 있었다");
 });
 
-test("rewind: 복원 뒤처럼 기록과 대기열이 서로 다른 객체여도 큐 반복이면 요청 열쇠로 사본을 찾는다", () => {
+test("rewindRing: 대기열 반복의 이전 곡은 대기열 맨 끝 곡이다. 기록은 건드리지 않는다(복원 뒤처럼 서로 다른 객체여도 곡 수가 그대로)", () => {
   const p = make({ current: song("B"), queue: [song("C"), song("A")], history: [song("A")] });
-  p.loop = "queue";
-  trackState.rewind(p);
+  trackState.rewindRing(p);
   assert.deepEqual(titles(p.queue), ["A", "B", "C"]);
+  assert.deepEqual(titles(p.previousTracks), ["A"]);
+  assert.equal(trackState.rewindRing(make({ current: song("B"), queue: [] })), null, "대기열이 비면 꺼낼 곡이 없다");
 });
 
 test("rewind: 반복이 아니면 같은 곡이 대기열에 있어도 건드리지 않는다 — 사용자가 일부러 넣은 곡이다", () => {

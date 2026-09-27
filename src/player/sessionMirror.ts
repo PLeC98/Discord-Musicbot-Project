@@ -107,8 +107,8 @@ class SessionPersistence {
     this._mirror((s, g) => s.retire(g, track, { requeue }));
   }
 
-  onRewind(track: QueuedTrack, copy: number, current: QueuedTrack | null) {
-    this._mirror((s, g) => s.rewind(g, track, { copy, current }));
+  onRewind(track: QueuedTrack, copy: number, current: QueuedTrack | null, fromHistory: boolean) {
+    this._mirror((s, g) => s.rewind(g, track, { copy, current, fromHistory }));
   }
 
   onRemoveAt(index: number) {

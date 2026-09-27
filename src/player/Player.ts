@@ -659,17 +659,18 @@ class MusicPlayer {
     // 틀고 있는 곡이 없으면 멈출 것도 없다. 멈춤이 곡 끝을 부르지 않아 되감은 곡이 대기열에 걸린 채 남는다
     if (!this.currentTrack) return false;
     clog.info(`이전곡: ${this._trackLabel()} | 이전 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
-    // 한곡 반복 중 이전곡 = 현재 곡 재시작. 대기열·기록 불변.
-    if (this.loop === "track") {
+    // 한곡 반복 중 이전곡 = 현재 곡 재시작. 대기열 반복인데 대기열이 비었으면 고리에 지금 곡뿐이라 같다. 대기열·기록 불변.
+    if (this._restartsOnPrevious()) {
       this.watch.stopEnd();
       this._stopWith("previous");
       return true;
     }
 
-    if (this.previousTracks.length > 0) {
+    // 대기열 반복은 대기열이 고리다. 지금 곡 바로 앞은 대기열 맨 끝 곡(기록이 아니다)
+    const rewound = this.loop === "queue" ? trackState.rewindRing(this) : this.previousTracks.length > 0 ? trackState.rewind(this) : null;
+    if (rewound) {
       // 현재 트랙은 currentTrack으로 남겨 handleTrackEnd가 기록하게 한다. 여기서 이전 트랙을
       // 미리 할당하면 "예기치 않게 종료됨" 재시도 로직이 그 곡을 중간부터 재개한다.
-      trackState.rewind(this);
 
       this.watch.stopEnd();
 
@@ -677,6 +678,11 @@ class MusicPlayer {
       return true;
     }
     return false;
+  }
+
+  /** 이전 곡이 지금 곡을 처음부터 트는가. 한곡 반복, 또는 대기열 반복인데 대기열이 비었다(고리에 지금 곡뿐) */
+  _restartsOnPrevious() {
+    return this.loop === "track" || (this.loop === "queue" && this.queue.length === 0);
   }
 
   setVolume(volume: number) {
@@ -859,8 +865,9 @@ class MusicPlayer {
 
   // 한곡 반복 · 다음 곡 · 자동재생 중 하나를 튼다. 틀었으면 true
   async _playNext(finishedTrack: QueuedTrack, reason: string) {
-    if (this.loop === "track" && reason !== "stop" && reason !== "jump") {
-      // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생
+    const restart = this.loop === "track" ? reason !== "stop" && reason !== "jump" : reason === "previous" && this._restartsOnPrevious();
+    if (restart) {
+      // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생. 대기열 반복인데 대기열이 비었을 때의 이전곡도 같다
       // 대기열·이전 곡 기록은 불변. 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
       await this.play(0);
       return true;

@@ -337,13 +337,14 @@ class PlayerSessionStore {
   }
 
   // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 큐 반복 사본(copy번째)은 먼저 뺀다.
-  rewind(guildId: string, track: TrackIn, { copy = -1, current = null }: { copy?: number; current?: TrackIn | null } = {}): boolean {
+  // fromHistory: 기록 끝에서 꺼낸 곡이다(기록 행을 지운다). 대기열 반복의 이전 곡은 대기열 끝에서 오므로 기록을 두고 copy 만 옮긴다
+  rewind(guildId: string, track: TrackIn, { copy = -1, current = null, fromHistory = true }: { copy?: number; current?: TrackIn | null; fromHistory?: boolean } = {}): boolean {
     return this._tx(() => {
-      const last = this.q.lastRowid.get(guildId, "history");
+      const last = fromHistory ? this.q.lastRowid.get(guildId, "history") : null;
       const copyRow = copy >= 0 ? this.q.rowidAt.get(guildId, "queue", copy) : null;
-      if (!last || (copy >= 0 && !copyRow)) return false;
+      if ((fromHistory && !last) || (copy >= 0 && !copyRow)) return false;
       if (copyRow) this.q.deleteRow.run(copyRow.rowid);
-      this.q.deleteRow.run(last.rowid);
+      if (last) this.q.deleteRow.run(last.rowid);
       if (current) this._insert(guildId, "queue", this._seqBeforeFirst(guildId, "queue"), current);
       this._insert(guildId, "queue", this._seqBeforeFirst(guildId, "queue"), track);
       return true;

@@ -11,7 +11,7 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import type { ButtonInteraction, GuildMember } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
 import type { SearchRecord } from "../../commands/search.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
@@ -85,6 +85,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     resume: () => false,
     skip: () => false,
     previous: () => false,
+    _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
     hasLiveTrack: () => false,
     setLoop(m: string) {
       p.loop = m;

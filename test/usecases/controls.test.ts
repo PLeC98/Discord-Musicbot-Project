@@ -11,7 +11,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Actor } from "../../src/usecases/controls.ts";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import { MusicPlayer } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
@@ -57,6 +57,7 @@ function fakePlayer(over: object = {}) {
     resume: () => (calls.push("resume"), true),
     skip: (reason?: string) => (calls.push(`skip${reason ? `:${reason}` : ""}`), true),
     previous: () => (calls.push("previous"), true),
+    _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
     seek: async (ms: number, reason: string) => calls.push(`seek:${ms}:${reason}`),
     setVolume: (v: number) => (calls.push(`volume:${v}`), v),
     setLoop: (m: unknown) => calls.push(`loop:${m}`),
@@ -120,9 +121,11 @@ test("정지: 세션을 지우고 끝난 패널(stop)로 버린다. 등록부 �
   assert.deepEqual(p.calls, ["dispose:remove:stop"]);
 });
 
-test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복은 허용)", async () => {
+test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복 · 대기열 반복은 허용)", async () => {
   assert.equal(codeOf(await controls.previous(fakePlayer({ previousTracks: [] }), DJ)), "no-previous");
   assert.deepEqual(await controls.previous(fakePlayer({ previousTracks: [], loop: "track" }), DJ), { ok: true, restarted: true });
+  assert.deepEqual(await controls.previous(fakePlayer({ previousTracks: [], loop: "queue" }), DJ), { ok: true, restarted: false }, "대기열이 고리라 맨 끝 곡으로");
+  assert.deepEqual(await controls.previous(fakePlayer({ previousTracks: [], loop: "queue", queue: [] }), DJ), { ok: true, restarted: true }, "고리에 지금 곡뿐");
   assert.equal(codeOf(await controls.previous(fakePlayer({ currentTrack: null }), DJ)), "no-track");
 });
 
