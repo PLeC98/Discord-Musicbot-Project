@@ -181,7 +181,7 @@ test("살아 있는 패널이 없을 때 끝나면 기록된 패널의 문구만
   const { mem, guild, calls, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const player = makePlayer(guild, text("general"), { currentTrack: null });
 
-  await mem.handlePlaybackEnd(player, { reason: "disconnected" });
+  await mem.drawEndedPanel(player, { reason: "disconnected" });
 
   assert.equal(calls.edited.length, 1);
   assert.equal(calls.edited[0].id, "900");
@@ -220,7 +220,7 @@ test("전용 채널이 있는 서버에서 다른 채널로 틀고 끝나도 종
   const player = makePlayer(guild, text("general"));
 
   await play(mem, player); // 전용 채널의 끝난 패널을 고쳐 쓴다
-  await mem.handlePlaybackEnd(player, { reason: "queue-end" });
+  await mem.drawEndedPanel(player, { reason: "queue-end" });
 
   assert.equal(calls.edited.at(-1)?.id, "900", "패널은 전용 채널에서 종료 모양으로");
   assert.equal(calls.sent.filter((s) => s.channel === "general").length, 0);

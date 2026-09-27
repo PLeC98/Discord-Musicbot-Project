@@ -247,7 +247,7 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
         textChannel: { id: "chan-1", send: async (payload: unknown) => sent.push(payload) },
       });
 
-      await mem.handlePlaybackEnd(player, { reason: "stop" });
+      await mem.drawEndedPanel(player, { reason: "stop" });
 
       assert.equal(edits.length, 1, `패널을 고친다 (전용 채널=${botChannel})`);
       assert.equal(edits[0].id, "100");

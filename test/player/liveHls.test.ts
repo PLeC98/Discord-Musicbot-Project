@@ -258,7 +258,7 @@ test("라이브 종료: ffmpeg가 0으로 끝나면 방송이 끝난 것이니 �
   const next = { title: "다음곡" };
   const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, liveExitCode: 0, resource: { playbackDuration: 30_000 } } });
 
-  await player.handleTrackEnd("idle");
+  await player.onTrackEnd("idle");
 
   assert.equal(player.currentTrack, next, "다음 곡으로 넘어가야 함");
   assert.deepEqual(player.played, [0]);
@@ -271,7 +271,7 @@ test("라이브 종료: 사고로 끊기면 같은 곡을 위치 0으로 다시 
   const next = { title: "다음곡" };
   const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, liveExitCode: 1, resource: { playbackDuration: 30_000 } } });
 
-  await player.handleTrackEnd("idle");
+  await player.onTrackEnd("idle");
 
   assert.equal(player.currentTrack, finished, "같은 방송을 계속 튼다");
   assert.deepEqual(player.played, [0], "끊긴 위치가 아니라 라이브 엣지로 붙는다");
@@ -283,7 +283,7 @@ test("라이브 종료: 사용자가 스킵한 것은 사고가 아니다", asyn
   const next = { title: "다음곡" };
   const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, liveExitCode: -1, resource: { playbackDuration: 30_000 } } });
 
-  await player.handleTrackEnd("skip");
+  await player.onTrackEnd("skip");
 
   assert.equal(player.currentTrack, next);
 });
@@ -296,7 +296,7 @@ test("라이브 종료: 재시도를 다 쓰면 다음 곡으로 넘긴다", asy
   player._retryTrack = finished;
   player.currentTrackRetries = 99;
 
-  await player.handleTrackEnd("idle");
+  await player.onTrackEnd("idle");
 
   assert.equal(player.currentTrack, next);
   assert.deepEqual(player.played, [0]);
@@ -313,7 +313,7 @@ test("끝난 방송(was_live)은 재연결 대상이 아니다. 라이브 갈래
     playback: { live: false, liveExitCode: 1, resource: { playbackDuration: 3_600_000 } },
   });
 
-  await player.handleTrackEnd("idle");
+  await player.onTrackEnd("idle");
 
   assert.equal(player.currentTrack, next);
   assert.deepEqual(player.played, [0]);

@@ -623,7 +623,7 @@ class MusicEmbedManager {
    * 재생이 끝났을 때. 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 끝난 패널의 문구만 고친다
    * (대기 중에 음성에서 나감 등). 종료 메시지는 전용 채널 밖에서, 방금까지 재생하던 때만 올린다.
    */
-  async handlePlaybackEnd(player: MusicPlayer, { reason = "stop" } = {}) {
+  async drawEndedPanel(player: MusicPlayer, { reason = "stop" } = {}) {
     const guild = player.guild;
     if (guild?.id) playerEvents.touched(guild.id); // 대시보드 SSE 넛지 (종료/정지)
     this.stopProgressUpdate(guild?.id);

@@ -70,8 +70,8 @@ class Scripted extends h.MusicPlayer {
     await this.playAs(seekMs);
     return { ok: true as const, track: this.currentTrack };
   }
-  async handleTrackEnd(reason = "idle") {
-    if (!this.endAs) return super.handleTrackEnd(reason);
+  async onTrackEnd(reason = "idle") {
+    if (!this.endAs) return super.onTrackEnd(reason);
     await this.endAs(reason);
   }
   async handleError(error: unknown, opts: { tell?: boolean } = {}) {
@@ -93,7 +93,7 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   const next = cached("bbbbbbbbbbb");
   p.queue = [next];
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.equal(p.currentTrack, next);
@@ -112,7 +112,7 @@ test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을
   const seen = embeds(p);
   playing(p, yt("ccccccccccc"));
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   const leaveTimer = p.idle.emptyTimer;
   h.dispose(p);
 
@@ -130,7 +130,7 @@ test("일찍 끊긴 곡은 끊긴 자리부터 다시 튼다", async () => {
   playing(p, track, 30000);
   p.queue = [yt("eeeeeeeeeee")];
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.equal(p.currentTrack, track, "같은 곡");
@@ -148,7 +148,7 @@ test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 �
   p._retryTrack = track;
   p.currentTrackRetries = 2;
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.equal(p.currentTrack, next);
@@ -165,7 +165,7 @@ test("손으로 넘긴 곡은 일찍 끝나도 다시 틀지 않는다", async (
       replays += 1;
     };
 
-    await p.handleTrackEnd(reason);
+    await p.onTrackEnd(reason);
     h.dispose(p);
 
     assert.equal(p.currentTrackRetries, 0, reason);
@@ -182,7 +182,7 @@ test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 �
   };
 
   const started = Date.now();
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.deepEqual(seeks, [0], "라이브는 늘 0 으로 연다");
@@ -200,7 +200,7 @@ test("라이브 다시 열기를 다섯 번 쓰면 다음 곡으로 넘긴다", 
   p.queue = [next];
   embeds(p);
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.equal(p.currentTrack, next);
@@ -212,7 +212,7 @@ test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는
   playing(p, yt("kkkkkkkkkkk", { isLive: true, duration: 0 }), 60000, { live: true, liveExitCode: 0 });
   embeds(p);
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
@@ -226,7 +226,7 @@ test("모르는 자동재생 장르는 끄고 채널에 알린 뒤 대기열 소
   playing(p, yt("lllllllllll"));
   p.autoplay = "없는-장르";
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.equal(p.autoplay, false);
@@ -240,7 +240,7 @@ test("넘어가는 중에 또 불리면 아무것도 안 한다", async () => {
   const track = playing(p, yt("mmmmmmmmmmm"));
   p.lifecycle.ending = true;
 
-  await p.handleTrackEnd("idle");
+  await p.onTrackEnd("idle");
   h.dispose(p);
 
   assert.equal(p.currentTrack, track);
@@ -251,7 +251,7 @@ test("현재 곡이 없는데 끝나면 리소스만 비운다", async () => {
   const p = h.makePlayer();
   p.playback = playback({ resource: { playbackDuration: 0 } });
 
-  await p.handleTrackEnd("stop");
+  await p.onTrackEnd("stop");
   h.dispose(p);
 
   assert.equal(p.resource, null);

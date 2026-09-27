@@ -3,7 +3,7 @@
 //  1. 한곡 반복 중 스킵이 대기열을 진행시킴 (기대: 현재 곡 재시작, 대기열 불변)
 //  2. 큐 반복 중 이전곡을 누르면 중단곡이 대기열에 복제됨 (3곡 → 5곡)
 //  3. 한곡 반복 중 이전곡을 누르면 곡이 증식하며 두 곡이 번갈아 재생됨
-// handleTrackEnd/previous를 프로토타입 호출 — 실 오디오/연결 없이 상태 전이만 검증.
+// onTrackEnd/previous를 프로토타입 호출 — 실 오디오/연결 없이 상태 전이만 검증.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +14,7 @@ import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import type { CurrentPlayback } from "../../src/player/currentPlayback.ts";
 
-const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
+const onTrackEnd = MusicPlayer.prototype.onTrackEnd;
 const previous = MusicPlayer.prototype.previous;
 
 function makeTrack(title: string, duration = 100): QueuedTrack {
@@ -68,7 +68,7 @@ test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열·기�
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B"), makeTrack("C")] });
 
-  await handleTrackEnd.call(p, "idle");
+  await onTrackEnd.call(p, "idle");
 
   assert.deepEqual(p.played, [{ title: "A", ms: 0 }]);
   assert.equal(p.currentTrack, A);
@@ -80,7 +80,7 @@ test("한곡 반복: 스킵도 현재 곡 재시작 — 대기열을 진행시�
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B")] });
 
-  await handleTrackEnd.call(p, "skip");
+  await onTrackEnd.call(p, "skip");
 
   assert.deepEqual(p.played, [{ title: "A", ms: 0 }], "구 코드는 B로 진행했음");
   assert.deepEqual(titles(p.queue), ["B"]);
@@ -89,7 +89,7 @@ test("한곡 반복: 스킵도 현재 곡 재시작 — 대기열을 진행시�
 test("한곡 반복: 반복 재생이 이전 곡 기록을 오염시키지 않음 (증식 씨앗 제거)", async () => {
   const p = makePlayer({ loop: "track", current: makeTrack("A"), queue: [] });
 
-  for (let i = 0; i < 3; i++) await handleTrackEnd.call(p, "idle");
+  for (let i = 0; i < 3; i++) await onTrackEnd.call(p, "idle");
 
   assert.equal(p.previousTracks.length, 0, "구 코드는 반복마다 A가 기록에 쌓였음");
 });
@@ -102,7 +102,7 @@ test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변 (버그 3 
   assert.deepEqual(titles(p.queue), ["B"], "previous()가 대기열을 건드리지 않음");
   assert.equal(p._endReason, "previous");
 
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
   assert.deepEqual(p.played, [{ title: "A", ms: 0 }]);
   assert.equal(p.currentTrack, A);
   assert.deepEqual(titles(p.queue), ["B"]);
@@ -116,13 +116,13 @@ test("큐 반복 + 이전곡: 지금 곡 바로 앞(대기열 맨 끝)을 튼다
   const p = makePlayer({ loop: "queue", current: B, queue: [C, A, D], history: [A] });
 
   assert.equal(previous.call(p), true);
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
   assert.equal(p.currentTrack, D, "기록의 A 가 아니라 고리에서 B 바로 앞인 D");
   assert.deepEqual(titles(p.queue), ["B", "C", "A"]);
   assert.deepEqual(titles(p.previousTracks), ["A"], "기록은 그대로");
 
   assert.equal(previous.call(p), true);
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
   assert.equal(p.currentTrack, A);
   assert.deepEqual(titles(p.queue), ["D", "B", "C"]);
 });
@@ -132,7 +132,7 @@ test("큐 반복 + 이전곡: 대기열이 비었으면(고리에 지금 곡뿐)
   const p = makePlayer({ loop: "queue", current: A, queue: [], history: [] });
 
   assert.equal(previous.call(p), true, "기록이 없어도 된다");
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
   assert.deepEqual(p.played, [{ title: "A", ms: 0 }]);
   assert.equal(p.currentTrack, A);
   assert.deepEqual(titles(p.queue), []);
@@ -144,7 +144,7 @@ test("한곡 반복 + 대기열 점프(jump): 재시작이 아니라 선택한 �
   // jump 핸들러가 선택곡 C를 맨 앞으로 옮긴 상태
   const p = makePlayer({ loop: "track", current: A, queue: [C, B] });
 
-  await handleTrackEnd.call(p, "jump");
+  await onTrackEnd.call(p, "jump");
 
   assert.equal(p.currentTrack, C, "한곡 반복이어도 점프는 대기열 진행");
   assert.deepEqual(titles(p.queue), ["B"]);
@@ -173,7 +173,7 @@ test("큐 반복 + 이전곡: 복제 없이 총 곡 수 보존 (버그 2 회귀 
   previous.call(p);
   assert.deepEqual(titles(p.queue), ["E", "C", "D"], "고리에서 C 바로 앞인 E 가 앞에, 중단곡 C가 그 뒤에");
 
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
 
   assert.equal(p.currentTrack, E);
   assert.deepEqual(titles(p.queue), ["C", "D"], "중단곡 C는 한 번만 존재 — 큐 반복 재삽입 없음");
@@ -185,7 +185,7 @@ test("큐 반복: 자연 종료/스킵은 끝난 곡을 대기열 끝으로 (기
   const B = makeTrack("B");
   const p = makePlayer({ loop: "queue", current: A, queue: [B] });
 
-  await handleTrackEnd.call(p, "idle");
+  await onTrackEnd.call(p, "idle");
 
   assert.equal(p.currentTrack, B);
   assert.deepEqual(titles(p.queue), ["A"], "끝난 A가 대기열 끝으로 순환");
@@ -198,11 +198,11 @@ test("큐 반복 + 이전곡: 끝난 곡이 대기열 끝에 다시 들어가 �
   const [A, B, C] = ["A", "B", "C"].map((t) => makeTrack(t));
   const p = makePlayer({ loop: "queue", current: A, queue: [B, C] });
 
-  await handleTrackEnd.call(p, "idle");
+  await onTrackEnd.call(p, "idle");
   assert.deepEqual(titles(p.queue), ["C", "A"], "A가 끝나 대기열 끝으로");
 
   previous.call(p);
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
 
   assert.equal(p.currentTrack, A);
   assert.deepEqual(titles(p.queue), ["B", "C"], "A가 앞과 끝에 두 번 있으면 안 된다");
@@ -212,7 +212,7 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
   const p = makePlayer({ loop: "queue", current: makeTrack("B"), queue: [makeTrack("C"), makeTrack("A")], history: [makeTrack("A")] });
 
   previous.call(p);
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
 
   assert.equal(p.currentTrack?.title, "A");
   assert.deepEqual(titles(p.queue), ["B", "C"]);
@@ -225,7 +225,7 @@ test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다�
   const p = makePlayer({ current: A, queue: [B] });
   p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 0 } }); // 곡 길이보다 한참 덜 재생 = 조기 종료
 
-  for (let i = 0; i < 4; i++) await handleTrackEnd.call(p, "idle");
+  for (let i = 0; i < 4; i++) await onTrackEnd.call(p, "idle");
 
   assert.deepEqual(
     p.played.map((x) => x.title),
@@ -241,7 +241,7 @@ test("반복 없음: 스킵은 다음 곡 진행 + 기록 (기존 동작 보존)
   const B = makeTrack("B");
   const p = makePlayer({ current: A, queue: [B] });
 
-  await handleTrackEnd.call(p, "skip");
+  await onTrackEnd.call(p, "skip");
 
   assert.equal(p.currentTrack, B);
   assert.deepEqual(titles(p.queue), []);
@@ -253,12 +253,12 @@ test("반복 없음: 이전곡 연타 체인 — 중복 없이 기록을 거슬�
   const p = makePlayer({ current: C, queue: [D], history: [A, B] });
 
   previous.call(p);
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
   assert.equal(p.currentTrack, B);
   assert.deepEqual(titles(p.queue), ["C", "D"]);
 
   previous.call(p);
-  await handleTrackEnd.call(p, "previous");
+  await onTrackEnd.call(p, "previous");
   assert.equal(p.currentTrack, A);
   assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
   assert.equal(p.previousTracks.length, 0, "기록 소진 — 각 곡은 어디에도 중복되지 않음");

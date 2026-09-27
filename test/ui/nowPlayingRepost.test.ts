@@ -137,7 +137,7 @@ test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않
 test("보내는 사이 재생이 끝나면 방금 올린 메시지를 도로 지운다", async () => {
   const { mem, player, calls } = makeSetup();
 
-  // 전송이 끝나기 직전 handlePlaybackEnd가 참조를 비우는 상황
+  // 전송이 끝나기 직전 drawEndedPanel이 참조를 비우는 상황
   mem.sendAs = async () => {
     player.nowPlayingMessage = null;
     player.currentTrack = null;

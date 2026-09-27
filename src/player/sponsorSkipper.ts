@@ -18,7 +18,7 @@ type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "
 //
 // 구간 처리:
 //  - 인트로/중간: 기존 seek 재사용(play(end*1000))으로 구간 끝으로 점프.
-//  - 아웃트로/끝(seg.end ≈ 트랙 길이): 다음 트랙으로 진행(handleTrackEnd).
+//  - 아웃트로/끝(seg.end ≈ 트랙 길이): 다음 트랙으로 진행(onTrackEnd).
 
 const TICK_MS = 500; // 워처 주기 (인트로 블리드 ≤ 이 값)
 const END_EPSILON_SEC = 1.5; // seg.end가 트랙 끝에서 이 이내면 아웃트로로 간주

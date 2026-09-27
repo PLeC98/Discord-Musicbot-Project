@@ -113,7 +113,7 @@ function startBot({ potServer, logFile }: { potServer: PotServer; logFile: LogFi
 // 플레이어의 알림을 화면과 대시보드에 잇는다
 function listenToPlayers(panels: MusicEmbedManager, stream: ReturnType<typeof createPlayerStream>) {
   playerEvents.on("refresh", (player) => panels.updateNowPlayingEmbed(player));
-  playerEvents.on("ended", (player, reason) => panels.handlePlaybackEnd(player, { reason }));
+  playerEvents.on("ended", (player, reason) => panels.drawEndedPanel(player, { reason }));
   playerEvents.on("started", (player, requester) => player.currentTrack && panels.createNewMusicEmbed(player, player.currentTrack, requester));
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));

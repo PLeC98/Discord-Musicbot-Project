@@ -20,7 +20,7 @@ const PlaybackState = (await import("../../src/player/playbackState.ts")).Playba
 const IdleLeave = (await import("../../src/player/idleLeave.ts")).IdleLeave;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
 const playerEvents = await import("../../src/player/events.ts");
-const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
+const onTrackEnd = MusicPlayer.prototype.onTrackEnd;
 
 const GUILD = "g1";
 const DELAY = 30; // 실 타이머를 그대로 쓰되 대기 시간만 줄인다 (전역 setTimeout을 갈아끼우면 러너가 멈춘다)
@@ -89,7 +89,7 @@ test("버려진 플레이어의 늦은 대기열 소진 타이머는 아무것�
   const players = registry(t);
   const stale = makePlayer(players);
   players.set(GUILD, stale);
-  await handleTrackEnd.call(stale, "idle"); // 대기열 소진 → 타이머 예약
+  await onTrackEnd.call(stale, "idle"); // 대기열 소진 → 타이머 예약
 
   // 교체: 옛 플레이어는 버려졌는데 타이머가 늦게 깨어나는 경우를 흉내 낸다(타이머는 일부러 두었다)
   stale.lifecycle.to("disposed");
@@ -121,7 +121,7 @@ test("현행 플레이어의 타이머는 버리고, 등록부에서 빠진다",
   const p = makePlayer(players);
   players.set(GUILD, p);
 
-  await handleTrackEnd.call(p, "idle");
+  await onTrackEnd.call(p, "idle");
   await sleep(DELAY * 3);
 
   assert.deepEqual(p.disposeCalls, ["대기열 소진"]);
@@ -145,7 +145,7 @@ test("타이머가 깨어났을 때 다시 재생 중이면 아무것도 하지 
   const p = makePlayer(players);
   players.set(GUILD, p);
 
-  await handleTrackEnd.call(p, "idle");
+  await onTrackEnd.call(p, "idle");
   p.currentTrack = tracks.youtube("aaaaaaaaaaa", { title: "새로 튼 곡", duration: 100 }); // 대기 시간 안에 다시 재생
   await sleep(DELAY * 3);
 
@@ -164,7 +164,7 @@ test("타이머는 쌓이지 않는다. 새로 예약하면 이전 것을 취소
     stalefired = true;
   }, DELAY);
 
-  await handleTrackEnd.call(p, "idle");
+  await onTrackEnd.call(p, "idle");
   await sleep(DELAY * 3);
 
   assert.equal(stalefired, false, "이전 타이머가 취소돼야 한다");

@@ -301,7 +301,7 @@ class MusicPlayer {
       await this.play(this.getCurrentTime(), { continued: true });
     } catch (error) {
       log.error("재생 재개 실패:", error);
-      await this.handleTrackEnd("error");
+      await this.onTrackEnd("error");
     }
   }
 
@@ -459,7 +459,7 @@ class MusicPlayer {
     this._endReason = null;
     // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 멈춤(audioPlayer.stop)은 Idle 을 곧바로 부른다
     setImmediate(() => {
-      this.handleTrackEnd(reason).catch((error) => log.error("곡 끝 처리 실패:", error));
+      this.onTrackEnd(reason).catch((error) => log.error("곡 끝 처리 실패:", error));
     });
   }
 
@@ -657,7 +657,7 @@ class MusicPlayer {
     // 대기열 반복은 대기열이 고리다. 지금 곡 바로 앞은 대기열 맨 끝 곡(기록이 아니다)
     const rewound = this.loop === "queue" ? trackState.rewindRing(this) : this.previousTracks.length > 0 ? trackState.rewind(this) : null;
     if (rewound) {
-      // 현재 트랙은 currentTrack으로 남겨 handleTrackEnd가 기록하게 한다. 여기서 이전 트랙을
+      // 현재 트랙은 currentTrack으로 남겨 onTrackEnd가 기록하게 한다. 여기서 이전 트랙을
       // 미리 할당하면 "예기치 않게 종료됨" 재시도 로직이 그 곡을 중간부터 재개한다.
 
       this.watch.stopEnd();
@@ -771,7 +771,7 @@ class MusicPlayer {
   }
 
   // 곡 끝 처리. 다시 틀기 · 한곡 반복 · 다음 곡 · 자동재생 · 대기열 소진을 가른다
-  async handleTrackEnd(reason = "idle") {
+  async onTrackEnd(reason = "idle") {
     if (!this.lifecycle.beginEnd()) return; // 끝이 겹쳐 들어왔다. 먼저 온 것이 처리한다
     if (this.lifecycle.phase === "playing") this.lifecycle.to("idle", `곡 끝(${reason})`);
     this.sponsorSkipper?.stop(); // 다음 트랙 play()가 onPlayStart로 다시 가동

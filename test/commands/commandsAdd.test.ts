@@ -93,7 +93,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
       return handle(trackData);
     },
     updateNowPlayingEmbed: async () => seen.push("update"),
-    handlePlaybackEnd: async (_p: unknown, { reason }: { reason: string }) => seen.push(`end:${reason}`),
+    drawEndedPanel: async (_p: unknown, { reason }: { reason: string }) => seen.push(`end:${reason}`),
     repostIdlePanel: async (_g: unknown, ch: { id: string }) => seen.push(`repost:${ch.id}`),
     stopProgressUpdate: (id: string) => seen.push(`stopProgress:${id}`),
     createNewMusicEmbed: async (_p: unknown, track: { title: string }, who: Requester | null, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, who: who?.username, opts }),

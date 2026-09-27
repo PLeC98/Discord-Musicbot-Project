@@ -103,7 +103,7 @@ const client = {
   players: new Map([[g1.id, fake<MusicPlayer>(playerG1)]]),
   musicEmbedManager: {
     endedPlayers: [] as unknown[],
-    async handlePlaybackEnd(player: unknown) {
+    async drawEndedPanel(player: unknown) {
       this.endedPlayers.push(player);
     },
   },
