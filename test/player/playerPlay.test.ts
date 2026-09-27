@@ -95,6 +95,24 @@ test("캐시에서 틀어도 장부에 재생을 적는다", async () => {
   assert.equal(row?.title_verified, 0, "캐시 갈래는 영상 제목을 못 받아 확인 안 됨으로 적는다");
 });
 
+test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구) 재생 횟수를 세지 않는다. 새로 틀면 센다", async () => {
+  const track = yt("ccccccccccc");
+  h.seedCache("yt:ccccccccccc", track);
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  try {
+    await p.play(0);
+    await p.seek(30_000, "highlight");
+    await p.seek(30_000, "dashboard");
+    await p.play(60_000, { continued: true });
+    assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 1, "처음 한 번만");
+    await p.play(0); // 한곡 반복 · 다음 곡처럼 새로 튼다
+    assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 2);
+  } finally {
+    h.dispose(p);
+  }
+});
+
 test("받아 둔 파일은 열쇠 자리에서만 찾는다. 다른 자리의 파일은 쓰지 않고 스트림으로 튼다", async () => {
   const track = yt("ccccccccccc");
   const other = h.writeCacheFile("yt:다른-자리");

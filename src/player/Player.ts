@@ -303,7 +303,7 @@ class MusicPlayer {
   async onVoiceRecovered() {
     if (!this.currentTrack) return;
     try {
-      await this.play(this.getCurrentTime());
+      await this.play(this.getCurrentTime(), { continued: true });
     } catch (error) {
       log.error("재생 재개 실패:", error);
       await this.handleTrackEnd("error");
@@ -316,7 +316,11 @@ class MusicPlayer {
 
   // ── 재생. 단계는 startPlayback, 소리를 여는 것은 media/playbackInput ──────
 
-  async play(seekMs = 0) {
+  /**
+   * @param seekMs  곡 안의 시작 위치
+   * @param o.continued  같은 곡을 이어 튼다(위치 이동 · 끊김 복구 · 세션 복원). 재생 횟수에 세지 않는다
+   */
+  async play(seekMs = 0, { continued = false }: { continued?: boolean } = {}) {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
@@ -362,7 +366,7 @@ class MusicPlayer {
       pb.resource = input.resource;
       pb.cacheFile = input.cacheFile;
 
-      await commitPlaying(this, pb, source);
+      await commitPlaying(this, pb, source, { continued });
       this.lifecycle.to("playing");
       return { ok: true, track: this.currentTrack };
     } catch (error) {
@@ -664,7 +668,7 @@ class MusicPlayer {
     // 출발은 지금 재생 위치다. lastPlaybackPosition 은 이번 재생을 시작한 자리라 재생 중에 안 바뀐다
     const from = Math.round(this.getCurrentTime() / 1000);
     clog.info(`위치 이동: ${this._trackLabel()} | ${from}초 → ${Math.round(seekMs / 1000)}초 | 원인=${reason}`);
-    return this.play(seekMs);
+    return this.play(seekMs, { continued: true });
   }
 
   // reason: "skip"(기본) 또는 "jump"(대기열 점프. 한곡 반복 중에도 재시작이 아니라 선택 곡으로 이동)
@@ -891,7 +895,7 @@ class MusicPlayer {
     const at = `${sec(playedMs)}초`;
     if (this.currentTrackRetries <= MAX_TRACK_RETRIES) {
       log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
-      await this.play(playedMs);
+      await this.play(playedMs, { continued: true });
       return true;
     }
     log.error(`재생을 복구하지 못해 다음 곡으로 넘깁니다: ${label} | ${at} 지점, 재시도 ${MAX_TRACK_RETRIES}회 소진`);

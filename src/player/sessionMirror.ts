@@ -248,7 +248,7 @@ class SessionPersistence {
 
     if (session.pausedManual) player.pauseReasons.add("manual"); // play()가 시작 직후 즉시 일시정지
 
-    await player.play(resumeMs);
+    await player.play(resumeMs, { continued: true });
     if (session.pausedManual) player.pauseFor("manual"); // paused 플래그 동기화 (UI/직렬화 일관성)
 
     if (player.resource?.volume) {

@@ -97,7 +97,7 @@ class SponsorSkipper {
     } else if (d.action === "seek") {
       log.info(`${p.currentTrack?.title ?? ""}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
-      bestEffort(log, p.play(Math.round(d.toSec * 1000)), "구간 건너뛰기");
+      bestEffort(log, p.play(Math.round(d.toSec * 1000), { continued: true }), "구간 건너뛰기");
     }
   }
 }

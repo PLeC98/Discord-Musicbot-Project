@@ -147,7 +147,7 @@ function seekUrl(baseUrl: string | null, seekSeconds: number) {
 /**
  * 연 소리를 튼다. 소리는 이미 pb.resource 에 있다.
  */
-async function commitPlaying(player: MusicPlayer, pb: CurrentPlayback, source: Source) {
+async function commitPlaying(player: MusicPlayer, pb: CurrentPlayback, source: Source, { continued = false }: { continued?: boolean } = {}) {
   const track = pb.track;
   const { streamInfo } = source;
   const { resource } = pb;
@@ -168,7 +168,7 @@ async function commitPlaying(player: MusicPlayer, pb: CurrentPlayback, source: S
   protectAudio(player, audioKey);
   player.audioPlayer.play(resource);
   // 라이브는 받아 두지 않으므로 적을 것이 없다.
-  if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified);
+  if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified, { countPlay: !continued });
 
   if (player.pauseReasons.size > 0) {
     // 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
@@ -201,11 +201,11 @@ function protectAudio(player: MusicPlayer, audioKey: string | null) {
   }
 }
 
-// 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록.
+// 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록. 같은 곡을 이어 틀 때는 재생 횟수를 세지 않는다(퇴거 점수가 본다).
 // 부기일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
-function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boolean) {
+function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boolean, { countPlay }: { countPlay: boolean }) {
   try {
-    audioCache.recordPlayback(audioKey);
+    if (countPlay) audioCache.recordPlayback(audioKey);
     trackLookup.recordTrackLookup(track, { verified: titleVerified });
   } catch (error) {
     log.warn(`캐시 장부 기록 실패(재생은 계속): ${messageOf(error)}`);
