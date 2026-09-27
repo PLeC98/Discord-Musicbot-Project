@@ -3,6 +3,7 @@ import config from "../config.ts";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
 import { labelOf, emojiOf } from "../src/ui/platforms.ts";
 import { progressBar } from "../src/ui/progressBar.ts";
+import { playbackStatus } from "../src/ui/playerStatus.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { MusicPlayer } from "../src/player/Player.ts";
 import type { QueuedTrack } from "../src/player/track.ts";
@@ -44,7 +45,7 @@ const exported: GuildCommand = {
 
       const track = player.currentTrack;
       const currentTime = player.getCurrentTime();
-      const status = player.getStatus();
+      const status = playbackStatus(player);
 
       const platformCode = (track.platform || "").toString().toLowerCase();
 

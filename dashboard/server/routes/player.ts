@@ -142,7 +142,7 @@ function joinRoute(router: Router) {
     const player = ensurePlayer(client, { guild, voiceChannel });
 
     try {
-      await player.connect();
+      await player.voice.connect();
     } catch {
       await player.dispose({ reason: "접속 실패", session: "keep" });
       return res.status(500).json({ error: "음성 채널 접속에 실패했습니다" });

@@ -4,6 +4,7 @@ import type { Request } from "express";
 import type { MusicPlayer } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { labelOf } from "../../src/ui/platforms.ts";
+import { playbackStatus, soundAttached } from "../../src/ui/playerStatus.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
 import { toInt } from "./guildAccess.ts";
 
@@ -53,10 +54,10 @@ function playingView(player: MusicPlayer, track: QueuedTrack) {
 
 function playerState(player: MusicPlayer | null | undefined, queueLimit = QUEUE_PAGE) {
   if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
-  const status = player.getStatus();
+  const status = playbackStatus(player);
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다. 그래야
-  // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다. isPlaybackActive: 리소스가 물린 상태.
-  const track = player.isPlaybackActive() ? player.currentTrack : null;
+  // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다.
+  const track = soundAttached(player) ? player.currentTrack : null;
   return {
     playing: status.playing,
     paused: status.paused,

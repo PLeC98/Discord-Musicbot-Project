@@ -97,8 +97,6 @@ function makeSetup(state: State = {}) {
     paused: false,
     volume: 100,
     getCurrentTime: () => 1000,
-    isPlaybackActive: () => true,
-    getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }),
     currentTrack: { title: "곡", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 100, platform: "direct" },
     nowPlayingMessage: { id: "100" },
     nowPlayingWebhook: webhook,

@@ -15,7 +15,6 @@ import type { QueuedTrack } from "./track.ts";
 import type { Loop } from "./trackState.ts";
 import type { WarmerDeps } from "./queueWarmer.ts";
 import type { AudioSplicer } from "../media/audioSplicer.ts";
-import type { RestoredSession } from "../store/playerSessions.ts";
 import type { Deps as AutoplayDeps } from "../autoplay/route.ts";
 import type { StreamOptions } from "../sources/streamUrl.ts";
 import type { Seeking } from "../sources/youtube/equivalent.ts";
@@ -295,10 +294,6 @@ class MusicPlayer {
     return this.voice?.isRecovering ?? false;
   }
 
-  connect() {
-    return this.voice.connect();
-  }
-
   /** 음성 연결이 복구됐다(voiceConnection 이 알린다). 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다 */
   async onVoiceRecovered() {
     if (!this.currentTrack) return;
@@ -478,14 +473,6 @@ class MusicPlayer {
     this.audioPlayer.stop(force);
   }
 
-  pause(reason = "manual") {
-    return this.pauseFor(reason);
-  }
-
-  resume(reason = "manual") {
-    return this.resumeFor(reason);
-  }
-
   pauseFor(reason: string | null = null) {
     if (reason) {
       if (!this.pauseReasons.has(reason)) {
@@ -553,7 +540,8 @@ class MusicPlayer {
    */
   _stopTimers() {
     this.idle.stop();
-    this.stopStateSync();
+    this.warmer.stop();
+    this.persistence.stopStateSync();
     this.voice.stopConnectionRecovery();
     this.voice.stopHealthCheck();
     this.watch.stop();
@@ -579,7 +567,7 @@ class MusicPlayer {
     this.lifecycle.to("disposed", reason);
     try {
       bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
-      if (session === "save") await this.persistState("leave");
+      if (session === "save") await this.persistence.persistState("leave");
       else if (session === "remove") this.persistence?.removeSession();
 
       this.sponsorSkipper?.stop();
@@ -773,10 +761,6 @@ class MusicPlayer {
       return true;
     }
     return false;
-  }
-
-  getQueue() {
-    return { current: this.currentTrack, queue: this.queue };
   }
 
   /** 곡 안의 지금 위치(ms). 리소스가 실제로 낸 양이라 멈춤 · 버퍼링은 세지 않는다 */
@@ -1097,23 +1081,6 @@ class MusicPlayer {
 
   // ── 세션 영속화. 로직은 SessionPersistence ────────────────────────────────
 
-  restoreFromState(state: RestoredSession) {
-    return this.persistence.restoreFromState(state);
-  }
-
-  persistState(reason = "manual") {
-    return this.persistence.persistState(reason);
-  }
-
-  startStateSync() {
-    this.persistence.startStateSync();
-  }
-
-  stopStateSync() {
-    this.warmer.stop();
-    this.persistence.stopStateSync();
-  }
-
   /** 지금 곡을 음성 채널 상태에. 일시정지면 그 앞머리로 */
   _showTrackInVoiceStatus() {
     if (!this.currentTrack) return;
@@ -1136,22 +1103,6 @@ class MusicPlayer {
 
     await this.guild.client.rest.put(`/channels/${channel.id}/voice-status`, { body: { status: status ?? "" } });
     voiceChannelStatus.mark(channel.id, status ?? "");
-  }
-
-  getStatus() {
-    return {
-      playing: this.audioPlayer?.state?.status === AudioPlayerStatus.Playing,
-      paused: this.audioPlayer?.state?.status === AudioPlayerStatus.Paused,
-      volume: this.volume,
-      loop: this.loop,
-    };
-  }
-
-  // 실제 재생이 시작됐는지(오디오 리소스가 물린 상태). Idle이면 아직 해석/셋업 중이거나 정지.
-  // 대시보드가 '재생 시작 전'에는 currentTrack을 노출하지 않도록 게이팅하는 데 쓴다(유령 재생 방지).
-  isPlaybackActive() {
-    const status = this.audioPlayer?.state?.status;
-    return status !== undefined && status !== AudioPlayerStatus.Idle;
   }
 
   /** 이 뒤로 만드는 플레이어의 바깥 경계 기본값. 테스트만 쓴다. 인자 없이 부르면 진짜로 돌아간다 */

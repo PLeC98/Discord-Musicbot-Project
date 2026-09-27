@@ -15,6 +15,8 @@ import { fake } from "../helpers/fake.ts";
 
 import * as h from "../helpers/playerHarness.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { playbackStatus, soundAttached } from "../../src/ui/playerStatus.ts";
+import { queueInfoOf } from "../../src/ui/queueView.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -425,6 +427,17 @@ test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포�
   assert.equal(p.audioPlayer.listenerCount(AudioPlayerStatus.Idle), 0, "리스너를 뗀다");
 });
 
+test("버리면 타이머와 함께 대기열 미리 받기 · 세션 동기화도 멈춘다", async () => {
+  const p = h.makePlayer();
+  const stopped: string[] = [];
+  p.warmer.stop = () => void stopped.push("warmer");
+  p.persistence.stopStateSync = () => void stopped.push("sync");
+  await p.dispose({ reason: "시험", session: "keep" });
+  const atDispose = [...stopped].sort();
+  h.dispose(p);
+  assert.deepEqual(atDispose, ["sync", "warmer"]);
+});
+
 test("버리기는 한 번만 한다. 두 번째 부름은 아무것도 하지 않는다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
@@ -654,7 +667,7 @@ test("대기열 조작: 빼기 · 옮기기", () => {
   p.currentTrack = yt("c0ccccccccc", { duration: 5 });
   p.queue = [a, b, c];
 
-  assert.deepEqual(p.getQueue(), { current: p.currentTrack, queue: [a, b, c] });
+  assert.deepEqual(queueInfoOf(p), { current: p.currentTrack, queue: [a, b, c] });
   assert.equal(p.moveInQueue(0, 2), true);
   assert.deepEqual(p.queue, [b, c, a]);
   assert.equal(p.removeFromQueue(1), c);
@@ -760,13 +773,13 @@ test("자동재생: 모르는 장르면 setAutoplay 로 끈다(로그 · 미리 
   assert.equal(p.autoplay, false);
 });
 
-test("상태 요약과 재생 여부", () => {
+test("상태 요약과 재생 여부(화면 쪽 요약이 플레이어 상태를 읽는다)", () => {
   const p = h.makePlayer();
-  assert.equal(p.isPlaybackActive(), false);
+  assert.equal(soundAttached(p), false);
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Buffering };
-  assert.equal(p.isPlaybackActive(), true);
+  assert.equal(soundAttached(p), true);
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
-  const s = p.getStatus();
+  const s = playbackStatus(p);
   h.dispose(p);
   assert.deepEqual(s, { playing: false, paused: true, volume: p.volume, loop: false });
 });

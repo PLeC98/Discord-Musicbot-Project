@@ -24,7 +24,7 @@ const REAL: Boundary = {
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜) */
 type ShutdownDeps = { potServer: { stop(): unknown }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성을 끊을 플레이어 */
-type Saver = { persistState(reason: string): Promise<unknown>; disconnect?(reason: string): unknown };
+type Saver = { persistence: { persistState(reason: string): Promise<unknown> }; voice: { disconnect(reason: string): unknown } };
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인 · 명령 배포)의 핸들 정리와 겹쳐
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
@@ -45,14 +45,14 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
     // 켜져 있는 플레이어의 세션을 먼저 저장한다
     const saves = [];
     for (const [guildId, player] of client.players) {
-      if (typeof player?.persistState !== "function") continue;
-      saves.push(player.persistState("shutdown").catch((err: unknown) => log.error(`세션 저장 실패 (서버 ID ${guildId}):`, err)));
+      if (!player) continue;
+      saves.push(player.persistence.persistState("shutdown").catch((err: unknown) => log.error(`세션 저장 실패 (서버 ID ${guildId}):`, err)));
     }
     await Promise.all(saves);
 
     // 플레이어의 음성 연결은 플레이어가 끊는다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
     const reason = `프로세스 종료(${signal})`;
-    for (const [, player] of client.players) player?.disconnect?.(reason);
+    for (const [, player] of client.players) player?.voice.disconnect(reason);
 
     // 남은 것은 레지스트리에 없던 연결이다. 그대로 두면 프로세스가 죽은 뒤에도 봇이 음성 채널에
     // 유령으로 남는다. 재시작하면 "봇은 음성에 있는데 플레이어가 없는" 상태가 된다.

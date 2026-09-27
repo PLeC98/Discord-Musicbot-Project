@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import * as S from "../src/ui/strings.ts";
-import { queueView } from "../src/ui/queueView.ts";
+import { queueView, queueInfoOf } from "../src/ui/queueView.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const exported: GuildCommand = {
@@ -18,7 +18,7 @@ const exported: GuildCommand = {
       return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
     }
 
-    const queueInfo = player.getQueue();
+    const queueInfo = queueInfoOf(player);
 
     if (!queueInfo.current && queueInfo.queue.length === 0) {
       return interaction.reply({ content: S.ERR_NO_SONGS_IN_QUEUE, flags: [1 << 6] });

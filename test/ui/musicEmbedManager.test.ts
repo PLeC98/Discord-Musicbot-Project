@@ -146,8 +146,6 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
     previousTracks: [],
     loop: false,
     paused: false,
-    isPlaybackActive: () => true,
-    getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }),
   });
   const base: QueuedTrack = { title: "Test", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 127, platform: "direct" };
 
@@ -161,7 +159,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 
 test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보여 줄 링크(pageUrl)다", async () => {
   const mem = newManager();
-  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, isPlaybackActive: () => true, getStatus: () => ({ playing: true, paused: false, volume: 100, loop: false }) });
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
   const track: QueuedTrack = { title: "주제가", duration: 90, platform: "anisongdb", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3" };
 
   const json = JSON.stringify((await mem.createNowPlayingContainer(player, track)).toJSON());

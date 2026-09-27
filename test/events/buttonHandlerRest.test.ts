@@ -74,15 +74,12 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     paused: false,
     loop: false as string | false,
     releaseLoopForLive() {},
-    getQueue() {
-      return { current: p.currentTrack, queue: p.queue };
-    },
     setAutoplay(v: string | false) {
       seen.push(`autoplay:${v}`);
       p.autoplay = v;
     },
-    pause: () => false,
-    resume: () => false,
+    pauseFor: () => false,
+    resumeFor: () => false,
     skip: () => false,
     previous: () => false,
     _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
@@ -156,9 +153,11 @@ test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린�
   await buttonHandler.execute(unknown.it);
   assert.deepEqual(unknown.log, [["reply", "❌ 알 수 없는 상호작용!"]]);
 
-  w.player.getQueue = () => {
-    throw new Error("boom");
-  };
+  Object.defineProperty(w.player, "queue", {
+    get() {
+      throw new Error("boom");
+    },
+  });
   const broken = press(w, "music_queue:u:S1");
   await buttonHandler.execute(broken.it);
   assert.deepEqual(broken.log, [["reply", S.ERR_PROCESSING]]);
@@ -187,7 +186,7 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
   const w = world();
   w.player.currentTrack = { title: "곡", url: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.queue = [{ title: "다음" }];
-  w.player.pause = () => true;
+  w.player.pauseFor = () => true;
   w.player.skip = () => true;
   const pause = press(w, "music_pause:u:S1");
   await buttonHandler.execute(pause.it);

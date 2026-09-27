@@ -43,7 +43,7 @@ const exported: GuildCommand = {
     if (hasSession) {
       await interaction.deferReply();
       try {
-        await player.restoreFromState(savedState);
+        await player.persistence.restoreFromState(savedState);
 
         if (!player.currentTrack) {
           await interaction.editReply({ content: "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)" });
@@ -60,7 +60,7 @@ const exported: GuildCommand = {
         await interaction.editReply({ content: "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요." });
       }
     } else {
-      await player.connect();
+      await player.voice.connect();
       bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
       // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
       if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");

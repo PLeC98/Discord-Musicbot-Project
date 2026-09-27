@@ -22,13 +22,17 @@ function setup({ saveFails = false } = {}) {
   live.set("g8", connection("g8", true));
 
   const player = (id: string) => ({
-    persistState: async (reason: string) => {
-      steps.push(`save:${id}:${reason}`);
-      if (saveFails) throw new Error("저장 실패");
+    persistence: {
+      persistState: async (reason: string) => {
+        steps.push(`save:${id}:${reason}`);
+        if (saveFails) throw new Error("저장 실패");
+      },
     },
-    disconnect: (reason: string) => {
-      steps.push(`disconnect:${id}:${reason}`);
-      live.get(id)?.destroy();
+    voice: {
+      disconnect: (reason: string) => {
+        steps.push(`disconnect:${id}:${reason}`);
+        live.get(id)?.destroy();
+      },
     },
   });
   const client = {

@@ -269,7 +269,7 @@ class MusicEmbedManager {
   async _startPlayback(player: MusicPlayer): Promise<string | null> {
     try {
       if (!player.connection) {
-        await player.connect();
+        await player.voice.connect();
       }
       const playResult = await player.play();
       // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면

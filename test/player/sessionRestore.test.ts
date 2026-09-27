@@ -134,15 +134,17 @@ function fakePlayerClass({ restoreFails = false } = {}) {
       this.voice = voice;
       made.push(this);
     }
-    async restoreFromState(record: { guildId: string }) {
-      this.calls.push(`restore:${record.guildId}`);
-      if (restoreFails) throw new Error("복원 실패");
-    }
+    persistence = {
+      restoreFromState: async (record: { guildId: string }) => {
+        this.calls.push(`restore:${record.guildId}`);
+        if (restoreFails) throw new Error("복원 실패");
+      },
+    };
     async dispose(o: { reason: string; session: string }) {
       this.calls.push(`dispose:${o.reason}:${o.session}`);
     }
   }
-  // 플레이어를 만드는 자리에 넘긴다. 되살리기가 부르는 것(restoreFromState · dispose)만 갖췄다
+  // 플레이어를 만드는 자리에 넘긴다. 되살리기가 부르는 것(persistence.restoreFromState · dispose)만 갖췄다
   return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 

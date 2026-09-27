@@ -53,8 +53,8 @@ function fakePlayer(over: object = {}) {
     isLive: false,
     isPlayStarting: false,
     sponsor: null,
-    pause: () => (calls.push("pause"), true),
-    resume: () => (calls.push("resume"), true),
+    pauseFor: () => (calls.push("pause"), true),
+    resumeFor: () => (calls.push("resume"), true),
     skip: (reason?: string) => (calls.push(`skip${reason ? `:${reason}` : ""}`), true),
     previous: () => (calls.push("previous"), true),
     _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
@@ -99,7 +99,7 @@ test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다",
   assert.deepEqual([...playing.calls, ...paused.calls], ["pause", "resume"]);
   assert.deepEqual(seen, ["refresh", "refresh"]);
 
-  assert.equal(codeOf(await controls.pause(fakePlayer({ pause: () => false }), DJ)), "failed");
+  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseFor: () => false }), DJ)), "failed");
 });
 
 test("건너뛰기: 다음 곡이 없으면 거절(한곡 반복은 처음부터, 자동재생은 다음 곡을 골라 허용). 곡 요청자는 DJ 가 아니어도 된다", async () => {

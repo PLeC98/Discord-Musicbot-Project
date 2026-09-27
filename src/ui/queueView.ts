@@ -21,6 +21,11 @@ const pagesOf = (info: QueueInfo) => Math.max(1, Math.ceil(info.queue.length / P
  * 대기열 한 쪽. 쪽 번호는 1 부터이고 범위를 넘으면 끝 쪽으로 붙인다. 현재 곡은 첫 쪽에만.
  * 쪽이 둘 이상이면 넘기기 버튼(◀ ▶)을 단다. 넘기면 그때의 대기열로 다시 그린다
  */
+/** 대기열 화면이 보는 것. 지금 곡과 대기열 */
+function queueInfoOf(player: { currentTrack: Listed | null; queue: Listed[] }): QueueInfo {
+  return { current: player.currentTrack, queue: player.queue };
+}
+
 function queueView(info: QueueInfo, page = 1) {
   const pages = pagesOf(info);
   const shown = Math.min(Math.max(1, Math.floor(page) || 1), pages);
@@ -47,5 +52,5 @@ function pageOf(customId: string) {
   return Number.isSafeInteger(page) && page >= 1 ? page : null;
 }
 
-export { PAGE_SIZE, PAGE_PREFIX, queueView, pageOf };
+export { PAGE_SIZE, PAGE_PREFIX, queueView, queueInfoOf, pageOf };
 export type { QueueInfo };

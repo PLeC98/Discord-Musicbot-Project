@@ -57,9 +57,12 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
         return m;
       },
     },
-    async connect() {
-      calls.push("connect");
-      this.connection = {};
+    voice: {
+      connect: async () => {
+        calls.push("connect");
+        Object.assign(player, { connection: {} });
+        return true;
+      },
     },
     async play(...args: unknown[]) {
       calls.push(["play", ...args]);

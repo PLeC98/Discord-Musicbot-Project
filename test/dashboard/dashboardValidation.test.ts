@@ -58,10 +58,8 @@ function makePlayer() {
     queue: [makeTrack("q0"), makeTrack("q1"), makeTrack("q2")],
     previousTracks: [],
     volume: 50,
-    getStatus() {
-      return { playing: true, paused: false, volume: this.volume, loop: false };
-    },
-    isPlaybackActive: () => true,
+    loop: false,
+    audioPlayer: { state: { status: "playing" } },
     getCurrentTime: () => 0,
     async play(ms: number) {
       this.calls.push(["play", ms]);

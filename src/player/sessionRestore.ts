@@ -88,7 +88,7 @@ async function restoreOne(client: Client, Player: PlayerClass, record: RestoredS
   const player = new Player(guild, channels.text, channels.voice);
   client.players.set(guildId, player);
   try {
-    await player.restoreFromState(record);
+    await player.persistence.restoreFromState(record);
     log.info(`서버 ${guild.name}의 세션 복원 완료`);
   } catch (error) {
     log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, messageOf(error));

@@ -93,7 +93,8 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
 type Status = { playing: boolean; paused: boolean; volume: number; loop: string | false };
 
 function nowPlayer(track: object | null, status: Status = { playing: true, paused: false, volume: 70, loop: "track" }) {
-  return { currentTrack: track, getCurrentTime: () => 90_000, getStatus: () => status };
+  const audio = status.playing ? "playing" : status.paused ? "paused" : "idle";
+  return { currentTrack: track, getCurrentTime: () => 90_000, audioPlayer: { state: { status: audio } }, volume: status.volume, loop: status.loop };
 }
 
 test("/nowplaying: 플레이어나 곡이 없으면 본인에게만 알린다", async () => {
@@ -148,7 +149,7 @@ test("/nowplaying: 멈춤 · 중지 · 대기열 반복, 길이를 모르면 진
 
 // ── /queue ────────────────────────────────────────────────────────────
 
-const queuePlayer = (current: object | null, queue: object[]) => ({ getQueue: () => ({ current, queue }) });
+const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack: current, queue });
 
 test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   const none = interaction();

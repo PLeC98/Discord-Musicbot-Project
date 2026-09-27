@@ -56,7 +56,7 @@ async function pause(player: MaybePlayer, actor: Actor) {
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   const resuming = player.paused;
-  if (!(resuming ? player.resume() : player.pause())) return fail("failed");
+  if (!(resuming ? player.resumeFor("manual") : player.pauseFor("manual"))) return fail("failed");
   await refresh(player);
   return done({ paused: !resuming, track });
 }

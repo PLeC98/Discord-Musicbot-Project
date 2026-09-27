@@ -290,7 +290,7 @@ class SessionPersistence {
   async _reconnect() {
     if (this.player.connection) return;
     try {
-      const connected = await this.player.connect();
+      const connected = await this.player.voice.connect();
       if (!connected) {
         throw codedError("voice-failed", "음성 채널에 다시 연결하지 못했습니다");
       }

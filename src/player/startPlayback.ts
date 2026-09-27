@@ -34,7 +34,7 @@ async function prepareStart(player: MusicPlayer, seekMs: number): Promise<{ ok: 
     if (player.queue.length === 0) return { ok: false, code: "queue-empty" };
     trackState.shiftNext(player);
   }
-  if (!player.connection && !(await player.connect())) {
+  if (!player.connection && !(await player.voice.connect())) {
     return { ok: false, code: "voice-failed" };
   }
 
@@ -181,9 +181,9 @@ async function commitPlaying(player: MusicPlayer, pb: CurrentPlayback, source: S
   // 정상 완료를 보장하고 성급한 전환을 막기 위해 종료 감시 예약
   player.watch.scheduleEnd(streamInfo);
 
-  player.startStateSync();
+  player.persistence.startStateSync();
   player.warmer.start();
-  await player.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
+  await player.persistence.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
 
   // 다음 자동재생 곡을 미리 뽑아 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
   player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 뽑기 실패: ${messageOf(error)}`));

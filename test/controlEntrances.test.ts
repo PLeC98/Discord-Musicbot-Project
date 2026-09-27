@@ -54,8 +54,8 @@ function makePlayer(state: string, acts: string[]) {
     paused: false,
     volume: 50,
     isPlayStarting: false,
-    pause: rec("pause"),
-    resume: rec("resume"),
+    pauseFor: rec("pause"),
+    resumeFor: rec("resume"),
     skip: rec("skip"),
     dispose: rec("dispose", async () => {}),
     _trackLabel: () => '"now"',
@@ -79,11 +79,7 @@ function makePlayer(state: string, acts: string[]) {
       return Boolean(this.currentTrack?.isLive || this.queue.some((t) => t.isLive));
     },
     getCurrentTime: () => 0,
-    getQueue() {
-      return { current: this.currentTrack, queue: this.queue };
-    },
-    getStatus: () => ({ playing: true, paused: false, volume: 50, loop: false }),
-    isPlaybackActive: () => true,
+    audioPlayer: { state: { status: "playing" } },
   };
   if (state === "idle") Object.assign(p, { currentTrack: null, queue: [], previousTracks: [] });
   if (state === "alone") Object.assign(p, { queue: [], previousTracks: [] });
