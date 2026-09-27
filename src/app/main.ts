@@ -8,7 +8,7 @@ import logger from "../infra/log/logger.ts";
 import config from "../../config.ts";
 import * as audioCache from "../store/audioCache.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
-import { MusicPlayer } from "../player/Player.ts";
+import { Player } from "../player/Player.ts";
 import { restoreSavedPlayers } from "../player/sessionRestore.ts";
 import * as voiceChannelStatus from "../player/voiceChannelStatus.ts";
 import * as voiceStatusStore from "../store/voiceStatus.ts";
@@ -130,7 +130,7 @@ async function onReady(client: Client<true>) {
   // 이번 실행이 받기 시작한 행까지 받다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
   log.debug("세션 복원 시작");
-  await restoreSavedPlayers(client, MusicPlayer);
+  await restoreSavedPlayers(client, Player);
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await client.musicEmbedManager?.restorePanels();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");

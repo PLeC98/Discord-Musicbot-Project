@@ -1,7 +1,7 @@
 import { Collection } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 import * as playerEvents from "./events.ts";
 
 /**
@@ -29,10 +29,10 @@ function callerOf(stack: string, self = SELF) {
 
 const caller = () => callerOf(new Error().stack || "");
 
-const label = (player: MusicPlayer | undefined, guildId: string) => `${player?.guild?.name ?? "?"} (${guildId})`;
+const label = (player: Player | undefined, guildId: string) => `${player?.guild?.name ?? "?"} (${guildId})`;
 
-class PlayerRegistry extends Collection<string, MusicPlayer> {
-  set(guildId: string, player: MusicPlayer) {
+class PlayerRegistry extends Collection<string, Player> {
+  set(guildId: string, player: Player) {
     log.debug(`등록: ${label(player, guildId)}${this.has(guildId) ? " | 기존 항목 교체" : ""} | ${caller()}`);
     return super.set(guildId, player);
   }
@@ -48,7 +48,7 @@ class PlayerRegistry extends Collection<string, MusicPlayer> {
   }
 
   /** 버려진 플레이어를 뺀다. 그 서버에 이미 다른(새) 플레이어가 있으면 건드리지 않는다 */
-  forget(player: MusicPlayer) {
+  forget(player: Player) {
     const guildId = player.guild?.id;
     if (guildId && this.get(guildId) === player) this.delete(guildId);
   }

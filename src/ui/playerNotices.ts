@@ -4,7 +4,7 @@ import { errorMessage } from "./errorMessages.ts";
 import { formatDuration } from "./format.ts";
 import { escapeMd } from "./mentions.ts";
 import { scheduleDelete } from "./transientMessages.ts";
-import type { MusicPlayer } from "../player/Player.ts";
+import type { Player } from "../player/Player.ts";
 import type { Notices, NoticeCode } from "../player/events.ts";
 
 // 코드 → 문장. 세부(detail)는 알린 쪽이 준 것
@@ -24,7 +24,7 @@ const TEXT: { [C in NoticeCode]: (detail: Notices[C]) => string } = {
 // 잠깐 보이고 지우는 알림
 const SHORT_LIVED = new Set(["restored"]);
 
-async function sendNotice<C extends NoticeCode>(player: Pick<MusicPlayer, "textChannel">, code: C, detail: Notices[C]) {
+async function sendNotice<C extends NoticeCode>(player: Pick<Player, "textChannel">, code: C, detail: Notices[C]) {
   const text = TEXT[code]?.(detail);
   if (!text || typeof player.textChannel?.send !== "function") return;
   const sent = await player.textChannel.send(SHORT_LIVED.has(code) ? { content: text } : text);

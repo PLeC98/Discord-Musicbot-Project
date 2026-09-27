@@ -13,7 +13,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { messageOf } from "../rules/errorKind.ts";
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 
 /** 패널을 새로 올릴 때 요청한 사람. 복원이면 아는 것이 id 뿐이다 */
 type Requester = { id: string; username?: string };
@@ -27,14 +27,14 @@ type Notices = {
 type NoticeCode = keyof Notices;
 /** 알림마다 넘기는 것 */
 type EventArgs = {
-  refresh: [player: MusicPlayer];
-  ended: [player: MusicPlayer, reason: string];
-  started: [player: MusicPlayer, requester: Requester];
-  released: [player: MusicPlayer, textChannelId: string];
-  disposed: [player: MusicPlayer];
-  notice: [player: MusicPlayer, code: NoticeCode, detail: Notices[NoticeCode]];
+  refresh: [player: Player];
+  ended: [player: Player, reason: string];
+  started: [player: Player, requester: Requester];
+  released: [player: Player, textChannelId: string];
+  disposed: [player: Player];
+  notice: [player: Player, code: NoticeCode, detail: Notices[NoticeCode]];
   touched: [guildId: string];
-  leaving: [player: MusicPlayer, leavesAt: number | null];
+  leaving: [player: Player, leavesAt: number | null];
 };
 type Listener<K extends keyof EventArgs> = (...args: EventArgs[K]) => unknown;
 
@@ -53,18 +53,18 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
   await Promise.all([...set].map((fn) => fn(...args)));
 }
 
-const refresh = (player: MusicPlayer) => emit("refresh", player);
-const ended = (player: MusicPlayer, reason: string) => emit("ended", player, reason);
-const started = (player: MusicPlayer, requester: Requester) => emit("started", player, requester);
-const leaving = (player: MusicPlayer, leavesAt: number | null) => emit("leaving", player, leavesAt);
-const notice = <C extends NoticeCode>(player: MusicPlayer, code: C, detail: Notices[C]) => emit("notice", player, code, detail);
+const refresh = (player: Player) => emit("refresh", player);
+const ended = (player: Player, reason: string) => emit("ended", player, reason);
+const started = (player: Player, requester: Requester) => emit("started", player, requester);
+const leaving = (player: Player, leavesAt: number | null) => emit("leaving", player, leavesAt);
+const notice = <C extends NoticeCode>(player: Player, code: C, detail: Notices[C]) => emit("notice", player, code, detail);
 
-function released(player: MusicPlayer, textChannelId: string) {
+function released(player: Player, textChannelId: string) {
   for (const fn of listeners.released) fn(player, textChannelId);
 }
 
 // 버리는 도중에 부른다. 듣는 쪽의 실패가 정리를 끊지 않게 한다
-function disposed(player: MusicPlayer) {
+function disposed(player: Player) {
   for (const fn of listeners.disposed) {
     try {
       fn(player);

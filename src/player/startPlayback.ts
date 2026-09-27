@@ -12,7 +12,7 @@ import * as trackLookup from "../store/trackLookup.ts";
 import * as trackState from "./trackState.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import { messageOf, codedError } from "../rules/errorKind.ts";
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 import type { CurrentPlayback } from "./currentPlayback.ts";
 import type { Resume } from "./currentPlayback.ts";
 import type { QueuedTrack } from "./track.ts";
@@ -29,7 +29,7 @@ const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인
 /**
  * 틀 곡과 시작 위치.
  */
-async function prepareStart(player: MusicPlayer, seekMs: number): Promise<{ ok: true; startMs: number } | { ok: false; code: "queue-empty" | "voice-failed" }> {
+async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true; startMs: number } | { ok: false; code: "queue-empty" | "voice-failed" }> {
   if (!player.currentTrack) {
     if (player.queue.length === 0) return { ok: false, code: "queue-empty" };
     trackState.shiftNext(player);
@@ -69,7 +69,7 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
  * 음원 주소가 정해졌으니 SponsorBlock 조회도 여기서 시작해 둔다(여는 동안 나란히 묻는다).
  * @param previousResume  직전 재생이 남긴 위치 재개 정보
  */
-async function resolveSource(player: MusicPlayer, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
+async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
   // 열쇠는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = TrackDownloader.findCacheFile(track);
   // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다
@@ -147,7 +147,7 @@ function seekUrl(baseUrl: string | null, seekSeconds: number) {
 /**
  * 연 소리를 튼다. 소리는 이미 pb.resource 에 있다.
  */
-async function commitPlaying(player: MusicPlayer, pb: CurrentPlayback, source: Source, { continued = false }: { continued?: boolean } = {}) {
+async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source, { continued = false }: { continued?: boolean } = {}) {
   const track = pb.track;
   const { streamInfo } = source;
   const { resource } = pb;
@@ -190,7 +190,7 @@ async function commitPlaying(player: MusicPlayer, pb: CurrentPlayback, source: S
 }
 
 // 재생 중인 곡을 퇴거 대상에서 보호한다(해제는 releaseAudioProtection)
-function protectAudio(player: MusicPlayer, audioKey: string | null) {
+function protectAudio(player: Player, audioKey: string | null) {
   if (player._protectedAudioKey && player._protectedAudioKey !== audioKey) {
     audioCache.unprotect(player._protectedAudioKey);
     player._protectedAudioKey = null;

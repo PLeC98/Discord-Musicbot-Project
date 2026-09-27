@@ -26,7 +26,7 @@ import * as trackState from "../player/trackState.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
 import { canSend } from "./channels.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
-import type { MusicPlayer, PanelMessage } from "../player/Player.ts";
+import type { Player, PanelMessage } from "../player/Player.ts";
 import type { QueuedTrack, Requester as TrackRequester } from "../player/track.ts";
 
 // 편집 대상이 사라진 경우. 사용자가 메시지를 지웠거나 웹훅이 삭제됐다. 다시 올려야 한다.
@@ -60,7 +60,7 @@ type FirstStart = { opened: Opened | null; failure: string | null; started?: Que
 /** 대기열에 담은 것과 안내에 붙일 것 */
 type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
 /** 조작 버튼을 그릴 때 읽는 칸. 끝난 패널은 플레이어 없이 그린다 */
-type Controls = Pick<MusicPlayer, "sessionId" | "requesterId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<MusicPlayer, "sponsor">>;
+type Controls = Pick<Player, "sessionId" | "requesterId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<Player, "sponsor">>;
 
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
@@ -89,7 +89,7 @@ const canSkip = (p: Controls) => p.queue.length > 0 || p.loop === "track" || Boo
 
 // 상태 줄 (일시정지 / 대기열 수)
 // 라이브 표식은 진행바의 경과 시간 자리에 있다(buildProgressBar). 여기서 또 내지 않는다.
-function statusOf(player: MusicPlayer) {
+function statusOf(player: Player) {
   const parts: string[] = [];
   if (player.paused) {
     if (player.pauseReasons?.has("mute")) parts.push("🔇 뮤트됨");
@@ -220,7 +220,7 @@ class MusicEmbedManager {
     }
   }
 
-  async _addTracks(player: MusicPlayer, trackData: TrackData, requester: Requester, responder: Responder): Promise<AddResult> {
+  async _addTracks(player: Player, trackData: TrackData, requester: Requester, responder: Responder): Promise<AddResult> {
     const wasPlayingBefore = player.currentTrack !== null;
     const { tracks } = trackData;
     const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester, addedAt: Date.now() });
@@ -254,7 +254,7 @@ class MusicEmbedManager {
   }
 
   // 쉬던 플레이어에 첫 곡을 튼다
-  async _startFirst(player: MusicPlayer, track: QueuedTrack, requester: Requester, responder: Responder): Promise<FirstStart> {
+  async _startFirst(player: Player, track: QueuedTrack, requester: Requester, responder: Responder): Promise<FirstStart> {
     trackState.setCurrent(player, track);
     const failure = await this._startPlayback(player);
     if (failure) {
@@ -266,7 +266,7 @@ class MusicEmbedManager {
   }
 
   // 음성 채널에 연결하고 재생 시작. 실패면 안내 문구
-  async _startPlayback(player: MusicPlayer): Promise<string | null> {
+  async _startPlayback(player: Player): Promise<string | null> {
     try {
       if (!player.connection) {
         await player.voice.connect();
@@ -282,7 +282,7 @@ class MusicEmbedManager {
   }
 
   // 첫 곡이 실패한 뒤 대기열의 다음 곡을 튼다. 틀었으면 패널을 세운 결과
-  async _startNext(player: MusicPlayer, requester: Requester, responder: Responder): Promise<Opened | null> {
+  async _startNext(player: Player, requester: Requester, responder: Responder): Promise<Opened | null> {
     if (player.currentTrack || player.queue.length === 0) return null;
     try {
       const nextResult = await player.play(0);
@@ -296,7 +296,7 @@ class MusicEmbedManager {
   }
 
   // UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
-  async _openPanel(player: MusicPlayer, track: QueuedTrack, requester: Requester, responder: Responder): Promise<Opened> {
+  async _openPanel(player: Player, track: QueuedTrack, requester: Requester, responder: Responder): Promise<Opened> {
     try {
       return await this.createNewMusicEmbed(player, track, requester, responder);
     } catch (embedError) {
@@ -306,7 +306,7 @@ class MusicEmbedManager {
   }
 
   // 대기열에 넣는다. 상한은 여기서 판정한다. 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
-  _enqueue(player: MusicPlayer, trackData: TrackData, tracks: QueuedTrack[]): Addition {
+  _enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): Addition {
     const queued = tracks.slice(0, trackState.roomLeft(player, config.bot.maxQueueSize));
     const insertFirst = trackData.insertFirst || false;
     if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
@@ -327,7 +327,7 @@ class MusicEmbedManager {
   /**
    * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
-  async showPlaylistAdditionMessage(player: MusicPlayer, queued: QueuedTrack[], sourceLabel: string | null, insertFirst = false, notice: AdditionNotice = {}) {
+  async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], sourceLabel: string | null, insertFirst = false, notice: AdditionNotice = {}) {
     const messageText = this.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice);
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략
@@ -353,7 +353,7 @@ class MusicEmbedManager {
   /**
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
-  async createNewMusicEmbed(player: MusicPlayer, track: QueuedTrack, requester: Requester, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
+  async createNewMusicEmbed(player: Player, track: QueuedTrack, requester: Requester, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
@@ -383,7 +383,7 @@ class MusicEmbedManager {
   /**
    * 음악 재생 중 곡이 대기열에 추가되는 경우를 처리합니다.
    */
-  async handleQueueAddition(player: MusicPlayer, responder: Responder, { queued, sourceLabel, insertFirst, notice }: Addition): Promise<AddResult> {
+  async handleQueueAddition(player: Player, responder: Responder, { queued, sourceLabel, insertFirst, notice }: Addition): Promise<AddResult> {
     // 자리가 없어 한 곡도 못 담았다
     if (queued.length === 0 && notice.dropped > 0) return { success: false, message: this.queueFullMessage(), dropped: notice.dropped };
 
@@ -405,7 +405,7 @@ class MusicEmbedManager {
    * 장시간 세션에서 진행바/트랙 갱신이 50027(Invalid Webhook Token)로 실패한다. 웹훅/봇 토큰은 만료되지 않는다.
    * (부수 효과로 메시지에 webhook_id가 붙어 CV2 이모지 링크 렌더링도 올바르게 유지된다.)
    */
-  async _sendNowPlaying(player: MusicPlayer, track: QueuedTrack, channel: GuildTextBasedChannel) {
+  async _sendNowPlaying(player: Player, track: QueuedTrack, channel: GuildTextBasedChannel) {
     return this._sendPanel(channel, await this._playingPayload(player, track));
   }
 
@@ -422,7 +422,7 @@ class MusicEmbedManager {
     return { message, webhook };
   }
 
-  async _playingPayload(player: MusicPlayer, track: QueuedTrack): Promise<Payload> {
+  async _playingPayload(player: Player, track: QueuedTrack): Promise<Payload> {
     const container = await this.createNowPlayingContainer(player, track);
     const jumpToRow = await this.createJumpToRow(player);
     return { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
@@ -437,12 +437,12 @@ class MusicEmbedManager {
   }
 
   /** 패널을 둘 채널. 전용 채널이 있으면 늘 거기, 없으면 요청한 채널 */
-  async _panelChannel(player: MusicPlayer) {
+  async _panelChannel(player: Player) {
     return (await this._dedicatedChannel(player.guild, player.textChannel)) ?? player.textChannel;
   }
 
   // 전용 채널 맨 아래에 끝난 패널이 있으면 재생 화면으로 고친다. 고쳤으면 { message, webhook }
-  async _reuseIdlePanel(player: MusicPlayer, channel: GuildTextBasedChannel, track: QueuedTrack) {
+  async _reuseIdlePanel(player: Player, channel: GuildTextBasedChannel, track: QueuedTrack) {
     if ((await this._dedicatedChannel(player.guild, channel))?.id !== channel.id) return null;
     const record = await this.panel.store.getPanel(player.guild.id);
     if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
@@ -469,7 +469,7 @@ class MusicEmbedManager {
    * 서버당 한 번만. 5초 갱신과 명령·버튼 경로가 동시에 들어온다.
    * 보내는 사이에 재생이 끝나거나 다른 경로가 새 메시지를 올렸으면 방금 보낸 것을 도로 지운다.
    */
-  async _repostNowPlaying(player: MusicPlayer, reason: string) {
+  async _repostNowPlaying(player: Player, reason: string) {
     const guildId = player.guild?.id;
     if (!guildId || this.reposting.has(guildId) || !player.currentTrack) return;
 
@@ -505,7 +505,7 @@ class MusicEmbedManager {
    * 채널 캐시만 읽는다(추가 API 호출 없음). 삭제된 메시지는 캐시에서도 빠지므로
    * 잠깐 떴다 사라지는 안내는 세는 대상이 아니다. 전용 채널이 아니면 건드리지 않는다.
    */
-  async _isBuried(player: MusicPlayer, now = Date.now()) {
+  async _isBuried(player: Player, now = Date.now()) {
     const channel = await this._dedicatedChannel(player.guild, player.textChannel);
     return channel ? this._buriedAt(channel, player.nowPlayingMessage?.id, now) : false;
   }
@@ -522,7 +522,7 @@ class MusicEmbedManager {
   /**
    * 현재 재생 컨테이너를 빌드합니다 (Components v2).
    */
-  async createNowPlayingContainer(player: MusicPlayer, track: QueuedTrack, buttonsDisabled = false) {
+  async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false) {
     const nowPlayingTitle = "🎵 현재 재생 중";
 
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
@@ -569,7 +569,7 @@ class MusicEmbedManager {
   /**
    * 현재 재생 임베드를 제자리에서 갱신합니다.
    */
-  async updateNowPlayingEmbed(player: MusicPlayer) {
+  async updateNowPlayingEmbed(player: Player) {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     const panel = player.nowPlayingMessage;
     if (!panel || !player.currentTrack) return;
@@ -623,7 +623,7 @@ class MusicEmbedManager {
    * 재생이 끝났을 때. 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 끝난 패널의 문구만 고친다
    * (대기 중에 음성에서 나감 등). 종료 메시지는 전용 채널 밖에서, 방금까지 재생하던 때만 올린다.
    */
-  async drawEndedPanel(player: MusicPlayer, { reason = "stop" } = {}) {
+  async drawEndedPanel(player: Player, { reason = "stop" } = {}) {
     const guild = player.guild;
     if (guild?.id) playerEvents.touched(guild.id); // 대시보드 SSE 넛지 (종료/정지)
     this.stopProgressUpdate(guild?.id);
@@ -649,7 +649,7 @@ class MusicEmbedManager {
   }
 
   // 패널이 전용 채널에 있나. 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다. textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다
-  async _panelIsDedicated(player: MusicPlayer, live: PanelMessage | null) {
+  async _panelIsDedicated(player: Player, live: PanelMessage | null) {
     const guildId = player.guild?.id;
     if (!guildId) return false;
     const panelChannelId = live ? (channelIdOf(live) ?? (await this._panelChannel(player))?.id) : (await this.panel.store.getPanel(guildId))?.channelId;
@@ -657,7 +657,7 @@ class MusicEmbedManager {
   }
 
   // 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 패널을 고친다
-  async _showIdle(player: MusicPlayer, live: PanelMessage | null, look: IdleView & { dedicated: boolean }) {
+  async _showIdle(player: Player, live: PanelMessage | null, look: IdleView & { dedicated: boolean }) {
     try {
       const payload: Payload = { ...(await this.createIdleContainer(look)), flags: MessageFlags.IsComponentsV2 };
       if (live && player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(live.id, payload);
@@ -673,7 +673,7 @@ class MusicEmbedManager {
    * 곡이 없을 때 나갈 시각이 바뀌었다(혼자 남음 · 복귀). 음성에 남아 기다리는 끝난 패널만 고친다.
    * 재생 중이거나 이미 음성을 떠난 모양이면 할 일이 없다
    */
-  async updateIdleLeave(player: MusicPlayer, leavesAt: number | null) {
+  async updateIdleLeave(player: Player, leavesAt: number | null) {
     const guildId = player.guild?.id;
     const view = guildId ? this.idleViews.get(guildId) : undefined;
     if (!guildId || !view || player.currentTrack || !WAITING.has(view.reason) || view.leavesAt === leavesAt) return;
@@ -819,7 +819,7 @@ class MusicEmbedManager {
    * Discord가 Container 안에 중첩된 선택 메뉴 ActionRow를 무시하므로 최상위 components 배열에 배치해야 합니다 (Container 안이 아님).
    * 대기열이 비었거나 플레이어 상태가 없으면 null을 반환합니다.
    */
-  async createJumpToRow(player: Pick<MusicPlayer, "requesterId" | "sessionId" | "queue">) {
+  async createJumpToRow(player: Pick<Player, "requesterId" | "sessionId" | "queue">) {
     if (!player.requesterId || !player.sessionId || player.queue.length === 0) return null;
 
     const tracks = player.queue.slice(0, 25);
@@ -859,7 +859,7 @@ class MusicEmbedManager {
   /**
    * 진행 바를 새로고침하는 5초 간격 타이머를 시작합니다.
    */
-  startProgressUpdate(player: MusicPlayer) {
+  startProgressUpdate(player: Player) {
     this.stopProgressUpdate(player.guild.id);
     const intervalId = setInterval(async () => {
       if (!player.currentTrack || !player.nowPlayingMessage) {

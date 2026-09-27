@@ -17,7 +17,7 @@ after(() => store.close());
 import express from "express";
 import type { Server } from "node:http";
 import type { Client } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { playerState, queueTrack } from "../../dashboard/server/playerView.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
@@ -45,7 +45,7 @@ function makePlayer() {
   });
 }
 
-let player: MusicPlayer;
+let player: Player;
 const guild = {
   id: GUILD_ID,
   name: "TestGuild",
@@ -61,7 +61,7 @@ const guild = {
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
-  players: new Map<string, MusicPlayer>(),
+  players: new Map<string, Player>(),
   musicEmbedManager: { updateNowPlayingEmbed: async () => {} },
 };
 

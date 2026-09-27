@@ -11,7 +11,7 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import type { ButtonInteraction, GuildMember } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import type { SearchRecord } from "../../commands/search.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
@@ -51,7 +51,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
   const voice = (id: string | null) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
   const seen: Seen[] = [];
   const client = {
-    players: new Map<string, MusicPlayer>(),
+    players: new Map<string, Player>(),
     guilds: { cache: Object.assign(new Map(), { reduce: (_fn: unknown, init: number) => init }) },
     user: { id: "bot", username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
     searchResults: new Map<string, SearchRecord>(),
@@ -82,16 +82,16 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     resumeFor: () => false,
     skip: () => false,
     previous: () => false,
-    _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
-    bindChannels: MusicPlayer.prototype.bindChannels,
-    movePanel: MusicPlayer.prototype.movePanel,
-    restoreSettings: MusicPlayer.prototype.restoreSettings,
+    _restartsOnPrevious: Player.prototype._restartsOnPrevious,
+    bindChannels: Player.prototype.bindChannels,
+    movePanel: Player.prototype.movePanel,
+    restoreSettings: Player.prototype.restoreSettings,
     hasLiveTrack: () => false,
     setLoop(m: string) {
       p.loop = m;
     },
   };
-  const registered = fake<MusicPlayer>(p);
+  const registered = fake<Player>(p);
   if (player) client.players.set("g1", registered);
   // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
   playerEvents.on("refresh", async (x) => x === registered && seen.push("update"));

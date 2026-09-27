@@ -8,11 +8,11 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as playerEvents from "./events.ts";
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 
 class IdleLeave {
-  player: MusicPlayer;
+  player: Player;
   aloneTimer: NodeJS.Timeout | null;
   emptyTimer: NodeJS.Timeout | null;
   aloneMs: number;
@@ -21,7 +21,7 @@ class IdleLeave {
   emptyAt: number | null = null;
 
   // 알림(events)에 플레이어를 넘기므로 플레이어 그대로 받는다
-  constructor(player: MusicPlayer) {
+  constructor(player: Player) {
     this.player = player;
     this.aloneTimer = null;
     this.emptyTimer = null;

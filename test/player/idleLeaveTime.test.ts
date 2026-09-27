@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { IdleLeave } from "../../src/player/idleLeave.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
-import type { MusicPlayer, PanelMessage } from "../../src/player/Player.ts";
+import type { Player, PanelMessage } from "../../src/player/Player.ts";
 import type { Client } from "discord.js";
 import { withConfig } from "../helpers/config.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -85,7 +85,7 @@ test("대기열이 끝나 스스로 거둘 때와 재생 중일 때는 알리지
 
 class RecordingPanel extends MusicEmbedManager {
   drawn: Array<{ reason: string; leavesAt?: number | null; dedicated: boolean }> = [];
-  async _showIdle(_player: MusicPlayer, _live: PanelMessage | null, look: { reason: string; leavesAt?: number | null; dedicated: boolean }) {
+  async _showIdle(_player: Player, _live: PanelMessage | null, look: { reason: string; leavesAt?: number | null; dedicated: boolean }) {
     this.drawn.push(look);
   }
   async _panelIsDedicated() {
@@ -95,7 +95,7 @@ class RecordingPanel extends MusicEmbedManager {
 
 test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그린다", async () => {
   const panels = new RecordingPanel(fake<Client>({ players: new Map() }));
-  const idlePlayer = fake<MusicPlayer>(player());
+  const idlePlayer = fake<Player>(player());
 
   panels.idleViews.set("g", { reason: "queue-end", leavesAt: 1000 });
   await panels.updateIdleLeave(idlePlayer, 500);
@@ -110,6 +110,6 @@ test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그
   assert.equal(panels.drawn.length, 1, "음성을 떠난 모양은 나갈 시각이 없다");
 
   panels.idleViews.set("g", { reason: "joined", leavesAt: 1000 });
-  await panels.updateIdleLeave(fake<MusicPlayer>(player({ title: "곡" })), 700);
+  await panels.updateIdleLeave(fake<Player>(player({ title: "곡" })), 700);
   assert.equal(panels.drawn.length, 1, "재생 중이면 끝난 패널이 아니다");
 });

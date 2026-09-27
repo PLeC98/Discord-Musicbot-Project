@@ -1,12 +1,12 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 import type { SkipSegment } from "../sources/sponsorBlock.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 칸 */
-type SkipHost = Pick<MusicPlayer, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor">;
+type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor">;
 type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "end" | null; toSec?: undefined; prevSec: number };
 
 // SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.

@@ -2,7 +2,7 @@
 
 import * as playerEvents from "./events.ts";
 import type { Client, Guild, VoiceState } from "discord.js";
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 
 async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState: VoiceState) {
   const guild = oldState.guild;
@@ -25,13 +25,13 @@ async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState
 }
 
 // 봇이 음성에서 쫓겨났다. 플레이어를 버리고 패널을 끝난 모양으로
-async function forcedOut(player: MusicPlayer) {
+async function forcedOut(player: Player) {
   await player.dispose({ reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" });
 }
 
 // 누가 봇을 다른 채널로 옮겼다. 연결은 음성 라이브러리가 따라가고, 여기서는 기록과 화면을 맞춘다.
 // 처음 참가(채널이 없다가 생김)는 옮겨진 것이 아니다
-async function botMoved(_client: Client, player: MusicPlayer, oldState: VoiceState, newState: VoiceState) {
+async function botMoved(_client: Client, player: Player, oldState: VoiceState, newState: VoiceState) {
   if (!oldState.channelId || !newState.channelId || oldState.channelId === newState.channelId || !newState.channel) return;
   player.voice.followMove(oldState.channelId, newState.channel);
   player.idle.cancelAlone(false);
@@ -39,7 +39,7 @@ async function botMoved(_client: Client, player: MusicPlayer, oldState: VoiceSta
 }
 
 // 서버 음소거 · 헤드셋 끄기 · 무대 발언권 없음은 들을 수 없으니 멈춘다
-async function botMuted(_client: Client, player: MusicPlayer, oldState: VoiceState, newState: VoiceState) {
+async function botMuted(_client: Client, player: Player, oldState: VoiceState, newState: VoiceState) {
   const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
   const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
   if (!wasMuted && isMuted) {
@@ -51,7 +51,7 @@ async function botMuted(_client: Client, player: MusicPlayer, oldState: VoiceSta
 }
 
 // 봇의 채널에 사람이 남았나. 없으면 혼자 남음을 시작하고, 돌아오면 푼다
-async function listenersChanged(client: Client, player: MusicPlayer, guild: Guild, oldState: VoiceState, newState: VoiceState) {
+async function listenersChanged(client: Client, player: Player, guild: Guild, oldState: VoiceState, newState: VoiceState) {
   const voiceChannelId = player.voiceChannel?.id;
   if (!voiceChannelId || (oldState.channelId !== voiceChannelId && newState.channelId !== voiceChannelId)) return;
 

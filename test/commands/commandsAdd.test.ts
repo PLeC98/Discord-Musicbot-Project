@@ -1,7 +1,7 @@
 // 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard)의 지금 동작을 고정한다(구조 리팩터링 0-B).
 //
 // 6단계가 명령을 얇게 만들고 곡 추가 코어를 usecases/addTracks 로 옮긴다. 입력 · 권한 · 결과마다 무엇을 불렀는지 적어 둔다.
-// /join 과 플레이어가 없을 때의 /autoplay 는 진짜 MusicPlayer 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
+// /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
 // 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
 import { sessions } from "../../src/store/playerSessions.ts";
@@ -11,7 +11,7 @@ import { command, run as runCommand } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember } from "discord.js";
 import type { VoiceConnection } from "@discordjs/voice";
-import { MusicPlayer, type PanelMessage } from "../../src/player/Player.ts";
+import { Player, type PanelMessage } from "../../src/player/Player.ts";
 import type { Requester } from "../../src/player/track.ts";
 import type { LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
@@ -99,13 +99,13 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     createNewMusicEmbed: async (_p: unknown, track: { title: string }, who: Requester | null, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, who: who?.username, opts }),
     deleteWebhookCache: () => {},
   };
-  const client = fakeWith<Client<true>>()({ players: new Map<string, MusicPlayer>(), searchResults: new Map(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
+  const client = fakeWith<Client<true>>()({ players: new Map<string, Player>(), searchResults: new Map(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
   Object.assign(guild, { client });
   // 이미 있는 플레이어(가짜). 시험이 칸을 바꿔 본다
   const existing = fakePlayer({
-    bindChannels: MusicPlayer.prototype.bindChannels,
-    movePanel: MusicPlayer.prototype.movePanel,
-    restoreSettings: MusicPlayer.prototype.restoreSettings,
+    bindChannels: Player.prototype.bindChannels,
+    movePanel: Player.prototype.movePanel,
+    restoreSettings: Player.prototype.restoreSettings,
     sessionId: "S1",
     queue: [],
     previousTracks: [],
@@ -359,7 +359,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   }
 
   const player = w.client.players.get("g1");
-  assert.ok(player instanceof h.MusicPlayer);
+  assert.ok(player instanceof h.Player);
   try {
     assert.ok(player.connection, "붙었다");
     assert.deepEqual(log, [["reply", { content: "✅ 음성 채널에 접속했어요!", flags: [64] }]]);
@@ -394,7 +394,7 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0, startOffsetMs: 0, requesterId: USER });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡", addedAt: 1 }));
 
-  const run = async (restore: (this: MusicPlayer) => Promise<void>) => {
+  const run = async (restore: (this: Player) => Promise<void>) => {
     h.behavior.restore = restore;
     const w = world({ player: null });
     const { it, log } = interaction(w);
@@ -463,7 +463,7 @@ test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어�
   const f = interaction(fresh);
   await runCommand(await command("autoplay"), f.it, fresh.client);
   const created = fresh.client.players.get("g1");
-  assert.ok(created instanceof h.MusicPlayer);
+  assert.ok(created instanceof h.Player);
   h.dispose(created);
 });
 

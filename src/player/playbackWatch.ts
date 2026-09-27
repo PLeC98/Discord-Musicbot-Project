@@ -6,11 +6,11 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const wlog = logger.child({ category: "watchdog" });
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
 
 /** 감시가 읽고 멈추는 플레이어 칸 */
-type WatchHost = Pick<MusicPlayer, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "_stopWith" | "playback">;
+type WatchHost = Pick<Player, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "_stopWith" | "playback">;
 
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 

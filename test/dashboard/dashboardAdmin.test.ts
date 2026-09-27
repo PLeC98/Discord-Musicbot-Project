@@ -13,7 +13,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { Client } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { PutCommands } from "../../src/app/commandLoader.ts";
 import { fake } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
@@ -100,7 +100,7 @@ const client = {
       [gStuck.id, gStuck],
     ]),
   },
-  players: new Map([[g1.id, fake<MusicPlayer>(playerG1)]]),
+  players: new Map([[g1.id, fake<Player>(playerG1)]]),
   musicEmbedManager: {
     endedPlayers: [] as unknown[],
     async drawEndedPanel(player: unknown) {

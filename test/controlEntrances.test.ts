@@ -13,7 +13,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { ButtonInteraction, Client } from "discord.js";
-import { MusicPlayer } from "../src/player/Player.ts";
+import { Player } from "../src/player/Player.ts";
 import { fake, fakeWith } from "./helpers/fake.ts";
 import { command, run } from "./helpers/commands.ts";
 import { signedInAs } from "./helpers/dashboard.ts";
@@ -60,7 +60,7 @@ function makePlayer(state: string, acts: string[]) {
     dispose: rec("dispose", async () => {}),
     _trackLabel: () => '"now"',
     previous: rec("previous"),
-    _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
+    _restartsOnPrevious: Player.prototype._restartsOnPrevious,
     seek: rec("seek", async () => ({ success: true })),
     play: rec("play", async () => ({ success: true })),
     setVolume: rec("setVolume", (v) => v),
@@ -102,7 +102,7 @@ member.guild = guild;
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([["g1", guild]]) },
-  players: new Map<string, MusicPlayer>(),
+  players: new Map<string, Player>(),
   musicEmbedManager: { updateNowPlayingEmbed: async () => {}, drawEndedPanel: async () => {} },
 };
 
@@ -111,7 +111,7 @@ function arrange(state: string) {
   const acts: string[] = [];
   client.players.clear();
   setGuild("g1", { djRoles: state === "denied" ? ["dj"] : [] });
-  if (state !== "none") client.players.set("g1", fake<MusicPlayer>(makePlayer(state, acts)));
+  if (state !== "none") client.players.set("g1", fake<Player>(makePlayer(state, acts)));
   return acts;
 }
 

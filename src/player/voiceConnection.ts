@@ -1,11 +1,11 @@
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState } from "@discordjs/voice";
 import type { VoiceBasedChannel } from "discord.js";
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 
 /** 음성 라이브러리에서 부르는 것 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
 /** 연결을 맡으며 읽고 바꾸는 플레이어 칸 */
-type VoiceHost = Pick<MusicPlayer, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "paused" | "voiceChannel">;
+type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "paused" | "voiceChannel">;
 
 const VOICE_LIB: VoiceLib = { joinVoiceChannel, entersState };
 import logger from "../infra/log/logger.ts";

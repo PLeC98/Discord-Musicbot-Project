@@ -4,14 +4,14 @@
 //   refresh → "update" · ended → "end:<reason>" · started → "create:<곡 제목>" · released → "webhook:<채널 id>"
 
 import * as playerEvents from "../../src/player/events.ts";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 
 /** 적은 것과, 알림을 떼는 stop() */
 type Recorded = string[] & { stop(): void };
 
-function recordPanel({ player = null }: { player?: MusicPlayer | null } = {}): Recorded {
+function recordPanel({ player = null }: { player?: Player | null } = {}): Recorded {
   const seen: string[] = [];
-  const mine = (p: MusicPlayer) => !player || p === player;
+  const mine = (p: Player) => !player || p === player;
   const offs: Array<() => void> = [];
   offs.push(playerEvents.on("refresh", async (p) => mine(p) && seen.push("update")));
   offs.push(playerEvents.on("ended", async (p, reason) => mine(p) && seen.push(`end:${reason}`)));

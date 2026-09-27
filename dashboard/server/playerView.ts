@@ -1,7 +1,7 @@
 // 화면에 보내는 플레이어 모양
 
 import type { Request } from "express";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { labelOf } from "../../src/ui/platforms.ts";
 import { playbackStatus, soundAttached } from "../../src/ui/playerStatus.ts";
@@ -34,7 +34,7 @@ function queueWindow(req: Request) {
 }
 
 // 지금 곡
-function playingView(player: MusicPlayer, track: QueuedTrack) {
+function playingView(player: Player, track: QueuedTrack) {
   return {
     title: track.title,
     artist: track.artist,
@@ -52,7 +52,7 @@ function playingView(player: MusicPlayer, track: QueuedTrack) {
   };
 }
 
-function playerState(player: MusicPlayer | null | undefined, queueLimit = QUEUE_PAGE) {
+function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE) {
   if (!player) return { playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = playbackStatus(player);
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다. 그래야

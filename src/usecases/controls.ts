@@ -12,7 +12,7 @@ import * as perm from "./permissions.ts";
 import * as playerEvents from "../player/events.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { Guild, GuildMember } from "discord.js";
-import type { MusicPlayer } from "../player/Player.ts";
+import type { Player } from "../player/Player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../player/trackState.ts";
 
@@ -21,19 +21,19 @@ type Actor = { member: GuildMember; owner?: undefined } | { owner: true; member?
 /** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message 를 싣는다 */
 type Refusal = { ok: false; code: string; message?: string; durationMs?: number; size?: number };
 /** 이 서버에 플레이어가 없을 수 있다 */
-type MaybePlayer = MusicPlayer | null | undefined;
+type MaybePlayer = Player | null | undefined;
 /** 권한 판정. 막으면 안내 문장 */
-type Check = (member: GuildMember, player: MusicPlayer) => Promise<string | null>;
+type Check = (member: GuildMember, player: Player) => Promise<string | null>;
 
 const fail = (code: string, extra: Omit<Refusal, "ok" | "code"> = {}): Refusal => ({ ok: false, code, ...extra });
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
 // 조작 뒤 패널을 지금 상태로. 패널을 못 고쳐도 조작은 된 것이다
-const refresh = (player: MusicPlayer) => playerEvents.refresh(player).catch((error) => log.warn(`조작 뒤 패널 갱신 실패: ${messageOf(error)}`));
+const refresh = (player: Player) => playerEvents.refresh(player).catch((error) => log.warn(`조작 뒤 패널 갱신 실패: ${messageOf(error)}`));
 
 // 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 부르는 쪽이 먼저 본다
-async function permitted(player: MusicPlayer, actor: Actor, check: Check = perm.checkControl) {
+async function permitted(player: Player, actor: Actor, check: Check = perm.checkControl) {
   if (actor.owner) return null;
   const message = await check(actor.member, player);
   return message ? fail("no-permission", { message }) : null;
@@ -43,7 +43,7 @@ async function permitted(player: MusicPlayer, actor: Actor, check: Check = perm.
 const isIndex = (i: unknown, size: number): i is number => typeof i === "number" && Number.isInteger(i) && i >= 0 && i < size;
 
 // 권한을 보고 틀고 있는 곡을 잡는다. 막히면 거절, 지나가면 그 곡
-async function permittedTrack(player: MusicPlayer, actor: Actor, check?: Check) {
+async function permittedTrack(player: Player, actor: Actor, check?: Check) {
   const blocked = await permitted(player, actor, check);
   if (blocked) return { blocked };
   const track = player.currentTrack;
@@ -122,7 +122,7 @@ async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "s
 /** 위치 이동. reason 은 로그에 남는 원인, onAccepted 는 전제 조건을 지난 뒤 부른다 */
 type SeekOptions = { reason?: string; onAccepted?: () => unknown };
 
-function seekBlocked(player: MusicPlayer) {
+function seekBlocked(player: Player) {
   // 라이브에는 실시간밖에 없다. 옮길 자리가 없다
   if (player.isLive) return fail("live-no-seek");
   // 여는 중에는 옮길 곡이 아직 자리 잡지 않았다
@@ -159,9 +159,9 @@ async function volume(player: MaybePlayer, actor: Actor, level: unknown) {
 
 // 대시보드는 끄는 동안 음량을 잇달아 보낸다. 요청마다 적고 패널을 고치면 로그가 넘치고 디스코드 수정이 밀린다
 const VOLUME_SETTLE_MS = 1000;
-const settling = new WeakMap<MusicPlayer, { from: number; timer?: NodeJS.Timeout }>(); // player -> { from, timer }
+const settling = new WeakMap<Player, { from: number; timer?: NodeJS.Timeout }>(); // player -> { from, timer }
 
-function settleVolume(player: MusicPlayer, before: number) {
+function settleVolume(player: Player, before: number) {
   const s = settling.get(player) ?? { from: before };
   clearTimeout(s.timer);
   s.timer = setTimeout(() => {

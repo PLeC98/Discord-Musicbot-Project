@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import { fakePlayer } from "../helpers/fake.ts";
 
 // @discordjs/voice와 같은 규칙: 상태가 바뀌면 그 상태 이름으로 이벤트, pause()는 playing에서만, unpause()는 paused에서만
@@ -46,12 +46,12 @@ function makePlayer(status: string) {
     voice: { startConnectionHealthCheck() {}, setupConnectionEvents() {} },
     scheduleStatePersist() {},
     onPlayerIdle() {},
-    _trackLabel: MusicPlayer.prototype._trackLabel,
-    pauseFor: MusicPlayer.prototype.pauseFor,
-    resumeFor: MusicPlayer.prototype.resumeFor,
-    _showTrackInVoiceStatus: MusicPlayer.prototype._showTrackInVoiceStatus,
+    _trackLabel: Player.prototype._trackLabel,
+    pauseFor: Player.prototype.pauseFor,
+    resumeFor: Player.prototype.resumeFor,
+    _showTrackInVoiceStatus: Player.prototype._showTrackInVoiceStatus,
   });
-  MusicPlayer.prototype.setupEvents.call(p);
+  Player.prototype.setupEvents.call(p);
   // 가짜 오디오 플레이어의 상태를 옮기는 손잡이
   return Object.assign(p, { audio });
 }

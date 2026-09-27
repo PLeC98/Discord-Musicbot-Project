@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AudioPlayerStatus } from "@discordjs/voice";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import { PlaybackWatch, type WatchHost } from "../../src/player/playbackWatch.ts";
 import { fake } from "../helpers/fake.ts";
 
@@ -24,9 +24,9 @@ function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reas
       },
     },
     _endReason: reason,
-    _stopWith: MusicPlayer.prototype._stopWith,
+    _stopWith: Player.prototype._stopWith,
     playback: { inputProgressAt: inputAt },
-    _trackLabel: MusicPlayer.prototype._trackLabel,
+    _trackLabel: Player.prototype._trackLabel,
   });
   return { player, stops };
 }

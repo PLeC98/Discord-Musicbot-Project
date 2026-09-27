@@ -8,7 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import config from "../../config.ts";
 import * as trackState from "../../src/player/trackState.ts";
 import { recordPanel } from "../helpers/panelEvents.ts";
@@ -25,8 +25,8 @@ import type { GenreSource } from "../../src/config/genres.ts";
 // 플레이어가 알린 일은 진짜 문장 보내기(ui/playerNotices)로 채널에 간다. 조립(main.ts)이 거는 것과 같다
 playerEvents.on("notice", playerNotices.sendNotice);
 
-const ensureAutoplayNext = MusicPlayer.prototype.ensureAutoplayNext;
-const setAutoplay = MusicPlayer.prototype.setAutoplay;
+const ensureAutoplayNext = Player.prototype.ensureAutoplayNext;
+const setAutoplay = Player.prototype.setAutoplay;
 
 const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, ...extra });
 const user = (title: string) => track(title);
@@ -50,7 +50,7 @@ function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [],
     guild: { id: "g1" },
     scheduleStatePersist() {},
     // 프로토타입을 잇지 않는 목이므로, 코드가 부르는 헬퍼는 여기 옮겨 붙인다
-    _canPrefetchAutoplay: MusicPlayer.prototype._canPrefetchAutoplay,
+    _canPrefetchAutoplay: Player.prototype._canPrefetchAutoplay,
     // 실제 config/genres.yaml 을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
     _autoplayConfig: () => ({ prefetchCount: prefetch }),
     // 뽑기 사이 쉬는 시간. 얼마나 쉬라고 했는지만 적고 기다리지 않는다
@@ -164,7 +164,7 @@ test("겹쳐 불려도 한 곡만 들어간다", async () => {
 
 // ── 지금 바로 틀기 ────────────────────────────────────────────────────────
 
-const handleAutoplay = MusicPlayer.prototype.handleAutoplay;
+const handleAutoplay = Player.prototype.handleAutoplay;
 
 function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id: string } | null } = {}) {
   const calls = { sent: [] as string[] };
@@ -185,8 +185,8 @@ function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id:
     },
     async play() {},
     // 곡을 못 고르면 알리고 끈다 — 목이 프로토타입을 잇지 않으므로 옮겨 붙인다
-    _giveUpAutoplay: MusicPlayer.prototype._giveUpAutoplay,
-    setAutoplay: MusicPlayer.prototype.setAutoplay,
+    _giveUpAutoplay: Player.prototype._giveUpAutoplay,
+    setAutoplay: Player.prototype.setAutoplay,
     scheduleStatePersist() {},
     textChannel: {
       async send(text: string) {
@@ -282,7 +282,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 가�
         maxDurationSec: null,
         blockedKeywords: ["Playlist"],
       }),
-      pickAutoplayTrack: MusicPlayer.prototype.pickAutoplayTrack,
+      pickAutoplayTrack: Player.prototype.pickAutoplayTrack,
       // AI 보조는 운영 설정(config/ai.yaml)을 읽어 진짜로 부른다. 여기서는 규칙만 본다
       autoplayDeps: { ...route.REAL, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
     });

@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import config from "../../config.ts";
 import { MusicEmbedManager, type TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import type { Client } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
@@ -26,7 +26,7 @@ class RecordingPanels extends MusicEmbedManager {
     super(client);
     this.calls = calls;
   }
-  async createNewMusicEmbed(_player: MusicPlayer, t: QueuedTrack) {
+  async createNewMusicEmbed(_player: Player, t: QueuedTrack) {
     this.calls.push(["embed", t.id]);
     if (this.embedFails) throw new Error("CV2 수정 제한");
     return { success: true as const };

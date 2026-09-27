@@ -11,7 +11,7 @@ import { resolveGuildForRestore, restoreSavedPlayers } from "../../src/player/se
 import { sessions } from "../../src/store/playerSessions.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
 import type { Client, Guild } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import { fake } from "../helpers/fake.ts";
 
 // 재시도 대기는 0으로 — 검증 대상은 시도 횟수지 대기 시간이 아니다
@@ -224,7 +224,7 @@ test("되살리기: 저장 세션이 없으면 아무것도 안 한다", async (
 test("되살리기: 기다리는 사이 그 서버에서 재생이 시작됐으면 건드리지 않는다", async () => {
   saved("r5");
   const client = clientWith([guildWith("r5")]);
-  const live = fake<MusicPlayer>({ live: true });
+  const live = fake<Player>({ live: true });
   client.players.set("r5", live);
   const { FakePlayer, made } = fakePlayerClass();
 

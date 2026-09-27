@@ -12,7 +12,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { Client } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { Lookup } from "../../src/usecases/addTracks.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
@@ -27,7 +27,7 @@ const { createPlayerStream } = await import("../../dashboard/server/playerStream
 const playerEvents = await import("../../src/player/events.ts");
 const { VOLUME_SETTLE_MS } = await import("../../src/usecases/controls.ts");
 // 가짜 플레이어가 빌려 쓰는 진짜 메서드. 설정(OWNER_ID)을 정한 뒤에 불러야 한다
-const RealPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
+const RealPlayer = (await import("../../src/player/Player.ts")).Player;
 const store = openTempStore("dashboard-validation-");
 after(() => store.close());
 
@@ -105,7 +105,7 @@ const embedCalls: [string, { tracks: object[]; insertAfterId?: string }][] = [];
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
-  players: new Map<string, MusicPlayer>(),
+  players: new Map<string, Player>(),
   musicEmbedManager: {
     async handleMusicData(guildId: string, trackData: { tracks: object[]; insertAfterId?: string }) {
       embedCalls.push([guildId, trackData]);
@@ -241,7 +241,7 @@ test("조작 거절은 디스코드와 같은 문장에서 ❌ 만 떼어 보낸
 
 test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
   const seen: boolean[] = [];
-  const off = playerEvents.on("refresh", async (p: MusicPlayer) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
+  const off = playerEvents.on("refresh", async (p: Player) => p === player && seen.push(true)); // 앞 테스트의 음량 타이머가 늦게 올 수 있다
   try {
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });

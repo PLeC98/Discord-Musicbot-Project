@@ -8,7 +8,7 @@ import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 import * as tempStore from "../helpers/tempStore.ts";
 import { markTransient } from "../../src/ui/transientMessages.ts";
 import type { Client, GuildTextBasedChannel, WebhookClient } from "discord.js";
-import type { MusicPlayer, PanelMessage } from "../../src/player/Player.ts";
+import type { Player, PanelMessage } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { PanelStore } from "../../src/ui/panelLocation.ts";
 import type { PanelRecord } from "../../src/store/guildSettings.ts";
@@ -35,7 +35,7 @@ class TestPanels extends MusicEmbedManager {
   async getOrCreateWebhook() {
     return this.webhook;
   }
-  async _sendNowPlaying(player: MusicPlayer, track: QueuedTrack, channel: GuildTextBasedChannel) {
+  async _sendNowPlaying(player: Player, track: QueuedTrack, channel: GuildTextBasedChannel) {
     return this.sendAs ? this.sendAs() : super._sendNowPlaying(player, track, channel);
   }
 }

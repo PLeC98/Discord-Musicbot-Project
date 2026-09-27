@@ -11,7 +11,7 @@ import { continueCollection } from "../src/usecases/addTracks.ts";
 import * as More from "../src/usecases/playlistMore.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 import type { MoreState } from "../src/usecases/playlistMore.ts";
-import type { MusicPlayer } from "../src/player/Player.ts";
+import type { Player } from "../src/player/Player.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 
@@ -33,7 +33,7 @@ async function stop(interaction: StringSelectMenuInteraction<"cached">, state: M
 }
 
 // 넣을 곡 수. 직접 입력을 고르면 모달을 띄우고, 받을 수 없는 값이면 거절한다(둘 다 null)
-async function countOf(interaction: MoreInteraction, state: MoreState, player: MusicPlayer): Promise<number | null> {
+async function countOf(interaction: MoreInteraction, state: MoreState, player: Player): Promise<number | null> {
   const refuse = refuser(interaction);
   let count: number | null;
   if (interaction.isStringSelectMenu()) {
@@ -51,7 +51,7 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: M
 }
 
 // 이어 받아 넣고 결과로 메시지를 바꾼다
-async function addMore(interaction: MoreInteraction, state: MoreState, count: number, player: MusicPlayer) {
+async function addMore(interaction: MoreInteraction, state: MoreState, count: number, player: Player) {
   const message = interaction.message;
   // 메뉴를 떼어 두 번 누르지 못하게 하면서 3초 안에 응답한다
   if (message) More.clearExpiry(message.id);

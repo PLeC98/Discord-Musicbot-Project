@@ -6,9 +6,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as audioCache from "../../src/store/audioCache.ts";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 
-const release = MusicPlayer.prototype.releaseAudioProtection;
+const release = Player.prototype.releaseAudioProtection;
 const isProtected = (key: string) => audioCache._protectedKeys.has(key);
 
 test("currentTrack이 먼저 null된 종료 경로에서도 기억된 키가 해제됨 (L-02 회귀)", () => {

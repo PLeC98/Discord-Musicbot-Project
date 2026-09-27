@@ -5,11 +5,11 @@ import { labelOf, emojiOf } from "../src/ui/platforms.ts";
 import { progressBar } from "../src/ui/progressBar.ts";
 import { playbackStatus } from "../src/ui/playerStatus.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import type { MusicPlayer } from "../src/player/Player.ts";
+import type { Player } from "../src/player/Player.ts";
 import type { QueuedTrack } from "../src/player/track.ts";
 
 // 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다
-function progressField(player: MusicPlayer, track: QueuedTrack, currentMs: number) {
+function progressField(player: Player, track: QueuedTrack, currentMs: number) {
   const live = Boolean(player.isLive ?? track.isLive);
   if (!live && !(track.duration > 0)) return null;
   return { name: "⏱️ 진행", value: progressBar(Math.floor(currentMs / 1000), track.duration || 0, { live }), inline: false };

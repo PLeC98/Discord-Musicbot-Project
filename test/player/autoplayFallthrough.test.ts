@@ -8,10 +8,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import { PlaybackState } from "../../src/player/playbackState.ts";
 
-const onTrackEnd = MusicPlayer.prototype.onTrackEnd;
+const onTrackEnd = Player.prototype.onTrackEnd;
 
 import { fakePlayer } from "../helpers/fake.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
@@ -38,17 +38,17 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
     queue: [],
     autoplay,
     _endReason: null,
-    _stopWith: MusicPlayer.prototype._stopWith,
+    _stopWith: Player.prototype._stopWith,
     textChannel: null,
     persistence: { removeSession() {} },
     guild: { id: "g1", client: {} },
-    _trackLabel: MusicPlayer.prototype._trackLabel,
-    getCurrentTime: MusicPlayer.prototype.getCurrentTime,
-    _describeEnd: MusicPlayer.prototype._describeEnd,
-    _recoverDrop: MusicPlayer.prototype._recoverDrop,
-    _playNext: MusicPlayer.prototype._playNext,
-    _continueAutoplay: MusicPlayer.prototype._continueAutoplay,
-    _finishQueue: MusicPlayer.prototype._finishQueue,
+    _trackLabel: Player.prototype._trackLabel,
+    getCurrentTime: Player.prototype.getCurrentTime,
+    _describeEnd: Player.prototype._describeEnd,
+    _recoverDrop: Player.prototype._recoverDrop,
+    _playNext: Player.prototype._playNext,
+    _continueAutoplay: Player.prototype._continueAutoplay,
+    _finishQueue: Player.prototype._finishQueue,
     audioPlayer: { stop() {} },
     releaseAudioProtection() {},
     scheduleStatePersist() {},

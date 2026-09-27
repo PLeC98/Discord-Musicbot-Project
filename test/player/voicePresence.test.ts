@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { onVoiceStateUpdate } from "../../src/player/voicePresence.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import type { Client, Guild, VoiceState } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
@@ -39,7 +39,7 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = t
       cancelAlone: (resume: boolean) => calls.push(`cancelAlone:${resume}`),
     },
   });
-  const players = new Map<string, MusicPlayer>([["g1", player]]);
+  const players = new Map<string, Player>([["g1", player]]);
   const client = fake<Client>({
     user: { id: BOT },
     players,

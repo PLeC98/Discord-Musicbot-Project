@@ -3,7 +3,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
 import { sessions, type RestoredSession, type SessionState } from "../store/playerSessions.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
@@ -40,9 +40,9 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
 }
 
 // 기동 때 저장된 재생 세션을 모두 되살린다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
-type PlayerClass = typeof MusicPlayer;
+type PlayerClass = typeof Player;
 
-async function restoreSavedPlayers(client: Client, Player: PlayerClass) {
+async function restoreSavedPlayers(client: Client, PlayerCtor: PlayerClass) {
   const saved = sessions().loadAll();
   if (saved.length === 0) return;
 
@@ -50,7 +50,7 @@ async function restoreSavedPlayers(client: Client, Player: PlayerClass) {
 
   for (const record of saved) {
     try {
-      await restoreOne(client, Player, record);
+      await restoreOne(client, PlayerCtor, record);
     } catch (error) {
       log.error(`서버 ID ${record.guildId} 세션 복원 중 오류:`, messageOf(error));
       sessions().removeSession(record.guildId);
@@ -58,7 +58,7 @@ async function restoreSavedPlayers(client: Client, Player: PlayerClass) {
   }
 }
 
-async function restoreOne(client: Client, Player: PlayerClass, record: RestoredSession) {
+async function restoreOne(client: Client, PlayerCtor: PlayerClass, record: RestoredSession) {
   const { guildId } = record;
   const { guild, gone } = await resolveGuildForRestore(client, guildId);
   if (!guild) {
@@ -85,7 +85,7 @@ async function restoreOne(client: Client, Player: PlayerClass, record: RestoredS
     return;
   }
 
-  const player = new Player(guild, channels.text, channels.voice);
+  const player = new PlayerCtor(guild, channels.text, channels.voice);
   client.players.set(guildId, player);
   try {
     await player.persistence.restoreFromState(record);

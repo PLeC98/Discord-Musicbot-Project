@@ -1,4 +1,4 @@
-// MusicPlayer.play() 의 지금 동작을 고정한다(구조 리팩터링 0단계).
+// Player.play() 의 지금 동작을 고정한다(구조 리팩터링 0단계).
 //
 // 옳고 그름을 따지는 테스트가 아니다. 리팩터링이 play() 를 다섯 함수로 나눌 때 **무엇이 바뀌었는지**
 // 드러나게 하려는 것이다. 여기 적힌 동작이 이상해 보여도 고치지 말고, 고칠 때는 이 테스트를 같이 고친다.
@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audioSplicer.ts";
 import { PassThrough } from "node:stream";
 import type { FakeChild } from "../helpers/playerHarness.ts";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Segments, SkipSegment } from "../../src/sources/sponsorBlock.ts";
 
@@ -30,7 +30,7 @@ const argsOf = (child: FakeChild) => child.args.join(" ");
 const segments = (skipSegments: SkipSegment[]): Segments => ({ skipSegments, highlightAt: null, source: "live" });
 
 // 캐시 전환을 물으면 곡을 적고 전환을 예약했다고 답하는 플레이어
-class SwitchAsked extends h.MusicPlayer {
+class SwitchAsked extends h.Player {
   asked: QueuedTrack[] = [];
   _planCacheSwitch(_splicer: unknown, track: QueuedTrack) {
     this.asked.push(track);
@@ -39,7 +39,7 @@ class SwitchAsked extends h.MusicPlayer {
 }
 
 // 한 시험이 끝나면 타이머를 남기지 않는다
-async function playOnce(player: MusicPlayer, seekMs = 0) {
+async function playOnce(player: Player, seekMs = 0) {
   try {
     return await player.play(seekMs);
   } finally {

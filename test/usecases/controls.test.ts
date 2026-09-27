@@ -11,7 +11,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Actor } from "../../src/usecases/controls.ts";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
@@ -57,7 +57,7 @@ function fakePlayer(over: object = {}) {
     resumeFor: () => (calls.push("resume"), true),
     skip: (reason?: string) => (calls.push(`skip${reason ? `:${reason}` : ""}`), true),
     previous: () => (calls.push("previous"), true),
-    _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
+    _restartsOnPrevious: Player.prototype._restartsOnPrevious,
     seek: async (ms: number, reason: string) => calls.push(`seek:${ms}:${reason}`),
     setVolume: (v: number) => (calls.push(`volume:${v}`), v),
     setLoop: (m: unknown) => calls.push(`loop:${m}`),
@@ -225,7 +225,7 @@ test("점프: 그 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기�
 });
 
 test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼고 알리고, 없어도 봇이 음성에 있으면 나간다", async () => {
-  const players = new Map<string, MusicPlayer>();
+  const players = new Map<string, Player>();
   assert.equal(codeOf(await controls.leave(guild, OUTSIDER, players)), "no-permission");
 
   const p = fakePlayer();

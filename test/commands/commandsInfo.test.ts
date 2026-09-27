@@ -15,7 +15,7 @@ import * as storeDb from "../../src/store/db.ts";
 import { command, run } from "../helpers/commands.ts";
 import { whenSettingsBroken } from "../helpers/tempStore.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -59,7 +59,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
   // 서버 목록. 명령이 수를 세고 모은다
   const guilds = new Map([["g1", { memberCount: 5 }]]);
   const client = fakeWith<Client<true>>()({
-    players: new Map<string, MusicPlayer>(player ? [["g1", fakePlayer(player)]] : []),
+    players: new Map<string, Player>(player ? [["g1", fakePlayer(player)]] : []),
     guilds: { cache: Object.assign(guilds, { reduce: (fn: (acc: number, g: { memberCount: number }) => number, init: number) => [...guilds.values()].reduce(fn, init) }) },
     user: { username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
     musicEmbedManager: { onBotChannelChanged: async () => seen.push("movePanel") },

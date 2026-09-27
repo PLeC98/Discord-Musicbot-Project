@@ -6,7 +6,7 @@ import * as trackState from "./trackState.ts";
 import config from "../../config.ts";
 import * as playerEvents from "./events.ts";
 import { messageOf, codedError } from "../rules/errorKind.ts";
-import type { MusicPlayer } from "./Player.ts";
+import type { Player } from "./Player.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/playerSessions.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
@@ -49,14 +49,14 @@ function beat() {
 
 class SessionPersistence {
   static _beat = beat;
-  player: MusicPlayer;
+  player: Player;
   frozen: boolean;
   dirty: boolean;
   /** 지난번에 쓴 세션 행(위치 뺀 칸). 주기 저장이 이것과 비교한다 */
   lastRow: string | null;
 
   // 알림(events)에 플레이어를 넘기므로 플레이어 그대로 받는다
-  constructor(player: MusicPlayer) {
+  constructor(player: Player) {
     this.player = player;
     this.frozen = false; // 마지막 저장 뒤. 이후의 트랙 변경은 DB에 옮기지 않는다
     this.dirty = false; // 증분 쓰기가 실패해 DB가 메모리와 어긋났을 수 있다

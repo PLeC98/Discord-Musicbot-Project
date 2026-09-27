@@ -7,7 +7,7 @@ import * as playerNotices from "../../src/ui/playerNotices.ts";
 import * as transientMessages from "../../src/ui/transientMessages.ts";
 import config from "../../config.ts";
 import type { GuildTextBasedChannel } from "discord.js";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 
@@ -44,9 +44,9 @@ let guildSerial = 0;
 // 가짜 플레이어. 시험이 재생 위치(position)와 부른 것(calls)을 정하고 본다
 function makePlayer(overrides: object = {}) {
   const p = fakePlayer({
-    bindChannels: MusicPlayer.prototype.bindChannels,
-    movePanel: MusicPlayer.prototype.movePanel,
-    restoreSettings: MusicPlayer.prototype.restoreSettings,
+    bindChannels: Player.prototype.bindChannels,
+    movePanel: Player.prototype.movePanel,
+    restoreSettings: Player.prototype.restoreSettings,
     guild: { id: `g${guildSerial++}` },
     voiceChannel: { id: "v1" },
     textChannel: null,
@@ -74,7 +74,7 @@ function makePlayer(overrides: object = {}) {
 let serial = 0;
 const t = (title = `t${serial++}`): QueuedTrack => ({ title, duration: 0, platform: "youtube", pageUrl: `https://y/${title}`, requestKey: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${title}` });
 const titles = (arr: Array<{ title: string | null }>) => arr.map((x) => x.title);
-const memory = (p: MusicPlayer) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
+const memory = (p: Player) => ({ current: p.currentTrack?.title ?? null, queue: titles(p.queue), history: titles(p.previousTracks) });
 
 // 세션이 있어야 하는 자리. 없으면 실패
 function loaded(guildId: string) {
@@ -274,11 +274,11 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
 
 function makeRestorePlayer(overrides: object = {}) {
   const { p, sp } = makePlayer({ connection: { state: {} }, ...overrides }); // 연결 재수립 경로 생략
-  p.play = fake<MusicPlayer["play"]>(async (ms: number) => {
+  p.play = fake<Player["play"]>(async (ms: number) => {
     // play()는 시작 직후 pauseReasons를 보고 즉시 일시정지 — 그 시점의 사유 유무를 기록
     p.calls.push(["play", ms, p.pauseReasons.has("manual")]);
   });
-  p.pauseFor = fake<MusicPlayer["pauseFor"]>((reason: string) => {
+  p.pauseFor = fake<Player["pauseFor"]>((reason: string) => {
     p.pauseReasons.add(reason);
     p.paused = true;
     p.calls.push(["pauseFor", reason]);

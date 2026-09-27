@@ -15,7 +15,7 @@ const CASES: Array<[Error, string]> = [
   [ytDlpError("ERROR: [youtube] xyz: Video unavailable. This video has been removed"), "video-unavailable"],
   [ytDlpError("Video not available in your country"), "geo-blocked"],
   [ytDlpError("HTTP Error 429: Too Many Requests"), "rate-limited"],
-  [codedError("no-youtube-match", "Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡"), "no-youtube-match"], // MusicPlayer · streamUrl
+  [codedError("no-youtube-match", "Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡"), "no-youtube-match"], // Player · streamUrl
   [Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }), "network"],
   [Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT" }), "network"],
   [networkError(), "network"],

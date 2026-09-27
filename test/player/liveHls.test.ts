@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import { PlaybackState } from "../../src/player/playbackState.ts";
 import { PlaybackWatch } from "../../src/player/playbackWatch.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
@@ -135,7 +135,7 @@ test("URL을 주지 않으면 갈래가 바뀌지 않는다. 파이프가 기본
 // 아래는 길이를 전제하던 자리들. 라이브에는 길이가 없다.
 
 const fakePlayer = (overrides = {}) => {
-  const player = Object.create(MusicPlayer.prototype);
+  const player = Object.create(Player.prototype);
   Object.assign(player, {
     currentTrack: null,
     queue: [],

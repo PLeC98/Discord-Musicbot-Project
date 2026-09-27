@@ -3,7 +3,7 @@
 //
 //   const player = fake<SkipHost>({ currentTrack, paused: false, … });
 
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 
 function fake<T>(partial: object): T {
   return partial as T;
@@ -18,6 +18,6 @@ function fakeWith<T>() {
 }
 
 /** 가짜 플레이어 */
-const fakePlayer = fakeWith<MusicPlayer>();
+const fakePlayer = fakeWith<Player>();
 
 export { fake, fakeWith, fakePlayer };

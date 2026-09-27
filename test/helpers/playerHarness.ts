@@ -1,10 +1,10 @@
-// 진짜 MusicPlayer 를 세워 play() 를 끝까지 돌리는 하네스.
+// 진짜 Player 를 세워 play() 를 끝까지 돌리는 하네스.
 //
 // 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 조각을 시험한다. 그래서 생성자와 협력자가 다 얽힌
 // play() 는 한 번도 돌지 않았다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 갈아 끼운다.
 //
 //   음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소
-//                                          플레이어의 바깥 경계로 넘긴다(MusicPlayer.useBoundary). 명령 · 곡 추가가
+//                                          플레이어의 바깥 경계로 넘긴다(Player.useBoundary). 명령 · 곡 추가가
 //                                          만드는 플레이어도 같은 가짜를 쓴다
 //   캐시 장부                              진짜 audioCache 를 임시 DB 로. "장부에 무엇을 적었나"를 그대로 본다
 //   다운로드 · SponsorBlock · 동등물        시험마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
@@ -20,7 +20,7 @@ import { PassThrough, Writable, type Readable } from "stream";
 import { audioKeyOf } from "../../src/rules/audioKeyOf.ts";
 import type { AudioPlayer, VoiceConnection } from "@discordjs/voice";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
-import type { MusicPlayer as Player, Boundary } from "../../src/player/Player.ts";
+import type { Boundary } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { DownloadTrack } from "../../src/media/cacheDownload.ts";
 import type { ChunkedOptions } from "../../src/media/chunkedStream.ts";
@@ -158,8 +158,9 @@ const audioCache = await import("../../src/store/audioCache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
-// ── 5. MusicPlayer 와 협력자를 불러 바깥 경계에 가짜를 넘긴다 ────────────────
-const MusicPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
+// ── 5. Player 와 협력자를 불러 바깥 경계에 가짜를 넘긴다 ────────────────
+const Player = (await import("../../src/player/Player.ts")).Player;
+type Player = InstanceType<typeof Player>;
 const { TrackDownloader } = await import("../../src/media/cacheDownload.ts");
 const SponsorBlock = await import("../../src/sources/sponsorBlock.ts");
 const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).VoiceConnectionManager;
@@ -328,7 +329,7 @@ const fakes: Partial<Boundary> = {
     return { ok: true, status: 200, body: new PassThrough() };
   }) as unknown as Boundary["fetch"],
 };
-MusicPlayer.useBoundary(fakes);
+Player.useBoundary(fakes);
 
 // ── 6. 도우미 ────────────────────────────────────────────────────────
 function fakeGuild(id = "g1"): Guild {
@@ -344,7 +345,7 @@ function fakeGuild(id = "g1"): Guild {
   return guild as unknown as Guild;
 }
 
-type PlayerClass<P extends Player> = new (...args: ConstructorParameters<typeof MusicPlayer>) => P;
+type PlayerClass<P extends Player> = new (...args: ConstructorParameters<typeof Player>) => P;
 
 /**
  * 플레이어 하나. 연결은 이미 붙은 것으로 둔다(play() 의 "연결" 단계는 따로 시험한다).
@@ -358,7 +359,7 @@ function makePlayer<P extends Player = Player>({ connected = true, guildId = "g1
   };
   const text = { id: "text1", name: "text", send } as unknown as GuildTextBasedChannel;
   const voice = { id: "voice1", name: "voice" } as unknown as VoiceBasedChannel;
-  const Cls = as ?? (MusicPlayer as unknown as PlayerClass<P>);
+  const Cls = as ?? (Player as unknown as PlayerClass<P>);
   const player = new Cls(guild, text, voice);
   guild.client.players.set(guild.id, player);
   if (connected) player.connection = fakeConnection();
@@ -411,5 +412,5 @@ const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | nul
 /** 플레이어의 가짜 오디오 플레이어. 시험이 멈춘 횟수 · 튼 것을 본다 */
 const fakeAudioOf = (player: Player) => player.audioPlayer as unknown as FakeAudioPlayer;
 
-export { MusicPlayer, audioCache, AudioPlayerStatus, calls, behavior, caps, makePlayer, writeCacheFile, seedCache, reset, dispose, lookupRow, audioRow, fakeAudioOf, timerDelay, fakeConnection, fakeGuild, TMP };
+export { Player, audioCache, AudioPlayerStatus, calls, behavior, caps, makePlayer, writeCacheFile, seedCache, reset, dispose, lookupRow, audioRow, fakeAudioOf, timerDelay, fakeConnection, fakeGuild, TMP };
 export type { FakeChild, FakeResource, Behavior };

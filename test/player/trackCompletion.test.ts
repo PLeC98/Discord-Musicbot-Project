@@ -4,7 +4,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { AudioPlayerStatus } from "@discordjs/voice";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import { PlaybackWatch, type WatchHost } from "../../src/player/playbackWatch.ts";
 import * as tempStore from "../helpers/tempStore.ts";
 import { audioDurationSec } from "../../src/player/startPlayback.ts";
@@ -31,9 +31,9 @@ function watchdogPlayer({ offsetMs = 0, playedMs = 0, duration = 200 } = {}) {
     playback: { startOffsetMs: offsetMs, resource: { playbackDuration: playedMs } },
     audioPlayer: audio,
     _endReason: null,
-    _stopWith: MusicPlayer.prototype._stopWith,
-    _trackLabel: MusicPlayer.prototype._trackLabel,
-    getCurrentTime: MusicPlayer.prototype.getCurrentTime,
+    _stopWith: Player.prototype._stopWith,
+    _trackLabel: Player.prototype._trackLabel,
+    getCurrentTime: Player.prototype.getCurrentTime,
   });
   return { player, audio, watch: new PlaybackWatch(player) };
 }

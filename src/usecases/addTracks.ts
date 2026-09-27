@@ -1,4 +1,4 @@
-import { MusicPlayer } from "../player/Player.ts";
+import { Player } from "../player/Player.ts";
 import * as songLookup from "../sources/lookup.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import { silentResponder } from "./responders.ts";
@@ -70,7 +70,7 @@ function ensurePlayer(client: Client, { guild, textChannel = null, voiceChannel 
 
   let player = client.players.get(guild.id);
   if (!player) {
-    player = new MusicPlayer(guild, textChannel, voiceChannel ?? botVoiceChannel);
+    player = new Player(guild, textChannel, voiceChannel ?? botVoiceChannel);
     client.players.set(guild.id, player);
     return player;
   }
@@ -116,7 +116,7 @@ type PlaybackRequest = {
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
 /** 곡 담기 결과. 실패면 message 가 안내, 목록이 더 남았으면 이어 받을 상태(more) */
-type PlaybackResult = { success: false; message: string; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: MusicPlayer; more: (More & { batch: number }) | null });
+type PlaybackResult = { success: false; message: string; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: Player; more: (More & { batch: number }) | null });
 
 /** 이어 넣은 결과. 넣은 수 · 목록의 남은 곡과 다음 위치(next) */
 type Continued = { added: number; skipped: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
@@ -160,12 +160,12 @@ async function playerFor(client: Client, { guild, textChannel = null, voiceChann
 }
 
 // 넣을 곡. 이미 찾은 곡이면 그대로, 검색어면 찾는다. 넣을 수 없으면 안내 문구
-async function tracksFor(player: MusicPlayer, request: PlaybackRequest, batch: number): Promise<Found | string> {
+async function tracksFor(player: Player, request: PlaybackRequest, batch: number): Promise<Found | string> {
   const found = request.tracks ? { isPlaylist: request.tracks.length > 1, collection: request.collection ?? null, tracks: request.tracks } : await search(player, request.query, request, batch);
   return typeof found === "string" ? found : withoutBlocked(found, request.ffmpegReady);
 }
 
-async function search(player: MusicPlayer, query: string, { guild, single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
+async function search(player: Player, query: string, { guild, single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
   log.debug({ sub: "play" }, `${source} | 서버=${guild.id} | 검색어="${query}"`);
   // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
   // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
@@ -205,7 +205,7 @@ function placement({ insertFirst = false, insertAfterId = null }: PlaybackReques
 // 조작 하나에 한 줄. 요청(검색 debug)과 결과를 따로 남기면 조작당 두 줄이 되는데,
 // 운영상 필요한 것은 "누가 무엇을 넣었나"라 결과 줄에 요청자를 함께 싣는다.
 // 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
-function logAddition(found: Found, result: AddResult, who: Requester | null, player: MusicPlayer, insertFirst: boolean) {
+function logAddition(found: Found, result: AddResult, who: Requester | null, player: Player, insertFirst: boolean) {
   const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 받을 수 없어 ${found.skipped}곡 뺌` : "", result.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : "", found.queueLimited ? " | 자리가 모자라 일부만 받음" : ""].join("");
   log.info({ sub: "play" }, `${result.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${whatOf(found)} | 요청 ${nameOf(who)} | 대기열 ${player.queue.length}곡${notes}`);
 }

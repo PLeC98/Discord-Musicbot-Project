@@ -12,7 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fakePlayer as asPlayer } from "../helpers/fake.ts";
@@ -26,7 +26,7 @@ after(() => {
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
-const planCacheSwitch = MusicPlayer.prototype._planCacheSwitch;
+const planCacheSwitch = Player.prototype._planCacheSwitch;
 
 function fakeSplicer({ destroyed = false, switchPending = false, emittedMs = 5000 } = {}) {
   const calls: Array<{ next: { destroy?(): void }; atMs: number }> = [];
@@ -53,7 +53,7 @@ function fakePlayer({ track, startOffsetMs = 0 }: { track?: QueuedTrack; startOf
     currentTrack: track,
     playback: { startOffsetMs },
     io: { spawnFfmpeg: fakeFfmpeg },
-    _trackLabel: MusicPlayer.prototype._trackLabel,
+    _trackLabel: Player.prototype._trackLabel,
   });
 }
 

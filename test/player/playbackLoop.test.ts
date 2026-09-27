@@ -7,15 +7,15 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MusicPlayer } from "../../src/player/Player.ts";
+import { Player } from "../../src/player/Player.ts";
 import { PlaybackState } from "../../src/player/playbackState.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import type { CurrentPlayback } from "../../src/player/currentPlayback.ts";
 
-const onTrackEnd = MusicPlayer.prototype.onTrackEnd;
-const previous = MusicPlayer.prototype.previous;
+const onTrackEnd = Player.prototype.onTrackEnd;
+const previous = Player.prototype.previous;
 
 function makeTrack(title: string, duration = 100): QueuedTrack {
   return { title, requestKey: `https://y/${title}`, pageUrl: "", platform: "youtube", duration };
@@ -38,20 +38,20 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     queue,
     autoplay: false,
     _endReason: null,
-    _stopWith: MusicPlayer.prototype._stopWith,
-    _restartsOnPrevious: MusicPlayer.prototype._restartsOnPrevious,
+    _stopWith: Player.prototype._stopWith,
+    _restartsOnPrevious: Player.prototype._restartsOnPrevious,
     guild: { id: "g1", client: null },
     played: [] as Array<{ title: string | undefined; ms: number }>,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)
-    _trackLabel: MusicPlayer.prototype._trackLabel,
-    getCurrentTime: MusicPlayer.prototype.getCurrentTime,
-    _describeEnd: MusicPlayer.prototype._describeEnd,
-    _recoverDrop: MusicPlayer.prototype._recoverDrop,
-    _playNext: MusicPlayer.prototype._playNext,
-    _continueAutoplay: MusicPlayer.prototype._continueAutoplay,
-    _finishQueue: MusicPlayer.prototype._finishQueue,
+    _trackLabel: Player.prototype._trackLabel,
+    getCurrentTime: Player.prototype.getCurrentTime,
+    _describeEnd: Player.prototype._describeEnd,
+    _recoverDrop: Player.prototype._recoverDrop,
+    _playNext: Player.prototype._playNext,
+    _continueAutoplay: Player.prototype._continueAutoplay,
+    _finishQueue: Player.prototype._finishQueue,
     audioPlayer: { stop() {} },
     async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });
@@ -152,7 +152,7 @@ test("한곡 반복 + 대기열 점프(jump): 재시작이 아니라 선택한 �
 });
 
 test("skip(reason): 기본은 'skip', 점프는 'jump'를 종료 사유로 세움. 이미 멈추는 중이면 먼저 온 사유를 지킨다", () => {
-  const skip = MusicPlayer.prototype.skip;
+  const skip = Player.prototype.skip;
   const p = makePlayer({ current: makeTrack("A") });
   skip.call(p);
   assert.equal(p._endReason, "skip");

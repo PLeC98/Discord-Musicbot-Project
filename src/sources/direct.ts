@@ -63,7 +63,7 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
 
 /**
  * 재생/다운로드용 스트림 획득. SSRF 가드된 Readable 반환.
- * 직접 링크는 URL 기반 탐색을 지원하지 않음. 탐색은 MusicPlayer의 FFmpeg가 처리하므로
+ * 직접 링크는 URL 기반 탐색을 지원하지 않음. 탐색은 Player의 FFmpeg가 처리하므로
  * startSeconds는 여기서 무시한다. net 은 테스트가 가짜를 넘기는 자리
  */
 async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }): Promise<AudioStream> {

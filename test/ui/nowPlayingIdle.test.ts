@@ -8,7 +8,7 @@ import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 import * as tempStore from "../helpers/tempStore.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, WebhookClient } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { PanelStore } from "../../src/ui/panelLocation.ts";
 import type { PanelRecord } from "../../src/store/guildSettings.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -76,7 +76,7 @@ function setup({ record = null }: { record?: PanelRecord | null } = {}) {
     ["general", makeChannel("general", calls)],
   ]);
   const guild = fake<Guild>({ id: "g1", channels: { cache: channels } });
-  const players = new Map<string, MusicPlayer>();
+  const players = new Map<string, Player>();
   const client = fake<Client>({ players, guilds: { cache: new Collection([["g1", guild]]) }, user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" } });
   const records = new Map<string, PanelRecord | null>(record ? [["g1", record]] : []);
   const panelStore: PanelStore = {
@@ -116,7 +116,7 @@ function makePlayer(guild: Guild, textChannel: GuildTextBasedChannel, over: obje
 const textOf = (payload: Payload) => JSON.stringify(payload.components.map((c) => (typeof c.toJSON === "function" ? c.toJSON() : c)));
 const bury = (channel: TestChannel | undefined, now: number) => channel?.messages.cache.set("950", { id: "950", createdTimestamp: now - 60_000 });
 
-async function play(mem: MusicEmbedManager, player: MusicPlayer) {
+async function play(mem: MusicEmbedManager, player: Player) {
   assert.ok(player.currentTrack, "틀 곡이 있다");
   try {
     await mem.createNewMusicEmbed(player, player.currentTrack, { id: "u1" });

@@ -85,10 +85,10 @@ const REAL = {
   getStream: (track: Seeking & { platform?: string | null }, seekSeconds?: number, options?: Partial<StreamOptions>) => streamUrl.getStream(track, seekSeconds, options),
   joinVoiceChannel,
   entersState,
-  createVoice: (player: MusicPlayer) => new VoiceConnectionManager(player, player.io),
-  createPersistence: (player: MusicPlayer) => new SessionPersistence(player),
-  createWarmer: (player: MusicPlayer, deps: WarmerDeps) => new QueueWarmer(player, deps),
-  createDownloader: (player: MusicPlayer) => new TrackDownloader(player),
+  createVoice: (player: Player) => new VoiceConnectionManager(player, player.io),
+  createPersistence: (player: Player) => new SessionPersistence(player),
+  createWarmer: (player: Player, deps: WarmerDeps) => new QueueWarmer(player, deps),
+  createDownloader: (player: Player) => new TrackDownloader(player),
   findEquivalent: (track: QueuedTrack) => equivalent.findYouTubeEquivalent(track),
   sponsorFor: (track: QueuedTrack, guildId: string) => SponsorBlock.forTrack(track, guildId),
 };
@@ -102,7 +102,7 @@ type PanelMessage = Message | { id: string; channel_id: string };
 /** 재생 패널을 올린 웹훅. 고치고 지우는 것만 */
 type PanelHook = Pick<WebhookClient, "editMessage" | "deleteMessage">;
 
-class MusicPlayer {
+class Player {
   guild: Guild;
   textChannel: GuildTextBasedChannel | null;
   voiceChannel: VoiceBasedChannel | null;
@@ -362,8 +362,8 @@ class MusicPlayer {
       return { ok: true, track: this.currentTrack };
     } catch (error) {
       // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
-      elog.error({ sub: "MusicPlayer.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
-      elog.debug({ sub: "MusicPlayer.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
+      elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
+      elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
       await this.handleError(error, { tell: true });
       return { ok: false, code: "play-failed", error };
     } finally {
@@ -1134,4 +1134,4 @@ class MusicPlayer {
 }
 
 export type { Boundary, PanelMessage, PanelHook };
-export { MusicPlayer };
+export { Player };

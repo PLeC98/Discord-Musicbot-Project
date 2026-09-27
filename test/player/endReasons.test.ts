@@ -5,7 +5,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import type { Client, VoiceBasedChannel, VoiceState } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
 import * as h from "../helpers/playerHarness.ts";
@@ -49,7 +49,7 @@ async function endLines(act: () => unknown) {
     .map((e) => e.text.slice(e.text.indexOf("트랙 종료:")));
 }
 
-const registered = (p: MusicPlayer) => p.guild.client.players.get(p.guild.id) === p;
+const registered = (p: Player) => p.guild.client.players.get(p.guild.id) === p;
 
 test("곡이 끝까지 돌면: 원인=idle, 다음 곡을 튼다", async () => {
   const next = yt("fffffffffff", { title: "다음 곡" });

@@ -1,4 +1,4 @@
-// MusicPlayer 의 곡 종료 · 정지 · 정리 · 오류 처리 · 조작의 지금 동작을 고정한다(구조 리팩터링 0단계).
+// Player 의 곡 종료 · 정지 · 정리 · 오류 처리 · 조작의 지금 동작을 고정한다(구조 리팩터링 0단계).
 //
 // playerPlay.test.ts 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
 // 리팩터링이 재생 상태를 한 칸으로 모으고 곡별 객체를 따로 떼어 낼 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
@@ -8,7 +8,7 @@ import * as playerEvents from "../../src/player/events.ts";
 import * as playerNotices from "../../src/ui/playerNotices.ts";
 import type { AudioResource } from "@discordjs/voice";
 import type { Client, VoiceBasedChannel } from "discord.js";
-import type { MusicPlayer } from "../../src/player/Player.ts";
+import type { Player } from "../../src/player/Player.ts";
 import type { CurrentPlayback } from "../../src/player/currentPlayback.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
@@ -46,20 +46,20 @@ function cached(id: string, extra?: Partial<QueuedTrack>) {
 
 // 재생 패널 관리자 대신. 무엇을 불렀는지만 남긴다
 // 이 플레이어가 화면에 알린 것(알림을 옛 화면 가짜의 기록 모양으로)
-const embeds = (player: MusicPlayer) => recordPanel({ player });
+const embeds = (player: Player) => recordPanel({ player });
 
 // 재생 상태 가짜. 시험이 보는 칸만
 const playback = (fields: object) => fake<CurrentPlayback>(fields);
 
 // 재생이 끝난 곡 하나를 세운다. 리소스의 재생량으로 "어디까지 틀었나"를 정한다. extra 는 재생 상태에 더할 칸
-function playing(player: MusicPlayer, track: QueuedTrack, playedMs = track.duration * 1000, extra: object = {}) {
+function playing(player: Player, track: QueuedTrack, playedMs = track.duration * 1000, extra: object = {}) {
   player.currentTrack = track;
   player.playback = playback({ resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } }, ...extra });
   return track;
 }
 
 // 재생 · 곡 종료 · 오류 처리 · 자동재생을 시험이 정할 수 있는 플레이어. 정하지 않은 것은 진짜로 돈다
-class Scripted extends h.MusicPlayer {
+class Scripted extends h.Player {
   playAs: ((seekMs: number) => unknown) | null = null;
   endAs: ((reason: string) => unknown) | null = null;
   errorAs: ((error: Error) => unknown) | null = null;
@@ -513,7 +513,7 @@ test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀�
 type Member = { user: { bot: boolean; id: string } };
 
 // 음성 채널에 사람을 둔다. 플레이어가 읽는 칸(members.filter · 권한)만
-function voiceChannelWith(player: MusicPlayer, humans: string[]) {
+function voiceChannelWith(player: Player, humans: string[]) {
   const all = new Map(humans.map((id): [string, Member] => [id, { user: { bot: false, id } }]));
   const members = Object.assign(all, { filter: (fn: (m: Member) => boolean) => ({ size: [...all.values()].filter(fn).length }) });
   player.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
@@ -560,7 +560,7 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   const p = h.makePlayer();
   embeds(p);
   voiceChannelWith(p, []);
-  const current = fake<MusicPlayer>({});
+  const current = fake<Player>({});
   p.guild.client.players.set("g1", current);
   p.idle.aloneMs = 0;
 

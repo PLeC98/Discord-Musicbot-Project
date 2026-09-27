@@ -15,12 +15,12 @@ const store = openTempStore("registry-guard-");
 after(() => store.close());
 
 const config = (await import("../../config.ts")).default;
-const MusicPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
+const Player = (await import("../../src/player/Player.ts")).Player;
 const PlaybackState = (await import("../../src/player/playbackState.ts")).PlaybackState;
 const IdleLeave = (await import("../../src/player/idleLeave.ts")).IdleLeave;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
 const playerEvents = await import("../../src/player/events.ts");
-const onTrackEnd = MusicPlayer.prototype.onTrackEnd;
+const onTrackEnd = Player.prototype.onTrackEnd;
 
 const GUILD = "g1";
 const DELAY = 30; // 실 타이머를 그대로 쓰되 대기 시간만 줄인다 (전역 setTimeout을 갈아끼우면 러너가 멈춘다)
@@ -50,16 +50,16 @@ function makePlayer(players: Map<string, unknown>, current: { title: string; dur
     queue: [],
     autoplay: false,
     _endReason: null,
-    _stopWith: MusicPlayer.prototype._stopWith,
+    _stopWith: Player.prototype._stopWith,
     guild: { id: GUILD, name: "TestGuild", client: { players } },
     disposeCalls: [] as string[],
-    _trackLabel: MusicPlayer.prototype._trackLabel,
-    getCurrentTime: MusicPlayer.prototype.getCurrentTime,
-    _describeEnd: MusicPlayer.prototype._describeEnd,
-    _recoverDrop: MusicPlayer.prototype._recoverDrop,
-    _playNext: MusicPlayer.prototype._playNext,
-    _continueAutoplay: MusicPlayer.prototype._continueAutoplay,
-    _finishQueue: MusicPlayer.prototype._finishQueue,
+    _trackLabel: Player.prototype._trackLabel,
+    getCurrentTime: Player.prototype.getCurrentTime,
+    _describeEnd: Player.prototype._describeEnd,
+    _recoverDrop: Player.prototype._recoverDrop,
+    _playNext: Player.prototype._playNext,
+    _continueAutoplay: Player.prototype._continueAutoplay,
+    _finishQueue: Player.prototype._finishQueue,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     async persistState() {},
@@ -71,7 +71,7 @@ function makePlayer(players: Map<string, unknown>, current: { title: string; dur
       if (this.lifecycle.disposed) return;
       this.disposeCalls.push(reason);
       this.lifecycle.to("disposed", reason);
-      playerEvents.disposed(this as unknown as InstanceType<typeof MusicPlayer>);
+      playerEvents.disposed(this as unknown as InstanceType<typeof Player>);
     },
   });
   p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다

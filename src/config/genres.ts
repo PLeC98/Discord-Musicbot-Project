@@ -150,7 +150,7 @@ function checkSourceKeys(genres: Record<string, Genre>) {
     lines.push(`자동재생 장르 ${names.join(", ")}에 사용되는 소스 중 ${missing}의 키가 .env에 존재하지 않습니다. 지정된 다른 소스만을 이용합니다.`);
   }
 
-  // 이 함수는 곡을 고를 때마다 불린다(MusicPlayer._autoplayConfig). 그대로 남기면 같은 경고가
+  // 이 함수는 곡을 고를 때마다 불린다(Player._autoplayConfig). 그대로 남기면 같은 경고가
   // 몇 분마다 되풀이되므로, 내용이 달라졌을 때만 남긴다. status()가 쓰는 것과 같은 손이다.
   const key = lines.join("|");
   if (lines.length && key !== warnedKeys) for (const line of lines) log.warn(line);

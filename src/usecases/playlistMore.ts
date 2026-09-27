@@ -13,7 +13,7 @@ import { markTransient } from "../ui/transientMessages.ts";
 import { canSend } from "../ui/channels.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
-import type { MusicPlayer } from "../player/Player.ts";
+import type { Player } from "../player/Player.ts";
 
 const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다
@@ -108,7 +108,7 @@ function decodeState(customId: unknown) {
 }
 
 // 대기열에 더 넣을 수 있는 곡 수. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더
-function roomFor(player: Pick<MusicPlayer, "queue" | "currentTrack">) {
+function roomFor(player: Pick<Player, "queue" | "currentTrack">) {
   return trackState.roomLeft(player, config.bot.maxQueueSize) + (player.currentTrack ? 0 : 1);
 }
 
@@ -211,7 +211,7 @@ function expireLater(messageId: string, remove: () => unknown, ms = LIFETIME_MS)
 
 // 슬래시 명령. 일반 채널 메시지로 띄운다. 상호작용 후속 메시지는 디스코드가 원래 응답에 답장 모양으로 붙이는데,
 // 그 응답이 지워지면 "메시지를 불러올 수 없어요"에 매달린다. 채널에 쓸 권한이 없을 때만 본인 전용 후속 메시지로.
-async function offerOnInteraction(interaction: RepliableInteraction, more: More, player: MusicPlayer) {
+async function offerOnInteraction(interaction: RepliableInteraction, more: More, player: Player) {
   if (await offerOnChannel(interaction.channel, more, player, interaction.user.id, { quiet: true })) return;
   const payload = offerMessage(more, roomFor(player));
   if (payload.components.length === 0) return;
@@ -224,7 +224,7 @@ async function offerOnInteraction(interaction: RepliableInteraction, more: More,
 }
 
 // 공개 메시지. 누를 수 있는 사람은 custom_id의 요청자로 가른다. 띄웠거나 띄울 것이 없으면 true.
-async function offerOnChannel(channel: TextBasedChannel | null | undefined, more: More, player: MusicPlayer, requesterId: string, { quiet = false } = {}) {
+async function offerOnChannel(channel: TextBasedChannel | null | undefined, more: More, player: Player, requesterId: string, { quiet = false } = {}) {
   const payload = offerMessage({ ...more, requesterId }, roomFor(player));
   if (payload.components.length === 0) return true;
   if (!canSend(channel)) return false;

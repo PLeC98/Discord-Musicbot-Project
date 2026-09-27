@@ -20,7 +20,7 @@ import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import type { ClientEvent } from "../src/app/main.ts";
-import type { MusicPlayer } from "../src/player/Player.ts";
+import type { Player } from "../src/player/Player.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
 
 /** 서버 메시지의 버튼 */
@@ -39,7 +39,7 @@ const FREE: Array<[prefix: string, ((it: Press) => unknown) | null]> = [
 ];
 
 // 재생 패널의 버튼. customId 는 "이름:요청자:세션"
-const PANEL: Record<string, (it: Press, player: MusicPlayer) => unknown> = {
+const PANEL: Record<string, (it: Press, player: Player) => unknown> = {
   music_pause: (it, player) => handlePause(it, player),
   music_skip: (it, player) => handleSkip(it, player),
   music_stop: (it, player) => handleStop(it, player),
@@ -72,7 +72,7 @@ async function handlePanelButton(interaction: Press) {
   }
 }
 
-async function handlePause(interaction: Press, player: MusicPlayer) {
+async function handlePause(interaction: Press, player: Player) {
   const r = await controls.pause(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -90,7 +90,7 @@ async function handlePause(interaction: Press, player: MusicPlayer) {
   await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 }
 
-async function handleSkip(interaction: Press, player: MusicPlayer) {
+async function handleSkip(interaction: Press, player: Player) {
   const r = await controls.skip(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -113,7 +113,7 @@ async function handleSkip(interaction: Press, player: MusicPlayer) {
   await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 }
 
-async function handlePrevious(interaction: Press, player: MusicPlayer) {
+async function handlePrevious(interaction: Press, player: Player) {
   const r = await controls.previous(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -123,7 +123,7 @@ async function handlePrevious(interaction: Press, player: MusicPlayer) {
   });
 }
 
-async function handleStop(interaction: Press, player: MusicPlayer) {
+async function handleStop(interaction: Press, player: Player) {
   const r = await controls.stop(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -139,7 +139,7 @@ async function handleStop(interaction: Press, player: MusicPlayer) {
   await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 }
 
-async function handleQueue(interaction: Press, player: MusicPlayer) {
+async function handleQueue(interaction: Press, player: Player) {
   const queueInfo = queueInfoOf(player);
 
   if (!queueInfo.current && queueInfo.queue.length === 0) {
@@ -162,7 +162,7 @@ async function handleQueuePage(interaction: Press) {
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
 
-async function handleShuffle(interaction: Press, player: MusicPlayer) {
+async function handleShuffle(interaction: Press, player: Player) {
   const r = await controls.shuffle(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
@@ -176,7 +176,7 @@ async function handleShuffle(interaction: Press, player: MusicPlayer) {
   await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 }
 
-async function handleHighlight(interaction: Press, player: MusicPlayer) {
+async function handleHighlight(interaction: Press, player: Player) {
   const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
   // 버튼은 하이라이트가 없으면 비활성이라 곡이 바뀌기 직전의 늦은 클릭뿐이다. 조용히 넘긴다
   if (!r.ok && r.code === "no-highlight") return interaction.deferUpdate();
@@ -203,7 +203,7 @@ async function handleVolumeModal(interaction: Press) {
   await interaction.showModal(modal);
 }
 
-async function handleLoop(interaction: Press, player: MusicPlayer) {
+async function handleLoop(interaction: Press, player: Player) {
   // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
   const r = await controls.loop(player, { member: interaction.member }, controls.nextLoopMode(player.loop));
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
@@ -235,7 +235,7 @@ async function handleAutoplayButton(interaction: Press) {
 }
 
 // 권한은 handleAutoplayButton이 이미 봤다.
-async function handleAutoplay(interaction: Press, player: MusicPlayer, requesterId: string) {
+async function handleAutoplay(interaction: Press, player: Player, requesterId: string) {
   if (player.autoplay) {
     player.setAutoplay(false);
 
