@@ -47,6 +47,15 @@ let evictInterval: NodeJS.Timeout | null = null;
 // 캐시 파일이 놓이는 곳. 테스트가 _setCacheDir 로 갈아끼우면 실제 폴더를 건드리지 않는다.
 // 파일을 만지는 코드는 반드시 이 값을 거쳐야 한다(모듈 상수를 직접 쓰면 격리가 새어나간다).
 let dir = CACHE_DIR;
+// 파일 하나를 지울 때 기다리는 상한. 다른 프로그램(탐색기 등)이 파일을 쥐고 있으면 지우기가 풀릴 때까지 멈춘다
+const REMOVE_TIMEOUT_MS = 10_000;
+const fsUnlink = (target: string) => fs.promises.unlink(target);
+let removeTimeoutMs = REMOVE_TIMEOUT_MS;
+let unlink = fsUnlink;
+// 상한 안에 지워지지 않은 파일. 그 지우기는 취소되지 않고 스레드 풀 한 칸을 잡고 있으므로 이번 실행 동안 다시 부르지 않는다
+const stuckFiles = new Set<string>();
+// 퇴거는 한 번에 하나. 겹치면 같은 행을 두 번 세어 지운다
+let evicting: Promise<void> | null = null;
 
 // 열기 전에 부르면 던진다
 const conn = () => db.get();
@@ -57,6 +66,44 @@ const cacheDir = () => dir;
 // 테스트 시임. 임시 폴더로 바꾼다
 function _setCacheDir(next: string) {
   dir = next;
+}
+
+// 테스트 시임. 파일 지우기를 갈아끼운다. 인자 없이 부르면 원래대로
+function _setRemoval({ unlink: nextUnlink = fsUnlink, timeoutMs = REMOVE_TIMEOUT_MS }: { unlink?: (target: string) => Promise<void>; timeoutMs?: number } = {}) {
+  unlink = nextUnlink;
+  removeTimeoutMs = timeoutMs;
+  stuckFiles.clear();
+}
+
+/**
+ * 캐시 파일을 지운다. 지웠거나 이미 없으면 true, 못 지웠으면 false.
+ * 상한 시간 안에 끝나지 않으면 기다리지 않고 false 이고, 그 파일은 이번 실행 동안 건너뛴다
+ */
+async function removeFile(fp: string): Promise<boolean> {
+  const target = path.resolve(fp);
+  if (stuckFiles.has(target)) return false;
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<"late">((resolve) => {
+    timer = setTimeout(() => resolve("late"), removeTimeoutMs);
+    timer.unref();
+  });
+  const done = unlink(target).then(
+    () => "ok" as const,
+    (error: NodeJS.ErrnoException) => (error?.code === "ENOENT" ? ("ok" as const) : error),
+  );
+  try {
+    const result = await Promise.race([done, late]);
+    if (result === "ok") return true;
+    if (result === "late") {
+      stuckFiles.add(target);
+      log.warn(`캐시 파일 지우기가 ${removeTimeoutMs / 1000}초 안에 끝나지 않아 이번 실행 동안 건너뜁니다(다른 프로그램이 파일을 쥐고 있을 수 있습니다): ${path.basename(target)}`);
+      return false;
+    }
+    log.debug(`캐시 파일을 지우지 못했습니다: ${path.basename(target)} | ${messageOf(result)}`);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // 초기화. dbPath는 테스트 주입용(임시 DB), 운영은 항상 기본 경로
@@ -225,11 +272,11 @@ async function onStartup() {
   }
   if (orphanDbCount > 0) log.info(`오디오 캐시 파일이 누락된 항목 ${orphanDbCount}건 기록 완료`);
 
-  // 3. DB에서 추적하지 않는 오디오 파일 삭제
-  cleanOrphanFiles();
+  // 3. DB에서 추적하지 않는 오디오 파일 삭제. 받다 만 조각도 지우므로 복원이 받기를 시작하기 전에 끝낸다
+  await cleanOrphanFiles();
 
-  // 4. 제한 초과 시 제거
-  await evictIfNeeded();
+  // 4. 제한 초과 시 제거. 기다리지 않는다(복원될 곡은 저장된 세션을 보고 지킨다)
+  bestEffort(log, evictIfNeeded(), "기동 캐시 비우기");
 }
 
 /**
@@ -241,7 +288,7 @@ async function onStartup() {
  * 재생 중인 파일은 열려 있어 지워지지 않을 수 있다(윈도우). 실패해도 멈추지 않고 세어서
  * 돌려준다. 재생은 이미 연 핸들로 계속되므로 끊기지 않는다.
  */
-function resetCache() {
+async function resetCache() {
   const before = { files: cacheCount(), bytes: cacheSize() };
 
   // 파일을 먼저 지우고, 잠겨서 못 지운 것의 행은 남긴다. 행만 지우고 파일을 남기면 DB 가 모르는 파일이 된다.
@@ -255,11 +302,10 @@ function resetCache() {
   for (const row of rows) {
     const target = pathOf(row);
     if (!fs.existsSync(target)) continue;
-    try {
-      fs.unlinkSync(target);
+    if (await removeFile(target)) {
       removed++;
-    } catch {
-      kept++; // 재생 중이라 잠긴 파일. 행을 남겨 둔다
+    } else {
+      kept++; // 재생 중이라 잠겼거나 응답하지 않는 파일. 행을 남겨 둔다
       keptKeys.add(row.audio_key);
       keptPaths.add(target);
     }
@@ -270,12 +316,8 @@ function resetCache() {
     for (const file of fs.readdirSync(dir)) {
       const target = path.resolve(path.join(dir, file));
       if (keptPaths.has(target)) continue;
-      try {
-        fs.unlinkSync(target);
-        removed++;
-      } catch {
-        kept++;
-      }
+      if (await removeFile(target)) removed++;
+      else kept++;
     }
   }
 
@@ -306,11 +348,11 @@ function resetCache() {
     /* 파일 크기만 못 줄일 뿐 초기화는 끝났다 */
   }
 
-  log.warn(`오디오 캐시 초기화: ${removed}개 삭제(${Math.round(before.bytes / 1024 / 1024)}MB)${kept > 0 ? `, ${kept}개는 재생 중이라 남겨둠` : ""}`);
+  log.warn(`오디오 캐시 초기화: ${removed}개 삭제(${Math.round(before.bytes / 1024 / 1024)}MB)${kept > 0 ? `, ${kept}개는 잠겨 있어(재생 중 등) 남겨둠` : ""}`);
   return { removed, kept, freedBytes: before.bytes, fileCountBefore: before.files };
 }
 
-function cleanOrphanFiles() {
+async function cleanOrphanFiles() {
   if (!fs.existsSync(dir)) return;
 
   const dbPaths = new Set(
@@ -334,24 +376,12 @@ function cleanOrphanFiles() {
     // 부팅 시점에는 진행 중인 다운로드가 없으므로 무조건 지워도 안전하다.
     // (봇을 강제 종료하면 ffmpeg가 파일 핸들을 물고 남는데, 프로세스를 정리한 뒤 남는 잔해가 이것들이다.)
     if (/^track_[0-9a-f]{32}\./.test(file) && !file.endsWith(".opus")) {
-      try {
-        fs.unlinkSync(full);
-        partials++;
-      } catch {
-        /* 무시 */
-      }
+      if (await removeFile(full)) partials++;
       continue;
     }
 
     if (!file.endsWith(".opus")) continue;
-    if (!dbPaths.has(full) && !allProtected.has(full)) {
-      try {
-        fs.unlinkSync(full);
-        cleaned++;
-      } catch {
-        /* 무시 */
-      }
-    }
+    if (!dbPaths.has(full) && !allProtected.has(full) && (await removeFile(full))) cleaned++;
   }
   if (cleaned > 0) log.info(`고아 오디오 캐시 파일 ${cleaned}개 삭제 완료`);
   if (partials > 0) log.info(`캐시 다운로드 중단으로 생성된 조각 파일 ${partials}개 삭제 완료`);
@@ -382,7 +412,16 @@ function countOf(sql: string): number {
   return (conn().prepare(sql).get() as { n: number }).n;
 }
 
-async function evictIfNeeded() {
+function evictIfNeeded() {
+  evicting ??= checkAndEvict().finally(() => {
+    evicting = null;
+  });
+  return evicting;
+}
+
+const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
+
+async function checkAndEvict() {
   const cfg = config.cache;
 
   const totalSize = cacheSize();
@@ -396,27 +435,17 @@ async function evictIfNeeded() {
   if (!overSize && !overFiles && !lowDisk) return;
 
   if (lowDisk) {
-    log.warn(`디스크 여유 공간 부족 (${Math.round(diskFree / 1024 / 1024)}MB 남음). 오디오 캐시를 즉시 정리합니다.`);
+    log.warn(`디스크 여유 공간 부족 (${MB(diskFree)}MB 남음, 최소 ${MB(cfg.minFreeDiskBytes)}MB). 오디오 캐시를 정리합니다.`);
   } else {
-    log.info(`오디오 캐시 용량 제한 도달 (${Math.round(totalSize / 1024 / 1024)}MB / ${cfg.maxSizeBytes / 1024 / 1024}MB, ${fileCount}개). 오래된 파일부터 정리합니다.`);
+    const over = [overSize && `용량 ${MB(totalSize)}MB / ${MB(cfg.maxSizeBytes)}MB`, overFiles && `파일 ${fileCount}개 / ${cfg.maxFiles}개`].filter(Boolean).join(" · ");
+    log.info(`오디오 캐시가 상한을 넘었습니다(${over}). 상한의 ${cfg.evictTargetPercent}%까지 정리합니다.`);
   }
 
   await evict({ totalSize, fileCount, diskFree });
 }
 
-/**
- * 넘친 만큼 지운다. 점수가 높은(지울 만한) 것부터 지우며, 용량과 파일 수가 목표선(상한의 CACHE_EVICT_TARGET_PERCENT)
- * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 부르는 쪽이 넘기고, 생략하면 잰다
- */
-async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFree = freeDiskBytes() }: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
-  // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분, 저장된 세션의 곡.
-  // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
-  // 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다
-  const live = new Set([...liveKeys(), ...sessionKeys()]);
-  const rows = (conn().prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[]).filter((r) => !live.has(r.audio_key));
-
-  if (rows.length === 0) return;
-
+/** 지울 차례. 점수가 높은(지울 만한) 것이 앞이다 */
+function rankForEviction(rows: AudioRow[]) {
   const now = Date.now();
 
   // 연령 제한 영상은 재취득이 느리고 쿠키가 필요하므로 퇴거에서 더 오래 잔존시킨다(점수↓).
@@ -427,7 +456,7 @@ async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFr
       .map((r) => (r as { video_id: string }).video_id),
   );
 
-  const scored = rows
+  return rows
     .map((r) => {
       const ageDays = (now - (r.last_played_at || r.downloaded_at || r.created_at || now)) / 86_400_000;
 
@@ -454,6 +483,32 @@ async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFr
       return { ...r, _score: score };
     })
     .sort((a, b) => b._score - a._score);
+}
+
+/** 한 곡을 지운다. 파일을 못 지웠으면 행을 남긴다(행만 지우면 DB 가 모르는 파일이 된다) */
+async function evictOne(row: AudioRow): Promise<"gone" | "protected" | "failed" | "closed"> {
+  // 지우는 사이 재생 · 예열이 이 곡을 지키게 됐을 수 있다
+  if (liveKeys().has(row.audio_key)) return "protected";
+  if (!(await removeFile(row.file_path || getFilePath(row.audio_key)))) return "failed";
+  if (!db.isOpen()) return "closed"; // 끄는 중
+  conn().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run(row.audio_key);
+  return "gone";
+}
+
+/**
+ * 넘친 만큼 지운다. 점수가 높은(지울 만한) 것부터 지우며, 용량과 파일 수가 목표선(상한의 CACHE_EVICT_TARGET_PERCENT)
+ * 아래로 내려오고 디스크 여유가 최소치를 되찾으면 멈춘다. 지금 상태는 부르는 쪽이 넘기고, 생략하면 잰다
+ */
+async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFree = freeDiskBytes() }: { totalSize?: number; fileCount?: number; diskFree?: number } = {}) {
+  // 보호 중인 키 제외. 재생 중인 곡과 각 길드의 대기열 앞부분, 저장된 세션의 곡.
+  // 대기열 곡을 빼지 않으면 방금 예열한 파일을 곧바로 도로 가져가는 일이 생긴다.
+  // 저장된 세션을 보는 까닭: 복원된 대기열은 예열이 보호를 걸기까지(수 초 ~ 1분) 메모리의 보호 목록에 없다
+  const live = new Set([...liveKeys(), ...sessionKeys()]);
+  const rows = (conn().prepare("SELECT * FROM audio_cache WHERE status = 'cached'").all() as AudioRow[]).filter((r) => !live.has(r.audio_key));
+
+  if (rows.length === 0) return;
+
+  const scored = rankForEviction(rows);
 
   const cfg = config.cache;
   const goal = cfg.evictTargetPercent / 100;
@@ -462,22 +517,22 @@ async function evict({ totalSize = cacheSize(), fileCount = cacheCount(), diskFr
   let free = diskFree;
   const enough = () => size <= cfg.maxSizeBytes * goal && files <= cfg.maxFiles * goal && free >= cfg.minFreeDiskBytes;
   let evicted = 0;
+  let failed = 0;
   for (const row of scored) {
     if (enough()) break;
+    const outcome = await evictOne(row);
+    if (outcome === "closed") return;
+    if (outcome !== "gone") {
+      if (outcome === "failed") failed++;
+      continue;
+    }
     const bytes = row.file_size_bytes || 0;
     size -= bytes;
     files -= 1;
     free += bytes;
-    const fp = row.file_path || getFilePath(row.audio_key);
-    try {
-      if (fs.existsSync(fp)) fs.unlinkSync(fp);
-    } catch {
-      /* 무시 */
-    }
-    conn().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run(row.audio_key);
     evicted++;
   }
-  if (evicted > 0) log.info(`오디오 캐시 ${evicted}개를 지웠습니다(남은 ${files}개 · ${Math.round(size / 1024 / 1024)}MB)`);
+  if (evicted > 0 || failed > 0) log.info(`오디오 캐시 ${evicted}개를 지웠습니다(남은 ${files}개 · ${MB(size)}MB)${failed > 0 ? `. ${failed}개는 지우지 못했습니다` : ""}`);
 }
 
 /** 백그라운드 주기적 제거 타이머 시작 */
@@ -544,5 +599,5 @@ function close() {
   }
 }
 
-export { initialize, getFilePath, protect, unprotect, protectFile, unprotectFile, setQueuedKeys, lookupByAudioKey, recordDownloadStart, recordDownloadComplete, recordError, recordPlayback, getProtectedCacheFiles, onStartup, resetCache, evictIfNeeded, evict, getCacheStats, close, cacheDir, _setCacheDir, liveKeys as _liveKeys, cleanOrphanFiles as _cleanOrphanFiles, cacheCount as _cacheCount, protectedKeys as _protectedKeys, protectedFiles as _protectedFiles };
+export { initialize, getFilePath, protect, unprotect, protectFile, unprotectFile, setQueuedKeys, lookupByAudioKey, recordDownloadStart, recordDownloadComplete, recordError, recordPlayback, getProtectedCacheFiles, onStartup, resetCache, evictIfNeeded, evict, getCacheStats, close, cacheDir, _setCacheDir, _setRemoval, liveKeys as _liveKeys, cleanOrphanFiles as _cleanOrphanFiles, cacheCount as _cacheCount, protectedKeys as _protectedKeys, protectedFiles as _protectedFiles };
 export type { AudioRow, TrackMeta };

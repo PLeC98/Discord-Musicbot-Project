@@ -44,22 +44,23 @@ function seedTrack(key: string, title: string) {
   return { track, file };
 }
 
-test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다", () => {
+test("초기화: 지우지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다", async () => {
   const playing = seedTrack("yt:playing", "재생중인곡");
   const idle = seedTrack("yt:idle", "그냥캐시된곡");
 
   // 재생 중이라 잠긴 파일을 흉내 낸다 — Windows에서 실제로 unlink가 던지는 자리다.
-  const realUnlink = fs.unlinkSync;
-  fs.unlinkSync = (target: fs.PathLike) => {
-    if (path.resolve(String(target)) === path.resolve(playing.file)) throw Object.assign(new Error("EBUSY"), { code: "EBUSY" });
-    return realUnlink(target);
-  };
+  audioCache._setRemoval({
+    unlink: async (target) => {
+      if (path.resolve(target) === path.resolve(playing.file)) throw Object.assign(new Error("EBUSY"), { code: "EBUSY" });
+      return fs.promises.unlink(target);
+    },
+  });
 
   let result;
   try {
-    result = audioCache.resetCache();
+    result = await audioCache.resetCache();
   } finally {
-    fs.unlinkSync = realUnlink;
+    audioCache._setRemoval();
   }
 
   assert.equal(result.kept, 1, "잠긴 파일 하나를 남겨 뒀다고 보고한다");
@@ -84,11 +85,11 @@ test("초기화 뒤에도 재생 중인 곡의 장부 기록이 터지지 않는
   });
 });
 
-test("남길 것이 없으면 전부 비운다", () => {
+test("남길 것이 없으면 전부 비운다", async () => {
   seedTrack("yt:a", "곡A");
   seedTrack("yt:b", "곡B");
 
-  const result = audioCache.resetCache();
+  const result = await audioCache.resetCache();
 
   assert.equal(result.kept, 0);
   assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);

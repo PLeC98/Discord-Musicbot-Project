@@ -14,6 +14,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
 import config from "../../config.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-audiocache-test-${process.pid}.db`);
 
@@ -120,6 +121,119 @@ test("evict: 저장된 세션의 곡은 조건이 나빠도 지우지 않는다"
   }
 });
 
+// 다른 프로그램(탐색기 등)이 파일을 쥐고 있으면 지우기가 풀릴 때까지 멈춘다. 동기로 지우면 봇 전체가 같이 멈췄다
+test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이번 실행 동안 다시 지우지 않는다", async () => {
+  const conn = storeDb.get();
+  conn.prepare("DELETE FROM audio_cache").run();
+  const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
+  const OLD = Date.now() - 90 * 86_400_000;
+  ins.run("stuck", "/nx/stuck.opus", 60_000_000, OLD); // 가장 먼저 지울 곡
+  for (let i = 0; i < 5; i++) ins.run(`ok${i}`, `/nx/ok${i}.opus`, 1_000_000, Date.now() - i * 60_000);
+  const calls: string[] = [];
+  audioCache._setRemoval({
+    timeoutMs: 50,
+    unlink: (target) => {
+      calls.push(path.basename(target));
+      return target.endsWith("stuck.opus") ? new Promise(() => {}) : Promise.resolve();
+    },
+  });
+  let ticks = 0;
+  const timer = setInterval(() => ticks++, 5);
+  const from = sink.buffer.length;
+  const left = () =>
+    conn
+      .prepare<[], { audio_key: string }>("SELECT audio_key FROM audio_cache")
+      .all()
+      .map((r) => r.audio_key);
+  try {
+    await withCacheLimits({ maxFiles: 3 }, () => audioCache.evict());
+    assert.ok(ticks > 0, "기다리는 동안 이벤트 루프가 돈다");
+    assert.ok(left().includes("stuck"), "못 지운 파일의 행은 남는다");
+    assert.equal(left().length, 2, "나머지를 지워 목표선(3의 90%) 아래로: stuck 과 하나");
+    const logs = sink.buffer.slice(from).map((e) => e.text);
+    assert.ok(logs.some((t) => t.startsWith("캐시 파일 지우기가 0.05초 안에 끝나지 않아 이번 실행 동안 건너뜁니다")));
+    assert.ok(logs.some((t) => t.includes("1개는 지우지 못했습니다")));
+
+    calls.length = 0;
+    await withCacheLimits({ maxFiles: 1 }, () => audioCache.evict());
+    assert.ok(!calls.includes("stuck.opus"), "같은 실행에서 다시 부르지 않는다(지우기 하나가 스레드 풀 한 칸을 잡는다)");
+    assert.deepEqual(left(), ["stuck"]);
+  } finally {
+    clearInterval(timer);
+    audioCache._setRemoval();
+    conn.prepare("DELETE FROM audio_cache").run();
+  }
+});
+
+test("evictIfNeeded: 넘은 상한을 알리고, 겹쳐 불러도 한 번만 돈다", async () => {
+  const conn = storeDb.get();
+  conn.prepare("DELETE FROM audio_cache").run();
+  const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
+  for (let i = 0; i < 6; i++) ins.run(`n${i}`, `/nx/n${i}.opus`, 1_000_000, Date.now() - i * 60_000);
+  let unlinks = 0;
+  audioCache._setRemoval({
+    unlink: async () => {
+      unlinks++;
+    },
+  });
+  const from = sink.buffer.length;
+  try {
+    await withCacheLimits({ maxFiles: 5 }, () => Promise.all([audioCache.evictIfNeeded(), audioCache.evictIfNeeded()]));
+    const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("오디오 캐시가 상한을 넘었습니다"));
+    assert.deepEqual(
+      lines.map((e) => e.text),
+      ["오디오 캐시가 상한을 넘었습니다(파일 6개 / 5개). 상한의 90%까지 정리합니다."],
+      "넘은 것만 적는다(용량은 넘지 않았다)",
+    );
+    assert.equal(unlinks, 2, "6개 → 4개(5의 90%). 겹친 부름이 같은 행을 또 지우지 않는다");
+  } finally {
+    audioCache._setRemoval();
+    conn.prepare("DELETE FROM audio_cache").run();
+  }
+});
+
+test("onStartup: 퇴거를 기다리지 않는다(복원이 막히지 않게)", async () => {
+  const conn = storeDb.get();
+  conn.prepare("DELETE FROM audio_cache").run();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-startup-"));
+  const prevDir = audioCache.cacheDir();
+  audioCache._setCacheDir(dir);
+  const ins = conn.prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, 0, NULL, ?)");
+  for (let i = 0; i < 3; i++) {
+    const file = path.join(dir, `s${i}.opus`);
+    fs.writeFileSync(file, "x");
+    ins.run(`s${i}`, file, 1, Date.now());
+  }
+  // 첫 지우기는 풀어 줄 때까지 멈춘다
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  let first = true;
+  audioCache._setRemoval({
+    timeoutMs: 60_000,
+    unlink: () => {
+      if (!first) return Promise.resolve();
+      first = false;
+      return held;
+    },
+  });
+  try {
+    await withCacheLimits({ maxFiles: 1 }, async () => {
+      const waited = new Promise((resolve) => setTimeout(() => resolve("기다림"), 1000));
+      const startup = await Promise.race([audioCache.onStartup().then(() => "끝남"), waited]);
+      release();
+      await audioCache.evictIfNeeded(); // 뒤에서 돌던 퇴거를 마저 기다린다
+      assert.equal(startup, "끝남", "지우기가 풀리지 않았는데 끝난다");
+      assert.equal(first, false, "퇴거는 뒤에서 시작했다");
+    });
+  } finally {
+    release();
+    audioCache._setRemoval();
+    audioCache._setCacheDir(prevDir);
+    conn.prepare("DELETE FROM audio_cache").run();
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 // 상한만 잠시 바꾼다(디스크 여유 조건은 끈다)
 async function withCacheLimits(limits: { maxFiles?: number; maxSizeBytes?: number }, fn: () => Promise<unknown>) {
   const saved = { ...config.cache };
@@ -143,7 +257,7 @@ function makeCacheDir() {
   return { dir, opus: path.join(dir, `track_${md5}.opus`), stem: `track_${md5}` };
 }
 
-test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치운다", () => {
+test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치운다", async () => {
   const { dir, stem } = makeCacheDir();
   for (const f of [`${stem}.opus.part`, `${stem}.opus.ytdl`, `${stem}.opus`]) {
     fs.writeFileSync(path.join(dir, f), "x");
@@ -152,7 +266,7 @@ test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치�
   const prevDir = audioCache.cacheDir();
   audioCache._setCacheDir(dir);
   try {
-    audioCache._cleanOrphanFiles();
+    await audioCache._cleanOrphanFiles();
   } finally {
     audioCache._setCacheDir(prevDir);
   }
@@ -163,7 +277,7 @@ test("_cleanOrphanFiles: 부팅 스윕이 중단된 다운로드 잔해를 치�
   fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 });
 
-test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", () => {
+test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", async () => {
   const { dir, stem } = makeCacheDir();
   const temp = path.join(dir, `${stem}.tmp-1234-abcd.opus`);
   fs.writeFileSync(temp, "받는 중");
@@ -172,11 +286,11 @@ test("_cleanOrphanFiles: 지금 받고 있는 임시 파일은 건너뛴다", ()
   audioCache._setCacheDir(dir);
   try {
     audioCache.protectFile(temp);
-    audioCache._cleanOrphanFiles();
+    await audioCache._cleanOrphanFiles();
     assert.equal(fs.existsSync(temp), true, "받는 중인 파일은 고아가 아니다 — DB에도 없고 캐시 키로도 유도되지 않는다");
 
     audioCache.unprotectFile(temp);
-    audioCache._cleanOrphanFiles();
+    await audioCache._cleanOrphanFiles();
     assert.equal(fs.existsSync(temp), false, "받기가 끝났거나 죽은 뒤 남은 것은 정리된다");
   } finally {
     audioCache._setCacheDir(prevDir);
@@ -202,27 +316,27 @@ test("외부 호출자가 쓰는 함수를 내보낸다", () => {
 
 // 실제 audio_cache/를 지우지 않도록 반드시 임시 디렉터리로 갈아끼운다.
 // (resetCache는 캐시 폴더 안의 파일을 전부 지운다.)
-function withTempCacheDir(fn: (dir: string) => void) {
+async function withTempCacheDir(fn: (dir: string) => unknown) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-reset-"));
   const prevDir = audioCache.cacheDir();
   audioCache._setCacheDir(dir);
   try {
-    return fn(dir);
+    return await fn(dir);
   } finally {
     audioCache._setCacheDir(prevDir);
     fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 }
 
-test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다", () => {
-  withTempCacheDir((dir: string) => {
+test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다", async () => {
+  await withTempCacheDir(async (dir: string) => {
     fs.writeFileSync(path.join(dir, "track_deadbeef.opus"), "x");
-    runResetChecks();
+    await runResetChecks();
     assert.equal(fs.readdirSync(dir).length, 0, "캐시 폴더가 비워진다");
   });
 });
 
-function runResetChecks() {
+async function runResetChecks() {
   guildTable.setBotChannel("keepme", "ch-keep");
   guildTable.setDjRoles("keepme", ["role-keep"]);
 
@@ -232,7 +346,7 @@ function runResetChecks() {
   externalCaches.markAgeRestricted("reset1");
   sessions().append("g-reset", [{ title: "t", pageUrl: "https://y/reset1", requestKey: "https://y/reset1" }]);
 
-  const result = audioCache.resetCache();
+  const result = await audioCache.resetCache();
 
   assert.equal(typeof result.removed, "number");
   assert.equal(audioCache._cacheCount(), 0, "audio_cache 비움");
@@ -244,12 +358,12 @@ function runResetChecks() {
   assert.deepEqual(guildTable.getDjRoles("keepme"), ["role-keep"], "DJ 역할은 남는다");
 }
 
-test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌다)", () => {
-  withTempCacheDir(() => {
+test("초기화는 인메모리 보호도 비운다 (가리킬 행이 사라졌다)", async () => {
+  await withTempCacheDir(async () => {
     audioCache.protect("yt:live");
     audioCache.setQueuedKeys("g1", ["yt:queued"]);
 
-    audioCache.resetCache();
+    await audioCache.resetCache();
 
     assert.equal(audioCache._liveKeys().size, 0);
   });
