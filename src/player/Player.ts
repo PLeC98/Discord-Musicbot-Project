@@ -126,7 +126,8 @@ class MusicPlayer {
   nowPlayingWebhook?: PanelHook | null;
   requesterId: string | null;
   sessionId: string;
-  pendingEndReason: string | null;
+  /** 멈춘 까닭. 멈추는 쪽이 _stopWith 로 적고 끝 처리(Idle)가 가져간다 */
+  _endReason: string | null;
   currentTrackRetries: number;
   lifecycle: PlaybackState;
   lastPlaybackPosition: number;
@@ -139,7 +140,6 @@ class MusicPlayer {
   trackSink: SessionPersistence;
   warmer: QueueWarmer;
   sponsorSkipper: SponsorSkipper;
-  _endingLabel?: string | null;
   _retryTrack?: QueuedTrack | null;
   _autoplayPicking?: boolean;
   /** 자동재생 길 찾기의 바깥 경계. 테스트만 넘긴다 */
@@ -176,7 +176,7 @@ class MusicPlayer {
     this.sessionId = createPlayerSessionId();
 
     // 재생 생명주기 상태
-    this.pendingEndReason = null;
+    this._endReason = null;
     this.currentTrackRetries = 0;
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
     this.lastPlaybackPosition = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
@@ -325,7 +325,7 @@ class MusicPlayer {
       if (!start.ok) return start;
 
       // 새 재생. 위치 재개는 직전 재생이 남긴 스트림 정보를 쓴다(같은 곡일 때만)
-      this.pendingEndReason = null;
+      this._endReason = null;
       const previous = this.playback;
       // 틀 곡은 prepareStart 가 정했다
       const current = this.currentTrack;
@@ -460,18 +460,22 @@ class MusicPlayer {
   }
 
   onPlayerIdle(trigger = "idle") {
-    const reason = this.consumePendingEndReason(trigger);
-
-    // 재생 통계가 마무리되도록 약간 지연
-    setTimeout(() => {
-      this.handleTrackEnd(reason).catch(console.error);
-    }, 60);
+    const reason = this._endReason ?? trigger;
+    this._endReason = null;
+    // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 멈춤(audioPlayer.stop)은 Idle 을 곧바로 부른다
+    setImmediate(() => {
+      this.handleTrackEnd(reason).catch((error) => log.error("곡 끝 처리 실패:", error));
+    });
   }
 
-  consumePendingEndReason(defaultReason = "idle") {
-    const reason = this.pendingEndReason || defaultReason;
-    this.pendingEndReason = null;
-    return reason;
+  /**
+   * 지금 곡을 멈추고 그 까닭을 끝 처리(Idle)에 넘긴다. 곡을 멈추는 쪽은 모두 여기를 지난다.
+   * 이미 멈추는 중이면 먼저 온 까닭을 지킨다(겹친 까닭은 로그로만). force 가 거짓이면 남은 소리를 흘려보낸 뒤 멈춘다
+   */
+  _stopWith(reason: string, { force = true }: { force?: boolean } = {}) {
+    if (this._endReason && this._endReason !== reason) log.debug(`이미 멈추는 중(원인=${this._endReason}). ${reason} 은 버린다: ${this._trackLabel()}`);
+    this._endReason ??= reason;
+    this.audioPlayer.stop(force);
   }
 
   pause(reason = "manual") {
@@ -575,8 +579,9 @@ class MusicPlayer {
    * @param o.reason  로그에 남길 원인
    * @param o.session  remove: 세션을 지운다 · save: 저장해 남긴다(/join 이 되살린다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)
    * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
+   * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect · inactivity-timeout · leave 등). 기본 stop
    */
-  async dispose({ reason, session, panel }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected" }) {
+  async dispose({ reason, session, panel, end = "stop" }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end?: string }) {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
@@ -590,12 +595,12 @@ class MusicPlayer {
       this._stopTimers();
       this.releaseAudioProtection(); // currentTrack 을 읽으므로 비우기 전에
 
-      // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
-      this._endingLabel = this._trackLabel();
+      // 버린 플레이어는 곡 끝 처리(다음 곡 · 재시도)를 하지 않는다. 끝 줄은 여기서 남긴다
+      const ending = this.currentTrack ? this._trackLabel() : null;
       trackState.reset(this, { history: true });
-      this.pendingEndReason = "stop";
-      this.audioPlayer.stop(true);
       this.audioPlayer.removeAllListeners();
+      this.audioPlayer.stop(true);
+      if (ending) log.info(`트랙 종료: ${ending} | 원인=${end}`);
       try {
         this.playback?.resource?.playStream?.destroy();
       } catch {
@@ -651,8 +656,7 @@ class MusicPlayer {
       this.watch.stopEnd();
       this.idle.cancelEmpty();
 
-      this.pendingEndReason = reason;
-      this.audioPlayer.stop(true);
+      this._stopWith(reason);
       this.scheduleStatePersist("skip", 0);
       return true;
     }
@@ -666,8 +670,7 @@ class MusicPlayer {
     // 한곡 반복 중 이전곡 = 현재 곡 재시작. 대기열·기록 불변.
     if (this.loop === "track") {
       this.watch.stopEnd();
-      this.pendingEndReason = "previous";
-      this.audioPlayer.stop(true);
+      this._stopWith("previous");
       this.scheduleStatePersist("previous", 0);
       return true;
     }
@@ -679,8 +682,7 @@ class MusicPlayer {
 
       this.watch.stopEnd();
 
-      this.pendingEndReason = "previous";
-      this.audioPlayer.stop(true);
+      this._stopWith("previous");
       this.scheduleStatePersist("previous", 0);
       return true;
     }
@@ -817,7 +819,7 @@ class MusicPlayer {
       await this._finishQueue();
     } finally {
       this.lifecycle.finishEnd();
-      this.pendingEndReason = null;
+      this._endReason = null;
     }
   }
 
@@ -832,8 +834,7 @@ class MusicPlayer {
     // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
     const liveDropped = Boolean(this.playback?.live) && !manualSkip && this.playback?.liveExitCode !== 0;
 
-    const label = finishedTrack ? this._trackLabel(finishedTrack) : this._endingLabel || this._trackLabel(null);
-    this._endingLabel = null;
+    const label = this._trackLabel(finishedTrack);
     log.info(`트랙 종료: ${label} | 원인=${reason}`);
     // 재생/길이 대조는 종료 감시 판정용 수치라 조사할 때만 본다.
     wlog.debug(`트랙 종료 상세: 재생 ${(playedMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}`);

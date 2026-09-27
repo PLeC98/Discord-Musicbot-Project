@@ -26,7 +26,7 @@ async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState
 
 // 봇이 음성에서 쫓겨났다. 플레이어를 버리고 패널을 끝난 모양으로
 async function forcedOut(player: MusicPlayer) {
-  await player.dispose({ reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected" });
+  await player.dispose({ reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" });
 }
 
 // 누가 봇을 다른 채널로 옮겼다. 연결은 음성 라이브러리가 따라가고, 여기서는 기록과 화면을 맞춘다.
@@ -57,7 +57,7 @@ async function listenersChanged(client: Client, player: MusicPlayer, guild: Guil
 
   const channel = guild.channels.cache.get(voiceChannelId);
   if (!channel?.isVoiceBased()) {
-    await player.dispose({ reason: "봇의 음성 채널이 사라짐", session: "remove" });
+    await player.dispose({ reason: "봇의 음성 채널이 사라짐", session: "remove", end: "channel-gone" });
     return;
   }
 

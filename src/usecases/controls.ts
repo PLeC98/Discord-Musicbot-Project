@@ -276,7 +276,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   }
   const track = player.currentTrack;
   const saved = { queue: player.queue.length, positionSec: Math.floor((player.getCurrentTime?.() || 0) / 1000) };
-  await player.dispose({ reason: "나가며 저장", session: "save", panel: track ? "leave" : "disconnected" });
+  await player.dispose({ reason: "나가며 저장", session: "save", panel: track ? "leave" : "disconnected", end: "leave" });
   return done({ left: "player" as const, track, saved });
 }
 

@@ -10,6 +10,9 @@ import { fake } from "../helpers/fake.ts";
 
 type Options = { status?: AudioPlayerStatus; inputAt?: number | null; reason?: string | null; since?: number };
 
+// 멈춘 까닭(플레이어 안 칸)
+const endReasonOf = (p: object) => (p as { _endReason?: string | null })._endReason;
+
 function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reason = null }: Options = {}) {
   const stops: Array<boolean | undefined> = [];
   const player = fake<WatchHost>({
@@ -20,7 +23,8 @@ function fakePlayer({ status = AudioPlayerStatus.Buffering, inputAt = null, reas
         stops.push(force);
       },
     },
-    pendingEndReason: reason,
+    _endReason: reason,
+    _stopWith: MusicPlayer.prototype._stopWith,
     playback: { inputProgressAt: inputAt },
     _trackLabel: MusicPlayer.prototype._trackLabel,
   });
@@ -41,7 +45,7 @@ test("입력 없이 15초 버퍼링이면 강제로 멈춰 복구 경로로 보�
   assert.deepEqual(stops, [], "아직 이르다");
   watch.checkBufferingStall(15_000);
   assert.deepEqual(stops, [true], "force 없이는 Buffering에서 Idle로 가지 않는다");
-  assert.equal(player.pendingEndReason, "buffering-stall");
+  assert.equal(endReasonOf(player), "buffering-stall");
 });
 
 test("입력이 들어오고 있으면 버퍼링이 길어도 멈추지 않는다", () => {
@@ -61,5 +65,5 @@ test("이미 버퍼링이 아니면 아무것도 하지 않는다", () => {
 test("이미 정해진 종료 사유는 덮지 않는다", () => {
   const { player, watch } = watching({ since: 0, reason: "skip" });
   watch.checkBufferingStall(15_000);
-  assert.equal(player.pendingEndReason, "skip");
+  assert.equal(endReasonOf(player), "skip");
 });

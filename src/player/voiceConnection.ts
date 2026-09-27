@@ -135,7 +135,7 @@ class VoiceConnectionManager {
         // 맵에 남겨두면 모든 음악 명령을 막는 잔여 항목이 생김
         // 이 서버는 재시작 전까지 계속 막힘
         log.warn(`헬스체크: 음성 채널을 찾을 수 없어 플레이어를 정리합니다 (${guildName(player)})`);
-        player.dispose({ reason: "헬스체크: 음성 채널을 찾을 수 없음", session: "remove" }).catch((error: unknown) => log.error("헬스체크 정리 실패:", error));
+        player.dispose({ reason: "헬스체크: 음성 채널을 찾을 수 없음", session: "remove", end: "channel-gone" }).catch((error: unknown) => log.error("헬스체크 정리 실패:", error));
       }
     } catch (error) {
       log.error("연결 헬스체크 오류:", error);

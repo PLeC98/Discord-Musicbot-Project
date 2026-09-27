@@ -1,7 +1,7 @@
 // 재생 감시 둘. 타이머는 이 모듈이 가지고 stop() 하나로 치운다.
 //   종료 감시     곡이 끝났는데 Idle 이 오지 않는 경우. 길이를 넘기면 멈춰 종료 처리에 맡긴다
 //   버퍼링 감시   재생이 시작되지 않은 채 입력도 없이 멈춘 경우. 멈춰 같은 곡을 다시 시도하게 한다
-// 둘 다 audioPlayer.stop() 으로 Idle 을 일으키고, 왜 멈췄는지(pendingEndReason)를 남긴다.
+// 둘 다 _stopWith 로 Idle 을 일으키고, 왜 멈췄는지를 끝 처리에 넘긴다.
 
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
@@ -10,7 +10,7 @@ import type { MusicPlayer } from "./Player.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
 
 /** 감시가 읽고 멈추는 플레이어 칸 */
-type WatchHost = Pick<MusicPlayer, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "pendingEndReason" | "playback">;
+type WatchHost = Pick<MusicPlayer, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "_stopWith" | "playback">;
 
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 
@@ -93,10 +93,7 @@ class PlaybackWatch {
       wlog.warn(`종료 감시가 트랙을 정지시킴: ${player._trackLabel()} | 재생 ${playedSec}초 / 예상 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"} | 길이출처=${this._durationSource()}`);
 
       // Idle을 발생시키고 생명주기 핸들러가 실행되도록 정상 중지
-      if (!player.pendingEndReason) {
-        player.pendingEndReason = "watchdog";
-      }
-      player.audioPlayer.stop();
+      player._stopWith("watchdog", { force: false });
       return;
     }
 
@@ -146,9 +143,8 @@ class PlaybackWatch {
     if (now - quietSince < BUFFERING_STALL_MS) return;
     this.stopBuffering();
     wlog.warn(`재생이 시작되지 않아 다시 시도합니다: ${player._trackLabel()} | 버퍼링 ${sec(now - (this.bufferingSince ?? now))}초, 입력 없음 ${sec(now - quietSince)}초`);
-    if (!player.pendingEndReason) player.pendingEndReason = "buffering-stall";
     // force 없이는 무음 패딩만 예약되고 Buffering에서 벗어나지 않는다(패딩은 Playing에서만 소비된다)
-    player.audioPlayer.stop(true);
+    player._stopWith("buffering-stall");
   }
 
   stopBuffering() {

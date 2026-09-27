@@ -54,7 +54,7 @@ class IdleLeave {
         }
 
         // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다
-        await player.dispose({ reason: "비활성 타임아웃", session: "remove", panel: "disconnected" });
+        await player.dispose({ reason: "비활성 타임아웃", session: "remove", panel: "disconnected", end: "inactivity-timeout" });
       },
       Math.max(this.aloneMs, 0),
     );

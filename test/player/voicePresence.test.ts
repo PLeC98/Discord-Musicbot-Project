@@ -30,7 +30,6 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = t
     currentTrack,
     queue: [tracks.youtube("bbbbbbbbbbb", { title: "다음" })],
     pauseReasons: new Set(paused),
-    pendingEndReason: null,
     dispose: async (o: { reason: string; session: string; panel?: string }) => calls.push(`dispose:${o.reason}:${o.session}:${o.panel ?? "-"}`),
     voice: { followMove: (from: string, ch: { id: string }) => calls.push(`move:${from}->${ch.id}`) },
     pauseFor: (r: string) => (calls.push(`pause:${r}`), true),

@@ -37,7 +37,8 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     loop,
     queue,
     autoplay: false,
-    pendingEndReason: null,
+    _endReason: null,
+    _stopWith: MusicPlayer.prototype._stopWith,
     guild: { id: "g1", client: null },
     played: [] as Array<{ title: string | undefined; ms: number }>,
     releaseAudioProtection() {},
@@ -98,7 +99,7 @@ test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변 (버그 3 
 
   assert.equal(previous.call(p), true, "기록이 비어 있어도 재시작으로 동작");
   assert.deepEqual(titles(p.queue), ["B"], "previous()가 대기열을 건드리지 않음");
-  assert.equal(p.pendingEndReason, "previous");
+  assert.equal(p._endReason, "previous");
 
   await handleTrackEnd.call(p, "previous");
   assert.deepEqual(p.played, [{ title: "A", ms: 0 }]);
@@ -119,13 +120,17 @@ test("한곡 반복 + 대기열 점프(jump): 재시작이 아니라 선택한 �
   assert.deepEqual(titles(p.previousTracks), ["A"], "떠난 곡은 기록에 들어감");
 });
 
-test("skip(reason): 기본은 'skip', 점프는 'jump'를 종료 사유로 세움", () => {
+test("skip(reason): 기본은 'skip', 점프는 'jump'를 종료 사유로 세움. 이미 멈추는 중이면 먼저 온 사유를 지킨다", () => {
   const skip = MusicPlayer.prototype.skip;
   const p = makePlayer({ current: makeTrack("A") });
   skip.call(p);
-  assert.equal(p.pendingEndReason, "skip");
+  assert.equal(p._endReason, "skip");
   skip.call(p, "jump");
-  assert.equal(p.pendingEndReason, "jump");
+  assert.equal(p._endReason, "skip", "끝 처리(Idle)가 꺼내 가기 전에 겹친 멈춤");
+
+  p._endReason = null; // 끝 처리가 꺼내 갔다
+  skip.call(p, "jump");
+  assert.equal(p._endReason, "jump");
 });
 
 // ── 큐 반복 ───────────────────────────────────────────────────

@@ -102,7 +102,7 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   assert.deepEqual(seen, ["update"]);
   assert.deepEqual(calls.sink.slice(0, 2), ["onRetire", "onTake"], "끝난 곡 은퇴 → 다음 곡 꺼냄 순서");
   assert.equal(p.lifecycle.ending, false);
-  assert.equal(p.pendingEndReason, null);
+  assert.equal(p._endReason, null);
 });
 
 test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을 끝내고 세션을 지우고 나갈 예약을 건다", async () => {
@@ -258,16 +258,16 @@ test("현재 곡이 없는데 끝나면 리소스만 비운다", async () => {
 
 // ── 오디오 플레이어 이벤트 ──────────────────────────────────────────────
 
-test("Idle 이벤트는 미뤄 둔 종료 원인을 꺼내 60ms 뒤 종료 처리로 넘긴다", async () => {
+test("Idle 이벤트는 멈춘 까닭을 곧바로 꺼내고, 처리는 멈춘 쪽의 호출이 끝난 뒤로 미룬다", async () => {
   const p = scripted();
   const reasons: string[] = [];
   p.endAs = (r) => reasons.push(r);
-  p.pendingEndReason = "skip";
+  p._endReason = "skip";
 
   p.audioPlayer.emit(AudioPlayerStatus.Idle);
-  assert.equal(p.pendingEndReason, null, "원인은 바로 꺼낸다");
+  assert.equal(p._endReason, null, "원인은 바로 꺼낸다");
   assert.deepEqual(reasons, [], "처리는 미룬다");
-  await tick(90);
+  await new Promise((done) => setImmediate(done));
   h.dispose(p);
 
   assert.deepEqual(reasons, ["skip"]);
@@ -323,7 +323,7 @@ test("종료 감시: 길이를 다 채웠으면 watchdog 원인으로 멈춘다"
   p.watch.checkEnd();
   h.dispose(p);
 
-  assert.equal(p.pendingEndReason, "watchdog");
+  assert.equal(p._endReason, "watchdog");
   assert.equal(h.fakeAudioOf(p).stops, 1);
   assert.equal(p.watch.endTimer, null);
 });
@@ -363,6 +363,7 @@ test("버리기(세션 지움): 대기열 · 현재 곡 · 기록을 비우고 �
   audioCache.protect("yt:qqqqqqqqqqq");
   p.pauseReasons.add("manual");
 
+  const from = sink.buffer.length;
   await p.dispose({ reason: "정지", session: "remove" });
   h.dispose(p);
 
@@ -372,11 +373,16 @@ test("버리기(세션 지움): 대기열 · 현재 곡 · 기록을 비우고 �
   assert.deepEqual(calls.persists, ["remove"]);
   assert.equal(p.connection, null);
   assert.equal(h.fakeAudioOf(p).stops, 1);
-  assert.equal(p.pendingEndReason, "stop");
   assert.equal(p.pauseReasons.size, 0);
   assert.equal(p._protectedAudioKey, null);
   assert.equal(audioCache._liveKeys().has("yt:qqqqqqqqqqq"), false, "보호를 푼다");
-  assert.match(p._endingLabel ?? "", /곡 qqqqqqqqqqq/, "늦게 오는 종료 로그를 위해 이름을 남긴다");
+  const ended = sink.buffer.slice(from).filter((e) => e.text.startsWith("트랙 종료:"));
+  assert.deepEqual(
+    ended.map((e) => e.text),
+    ['트랙 종료: "곡 qqqqqqqqqqq" (youtube) | 원인=stop'],
+    "버릴 때 곡 이름으로 끝 줄을 곧바로 남긴다",
+  );
+  assert.equal(p.audioPlayer.listenerCount(AudioPlayerStatus.Idle), 0, "곡 끝 처리(다음 곡)는 돌리지 않는다");
 });
 
 test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 세션은 지우지 않는다", async () => {
@@ -391,7 +397,6 @@ test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 
   assert.equal(p.currentTrack, null);
   assert.deepEqual(p.queue, []);
   assert.equal(p.connection, null);
-  assert.equal(p.pendingEndReason, "stop");
 });
 
 test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포함)을 전부 놓는다", async () => {
@@ -707,7 +712,7 @@ test("이전곡: 기록이 있으면 되감고 previous 로 멈춘다. 없으면
   p.previousTracks = [yt("f0fffffffff")];
   assert.equal(p.previous(), true);
   h.dispose(p);
-  assert.equal(p.pendingEndReason, "previous");
+  assert.equal(p._endReason, "previous");
   assert.equal(h.fakeAudioOf(p).stops, 1);
   assert.deepEqual(calls.sink, ["onRewind"]);
 });
@@ -719,7 +724,7 @@ test("이전곡: 틀고 있는 곡이 없으면 기록이 있어도 false, 대�
   h.dispose(p);
   assert.equal(ok, false);
   assert.deepEqual(p.queue, []);
-  assert.equal(p.pendingEndReason, null);
+  assert.equal(p._endReason, null);
   assert.equal(h.fakeAudioOf(p).stops, 0);
 });
 
@@ -730,7 +735,7 @@ test("스킵: 곡이 있으면 원인을 적고 멈춘다. 없으면 false", () 
   p.idle.emptyTimer = setTimeout(() => {}, 1000);
   assert.equal(p.skip("jump"), true);
   h.dispose(p);
-  assert.equal(p.pendingEndReason, "jump");
+  assert.equal(p._endReason, "jump");
   assert.equal(p.idle.emptyTimer, null);
   assert.deepEqual(calls.persists, ["schedule:skip"]);
 });

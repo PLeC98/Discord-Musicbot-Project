@@ -190,7 +190,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
   const name = guild.name;
   try {
     const player = client.players?.get(guild.id);
-    if (player) await player.dispose({ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected" });
+    if (player) await player.dispose({ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "forced-disconnect" });
     await guild.leave();
 
     // 해당 서버 페이지를 보던 사용자에게 넛지 → 다음 조회에서 404로 이탈 유도

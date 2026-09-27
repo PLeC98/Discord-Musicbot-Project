@@ -13,19 +13,25 @@ import type { StreamInfo } from "../../src/sources/streamUrl.ts";
 
 // ── 종료 워치독 ──────────────────────────────────────────────
 
+// 멈춘 까닭(플레이어 안 칸)
+const endReasonOf = (p: object) => (p as { _endReason?: string | null })._endReason;
+
 function watchdogPlayer({ offsetMs = 0, playedMs = 0, duration = 200 } = {}) {
   const audio = {
     state: { status: AudioPlayerStatus.Playing },
     stopped: false,
-    stop() {
+    forced: undefined as boolean | undefined,
+    stop(force?: boolean) {
       this.stopped = true;
+      this.forced = force;
     },
   };
   const player = fake<WatchHost>({
     currentTrack: { title: "곡", platform: "spotify", duration },
     playback: { startOffsetMs: offsetMs, resource: { playbackDuration: playedMs } },
     audioPlayer: audio,
-    pendingEndReason: null,
+    _endReason: null,
+    _stopWith: MusicPlayer.prototype._stopWith,
     _trackLabel: MusicPlayer.prototype._trackLabel,
     getCurrentTime: MusicPlayer.prototype.getCurrentTime,
   });
@@ -37,7 +43,8 @@ test("종료 워치독은 시작 오프셋을 더해 곡 안의 위치로 판정
   const { player, audio, watch } = watchdogPlayer({ offsetMs: 100_000, playedMs: 100_000, duration: 200 });
   watch.checkEnd();
   assert.equal(audio.stopped, true, "오프셋을 빼면 100초 남은 줄 알고 미룬다");
-  assert.equal(player.pendingEndReason, "watchdog");
+  assert.equal(audio.forced, false, "남은 소리를 흘려보낸 뒤 멈춘다(끝 부분을 자르지 않는다)");
+  assert.equal(endReasonOf(player), "watchdog");
 });
 
 test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
@@ -63,7 +70,7 @@ test("길이를 알면 남은 시간 + 4초 뒤에, 모르면 5분 뒤에 보고
   assert.equal(unknown.audio.stopped, false);
   t.mock.timers.tick(1);
   assert.equal(unknown.audio.stopped, true, "길이를 모르는 곡은 5분에 끊긴다");
-  assert.equal(unknown.player.pendingEndReason, "watchdog");
+  assert.equal(endReasonOf(unknown.player), "watchdog");
 });
 
 // ── 판정용 오디오 길이 ───────────────────────────────────────
