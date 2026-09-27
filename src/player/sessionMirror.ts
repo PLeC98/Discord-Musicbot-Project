@@ -13,6 +13,8 @@ import { bestEffort } from "../infra/bestEffort.ts";
 import { repeatingFailure } from "../infra/repeatingFailure.ts";
 
 const HEARTBEAT_MS = 5000;
+// 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(음량을 연달아 바꾸는 따위)
+const SETTINGS_SETTLE_MS = 200;
 
 // 저장한 직후 메모리를 비우는 경로다. 거울을 붙인 채 비우면 방금 저장한 트랙이 DB에서 지워진다.
 const FINAL_REASONS = new Set(["leave", "shutdown"]);
@@ -52,8 +54,9 @@ class SessionPersistence {
   player: Player;
   frozen: boolean;
   dirty: boolean;
-  /** 지난번에 쓴 세션 행(위치 뺀 칸). 주기 저장이 이것과 비교한다 */
+  /** 지난번에 쓴 세션 행(위치 뺀 칸). 설정 알림과 주기 저장이 이것과 비교한다 */
   lastRow: string | null;
+  settingsTimer: NodeJS.Timeout | null = null;
 
   // 알림(events)에 플레이어를 넘기므로 플레이어 그대로 받는다
   constructor(player: Player) {
@@ -149,7 +152,17 @@ class SessionPersistence {
     };
   }
 
-  /** 세션 행 칸(음량 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 조작은 저장을 모르고 주기 저장이 이걸 부른다 */
+  /** 설정이 바뀌었다(플레이어가 알린다). 잠깐 모았다가 세션 행이 지난 저장과 다르면 쓴다. 동기화 중(재생을 시작한 뒤 버리기 전)에만 */
+  onSettingsChanged() {
+    if (this.settingsTimer || !active.has(this)) return;
+    this.settingsTimer = setTimeout(() => {
+      this.settingsTimer = null;
+      this.saveRowIfChanged();
+    }, SETTINGS_SETTLE_MS);
+    this.settingsTimer.unref?.();
+  }
+
+  /** 세션 행 칸(음량 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 설정 알림이 부르고, 주기 저장이 알림을 빠뜨린 길을 잡는다 */
   saveRowIfChanged() {
     const p = this.player;
     if (!p.currentTrack && p.queue.length === 0) return;
@@ -202,6 +215,8 @@ class SessionPersistence {
   }
 
   stopStateSync() {
+    if (this.settingsTimer) clearTimeout(this.settingsTimer);
+    this.settingsTimer = null;
     active.delete(this);
     if (active.size === 0 && heartbeat) {
       clearInterval(heartbeat);

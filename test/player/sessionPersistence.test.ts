@@ -161,7 +161,7 @@ test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다�
   assert.deepEqual(stored(p.guild.id).queue, ["A", "B"]);
 });
 
-// 조작은 저장을 모른다. 세션 행 칸이 바뀌면 주기 저장(beat)이 쓴다
+// 알림을 빠뜨린 길은 주기 저장(beat)이 잡는다. 세션 행 칸이 지난 저장과 다르면 쓴다
 test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위치만 바뀌었으면 다시 쓰지 않는다. 곡이 없으면 쓰지 않는다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
@@ -199,6 +199,46 @@ test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위�
     sp.stopStateSync();
     store.saveSession = save;
     store.removeSession = remove;
+  }
+});
+
+// 설정이 바뀌면 플레이어가 알리고, 거울이 잠깐(0.2초) 모았다가 한 번 쓴다
+test("설정 알림: 연달아 와도 한 번 쓴다. 바뀐 게 없으면 쓰지 않는다. 동기화를 멈추면 걸린 쓰기도 버린다", async () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.persistState("play");
+  const store = sessions();
+  const save = store.saveSession.bind(store);
+  let writes = 0;
+  store.saveSession = (...args: Parameters<typeof save>) => (writes++, save(...args));
+  const settle = () => new Promise((done) => setTimeout(done, 300));
+  sp.startStateSync();
+  try {
+    for (const volume of [80, 60, 40]) {
+      p.volume = volume;
+      sp.onSettingsChanged();
+    }
+    assert.equal(writes, 0, "곧바로가 아니라 잠깐 모은다");
+    await settle();
+    assert.equal(writes, 1);
+    assert.equal(loaded(p.guild.id).session.volume, 40, "마지막 값");
+
+    sp.onSettingsChanged();
+    await settle();
+    assert.equal(writes, 1, "바뀐 칸이 없다");
+
+    p.loop = "track";
+    sp.onSettingsChanged();
+    sp.stopStateSync();
+    await settle();
+    assert.equal(writes, 1, "멈추면 걸린 쓰기를 버린다");
+
+    sp.onSettingsChanged();
+    await settle();
+    assert.equal(writes, 1, "멈춘 뒤의 알림은 받지 않는다(버린 플레이어)");
+  } finally {
+    sp.stopStateSync();
+    store.saveSession = save;
   }
 });
 

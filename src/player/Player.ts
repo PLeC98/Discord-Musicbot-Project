@@ -138,6 +138,8 @@ class Player {
   downloader: TrackDownloader;
   persistence: SessionPersistence;
   trackSink: SessionPersistence;
+  /** 설정 칸(음량 · 반복 · 자동재생 · 멈춤 · 채널)이 바뀌면 알릴 곳. 무엇을 언제 쓸지는 받는 쪽(세션 저장)이 정한다 */
+  settingsSink: { onSettingsChanged(): void } | null;
   warmer: QueueWarmer;
   sponsorSkipper: SponsorSkipper;
   _retryTrack?: QueuedTrack | null;
@@ -191,6 +193,7 @@ class Player {
     this.downloader = this.io.createDownloader(this);
     this.persistence = this.io.createPersistence(this);
     this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
+    this.settingsSink = this.persistence; // 설정이 바뀐 것도
     this.warmer = this.io.createWarmer(this, {
       warm: (track) => this.downloader.warm(track),
       isCached: (track) => this.downloader.isCached(track),
@@ -481,6 +484,7 @@ class Player {
       }
       this.pauseReasons.add(reason);
     }
+    this.settingsSink?.onSettingsChanged(); // 멈춤 여부는 아래에서 정해진다. 받는 쪽이 잠깐 모았다가 읽는다
 
     const status = this.audioPlayer.state.status;
     if (status === AudioPlayerStatus.Paused) {
@@ -512,6 +516,7 @@ class Player {
       }
       this.pauseReasons.delete(reason);
     }
+    this.settingsSink?.onSettingsChanged();
 
     if (this.pauseReasons.size > 0) {
       return false;
@@ -680,6 +685,7 @@ class Player {
     if (this.resource && this.resource.volume) {
       this.resource.volume.setVolume(this.volume / 100);
     }
+    this.settingsSink?.onSettingsChanged();
     return this.volume;
   }
 
@@ -715,6 +721,7 @@ class Player {
     }
     if (this.loop !== mode) clog.info(`반복: ${this.loop || "off"} → ${mode || "off"}`);
     this.loop = mode;
+    this.settingsSink?.onSettingsChanged();
     return this.loop;
   }
 
@@ -736,6 +743,7 @@ class Player {
       if (dropped > 0) clog.info(`미리 뽑아 둔 자동재생 곡 ${dropped}곡을 대기열에서 뺐습니다`);
       if (next) bestEffort(log, this.ensureAutoplayNext(), "자동재생 곡 미리 뽑기");
     }
+    this.settingsSink?.onSettingsChanged();
     return this.autoplay;
   }
 
@@ -1086,6 +1094,7 @@ class Player {
   bindChannels({ voice = null, text = null }: { voice?: VoiceBasedChannel | null; text?: GuildTextBasedChannel | null }) {
     if (voice) this.voiceChannel = voice;
     if (text) this.textChannel = text;
+    this.settingsSink?.onSettingsChanged();
   }
 
   /** 패널을 다른 글자 채널로 옮긴다. 옛 패널 참조를 놓는다(옛 패널은 새로 올릴 때 기록을 보고 치운다) */
@@ -1093,6 +1102,7 @@ class Player {
     this.nowPlayingMessage = null;
     this.nowPlayingWebhook = null;
     this.textChannel = channel;
+    this.settingsSink?.onSettingsChanged();
   }
 
   /** 저장된 설정을 되돌린다(세션 복원). 멈춤 사유는 비운다. 복원한 뒤의 상황(혼자 남음 등)이 다시 건다 */
@@ -1102,6 +1112,7 @@ class Player {
     this.loop = loop;
     this.autoplay = autoplay;
     if (requesterId) this.requesterId = requesterId;
+    this.settingsSink?.onSettingsChanged();
   }
 
   /** 지금 곡을 음성 채널 상태에. 일시정지면 그 앞머리로 */

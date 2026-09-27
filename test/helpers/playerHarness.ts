@@ -53,6 +53,7 @@ const calls = {
   fetches: [] as Array<{ url: string; init: FetchInit }>,
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
+  settings: 0, // 플레이어가 설정이 바뀌었다고 알린 횟수
   directStreams: [] as string[],
   sink: [] as string[],
   steps: [] as string[],
@@ -197,6 +198,10 @@ class FakePersistence extends SessionPersistence {
   }
   startStateSync() {}
   stopStateSync() {}
+  // 잠깐 모았다가 쓰는 것은 세션 저장 시험이 본다. 여기서는 알림만 센다
+  onSettingsChanged() {
+    calls.settings++;
+  }
   removeSession() {
     calls.persists.push("remove");
   }
@@ -390,7 +395,8 @@ function seedCache(key: string, track: QueuedTrack, { durationSec = 200 } = {}) 
 }
 
 function reset() {
-  for (const list of Object.values(calls)) list.length = 0;
+  for (const list of Object.values(calls)) if (Array.isArray(list)) list.length = 0;
+  calls.settings = 0;
   for (const k of Object.keys(behavior) as Array<keyof Behavior>) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
