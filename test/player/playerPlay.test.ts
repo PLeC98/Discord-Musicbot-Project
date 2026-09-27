@@ -6,6 +6,7 @@
 // 갈래마다 셋을 본다. 어떤 ffmpeg 를 무엇으로 띄웠나, 캐시 장부에 무엇을 적었나, 끝난 뒤 플레이어 상태.
 
 import * as h from "../helpers/playerHarness.ts";
+import sink from "../../src/infra/log/sink.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -286,12 +287,17 @@ test("스트림이 실패해도 그사이 캐시가 다 받아졌으면 파일�
     h.writeCacheFile("yt:hhhhhhhhhhh");
     throw new Error("끊김");
   };
+  const from = sink.buffer.length;
 
   const r = await playOnce(p);
 
   assert.equal(r.ok, true);
   assert.equal(calls.spawns.length, 1, "스트림 ffmpeg 는 띄우지 않고 파일만");
   assert.equal(calls.spawns[0].label, "playback");
+  assert.ok(
+    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 받은 캐시로 틉니다")),
+    "넘어간 것을 남긴다(조용히 넘어가면 스트림 쪽 결함이 가려진다)",
+  );
 });
 
 test("스트림도 캐시도 안 되면 실패를 돌려주고 멈춘다", async () => {

@@ -144,7 +144,9 @@ async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promi
     } catch (error) {
       // 스트리밍 실패. 위에서 시작한 받기로 넘어간다. 받지 않는 곡이면 원래 오류
       if (!download) throw error;
-      return { resource: null, cacheFile: await cacheFallback(download, error) };
+      const file = await cacheFallback(download, error);
+      log.info(`스트림을 열지 못해 받은 캐시로 틉니다: ${o.label} | ${describeStreamError(error)}`);
+      return { resource: null, cacheFile: file };
     }
   }
   if (!audioStream || !streamInfo) return { resource: null, cacheFile: o.cacheFile };
