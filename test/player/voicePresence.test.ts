@@ -31,7 +31,7 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = t
     queue: [tracks.youtube("bbbbbbbbbbb", { title: "다음" })],
     pauseReasons: new Set(paused),
     pendingEndReason: null,
-    cleanup: (reason: string) => calls.push(`cleanup:${reason}`),
+    dispose: async (o: { reason: string; session: string; panel?: string }) => calls.push(`dispose:${o.reason}:${o.session}:${o.panel ?? "-"}`),
     voice: { followMove: (from: string, ch: { id: string }) => calls.push(`move:${from}->${ch.id}`) },
     pauseFor: (r: string) => (calls.push(`pause:${r}`), true),
     resumeFor: (r: string) => (calls.push(`resume:${r}`), true),
@@ -59,23 +59,10 @@ test("플레이어가 없는 서버는 아무것도 안 한다", async () => {
   assert.deepEqual(calls, []);
 });
 
-test("봇이 음성에서 쫓겨나면 끝난 패널로 바꾸고 정리하고 레지스트리에서 뺀다", async () => {
-  const { client, calls, player, players, state } = setup();
+test("봇이 음성에서 쫓겨나면 세션을 지우고 끝난 패널(disconnected)로 버린다", async () => {
+  const { client, calls, state } = setup();
   await onVoiceStateUpdate(client, state(BOT, "vc1"), state(BOT, null));
-  assert.deepEqual(calls, ["embed:end:disconnected", "cleanup:봇이 음성에서 강제 퇴장됨"]);
-  assert.equal(player.pendingEndReason, "forced-disconnect");
-  assert.equal(player.currentTrack, null, "곡과 대기열을 비운다");
-  assert.equal(players.has("g1"), false);
-});
-
-test("패널을 못 바꿔도 정리는 한다", async () => {
-  const { client, calls, player, players, state } = setup();
-  playerEvents.on("ended", async (p) => {
-    if (p === player) throw new Error("x");
-  });
-  await onVoiceStateUpdate(client, state(BOT, "vc1"), state(BOT, null));
-  assert.deepEqual(calls, ["embed:end:disconnected", "cleanup:봇이 음성에서 강제 퇴장됨"], "알리기는 실패해도 정리는 한다");
-  assert.equal(players.has("g1"), false);
+  assert.deepEqual(calls, ["dispose:봇이 음성에서 강제 퇴장됨:remove:disconnected"]);
 });
 
 test("봇이 다른 채널로 옮겨지면 기록을 맞추고 혼자 남음을 풀고 패널을 고친다", async () => {
@@ -126,11 +113,10 @@ test("사람이 돌아오면 혼자 남음을 풀고, 그걸로 멈춰 있었으
   assert.deepEqual(busy.calls, ["cancelAlone:true"]);
 });
 
-test("봇의 채널이 사라졌으면 정리하고 레지스트리에서 뺀다", async () => {
-  const { client, calls, players, state } = setup({ channelExists: false });
+test("봇의 채널이 사라졌으면 세션을 지우고 버린다", async () => {
+  const { client, calls, state } = setup({ channelExists: false });
   await onVoiceStateUpdate(client, state("u0", "vc1"), state("u0", null));
-  assert.deepEqual(calls, ["cleanup:봇의 음성 채널이 사라짐"]);
-  assert.equal(players.has("g1"), false);
+  assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:-"]);
 });
 
 test("다른 채널의 일은 보지 않는다", async () => {

@@ -353,7 +353,7 @@ test("종료 감시: Idle 이면 손 떼고, 일시정지면 2초마다 다시 �
 
 // ── 정지 · 나가기 · 정리 ────────────────────────────────────────────────
 
-test("stop(): 대기열 · 현재 곡 · 기록을 비우고 세션을 지우고 연결을 끊는다. 패널 참조는 남긴다", () => {
+test("버리기(세션 지움): 대기열 · 현재 곡 · 기록을 비우고 세션을 지우고 연결을 끊는다", async () => {
   const p = h.makePlayer();
   const track = cached("qqqqqqqqqqq");
   p.currentTrack = track;
@@ -363,13 +363,12 @@ test("stop(): 대기열 · 현재 곡 · 기록을 비우고 세션을 지우고
   audioCache.protect("yt:qqqqqqqqqqq");
   p.pauseReasons.add("manual");
 
-  p.stop();
+  await p.dispose({ reason: "정지", session: "remove" });
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
   assert.deepEqual(p.queue, []);
   assert.deepEqual(p.previousTracks, []);
-  assert.ok(p.textChannel, "부른 쪽이 이어서 패널을 끝낸다");
   assert.deepEqual(calls.persists, ["remove"]);
   assert.equal(p.connection, null);
   assert.equal(h.fakeAudioOf(p).stops, 1);
@@ -380,12 +379,12 @@ test("stop(): 대기열 · 현재 곡 · 기록을 비우고 세션을 지우고
   assert.match(p._endingLabel ?? "", /곡 qqqqqqqqqqq/, "늦게 오는 종료 로그를 위해 이름을 남긴다");
 });
 
-test("leaveAndSave(): 먼저 저장하고, stop 처럼 비우고 끊되 세션은 지우지 않는다", async () => {
+test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 세션은 지우지 않는다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("ttttttttttt");
   p.queue = [yt("uuuuuuuuuuu")];
 
-  await p.leaveAndSave();
+  await p.dispose({ reason: "나가며 저장", session: "save" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["leave"]);
@@ -395,7 +394,7 @@ test("leaveAndSave(): 먼저 저장하고, stop 처럼 비우고 끊되 세션�
   assert.equal(p.pendingEndReason, "stop");
 });
 
-test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다", () => {
+test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포함)을 전부 놓는다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   let destroyed = 0;
@@ -407,7 +406,7 @@ test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다
   p.currentTrack = yt("vvvvvvvvvvv");
   p.previousTracks = [yt("wwwwwwwwwww")];
 
-  p.cleanup("시험");
+  await p.dispose({ reason: "시험", session: "remove" });
   h.dispose(p);
 
   assert.equal(destroyed, 1);
@@ -419,6 +418,52 @@ test("cleanup(): 연결을 부수고 플레이어가 쥔 것을 전부 놓는다
   assert.equal(p.voiceChannel, null);
   assert.deepEqual(seen, ["webhook:text1"]);
   assert.equal(p.audioPlayer.listenerCount(AudioPlayerStatus.Idle), 0, "리스너를 뗀다");
+});
+
+test("버리기는 한 번만 한다. 두 번째 부름은 아무것도 하지 않는다", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  p.currentTrack = yt("aaaaaaaaaaa");
+
+  await p.dispose({ reason: "첫째", session: "remove", panel: "stop" });
+  await p.dispose({ reason: "둘째", session: "save", panel: "leave" });
+  h.dispose(p);
+
+  assert.deepEqual(calls.persists, ["remove"]);
+  assert.equal(h.fakeAudioOf(p).stops, 1);
+  assert.deepEqual(seen, ["end:stop", "webhook:text1"]);
+});
+
+test("버리기(세션 그대로): 저장도 지우지도 않는다. 따로 저장된 세션을 /join 이 되살린다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("bbbbbbbbbbb");
+
+  await p.dispose({ reason: "교체", session: "keep" });
+  h.dispose(p);
+
+  assert.deepEqual(calls.persists, []);
+  assert.equal(p.guild.client.players.has("g1"), false, "등록부에서는 빠진다");
+});
+
+test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고친다. 패널 고치기가 실패해도 버림은 끝난다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("ccccccccccc");
+  const at: Array<{ track: unknown; text: unknown; registered: boolean }> = [];
+  const off = playerEvents.on("ended", async (q) => {
+    if (q !== p) return;
+    at.push({ track: q.currentTrack, text: q.textChannel?.id, registered: q.guild.client.players.has("g1") });
+    throw new Error("패널 고치기 실패");
+  });
+  try {
+    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected" });
+  } finally {
+    off();
+    h.dispose(p);
+  }
+
+  assert.deepEqual(at, [{ track: null, text: "text1", registered: false }], "곡은 비웠고 등록부에서 빠졌고 패널 참조는 아직 있다");
+  assert.equal(p.textChannel, null, "실패해도 패널 참조를 놓는다");
+  assert.equal(p.lifecycle.phase, "disposed");
 });
 
 test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다", async () => {
@@ -471,7 +516,7 @@ test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도
   h.dispose(p);
 
   assert.deepEqual(seen, ["end:disconnected", "webhook:text1"]);
-  assert.ok(calls.persists.includes("inactivity-timeout"));
+  assert.ok(calls.persists.includes("remove"), "세션을 지운다");
   assert.equal(p.connection, null);
   assert.equal(p.guild.client.players.has("g1"), false);
 });
@@ -493,7 +538,7 @@ test("시간이 됐을 때 사람이 있으면 alone 을 풀고 패널만 갱신
   assert.equal(p.guild.client.players.get("g1"), p);
 });
 
-test("밀려난 플레이어의 비활성 타이머는 자기 자원만 놓고 현행 플레이어를 건드리지 않는다", async () => {
+test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무것도 하지 않는다. 현행 플레이어와 연결을 건드리지 않는다", async () => {
   const p = h.makePlayer();
   embeds(p);
   voiceChannelWith(p, []);
@@ -502,6 +547,7 @@ test("밀려난 플레이어의 비활성 타이머는 자기 자원만 놓고 �
   p.idle.aloneMs = 0;
 
   p.idle.startAlone();
+  p.lifecycle.to("disposed", "교체"); // 타이머는 일부러 두었다(이미 깨어나는 중인 경우)
   await tick(10);
   h.dispose(p);
 

@@ -56,7 +56,6 @@ function fakePlayer(over: object = {}) {
     pause: () => (calls.push("pause"), true),
     resume: () => (calls.push("resume"), true),
     skip: (reason?: string) => (calls.push(`skip${reason ? `:${reason}` : ""}`), true),
-    stop: () => calls.push("stop"),
     previous: () => (calls.push("previous"), true),
     seek: async (ms: number, reason: string) => calls.push(`seek:${ms}:${reason}`),
     setVolume: (v: number) => (calls.push(`volume:${v}`), v),
@@ -66,7 +65,8 @@ function fakePlayer(over: object = {}) {
     removeFromQueue: (i: number) => (calls.push(`remove:${i}`), p.queue.splice(i, 1)[0]),
     moveInQueue: (f: number, t: number) => (calls.push(`move:${f}->${t}`), p.queue.splice(t, 0, p.queue.splice(f, 1)[0]), true),
     clearQueue: () => (calls.push("clear"), (p.queue = [])),
-    leaveAndSave: async () => calls.push("leaveAndSave"),
+    dispose: async (o: { session: string; panel?: string }) => calls.push(`dispose:${o.session}:${o.panel ?? "-"}`),
+    _trackLabel: () => '"지금"',
     getCurrentTime: () => 65_000,
     ...over,
   };
@@ -113,14 +113,11 @@ test("건너뛰기: 다음 곡이 없으면 거절(한곡 반복은 처음부터
   assert.equal((await controls.skip(mine, requester)).ok, true);
 });
 
-test("정지: 멈추고 레지스트리에서 빼고 끝난 패널로 알린다", async () => {
-  const seen = panel();
+test("정지: 세션을 지우고 끝난 패널(stop)로 버린다. 등록부 빼기는 버림이 한다", async () => {
   const p = fakePlayer();
-  const players = new Map<string, MusicPlayer>([["g1", p]]);
-  const r = await controls.stop(p, DJ, players);
+  const r = await controls.stop(p, DJ);
   assert.deepEqual(r, { ok: true, track: p.currentTrack, cleared: 2 });
-  assert.equal(players.has("g1"), false);
-  assert.deepEqual(seen, ["ended:stop"]);
+  assert.deepEqual(p.calls, ["dispose:remove:stop"]);
 });
 
 test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복은 허용)", async () => {
@@ -228,13 +225,11 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   const players = new Map<string, MusicPlayer>();
   assert.equal(codeOf(await controls.leave(guild, OUTSIDER, players)), "no-permission");
 
-  const seen = panel();
   const p = fakePlayer();
   players.set("g1", p);
   const r = await controls.leave(guild, DJ, players);
   assert.deepEqual(r, { ok: true, left: "player", track: p.currentTrack, saved: { queue: 2, positionSec: 65 } });
-  assert.equal(players.has("g1"), false);
-  assert.deepEqual(seen, ["ended:leave"]);
+  assert.deepEqual(p.calls, ["dispose:save:leave"], "세션을 저장하고 끝난 패널(leave)로 버린다");
 
   let disconnected = 0;
   const lingering = fake<Guild>({ id: "g2", members: { me: { voice: { channel: { id: "vc1" }, disconnect: async () => disconnected++ } } } });

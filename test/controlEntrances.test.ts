@@ -57,7 +57,8 @@ function makePlayer(state: string, acts: string[]) {
     pause: rec("pause"),
     resume: rec("resume"),
     skip: rec("skip"),
-    stop: rec("stop"),
+    dispose: rec("dispose", async () => {}),
+    _trackLabel: () => '"now"',
     previous: rec("previous"),
     seek: rec("seek", async () => ({ success: true })),
     play: rec("play", async () => ({ success: true })),
@@ -67,7 +68,6 @@ function makePlayer(state: string, acts: string[]) {
     clearQueue: rec("clearQueue", () => 2),
     removeFromQueue: rec("removeFromQueue", () => track("q1")),
     moveInQueue: rec("moveInQueue"),
-    leaveAndSave: rec("leaveAndSave", async () => {}),
     get isLive() {
       return Boolean(this.currentTrack?.isLive);
     },
@@ -231,9 +231,9 @@ const TABLE: Record<string, Partial<Record<Entrance, string>>> = {
     D: "x x x x skip skip skip skip",
   },
   stop: {
-    C: "x x stop stop stop stop stop stop", // 곡이 없어도 멈춘다
-    B: "x x stop stop stop stop stop stop",
-    D: "x x stop stop stop stop stop stop",
+    C: "x x dispose dispose dispose dispose dispose dispose", // 곡이 없어도 멈춘다(버린다)
+    B: "x x dispose dispose dispose dispose dispose dispose",
+    D: "x x dispose dispose dispose dispose dispose dispose",
   },
   previous: {
     C: "x x x x previous previous previous previous",
@@ -278,7 +278,7 @@ const TABLE: Record<string, Partial<Record<Entrance, string>>> = {
     C: "x x x x clearQueue x clearQueue clearQueue",
   },
   leave: {
-    C: "x x leaveAndSave leaveAndSave leaveAndSave leaveAndSave leaveAndSave leaveAndSave",
+    C: "x x dispose dispose dispose dispose dispose dispose",
   },
 };
 

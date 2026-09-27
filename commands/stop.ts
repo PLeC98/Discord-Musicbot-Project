@@ -8,7 +8,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-    const r = await controls.stop(client.players.get(guild.id), { member }, client.players);
+    const r = await controls.stop(client.players.get(guild.id), { member });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
     const embed = new EmbedBuilder()

@@ -2,13 +2,13 @@ import { Collection } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "registry" });
 import type { MusicPlayer } from "./Player.ts";
+import * as playerEvents from "./events.ts";
 
 /**
- * client.players를 감싸 등록, 해제를 전부 기록
+ * 서버마다 플레이어 하나(client.players). 등록 · 해제를 부른 자리와 함께 기록한다.
  *
- * 봇이 음성 채널에 남아 소리를 내고 있는데 레지스트리는 비어 있는 사례를 쫓기 위한 관측용
- * (곡 추가가 409, /nowplaying이 "재생 중인 곡 없음"). 지우는 경로가 여러 파일에 흩어져 있고
- * 아직 찾지 못한 경로가 있을 수 있어, 호출부마다 로그를 다는 대신 맵 자체를 감쌌다.
+ * 빼는 길은 플레이어를 버릴 때 오는 알림 하나다(followDisposals → forget). 그 서버에 새 플레이어가
+ * 이미 들어와 있으면 늦게 버려진 옛 플레이어가 새것을 빼지 않는다.
  */
 
 // 이 파일의 경로. 스택에서 이 파일의 프레임을 건너뛰는 데 쓴다(파일 이름을 적어 두면 옮길 때 어긋난다)
@@ -45,6 +45,17 @@ class PlayerRegistry extends Collection<string, MusicPlayer> {
       log.debug(`해제: ${label(prev, guildId)} | 재생중=${track} | 연결=${conn} | ${caller()}`);
     }
     return super.delete(guildId);
+  }
+
+  /** 버려진 플레이어를 뺀다. 그 서버에 이미 다른(새) 플레이어가 있으면 건드리지 않는다 */
+  forget(player: MusicPlayer) {
+    const guildId = player.guild?.id;
+    if (guildId && this.get(guildId) === player) this.delete(guildId);
+  }
+
+  /** 플레이어가 버려지면 스스로 뺀다. 떼는 함수를 돌려준다 */
+  followDisposals() {
+    return playerEvents.on("disposed", (player) => this.forget(player));
   }
 }
 

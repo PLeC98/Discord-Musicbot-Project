@@ -12,7 +12,6 @@ import os from "os";
 import logManager from "../../../src/infra/log/sink.ts";
 import * as procRegistry from "../../../src/infra/processRegistry.ts";
 import { TIERS, getViewAs } from "../viewAs.ts";
-import * as trackState from "../../../src/player/trackState.ts";
 import * as playerEvents from "../../../src/player/events.ts";
 import * as genreConfig from "../../../src/config/genres.ts";
 import * as statusConfig from "../../../src/config/status.ts";
@@ -28,7 +27,6 @@ import * as autoplaySources from "../../../src/autoplay/sources/index.ts";
 import * as assist from "../../../src/autoplay/assist/index.ts";
 import * as tokens from "../../../src/autoplay/assist/tokens.ts";
 import * as models from "../../../src/config/aiModels.ts";
-import { bestEffort } from "../../../src/infra/bestEffort.ts";
 
 // 로그에 남기는 실행한 사람
 function ranBy<P>(req: Request<P>) {
@@ -192,16 +190,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
   const name = guild.name;
   try {
     const player = client.players?.get(guild.id);
-    if (player) {
-      // 강제 연결 해제와 동일한 마감 절차 (index.ts VoiceStateUpdate 참조)
-      player.pendingEndReason = "forced-disconnect";
-      trackState.reset(player);
-      if (client.musicEmbedManager) {
-        await bestEffort(log, client.musicEmbedManager.handlePlaybackEnd(player, { reason: "disconnected" }), "끝난 패널 고치기");
-      }
-      player.cleanup("운영자 패널에서 서버 나가기");
-      client.players.delete(guild.id);
-    }
+    if (player) await player.dispose({ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected" });
     await guild.leave();
 
     // 해당 서버 페이지를 보던 사용자에게 넛지 → 다음 조회에서 404로 이탈 유도

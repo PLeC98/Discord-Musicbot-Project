@@ -165,6 +165,13 @@ const SponsorBlock = await import("../../src/sources/sponsorBlock.ts");
 const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).VoiceConnectionManager;
 const SessionPersistence = (await import("../../src/player/sessionMirror.ts")).SessionPersistence;
 const QueueWarmer = (await import("../../src/player/queueWarmer.ts")).QueueWarmer;
+const { PlayerRegistry } = await import("../../src/player/registry.ts");
+const playerEvents = await import("../../src/player/events.ts");
+// 운영처럼 버려진 플레이어는 등록부가 뺀다(그 서버에 이 플레이어가 아직 있을 때만). 서버마다 등록부가 따로라 알림은 여기서 한 번만 듣는다
+playerEvents.on("disposed", (player) => {
+  const players = player.guild.client.players as Map<string, unknown>;
+  if (players.get(player.guild.id) === player) players.delete(player.guild.id);
+});
 
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
 // 붙은 것으로 둔 연결. 시험은 emit 으로 상태를 흉내 낸다
@@ -328,7 +335,7 @@ MusicPlayer.useBoundary(fakes);
 
 // ── 6. 도우미 ────────────────────────────────────────────────────────
 function fakeGuild(id = "g1"): Guild {
-  const client = { players: new Map(), user: { id: "bot" }, guilds: { fetch: async () => null } };
+  const client = { players: new PlayerRegistry(), user: { id: "bot" }, guilds: { fetch: async () => null } };
   const guild = {
     id,
     name: `서버 ${id}`,
@@ -392,7 +399,7 @@ function reset() {
 
 /** 타이머를 남기지 않게 정리한다. 시험 끝에 부른다. */
 function dispose(player: Player) {
-  player.releaseResources();
+  player._stopTimers();
   player.sponsorSkipper?.stop();
   player.warmer?.stop?.();
 }

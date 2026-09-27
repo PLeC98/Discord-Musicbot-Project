@@ -310,10 +310,6 @@ class MusicPlayer {
     }
   }
 
-  disconnect(reason: string) {
-    return this.voice.disconnect(reason);
-  }
-
   // ── 재생. 단계는 startPlayback, 소리를 여는 것은 media/playbackInput ──────
 
   /**
@@ -555,21 +551,10 @@ class MusicPlayer {
   }
 
   /**
-   * 이 플레이어가 아직 이 서버의 현행 플레이어인가.
-   *
-   * 교체되고도 남아 있던 타이머가 뒤늦게 깨어나면 다른 플레이어의 등록과 음성 연결을 건드린다.
-   * 지연 실행되는 정리 경로는 반드시 이걸로 자기 차례인지 확인한다.
-   */
-  _isActivePlayer() {
-    return this.guild?.client?.players?.get(this.guild.id) === this;
-  }
-
-  /**
    * 재생 상태나 저장된 세션 데이터를 건드리지 않고 모든 반복 타이머를 해제.
-   * 플레이어가 폐기될 때마다 (stop/leave/접속 실패) 호출해야 함.
    * 그렇지 않으면 30초 상태 검사 interval이 플레이어 객체를 영원히 붙잡습니다.
    */
-  releaseResources() {
+  _stopTimers() {
     this.idle.stop();
     this.stopStateSync();
     this.voice.stopConnectionRecovery();
@@ -584,40 +569,25 @@ class MusicPlayer {
     this._protectedAudioKey = null;
   }
 
-  /** /stop · 정지 버튼 · 대시보드. 세션을 지운다. 부른 쪽이 이어서 패널을 끝낸다 */
-  stop() {
-    clog.info(`정지: ${this._trackLabel()} | 대기열 ${this.queue?.length ?? 0}곡 비움`);
-    this.dispose({ reason: "정지", keepPanel: true });
-  }
-
-  /** /leave. 세션을 남겨 /join 이 복구한다. 부른 쪽이 이어서 패널을 끝낸다 */
-  leaveAndSave() {
-    return this.dispose({ reason: "나가며 저장", keepSession: true, keepPanel: true });
-  }
-
-  /** 봇이 스스로 나갈 때(비활성 · 대기열 소진 · 헬스체크 · 강제 퇴장 · 복원 실패 · 운영자). 세션과 패널 참조를 지운다 */
-  cleanup(reason = "정리") {
-    this.dispose({ reason });
-  }
-
   /**
-   * 이 플레이어를 버린다. 부른 뒤에는 레지스트리에서 빼고 다시 쓰지 않는다.
-   * @param {object} o
-   * @param {string} o.reason  로그에 남길 원인
-   * @param {boolean} [o.keepSession]  세션을 남긴다(비우기 전에 저장한다). 아니면 지운다
-   * @param {boolean} [o.keepPanel]  패널 참조를 남긴다. 부른 쪽이 이어서 살아 있는 패널을 끝낸다
+   * 이 플레이어를 버린다. 모든 정리(정지 · 나가기 · 강제 퇴장 · 비활성 · 헬스체크 · 복원 실패 · 교체 · 운영자)가 여기를 지난다.
+   * 두 번째 부름은 아무것도 하지 않는다. 버린 뒤 등록부가 스스로 뺀다(disposed 알림).
+   * @param o.reason  로그에 남길 원인
+   * @param o.session  remove: 세션을 지운다 · save: 저장해 남긴다(/join 이 되살린다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)
+   * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
    */
-  async dispose({ reason, keepSession = false, keepPanel = false }: { reason: string; keepSession?: boolean; keepPanel?: boolean }) {
+  async dispose({ reason, session, panel }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected" }) {
+    if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
       bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
-      if (keepSession) await this.persistState("leave", true);
-      else this.persistence?.removeSession();
+      if (session === "save") await this.persistState("leave", true);
+      else if (session === "remove") this.persistence?.removeSession();
 
       this.sponsorSkipper?.stop();
       this.pauseReasons.clear();
       this.paused = false;
-      this.releaseResources();
+      this._stopTimers();
       this.releaseAudioProtection(); // currentTrack 을 읽으므로 비우기 전에
 
       // 종료 로그가 뒤늦게(Idle 이후) 도는데 여기서 currentTrack을 비우므로 라벨만 남겨둔다
@@ -634,11 +604,13 @@ class MusicPlayer {
       this.playback = null;
       this.lastPlaybackPosition = 0;
       this.voice.disconnect(reason);
-
-      if (!keepPanel) this._dropPanel();
     } catch (error) {
       log.error("정리 중 오류:", error);
     }
+    playerEvents.disposed(this);
+    // 패널은 정리가 끝난 뒤에. 패널 참조(글자 채널 · 메시지)를 놓기 전에 끝난 모양으로 고친다
+    if (panel) await playerEvents.ended(this, panel).catch((error) => log.warn(`끝난 패널 고치기 실패: ${messageOf(error)}`));
+    this._dropPanel();
   }
 
   // 패널 참조를 놓는다. 남은 패널은 ui 가 기록으로 찾아 끝낸다

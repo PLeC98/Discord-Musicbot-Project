@@ -145,13 +145,13 @@ test("빈도 가드: unknownRejectionFlooding 인스턴스 동작", (t) => {
 
 // ── fatalShutdown ────────────────────────────────────────────
 
-test("안전 종료: 전 플레이어 cleanup + 맵 비움 + 주입된 exit 호출", () => {
+test("안전 종료: 전 플레이어 버리기(세션 지움) + 맵 비움 + 주입된 exit 호출", () => {
   let cleaned = 0;
   let exited = 0;
   const players = new Map([
-    ["g1", { cleanup: () => cleaned++ }],
-    ["g2", { cleanup: () => cleaned++ }],
-    ["g3", null], // cleanup 없는 항목도 안전
+    ["g1", { dispose: async (o: { session: string }) => void (cleaned += o.session === "remove" ? 1 : 100) }],
+    ["g2", { dispose: async (o: { session: string }) => void (cleaned += o.session === "remove" ? 1 : 100) }],
+    ["g3", null], // 빈 항목도 안전
   ]);
   fatalShutdown({ players }, new Error("fatal"), () => exited++);
   assert.equal(cleaned, 2);
@@ -159,14 +159,15 @@ test("안전 종료: 전 플레이어 cleanup + 맵 비움 + 주입된 exit 호�
   assert.equal(exited, 1);
 });
 
-test("안전 종료: cleanup이 던져도 exit는 반드시 호출 (best-effort)", () => {
+test("안전 종료: 버리기가 던지거나 거부돼도 exit는 반드시 호출 (best-effort)", () => {
   let exited = 0;
   const players = new Map([
+    ["g1", { dispose: () => Promise.reject(new Error("dispose boom")) }],
     [
-      "g1",
+      "g2",
       {
-        cleanup: () => {
-          throw new Error("cleanup boom");
+        dispose: (): Promise<unknown> => {
+          throw new Error("dispose boom");
         },
       },
     ],
@@ -212,7 +213,7 @@ function installed(t: TestContext) {
   t.mock.timers.enable({ apis: ["Date"], now: clock });
   const heals: number[] = [];
   const exits: number[] = [];
-  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1) }, cleanup() {} };
+  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1) }, dispose: async () => {} };
   const client = Object.assign(new EventEmitter(), { players: new Map([["g1", player]]) });
   const proc = new EventEmitter();
   installErrorHandlers(client, { proc, exit: () => exits.push(1) });

@@ -81,12 +81,11 @@ const g2 = makeGuild("200", "BetaGuild");
 const gStuck = makeGuild("300", "StuckGuild", { leaveError: new Error("Cannot leave") });
 
 const playerG1 = {
-  cleaned: 0,
-  pendingEndReason: null as string | null,
+  disposed: [] as unknown[],
   queue: [{ title: "q1" }],
   currentTrack: { title: "playing" },
-  cleanup() {
-    this.cleaned++;
+  async dispose(o: unknown) {
+    this.disposed.push(o);
   },
 };
 
@@ -186,16 +185,12 @@ test("GET guilds: 참가 서버 목록 + 재생 여부", async () => {
 
 // ── 서버 나가기 ──────────────────────────────────────────────
 
-test("POST leave: 재생 중 서버 — 플레이어 마감(임베드 종료+cleanup+맵 제거) 후 leave", async () => {
+test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 지움 · 끝난 패널) 나간다", async () => {
   const r = await req<{ name: string }>("POST", "/api/admin/guilds/100/leave");
   assert.equal(r.status, 200);
   assert.equal(r.json.name, "AlphaGuild");
   assert.equal(g1.leftCount, 1);
-  assert.equal(playerG1.cleaned, 1, "player.cleanup 호출");
-  assert.equal(client.players.has("100"), false, "players 맵에서 제거");
-  assert.equal(playerG1.pendingEndReason, "forced-disconnect", "강제 해제와 동일 마감 절차");
-  assert.deepEqual(playerG1.queue, [], "대기열 비움");
-  assert.equal(client.musicEmbedManager.endedPlayers[0], playerG1, "임베드 종료 상태 갱신");
+  assert.deepEqual(playerG1.disposed, [{ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected" }]);
 });
 
 test("POST leave: 플레이어 없는 서버도 정상", async () => {

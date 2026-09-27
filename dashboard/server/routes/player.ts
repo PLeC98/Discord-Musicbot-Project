@@ -144,9 +144,7 @@ function joinRoute(router: Router) {
     try {
       await player.connect();
     } catch {
-      player.releaseResources();
-      player.disconnect("접속 실패");
-      client.players.delete(guildId);
+      await player.dispose({ reason: "접속 실패", session: "keep" });
       return res.status(500).json({ error: "음성 채널 접속에 실패했습니다" });
     }
 
@@ -194,7 +192,7 @@ function controlRoutes(router: Router) {
   router.post("/:guildId/player/stop", requireAuth, async (req, res) => {
     const ctx = await getPlayer(req, res, req.params.guildId);
     if (!ctx) return;
-    const r = await controls.stop(ctx.player, ctx.actor, ctx.client.players);
+    const r = await controls.stop(ctx.player, ctx.actor);
     if (!r.ok) return refuse(res, r);
     res.json({ ok: true });
   });

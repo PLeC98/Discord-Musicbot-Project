@@ -124,7 +124,7 @@ async function handlePrevious(interaction: Press, player: MusicPlayer) {
 }
 
 async function handleStop(interaction: Press, player: MusicPlayer) {
-  const r = await controls.stop(player, { member: interaction.member }, interaction.client.players);
+  const r = await controls.stop(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
 
   const embed = new EmbedBuilder()

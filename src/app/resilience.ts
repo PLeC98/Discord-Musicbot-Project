@@ -18,10 +18,10 @@ const coreLog = logger.child({ category: "core" });
 /** 표적 복구로 볼 플레이어. 여기서 읽고 부르는 칸만 */
 type Healable = { currentTrack: unknown; paused: boolean; isRecovering?: boolean; connection?: { state?: { status?: string } } | null; voice: { startConnectionRecovery(): unknown } };
 /** 치명적 오류로 내릴 플레이어 */
-type Cleanable = { cleanup?(reason: string): unknown };
+type Disposable = { dispose?(o: { reason: string; session: "remove" }): Promise<unknown> };
 /** 플레이어 레지스트리에서 쓰는 것 */
 type HealClient = { players?: Iterable<readonly [string, Healable | null]> };
-type FatalClient = { players?: Pick<Map<string, Cleanable | null>, "forEach" | "clear"> };
+type FatalClient = { players?: Pick<Map<string, Disposable | null>, "forEach" | "clear"> };
 /** 오류 처리기를 걸 클라이언트 */
 type WatchedClient = HealClient & FatalClient & { on(event: "error", listener: (error: Error) => void): unknown };
 /** 처리되지 않은 거부 · 예외를 알리는 곳(프로세스) */
@@ -111,7 +111,9 @@ function fatalShutdown(client: FatalClient | null | undefined, error: unknown, e
   try {
     if (client && client.players) {
       client.players.forEach((player) => {
-        if (player && player.cleanup) player.cleanup("치명적 오류로 종료");
+        player?.dispose?.({ reason: "치명적 오류로 종료", session: "remove" }).catch(() => {
+          /* 종료 중이다. 남은 정리는 프로세스와 함께 끝난다 */
+        });
       });
       client.players.clear();
     }

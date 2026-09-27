@@ -1,11 +1,11 @@
-// src/player/Player.ts — 지연 정리 타이머가 "자기가 아직 현행 플레이어인지" 확인하고 움직이는지.
+// 지연 정리 타이머와 등록부. 버려진 플레이어의 늦은 타이머는 아무것도 하지 않고, 등록부는 같은 플레이어일 때만 뺀다.
 //
 // 회귀 대상 (2026-09-08 실서버 관측): 대기열 소진 타이머는 트랙이 끝날 때마다 새로 예약되는데
 // 이전 것을 지우지 않아 쌓였다. 그중 하나가 뒤늦게 깨어나면 자기(이미 비워진 구 플레이어)
 // 기준으로 조건을 통과하고는 길드 키로 client.players에서 지웠다. 그 사이 새 플레이어가
-// 등록돼 재생 중이면 그것이 지워진다 — 소리는 나는데 /nowplaying·대시보드는 "재생 중 없음"이 된다.
+// 등록돼 재생 중이면 그것이 지워진다. 소리는 나는데 /nowplaying·대시보드는 "재생 중 없음"이 된다.
 
-import { test, before, after } from "node:test";
+import { test, before, after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 
 import { openTempStore } from "../helpers/tempStore.ts";
@@ -18,6 +18,8 @@ const config = (await import("../../config.ts")).default;
 const MusicPlayer = (await import("../../src/player/Player.ts")).MusicPlayer;
 const PlaybackState = (await import("../../src/player/playbackState.ts")).PlaybackState;
 const IdleLeave = (await import("../../src/player/idleLeave.ts")).IdleLeave;
+const { PlayerRegistry } = await import("../../src/player/registry.ts");
+const playerEvents = await import("../../src/player/events.ts");
 const handleTrackEnd = MusicPlayer.prototype.handleTrackEnd;
 
 const GUILD = "g1";
@@ -49,8 +51,7 @@ function makePlayer(players: Map<string, unknown>, current: { title: string; dur
     autoplay: false,
     pendingEndReason: null,
     guild: { id: GUILD, name: "TestGuild", client: { players } },
-    cleanupCalls: [] as string[],
-    releasedResources: 0,
+    disposeCalls: [] as string[],
     _trackLabel: MusicPlayer.prototype._trackLabel,
     getCurrentTime: MusicPlayer.prototype.getCurrentTime,
     _describeEnd: MusicPlayer.prototype._describeEnd,
@@ -58,68 +59,88 @@ function makePlayer(players: Map<string, unknown>, current: { title: string; dur
     _playNext: MusicPlayer.prototype._playNext,
     _continueAutoplay: MusicPlayer.prototype._continueAutoplay,
     _finishQueue: MusicPlayer.prototype._finishQueue,
-    _isActivePlayer: MusicPlayer.prototype._isActivePlayer,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     async persistState() {},
     async play() {},
     async updateVoiceStatus() {},
     audioPlayer: { stop() {} },
-    cleanup(reason: string) {
-      this.cleanupCalls.push(reason);
-    },
-    releaseResources() {
-      this.releasedResources++;
+    // 진짜 dispose 처럼 버린 단계로 옮기고 알린다(등록부는 알림을 듣고 뺀다)
+    async dispose({ reason }: { reason: string }) {
+      if (this.lifecycle.disposed) return;
+      this.disposeCalls.push(reason);
+      this.lifecycle.to("disposed", reason);
+      playerEvents.disposed(this as unknown as InstanceType<typeof MusicPlayer>);
     },
   });
   p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다
   return p;
 }
 
-test("교체된 플레이어의 타이머는 현행 플레이어를 레지스트리에서 지우지 않는다", async () => {
-  const players = new Map();
+// 버려진 플레이어를 스스로 빼는 등록부(운영과 같다). 시험이 끝나면 알림 듣기를 뗀다
+function registry(t: TestContext) {
+  const players = new PlayerRegistry();
+  t.after(players.followDisposals());
+  return players;
+}
 
+test("버려진 플레이어의 늦은 대기열 소진 타이머는 아무것도 하지 않는다. 새 플레이어는 등록부에 남는다", async (t) => {
+  const players = registry(t);
   const stale = makePlayer(players);
   players.set(GUILD, stale);
   await handleTrackEnd.call(stale, "idle"); // 대기열 소진 → 타이머 예약
 
-  // 그 사이 새 플레이어가 등록되어 재생을 시작한다
+  // 교체: 옛 플레이어는 버려졌는데 타이머가 늦게 깨어나는 경우를 흉내 낸다(타이머는 일부러 두었다)
+  stale.lifecycle.to("disposed");
   const fresh = makePlayer(players, { title: "재생 중인 곡", duration: 200 });
   players.set(GUILD, fresh);
 
-  await sleep(DELAY * 3); // 구 플레이어의 타이머가 뒤늦게 깨어난다
+  await sleep(DELAY * 3);
 
   assert.equal(players.get(GUILD), fresh, "현행 플레이어가 살아 있어야 한다");
-  assert.deepEqual(stale.cleanupCalls, [], "구 플레이어의 cleanup은 공유 음성 연결을 끊는다 — 부르면 안 된다");
-  assert.equal(stale.releasedResources, 1, "대신 자기 자원만 정리한다");
+  assert.deepEqual(stale.disposeCalls, [], "버려진 플레이어를 다시 버리지 않는다(쥔 음성 연결이 새 플레이어의 것일 수 있다)");
 });
 
-test("현행 플레이어의 타이머는 정상적으로 정리·해제한다 (기존 동작 보존)", async () => {
-  const players = new Map();
+test("늦게 버려진 옛 플레이어는 등록부의 새 플레이어를 빼지 않는다. 등록부는 같은 플레이어일 때만 뺀다", async (t) => {
+  const players = registry(t);
+  const stale = makePlayer(players);
+  players.set(GUILD, stale);
+  const fresh = makePlayer(players, { title: "재생 중인 곡", duration: 200 });
+  players.set(GUILD, fresh);
+
+  await stale.dispose({ reason: "늦은 정리", session: "keep" });
+  assert.equal(players.get(GUILD), fresh);
+
+  await fresh.dispose({ reason: "정리", session: "remove" });
+  assert.equal(players.has(GUILD), false);
+});
+
+test("현행 플레이어의 타이머는 버리고, 등록부에서 빠진다", async (t) => {
+  const players = registry(t);
   const p = makePlayer(players);
   players.set(GUILD, p);
 
   await handleTrackEnd.call(p, "idle");
   await sleep(DELAY * 3);
 
-  assert.deepEqual(p.cleanupCalls, ["대기열 소진"]);
+  assert.deepEqual(p.disposeCalls, ["대기열 소진"]);
   assert.equal(players.has(GUILD), false, "봇이 나가고 레지스트리에서 빠진다");
 });
 
-test("/join만 하고 틀지 않아도 같은 타이머로 나간다", async () => {
-  const players = new Map();
+test("/join만 하고 틀지 않아도 같은 타이머로 나간다", async (t) => {
+  const players = registry(t);
   const p = makePlayer(players, null);
   players.set(GUILD, p);
 
   p.idle.scheduleEmpty("곡 없이 대기");
   await sleep(DELAY * 3);
 
-  assert.deepEqual(p.cleanupCalls, ["곡 없이 대기"]);
+  assert.deepEqual(p.disposeCalls, ["곡 없이 대기"]);
   assert.equal(players.has(GUILD), false);
 });
 
-test("타이머가 깨어났을 때 다시 재생 중이면 아무것도 하지 않는다", async () => {
-  const players = new Map();
+test("타이머가 깨어났을 때 다시 재생 중이면 아무것도 하지 않는다", async (t) => {
+  const players = registry(t);
   const p = makePlayer(players);
   players.set(GUILD, p);
 
@@ -127,12 +148,12 @@ test("타이머가 깨어났을 때 다시 재생 중이면 아무것도 하지 
   p.currentTrack = tracks.youtube("aaaaaaaaaaa", { title: "새로 튼 곡", duration: 100 }); // 대기 시간 안에 다시 재생
   await sleep(DELAY * 3);
 
-  assert.deepEqual(p.cleanupCalls, []);
+  assert.deepEqual(p.disposeCalls, []);
   assert.equal(players.get(GUILD), p);
 });
 
-test("타이머는 쌓이지 않는다 — 새로 예약하면 이전 것을 취소한다", async () => {
-  const players = new Map();
+test("타이머는 쌓이지 않는다. 새로 예약하면 이전 것을 취소한다", async (t) => {
+  const players = registry(t);
   const p = makePlayer(players);
   players.set(GUILD, p);
 
@@ -146,5 +167,5 @@ test("타이머는 쌓이지 않는다 — 새로 예약하면 이전 것을 취
   await sleep(DELAY * 3);
 
   assert.equal(stalefired, false, "이전 타이머가 취소돼야 한다");
-  assert.deepEqual(p.cleanupCalls, ["대기열 소진"], "새 타이머만 한 번 동작한다");
+  assert.deepEqual(p.disposeCalls, ["대기열 소진"], "새 타이머만 한 번 동작한다");
 });

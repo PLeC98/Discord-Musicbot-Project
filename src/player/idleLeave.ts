@@ -7,7 +7,6 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
-import * as trackState from "./trackState.ts";
 import * as playerEvents from "./events.ts";
 import type { MusicPlayer } from "./Player.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
@@ -54,30 +53,8 @@ class IdleLeave {
           return;
         }
 
-        player.pauseReasons.clear();
-        player.pendingEndReason = "inactivity-timeout";
-        trackState.reset(player);
-
-        try {
-          await playerEvents.ended(player, "disconnected");
-
-          await player.persistState("inactivity-timeout");
-        } catch (error) {
-          log.error("비활성 정리 후 재생 UI 갱신 실패:", error);
-        } finally {
-          // 교체된 뒤 남은 타이머가 현행 플레이어의 연결을 끊지 않도록 (대기열 소진 타이머와 같은 사고)
-          if (!player._isActivePlayer()) {
-            log.info(`밀려난 플레이어의 비활성 타이머. 자기 자원만 정리합니다 (${player.guild?.name ?? player.guild?.id})`);
-            player.releaseResources();
-            player.releaseAudioProtection();
-          } else {
-            try {
-              player.cleanup("비활성 타임아웃");
-            } finally {
-              player.guild?.client?.players?.delete(player.guild.id);
-            }
-          }
-        }
+        // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다
+        await player.dispose({ reason: "비활성 타임아웃", session: "remove", panel: "disconnected" });
       },
       Math.max(this.aloneMs, 0),
     );
@@ -116,16 +93,8 @@ class IdleLeave {
       this.emptyTimer = null;
       this.emptyAt = null;
       if (player.queue.length !== 0 || player.currentTrack) return;
-      if (!player._isActivePlayer()) {
-        log.info(`밀려난 플레이어의 대기열 소진 타이머. 자기 자원만 정리합니다 (${player.guild?.name ?? player.guild?.id})`);
-        player.releaseResources();
-        player.releaseAudioProtection();
-        return;
-      }
-      player.cleanup(reason);
-      player.guild.client.players.delete(player.guild.id);
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      bestEffort(log, playerEvents.ended(player, "disconnected"), "끝난 패널 고치기");
+      bestEffort(log, player.dispose({ reason, session: "remove", panel: "disconnected" }), "대기열 소진으로 나가기");
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 

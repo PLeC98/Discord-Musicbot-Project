@@ -1,9 +1,6 @@
 // 음성 상태 이벤트 해석. 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음을 가리고, 언제 나가는지는 idleLeave 가 정한다.
 
-import logger from "../infra/log/logger.ts";
-const log = logger.child({ category: "core" });
 import * as playerEvents from "./events.ts";
-import * as trackState from "./trackState.ts";
 import type { Client, Guild, VoiceState } from "discord.js";
 import type { MusicPlayer } from "./Player.ts";
 
@@ -20,25 +17,16 @@ async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState
 
   const botId = guild.members.me?.id ?? client.user?.id;
   if (oldState.id === botId || newState.id === botId) {
-    if (oldState.channelId && !newState.channelId) return forcedOut(client, player, guild);
+    if (oldState.channelId && !newState.channelId) return forcedOut(player);
     await botMoved(client, player, oldState, newState);
     await botMuted(client, player, oldState, newState);
   }
   await listenersChanged(client, player, guild, oldState, newState);
 }
 
-// 봇이 음성에서 쫓겨났다. 화면을 끝난 모양으로 바꾸고 플레이어를 버린다
-async function forcedOut(client: Client, player: MusicPlayer, guild: Guild) {
-  try {
-    player.pendingEndReason = "forced-disconnect";
-    trackState.reset(player);
-    await playerEvents.ended(player, "disconnected");
-  } catch (error) {
-    log.error("강제 연결 해제 후 재생 UI 갱신 실패:", error);
-  } finally {
-    player.cleanup("봇이 음성에서 강제 퇴장됨");
-    client.players.delete(guild.id);
-  }
+// 봇이 음성에서 쫓겨났다. 플레이어를 버리고 패널을 끝난 모양으로
+async function forcedOut(player: MusicPlayer) {
+  await player.dispose({ reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected" });
 }
 
 // 누가 봇을 다른 채널로 옮겼다. 연결은 음성 라이브러리가 따라가고, 여기서는 기록과 화면을 맞춘다.
@@ -69,8 +57,7 @@ async function listenersChanged(client: Client, player: MusicPlayer, guild: Guil
 
   const channel = guild.channels.cache.get(voiceChannelId);
   if (!channel?.isVoiceBased()) {
-    player.cleanup("봇의 음성 채널이 사라짐");
-    client.players.delete(guild.id);
+    await player.dispose({ reason: "봇의 음성 채널이 사라짐", session: "remove" });
     return;
   }
 

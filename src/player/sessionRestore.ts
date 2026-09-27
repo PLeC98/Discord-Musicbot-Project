@@ -92,9 +92,7 @@ async function restoreOne(client: Client, Player: PlayerClass, record: RestoredS
     log.info(`서버 ${guild.name}의 세션 복원 완료`);
   } catch (error) {
     log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, messageOf(error));
-    client.players.delete(guildId);
-    player.cleanup("세션 복원 실패");
-    sessions().removeSession(guildId);
+    await player.dispose({ reason: "세션 복원 실패", session: "remove" });
   }
 }
 

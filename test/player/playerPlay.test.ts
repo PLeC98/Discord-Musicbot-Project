@@ -78,7 +78,7 @@ test("재생 단계: 틀지 못하면 idle 로 돌아오고, 정지하면 dispos
   assert.equal(p.lifecycle.phase, "idle");
   assert.equal(p.isPlayStarting, false);
 
-  p.stop();
+  await p.dispose({ reason: "정지", session: "remove" });
   assert.equal(p.lifecycle.phase, "disposed");
 });
 

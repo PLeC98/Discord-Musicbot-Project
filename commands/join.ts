@@ -36,11 +36,7 @@ const exported: GuildCommand = {
     // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로
     // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라, 그냥 버리면 새 플레이어와
     // 같은 서버 키를 두고 경쟁한다. 살아 있던 대기열은 승계하지 않는다(미해결).
-    if (existing) {
-      existing.releaseResources();
-      existing.releaseAudioProtection();
-      client.players.delete(guild.id);
-    }
+    if (existing) await existing.dispose({ reason: "/join 교체", session: "keep" });
 
     const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice.channel });
 
@@ -60,9 +56,7 @@ const exported: GuildCommand = {
         await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}** 일시정지 중` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
       } catch (error) {
         log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
-        player.releaseResources();
-        player.disconnect("세션 복원 실패");
-        client.players.delete(guild.id);
+        await player.dispose({ reason: "세션 복원 실패", session: "keep" });
         await interaction.editReply({ content: "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요." });
       }
     } else {

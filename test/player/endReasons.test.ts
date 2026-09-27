@@ -85,38 +85,38 @@ test("스킵: 원인=skip, 곡 이름이 남는다. 등록부에 남는다", asy
 
 test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 지운다", async () => {
   const p = playingPlayer(yt("bbbbbbbbbbb", { title: "둘째 곡" }));
-  const lines = await endLines(() => p.stop());
+  const lines = await endLines(() => p.dispose({ reason: "정지", session: "remove", panel: "stop" }));
   assert.deepEqual(lines, ['트랙 종료: "둘째 곡" (youtube) | 원인=stop']);
   assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
-  assert.equal(registered(p), true, "등록부에서 빼는 것은 부른 쪽이다");
+  assert.equal(registered(p), false, "버리면 등록부가 스스로 뺀다");
 });
 
 test("/leave: 원인=stop. 세션을 저장하고 지우지 않는다", async () => {
   const p = playingPlayer(yt("ccccccccccc", { title: "셋째 곡" }));
-  const lines = await endLines(() => p.leaveAndSave());
+  const lines = await endLines(() => p.dispose({ reason: "나가며 저장", session: "save" }));
   assert.deepEqual(lines, ['트랙 종료: "셋째 곡" (youtube) | 원인=stop']);
   assert.ok(calls.persists.includes("leave"));
   assert.equal(calls.persists.includes("remove"), false);
 });
 
-// 5단계가 바꾼다(#25): 강제 퇴장이 적은 사유를 정리가 stop 으로 덮고, 곡 이름은 먼저 비워 ? 가 된다
-test("강제 퇴장: 원인=stop 이고 곡 이름이 ? 다. 등록부에서 빠진다", async () => {
+// 5단계가 바꾼다(#25): 강제 퇴장인데 원인이 stop 이다
+test("강제 퇴장: 원인=stop, 곡 이름이 남는다. 등록부에서 빠진다", async () => {
   const p = playingPlayer(yt("ddddddddddd", { title: "넷째 곡" }));
   const client = p.guild.client as Client;
   const state = (channelId: string | null) => fake<VoiceState>({ id: "bot", channelId, guild: p.guild });
   const lines = await endLines(() => onVoiceStateUpdate(client, state("voice1"), state(null)));
-  assert.deepEqual(lines, ['트랙 종료: "?" (?) | 원인=stop']);
+  assert.deepEqual(lines, ['트랙 종료: "넷째 곡" (youtube) | 원인=stop']);
   assert.equal(registered(p), false);
 });
 
-// 5단계가 바꾼다(#25): 비활성 퇴장이 적은 사유도 정리가 stop 으로 덮는다
-test("혼자 남아 시간이 다 되면: 원인=stop 이고 곡 이름이 ? 다. 등록부에서 빠진다", async () => {
+// 5단계가 바꾼다(#25): 비활성 퇴장인데 원인이 stop 이다
+test("혼자 남아 시간이 다 되면: 원인=stop, 곡 이름이 남는다. 세션을 지우고 등록부에서 빠진다", async () => {
   const p = playingPlayer(yt("eeeeeeeeeee", { title: "다섯째 곡" }));
   const members = Object.assign(new Map(), { filter: () => ({ size: 0 }) });
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
   p.idle.aloneMs = 0;
   const lines = await endLines(() => p.idle.startAlone());
-  assert.deepEqual(lines, ['트랙 종료: "?" (?) | 원인=stop']);
-  assert.ok(calls.persists.includes("inactivity-timeout"));
+  assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=stop']);
+  assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
   assert.equal(registered(p), false);
 });

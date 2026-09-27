@@ -40,6 +40,11 @@ class PlaybackState {
     return this.phase === "starting";
   }
 
+  /** 버려졌다. 늦게 깨어난 타이머 · 두 번째 정리는 이걸 보고 아무것도 하지 않는다 */
+  get disposed() {
+    return this.phase === "disposed";
+  }
+
   /** 끝 처리를 시작한다. 이미 처리 중이면 false(겹쳐 들어온 끝은 버린다) */
   beginEnd() {
     if (this.ending) return false;

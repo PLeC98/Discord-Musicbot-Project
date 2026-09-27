@@ -87,9 +87,9 @@ function makePlayer({ channel = true } = {}) {
     connection: fakeConnection() as FakeConnection | null,
     currentTrack: { title: "곡" } as { title: string } | null,
     paused: false,
-    cleanups: [] as string[],
-    cleanup(reason: string) {
-      this.cleanups.push(reason);
+    disposals: [] as string[],
+    async dispose(o: { reason: string; session: string }) {
+      this.disposals.push(`${o.reason}:${o.session}`);
     },
   };
   guild.client.players.set("g1", player);
@@ -190,7 +190,7 @@ test("연결이 없으면 이벤트를 걸지 않는다", () => {
 
 // ── 헬스체크 ─────────────────────────────────────────────────────────
 
-test("헬스체크: 30초마다. 연결이 파괴됐고 재생 중이면 복구, 음성 채널이 사라졌으면 정리하고 레지스트리에서 뺀다", async () => {
+test("헬스체크: 30초마다. 연결이 파괴됐고 재생 중이면 복구, 음성 채널이 사라졌으면 세션을 지우고 버린다", async () => {
   mock.timers.enable({ apis: ["setInterval"] });
   try {
     const { player, vcm, recoveries } = makePlayer();
@@ -203,31 +203,12 @@ test("헬스체크: 30초마다. 연결이 파괴됐고 재생 중이면 복구,
     mock.timers.tick(1);
     await flush();
     assert.equal(recoveries.length, 1);
-    assert.deepEqual(player.cleanups, []);
+    assert.deepEqual(player.disposals, []);
 
     player.guild.channels.cache.clear();
     mock.timers.tick(30000);
     await flush();
-    assert.deepEqual(player.cleanups, ["헬스체크: 음성 채널을 찾을 수 없음"]);
-    assert.equal(player.guild.client.players.has("g1"), false);
-    vcm.stopHealthCheck();
-  } finally {
-    mock.timers.reset();
-  }
-});
-
-test("헬스체크: 밀려난 플레이어는 정리하되 레지스트리의 현행 플레이어는 지우지 않는다", async () => {
-  mock.timers.enable({ apis: ["setInterval"] });
-  try {
-    const { player, vcm } = makePlayer({ channel: false });
-    const current = {};
-    player.guild.client.players.set("g1", current);
-    vcm.startConnectionHealthCheck();
-
-    mock.timers.tick(30000);
-    await flush();
-    assert.equal(player.cleanups.length, 1);
-    assert.equal(player.guild.client.players.get("g1"), current);
+    assert.deepEqual(player.disposals, ["헬스체크: 음성 채널을 찾을 수 없음:remove"]);
     vcm.stopHealthCheck();
   } finally {
     mock.timers.reset();

@@ -5,6 +5,7 @@
 //   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · stop · leave · disconnected · joined)
 //   started(player, requester)  패널 없이 재생이 시작됐다(자동재생 첫 곡). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
+//   disposed(player)            플레이어를 버렸다. 등록부가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
 //   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 //   leaving(player, leavesAt)   곡이 없을 때 음성에서 나갈 시각이 바뀌었다(혼자 남음 · 복귀). 끝난 패널의 문구를 고친다
@@ -30,13 +31,14 @@ type EventArgs = {
   ended: [player: MusicPlayer, reason: string];
   started: [player: MusicPlayer, requester: Requester];
   released: [player: MusicPlayer, textChannelId: string];
+  disposed: [player: MusicPlayer];
   notice: [player: MusicPlayer, code: NoticeCode, detail: Notices[NoticeCode]];
   touched: [guildId: string];
   leaving: [player: MusicPlayer, leavesAt: number | null];
 };
 type Listener<K extends keyof EventArgs> = (...args: EventArgs[K]) => unknown;
 
-const listeners: { [K in keyof EventArgs]: Set<Listener<K>> } = { refresh: new Set(), ended: new Set(), started: new Set(), released: new Set(), notice: new Set(), touched: new Set(), leaving: new Set() };
+const listeners: { [K in keyof EventArgs]: Set<Listener<K>> } = { refresh: new Set(), ended: new Set(), started: new Set(), released: new Set(), disposed: new Set(), notice: new Set(), touched: new Set(), leaving: new Set() };
 
 /** 듣는 쪽을 건다. 떼는 함수를 돌려준다 */
 function on<K extends keyof EventArgs>(name: K, fn: Listener<K>) {
@@ -61,6 +63,17 @@ function released(player: MusicPlayer, textChannelId: string) {
   for (const fn of listeners.released) fn(player, textChannelId);
 }
 
+// 버리는 도중에 부른다. 듣는 쪽의 실패가 정리를 끊지 않게 한다
+function disposed(player: MusicPlayer) {
+  for (const fn of listeners.disposed) {
+    try {
+      fn(player);
+    } catch (error) {
+      log.warn(`버림 알림 실패: ${messageOf(error)}`);
+    }
+  }
+}
+
 // 대시보드 알림은 기다리지 않고, 실패해도 알린 쪽을 멈추지 않는다
 function touched(guildId: string) {
   for (const fn of listeners.touched) {
@@ -76,6 +89,6 @@ function _reset() {
   for (const set of Object.values(listeners)) set.clear();
 }
 
-export { on, refresh, ended, started, notice, leaving, released, touched, _reset };
+export { on, refresh, ended, started, notice, leaving, released, disposed, touched, _reset };
 export type { Notices, NoticeCode };
 export type { EventArgs, Requester };

@@ -77,15 +77,14 @@ async function skip(player: MaybePlayer, actor: Actor) {
 }
 
 /** 멈추고 대기열을 비우고 나간다. 세션도 지운다 */
-async function stop(player: MaybePlayer, actor: Actor, players: Pick<PlayerRegistry, "delete">) {
+async function stop(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-player");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
   const track = player.currentTrack;
   const cleared = player.queue.length;
-  player.stop();
-  players.delete(player.guild.id);
-  await playerEvents.ended(player, "stop").catch((error) => log.warn(`정지 뒤 패널 갱신 실패: ${messageOf(error)}`));
+  log.info(`정지: ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
+  await player.dispose({ reason: "정지", session: "remove", panel: "stop" });
   return done({ track, cleared });
 }
 
@@ -264,7 +263,7 @@ async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
  * 나가기. 세션을 남겨 /join 이 복구한다. 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
  * 권한은 플레이어가 없어도 본다
  */
-async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get" | "delete">) {
+async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
   if (!actor.owner) {
     const message = await perm.checkControl(actor.member);
     if (message) return fail("no-permission", { message });
@@ -277,9 +276,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   }
   const track = player.currentTrack;
   const saved = { queue: player.queue.length, positionSec: Math.floor((player.getCurrentTime?.() || 0) / 1000) };
-  await player.leaveAndSave();
-  players.delete(guild.id);
-  await playerEvents.ended(player, track ? "leave" : "disconnected").catch((error) => log.warn(`나간 뒤 패널 갱신 실패: ${messageOf(error)}`));
+  await player.dispose({ reason: "나가며 저장", session: "save", panel: track ? "leave" : "disconnected" });
   return done({ left: "player" as const, track, saved });
 }
 

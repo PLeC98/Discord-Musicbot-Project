@@ -138,11 +138,11 @@ function fakePlayerClass({ restoreFails = false } = {}) {
       this.calls.push(`restore:${record.guildId}`);
       if (restoreFails) throw new Error("복원 실패");
     }
-    cleanup(reason: string) {
-      this.calls.push(`cleanup:${reason}`);
+    async dispose(o: { reason: string; session: string }) {
+      this.calls.push(`dispose:${o.reason}:${o.session}`);
     }
   }
-  // 플레이어를 만드는 자리에 넘긴다. 되살리기가 부르는 것(restoreFromState · cleanup)만 갖췄다
+  // 플레이어를 만드는 자리에 넘긴다. 되살리기가 부르는 것(restoreFromState · dispose)만 갖췄다
   return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 
@@ -173,16 +173,15 @@ test("되살리기: 채널이 멀쩡하면 플레이어를 만들어 등록하�
   sessions().removeSession("r1");
 });
 
-test("되살리기: 저장 상태를 못 되돌리면 플레이어를 치우고 세션을 지운다", async () => {
+test("되살리기: 저장 상태를 못 되돌리면 플레이어를 세션 지움으로 버린다(등록부 빼기 · 세션 지우기는 버림이 한다)", async () => {
   saved("r2");
   const client = clientWith([guildWith("r2")]);
   const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
 
   await restoreSavedPlayers(client, FakePlayer);
 
-  assert.deepEqual(made[0].calls, ["restore:r2", "cleanup:세션 복원 실패"]);
-  assert.equal(client.players.has("r2"), false);
-  assert.deepEqual(remaining(), []);
+  assert.deepEqual(made[0].calls, ["restore:r2", "dispose:세션 복원 실패:remove"]);
+  sessions().removeSession("r2");
 });
 
 test("되살리기: 채널 기록이 없거나 채널이 음성 · 글자 채널이 아니면 세션을 지운다", async () => {

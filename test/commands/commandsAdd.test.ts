@@ -367,15 +367,20 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   }
 });
 
-test("/join: 끊긴 채 남은 플레이어는 자원을 놓게 한 뒤 새것으로 바꾼다", async () => {
+test("/join: 끊긴 채 남은 플레이어는 저장된 세션을 남긴 채 버리고 새것으로 바꾼다", async () => {
   const w = world();
   const calls: string[] = [];
-  Object.assign(w.player, { connection: null, releaseResources: () => calls.push("release"), releaseAudioProtection: () => calls.push("unprotect") });
+  // 진짜처럼 버림을 알린다. 등록부 빼기는 실제 경로(알림)로
+  const dispose = async (o: { session: string }) => {
+    calls.push(`dispose:${o.session}`);
+    playerEvents.disposed(w.player);
+  };
+  Object.assign(w.player, { connection: null, guild: w.guild, dispose });
   const { it } = interaction(w);
 
   await runCommand(await command("join"), it, w.client);
 
-  assert.deepEqual(calls, ["release", "unprotect"]);
+  assert.deepEqual(calls, ["dispose:keep"]);
   const replaced = w.client.players.get("g1");
   assert.ok(replaced);
   assert.notEqual(replaced, w.player);
