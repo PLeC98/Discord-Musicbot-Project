@@ -21,7 +21,6 @@ const changes: Array<[string, (p: Player) => unknown]> = [
   ["멈춤 풀기", (p) => p.resumeFor("manual")],
   ["채널", (p) => p.bindChannels({ voice, text })],
   ["패널 옮기기", (p) => p.movePanel(text)],
-  ["복원", (p) => p.restoreSettings({ volume: 30, loop: false, autoplay: false })],
 ];
 
 for (const [name, change] of changes) {
