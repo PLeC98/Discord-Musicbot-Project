@@ -146,7 +146,7 @@ test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(미리 받기
       [0, 1, 2, 3, 4].map((i) => `yt:${id(i)}`),
     );
     const line = sink.buffer.slice(from).find((e) => e.text.startsWith("오디오 캐시 4개를 지웠습니다"));
-    assert.equal(line?.text, "오디오 캐시 4개를 지웠습니다(남은 5개 · 5MB). 목표선까지 내려가지 못했습니다(재생 중 · 대기열 앞 곡 5개는 지키고)");
+    assert.equal(line?.text, "오디오 캐시 4개를 지웠습니다 (5개 남음, 5MB) - 목표선까지 내려가지 못했습니다 (재생 중 · 대기열 앞 곡 5개는 지키고)");
   } finally {
     sessions().removeSession("g-front");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -161,7 +161,7 @@ test("evict: 지울 수 있는 곡이 없어도 결과 줄을 남긴다", async 
   const from = sink.buffer.length;
   try {
     await withCacheLimits({ maxFiles: 0 }, () => audioCache.evict());
-    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 지웠습니다(남은 1개 · 1MB). 목표선까지 내려가지 못했습니다(재생 중 · 대기열 앞 곡 1개는 지키고)"));
+    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 지웠습니다 (1개 남음, 1MB) - 목표선까지 내려가지 못했습니다 (재생 중 · 대기열 앞 곡 1개는 지키고)"));
   } finally {
     audioCache.unprotect("onlylive");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -199,7 +199,7 @@ test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이�
     assert.equal(left().length, 2, "나머지를 지워 목표선(3의 90%) 아래로: stuck 과 하나");
     const logs = sink.buffer.slice(from).map((e) => e.text);
     assert.ok(logs.some((t) => t.startsWith("캐시 파일 지우기가 0.05초 안에 끝나지 않아 이번 실행 동안 건너뜁니다")));
-    assert.ok(logs.some((t) => t.includes("1개는 지우지 못했습니다")));
+    assert.ok(logs.some((t) => t.includes(" - 1개는 지우지 못했습니다")));
 
     calls.length = 0;
     await withCacheLimits({ maxFiles: 1 }, () => audioCache.evict());
@@ -229,7 +229,7 @@ test("evictIfNeeded: 넘은 상한을 알리고, 겹쳐 불러도 한 번만 돈
     const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("오디오 캐시가 상한을 넘었습니다"));
     assert.deepEqual(
       lines.map((e) => e.text),
-      ["오디오 캐시가 상한을 넘었습니다(파일 6개 / 5개). 상한의 90%까지 정리합니다."],
+      ["오디오 캐시가 상한을 넘었습니다 (파일 6개 / 5개) - 상한의 90%까지 정리합니다."],
       "넘은 것만 적는다(용량은 넘지 않았다)",
     );
     assert.equal(unlinks, 2, "6개 → 4개(5의 90%). 겹친 부름이 같은 행을 또 지우지 않는다");
