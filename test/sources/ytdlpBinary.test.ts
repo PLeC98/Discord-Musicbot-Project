@@ -164,6 +164,18 @@ test("정리는 지금 판과 직전 판만 남긴다", async () => {
   assert.deepEqual(fs.readdirSync(path.join(root, "bin/yt-dlp")).sort(), ["2026.09.27.232849", "2026.09.28.000000", "state.json"]);
 });
 
+test("오래 켜 두어도 판이 쌓이지 않는다. 확인할 때마다 지금 판과 직전 판만 남긴다", async (t) => {
+  const { w, bin } = world();
+  t.after(() => bin.stop());
+  await bin.start();
+  for (const day of ["2026.09.28.000000", "2026.09.29.000000", "2026.09.30.000000"]) {
+    w.latest = day;
+    w.clock += DAY;
+    await bin._tick();
+  }
+  assert.deepEqual(fs.readdirSync(path.join(root, "bin/yt-dlp")).sort(), ["2026.09.29.000000", "2026.09.30.000000", "state.json"]);
+});
+
 test("기동: 최신을 따라가면 다음 확인을 하루 뒤에 걸고, 고정이면 걸지 않는다", async (t) => {
   const { bin } = world();
   t.after(() => bin.stop());

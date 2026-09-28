@@ -230,7 +230,11 @@ class YtdlpBinary {
     }
   }
 
-  /** 지금 판 · 직전 판이 아닌 폴더를 지운다. 봇 기동 때만(update:ytdlp 가 돌고 있는 봇의 판을 지우지 않게). 쓰고 있어 못 지운 것은 둔다 */
+  /**
+   * 지금 판 · 직전 판이 아닌 폴더를 지운다. 봇만 부른다: 기동 때와 확인할 때마다(오래 켜 두어도 판이 쌓이지 않게).
+   * 봇은 디스크의 기록을 막 읽은 뒤라 제가 쓰는 판이 지금 판이다. update:ytdlp 는 돌고 있는 봇이 아직 쓰는 판을 지울 수 있어 부르지 않는다.
+   * 옛 판으로 아직 돌고 있어 못 지운 것(Windows)은 다음에 지운다
+   */
   cleanup() {
     const keep = new Set([this.state?.version, this.state?.previous].filter(Boolean));
     if (!fs.existsSync(this.io.dir)) return;
@@ -257,23 +261,27 @@ class YtdlpBinary {
       return;
     }
     if (mode === "off") return;
-    const tick = async () => {
-      let failed = false;
-      try {
-        report(await this.check());
-      } catch (error) {
-        failed = true;
-        log.warn(`yt-dlp 새 판 확인 실패: ${messageOf(error)}`);
-      }
-      // 고정한 판은 기동 때 한 번만 맞춘다
-      if (!pin) this._schedule(tick, failed ? RETRY_MS : this.state!.lastChecked + DAY_MS - this.io.now());
-    };
-    await tick();
+    await this._tick();
   }
 
-  _schedule(tick: () => Promise<void>, delayMs: number) {
+  // 기동 때와 하루 한 번. 새 판을 보고 판을 정리한 뒤 다음 확인을 건다
+  async _tick() {
+    let failed = false;
+    try {
+      report(await this.check());
+    } catch (error) {
+      failed = true;
+      log.warn(`yt-dlp 새 판 확인 실패: ${messageOf(error)}`);
+    } finally {
+      this.cleanup();
+    }
+    // 고정한 판은 기동 때 한 번만 맞춘다
+    if (!config.ytdlp.version) this._schedule(failed ? RETRY_MS : this.state!.lastChecked + DAY_MS - this.io.now());
+  }
+
+  _schedule(delayMs: number) {
     this.stop();
-    this.timer = setTimeout(tick, Math.max(delayMs, 60_000));
+    this.timer = setTimeout(() => this._tick(), Math.max(delayMs, 60_000));
     this.timer.unref?.();
   }
 
