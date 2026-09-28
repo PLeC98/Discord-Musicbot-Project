@@ -22,34 +22,37 @@ function setup(t: TestContext) {
     return { sendPayload: (p) => (sent.push(p), true), destroy: () => (destroyed = true) };
   };
   const rewrites: string[] = [];
-  const adapter = holdingAdapterCreator(creator, { onRewrite: (from, to) => rewrites.push(`${from}->${to}`) })({
+  const sends: string[] = [];
+  const adapter = holdingAdapterCreator(creator, { onRewrite: (from, to) => rewrites.push(`${from}->${to}`), onSend: (id, rewritten) => sends.push(`${id}:${rewritten ? "고침" : "그대로"}`) })({
     onVoiceStateUpdate: (d) => seen.push(d),
     onVoiceServerUpdate() {},
     destroy() {},
   });
   // 알림은 봇의 채널만 본다. 나머지 칸은 비운다
   const state = (channelId: string, extra = {}) => gateway!.onVoiceStateUpdate({ channel_id: channelId, ...extra } as VoiceState);
-  return { adapter, sent, seen, state, rewrites, destroyed: () => destroyed };
+  return { adapter, sent, seen, state, rewrites, sends, destroyed: () => destroyed };
 }
 
 const join = (channelId: string) => ({ op: 4, d: { guild_id: "g1", channel_id: channelId, self_deaf: false, self_mute: false } });
 
-test("참가 요청은 잠깐 붙잡았다 그대로 보낸다", (t) => {
-  const { adapter, sent } = setup(t);
+test("참가 요청은 잠깐 붙잡았다 그대로 보낸다. 내보낼 때 고치지 않았다고 알린다", (t) => {
+  const { adapter, sent, sends } = setup(t);
   assert.equal(adapter.sendPayload(join("a")), true);
   assert.equal(sent.length, 0);
   t.mock.timers.tick(HOLD_MS);
   assert.deepEqual(sent, [join("a")]);
+  assert.deepEqual(sends, ["a:그대로"]);
 });
 
 test("붙잡은 사이 봇이 다른 채널로 옮겨졌다고 오면 그 채널로 고쳐 보낸다(옛 채널로 끌려가지 않게)", (t) => {
-  const { adapter, sent, seen, state, rewrites } = setup(t);
+  const { adapter, sent, seen, state, rewrites, sends } = setup(t);
   state("a"); // 봇은 a 에 있다
   adapter.sendPayload(join("a")); // 라이브러리가 옛 설정으로 다시 참가하려 한다
   state("b"); // 사람이 봇을 b 로 불러왔다
   t.mock.timers.tick(HOLD_MS);
   assert.equal(sent[0].d.channel_id, "b");
   assert.deepEqual(rewrites, ["a->b"]);
+  assert.deepEqual(sends, ["b:고침"], "고쳐 보낸 요청은 라이브러리의 되돌림이 아니다");
   assert.equal(seen.length, 2, "알림은 라이브러리에 그대로 넘긴다");
 });
 

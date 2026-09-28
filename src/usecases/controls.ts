@@ -19,8 +19,8 @@ import type { Loop } from "../player/trackState.ts";
 
 /** 누가 시켰나. 디스코드 멤버, 또는 대시보드 운영자(권한 판정을 건너뛴다) */
 type Actor = { member: GuildMember; owner?: undefined } | { owner: true; member?: undefined };
-/** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message 를 싣는다 */
-type Refusal = { ok: false; code: string; message?: string; durationMs?: number; size?: number };
+/** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 그 까닭(reason)을 싣는다 */
+type Refusal = { ok: false; code: string; message?: string; durationMs?: number; size?: number; reason?: string };
 /** 이 서버에 플레이어가 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 /** 권한 판정. 막으면 안내 문장 */
@@ -57,7 +57,11 @@ async function pause(player: MaybePlayer, actor: Actor) {
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   const resuming = player.paused;
-  if (!(resuming ? player.resumeFor("manual") : player.pauseFor("manual"))) return fail("failed");
+  if (!(resuming ? player.resumeFor("manual") : player.pauseFor("manual"))) {
+    // 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있다. 그 까닭이 풀리면 이어 튼다
+    const held = resuming ? [...player.pauseReasons].find((reason) => reason !== "manual") : undefined;
+    return held ? fail("held", { reason: held }) : fail("failed");
+  }
   await refresh(player);
   return done({ paused: !resuming, track });
 }

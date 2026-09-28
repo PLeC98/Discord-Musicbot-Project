@@ -49,6 +49,7 @@ function fakePlayer(over: object = {}) {
     previousTracks: [track("전")],
     loop: false,
     paused: false,
+    pauseReasons: new Set<string>(),
     volume: 50,
     isLive: false,
     isPlayStarting: false,
@@ -100,6 +101,15 @@ test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다",
   assert.deepEqual(seen, ["refresh", "refresh"]);
 
   assert.equal(codeOf(await controls.pause(fakePlayer({ pauseFor: () => false }), DJ)), "failed");
+});
+
+test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있으면 그 까닭을 싣고 거절한다", async () => {
+  const muted = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "mute"]), resumeFor: () => (muted.pauseReasons.delete("manual"), false) });
+  assert.deepEqual(await controls.pause(muted, DJ), { ok: false, code: "held", reason: "mute" });
+  assert.equal(controlMessage({ code: "held", reason: "mute" }).includes("음소거"), true);
+  assert.equal(controlMessage({ code: "held", reason: "alone" }).includes("아무도"), true);
+  assert.equal(codeOf(await controls.pause(fakePlayer({ paused: true, resumeFor: () => false }), DJ)), "failed", "붙든 까닭이 없으면 그냥 실패");
+  assert.equal(codeOf(await controls.pause(fakePlayer({ pauseReasons: new Set(["mute"]), pauseFor: () => false }), DJ)), "failed", "멈추기 실패는 붙든 까닭과 상관없다");
 });
 
 test("건너뛰기: 다음 곡이 없으면 거절(한곡 반복은 처음부터, 자동재생은 다음 곡을 골라 허용). 곡 요청자는 DJ 가 아니어도 된다", async () => {

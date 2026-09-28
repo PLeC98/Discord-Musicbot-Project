@@ -7,7 +7,7 @@ import type { Player } from "./Player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
 import { bindToGuild } from "../infra/guildContext.ts";
-import { messageOf } from "../rules/errorKind.ts";
+import { codeOf, errorKind, messageOf } from "../rules/errorKind.ts";
 
 const log = logger.child({ category: "voice" });
 
@@ -22,13 +22,18 @@ type BotStateChange = { left: boolean; moved: boolean; muteChanged: boolean };
 const VOICE_LIB: VoiceLib = { joinVoiceChannel, entersState };
 const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready 까지
 const RECOVER_READY_MS = 15_000; // 다시 붙일 때 Ready 까지
-const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
+const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에, 방금 고치지 않은 참가 요청을 보낸 채널로 돌아오면 라이브러리의 되돌림으로 본다
+const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없고 디스코드가 봇이 그 채널에 있다고 보면 나갔다가 다시 붙는다
+const UNKNOWN_CHANNEL = 10003;
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 
 // 로그에 찍을 이름
 const guildName = (p: VoiceHost) => p.guild?.name ?? p.guild?.id;
 const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id ?? "?";
 const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "recovering"]);
+// 빠짐 · 사라짐으로 버릴 때(세션 지움)
+const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" } as const;
+const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", end: "channel-gone" } as const;
 
 class VoiceLink {
   player: VoiceHost;
@@ -45,6 +50,8 @@ class VoiceLink {
   recoveryRetryDelayMs = 3000; // 복구 시도 사이
   lastMove: { from: string; to: string; at: number } | null = null;
   lastBounceFix: number | null = null;
+  /** 라이브러리가 고치지 않고 내보낸 마지막 참가 요청(어댑터가 알린다). 되돌림을 사람의 이동과 가른다 */
+  lastPlainJoin: { channelId: string; at: number } | null = null;
 
   constructor(player: VoiceHost, lib: VoiceLib = VOICE_LIB) {
     this.player = player;
@@ -91,7 +98,27 @@ class VoiceLink {
     player.connection = connection;
     this._watch(connection);
     connection.subscribe(player.audioPlayer);
-    await this.lib.entersState(connection, VoiceConnectionStatus.Ready, readyMs);
+    const stuck = setTimeout(() => this._unstick(connection, channelId), STUCK_MS);
+    try {
+      await this.lib.entersState(connection, VoiceConnectionStatus.Ready, readyMs);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw new Error(`${readyMs / 1000}초 안에 붙지 못했습니다`, { cause: error });
+      throw error;
+    } finally {
+      clearTimeout(stuck);
+    }
+  }
+
+  // 참가 요청에 답이 없다. 디스코드가 봇이 이미 그 채널에 있다고 보면(나감이 닿지 못한 채 남은 것) 같은 채널 참가에 답하지 않으므로,
+  // 채널에서 빼고(REST) 다시 참가를 요청한다
+  _unstick(connection: VoiceConnection, channelId: string) {
+    const me = this.player.guild.members?.me;
+    if (connection !== this.player.connection || connection.state.status !== VoiceConnectionStatus.Signalling || me?.voice?.channelId !== channelId) return;
+    log.warn(`참가 요청에 ${STUCK_MS / 1000}초 동안 답이 없습니다. 디스코드는 봇이 이미 이 채널에 있다고 봅니다. 채널에서 뺐다가 다시 붙습니다: ${this._label()}`);
+    me.voice
+      .disconnect()
+      .then(() => connection.rejoin())
+      .catch((error: unknown) => log.warn(`채널에서 빼기 실패: ${messageOf(error)}`));
   }
 
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voiceAdapter)
@@ -99,6 +126,9 @@ class VoiceLink {
     const player = this.player;
     return holdingAdapterCreator(player.guild.voiceAdapterCreator, {
       onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청을 옮겨진 채널로 고쳐 보냅니다: ${from} → ${to} (${guildName(player)})`),
+      onSend: (channelId: string, rewritten: boolean) => {
+        if (!rewritten) this.lastPlainJoin = { channelId, at: Date.now() };
+      },
     });
   }
 
@@ -135,6 +165,11 @@ class VoiceLink {
 
   _onError(error: Error) {
     if (this.state === "closed") return;
+    // 네트워크가 끊긴 것은 복구 시작 줄이 까닭과 함께 남긴다
+    if (errorKind(error) === "network") {
+      this.recover(`네트워크 오류(${messageOf(error)})`);
+      return;
+    }
     log.error("음성 연결 오류:", error);
     this.recover("연결 오류");
   }
@@ -216,7 +251,8 @@ class VoiceLink {
       await this._join(RECOVER_READY_MS);
       return true;
     } catch (error) {
-      log.error(`연결 복구 ${this.recoveryAttempts}회차 실패:`, messageOf(error));
+      // 중간 시도의 실패. 다음 시도가 받고, 끝내 못 붙으면 포기 줄이 남긴다
+      log.debug(`연결 복구 ${this.recoveryAttempts}회차 실패: ${messageOf(error)}`);
       return false;
     }
   }
@@ -238,6 +274,12 @@ class VoiceLink {
   /** 게이트웨이가 알린 봇의 음성 상태. 빠짐(강제 퇴장 · 채널 사라짐) · 옮겨짐 · 서버 음소거를 가른다 */
   onBotState(oldState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress">, newState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress" | "channel">): BotStateChange {
     if (oldState.channelId && !newState.channelId) {
+      // 다시 붙이는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
+      if (this.state === "waiting" || this.state === "recovering") {
+        log.info(`디스코드가 봇을 음성 채널에서 뺐습니다. 다시 붙이는 중이라 쫓겨난 것으로 보지 않습니다: ${this._label()}`);
+        this.recover("음성 상태가 지워짐");
+        return { left: false, moved: false, muteChanged: false };
+      }
       this._leftChannel(oldState.channelId);
       return { left: true, moved: false, muteChanged: false };
     }
@@ -261,20 +303,36 @@ class VoiceLink {
     return false;
   }
 
-  // 봇이 채널에서 빠졌다. 채널이 서버에 없으면 채널 사라짐, 있으면 강제 퇴장
+  // 봇이 채널에서 빠졌다. 채널이 없으면 채널 사라짐, 있으면 강제 퇴장. 빠짐 알림이 채널 삭제 알림보다 먼저 올 수 있어 캐시가 아니라 디스코드에 묻는다
   _leftChannel(channelId: string | null) {
-    if (channelId && !this.player.guild.channels.cache.has(channelId)) this.channelGone();
-    else this.forcedOut();
+    if (this.state === "closed") return;
+    this.stop();
+    this.state = "closed";
+    this._channelExists(channelId)
+      .then((exists) => this.player.dispose(exists ? FORCED_OUT : CHANNEL_GONE))
+      .catch((error: unknown) => log.error("빠진 뒤 정리 실패:", error));
+  }
+
+  // 채널이 아직 있나. 캐시에 없으면 없다. 있으면 디스코드에 물어 없다는 답(10003)일 때만 없다(묻지 못하면 있다고 본다)
+  async _channelExists(channelId: string | null) {
+    if (!channelId) return true;
+    const channels = this.player.guild.channels;
+    if (!channels.cache.has(channelId)) return false;
+    try {
+      return Boolean(await channels.fetch(channelId, { force: true }));
+    } catch (error) {
+      return codeOf(error) !== UNKNOWN_CHANNEL;
+    }
   }
 
   /** 봇이 음성에서 쫓겨났다. 세션을 지우고 끝난 패널로 버린다 */
   forcedOut() {
-    this._end({ reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" });
+    this._end(FORCED_OUT);
   }
 
   /** 봇의 음성 채널이 사라졌다. 세션을 지우고 버린다 */
   channelGone() {
-    this._end({ reason: "봇의 음성 채널이 사라짐", session: "remove", end: "channel-gone" });
+    this._end(CHANNEL_GONE);
   }
 
   _end(o: Parameters<VoiceHost["dispose"]>[0]) {
@@ -289,8 +347,9 @@ class VoiceLink {
    * 다시 붙지 않고 기록만 맞춘다. 이벤트마다 다시 붙으면 그 다시 붙기가 또 이벤트를 만들어 채널 사이를 오간다.
    *
    * 다만 라이브러리에 경쟁이 있다. 옮겨지는 순간 음성 서버 연결이 상태 패킷보다 먼저 닫히면 옛 설정으로
-   * 다시 참가해 원래 채널로 되돌아간다(@discordjs/voice onNetworkingClose). 방금 옮겨진 곳에서 곧바로
-   * 원래 채널로 돌아오면 그 되돌림으로 보고 목적지로 한 번 다시 붙는다. 되돌려 붙기는 드물게만 한다.
+   * 다시 참가해 원래 채널로 되돌아간다(@discordjs/voice onNetworkingClose). 대개는 어댑터가 그 요청을 붙잡아 고쳐 보내지만
+   * 늦으면 고치지 않은 채 나간다. 방금 옮겨진 곳에서 곧바로 원래 채널로 돌아왔고, 그 직전에 라이브러리가 그 채널로 고치지 않은
+   * 참가 요청을 보냈으면 되돌림으로 보고 목적지로 한 번 다시 붙는다. 사람이 빠르게 되돌린 이동에는 그런 요청이 없다.
    * @returns {boolean} 되돌려 붙었나
    */
   followMove(fromId: string, toChannel: VoiceBasedChannel, now = Date.now()) {
@@ -315,6 +374,8 @@ class VoiceLink {
   _bouncedFrom(fromId: string, toChannel: VoiceBasedChannel, now: number): VoiceBasedChannel | null {
     const last = this.lastMove;
     if (!last || now - last.at >= MOVE_BOUNCE_MS || last.from !== toChannel.id || last.to !== fromId) return null;
+    const sent = this.lastPlainJoin;
+    if (!sent || sent.channelId !== toChannel.id || now - sent.at >= MOVE_BOUNCE_MS) return null;
     if (!this.player.connection || now - (this.lastBounceFix ?? -Infinity) < BOUNCE_FIX_GAP_MS) return null;
     const channel = this.player.guild.channels.cache.get(last.to);
     return channel?.isVoiceBased() ? channel : null;

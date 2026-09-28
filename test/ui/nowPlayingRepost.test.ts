@@ -143,6 +143,64 @@ test("REST 가 제한 시간에 끊은 갱신은 패널을 건드리지 않는�
   assert.deepEqual(levels, ["warn"], "실패가 아니라 다음에 다시 할 일로 남긴다");
 });
 
+const offline = () => Object.assign(new Error("getaddrinfo ENOTFOUND discord.com"), { code: "ENOTFOUND" });
+const unknownChannel = () => Object.assign(new Error("Unknown Channel"), { code: 10003 });
+const levelsSince = (from: number) => sink.buffer.slice(from).map((e) => e.level);
+
+test("네트워크가 끊겨 갱신이 잇달아 실패하면 처음 한 번만 warn, 풀리면 info 한 줄. 패널은 그대로", async () => {
+  const { mem, player, calls, state } = makeSetup({ editError: offline() });
+  const from = sink.buffer.length;
+  for (let i = 0; i < 3; i++) await mem.updateNowPlayingEmbed(player);
+  assert.deepEqual(levelsSince(from), ["warn"]);
+  assert.deepEqual(calls.sent, [], "다시 올리지 않는다");
+  assert.equal(player.nowPlayingMessage?.id, "100");
+
+  state.editError = null;
+  await mem.updateNowPlayingEmbed(player);
+  await mem.updateNowPlayingEmbed(player);
+  assert.deepEqual(levelsSince(from), ["warn", "info"]);
+
+  state.editError = offline();
+  await mem.updateNowPlayingEmbed(player);
+  mem.stopProgressUpdate("g1");
+  await mem.updateNowPlayingEmbed(player);
+  assert.deepEqual(levelsSince(from), ["warn", "info", "warn", "warn"], "갱신을 멈췄다 다시 시작한 뒤의 실패는 새 사건");
+});
+
+test("다시 올리려는데 글자 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {
+  const { mem, player } = makeSetup({ editError: gone(), sendError: unknownChannel() });
+  const from = sink.buffer.length;
+  await mem.updateNowPlayingEmbed(player);
+  assert.equal(player.nowPlayingMessage, null);
+  assert.equal(player.textChannel, null);
+  assert.deepEqual(levelsSince(from), ["info"]);
+});
+
+test("다시 올리기가 네트워크로 실패하면 warn", async () => {
+  const { mem, player } = makeSetup({ editError: gone(), sendError: offline() });
+  const from = sink.buffer.length;
+  await mem.updateNowPlayingEmbed(player);
+  assert.equal(player.nowPlayingMessage, null);
+  assert.deepEqual(levelsSince(from), ["warn"]);
+});
+
+test("웹훅 조회: 채널이 지워졌으면(10003) 남기지 않고 없다고 한다(보내는 쪽이 받는다). 다른 실패는 error", async () => {
+  const { mem } = makeSetup();
+  const channelThrowing = (error: Error) => fake<GuildTextBasedChannel>({ id: "c9", fetchWebhooks: async () => Promise.reject(error) });
+  const from = sink.buffer.length;
+  assert.equal(await MusicEmbedManager.prototype.getOrCreateWebhook.call(mem, channelThrowing(unknownChannel())), null);
+  assert.deepEqual(levelsSince(from), []);
+  assert.equal(await MusicEmbedManager.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("Missing Permissions"))), null);
+  assert.deepEqual(levelsSince(from), ["error"]);
+});
+
+test("끝난 패널로 바꾸기가 네트워크로 실패하면 warn", async () => {
+  const { mem, player } = makeSetup({ editError: offline() });
+  const from = sink.buffer.length;
+  await mem._showIdle(player, player.nowPlayingMessage, { reason: "queue-end", dedicated: false });
+  assert.deepEqual(levelsSince(from), ["warn"]);
+});
+
 test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않는다", async () => {
   let release = () => {};
   const blocked = new Promise<void>((r) => (release = r));

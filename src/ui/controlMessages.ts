@@ -4,13 +4,20 @@
 import * as S from "./strings.ts";
 import { formatMs } from "./format.ts";
 
-// 거절 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message 를 싣는다
-type Refusal = { code: string; message?: string; durationMs?: number; size?: number };
+// 거절 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 reason 을 싣는다
+type Refusal = { code: string; message?: string; durationMs?: number; size?: number; reason?: string };
+
+// 사람이 풀 수 없는 멈춤의 까닭(Player.pauseReasons)
+const HELD: Record<string, string> = {
+  mute: "❌ 봇이 서버에서 음소거되어 멈춰 있습니다. 음소거가 풀리면 이어서 재생합니다.",
+  alone: "❌ 음성 채널에 아무도 없어 멈춰 있습니다. 누가 들어오면 이어서 재생합니다.",
+};
 
 const TEXT: Record<string, (r: Refusal) => string> = {
   "no-player": () => S.ERR_NO_MUSIC,
   "no-track": () => S.ERR_NO_SONG_PLAYING,
   failed: () => "❌ 작업이 실패했습니다!",
+  held: ({ reason }) => (reason && HELD[reason]) || "❌ 다른 까닭으로 멈춰 있어 이어서 재생할 수 없습니다.",
   "skip-failed": () => "❌ 노래가 건너뛰어지지 않았습니다!",
   "previous-failed": () => "❌ 이전 노래로 이동하지 못했습니다!",
   "jump-failed": () => "❌ 곡으로 이동하지 못했습니다!",

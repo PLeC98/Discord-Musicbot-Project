@@ -23,7 +23,8 @@ import * as S from "./strings.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
-import { codeOf, messageOf } from "../rules/errorKind.ts";
+import { codeOf, errorKind, messageOf } from "../rules/errorKind.ts";
+import { repeatingFailure } from "../infra/repeatingFailure.ts";
 import { canSend } from "./channels.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
 import type { Player, PanelMessage } from "../player/Player.ts";
@@ -140,6 +141,7 @@ class MusicEmbedManager {
   panel: NowPlayingPanel;
   idleViews = new Map<string, IdleView>(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
+  editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 잇단 갱신 실패(네트워크)
 
   // panelStore: 패널 자리 기록. 시험은 메모리 가짜를 준다
   constructor(client: Client, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -175,7 +177,8 @@ class MusicEmbedManager {
       this.webhookCache.set(channel.id, client);
       return client;
     } catch (error) {
-      log.error("웹훅 조회/생성 실패:", messageOf(error));
+      // 채널이 지워졌다. 그 채널로 보내는 쪽이 같은 오류를 받아 패널을 놓는다
+      if (codeOf(error) !== UNKNOWN_CHANNEL) log.error("웹훅 조회/생성 실패:", messageOf(error));
       return null;
     }
   }
@@ -493,9 +496,13 @@ class MusicEmbedManager {
       log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다. 5초마다 같은 실패를 반복하면 그게 도배다
-      player.nowPlayingMessage = null;
-      this.stopProgressUpdate(guildId);
-      log.error("재생 중 임베드 다시 올리기 실패:", messageOf(error));
+      if (codeOf(error) === UNKNOWN_CHANNEL) this._dropPanel(player);
+      else {
+        player.nowPlayingMessage = null;
+        this.stopProgressUpdate(guildId);
+        if (errorKind(error) === "network") log.warn(`재생 중 임베드 다시 올리기 실패: ${messageOf(error)}`);
+        else log.error("재생 중 임베드 다시 올리기 실패:", messageOf(error));
+      }
     } finally {
       this.reposting.delete(guildId);
     }
@@ -582,6 +589,7 @@ class MusicEmbedManager {
       // 웹훅이 없으면 채널로 보낸 Message 다
       if (player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(panel.id, payload);
       else if ("edit" in panel) await panel.edit(payload);
+      this.editFailures.get(player.guild.id)?.ok();
     } catch (error) {
       await this._onEditFailed(player, error);
     }
@@ -601,18 +609,38 @@ class MusicEmbedManager {
     }
     const where = player.guild.name ?? player.guild.id;
     if (codeOf(error) === UNKNOWN_CHANNEL) {
-      log.info(`패널을 올린 글자 채널이 사라져 패널을 놓습니다 (${where}). 재생은 이어집니다`);
-      this.stopProgressUpdate(player.guild.id);
-      player.nowPlayingMessage = null;
-      player.nowPlayingWebhook = null;
-      player.textChannel = null;
+      this._dropPanel(player);
       return;
     }
     if (isRestTimeout(error)) {
       log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않았습니다. 다음 갱신에서 다시 합니다 (${where})`);
       return;
     }
+    // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
+    if (errorKind(error) === "network") {
+      this._editFailure(player).fail(messageOf(error));
+      return;
+    }
     log.error("재생 중 임베드 갱신 실패:", error);
+  }
+
+  _editFailure(player: Player) {
+    const guildId = player.guild.id;
+    let failure = this.editFailures.get(guildId);
+    if (!failure) {
+      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `재생 중 임베드 갱신(${player.guild.name ?? guildId})`);
+      this.editFailures.set(guildId, failure);
+    }
+    return failure;
+  }
+
+  // 패널을 올린 글자 채널이 지워졌다. 다시 올릴 곳이 없어 패널을 놓는다
+  _dropPanel(player: Player) {
+    log.info(`패널을 올린 글자 채널이 사라져 패널을 놓습니다 (${player.guild.name ?? player.guild.id}). 재생은 이어집니다`);
+    this.stopProgressUpdate(player.guild.id);
+    player.nowPlayingMessage = null;
+    player.nowPlayingWebhook = null;
+    player.textChannel = null;
   }
 
   /**
@@ -685,7 +713,8 @@ class MusicEmbedManager {
       else if (player.guild?.id) await this.panel.edit(player.guild, payload);
     } catch (error) {
       // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
-      if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
+      if (errorKind(error) === "network") log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
+      else if (!isGone(error)) log.error("패널을 종료 모양으로 바꾸지 못함:", error);
     }
   }
 
@@ -907,6 +936,7 @@ class MusicEmbedManager {
       clearInterval(id);
       this.updateIntervals.delete(guildId);
     }
+    this.editFailures.delete(guildId);
   }
 }
 
