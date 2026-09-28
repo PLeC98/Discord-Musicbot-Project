@@ -53,6 +53,10 @@ const PROJECT_REPO = "https://github.com/PLeC98/Discord-Musicbot-Project";
 const FFMPEG_RELEASE = "autobuild-2026-08-31-13-27";
 const BGUTIL_VERSION = "2.0.0";
 
+// yt-dlp 채널(릴리스 저장소는 ytdlpBinary 가 안다)과 새 판을 보았을 때 할 일
+const YTDLP_CHANNELS = ["stable", "nightly", "master"] as const;
+const YTDLP_UPDATE_MODES = ["auto", "notify", "off"] as const;
+
 // User-Agent
 //   browser  브라우저를 기대하는 곳에서 사용
 //   bot      우리가 누구인지 밝히는 쪽. 버전은 package.json 에서 끌어옴.
@@ -147,13 +151,20 @@ function envReaders(source: EnvSource, problems: string[]) {
   // 쿠키 출처. file 이거나 yt-dlp 의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
   // 그대로 넘기므로 모양은 깨지 않고(`chrome:Profile 1`), 앞의 브라우저 이름만 yt-dlp 가 받는 것인지 본다.
   // 모르는 이름이면 yt-dlp 가 사용법 오류로 끝나 모든 곡 찾기가 실패한다
+  // yt-dlp 릴리스 태그. stable 은 2026.08.19, nightly · master 는 뒤에 시각이 붙는다(2026.09.27.232849)
+  function envYtdlpVersion(key: string) {
+    const v = env(key);
+    if (v === null || !v.trim()) return null;
+    return /^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/.test(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 합니다", null);
+  }
+
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
     if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.includes(v.split(/[+:]/)[0].toLowerCase())) return v;
     return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join("·")})이어야 합니다`, "");
   }
 
-  return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies };
+  return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies, envYtdlpVersion };
 }
 
 function resolveFromRoot(p: string): string;
@@ -172,7 +183,7 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
   if (!envFileFound) problems.push(".env 파일이 없습니다. 프로젝트 루트의 .env.example 을 .env 로 복사한 뒤, 파일 안의 주석을 참고해 값을 채우세요.");
 
   const readers = envReaders(source, problems);
-  const { env, envInt, envUrl, envColor, envQueueMax } = readers;
+  const { env, envEnum, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion } = readers;
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동 중단. 기능 한정 자격증명은 경고 후 해당 기능만 비활성.
@@ -264,6 +275,13 @@ function loadConfig(source: EnvSource, { envFileFound = true }: { envFileFound?:
       clientWindow: envInt("YTDLP_CLIENT_WINDOW", 5, { min: 2, max: 50 }),
       clientFails: envInt("YTDLP_CLIENT_FAILS", 3, { min: 1, max: 50 }),
       clientRetryMs: envInt("YTDLP_CLIENT_RETRY_MINUTES", 60, { min: 0, max: 10080 }) * 60 * 1000,
+
+      // 바이너리 판(src/sources/ytdlpBinary.ts). 채널의 최신을 따라가거나 판 하나로 고정한다
+      channel: envEnum("YTDLP_CHANNEL", "nightly", YTDLP_CHANNELS),
+      // 비우면 채널의 최신. 태그(그 채널 저장소의 릴리스 태그)면 그 판으로 고정
+      version: envYtdlpVersion("YTDLP_VERSION"),
+      // 새 판을 보면: auto 받아서 바꿔 끼운다 · notify 로그로 알린다 · off 보지 않는다
+      update: envEnum("YTDLP_UPDATE", "auto", YTDLP_UPDATE_MODES),
     },
 
     // POToken 공급자(bgutil). 설치돼 있어도 이 값이 true일 때만 띄운다.

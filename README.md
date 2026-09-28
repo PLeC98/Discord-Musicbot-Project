@@ -304,14 +304,14 @@ pnpm run install:dashboard   # 대시보드 빌드 (의존성은 루트 pnpm ins
 
 `git pull`로 코드를 갱신한 뒤, 갱신 내용에 따라:
 
-| 명령                       | 용도                                                                   |
-| -------------------------- | ---------------------------------------------------------------------- |
-| `pnpm install`             | 루트 의존성 갱신 (+ `postinstall`로 ffmpeg 설치, yt-dlp 자동 업데이트) |
-| `pnpm run build:dashboard` | 대시보드(Vue) 변경분 재빌드                                            |
-| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 재빌드                    |
-| `pnpm run update:ytdlp`    | yt-dlp 바이너리 최신화                                                 |
-| `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                   |
-| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                              |
+| 명령                       | 용도                                                                  |
+| -------------------------- | --------------------------------------------------------------------- |
+| `pnpm install`             | 루트 의존성 갱신 (+ `postinstall`로 ffmpeg 설치, yt-dlp 목표 판 받기) |
+| `pnpm run build:dashboard` | 대시보드(Vue) 변경분 재빌드                                           |
+| `pnpm run update:bgutil`   | bgutil POToken 공급자를 설정한 태그로 옮기고 재빌드                   |
+| `pnpm run update:ytdlp`    | yt-dlp 를 목표 판(`.env` 의 채널 · 고정 판)으로 받기                  |
+| `pnpm run install:ffmpeg`  | ffmpeg 바이너리 재설치 (`--force`로 강제 재다운로드)                  |
+| `pnpm run cmddeploy`       | 슬래시 커맨드 강제 재배포                                             |
 
 **슬래시 커맨드 배포**: 기동 시 자동 배포되며, 커맨드 정의가 이전 배포와 같으면 등록을 건너뜁니다.
 Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는 대시보드 운영자 페이지의 재배포 버튼으로 강제 배포하세요.
@@ -320,8 +320,9 @@ Discord 쪽 등록 상태가 어긋난 것 같으면 `pnpm run cmddeploy` 또는
 내려받는 릴리스는 `config.ts`의 기본값으로 고정되어 있고 sha256으로 검증합니다. 다른 버전을 쓰려면 `.env`의 `FFMPEG_RELEASE`에 태그를 적고 `pnpm run install:ffmpeg --force`로 다시 받으세요.
 **각 달의 마지막 빌드만 쓸 수 있습니다** — BtbN은 그 외 autobuild를 2주 뒤 삭제하므로, 중간 날짜로 고정하면 얼마 못 가 내려받기가 404가 됩니다(월말 빌드는 2년 보존).
 
-**yt-dlp 자동 업데이트**: `pnpm install` 시 `postinstall`이 `yt-dlp -U`를 실행해 최신화합니다.
-기동 시 자동 체크는 하지 않으므로, YouTube 추출이 갑자기 막히면(YouTube가 API를 자주 바꿈) 봇 재시작 전에 `pnpm run update:ytdlp`로 갱신하세요.
+**yt-dlp 판**: 봇은 `bin/yt-dlp`의 판을 쓰고, 기본으로 nightly 채널의 최신을 하루 한 번 확인해 새 판이면 받아서 곧바로 바꿔 끼웁니다(재시작 불필요).
+채널 · 판 고정 · 자동 교체 여부는 `.env`의 `YTDLP_CHANNEL` · `YTDLP_VERSION` · `YTDLP_UPDATE`로 정합니다. 새 판이 말썽이면 로그의 교체 줄에 적힌 직전 판을 `YTDLP_VERSION`에 적으세요(받아 둔 판이라 곧바로 돌아갑니다).
+YouTube 추출이 갑자기 막히면 하루를 기다리지 말고 `pnpm run update:ytdlp`로 받으세요.
 
 > [!NOTE]
 > 업데이트 내용에 따라 기능이 추가되면 `.env`파일의 수정이 필요할 수 있습니다.

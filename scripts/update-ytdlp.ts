@@ -1,54 +1,33 @@
 /**
- * 설치 후(Postinstall) 스크립트: 번들로 제공되는 yt-dlp 바이너리를 최신 버전으로 업데이트합니다.
- * YouTube 추출 기능이 계속 작동하도록 `npm install` 후에 자동으로 실행됩니다.
- * YouTube는 API를 수시로 변경하므로, 오래된 버전의 yt-dlp를 사용하면 음악 검색이 작동하지 않을 수 있습니다.
+ * yt-dlp 를 목표 판(.env 의 YTDLP_CHANNEL · YTDLP_VERSION)으로 맞춘다. 일은 src/sources/ytdlpBinary.ts 가 한다.
  *
- * `yt-dlp -U` 는 올렸을 때도 이미 최신일 때도 0 으로 끝나고, 받기에 실패하면 100 으로 끝난다.
- * 그래서 종료 코드로는 실패만 가르고, 올렸는지는 앞뒤 판을 견줘 본다.
+ * 설치 뒤(postinstall): YTDLP_UPDATE=off 면 설치 때 받은 것을 옮겨 두기만 한다. 실패해도 설치를 깨지 않는다.
+ * 사람이 부르면(update:ytdlp): YTDLP_UPDATE 와 상관없이 목표 판으로 받고, 실패하면 1 로 끝난다.
+ * 봇 모듈을 부르면 로거가 콘솔을 가로채므로 콘솔이 아니라 로거로 남긴다(봇과 같은 모양).
  */
-import { spawnSync } from "child_process";
-import path from "path";
-import fs from "fs";
+import config from "../config.ts";
+import logger from "../src/infra/log/logger.ts";
+import { ytdlpBinary, describe } from "../src/sources/ytdlpBinary.ts";
+import { messageOf } from "../src/rules/errorKind.ts";
 
-const binDir = path.join(import.meta.dirname, "..", "node_modules", "youtube-dl-exec", "bin");
-const BINARY = process.platform === "win32" ? path.join(binDir, "yt-dlp.exe") : path.join(binDir, "yt-dlp");
+const postinstall = process.env.npm_lifecycle_event === "postinstall";
 
-/** 바이너리를 한 번 부른 결과. stdout 은 --version 에서만 읽는다 */
-type Run = (args: string[]) => { status: number | null; stdout?: string };
+const log = logger.child({ category: "ytdlp" });
+const say = (level: "info" | "warn", line: string) => log[level](line);
 
-const realRun: Run = (args) => {
-  const r = spawnSync(BINARY, args, { encoding: "utf8", windowsHide: true, stdio: args.includes("-U") ? "inherit" : "pipe" });
-  return { status: r.status, stdout: r.stdout ?? "" };
-};
-
-/** 업데이트 결과를 한 줄로. 앞뒤 판(모르면 null)과 -U 의 종료 코드로 가른다 */
-function describeUpdate(before: string | null, status: number | null, after: string | null): { level: "info" | "warn"; line: string } {
-  if (status !== 0) return { level: "warn", line: `⚠️  yt-dlp 업데이트 실패(종료 코드 ${status ?? "없음"}). 지금 판${before ? `(${before})` : ""}으로 계속합니다.` };
-  if (before && after && before !== after) return { level: "info", line: `✅ yt-dlp 를 올렸습니다: ${before} → ${after}` };
-  if (before && after) return { level: "info", line: `✅ yt-dlp 가 이미 최신입니다(${after}).` };
-  return { level: "info", line: "✅ yt-dlp 업데이트를 마쳤습니다(판을 읽지 못했습니다)." };
-}
-
-function updateYtDlp(run: Run = realRun) {
-  const version = () => {
-    const r = run(["--version"]);
-    return r.status === 0 && r.stdout?.trim() ? r.stdout.trim() : null;
-  };
-  const before = version();
-  const { status } = run(["-U"]);
-  return describeUpdate(before, status, status === 0 ? version() : null);
-}
-
-if (import.meta.main) {
-  if (!fs.existsSync(BINARY)) {
-    console.log("ℹ️  yt-dlp 바이너리를 아직 찾을 수 없어 업데이트를 건너뜁니다 (패키지 설치 후 실행됩니다).");
+try {
+  const { version, seeded } = await ytdlpBinary.prepare();
+  if (seeded) say("info", `설치 때 받은 판을 bin/yt-dlp 로 옮겼습니다(${version})`);
+  if (postinstall && config.ytdlp.update === "off") {
+    say("info", `지금 판을 씁니다(${version}, YTDLP_UPDATE=off)`);
   } else {
-    console.log("🔄 yt-dlp를 최신 버전으로 업데이트 중...");
-    const { level, line } = updateYtDlp();
-    // 업데이트 실패로 설치 전체를 깨지 않는다. 지금 판으로도 돈다
-    if (level === "warn") console.warn(line);
-    else console.log(line);
+    const outcome = (await ytdlpBinary.check({ force: true }))!;
+    const { level, line } = describe(outcome);
+    say(level, line);
+    if ((outcome.kind === "installed" || outcome.kind === "reused") && !postinstall) say("info", "돌고 있는 봇은 다음 확인(하루 안) 때나 다시 켤 때 새 판을 씁니다");
+    if (level === "warn" && !postinstall) process.exitCode = 1;
   }
+} catch (error) {
+  say("warn", `판을 맞추지 못했습니다: ${messageOf(error)}`);
+  if (!postinstall) process.exitCode = 1;
 }
-
-export { describeUpdate, updateYtDlp };

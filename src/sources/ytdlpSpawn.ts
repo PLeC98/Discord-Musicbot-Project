@@ -3,6 +3,7 @@ import type { Flags } from "youtube-dl-exec";
 import type { SpawnOptions } from "child_process";
 import * as procRegistry from "../infra/processRegistry.ts";
 import * as errors from "./youtube/errors.ts";
+import { ytdlpBinary } from "./ytdlpBinary.ts";
 
 const IS_WIN = process.platform === "win32";
 
@@ -22,9 +23,18 @@ const { isJSON } = youtubedl as typeof youtubedl & { isJSON(text: string): boole
 /** yt-dlp 프로세스를 띄우는 것(라이브러리의 exec). 약속은 stdout · stderr 를 준다 */
 type Exec = typeof youtubedl.exec;
 // 시험은 useExec 로 가짜를 넘긴다(기본은 진짜). 응답 · 오류 모양 맞추기는 그대로 돈다
-let exec: Exec = youtubedl.exec;
-function useExec(fake: Exec | null) {
-  exec = fake ?? youtubedl.exec;
+let fake: Exec | null = null;
+function useExec(exec: Exec | null) {
+  fake = exec;
+}
+
+// 띄울 때마다 지금 판의 경로를 묻는다. 판이 바뀌면(ytdlpBinary) 다음 부름부터 새 판이 뜨고, 돌고 있던 것은 옛 판으로 끝난다
+let bound: { file: string; exec: Exec } | null = null;
+function execNow(): Exec {
+  if (fake) return fake;
+  const file = ytdlpBinary.path();
+  if (bound?.file !== file) bound = { file, exec: youtubedl.create(file).exec };
+  return bound.exec;
 }
 
 /**
@@ -37,7 +47,7 @@ function useExec(fake: Exec | null) {
  * @param {object} opts child_process.spawn 옵션
  */
 async function run(url: string, flags: YtDlpFlags = {}, opts: SpawnOptions = {}): Promise<unknown> {
-  const sub = exec(url, flags, { ...SPAWN_OPTS, ...opts });
+  const sub = execNow()(url, flags, { ...SPAWN_OPTS, ...opts });
   const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN });
   try {
     const { stdout, stderr } = await sub;
