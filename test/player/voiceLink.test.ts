@@ -106,6 +106,7 @@ function setup({ channel = true, inChannel = "vc1" as string | null, track = tru
     },
     pauseFor: (r: string) => (steps.push(`pause:${r}`), true),
     resumeFor: (r: string) => (steps.push(`resume:${r}`), true),
+    movedVoiceStatus: (from: string) => steps.push(`status-moved:${from}`),
   };
   const link = new VoiceLink(fake<VoiceHost>(player), lib);
   Object.assign(link, { waitStartMs: 10, waitReadyMs: 20, recoveryRetryDelayMs: 1 });
@@ -318,31 +319,76 @@ test("다시 붙이는 중에 봇이 채널에서 빠졌다는 알림은 쫓겨�
   assert.equal(link.state, "ready");
 });
 
-test("참가 요청에 답이 없고 디스코드가 봇이 그 채널에 있다고 보면, 게이트웨이로 나갔다가 다시 참가를 요청한다. 그 나감 알림은 쫓겨난 것이 아니다", async () => {
-  const stuck = setup();
+// 답 없는 참가 하나. atDiscord 는 디스코드가 보는 봇의 음성 채널(REST). 오류면 던진다
+function stuckJoin(atDiscord: string | null | Error) {
+  const s = setup();
+  s.player.guild = { ...s.player.guild, voiceStates: { fetch: async () => (atDiscord instanceof Error ? Promise.reject(atDiscord) : { channelId: atDiscord }) } } as never;
   const c = new FakeConnection();
-  stuck.player.connection = c;
-  stuck.link.state = "joining";
-  stuck.link._unstick(c as never, "vc1");
-  assert.deepEqual(c.sent, [{ op: 4, d: { guild_id: "g1", channel_id: null, self_deaf: false, self_mute: false } }]);
-  assert.equal(c.rejoins.length, 1, "나감 뒤에 다시 참가");
+  s.player.connection = c;
+  s.link.state = "joining";
+  return { ...s, c };
+}
+const LEAVE = { op: 4, d: { guild_id: "g1", channel_id: null, self_deaf: false, self_mute: false } };
 
-  assert.deepEqual(stuck.link.onBotState(state("vc1"), state(null)), { left: false, moved: false, muteChanged: false });
+test("참가 요청에 답이 없으면 처음에는 다시 보낸다. 다시 보내도 답이 없고 디스코드가 봇이 그 채널에 있다고 하면 게이트웨이로 나갔다가 다시 참가한다", async () => {
+  const s = stuckJoin("vc1");
+  await s.link._unstick(s.c as never, "vc1", 0);
+  assert.deepEqual(s.c.sent, [], "처음에는 나가지 않는다(끊긴 동안 보낸 요청이 사라졌을 수 있다)");
+  assert.equal(s.c.rejoins.length, 1);
+  assert.ok(s.link.stuckTimer, "다시 지켜본다");
+
+  await s.link._unstick(s.c as never, "vc1", 1);
+  assert.deepEqual(s.c.sent, [LEAVE]);
+  assert.equal(s.c.rejoins.length, 2, "나감 뒤에 다시 참가");
+
+  // 그 나감 알림 한 번은 쫓겨난 것이 아니다. 그 뒤의 빠짐은 쫓겨난 것
+  assert.deepEqual(s.link.onBotState(state("vc1"), state(null)), { left: false, moved: false, muteChanged: false });
   await sleep(10);
-  assert.deepEqual(stuck.steps, [], "버리지 않는다");
-  assert.equal(stuck.link.state, "joining");
+  assert.deepEqual(s.steps, [], "버리지 않는다");
+  assert.equal(s.link.state, "joining");
+  s.link.onBotState(state("vc1"), state(null));
+  await until(() => s.steps.length > 0, "버리기");
+  assert.deepEqual(s.steps, ["dispose:remove:disconnected:forced-disconnect"]);
+});
 
-  // 한 번만 넘긴다. 그 뒤의 빠짐은 쫓겨난 것
-  stuck.link.onBotState(state("vc1"), state(null));
-  await until(() => stuck.steps.length > 0, "버리기");
-  assert.deepEqual(stuck.steps, ["dispose:remove:disconnected:forced-disconnect"]);
+test("답 없는 참가: 봇이 그 채널에 없으면(10065 · 다른 채널) 나가지 않고 참가만 다시 보낸다. 디스코드에 묻지 못하면(네트워크) 아무것도 보내지 않고 기다린다", async () => {
+  for (const at of [Object.assign(new Error("Unknown Voice State"), { code: 10065 }), "vc2"]) {
+    const s = stuckJoin(at);
+    await s.link._unstick(s.c as never, "vc1", 1);
+    assert.deepEqual(s.c.sent, []);
+    assert.equal(s.c.rejoins.length, 1);
+  }
+  const offline = stuckJoin(Object.assign(new Error("getaddrinfo ENOTFOUND discord.com"), { code: "ENOTFOUND" }));
+  await offline.link._unstick(offline.c as never, "vc1", 1);
+  assert.deepEqual(offline.c.sent, []);
+  assert.deepEqual(offline.c.rejoins, []);
+  assert.ok(offline.link.stuckTimer, "다시 지켜본다");
 
-  const elsewhere = setup({ inChannel: "vc2" });
-  const d = new FakeConnection();
-  elsewhere.player.connection = d;
-  elsewhere.link._unstick(d as never, "vc1");
-  assert.deepEqual(d.sent, []);
-  assert.deepEqual(d.rejoins, []);
+  const ready = stuckJoin("vc1");
+  ready.c.state = { status: VoiceConnectionStatus.Ready };
+  await ready.link._unstick(ready.c as never, "vc1", 1);
+  assert.deepEqual(ready.c.rejoins, [], "붙었으면 할 일이 없다");
+
+  // 묻는 사이에 붙었다
+  const meanwhile = stuckJoin("vc1");
+  meanwhile.player.guild = { ...meanwhile.player.guild, voiceStates: { fetch: async () => ((meanwhile.c.state = { status: VoiceConnectionStatus.Ready }), { channelId: "vc1" }) } } as never;
+  await meanwhile.link._unstick(meanwhile.c as never, "vc1", 1);
+  assert.deepEqual([meanwhile.c.sent, meanwhile.c.rejoins], [[], []]);
+
+  // 게이트웨이가 나감을 받지 못했다. 나간 것으로 치지 않고 다시 지켜본다
+  const unsent = stuckJoin("vc1");
+  unsent.c.state = { status: VoiceConnectionStatus.Signalling, adapter: { sendPayload: () => false } };
+  await unsent.link._unstick(unsent.c as never, "vc1", 1);
+  assert.deepEqual(unsent.c.rejoins, []);
+  assert.equal(unsent.link.selfLeave, null);
+  assert.ok(unsent.link.stuckTimer);
+});
+
+test("멈추면(플레이어를 버림) 답 없는 참가를 지켜보던 것도 멈춘다", () => {
+  const s = stuckJoin("vc1");
+  s.link._armUnstick(s.c as never, "vc1", 0);
+  s.link.stop();
+  assert.equal(s.link.stuckTimer, null);
 });
 
 test("붙기가 끝나면 스스로 나간 표시를 지운다(늦게 온 진짜 빠짐을 넘기지 않게)", async () => {
@@ -353,17 +399,19 @@ test("붙기가 끝나면 스스로 나간 표시를 지운다(늦게 온 진짜
 });
 
 test("봇이 옮겨졌다: 다시 붙지 않고 기록만 맞춘다. 곧바로 원래 채널로 되돌아오면 목적지로 한 번 다시 옮긴다", async () => {
-  const { link, player, conn } = await ready();
+  const { link, player, conn, steps } = await ready();
   const vc2 = fake<VoiceBasedChannel>({ id: "vc2" });
   assert.equal(link.onBotState(state("vc1"), state("vc2", { channel: vc2 })).moved, true);
   assert.equal(player.voiceChannel.id, "vc2");
   assert.deepEqual(conn().rejoins, []);
+  assert.deepEqual(steps, ["status-moved:vc1"], "옛 채널의 상태를 지우고 새 채널에 쓴다");
 
   const back = fake<VoiceBasedChannel>({ id: "vc1" });
   link.lastPlainJoin = { channelId: "vc1", at: Date.now() }; // 라이브러리가 옛 채널로 고치지 않은 참가 요청을 보냈다(어댑터가 늦었다)
   link.onBotState(state("vc2"), state("vc1", { channel: back }));
   assert.deepEqual(conn().rejoins, [{ channelId: "vc2", selfDeaf: false, selfMute: false }]);
   assert.equal(joins.length, 1, "새 연결을 만들지 않는다");
+  assert.deepEqual(steps, ["status-moved:vc1"], "되돌림은 이동이 아니다. 목적지로 다시 옮겨진 알림이 맞춘다");
 });
 
 test("사람이 빠르게 되돌린 이동은 그대로 따른다(고치지 않은 참가 요청이 나가지 않았다)", async () => {

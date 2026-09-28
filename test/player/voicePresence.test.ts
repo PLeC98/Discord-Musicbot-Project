@@ -35,6 +35,7 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = t
     dispose: async (o: { reason: string; session: string; panel?: string }) => calls.push(`dispose:${o.reason}:${o.session}:${o.panel ?? "-"}`),
     pauseFor: (r: string) => (calls.push(`pause:${r}`), true),
     resumeFor: (r: string) => (calls.push(`resume:${r}`), true),
+    movedVoiceStatus: (from: string) => calls.push(`status-moved:${from}`),
     idle: {
       startAlone: () => calls.push("startAlone"),
       cancelAlone: (resume: boolean) => calls.push(`cancelAlone:${resume}`),
@@ -72,11 +73,11 @@ test("봇이 있던 채널이 지워져 빠졌으면 강제 퇴장이 아니라 
   assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:-"]);
 });
 
-test("봇이 다른 채널로 옮겨지면 기록을 맞추고 혼자 남음을 풀고 패널을 고친다", async () => {
+test("봇이 다른 채널로 옮겨지면 기록과 채널 상태를 맞추고 혼자 남음을 풀고 패널을 고친다", async () => {
   const { client, calls, player, state } = setup();
   await onVoiceStateUpdate(client, state(BOT, "vc0"), state(BOT, "vc2", { channel: { id: "vc2" } }));
   assert.equal(player.voiceChannel?.id, "vc2");
-  assert.deepEqual(calls.slice(0, 2), ["cancelAlone:false", "embed:update"]);
+  assert.deepEqual(calls.slice(0, 3), ["status-moved:vc0", "cancelAlone:false", "embed:update"]);
 });
 
 test("봇이 처음 참가한 것은 옮겨진 것이 아니다", async () => {

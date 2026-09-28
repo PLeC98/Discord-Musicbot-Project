@@ -812,6 +812,33 @@ test("음성 채널 상태: 권한이 있고 사람이 쓴 문구가 아니면 �
   assert.deepEqual(puts, [["/channels/voice1/voice-status", "곡 제목"]]);
 });
 
+test("음성 채널 상태: 옮겨지면 옛 채널에 우리가 쓴 상태를 지우고 새 채널에 쓴다. 옛 채널에 사람이 쓴 것은 둔다", async () => {
+  voiceChannelStatus._internals._reset();
+  const p = h.makePlayer();
+  const puts: Array<[string, string]> = [];
+  p.guild.client.rest = fake<Client["rest"]>({ put: async (route: string, { body }: { body: { status: string } }) => puts.push([route, body.status]) });
+  for (const id of ["voice1", "voice2", "voice3"]) p.guild.channels.cache.set(id, fake<VoiceBasedChannel>({ id, permissionsFor: () => ({ has: () => true }) }));
+  p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice1" });
+  await p.updateVoiceStatus("곡 제목");
+
+  p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice2" });
+  p.movedVoiceStatus("voice1");
+  await tick(10);
+  assert.deepEqual(puts.slice(1), [
+    ["/channels/voice1/voice-status", ""],
+    ["/channels/voice2/voice-status", config.voiceStatus.idleText],
+  ]);
+
+  // 곡이 있으면 곡 제목. 옛 채널의 상태를 사람이 바꿨으면 건드리지 않는다
+  voiceChannelStatus.observe("voice2", "사람이 쓴 것");
+  p.currentTrack = fake<QueuedTrack>({ title: "지금 곡" });
+  p.voiceChannel = fake<VoiceBasedChannel>({ id: "voice3" });
+  p.movedVoiceStatus("voice2");
+  await tick(10);
+  h.dispose(p);
+  assert.deepEqual(puts.slice(3), [["/channels/voice3/voice-status", `${config.voiceStatus.playingPrefix}지금 곡`]]);
+});
+
 // 직접 링크는 재생과 나란히 받으며 파일 태그로 제목을 고친다. 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다
 test("음성 채널 상태: 곁에서 받으며 지금 곡의 제목을 고치면 채널 상태도 고친다", async () => {
   voiceChannelStatus._internals._reset();

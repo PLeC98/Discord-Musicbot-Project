@@ -1134,9 +1134,16 @@ class Player {
     bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title}`), "음성 채널 상태 바꾸기");
   }
 
-  // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다
-  async updateVoiceStatus(status: string | null) {
-    const channel = this.voiceChannel ? this.guild.channels.cache.get(this.voiceChannel.id) : null;
+  /** 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다 */
+  movedVoiceStatus(fromId: string) {
+    bestEffort(log, this.updateVoiceStatus("", fromId), "옛 음성 채널 상태 지우기");
+    if (this.currentTrack) this._showTrackInVoiceStatus();
+    else bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+  }
+
+  // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다. channelId 를 주지 않으면 지금 음성 채널
+  async updateVoiceStatus(status: string | null, channelId = this.voiceChannel?.id) {
+    const channel = channelId ? this.guild.channels.cache.get(channelId) : null;
     if (!channel) return;
 
     const me = this.guild.members.me;

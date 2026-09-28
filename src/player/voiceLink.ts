@@ -14,7 +14,7 @@ const log = logger.child({ category: "voice" });
 /** 음성 라이브러리에서 부르는 것 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState };
 /** 연결을 맡으며 읽고 바꾸는 플레이어 칸 */
-type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "pauseFor" | "resumeFor">;
+type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "pauseFor" | "resumeFor" | "movedVoiceStatus">;
 type LinkState = "idle" | "joining" | "ready" | "waiting" | "recovering" | "closed";
 /** 게이트웨이의 봇 음성 상태에서 일어난 일. 화면 · 혼자 남음은 부른 쪽이 맞춘다 */
 type BotStateChange = { left: boolean; moved: boolean; muteChanged: boolean };
@@ -23,9 +23,10 @@ const VOICE_LIB: VoiceLib = { joinVoiceChannel, entersState };
 const JOIN_READY_MS = 30_000; // 처음 붙을 때 Ready 까지
 const RECOVER_READY_MS = 15_000; // 다시 붙일 때 Ready 까지
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에, 방금 고치지 않은 참가 요청을 보낸 채널로 돌아오면 라이브러리의 되돌림으로 본다
-const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없고 디스코드가 봇이 그 채널에 있다고 보면 나갔다가 다시 붙는다
+const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본다(_unstick)
 const UNKNOWN_CHANNEL = 10003;
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 나가기
+const UNKNOWN_VOICE_STATE = 10065; // 봇이 음성 채널에 없다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 
 // 로그에 찍을 이름
@@ -55,6 +56,7 @@ class VoiceLink {
   lastPlainJoin: { channelId: string; at: number } | null = null;
   /** 답 없는 참가를 풀려고 스스로 나간 채널. 그 빠짐 알림은 쫓겨난 것이 아니다 */
   selfLeave: string | null = null;
+  stuckTimer: NodeJS.Timeout | null = null;
 
   constructor(player: VoiceHost, lib: VoiceLib = VOICE_LIB) {
     this.player = player;
@@ -101,29 +103,69 @@ class VoiceLink {
     player.connection = connection;
     this._watch(connection);
     connection.subscribe(player.audioPlayer);
-    const stuck = setTimeout(() => this._unstick(connection, channelId), STUCK_MS);
+    this._armUnstick(connection, channelId, 0);
     try {
       await this.lib.entersState(connection, VoiceConnectionStatus.Ready, readyMs);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") throw new Error(`${readyMs / 1000}초 안에 붙지 못했습니다`, { cause: error });
       throw error;
     } finally {
-      clearTimeout(stuck);
+      this._clearUnstick();
       // 나감 알림은 참가의 답(Ready)보다 먼저 온다. 끝났으면 기다릴 것이 없다
       this.selfLeave = null;
     }
   }
 
-  // 참가 요청에 답이 없다. 디스코드가 봇이 이미 그 채널에 있다고 보면(나감이 닿지 못한 채 남은 것) 같은 채널 참가에 답하지 않으므로,
-  // 게이트웨이로 나갔다가 다시 참가를 요청한다(REST 로 빼기는 멤버 옮기기 권한이 든다)
-  _unstick(connection: VoiceConnection, channelId: string) {
+  _armUnstick(connection: VoiceConnection, channelId: string, tries: number) {
+    this._clearUnstick();
+    this.stuckTimer = setTimeout(() => {
+      this._unstick(connection, channelId, tries).catch((error: unknown) => log.warn(`답 없는 참가 풀기 실패: ${messageOf(error)}`));
+    }, STUCK_MS);
+  }
+
+  _clearUnstick() {
+    if (this.stuckTimer) clearTimeout(this.stuckTimer);
+    this.stuckTimer = null;
+  }
+
+  // 참가 요청에 답이 없다. 끊긴 동안 보낸 요청이 사라졌거나, 디스코드가 봇이 이미 그 채널에 있다고 보아(나감이 닿지 못한 채 남음)
+  // 같은 채널 참가에 답하지 않는 것이다. 디스코드에 물어(캐시는 끊긴 동안 낡는다) 묻지 못하면 기다리고, 처음에는 참가를 다시 보낸다.
+  // 다시 보내도 답이 없고 봇이 그 채널에 있으면 게이트웨이로 나갔다가 다시 참가한다(REST 로 빼기는 멤버 옮기기 권한이 든다)
+  async _unstick(connection: VoiceConnection, channelId: string, tries: number) {
+    if (!this._stillSignalling(connection)) return;
+    const at = await this._botChannelAtDiscord();
+    // 묻는 사이에 붙었거나 연결이 바뀌었으면 할 일이 없다
     const state = connection.state;
-    if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling || this.player.guild.members?.me?.voice?.channelId !== channelId) return;
-    log.warn(`참가 요청에 ${STUCK_MS / 1000}초 동안 답이 없습니다. 디스코드는 봇이 이미 이 채널에 있다고 봅니다. 나갔다가 다시 붙습니다: ${this._label()}`);
-    this.selfLeave = channelId;
+    if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling) return;
+    if (at === undefined) return this._armUnstick(connection, channelId, tries);
+    if (tries === 0 || at !== channelId) {
+      log.debug(`참가 요청에 답이 없어 다시 보냅니다: ${this._label()}`);
+      connection.rejoin();
+      return this._armUnstick(connection, channelId, tries + 1);
+    }
     const { selfDeaf, selfMute } = connection.joinConfig;
-    state.adapter.sendPayload({ op: VOICE_STATE_UPDATE, d: { guild_id: this.player.guild.id, channel_id: null, self_deaf: selfDeaf, self_mute: selfMute } });
+    this.selfLeave = channelId;
+    if (!state.adapter.sendPayload({ op: VOICE_STATE_UPDATE, d: { guild_id: this.player.guild.id, channel_id: null, self_deaf: selfDeaf, self_mute: selfMute } })) {
+      this.selfLeave = null;
+      return this._armUnstick(connection, channelId, tries);
+    }
+    log.warn(`채널에 남아 있던 봇을 빼고 다시 참가합니다: ${this._label()} | 참가 요청에 답이 없고 디스코드에는 봇이 이 채널에 있음`);
     connection.rejoin();
+  }
+
+  _stillSignalling(connection: VoiceConnection) {
+    return connection === this.player.connection && connection.state.status === VoiceConnectionStatus.Signalling;
+  }
+
+  // 디스코드가 보는 봇의 음성 채널(REST). 채널에 없으면 null, 묻지 못하면 undefined
+  async _botChannelAtDiscord(): Promise<string | null | undefined> {
+    try {
+      return (await this.player.guild.voiceStates.fetch("@me", { force: true, cache: false })).channelId;
+    } catch (error) {
+      if (codeOf(error) === UNKNOWN_VOICE_STATE) return null;
+      log.debug(`봇의 음성 상태를 디스코드에 묻지 못해 기다립니다: ${messageOf(error)}`);
+      return undefined;
+    }
   }
 
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voiceAdapter)
@@ -378,6 +420,7 @@ class VoiceLink {
     this.lastMove = { from: fromId, to: toChannel.id, at: now };
     player.voiceChannel = toChannel;
     log.info(`음성 채널 이동: "${toChannel.name ?? toChannel.id}" (${where})`);
+    player.movedVoiceStatus(fromId);
     return false;
   }
 
@@ -398,6 +441,7 @@ class VoiceLink {
   stop() {
     this.gen++;
     this._clearWait();
+    this._clearUnstick();
   }
 
   // 지금 연결을 떼어 비우고 돌려준다. 리스너를 먼저 떼어 부서지는 연결이 전이를 알리지 않게 한다
