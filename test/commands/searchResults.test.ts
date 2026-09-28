@@ -11,6 +11,7 @@ import { Player } from "../../src/player/Player.ts";
 import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 // 곡 추가 코어가 패널 관리자에 넘긴 것
 type EmbedCall = { guildId: string; trackData: TrackData; member: unknown; interaction: unknown };
@@ -94,9 +95,12 @@ test("재검색해도 각 메시지의 버튼은 자기 검색 결과를 선택 
   assert.equal(client.searchResults.size, 2, "두 검색이 독립 레코드로 공존");
 
   // 첫 검색 메시지의 1번 버튼 — 구 코드라면 최신(두 번째) 결과가 선택됐음
+  const from = sink.buffer.length;
   await handleSearchInteraction(asPress(makeButtonInteraction(client, { messageId: "m1", customId: "search_select_0" })), client);
   assert.equal(client.embedCalls.length, 1);
   assert.equal(client.embedCalls[0].trackData.tracks[0], trackA);
+  const request = sink.buffer.slice(from).find((e) => e.text.startsWith("곡 요청"));
+  assert.match(request?.text ?? "", /^곡 요청: \/search 1번째 \| .+ \| "첫 검색" → "곡 A" \(https:\/\/www\.youtube\.com\/watch\?v=aaaaaaaaaaa\)$/, "고른 곡의 검색어와 몇 번째를 남긴다");
   assert.equal(client.searchResults.has("m1"), false, "선택된 검색의 레코드는 정리됨");
 
   // 두 번째 검색 메시지는 여전히 유효

@@ -9,6 +9,7 @@ import * as playerEvents from "../../src/player/events.ts";
 import * as tracks from "../helpers/tracks.ts";
 import { command, run as runCommand } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
+import sink from "../../src/infra/log/sink.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import modalHandler from "../../events/modalHandler.ts";
 import * as genreConfig from "../../src/config/genres.ts";
@@ -288,9 +289,18 @@ test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 달고, 결과�
   };
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
+  const from = sink.buffer.length;
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.client, { search });
 
   assert.deepEqual(asked, [["노래", 9]]);
+  assert.deepEqual(
+    sink.buffer
+      .slice(from)
+      .filter((e) => e.text.startsWith("곡 검색"))
+      .map((e) => `${e.level} ${e.text}`),
+    ['info 곡 검색: /search | 사용자 | "노래" → 결과 6개'],
+    "검색어와 결과 수를 남긴다",
+  );
   const payload = lastSent(log);
   const fields = payload.embeds[0].data.fields;
   assert.deepEqual(fields.map((f) => [f.name, f.value]).slice(0, 2), [
@@ -316,8 +326,10 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   ]);
 
   const none = interaction(world(), { options: { query: "x" } });
+  const from = sink.buffer.length;
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.it.client, { search: async () => [] });
   assert.deepEqual(none.log.at(-1), ["editReply", { content: "❌ 검색 결과가 없습니다!" }]);
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "x" → 결과 없음'));
 
   // 검색이 찾지 못한 까닭을 그 종류의 문장으로 알린다
   const offline = async () => {

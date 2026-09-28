@@ -367,10 +367,11 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
       guild,
       requester: member,
       tracks: [selectedTrack],
+      searched: userSearchData.query,
       textChannel: interaction.channel,
       voiceChannel: member.voice.channel ?? null,
       responder,
-      source: "/search",
+      source: `/search ${selectedIndex + 1}번째`,
     });
 
     client.searchResults.delete(interaction.message.id);

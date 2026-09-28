@@ -98,11 +98,12 @@ async function resolveFallbackTextChannel(guild: Guild) {
 /**
  * 곡 추가/재생 요청. 검색어(query)나 이미 찾은 곡(tracks, 검색 선택 경로) 가운데 하나는 있어야 한다.
  * textChannel 은 안내 · 패널을 보낼 채널, voiceChannel 은 붙을 음성 채널, single 은 재생목록이어도 첫 곡만,
- * responder 는 결과를 알리는 매체(기본: 무동작), source 는 로그 라벨
+ * responder 는 결과를 알리는 매체(기본: 무동작), source 는 로그 라벨, searched 는 이미 찾은 곡을 넘길 때 로그에 남길 검색어(검색 결과 고르기)
  */
 type PlaybackRequest = {
   guild: Guild;
   requester: RequesterSource;
+  searched?: string | null;
   collection?: string | null;
   textChannel?: GuildTextBasedChannel | null;
   voiceChannel?: VoiceBasedChannel | null;
@@ -133,6 +134,8 @@ async function requestPlayback(client: Client, request: PlaybackRequest): Promis
 
   // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 등록부에 남는다
   const checked = await tracksFor(client.players.get(guild.id) ?? null, request, batch);
+  const who = toRequester(request.requester);
+  logRequest(request, who, typeof checked === "string" ? checked : trimmed(checked, request.single));
   if (typeof checked === "string") return { success: false, message: checked };
   const player = await playerFor(client, request);
 
@@ -142,9 +145,8 @@ async function requestPlayback(client: Client, request: PlaybackRequest): Promis
   const trackData = trimmed(checked, request.single);
   const toAdd: TrackData = { ...trackData, ...placement(request) };
 
-  const who = toRequester(request.requester);
   const result = await client.musicEmbedManager.handleMusicData(guild.id, toAdd, who, responder);
-  logAddition(trackData, result, who, player, insertFirst);
+  logOutcome(result, player);
 
   // 목록이 더 남았으면 이어 받을 상태. 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
   const more = result.success && !result.dropped ? continuation(request.query ?? null, trackData, { insertFirst }) : null;
@@ -167,8 +169,7 @@ async function tracksFor(player: Player | null, request: PlaybackRequest, batch:
   return typeof found === "string" ? found : withoutBlocked(found, request.ffmpegReady);
 }
 
-async function search(player: Player | null, query: string, { guild, single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
-  log.debug({ sub: "play" }, `${source} | 서버=${guild.id} | 검색어="${query}"`);
+async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
   // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
   // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
   const room = trackState.roomLeft(player ?? { queue: [] }, config.bot.maxQueueSize) + (player?.currentTrack ? 0 : 1);
@@ -204,21 +205,38 @@ function placement({ insertFirst = false, insertAfterId = null }: PlaybackReques
   return { ...(insertFirst ? { insertFirst: true } : {}), ...(insertAfterId ? { insertAfterId } : {}) };
 }
 
-// 조작 하나에 한 줄. 요청(검색 debug)과 결과를 따로 남기면 조작당 두 줄이 되는데,
-// 운영상 필요한 것은 "누가 무엇을 넣었나"라 결과 줄에 요청자를 함께 싣는다.
-// 재생 시작은 player의 "재생" 로그가 따로 남기므로 여기서는 투입분만.
-function logAddition(found: Found, result: AddResult, who: Requester | null, player: Player, insertFirst: boolean) {
-  const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 받을 수 없어 ${found.skipped}곡 뺌` : "", result.dropped ? ` | 상한으로 ${result.dropped}곡 제외` : "", found.queueLimited ? " | 자리가 모자라 일부만 받음" : ""].join("");
-  log.info({ sub: "play" }, `${result.success === false ? "대기열 추가 실패" : "대기열 투입"}: ${whatOf(found)} | 요청 ${nameOf(who)} | 대기열 ${player.queue.length}곡${notes}`);
+// 조작 하나에 info 한 줄: 누가 무엇을 찾아 무엇이 골라졌나. 틀거나 넣기 전에 남겨, 곧바로 튼 곡의 "재생" 줄보다 앞선다
+function logRequest({ source = "play", query, searched, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | string) {
+  const asked = query ?? searched ?? null;
+  const head = `곡 요청: ${source} | ${nameOf(who)}${asked ? ` | "${asked}"` : ""}`;
+  if (typeof found === "string") {
+    log.info({ sub: "play" }, `${head} → 못 넣음: ${S.withoutErrorMark(found)}`);
+    return;
+  }
+  const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 받을 수 없어 ${found.skipped}곡 뺌` : "", found.queueLimited ? " | 자리가 모자라 일부만 받음" : ""].join("");
+  log.info({ sub: "play" }, `${head} → ${whatOf(found, asked)}${notes}`);
 }
 
-// 넣은 것. 목록이면 출처와 곡 수, 한 곡이면 제목
-function whatOf({ isPlaylist, collection, tracks }: Found) {
-  const title = tracks[0]?.title ?? "?";
-  return isPlaylist ? `${S.collectionLabel(collection)} ${tracks.length}곡 (첫 곡 "${title}")` : `"${title}"`;
+// 찾은 것. 목록이면 출처와 곡 수, 한 곡이면 제목. 주소로 요청하지 않았으면 고른 곡의 주소를 붙인다
+function whatOf({ isPlaylist, collection, tracks }: Found, asked: string | null) {
+  const first = tracks[0];
+  const title = first?.title ?? "?";
+  if (isPlaylist) return `${S.collectionLabel(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
+  return first && !(asked && isUrl(asked)) ? `"${title}" (${first.pageUrl})` : `"${title}"`;
+}
+
+const isUrl = (text: string) => /^https?:\/\//i.test(text.trim());
+
+// 담은 뒤. 곧바로 튼 곡은 "재생" 줄이 말하므로 대기열 상태만 debug 로. 못 담았거나 상한으로 뺐으면 info
+function logOutcome(result: AddResult, player: Player) {
+  if (result.success === false) log.info({ sub: "play" }, `곡 담기 실패: ${S.withoutErrorMark(result.message)}`);
+  else if (result.dropped) log.info({ sub: "play" }, `대기열이 가득 차 ${result.dropped}곡을 넣지 못함 | 대기열 ${player.queue.length}곡`);
+  else log.debug({ sub: "play" }, `곡 담기 끝 | 대기열 ${player.queue.length}곡`);
 }
 
 const nameOf = (who: Requester | null) => who?.tag ?? who?.username ?? who?.id ?? "?";
+/** 로그에 적을 요청자 이름. 곡 요청 줄과 같게 */
+const requesterName = (source: RequesterSource) => nameOf(toRequester(source));
 
 const MORE_BATCH = 100;
 
@@ -324,6 +342,6 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
   return { found, cursor, total, skipped };
 }
 
-export { requestPlayback, continueCollection, toRequester, ensurePlayer, useLookup };
+export { requestPlayback, continueCollection, toRequester, requesterName, ensurePlayer, useLookup };
 export const _internals = { resolveFallbackTextChannel };
 export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult };

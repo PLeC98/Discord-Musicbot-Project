@@ -19,6 +19,7 @@ import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import type { Responder, TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const store = openTempStore("play-request-");
 after(() => store.close());
@@ -386,6 +387,47 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
   const { responder } = client.embedCalls[0];
   assert.equal(typeof responder.notifyQueued, "function");
   await responder.notifyQueued("x"); // 무동작이므로 던지지 않는다
+});
+
+// ── 로그: 누가 무엇을 찾아 무엇이 골라졌나 ─────────────────────
+
+// 곡 요청 줄들. 담기(handleMusicData)를 부른 때의 로그 길이도 적는다
+async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { success: true }) {
+  const client = makeClient();
+  let handledAt = -1;
+  client.musicEmbedManager.handleMusicData = async () => ((handledAt = sink.buffer.length), outcome as { success: true });
+  const from = sink.buffer.length;
+  await requestPlayback(client, { guild: makeGuild(), requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, source: "/play", ...args } as PlaybackRequest);
+  const lines = sink.buffer.slice(from).filter((e) => e.level !== "debug");
+  return { lines: lines.map((e) => `${e.level} ${e.text}`), requestBeforeHandling: handledAt < 0 || sink.buffer.indexOf(lines[0]) < handledAt };
+}
+
+test("로그: 검색어와 고른 곡을 틀거나 넣기 전에 info 한 줄로 남긴다. 검색어로 찾았으면 고른 곡의 주소를 붙인다", async () => {
+  mockResolve = () => ok("곡A");
+  const { lines, requestBeforeHandling } = await requestLines({ query: "rick rolling" });
+  assert.deepEqual(lines, ['info 곡 요청: /play | carl | "rick rolling" → "곡A" (https://x/곡A)']);
+  assert.ok(requestBeforeHandling, "곧바로 튼 곡의 재생 줄보다 앞선다");
+
+  assert.deepEqual((await requestLines({ query: "https://x/곡A" })).lines, ['info 곡 요청: /play | carl | "https://x/곡A" → "곡A"'], "주소로 요청했으면 주소를 다시 붙이지 않는다");
+
+  mockResolve = () => ok("A", "B");
+  const listed = await requestLines({ query: "https://x/list", insertFirst: true });
+  assert.match(listed.lines[0], /^info 곡 요청: \/play \| carl \| "https:\/\/x\/list" → .*2곡 \(첫 곡 "A"\) \| 맨 앞$/);
+});
+
+test("로그: 검색 결과에서 고른 곡은 그 검색어와 몇 번째를 싣는다", async () => {
+  const { lines } = await requestLines({ source: "/search 2번째", tracks: [track("곡B")], searched: "b words" });
+  assert.deepEqual(lines, ['info 곡 요청: /search 2번째 | carl | "b words" → "곡B" (https://x/곡B)']);
+});
+
+test("로그: 못 찾으면 요청 줄에 까닭, 담지 못했거나 상한으로 뺐으면 한 줄 더", async () => {
+  mockResolve = () => ({ success: false, code: "no-result" });
+  assert.deepEqual((await requestLines({ query: "없는곡" })).lines, ['info 곡 요청: /play | carl | "없는곡" → 못 넣음: 결과를 찾을 수 없습니다!']);
+
+  mockResolve = () => ok("곡A");
+  assert.deepEqual((await requestLines({ query: "곡A" }, { success: false, message: "❌ 재생 실패" })).lines.slice(1), ["info 곡 담기 실패: 재생 실패"]);
+  assert.match((await requestLines({ query: "곡A" }, { success: true, dropped: 2 })).lines[1], /^info 대기열이 가득 차 2곡을 넣지 못함/);
+  assert.equal((await requestLines({ query: "곡A" })).lines.length, 1, "담기가 끝난 것은 debug");
 });
 
 // ── 텍스트 채널 폴백 (대시보드 전용 사용 시 임베드) ───────────

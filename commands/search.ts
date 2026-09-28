@@ -7,6 +7,9 @@ import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction, Client, GuildMember } from "discord.js";
 import type { TrackInfo } from "../src/player/track.ts";
+import { requesterName } from "../src/usecases/addTracks.ts";
+import logger from "../src/infra/log/logger.ts";
+const log = logger.child({ category: "player" });
 
 async function validateRequest(member: GuildMember) {
   // 검색 후 선택은 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
@@ -135,6 +138,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
 
       // 검색 수행
       const results = await search(query, 9);
+      log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
 
       if (!results || results.length === 0) {
         return await interaction.editReply({
