@@ -12,7 +12,6 @@ import searchCommand from "../../commands/search.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import modalHandler from "../../events/modalHandler.ts";
 import * as genreConfig from "../../src/config/genres.ts";
-import type { VoiceConnection } from "@discordjs/voice";
 import { Player, type PanelMessage } from "../../src/player/Player.ts";
 import type { Requester } from "../../src/player/track.ts";
 import type { LookupResult, Range } from "../../src/sources/lookup.ts";
@@ -343,7 +342,7 @@ test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 �
   assert.deepEqual(b.log, [["reply", { content: S.ERR_NO_PERMISSIONS, flags: [64] }]]);
 
   const joined = world();
-  joined.player.connection = fake<VoiceConnection>({});
+  joined.player.voice = fake<Player["voice"]>({ isAlive: () => true });
   const c = interaction(joined);
   await runCommand(await command("join"), c.it, joined.client);
   assert.deepEqual(c.log, [["reply", { content: "✅ 이미 채널에 접속해 있어요.", flags: [64] }]]);
@@ -373,7 +372,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   }
 });
 
-test("/join: 끊긴 채 남은 플레이어는 저장된 세션을 남긴 채 버리고 새것으로 바꾼다", async () => {
+test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴 채 버리고 새것으로 바꾼다", async () => {
   const w = world();
   const calls: string[] = [];
   // 진짜처럼 버림을 알린다. 등록부 빼기는 실제 경로(알림)로
@@ -381,7 +380,7 @@ test("/join: 끊긴 채 남은 플레이어는 저장된 세션을 남긴 채 �
     calls.push(`dispose:${o.session}`);
     playerEvents.disposed(w.player, "replaced");
   };
-  Object.assign(w.player, { connection: null, guild: w.guild, dispose });
+  Object.assign(w.player, { voice: { isAlive: () => false }, guild: w.guild, dispose });
   const { it } = interaction(w);
 
   await runCommand(await command("join"), it, w.client);

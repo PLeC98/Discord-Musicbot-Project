@@ -311,7 +311,7 @@ test("오디오 오류: stream/network 가 들어간 것은 연결 복구, 나�
   p.audioPlayer.emit("error", new Error("stream closed"));
   h.dispose(p);
 
-  assert.deepEqual(calls.recoveries, ["recover", "recover"]);
+  assert.deepEqual(calls.recoveries, ["오디오 오류", "오디오 오류"]);
   assert.deepEqual(seen, ["error:무언가", "error:stream closed"]);
 });
 

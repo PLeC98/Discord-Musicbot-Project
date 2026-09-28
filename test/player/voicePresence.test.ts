@@ -1,9 +1,10 @@
-// src/player/voicePresence.ts — 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음).
-// 가짜 서버 · 플레이어로 무엇을 불렀는지만 본다.
+// src/player/voicePresence.ts — 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 사라짐 · 채널 이동 · 음소거 · 혼자 남음).
+// 봇 자신의 상태는 진짜 음성 연결(voiceLink)이 가른다. 가짜 서버 · 플레이어로 무엇을 불렀는지만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { onVoiceStateUpdate } from "../../src/player/voicePresence.ts";
+import { VoiceLink } from "../../src/player/voiceLink.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import type { Client, Guild, VoiceState } from "discord.js";
 import type { Player } from "../../src/player/Player.ts";
@@ -26,12 +27,12 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = t
   const guild = fake<Guild>({ id: "g1", members: { me: { id: BOT } }, channels: { cache: channels } });
 
   const player = fakePlayer({
+    guild,
     voiceChannel: { id: "vc1" },
     currentTrack,
     queue: [tracks.youtube("bbbbbbbbbbb", { title: "다음" })],
     pauseReasons: new Set(paused),
     dispose: async (o: { reason: string; session: string; panel?: string }) => calls.push(`dispose:${o.reason}:${o.session}:${o.panel ?? "-"}`),
-    voice: { followMove: (from: string, ch: { id: string }) => calls.push(`move:${from}->${ch.id}`) },
     pauseFor: (r: string) => (calls.push(`pause:${r}`), true),
     resumeFor: (r: string) => (calls.push(`resume:${r}`), true),
     idle: {
@@ -39,6 +40,7 @@ function setup({ humans = 1, channelExists = true, paused = [], currentTrack = t
       cancelAlone: (resume: boolean) => calls.push(`cancelAlone:${resume}`),
     },
   });
+  player.voice = new VoiceLink(player);
   const players = new Map<string, Player>([["g1", player]]);
   const client = fake<Client>({
     user: { id: BOT },
@@ -64,16 +66,24 @@ test("봇이 음성에서 쫓겨나면 세션을 지우고 끝난 패널(disconn
   assert.deepEqual(calls, ["dispose:봇이 음성에서 강제 퇴장됨:remove:disconnected"]);
 });
 
+test("봇이 있던 채널이 지워져 빠졌으면 강제 퇴장이 아니라 채널 사라짐으로 버린다", async () => {
+  const { client, calls, state } = setup({ channelExists: false });
+  await onVoiceStateUpdate(client, state(BOT, "vc1"), state(BOT, null));
+  assert.deepEqual(calls, ["dispose:봇의 음성 채널이 사라짐:remove:-"]);
+});
+
 test("봇이 다른 채널로 옮겨지면 기록을 맞추고 혼자 남음을 풀고 패널을 고친다", async () => {
-  const { client, calls, state } = setup();
+  const { client, calls, player, state } = setup();
   await onVoiceStateUpdate(client, state(BOT, "vc0"), state(BOT, "vc2", { channel: { id: "vc2" } }));
-  assert.deepEqual(calls.slice(0, 3), ["move:vc0->vc2", "cancelAlone:false", "embed:update"]);
+  assert.equal(player.voiceChannel?.id, "vc2");
+  assert.deepEqual(calls.slice(0, 2), ["cancelAlone:false", "embed:update"]);
 });
 
 test("봇이 처음 참가한 것은 옮겨진 것이 아니다", async () => {
-  const { client, calls, state } = setup();
+  const { client, calls, player, state } = setup();
   await onVoiceStateUpdate(client, state(BOT, null), state(BOT, "vc1", { channel: { id: "vc1" } }));
-  assert.ok(!calls.some((c) => c.startsWith("move:")));
+  assert.equal(player.voiceChannel?.id, "vc1");
+  assert.ok(!calls.includes("cancelAlone:false"));
 });
 
 test("봇이 서버 음소거되면 mute 로 멈추고, 풀리면 mute 를 푼다", async () => {

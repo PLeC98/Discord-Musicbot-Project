@@ -1,4 +1,4 @@
-// 음성 상태 이벤트 해석. 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음을 가리고, 언제 나가는지는 idleLeave 가 정한다.
+// 음성 상태 이벤트 해석. 봇 자신의 상태(빠짐 · 이동 · 음소거)는 음성 연결(voiceLink)에 넘기고, 여기서는 봇 채널의 사람 수(혼자 남음)를 본다. 언제 나가는지는 idleLeave 가 정한다.
 
 import * as playerEvents from "./events.ts";
 import type { Client, Guild, VoiceState } from "discord.js";
@@ -17,37 +17,14 @@ async function onVoiceStateUpdate(client: Client, oldState: VoiceState, newState
 
   const botId = guild.members.me?.id ?? client.user?.id;
   if (oldState.id === botId || newState.id === botId) {
-    if (oldState.channelId && !newState.channelId) return forcedOut(player);
-    await botMoved(client, player, oldState, newState);
-    await botMuted(client, player, oldState, newState);
+    // 봇 자신의 음성 상태(빠짐 · 옮겨짐 · 서버 음소거)는 음성 연결이 가른다
+    const change = player.voice.onBotState(oldState, newState);
+    if (change.left) return;
+    // 옮겨진 곳에서는 혼자 남음을 새로 본다(아래 사람 수 보기가 다시 건다)
+    if (change.moved) player.idle.cancelAlone(false);
+    if (change.moved || change.muteChanged) await playerEvents.refresh(player);
   }
   await listenersChanged(client, player, guild, oldState, newState);
-}
-
-// 봇이 음성에서 쫓겨났다. 플레이어를 버리고 패널을 끝난 모양으로
-async function forcedOut(player: Player) {
-  await player.dispose({ reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" });
-}
-
-// 누가 봇을 다른 채널로 옮겼다. 연결은 음성 라이브러리가 따라가고, 여기서는 기록과 화면을 맞춘다.
-// 처음 참가(채널이 없다가 생김)는 옮겨진 것이 아니다
-async function botMoved(_client: Client, player: Player, oldState: VoiceState, newState: VoiceState) {
-  if (!oldState.channelId || !newState.channelId || oldState.channelId === newState.channelId || !newState.channel) return;
-  player.voice.followMove(oldState.channelId, newState.channel);
-  player.idle.cancelAlone(false);
-  await playerEvents.refresh(player);
-}
-
-// 서버 음소거 · 헤드셋 끄기 · 무대 발언권 없음은 들을 수 없으니 멈춘다
-async function botMuted(_client: Client, player: Player, oldState: VoiceState, newState: VoiceState) {
-  const wasMuted = oldState.serverMute || oldState.serverDeaf || oldState.suppress;
-  const isMuted = newState.serverMute || newState.serverDeaf || newState.suppress;
-  if (!wasMuted && isMuted) {
-    if (player.pauseFor("mute")) await playerEvents.refresh(player);
-  } else if (wasMuted && !isMuted) {
-    const resumed = player.resumeFor("mute");
-    if (resumed || !player.pauseReasons.has("mute")) await playerEvents.refresh(player);
-  }
 }
 
 // 봇의 채널에 사람이 남았나. 없으면 혼자 남음을 시작하고, 돌아오면 푼다
@@ -57,7 +34,7 @@ async function listenersChanged(client: Client, player: Player, guild: Guild, ol
 
   const channel = guild.channels.cache.get(voiceChannelId);
   if (!channel?.isVoiceBased()) {
-    await player.dispose({ reason: "봇의 음성 채널이 사라짐", session: "remove", end: "channel-gone" });
+    player.voice.channelGone();
     return;
   }
 

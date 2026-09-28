@@ -43,7 +43,6 @@ function makePlayer(status: string) {
     pauseReasons: new Set(),
     paused: false,
     currentTrack: null,
-    voice: { startConnectionHealthCheck() {}, setupConnectionEvents() {} },
     scheduleStatePersist() {},
     onPlayerIdle() {},
     _trackLabel: Player.prototype._trackLabel,

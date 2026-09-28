@@ -105,6 +105,7 @@ test("/leave: 원인=leave. 세션을 저장하고 지우지 않는다", async (
 
 test("강제 퇴장: 원인=forced-disconnect, 곡 이름이 남는다. 등록부에서 빠진다", async () => {
   const p = playingPlayer(yt("ddddddddddd", { title: "넷째 곡" }));
+  p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", isVoiceBased: () => true })); // 채널은 그대로 있다(지워졌으면 채널 사라짐)
   const client = p.guild.client as Client;
   const state = (channelId: string | null) => fake<VoiceState>({ id: "bot", channelId, guild: p.guild });
   const lines = await endLines(() => onVoiceStateUpdate(client, state("voice1"), state(null)));

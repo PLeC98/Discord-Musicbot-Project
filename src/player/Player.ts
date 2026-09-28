@@ -32,7 +32,7 @@ import { openChunkedStream } from "../media/chunkedStream.ts";
 import { openInput } from "../media/playbackInput.ts";
 import * as voiceChannelStatus from "./voiceChannelStatus.ts";
 import * as audioCache from "../store/audioCache.ts";
-import { VoiceConnectionManager } from "./voiceConnection.ts";
+import { VoiceLink } from "./voiceLink.ts";
 import { PlaybackWatch } from "./playbackWatch.ts";
 import { IdleLeave } from "./idleLeave.ts";
 import { PlaybackState } from "./playbackState.ts";
@@ -85,7 +85,7 @@ const REAL = {
   getStream: (track: Seeking & { platform?: string | null }, seekSeconds?: number, options?: Partial<StreamOptions>) => streamUrl.getStream(track, seekSeconds, options),
   joinVoiceChannel,
   entersState,
-  createVoice: (player: Player) => new VoiceConnectionManager(player, player.io),
+  createVoice: (player: Player) => new VoiceLink(player, player.io),
   createPersistence: (player: Player) => new SessionPersistence(player),
   createWarmer: (player: Player, deps: WarmerDeps) => new QueueWarmer(player, deps),
   createDownloader: (player: Player) => new TrackDownloader(player),
@@ -132,7 +132,7 @@ class Player {
   lifecycle: PlaybackState;
   lastPlaybackPosition: number;
   pauseReasons: Set<string>;
-  voice: VoiceConnectionManager;
+  voice: VoiceLink;
   watch: PlaybackWatch;
   idle: IdleLeave;
   downloader: TrackDownloader;
@@ -254,21 +254,15 @@ class Player {
 
       // 스트림 오류이고 현재 트랙이 있으면 복구 시도
       if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
-        bestEffort(log, this.voice.startConnectionRecovery(), "연결 복구");
+        this.voice.recover("오디오 오류");
       } else {
         // 재생 스트림이 깨진 것이다. 이름이 없으면 그렇게 단다
         this.handleError(codeOf(error) ? error : codedError("stream-failed", error.message, { cause: error })).catch((e: unknown) => log.error("재생 오류 처리 실패:", e));
       }
     });
-
-    // 연결 상태 모니터링 시작
-    this.voice.startConnectionHealthCheck();
-
-    // 음성 연결 이벤트는 VoiceConnectionManager.setupConnectionEvents()에서 설정됨
-    this.voice.setupConnectionEvents();
   }
 
-  // ── 음성 연결. 연결 복구 상태와 헬스체크는 VoiceConnectionManager 가 가진다 ──
+  // ── 음성 연결. 연결 상태와 복구는 voice(VoiceLink)가 가진다 ──
 
   /** 지금 재생의 오디오 리소스. 없으면 null */
   get resource() {
@@ -548,8 +542,7 @@ class Player {
     this.idle.stop();
     this.warmer.stop();
     this.persistence.stopStateSync();
-    this.voice.stopConnectionRecovery();
-    this.voice.stopHealthCheck();
+    this.voice.stop();
     this.watch.stop();
   }
 
@@ -561,7 +554,7 @@ class Player {
   }
 
   /**
-   * 이 플레이어를 버린다. 모든 정리(정지 · 나가기 · 강제 퇴장 · 비활성 · 헬스체크 · 복원 실패 · 교체 · 운영자)가 여기를 지난다.
+   * 이 플레이어를 버린다. 모든 정리(정지 · 나가기 · 강제 퇴장 · 채널 사라짐 · 복구 포기 · 비활성 · 복원 실패 · 교체 · 운영자)가 여기를 지난다.
    * 두 번째 부름은 아무것도 하지 않는다. 버린 뒤 등록부가 스스로 뺀다(disposed 알림).
    * @param o.reason  로그에 남길 원인
    * @param o.session  remove: 세션을 지운다 · save: 저장해 남긴다(/join 이 되살린다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)

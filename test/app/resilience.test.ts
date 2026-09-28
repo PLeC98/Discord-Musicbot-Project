@@ -55,7 +55,7 @@ function fakePlayer({ track = true, paused = false, recovering = false, ready = 
       return counts.recovered;
     },
     voice: {
-      startConnectionRecovery() {
+      recover() {
         if (throwOnRecover) throw new Error("recover boom");
         counts.recovered++;
       },
@@ -216,7 +216,7 @@ function installed(t: TestContext) {
   t.mock.timers.enable({ apis: ["Date"], now: clock });
   const heals: number[] = [];
   const exits: number[] = [];
-  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1), release: () => {} }, persistence: { saveNow: () => {} } };
+  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { recover: () => heals.push(1), release: () => {} }, persistence: { saveNow: () => {} } };
   const client = Object.assign(new EventEmitter(), { players: new Map([["g1", player]]) });
   const proc = new EventEmitter();
   installErrorHandlers(client, { proc, exit: () => exits.push(1), record: { end: () => {} } });

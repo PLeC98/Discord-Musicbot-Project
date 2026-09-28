@@ -18,7 +18,7 @@ const flog = logger.child({ category: "core", sub: "fatal" });
 const coreLog = logger.child({ category: "core" });
 
 /** 표적 복구로 볼 플레이어. 여기서 읽고 부르는 칸만 */
-type Healable = { currentTrack: unknown; paused: boolean; isRecovering?: boolean; connection?: { state?: { status?: string } } | null; voice: { startConnectionRecovery(): unknown } };
+type Healable = { currentTrack: unknown; paused: boolean; isRecovering?: boolean; connection?: { state?: { status?: string } } | null; voice: { recover(why: string): unknown } };
 /** 치명적 오류로 내릴 때 세션을 저장하고 연결을 정리할 플레이어 */
 type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string): unknown } };
 /** 플레이어 레지스트리에서 쓰는 것 */
@@ -48,7 +48,7 @@ function isTransientNetworkError(err: unknown) {
 }
 
 // 네트워크 오류 후: 프로세스는 유지하고, 재생 중이어야 하는데 연결이 끊긴 플레이어만
-// 각자의 기존 복구 루프(startConnectionRecovery: forceReconnect + 저장 위치 재개)로 되살린다.
+// 각자의 음성 연결 복구(voice.recover: 다시 붙이고 끊긴 위치에서 이어 틀기)로 되살린다.
 // 정상 재생 중인 서버(연결 Ready)와 이미 스스로 복구 중인 서버는 건드리지 않는다(무영향).
 let networkHealInProgress = false;
 async function healBrokenPlayers(client: HealClient | null | undefined) {
@@ -65,7 +65,7 @@ async function healBrokenPlayers(client: HealClient | null | undefined) {
         // 수립 진행 중은 자체 완료/실패를 기다림. 여기서 복구를 겹치면 새 연결을 파괴할 수 있음
         if (status === VoiceConnectionStatus.Connecting || status === VoiceConnectionStatus.Signalling) continue;
         log.info(`서버 ID ${guildId}의 음성 연결이 끊겨 복구를 시작합니다`);
-        player.voice.startConnectionRecovery();
+        player.voice.recover("네트워크 오류");
       } catch (e) {
         log.error(`플레이어 자가치유 실패 (서버 ID ${guildId}):`, messageOf(e));
       }

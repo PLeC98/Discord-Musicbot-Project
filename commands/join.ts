@@ -23,9 +23,9 @@ const exported: GuildCommand = {
     const permissions = me ? member.voice.channel.permissionsFor(me) : null;
     if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: S.ERR_NO_PERMISSIONS, flags: [1 << 6] });
 
-    // 이미 채널에 접속해 있음
+    // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
     const existing = client.players.get(guild.id);
-    if (existing?.connection) {
+    if (existing?.voice.isAlive()) {
       return interaction.reply({ content: "✅ 이미 채널에 접속해 있어요.", flags: [1 << 6] });
     }
 
@@ -33,9 +33,8 @@ const exported: GuildCommand = {
     const savedState = sessions().load(guild.id);
     const hasSession = savedState?.current;
 
-    // 연결이 끊긴 채 맵에 남은 플레이어를 교체하기 전에 정리한다. 재접속 실패(VoiceConnectionManager)로
-    // 남은 경우 타이머·상태 동기화가 계속 돌고 캐시 퇴거 보호도 걸린 채라, 그냥 버리면 새 플레이어와
-    // 같은 서버 키를 두고 경쟁한다. 살아 있던 대기열은 승계하지 않는다(미해결).
+    // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머 · 상태 동기화 · 캐시 퇴거 보호가
+    // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 되살린다
     if (existing) await existing.dispose({ reason: "/join 교체", session: "keep" });
 
     const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: member.voice.channel });

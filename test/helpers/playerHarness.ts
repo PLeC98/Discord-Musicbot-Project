@@ -164,7 +164,7 @@ const Player = (await import("../../src/player/Player.ts")).Player;
 type Player = InstanceType<typeof Player>;
 const { TrackDownloader } = await import("../../src/media/cacheDownload.ts");
 const SponsorBlock = await import("../../src/sources/sponsorBlock.ts");
-const VoiceConnectionManager = (await import("../../src/player/voiceConnection.ts")).VoiceConnectionManager;
+const VoiceLink = (await import("../../src/player/voiceLink.ts")).VoiceLink;
 const SessionPersistence = (await import("../../src/player/sessionMirror.ts")).SessionPersistence;
 const QueueWarmer = (await import("../../src/player/queueWarmer.ts")).QueueWarmer;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
@@ -178,14 +178,13 @@ playerEvents.on("disposed", (player) => {
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
 // 붙은 것으로 둔 연결. 시험은 emit 으로 상태를 흉내 낸다
 const fakeConnection = () => Object.assign(new EventEmitter(), { state: { status: "ready" }, destroy() {}, subscribe() {} }) as unknown as VoiceConnection;
-class FakeVoice extends VoiceConnectionManager {
-  startConnectionHealthCheck() {}
-  setupConnectionEvents() {}
-  async startConnectionRecovery() {
-    calls.recoveries.push("recover");
+class FakeVoice extends VoiceLink {
+  recover(why: string) {
+    calls.recoveries.push(why);
   }
   async connect() {
     this.player.connection = fakeConnection();
+    this.state = "ready";
     return true;
   }
 }

@@ -121,15 +121,13 @@ test("toRequester: null/문자열에 던지지 않는다", () => {
 
 // ── ensurePlayer ─────────────────────────────────────────────
 
-test("ensurePlayer: 없으면 만들고 맵에 넣는다", (t) => {
+test("ensurePlayer: 없으면 만들고 맵에 넣는다", () => {
   const client = makeClient();
   const guild = makeGuild();
   const channel = makeChannel("t1");
   const voice = voiceOf("v1");
 
   const player = ensurePlayer(client, { guild, textChannel: channel, voiceChannel: voice });
-  // 진짜 플레이어는 30초 음성 점검 타이머를 건다. 끄지 않으면 테스트 프로세스가 그만큼 살아 있다
-  t.after(() => player.voice.stopHealthCheck());
   assert.equal(client.players.get(GUILD_ID), player);
   assert.equal(player.textChannel, channel);
   assert.equal(player.voiceChannel, voice);
