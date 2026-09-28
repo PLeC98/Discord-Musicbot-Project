@@ -15,7 +15,10 @@ import sink from "../../src/infra/log/sink.ts";
 
 // 가짜 연결. 부순 방식 · 구독한 것 · 다시 붙은 곳을 적는다
 class FakeConnection extends EventEmitter {
-  state: { status: string; reason?: number; closeCode?: number } = { status: VoiceConnectionStatus.Signalling };
+  // 게이트웨이로 보낸 것(참가 · 나가기)
+  sent: unknown[] = [];
+  state: { status: string; reason?: number; closeCode?: number; adapter?: { sendPayload(p: unknown): boolean } } = { status: VoiceConnectionStatus.Signalling, adapter: { sendPayload: (p) => (this.sent.push(p), true) } };
+  joinConfig = { selfDeaf: false, selfMute: false };
   destroyed: Array<"leave" | "stay"> = [];
   subscribed: unknown[] = [];
   rejoins: unknown[] = [];
@@ -82,15 +85,7 @@ function setup({ channel = true, inChannel = "vc1" as string | null, track = tru
   const channels = new Map<string, unknown>();
   if (channel) channels.set("vc1", { id: "vc1", isVoiceBased: () => true });
   channels.set("vc2", { id: "vc2", isVoiceBased: () => true });
-  const me = {
-    voice: {
-      channelId: inChannel,
-      disconnect: async () => {
-        steps.push("me:disconnect");
-        me.voice.channelId = null;
-      },
-    },
-  };
+  const me = { voice: { channelId: inChannel } };
   const fetch = async (id: string) => {
     if (!fetchAs) return channels.get(id) ?? null;
     const r = fetchAs(id);
@@ -323,21 +318,38 @@ test("다시 붙이는 중에 봇이 채널에서 빠졌다는 알림은 쫓겨�
   assert.equal(link.state, "ready");
 });
 
-test("참가 요청에 답이 없고 디스코드가 봇이 그 채널에 있다고 보면, 채널에서 뺐다가 다시 참가를 요청한다. 아니면 기다린다", async () => {
+test("참가 요청에 답이 없고 디스코드가 봇이 그 채널에 있다고 보면, 게이트웨이로 나갔다가 다시 참가를 요청한다. 그 나감 알림은 쫓겨난 것이 아니다", async () => {
   const stuck = setup();
   const c = new FakeConnection();
   stuck.player.connection = c;
+  stuck.link.state = "joining";
   stuck.link._unstick(c as never, "vc1");
-  await until(() => c.rejoins.length > 0, "다시 참가");
-  assert.deepEqual(stuck.steps, ["me:disconnect"]);
+  assert.deepEqual(c.sent, [{ op: 4, d: { guild_id: "g1", channel_id: null, self_deaf: false, self_mute: false } }]);
+  assert.equal(c.rejoins.length, 1, "나감 뒤에 다시 참가");
+
+  assert.deepEqual(stuck.link.onBotState(state("vc1"), state(null)), { left: false, moved: false, muteChanged: false });
+  await sleep(10);
+  assert.deepEqual(stuck.steps, [], "버리지 않는다");
+  assert.equal(stuck.link.state, "joining");
+
+  // 한 번만 넘긴다. 그 뒤의 빠짐은 쫓겨난 것
+  stuck.link.onBotState(state("vc1"), state(null));
+  await until(() => stuck.steps.length > 0, "버리기");
+  assert.deepEqual(stuck.steps, ["dispose:remove:disconnected:forced-disconnect"]);
 
   const elsewhere = setup({ inChannel: "vc2" });
   const d = new FakeConnection();
   elsewhere.player.connection = d;
   elsewhere.link._unstick(d as never, "vc1");
-  await sleep(10);
-  assert.deepEqual(elsewhere.steps, []);
+  assert.deepEqual(d.sent, []);
   assert.deepEqual(d.rejoins, []);
+});
+
+test("붙기가 끝나면 스스로 나간 표시를 지운다(늦게 온 진짜 빠짐을 넘기지 않게)", async () => {
+  const { link } = setup();
+  link.selfLeave = "vc1";
+  await link.connect();
+  assert.equal(link.selfLeave, null);
 });
 
 test("봇이 옮겨졌다: 다시 붙지 않고 기록만 맞춘다. 곧바로 원래 채널로 되돌아오면 목적지로 한 번 다시 옮긴다", async () => {

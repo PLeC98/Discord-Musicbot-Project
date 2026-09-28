@@ -25,6 +25,7 @@ const RECOVER_READY_MS = 15_000; // 다시 붙일 때 Ready 까지
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에, 방금 고치지 않은 참가 요청을 보낸 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없고 디스코드가 봇이 그 채널에 있다고 보면 나갔다가 다시 붙는다
 const UNKNOWN_CHANNEL = 10003;
+const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 나가기
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 
 // 로그에 찍을 이름
@@ -52,6 +53,8 @@ class VoiceLink {
   lastBounceFix: number | null = null;
   /** 라이브러리가 고치지 않고 내보낸 마지막 참가 요청(어댑터가 알린다). 되돌림을 사람의 이동과 가른다 */
   lastPlainJoin: { channelId: string; at: number } | null = null;
+  /** 답 없는 참가를 풀려고 스스로 나간 채널. 그 빠짐 알림은 쫓겨난 것이 아니다 */
+  selfLeave: string | null = null;
 
   constructor(player: VoiceHost, lib: VoiceLib = VOICE_LIB) {
     this.player = player;
@@ -106,19 +109,21 @@ class VoiceLink {
       throw error;
     } finally {
       clearTimeout(stuck);
+      // 나감 알림은 참가의 답(Ready)보다 먼저 온다. 끝났으면 기다릴 것이 없다
+      this.selfLeave = null;
     }
   }
 
   // 참가 요청에 답이 없다. 디스코드가 봇이 이미 그 채널에 있다고 보면(나감이 닿지 못한 채 남은 것) 같은 채널 참가에 답하지 않으므로,
-  // 채널에서 빼고(REST) 다시 참가를 요청한다
+  // 게이트웨이로 나갔다가 다시 참가를 요청한다(REST 로 빼기는 멤버 옮기기 권한이 든다)
   _unstick(connection: VoiceConnection, channelId: string) {
-    const me = this.player.guild.members?.me;
-    if (connection !== this.player.connection || connection.state.status !== VoiceConnectionStatus.Signalling || me?.voice?.channelId !== channelId) return;
-    log.warn(`참가 요청에 ${STUCK_MS / 1000}초 동안 답이 없습니다. 디스코드는 봇이 이미 이 채널에 있다고 봅니다. 채널에서 뺐다가 다시 붙습니다: ${this._label()}`);
-    me.voice
-      .disconnect()
-      .then(() => connection.rejoin())
-      .catch((error: unknown) => log.warn(`채널에서 빼기 실패: ${messageOf(error)}`));
+    const state = connection.state;
+    if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling || this.player.guild.members?.me?.voice?.channelId !== channelId) return;
+    log.warn(`참가 요청에 ${STUCK_MS / 1000}초 동안 답이 없습니다. 디스코드는 봇이 이미 이 채널에 있다고 봅니다. 나갔다가 다시 붙습니다: ${this._label()}`);
+    this.selfLeave = channelId;
+    const { selfDeaf, selfMute } = connection.joinConfig;
+    state.adapter.sendPayload({ op: VOICE_STATE_UPDATE, d: { guild_id: this.player.guild.id, channel_id: null, self_deaf: selfDeaf, self_mute: selfMute } });
+    connection.rejoin();
   }
 
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voiceAdapter)
@@ -274,6 +279,12 @@ class VoiceLink {
   /** 게이트웨이가 알린 봇의 음성 상태. 빠짐(강제 퇴장 · 채널 사라짐) · 옮겨짐 · 서버 음소거를 가른다 */
   onBotState(oldState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress">, newState: Pick<VoiceState, "channelId" | "serverMute" | "serverDeaf" | "suppress" | "channel">): BotStateChange {
     if (oldState.channelId && !newState.channelId) {
+      // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
+      if (this.selfLeave === oldState.channelId) {
+        this.selfLeave = null;
+        log.debug(`스스로 나간 알림. 다시 참가를 기다립니다: ${this._label()}`);
+        return { left: false, moved: false, muteChanged: false };
+      }
       // 다시 붙이는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
       if (this.state === "waiting" || this.state === "recovering") {
         log.info(`디스코드가 봇을 음성 채널에서 뺐습니다. 다시 붙이는 중이라 쫓겨난 것으로 보지 않습니다: ${this._label()}`);
