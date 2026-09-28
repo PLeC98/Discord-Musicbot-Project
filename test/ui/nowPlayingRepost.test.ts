@@ -1,6 +1,7 @@
 // 현재 재생 임베드의 자가 복구 — 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
 // 회귀 대상: 사용자가 임베드를 지우면 5초 갱신마다 10008(Unknown Message)을 error로 찍던 도배.
 
+import sink from "../../src/infra/log/sink.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
@@ -119,6 +120,27 @@ test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 
   state.editError = null;
   await mem.updateNowPlayingEmbed(player);
   assert.deepEqual(calls.edited, ["100", calls.sent[0]]);
+});
+
+test("패널의 글자 채널이 지워졌으면(10003) 다시 올리지 않고 패널을 놓는다. 재생은 그대로", async () => {
+  const { mem, player, calls } = makeSetup({ editError: Object.assign(new Error("Unknown Channel"), { code: 10003 }) });
+  await mem.updateNowPlayingEmbed(player);
+  assert.deepEqual(calls.sent, [], "다시 올리지 않는다");
+  assert.equal(player.nowPlayingMessage, null);
+  assert.equal(player.nowPlayingWebhook, null);
+  assert.equal(player.textChannel, null);
+  assert.ok(player.currentTrack, "곡은 그대로");
+});
+
+test("REST 가 제한 시간에 끊은 갱신은 패널을 건드리지 않는다(다음 갱신이 다시 한다)", async () => {
+  const timedOut = Object.assign(new Error("This operation was aborted"), { name: "AbortError" });
+  const { mem, player, calls } = makeSetup({ editError: timedOut });
+  const from = sink.buffer.length;
+  await mem.updateNowPlayingEmbed(player);
+  assert.deepEqual(calls.sent, []);
+  assert.equal(player.nowPlayingMessage?.id, "100", "참조를 그대로 둔다");
+  const levels = sink.buffer.slice(from).map((e) => e.level);
+  assert.deepEqual(levels, ["warn"], "실패가 아니라 다음에 다시 할 일로 남긴다");
 });
 
 test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않는다", async () => {

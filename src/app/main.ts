@@ -36,6 +36,7 @@ import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/playerNotices.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import { failedStartCode } from "./exitCodes.ts";
+import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./runRecord.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 
@@ -183,7 +184,7 @@ async function init(client: Client, { potServer, logFile }: { potServer: PotServ
     await loadEvents(client);
     // 종료 신호를 받으면 저장하고 정리한 뒤 나간다
     installShutdown(client, { potServer, logFile });
-    await client.login(config.discord.token);
+    await loginWithRetry(client, config.discord.token);
   } catch (error) {
     const stopped = error instanceof StartupStopped;
     if (!stopped) log.error("봇 기동 실패:", error);

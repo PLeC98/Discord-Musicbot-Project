@@ -33,6 +33,10 @@ import type { QueuedTrack, Requester as TrackRequester } from "../player/track.t
 const UNKNOWN_MESSAGE = 10008;
 const UNKNOWN_WEBHOOK = 10015;
 const isGone = (error: unknown) => codeOf(error) === UNKNOWN_MESSAGE || codeOf(error) === UNKNOWN_WEBHOOK;
+// 패널을 올린 글자 채널이 지워졌다. 다시 올릴 곳이 없다
+const UNKNOWN_CHANNEL = 10003;
+// 디스코드 REST 가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
+const isRestTimeout = (error: unknown) => error instanceof Error && error.name === "AbortError";
 
 // 패널 메시지가 있는 채널. 웹훅으로 올린 것은 API 모양이다
 const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message.channelId : message.channel_id);
@@ -579,18 +583,36 @@ class MusicEmbedManager {
       if (player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(panel.id, payload);
       else if ("edit" in panel) await panel.edit(payload);
     } catch (error) {
-      // 편집 대상이 없어졌다. 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
-      if (isGone(error)) {
-        if (codeOf(error) === UNKNOWN_WEBHOOK) {
-          const channel = await this._panelChannel(player);
-          if (channel?.id) this.deleteWebhookCache(channel.id);
-          player.nowPlayingWebhook = null;
-        }
-        await this._repostNowPlaying(player, "메시지가 지워짐");
-        return;
-      }
-      log.error("재생 중 임베드 갱신 실패:", error);
+      await this._onEditFailed(player, error);
     }
+  }
+
+  // 패널 고치기가 실패했다. 까닭마다 할 일이 다르다
+  async _onEditFailed(player: Player, error: unknown) {
+    // 편집 대상이 없어졌다. 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
+    if (isGone(error)) {
+      if (codeOf(error) === UNKNOWN_WEBHOOK) {
+        const channel = await this._panelChannel(player);
+        if (channel?.id) this.deleteWebhookCache(channel.id);
+        player.nowPlayingWebhook = null;
+      }
+      await this._repostNowPlaying(player, "메시지가 지워짐");
+      return;
+    }
+    const where = player.guild.name ?? player.guild.id;
+    if (codeOf(error) === UNKNOWN_CHANNEL) {
+      log.info(`패널을 올린 글자 채널이 사라져 패널을 놓습니다 (${where}). 재생은 이어집니다`);
+      this.stopProgressUpdate(player.guild.id);
+      player.nowPlayingMessage = null;
+      player.nowPlayingWebhook = null;
+      player.textChannel = null;
+      return;
+    }
+    if (isRestTimeout(error)) {
+      log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않았습니다. 다음 갱신에서 다시 합니다 (${where})`);
+      return;
+    }
+    log.error("재생 중 임베드 갱신 실패:", error);
   }
 
   /**
