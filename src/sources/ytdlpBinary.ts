@@ -201,7 +201,8 @@ class YtdlpBinary {
       return { kind: "reused", from: current, to: target };
     }
 
-    const staging = path.join(this.io.dir, ".staging");
+    // 프로세스마다 따로(돌고 있는 봇과 update:ytdlp 가 겹쳐도 서로의 받기를 지우지 않게). 남은 것은 봇 기동 때의 정리가 지운다
+    const staging = path.join(this.io.dir, `.staging-${process.pid}`);
     const file = path.join(staging, path.basename(this.io.seed));
     try {
       fs.rmSync(staging, { recursive: true, force: true });

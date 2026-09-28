@@ -12,6 +12,8 @@ import { YtdlpBinary, describe, type YtdlpBinaryIo } from "../../src/sources/ytd
 const DAY = 24 * 60 * 60 * 1000;
 const saved = { ...config.ytdlp };
 let root = "";
+// 받기 중에 쓰는 폴더가 남았나
+const staged = () => fs.readdirSync(path.join(root, "bin/yt-dlp")).filter((name) => name.startsWith(".staging"));
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "ytdlp-bin-"));
@@ -68,11 +70,11 @@ test("auto: 채널의 최신을 복사본 위에서 채널@태그로 받고, 가
   const { w, bin, rel } = world();
   const outcome = await bin.check();
   assert.deepEqual(outcome, { kind: "installed", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" });
-  assert.ok(w.runs.includes("bin/yt-dlp/.staging/yt-dlp.exe --update-to nightly@2026.09.27.232849"), w.runs.join("\n"));
+  assert.ok(w.runs.includes(`bin/yt-dlp/.staging-${process.pid}/yt-dlp.exe --update-to nightly@2026.09.27.232849`), w.runs.join("\n"));
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
   assert.equal(fs.readFileSync(path.join(root, "bin/yt-dlp/2026.08.19/yt-dlp.exe"), "utf8"), "2026.08.19", "돌고 있던 yt-dlp 의 파일은 덮지 않는다");
   assert.equal(bin.state?.previous, "2026.08.19");
-  assert.equal(fs.existsSync(path.join(root, "bin/yt-dlp/.staging")), false);
+  assert.deepEqual(staged(), []);
 });
 
 test("최신은 하루 한 번만 묻는다. 기록은 디스크에 남아 다시 켜도 이어진다", async () => {
@@ -129,7 +131,7 @@ test("받기가 실패하면 지금 판 그대로. 까닭은 yt-dlp 의 마지�
   w.update = () => ({ status: 100, stderr: "[debug] …\nERROR: Unable to download: HTTP Error 503" });
   assert.deepEqual(await bin.check(), { kind: "failed", current: "2026.08.19", target: "2026.09.27.232849", reason: "ERROR: Unable to download: HTTP Error 503" });
   assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
-  assert.equal(fs.existsSync(path.join(root, "bin/yt-dlp/.staging")), false);
+  assert.deepEqual(staged(), []);
 });
 
 test("목표가 아닌 판이 오면(받을 수 있는 판의 상한) 버리고, 같은 태그는 다시 받지 않는다. 사람이 부르면 다시 해 본다", async () => {
@@ -157,7 +159,7 @@ test("정리는 지금 판과 직전 판만 남긴다", async () => {
   w.latest = "2026.09.28.000000";
   w.clock += DAY;
   await bin.check();
-  fs.mkdirSync(path.join(root, "bin/yt-dlp/.staging"));
+  fs.mkdirSync(path.join(root, "bin/yt-dlp/.staging-1234"));
   bin.cleanup();
   assert.deepEqual(fs.readdirSync(path.join(root, "bin/yt-dlp")).sort(), ["2026.09.27.232849", "2026.09.28.000000", "state.json"]);
 });
