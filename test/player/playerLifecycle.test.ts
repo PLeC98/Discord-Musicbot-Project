@@ -298,21 +298,31 @@ test("Paused 이벤트는 멈춤으로 적는다", () => {
   assert.equal(p.paused, true);
 });
 
-test("오디오 오류: stream/network 가 들어간 것은 연결 복구, 나머지는 오류 처리", () => {
+test("오디오 오류는 음원 쪽이다: 음성 연결을 건드리지 않고 끝 까닭(stream-error)을 적어 곡 끝 처리에 넘긴다", async () => {
   const p = scripted();
-  const seen: string[] = [];
-  p.errorAs = (e) => seen.push(`error:${e.message}`);
+  const errors: string[] = [];
+  const ends: string[] = [];
+  p.errorAs = (e) => errors.push(e.message);
+  p.endAs = (reason) => ends.push(reason);
   p.currentTrack = yt("nnnnnnnnnnn");
 
-  p.audioPlayer.emit("error", new Error("stream closed"));
   p.audioPlayer.emit("error", new Error("network down"));
-  p.audioPlayer.emit("error", new Error("무언가"));
-  p.currentTrack = null;
-  p.audioPlayer.emit("error", new Error("stream closed"));
+  p.onPlayerIdle(); // 오디오 플레이어는 오류를 알린 뒤 Idle 로 간다
+  await new Promise((done) => setImmediate(done));
   h.dispose(p);
 
-  assert.deepEqual(calls.recoveries, ["오디오 오류", "오디오 오류"]);
-  assert.deepEqual(seen, ["error:무언가", "error:stream closed"]);
+  assert.deepEqual(calls.recoveries, [], "음성 연결을 다시 붙이지 않는다");
+  assert.deepEqual(errors, [], "다음 곡으로 넘기는 오류 처리를 따로 부르지 않는다(곡 끝 처리와 겹친다)");
+  assert.deepEqual(ends, ["stream-error"]);
+});
+
+test("곡 끝 처리: stream-error 는 길이를 모르는 곡도 끊긴 것으로 보고 같은 곡을 다시 연다", () => {
+  const p = h.makePlayer();
+  const track = yt("ooooooooooo", { duration: 0 });
+  p.currentTrack = track;
+  assert.equal(p._describeEnd(track, "stream-error").dropped, true);
+  assert.equal(p._describeEnd(track, "idle").dropped, false, "길이를 모르는 곡이 그냥 끝나면 끊김이 아니다");
+  h.dispose(p);
 });
 
 // ── 종료 감시 ─────────────────────────────────────────────────────────

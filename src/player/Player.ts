@@ -21,7 +21,7 @@ import type { Seeking } from "../sources/youtube/equivalent.ts";
 
 import config from "../../config.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
-import { errorKind, messageOf, codedError, codeOf } from "../rules/errorKind.ts";
+import { errorKind, messageOf, codedError } from "../rules/errorKind.ts";
 import { failureReason } from "../rules/failureReason.ts";
 import * as streamUrl from "../sources/streamUrl.ts";
 import { SponsorSkipper } from "./sponsorSkipper.ts";
@@ -249,16 +249,11 @@ class Player {
       if (newState.status === AudioPlayerStatus.Buffering) this.watch.startBuffering();
     });
 
+    // 오디오 플레이어의 오류는 재생 스트림(음원) 쪽이다. 음성 연결 쪽은 연결의 오류 · 전이로 온다(voiceLink).
+    // 오디오 플레이어는 이것을 알린 뒤 Idle 로 가므로 끝 까닭만 적어 둔다. 곡 끝 처리가 같은 곡을 끊긴 곳에서 다시 연다(_recoverDrop)
     this.audioPlayer.on("error", (error) => {
-      log.error("오디오 플레이어 오류:", error);
-
-      // 스트림 오류이고 현재 트랙이 있으면 복구 시도
-      if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
-        this.voice.recover("오디오 오류");
-      } else {
-        // 재생 스트림이 깨진 것이다. 이름이 없으면 그렇게 단다
-        this.handleError(codeOf(error) ? error : codedError("stream-failed", error.message, { cause: error })).catch((e: unknown) => log.error("재생 오류 처리 실패:", e));
-      }
+      log.error(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
+      this._endReason ??= "stream-error";
     });
   }
 
@@ -803,10 +798,12 @@ class Player {
     this.lastPlaybackPosition = playedMs;
     const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
     const manualSkip = MANUAL_ENDS.has(reason);
-    const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && durationMs > 0 && playedMs + 1500 < durationMs;
+    // 재생 스트림이 깨졌으면 길이와 상관없이 끊긴 것이다(길이를 모르는 곡도 다시 연다)
+    const streamError = reason === "stream-error";
+    const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && (streamError || (durationMs > 0 && playedMs + 1500 < durationMs));
     // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
     // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
-    const liveDropped = Boolean(this.playback?.live) && !manualSkip && this.playback?.liveExitCode !== 0;
+    const liveDropped = Boolean(this.playback?.live) && !manualSkip && (streamError || this.playback?.liveExitCode !== 0);
 
     const label = this._trackLabel(finishedTrack);
     log.info(`트랙 종료: ${label} | 원인=${reason}`);
