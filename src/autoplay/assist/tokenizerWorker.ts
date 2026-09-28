@@ -7,7 +7,8 @@ import { count } from "./tokenizers.ts";
 
 type Job = { id: number; texts: string[]; tokenizer: string };
 
-parentPort?.on("message", async ({ id, texts, tokenizer }: Job) => {
+// 실패는 약속 밖으로 새지 않고 오류로 답한다
+async function answer({ id, texts, tokenizer }: Job) {
   try {
     const counted = [];
     for (const one of texts) counted.push(await count(one, tokenizer));
@@ -15,4 +16,10 @@ parentPort?.on("message", async ({ id, texts, tokenizer }: Job) => {
   } catch (error) {
     parentPort?.postMessage({ id, error: error instanceof Error ? error.message : String(error) });
   }
+}
+
+parentPort?.on("message", (job: Job) => {
+  answer(job).catch(() => {
+    // answer 는 던지지 않는다(postMessage 자체가 실패하면 스레드가 끝나고 부모가 안다)
+  });
 });

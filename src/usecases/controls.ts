@@ -9,6 +9,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
 import * as perm from "./permissions.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 import * as playerEvents from "../player/events.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { Guild, GuildMember } from "discord.js";
@@ -167,7 +168,7 @@ function settleVolume(player: Player, before: number) {
   s.timer = setTimeout(() => {
     settling.delete(player);
     if (s.from !== player.volume) log.info(`볼륨: ${s.from}% → ${player.volume}%`);
-    refresh(player);
+    bestEffort(log, refresh(player), "음량 뒤 패널 갱신");
   }, VOLUME_SETTLE_MS);
   s.timer.unref?.();
   settling.set(player, s);

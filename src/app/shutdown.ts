@@ -83,13 +83,20 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
     exit(EXIT.stopped);
   };
 
-  proc.on("SIGINT", () => gracefulShutdown("SIGINT"));
-  proc.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-  proc.on("SIGHUP", () => gracefulShutdown("SIGHUP")); // 터미널 닫힘 · SSH 끊김
+  // 종료가 중간에 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다
+  const onSignal = (signal: string) => {
+    gracefulShutdown(signal).catch((error: unknown) => {
+      log.error("종료 중 오류:", error);
+      exit(EXIT.stopped);
+    });
+  };
+  proc.on("SIGINT", () => onSignal("SIGINT"));
+  proc.on("SIGTERM", () => onSignal("SIGTERM"));
+  proc.on("SIGHUP", () => onSignal("SIGHUP")); // 터미널 닫힘 · SSH 끊김
 
   // Windows 콘솔의 Ctrl+C 는 프로세스 신호로 안 오는 때가 있어 입력 쪽에서도 받는다
   if (proc.platform === "win32" && proc.stdin.isTTY) {
-    readline.createInterface({ input: proc.stdin, output: proc.stdout }).on("SIGINT", () => gracefulShutdown("SIGINT"));
+    readline.createInterface({ input: proc.stdin, output: proc.stdout }).on("SIGINT", () => onSignal("SIGINT"));
   }
 }
 

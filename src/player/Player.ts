@@ -254,10 +254,10 @@ class Player {
 
       // 스트림 오류이고 현재 트랙이 있으면 복구 시도
       if (this.currentTrack && error.message && (error.message.includes("stream") || error.message.includes("network"))) {
-        this.voice.startConnectionRecovery();
+        bestEffort(log, this.voice.startConnectionRecovery(), "연결 복구");
       } else {
         // 재생 스트림이 깨진 것이다. 이름이 없으면 그렇게 단다
-        this.handleError(codeOf(error) ? error : codedError("stream-failed", error.message, { cause: error }));
+        this.handleError(codeOf(error) ? error : codedError("stream-failed", error.message, { cause: error })).catch((e: unknown) => log.error("재생 오류 처리 실패:", e));
       }
     });
 

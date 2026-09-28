@@ -145,7 +145,7 @@ class ChunkedReader {
       return;
     }
     if (this.wanting && this.chunks.length === 0 && this.interruptedAt && !this.starvedSince) this.starvedSince = Date.now();
-    if (!this.fetching && !this.handedOff && this.pos < this.o.totalBytes && this.queued < this.lowWater) this.fill();
+    if (!this.fetching && !this.handedOff && this.pos < this.o.totalBytes && this.queued < this.lowWater) this._fillOrFail();
   }
 
   flush() {
@@ -257,6 +257,11 @@ class ChunkedReader {
     return !this.stream.destroyed;
   }
 
+  // 다음 조각을 받는다. fill 은 실패를 스스로 받아 스트림을 닫는다. 그래도 새면 스트림을 오류로 닫는다
+  _fillOrFail() {
+    this.fill().catch((error: unknown) => this.stream.destroy(error instanceof Error ? error : new Error(String(error))));
+  }
+
   async fill() {
     this.fetching = true;
     this.target = Math.min(this.pos + this.o.chunkSize, this.o.totalBytes);
@@ -289,7 +294,7 @@ class ChunkedReader {
         };
       });
       if (this.primed) this.settleReady?.(null);
-      else if (!this.fetching) this.fill();
+      else if (!this.fetching) this._fillOrFail();
     }
     return this.ready;
   }

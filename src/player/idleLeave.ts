@@ -39,22 +39,8 @@ class IdleLeave {
 
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
     this.aloneTimer = setTimeout(
-      async () => {
-        this.aloneTimer = null;
-        this.aloneAt = null;
-
-        const channelId = player.voiceChannel?.id;
-        const channel = channelId ? player.guild.channels.cache.get(channelId) : null;
-        const hasListeners = channel?.isVoiceBased() ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
-
-        if (hasListeners) {
-          player.resumeFor("alone");
-          await playerEvents.refresh(player);
-          return;
-        }
-
-        // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다
-        await player.dispose({ reason: "비활성 타임아웃", session: "remove", panel: "disconnected", end: "inactivity-timeout" });
+      () => {
+        this._aloneExpired().catch((error: unknown) => log.error("혼자 남음 정리 실패:", error));
       },
       Math.max(this.aloneMs, 0),
     );
@@ -62,6 +48,26 @@ class IdleLeave {
   }
 
   /** 혼자 남음 타이머를 거둔다. shouldResume 이면 "혼자" 멈춤도 풀고, 아니면 그 사유만 지운다(재생은 그대로) */
+  // 혼자 남은 채 기다린 시간이 지났다. 그사이 사람이 돌아왔으면 풀고, 아니면 나간다
+  async _aloneExpired() {
+    const player = this.player;
+    this.aloneTimer = null;
+    this.aloneAt = null;
+
+    const channelId = player.voiceChannel?.id;
+    const channel = channelId ? player.guild.channels.cache.get(channelId) : null;
+    const hasListeners = channel?.isVoiceBased() ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
+
+    if (hasListeners) {
+      player.resumeFor("alone");
+      await playerEvents.refresh(player);
+      return;
+    }
+
+    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다
+    await player.dispose({ reason: "비활성 타임아웃", session: "remove", panel: "disconnected", end: "inactivity-timeout" });
+  }
+
   cancelAlone(shouldResume = true) {
     const player = this.player;
     if (this.aloneTimer) {

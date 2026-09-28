@@ -12,6 +12,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice" });
 import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
 import { messageOf } from "../rules/errorKind.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 const MOVE_BOUNCE_MS = 1500; // 옮겨진 뒤 이만큼 안에 원래 채널로 돌아오면 라이브러리의 되돌림으로 본다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 
@@ -56,46 +57,20 @@ class VoiceConnectionManager {
 
     const label = () => `"${channelName(player)}" (${guildName(player)})`;
 
-    player.connection.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
-      // 이미 복구 중이거나 사용자가 봇 연결을 끊은 경우 복구를 트리거하지 않음
-      if (this.isRecovering || newState.reason === VoiceConnectionDisconnectReason.Manual) {
-        log.info(`연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 복구 안 함 (${this.isRecovering ? "이미 복구 중" : "수동 해제"})`);
-        return;
-      }
-
-      // 네트워크 연결 끊김에는 즉시 자동 재연결 시도
-      log.warn(`연결 끊김: ${label()} | 사유=${newState.reason ?? "?"} | 자동 재연결 대기`);
-      try {
-        const connection = player.connection;
-        if (!connection) throw new Error("연결이 없습니다");
-        await this.lib.entersState(connection, VoiceConnectionStatus.Connecting, 5000);
-        // 여기에 도달하면 Discord가 자동 재연결을 시도 중임
-        await this.lib.entersState(connection, VoiceConnectionStatus.Ready, 10000);
-        log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${label()}`);
-      } catch (error) {
-        // 자동 재연결 실패, 음악 재생 중이면 자체 복구 시스템 시작
-        const willRecover = !!player.currentTrack && !player.paused;
-        log.warn(`자동 재연결 실패: ${label()} | ${willRecover ? "자체 복구 시작" : "재생 중이 아니라 복구 안 함"}`);
-        if (willRecover) {
-          this.startConnectionRecovery();
-        }
-      }
+    player.connection.on(VoiceConnectionStatus.Disconnected, (_oldState, newState) => {
+      this._onDisconnected(newState.reason, label).catch((error: unknown) => log.error("연결 끊김 처리 실패:", error));
     });
 
     player.connection.on(VoiceConnectionStatus.Destroyed, () => {
       // 음악이 재생 중이고 아직 복구 중이 아닐 때만 복구 시작
       const willRecover = this._shouldRecover();
       log.info(`음성 연결 종료됨: ${label()}${willRecover ? " | 재생 중이라 복구 시작" : ""}`);
-      if (willRecover) {
-        this.startConnectionRecovery();
-      }
+      if (willRecover) bestEffort(log, this.startConnectionRecovery(), "연결 복구");
     });
 
     player.connection.on("error", (error: Error) => {
       log.error("음성 연결 오류:", error);
-      if (player.currentTrack && !player.paused) {
-        this.startConnectionRecovery();
-      }
+      if (player.currentTrack && !player.paused) bestEffort(log, this.startConnectionRecovery(), "연결 복구");
     });
 
     // 연결 상태 변경 모니터링. 전이를 남겨야 "언제 왜 끊겼는지"를 사후에 따라갈 수 있다.
@@ -116,6 +91,31 @@ class VoiceConnectionManager {
     });
   }
 
+  async _onDisconnected(reason: VoiceConnectionDisconnectReason | undefined, label: () => string) {
+    const player = this.player;
+    // 이미 복구 중이거나 사용자가 봇 연결을 끊은 경우 복구를 트리거하지 않음
+    if (this.isRecovering || reason === VoiceConnectionDisconnectReason.Manual) {
+      log.info(`연결 끊김: ${label()} | 사유=${reason ?? "?"} | 복구 안 함 (${this.isRecovering ? "이미 복구 중" : "수동 해제"})`);
+      return;
+    }
+
+    // 네트워크 연결 끊김에는 즉시 자동 재연결 시도
+    log.warn(`연결 끊김: ${label()} | 사유=${reason ?? "?"} | 자동 재연결 대기`);
+    try {
+      const connection = player.connection;
+      if (!connection) throw new Error("연결이 없습니다");
+      await this.lib.entersState(connection, VoiceConnectionStatus.Connecting, 5000);
+      // 여기에 도달하면 Discord가 자동 재연결을 시도 중임
+      await this.lib.entersState(connection, VoiceConnectionStatus.Ready, 10000);
+      log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${label()}`);
+    } catch {
+      // 자동 재연결 실패, 음악 재생 중이면 자체 복구 시스템 시작
+      const willRecover = !!player.currentTrack && !player.paused;
+      log.warn(`자동 재연결 실패: ${label()} | ${willRecover ? "자체 복구 시작" : "재생 중이 아니라 복구 안 함"}`);
+      if (willRecover) bestEffort(log, this.startConnectionRecovery(), "연결 복구");
+    }
+  }
+
   startConnectionHealthCheck() {
     // 30초마다 연결 상태 확인
     this.stopHealthCheck();
@@ -127,7 +127,7 @@ class VoiceConnectionManager {
     try {
       // 연결 상태 확인
       const dead = !player.connection || player.connection.state.status === VoiceConnectionStatus.Destroyed;
-      if (dead && this._shouldRecover()) this.startConnectionRecovery();
+      if (dead && this._shouldRecover()) bestEffort(log, this.startConnectionRecovery(), "연결 복구");
 
       // 음성 채널이 아직 존재하는지 확인
       if (!this._liveChannel()) {

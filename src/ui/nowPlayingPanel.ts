@@ -338,12 +338,10 @@ class MusicEmbedManager {
       markTransient(infoMessage?.id, 10000);
 
       // 10초 후 정보 메시지 삭제
-      setTimeout(async () => {
-        try {
-          await infoMessage.delete();
-        } catch {
+      setTimeout(() => {
+        infoMessage.delete().catch(() => {
           // 메시지가 이미 삭제되었을 수 있음
-        }
+        });
       }, 10000);
     } catch (error) {
       log.error("재생목록 추가 안내 전송 실패:", error);
@@ -861,19 +859,20 @@ class MusicEmbedManager {
    */
   startProgressUpdate(player: Player) {
     this.stopProgressUpdate(player.guild.id);
-    const intervalId = setInterval(async () => {
+    const intervalId = setInterval(() => {
       if (!player.currentTrack || !player.nowPlayingMessage) {
         this.stopProgressUpdate(player.guild.id);
         return;
       }
-      try {
-        if (await this._isBuried(player)) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
-        else await this.updateNowPlayingEmbed(player);
-      } catch {
-        this.stopProgressUpdate(player.guild.id);
-      }
+      this._tickProgress(player).catch(() => this.stopProgressUpdate(player.guild.id));
     }, 5000);
     this.updateIntervals.set(player.guild.id, intervalId);
+  }
+
+  // 진행 막대 한 번. 전용 채널에서 묻혔으면 맨 아래로 다시 올린다
+  async _tickProgress(player: Player) {
+    if (await this._isBuried(player)) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
+    else await this.updateNowPlayingEmbed(player);
   }
 
   /**

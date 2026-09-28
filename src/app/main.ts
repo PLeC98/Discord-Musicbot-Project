@@ -62,7 +62,19 @@ function main() {
   // 유튜브 POToken 서버. 준비를 확인한 뒤 봇을 켠다
   const potServer = createPotServer();
   potServer.start();
-  potServer.waitReady().then(() => startBot({ potServer, logFile, skipRestore: previous.skipRestore }));
+  potServer
+    .waitReady()
+    .then(() => startBot({ potServer, logFile, skipRestore: previous.skipRestore }))
+    .catch((error: unknown) => {
+      // 클라이언트를 만들기 전에 던졌다. 띄운 것을 내리고 나간다
+      log.error("봇 기동 실패:", error);
+      const noClient = {
+        destroy() {
+          // 클라이언트를 만들기 전이다
+        },
+      };
+      stopFailedStart(noClient, { potServer, logFile }, failedStartCode(error, false));
+    });
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -81,11 +93,14 @@ function setUpLogging() {
 
 function deploySlashCommands() {
   log.debug("슬래시 명령어 배포를 시작합니다.");
-  commandLoader.deployCommands().then((r) => {
-    if (r.ok && r.skipped) log.info(`명령어 정의 ${r.count}개가 바뀌지 않았습니다. 등록을 건너뜁니다. (강제 재배포: pnpm run cmddeploy)`);
-    else if (r.ok) log.info(`${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 배포했습니다.`);
-    else commandLoader.deployErrorLines(r).forEach((line) => log.error(line));
-  });
+  commandLoader
+    .deployCommands()
+    .then((r) => {
+      if (r.ok && r.skipped) log.info(`명령어 정의 ${r.count}개가 바뀌지 않았습니다. 등록을 건너뜁니다. (강제 재배포: pnpm run cmddeploy)`);
+      else if (r.ok) log.info(`${r.count}개 슬래시 명령어를 ${r.scope === "guild" ? `서버 ${r.guildId}에` : "전역으로"} 배포했습니다.`);
+      else commandLoader.deployErrorLines(r).forEach((line) => log.error(line));
+    })
+    .catch((error: unknown) => log.error("슬래시 명령어 배포 실패:", messageOf(error)));
 }
 
 function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; logFile: LogFile | null; skipRestore: boolean }) {
@@ -105,16 +120,21 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
   startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
   listenToPlayers(client.musicEmbedManager, stream);
 
-  client.once(Events.ClientReady, (ready) => onReady(ready, skipRestore));
+  client.once(Events.ClientReady, (ready) => {
+    onReady(ready, skipRestore).catch((error: unknown) => log.error("기동 마무리(세션 복원 · 패널) 실패:", error));
+  });
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
   client.on(Events.Raw, (packet) => voiceChannelStatus.consumePacket(packet));
   // 음성 상태 변화: 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음
-  client.on(Events.VoiceStateUpdate, (oldState, newState) => onVoiceStateUpdate(client, oldState, newState));
+  client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    onVoiceStateUpdate(client, oldState, newState).catch((error: unknown) => log.error(`음성 상태 처리 실패 (${newState.guild.name ?? newState.guild.id}):`, error));
+  });
   // 새어 나온 오류 · 거부 · 예외를 가려 표적 복구하거나 안전 종료한다
   installErrorHandlers(client);
 
-  init(client, { potServer, logFile });
+  // 실패는 init 이 받아 기동 실패로 내린다
+  bestEffort(log, init(client, { potServer, logFile }), "기동");
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다

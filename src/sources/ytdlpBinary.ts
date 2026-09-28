@@ -15,6 +15,7 @@ import config from "../../config.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/processRegistry.ts";
 import { messageOf } from "../rules/errorKind.ts";
+import { bestEffort } from "../infra/bestEffort.ts";
 
 const log = logger.child({ category: "ytdlp" });
 
@@ -281,7 +282,12 @@ class YtdlpBinary {
 
   _schedule(delayMs: number) {
     this.stop();
-    this.timer = setTimeout(() => this._tick(), Math.max(delayMs, 60_000));
+    this.timer = setTimeout(
+      () => {
+        bestEffort(log, this._tick(), "yt-dlp 새 판 확인");
+      },
+      Math.max(delayMs, 60_000),
+    );
     this.timer.unref?.();
   }
 

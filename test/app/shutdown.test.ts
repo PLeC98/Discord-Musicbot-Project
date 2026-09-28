@@ -6,7 +6,7 @@ import { EventEmitter } from "node:events";
 import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../src/app/shutdown.ts";
 import { fakeWith } from "../helpers/fake.ts";
 
-function setup({ saveFails = false, status = async () => {} }: { saveFails?: boolean; status?: () => Promise<unknown> } = {}) {
+function setup({ saveFails = false, releaseFails = false, status = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown> } = {}) {
   const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
   // destroy(false) 는 나감 메시지를 보내지 않는다(채널에 남는다)
@@ -31,6 +31,7 @@ function setup({ saveFails = false, status = async () => {} }: { saveFails?: boo
     },
     voice: {
       release: (reason: string) => {
+        if (releaseFails) throw new Error("연결 정리 실패");
         steps.push(`release:${id}:${reason}`);
         live.get(id)?.destroy(false);
       },
@@ -80,6 +81,15 @@ test("레지스트리에 없는 음성 연결도 채널에는 남긴 채 정리�
   assert.equal(await exited, 0);
   assert.ok(steps.includes("voice:g9:stay"), "레지스트리에 없던 연결");
   assert.equal(steps.at(-2), "kill:SIGHUP");
+});
+
+test("종료가 중간에 던져도(연결 정리 실패) 나간다", async () => {
+  const { proc, exited } = setup({ releaseFails: true });
+  proc.emit("SIGTERM");
+  let late: NodeJS.Timeout | undefined;
+  const outcome = await Promise.race([exited, new Promise((done) => (late = setTimeout(done, 2000, "나가지 않음")))]);
+  clearTimeout(late);
+  assert.equal(outcome, 0);
 });
 
 test("상태 문구 지우기가 멈춰도 상한만 기다리고 끝낸다", async () => {

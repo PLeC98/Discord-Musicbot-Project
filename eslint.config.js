@@ -84,6 +84,17 @@ export default [
     },
   },
 
+  // 새어 나가는 약속을 막는다. 기다리지 않는 약속은 경계를 지나거나 bestEffort 로(실패를 받는 곳이 있어야 한다).
+  // 타입 정보가 필요해 봇 쪽 코드에만 건다(시험은 가짜 · 일부러 기다리지 않는 약속이 많다)
+  {
+    files: ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts"],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+    rules: {
+      "@typescript-eslint/no-floating-promises": ["error", { allowForKnownSafeCalls: [{ from: "file", name: "bestEffort", path: "src/infra/bestEffort.ts" }] }],
+      "@typescript-eslint/no-misused-promises": "error",
+    },
+  },
+
   // .ts 는 타입을 아는 typescript-eslint 쪽 규칙이 본다(overload · 타입 안의 매개변수 이름을 미사용으로 잡지 않는다)
   {
     files: ["**/*.ts"],
