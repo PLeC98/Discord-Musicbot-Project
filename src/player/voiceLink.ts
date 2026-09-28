@@ -6,6 +6,7 @@ import type { VoiceBasedChannel, VoiceState } from "discord.js";
 import type { Player } from "./Player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
+import { bindToGuild } from "../infra/guildContext.ts";
 import { messageOf } from "../rules/errorKind.ts";
 
 const log = logger.child({ category: "voice" });
@@ -102,9 +103,17 @@ class VoiceLink {
   }
 
   // 연결의 전이 · 오류를 듣는다. 옛 연결은 부수기 전에 리스너를 떼므로(_detach) 여기로 오는 것은 지금 연결의 소식이다
+  // 연결은 라이브러리가 쏜다. 이 서버의 문맥에 묶어 새어 나온 오류가 이 서버로 돌아오게 한다(infra/guildContext)
   _watch(connection: VoiceConnection) {
-    connection.on("stateChange", (oldState, newState) => this._onStateChange(oldState, newState));
-    connection.on("error", (error: Error) => this._onError(error));
+    const guildId = this.player.guild.id;
+    connection.on(
+      "stateChange",
+      bindToGuild(guildId, (oldState: VoiceConnectionState, newState: VoiceConnectionState) => this._onStateChange(oldState, newState)),
+    );
+    connection.on(
+      "error",
+      bindToGuild(guildId, (error: Error) => this._onError(error)),
+    );
   }
 
   _onStateChange(oldState: VoiceConnectionState, newState: VoiceConnectionState) {

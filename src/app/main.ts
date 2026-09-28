@@ -2,14 +2,14 @@
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
 import path from "path";
-import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type Interaction } from "discord.js";
+import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type Interaction, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../../config.ts";
 import * as audioCache from "../store/audioCache.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { Player } from "../player/Player.ts";
-import { restoreSavedPlayers } from "../player/sessionRestore.ts";
+import { restoreSavedPlayers, restoreGuild } from "../player/sessionRestore.ts";
 import { adoptLingeringVoice } from "../player/voiceAdopt.ts";
 import * as voiceChannelStatus from "../player/voiceChannelStatus.ts";
 import * as voiceStatusStore from "../store/voiceStatus.ts";
@@ -24,6 +24,8 @@ import * as statusConfig from "../config/status.ts";
 import { loadModules } from "./moduleLoader.ts";
 import * as commandLoader from "./commandLoader.ts";
 import { installErrorHandlers } from "./resilience.ts";
+import { createGuildFaults } from "./guildFault.ts";
+import { guarded, type OnFault } from "./eventBoundary.ts";
 import { installShutdown, stopFailedStart } from "./shutdown.ts";
 import { scheduleReplyCleanup } from "../ui/replyLifetime.ts";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
@@ -122,6 +124,13 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
   startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
   listenToPlayers(client.musicEmbedManager, stream);
 
+  // 서버 하나 다시 켜기. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
+  const fault = createGuildFaults({ players: client.players, restore: (guildId) => restoreGuild(client, Player, guildId) });
+  const onFault: OnFault = (error, guildId, where) => {
+    if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(`서버 ${guildId} 오류 처리 실패:`, e));
+    else log.error(`처리기 오류 (${where}):`, error);
+  };
+
   client.once(Events.ClientReady, (ready) => {
     onReady(ready, skipRestore).catch((error: unknown) => log.error("기동 마무리(세션 복원 · 패널) 실패:", error));
   });
@@ -129,14 +138,15 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
   client.on(Events.Raw, (packet) => voiceChannelStatus.consumePacket(packet));
   // 음성 상태 변화: 강제 퇴장 · 채널 이동 · 음소거 · 혼자 남음
-  client.on(Events.VoiceStateUpdate, (oldState, newState) => {
-    onVoiceStateUpdate(client, oldState, newState).catch((error: unknown) => log.error(`음성 상태 처리 실패 (${newState.guild.name ?? newState.guild.id}):`, error));
-  });
+  client.on(
+    Events.VoiceStateUpdate,
+    guarded("음성 상태", (oldState: VoiceState, newState: VoiceState) => onVoiceStateUpdate(client, oldState, newState), onFault),
+  );
   // 새어 나온 오류 · 거부 · 예외를 가려 표적 복구하거나 안전 종료한다
-  installErrorHandlers(client);
+  installErrorHandlers(client, { fault });
 
   // 실패는 init 이 받아 기동 실패로 내린다
-  bestEffort(log, init(client, { potServer, logFile }), "기동");
+  bestEffort(log, init(client, { potServer, logFile, onFault }), "기동");
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다
@@ -176,12 +186,12 @@ async function cleanupAudioCache() {
   }
 }
 
-async function init(client: Client, { potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
+async function init(client: Client, { potServer, logFile, onFault }: { potServer: PotServer; logFile: LogFile | null; onFault: OnFault }) {
   try {
     log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
     checkBeforeLogin();
     await loadCommands(client);
-    await loadEvents(client);
+    await loadEvents(client, onFault);
     // 종료 신호를 받으면 저장하고 정리한 뒤 나간다
     installShutdown(client, { potServer, logFile });
     await loginWithRetry(client, config.discord.token);
@@ -253,7 +263,7 @@ const withReplyCleanup = (execute: (interaction: Interaction) => unknown) => (in
   return done;
 };
 
-async function loadEvents(client: Client) {
+async function loadEvents(client: Client, onFault: OnFault) {
   const { modules, failures, missing } = await loadModules(path.join(ROOT, "events"));
   if (missing) return log.warn("events 디렉터리가 없어 기본 이벤트로 진행합니다.");
 
@@ -265,8 +275,13 @@ async function loadEvents(client: Client) {
   abortOnLoadFailure("이벤트 핸들러", failures);
   for (const event of events) {
     const register = <K extends keyof ClientEvents>(name: K, listener: (...args: ClientEvents[K]) => unknown) => (event.once ? client.once(name, listener) : client.on(name, listener));
-    if (event.name === Events.InteractionCreate) register(Events.InteractionCreate, withReplyCleanup(event.execute.bind(event)));
-    else register(event.name, (...args) => event.execute(...args));
+    // 처리기마다 서버 경계로 감싼다(app/eventBoundary). 새어 나온 오류는 그 서버의 오류로 받는다
+    if (event.name === Events.InteractionCreate) register(Events.InteractionCreate, guarded(event.name, withReplyCleanup(event.execute.bind(event)), onFault));
+    else
+      register(
+        event.name,
+        guarded(event.name, (...args: unknown[]) => event.execute(...args), onFault),
+      );
   }
   log.info({ tags: ["startup"] }, `이벤트 핸들러 ${events.length}개 등록 완료`);
 }

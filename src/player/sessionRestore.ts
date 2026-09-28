@@ -112,4 +112,10 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   return null;
 }
 
-export { resolveGuildForRestore, restoreSavedPlayers, ATTEMPTS, RETRY_DELAY_MS };
+/** 서버 하나의 저장된 세션을 되살린다(서버 하나 다시 켜기). 세션이 없으면 아무것도 안 한다 */
+async function restoreGuild(client: Client, PlayerCtor: PlayerClass, guildId: string) {
+  const record = sessions().load(guildId);
+  if (record) await restoreOne(client, PlayerCtor, record);
+}
+
+export { resolveGuildForRestore, restoreSavedPlayers, restoreGuild, ATTEMPTS, RETRY_DELAY_MS };

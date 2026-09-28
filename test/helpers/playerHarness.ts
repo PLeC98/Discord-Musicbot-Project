@@ -177,7 +177,16 @@ playerEvents.on("disposed", (player) => {
 
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
 // 붙은 것으로 둔 연결. 시험은 emit 으로 상태를 흉내 낸다
-const fakeConnection = () => Object.assign(new EventEmitter(), { state: { status: "ready" }, destroy() {}, subscribe() {} }) as unknown as VoiceConnection;
+// 부순 방식(leave: 나감 메시지 · stay: 채널에 남음)을 destroyed 에 적는다
+const fakeConnection = () =>
+  Object.assign(new EventEmitter(), {
+    state: { status: "ready" },
+    destroyed: [] as string[],
+    destroy(adapterAvailable = true) {
+      this.destroyed.push(adapterAvailable ? "leave" : "stay");
+    },
+    subscribe() {},
+  }) as unknown as VoiceConnection & { destroyed: string[] };
 class FakeVoice extends VoiceLink {
   recover(why: string) {
     calls.recoveries.push(why);

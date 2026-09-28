@@ -14,6 +14,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake } from "../helpers/fake.ts";
 
 import * as h from "../helpers/playerHarness.ts";
+import { inGuild, currentGuild } from "../../src/infra/guildContext.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { playbackStatus, soundAttached } from "../../src/ui/playerStatus.ts";
 import { queueInfoOf } from "../../src/ui/queueView.ts";
@@ -850,4 +851,29 @@ test("음성 채널 상태: 쓰기가 실패하면 던진다(부르는 쪽의 be
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", permissionsFor: () => ({ has: () => true }) }));
   await assert.rejects(p.updateVoiceStatus("곡 제목"), /Missing Access/);
   h.dispose(p);
+});
+
+test("오디오 플레이어의 전이는 누가 쏘든 이 서버의 문맥에서 돈다(새어 나온 오류가 이 서버로 돌아온다)", () => {
+  const seen: Array<string | null> = [];
+  class Probe extends h.Player {
+    _onAudioState() {
+      seen.push(currentGuild());
+    }
+  }
+  const p = h.makePlayer({ as: Probe, guildId: "g1" });
+  inGuild("g-other", () => p.audioPlayer.emit("stateChange", { status: "idle" }, { status: "buffering" }));
+  h.dispose(p);
+  assert.deepEqual(seen, ["g1"]);
+});
+
+test("버리기: stay 면 음성 채널에 남긴 채 연결만 정리하고(서버 하나 다시 켜기), 아니면 나간다", async () => {
+  const stay = h.makePlayer();
+  const kept = stay.connection as unknown as { destroyed: string[] };
+  await stay.dispose({ reason: "시험", session: "keep", stay: true });
+  assert.deepEqual(kept.destroyed, ["stay"]);
+
+  const leave = h.makePlayer();
+  const left = leave.connection as unknown as { destroyed: string[] };
+  await leave.dispose({ reason: "시험", session: "keep" });
+  assert.deepEqual(left.destroyed, ["leave"]);
 });

@@ -39,6 +39,7 @@ class FakeAudio extends EventEmitter {
 function makePlayer(status: string) {
   const audio = new FakeAudio(status);
   const p = fakePlayer({
+    guild: { id: "g1" },
     audioPlayer: audio,
     pauseReasons: new Set(),
     paused: false,
@@ -49,6 +50,7 @@ function makePlayer(status: string) {
     pauseFor: Player.prototype.pauseFor,
     resumeFor: Player.prototype.resumeFor,
     _showTrackInVoiceStatus: Player.prototype._showTrackInVoiceStatus,
+    _onAudioState: Player.prototype._onAudioState,
   });
   Player.prototype.setupEvents.call(p);
   // 가짜 오디오 플레이어의 상태를 옮기는 손잡이

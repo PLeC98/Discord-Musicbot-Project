@@ -10,7 +10,7 @@ const clog = logger.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
 const elog = logger.child({ category: "error" });
 import { PermissionFlagsBits, type Guild, type GuildTextBasedChannel, type VoiceBasedChannel, type Message, type WebhookClient } from "discord.js";
-import type { AudioPlayer, VoiceConnection } from "@discordjs/voice";
+import type { AudioPlayer, AudioPlayerState, VoiceConnection } from "@discordjs/voice";
 import type { QueuedTrack } from "./track.ts";
 import type { Loop } from "./trackState.ts";
 import type { WarmerDeps } from "./queueWarmer.ts";
@@ -50,6 +50,7 @@ import { buildFfmpegArgs } from "../media/ffmpeg/args.ts";
 import { inputKind } from "../rules/inputKind.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
+import { bindToGuild } from "../infra/guildContext.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 
 // 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
@@ -208,53 +209,70 @@ class Player {
   }
 
   setupEvents() {
-    // 오디오 플레이어 이벤트
-    this.audioPlayer.on(AudioPlayerStatus.Playing, () => {
-      // pause()는 재생 중일 때만 먹는다. 버퍼링 중에 걸린 일시정지는 재생으로 넘어오는 이 순간에 건다.
-      if (this.pauseReasons.size > 0) {
-        this.audioPlayer.pause();
-        return;
-      }
-      this.paused = false;
-      this._showTrackInVoiceStatus();
-    });
+    // 오디오 플레이어는 라이브러리가 쏜다. 리스너를 이 서버의 문맥에 묶어 새어 나온 오류가 이 서버로 돌아오게 한다(infra/guildContext)
+    const own = <A extends unknown[]>(fn: (...args: A) => void) => bindToGuild(this.guild.id, fn);
 
-    this.audioPlayer.on(AudioPlayerStatus.Paused, () => {
-      this.paused = true;
-      this._showTrackInVoiceStatus();
-    });
+    this.audioPlayer.on(
+      AudioPlayerStatus.Playing,
+      own(() => {
+        // pause()는 재생 중일 때만 먹는다. 버퍼링 중에 걸린 일시정지는 재생으로 넘어오는 이 순간에 건다.
+        if (this.pauseReasons.size > 0) {
+          this.audioPlayer.pause();
+          return;
+        }
+        this.paused = false;
+        this._showTrackInVoiceStatus();
+      }),
+    );
 
-    this.audioPlayer.on(AudioPlayerStatus.Idle, () => {
-      this.onPlayerIdle("idle");
-    });
+    this.audioPlayer.on(
+      AudioPlayerStatus.Paused,
+      own(() => {
+        this.paused = true;
+        this._showTrackInVoiceStatus();
+      }),
+    );
+
+    this.audioPlayer.on(
+      AudioPlayerStatus.Idle,
+      own(() => this.onPlayerIdle("idle")),
+    );
 
     // 내장 방어(maxMissedFrames)는 Playing 중에만 돈다. Buffering에서 멈추면 시작 워치독이 깨운다.
     // 전이 자체는 정상 동작이라 debug, 버퍼링이 3초를 넘기면 warn.
-    this.audioPlayer.on("stateChange", (oldState, newState) => {
-      if (oldState.status === newState.status) return;
-
-      if (oldState.status === AudioPlayerStatus.Buffering) {
-        const heldMs = this.watch.bufferingSince ? Date.now() - this.watch.bufferingSince : null;
-        this.watch.stopBuffering();
-        if (heldMs !== null) {
-          const line = `상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
-          if (heldMs >= 3000) wlog.warn(`${line} 오래 걸림`);
-          else wlog.debug(line);
-        }
-        return;
-      }
-
-      wlog.debug(`재생 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
-
-      if (newState.status === AudioPlayerStatus.Buffering) this.watch.startBuffering();
-    });
+    this.audioPlayer.on(
+      "stateChange",
+      own((oldState: AudioPlayerState, newState: AudioPlayerState) => this._onAudioState(oldState, newState)),
+    );
 
     // 오디오 플레이어의 오류는 재생 스트림(음원) 쪽이다. 음성 연결 쪽은 연결의 오류 · 전이로 온다(voiceLink).
     // 오디오 플레이어는 이것을 알린 뒤 Idle 로 가므로 끝 까닭만 적어 둔다. 곡 끝 처리가 같은 곡을 끊긴 곳에서 다시 연다(_recoverDrop)
-    this.audioPlayer.on("error", (error) => {
-      log.error(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
-      this._endReason ??= "stream-error";
-    });
+    this.audioPlayer.on(
+      "error",
+      own((error: Error) => {
+        log.error(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
+        this._endReason ??= "stream-error";
+      }),
+    );
+  }
+
+  _onAudioState(oldState: AudioPlayerState, newState: AudioPlayerState) {
+    if (oldState.status === newState.status) return;
+
+    if (oldState.status === AudioPlayerStatus.Buffering) {
+      const heldMs = this.watch.bufferingSince ? Date.now() - this.watch.bufferingSince : null;
+      this.watch.stopBuffering();
+      if (heldMs !== null) {
+        const line = `상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
+        if (heldMs >= 3000) wlog.warn(`${line} 오래 걸림`);
+        else wlog.debug(line);
+      }
+      return;
+    }
+
+    wlog.debug(`재생 상태 전이: ${oldState.status} → ${newState.status} | ${this._trackLabel()}`);
+
+    if (newState.status === AudioPlayerStatus.Buffering) this.watch.startBuffering();
   }
 
   // ── 음성 연결. 연결 상태와 복구는 voice(VoiceLink)가 가진다 ──
@@ -555,8 +573,9 @@ class Player {
    * @param o.session  remove: 세션을 지운다 · save: 저장해 남긴다(/join 이 되살린다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)
    * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect · inactivity-timeout · leave 등). 기본 stop
+   * @param o.stay  음성 채널에는 남는다(곧 다시 붙는다. 서버 하나 다시 켜기). 기본은 나간다
    */
-  async dispose({ reason, session, panel, end = "stop" }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end?: string }) {
+  async dispose({ reason, session, panel, end = "stop", stay = false }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end?: string; stay?: boolean }) {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
@@ -569,21 +588,9 @@ class Player {
       this.paused = false;
       this._stopTimers();
       this.releaseAudioProtection(); // currentTrack 을 읽으므로 비우기 전에
-
-      // 버린 플레이어는 곡 끝 처리(다음 곡 · 재시도)를 하지 않는다. 끝 줄은 여기서 남긴다
-      const ending = this.currentTrack ? this._trackLabel() : null;
-      trackState.reset(this, { history: true });
-      this.audioPlayer.removeAllListeners();
-      this.audioPlayer.stop(true);
-      if (ending) log.info(`트랙 종료: ${ending} | 원인=${end}`);
-      try {
-        this.playback?.resource?.playStream?.destroy();
-      } catch {
-        // 스트림이 이미 제거되었을 수 있음
-      }
-      this.playback = null;
-      this.lastPlaybackPosition = 0;
-      this.voice.disconnect(reason);
+      this._endPlayback(end);
+      if (stay) this.voice.release(reason);
+      else this.voice.disconnect(reason);
     } catch (error) {
       log.error("정리 중 오류:", error);
     }
@@ -591,6 +598,22 @@ class Player {
     // 패널은 정리가 끝난 뒤에. 패널 참조(글자 채널 · 메시지)를 놓기 전에 끝난 모양으로 고친다
     if (panel) await playerEvents.ended(this, panel).catch((error) => log.warn(`끝난 패널 고치기 실패: ${messageOf(error)}`));
     this._dropPanel();
+  }
+
+  // 버린 플레이어는 곡 끝 처리(다음 곡 · 재시도)를 하지 않는다. 끝 줄은 여기서 남긴다
+  _endPlayback(end: string) {
+    const ending = this.currentTrack ? this._trackLabel() : null;
+    trackState.reset(this, { history: true });
+    this.audioPlayer.removeAllListeners();
+    this.audioPlayer.stop(true);
+    if (ending) log.info(`트랙 종료: ${ending} | 원인=${end}`);
+    try {
+      this.playback?.resource?.playStream?.destroy();
+    } catch {
+      // 스트림이 이미 제거되었을 수 있음
+    }
+    this.playback = null;
+    this.lastPlaybackPosition = 0;
   }
 
   // 패널 참조를 놓는다. 남은 패널은 ui 가 기록으로 찾아 끝낸다

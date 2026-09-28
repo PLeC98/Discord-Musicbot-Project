@@ -8,6 +8,7 @@ import { VoiceConnectionStatus, VoiceConnectionDisconnectReason } from "@discord
 import type { VoiceBasedChannel } from "discord.js";
 import { VoiceLink, type VoiceHost, type VoiceLib } from "../../src/player/voiceLink.ts";
 import { fake } from "../helpers/fake.ts";
+import { inGuild, currentGuild } from "../../src/infra/guildContext.ts";
 
 // 가짜 연결. 부순 방식 · 구독한 것 · 다시 붙은 곳을 적는다
 class FakeConnection extends EventEmitter {
@@ -301,4 +302,26 @@ test("release: 나감 메시지 없이 부수고 닫는다. disconnect: 나감 �
   leave.link.disconnect("나가기");
   assert.deepEqual(d.destroyed, ["leave"]);
   assert.equal(leave.link.isAlive(), false);
+});
+
+test("연결의 전이 · 오류는 누가 쏘든 이 서버의 문맥에서 돈다", async () => {
+  const seen: Array<string | null> = [];
+  const { player } = setup();
+  class Probe extends VoiceLink {
+    _onStateChange() {
+      seen.push(currentGuild());
+    }
+    _onError() {
+      seen.push(currentGuild());
+    }
+  }
+  const link = new Probe(fake<VoiceHost>(player), lib);
+  links.push(link);
+  await link.connect();
+  const c = player.connection as FakeConnection;
+  inGuild("g-other", () => {
+    c.to(VoiceConnectionStatus.Connecting);
+    c.emit("error", new Error("오류"));
+  });
+  assert.deepEqual(seen, ["g1", "g1"]);
 });
