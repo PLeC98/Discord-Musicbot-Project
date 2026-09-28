@@ -7,6 +7,8 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 import * as procRegistry from "../infra/processRegistry.ts";
 import { messageOf } from "../rules/errorKind.ts";
+import { EXIT, type ExitCode } from "./exitCodes.ts";
+import { runRecord } from "./runRecord.ts";
 
 // 바깥 경계. 시험은 가짜를 넘긴다
 type Boundary = {
@@ -15,12 +17,15 @@ type Boundary = {
   voiceConnections(): Iterable<readonly [string, { destroy(adapterAvailable?: boolean): unknown }]>;
   killAll(reason: string): unknown;
   exit(code: number): unknown;
+  /** 실행 기록. 끝난 방식을 적는다 */
+  record: Pick<typeof runRecord, "end">;
 };
 const REAL: Boundary = {
   proc: process,
   voiceConnections: () => getVoiceConnections(),
   killAll: (reason) => procRegistry.killAll(reason),
   exit: (code) => process.exit(code),
+  record: runRecord,
 };
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜) */
 type ShutdownDeps = { potServer: { stop(): unknown }; logFile: { close(): unknown } | null } & Partial<Boundary>;
@@ -37,7 +42,7 @@ type ShutdownClient = { players: Iterable<readonly [string, Saver | null]>; guil
 
 /** 종료 신호에 처리기를 건다 */
 function installShutdown(client: ShutdownClient, { potServer, logFile, ...boundary }: ShutdownDeps) {
-  const { proc, voiceConnections, killAll, exit } = { ...REAL, ...boundary };
+  const { proc, voiceConnections, killAll, exit, record } = { ...REAL, ...boundary };
 
   let shuttingDown = false;
   const gracefulShutdown = async (signal: string) => {
@@ -73,8 +78,9 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
         log.error(`음성 연결 정리 실패: ${name}`, error);
       }
     }
+    record.end("shutdown");
     release(client, { potServer, logFile, killAll }, signal || "shutdown");
-    exit(0);
+    exit(EXIT.stopped);
   };
 
   proc.on("SIGINT", () => gracefulShutdown("SIGINT"));
@@ -87,11 +93,12 @@ function installShutdown(client: ShutdownClient, { potServer, logFile, ...bounda
   }
 }
 
-/** 기동이 실패했다. 띄운 것을 내리고 잠시 뒤 1 로 나간다 */
-function stopFailedStart(client: { destroy(): unknown }, { potServer, logFile, ...boundary }: ShutdownDeps, graceMs = FAILED_START_GRACE_MS) {
-  const { killAll, exit } = { ...REAL, ...boundary };
+/** 기동이 실패했다. 띄운 것을 내리고 잠시 뒤 code(설정 · 토큰이 틀림 또는 일시적 실패)로 나간다 */
+function stopFailedStart(client: { destroy(): unknown }, { potServer, logFile, ...boundary }: ShutdownDeps, code: ExitCode, graceMs = FAILED_START_GRACE_MS) {
+  const { killAll, exit, record } = { ...REAL, ...boundary };
+  record.end("startup-failed");
   release(client, { potServer, logFile, killAll }, "기동 실패");
-  setTimeout(() => exit(1), graceMs);
+  setTimeout(() => exit(code), graceMs);
 }
 
 // 봇이 띄운 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일

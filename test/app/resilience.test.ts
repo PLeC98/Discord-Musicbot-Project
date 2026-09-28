@@ -145,40 +145,43 @@ test("빈도 가드: unknownRejectionFlooding 인스턴스 동작", (t) => {
 
 // ── fatalShutdown ────────────────────────────────────────────
 
-test("안전 종료: 전 플레이어 버리기(세션 지움) + 맵 비움 + 주입된 exit 호출", () => {
-  let cleaned = 0;
-  let exited = 0;
+// 치명 종료로 내릴 플레이어. 세션을 곧바로 쓰고(saveNow) 채널에는 남긴 채 연결을 정리한다(release)
+function savable(id: string, steps: string[], { saveFails = false } = {}) {
+  return {
+    persistence: {
+      saveNow: (reason: string) => {
+        if (saveFails) throw new Error("디스크 가득 참");
+        steps.push(`save:${id}:${reason}`);
+      },
+    },
+    voice: { release: (reason: string) => steps.push(`release:${id}:${reason}`) },
+  };
+}
+
+test("안전 종료: 모든 플레이어의 세션을 저장하고 채널에는 남긴 채 연결을 정리한 뒤, 전역 폭주로 적고 나간다", () => {
+  const steps: string[] = [];
   const players = new Map([
-    ["g1", { dispose: async (o: { session: string }) => void (cleaned += o.session === "remove" ? 1 : 100) }],
-    ["g2", { dispose: async (o: { session: string }) => void (cleaned += o.session === "remove" ? 1 : 100) }],
-    ["g3", null], // 빈 항목도 안전
+    ["g1", savable("g1", steps)],
+    ["g2", null], // 빈 항목도 안전
+    ["g3", savable("g3", steps)],
   ]);
-  fatalShutdown({ players }, new Error("fatal"), () => exited++);
-  assert.equal(cleaned, 2);
-  assert.equal(players.size, 0);
-  assert.equal(exited, 1);
+  fatalShutdown({ players }, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: (how) => void steps.push(`record:${how}`) } });
+  assert.deepEqual(steps, ["save:g1:shutdown", "release:g1:치명적 오류", "save:g3:shutdown", "release:g3:치명적 오류", "record:global-flood", "exit"]);
 });
 
-test("안전 종료: 버리기가 던지거나 거부돼도 exit는 반드시 호출 (best-effort)", () => {
-  let exited = 0;
+test("안전 종료: 한 서버의 저장이 실패해도 그 연결은 정리하고, 나머지를 저장하고, 반드시 나간다", () => {
+  const steps: string[] = [];
   const players = new Map([
-    ["g1", { dispose: () => Promise.reject(new Error("dispose boom")) }],
-    [
-      "g2",
-      {
-        dispose: (): Promise<unknown> => {
-          throw new Error("dispose boom");
-        },
-      },
-    ],
+    ["g1", savable("g1", steps, { saveFails: true })],
+    ["g2", savable("g2", steps)],
   ]);
-  fatalShutdown({ players }, new Error("fatal"), () => exited++);
-  assert.equal(exited, 1);
+  fatalShutdown({ players }, new Error("fatal"), { exit: () => steps.push("exit"), record: { end: () => {} } });
+  assert.deepEqual(steps, ["release:g1:치명적 오류", "save:g2:shutdown", "release:g2:치명적 오류", "exit"]);
 });
 
 test("안전 종료: client 없음도 exit 호출", () => {
   let exited = 0;
-  fatalShutdown(null, new Error("fatal"), () => exited++);
+  fatalShutdown(null, new Error("fatal"), { exit: () => exited++, record: { end: () => {} } });
   assert.equal(exited, 1);
 });
 
@@ -213,10 +216,10 @@ function installed(t: TestContext) {
   t.mock.timers.enable({ apis: ["Date"], now: clock });
   const heals: number[] = [];
   const exits: number[] = [];
-  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1) }, dispose: async () => {} };
+  const player = { currentTrack: { title: "곡" }, paused: false, connection: { state: { status: "disconnected" } }, voice: { startConnectionRecovery: () => heals.push(1), release: () => {} }, persistence: { saveNow: () => {} } };
   const client = Object.assign(new EventEmitter(), { players: new Map([["g1", player]]) });
   const proc = new EventEmitter();
-  installErrorHandlers(client, { proc, exit: () => exits.push(1) });
+  installErrorHandlers(client, { proc, exit: () => exits.push(1), record: { end: () => {} } });
   return { client, proc, heals, exits };
 }
 

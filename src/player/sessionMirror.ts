@@ -176,6 +176,11 @@ class SessionPersistence {
   }
 
   async persistState(reason = "manual") {
+    this.saveNow(reason);
+  }
+
+  /** 세션 행을 곧바로 쓴다(DB 쓰기는 동기다). 기다릴 수 없는 곳(치명 종료)이 부른다 */
+  saveNow(reason: string) {
     const p = this.player;
     const store = liveStore();
     if (this.frozen || !p.guild?.id || !store) return;

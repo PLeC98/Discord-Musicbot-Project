@@ -34,6 +34,8 @@ import { createPlayerStream } from "../../dashboard/server/playerStream.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/playerNotices.ts";
 import { messageOf } from "../rules/errorKind.ts";
+import { failedStartCode } from "./exitCodes.ts";
+import { runRecord } from "./runRecord.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 
 const log = logger.child({ category: "core" });
@@ -52,12 +54,15 @@ class StartupStopped extends Error {}
 
 function main() {
   const logFile = setUpLogging();
+  // 직전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 되살리지 않는다
+  const previous = runRecord.begin();
+  log.info({ tags: ["startup"] }, previous.line);
   deploySlashCommands();
 
   // 유튜브 POToken 서버. 준비를 확인한 뒤 봇을 켠다
   const potServer = createPotServer();
   potServer.start();
-  potServer.waitReady().then(() => startBot({ potServer, logFile }));
+  potServer.waitReady().then(() => startBot({ potServer, logFile, skipRestore: previous.skipRestore }));
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -83,7 +88,7 @@ function deploySlashCommands() {
   });
 }
 
-function startBot({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
+function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; logFile: LogFile | null; skipRestore: boolean }) {
   const client = new Client({
     // GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다. 권한 판정 · 서버 목록이 멤버를 캐시에서 먼저 보는데,
     // 역할 · 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
@@ -100,7 +105,7 @@ function startBot({ potServer, logFile }: { potServer: PotServer; logFile: LogFi
   startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
   listenToPlayers(client.musicEmbedManager, stream);
 
-  client.once(Events.ClientReady, (ready) => onReady(ready));
+  client.once(Events.ClientReady, (ready) => onReady(ready, skipRestore));
   // 음성 채널 상태는 REST로 읽을 수 없다. 게이트웨이 패킷에서만 알 수 있어 여기서 따라간다.
   // (기동 시 GUILD_CREATE가 현재 값을, 이후 VOICE_CHANNEL_STATUS_UPDATE가 변경을 알려 준다)
   client.on(Events.Raw, (packet) => voiceChannelStatus.consumePacket(packet));
@@ -123,7 +128,7 @@ function listenToPlayers(panels: MusicEmbedManager, stream: ReturnType<typeof cr
   playerEvents.on("leaving", (player, leavesAt) => panels.updateIdleLeave(player, leavesAt));
 }
 
-async function onReady(client: Client<true>) {
+async function onReady(client: Client<true>, skipRestore: boolean) {
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
@@ -132,7 +137,7 @@ async function onReady(client: Client<true>) {
   // 이번 실행이 받기 시작한 행까지 받다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
   log.debug("세션 복원 시작");
-  await restoreSavedPlayers(client, Player);
+  await restoreSavedPlayers(client, Player, { skip: skipRestore });
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await client.musicEmbedManager?.restorePanels();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
@@ -157,8 +162,9 @@ async function init(client: Client, { potServer, logFile }: { potServer: PotServ
     installShutdown(client, { potServer, logFile });
     await client.login(config.discord.token);
   } catch (error) {
-    if (!(error instanceof StartupStopped)) log.error("봇 기동 실패:", error);
-    stopFailedStart(client, { potServer, logFile });
+    const stopped = error instanceof StartupStopped;
+    if (!stopped) log.error("봇 기동 실패:", error);
+    stopFailedStart(client, { potServer, logFile }, failedStartCode(error, stopped));
   }
 }
 

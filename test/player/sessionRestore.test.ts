@@ -175,6 +175,18 @@ test("되살리기: 채널이 멀쩡하면 플레이어를 만들어 등록하�
   sessions().removeSession("r1");
 });
 
+test("되살리지 않기(짧게 끊긴 실행이 연달아): 플레이어를 만들지 않고 세션은 남긴다", async () => {
+  saved("r9");
+  const client = clientWith([guildWith("r9")]);
+  const { FakePlayer, made } = fakePlayerClass();
+
+  await restoreSavedPlayers(client, FakePlayer, { skip: true });
+
+  assert.equal(made.length, 0);
+  assert.deepEqual(remaining(), ["r9"]);
+  sessions().removeSession("r9");
+});
+
 test("되살리기: 저장 상태를 못 되돌리면 플레이어를 세션 지움으로 버린다(등록부 빼기 · 세션 지우기는 버림이 한다)", async () => {
   saved("r2");
   const client = clientWith([guildWith("r2")]);

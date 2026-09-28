@@ -9,6 +9,8 @@ import { Events } from "discord.js";
 import { isDeadInteraction } from "../rules/deadInteraction.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { EXIT } from "./exitCodes.ts";
+import { runRecord } from "./runRecord.ts";
 const log = logger.child({ category: "voice" }); // 표적 복구는 음성 연결의 일이다
 // 프로세스를 내리는 것은 음성 관심사가 아니다. 로그를 카테고리로 거를 때 엉뚱한 칸에 들어간다.
 const flog = logger.child({ category: "core", sub: "fatal" });
@@ -17,11 +19,11 @@ const coreLog = logger.child({ category: "core" });
 
 /** 표적 복구로 볼 플레이어. 여기서 읽고 부르는 칸만 */
 type Healable = { currentTrack: unknown; paused: boolean; isRecovering?: boolean; connection?: { state?: { status?: string } } | null; voice: { startConnectionRecovery(): unknown } };
-/** 치명적 오류로 내릴 플레이어 */
-type Disposable = { dispose?(o: { reason: string; session: "remove" }): Promise<unknown> };
+/** 치명적 오류로 내릴 때 세션을 저장하고 연결을 정리할 플레이어 */
+type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { release(reason: string): unknown } };
 /** 플레이어 레지스트리에서 쓰는 것 */
 type HealClient = { players?: Iterable<readonly [string, Healable | null]> };
-type FatalClient = { players?: Pick<Map<string, Disposable | null>, "forEach" | "clear"> };
+type FatalClient = { players?: Pick<Map<string, Savable | null>, "forEach"> };
 /** 오류 처리기를 걸 클라이언트 */
 type WatchedClient = HealClient & FatalClient & { on(event: "error", listener: (error: Error) => void): unknown };
 /** 처리되지 않은 거부 · 예외를 알리는 곳(프로세스) */
@@ -103,29 +105,30 @@ function ignorableDiscordError(err: unknown) {
   return (code !== undefined && IGNORABLE_DISCORD_ERRORS[code]) || null;
 }
 
-// 치명적 오류: 안전하게 정리하고 종료. 운영자 확인 후 수동 재시작을 기다린다.
-// 저장 세션은 초기화한다: 세션 상태 자체가 원인이면 재시작 시 크래시 루프가 되므로.
-// (정전 등은 5초 스냅샷이 그대로 남는 별개 경로라 정상 복구된다.)
-// exit는 테스트 주입용. 기본은 process.exit(1).
-function fatalShutdown(client: FatalClient | null | undefined, error: unknown, exit: () => void = () => process.exit(1)) {
-  try {
-    if (client && client.players) {
-      client.players.forEach((player) => {
-        player?.dispose?.({ reason: "치명적 오류로 종료", session: "remove" }).catch(() => {
-          /* 종료 중이다. 남은 정리는 프로세스와 함께 끝난다 */
-        });
-      });
-      client.players.clear();
+// 치명적 오류: 세션을 저장하고 음성 채널에는 남긴 채 연결을 정리한 뒤 내린다(다시 켜면 그 자리에서 이어 튼다).
+// 세션이 까닭이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 연달아면 되살리지 않는다, app/runRecord).
+// exit · record 는 시험이 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
+function fatalShutdown(client: FatalClient | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
+  client?.players?.forEach((player, guildId) => {
+    if (!player) return;
+    try {
+      player.persistence.saveNow("shutdown");
+    } catch (e) {
+      flog.error(`세션 저장 실패 (서버 ID ${guildId}): ${messageOf(e)}`);
     }
-  } catch {
-    /* best-effort 정리. 종료 중이므로 실패해도 계속 */
-  }
+    try {
+      player.voice.release("치명적 오류");
+    } catch {
+      // 내리는 중이다. 연결은 프로세스와 함께 닫힌다
+    }
+  });
+  record.end("global-flood");
   // 이 줄 다음에 프로세스가 죽는다. 레벨 판정의 fatal 정의 그대로다.
   // 레벨로 거를 때 "봇이 죽은 순간"만 뽑아낼 수 있어야 한다.
   // 구분선 두 줄은 뺐다. fatal 레벨과 색이 이미 눈에 띄고, 한 사건에 네 줄을 찍을 이유가 없다.
   const stack = error && typeof error === "object" && "stack" in error ? error.stack : undefined;
   flog.fatal(
-    `치명적 오류로 봇을 안전 종료합니다. 저장된 재생 세션을 초기화했습니다.
+    `치명적 오류로 봇을 내립니다. 재생 세션은 저장했습니다(다시 켜면 이어서 틉니다).
 ${String(stack || error)}`,
   );
   exit();
@@ -133,7 +136,7 @@ ${String(stack || error)}`,
 
 // 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 처리기를 건다. 기동이 한 번 부른다.
 // proc · exit: 처리기를 걸 곳과 안전 종료의 끝. 생략하면 진짜 프로세스
-function installErrorHandlers(client: WatchedClient, { proc = process, exit }: { proc?: Proc; exit?: () => void } = {}) {
+function installErrorHandlers(client: WatchedClient, { proc = process, exit, record }: { proc?: Proc; exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
   // 리스너·프로미스 밖으로 새어나온 오류의 등급 판정. client "error"와 unhandledRejection이 같은 기준을 쓴다.
   // true = 알려진 오류라 처리 완료, false = 알 수 없음(호출부가 빈도 가드로 판단).
   const handleLooseError = (error: unknown, source: string) => {
@@ -162,7 +165,7 @@ function installErrorHandlers(client: WatchedClient, { proc = process, exit }: {
 
     if (unknownClientErrorFlooding()) {
       coreLog.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 클라이언트 오류가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
-      fatalShutdown(client, error instanceof Error ? error : new Error(String(error)), exit);
+      fatalShutdown(client, error instanceof Error ? error : new Error(String(error)), { exit, record });
     }
   });
 
@@ -177,7 +180,7 @@ function installErrorHandlers(client: WatchedClient, { proc = process, exit }: {
     // (uncaughtException의 네트워크 폭주 가드와 같은 방침)
     if (unknownRejectionFlooding()) {
       coreLog.error(`${NET_ERR_WINDOW_MS / 1000}초 동안 알 수 없는 거부가 ${NET_ERR_MAX}회 발생해 봇을 안전 종료합니다.`);
-      fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)), exit);
+      fatalShutdown(client, reason instanceof Error ? reason : new Error(String(reason)), { exit, record });
     }
   });
 
@@ -201,7 +204,7 @@ function installErrorHandlers(client: WatchedClient, { proc = process, exit }: {
     }
 
     // 그 외(또는 네트워크 폭주) = 치명적 → 안전 종료
-    fatalShutdown(client, error, exit);
+    fatalShutdown(client, error, { exit, record });
   });
 }
 

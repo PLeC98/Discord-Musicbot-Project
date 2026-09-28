@@ -61,6 +61,7 @@ function setup({ saveFails = false, status = async () => {} }: { saveFails?: boo
         exits++;
         resolve(code);
       },
+      record: { end: (how) => void steps.push(`record:${how}`) },
     });
   });
   return { steps, proc, exited, exits: () => exits };
@@ -70,7 +71,7 @@ test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
-  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
+  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill:SIGTERM", "log:close"]);
 });
 
 test("레지스트리에 없는 음성 연결도 채널에는 남긴 채 정리한다. 저장 · 상태 지우기 · 정리가 실패해도 끝까지 간다", async () => {
@@ -101,7 +102,7 @@ test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다
   assert.equal(steps.filter((s) => s.startsWith("save:")).length, 1);
 });
 
-test("기동이 실패하면 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 내리고, 곧바로가 아니라 잠시 뒤 1 로 나간다", async () => {
+test("기동이 실패하면 기동 실패로 적고, 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 내리고, 곧바로가 아니라 잠시 뒤 받은 코드로 나간다", async () => {
   const steps: string[] = [];
   const exited = new Promise((resolve) => {
     stopFailedStart(
@@ -114,10 +115,12 @@ test("기동이 실패하면 봇 · POToken 서버 · 자식 프로세스 · 로
           steps.push(`exit:${code}`);
           resolve(code);
         },
+        record: { end: (how) => void steps.push(`record:${how}`) },
       },
+      75,
       0,
     );
   });
-  assert.deepEqual(steps, ["client:destroy", "pot:stop", "kill:기동 실패", "log:close"], "나가기는 아직");
-  assert.equal(await exited, 1);
+  assert.deepEqual(steps, ["record:startup-failed", "client:destroy", "pot:stop", "kill:기동 실패", "log:close"], "나가기는 아직");
+  assert.equal(await exited, 75);
 });

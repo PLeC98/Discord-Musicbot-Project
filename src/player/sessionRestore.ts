@@ -42,9 +42,14 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
 // 기동 때 저장된 재생 세션을 모두 되살린다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
 type PlayerClass = typeof Player;
 
-async function restoreSavedPlayers(client: Client, PlayerCtor: PlayerClass) {
+/** skip: 이번 기동은 되살리지 않는다(짧게 끊긴 실행이 연달아였다, app/runRecord). 세션은 남긴다 */
+async function restoreSavedPlayers(client: Client, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
   const saved = sessions().loadAll();
   if (saved.length === 0) return;
+  if (skip) {
+    log.warn(`짧게 끊긴 실행이 연달아여서 이번에는 저장된 세션 ${saved.length}개를 되살리지 않습니다(세션은 남겨 둡니다): 서버 ID ${saved.map((s) => s.guildId).join(", ")}`);
+    return;
+  }
 
   log.info(`저장된 재생 세션 ${saved.length}개를 복원합니다`);
 

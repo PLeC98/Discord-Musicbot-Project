@@ -113,6 +113,6 @@ test("기동 첫 줄: 경고는 찍고 지나가고, 문제가 있으면 전부 
   stopOnConfigProblems({ warnings: ["w"], problems: [] }, out, exit);
   assert.deepEqual(exits, []);
   stopOnConfigProblems({ warnings: [], problems: ["a", "b"] }, out, exit);
-  assert.deepEqual(exits, [1]);
+  assert.deepEqual(exits, [78], "설정이 틀림: 고치기 전에는 다시 켜도 같다");
   assert.deepEqual(seen, ["warn w", "error a", "error b"]);
 });
