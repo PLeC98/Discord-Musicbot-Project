@@ -10,6 +10,7 @@ import * as audioCache from "../store/audioCache.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { Player } from "../player/Player.ts";
 import { restoreSavedPlayers } from "../player/sessionRestore.ts";
+import { adoptLingeringVoice } from "../player/voiceAdopt.ts";
 import * as voiceChannelStatus from "../player/voiceChannelStatus.ts";
 import * as voiceStatusStore from "../store/voiceStatus.ts";
 import { onVoiceStateUpdate } from "../player/voicePresence.ts";
@@ -158,6 +159,8 @@ async function onReady(client: Client<true>, skipRestore: boolean) {
   await cleanupAudioCache();
   log.debug("세션 복원 시작");
   await restoreSavedPlayers(client, Player, { skip: skipRestore });
+  // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다
+  await adoptLingeringVoice(client, Player);
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await client.musicEmbedManager?.restorePanels();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
