@@ -169,9 +169,9 @@ async function onReady(client: Client<true>, skipRestore: boolean) {
   // 이번 실행이 받기 시작한 행까지 받다 만 것으로 되돌린다. 복원될 곡은 퇴거 · 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
   log.debug("세션 복원 시작");
-  await restoreSavedPlayers(client, Player, { skip: skipRestore });
-  // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다
-  await adoptLingeringVoice(client, Player);
+  const touched = await restoreSavedPlayers(client, Player, { skip: skipRestore });
+  // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
+  await adoptLingeringVoice(client, Player, { touched });
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await client.musicEmbedManager?.restorePanels();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
