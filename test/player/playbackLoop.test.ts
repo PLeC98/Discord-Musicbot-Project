@@ -26,10 +26,10 @@ type Options = { loop?: Loop; current?: QueuedTrack | null; queue?: QueuedTrack[
 function makePlayer({ loop = false, current = null, queue = [], history = [] }: Options = {}) {
   return fakePlayer({
     lifecycle: new PlaybackState(),
-    watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
+    watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
     idle: { cancelAlone() {}, cancelEmpty() {}, scheduleEmpty() {}, stop() {} },
     currentTrack: current,
-    // playbackDuration = 곡 길이 전체 → "자연 종료"로 판정 (endedUnexpectedly 아님)
+    // 입력이 온전히 끝난 재생(깨짐 표시 없음) → 곡 끝으로 판정
     playback: current ? { startOffsetMs: 0, resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
     lastPlaybackPosition: 0,
     currentTrackRetries: 0,
@@ -223,9 +223,11 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
 test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
   const [A, B] = ["A", "B"].map((t) => makeTrack(t));
   const p = makePlayer({ current: A, queue: [B] });
-  p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 0 } }); // 곡 길이보다 한참 덜 재생 = 조기 종료
 
-  for (let i = 0; i < 4; i++) await onTrackEnd.call(p, "idle");
+  for (let i = 0; i < 4; i++) {
+    p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 0, playStream: { readableEnded: false } } }); // 매번 공급이 끊겨 멈춤
+    await onTrackEnd.call(p, "idle");
+  }
 
   assert.deepEqual(
     p.played.map((x) => x.title),

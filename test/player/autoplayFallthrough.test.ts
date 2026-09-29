@@ -28,7 +28,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
   return fakePlayer({
     calls,
     lifecycle: new PlaybackState(),
-    watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
+    watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
     currentTrack: current,
     playback: current ? { resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
     lastPlaybackPosition: 0,

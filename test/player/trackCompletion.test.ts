@@ -1,4 +1,4 @@
-// 곡 길이 판정 — 종료 감시(playbackWatch)의 위치 계산, 판정에 쓰는 오디오 길이 선택(startPlayback)
+// 곡 길이가 쓰이는 곳 — 넘침 안전망(playbackWatch)의 위치 계산, 곡에 적는 오디오 길이(startPlayback)
 // 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
 import { test, after } from "node:test";
@@ -11,25 +11,24 @@ import { audioDurationSec } from "../../src/player/startPlayback.ts";
 import { fake } from "../helpers/fake.ts";
 import type { StreamInfo } from "../../src/sources/streamUrl.ts";
 
-// ── 종료 워치독 ──────────────────────────────────────────────
+// ── 넘침 안전망 ──────────────────────────────────────────────
 
 // 멈춘 까닭(플레이어 안 칸)
 const endReasonOf = (p: object) => (p as { _endReason?: string | null })._endReason;
 
-function watchdogPlayer({ offsetMs = 0, playedMs = 0, duration = 200 } = {}) {
+function overflowPlayer({ offsetMs = 0, playedMs = 0, duration = 200, durationSource = undefined as string | undefined, isLive = false } = {}) {
   const audio = {
     state: { status: AudioPlayerStatus.Playing },
     stopped: false,
-    forced: undefined as boolean | undefined,
-    stop(force?: boolean) {
+    stop() {
       this.stopped = true;
-      this.forced = force;
     },
   };
   const player = fake<WatchHost>({
-    currentTrack: { title: "곡", platform: "spotify", duration },
+    currentTrack: { title: "곡", platform: "youtube", duration, durationSource },
     playback: { startOffsetMs: offsetMs, resource: { playbackDuration: playedMs } },
     audioPlayer: audio,
+    isLive,
     _endReason: null,
     _stopWith: Player.prototype._stopWith,
     _trackLabel: Player.prototype._trackLabel,
@@ -38,39 +37,35 @@ function watchdogPlayer({ offsetMs = 0, playedMs = 0, duration = 200 } = {}) {
   return { player, audio, watch: new PlaybackWatch(player) };
 }
 
-test("종료 워치독은 시작 오프셋을 더해 곡 안의 위치로 판정한다", () => {
-  // 100초 지점부터 틀어 100초를 냈다 = 200초 곡의 끝
-  const { player, audio, watch } = watchdogPlayer({ offsetMs: 100_000, playedMs: 100_000, duration: 200 });
-  watch.checkEnd();
-  assert.equal(audio.stopped, true, "오프셋을 빼면 100초 남은 줄 알고 미룬다");
-  assert.equal(audio.forced, false, "남은 소리를 흘려보낸 뒤 멈춘다(끝 부분을 자르지 않는다)");
-  assert.equal(endReasonOf(player), "watchdog");
+test("넘침 안전망: 곡 안의 위치(시작 위치 + 낸 양)가 길이 + 30초를 넘으면 overflow 로 멈춘다", () => {
+  const under = overflowPlayer({ offsetMs: 100_000, playedMs: 130_000, duration: 200 });
+  under.watch.checkOverflow();
+  assert.equal(under.audio.stopped, false, "230초 = 길이 + 30초. 아직 넘지 않았다");
+
+  const over = overflowPlayer({ offsetMs: 100_000, playedMs: 130_001, duration: 200 });
+  over.watch.checkOverflow();
+  assert.equal(over.audio.stopped, true, "시작 위치를 빼면 넘은 줄 모른다");
+  assert.equal(endReasonOf(over.player), "overflow");
 });
 
-test("아직 남았으면 멈추지 않고 다시 확인한다", () => {
-  const { audio, watch } = watchdogPlayer({ offsetMs: 0, playedMs: 100_000, duration: 200 });
-  watch.checkEnd();
+test("넘침 안전망: 길이를 모르거나 추정값이거나 라이브면 멈추지 않는다", () => {
+  for (const opts of [{ duration: 0 }, { durationSource: "추정" }, { isLive: true }]) {
+    const { audio, watch } = overflowPlayer({ playedMs: 10_000_000, ...opts });
+    watch.checkOverflow();
+    assert.equal(audio.stopped, false, JSON.stringify(opts));
+  }
+});
+
+test("넘침 안전망: 5초마다 본다. 멈추면 더 보지 않는다", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const { audio, watch, player } = overflowPlayer({ playedMs: 0, duration: 200 });
+  watch.startOverflow();
+  (player.playback as unknown as { resource: { playbackDuration: number } }).resource.playbackDuration = 231_000;
+  t.mock.timers.tick(4_999);
   assert.equal(audio.stopped, false);
-  assert.ok(watch.endTimer);
-  watch.stop();
-});
-
-// 지금 답. 길이만 믿고 판단한다. 7단계가 믿을 수 없는 길이는 진행 정체로 가르게 바꾼다(계획서 #10 · B-53)
-test("길이를 알면 남은 시간 + 4초 뒤에, 모르면 5분 뒤에 보고, 모르는 곡은 그때 재생 중이면 멈춘다", (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const known = watchdogPlayer({ duration: 200 });
-  known.watch.scheduleEnd(null);
-  t.mock.timers.tick(203_999);
-  assert.equal(known.audio.stopped, false);
-  known.watch.stop();
-
-  const unknown = watchdogPlayer({ duration: 0, playedMs: 300_000 });
-  unknown.watch.scheduleEnd(null);
-  t.mock.timers.tick(299_999);
-  assert.equal(unknown.audio.stopped, false);
   t.mock.timers.tick(1);
-  assert.equal(unknown.audio.stopped, true, "길이를 모르는 곡은 5분에 끊긴다");
-  assert.equal(endReasonOf(unknown.player), "watchdog");
+  assert.equal(audio.stopped, true);
+  assert.equal(watch.overflowTimer, null);
 });
 
 // ── 판정용 오디오 길이 ───────────────────────────────────────

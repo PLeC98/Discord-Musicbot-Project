@@ -41,7 +41,7 @@ after(() => {
 function makePlayer(players: Map<string, unknown>, current: { title: string; duration: number } | null = { title: "곡", duration: 10 }) {
   const p = fakePlayer({
     lifecycle: new PlaybackState(),
-    watch: { stopEnd() {}, stopBuffering() {}, stop() {}, scheduleEnd() {}, startBuffering() {} },
+    watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
     pauseReasons: new Set(),
     currentTrack: current,
     playback: { resource: { playbackDuration: (current?.duration || 0) * 1000 } },

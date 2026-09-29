@@ -2,7 +2,7 @@
 //
 // HLS는 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열리는 형식이라, 이 갈래만 ffmpeg에
 // URL을 넘긴다. 나머지 스트리밍이 그 길로 새면 httpHeaders가 빠지고 폴백을 건너뛴다.
-// 그리고 라이브에는 길이가 없어서, 길이를 전제하던 자리들(종료 감시·탐색·반복)이 전부 걸린다.
+// 그리고 라이브에는 길이가 없어서, 길이를 전제하던 자리들(탐색·반복)이 전부 걸린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -191,38 +191,6 @@ test("탐색: 라이브에는 옮길 자리가 없다. 재생을 다시 걸지 �
   const result = await player.seek(30000, "seek");
   assert.deepEqual(result, { ok: false, code: "live-no-seek" });
   assert.equal(played, 0, "play()까지 가면 안 된다");
-});
-
-test("종료 감시: 라이브는 길이로 가를 수 없어 감시를 걸지 않는다", () => {
-  // duration 0인 채로 이 감시를 돌리면 "다 틀었다"로 판정해 시작하자마자 끊는다.
-  let stopped = 0;
-  const player = fakePlayer({
-    currentTrack: { isLive: true, duration: 0, title: "라디오", platform: "youtube" },
-    audioPlayer: {
-      state: { status: "playing" },
-      stop: () => {
-        stopped++;
-      },
-    },
-    playback: { resource: { playbackDuration: 5000 } },
-  });
-  player.watch.endTimer = setTimeout(() => {}, 60_000).unref(); // 걸려 있던 감시. 프로세스를 붙잡지 않게
-  player.watch.checkEnd();
-  assert.equal(stopped, 0, "라이브를 정지시키면 안 된다");
-  assert.equal(player.watch.endTimer, null, "감시를 걸어 두지도 않는다");
-});
-
-test("종료 감시 예약: 라이브에는 5분 폴백 워치독을 걸지 않는다", () => {
-  // 길이를 모르는 스트림은 5분 뒤 강제 종료가 기본값이다. 그대로 두면 방송이 5분마다 잘린다.
-  const live = fakePlayer({ currentTrack: { isLive: true, duration: 0, title: "라디오", platform: "youtube" } });
-  live.watch.scheduleEnd({});
-  assert.equal(live.watch.endTimer, null);
-
-  // 라이브가 아니면 평소대로 걸린다
-  const normal = fakePlayer({ currentTrack: { isLive: false, duration: 200, title: "곡", platform: "youtube" } });
-  normal.watch.scheduleEnd({ duration: 200 });
-  assert.notEqual(normal.watch.endTimer, null);
-  normal.watch.stop();
 });
 
 test("_reset 후에도 능력 확인이 다시 선다", () => {

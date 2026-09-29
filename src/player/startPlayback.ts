@@ -178,8 +178,8 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   pb.resume = resumeInfo(track, streamInfo);
 
-  // 정상 완료를 보장하고 성급한 전환을 막기 위해 종료 감시 예약
-  player.watch.scheduleEnd(streamInfo);
+  // 끝을 알리지 못하는 입력의 마지막 그물. 곡 끝은 Idle 때 가른다
+  player.watch.startOverflow();
 
   player.persistence.startStateSync();
   player.warmer.start();

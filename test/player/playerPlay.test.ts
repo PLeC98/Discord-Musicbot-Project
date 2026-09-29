@@ -368,13 +368,12 @@ test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 받�
   assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "HLS 갈래는 스플라이서를 끼우지 않는다");
 });
 
-test("라이브는 위치 0 으로 열고, 캐시를 안 받고, 종료 감시를 걸지 않는다", async () => {
+test("라이브는 위치 0 으로 열고, 캐시를 안 받는다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("lllllllllll");
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
 
   await p.play(7000);
-  const timer = p.watch.endTimer;
   h.dispose(p);
 
   assert.ok(!calls.spawns[0].args.includes("-ss"), "라이브에는 옮길 자리가 없다");
@@ -382,7 +381,6 @@ test("라이브는 위치 0 으로 열고, 캐시를 안 받고, 종료 감시�
   assert.equal(p.playback?.live, true);
   assert.equal(p.isLive, true, "재생 시점의 답을 따른다");
   assert.equal(p.currentTrack.isLive, undefined, "트랙은 담을 때의 답 그대로");
-  assert.equal(timer, null);
 });
 
 test("DASH 도 주소를 ffmpeg 에 주되 HLS 옵션은 붙이지 않는다", async () => {
@@ -587,17 +585,41 @@ test("리소스 음량과 전송 비트레이트를 맞춘다", async () => {
   assert.equal(calls.resources[0].encoder.bitrate, 128000);
 });
 
-test("종료 감시는 남은 길이 + 4초 뒤로 건다", async () => {
+test("틀면 넘침 안전망을 5초 간격으로 건다", async () => {
   const track = yt("xxxxxxxxxxx");
   h.seedCache("yt:xxxxxxxxxxx", track, { durationSec: 100 });
   const p = h.makePlayer();
   p.currentTrack = track;
 
   await p.play(40000);
-  const delay = h.timerDelay(p.watch.endTimer); // 치우기 전에 읽는다
+  const delay = h.timerDelay(p.watch.overflowTimer); // 치우기 전에 읽는다
   h.dispose(p);
 
-  assert.equal(delay, (100 - 40) * 1000 + 4000, "길이를 아는 곡은 감시를 건다");
+  assert.equal(delay, 5000);
+});
+
+test("play() 는 느린 곡 찾기에 들어가기 전에 여는 중(starting)을 건다. 멎음 감시가 여는 중인 곡을 넘기지 않는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("x2xxxxxxxxx");
+  let release: (() => void) | null = null;
+  behavior.stream = () =>
+    new Promise((_, reject) => {
+      release = () => reject(new Error("그만"));
+    });
+
+  const opening = p.play(0);
+  assert.equal(p.isPlayStarting, true, "부르는 즉시");
+  for (let i = 0; i < 100 && !release; i++) await new Promise((done) => setImmediate(done));
+  assert.ok(release, "곡 찾기에 들어갔다");
+  assert.equal(p.isPlayStarting, true, "곡을 찾는 동안에도");
+
+  p.watch.checkIdle();
+  assert.equal(p.currentTrack?.id, "x2xxxxxxxxx", "넘기지 않는다");
+  assert.notEqual(p.watch.idleTimer, null, "여는 일이 끝난 뒤 다시 본다");
+
+  (release as unknown as () => void)();
+  await opening;
+  h.dispose(p);
 });
 
 // ── 재생 뒤에 오는 신호 ────────────────────────────────────────────────

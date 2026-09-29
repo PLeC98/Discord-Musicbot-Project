@@ -31,6 +31,7 @@ import * as SponsorBlock from "../sources/sponsorBlock.ts";
 import { openChunkedStream } from "../media/chunkedStream.ts";
 import { openInput } from "../media/playbackInput.ts";
 import { InputHealth } from "../media/inputHealth.ts";
+import { endVerdict, knownLengthMs, type EndFacts } from "../rules/endVerdict.ts";
 import * as voiceChannelStatus from "./voiceChannelStatus.ts";
 import * as audioCache from "../store/audioCache.ts";
 import { VoiceLink } from "./voiceLink.ts";
@@ -60,17 +61,30 @@ const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 �
 const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
 const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받아 다시 여는 횟수
 const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
-// 사용자가 끝낸 곡. 일찍 끝나도 끊긴 것이 아니다. "sponsorblock"(아웃트로 종료)도 스킵 버튼과 같다
-const MANUAL_ENDS = new Set(["skip", "stop", "previous", "jump", "sponsorblock"]);
+const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이만큼 넘게 다르면 남긴다
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
-// 저절로 끝났어도 입력이 깨진 채 끝났으면 그 까닭(입력을 닫아 ffmpeg 가 0 으로 끝나는 경로가 있다).
-// 우리가 멈춘 끝은 보지 않는다. 그때의 표시는 우리가 죽인 ffmpeg 의 것이다
-const brokenInput = (pb: CurrentPlayback | null, reason: string) => (reason === "idle" ? (pb?.input?.broken ?? null) : null);
+type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
 
-const endDetail = (playedMs: number, durationMs: number, broken: string | null) => `재생 ${(playedMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}${broken ? ` | 입력 깨짐: ${broken}` : ""}`;
+// 끝 판정에 넘길 사실. 판정은 rules/endVerdict
+function endFactsOf(pb: CurrentPlayback | null, track: QueuedTrack, reason: string, positionMs: number): EndFacts {
+  const live = Boolean(pb?.live);
+  const input = pb?.input;
+  return {
+    reason,
+    live,
+    streamEnded: streamEndedOf(pb),
+    broken: input?.broken ?? null,
+    exitCode: input?.exitCode ?? null,
+    positionMs,
+    lengthMs: live ? null : knownLengthMs(track),
+    // 주소 갈래(HLS 등)는 ffmpeg 가 세그먼트를 건너뛰어도 0 으로 끝나는지 모른다. 다시 연 재생에는 한 번 더 걸지 않는다
+    unverified: !live && pb?.transport?.via === "url" && !pb.reopen,
+  };
+}
 
-type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean };
+// 라이브러리는 Idle 로 가며 재생 스트림을 부순다. 끝까지 읽힌 스트림은 부서져도 끝난 것으로 남는다
+const streamEndedOf = (pb: CurrentPlayback | null) => pb?.resource?.playStream?.readableEnded ?? true;
 
 // 채널 알림을 못 보낸 것(권한 · 지워진 채널)은 재생을 막지 않는다
 const noticeFailed = (error: unknown) => log.warn(`채널 알림을 보내지 못했습니다: ${messageOf(error)}`);
@@ -196,7 +210,7 @@ class Player {
 
     // 협력 모듈. 각자 자기 상태와 타이머를 가진다
     this.voice = this.io.createVoice(this);
-    this.watch = new PlaybackWatch(this); // 종료 감시 · 버퍼링 감시
+    this.watch = new PlaybackWatch(this); // 넘침 안전망 · 버퍼링 감시 · 멎음 감시
     this.idle = new IdleLeave(this); // 혼자 남음 · 틀 게 없음 퇴장
     this.downloader = this.io.createDownloader(this);
     this.persistence = this.io.createPersistence(this);
@@ -265,6 +279,7 @@ class Player {
 
   _onAudioState(oldState: AudioPlayerState, newState: AudioPlayerState) {
     if (oldState.status === newState.status) return;
+    if (newState.status === AudioPlayerStatus.Idle) this.watch.armIdle();
 
     if (oldState.status === AudioPlayerStatus.Buffering) {
       const heldMs = this.watch.bufferingSince ? Date.now() - this.watch.bufferingSince : null;
@@ -328,8 +343,9 @@ class Player {
   /**
    * @param seekMs  곡 안의 시작 위치
    * @param o.continued  같은 곡을 이어 튼다(위치 이동 · 끊김 복구 · 세션 복원). 재생 횟수에 세지 않는다
+   * @param o.reopen  끊긴 곡을 끊긴 위치부터 다시 연다(곡 끝 판정이 본다)
    */
-  async play(seekMs = 0, { continued = false }: { continued?: boolean } = {}) {
+  async play(seekMs = 0, { continued = false, reopen = false }: { continued?: boolean; reopen?: boolean } = {}) {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
@@ -343,7 +359,7 @@ class Player {
       // 틀 곡은 prepareStart 가 정했다
       const current = this.currentTrack;
       if (!current) return { ok: false, code: "queue-empty" };
-      const pb = (this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs }));
+      const pb = (this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs, reopen }));
       this.lastPlaybackPosition = start.startMs;
       const track = pb.track;
 
@@ -660,7 +676,7 @@ class Player {
     if (this.currentTrack) {
       clog.info(`스킵: ${this._trackLabel()} | 원인=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
       // 트랙 타이머 정리
-      this.watch.stopEnd();
+      this.watch.stopOverflow();
       this.idle.cancelEmpty();
 
       this._stopWith(reason);
@@ -675,7 +691,7 @@ class Player {
     clog.info(`이전곡: ${this._trackLabel()} | 이전 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
     // 한곡 반복 중 이전곡 = 현재 곡 재시작. 대기열 반복인데 대기열이 비었으면 고리에 지금 곡뿐이라 같다. 대기열·기록 불변.
     if (this._restartsOnPrevious()) {
-      this.watch.stopEnd();
+      this.watch.stopOverflow();
       this._stopWith("previous");
       return true;
     }
@@ -686,7 +702,7 @@ class Player {
       // 현재 트랙은 currentTrack으로 남겨 onTrackEnd가 기록하게 한다. 여기서 이전 트랙을
       // 미리 할당하면 "예기치 않게 종료됨" 재시도 로직이 그 곡을 중간부터 재개한다.
 
-      this.watch.stopEnd();
+      this.watch.stopOverflow();
 
       this._stopWith("previous");
       return true;
@@ -806,7 +822,7 @@ class Player {
     this.sponsorSkipper?.stop(); // 다음 트랙 play()가 onPlayStart로 다시 가동
 
     try {
-      this.watch.stopEnd();
+      this.watch.stopOverflow();
 
       const finishedTrack = this.currentTrack;
       this.releaseAudioProtection();
@@ -828,25 +844,23 @@ class Player {
   _describeEnd(finishedTrack: QueuedTrack | null, reason: string): EndShape {
     const playedMs = this.getCurrentTime();
     this.lastPlaybackPosition = playedMs;
-    const durationMs = finishedTrack && Number(finishedTrack.duration) > 0 ? Number(finishedTrack.duration) * 1000 : 0;
-    const manualSkip = MANUAL_ENDS.has(reason);
-    // 재생 스트림이 깨졌으면 길이와 상관없이 끊긴 것이다(길이를 모르는 곡도 다시 연다)
-    const streamError = reason === "stream-error";
-    const broken = brokenInput(this.playback, reason);
-    const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && (streamError || broken !== null || (durationMs > 0 && playedMs + 1500 < durationMs));
-    // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
-    // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
-    const liveDropped = Boolean(this.playback?.live) && !manualSkip && (streamError || this.playback?.input?.exitCode !== 0);
-
     const label = this._trackLabel(finishedTrack);
     log.info(`트랙 종료: ${label} | 원인=${reason}`);
-    // 재생/길이 대조는 종료 감시 판정용 수치라 조사할 때만 본다.
-    wlog.debug(`트랙 종료 상세: ${endDetail(playedMs, durationMs, broken)}`);
-    return { playedMs, label, dropped: endedUnexpectedly || liveDropped, live: liveDropped };
+    if (!finishedTrack) return { playedMs, label, dropped: false, live: false, why: "곡 없음" };
+
+    const facts = endFactsOf(this.playback, finishedTrack, reason, playedMs);
+    const { dropped, why } = endVerdict(facts);
+    const lengthText = facts.lengthMs ? `${sec(facts.lengthMs)}초` : "모름";
+    wlog.debug(`트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${why}) | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
+    // 길이는 판정에 쓰지 않는다. 저절로 끝난 위치가 길이와 크게 다르면 길이 쪽을 살필 수 있게 남긴다
+    if (!dropped && reason === "idle" && facts.lengthMs && Math.abs(playedMs - facts.lengthMs) > LENGTH_MISMATCH_LOG_MS) {
+      log.info(`곡이 길이와 다른 위치에서 끝남: ${label} | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
+    }
+    return { playedMs, label, dropped, live: dropped && facts.live, why };
   }
 
   // 사고로 끊겼으면 다시 튼다. 틀었으면 true, 재시도를 다 썼거나 사고가 아니면 false
-  async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live }: EndShape) {
+  async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live, why }: EndShape) {
     if (!dropped) {
       this.currentTrackRetries = 0;
       return false;
@@ -859,7 +873,7 @@ class Player {
     this.currentTrackRetries += 1;
     if (live) {
       if (this.currentTrackRetries <= MAX_LIVE_REOPENS) {
-        log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 엽니다: ${label} (${this.currentTrackRetries}/${MAX_LIVE_REOPENS})`);
+        log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 엽니다: ${label} | ${why} (${this.currentTrackRetries}/${MAX_LIVE_REOPENS})`);
         // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
         // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
         await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * this.currentTrackRetries));
@@ -871,8 +885,8 @@ class Player {
     }
     const at = `${sec(playedMs)}초`;
     if (this.currentTrackRetries <= MAX_TRACK_RETRIES) {
-      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
-      await this.play(playedMs, { continued: true });
+      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} | ${why} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
+      await this.play(playedMs, { continued: true, reopen: true });
       return true;
     }
     log.error(`재생을 복구하지 못해 다음 곡으로 넘깁니다: ${label} | ${at} 지점, 재시도 ${MAX_TRACK_RETRIES}회 소진`);
@@ -881,7 +895,8 @@ class Player {
 
   // 한곡 반복 · 다음 곡 · 자동재생 중 하나를 튼다. 틀었으면 true
   async _playNext(finishedTrack: QueuedTrack, reason: string) {
-    const restart = this.loop === "track" ? reason !== "stop" && reason !== "jump" : reason === "previous" && this._restartsOnPrevious();
+    // 멎어서 넘기는 곡(stuck)은 한곡 반복이어도 되풀이하지 않는다
+    const restart = this.loop === "track" ? !["stop", "jump", "stuck"].includes(reason) : reason === "previous" && this._restartsOnPrevious();
     if (restart) {
       // 한곡 반복: 자연 종료·스킵·이전곡 모두 현재 곡을 처음부터 다시 재생. 대기열 반복인데 대기열이 비었을 때의 이전곡도 같다
       // 대기열·이전 곡 기록은 불변. 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).

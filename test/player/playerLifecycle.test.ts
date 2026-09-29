@@ -59,6 +59,13 @@ function playing(player: Player, track: QueuedTrack, playedMs = track.duration *
   return track;
 }
 
+// 공급이 끊겨 플레이어가 멈춘 곡. 재생 스트림이 끝까지 읽히지 않았다
+function starved(player: Player, track: QueuedTrack, playedMs: number) {
+  playing(player, track, playedMs);
+  Object.assign(player.playback?.resource?.playStream ?? {}, { readableEnded: false });
+  return track;
+}
+
 // 재생 · 곡 종료 · 오류 처리 · 자동재생을 시험이 정할 수 있는 플레이어. 정하지 않은 것은 진짜로 돈다
 class Scripted extends h.Player {
   playAs: ((seekMs: number) => unknown) | null = null;
@@ -125,10 +132,10 @@ test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을
   assert.ok(calls.sink.includes("onReset"), "기록 비움도 저장소에 반영");
 });
 
-test("일찍 끊긴 곡은 끊긴 자리부터 다시 튼다", async () => {
+test("공급이 끊겨 멈춘 곡은 끊긴 자리부터 다시 튼다", async () => {
   const p = h.makePlayer();
   const track = cached("ddddddddddd");
-  playing(p, track, 30000);
+  starved(p, track, 30000);
   p.queue = [yt("eeeeeeeeeee")];
 
   await p.onTrackEnd("idle");
@@ -137,14 +144,15 @@ test("일찍 끊긴 곡은 끊긴 자리부터 다시 튼다", async () => {
   assert.equal(p.currentTrack, track, "같은 곡");
   assert.equal(p.currentTrackRetries, 1);
   assert.equal(p.playback?.startOffsetMs, 30000);
+  assert.equal(p.playback?.reopen, true, "끊겨서 다시 연 재생으로 적는다");
   assert.equal(p.queue.length, 1, "대기열은 그대로");
   assert.equal(p.previousTracks.length, 0, "기록에 넣지 않는다");
 });
 
-test("끝까지 튼 것처럼 보여도 입력이 깨진 채 끝났으면 끊긴 자리부터 다시 튼다. 우리가 멈춘 것은 그대로 넘긴다", async () => {
+test("재생 스트림이 끝까지 읽혔어도 입력이 깨진 채 끝났으면 끊긴 자리부터 다시 튼다. 우리가 멈춘 것은 그대로 넘긴다", async () => {
   const p = h.makePlayer();
   const track = cached("d2ddddddddd");
-  const endMs = track.duration * 1000;
+  const endMs = 100_000;
   playing(p, track, endMs, { input: { broken: "입력 스트림 오류: 끊김" } });
 
   await p.onTrackEnd("idle");
@@ -154,19 +162,71 @@ test("끝까지 튼 것처럼 보여도 입력이 깨진 채 끝났으면 끊긴
   assert.equal(p.currentTrackRetries, 1);
   assert.equal(p.playback?.startOffsetMs, endMs);
 
-  for (const reason of ["skip", "watchdog"]) {
+  for (const reason of ["skip", "overflow"]) {
     h.reset();
     const q = h.makePlayer();
-    playing(q, yt("d3ddddddddd"), undefined, { input: { broken: "ffmpeg 종료 코드 SIGKILL" } });
+    playing(q, yt("d3ddddddddd"), 100_000, { input: { broken: "ffmpeg 종료 코드 SIGKILL" } });
     await q.onTrackEnd(reason);
     h.dispose(q);
     assert.equal(q.currentTrackRetries, 0, `${reason}: 우리가 멈추며 죽인 ffmpeg 의 표시는 끊김이 아니다`);
   }
 });
 
+test("일찍 끝났어도 입력이 온전히 끝났으면 끝이다. 길이는 판정에 쓰지 않고 다른 위치에서 끝났다고 남긴다", async () => {
+  const p = h.makePlayer();
+  const track = playing(p, yt("d4ddddddddd"), 30000);
+  const next = cached("d5ddddddddd");
+  p.queue = [next];
+  const from = sink.buffer.length;
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.previousTracks.at(-1), track);
+  assert.equal(p.currentTrackRetries, 0);
+  assert.ok(
+    sink.buffer.slice(from).some((e) => e.text.startsWith("곡이 길이와 다른 위치에서 끝남:")),
+    "길이 쪽을 살필 수 있게 남긴다",
+  );
+});
+
+test("주소 갈래(HLS 등)가 길이보다 일찍 끝나면 한 번만 다시 연다. 다시 연 재생이 또 일찍 끝나면 넘긴다", async () => {
+  const p = h.makePlayer();
+  const track = cached("d8ddddddddd");
+  playing(p, track, 30000, { transport: { via: "url" } });
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+  assert.equal(p.currentTrack, track, "다시 연다");
+  assert.equal(p.currentTrackRetries, 1);
+
+  h.reset();
+  const q = h.makePlayer();
+  const again = cached("d9ddddddddd"); // 다시 열면 열리는 곡. 그래도 열지 않아야 한다
+  playing(q, again, 30000, { transport: { via: "url" }, reopen: true });
+  await q.onTrackEnd("idle");
+  h.dispose(q);
+  assert.equal(q.currentTrackRetries, 0, "다시 열지 않는다");
+  assert.equal(q.currentTrack, null, "대기열이 비어 끝난다");
+});
+
+test("끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 다시 열지 않고 넘긴다", async () => {
+  const p = h.makePlayer();
+  const track = yt("d6ddddddddd");
+  starved(p, track, track.duration * 1000 - 1000);
+  const next = cached("d7ddddddddd");
+  p.queue = [next];
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.currentTrackRetries, 0);
+});
+
 test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 간다", async () => {
   const p = h.makePlayer();
-  const track = playing(p, yt("fffffffffff"), 30000);
+  const track = starved(p, yt("fffffffffff"), 30000);
   const next = cached("ggggggggggg");
   p.queue = [next];
   p._retryTrack = track;
@@ -349,42 +409,68 @@ test("곡 끝 처리: stream-error 는 길이를 모르는 곡도 끊긴 것으�
   h.dispose(p);
 });
 
-// ── 종료 감시 ─────────────────────────────────────────────────────────
+// ── 멎음 감시 ─────────────────────────────────────────────────────────
 
-test("종료 감시: 길이를 다 채웠으면 watchdog 원인으로 멈춘다", () => {
-  const p = h.makePlayer();
-  playing(p, yt("ooooooooooo", { duration: 100 }), 99000);
-  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
+test("멎음 감시: 오디오가 Idle 이 되면 10초 뒤를 본다. 곡이 있고 여전히 Idle 이면 다음 곡으로 넘기고 다시 본다", async () => {
+  const p = scripted();
+  const ends: string[] = [];
+  p.endAs = (r) => ends.push(r);
+  p.currentTrack = yt("s1sssssssss");
 
-  p.watch.checkEnd();
+  p.audioPlayer.emit("stateChange", { status: AudioPlayerStatus.Playing }, { status: AudioPlayerStatus.Idle });
+  assert.equal(h.timerDelay(p.watch.idleTimer), 10_000);
+  p.watch.checkIdle();
+  await tick();
+
+  assert.deepEqual(ends, ["stuck"]);
+  assert.equal(h.timerDelay(p.watch.idleTimer), 10_000, "넘긴 곡도 틀지 못하면 다시 본다");
   h.dispose(p);
-
-  assert.equal(p._endReason, "watchdog");
-  assert.equal(h.fakeAudioOf(p).stops, 1);
-  assert.equal(p.watch.endTimer, null);
 });
 
-test("종료 감시: Idle 이면 손 떼고, 일시정지면 2초마다 다시 본다, 라이브·곡 없음은 걸지 않는다", () => {
-  const p = h.makePlayer();
-  const track = playing(p, yt("ppppppppppp"), 1000);
+test("멎음 감시: 여는 중 · 끝 처리 중 · 음성 복구 중이면 넘기지 않고 다시 본다. 곡이 없거나 Idle 이 아니면 손 뗀다", () => {
+  const p = scripted();
+  const ends: string[] = [];
+  p.endAs = (r) => ends.push(r);
+  p.currentTrack = yt("s2sssssssss");
+  const recheck = () => {
+    p.watch.checkIdle();
+    const again = p.watch.idleTimer !== null;
+    p.watch.stopIdle();
+    return again;
+  };
 
+  p.lifecycle.to("starting");
+  assert.equal(recheck(), true, "여는 중");
+  p.lifecycle.to("idle");
+  p.lifecycle.ending = true;
+  assert.equal(recheck(), true, "끝 처리 중");
+  p.lifecycle.ending = false;
+  p.voice.state = "recovering";
+  assert.equal(recheck(), true, "음성 복구 중");
+  p.voice.state = "ready";
+  assert.deepEqual(ends, []);
+
+  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
+  assert.equal(recheck(), false, "틀고 있다");
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Idle };
-  p.watch.checkEnd();
-  assert.equal(p.watch.endTimer, null);
-
-  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
-  p.watch.checkEnd();
-  assert.equal(h.timerDelay(p.watch.endTimer), 2000);
-  p.watch.stopEnd();
-
-  track.isLive = true;
-  p.watch.checkEnd();
-  assert.equal(p.watch.endTimer, null);
-
   p.currentTrack = null;
-  p.watch.checkEnd();
+  assert.equal(recheck(), false, "곡이 없다");
+  assert.deepEqual(ends, []);
   h.dispose(p);
-  assert.equal(p.watch.endTimer, null);
+});
+
+test("멎어서 넘긴 곡은 한곡 반복이어도 되풀이하지 않는다", async () => {
+  const p = h.makePlayer();
+  const stuck = playing(p, yt("s3sssssssss"), 0);
+  const next = cached("s4sssssssss");
+  p.queue = [next];
+  p.loop = "track";
+
+  await p.onTrackEnd("stuck");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.previousTracks.at(-1), stuck);
 });
 
 // ── 정지 · 나가기 · 정리 ────────────────────────────────────────────────
