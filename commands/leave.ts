@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import { formatDuration } from "../src/ui/format.ts";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
@@ -11,10 +11,10 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     const r = await controls.leave(guild, { member }, client.players);
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     // 플레이어는 없었지만 봇이 음성 채널에 남아 있었다(음악이 끝난 뒤 자동 퇴장 타이머가 아직 안 돌았다)
-    if (r.left === "voice-only") return interaction.reply({ content: "👋 음성 채널에서 나갔습니다!", flags: [1 << 6] });
+    if (r.left === "voice-only") return interaction.reply({ content: "👋 음성 채널에서 나갔습니다!", flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle("👋 채널에서 나갔습니다")
@@ -28,7 +28,7 @@ const exported: GuildCommand = {
 
     embed.setFooter({ text: "/join 으로 이전 세션을 복구할 수 있습니다." });
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;

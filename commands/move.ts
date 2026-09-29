@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -18,7 +18,7 @@ const exported: GuildCommand = {
     const to = interaction.options.getInteger("to", true);
     // 사람은 1부터 센다
     const r = await controls.move(client.players.get(guild.id), { member }, from - 1, to - 1);
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle("🔀 순서 변경됨")
@@ -27,7 +27,7 @@ const exported: GuildCommand = {
       .setTimestamp()
       .addFields({ name: "📍 이동 전", value: `${from}번째`, inline: true }, { name: "📍 이동 후", value: `${to}번째`, inline: true }, { name: "👤 변경한 사람", value: `${member}`, inline: true });
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;

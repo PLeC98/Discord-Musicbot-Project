@@ -155,10 +155,10 @@ const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack
 test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   const none = interaction();
   await run(await command("queue"), none.it, none.client);
-  assert.deepEqual(none.log[0][1], { content: S.ERR_NO_MUSIC, flags: [64] });
+  assert.deepEqual(none.log[0][1], { content: S.ERR_NO_MUSIC, flags: MessageFlags.Ephemeral });
   const empty = interaction({ player: queuePlayer(null, []) });
   await run(await command("queue"), empty.it, empty.client);
-  assert.deepEqual(empty.log[0][1], { content: S.ERR_NO_SONGS_IN_QUEUE, flags: [64] });
+  assert.deepEqual(empty.log[0][1], { content: S.ERR_NO_SONGS_IN_QUEUE, flags: MessageFlags.Ephemeral });
 });
 
 // 대기열은 본문(description)에 싣는다. 칸(field)에 나눠 실으면 칸마다 이름 줄이 생겨 빈 여백이 끼었다

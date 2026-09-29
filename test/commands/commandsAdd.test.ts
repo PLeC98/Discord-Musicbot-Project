@@ -376,18 +376,18 @@ test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 �
   const noVoice = world({ userVoice: null, player: null });
   const a = interaction(noVoice);
   await runCommand(await command("join"), a.it, noVoice.client);
-  assert.deepEqual(a.log, [["reply", { content: S.ERR_VOICE_REQUIRED, flags: [64] }]]);
+  assert.deepEqual(a.log, [["reply", { content: S.ERR_VOICE_REQUIRED, flags: MessageFlags.Ephemeral }]]);
 
   const noPerm = world({ canJoin: false, player: null });
   const b = interaction(noPerm);
   await runCommand(await command("join"), b.it, noPerm.client);
-  assert.deepEqual(b.log, [["reply", { content: S.ERR_NO_PERMISSIONS, flags: [64] }]]);
+  assert.deepEqual(b.log, [["reply", { content: S.ERR_NO_PERMISSIONS, flags: MessageFlags.Ephemeral }]]);
 
   const joined = world();
   joined.player.voice = fake<Player["voice"]>({ isAlive: () => true });
   const c = interaction(joined);
   await runCommand(await command("join"), c.it, joined.client);
-  assert.deepEqual(c.log, [["reply", { content: "✅ 이미 채널에 접속해 있어요.", flags: [64] }]]);
+  assert.deepEqual(c.log, [["reply", { content: "✅ 이미 채널에 접속해 있어요.", flags: MessageFlags.Ephemeral }]]);
 });
 
 test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나갈 예약을 건다", async () => {
@@ -406,7 +406,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   assert.ok(player instanceof h.Player);
   try {
     assert.ok(player.connection, "붙었다");
-    assert.deepEqual(log, [["reply", { content: "✅ 음성 채널에 접속했어요!", flags: [64] }]]);
+    assert.deepEqual(log, [["reply", { content: "✅ 음성 채널에 접속했어요!", flags: MessageFlags.Ephemeral }]]);
     assert.ok(w.seen.includes("end:joined"));
     assert.ok(player.idle.emptyTimer, "곡 없이 대기");
   } finally {
@@ -506,12 +506,12 @@ test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어�
   const denied = world();
   const d = interaction(denied);
   await runCommand(await command("autoplay"), d.it, denied.client);
-  assert.deepEqual(d.log, [["reply", { content: S.ERR_NOT_AUTHORIZED, flags: [64] }]]);
+  assert.deepEqual(d.log, [["reply", { content: S.ERR_NOT_AUTHORIZED, flags: MessageFlags.Ephemeral }]]);
 
   const idle = world({ botVoice: null, userVoice: null, roles: ["dj"] });
   const i = interaction(idle);
   await runCommand(await command("autoplay"), i.it, idle.client);
-  assert.deepEqual(i.log, [["reply", { content: S.ERR_VOICE_REQUIRED, flags: [64] }]]);
+  assert.deepEqual(i.log, [["reply", { content: S.ERR_VOICE_REQUIRED, flags: MessageFlags.Ephemeral }]]);
 
   const fresh = world({ player: null, roles: ["dj"] });
   const f = interaction(fresh);
@@ -579,7 +579,7 @@ test("/dashboard: 전용 채널이 있으면 그 채널에서만(권한 무관),
   const w = world();
   const elsewhere = interaction(w, { channelId: "c1" });
   await runCommand(await command("dashboard"), elsewhere.it, w.client);
-  assert.deepEqual(elsewhere.log, [["reply", { content: "❌ 이 명령어는 <#panel-channel> 채널에서만 사용할 수 있습니다!", flags: [64] }]]);
+  assert.deepEqual(elsewhere.log, [["reply", { content: "❌ 이 명령어는 <#panel-channel> 채널에서만 사용할 수 있습니다!", flags: MessageFlags.Ephemeral }]]);
 
   const inPanel = interaction(w, { channelId: "panel-channel" });
   await runCommand(await command("dashboard"), inPanel.it, w.client);
@@ -589,14 +589,14 @@ test("/dashboard: 전용 채널이 있으면 그 채널에서만(권한 무관),
   const noChannel = world();
   const n = interaction(noChannel);
   await runCommand(await command("dashboard"), n.it, noChannel.client);
-  assert.deepEqual(n.log, [["reply", { content: S.ERR_NOT_AUTHORIZED, flags: [64] }]]);
+  assert.deepEqual(n.log, [["reply", { content: S.ERR_NOT_AUTHORIZED, flags: MessageFlags.Ephemeral }]]);
 });
 
 test("/dashboard: 곡이 없으면 끝난 패널을 여기에 다시 올리고, 있으면 새 패널을 여기에 만든다", async () => {
   const idle = world();
   const a = interaction(idle, { channelId: "c7" });
   await runCommand(await command("dashboard"), a.it, idle.client);
-  assert.deepEqual(a.log, [["deferReply", { flags: [64] }], ["deleteReply"]]);
+  assert.deepEqual(a.log, [["deferReply", { flags: MessageFlags.Ephemeral }], ["deleteReply"]]);
   assert.deepEqual(idle.seen, ["repost:c7"]);
 
   const busy = world();

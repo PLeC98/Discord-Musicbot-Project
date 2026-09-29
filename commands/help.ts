@@ -1,5 +1,5 @@
 import { formatSpan } from "../src/ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
@@ -75,7 +75,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const { embed, row } = await buildHelpEmbed(client);
-    await interaction.reply({ embeds: [embed], components: [row], flags: [1 << 6] });
+    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;

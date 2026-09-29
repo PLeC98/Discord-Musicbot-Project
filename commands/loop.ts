@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -24,7 +24,7 @@ const exported: GuildCommand = {
     // 모드를 안 고르면 반복 버튼처럼 다음 모드로
     const mode = option ? (option === "off" ? false : option) : controls.nextLoopMode(player?.loop ?? false);
     const r = await controls.loop(player, { member }, mode);
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     const [modeEmoji, modeMessage] = LOOP_TEXT[String(r.mode)];
     const embed = new EmbedBuilder()
@@ -36,7 +36,7 @@ const exported: GuildCommand = {
 
     if (r.track?.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;

@@ -1,7 +1,7 @@
 // 자동재생 장르 선택 화면. 자동재생 버튼과 `/autoplay`가 같은 것을 띄운다.
 // 진입점마다 따로 만들면 한쪽만 고쳐져 갈라진다(실제로 명령 쪽은 영문 키 목록을 쓰고 있었다).
 
-import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
+import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, MessageFlags } from "discord.js";
 import config from "../../config.ts";
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./customIds.ts";
@@ -36,7 +36,7 @@ function buildGenreMenu() {
   const embed = new EmbedBuilder().setTitle("🎲 음악 장르 선택").setDescription("어떤 장르를 재생할까요?").setColor(config.bot.embedColor);
 
   const select = genreSelect("음악 장르를 선택하세요...");
-  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: [1 << 6] };
+  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: MessageFlags.Ephemeral as const };
 }
 
 /**
@@ -47,7 +47,7 @@ function buildAutoplayOffMenu() {
   const embed = new EmbedBuilder().setTitle("🎲 자동 재생이 비활성화되었습니다").setDescription("다른 장르로 다시 켜려면 아래에서 고르세요. 그냥 두면 꺼진 채로 둡니다.").setColor(config.bot.embedColor).setTimestamp();
 
   const select = genreSelect("장르를 바꿔 다시 켜기...");
-  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: [1 << 6] };
+  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: MessageFlags.Ephemeral as const };
 }
 
 export { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS };

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
@@ -18,16 +18,16 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
 
-    if (!member.voice.channel) return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: [1 << 6] });
+    if (!member.voice.channel) return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: MessageFlags.Ephemeral });
 
     const me = guild.members.me;
     const permissions = me ? member.voice.channel.permissionsFor(me) : null;
-    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: S.ERR_NO_PERMISSIONS, flags: [1 << 6] });
+    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: S.ERR_NO_PERMISSIONS, flags: MessageFlags.Ephemeral });
 
     // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
     const existing = client.players.get(guild.id);
     if (existing?.voice.isAlive()) {
-      return interaction.reply({ content: "✅ 이미 채널에 접속해 있어요.", flags: [1 << 6] });
+      return interaction.reply({ content: "✅ 이미 채널에 접속해 있어요.", flags: MessageFlags.Ephemeral });
     }
 
     // /leave에서 저장한 세션이 있는지 확인
@@ -67,7 +67,7 @@ const exported: GuildCommand = {
       // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
       if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
       playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${error?.message || error}`));
-      await interaction.reply({ content: "✅ 음성 채널에 접속했어요!", flags: [1 << 6] });
+      await interaction.reply({ content: "✅ 음성 채널에 접속했어요!", flags: MessageFlags.Ephemeral });
     }
   },
 };

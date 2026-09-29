@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -10,7 +10,7 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     const r = await controls.clear(client.players.get(guild.id), { member });
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle("🗑️ 대기열 비워짐")
@@ -27,7 +27,7 @@ const exported: GuildCommand = {
       });
     }
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;

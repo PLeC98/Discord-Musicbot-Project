@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 
@@ -7,7 +7,7 @@ const exported: AnywhereCommand = {
   data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency").setDescriptionLocalizations({ ko: "봇 응답 레이턴시를 확인합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, client) {
-    const { resource } = await interaction.reply({ content: "핑 측정 중...", withResponse: true, flags: [1 << 6] });
+    const { resource } = await interaction.reply({ content: "핑 측정 중...", withResponse: true, flags: MessageFlags.Ephemeral });
     // 보낸 응답의 시각. 응답이 안 실려 오면 지금으로 본다
     const sentAt = resource?.message?.createdTimestamp ?? Date.now();
 

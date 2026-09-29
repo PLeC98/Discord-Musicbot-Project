@@ -1,5 +1,5 @@
 import { formatMs } from "../src/ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -11,8 +11,8 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const { guild, member } = interaction;
-    const r = await controls.highlight(client.players.get(guild.id), { member }, { onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    const r = await controls.highlight(client.players.get(guild.id), { member }, { onAccepted: () => interaction.deferReply({ flags: MessageFlags.Ephemeral }) });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle("✨ 하이라이트로 이동")

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -15,7 +15,7 @@ const exported: GuildCommand = {
     const { guild, member } = interaction;
     // 사람은 1부터 센다
     const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle("🗑️ 곡 제거됨")
@@ -26,7 +26,7 @@ const exported: GuildCommand = {
 
     if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;

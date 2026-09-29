@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { checkControl } from "../src/usecases/permissions.ts";
@@ -10,24 +10,24 @@ const exported: GuildCommand = {
 
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
-    if (!channel) return interaction.reply({ content: S.ERR_PROCESSING, flags: [1 << 6] }); // 캐시에 없는 채널
+    if (!channel) return interaction.reply({ content: S.ERR_PROCESSING, flags: MessageFlags.Ephemeral }); // 캐시에 없는 채널
 
     // 패널을 호출 채널로 옮기는 부작용이 있는 명령어. 봇 전용 채널이 지정된 서버: 그 채널에서만 사용 가능하되 전원 허용 (패널이 항상 전용 채널에 유지됨)
     //  미지정 서버(삭제된 채널 포함): 어디서나 사용 가능하되 DJ 계층 필요
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (botChannelId && guild.channels.cache.has(botChannelId)) {
       if (channel.id !== botChannelId) {
-        return interaction.reply({ content: `❌ 이 명령어는 <#${botChannelId}> 채널에서만 사용할 수 있습니다!`, flags: [1 << 6] });
+        return interaction.reply({ content: `❌ 이 명령어는 <#${botChannelId}> 채널에서만 사용할 수 있습니다!`, flags: MessageFlags.Ephemeral });
       }
     } else {
       const permErr = await checkControl(member);
-      if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
+      if (permErr) return interaction.reply({ content: permErr, flags: MessageFlags.Ephemeral });
     }
 
     const player = client.players.get(guild.id);
     // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다
     if (!player?.currentTrack) {
-      await interaction.deferReply({ flags: [1 << 6] });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await client.musicEmbedManager.repostIdlePanel(guild, channel);
       return interaction.deleteReply().catch(() => {
         /* 상호작용이 이미 닫혔다 */

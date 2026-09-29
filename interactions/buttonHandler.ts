@@ -1,4 +1,4 @@
-import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client } from "discord.js";
+import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client, MessageFlags } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
@@ -44,21 +44,21 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
+  if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: MessageFlags.Ephemeral });
 
   const { action, rest } = partsOf(interaction.customId);
   const sessionId = rest[0];
   if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
+    return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: MessageFlags.Ephemeral });
   }
   const handle = PANEL_ACTIONS[action];
-  if (!handle) return interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: [1 << 6] });
+  if (!handle) return interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: MessageFlags.Ephemeral });
   await handle(interaction, player);
 }
 
 async function handlePause(interaction: Press, player: Player) {
   const r = await controls.pause(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   const message = r.paused ? "음악 일시정지됨" : "음악 재개됨";
   const emoji = r.paused ? "⏸️" : "▶️";
@@ -71,17 +71,17 @@ async function handlePause(interaction: Press, player: Player) {
 
   if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-  await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleSkip(interaction: Press, player: Player) {
   const r = await controls.skip(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   if (r.restarted) {
     return await interaction.reply({
       content: `🔂 한곡 반복 중. **${r.track.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`,
-      flags: [1 << 6],
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -94,22 +94,22 @@ async function handleSkip(interaction: Press, player: Player) {
 
   if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-  await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handlePrevious(interaction: Press, player: Player) {
   const r = await controls.previous(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   await interaction.reply({
     content: r.restarted ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!",
-    flags: [1 << 6],
+    flags: MessageFlags.Ephemeral,
   });
 }
 
 async function handleStop(interaction: Press, player: Player) {
   const r = await controls.stop(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   const embed = new EmbedBuilder()
     .setTitle("⏹️ 음악 중지됨")
@@ -120,7 +120,7 @@ async function handleStop(interaction: Press, player: Player) {
 
   if (r.cleared > 0) embed.setFooter({ text: `대기열에서 ${r.cleared}개의 노래가 제거되었습니다` });
 
-  await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleQueue(interaction: Press, player: Player) {
@@ -129,11 +129,11 @@ async function handleQueue(interaction: Press, player: Player) {
   if (!queueInfo.current && queueInfo.queue.length === 0) {
     return await interaction.reply({
       content: S.ERR_NO_SONGS_IN_QUEUE,
-      flags: [1 << 6],
+      flags: MessageFlags.Ephemeral,
     });
   }
 
-  await interaction.reply({ ...queueView(queueInfo), flags: [1 << 6] });
+  await interaction.reply({ ...queueView(queueInfo), flags: MessageFlags.Ephemeral });
 }
 
 // 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그렇다고 고친다
@@ -148,7 +148,7 @@ async function handleQueuePage(interaction: Press) {
 
 async function handleShuffle(interaction: Press, player: Player) {
   const r = await controls.shuffle(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   const embed = new EmbedBuilder()
     .setTitle("🔀 대기열 셔플됨")
@@ -157,14 +157,14 @@ async function handleShuffle(interaction: Press, player: Player) {
     .setTimestamp()
     .addFields({ name: "👤 셔플한 사람", value: `${interaction.member}`, inline: true });
 
-  await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleHighlight(interaction: Press, player: Player) {
-  const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
+  const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: () => interaction.deferReply({ flags: MessageFlags.Ephemeral }) });
   // 버튼은 하이라이트가 없으면 비활성이라 곡이 바뀌기 직전의 늦은 클릭뿐이다. 조용히 넘긴다
   if (!r.ok && r.code === "no-highlight") return interaction.deferUpdate();
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
   await interaction.editReply({ content: "✨ 하이라이트 지점으로 이동했어요." });
 }
 
@@ -173,7 +173,7 @@ async function handleVolumeModal(interaction: Press) {
   if (permErr) {
     return await interaction.reply({
       content: permErr,
-      flags: [1 << 6],
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -189,7 +189,7 @@ function volumeModal() {
 async function handleLoop(interaction: Press, player: Player) {
   // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
   const r = await controls.loop(player, { member: interaction.member }, controls.nextLoopMode(player.loop));
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   const [modeEmoji, modeMessage] = LOOP_TEXT[String(r.mode)];
   const embed = new EmbedBuilder()
@@ -201,7 +201,7 @@ async function handleLoop(interaction: Press, player: Player) {
 
   if (r.track?.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
-  await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 /** 새로 그린 화면 */
@@ -217,9 +217,9 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
     log.error(failed, error);
     try {
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: notice, flags: [1 << 6] });
+        await interaction.reply({ content: notice, flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.followUp({ content: notice, flags: [1 << 6] });
+        await interaction.followUp({ content: notice, flags: MessageFlags.Ephemeral });
       }
     } catch (err) {
       log.error("오류 안내 전송 실패:", err);
@@ -234,7 +234,7 @@ function handleHelpRefresh(interaction: Press) {
 async function handleSystemRefresh(interaction: Press) {
   // /system과 동일하게 봇 운영자 전용
   if (interaction.user.id !== config.dashboard.ownerId) {
-    return await interaction.reply({ content: "❌ 봇 운영자만 사용할 수 있습니다!", flags: [1 << 6] });
+    return await interaction.reply({ content: "❌ 봇 운영자만 사용할 수 있습니다!", flags: MessageFlags.Ephemeral });
   }
   return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!" });
 }
@@ -246,18 +246,18 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   const [userId, position, videoId = ""] = rest;
 
   if (userId !== interaction.user.id) {
-    return await interaction.reply({ content: "❌ 검색을 요청한 사용자만 선택할 수 있습니다!", flags: [1 << 6] });
+    return await interaction.reply({ content: "❌ 검색을 요청한 사용자만 선택할 수 있습니다!", flags: MessageFlags.Ephemeral });
   }
 
   if (action === "cancel") {
     const embed = new EmbedBuilder().setTitle("❌ 검색 취소됨").setDescription("검색이 취소되었습니다.").setColor("#FF0000").setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
-  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: [1 << 6] });
+  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: MessageFlags.Ephemeral });
 
   // 곡 추가 경로. /play · /search 와 같은 검사
   const permErr = checkAdd(member) || checkSummon(member);
-  if (permErr) return await interaction.reply({ content: permErr, flags: [1 << 6] });
+  if (permErr) return await interaction.reply({ content: permErr, flags: MessageFlags.Ephemeral });
 
   await interaction.deferUpdate();
 

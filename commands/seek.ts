@@ -1,5 +1,5 @@
 import { formatMs } from "../src/ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -49,10 +49,10 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     const seekMs = parseTimeInput(interaction.options.getString("time", true));
-    if (seekMs === null) return interaction.reply({ content: "❌ 올바른 형식으로 입력하세요. (예: `1:30`, `3m20s`, `90`)", flags: [1 << 6] });
+    if (seekMs === null) return interaction.reply({ content: "❌ 올바른 형식으로 입력하세요. (예: `1:30`, `3m20s`, `90`)", flags: MessageFlags.Ephemeral });
 
-    const r = await controls.seek(client.players.get(guild.id), { member }, seekMs, { reason: "seek", onAccepted: () => interaction.deferReply({ flags: [1 << 6] }) });
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    const r = await controls.seek(client.players.get(guild.id), { member }, seekMs, { reason: "seek", onAccepted: () => interaction.deferReply({ flags: MessageFlags.Ephemeral }) });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
       .setTitle("⏩ 시간 이동")

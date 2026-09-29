@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
 
@@ -43,7 +43,7 @@ const exported: AnywhereCommand = {
       .setFooter({ text: "GNU AGPL-3.0-or-later • MIT" })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], flags: [1 << 6] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;

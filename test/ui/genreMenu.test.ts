@@ -5,6 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { MessageFlags } from "discord.js";
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../../src/ui/genreMenu.ts";
 import * as genresModule from "../../src/config/genres.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
@@ -47,7 +48,7 @@ test("끄기 화면: 이미 꺼졌음을 알리고 30초 동안 다시 고를 �
 
 test("두 화면 다 본인에게만 보인다", () => {
   for (const payload of [buildGenreMenu(), buildAutoplayOffMenu()]) {
-    assert.deepEqual(payload.flags, [1 << 6]);
+    assert.equal(payload.flags, MessageFlags.Ephemeral);
   }
 });
 

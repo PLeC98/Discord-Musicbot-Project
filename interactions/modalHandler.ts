@@ -12,17 +12,17 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
   if (player && sessionId && player.sessionId && sessionId !== player.sessionId) {
     return await interaction.reply({
       content: S.ERR_SESSION_INVALID,
-      flags: [1 << 6],
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   const r = await controls.jump(player, { member: interaction.member }, Number(interaction.values[0]));
-  if (!r.ok && r.code === "bad-position") return await interaction.reply({ content: "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!", flags: [1 << 6] });
-  if (!r.ok) return await interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+  if (!r.ok && r.code === "bad-position") return await interaction.reply({ content: "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!", flags: MessageFlags.Ephemeral });
+  if (!r.ok) return await interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   await interaction.reply({
     content: `⏭️ **${r.track.title}**로 이동했습니다!`,
-    flags: [1 << 6],
+    flags: MessageFlags.Ephemeral,
   });
 }
 

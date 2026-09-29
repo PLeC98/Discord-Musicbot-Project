@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import { volumeChanged } from "../src/ui/volumeReply.ts";
@@ -14,9 +14,9 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     const r = await controls.volume(client.players.get(guild.id), { member }, interaction.options.getInteger("level", true));
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: [1 << 6] });
+    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
-    await interaction.reply({ embeds: [volumeChanged({ before: r.before, level: r.level, by: member })], flags: [1 << 6] });
+    await interaction.reply({ embeds: [volumeChanged({ before: r.before, level: r.level, by: member })], flags: MessageFlags.Ephemeral });
   },
 };
 export default exported;
