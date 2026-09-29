@@ -21,7 +21,7 @@ const exported: GuildCommand = {
       }
     } else {
       const permErr = await checkControl(member);
-      if (permErr) return interaction.reply({ content: permErr, flags: MessageFlags.Ephemeral });
+      if (permErr) return interaction.reply({ content: errors.permission(permErr), flags: MessageFlags.Ephemeral });
     }
 
     const player = client.players.get(guild.id);

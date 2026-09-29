@@ -5,6 +5,8 @@ import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
+import * as errors from "../src/ui/text/errors.ts";
+import type { PermissionDenied } from "../src/ui/text/errors.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { GuildMember } from "discord.js";
 
@@ -14,7 +16,7 @@ type PlayOptions = {
   description: string;
   ko: string;
   /** 막으면 안내 문장 */
-  permission: (member: GuildMember) => Promise<string | null> | string | null;
+  permission: (member: GuildMember) => Promise<PermissionDenied | null> | PermissionDenied | null;
   insertFirst?: boolean;
 };
 
@@ -39,7 +41,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
       const { member, guild, channel } = interaction;
 
       const permErr = await permission(member);
-      if (permErr) return await interaction.reply({ content: permErr, flags: MessageFlags.Ephemeral });
+      if (permErr) return await interaction.reply({ content: errors.permission(permErr), flags: MessageFlags.Ephemeral });
 
       // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
       await interaction.reply({

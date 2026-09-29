@@ -1,8 +1,8 @@
 // 재생 조작 코어. 입구(명령 · 버튼 · 대시보드)는 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/controlMessages).
 // 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 차례로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
-// 결과: { ok: true, ...사실 } | { ok: false, code, message? }
-//   공통 code: no-player(이 서버에 플레이어가 없다) · no-permission(message: 권한 판정의 안내) · no-track(틀고 있는 곡이 없다)
+// 결과: { ok: true, ...사실 } | { ok: false, code, … }
+//   공통 code: no-player(이 서버에 플레이어가 없다) · no-permission(permission: 권한 판정이 막은 까닭) · no-track(틀고 있는 곡이 없다)
 //
 // actor: 누가 시켰나. { member } 는 디스코드 멤버, { owner: true } 는 대시보드 운영자(권한 판정을 건너뛴다)
 
@@ -17,15 +17,16 @@ import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/Player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../player/trackState.ts";
+import type { PermissionDenied } from "../ui/text/errors.ts";
 
 /** 누가 시켰나. 디스코드 멤버, 또는 대시보드 운영자(권한 판정을 건너뛴다) */
 type Actor = { member: GuildMember; owner?: undefined } | { owner: true; member?: undefined };
-/** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 그 까닭(reason), 모르는 장르는 genre 를 싣는다 */
-type Refusal = { ok: false; code: string; message?: string; durationMs?: number; size?: number; reason?: string; genre?: string };
+/** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 막은 까닭(permission), 붙들린 멈춤은 그 까닭(reason), 모르는 장르는 genre 를 싣는다 */
+type Refusal = { ok: false; code: string; permission?: PermissionDenied; durationMs?: number; size?: number; reason?: string; genre?: string };
 /** 이 서버에 플레이어가 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
-/** 권한 판정. 막으면 안내 문장 */
-type Check = (member: GuildMember, player: Player) => Promise<string | null>;
+/** 권한 판정. 막으면 그 까닭 */
+type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied | null>;
 
 const fail = (code: string, extra: Omit<Refusal, "ok" | "code"> = {}): Refusal => ({ ok: false, code, ...extra });
 // 해낸 결과. 사실을 싣는다
@@ -37,8 +38,8 @@ const refresh = (player: Player) => playerEvents.refresh(player).catch((error) =
 // 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 부르는 쪽이 먼저 본다
 async function permitted(player: Player, actor: Actor, check: Check = perm.checkControl) {
   if (actor.owner) return null;
-  const message = await check(actor.member, player);
-  return message ? fail("no-permission", { message }) : null;
+  const permission = await check(actor.member, player);
+  return permission ? fail("no-permission", { permission }) : null;
 }
 
 // 수는 입구가 받은 값 그대로 온다(없거나 수가 아닐 수 있다). 0 이상 size 미만의 정수인가
@@ -272,8 +273,8 @@ async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
  */
 async function autoplayBlocked(actor: Actor) {
   if (actor.owner) return null;
-  const message = (await perm.checkControl(actor.member)) || perm.checkSummon(actor.member);
-  return message ? fail("no-permission", { message }) : null;
+  const permission = (await perm.checkControl(actor.member)) || perm.checkSummon(actor.member);
+  return permission ? fail("no-permission", { permission }) : null;
 }
 
 /** 자동재생 켜기 · 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 뽑기 전에 부른다(응답) */
@@ -305,8 +306,8 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
  */
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
   if (!actor.owner) {
-    const message = await perm.checkControl(actor.member);
-    if (message) return fail("no-permission", { message });
+    const permission = await perm.checkControl(actor.member);
+    if (permission) return fail("no-permission", { permission });
   }
   const player = players.get(guild.id);
   if (!player) {

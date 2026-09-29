@@ -140,3 +140,7 @@ test("재생 조작의 거절. 모르는 까닭은 일반 실패", () => {
   ];
   for (const [r, sentence] of cases) assert.equal(errors.refusal(r), sentence, r.code);
 });
+
+test("권한 판정이 막은 까닭마다", () => {
+  assert.deepEqual((["voice-required", "same-channel-required", "not-dj", "bot-cannot-join"] as const).map(errors.permission), ["❌ 음성 채널에 있어야 합니다!", "❌ 봇과 같은 음성 채널에 있어야 합니다!", "❌ 음악 컨트롤 권한이 없습니다. (DJ 역할 필요)", "❌ 이 음성 채널에서 말할 권한이 없습니다!"]);
+});

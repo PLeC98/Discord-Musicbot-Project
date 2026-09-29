@@ -8,6 +8,7 @@ import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import { resolveMember, toApiError } from "../middleware/requireControl.ts";
 import { checkControl, checkAdd, isModerator } from "../../../src/usecases/permissions.ts";
+import * as errors from "../../../src/ui/text/errors.ts";
 import * as controls from "../../../src/usecases/controls.ts";
 import { controlApiError, type Refusal } from "../../../src/ui/controlMessages.ts";
 import type { More } from "../../../src/usecases/playlistMore.ts";
@@ -297,7 +298,7 @@ function addRoutes(router: Router) {
       const mctx = await resolveMember(req, res);
       if (!mctx) return;
       const err = checkAdd(mctx.member);
-      if (err) return res.status(403).json({ error: toApiError(err) });
+      if (err) return res.status(403).json({ error: toApiError(errors.permission(err)) });
     }
 
     const body = parse(AddBody, req.body ?? {});
@@ -339,7 +340,7 @@ function addRoutes(router: Router) {
       const mctx = await resolveMember(req, res);
       if (!mctx) return;
       const err = checkAdd(mctx.member);
-      if (err) return res.status(403).json({ error: toApiError(err) });
+      if (err) return res.status(403).json({ error: toApiError(errors.permission(err)) });
     }
 
     // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다

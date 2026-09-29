@@ -1,6 +1,6 @@
 import { PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
-import * as errors from "../ui/text/errors.ts";
+import type { PermissionDenied } from "../ui/text/errors.ts";
 import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 
@@ -37,24 +37,24 @@ async function isDj(member: GuildMember) {
  * 재적 규칙. 모더레이터는 어디서든 면제, 그 외는:
  *  - 봇이 음성 채널에서 동작 중이면 같은 채널 재적 필수
  *  - 봇이 유휴(음성 미접속)면 채널 제약 없음
- * 통과 시 null, 거부 시 사용자에게 보여줄 오류 문자열 반환.
+ * 통과 시 null, 거부 시 그 까닭.
  */
-function checkVoice(member: GuildMember) {
+function checkVoice(member: GuildMember): PermissionDenied | null {
   if (isModerator(member)) return null;
 
   const botChannelId = member.guild.members.me?.voice?.channel?.id;
   if (!botChannelId) return null;
   if (member.voice.channel?.id === botChannelId) return null;
 
-  return member.voice.channel ? errors.sameChannelRequired() : errors.voiceRequired();
+  return member.voice.channel ? "same-channel-required" : "voice-required";
 }
 
 /** 모든 재생 조작(🔒)의 단일 기준: 재적 규칙 + DJ 계층 */
-async function checkControl(member: GuildMember) {
+async function checkControl(member: GuildMember): Promise<PermissionDenied | null> {
   const voiceErr = checkVoice(member);
   if (voiceErr) return voiceErr;
 
-  if (!(await isDj(member))) return errors.notDj();
+  if (!(await isDj(member))) return "not-dj";
   return null;
 }
 
@@ -70,16 +70,16 @@ function checkAdd(member: GuildMember) {
  * 재적 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
  * 이 검사를 이어 붙여야 두 상태가 모두 덮인다.
  */
-function checkSummon(member: GuildMember) {
+function checkSummon(member: GuildMember): PermissionDenied | null {
   const me = member.guild.members.me;
   if (me?.voice?.channel) return null;
 
   const target = member.voice.channel;
-  if (!target) return errors.voiceRequired();
+  if (!target) return "voice-required";
 
   const permissions = me ? target.permissionsFor(me) : null;
   if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-    return errors.botCannotJoin();
+    return "bot-cannot-join";
   }
   return null;
 }

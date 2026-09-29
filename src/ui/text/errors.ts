@@ -55,6 +55,12 @@ const processingFailedInChannel = () => "❌ 처리 중 오류가 발생했어�
 // 전용 채널 입력이 까닭 없이 곡을 못 넣었다
 const cannotStartInChannel = () => "재생을 시작할 수 없어요.";
 
+// 권한 판정(usecases/permissions)이 막은 까닭마다
+const PERMISSION = { "voice-required": voiceRequired, "same-channel-required": sameChannelRequired, "not-dj": notDj, "bot-cannot-join": botCannotJoin } as const;
+type PermissionDenied = keyof typeof PERMISSION;
+/** 권한 거절의 문장 */
+const permission = (code: PermissionDenied) => PERMISSION[code]();
+
 // 오류 종류(rules/errorKind)마다
 const BY_KIND: Record<string, string> = {
   // 고치는 법(bgutil · 쿠키)은 운영자 로그에(rules/operatorHints). 사용자는 설정을 만질 수 없다
@@ -97,8 +103,8 @@ const cannotStart = () => "재생을 시작할 수 없습니다.";
 /** 곡 찾기가 찾은 것이 없다 */
 const noResult = () => "❌ 결과를 찾을 수 없습니다!";
 
-// 재생 조작(usecases/controls)이 거절한 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 reason, 모르는 장르는 genre 를 싣는다
-type Refusal = { code: string; message?: string; durationMs?: number; size?: number; reason?: string; genre?: string };
+// 재생 조작(usecases/controls)이 거절한 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 그 까닭(permission), 붙들린 멈춤은 reason, 모르는 장르는 genre 를 싣는다
+type Refusal = { code: string; permission?: PermissionDenied; durationMs?: number; size?: number; reason?: string; genre?: string };
 
 // 사람이 풀 수 없는 멈춤의 까닭(Player.pauseReasons)
 const HELD: Record<string, string> = {
@@ -167,10 +173,11 @@ export {
   guildOnly,
   processingFailedInChannel,
   cannotStartInChannel,
+  permission,
   forKind,
   playFailure,
   cannotStart,
   noResult,
   refusal,
 };
-export type { Refusal };
+export type { Refusal, PermissionDenied };

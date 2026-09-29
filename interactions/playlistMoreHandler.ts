@@ -101,7 +101,7 @@ async function handleMore(interaction: MoreInteraction) {
   if (clickErr) return refuse(moreText.refusal(clickErr));
 
   const permErr = checkAdd(interaction.member);
-  if (permErr) return refuse(permErr);
+  if (permErr) return refuse(errors.permission(permErr));
 
   const player = interaction.client.players.get(interaction.guild.id);
   if (!player) return refuse(errors.noPlayer());

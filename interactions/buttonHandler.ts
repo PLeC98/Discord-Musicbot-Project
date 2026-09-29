@@ -173,7 +173,7 @@ async function handleVolumeModal(interaction: Press) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
     return await interaction.reply({
-      content: permErr,
+      content: errors.permission(permErr),
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -260,7 +260,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 
   // 곡 추가 경로. /play · /search 와 같은 검사
   const permErr = checkAdd(member) || checkSummon(member);
-  if (permErr) return await interaction.reply({ content: permErr, flags: MessageFlags.Ephemeral });
+  if (permErr) return await interaction.reply({ content: errors.permission(permErr), flags: MessageFlags.Ephemeral });
 
   await interaction.deferUpdate();
 
