@@ -13,7 +13,6 @@ const facts = (over: Partial<EndFacts> = {}): EndFacts => ({
   exitCode: 0,
   positionMs: 100_000,
   lengthMs: 200_000,
-  unverified: false,
   ...over,
 });
 const dropped = (over: Partial<EndFacts>) => endVerdict(facts(over)).dropped;
@@ -46,13 +45,6 @@ test("라이브: 0 으로 끝나고 입력이 온전하면 방송이 끝난 것,
   assert.equal(dropped({ ...live, exitCode: 1 }), true);
   assert.equal(dropped({ ...live, exitCode: 0, broken: "입력 스트림 오류" }), true);
   assert.equal(endVerdict(facts({ ...live, exitCode: null })).why, "ffmpeg 종료 코드 없음");
-});
-
-test("온전함을 모르는 입력: 길이보다 3초 넘게 일찍 끝나면 끊김, 3초 안이거나 길이를 모르면 끝", () => {
-  assert.deepEqual(endVerdict(facts({ unverified: true, positionMs: 196_999 })), { dropped: true, why: "길이보다 일찍 끝남" });
-  assert.equal(dropped({ unverified: true, positionMs: 197_000 }), false);
-  assert.equal(dropped({ unverified: true, lengthMs: null }), false);
-  assert.equal(dropped({ unverified: false, positionMs: 30_000 }), false, "온전함을 가를 수 있는 입력에는 걸지 않는다");
 });
 
 test("되감기 방지: 끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 끝", () => {

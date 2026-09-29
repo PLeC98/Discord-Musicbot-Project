@@ -144,7 +144,6 @@ test("공급이 끊겨 멈춘 곡은 끊긴 자리부터 다시 튼다", async (
   assert.equal(p.currentTrack, track, "같은 곡");
   assert.equal(p.retry.used, 1);
   assert.equal(p.playback?.startOffsetMs, 30000);
-  assert.equal(p.playback?.reopen, true, "끊겨서 다시 연 재생으로 적는다");
   assert.equal(calls.spawns.at(-1)?.label, "playback", "다 받은 캐시 파일이 있으면 그 파일로 다시 연다");
   assert.equal(p.queue.length, 1, "대기열은 그대로");
   assert.equal(p.previousTracks.length, 0, "기록에 넣지 않는다");
@@ -203,25 +202,6 @@ test("곡 끝 판정은 표시 길이가 아니라 트는 음원의 길이를 �
 
   assert.equal(p.currentTrack, track, "음원 끝까지 21초 남았으니 다시 연다");
   assert.equal(p.retry.used, 1);
-});
-
-test("주소 갈래(HLS 등)가 길이보다 일찍 끝나면 한 번만 다시 연다. 다시 연 재생이 또 일찍 끝나면 넘긴다", async () => {
-  const p = h.makePlayer();
-  const track = cached("d8ddddddddd");
-  playing(p, track, 30000, { transport: { via: "url" } });
-  await p.onTrackEnd("idle");
-  h.dispose(p);
-  assert.equal(p.currentTrack, track, "다시 연다");
-  assert.equal(p.retry.used, 1);
-
-  h.reset();
-  const q = h.makePlayer();
-  const again = cached("d9ddddddddd"); // 다시 열면 열리는 곡. 그래도 열지 않아야 한다
-  playing(q, again, 30000, { transport: { via: "url" }, reopen: true });
-  await q.onTrackEnd("idle");
-  h.dispose(q);
-  assert.equal(q.retry.used, 0, "다시 열지 않는다");
-  assert.equal(q.currentTrack, null, "대기열이 비어 끝난다");
 });
 
 test("끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 다시 열지 않고 넘긴다", async () => {

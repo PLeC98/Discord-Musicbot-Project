@@ -26,13 +26,11 @@ class CurrentPlayback {
   input: InputHealth | null;
   inputProgressAt: number | null;
   resume: Resume | null;
-  reopen: boolean;
   lengthMs: number | null;
 
-  constructor(track: QueuedTrack, { startOffsetMs = 0, reopen = false }: { startOffsetMs?: number; reopen?: boolean } = {}) {
+  constructor(track: QueuedTrack, { startOffsetMs = 0 }: { startOffsetMs?: number } = {}) {
     this.track = track;
     this.startOffsetMs = startOffsetMs; // 이 재생의 시작 위치(곡 안의 ms)
-    this.reopen = reopen; // 끊겨서 다시 연 재생인가
     this.resource = null; // 음성 라이브러리의 오디오 리소스
     this.cacheFile = null; // 받아 둔 파일로 틀면 그 경로
     this.transport = null; // transportOf 의 답 { via, live, cacheable }

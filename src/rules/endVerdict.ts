@@ -4,8 +4,7 @@
 //   우리가 멈춤            그 까닭대로(깨진 재생을 멈춘 까닭이면 끊김, 그 밖은 끝)
 //   라이브                 ffmpeg 가 0 으로 끝났고 입력이 온전하면 끝(방송 종료), 아니면 끊김
 //   재생 스트림이 덜 끝남   공급이 모자라 플레이어가 멈춘 것. 끊김
-//   입력 깨짐 표시          끊김
-//   온전함을 모르는 입력    길이보다 3초 넘게 일찍 끝났으면 한 번만 끊김
+//   입력 깨짐 표시          끊김(HLS 가 세그먼트를 건너뛴 것도 여기로 온다. media/playbackInput)
 //   그 밖                  끝
 // 끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 끝으로 본다(끝부분을 되풀이해 틀지 않게).
 
@@ -16,8 +15,7 @@ type EndFacts = {
   broken: string | null; // 입력 깨짐 표시
   exitCode: number | null; // 지금 소스 ffmpeg 의 종료 코드. 아직 살아 있으면 null
   positionMs: number; // 곡 안의 멈춘 위치
-  lengthMs: number | null; // 트는 음원의 길이(표시 길이가 아니다). 모르면 null
-  unverified: boolean; // 온전히 끝났는지 가를 수 없는 입력이고, 이번이 다시 연 재생이 아니다
+  lengthMs: number | null; // 트는 음원의 길이(표시 길이가 아니다). 되감기를 막는 데만 쓴다. 모르면 null
 };
 
 type Verdict = { dropped: boolean; why: string };
@@ -29,7 +27,6 @@ const BROKEN_STOPS: Record<string, string> = {
   error: "재생 재개 실패",
 };
 
-const UNVERIFIED_SLACK_MS = 3000; // 온전함을 모르는 입력이 길이보다 이만큼 넘게 일찍 끝나면 끊김
 const REWIND_GUARD_MS = 1500; // 다시 열 위치가 길이 끝 이만큼 안이면 끝
 
 const ended = (why: string): Verdict => ({ dropped: false, why });
@@ -39,9 +36,7 @@ function dropCause(f: EndFacts): string | null {
   if (f.reason !== "idle") return BROKEN_STOPS[f.reason] ?? null;
   if (f.live) return f.exitCode === 0 && !f.broken ? null : (f.broken ?? `ffmpeg 종료 코드 ${f.exitCode ?? "없음"}`);
   if (!f.streamEnded) return "공급이 끊겨 플레이어가 멈춤";
-  if (f.broken) return f.broken;
-  if (f.unverified && f.lengthMs && f.positionMs + UNVERIFIED_SLACK_MS < f.lengthMs) return "길이보다 일찍 끝남";
-  return null;
+  return f.broken;
 }
 
 function endVerdict(f: EndFacts): Verdict {

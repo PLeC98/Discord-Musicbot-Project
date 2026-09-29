@@ -909,3 +909,27 @@ test("받기 전에 길이를 몰랐던 곡(직접 링크)은 나란히 받기�
   assert.equal(p.playback?.lengthMs, 123_400);
   assert.ok(seen.includes("update"), "표시 길이가 바뀌어 패널을 고친다");
 });
+
+test("HLS 다시보기가 세그먼트를 건너뛰면 입력을 끊고 깨진 것으로 적는다. 라이브는 이어 튼다", async () => {
+  const line = "[in#0/hls @ 000001] Segment 3 of playlist 0 failed too many times, skipping\n";
+  for (const [liveStatus, cut] of [
+    [null, true],
+    ["is_live", false],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("s5sssssssss");
+    behavior.stream = () => ({ url: "https://hls.test/vod.m3u8", protocol: "m3u8", duration: 100, liveStatus });
+    await playOnce(p);
+    const ffmpeg = calls.spawns[0];
+    assert.equal(ffmpeg.args[ffmpeg.args.indexOf("-loglevel") + 1], "warning", "건너뛴 줄은 warning 이다");
+
+    ffmpeg.stderr.write("[in#0/hls @ 000001] Failed to open segment 3 of playlist 0\n[in#0/hls @ 0000");
+    ffmpeg.stderr.write(line.slice(15));
+    await new Promise((done) => setImmediate(done));
+
+    assert.equal(ffmpeg.killed, cut, String(liveStatus));
+    if (cut) assert.equal(p.playback?.input?.broken, "HLS 세그먼트를 건너뜀: Segment 3 of playlist 0 failed too many times, skipping");
+    else assert.equal(p.playback?.input?.broken, null);
+  }
+});

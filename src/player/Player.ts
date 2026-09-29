@@ -83,8 +83,6 @@ function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: numb
     exitCode: input?.exitCode ?? null,
     positionMs,
     lengthMs: live ? null : (pb?.lengthMs ?? null),
-    // 주소 갈래(HLS 등)는 ffmpeg 가 세그먼트를 건너뛰어도 0 으로 끝나는지 모른다. 다시 연 재생에는 한 번 더 걸지 않는다
-    unverified: !live && pb?.transport?.via === "url" && !pb.reopen,
   };
 }
 
@@ -365,9 +363,8 @@ class Player {
   /**
    * @param seekMs  곡 안의 시작 위치
    * @param o.continued  같은 곡을 이어 튼다(위치 이동 · 끊김 복구 · 세션 복원). 재생 횟수에 세지 않는다
-   * @param o.reopen  끊긴 곡을 끊긴 위치부터 다시 연다(곡 끝 판정이 본다)
    */
-  async play(seekMs = 0, { continued = false, reopen = false }: { continued?: boolean; reopen?: boolean } = {}) {
+  async play(seekMs = 0, { continued = false }: { continued?: boolean } = {}) {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
@@ -381,7 +378,7 @@ class Player {
       // 틀 곡은 prepareStart 가 정했다
       const current = this.currentTrack;
       if (!current) return { ok: false, code: "queue-empty" };
-      const pb = (this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs, reopen }));
+      const pb = (this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs }));
       this.lastPlaybackPosition = start.startMs;
       const track = pb.track;
 
@@ -923,7 +920,7 @@ class Player {
     if (step.reopen) {
       log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} | ${why} (${tries})`);
       const started = Date.now();
-      const reopened = await this.play(playedMs, { continued: true, reopen: true });
+      const reopened = await this.play(playedMs, { continued: true });
       if (reopened.ok) log.info({ tags: ["retry"] }, `다시 열었습니다: ${label} | ${sec(Date.now() - started)}초 걸림`);
       return true;
     }

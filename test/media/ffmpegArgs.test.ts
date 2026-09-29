@@ -24,6 +24,14 @@ test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpe
 });
 const idx = (args: string[], flag: string) => args.indexOf(flag);
 
+test("HLS 주소는 세그먼트를 건너뛴 줄을 보려고 warning 까지 남긴다. 그 밖은 error", () => {
+  const level = (args: string[]) => args[idx(args, "-loglevel") + 1];
+  assert.equal(level(build({ url: "https://x/a.m3u8", caps: { segMaxRetry: true } })), "warning");
+  assert.equal(level(build({ url: "https://x/a.mpd", hls: false, caps: { segMaxRetry: true } })), "error");
+  assert.equal(level(build({ file: "a.opus" })), "error");
+  assert.equal(level(build({})), "error");
+});
+
 test("주소 갈래는 읽기가 6초 멈추면 다시 붙는다(-rw_timeout, -i 앞). 파일 · 파이프 갈래에는 없다", () => {
   for (const args of [build({ url: "https://x/a.m3u8", caps: { segMaxRetry: true } }), build({ url: "https://x/a.mpd", hls: false, caps: { segMaxRetry: true } })]) {
     assert.equal(args[idx(args, "-rw_timeout") + 1], "6000000");

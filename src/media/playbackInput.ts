@@ -21,7 +21,7 @@ import type { Transport } from "../rules/transportOf.ts";
 type Splicer = InstanceType<typeof AudioSplicer>;
 type ResourceMeta = { title: string; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 칸만. R 은 오디오 리소스(건드리지 않고 돌려준다)
-type FfmpegChild = { stdout: Readable; stdin: Writable; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
+type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
 type OpenedStream = Readable & { headers?: Record<string, unknown>; stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean } };
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
@@ -107,12 +107,36 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   // 캐시 전환(AudioSplicer)은 걸지 않는다. 라이브는 갈아탈 캐시가 없고, 잔끊김은
   // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(onTrackEnd).
   const health = new InputHealth(list === "hls" ? "HLS" : list === "dash" ? "DASH" : "주소").watch(ffmpeg);
+  if (list === "hls") watchSegmentSkips(o, ffmpeg, health, live);
 
   // 파이프 갈래는 Node가 받는 바이트로 정체를 재지만 여기엔 그 스트림이 없다.
   // ffmpeg 출력이 곧 "살아 있다"의 증거다.
   ffmpeg.stdout.on("data", () => o.onProgress());
 
   return { resource: resourceOf(o, ffmpeg.stdout, live ? 0 : streamInfo.duration || o.meta.duration), cacheFile: null, health };
+}
+
+// HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 이어 흘린 뒤 0 으로 끝난다(빠진 만큼 소리가 짧다).
+// 다시보기는 그 자리에서 입력을 끊는다. 이어 흘린 채 끝나면 끊긴 위치가 빠진 길이만큼 앞당겨져, 그 위치부터 다시 열 때 들은 끝부분을 되풀이한다.
+// 끊어 두면 곡 끝 판정이 입력 깨짐으로 보고 빠진 세그먼트 앞에서 다시 연다. 라이브는 짧은 빈틈보다 다시 붙는 공백이 길어 이어 튼다
+const SEGMENT_SKIPPED = /failed too many times, skipping/;
+
+function watchSegmentSkips<R>(o: InputOptions<R>, ffmpeg: FfmpegChild, health: InputHealth, live: boolean) {
+  let pending = "";
+  ffmpeg.stderr.on("data", (chunk: Buffer) => {
+    const lines = (pending + chunk.toString()).split(/\r?\n/);
+    pending = lines.pop() ?? "";
+    const skipped = lines.find((line) => SEGMENT_SKIPPED.test(line));
+    if (!skipped) return;
+    const what = skipped.replace(/^\[[^\]]*\]\s*/, "").trim();
+    if (live) {
+      log.warn(`라이브 HLS 세그먼트를 건너뛰고 이어 틉니다: ${o.label} | ${what}`);
+      return;
+    }
+    log.warn(`HLS 세그먼트를 받지 못해 입력을 끊고 그 자리부터 다시 엽니다: ${o.label} | ${what}`);
+    health.mark(`HLS 세그먼트를 건너뜀: ${what}`);
+    ffmpeg.kill("SIGKILL");
+  });
 }
 
 // 받아 둔 파일. 미리 받았거나, 스트림이 열리지 않아 나란히 받던 것을 기다렸다
