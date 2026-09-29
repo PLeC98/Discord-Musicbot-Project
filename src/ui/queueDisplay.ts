@@ -13,6 +13,9 @@ type Requested = Pick<QueuedTrack, "autoplay" | "requestedBy"> | null | undefine
 // 알려야 하는 것은 "자동으로 들어온 곡"이지 장르가 아니고, 장르마다 다르면 전달이 흐려진다.
 const AUTOPLAY_MARK = "🎲";
 
+// 라이브 곡의 길이 자리
+const LIVE_MARK = "🔴LIVE";
+
 // 임베드용. 멘션으로 적는다. 알림은 가지 않고, 이름 캐시가 없어도 항상 맞게 보인다.
 function requesterLabel(track: Requested) {
   if (track?.autoplay) return AUTOPLAY_MARK;
@@ -44,11 +47,12 @@ function queueLine(track: Listed, number: number, { link = true }: { link?: bool
 }
 
 /**
- * 점프 메뉴 설명: `아티스트 | 길이 | 요청자`.
+ * 점프 메뉴 설명: `아티스트 | 길이 | 요청자`. 라이브는 길이 자리에 LIVE_MARK(진행 막대와 같은 표기).
  * 디스코드 상한이 100자라 넘치면 아티스트부터 줄인다. 길이와 요청자는 짧고 정보가 분명하다.
  */
-function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration" | "artist">>) | null | undefined) {
-  const tail = [track?.duration ? formatDuration(track.duration) : null, requesterName(track)].filter(Boolean).join(" | ");
+function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration" | "artist" | "isLive">>) | null | undefined) {
+  const length = track?.isLive ? LIVE_MARK : track?.duration ? formatDuration(track.duration) : null;
+  const tail = [length, requesterName(track)].filter(Boolean).join(" | ");
   const artist = track?.artist || "";
   if (!artist) return tail || undefined;
 
