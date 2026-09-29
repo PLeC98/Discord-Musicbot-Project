@@ -227,13 +227,13 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
 
 test("자리가 모자라 덜 받았으면(queueLimited) 그렇다고 덧붙인다", () => {
   const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
-  assert.equal(mem.createQueueAdditionMessage([track("a")], "재생목록", false, { queueLimited: true }), `✅ 재생목록의 1개 노래가 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`);
+  assert.equal(mem.createQueueAdditionMessage([track("a")], "playlist", false, { queueLimited: true }), `✅ 재생목록의 1개 노래가 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
 // 사운드클라우드 세트는 받을 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
 test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
   const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
-  assert.equal(mem.createQueueAdditionMessage([track("a")], "재생목록", false, { skipped: 3, total: 41 }), "✅ 재생목록 전체 41곡 중 1곡이 대기열에 추가되었습니다!\n⚠️ 받을 수 없는 3곡(미리듣기 · 지역 제한 등)은 뺐습니다");
+  assert.equal(mem.createQueueAdditionMessage([track("a")], "playlist", false, { skipped: 3, total: 41 }), "✅ 재생목록 전체 41곡 중 1곡이 대기열에 추가되었습니다!\n⚠️ 받을 수 없는 3곡(미리듣기 · 지역 제한 등)은 뺐습니다");
 
   const { add: live, notices, responder } = setup({ current: track("now") });
   await live({ tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);
@@ -255,13 +255,13 @@ test("재생목록 안내는 텍스트 채널이 없으면(대시보드) 보내�
   try {
     player.textChannel = null;
     const from = sink.buffer.length;
-    await mem.showPlaylistAdditionMessage(player, [track("a")], "재생목록");
+    await mem.showPlaylistAdditionMessage(player, [track("a")], "playlist");
     assert.deepEqual(sent, []);
     assert.deepEqual(sink.buffer.slice(from), [], "보내려다 실패한 것이 아니라 아예 보내지 않는다");
 
     // 대조: 채널이 있으면 보낸다
     player.textChannel = channel;
-    await mem.showPlaylistAdditionMessage(player, [track("a")], "재생목록");
+    await mem.showPlaylistAdditionMessage(player, [track("a")], "playlist");
     assert.equal(sent.length, 1);
   } finally {
     mock.timers.reset();

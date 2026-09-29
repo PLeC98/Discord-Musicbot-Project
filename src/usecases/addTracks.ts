@@ -376,13 +376,13 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
 // ── 곡 담기 ───────────────────────────────────────────────────────────
 
 /** 곡 담기에서 부르는 패널(그리기만) */
-type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "showPlaylistAdditionMessage" | "createQueueAdditionMessage" | "queueFullMessage">;
+type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "showPlaylistAdditionMessage" | "createQueueAdditionMessage">;
 /** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
 type Opened = { success: true };
 /** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패(까닭과 안내), started 곧바로 튼 곡 */
 type FirstStart = { opened: Opened | null; failure: Refused | null; started?: QueuedTrack };
 /** 대기열에 담은 것과 안내에 붙일 것 */
-type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
+type Addition = { queued: QueuedTrack[]; collection: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
 
 // 서버마다 한 번에 하나. 앞 작업의 꼬리에 잇는다. get 과 set 사이에 await 가 없어 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다
 const adding = new Map<string, Promise<AddResult>>();
@@ -435,7 +435,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
   if (opened && tracks.length > 1) {
     // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
-    await panel.showPlaylistAdditionMessage(player, placedOf(start, addition.queued), addition.sourceLabel, addition.insertFirst, addition.notice);
+    await panel.showPlaylistAdditionMessage(player, placedOf(start, addition.queued), addition.collection, addition.insertFirst, addition.notice);
     // 대기열 갱신. 임베드 새로고침
     await panel.updatePlaying(player);
     return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
@@ -514,8 +514,8 @@ function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): A
   const received = trackData.tracks.length;
   return {
     queued,
-    // 여러 곡을 담았으면 그 출처의 표시 이름(재생목록·앨범 등), 한 곡이면 null
-    sourceLabel: trackData.isPlaylist ? labels.collection(trackData.collection) : null,
+    // 여러 곡을 담았으면 그 출처의 종류(playlist · album 등, 모르면 playlist), 한 곡이면 null
+    collection: trackData.isPlaylist ? (trackData.collection ?? "playlist") : null,
     insertFirst,
     // 안내에 붙일 것. 전체 곡 수는 받은 것보다 많을 때만
     notice: { dropped: tracks.length - queued.length, skipped: trackData.skipped ?? 0, total: trackData.total && trackData.total > received ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) },
@@ -523,7 +523,7 @@ function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): A
 }
 
 // 틀고 있는 중에 대기열에만 담았다
-async function queueOnly(panel: Panel, player: Player, responder: Responder, { queued, sourceLabel, insertFirst, notice }: Addition): Promise<AddResult> {
+async function queueOnly(panel: Panel, player: Player, responder: Responder, { queued, collection, insertFirst, notice }: Addition): Promise<AddResult> {
   // 자리가 없어 한 곡도 못 담았다
   if (queued.length === 0 && notice.dropped > 0) return { success: false, code: "queue-full", dropped: notice.dropped };
 
@@ -532,7 +532,7 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
     await panel.updatePlaying(player);
   }
 
-  await responder.notifyQueued(panel.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice));
+  await responder.notifyQueued(panel.createQueueAdditionMessage(queued, collection, insertFirst, notice));
 
   return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
 }

@@ -21,6 +21,7 @@ import * as playerEvents from "../player/events.ts";
 import * as errors from "./text/errors.ts";
 import * as panelText from "./text/panel.ts";
 import * as queueText from "./text/queue.ts";
+import * as labels from "./text/labels.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
@@ -179,8 +180,8 @@ class NowPlayingPanel {
   /**
    * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
-  async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], sourceLabel: string | null, insertFirst = false, notice: AdditionNotice = {}) {
-    const messageText = this.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice);
+  async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
+    const messageText = this.createQueueAdditionMessage(queued, collection, insertFirst, notice);
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
@@ -719,15 +720,11 @@ class NowPlayingPanel {
 
   /**
    * 대기열 추가 메시지를 빌드합니다.
-   * sourceLabel 은 여러 곡을 담은 출처의 표시 이름(재생목록·앨범 등). 없으면 한 곡 안내
+   * collection 은 여러 곡을 담은 출처의 종류(sources/lookup 의 collection 값). null 이면 한 곡 안내
    */
-  createQueueAdditionMessage(tracks: Array<Pick<QueuedTrack, "title">>, sourceLabel: string | null, insertFirst = false, { dropped = 0, skipped = 0, total = null, queueLimited = false }: AdditionNotice = {}) {
+  createQueueAdditionMessage(tracks: Array<Pick<QueuedTrack, "title">>, collection: string | null, insertFirst = false, { dropped = 0, skipped = 0, total = null, queueLimited = false }: AdditionNotice = {}) {
     const max = config.bot.maxQueueSize;
-    return queueText.added({ tracks, collection: sourceLabel, total, first: insertFirst }) + queueText.addedWarnings({ dropped, skipped, queueLimited, max });
-  }
-
-  queueFullMessage() {
-    return queueText.full(config.bot.maxQueueSize);
+    return queueText.added({ tracks, collection: collection === null ? null : labels.collection(collection), total, first: insertFirst }) + queueText.addedWarnings({ dropped, skipped, queueLimited, max });
   }
 
   /**

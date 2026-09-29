@@ -69,9 +69,7 @@ function makeClient() {
   const client = fakeWith<Client>()({
     embedCalls,
     players: new Map<string, Player>(),
-    panels: {
-      queueFullMessage: () => "대기열이 가득 찼습니다",
-    },
+    panels: {},
   });
   fakeAdder(client, async (_client, guildId, trackData, requester, responder) => {
     embedCalls.push({ guildId, trackData, requester, responder });

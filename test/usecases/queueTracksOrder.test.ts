@@ -35,7 +35,7 @@ function world(guildIds = ["g1"]) {
   let active = 0;
   let maxActive = 0;
   const players = new Map<string, Player>(guildIds.map((name) => [idOf(name), fakePlayer({ guild: { id: idOf(name) }, currentTrack: { title: "지금" }, queue: [], nowPlayingMessage: null })]));
-  const client = fake<Client>({ players, panels: { createQueueAdditionMessage: () => "담음", queueFullMessage: () => "가득" } });
+  const client = fake<Client>({ players, panels: { createQueueAdditionMessage: () => "담음" } });
 
   // 이 작업을 알리는 매체. 알리는 동안 붙잡는다
   const responder = (id: string): Responder => ({

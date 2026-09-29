@@ -97,7 +97,6 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     createSearchingContainer: (text: string) => ({ searching: text }),
     scheduleIdleRepin: async (_g: unknown, channelId: string) => seen.push({ repin: channelId }),
     updatePlaying: async () => seen.push("update"),
-    queueFullMessage: () => "❌ 대기열이 가득 찼어요.",
   };
   const player = {
     bindChannels: Player.prototype.bindChannels,
