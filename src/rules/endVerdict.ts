@@ -51,8 +51,8 @@ function endVerdict(f: EndFacts): Verdict {
   return { dropped: true, why: cause };
 }
 
-/** 믿을 수 있는 음원 길이(ms). 모르거나 추정값이면 null */
-const knownLengthMs = (track: { duration: number; durationSource?: string }) => (track.duration > 0 && track.durationSource !== "추정" ? track.duration * 1000 : null);
+/** 음원 길이(ms). 모르면 null */
+const knownLengthMs = (track: { duration: number }) => (track.duration > 0 ? track.duration * 1000 : null);
 
 export { endVerdict, knownLengthMs };
 export type { EndFacts, Verdict };

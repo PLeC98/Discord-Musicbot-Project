@@ -48,7 +48,7 @@ class PlaybackWatch {
 
   checkOverflow(): void {
     const player = this.player;
-    // 길이를 모르거나 믿을 수 없으면(추정값 · 라이브) 넘었는지 가를 수 없다
+    // 길이를 모르면(라이브 · 받기 전의 직접 링크) 넘었는지 가를 수 없다
     const lengthMs = player.currentTrack && !player.isLive ? knownLengthMs(player.currentTrack) : null;
     if (!lengthMs) return;
     const at = player.getCurrentTime();

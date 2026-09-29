@@ -16,7 +16,7 @@ import type { StreamInfo } from "../../src/sources/streamUrl.ts";
 // 멈춘 까닭(플레이어 안 칸)
 const endReasonOf = (p: object) => (p as { _endReason?: string | null })._endReason;
 
-function overflowPlayer({ offsetMs = 0, playedMs = 0, duration = 200, durationSource = undefined as string | undefined, isLive = false } = {}) {
+function overflowPlayer({ offsetMs = 0, playedMs = 0, duration = 200, isLive = false } = {}) {
   const audio = {
     state: { status: AudioPlayerStatus.Playing },
     stopped: false,
@@ -25,7 +25,7 @@ function overflowPlayer({ offsetMs = 0, playedMs = 0, duration = 200, durationSo
     },
   };
   const player = fake<WatchHost>({
-    currentTrack: { title: "곡", platform: "youtube", duration, durationSource },
+    currentTrack: { title: "곡", platform: "youtube", duration },
     playback: { startOffsetMs: offsetMs, resource: { playbackDuration: playedMs } },
     audioPlayer: audio,
     isLive,
@@ -48,8 +48,8 @@ test("넘침 안전망: 곡 안의 위치(시작 위치 + 낸 양)가 길이 + 3
   assert.equal(endReasonOf(over.player), "overflow");
 });
 
-test("넘침 안전망: 길이를 모르거나 추정값이거나 라이브면 멈추지 않는다", () => {
-  for (const opts of [{ duration: 0 }, { durationSource: "추정" }, { isLive: true }]) {
+test("넘침 안전망: 길이를 모르거나 라이브면 멈추지 않는다", () => {
+  for (const opts of [{ duration: 0 }, { isLive: true }]) {
     const { audio, watch } = overflowPlayer({ playedMs: 10_000_000, ...opts });
     watch.checkOverflow();
     assert.equal(audio.stopped, false, JSON.stringify(opts));

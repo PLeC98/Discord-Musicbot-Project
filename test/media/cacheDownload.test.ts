@@ -283,7 +283,7 @@ test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 �
   assert.ok(calls.convert[0].src.endsWith(".raw"), "원본을 먼저 파일로 받는다");
   assert.equal(calls.convert[0].srcExists, true);
   assert.equal(track.duration, 222);
-  assert.equal(track.durationSource, "실측");
+  assert.equal(track.durationSource, "measured");
   assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`)?.audio_version, 'etag="v1";length=9', "응답 헤더에서 판을 읽는다");
   assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`)?.duration_sec, 222);
   assert.equal(fs.readFileSync(file, "utf8"), "opus");

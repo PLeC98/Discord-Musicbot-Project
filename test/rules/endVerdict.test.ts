@@ -64,9 +64,7 @@ test("되감기 방지: 끊겼어도 다시 열 위치가 길이 끝 1.5초 안�
   assert.equal(dropped({ streamEnded: false, positionMs: 500_000, lengthMs: null }), true, "길이를 모르면 걸 수 없다");
 });
 
-test("믿을 수 있는 길이: 있고 추정이 아닐 때만", () => {
+test("음원 길이: 있을 때만", () => {
   assert.equal(knownLengthMs({ duration: 200 }), 200_000);
-  assert.equal(knownLengthMs({ duration: 200, durationSource: "실측" }), 200_000);
-  assert.equal(knownLengthMs({ duration: 200, durationSource: "추정" }), null);
   assert.equal(knownLengthMs({ duration: 0 }), null);
 });

@@ -186,7 +186,7 @@ const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
   audioUrl: cand.audioUrl,
   // 길이를 미리 재지 않는다. 어차피 받아야 하고, TrackDownloader가 받으면서 실측해 고쳐 준다.
   duration: 0,
-  durationSource: "미상",
+  durationSource: "unknown",
   thumbnail: cand.thumbnail || null,
   // 패널에 "Direct"가 아니라 어디서 온 곡인지 보이게 한다
   platform: cand.platform || "direct",

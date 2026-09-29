@@ -80,7 +80,7 @@ test("음원만 받았으면 그대로 튼다 — 출처가 곧 정답이라 필
   assert.equal(track.audioUrl, "https://a.animethemes.moe/X-OP1.ogg");
   // 길이는 받은 뒤 실측한다 — 미리 재지 않는다
   assert.equal(track.duration, 0);
-  assert.equal(track.durationSource, "미상");
+  assert.equal(track.durationSource, "unknown");
 });
 
 // ── AnimeThemes: 유튜브 풀버전 먼저, 안 되면 음원 ─────────────────────────

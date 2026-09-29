@@ -106,13 +106,13 @@ test("직접 링크 판정: http(s) 이고 지원하는 확장자로 끝나야 �
   }
 });
 
-test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 보고 길이를 추정한다", async () => {
+test("직접 링크 정보: SafeUrl HEAD 로 크기와 종류를 본다. 길이는 받기 전에는 모른다(크기로 어림하지 않는다)", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
 
   const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", net);
 
   assert.deepEqual(calls.head, ["https://files.test/my_song-name.mp3?x=1"]);
-  assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", duration: 100, durationSource: "추정", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
+  assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", duration: 0, durationSource: "unknown", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
   assert.equal(t.id, DirectLink.generateId("https://files.test/my_song-name.mp3?x=1"));
 });
 
@@ -123,14 +123,6 @@ test("직접 링크 정보: 서버가 알려 준 파일 이름(Content-Dispositi
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-disposition": 'attachment; filename="Artist - Song.mp3"' } });
   const [u] = await DirectLink.getInfo("https://files.test/get/8.mp3", net);
   assert.equal(u.title, "Artist - Song");
-});
-
-test("직접 링크 길이 추정: 종류마다 비트레이트가 다르고, 크기를 모르면 0", () => {
-  assert.equal(DirectLink.estimateDuration(1411000 / 8, "audio/wav"), 1);
-  assert.equal(DirectLink.estimateDuration(125000, "audio/flac"), 1);
-  assert.equal(DirectLink.estimateDuration(20000, "audio/ogg"), 1);
-  assert.equal(DirectLink.estimateDuration(16000, "application/octet-stream"), 1, "모르면 128k");
-  assert.equal(DirectLink.estimateDuration(null, "audio/mpeg"), 0);
 });
 
 test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못하면 사유를 숨긴 일반 문장으로 던진다", async () => {
@@ -154,7 +146,7 @@ test("직접 링크: icy-* 머리가 있으면 인터넷 라디오라 라이브�
   // 끝없는 방송인데도 큰 가짜 크기를 붙이는 서버가 있다
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "54000000", "icy-name": "라디오", "icy-br": "128" } });
   const [t] = await DirectLink.getInfo("https://radio.test/live.mp3", net);
-  assert.deepEqual({ isLive: t.isLive, liveStatus: t.liveStatus, duration: t.duration, durationSource: t.durationSource }, { isLive: true, liveStatus: "is_live", duration: 0, durationSource: "미상" });
+  assert.deepEqual({ isLive: t.isLive, liveStatus: t.liveStatus, duration: t.duration, durationSource: t.durationSource }, { isLive: true, liveStatus: "is_live", duration: 0, durationSource: "unknown" });
 
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
   const [f] = await DirectLink.getInfo("https://files.test/b.mp3", net);

@@ -35,7 +35,6 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
     const extension = path.extname(filename).toLowerCase();
     // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 머리를 붙인다. 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 받아 두기 없음)
     const radio = Object.keys(headers).some((name) => name.toLowerCase().startsWith("icy-"));
-    const estimatedDuration = radio ? 0 : estimateDuration(contentLength, contentType);
 
     return [
       {
@@ -44,9 +43,9 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
         pageUrl: url,
         requestKey: url,
         audioUrl: url,
-        duration: estimatedDuration,
-        // Content-Length 기반 추정. 다운로드 후 probeDurationSec가 실측으로 교체한다.
-        durationSource: radio ? "미상" : "추정",
+        // 크기로 길이를 어림하면 VBR 에서 크게 어긋난다. 모르는 채로 두고 받아 둔 뒤 잰 값으로 채운다(cacheDownload)
+        duration: 0,
+        durationSource: "unknown" as const,
         ...(radio ? { isLive: true, liveStatus: "is_live" } : {}),
         // 임의의 오디오 URL이라 앨범아트를 알 방법이 없다. 대시보드가 파일 아이콘으로 대체 표시한다.
         thumbnail: null,
@@ -115,30 +114,5 @@ function generateId(url: string): string {
   return createHash("sha256").update(url).digest("base64url").slice(0, 16);
 }
 
-function estimateDuration(fileSize: unknown, contentType: string): number {
-  if (!fileSize) return 0;
-
-  // 파일 크기와 타입을 바탕으로 대략 추정
-  // 매우 대략적인 추정값이므로 정확하지 않음
-  let estimatedBitrate = 128; // 기본 kbps
-
-  if (contentType.includes("mp3")) {
-    estimatedBitrate = 128;
-  } else if (contentType.includes("wav")) {
-    estimatedBitrate = 1411; // CD 음질
-  } else if (contentType.includes("flac")) {
-    estimatedBitrate = 1000;
-  } else if (contentType.includes("ogg")) {
-    estimatedBitrate = 160;
-  }
-
-  // 파일 크기를 비트로 변환한 뒤 비트레이트로 나누어 초 단위 계산
-  const fileSizeBits = Number(fileSize) * 8; // 헤더에서 온 글자일 수 있다
-  const bitratePerSecond = estimatedBitrate * 1000;
-  const estimatedSeconds = Math.floor(fileSizeBits / bitratePerSecond);
-
-  return Math.max(0, estimatedSeconds);
-}
-
-export { getInfo, getStream, extractTitle, generateId, estimateDuration };
+export { getInfo, getStream, extractTitle, generateId };
 export type { AudioStream, HeadNet, StreamNet };

@@ -331,11 +331,11 @@ class TrackDownloader {
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
 
-      // getInfo의 Content-Length 추정은 VBR에서 크게 어긋난다. 받아둔 파일의 실측으로 교정.
+      // 직접 링크는 받기 전에는 길이를 모른다. 받아 둔 파일을 잰 값으로 채운다.
       // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
       if (made.durationSec) {
         track.duration = made.durationSec;
-        track.durationSource = "실측";
+        track.durationSource = "measured";
       }
       // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 비어 있을 때만 채운다
       if (made.artist && !track.artist) track.artist = made.artist;

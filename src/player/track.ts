@@ -13,6 +13,9 @@ import type { SessionTrackRow } from "../store/rows.ts";
 /** 음원 주소를 어떻게 알았나. 장부에서 온 영상이 죽었으면 다시 찾는다. */
 type AudioFoundBy = "given" | "ledger" | "search";
 
+/** 곡 길이가 어디서 왔나. provided: 출처가 준 값 · measured: 받아 둔 음원을 잰 값 · unknown: 모른다(0). 적지 않았으면 provided */
+type DurationSource = "provided" | "measured" | "unknown";
+
 /** 소스가 준 것(링크 조회 · 검색 · 자동재생 후보). */
 type TrackInfo = {
   title: string;
@@ -20,8 +23,7 @@ type TrackInfo = {
   album?: string | null;
   /** 초. 모르면 0 */
   duration: number;
-  /** "추정" · "실측" · "미상" */
-  durationSource?: string;
+  durationSource?: DurationSource;
   thumbnail?: string | null;
   /** 어디서 온 곡인가(ui/platforms 의 이름) */
   platform: string;
@@ -54,4 +56,4 @@ type PersistedTrack = SessionTrackRow;
 /** 재생 직전. 음원 주소가 반드시 있다(스포티파이는 영상을 찾아야 이 타입이 된다). */
 type PlayableTrack = QueuedTrack & { audioUrl: string };
 
-export type { AudioFoundBy, TrackInfo, QueuedTrack, PersistedTrack, PlayableTrack, Requester };
+export type { AudioFoundBy, DurationSource, TrackInfo, QueuedTrack, PersistedTrack, PlayableTrack, Requester };
