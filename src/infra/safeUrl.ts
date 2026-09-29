@@ -2,8 +2,8 @@
  * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD·GET이 여기를 지난다.
  *
  *  - 스키마 화이트리스트(http/https만)
- *  - 내부·예약 IP 대역 차단 (ipaddr.js: 공인 unicast만 통과, IPv4-매핑 언랩)
- *  - IP 우회표기 정규화 (10진/16진/8진/매핑 모두 ipaddr.parse가 해석)
+ *  - 내부·예약 IP 대역 차단 (infra/publicAddress: 공인 unicast만 통과, IPv4-매핑 언랩)
+ *  - IP 우회표기 정규화 (10진/16진/8진/매핑 모두 판정이 쓰는 ipaddr.parse가 해석)
  *  - DNS 리바인딩 차단 (해석 1회 → 그 IP로 핀 접속, 소켓 재해석 불가)
  *  - 리다이렉트 홉별 재검증 (http.request 는 따라가지 않는다. 수동 루프, IP-리터럴 리다이렉트까지 검사)
  *  - 프록시 환경 변수를 따르지 않는다 (고정 에이전트는 NODE_USE_ENV_PROXY 에도 프록시를 타지 않는다)
@@ -19,7 +19,7 @@ import net from "net";
 import http from "http";
 import https from "https";
 import { pipeline, Transform } from "stream";
-import ipaddr from "ipaddr.js";
+import { isPublicIp } from "./publicAddress.ts";
 import config from "../../config.ts";
 
 // --- 보안 상수 (코드 고정: 오설정으로 방어가 꺼지지 않도록 .env화하지 않음) ---
@@ -48,22 +48,8 @@ class SsrfError extends Error {
   }
 }
 
-/**
- * 공인(global unicast) IP만 통과. 그 외(사설·루프백·링크로컬·CGNAT·예약·멀티캐스트 등)
- * 전부 차단. 파싱 불가·IPv4-매핑 IPv6(::ffff:x)는 내장 IPv4로 재판정.
- */
-function isBlockedIp(ip: string): boolean {
-  let addr;
-  try {
-    addr = ipaddr.parse(ip);
-  } catch {
-    return true; // 파싱 불가 → 차단
-  }
-  if (addr instanceof ipaddr.IPv6 && addr.isIPv4MappedAddress()) {
-    return isBlockedIp(addr.toIPv4Address().toString());
-  }
-  return addr.range() !== "unicast";
-}
+/** 공인(global unicast) IP 가 아니면 막는다. 판정은 infra/publicAddress(패널의 대시보드 링크와 같은 판정) */
+const isBlockedIp = (ip: string) => !isPublicIp(ip);
 
 /** Content-Type 화이트리스트. 헤더 부재는 허용(일부 CDN이 생략). IP 차단이 주 방어이고 이건 심층방어. */
 function isAllowedContentType(contentType: unknown): boolean {

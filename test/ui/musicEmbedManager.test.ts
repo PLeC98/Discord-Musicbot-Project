@@ -8,6 +8,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tempStore from "../helpers/tempStore.ts";
 import sink from "../../src/infra/log/sink.ts";
+import config from "../../config.ts";
 
 const newManager = () => new MusicEmbedManager(fake<Client>({ players: new Map() }));
 
@@ -70,11 +71,24 @@ const buttonsOf = (json: Json) => json.components.filter((c) => c.type === 1).fl
 // 빌더를 JSON 으로
 const jsonOf = (builder: { toJSON(): unknown }) => builder.toJSON() as Json;
 
+// 대시보드 주소를 정해 두고 부른다. 시험은 로컬 .env 를 읽으므로 주소가 링크를 가르는 시험은 값을 정한다
+async function withDashboardUrl<T>(url: string, run: () => Promise<T>) {
+  const saved = config.dashboard.url;
+  config.dashboard.url = url;
+  try {
+    return await run();
+  } finally {
+    config.dashboard.url = saved;
+  }
+}
+
 test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리고, 썸네일 자리는 첨부한 투명 이미지다", async () => {
   const mem = newManager();
   const player = panelPlayer();
-  const playing = jsonOf(await mem.createNowPlayingContainer(player, { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" }));
-  const { components, files } = await mem.createIdleContainer({ reason: "stop" });
+  const { playing, components, files } = await withDashboardUrl("https://music.example.com", async () => ({
+    playing: jsonOf(await mem.createNowPlayingContainer(player, { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" })),
+    ...(await mem.createIdleContainer({ reason: "stop" })),
+  }));
   const idle = jsonOf(components[0]);
 
   assert.deepEqual(shape(idle), shape(playing));
@@ -89,6 +103,29 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
   assert.ok(buttonsOf(idle).length > 1, "나머지 버튼도 같은 자리에 그려진다(모양 유지)");
   assert.equal(idle.components[0].accessory?.media.url, "attachment://blank.png");
   assert.equal(files[0].name, "blank.png");
+});
+
+// 기본값 localhost · 사설 주소는 다른 사람이 열 수 없다(G20)
+test("대시보드 링크는 DASHBOARD_URL 이 공개 주소일 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
+  const mem = newManager();
+  const track: QueuedTrack = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
+  const draw = (url: string) =>
+    withDashboardUrl(url, async () => ({
+      playing: JSON.stringify((await mem.createNowPlayingContainer(panelPlayer(), track)).toJSON()),
+      idle: JSON.stringify((await mem.createIdleContainer({ reason: "stop" })).components[0].toJSON()),
+    }));
+
+  const shown = await draw("https://music.example.com");
+  assert.match(shown.playing, /-# 🔗 \[대시보드\]\(https:\/\/music\.example\.com\) {2}\| {2}🖥️ /);
+  assert.match(shown.idle, /-# 🔗 \[대시보드\]\(https:\/\/music\.example\.com\)/);
+
+  for (const url of ["http://localhost:33333", "http://192.168.0.10:33333"]) {
+    const hidden = await draw(url);
+    assert.ok(!hidden.playing.includes("대시보드") && !hidden.idle.includes("대시보드"), url);
+    const count = (json: string) => (JSON.parse(json) as { components: unknown[] }).components.length;
+    assert.equal(count(hidden.idle), count(shown.idle) - 2, `${url}: 끝난 화면에는 구분선과 아래 줄이 없다`);
+    assert.match(hidden.playing, /"-# 🖥️ /, `${url}: 재생 화면에는 플랫폼만`);
+  }
 });
 
 test("종료 모양의 문구는 사유를 따른다", async () => {

@@ -65,6 +65,7 @@ import { jumpDescription } from "./queueDisplay.ts";
 import { NowPlayingPanel, type PanelStore } from "./panelLocation.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 import { colorOf } from "./colors.ts";
+import { isPublicUrl } from "../infra/publicAddress.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 자리에 달고 나간다.
@@ -99,6 +100,9 @@ function statusOf(player: Player) {
   }
   return parts;
 }
+
+// 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다)
+const dashboardLink = () => (isPublicUrl(config.dashboard.url) ? `🔗 [대시보드](${config.dashboard.url})` : null);
 
 // 끝난 패널 가운데 음성에 남아 기다리는 모양. 나갈 시각을 붙인다
 const WAITING = new Set(["queue-end", "joined"]);
@@ -396,8 +400,9 @@ class MusicEmbedManager {
       container.addActionRowComponents(row);
     }
 
-    // 구분선 + 대시보드 링크
-    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})  |  🖥️ ${platformValue}`));
+    // 구분선 + 대시보드 링크(공개 주소일 때만) · 플랫폼
+    const link = dashboardLink();
+    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link ? `${link}  |  ` : ""}🖥️ ${platformValue}`));
 
     return container;
   }
@@ -496,7 +501,8 @@ class MusicEmbedManager {
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(emptyProgressBar()))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
     for (const row of await this.createControlButtons(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
-    container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})`));
+    const link = dashboardLink();
+    if (link) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link}`));
 
     return { components: [container], files: [blankThumbnail.file()] };
   }
