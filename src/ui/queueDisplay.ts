@@ -4,6 +4,7 @@
 // 줄 만드는 일을 여기로 모은다. 점프 메뉴 설명도 같은 규칙(요청자 표기)을 따른다.
 
 import { formatDuration } from "./format.ts";
+import * as queueText from "./text/queue.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // 요청자 표기에서 읽는 칸
@@ -79,7 +80,7 @@ function queueDescription({ current, header, tracks, first = 1 }: { current?: Li
     const parts: string[] = [];
     if (current) {
       const title = shorten(current.title || "");
-      parts.push(`**🎵 현재 재생 중**\n**${linked.has(-1) && current.pageUrl ? `[${title}](${current.pageUrl})` : title}**`);
+      parts.push(`**${queueText.currentHeader()}**\n**${linked.has(-1) && current.pageUrl ? `[${title}](${current.pageUrl})` : title}**`);
     }
     if (tracks.length) parts.push(`**${header}**\n${tracks.map((track, i) => queueLine(track, first + i, { link: linked.has(i) })).join("")}`);
     return parts.join("\n\n");

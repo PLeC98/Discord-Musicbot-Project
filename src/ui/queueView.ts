@@ -5,6 +5,7 @@ import { queueDescription } from "./queueDisplay.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import { QUEUE, customId } from "./customIds.ts";
 import { colorOf } from "./colors.ts";
+import * as queueText from "./text/queue.ts";
 
 /** 한 쪽에 보이는 곡 수 */
 const PAGE_SIZE = 10;
@@ -33,12 +34,13 @@ function queueView(info: QueueInfo, page = 1) {
   const offset = (shown - 1) * PAGE_SIZE;
   const total = info.queue.length + (info.current ? 1 : 0);
 
+  const t = queueText.view({ waiting: info.queue.length, total, page: shown, pages });
   const embed = new EmbedBuilder()
-    .setTitle("📝 재생 대기열")
+    .setTitle(t.title)
     .setColor(colorOf("brand"))
     .setTimestamp()
-    .setDescription(queueDescription({ current: shown === 1 ? info.current : null, header: `📋 다음 노래들 (${info.queue.length}개)`, tracks: info.queue.slice(offset, offset + PAGE_SIZE), first: offset + 1 }))
-    .setFooter({ text: `총 ${total}개의 노래${pages > 1 ? ` • ${shown}/${pages} 페이지` : ""}` });
+    .setDescription(queueDescription({ current: shown === 1 ? info.current : null, header: t.header, tracks: info.queue.slice(offset, offset + PAGE_SIZE), first: offset + 1 }))
+    .setFooter({ text: t.footer });
 
   if (pages === 1) return { embeds: [embed], components: [] };
   const button = (label: string, to: number, disabled: boolean) => new ButtonBuilder().setCustomId(`${PAGE_PREFIX}${to}`).setLabel(label).setStyle(ButtonStyle.Secondary).setDisabled(disabled);

@@ -19,6 +19,8 @@ const NO_RESPONDER: Responder = {
 };
 import * as playerEvents from "../player/events.ts";
 import * as errors from "./text/errors.ts";
+import * as panelText from "./text/panel.ts";
+import * as queueText from "./text/queue.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
@@ -73,9 +75,9 @@ const IDLE_CONTROLS: Controls = { sessionId: IDLE_SESSION, previousTracks: [], q
 
 // 반복 버튼의 모양
 const LOOP_LOOKS = {
-  track: { label: "반복: 트랙", emoji: "🔂", style: ButtonStyle.Success },
-  queue: { label: "반복: 대기열", emoji: "🔁", style: ButtonStyle.Success },
-  off: { label: "반복: 꺼짐", emoji: "➡️", style: ButtonStyle.Secondary },
+  track: { emoji: "🔂", style: ButtonStyle.Success },
+  queue: { emoji: "🔁", style: ButtonStyle.Success },
+  off: { emoji: "➡️", style: ButtonStyle.Secondary },
 } as const;
 
 // 한곡 반복 = 재시작이라 기록 없어도 활성
@@ -88,21 +90,21 @@ const canSkip = (p: Controls) => p.queue.length > 0 || p.loop === "track" || Boo
 function statusOf(player: Player) {
   const parts: string[] = [];
   if (player.paused) {
-    if (player.pauseReasons?.has("mute")) parts.push("🔇 뮤트됨");
-    else if (player.pauseReasons?.has("alone")) parts.push("⏳ 혼자 남음");
-    else parts.push("⏸️ 일시정지");
+    if (player.pauseReasons?.has("mute")) parts.push(panelText.pausedStatus("mute"));
+    else if (player.pauseReasons?.has("alone")) parts.push(panelText.pausedStatus("alone"));
+    else parts.push(panelText.pausedStatus("other"));
   }
   if (player.queue.length > 0) {
-    parts.push(`${player.queue.length}개의 노래 대기 중`);
+    parts.push(panelText.queuedStatus(player.queue.length));
   }
   if (player.sponsor?.skipSegments?.length) {
-    parts.push(`건너 뛸 구간 ${player.sponsor.skipSegments.length}개`);
+    parts.push(panelText.segmentsStatus(player.sponsor.skipSegments.length));
   }
   return parts;
 }
 
 // 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다)
-const dashboardLink = () => (isPublicUrl(config.dashboard.url) ? `🔗 [대시보드](${config.dashboard.url})` : null);
+const dashboardLink = () => (isPublicUrl(config.dashboard.url) ? panelText.dashboardLink(config.dashboard.url) : null);
 
 // 진행 막대를 고치는 간격. 앞 갱신이 끝난 뒤부터 잰다
 const PROGRESS_MS = 5000;
@@ -114,15 +116,6 @@ const WAITING = new Set(["queue-end", "joined"]);
 function idleViewOf(reason: string): IdleView {
   const leaveMs = config.bot.leaveDelayQueueEmptyMs;
   return { reason, leavesAt: WAITING.has(reason) && leaveMs > 0 ? Date.now() + leaveMs : null };
-}
-
-// 담은 안내 밑에 붙는 경고 줄들. 뺀 곡(출처가 받을 수 없음) · 대기열이 차서 못 넣은 곡
-function noticeLines({ dropped, skipped, queueLimited }: { dropped: number; skipped: number; queueLimited: boolean }) {
-  let text = "";
-  if (skipped > 0) text += `\n⚠️ 받을 수 없는 ${skipped}곡(미리듣기 · 지역 제한 등)은 뺐습니다`;
-  if (dropped > 0) text += `\n⚠️ 대기열이 가득 차 ${dropped}곡은 넣지 못했습니다 (최대 ${config.bot.maxQueueSize}곡)`;
-  else if (queueLimited) text += `\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`;
-  return text;
 }
 
 class NowPlayingPanel {
@@ -366,7 +359,7 @@ class NowPlayingPanel {
    * 현재 재생 컨테이너를 빌드합니다 (Components v2).
    */
   async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false) {
-    const nowPlayingTitle = "🎵 현재 재생 중";
+    const nowPlayingTitle = panelText.playingTitle();
 
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
     const currentSec = Math.floor(currentMs / 1000);
@@ -485,18 +478,7 @@ class NowPlayingPanel {
    * reason: queue-end(음성에 잠시 남음) | failures(곡이 연달아 실패해 멈춤. 대기열이 남으면 음성에 남는다) | stop · disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
    */
   async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
-    let title: string, status: string;
-    if (reason === "leave") {
-      [title, status] = ["듣고 있던 곡이 있어요", "💾 `/join`으로 이어 들을 수 있어요"];
-    } else if (reason === "failures") {
-      [title, status] = ["곡을 연달아 틀지 못해 멈췄어요", "🎵 곡을 추가하면 다시 틀어요"];
-    } else if (leavesAt) {
-      [title, status] = [reason === "joined" ? "곡을 기다리고 있어요" : "재생이 끝났어요", `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
-    } else {
-      [title, status] = ["쉬는 중이에요", dedicated ? "👋 곡을 입력하면 다시 올게요" : "👋 `/play`로 부르면 다시 올게요"];
-    }
-
-    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`### 💤 재생 대기 중\n**${title}**\n-# ${status}`)).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
+    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, dedicated }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
 
     const container = new ContainerBuilder()
       .setAccentColor(resolveColor(colorOf("brand")))
@@ -529,7 +511,8 @@ class NowPlayingPanel {
 
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 연달아 실패해 멈춘 것은 채널 알림이 따로 간다
     if (live && !dedicated && reason !== "failures" && canSend(textChannel)) {
-      const endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor(colorOf("closed")).setTimestamp();
+      const t = panelText.ended();
+      const endEmbed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed")).setTimestamp();
       await bestEffort(log, textChannel.send({ embeds: [endEmbed] }), "끝 안내 보내기");
     }
 
@@ -679,13 +662,19 @@ class NowPlayingPanel {
 
     // 반복 버튼. 꺼짐 → 트랙 → 대기열 순환
     const loopLook = LOOP_LOOKS[player.loop || "off"];
-    const loopButton = new ButtonBuilder().setCustomId(id("loop")).setLabel(loopLook.label).setStyle(loopLook.style).setEmoji(loopLook.emoji).setDisabled(disabled);
+    const loopButton = new ButtonBuilder()
+      .setCustomId(id("loop"))
+      .setLabel(panelText.loopLabel(player.loop || "off"))
+      .setStyle(loopLook.style)
+      .setEmoji(loopLook.emoji)
+      .setDisabled(disabled);
 
-    const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel("대기열").setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(disabled);
+    const labels = panelText.buttons();
+    const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel(labels.queue).setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(disabled);
 
     const autoplayButton = new ButtonBuilder()
       .setCustomId(id("autoplay"))
-      .setLabel("자동재생")
+      .setLabel(labels.autoplay)
       .setStyle(player.autoplay ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setEmoji("🎲")
       .setDisabled(disabled && !keepAutoplay);
@@ -722,7 +711,7 @@ class NowPlayingPanel {
       return opt;
     });
 
-    const placeholder = "⏭ 이 곡으로 바로 이동...";
+    const placeholder = panelText.jumpPlaceholder();
     const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);
 
     return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
@@ -733,18 +722,12 @@ class NowPlayingPanel {
    * sourceLabel 은 여러 곡을 담은 출처의 표시 이름(재생목록·앨범 등). 없으면 한 곡 안내
    */
   createQueueAdditionMessage(tracks: Array<Pick<QueuedTrack, "title">>, sourceLabel: string | null, insertFirst = false, { dropped = 0, skipped = 0, total = null, queueLimited = false }: AdditionNotice = {}) {
-    const where = insertFirst ? "대기열 맨 앞에" : "대기열에";
-    const mark = insertFirst ? "⏫" : "✅";
-    let text: string;
-    // 목록의 일부만 넣었으면 전체 중 몇 곡인지. "N개 (전체 M곡)"은 넣은 수인지 대기열 수인지 헷갈렸다
-    if (sourceLabel && total) text = `${mark} ${sourceLabel} 전체 ${total.toLocaleString("ko-KR")}곡 중 ${tracks.length}곡이 ${where} 추가되었습니다!`;
-    else if (sourceLabel) text = `${mark} ${sourceLabel}의 ${tracks.length}개 노래가 ${where} 추가되었습니다!`;
-    else text = `${mark} **${escapeMd(tracks[0]?.title || "알 수 없는 트랙")}**이(가) ${where} 추가되었습니다!`;
-    return text + noticeLines({ dropped, skipped, queueLimited });
+    const max = config.bot.maxQueueSize;
+    return queueText.added({ tracks, collection: sourceLabel, total, first: insertFirst }) + queueText.addedWarnings({ dropped, skipped, queueLimited, max });
   }
 
   queueFullMessage() {
-    return `대기열이 가득 찼습니다 (최대 ${config.bot.maxQueueSize}곡)`;
+    return queueText.full(config.bot.maxQueueSize);
   }
 
   /**
