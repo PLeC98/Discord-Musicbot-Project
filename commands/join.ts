@@ -6,6 +6,7 @@ import * as playerEvents from "../src/player/events.ts";
 import { sessions } from "../src/store/playerSessions.ts";
 import { escapeMd } from "../src/ui/mentions.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
@@ -27,7 +28,7 @@ const exported: GuildCommand = {
     // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
     const existing = client.players.get(guild.id);
     if (existing?.voice.isAlive()) {
-      return interaction.reply({ content: "✅ 이미 채널에 접속해 있어요.", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: controlText.alreadyJoined(), flags: MessageFlags.Ephemeral });
     }
 
     // /leave에서 저장한 세션이 있는지 확인
@@ -48,18 +49,18 @@ const exported: GuildCommand = {
         await player.persistence.restoreFromState(savedState);
 
         if (!player.currentTrack) {
-          await interaction.editReply({ content: "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)" });
+          await interaction.editReply({ content: controlText.restoredEmpty() });
           return;
         }
 
         // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
         // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
         const title = escapeMd(player.currentTrack.title);
-        await interaction.editReply({ content: player.paused ? `⏸️ 이전 세션을 복구했어요! **${title}** 일시정지 중` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중` });
+        await interaction.editReply({ content: controlText.restored(title, player.paused) });
       } catch (error) {
         log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
         await player.dispose({ reason: "세션 복원 실패", session: "keep" });
-        await interaction.editReply({ content: "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요." });
+        await interaction.editReply({ content: controlText.restoreFailed() });
       }
     } else {
       await player.voice.connect();
@@ -67,7 +68,7 @@ const exported: GuildCommand = {
       // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
       if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
       playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${error?.message || error}`));
-      await interaction.reply({ content: "✅ 음성 채널에 접속했어요!", flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: controlText.joined(), flags: MessageFlags.Ephemeral });
     }
   },
 };

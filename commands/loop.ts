@@ -1,14 +1,9 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
-
-const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
-  track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
-  queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
-  false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
-};
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder()
@@ -26,13 +21,13 @@ const exported: GuildCommand = {
     const r = await controls.loop(player, { member }, mode);
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
-    const [modeEmoji, modeMessage] = LOOP_TEXT[String(r.mode)];
+    const t = controlText.loopSet(r.mode);
     const embed = new EmbedBuilder()
-      .setTitle(`${modeEmoji} 반복 모드 변경됨`)
-      .setDescription(modeMessage)
+      .setTitle(t.title)
+      .setDescription(t.description)
       .setColor(colorOf("brand"))
       .setTimestamp()
-      .addFields({ name: "👤 변경한 사람", value: `${member}`, inline: true });
+      .addFields({ name: t.by, value: `${member}`, inline: true });
 
     if (r.track?.thumbnail) embed.setThumbnail(r.track.thumbnail);
 

@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 
@@ -12,14 +13,15 @@ const exported: GuildCommand = {
     const r = await controls.skip(client.players.get(guild.id), { member });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
-    if (r.restarted) return interaction.reply({ content: `🔂 한곡 반복 중. **${r.track.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`, flags: MessageFlags.Ephemeral });
+    if (r.restarted) return interaction.reply({ content: controlText.skipRestarted(r.track), flags: MessageFlags.Ephemeral });
 
+    const t = controlText.skipped(r.track);
     const embed = new EmbedBuilder()
-      .setTitle("⏭️ 노래 건너뜀")
-      .setDescription(`**[${r.track.title}](${r.track.pageUrl})** 건너뜀!`)
+      .setTitle(t.title)
+      .setDescription(t.description)
       .setColor(colorOf("brand"))
       .setTimestamp()
-      .addFields({ name: "👤 건너뛴 사람", value: `${member}`, inline: true });
+      .addFields({ name: t.by, value: `${member}`, inline: true });
 
     if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 

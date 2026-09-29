@@ -2,6 +2,8 @@ import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import { formatDuration } from "../src/ui/format.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
+import * as labels from "../src/ui/text/labels.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 
@@ -14,19 +16,20 @@ const exported: GuildCommand = {
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
     // 플레이어는 없었지만 봇이 음성 채널에 남아 있었다(음악이 끝난 뒤 자동 퇴장 타이머가 아직 안 돌았다)
-    if (r.left === "voice-only") return interaction.reply({ content: "👋 음성 채널에서 나갔습니다!", flags: MessageFlags.Ephemeral });
+    if (r.left === "voice-only") return interaction.reply({ content: controlText.leftVoiceOnly(), flags: MessageFlags.Ephemeral });
 
+    const t = controlText.left();
     const embed = new EmbedBuilder()
-      .setTitle("👋 채널에서 나갔습니다")
+      .setTitle(t.title)
       .setColor(colorOf("brand"))
       .setTimestamp()
-      .addFields({ name: "👤 실행한 사람", value: `${member}`, inline: true });
+      .addFields({ name: t.by, value: `${member}`, inline: true });
 
     if (r.track) {
-      embed.setDescription(`**[${r.track.title}](${r.track.pageUrl})**`).addFields({ name: "⏱️ 저장된 위치", value: `\`${formatDuration(r.saved.positionSec)}\``, inline: true }, { name: "📋 저장된 대기열", value: `${r.saved.queue}곡`, inline: true });
+      embed.setDescription(`**[${r.track.title}](${r.track.pageUrl})**`).addFields({ name: t.position, value: `\`${formatDuration(r.saved.positionSec)}\``, inline: true }, { name: t.queue, value: labels.trackCount(r.saved.queue), inline: true });
     }
 
-    embed.setFooter({ text: "/join 으로 이전 세션을 복구할 수 있습니다." });
+    embed.setFooter({ text: t.footer });
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },

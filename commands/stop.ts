@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 
@@ -12,14 +13,15 @@ const exported: GuildCommand = {
     const r = await controls.stop(client.players.get(guild.id), { member });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
+    const t = controlText.stopped(r.track, r.cleared);
     const embed = new EmbedBuilder()
-      .setTitle("⏹️ 음악 중지됨")
-      .setDescription(`${r.track ? `**[${r.track.title}](${r.track.pageUrl})**` : "Music"} 중지됨!`)
+      .setTitle(t.title)
+      .setDescription(t.description)
       .setColor(colorOf("closed"))
       .setTimestamp()
-      .addFields({ name: "👤 중지한 사람", value: `${member}`, inline: true });
+      .addFields({ name: t.by, value: `${member}`, inline: true });
 
-    if (r.cleared > 0) embed.setFooter({ text: `대기열에서 ${r.cleared}개의 노래가 제거되었습니다` });
+    if (t.footer) embed.setFooter({ text: t.footer });
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },

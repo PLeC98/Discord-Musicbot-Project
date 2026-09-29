@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 
@@ -12,16 +13,17 @@ const exported: GuildCommand = {
     const r = await controls.clear(client.players.get(guild.id), { member });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
+    const t = controlText.cleared(r.count);
     const embed = new EmbedBuilder()
-      .setTitle("🗑️ 대기열 비워짐")
-      .setDescription(`대기열에서 ${r.count}개의 노래가 제거되었습니다`)
+      .setTitle(t.title)
+      .setDescription(t.description)
       .setColor(colorOf("brand"))
       .setTimestamp()
-      .addFields({ name: "👤 변경한 사람", value: `${member}`, inline: true });
+      .addFields({ name: t.by, value: `${member}`, inline: true });
 
     if (r.track) {
       embed.addFields({
-        name: "🎵 현재 재생 중",
+        name: t.current,
         value: `**[${r.track.title}](${r.track.pageUrl})**`,
         inline: false,
       });

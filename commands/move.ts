@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 
@@ -20,12 +21,13 @@ const exported: GuildCommand = {
     const r = await controls.move(client.players.get(guild.id), { member }, from - 1, to - 1);
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
+    const t = controlText.moved(r.track, from, to);
     const embed = new EmbedBuilder()
-      .setTitle("🔀 순서 변경됨")
-      .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
+      .setTitle(t.title)
+      .setDescription(t.description)
       .setColor(colorOf("brand"))
       .setTimestamp()
-      .addFields({ name: "📍 이동 전", value: `${from}번째`, inline: true }, { name: "📍 이동 후", value: `${to}번째`, inline: true }, { name: "👤 변경한 사람", value: `${member}`, inline: true });
+      .addFields({ name: t.from, value: t.fromValue, inline: true }, { name: t.to, value: t.toValue, inline: true }, { name: t.by, value: `${member}`, inline: true });
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },

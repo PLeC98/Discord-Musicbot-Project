@@ -2,6 +2,7 @@ import { MessageFlags, type Client, type ModalSubmitInteraction, type StringSele
 import * as errors from "../src/ui/text/errors.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import { volumeChanged } from "../src/ui/volumeReply.ts";
 import { route, type Route } from "./route.ts";
 import { PANEL, customId, partsOf } from "../src/ui/customIds.ts";
@@ -17,11 +18,11 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
   }
 
   const r = await controls.jump(player, { member: interaction.member }, Number(interaction.values[0]));
-  if (!r.ok && r.code === "bad-position") return await interaction.reply({ content: "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!", flags: MessageFlags.Ephemeral });
+  if (!r.ok && r.code === "bad-position") return await interaction.reply({ content: errors.jumpTargetGone(), flags: MessageFlags.Ephemeral });
   if (!r.ok) return await interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   await interaction.reply({
-    content: `⏭️ **${r.track.title}**로 이동했습니다!`,
+    content: controlText.jumped(r.track),
     flags: MessageFlags.Ephemeral,
   });
 }

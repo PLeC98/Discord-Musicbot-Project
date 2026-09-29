@@ -8,12 +8,8 @@ import { channelResponder } from "../src/usecases/responders.ts";
 import { checkControl, checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 
-const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
-  track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
-  queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
-  false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
-};
 import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
@@ -61,14 +57,13 @@ async function handlePause(interaction: Press, player: Player) {
   const r = await controls.pause(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
-  const message = r.paused ? "음악 일시정지됨" : "음악 재개됨";
-  const emoji = r.paused ? "⏸️" : "▶️";
+  const t = controlText.paused(r.paused, r.track);
   const embed = new EmbedBuilder()
-    .setTitle(`${emoji} ${message}`)
-    .setDescription(`**[${r.track.title}](${r.track.pageUrl})** ${message}!`)
+    .setTitle(t.title)
+    .setDescription(t.description)
     .setColor(colorOf("brand"))
     .setTimestamp()
-    .addFields({ name: "👤 작업자", value: `${interaction.member}`, inline: true });
+    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
 
   if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
@@ -81,17 +76,18 @@ async function handleSkip(interaction: Press, player: Player) {
 
   if (r.restarted) {
     return await interaction.reply({
-      content: `🔂 한곡 반복 중. **${r.track.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`,
+      content: controlText.skipRestarted(r.track),
       flags: MessageFlags.Ephemeral,
     });
   }
 
+  const t = controlText.skipped(r.track);
   const embed = new EmbedBuilder()
-    .setTitle("⏭️ 노래 건너뜀")
-    .setDescription(`**[${r.track.title}](${r.track.pageUrl})** 건너뜀!`)
+    .setTitle(t.title)
+    .setDescription(t.description)
     .setColor(colorOf("brand"))
     .setTimestamp()
-    .addFields({ name: "👤 건너뛴 사람", value: `${interaction.member}`, inline: true });
+    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
 
   if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 
@@ -103,7 +99,7 @@ async function handlePrevious(interaction: Press, player: Player) {
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
   await interaction.reply({
-    content: r.restarted ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!",
+    content: controlText.previous(r.restarted),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -112,14 +108,15 @@ async function handleStop(interaction: Press, player: Player) {
   const r = await controls.stop(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
+  const t = controlText.stopped(r.track, r.cleared);
   const embed = new EmbedBuilder()
-    .setTitle("⏹️ 음악 중지됨")
-    .setDescription(`${r.track ? `**[${r.track.title}](${r.track.pageUrl})**` : "Music"} 중지됨!`)
+    .setTitle(t.title)
+    .setDescription(t.description)
     .setColor(colorOf("closed"))
     .setTimestamp()
-    .addFields({ name: "👤 중지한 사람", value: `${interaction.member}`, inline: true });
+    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
 
-  if (r.cleared > 0) embed.setFooter({ text: `대기열에서 ${r.cleared}개의 노래가 제거되었습니다` });
+  if (t.footer) embed.setFooter({ text: t.footer });
 
   await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
@@ -151,12 +148,13 @@ async function handleShuffle(interaction: Press, player: Player) {
   const r = await controls.shuffle(player, { member: interaction.member });
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
+  const t = controlText.shuffled(r.count);
   const embed = new EmbedBuilder()
-    .setTitle("🔀 대기열 셔플됨")
-    .setDescription(`${r.count}개의 노래가 셔플되었습니다!`)
+    .setTitle(t.title)
+    .setDescription(t.description)
     .setColor(colorOf("brand"))
     .setTimestamp()
-    .addFields({ name: "👤 셔플한 사람", value: `${interaction.member}`, inline: true });
+    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
 
   await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
@@ -166,7 +164,7 @@ async function handleHighlight(interaction: Press, player: Player) {
   // 버튼은 하이라이트가 없으면 비활성이라 곡이 바뀌기 직전의 늦은 클릭뿐이다. 조용히 넘긴다
   if (!r.ok && r.code === "no-highlight") return interaction.deferUpdate();
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-  await interaction.editReply({ content: "✨ 하이라이트 지점으로 이동했어요." });
+  await interaction.editReply({ content: controlText.highlightButton() });
 }
 
 async function handleVolumeModal(interaction: Press) {
@@ -183,8 +181,9 @@ async function handleVolumeModal(interaction: Press) {
 
 /** 음량을 적는 모달. 받는 쪽은 modalHandler 의 음량 처리 */
 function volumeModal() {
-  const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel("볼륨 (0-100)").setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(3).setPlaceholder("50").setRequired(true);
-  return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle("볼륨 설정").addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
+  const t = controlText.volumeModal();
+  const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(3).setPlaceholder("50").setRequired(true);
+  return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
 
 async function handleLoop(interaction: Press, player: Player) {
@@ -192,13 +191,13 @@ async function handleLoop(interaction: Press, player: Player) {
   const r = await controls.loop(player, { member: interaction.member }, controls.nextLoopMode(player.loop));
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
-  const [modeEmoji, modeMessage] = LOOP_TEXT[String(r.mode)];
+  const t = controlText.loopSetButton(r.mode);
   const embed = new EmbedBuilder()
-    .setTitle(`${modeEmoji} 🔁 반복 모드 변경됨`)
-    .setDescription(modeMessage)
+    .setTitle(t.title)
+    .setDescription(t.description)
     .setColor(colorOf("brand"))
     .setTimestamp()
-    .addFields({ name: "👤 변경한 사람", value: `${interaction.member}`, inline: true });
+    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
 
   if (r.track?.thumbnail) embed.setThumbnail(r.track.thumbnail);
 

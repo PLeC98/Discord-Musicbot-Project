@@ -2,6 +2,7 @@ import { formatMs } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 
@@ -14,12 +15,13 @@ const exported: GuildCommand = {
     const r = await controls.highlight(client.players.get(guild.id), { member }, { onAccepted: () => interaction.deferReply({ flags: MessageFlags.Ephemeral }) });
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
+    const t = controlText.highlighted(r.track);
     const embed = new EmbedBuilder()
-      .setTitle("✨ 하이라이트로 이동")
-      .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
+      .setTitle(t.title)
+      .setDescription(t.description)
       .setColor(colorOf("brand"))
       .setTimestamp()
-      .addFields({ name: "⏱️ 위치", value: `\`${formatMs(r.ms)}\``, inline: true });
+      .addFields({ name: t.at, value: `\`${formatMs(r.ms)}\``, inline: true });
 
     await interaction.editReply({ embeds: [embed] });
   },

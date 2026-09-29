@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import * as controlText from "../src/ui/text/controls.ts";
+import * as labels from "../src/ui/text/labels.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
 
@@ -17,12 +19,13 @@ const exported: GuildCommand = {
     const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
     if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 
+    const t = controlText.removed(r.track);
     const embed = new EmbedBuilder()
-      .setTitle("🗑️ 곡 제거됨")
-      .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
+      .setTitle(t.title)
+      .setDescription(t.description)
       .setColor(colorOf("brand"))
       .setTimestamp()
-      .addFields({ name: "👤 제거한 사람", value: `${member}`, inline: true }, { name: "📋 남은 대기열", value: `${r.left}곡`, inline: true });
+      .addFields({ name: t.by, value: `${member}`, inline: true }, { name: t.left, value: labels.trackCount(r.left), inline: true });
 
     if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
 

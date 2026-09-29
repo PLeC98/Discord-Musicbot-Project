@@ -25,6 +25,10 @@ const liveUpcoming = () => "❌ 아직 시작하지 않은 방송이에요. 방�
 const liveNoFfmpeg = () => "❌ 지금 설치된 ffmpeg로는 라이브 방송을 재생할 수 없어요. `pnpm run install:ffmpeg`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인해 주세요.";
 const liveNoSeek = () => "❌ 라이브 방송은 구간 이동을 할 수 없어요.";
 const liveNoLoop = () => "❌ 라이브 방송이 있으면 반복을 켤 수 없어요.";
+// 시간 입력(/seek)을 읽지 못했다
+const badTime = () => "❌ 올바른 형식으로 입력하세요. (예: `1:30`, `3m20s`, `90`)";
+// 곡으로 건너뛰기 메뉴에서 고른 곡이 대기열에 없다(메뉴를 연 뒤 대기열이 바뀌었다)
+const jumpTargetGone = () => "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!";
 
 // 오류 종류(rules/errorKind)마다
 const BY_KIND: Record<string, string> = {
@@ -105,5 +109,5 @@ const REFUSAL: Record<string, (r: Refusal) => string> = {
 /** 거절 까닭의 문장. 모르는 까닭은 일반 실패 */
 const refusal = (r: Refusal) => REFUSAL[r.code]?.(r) ?? "❌ 작업이 실패했습니다!";
 
-export { withErrorMark, withoutErrorMark, voiceRequired, noPlayer, sameChannelRequired, notDj, noTrack, botCannotJoin, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, forKind, playFailure, cannotStart, noResult, refusal };
+export { withErrorMark, withoutErrorMark, voiceRequired, noPlayer, sameChannelRequired, notDj, noTrack, botCannotJoin, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, badTime, jumpTargetGone, forKind, playFailure, cannotStart, noResult, refusal };
 export type { Refusal };
