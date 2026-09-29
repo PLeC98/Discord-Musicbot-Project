@@ -1,7 +1,6 @@
 // 봇 조립. index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 슬래시 명령 배포 → POToken 서버 → 클라이언트 · 화면 · 대시보드 → 처리기 → 기동 확인 → 로그인.
 
-import path from "path";
 import { Client, GatewayIntentBits, Collection, Events, type ClientEvents, type Interaction, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
@@ -21,8 +20,9 @@ import * as ytdlpOptions from "../sources/ytdlpOptions.ts";
 import { ytdlpBinary } from "../sources/ytdlpBinary.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
-import { loadModules } from "./moduleLoader.ts";
 import * as commandLoader from "./commandLoader.ts";
+import { COMMANDS } from "../../commands/index.ts";
+import { EVENTS } from "../../events/index.ts";
 import { installErrorHandlers } from "./resilience.ts";
 import { createGuildFaults } from "./guildFault.ts";
 import { guarded, type OnFault } from "./eventBoundary.ts";
@@ -46,12 +46,12 @@ const log = logger.child({ category: "core" });
 
 type PotServer = ReturnType<typeof createPotServer>;
 type LogFile = ReturnType<typeof createFileDestination>;
-/** 이벤트 모듈. 디스코드 이벤트 이름과 실행 */
-type EventModule = { name: keyof ClientEvents; once?: boolean; execute(...args: unknown[]): unknown };
 /** 이벤트 모듈을 쓸 때의 모양. 이름의 이벤트 인자로 부른다 */
 type ClientEvent<K extends keyof ClientEvents> = { name: K; once?: boolean; execute(...args: ClientEvents[K]): unknown };
-const isEvent = (module: unknown): module is EventModule => typeof module === "object" && module !== null && "name" in module && "execute" in module;
-const ROOT = path.join(import.meta.dirname, "..", "..");
+/** 이벤트 목록(events/index)의 한 칸. 이벤트마다 인자가 다르다 */
+type AnyClientEvent = { [K in keyof ClientEvents]: ClientEvent<K> }[keyof ClientEvents];
+/** 등록할 때 보는 모양. 인자는 이름이 정한다 */
+type EventModule = { name: keyof ClientEvents; once?: boolean; execute(...args: unknown[]): unknown };
 
 // 기동을 멈춘다. 까닭은 던지기 전에 로그에 남겼다
 class StartupStopped extends Error {}
@@ -189,8 +189,8 @@ async function init(client: Client, { potServer, logFile, onFault }: { potServer
   try {
     log.info({ tags: ["startup"] }, "봇 구동을 시작합니다.");
     checkBeforeLogin();
-    await loadCommands(client);
-    await loadEvents(client, onFault);
+    loadCommands(client);
+    loadEvents(client, onFault);
     // 종료 신호를 받으면 저장하고 정리한 뒤 나간다
     installShutdown(client, { potServer, logFile });
     await loginWithRetry(client, config.discord.token);
@@ -237,21 +237,9 @@ function stopIfThrows(check: () => unknown, hint: string | null = null) {
   }
 }
 
-// 로딩 실패는 기동을 멈춘다. 핸들러가 빠진 채로 로그인하면 운영자는 그걸 정상으로 본다.
-function abortOnLoadFailure(what: string, failures: Array<{ file: string; error: unknown }>) {
-  if (failures.length === 0) return;
-  for (const { file, error } of failures) log.error(`${what} 로딩 실패: ${file}`, (error instanceof Error && (error.stack || error.message)) || error);
-  log.error(`${what} ${failures.length}개를 불러오지 못해 기동을 멈춥니다.`);
-  throw new StartupStopped(`${what} 로딩 실패`);
-}
-
-async function loadCommands(client: Client) {
-  const { commands, failures, missing } = await commandLoader.loadedCommands();
-  if (missing) return log.warn("commands 디렉터리가 없어 명령어 로딩을 건너뜁니다.");
-
-  abortOnLoadFailure("슬래시 명령어", failures);
-  for (const { command } of commands) client.commands.set(command.data.name, command);
-  log.info({ tags: ["startup"] }, `슬래시 명령어 ${commands.length}개 준비 완료`);
+function loadCommands(client: Client) {
+  for (const command of COMMANDS) client.commands.set(command.data.name, command);
+  log.info({ tags: ["startup"] }, `슬래시 명령어 ${COMMANDS.length}개 준비 완료`);
 }
 
 // 상호작용 핸들러가 끝나면 본인에게만 보이는 응답의 수명을 건다(src/ui/replyLifetime.ts). 핸들러의 결과·오류는 그대로 돌려준다.
@@ -262,16 +250,8 @@ const withReplyCleanup = (execute: (interaction: Interaction) => unknown) => (in
   return done;
 };
 
-async function loadEvents(client: Client, onFault: OnFault) {
-  const { modules, failures, missing } = await loadModules(path.join(ROOT, "events"));
-  if (missing) return log.warn("events 디렉터리가 없어 기본 이벤트로 진행합니다.");
-
-  const events: EventModule[] = [];
-  for (const { file, module } of modules) {
-    if (isEvent(module)) events.push(module);
-    else failures.push({ file, error: new Error("이벤트 형식이 아닙니다 (name·execute 없음)") });
-  }
-  abortOnLoadFailure("이벤트 핸들러", failures);
+function loadEvents(client: Client, onFault: OnFault) {
+  const events = EVENTS as readonly EventModule[];
   for (const event of events) {
     const register = <K extends keyof ClientEvents>(name: K, listener: (...args: ClientEvents[K]) => unknown) => (event.once ? client.once(name, listener) : client.on(name, listener));
     // 처리기마다 서버 경계로 감싼다(app/eventBoundary). 새어 나온 오류는 그 서버의 오류로 받는다
@@ -286,4 +266,4 @@ async function loadEvents(client: Client, onFault: OnFault) {
 }
 
 export { main };
-export type { ClientEvent };
+export type { ClientEvent, AnyClientEvent };

@@ -39,13 +39,16 @@ for (const file of files) {
   });
 }
 
+// 목록 파일(index.ts)은 명령 · 이벤트가 아니다
+const modulesOf = (dir: string) => walk(path.join(ROOT, dir)).filter((f) => path.basename(f) !== "index.ts");
+
 test("명령은 data 와 execute 를, 이벤트는 name 과 execute 를 가진다", async () => {
-  for (const file of walk(path.join(ROOT, "commands"))) {
+  for (const file of modulesOf("commands")) {
     const { default: cmd } = await load(file);
     assert.ok(cmd.data?.name, `${rel(file)}: data.name`);
     assert.equal(typeof cmd.execute, "function", `${rel(file)}: execute`);
   }
-  for (const file of walk(path.join(ROOT, "events"))) {
+  for (const file of modulesOf("events")) {
     const { default: ev } = await load(file);
     assert.ok(ev.name, `${rel(file)}: name`);
     assert.equal(typeof ev.execute, "function", `${rel(file)}: execute`);

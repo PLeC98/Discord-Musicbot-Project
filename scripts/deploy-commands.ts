@@ -4,11 +4,12 @@
 
 import * as configCheck from "../src/app/configCheck.ts";
 import * as loadedConfig from "../config.ts"; // 설정 값과 함께 문제 · 경고 목록
-import { deployCommands, definitions, deployErrorLines } from "../src/app/commandLoader.ts";
 
 configCheck.stopOnConfigProblems(loadedConfig, console);
 
-const commands = await definitions();
+// 명령 목록은 설정 검사를 지난 뒤에 불러온다(index.ts 가 본체를 부르는 차례와 같다)
+const { deployCommands, definitions, deployErrorLines } = await import("../src/app/commandLoader.ts");
+const commands = definitions();
 console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);
 const r = await deployCommands({ force: true }); // 수동 스크립트 = 명시적 재배포 의도. 지문 무시
 

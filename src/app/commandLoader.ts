@@ -2,8 +2,8 @@ import { REST, Routes, type ChatInputCommandInteraction, type Client, type RESTP
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { loadModules } from "./moduleLoader.ts";
 import config from "../../config.ts";
+import { COMMANDS } from "../../commands/index.ts";
 import { codeOf, messageOf } from "../rules/errorKind.ts";
 
 /** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
@@ -14,33 +14,14 @@ type GuildCommand = { data: CommandData; anywhere?: false; execute(interaction: 
 type AnywhereCommand = { data: CommandData; anywhere: true; execute(interaction: ChatInputCommandInteraction, client: Client<true>): unknown };
 /** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
 type SlashCommand = GuildCommand | AnywhereCommand;
-const isCommand = (module: unknown): module is SlashCommand => typeof module === "object" && module !== null && "data" in module && "execute" in module;
 
 // 배포 지문 저장 파일. 정의 무변경 기동에서 등록 PUT을 생략하기 위함. database/는 gitignore.
 // env 오버라이드는 테스트 시임 (임시 파일. 운영 지문 미접촉)
 const HASH_PATH = path.join(import.meta.dirname, "..", "..", "database", "deployed-commands.json");
 
-// 명령 파일을 읽어 { file, command } 목록과 실패 목록으로 나눈다.
-// 등록(index.ts)과 배포 정의가 같은 결과를 쓴다. 두 곳이 따로 읽으면 서로 다른 집합이 될 수 있다.
-async function loadCommandModules(dir = path.join(import.meta.dirname, "..", "..", "commands")) {
-  const { modules, failures, missing } = await loadModules(dir);
-
-  const commands: Array<{ file: string; command: SlashCommand }> = [];
-  for (const { file, module } of modules) {
-    if (isCommand(module)) commands.push({ file, command: module });
-    else failures.push({ file, error: new Error("슬래시 명령 형식이 아닙니다 (data·execute 없음)") });
-  }
-  return { commands, failures, missing };
-}
-
-// 명령 파일은 불러오는 순간이 아니라 처음 필요할 때 한 번 읽는다. 등록과 배포가 같은 결과를 쓴다
-let loading: ReturnType<typeof loadCommandModules> | null = null;
-const loadedCommands = () => (loading ??= loadCommandModules());
-
-/** 배포용 JSON. 핸들러로 등록되는 것과 같은 집합이다 */
-async function definitions() {
-  const { commands } = await loadedCommands();
-  return commands.map(({ command }) => command.data.toJSON());
+/** 배포용 JSON. 핸들러로 등록되는 것(commands/index 의 목록)과 같은 집합이다 */
+function definitions() {
+  return COMMANDS.map((command) => command.data.toJSON());
 }
 
 // 현재 명령어 세트 + 배포 대상의 지문. 어느 하나라도 바뀌면 재배포 대상
@@ -79,7 +60,7 @@ type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; 
 async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands }: { force?: boolean; hashPath?: string; put?: PutCommands } = {}): Promise<DeployResult> {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;
-  const commands = await definitions();
+  const commands = definitions();
   const fingerprint = deployFingerprint(scope, guildId, commands);
 
   if (!force && readDeployedFingerprint(hashPath) === fingerprint) {
@@ -106,5 +87,5 @@ function deployErrorLines(result: { scope: string; error?: unknown }) {
   return lines;
 }
 
-export { loadedCommands, definitions, deployCommands, loadCommandModules, deployErrorLines };
+export { definitions, deployCommands, deployErrorLines };
 export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, DeployResult };

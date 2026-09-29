@@ -215,11 +215,8 @@ test("/help: 모든 명령을 적는다", async () => {
   const { it, log, client } = interaction();
   await run(await command("help"), it, client);
   const text = Object.values(fieldsOf(log[0][1])).join("\n");
-  const names = fs
-    .readdirSync(path.join(import.meta.dirname, "../../commands"))
-    .filter((f) => f.endsWith(".ts") && !f.endsWith(".d.ts"))
-    .map((f) => f.replace(/\.ts$/, ""))
-    .filter((name) => name !== "help");
+  const { COMMANDS } = await import("../../commands/index.ts");
+  const names = COMMANDS.map((c) => c.data.name).filter((name) => name !== "help");
   assert.deepEqual(
     names.filter((name) => !text.includes(`\`/${name}`)),
     [],

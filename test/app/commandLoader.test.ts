@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, after, before } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RESTPostAPIApplicationCommandsJSONBody, RESTPutAPIApplicationCommandsResult } from "discord.js";
 import type { PutCommands } from "../../src/app/commandLoader.ts";
@@ -25,20 +25,13 @@ const put: PutCommands = (route, body) => {
   return putImpl(route, body);
 };
 
-const { loadedCommands, definitions, deployCommands, deployErrorLines } = await import("../../src/app/commandLoader.ts");
-
-// 명령 파일은 처음 필요할 때 읽는다(불러오기가 비동기)
-let commands: RESTPostAPIApplicationCommandsJSONBody[] = [];
-let loaded: Awaited<ReturnType<typeof loadedCommands>>;
-before(async () => {
-  loaded = await loadedCommands();
-  commands = await definitions();
-});
+const { definitions, deployCommands, deployErrorLines } = await import("../../src/app/commandLoader.ts");
+const { COMMANDS } = await import("../../commands/index.ts");
+const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../config.ts")).default;
 
-test("commands/ 의 명령 파일 전부가 유효한 정의(name/description)로 로드됨", () => {
-  const fileCount = fs.readdirSync(path.join(import.meta.dirname, "..", "..", "commands")).filter((f) => f.endsWith(".js") || (f.endsWith(".ts") && !f.endsWith(".d.ts"))).length;
-  assert.equal(commands.length, fileCount, "data/execute 누락으로 스킵되는 커맨드 파일이 없어야 함");
+test("명령 목록의 명령 전부가 유효한 정의(name/description)다", () => {
+  assert.ok(commands.length > 0);
   for (const c of commands) {
     assert.equal(typeof c.name, "string");
     assert.ok(c.name.length > 0);
@@ -47,8 +40,10 @@ test("commands/ 의 명령 파일 전부가 유효한 정의(name/description)�
 });
 
 test("등록용 목록과 배포용 정의가 같은 집합이다", () => {
-  assert.equal(loaded.failures.length, 0, `로딩 실패: ${loaded.failures.map((f) => f.file).join(", ")}`);
-  assert.equal(loaded.commands.length, commands.length);
+  assert.deepEqual(
+    commands.map((c) => c.name),
+    COMMANDS.map((c) => c.data.name),
+  );
 });
 
 test("커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", () => {
