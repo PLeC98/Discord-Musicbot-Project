@@ -1,7 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
-import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
-import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
+import { answerAutoplay } from "../interactions/autoplay.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 // 장르는 옵션으로 받지 않는다. 자동재생 버튼과 같은 선택 화면을 띄운다.
@@ -10,35 +8,8 @@ import type { GuildCommand } from "../src/app/commandLoader.ts";
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("autoplay").setDescription("Toggle autoplay. Pick a genre when turning it on.").setDescriptionLocalizations({ ko: "자동재생을 토글합니다" }),
 
-  async execute(interaction, client) {
-    const { guild, member } = interaction;
-
-    // 재생 조작이므로 DJ 계층. 봇이 유휴면 재적 검사가 통과해 버리므로 소환 가능 여부를 이어 붙인다.
-    const permErr = (await checkControl(member)) || checkSummon(member);
-    if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
-
-    // 틀고 있지 않아도 켤 수 있다. 장르를 고르면 그 자리에서 플레이어를 만들어 첫 곡을 뽑아 재생한다.
-    // 플레이어는 고른 뒤에 만든다(메뉴를 닫으면 아무것도 남지 않게)
-    const player = client.players.get(guild.id);
-    if (!player) {
-      keepReply(interaction);
-      return interaction.reply(buildGenreMenu());
-    }
-
-    if (player.autoplay) {
-      player.setAutoplay(false);
-
-      // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다. 고르면 변경, 두면 종료.
-      expireReply(interaction, OFF_MENU_MS);
-      await interaction.reply(buildAutoplayOffMenu());
-
-      if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
-      return;
-    }
-
-    // 고르는 동안 떠 있어야 한다. 고른 뒤에는 선택 핸들러가 결과로 덮는다
-    keepReply(interaction);
-    await interaction.reply(buildGenreMenu());
+  execute(interaction, client) {
+    return answerAutoplay(interaction, client.players.get(interaction.guild.id));
   },
 };
 export default exported;

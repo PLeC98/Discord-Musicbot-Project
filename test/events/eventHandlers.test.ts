@@ -1,5 +1,5 @@
 // 테스트가 한 번도 돌지 않던 이벤트 넷의 지금 동작을 고정한다(구조 리팩터링 0-B).
-// 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler).
+// 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler · 자동재생 장르는 interactions/autoplay).
 //
 // 6단계가 입구를 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 바꿔 끼우지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
 // 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.musicEmbedManager)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
@@ -12,6 +12,8 @@ import assert from "node:assert/strict";
 import { PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
 import { Player } from "../../src/player/Player.ts";
+import * as playerEvents from "../../src/player/events.ts";
+import { scheduleReplyCleanup, DEFAULT_MS } from "../../src/ui/replyLifetime.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
@@ -132,7 +134,10 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
       return this.skipResult;
     },
   };
-  const client = { players: new Map([["g1", fake<Player>(player)]]), musicEmbedManager: embeds, user: { id: "bot" } };
+  const registered = fake<Player>(player);
+  const client = { players: new Map([["g1", registered]]), musicEmbedManager: embeds, user: { id: "bot" } };
+  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  playerEvents.on("refresh", async (x) => x === registered && seen.push("update"));
   return { guild, member, client, player, seen, handled };
 }
 
@@ -474,7 +479,11 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
       it.replied = true;
       log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title]);
     },
-    update: async (p: Shown) => log.push(["update", p.embeds?.[0]?.data?.title]),
+    update: async (p: Shown) => {
+      it.replied = true;
+      log.push(["update", p.embeds?.[0]?.data?.title]);
+    },
+    deleteReply: async () => log.push(["deleteReply"]),
   });
   return { it, log };
 }
@@ -486,12 +495,19 @@ test("모달: 모르는 모달은 알린다", async () => {
   assert.deepEqual(unknown.log, [["reply", S.ERR_UNKNOWN_INTERACTION]]);
 });
 
-test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async () => {
+test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async (t) => {
   const w = world();
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
   assert.deepEqual(pick.log, [["update", "🎲 자동 재생이 활성화되었습니다"]]);
+  // 메뉴를 덮은 결과(update)는 본인에게만 보이는 것으로 기록되지 않는다. 지우라고 선언해 두었으니 지운다
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  scheduleReplyCleanup(pick.it);
+  t.mock.timers.tick(DEFAULT_MS);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(pick.log.at(-1), ["deleteReply"]);
+  t.mock.timers.reset();
 
   const w2 = world();
   w2.player.currentTrack = { title: "지금 곡" };

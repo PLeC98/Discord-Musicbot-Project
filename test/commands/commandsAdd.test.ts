@@ -124,6 +124,8 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     },
   });
   if (player === "fake") client.players.set("g1", existing);
+  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  playerEvents.on("refresh", async (x) => x === existing && seen.push("update"));
   return { guild: fake<Guild>(guild), member: fake<GuildMember>(member), client, seen, handled, player: existing };
 }
 type World = ReturnType<typeof world>;

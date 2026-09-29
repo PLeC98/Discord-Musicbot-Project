@@ -16,6 +16,7 @@ import interactionCreate from "../../events/interactionCreate.ts";
 import { ROUTES } from "../../interactions/index.ts";
 import { routeOf, type Kind as RouteKind } from "../../interactions/route.ts";
 import { routes as buttonHandler, volumeModal } from "../../interactions/buttonHandler.ts";
+import { routes as autoplay } from "../../interactions/autoplay.ts";
 import { routes as djRoleConfigHandler } from "../../interactions/djRoleConfigHandler.ts";
 import { routes as modalHandler } from "../../interactions/modalHandler.ts";
 import { routes as playlistMoreHandler } from "../../interactions/playlistMoreHandler.ts";
@@ -26,7 +27,7 @@ const store = openTempStore("listeners-");
 after(() => store.close());
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
-const OWNERS = { buttonHandler, djRoleConfigHandler, modalHandler, playlistMoreHandler, sponsorConfigHandler };
+const OWNERS = { autoplay, buttonHandler, djRoleConfigHandler, modalHandler, playlistMoreHandler, sponsorConfigHandler };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
@@ -87,9 +88,10 @@ async function answers(kind: Kind, customId: string) {
   return answered.filter((a) => FIRST.has(a));
 }
 
-const PANEL = ["pause", "skip", "previous", "stop", "shuffle", "queue", "loop", "highlight", "volume", "autoplay"].map((n) => `panel:${n}:s1`);
+const PANEL = ["pause", "skip", "previous", "stop", "shuffle", "queue", "loop", "highlight", "volume"].map((n) => `panel:${n}:s1`);
 const CASES: [Kind, string, string][] = [
   ...PANEL.map((id): [Kind, string, string] => ["button", id, "buttonHandler"]),
+  ["button", "panel:autoplay:s1", "autoplay"],
   ["button", "queue:page:2", "buttonHandler"],
   ["button", "help:refresh", "buttonHandler"],
   ["button", "system:refresh", "buttonHandler"],
@@ -100,7 +102,7 @@ const CASES: [Kind, string, string][] = [
   ["button", "sb:cancel", "sponsorConfigHandler"],
   ["button", "djrole:save", "djRoleConfigHandler"],
   ["button", "djrole:cancel", "djRoleConfigHandler"],
-  ["select", "autoplay:genre", "modalHandler"],
+  ["select", "autoplay:genre", "autoplay"],
   ["select", "panel:jump:s1", "modalHandler"],
   ["select", "sb:cats", "sponsorConfigHandler"],
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],

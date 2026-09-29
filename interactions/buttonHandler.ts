@@ -14,9 +14,7 @@ const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
   queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
-import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
-import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
@@ -206,46 +204,6 @@ async function handleLoop(interaction: Press, player: Player) {
   await interaction.reply({ embeds: [embed], flags: [1 << 6] });
 }
 
-// 끝난 패널·재생 중 패널 양쪽에서 온다. 플레이어가 없으면 만든다. /autoplay와 같은 길.
-// 플레이어가 있으면 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다(끝난 패널의 idle 도 거절)
-async function handleAutoplayButton(interaction: Press) {
-  const { guild, member } = interaction;
-
-  // 재생 조작이므로 DJ 계층. 봇이 유휴면 재적 검사가 통과해 버리므로 소환 가능 여부를 이어 붙인다.
-  const permErr = (await checkControl(member)) || checkSummon(member);
-  if (permErr) return await interaction.reply({ content: permErr, flags: [1 << 6] });
-
-  const player = interaction.client.players.get(guild.id);
-  // 플레이어는 장르를 고른 뒤에 만든다(메뉴를 닫으면 아무것도 남지 않게)
-  if (!player) {
-    keepReply(interaction);
-    return await interaction.reply(buildGenreMenu());
-  }
-  const sessionId = partsOf(interaction.customId).rest[0];
-  if (sessionId && player.sessionId && sessionId !== player.sessionId) return await interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
-  return await handleAutoplay(interaction, player);
-}
-
-// 권한은 handleAutoplayButton이 이미 봤다.
-async function handleAutoplay(interaction: Press, player: Player) {
-  if (player.autoplay) {
-    player.setAutoplay(false);
-
-    // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다. 고르면 변경, 두면 종료.
-    expireReply(interaction, OFF_MENU_MS);
-    await interaction.reply(buildAutoplayOffMenu());
-
-    if (interaction.client.musicEmbedManager) {
-      await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
-    }
-    return;
-  }
-
-  // 고르는 동안 떠 있어야 한다. 수명 표는 이 버튼의 분기를 가르지 못하므로 여기서 선언한다
-  keepReply(interaction);
-  await interaction.reply(buildGenreMenu());
-}
-
 /** 새로 그린 화면 */
 type Built = { embed: EmbedBuilder; row: ActionRowBuilder<ButtonBuilder> };
 
@@ -342,8 +300,7 @@ const routes: Route[] = [
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", PAGE_PREFIX, handleQueuePage),
   // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다. 재생 패널의 다른 버튼보다 좁다
-  route("button", customId(PANEL, "autoplay", ""), handleAutoplayButton),
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, volumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
+export { routes, handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, volumeModal, handleLoop, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };

@@ -4,8 +4,8 @@
 import * as S from "./strings.ts";
 import { formatMs } from "./format.ts";
 
-// 거절 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 reason 을 싣는다
-type Refusal = { code: string; message?: string; durationMs?: number; size?: number; reason?: string };
+// 거절 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 reason, 모르는 장르는 genre 를 싣는다
+type Refusal = { code: string; message?: string; durationMs?: number; size?: number; reason?: string; genre?: string };
 
 // 사람이 풀 수 없는 멈춤의 까닭(Player.pauseReasons)
 const HELD: Record<string, string> = {
@@ -35,10 +35,11 @@ const TEXT: Record<string, (r: Refusal) => string> = {
   "queue-empty": () => S.ERR_NO_SONGS_IN_QUEUE,
   "bad-position": ({ size }) => `❌ 대기열에 ${size}개의 곡만 있습니다. (1 ~ ${size} 범위로 입력하세요)`,
   "same-position": () => "❌ 현재 위치와 이동할 위치가 같습니다.",
+  "unknown-genre": ({ genre }) => `❌ 알 수 없는 장르입니다: \`${genre}\`. 자동재생 버튼을 다시 눌러 선택해 주세요.`,
 };
 
 // 대시보드의 HTTP 상태. 입력이 틀린 것은 400, 권한은 403, 지금 상태로는 못 하는 것은 409
-const STATUS: Record<string, number> = { "no-permission": 403, "beyond-end": 400, "bad-volume": 400, "bad-loop-mode": 400, "bad-position": 400, "same-position": 400 };
+const STATUS: Record<string, number> = { "no-permission": 403, "beyond-end": 400, "bad-volume": 400, "bad-loop-mode": 400, "bad-position": 400, "same-position": 400, "unknown-genre": 400 };
 
 /** 거절 결과({ ok: false, code, message? })를 디스코드에 보일 문장으로 */
 function controlMessage(result: Refusal) {

@@ -2,11 +2,12 @@
 
 import { routes as buttons } from "./buttonHandler.ts";
 import { routes as menus } from "./modalHandler.ts";
+import { routes as autoplay } from "./autoplay.ts";
 import { routes as playlistMore } from "./playlistMoreHandler.ts";
 import { routes as sponsorConfig } from "./sponsorConfigHandler.ts";
 import { routes as djRoleConfig } from "./djRoleConfigHandler.ts";
 import type { Route } from "./route.ts";
 
-const ROUTES: readonly Route[] = [...buttons, ...menus, ...playlistMore, ...sponsorConfig, ...djRoleConfig];
+const ROUTES: readonly Route[] = [...buttons, ...menus, ...autoplay, ...playlistMore, ...sponsorConfig, ...djRoleConfig];
 
 export { ROUTES };

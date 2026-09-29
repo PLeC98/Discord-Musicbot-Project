@@ -15,6 +15,10 @@ import { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
+import { useExampleConfig } from "../helpers/exampleConfig.ts";
+import * as genreConfig from "../../src/config/genres.ts";
+
+useExampleConfig();
 
 afterEach(() => playerEvents._reset());
 
@@ -256,6 +260,48 @@ test("패널을 못 고쳐도 조작은 된 것이다", async () => {
     throw new Error("패널 실패");
   });
   assert.equal((await controls.shuffle(fakePlayer(), DJ)).ok, true);
+});
+
+test("자동재생: 권한부터. DJ 계층이고 봇이 쉬면 소환할 수 있어야 한다. 운영자는 건너뛴다", async () => {
+  const [genre] = Object.keys(genreConfig.genres().genres);
+  assert.deepEqual(await controls.autoplayBlocked(OUTSIDER), { ok: false, code: "no-permission", message: S.ERR_VOICE_REQUIRED });
+  assert.equal(await controls.autoplayBlocked(DJ), null);
+  assert.equal(await controls.autoplayBlocked(OWNER), null);
+
+  // 봇이 쉬는데 부른 사람이 음성에 없으면 소환할 곳이 없다. 플레이어가 있어도 같다
+  const idleGuild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: null } } } });
+  const away: Actor = { member: fake<GuildMember>({ id: "u1", guild: idleGuild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }) };
+  const p = fakePlayer({ setAutoplay: () => assert.fail("바꾸지 않는다") });
+  assert.deepEqual(await controls.autoplay(p, away, genre), { ok: false, code: "no-permission", message: S.ERR_VOICE_REQUIRED });
+});
+
+test("자동재생 끄기: 플레이어가 없으면 거절. 끄고 응답한 뒤 패널에 알린다", async () => {
+  const seen = panel();
+  assert.deepEqual(await controls.autoplay(null, DJ, false, { create: () => assert.fail("끌 때는 만들지 않는다") }), { ok: false, code: "no-player" });
+
+  const order: string[] = [];
+  const p = fakePlayer({ autoplay: "가요", setAutoplay: (g: unknown) => order.push(`set:${g}`) });
+  assert.deepEqual(await controls.autoplay(p, DJ, false, { onAccepted: () => order.push("answer") }), { ok: true, genre: false, started: false });
+  assert.deepEqual(order, ["set:false", "answer"]);
+  assert.deepEqual(seen, ["refresh"]);
+});
+
+test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면 그때 만들고, 틀고 있지 않으면 응답한 뒤 첫 곡을 뽑는다", async () => {
+  const [genre] = Object.keys(genreConfig.genres().genres);
+  const seen = panel();
+  assert.deepEqual(await controls.autoplay(null, DJ, "없는장르", { create: () => assert.fail("거절하면 만들지 않는다") }), { ok: false, code: "unknown-genre", genre: "없는장르" });
+  assert.equal(controlMessage({ code: "unknown-genre", genre: "없는장르" }), "❌ 알 수 없는 장르입니다: `없는장르`. 자동재생 버튼을 다시 눌러 선택해 주세요.");
+
+  const order: string[] = [];
+  const made = fakePlayer({ currentTrack: null, setAutoplay: (g: unknown) => order.push(`set:${g}`), handleAutoplay: async () => order.push("first") });
+  const r = await controls.autoplay(null, DJ, genre, { create: () => (order.push("create"), made), onAccepted: () => order.push("answer") });
+  assert.deepEqual(r, { ok: true, genre, started: true });
+  assert.deepEqual(order, ["create", `set:${genre}`, "answer", "first"]);
+
+  // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 뽑지 않고 패널만 고친다
+  const playing = fakePlayer({ setAutoplay: () => {}, handleAutoplay: async () => assert.fail("뽑지 않는다") });
+  assert.deepEqual(await controls.autoplay(playing, DJ, genre, { create: () => assert.fail("있으면 만들지 않는다") }), { ok: true, genre, started: false });
+  assert.deepEqual(seen, ["refresh"]);
 });
 
 test("문장: 권한은 판정의 안내 그대로, 나머지는 코드별 문장. 대시보드는 ❌ 를 떼고 상태 코드를 붙인다", () => {

@@ -12,6 +12,7 @@ import * as perm from "./permissions.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 import * as playerEvents from "../player/events.ts";
 import { messageOf } from "../rules/errorKind.ts";
+import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/Player.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
@@ -19,8 +20,8 @@ import type { Loop } from "../player/trackState.ts";
 
 /** 누가 시켰나. 디스코드 멤버, 또는 대시보드 운영자(권한 판정을 건너뛴다) */
 type Actor = { member: GuildMember; owner?: undefined } | { owner: true; member?: undefined };
-/** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 그 까닭(reason)을 싣는다 */
-type Refusal = { ok: false; code: string; message?: string; durationMs?: number; size?: number; reason?: string };
+/** 거절. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 message, 붙들린 멈춤은 그 까닭(reason), 모르는 장르는 genre 를 싣는다 */
+type Refusal = { ok: false; code: string; message?: string; durationMs?: number; size?: number; reason?: string; genre?: string };
 /** 이 서버에 플레이어가 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 /** 권한 판정. 막으면 안내 문장 */
@@ -266,6 +267,39 @@ async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
 }
 
 /**
+ * 자동재생을 시킬 수 있나. 재생 조작이라 DJ 계층, 봇이 쉬면 소환할 수 있어야 한다(켜면 그 자리에서 붙는다).
+ * 장르 메뉴를 띄우기 전에 입구가 본다. 막히면 거절, 지나가면 null
+ */
+async function autoplayBlocked(actor: Actor) {
+  if (actor.owner) return null;
+  const message = (await perm.checkControl(actor.member)) || perm.checkSummon(actor.member);
+  return message ? fail("no-permission", { message }) : null;
+}
+
+/** 자동재생 켜기 · 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 뽑기 전에 부른다(응답) */
+type AutoplayOptions = { create?: () => Player; onAccepted?: () => unknown };
+
+/**
+ * 자동재생. genre 로 켜고 false 로 끈다. 플레이어는 켤 때만 만든다(장르를 고른 뒤에: 메뉴만 닫으면 아무것도 남지 않게).
+ * 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 뽑아 튼다(started). 틀고 있으면 지금 곡이 끝난 뒤에 이어진다
+ */
+async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false, { create, onAccepted }: AutoplayOptions = {}) {
+  const blocked = await autoplayBlocked(actor);
+  if (blocked) return blocked;
+  if (genre !== false && !genreConfig.genres().genres[genre]) return fail("unknown-genre", { genre });
+  const target = player ?? (genre === false ? null : create?.());
+  if (!target) return fail("no-player");
+  target.setAutoplay(genre);
+  await onAccepted?.();
+  if (genre !== false && !target.currentTrack) {
+    await target.handleAutoplay();
+    return done({ genre, started: true });
+  }
+  await refresh(target);
+  return done({ genre, started: false });
+}
+
+/**
  * 나가기. 세션을 남겨 /join 이 복구한다. 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
  * 권한은 플레이어가 없어도 본다
  */
@@ -287,4 +321,4 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
 }
 
 export type { Actor };
-export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, leave };
+export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, nextLoopMode, shuffle, remove, move, clear, jump, autoplayBlocked, autoplay, leave };

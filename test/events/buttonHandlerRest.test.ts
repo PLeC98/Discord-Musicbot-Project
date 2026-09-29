@@ -30,6 +30,8 @@ const settings = await import("../../src/store/guildSettings.ts");
 const playerEvents = await import("../../src/player/events.ts");
 const interactionCreate = (await import("../../events/interactionCreate.ts")).default;
 const addTracks = await import("../../src/usecases/addTracks.ts");
+const { lifetimeOf } = await import("../../src/ui/replyLifetime.ts");
+const { OFF_MENU_MS } = await import("../../src/ui/genreMenu.ts");
 const sink = (await import("../../src/infra/log/sink.ts")).default;
 
 // 검색 결과 고르기는 영상을 다시 찾는다. 찾은 주소를 적고 "결과 1" 을 돌려준다
@@ -273,12 +275,14 @@ test("자동재생 버튼: 플레이어가 없어도 받는다. 켜져 있으면
   await interactionCreate.execute(a.it);
   assert.deepEqual(on.seen, ["autoplay:false", "update"]);
   assert.equal(a.log[0][0], "reply");
+  assert.equal(lifetimeOf(a.it), OFF_MENU_MS, "다시 고르기 메뉴는 30초 뒤 지운다");
 
   const off = world();
   const b = press(off, "panel:autoplay:S1");
   await interactionCreate.execute(b.it);
   assert.deepEqual(off.seen, []);
   assert.equal(b.log[0][0], "reply");
+  assert.equal(lifetimeOf(b.it), null, "고르는 동안 떠 있다");
 });
 
 test("자동재생 버튼: 플레이어가 없으면 만들지 않고 장르 메뉴만 띄운다(고른 뒤에 만든다)", async () => {
