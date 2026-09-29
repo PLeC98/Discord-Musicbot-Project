@@ -185,6 +185,7 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
 test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", async () => {
   const { lookupFailureMessage } = await import("../../src/ui/errorMessages.ts");
   assert.equal(lookupFailureMessage({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
+  assert.equal(lookupFailureMessage({ message: "❌ 지원하지 않는 링크입니다." }), "❌ 지원하지 않는 링크입니다.", "곡 찾기가 정한 문장은 그대로(모르는 오류로 바꾸지 않는다)");
   assert.match(lookupFailureMessage({ code: "lookup-failed", error: networkError() }), /네트워크 오류/);
 });
 

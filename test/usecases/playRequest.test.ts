@@ -376,6 +376,16 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
   assert.equal(client.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
+test("곡 찾기가 정한 거절 문장(지원하지 않는 링크 등)은 그대로 알린다", async () => {
+  mockResolve = () => ({ success: false, message: "❌ 지원하지 않는 링크입니다." });
+  const client = makeClient();
+
+  const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: "https://radio.test/live/playlist.m3u8" }));
+
+  assert.equal(result.success, false);
+  assert.equal(result.message, "❌ 지원하지 않는 링크입니다.");
+});
+
 // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남았다
 test("봇이 쉬는 서버에서 곡을 못 찾으면 플레이어를 만들지 않는다", async () => {
   mockResolve = () => ({ success: false, code: "no-result" });

@@ -33,7 +33,7 @@ const PLAY_FAILURE: Record<string, string> = {
 };
 
 // 실패 결과. 여기서 읽는 칸만
-type Failure = { code?: string; error?: unknown } | null | undefined;
+type Failure = { code?: string; error?: unknown; message?: string } | null | undefined;
 
 /** 오류 → 사용자에게 보일 문장. 종류는 rules/errorKind 가 가른다 */
 function errorMessage(error: unknown) {
@@ -45,8 +45,9 @@ function playFailureMessage(result: Failure) {
   return (result?.code && PLAY_FAILURE[result.code]) || (result?.error ? errorMessage(result.error) : "재생을 시작할 수 없습니다.");
 }
 
-/** 곡 찾기 실패({ code, error? }) → 안내문 */
+/** 곡 찾기 실패({ code, error? } 또는 곡 찾기가 정한 문장 message) → 안내문 */
 function lookupFailureMessage(result: Failure) {
+  if (result?.message) return result.message;
   return result?.code === "no-result" ? "❌ 결과를 찾을 수 없습니다!" : errorMessage(result?.error);
 }
 
