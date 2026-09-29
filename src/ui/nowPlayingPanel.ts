@@ -18,7 +18,7 @@ const NO_RESPONDER: Responder = {
   },
 };
 import * as playerEvents from "../player/events.ts";
-import * as S from "./strings.ts";
+import * as errors from "./text/errors.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
@@ -180,7 +180,7 @@ class NowPlayingPanel {
   }
 
   createErrorContainer(msg: string) {
-    return new ContainerBuilder().setAccentColor(resolveColor(colorOf("error"))).addTextDisplayComponents(new TextDisplayBuilder().setContent(S.withErrorMark(msg)));
+    return new ContainerBuilder().setAccentColor(resolveColor(colorOf("error"))).addTextDisplayComponents(new TextDisplayBuilder().setContent(errors.withErrorMark(msg)));
   }
 
   /**

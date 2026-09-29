@@ -7,7 +7,8 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
-import * as S from "../ui/strings.ts";
+import * as errors from "../ui/text/errors.ts";
+import * as labels from "../ui/text/labels.ts";
 import { errorMessage, lookupFailureMessage, playFailureMessage } from "../ui/errorMessages.ts";
 import { continuation, validState, roomFor, batchFor, KINDS, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
@@ -17,7 +18,7 @@ import { canSend } from "../ui/channels.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
 import type { NowPlayingPanel, Responder } from "../ui/nowPlayingPanel.ts";
-const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
+const LIVE_BLOCK_TEXT = { "live-upcoming": errors.liveUpcoming(), "live-no-ffmpeg": errors.liveNoFfmpeg() };
 
 /** 곡 찾기에서 부르는 것 */
 type Lookup = Pick<typeof songLookup, "resolveQuery" | "getCollection">;
@@ -253,7 +254,7 @@ function logRequest({ source = "play", query, insertFirst = false }: PlaybackReq
 function whatOf({ isPlaylist, collection, tracks }: Found, asked: string | null) {
   const first = tracks[0];
   const title = first?.title ?? "?";
-  if (isPlaylist) return `${S.collectionLabel(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
+  if (isPlaylist) return `${labels.collection(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
   return first && !(asked && isUrl(asked)) ? `"${title}" (${first.pageUrl})` : `"${title}"`;
 }
 
@@ -299,7 +300,7 @@ const ignoreProgress = () => {
 async function continueCollection(client: Client, request: CollectionRequest): Promise<CollectionResult> {
   const { guild, state } = request;
   const player = client.players.get(guild.id);
-  if (!player) return { success: false, message: S.ERR_NO_MUSIC };
+  if (!player) return { success: false, message: errors.noPlayer() };
   const want = Math.min(request.count, roomFor(player), KINDS[state.kind].perClick);
   if (want <= 0) return { success: false, message: client.panels.queueFullMessage() };
 
@@ -516,7 +517,7 @@ function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): A
   return {
     queued,
     // 여러 곡을 담았으면 그 출처의 표시 이름(재생목록·앨범 등), 한 곡이면 null
-    sourceLabel: trackData.isPlaylist ? S.collectionLabel(trackData.collection) : null,
+    sourceLabel: trackData.isPlaylist ? labels.collection(trackData.collection) : null,
     insertFirst,
     // 안내에 붙일 것. 전체 곡 수는 받은 것보다 많을 때만
     notice: { dropped: tracks.length - queued.length, skipped: trackData.skipped ?? 0, total: trackData.total && trackData.total > received ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) },

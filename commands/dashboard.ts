@@ -3,14 +3,14 @@ import { interactionResponder } from "../src/usecases/responders.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { checkControl } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("dashboard").setDescription("Repost the now-playing panel at the bottom of this channel").setDescriptionLocalizations({ ko: "현재 재생 중 패널을 채널 하단에 띄웁니다" }),
 
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
-    if (!channel) return interaction.reply({ content: S.ERR_PROCESSING, flags: MessageFlags.Ephemeral }); // 캐시에 없는 채널
+    if (!channel) return interaction.reply({ content: errors.processingFailed(), flags: MessageFlags.Ephemeral }); // 캐시에 없는 채널
 
     // 패널을 호출 채널로 옮기는 부작용이 있는 명령어. 봇 전용 채널이 지정된 서버: 그 채널에서만 사용 가능하되 전원 허용 (패널이 항상 전용 채널에 유지됨)
     //  미지정 서버(삭제된 채널 포함): 어디서나 사용 가능하되 DJ 계층 필요

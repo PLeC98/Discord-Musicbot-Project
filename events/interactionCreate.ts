@@ -6,7 +6,7 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { isDeadInteraction } from "../src/rules/deadInteraction.ts";
 import { errorKind, messageOf } from "../src/rules/errorKind.ts";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import { errorMessage } from "../src/ui/errorMessages.ts";
 import { failureShow } from "../src/ui/failureNotice.ts";
 import { ROUTES } from "../interactions/index.ts";
@@ -62,12 +62,12 @@ async function runComponent(input: Interaction, routes: readonly Route[]) {
   const route = routeOf(routes, kind, interaction.customId);
   if (!route) {
     log.warn(`처리기가 없는 상호작용: ${kind} ${interaction.customId}`);
-    return interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: MessageFlags.Ephemeral }).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+    return interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral }).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
     await route.handle(interaction);
   } catch (error) {
-    await failed(interaction, `${kind} ${interaction.customId}`, error, S.ERR_PROCESSING);
+    await failed(interaction, `${kind} ${interaction.customId}`, error, errors.processingFailed());
   }
 }
 

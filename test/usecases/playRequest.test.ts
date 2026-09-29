@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 // ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
 import { openTempStore, setGuild } from "../helpers/tempStore.ts";
 import config from "../../config.ts";
-import * as S from "../../src/ui/strings.ts";
+import * as errors from "../../src/ui/text/errors.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import { Player } from "../../src/player/Player.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
@@ -219,7 +219,7 @@ test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브�
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success, false);
-  assert.equal(result.message, S.ERR_LIVE_NO_FFMPEG);
+  assert.equal(result.message, errors.liveNoFfmpeg());
   assert.equal(client.embedCalls.length, 0);
 });
 

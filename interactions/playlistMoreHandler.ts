@@ -3,7 +3,7 @@
 import { MessageFlags, type ActionRowBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import { errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
@@ -22,7 +22,7 @@ const closed = () => {
   /* 상호작용이 이미 닫혔다 */
 };
 
-const refuser = (interaction: MoreInteraction) => (text: string) => interaction.reply({ content: S.withErrorMark(text), flags: MessageFlags.Ephemeral }).catch(closed);
+const refuser = (interaction: MoreInteraction) => (text: string) => interaction.reply({ content: errors.withErrorMark(text), flags: MessageFlags.Ephemeral }).catch(closed);
 
 // 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
 async function stop(interaction: StringSelectMenuInteraction<"cached">, state: MoreState) {
@@ -78,7 +78,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
       voiceChannel: interaction.member.voice?.channel ?? null,
       onProgress,
     });
-    payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: S.withErrorMark(result.message), components: [] };
+    payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: errors.withErrorMark(result.message), components: [] };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
     payload = { content: errorMessage(error), components: [] };
@@ -103,7 +103,7 @@ async function handleMore(interaction: MoreInteraction) {
   if (permErr) return refuse(permErr);
 
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return refuse(S.ERR_NO_MUSIC);
+  if (!player) return refuse(errors.noPlayer());
 
   const count = await countOf(interaction, state, player);
   if (count) await addMore(interaction, state, count, player);

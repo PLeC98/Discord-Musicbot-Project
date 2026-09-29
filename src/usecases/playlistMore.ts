@@ -8,7 +8,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
-import { collectionLabel } from "../ui/strings.ts";
+import * as labels from "../ui/text/labels.ts";
 import { markTransient } from "../ui/transientMessages.ts";
 import { canSend } from "../ui/channels.ts";
 import { messageOf } from "../rules/errorKind.ts";
@@ -159,12 +159,12 @@ function capLabel(cap: number, remaining: number, perClick: number) {
 }
 
 function offerMessage(more: More, room: number) {
-  const label = collectionLabel(KINDS[more.kind].collection);
+  const label = labels.collection(KINDS[more.kind].collection);
   return menuMessage(`📃 ${label}은 전체 ${fmt(more.total)}곡이에요. 앞 ${fmt(more.offset)}곡까지 넣었어요.`, more, { remaining: more.remaining, room, batch: more.batch });
 }
 
 function resultMessage(state: MoreState, result: MoreResult, room: number) {
-  const label = collectionLabel(KINDS[state.kind].collection);
+  const label = labels.collection(KINDS[state.kind].collection);
   let head = `✅ ${label}에서 ${fmt(result.added)}곡을 더 넣었어요.`;
   if (result.skipped && result.skipped > 0) head += ` 받을 수 없는 ${fmt(result.skipped)}곡(미리듣기 · 지역 제한 등)은 뺐어요.`;
   if (result.dropped && result.dropped > 0) head += ` 대기열이 가득 차 ${fmt(result.dropped)}곡은 빠졌어요.`;

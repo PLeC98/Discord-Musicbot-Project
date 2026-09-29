@@ -7,7 +7,7 @@ import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import { offerOnChannel } from "../src/usecases/playlistMore.ts";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 지우기까지
@@ -71,7 +71,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
       // 해석 실패·재생 시작 실패를 사용자에게 알림. 침묵하면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
-        const errMsg = await message.channel.send({ content: S.withErrorMark(result.message || "재생을 시작할 수 없어요.") });
+        const errMsg = await message.channel.send({ content: errors.withErrorMark(result.message || "재생을 시작할 수 없어요.") });
         scheduleDelete(errMsg, 8000);
       } else if (result.more) {
         await offerOnChannel(message.channel, result.more, result.player, member.id);

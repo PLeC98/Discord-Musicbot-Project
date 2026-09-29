@@ -1,6 +1,6 @@
 import { PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
-import * as S from "../ui/strings.ts";
+import * as errors from "../ui/text/errors.ts";
 import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 
@@ -46,7 +46,7 @@ function checkVoice(member: GuildMember) {
   if (!botChannelId) return null;
   if (member.voice.channel?.id === botChannelId) return null;
 
-  return member.voice.channel ? S.ERR_SAME_CHANNEL : S.ERR_VOICE_REQUIRED;
+  return member.voice.channel ? errors.sameChannelRequired() : errors.voiceRequired();
 }
 
 /** 모든 재생 조작(🔒)의 단일 기준: 재적 규칙 + DJ 계층 */
@@ -54,7 +54,7 @@ async function checkControl(member: GuildMember) {
   const voiceErr = checkVoice(member);
   if (voiceErr) return voiceErr;
 
-  if (!(await isDj(member))) return S.ERR_NOT_AUTHORIZED;
+  if (!(await isDj(member))) return errors.notDj();
   return null;
 }
 
@@ -75,11 +75,11 @@ function checkSummon(member: GuildMember) {
   if (me?.voice?.channel) return null;
 
   const target = member.voice.channel;
-  if (!target) return S.ERR_VOICE_REQUIRED;
+  if (!target) return errors.voiceRequired();
 
   const permissions = me ? target.permissionsFor(me) : null;
   if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-    return S.ERR_NO_PERMISSIONS;
+    return errors.botCannotJoin();
   }
   return null;
 }

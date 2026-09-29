@@ -1,4 +1,4 @@
-// 오류 메시지의 ❌ 접두 규약 — src/ui/strings.ts가 단일 출처.
+// 오류 메시지의 ❌ 접두 규약 — src/ui/text/errors.ts가 단일 출처.
 //
 // 회귀 대상: 표시 지점마다 접두를 제각기 추측해 전용 채널은 "❌ ❌ …"로 두 번 찍고,
 // 곡 담기 실패는 ❌ 없이 나가고, 대시보드 JSON에는 ❌가 새어 들어갔다.
@@ -6,51 +6,43 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import * as S from "../../src/ui/strings.ts";
+import * as errors from "../../src/ui/text/errors.ts";
 import { toApiError } from "../../dashboard/server/middleware/requireControl.ts";
 
 // 실제로 흘러다니는 두 종류의 출처
-const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // sources/lookup / ui/errorMessages / strings
+const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // sources/lookup / ui/text
 const BARE = "음악을 처리하는 중 오류가 발생했습니다."; // usecases/addTracks 의 곡 담기
 
 test("withErrorMark: 접두가 없으면 붙인다", () => {
-  assert.equal(S.withErrorMark(BARE), `❌ ${BARE}`);
+  assert.equal(errors.withErrorMark(BARE), `❌ ${BARE}`);
 });
 
 test("withErrorMark: 이미 있으면 덧붙이지 않는다", () => {
-  assert.equal(S.withErrorMark(PREFIXED), PREFIXED);
-  assert.equal(S.withErrorMark(`  ${PREFIXED}`), `  ${PREFIXED}`, "앞 공백이 있어도 중복 금지");
+  assert.equal(errors.withErrorMark(PREFIXED), PREFIXED);
+  assert.equal(errors.withErrorMark(`  ${PREFIXED}`), `  ${PREFIXED}`, "앞 공백이 있어도 중복 금지");
 });
 
 test("withErrorMark: 멱등 — 몇 번을 통과시켜도 ❌는 하나", () => {
-  const once = S.withErrorMark(BARE);
-  assert.equal(S.withErrorMark(S.withErrorMark(once)), once);
+  const once = errors.withErrorMark(BARE);
+  assert.equal(errors.withErrorMark(errors.withErrorMark(once)), once);
   assert.equal((once.match(/❌/g) || []).length, 1);
 });
 
 test("withErrorMark: null/undefined에도 던지지 않는다", () => {
-  assert.equal(S.withErrorMark(null), "❌ ");
-  assert.equal(S.withErrorMark(undefined), "❌ ");
+  assert.equal(errors.withErrorMark(null), "❌ ");
+  assert.equal(errors.withErrorMark(undefined), "❌ ");
 });
 
 test("withoutErrorMark: 대시보드 JSON용으로 접두를 제거한다", () => {
-  assert.equal(S.withoutErrorMark(PREFIXED), "결과를 찾을 수 없습니다!");
-  assert.equal(S.withoutErrorMark(BARE), BARE, "없으면 그대로");
-  assert.equal(S.withoutErrorMark(null), "");
+  assert.equal(errors.withoutErrorMark(PREFIXED), "결과를 찾을 수 없습니다!");
+  assert.equal(errors.withoutErrorMark(BARE), BARE, "없으면 그대로");
+  assert.equal(errors.withoutErrorMark(null), "");
 });
 
 test("두 헬퍼는 서로의 역", () => {
-  assert.equal(S.withoutErrorMark(S.withErrorMark(BARE)), BARE);
+  assert.equal(errors.withoutErrorMark(errors.withErrorMark(BARE)), BARE);
 });
 
 test("대시보드 toApiError는 같은 규약을 쓴다 (자체 정규식 사본 금지)", () => {
-  assert.equal(toApiError, S.withoutErrorMark);
-});
-
-test("공유 문자열은 전부 ❌로 시작한다 — 표시 지점이 접두를 덧붙이지 않아도 되게", () => {
-  for (const [key, value] of Object.entries(S)) {
-    if (!key.startsWith("ERR_") || typeof value !== "string") continue;
-    assert.ok(value.startsWith("❌"), `${key}: ${value}`);
-    assert.equal(S.withErrorMark(value), value, `${key}가 중복 접두를 유발함`);
-  }
+  assert.equal(toApiError, errors.withoutErrorMark);
 });

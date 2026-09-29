@@ -5,7 +5,7 @@ import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import * as playerEvents from "../src/player/events.ts";
 import { sessions } from "../src/store/playerSessions.ts";
 import { escapeMd } from "../src/ui/mentions.ts";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { messageOf } from "../src/rules/errorKind.ts";
@@ -18,11 +18,11 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
 
-    if (!member.voice.channel) return interaction.reply({ content: S.ERR_VOICE_REQUIRED, flags: MessageFlags.Ephemeral });
+    if (!member.voice.channel) return interaction.reply({ content: errors.voiceRequired(), flags: MessageFlags.Ephemeral });
 
     const me = guild.members.me;
     const permissions = me ? member.voice.channel.permissionsFor(me) : null;
-    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: S.ERR_NO_PERMISSIONS, flags: MessageFlags.Ephemeral });
+    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply({ content: errors.botCannotJoin(), flags: MessageFlags.Ephemeral });
 
     // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
     const existing = client.players.get(guild.id);

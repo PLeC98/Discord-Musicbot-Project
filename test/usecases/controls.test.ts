@@ -5,7 +5,7 @@ import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import * as S from "../../src/ui/strings.ts";
+import * as errors from "../../src/ui/text/errors.ts";
 import { controlMessage, controlApiError } from "../../src/ui/controlMessages.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
@@ -89,7 +89,7 @@ function panel() {
 
 test("공통: 플레이어가 없으면 no-player, 권한이 없으면 no-permission(권한 판정의 안내), 운영자는 권한을 건너뛴다", async () => {
   assert.deepEqual(await controls.pause(null, DJ), { ok: false, code: "no-player" });
-  assert.deepEqual(await controls.pause(fakePlayer(), OUTSIDER), { ok: false, code: "no-permission", message: S.ERR_VOICE_REQUIRED });
+  assert.deepEqual(await controls.pause(fakePlayer(), OUTSIDER), { ok: false, code: "no-permission", message: errors.voiceRequired() });
   assert.equal((await controls.pause(fakePlayer(), OWNER)).ok, true);
 });
 
@@ -264,7 +264,7 @@ test("패널을 못 고쳐도 조작은 된 것이다", async () => {
 
 test("자동재생: 권한부터. DJ 계층이고 봇이 쉬면 소환할 수 있어야 한다. 운영자는 건너뛴다", async () => {
   const [genre] = Object.keys(genreConfig.genres().genres);
-  assert.deepEqual(await controls.autoplayBlocked(OUTSIDER), { ok: false, code: "no-permission", message: S.ERR_VOICE_REQUIRED });
+  assert.deepEqual(await controls.autoplayBlocked(OUTSIDER), { ok: false, code: "no-permission", message: errors.voiceRequired() });
   assert.equal(await controls.autoplayBlocked(DJ), null);
   assert.equal(await controls.autoplayBlocked(OWNER), null);
 
@@ -272,7 +272,7 @@ test("자동재생: 권한부터. DJ 계층이고 봇이 쉬면 소환할 수 �
   const idleGuild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: null } } } });
   const away: Actor = { member: fake<GuildMember>({ id: "u1", guild: idleGuild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }) };
   const p = fakePlayer({ setAutoplay: () => assert.fail("바꾸지 않는다") });
-  assert.deepEqual(await controls.autoplay(p, away, genre), { ok: false, code: "no-permission", message: S.ERR_VOICE_REQUIRED });
+  assert.deepEqual(await controls.autoplay(p, away, genre), { ok: false, code: "no-permission", message: errors.voiceRequired() });
 });
 
 test("자동재생 끄기: 플레이어가 없으면 거절. 끄고 응답한 뒤 패널에 알린다", async () => {
@@ -305,10 +305,10 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
 });
 
 test("문장: 권한은 판정의 안내 그대로, 나머지는 코드별 문장. 대시보드는 ❌ 를 떼고 상태 코드를 붙인다", () => {
-  assert.equal(controlMessage({ code: "no-permission", message: S.ERR_NOT_AUTHORIZED }), S.ERR_NOT_AUTHORIZED);
+  assert.equal(controlMessage({ code: "no-permission", message: errors.notDj() }), errors.notDj());
   assert.equal(controlMessage({ code: "bad-position", size: 3 }), "❌ 대기열에 3개의 곡만 있습니다. (1 ~ 3 범위로 입력하세요)");
   assert.equal(controlMessage({ code: "알 수 없음" }), "❌ 작업이 실패했습니다!");
-  assert.deepEqual(controlApiError({ code: "no-track" }), { status: 409, error: S.withoutErrorMark(S.ERR_NO_SONG_PLAYING) });
-  assert.equal(controlApiError({ code: "no-permission", message: S.ERR_NOT_AUTHORIZED }).status, 403);
+  assert.deepEqual(controlApiError({ code: "no-track" }), { status: 409, error: errors.withoutErrorMark(errors.noTrack()) });
+  assert.equal(controlApiError({ code: "no-permission", message: errors.notDj() }).status, 403);
   assert.equal(controlApiError({ code: "bad-volume" }).status, 400);
 });

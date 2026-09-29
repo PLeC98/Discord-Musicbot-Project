@@ -2,7 +2,7 @@
 // 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
 import { EmbedBuilder, type ButtonInteraction, type GuildMember, type RepliableInteraction, type StringSelectMenuInteraction, MessageFlags } from "discord.js";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -36,7 +36,7 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
 async function handleAutoplayButton(interaction: ButtonInteraction<"cached">) {
   const player = interaction.client.players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
-  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: MessageFlags.Ephemeral });
+  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return interaction.reply({ content: errors.staleSession(), flags: MessageFlags.Ephemeral });
   return answerAutoplay(interaction, player);
 }
 

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import { queueView, queueInfoOf } from "../src/ui/queueView.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
@@ -15,13 +15,13 @@ const exported: GuildCommand = {
 
     const player = client.players.get(guild.id);
     if (!player) {
-      return interaction.reply({ content: S.ERR_NO_MUSIC, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: errors.noPlayer(), flags: MessageFlags.Ephemeral });
     }
 
     const queueInfo = queueInfoOf(player);
 
     if (!queueInfo.current && queueInfo.queue.length === 0) {
-      return interaction.reply({ content: S.ERR_NO_SONGS_IN_QUEUE, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: errors.queueEmpty(), flags: MessageFlags.Ephemeral });
     }
 
     await interaction.reply({ ...queueView(queueInfo, interaction.options.getInteger("page") ?? 1), flags: MessageFlags.Ephemeral });

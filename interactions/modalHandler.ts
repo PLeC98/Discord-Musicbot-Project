@@ -1,5 +1,5 @@
 import { MessageFlags, type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import { volumeChanged } from "../src/ui/volumeReply.ts";
@@ -11,7 +11,7 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
   const sessionId = partsOf(interaction.customId).rest[0];
   if (player && sessionId && player.sessionId && sessionId !== player.sessionId) {
     return await interaction.reply({
-      content: S.ERR_SESSION_INVALID,
+      content: errors.staleSession(),
       flags: MessageFlags.Ephemeral,
     });
   }

@@ -2,7 +2,7 @@ import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInp
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
-import * as S from "../src/ui/strings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
 import { checkControl, checkAdd, checkSummon } from "../src/usecases/permissions.ts";
@@ -45,15 +45,15 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: MessageFlags.Ephemeral });
+  if (!player) return interaction.reply({ content: errors.noPlayer(), flags: MessageFlags.Ephemeral });
 
   const { action, rest } = partsOf(interaction.customId);
   const sessionId = rest[0];
   if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: errors.staleSession(), flags: MessageFlags.Ephemeral });
   }
   const handle = PANEL_ACTIONS[action];
-  if (!handle) return interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: MessageFlags.Ephemeral });
+  if (!handle) return interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral });
   await handle(interaction, player);
 }
 
@@ -129,7 +129,7 @@ async function handleQueue(interaction: Press, player: Player) {
 
   if (!queueInfo.current && queueInfo.queue.length === 0) {
     return await interaction.reply({
-      content: S.ERR_NO_SONGS_IN_QUEUE,
+      content: errors.queueEmpty(),
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -142,7 +142,7 @@ async function handleQueuePage(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
   if (!info || (!info.current && info.queue.length === 0)) {
-    return interaction.update({ content: player ? S.ERR_NO_SONGS_IN_QUEUE : S.ERR_NO_MUSIC, embeds: [], components: [] });
+    return interaction.update({ content: player ? errors.queueEmpty() : errors.noPlayer(), embeds: [], components: [] });
   }
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
@@ -254,7 +254,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     const embed = new EmbedBuilder().setTitle("❌ 검색 취소됨").setDescription("검색이 취소되었습니다.").setColor(colorOf("closed")).setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
-  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: MessageFlags.Ephemeral });
+  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral });
 
   // 곡 추가 경로. /play · /search 와 같은 검사
   const permErr = checkAdd(member) || checkSummon(member);
