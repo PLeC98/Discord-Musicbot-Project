@@ -1,10 +1,11 @@
-// 대기열 상한 — 추가 구간(MusicEmbedManager._processMusic)이 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
+// 대기열 상한. 곡 담기(usecases/addTracks 의 queueTracks)가 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import config from "../../config.ts";
 import * as trackState from "../../src/player/trackState.ts";
 import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { queueTracks } from "../../src/usecases/addTracks.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -37,10 +38,11 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
   if (playing) trackState.setCurrent(player, t("now"));
   trackState.enqueue(player, many("old", queued));
 
-  const mem = new NoPanelRefresh(fake<Client>({ players: new Map([["g", player]]) }));
+  const client = fake<Client>({ players: new Map([["g", player]]) });
+  Object.assign(client, { musicEmbedManager: new NoPanelRefresh(client) });
   const notices: string[] = [];
   const responder = { notifyQueued: async (text: string) => notices.push(text), dismissPlaceholder: async () => {} };
-  const add = (tracks: QueuedTrack[], extra = {}) => mem._processMusic("g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
+  const add = (tracks: QueuedTrack[], extra = {}) => queueTracks(client, "g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
   return { player, add, notices };
 }
 

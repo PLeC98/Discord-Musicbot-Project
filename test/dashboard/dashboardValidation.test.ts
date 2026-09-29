@@ -28,6 +28,7 @@ const playerEvents = await import("../../src/player/events.ts");
 const { VOLUME_SETTLE_MS } = await import("../../src/usecases/controls.ts");
 // 가짜 플레이어가 빌려 쓰는 진짜 메서드. 설정(OWNER_ID)을 정한 뒤에 불러야 한다
 const RealPlayer = (await import("../../src/player/Player.ts")).Player;
+const { fakeAdder } = await import("../helpers/adder.ts");
 const store = openTempStore("dashboard-validation-");
 after(() => store.close());
 
@@ -101,19 +102,20 @@ const guild = {
     me: null,
   },
 };
-const embedCalls: [string, { tracks: object[]; insertAfterId?: string }][] = [];
+const embedCalls: [string, { tracks: object[]; insertAfterId?: string | null }][] = [];
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
   players: new Map<string, Player>(),
   musicEmbedManager: {
-    async handleMusicData(guildId: string, trackData: { tracks: object[]; insertAfterId?: string }) {
-      embedCalls.push([guildId, trackData]);
-      return { success: true };
-    },
     updateNowPlayingEmbed: async () => {},
   },
 };
+// 곡 담기는 받은 것만 적는다
+fakeAdder(client, async (_client, guildId, trackData) => {
+  embedCalls.push([guildId, trackData]);
+  return { success: true };
+});
 
 let server: Server;
 let base: string;

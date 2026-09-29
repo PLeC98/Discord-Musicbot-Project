@@ -19,6 +19,7 @@ import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
+import { fakeAdder } from "../helpers/adder.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -72,7 +73,7 @@ beforeEach(() => {
 
 // ── 세계 ──────────────────────────────────────────────────────────────
 
-type Handled = { guildId: string; trackData: { tracks: { id?: string }[] }; who: { username: string } };
+type Handled = { guildId: string; trackData: { tracks: { id?: string }[] }; who: { username?: string | null } | null };
 type World = ReturnType<typeof world>;
 
 // 봇이 있는 음성 채널 · 사용자가 있는 음성 채널 · 모더레이터 여부 · DJ 역할로 세계를 만든다
@@ -94,10 +95,6 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
   const embeds = {
     seen,
     createSearchingContainer: (text: string) => ({ searching: text }),
-    handleMusicData: async (guildId: string, trackData: Handled["trackData"], who: Handled["who"], responder: unknown) => {
-      handled.push({ guildId, trackData, who });
-      return handle(trackData, responder);
-    },
     scheduleIdleRepin: async (_g: unknown, channelId: string) => seen.push({ repin: channelId }),
     updateNowPlayingEmbed: async () => seen.push("update"),
     queueFullMessage: () => "❌ 대기열이 가득 찼어요.",
@@ -136,6 +133,11 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
   };
   const registered = fake<Player>(player);
   const client = { players: new Map([["g1", registered]]), musicEmbedManager: embeds, user: { id: "bot" } };
+  // 곡 담기는 받은 것만 적는다
+  fakeAdder(client, async (_client, guildId, trackData, who, responder) => {
+    handled.push({ guildId, trackData, who });
+    return handle(trackData, responder);
+  });
   // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
   playerEvents.on("refresh", async (x) => x === registered && seen.push("update"));
   return { guild, member, client, player, seen, handled };
@@ -220,7 +222,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 지우�
     assert.deepEqual(msg.sent[0].payload, { components: [{ searching: "🔍 **노래 제목** 검색 중..." }], flags: 32768 });
     assert.equal(resolved[0].query, "노래 제목");
     assert.equal(resolved[0].context, "전용채널.resolveQuery");
-    assert.equal(w.handled[0].who.username, "사용자");
+    assert.equal(w.handled[0].who?.username, "사용자");
   } finally {
     mock.timers.reset();
   }

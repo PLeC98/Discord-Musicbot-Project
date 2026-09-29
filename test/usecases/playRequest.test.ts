@@ -14,9 +14,10 @@ import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "di
 import { Player } from "../../src/player/Player.ts";
 import type { TrackInfo } from "../../src/player/track.ts";
 import type { Collection, LookupResult, Range } from "../../src/sources/lookup.ts";
-import type { CollectionResult, Lookup, PlaybackRequest } from "../../src/usecases/addTracks.ts";
+import type { CollectionResult, Lookup, PlaybackRequest, TrackData } from "../../src/usecases/addTracks.ts";
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
-import type { Responder, TrackData } from "../../src/ui/nowPlayingPanel.ts";
+import type { Responder } from "../../src/ui/nowPlayingPanel.ts";
+import { fakeAdder } from "../helpers/adder.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import sink from "../../src/infra/log/sink.ts";
@@ -57,22 +58,23 @@ function makeGuild({ botVoice = null, channels = [] }: { botVoice?: VoiceBasedCh
   return fake<Guild>({ id: GUILD_ID, channels: { cache }, members: { me: { voice: { channel: botVoice } } } });
 }
 
-// 곡 추가 코어가 패널 관리자에 넘긴 것
-type EmbedCall = { guildId: string; trackData: TrackData; requester: unknown; responder: Responder };
+// 곡 요청이 곡 담기(queueTracks)에 넘긴 것
+type EmbedCall = { guildId: string; trackData: TrackData; requester: unknown; responder: Responder | undefined };
 
 function makeClient() {
   const embedCalls: EmbedCall[] = [];
-  return fakeWith<Client>()({
+  const client = fakeWith<Client>()({
     embedCalls,
     players: new Map<string, Player>(),
     musicEmbedManager: {
-      async handleMusicData(guildId: string, trackData: TrackData, requester: unknown, responder: Responder) {
-        embedCalls.push({ guildId, trackData, requester, responder });
-        return { success: true };
-      },
       queueFullMessage: () => "대기열이 가득 찼습니다",
     },
   });
+  fakeAdder(client, async (_client, guildId, trackData, requester, responder) => {
+    embedCalls.push({ guildId, trackData, requester, responder });
+    return { success: true };
+  });
+  return client;
 }
 type TestClient = ReturnType<typeof makeClient>;
 
@@ -414,17 +416,18 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
 
   await requestPlayback(client, baseArgs(client, guild, { query: "곡A" }));
   const { responder } = client.embedCalls[0];
+  assert.ok(responder, "곡 요청은 늘 매체를 넘긴다");
   assert.equal(typeof responder.notifyQueued, "function");
   await responder.notifyQueued("x"); // 무동작이므로 던지지 않는다
 });
 
 // ── 로그: 누가 무엇을 찾아 무엇이 골라졌나 ─────────────────────
 
-// 곡 요청 줄들. 담기(handleMusicData)를 부른 때의 로그 길이도 적는다
+// 곡 요청 줄들. 담기(queueTracks)를 부른 때의 로그 길이도 적는다
 async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { success: true }) {
   const client = makeClient();
   let handledAt = -1;
-  client.musicEmbedManager.handleMusicData = async () => ((handledAt = sink.buffer.length), outcome as { success: true });
+  fakeAdder(client, async () => ((handledAt = sink.buffer.length), outcome));
   const from = sink.buffer.length;
   await requestPlayback(client, { guild: makeGuild(), requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, source: "/play", ...args } as PlaybackRequest);
   const lines = sink.buffer.slice(from).filter((e) => e.level !== "debug");

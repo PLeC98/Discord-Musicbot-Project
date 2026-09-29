@@ -17,7 +17,8 @@ import * as genreConfig from "../../src/config/genres.ts";
 import { Player, type PanelMessage } from "../../src/player/Player.ts";
 import type { Requester } from "../../src/player/track.ts";
 import type { LookupResult, Range } from "../../src/sources/lookup.ts";
-import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
+import type { TrackData } from "../../src/usecases/addTracks.ts";
+import { fakeAdder } from "../helpers/adder.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
 import * as h from "../helpers/playerHarness.ts";
@@ -93,10 +94,6 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
   const embeds = {
     createSearchingContainer: (text: string) => ({ searching: text }),
     createErrorContainer: (text: string) => ({ error: text }),
-    handleMusicData: async (_guildId: string, trackData: TrackData, who: Requester | null) => {
-      handled.push({ handle: trackData, who });
-      return handle(trackData);
-    },
     updateNowPlayingEmbed: async () => seen.push("update"),
     drawEndedPanel: async (_p: unknown, { reason }: { reason: string }) => seen.push(`end:${reason}`),
     repostIdlePanel: async (_g: unknown, ch: { id: string }) => seen.push(`repost:${ch.id}`),
@@ -105,6 +102,11 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     deleteWebhookCache: () => {},
   };
   const client = fakeWith<Client<true>>()({ players: new Map<string, Player>(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
+  // 곡 담기는 받은 것만 적는다
+  fakeAdder(client, async (_client, _guildId, trackData, who) => {
+    handled.push({ handle: trackData, who });
+    return handle(trackData);
+  });
   Object.assign(guild, { client });
   // 이미 있는 플레이어(가짜). 시험이 칸을 바꿔 본다
   const existing = fakePlayer({

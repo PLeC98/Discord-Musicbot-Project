@@ -1,10 +1,8 @@
-// src/ui/nowPlayingPanel.ts — 서버별 음악 처리 락 (Promise tail 체인).
-// 실제 처리(_processMusic)는 스텁하고 직렬화 계약만 검증한다.
-// 회귀 대상: 구 "await 후 set" 방식의 A/B/C 경쟁 (앞 작업 finally가 뒤 작업 락을 삭제 → 동시 실행)
+// src/ui/nowPlayingPanel.ts — 재생 패널 그리기 · 끝난 패널 · 진행 막대. 곡 담기의 줄 세우기는 test/usecases/queueTracksOrder.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { MusicEmbedManager, type AddResult, type TrackData } from "../../src/ui/nowPlayingPanel.ts";
+import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -12,129 +10,6 @@ import * as tempStore from "../helpers/tempStore.ts";
 import sink from "../../src/infra/log/sink.ts";
 
 const newManager = () => new MusicEmbedManager(fake<Client>({ players: new Map() }));
-
-function deferred() {
-  let resolve!: () => void;
-  let reject!: (error: Error) => void;
-  const p = new Promise<void>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { p, resolve, reject };
-}
-
-// 작업 이름. 첫 곡의 제목에 싣는다
-const job = (id: string): TrackData => ({ tracks: [{ title: id, pageUrl: "", requestKey: id, platform: "youtube", duration: 0 }] });
-
-// 실제 처리(_processMusic)를 시험이 끝낼 때까지 붙잡는 관리자. 작업마다 따로 만든 결과를 돌려준다(results)
-class GatedManager extends MusicEmbedManager {
-  events: string[] = [];
-  results = new Map<string, AddResult>();
-  gates = new Map<string, ReturnType<typeof deferred>>(); // id -> deferred (테스트가 완료 시점을 제어)
-  active = 0;
-  maxActive = 0;
-
-  async _processMusic(_guildId: string, trackData: TrackData) {
-    const id = trackData.tracks[0].title;
-    this.active++;
-    this.maxActive = Math.max(this.maxActive, this.active);
-    this.events.push(`start:${id}`);
-    const gate = deferred();
-    this.gates.set(id, gate);
-    try {
-      await gate.p;
-      this.events.push(`end:${id}`);
-      const result: AddResult = { success: true };
-      this.results.set(id, result);
-      return result;
-    } finally {
-      this.active--;
-    }
-  }
-
-  // 붙잡아 둔 작업 하나
-  gate(id: string) {
-    const gate = this.gates.get(id);
-    assert.ok(gate, `${id} 가 시작했다`);
-    return gate;
-  }
-}
-
-function makeManager() {
-  const mem = new GatedManager(fake<Client>({ players: new Map() }));
-  return { mem, stats: mem };
-}
-// 그 작업이 자기 결과로 끝났나
-const doneAs = async (p: Promise<AddResult>, stats: GatedManager, id: string) => (await p) === stats.results.get(id);
-
-const tick = () => new Promise((r) => setImmediate(r));
-
-test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행 — 구 락 경쟁 회귀 방지", async () => {
-  const { mem, stats } = makeManager();
-
-  // 동기적으로 연속 진입 (실사용: 동시 /play + 메시지 추가 + 검색 선택)
-  const pA = mem.handleMusicData("g1", job("A"), null);
-  const pB = mem.handleMusicData("g1", job("B"), null);
-  const pC = mem.handleMusicData("g1", job("C"), null);
-
-  await tick();
-  assert.deepEqual(stats.events, ["start:A"], "A만 시작 — B/C는 대기");
-
-  stats.gate("A").resolve();
-  assert.ok(await doneAs(pA, stats, "A"));
-  await tick();
-  assert.deepEqual(stats.events, ["start:A", "end:A", "start:B"], "A 종료 후에야 B 시작");
-
-  // 원 버그의 핵심 시나리오: B 실행 중에 D가 도착 — A의 정리가 락을 지웠다면 D는 B와 동시 실행됐다
-  const pD = mem.handleMusicData("g1", job("D"), null);
-  await tick();
-  assert.ok(!stats.events.includes("start:D"), "B 실행 중 도착한 D는 대기");
-
-  stats.gate("B").resolve();
-  assert.ok(await doneAs(pB, stats, "B"));
-  stats.gate("C").resolve();
-  await tick();
-  assert.ok(await doneAs(pC, stats, "C"));
-  stats.gate("D").resolve();
-  assert.ok(await doneAs(pD, stats, "D"));
-
-  assert.equal(stats.maxActive, 1, "동시 실행은 항상 최대 1");
-  assert.deepEqual(stats.events, ["start:A", "end:A", "start:B", "end:B", "start:C", "end:C", "start:D", "end:D"]);
-  assert.equal(mem.processingQueue.size, 0, "전부 끝나면 락 맵 비움");
-});
-
-test("앞 작업 실패가 뒤 작업을 막지 않음 — 오류는 자기 호출자에게만", async () => {
-  const { mem, stats } = makeManager();
-
-  const pA = mem.handleMusicData("g1", job("A"), null);
-  const pB = mem.handleMusicData("g1", job("B"), null);
-
-  await tick();
-  stats.gate("A").reject(new Error("A boom"));
-  await assert.rejects(pA, /A boom/);
-
-  await tick();
-  assert.ok(stats.events.includes("start:B"), "A가 실패해도 B는 실행");
-  stats.gate("B").resolve();
-  assert.ok(await doneAs(pB, stats, "B"));
-  assert.equal(mem.processingQueue.size, 0);
-});
-
-test("다른 서버는 직렬화되지 않음 — 서버 간 병렬", async () => {
-  const { mem, stats } = makeManager();
-
-  const p1 = mem.handleMusicData("g1", job("G1"), null);
-  const p2 = mem.handleMusicData("g2", job("G2"), null);
-
-  await tick();
-  assert.ok(stats.events.includes("start:G1") && stats.events.includes("start:G2"), "두 서버 모두 즉시 시작");
-
-  stats.gate("G2").resolve();
-  assert.ok(await doneAs(p2, stats, "G2"), "g1이 진행 중이어도 g2는 완료 가능");
-  stats.gate("G1").resolve();
-  assert.ok(await doneAs(p1, stats, "G1"));
-  assert.equal(mem.processingQueue.size, 0);
-});
 
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
 // 직접 링크는 thumbnail이 null이라 now-playing 갱신이 매번 CombinedError로 죽었다

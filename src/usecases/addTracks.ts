@@ -8,15 +8,15 @@ const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
 import * as S from "../ui/strings.ts";
-import { lookupFailureMessage } from "../ui/errorMessages.ts";
+import { errorMessage, lookupFailureMessage, playFailureMessage } from "../ui/errorMessages.ts";
 import { continuation, validState, roomFor, batchFor, KINDS, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import { canSend } from "../ui/channels.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
-import type { Requester, TrackInfo } from "../player/track.ts";
-import type { AddResult, Responder, TrackData } from "../ui/nowPlayingPanel.ts";
+import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
+import type { MusicEmbedManager, Responder } from "../ui/nowPlayingPanel.ts";
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
 
 /** 곡 찾기에서 부르는 것 */
@@ -123,6 +123,17 @@ type PlaybackResult = { success: false; message: string; dropped?: undefined; mo
 type Continued = { added: number; skipped: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
 type CollectionResult = { success: false; message: string } | (PlaybackResult & Continued);
 
+/** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
+type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean };
+/** 담은 결과. 실패면 message 가 안내 */
+type AddResult = { success: true; dropped?: number; queueLimited?: boolean } | { success: false; message: string; dropped?: number };
+
+// 곡 담기(queueTracks). 입구를 거쳐 부르는 시험은 useAdder 로 가짜를 넘긴다(useLookup 과 같다)
+let defaultAdder: typeof queueTracks = (...args) => queueTracks(...args);
+function useAdder(fake: typeof queueTracks | null | undefined) {
+  defaultAdder = fake ?? ((...args) => queueTracks(...args));
+}
+
 /** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡 */
 // skipped: 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기 · 지역 제한)
 type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
@@ -146,7 +157,7 @@ async function requestPlayback(client: Client, request: PlaybackRequest): Promis
   withKnownLengths(trackData.tracks);
   const toAdd: TrackData = { ...trackData, ...placement(request) };
 
-  const result = await client.musicEmbedManager.handleMusicData(guild.id, toAdd, who, responder);
+  const result = await defaultAdder(client, guild.id, toAdd, who, responder);
   logOutcome(result, player);
 
   // 목록이 더 남았으면 이어 받을 상태. 상한으로 곡을 뺐으면(대기열이 찬 경합) 권하지 않는다
@@ -353,6 +364,169 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
   return { found, cursor, total, skipped };
 }
 
-export { requestPlayback, continueCollection, toRequester, requesterName, ensurePlayer, useLookup };
+// ── 곡 담기 ───────────────────────────────────────────────────────────
+
+/** 곡 담기에서 부르는 패널(그리기만) */
+type Panel = Pick<MusicEmbedManager, "createNewMusicEmbed" | "updateNowPlayingEmbed" | "showPlaylistAdditionMessage" | "createQueueAdditionMessage" | "queueFullMessage">;
+/** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
+type Opened = { success: true };
+/** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패 안내, started 곧바로 튼 곡 */
+type FirstStart = { opened: Opened | null; failure: string | null; started?: QueuedTrack };
+/** 대기열에 담은 것과 안내에 붙일 것 */
+type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
+
+// 서버마다 한 번에 하나. 앞 작업의 꼬리에 잇는다. get 과 set 사이에 await 가 없어 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다
+const adding = new Map<string, Promise<AddResult>>();
+
+/** 곡을 서버의 플레이어에 담는다. 쉬고 있으면 첫 곡을 틀고 패널을 세우고, 나머지는 대기열에. responder: 결과를 알릴 매체 */
+function queueTracks(client: Client, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder = silentResponder) {
+  const tail = adding.get(guildId) || Promise.resolve();
+  const task = tail
+    .catch(() => {
+      /* 앞 작업의 실패는 그 호출자가 받는다. 뒤 작업까지 실패시키지 않는다 */
+    })
+    .then(() => processTracks(client, guildId, trackData, requester, responder));
+  adding.set(guildId, task);
+
+  return task.finally(() => {
+    if (adding.get(guildId) === task) adding.delete(guildId);
+  });
+}
+
+async function processTracks(client: Client, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
+  const player = client.players.get(guildId);
+  if (!player) return { success: false, message: "음악 플레이어를 찾을 수 없습니다." };
+  try {
+    return await place(client.musicEmbedManager, player, trackData, requester, responder);
+  } catch (error) {
+    log.error("곡 담기 처리 실패:", messageOf(error));
+    return { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." };
+  }
+}
+
+// 이번에 넣은 곡 전부. 곧바로 튼 첫 곡도 센다(재생목록에서 50곡을 받았으면 안내도 50곡).
+// 첫 곡이 실패해 다음 곡으로 살렸으면 그 곡은 이미 대기열 몫에 들어 있다
+const placedOf = (start: FirstStart, queued: QueuedTrack[]) => (start.started ? [start.started, ...queued] : queued);
+
+async function place(panel: Panel, player: Player, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
+  const wasPlayingBefore = player.currentTrack !== null;
+  const { tracks } = trackData;
+  const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester, addedAt: Date.now() });
+
+  // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
+  const wasIdle = !player.currentTrack && player.queue.length === 0 && tracks.length > 0;
+  const start = wasIdle ? await startFirst(panel, player, stamp(tracks[0]), responder) : { opened: null, failure: null };
+  const addition = enqueue(player, trackData, (wasIdle ? tracks.slice(1) : tracks).map(stamp));
+  // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
+  const opened = start.failure ? await startNext(panel, player, responder) : start.opened;
+
+  // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
+  if (start.failure && !opened) return { success: false, message: start.failure };
+
+  // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
+  if (opened && tracks.length > 1) {
+    // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
+    await panel.showPlaylistAdditionMessage(player, placedOf(start, addition.queued), addition.sourceLabel, addition.insertFirst, addition.notice);
+    // 대기열 갱신. 임베드 새로고침
+    await panel.updateNowPlayingEmbed(player);
+    return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
+  }
+
+  // 대기열에만 추가됨 (이미 음악 재생 중)
+  if (wasPlayingBefore || (!opened && tracks.length > 0)) {
+    return await queueOnly(panel, player, responder, addition);
+  }
+
+  // 단일 트랙 재생 시작
+  return opened ?? { success: true };
+}
+
+// 쉬던 플레이어에 첫 곡을 튼다
+async function startFirst(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<FirstStart> {
+  trackState.setCurrent(player, track);
+  const failure = await startPlayback(player);
+  if (failure) {
+    // 시작 실패. 유령 임베드 만들지 않음. 실패한 곡은 큐에 넣지 않는다(재시도해도 실패).
+    trackState.setCurrent(player, null);
+    return { opened: null, failure };
+  }
+  return { opened: await openPanel(panel, player, track, responder), failure: null, started: track };
+}
+
+// 음성 채널에 연결하고 재생 시작. 실패면 안내 문구
+async function startPlayback(player: Player): Promise<string | null> {
+  try {
+    if (!player.connection) {
+      await player.voice.connect();
+    }
+    const playResult = await player.play();
+    // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
+    // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.
+    return playResult && playResult.ok === false ? playFailureMessage(playResult) : null;
+  } catch (playError) {
+    log.error("재생 처리 중 오류:", playError);
+    return errorMessage(playError);
+  }
+}
+
+// 첫 곡이 실패한 뒤 대기열의 다음 곡을 튼다. 틀었으면 패널을 세운 결과
+async function startNext(panel: Panel, player: Player, responder: Responder): Promise<Opened | null> {
+  if (player.currentTrack || player.queue.length === 0) return null;
+  try {
+    const nextResult = await player.play(0);
+    if (nextResult && nextResult.ok !== false && player.currentTrack) {
+      return await openPanel(panel, player, player.currentTrack, responder);
+    }
+  } catch (e) {
+    log.error("첫 곡 실패 후 다음 곡 시작 실패:", messageOf(e));
+  }
+  return null;
+}
+
+// UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
+async function openPanel(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<Opened> {
+  try {
+    return await panel.createNewMusicEmbed(player, track, responder);
+  } catch (embedError) {
+    log.error("재생 중 임베드 생성 실패:", embedError);
+    return { success: true };
+  }
+}
+
+// 대기열에 넣는다. 상한은 여기서 판정한다. 해석이 끝난 뒤 서버별로 줄 선 구간이라, 동시에 온 목록이 같은 빈자리를 두 번 쓰지 않는다
+function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): Addition {
+  const queued = tracks.slice(0, trackState.roomLeft(player, config.bot.maxQueueSize));
+  const insertFirst = trackData.insertFirst || false;
+  if (trackData.insertAfterId) trackState.insertAfter(player, trackData.insertAfterId, queued);
+  else if (insertFirst) trackState.enqueue(player, queued, { front: true });
+  // 자동재생이 미리 뽑아 둔 곡보다는 앞에. 사용자가 고른 곡이 먼저다
+  else trackState.enqueueAheadOfAutoplay(player, queued);
+  const received = trackData.tracks.length;
+  return {
+    queued,
+    // 여러 곡을 담았으면 그 출처의 표시 이름(재생목록·앨범 등), 한 곡이면 null
+    sourceLabel: trackData.isPlaylist ? S.collectionLabel(trackData.collection) : null,
+    insertFirst,
+    // 안내에 붙일 것. 전체 곡 수는 받은 것보다 많을 때만
+    notice: { dropped: tracks.length - queued.length, skipped: trackData.skipped ?? 0, total: trackData.total && trackData.total > received ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) },
+  };
+}
+
+// 틀고 있는 중에 대기열에만 담았다
+async function queueOnly(panel: Panel, player: Player, responder: Responder, { queued, sourceLabel, insertFirst, notice }: Addition): Promise<AddResult> {
+  // 자리가 없어 한 곡도 못 담았다
+  if (queued.length === 0 && notice.dropped > 0) return { success: false, message: panel.queueFullMessage(), dropped: notice.dropped };
+
+  // 기존 임베드 갱신
+  if (player.nowPlayingMessage && player.currentTrack) {
+    await panel.updateNowPlayingEmbed(player);
+  }
+
+  await responder.notifyQueued(panel.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice));
+
+  return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
+}
+
+export { requestPlayback, continueCollection, queueTracks, toRequester, requesterName, ensurePlayer, useLookup, useAdder };
 export const _internals = { resolveFallbackTextChannel };
-export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult };
+export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult, TrackData, AddResult };

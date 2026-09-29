@@ -1,7 +1,7 @@
 // 오류 메시지의 ❌ 접두 규약 — src/ui/strings.ts가 단일 출처.
 //
 // 회귀 대상: 표시 지점마다 접두를 제각기 추측해 전용 채널은 "❌ ❌ …"로 두 번 찍고,
-// handleMusicData 실패는 ❌ 없이 나가고, 대시보드 JSON에는 ❌가 새어 들어갔다.
+// 곡 담기 실패는 ❌ 없이 나가고, 대시보드 JSON에는 ❌가 새어 들어갔다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ import { toApiError } from "../../dashboard/server/middleware/requireControl.ts"
 
 // 실제로 흘러다니는 두 종류의 출처
 const PREFIXED = "❌ 결과를 찾을 수 없습니다!"; // sources/lookup / ui/errorMessages / strings
-const BARE = "음악을 처리하는 중 오류가 발생했습니다."; // MusicEmbedManager._processMusic
+const BARE = "음악을 처리하는 중 오류가 발생했습니다."; // usecases/addTracks 의 곡 담기
 
 test("withErrorMark: 접두가 없으면 붙인다", () => {
   assert.equal(S.withErrorMark(BARE), `❌ ${BARE}`);

@@ -16,6 +16,7 @@ import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
+import { fakeAdder } from "../helpers/adder.ts";
 
 useExampleConfig();
 
@@ -69,13 +70,14 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     guilds: { cache: Object.assign(new Map(), { reduce: (_fn: unknown, init: number) => init }) },
     user: { id: "bot", username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
     musicEmbedManager: {
-      handleMusicData: async (_guildId: string, trackData: { tracks: FakeTrack[] }) => {
-        seen.push({ handle: trackData.tracks.map((t) => t.title) });
-        return handle(trackData);
-      },
       updateNowPlayingEmbed: async () => seen.push("update"),
     },
   };
+  // 곡 담기는 받은 곡의 제목만 적는다
+  fakeAdder(client, async (_client, _guildId, trackData) => {
+    seen.push({ handle: trackData.tracks.map((t) => t.title) });
+    return handle(trackData);
+  });
   const guild = { id: "g1", client, members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map() } };
   const member = { id: USER, user: { id: USER }, displayName: "사용자", guild, voice: { channel: voice(userVoice) }, permissions: { has: () => false }, roles: { cache: { has: () => false } }, toString: () => `<@${USER}>` };
   const p = {
