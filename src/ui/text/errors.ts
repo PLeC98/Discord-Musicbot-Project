@@ -3,8 +3,7 @@
 import { formatMs } from "../format.ts";
 import * as queueText from "./queue.ts";
 
-// 오류 문자열의 ❌ 접두 규약. 출처(ui/text · sources/lookup · usecases)마다 접두 유무가 달라
-// 표시 지점에서 반드시 정규화한다. 디스코드는 정확히 하나, 대시보드 JSON은 없음.
+// 오류 문자열의 ❌ 접두 규약. 문장마다 접두 유무가 달라 표시 지점에서 반드시 정규화한다. 디스코드는 정확히 하나, 대시보드 JSON은 없음.
 const withErrorMark = (msg: unknown) => {
   const text = String(msg ?? "");
   return text.trimStart().startsWith("❌") ? text : `❌ ${text}`;
