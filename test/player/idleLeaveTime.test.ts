@@ -7,7 +7,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { IdleLeave } from "../../src/player/idleLeave.ts";
 import * as playerEvents from "../../src/player/events.ts";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import type { Player, PanelMessage } from "../../src/player/Player.ts";
 import type { Client } from "discord.js";
 import { withConfig } from "../helpers/config.ts";
@@ -83,7 +83,7 @@ test("대기열이 끝나 스스로 거둘 때와 재생 중일 때는 알리지
 
 // ── 패널 ──
 
-class RecordingPanel extends MusicEmbedManager {
+class RecordingPanel extends NowPlayingPanel {
   drawn: Array<{ reason: string; leavesAt?: number | null; dedicated: boolean }> = [];
   async _showIdle(_player: Player, _live: PanelMessage | null, look: { reason: string; leavesAt?: number | null; dedicated: boolean }) {
     this.drawn.push(look);

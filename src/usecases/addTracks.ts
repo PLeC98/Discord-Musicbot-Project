@@ -16,7 +16,7 @@ import { errorKind, messageOf } from "../rules/errorKind.ts";
 import { canSend } from "../ui/channels.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
-import type { MusicEmbedManager, Responder } from "../ui/nowPlayingPanel.ts";
+import type { NowPlayingPanel, Responder } from "../ui/nowPlayingPanel.ts";
 const LIVE_BLOCK_TEXT = { "live-upcoming": S.ERR_LIVE_UPCOMING, "live-no-ffmpeg": S.ERR_LIVE_NO_FFMPEG };
 
 /** 곡 찾기에서 부르는 것 */
@@ -301,7 +301,7 @@ async function continueCollection(client: Client, request: CollectionRequest): P
   const player = client.players.get(guild.id);
   if (!player) return { success: false, message: S.ERR_NO_MUSIC };
   const want = Math.min(request.count, roomFor(player), KINDS[state.kind].perClick);
-  if (want <= 0) return { success: false, message: client.musicEmbedManager.queueFullMessage() };
+  if (want <= 0) return { success: false, message: client.panels.queueFullMessage() };
 
   const { found, cursor, total, skipped } = await gather(request, want);
 
@@ -377,7 +377,7 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
 // ── 곡 담기 ───────────────────────────────────────────────────────────
 
 /** 곡 담기에서 부르는 패널(그리기만) */
-type Panel = Pick<MusicEmbedManager, "createNewMusicEmbed" | "updateNowPlayingEmbed" | "showPlaylistAdditionMessage" | "createQueueAdditionMessage" | "queueFullMessage">;
+type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "showPlaylistAdditionMessage" | "createQueueAdditionMessage" | "queueFullMessage">;
 /** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
 type Opened = { success: true };
 /** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패(까닭과 안내), started 곧바로 튼 곡 */
@@ -407,7 +407,7 @@ async function processTracks(client: Client, guildId: string, trackData: TrackDa
   const player = client.players.get(guildId);
   if (!player) return { success: false, code: "no-player", message: "음악 플레이어를 찾을 수 없습니다." };
   try {
-    return await place(client.musicEmbedManager, player, trackData, requester, responder);
+    return await place(client.panels, player, trackData, requester, responder);
   } catch (error) {
     log.error({ kind: errorKind(error) }, "곡 담기 처리 실패:", error);
     return { success: false, code: "threw", message: "음악을 처리하는 중 오류가 발생했습니다.", ...kindOf(error) };
@@ -438,7 +438,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
     // 남은 재생목록 트랙이 대기열에 추가되었음을 메시지로 표시
     await panel.showPlaylistAdditionMessage(player, placedOf(start, addition.queued), addition.sourceLabel, addition.insertFirst, addition.notice);
     // 대기열 갱신. 임베드 새로고침
-    await panel.updateNowPlayingEmbed(player);
+    await panel.updatePlaying(player);
     return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
   }
 
@@ -497,7 +497,7 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
 // UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
 async function openPanel(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<Opened> {
   try {
-    return await panel.createNewMusicEmbed(player, track, responder);
+    return await panel.postPlaying(player, track, responder);
   } catch (embedError) {
     log.error("재생 중 임베드 생성 실패:", embedError);
     return { success: true };
@@ -530,7 +530,7 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
 
   // 기존 임베드 갱신
   if (player.nowPlayingMessage && player.currentTrack) {
-    await panel.updateNowPlayingEmbed(player);
+    await panel.updatePlaying(player);
   }
 
   await responder.notifyQueued(panel.createQueueAdditionMessage(queued, sourceLabel, insertFirst, notice));

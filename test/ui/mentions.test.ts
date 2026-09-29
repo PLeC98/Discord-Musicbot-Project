@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { WebhookClient, MessagePayload } from "discord.js";
 import { ALLOWED_MENTIONS, escapeMd } from "../../src/ui/mentions.ts";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -62,7 +62,7 @@ test("빈 값·비문자열에도 안전하다", () => {
 
 // 실제 전송 경로 — 대기열 추가 안내는 content라 서식이 그대로 해석된다
 test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않는다", () => {
-  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
+  const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
   const msg = mem.createQueueAdditionMessage([{ title: EVIL_LINK }], null, false);
 
   assert.ok(!/(^|[^\\])\[[^\]]*\]\(/.test(msg), msg);
@@ -74,7 +74,7 @@ test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않
 // 라벨 밖으로 탈출해 다른 URL을 거는 것도 불가능함을 확인했다 — 라벨이 깨지면
 // 디스코드가 링크 자체를 만들지 않는다.
 test("now-playing 제목은 원문 그대로 라벨에 들어간다", async () => {
-  const mem = new MusicEmbedManager(fake<Client>({ players: new Map() }));
+  const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
   const track: QueuedTrack = { title: "게임 실황 [Official] my_song_name", pageUrl: "https://ok.example", requestKey: "https://ok.example", duration: 100, platform: "youtube", thumbnail: null, artist: "아티스트" };
   const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false });
 

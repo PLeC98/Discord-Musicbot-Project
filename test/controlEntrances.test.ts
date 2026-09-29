@@ -104,7 +104,7 @@ const client = {
   isReady: () => true,
   guilds: { cache: new Map([["g1", guild]]) },
   players: new Map<string, Player>(),
-  musicEmbedManager: { updateNowPlayingEmbed: async () => {}, drawEndedPanel: async () => {} },
+  panels: { updatePlaying: async () => {}, drawEndedPanel: async () => {} },
 };
 
 // 한 칸을 세운다. 부른 메서드를 모을 곳을 돌려준다

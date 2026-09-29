@@ -69,8 +69,8 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     players: new Map<string, Player>(),
     guilds: { cache: Object.assign(new Map(), { reduce: (_fn: unknown, init: number) => init }) },
     user: { id: "bot", username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
-    musicEmbedManager: {
-      updateNowPlayingEmbed: async () => seen.push("update"),
+    panels: {
+      updatePlaying: async () => seen.push("update"),
     },
   };
   // 곡 담기는 받은 곡의 제목만 적는다

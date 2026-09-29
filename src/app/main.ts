@@ -29,7 +29,7 @@ import { guarded, type OnFault } from "./eventBoundary.ts";
 import { installShutdown, stopFailedStart } from "./shutdown.ts";
 import { scheduleReplyCleanup } from "../ui/replyLifetime.ts";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
-import { MusicEmbedManager } from "../ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../ui/nowPlayingPanel.ts";
 import { StatusManager } from "../ui/botPresence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../../dashboard/server/index.ts";
@@ -118,10 +118,10 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
   client.commands = new Collection();
   client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
   client.players.followDisposals(); // 버려진 플레이어는 등록부가 스스로 뺀다
-  client.musicEmbedManager = new MusicEmbedManager(client);
+  client.panels = new NowPlayingPanel(client);
   const stream = createPlayerStream();
   startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });
-  listenToPlayers(client.musicEmbedManager, stream);
+  listenToPlayers(client.panels, stream);
 
   // 서버 하나 다시 켜기. 이벤트 처리기 경계와 새어 나온 오류 처리기가 서버를 알면 여기로 보낸다
   const fault = createGuildFaults({ players: client.players, restore: (guildId) => restoreGuild(client, Player, guildId) });
@@ -149,10 +149,10 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
 }
 
 // 플레이어의 알림을 화면과 대시보드에 잇는다
-function listenToPlayers(panels: MusicEmbedManager, stream: ReturnType<typeof createPlayerStream>) {
-  playerEvents.on("refresh", (player) => panels.updateNowPlayingEmbed(player));
+function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof createPlayerStream>) {
+  playerEvents.on("refresh", (player) => panels.updatePlaying(player));
   playerEvents.on("ended", (player, reason) => panels.drawEndedPanel(player, { reason }));
-  playerEvents.on("started", (player) => player.currentTrack && panels.createNewMusicEmbed(player, player.currentTrack));
+  playerEvents.on("started", (player) => player.currentTrack && panels.postPlaying(player, player.currentTrack));
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));
   playerEvents.on("touched", (guildId) => stream.notify(guildId));
@@ -172,7 +172,7 @@ async function onReady(client: Client<true>, skipRestore: boolean) {
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
   await adoptLingeringVoice(client, Player, { touched });
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
-  await client.musicEmbedManager?.restorePanels();
+  await client.panels?.restorePanels();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");
 }
 

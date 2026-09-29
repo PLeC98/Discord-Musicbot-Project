@@ -131,7 +131,7 @@ function createGuildSettingsRouter() {
     if ("error" in plan) return res.status(400).json({ error: plan.error });
     const channelChanged = await applySettings(guild, plan);
     if (channelChanged) {
-      client?.musicEmbedManager?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
+      client?.panels?.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${error?.message || error}`));
     }
 
     const user = signedIn(req);

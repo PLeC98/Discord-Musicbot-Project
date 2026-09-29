@@ -94,14 +94,14 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
   const embeds = {
     createSearchingContainer: (text: string) => ({ searching: text }),
     createErrorContainer: (text: string) => ({ error: text }),
-    updateNowPlayingEmbed: async () => seen.push("update"),
+    updatePlaying: async () => seen.push("update"),
     drawEndedPanel: async (_p: unknown, { reason }: { reason: string }) => seen.push(`end:${reason}`),
     repostIdlePanel: async (_g: unknown, ch: { id: string }) => seen.push(`repost:${ch.id}`),
     stopProgressUpdate: (id: string) => seen.push(`stopProgress:${id}`),
-    createNewMusicEmbed: async (_p: unknown, track: { title: string }, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, opts }),
+    postPlaying: async (_p: unknown, track: { title: string }, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, opts }),
     deleteWebhookCache: () => {},
   };
-  const client = fakeWith<Client<true>>()({ players: new Map<string, Player>(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
+  const client = fakeWith<Client<true>>()({ players: new Map<string, Player>(), panels: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
   // 곡 담기는 받은 것만 적는다
   fakeAdder(client, async (_client, _guildId, trackData, who) => {
     handled.push({ handle: trackData, who });
@@ -233,7 +233,7 @@ test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던
 
 test("/play: 답하기 전에 던지면 입구가 본인에게만 알린다", async () => {
   const w = world();
-  w.client.musicEmbedManager.createSearchingContainer = () => {
+  w.client.panels.createSearchingContainer = () => {
     throw new Error("무언가");
   };
   const { it, log } = interaction(w, { options: { query: "노래" } });
@@ -294,7 +294,7 @@ test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
   await runViaEntrance(await command("playfirst"), thrown.it, w.client);
   assert.match(lastSent(thrown.log).components[0].error ?? "", /네트워크 오류/);
 
-  w.client.musicEmbedManager.createSearchingContainer = () => {
+  w.client.panels.createSearchingContainer = () => {
     throw new Error("무언가");
   };
   const early = interaction(w, { options: { query: "노래" } });

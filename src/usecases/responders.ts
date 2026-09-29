@@ -4,7 +4,7 @@ const log = logger.child({ category: "player" });
 import { scheduleDelete } from "../ui/transientMessages.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { GuildTextBasedChannel, RepliableInteraction } from "discord.js";
-import type { MusicEmbedManager, Responder } from "../ui/nowPlayingPanel.ts";
+import type { NowPlayingPanel, Responder } from "../ui/nowPlayingPanel.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -37,7 +37,7 @@ function onceDismiss(fn: (() => unknown) | null | undefined) {
  * 슬래시 명령. 자리표시자가 상호작용 응답 그 자체다.
  * 초기 응답이 CV2 컨테이너라 `content`로는 수정할 수 없어(디스코드가 거부) 컨테이너로 보낸다.
  */
-function interactionResponder(interaction: RepliableInteraction, embedManager: Pick<MusicEmbedManager, "createSearchingContainer">): Responder {
+function interactionResponder(interaction: RepliableInteraction, embedManager: Pick<NowPlayingPanel, "createSearchingContainer">): Responder {
   const dismiss = onceDismiss(async () => {
     if (interaction.deferred || interaction.replied) {
       await interaction.deleteReply();

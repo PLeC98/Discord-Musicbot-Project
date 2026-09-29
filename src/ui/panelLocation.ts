@@ -9,14 +9,14 @@ import type { PanelHook as Hook } from "../player/Player.ts";
 
 const UNKNOWN_MESSAGE = 10008;
 
-/** 웹훅을 다시 찾는 쪽(MusicEmbedManager) */
+/** 웹훅을 다시 찾는 쪽(NowPlayingPanel) */
 type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null> };
 /** 기록 저장소. 시험은 가짜를 준다 */
 type Store = Pick<typeof GuildSettingsManager, "getPanel" | "setPanel">;
 type PanelGuild = Pick<Guild, "id" | "channels">;
 type Payload = Parameters<WebhookClient["editMessage"]>[1];
 
-class NowPlayingPanel {
+class PanelLocation {
   embeds: Embeds;
   store: Store;
   chains = new Map<string, Promise<unknown>>(); // guildId → Promise 꼬리. 기록을 읽고 바꾸는 사이에 다른 게시가 끼지 않게
@@ -101,5 +101,5 @@ class NowPlayingPanel {
   }
 }
 
-export { NowPlayingPanel };
+export { PanelLocation };
 export type { Store as PanelStore };

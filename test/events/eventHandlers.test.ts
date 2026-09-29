@@ -2,7 +2,7 @@
 // 전용 채널 메시지(messageHandler) · 끝난 패널 올리기(panelPin) · 재생목록 더 넣기(playlistMoreHandler) · 모달과 선택 메뉴(modalHandler · 자동재생 장르는 interactions/autoplay).
 //
 // 6단계가 입구를 얇게 만들며 이것들을 유스케이스로 돌린다. 모듈을 통째로 바꿔 끼우지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
-// 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.musicEmbedManager)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
+// 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(client.panels)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -96,7 +96,7 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     seen,
     createSearchingContainer: (text: string) => ({ searching: text }),
     scheduleIdleRepin: async (_g: unknown, channelId: string) => seen.push({ repin: channelId }),
-    updateNowPlayingEmbed: async () => seen.push("update"),
+    updatePlaying: async () => seen.push("update"),
     queueFullMessage: () => "❌ 대기열이 가득 찼어요.",
   };
   const player = {
@@ -132,7 +132,7 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     },
   };
   const registered = fake<Player>(player);
-  const client = { players: new Map([["g1", registered]]), musicEmbedManager: embeds, user: { id: "bot" } };
+  const client = { players: new Map([["g1", registered]]), panels: embeds, user: { id: "bot" } };
   // 곡 담기는 받은 것만 적는다
   fakeAdder(client, async (_client, guildId, trackData, who, responder) => {
     handled.push({ guildId, trackData, who });
@@ -231,7 +231,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 지우�
 test("전용 채널이 지워지면 설정을 비우고 패널을 옮긴다. 다른 채널 · DM 이 지워진 것은 보지 않는다", async () => {
   await settings.setBotChannel("g1", "bot-channel");
   const moved: string[] = [];
-  const client = { musicEmbedManager: { onBotChannelChanged: async (g: { id: string }) => moved.push(g.id) } };
+  const client = { panels: { onBotChannelChanged: async (g: { id: string }) => moved.push(g.id) } };
   const guild = { id: "g1", name: "서버" };
   const deleted = (id: string, dm = false) => fake<ClientEvents["channelDelete"][0]>({ id, name: "음악", guild, client, isDMBased: () => dm });
 

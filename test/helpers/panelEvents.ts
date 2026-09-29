@@ -1,4 +1,4 @@
-// 플레이어 알림(src/player/events)을 화면 가짜처럼 적는다. 알림이 생기기 전 가짜(musicEmbedManager)와
+// 플레이어 알림(src/player/events)을 화면 가짜처럼 적는다. 알림이 생기기 전 가짜(panels)와
 // 같은 기록을 남겨 기대값을 그대로 둔다. player 를 주면 그 플레이어의 알림만 적는다. 끝나면 stop() 으로 뗀다.
 //
 //   refresh → "update" · ended → "end:<reason>" · started → "create:<곡 제목>" · released → "webhook:<채널 id>"

@@ -4,7 +4,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import config from "../../config.ts";
 import * as trackState from "../../src/player/trackState.ts";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import { queueTracks } from "../../src/usecases/addTracks.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -20,8 +20,8 @@ const titles = (arr: QueuedTrack[]) => arr.map((x) => x.title);
 const many = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => t(`${prefix}${i}`));
 
 // 가짜 플레이어에는 패널이 없다. 갱신은 하지 않는다
-class NoPanelRefresh extends MusicEmbedManager {
-  async updateNowPlayingEmbed() {}
+class NoPanelRefresh extends NowPlayingPanel {
+  async updatePlaying() {}
 }
 
 function setup({ max, queued = 0, playing = true }: { max: number; queued?: number; playing?: boolean }) {
@@ -39,7 +39,7 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
   trackState.enqueue(player, many("old", queued));
 
   const client = fake<Client>({ players: new Map([["g", player]]) });
-  Object.assign(client, { musicEmbedManager: new NoPanelRefresh(client) });
+  Object.assign(client, { panels: new NoPanelRefresh(client) });
   const notices: string[] = [];
   const responder = { notifyQueued: async (text: string) => notices.push(text), dismissPlaceholder: async () => {} };
   const add = (tracks: QueuedTrack[], extra = {}) => queueTracks(client, "g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);

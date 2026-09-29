@@ -62,7 +62,7 @@ import { markTransient, isTransient } from "./transientMessages.ts";
 import { panelId, IDLE_SESSION } from "./customIds.ts";
 import * as blankThumbnail from "./blankThumbnail.ts";
 import { jumpDescription } from "./queueDisplay.ts";
-import { NowPlayingPanel, type PanelStore } from "./panelLocation.ts";
+import { PanelLocation, type PanelStore } from "./panelLocation.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 import { colorOf } from "./colors.ts";
 import { isPublicUrl } from "../infra/publicAddress.ts";
@@ -125,12 +125,12 @@ function noticeLines({ dropped, skipped, queueLimited }: { dropped: number; skip
   return text;
 }
 
-class MusicEmbedManager {
+class NowPlayingPanel {
   client: Client;
   progressTimers = new Map<string, NodeJS.Timeout>(); // guildId -> 다음 진행 막대 갱신
   webhookCache = new Map<string, WebhookClient>(); // channelId -> WebhookClient 매핑
   reposting = new Set<string>(); // 현재 재생 메시지를 다시 올리는 중인 guildId
-  panel: NowPlayingPanel;
+  location: PanelLocation;
   idleViews = new Map<string, IdleView>(); // guildId → 끝난 패널의 문구 { reason, leavesAt }. 맨 아래로 다시 올릴 때 같은 모양으로
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 잇단 갱신 실패(네트워크)
@@ -138,7 +138,7 @@ class MusicEmbedManager {
   // panelStore: 패널 자리 기록. 시험은 메모리 가짜를 준다
   constructor(client: Client, { panelStore }: { panelStore?: PanelStore } = {}) {
     this.client = client;
-    this.panel = new NowPlayingPanel(this, panelStore);
+    this.location = new PanelLocation(this, panelStore);
   }
 
   deleteWebhookCache(channelId: string) {
@@ -210,7 +210,7 @@ class MusicEmbedManager {
   /**
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
-  async createNewMusicEmbed(player: Player, track: QueuedTrack, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
+  async postPlaying(player: Player, track: QueuedTrack, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
@@ -224,7 +224,7 @@ class MusicEmbedManager {
     const reused = reuse ? await this._reuseIdlePanel(player, channel, track) : null;
     const { message, webhook } = reused ?? (await this._sendNowPlaying(player, track, channel));
     player.nowPlayingWebhook = webhook;
-    if (!reused) await this.panel.commit(player.guild, channel, message, webhook);
+    if (!reused) await this.location.commit(player.guild, channel, message, webhook);
 
     // 진입점이 띄운 "검색 중…" 자리표시자 제거. 채널에 중복/정지 메시지를 남기지 않는다
     await responder.dismissPlaceholder();
@@ -283,10 +283,10 @@ class MusicEmbedManager {
   // 전용 채널 맨 아래에 끝난 패널이 있으면 재생 화면으로 고친다. 고쳤으면 { message, webhook }
   async _reuseIdlePanel(player: Player, channel: GuildTextBasedChannel, track: QueuedTrack) {
     if ((await this._dedicatedChannel(player.guild, channel))?.id !== channel.id) return null;
-    const record = await this.panel.store.getPanel(player.guild.id);
+    const record = await this.location.store.getPanel(player.guild.id);
     if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
     // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다
-    const edited = await this.panel.edit(player.guild, { ...(await this._playingPayload(player, track)), attachments: [] });
+    const edited = await this.location.edit(player.guild, { ...(await this._playingPayload(player, track)), attachments: [] });
     return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
@@ -326,7 +326,7 @@ class MusicEmbedManager {
 
       player.nowPlayingMessage = message;
       player.nowPlayingWebhook = webhook;
-      await this.panel.commit(player.guild, channel, message, webhook);
+      await this.location.commit(player.guild, channel, message, webhook);
       log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다. 5초마다 같은 실패를 반복하면 그게 도배다
@@ -413,7 +413,7 @@ class MusicEmbedManager {
   /**
    * 현재 재생 임베드를 제자리에서 갱신합니다.
    */
-  async updateNowPlayingEmbed(player: Player) {
+  async updatePlaying(player: Player) {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
     const panel = player.nowPlayingMessage;
     if (!panel || !player.currentTrack) return;
@@ -543,7 +543,7 @@ class MusicEmbedManager {
   async _panelIsDedicated(player: Player, live: PanelMessage | null) {
     const guildId = player.guild?.id;
     if (!guildId) return false;
-    const panelChannelId = live ? (channelIdOf(live) ?? (await this._panelChannel(player))?.id) : (await this.panel.store.getPanel(guildId))?.channelId;
+    const panelChannelId = live ? (channelIdOf(live) ?? (await this._panelChannel(player))?.id) : (await this.location.store.getPanel(guildId))?.channelId;
     return Boolean(panelChannelId) && panelChannelId === (await GuildSettingsManager.getBotChannel(guildId));
   }
 
@@ -553,7 +553,7 @@ class MusicEmbedManager {
       const payload: Payload = { ...(await this.createIdleContainer(look)), flags: MessageFlags.IsComponentsV2 };
       if (live && player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(live.id, payload);
       else if (live && "edit" in live) await live.edit(payload);
-      else if (player.guild?.id) await this.panel.edit(player.guild, payload);
+      else if (player.guild?.id) await this.location.edit(player.guild, payload);
     } catch (error) {
       // 이미 지워진 패널을 못 바꿨다는 것은 알릴 일이 아니다
       if (errorKind(error) === "network") log.warn(`패널을 종료 모양으로 바꾸지 못함: ${messageOf(error)}`);
@@ -591,7 +591,7 @@ class MusicEmbedManager {
     if (player?.currentTrack && player.nowPlayingMessage) return;
     const channel = await this._dedicatedChannel(guild);
     if (!canSend(channel) || channel.id !== channelId) return;
-    const record = await this.panel.store.getPanel(guild.id);
+    const record = await this.location.store.getPanel(guild.id);
     if (record?.channelId !== channel.id || !this._buriedAt(channel, record.messageId, now)) return;
 
     await this._postIdle(guild, channel);
@@ -602,7 +602,7 @@ class MusicEmbedManager {
     const view: IdleView = this.idleViews.get(guild.id) ?? { reason: "stop" }; // 재시작 뒤라면 음성 밖이다
     const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
     const { message, webhook } = await this._sendPanel(channel, payload);
-    await this.panel.commit(guild, channel, message, webhook);
+    await this.location.commit(guild, channel, message, webhook);
   }
 
   /** 전용 채널을 정했거나 바꿨거나 풀었을 때. 재생 중이면 패널을 옮기고, 아니면 끝난 패널을 새 채널에 올리거나 치운다 */
@@ -614,7 +614,7 @@ class MusicEmbedManager {
       return; // 풀었으면 재생 중인 패널은 그 자리에 둔다. 끝나면 전용 채널 밖 규칙을 따른다
     }
     if (canSend(channel)) await this._postIdle(guild, channel);
-    else await this.panel.remove(guild);
+    else await this.location.remove(guild);
   }
 
   /** 곡이 없을 때 /dashboard. 끝난 패널을 이 채널에 다시 올린다 */
@@ -632,10 +632,10 @@ class MusicEmbedManager {
       try {
         if (this.client.players.get(guild.id)?.nowPlayingMessage) continue;
         const channel = await this._dedicatedChannel(guild);
-        const record = await this.panel.store.getPanel(guild.id);
+        const record = await this.location.store.getPanel(guild.id);
         if (record && (!channel || record.channelId === channel.id)) {
           const payload: Payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
-          if (await this.panel.edit(guild, payload)) continue;
+          if (await this.location.edit(guild, payload)) continue;
         }
         if (canSend(channel)) await this._postIdle(guild, channel);
       } catch (error) {
@@ -783,7 +783,7 @@ class MusicEmbedManager {
   // 진행 막대 한 번. 전용 채널에서 묻혔으면 맨 아래로 다시 올린다
   async _tickProgress(player: Player) {
     if (await this._isBuried(player)) await this._repostNowPlaying(player, "전용 채널 맨 아래로");
-    else await this.updateNowPlayingEmbed(player);
+    else await this.updatePlaying(player);
   }
 
   /**
@@ -800,5 +800,5 @@ class MusicEmbedManager {
   }
 }
 
-export { MusicEmbedManager };
+export { NowPlayingPanel };
 export type { Responder };

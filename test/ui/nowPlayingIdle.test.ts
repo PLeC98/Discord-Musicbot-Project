@@ -4,7 +4,7 @@
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import * as tempStore from "../helpers/tempStore.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, WebhookClient } from "discord.js";
@@ -41,7 +41,7 @@ function makeChannel(id: string, calls: Calls) {
 type TestChannel = ReturnType<typeof makeChannel>;
 
 // 채널마다 웹훅 가짜. 보낸 것 · 고친 것 · 지운 것을 적는다
-class TestPanels extends MusicEmbedManager {
+class TestPanels extends NowPlayingPanel {
   calls: Calls;
   next = 500;
 
@@ -115,10 +115,10 @@ function makePlayer(guild: Guild, textChannel: GuildTextBasedChannel, over: obje
 const textOf = (payload: Payload) => JSON.stringify(payload.components.map((c) => (typeof c.toJSON === "function" ? c.toJSON() : c)));
 const bury = (channel: TestChannel | undefined, now: number) => channel?.messages.cache.set("950", { id: "950", createdTimestamp: now - 60_000 });
 
-async function play(mem: MusicEmbedManager, player: Player) {
+async function play(mem: NowPlayingPanel, player: Player) {
   assert.ok(player.currentTrack, "틀 곡이 있다");
   try {
-    await mem.createNewMusicEmbed(player, player.currentTrack);
+    await mem.postPlaying(player, player.currentTrack);
   } finally {
     mem.stopProgressUpdate("g1");
   }

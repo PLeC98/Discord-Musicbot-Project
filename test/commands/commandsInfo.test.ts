@@ -63,7 +63,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
     players: new Map<string, Player>(player ? [["g1", fakePlayer(player)]] : []),
     guilds: { cache: Object.assign(guilds, { reduce: (fn: (acc: number, g: { memberCount: number }) => number, init: number) => [...guilds.values()].reduce(fn, init) }) },
     user: { username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
-    musicEmbedManager: { onBotChannelChanged: async () => seen.push("movePanel") },
+    panels: { onBotChannelChanged: async () => seen.push("movePanel") },
   });
   const it = {
     guild: { id: "g1", roles: { cache: new Map(guildRoles.map((r) => [r, { id: r }])) } },

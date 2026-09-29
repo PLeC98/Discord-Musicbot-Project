@@ -42,13 +42,13 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
 
       // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
       await interaction.reply({
-        components: [client.musicEmbedManager.createSearchingContainer(`**${query}** 검색 중...`)],
+        components: [client.panels.createSearchingContainer(`**${query}** 검색 중...`)],
         flags: MessageFlags.IsComponentsV2,
       });
       // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다
       showFailureWith(interaction, (notice) =>
         interaction.editReply({
-          components: [client.musicEmbedManager.createErrorContainer(notice)],
+          components: [client.panels.createErrorContainer(notice)],
           flags: MessageFlags.IsComponentsV2,
         }),
       );
@@ -59,14 +59,14 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
         query,
         textChannel: channel,
         voiceChannel: member.voice.channel ?? null,
-        responder: interactionResponder(interaction, client.musicEmbedManager),
+        responder: interactionResponder(interaction, client.panels),
         source: `/${name}`,
         insertFirst,
       });
 
       if (!result.success) {
         return await interaction.editReply({
-          components: [client.musicEmbedManager.createErrorContainer(result.message)],
+          components: [client.panels.createErrorContainer(result.message)],
           flags: MessageFlags.IsComponentsV2,
         });
       }

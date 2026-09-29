@@ -47,7 +47,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send({
-      components: [client.musicEmbedManager.createSearchingContainer(`🔍 **${preview}** 검색 중...`)],
+      components: [client.panels.createSearchingContainer(`🔍 **${preview}** 검색 중...`)],
       flags: MessageFlags.IsComponentsV2,
     });
 

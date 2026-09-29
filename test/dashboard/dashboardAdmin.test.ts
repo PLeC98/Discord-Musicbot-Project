@@ -101,7 +101,7 @@ const client = {
     ]),
   },
   players: new Map([[g1.id, fake<Player>(playerG1)]]),
-  musicEmbedManager: {
+  panels: {
     endedPlayers: [] as unknown[],
     async drawEndedPanel(player: unknown) {
       this.endedPlayers.push(player);

@@ -15,7 +15,7 @@ const exported: ClientEvent<Events.ChannelDelete> = {
     if ((await GuildSettingsManager.getBotChannel(guild.id)) !== channel.id) return;
     await GuildSettingsManager.clearBotChannel(guild.id);
     log.info(`전용 채널 "${channel.name}" 이 지워져 전용 채널 설정을 비웁니다 (${guild.name})`);
-    await channel.client.musicEmbedManager?.onBotChannelChanged(guild);
+    await channel.client.panels?.onBotChannelChanged(guild);
   },
 };
 export default exported;

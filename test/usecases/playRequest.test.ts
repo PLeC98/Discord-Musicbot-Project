@@ -68,7 +68,7 @@ function makeClient() {
   const client = fakeWith<Client>()({
     embedCalls,
     players: new Map<string, Player>(),
-    musicEmbedManager: {
+    panels: {
       queueFullMessage: () => "대기열이 가득 찼습니다",
     },
   });

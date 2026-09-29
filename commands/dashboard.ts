@@ -28,16 +28,16 @@ const exported: GuildCommand = {
     // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다
     if (!player?.currentTrack) {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      await client.musicEmbedManager.repostIdlePanel(guild, channel);
+      await client.panels.repostIdlePanel(guild, channel);
       return interaction.deleteReply().catch(() => {
         /* 상호작용이 이미 닫혔다 */
       });
     }
 
     player.movePanel(channel);
-    client.musicEmbedManager.stopProgressUpdate(guild.id);
+    client.panels.stopProgressUpdate(guild.id);
 
-    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, interactionResponder(interaction, client.musicEmbedManager), { reuse: false });
+    await client.panels.postPlaying(player, player.currentTrack, interactionResponder(interaction, client.panels), { reuse: false });
   },
 };
 export default exported;

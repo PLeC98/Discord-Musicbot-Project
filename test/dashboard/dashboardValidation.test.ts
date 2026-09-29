@@ -107,8 +107,8 @@ const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
   players: new Map<string, Player>(),
-  musicEmbedManager: {
-    updateNowPlayingEmbed: async () => {},
+  panels: {
+    updatePlaying: async () => {},
   },
 };
 // 곡 담기는 받은 것만 적는다

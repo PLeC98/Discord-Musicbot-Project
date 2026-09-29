@@ -10,7 +10,7 @@ import { fake } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { buildGenreMenu, buildAutoplayOffMenu } from "../../src/ui/genreMenu.ts";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import * as tracks from "../helpers/tracks.ts";
 import interactionCreate from "../../events/interactionCreate.ts";
 import { ROUTES } from "../../interactions/index.ts";
@@ -125,7 +125,7 @@ test("봇이 만드는 모달 · 메뉴의 custom_id 는 목록의 그 경로로
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
   sameRoute("modal", volumeModal().toJSON().custom_id, "panel:volume");
   for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", menu.components[0].toJSON().components[0].custom_id, "autoplay:genre");
-  const jump = await new MusicEmbedManager(fake({ players: new Map() })).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
+  const jump = await new NowPlayingPanel(fake({ players: new Map() })).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
 });
 

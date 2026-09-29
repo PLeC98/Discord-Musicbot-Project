@@ -5,7 +5,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { Collection } from "discord.js";
-import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import * as tempStore from "../helpers/tempStore.ts";
 import { markTransient } from "../../src/ui/transientMessages.ts";
 import type { Client, GuildTextBasedChannel, WebhookClient } from "discord.js";
@@ -25,7 +25,7 @@ const gone = () => Object.assign(new Error("Unknown Message"), { code: 10008 });
 type Sent = { message: PanelMessage; webhook: WebhookClient | null };
 
 // 웹훅은 시험의 가짜로. 보내기를 시험이 정하면(sendAs) 그것으로
-class TestPanels extends MusicEmbedManager {
+class TestPanels extends NowPlayingPanel {
   webhook: WebhookClient;
   sendAs: (() => Promise<Sent>) | null = null;
 
@@ -109,7 +109,7 @@ function makeSetup(state: State = {}) {
 test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 않는다", async () => {
   const { mem, player, calls, state } = makeSetup({ editError: gone() });
 
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
 
   assert.equal(calls.sent.length, 1, "새 메시지를 한 번 보낸다");
   assert.equal(player.nowPlayingMessage?.id, calls.sent[0], "참조가 새 메시지로 바뀐다");
@@ -117,7 +117,7 @@ test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 
 
   // 다음 갱신은 새 메시지를 편집한다 — 사라진 id로 계속 두드리지 않는다
   state.editError = null;
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
   assert.deepEqual(calls.edited, ["100", calls.sent[0]]);
 });
 
@@ -130,7 +130,7 @@ test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채�
     player.nowPlayingMessage = { id: "100", channel_id: "panel-chan" };
     player.guild = fake<typeof player.guild>({ id: "g1", channels: { cache: new Map(cached ? [["panel-chan", {}]] : []) } });
     const from = sink.buffer.length;
-    await mem.updateNowPlayingEmbed(player);
+    await mem.updatePlaying(player);
     assert.ok(
       sink.buffer.slice(from).some((e) => e.text === `재생 중 임베드 다시 올림: ${reason}`),
       reason,
@@ -140,7 +140,7 @@ test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채�
 
 test("패널의 글자 채널이 지워졌으면(10003) 다시 올리지 않고 패널을 놓는다. 재생은 그대로", async () => {
   const { mem, player, calls } = makeSetup({ editError: Object.assign(new Error("Unknown Channel"), { code: 10003 }) });
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
   assert.deepEqual(calls.sent, [], "다시 올리지 않는다");
   assert.equal(player.nowPlayingMessage, null);
   assert.equal(player.nowPlayingWebhook, null);
@@ -152,7 +152,7 @@ test("REST 가 제한 시간에 끊은 갱신은 패널을 건드리지 않는�
   const timedOut = Object.assign(new Error("This operation was aborted"), { name: "AbortError" });
   const { mem, player, calls } = makeSetup({ editError: timedOut });
   const from = sink.buffer.length;
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
   assert.deepEqual(calls.sent, []);
   assert.equal(player.nowPlayingMessage?.id, "100", "참조를 그대로 둔다");
   const levels = sink.buffer.slice(from).map((e) => e.level);
@@ -166,27 +166,27 @@ const levelsSince = (from: number) => sink.buffer.slice(from).map((e) => e.level
 test("네트워크가 끊겨 갱신이 잇달아 실패하면 처음 한 번만 warn, 풀리면 info 한 줄. 패널은 그대로", async () => {
   const { mem, player, calls, state } = makeSetup({ editError: offline() });
   const from = sink.buffer.length;
-  for (let i = 0; i < 3; i++) await mem.updateNowPlayingEmbed(player);
+  for (let i = 0; i < 3; i++) await mem.updatePlaying(player);
   assert.deepEqual(levelsSince(from), ["warn"]);
   assert.deepEqual(calls.sent, [], "다시 올리지 않는다");
   assert.equal(player.nowPlayingMessage?.id, "100");
 
   state.editError = null;
-  await mem.updateNowPlayingEmbed(player);
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
+  await mem.updatePlaying(player);
   assert.deepEqual(levelsSince(from), ["warn", "info"]);
 
   state.editError = offline();
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
   mem.stopProgressUpdate("g1");
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
   assert.deepEqual(levelsSince(from), ["warn", "info", "warn", "warn"], "갱신을 멈췄다 다시 시작한 뒤의 실패는 새 사건");
 });
 
 test("다시 올리려는데 글자 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {
   const { mem, player } = makeSetup({ editError: gone(), sendError: unknownChannel() });
   const from = sink.buffer.length;
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
   assert.equal(player.nowPlayingMessage, null);
   assert.equal(player.textChannel, null);
   assert.deepEqual(levelsSince(from), ["info"]);
@@ -195,7 +195,7 @@ test("다시 올리려는데 글자 채널이 지워졌으면(10003) 패널을 �
 test("다시 올리기가 네트워크로 실패하면 warn", async () => {
   const { mem, player } = makeSetup({ editError: gone(), sendError: offline() });
   const from = sink.buffer.length;
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
   assert.equal(player.nowPlayingMessage, null);
   assert.deepEqual(levelsSince(from), ["warn"]);
 });
@@ -204,9 +204,9 @@ test("웹훅 조회: 채널이 지워졌으면(10003) 남기지 않고 없다고
   const { mem } = makeSetup();
   const channelThrowing = (error: Error) => fake<GuildTextBasedChannel>({ id: "c9", fetchWebhooks: async () => Promise.reject(error) });
   const from = sink.buffer.length;
-  assert.equal(await MusicEmbedManager.prototype.getOrCreateWebhook.call(mem, channelThrowing(unknownChannel())), null);
+  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(unknownChannel())), null);
   assert.deepEqual(levelsSince(from), []);
-  assert.equal(await MusicEmbedManager.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("Missing Permissions"))), null);
+  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("Missing Permissions"))), null);
   assert.deepEqual(levelsSince(from), ["error"]);
 });
 
@@ -222,8 +222,8 @@ test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않
   const blocked = new Promise<void>((r) => (release = r));
   const { mem, player, calls } = makeSetup({ editError: gone(), onSend: () => blocked });
 
-  const first = mem.updateNowPlayingEmbed(player);
-  const second = mem.updateNowPlayingEmbed(player);
+  const first = mem.updatePlaying(player);
+  const second = mem.updatePlaying(player);
   release();
   await Promise.all([first, second]);
 
@@ -253,7 +253,7 @@ test("다시 올리지 못하면 참조를 버리고 갱신을 멈춘다", async
     setTimeout(() => {}, 60000),
   );
 
-  await mem.updateNowPlayingEmbed(player);
+  await mem.updatePlaying(player);
 
   assert.equal(player.nowPlayingMessage, null);
   assert.equal(mem.progressTimers.has("g1"), false, "5초 타이머도 멈춘다");
