@@ -87,7 +87,7 @@ class VoiceLink {
       log.info(`음성 채널 참가: ${this._label()}`);
       return true;
     } catch (error) {
-      this._drop();
+      this._drop({ leave: true });
       this.state = "idle";
       log.error("음성 채널 연결 실패:", messageOf(error));
       throw error;
@@ -291,9 +291,9 @@ class VoiceLink {
     }
   }
 
-  // 옛 연결을 떼어 부수고 같은 채널에 새로 붙는다. 됐으면 true
+  // 옛 연결을 떼어 부수고 같은 채널에 새로 붙는다. 채널에서는 나가지 않는다. 됐으면 true
   async _rejoin() {
-    this._drop();
+    this._drop({ leave: false });
     try {
       await this._join(RECOVER_READY_MS);
       return true;
@@ -452,12 +452,12 @@ class VoiceLink {
     return connection;
   }
 
-  // 지금 연결을 떼어 부순다(다시 붙기 전 · 붙기 실패)
-  _drop() {
+  // 지금 연결을 떼어 부순다. 붙기에 실패했으면 나감을 보내고, 다시 붙기 전이면 보내지 않는다(보내면 디스코드가 봇을 채널에서 뺀다)
+  _drop({ leave }: { leave: boolean }) {
     const connection = this._detach();
     if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
     try {
-      connection.destroy();
+      connection.destroy(leave);
     } catch {
       // 이미 부서짐 등. 새 연결로 진행
     }

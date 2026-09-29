@@ -228,12 +228,12 @@ test("네트워크 오류는 오류 줄 없이 복구 시작 줄이 까닭과 �
   assert.ok(lines[0].text.includes("네트워크 오류(getaddrinfo ENOTFOUND"));
 });
 
-test("다시 붙일 때 옛 연결은 리스너를 떼고 부순다. 옛 연결이 늦게 알린 것은 보지 않는다", async () => {
+test("다시 붙일 때 옛 연결은 리스너를 떼고 나감 없이 부순다(나감을 보내면 디스코드가 봇을 채널에서 뺀다). 옛 연결이 늦게 알린 것은 보지 않는다", async () => {
   const { link, conn } = await ready();
   const old = conn();
   link.recover("시험");
   await until(() => link.state === "ready", "다시 붙기");
-  assert.deepEqual(old.destroyed, ["leave"]);
+  assert.deepEqual(old.destroyed, ["stay"]);
   assert.equal(old.listenerCount("stateChange"), 0);
   old.emit("stateChange", { status: "ready" }, { status: VoiceConnectionStatus.Destroyed });
   await sleep(10);
