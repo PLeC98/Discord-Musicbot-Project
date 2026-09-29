@@ -296,15 +296,30 @@ test("자동재생 버튼: 플레이어가 없으면 만들지 않고 장르 메
   assert.equal(none.client.players.size, 0);
 });
 
-test("자동재생 버튼: 플레이어가 있으면 옛 세션 · 끝난 패널(idle)의 버튼은 거절하고 자동재생을 건드리지 않는다", async () => {
-  for (const id of ["panel:autoplay:OLD", "panel:autoplay:idle"]) {
-    const w = world();
-    w.player.autoplay = "가요";
-    const { it, log } = press(w, id);
-    await interactionCreate.execute(it);
-    assert.deepEqual(log, [["reply", S.ERR_SESSION_INVALID]], id);
-    assert.deepEqual(w.seen, [], id);
-  }
+test("자동재생 버튼: 옛 세션의 패널 버튼은 거절하고 자동재생을 건드리지 않는다", async () => {
+  const w = world();
+  w.player.autoplay = "가요";
+  const { it, log } = press(w, "panel:autoplay:OLD");
+  await interactionCreate.execute(it);
+  assert.deepEqual(log, [["reply", S.ERR_SESSION_INVALID]]);
+  assert.deepEqual(w.seen, []);
+});
+
+// /join 뒤 · 대기열이 끝나 기다리는 동안에는 플레이어가 있고 패널은 끝난 패널(세션 자리 idle)이다
+test("자동재생 버튼: 끝난 패널의 버튼은 플레이어가 있어도 통한다. 꺼져 있으면 장르 메뉴, 켜져 있으면 끄고 다시 고르기 메뉴", async () => {
+  const off = world();
+  const a = press(off, "panel:autoplay:idle");
+  await interactionCreate.execute(a.it);
+  assert.equal(a.log[0][0], "reply");
+  assert.notEqual(a.log[0][1], S.ERR_SESSION_INVALID);
+  assert.equal(lifetimeOf(a.it), null, "장르 메뉴는 고르는 동안 떠 있다");
+
+  const on = world();
+  on.player.autoplay = "가요";
+  const b = press(on, "panel:autoplay:idle");
+  await interactionCreate.execute(b.it);
+  assert.deepEqual(on.seen, ["autoplay:false", "update"]);
+  assert.equal(lifetimeOf(b.it), OFF_MENU_MS);
 });
 
 test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한다", async () => {

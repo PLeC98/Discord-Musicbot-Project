@@ -9,7 +9,7 @@ const HELP = "help";
 const SYSTEM = "system";
 const SEARCH = "search"; // 검색 결과 고르기 search:pick:요청자:번호:영상 ID · 취소 search:cancel:요청자
 
-/** 끝난 패널의 세션 표식. 플레이어가 없을 때만 통한다 */
+/** 끝난 패널의 세션 자리 표식. 세션이 없다는 뜻이라 어느 플레이어에도 통한다 */
 const IDLE_SESSION = "idle";
 
 /** 칸을 이어 custom_id 로 */

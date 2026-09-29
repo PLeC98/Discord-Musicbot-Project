@@ -9,7 +9,7 @@ import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
-import { PANEL, AUTOPLAY, customId, partsOf } from "../src/ui/customIds.ts";
+import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../src/ui/customIds.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
 
@@ -31,11 +31,12 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
   return interaction.reply(buildGenreMenu());
 }
 
-// 끝난 패널 · 재생 중 패널 양쪽에서 온다. 플레이어가 있으면 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다(끝난 패널의 idle 도 거절)
+// 끝난 패널 · 재생 중 패널 양쪽에서 온다. 재생 중 패널의 버튼은 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다.
+// 끝난 패널의 버튼(idle)은 세션이 없어 어느 플레이어에도 통한다(/join 뒤 · 대기열이 끝나 기다리는 동안에도 플레이어가 있다). /autoplay 와 같다
 async function handleAutoplayButton(interaction: ButtonInteraction<"cached">) {
   const player = interaction.client.players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
-  if (player && sessionId && player.sessionId && sessionId !== player.sessionId) return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
+  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
   return answerAutoplay(interaction, player);
 }
 
