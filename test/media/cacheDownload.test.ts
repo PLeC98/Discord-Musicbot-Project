@@ -21,6 +21,7 @@ import type { AudioRow } from "../../src/store/audioCache.ts";
 import type { LookupRow } from "../../src/store/rows.ts";
 import * as tracks from "../helpers/tracks.ts";
 import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "cache-download-"));
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
@@ -198,6 +199,28 @@ test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. �
   assert.equal(calls.ytdlp.length, 0);
   assert.equal(storeDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM audio_cache").get()?.n, 0);
   assert.deepEqual(leftovers(), []);
+});
+
+// 긴 곡의 캐시가 어디서 오래 걸렸는지 가를 근거. 완료 줄(debug)에 걸린 시간 · 받은 포맷 · 옮겼나 구웠나를 싣는다
+test("받기가 끝나면 걸린 시간과 받은 포맷을 한 줄에 남긴다. yt-dlp 가 파일을 다 쓰고 한참 뒤에 끝났으면 그것도", async () => {
+  ytdlpBehavior = (url, options) => {
+    writesFile()(url, options);
+    const info = `${options.output}.info.json`;
+    fs.writeFileSync(info, JSON.stringify({ ...JSON.parse(fs.readFileSync(info, "utf8")), format_id: "140", protocol: "http_dash_segments", acodec: "mp4a.40.2" }));
+    // 파일을 다 쓴 때를 10초 전으로
+    const past = new Date(Date.now() - 10_000);
+    fs.utimesSync(options.output, past, past);
+  };
+  const level = logger.level;
+  logger.level = "debug";
+  const from = sink.buffer.length;
+  try {
+    await downloader().downloadTrack(yt("ttttttttttt"));
+  } finally {
+    logger.level = level;
+  }
+  const line = sink.buffer.slice(from).find((e) => e.text.startsWith("캐시 다운로드 완료"))?.text ?? "";
+  assert.match(line, /\| yt-dlp \d+\.\d초 · 포맷 140\(http_dash_segments, mp4a → opus 구움\) · 파일을 다 쓰고 1\d\.\d초 뒤에 끝남 · 길이 재기 \d+\.\d초$/, line);
 });
 
 test("사운드클라우드: 제 주소로, 사운드클라우드 출처가 받는다(유튜브에서 찾지 않고 유튜브 옵션도 안 쓴다)", async () => {

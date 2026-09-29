@@ -25,7 +25,7 @@ test("info.json에서 제목과 길이를 꺼내고 파일을 지운다", () => 
     const info = `${filepath}.info.json`;
     fs.writeFileSync(info, JSON.stringify({ title: "【Ado】初夏 (Shoka)", duration: 235 }), "utf8");
 
-    assert.deepEqual(take.call(null, filepath), { title: "【Ado】初夏 (Shoka)", durationSec: 235, version: null });
+    assert.deepEqual(take.call(null, filepath), { title: "【Ado】初夏 (Shoka)", durationSec: 235, version: null, formatId: null, protocol: null, acodec: null });
     assert.equal(fs.existsSync(info), false, "찌꺼기를 남기지 않는다");
   });
 });
@@ -66,7 +66,7 @@ test("깨진 JSON이어도 던지지 않고 파일을 치운다", () => {
 test("제목이 비어 있으면 제목만 null (빈 제목으로 덮어쓰지 않는다)", () => {
   withTemp((filepath) => {
     fs.writeFileSync(`${filepath}.info.json`, JSON.stringify({ title: "   ", duration: 312 }), "utf8");
-    assert.deepEqual(take.call(null, filepath), { title: null, durationSec: 312, version: null });
+    assert.deepEqual(take.call(null, filepath), { title: null, durationSec: 312, version: null, formatId: null, protocol: null, acodec: null });
   });
 });
 

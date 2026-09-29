@@ -106,7 +106,14 @@ function cleanTemp(tempPath: string): number {
  * 받은 것. verifiedTitle: 영상 자체의 제목(유튜브만) · audioDurationSec: 캐시에 남길 오디오 길이(track.duration은 요청 쪽
  * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 받은 음원의 버전(같은 주소에서 음원이 바뀐 것을 알아볼 값, audioVersion.ts)
  */
-type Fetched = { verifiedTitle: string | null; audioDurationSec: number | null; audioVersion: string | null };
+// how: 어떻게 받았나(로그 한 줄). 걸린 시간 · 포맷 · 옮겼나 구웠나
+type Fetched = { verifiedTitle: string | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
+
+const secs = (ms: number) => (ms / 1000).toFixed(1);
+// 받은 포맷(로그용). info.json 의 칸
+const formatOf = (info: { format_id?: string | null; protocol?: string | null; acodec?: string | null } | null | undefined) => ({ formatId: info?.format_id ?? null, protocol: info?.protocol ?? null, acodec: info?.acodec ?? null });
+// yt-dlp 가 파일을 다 쓴 뒤 이보다 늦게 끝났으면 적는다(받기 · 굽기와 따로 걸린 시간)
+const LINGER_LOG_MS = 5_000;
 
 // 유튜브 트랙만 제목을 교정한다. 스포티파이 트랙의 유튜브 동등물 제목은 다른 문자열이고
 // (「(Official Video)」 등이 붙는다), 사용자가 넣은 것은 스포티파이 곡이므로 표시는 그쪽이 맞다.
@@ -257,7 +264,9 @@ class TrackDownloader {
 
       await ensureNotEmpty(tempPath);
       // 음원 길이는 만든 .opus 를 재서 소수까지 적는다. 출처가 준 정수나 원본 머리의 값보다 이 파일이 정본이다
+      const measureStarted = Date.now();
       const measured = await this.deps.measure.durationSec(tempPath);
+      const measureMs = Date.now() - measureStarted;
       const mine = await publish(tempPath, filepath);
       if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${track.title}"`);
 
@@ -269,7 +278,8 @@ class TrackDownloader {
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
       // 예열이 앞으로 여러 곡을 미리 받으므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
-      log.debug(`캐시 다운로드 완료: "${track.title}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""}`);
+      // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 가를 근거다
+      log.debug(`캐시 다운로드 완료: "${track.title}"${inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : ""} | ${got.how} · 길이 재기 ${secs(measureMs)}초`);
       return filepath;
     } catch (error) {
       // 중단·실패한 다운로드가 남긴 .part/프래그먼트/중간 파일을 즉시 치운다. 내 임시 파일만.
@@ -314,6 +324,7 @@ class TrackDownloader {
       audioFormat: "opus",
     };
     // 사운드클라우드는 공통 옵션과 재생 포맷만(유튜브 전용 옵션 · 클라이언트 바꾸기 · 쿠키가 없다)
+    const started = Date.now();
     if (inputKind(downloadUrl) === "soundcloud") await this.deps.soundcloud.download(downloadUrl, { ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.soundcloud });
     // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
     else await this.deps.youtube.runYtDlp(downloadUrl, (forceCookies) => this.deps.youtube.getYtDlpOptions({ ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.youtube }, { forceCookies }));
@@ -323,8 +334,14 @@ class TrackDownloader {
     if (!fsSync.existsSync(tempPath)) {
       throw new Error("yt-dlp가 대상을 건너뜀 (라이브 스트림 등). 캐시 다운로드 불가");
     }
+    const ended = Date.now();
     const info = this._takeInfoJson(tempPath);
-    return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version };
+    // 받은 포맷과 옮겼나 구웠나(yt-dlp 의 ExtractAudio 는 Opus 면 옮기고 아니면 굽는다)
+    const codec = info.acodec?.split(".")[0] ?? "?";
+    const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;
+    const lingerMs = ended - fsSync.statSync(tempPath).mtimeMs;
+    const linger = lingerMs > LINGER_LOG_MS ? ` · 파일을 다 쓰고 ${secs(lingerMs)}초 뒤에 끝남` : "";
+    return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version, how: `yt-dlp ${secs(ended - started)}초 · ${format}${linger}` };
   }
 
   // 직접 링크. DirectLink는 SSRF 가드(SafeUrl)를 통과해 가져온다.
@@ -338,13 +355,17 @@ class TrackDownloader {
     const rawPath = `${tempPath.replace(/\.opus$/, "")}.raw`;
     audioCache.protectFile(rawPath);
     try {
+      const started = Date.now();
       await pipeline(audioStream, fsSync.createWriteStream(rawPath));
+      const received = Date.now();
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
+      // 옮겼나 구웠나는 변환이 제 줄에 남긴다
+      const how = `받기 ${secs(received - started)}초 · 변환 ${secs(Date.now() - received)}초`;
 
       // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 비어 있을 때만 채운다
       if (made.artist && !track.artist) track.artist = made.artist;
-      return { verifiedTitle: made.title ?? null, audioDurationSec: made.durationSec || null, audioVersion };
+      return { verifiedTitle: made.title ?? null, audioDurationSec: made.durationSec || null, audioVersion, how };
     } finally {
       audioCache.unprotectFile(rawPath);
       try {
@@ -362,7 +383,7 @@ class TrackDownloader {
    * 되지만, 버전에 따라 확장자를 바꾼 형태로 쓸 수도 있어 둘 다 본다.
    * 실패해도 다운로드 자체는 성공한 것이므로 모르는 값은 null로 돌려준다.
    */
-  _takeInfoJson(filepath: string): { title: string | null; durationSec: number | null; version: string | null } {
+  _takeInfoJson(filepath: string): { title: string | null; durationSec: number | null; version: string | null; formatId?: string | null; protocol?: string | null; acodec?: string | null } {
     const candidates = [`${filepath}.info.json`, filepath.replace(/\.opus$/, "") + ".info.json"];
     for (const p of candidates) {
       try {
@@ -373,6 +394,7 @@ class TrackDownloader {
           title: typeof info?.title === "string" && info.title.trim() ? info.title : null,
           durationSec: Number(info?.duration) > 0 ? Number(info?.duration) : null,
           version: versionOf.fromYtDlpInfo(info),
+          ...formatOf(info),
         };
       } catch {
         try {
