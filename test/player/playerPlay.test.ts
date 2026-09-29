@@ -624,9 +624,9 @@ test("라이브 ffmpeg 의 종료 코드를 적는다. 신호로 죽으면 -1", 
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
 
   await playOnce(p);
-  assert.equal(p.playback?.liveExitCode, null, "여는 순간에는 비운다");
+  assert.equal(p.playback?.input?.exitCode, null, "여는 순간에는 비운다");
   calls.spawns[0].emit("exit", 1, null);
-  assert.equal(p.playback?.liveExitCode, 1);
+  assert.equal(p.playback?.input?.exitCode, 1);
 
   h.reset();
   const q = h.makePlayer();
@@ -634,7 +634,7 @@ test("라이브 ffmpeg 의 종료 코드를 적는다. 신호로 죽으면 -1", 
   behavior.stream = () => ({ url: "https://hls.test/live.m3u8", protocol: "m3u8", liveStatus: "is_live" });
   await playOnce(q);
   calls.spawns[0].emit("exit", null, "SIGKILL");
-  assert.equal(q.playback?.liveExitCode, -1);
+  assert.equal(q.playback?.input?.exitCode, -1);
 });
 
 test("청크 스트림이 끊기면 캐시 전환을 먼저 묻고, 그 답을 청크 스트림에 돌려준다", async () => {
@@ -666,4 +666,65 @@ test("스트림이 복구 불가로 끊기면 캐시 전환을 걸고 ffmpeg 입
 
   assert.deepEqual(p.asked, [track]);
   assert.equal(ffmpeg.stdin.writableEnded, true, "입력을 닫아야 출력이 끝나 전환이나 Idle 로 넘어간다");
+});
+
+// ── 입력이 온전히 끝났는가(곡 끝 판정이 본다) ─────────────────────────────
+
+const tick = () => new Promise((done) => setImmediate(done));
+
+test("파이프 갈래: 입력 스트림이 깨지면 입력을 닫은 ffmpeg 가 0 으로 끝나도 깨진 것으로 적는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("z5zzzzzzzzz");
+  behavior.stream = () => ({ url: "https://media.test/e", duration: 100 });
+  const body = new PassThrough();
+  behavior.fetch = () => ({ ok: true, status: 200, body });
+
+  await playOnce(p);
+  assert.equal(p.playback?.input?.broken, null, "여는 순간에는 온전하다");
+  body.emit("error", new Error("끊김"));
+  calls.spawns[0].emit("exit", 0, null);
+
+  assert.equal(p.playback?.input?.exitCode, 0);
+  assert.match(p.playback?.input?.broken ?? "", /입력 스트림 오류/);
+});
+
+test("파이프 갈래: 청크 스트림이 전체 크기를 다 받지 못하고 끝나면 깨진 것, 다 받고 끝나면 온전하다", async () => {
+  for (const [received, broken] of [
+    [1000, true],
+    [4096, false],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("z6zzzzzzzzz");
+    behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?clen=4096", duration: 100 });
+
+    await playOnce(p);
+    const stream = calls.chunkedStreams[0];
+    stream.received = received;
+    stream.end();
+    await tick();
+
+    assert.equal(p.playback?.input?.broken != null, broken, `${received}/4096B`);
+    if (broken) assert.match(p.playback?.input?.broken ?? "", /1000\/4096B/);
+  }
+});
+
+test("파일 · 주소 갈래도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨진 것으로 적는다", async () => {
+  const cachedTrack = yt("z7zzzzzzzzz");
+  h.seedCache("yt:z7zzzzzzzzz", cachedTrack);
+  const p = h.makePlayer();
+  p.currentTrack = cachedTrack;
+  await playOnce(p);
+  assert.equal(calls.spawns[0].label, "playback");
+  assert.equal(p.playback?.input?.broken, null, "여는 순간에는 온전하다");
+  calls.spawns[0].emit("exit", 2, null);
+  assert.match(p.playback?.input?.broken ?? "", /종료 코드 2/);
+
+  h.reset();
+  const q = h.makePlayer();
+  q.currentTrack = yt("z8zzzzzzzzz");
+  behavior.stream = () => ({ url: "https://hls.test/vod.m3u8", protocol: "m3u8", duration: 100 });
+  await playOnce(q);
+  calls.spawns[0].emit("exit", 1, null);
+  assert.match(q.playback?.input?.broken ?? "", /종료 코드 1/);
 });

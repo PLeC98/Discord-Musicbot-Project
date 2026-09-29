@@ -256,7 +256,7 @@ const endingPlayer = (overrides = {}) => {
 test("라이브 종료: ffmpeg가 0으로 끝나면 방송이 끝난 것이니 다음 곡으로", async () => {
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
-  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, liveExitCode: 0, resource: { playbackDuration: 30_000 } } });
+  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, input: { exitCode: 0 }, resource: { playbackDuration: 30_000 } } });
 
   await player.onTrackEnd("idle");
 
@@ -269,7 +269,7 @@ test("라이브 종료: 사고로 끊기면 같은 곡을 위치 0으로 다시 
   // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"다. 만료된 주소로는 몇 번을 붙어도 실패한다.
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
-  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, liveExitCode: 1, resource: { playbackDuration: 30_000 } } });
+  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, input: { exitCode: 1 }, resource: { playbackDuration: 30_000 } } });
 
   await player.onTrackEnd("idle");
 
@@ -281,7 +281,7 @@ test("라이브 종료: 사고로 끊기면 같은 곡을 위치 0으로 다시 
 test("라이브 종료: 사용자가 스킵한 것은 사고가 아니다", async () => {
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
-  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, liveExitCode: -1, resource: { playbackDuration: 30_000 } } });
+  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, input: { exitCode: -1 }, resource: { playbackDuration: 30_000 } } });
 
   await player.onTrackEnd("skip");
 
@@ -291,7 +291,7 @@ test("라이브 종료: 사용자가 스킵한 것은 사고가 아니다", asyn
 test("라이브 종료: 재시도를 다 쓰면 다음 곡으로 넘긴다", async () => {
   const finished = { title: "라디오", isLive: true };
   const next = { title: "다음곡" };
-  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, liveExitCode: 1, resource: { playbackDuration: 30_000 } } });
+  const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, input: { exitCode: 1 }, resource: { playbackDuration: 30_000 } } });
   // 이미 상한까지 다시 열어 본 상태로 둔다. 상한을 넘기면 포기해야 한다
   player._retryTrack = finished;
   player.currentTrackRetries = 99;
@@ -310,7 +310,7 @@ test("끝난 방송(was_live)은 재연결 대상이 아니다. 라이브 갈래
   const player = endingPlayer({
     currentTrack: finished,
     queue: [next],
-    playback: { live: false, liveExitCode: 1, resource: { playbackDuration: 3_600_000 } },
+    playback: { live: false, input: { exitCode: 1 }, resource: { playbackDuration: 3_600_000 } },
   });
 
   await player.onTrackEnd("idle");

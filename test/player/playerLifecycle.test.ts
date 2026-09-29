@@ -141,6 +141,29 @@ test("일찍 끊긴 곡은 끊긴 자리부터 다시 튼다", async () => {
   assert.equal(p.previousTracks.length, 0, "기록에 넣지 않는다");
 });
 
+test("끝까지 튼 것처럼 보여도 입력이 깨진 채 끝났으면 끊긴 자리부터 다시 튼다. 우리가 멈춘 것은 그대로 넘긴다", async () => {
+  const p = h.makePlayer();
+  const track = cached("d2ddddddddd");
+  const endMs = track.duration * 1000;
+  playing(p, track, endMs, { input: { broken: "입력 스트림 오류: 끊김" } });
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, track, "같은 곡");
+  assert.equal(p.currentTrackRetries, 1);
+  assert.equal(p.playback?.startOffsetMs, endMs);
+
+  for (const reason of ["skip", "watchdog"]) {
+    h.reset();
+    const q = h.makePlayer();
+    playing(q, yt("d3ddddddddd"), undefined, { input: { broken: "ffmpeg 종료 코드 SIGKILL" } });
+    await q.onTrackEnd(reason);
+    h.dispose(q);
+    assert.equal(q.currentTrackRetries, 0, `${reason}: 우리가 멈추며 죽인 ffmpeg 의 표시는 끊김이 아니다`);
+  }
+});
+
 test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 간다", async () => {
   const p = h.makePlayer();
   const track = playing(p, yt("fffffffffff"), 30000);
@@ -176,7 +199,7 @@ test("손으로 넘긴 곡은 일찍 끝나도 다시 틀지 않는다", async (
 
 test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 받아 다시 연다", async () => {
   const p = scripted();
-  const live = playing(p, yt("iiiiiiiiiii", { isLive: true, duration: 0 }), 60000, { live: true, liveExitCode: 1 });
+  const live = playing(p, yt("iiiiiiiiiii", { isLive: true, duration: 0 }), 60000, { live: true, input: { exitCode: 1 } });
   const seeks: number[] = [];
   p.playAs = async (seekMs) => {
     seeks.push(seekMs);
@@ -194,7 +217,7 @@ test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 �
 
 test("라이브 다시 열기를 다섯 번 쓰면 다음 곡으로 넘긴다", async () => {
   const p = h.makePlayer();
-  const live = playing(p, yt("jjjjjjjjjjj", { isLive: true, duration: 0 }), 60000, { live: true, liveExitCode: 1 });
+  const live = playing(p, yt("jjjjjjjjjjj", { isLive: true, duration: 0 }), 60000, { live: true, input: { exitCode: 1 } });
   p._retryTrack = live;
   p.currentTrackRetries = 5;
   const next = cached("j2jjjjjjjjj");
@@ -210,7 +233,7 @@ test("라이브 다시 열기를 다섯 번 쓰면 다음 곡으로 넘긴다", 
 
 test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는다", async () => {
   const p = h.makePlayer();
-  playing(p, yt("kkkkkkkkkkk", { isLive: true, duration: 0 }), 60000, { live: true, liveExitCode: 0 });
+  playing(p, yt("kkkkkkkkkkk", { isLive: true, duration: 0 }), 60000, { live: true, input: { exitCode: 0 } });
   embeds(p);
 
   await p.onTrackEnd("idle");

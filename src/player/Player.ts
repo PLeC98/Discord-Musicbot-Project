@@ -30,6 +30,7 @@ import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as SponsorBlock from "../sources/sponsorBlock.ts";
 import { openChunkedStream } from "../media/chunkedStream.ts";
 import { openInput } from "../media/playbackInput.ts";
+import { InputHealth } from "../media/inputHealth.ts";
 import * as voiceChannelStatus from "./voiceChannelStatus.ts";
 import * as audioCache from "../store/audioCache.ts";
 import { VoiceLink } from "./voiceLink.ts";
@@ -63,6 +64,12 @@ const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수�
 const MANUAL_ENDS = new Set(["skip", "stop", "previous", "jump", "sponsorblock"]);
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
+// 저절로 끝났어도 입력이 깨진 채 끝났으면 그 까닭(입력을 닫아 ffmpeg 가 0 으로 끝나는 경로가 있다).
+// 우리가 멈춘 끝은 보지 않는다. 그때의 표시는 우리가 죽인 ffmpeg 의 것이다
+const brokenInput = (pb: CurrentPlayback | null, reason: string) => (reason === "idle" ? (pb?.input?.broken ?? null) : null);
+
+const endDetail = (playedMs: number, durationMs: number, broken: string | null) => `재생 ${(playedMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}${broken ? ` | 입력 깨짐: ${broken}` : ""}`;
+
 type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean };
 
 // 채널 알림을 못 보낸 것(권한 · 지워진 채널)은 재생을 막지 않는다
@@ -359,14 +366,12 @@ class Player {
         onProgress: () => {
           pb.inputProgressAt = Date.now();
         },
-        onExit: (code) => {
-          pb.liveExitCode = code;
-        },
         label: this._trackLabel(track),
       });
       if (!input.resource) throw codedError("stream-failed", "오디오 리소스를 만들지 못했습니다");
       pb.resource = input.resource;
       pb.cacheFile = input.cacheFile;
+      pb.input = input.health;
 
       await commitPlaying(this, pb, source, { continued });
       this.lifecycle.to("playing");
@@ -452,7 +457,11 @@ class Player {
       decoder.kill("SIGKILL");
       return false;
     }
+    // 갈아타면 곡 끝 판정은 캐시 파일 쪽을 본다. 버린 스트림이 늦게 남기는 표시는 이 재생과 무관하다
+    const pb = this.playback;
+    const health = new InputHealth().watch(decoder);
     splicer.once("switched", (ms: number) => {
+      if (pb) pb.input = health;
       log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
       // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
       wlog.debug(`무지연 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
@@ -823,15 +832,16 @@ class Player {
     const manualSkip = MANUAL_ENDS.has(reason);
     // 재생 스트림이 깨졌으면 길이와 상관없이 끊긴 것이다(길이를 모르는 곡도 다시 연다)
     const streamError = reason === "stream-error";
-    const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && (streamError || (durationMs > 0 && playedMs + 1500 < durationMs));
+    const broken = brokenInput(this.playback, reason);
+    const endedUnexpectedly = Boolean(finishedTrack) && !manualSkip && (streamError || broken !== null || (durationMs > 0 && playedMs + 1500 < durationMs));
     // 라이브는 길이가 없어 "일찍 끝났다"로 가를 수 없다. ffmpeg의 종료 코드로 가른다.
     // 0이면 방송이 끝난 것(EOF)이라 다음 곡으로 넘기고, 그 밖은 사고라 다시 연다.
-    const liveDropped = Boolean(this.playback?.live) && !manualSkip && (streamError || this.playback?.liveExitCode !== 0);
+    const liveDropped = Boolean(this.playback?.live) && !manualSkip && (streamError || this.playback?.input?.exitCode !== 0);
 
     const label = this._trackLabel(finishedTrack);
     log.info(`트랙 종료: ${label} | 원인=${reason}`);
     // 재생/길이 대조는 종료 감시 판정용 수치라 조사할 때만 본다.
-    wlog.debug(`트랙 종료 상세: 재생 ${(playedMs / 1000).toFixed(1)}초 / 길이 ${durationMs > 0 ? durationMs / 1000 + "초" : "모름"}`);
+    wlog.debug(`트랙 종료 상세: ${endDetail(playedMs, durationMs, broken)}`);
     return { playedMs, label, dropped: endedUnexpectedly || liveDropped, live: liveDropped };
   }
 

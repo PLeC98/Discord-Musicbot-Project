@@ -12,8 +12,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
+import { EventEmitter } from "node:events";
 import { Player } from "../../src/player/Player.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
+import { InputHealth } from "../../src/media/inputHealth.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fakePlayer as asPlayer } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
@@ -128,5 +130,33 @@ test("예약했는지를 돌려준다 — 청크 스트림이 이어받을지 �
   cacheAs(Buffer.alloc(4096));
   const sp = fakeSplicer();
   assert.equal(planCacheSwitch.call(fakePlayer({ track: TRACK }), sp, TRACK), true);
+  sp.calls[0].next.destroy?.();
+});
+
+// ── 갈아탄 뒤 곡 끝 판정이 볼 입력 ────────────────────────────
+
+test("갈아타면 재생이 가리키는 입력이 캐시 디코더의 것으로 바뀌고, 버린 스트림에 늦게 오는 표시는 섞이지 않는다", () => {
+  cacheAs(Buffer.alloc(4096));
+  const switched: Array<(ms: number) => void> = [];
+  const sp = { ...fakeSplicer(), once: (_event: string, fn: (ms: number) => void) => switched.push(fn) };
+  const decoder = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true });
+  const streamSide = new InputHealth();
+  const player = asPlayer({
+    currentTrack: TRACK,
+    playback: { startOffsetMs: 0, input: streamSide },
+    io: { spawnFfmpeg: () => decoder },
+    _trackLabel: Player.prototype._trackLabel,
+  });
+
+  assert.equal(planCacheSwitch.call(player, sp, TRACK), true);
+  assert.equal(player.playback?.input, streamSide, "전환 전에는 스트림 쪽을 본다");
+  switched.forEach((fn) => fn(6000));
+  const fileSide = player.playback?.input;
+  assert.notEqual(fileSide, streamSide);
+
+  streamSide.mark("입력 스트림이 덜 받고 끝남");
+  assert.equal(fileSide?.broken, null, "버린 스트림의 표시는 캐시 쪽과 무관하다");
+  decoder.emit("exit", 1, null);
+  assert.match(fileSide?.broken ?? "", /종료 코드 1/, "캐시 디코더의 종료 코드를 본다");
   sp.calls[0].next.destroy?.();
 });

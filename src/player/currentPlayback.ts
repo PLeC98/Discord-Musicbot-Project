@@ -9,6 +9,7 @@ import type { QueuedTrack } from "./track.ts";
 import type { Transport } from "../rules/transportOf.ts";
 import type { Segments } from "../sources/sponsorBlock.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
+import type { InputHealth } from "../media/inputHealth.ts";
 
 /** 같은 곡 안에서 위치를 옮길 때 다시 쓸 스트림 주소(startPlayback 이 남긴다) */
 type Resume = { trackKey: string | null; platform: string; fetchedAt: number; resumeSupported: boolean; baseUrl: string | null; info: Partial<StreamInfo> };
@@ -22,7 +23,7 @@ class CurrentPlayback {
   isLive: boolean | null;
   sponsor: Segments | null;
   live: boolean;
-  liveExitCode: number | null;
+  input: InputHealth | null;
   inputProgressAt: number | null;
   resume: Resume | null;
 
@@ -35,7 +36,7 @@ class CurrentPlayback {
     this.isLive = null; // 지금 라이브인가(yt-dlp 의 답). 모르면 null
     this.sponsor = null; // SponsorBlock 구간 · 하이라이트(서버 설정으로 거른 것)
     this.live = false; // 라이브를 주소 갈래로 트는가. 끝 처리가 재연결 여부를 이걸로 가른다
-    this.liveExitCode = null; // 그 갈래 ffmpeg 의 종료 코드(끝났으면)
+    this.input = null; // 지금 소리를 내는 소스의 온전함. 캐시로 갈아타면 그쪽 것으로 바뀐다
     this.inputProgressAt = null; // 입력이 마지막으로 들어온 때. 버퍼링 감시가 본다
     this.resume = null; // 위치 재개에 다시 쓸 스트림 정보(같은 곡에서만)
   }
