@@ -17,7 +17,7 @@ test("이전 → 지금을 보이고 막대는 없다. 같으면 그대로라고
 
 test("명령과 입력 창이 같은 화면을 쓴다(따로 그리지 않는다)", () => {
   const root = path.join(import.meta.dirname, "..", "..");
-  for (const file of ["commands/volume.ts", "events/modalHandler.ts"]) {
+  for (const file of ["commands/volume.ts", "interactions/modalHandler.ts"]) {
     const src = fs.readFileSync(path.join(root, file), "utf8");
     assert.match(src, /volumeChanged\(/, file);
     assert.doesNotMatch(src, /[█▓░]/, `${file} 에 막대가 남았다`);

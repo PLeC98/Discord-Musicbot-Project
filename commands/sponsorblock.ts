@@ -1,9 +1,9 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
-import { buildSponsorConfigMessage, registerPending } from "../events/sponsorConfigHandler.ts";
+import { buildSponsorConfigMessage, registerPending } from "../interactions/sponsorConfigHandler.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
-// 실제 저장/취소 처리는 events/sponsorConfigHandler.ts (customId: sb:*)
+// 실제 저장/취소 처리는 interactions/sponsorConfigHandler.ts (customId: sb:*)
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("sponsorblock").setDescription("Configure SponsorBlock auto-skip").setDescriptionLocalizations({ ko: "SponsorBlock 자동 스킵을 설정합니다" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 

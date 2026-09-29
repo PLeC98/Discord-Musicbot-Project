@@ -43,7 +43,7 @@ const isRootConfig = (rel: string) => rel === "config.ts";
 function layerOf(rel: string) {
   if (isRootIndex(rel)) return "app";
   if (isRootConfig(rel)) return "config";
-  if (/^(commands|events|dashboard\/server)\//.test(rel)) return "입구";
+  if (/^(commands|events|interactions|dashboard\/server)\//.test(rel)) return "입구";
   const m = /^src\/([^/]+)\//.exec(rel);
   return m ? m[1] : null;
 }
@@ -275,7 +275,7 @@ function cycleEdges(graph: Map<string, Set<string>>) {
 }
 
 function scan() {
-  const sources = [...walk("src"), ...walk("commands"), ...walk("events"), ...walk("dashboard/server"), "index.ts", "config.ts"].map(scanSource);
+  const sources = [...walk("src"), ...walk("commands"), ...walk("events"), ...walk("interactions"), ...walk("dashboard/server"), "index.ts", "config.ts"].map(scanSource);
   const tests = walk("test").map(scanTest);
 
   const direction: string[] = [];

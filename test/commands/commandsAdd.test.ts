@@ -12,7 +12,7 @@ import searchCommand from "../../commands/search.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { scheduleReplyCleanup, DEFAULT_MS } from "../../src/ui/replyLifetime.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
-import modalHandler from "../../events/modalHandler.ts";
+import interactionCreate from "../../events/interactionCreate.ts";
 import * as genreConfig from "../../src/config/genres.ts";
 import { Player, type PanelMessage } from "../../src/player/Player.ts";
 import type { Requester } from "../../src/player/track.ts";
@@ -34,6 +34,7 @@ import * as More from "../../src/usecases/playlistMore.ts";
 import * as storeDb from "../../src/store/db.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { networkError } from "../helpers/errors.ts";
+import { interactionKind } from "../helpers/interactionKind.ts";
 
 useExampleConfig();
 
@@ -504,14 +505,12 @@ test("/autoplay 장르 선택: 플레이어가 없으면 고른 그때 만들어
     channel: { id: "c1", send: async () => ({}) },
     customId: `autoplay_genre:${USER}:idle`,
     values: [genre],
-    isStringSelectMenu: () => true,
-    isModalSubmit: () => false,
-    inCachedGuild: () => true,
+    ...interactionKind("select"),
     reply: async (m: unknown) => log.push(["reply", m]),
     update: async () => log.push("update"),
   });
 
-  await modalHandler.execute(pick);
+  await interactionCreate.execute(pick);
 
   const created = fresh.client.players.get("g1");
   assert.ok(created instanceof h.Player, JSON.stringify(log));
@@ -533,14 +532,12 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
     channel: { id: "c1", send: async () => ({}) },
     customId: `autoplay_genre:${USER}:idle`,
     values: [genre],
-    isStringSelectMenu: () => true,
-    isModalSubmit: () => false,
-    inCachedGuild: () => true,
+    ...interactionKind("select"),
     reply: async (m: { content?: string }) => log.push(m.content),
     update: async () => log.push("update"),
   });
 
-  await modalHandler.execute(pick);
+  await interactionCreate.execute(pick);
 
   assert.deepEqual(log, [S.ERR_VOICE_REQUIRED]);
   assert.equal(away.client.players.has("g1"), false);

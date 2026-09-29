@@ -25,7 +25,8 @@ const store = openTempStore("control-entrances-");
 after(() => store.close());
 
 import express from "express";
-const buttonHandler = (await import("../events/buttonHandler.ts")).default;
+import { interactionKind } from "./helpers/interactionKind.ts";
+const interactionCreate = (await import("../events/interactionCreate.ts")).default;
 const { createGuildsRouter } = await import("../dashboard/server/routes/guilds.ts");
 const { createPlayerStream } = await import("../dashboard/server/playerStream.ts");
 
@@ -128,8 +129,7 @@ function fakeInteraction({ customId = null as string | null, options = {} as Rec
     client,
     customId,
     channel: {},
-    isButton: () => true,
-    inCachedGuild: () => true,
+    ...interactionKind("button"),
     options: { getString: (n: string) => options[n] ?? null, getInteger: (n: string) => options[n] ?? null },
     reply: async () => {
       it.replied = true;
@@ -155,7 +155,7 @@ async function viaCommand(op: string, state: string) {
 async function viaButton(op: string, state: string) {
   const acts = arrange(state);
   const { it, shown } = fakeInteraction({ customId: `${BUTTON[op]}:u1:S1` });
-  await buttonHandler.execute(it);
+  await interactionCreate.execute(it);
   return outcome(acts, shown);
 }
 

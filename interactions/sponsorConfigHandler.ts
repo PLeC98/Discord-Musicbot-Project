@@ -1,8 +1,8 @@
-import { Events, EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, type ButtonInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { SKIP_CATEGORIES, categoryLabel } from "../src/rules/sponsorCategories.ts";
 import config from "../config.ts";
-import type { ClientEvent } from "../src/app/main.ts";
+import { route, type Route } from "./route.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -66,56 +66,50 @@ async function saveDraft(guildId: string, state: Draft) {
   return categories.length ? categories.map(categoryLabel).join(", ") : "선택된 구간 없음(사실상 미적용)";
 }
 
-const exported: ClientEvent<Events.InteractionCreate> = {
-  name: Events.InteractionCreate,
+// 구간 종류 메뉴(sb:cats)와 사용 토글 · 저장 · 취소 버튼(sb:)
+async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cached"> | ButtonInteraction<"cached">) {
+  sweepPending();
 
-  async execute(interaction) {
-    const isSelect = interaction.isStringSelectMenu() && interaction.customId === "sb:cats";
-    const isButton = interaction.isButton() && interaction.customId.startsWith("sb:");
-    if (!isSelect && !isButton) return;
-    if (!interaction.inCachedGuild()) return;
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    return interaction.reply({ content: "❌ 서버 관리 권한이 필요해요.", flags: MessageFlags.Ephemeral });
+  }
 
-    sweepPending();
+  const mid = interaction.message.id;
+  const state = pending.get(mid) ?? (await restoreDraft(mid, interaction.guild.id));
 
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-      return interaction.reply({ content: "❌ 서버 관리 권한이 필요해요.", flags: MessageFlags.Ephemeral });
-    }
+  if (interaction.isStringSelectMenu()) {
+    state.categories = [...interaction.values];
+    state.at = Date.now();
+    return interaction.deferUpdate();
+  }
 
-    const mid = interaction.message.id;
-    const state = pending.get(mid) ?? (await restoreDraft(mid, interaction.guild.id));
+  if (interaction.customId === "sb:toggle") {
+    state.enabled = !state.enabled;
+    state.at = Date.now();
+    return interaction.update(buildSponsorConfigMessage(state));
+  }
 
-    if (isSelect) {
-      state.categories = [...interaction.values];
-      state.at = Date.now();
-      return interaction.deferUpdate();
-    }
+  if (interaction.customId === "sb:cancel") {
+    pending.delete(mid);
+    return interaction.update({ embeds: [new EmbedBuilder().setTitle("⏭️ SponsorBlock 설정 취소됨").setDescription("변경 사항 없이 닫았어요.").setColor("#99AAB5")], components: [] });
+  }
 
-    if (interaction.customId === "sb:toggle") {
-      state.enabled = !state.enabled;
-      state.at = Date.now();
-      return interaction.update(buildSponsorConfigMessage(state));
-    }
+  if (interaction.customId === "sb:save") {
+    pending.delete(mid);
+    const summary = await saveDraft(interaction.guild.id, state);
+    return interaction.update({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("⏭️ SponsorBlock 설정 저장됨")
+          .setDescription(`사용: **${state.enabled ? "예" : "아니오"}**\n구간: ${summary}`)
+          .setColor("#57F287")
+          .setTimestamp(),
+      ],
+      components: [],
+    });
+  }
+}
 
-    if (interaction.customId === "sb:cancel") {
-      pending.delete(mid);
-      return interaction.update({ embeds: [new EmbedBuilder().setTitle("⏭️ SponsorBlock 설정 취소됨").setDescription("변경 사항 없이 닫았어요.").setColor("#99AAB5")], components: [] });
-    }
+const routes: Route[] = [route("select", "sb:cats", handleSponsorConfig), route("button", "sb:", handleSponsorConfig)];
 
-    if (interaction.customId === "sb:save") {
-      pending.delete(mid);
-      const summary = await saveDraft(interaction.guild.id, state);
-      return interaction.update({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle("⏭️ SponsorBlock 설정 저장됨")
-            .setDescription(`사용: **${state.enabled ? "예" : "아니오"}**\n구간: ${summary}`)
-            .setColor("#57F287")
-            .setTimestamp(),
-        ],
-        components: [],
-      });
-    }
-  },
-};
-export default exported;
-export { buildSponsorConfigMessage, registerPending };
+export { routes, buildSponsorConfigMessage, registerPending };

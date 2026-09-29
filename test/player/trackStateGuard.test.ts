@@ -6,7 +6,7 @@ import fs from "fs";
 import path from "path";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
-const DIRS = ["src", "commands", "events", path.join("dashboard", "server")];
+const DIRS = ["src", "commands", "events", "interactions", path.join("dashboard", "server")];
 const OWNER = path.join("src", "player", "trackState.ts");
 
 const FORBIDDEN = [/\.queue\s*=(?!=)/, /\.queue\.(push|unshift|splice|shift|pop|sort|reverse|fill|copyWithin)\(/, /\.queue\[[^\]]*\]\]?\s*=(?!=)/, /\.currentTrack\s*=(?!=)/, /\.previousTracks\s*=(?!=)/, /\.previousTracks\.(push|unshift|splice|shift|pop)\(/];

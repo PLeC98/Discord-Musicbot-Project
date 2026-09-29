@@ -1,4 +1,4 @@
-import { Events, EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client } from "discord.js";
+import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
@@ -19,24 +19,11 @@ import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
-import type { ClientEvent } from "../src/app/main.ts";
+import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
-import { messageOf } from "../src/rules/errorKind.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
-
-// customId 앞머리로 가르는 버튼. 플레이어 없이도 눌린다. null 은 다른 처리기(djRoleConfigHandler · sponsorConfigHandler)가 받는다.
-// 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
-const FREE: Array<[prefix: string, ((it: Press) => unknown) | null]> = [
-  ["djrole:", null],
-  ["sb:", null],
-  ["search_", (it) => handleSearchInteraction(it, it.client)],
-  ["help_refresh", (it) => handleHelpRefresh(it)],
-  ["system_refresh", (it) => handleSystemRefresh(it)],
-  ["music_autoplay:", (it) => handleAutoplayButton(it)],
-  [PAGE_PREFIX, (it) => handleQueuePage(it)],
-];
 
 // 재생 패널의 버튼. customId 는 "이름:요청자:세션"
 const PANEL: Record<string, (it: Press, player: Player) => unknown> = {
@@ -57,19 +44,13 @@ async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
 
-  try {
-    const [name, , sessionId] = interaction.customId.split(":");
-    if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-      return await interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
-    }
-    const handle = PANEL[name];
-    if (!handle) return await interaction.reply({ content: "❌ 알 수 없는 상호작용!", flags: [1 << 6] });
-    await handle(interaction, player);
-  } catch (error) {
-    log.error(`패널 버튼 처리 실패(${interaction.customId}):`, error);
-    if (interaction.replied || interaction.deferred) return;
-    await interaction.reply({ content: S.ERR_PROCESSING, flags: [1 << 6] }).catch((replyError) => log.warn(`오류 안내 전송 실패: ${messageOf(replyError)}`));
+  const [name, , sessionId] = interaction.customId.split(":");
+  if (sessionId && player.sessionId && sessionId !== player.sessionId) {
+    return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
   }
+  const handle = PANEL[name];
+  if (!handle) return interaction.reply({ content: "❌ 알 수 없는 상호작용!", flags: [1 << 6] });
+  await handle(interaction, player);
 }
 
 async function handlePause(interaction: Press, player: Player) {
@@ -391,14 +372,8 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   }
 }
 
-const exported: ClientEvent<Events.InteractionCreate> = {
-  name: Events.InteractionCreate,
-  async execute(interaction) {
-    if (!interaction.isButton() || !interaction.inCachedGuild()) return;
-    const route = FREE.find(([prefix]) => interaction.customId.startsWith(prefix));
-    if (route) return route[1]?.(interaction);
-    return handlePanelButton(interaction);
-  },
-};
-export default exported;
-export { handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
+// custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
+// 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
+const routes: Route[] = [route("button", "search_", (it) => handleSearchInteraction(it, it.client)), route("button", "help_refresh", handleHelpRefresh), route("button", "system_refresh", handleSystemRefresh), route("button", "music_autoplay:", handleAutoplayButton), route("button", PAGE_PREFIX, handleQueuePage), route("button", "music_", handlePanelButton)];
+
+export { routes, handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };

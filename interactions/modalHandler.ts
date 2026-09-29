@@ -1,8 +1,5 @@
-import { Events, EmbedBuilder, MessageFlags, type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { EmbedBuilder, MessageFlags, type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import config from "../config.ts";
-import logger from "../src/infra/log/logger.ts";
-import { messageOf } from "../src/rules/errorKind.ts";
-const log = logger.child({ category: "events" });
 import * as genreConfig from "../src/config/genres.ts";
 import * as S from "../src/ui/strings.ts";
 import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
@@ -11,7 +8,7 @@ import { expireReply } from "../src/ui/replyLifetime.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import { volumeChanged } from "../src/ui/volumeReply.ts";
-import type { ClientEvent } from "../src/app/main.ts";
+import { route, type Route } from "./route.ts";
 
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, client: Client<true>) {
   const guild = interaction.guild;
@@ -103,44 +100,7 @@ async function handleVolumeModal(interaction: ModalSubmitInteraction<"cached">, 
   await interaction.reply({ embeds: [volumeChanged({ before: r.before, level: r.level, by: interaction.member })], flags: MessageFlags.Ephemeral });
 }
 
-const exported: ClientEvent<Events.InteractionCreate> = {
-  name: Events.InteractionCreate,
-  async execute(interaction) {
-    if (!interaction.isModalSubmit() && !interaction.isStringSelectMenu()) return;
-    if (!interaction.inCachedGuild()) return;
-    // 다른 처리기가 맡는 것. 재생목록 더 넣기(playlistMoreHandler.ts) · SponsorBlock 설정(sponsorConfigHandler.ts)
-    if (/^(plmm?|sb):/.test(interaction.customId)) return;
+// 자동재생 장르 · 곡으로 건너뛰기 메뉴와 음량 입력 모달
+const routes: Route[] = [route("select", "autoplay_genre:", (it) => handleAutoplayGenre(it, it.client)), route("select", "music_jumpto:", (it) => handleJumpTo(it, it.client)), route("modal", "volume_modal", (it) => handleVolumeModal(it, it.client))];
 
-    const client = interaction.client;
-
-    try {
-      // 선택 메뉴 처리
-      if (interaction.isStringSelectMenu()) {
-        if (interaction.customId.startsWith("autoplay_genre:")) {
-          await handleAutoplayGenre(interaction, client);
-          return;
-        }
-        if (interaction.customId.startsWith("music_jumpto:")) {
-          await handleJumpTo(interaction, client);
-          return;
-        }
-      }
-
-      // 모달 처리
-      if (interaction.isModalSubmit() && interaction.customId === "volume_modal") {
-        await handleVolumeModal(interaction, client);
-        return;
-      }
-      await interaction.reply({
-        content: "❌ 알 수 없는 모달!",
-        flags: MessageFlags.Ephemeral,
-      });
-    } catch (error) {
-      log.error(`모달 · 선택 메뉴 처리 실패(${interaction.customId}):`, error);
-      if (interaction.replied || interaction.deferred) return;
-      await interaction.reply({ content: S.ERR_PROCESSING, flags: MessageFlags.Ephemeral }).catch((replyError) => log.warn(`오류 안내 전송 실패: ${messageOf(replyError)}`));
-    }
-  },
-};
-export default exported;
-export { handleAutoplayGenre, handleJumpTo, handleVolumeModal };
+export { routes, handleAutoplayGenre, handleJumpTo, handleVolumeModal };

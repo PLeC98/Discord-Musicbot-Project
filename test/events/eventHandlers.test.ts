@@ -9,13 +9,14 @@ import os from "node:os";
 import path from "node:path";
 import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
-import { PermissionFlagsBits, type ClientEvents, type Interaction, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
 import { Player } from "../../src/player/Player.ts";
 import type { Range } from "../../src/sources/lookup.ts";
 import type { MoreState } from "../../src/usecases/playlistMore.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
+import { interactionKind } from "../helpers/interactionKind.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -30,8 +31,8 @@ const More = await import("../../src/usecases/playlistMore.ts");
 const addTracks = await import("../../src/usecases/addTracks.ts");
 const messageHandler = (await import("../../events/messageHandler.ts")).default;
 const panelPin = (await import("../../events/panelPin.ts")).default;
-const playlistMoreHandler = (await import("../../events/playlistMoreHandler.ts")).default;
-const modalHandler = (await import("../../events/modalHandler.ts")).default;
+const interactionCreate = (await import("../../events/interactionCreate.ts")).default;
+
 const channelDelete = (await import("../../events/channelDelete.ts")).default;
 
 const USER = "111111111111111111";
@@ -371,10 +372,8 @@ function moreInteraction(w: World, { select = null, modalCount = null, customSta
     values: isSelect ? [select] : [],
     fields: { getTextInputValue: () => modalCount },
     message: { id: messageId, createdTimestamp: touched, editedTimestamp: null },
-    isStringSelectMenu: () => isSelect,
-    isModalSubmit: () => !isSelect,
+    ...interactionKind(isSelect ? "select" : "modal"),
     isFromMessage: () => true,
-    inCachedGuild: () => true,
     reply: async (p: Shown) => log.push(["reply", p.content]),
     deferUpdate: async () => log.push(["deferUpdate"]),
     deleteReply: async () => log.push(["deleteReply"]),
@@ -385,52 +384,51 @@ function moreInteraction(w: World, { select = null, modalCount = null, customSta
   return { it, log, messageId };
 }
 
-test("더 넣기: 다른 상호작용 · 모르는 상태는 무시하거나 거절한다", async () => {
+test("더 넣기: 모르는 상태는 거절한다", async () => {
   const w = world();
-  await playlistMoreHandler.execute(fake<Interaction>({ inCachedGuild: () => true, isStringSelectMenu: () => true, isModalSubmit: () => false, customId: "music_jumpto:x" }));
   const { it, log } = moreInteraction(w, { select: "10", customId: "plm:zzz:bad:1:x:b" });
-  await playlistMoreHandler.execute(it);
+  await interactionCreate.execute(it);
   assert.deepEqual(log, [["reply", S.withErrorMark("알 수 없는 메뉴예요.")]]);
 });
 
 test("더 넣기: 그만 넣기는 넣은 사람만. 넣은 사람이 누르면 바로 지운다", async () => {
   const w = world();
   const other = moreInteraction(w, { select: "stop", userId: OTHER });
-  await playlistMoreHandler.execute(other.it);
+  await interactionCreate.execute(other.it);
   assert.deepEqual(other.log, [["reply", S.withErrorMark("목록을 넣은 사람만 닫을 수 있어요.")]]);
 
   const mine = moreInteraction(w, { select: "stop" });
-  await playlistMoreHandler.execute(mine.it);
+  await interactionCreate.execute(mine.it);
   assert.deepEqual(mine.log, [["deferUpdate"], ["deleteReply"]]);
 });
 
 test("더 넣기: 시간이 지난 메뉴 · 권한 · 플레이어 없음은 거절", async () => {
   const w = world();
   const old = moreInteraction(w, { select: "10", touched: Date.now() - 31_000 });
-  await playlistMoreHandler.execute(old.it);
+  await interactionCreate.execute(old.it);
   assert.deepEqual(old.log, [["reply", S.withErrorMark("시간이 지나 닫힌 메뉴예요. 링크를 다시 넣어 주세요.")]]);
 
   const noVoice = world({ userVoice: "v2" });
   const denied = moreInteraction(noVoice, { select: "10" });
-  await playlistMoreHandler.execute(denied.it);
+  await interactionCreate.execute(denied.it);
   assert.deepEqual(denied.log, [["reply", S.withErrorMark(S.ERR_SAME_CHANNEL)]]);
 
   const empty = world();
   empty.client.players.clear();
   const none = moreInteraction(empty, { select: "10" });
-  await playlistMoreHandler.execute(none.it);
+  await interactionCreate.execute(none.it);
   assert.deepEqual(none.log, [["reply", S.withErrorMark(S.ERR_NO_MUSIC)]]);
 });
 
 test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거절", async () => {
   const w = world();
   const custom = moreInteraction(w, { select: "custom" });
-  await playlistMoreHandler.execute(custom.it);
+  await interactionCreate.execute(custom.it);
   assert.equal(custom.log[0][0], "showModal");
   assert.ok(custom.log[0][1]?.startsWith(`${More.MODAL_PREFIX}:`));
 
   const bad = moreInteraction(w, { modalCount: "많이" });
-  await playlistMoreHandler.execute(bad.it);
+  await interactionCreate.execute(bad.it);
   assert.deepEqual(bad.log, [["reply", S.withErrorMark("넣을 곡 수를 1 이상의 숫자로 적어 주세요.")]]);
 });
 
@@ -443,7 +441,7 @@ test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 
   };
   const { it, log, messageId } = moreInteraction(w, { select: "2" });
   try {
-    await playlistMoreHandler.execute(it);
+    await interactionCreate.execute(it);
   } finally {
     More.clearExpiry(messageId);
   }
@@ -470,10 +468,8 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
     replied: false,
     deferred: false,
     fields: { getTextInputValue: () => volume },
-    isStringSelectMenu: () => select,
-    isModalSubmit: () => !select,
+    ...interactionKind(select ? "select" : "modal"),
     isFromMessage: () => true,
-    inCachedGuild: () => true,
     reply: async (p: Shown) => {
       it.replied = true;
       log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title]);
@@ -483,53 +479,46 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
   return { it, log };
 }
 
-test("모달: 다른 처리기가 맡는 것(재생목록 더 넣기 · SponsorBlock)은 건드리지 않는다. 모르는 모달은 알린다", async () => {
+test("모달: 모르는 모달은 알린다", async () => {
   const w = world();
-  const plm = menu(w, { customId: "plm:x" });
-  await modalHandler.execute(plm.it);
-  assert.deepEqual(plm.log, []);
-  // SponsorBlock 카테고리 선택은 sponsorConfigHandler 가 답한다. 여기서도 답하면 한 상호작용에 두 번 응답한다
-  const sb = menu(w, { customId: "sb:cats" });
-  await modalHandler.execute(sb.it);
-  assert.deepEqual(sb.log, []);
   const unknown = menu(w, { customId: "who_knows", select: false });
-  await modalHandler.execute(unknown.it);
-  assert.deepEqual(unknown.log, [["reply", "❌ 알 수 없는 모달!"]]);
+  await interactionCreate.execute(unknown.it);
+  assert.deepEqual(unknown.log, [["reply", "❌ 알 수 없는 상호작용!"]]);
 });
 
 test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async () => {
   const w = world();
   const pick = menu(w, { customId: "autoplay_genre:x", values: ["가요"] });
-  await modalHandler.execute(pick.it);
+  await interactionCreate.execute(pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
   assert.deepEqual(pick.log, [["update", "🎲 자동 재생이 활성화되었습니다"]]);
 
   const w2 = world();
   w2.player.currentTrack = { title: "지금 곡" };
-  await modalHandler.execute(menu(w2, { customId: "autoplay_genre:x", values: ["가요"] }).it);
+  await interactionCreate.execute(menu(w2, { customId: "autoplay_genre:x", values: ["가요"] }).it);
   assert.deepEqual(w2.seen, ["autoplay:가요", "update"]);
 
   const unknown = menu(world(), { customId: "autoplay_genre:x", values: ["없는장르"] });
-  await modalHandler.execute(unknown.it);
+  await interactionCreate.execute(unknown.it);
   assert.match(unknown.log[0][1] ?? "", /알 수 없는 장르입니다: `없는장르`/);
 
   await settings.setDjRoles("g1", ["dj"]);
   const denied = menu(world(), { customId: "autoplay_genre:x", values: ["가요"] });
-  await modalHandler.execute(denied.it);
+  await interactionCreate.execute(denied.it);
   assert.deepEqual(denied.log, [["reply", S.ERR_NOT_AUTHORIZED]]);
 });
 
 test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {
   const w = world();
   const ok = menu(w, { customId: "volume_modal", volume: "35", select: false });
-  await modalHandler.execute(ok.it);
+  await interactionCreate.execute(ok.it);
   assert.deepEqual(w.seen, ["volume:35"]);
   assert.deepEqual(ok.log, [["reply", "🔊 볼륨이 변경되었습니다"]]);
 
   // "50abc" 를 50 으로 읽지 않는다(parseInt 가 그랬다)
   for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
     const r = menu(world(), { customId: "volume_modal", volume: bad, select: false });
-    await modalHandler.execute(r.it);
+    await interactionCreate.execute(r.it);
     assert.deepEqual(r.log, [["reply", "❌ 볼륨은 0에서 100 사이의 숫자여야 합니다!"]], bad);
   }
 });
@@ -539,7 +528,7 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   const [a, b, c] = [{ title: "A" }, { title: "B" }, { title: "C" }];
   w.player.queue = [a, b, c];
   const jump = menu(w, { customId: "music_jumpto:u:S1", values: ["2"] });
-  await modalHandler.execute(jump.it);
+  await interactionCreate.execute(jump.it);
   assert.deepEqual(w.player.queue, [c, a, b]);
   assert.deepEqual(w.seen, ["skip:jump"]);
   assert.deepEqual(jump.log, [["reply", "⏭️ **C**로 이동했습니다!"]]);
@@ -548,7 +537,7 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   w2.player.queue = [a, b, c];
   w2.player.skipResult = false;
   const fail = menu(w2, { customId: "music_jumpto:u:S1", values: ["1"] });
-  await modalHandler.execute(fail.it);
+  await interactionCreate.execute(fail.it);
   assert.deepEqual(w2.player.queue, [a, b, c], "되돌린다");
   assert.deepEqual(fail.log, [["reply", "❌ 곡으로 이동하지 못했습니다!"]]);
 });
@@ -557,10 +546,10 @@ test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async 
   const w = world();
   w.player.queue = [{ title: "A" }];
   const stale = menu(w, { customId: "music_jumpto:u:OLD", values: ["0"] });
-  await modalHandler.execute(stale.it);
+  await interactionCreate.execute(stale.it);
   assert.deepEqual(stale.log, [["reply", S.ERR_SESSION_INVALID]]);
   const bad = menu(w, { customId: "music_jumpto:u:S1", values: ["5"] });
-  await modalHandler.execute(bad.it);
+  await interactionCreate.execute(bad.it);
   assert.deepEqual(bad.log, [["reply", "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!"]]);
 });
 
@@ -570,6 +559,6 @@ test("모달: 처리 중 던지면 일반 오류 문장", async () => {
     throw new Error("boom");
   };
   const r = menu(w, { customId: "volume_modal", volume: "10", select: false });
-  await modalHandler.execute(r.it);
+  await interactionCreate.execute(r.it);
   assert.deepEqual(r.log, [["reply", S.ERR_PROCESSING]]);
 });

@@ -13,7 +13,7 @@ import { pathToFileURL } from "node:url";
 const load = (file: string) => import(pathToFileURL(file).href);
 
 const ROOT = path.join(import.meta.dirname, "..");
-const DIRS = ["src", "commands", "events", path.join("dashboard", "server")];
+const DIRS = ["src", "commands", "events", "interactions", path.join("dashboard", "server")];
 
 function walk(dir: string, out: string[] = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

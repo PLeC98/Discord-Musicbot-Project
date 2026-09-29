@@ -16,6 +16,7 @@ import { command, run } from "../helpers/commands.ts";
 import { whenSettingsBroken } from "../helpers/tempStore.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/Player.ts";
+import { interactionKind } from "../helpers/interactionKind.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -27,8 +28,8 @@ const config = (await import("../../config.ts")).default;
 const S = await import("../../src/ui/strings.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const { SKIP_CATEGORIES } = await import("../../src/rules/sponsorCategories.ts");
-const sponsorConfig = (await import("../../events/sponsorConfigHandler.ts")).default;
-const { buildSponsorConfigMessage } = await import("../../events/sponsorConfigHandler.ts");
+const interactionCreate = (await import("../../events/interactionCreate.ts")).default;
+const { buildSponsorConfigMessage } = await import("../../interactions/sponsorConfigHandler.ts");
 
 after(() => {
   audioCache.close();
@@ -348,9 +349,7 @@ function sbInteraction({ customId, values = [], messageId = "reply-msg", manage 
     guild: { id: "g1" },
     message: { id: messageId },
     memberPermissions: { has: (p: bigint) => manage && p === PermissionFlagsBits.ManageGuild },
-    isStringSelectMenu: () => customId === "sb:cats",
-    isButton: () => customId !== "sb:cats",
-    inCachedGuild: () => true,
+    ...interactionKind(customId === "sb:cats" ? "select" : "button"),
     reply: async (p: Sent) => log.push(["reply", p.content ?? null]),
     deferUpdate: async () => log.push(["deferUpdate"]),
     update: async (p: Sent) => log.push(["update", p.embeds[0].data.title ?? null, p.embeds[0].data.description ?? null, p.components.length]),
@@ -369,27 +368,23 @@ test("/sponsorblock: 지금 설정으로 화면을 띄우고 보류 상태를 �
 
   // 보류 상태를 이어받는지: 토글하면 사용 → 미사용
   const toggle = sbInteraction({ customId: "sb:toggle" });
-  await sponsorConfig.execute(fake<Interaction>(toggle.it));
+  await interactionCreate.execute(fake<Interaction>(toggle.it));
   assert.match(String(toggle.log[0][2]), /미사용/);
 });
 
-test("SponsorBlock 화면: 서버 관리 권한이 필요하고, 다른 상호작용은 무시한다", async () => {
+test("SponsorBlock 화면: 서버 관리 권한이 필요하다", async () => {
   const denied = sbInteraction({ customId: "sb:save", manage: false });
-  await sponsorConfig.execute(fake<Interaction>(denied.it));
+  await interactionCreate.execute(fake<Interaction>(denied.it));
   assert.deepEqual(denied.log, [["reply", "❌ 서버 관리 권한이 필요해요."]]);
-  const other = sbInteraction({ customId: "music_skip" });
-  other.it.isButton = () => true;
-  await sponsorConfig.execute(fake<Interaction>(other.it));
-  assert.deepEqual(other.log, []);
 });
 
 test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저장한다. 보류가 없으면 지금 설정에서 시작한다", async () => {
   const pick = sbInteraction({ customId: "sb:cats", values: ["intro", "nope", "intro", "outro"], messageId: "m-save" });
-  await sponsorConfig.execute(fake<Interaction>(pick.it));
+  await interactionCreate.execute(fake<Interaction>(pick.it));
   assert.deepEqual(pick.log, [["deferUpdate"]]);
 
   const save = sbInteraction({ customId: "sb:save", messageId: "m-save" });
-  await sponsorConfig.execute(fake<Interaction>(save.it));
+  await interactionCreate.execute(fake<Interaction>(save.it));
   settings._reset();
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
   assert.equal(save.log[0][1], "⏭️ SponsorBlock 설정 저장됨");
@@ -399,21 +394,21 @@ test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저
 
 test("SponsorBlock 화면: 끄고 저장하면 미사용, 구간을 비우고 저장하면 사실상 미적용, 취소하면 그대로 닫는다", async () => {
   const toggle = sbInteraction({ customId: "sb:toggle", messageId: "m-off" });
-  await sponsorConfig.execute(fake<Interaction>(toggle.it));
+  await interactionCreate.execute(fake<Interaction>(toggle.it));
   const save = sbInteraction({ customId: "sb:save", messageId: "m-off" });
-  await sponsorConfig.execute(fake<Interaction>(save.it));
+  await interactionCreate.execute(fake<Interaction>(save.it));
   assert.match(String(save.log[0][2]), /구간: 미사용/);
 
   settings._reset();
   storeDb.get().exec("DELETE FROM guild_settings;"); // 앞에서 끈 채로 저장한 값을 지워, 새 보류가 "사용"에서 시작하게
   const empty = sbInteraction({ customId: "sb:cats", values: [], messageId: "m-empty" });
-  await sponsorConfig.execute(fake<Interaction>(empty.it));
+  await interactionCreate.execute(fake<Interaction>(empty.it));
   const saveEmpty = sbInteraction({ customId: "sb:save", messageId: "m-empty" });
-  await sponsorConfig.execute(fake<Interaction>(saveEmpty.it));
+  await interactionCreate.execute(fake<Interaction>(saveEmpty.it));
   assert.match(String(saveEmpty.log[0][2]), /선택된 구간 없음\(사실상 미적용\)/);
 
   const cancel = sbInteraction({ customId: "sb:cancel", messageId: "m-cancel" });
-  await sponsorConfig.execute(fake<Interaction>(cancel.it));
+  await interactionCreate.execute(fake<Interaction>(cancel.it));
   assert.deepEqual(cancel.log, [["update", "⏭️ SponsorBlock 설정 취소됨", "변경 사항 없이 닫았어요.", 0]]);
 });
 

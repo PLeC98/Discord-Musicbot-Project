@@ -1,6 +1,6 @@
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.ts).
 
-import { Events, MessageFlags, type ActionRowBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
+import { MessageFlags, type ActionRowBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as S from "../src/ui/strings.ts";
@@ -9,7 +9,7 @@ import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { continueCollection } from "../src/usecases/addTracks.ts";
 import * as More from "../src/usecases/playlistMore.ts";
-import type { ClientEvent } from "../src/app/main.ts";
+import { route, type Route } from "./route.ts";
 import type { MoreState } from "../src/usecases/playlistMore.ts";
 import type { Player } from "../src/player/Player.ts";
 
@@ -109,13 +109,7 @@ async function handleMore(interaction: MoreInteraction) {
   if (count) await addMore(interaction, state, count, player);
 }
 
-const exported: ClientEvent<Events.InteractionCreate> = {
-  name: Events.InteractionCreate,
-  async execute(interaction) {
-    if (!interaction.inCachedGuild()) return;
-    if (interaction.isStringSelectMenu() && interaction.customId.startsWith(`${More.SELECT_PREFIX}:`)) return handleMore(interaction);
-    // 곡 수 입력 모달은 메뉴 메시지에서 연다(그 메시지를 고친다)
-    if (interaction.isModalSubmit() && interaction.customId.startsWith(`${More.MODAL_PREFIX}:`) && interaction.isFromMessage()) return handleMore(interaction);
-  },
-};
-export default exported;
+// 곡 수 입력 모달은 메뉴 메시지에서 연다(그 메시지를 고친다). 메시지에서 온 것이 아니면 받지 않는다
+const routes: Route[] = [route("select", `${More.SELECT_PREFIX}:`, handleMore), route("modal", `${More.MODAL_PREFIX}:`, (it) => (it.isFromMessage() ? handleMore(it) : undefined))];
+
+export { routes };

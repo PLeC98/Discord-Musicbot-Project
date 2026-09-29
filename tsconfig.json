@@ -18,5 +18,5 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "commands/**/*.ts", "events/**/*.ts", "interactions/**/*.ts", "dashboard/server/**/*.ts", "index.ts", "config.ts", "scripts/**/*.ts", "test/**/*.ts"]
 }
