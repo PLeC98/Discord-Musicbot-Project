@@ -5,6 +5,8 @@ import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { messageOf } from "../src/rules/errorKind.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as settingsText from "../src/ui/text/settings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 const log = logger.child({ category: "commands" });
 
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.panels?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
@@ -46,30 +48,32 @@ const exported: GuildCommand = {
       await GuildSettingsManager.clearBotChannel(guildId);
       await movePanel(interaction);
 
+      const t = settingsText.channelRemoved();
       return await interaction.reply({
-        embeds: [new EmbedBuilder().setTitle("🔧 봇 채널 제거됨").setDescription("봇 전용 채널 설정이 해제됐어요.\n이제 `/play` 명령어로만 음악을 요청할 수 있어요.").setColor(colorOf("closed")).setTimestamp()],
+        embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed")).setTimestamp()],
       });
     }
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
-    if (!channel) return interaction.reply({ content: "❌ 채널 설정 중 오류가 발생했어요.", flags: MessageFlags.Ephemeral }); // 캐시에 없는 채널
+    if (!channel) return interaction.reply({ content: errors.channelSetFailed(), flags: MessageFlags.Ephemeral }); // 캐시에 없는 채널
     const success = await GuildSettingsManager.setBotChannel(guildId, channel.id);
 
     if (!success) {
       return await interaction.reply({
-        content: "❌ 채널 설정 중 오류가 발생했어요.",
+        content: errors.channelSetFailed(),
         flags: MessageFlags.Ephemeral,
       });
     }
 
+    const t = settingsText.channelSet(`${channel}`);
     await interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setTitle("✅ 봇 채널 설정됨")
-          .setDescription(`${channel}이(가) 봇 전용 채널로 설정됐어요!\n\n` + `이 채널에 음악 링크나 검색어를 입력하면 자동으로 재생해요.\n` + `대시보드의 공지 발송도 이 채널을 우선으로 사용해요.`)
+          .setTitle(t.title)
+          .setDescription(t.description)
           .addFields({
-            name: "📋 지원 입력",
-            value: "• YouTube, Spotify, SoundCloud URL\n• 곡 이름이나 아티스트 검색어",
+            name: t.inputs,
+            value: t.inputsValue,
             inline: false,
           })
           .setColor(colorOf("done"))

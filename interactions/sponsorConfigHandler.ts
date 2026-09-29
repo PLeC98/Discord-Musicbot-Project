@@ -4,6 +4,8 @@ import { SKIP_CATEGORIES, categoryLabel } from "../src/rules/sponsorCategories.t
 import config from "../config.ts";
 import { route, type Route } from "./route.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as settingsText from "../src/ui/text/settings.ts";
+import * as errors from "../src/ui/text/errors.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -22,13 +24,12 @@ function sweepPending() {
 
 function buildSponsorConfigMessage({ enabled, categories }: Draft) {
   const cats = new Set(categories);
-  const lines = [config.sponsorblock.enabled ? "" : "⚠️ 봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 설정은 적용되지 않습니다.", `현재: ${enabled ? "**사용**" : "**미사용**"}`, "", "건너뛸 구간 종류를 아래에서 고르고 **저장**을 누르세요. 사용 여부는 버튼으로 토글합니다."].filter((l) => l !== "");
-
-  const embed = new EmbedBuilder().setTitle("⏭️ SponsorBlock 자동 스킵 설정").setDescription(lines.join("\n")).setColor(colorOf("settings"));
+  const t = settingsText.sponsorMenu({ enabled, globalOff: !config.sponsorblock.enabled });
+  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("settings"));
 
   const select = new StringSelectMenuBuilder()
     .setCustomId("sb:cats")
-    .setPlaceholder("건너뛸 구간 종류 선택")
+    .setPlaceholder(t.placeholder)
     .setMinValues(0)
     .setMaxValues(SKIP_CATEGORIES.length)
     .addOptions(SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: cats.has(id) })));
@@ -36,10 +37,10 @@ function buildSponsorConfigMessage({ enabled, categories }: Draft) {
   const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId("sb:toggle")
-      .setLabel(enabled ? "사용 중 (끄기)" : "미사용 (켜기)")
+      .setLabel(t.toggle)
       .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("sb:save").setLabel("저장").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("sb:cancel").setLabel("취소").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("sb:save").setLabel(settingsText.buttons().save).setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("sb:cancel").setLabel(settingsText.buttons().cancel).setStyle(ButtonStyle.Secondary),
   );
 
   return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select), buttons] };
@@ -63,8 +64,7 @@ async function saveDraft(guildId: string, state: Draft) {
   const valid = new Set(SKIP_CATEGORIES);
   const categories = [...new Set(state.categories.filter((c) => valid.has(c)))];
   await GuildSettingsManager.setSponsorBlock(guildId, { enabled: state.enabled, categories });
-  if (!state.enabled) return "미사용";
-  return categories.length ? categories.map(categoryLabel).join(", ") : "선택된 구간 없음(사실상 미적용)";
+  return settingsText.sponsorSummary(state.enabled, categories.map(categoryLabel));
 }
 
 // 구간 종류 메뉴(sb:cats)와 사용 토글 · 저장 · 취소 버튼(sb:)
@@ -72,7 +72,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
   sweepPending();
 
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply({ content: "❌ 서버 관리 권한이 필요해요.", flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: errors.needManageGuild(), flags: MessageFlags.Ephemeral });
   }
 
   const mid = interaction.message.id;
@@ -92,20 +92,15 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
 
   if (interaction.customId === "sb:cancel") {
     pending.delete(mid);
-    return interaction.update({ embeds: [new EmbedBuilder().setTitle("⏭️ SponsorBlock 설정 취소됨").setDescription("변경 사항 없이 닫았어요.").setColor(colorOf("closed"))], components: [] });
+    const t = settingsText.sponsorCancelled();
+    return interaction.update({ embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed"))], components: [] });
   }
 
   if (interaction.customId === "sb:save") {
     pending.delete(mid);
-    const summary = await saveDraft(interaction.guild.id, state);
+    const t = settingsText.sponsorSaved(state.enabled, await saveDraft(interaction.guild.id, state));
     return interaction.update({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("⏭️ SponsorBlock 설정 저장됨")
-          .setDescription(`사용: **${state.enabled ? "예" : "아니오"}**\n구간: ${summary}`)
-          .setColor(colorOf("done"))
-          .setTimestamp(),
-      ],
+      embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("done")).setTimestamp()],
       components: [],
     });
   }

@@ -29,6 +29,14 @@ const liveNoLoop = () => "❌ 라이브 방송이 있으면 반복을 켤 수 �
 const badTime = () => "❌ 올바른 형식으로 입력하세요. (예: `1:30`, `3m20s`, `90`)";
 // 곡으로 건너뛰기 메뉴에서 고른 곡이 대기열에 없다(메뉴를 연 뒤 대기열이 바뀌었다)
 const jumpTargetGone = () => "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!";
+// 설정 화면은 서버 관리 권한이 있어야 만진다
+const needManageGuild = () => "❌ 서버 관리 권한이 필요해요.";
+const channelSetFailed = () => "❌ 채널 설정 중 오류가 발생했어요.";
+const settingsSaveFailed = () => "❌ 설정을 저장하지 못했어요.";
+// 재생목록 한 번에 넣는 곡 수가 범위 밖이다. queueCap 은 범위의 끝이 대기열 상한이라 그렇다면 그 상한
+const playlistLimitOutOfRange = (min: number, max: number, queueCap: number | null) => `❌ ${min}~${max}곡 사이로 정해 주세요.${queueCap ? ` 대기열 상한(${queueCap}곡)보다 클 수 없어요.` : ""}`;
+// 전용 채널이 있으면 /dashboard 는 그 채널에서만. channelId 는 전용 채널
+const onlyInBotChannel = (channelId: string) => `❌ 이 명령어는 <#${channelId}> 채널에서만 사용할 수 있습니다!`;
 
 // 오류 종류(rules/errorKind)마다
 const BY_KIND: Record<string, string> = {
@@ -109,5 +117,5 @@ const REFUSAL: Record<string, (r: Refusal) => string> = {
 /** 거절 까닭의 문장. 모르는 까닭은 일반 실패 */
 const refusal = (r: Refusal) => REFUSAL[r.code]?.(r) ?? "❌ 작업이 실패했습니다!";
 
-export { withErrorMark, withoutErrorMark, voiceRequired, noPlayer, sameChannelRequired, notDj, noTrack, botCannotJoin, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, badTime, jumpTargetGone, forKind, playFailure, cannotStart, noResult, refusal };
+export { withErrorMark, withoutErrorMark, voiceRequired, noPlayer, sameChannelRequired, notDj, noTrack, botCannotJoin, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, badTime, jumpTargetGone, needManageGuild, channelSetFailed, settingsSaveFailed, playlistLimitOutOfRange, onlyInBotChannel, forKind, playFailure, cannotStart, noResult, refusal };
 export type { Refusal };

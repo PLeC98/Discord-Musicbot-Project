@@ -17,7 +17,7 @@ const exported: GuildCommand = {
     const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
     if (botChannelId && guild.channels.cache.has(botChannelId)) {
       if (channel.id !== botChannelId) {
-        return interaction.reply({ content: `❌ 이 명령어는 <#${botChannelId}> 채널에서만 사용할 수 있습니다!`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: errors.onlyInBotChannel(botChannelId), flags: MessageFlags.Ephemeral });
       }
     } else {
       const permErr = await checkControl(member);
