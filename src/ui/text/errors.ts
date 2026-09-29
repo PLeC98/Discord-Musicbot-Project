@@ -37,6 +37,11 @@ const settingsSaveFailed = () => "❌ 설정을 저장하지 못했어요.";
 const playlistLimitOutOfRange = (min: number, max: number, queueCap: number | null) => `❌ ${min}~${max}곡 사이로 정해 주세요.${queueCap ? ` 대기열 상한(${queueCap}곡)보다 클 수 없어요.` : ""}`;
 // 전용 채널이 있으면 /dashboard 는 그 채널에서만. channelId 는 전용 채널
 const onlyInBotChannel = (channelId: string) => `❌ 이 명령어는 <#${channelId}> 채널에서만 사용할 수 있습니다!`;
+// 봇 운영자(OWNER_ID)만 쓰는 화면을 다른 사람이 열었다
+const ownerOnly = () => "❌ 봇 운영자만 사용할 수 있습니다!";
+// 새로고침 버튼이 화면을 다시 그리다 실패했다
+const helpRefreshFailed = () => "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!";
+const systemRefreshFailed = () => "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!";
 
 // 오류 종류(rules/errorKind)마다
 const BY_KIND: Record<string, string> = {
@@ -117,5 +122,5 @@ const REFUSAL: Record<string, (r: Refusal) => string> = {
 /** 거절 까닭의 문장. 모르는 까닭은 일반 실패 */
 const refusal = (r: Refusal) => REFUSAL[r.code]?.(r) ?? "❌ 작업이 실패했습니다!";
 
-export { withErrorMark, withoutErrorMark, voiceRequired, noPlayer, sameChannelRequired, notDj, noTrack, botCannotJoin, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, badTime, jumpTargetGone, needManageGuild, channelSetFailed, settingsSaveFailed, playlistLimitOutOfRange, onlyInBotChannel, forKind, playFailure, cannotStart, noResult, refusal };
+export { withErrorMark, withoutErrorMark, voiceRequired, noPlayer, sameChannelRequired, notDj, noTrack, botCannotJoin, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, badTime, jumpTargetGone, needManageGuild, channelSetFailed, settingsSaveFailed, playlistLimitOutOfRange, onlyInBotChannel, ownerOnly, helpRefreshFailed, systemRefreshFailed, forKind, playFailure, cannotStart, noResult, refusal };
 export type { Refusal };

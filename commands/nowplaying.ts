@@ -7,16 +7,18 @@ import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Player } from "../src/player/Player.ts";
 import type { QueuedTrack } from "../src/player/track.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as infoText from "../src/ui/text/info.ts";
+import * as errors from "../src/ui/text/errors.ts";
 
 // 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다
 function progressField(player: Player, track: QueuedTrack, currentMs: number) {
   const live = Boolean(player.isLive ?? track.isLive);
   if (!live && !(track.duration > 0)) return null;
-  return { name: "⏱️ 진행", value: progressBar(Math.floor(currentMs / 1000), track.duration || 0, { live }), inline: false };
+  return { name: infoText.nowPlaying().progress, value: progressBar(Math.floor(currentMs / 1000), track.duration || 0, { live }), inline: false };
 }
 
 function createErrorEmbed(message: string) {
-  return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor(colorOf("error")).setTimestamp();
+  return new EmbedBuilder().setTitle(infoText.errorTitle()).setDescription(message).setColor(colorOf("error")).setTimestamp();
 }
 
 const exported: GuildCommand = {
@@ -30,14 +32,14 @@ const exported: GuildCommand = {
     const player = client.players.get(guild.id);
     if (!player) {
       return await interaction.reply({
-        embeds: [createErrorEmbed("현재 재생 중인 음악이 없습니다!")],
+        embeds: [createErrorEmbed(errors.withoutErrorMark(errors.noPlayer()))],
         flags: MessageFlags.Ephemeral,
       });
     }
 
     if (!player.currentTrack) {
       return await interaction.reply({
-        embeds: [createErrorEmbed("현재 재생 중인 노래가 없습니다!")],
+        embeds: [createErrorEmbed(errors.withoutErrorMark(errors.noTrack()))],
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -48,18 +50,19 @@ const exported: GuildCommand = {
 
     const platformCode = (track.platform || "").toString().toLowerCase();
 
-    const embed = new EmbedBuilder().setTitle("🎵 현재 재생 중").setDescription(`**[${track.title}](${track.pageUrl})**`).setColor(colorOf("brand")).setTimestamp();
+    const t = infoText.nowPlaying();
+    const embed = new EmbedBuilder().setTitle(t.title).setDescription(`**[${track.title}](${track.pageUrl})**`).setColor(colorOf("brand")).setTimestamp();
 
     if (track.artist) {
-      embed.addFields({ name: "🎤 아티스트", value: track.artist, inline: true });
+      embed.addFields({ name: t.artist, value: track.artist, inline: true });
     }
 
     if (track.album) {
-      embed.addFields({ name: "💿 앨범", value: track.album, inline: true });
+      embed.addFields({ name: t.album, value: track.album, inline: true });
     }
 
     embed.addFields({
-      name: "🎵 플랫폼",
+      name: t.platform,
       value: `${emojiOf(platformCode)} ${labelOf(platformCode)}`,
       inline: true,
     });
@@ -69,30 +72,13 @@ const exported: GuildCommand = {
 
     if (track.requestedBy) {
       embed.addFields({
-        name: "👤 요청자",
+        name: t.requester,
         value: `<@${track.requestedBy.id}>`,
         inline: true,
       });
     }
 
-    let statusText = "";
-    if (status.playing) {
-      statusText += "▶️ 재생 중";
-    } else if (status.paused) {
-      statusText += "⏸️ 일시정지";
-    } else {
-      statusText += "⏹️ 중지됨";
-    }
-
-    statusText += ` • 🔊 ${status.volume}%`;
-
-    if (status.loop === "track") {
-      statusText += " • 🔂 트랙 반복";
-    } else if (status.loop === "queue") {
-      statusText += " • 🔁 대기열 반복";
-    }
-
-    embed.addFields({ name: "📊 상태", value: statusText, inline: false });
+    embed.addFields({ name: t.status, value: infoText.nowPlayingStatus(status), inline: false });
 
     // 썸네일 추가
     if (track.thumbnail) {

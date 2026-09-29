@@ -18,6 +18,7 @@ import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as infoText from "../src/ui/text/info.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -228,15 +229,15 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
 }
 
 function handleHelpRefresh(interaction: Press) {
-  return refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!" });
+  return refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: errors.helpRefreshFailed() });
 }
 
 async function handleSystemRefresh(interaction: Press) {
   // /system과 동일하게 봇 운영자 전용
   if (interaction.user.id !== config.dashboard.ownerId) {
-    return await interaction.reply({ content: "❌ 봇 운영자만 사용할 수 있습니다!", flags: MessageFlags.Ephemeral });
+    return await interaction.reply({ content: errors.ownerOnly(), flags: MessageFlags.Ephemeral });
   }
-  return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!" });
+  return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.systemRefreshFailed() });
 }
 
 // 검색 결과 고르기 · 취소. 검색한 사람만 누를 수 있다. 고른 영상은 다시 찾는다(받아 둔 곡이면 캐시에서)
@@ -290,7 +291,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   await responder.dismissPlaceholder();
 }
 
-const errorEmbed = (message: string) => new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor(colorOf("error")).setTimestamp();
+const errorEmbed = (message: string) => new EmbedBuilder().setTitle(infoText.errorTitle()).setDescription(message).setColor(colorOf("error")).setTimestamp();
 
 // custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다

@@ -6,6 +6,8 @@ import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
 import { SYSTEM, customId } from "../src/ui/customIds.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as infoText from "../src/ui/text/info.ts";
+import * as errors from "../src/ui/text/errors.ts";
 
 const UPTIME = { withSeconds: true };
 
@@ -25,45 +27,44 @@ function buildSystemEmbed(client: Client<true>) {
   const guildCount = client.guilds.cache.size;
   const activeCount = client.players?.size ?? 0;
 
+  const t = infoText.system({
+    botUptime: formatSpan(process.uptime(), UPTIME),
+    osUptime: formatSpan(os.uptime(), UPTIME),
+    guilds: guildCount,
+    playing: activeCount,
+    memoryBar: loadBar(usedMem, totalMem),
+    memoryUsed: formatBytes(usedMem),
+    memoryTotal: formatBytes(totalMem),
+    heapUsed: formatBytes(mem.heapUsed),
+    heapTotal: formatBytes(mem.heapTotal),
+    rss: formatBytes(mem.rss),
+    cpuModel: cpus[0]?.model,
+    cores: cpus.length,
+    load: load.map((n) => n.toFixed(2)),
+    node: process.version,
+    discordJs: djsVersion,
+    platform: `${os.platform()} ${os.arch()}`,
+    pid: process.pid,
+  });
   const embed = new EmbedBuilder()
-    .setTitle("🖥️ 시스템 상태")
+    .setTitle(t.title)
     .setColor(colorOf("brand"))
     .setThumbnail(client.user.displayAvatarURL())
     .addFields(
-      {
-        name: "⏱️ 업타임",
-        value: [`**봇:** ${formatSpan(process.uptime(), UPTIME)}`, `**OS:** ${formatSpan(os.uptime(), UPTIME)}`].join("\n"),
-        inline: true,
-      },
-      {
-        name: "🎵 봇 현황",
-        value: [`**서버:** ${guildCount}개`, `**재생 중:** ${activeCount}개`].join("\n"),
-        inline: true,
-      },
+      { ...t.uptime, inline: true },
+      { ...t.bot, inline: true },
       {
         name: "​",
         value: "​",
         inline: true,
       },
-      {
-        name: "💾 메모리",
-        value: [`**시스템:** ${loadBar(usedMem, totalMem)} (${formatBytes(usedMem)} / ${formatBytes(totalMem)})`, `**Heap 사용:** ${formatBytes(mem.heapUsed)} / ${formatBytes(mem.heapTotal)}`, `**RSS:** ${formatBytes(mem.rss)}`].join("\n"),
-        inline: false,
-      },
-      {
-        name: "⚙️ CPU",
-        value: [`**모델:** ${cpus[0]?.model ?? "알 수 없음"} (${cpus.length}코어)`, `**부하 (1m/5m/15m):** \`${load[0].toFixed(2)}\` / \`${load[1].toFixed(2)}\` / \`${load[2].toFixed(2)}\``].join("\n"),
-        inline: false,
-      },
-      {
-        name: "🔧 런타임",
-        value: [`**Node.js:** ${process.version}`, `**discord.js:** v${djsVersion}`, `**플랫폼:** ${os.platform()} ${os.arch()}`, `**PID:** ${process.pid}`].join("\n"),
-        inline: false,
-      },
+      { ...t.memory, inline: false },
+      { ...t.cpu, inline: false },
+      { ...t.runtime, inline: false },
     )
     .setTimestamp();
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId(customId(SYSTEM, "refresh")).setLabel("새로고침").setEmoji("🔄").setStyle(ButtonStyle.Secondary));
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId(customId(SYSTEM, "refresh")).setLabel(infoText.refresh()).setEmoji("🔄").setStyle(ButtonStyle.Secondary));
 
   return { embed, row };
 }
@@ -74,7 +75,7 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     // 호스트 CPU/메모리/디스크 정보 노출. Discord 권한으로 표현할 수 없는 봇 운영자(OWNER_ID) 전용
     if (interaction.user.id !== config.dashboard.ownerId) {
-      return interaction.reply({ content: "❌ 봇 운영자만 사용할 수 있습니다!", flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: errors.ownerOnly(), flags: MessageFlags.Ephemeral });
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
