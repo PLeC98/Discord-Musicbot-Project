@@ -444,9 +444,9 @@ test("로그: 검색어와 고른 곡을 틀거나 넣기 전에 info 한 줄로
   assert.match(listed.lines[0], /^info 곡 요청: \/play \| carl \| "https:\/\/x\/list" → .*2곡 \(첫 곡 "A"\) \| 맨 앞$/);
 });
 
-test("로그: 검색 결과에서 고른 곡은 그 검색어와 몇 번째를 싣는다", async () => {
-  const { lines } = await requestLines({ source: "/search 2번째", tracks: [track("곡B")], searched: "b words" });
-  assert.deepEqual(lines, ['info 곡 요청: /search 2번째 | carl | "b words" → "곡B" (https://x/곡B)']);
+test("로그: 이미 찾은 곡(더 넣기)은 검색어 없이 고른 곡과 주소를 싣는다", async () => {
+  const { lines } = await requestLines({ source: "더 넣기", tracks: [track("곡B")] });
+  assert.deepEqual(lines, ['info 곡 요청: 더 넣기 | carl → "곡B" (https://x/곡B)']);
 });
 
 test("로그: 못 찾으면 요청 줄에 까닭, 담지 못했거나 상한으로 뺐으면 한 줄 더", async () => {

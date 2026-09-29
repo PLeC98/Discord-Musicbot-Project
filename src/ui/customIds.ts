@@ -7,6 +7,7 @@ const AUTOPLAY = "autoplay"; // 자동재생 장르 메뉴
 const QUEUE = "queue"; // 대기열 보기의 넘기기
 const HELP = "help";
 const SYSTEM = "system";
+const SEARCH = "search"; // 검색 결과 고르기 search:pick:요청자:번호:영상 ID · 취소 search:cancel:요청자
 
 /** 끝난 패널의 세션 표식. 플레이어가 없을 때만 통한다 */
 const IDLE_SESSION = "idle";
@@ -22,4 +23,4 @@ function partsOf(id: string) {
 
 const panelId = (action: string, sessionId: string) => customId(PANEL, action, sessionId);
 
-export { PANEL, AUTOPLAY, QUEUE, HELP, SYSTEM, IDLE_SESSION, customId, partsOf, panelId };
+export { PANEL, AUTOPLAY, QUEUE, HELP, SYSTEM, SEARCH, IDLE_SESSION, customId, partsOf, panelId };

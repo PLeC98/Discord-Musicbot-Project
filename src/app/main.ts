@@ -118,7 +118,6 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
   client.commands = new Collection();
   client.players = new PlayerRegistry(); // 등록·해제를 로그로 남기는 Collection
   client.players.followDisposals(); // 버려진 플레이어는 등록부가 스스로 뺀다
-  client.searchResults = new Map();
   client.musicEmbedManager = new MusicEmbedManager(client);
   const stream = createPlayerStream();
   startDashboard(client, { stream, deployCommands: commandLoader.deployCommands });

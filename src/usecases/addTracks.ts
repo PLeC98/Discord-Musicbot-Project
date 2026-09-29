@@ -97,14 +97,13 @@ async function resolveFallbackTextChannel(guild: Guild) {
 }
 
 /**
- * 곡 추가/재생 요청. 검색어(query)나 이미 찾은 곡(tracks, 검색 선택 경로) 가운데 하나는 있어야 한다.
+ * 곡 추가/재생 요청. 검색어(query)나 이미 찾은 곡(tracks) 가운데 하나는 있어야 한다.
  * textChannel 은 안내 · 패널을 보낼 채널, voiceChannel 은 붙을 음성 채널, single 은 재생목록이어도 첫 곡만,
- * responder 는 결과를 알리는 매체(기본: 무동작), source 는 로그 라벨, searched 는 이미 찾은 곡을 넘길 때 로그에 남길 검색어(검색 결과 고르기)
+ * responder 는 결과를 알리는 매체(기본: 무동작), source 는 로그 라벨
  */
 type PlaybackRequest = {
   guild: Guild;
   requester: RequesterSource;
-  searched?: string | null;
   collection?: string | null;
   textChannel?: GuildTextBasedChannel | null;
   voiceChannel?: VoiceBasedChannel | null;
@@ -218,8 +217,8 @@ function placement({ insertFirst = false, insertAfterId = null }: PlaybackReques
 }
 
 // 조작 하나에 info 한 줄: 누가 무엇을 찾아 무엇이 골라졌나. 틀거나 넣기 전에 남겨, 곧바로 튼 곡의 "재생" 줄보다 앞선다
-function logRequest({ source = "play", query, searched, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | string) {
-  const asked = query ?? searched ?? null;
+function logRequest({ source = "play", query, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | string) {
+  const asked = query ?? null;
   const head = `곡 요청: ${source} | ${nameOf(who)}${asked ? ` | "${asked}"` : ""}`;
   if (typeof found === "string") {
     log.info({ sub: "play" }, `${head} → 못 넣음: ${S.withoutErrorMark(found)}`);

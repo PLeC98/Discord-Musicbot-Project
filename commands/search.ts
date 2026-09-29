@@ -1,104 +1,56 @@
 import { formatDuration } from "../src/ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as YouTube from "../src/sources/youtube/index.ts";
 import { reportError } from "../src/ui/errorMessages.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import type { ChatInputCommandInteraction, Client, GuildMember } from "discord.js";
+import type { ChatInputCommandInteraction, Client } from "discord.js";
 import type { TrackInfo } from "../src/player/track.ts";
 import { requesterName } from "../src/usecases/addTracks.ts";
+import { SEARCH, customId } from "../src/ui/customIds.ts";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 
-async function validateRequest(member: GuildMember) {
-  // 검색 후 선택은 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
-  const permErr = checkAdd(member) || checkSummon(member);
-  if (permErr) return { success: false, message: permErr };
-  return { success: true };
-}
+const MAX_RESULTS = 9;
 
-/** 검색 결과를 기억해 둔 것. 버튼(이벤트)이 메시지 id 로 찾아 고른 곡을 넣는다 */
-type SearchRecord = { userId: string; query: string; results: TrackInfo[]; timestamp: number };
+// 고른 결과는 버튼이 싣는다(요청자 · 번호 · 영상 ID). 처리는 interactions/buttonHandler 의 검색 처리
+async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "editReply" | "user">, results: TrackInfo[], query: string) {
+  // 버튼이 영상 ID 를 싣는다. 검색 결과는 늘 ID 가 있지만 없는 것은 고를 수 없으니 뺀다
+  const shown = results.flatMap((track) => (track.id ? [{ track, videoId: track.id }] : [])).slice(0, MAX_RESULTS);
 
-async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "editReply" | "user" | "client">, results: TrackInfo[], query: string) {
   const embed = new EmbedBuilder()
     .setTitle(`🔍 "${query}" 검색 결과`)
     .setColor(config.bot.embedColor)
     .setDescription("번호 버튼을 눌러 노래를 선택하세요.")
-    .setFooter({ text: `${results.length}개의 결과` })
+    .setFooter({ text: `${shown.length}개의 결과` })
     .setTimestamp();
 
-  const maxResults = Math.min(results.length, 9);
-  for (let index = 0; index < maxResults; index++) {
-    const result = results[index];
-    const title = result.title || "알 수 없는 제목";
-    const uploader = result.artist || "알 수 없는 채널";
-    const duration = formatDuration(result?.duration, "알 수 없음");
-    const value = `👤 ${uploader} • ⏱️ ${duration}`;
-
-    embed.addFields({
-      name: `${index + 1}. ${title}`,
-      value,
-      inline: false,
-    });
-  }
-
-  // 버튼 생성 (2행, 최대 4+5개)
-  const row1 = new ActionRowBuilder<ButtonBuilder>();
-  const row2 = new ActionRowBuilder<ButtonBuilder>();
-
-  // 노래 9개 + 취소 1개 = 최대 버튼 10개
-  let hasSecondRow = false;
-
-  for (let i = 0; i < maxResults; i++) {
-    const button = new ButtonBuilder()
-      .setCustomId(`search_select_${i}`)
-      .setLabel(`${i + 1}`)
-      .setStyle(ButtonStyle.Secondary);
-
-    // 첫 4개 버튼은 첫 번째 행에, 나머지는 두 번째 행에 배치 (최대 5개)
-    if (i < 4) {
-      row1.addComponents(button);
-    } else if (i < 9) {
-      row2.addComponents(button);
-      hasSecondRow = true;
-    }
-  }
-
-  const cancelButton = new ButtonBuilder().setCustomId("search_cancel").setLabel("취소").setStyle(ButtonStyle.Danger).setEmoji("❌");
-
-  row1.addComponents(cancelButton);
-
-  const components = [row1];
-  if (hasSecondRow && row2.components.length > 0) {
-    components.push(row2);
-  }
-
-  const message = await interaction.editReply({
-    embeds: [embed],
-    components: components,
+  shown.forEach(({ track }, index) => {
+    const title = track.title || "알 수 없는 제목";
+    const uploader = track.artist || "알 수 없는 채널";
+    const duration = formatDuration(track.duration, "알 수 없음");
+    embed.addFields({ name: `${index + 1}. ${title}`, value: `👤 ${uploader} • ⏱️ ${duration}`, inline: false });
   });
 
-  // 검색 결과를 메시지 ID로 키잉해 임시 저장. 사용자 ID 키는 같은 사용자의
-  // 재검색이 이전 메시지의 버튼과 뒤섞이는 문제가 있었음(감사 M-08).
-  // userId는 버튼 처리에서 요청자 본인 확인용
-  const client = interaction.client;
-  client.searchResults.set(message.id, {
-    userId: interaction.user.id,
-    query: query,
-    results: results,
-    timestamp: Date.now(),
-  });
-
-  // 5분 후 정리. 메시지별 키라 다른 검색의 타이머와 간섭하지 않음
-  const timer = setTimeout(
-    () => {
-      client.searchResults.delete(message.id);
-    },
-    5 * 60 * 1000,
+  // 첫 줄에 번호 4개와 취소, 둘째 줄에 나머지 번호 5개(한 줄에 5개까지)
+  const userId = interaction.user.id;
+  const buttons = shown.map(({ videoId }, index) =>
+    new ButtonBuilder()
+      .setCustomId(customId(SEARCH, "pick", userId, index + 1, videoId))
+      .setLabel(`${index + 1}`)
+      .setStyle(ButtonStyle.Secondary),
   );
-  timer.unref?.();
+  const cancelButton = new ButtonBuilder()
+    .setCustomId(customId(SEARCH, "cancel", userId))
+    .setLabel("취소")
+    .setStyle(ButtonStyle.Danger)
+    .setEmoji("❌");
+
+  const components = [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(0, 4), cancelButton)];
+  if (buttons.length > 4) components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(4)));
+
+  await interaction.editReply({ embeds: [embed], components });
 }
 
 /** 유튜브 검색. 생략하면 진짜(시험이 가짜를 넘긴다) */
@@ -125,19 +77,14 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     const query = interaction.options.getString("query", true);
     const member = interaction.member;
 
+    // 검색 뒤 고르기는 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
+    const permErr = checkAdd(member) || checkSummon(member);
+    if (permErr) return interaction.reply({ content: permErr, flags: MessageFlags.Ephemeral });
+
     try {
       await interaction.deferReply();
 
-      // 기본 검사
-      const validationResult = await validateRequest(member);
-      if (!validationResult.success) {
-        return await interaction.editReply({
-          content: validationResult.message,
-        });
-      }
-
-      // 검색 수행
-      const results = await search(query, 9);
+      const results = await search(query, MAX_RESULTS);
       log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
 
       if (!results || results.length === 0) {
@@ -154,5 +101,4 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
   },
 };
 export default exported;
-export { validateRequest, showSearchMenu };
-export type { SearchRecord };
+export { showSearchMenu };

@@ -9,10 +9,9 @@ import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import type { ButtonInteraction, GuildMember } from "discord.js";
+import type { ButtonInteraction } from "discord.js";
 import * as storeDb from "../../src/store/db.ts";
 import { Player } from "../../src/player/Player.ts";
-import type { SearchRecord } from "../../commands/search.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
@@ -30,9 +29,21 @@ const S = await import("../../src/ui/strings.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const playerEvents = await import("../../src/player/events.ts");
 const interactionCreate = (await import("../../events/interactionCreate.ts")).default;
-const permissions = await import("../../src/usecases/permissions.ts");
+const addTracks = await import("../../src/usecases/addTracks.ts");
+const sink = (await import("../../src/infra/log/sink.ts")).default;
+
+// 검색 결과 고르기는 영상을 다시 찾는다. 찾은 주소를 적고 "결과 1" 을 돌려준다
+const asked: string[] = [];
+addTracks.useLookup({
+  resolveQuery: async (query: string) => {
+    asked.push(query);
+    return { success: true, isPlaylist: false, tracks: [youtube("aaaaaaaaaaa", { title: "결과 1" })] };
+  },
+  getCollection: async () => ({ tracks: [], total: null, nextOffset: null }),
+});
 
 after(() => {
+  addTracks.useLookup(null);
   audioCache.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
@@ -55,7 +66,6 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     players: new Map<string, Player>(),
     guilds: { cache: Object.assign(new Map(), { reduce: (_fn: unknown, init: number) => init }) },
     user: { id: "bot", username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
-    searchResults: new Map<string, SearchRecord>(),
     musicEmbedManager: {
       handleMusicData: async (_guildId: string, trackData: { tracks: FakeTrack[] }) => {
         seen.push({ handle: trackData.tracks.map((t) => t.title) });
@@ -334,70 +344,67 @@ test("시스템 새로고침: 봇 운영자만", async () => {
 
 // ── 검색 결과 버튼 ────────────────────────────────────────────────────
 
-function withResults(w: World, { userId = USER, results = [youtube("aaaaaaaaaaa", { title: "결과 1" })] } = {}) {
-  w.client.searchResults.set("search-msg", { userId, query: "q", results, timestamp: Date.now() });
-}
+const PICK = `search:pick:${USER}:1:aaaaaaaaaaa`;
 
-test("검색 버튼: 봇이 음성에 있으면 재적 규칙, 쉬면 본인이 음성에 있어야 한다", async () => {
+test("검색 버튼: 고르기는 곡 추가와 같은 검사. 봇이 음성에 있으면 재적 규칙, 쉬면 소환할 수 있어야 한다", async () => {
   const other = world({ userVoice: "v2" });
-  const a = press(other, "search_select_0");
+  const a = press(other, PICK);
   await interactionCreate.execute(a.it);
   assert.deepEqual(a.log, [["reply", S.ERR_SAME_CHANNEL]]);
 
   const idle = world({ botVoice: null, userVoice: null });
-  const b = press(idle, "search_select_0");
+  const b = press(idle, PICK);
   await interactionCreate.execute(b.it);
   assert.deepEqual(b.log, [["reply", S.ERR_VOICE_REQUIRED]]);
+
+  const denied = world({ botVoice: null, userVoice: "v1" });
+  denied.member.voice.channel = { id: "v1", name: "v1", permissionsFor: () => ({ has: () => false }) };
+  const c = press(denied, PICK);
+  await interactionCreate.execute(c.it);
+  assert.deepEqual(c.log, [["reply", S.ERR_NO_PERMISSIONS]], "봇이 연결 · 말하기 권한이 없으면 /play 처럼 막는다");
+  assert.deepEqual(denied.seen, []);
 });
 
-// 지금 답. /play 의 소환 검사(checkSummon)는 봇이 쉬면 봇의 연결 · 말하기 권한을 보는데, 검색 버튼은 보지 않고 곡을 넘긴다.
-// 8단계가 입구를 하나로 모으며 같은 검사를 쓴다(계획서 #41)
-test("검색 버튼: 봇이 쉴 때 봇에게 연결 권한이 없어도 거절하지 않고 넘긴다", async () => {
-  const w = world({ botVoice: null, userVoice: "v1" });
-  w.member.voice.channel = { id: "v1", name: "v1", permissionsFor: () => ({ has: () => false }) };
-  assert.equal(permissions.checkSummon(fake<GuildMember>(w.member)), S.ERR_NO_PERMISSIONS, "대조: /play 는 여기서 막는다");
-
-  withResults(w);
-  await interactionCreate.execute(press(w, "search_select_0").it);
-  assert.deepEqual(w.seen, [{ handle: ["결과 1"] }]);
-});
-
-test("검색 버튼: 결과가 없거나 남의 검색이거나 번호가 틀리면 거절, 취소하면 지운다", async () => {
+test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 영상 ID 는 거절, 취소는 음성에 없어도 된다", async () => {
   const w = world();
-  const gone = press(w, "search_select_0");
-  await interactionCreate.execute(gone.it);
-  assert.deepEqual(gone.log, [["reply", "❌ 검색 결과를 찾을 수 없거나 만료되었습니다! 다시 검색해 주세요."]]);
-
-  withResults(w, { userId: "someone" });
-  const others = press(w, "search_select_0");
+  const others = press(w, "search:pick:someone:1:aaaaaaaaaaa");
   await interactionCreate.execute(others.it);
   assert.deepEqual(others.log, [["reply", "❌ 검색을 요청한 사용자만 선택할 수 있습니다!"]]);
+  const othersCancel = press(w, "search:cancel:someone");
+  await interactionCreate.execute(othersCancel.it);
+  assert.deepEqual(othersCancel.log, [["reply", "❌ 검색을 요청한 사용자만 선택할 수 있습니다!"]]);
 
-  withResults(w);
-  const bad = press(w, "search_select_7");
-  await interactionCreate.execute(bad.it);
-  assert.deepEqual(bad.log, [["reply", "❌ 잘못된 선택입니다!"]]);
+  for (const id of [`search:pick:${USER}:1:bad`, `search:nope:${USER}:1:aaaaaaaaaaa`]) {
+    const bad = press(w, id);
+    await interactionCreate.execute(bad.it);
+    assert.deepEqual(bad.log, [["reply", S.ERR_UNKNOWN_INTERACTION]], id);
+  }
+  assert.deepEqual(w.seen, []);
 
-  const cancel = press(w, "search_cancel");
+  const away = world({ botVoice: null, userVoice: null });
+  const cancel = press(away, `search:cancel:${USER}`);
   await interactionCreate.execute(cancel.it);
   assert.deepEqual(cancel.log, [["update", "❌ 검색 취소됨"]]);
-  assert.equal(w.client.searchResults.has("search-msg"), false);
 });
 
-test("검색 버튼: 고른 곡을 코어에 넘기고, 처리 중 표시 뒤 검색 메시지를 치운다", async () => {
+test("검색 버튼: 고른 영상을 주소로 다시 찾아 코어에 넘기고, 처리 중 표시 뒤 검색 메시지를 치운다", async () => {
   const w = world();
-  withResults(w);
-  const { it, log } = press(w, "search_select_0");
+  asked.length = 0;
+  const from = sink.buffer.length;
+  const { it, log } = press(w, PICK);
   await interactionCreate.execute(it);
+  assert.deepEqual(asked, ["https://www.youtube.com/watch?v=aaaaaaaaaaa"]);
+  assert.ok(
+    sink.buffer.slice(from).some((e) => e.text.startsWith("곡 요청: /search 1번째 | ")),
+    "몇 번째를 골랐는지 남긴다",
+  );
   assert.deepEqual(w.seen, [{ handle: ["결과 1"] }]);
   assert.deepEqual(log, [["deferUpdate"], ["editReply", "🔄 처리 중..."], ["deleteReply"]]);
-  assert.equal(w.client.searchResults.has("search-msg"), false);
 });
 
 test("검색 버튼: 코어가 실패하면 그 문장, 던지면 일반 오류로 바꾼다", async () => {
   const failed = world({ handle: async () => ({ success: false, message: "대기열이 가득 찼습니다" }) });
-  withResults(failed);
-  const a = press(failed, "search_select_0");
+  const a = press(failed, PICK);
   await interactionCreate.execute(a.it);
   assert.deepEqual(a.log.at(-1), ["editReply", "❌ 오류"]);
 
@@ -406,8 +413,7 @@ test("검색 버튼: 코어가 실패하면 그 문장, 던지면 일반 오류�
       throw new Error("boom");
     },
   });
-  withResults(thrown);
-  const b = press(thrown, "search_select_0");
+  const b = press(thrown, PICK);
   await interactionCreate.execute(b.it);
   assert.deepEqual(b.log.at(-1), ["editReply", "❌ 오류"]);
 });

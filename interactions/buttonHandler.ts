@@ -15,7 +15,7 @@ const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
-import { PANEL, HELP, SYSTEM, customId, partsOf } from "../src/ui/customIds.ts";
+import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
@@ -25,6 +25,8 @@ import type { Player } from "../src/player/Player.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
+
+const VIDEO_ID = /^[\w-]{11}$/;
 
 // 재생 패널의 버튼. custom_id 는 panel:동작:세션
 const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
@@ -278,64 +280,29 @@ async function handleSystemRefresh(interaction: Press) {
   return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!" });
 }
 
+// 검색 결과 고르기 · 취소. 검색한 사람만 누를 수 있다. 고른 영상은 다시 찾는다(받아 둔 곡이면 캐시에서)
 async function handleSearchInteraction(interaction: Press, client: Client<true>) {
-  const member = interaction.member;
-  const guild = interaction.guild;
+  const { member, guild } = interaction;
+  const { action, rest } = partsOf(interaction.customId);
+  const [userId, position, videoId = ""] = rest;
 
-  // 곡 추가 경로. 봇 동작 중에는 재적 규칙만(모더레이터 면제), 유휴 시에는 소환 대상이 필요하므로 본인 재적 필수
-  const botVoiceChannel = guild.members.me?.voice?.channel;
-  if (botVoiceChannel) {
-    const permErr = checkAdd(member);
-    if (permErr) {
-      return await interaction.reply({
-        content: permErr,
-        flags: [1 << 6],
-      });
-    }
-  } else if (!member.voice.channel) {
-    return await interaction.reply({
-      content: S.ERR_VOICE_REQUIRED,
-      flags: [1 << 6],
-    });
+  if (userId !== interaction.user.id) {
+    return await interaction.reply({ content: "❌ 검색을 요청한 사용자만 선택할 수 있습니다!", flags: [1 << 6] });
   }
 
-  // 메시지 ID로 키잉. 같은 사용자의 재검색/다른 서버의 검색과 섞이지 않음
-  const userSearchData = client.searchResults.get(interaction.message.id);
-  if (!userSearchData) {
-    return await interaction.reply({
-      content: "❌ 검색 결과를 찾을 수 없거나 만료되었습니다! 다시 검색해 주세요.",
-      flags: [1 << 6],
-    });
-  }
-
-  if (userSearchData.userId !== interaction.user.id) {
-    return await interaction.reply({
-      content: "❌ 검색을 요청한 사용자만 선택할 수 있습니다!",
-      flags: [1 << 6],
-    });
-  }
-
-  if (interaction.customId === "search_cancel") {
-    client.searchResults.delete(interaction.message.id);
-
+  if (action === "cancel") {
     const embed = new EmbedBuilder().setTitle("❌ 검색 취소됨").setDescription("검색이 취소되었습니다.").setColor("#FF0000").setTimestamp();
-
     return await interaction.update({ embeds: [embed], components: [] });
   }
+  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: [1 << 6] });
 
-  const selectedIndex = parseInt(interaction.customId.replace("search_select_", ""));
-  const selectedTrack = userSearchData.results[selectedIndex];
-
-  if (!selectedTrack) {
-    return await interaction.reply({
-      content: "❌ 잘못된 선택입니다!",
-      flags: [1 << 6],
-    });
-  }
+  // 곡 추가 경로. /play · /search 와 같은 검사
+  const permErr = checkAdd(member) || checkSummon(member);
+  if (permErr) return await interaction.reply({ content: permErr, flags: [1 << 6] });
 
   await interaction.deferUpdate();
 
-  const processingEmbed = new EmbedBuilder().setTitle("🔄 처리 중...").setDescription(`**${selectedTrack.title}** 추가 중...`).setColor("#FFAA00").setTimestamp();
+  const processingEmbed = new EmbedBuilder().setTitle("🔄 처리 중...").setDescription("고른 곡을 추가하는 중...").setColor("#FFAA00").setTimestamp();
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
 
@@ -351,15 +318,12 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     const result = await requestPlayback(client, {
       guild,
       requester: member,
-      tracks: [selectedTrack],
-      searched: userSearchData.query,
+      query: `https://www.youtube.com/watch?v=${videoId}`,
       textChannel: interaction.channel,
       voiceChannel: member.voice.channel ?? null,
       responder,
-      source: `/search ${selectedIndex + 1}번째`,
+      source: `/search ${position}번째`,
     });
-
-    client.searchResults.delete(interaction.message.id);
 
     if (!result.success) {
       const errorEmbed = new EmbedBuilder().setTitle("❌ 오류").setDescription(result.message).setColor("#FF0000").setTimestamp();
@@ -379,7 +343,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 // custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
 const routes: Route[] = [
-  route("button", "search_", (it) => handleSearchInteraction(it, it.client)),
+  route("button", customId(SEARCH, ""), (it) => handleSearchInteraction(it, it.client)),
   route("button", customId(HELP, "refresh"), handleHelpRefresh),
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", PAGE_PREFIX, handleQueuePage),

@@ -104,7 +104,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     createNewMusicEmbed: async (_p: unknown, track: { title: string }, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, opts }),
     deleteWebhookCache: () => {},
   };
-  const client = fakeWith<Client<true>>()({ players: new Map<string, Player>(), searchResults: new Map(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
+  const client = fakeWith<Client<true>>()({ players: new Map<string, Player>(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
   Object.assign(guild, { client });
   // 이미 있는 플레이어(가짜). 시험이 칸을 바꿔 본다
   const existing = fakePlayer({
@@ -283,7 +283,7 @@ test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
 
 // ── /search ───────────────────────────────────────────────────────────
 
-test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 달고, 결과를 메시지 id 로 기억한다", async () => {
+test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼은 검색한 사람 · 번호 · 영상 ID 를 싣는다", async () => {
   const asked: Array<[string, number]> = [];
   const search = async (q: string, n: number) => {
     asked.push([q, n]);
@@ -310,22 +310,20 @@ test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 달고, 결과�
     ["2. 결과 2", "👤 채널 • ⏱️ 1:05"],
   ]);
   const ids = payload.components.flatMap((row) => row.components.map((b) => b.data.custom_id));
-  assert.deepEqual(ids, ["search_select_0", "search_select_1", "search_select_2", "search_select_3", "search_cancel", "search_select_4", "search_select_5"]);
-  const saved = w.client.searchResults.get("edited-msg");
-  assert.ok(saved, "검색 결과를 기억한다");
-  assert.equal(saved.userId, USER);
-  assert.equal(saved.results.length, 6);
+  const pick = (n: number) => `search:pick:${USER}:${n + 1}:v${n}`;
+  assert.deepEqual(ids, [pick(0), pick(1), pick(2), pick(3), `search:cancel:${USER}`, pick(4), pick(5)]);
 });
 
 test("/search: 권한 · 결과 없음 · 오류", async () => {
   const denied = world({ userVoice: "v2" });
   const d = interaction(denied, { options: { query: "x" } });
   await runCommand(await command("search"), d.it, denied.client);
-  // 지금 답. 공개로 미뤄 둔 뒤 권한을 봐서 거절이 채널 전체에 보인다. 8단계가 권한을 먼저 보고 본인에게만 알리게 바꾼다(계획서 #22)
-  assert.deepEqual(d.log, [
-    ["deferReply", undefined],
-    ["editReply", { content: S.ERR_SAME_CHANNEL }],
-  ]);
+  // 권한을 먼저 보고 거절은 본인에게만(공개로 미루지 않는다)
+  assert.deepEqual(d.log, [["reply", { content: S.ERR_SAME_CHANNEL, flags: MessageFlags.Ephemeral }]]);
+  const noJoin = world({ botVoice: null, canJoin: false });
+  const j = interaction(noJoin, { options: { query: "x" } });
+  await runCommand(await command("search"), j.it, noJoin.client);
+  assert.deepEqual(j.log, [["reply", { content: S.ERR_NO_PERMISSIONS, flags: MessageFlags.Ephemeral }]], "봇이 쉬면 소환할 수 있어야 한다");
 
   const none = interaction(world(), { options: { query: "x" } });
   const from = sink.buffer.length;
