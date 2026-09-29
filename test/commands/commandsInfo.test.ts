@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { MessageFlags, PermissionFlagsBits, type Client, type Interaction } from "discord.js";
 
 import * as storeDb from "../../src/store/db.ts";
-import { command, run } from "../helpers/commands.ts";
+import { command, run, runViaEntrance } from "../helpers/commands.ts";
 import { whenSettingsBroken } from "../helpers/tempStore.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/Player.ts";
@@ -125,7 +125,7 @@ test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상�
   assert.equal(log[0][1].embeds[0].data.thumbnail?.url, "https://thumb");
 });
 
-test("/nowplaying: 멈춤 · 중지 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 오류 문장", async () => {
+test("/nowplaying: 멈춤 · 중지 · 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 입구가 알린다", async () => {
   const paused = interaction({ player: nowPlayer({ title: "곡", url: "u", platform: "direct", duration: 0 }, { playing: false, paused: true, volume: 10, loop: "queue" }) });
   await run(await command("nowplaying"), paused.it, paused.client);
   const f = fieldsOf(paused.log[0][1]);
@@ -144,8 +144,8 @@ test("/nowplaying: 멈춤 · 중지 · 대기열 반복, 길이를 모르면 진
       },
     },
   });
-  await run(await command("nowplaying"), broken.it, broken.client);
-  assert.equal(broken.log[0][1].embeds[0].data.description, "현재 재생 중인 정보를 가져오는 중 오류가 발생했습니다!");
+  await runViaEntrance(await command("nowplaying"), broken.it, broken.client);
+  assert.deepEqual(broken.log, [["reply", { content: "❌ 명령어 실행 중 오류가 발생했습니다!", flags: MessageFlags.Ephemeral }]]);
 });
 
 // ── /queue ────────────────────────────────────────────────────────────
@@ -226,13 +226,13 @@ test("/help: 모든 명령을 적는다", async () => {
   );
 });
 
-test("/help: 만들다 던지면 오류 임베드", async () => {
+test("/help: 만들다 던지면 입구가 알린다", async () => {
   const { it, log, client } = interaction();
   client.user.displayAvatarURL = () => {
     throw new Error("x");
   };
-  await run(await command("help"), it, client);
-  assert.equal(log[0][1].embeds[0].data.description, "도움말을 불러오는 중 오류가 발생했습니다!");
+  await runViaEntrance(await command("help"), it, client);
+  assert.deepEqual(log, [["reply", { content: "❌ 명령어 실행 중 오류가 발생했습니다!", flags: MessageFlags.Ephemeral }]]);
 });
 
 test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 바꾼다", async () => {

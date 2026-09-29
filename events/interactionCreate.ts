@@ -1,12 +1,14 @@
 // 상호작용 입구 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼 · 메뉴 · 모달은 종류와 custom_id 앞머리로 처리기를 고른다(interactions/).
-// 처리가 던지면 여기서 한 번 남기고 본인에게만 알린다. 본인에게만 보이는 응답의 수명은 이벤트를 거는 조립(app/main)이 건다.
+// 처리가 던지면 여기서 한 번 남기고 알린다(명령 · 처리기는 제 catch 를 두지 않는다). 본인에게만 보이는 응답의 수명은 이벤트를 거는 조립(app/main)이 건다.
 
 import { Events, MessageFlags, type ChatInputCommandInteraction, type Interaction, type RepliableInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { isDeadInteraction } from "../src/rules/deadInteraction.ts";
-import { messageOf } from "../src/rules/errorKind.ts";
+import { errorKind, messageOf } from "../src/rules/errorKind.ts";
 import * as S from "../src/ui/strings.ts";
+import { errorMessage } from "../src/ui/errorMessages.ts";
+import { failureShow } from "../src/ui/failureNotice.ts";
 import { ROUTES } from "../interactions/index.ts";
 import { componentOf, routeOf, type Route } from "../interactions/route.ts";
 import type { ClientEvent } from "../src/app/main.ts";
@@ -14,16 +16,26 @@ import type { ClientEvent } from "../src/app/main.ts";
 const COMMAND_FAILED = "❌ 명령어 실행 중 오류가 발생했습니다!";
 
 /**
- * 처리가 던졌다. 남기고, 상호작용이 살아 있으면 본인에게만 알린다(이미 답했으면 이어서).
+ * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 가를 수 있는 오류(네트워크 · 봇 감지 등)는
+ * 그 문장으로, 아니면 fallback. 자리표시자를 띄운 처리기가 선언했으면 그 자리에(ui/failureNotice), 미뤄 둔 명령이면
+ * 그 답 자리에, 아니면 본인에게만(이미 답했으면 이어서).
  * 토큰이 죽었으면(10062/40060) 안내 시도가 곧 두 번째 같은 오류라 알리지 않는다
  */
-async function failed(interaction: RepliableInteraction, what: string, error: unknown, notice: string) {
-  log.error(`${what} 처리 실패:`, error);
+async function failed(interaction: RepliableInteraction, what: string, error: unknown, fallback: string) {
+  const kind = errorKind(error);
+  log.error({ kind }, `${what} 처리 실패:`, error);
   if (isDeadInteraction(error)) return;
-  const payload = { content: notice, flags: MessageFlags.Ephemeral } as const;
-  const sending = interaction.replied || interaction.deferred ? interaction.followUp(payload) : interaction.reply(payload);
+  const notice = kind === "unknown" ? fallback : errorMessage(error);
   // 안내 실패는 여기서 끝낸다. 리스너 밖으로 던지면 client "error"를 거쳐 uncaughtException이 된다
-  await sending.catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+  await tell(interaction, notice).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+}
+
+function tell(interaction: RepliableInteraction, notice: string): Promise<unknown> {
+  const show = failureShow(interaction);
+  if (show) return show(notice);
+  if (interaction.isChatInputCommand() && interaction.deferred && !interaction.replied) return interaction.editReply({ content: notice });
+  const payload = { content: notice, flags: MessageFlags.Ephemeral } as const;
+  return interaction.replied || interaction.deferred ? interaction.followUp(payload) : interaction.reply(payload);
 }
 
 async function runCommand(interaction: ChatInputCommandInteraction) {

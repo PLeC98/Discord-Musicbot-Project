@@ -7,7 +7,7 @@
 import { sessions } from "../../src/store/playerSessions.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as tracks from "../helpers/tracks.ts";
-import { command, run as runCommand } from "../helpers/commands.ts";
+import { command, run as runCommand, runViaEntrance } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { scheduleReplyCleanup, DEFAULT_MS } from "../../src/ui/replyLifetime.ts";
@@ -204,7 +204,7 @@ test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /p
   assert.equal(w.handled[0].who?.username, "사용자");
 });
 
-test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 그 오류의 문장으로", async () => {
+test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 입구가 그 오류의 문장으로 바꾼다", async () => {
   const w = world();
   resolveReply = () => ({ success: false, code: "no-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
@@ -215,19 +215,19 @@ test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던
     throw networkError();
   };
   const thrown = interaction(w, { options: { query: "끊김" } });
-  await runCommand(await command("play"), thrown.it, w.client);
+  await runViaEntrance(await command("play"), thrown.it, w.client);
+  assert.equal(thrown.log.length, 2, "검색 중 자리를 바꿀 뿐 따로 알리지 않는다");
   assert.match(lastSent(thrown.log).components[0].error ?? "", /네트워크 오류/);
 });
 
-test("/play: 답하기 전에 던지면 본인에게만 문장으로", async () => {
+test("/play: 답하기 전에 던지면 입구가 본인에게만 알린다", async () => {
   const w = world();
   w.client.musicEmbedManager.createSearchingContainer = () => {
     throw new Error("무언가");
   };
   const { it, log } = interaction(w, { options: { query: "노래" } });
-  await runCommand(await command("play"), it, w.client);
-  assert.equal(log[0][1]?.flags, MessageFlags.Ephemeral);
-  assert.match(log[0][1]?.content ?? "", /예상치 못한 오류/);
+  await runViaEntrance(await command("play"), it, w.client);
+  assert.deepEqual(log, [["reply", { content: "❌ 명령어 실행 중 오류가 발생했습니다!", flags: MessageFlags.Ephemeral }]]);
 });
 
 test("/play: 재생목록이 더 남았으면 채널에 더 넣기 메뉴를 띄운다", async () => {
@@ -264,14 +264,14 @@ test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
     throw networkError();
   };
   const thrown = interaction(w, { options: { query: "끊김" } });
-  await runCommand(await command("playfirst"), thrown.it, w.client);
+  await runViaEntrance(await command("playfirst"), thrown.it, w.client);
   assert.match(lastSent(thrown.log).components[0].error ?? "", /네트워크 오류/);
 
   w.client.musicEmbedManager.createSearchingContainer = () => {
     throw new Error("무언가");
   };
   const early = interaction(w, { options: { query: "노래" } });
-  await runCommand(await command("playfirst"), early.it, w.client);
+  await runViaEntrance(await command("playfirst"), early.it, w.client);
   assert.equal(early.log[0][1]?.flags, MessageFlags.Ephemeral);
 
   resolveReply = () => ({ success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10, tracks: [tracks.youtube("bbbbbbbbbbb", { title: "첫 곡" })] });
@@ -331,13 +331,16 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   assert.deepEqual(none.log.at(-1), ["editReply", { content: "❌ 검색 결과가 없습니다!" }]);
   assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "x" → 결과 없음'));
 
-  // 검색이 찾지 못한 까닭을 그 종류의 문장으로 알린다
+  // 검색이 던지면 입구가 남기고, 미뤄 둔 답 자리에 그 종류의 문장으로 알린다
   const offline = async () => {
     throw networkError();
   };
   const err = interaction(world(), { options: { query: "x" } });
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(err.it), err.it.client, { search: offline });
-  assert.match(String((err.log.at(-1)?.[1] as { content?: string })?.content), /네트워크 오류/);
+  const offlineSearch = { ...searchCommand, execute: (i: ChatInputCommandInteraction<"cached">, c: Client<true>) => searchCommand.execute(i, c, { search: offline }) };
+  await runViaEntrance(offlineSearch, err.it, err.it.client);
+  assert.equal(err.log.length, 2, err.log.map(([name]) => name).join(", "));
+  assert.equal(err.log[1][0], "editReply");
+  assert.match(String(err.log[1][1]?.content), /네트워크 오류/);
 });
 
 // ── /join ─────────────────────────────────────────────────────────────

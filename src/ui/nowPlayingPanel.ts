@@ -917,7 +917,11 @@ class MusicEmbedManager {
         this.stopProgressUpdate(player.guild.id);
         return;
       }
-      this._tickProgress(player).catch(() => this.stopProgressUpdate(player.guild.id));
+      // 고치기 실패는 _onEditFailed 가 가른다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
+      this._tickProgress(player).catch((error) => {
+        log.error(`진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (${player.guild.name ?? player.guild.id}):`, error);
+        this.stopProgressUpdate(player.guild.id);
+      });
     }, 5000);
     this.updateIntervals.set(player.guild.id, intervalId);
   }

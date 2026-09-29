@@ -1,7 +1,5 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
-import logger from "../src/infra/log/logger.ts";
-const log = logger.child({ category: "commands" });
-import { reportError } from "../src/ui/errorMessages.ts";
+import { showFailureWith } from "../src/ui/failureNotice.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
@@ -34,54 +32,44 @@ const exported: GuildCommand = {
     ),
 
   async execute(interaction, client) {
-    try {
-      const query = interaction.options.getString("query", true);
-      const { member, guild, channel } = interaction;
+    const query = interaction.options.getString("query", true);
+    const { member, guild, channel } = interaction;
 
-      const validationResult = await validateRequest(member);
-      if (!validationResult.success) {
-        return await interaction.reply({ content: validationResult.message, flags: MessageFlags.Ephemeral });
-      }
+    const validationResult = await validateRequest(member);
+    if (!validationResult.success) {
+      return await interaction.reply({ content: validationResult.message, flags: MessageFlags.Ephemeral });
+    }
 
-      // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
-      await interaction.reply({
-        components: [client.musicEmbedManager.createSearchingContainer(`**${query}** 검색 중...`)],
+    // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
+    await interaction.reply({
+      components: [client.musicEmbedManager.createSearchingContainer(`**${query}** 검색 중...`)],
+      flags: MessageFlags.IsComponentsV2,
+    });
+    // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다
+    showFailureWith(interaction, (notice) =>
+      interaction.editReply({
+        components: [client.musicEmbedManager.createErrorContainer(notice)],
+        flags: MessageFlags.IsComponentsV2,
+      }),
+    );
+
+    const result = await requestPlayback(client, {
+      guild,
+      requester: member,
+      query,
+      textChannel: channel,
+      voiceChannel: member.voice.channel ?? null,
+      responder: interactionResponder(interaction, client.musicEmbedManager),
+      source: "/play",
+    });
+
+    if (!result.success) {
+      return await interaction.editReply({
+        components: [client.musicEmbedManager.createErrorContainer(result.message)],
         flags: MessageFlags.IsComponentsV2,
       });
-
-      const result = await requestPlayback(client, {
-        guild,
-        requester: member,
-        query,
-        textChannel: channel,
-        voiceChannel: member.voice.channel ?? null,
-        responder: interactionResponder(interaction, client.musicEmbedManager),
-        source: "/play",
-      });
-
-      if (!result.success) {
-        return await interaction.editReply({
-          components: [client.musicEmbedManager.createErrorContainer(result.message)],
-          flags: MessageFlags.IsComponentsV2,
-        });
-      }
-      if (result.more) await offerOnInteraction(interaction, result.more, result.player);
-    } catch (error) {
-      const errorMsg = reportError(error, "play.execute");
-
-      try {
-        if (interaction.replied || interaction.deferred) {
-          await interaction.editReply({
-            components: [client.musicEmbedManager.createErrorContainer(errorMsg)],
-            flags: MessageFlags.IsComponentsV2,
-          });
-        } else {
-          await interaction.reply({ content: errorMsg, flags: MessageFlags.Ephemeral });
-        }
-      } catch (responseError) {
-        log.error("오류 안내 전송 실패:", responseError);
-      }
     }
+    if (result.more) await offerOnInteraction(interaction, result.more, result.player);
   },
 };
 export default exported;

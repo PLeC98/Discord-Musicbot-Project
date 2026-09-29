@@ -17,6 +17,7 @@ const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
 import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
+import { showFailureWith } from "../src/ui/failureNotice.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
@@ -305,6 +306,8 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   const processingEmbed = new EmbedBuilder().setTitle("🔄 처리 중...").setDescription("고른 곡을 추가하는 중...").setColor("#FFAA00").setTimestamp();
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
+  // 여기서부터 던지면 "처리 중" 자리를 오류로 바꾼다
+  showFailureWith(interaction, (notice) => interaction.editReply({ embeds: [errorEmbed(notice)], components: [] }));
 
   // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
   // 검색 메시지는 일반 임베드라 CV2 현재 재생 메시지로 수정할 수 없다.
@@ -314,31 +317,22 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     }),
   );
 
-  try {
-    const result = await requestPlayback(client, {
-      guild,
-      requester: member,
-      query: `https://www.youtube.com/watch?v=${videoId}`,
-      textChannel: interaction.channel,
-      voiceChannel: member.voice.channel ?? null,
-      responder,
-      source: `/search ${position}번째`,
-    });
+  const result = await requestPlayback(client, {
+    guild,
+    requester: member,
+    query: `https://www.youtube.com/watch?v=${videoId}`,
+    textChannel: interaction.channel,
+    voiceChannel: member.voice.channel ?? null,
+    responder,
+    source: `/search ${position}번째`,
+  });
+  if (!result.success) return await interaction.editReply({ embeds: [errorEmbed(result.message)], components: [] });
 
-    if (!result.success) {
-      const errorEmbed = new EmbedBuilder().setTitle("❌ 오류").setDescription(result.message).setColor("#FF0000").setTimestamp();
-
-      return await interaction.editReply({ embeds: [errorEmbed], components: [] });
-    }
-
-    // 검색 결과 메시지 제거. 현재 재생/대기열 정보는 별도로 전송됨
-    await responder.dismissPlaceholder();
-  } catch (error) {
-    const errorEmbed = new EmbedBuilder().setTitle("❌ 오류").setDescription(S.ERR_PROCESSING).setColor("#FF0000").setTimestamp();
-
-    await interaction.editReply({ embeds: [errorEmbed], components: [] });
-  }
+  // 검색 결과 메시지 제거. 현재 재생/대기열 정보는 별도로 전송됨
+  await responder.dismissPlaceholder();
 }
+
+const errorEmbed = (message: string) => new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
 
 // custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다

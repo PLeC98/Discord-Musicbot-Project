@@ -1,5 +1,5 @@
 // events/interactionCreate.ts — 상호작용 입구. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 처리기 표로 고른다.
-// 처리가 던지면 한 번 남기고 본인에게만 보이게 알린다.
+// 처리가 던지면 한 번 남기고 알린다. 종류를 가를 수 있는 오류는 그 문장, 자리표시자를 선언한 처리기는 그 자리에.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,15 +8,17 @@ import interactionCreate, { route as routeInteraction } from "../../events/inter
 import { route } from "../../interactions/route.ts";
 import type { SlashCommand } from "../../src/app/commandLoader.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
+import { networkError } from "../helpers/errors.ts";
+import { showFailureWith } from "../../src/ui/failureNotice.ts";
 
 type Sent = [string, unknown];
 
-function interaction({ name = "play", chat = true, commands = {} as Record<string, object>, replied = false, guild = true, replyFails = false } = {}) {
+function interaction({ name = "play", chat = true, commands = {} as Record<string, object>, replied = false, deferred = false, guild = true, replyFails = false } = {}) {
   const sent: Sent[] = [];
   const it = fakeWith<ChatInputCommandInteraction>()({
     commandName: name,
     replied,
-    deferred: false,
+    deferred,
     isChatInputCommand: () => chat,
     inCachedGuild: () => guild,
     isButton: () => false,
@@ -28,6 +30,7 @@ function interaction({ name = "play", chat = true, commands = {} as Record<strin
       sent.push(["reply", p]);
     },
     followUp: async (p: unknown) => sent.push(["followUp", p]),
+    editReply: async (p: unknown) => sent.push(["editReply", p]),
     client: { commands: new Map(Object.entries(commands).map(([k, c]) => [k, fake<SlashCommand>(c)])) },
   });
   return { it, sent };
@@ -86,6 +89,43 @@ test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으�
   const answered = interaction({ commands: { play: failing(new Error("x")) }, replied: true });
   await interactionCreate.execute(answered.it);
   assert.equal(answered.sent[0][0], "followUp");
+});
+
+test("미뤄 두고 아직 답하지 않은 명령이 던지면 그 답 자리를 채운다", async () => {
+  const { it, sent } = interaction({ commands: { play: failing(new Error("x")) }, deferred: true });
+  await interactionCreate.execute(it);
+  assert.deepEqual(sent, [["editReply", { content: "❌ 명령어 실행 중 오류가 발생했습니다!" }]]);
+});
+
+test("종류를 가를 수 있는 오류(네트워크 등)는 그 종류의 문장으로 알린다", async () => {
+  const { it, sent } = interaction({ commands: { play: failing(networkError()) } });
+  await interactionCreate.execute(it);
+  assert.match(String((sent[0][1] as { content: string }).content), /네트워크 오류/);
+
+  const pressed = press();
+  await routeInteraction(pressed.it, throwing(networkError()));
+  assert.match(String((pressed.sent[0][1] as { content: string }).content), /네트워크 오류/);
+});
+
+test("자리표시자를 띄운 처리기가 선언했으면 그 자리에 알린다", async () => {
+  const placeholder = {
+    execute: async (i: object) => {
+      showFailureWith(i, async (notice) => sent.push(["shown", notice]));
+      throw new Error("x");
+    },
+  };
+  const { it, sent } = interaction({ commands: { play: placeholder }, replied: true });
+  await interactionCreate.execute(it);
+  assert.deepEqual(sent, [["shown", "❌ 명령어 실행 중 오류가 발생했습니다!"]]);
+
+  const pressed = press({ deferred: true });
+  await routeInteraction(pressed.it, [
+    route("button", "x:", async (i) => {
+      showFailureWith(i, async (notice) => pressed.sent.push(["shown", notice]));
+      throw new Error("x");
+    }),
+  ]);
+  assert.deepEqual(pressed.sent, [["shown", "❌ 처리 중 오류가 발생했습니다!"]]);
 });
 
 test("상호작용이 이미 죽었으면 알리려 하지 않는다", async () => {

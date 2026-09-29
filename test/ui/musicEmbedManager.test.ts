@@ -9,6 +9,7 @@ import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tempStore from "../helpers/tempStore.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const newManager = () => new MusicEmbedManager(fake<Client>({ players: new Map() }));
 
@@ -287,4 +288,25 @@ test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async (
   const json = JSON.stringify((await mem.createIdleContainer({ reason: "joined", leavesAt: 1_600_000 })).components[0].toJSON());
   assert.match(json, /곡을 기다리고 있어요/);
   assert.match(json, /<t:1600:R> 쉬러 갈게요/);
+});
+
+test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 이 곡의 갱신을 멈춘다", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const mem = newManager();
+  const player = fakePlayer({ guild: { id: "g1", name: "서버" }, currentTrack: { title: "곡" }, nowPlayingMessage: { id: "m1" } });
+  mem._tickProgress = async () => {
+    throw new Error("boom");
+  };
+  const from = sink.buffer.length;
+  mem.startProgressUpdate(player);
+  t.mock.timers.tick(5000);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(mem.updateIntervals.has("g1"), false);
+  assert.deepEqual(
+    sink.buffer
+      .slice(from)
+      .filter((e) => e.text.startsWith("진행 막대"))
+      .map((e) => [e.level, e.text.split("\n")[0]]),
+    [["error", "진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (서버): Error: boom"]],
+  );
 });

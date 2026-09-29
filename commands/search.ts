@@ -2,7 +2,6 @@ import { formatDuration } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import * as YouTube from "../src/sources/youtube/index.ts";
-import { reportError } from "../src/ui/errorMessages.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction, Client } from "discord.js";
@@ -81,23 +80,19 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     const permErr = checkAdd(member) || checkSummon(member);
     if (permErr) return interaction.reply({ content: permErr, flags: MessageFlags.Ephemeral });
 
-    try {
-      await interaction.deferReply();
+    // 검색이 던지면(네트워크 · 봇 감지 등) 입구가 남기고 이 답 자리에 그 종류로 알린다
+    await interaction.deferReply();
 
-      const results = await search(query, MAX_RESULTS);
-      log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
+    const results = await search(query, MAX_RESULTS);
+    log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
 
-      if (!results || results.length === 0) {
-        return await interaction.editReply({
-          content: "❌ 검색 결과가 없습니다!",
-        });
-      }
-
-      await showSearchMenu(interaction, results, query);
-    } catch (error) {
-      // 검색이 찾지 못한 까닭(네트워크 · 봇 감지 등)을 남기고 그 종류로 알린다
-      await interaction.editReply({ content: reportError(error, "search.execute") });
+    if (!results || results.length === 0) {
+      return await interaction.editReply({
+        content: "❌ 검색 결과가 없습니다!",
+      });
     }
+
+    await showSearchMenu(interaction, results, query);
   },
 };
 export default exported;

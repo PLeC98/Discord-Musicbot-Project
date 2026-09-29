@@ -1,7 +1,5 @@
 import { formatSpan } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
-import logger from "../src/infra/log/logger.ts";
-const log = logger.child({ category: "commands" });
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
@@ -76,22 +74,8 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("help").setDescription("Show all commands").setDescriptionLocalizations({ ko: "모든 명령어를 표시합니다" }),
 
   async execute(interaction, client) {
-    try {
-      const { embed, row } = await buildHelpEmbed(client);
-      await interaction.reply({ embeds: [embed], components: [row], flags: [1 << 6] });
-    } catch (error) {
-      const errorEmbed = new EmbedBuilder().setTitle("❌ 오류").setDescription("도움말을 불러오는 중 오류가 발생했습니다!").setColor("#FF0000").setTimestamp();
-
-      try {
-        if (interaction.deferred && !interaction.replied) {
-          await interaction.editReply({ embeds: [errorEmbed] });
-        } else if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ embeds: [errorEmbed], flags: [1 << 6] });
-        }
-      } catch (responseError) {
-        log.error("명령어 도움말 오류 안내 전송 실패:", responseError);
-      }
-    }
+    const { embed, row } = await buildHelpEmbed(client);
+    await interaction.reply({ embeds: [embed], components: [row], flags: [1 << 6] });
   },
 };
 export default exported;
