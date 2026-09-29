@@ -3,6 +3,7 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
+import { codedError } from "../../rules/errorKind.ts";
 import { canonicalUrl } from "../../rules/canonicalUrl.ts";
 import { readInfo } from "../ytdlpInfo.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
@@ -220,7 +221,21 @@ async function getStream(url: string, { exec }: { exec?: RunYtDlp } = {}) {
     protocol: info.protocol || null,
     // 앞 광고가 붙은 응답이면 광고가 끝나는 시각. 그 전에는 본편 요청이 403 일 수 있다(yt-dlp 가 광고 길이로 매긴다)
     availableAt: info.available_at ?? null,
+    // 조각 목록으로만 주는 포맷이면 조각 주소의 모양. 재생 쪽이 조각을 차례로 받는다(media/fragmentStream)
+    fragments: fragmentsOf(info),
   };
+}
+
+/**
+ * 조각 목록(방송이 끝나고 다시보기를 다 만들기 전의 유튜브 소리)을 base · count 로. 조각 주소는 포맷 주소 뒤에 `&sq=번호`다.
+ * 조각이 없으면 null. 모양이 다르면 던진다(첫 조각만 틀고 끝난 것처럼 보이지 않게)
+ */
+function fragmentsOf(info: YtInfo) {
+  const list = info.fragments;
+  if (!list?.length || !info.url) return null;
+  const base = info.url;
+  if (!list.every((f, i) => f.url === `${base}&sq=${i}`)) throw codedError("stream-failed", "조각 목록의 주소가 알던 모양(포맷 주소 뒤 &sq=번호)이 아닙니다");
+  return { base, count: list.length };
 }
 
 // 재생목록 한 줄. url 이 없으면 id 가 있다(부르는 쪽이 거른다)

@@ -15,6 +15,7 @@ import { buildFfmpegArgs } from "./ffmpeg/args.ts";
 import { InputHealth } from "./inputHealth.ts";
 import type { Capabilities } from "./ffmpeg/path.ts";
 import type { ChunkedOptions } from "./chunkedStream.ts";
+import type { FragmentOptions } from "./fragmentStream.ts";
 import type { StreamInfo } from "../sources/streamUrl.ts";
 import type { Transport } from "../rules/transportOf.ts";
 
@@ -22,12 +23,19 @@ type Splicer = InstanceType<typeof AudioSplicer>;
 type ResourceMeta = { title: string; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 칸만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
-type OpenedStream = Readable & { headers?: Record<string, unknown>; stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean } };
+// startedAtMs: 곡 안의 어디부터 흘리나(조각 스트림은 위치가 든 조각부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태
+type OpenedStream = Readable & {
+  headers?: Record<string, unknown>;
+  stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean };
+  startedAtMs?: number;
+  describe?(): string;
+};
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
   createAudioResource(input: Readable, options: { inputType: StreamType; inlineVolume: boolean; metadata: ResourceMeta }): R;
   ffmpegCapabilities(): Capabilities;
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
+  openFragmentStream(opts: FragmentOptions): OpenedStream;
   fetch(url: string, init: { headers: Record<string, string> }): Promise<{ ok: boolean; status: number; body: WebStream<Uint8Array> | Readable | null }>;
   directStream(url: string): Promise<Readable>;
   sleep(ms: number): Promise<void>;
@@ -216,11 +224,15 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
   if (streamInfo.platform === "direct") return o.io.directStream(streamInfo.url);
 
-  // 위치는 ffmpeg 의 -ss 가 정한다(주소는 처음부터 받는다)
   const { url } = streamInfo;
   // 평상시엔 yt-dlp가 준 것을 그대로 쓴다. 클라이언트마다 다른 값을 저쪽이 골라 준다.
   // 폴백은 yt-dlp를 안 거친 입력을 위한 것이다.
   const headers = streamInfo.httpHeaders || { "User-Agent": config.userAgents.browser };
+
+  // 조각 목록. 위치가 든 조각부터 받는다
+  if (streamInfo.fragments) return o.io.openFragmentStream({ fragments: streamInfo.fragments, durationMs: (streamInfo.duration || o.meta.duration) * 1000, startMs: o.startMs, headers });
+
+  // 위치는 ffmpeg 의 -ss 가 정한다(주소는 처음부터 받는다)
 
   // 전체 길이를 알면 Range로 나눠 받는다. 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
   // 길이를 모르는 입력은 나눌 수가 없으므로 예전 방식 그대로.
@@ -257,9 +269,10 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
 }
 
 function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream: OpenedStream, hooks: Hooks): Opened<R> {
-  const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ seekMs: o.startMs }), "stream");
+  // 스트림이 곡 중간부터 흘리면(조각 스트림) 그 앞은 이미 건너뛰었다
+  const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ seekMs: o.startMs - (audioStream.startedAtMs ?? 0) }), "stream");
   // 입력을 닫아 ffmpeg 가 0 으로 끝나도 스트림이 깨졌으면 끝이 아니다. 오류와 덜 받은 채 끝남을 따로 적는다
-  const kind = audioStream.stats ? "청크" : streamInfo.platform === "direct" ? "직접 링크" : "단일 GET";
+  const kind = streamInfo.fragments ? "조각" : audioStream.stats ? "청크" : streamInfo.platform === "direct" ? "직접 링크" : "단일 GET";
   const health = new InputHealth(kind).watch(ffmpeg);
 
   // 소스를 갈아끼울 수 있게 리소스 아래에 Splicer를 둔다. 스트림이 죽으면 AudioPlayer를
@@ -268,9 +281,10 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
 
   const streamDetail = () => {
     const st = audioStream.stats?.();
+    if (audioStream.describe) return audioStream.describe();
     return st ? `청크 #${st.requests} · ${st.received}/${st.totalBytes}B · 마지막 수신 ${sec(st.idleMs)}초 전 · URL 만료 ${st.expiresInS ?? "?"}초 후${st.resuming ? " · 이어받는 중" : ""}` : "단일 GET";
   };
-  health.detail = () => (audioStream.stats ? streamDetail() : null);
+  health.detail = () => (audioStream.stats || audioStream.describe ? streamDetail() : null);
   // 끊기면 캐시 전환을 먼저 시도한다. 예약되면 청크 스트림은 이어받지 않고 받아 둔 데까지만 흘린다
   hooks.interrupt = (err) => {
     log.debug(`스트림 중단: ${describeStreamError(err)} | ${streamDetail()}`);

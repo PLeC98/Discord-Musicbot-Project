@@ -24,6 +24,8 @@ type StreamInfo = {
   isLive?: boolean;
   /** 이 시각(유닉스 초) 전에는 본편 요청이 막힐 수 있다. 앞 광고가 끝나는 때(yt-dlp 의 available_at) */
   availableAt?: number | null;
+  /** 조각 목록으로만 주는 포맷이면 조각 주소의 모양(포맷 주소 뒤 `&sq=번호`, 조각 수). 아니면 없다 */
+  fragments?: { base: string; count: number } | null;
   [field: string]: unknown;
 };
 // 여기서 부르는 것만

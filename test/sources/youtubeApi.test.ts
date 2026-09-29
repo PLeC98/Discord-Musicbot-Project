@@ -170,7 +170,21 @@ test("스트림: 서술자의 모양. 주소는 yt-dlp 가 준 그대로다(위�
     liveStatus: null,
     protocol: "https",
     availableAt: 1790500000,
+    fragments: null,
   });
+});
+
+// 방송이 끝나고 다시보기를 다 만들기 전(post_live)에는 소리가 조각 목록뿐이다. 조각 주소는 포맷 주소 뒤에 &sq=번호
+test("스트림: 조각 목록으로만 주면 조각 주소의 모양(base · count)을 싣는다. 모양이 다르면 던진다", async () => {
+  const base = "https://rr1.googlevideo.com/videoplayback?live=1&x=1";
+  const fragments = (n: number, at = (i: number) => `${base}&sq=${i}`) => Array.from({ length: n }, (_, i) => ({ url: at(i), fragment_count: n }));
+  respond = () => ({ ...video("qqqqqqqqqqq"), url: base, protocol: "http_dash_segments", live_status: "post_live", fragments: fragments(3) });
+  const s = await YouTube.getStream("https://www.youtube.com/watch?v=qqqqqqqqqqq");
+  assert.deepEqual(s.fragments, { base, count: 3 });
+  assert.equal(s.liveStatus, null, "끝난 방송은 라이브가 아니다");
+
+  respond = () => ({ ...video("qqqqqqqqqqq"), url: base, protocol: "http_dash_segments", fragments: fragments(3, (i) => `https://other.test/seg/${i}`) });
+  await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=qqqqqqqqqqq"), /조각 목록의 주소가 알던 모양/);
 });
 
 test("스트림: 헤더 · 앞 광고 시각이 없으면 빈 값", async () => {

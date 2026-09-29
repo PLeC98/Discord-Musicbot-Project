@@ -24,6 +24,7 @@ import type { Boundary } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { DownloadTrack } from "../../src/media/cacheDownload.ts";
 import type { ChunkedOptions } from "../../src/media/chunkedStream.ts";
+import { startOf, type FragmentOptions } from "../../src/media/fragmentStream.ts";
 import type { StreamInfo } from "../../src/sources/streamUrl.ts";
 import type { Segments } from "../../src/sources/sponsorBlock.ts";
 import type { RestoredSession } from "../../src/store/playerSessions.ts";
@@ -51,6 +52,7 @@ const calls = {
   resources: [] as FakeResource[],
   chunked: [] as ChunkedOptions[],
   chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양 · 이어받는 중인가는 시험이 정한다
+  fragments: [] as FragmentOptions[], // 조각 스트림을 연 요청
   fetches: [] as Array<{ url: string; init: FetchInit }>,
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
@@ -158,6 +160,13 @@ async function openChunkedStream(opts: ChunkedOptions) {
   });
   calls.chunkedStreams.push(stream);
   return stream;
+}
+
+// 조각 스트림 가짜. 진짜처럼 위치가 든 조각의 시작부터 흘린다고 알린다
+function openFragmentStream(opts: FragmentOptions) {
+  calls.fragments.push(opts);
+  const { atMs } = startOf(opts.fragments, opts.durationMs, opts.startMs);
+  return Object.assign(new PassThrough(), { startedAtMs: atMs, describe: () => "조각 가짜" });
 }
 
 // ── 4. 캐시 장부: 진짜를 임시 DB 로 ──────────────────────────────────────
@@ -339,6 +348,7 @@ const fakes: Partial<Boundary> = {
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,
   openChunkedStream: openChunkedStream as unknown as Boundary["openChunkedStream"],
+  openFragmentStream: openFragmentStream as unknown as Boundary["openFragmentStream"],
   getStream: async (track) => {
     if (!behavior.stream) throw new Error("시험이 스트림을 정하지 않았다");
     return behavior.stream(track as QueuedTrack);

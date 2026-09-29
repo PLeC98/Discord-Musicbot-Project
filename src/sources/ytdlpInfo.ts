@@ -57,6 +57,8 @@ const SHAPE = {
   tbr: num,
   http_headers: z.record(str, str),
   available_at: num,
+  // 조각 목록으로만 주는 포맷(유튜브 post_live 의 http_dash_segments). 조각마다 주소
+  fragments: z.array(z.object({ url: str.optional() }).loose()),
   formats: z.array(z.unknown()),
   // 여러 곡(항목은 부르는 쪽이 하나씩 다시 읽는다)
   entries: z.array(z.unknown()),

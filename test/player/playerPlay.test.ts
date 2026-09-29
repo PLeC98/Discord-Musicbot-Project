@@ -203,6 +203,24 @@ test("전체 길이(clen)를 아는 주소는 청크로 나눠 받는다", async
   assert.equal(calls.chunked[0].totalBytes, 4096);
 });
 
+// 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 조각 목록뿐이다. 주소 하나로 열면 첫 조각(2초)만 틀고 끝난다
+test("조각 목록으로만 주는 소리는 위치가 든 조각부터 받아 파이프로 흘리고, 조각 안의 나머지만 -ss 로 건너뛴다", async () => {
+  const fragments = { base: "https://rr1.googlevideo.com/videoplayback?live=1&x=1", count: 10 };
+  const p = h.makePlayer();
+  p.currentTrack = yt("pppppppppp1", { duration: 20 });
+  behavior.stream = () => ({ url: fragments.base, duration: 20, protocol: "http_dash_segments", liveStatus: null, fragments });
+
+  await playOnce(p, 5_000);
+
+  assert.equal(calls.fragments.length, 1);
+  assert.deepEqual({ ...calls.fragments[0], headers: undefined }, { fragments, durationMs: 20_000, startMs: 5_000, headers: undefined });
+  const args = argsOf(calls.spawns[0]);
+  assert.ok(args.includes("-i pipe:0"), args);
+  assert.ok(args.includes("-ss 1.000"), `조각 하나가 2초라 5초는 셋째 조각(4초)부터 받고 1초를 건너뛴다: ${args}`);
+  assert.equal(p.playback?.input?.kind, "조각");
+  assert.equal(p.playback?.live, false);
+});
+
 // 유튜브는 앞 광고가 붙은 응답이면 광고가 끝날 때까지 본편 요청을 403 으로 막는다. yt-dlp 는 그 시각을 available_at 으로 준다
 test("앞 광고로 막힌 스트림(403)은 광고가 끝나는 시각까지 기다렸다 한 번 더 연다", async () => {
   const p = h.makePlayer();
