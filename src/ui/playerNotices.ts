@@ -2,25 +2,21 @@
 
 import { errorMessage } from "./errorMessages.ts";
 import { formatDuration } from "./format.ts";
-import { escapeMd } from "./mentions.ts";
+import * as notices from "./text/notices.ts";
 import { scheduleDelete } from "./transientMessages.ts";
 import type { Player } from "../player/Player.ts";
 import type { Notices, NoticeCode } from "../player/events.ts";
 
-// 코드 → 문장. 세부(detail)는 알린 쪽이 준 것
+// 코드 → 문장
 const TEXT: { [C in NoticeCode]: (detail: Notices[C]) => string } = {
   // 장르 목록이 바뀌기 전에 저장된 세션 등
-  "autoplay-unknown-genre": ({ genre }) => `❌ 자동재생 장르 \`${genre}\`(을)를 찾을 수 없어 자동재생을 껐습니다. \`/autoplay\`로 다시 설정해 주세요.`,
-  "autoplay-gave-up": ({ genre }) => `⏹️ \`${genre}\` 장르에서 틀 만한 곡을 찾지 못해 자동재생을 껐습니다.`,
+  "autoplay-unknown-genre": ({ genre }) => notices.autoplayUnknownGenre(genre),
+  "autoplay-gave-up": ({ genre }) => notices.autoplayGaveUp(genre),
   // 곡을 못 틀어 다음 곡으로 넘긴다
   "skipped-after-error": ({ error }) => errorMessage(error),
   // 곡이 연달아 실패해 넘기기를 그만뒀다. 대기열은 남아 있다
-  "failed-in-row": ({ count, left }) => `⏹️ 곡 ${count}개를 연달아 틀지 못해 재생을 멈췄습니다.${left > 0 ? ` 남은 ${left}곡은 대기열에 그대로 있고, 곡을 추가하면 이어서 틉니다.` : ""}`,
-  restored: ({ title, atSec, paused }) => {
-    const shown = escapeMd(title || "Unknown");
-    const at = formatDuration(atSec);
-    return paused ? `⏸️ 일시정지 상태로 복원됨 • **${shown}** (${at})` : `▶️ 음악 재개됨 • **${shown}** (${at})`;
-  },
+  "failed-in-row": ({ count, left }) => notices.failedInRow(count, left),
+  restored: ({ title, atSec, paused }) => notices.restored(title, formatDuration(atSec), paused),
 };
 
 // 잠깐 보이고 지우는 알림

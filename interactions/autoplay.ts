@@ -12,6 +12,7 @@ import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../src/ui/cust
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as autoplayText from "../src/ui/text/autoplay.ts";
 
 /**
  * 켜져 있으면 끄고 30초 동안 장르를 다시 고를 기회를 준다(고르면 변경, 두면 종료).
@@ -56,13 +57,15 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
   if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
 }
 
-const enabledEmbed = (genre: string, member: GuildMember) =>
-  new EmbedBuilder()
-    .setTitle("🎲 자동 재생이 활성화되었습니다")
-    .setDescription(`**${genre}** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.`)
+function enabledEmbed(genre: string, member: GuildMember) {
+  const t = autoplayText.turnedOn(genre);
+  return new EmbedBuilder()
+    .setTitle(t.title)
+    .setDescription(t.description)
     .setColor(colorOf("brand"))
     .setTimestamp()
-    .addFields({ name: "👤 변경한 사람", value: `${member}`, inline: true });
+    .addFields({ name: t.by, value: `${member}`, inline: true });
+}
 
 // 앞머리가 재생 패널 버튼(panel:)보다 좁아 자동재생 버튼은 여기로 온다
 const routes: Route[] = [route("button", customId(PANEL, "autoplay", ""), handleAutoplayButton), route("select", customId(AUTOPLAY, "genre"), handleAutoplayGenre)];

@@ -5,6 +5,7 @@ import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMe
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./customIds.ts";
 import { colorOf } from "./colors.ts";
+import * as autoplayText from "./text/autoplay.ts";
 
 // 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
 const OFF_MENU_MS = 30_000;
@@ -33,9 +34,10 @@ function genreSelect(placeholder: string) {
 
 /** 켤 때. 장르를 고르면 그 장르로 켜진다. 고르는 동안 떠 있어야 한다(keepReply). */
 function buildGenreMenu() {
-  const embed = new EmbedBuilder().setTitle("🎲 음악 장르 선택").setDescription("어떤 장르를 재생할까요?").setColor(colorOf("brand"));
+  const t = autoplayText.pickGenre();
+  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"));
 
-  const select = genreSelect("음악 장르를 선택하세요...");
+  const select = genreSelect(t.placeholder);
   return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: MessageFlags.Ephemeral as const };
 }
 
@@ -44,9 +46,10 @@ function buildGenreMenu() {
  * 고르면 그 장르로 다시 켜지고(장르 변경), 그냥 두거나 닫으면 꺼진 채로 끝난다.
  */
 function buildAutoplayOffMenu() {
-  const embed = new EmbedBuilder().setTitle("🎲 자동 재생이 비활성화되었습니다").setDescription("다른 장르로 다시 켜려면 아래에서 고르세요. 그냥 두면 꺼진 채로 둡니다.").setColor(colorOf("brand")).setTimestamp();
+  const t = autoplayText.turnedOff();
+  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
 
-  const select = genreSelect("장르를 바꿔 다시 켜기...");
+  const select = genreSelect(t.placeholder);
   return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: MessageFlags.Ephemeral as const };
 }
 
