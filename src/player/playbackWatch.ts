@@ -104,7 +104,7 @@ class PlaybackWatch {
     if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle) return;
     // 곡을 여는 중 · 끝 처리 중 · 음성 복구 중이면 그 일이 끝난 뒤 다시 본다
     if (player.lifecycle.starting || player.lifecycle.ending || player.isRecovering) return this.armIdle();
-    wlog.warn(`곡이 있는데 오디오가 ${IDLE_STUCK_MS / 1000}초 넘게 멈춰 있어 다음 곡으로 넘깁니다: ${player._trackLabel()}`);
+    wlog.warn(`곡이 있는데 오디오가 ${IDLE_STUCK_MS / 1000}초 넘게 멈춰 있어 곡을 끝냅니다: ${player._trackLabel()}`);
     this.armIdle(); // 넘긴 곡도 틀지 못하면 다시 본다
     player.onTrackEnd("stuck").catch((error) => wlog.error("멎은 곡 넘기기 실패:", error));
   }

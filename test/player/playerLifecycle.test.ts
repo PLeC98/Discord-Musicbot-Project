@@ -28,7 +28,7 @@ import { useExampleConfig } from "../helpers/exampleConfig.ts";
 
 useExampleConfig();
 
-const { calls, AudioPlayerStatus } = h;
+const { calls, behavior, AudioPlayerStatus } = h;
 
 beforeEach(() => h.reset());
 
@@ -142,9 +142,10 @@ test("공급이 끊겨 멈춘 곡은 끊긴 자리부터 다시 튼다", async (
   h.dispose(p);
 
   assert.equal(p.currentTrack, track, "같은 곡");
-  assert.equal(p.currentTrackRetries, 1);
+  assert.equal(p.retry.used, 1);
   assert.equal(p.playback?.startOffsetMs, 30000);
   assert.equal(p.playback?.reopen, true, "끊겨서 다시 연 재생으로 적는다");
+  assert.equal(calls.spawns.at(-1)?.label, "playback", "다 받은 캐시 파일이 있으면 그 파일로 다시 연다");
   assert.equal(p.queue.length, 1, "대기열은 그대로");
   assert.equal(p.previousTracks.length, 0, "기록에 넣지 않는다");
 });
@@ -159,7 +160,7 @@ test("재생 스트림이 끝까지 읽혔어도 입력이 깨진 채 끝났으�
   h.dispose(p);
 
   assert.equal(p.currentTrack, track, "같은 곡");
-  assert.equal(p.currentTrackRetries, 1);
+  assert.equal(p.retry.used, 1);
   assert.equal(p.playback?.startOffsetMs, endMs);
 
   for (const reason of ["skip", "overflow"]) {
@@ -168,7 +169,7 @@ test("재생 스트림이 끝까지 읽혔어도 입력이 깨진 채 끝났으�
     playing(q, yt("d3ddddddddd"), 100_000, { input: { broken: "ffmpeg 종료 코드 SIGKILL" } });
     await q.onTrackEnd(reason);
     h.dispose(q);
-    assert.equal(q.currentTrackRetries, 0, `${reason}: 우리가 멈추며 죽인 ffmpeg 의 표시는 끊김이 아니다`);
+    assert.equal(q.retry.used, 0, `${reason}: 우리가 멈추며 죽인 ffmpeg 의 표시는 끊김이 아니다`);
   }
 });
 
@@ -184,7 +185,7 @@ test("일찍 끝났어도 입력이 온전히 끝났으면 끝이다. 길이는 
 
   assert.equal(p.currentTrack, next);
   assert.equal(p.previousTracks.at(-1), track);
-  assert.equal(p.currentTrackRetries, 0);
+  assert.equal(p.retry.used, 0);
   assert.ok(
     sink.buffer.slice(from).some((e) => e.text.startsWith("곡이 길이와 다른 위치에서 끝남:")),
     "길이 쪽을 살필 수 있게 남긴다",
@@ -198,7 +199,7 @@ test("주소 갈래(HLS 등)가 길이보다 일찍 끝나면 한 번만 다시 
   await p.onTrackEnd("idle");
   h.dispose(p);
   assert.equal(p.currentTrack, track, "다시 연다");
-  assert.equal(p.currentTrackRetries, 1);
+  assert.equal(p.retry.used, 1);
 
   h.reset();
   const q = h.makePlayer();
@@ -206,7 +207,7 @@ test("주소 갈래(HLS 등)가 길이보다 일찍 끝나면 한 번만 다시 
   playing(q, again, 30000, { transport: { via: "url" }, reopen: true });
   await q.onTrackEnd("idle");
   h.dispose(q);
-  assert.equal(q.currentTrackRetries, 0, "다시 열지 않는다");
+  assert.equal(q.retry.used, 0, "다시 열지 않는다");
   assert.equal(q.currentTrack, null, "대기열이 비어 끝난다");
 });
 
@@ -221,7 +222,7 @@ test("끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 다시 열�
   h.dispose(p);
 
   assert.equal(p.currentTrack, next);
-  assert.equal(p.currentTrackRetries, 0);
+  assert.equal(p.retry.used, 0);
 });
 
 test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 간다", async () => {
@@ -230,7 +231,7 @@ test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 �
   const next = cached("ggggggggggg");
   p.queue = [next];
   p._retryTrack = track;
-  p.currentTrackRetries = 2;
+  p.retry = { used: 2, stalled: 0 };
 
   await p.onTrackEnd("idle");
   h.dispose(p);
@@ -252,7 +253,7 @@ test("손으로 넘긴 곡은 일찍 끝나도 다시 틀지 않는다", async (
     await p.onTrackEnd(reason);
     h.dispose(p);
 
-    assert.equal(p.currentTrackRetries, 0, reason);
+    assert.equal(p.retry.used, 0, reason);
     if (reason !== "previous") assert.equal(replays, 0, `${reason}: 대기열이 비었으니 틀 것이 없다`);
   }
 });
@@ -272,14 +273,29 @@ test("라이브가 0 이 아닌 코드로 끊기면 1초 뒤 주소를 새로 �
   assert.deepEqual(seeks, [0], "라이브는 늘 0 으로 연다");
   assert.ok(Date.now() - started >= 900, "재시도 횟수 × 1초를 기다린다");
   assert.equal(p.currentTrack, live);
-  assert.equal(p.currentTrackRetries, 1);
+  assert.equal(p.retry.used, 1);
 });
 
-test("라이브 다시 열기를 다섯 번 쓰면 다음 곡으로 넘긴다", async () => {
-  const p = h.makePlayer();
-  const live = playing(p, yt("jjjjjjjjjjj", { isLive: true, duration: 0 }), 60000, { live: true, input: { exitCode: 1 } });
+test("라이브가 60초를 가다 끊겼으면 예산을 다시 채우고 1초 뒤에 다시 연다", async () => {
+  const p = scripted();
+  const live = playing(p, yt("i2iiiiiiiii", { isLive: true, duration: 0 }), 60_000, { live: true, input: { exitCode: 1 } });
   p._retryTrack = live;
-  p.currentTrackRetries = 5;
+  p.retry = { used: 4, stalled: 0 };
+  p.playAs = async () => {};
+
+  const started = Date.now();
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  assert.equal(p.retry.used, 1);
+  assert.ok(Date.now() - started < 1900, "쓴 횟수(1) × 1초만 기다린다");
+});
+
+test("라이브 다시 열기를 다섯 번 쓰면(사이에 60초를 못 갔으면) 다음 곡으로 넘긴다", async () => {
+  const p = h.makePlayer();
+  const live = playing(p, yt("jjjjjjjjjjj", { isLive: true, duration: 0 }), 30000, { live: true, input: { exitCode: 1 } });
+  p._retryTrack = live;
+  p.retry = { used: 5, stalled: 0 };
   const next = cached("j2jjjjjjjjj");
   p.queue = [next];
   embeds(p);
@@ -300,7 +316,7 @@ test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
-  assert.equal(p.currentTrackRetries, 0);
+  assert.equal(p.retry.used, 0);
 });
 
 test("모르는 자동재생 장르는 끄고 채널에 알린 뒤 대기열 소진으로 간다", async () => {
@@ -757,6 +773,87 @@ test("handleError: 자동재생이 고른 곡이 내려갔으면 조용히 표�
   assert.equal(asked, 1);
   assert.equal(p.currentTrack, null);
   assert.deepEqual(sent, []);
+});
+
+// ── 연달아 실패 ────────────────────────────────────────────────────────
+
+// 열리지 않는 곡. 캐시하지 않는 길이라 기다릴 받기도 없다
+function unplayable() {
+  behavior.stream = () => ({ url: "https://media.test/dead", duration: 2 * 3600 });
+  behavior.fetch = () => {
+    throw new Error("끊김");
+  };
+}
+
+test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다. 실패한 곡만 내리고 대기열 · 세션은 두고, 채널에 알리고, 패널을 멈춘 모양으로", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  const [a, b, c, d] = ["f1fffffffff", "f2fffffffff", "f3fffffffff", "f4fffffffff"].map((id) => yt(id));
+  unplayable();
+  p.currentTrack = a;
+  p.queue = [b, c, d];
+
+  await p.play(0);
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.deepEqual(p.queue, [d]);
+  assert.equal(p.failedTracks, 0, "멈추면 다시 센다. 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게");
+  assert.ok(calls.sent.includes("⏹️ 곡 3개를 연달아 틀지 못해 재생을 멈췄습니다. 남은 1곡은 대기열에 그대로 있고, 곡을 추가하면 이어서 틉니다."));
+  assert.ok(seen.includes("end:failures"));
+  assert.equal(calls.persists.includes("remove"), false, "대기열이 남았으니 세션을 지우지 않는다");
+});
+
+test("소리를 낸 곡이 끝나면 연달아 실패한 수를 다시 센다", async () => {
+  const p = h.makePlayer();
+  playing(p, yt("f5fffffffff"), 5_000);
+  p.failedTracks = 2;
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+  assert.equal(p.failedTracks, 0);
+
+  const q = h.makePlayer();
+  playing(q, yt("f6fffffffff"), 4_999);
+  q.failedTracks = 1;
+  await q.onTrackEnd("skip");
+  h.dispose(q);
+  assert.equal(q.failedTracks, 1, "5초도 못 낸 곡은 살아난 것이 아니다");
+});
+
+test("끊긴 곡을 다시 열다 실패하면 한 번만 센다(다시 열기 실패가 곧 곡 실패다)", async () => {
+  const p = h.makePlayer();
+  starved(p, yt("f7fffffffff", { duration: 2 * 3600 }), 30_000);
+  const next = cached("f8fffffffff");
+  p.queue = [next];
+  unplayable();
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next, "다시 열기가 실패해 다음 곡으로");
+  assert.equal(p.failedTracks, 1);
+});
+
+test("재시도를 다 쓴 것 · 멎어서 넘긴 것도 실패로 세고, 한도에 닿으면 다음 곡을 틀지 않고 멈춘다", async () => {
+  for (const [reason, setup] of [
+    ["idle", (p: Player, t: QueuedTrack) => ((p._retryTrack = t), (p.retry = { used: 2, stalled: 0 }), starved(p, t, 1_000))],
+    ["stuck", (p: Player, t: QueuedTrack) => playing(p, t, 0)],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    const t = yt("f9fffffffff");
+    setup(p, t);
+    p.queue = [cached("g0ggggggggg")];
+    p.failedTracks = 2;
+
+    await p.onTrackEnd(reason);
+    h.dispose(p);
+
+    assert.equal(p.currentTrack, null, reason);
+    assert.equal(p.queue.length, 1, `${reason}: 대기열은 둔다`);
+    assert.equal(calls.spawns.length, 0, `${reason}: 다음 곡을 열지 않는다`);
+  }
 });
 
 // ── 조작 ─────────────────────────────────────────────────────────────

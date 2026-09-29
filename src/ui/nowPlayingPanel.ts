@@ -647,12 +647,14 @@ class MusicEmbedManager {
   /**
    * 끝난 패널. 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 자리는 투명 이미지로 채워 줄 구성을 맞춘다.
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
-   * reason: queue-end(음성에 잠시 남음) | stop · disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
+   * reason: queue-end(음성에 잠시 남음) | failures(곡이 연달아 실패해 멈춤. 대기열이 남으면 음성에 남는다) | stop · disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
    */
   async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
     let title: string, status: string;
     if (reason === "leave") {
       [title, status] = ["듣고 있던 곡이 있어요", "💾 `/join`으로 이어 들을 수 있어요"];
+    } else if (reason === "failures") {
+      [title, status] = ["곡을 연달아 틀지 못해 멈췄어요", "🎵 곡을 추가하면 다시 틀어요"];
     } else if (leavesAt) {
       [title, status] = [reason === "joined" ? "곡을 기다리고 있어요" : "재생이 끝났어요", `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
     } else {
@@ -685,8 +687,8 @@ class MusicEmbedManager {
     if (guild?.id) this.idleViews.set(guild.id, view);
     await this._showIdle(player, live, { ...view, dedicated });
 
-    // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다
-    if (live && !dedicated && canSend(textChannel)) {
+    // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 연달아 실패해 멈춘 것은 채널 알림이 따로 간다
+    if (live && !dedicated && reason !== "failures" && canSend(textChannel)) {
       const endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
       await bestEffort(log, textChannel.send({ embeds: [endEmbed] }), "끝 안내 보내기");
     }

@@ -14,6 +14,8 @@ const TEXT: { [C in NoticeCode]: (detail: Notices[C]) => string } = {
   "autoplay-gave-up": ({ genre }) => `⏹️ \`${genre}\` 장르에서 틀 만한 곡을 찾지 못해 자동재생을 껐습니다.`,
   // 곡을 못 틀어 다음 곡으로 넘긴다
   "skipped-after-error": ({ error }) => errorMessage(error),
+  // 곡이 연달아 실패해 넘기기를 그만뒀다. 대기열은 남아 있다
+  "failed-in-row": ({ count, left }) => `⏹️ 곡 ${count}개를 연달아 틀지 못해 재생을 멈췄습니다.${left > 0 ? ` 남은 ${left}곡은 대기열에 그대로 있고, 곡을 추가하면 이어서 틉니다.` : ""}`,
   restored: ({ title, atSec, paused }) => {
     const shown = escapeMd(title || "Unknown");
     const at = formatDuration(atSec);

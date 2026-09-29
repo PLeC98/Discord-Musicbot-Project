@@ -32,7 +32,8 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     // 입력이 온전히 끝난 재생(깨짐 표시 없음) → 곡 끝으로 판정
     playback: current ? { startOffsetMs: 0, resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
     lastPlaybackPosition: 0,
-    currentTrackRetries: 0,
+    retry: { used: 0, stalled: 0 },
+    failedTracks: 0,
     previousTracks: history,
     loop,
     queue,
@@ -49,6 +50,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     getCurrentTime: Player.prototype.getCurrentTime,
     _describeEnd: Player.prototype._describeEnd,
     _recoverDrop: Player.prototype._recoverDrop,
+    _countFailure: Player.prototype._countFailure,
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
     _finishQueue: Player.prototype._finishQueue,
@@ -225,7 +227,7 @@ test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다�
   const p = makePlayer({ current: A, queue: [B] });
 
   for (let i = 0; i < 4; i++) {
-    p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 0, playStream: { readableEnded: false } } }); // 매번 공급이 끊겨 멈춤
+    p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 10_000, playStream: { readableEnded: false } } }); // 매번 10초쯤 가다 공급이 끊겨 멈춤
     await onTrackEnd.call(p, "idle");
   }
 

@@ -262,7 +262,7 @@ test("라이브 종료: 재시도를 다 쓰면 다음 곡으로 넘긴다", asy
   const player = endingPlayer({ currentTrack: finished, queue: [next], playback: { live: true, input: { exitCode: 1 }, resource: { playbackDuration: 30_000 } } });
   // 이미 상한까지 다시 열어 본 상태로 둔다. 상한을 넘기면 포기해야 한다
   player._retryTrack = finished;
-  player.currentTrackRetries = 99;
+  player.retry = { used: 99, stalled: 0 };
 
   await player.onTrackEnd("idle");
 

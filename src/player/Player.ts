@@ -32,6 +32,7 @@ import { openChunkedStream } from "../media/chunkedStream.ts";
 import { openInput } from "../media/playbackInput.ts";
 import { InputHealth } from "../media/inputHealth.ts";
 import { endVerdict, knownLengthMs, type EndFacts } from "../rules/endVerdict.ts";
+import { countDrop, FRESH, MAX_LIVE_REOPENS, MAX_TRACK_RETRIES, PROGRESS_MS, type RetryState } from "../rules/retryBudget.ts";
 import * as voiceChannelStatus from "./voiceChannelStatus.ts";
 import * as audioCache from "../store/audioCache.ts";
 import { VoiceLink } from "./voiceLink.ts";
@@ -58,9 +59,8 @@ import { bestEffort } from "../infra/bestEffort.ts";
 // 무이음 전환 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
 const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가 (캐시 디코더 기동 실측 43ms)
-const MAX_TRACK_RETRIES = 2; // 끊긴 곡을 끊긴 위치부터 다시 트는 횟수
-const MAX_LIVE_REOPENS = 5; // 라이브가 끊겼을 때 주소를 새로 받아 다시 여는 횟수
-const LIVE_REOPEN_DELAY_MS = 1000; // 재시도 간격의 단위. 시도 횟수에 비례해 늘린다
+const LIVE_REOPEN_DELAY_MS = 1000; // 라이브 다시 열기 간격의 단위. 예산을 쓴 횟수에 비례해 늘린다
+const FAILED_TRACKS_LIMIT = 3; // 곡이 연달아 이만큼 실패하면 넘기기를 그만두고 멈춘다
 const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이만큼 넘게 다르면 남긴다
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
@@ -150,7 +150,10 @@ class Player {
   sessionId: string;
   /** 멈춘 까닭. 멈추는 쪽이 _stopWith 로 적고 끝 처리(Idle)가 가져간다 */
   _endReason: string | null;
-  currentTrackRetries: number;
+  /** 끊긴 곡을 다시 연 예산(_retryTrack 의 것). rules/retryBudget */
+  retry: RetryState;
+  /** 연달아 실패한 곡 수. 소리를 낸 곡이 끝나면 0 */
+  failedTracks: number;
   lifecycle: PlaybackState;
   lastPlaybackPosition: number;
   pauseReasons: Set<string>;
@@ -201,7 +204,8 @@ class Player {
 
     // 재생 생명주기 상태
     this._endReason = null;
-    this.currentTrackRetries = 0;
+    this.retry = FRESH;
+    this.failedTracks = 0;
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
     this.lastPlaybackPosition = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
 
@@ -826,7 +830,12 @@ class Player {
 
       const finishedTrack = this.currentTrack;
       this.releaseAudioProtection();
-      if (await this._recoverDrop(finishedTrack, this._describeEnd(finishedTrack, reason))) return;
+      // 소리를 낸 곡이 끝났으면 연달아 실패한 것이 아니다
+      if ((this.playback?.resource?.playbackDuration ?? 0) >= PROGRESS_MS) this.failedTracks = 0;
+      const end = this._describeEnd(finishedTrack, reason);
+      // 멎어서 넘기는 곡도 실패로 센다. 멎음 감시가 대기열을 10초마다 한 곡씩 버리지 않게
+      if (reason === "stuck" && this._countFailure()) return await this._stopAfterFailures();
+      if (await this._recoverDrop(finishedTrack, end)) return;
 
       if (!finishedTrack) {
         this.playback = null;
@@ -859,38 +868,70 @@ class Player {
     return { playedMs, label, dropped, live: dropped && facts.live, why };
   }
 
-  // 사고로 끊겼으면 다시 튼다. 틀었으면 true, 재시도를 다 썼거나 사고가 아니면 false
+  // 사고로 끊겼으면 다시 튼다. 다시 틀었거나 연달아 실패해 멈췄으면 true, 다음 곡으로 넘길 것이면 false
   async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live, why }: EndShape) {
     if (!dropped) {
-      this.currentTrackRetries = 0;
+      this.retry = FRESH;
       return false;
     }
     // 곡이 바뀌는 경로가 여기만이 아니라서, 포기할 때 비우는 대신 곡으로 가른다
     if (this._retryTrack !== finishedTrack) {
       this._retryTrack = finishedTrack;
-      this.currentTrackRetries = 0;
+      this.retry = FRESH;
     }
-    this.currentTrackRetries += 1;
-    if (live) {
-      if (this.currentTrackRetries <= MAX_LIVE_REOPENS) {
-        log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 엽니다: ${label} | ${why} (${this.currentTrackRetries}/${MAX_LIVE_REOPENS})`);
-        // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
-        // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
-        await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * this.currentTrackRetries));
-        await this.play(0);
-        return true;
-      }
-      log.error(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | 재시도 ${MAX_LIVE_REOPENS}회 소진`);
-      return false;
-    }
+    const step = countDrop(this.retry, this.playback?.resource?.playbackDuration ?? 0, live);
+    this.retry = step.state;
+    const tries = `${step.state.used}/${live ? MAX_LIVE_REOPENS : MAX_TRACK_RETRIES}`;
     const at = `${sec(playedMs)}초`;
-    if (this.currentTrackRetries <= MAX_TRACK_RETRIES) {
-      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} | ${why} (${this.currentTrackRetries}/${MAX_TRACK_RETRIES})`);
+    if (step.reopen && live) {
+      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 엽니다: ${label} | ${why} (${tries})`);
+      // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
+      // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
+      await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * step.state.used));
+      await this.play(0);
+      return true;
+    }
+    if (step.reopen) {
+      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} | ${why} (${tries})`);
       await this.play(playedMs, { continued: true, reopen: true });
       return true;
     }
-    log.error(`재생을 복구하지 못해 다음 곡으로 넘깁니다: ${label} | ${at} 지점, 재시도 ${MAX_TRACK_RETRIES}회 소진`);
-    return false;
+    const stopping = this._countFailure();
+    const detail = `${live ? "" : `${at} 지점, `}${step.why}`;
+    const what = live ? "라이브를 다시 열지 못해" : "재생을 복구하지 못해";
+    log.error(`${what} ${stopping ? "곡을 끝냅니다" : "다음 곡으로 넘깁니다"}: ${label} | ${detail}`);
+    if (!stopping) return false;
+    await this._stopAfterFailures();
+    return true;
+  }
+
+  // 곡 하나가 실패했다. 연달아 한도에 닿았으면 true(부르는 쪽이 _stopAfterFailures 로 멈춘다)
+  _countFailure() {
+    this.failedTracks += 1;
+    return this.failedTracks >= FAILED_TRACKS_LIMIT;
+  }
+
+  /**
+   * 곡이 연달아 실패했다. 다음 곡으로 넘기기를 그만두고 멈춘다. 네트워크가 끊겼을 때 대기열을 통째로 버리지 않게.
+   * 실패한 곡만 내리고 대기열은 둔다. 곡을 추가하면 그 곡부터 다시 튼다
+   */
+  async _stopAfterFailures() {
+    const count = this.failedTracks;
+    this.failedTracks = 0; // 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게
+    log.error(`곡 ${count}개가 연달아 실패해 재생을 멈춥니다: ${this._trackLabel()} | 대기열 ${this.queue.length}곡은 둡니다`);
+    trackState.setCurrent(this, null);
+    this.playback = null;
+    this.lastPlaybackPosition = 0;
+    try {
+      this.audioPlayer.stop(true);
+    } catch {
+      /* 이미 멈춘 플레이어다 */
+    }
+    bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+    await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
+    await playerEvents.ended(this, "failures");
+    // 대기열이 남았으면 나가지 않는다(scheduleEmpty 는 곡이 있으면 나가지 않는다)
+    this.idle.scheduleEmpty();
   }
 
   // 한곡 반복 · 다음 곡 · 자동재생 중 하나를 튼다. 틀었으면 true
@@ -931,7 +972,7 @@ class Player {
       this.setAutoplay(false);
       return false;
     }
-    this.currentTrackRetries = 0;
+    this.retry = FRESH;
     // 못 골랐으면 false 로 대기열 소진 흐름으로 떨어진다.
     // 그냥 끝내면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가·스킵이 전부 먹통이 된다.
     // 이때 자동재생은 켜 둔 채로 둔다. 후보를 한 번 못 찾은 것이 장르를 끌 이유는 아니다.
@@ -1100,6 +1141,8 @@ class Player {
       log.info(`자동재생 곡을 건너뜁니다(영상 없음): "${failed.title}"`);
       tell = false;
     }
+    // 다음 곡이 또 실패하면 여기로 다시 온다. 연달아 실패하면 대기열을 다 버리기 전에 멈춘다(자동재생이 죽은 곡을 계속 고를 때도)
+    if (this._countFailure()) return this._stopAfterFailures();
 
     // 대기열이 비었어도 자동재생 중이면 멈추지 않는다. 그대로 두면 봇이 얼어붙는다.
     if (this.queue.length === 0 && this.autoplay) {
