@@ -68,6 +68,12 @@ const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이
 const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
 
+/** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
+type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "voice-failed" | "live-ended"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed"; error: unknown };
+
+// 끊긴 라이브를 다시 열었는데 라이브가 아니다(방송이 끝나 다시보기가 됐다)
+const endedLive = (liveReopen: boolean, transport: { live: boolean }) => liveReopen && !transport.live;
+
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
 type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
 
@@ -361,8 +367,10 @@ class Player {
   /**
    * @param seekMs  곡 안의 시작 위치
    * @param o.continued  같은 곡을 이어 튼다(위치 이동 · 끊김 복구 · 세션 복원). 재생 횟수에 세지 않는다
+   * @param o.liveReopen  끊긴 라이브를 다시 연다. 라이브가 아니면(방송이 끝나 다시보기가 됐다) 틀지 않고 live-ended,
+   *                      열지 못하면 남기거나 알리지 않고 live-reopen-failed 를 돌려준다. 끝 처리(_recoverDrop)가 다음 곡으로 넘긴다
    */
-  async play(seekMs = 0, { continued = false }: { continued?: boolean } = {}) {
+  async play(seekMs = 0, { continued = false, liveReopen = false }: { continued?: boolean; liveReopen?: boolean } = {}): Promise<PlayResult> {
     // 재진입 가드. play()가 셋업(스트림/다운로드) 중일 때 워처의 자동 스킵 seek가
     // 겹쳐 들어오면 비캐시 곡의 재생이 깨진다(버그). starting 동안 워처는 발동을 미룬다.
     this.lifecycle.to("starting");
@@ -385,6 +393,8 @@ class Player {
       pb.isLive = source.isLive;
       const transport = (pb.transport = transportOf({ file: cacheFile, streamUrl: streamInfo?.url, streamInfo }));
       pb.live = transport.live; // 끝 처리가 재연결 여부를 이걸로 가른다
+      // 다시보기를 처음부터 틀지 않는다. 사용자가 넣은 것은 방송이다
+      if (endedLive(liveReopen, transport)) return { ok: false, code: "live-ended" };
 
       const input = await openInput({
         io: this.io,
@@ -410,15 +420,22 @@ class Player {
       this.lifecycle.to("playing");
       return { ok: true, track: this.currentTrack };
     } catch (error) {
-      // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
-      elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
-      elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
-      await this.handleError(error, { tell: true });
-      return { ok: false, code: "play-failed", error };
+      return await this._playFailed(error, liveReopen);
     } finally {
       // 틀지 못하고 나왔다(대기열이 비었거나 실패). 실패 처리가 다음 곡을 틀었으면 그쪽 단계가 이미 섰다
       if (this.lifecycle.starting) this.lifecycle.to("idle", "시작 못 함");
     }
+  }
+
+  // play() 가 던졌다. 끊긴 라이브를 다시 여는 중이었으면 끝 처리에 맡긴다
+  // (방송이 막 끝나면 yt-dlp 가 오류로 답하기도 한다("technical difficulties"). 끝난 것인지 사고인지 가를 수 없어 끝 처리가 남긴다)
+  async _playFailed(error: unknown, liveReopen: boolean) {
+    if (liveReopen) return { ok: false, code: "live-reopen-failed", error } satisfies PlayResult;
+    // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
+    elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
+    elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
+    await this.handleError(error, { tell: true });
+    return { ok: false, code: "play-failed", error } satisfies PlayResult;
   }
 
   /**
@@ -911,8 +928,7 @@ class Player {
       // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 다시 붙어도 실패한다.
       // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
       await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * step.state.used));
-      await this.play(0);
-      return true;
+      return this._reopenLive(label);
     }
     if (step.reopen) {
       log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} | ${why} (${tries})`);
@@ -928,6 +944,17 @@ class Player {
     if (!stopping) return false;
     await this._stopAfterFailures();
     return true;
+  }
+
+  // 끊긴 라이브를 다시 연다. 열었으면 true. 방송이 끝났거나 열지 못했으면 실패로 세지 않고 알리지 않는다.
+  // false 면 끝 처리가 다 튼 곡처럼 기록에 넣고 다음 곡으로 넘긴다
+  async _reopenLive(label: string) {
+    const reopened = await this.play(0, { liveReopen: true });
+    if (reopened.ok) return true;
+    if (reopened.code === "live-ended") log.info(`방송이 끝나 다음 곡으로 넘깁니다: ${label} | 다시 열어 보니 라이브가 아님`);
+    else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${failureReason(reopened.error, YouTube.cookiesConfigured())}`);
+    else log.warn(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${reopened.code}`);
+    return false;
   }
 
   // 곡 하나가 실패했다. 연달아 한도에 닿았으면 true(부르는 쪽이 _stopAfterFailures 로 멈춘다)

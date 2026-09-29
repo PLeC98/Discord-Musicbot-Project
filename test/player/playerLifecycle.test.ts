@@ -342,6 +342,43 @@ test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는
   assert.equal(p.retry.used, 0);
 });
 
+// 방송이 끝나면 ffmpeg 가 종료 코드를 남기기 전에 플레이어가 멈추기도 해 끊김으로 보고 다시 연다. 다시 열어 보면 끝난 것을 안다
+for (const [ending, answer, line] of [
+  ["다시보기가 됐으면 다시보기를 틀지 않고", () => ({ url: "https://media.test/vod", duration: 3600, liveStatus: null }), /^info 방송이 끝나 다음 곡으로 넘깁니다: .* \| 다시 열어 보니 라이브가 아님$/],
+  [
+    "yt-dlp 가 오류로 답하면",
+    () => {
+      throw new Error("ERROR: [youtube] m2mmmmmmmmm: We're experiencing technical difficulties.");
+    },
+    /^warn 라이브를 다시 열지 못해 다음 곡으로 넘깁니다: /,
+  ],
+] as const) {
+  test(`끊긴 라이브를 다시 열었는데 ${ending} 다음 곡으로. 실패로 세지 않고 채널에 알리지 않으며 다 튼 곡처럼 기록한다`, async () => {
+    const p = h.makePlayer();
+    const live = playing(p, yt("m1mmmmmmmmm", { isLive: true, duration: 0 }), 90_000, { live: true, input: { exitCode: null } });
+    const next = cached("m3mmmmmmmmm");
+    p.queue = [next];
+    embeds(p);
+    behavior.stream = answer;
+    const sent = calls.sent.length;
+    const from = sink.buffer.length;
+
+    await p.onTrackEnd("idle");
+    h.dispose(p);
+
+    assert.equal(p.currentTrack, next);
+    assert.equal(p.previousTracks.at(-1), live);
+    assert.equal(p.failedTracks, 0);
+    assert.equal(calls.sent.length, sent, "채널에 알리지 않는다");
+    const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
+    assert.ok(
+      lines.some((l) => line.test(l)),
+      lines.join(" / "),
+    );
+    assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
+  });
+}
+
 test("모르는 자동재생 장르는 끄고 채널에 알린 뒤 대기열 소진으로 간다", async () => {
   const p = h.makePlayer();
   embeds(p);
