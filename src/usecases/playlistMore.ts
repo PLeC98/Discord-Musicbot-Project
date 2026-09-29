@@ -9,11 +9,13 @@ const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import * as trackState from "../player/trackState.ts";
 import * as labels from "../ui/text/labels.ts";
+import * as moreText from "../ui/text/more.ts";
 import { markTransient } from "../ui/transientMessages.ts";
 import { canSend } from "../ui/channels.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/Player.ts";
+import type { MoreRefusal } from "../ui/text/more.ts";
 
 const LIFETIME_MS = 30_000;
 // 이어 받을 때 앞으로 더 받아 직전 마지막 곡(앵커)을 찾는 폭. 그 사이 목록이 이만큼 편집돼도 이어진다
@@ -51,8 +53,6 @@ type RawState = { kind?: unknown; listId?: unknown; offset?: unknown; anchorId?:
 /** 이어 넣은 결과. 메뉴를 다시 띄울 때 읽는 칸 */
 type MoreResult = { added: number; dropped?: number; skipped?: number; total: number | null; remaining: number; next: More | null };
 const USER_ID = /^\d{17,20}$/;
-
-const fmt = (n: number | null) => Number(n).toLocaleString("ko-KR");
 
 // collectionId: 곡 찾기가 알려 준 목록 id(주소만으로는 모르는 출처)
 function sourceOf(query: string, collectionId?: string | null): { kind: Kind; listId: string } | null {
@@ -124,10 +124,10 @@ function moreChoices({ remaining, room, batch, perClick = Infinity }: { remainin
   return { cap, steps: cap > 0 ? [batch, batch * 2].filter((n) => n < cap) : [] };
 }
 
-// 누른 사람·메시지 나이 확인. 문제가 있으면 안내 문구
-function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }: { userId: string; lastTouched: number; now?: number }) {
-  if (state.requesterId && state.requesterId !== userId) return "목록을 넣은 사람만 더 넣을 수 있어요.";
-  if (now - lastTouched > LIFETIME_MS) return "시간이 지나 닫힌 메뉴예요. 링크를 다시 넣어 주세요.";
+// 누른 사람·메시지 나이 확인. 문제가 있으면 거절 까닭
+function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }: { userId: string; lastTouched: number; now?: number }): MoreRefusal | null {
+  if (state.requesterId && state.requesterId !== userId) return "not-requester";
+  if (now - lastTouched > LIFETIME_MS) return "expired";
   return null;
 }
 
@@ -141,48 +141,42 @@ function parseCount(raw: unknown) {
 function menuMessage(head: string, state: MoreState, { remaining, room, batch = config.bot.playlistAddDefault }: { remaining: number; room: number; batch?: number }) {
   const { perClick } = KINDS[state.kind];
   const { cap, steps } = moreChoices({ remaining, room, batch, perClick });
-  if (cap === 0) return { content: `${head}\n대기열이 가득 차 지금은 더 넣을 수 없어요.`, components: [] };
+  if (cap === 0) return { content: moreText.noRoom(head), components: [] };
   // 모달 ID가 한 글자 더 길다. 둘 다 100자 안이어야 한다
   if (encodeState(MODAL_PREFIX, state).length > 100) return { content: head, components: [] };
 
+  const t = moreText.menu(remaining);
   const menu = new StringSelectMenuBuilder()
     .setCustomId(encodeState(SELECT_PREFIX, state))
-    .setPlaceholder(`더 넣기 (남은 ${fmt(remaining)}곡)`)
-    .addOptions(...steps.map((n) => ({ label: `${fmt(n)}곡 더`, value: String(n) })), { label: capLabel(cap, remaining, perClick), value: String(cap) }, { label: "직접 입력…", value: "custom" }, { label: "그만 넣기", value: "stop" });
+    .setPlaceholder(t.placeholder)
+    .addOptions(...steps.map((n) => ({ label: moreText.step(n), value: String(n) })), { label: moreText.capLabel(cap, { all: cap >= remaining, perClick: cap === perClick }), value: String(cap) }, { label: t.custom, value: "custom" }, { label: t.stop, value: "stop" });
   return { content: head, components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] };
-}
-
-// 가장 큰 선택지의 이름. 출처의 한 번 상한에 걸렸으면 "N곡 더"(더 넣을 수는 있다)
-function capLabel(cap: number, remaining: number, perClick: number) {
-  if (cap >= remaining) return `남은 곡 전부 (${fmt(cap)}곡)`;
-  return cap === perClick ? `${fmt(cap)}곡 더` : `넣을 수 있는 만큼 (${fmt(cap)}곡)`;
 }
 
 function offerMessage(more: More, room: number) {
   const label = labels.collection(KINDS[more.kind].collection);
-  return menuMessage(`📃 ${label}은 전체 ${fmt(more.total)}곡이에요. 앞 ${fmt(more.offset)}곡까지 넣었어요.`, more, { remaining: more.remaining, room, batch: more.batch });
+  return menuMessage(moreText.offered(label, more.total, more.offset), more, { remaining: more.remaining, room, batch: more.batch });
 }
 
 function resultMessage(state: MoreState, result: MoreResult, room: number) {
   const label = labels.collection(KINDS[state.kind].collection);
-  let head = `✅ ${label}에서 ${fmt(result.added)}곡을 더 넣었어요.`;
-  if (result.skipped && result.skipped > 0) head += ` 받을 수 없는 ${fmt(result.skipped)}곡(미리듣기 · 지역 제한 등)은 뺐어요.`;
-  if (result.dropped && result.dropped > 0) head += ` 대기열이 가득 차 ${fmt(result.dropped)}곡은 빠졌어요.`;
-  if (!result.next) return { content: result.remaining > 0 ? head : `${head} 목록을 끝까지 넣었어요.`, components: [] };
-  return menuMessage(`${head} (전체 ${fmt(result.total)}곡 중 ${fmt(result.next.offset)}곡까지)`, result.next, { remaining: result.remaining, room, batch: result.next.batch });
+  const head = moreText.added({ collection: label, added: result.added, skipped: result.skipped, dropped: result.dropped });
+  if (!result.next) return { content: result.remaining > 0 ? head : moreText.finished(head), components: [] };
+  return menuMessage(moreText.progressed(head, result.total, result.next.offset), result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }
 
 function countModal(state: MoreState, cap: number, batch = config.bot.playlistAddDefault) {
   const max = Math.min(cap, MAX_COUNT, KINDS[state.kind].perClick);
+  const t = moreText.countModal(max);
   const input = new TextInputBuilder()
     .setCustomId("count")
-    .setLabel(`넣을 곡 수 (1~${fmt(max)})`)
+    .setLabel(t.label)
     .setStyle(TextInputStyle.Short)
     .setMinLength(1)
     .setMaxLength(5)
     .setPlaceholder(String(Math.min(max, batch)))
     .setRequired(true);
-  return new ModalBuilder().setCustomId(encodeState(MODAL_PREFIX, state)).setTitle("더 넣기").addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+  return new ModalBuilder().setCustomId(encodeState(MODAL_PREFIX, state)).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
 }
 
 // ── 메시지 수명. 이어 넣으면 다시 센다 ──

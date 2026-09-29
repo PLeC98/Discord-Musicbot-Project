@@ -4,6 +4,7 @@ import { MessageFlags, type ActionRowBuilder, type ModalMessageModalSubmitIntera
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/errors.ts";
+import * as moreText from "../src/ui/text/more.ts";
 import { errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
@@ -26,7 +27,7 @@ const refuser = (interaction: MoreInteraction) => (text: string) => interaction.
 
 // 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
 async function stop(interaction: StringSelectMenuInteraction<"cached">, state: MoreState) {
-  if (state.requesterId && state.requesterId !== interaction.user.id) return refuser(interaction)("목록을 넣은 사람만 닫을 수 있어요.");
+  if (state.requesterId && state.requesterId !== interaction.user.id) return refuser(interaction)(moreText.refusal("not-requester-close"));
   More.clearExpiry(interaction.message.id);
   await interaction.deferUpdate().catch(closed);
   return interaction.deleteReply().catch(closed);
@@ -40,13 +41,13 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: P
     const value = interaction.values[0];
     if (value === "custom") {
       const room = More.roomFor(player);
-      if (room <= 0) await refuse("대기열이 가득 차 지금은 더 넣을 수 없어요.");
+      if (room <= 0) await refuse(moreText.refusal("full"));
       else await interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : More.MAX_COUNT, GuildSettingsManager.resolvePlaylistAddMax(interaction.guild.id)));
       return null;
     }
     count = More.parseCount(value);
   } else count = More.parseCount(interaction.fields.getTextInputValue("count"));
-  if (!count) await refuse("넣을 곡 수를 1 이상의 숫자로 적어 주세요.");
+  if (!count) await refuse(moreText.refusal("bad-count"));
   return count || null;
 }
 
@@ -55,14 +56,14 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
   const message = interaction.message;
   // 메뉴를 떼어 두 번 누르지 못하게 하면서 3초 안에 응답한다
   if (message) More.clearExpiry(message.id);
-  await interaction.update({ content: "⏳ 곡을 가져오는 중…", components: [] });
+  await interaction.update({ content: moreText.fetching(), components: [] });
 
   let lastEdit = 0;
   const onProgress = (done: number, want: number) => {
     const now = Date.now();
     if (done >= want || now - lastEdit < PROGRESS_EVERY_MS) return;
     lastEdit = now;
-    interaction.editReply({ content: `⏳ ${done}/${want}곡 가져오는 중…` }).catch(() => {
+    interaction.editReply({ content: moreText.fetchingCount(done, want) }).catch(() => {
       /* 진행 표시는 놓쳐도 된다 */
     });
   };
@@ -91,13 +92,13 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
 async function handleMore(interaction: MoreInteraction) {
   const refuse = refuser(interaction);
   const state = More.decodeState(interaction.customId);
-  if (!state) return refuse("알 수 없는 메뉴예요.");
+  if (!state) return refuse(moreText.refusal("unknown-menu"));
   if (interaction.isStringSelectMenu() && interaction.values[0] === "stop") return stop(interaction, state);
 
   const message = interaction.message;
   const lastTouched = message?.editedTimestamp ?? message?.createdTimestamp ?? 0;
   const clickErr = More.clickError(state, { userId: interaction.user.id, lastTouched });
-  if (clickErr) return refuse(clickErr);
+  if (clickErr) return refuse(moreText.refusal(clickErr));
 
   const permErr = checkAdd(interaction.member);
   if (permErr) return refuse(permErr);
