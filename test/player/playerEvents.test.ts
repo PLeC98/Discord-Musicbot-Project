@@ -35,7 +35,7 @@ test("듣는 쪽의 실패는 알린 쪽으로 올라간다(기다리는 알림)
   playerEvents.on("started", () => {
     throw new Error("패널 실패");
   });
-  await assert.rejects(playerEvents.started(player(), { id: "u1" }), /패널 실패/);
+  await assert.rejects(playerEvents.started(player()), /패널 실패/);
 });
 
 test("대시보드 알림 · 놓기는 기다리지 않고, 실패해도 알린 쪽을 멈추지 않는다", () => {

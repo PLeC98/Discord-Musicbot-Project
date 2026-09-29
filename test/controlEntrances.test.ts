@@ -154,7 +154,7 @@ async function viaCommand(op: string, state: string) {
 
 async function viaButton(op: string, state: string) {
   const acts = arrange(state);
-  const { it, shown } = fakeInteraction({ customId: `${BUTTON[op]}:u1:S1` });
+  const { it, shown } = fakeInteraction({ customId: `panel:${BUTTON[op]}:S1` });
   await interactionCreate.execute(it);
   return outcome(acts, shown);
 }
@@ -184,15 +184,16 @@ const COMMAND: Record<string, { name: string; options?: Record<string, string | 
   clear: { name: "clear" },
   leave: { name: "leave" },
 };
+// 재생 패널 버튼의 동작 이름(custom_id 는 panel:동작:세션)
 const BUTTON: Record<string, string> = {
-  pause: "music_pause",
-  skip: "music_skip",
-  stop: "music_stop",
-  previous: "music_previous",
-  highlight: "music_highlight",
-  volume: "music_volume",
-  loop: "music_loop",
-  shuffle: "music_shuffle",
+  pause: "pause",
+  skip: "skip",
+  stop: "stop",
+  previous: "previous",
+  highlight: "highlight",
+  volume: "volume",
+  loop: "loop",
+  shuffle: "shuffle",
 };
 const DASHBOARD: Record<string, { method?: string; route: string; body?: object }> = {
   pause: { route: "pause" },

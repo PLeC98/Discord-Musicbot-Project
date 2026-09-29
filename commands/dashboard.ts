@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "discord.js";
-import { toRequester } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { checkControl } from "../src/usecases/permissions.ts";
@@ -38,7 +37,7 @@ const exported: GuildCommand = {
     player.movePanel(channel);
     client.musicEmbedManager.stopProgressUpdate(guild.id);
 
-    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, toRequester(member), interactionResponder(interaction, client.musicEmbedManager), { reuse: false });
+    await client.musicEmbedManager.createNewMusicEmbed(player, player.currentTrack, interactionResponder(interaction, client.musicEmbedManager), { reuse: false });
   },
 };
 export default exported;

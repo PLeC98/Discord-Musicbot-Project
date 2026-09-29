@@ -3,7 +3,7 @@
 //
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로
 //   ended(player, reason)       재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end · failures · stop · leave · disconnected · joined)
-//   started(player, requester)  패널 없이 재생이 시작됐다(자동재생 첫 곡). 새 패널을 올린다
+//   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡 · 세션 복원). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
 //   disposed(player, reason)    플레이어를 버렸다(reason: 버린 까닭). 등록부가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)
 //   notice(player, code, detail)     글자 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/playerNotices)
@@ -30,7 +30,7 @@ type NoticeCode = keyof Notices;
 type EventArgs = {
   refresh: [player: Player];
   ended: [player: Player, reason: string];
-  started: [player: Player, requester: Requester];
+  started: [player: Player];
   released: [player: Player, textChannelId: string];
   disposed: [player: Player, reason: string];
   notice: [player: Player, code: NoticeCode, detail: Notices[NoticeCode]];
@@ -56,7 +56,7 @@ async function emit<K extends keyof EventArgs>(name: K, ...args: EventArgs[K]) {
 
 const refresh = (player: Player) => emit("refresh", player);
 const ended = (player: Player, reason: string) => emit("ended", player, reason);
-const started = (player: Player, requester: Requester) => emit("started", player, requester);
+const started = (player: Player) => emit("started", player);
 const leaving = (player: Player, leavesAt: number | null) => emit("leaving", player, leavesAt);
 const notice = <C extends NoticeCode>(player: Player, code: C, detail: Notices[C]) => emit("notice", player, code, detail);
 

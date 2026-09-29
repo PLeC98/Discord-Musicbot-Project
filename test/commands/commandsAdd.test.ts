@@ -101,7 +101,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     drawEndedPanel: async (_p: unknown, { reason }: { reason: string }) => seen.push(`end:${reason}`),
     repostIdlePanel: async (_g: unknown, ch: { id: string }) => seen.push(`repost:${ch.id}`),
     stopProgressUpdate: (id: string) => seen.push(`stopProgress:${id}`),
-    createNewMusicEmbed: async (_p: unknown, track: { title: string }, who: Requester | null, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, who: who?.username, opts }),
+    createNewMusicEmbed: async (_p: unknown, track: { title: string }, _responder: unknown, opts: unknown) => seen.push({ newEmbed: track.title, opts }),
     deleteWebhookCache: () => {},
   };
   const client = fakeWith<Client<true>>()({ players: new Map<string, Player>(), searchResults: new Map(), musicEmbedManager: embeds, user: { id: "bot" }, guilds: { fetch: async () => null } });
@@ -464,13 +464,13 @@ test("/autoplay: 켜져 있으면 끄고 30초짜리 다시 고르기 메뉴를,
   const a = interaction(on);
   await runCommand(await command("autoplay"), a.it, on.client);
   assert.deepEqual(on.seen, ["autoplay:false", "update"]);
-  assert.match(JSON.stringify(a.log[0][1]), /autoplay_genre/);
+  assert.match(JSON.stringify(a.log[0][1]), /autoplay:genre/);
 
   const off = world();
   const b = interaction(off);
   await runCommand(await command("autoplay"), b.it, off.client);
   assert.deepEqual(off.seen, []);
-  assert.match(JSON.stringify(b.log[0][1]), /autoplay_genre/);
+  assert.match(JSON.stringify(b.log[0][1]), /autoplay:genre/);
 });
 
 test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어야 한다. 플레이어가 없으면 만들지 않고 메뉴만 띄운다", async () => {
@@ -489,7 +489,7 @@ test("/autoplay: DJ 계층이 필요하고, 봇이 쉬면 소환할 수 있어�
   const f = interaction(fresh);
   await runCommand(await command("autoplay"), f.it, fresh.client);
   assert.equal(fresh.client.players.has("g1"), false, "메뉴만 닫아도 빈 플레이어가 남지 않게, 고른 뒤에 만든다");
-  assert.match(JSON.stringify(f.log[0][1]), /autoplay_genre:[^"]*:idle/);
+  assert.match(JSON.stringify(f.log[0][1]), /"autoplay:genre"/);
 });
 
 test("/autoplay 장르 선택: 플레이어가 없으면 고른 그때 만들어 장르를 걸고 첫 곡을 뽑아 튼다", async () => {
@@ -503,7 +503,7 @@ test("/autoplay 장르 선택: 플레이어가 없으면 고른 그때 만들어
     member: fresh.member,
     client: fresh.client,
     channel: { id: "c1", send: async () => ({}) },
-    customId: `autoplay_genre:${USER}:idle`,
+    customId: "autoplay:genre",
     values: [genre],
     ...interactionKind("select"),
     reply: async (m: unknown) => log.push(["reply", m]),
@@ -530,7 +530,7 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
     member: away.member,
     client: away.client,
     channel: { id: "c1", send: async () => ({}) },
-    customId: `autoplay_genre:${USER}:idle`,
+    customId: "autoplay:genre",
     values: [genre],
     ...interactionKind("select"),
     reply: async (m: { content?: string }) => log.push(m.content),
@@ -578,5 +578,5 @@ test("/dashboard: 곡이 없으면 끝난 패널을 여기에 다시 올리고, 
   await runCommand(await command("dashboard"), b.it, busy.client);
   assert.equal(busy.player.nowPlayingMessage, null);
   assert.equal(busy.player.textChannel?.id, "c8");
-  assert.deepEqual(busy.seen, ["stopProgress:g1", { newEmbed: "지금 곡", who: "사용자", opts: { reuse: false } }]);
+  assert.deepEqual(busy.seen, ["stopProgress:g1", { newEmbed: "지금 곡", opts: { reuse: false } }]);
 });

@@ -14,7 +14,8 @@ const LOOP_TEXT: Record<string, [emoji: string, message: string]> = {
   queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
-import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS, IDLE_SESSION } from "../src/ui/genreMenu.ts";
+import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
+import { PANEL, HELP, SYSTEM, customId, partsOf } from "../src/ui/customIds.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
@@ -25,17 +26,17 @@ import type { Player } from "../src/player/Player.ts";
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
 
-// 재생 패널의 버튼. customId 는 "이름:요청자:세션"
-const PANEL: Record<string, (it: Press, player: Player) => unknown> = {
-  music_pause: (it, player) => handlePause(it, player),
-  music_skip: (it, player) => handleSkip(it, player),
-  music_stop: (it, player) => handleStop(it, player),
-  music_queue: (it, player) => handleQueue(it, player),
-  music_shuffle: (it, player) => handleShuffle(it, player),
-  music_highlight: (it, player) => handleHighlight(it, player),
-  music_volume: (it) => handleVolumeModal(it),
-  music_loop: (it, player) => handleLoop(it, player),
-  music_previous: (it, player) => handlePrevious(it, player),
+// 재생 패널의 버튼. custom_id 는 panel:동작:세션
+const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
+  pause: (it, player) => handlePause(it, player),
+  skip: (it, player) => handleSkip(it, player),
+  stop: (it, player) => handleStop(it, player),
+  queue: (it, player) => handleQueue(it, player),
+  shuffle: (it, player) => handleShuffle(it, player),
+  highlight: (it, player) => handleHighlight(it, player),
+  volume: (it) => handleVolumeModal(it),
+  loop: (it, player) => handleLoop(it, player),
+  previous: (it, player) => handlePrevious(it, player),
 };
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
@@ -44,12 +45,13 @@ async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   if (!player) return interaction.reply({ content: S.ERR_NO_MUSIC, flags: [1 << 6] });
 
-  const [name, , sessionId] = interaction.customId.split(":");
+  const { action, rest } = partsOf(interaction.customId);
+  const sessionId = rest[0];
   if (sessionId && player.sessionId && sessionId !== player.sessionId) {
     return interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
   }
-  const handle = PANEL[name];
-  if (!handle) return interaction.reply({ content: "❌ 알 수 없는 상호작용!", flags: [1 << 6] });
+  const handle = PANEL_ACTIONS[action];
+  if (!handle) return interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: [1 << 6] });
   await handle(interaction, player);
 }
 
@@ -174,14 +176,13 @@ async function handleVolumeModal(interaction: Press) {
     });
   }
 
-  const modal = new ModalBuilder().setCustomId("volume_modal").setTitle("볼륨 설정");
+  await interaction.showModal(volumeModal());
+}
 
+/** 음량을 적는 모달. 받는 쪽은 modalHandler 의 음량 처리 */
+function volumeModal() {
   const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel("볼륨 (0-100)").setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(3).setPlaceholder("50").setRequired(true);
-
-  const actionRow = new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput);
-  modal.addComponents(actionRow);
-
-  await interaction.showModal(modal);
+  return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle("볼륨 설정").addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
 
 async function handleLoop(interaction: Press, player: Player) {
@@ -203,6 +204,7 @@ async function handleLoop(interaction: Press, player: Player) {
 }
 
 // 끝난 패널·재생 중 패널 양쪽에서 온다. 플레이어가 없으면 만든다. /autoplay와 같은 길.
+// 플레이어가 있으면 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다(끝난 패널의 idle 도 거절)
 async function handleAutoplayButton(interaction: Press) {
   const { guild, member } = interaction;
 
@@ -214,19 +216,21 @@ async function handleAutoplayButton(interaction: Press) {
   // 플레이어는 장르를 고른 뒤에 만든다(메뉴를 닫으면 아무것도 남지 않게)
   if (!player) {
     keepReply(interaction);
-    return await interaction.reply(buildGenreMenu(member.id, IDLE_SESSION));
+    return await interaction.reply(buildGenreMenu());
   }
-  return await handleAutoplay(interaction, player, member.id);
+  const sessionId = partsOf(interaction.customId).rest[0];
+  if (sessionId && player.sessionId && sessionId !== player.sessionId) return await interaction.reply({ content: S.ERR_SESSION_INVALID, flags: [1 << 6] });
+  return await handleAutoplay(interaction, player);
 }
 
 // 권한은 handleAutoplayButton이 이미 봤다.
-async function handleAutoplay(interaction: Press, player: Player, requesterId: string) {
+async function handleAutoplay(interaction: Press, player: Player) {
   if (player.autoplay) {
     player.setAutoplay(false);
 
     // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다. 고르면 변경, 두면 종료.
     expireReply(interaction, OFF_MENU_MS);
-    await interaction.reply(buildAutoplayOffMenu(requesterId, player.sessionId));
+    await interaction.reply(buildAutoplayOffMenu());
 
     if (interaction.client.musicEmbedManager) {
       await interaction.client.musicEmbedManager.updateNowPlayingEmbed(player);
@@ -236,7 +240,7 @@ async function handleAutoplay(interaction: Press, player: Player, requesterId: s
 
   // 고르는 동안 떠 있어야 한다. 수명 표는 이 버튼의 분기를 가르지 못하므로 여기서 선언한다
   keepReply(interaction);
-  await interaction.reply(buildGenreMenu(requesterId, player.sessionId));
+  await interaction.reply(buildGenreMenu());
 }
 
 /** 새로 그린 화면 */
@@ -374,6 +378,14 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 
 // custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다
-const routes: Route[] = [route("button", "search_", (it) => handleSearchInteraction(it, it.client)), route("button", "help_refresh", handleHelpRefresh), route("button", "system_refresh", handleSystemRefresh), route("button", "music_autoplay:", handleAutoplayButton), route("button", PAGE_PREFIX, handleQueuePage), route("button", "music_", handlePanelButton)];
+const routes: Route[] = [
+  route("button", "search_", (it) => handleSearchInteraction(it, it.client)),
+  route("button", customId(HELP, "refresh"), handleHelpRefresh),
+  route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
+  route("button", PAGE_PREFIX, handleQueuePage),
+  // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다. 재생 패널의 다른 버튼보다 좁다
+  route("button", customId(PANEL, "autoplay", ""), handleAutoplayButton),
+  route("button", customId(PANEL, ""), handlePanelButton),
+];
 
-export { routes, handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
+export { routes, handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, volumeModal, handleLoop, handleAutoplayButton, handleAutoplay, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };

@@ -178,7 +178,6 @@ function panelPlayer(over: object = {}) {
   return fakePlayer({
     guild: { id: "g1" },
     sessionId: "s1",
-    requesterId: "u1",
     getCurrentTime: () => 0,
     queue: [],
     previousTracks: [],
@@ -207,8 +206,8 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
   // 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다(3단계). 나머지는 대기열 버튼까지 꺼진다.
   const alive = buttonsOf(idle).filter((b) => !b.disabled);
   assert.deepEqual(
-    alive.map((b) => (b.custom_id || "").split(":")[0]),
-    ["music_autoplay"],
+    alive.map((b) => b.custom_id),
+    ["panel:autoplay:idle"],
     "자동재생 하나만 눌린다",
   );
   assert.ok(buttonsOf(idle).length > 1, "나머지 버튼도 같은 자리에 그려진다(모양 유지)");
@@ -271,7 +270,7 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
       assert.equal(edits[0].id, "100");
       const idleButtons = buttonsOf(jsonOf(edits[0].payload.components[0]));
       assert.ok(
-        idleButtons.filter((b) => !b.disabled).every((b) => (b.custom_id || "").startsWith("music_autoplay:")),
+        idleButtons.filter((b) => !b.disabled).every((b) => (b.custom_id || "").startsWith("panel:autoplay:")),
         "자동재생 외에는 전부 꺼진다",
       );
       assert.equal(edits[0].payload.files[0].name, "blank.png");

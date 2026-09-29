@@ -5,6 +5,7 @@ const log = logger.child({ category: "commands" });
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
+import { HELP, customId } from "../src/ui/customIds.ts";
 
 async function buildHelpEmbed(client: Client<true>) {
   const guilds = client.guilds.cache.size;
@@ -66,7 +67,7 @@ async function buildHelpEmbed(client: Client<true>) {
   });
   const buttons: ButtonBuilder[] = [];
   if (config.bot.website) buttons.push(new ButtonBuilder().setLabel("웹사이트").setEmoji("🌐").setURL(config.bot.website).setStyle(ButtonStyle.Link));
-  buttons.push(new ButtonBuilder().setCustomId("help_refresh").setLabel("새로고침").setEmoji("🔄").setStyle(ButtonStyle.Secondary));
+  buttons.push(new ButtonBuilder().setCustomId(customId(HELP, "refresh")).setLabel("새로고침").setEmoji("🔄").setStyle(ButtonStyle.Secondary));
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons);
   return { embed, row };
 }

@@ -6,6 +6,8 @@
 //   keepReply(). 표가 뭐라 하든 두라 (고르는 동안 떠 있어야 하는 메뉴)
 //   expireReply(). 기본 규칙이 거르더라도 지워라 (update로 선택 메뉴를 덮은 결과)
 
+import { partsOf } from "./customIds.ts";
+
 const DEFAULT_MS = 10_000;
 
 // 핸들러가 받은 상호작용. 여기서 읽고 부르는 칸만. 응답할 수 없는 상호작용(자동완성)에는 응답 칸이 없다
@@ -34,12 +36,12 @@ const COMMANDS: Record<string, number | null> = {
   setdjrole: null, // 설정 화면
 };
 
-// 버튼·메뉴·모달. custom_id의 ":" 앞
+// 버튼·메뉴·모달. custom_id 의 접두사:동작(ui/customIds)
 const COMPONENTS: Record<string, number | null> = {
-  music_queue: null, // 대기열 보기
-  queue_page: null, // 대기열 넘기기(같은 화면을 고친다)
-  help_refresh: null,
-  system_refresh: null,
+  "panel:queue": null, // 대기열 보기
+  "queue:page": null, // 대기열 넘기기(같은 화면을 고친다)
+  "help:refresh": null,
+  "system:refresh": null,
 };
 
 // 상호작용 토큰은 15분 뒤 죽는다. 그보다 긴 수명은 지울 수 없다
@@ -69,13 +71,18 @@ function expireReply(interaction: object | null | undefined, ms = DEFAULT_MS) {
   if (interaction) expiring.set(interaction, ms);
 }
 
+const componentKey = (id: string) => {
+  const { prefix, action } = partsOf(id);
+  return `${prefix}:${action}`;
+};
+
 function lifetimeOf(interaction: Omit<Replied, "replied" | "deferred" | "ephemeral" | "deleteReply">): number | null {
   if (kept.has(interaction)) return null;
   const expires = expiring.get(interaction);
   if (expires !== undefined) return expires;
   const command = interaction.isChatInputCommand?.();
   const table = command ? COMMANDS : COMPONENTS;
-  const key = (command ? interaction.commandName : String(interaction.customId ?? "").split(":")[0]) ?? "";
+  const key = (command ? interaction.commandName : componentKey(String(interaction.customId ?? ""))) ?? "";
   return Object.hasOwn(table, key) ? (table[key] ?? null) : DEFAULT_MS;
 }
 

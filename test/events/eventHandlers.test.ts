@@ -483,41 +483,41 @@ test("모달: 모르는 모달은 알린다", async () => {
   const w = world();
   const unknown = menu(w, { customId: "who_knows", select: false });
   await interactionCreate.execute(unknown.it);
-  assert.deepEqual(unknown.log, [["reply", "❌ 알 수 없는 상호작용!"]]);
+  assert.deepEqual(unknown.log, [["reply", S.ERR_UNKNOWN_INTERACTION]]);
 });
 
 test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async () => {
   const w = world();
-  const pick = menu(w, { customId: "autoplay_genre:x", values: ["가요"] });
+  const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
   assert.deepEqual(pick.log, [["update", "🎲 자동 재생이 활성화되었습니다"]]);
 
   const w2 = world();
   w2.player.currentTrack = { title: "지금 곡" };
-  await interactionCreate.execute(menu(w2, { customId: "autoplay_genre:x", values: ["가요"] }).it);
+  await interactionCreate.execute(menu(w2, { customId: "autoplay:genre", values: ["가요"] }).it);
   assert.deepEqual(w2.seen, ["autoplay:가요", "update"]);
 
-  const unknown = menu(world(), { customId: "autoplay_genre:x", values: ["없는장르"] });
+  const unknown = menu(world(), { customId: "autoplay:genre", values: ["없는장르"] });
   await interactionCreate.execute(unknown.it);
   assert.match(unknown.log[0][1] ?? "", /알 수 없는 장르입니다: `없는장르`/);
 
   await settings.setDjRoles("g1", ["dj"]);
-  const denied = menu(world(), { customId: "autoplay_genre:x", values: ["가요"] });
+  const denied = menu(world(), { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(denied.it);
   assert.deepEqual(denied.log, [["reply", S.ERR_NOT_AUTHORIZED]]);
 });
 
 test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {
   const w = world();
-  const ok = menu(w, { customId: "volume_modal", volume: "35", select: false });
+  const ok = menu(w, { customId: "panel:volume", volume: "35", select: false });
   await interactionCreate.execute(ok.it);
   assert.deepEqual(w.seen, ["volume:35"]);
   assert.deepEqual(ok.log, [["reply", "🔊 볼륨이 변경되었습니다"]]);
 
   // "50abc" 를 50 으로 읽지 않는다(parseInt 가 그랬다)
   for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
-    const r = menu(world(), { customId: "volume_modal", volume: bad, select: false });
+    const r = menu(world(), { customId: "panel:volume", volume: bad, select: false });
     await interactionCreate.execute(r.it);
     assert.deepEqual(r.log, [["reply", "❌ 볼륨은 0에서 100 사이의 숫자여야 합니다!"]], bad);
   }
@@ -527,7 +527,7 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   const w = world();
   const [a, b, c] = [{ title: "A" }, { title: "B" }, { title: "C" }];
   w.player.queue = [a, b, c];
-  const jump = menu(w, { customId: "music_jumpto:u:S1", values: ["2"] });
+  const jump = menu(w, { customId: "panel:jump:S1", values: ["2"] });
   await interactionCreate.execute(jump.it);
   assert.deepEqual(w.player.queue, [c, a, b]);
   assert.deepEqual(w.seen, ["skip:jump"]);
@@ -536,7 +536,7 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   const w2 = world();
   w2.player.queue = [a, b, c];
   w2.player.skipResult = false;
-  const fail = menu(w2, { customId: "music_jumpto:u:S1", values: ["1"] });
+  const fail = menu(w2, { customId: "panel:jump:S1", values: ["1"] });
   await interactionCreate.execute(fail.it);
   assert.deepEqual(w2.player.queue, [a, b, c], "되돌린다");
   assert.deepEqual(fail.log, [["reply", "❌ 곡으로 이동하지 못했습니다!"]]);
@@ -545,10 +545,10 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
 test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async () => {
   const w = world();
   w.player.queue = [{ title: "A" }];
-  const stale = menu(w, { customId: "music_jumpto:u:OLD", values: ["0"] });
+  const stale = menu(w, { customId: "panel:jump:OLD", values: ["0"] });
   await interactionCreate.execute(stale.it);
   assert.deepEqual(stale.log, [["reply", S.ERR_SESSION_INVALID]]);
-  const bad = menu(w, { customId: "music_jumpto:u:S1", values: ["5"] });
+  const bad = menu(w, { customId: "panel:jump:S1", values: ["5"] });
   await interactionCreate.execute(bad.it);
   assert.deepEqual(bad.log, [["reply", "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!"]]);
 });
@@ -558,7 +558,7 @@ test("모달: 처리 중 던지면 일반 오류 문장", async () => {
   w.player.setVolume = () => {
     throw new Error("boom");
   };
-  const r = menu(w, { customId: "volume_modal", volume: "10", select: false });
+  const r = menu(w, { customId: "panel:volume", volume: "10", select: false });
   await interactionCreate.execute(r.it);
   assert.deepEqual(r.log, [["reply", S.ERR_PROCESSING]]);
 });

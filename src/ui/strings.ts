@@ -23,6 +23,8 @@ export const ERR_NO_PERMISSIONS = "❌ 이 음성 채널에서 말할 권한이 
 export const ERR_NO_SONGS_IN_QUEUE = "❌ 대기열에 노래가 없습니다!";
 export const ERR_SESSION_INVALID = "❌ 이 버튼은 더 이상 유효하지 않습니다! 음악 시스템이 재시작되었습니다.";
 export const ERR_PROCESSING = "❌ 처리 중 오류가 발생했습니다!";
+// 버튼 · 메뉴를 받을 처리기가 없다. 봇을 고치기 전에 올린 메시지의 것이 대개 이렇다(custom_id 모양이 바뀌었다)
+export const ERR_UNKNOWN_INTERACTION = "❌ 오래됐거나 알 수 없는 버튼이에요. 명령이나 패널을 다시 불러 주세요.";
 export const ERR_LIVE_UPCOMING = "❌ 아직 시작하지 않은 방송이에요. 방송이 시작된 뒤에 다시 넣어 주세요!";
 export const ERR_LIVE_NO_FFMPEG = "❌ 지금 설치된 ffmpeg로는 라이브 방송을 재생할 수 없어요. `pnpm run install:ffmpeg`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인해 주세요.";
 export const ERR_LIVE_NO_SEEK = "❌ 라이브 방송은 구간 이동을 할 수 없어요.";

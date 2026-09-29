@@ -91,7 +91,6 @@ function makeSetup(state: State = {}) {
   const player = fakePlayer({
     guild: { id: "g1" },
     sessionId: "s1",
-    requesterId: "u1",
     queue: [],
     previousTracks: [],
     loop: false,

@@ -4,6 +4,7 @@ import os from "os";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
+import { SYSTEM, customId } from "../src/ui/customIds.ts";
 
 const UPTIME = { withSeconds: true };
 
@@ -61,7 +62,7 @@ function buildSystemEmbed(client: Client<true>) {
     )
     .setTimestamp();
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("system_refresh").setLabel("새로고침").setEmoji("🔄").setStyle(ButtonStyle.Secondary));
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId(customId(SYSTEM, "refresh")).setLabel("새로고침").setEmoji("🔄").setStyle(ButtonStyle.Secondary));
 
   return { embed, row };
 }

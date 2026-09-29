@@ -153,7 +153,7 @@ function startBot({ potServer, logFile, skipRestore }: { potServer: PotServer; l
 function listenToPlayers(panels: MusicEmbedManager, stream: ReturnType<typeof createPlayerStream>) {
   playerEvents.on("refresh", (player) => panels.updateNowPlayingEmbed(player));
   playerEvents.on("ended", (player, reason) => panels.drawEndedPanel(player, { reason }));
-  playerEvents.on("started", (player, requester) => player.currentTrack && panels.createNewMusicEmbed(player, player.currentTrack, requester));
+  playerEvents.on("started", (player) => player.currentTrack && panels.createNewMusicEmbed(player, player.currentTrack));
   playerEvents.on("released", (_player, textChannelId) => panels.deleteWebhookCache(textChannelId));
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));
   playerEvents.on("touched", (guildId) => stream.notify(guildId));

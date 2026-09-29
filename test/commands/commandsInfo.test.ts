@@ -208,7 +208,7 @@ test("/help: 명령 묶음과 통계를 담고 새로고침 버튼을 단다", a
   assert.match(f["📊 통계"], /활성 서버:\*\* 1개/);
   // 웹사이트 버튼은 WEBSITE 가 있을 때만 앞에 붙는다. 순서가 아니라 ID 로 찾는다
   const buttons: Array<{ data: { custom_id?: string } }> = log[0][1].components[0].components;
-  assert.ok(buttons.some((b) => b.data.custom_id === "help_refresh"));
+  assert.ok(buttons.some((b) => b.data.custom_id === "help:refresh"));
 });
 
 test("/help: 모든 명령을 적는다", async () => {
@@ -248,7 +248,7 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
     assert.deepEqual(owner.log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
     const f = fieldsOf(owner.log[1][1]);
     assert.match(f["🎵 봇 현황"], /서버:\*\* 1개/);
-    assert.equal(owner.log[1][1].components[0].components[0].data.custom_id, "system_refresh");
+    assert.equal(owner.log[1][1].components[0].components[0].data.custom_id, "system:refresh");
   } finally {
     config.dashboard.ownerId = saved;
   }

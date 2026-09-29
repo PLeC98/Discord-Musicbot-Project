@@ -100,7 +100,6 @@ function makePlayer(guild: Guild, textChannel: GuildTextBasedChannel, over: obje
     guild,
     textChannel,
     sessionId: "s1",
-    requesterId: "u1",
     queue: [],
     previousTracks: [],
     loop: false,
@@ -119,7 +118,7 @@ const bury = (channel: TestChannel | undefined, now: number) => channel?.message
 async function play(mem: MusicEmbedManager, player: Player) {
   assert.ok(player.currentTrack, "틀 곡이 있다");
   try {
-    await mem.createNewMusicEmbed(player, player.currentTrack, { id: "u1" });
+    await mem.createNewMusicEmbed(player, player.currentTrack);
   } finally {
     mem.stopProgressUpdate("g1");
   }
@@ -307,7 +306,7 @@ test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있�
   const skipDisabled = async (over: object) => {
     const rows = await mem.createControlButtons(makePlayer(guild, text(BOT), over));
     const buttons = rows.flatMap((row) => row.toJSON().components);
-    return buttons.find((b) => "custom_id" in b && b.custom_id.startsWith("music_skip:"))?.disabled;
+    return buttons.find((b) => "custom_id" in b && b.custom_id.startsWith("panel:skip:"))?.disabled;
   };
   assert.equal(await skipDisabled({}), true);
   assert.equal(await skipDisabled({ autoplay: "pop" }), false);

@@ -162,7 +162,6 @@ class Player {
   // 화면(ui)이 채우는 패널
   nowPlayingMessage: PanelMessage | null;
   nowPlayingWebhook?: PanelHook | null;
-  requesterId: string | null;
   sessionId: string;
   /** 멈춘 까닭. 멈추는 쪽이 _stopWith 로 적고 끝 처리(Idle)가 가져간다 */
   _endReason: string | null;
@@ -213,7 +212,6 @@ class Player {
 
     // UI 관리
     this.nowPlayingMessage = null;
-    this.requesterId = null;
 
     // 세션 관리 - 오래된 버튼 상호작용을 막기 위한 고유 ID
     this.sessionId = createPlayerSessionId();
@@ -673,7 +671,6 @@ class Player {
   // 패널 참조를 놓는다. 남은 패널은 ui 가 기록으로 찾아 끝낸다
   _dropPanel() {
     this.nowPlayingMessage = null;
-    this.requesterId = null;
     this.voiceChannel = null;
     if (this.textChannel?.id) playerEvents.released(this, this.textChannel.id);
     this.textChannel = null;
@@ -1094,7 +1091,7 @@ class Player {
     // 패널이 없을 수 있다. 아무것도 안 틀던 서버에서 자동재생으로 처음 트는 길.
     // 패널 고치기는 있는 패널을 고칠 뿐이라, 그대로 두면 소리만 나고 화면이 없다.
     if (this.nowPlayingMessage) await playerEvents.refresh(this);
-    else await playerEvents.started(this, this.guild.members.me?.user ?? { id: this.guild.client.user?.id ?? "" });
+    else await playerEvents.started(this);
     return true;
   }
 
@@ -1216,12 +1213,11 @@ class Player {
   }
 
   /** 저장된 설정을 되돌린다(세션 복원). 멈춤 사유는 비운다. 복원한 뒤의 상황(혼자 남음 등)이 다시 건다 */
-  restoreSettings({ volume, loop, autoplay, requesterId }: { volume?: number | null; loop: Loop; autoplay: string | false; requesterId?: string | null }) {
+  restoreSettings({ volume, loop, autoplay }: { volume?: number | null; loop: Loop; autoplay: string | false }) {
     this.pauseReasons = new Set();
     if (typeof volume === "number") this.volume = volume;
     this.loop = loop;
     this.autoplay = autoplay;
-    if (requesterId) this.requesterId = requesterId;
   }
 
   /** 지금 곡을 음성 채널 상태에. 일시정지면 그 앞머리로 */

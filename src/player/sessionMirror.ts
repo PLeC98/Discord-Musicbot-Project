@@ -148,7 +148,6 @@ class SessionPersistence {
       pausedManual: Boolean(p.paused) && Boolean(p.pauseReasons?.has("manual")),
       positionMs: p.getCurrentTime?.() || 0,
       startOffsetMs: p.playback?.startOffsetMs || 0,
-      requesterId: p.requesterId || null,
     };
   }
 
@@ -250,7 +249,6 @@ class SessionPersistence {
       volume: session.volume,
       loop: session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false,
       autoplay: session.autoplay || false,
-      requesterId: session.requesterId,
     });
 
     this._restoreTracks(record, player.guild.id);
@@ -274,7 +272,7 @@ class SessionPersistence {
       player.resource.volume.setVolume(player.volume / 100);
     }
 
-    await this._announceRestored(session.requesterId, resumeMs);
+    await this._announceRestored(resumeMs);
   }
 
   // 저장된 트랙을 메모리에 올린다
@@ -321,13 +319,12 @@ class SessionPersistence {
   }
 
   // 패널을 다시 세우고 이어 튼다고 알린다
-  async _announceRestored(requesterId: string | null | undefined, resumeMs: number) {
+  async _announceRestored(resumeMs: number) {
     const player = this.player;
     if (player.textChannel) {
       try {
         // 새 CV2 현재 재생 메시지 전송 (진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복구에는 진입점 자리표시자가 없다.
-        const requester = { id: requesterId || player.guild.client.user?.id || "" };
-        await playerEvents.started(player, requester);
+        await playerEvents.started(player);
       } catch (error) {
         log.error("세션 복원 중 재생 임베드 복구 실패:", messageOf(error));
       }

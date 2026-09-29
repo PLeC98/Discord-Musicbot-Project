@@ -9,6 +9,7 @@ import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import { volumeChanged } from "../src/ui/volumeReply.ts";
 import { route, type Route } from "./route.ts";
+import { PANEL, AUTOPLAY, customId, partsOf } from "../src/ui/customIds.ts";
 
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, client: Client<true>) {
   const guild = interaction.guild;
@@ -72,7 +73,7 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
 
 async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, client: Client<true>) {
   const player = client.players.get(interaction.guild.id);
-  const [, , sessionId] = interaction.customId.split(":");
+  const sessionId = partsOf(interaction.customId).rest[0];
   if (player && sessionId && player.sessionId && sessionId !== player.sessionId) {
     return await interaction.reply({
       content: S.ERR_SESSION_INVALID,
@@ -101,6 +102,6 @@ async function handleVolumeModal(interaction: ModalSubmitInteraction<"cached">, 
 }
 
 // 자동재생 장르 · 곡으로 건너뛰기 메뉴와 음량 입력 모달
-const routes: Route[] = [route("select", "autoplay_genre:", (it) => handleAutoplayGenre(it, it.client)), route("select", "music_jumpto:", (it) => handleJumpTo(it, it.client)), route("modal", "volume_modal", (it) => handleVolumeModal(it, it.client))];
+const routes: Route[] = [route("select", customId(AUTOPLAY, "genre"), (it) => handleAutoplayGenre(it, it.client)), route("select", customId(PANEL, "jump", ""), (it) => handleJumpTo(it, it.client)), route("modal", customId(PANEL, "volume"), (it) => handleVolumeModal(it, it.client))];
 
 export { routes, handleAutoplayGenre, handleJumpTo, handleVolumeModal };

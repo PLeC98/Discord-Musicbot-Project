@@ -9,10 +9,13 @@ import { Collection, type Interaction } from "discord.js";
 import { fake } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/tempStore.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
+import { buildGenreMenu, buildAutoplayOffMenu } from "../../src/ui/genreMenu.ts";
+import { MusicEmbedManager } from "../../src/ui/nowPlayingPanel.ts";
+import * as tracks from "../helpers/tracks.ts";
 import interactionCreate from "../../events/interactionCreate.ts";
 import { ROUTES } from "../../interactions/index.ts";
 import { routeOf, type Kind as RouteKind } from "../../interactions/route.ts";
-import { routes as buttonHandler } from "../../interactions/buttonHandler.ts";
+import { routes as buttonHandler, volumeModal } from "../../interactions/buttonHandler.ts";
 import { routes as djRoleConfigHandler } from "../../interactions/djRoleConfigHandler.ts";
 import { routes as modalHandler } from "../../interactions/modalHandler.ts";
 import { routes as playlistMoreHandler } from "../../interactions/playlistMoreHandler.ts";
@@ -84,12 +87,12 @@ async function answers(kind: Kind, customId: string) {
   return answered.filter((a) => FIRST.has(a));
 }
 
-const PANEL = ["music_pause", "music_skip", "music_previous", "music_stop", "music_shuffle", "music_queue", "music_loop", "music_highlight", "music_volume", "music_autoplay"].map((n) => `${n}:u1:s1`);
+const PANEL = ["pause", "skip", "previous", "stop", "shuffle", "queue", "loop", "highlight", "volume", "autoplay"].map((n) => `panel:${n}:s1`);
 const CASES: [Kind, string, string][] = [
   ...PANEL.map((id): [Kind, string, string] => ["button", id, "buttonHandler"]),
-  ["button", "queue_page:2", "buttonHandler"],
-  ["button", "help_refresh", "buttonHandler"],
-  ["button", "system_refresh", "buttonHandler"],
+  ["button", "queue:page:2", "buttonHandler"],
+  ["button", "help:refresh", "buttonHandler"],
+  ["button", "system:refresh", "buttonHandler"],
   ["button", "search_select_0", "buttonHandler"],
   ["button", "search_cancel", "buttonHandler"],
   ["button", "sb:toggle", "sponsorConfigHandler"],
@@ -97,12 +100,12 @@ const CASES: [Kind, string, string][] = [
   ["button", "sb:cancel", "sponsorConfigHandler"],
   ["button", "djrole:save", "djRoleConfigHandler"],
   ["button", "djrole:cancel", "djRoleConfigHandler"],
-  ["select", "autoplay_genre:u1:s1", "modalHandler"],
-  ["select", "music_jumpto:u1:s1", "modalHandler"],
+  ["select", "autoplay:genre", "modalHandler"],
+  ["select", "panel:jump:s1", "modalHandler"],
   ["select", "sb:cats", "sponsorConfigHandler"],
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["roleSelect", "djrole:select", "djRoleConfigHandler"],
-  ["modal", "volume_modal", "modalHandler"],
+  ["modal", "panel:volume", "modalHandler"],
   ["modal", "plmm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["command", "probe", "commands"],
 ];
@@ -115,21 +118,39 @@ for (const [kind, customId, owner] of CASES) {
   });
 }
 
+// 위 목록은 글자를 적어 둔 것이라, 만드는 쪽의 custom_id 가 바뀌면 모른다. 만든 것을 받는 경로가 목록의 것과 같은지 본다
+test("봇이 만드는 모달 · 메뉴의 custom_id 는 목록의 그 경로로 간다", async () => {
+  const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
+  sameRoute("modal", volumeModal().toJSON().custom_id, "panel:volume");
+  for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", menu.components[0].toJSON().components[0].custom_id, "autoplay:genre");
+  const jump = await new MusicEmbedManager(fake({ players: new Map() })).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
+  sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
+});
+
 test("처리기가 없는 custom_id 는 모른다고 한 번 답한다", async () => {
   assert.deepEqual(await answers("button", "nobody_knows"), ["reply"]);
   assert.deepEqual(await answers("modal", "nobody_knows"), ["reply"]);
 });
 
 test("앞머리가 여럿 맞으면 더 좁은 처리기가 받는다(자동재생 버튼은 재생 패널 버튼보다 좁다)", () => {
-  const panel = routeOf(ROUTES, "button", "music_skip:u1:s1");
-  const autoplay = routeOf(ROUTES, "button", "music_autoplay:u1:s1");
+  const panel = routeOf(ROUTES, "button", "panel:skip:s1");
+  const autoplay = routeOf(ROUTES, "button", "panel:autoplay:s1");
   assert.ok(panel && autoplay && panel !== autoplay);
-  assert.equal(autoplay.prefix, "music_autoplay:");
+  assert.equal(autoplay.prefix, "panel:autoplay:");
 });
 
-// 새 버튼 · 메뉴를 만들고 위 목록에 안 넣으면 여기서 걸린다. 모달 안의 입력 칸은 상호작용이 아니다
+// 새 처리기를 만들고 위 목록에 안 넣으면 여기서 걸린다. 경로표의 처리기마다 그것을 고르는 custom_id 가 목록에 있어야 한다
+test("경로표의 처리기는 모두 위 목록에서 불린다", () => {
+  const unused = ROUTES.filter((r) => !CASES.some(([kind, id]) => kind === r.kind && routeOf(ROUTES, r.kind, id) === r));
+  assert.deepEqual(
+    unused.map((r) => `${r.kind} ${r.prefix}`),
+    [],
+  );
+});
+
+// custom_id 를 글자 그대로 적은 곳(ui/customIds 를 거치지 않은 것)도 목록이 덮는다. 모달 안의 입력 칸은 상호작용이 아니다
 const INPUTS = new Set(["volume_input", "count"]);
-test("코드가 만드는 custom_id 는 모두 위 목록에 있다", () => {
+test("글자 그대로 적은 custom_id 도 모두 위 목록에 있다", () => {
   const heads = new Set<string>();
   for (const dir of ["commands", "events", "interactions", "src"]) {
     for (const file of fs.readdirSync(path.join(ROOT, dir), { recursive: true, encoding: "utf8" })) {
@@ -137,13 +158,13 @@ test("코드가 만드는 custom_id 는 모두 위 목록에 있다", () => {
       for (const m of fs.readFileSync(path.join(ROOT, dir, file), "utf8").matchAll(/setCustomId\(\s*[`"]([^`"$]*)/g)) if (m[1] && !INPUTS.has(m[1])) heads.add(m[1]);
     }
   }
-  assert.ok(heads.size > 20, `읽은 custom_id 가 너무 적다(${heads.size})`);
+  assert.ok(heads.size >= 5, `읽은 custom_id 가 너무 적다(${heads.size})`);
   const missing = [...heads].filter((head) => !CASES.some(([, id]) => id.startsWith(head)));
   assert.deepEqual(missing, []);
 });
 
 test("종류가 다르면 앞머리가 맞아도 받지 않는다(버튼 앞머리의 메뉴 · 모달)", () => {
-  assert.equal(routeOf(ROUTES, "select", "music_skip:u1:s1"), null);
+  assert.equal(routeOf(ROUTES, "select", "panel:skip:s1"), null);
   assert.equal(routeOf(ROUTES, "modal", "sb:toggle"), null);
   assert.ok(routeOf(ROUTES, "button", "sb:toggle"));
 });

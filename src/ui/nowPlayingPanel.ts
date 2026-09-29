@@ -65,20 +65,21 @@ type FirstStart = { opened: Opened | null; failure: string | null; started?: Que
 /** 대기열에 담은 것과 안내에 붙일 것 */
 type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
 /** 조작 버튼을 그릴 때 읽는 칸. 끝난 패널은 플레이어 없이 그린다 */
-type Controls = Pick<Player, "sessionId" | "requesterId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<Player, "sponsor">>;
+type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "paused" | "autoplay"> & Partial<Pick<Player, "sponsor">>;
 
 // 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 지워지므로
 // 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
 const PIN_SETTLE_MS = 12000;
 import { markTransient, isTransient } from "./transientMessages.ts";
+import { panelId, IDLE_SESSION } from "./customIds.ts";
 import * as blankThumbnail from "./blankThumbnail.ts";
 import { jumpDescription } from "./queueDisplay.ts";
 import { NowPlayingPanel, type PanelStore } from "./panelLocation.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
-// 자동재생만 살아 있고, 그 버튼은 sessionId "idle"을 달고 나간다(buttonHandler가 앞에서 받아 낸다).
-const IDLE_CONTROLS: Controls = { sessionId: "idle", requesterId: "0", previousTracks: [], queue: [], loop: false, paused: false, autoplay: false };
+// 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 자리에 달고 나간다.
+const IDLE_CONTROLS: Controls = { sessionId: IDLE_SESSION, previousTracks: [], queue: [], loop: false, paused: false, autoplay: false };
 
 // 반복 버튼의 모양
 const LOOP_LOOKS = {
@@ -234,10 +235,10 @@ class MusicEmbedManager {
 
     // 첫 번째 트랙이고 플레이어가 유휴 상태이면 재생 시작
     const wasIdle = !player.currentTrack && player.queue.length === 0 && tracks.length > 0;
-    const start = wasIdle ? await this._startFirst(player, stamp(tracks[0]), requester, responder) : { opened: null, failure: null };
+    const start = wasIdle ? await this._startFirst(player, stamp(tracks[0]), responder) : { opened: null, failure: null };
     const addition = this._enqueue(player, trackData, (wasIdle ? tracks.slice(1) : tracks).map(stamp));
     // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
-    const opened = start.failure ? await this._startNext(player, requester, responder) : start.opened;
+    const opened = start.failure ? await this._startNext(player, responder) : start.opened;
 
     // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
     if (start.failure && !opened) return { success: false, message: start.failure };
@@ -261,7 +262,7 @@ class MusicEmbedManager {
   }
 
   // 쉬던 플레이어에 첫 곡을 튼다
-  async _startFirst(player: Player, track: QueuedTrack, requester: Requester, responder: Responder): Promise<FirstStart> {
+  async _startFirst(player: Player, track: QueuedTrack, responder: Responder): Promise<FirstStart> {
     trackState.setCurrent(player, track);
     const failure = await this._startPlayback(player);
     if (failure) {
@@ -269,7 +270,7 @@ class MusicEmbedManager {
       trackState.setCurrent(player, null);
       return { opened: null, failure };
     }
-    return { opened: await this._openPanel(player, track, requester, responder), failure: null, started: track };
+    return { opened: await this._openPanel(player, track, responder), failure: null, started: track };
   }
 
   // 음성 채널에 연결하고 재생 시작. 실패면 안내 문구
@@ -289,12 +290,12 @@ class MusicEmbedManager {
   }
 
   // 첫 곡이 실패한 뒤 대기열의 다음 곡을 튼다. 틀었으면 패널을 세운 결과
-  async _startNext(player: Player, requester: Requester, responder: Responder): Promise<Opened | null> {
+  async _startNext(player: Player, responder: Responder): Promise<Opened | null> {
     if (player.currentTrack || player.queue.length === 0) return null;
     try {
       const nextResult = await player.play(0);
       if (nextResult && nextResult.ok !== false && player.currentTrack) {
-        return await this._openPanel(player, player.currentTrack, requester, responder);
+        return await this._openPanel(player, player.currentTrack, responder);
       }
     } catch (e) {
       log.error("첫 곡 실패 후 다음 곡 시작 실패:", messageOf(e));
@@ -303,9 +304,9 @@ class MusicEmbedManager {
   }
 
   // UI 실패가 재생 상태를 망가뜨리면 안 됨. 임베드를 생성할 수 없어도(예: CV2 수정 제한) 재생은 계속 진행
-  async _openPanel(player: Player, track: QueuedTrack, requester: Requester, responder: Responder): Promise<Opened> {
+  async _openPanel(player: Player, track: QueuedTrack, responder: Responder): Promise<Opened> {
     try {
-      return await this.createNewMusicEmbed(player, track, requester, responder);
+      return await this.createNewMusicEmbed(player, track, responder);
     } catch (embedError) {
       log.error("재생 중 임베드 생성 실패:", embedError);
       return { success: true };
@@ -358,7 +359,7 @@ class MusicEmbedManager {
   /**
    * 새 음악 임베드 생성 (현재 재생 중인 곡이 없을 때)
    */
-  async createNewMusicEmbed(player: Player, track: QueuedTrack, requester: Requester, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
+  async createNewMusicEmbed(player: Player, track: QueuedTrack, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this._panelChannel(player);
     // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
@@ -366,7 +367,6 @@ class MusicEmbedManager {
       return { success: true };
     }
 
-    player.requesterId = requester?.id ?? null; // 버튼 custom_id가 쓴다. 그리기 전에
     this.idleViews.delete(player.guild.id);
 
     // 전용 채널 맨 아래의 끝난 패널은 그 자리를 재생 화면으로 고친다. 아니면 새로 올리고 지난 패널을 치운다.
@@ -809,43 +809,42 @@ class MusicEmbedManager {
    */
   // keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
   async createControlButtons(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
-    const sessionId = player.sessionId;
-    const requesterId = player.requesterId;
+    const id = (action: string) => panelId(action, player.sessionId);
 
     // Row 1: 이전곡 + 일시정지 + 스킵 + 정지 + 볼륨
     const previousButton = new ButtonBuilder()
-      .setCustomId(`music_previous:${requesterId}:${sessionId}`)
+      .setCustomId(id("previous"))
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏮️")
       .setDisabled(disabled || !canGoBack(player));
 
     const pauseButton = new ButtonBuilder()
-      .setCustomId(`music_pause:${requesterId}:${sessionId}`)
+      .setCustomId(id("pause"))
       .setStyle(ButtonStyle.Secondary)
       .setEmoji(player.paused ? "▶️" : "⏸️")
       .setDisabled(disabled);
 
     const skipButton = new ButtonBuilder()
-      .setCustomId(`music_skip:${requesterId}:${sessionId}`)
+      .setCustomId(id("skip"))
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("⏭️")
       .setDisabled(disabled || !canSkip(player));
 
-    const stopButton = new ButtonBuilder().setCustomId(`music_stop:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
+    const stopButton = new ButtonBuilder().setCustomId(id("stop")).setStyle(ButtonStyle.Danger).setEmoji("⏹️").setDisabled(disabled);
 
-    const volumeButton = new ButtonBuilder().setCustomId(`music_volume:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
+    const volumeButton = new ButtonBuilder().setCustomId(id("volume")).setStyle(ButtonStyle.Secondary).setEmoji("🔊").setDisabled(disabled);
 
     // Row 2: 셔플(아이콘만) + 반복 + 대기열 + 자동재생
-    const shuffleButton = new ButtonBuilder().setCustomId(`music_shuffle:${requesterId}:${sessionId}`).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
+    const shuffleButton = new ButtonBuilder().setCustomId(id("shuffle")).setStyle(ButtonStyle.Secondary).setEmoji("🔀").setDisabled(disabled);
 
     // 반복 버튼. 꺼짐 → 트랙 → 대기열 순환
     const loopLook = LOOP_LOOKS[player.loop || "off"];
-    const loopButton = new ButtonBuilder().setCustomId(`music_loop:${requesterId}:${sessionId}`).setLabel(loopLook.label).setStyle(loopLook.style).setEmoji(loopLook.emoji).setDisabled(disabled);
+    const loopButton = new ButtonBuilder().setCustomId(id("loop")).setLabel(loopLook.label).setStyle(loopLook.style).setEmoji(loopLook.emoji).setDisabled(disabled);
 
-    const queueButton = new ButtonBuilder().setCustomId(`music_queue:${requesterId}:${sessionId}`).setLabel("대기열").setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(disabled);
+    const queueButton = new ButtonBuilder().setCustomId(id("queue")).setLabel("대기열").setStyle(ButtonStyle.Primary).setEmoji("📋").setDisabled(disabled);
 
     const autoplayButton = new ButtonBuilder()
-      .setCustomId(`music_autoplay:${requesterId}:${sessionId}`)
+      .setCustomId(id("autoplay"))
       .setLabel("자동재생")
       .setStyle(player.autoplay ? ButtonStyle.Success : ButtonStyle.Secondary)
       .setEmoji("🎲")
@@ -855,7 +854,7 @@ class MusicEmbedManager {
     const highlightAt = player.sponsor?.highlightAt;
     const hasHighlight = highlightAt !== null && highlightAt !== undefined;
     const highlightButton = new ButtonBuilder()
-      .setCustomId(`music_highlight:${requesterId}:${sessionId}`)
+      .setCustomId(id("highlight"))
       .setStyle(ButtonStyle.Secondary)
       .setEmoji("💡")
       .setDisabled(disabled || !hasHighlight);
@@ -871,8 +870,8 @@ class MusicEmbedManager {
    * Discord가 Container 안에 중첩된 선택 메뉴 ActionRow를 무시하므로 최상위 components 배열에 배치해야 합니다 (Container 안이 아님).
    * 대기열이 비었거나 플레이어 상태가 없으면 null을 반환합니다.
    */
-  async createJumpToRow(player: Pick<Player, "requesterId" | "sessionId" | "queue">) {
-    if (!player.requesterId || !player.sessionId || player.queue.length === 0) return null;
+  async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
+    if (!player.sessionId || player.queue.length === 0) return null;
 
     const tracks = player.queue.slice(0, 25);
     const options = tracks.map((track, i) => {
@@ -884,7 +883,7 @@ class MusicEmbedManager {
     });
 
     const placeholder = "⏭ 이 곡으로 바로 이동...";
-    const select = new StringSelectMenuBuilder().setCustomId(`music_jumpto:${player.requesterId}:${player.sessionId}`).setPlaceholder(placeholder).addOptions(options);
+    const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);
 
     return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
   }

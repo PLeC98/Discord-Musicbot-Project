@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { checkControl, checkSummon } from "../src/usecases/permissions.ts";
-import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS, IDLE_SESSION } from "../src/ui/genreMenu.ts";
+import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
@@ -18,11 +18,11 @@ const exported: GuildCommand = {
     if (permErr) return interaction.reply({ content: permErr, flags: [1 << 6] });
 
     // 틀고 있지 않아도 켤 수 있다. 장르를 고르면 그 자리에서 플레이어를 만들어 첫 곡을 뽑아 재생한다.
-    // 플레이어는 고른 뒤에 만든다(메뉴를 닫으면 아무것도 남지 않게). 그때까지 메뉴는 쉬는 중의 표식(idle)을 단다
+    // 플레이어는 고른 뒤에 만든다(메뉴를 닫으면 아무것도 남지 않게)
     const player = client.players.get(guild.id);
     if (!player) {
       keepReply(interaction);
-      return interaction.reply(buildGenreMenu(member.id, IDLE_SESSION));
+      return interaction.reply(buildGenreMenu());
     }
 
     if (player.autoplay) {
@@ -30,7 +30,7 @@ const exported: GuildCommand = {
 
       // 끄기는 이미 실행됐다. 30초 동안 장르를 다시 고를 기회만 남긴다. 고르면 변경, 두면 종료.
       expireReply(interaction, OFF_MENU_MS);
-      await interaction.reply(buildAutoplayOffMenu(member.id, player.sessionId));
+      await interaction.reply(buildAutoplayOffMenu());
 
       if (client.musicEmbedManager) await client.musicEmbedManager.updateNowPlayingEmbed(player);
       return;
@@ -38,7 +38,7 @@ const exported: GuildCommand = {
 
     // 고르는 동안 떠 있어야 한다. 고른 뒤에는 선택 핸들러가 결과로 덮는다
     keepReply(interaction);
-    await interaction.reply(buildGenreMenu(member.id, player.sessionId));
+    await interaction.reply(buildGenreMenu());
   },
 };
 export default exported;

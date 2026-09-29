@@ -4,11 +4,12 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "disc
 import config from "../../config.ts";
 import { queueDescription } from "./queueDisplay.ts";
 import type { QueuedTrack } from "../player/track.ts";
+import { QUEUE, customId } from "./customIds.ts";
 
 /** 한 쪽에 보이는 곡 수 */
 const PAGE_SIZE = 10;
 /** 넘기기 버튼의 customId 앞머리. 뒤에 보일 쪽 번호 */
-const PAGE_PREFIX = "queue_page:";
+const PAGE_PREFIX = customId(QUEUE, "page", "");
 
 type Listed = Pick<QueuedTrack, "title" | "pageUrl" | "autoplay" | "requestedBy">;
 /** 플레이어의 대기열(getQueue 에서 읽는 칸) */
