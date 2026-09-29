@@ -25,7 +25,7 @@ type TrackInfo = {
   duration: number;
   durationSource?: DurationSource;
   thumbnail?: string | null;
-  /** 어디서 온 곡인가(ui/platforms 의 이름) */
+  /** 어디서 온 곡인가(rules/platforms 의 이름) */
   platform: string;
   /** 소스 안의 id */
   id?: string;

@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
-import { labelOf, emojiOf } from "../src/ui/platforms.ts";
+import { labelOf, emojiOf } from "../src/rules/platforms.ts";
 import { progressBar } from "../src/ui/progressBar.ts";
 import { playbackStatus } from "../src/ui/playerStatus.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";

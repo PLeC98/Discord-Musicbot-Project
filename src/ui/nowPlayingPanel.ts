@@ -3,7 +3,7 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../../config.ts";
 import { progressBar, emptyProgressBar } from "./progressBar.ts";
-import { labelOf } from "./platforms.ts";
+import { labelOf } from "../rules/platforms.ts";
 
 /** 곡을 담은 결과를 알리는 매체(usecases/responders) */
 type Responder = { notifyQueued(text: string): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };

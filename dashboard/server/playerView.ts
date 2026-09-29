@@ -3,7 +3,7 @@
 import type { Request } from "express";
 import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
-import { labelOf } from "../../src/ui/platforms.ts";
+import { labelOf } from "../../src/rules/platforms.ts";
 import { playbackStatus, soundAttached } from "../../src/ui/playerStatus.ts";
 // 이름표는 임베드와 같은 표에서 나온다. 브라우저는 src/ 를 못 읽는다
 import { toInt } from "./guildAccess.ts";

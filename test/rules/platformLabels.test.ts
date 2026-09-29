@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf } from "../../src/ui/platforms.ts";
+import { PLATFORM_NAMES, PLATFORM_EMOJI, labelOf, emojiOf } from "../../src/rules/platforms.ts";
 import { TYPES } from "../../src/autoplay/sources/index.ts";
 
 // 소스를 더하고 이름표를 안 적으면 화면에 "Lbradio" 같은 것이 뜬다.
