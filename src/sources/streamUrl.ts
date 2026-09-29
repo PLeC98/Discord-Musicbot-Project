@@ -69,7 +69,8 @@ async function getStream(track: Seeking & { platform?: string | null }, seekSeco
     case "direct":
       // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.getStream(SafeUrl 가드)이
       // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수·이중소비가 생긴다.
-      return { url: audioUrl, platform: "direct", httpHeaders: {} };
+      // 인터넷 라디오는 담을 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
+      return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null };
 
     default:
       throw new Error(`지원되지 않는 음원 주소: ${track.platform}`);

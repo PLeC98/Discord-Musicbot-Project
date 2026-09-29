@@ -22,7 +22,7 @@ type Splicer = InstanceType<typeof AudioSplicer>;
 type ResourceMeta = { title: string; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 칸만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stdin: Writable; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
-type OpenedStream = Readable & { stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean } };
+type OpenedStream = Readable & { headers?: Record<string, unknown>; stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean } };
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
   createAudioResource(input: Readable, options: { inputType: StreamType; inlineVolume: boolean; metadata: ResourceMeta }): R;
@@ -126,7 +126,9 @@ function openFile<R>(o: InputOptions<R>): Opened<R> {
 // 폴백을 건너뛰며, 재생이 ffmpeg 빌드의 네트워크 스택에 의존한다(정적 빌드는 SIGSEGV로 죽는다).
 // 그래서 URL 입력은 그렇게 할 수밖에 없는 HLS 갈래에만 두었다.
 async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promise<Opened<R>> {
-  download?.start();
+  // 직접 링크는 응답을 보고 받을지 정한다. 크기를 모르는 응답(끝을 알 수 없는 스트림)을 나란히 받으면 디스크를 한도까지 채운다
+  const direct = o.streamInfo?.platform === "direct";
+  if (!direct) download?.start();
 
   // 청크 스트림이 끊겼을 때 부를 훅. 스플라이서가 만들어진 뒤 채운다
   const hooks: Hooks = {
@@ -141,14 +143,19 @@ async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promi
     try {
       audioStream = await openStream(o, streamInfo, hooks);
     } catch (error) {
-      // 스트리밍 실패. 위에서 시작한 받기로 넘어간다. 받지 않는 곡이면 원래 오류
+      // 스트리밍 실패. 받기로 넘어간다. 받지 않는 곡이면 원래 오류
       if (!download) throw error;
+      if (direct) download.start();
       const file = await cacheFallback(download, error);
       log.info(`스트림을 열지 못해 받은 캐시로 틉니다: ${o.label} | ${describeStreamError(error)}`);
       return { resource: null, cacheFile: file, health: null };
     }
   }
   if (!audioStream || !streamInfo) return { resource: null, cacheFile: o.cacheFile, health: null };
+  if (direct && download) {
+    if (audioStream.headers?.["content-length"]) download.start();
+    else log.debug(`크기를 알리지 않는 응답이라 받아 두지 않고 스트림으로만 틉니다: ${o.label}`);
+  }
   return pipeResource(o, streamInfo, audioStream, hooks);
 }
 

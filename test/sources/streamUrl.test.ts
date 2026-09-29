@@ -41,7 +41,12 @@ test("유튜브 곡은 그대로 자기 주소를 쓴다", async () => {
 
 test("음원을 직접 트는 곡은 주소 서술자만 돌려준다 — 여기서 열면 프리로드가 연결을 흘린다", async () => {
   const got = await streamUrl.getStream({ platform: "animethemes", audioUrl: "https://a.animethemes.moe/X.ogg" }, 0, { youtube });
-  assert.deepEqual(got, { url: "https://a.animethemes.moe/X.ogg", platform: "direct", httpHeaders: {} });
+  assert.deepEqual(got, { url: "https://a.animethemes.moe/X.ogg", platform: "direct", httpHeaders: {}, liveStatus: null });
+});
+
+test("담을 때 라이브로 적은 직접 링크(인터넷 라디오)는 라이브 서술자로 연다", async () => {
+  const got = await streamUrl.getStream({ platform: "direct", audioUrl: "https://radio.test/stream.mp3", isLive: true }, 0, { youtube });
+  assert.equal(got.liveStatus, "is_live");
 });
 
 test("음원 주소가 모르는 사이트면 거절한다", async () => {

@@ -38,6 +38,7 @@ test("transportOf: 받아서 흘릴 수 없는 것만 url, 캐시 파일이 있�
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "url", live: false, cacheable: true, list: "hls" });
   assert.deepEqual(transportOf({ file: "/c/a.opus", streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "file", live: false, cacheable: true });
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.webm", streamInfo: { protocol: "https" } }), { via: "pipe", live: false, cacheable: true });
+  assert.deepEqual(transportOf({ file: null, streamUrl: "https://radio.test/s", streamInfo: { platform: "direct", liveStatus: "is_live" } }), { via: "pipe", live: true, cacheable: false }, "인터넷 라디오는 받아서 흘리되 라이브다");
   assert.deepEqual(transportOf({ file: null, streamUrl: null, streamInfo: { stream: {}, ...hls } }), { via: "pipe", live: false, cacheable: true }, "주소가 없으면 url 이 아니다");
   // DASH 도 파이프에 안 담긴다. 조각 목록이다
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.mpd", streamInfo: { protocol: "http_dash_segments" } }), { via: "url", live: false, cacheable: true, list: "dash" });

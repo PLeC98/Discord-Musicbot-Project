@@ -269,6 +269,54 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
   assert.equal(calls.fetches.length, 0);
 });
 
+test("직접 링크는 응답이 크기를 알릴 때만 나란히 받는다. 크기를 모르는 응답은 스트림으로만 튼다", async () => {
+  for (const [headers, downloads] of [
+    [{ "content-length": "4096" }, 1],
+    [{}, 0],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = tracks.direct("https://files.test/a.mp3");
+    behavior.stream = () => ({ url: "https://files.test/a.mp3", platform: "direct" });
+    behavior.directStream = () => Object.assign(new PassThrough(), { headers });
+
+    const r = await playOnce(p);
+
+    assert.equal(r.ok, true);
+    assert.equal(calls.downloads.length, downloads, JSON.stringify(headers));
+    assert.equal(p.playback?.live, false, "크기를 몰라도 라이브는 아니다(끝나면 끝, 위치 이동은 된다)");
+  }
+});
+
+test("직접 링크가 열리지 않으면 그때 받기를 시작해 기다린다", async () => {
+  const p = h.makePlayer();
+  const track = tracks.direct("https://files.test/c.mp3");
+  p.currentTrack = track;
+  behavior.stream = () => ({ url: "https://files.test/c.mp3", platform: "direct" });
+  behavior.directStream = () => {
+    throw new Error("열리지 않음");
+  };
+  behavior.download = () => Promise.reject(new Error("받기도 실패"));
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, false);
+  assert.equal(calls.downloads.length, 1, "받아서 틀 길을 연다");
+});
+
+test("인터넷 라디오는 라이브로 튼다. 받아 두지 않고, 끝나면 방송이 끝난 것으로 본다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = tracks.direct("https://radio.test/live.mp3", { isLive: true, liveStatus: "is_live" });
+  behavior.stream = () => ({ url: "https://radio.test/live.mp3", platform: "direct", liveStatus: "is_live" });
+
+  await playOnce(p);
+
+  assert.equal(p.playback?.live, true);
+  assert.equal(p.isLive, true, "위치 이동 · 반복을 막는다");
+  assert.equal(calls.downloads.length, 0);
+  assert.deepEqual(calls.directStreams, ["https://radio.test/live.mp3"]);
+});
+
 test("출처 이름을 platform 에 쓰는 음원 곡도 서술자가 direct 면 DirectLink 로 연다", async () => {
   const p = h.makePlayer();
   p.currentTrack = { id: "amq:1", title: "애니", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.test/a.mp3", platform: "anisongdb", duration: 0 };

@@ -2,7 +2,7 @@
 //   url   ffmpeg 에 주소를 준다. 받아서 흘릴 수 없는 것 전부다. HLS 재생목록과 DASH 조각 목록은 안이
 //         상대 경로라 ffmpeg 가 기준 위치를 알아야 하고, 조각도 스스로 받아 와야 한다. list 가 어느 목록인지 적는다
 //   file  캐시 파일
-//   pipe  한 번의 응답이 곧 음원인 것(yt-dlp 의 http · https, 방식을 모르는 직접 링크). 우리가 받아서 흘려 넣는다
+//   pipe  한 번의 응답이 곧 음원인 것(yt-dlp 의 http · https, 방식을 모르는 직접 링크 · 인터넷 라디오). 우리가 받아서 흘려 넣는다
 // 라이브는 끝이 없어 캐시하지 않는다. 받기 시작하면 파일이 무한히 분다.
 
 /**
@@ -36,7 +36,8 @@ function transportOf({ file, streamUrl, streamInfo }: { file?: string | null; st
     const live = streamInfo?.liveStatus === "is_live";
     return { via: "url", live, cacheable: !live, list: listOf(streamInfo) };
   }
-  return { via: file ? "file" : "pipe", live: false, cacheable: true };
+  const live = !file && streamInfo?.liveStatus === "is_live";
+  return { via: file ? "file" : "pipe", live, cacheable: !live };
 }
 
 export { transportOf, isHlsStream };

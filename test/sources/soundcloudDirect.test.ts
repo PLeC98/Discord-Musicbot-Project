@@ -150,6 +150,17 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
   assert.equal(told, "❌ 재생할 수 없는 링크예요.");
 });
 
+test("직접 링크: icy-* 머리가 있으면 인터넷 라디오라 라이브로 담는다(길이를 추정하지 않는다)", async () => {
+  // 끝없는 방송인데도 큰 가짜 크기를 붙이는 서버가 있다
+  headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "54000000", "icy-name": "라디오", "icy-br": "128" } });
+  const [t] = await DirectLink.getInfo("https://radio.test/live.mp3", net);
+  assert.deepEqual({ isLive: t.isLive, liveStatus: t.liveStatus, duration: t.duration, durationSource: t.durationSource }, { isLive: true, liveStatus: "is_live", duration: 0, durationSource: "미상" });
+
+  headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
+  const [f] = await DirectLink.getInfo("https://files.test/b.mp3", net);
+  assert.equal(f.isLive, undefined, "보통 파일은 라이브가 아니다");
+});
+
 test("직접 링크 스트림: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {
   const s = await DirectLink.getStream("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
   assert.ok(s instanceof Readable);

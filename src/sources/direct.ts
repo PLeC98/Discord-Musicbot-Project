@@ -33,7 +33,9 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
     const urlPath = new URL(url).pathname;
     const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath) || "알 수 없는 파일";
     const extension = path.extname(filename).toLowerCase();
-    const estimatedDuration = estimateDuration(contentLength, contentType);
+    // 인터넷 라디오(Icecast · SHOUTcast)는 icy-* 머리를 붙인다. 끝이 없는 방송이라 라이브로 다룬다(위치 이동 · 반복 · 받아 두기 없음)
+    const radio = Object.keys(headers).some((name) => name.toLowerCase().startsWith("icy-"));
+    const estimatedDuration = radio ? 0 : estimateDuration(contentLength, contentType);
 
     return [
       {
@@ -44,7 +46,8 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
         audioUrl: url,
         duration: estimatedDuration,
         // Content-Length 기반 추정. 다운로드 후 probeDurationSec가 실측으로 교체한다.
-        durationSource: "추정",
+        durationSource: radio ? "미상" : "추정",
+        ...(radio ? { isLive: true, liveStatus: "is_live" } : {}),
         // 임의의 오디오 URL이라 앨범아트를 알 방법이 없다. 대시보드가 파일 아이콘으로 대체 표시한다.
         thumbnail: null,
         platform: "direct",

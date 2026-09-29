@@ -64,7 +64,7 @@ test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도
 
 test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음원 주소에서만 온다", async () => {
   const track = { title: "곡", platform: "anisongdb", id: "amq:48944", pageUrl: "https://anilist.co/anime/21827", requestKey: "amq:48944", audioUrl: "https://nawdist.animemusicquiz.com/abc.mp3" };
-  assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {} });
+  assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null });
 
   // 음원 주소 자리에 페이지가 들어가면 받을 수 없다. 그래서 페이지는 제 칸에만 둔다
   await assert.rejects(streamUrl.getStream({ ...track, audioUrl: track.pageUrl }), /지원되지 않는 음원 주소/);
