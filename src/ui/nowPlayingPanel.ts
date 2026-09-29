@@ -104,6 +104,9 @@ function statusOf(player: Player) {
 // 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다)
 const dashboardLink = () => (isPublicUrl(config.dashboard.url) ? `🔗 [대시보드](${config.dashboard.url})` : null);
 
+// 진행 막대를 고치는 간격. 앞 갱신이 끝난 뒤부터 잰다
+const PROGRESS_MS = 5000;
+
 // 끝난 패널 가운데 음성에 남아 기다리는 모양. 나갈 시각을 붙인다
 const WAITING = new Set(["queue-end", "joined"]);
 
@@ -124,7 +127,7 @@ function noticeLines({ dropped, skipped, queueLimited }: { dropped: number; skip
 
 class MusicEmbedManager {
   client: Client;
-  updateIntervals = new Map<string, NodeJS.Timeout>(); // guildId -> intervalId 매핑
+  progressTimers = new Map<string, NodeJS.Timeout>(); // guildId -> 다음 진행 막대 갱신
   webhookCache = new Map<string, WebhookClient>(); // channelId -> WebhookClient 매핑
   reposting = new Set<string>(); // 현재 재생 메시지를 다시 올리는 중인 guildId
   panel: NowPlayingPanel;
@@ -748,19 +751,33 @@ class MusicEmbedManager {
    * 진행 바를 새로고침하는 5초 간격 타이머를 시작합니다.
    */
   startProgressUpdate(player: Player) {
-    this.stopProgressUpdate(player.guild.id);
-    const intervalId = setInterval(() => {
-      if (!player.currentTrack || !player.nowPlayingMessage) {
-        this.stopProgressUpdate(player.guild.id);
-        return;
-      }
+    const guildId = player.guild.id;
+    this.stopProgressUpdate(guildId);
+    // 앞 갱신이 끝난 뒤에 다음을 건다. 디스코드가 5초 넘게 걸려도 두 갱신이 겹치지 않는다
+    const schedule = () => {
+      const timer: NodeJS.Timeout = setTimeout(() => void this._progressTick(player, timer, schedule), PROGRESS_MS);
+      this.progressTimers.set(guildId, timer);
+    };
+    schedule();
+  }
+
+  // 진행 막대 갱신 한 번과 다음 예약. 던지지 않는다
+  async _progressTick(player: Player, timer: NodeJS.Timeout, schedule: () => void) {
+    const guildId = player.guild.id;
+    if (!player.currentTrack || !player.nowPlayingMessage) {
+      this.stopProgressUpdate(guildId);
+      return;
+    }
+    try {
+      await this._tickProgress(player);
+    } catch (error) {
       // 고치기 실패는 _onEditFailed 가 가른다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
-      this._tickProgress(player).catch((error) => {
-        log.error(`진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (${player.guild.name ?? player.guild.id}):`, error);
-        this.stopProgressUpdate(player.guild.id);
-      });
-    }, 5000);
-    this.updateIntervals.set(player.guild.id, intervalId);
+      log.error(`진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (${player.guild.name ?? guildId}):`, error);
+      this.stopProgressUpdate(guildId);
+      return;
+    }
+    // 갱신하는 동안 멈췄거나 새로 걸었으면 잇지 않는다(걸려 있던 것은 stopProgressUpdate 가 지운다)
+    if (this.progressTimers.get(guildId) === timer) schedule();
   }
 
   // 진행 막대 한 번. 전용 채널에서 묻혔으면 맨 아래로 다시 올린다
@@ -774,10 +791,10 @@ class MusicEmbedManager {
    */
   stopProgressUpdate(guildId: string | undefined) {
     if (!guildId) return;
-    const id = this.updateIntervals.get(guildId);
-    if (id) {
-      clearInterval(id);
-      this.updateIntervals.delete(guildId);
+    const timer = this.progressTimers.get(guildId);
+    if (timer) {
+      clearTimeout(timer);
+      this.progressTimers.delete(guildId);
     }
     this.editFailures.delete(guildId);
   }

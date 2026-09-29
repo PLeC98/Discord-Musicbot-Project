@@ -203,7 +203,7 @@ test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async (
 });
 
 test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 이 곡의 갱신을 멈춘다", async (t) => {
-  t.mock.timers.enable({ apis: ["setInterval"] });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const mem = newManager();
   const player = fakePlayer({ guild: { id: "g1", name: "서버" }, currentTrack: { title: "곡" }, nowPlayingMessage: { id: "m1" } });
   mem._tickProgress = async () => {
@@ -213,7 +213,7 @@ test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 �
   mem.startProgressUpdate(player);
   t.mock.timers.tick(5000);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(mem.updateIntervals.has("g1"), false);
+  assert.equal(mem.progressTimers.has("g1"), false);
   assert.deepEqual(
     sink.buffer
       .slice(from)
@@ -221,4 +221,57 @@ test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 �
       .map((e) => [e.level, e.text.split("\n")[0]]),
     [["error", "진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (서버): Error: boom"]],
   );
+});
+
+// 디스코드가 5초 넘게 걸려도 두 갱신이 겹치지 않는다(G38)
+test("진행 막대: 앞 갱신이 끝난 뒤 5초에 다음을 건다. 갱신 중에 멈추면 다시 걸지 않는다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const mem = newManager();
+  const player = fakePlayer({ guild: { id: "g1", name: "서버" }, currentTrack: { title: "곡" }, nowPlayingMessage: { id: "m1" } });
+  let running = 0;
+  let started = 0;
+  let release = () => {};
+  mem._tickProgress = () => {
+    started++;
+    running++;
+    return new Promise<void>((done) => {
+      release = () => {
+        running--;
+        done();
+      };
+    });
+  };
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+  mem.startProgressUpdate(player);
+  mem.stopProgressUpdate("g1");
+  t.mock.timers.tick(10_000);
+  await flush();
+  assert.equal(started, 0, "갱신 전에 멈추면 한 번도 돌지 않는다");
+
+  mem.startProgressUpdate(player);
+  t.mock.timers.tick(5_000);
+  await flush();
+  assert.equal(started, 1);
+  t.mock.timers.tick(20_000);
+  await flush();
+  assert.equal(started, 1, "앞 갱신이 안 끝났으면 다음을 걸지 않는다");
+
+  release();
+  await flush();
+  t.mock.timers.tick(4_999);
+  await flush();
+  assert.equal(started, 1, "끝난 뒤부터 5초");
+  t.mock.timers.tick(1);
+  await flush();
+  assert.equal(started, 2);
+  assert.equal(running, 1);
+
+  mem.stopProgressUpdate("g1");
+  release();
+  await flush();
+  t.mock.timers.tick(10_000);
+  await flush();
+  assert.equal(started, 2, "갱신 중에 멈췄으면 다시 걸지 않는다");
+  assert.equal(mem.progressTimers.has("g1"), false);
 });

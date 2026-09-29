@@ -248,15 +248,15 @@ test("보내는 사이 재생이 끝나면 방금 올린 메시지를 도로 지
 
 test("다시 올리지 못하면 참조를 버리고 갱신을 멈춘다", async () => {
   const { mem, player } = makeSetup({ editError: gone(), sendError: new Error("Missing Permissions") });
-  mem.updateIntervals.set(
+  mem.progressTimers.set(
     "g1",
-    setInterval(() => {}, 60000),
+    setTimeout(() => {}, 60000),
   );
 
   await mem.updateNowPlayingEmbed(player);
 
   assert.equal(player.nowPlayingMessage, null);
-  assert.equal(mem.updateIntervals.has("g1"), false, "5초 타이머도 멈춘다");
+  assert.equal(mem.progressTimers.has("g1"), false, "5초 타이머도 멈춘다");
 });
 
 test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
