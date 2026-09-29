@@ -23,13 +23,18 @@ function deferred() {
 // 작업 이름. 첫 곡의 제목에 싣는다
 const job = (id: string): TrackData => ({ tracks: [{ id, title: id, pageUrl: "", requestKey: id, platform: "youtube", duration: 0 }] });
 
+// 시험마다 다른 서버 id. 줄은 모듈에 남으므로, 한 시험이 붙잡은 채 실패해도 다음 시험을 막지 않게
+let worlds = 0;
+
 // 서버마다 틀고 있는 플레이어. 담기는 진짜로 하고, 알리는 자리에서 붙잡는다
 function world(guildIds = ["g1"]) {
+  const idOf = (name: string) => `${name}#${worlds}`;
+  worlds++;
   const events: string[] = [];
   const gates = new Map<string, ReturnType<typeof deferred>>();
   let active = 0;
   let maxActive = 0;
-  const players = new Map<string, Player>(guildIds.map((id) => [id, fakePlayer({ guild: { id }, currentTrack: { title: "지금" }, queue: [], nowPlayingMessage: null })]));
+  const players = new Map<string, Player>(guildIds.map((name) => [idOf(name), fakePlayer({ guild: { id: idOf(name) }, currentTrack: { title: "지금" }, queue: [], nowPlayingMessage: null })]));
   const client = fake<Client>({ players, musicEmbedManager: { createQueueAdditionMessage: () => "담음", queueFullMessage: () => "가득" } });
 
   // 이 작업을 알리는 매체. 알리는 동안 붙잡는다
@@ -49,13 +54,14 @@ function world(guildIds = ["g1"]) {
     },
     async dismissPlaceholder() {},
   });
-  const add = (guildId: string, id: string) => queueTracks(client, guildId, job(id), null, responder(id));
+  const add = (guildName: string, id: string) => queueTracks(client, idOf(guildName), job(id), null, responder(id));
+  const playerOf = (guildName: string) => players.get(idOf(guildName));
   const gate = (id: string) => {
     const g = gates.get(id);
     assert.ok(g, `${id} 가 시작했다`);
     return g;
   };
-  return { client, players, events, add, gate, maxActive: () => maxActive };
+  return { client, players, playerOf, events, add, gate, maxActive: () => maxActive };
 }
 
 const tick = () => new Promise((r) => setImmediate(r));
@@ -72,7 +78,7 @@ test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행", async () => {
   await tick();
   assert.deepEqual(w.events, ["start:A"], "A만 시작. B/C는 대기");
   assert.deepEqual(
-    w.players.get("g1")?.queue.map((t) => t.title),
+    w.playerOf("g1")?.queue.map((t) => t.title),
     ["A"],
     "B/C 는 대기열에도 아직 들어가지 않았다",
   );
@@ -108,7 +114,7 @@ test("앞 작업이 실패해도 뒤 작업은 돈다. 실패는 자기 호출�
 
   await tick();
   w.gate("A").reject(new Error("A boom"));
-  assert.deepEqual(await pA, { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." });
+  assert.deepEqual(await pA, { success: false, code: "threw", message: "음악을 처리하는 중 오류가 발생했습니다.", kind: "unknown" });
 
   await tick();
   assert.ok(w.events.includes("start:B"), "A가 실패해도 B는 실행");

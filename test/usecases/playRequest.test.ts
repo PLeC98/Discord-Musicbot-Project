@@ -21,6 +21,8 @@ import { fakeAdder } from "../helpers/adder.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
+import { networkError } from "../helpers/errors.ts";
 
 const store = openTempStore("play-request-");
 after(() => store.close());
@@ -379,7 +381,7 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
 });
 
 test("곡 찾기가 정한 거절 문장(지원하지 않는 링크 등)은 그대로 알린다", async () => {
-  mockResolve = () => ({ success: false, message: "❌ 지원하지 않는 링크입니다." });
+  mockResolve = () => ({ success: false, code: "unsupported-link", message: "❌ 지원하지 않는 링크입니다." });
   const client = makeClient();
 
   const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: "https://radio.test/live/playlist.m3u8" }));
@@ -430,8 +432,9 @@ async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { 
   fakeAdder(client, async () => ((handledAt = sink.buffer.length), outcome));
   const from = sink.buffer.length;
   await requestPlayback(client, { guild: makeGuild(), requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, source: "/play", ...args } as PlaybackRequest);
-  const lines = sink.buffer.slice(from).filter((e) => e.level !== "debug");
-  return { lines: lines.map((e) => `${e.level} ${e.text}`), requestBeforeHandling: handledAt < 0 || sink.buffer.indexOf(lines[0]) < handledAt };
+  const all = sink.buffer.slice(from).filter((e) => e.sub === "play");
+  const lines = all.filter((e) => e.level !== "debug");
+  return { lines: lines.map((e) => `${e.level} ${e.text}`), debug: all.filter((e) => e.level === "debug").map((e) => e.text), requestBeforeHandling: handledAt < 0 || sink.buffer.indexOf(lines[0]) < handledAt };
 }
 
 test("로그: 검색어와 고른 곡을 틀거나 넣기 전에 info 한 줄로 남긴다. 검색어로 찾았으면 고른 곡의 주소를 붙인다", async () => {
@@ -452,14 +455,37 @@ test("로그: 이미 찾은 곡(더 넣기)은 검색어 없이 고른 곡과 �
   assert.deepEqual(lines, ['info 곡 요청: 더 넣기 | carl → "곡B" (https://x/곡B)']);
 });
 
-test("로그: 못 찾으면 요청 줄에 까닭, 담지 못했거나 상한으로 뺐으면 한 줄 더", async () => {
-  mockResolve = () => ({ success: false, code: "no-result" });
-  assert.deepEqual((await requestLines({ query: "없는곡" })).lines, ['info 곡 요청: /play | carl | "없는곡" → 못 넣음: 결과를 찾을 수 없습니다!']);
+// 로그는 운영자가 까닭을 찾는 곳이다. 사용자에게 보인 문장이 아니라 까닭의 코드와, 던진 것이면 그 오류의 종류를 싣는다
+test("로그: 못 넣은 까닭은 코드로. 곡 찾기가 던졌으면 오류 종류를 붙인다", async () => {
+  const refused = async (answer: LookupResult | (() => LookupResult)) => {
+    mockResolve = typeof answer === "function" ? answer : () => answer;
+    return (await requestLines({ query: "q" })).lines;
+  };
+  assert.deepEqual(await refused({ success: false, code: "no-result" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: no-result']);
+  assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 못 넣음: lookup-failed(network)']);
+  assert.deepEqual(await refused({ success: false, code: "unsupported-link", message: "❌ 지원하지 않는 링크입니다." }), ['info 곡 요청: /play | carl | "q" → 못 넣음: unsupported-link']);
+  const upcoming = { success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] } as const;
+  assert.deepEqual(await refused(() => ({ ...upcoming, tracks: [...upcoming.tracks] })), ['info 곡 요청: /play | carl | "q" → 못 넣음: live-upcoming']);
+});
 
+test("로그: 담지 못했으면 그 까닭을 한 줄 더(info). 담았으면 debug 로, 상한으로 뺀 곡 수와 대기열 곡 수", async () => {
   mockResolve = () => ok("곡A");
-  assert.deepEqual((await requestLines({ query: "곡A" }, { success: false, message: "❌ 재생 실패" })).lines.slice(1), ["info 곡 담기 실패: 재생 실패"]);
-  assert.match((await requestLines({ query: "곡A" }, { success: true, dropped: 2 })).lines[1], /^info 대기열이 가득 차 2곡을 넣지 못함/);
-  assert.equal((await requestLines({ query: "곡A" })).lines.length, 1, "담기가 끝난 것은 debug");
+  const failed = async (outcome: object) => (await requestLines({ query: "곡A" }, outcome)).lines.slice(1);
+  assert.deepEqual(await failed({ success: false, code: "voice-failed", message: "❌ 음성 채널에 연결하지 못했습니다!" }), ["info 곡 담기 실패: voice-failed"]);
+  assert.deepEqual(await failed({ success: false, code: "threw", kind: "network", message: "❌ 네트워크 오류" }), ["info 곡 담기 실패: threw(network)"]);
+  assert.deepEqual(await failed({ success: false, code: "queue-full", message: "대기열이 가득 찼습니다", dropped: 1 }), ["info 곡 담기 실패: queue-full"]);
+
+  const level = logger.level;
+  logger.level = "debug";
+  try {
+    const dropped = await requestLines({ query: "곡A" }, { success: true, dropped: 2 });
+    assert.equal(dropped.lines.length, 1, "담긴 것은 info 로 한 줄 더 남기지 않는다");
+    assert.ok(dropped.debug.includes("곡 담기 끝 | 상한으로 2곡 뺌 | 대기열 0곡"), dropped.debug.join(" / "));
+    const whole = await requestLines({ query: "곡A" });
+    assert.ok(whole.debug.includes("곡 담기 끝 | 대기열 0곡"), whole.debug.join(" / "));
+  } finally {
+    logger.level = level;
+  }
 });
 
 // ── 텍스트 채널 폴백 (대시보드 전용 사용 시 임베드) ───────────

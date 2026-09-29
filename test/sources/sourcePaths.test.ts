@@ -113,7 +113,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
 
 test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
   const noSearch = { youtube: { ...YouTube, search: async () => assert.fail("검색하면 안 된다") } };
-  assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, message: "❌ 재생할 수 없는 유튜브 주소입니다." });
+  assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, code: "youtube-unplayable", message: "❌ 재생할 수 없는 유튜브 주소입니다." });
 });
 
 test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
@@ -158,11 +158,13 @@ test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 �
   const nothing = await lookup.getTrackData("https://soundcloud.com/a/sets/b", undefined, undefined, { soundcloud: soundcloud("set", 10, 0) });
   assert.equal(nothing.success, false);
   assert.match(String(nothing.message), /모두 틀 수 없어요/);
+  assert.equal(nothing.code, "nothing-playable");
 
   scAsked.length = 0;
   for (const url of ["https://soundcloud.com/artist", "https://soundcloud.com/artist/likes"]) {
     const r = await lookup.getTrackData(url, undefined, undefined, { soundcloud: soundcloud("track") });
     assert.match(String(r.message), /지원하지 않는 사운드클라우드 링크/, url);
+    assert.equal(r.code, "unsupported-soundcloud", url);
   }
   assert.equal(scAsked.length, 0, "모음은 부르지 않는다");
 });

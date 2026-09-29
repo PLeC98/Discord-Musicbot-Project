@@ -12,7 +12,7 @@ import { errorMessage, lookupFailureMessage, playFailureMessage } from "../ui/er
 import { continuation, validState, roomFor, batchFor, KINDS, type More, type MoreState } from "./playlistMore.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
-import { messageOf } from "../rules/errorKind.ts";
+import { errorKind, messageOf } from "../rules/errorKind.ts";
 import { canSend } from "../ui/channels.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
@@ -30,10 +30,19 @@ function useLookup(fake: Lookup | null | undefined) {
   defaultLookup = fake ?? songLookup;
 }
 
-/** 이 곡을 대기열에 넣을 수 없는 이유(사용자에게 보일 문장). 넣을 수 있으면 null. */
-function liveBlockText(track: TrackInfo, ffmpegReady: () => boolean) {
+/**
+ * 넣지 못한 까닭. code 는 운영자가 보는 로그에, message 는 사용자에게. 곡 찾기 · 재생이 던진 것이면 그 오류의 종류(kind)
+ */
+type Refused = { code: string; message: string; kind?: string };
+const isRefused = (x: object): x is Refused => "code" in x;
+const kindOf = (error: unknown) => (error ? { kind: errorKind(error) } : {});
+/** 로그에 적을 까닭. 오류 종류가 있으면 붙인다 */
+const causeOf = ({ code, kind }: { code: string; kind?: string }) => (kind ? `${code}(${kind})` : code);
+
+/** 이 곡을 대기열에 넣을 수 없는 까닭. 넣을 수 있으면 null */
+function liveBlock(track: TrackInfo, ffmpegReady: () => boolean): Refused | null {
   const reason = liveBlockReason(track, { ffmpegReady });
-  return reason ? LIVE_BLOCK_TEXT[reason] : null;
+  return reason ? { code: reason, message: LIVE_BLOCK_TEXT[reason] } : null;
 }
 
 /**
@@ -117,7 +126,7 @@ type PlaybackRequest = {
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
 /** 곡 담기 결과. 실패면 message 가 안내, 목록이 더 남았으면 이어 받을 상태(more) */
-type PlaybackResult = { success: false; message: string; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: Player; more: (More & { batch: number }) | null });
+type PlaybackResult = { success: false; message: string; code?: string; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: Player; more: (More & { batch: number }) | null });
 
 /** 이어 넣은 결과. 넣은 수 · 목록의 남은 곡과 다음 위치(next) */
 type Continued = { added: number; skipped: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
@@ -125,8 +134,8 @@ type CollectionResult = { success: false; message: string } | (PlaybackResult & 
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
 type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean };
-/** 담은 결과. 실패면 message 가 안내 */
-type AddResult = { success: true; dropped?: number; queueLimited?: boolean } | { success: false; message: string; dropped?: number };
+/** 담은 결과. 실패면 code 가 까닭(로그), message 가 안내. 던진 것이면 그 오류의 종류(kind) */
+type AddResult = { success: true; dropped?: number; queueLimited?: boolean } | { success: false; code: string; message: string; kind?: string; dropped?: number };
 
 // 곡 담기(queueTracks). 입구를 거쳐 부르는 시험은 useAdder 로 가짜를 넘긴다(useLookup 과 같다)
 let defaultAdder: typeof queueTracks = (...args) => queueTracks(...args);
@@ -146,8 +155,8 @@ async function requestPlayback(client: Client, request: PlaybackRequest): Promis
   // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 등록부에 남는다
   const checked = await tracksFor(client.players.get(guild.id) ?? null, request, batch);
   const who = toRequester(request.requester);
-  logRequest(request, who, typeof checked === "string" ? checked : trimmed(checked, request.single));
-  if (typeof checked === "string") return { success: false, message: checked };
+  logRequest(request, who, isRefused(checked) ? checked : trimmed(checked, request.single));
+  if (isRefused(checked)) return { success: false, message: checked.message, code: checked.code };
   const player = await playerFor(client, request);
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
@@ -176,19 +185,20 @@ async function playerFor(client: Client, { guild, textChannel = null, voiceChann
 
 // 넣을 곡. 이미 찾은 곡이면 그대로, 검색어면 찾는다. 넣을 수 없으면 안내 문구
 // 플레이어가 아직 없으면(곡을 찾은 뒤에 만든다) 빈 대기열로 센다
-async function tracksFor(player: Player | null, request: PlaybackRequest, batch: number): Promise<Found | string> {
+async function tracksFor(player: Player | null, request: PlaybackRequest, batch: number): Promise<Found | Refused> {
   const found = request.tracks ? { isPlaylist: request.tracks.length > 1, collection: request.collection ?? null, tracks: request.tracks } : await search(player, request.query, request, batch);
-  return typeof found === "string" ? found : withoutBlocked(found, request.ffmpegReady);
+  return isRefused(found) ? found : withoutBlocked(found, request.ffmpegReady);
 }
 
-async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | string> {
+async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
   // 받을 곡 수. 한 번에 넣는 묶음과 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더.
   // 어림값이다: 최종 판정은 서버별로 줄 선 추가 구간이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
   const room = trackState.roomLeft(player ?? { queue: [] }, config.bot.maxQueueSize) + (player?.currentTrack ? 0 : 1);
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
   // 로그의 하위 이름. 입구 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/" 로 이어 붙여 track//play 가 됐다
   const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });
-  if (!found.success) return lookupFailureMessage(found);
+  // 곡 찾기가 던진 것(lookup-failed)은 곡 찾기가 원문과 함께 이미 남겼다. 여기서는 까닭과 종류만
+  if (!found.success) return { code: found.code, message: lookupFailureMessage(found), ...kindOf(found.error) };
 
   // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
   const more = found.total == null ? found.tracks.length >= limit : found.total > found.tracks.length;
@@ -198,9 +208,9 @@ async function search(player: Player | null, query: string, { single = false, so
 // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 갈래로 재생한다. 막는 것은 두 가지뿐이다.
 // 아직 시작하지 않은 방송(틀 것이 없다)과, 그 갈래를 열 수 없는 ffmpeg 빌드.
 // 조용히 버리면 아무 반응이 없는 것처럼 보이므로, 넣기 전에 걸러내고 이유를 알린다.
-function withoutBlocked(found: Found, ffmpegReady = () => ffmpegCapabilities().ok): Found | string {
-  const blocked = found.tracks.map((t) => liveBlockText(t, ffmpegReady));
-  const firstBlock = blocked.find((why): why is string => Boolean(why));
+function withoutBlocked(found: Found, ffmpegReady = () => ffmpegCapabilities().ok): Found | Refused {
+  const blocked = found.tracks.map((t) => liveBlock(t, ffmpegReady));
+  const firstBlock = blocked.find((why): why is Refused => Boolean(why));
   if (!firstBlock) return found;
   const playable = found.tracks.filter((_, i) => !blocked[i]);
   // 전부 막혔으면 처음 막힌 까닭을 알린다
@@ -228,11 +238,11 @@ function placement({ insertFirst = false, insertAfterId = null }: PlaybackReques
 }
 
 // 조작 하나에 info 한 줄: 누가 무엇을 찾아 무엇이 골라졌나. 틀거나 넣기 전에 남겨, 곧바로 튼 곡의 "재생" 줄보다 앞선다
-function logRequest({ source = "play", query, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | string) {
+function logRequest({ source = "play", query, insertFirst = false }: PlaybackRequest, who: Requester | null, found: Found | Refused) {
   const asked = query ?? null;
   const head = `곡 요청: ${source} | ${nameOf(who)}${asked ? ` | "${asked}"` : ""}`;
-  if (typeof found === "string") {
-    log.info({ sub: "play" }, `${head} → 못 넣음: ${S.withoutErrorMark(found)}`);
+  if (isRefused(found)) {
+    log.info({ sub: "play" }, `${head} → 못 넣음: ${causeOf(found)}`);
     return;
   }
   const notes = [insertFirst ? " | 맨 앞" : "", found.skipped ? ` | 받을 수 없어 ${found.skipped}곡 뺌` : "", found.queueLimited ? " | 자리가 모자라 일부만 받음" : ""].join("");
@@ -249,11 +259,11 @@ function whatOf({ isPlaylist, collection, tracks }: Found, asked: string | null)
 
 const isUrl = (text: string) => /^https?:\/\//i.test(text.trim());
 
-// 담은 뒤. 곧바로 튼 곡은 "재생" 줄이 말하므로 대기열 상태만 debug 로. 못 담았거나 상한으로 뺐으면 info
+// 담은 뒤. 못 담았으면 그 까닭을 info 로. 담았으면 대기열 상태는 추적용이라 debug 로(곧바로 튼 곡은 "재생" 줄이 말한다).
+// 상한으로 일부를 뺀 것도 담긴 것이라 debug 줄에 싣는다. 사용자에게는 담은 안내가 말한다
 function logOutcome(result: AddResult, player: Player) {
-  if (result.success === false) log.info({ sub: "play" }, `곡 담기 실패: ${S.withoutErrorMark(result.message)}`);
-  else if (result.dropped) log.info({ sub: "play" }, `대기열이 가득 차 ${result.dropped}곡을 넣지 못함 | 대기열 ${player.queue.length}곡`);
-  else log.debug({ sub: "play" }, `곡 담기 끝 | 대기열 ${player.queue.length}곡`);
+  if (result.success === false) log.info({ sub: "play" }, `곡 담기 실패: ${causeOf(result)}`);
+  else log.debug({ sub: "play" }, `곡 담기 끝${result.dropped ? ` | 상한으로 ${result.dropped}곡 뺌` : ""} | 대기열 ${player.queue.length}곡`);
 }
 
 const nameOf = (who: Requester | null) => who?.tag ?? who?.username ?? who?.id ?? "?";
@@ -370,8 +380,8 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
 type Panel = Pick<MusicEmbedManager, "createNewMusicEmbed" | "updateNowPlayingEmbed" | "showPlaylistAdditionMessage" | "createQueueAdditionMessage" | "queueFullMessage">;
 /** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
 type Opened = { success: true };
-/** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패 안내, started 곧바로 튼 곡 */
-type FirstStart = { opened: Opened | null; failure: string | null; started?: QueuedTrack };
+/** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패(까닭과 안내), started 곧바로 튼 곡 */
+type FirstStart = { opened: Opened | null; failure: Refused | null; started?: QueuedTrack };
 /** 대기열에 담은 것과 안내에 붙일 것 */
 type Addition = { queued: QueuedTrack[]; sourceLabel: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
 
@@ -395,12 +405,12 @@ function queueTracks(client: Client, guildId: string, trackData: TrackData, requ
 
 async function processTracks(client: Client, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
   const player = client.players.get(guildId);
-  if (!player) return { success: false, message: "음악 플레이어를 찾을 수 없습니다." };
+  if (!player) return { success: false, code: "no-player", message: "음악 플레이어를 찾을 수 없습니다." };
   try {
     return await place(client.musicEmbedManager, player, trackData, requester, responder);
   } catch (error) {
-    log.error("곡 담기 처리 실패:", messageOf(error));
-    return { success: false, message: "음악을 처리하는 중 오류가 발생했습니다." };
+    log.error({ kind: errorKind(error) }, "곡 담기 처리 실패:", error);
+    return { success: false, code: "threw", message: "음악을 처리하는 중 오류가 발생했습니다.", ...kindOf(error) };
   }
 }
 
@@ -421,7 +431,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   const opened = start.failure ? await startNext(panel, player, responder) : start.opened;
 
   // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
-  if (start.failure && !opened) return { success: false, message: start.failure };
+  if (start.failure && !opened) return { success: false, ...start.failure };
 
   // 첫 번째 트랙이 재생을 시작했고 재생목록에 남은 트랙이 있음
   if (opened && tracks.length > 1) {
@@ -453,8 +463,8 @@ async function startFirst(panel: Panel, player: Player, track: QueuedTrack, resp
   return { opened: await openPanel(panel, player, track, responder), failure: null, started: track };
 }
 
-// 음성 채널에 연결하고 재생 시작. 실패면 안내 문구
-async function startPlayback(player: Player): Promise<string | null> {
+// 음성 채널에 연결하고 재생 시작. 실패면 그 까닭(play 의 code, 던졌으면 threw)
+async function startPlayback(player: Player): Promise<Refused | null> {
   try {
     if (!player.connection) {
       await player.voice.connect();
@@ -462,10 +472,11 @@ async function startPlayback(player: Player): Promise<string | null> {
     const playResult = await player.play();
     // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
     // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.
-    return playResult && playResult.ok === false ? playFailureMessage(playResult) : null;
+    if (playResult && playResult.ok === false) return { code: playResult.code ?? "play-failed", message: playFailureMessage(playResult), ...kindOf(playResult.error) };
+    return null;
   } catch (playError) {
     log.error("재생 처리 중 오류:", playError);
-    return errorMessage(playError);
+    return { code: "threw", message: errorMessage(playError), ...kindOf(playError) };
   }
 }
 
@@ -515,7 +526,7 @@ function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): A
 // 틀고 있는 중에 대기열에만 담았다
 async function queueOnly(panel: Panel, player: Player, responder: Responder, { queued, sourceLabel, insertFirst, notice }: Addition): Promise<AddResult> {
   // 자리가 없어 한 곡도 못 담았다
-  if (queued.length === 0 && notice.dropped > 0) return { success: false, message: panel.queueFullMessage(), dropped: notice.dropped };
+  if (queued.length === 0 && notice.dropped > 0) return { success: false, code: "queue-full", message: panel.queueFullMessage(), dropped: notice.dropped };
 
   // 기존 임베드 갱신
   if (player.nowPlayingMessage && player.currentTrack) {

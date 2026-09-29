@@ -82,6 +82,7 @@ test("모르는 사이트의 링크도 거절하고, 캐시 장부를 보지 않
     const result = await lookup.resolveQuery(url, "test");
     assert.equal(result.success, false, url);
     assert.equal(result.message, "❌ 지원하지 않는 링크입니다.", url);
+    assert.equal(result.code, "unsupported-link", url);
   }
   assert.equal(lookup.isUnsupportedLink("spotify:track:abc"), false, "스포티파이 URI 는 링크 모양이 달라도 다룬다");
   assert.equal(lookup.isUnsupportedLink("https://cdn.example.com/a.mp3"), false, "직접 링크");
