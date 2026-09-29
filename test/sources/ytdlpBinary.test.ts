@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import config from "../../config.ts";
-import { YtdlpBinary, describe, type YtdlpBinaryIo } from "../../src/sources/ytdlpBinary.ts";
+import { YtdlpBinary, describe, updateText, type YtdlpBinaryIo } from "../../src/sources/ytdlpBinary.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const saved = { ...config.ytdlp };
@@ -129,7 +129,7 @@ test("받아 둔 버전으로 되돌리면 받지 않고 바꿔 끼운다", asyn
 test("받기가 실패하면 지금 버전 그대로. 까닭은 yt-dlp 의 마지막 줄", async () => {
   const { w, bin, rel } = world();
   w.update = () => ({ status: 100, stderr: "[debug] …\nERROR: Unable to download: HTTP Error 503" });
-  assert.deepEqual(await bin.check(), { kind: "failed", current: "2026.08.19", target: "2026.09.27.232849", reason: "ERROR: Unable to download: HTTP Error 503" });
+  assert.deepEqual(await bin.check(), { kind: "failed", current: "2026.08.19", target: "2026.09.27.232849", reason: "ERROR: Unable to download: HTTP Error 503", channel: "nightly" });
   assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
   assert.deepEqual(staged(), []);
 });
@@ -137,7 +137,7 @@ test("받기가 실패하면 지금 버전 그대로. 까닭은 yt-dlp 의 마�
 test("목표가 아닌 버전이 오면(받을 수 있는 버전의 상한) 버리고, 같은 태그는 다시 받지 않는다. 사람이 부르면 다시 해 본다", async () => {
   const { w, bin, rel } = world();
   w.update = () => ({ status: 0, got: "2026.09.01" });
-  assert.deepEqual(await bin.check(), { kind: "capped", current: "2026.08.19", target: "2026.09.27.232849", got: "2026.09.01" });
+  assert.deepEqual(await bin.check(), { kind: "capped", current: "2026.08.19", target: "2026.09.27.232849", got: "2026.09.01", channel: "nightly" });
   assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
   w.clock += DAY;
   assert.equal(await bin.check(), null);
@@ -190,7 +190,17 @@ test("기동: 최신을 따라가면 다음 확인을 하루 뒤에 걸고, 고�
 });
 
 test("결과 한 줄", () => {
-  assert.deepEqual(describe({ kind: "installed", from: "a", to: "b", channel: "nightly" }), { level: "info", line: "yt-dlp 를 바꿔 끼웠습니다: a → b (nightly)" });
-  assert.equal(describe({ kind: "available", from: "a", to: "b", channel: "stable" }).line, "yt-dlp 새 버전이 있습니다: a → b (stable). 받으려면 pnpm run update:ytdlp");
-  assert.equal(describe({ kind: "failed", current: "a", target: "b", reason: "ERROR: x" }).level, "warn");
+  const lines = [describe({ kind: "current", version: "a" }), describe({ kind: "installed", from: "a", to: "b", channel: "nightly" }), describe({ kind: "reused", from: "b", to: "a" }), describe({ kind: "available", from: "a", to: "b", channel: "stable" }), describe({ kind: "failed", current: "a", target: "b", reason: "ERROR: x", channel: "nightly" }), describe({ kind: "capped", current: "a", target: "c", got: "b", channel: "nightly" })];
+  assert.deepEqual(lines, [
+    { level: "info", line: "yt-dlp가 목표 버전입니다(a)" },
+    { level: "info", line: "yt-dlp를 업데이트했습니다: a → b" },
+    { level: "info", line: "yt-dlp를 저장된 버전으로 교체했습니다: b → a" },
+    { level: "info", line: "yt-dlp에 업데이트가 있습니다: a → b (stable). (업데이트: pnpm run update:ytdlp)" },
+    { level: "warn", line: "yt-dlp 업데이트 실패. 기존 버전을 유지합니다: a → b (nightly) - ERROR: x" },
+    { level: "warn", line: "yt-dlp 업데이트 불가. 기존 버전을 유지합니다: a → c (nightly) - 이 환경에서 받을 수 있는 최고 버전은 b" },
+  ]);
+});
+
+test("기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다", () => {
+  assert.deepEqual([updateText("auto", false), updateText("auto", true), updateText("notify", false), updateText("off", false)], ["자동 (1일 1회 확인)", "자동", "알림만", "하지 않음"]);
 });

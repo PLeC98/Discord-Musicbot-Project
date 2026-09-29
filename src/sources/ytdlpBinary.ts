@@ -51,7 +51,7 @@ type Io = {
   now(): number;
 };
 /** 버전을 맞춘 결과. 로그 한 줄로 옮긴다(describe) */
-type Outcome = { kind: "current"; version: string } | { kind: "installed"; from: string; to: string; channel: Channel } | { kind: "reused"; from: string; to: string } | { kind: "available"; from: string; to: string; channel: Channel } | { kind: "capped"; current: string; target: string; got: string } | { kind: "failed"; current: string; target: string; reason: string };
+type Outcome = { kind: "current"; version: string } | { kind: "installed"; from: string; to: string; channel: Channel } | { kind: "reused"; from: string; to: string } | { kind: "available"; from: string; to: string; channel: Channel } | { kind: "capped"; current: string; target: string; got: string; channel: Channel } | { kind: "failed"; current: string; target: string; reason: string; channel: Channel };
 
 function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> {
   return new Promise((resolve) => {
@@ -210,18 +210,18 @@ class YtdlpBinary {
       fs.mkdirSync(staging, { recursive: true });
       fs.copyFileSync(this.fileOf(current), file);
       const ran = await this.io.run(file, ["--update-to", `${channel}@${target}`], UPDATE_TIMEOUT_MS);
-      if (ran.status !== 0) return { kind: "failed", current, target, reason: reasonOf(ran) };
+      if (ran.status !== 0) return { kind: "failed", current, target, reason: reasonOf(ran), channel };
       const got = await this._version(file);
       // 이 환경에서 받을 수 있는 버전에 상한이 있으면(yt-dlp 의 _update_spec) 목표가 아닌 버전이 온다. 같은 태그를 날마다 다시 받지 않는다
       if (got !== target) {
         this._write({ ...this.state!, capped: target });
-        return { kind: "capped", current, target, got };
+        return { kind: "capped", current, target, got, channel };
       }
       this._place(file, target, "move");
       swap(target);
       return { kind: "installed", from: current, to: target, channel };
     } catch (error) {
-      return { kind: "failed", current, target, reason: messageOf(error) };
+      return { kind: "failed", current, target, reason: messageOf(error), channel };
     } finally {
       try {
         fs.rmSync(staging, { recursive: true, force: true, maxRetries: 2 });
@@ -256,7 +256,7 @@ class YtdlpBinary {
     try {
       const { version, seeded } = await this.prepare();
       this.cleanup();
-      log.info(`yt-dlp ${version} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 새 버전=${MODE_TEXT[mode]}${seeded ? " | 설치 때 받은 것을 옮겨 옴" : ""}`);
+      log.info(`yt-dlp ${version} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${updateText(mode, Boolean(pin))}${seeded ? " | 설치 때 받은 것을 옮겨 옴" : ""}`);
     } catch (error) {
       log.warn(`yt-dlp 버전을 갖추지 못했습니다: ${messageOf(error)} | 쓰는 경로=${this.path()}`);
       return;
@@ -272,7 +272,7 @@ class YtdlpBinary {
       report(await this.check());
     } catch (error) {
       failed = true;
-      log.warn(`yt-dlp 새 버전 확인 실패: ${messageOf(error)}`);
+      log.warn(`yt-dlp 업데이트 조회 실패: ${messageOf(error)}`);
     } finally {
       this.cleanup();
     }
@@ -284,7 +284,7 @@ class YtdlpBinary {
     this.stop();
     this.timer = setTimeout(
       () => {
-        bestEffort(log, this._tick(), "yt-dlp 새 버전 확인");
+        bestEffort(log, this._tick(), "yt-dlp 업데이트 조회");
       },
       Math.max(delayMs, 60_000),
     );
@@ -297,23 +297,27 @@ class YtdlpBinary {
   }
 }
 
-const MODE_TEXT: Record<Mode, string> = { auto: "받아서 바꿔 끼움", notify: "알리기만", off: "보지 않음" };
+// 기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다(기동 때 한 번 맞춘다)
+function updateText(mode: Mode, pinned: boolean) {
+  if (mode === "auto") return pinned ? "자동" : "자동 (1일 1회 확인)";
+  return mode === "notify" ? "알림만" : "하지 않음";
+}
 
 /** 결과를 한 줄로. 봇은 로그로, update:ytdlp 는 콘솔로 남긴다 */
 function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
   switch (outcome.kind) {
     case "current":
-      return { level: "info", line: `yt-dlp 가 목표 버전입니다(${outcome.version})` };
+      return { level: "info", line: `yt-dlp가 목표 버전입니다(${outcome.version})` };
     case "installed":
-      return { level: "info", line: `yt-dlp 를 바꿔 끼웠습니다: ${outcome.from} → ${outcome.to} (${outcome.channel})` };
+      return { level: "info", line: `yt-dlp를 업데이트했습니다: ${outcome.from} → ${outcome.to}` };
     case "reused":
-      return { level: "info", line: `yt-dlp 를 받아 둔 버전으로 바꿔 끼웠습니다: ${outcome.from} → ${outcome.to}` };
+      return { level: "info", line: `yt-dlp를 저장된 버전으로 교체했습니다: ${outcome.from} → ${outcome.to}` };
     case "available":
-      return { level: "info", line: `yt-dlp 새 버전이 있습니다: ${outcome.from} → ${outcome.to} (${outcome.channel}). 받으려면 pnpm run update:ytdlp` };
+      return { level: "info", line: `yt-dlp에 업데이트가 있습니다: ${outcome.from} → ${outcome.to} (${outcome.channel}). (업데이트: pnpm run update:ytdlp)` };
     case "capped":
-      return { level: "warn", line: `yt-dlp 목표 버전(${outcome.target}) 대신 이 환경에서 받을 수 있는 상한(${outcome.got})이 왔습니다. 지금 버전 그대로 씁니다(${outcome.current})` };
+      return { level: "warn", line: `yt-dlp 업데이트 불가. 기존 버전을 유지합니다: ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 받을 수 있는 최고 버전은 ${outcome.got}` };
     case "failed":
-      return { level: "warn", line: `yt-dlp ${outcome.target} 받기 실패: ${outcome.reason}. 지금 버전 그대로 씁니다(${outcome.current})` };
+      return { level: "warn", line: `yt-dlp 업데이트 실패. 기존 버전을 유지합니다: ${outcome.current} → ${outcome.target} (${outcome.channel}) - ${outcome.reason}` };
   }
 }
 
@@ -327,5 +331,5 @@ function report(outcome: Outcome | null) {
 /** 봇과 update:ytdlp 가 쓰는 하나 */
 const ytdlpBinary = new YtdlpBinary();
 
-export { ytdlpBinary, YtdlpBinary, describe };
+export { ytdlpBinary, YtdlpBinary, describe, updateText };
 export type { Io as YtdlpBinaryIo, Outcome as YtdlpOutcome, State as YtdlpState };
