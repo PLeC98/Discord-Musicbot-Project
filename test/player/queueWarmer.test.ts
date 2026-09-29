@@ -135,12 +135,19 @@ test("라이브 스트림은 대상이 아니다 (끝이 없어 캐시할 수 �
 });
 
 test("캐시 상한보다 긴 곡은 대상이 아니다. 길이를 모르는 곡은 받는다", async () => {
-  const { warmer, warmed } = makeWarmer({ queue: [track("long", { duration: 2 * 3600 }), track("edge", { duration: 3600 }), track("unknown")] });
+  // 기본 상한 60분으로 본다. 시험은 로컬 .env 를 읽으므로 운영자가 바꾼 값이 새어 든다
+  const saved = config.cache.maxTrackSec;
+  config.cache.maxTrackSec = 3600;
+  try {
+    const { warmer, warmed } = makeWarmer({ queue: [track("long", { duration: 2 * 3600 }), track("edge", { duration: 3600 }), track("unknown")] });
 
-  for (let i = 0; i < 4; i++) warmer.tick();
-  await settle();
+    for (let i = 0; i < 4; i++) warmer.tick();
+    await settle();
 
-  assert.deepEqual(warmed, ["yt:edge", "yt:unknown"], "기본 상한 60분. 딱 60분은 받는다");
+    assert.deepEqual(warmed, ["yt:edge", "yt:unknown"], "딱 60분은 받는다");
+  } finally {
+    config.cache.maxTrackSec = saved;
+  }
 });
 
 test("캐시 길이 상한이 0 이면 긴 곡도 받는다", async () => {

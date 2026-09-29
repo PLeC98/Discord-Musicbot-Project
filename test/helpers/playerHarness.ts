@@ -175,6 +175,10 @@ const audioCache = await import("../../src/store/audioCache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
+// 설정. 캐시 길이 상한은 시험마다 기본값으로 되돌린다(reset)
+const config = (await import("../../config.ts")).default;
+const DEFAULT_MAX_TRACK_SEC = 60 * 60;
+
 // ── 5. Player 와 협력자를 불러 바깥 경계에 가짜를 넘긴다 ────────────────
 const Player = (await import("../../src/player/Player.ts")).Player;
 type Player = InstanceType<typeof Player>;
@@ -425,6 +429,8 @@ function reset() {
   for (const k of Object.keys(behavior) as Array<keyof Behavior>) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
+  // 캐시 길이 상한은 기본값(60분)으로. 시험은 로컬 .env 를 읽으므로 운영자가 바꾼 값이 새어 든다
+  config.cache.maxTrackSec = DEFAULT_MAX_TRACK_SEC;
   storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
