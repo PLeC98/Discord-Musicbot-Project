@@ -177,17 +177,7 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
 }
 
-// 그 위치부터 받는 주소. HLS 재생목록 주소에는 `begin=`을 붙일 수 없다. 위치는 ffmpeg의 `-ss`가 정한다
-function seekUrl(baseUrl: string, protocol: unknown, startSeconds: number) {
-  const isHls = typeof protocol === "string" && protocol.startsWith("m3u8");
-  const canSeek = !isHls && /googlevideo\.com/i.test(baseUrl);
-  const seekSeconds = Math.max(0, Number(startSeconds) || 0);
-  if (!(seekSeconds > 0 && canSeek)) return { canSeek, finalUrl: baseUrl };
-  const separator = baseUrl.includes("?") ? "&" : "?";
-  return { canSeek, finalUrl: `${baseUrl}${separator}begin=${Math.floor(seekSeconds * 1000)}` };
-}
-
-async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYtDlp } = {}) {
+async function getStream(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   // 실패는 부르는 쪽(재생)이 한 번 남긴다
   if (!url) {
     throw new Error("URL이 필요함");
@@ -213,18 +203,14 @@ async function getStream(url: string, startSeconds = 0, { exec }: { exec?: RunYt
     throw new Error("스트림 URL을 찾을 수 없음");
   }
 
-  const baseUrl = info.url;
-  const { canSeek, finalUrl } = seekUrl(baseUrl, info.protocol, startSeconds);
-
+  // 위치는 주소에 싣지 않는다. ffmpeg 의 -ss 가 정한다
   return {
-    url: finalUrl,
-    rawUrl: baseUrl,
+    url: info.url,
     // 영상 자체의 제목. 재생목록 페이지가 주는 제목과 다를 수 있고, 이쪽이 정본이다
     // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
     title: titleOf(info),
     duration: info.duration || 0,
     bitrate: info.abr || info.tbr || 0,
-    canSeek,
     format: info.format,
     httpHeaders: info.http_headers || {},
     isLive: _detectLive(info),

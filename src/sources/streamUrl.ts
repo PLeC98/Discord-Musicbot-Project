@@ -15,13 +15,10 @@ type StreamInfo = {
   url: string;
   protocol?: string | null;
   platform?: string;
-  rawUrl?: string;
   httpHeaders?: Record<string, string>;
   /** 영상 자체의 제목(유튜브). 모르면 null */
   title?: string | null;
   duration?: number;
-  /** 주소로 위치를 옮길 수 있나 */
-  canSeek?: boolean;
   liveStatus?: string | null;
   bitrate?: number;
   isLive?: boolean;
@@ -30,7 +27,7 @@ type StreamInfo = {
   [field: string]: unknown;
 };
 // 여기서 부르는 것만
-type YouTubeStreams = { getStream(url: string, seekSeconds?: number): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
+type YouTubeStreams = { getStream(url: string): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
 type Equivalent = { findYouTubeEquivalent(track: Seeking): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
 /** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다) */
@@ -42,7 +39,7 @@ const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, equi
  * 곡이 어디서 왔는지(platform)는 보지 않는다. 자동재생 곡은 출처 이름을 들고 소리는 영상이나 음원에서 온다.
  */
 // options: 넘기지 않은 것은 진짜(youtube · soundcloud · equivalent)와 canPlayHls = true
-async function getStream(track: Seeking & { platform?: string | null }, seekSeconds = 0, options: Partial<StreamOptions> = {}) {
+async function getStream(track: Seeking & { platform?: string | null }, options: Partial<StreamOptions> = {}) {
   const { youtube, soundcloud, equivalent, canPlayHls } = { ...DEFAULTS, ...options };
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
@@ -52,13 +49,13 @@ async function getStream(track: Seeking & { platform?: string | null }, seekSeco
   switch (inputKind(audioUrl)) {
     case "youtube":
       try {
-        return await youtube.getStream(audioUrl, seekSeconds);
+        return await youtube.getStream(audioUrl);
       } catch (err) {
         // 장부에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${track.title}). 재검색 후 재시도`);
           const ytUrl = await equivalent.reresolveYouTube(track);
-          if (ytUrl) return await youtube.getStream(ytUrl, seekSeconds);
+          if (ytUrl) return await youtube.getStream(ytUrl);
         }
         throw err;
       }

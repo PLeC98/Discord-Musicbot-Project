@@ -517,23 +517,45 @@ test("스포티파이: 동등물을 못 찾으면 실패", async () => {
 
 // ── 위치 · 인트로 · 제목 ───────────────────────────────────────────────
 
-test("위치를 옮기면 지난 googlevideo 주소에 begin= 을 붙여 다시 연다", async () => {
-  const p = h.makePlayer();
-  p.currentTrack = yt("ppppppppppp");
-  let asked = 0;
-  behavior.stream = () => {
-    asked += 1;
-    return { url: "https://rr1.googlevideo.com/videoplayback?id=1", duration: 300, canSeek: true };
-  };
+test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼 넉넉할 때만 그 주소를 다시 쓴다. 위치는 -ss 가 정한다", async () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+  for (const [expire, reused] of [
+    [nowSec + 3600, true], // 남은 270초 + 60초보다 넉넉하다
+    [nowSec + 300, false], // 남은 곡을 다 받기 전에 만료된다
+    [null, false], // 만료를 모른다
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("ppppppppppp");
+    const url = `https://rr1.googlevideo.com/videoplayback?id=1${expire ? `&expire=${expire}` : ""}`;
+    let asked = 0;
+    behavior.stream = () => {
+      asked += 1;
+      return { url, duration: 300 };
+    };
 
+    await p.play(0);
+    await playOnce(p, 30000);
+
+    assert.equal(asked, reused ? 1 : 2, `만료 ${expire}`);
+    assert.equal(calls.fetches[1].url, url, "위치를 주소에 싣지 않는다");
+    const args = calls.spawns[1].args;
+    assert.ok(args.indexOf("-ss") > args.indexOf("-i"), "파이프에서는 -ss 가 -i 뒤");
+    assert.equal(p.playback?.startOffsetMs, 30000);
+  }
+});
+
+test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 받는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  behavior.stream = (t) => ({ url: `https://rr1.googlevideo.com/videoplayback?id=${t.id}&expire=${expire}`, duration: 300 });
+  p.currentTrack = yt("pa1aaaaaaaa");
   await p.play(0);
+  p.currentTrack = yt("pb1bbbbbbbb");
+
   await playOnce(p, 30000);
 
-  assert.equal(asked, 1, "두 번째는 주소를 다시 묻지 않는다");
-  assert.match(calls.fetches[1].url, /begin=30000/);
-  const args = calls.spawns[1].args;
-  assert.ok(args.indexOf("-ss") > args.indexOf("-i"), "파이프에서는 -ss 가 -i 뒤");
-  assert.equal(p.playback?.startOffsetMs, 30000);
+  assert.match(calls.fetches[1].url, /id=pb1bbbbbbbb/);
 });
 
 test("새로 트는 곡의 첫 SponsorBlock 구간이 인트로면 그 끝에서 시작한다", async () => {

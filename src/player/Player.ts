@@ -122,7 +122,7 @@ const REAL = {
   sleep: (ms: number) => new Promise<void>((done) => setTimeout(done, ms)),
   // 재생은 본문 무응답을 짧게 본다. 플레이어가 버티는 10초(MAX_MISSED_FRAMES)보다 먼저 끊겨 곡 끝 판정이 입력 깨짐으로 다시 연다
   directStream: (url: string) => DirectLink.getStream(url, undefined, { bodyIdleMs: DIRECT_BODY_IDLE_MS }),
-  getStream: (track: Seeking & { platform?: string | null }, seekSeconds?: number, options?: Partial<StreamOptions>) => streamUrl.getStream(track, seekSeconds, options),
+  getStream: (track: Seeking & { platform?: string | null }, options?: Partial<StreamOptions>) => streamUrl.getStream(track, options),
   joinVoiceChannel,
   entersState,
   createVoice: (player: Player) => new VoiceLink(player, player.io),

@@ -26,6 +26,7 @@ type Source = { cacheFile: string | null; streamInfo: StreamInfo | null; titleVe
 // 더 올릴 수는 있지만 prism 래퍼가 128k 에서 자르고, 청취로도 그 위는 구분되지 않았다.
 const SEND_BITRATE = 128_000;
 const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인트로로 본다
+const RESUME_URL_MARGIN_MS = 60_000; // 직전 주소를 다시 쓸 때 남은 곡을 다 받고도 이만큼은 만료가 남아야 한다
 
 /**
  * 틀 곡과 시작 위치.
@@ -74,7 +75,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   // 열쇠는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = TrackDownloader.findCacheFile(track);
   // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다
-  let streamInfo: StreamInfo | null = startMs > 0 ? resumeStream(track, previousResume, startMs / 1000) : null;
+  let streamInfo: StreamInfo | null = startMs > 0 ? resumeStream(track, previousResume, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 열쇠가 정해지므로
@@ -85,7 +86,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
       cacheFile = TrackDownloader.findCacheFile(track);
     }
     // 어느 사이트에서 받을지는 sources/streamUrl 한 곳에서 가른다
-    if (!cacheFile) streamInfo = await player.io.getStream(track, startMs / 1000, { canPlayHls: player.io.ffmpegCapabilities().ok });
+    if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok });
   }
 
   return {
@@ -119,30 +120,35 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
   return cacheFile ? false : null;
 }
 
-/** 위치 재개 정보가 이 곡의 것이고 주소로 위치를 옮길 수 있으면, 그 위치의 스트림 서술자 */
-function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, seekSeconds: number): StreamInfo | null {
-  if (!resume) return null;
+/**
+ * 같은 곡 안에서 위치를 옮길 때 직전 재생이 받은 주소를 다시 쓴다(yt-dlp 를 다시 부르지 않는다).
+ * 주소의 만료 시각(expire=)이 남은 곡을 다 받을 만큼 넉넉할 때만. 만료 시각을 모르는 주소는 다시 받는다
+ */
+function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, startMs: number): StreamInfo | null {
   const key = resumeKeyOf(track);
-  if (!key || resume.trackKey !== key) return null;
-  if (!resume.resumeSupported || !resume.baseUrl) return null;
-  const url = seekUrl(resume.baseUrl, seekSeconds);
-  if (!url) return null;
-  return { ...resume.info, url, canSeek: true, fromCache: true, duration: resume.info?.duration || track.duration };
+  if (!resume?.url || !key || resume.trackKey !== key) return null;
+  const expireMs = expireOf(resume.url);
+  const remainingMs = Math.max(0, (resume.info.duration || track.duration || 0) * 1000 - startMs);
+  if (!expireMs || expireMs - Date.now() < remainingMs + RESUME_URL_MARGIN_MS) {
+    log.debug(`직전 스트림 주소의 만료가 가까워 주소를 새로 받습니다: ${track.title} | 만료 ${expireMs ? `${Math.round((expireMs - Date.now()) / 1000)}초 후` : "모름"}`);
+    return null;
+  }
+  return { ...resume.info, url: resume.url };
+}
+
+// 주소가 알려 준 만료 시각(ms). 없으면 null
+function expireOf(url: string) {
+  try {
+    const sec = Number(new URL(url).searchParams.get("expire"));
+    return sec > 0 ? sec * 1000 : null;
+  } catch {
+    return null;
+  }
 }
 
 function resumeKeyOf(track: QueuedTrack | null) {
   if (!track) return null;
   return track.id || track.requestKey || `${track.title}-${track.duration}`;
-}
-
-// 주소에 시작 위치를 싣는다. 지금은 유튜브 스트림 주소만 된다
-function seekUrl(baseUrl: string | null, seekSeconds: number) {
-  if (!baseUrl) return null;
-  if (seekSeconds <= 0) return baseUrl;
-  const url = baseUrl.replace(/(&|\?)begin=\d+/g, "").replace(/(&|\?)start=\d+/g, "");
-  if (!/googlevideo\.com/i.test(url)) return null;
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}begin=${Math.max(0, Math.floor(seekSeconds * 1000))}`;
 }
 
 /**
@@ -220,10 +226,7 @@ function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boole
 function resumeInfo(track: QueuedTrack, streamInfo: StreamInfo | null): Resume {
   return {
     trackKey: resumeKeyOf(track),
-    platform: track.platform,
-    fetchedAt: Date.now(),
-    resumeSupported: Boolean(streamInfo?.canSeek),
-    baseUrl: streamInfo?.rawUrl || streamInfo?.url || null,
+    url: streamInfo?.url ?? null,
     info: streamInfo ?? {},
   };
 }

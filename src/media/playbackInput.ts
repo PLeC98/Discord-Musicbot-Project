@@ -192,8 +192,8 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   // 직접 링크는 SSRF 가드(SafeUrl)를 통과해 스트림을 연다
   if (streamInfo.platform === "direct") return o.io.directStream(streamInfo.url);
 
-  // 오프셋 재생이면 begin= 없는 원본 URL을 받아 `-ss`가 단독으로 위치를 정하게 한다(이중 seek 방지).
-  const url = o.startMs > 0 && streamInfo.rawUrl ? streamInfo.rawUrl : streamInfo.url;
+  // 위치는 ffmpeg 의 -ss 가 정한다(주소는 처음부터 받는다)
+  const { url } = streamInfo;
   // 평상시엔 yt-dlp가 준 것을 그대로 쓴다. 클라이언트마다 다른 값을 저쪽이 골라 준다.
   // 폴백은 yt-dlp를 안 거친 입력을 위한 것이다.
   const headers = streamInfo.httpHeaders || { "User-Agent": config.userAgents.browser };

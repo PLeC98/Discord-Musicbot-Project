@@ -153,19 +153,17 @@ test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · �
 
 // ── 스트림 ────────────────────────────────────────────────────────────
 
-test("스트림: 서술자의 모양. googlevideo 주소에 위치 재개면 begin= 을 붙이고 원래 주소는 rawUrl 에", async () => {
+test("스트림: 서술자의 모양. 주소는 yt-dlp 가 준 그대로다(위치는 ffmpeg 의 -ss 가 정한다)", async () => {
   respond = () => ({ ...video("ggggggggggg"), url: "https://rr1.googlevideo.com/videoplayback?x=1", acodec: "opus", abr: 130, format: "251 - audio only", http_headers: { "User-Agent": "UA" }, protocol: "https", available_at: 1790500000 });
 
-  const s = await YouTube.getStream("https://www.youtube.com/watch?v=ggggggggggg", 12.5);
+  const s = await YouTube.getStream("https://www.youtube.com/watch?v=ggggggggggg");
 
   assert.equal(calls[0].flags.format, "bestaudio/best");
   assert.deepEqual(s, {
-    url: "https://rr1.googlevideo.com/videoplayback?x=1&begin=12500",
-    rawUrl: "https://rr1.googlevideo.com/videoplayback?x=1",
+    url: "https://rr1.googlevideo.com/videoplayback?x=1",
     title: "영상 ggggggggggg",
     duration: 200,
     bitrate: 130,
-    canSeek: true,
     format: "251 - audio only",
     httpHeaders: { "User-Agent": "UA" },
     isLive: false,
@@ -175,13 +173,12 @@ test("스트림: 서술자의 모양. googlevideo 주소에 위치 재개면 beg
   });
 });
 
-test("스트림: HLS 주소에는 begin= 을 붙이지 않는다(위치는 ffmpeg 가 정한다)", async () => {
+test("스트림: 헤더 · 앞 광고 시각이 없으면 빈 값", async () => {
   respond = () => ({ ...video("hhhhhhhhhhh"), url: "https://manifest.googlevideo.com/x.m3u8", protocol: "m3u8_native", acodec: "mp4a" });
 
-  const s = await YouTube.getStream("https://www.youtube.com/watch?v=hhhhhhhhhhh", 30);
+  const s = await YouTube.getStream("https://www.youtube.com/watch?v=hhhhhhhhhhh");
 
   assert.equal(s.url, "https://manifest.googlevideo.com/x.m3u8");
-  assert.equal(s.canSeek, false);
   assert.deepEqual(s.httpHeaders, {}, "헤더가 없으면 빈 객체");
   assert.equal(s.availableAt, null, "앞 광고 시각이 없으면 null");
 });

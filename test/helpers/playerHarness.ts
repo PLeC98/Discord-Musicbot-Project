@@ -266,7 +266,7 @@ class FakeWarmer extends QueueWarmer {
 
 // 시험마다 바꾸는 협력자. 기본값은 "아무 일도 안 일어남"
 type Behavior = {
-  stream: ((track: QueuedTrack, seekSec?: number) => StreamInfo | Promise<StreamInfo>) | null;
+  stream: ((track: QueuedTrack) => StreamInfo | Promise<StreamInfo>) | null;
   equivalent: ((track: QueuedTrack) => string | null) | null;
   sponsor: ((track: QueuedTrack) => Segments | null | Promise<Segments | null>) | null;
   download: ((track: DownloadTrack) => string | Promise<string>) | null;
@@ -277,7 +277,7 @@ type Behavior = {
   autoplay: (() => QueuedTrack | null) | null;
 };
 const behavior: Behavior = {
-  stream: null, // (track, seekSec) → streamInfo. 던지면 스트림 실패
+  stream: null, // (track) → streamInfo. 던지면 스트림 실패
   equivalent: null, // (track) → youtubeUrl. 스포티파이 동등물
   sponsor: null, // (track) → SponsorBlock.forTrack 의 답
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
@@ -339,9 +339,9 @@ const fakes: Partial<Boundary> = {
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,
   openChunkedStream: openChunkedStream as unknown as Boundary["openChunkedStream"],
-  getStream: async (track, seekSec) => {
+  getStream: async (track) => {
     if (!behavior.stream) throw new Error("시험이 스트림을 정하지 않았다");
-    return behavior.stream(track as QueuedTrack, seekSec);
+    return behavior.stream(track as QueuedTrack);
   },
   directStream: async (url) => {
     calls.directStreams.push(url);

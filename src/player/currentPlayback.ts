@@ -12,7 +12,7 @@ import type { StreamInfo } from "../sources/streamUrl.ts";
 import type { InputHealth } from "../media/inputHealth.ts";
 
 /** 같은 곡 안에서 위치를 옮길 때 다시 쓸 스트림 주소(startPlayback 이 남긴다) */
-type Resume = { trackKey: string | null; platform: string; fetchedAt: number; resumeSupported: boolean; baseUrl: string | null; info: Partial<StreamInfo> };
+type Resume = { trackKey: string | null; url: string | null; info: Partial<StreamInfo> };
 
 class CurrentPlayback {
   track: QueuedTrack;

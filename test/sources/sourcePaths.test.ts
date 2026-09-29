@@ -330,7 +330,7 @@ test("스트림: 장부에서 온 영상이 내려갔으면 한 번 다시 찾�
   };
   const track: Seeking = { title: "곡", platform: "spotify", pageUrl: "https://open.spotify.com/track/sp4", requestKey: "https://open.spotify.com/track/sp4", audioUrl: "https://www.youtube.com/watch?v=deaddeaddea", audioFoundBy: "ledger" };
 
-  const s = await streamUrl.getStream(track, 5, { youtube, equivalent: found });
+  const s = await streamUrl.getStream(track, { youtube, equivalent: found });
 
   assert.deepEqual(asked, ["https://www.youtube.com/watch?v=deaddeaddea", "https://www.youtube.com/watch?v=newnewnewne"]);
   assert.equal(s.url, "https://rr.googlevideo.com/new");
@@ -344,8 +344,8 @@ test("스트림: 새로 찾은 영상이 내려간 것은 다시 찾지 않는�
     },
   };
   const noResearch = { ...equivalent, reresolveYouTube: async () => assert.fail("다시 찾으면 안 된다") };
-  await assert.rejects(streamUrl.getStream({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=x", audioFoundBy: "search" }, 0, { youtube, equivalent: noResearch }), /Video unavailable/);
+  await assert.rejects(streamUrl.getStream({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=x", audioFoundBy: "search" }, { youtube, equivalent: noResearch }), /Video unavailable/);
 
   const soundcloud = { getStream: async (url: string) => ({ url: `${url}#stream` }) };
-  assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }, 0, { soundcloud }), { url: "https://soundcloud.com/a/b#stream" });
+  assert.deepEqual(await streamUrl.getStream({ platform: "soundcloud", audioUrl: "https://soundcloud.com/a/b" }, { soundcloud }), { url: "https://soundcloud.com/a/b#stream" });
 });
