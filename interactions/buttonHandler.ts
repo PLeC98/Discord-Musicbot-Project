@@ -18,6 +18,7 @@ import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as searchText from "../src/ui/text/search.ts";
 import * as infoText from "../src/ui/text/info.ts";
 
 /** 서버 메시지의 버튼 */
@@ -247,11 +248,12 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   const [userId, position, videoId = ""] = rest;
 
   if (userId !== interaction.user.id) {
-    return await interaction.reply({ content: "❌ 검색을 요청한 사용자만 선택할 수 있습니다!", flags: MessageFlags.Ephemeral });
+    return await interaction.reply({ content: errors.searchOwnerOnly(), flags: MessageFlags.Ephemeral });
   }
 
   if (action === "cancel") {
-    const embed = new EmbedBuilder().setTitle("❌ 검색 취소됨").setDescription("검색이 취소되었습니다.").setColor(colorOf("closed")).setTimestamp();
+    const t = searchText.cancelled();
+    const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed")).setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
   if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral });
@@ -262,7 +264,8 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 
   await interaction.deferUpdate();
 
-  const processingEmbed = new EmbedBuilder().setTitle("🔄 처리 중...").setDescription("고른 곡을 추가하는 중...").setColor(colorOf("working")).setTimestamp();
+  const adding = searchText.adding();
+  const processingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("working")).setTimestamp();
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
   // 여기서부터 던지면 "처리 중" 자리를 오류로 바꾼다

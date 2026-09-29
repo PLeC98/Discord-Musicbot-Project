@@ -13,8 +13,6 @@ import { ROUTES } from "../interactions/index.ts";
 import { componentOf, routeOf, type Route } from "../interactions/route.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
-const COMMAND_FAILED = "❌ 명령어 실행 중 오류가 발생했습니다!";
-
 /**
  * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 가를 수 있는 오류(네트워크 · 봇 감지 등)는
  * 그 문장으로, 아니면 fallback. 자리표시자를 띄운 처리기가 선언했으면 그 자리에(ui/failureNotice), 미뤄 둔 명령이면
@@ -48,9 +46,9 @@ async function runCommand(interaction: ChatInputCommandInteraction) {
     // 서버 명령은 서버 안에서만. DM 에서도 쓰는 명령은 그대로 부른다
     if (command.anywhere) await command.execute(interaction, interaction.client);
     else if (interaction.inCachedGuild()) await command.execute(interaction, interaction.client);
-    else await interaction.reply({ content: "❌ 서버에서만 쓸 수 있는 명령이에요.", flags: MessageFlags.Ephemeral });
+    else await interaction.reply({ content: errors.guildOnly(), flags: MessageFlags.Ephemeral });
   } catch (error) {
-    await failed(interaction, `/${interaction.commandName}`, error, COMMAND_FAILED);
+    await failed(interaction, `/${interaction.commandName}`, error, errors.commandFailed());
   }
 }
 

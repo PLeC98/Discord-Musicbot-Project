@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
+import * as searchText from "../src/ui/text/search.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
@@ -42,7 +43,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
 
       // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
       await interaction.reply({
-        components: [client.panels.createSearchingContainer(`**${query}** 검색 중...`)],
+        components: [client.panels.createSearchingContainer(searchText.searching(query))],
         flags: MessageFlags.IsComponentsV2,
       });
       // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다

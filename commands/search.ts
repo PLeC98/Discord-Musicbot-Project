@@ -9,6 +9,8 @@ import { requesterName } from "../src/usecases/addTracks.ts";
 import { SEARCH, customId } from "../src/ui/customIds.ts";
 import logger from "../src/infra/log/logger.ts";
 import { colorOf } from "../src/ui/colors.ts";
+import * as searchText from "../src/ui/text/search.ts";
+import * as errors from "../src/ui/text/errors.ts";
 const log = logger.child({ category: "player" });
 
 const MAX_RESULTS = 9;
@@ -18,18 +20,12 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
   // 버튼이 영상 ID 를 싣는다. 검색 결과는 늘 ID 가 있지만 없는 것은 고를 수 없으니 뺀다
   const shown = results.flatMap((track) => (track.id ? [{ track, videoId: track.id }] : [])).slice(0, MAX_RESULTS);
 
-  const embed = new EmbedBuilder()
-    .setTitle(`🔍 "${query}" 검색 결과`)
-    .setColor(colorOf("brand"))
-    .setDescription("번호 버튼을 눌러 노래를 선택하세요.")
-    .setFooter({ text: `${shown.length}개의 결과` })
-    .setTimestamp();
+  const t = searchText.results(query, shown.length);
+  const embed = new EmbedBuilder().setTitle(t.title).setColor(colorOf("brand")).setDescription(t.description).setFooter({ text: t.footer }).setTimestamp();
 
   shown.forEach(({ track }, index) => {
-    const title = track.title || "알 수 없는 제목";
-    const uploader = track.artist || "알 수 없는 채널";
-    const duration = formatDuration(track.duration, "알 수 없음");
-    embed.addFields({ name: `${index + 1}. ${title}`, value: `👤 ${uploader} • ⏱️ ${duration}`, inline: false });
+    const field = searchText.result(index + 1, { title: track.title, uploader: track.artist, length: formatDuration(track.duration, searchText.unknownLength()) });
+    embed.addFields({ ...field, inline: false });
   });
 
   // 첫 줄에 번호 4개와 취소, 둘째 줄에 나머지 번호 5개(한 줄에 5개까지)
@@ -42,7 +38,7 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
   );
   const cancelButton = new ButtonBuilder()
     .setCustomId(customId(SEARCH, "cancel", userId))
-    .setLabel("취소")
+    .setLabel(t.cancel)
     .setStyle(ButtonStyle.Danger)
     .setEmoji("❌");
 
@@ -88,7 +84,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
 
     if (!results || results.length === 0) {
       return await interaction.editReply({
-        content: "❌ 검색 결과가 없습니다!",
+        content: errors.noSearchResults(),
       });
     }
 

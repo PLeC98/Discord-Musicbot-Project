@@ -42,6 +42,18 @@ const ownerOnly = () => "❌ 봇 운영자만 사용할 수 있습니다!";
 // 새로고침 버튼이 화면을 다시 그리다 실패했다
 const helpRefreshFailed = () => "❌ 도움말을 새로고침하는 중 오류가 발생했습니다!";
 const systemRefreshFailed = () => "❌ 시스템 정보를 새로고침하는 중 오류가 발생했습니다!";
+// 검색 결과가 하나도 없다
+const noSearchResults = () => "❌ 검색 결과가 없습니다!";
+// 검색 결과 버튼은 검색한 사람만 누른다
+const searchOwnerOnly = () => "❌ 검색을 요청한 사용자만 선택할 수 있습니다!";
+// 명령 처리기가 던졌는데 종류를 가를 수 없다
+const commandFailed = () => "❌ 명령어 실행 중 오류가 발생했습니다!";
+// DM 에서 서버 명령을 불렀다
+const guildOnly = () => "❌ 서버에서만 쓸 수 있는 명령이에요.";
+// 전용 채널 입력의 처리가 던졌다
+const processingFailedInChannel = () => "❌ 처리 중 오류가 발생했어요.";
+// 전용 채널 입력이 까닭 없이 곡을 못 넣었다
+const cannotStartInChannel = () => "재생을 시작할 수 없어요.";
 
 // 오류 종류(rules/errorKind)마다
 const BY_KIND: Record<string, string> = {
@@ -122,5 +134,43 @@ const REFUSAL: Record<string, (r: Refusal) => string> = {
 /** 거절 까닭의 문장. 모르는 까닭은 일반 실패 */
 const refusal = (r: Refusal) => REFUSAL[r.code]?.(r) ?? "❌ 작업이 실패했습니다!";
 
-export { withErrorMark, withoutErrorMark, voiceRequired, noPlayer, sameChannelRequired, notDj, noTrack, botCannotJoin, queueEmpty, staleSession, processingFailed, unknownInteraction, liveUpcoming, liveNoFfmpeg, liveNoSeek, liveNoLoop, badTime, jumpTargetGone, needManageGuild, channelSetFailed, settingsSaveFailed, playlistLimitOutOfRange, onlyInBotChannel, ownerOnly, helpRefreshFailed, systemRefreshFailed, forKind, playFailure, cannotStart, noResult, refusal };
+export {
+  withErrorMark,
+  withoutErrorMark,
+  voiceRequired,
+  noPlayer,
+  sameChannelRequired,
+  notDj,
+  noTrack,
+  botCannotJoin,
+  queueEmpty,
+  staleSession,
+  processingFailed,
+  unknownInteraction,
+  liveUpcoming,
+  liveNoFfmpeg,
+  liveNoSeek,
+  liveNoLoop,
+  badTime,
+  jumpTargetGone,
+  needManageGuild,
+  channelSetFailed,
+  settingsSaveFailed,
+  playlistLimitOutOfRange,
+  onlyInBotChannel,
+  ownerOnly,
+  helpRefreshFailed,
+  systemRefreshFailed,
+  noSearchResults,
+  searchOwnerOnly,
+  commandFailed,
+  guildOnly,
+  processingFailedInChannel,
+  cannotStartInChannel,
+  forKind,
+  playFailure,
+  cannotStart,
+  noResult,
+  refusal,
+};
 export type { Refusal };

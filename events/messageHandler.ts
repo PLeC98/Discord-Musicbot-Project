@@ -8,6 +8,7 @@ import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import { offerOnChannel } from "../src/usecases/playlistMore.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import * as searchText from "../src/ui/text/search.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 지우기까지
@@ -47,7 +48,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send({
-      components: [client.panels.createSearchingContainer(`🔍 **${preview}** 검색 중...`)],
+      components: [client.panels.createSearchingContainer(searchText.searchingChannel(preview))],
       flags: MessageFlags.IsComponentsV2,
     });
 
@@ -71,7 +72,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
       // 해석 실패·재생 시작 실패를 사용자에게 알림. 침묵하면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
-        const errMsg = await message.channel.send({ content: errors.withErrorMark(result.message || "재생을 시작할 수 없어요.") });
+        const errMsg = await message.channel.send({ content: errors.withErrorMark(result.message || errors.cannotStartInChannel()) });
         scheduleDelete(errMsg, 8000);
       } else if (result.more) {
         await offerOnChannel(message.channel, result.more, result.player, member.id);
@@ -79,7 +80,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     } catch (error) {
       log.error({ sub: "message" }, "메시지 처리 오류:", error);
       await responder.dismissPlaceholder();
-      const errMsg = await message.channel.send({ content: "❌ 처리 중 오류가 발생했어요." });
+      const errMsg = await message.channel.send({ content: errors.processingFailedInChannel() });
       scheduleDelete(errMsg, 8000);
     }
   },
