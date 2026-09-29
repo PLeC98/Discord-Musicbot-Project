@@ -19,6 +19,14 @@ class FakeConnection extends EventEmitter {
   sent: unknown[] = [];
   state: { status: string; reason?: number; closeCode?: number; adapter?: { sendPayload(p: unknown): boolean } } = { status: VoiceConnectionStatus.Signalling, adapter: { sendPayload: (p) => (this.sent.push(p), true) } };
   joinConfig = { selfDeaf: false, selfMute: false };
+  // 받아 둔 음성 서버 정보로 다시 붙은 횟수. serverInfo 가 없으면 라이브러리처럼 아무것도 하지 않는다
+  reattaches = 0;
+  serverInfo = true;
+  configureNetworking() {
+    if (!this.serverInfo) return;
+    this.reattaches++;
+    this.state = { ...this.state, status: VoiceConnectionStatus.Connecting };
+  }
   destroyed: Array<"leave" | "stay"> = [];
   subscribed: unknown[] = [];
   rejoins: unknown[] = [];
@@ -80,7 +88,8 @@ afterEach(() => {
 
 // 플레이어 가짜와 음성 연결. 시험은 steps 로 무엇을 불렀는지 본다
 // fetchAs: 디스코드에 채널을 물었을 때의 답(기본: 캐시에 있으면 있다). 오류면 던진다
-function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null } = {}) {
+// atDiscord: 디스코드에 봇의 음성 채널을 물었을 때의 답(기본: 캐시와 같다). 오류면 던진다
+function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null, atDiscord = undefined as string | null | Error | undefined } = {}) {
   const steps: string[] = [];
   const channels = new Map<string, unknown>();
   if (channel) channels.set("vc1", { id: "vc1", isVoiceBased: () => true });
@@ -93,7 +102,14 @@ function setup({ channel = true, inChannel = "vc1" as string | null, track = tru
     return r;
   };
   const player = {
-    guild: { id: "g1", name: "서버", channels: { cache: channels, fetch }, voiceAdapterCreator: () => ({}), members: { me } },
+    guild: {
+      id: "g1",
+      name: "서버",
+      channels: { cache: channels, fetch },
+      voiceAdapterCreator: () => ({}),
+      members: { me },
+      voiceStates: { fetch: async () => (atDiscord instanceof Error ? Promise.reject(atDiscord) : { channelId: atDiscord === undefined ? me.voice.channelId : atDiscord }) },
+    },
     voiceChannel: { id: "vc1", name: "음성" } as { id: string; name?: string },
     audioPlayer: { name: "audioPlayer" },
     connection: null as FakeConnection | null,
@@ -184,7 +200,7 @@ test("기다려도 다시 붙지 않으면: 봇이 채널에 있으면 재생 �
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.AdapterUnavailable });
   await until(() => steps.length > 0, "다시 붙어 이어 틀기");
   assert.equal(link.state, "ready");
-  assert.equal(joins.length, 2, "새로 붙었다");
+  assert.equal(conn().reattaches, 1, "받아 둔 음성 서버 정보로 다시 붙었다");
   assert.deepEqual(steps, ["resume"]);
 });
 
@@ -228,16 +244,59 @@ test("네트워크 오류는 오류 줄 없이 복구 시작 줄이 까닭과 �
   assert.ok(lines[0].text.includes("네트워크 오류(getaddrinfo ENOTFOUND"));
 });
 
-test("다시 붙일 때 옛 연결은 리스너를 떼고 나감 없이 부순다(나감을 보내면 디스코드가 봇을 채널에서 뺀다). 옛 연결이 늦게 알린 것은 보지 않는다", async () => {
-  const { link, conn } = await ready();
-  const old = conn();
-  link.recover("시험");
-  await until(() => link.state === "ready", "다시 붙기");
-  assert.deepEqual(old.destroyed, ["stay"]);
-  assert.equal(old.listenerCount("stateChange"), 0);
-  old.emit("stateChange", { status: "ready" }, { status: VoiceConnectionStatus.Destroyed });
-  await sleep(10);
-  assert.equal(joins.length, 2, "옛 연결의 부서짐으로 또 다시 붙이지 않는다");
+test("다시 붙이기: 디스코드가 봇을 이 채널에 있다고 보거나 묻지 못하면, 새 참가 없이 받아 둔 음성 서버 정보로 다시 붙는다(같은 채널 참가에는 답이 없다)", async () => {
+  for (const atDiscord of ["vc1", Object.assign(new Error("getaddrinfo ENOTFOUND discord.com"), { code: "ENOTFOUND" })]) {
+    joins.length = 0;
+    const { link, conn } = await ready({ atDiscord });
+    const old = conn();
+    link.recover("시험");
+    await until(() => link.state === "ready", "다시 붙기");
+    assert.equal(conn(), old, "같은 연결");
+    assert.equal(old.reattaches, 1);
+    assert.deepEqual(old.destroyed, [], "나감을 보내지 않는다");
+    assert.equal(joins.length, 1, "새로 참가하지 않는다");
+  }
+});
+
+test("다시 붙이기: 디스코드가 봇을 채널에서 뺐거나 받아 둔 정보가 없으면, 옛 연결을 리스너를 떼고 나감 없이 부순 뒤 새로 참가한다. 옛 연결이 늦게 알린 것은 보지 않는다", async () => {
+  for (const variant of ["빠짐", "정보 없음"]) {
+    const { link, conn } = await ready(variant === "빠짐" ? { atDiscord: null } : {});
+    const old = conn();
+    old.serverInfo = variant !== "정보 없음";
+    link.recover("시험");
+    await until(() => link.state === "ready", "다시 붙기");
+    assert.notEqual(conn(), old, variant);
+    assert.deepEqual(old.destroyed, ["stay"], `${variant}: 나감을 보내면 디스코드가 봇을 채널에서 뺀다`);
+    assert.equal(old.listenerCount("stateChange"), 0);
+    old.emit("stateChange", { status: "ready" }, { status: VoiceConnectionStatus.Destroyed });
+    await sleep(10);
+    assert.equal(joins.length, 2, "옛 연결의 부서짐으로 또 다시 붙이지 않는다");
+    joins.length = 0;
+  }
+});
+
+test("다시 붙이기: 디스코드에 닿는데도 받아 둔 정보로 못 붙으면(정보가 낡음) 남은 시도는 새로 참가한다. 닿지 못해 실패한 것은 세지 않는다. 다음 복구는 다시 받아 둔 정보부터", async () => {
+  joins.length = 0;
+  const known = await ready({ atDiscord: "vc1" });
+  const old = known.conn();
+  joinWorks = [false, true];
+  known.link.recover("시험");
+  await until(() => known.link.state === "ready", "다시 붙기");
+  assert.equal(old.reattaches, 1);
+  assert.equal(joins.length, 2, "두 번째 시도는 새로 참가");
+  assert.equal(known.link.reattachRefused, true);
+
+  known.link.recover("다음");
+  await until(() => known.link.state === "ready", "다시 붙기");
+  assert.equal(known.conn().reattaches, 1, "새 복구는 받아 둔 정보부터");
+
+  joins.length = 0;
+  const offline = await ready({ atDiscord: Object.assign(new Error("getaddrinfo ENOTFOUND discord.com"), { code: "ENOTFOUND" }) });
+  joinWorks = [false, true];
+  offline.link.recover("시험");
+  await until(() => offline.link.state === "ready", "다시 붙기");
+  assert.equal(offline.conn().reattaches, 2, "닿지 못해 실패한 것은 정보를 버릴 까닭이 아니다");
+  assert.equal(joins.length, 1);
 });
 
 test("복구는 한 번에 하나. 복구 중에 또 부르면 아무것도 안 한다", async () => {
@@ -247,7 +306,7 @@ test("복구는 한 번에 하나. 복구 중에 또 부르면 아무것도 안 
   link.recover("둘");
   await until(() => link.state === "ready", "다시 붙기");
   assert.equal(link.recoveryAttempts, 3, "한 복구가 세 번 시도했다(두 번째 부름이 새로 시작하지 않았다)");
-  assert.equal(joins.length, 4, "처음 연결 하나 + 시도 셋");
+  assert.equal(joins.length, 3, "처음 연결 + 새 참가 둘(첫 시도는 받아 둔 정보로)");
   assert.equal(link.state, "ready");
 });
 

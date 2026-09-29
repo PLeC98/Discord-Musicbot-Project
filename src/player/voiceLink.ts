@@ -57,6 +57,8 @@ class VoiceLink {
   /** 답 없는 참가를 풀려고 스스로 나간 채널. 그 빠짐 알림은 쫓겨난 것이 아니다 */
   selfLeave: string | null = null;
   stuckTimer: NodeJS.Timeout | null = null;
+  /** 이번 복구에서 디스코드에 닿는데도 받아 둔 음성 서버 정보로 다시 붙지 못했다(정보가 낡음). 남은 시도는 새로 참가한다 */
+  reattachRefused = false;
 
   constructor(player: VoiceHost, lib: VoiceLib = VOICE_LIB) {
     this.player = player;
@@ -267,6 +269,7 @@ class VoiceLink {
     this._clearWait();
     this.state = "recovering";
     this.recoveryAttempts = 0;
+    this.reattachRefused = false;
     const gen = ++this.gen;
     log.warn(`연결 복구 시작: ${this._label()} | 까닭=${why} | 최대 ${this.maxRecoveryAttempts}회`);
     this._recoverLoop(gen).catch((error: unknown) => log.error("연결 복구 루프 오류:", error));
@@ -291,17 +294,41 @@ class VoiceLink {
     }
   }
 
-  // 옛 연결을 떼어 부수고 같은 채널에 새로 붙는다. 채널에서는 나가지 않는다. 됐으면 true
+  // 한 번 다시 붙여 본다. 됐으면 true. 채널에서는 나가지 않는다.
+  // 디스코드가 봇을 이 채널에 있다고 보는 동안은 같은 채널 참가에 답하지 않으므로, 연결이 받아 둔 음성 서버 정보로 음성 서버에 다시 붙는다.
+  // 디스코드가 봇을 채널에서 뺐으면(게이트웨이가 끊겼던 것) 그 정보는 쓸 수 없어 옛 연결을 버리고 새로 참가한다.
+  // 디스코드에 닿는데도 다시 붙기가 실패했으면 그 정보가 낡은 것이라 다음부터 새로 참가한다(답이 없으면 _unstick 이 푼다)
   async _rejoin() {
-    this._drop({ leave: false });
+    const connection = this.player.connection;
+    const channelId = this.player.voiceChannel?.id;
+    const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord() : null;
+    const reattach = Boolean(connection) && !this.reattachRefused && (at === undefined || at === channelId);
     try {
-      await this._join(RECOVER_READY_MS);
+      if (connection && reattach && this._reattach(connection)) {
+        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 받아 둔 음성 서버 정보로 다시 붙습니다: ${this._label()}`);
+        try {
+          await this.lib.entersState(connection, VoiceConnectionStatus.Ready, RECOVER_READY_MS);
+        } catch (error) {
+          if (at !== undefined) this.reattachRefused = true;
+          throw error;
+        }
+      } else {
+        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 새로 참가합니다: ${this._label()}`);
+        this._drop({ leave: false });
+        await this._join(RECOVER_READY_MS);
+      }
       return true;
     } catch (error) {
       // 중간 시도의 실패. 다음 시도가 받고, 끝내 못 붙으면 포기 줄이 남긴다
       log.debug(`연결 복구 ${this.recoveryAttempts}회차 실패: ${messageOf(error)}`);
       return false;
     }
+  }
+
+  // 받아 둔 음성 서버 정보로 음성 서버에 다시 붙기 시작한다. 시작했으면 true(정보가 없거나 부서진 연결이면 라이브러리가 아무것도 하지 않는다)
+  _reattach(connection: VoiceConnection) {
+    connection.configureNetworking();
+    return connection.state.status === VoiceConnectionStatus.Connecting;
   }
 
   // 서버에 아직 있는 음성 채널. 지워졌으면 없다
