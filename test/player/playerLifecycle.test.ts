@@ -817,6 +817,7 @@ test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다.
   p.queue = [b, c, d];
 
   await p.play(0);
+  const leaveTimer = p.idle.emptyTimer; // 치우기 전에 읽는다
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
@@ -825,6 +826,26 @@ test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다.
   assert.ok(calls.sent.includes("⏹️ 곡 3개를 연달아 틀지 못해 재생을 멈췄습니다. 남은 1곡은 대기열에 그대로 있고, 곡을 추가하면 이어서 틉니다."));
   assert.ok(seen.includes("end:failures"));
   assert.equal(calls.persists.includes("remove"), false, "대기열이 남았으니 세션을 지우지 않는다");
+  assert.equal(leaveTimer, null, "남은 곡이 있으니 나갈 예약을 걸지 않는다(패널이 오지 않을 나갈 시각을 보이지 않게)");
+});
+
+test("연달아 실패해 멈출 때 남은 곡이 없으면 보통의 대기열 소진처럼 끝낸다: 세션을 지우고 나갈 시각을 보이고 나갈 예약", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  const [a, b, c] = ["f9aaaaaaaaa", "f9bbbbbbbbb", "f9ccccccccc"].map((id) => yt(id));
+  unplayable();
+  p.currentTrack = a;
+  p.queue = [b, c];
+
+  await p.play(0);
+  const leaveTimer = p.idle.emptyTimer;
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.ok(calls.sent.includes("⏹️ 곡 3개를 연달아 틀지 못해 재생을 멈췄습니다."));
+  assert.ok(seen.includes("end:queue-end"));
+  assert.ok(calls.persists.includes("remove"));
+  assert.ok(leaveTimer, "대기열 소진처럼 나갈 예약을 건다");
 });
 
 test("소리를 낸 곡이 끝나면 연달아 실패한 수를 다시 센다", async () => {

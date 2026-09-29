@@ -946,7 +946,7 @@ class Player {
   async _stopAfterFailures() {
     const count = this.failedTracks;
     this.failedTracks = 0; // 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게
-    log.error(`곡 ${count}개가 연달아 실패해 재생을 멈춥니다: ${this._trackLabel()} | 대기열 ${this.queue.length}곡은 둡니다`);
+    log.error(`곡 ${count}개가 연달아 실패해 재생을 멈춥니다: ${this._trackLabel()}${this.queue.length ? ` | 대기열 ${this.queue.length}곡은 둡니다` : ""}`);
     trackState.setCurrent(this, null);
     this.playback = null;
     this.lastPlaybackPosition = 0;
@@ -955,11 +955,12 @@ class Player {
     } catch {
       /* 이미 멈춘 플레이어다 */
     }
-    bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
     await playerEvents.notice(this, "failed-in-row", { count, left: this.queue.length }).catch(noticeFailed);
+    // 남은 곡이 없으면 보통의 대기열 소진과 같다(세션을 지우고, 나갈 시각을 보이고, 나간다)
+    if (this.queue.length === 0) return this._finishQueue();
+    bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+    // 남은 곡이 있으니 나가지 않는다. 틀 게 없음 퇴장을 걸지 않는다(혼자 남음 퇴장은 그대로 돈다)
     await playerEvents.ended(this, "failures");
-    // 대기열이 남았으면 나가지 않는다(scheduleEmpty 는 곡이 있으면 나가지 않는다)
-    this.idle.scheduleEmpty();
   }
 
   // 한곡 반복 · 다음 곡 · 자동재생 중 하나를 튼다. 틀었으면 true
