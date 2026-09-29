@@ -9,6 +9,7 @@ import { queueTracks } from "../../src/usecases/addTracks.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import { addFailureMessage } from "../../src/ui/errorMessages.ts";
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {
@@ -62,8 +63,8 @@ test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", 
   const { player, add, notices } = setup({ max: 30, queued: 30 });
   const result = await add([t("x")]);
 
-  assert.equal(result.success, false);
-  assert.match(result.message ?? "", /대기열이 가득 찼습니다 \(최대 30곡\)/);
+  assert.equal(result.success ? null : result.code, "queue-full");
+  assert.match(result.success ? "" : addFailureMessage(result), /대기열이 가득 찼습니다 \(최대 30곡\)/);
   assert.equal(player.queue.length, 30);
   assert.deepEqual(notices, [], "추가 안내는 보내지 않는다 — 진입점이 실패를 알린다");
 });

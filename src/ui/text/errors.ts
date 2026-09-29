@@ -1,6 +1,7 @@
 // 오류 · 거절 문장. 부르는 자리는 뜻으로 고르고 값만 넘긴다. 문장은 ❌ 를 싣고, 표시 지점이 withErrorMark 로 하나로 맞춘다
 
 import { formatMs } from "../format.ts";
+import * as queueText from "./queue.ts";
 
 // 오류 문자열의 ❌ 접두 규약. 출처(ui/text · sources/lookup · usecases)마다 접두 유무가 달라
 // 표시 지점에서 반드시 정규화한다. 디스코드는 정확히 하나, 대시보드 JSON은 없음.
@@ -52,8 +53,6 @@ const commandFailed = () => "❌ 명령어 실행 중 오류가 발생했습니�
 const guildOnly = () => "❌ 서버에서만 쓸 수 있는 명령이에요.";
 // 전용 채널 입력의 처리가 던졌다
 const processingFailedInChannel = () => "❌ 처리 중 오류가 발생했어요.";
-// 전용 채널 입력이 까닭 없이 곡을 못 넣었다
-const cannotStartInChannel = () => "재생을 시작할 수 없어요.";
 
 // 권한 판정(usecases/permissions)이 막은 까닭마다
 const PERMISSION = { "voice-required": voiceRequired, "same-channel-required": sameChannelRequired, "not-dj": notDj, "bot-cannot-join": botCannotJoin } as const;
@@ -90,18 +89,34 @@ const BY_KIND: Record<string, string> = {
 /** 오류 종류의 문장. 모르는 종류는 unknown */
 const forKind = (kind: string) => BY_KIND[kind] || BY_KIND.unknown;
 
-// play() 가 곡을 못 틀었을 때(code). 오류로 못 튼 것은 오류 종류로 안내한다
-const PLAY_FAILURE: Record<string, string> = {
-  "queue-empty": "대기열에 트랙이 없습니다!",
-  "voice-failed": "음성 채널에 연결하지 못했습니다!",
-};
-
-/** play() 가 곡을 못 튼 까닭(code)의 문장. 모르면 null */
-const playFailure = (code: string | undefined) => (code && PLAY_FAILURE[code]) || null;
 /** 까닭을 모르고 곡을 못 틀었다 */
 const cannotStart = () => "재생을 시작할 수 없습니다.";
 /** 곡 찾기가 찾은 것이 없다 */
 const noResult = () => "❌ 결과를 찾을 수 없습니다!";
+
+// 곡을 찾거나 담지 못한 까닭(sources/lookup · usecases/addTracks · play() 의 code)마다. skipped 는 받을 수 없어 뺀 곡 수, max 는 대기열 상한.
+// 오류로 못 한 것(lookup-failed · play-failed · play-threw)은 여기 없다. 오류 종류로 알린다
+type AddDetail = { skipped?: number; max: number };
+const ADD_REFUSAL: Record<string, (detail: AddDetail) => string> = {
+  "no-result": noResult,
+  "youtube-unplayable": () => "❌ 재생할 수 없는 유튜브 주소입니다.",
+  "unsupported-link": () => "❌ 지원하지 않는 링크입니다.",
+  "unsupported-soundcloud": () => "❌ 지원하지 않는 사운드클라우드 링크예요. 곡이나 세트 링크를 넣어 주세요.",
+  "nothing-playable": () => "❌ 이 세트의 앞 곡들은 모두 틀 수 없어요(미리듣기만 열린 곡 · 지역 제한 등).",
+  "live-upcoming": liveUpcoming,
+  "live-no-ffmpeg": liveNoFfmpeg,
+  "queue-empty": () => "대기열에 트랙이 없습니다!",
+  "voice-failed": () => "음성 채널에 연결하지 못했습니다!",
+  "queue-full": ({ max }) => queueText.full(max),
+  "no-player": () => "음악 플레이어를 찾을 수 없습니다.",
+  threw: () => "음악을 처리하는 중 오류가 발생했습니다.",
+  // 더 넣기
+  "more-no-player": noPlayer,
+  "more-nothing-playable": ({ skipped }) => `받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(${skipped}곡).`,
+  "more-nothing-found": () => "더 넣을 곡을 찾지 못했어요.",
+};
+/** 곡을 찾거나 담지 못한 까닭의 문장. 오류 종류로 알릴 까닭이면 null */
+const addRefusal = (code: string, detail: AddDetail) => ADD_REFUSAL[code]?.(detail) ?? null;
 
 // 재생 조작(usecases/controls)이 거절한 결과({ ok: false, code, … }). 여기서 읽는 칸만. 길이 넘침은 durationMs, 자리 틀림은 size, 권한은 그 까닭(permission), 붙들린 멈춤은 reason, 모르는 장르는 genre 를 싣는다
 type Refusal = { code: string; permission?: PermissionDenied; durationMs?: number; size?: number; reason?: string; genre?: string };
@@ -172,12 +187,11 @@ export {
   commandFailed,
   guildOnly,
   processingFailedInChannel,
-  cannotStartInChannel,
   permission,
   forKind,
-  playFailure,
   cannotStart,
   noResult,
+  addRefusal,
   refusal,
 };
 export type { Refusal, PermissionDenied };

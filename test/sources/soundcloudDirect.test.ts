@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import * as DirectLink from "../../src/sources/direct.ts";
 import { getTrackData } from "../../src/sources/lookup.ts";
 import { messageOf, codeOf, errorKind } from "../../src/rules/errorKind.ts";
-import { lookupFailureMessage } from "../../src/ui/errorMessages.ts";
+import { addFailureMessage, errorMessage } from "../../src/ui/errorMessages.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlpSpawn.ts";
 
 // yt-dlp 가 줄 것. 실패면 fail 에 stderr
@@ -85,7 +85,7 @@ test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린�
   const r = await getTrackData("https://soundcloud.com/artist/preview");
   assert.equal(r.success, false);
   assert.equal(errorKind(r.error), "preview-only");
-  assert.equal(lookupFailureMessage(r), "❌ 미리듣기(30초)만 열린 곡이라 틀 수 없어요.");
+  assert.equal(r.success ? "" : addFailureMessage({ code: r.code, kind: errorKind(r.error) }), "❌ 미리듣기(30초)만 열린 곡이라 틀 수 없어요.");
 });
 
 test("곡 찾기: 지역 제한은 그 까닭으로 알린다(결과 없음이 아니다)", async () => {
@@ -138,7 +138,7 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
   assert.equal(codeOf(thrown), "link-unavailable");
   assert.match(messageOf((thrown as Error).cause), /10\.0\.0\.5/, "사유는 원인에(서버 로그용)");
   // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
-  const told = lookupFailureMessage({ code: "lookup-failed", error: thrown });
+  const told = errorMessage(thrown);
   assert.equal(told, "❌ 재생할 수 없는 링크예요.");
 });
 

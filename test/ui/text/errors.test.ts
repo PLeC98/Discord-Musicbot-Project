@@ -37,7 +37,6 @@ test("뜻마다 하나인 문장", () => {
       commandFailed: errors.commandFailed(),
       guildOnly: errors.guildOnly(),
       processingFailedInChannel: errors.processingFailedInChannel(),
-      cannotStartInChannel: errors.cannotStartInChannel(),
       cannotStart: errors.cannotStart(),
       noResult: errors.noResult(),
     },
@@ -72,7 +71,6 @@ test("뜻마다 하나인 문장", () => {
       commandFailed: "❌ 명령어 실행 중 오류가 발생했습니다!",
       guildOnly: "❌ 서버에서만 쓸 수 있는 명령이에요.",
       processingFailedInChannel: "❌ 처리 중 오류가 발생했어요.",
-      cannotStartInChannel: "재생을 시작할 수 없어요.",
       cannotStart: "재생을 시작할 수 없습니다.",
       noResult: "❌ 결과를 찾을 수 없습니다!",
     },
@@ -102,11 +100,27 @@ test("오류 종류마다. 모르는 종류는 unknown", () => {
   assert.equal(errors.forKind("never-seen"), expected.unknown);
 });
 
-test("play() 가 못 튼 까닭. 모르면 null", () => {
-  assert.equal(errors.playFailure("queue-empty"), "대기열에 트랙이 없습니다!");
-  assert.equal(errors.playFailure("voice-failed"), "음성 채널에 연결하지 못했습니다!");
-  assert.equal(errors.playFailure("play-failed"), null);
-  assert.equal(errors.playFailure(undefined), null);
+test("곡을 찾거나 담지 못한 까닭마다. 오류로 알릴 까닭이면 null", () => {
+  const detail = { skipped: 7, max: 100 };
+  const expected: Record<string, string> = {
+    "no-result": "❌ 결과를 찾을 수 없습니다!",
+    "youtube-unplayable": "❌ 재생할 수 없는 유튜브 주소입니다.",
+    "unsupported-link": "❌ 지원하지 않는 링크입니다.",
+    "unsupported-soundcloud": "❌ 지원하지 않는 사운드클라우드 링크예요. 곡이나 세트 링크를 넣어 주세요.",
+    "nothing-playable": "❌ 이 세트의 앞 곡들은 모두 틀 수 없어요(미리듣기만 열린 곡 · 지역 제한 등).",
+    "live-upcoming": "❌ 아직 시작하지 않은 방송이에요. 방송이 시작된 뒤에 다시 넣어 주세요!",
+    "live-no-ffmpeg": "❌ 지금 설치된 ffmpeg로는 라이브 방송을 재생할 수 없어요. `pnpm run install:ffmpeg`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인해 주세요.",
+    "queue-empty": "대기열에 트랙이 없습니다!",
+    "voice-failed": "음성 채널에 연결하지 못했습니다!",
+    "queue-full": "대기열이 가득 찼습니다 (최대 100곡)",
+    "no-player": "음악 플레이어를 찾을 수 없습니다.",
+    threw: "음악을 처리하는 중 오류가 발생했습니다.",
+    "more-no-player": "❌ 현재 재생 중인 음악이 없습니다!",
+    "more-nothing-playable": "받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(7곡).",
+    "more-nothing-found": "더 넣을 곡을 찾지 못했어요.",
+  };
+  for (const [code, sentence] of Object.entries(expected)) assert.equal(errors.addRefusal(code, detail), sentence, code);
+  for (const code of ["lookup-failed", "play-failed", "play-threw", "live-ended"]) assert.equal(errors.addRefusal(code, detail), null, code);
 });
 
 test("재생 조작의 거절. 모르는 까닭은 일반 실패", () => {

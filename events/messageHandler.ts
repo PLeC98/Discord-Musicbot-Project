@@ -8,6 +8,7 @@ import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import { offerOnChannel } from "../src/usecases/playlistMore.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import * as searchText from "../src/ui/text/search.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
@@ -72,7 +73,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
       // 해석 실패·재생 시작 실패를 사용자에게 알림. 침묵하면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
-        const errMsg = await message.channel.send({ content: errors.withErrorMark(result.message || errors.cannotStartInChannel()) });
+        const errMsg = await message.channel.send({ content: errors.withErrorMark(addFailureMessage(result)) });
         scheduleDelete(errMsg, 8000);
       } else if (result.more) {
         await offerOnChannel(message.channel, result.more, result.player, member.id);

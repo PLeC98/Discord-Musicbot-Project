@@ -5,7 +5,7 @@ import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import config from "../../config.ts";
 import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
-import { queueTracks, type TrackData } from "../../src/usecases/addTracks.ts";
+import { queueTracks, type AddResult, type TrackData } from "../../src/usecases/addTracks.ts";
 import type { Responder } from "../../src/ui/nowPlayingPanel.ts";
 import type { Client } from "discord.js";
 import type { Player } from "../../src/player/Player.ts";
@@ -13,6 +13,10 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { networkError } from "../helpers/errors.ts";
+import { addFailureMessage } from "../../src/ui/errorMessages.ts";
+
+// 실패 결과에 입구가 보일 문장을 붙여 본다
+const said = (r: AddResult) => (r.success ? r : { ...r, message: addFailureMessage(r) });
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
 const who = { id: "u1", username: "사용자" };
@@ -101,18 +105,20 @@ test("이미 붙어 있으면 연결하지 않는다", async () => {
 
 test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만든다", async () => {
   const withCode = setup({ plays: [{ ok: false, code: "voice-failed" }] });
-  assert.deepEqual(await withCode.add({ tracks: [track("a")] }, who), { success: false, code: "voice-failed", message: "음성 채널에 연결하지 못했습니다!" });
+  assert.deepEqual(said(await withCode.add({ tracks: [track("a")] }, who)), { success: false, code: "voice-failed", message: "음성 채널에 연결하지 못했습니다!" });
   assert.equal(withCode.player.currentTrack, null);
   assert.ok(!withCode.calls.some((c) => Array.isArray(c) && c[0] === "embed"));
 
   const noMessage = setup({ plays: [{ ok: false }] });
-  assert.deepEqual(await noMessage.add({ tracks: [track("a")] }, who), { success: false, code: "play-failed", message: "재생을 시작할 수 없습니다." });
+  const quiet = await noMessage.add({ tracks: [track("a")] }, who);
+  assert.deepEqual(quiet, { success: false, code: "play-failed" });
+  assert.equal(quiet.success ? "" : addFailureMessage(quiet), "재생을 시작할 수 없습니다.");
 
   const thrown = setup({ plays: [networkError()] });
   const r = await thrown.add({ tracks: [track("a")] }, who);
   assert.equal(r.success, false);
-  assert.match(r.message ?? "", /네트워크 오류/, "던진 것은 그 오류의 문장으로");
-  assert.deepEqual([r.success === false && r.code, r.success === false && r.kind], ["threw", "network"], "로그에는 까닭과 오류 종류");
+  assert.match(r.success ? "" : addFailureMessage(r), /네트워크 오류/, "던진 것은 그 오류의 문장으로");
+  assert.deepEqual([r.success === false && r.code, r.success === false && r.kind], ["play-threw", "network"], "로그에는 까닭과 오류 종류");
 });
 
 test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 알린다", async () => {
@@ -156,7 +162,7 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
 
 test("되살리기도 실패하면 첫 곡의 실패를 돌려준다", async () => {
   const { add } = setup({ plays: [{ ok: false, code: "voice-failed" }, { ok: false }] });
-  assert.deepEqual(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who), { success: false, code: "voice-failed", message: "음성 채널에 연결하지 못했습니다!" });
+  assert.deepEqual(said(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "voice-failed", message: "음성 채널에 연결하지 못했습니다!" });
 });
 
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {
@@ -213,7 +219,7 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
     assert.deepEqual(some.notices, ["✅ 앨범 전체 30곡 중 1곡이 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 1곡은 넣지 못했습니다 (최대 2곡)"]);
 
     const full = setup({ current: track("now"), queue: [track("q1"), track("q2")] });
-    assert.deepEqual(await full.add({ tracks: [track("a")] }, who, full.responder), { success: false, code: "queue-full", message: "대기열이 가득 찼습니다 (최대 2곡)", dropped: 1 });
+    assert.deepEqual(said(await full.add({ tracks: [track("a")] }, who, full.responder)), { success: false, code: "queue-full", message: "대기열이 가득 찼습니다 (최대 2곡)", dropped: 1 });
   } finally {
     config.bot.maxQueueSize = saved;
   }
@@ -235,11 +241,11 @@ test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧
 });
 
 test("플레이어가 없거나 처리 중 던지면 실패 문장", async () => {
-  assert.deepEqual(await queueTracks(fake<Client>({ players: new Map() }), "g1", { tracks: [] }, who), { success: false, code: "no-player", message: "음악 플레이어를 찾을 수 없습니다." });
+  assert.deepEqual(said(await queueTracks(fake<Client>({ players: new Map() }), "g1", { tracks: [] }, who)), { success: false, code: "no-player", message: "음악 플레이어를 찾을 수 없습니다." });
 
   // 곡 목록이 없는 요청(처리 중 던진다)
   const { add: m2 } = setup({ current: track("now") });
-  assert.deepEqual(await m2(fake<TrackData>({ tracks: null }), who), { success: false, code: "threw", message: "음악을 처리하는 중 오류가 발생했습니다.", kind: "unknown" });
+  assert.deepEqual(await m2(fake<TrackData>({ tracks: null }), who), { success: false, code: "threw", kind: "unknown" });
 });
 
 test("재생목록 안내는 텍스트 채널이 없으면(대시보드) 보내지 않는다", async () => {

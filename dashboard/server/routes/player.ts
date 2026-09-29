@@ -9,6 +9,7 @@ import { requireAuth, signedIn } from "../middleware/requireAuth.ts";
 import { resolveMember, toApiError } from "../middleware/requireControl.ts";
 import { checkControl, checkAdd, isModerator } from "../../../src/usecases/permissions.ts";
 import * as errors from "../../../src/ui/text/errors.ts";
+import { addFailureMessage } from "../../../src/ui/errorMessages.ts";
 import * as controls from "../../../src/usecases/controls.ts";
 import { controlApiError, type Refusal } from "../../../src/ui/controlMessages.ts";
 import type { More } from "../../../src/usecases/playlistMore.ts";
@@ -317,8 +318,8 @@ function addRoutes(router: Router) {
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 자리. 없으면 진짜
       });
 
-      // 코어는 resolveQuery의 메시지를 그대로 돌려준다(❌ 접두 포함). JSON 규약에 맞게 제거
-      if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
+      // 디스코드와 같은 문장에서 ❌ 를 뗀다
+      if (!result.success) return res.status(400).json({ error: toApiError(addFailureMessage(result)) });
 
       res.json({ ...playerState(player, queueWindow(req)), dropped: result.dropped || 0, queueLimited: Boolean(result.queueLimited), more: moreView(result.more), queueMax: config.bot.maxQueueSize });
     } catch (err) {
@@ -357,7 +358,7 @@ function addRoutes(router: Router) {
         source: "대시보드 더 넣기",
         lookup: req.app.locals.lookup,
       });
-      if (!result.success) return res.status(400).json({ error: toApiError(result.message) });
+      if (!result.success) return res.status(400).json({ error: toApiError(addFailureMessage(result)) });
 
       res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, more: moreView(result.next), queueMax: config.bot.maxQueueSize });
     } catch (err) {

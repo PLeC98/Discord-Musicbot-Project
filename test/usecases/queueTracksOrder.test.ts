@@ -114,7 +114,7 @@ test("앞 작업이 실패해도 뒤 작업은 돈다. 실패는 자기 호출�
 
   await tick();
   w.gate("A").reject(new Error("A boom"));
-  assert.deepEqual(await pA, { success: false, code: "threw", message: "음악을 처리하는 중 오류가 발생했습니다.", kind: "unknown" });
+  assert.deepEqual(await pA, { success: false, code: "threw", kind: "unknown" });
 
   await tick();
   assert.ok(w.events.includes("start:B"), "A가 실패해도 B는 실행");

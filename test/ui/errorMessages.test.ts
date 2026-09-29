@@ -2,7 +2,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { errorMessage, reportError } from "../../src/ui/errorMessages.ts";
+import { addFailureMessage, errorMessage, reportError } from "../../src/ui/errorMessages.ts";
+import * as text from "../../src/ui/text/errors.ts";
 import { errorKind } from "../../src/rules/errorKind.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";
@@ -50,4 +51,14 @@ test("getMessage: 모든 범주가 한국어 안내 문자열을 반환", () => 
 test("handle: 던지지 않고 사용자 메시지 반환 (catch 블록 계약)", () => {
   const out = reportError(new Error("read ECONNRESET"), "test-context");
   assert.equal(out, errorMessage(new Error("read ECONNRESET")));
+});
+
+test("곡을 찾거나 담지 못한 결과: 까닭의 문장이 먼저, 오류로 못 했으면 그 종류, 아니면 곡을 틀 수 없다", () => {
+  assert.equal(addFailureMessage({ code: "voice-failed", kind: "network" }), "음성 채널에 연결하지 못했습니다!", "까닭의 문장이 있으면 오류 종류보다 먼저");
+  assert.equal(addFailureMessage({ code: "play-failed", kind: "network" }), text.forKind("network"));
+  assert.equal(addFailureMessage({ code: "play-threw" }), text.forKind("unknown"), "던진 것은 종류를 몰라도 오류 문장");
+  assert.equal(addFailureMessage({ code: "lookup-failed" }), text.forKind("unknown"));
+  assert.equal(addFailureMessage({ code: "play-failed" }), "재생을 시작할 수 없습니다.");
+  assert.equal(addFailureMessage({ code: "live-ended" }), "재생을 시작할 수 없습니다.");
+  assert.equal(addFailureMessage({ code: "more-nothing-playable", skipped: 3 }), "받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(3곡).");
 });

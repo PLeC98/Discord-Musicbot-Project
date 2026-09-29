@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
+import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import * as searchText from "../src/ui/text/search.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { interactionResponder } from "../src/usecases/responders.ts";
@@ -69,7 +70,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
 
       if (!result.success) {
         return await interaction.editReply({
-          components: [client.panels.createErrorContainer(result.message)],
+          components: [client.panels.createErrorContainer(addFailureMessage(result))],
           flags: MessageFlags.IsComponentsV2,
         });
       }

@@ -5,7 +5,7 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/errors.ts";
 import * as moreText from "../src/ui/text/more.ts";
-import { errorMessage } from "../src/ui/errorMessages.ts";
+import { addFailureMessage, errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { continueCollection } from "../src/usecases/addTracks.ts";
@@ -79,7 +79,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
       voiceChannel: interaction.member.voice?.channel ?? null,
       onProgress,
     });
-    payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: errors.withErrorMark(result.message), components: [] };
+    payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: errors.withErrorMark(addFailureMessage(result)), components: [] };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
     payload = { content: errorMessage(error), components: [] };

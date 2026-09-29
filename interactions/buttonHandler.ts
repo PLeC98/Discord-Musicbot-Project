@@ -3,6 +3,7 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
 import { checkControl, checkAdd, checkSummon } from "../src/usecases/permissions.ts";
@@ -288,7 +289,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     responder,
     source: `/search ${position}번째`,
   });
-  if (!result.success) return await interaction.editReply({ embeds: [errorEmbed(result.message)], components: [] });
+  if (!result.success) return await interaction.editReply({ embeds: [errorEmbed(addFailureMessage(result))], components: [] });
 
   // 검색 결과 메시지 제거. 현재 재생/대기열 정보는 별도로 전송됨
   await responder.dismissPlaceholder();

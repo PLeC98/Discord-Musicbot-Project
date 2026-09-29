@@ -4,6 +4,7 @@ process.env.CLIENT_ID ||= "test-client";
 import test from "node:test";
 const links = await import("../../src/rules/links.ts");
 import assert from "node:assert/strict";
+import { addFailureMessage } from "../../src/ui/errorMessages.ts";
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonicalUrl.ts");
 
@@ -61,7 +62,8 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
 
     const result = await lookup.getTrackData(url);
     assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
-    assert.match(result.message ?? "", /유튜브 주소/);
+    assert.equal(result.code, "youtube-unplayable", url);
+    assert.match(result.success ? "" : addFailureMessage(result), /유튜브 주소/);
   }
 
   // 검색어는 그대로 검색으로 간다
@@ -81,8 +83,8 @@ test("모르는 사이트의 링크도 거절하고, 캐시 장부를 보지 않
     assert.equal(lookup.isUnsupportedLink(url), true, url);
     const result = await lookup.resolveQuery(url, "test");
     assert.equal(result.success, false, url);
-    assert.equal(result.message, "❌ 지원하지 않는 링크입니다.", url);
     assert.equal(result.code, "unsupported-link", url);
+    assert.equal(result.success ? "" : addFailureMessage(result), "❌ 지원하지 않는 링크입니다.", url);
   }
   assert.equal(lookup.isUnsupportedLink("spotify:track:abc"), false, "스포티파이 URI 는 링크 모양이 달라도 다룬다");
   assert.equal(lookup.isUnsupportedLink("https://cdn.example.com/a.mp3"), false, "직접 링크");

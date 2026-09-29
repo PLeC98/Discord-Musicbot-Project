@@ -16,7 +16,7 @@ import type { TrackInfo } from "../../src/player/track.ts";
 import * as tracks from "../helpers/tracks.ts";
 import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 import { networkError } from "../helpers/errors.ts";
-import { codedError } from "../../src/rules/errorKind.ts";
+import { codedError, errorKind } from "../../src/rules/errorKind.ts";
 import sink from "../../src/infra/log/sink.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
@@ -113,7 +113,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
 
 test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
   const noSearch = { youtube: { ...YouTube, search: async () => assert.fail("검색하면 안 된다") } };
-  assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, code: "youtube-unplayable", message: "❌ 재생할 수 없는 유튜브 주소입니다." });
+  assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, code: "youtube-unplayable" });
 });
 
 test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
@@ -157,13 +157,11 @@ test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 �
 
   const nothing = await lookup.getTrackData("https://soundcloud.com/a/sets/b", undefined, undefined, { soundcloud: soundcloud("set", 10, 0) });
   assert.equal(nothing.success, false);
-  assert.match(String(nothing.message), /모두 틀 수 없어요/);
   assert.equal(nothing.code, "nothing-playable");
 
   scAsked.length = 0;
   for (const url of ["https://soundcloud.com/artist", "https://soundcloud.com/artist/likes"]) {
     const r = await lookup.getTrackData(url, undefined, undefined, { soundcloud: soundcloud("track") });
-    assert.match(String(r.message), /지원하지 않는 사운드클라우드 링크/, url);
     assert.equal(r.code, "unsupported-soundcloud", url);
   }
   assert.equal(scAsked.length, 0, "모음은 부르지 않는다");
@@ -184,11 +182,14 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
   assert.deepEqual(await lookup.getTrackData("끊긴 곡", undefined, undefined, broken), { success: false, code: "lookup-failed", error: boom });
 });
 
-test("조회 실패의 안내문: 결과 없음 · 조회가 던진 오류", async () => {
-  const { lookupFailureMessage } = await import("../../src/ui/errorMessages.ts");
-  assert.equal(lookupFailureMessage({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
-  assert.equal(lookupFailureMessage({ message: "❌ 지원하지 않는 링크입니다." }), "❌ 지원하지 않는 링크입니다.", "곡 찾기가 정한 문장은 그대로(모르는 오류로 바꾸지 않는다)");
-  assert.match(lookupFailureMessage({ code: "lookup-failed", error: networkError() }), /네트워크 오류/);
+test("조회 실패의 안내문: 까닭의 문장 · 조회가 던진 오류는 그 종류로", async () => {
+  const { addFailureMessage } = await import("../../src/ui/errorMessages.ts");
+  assert.equal(addFailureMessage({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
+  assert.equal(addFailureMessage({ code: "unsupported-link" }), "❌ 지원하지 않는 링크입니다.");
+  assert.match(addFailureMessage({ code: "nothing-playable" }), /모두 틀 수 없어요/);
+  assert.match(addFailureMessage({ code: "unsupported-soundcloud" }), /지원하지 않는 사운드클라우드 링크/);
+  assert.match(addFailureMessage({ code: "lookup-failed", kind: errorKind(networkError()) }), /네트워크 오류/);
+  assert.match(addFailureMessage({ code: "lookup-failed" }), /예상치 못한 오류/, "종류를 모르면 unknown");
 });
 
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이 · 사운드클라우드 세트. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
