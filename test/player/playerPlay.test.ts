@@ -7,6 +7,7 @@
 
 import * as h from "../helpers/playerHarness.ts";
 import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
 import * as audioCache from "../../src/store/audioCache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -543,6 +544,31 @@ test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼
     assert.ok(args.indexOf("-ss") > args.indexOf("-i"), "파이프에서는 -ss 가 -i 뒤");
     assert.equal(p.playback?.startOffsetMs, 30000);
   }
+});
+
+test("받아 둔 파일로 이어 틀면 직전 주소를 따지지 않는다. 만료를 모르는 주소는 그렇게 남긴다", async (t) => {
+  const track = yt("pc1cccccccc");
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  // 캐시하지 않는 긴 곡(나란히 받는 중인 파일은 캐시로 치지 않으므로)
+  behavior.stream = () => ({ url: "https://files.test/no-expire.mp3", duration: 2 * 3600 });
+  await p.play(0);
+  const lines = () => sink.buffer.slice(from).map((e) => e.text);
+  const level = logger.level;
+  logger.level = "debug";
+  t.after(() => {
+    logger.level = level;
+  });
+
+  let from = sink.buffer.length;
+  await p.play(30000);
+  assert.ok(lines().some((l) => l.startsWith("직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다:")));
+
+  h.seedCache("yt:pc1cccccccc", track);
+  from = sink.buffer.length;
+  await playOnce(p, 60000);
+  assert.equal(calls.spawns.at(-1)?.label, "playback");
+  assert.ok(!lines().some((l) => l.startsWith("직전 스트림 주소")), "파일로 트는데 주소 이야기를 남기지 않는다");
 });
 
 test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 받는다", async () => {

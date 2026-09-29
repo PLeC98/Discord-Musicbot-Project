@@ -74,8 +74,8 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
 async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
   // 열쇠는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = TrackDownloader.findCacheFile(track);
-  // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다
-  let streamInfo: StreamInfo | null = startMs > 0 ? resumeStream(track, previousResume, startMs) : null;
+  // 위치 이동이면 직전 재생이 받은 주소를 다시 쓴다. 받아 둔 파일로 틀면 주소가 필요 없다
+  let streamInfo: StreamInfo | null = startMs > 0 && !cacheFile ? resumeStream(track, previousResume, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 열쇠가 정해지므로
@@ -129,8 +129,12 @@ function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, sta
   if (!resume?.url || !key || resume.trackKey !== key) return null;
   const expireMs = expireOf(resume.url);
   const remainingMs = Math.max(0, (resume.info.duration || track.duration || 0) * 1000 - startMs);
-  if (!expireMs || expireMs - Date.now() < remainingMs + RESUME_URL_MARGIN_MS) {
-    log.debug(`직전 스트림 주소의 만료가 가까워 주소를 새로 받습니다: ${track.title} | 만료 ${expireMs ? `${Math.round((expireMs - Date.now()) / 1000)}초 후` : "모름"}`);
+  if (!expireMs) {
+    log.debug(`직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다: ${track.title}`);
+    return null;
+  }
+  if (expireMs - Date.now() < remainingMs + RESUME_URL_MARGIN_MS) {
+    log.debug(`직전 스트림 주소의 만료가 가까워 주소를 새로 받습니다: ${track.title} | 만료 ${Math.round((expireMs - Date.now()) / 1000)}초 후`);
     return null;
   }
   return { ...resume.info, url: resume.url };
