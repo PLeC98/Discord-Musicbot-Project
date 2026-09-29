@@ -154,6 +154,7 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
   assert.match(path.basename(options.output), /\.tmp-\d+-[0-9a-f]{8}\.opus$/, "임시 경로에 받는다");
   assert.deepEqual({ format: options.format, matchFilter: options.matchFilter, extractAudio: options.extractAudio, audioFormat: options.audioFormat, writeInfoJson: options.writeInfoJson, preferFreeFormats: options.preferFreeFormats }, { format: "bestaudio/best", matchFilter: "!is_live", extractAudio: true, audioFormat: "opus", writeInfoJson: true, preferFreeFormats: true });
   assert.deepEqual(options.postprocessorArgs, audioConvert.ytdlpPostprocessorArgs());
+  assert.equal(options.concurrentFragments, 2, "유튜브 조각은 둘씩(넷부터 401)");
   assert.deepEqual(calls.sponsor, [{ title: "곡 aaaaaaaaaaa", guildId: "g1" }], "받기 전에 SponsorBlock 을 확보한다(제목을 고치기 전)");
 
   const row = audioRow("yt:aaaaaaaaaaa");
@@ -207,6 +208,7 @@ test("사운드클라우드: 제 주소로, 사운드클라우드 출처가 받�
   assert.equal(calls.ytdlp[0].url, "https://soundcloud.com/a/b");
   assert.equal((calls.ytdlp[0].options as { via?: string }).via, "soundcloud");
   assert.equal(calls.ytdlp[0].options.writeInfoJson, true, "받는 옵션은 유튜브와 같다");
+  assert.equal(calls.ytdlp[0].options.concurrentFragments, 4, "사운드클라우드 조각은 넷씩");
   assert.equal(track.title, "SC", "유튜브가 아니면 제목을 안 고친다");
 });
 

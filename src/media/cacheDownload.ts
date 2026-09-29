@@ -148,6 +148,10 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
 // 받는 데 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
 const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
+// 조각으로 받는 포맷(유튜브 post_live 의 DASH 조각 · 사운드클라우드 HLS)을 몇 개씩 나란히 받나. 조각이 아닌 포맷에는 걸리지 않는다.
+// 실측(2026-09-30): 유튜브는 넷 이상이면 조각 170 ~ 320 즈음부터 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 받아도).
+// 조각 2338개 하나씩 약 2.2분 · 둘씩 55초. 사운드클라우드는 여덟까지 막히지 않고, 아무도 받지 않은 곡은 하나씩 223KiB/s · 넷씩 734KiB/s
+const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
 class TrackDownloader {
   player: Owner;
   deps: Sources;
@@ -310,9 +314,9 @@ class TrackDownloader {
       audioFormat: "opus",
     };
     // 사운드클라우드는 공통 옵션과 재생 포맷만(유튜브 전용 옵션 · 클라이언트 바꾸기 · 쿠키가 없다)
-    if (inputKind(downloadUrl) === "soundcloud") await this.deps.soundcloud.download(downloadUrl, flags);
+    if (inputKind(downloadUrl) === "soundcloud") await this.deps.soundcloud.download(downloadUrl, { ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.soundcloud });
     // 연령 제한 영상은 runYtDlp가 쿠키 폴백을 처리(대개 getStream/getInfo에서 이미 표시돼 실패 없이 쿠키 직행).
-    else await this.deps.youtube.runYtDlp(downloadUrl, (forceCookies) => this.deps.youtube.getYtDlpOptions(flags, { forceCookies }));
+    else await this.deps.youtube.runYtDlp(downloadUrl, (forceCookies) => this.deps.youtube.getYtDlpOptions({ ...flags, concurrentFragments: CONCURRENT_FRAGMENTS.youtube }, { forceCookies }));
 
     // match-filter에 걸리면 yt-dlp는 "skipping" 후 정상 종료(exit 0)하고 파일을 남기지 않는다.
     // 아래 fs.stat이 ENOENT로 터지면 원인을 알 수 없으므로 여기서 명확한 오류로 바꾼다.
