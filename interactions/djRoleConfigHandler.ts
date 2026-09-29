@@ -1,6 +1,7 @@
 import { EmbedBuilder, PermissionFlagsBits, MessageFlags, type ButtonInteraction, type RoleSelectMenuInteraction } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { route, type Route } from "./route.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
 // 드롭메뉴 선택값은 셀렉트 인터랙션으로만 오므로, 저장 버튼이 읽을 수 있게
@@ -33,7 +34,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
   if (interaction.customId === "djrole:cancel") {
     pending.delete(interaction.message.id);
     return interaction.update({
-      embeds: [new EmbedBuilder().setTitle("🎧 DJ 역할 설정 취소됨").setDescription("변경 사항 없이 닫았어요.").setColor("#99AAB5")],
+      embeds: [new EmbedBuilder().setTitle("🎧 DJ 역할 설정 취소됨").setDescription("변경 사항 없이 닫았어요.").setColor(colorOf("closed"))],
       components: [],
     });
   }
@@ -51,7 +52,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
     if (!roleIds.length) {
       await GuildSettingsManager.clearDjRoles(guild.id);
       return interaction.update({
-        embeds: [new EmbedBuilder().setTitle("🎧 DJ 역할 제한 해제됨").setDescription("이제 모든 유저가 재생을 제어할 수 있어요.\n(모더레이터는 설정과 무관하게 항상 가능합니다)").setColor("#FF6B6B").setTimestamp()],
+        embeds: [new EmbedBuilder().setTitle("🎧 DJ 역할 제한 해제됨").setDescription("이제 모든 유저가 재생을 제어할 수 있어요.\n(모더레이터는 설정과 무관하게 항상 가능합니다)").setColor(colorOf("closed")).setTimestamp()],
         components: [],
       });
     }
@@ -59,7 +60,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
     const success = await GuildSettingsManager.setDjRoles(guild.id, roleIds);
     if (!success) {
       return interaction.update({
-        embeds: [new EmbedBuilder().setTitle("❌ 저장 실패").setDescription("DJ 역할 설정 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.").setColor("#ED4245")],
+        embeds: [new EmbedBuilder().setTitle("❌ 저장 실패").setDescription("DJ 역할 설정 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.").setColor(colorOf("error"))],
         components: [],
       });
     }
@@ -69,7 +70,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
         new EmbedBuilder()
           .setTitle("✅ DJ 역할 설정됨")
           .setDescription(`DJ 역할: ${roleIds.map((id) => `<@&${id}>`).join(" ")}\n\n이제 🔒 재생 제어(스킵/정지/볼륨 등)는 이 역할 보유자만 사용할 수 있어요.\n모더레이터(서버 관리·추방·차단·타임아웃 권한 보유자)는 항상 제어할 수 있습니다.`)
-          .setColor("#57F287")
+          .setColor(colorOf("done"))
           .setTimestamp(),
       ],
       components: [],

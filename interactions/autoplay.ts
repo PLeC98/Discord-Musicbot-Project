@@ -2,7 +2,6 @@
 // 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
 import { EmbedBuilder, type ButtonInteraction, type GuildMember, type RepliableInteraction, type StringSelectMenuInteraction, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as S from "../src/ui/strings.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
@@ -12,6 +11,7 @@ import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../src/ui/customIds.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 /**
  * 켜져 있으면 끄고 30초 동안 장르를 다시 고를 기회를 준다(고르면 변경, 두면 종료).
@@ -60,7 +60,7 @@ const enabledEmbed = (genre: string, member: GuildMember) =>
   new EmbedBuilder()
     .setTitle("🎲 자동 재생이 활성화되었습니다")
     .setDescription(`**${genre}** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.`)
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setTimestamp()
     .addFields({ name: "👤 변경한 사람", value: `${member}`, inline: true });
 

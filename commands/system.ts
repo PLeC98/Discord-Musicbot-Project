@@ -5,6 +5,7 @@ import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
 import { SYSTEM, customId } from "../src/ui/customIds.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const UPTIME = { withSeconds: true };
 
@@ -26,7 +27,7 @@ function buildSystemEmbed(client: Client<true>) {
 
   const embed = new EmbedBuilder()
     .setTitle("🖥️ 시스템 상태")
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setThumbnail(client.user.displayAvatarURL())
     .addFields(
       {

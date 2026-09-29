@@ -1,9 +1,9 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import { formatDuration } from "../src/ui/format.ts";
-import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("leave").setDescription("Leave the voice channel and save the current queue for later").setDescriptionLocalizations({ ko: "음성 채널에서 나가고 현재 대기열을 저장합니다" }),
@@ -18,7 +18,7 @@ const exported: GuildCommand = {
 
     const embed = new EmbedBuilder()
       .setTitle("👋 채널에서 나갔습니다")
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setTimestamp()
       .addFields({ name: "👤 실행한 사람", value: `${member}`, inline: true });
 

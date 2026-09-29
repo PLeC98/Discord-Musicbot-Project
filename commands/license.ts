@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import config from "../config.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: AnywhereCommand = {
   anywhere: true,
@@ -21,7 +22,7 @@ const exported: AnywhereCommand = {
 
     const embed = new EmbedBuilder()
       .setTitle("📜 라이선스 정보")
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setDescription("이 봇은 오픈 소스 소프트웨어입니다.\n" + "네트워크를 통해 이 봇과 상호작용하는 모든 사용자는 " + "GNU AGPL-3.0에 따라 소스 코드를 받을 권리가 있습니다.")
       .addFields(
         {

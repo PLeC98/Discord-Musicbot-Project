@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("stop").setDescription("Stop playback and disconnect from voice channel").setDescriptionLocalizations({ ko: "재생을 정지하고 음성 채널에서 퇴장합니다" }),
@@ -14,7 +15,7 @@ const exported: GuildCommand = {
     const embed = new EmbedBuilder()
       .setTitle("⏹️ 음악 중지됨")
       .setDescription(`${r.track ? `**[${r.track.title}](${r.track.pageUrl})**` : "Music"} 중지됨!`)
-      .setColor("#FF0000")
+      .setColor(colorOf("closed"))
       .setTimestamp()
       .addFields({ name: "👤 중지한 사람", value: `${member}`, inline: true });
 

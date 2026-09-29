@@ -64,6 +64,7 @@ import * as blankThumbnail from "./blankThumbnail.ts";
 import { jumpDescription } from "./queueDisplay.ts";
 import { NowPlayingPanel, type PanelStore } from "./panelLocation.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
+import { colorOf } from "./colors.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
 // 자동재생만 살아 있고, 그 버튼은 쉬는 중의 표식(idle)을 세션 자리에 달고 나간다.
@@ -168,11 +169,11 @@ class MusicEmbedManager {
   }
 
   createSearchingContainer(msg: string) {
-    return new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor)).addTextDisplayComponents(new TextDisplayBuilder().setContent(msg));
+    return new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand"))).addTextDisplayComponents(new TextDisplayBuilder().setContent(msg));
   }
 
   createErrorContainer(msg: string) {
-    return new ContainerBuilder().setAccentColor(resolveColor("#FF0000")).addTextDisplayComponents(new TextDisplayBuilder().setContent(S.withErrorMark(msg)));
+    return new ContainerBuilder().setAccentColor(resolveColor(colorOf("error"))).addTextDisplayComponents(new TextDisplayBuilder().setContent(S.withErrorMark(msg)));
   }
 
   /**
@@ -379,7 +380,7 @@ class MusicEmbedManager {
 
     const statusParts = statusOf(player);
 
-    const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor));
+    const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
     if (titleComponent) container.addSectionComponents(titleComponent);
     else container.addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText));
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(bar));
@@ -489,7 +490,11 @@ class MusicEmbedManager {
 
     const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`### 💤 재생 대기 중\n**${title}**\n-# ${status}`)).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
 
-    const container = new ContainerBuilder().setAccentColor(resolveColor(config.bot.embedColor)).addSectionComponents(heading).addTextDisplayComponents(new TextDisplayBuilder().setContent(emptyProgressBar())).addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
+    const container = new ContainerBuilder()
+      .setAccentColor(resolveColor(colorOf("brand")))
+      .addSectionComponents(heading)
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(emptyProgressBar()))
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
     for (const row of await this.createControlButtons(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# 🔗 [대시보드](${config.dashboard.url})`));
 
@@ -515,7 +520,7 @@ class MusicEmbedManager {
 
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 연달아 실패해 멈춘 것은 채널 알림이 따로 간다
     if (live && !dedicated && reason !== "failures" && canSend(textChannel)) {
-      const endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor("#FF6B6B").setTimestamp();
+      const endEmbed = new EmbedBuilder().setTitle("🎵 음악 종료됨").setDescription("모든 노래가 재생되었습니다! `/play` 명령을 사용하여 새 트랙을 추가하세요.").setColor(colorOf("closed")).setTimestamp();
       await bestEffort(log, textChannel.send({ embeds: [endEmbed] }), "끝 안내 보내기");
     }
 

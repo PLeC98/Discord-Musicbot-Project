@@ -1,5 +1,4 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.ts";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
 import { labelOf, emojiOf } from "../src/ui/platforms.ts";
 import { progressBar } from "../src/ui/progressBar.ts";
@@ -7,6 +6,7 @@ import { playbackStatus } from "../src/ui/playerStatus.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Player } from "../src/player/Player.ts";
 import type { QueuedTrack } from "../src/player/track.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 // 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다
 function progressField(player: Player, track: QueuedTrack, currentMs: number) {
@@ -16,7 +16,7 @@ function progressField(player: Player, track: QueuedTrack, currentMs: number) {
 }
 
 function createErrorEmbed(message: string) {
-  return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
+  return new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor(colorOf("error")).setTimestamp();
 }
 
 const exported: GuildCommand = {
@@ -48,7 +48,7 @@ const exported: GuildCommand = {
 
     const platformCode = (track.platform || "").toString().toLowerCase();
 
-    const embed = new EmbedBuilder().setTitle("🎵 현재 재생 중").setDescription(`**[${track.title}](${track.pageUrl})**`).setColor(config.bot.embedColor).setTimestamp();
+    const embed = new EmbedBuilder().setTitle("🎵 현재 재생 중").setDescription(`**[${track.title}](${track.pageUrl})**`).setColor(colorOf("brand")).setTimestamp();
 
     if (track.artist) {
       embed.addFields({ name: "🎤 아티스트", value: track.artist, inline: true });

@@ -1,8 +1,8 @@
 import { formatBytes, formatDuration, formatSpan } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
-import config from "../config.ts";
 import * as audioCache from "../src/store/audioCache.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const GB2 = { gbDigits: 2 };
 
@@ -73,7 +73,7 @@ const exported: AnywhereCommand = {
 
     const embed = new EmbedBuilder()
       .setTitle("📦 오디오 캐시 현황")
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .addFields({ name: "💿 캐시 현황", value: overview, inline: false }, { name: "▶️ 재생 통계", value: playStats, inline: true }, { name: "🌐 플랫폼 분포", value: platforms, inline: true }, { name: "🔧 기타", value: misc, inline: false }, { name: "🏆 재생 TOP 5", value: topTracksText, inline: false }, { name: "🆕 최근 추가", value: recentText, inline: false })
       .setFooter({ text: `캐시 경로: audio_cache/` })
       .setTimestamp();

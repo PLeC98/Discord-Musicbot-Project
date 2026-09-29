@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("pause").setDescription("Pause or resume the current track").setDescriptionLocalizations({ ko: "일시정지를 토글합니다" }),
@@ -17,7 +17,7 @@ const exported: GuildCommand = {
     const embed = new EmbedBuilder()
       .setTitle(`${emoji} ${message}`)
       .setDescription(`**[${r.track.title}](${r.track.pageUrl})** ${message}!`)
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setTimestamp()
       .addFields({ name: "👤 작업자", value: `${member}`, inline: true });
 

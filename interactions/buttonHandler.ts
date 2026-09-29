@@ -21,6 +21,7 @@ import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -65,7 +66,7 @@ async function handlePause(interaction: Press, player: Player) {
   const embed = new EmbedBuilder()
     .setTitle(`${emoji} ${message}`)
     .setDescription(`**[${r.track.title}](${r.track.pageUrl})** ${message}!`)
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setTimestamp()
     .addFields({ name: "👤 작업자", value: `${interaction.member}`, inline: true });
 
@@ -88,7 +89,7 @@ async function handleSkip(interaction: Press, player: Player) {
   const embed = new EmbedBuilder()
     .setTitle("⏭️ 노래 건너뜀")
     .setDescription(`**[${r.track.title}](${r.track.pageUrl})** 건너뜀!`)
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setTimestamp()
     .addFields({ name: "👤 건너뛴 사람", value: `${interaction.member}`, inline: true });
 
@@ -114,7 +115,7 @@ async function handleStop(interaction: Press, player: Player) {
   const embed = new EmbedBuilder()
     .setTitle("⏹️ 음악 중지됨")
     .setDescription(`${r.track ? `**[${r.track.title}](${r.track.pageUrl})**` : "Music"} 중지됨!`)
-    .setColor("#FF0000")
+    .setColor(colorOf("closed"))
     .setTimestamp()
     .addFields({ name: "👤 중지한 사람", value: `${interaction.member}`, inline: true });
 
@@ -153,7 +154,7 @@ async function handleShuffle(interaction: Press, player: Player) {
   const embed = new EmbedBuilder()
     .setTitle("🔀 대기열 셔플됨")
     .setDescription(`${r.count}개의 노래가 셔플되었습니다!`)
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setTimestamp()
     .addFields({ name: "👤 셔플한 사람", value: `${interaction.member}`, inline: true });
 
@@ -195,7 +196,7 @@ async function handleLoop(interaction: Press, player: Player) {
   const embed = new EmbedBuilder()
     .setTitle(`${modeEmoji} 🔁 반복 모드 변경됨`)
     .setDescription(modeMessage)
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setTimestamp()
     .addFields({ name: "👤 변경한 사람", value: `${interaction.member}`, inline: true });
 
@@ -250,7 +251,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   }
 
   if (action === "cancel") {
-    const embed = new EmbedBuilder().setTitle("❌ 검색 취소됨").setDescription("검색이 취소되었습니다.").setColor("#FF0000").setTimestamp();
+    const embed = new EmbedBuilder().setTitle("❌ 검색 취소됨").setDescription("검색이 취소되었습니다.").setColor(colorOf("closed")).setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
   if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: S.ERR_UNKNOWN_INTERACTION, flags: MessageFlags.Ephemeral });
@@ -261,7 +262,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 
   await interaction.deferUpdate();
 
-  const processingEmbed = new EmbedBuilder().setTitle("🔄 처리 중...").setDescription("고른 곡을 추가하는 중...").setColor("#FFAA00").setTimestamp();
+  const processingEmbed = new EmbedBuilder().setTitle("🔄 처리 중...").setDescription("고른 곡을 추가하는 중...").setColor(colorOf("working")).setTimestamp();
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
   // 여기서부터 던지면 "처리 중" 자리를 오류로 바꾼다
@@ -290,7 +291,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   await responder.dismissPlaceholder();
 }
 
-const errorEmbed = (message: string) => new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor("#FF0000").setTimestamp();
+const errorEmbed = (message: string) => new EmbedBuilder().setTitle("❌ 오류").setDescription(message).setColor(colorOf("error")).setTimestamp();
 
 // custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다

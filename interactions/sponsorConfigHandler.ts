@@ -3,6 +3,7 @@ import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { SKIP_CATEGORIES, categoryLabel } from "../src/rules/sponsorCategories.ts";
 import config from "../config.ts";
 import { route, type Route } from "./route.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -23,7 +24,7 @@ function buildSponsorConfigMessage({ enabled, categories }: Draft) {
   const cats = new Set(categories);
   const lines = [config.sponsorblock.enabled ? "" : "⚠️ 봇 전역 설정에서 SponsorBlock이 꺼져 있어 이 설정은 적용되지 않습니다.", `현재: ${enabled ? "**사용**" : "**미사용**"}`, "", "건너뛸 구간 종류를 아래에서 고르고 **저장**을 누르세요. 사용 여부는 버튼으로 토글합니다."].filter((l) => l !== "");
 
-  const embed = new EmbedBuilder().setTitle("⏭️ SponsorBlock 자동 스킵 설정").setDescription(lines.join("\n")).setColor("#5865F2");
+  const embed = new EmbedBuilder().setTitle("⏭️ SponsorBlock 자동 스킵 설정").setDescription(lines.join("\n")).setColor(colorOf("settings"));
 
   const select = new StringSelectMenuBuilder()
     .setCustomId("sb:cats")
@@ -91,7 +92,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
 
   if (interaction.customId === "sb:cancel") {
     pending.delete(mid);
-    return interaction.update({ embeds: [new EmbedBuilder().setTitle("⏭️ SponsorBlock 설정 취소됨").setDescription("변경 사항 없이 닫았어요.").setColor("#99AAB5")], components: [] });
+    return interaction.update({ embeds: [new EmbedBuilder().setTitle("⏭️ SponsorBlock 설정 취소됨").setDescription("변경 사항 없이 닫았어요.").setColor(colorOf("closed"))], components: [] });
   }
 
   if (interaction.customId === "sb:save") {
@@ -102,7 +103,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
         new EmbedBuilder()
           .setTitle("⏭️ SponsorBlock 설정 저장됨")
           .setDescription(`사용: **${state.enabled ? "예" : "아니오"}**\n구간: ${summary}`)
-          .setColor("#57F287")
+          .setColor(colorOf("done"))
           .setTimestamp(),
       ],
       components: [],

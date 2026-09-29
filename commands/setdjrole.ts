@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags, ActionRowBuilder, RoleSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 // 실제 저장/취소 처리는 interactions/djRoleConfigHandler.ts (customId: djrole:*)
 // 복수 선택은 디스코드 셀렉트 메뉴 한계로 최대 25개.
@@ -20,7 +21,7 @@ const exported: GuildCommand = {
 
     const statusLine = validIds.length ? `현재 DJ 역할: ${validIds.map((id) => `<@&${id}>`).join(" ")}` : "현재 DJ 역할이 설정되어 있지 않아 **모든 유저**가 재생을 제어할 수 있습니다.";
 
-    const embed = new EmbedBuilder().setTitle("🎧 DJ 역할 설정").setDescription([statusLine, "", "아래 메뉴에서 DJ로 지정할 역할을 고른 뒤 **저장**을 누르세요. (복수 선택 가능)", "아무 역할도 선택하지 않고 저장하면 제한이 해제됩니다.", "모더레이터(서버 관리·추방·차단·타임아웃 권한 보유자)는 설정과 무관하게 항상 제어할 수 있어요."].join("\n")).setColor("#5865F2");
+    const embed = new EmbedBuilder().setTitle("🎧 DJ 역할 설정").setDescription([statusLine, "", "아래 메뉴에서 DJ로 지정할 역할을 고른 뒤 **저장**을 누르세요. (복수 선택 가능)", "아무 역할도 선택하지 않고 저장하면 제한이 해제됩니다.", "모더레이터(서버 관리·추방·차단·타임아웃 권한 보유자)는 설정과 무관하게 항상 제어할 수 있어요."].join("\n")).setColor(colorOf("settings"));
 
     const select = new RoleSelectMenuBuilder().setCustomId("djrole:select").setPlaceholder("DJ로 지정할 역할 선택").setMinValues(0).setMaxValues(25);
     if (validIds.length) select.setDefaultRoles(validIds);

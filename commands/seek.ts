@@ -1,9 +1,9 @@
 import { formatMs } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 /**
  * 시간 문자열을 밀리초로 파싱
@@ -57,7 +57,7 @@ const exported: GuildCommand = {
     const embed = new EmbedBuilder()
       .setTitle("⏩ 시간 이동")
       .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setTimestamp()
       .addFields({ name: "⏱️ 이동한 위치", value: `\`${formatMs(r.ms)}\``, inline: true });
 

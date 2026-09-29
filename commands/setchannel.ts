@@ -4,6 +4,7 @@ import logger from "../src/infra/log/logger.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { messageOf } from "../src/rules/errorKind.ts";
+import { colorOf } from "../src/ui/colors.ts";
 const log = logger.child({ category: "commands" });
 
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.musicEmbedManager?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
@@ -46,7 +47,7 @@ const exported: GuildCommand = {
       await movePanel(interaction);
 
       return await interaction.reply({
-        embeds: [new EmbedBuilder().setTitle("🔧 봇 채널 제거됨").setDescription("봇 전용 채널 설정이 해제됐어요.\n이제 `/play` 명령어로만 음악을 요청할 수 있어요.").setColor("#FF6B6B").setTimestamp()],
+        embeds: [new EmbedBuilder().setTitle("🔧 봇 채널 제거됨").setDescription("봇 전용 채널 설정이 해제됐어요.\n이제 `/play` 명령어로만 음악을 요청할 수 있어요.").setColor(colorOf("closed")).setTimestamp()],
       });
     }
 
@@ -71,7 +72,7 @@ const exported: GuildCommand = {
             value: "• YouTube, Spotify, SoundCloud URL\n• 곡 이름이나 아티스트 검색어",
             inline: false,
           })
-          .setColor("#57F287")
+          .setColor(colorOf("done"))
           .setTimestamp(),
       ],
     });

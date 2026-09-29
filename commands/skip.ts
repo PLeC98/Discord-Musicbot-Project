@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("skip").setDescription("Skip the current track").setDescriptionLocalizations({ ko: "현재 재생 중인 곡을 건너뜁니다" }),
@@ -17,7 +17,7 @@ const exported: GuildCommand = {
     const embed = new EmbedBuilder()
       .setTitle("⏭️ 노래 건너뜀")
       .setDescription(`**[${r.track.title}](${r.track.pageUrl})** 건너뜀!`)
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setTimestamp()
       .addFields({ name: "👤 건너뛴 사람", value: `${member}`, inline: true });
 

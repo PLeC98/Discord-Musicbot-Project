@@ -4,13 +4,14 @@ import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { Client } from "discord.js";
 import { HELP, customId } from "../src/ui/customIds.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 async function buildHelpEmbed(client: Client<true>) {
   const guilds = client.guilds.cache.size;
   const users = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
   const activeServers = client.players.size;
 
-  const embed = new EmbedBuilder().setTitle("🎵 도움말").setDescription("🔒 표시 명령어는 **봇과 같은 음성 채널에 있는 DJ**부터 사용할 수 있습니다. 모더레이터는 채널에 없어도 사용 가능해요.\nDJ 역할이 설정되지 않은 서버에서는 전원이 DJ로 취급됩니다. (`/setdjrole`)").setColor(config.bot.embedColor).setThumbnail(client.user.displayAvatarURL()).setTimestamp();
+  const embed = new EmbedBuilder().setTitle("🎵 도움말").setDescription("🔒 표시 명령어는 **봇과 같은 음성 채널에 있는 DJ**부터 사용할 수 있습니다. 모더레이터는 채널에 없어도 사용 가능해요.\nDJ 역할이 설정되지 않은 서버에서는 전원이 DJ로 취급됩니다. (`/setdjrole`)").setColor(colorOf("brand")).setThumbnail(client.user.displayAvatarURL()).setTimestamp();
   embed.addFields({
     name: "🎵 재생",
     value: ["`/play <곡/URL>`: 음악 재생", "`/playfirst <곡/URL>`: 대기열 맨 앞에 추가 🔒", "`/pause`: 일시정지 / 재개 🔒", "`/stop`: 재생 중지 및 퇴장 🔒", "`/skip`: 다음 곡 🔒 (자기가 추가한 곡은 누구나)", "`/previous`: 이전 곡 🔒", "`/replay`: 현재 곡 처음부터 🔒", "`/seek <시간>`: 특정 위치로 이동 (예: `1:30`, `90`) 🔒", "`/highlight`: 하이라이트 지점으로 이동 🔒"].join("\n"),

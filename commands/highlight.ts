@@ -1,9 +1,9 @@
 import { formatMs } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 // SponsorBlock poi_highlight(커뮤니티 하이라이트 지점)로 점프. 핵심만 듣고 /skip 하는 용도.
 const exported: GuildCommand = {
@@ -17,7 +17,7 @@ const exported: GuildCommand = {
     const embed = new EmbedBuilder()
       .setTitle("✨ 하이라이트로 이동")
       .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setTimestamp()
       .addFields({ name: "⏱️ 위치", value: `\`${formatMs(r.ms)}\``, inline: true });
 

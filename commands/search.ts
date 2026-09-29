@@ -1,6 +1,5 @@
 import { formatDuration } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as YouTube from "../src/sources/youtube/index.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
@@ -9,6 +8,7 @@ import type { TrackInfo } from "../src/player/track.ts";
 import { requesterName } from "../src/usecases/addTracks.ts";
 import { SEARCH, customId } from "../src/ui/customIds.ts";
 import logger from "../src/infra/log/logger.ts";
+import { colorOf } from "../src/ui/colors.ts";
 const log = logger.child({ category: "player" });
 
 const MAX_RESULTS = 9;
@@ -20,7 +20,7 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
 
   const embed = new EmbedBuilder()
     .setTitle(`🔍 "${query}" 검색 결과`)
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setDescription("번호 버튼을 눌러 노래를 선택하세요.")
     .setFooter({ text: `${shown.length}개의 결과` })
     .setTimestamp();

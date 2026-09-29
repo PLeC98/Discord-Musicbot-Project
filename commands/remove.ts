@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder()
@@ -20,7 +20,7 @@ const exported: GuildCommand = {
     const embed = new EmbedBuilder()
       .setTitle("🗑️ 곡 제거됨")
       .setDescription(`**[${r.track.title}](${r.track.pageUrl})**`)
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setTimestamp()
       .addFields({ name: "👤 제거한 사람", value: `${member}`, inline: true }, { name: "📋 남은 대기열", value: `${r.left}곡`, inline: true });
 

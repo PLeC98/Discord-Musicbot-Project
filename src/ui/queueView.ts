@@ -1,10 +1,10 @@
 // 대기열 화면 한 벌. /queue 와 재생 패널의 대기열 버튼, 넘기기 버튼이 같은 그림을 쓴다.
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
-import config from "../../config.ts";
 import { queueDescription } from "./queueDisplay.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import { QUEUE, customId } from "./customIds.ts";
+import { colorOf } from "./colors.ts";
 
 /** 한 쪽에 보이는 곡 수 */
 const PAGE_SIZE = 10;
@@ -35,7 +35,7 @@ function queueView(info: QueueInfo, page = 1) {
 
   const embed = new EmbedBuilder()
     .setTitle("📝 재생 대기열")
-    .setColor(config.bot.embedColor)
+    .setColor(colorOf("brand"))
     .setTimestamp()
     .setDescription(queueDescription({ current: shown === 1 ? info.current : null, header: `📋 다음 노래들 (${info.queue.length}개)`, tracks: info.queue.slice(offset, offset + PAGE_SIZE), first: offset + 1 }))
     .setFooter({ text: `총 ${total}개의 노래${pages > 1 ? ` • ${shown}/${pages} 페이지` : ""}` });

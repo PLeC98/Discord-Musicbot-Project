@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import type { AnywhereCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: AnywhereCommand = {
   anywhere: true,
@@ -20,7 +20,7 @@ const exported: AnywhereCommand = {
 
     const embed = new EmbedBuilder()
       .setTitle("🏓 퐁!")
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .addFields({ name: `${botStatus} 봇 응답`, value: `\`${botLatency}ms\``, inline: true }, { name: `${wsStatus} Discord API`, value: wsReady ? `\`${wsLatency}ms\`` : "`측정 중...`", inline: true })
       .setTimestamp();
 

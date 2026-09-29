@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import config from "../config.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
+import { colorOf } from "../src/ui/colors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("clear").setDescription("Clear the queue").setDescriptionLocalizations({ ko: "대기열을 비웁니다" }),
@@ -15,7 +15,7 @@ const exported: GuildCommand = {
     const embed = new EmbedBuilder()
       .setTitle("🗑️ 대기열 비워짐")
       .setDescription(`대기열에서 ${r.count}개의 노래가 제거되었습니다`)
-      .setColor(config.bot.embedColor)
+      .setColor(colorOf("brand"))
       .setTimestamp()
       .addFields({ name: "👤 변경한 사람", value: `${member}`, inline: true });
 
