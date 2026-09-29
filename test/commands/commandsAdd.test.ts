@@ -196,6 +196,13 @@ test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지
   await runCommand(await command("play"), it, w.client);
   assert.deepEqual(log, [["reply", { content: S.ERR_SAME_CHANNEL, flags: MessageFlags.Ephemeral }]]);
   assert.deepEqual(resolved, []);
+
+  // 봇이 쉬면 소환할 수 있어야 한다(봇에게 연결 · 말하기 권한)
+  const idle = world({ botVoice: null, canJoin: false });
+  const j = interaction(idle, { options: { query: "노래" } });
+  await runCommand(await command("play"), j.it, idle.client);
+  assert.deepEqual(j.log, [["reply", { content: S.ERR_NO_PERMISSIONS, flags: MessageFlags.Ephemeral }]]);
+  assert.deepEqual(resolved, []);
 });
 
 test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /play 로 넘긴다", async () => {
@@ -255,6 +262,22 @@ test("/playfirst: DJ 계층이 필요하고, 맨 앞에 넣으라고 코어에 �
   await runCommand(await command("playfirst"), ok.it, w.client);
   assert.equal(resolved[0].context, "playfirst.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, true);
+});
+
+test("/play 와 /playfirst 는 같은 길이다. 넣을 자리와 입구 이름만 다르다", async () => {
+  const through = async (name: string) => {
+    const w = world({ roles: ["dj"] });
+    resolved.length = 0;
+    const i = interaction(w, { options: { query: "노래" } });
+    await runCommand(await command(name), i.it, w.client);
+    return { handle: w.handled[0].handle, context: resolved[0].context, log: i.log };
+  };
+  const play = await through("play");
+  const first = await through("playfirst");
+  assert.deepEqual([play.handle.insertFirst, first.handle.insertFirst], [undefined, true]);
+  assert.deepEqual({ ...first.handle, insertFirst: undefined }, { ...play.handle, insertFirst: undefined });
+  assert.deepEqual([play.context, first.context], ["play.resolveQuery", "playfirst.resolveQuery"]);
+  assert.deepEqual(first.log, play.log, "답하는 모양도 같다");
 });
 
 test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
