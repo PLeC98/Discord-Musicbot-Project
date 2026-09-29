@@ -10,6 +10,7 @@ import * as tracks from "../helpers/tracks.ts";
 import { command, run as runCommand } from "../helpers/commands.ts";
 import searchCommand from "../../commands/search.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { scheduleReplyCleanup, DEFAULT_MS } from "../../src/ui/replyLifetime.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import modalHandler from "../../events/modalHandler.ts";
 import * as genreConfig from "../../src/config/genres.ts";
@@ -21,7 +22,7 @@ import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 
 import * as h from "../helpers/playerHarness.ts";
 const { behavior } = h; // 하네스의 가짜 설정
-import { test, beforeEach, after } from "node:test";
+import { test, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
@@ -419,7 +420,7 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
       const p = w.client.players.get("g1");
       if (p) h.dispose(p);
     }
-    return { log, w };
+    return { log, w, it };
   };
 
   const playing = await run(async function () {
@@ -427,6 +428,16 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
   });
   assert.deepEqual(playing.log[0], ["deferReply", undefined]);
   assert.deepEqual(playing.log[1], ["editReply", { content: "▶️ 이전 세션을 복구했어요! **저장된 곡** 재생 중" }]);
+  // 모두에게 보이는 응답이지만 잠깐 뒤 지운다(기본 정리는 본인에게만 보이는 응답만 지운다)
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    scheduleReplyCleanup(playing.it);
+    mock.timers.tick(DEFAULT_MS);
+    await new Promise(setImmediate);
+    assert.deepEqual(playing.log.at(-1), ["deleteReply"]);
+  } finally {
+    mock.timers.reset();
+  }
 
   const paused = await run(async function () {
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });

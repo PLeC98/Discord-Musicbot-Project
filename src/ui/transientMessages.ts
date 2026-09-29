@@ -1,6 +1,10 @@
 // 잠시 떴다가 스스로 지워질 봇 메시지. 현재 재생 메시지가 "묻혔는지" 셀 때 빼기 위해 기억한다.
 // 지우기로 한 시각이 지나면 잊는다(지우기가 실패해 남았다면 그때부터는 보통 메시지로 센다).
 
+import logger from "../infra/log/logger.ts";
+const log = logger.child({ category: "player" });
+import { messageOf } from "../rules/errorKind.ts";
+
 const SLACK_MS = 5000;
 const until = new Map<string, number>(); // messageId → 잊을 시각
 
@@ -34,9 +38,7 @@ function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_
   if (!message || typeof remove !== "function") return;
   markTransient(message.id, ms);
   setTimeout(() => {
-    Promise.resolve(remove.call(message)).catch(() => {
-      /* 이미 지워졌거나 지울 권한이 없다 */
-    });
+    Promise.resolve(remove.call(message)).catch((error: unknown) => log.debug(`잠깐 보이는 메시지를 지우지 못함(이미 지워졌거나 권한 없음): ${messageOf(error)}`));
   }, ms);
 }
 

@@ -27,6 +27,7 @@ const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본
 const UNKNOWN_CHANNEL = 10003;
 const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 나가기
 const UNKNOWN_VOICE_STATE = 10065; // 봇이 음성 채널에 없다
+const DO_NOT_RECONNECT = 4014; // 음성 서버의 닫힘 코드. 쫓겨났거나 옮겨졌다
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
 
 // 로그에 찍을 이름
@@ -44,6 +45,8 @@ class VoiceLink {
   /** 기다림 · 복구의 세대. 바뀌면(새 기다림 · 정리) 늦게 온 결과를 버린다 */
   gen = 0;
   waitTimer: NodeJS.Timeout | null = null;
+  /** 기다림을 건 끊김의 닫힘 코드. 4014 면 쫓겨났거나 옮겨진 것 */
+  waitCloseCode: number | null = null;
   recoveryAttempts = 0;
   maxRecoveryAttempts = 5;
   // 기다리는 시간. 시험이 줄인다
@@ -228,6 +231,7 @@ class VoiceLink {
 
   _wait(reason: VoiceConnectionDisconnectReason, closeCode: number | undefined) {
     this.state = "waiting";
+    this.waitCloseCode = closeCode ?? null;
     const gen = ++this.gen;
     log.warn(`연결 끊김: ${this._label()} | 사유=${reason}${closeCode ? `(${closeCode})` : ""} | 자동 재연결 대기`);
     this._clearWait();
@@ -360,7 +364,8 @@ class VoiceLink {
         return { left: false, moved: false, muteChanged: false };
       }
       // 다시 붙이는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
-      if (this.state === "waiting" || this.state === "recovering") {
+      // 4014("다시 붙지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다. 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
+      if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
         log.info(`디스코드가 봇을 음성 채널에서 뺐습니다. 다시 붙이는 중이라 쫓겨난 것으로 보지 않습니다: ${this._label()}`);
         this.recover("음성 상태가 지워짐");
         return { left: false, moved: false, muteChanged: false };

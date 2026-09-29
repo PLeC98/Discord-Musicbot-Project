@@ -397,6 +397,16 @@ test("다시 붙이는 중에 봇이 채널에서 빠졌다는 알림은 쫓겨�
   assert.equal(link.state, "ready");
 });
 
+test("4014 로 끊겨 기다리는 중에 봇이 채널에서 빠졌다는 알림은 쫓겨난 것이다(음성 서버의 닫힘이 게이트웨이 알림보다 먼저 왔다)", async () => {
+  const { link, conn, steps } = await ready();
+  conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
+  assert.equal(link.state, "waiting");
+  assert.deepEqual(link.onBotState(state("vc1"), state(null)), { left: true, moved: false, muteChanged: false });
+  await until(() => steps.length > 0, "버리기");
+  assert.deepEqual(steps, ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.equal(joins.length, 1, "다시 붙지 않는다");
+});
+
 // 답 없는 참가 하나. atDiscord 는 디스코드가 보는 봇의 음성 채널(REST). 오류면 던진다
 function stuckJoin(atDiscord: string | null | Error) {
   const s = setup();
