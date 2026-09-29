@@ -128,7 +128,7 @@ function extractBinary(archiveName: string, binName: string, cwd: string) {
   throw new Error(`아카이브를 열 수 있는 tar가 없습니다 (.tar.xz는 xz-utils 필요)\n  ${errors.join("\n  ")}`);
 }
 
-// 같은 릴리스를 이미 받아 두었으면 그 판. 없거나 스탬프가 깨졌으면 null(다시 받는다)
+// 같은 릴리스를 이미 받아 두었으면 그 버전. 없거나 스탬프가 깨졌으면 null(다시 받는다)
 function installedVersion(binPath: string, stampPath: string, release: string): string | null {
   if (!fs.existsSync(binPath) || !fs.existsSync(stampPath)) return null;
   try {

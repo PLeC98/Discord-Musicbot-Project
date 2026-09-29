@@ -543,7 +543,7 @@ const DIALECTS: Record<string, Dialect> = {
   vertex: {
     chatUrl: (one) => `${vertexBase(one)}/publishers/google/models/${one.model || ""}:generateContent`,
     // 모델 목록은 생성과 주소 체계가 다르다. 프로젝트·리전이 붙지 않는 쪽이라
-    // 생성 주소를 그대로 쓰면 404 다. 문서판이 갈려 있어 차례로 물어본다.
+    // 생성 주소를 그대로 쓰면 404 다. API 버전이 갈려 있어 차례로 물어본다.
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one, { live = true } = {}) => {
@@ -942,8 +942,8 @@ async function listModels(draft: Draft) {
   const first = dialect.modelsUrl(one);
   if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
 
-  // 같은 곳인데 문서판마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다.
-  // 그래야 어느 판을 쓰는 프로젝트든 목록이 뜬다. 404 가 아니면 그 답이 곧 사실이다.
+  // 같은 곳인데 API 버전마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다.
+  // 그래야 어느 버전을 쓰는 프로젝트든 목록이 뜬다. 404 가 아니면 그 답이 곧 사실이다.
   const urls = [first, ...(dialect.modelsUrlFallbacks?.(one) || [])];
   const started = Date.now();
   let url = first; // 실패해도 어디를 불렀는지는 알려 줘야 한다(catch 에서 쓴다)

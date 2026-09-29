@@ -241,7 +241,7 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}) {
     throw err;
   }
 
-  // 받는 쪽이 음원의 판(ETag 등)을 읽는다
+  // 받는 쪽이 음원의 버전(ETag 등)을 읽는다
   const capped = Object.assign(byteCap(MAX_BYTES), { headers: response.headers });
   pipeline(source, capped, () => {
     agent.destroy(); // 스트림 정상 종료/오류 어느 쪽이든 소켓 정리

@@ -30,9 +30,9 @@ type Profile = {
   uiSchema?: UiSchema;
   defaults?: Record<string, unknown>;
 };
-/** 파일에 둔 한 판 */
+/** 파일에 둔 한 버전 */
 type Snapshot = { fetchedAt?: string; hash?: string; baseProviders: Record<string, BaseProvider>; profiles: Record<string, Profile> };
-/** 목차(index.json). 판마다 해시와 파일 위치 */
+/** 목차(index.json). 버전마다 해시와 파일 위치 */
 type RegistryIndex = { hash?: string; baseProviders?: Array<{ id: string; url: string }>; profiles?: Array<{ id: string; url: string }> };
 
 /** 모델이 받는 칸 하나. 대시보드가 그리고 본문에 넣는다 */
@@ -164,7 +164,7 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
   return { ...(base?.defaultBody || {}), ...(found.profile.defaults || {}) };
 }
 
-/** 저쪽에서 한 판 받아 온다. 원본 그대로 담되 우리 프로바이더 것만 고른다. */
+/** 저쪽에서 한 버전 받아 온다. 원본 그대로 담되 우리 프로바이더 것만 고른다. */
 // index: 이미 받아 둔 목차(갱신은 해시를 보려고 먼저 받는다). 없으면 여기서 받는다
 async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
   const get = async <T>(at: string): Promise<T> => {
@@ -185,7 +185,7 @@ async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImp
 }
 
 // 저쪽이 모양을 바꾸면 칸이 통째로 빈 채로 저장될 수 있다. 모델 이름이 아니라 모양으로 본다(저쪽이 옛 모델을 빼도 멀쩡하다):
-// 지금 가진 판에서 칸이 있던 레지스트리가 새 판에서 칸을 통째로 잃으면 쓰지 않는다. 가진 판이 없으면 칸이 하나라도 있어야 한다
+// 지금 가진 버전에서 칸이 있던 레지스트리가 새 버전에서 칸을 통째로 잃으면 쓰지 않는다. 가진 버전이 없으면 칸이 하나라도 있어야 한다
 function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[] {
   const fields = (registry: string, snapshot: Snapshot) => modelsOf(registry, snapshot).reduce((n, m) => n + fieldsOf(registry, m.modelId, snapshot).length, 0);
   if (!Object.keys(held.profiles || {}).length) return registries.some((r) => fields(r, got) > 0) ? [] : registries;

@@ -2,7 +2,7 @@
 //   stopped       운영자가 껐다(Ctrl+C · 신호). 다시 켜지 않는다
 //   globalFlood   서버를 가리지 않는 오류가 쏟아져 내렸다. 세션은 저장했다. 다시 켜도 된다
 //   transient     기동이 일시적인 까닭(디스코드 5xx · 네트워크)으로 실패했다. 잠시 뒤 다시 켜면 된다
-//   badSetup      설정 · 토큰 · 설치물(ffmpeg · DB 판)이 틀려 기동하지 못했다. 고치기 전에는 다시 켜도 같다
+//   badSetup      설정 · 토큰 · 설치물(ffmpeg · DB 버전)이 틀려 기동하지 못했다. 고치기 전에는 다시 켜도 같다
 import { codeOf } from "../rules/errorKind.ts";
 
 const EXIT = { stopped: 0, globalFlood: 3, transient: 75, badSetup: 78 } as const;
@@ -12,7 +12,7 @@ type ExitCode = (typeof EXIT)[keyof typeof EXIT];
 // 로그인이 이것으로 실패하면 다시 켜도 같다(토큰 · 개발자 포털의 인텐트 설정)
 const SETUP_LOGIN_CODES = new Set<unknown>(["TokenInvalid", "DisallowedIntents"]);
 
-/** 기동 실패의 종료 코드. stopped: 기동 전 확인(설정 파일 · ffmpeg · DB 판 · 모듈 읽기)이 멈췄다 */
+/** 기동 실패의 종료 코드. stopped: 기동 전 확인(설정 파일 · ffmpeg · DB 버전 · 모듈 읽기)이 멈췄다 */
 function failedStartCode(error: unknown, stopped: boolean): ExitCode {
   return stopped || SETUP_LOGIN_CODES.has(codeOf(error)) ? EXIT.badSetup : EXIT.transient;
 }

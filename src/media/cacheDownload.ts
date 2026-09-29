@@ -101,7 +101,7 @@ function cleanTemp(tempPath: string): number {
  */
 /**
  * 받은 것. verifiedTitle: 영상 자체의 제목(유튜브만) · audioDurationSec: 캐시에 남길 오디오 길이(track.duration은 요청 쪽
- * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 받은 음원의 판(같은 주소에서 음원이 바뀐 것을 알아볼 값, audioVersion.ts)
+ * 메타데이터라 오디오와 다를 수 있다) · audioVersion: 받은 음원의 버전(같은 주소에서 음원이 바뀐 것을 알아볼 값, audioVersion.ts)
  */
 type Fetched = { verifiedTitle: string | null; audioDurationSec: number | null; audioVersion: string | null };
 

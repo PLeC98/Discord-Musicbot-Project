@@ -56,7 +56,7 @@ const htmlHeaders = () => ({ "User-Agent": ua(), "Accept-Language": "en" });
 const TIMEOUT_MS = 10000;
 const BUNDLE_TIMEOUT_MS = 30000;
 
-// 웹플레이어 판(Spotify-App-Version 머리). 홈에서 못 읽고 저장값도 없을 때만 쓴다. 머리 값이라 기본을 둔다
+// 웹플레이어 버전(Spotify-App-Version 머리). 홈에서 못 읽고 저장값도 없을 때만 쓴다. 머리 값이라 기본을 둔다
 const CLIENT_VERSION = "1.2.80.289.gd6b01cc3";
 // secret · 해시는 코드에 두지 않는다. 늘 번들에서 뽑고 DB 에 남긴다. 낡은 값을 코드에 두면 뽑기 실패를 가린다
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
@@ -299,7 +299,7 @@ const graphql = {
       try {
         clientVersion = JSON.parse(Buffer.from(cfg[1], "base64").toString()).clientVersion || clientVersion;
       } catch {
-        /* 판을 못 읽으면 직전 값 */
+        /* 버전을 못 읽으면 직전 값 */
       }
     }
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];

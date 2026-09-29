@@ -9,7 +9,7 @@ import { messageOf, codedError } from "../rules/errorKind.ts";
 
 // 바깥 경계(SafeUrl). 테스트가 가짜를 넘긴다. 여기서 읽는 칸만
 type HeadNet = { head: (url: string) => Promise<{ headers: object }> };
-/** 받는 쪽이 음원의 판을 헤더에서 읽는다 */
+/** 받는 쪽이 음원의 버전을 헤더에서 읽는다 */
 type AudioStream = Readable & { headers?: Record<string, unknown> };
 type StreamNet = { getStream: (url: string) => Promise<AudioStream> };
 

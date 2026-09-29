@@ -191,7 +191,7 @@ function recordDownloadStart(audioKey: string, track: TrackMeta | null | undefin
 }
 
 // durationSec: 받은 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
-// audioVersion: 받은 음원의 판(media/audioVersion). 모르면 null
+// audioVersion: 받은 음원의 버전(media/audioVersion). 모르면 null
 function recordDownloadComplete(audioKey: string, filePath: string, fileSizeBytes: number, track: TrackMeta | null | undefined, { durationSec = null, audioVersion = null }: { durationSec?: number | null; audioVersion?: string | null } = {}) {
   const now = Date.now();
   conn()

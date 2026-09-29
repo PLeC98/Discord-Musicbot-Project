@@ -56,7 +56,7 @@ function close() {
 function createTables(db: Db) {
   db.exec(`
             -- 받아 둔 소리 하나. 열쇠는 audioKeyOf(음원 주소)다(yt:<id> · sc:<경로> · dl:<md5>).
-            -- audio_version: 원본의 판(유튜브 lmt, 직접 링크 ETag 등). 같은 주소에서 음원이 바뀐 것을 알아볼 값
+            -- audio_version: 원본의 버전(유튜브 lmt, 직접 링크 ETag 등). 같은 주소에서 음원이 바뀐 것을 알아볼 값
             CREATE TABLE IF NOT EXISTS audio_cache (
                 audio_key           TEXT PRIMARY KEY,
                 status              TEXT NOT NULL DEFAULT 'downloading',

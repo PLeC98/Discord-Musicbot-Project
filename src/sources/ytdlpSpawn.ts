@@ -28,7 +28,7 @@ function useExec(exec: Exec | null) {
   fake = exec;
 }
 
-// 띄울 때마다 지금 판의 경로를 묻는다. 판이 바뀌면(ytdlpBinary) 다음 부름부터 새 판이 뜨고, 돌고 있던 것은 옛 판으로 끝난다
+// 띄울 때마다 지금 버전의 경로를 묻는다. 버전이 바뀌면(ytdlpBinary) 다음 부름부터 새 버전이 뜨고, 돌고 있던 것은 옛 버전으로 끝난다
 let bound: { file: string; exec: Exec } | null = null;
 function execNow(): Exec {
   if (fake) return fake;

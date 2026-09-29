@@ -2,7 +2,7 @@
 //   pnpm run install:bgutil · update:bgutil. 둘은 같은 일을 한다:
 //   없으면 git clone, 설정한 태그로 체크아웃, 의존성 설치 + 빌드
 //
-// 받는 판은 config.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
+// 받는 버전은 config.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.
 // 기본 브랜치를 따라가지 않는다. 설치한 날에 따라 다른 코드가 깔린다.
 //
 // bgutil은 별도로 가져와야 한다.

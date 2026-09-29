@@ -116,11 +116,11 @@ test("갱신 모양 검사: 모델 이름이 아니라 칸이 통째로 비었�
 
   assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [field] } })), [], "옛 모델이 빠지고 새 모델이 와도 된다. 칸이 없던 b 는 보지 않는다");
   assert.deepEqual(models.lostShape(["a", "b"], held, snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "칸이 있던 a 가 통째로 비면 거부");
-  assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "가진 판이 없으면 칸이 하나라도 있어야 한다");
+  assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [] } })), ["a"], "가진 버전이 없으면 칸이 하나라도 있어야 한다");
   assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [field] } })), []);
 });
 
-test("갱신 모양 검사: 저장소의 판은 스스로와 견줘 통과한다", () => {
+test("갱신 모양 검사: 저장소의 버전은 스스로와 견줘 통과한다", () => {
   const held = models.load();
   const registries = [...new Set(Object.keys(held.profiles).map((id) => id.split(":")[0]))];
   assert.deepEqual(models.lostShape(registries, held, held), []);
