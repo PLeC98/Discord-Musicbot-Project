@@ -13,7 +13,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { Readable } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import type { Incoming, LookupFn, Outgoing, RequestDeps } from "../../src/infra/safeUrl.ts";
 
 type Reply = Incoming;
@@ -251,6 +251,38 @@ test("진짜 소켓: 응답이 없거나 본문을 받다 멎으면 시간 제�
     server.closeAllConnections();
     server.close();
   }
+});
+
+test("본문 무응답: 받는 쪽이 받으려는데 한도만큼 안 오면 오류로 닫는다. 받는 쪽이 멈춘 동안은 세지 않고, 소켓 시간 제한은 끈다", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+  lookupImpl = async () => [{ address: "93.184.216.34", family: 4 }];
+  let socketTimeout: number | null = null;
+  const body = Object.assign(new PassThrough(), { setTimeout: (ms: number) => (socketTimeout = ms) });
+  responder = () => ({ status: 200, headers: AUDIO, body });
+
+  const stream = await safeUrl.getStream("https://files.example/a.mp3", deps, { bodyIdleMs: 6000 });
+  const errors: Error[] = [];
+  stream.on("error", (e) => errors.push(e));
+  stream.resume();
+  assert.equal(socketTimeout, 0, "오래 멈춘 재생을 소켓이 끊지 않게");
+
+  body.write(Buffer.alloc(10));
+  t.mock.timers.tick(5_000);
+  body.pause(); // 받는 쪽이 멈춰 흐름이 막혔다
+  t.mock.timers.tick(60_000);
+  body.resume();
+  t.mock.timers.tick(5_000);
+  await new Promise((done) => setImmediate(done));
+  assert.equal(errors.length, 0, "멈춘 동안은 세지 않고, 다시 받기 시작한 때부터 센다");
+
+  body.write(Buffer.alloc(10)); // 받으면 처음부터 다시 센다
+  t.mock.timers.tick(5_000);
+  await new Promise((done) => setImmediate(done));
+  assert.equal(errors.length, 0);
+
+  t.mock.timers.tick(1_000);
+  await new Promise((done) => setImmediate(done));
+  assert.match(errors[0]?.message ?? "", /본문이 6000ms 동안 오지 않습니다/);
 });
 
 // Node 24 는 NODE_USE_ENV_PROXY=1 이면 전역 에이전트가 HTTP_PROXY 를 탄다. 프로세스를 띄울 때 읽으므로 자식으로 본다.

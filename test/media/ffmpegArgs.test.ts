@@ -24,6 +24,15 @@ test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpe
 });
 const idx = (args: string[], flag: string) => args.indexOf(flag);
 
+test("주소 갈래는 읽기가 6초 멈추면 다시 붙는다(-rw_timeout, -i 앞). 파일 · 파이프 갈래에는 없다", () => {
+  for (const args of [build({ url: "https://x/a.m3u8", caps: { segMaxRetry: true } }), build({ url: "https://x/a.mpd", hls: false, caps: { segMaxRetry: true } })]) {
+    assert.equal(args[idx(args, "-rw_timeout") + 1], "6000000");
+    assert.ok(idx(args, "-rw_timeout") < idx(args, "-i"), "입력 옵션이다");
+  }
+  assert.ok(!build({ file: "a.opus" }).includes("-rw_timeout"));
+  assert.ok(!build({}).includes("-rw_timeout"));
+});
+
 test("스트리밍: 입력은 pipe:0. 부르지 않은 곳에 URL이 새지 않는다", () => {
   for (const seekMs of [0, 1, 5000, 180000]) {
     const args = build({ seekMs });

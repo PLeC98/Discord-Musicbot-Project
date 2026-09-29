@@ -225,6 +225,36 @@ test("끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 다시 열�
   assert.equal(p.retry.used, 0);
 });
 
+test("공급이 끊겨 멈추면 입력 갈래 · 입력이 끊긴 시간 · 입력 상태를 남기고, 다시 연 데 걸린 시간을 남긴다", async () => {
+  const p = h.makePlayer();
+  const track = cached("e1eeeeeeeee");
+  starved(p, track, 30_000);
+  Object.assign(p.playback ?? {}, { input: { kind: "청크", detail: () => "청크 #3 · 이어받는 중" }, inputProgressAt: Date.now() - 12_000 });
+  const from = sink.buffer.length;
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  const lines = sink.buffer.slice(from).map((e) => e.text);
+  assert.ok(
+    lines.some((l) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 청크 · 입력 없음 1[23]\.\d초 · 청크 #3 · 이어받는 중$/.test(l)),
+    lines.join("\n"),
+  );
+  assert.ok(lines.some((l) => /^다시 열었습니다: .* \| \d+\.\d초 걸림$/.test(l)));
+
+  h.reset();
+  const q = h.makePlayer();
+  starved(q, cached("e2eeeeeeeee"), 30_000);
+  Object.assign(q.playback ?? {}, { input: { kind: "캐시 전환", detail: () => null }, inputProgressAt: Date.now() - 300_000 });
+  const from2 = sink.buffer.length;
+  await q.onTrackEnd("idle");
+  h.dispose(q);
+  assert.ok(
+    sink.buffer.slice(from2).some((e) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 캐시 전환$/.test(e.text)),
+    "캐시로 갈아탄 뒤에는 입력이 끊긴 시간을 모른다",
+  );
+});
+
 test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 간다", async () => {
   const p = h.makePlayer();
   const track = starved(p, yt("fffffffffff"), 30000);

@@ -11,7 +11,7 @@ import { messageOf, codedError } from "../rules/errorKind.ts";
 type HeadNet = { head: (url: string) => Promise<{ headers: object }> };
 /** 받는 쪽이 음원의 버전을 헤더에서 읽는다 */
 type AudioStream = Readable & { headers?: Record<string, unknown> };
-type StreamNet = { getStream: (url: string) => Promise<AudioStream> };
+type StreamNet = { getStream: (url: string, deps?: undefined, opts?: { bodyIdleMs?: number }) => Promise<AudioStream> };
 
 /**
  * 직접 오디오 링크의 메타데이터 조회.
@@ -66,12 +66,12 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
  * 직접 링크는 URL 기반 탐색을 지원하지 않음. 탐색은 Player의 FFmpeg가 처리하므로
  * startSeconds는 여기서 무시한다. net 은 테스트가 가짜를 넘기는 자리
  */
-async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }): Promise<AudioStream> {
+async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<AudioStream> {
   try {
     if (!links.isDirectAudioLink(url)) {
       throw new Error("지원되지 않는 직접 오디오 파일 링크");
     }
-    return await net.getStream(url);
+    return await net.getStream(url, undefined, opts);
   } catch (error) {
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
     log.error("직접 링크 스트림 실패:", messageOf(error));

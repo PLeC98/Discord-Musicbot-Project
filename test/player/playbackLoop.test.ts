@@ -58,6 +58,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });
       this.playback = { startOffsetMs: ms, resource: { playbackDuration: 0 } };
+      return { ok: true };
     },
   });
 }

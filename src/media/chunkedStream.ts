@@ -41,6 +41,7 @@ type StreamStats = {
   sinceOpenMs: number | null;
   idleMs: number | null;
   expiresInS: number | null;
+  resuming: boolean; // 끊겨서 이어받는 중인가
 };
 type ChunkedStream = Readable & { prime(): Promise<void>; stats(): StreamStats };
 
@@ -311,6 +312,7 @@ class ChunkedReader {
       sinceOpenMs: this.openedAt ? now - this.openedAt : null,
       idleMs: this.lastReadAt ? now - this.lastReadAt : null,
       expiresInS: this.expire > 0 ? this.expire - Math.floor(now / 1000) : null,
+      resuming: this.interruptedAt > 0,
     };
   }
 }

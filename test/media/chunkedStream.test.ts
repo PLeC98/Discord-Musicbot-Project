@@ -194,6 +194,26 @@ test("중간에 끊기면 받은 위치부터 이어받는다 — 결과는 원�
   assert.equal(resumed[0].attempts, 1);
 });
 
+test("끊긴 뒤 이어받는 동안은 이어받는 중으로 보인다. 이어받으면 풀린다", async () => {
+  const body = makeBody(50_000);
+  const during: boolean[] = [];
+  const s = createChunkedStream({
+    url: URL_,
+    totalBytes: body.length,
+    chunkSize: 20_000,
+    ...FAST,
+    fetchImpl: fakeFetch(body, { sliceBytes: 1000, plan: (n) => (n === 1 ? { dieAfter: 7_000 } : null) }),
+    onInterrupt: () => {
+      during.push(s.stats().resuming);
+      return false;
+    },
+  });
+  assert.equal(s.stats().resuming, false);
+  assert.deepEqual(await collect(s), body);
+  assert.deepEqual(during, [true]);
+  assert.equal(s.stats().resuming, false);
+});
+
 test("넘겨받았다고 하면 이어받지 않고 받아 둔 데까지 내보낸 뒤 정상 종료한다", async () => {
   const body = makeBody(50_000);
   const seen: number[] = [];

@@ -229,8 +229,34 @@ async function head(rawUrl: string, deps: RequestDeps = {}) {
   }
 }
 
-/** 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws */
-async function getStream(rawUrl: string, deps: RequestDeps = {}) {
+const BODY_CHECK_MS = 1000;
+
+/**
+ * 본문 무응답 감시. 받는 쪽이 받으려는데 idleMs 동안 아무것도 오지 않으면 스트림을 오류로 닫는다.
+ * 받는 쪽이 멈춰(일시정지 등) 흐름을 막은 동안은 서버가 조용한 것이 정상이라 세지 않는다.
+ * 소켓의 시간 제한은 이 둘을 가르지 못해 오래 멈춘 재생을 끊는다. 그래서 응답이 오면 소켓 쪽은 끄고 이것으로 바꾼다.
+ * pipeline 뒤에 건다. 먼저 걸면 data 리스너가 흐름을 먼저 열어 받는 쪽 없이 흘린다
+ */
+function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, idleMs: number) {
+  source.setTimeout?.(0);
+  let last = Date.now();
+  source.on("data", () => (last = Date.now()));
+  const timer = setInterval(
+    () => {
+      if (source.readableFlowing !== true) last = Date.now();
+      else if (Date.now() - last >= idleMs) source.destroy(new Error(`본문이 ${idleMs}ms 동안 오지 않습니다`));
+    },
+    Math.min(BODY_CHECK_MS, idleMs),
+  );
+  timer.unref?.();
+  source.once("close", () => clearInterval(timer));
+}
+
+/**
+ * 가드된 GET 스트림. Content-Type 검증 + 크기 캡이 적용된 Readable 반환. deps 는 head 와 같다. @throws
+ * bodyIdleMs: 받는 쪽이 받으려는데 본문이 이만큼 안 오면 끊는다(재생은 짧게 잡아 플레이어보다 먼저 결론 낸다)
+ */
+async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS }: { bodyIdleMs?: number } = {}) {
   const { response, agent } = await guardedRequest("GET", rawUrl, deps);
   const source = response.body;
   try {
@@ -246,6 +272,7 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}) {
   pipeline(source, capped, () => {
     agent.destroy(); // 스트림 정상 종료/오류 어느 쪽이든 소켓 정리
   });
+  watchBodyIdle(source, bodyIdleMs);
   return capped;
 }
 

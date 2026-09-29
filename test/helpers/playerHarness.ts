@@ -50,7 +50,7 @@ const calls = {
   spawns: [] as FakeChild[],
   resources: [] as FakeResource[],
   chunked: [] as ChunkedOptions[],
-  chunkedStreams: [] as Array<PassThrough & { received: number }>, // 청크 스트림 가짜. 받은 양(received)은 시험이 정한다
+  chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양 · 이어받는 중인가는 시험이 정한다
   fetches: [] as Array<{ url: string; init: FetchInit }>,
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
@@ -153,7 +153,8 @@ async function openChunkedStream(opts: ChunkedOptions) {
   if (behavior.chunked) await behavior.chunked(opts);
   const stream = Object.assign(new PassThrough(), {
     received: 0,
-    stats: () => ({ requests: 1, received: stream.received, totalBytes: opts.totalBytes, idleMs: 0, expiresInS: null }),
+    resuming: false,
+    stats: () => ({ requests: 1, received: stream.received, totalBytes: opts.totalBytes, idleMs: 0, expiresInS: null, resuming: stream.resuming }),
   });
   calls.chunkedStreams.push(stream);
   return stream;

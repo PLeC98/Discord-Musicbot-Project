@@ -62,6 +62,11 @@ const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 �
 const LIVE_REOPEN_DELAY_MS = 1000; // 라이브 다시 열기 간격의 단위. 예산을 쓴 횟수에 비례해 늘린다
 const FAILED_TRACKS_LIMIT = 3; // 곡이 연달아 이만큼 실패하면 넘기기를 그만두고 멈춘다
 const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이만큼 넘게 다르면 남긴다
+// 재생 중 공급이 끊겨도 이만큼(20ms 프레임 500개 = 10초) 버틴다. 라이브러리 기본은 5(0.1초).
+// 입력 층(청크 스트림 이어받기 · HLS 재접속 · 직접 링크 본문 무응답)이 이보다 먼저 결론 내게 둔다.
+// 이 값을 넘으면 플레이어가 멈추고 곡 끝 판정이 "공급이 끊겨 멈춤"으로 그 위치부터 다시 연다
+const MAX_MISSED_FRAMES = 500;
+const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
 type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
@@ -86,6 +91,18 @@ function endFactsOf(pb: CurrentPlayback | null, track: QueuedTrack, reason: stri
 // 라이브러리는 Idle 로 가며 재생 스트림을 부순다. 끝까지 읽힌 스트림은 부서져도 끝난 것으로 남는다
 const streamEndedOf = (pb: CurrentPlayback | null) => pb?.resource?.playStream?.readableEnded ?? true;
 
+// 공급이 끊겨 멈췄을 때 남길 입력 상태. 버티는 시간(MAX_MISSED_FRAMES)이 맞는지 볼 근거다.
+// 입력이 마지막으로 들어온 때는 스트림 · 주소 갈래만 적는다(파일과 캐시 전환 뒤에는 없다)
+function starvedDetail(pb: CurrentPlayback | null) {
+  const input = pb?.input;
+  const tracked = input && input.kind !== "캐시 전환" && pb.inputProgressAt;
+  const parts = [`입력 ${input?.kind ?? "?"}`];
+  if (tracked) parts.push(`입력 없음 ${sec(Date.now() - tracked)}초`);
+  const detail = input?.detail();
+  if (detail) parts.push(detail);
+  return parts.join(" · ");
+}
+
 // 채널 알림을 못 보낸 것(권한 · 지워진 채널)은 재생을 막지 않는다
 const noticeFailed = (error: unknown) => log.warn(`채널 알림을 보내지 못했습니다: ${messageOf(error)}`);
 
@@ -103,7 +120,8 @@ const REAL = {
   openChunkedStream,
   fetch: (url: string, init: RequestInit) => fetch(url, init),
   sleep: (ms: number) => new Promise<void>((done) => setTimeout(done, ms)),
-  directStream: (url: string) => DirectLink.getStream(url),
+  // 재생은 본문 무응답을 짧게 본다. 플레이어가 버티는 10초(MAX_MISSED_FRAMES)보다 먼저 끊겨 곡 끝 판정이 입력 깨짐으로 다시 연다
+  directStream: (url: string) => DirectLink.getStream(url, undefined, { bodyIdleMs: DIRECT_BODY_IDLE_MS }),
   getStream: (track: Seeking & { platform?: string | null }, seekSeconds?: number, options?: Partial<StreamOptions>) => streamUrl.getStream(track, seekSeconds, options),
   joinVoiceChannel,
   entersState,
@@ -179,7 +197,7 @@ class Player {
     this.io = { ...defaultBoundary, ...boundary };
 
     // 오디오 플레이어 설정
-    this.audioPlayer = this.io.createAudioPlayer();
+    this.audioPlayer = this.io.createAudioPlayer({ behaviors: { maxMissedFrames: MAX_MISSED_FRAMES } });
     this.connection = null;
     this.playback = null; // 지금 트는 한 번(CurrentPlayback). 곡이 바뀌면 버린다
 
@@ -479,7 +497,7 @@ class Player {
     }
     // 갈아타면 곡 끝 판정은 캐시 파일 쪽을 본다. 버린 스트림이 늦게 남기는 표시는 이 재생과 무관하다
     const pb = this.playback;
-    const health = new InputHealth().watch(decoder);
+    const health = new InputHealth("캐시 전환").watch(decoder);
     splicer.once("switched", (ms: number) => {
       if (pb) pb.input = health;
       log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 무지연 전환: ${this._trackLabel()}`);
@@ -861,6 +879,7 @@ class Player {
     const { dropped, why } = endVerdict(facts);
     const lengthText = facts.lengthMs ? `${sec(facts.lengthMs)}초` : "모름";
     wlog.debug(`트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${why}) | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
+    if (reason === "idle" && !facts.streamEnded && !facts.live) log.warn(`공급이 끊겨 플레이어가 멈춤: ${label} | ${starvedDetail(this.playback)}`);
     // 길이는 판정에 쓰지 않는다. 저절로 끝난 위치가 길이와 크게 다르면 길이 쪽을 살필 수 있게 남긴다
     if (!dropped && reason === "idle" && facts.lengthMs && Math.abs(playedMs - facts.lengthMs) > LENGTH_MISMATCH_LOG_MS) {
       log.info(`곡이 길이와 다른 위치에서 끝남: ${label} | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
@@ -893,7 +912,9 @@ class Player {
     }
     if (step.reopen) {
       log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생합니다: ${label} | ${why} (${tries})`);
-      await this.play(playedMs, { continued: true, reopen: true });
+      const started = Date.now();
+      const reopened = await this.play(playedMs, { continued: true, reopen: true });
+      if (reopened.ok) log.info({ tags: ["retry"] }, `다시 열었습니다: ${label} | ${sec(Date.now() - started)}초 걸림`);
       return true;
     }
     const stopping = this._countFailure();

@@ -140,7 +140,7 @@ test("갈아타면 재생이 가리키는 입력이 캐시 디코더의 것으�
   const switched: Array<(ms: number) => void> = [];
   const sp = { ...fakeSplicer(), once: (_event: string, fn: (ms: number) => void) => switched.push(fn) };
   const decoder = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true });
-  const streamSide = new InputHealth();
+  const streamSide = new InputHealth("청크");
   const player = asPlayer({
     currentTrack: TRACK,
     playback: { startOffsetMs: 0, input: streamSide },

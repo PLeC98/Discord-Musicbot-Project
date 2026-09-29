@@ -4,6 +4,9 @@ import { capabilities } from "./path.ts";
 
 // HLS 세그먼트 하나가 실패하면 기본값(0)으로는 재시도 없이 스트림이 죽는다.
 const SEG_MAX_RETRY = 5;
+// 주소 갈래에서 읽기가 이만큼(µs) 멈추면 연결을 끊고 다시 붙는다. 기본(0)은 끝없이 기다린다.
+// 플레이어가 공급 부족을 버티는 10초(Player 의 MAX_MISSED_FRAMES)보다 먼저 결론 내게 둔다. HLS 는 세그먼트 요청에도 물려준다
+const RW_TIMEOUT_US = 6_000_000;
 
 type ArgsOptions = { file?: string | null; url?: string | null; hls?: boolean; seekMs?: number; caps?: { segMaxRetry: boolean } | null };
 
@@ -29,7 +32,7 @@ function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps
     // 잔끊김은 ffmpeg 안에서 흡수시키고 우리 재시도는 진짜 실패에만 돌게 나눈다.
     // `-reconnect_at_eof`는 켜지 않는다. 라이브에서 EOF는 "방송이 끝났다"인데, 켜면
     // 오류로 보고 무한히 다시 붙는다.
-    const reconnect = ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1"];
+    const reconnect = ["-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1", "-rw_timeout", String(RW_TIMEOUT_US)];
     // HLS 디먹서의 옵션이고 오래된 빌드에는 없다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로 확인하고 붙인다.
     const retry = hls && (caps ?? capabilities()).segMaxRetry ? ["-seg_max_retry", String(SEG_MAX_RETRY)] : [];
     return [...reconnect, ...retry, "-analyzeduration", "0", "-loglevel", "error", ...seek, "-i", url, ...output];

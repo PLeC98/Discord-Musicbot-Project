@@ -12,6 +12,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audioSplicer.ts";
 import { PassThrough } from "node:stream";
+import { EventEmitter } from "node:events";
 import type { FakeChild } from "../helpers/playerHarness.ts";
 import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -749,4 +750,46 @@ test("파일 · 주소 갈래도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨
   await playOnce(q);
   calls.spawns[0].emit("exit", 1, null);
   assert.match(q.playback?.input?.broken ?? "", /종료 코드 1/);
+});
+
+test("연 입력의 갈래를 적는다. 청크 스트림은 끊겼을 때 남길 상태(이어받는 중인가)를 준다", async () => {
+  const kinds: Array<[string, () => void]> = [
+    ["청크", () => (behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?clen=4096", duration: 100 }))],
+    ["단일 GET", () => (behavior.stream = () => ({ url: "https://media.test/e", duration: 100 }))],
+    ["직접 링크", () => (behavior.stream = () => ({ url: "https://files.test/a.mp3", platform: "direct", duration: 100 }))],
+    ["HLS", () => (behavior.stream = () => ({ url: "https://hls.test/vod.m3u8", protocol: "m3u8", duration: 100 }))],
+  ];
+  for (const [kind, arrange] of kinds) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("k1kkkkkkkkk");
+    arrange();
+    await playOnce(p);
+    assert.equal(p.playback?.input?.kind, kind);
+    if (kind === "청크") {
+      assert.doesNotMatch(p.playback?.input?.detail() ?? "", /이어받는 중/);
+      calls.chunkedStreams[0].resuming = true;
+      assert.match(p.playback?.input?.detail() ?? "", /^청크 #1 · .* · 이어받는 중$/);
+    } else assert.equal(p.playback?.input?.detail(), null, kind);
+  }
+
+  h.reset();
+  const cachedTrack = yt("k2kkkkkkkkk");
+  h.seedCache("yt:k2kkkkkkkkk", cachedTrack);
+  const f = h.makePlayer();
+  f.currentTrack = cachedTrack;
+  await playOnce(f);
+  assert.equal(f.playback?.input?.kind, "파일");
+});
+
+test("오디오 플레이어는 공급이 끊겨도 10초(프레임 500개)를 버틴다", () => {
+  let options: unknown = null;
+  const p = new h.Player(h.fakeGuild("g9"), null, null, {
+    createAudioPlayer: ((opts: unknown) => {
+      options = opts;
+      return new EventEmitter();
+    }) as never,
+  });
+  h.dispose(p);
+  assert.deepEqual(options, { behaviors: { maxMissedFrames: 500 } });
 });

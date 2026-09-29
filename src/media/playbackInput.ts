@@ -22,7 +22,7 @@ type Splicer = InstanceType<typeof AudioSplicer>;
 type ResourceMeta = { title: string; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 칸만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stdin: Writable; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
-type OpenedStream = Readable & { stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null } };
+type OpenedStream = Readable & { stats?(): { requests: number; received: number; totalBytes: number; idleMs: number | null; expiresInS: number | null; resuming?: boolean } };
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
   createAudioResource(input: Readable, options: { inputType: StreamType; inlineVolume: boolean; metadata: ResourceMeta }): R;
@@ -106,7 +106,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ url: streamInfo.url, hls: list === "hls", seekMs: live ? 0 : o.startMs, caps: o.io.ffmpegCapabilities() }), "stream");
   // 캐시 전환(AudioSplicer)은 걸지 않는다. 라이브는 갈아탈 캐시가 없고, 잔끊김은
   // ffmpeg의 재접속이 먹는다. 거기서도 못 살리면 종료 코드로 갈라 다시 연다(onTrackEnd).
-  const health = new InputHealth().watch(ffmpeg);
+  const health = new InputHealth(list === "hls" ? "HLS" : list === "dash" ? "DASH" : "주소").watch(ffmpeg);
 
   // 파이프 갈래는 Node가 받는 바이트로 정체를 재지만 여기엔 그 스트림이 없다.
   // ffmpeg 출력이 곧 "살아 있다"의 증거다.
@@ -118,7 +118,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
 // 받아 둔 파일. 미리 받았거나, 스트림이 열리지 않아 나란히 받던 것을 기다렸다
 function openFile<R>(o: InputOptions<R>): Opened<R> {
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ file: o.cacheFile, seekMs: o.startMs }), "playback");
-  return { resource: resourceOf(o, ffmpeg.stdout, o.streamInfo?.duration || o.meta.duration), cacheFile: o.cacheFile, health: new InputHealth().watch(ffmpeg) };
+  return { resource: resourceOf(o, ffmpeg.stdout, o.streamInfo?.duration || o.meta.duration), cacheFile: o.cacheFile, health: new InputHealth("파일").watch(ffmpeg) };
 }
 
 // 스트림 파이프. 캐시를 나란히 받으면서 기다리지 않고 바로 튼다. 이 갈래에서는 네트워크를 Node가 담당하고
@@ -228,7 +228,8 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
 function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream: OpenedStream, hooks: Hooks): Opened<R> {
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ seekMs: o.startMs }), "stream");
   // 입력을 닫아 ffmpeg 가 0 으로 끝나도 스트림이 깨졌으면 끝이 아니다. 오류와 덜 받은 채 끝남을 따로 적는다
-  const health = new InputHealth().watch(ffmpeg);
+  const kind = audioStream.stats ? "청크" : streamInfo.platform === "direct" ? "직접 링크" : "단일 GET";
+  const health = new InputHealth(kind).watch(ffmpeg);
 
   // 소스를 갈아끼울 수 있게 리소스 아래에 Splicer를 둔다. 스트림이 죽으면 AudioPlayer를
   // 거치지 않고 캐시 파일로 넘어가므로 공백이 들리지 않는다(onStreamLost).
@@ -236,8 +237,9 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
 
   const streamDetail = () => {
     const st = audioStream.stats?.();
-    return st ? `청크 #${st.requests} · ${st.received}/${st.totalBytes}B · 마지막 수신 ${sec(st.idleMs)}초 전 · URL 만료 ${st.expiresInS ?? "?"}초 후` : "단일 GET";
+    return st ? `청크 #${st.requests} · ${st.received}/${st.totalBytes}B · 마지막 수신 ${sec(st.idleMs)}초 전 · URL 만료 ${st.expiresInS ?? "?"}초 후${st.resuming ? " · 이어받는 중" : ""}` : "단일 GET";
   };
+  health.detail = () => (audioStream.stats ? streamDetail() : null);
   // 끊기면 캐시 전환을 먼저 시도한다. 예약되면 청크 스트림은 이어받지 않고 받아 둔 데까지만 흘린다
   hooks.interrupt = (err) => {
     log.debug(`스트림 중단: ${describeStreamError(err)} | ${streamDetail()}`);
