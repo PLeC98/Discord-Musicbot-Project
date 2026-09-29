@@ -604,7 +604,8 @@ class MusicEmbedManager {
         if (channel?.id) this.deleteWebhookCache(channel.id);
         player.nowPlayingWebhook = null;
       }
-      await this._repostNowPlaying(player, "메시지가 지워짐");
+      const channelId = player.nowPlayingMessage ? channelIdOf(player.nowPlayingMessage) : null;
+      await this._repostNowPlaying(player, channelId && !player.guild.channels?.cache?.has(channelId) ? "패널이 있던 채널이 지워짐" : "메시지가 지워짐");
       return;
     }
     const where = player.guild.name ?? player.guild.id;

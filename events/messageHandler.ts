@@ -10,6 +10,8 @@ import { offerOnChannel } from "../src/usecases/playlistMore.ts";
 import * as S from "../src/ui/strings.ts";
 import type { ClientEvent } from "../src/app/main.ts";
 
+const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 지우기까지
+
 const exported: ClientEvent<Events.MessageCreate> = {
   name: Events.MessageCreate,
 
@@ -38,10 +40,9 @@ const exported: ClientEvent<Events.MessageCreate> = {
       return;
     }
 
-    // 채널을 깔끔하게 유지하기 위해 사용자 메시지 삭제
-    await message.delete().catch(() => {
-      /* 이미 지워졌거나 지울 권한이 없다. 메시지가 남을 뿐이다 */
-    });
+    // 채널을 깔끔하게 유지하기 위해 사용자 메시지를 지운다. 곧바로 지우면 보낸 사람의 디스코드 앱이 보냄 확인을 받기 전에 지워져
+    // 지울 수도 없는 유령 메시지로 남는다(앱을 다시 켜야 사라진다). 잠깐 뒤에 지운다
+    scheduleDelete(message, USER_MESSAGE_DELETE_MS);
 
     // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;

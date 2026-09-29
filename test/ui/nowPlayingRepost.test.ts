@@ -122,6 +122,23 @@ test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 
   assert.deepEqual(calls.edited, ["100", calls.sent[0]]);
 });
 
+test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채널이 지워진 것, 있으면 메시지가 지워진 것", async () => {
+  for (const [cached, reason] of [
+    [true, "메시지가 지워짐"],
+    [false, "패널이 있던 채널이 지워짐"],
+  ] as const) {
+    const { mem, player } = makeSetup({ editError: gone() });
+    player.nowPlayingMessage = { id: "100", channel_id: "panel-chan" };
+    player.guild = fake<typeof player.guild>({ id: "g1", channels: { cache: new Map(cached ? [["panel-chan", {}]] : []) } });
+    const from = sink.buffer.length;
+    await mem.updateNowPlayingEmbed(player);
+    assert.ok(
+      sink.buffer.slice(from).some((e) => e.text === `재생 중 임베드 다시 올림: ${reason}`),
+      reason,
+    );
+  }
+});
+
 test("패널의 글자 채널이 지워졌으면(10003) 다시 올리지 않고 패널을 놓는다. 재생은 그대로", async () => {
   const { mem, player, calls } = makeSetup({ editError: Object.assign(new Error("Unknown Channel"), { code: 10003 }) });
   await mem.updateNowPlayingEmbed(player);

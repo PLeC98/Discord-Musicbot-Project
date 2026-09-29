@@ -32,6 +32,7 @@ const messageHandler = (await import("../../events/messageHandler.ts")).default;
 const panelPin = (await import("../../events/panelPin.ts")).default;
 const playlistMoreHandler = (await import("../../events/playlistMoreHandler.ts")).default;
 const modalHandler = (await import("../../events/modalHandler.ts")).default;
+const channelDelete = (await import("../../events/channelDelete.ts")).default;
 
 const USER = "111111111111111111";
 const OTHER = "222222222222222222";
@@ -194,18 +195,46 @@ test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 �
   assert.deepEqual(resolved, []);
 });
 
-test("전용 채널: 곡을 넣는다. 사용자 메시지를 지우고, 검색 중 자리표시자를 CV2 로 보내고, 코어에 전용채널로 넘긴다", async () => {
-  const w = world();
+test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 지우고(곧바로 지우면 보낸 사람 앱에 유령으로 남는다), 검색 중 자리표시자를 CV2 로 보내고, 코어에 전용채널로 넘긴다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const w = world();
+    await settings.setBotChannel("g1", "bot-channel");
+    const msg = message(w, { content: "  노래 제목  " });
+
+    await messageHandler.execute(msg);
+
+    assert.equal(msg.deleted, false, "곧바로 지우지 않는다");
+    mock.timers.tick(1499);
+    await new Promise(setImmediate);
+    assert.equal(msg.deleted, false);
+    mock.timers.tick(1);
+    await new Promise(setImmediate);
+    assert.equal(msg.deleted, true);
+    assert.deepEqual(msg.sent[0].payload, { components: [{ searching: "🔍 **노래 제목** 검색 중..." }], flags: 32768 });
+    assert.equal(resolved[0].query, "노래 제목");
+    assert.equal(resolved[0].context, "전용채널.resolveQuery");
+    assert.equal(w.handled[0].who.username, "사용자");
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("전용 채널이 지워지면 설정을 비우고 패널을 옮긴다. 다른 채널 · DM 이 지워진 것은 보지 않는다", async () => {
   await settings.setBotChannel("g1", "bot-channel");
-  const msg = message(w, { content: "  노래 제목  " });
+  const moved: string[] = [];
+  const client = { musicEmbedManager: { onBotChannelChanged: async (g: { id: string }) => moved.push(g.id) } };
+  const guild = { id: "g1", name: "서버" };
+  const deleted = (id: string, dm = false) => fake<ClientEvents["channelDelete"][0]>({ id, name: "음악", guild, client, isDMBased: () => dm });
 
-  await messageHandler.execute(msg);
+  await channelDelete.execute(deleted("other"));
+  await channelDelete.execute(deleted("bot-channel", true));
+  assert.equal(await settings.getBotChannel("g1"), "bot-channel");
+  assert.deepEqual(moved, []);
 
-  assert.equal(msg.deleted, true);
-  assert.deepEqual(msg.sent[0].payload, { components: [{ searching: "🔍 **노래 제목** 검색 중..." }], flags: 32768 });
-  assert.equal(resolved[0].query, "노래 제목");
-  assert.equal(resolved[0].context, "전용채널.resolveQuery");
-  assert.equal(w.handled[0].who.username, "사용자");
+  await channelDelete.execute(deleted("bot-channel"));
+  assert.equal(await settings.getBotChannel("g1"), null);
+  assert.deepEqual(moved, ["g1"]);
 });
 
 test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다", async () => {
