@@ -73,6 +73,9 @@ test("진행바: 라이브는 경과 시간 자리에 표식을 넣고 길이를
   assert.match(normal, /1:05/);
   assert.match(normal, /3:20/);
   assert.match(normal, /●/);
+
+  // 길이를 모르면(받기 전의 직접 링크) 길이 자리를 비운다. 0:00 은 길이가 0 인 곡으로 읽힌다
+  assert.match(progressBar(65, 0), /^`1:05` ●▬+ `--:--`$/);
 });
 
 test("isHlsStream: m3u8 계열만 참", () => {

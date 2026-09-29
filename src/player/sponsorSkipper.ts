@@ -6,7 +6,7 @@ import type { SkipSegment } from "../sources/sponsorBlock.ts";
 import { bestEffort } from "../infra/bestEffort.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 칸 */
-type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor">;
+type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "paused" | "play" | "skip" | "sponsor" | "playback">;
 type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "end" | null; toSec?: undefined; prevSec: number };
 
 // SponsorSkipper. 재생 중 SponsorBlock 구간을 자동 스킵.
@@ -22,6 +22,9 @@ type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "
 
 const TICK_MS = 500; // 워처 주기 (인트로 블리드 ≤ 이 값)
 const END_EPSILON_SEC = 1.5; // seg.end가 트랙 끝에서 이 이내면 아웃트로로 간주
+
+// 곡 끝 구간은 트는 음원의 길이로 본다. 모르면 표시 길이
+const lengthSecOf = (p: SkipHost) => (p.playback?.lengthMs ?? 0) / 1000 || Number(p.currentTrack?.duration) || 0;
 
 class SponsorSkipper {
   player: SkipHost;
@@ -85,7 +88,7 @@ class SponsorSkipper {
     if (p.audioPlayer?.state?.status !== AudioPlayerStatus.Playing) return;
 
     const curSec = p.getCurrentTime() / 1000;
-    const durationSec = Number(p.currentTrack.duration) || 0;
+    const durationSec = lengthSecOf(p);
 
     const d = SponsorSkipper.decide(this.segments, this._prevSec, curSec, durationSec);
     this._prevSec = d.prevSec;

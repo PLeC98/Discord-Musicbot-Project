@@ -9,6 +9,8 @@ const log = logger.child({ category: "track" });
 import fsSync from "fs";
 import { pipeline } from "stream/promises";
 import * as audioConvert from "./convert.ts";
+import { probeDurationSec } from "./ffmpeg/process.ts";
+import { shownDuration } from "../rules/durationShown.ts";
 import * as versionOf from "./audioVersion.ts";
 import { readInfo } from "../sources/ytdlpInfo.ts";
 import * as YouTube from "../sources/youtube/index.ts";
@@ -35,6 +37,7 @@ type Sources = {
   soundcloud: Pick<typeof SoundCloud, "download">;
   direct: { getStream(url: string): Promise<AudioStream> };
   convert: { toCacheOpus(srcFile: string, outFile: string): Promise<{ durationSec: number | null; title?: string | null; artist?: string | null }> };
+  measure: { durationSec(file: string): Promise<number | null> };
   sponsor: { forTrack(track: DownloadTrack, guildId: string): Promise<unknown> };
   equivalent: { findYouTubeEquivalent(track: DownloadTrack): Promise<string | null>; reresolveYouTube(track: DownloadTrack): Promise<string | null> };
 };
@@ -143,7 +146,7 @@ async function publish(tempPath: string, filepath: string): Promise<boolean> {
 }
 
 // 받는 데 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
-const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, sponsor: SponsorBlock, equivalent };
+const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, convert: audioConvert, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
 class TrackDownloader {
   player: Owner;
@@ -249,12 +252,16 @@ class TrackDownloader {
       const got = inputKind(downloadUrl) !== "direct" ? await this._fetchWithYtDlp(downloadUrl, tempPath) : await this._fetchDirect(downloadUrl, tempPath, track);
 
       await ensureNotEmpty(tempPath);
+      // 음원 길이는 만든 .opus 를 재서 소수까지 적는다. 출처가 준 정수나 원본 머리의 값보다 이 파일이 정본이다
+      const measured = await this.deps.measure.durationSec(tempPath);
       const mine = await publish(tempPath, filepath);
       if (!mine) log.debug(`다른 쪽이 먼저 받아 둔 캐시를 쓴다: "${track.title}"`);
 
       correctTitle(track, got.verifiedTitle);
+      const shown = shownDuration(track, measured, "measured");
+      if (shown) Object.assign(track, shown);
 
-      if (audioKey) record(audioKey, filepath, track, got);
+      if (audioKey) record(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
       // 출처가 따로 있는 트랙은 어느 영상에서 소리를 가져왔는지 같이 남긴다. 스포티파이만이 아니다.
       // 예열이 앞으로 여러 곡을 미리 받으므로 곡당 한 줄씩 늘어난다. 무엇으로 틀었는지는
       // 재생 줄의 출처=캐시 가 말해 준다.
@@ -331,12 +338,6 @@ class TrackDownloader {
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath);
 
-      // 직접 링크는 받기 전에는 길이를 모른다. 받아 둔 파일을 잰 값으로 채운다.
-      // 여기서 고쳐야 재생 표시·진행바와 캐시에 저장되는 duration_sec이 함께 맞는다.
-      if (made.durationSec) {
-        track.duration = made.durationSec;
-        track.durationSource = "measured";
-      }
       // 파일 이름보다 파일에 적힌 태그가 곡 이름이다. 가수는 비어 있을 때만 채운다
       if (made.artist && !track.artist) track.artist = made.artist;
       return { verifiedTitle: made.title ?? null, audioDurationSec: made.durationSec || null, audioVersion };

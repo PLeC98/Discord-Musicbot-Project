@@ -299,6 +299,25 @@ test("tracks 경로: 이미 해석된 트랙은 해석기를 거치지 않는다
   assert.equal(client.embedCalls[0].trackData.tracks[0].title, "선택곡");
 });
 
+test("받아 둔 음원이 있는 곡은 담을 때부터 그 음원을 잰 길이를 보인다(스포티파이는 장부가 기억하는 음원으로)", async () => {
+  const audioCache = await import("../../src/store/audioCache.ts");
+  const trackLookup = await import("../../src/store/trackLookup.ts");
+  const yt = "https://www.youtube.com/watch?v=lenreq00001";
+  audioCache.recordDownloadStart("yt:lenreq00001", { title: "곡" });
+  audioCache.recordDownloadComplete("yt:lenreq00001", audioCache.getFilePath("yt:lenreq00001"), 1, { title: "곡" }, { durationSec: 213.4 });
+  const sp = "https://open.spotify.com/track/lenreq1";
+  trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: yt, platform: "spotify", title: "곡" });
+  const client = makeClient();
+  const spotifyTrack = { ...track("스포티파이 곡"), platform: "spotify", requestKey: sp, pageUrl: sp, audioUrl: undefined, duration: 205 };
+  const fresh = { ...track("처음 듣는 곡"), duration: 190 };
+
+  await requestPlayback(client, baseArgs(client, makeGuild(), { tracks: [spotifyTrack, fresh] }));
+
+  const [a, b] = client.embedCalls[0].trackData.tracks;
+  assert.deepEqual({ duration: a.duration, durationSource: a.durationSource }, { duration: 213.4, durationSource: "measured" });
+  assert.deepEqual({ duration: b.duration, durationSource: b.durationSource }, { duration: 190, durationSource: undefined }, "받아 둔 음원이 없으면 출처가 준 길이");
+});
+
 test("두 경로가 같은 결과 모양을 낸다", async () => {
   mockResolve = () => ok("곡A");
   const c1 = makeClient();

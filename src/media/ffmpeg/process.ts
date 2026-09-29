@@ -102,7 +102,8 @@ function parseProbeOutput(text: unknown): ProbeInfo {
   const dur = str.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
   if (dur) {
     const sec = Number(dur[1]) * 3600 + Number(dur[2]) * 60 + parseFloat(dur[3]);
-    if (Number.isFinite(sec) && sec > 0) out.durationSec = Math.round(sec);
+    // 머리는 100분의 1초까지 적는다. 버리지 않는다(캐시 길이 · 표시가 이 값을 쓴다)
+    if (Number.isFinite(sec) && sec > 0) out.durationSec = Math.round(sec * 100) / 100;
   }
 
   const stream = str.match(/Audio:\s*([A-Za-z0-9_.-]+)([^\r\n]*)/);

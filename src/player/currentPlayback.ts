@@ -27,6 +27,7 @@ class CurrentPlayback {
   inputProgressAt: number | null;
   resume: Resume | null;
   reopen: boolean;
+  lengthMs: number | null;
 
   constructor(track: QueuedTrack, { startOffsetMs = 0, reopen = false }: { startOffsetMs?: number; reopen?: boolean } = {}) {
     this.track = track;
@@ -41,6 +42,7 @@ class CurrentPlayback {
     this.input = null; // 지금 소리를 내는 소스의 온전함. 캐시로 갈아타면 그쪽 것으로 바뀐다
     this.inputProgressAt = null; // 입력이 마지막으로 들어온 때. 버퍼링 감시가 본다
     this.resume = null; // 위치 재개에 다시 쓸 스트림 정보(같은 곡에서만)
+    this.lengthMs = null; // 트는 음원의 길이(곡 끝 판정 · 넘침 안전망 · 곡 끝 구간이 본다). 표시 길이(track.duration)와 따로다. 모르면 null
   }
 }
 

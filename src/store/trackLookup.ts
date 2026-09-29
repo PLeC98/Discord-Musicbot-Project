@@ -104,10 +104,21 @@ function getAudioUrl(requestKey: string): string | null {
   return rowOf(requestKey)?.audio_url ?? null;
 }
 
+/**
+ * 이 곡의 음원을 받아 둔 적이 있으면 그 음원을 잰 길이(초). 없으면 null.
+ * 음원 주소가 있으면 그것으로, 없으면(영상을 아직 못 찾은 스포티파이 곡) 장부가 기억하는 음원 주소로 찾는다
+ */
+function knownAudioLength(track: Partial<Pick<TrackInfo, "audioUrl" | "requestKey">>): number | null {
+  const audioUrl = track.audioUrl || (track.requestKey ? rowOf(track.requestKey)?.audio_url : null);
+  const key = audioKeyOf(audioUrl);
+  const cached = key ? audioCache.lookupByAudioKey(key) : null;
+  return cached?.status === "cached" && cached.duration_sec && cached.duration_sec > 0 ? cached.duration_sec : null;
+}
+
 /** 죽은 음원을 가리키는 줄 삭제. 장부에서 가져온 영상이 내려간 경우 재검색 전에 호출. */
 function removeResolution(requestKey: string) {
   conn().prepare("DELETE FROM track_lookup WHERE request_key = ?").run(canonicalUrl(requestKey));
 }
 
-export { resolveFromCache, recordTrackLookup, getVerifiedTitle, getAudioUrl, removeResolution };
+export { resolveFromCache, recordTrackLookup, getVerifiedTitle, getAudioUrl, knownAudioLength, removeResolution };
 export type { CachedTrack, CacheHit };

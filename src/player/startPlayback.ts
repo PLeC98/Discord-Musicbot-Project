@@ -11,6 +11,7 @@ import * as audioCache from "../store/audioCache.ts";
 import * as trackLookup from "../store/trackLookup.ts";
 import * as trackState from "./trackState.ts";
 import { audioKeyOf } from "../rules/audioKeyOf.ts";
+import { shownDuration } from "../rules/durationShown.ts";
 import { messageOf, codedError } from "../rules/errorKind.ts";
 import type { Player } from "./Player.ts";
 import type { CurrentPlayback } from "./currentPlayback.ts";
@@ -161,7 +162,10 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   resource.encoder?.setBitrate(SEND_BITRATE);
 
   const durationSec = audioDurationSec(track, streamInfo, pb.cacheFile);
-  if (durationSec) track.duration = durationSec;
+  pb.lengthMs = durationSec ? durationSec * 1000 : null;
+  // 표시는 처음 보인 값을 지킨다. 캐시 기록은 받아 둔 음원을 잰 값, 스트림 정보는 출처가 준 값이다
+  const shown = shownDuration(track, durationSec, pb.cacheFile ? "measured" : "provided");
+  if (shown) Object.assign(track, shown);
   log.info(`재생: ${track.title} (${track.duration}s, offset: ${pb.startOffsetMs}ms, 출처=${pb.cacheFile ? "캐시" : "스트림"})`);
 
   const audioKey = audioKeyOf(track.audioUrl);
@@ -224,7 +228,7 @@ function resumeInfo(track: QueuedTrack, streamInfo: StreamInfo | null): Resume {
   };
 }
 
-// 조기 종료 · SponsorBlock 곡 끝 판정에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
+// 곡 끝 판정 · SponsorBlock 곡 끝 구간에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
 function audioDurationSec(track: Pick<QueuedTrack, "audioUrl"> | null, streamInfo: Pick<StreamInfo, "duration"> | null, cacheFile: string | null): number | null {
   const key = audioKeyOf(track?.audioUrl);
   if (cacheFile && key) {

@@ -31,7 +31,7 @@ import * as SponsorBlock from "../sources/sponsorBlock.ts";
 import { openChunkedStream } from "../media/chunkedStream.ts";
 import { openInput } from "../media/playbackInput.ts";
 import { InputHealth } from "../media/inputHealth.ts";
-import { endVerdict, knownLengthMs, type EndFacts } from "../rules/endVerdict.ts";
+import { endVerdict, type EndFacts } from "../rules/endVerdict.ts";
 import { countDrop, FRESH, MAX_LIVE_REOPENS, MAX_TRACK_RETRIES, PROGRESS_MS, type RetryState } from "../rules/retryBudget.ts";
 import * as voiceChannelStatus from "./voiceChannelStatus.ts";
 import * as audioCache from "../store/audioCache.ts";
@@ -72,7 +72,7 @@ const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 �
 type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
 
 // 끝 판정에 넘길 사실. 판정은 rules/endVerdict
-function endFactsOf(pb: CurrentPlayback | null, track: QueuedTrack, reason: string, positionMs: number): EndFacts {
+function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: number): EndFacts {
   const live = Boolean(pb?.live);
   const input = pb?.input;
   return {
@@ -82,7 +82,7 @@ function endFactsOf(pb: CurrentPlayback | null, track: QueuedTrack, reason: stri
     broken: input?.broken ?? null,
     exitCode: input?.exitCode ?? null,
     positionMs,
-    lengthMs: live ? null : knownLengthMs(track),
+    lengthMs: live ? null : (pb?.lengthMs ?? null),
     // 주소 갈래(HLS 등)는 ffmpeg 가 세그먼트를 건너뛰어도 0 으로 끝나는지 모른다. 다시 연 재생에는 한 번 더 걸지 않는다
     unverified: !live && pb?.transport?.via === "url" && !pb.reopen,
   };
@@ -444,21 +444,31 @@ class Player {
     // currentTrack은 다운로드가 끝나기 전에 바뀔 수 있다. 지금 곡을 붙잡아 둔다
     const trackToDownload = this.currentTrack;
     if (!trackToDownload) return;
-    const title = trackToDownload.title;
+    const { title, duration } = trackToDownload;
     this.downloader
       .downloadTrack(trackToDownload)
       .then((file) => {
         log.debug(`백그라운드 캐시 다운로드 끝: ${this._trackLabel(trackToDownload)} → ${file}`);
-        // 받으면서 제목을 고쳤다(직접 링크의 파일 태그 등). 패널은 다음 갱신에 따라오지만 채널 상태는 재생을 시작할 때만 쓴다
-        if (this.currentTrack === trackToDownload && trackToDownload.title !== title) {
-          this._showTrackInVoiceStatus();
-          bestEffort(log, playerEvents.refresh(this), "패널 고치기");
-        }
+        if (this.currentTrack !== trackToDownload) return;
+        this._learnLength(trackToDownload);
+        // 받으면서 제목을 고쳤다(직접 링크의 파일 태그 등). 채널 상태는 재생을 시작할 때만 쓰므로 여기서 고친다
+        if (trackToDownload.title !== title) this._showTrackInVoiceStatus();
+        // 제목이나 표시 길이(받기 전에 몰랐던 직접 링크 등)가 바뀌었으면 패널도
+        if (trackToDownload.title !== title || trackToDownload.duration !== duration) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
       })
       .catch(() => {
         // 까닭은 받기가 남겼다(캐시 다운로드 실패 줄)
         log.debug(`백그라운드 캐시 받기 실패, 재생은 스트림으로 계속합니다: ${this._trackLabel(trackToDownload)}`);
       });
+  }
+
+  /** 트는 음원의 길이를 몰랐는데(받기 전의 직접 링크) 받아 두며 쟀으면 이 재생에 적는다. 곡 끝 판정 · 넘침 안전망이 쓴다 */
+  _learnLength(track: QueuedTrack) {
+    const pb = this.playback;
+    const key = audioKeyOf(track.audioUrl);
+    if (!pb || pb.track !== track || pb.lengthMs || !key) return;
+    const sec = audioCache.lookupByAudioKey(key)?.duration_sec;
+    if (sec && sec > 0) pb.lengthMs = sec * 1000;
   }
 
   /**
@@ -875,7 +885,7 @@ class Player {
     log.info(`트랙 종료: ${label} | 원인=${reason}`);
     if (!finishedTrack) return { playedMs, label, dropped: false, live: false, why: "곡 없음" };
 
-    const facts = endFactsOf(this.playback, finishedTrack, reason, playedMs);
+    const facts = endFactsOf(this.playback, reason, playedMs);
     const { dropped, why } = endVerdict(facts);
     const lengthText = facts.lengthMs ? `${sec(facts.lengthMs)}초` : "모름";
     wlog.debug(`트랙 종료 판정: ${dropped ? "끊김" : "끝"}(${why}) | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);

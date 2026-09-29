@@ -2,7 +2,7 @@
 // 회귀 대상: 사용자 ID 하나로만 키잉되어 같은 사용자의 재검색이 이전 메시지의 버튼과
 // 뒤섞이고, 각 검색의 5분 타이머가 최신 결과를 조기 삭제하던 문제
 
-import { test, type TestContext } from "node:test";
+import { test, after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { showSearchMenu } from "../../commands/search.ts";
 import { handleSearchInteraction } from "../../events/buttonHandler.ts";
@@ -12,6 +12,11 @@ import type { TrackData } from "../../src/ui/nowPlayingPanel.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { openTempStore } from "../helpers/tempStore.ts";
+
+// 곡을 넣을 때 받아 둔 음원의 길이를 장부에서 찾는다(usecases/addTracks)
+const store = openTempStore("search-results-");
+after(() => store.close());
 
 // 곡 추가 코어가 패널 관리자에 넘긴 것
 type EmbedCall = { guildId: string; trackData: TrackData; member: unknown; interaction: unknown };

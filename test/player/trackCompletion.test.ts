@@ -26,7 +26,7 @@ function overflowPlayer({ offsetMs = 0, playedMs = 0, duration = 200, isLive = f
   };
   const player = fake<WatchHost>({
     currentTrack: { title: "곡", platform: "youtube", duration },
-    playback: { startOffsetMs: offsetMs, resource: { playbackDuration: playedMs } },
+    playback: { startOffsetMs: offsetMs, resource: { playbackDuration: playedMs }, lengthMs: duration ? duration * 1000 : null },
     audioPlayer: audio,
     isLive,
     _endReason: null,
@@ -48,12 +48,16 @@ test("넘침 안전망: 곡 안의 위치(시작 위치 + 낸 양)가 길이 + 3
   assert.equal(endReasonOf(over.player), "overflow");
 });
 
-test("넘침 안전망: 길이를 모르거나 라이브면 멈추지 않는다", () => {
+test("넘침 안전망: 트는 음원의 길이를 모르거나 라이브면 멈추지 않는다. 표시 길이는 보지 않는다", () => {
   for (const opts of [{ duration: 0 }, { isLive: true }]) {
     const { audio, watch } = overflowPlayer({ playedMs: 10_000_000, ...opts });
     watch.checkOverflow();
     assert.equal(audio.stopped, false, JSON.stringify(opts));
   }
+  const shownOnly = overflowPlayer({ playedMs: 10_000_000, duration: 200 });
+  (shownOnly.player.playback as unknown as { lengthMs: number | null }).lengthMs = null;
+  shownOnly.watch.checkOverflow();
+  assert.equal(shownOnly.audio.stopped, false, "표시 길이만 있고 음원 길이를 모른다");
 });
 
 test("넘침 안전망: 5초마다 본다. 멈추면 더 보지 않는다", (t) => {

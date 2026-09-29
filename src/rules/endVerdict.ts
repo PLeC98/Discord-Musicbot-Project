@@ -16,7 +16,7 @@ type EndFacts = {
   broken: string | null; // 입력 깨짐 표시
   exitCode: number | null; // 지금 소스 ffmpeg 의 종료 코드. 아직 살아 있으면 null
   positionMs: number; // 곡 안의 멈춘 위치
-  lengthMs: number | null; // 믿을 수 있는 음원 길이. 모르면 null
+  lengthMs: number | null; // 트는 음원의 길이(표시 길이가 아니다). 모르면 null
   unverified: boolean; // 온전히 끝났는지 가를 수 없는 입력이고, 이번이 다시 연 재생이 아니다
 };
 
@@ -51,8 +51,5 @@ function endVerdict(f: EndFacts): Verdict {
   return { dropped: true, why: cause };
 }
 
-/** 음원 길이(ms). 모르면 null */
-const knownLengthMs = (track: { duration: number }) => (track.duration > 0 ? track.duration * 1000 : null);
-
-export { endVerdict, knownLengthMs };
+export { endVerdict };
 export type { EndFacts, Verdict };

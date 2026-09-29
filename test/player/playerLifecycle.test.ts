@@ -52,10 +52,10 @@ const embeds = (player: Player) => recordPanel({ player });
 // 재생 상태 가짜. 시험이 보는 칸만
 const playback = (fields: object) => fake<CurrentPlayback>(fields);
 
-// 재생이 끝난 곡 하나를 세운다. 리소스의 재생량으로 "어디까지 틀었나"를 정한다. extra 는 재생 상태에 더할 칸
+// 재생이 끝난 곡 하나를 세운다. 리소스의 재생량으로 "어디까지 틀었나"를 정한다. 음원 길이는 곡의 길이와 같게 둔다. extra 는 재생 상태에 더할 칸
 function playing(player: Player, track: QueuedTrack, playedMs = track.duration * 1000, extra: object = {}) {
   player.currentTrack = track;
-  player.playback = playback({ resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } }, ...extra });
+  player.playback = playback({ resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } }, lengthMs: track.duration ? track.duration * 1000 : null, ...extra });
   return track;
 }
 
@@ -190,6 +190,19 @@ test("일찍 끝났어도 입력이 온전히 끝났으면 끝이다. 길이는 
     sink.buffer.slice(from).some((e) => e.text.startsWith("곡이 길이와 다른 위치에서 끝남:")),
     "길이 쪽을 살필 수 있게 남긴다",
   );
+});
+
+test("곡 끝 판정은 표시 길이가 아니라 트는 음원의 길이를 본다", async () => {
+  const p = h.makePlayer();
+  const track = cached("e3eeeeeeeee", { duration: 180 }); // 표시는 스포티파이 길이 180초
+  starved(p, track, 179_000);
+  Object.assign(p.playback ?? {}, { lengthMs: 200_000 }); // 트는 음원은 200초
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, track, "음원 끝까지 21초 남았으니 다시 연다");
+  assert.equal(p.retry.used, 1);
 });
 
 test("주소 갈래(HLS 등)가 길이보다 일찍 끝나면 한 번만 다시 연다. 다시 연 재생이 또 일찍 끝나면 넘긴다", async () => {

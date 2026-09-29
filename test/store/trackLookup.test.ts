@@ -107,3 +107,19 @@ test("자동재생이 보는 장부(route.REAL.known): 받아 둔 파일이 있�
   assert.deepEqual(known("amq:802"), { audioUrl: "https://www.youtube.com/watch?v=notcached01" });
   assert.equal(known("amq:803"), null);
 });
+
+// ── 받아 둔 음원의 길이 ───────────────────────────────────────
+
+test("받아 둔 음원의 길이: 음원 주소로, 주소가 없으면(스포티파이) 장부가 기억하는 음원으로 찾는다. 다 받은 것만", () => {
+  const yt = "https://www.youtube.com/watch?v=lenlenlen01";
+  const sp = "https://open.spotify.com/track/lensp1";
+  audioCache.recordDownloadStart("yt:lenlenlen01", { title: "곡", duration: 180 });
+  assert.equal(trackLookup.knownAudioLength({ audioUrl: yt }), null, "받는 중이면 모른다(행의 길이는 곡이 준 값이다)");
+
+  audioCache.recordDownloadComplete("yt:lenlenlen01", audioCache.getFilePath("yt:lenlenlen01"), 1, { title: "곡" }, { durationSec: 181.37 });
+  assert.equal(trackLookup.knownAudioLength({ audioUrl: yt }), 181.37);
+
+  assert.equal(trackLookup.knownAudioLength({ requestKey: sp }), null, "장부에 없으면 모른다");
+  trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: yt, platform: "spotify", title: "곡" });
+  assert.equal(trackLookup.knownAudioLength({ requestKey: sp }), 181.37);
+});

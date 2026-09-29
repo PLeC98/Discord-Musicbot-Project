@@ -130,7 +130,7 @@ test("probe 파싱: 스트림 줄에 없으면 컨테이너 값을 쓴다 (Opus 
 `);
   assert.equal(info.codec, "opus");
   assert.equal(info.bitrateKbps, 323);
-  assert.equal(info.durationSec, 90);
+  assert.equal(info.durationSec, 90.06, "머리의 100분의 1초까지");
 });
 
 // 컨테이너 값을 오디오로 읽으면 멀쩡한 opus 를 상한까지 다시 굽는다.
@@ -142,7 +142,7 @@ test("probe 파싱: 영상이 섞여 있으면 컨테이너 값을 쓰지 않는
 `);
   assert.equal(info.codec, "opus");
   assert.equal(info.bitrateKbps, null, "4662k 는 영상까지 합친 값이다");
-  assert.equal(info.durationSec, 89);
+  assert.equal(info.durationSec, 89.14);
   assert.equal(planFor(info).action, "copy", "모르면 굽지 않는다");
 });
 
@@ -208,7 +208,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
 
   const info = await probeAudio(TONE);
   assert.equal(info.codec, "opus", "만든 것을 다시 읽을 수 있어야 한다");
-  assert.equal(info.durationSec, 3);
+  assert.ok(Math.abs((info.durationSec ?? 0) - 3) < 0.05, `3초 언저리(${info.durationSec})`);
 
   // 96k 짜리라 상한 아래다. 리먹싱으로 가야 한다
   assert.equal(planFor(info).action, "copy");
@@ -217,7 +217,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
   assert.equal(result.action, "copy");
   const after2 = await probeAudio(OUT);
   assert.equal(after2.codec, "opus");
-  assert.equal(after2.durationSec, 3, "옮긴 뒤에도 길이가 같아야 한다");
+  assert.equal(after2.durationSec, info.durationSec, "옮긴 뒤에도 길이가 같아야 한다");
 });
 
 // ── SC-4 ─────────────────────────────────────────────────────────────────────

@@ -43,6 +43,9 @@ const calls = {
 };
 // 시험마다 바꾸는 yt-dlp 의 행동. 기본은 "출력 경로에 파일과 info.json 을 쓴다"
 let ytdlpBehavior: (url: string, options: Options) => unknown;
+// 만든 .opus 를 잰 길이. 기본은 잴 수 없음(null)
+let measuredSec: number | null = null;
+const measured: string[] = [];
 
 // 다운로더에 넘기는 가짜 소스와 변환. 무엇을 불렀는지 calls 에 모은다
 const deps: Sources = {
@@ -78,6 +81,12 @@ const deps: Sources = {
       calls.convert.push({ src, out, srcExists: fs.existsSync(src) });
       fs.writeFileSync(out, "opus");
       return { durationSec: 222, ...convertTags };
+    },
+  },
+  measure: {
+    durationSec: async (file: string) => {
+      measured.push(file);
+      return measuredSec;
     },
   },
   sponsor: {
@@ -116,6 +125,8 @@ const writesFile =
 beforeEach(() => {
   for (const list of Object.values(calls)) list.length = 0;
   ytdlpBehavior = writesFile();
+  measuredSec = null;
+  measured.length = 0;
   storeDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
@@ -148,7 +159,7 @@ test("유튜브: yt-dlp 로 임시 파일에 받아 최종 경로로 올리고 �
   const row = audioRow("yt:aaaaaaaaaaa");
   assert.ok(row, "장부에 적었다");
   assert.equal(row.status, "cached");
-  assert.equal(row.duration_sec, 201, "오디오 길이는 info.json 의 값");
+  assert.equal(row.duration_sec, 201, "만든 파일을 잴 수 없으면 info.json 의 값");
   assert.equal(row.audio_version, "lmt:1700000000000000", "받은 포맷의 판을 적는다");
   assert.ok(Number(row.version_checked_at) > 0);
   const lookup = lookupRow(track.requestKey);
@@ -272,8 +283,9 @@ test("직접 링크: 받은 파일에 태그가 있으면 제목과(비어 있�
   assert.equal(track.artist, "태그 가수");
 });
 
-test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 길이로 트랙을 고친다", async () => {
-  const track: DownloadTrack = { title: "파일", pageUrl: "https://files.test/a.flac", requestKey: "https://files.test/a.flac", audioUrl: "https://files.test/a.flac", platform: "direct", duration: 100 };
+test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 잰 길이로 모르던 길이를 채운다", async () => {
+  const track: DownloadTrack = { title: "파일", pageUrl: "https://files.test/a.flac", requestKey: "https://files.test/a.flac", audioUrl: "https://files.test/a.flac", platform: "direct", duration: 0, durationSource: "unknown" };
+  measuredSec = 221.47;
 
   const file = await downloader().downloadTrack(track);
 
@@ -282,12 +294,26 @@ test("직접 링크: SafeUrl 을 거쳐 원본을 받고, 변환하고, 실측 �
   assert.equal(calls.convert.length, 1);
   assert.ok(calls.convert[0].src.endsWith(".raw"), "원본을 먼저 파일로 받는다");
   assert.equal(calls.convert[0].srcExists, true);
-  assert.equal(track.duration, 222);
+  assert.equal(track.duration, 221.47);
   assert.equal(track.durationSource, "measured");
   assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`)?.audio_version, 'etag="v1";length=9', "응답 헤더에서 판을 읽는다");
-  assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`)?.duration_sec, 222);
+  assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`)?.duration_sec, 221.47);
   assert.equal(fs.readFileSync(file, "utf8"), "opus");
   assert.deepEqual(leftovers(), [], ".raw 를 남기지 않는다");
+});
+
+test("음원 길이는 만든 .opus 를 재서 소수까지 적는다. 표시는 보이던 값과 2초 넘게 다를 때만 바꾼다", async () => {
+  measuredSec = 201.37;
+  const close = yt("m1mmmmmmmmm", { duration: 201 });
+  await downloader().downloadTrack(close);
+  assert.ok(measured[0]?.includes(".tmp-"), "올리기 전의 임시 파일을 잰다");
+  assert.equal(audioRow("yt:m1mmmmmmmmm")?.duration_sec, 201.37, "info.json 의 정수보다 잰 값");
+  assert.deepEqual({ duration: close.duration, durationSource: close.durationSource }, { duration: 201, durationSource: undefined }, "0.37초 차이로는 표시를 흔들지 않는다");
+
+  measuredSec = 195.5;
+  const far = yt("m2mmmmmmmmm", { duration: 201 });
+  await downloader().downloadTrack(far);
+  assert.deepEqual({ duration: far.duration, durationSource: far.durationSource }, { duration: 195.5, durationSource: "measured" });
 });
 
 // ── 이미 있거나 받는 중이거나 ──────────────────────────────────────────

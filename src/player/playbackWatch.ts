@@ -7,7 +7,6 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
 const wlog = logger.child({ category: "watchdog" });
-import { knownLengthMs } from "../rules/endVerdict.ts";
 import type { Player } from "./Player.ts";
 
 /** 감시가 읽고 멈추는 플레이어 칸 */
@@ -48,8 +47,8 @@ class PlaybackWatch {
 
   checkOverflow(): void {
     const player = this.player;
-    // 길이를 모르면(라이브 · 받기 전의 직접 링크) 넘었는지 가를 수 없다
-    const lengthMs = player.currentTrack && !player.isLive ? knownLengthMs(player.currentTrack) : null;
+    // 트는 음원의 길이를 모르면(라이브 · 받기 전의 직접 링크) 넘었는지 가를 수 없다. 표시 길이는 쓰지 않는다
+    const lengthMs = player.isLive ? null : (player.playback?.lengthMs ?? null);
     if (!lengthMs) return;
     const at = player.getCurrentTime();
     if (at <= lengthMs + OVERFLOW_MS) return;

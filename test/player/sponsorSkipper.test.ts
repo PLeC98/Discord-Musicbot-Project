@@ -118,6 +118,17 @@ test("_tick: 아웃트로 → skip('sponsorblock') (스킵 버튼과 동일 처�
   assert.equal(p._calls.play.length, 0);
 });
 
+test("_tick: 곡 끝 구간은 표시 길이가 아니라 트는 음원의 길이로 가른다", async () => {
+  // 표시는 스포티파이 길이 230초, 트는 음원은 250초. 230~240 구간은 곡 끝이 아니라 중간이다
+  const p = Object.assign(fakePlayer({ curSec: 231, duration: 230 }), { playback: { lengthMs: 250_000 } });
+  const sk = new SponsorSkipper(p);
+  sk.segments = segs([230, 240]);
+  sk._prevSec = 229;
+  await sk._tick();
+  assert.deepEqual(p._calls.skip, []);
+  assert.deepEqual(p._calls.play, [240_000], "건너뛰고 이어 튼다");
+});
+
 test("onPlayStart: 구간 있으면 워처 시작, 없으면 정지 (인터벌 핸들 검증)", () => {
   const host = { currentTrack: { duration: 100 }, sponsor: { skipSegments: segs([0, 5]) }, paused: false, getCurrentTime: () => 0 };
   const sk = new SponsorSkipper(fake<SkipHost>(host));

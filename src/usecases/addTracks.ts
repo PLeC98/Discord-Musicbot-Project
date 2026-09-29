@@ -1,6 +1,7 @@
 import { Player } from "../player/Player.ts";
 import * as songLookup from "../sources/lookup.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
+import * as trackLookup from "../store/trackLookup.ts";
 import { silentResponder } from "./responders.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -143,6 +144,7 @@ async function requestPlayback(client: Client, request: PlaybackRequest): Promis
   if (checked.tracks.some((t) => t.isLive)) player.releaseLoopForLive();
 
   const trackData = trimmed(checked, request.single);
+  withKnownLengths(trackData.tracks);
   const toAdd: TrackData = { ...trackData, ...placement(request) };
 
   const result = await client.musicEmbedManager.handleMusicData(guild.id, toAdd, who, responder);
@@ -193,6 +195,16 @@ function withoutBlocked(found: Found, ffmpegReady = () => ffmpegCapabilities().o
   const playable = found.tracks.filter((_, i) => !blocked[i]);
   // 전부 막혔으면 처음 막힌 까닭을 알린다
   return playable.length === 0 ? firstBlock : { ...found, tracks: playable };
+}
+
+// 곡 길이는 처음 보일 때 정해진다(rules/durationShown). 받아 둔 음원이 있으면 출처가 준 길이 대신 그 음원을 잰 길이를 보인다.
+// 스포티파이 곡은 스포티파이 길이를 들고 오는데, 틀 음원(찾아 둔 유튜브 영상)과 수 초씩 다를 수 있다
+function withKnownLengths(tracks: TrackInfo[]) {
+  for (const track of tracks) {
+    if (track.isLive) continue;
+    const sec = trackLookup.knownAudioLength(track);
+    if (sec) Object.assign(track, { duration: sec, durationSource: "measured" });
+  }
 }
 
 // 재생목록에서 첫 곡만 (대시보드의 "한 곡만" 옵션)

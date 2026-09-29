@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { endVerdict, knownLengthMs, type EndFacts } from "../../src/rules/endVerdict.ts";
+import { endVerdict, type EndFacts } from "../../src/rules/endVerdict.ts";
 
 // 온전히 끝난 VOD 가 기준. 시험마다 한 칸씩 바꾼다
 const facts = (over: Partial<EndFacts> = {}): EndFacts => ({
@@ -62,9 +62,4 @@ test("되감기 방지: 끊겼어도 다시 열 위치가 길이 끝 1.5초 안�
   assert.equal(atEnd.why, "공급이 끊겨 플레이어가 멈춤. 끝에 닿아 다시 열지 않음");
   assert.equal(dropped({ reason: "stream-error", positionMs: 199_000 }), false, "우리가 멈춘 끊김에도 건다");
   assert.equal(dropped({ streamEnded: false, positionMs: 500_000, lengthMs: null }), true, "길이를 모르면 걸 수 없다");
-});
-
-test("음원 길이: 있을 때만", () => {
-  assert.equal(knownLengthMs({ duration: 200 }), 200_000);
-  assert.equal(knownLengthMs({ duration: 0 }), null);
 });

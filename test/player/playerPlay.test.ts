@@ -13,6 +13,8 @@ import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audioSplicer.ts";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
+import { md5 } from "../../src/rules/audioKeyOf.ts";
+import { recordPanel } from "../helpers/panelEvents.ts";
 import type { FakeChild } from "../helpers/playerHarness.ts";
 import type { Player } from "../../src/player/Player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -67,8 +69,9 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
   assert.equal(calls.fetches.length, 0);
   assert.equal(h.fakeAudioOf(p).played.length, 1);
   assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "파일 갈래는 스플라이서를 끼우지 않는다");
-  // 길이는 캐시에 적힌 실제 길이로 바꾼다
+  // 캐시에 적힌 길이는 받아 둔 음원을 잰 값이다. 보이던 값(180)과 2초 넘게 다르니 표시도 바꾼다
   assert.equal(p.currentTrack.duration, 201);
+  assert.equal(p.playback?.lengthMs, 201_000, "곡 끝 판정은 이 음원의 길이를 본다");
   assert.equal(p.lifecycle.phase, "playing");
 });
 
@@ -160,7 +163,8 @@ test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시�
   assert.ok(calls.spawns[0].args.includes("pipe:0"));
   assert.equal(calls.downloads.length, 1, "재생과 나란히 캐시를 받는다");
   assert.ok(calls.resources[0].input instanceof AudioSplicer, "스트림 갈래는 무지연 전환을 위해 스플라이서를 끼운다");
-  assert.equal(p.currentTrack.duration, 190, "캐시가 없으면 스트림이 준 길이");
+  assert.equal(p.currentTrack.duration, 180, "보이던 길이를 지킨다(스트림이 준 길이도 출처가 준 값이다)");
+  assert.equal(p.playback?.lengthMs, 190_000, "곡 끝 판정은 트는 음원의 길이(스트림이 준 값)를 본다");
 });
 
 test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 받지 않는다. 길이는 스트림이 알려 준 것을 본다", async () => {
@@ -840,4 +844,46 @@ test("오디오 플레이어는 공급이 끊겨도 10초(프레임 500개)를 �
   });
   h.dispose(p);
   assert.deepEqual(options, { behaviors: { maxMissedFrames: 500 } });
+});
+
+test("캐시에 적힌 길이가 보이던 값과 2초 안이면 표시는 그대로, 곡 끝 판정은 음원의 길이", async () => {
+  const track = yt("n1nnnnnnnnn");
+  h.seedCache("yt:n1nnnnnnnnn", track, { durationSec: 180.4 });
+  const p = h.makePlayer();
+  p.currentTrack = track;
+
+  await playOnce(p);
+
+  assert.equal(p.currentTrack.duration, 180);
+  assert.equal(p.playback?.lengthMs, 180_400);
+});
+
+test("받기 전에 길이를 몰랐던 곡(직접 링크)은 나란히 받기가 끝나면 음원 길이를 알고 패널을 고친다", async () => {
+  const p = h.makePlayer();
+  const seen = recordPanel({ player: p });
+  const track = tracks.direct("https://files.test/len.mp3", { durationSource: "unknown" });
+  p.currentTrack = track;
+  behavior.stream = () => ({ url: "https://files.test/len.mp3", platform: "direct" });
+  behavior.directStream = () => Object.assign(new PassThrough(), { headers: { "content-length": "4096" } });
+  let finish: () => void = () => {};
+  behavior.download = (t) =>
+    new Promise((done) => {
+      finish = () => {
+        // 진짜 받기처럼 캐시에 잰 길이를 적고 표시를 채운다
+        const key = `dl:${md5("https://files.test/len.mp3")}`;
+        const file = h.writeCacheFile(key);
+        audioCache.recordDownloadComplete(key, file, 4, t, { durationSec: 123.4 });
+        Object.assign(t, { duration: 123.4, durationSource: "measured" });
+        done(file);
+      };
+    });
+
+  await playOnce(p);
+  assert.equal(p.playback?.lengthMs, null, "받기 전에는 모른다");
+  finish();
+  for (let i = 0; i < 10; i++) await new Promise((done) => setImmediate(done));
+  seen.stop();
+
+  assert.equal(p.playback?.lengthMs, 123_400);
+  assert.ok(seen.includes("update"), "표시 길이가 바뀌어 패널을 고친다");
 });
