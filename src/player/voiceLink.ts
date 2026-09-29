@@ -50,6 +50,7 @@ class VoiceLink {
   waitStartMs = 5000; // 끊긴 뒤 라이브러리가 다시 붙기 시작하기까지(Signalling · Connecting)
   waitReadyMs = 20_000; // 다시 붙기 시작한 뒤 Ready 까지
   recoveryRetryDelayMs = 3000; // 복구 시도 사이
+  attemptSpanMs = RECOVER_READY_MS + 3000; // 복구 시도 하나가 쓰는 시간의 하한(곧바로 실패해도 이만큼 뒤에 다음 시도)
   lastMove: { from: string; to: string; at: number } | null = null;
   lastBounceFix: number | null = null;
   /** 라이브러리가 고치지 않고 내보낸 마지막 참가 요청(어댑터가 알린다). 되돌림을 사람의 이동과 가른다 */
@@ -282,6 +283,7 @@ class VoiceLink {
       this.recoveryAttempts++;
       if (this.recoveryAttempts > this.maxRecoveryAttempts) return this._giveUp();
       if (!this._liveChannel()) return this.channelGone();
+      const started = Date.now();
       const joined = await this._rejoin();
       if (!active()) return;
       if (joined) {
@@ -290,7 +292,9 @@ class VoiceLink {
         await this.player.onVoiceRecovered();
         return;
       }
-      await new Promise((resolve) => setTimeout(resolve, this.recoveryRetryDelayMs));
+      // 곧바로 실패한 시도(네트워크가 끊겨 있다)도 한 시도만큼의 시간은 쓴다. 끊긴 동안 시도를 다 써 버리지 않게
+      const rest = Math.max(this.recoveryRetryDelayMs, this.attemptSpanMs - (Date.now() - started));
+      await new Promise((resolve) => setTimeout(resolve, rest));
     }
   }
 
@@ -309,7 +313,8 @@ class VoiceLink {
         try {
           await this.lib.entersState(connection, VoiceConnectionStatus.Ready, RECOVER_READY_MS);
         } catch (error) {
-          if (at !== undefined) this.reattachRefused = true;
+          // 제한 시간 안에 답이 없었다. 곧바로 난 실패(네트워크가 아직 불안정)는 정보가 낡은 것이 아니다
+          if (at !== undefined && error instanceof Error && error.name === "AbortError") this.reattachRefused = true;
           throw error;
         }
       } else {

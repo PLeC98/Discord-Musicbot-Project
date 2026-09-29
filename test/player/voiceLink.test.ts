@@ -49,8 +49,8 @@ class FakeConnection extends EventEmitter {
 }
 
 const joins: FakeConnection[] = [];
-// 붙기(entersState Ready)의 결과. 시험이 바꾼다: true 면 붙고, false 면 던진다
-let joinWorks: boolean[] = [];
+// 붙기(entersState Ready)의 결과. 시험이 바꾼다: true 면 붙고, false 면 곧바로 던지고(네트워크 오류), "timeout" 이면 제한 시간이 지난 것(AbortError)
+let joinWorks: Array<boolean | "timeout"> = [];
 const lib = fake<VoiceLib>({
   joinVoiceChannel: () => {
     const c = new FakeConnection();
@@ -59,6 +59,7 @@ const lib = fake<VoiceLib>({
   },
   entersState: async (connection: FakeConnection) => {
     const ok = joinWorks.length ? joinWorks.shift() : true;
+    if (ok === "timeout") throw Object.assign(new Error("The operation was aborted"), { name: "AbortError" });
     if (!ok) throw new Error("Ready 안 옴");
     connection.state = { status: VoiceConnectionStatus.Ready };
     return connection;
@@ -125,7 +126,7 @@ function setup({ channel = true, inChannel = "vc1" as string | null, track = tru
     movedVoiceStatus: (from: string) => steps.push(`status-moved:${from}`),
   };
   const link = new VoiceLink(fake<VoiceHost>(player), lib);
-  Object.assign(link, { waitStartMs: 10, waitReadyMs: 20, recoveryRetryDelayMs: 1 });
+  Object.assign(link, { waitStartMs: 10, waitReadyMs: 20, recoveryRetryDelayMs: 1, attemptSpanMs: 1 });
   links.push(link);
   return { steps, player, link, me, channels, conn: () => player.connection as FakeConnection };
 }
@@ -275,11 +276,19 @@ test("다시 붙이기: 디스코드가 봇을 채널에서 뺐거나 받아 둔
   }
 });
 
-test("다시 붙이기: 디스코드에 닿는데도 받아 둔 정보로 못 붙으면(정보가 낡음) 남은 시도는 새로 참가한다. 닿지 못해 실패한 것은 세지 않는다. 다음 복구는 다시 받아 둔 정보부터", async () => {
+test("다시 붙이기: 디스코드에 닿는데도 받아 둔 정보로 제한 시간 안에 못 붙으면(정보가 낡음) 남은 시도는 새로 참가한다. 곧바로 난 실패 · 닿지 못한 실패는 세지 않는다. 다음 복구는 다시 받아 둔 정보부터", async () => {
+  joins.length = 0;
+  const flaky = await ready({ atDiscord: "vc1" });
+  joinWorks = [false, true];
+  flaky.link.recover("시험");
+  await until(() => flaky.link.state === "ready", "다시 붙기");
+  assert.equal(flaky.conn().reattaches, 2, "곧바로 난 실패(네트워크가 아직 불안정)는 정보가 낡은 것이 아니다");
+  assert.equal(joins.length, 1);
+
   joins.length = 0;
   const known = await ready({ atDiscord: "vc1" });
   const old = known.conn();
-  joinWorks = [false, true];
+  joinWorks = ["timeout", true];
   known.link.recover("시험");
   await until(() => known.link.state === "ready", "다시 붙기");
   assert.equal(old.reattaches, 1);
@@ -292,21 +301,31 @@ test("다시 붙이기: 디스코드에 닿는데도 받아 둔 정보로 못 �
 
   joins.length = 0;
   const offline = await ready({ atDiscord: Object.assign(new Error("getaddrinfo ENOTFOUND discord.com"), { code: "ENOTFOUND" }) });
-  joinWorks = [false, true];
+  joinWorks = ["timeout", true];
   offline.link.recover("시험");
   await until(() => offline.link.state === "ready", "다시 붙기");
   assert.equal(offline.conn().reattaches, 2, "닿지 못해 실패한 것은 정보를 버릴 까닭이 아니다");
   assert.equal(joins.length, 1);
 });
 
-test("복구는 한 번에 하나. 복구 중에 또 부르면 아무것도 안 한다", async () => {
+test("복구: 곧바로 실패한 시도도 한 시도만큼의 시간을 쓴다(네트워크가 끊긴 동안 시도를 다 써 버리지 않게)", async () => {
   const { link } = await ready();
+  link.attemptSpanMs = 80;
+  joinWorks = [false, true];
+  const started = Date.now();
+  link.recover("시험");
+  await until(() => link.state === "ready", "다시 붙기");
+  assert.ok(Date.now() - started >= 70, `두 번째 시도까지 ${Date.now() - started}ms`);
+});
+
+test("복구는 한 번에 하나. 복구 중에 또 부르면 아무것도 안 한다", async () => {
+  const { link, conn } = await ready();
   joinWorks = [false, false, true];
   link.recover("하나");
   link.recover("둘");
   await until(() => link.state === "ready", "다시 붙기");
   assert.equal(link.recoveryAttempts, 3, "한 복구가 세 번 시도했다(두 번째 부름이 새로 시작하지 않았다)");
-  assert.equal(joins.length, 3, "처음 연결 + 새 참가 둘(첫 시도는 받아 둔 정보로)");
+  assert.equal(conn().reattaches, 3);
   assert.equal(link.state, "ready");
 });
 
