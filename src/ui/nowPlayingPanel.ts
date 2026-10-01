@@ -680,7 +680,7 @@ class NowPlayingPanel {
       .setEmoji("🎲")
       .setDisabled(disabled && !keepAutoplay);
 
-    // SponsorBlock 하이라이트 점프. 항상 표시, 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽.
+    // SponsorBlock 하이라이트 점프. 지점 없으면 비활성(스킵 버튼처럼 UI 일관성). 셔플 왼쪽. 봇 전체에서 SponsorBlock 을 껐으면 버튼을 두지 않는다
     const highlightAt = player.sponsor?.highlightAt;
     const hasHighlight = highlightAt !== null && highlightAt !== undefined;
     const highlightButton = new ButtonBuilder()
@@ -690,7 +690,7 @@ class NowPlayingPanel {
       .setDisabled(disabled || !hasHighlight);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
-    const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(highlightButton, shuffleButton, loopButton, queueButton, autoplayButton);
+    const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(...(config.sponsorblock.enabled ? [highlightButton] : []), shuffleButton, loopButton, queueButton, autoplayButton);
 
     return [row, row2];
   }

@@ -7,6 +7,7 @@ import { Collection } from "discord.js";
 import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import * as tempStore from "../helpers/tempStore.ts";
 import * as playerEvents from "../../src/player/events.ts";
+import { withConfig } from "../helpers/config.ts";
 import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, WebhookClient } from "discord.js";
 import type { Player } from "../../src/player/Player.ts";
 import type { PanelStore } from "../../src/ui/panelLocation.ts";
@@ -310,4 +311,11 @@ test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있�
   };
   assert.equal(await skipDisabled({}), true);
   assert.equal(await skipDisabled({ autoplay: "pop" }), false);
+});
+
+test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 두지 않는다", async () => {
+  const { mem, guild, text } = setup({});
+  const ids = async () => (await mem.createControlButtons(makePlayer(guild, text(BOT), {}))).flatMap((row) => row.toJSON().components.flatMap((b) => ("custom_id" in b ? [b.custom_id.split(":")[1]] : [])));
+  assert.deepEqual(await withConfig({ sponsorblock: { enabled: true } }, ids), ["previous", "pause", "skip", "stop", "volume", "highlight", "shuffle", "loop", "queue", "autoplay"]);
+  assert.deepEqual(await withConfig({ sponsorblock: { enabled: false } }, ids), ["previous", "pause", "skip", "stop", "volume", "shuffle", "loop", "queue", "autoplay"]);
 });

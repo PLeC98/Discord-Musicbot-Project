@@ -8,10 +8,13 @@ import { codeOf, messageOf } from "../rules/errorKind.ts";
 
 /** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
 type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
-/** 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다 */
-type GuildCommand = { data: CommandData; anywhere?: false; execute(interaction: ChatInputCommandInteraction<"cached">, client: Client<true>): unknown };
+/**
+ * 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다.
+ * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(다음 기동의 배포에서)
+ */
+type GuildCommand = { data: CommandData; anywhere?: false; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction<"cached">, client: Client<true>): unknown };
 /** 서버 밖(DM)에서도 쓰는 명령 */
-type AnywhereCommand = { data: CommandData; anywhere: true; execute(interaction: ChatInputCommandInteraction, client: Client<true>): unknown };
+type AnywhereCommand = { data: CommandData; anywhere: true; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction, client: Client<true>): unknown };
 /** 슬래시 명령 모듈. 정의(data)와 실행(execute) */
 type SlashCommand = GuildCommand | AnywhereCommand;
 
@@ -21,7 +24,7 @@ const HASH_PATH = path.join(import.meta.dirname, "..", "..", "database", "deploy
 
 /** 배포용 JSON. 핸들러로 등록되는 것(commands/index 의 목록)과 같은 집합이다 */
 function definitions() {
-  return COMMANDS.map((command) => command.data.toJSON());
+  return COMMANDS.filter((command) => command.enabled?.() ?? true).map((command) => command.data.toJSON());
 }
 
 // 현재 명령어 세트 + 배포 대상의 지문. 어느 하나라도 바뀌면 재배포 대상

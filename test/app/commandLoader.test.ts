@@ -30,6 +30,15 @@ const { COMMANDS } = await import("../../commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../config.ts")).default;
 
+test("봇 전체에서 SponsorBlock 을 껐으면 /sponsorblock · /highlight 를 등록하지 않는다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const names = () => definitions().map((c) => c.name);
+  assert.ok(withConfig({ sponsorblock: { enabled: true } }, names).includes("sponsorblock"));
+  const off = withConfig({ sponsorblock: { enabled: false } }, names);
+  assert.ok(!off.includes("sponsorblock") && !off.includes("highlight"));
+  assert.equal(off.length, COMMANDS.length - 2, "다른 명령은 그대로");
+});
+
 test("명령 목록의 명령 전부가 유효한 정의(name/description)다", () => {
   assert.ok(commands.length > 0);
   for (const c of commands) {
