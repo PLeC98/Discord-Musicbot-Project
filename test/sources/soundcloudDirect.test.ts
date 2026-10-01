@@ -85,7 +85,7 @@ test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린�
   respond = () => scItem("preview", { duration: 30, formats: [{ format_id: "http_mp3_1_0_preview" }] });
   const r = await getTrackData("https://soundcloud.com/artist/preview");
   assert.equal(r.success, false);
-  assert.equal(errorKind(r.error), "preview-only");
+  assert.equal(errorKind(r.error), "sc-preview-only");
   assert.equal(r.success ? "" : plainText(addFailureMessage({ code: r.code, kind: errorKind(r.error) })), "미리듣기(30초)만 열린 곡이라 틀 수 없어요.");
 });
 
@@ -136,7 +136,7 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
     () => assert.fail("던져야 한다"),
     (e: unknown) => e,
   );
-  assert.equal(codeOf(thrown), "link-unavailable");
+  assert.equal(codeOf(thrown), "direct-unavailable");
   assert.match(messageOf((thrown as Error).cause), /10\.0\.0\.5/, "사유는 원인에(서버 로그용)");
   // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
   const told = errorMessage(thrown);

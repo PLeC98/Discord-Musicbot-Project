@@ -45,7 +45,7 @@ async function getStream(track: Seeking & { platform?: string | null }, options:
   const { youtube, soundcloud, equivalent, canPlayHls } = { ...DEFAULTS, ...options };
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
-    throw codedError("no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
+    throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
   }
 
   switch (inputKind(audioUrl)) {

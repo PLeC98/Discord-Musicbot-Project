@@ -217,7 +217,7 @@ test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /p
 
 test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 입구가 그 오류의 문장으로 바꾼다", async () => {
   const w = world();
-  resolveReply = () => ({ success: false, code: "no-result" });
+  resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
   await runCommand(await command("play"), failed.it, w.client);
   assert.deepEqual(failed.log.at(-1), ["editReply", post(noticeFrame(errors.noResult()))]);
@@ -282,7 +282,7 @@ test("/play 와 /playfirst 는 같은 길이다. 넣을 자리와 입구 이름�
 
 test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
   const w = world({ roles: ["dj"] });
-  resolveReply = () => ({ success: false, code: "no-result" });
+  resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
   await runCommand(await command("playfirst"), failed.it, w.client);
   assert.deepEqual(failed.log.at(-1), ["editReply", post(noticeFrame(errors.noResult()))]);

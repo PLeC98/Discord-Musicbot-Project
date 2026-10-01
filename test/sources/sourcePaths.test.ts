@@ -90,9 +90,9 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
       undefined,
       noSearch(async () => null),
     ),
-    { success: false, code: "no-result" },
+    { success: false, code: "no-song-result" },
   );
-  const gone = codedError("playlist-unavailable", "ERROR: [youtube:tab] PL3: The playlist does not exist.");
+  const gone = codedError("unavailable-playlist", "ERROR: [youtube:tab] PL3: The playlist does not exist.");
   const failed = await lookup.getTrackData(
     "https://www.youtube.com/playlist?list=PL3",
     undefined,
@@ -114,7 +114,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
 
 test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
   const noSearch = { youtube: { ...YouTube, search: async () => assert.fail("검색하면 안 된다") } };
-  assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, code: "youtube-unplayable" });
+  assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, code: "yt-unplayable" });
 });
 
 test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
@@ -163,14 +163,14 @@ test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 �
   scAsked.length = 0;
   for (const url of ["https://soundcloud.com/artist", "https://soundcloud.com/artist/likes"]) {
     const r = await lookup.getTrackData(url, undefined, undefined, { soundcloud: soundcloud("track") });
-    assert.equal(r.code, "unsupported-soundcloud", url);
+    assert.equal(r.code, "sc-unsupported", url);
   }
   assert.equal(scAsked.length, 0, "모음은 부르지 않는다");
 });
 
-test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
+test("조회: 결과가 없으면 no-song-result, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
   const empty = { youtube: { ...YouTube, search: async () => [] } };
-  assert.deepEqual(await lookup.getTrackData("없는 곡", undefined, undefined, empty), { success: false, code: "no-result" });
+  assert.deepEqual(await lookup.getTrackData("없는 곡", undefined, undefined, empty), { success: false, code: "no-song-result" });
   const boom = Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" });
   const broken = {
     youtube: {
@@ -185,10 +185,10 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
 
 test("조회 실패의 안내문: 까닭의 문장 · 조회가 던진 오류는 그 종류로", async () => {
   const { addFailureMessage } = await import("../../src/ui/errorMessages.ts");
-  assert.equal(plainText(addFailureMessage({ code: "no-result" })), "결과를 찾을 수 없습니다!");
+  assert.equal(plainText(addFailureMessage({ code: "no-song-result" })), "결과를 찾을 수 없습니다!");
   assert.equal(plainText(addFailureMessage({ code: "unsupported-link" })), "지원하지 않는 링크입니다.");
   assert.match(plainText(addFailureMessage({ code: "nothing-playable" })), /모두 틀 수 없어요/);
-  assert.match(plainText(addFailureMessage({ code: "unsupported-soundcloud" })), /지원하지 않는 사운드클라우드 링크/);
+  assert.match(plainText(addFailureMessage({ code: "sc-unsupported" })), /지원하지 않는 사운드클라우드 링크/);
   assert.match(plainText(addFailureMessage({ code: "lookup-failed", kind: errorKind(networkError()) })), /네트워크 오류/);
   assert.match(plainText(addFailureMessage({ code: "lookup-failed" })), /예상치 못한 오류/, "종류를 모르면 unknown");
 });

@@ -61,13 +61,13 @@ test("짧은 링크 · API 주소로 들어와도 곡 페이지 주소가 열쇠
 
 test("미리듣기만 열린 곡은 틀지 않는다(이름을 단 오류)", async () => {
   respond = () => ({ json: item("preview", { duration: 30, formats: preview }) });
-  await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "preview-only" && errorKind(e) === "preview-only");
+  await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "sc-preview-only" && errorKind(e) === "sc-preview-only");
 });
 
 test("곡 링크의 실패는 까닭의 이름을 단다: 없음 · 지역 제한 · 요청 제한 · 네트워크", async () => {
   const cases: Array<[string, string, "track" | "set"]> = [
-    ["ERROR: [soundcloud] artist/gone: Unable to download JSON metadata: HTTP Error 404: Not Found (caused by <HTTPError 404: Not Found>)", "track-unavailable", "track"],
-    ["ERROR: [soundcloud:set] artist/sets/gone: Unable to download JSON metadata: HTTP Error 404: Not Found", "playlist-unavailable", "set"],
+    ["ERROR: [soundcloud] artist/gone: Unable to download JSON metadata: HTTP Error 404: Not Found (caused by <HTTPError 404: Not Found>)", "unavailable-contents", "track"],
+    ["ERROR: [soundcloud:set] artist/sets/gone: Unable to download JSON metadata: HTTP Error 404: Not Found", "unavailable-playlist", "set"],
     [GEO, "geo-blocked", "track"],
     ["ERROR: [soundcloud:set] a/sets/b: Unable to download JSON metadata: HTTP Error 403: Forbidden (caused by <HTTPError 403: Forbidden>)", "rate-limited", "set"],
     ["ERROR: [soundcloud] 1: Unable to download JSON metadata: <urlopen error [Errno 11001] getaddrinfo failed>", "network", "track"],
@@ -119,7 +119,7 @@ test("스트림: AAC 가 없는 곡은 mp3 까지 물어 한 번 더, 미리듣�
   assert.equal(calls.length, 2);
 
   respond = (_url, flags) => (flags.extractorArgs === "soundcloud:formats=hls_aac" ? { fail: NO_FORMATS } : { json: { url: "https://cf-preview-media.sndcdn.com/p.mp3", protocol: "http", format_id: "http_mp3_1_0_preview", duration: 30 } });
-  await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "preview-only");
+  await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "sc-preview-only");
 
   respond = () => ({ fail: NO_FORMATS });
   await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/aac-only", { canPlayHls: false }), (e: unknown) => codeOf(e) === "stream-failed");

@@ -66,10 +66,10 @@ test("dj: 모더레이터는 아니지만 DJ 역할 보유로 취급된다", asy
 test("dj: 모더레이터 면제가 사라지므로 재적 규칙을 받는다", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   const other = shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: "vc-B", botVoice: "vc-A" }));
-  assert.equal(await checkControl(other), "same-channel-required");
+  assert.equal(await checkControl(other), "must-be-in-same-voice");
 
   const nowhere = shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: null, botVoice: "vc-A" }));
-  assert.equal(checkAdd(nowhere), "voice-required");
+  assert.equal(checkAdd(nowhere), "must-be-in-voice");
 });
 
 test("user: DJ 역할이 설정된 서버에서는 조작이 막힌다", async () => {
@@ -78,7 +78,7 @@ test("user: DJ 역할이 설정된 서버에서는 조작이 막힌다", async (
 
   assert.equal(isModerator(m), false);
   assert.equal(await isDj(m), false, "원본이 DJ 역할을 갖고 있어도 계층이 내려간다");
-  assert.equal(await checkControl(m), "not-dj");
+  assert.equal(await checkControl(m), "must-dj");
   assert.equal(checkAdd(m), null, "곡 추가는 계층 무관 — 재적만 맞으면 통과");
 });
 

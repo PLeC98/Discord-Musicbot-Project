@@ -81,7 +81,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
     // 캐시 파일을 한 번 더 보고, 있으면 스트림을 받지 않는다
     if (!track.audioUrl) {
       const ytUrl = await player.io.findEquivalent(track);
-      if (!ytUrl) throw codedError("no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
+      if (!ytUrl) throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${track.title}`);
       cacheFile = TrackDownloader.findCacheFile(track);
     }
     // 어느 사이트에서 받을지는 sources/streamUrl 한 곳에서 가른다

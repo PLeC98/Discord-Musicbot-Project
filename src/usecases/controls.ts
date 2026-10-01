@@ -78,7 +78,7 @@ async function skip(player: MaybePlayer, actor: Actor) {
   if (!track) return blocked;
   const restarted = player.loop === "track";
   if (player.queue.length === 0 && !restarted && !player.autoplay) return fail("nothing-to-skip");
-  if (!player.skip()) return fail("skip-failed");
+  if (!player.skip()) return fail("switch-failed");
   if (!restarted && player.currentTrack) await refresh(player);
   return done({ track, restarted });
 }
@@ -103,7 +103,7 @@ async function previous(player: MaybePlayer, actor: Actor) {
   const restarted = player._restartsOnPrevious();
   // 대기열 반복은 대기열이 고리라 기록이 없어도 이전 곡이 있다
   if (player.previousTracks.length === 0 && !restarted && player.loop !== "queue") return fail("no-previous");
-  if (!player.previous()) return fail("previous-failed");
+  if (!player.previous()) return fail("switch-failed");
   return done({ restarted });
 }
 
@@ -262,7 +262,7 @@ async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
   player.moveInQueue(index, 0);
   if (!player.skip("jump")) {
     player.moveInQueue(0, index);
-    return fail("jump-failed");
+    return fail("switch-failed");
   }
   return done({ track });
 }

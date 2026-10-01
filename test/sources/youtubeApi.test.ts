@@ -143,8 +143,8 @@ test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없�
 // 회귀 대상: 비공개 · 연령 제한 영상 링크를 넣으면 까닭을 삼켜 "결과를 찾을 수 없습니다"로만 나왔다
 test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
-  await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "video-unavailable");
-  await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => codeOf(e) === "video-unavailable");
+  await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "unavailable-contents");
+  await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => codeOf(e) === "unavailable-contents");
 
   const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.code, "lookup-failed");
@@ -238,7 +238,7 @@ test("재생목록: 항목이 없으면 null, 목록을 받지 못하면 까닭�
   respond = () => ({ title: "빈 목록", entries: [] });
   assert.equal(await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL2"), null);
   respond = () => ({ fail: "ERROR: [youtube:tab] PL3: This playlist is private" });
-  await assert.rejects(YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL3"), (e) => codeOf(e) === "playlist-unavailable");
+  await assert.rejects(YouTube.getPlaylist("https://www.youtube.com/playlist?list=PL3"), (e) => codeOf(e) === "unavailable-playlist");
 });
 
 // 회귀 대상: 목록 조회 실패가 null 이 되어 없는 목록도 "믹스라서 못 쓴다"로 알렸다
@@ -246,7 +246,7 @@ test("자동재생 재생목록 소스: 목록을 못 받으면 그 까닭, 곡 
   const playlists = await import("../../src/autoplay/sources/playlists.ts");
   const url = "https://www.youtube.com/playlist?list=PLzzz";
   respond = () => ({ fail: "ERROR: [youtube:tab] PLzzz: The playlist does not exist." });
-  await assert.rejects(playlists.youtube({ type: "playlist", url }), (e) => codeOf(e) === "playlist-unavailable");
+  await assert.rejects(playlists.youtube({ type: "playlist", url }), (e) => codeOf(e) === "unavailable-playlist");
   respond = () => ({ title: "믹스", entries: [video("mmmmmmmmmmm")], playlist_count: null });
   await assert.rejects(playlists.youtube({ type: "playlist", url }), /유튜브 믹스는 소스로 쓸 수 없습니다/);
 });

@@ -2,7 +2,7 @@
 // 고치는 법은 운영자가 보는 로그에 이 안내를 붙인다. 곡 찾기(sources)와 재생(player)이 같이 쓴다
 
 const HINTS: Record<string, string> = {
-  "bot-check": "bgutil(POToken)을 켜거나 .env 의 COOKIES_SOURCE 로 쿠키를 걸면 풀릴 수 있다",
+  "yt-bot-check": "bgutil(POToken)을 켜거나 .env 의 COOKIES_SOURCE 로 쿠키를 걸면 풀릴 수 있다",
   "rate-limited": "유튜브면 잦을 때 .env 의 COOKIES_SOURCE 로 쿠키를 건다. 사운드클라우드는 요청이 몰리면 IP 를 몇 분 막는다",
 };
 

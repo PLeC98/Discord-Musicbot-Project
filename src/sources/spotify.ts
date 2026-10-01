@@ -140,7 +140,7 @@ function playable(items: GqlItems) {
 async function playlistPage(query: Net["query"], id: string, offset: number, limit: number) {
   const data = (await query("fetchPlaylist", "fetchPlaylist", { uri: `spotify:playlist:${id}`, offset, limit, enableWatchFeedEntrypoint: false })) as GqlPlaylist | null;
   const pl = data?.playlistV2;
-  if (!pl || pl.__typename === "NotFound") throw codedError("playlist-unavailable", "플레이리스트 접근 불가(NotFound)");
+  if (!pl || pl.__typename === "NotFound") throw codedError("unavailable-playlist", "플레이리스트 접근 불가(NotFound)");
   return { items: pl.content?.items || [], total: pl.content?.totalCount ?? null };
 }
 

@@ -46,7 +46,7 @@ function checkVoice(member: GuildMember): PermissionDenied | null {
   if (!botChannelId) return null;
   if (member.voice.channel?.id === botChannelId) return null;
 
-  return member.voice.channel ? "same-channel-required" : "voice-required";
+  return member.voice.channel ? "must-be-in-same-voice" : "must-be-in-voice";
 }
 
 /** 모든 재생 조작(🔒)의 단일 기준: 재적 규칙 + DJ 계층 */
@@ -54,7 +54,7 @@ async function checkControl(member: GuildMember): Promise<PermissionDenied | nul
   const voiceErr = checkVoice(member);
   if (voiceErr) return voiceErr;
 
-  if (!(await isDj(member))) return "not-dj";
+  if (!(await isDj(member))) return "must-dj";
   return null;
 }
 
@@ -75,11 +75,11 @@ function checkSummon(member: GuildMember): PermissionDenied | null {
   if (me?.voice?.channel) return null;
 
   const target = member.voice.channel;
-  if (!target) return "voice-required";
+  if (!target) return "must-be-in-voice";
 
   const permissions = me ? target.permissionsFor(me) : null;
   if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-    return "bot-cannot-join";
+    return "permission-voice";
   }
   return null;
 }

@@ -191,7 +191,7 @@ class TrackDownloader {
       const found = await this.deps.equivalent.findYouTubeEquivalent(track).catch((error: unknown) => {
         throw this._failed(track, error);
       });
-      if (!found) throw this._failed(track, codedError("no-youtube-match", "유튜브에서 같은 곡을 찾지 못했습니다"));
+      if (!found) throw this._failed(track, codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못했습니다"));
     }
     const filepath = this.trackFilePath(track);
 

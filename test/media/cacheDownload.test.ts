@@ -188,7 +188,7 @@ test("스포티파이: 동등물을 못 찾으면 받기 전에 실패한다. �
   const track = { title: "못 찾는 곡", pageUrl: "https://open.spotify.com/track/sp2", requestKey: "https://open.spotify.com/track/sp2", platform: "spotify" };
 
   const from = sink.buffer.length;
-  await assert.rejects(downloader().downloadTrack(track), { code: "no-youtube-match" });
+  await assert.rejects(downloader().downloadTrack(track), { code: "sp-no-youtube-match" });
   // 받기 전 실패도 받기가 한 번 남긴다(부르는 쪽은 debug 로 결과만)
   const failed = sink.buffer.slice(from).filter((e) => e.text.includes("캐시 다운로드 실패"));
   assert.deepEqual(

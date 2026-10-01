@@ -6,15 +6,14 @@ import { operatorHint } from "./operatorHints.ts";
 
 // 로그에 적을 이름. 문장이 넓게 걸리는 종류(stream-failed 등)는 넣지 않는다. 이름만 남기면 무엇이 깨졌는지 잃는다
 const LABELS: Record<string, string> = {
-  "age-cookies-invalid": "연령 제한 · 쿠키가 무효. 쿠키를 다시 넣어 주세요",
-  "bot-check": "봇 감지",
-  "video-unavailable": "비공개이거나 삭제된 영상",
-  "playlist-unavailable": "없거나 비공개인 재생목록",
-  "track-unavailable": "없거나 비공개인 곡",
-  "preview-only": "미리듣기만 열린 곡",
+  "yt-age-cookies-invalid": "연령 제한 · 쿠키가 무효. 쿠키를 다시 넣어 주세요",
+  "yt-bot-check": "봇 감지",
+  "unavailable-contents": "없거나 비공개 · 삭제된 곡",
+  "unavailable-playlist": "없거나 비공개인 재생목록",
+  "sc-preview-only": "미리듣기만 열린 곡",
   "geo-blocked": "지역 차단",
   "rate-limited": "요청 제한",
-  "no-youtube-match": "유튜브에서 같은 곡을 못 찾음",
+  "sp-no-youtube-match": "유튜브에서 같은 곡을 못 찾음",
 };
 
 const VIDEO_ID = /\[youtube\] ([\w-]{11}):/;
@@ -41,7 +40,7 @@ function causeOf(error: unknown, text: string) {
 function failureReason(error: unknown, cookiesConfigured: boolean): string {
   const kind = errorKind(error);
   const text = messageOf(error);
-  const why = kind === "age-restricted" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? `${firstLine(text)}${causeOf(error, text)}`}${operatorHint(kind)}`;
+  const why = kind === "yt-age-no-cookies" ? `연령 제한 · ${cookiesConfigured ? "쿠키로도 재생 불가" : "쿠키 없음"}` : `${LABELS[kind] ?? `${firstLine(text)}${causeOf(error, text)}`}${operatorHint(kind)}`;
   const id = VIDEO_ID.exec(text)?.[1];
   return id ? `${why} (${id})` : why;
 }

@@ -50,7 +50,7 @@ function trackOf(item: YtInfo): ScTrack | null {
 
 // 곡 하나. 미리듣기만 열린 곡은 30초 조각을 곡처럼 틀지 않는다
 function oneTrack(item: YtInfo): ScTrack {
-  if (previewOnly(item)) throw codedError("preview-only", `미리듣기만 열린 곡입니다: ${item.title ?? item.webpage_url}`);
+  if (previewOnly(item)) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${item.title ?? item.webpage_url}`);
   const track = trackOf(item);
   if (!track) throw new Error("yt-dlp 가 곡 페이지 주소를 주지 않았습니다");
   return track;
@@ -99,7 +99,7 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
 async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: boolean } = {}, exec: RunYtDlp = youtubedl) {
   const info = readInfo(await streamInfo(url, canPlayHls, exec));
   if (!info?.url) throw new Error("yt-dlp 가 스트림 주소를 주지 않았습니다");
-  if (/_preview$/.test(info.format_id || "")) throw codedError("preview-only", `미리듣기만 열린 곡입니다: ${info.title ?? url}`);
+  if (/_preview$/.test(info.format_id || "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${info.title ?? url}`);
   return {
     url: info.url,
     protocol: info.protocol || null,

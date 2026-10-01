@@ -27,7 +27,7 @@ test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", (
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
-  assert.equal(failureReason(ytdlpError("ERROR: [youtube] abcdefghijk: Video unavailable"), false), "비공개이거나 삭제된 영상 (abcdefghijk)");
+  assert.equal(failureReason(ytdlpError("ERROR: [youtube] abcdefghijk: Video unavailable"), false), "없거나 비공개 · 삭제된 곡 (abcdefghijk)");
 });
 
 test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {
@@ -51,7 +51,7 @@ test("봇 감지 · 요청 제한: 고치는 법(쿠키 · bgutil)은 로그 줄
 
 // 사용자 문장을 일반화하려 감싼 오류(직접 링크)는 사유가 원인에만 있다. 로그 한 줄에 붙인다
 test("감싼 오류는 원인의 첫 줄을 붙인다", () => {
-  const wrapped = codedError("link-unavailable", "재생할 수 없는 링크입니다", { cause: new Error("요청 실패: HTTP 404\n자세한 것") });
+  const wrapped = codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: new Error("요청 실패: HTTP 404\n자세한 것") });
   assert.equal(failureReason(wrapped, false), "재생할 수 없는 링크입니다 (요청 실패: HTTP 404)");
 });
 
@@ -60,6 +60,6 @@ test("원인의 첫 줄이 오류와 같으면 다시 붙이지 않는다. 이�
   const line = "ERROR: [soundcloud] a/weird: Unable to download JSON metadata: HTTP Error 500";
   const same = codedError("stream-failed", line, { cause: new Error(`${line}\nmore`) });
   assert.equal(failureReason(same, false), line);
-  const gone = codedError("playlist-unavailable", "ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404", { cause: new Error("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404") });
+  const gone = codedError("unavailable-playlist", "ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404", { cause: new Error("ERROR: [soundcloud:set] discover/sets/x: HTTP Error 404") });
   assert.equal(failureReason(gone, false), "없거나 비공개인 재생목록");
 });

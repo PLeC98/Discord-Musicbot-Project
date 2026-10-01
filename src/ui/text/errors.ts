@@ -55,7 +55,7 @@ const guildOnly = () => warning("permission", "서버에서만 쓸 수 있는 �
 const processingFailedInChannel = () => error("failed", "처리 중 오류가 발생했어요.");
 
 // 권한 판정(usecases/permissions)이 막은 까닭마다
-const PERMISSION = { "voice-required": voiceRequired, "same-channel-required": sameChannelRequired, "not-dj": notDj, "bot-cannot-join": botCannotJoin } as const;
+const PERMISSION = { "must-be-in-voice": voiceRequired, "must-be-in-same-voice": sameChannelRequired, "must-dj": notDj, "permission-voice": botCannotJoin } as const;
 type PermissionDenied = keyof typeof PERMISSION;
 /** 권한 거절의 안내 */
 const permission = (code: PermissionDenied) => PERMISSION[code]();
@@ -63,29 +63,28 @@ const permission = (code: PermissionDenied) => PERMISSION[code]();
 // 오류 종류(rules/errorKind)마다
 const BY_KIND: Record<string, () => Notice> = {
   // 고치는 법(bgutil · 쿠키)은 운영자 로그에(rules/operatorHints). 사용자는 설정을 만질 수 없다
-  "bot-check": () => error("failed", "YouTube가 이 요청을 차단했습니다 (봇 감지)", "YouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 계속되면 봇 운영자에게 알려 주세요."),
+  "yt-bot-check": () => error("failed", "YouTube가 이 요청을 차단했습니다 (봇 감지)", "YouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 계속되면 봇 운영자에게 알려 주세요."),
   // 운영자가 쿠키를 일부러 안 걸어 둔 것일 수 있다. 사용자에게 설정 방법을 늘어놓지 않는다
-  "age-restricted": () => warning("blocked", "연령 제한 영상은 재생할 수 없어요."),
+  "yt-age-no-cookies": () => warning("blocked", "연령 제한 영상은 재생할 수 없어요."),
   // 운영자가 쿠키를 다시 넣으면 풀린다
-  "age-cookies-invalid": () => error("blocked", "연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요."),
-  "video-unavailable": () => warning("blocked", "비공개이거나 삭제된 영상은 재생할 수 없어요."),
-  "track-unavailable": () => warning("blocked", "없거나 비공개인 곡이에요."),
+  "yt-age-cookies-invalid": () => error("blocked", "연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요."),
+  "unavailable-contents": () => warning("blocked", "비공개이거나 삭제된 영상은 재생할 수 없어요."),
   // 사운드클라우드 Go+ · 음반사 곡은 30초 조각만 열린다. 조각을 곡처럼 틀지 않는다
-  "preview-only": () => warning("blocked", "미리듣기(30초)만 열린 곡이라 틀 수 없어요."),
-  "playlist-unavailable": () => warning("blocked", "없거나 비공개인 재생목록이에요."),
+  "sc-preview-only": () => warning("blocked", "미리듣기(30초)만 열린 곡이라 틀 수 없어요."),
+  "unavailable-playlist": () => warning("blocked", "없거나 비공개인 재생목록이에요."),
   // 운영자 설정이 없다. 까닭은 운영자 로그에만
   "spotify-unavailable": () => error("blocked", "지금은 스포티파이 링크를 재생할 수 없어요."),
   // 막힌 주소 같은 까닭은 운영자 로그에만(내부망 탐지 도구가 되지 않게)
-  "link-unavailable": () => warning("link", "재생할 수 없는 링크예요."),
+  "direct-unavailable": () => warning("link", "재생할 수 없는 링크예요."),
   "geo-blocked": () => warning("blocked", "지역 차단 콘텐츠", "이 동영상은 봇이 호스팅된 지역에서 제한되어 있습니다.\n\n**해결 방법:** 다른 링크를 시도해 보세요."),
   "rate-limited": () => error("failed", "요청이 너무 많습니다 (속도 제한)", "YouTube 또는 다른 플랫폼이 일시적으로 요청을 차단하고 있습니다.\n\n**해결 방법:** 몇 분 기다렸다가 다시 시도하세요. 자주 발생하면 봇 운영자에게 알려 주세요."),
-  "no-youtube-match": () => warning("notFound", "Spotify 트랙을 YouTube에서 찾을 수 없습니다", "이 곡에 대한 일치하는 YouTube 동영상을 찾을 수 없었습니다.\n\n**해결 방법:** Spotify 링크 대신 곡 이름으로 직접 검색하거나 YouTube 링크를 붙여넣으세요."),
+  "sp-no-youtube-match": () => warning("notFound", "Spotify 트랙을 YouTube에서 찾을 수 없습니다", "이 곡에 대한 일치하는 YouTube 동영상을 찾을 수 없었습니다.\n\n**해결 방법:** Spotify 링크 대신 곡 이름으로 직접 검색하거나 YouTube 링크를 붙여넣으세요."),
   network: () => error("failed", "네트워크 오류", "봇이 음악 플랫폼에 연결할 수 없었습니다. 보통 일시적인 문제입니다.\n\n**해결 방법:** 잠시 기다렸다가 다시 시도하세요."),
   "stream-failed": () => error("failed", "오디오 스트림 실패", "봇이 트랙을 찾았지만 오디오 스트림을 시작할 수 없었습니다.\n\n**해결 방법:** 다시 시도하거나 다른 버전의 곡을 시도해 보세요."),
-  "voice-permission": () => error("permission", "음성 채널 권한 없음", "봇이 음성 채널에 참여하거나 말할 권한이 없습니다.\n\n**해결 방법:** 음성 채널 설정 → 권한 → 봇에게 **연결** 및 **말하기** 권한을 부여하세요."),
+  "permission-voice": () => error("permission", "음성 채널 권한 없음", "봇이 음성 채널에 참여하거나 말할 권한이 없습니다.\n\n**해결 방법:** 음성 채널 설정 → 권한 → 봇에게 **연결** 및 **말하기** 권한을 부여하세요."),
   // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅)과 그 밖(rules/errorKind 가 거절된 요청의 주소로 가른다)
-  "text-permission": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
-  "other-permission": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요."),
+  "permission-text": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
+  "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요."),
   "voice-failed": voiceFailed,
   unknown: () => error("failed", "예상치 못한 오류가 발생했습니다", "요청을 처리하는 중 문제가 발생했습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 문제가 계속되면 봇 운영자에게 알려 주세요."),
 };
@@ -102,10 +101,10 @@ const noResult = () => warning("notFound", "결과를 찾을 수 없습니다!")
 // 오류로 못 한 것(lookup-failed · play-failed · play-threw)은 여기 없다. 오류 종류로 알린다
 type AddDetail = { skipped?: number; max: number };
 const ADD_REFUSAL: Record<string, (detail: AddDetail) => Notice> = {
-  "no-result": noResult,
-  "youtube-unplayable": () => warning("link", "재생할 수 없는 유튜브 주소입니다."),
+  "no-song-result": noResult,
+  "yt-unplayable": () => warning("link", "재생할 수 없는 유튜브 주소입니다."),
   "unsupported-link": () => warning("link", "지원하지 않는 링크입니다."),
-  "unsupported-soundcloud": () => warning("link", "지원하지 않는 사운드클라우드 링크예요. 곡이나 세트 링크를 넣어 주세요."),
+  "sc-unsupported": () => warning("link", "지원하지 않는 사운드클라우드 링크예요. 곡이나 세트 링크를 넣어 주세요."),
   "nothing-playable": () => warning("blocked", "이 세트의 앞 곡들은 모두 틀 수 없어요(미리듣기만 열린 곡 · 지역 제한 등)."),
   "live-upcoming": liveUpcoming,
   "live-no-ffmpeg": liveNoFfmpeg,
@@ -115,7 +114,6 @@ const ADD_REFUSAL: Record<string, (detail: AddDetail) => Notice> = {
   "no-player": () => warning("state", "음악 플레이어를 찾을 수 없습니다."),
   threw: () => error("failed", "음악을 처리하는 중 오류가 발생했습니다."),
   // 더 넣기
-  "more-no-player": noPlayer,
   "more-nothing-playable": ({ skipped }) => warning("blocked", `받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(${skipped}곡).`),
   "more-nothing-found": () => warning("notFound", "더 넣을 곡을 찾지 못했어요."),
 };
@@ -139,9 +137,7 @@ const REFUSAL: Record<string, (r: Refusal) => Notice> = {
   "no-track": () => noTrack(),
   failed,
   held: ({ reason }) => (reason && HELD[reason]?.()) || error("failed", "다른 까닭으로 멈춰 있어 이어서 재생할 수 없습니다."),
-  "skip-failed": () => warning("state", "노래가 건너뛰어지지 않았습니다!"),
-  "previous-failed": () => warning("state", "이전 노래로 이동하지 못했습니다!"),
-  "jump-failed": () => warning("state", "곡으로 이동하지 못했습니다!"),
+  "switch-failed": () => warning("state", "노래가 건너뛰어지지 않았습니다!"),
   "nothing-to-skip": () => warning("state", "건너뛸 노래가 없습니다! 대기열에 노래가 없습니다."),
   "no-previous": () => warning("state", "이전 노래가 없습니다!"),
   "live-no-seek": () => liveNoSeek(),

@@ -122,13 +122,13 @@ const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
 function codeOf(error: unknown) {
   const msg = textOf(error);
   // 쿠키로 다시 시도했는데 쿠키가 무효였다. 운영자가 쿠키를 다시 넣으면 풀린다
-  if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "age-cookies-invalid";
-  if (isAgeRestrictedError(error)) return "age-restricted";
+  if (isAgeRestrictedError(error) && isCookiesInvalidError(error)) return "yt-age-cookies-invalid";
+  if (isAgeRestrictedError(error)) return "yt-age-no-cookies";
   // 지역 차단 문장은 "this video is not available ... from your location" 처럼 영상 없음의 문장을 품는다. 먼저 본다
   if (GEO_BLOCKED.test(msg)) return "geo-blocked";
-  if (isVideoUnavailableError(error)) return "video-unavailable";
-  if (PLAYLIST_UNAVAILABLE.test(msg)) return "playlist-unavailable";
-  if (BOT_CHECK.test(msg)) return "bot-check";
+  if (isVideoUnavailableError(error)) return "unavailable-contents";
+  if (PLAYLIST_UNAVAILABLE.test(msg)) return "unavailable-playlist";
+  if (BOT_CHECK.test(msg)) return "yt-bot-check";
   if (RATE_LIMITED.test(msg)) return "rate-limited";
   if (isSkippedClientError(error)) return "skipped-client";
   if (isStaleMediaError(error)) return "stale-media";

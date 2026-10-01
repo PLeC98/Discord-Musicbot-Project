@@ -303,7 +303,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
   try {
     const w = world();
     await settings.setBotChannel("g1", "bot-channel");
-    fakeLookup.resolveQuery = async () => ({ success: false, code: "no-result" });
+    fakeLookup.resolveQuery = async () => ({ success: false, code: "no-song-result" });
     const msg = message(w);
 
     await messageHandler.execute(msg);
@@ -565,7 +565,7 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   const fail = menu(w2, { customId: "panel:jump:S1", values: ["1"] });
   await interactionCreate.execute(fail.it);
   assert.deepEqual(w2.player.queue, [a, b, c], "되돌린다");
-  assert.deepEqual(fail.log, [["reply", "### ⚠️ 곡으로 이동하지 못했습니다!"]]);
+  assert.deepEqual(fail.log, [["reply", "### ⚠️ 노래가 건너뛰어지지 않았습니다!"]]);
 });
 
 test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async () => {

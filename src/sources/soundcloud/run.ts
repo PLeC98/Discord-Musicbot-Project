@@ -38,7 +38,7 @@ const textOf = (error: unknown) => {
 function nameOf(error: unknown, what: What): string | null {
   const text = textOf(error);
   if (/No video formats found|Requested format is not available/i.test(text)) return "no-formats";
-  if (/HTTP Error 404/.test(text)) return what === "set" ? "playlist-unavailable" : "track-unavailable";
+  if (/HTTP Error 404/.test(text)) return what === "set" ? "unavailable-playlist" : "unavailable-contents";
   if (/HTTP Error 403/.test(text)) return "rate-limited";
   const code = codeOf(error);
   return typeof code === "string" ? code : null;

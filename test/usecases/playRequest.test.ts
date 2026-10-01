@@ -370,13 +370,13 @@ test("insertFirst가 코어로 전달된다", async () => {
 });
 
 test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () => {
-  mockResolve = () => ({ success: false, code: "no-result" });
+  mockResolve = () => ({ success: false, code: "no-song-result" });
   const client = makeClient();
   const guild = makeGuild();
 
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "없는곡" }));
 
-  assert.equal(result.success ? null : result.code, "no-result");
+  assert.equal(result.success ? null : result.code, "no-song-result");
   assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "결과를 찾을 수 없습니다!");
   assert.equal(client.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
@@ -400,7 +400,7 @@ test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대�
 
 // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남았다
 test("봇이 쉬는 서버에서 곡을 못 찾으면 플레이어를 만들지 않는다", async () => {
-  mockResolve = () => ({ success: false, code: "no-result" });
+  mockResolve = () => ({ success: false, code: "no-song-result" });
   const client = makeClient();
   const guild = makeGuild();
 
@@ -469,7 +469,7 @@ test("로그: 못 넣은 까닭은 코드로. 곡 찾기가 던졌으면 오류 
     mockResolve = typeof answer === "function" ? answer : () => answer;
     return (await requestLines({ query: "q" })).lines;
   };
-  assert.deepEqual(await refused({ success: false, code: "no-result" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: no-result']);
+  assert.deepEqual(await refused({ success: false, code: "no-song-result" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: no-song-result']);
   assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 못 넣음: lookup-failed(network)']);
   assert.deepEqual(await refused({ success: false, code: "unsupported-link" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: unsupported-link']);
   const upcoming = { success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] } as const;
@@ -661,7 +661,7 @@ test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없�
 test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 받을 수 없는 곡뿐이다(뺀 곡 수) · 받은 곡이 없다", () =>
   withLimits(250, 50, async () => {
     const client = makeClient();
-    assert.deepEqual(await continueCollection(client, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "more-no-player" });
+    assert.deepEqual(await continueCollection(client, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "no-player" });
 
     const scState: MoreState = { kind: "scs", listId: "2284916349", offset: 10, anchorId: "3009", insertFirst: false, requesterId: null };
     const previews = await continueWith({ state: scState, count: 50, source: ({ offset = 0 }: Range) => ({ tracks: [], total: 41, nextOffset: offset + 10, skipped: 10 }) });
@@ -673,7 +673,7 @@ test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 받�
 
 test("이어 넣기: 다음 묶음을 못 받으면 모은 곡까지만 넣고, 첫 묶음부터 못 받으면 그 까닭을 던진다", () =>
   withLimits(0, 50, async () => {
-    const gone = codedError("playlist-unavailable", "목록이 사라졌다");
+    const gone = codedError("unavailable-playlist", "목록이 사라졌다");
     const whole = listSource(1000);
     const secondFails = (range: Range) => {
       if (collectionCalls.length > 1) throw gone;

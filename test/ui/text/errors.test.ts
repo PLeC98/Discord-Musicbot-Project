@@ -82,23 +82,22 @@ test("뜻마다 하나인 문장", () => {
 
 test("오류 종류마다. 모르는 종류는 unknown", () => {
   const expected: Record<string, string> = {
-    "bot-check": "error ❌ YouTube가 이 요청을 차단했습니다 (봇 감지)\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 계속되면 봇 운영자에게 알려 주세요.",
-    "age-restricted": "warning 🔒 연령 제한 영상은 재생할 수 없어요.",
-    "age-cookies-invalid": "error 🔒 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.",
-    "video-unavailable": "warning 🔒 비공개이거나 삭제된 영상은 재생할 수 없어요.",
-    "track-unavailable": "warning 🔒 없거나 비공개인 곡이에요.",
-    "preview-only": "warning 🔒 미리듣기(30초)만 열린 곡이라 틀 수 없어요.",
-    "playlist-unavailable": "warning 🔒 없거나 비공개인 재생목록이에요.",
+    "yt-bot-check": "error ❌ YouTube가 이 요청을 차단했습니다 (봇 감지)\nYouTube가 이 서버의 IP 주소에서 오는 요청을 거부하고 있습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 계속되면 봇 운영자에게 알려 주세요.",
+    "yt-age-no-cookies": "warning 🔒 연령 제한 영상은 재생할 수 없어요.",
+    "yt-age-cookies-invalid": "error 🔒 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.",
+    "unavailable-contents": "warning 🔒 비공개이거나 삭제된 영상은 재생할 수 없어요.",
+    "sc-preview-only": "warning 🔒 미리듣기(30초)만 열린 곡이라 틀 수 없어요.",
+    "unavailable-playlist": "warning 🔒 없거나 비공개인 재생목록이에요.",
     "spotify-unavailable": "error 🔒 지금은 스포티파이 링크를 재생할 수 없어요.",
-    "link-unavailable": "warning 🔗 재생할 수 없는 링크예요.",
+    "direct-unavailable": "warning 🔗 재생할 수 없는 링크예요.",
     "geo-blocked": "warning 🔒 지역 차단 콘텐츠\n이 동영상은 봇이 호스팅된 지역에서 제한되어 있습니다.\n\n**해결 방법:** 다른 링크를 시도해 보세요.",
     "rate-limited": "error ❌ 요청이 너무 많습니다 (속도 제한)\nYouTube 또는 다른 플랫폼이 일시적으로 요청을 차단하고 있습니다.\n\n**해결 방법:** 몇 분 기다렸다가 다시 시도하세요. 자주 발생하면 봇 운영자에게 알려 주세요.",
-    "no-youtube-match": "warning 🔍 Spotify 트랙을 YouTube에서 찾을 수 없습니다\n이 곡에 대한 일치하는 YouTube 동영상을 찾을 수 없었습니다.\n\n**해결 방법:** Spotify 링크 대신 곡 이름으로 직접 검색하거나 YouTube 링크를 붙여넣으세요.",
+    "sp-no-youtube-match": "warning 🔍 Spotify 트랙을 YouTube에서 찾을 수 없습니다\n이 곡에 대한 일치하는 YouTube 동영상을 찾을 수 없었습니다.\n\n**해결 방법:** Spotify 링크 대신 곡 이름으로 직접 검색하거나 YouTube 링크를 붙여넣으세요.",
     network: "error ❌ 네트워크 오류\n봇이 음악 플랫폼에 연결할 수 없었습니다. 보통 일시적인 문제입니다.\n\n**해결 방법:** 잠시 기다렸다가 다시 시도하세요.",
     "stream-failed": "error ❌ 오디오 스트림 실패\n봇이 트랙을 찾았지만 오디오 스트림을 시작할 수 없었습니다.\n\n**해결 방법:** 다시 시도하거나 다른 버전의 곡을 시도해 보세요.",
-    "voice-permission": "error 🚫 음성 채널 권한 없음\n봇이 음성 채널에 참여하거나 말할 권한이 없습니다.\n\n**해결 방법:** 음성 채널 설정 → 권한 → 봇에게 **연결** 및 **말하기** 권한을 부여하세요.",
-    "text-permission": "error 🚫 제게 권한이 없어요.\n봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요.",
-    "other-permission": "error 🚫 제게 권한이 없어요.\n봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요.",
+    "permission-voice": "error 🚫 음성 채널 권한 없음\n봇이 음성 채널에 참여하거나 말할 권한이 없습니다.\n\n**해결 방법:** 음성 채널 설정 → 권한 → 봇에게 **연결** 및 **말하기** 권한을 부여하세요.",
+    "permission-text": "error 🚫 제게 권한이 없어요.\n봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요.",
+    "permission-other": "error 🚫 제게 권한이 없어요.\n봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요.",
     "voice-failed": "error 🎧 음성 채널에 연결하지 못했습니다!",
     unknown: "error ❌ 예상치 못한 오류가 발생했습니다\n요청을 처리하는 중 문제가 발생했습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 문제가 계속되면 봇 운영자에게 알려 주세요.",
   };
@@ -109,10 +108,10 @@ test("오류 종류마다. 모르는 종류는 unknown", () => {
 test("곡을 찾거나 담지 못한 까닭마다. 오류로 알릴 까닭이면 null", () => {
   const detail = { skipped: 7, max: 100 };
   const expected: Record<string, string> = {
-    "no-result": "warning 🔍 결과를 찾을 수 없습니다!",
-    "youtube-unplayable": "warning 🔗 재생할 수 없는 유튜브 주소입니다.",
+    "no-song-result": "warning 🔍 결과를 찾을 수 없습니다!",
+    "yt-unplayable": "warning 🔗 재생할 수 없는 유튜브 주소입니다.",
     "unsupported-link": "warning 🔗 지원하지 않는 링크입니다.",
-    "unsupported-soundcloud": "warning 🔗 지원하지 않는 사운드클라우드 링크예요. 곡이나 세트 링크를 넣어 주세요.",
+    "sc-unsupported": "warning 🔗 지원하지 않는 사운드클라우드 링크예요. 곡이나 세트 링크를 넣어 주세요.",
     "nothing-playable": "warning 🔒 이 세트의 앞 곡들은 모두 틀 수 없어요(미리듣기만 열린 곡 · 지역 제한 등).",
     "live-upcoming": "warning 🔴 아직 시작하지 않은 방송이에요. 방송이 시작된 뒤에 다시 넣어 주세요!",
     "live-no-ffmpeg": "error 🔴 지금 설치된 ffmpeg로는 라이브 방송을 재생할 수 없어요. `pnpm run install:ffmpeg`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인해 주세요.",
@@ -121,7 +120,6 @@ test("곡을 찾거나 담지 못한 까닭마다. 오류로 알릴 까닭이면
     "queue-full": "warning ⚠️ 대기열이 가득 찼습니다 (최대 100곡)",
     "no-player": "warning ⚠️ 음악 플레이어를 찾을 수 없습니다.",
     threw: "error ❌ 음악을 처리하는 중 오류가 발생했습니다.",
-    "more-no-player": "warning ⚠️ 현재 재생 중인 음악이 없습니다!",
     "more-nothing-playable": "warning 🔒 받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(7곡).",
     "more-nothing-found": "warning 🔍 더 넣을 곡을 찾지 못했어요.",
   };
@@ -140,9 +138,7 @@ test("재생 조작의 거절. 모르는 까닭은 일반 실패", () => {
     [{ code: "held", reason: "mute" }, "warning 🔇 봇이 서버에서 음소거되어 멈춰 있습니다. 음소거가 풀리면 이어서 재생합니다."],
     [{ code: "held", reason: "alone" }, "warning ⏳ 음성 채널에 아무도 없어 멈춰 있습니다. 누가 들어오면 이어서 재생합니다."],
     [{ code: "held", reason: "other" }, "error ❌ 다른 까닭으로 멈춰 있어 이어서 재생할 수 없습니다."],
-    [{ code: "skip-failed" }, "warning ⚠️ 노래가 건너뛰어지지 않았습니다!"],
-    [{ code: "previous-failed" }, "warning ⚠️ 이전 노래로 이동하지 못했습니다!"],
-    [{ code: "jump-failed" }, "warning ⚠️ 곡으로 이동하지 못했습니다!"],
+    [{ code: "switch-failed" }, "warning ⚠️ 노래가 건너뛰어지지 않았습니다!"],
     [{ code: "nothing-to-skip" }, "warning ⚠️ 건너뛸 노래가 없습니다! 대기열에 노래가 없습니다."],
     [{ code: "no-previous" }, "warning ⚠️ 이전 노래가 없습니다!"],
     [{ code: "live-no-seek" }, "warning 🔴 라이브 방송은 구간 이동을 할 수 없어요."],
@@ -166,7 +162,7 @@ test("재생 조작의 거절. 모르는 까닭은 일반 실패", () => {
 
 test("권한 판정이 막은 까닭마다", () => {
   assert.deepEqual(
-    (["voice-required", "same-channel-required", "not-dj", "bot-cannot-join"] as const).map((code) => shown(errors.permission(code))),
+    (["must-be-in-voice", "must-be-in-same-voice", "must-dj", "permission-voice"] as const).map((code) => shown(errors.permission(code))),
     ["warning 🎧 음성 채널에 있어야 합니다!", "warning 🎧 봇과 같은 음성 채널에 있어야 합니다!", "warning 🚫 음악 컨트롤 권한이 없습니다. (DJ 역할 필요)", "error 🚫 이 음성 채널에서 말할 권한이 없습니다!"],
   );
 });

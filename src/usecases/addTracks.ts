@@ -299,7 +299,7 @@ const ignoreProgress = () => {
 async function continueCollection(client: Client, request: CollectionRequest): Promise<CollectionResult> {
   const { guild, state } = request;
   const player = client.players.get(guild.id);
-  if (!player) return { success: false, code: "more-no-player" };
+  if (!player) return { success: false, code: "no-player" };
   const want = Math.min(request.count, roomFor(player), KINDS[state.kind].perClick);
   if (want <= 0) return { success: false, code: "queue-full" };
 

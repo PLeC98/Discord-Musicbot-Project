@@ -59,7 +59,7 @@ async function getInfo(url: string, net: HeadNet = { head: SafeUrl.head }) {
     ];
   } catch (error) {
     // SSRF 오라클 방지: 차단 사유(막힌 주소)는 원인에만 둔다. 곡 찾기가 로그 한 줄에 원인을 붙인다
-    throw codedError("link-unavailable", "재생할 수 없는 링크입니다", { cause: error });
+    throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   }
 }
 
@@ -77,7 +77,7 @@ async function getStream(url: string, net: StreamNet = { getStream: SafeUrl.getS
   } catch (error) {
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)
     log.error("직접 링크 스트림 실패:", messageOf(error));
-    throw codedError("link-unavailable", "재생할 수 없는 링크입니다", { cause: error });
+    throw codedError("direct-unavailable", "재생할 수 없는 링크입니다", { cause: error });
   }
 }
 

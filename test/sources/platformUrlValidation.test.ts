@@ -63,7 +63,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거�
 
     const result = await lookup.getTrackData(url);
     assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
-    assert.equal(result.code, "youtube-unplayable", url);
+    assert.equal(result.code, "yt-unplayable", url);
     assert.match(result.success ? "" : plainText(addFailureMessage(result)), /유튜브 주소/);
   }
 

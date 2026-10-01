@@ -182,7 +182,7 @@ test("조작 버튼: 플레이어가 거절하면 실패 문장(일시정지 · 
   const cases = [
     ["panel:pause:S1", "### ❌ 작업이 실패했습니다!"],
     ["panel:skip:S1", "### ⚠️ 노래가 건너뛰어지지 않았습니다!"],
-    ["panel:previous:S1", "### ⚠️ 이전 노래로 이동하지 못했습니다!"],
+    ["panel:previous:S1", "### ⚠️ 노래가 건너뛰어지지 않았습니다!"],
   ];
   for (const [id, want] of cases) {
     const { it, log } = press(w, id);

@@ -24,7 +24,7 @@ type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: nu
 // 두 갈래가 서로의 칸을 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다
 // collectionId: 이어 받을 때 목록을 부를 id(주소만으로는 모르는 출처. 사운드클라우드 세트의 숫자 id)
 /** 곡을 찾지 못한 까닭. 로그에 적고, 사용자 문장은 ui/errorMessages 가 고른다 */
-type LookupRefusal = "no-result" | "lookup-failed" | "youtube-unplayable" | "unsupported-link" | "unsupported-soundcloud" | "nothing-playable";
+type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "sc-unsupported" | "nothing-playable";
 type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined; skipped?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
 type Sources = {
@@ -52,7 +52,7 @@ function isUnsupportedLink(query: string): boolean {
 }
 
 // 쿼리 → { success, isPlaylist, collection, tracks, total, nextOffset } 또는 { success: false, code, error? }
-//   code: no-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/errorMessages 로 만든다
+//   code: no-song-result(찾은 것이 없다) · lookup-failed(error: 조회가 던진 오류). 문장은 부르는 쪽이 ui/errorMessages 로 만든다
 // collection: 여러 곡을 담은 출처의 종류. "playlist" | "album" | "artist", 한 곡이면 null
 // range: 여러 곡 출처에서 받을 구간 { offset, limit }. 한 곡이면 무시. total은 모르면 null.
 /** 찾은 곡들과 그 출처. 한 곡이면 collection · total · nextOffset 이 null */
@@ -110,13 +110,13 @@ function findOn(platform: string, query: string, range: Range, { youtube, spotif
 
 async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
   const platform = detectPlatform(query);
-  if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "youtube-unplayable" } : { success: false, code: "unsupported-link" };
+  if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
   // 프로필 · 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
-  if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, code: "unsupported-soundcloud" };
+  if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, code: "sc-unsupported" };
   try {
     const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources });
     // 받은 구간에 틀 수 있는 곡이 하나도 없는 세트는 뺀 까닭(nothing-playable)을 알린다
-    if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable" } : { success: false, code: "no-result" };
+    if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable" } : { success: false, code: "no-song-result" };
     return { success: true, ...found };
   } catch (error) {
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
