@@ -1,10 +1,11 @@
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.ts).
 
-import { type ActionRowBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
+import type { ContainerBuilder, ModalMessageModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeReply, type Notice } from "../src/ui/frame.ts";
+import { noticeReply, post, type Notice } from "../src/ui/frame.ts";
+import { fetchingView } from "../src/ui/playlistMoreMenu.ts";
 import { noticeInstead } from "../src/ui/failureNotice.ts";
 import * as moreText from "../src/ui/text/more.ts";
 import { addFailureMessage, errorMessage } from "../src/ui/errorMessages.ts";
@@ -58,19 +59,19 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
   const message = interaction.message;
   // 메뉴를 떼어 두 번 누르지 못하게 하면서 3초 안에 응답한다
   if (message) More.clearExpiry(message.id);
-  await interaction.update({ content: moreText.fetching(), components: [] });
+  await interaction.update(post(fetchingView()));
 
   let lastEdit = 0;
   const onProgress = (done: number, want: number) => {
     const now = Date.now();
     if (done >= want || now - lastEdit < PROGRESS_EVERY_MS) return;
     lastEdit = now;
-    interaction.editReply({ content: moreText.fetchingCount(done, want) }).catch(() => {
+    interaction.editReply(post(fetchingView({ done, want }))).catch(() => {
       /* 진행 표시는 놓쳐도 된다 */
     });
   };
 
-  let outcome: { payload: { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[] } } | { failed: Notice };
+  let outcome: { view: ContainerBuilder } | { failed: Notice };
   try {
     const result = await continueCollection(interaction.client, {
       guild: interaction.guild,
@@ -81,18 +82,18 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
       voiceChannel: interaction.member.voice?.channel ?? null,
       onProgress,
     });
-    outcome = result.success ? { payload: More.resultMessage(state, result, More.roomFor(player)) } : { failed: addFailureMessage(result) };
+    outcome = result.success ? { view: More.resultView(state, result, More.roomFor(player)).view } : { failed: addFailureMessage(result) };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
     outcome = { failed: errorMessage(error) };
   }
 
-  // 실패면 메뉴 메시지(글자 메시지라 안내로 고칠 수 없다)를 지우고 본인에게만 알린다
+  // 실패면 메뉴 메시지(모두에게 보인다)를 지우고 본인에게만 알린다
   if ("failed" in outcome) {
     await noticeInstead(interaction, outcome.failed).catch(closed);
     return;
   }
-  await interaction.editReply(outcome.payload).catch(closed);
+  await interaction.editReply(post(outcome.view)).catch(closed);
   if (message) More.expireLater(message.id, () => interaction.deleteReply());
 }
 

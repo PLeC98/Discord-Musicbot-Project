@@ -1,7 +1,6 @@
-// 재생목록 "더 넣기". 이어 받을 위치(상태), 선택지, 디스코드 메뉴, 메시지 수명.
+// 재생목록 "더 넣기". 이어 받을 위치(상태), 선택지, 메시지 수명. 화면은 ui/playlistMoreMenu 가 그린다.
 // 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
 
-import { ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from "discord.js";
 import * as links from "../rules/links.ts";
 import { SET_BATCH as SOUNDCLOUD_BATCH } from "../sources/soundcloud/index.ts";
 import logger from "../infra/log/logger.ts";
@@ -12,6 +11,8 @@ import * as labels from "../ui/text/labels.ts";
 import * as moreText from "../ui/text/more.ts";
 import { markTransient } from "../ui/transientMessages.ts";
 import { canSend } from "../ui/channels.ts";
+import { post, reply } from "../ui/frame.ts";
+import { moreView, countModal as moreCountModal } from "../ui/playlistMoreMenu.ts";
 import { messageOf } from "../rules/errorKind.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/Player.ts";
@@ -138,45 +139,34 @@ function parseCount(raw: unknown) {
   return n >= 1 && n <= MAX_COUNT ? n : null;
 }
 
-function menuMessage(head: string, state: MoreState, { remaining, room, batch = config.bot.playlistAddDefault }: { remaining: number; room: number; batch?: number }) {
+/** 머리 줄과 곡 수 메뉴. menu 는 메뉴를 달았는지(자리가 없거나 상태가 custom_id 에 안 들어가면 머리 줄만) */
+function menuView(head: string, state: MoreState, { remaining, room, batch = config.bot.playlistAddDefault }: { remaining: number; room: number; batch?: number }) {
   const { perClick } = KINDS[state.kind];
   const { cap, steps } = moreChoices({ remaining, room, batch, perClick });
-  if (cap === 0) return { content: moreText.noRoom(head), components: [] };
+  if (cap === 0) return { view: moreView(moreText.noRoom(head), null), menu: false };
   // 모달 ID가 한 글자 더 길다. 둘 다 100자 안이어야 한다
-  if (encodeState(MODAL_PREFIX, state).length > 100) return { content: head, components: [] };
-
-  const t = moreText.menu(remaining);
-  const menu = new StringSelectMenuBuilder()
-    .setCustomId(encodeState(SELECT_PREFIX, state))
-    .setPlaceholder(t.placeholder)
-    .addOptions(...steps.map((n) => ({ label: moreText.step(n), value: String(n) })), { label: moreText.capLabel(cap, { all: cap >= remaining, perClick: cap === perClick }), value: String(cap) }, { label: t.custom, value: "custom" }, { label: t.stop, value: "stop" });
-  return { content: head, components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] };
+  if (encodeState(MODAL_PREFIX, state).length > 100) return { view: moreView(head, null), menu: false };
+  return { view: moreView(head, { customId: encodeState(SELECT_PREFIX, state), remaining, steps, cap, all: cap >= remaining, perClick: cap === perClick }), menu: true };
 }
 
-function offerMessage(more: More, room: number) {
+/** 처음 띄우는 메뉴 */
+function offerView(more: More, room: number) {
   const label = labels.collection(KINDS[more.kind].collection);
-  return menuMessage(moreText.offered(label, more.total, more.offset), more, { remaining: more.remaining, room, batch: more.batch });
+  return menuView(moreText.offered(label, more.total, more.offset), more, { remaining: more.remaining, room, batch: more.batch });
 }
 
-function resultMessage(state: MoreState, result: MoreResult, room: number) {
+/** 이어 넣은 결과. 더 넣을 것이 있으면 메뉴를 다시 단다 */
+function resultView(state: MoreState, result: MoreResult, room: number) {
   const label = labels.collection(KINDS[state.kind].collection);
   const head = moreText.added({ collection: label, added: result.added, skipped: result.skipped, dropped: result.dropped });
-  if (!result.next) return { content: result.remaining > 0 ? head : moreText.finished(head), components: [] };
-  return menuMessage(moreText.progressed(head, result.total, result.next.offset), result.next, { remaining: result.remaining, room, batch: result.next.batch });
+  if (!result.next) return { view: moreView(result.remaining > 0 ? head : moreText.finished(head), null), menu: false };
+  return menuView(moreText.progressed(head, result.total, result.next.offset), result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }
 
+/** 곡 수를 적는 모달. cap 은 남은 자리 */
 function countModal(state: MoreState, cap: number, batch = config.bot.playlistAddDefault) {
   const max = Math.min(cap, MAX_COUNT, KINDS[state.kind].perClick);
-  const t = moreText.countModal(max);
-  const input = new TextInputBuilder()
-    .setCustomId("count")
-    .setLabel(t.label)
-    .setStyle(TextInputStyle.Short)
-    .setMinLength(1)
-    .setMaxLength(5)
-    .setPlaceholder(String(Math.min(max, batch)))
-    .setRequired(true);
-  return new ModalBuilder().setCustomId(encodeState(MODAL_PREFIX, state)).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+  return moreCountModal({ customId: encodeState(MODAL_PREFIX, state), max, suggested: Math.min(max, batch) });
 }
 
 // ── 메시지 수명. 이어 넣으면 다시 센다 ──
@@ -207,10 +197,10 @@ function expireLater(messageId: string, remove: () => unknown, ms = LIFETIME_MS)
 // 그 응답이 지워지면 "메시지를 불러올 수 없어요"에 매달린다. 채널에 쓸 권한이 없을 때만 본인 전용 후속 메시지로.
 async function offerOnInteraction(interaction: RepliableInteraction, more: More, player: Player) {
   if (await offerOnChannel(interaction.channel, more, player, interaction.user.id, { quiet: true })) return;
-  const payload = offerMessage(more, roomFor(player));
-  if (payload.components.length === 0) return;
+  const offer = offerView(more, roomFor(player));
+  if (!offer.menu) return;
   try {
-    const message = await interaction.followUp({ ...payload, flags: MessageFlags.Ephemeral });
+    const message = await interaction.followUp(reply(offer.view));
     expireLater(message.id, () => interaction.deleteReply(message.id));
   } catch (error) {
     log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
@@ -219,11 +209,11 @@ async function offerOnInteraction(interaction: RepliableInteraction, more: More,
 
 // 공개 메시지. 누를 수 있는 사람은 custom_id의 요청자로 가른다. 띄웠거나 띄울 것이 없으면 true.
 async function offerOnChannel(channel: TextBasedChannel | null | undefined, more: More, player: Player, requesterId: string, { quiet = false } = {}) {
-  const payload = offerMessage({ ...more, requesterId }, roomFor(player));
-  if (payload.components.length === 0) return true;
+  const offer = offerView({ ...more, requesterId }, roomFor(player));
+  if (!offer.menu) return true;
   if (!canSend(channel)) return false;
   try {
-    const message = await channel.send(payload);
+    const message = await channel.send(post(offer.view));
     expireLater(message.id, () => message.delete());
     return true;
   } catch (error) {
@@ -232,5 +222,5 @@ async function offerOnChannel(channel: TextBasedChannel | null | undefined, more
   }
 }
 
-export { LIFETIME_MS, LOOKBACK, MAX_COUNT, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, moreChoices, clickError, parseCount, offerMessage, resultMessage, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
+export { LIFETIME_MS, LOOKBACK, MAX_COUNT, batchFor, SELECT_PREFIX, MODAL_PREFIX, KINDS, continuation, validState, encodeState, decodeState, roomFor, moreChoices, clickError, parseCount, offerView, resultView, countModal, expireLater, clearExpiry, offerOnInteraction, offerOnChannel };
 export type { Kind, MoreState, More, MoreResult };

@@ -392,8 +392,8 @@ function moreInteraction(w: World, { select = null, modalCount = null, customSta
     reply: async (p: Shown) => log.push(["reply", shown(p)]),
     deferUpdate: async () => log.push(["deferUpdate"]),
     deleteReply: async () => log.push(["deleteReply"]),
-    update: async (p: Shown) => log.push(["update", p.content]),
-    editReply: async (p: Shown) => log.push(["editReply", p.content ?? "(메뉴)"]),
+    update: async (p: Shown) => log.push(["update", shown(p)]),
+    editReply: async (p: Shown) => log.push(["editReply", shown(p) ?? "(메뉴)"]),
     showModal: async (m: { data: { custom_id: string } }) => log.push(["showModal", m.data.custom_id]),
   });
   return { it, log, messageId };
@@ -468,6 +468,7 @@ test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 
     ["ccccccccccc", "ddddddddddd"],
   );
   assert.equal(log.at(-1)?.[0], "editReply");
+  assert.match(String(log.at(-1)?.[1]), /^✅ 재생목록에서 2곡을 더 넣었어요\./, "결과로 고친다");
 });
 
 // ── 모달 · 선택 메뉴 ──────────────────────────────────────────────────

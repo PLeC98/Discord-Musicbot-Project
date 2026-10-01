@@ -4,8 +4,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as More from "../../src/usecases/playlistMore.ts";
 import type { More as Offer, MoreState } from "../../src/usecases/playlistMore.ts";
-import type { RepliableInteraction } from "discord.js";
+import { MessageFlags, type RepliableInteraction } from "discord.js";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import { post } from "../../src/ui/frame.ts";
+import { selectOf, textsOf } from "../helpers/cv2.ts";
+
+// 화면 안의 곡 수 메뉴
+function menuOf(offer: { view: Parameters<typeof post>[0]; menu: boolean }) {
+  const select = selectOf(post(offer.view));
+  assert.ok(offer.menu && select?.options, "메뉴가 있다");
+  return { options: select.options };
+}
 
 const PL = "37i9dQZF1E3aglU7q0y10F";
 const TRACK = "3385Kx5khQ1JpCVFJjKAPa";
@@ -44,9 +53,11 @@ test("선택지: 묶음 단위로, 남은 곡과 남은 자리 중 작은 쪽을
 
 test("메뉴: 자리가 없으면 메뉴를 붙이지 않고, 있으면 선택지 뒤에 직접 입력", () => {
   const more: Offer = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 9946, remaining: 9896 };
-  assert.equal(More.offerMessage(more, 0).components.length, 0);
+  const full = More.offerView(more, 0);
+  assert.equal(full.menu, false);
+  assert.equal(selectOf(post(full.view)), undefined);
 
-  const menu = More.offerMessage(more, 120).components[0].components[0].toJSON();
+  const menu = menuOf(More.offerView(more, 120));
   assert.deepEqual(
     menu.options.map((o) => o.value),
     ["50", "100", "120", "custom", "stop"],
@@ -71,7 +82,7 @@ test("슬래시 명령 메뉴: 채널 메시지로 띄우고(요청자 기록), 
   const more: Offer = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 9945, remaining: 9895, batch: 50 };
   const player = fakePlayer({ queue: [] });
   // 보낸 메뉴. 여기서 보는 칸만
-  type Sent = { flags?: number; components: Array<{ components: Array<{ toJSON(): { custom_id?: string } }> }> };
+  type Sent = { flags?: unknown; components: Array<{ toJSON(): unknown }> };
   const sent: Sent[] = [];
   const followUps: Sent[] = [];
   const interaction = (channel: object) => fake<RepliableInteraction>({ channel, user: { id: "12345678901234567" }, followUp: async (p: Sent) => (followUps.push(p), { id: "f1" }), deleteReply: async () => {} });
@@ -79,8 +90,8 @@ test("슬래시 명령 메뉴: 채널 메시지로 띄우고(요청자 기록), 
   await More.offerOnInteraction(interaction({ send: async (p: Sent) => (sent.push(p), { id: "m1", delete: async () => {} }) }), more, player);
   assert.equal(sent.length, 1);
   assert.equal(followUps.length, 0);
-  assert.equal(sent[0].flags, undefined, "공개 메시지");
-  assert.equal(More.decodeState(sent[0].components[0].components[0].toJSON().custom_id)?.requesterId, "12345678901234567");
+  assert.deepEqual(sent[0].flags, [MessageFlags.IsComponentsV2], "공개 메시지");
+  assert.equal(More.decodeState(selectOf(sent[0])?.custom_id)?.requesterId, "12345678901234567");
   More.clearExpiry("m1");
 
   await More.offerOnInteraction(
@@ -93,7 +104,7 @@ test("슬래시 명령 메뉴: 채널 메시지로 띄우고(요청자 기록), 
     player,
   );
   assert.equal(followUps.length, 1);
-  assert.ok(followUps[0].flags, "본인 전용");
+  assert.deepEqual(followUps[0].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인 전용");
   More.clearExpiry("f1");
 });
 
@@ -115,7 +126,7 @@ test("사운드클라우드 세트: 숫자 id 로 이어 받고, 서버 설정�
 
 test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더', 남은 곡이 적으면 전부. 결과 문장에 뺀 곡", () => {
   const more: Offer = { kind: "scs", listId: "123", offset: 10, anchorId: "2227247837", insertFirst: false, requesterId: null, total: 41, remaining: 31, batch: 10 };
-  const menu = More.offerMessage(more, 200).components[0].components[0].toJSON();
+  const menu = menuOf(More.offerView(more, 200));
   assert.deepEqual(
     menu.options.map((o) => [o.value, o.label]),
     [
@@ -124,11 +135,12 @@ test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더
       ["stop", "그만 넣기"],
     ],
   );
-  const last = More.offerMessage({ ...more, remaining: 4 }, 200).components[0].components[0].toJSON();
+  const last = menuOf(More.offerView({ ...more, remaining: 4 }, 200));
   assert.equal(last.options[0].label, "남은 곡 전부 (4곡)");
 
-  const result = More.resultMessage(more, { added: 7, skipped: 3, total: 41, remaining: 21, next: { ...more, offset: 20, remaining: 21 } }, 200);
-  assert.match(result.content, /7곡을 더 넣었어요\. 받을 수 없는 3곡\(미리듣기 · 지역 제한 등\)은 뺐어요\./);
+  const result = More.resultView(more, { added: 7, skipped: 3, total: 41, remaining: 21, next: { ...more, offset: 20, remaining: 21 } }, 200);
+  assert.equal(result.menu, true);
+  assert.match(textsOf(post(result.view))[0], /7곡을 더 넣었어요\. 받을 수 없는 3곡\(미리듣기 · 지역 제한 등\)은 뺐어요\./);
 });
 
 // 사운드클라우드가 만든 믹스는 숫자 id 가 없다(yt-dlp: soundcloud:system-playlists:…). 주소의 이름으로 이어 받는다
