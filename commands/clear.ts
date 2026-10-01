@@ -13,7 +13,7 @@ const exported: GuildCommand = {
     const r = await controls.clear(client.players.get(guild.id), { member });
     if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 
-    await interaction.reply(reply(replies.cleared(r.count, r.track, member)));
+    await interaction.reply(reply(replies.cleared(r.count, member)));
   },
 };
 export default exported;

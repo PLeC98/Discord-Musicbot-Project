@@ -1,58 +1,55 @@
 // 재생 조작이 된 뒤의 응답 문장. 명령과 패널 버튼이 같은 조작을 하면 같은 함수를 부른다.
-// 머리 줄과 본문이 있는 응답은 { title, description, by(누가 했나의 이름표) … } 로 돌려준다(ui/controlReplies 가 그린다)
+// 머리 줄과 본문이 있는 응답은 { title, body } 로 돌려준다(ui/controlReplies 가 그리고, 누가 했나 줄을 붙인다)
+
+import { josa } from "../../rules/josa.ts";
 
 type Linked = { title: string; pageUrl: string };
 
 const link = (track: Linked) => `**[${track.title}](${track.pageUrl})**`;
+// 곡 링크 뒤에 목적격 조사(제목의 끝소리로 고른다)
+const linkObject = (track: Linked) => `${link(track)}${josa(track.title, "을")}`;
+
+/** 누가 했나 줄의 이름표 */
+const requestedBy = () => "👤 요청한 사람";
 
 /** 일시정지 · 재개 */
-const paused = (isPaused: boolean, track: Linked) => {
-  const message = isPaused ? "음악 일시정지됨" : "음악 재개됨";
-  return { title: `${isPaused ? "⏸️" : "▶️"} ${message}`, description: `${link(track)} ${message}!`, by: "👤 작업자" };
-};
+const paused = (isPaused: boolean, track: Linked) => (isPaused ? { title: "⏸️ 일시정지했어요!", body: `${linkObject(track)} 일시정지 했어요.` } : { title: "▶️ 일시정지를 해제했어요!", body: `${linkObject(track)} 다시 재생할게요.` });
 
-/** 건너뛰기. 한곡 반복이라 처음부터 다시 틀었다 */
-const skipRestarted = (track: { title: string }) => `🔂 한곡 반복 중. **${track.title}**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)`;
-/** 건너뛰기 */
-const skipped = (track: Linked) => ({ title: "⏭️ 노래 건너뜀", description: `${link(track)} 건너뜀!`, by: "👤 건너뛴 사람" });
-
-/** 이전 곡. 한곡 반복이면 처음부터 다시 틀었다 */
-const previous = (restarted: boolean) => (restarted ? "🔂 한곡 반복 중. 현재 곡을 처음부터 다시 재생합니다!" : "⏮️ 이전 노래로 이동했습니다!");
-
+/** 건너뛰기 · 이전 곡인데 한 곡 반복이라 지금 곡을 처음부터 다시 틀었다 */
+const restartedOnRepeat = () => ({ title: "🔂 곡을 되감았어요!", body: "한 곡 반복 중이라 지금 곡을 처음부터 다시 틀어요." });
+/** 건너뛰기. track 은 건너뛴 곡 */
+const skipped = (track: Linked) => ({ title: "⏭️ 곡을 건너뛰었어요!", body: `${linkObject(track)} 건너뛰었어요.` });
+/** 이전 곡. track 은 되돌아간 곡 */
+const previous = (track: Linked) => ({ title: "⏮️ 이전 곡으로 되돌렸어요!", body: `${linkObject(track)} 다시 재생할게요.` });
 /** 곡으로 건너뛰기 메뉴 */
-const jumped = (track: { title: string }) => `⏭️ **${track.title}**로 이동했습니다!`;
+const jumped = (track: Linked) => ({ title: "⏭️ 선택한 곡으로 건너뛰었어요!", body: `${linkObject(track)} 재생할게요.` });
 
-/** 정지. cleared 는 비운 대기열 곡 수(0 이면 꼬리말 없음) */
-const stopped = (track: Linked | null | undefined, cleared: number) => ({
-  title: "⏹️ 음악 중지됨",
-  description: `${track ? link(track) : "Music"} 중지됨!`,
-  by: "👤 중지한 사람",
-  footer: cleared > 0 ? `대기열에서 ${cleared}개의 노래가 제거되었습니다` : null,
-});
+/** 정지. cleared 는 비운 대기열 곡 수(0 이면 말하지 않는다) */
+const stopped = (cleared: number) => ({ title: "⏹️ 재생을 중지했어요!", body: `${cleared > 0 ? `대기열에 남아있던 ${cleared}곡을 버리고 ` : ""}채널에서 나갔어요.` });
 
 /** 섞기 */
-const shuffled = (count: number) => ({ title: "🔀 대기열 셔플됨", description: `${count}개의 노래가 셔플되었습니다!`, by: "👤 셔플한 사람" });
+const shuffled = (count: number) => ({ title: "🔀 대기열을 셔플했어요!", body: `${count}개의 곡을 섞었어요.` });
 
-/** 하이라이트로 옮기는 동안 */
-const highlighting = () => "✨ 하이라이트로 옮기는 중...";
-/** 하이라이트로 이동 */
-const highlighted = (track: Linked) => ({ title: "✨ 하이라이트로 이동", description: link(track), at: "⏱️ 위치" });
+/** 하이라이트로 건너뛰는 동안 */
+const highlighting = () => "✨ 하이라이트로 건너뛰는 중...";
+/** 하이라이트로 건너뛰었다. at 은 옮긴 위치를 적은 것 */
+const highlighted = (at: string) => ({ title: "✨ 하이라이트로 건너 뛰었어요!", body: `⏱️ 위치: \`${at}\`` });
 
 /** 처음부터 다시 트는 동안 */
 const replaying = () => "🔄 처음부터 다시 트는 중...";
 /** 처음부터 다시 */
-const replayed = (track: Linked) => ({ title: "🔄 처음부터 다시 재생", description: link(track), by: "👤 요청한 사람" });
+const replayed = (track: Linked) => ({ title: "🔄 곡을 되감았어요!", body: `${linkObject(track)} 처음부터 재생할게요.` });
 
 /** 위치를 옮기는 동안 */
 const seeking = () => "⏩ 위치를 옮기는 중...";
-/** 시간 이동 */
-const seeked = (track: Linked) => ({ title: "⏩ 시간 이동", description: link(track), at: "⏱️ 이동한 위치" });
+/** 위치를 옮겼다. at 은 옮긴 위치를 적은 것 */
+const seeked = (at: string) => ({ title: "⏩ 위치를 옮겼어요!", body: `⏱️ 옮긴 위치: \`${at}\`` });
 
-/** 대기열 비우기. track 이 있으면 지금 곡 칸을 단다 */
-const cleared = (count: number) => ({ title: "🗑️ 대기열 비워짐", description: `대기열에서 ${count}개의 노래가 제거되었습니다`, by: "👤 변경한 사람", current: "🎵 현재 재생 중" });
+/** 대기열 비우기. count 는 버린 곡 수 */
+const cleared = (count: number) => ({ title: "🗑️ 대기열을 비웠어요!", body: `대기열에 있던 ${count}곡을 버렸어요.` });
 
-/** 대기열에서 한 곡 빼기 */
-const removed = (track: Linked) => ({ title: "🗑️ 곡 제거됨", description: link(track), by: "👤 제거한 사람", left: "📋 남은 대기열" });
+/** 대기열에서 한 곡 빼기. left 는 남은 곡 수 */
+const removed = (left: number) => ({ title: "🗑️ 선택한 곡을 버렸어요!", body: `대기열에 ${left}곡이 남았어요.` });
 
 /** 대기열 순서 바꾸기. from · to 는 사람이 센 자리(1부터) */
 const moved = (track: Linked, from: number, to: number) => ({
@@ -67,38 +64,35 @@ const moved = (track: Linked, from: number, to: number) => ({
 
 // 반복 모드마다 [이모지, 문장]
 const LOOP: Record<string, [emoji: string, message: string]> = {
-  track: ["🔂", "반복 모드가 **트랙 반복**으로 설정되었습니다. 현재 곡이 계속 재생됩니다."],
-  queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
-  false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
+  track: ["🔂", "**한 곡 반복** 모드로 설정했어요. 현재 곡을 계속해서 재생해요."],
+  queue: ["🔁", "**대기열 반복** 모드로 설정했어요. 대기열이 끝나면 처음부터 다시 틀어요."],
+  false: ["➡️", "반복 모드를 **해제**했어요."],
 };
 /** 반복 모드 바꾸기 */
 const loopSet = (mode: string | false) => {
   const [emoji, message] = LOOP[String(mode)];
-  return { title: `${emoji} 반복 모드 변경됨`, description: message, by: "👤 변경한 사람" };
+  return { title: `${emoji} 반복 모드를 바꿨어요!`, body: message };
 };
 
 /** 음량. before · level 은 0~100 */
-const volumeSet = (before: number, level: number) => ({
-  title: "🔊 볼륨이 변경되었습니다",
-  description: before === level ? `볼륨은 그대로 **${level}%**입니다.` : `**${before}%** → **${level}%**`,
-  by: "👤 변경한 사람",
-});
+const volumeSet = (before: number, level: number) => ({ title: "🔊 볼륨을 조절했어요!", body: before === level ? `볼륨이 이미 ${level}%라서 그대로 둘게요.` : `**${before}%** → **${level}%**` });
 /** 음량 입력 창 */
-const volumeModal = () => ({ title: "볼륨 설정", label: "볼륨 (0-100)" });
+const volumeModal = () => ({ title: "볼륨 설정", label: "0에서 100까지의 숫자로 입력해 주세요!" });
 
-/** 음성 채널에서 나가기. 플레이어 없이 봇만 남아 있었다 */
-const leftVoiceOnly = () => "👋 음성 채널에서 나갔습니다!";
-/** 음성 채널에서 나가기. 곡이 있었으면 저장한 자리 · 대기열 칸을 단다 */
-const left = () => ({ title: "👋 채널에서 나갔습니다", by: "👤 실행한 사람", position: "⏱️ 저장된 위치", queue: "📋 저장된 대기열", footer: "/join 으로 이전 세션을 복구할 수 있습니다." });
+/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 자리(at, 적은 것) · 대기열 곡 수와 되살리는 법 */
+const left = (saved: { track: Linked; at: string; queue: number } | null) => ({
+  title: "👋 음성 채널에서 나갔어요",
+  body: saved ? [`재생 중이던 곡: ${link(saved.track)}`, `⏱️ 저장한 위치 \`${saved.at}\` · 📋 저장한 대기열 ${saved.queue}곡`, "`/join`으로 이어 들을 수 있어요."].join("\n") : null,
+});
 
 /** 음성 채널에 들어오기 */
-const joined = () => "✅ 음성 채널에 접속했어요!";
-const alreadyJoined = () => "✅ 이미 채널에 접속해 있어요.";
-/** 저장한 세션을 되살렸다. title 은 마크다운을 이스케이프한 곡 제목 */
-const restored = (title: string, isPaused: boolean) => (isPaused ? `⏸️ 이전 세션을 복구했어요! **${title}** 일시정지 중` : `▶️ 이전 세션을 복구했어요! **${title}** 재생 중`);
+const joined = () => ({ title: "✅ 음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." });
+const alreadyJoined = () => ({ title: "✅ 이미 음성 채널에 있어요.", body: "저는 준비됐어요. 언제든지 곡을 넣어 주세요." });
+/** /join 이 저장한 세션을 되살렸다(미뤄 둔 응답의 글자) */
+const restored = (track: Linked, isPaused: boolean) => (isPaused ? `### ⏸️ 듣던 곡이 있어요!\n이전에 듣던 곡들을 다시 가져왔어요.\n${link(track)} (일시정지 중)` : `### ▶️ 듣던 곡이 있어요!\n이전에 듣던 곡을 이어서 재생할게요.\n${link(track)} (재생 중)`);
 /** 세션을 되살렸는데 틀 곡이 없다 */
 const restoredEmpty = () => "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)";
-/** 세션을 되살리다 오류가 났다 */
-const restoreFailed = () => "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요.";
+/** 세션을 되살리다 오류가 났다(미뤄 둔 응답의 글자) */
+const restoreFailed = () => "### ⚠️ 오류가 발생했어요!\n이전에 듣던 곡을 복구하던 중 오류가 발생했어요. 잠시 후에 `/join`을 다시 시도해보세요. 여전히 문제가 있다면 봇 운영자에게 알려주세요.";
 
-export { paused, skipRestarted, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, leftVoiceOnly, left, joined, alreadyJoined, restored, restoredEmpty, restoreFailed };
+export { requestedBy, paused, restartedOnRepeat, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restored, restoredEmpty, restoreFailed };

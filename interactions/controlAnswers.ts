@@ -32,13 +32,13 @@ async function answerSkip(interaction: Asked, player: MaybePlayer) {
 async function answerPrevious(interaction: Asked, player: MaybePlayer) {
   const r = await controls.previous(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.previous(r.restarted)));
+  return interaction.reply(reply(replies.previous(r.restarted, r.track)));
 }
 
 async function answerStop(interaction: Asked, player: MaybePlayer) {
   const r = await controls.stop(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.reply(reply(replies.stopped(r.track, r.cleared, interaction.member)));
+  return interaction.reply(reply(replies.stopped(r.cleared, interaction.member)));
 }
 
 async function answerShuffle(interaction: Asked, player: MaybePlayer) {
@@ -81,7 +81,7 @@ async function answerReplay(interaction: Asked, player: MaybePlayer) {
 async function answerSeek(interaction: Asked, player: MaybePlayer, ms: number) {
   const r = await controls.seek(player, { member: interaction.member }, ms, { reason: "seek", onAccepted: acceptWith(interaction, replies.seeking()) });
   if (!r.ok) return refuse(interaction, r);
-  return interaction.editReply(post(replies.seeked(r.track, r.ms)));
+  return interaction.editReply(post(replies.seeked(r.ms)));
 }
 
 /**
@@ -92,7 +92,7 @@ async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone
   const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.highlighting()) });
   if (!r.ok && r.code === "no-highlight" && onNone) return onNone();
   if (!r.ok) return refuse(interaction, r);
-  return interaction.editReply(post(replies.highlighted(r.track, r.ms)));
+  return interaction.editReply(post(replies.highlighted(r.ms)));
 }
 
 export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight };

@@ -18,7 +18,7 @@ const exported: GuildCommand = {
     const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
     if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 
-    await interaction.reply(reply(replies.removed(r.track, r.left, member)));
+    await interaction.reply(reply(replies.removed(r.left, member)));
   },
 };
 export default exported;

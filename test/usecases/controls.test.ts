@@ -136,11 +136,15 @@ test("정지: 세션을 지우고 끝난 패널(stop)로 버린다. 등록부 �
   assert.deepEqual(p.calls, ["dispose:remove:stop"]);
 });
 
-test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복 · 대기열 반복은 허용)", async () => {
+test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복 · 대기열 반복은 허용). 되돌아간 곡을 싣는다", async () => {
+  // 이전 곡으로 가면 그 곡이 대기열 맨 앞에 선다(trackState.rewind). 가짜는 그 자리를 미리 채워 둔다
+  const now = track("지금");
+  const back = track("전");
+  const rewound = (over: object) => fakePlayer({ currentTrack: now, queue: [back, track("a")], ...over });
   assert.equal(codeOf(await controls.previous(fakePlayer({ previousTracks: [] }), DJ)), "no-previous");
-  assert.deepEqual(await controls.previous(fakePlayer({ previousTracks: [], loop: "track" }), DJ), { ok: true, restarted: true });
-  assert.deepEqual(await controls.previous(fakePlayer({ previousTracks: [], loop: "queue" }), DJ), { ok: true, restarted: false }, "대기열이 고리라 맨 끝 곡으로");
-  assert.deepEqual(await controls.previous(fakePlayer({ previousTracks: [], loop: "queue", queue: [] }), DJ), { ok: true, restarted: true }, "고리에 지금 곡뿐");
+  assert.deepEqual(await controls.previous(rewound({ previousTracks: [], loop: "track" }), DJ), { ok: true, restarted: true, track: now }, "되감으면 지금 곡");
+  assert.deepEqual(await controls.previous(rewound({ previousTracks: [], loop: "queue" }), DJ), { ok: true, restarted: false, track: back }, "대기열이 고리라 맨 끝 곡으로");
+  assert.deepEqual(await controls.previous(rewound({ previousTracks: [], loop: "queue", queue: [] }), DJ), { ok: true, restarted: true, track: now }, "고리에 지금 곡뿐");
   assert.equal(codeOf(await controls.previous(fakePlayer({ currentTrack: null }), DJ)), "no-track");
 });
 

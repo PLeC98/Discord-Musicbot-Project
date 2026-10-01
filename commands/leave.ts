@@ -14,7 +14,7 @@ const exported: GuildCommand = {
     if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 
     // 플레이어는 없었지만 봇이 음성 채널에 남아 있었다(음악이 끝난 뒤 자동 퇴장 타이머가 아직 안 돌았다)
-    if (r.left === "voice-only") return interaction.reply(reply(replies.leftVoiceOnly()));
+    if (r.left === "voice-only") return interaction.reply(reply(replies.left(null, member)));
 
     await interaction.reply(reply(replies.left(r.track ? { track: r.track, ...r.saved } : null, member)));
   },

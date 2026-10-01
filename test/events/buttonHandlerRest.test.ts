@@ -199,15 +199,15 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
   w.player.skip = () => true;
   const pause = press(w, "panel:pause:S1");
   await interactionCreate.execute(pause.it);
-  assert.deepEqual(pause.log, [["reply", "### ⏸️ 음악 일시정지됨"]]);
+  assert.deepEqual(pause.log, [["reply", "### ⏸️ 일시정지했어요!"]]);
   const skip = press(w, "panel:skip:S1");
   await interactionCreate.execute(skip.it);
-  assert.deepEqual(skip.log, [["reply", "### ⏭️ 노래 건너뜀"]]);
+  assert.deepEqual(skip.log, [["reply", "### ⏭️ 곡을 건너뛰었어요!"]]);
   // 트랙 반복이면 건너뛰지 않고 처음부터 다시 튼다. 머리 줄 없이 그 안내만
   w.player.loop = "track";
   const again = press(w, "panel:skip:S1");
   await interactionCreate.execute(again.it);
-  assert.deepEqual(again.log, [["reply", "🔂 한곡 반복 중. **곡**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)"]]);
+  assert.deepEqual(again.log, [["reply", "### 🔂 곡을 되감았어요!"]]);
   w.player.loop = false;
   const loop = press(w, "panel:loop:S1");
   await interactionCreate.execute(loop.it);
@@ -250,7 +250,7 @@ test("조작 응답: 썸네일 · 누가 했나는 Components V2 화면에 담�
   let payload: Payload = {};
   await interactionCreate.execute(press(w, "panel:pause:S1", { reply: async (p: Payload) => void (payload = p) }).it);
   assert.equal(thumbnailOf(payload), "https://t.test/a.jpg");
-  assert.deepEqual(textsOf(payload), ["### ⏸️ 음악 일시정지됨\n**[곡](https://u.test)** 음악 일시정지됨!", `-# 👤 작업자 <@${USER}>`]);
+  assert.deepEqual(textsOf(payload), ["### ⏸️ 일시정지했어요!\n**[곡](https://u.test)**을 일시정지 했어요.", `-# 👤 요청한 사람 <@${USER}>`]);
 });
 
 test("하이라이트 버튼: 옮기는 중을 Components V2 로 먼저 보내고 결과로 고친다. 없으면 조용히 넘긴다", async () => {
@@ -262,8 +262,8 @@ test("하이라이트 버튼: 옮기는 중을 Components V2 로 먼저 보내�
   const done = press(w, "panel:highlight:S1");
   await interactionCreate.execute(done.it);
   assert.deepEqual(done.log, [
-    ["reply", "✨ 하이라이트로 옮기는 중..."],
-    ["editReply", "### ✨ 하이라이트로 이동"],
+    ["reply", "✨ 하이라이트로 건너뛰는 중..."],
+    ["editReply", "### ✨ 하이라이트로 건너 뛰었어요!"],
   ]);
   p.sponsor = { highlightAt: null };
   const none = press(w, "panel:highlight:S1");

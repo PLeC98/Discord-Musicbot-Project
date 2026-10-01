@@ -540,7 +540,7 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   const ok = menu(w, { customId: "panel:volume", volume: "35", select: false });
   await interactionCreate.execute(ok.it);
   assert.deepEqual(w.seen, ["volume:35"]);
-  assert.match(String(ok.log[0][1]), /^### 🔊 볼륨이 변경되었습니다\n\*\*\d+%\*\* → \*\*35%\*\*\n-# 👤 변경한 사람 /);
+  assert.match(String(ok.log[0][1]), /^### 🔊 볼륨을 조절했어요!\n\*\*\d+%\*\* → \*\*35%\*\*\n-# 👤 요청한 사람 /);
 
   // "50abc" 를 50 으로 읽지 않는다(parseInt 가 그랬다)
   for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
@@ -552,13 +552,13 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
 
 test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
   const w = world();
-  const [a, b, c] = [{ title: "A" }, { title: "B" }, { title: "C" }];
+  const [a, b, c] = [{ title: "A" }, { title: "B" }, { title: "C", pageUrl: "https://c.test" }];
   w.player.queue = [a, b, c];
   const jump = menu(w, { customId: "panel:jump:S1", values: ["2"] });
   await interactionCreate.execute(jump.it);
   assert.deepEqual(w.player.queue, [c, a, b]);
   assert.deepEqual(w.seen, ["skip:jump"]);
-  assert.deepEqual(jump.log, [["reply", "⏭️ **C**로 이동했습니다!"]]);
+  assert.deepEqual(jump.log, [["reply", "### ⏭️ 선택한 곡으로 건너뛰었어요!\n**[C](https://c.test)**를 재생할게요."]]);
 
   const w2 = world();
   w2.player.queue = [a, b, c];

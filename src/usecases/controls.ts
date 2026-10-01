@@ -95,7 +95,7 @@ async function stop(player: MaybePlayer, actor: Actor) {
   return done({ track, cleared });
 }
 
-/** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted) */
+/** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted). track 은 되돌아간 곡(처음부터면 지금 곡) */
 async function previous(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-player");
   const { blocked, track } = await permittedTrack(player, actor);
@@ -104,7 +104,8 @@ async function previous(player: MaybePlayer, actor: Actor) {
   // 대기열 반복은 대기열이 고리라 기록이 없어도 이전 곡이 있다
   if (player.previousTracks.length === 0 && !restarted && player.loop !== "queue") return fail("no-previous");
   if (!player.previous()) return fail("switch-failed");
-  return done({ restarted });
+  // 되돌아간 곡은 대기열 맨 앞에 선다(trackState.rewind)
+  return done({ restarted, track: restarted ? track : (player.queue[0] ?? track) });
 }
 
 /**

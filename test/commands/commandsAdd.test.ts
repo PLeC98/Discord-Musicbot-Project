@@ -38,6 +38,7 @@ import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import * as replies from "../../src/ui/controlReplies.ts";
+import * as controlText from "../../src/ui/text/controls.ts";
 
 useExampleConfig();
 
@@ -458,7 +459,7 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
   });
   assert.deepEqual(playing.log[0], ["deferReply", undefined]);
-  assert.deepEqual(playing.log[1], ["editReply", { content: "▶️ 이전 세션을 복구했어요! **저장된 곡** 재생 중" }]);
+  assert.deepEqual(playing.log[1], ["editReply", { content: "### ▶️ 듣던 곡이 있어요!\n이전에 듣던 곡을 이어서 재생할게요.\n**[저장된 곡](https://www.youtube.com/watch?v=ccccccccccc)** (재생 중)" }]);
   // 모두에게 보이는 응답이지만 잠깐 뒤 지운다(기본 정리는 본인에게만 보이는 응답만 지운다)
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
@@ -474,7 +475,7 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
     this.paused = true;
   });
-  assert.deepEqual(paused.log[1], ["editReply", { content: "⏸️ 이전 세션을 복구했어요! **저장된 곡** 일시정지 중" }]);
+  assert.deepEqual(paused.log[1], ["editReply", { content: "### ⏸️ 듣던 곡이 있어요!\n이전에 듣던 곡들을 다시 가져왔어요.\n**[저장된 곡](https://www.youtube.com/watch?v=ccccccccccc)** (일시정지 중)" }]);
 
   const empty = await run(async () => {});
   assert.deepEqual(empty.log[1], ["editReply", { content: "✅ 음성 채널에 접속했어요. (세션 복구 실패 - 곡을 찾을 수 없음)" }]);
@@ -482,7 +483,7 @@ test("/join: 저장된 세션이 있으면 되살리고 결과를 답한다(재�
   const failed = await run(async () => {
     throw new Error("복원 실패");
   });
-  assert.deepEqual(failed.log[1], ["editReply", { content: "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요." }]);
+  assert.deepEqual(failed.log[1], ["editReply", { content: controlText.restoreFailed() }]);
   assert.equal(failed.w.client.players.has("g1"), false, "실패하면 레지스트리에서 뺀다");
 });
 

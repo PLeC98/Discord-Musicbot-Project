@@ -4,7 +4,6 @@ const log = logger.child({ category: "commands" });
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import * as playerEvents from "../src/player/events.ts";
 import { sessions } from "../src/store/playerSessions.ts";
-import { escapeMd } from "../src/ui/mentions.ts";
 import * as errors from "../src/ui/text/errors.ts";
 import { noticeReply, reply } from "../src/ui/frame.ts";
 import * as replies from "../src/ui/controlReplies.ts";
@@ -57,8 +56,7 @@ const exported: GuildCommand = {
 
         // restoreFromState가 이미 새 CV2 현재 재생 메시지를 보냈음;
         // defer된 응답은 CV2 메시지로 수정할 수 없으므로 일반 응답으로 유지
-        const title = escapeMd(player.currentTrack.title);
-        await interaction.editReply({ content: controlText.restored(title, player.paused) });
+        await interaction.editReply({ content: controlText.restored(player.currentTrack, player.paused) });
       } catch (error) {
         log.error({ sub: "join" }, "세션 복원 실패:", messageOf(error));
         await player.dispose({ reason: "세션 복원 실패", session: "keep" });
