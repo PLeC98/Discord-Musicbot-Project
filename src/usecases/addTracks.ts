@@ -426,8 +426,8 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   const wasIdle = !player.currentTrack && player.queue.length === 0 && tracks.length > 0;
   const start = wasIdle ? await startFirst(panel, player, stamp(tracks[0]), responder) : { opened: null, failure: null };
   const addition = enqueue(player, trackData, (wasIdle ? tracks.slice(1) : tracks).map(stamp));
-  // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도.
-  const opened = start.failure ? await startNext(panel, player, responder) : start.opened;
+  // 첫 곡이 실패했지만 대기열에 다음 곡이 있으면(재생목록) 다음 곡부터 재생 시도. 음성 채널에 붙지 못했으면 다음 곡도 붙지 못한다
+  const opened = start.failure ? (start.failure.code === "voice-failed" ? null : await startNext(panel, player, responder)) : start.opened;
 
   // 첫 곡 실패 + 되살릴 것 없음 → 실패 반환(명령 editReply / 대시보드 응답 / 메시지 답장이 사용자에게 표기).
   if (start.failure && !opened) return { success: false, ...start.failure };
@@ -462,12 +462,16 @@ async function startFirst(panel: Panel, player: Player, track: QueuedTrack, resp
   return { opened: await openPanel(panel, player, track, responder), failure: null, started: track };
 }
 
-// 음성 채널에 연결하고 재생 시작. 실패면 그 까닭(play 의 code, 던졌으면 play-threw)
+// 음성 채널에 연결하고 재생 시작. 실패면 그 까닭(붙지 못했으면 voice-failed, play 의 code, 던졌으면 play-threw). 붙지 못한 까닭은 voiceLink 가 남긴다
 async function startPlayback(player: Player): Promise<Refused | null> {
-  try {
-    if (!player.connection) {
+  if (!player.connection) {
+    try {
       await player.voice.connect();
+    } catch {
+      return { code: "voice-failed" };
     }
+  }
+  try {
     const playResult = await player.play();
     // play()는 실패를 throw가 아니라 {success:false}로 알린다. 이걸 무시하면
     // 재생이 안 됐는데도 아래에서 now-playing 임베드를 만들어 '유령 재생'이 된다.

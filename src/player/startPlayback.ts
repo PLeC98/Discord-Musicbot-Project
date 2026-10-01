@@ -31,14 +31,13 @@ const RESUME_URL_MARGIN_MS = 60_000; // 직전 주소를 다시 쓸 때 남은 �
 /**
  * 틀 곡과 시작 위치.
  */
-async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true; startMs: number } | { ok: false; code: "queue-empty" | "voice-failed" }> {
+async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true; startMs: number } | { ok: false; code: "queue-empty" }> {
   if (!player.currentTrack) {
     if (player.queue.length === 0) return { ok: false, code: "queue-empty" };
     trackState.shiftNext(player);
   }
-  if (!player.connection && !(await player.voice.connect())) {
-    return { ok: false, code: "voice-failed" };
-  }
+  // 붙지 못하면 voice-failed 로 던진다. play() 의 실패 처리가 알리고 다음 곡으로 넘긴다
+  if (!player.connection) await player.voice.connect();
 
   const wanted = Number(seekMs) || 0;
   let startMs = Math.max(0, Math.floor(wanted));

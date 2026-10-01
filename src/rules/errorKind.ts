@@ -3,11 +3,11 @@
 // 글은 보지 않는다. 이름이 없으면 unknown 이다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
-const KINDS = new Set(["age-cookies-invalid", "age-restricted", "bot-check", "video-unavailable", "track-unavailable", "preview-only", "playlist-unavailable", "geo-blocked", "rate-limited", "no-youtube-match", "spotify-unavailable", "link-unavailable", "network", "stream-failed", "voice-permission"]);
+const KINDS = new Set(["age-cookies-invalid", "age-restricted", "bot-check", "video-unavailable", "track-unavailable", "preview-only", "playlist-unavailable", "geo-blocked", "rate-limited", "no-youtube-match", "spotify-unavailable", "link-unavailable", "network", "stream-failed", "voice-failed"]);
 // 연결이 끊기거나 닿지 않은 것(Node · undici 가 붙이는 이름)
 const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
 // 디스코드 API 오류 번호. 50001 접근 없음 · 50013 권한 없음
-const DISCORD_KINDS: Record<number, string> = { 50001: "voice-permission", 50013: "voice-permission" };
+const PERMISSION_CODES = new Set([50001, 50013]);
 
 /** 코드를 단 오류. 만든 곳이 무엇이 안 됐는지 안다 */
 function codedError(code: string, message: string, options?: { cause?: unknown }) {
@@ -26,9 +26,19 @@ function messageOf(error: unknown, fallback = String(error)): string {
   return (typeof message === "string" && message) || fallback;
 }
 
-// 이름 하나를 종류로. 모르는 이름이면 null
-function kindOfCode(code: string | number | undefined): string | null {
-  if (typeof code === "number") return DISCORD_KINDS[code] ?? null;
+// 디스코드가 권한 없음으로 거절한 요청. 거절된 요청의 주소로 가른다: 음성 채널 상태는 음성, 메시지 · 고정 · 웹훅은 글, 그 밖.
+// 음성 채널 접속은 게이트웨이로 가 이 번호를 받지 않는다(접속 전에 권한을 본다. usecases/permissions)
+function permissionKind(one: object) {
+  const url = "url" in one && typeof one.url === "string" ? one.url : "";
+  if (/\/channels\/\d+\/voice-status\b/.test(url)) return "voice-permission";
+  if (/\/channels\/\d+\/(?:messages|pins)\b|\/webhooks\//.test(url)) return "text-permission";
+  return "other-permission";
+}
+
+// 오류 하나의 이름을 종류로. 모르는 이름이면 null
+function kindOf(one: object): string | null {
+  const code = codeOf(one);
+  if (typeof code === "number") return PERMISSION_CODES.has(code) ? permissionKind(one) : null;
   if (!code) return null;
   if (KINDS.has(code)) return code;
   if (NETWORK_CODES.has(code) || code.startsWith("UND_ERR_")) return "network";
@@ -49,7 +59,7 @@ function chainOf(error: unknown, depth = 4): unknown[] {
 function errorKind(error: unknown): string {
   const chain = chainOf(error);
   for (const one of chain) {
-    const coded = kindOfCode(codeOf(one));
+    const coded = kindOf(one as object);
     if (coded) return coded;
   }
   // AbortSignal.timeout 이 끊은 요청. (음성 연결의 기다림이 끝난 것은 AbortError 라 여기 들지 않는다)

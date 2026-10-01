@@ -97,6 +97,9 @@ test("오류 종류마다. 모르는 종류는 unknown", () => {
     network: "error ❌ 네트워크 오류\n봇이 음악 플랫폼에 연결할 수 없었습니다. 보통 일시적인 문제입니다.\n\n**해결 방법:** 잠시 기다렸다가 다시 시도하세요.",
     "stream-failed": "error ❌ 오디오 스트림 실패\n봇이 트랙을 찾았지만 오디오 스트림을 시작할 수 없었습니다.\n\n**해결 방법:** 다시 시도하거나 다른 버전의 곡을 시도해 보세요.",
     "voice-permission": "error 🚫 음성 채널 권한 없음\n봇이 음성 채널에 참여하거나 말할 권한이 없습니다.\n\n**해결 방법:** 음성 채널 설정 → 권한 → 봇에게 **연결** 및 **말하기** 권한을 부여하세요.",
+    "text-permission": "error 🚫 제게 권한이 없어요.\n봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요.",
+    "other-permission": "error 🚫 제게 권한이 없어요.\n봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요.",
+    "voice-failed": "error 🎧 음성 채널에 연결하지 못했습니다!",
     unknown: "error ❌ 예상치 못한 오류가 발생했습니다\n요청을 처리하는 중 문제가 발생했습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 문제가 계속되면 봇 운영자에게 알려 주세요.",
   };
   for (const [kind, sentence] of Object.entries(expected)) assert.equal(shown(errors.forKind(kind)), sentence, kind);

@@ -7,7 +7,7 @@ import type { Player } from "./Player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator } from "../infra/voiceAdapter.ts";
 import { bindToGuild } from "../infra/guildContext.ts";
-import { codeOf, errorKind, messageOf } from "../rules/errorKind.ts";
+import { codeOf, codedError, errorKind, messageOf } from "../rules/errorKind.ts";
 
 const log = logger.child({ category: "voice" });
 
@@ -96,7 +96,7 @@ class VoiceLink {
       this._drop({ leave: true });
       this.state = "idle";
       log.error("음성 채널 연결 실패:", messageOf(error));
-      throw error;
+      throw codedError("voice-failed", "음성 채널에 붙지 못했습니다", { cause: error });
     }
   }
 

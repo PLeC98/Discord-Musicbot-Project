@@ -151,7 +151,7 @@ test("붙기: 새 연결을 만들어 오디오 플레이어를 구독시키고 
 test("붙기: Ready 가 안 오면 연결을 부수고 idle 로 돌아가 던진다", async () => {
   const { link, player } = setup();
   joinWorks = [false];
-  await assert.rejects(link.connect());
+  await assert.rejects(link.connect(), { code: "voice-failed" }, "부르는 쪽이 음성 접속 실패로 알리게");
   assert.equal(link.state, "idle");
   assert.equal(player.connection, null);
   assert.deepEqual(joins[0].destroyed, ["leave"]);

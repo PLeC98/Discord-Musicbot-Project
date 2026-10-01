@@ -15,6 +15,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
 import { plainText } from "../../src/ui/frame.ts";
+import { codedError } from "../../src/rules/errorKind.ts";
 
 // 실패 결과에 입구가 보일 문장을 붙여 본다
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
@@ -43,10 +44,10 @@ class RecordingPanels extends NowPlayingPanel {
 
 // 글 채널에 보낸 안내. 지웠는지 본다
 type Sent = { id: string; content: string; deleted: boolean; delete(): Promise<unknown> };
-type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Array<{ ok: boolean; code?: string } | Error>; connected?: boolean };
+type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Array<{ ok: boolean; code?: string } | Error>; connected?: boolean; connects?: boolean };
 
 // 연결 · 재생 결과를 시험마다 정하는 가짜 플레이어
-function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false }: Setup = {}) {
+function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false, connects = true }: Setup = {}) {
   const calls: unknown[] = [];
   const sent: Sent[] = [];
   const player = fakePlayer({
@@ -65,6 +66,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
     voice: {
       connect: async () => {
         calls.push("connect");
+        if (!connects) throw codedError("voice-failed", "음성 채널에 붙지 못했습니다");
         Object.assign(player, { connection: {} });
         return true;
       },
@@ -105,8 +107,8 @@ test("이미 붙어 있으면 연결하지 않는다", async () => {
 });
 
 test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만든다", async () => {
-  const withCode = setup({ plays: [{ ok: false, code: "voice-failed" }] });
-  assert.deepEqual(said(await withCode.add({ tracks: [track("a")] }, who)), { success: false, code: "voice-failed", message: "음성 채널에 연결하지 못했습니다!" });
+  const withCode = setup({ plays: [{ ok: false, code: "live-ended" }] });
+  assert.deepEqual(said(await withCode.add({ tracks: [track("a")] }, who)), { success: false, code: "live-ended", message: "재생을 시작할 수 없습니다." });
   assert.equal(withCode.player.currentTrack, null);
   assert.ok(!withCode.calls.some((c) => Array.isArray(c) && c[0] === "embed"));
 
@@ -140,7 +142,7 @@ test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 �
 });
 
 test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀어 되살린다", async () => {
-  const { add, player, calls, sent } = setup({ plays: [{ ok: false, code: "voice-failed" }, { ok: true }] });
+  const { add, player, calls, sent } = setup({ plays: [{ ok: false }, { ok: true }] });
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
@@ -162,8 +164,19 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
 });
 
 test("되살리기도 실패하면 첫 곡의 실패를 돌려준다", async () => {
-  const { add } = setup({ plays: [{ ok: false, code: "voice-failed" }, { ok: false }] });
-  assert.deepEqual(said(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "voice-failed", message: "음성 채널에 연결하지 못했습니다!" });
+  const { add } = setup({ plays: [{ ok: false, code: "live-ended" }, { ok: false }] });
+  assert.deepEqual(said(await add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "live-ended", message: "재생을 시작할 수 없습니다." });
+});
+
+test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목록이어도 다음 곡을 붙여 보지 않는다", async () => {
+  const one = setup({ connects: false });
+  assert.deepEqual(said(await one.add({ tracks: [track("a")] }, who)), { success: false, code: "voice-failed", message: "음성 채널에 연결하지 못했습니다!" });
+  assert.equal(one.player.currentTrack, null);
+  assert.deepEqual(one.calls, ["connect"]);
+
+  const list = setup({ connects: false });
+  assert.equal(said(await list.add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)).success, false);
+  assert.deepEqual(list.calls, ["connect"]);
 });
 
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {

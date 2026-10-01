@@ -143,6 +143,16 @@ test("errorKind 는 오류 자신 → 원인(cause) → 시스템 · 디스코�
   assert.equal(errorKind(new Error("익명 상태를 얻지 못했습니다", { cause: new TypeError("fetch failed", { cause: quiet("ECONNREFUSED") }) })), "network");
   assert.equal(errorKind(Object.assign(new Error("무언가"), { name: "TimeoutError" })), "network", "AbortSignal.timeout");
   assert.equal(errorKind(Object.assign(new Error("무언가"), { name: "AbortError" })), "unknown", "음성 연결 기다림이 끝난 것은 네트워크가 아니다");
-  assert.equal(errorKind(quiet(50013)), "voice-permission");
+  // 디스코드의 권한 거절은 거절된 요청의 주소로 가른다
+  const refused = (code: number, url?: string) => Object.assign(new Error("Missing Permissions"), { code, url });
+  assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/channels/123/voice-status")), "voice-permission");
+  assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/channels/123/messages")), "text-permission");
+  assert.equal(errorKind(refused(50001, "https://discord.com/api/v10/channels/123/messages/456")), "text-permission");
+  assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/channels/123/pins/456")), "text-permission");
+  assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/webhooks/1/abc")), "text-permission");
+  assert.equal(errorKind(refused(50013, "https://discord.com/api/v10/guilds/1/members/2")), "other-permission");
+  assert.equal(errorKind(refused(50013)), "other-permission", "주소가 없으면 그 밖");
+  assert.equal(errorKind(refused(10062, "https://discord.com/api/v10/channels/123/messages")), "unknown", "권한이 아닌 번호는 종류가 아니다");
+  assert.equal(errorKind(new Error("음성 채널에 다시 연결하지 못했습니다", { cause: codedError("voice-failed", "음성 채널에 붙지 못했습니다") })), "voice-failed");
   assert.equal(errorKind(quiet("skipped-client")), "unknown", "종류가 아닌 이름(다시 시도용)은 종류가 되지 않는다");
 });

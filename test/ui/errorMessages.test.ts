@@ -22,7 +22,7 @@ const CASES: Array<[Error, string]> = [
   [Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT" }), "network"],
   [networkError(), "network"],
   [codedError("stream-failed", "오디오 리소스를 만들지 못했습니다"), "stream-failed"],
-  [Object.assign(new Error("Missing Permissions"), { code: 50013 }), "voice-permission"], // DiscordAPIError
+  [Object.assign(new Error("Missing Permissions"), { code: 50013, url: "https://discord.com/api/v10/channels/1/messages" }), "text-permission"], // DiscordAPIError
   [new Error("완전히 알 수 없는 무언가"), "unknown"],
 ];
 

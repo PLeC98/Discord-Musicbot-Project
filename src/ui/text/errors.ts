@@ -15,6 +15,7 @@ const sameChannelRequired = () => warning("voice", "봇과 같은 음성 채널�
 const notDj = () => warning("permission", "음악 컨트롤 권한이 없습니다. (DJ 역할 필요)");
 const noTrack = () => warning("state", "현재 재생 중인 노래가 없습니다!");
 const botCannotJoin = () => error("permission", "이 음성 채널에서 말할 권한이 없습니다!");
+const voiceFailed = () => error("voice", "음성 채널에 연결하지 못했습니다!");
 const queueEmpty = () => warning("state", "대기열에 노래가 없습니다!");
 const staleSession = () => warning("stale", "이 버튼은 더 이상 유효하지 않습니다! 음악 시스템이 재시작되었습니다.");
 const processingFailed = () => error("failed", "처리 중 오류가 발생했습니다!");
@@ -82,6 +83,10 @@ const BY_KIND: Record<string, () => Notice> = {
   network: () => error("failed", "네트워크 오류", "봇이 음악 플랫폼에 연결할 수 없었습니다. 보통 일시적인 문제입니다.\n\n**해결 방법:** 잠시 기다렸다가 다시 시도하세요."),
   "stream-failed": () => error("failed", "오디오 스트림 실패", "봇이 트랙을 찾았지만 오디오 스트림을 시작할 수 없었습니다.\n\n**해결 방법:** 다시 시도하거나 다른 버전의 곡을 시도해 보세요."),
   "voice-permission": () => error("permission", "음성 채널 권한 없음", "봇이 음성 채널에 참여하거나 말할 권한이 없습니다.\n\n**해결 방법:** 음성 채널 설정 → 권한 → 봇에게 **연결** 및 **말하기** 권한을 부여하세요."),
+  // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅)과 그 밖(rules/errorKind 가 거절된 요청의 주소로 가른다)
+  "text-permission": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
+  "other-permission": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해달라고 해 주세요."),
+  "voice-failed": voiceFailed,
   unknown: () => error("failed", "예상치 못한 오류가 발생했습니다", "요청을 처리하는 중 문제가 발생했습니다.\n\n**해결 방법:** 잠시 후 다시 시도하세요. 문제가 계속되면 봇 운영자에게 알려 주세요."),
 };
 
@@ -105,7 +110,7 @@ const ADD_REFUSAL: Record<string, (detail: AddDetail) => Notice> = {
   "live-upcoming": liveUpcoming,
   "live-no-ffmpeg": liveNoFfmpeg,
   "queue-empty": () => warning("state", "대기열에 트랙이 없습니다!"),
-  "voice-failed": () => error("voice", "음성 채널에 연결하지 못했습니다!"),
+  "voice-failed": voiceFailed,
   "queue-full": ({ max }) => warning("state", `대기열이 가득 찼습니다 (최대 ${max}곡)`),
   "no-player": () => warning("state", "음악 플레이어를 찾을 수 없습니다."),
   threw: () => error("failed", "음악을 처리하는 중 오류가 발생했습니다."),
