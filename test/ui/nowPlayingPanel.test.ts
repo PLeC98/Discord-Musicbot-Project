@@ -140,7 +140,7 @@ test("종료 모양의 문구는 사유를 따른다", async () => {
   assert.match(await text({ reason: "stop", dedicated: true }), /쉬는 중이에요.*곡을 입력하면/);
   assert.match(await text({ reason: "disconnected" }), /쉬는 중이에요.*\/play/);
   const failed = await text({ reason: "failures" });
-  assert.match(failed, /곡을 연달아 틀지 못해 멈췄어요.*곡을 추가하면 다시 틀어요/);
+  assert.match(failed, /곡 재생에 연달아 실패해서 재생을 멈췄어요.*곡을 넣으면 다시 틀게요/);
   assert.doesNotMatch(failed, /쉬러 갈게요/, "대기열이 남으면 나가지 않으니 나갈 시각을 보이지 않는다");
 });
 
