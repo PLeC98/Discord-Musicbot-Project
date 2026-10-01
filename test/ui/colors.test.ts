@@ -1,4 +1,4 @@
-// src/ui/colors.ts — 화면의 색은 뜻마다 하나. 색 값은 이 표에만 적는다
+// src/ui/colors.ts — 화면의 색은 경고 수준마다 하나. 색 값은 이 표에만 적는다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -9,8 +9,8 @@ import { colorOf } from "../../src/ui/colors.ts";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
 
-test("뜻마다 디스코드 기본 팔레트의 색. brand 는 운영자가 정한 색을 부를 때 읽는다", () => {
-  assert.deepEqual((["error", "done", "closed", "working", "settings"] as const).map(colorOf), ["#ED4245", "#57F287", "#99AAB5", "#FEE75C", "#5865F2"]);
+test("경고 수준마다 디스코드 기본 팔레트의 색. brand 는 운영자가 정한 색을 부를 때 읽는다", () => {
+  assert.deepEqual((["error", "warning", "done"] as const).map(colorOf), ["#ED4245", "#FEE75C", "#57F287"]);
   const saved = config.bot.embedColor;
   try {
     config.bot.embedColor = "#123456";

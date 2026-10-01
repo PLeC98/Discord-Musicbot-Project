@@ -146,7 +146,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 
   if (action === "cancel") {
     const t = searchText.cancelled();
-    const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed")).setTimestamp();
+    const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
   if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral });
@@ -158,7 +158,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   await interaction.deferUpdate();
 
   const adding = searchText.adding();
-  const processingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("working")).setTimestamp();
+  const processingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("brand")).setTimestamp();
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
   // 여기서부터 던지면 "처리 중" 자리를 오류로 바꾼다

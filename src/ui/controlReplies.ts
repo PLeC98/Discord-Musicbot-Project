@@ -2,7 +2,7 @@
 // 머리 줄 · 본문 · 작은 글씨의 꼬리 줄(누가 했나 등). 곡에 썸네일이 있으면 머리 칸 옆에 붙인다
 
 import { ContainerBuilder, MessageFlags, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
-import { colorOf } from "./colors.ts";
+import { colorOf, type Meaning } from "./colors.ts";
 import { formatMs } from "./format.ts";
 import * as controlText from "./text/controls.ts";
 import * as errors from "./text/errors.ts";
@@ -11,7 +11,7 @@ import type { Loop } from "../player/trackState.ts";
 type Track = { title: string; pageUrl: string; thumbnail?: string | null };
 /** 조작한 사람. 멘션으로 보인다 */
 type Actor = { toString(): string };
-type Look = { title?: string; body?: string | null; footer?: Array<string | null>; thumbnail?: string | null; color?: "brand" | "closed" | "error" };
+type Look = { title?: string; body?: string | null; footer?: Array<string | null>; thumbnail?: string | null; color?: Meaning };
 
 // 머리 줄 · 본문을 한 덩이로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section 은 보낼 때 거절되어 글자만 둔다
 function frame({ title, body, footer = [], thumbnail, color = "brand" }: Look) {
@@ -52,7 +52,7 @@ const previous = (restarted: boolean) => frame({ body: controlText.previous(rest
 /** 정지. cleared 는 비운 대기열 곡 수 */
 function stopped(track: Track | null | undefined, cleared: number, by: Actor) {
   const t = controlText.stopped(track, cleared);
-  return frame({ title: t.title, body: t.description, footer: [who(t.by, by), t.footer], color: "closed" });
+  return frame({ title: t.title, body: t.description, footer: [who(t.by, by), t.footer] });
 }
 
 /** 섞기 */

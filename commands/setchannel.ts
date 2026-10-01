@@ -50,7 +50,7 @@ const exported: GuildCommand = {
 
       const t = settingsText.channelRemoved();
       return await interaction.reply({
-        embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed")).setTimestamp()],
+        embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("done")).setTimestamp()],
       });
     }
 

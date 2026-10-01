@@ -21,7 +21,7 @@ const exported: GuildCommand = {
     const validIds = currentIds.filter((id) => guild.roles.cache.has(id));
 
     const t = settingsText.djRoleMenu(validIds);
-    const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("settings"));
+    const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"));
 
     const select = new RoleSelectMenuBuilder().setCustomId("djrole:select").setPlaceholder(t.placeholder).setMinValues(0).setMaxValues(25);
     if (validIds.length) select.setDefaultRoles(validIds);

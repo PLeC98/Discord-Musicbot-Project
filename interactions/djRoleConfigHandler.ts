@@ -37,7 +37,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
     pending.delete(interaction.message.id);
     const t = settingsText.djRoleCancelled();
     return interaction.update({
-      embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed"))],
+      embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"))],
       components: [],
     });
   }
@@ -56,7 +56,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
       await GuildSettingsManager.clearDjRoles(guild.id);
       const t = settingsText.djRoleCleared();
       return interaction.update({
-        embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed")).setTimestamp()],
+        embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("done")).setTimestamp()],
         components: [],
       });
     }

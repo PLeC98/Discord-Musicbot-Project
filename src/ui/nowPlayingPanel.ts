@@ -513,7 +513,7 @@ class NowPlayingPanel {
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 연달아 실패해 멈춘 것은 채널 알림이 따로 간다
     if (live && !dedicated && reason !== "failures" && canSend(textChannel)) {
       const t = panelText.ended();
-      const endEmbed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed")).setTimestamp();
+      const endEmbed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
       await bestEffort(log, textChannel.send({ embeds: [endEmbed] }), "끝 안내 보내기");
     }
 

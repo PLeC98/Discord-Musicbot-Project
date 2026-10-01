@@ -25,7 +25,7 @@ function sweepPending() {
 function buildSponsorConfigMessage({ enabled, categories }: Draft) {
   const cats = new Set(categories);
   const t = settingsText.sponsorMenu({ enabled, globalOff: !config.sponsorblock.enabled });
-  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("settings"));
+  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"));
 
   const select = new StringSelectMenuBuilder()
     .setCustomId("sb:cats")
@@ -93,7 +93,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
   if (interaction.customId === "sb:cancel") {
     pending.delete(mid);
     const t = settingsText.sponsorCancelled();
-    return interaction.update({ embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("closed"))], components: [] });
+    return interaction.update({ embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"))], components: [] });
   }
 
   if (interaction.customId === "sb:save") {
