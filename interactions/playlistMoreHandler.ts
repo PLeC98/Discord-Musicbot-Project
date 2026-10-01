@@ -1,9 +1,10 @@
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.ts).
 
-import { MessageFlags, type ActionRowBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
+import { type ActionRowBuilder, type EmbedBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeEmbed, noticeReply, type Notice } from "../src/ui/frame.ts";
 import * as moreText from "../src/ui/text/more.ts";
 import { addFailureMessage, errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
@@ -23,7 +24,7 @@ const closed = () => {
   /* 상호작용이 이미 닫혔다 */
 };
 
-const refuser = (interaction: MoreInteraction) => (text: string) => interaction.reply({ content: errors.withErrorMark(text), flags: MessageFlags.Ephemeral }).catch(closed);
+const refuser = (interaction: MoreInteraction) => (notice: Notice) => interaction.reply(noticeReply(notice)).catch(closed);
 
 // 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 지운다
 async function stop(interaction: StringSelectMenuInteraction<"cached">, state: MoreState) {
@@ -68,7 +69,8 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     });
   };
 
-  let payload: { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[] };
+  // 메뉴 메시지는 글자 메시지라 실패는 임베드로 바꾼다
+  let payload: { content: string; embeds?: EmbedBuilder[]; components: ActionRowBuilder<StringSelectMenuBuilder>[] };
   try {
     const result = await continueCollection(interaction.client, {
       guild: interaction.guild,
@@ -79,10 +81,10 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
       voiceChannel: interaction.member.voice?.channel ?? null,
       onProgress,
     });
-    payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: errors.withErrorMark(addFailureMessage(result)), components: [] };
+    payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: "", embeds: [noticeEmbed(addFailureMessage(result))], components: [] };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
-    payload = { content: errorMessage(error), components: [] };
+    payload = { content: "", embeds: [noticeEmbed(errorMessage(error))], components: [] };
   }
 
   await interaction.editReply(payload).catch(closed);

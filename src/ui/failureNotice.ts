@@ -1,7 +1,9 @@
 // 처리가 던졌을 때 안내를 어디에 보일지. 남기기와 안내는 상호작용 입구(events/interactionCreate)가 한다.
 // 자리표시자("검색 중" · "처리 중")를 띄운 처리기는 그 자리를 안내로 바꾸는 법을 선언한다. 선언이 없으면 입구의 기본대로
 
-type Show = (notice: string) => Promise<unknown>;
+import type { Notice } from "./frame.ts";
+
+type Show = (notice: Notice) => Promise<unknown>;
 
 const shows = new WeakMap<object, Show>();
 

@@ -17,6 +17,7 @@ import fs from "node:fs";
 import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import * as storeDb from "../../src/store/db.ts";
+import { textOf } from "../helpers/cv2.ts";
 
 const DB_PATH = path.join(os.tmpdir(), `musicbot-session-test-${process.pid}.db`);
 const removeDb = () => {
@@ -472,7 +473,8 @@ function fakeChannel() {
   return {
     id: "c1",
     sent,
-    async send({ content }: { content: string }) {
+    async send(payload: unknown) {
+      const content = textOf(payload);
       const message = {
         content,
         deleted: false,

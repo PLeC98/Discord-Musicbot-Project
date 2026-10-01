@@ -5,6 +5,7 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { openTempStore } from "../helpers/tempStore.ts";
 import { command as commandNamed, run } from "../helpers/commands.ts";
+import { textOf } from "../helpers/cv2.ts";
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());
@@ -60,7 +61,7 @@ test("실제 값: 저장 뒤 대기열 상한이 줄면 읽을 때 상한으로 
 // ── /setplaylistlimit ────────────────────────────────────────
 
 // 보낸 응답. 여기서 보는 칸만
-type Payload = { content?: string; embeds: Array<{ data: { description?: string } }> };
+type Payload = { content?: string; embeds?: Array<{ data: { description?: string } }>; components?: unknown[] };
 
 function interaction({ count = null, action = null }: { count?: number | null; action?: string | null } = {}) {
   const replies: Payload[] = [];
@@ -71,7 +72,7 @@ function interaction({ count = null, action = null }: { count?: number | null; a
     replies,
   };
 }
-const text = (payload: Payload) => payload.content ?? payload.embeds[0].data.description ?? "";
+const text = (payload: Payload) => payload.content ?? payload.embeds?.[0].data.description ?? textOf(payload);
 
 test("/setplaylistlimit: 값을 주면 저장", async () => {
   const i = interaction({ count: 30 });

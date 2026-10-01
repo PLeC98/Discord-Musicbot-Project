@@ -7,6 +7,7 @@ import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeFrame, noticeReply, post } from "../src/ui/frame.ts";
 import type { PermissionDenied } from "../src/ui/text/errors.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { GuildMember } from "discord.js";
@@ -42,7 +43,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
       const { member, guild, channel } = interaction;
 
       const permErr = await permission(member);
-      if (permErr) return await interaction.reply({ content: errors.permission(permErr), flags: MessageFlags.Ephemeral });
+      if (permErr) return await interaction.reply(noticeReply(errors.permission(permErr)));
 
       // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
       await interaction.reply({
@@ -50,12 +51,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
         flags: MessageFlags.IsComponentsV2,
       });
       // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다
-      showFailureWith(interaction, (notice) =>
-        interaction.editReply({
-          components: [client.panels.createErrorContainer(notice)],
-          flags: MessageFlags.IsComponentsV2,
-        }),
-      );
+      showFailureWith(interaction, (notice) => interaction.editReply(post(noticeFrame(notice))));
 
       const result = await requestPlayback(client, {
         guild,
@@ -69,10 +65,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
       });
 
       if (!result.success) {
-        return await interaction.editReply({
-          components: [client.panels.createErrorContainer(addFailureMessage(result))],
-          flags: MessageFlags.IsComponentsV2,
-        });
+        return await interaction.editReply(post(noticeFrame(addFailureMessage(result))));
       }
       if (result.more) await offerOnInteraction(interaction, result.more, result.player);
     },

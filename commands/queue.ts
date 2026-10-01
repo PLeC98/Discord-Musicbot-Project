@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 import { queueView, queueInfoOf } from "../src/ui/queueView.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
@@ -15,13 +16,13 @@ const exported: GuildCommand = {
 
     const player = client.players.get(guild.id);
     if (!player) {
-      return interaction.reply({ content: errors.noPlayer(), flags: MessageFlags.Ephemeral });
+      return interaction.reply(noticeReply(errors.noPlayer()));
     }
 
     const queueInfo = queueInfoOf(player);
 
     if (!queueInfo.current && queueInfo.queue.length === 0) {
-      return interaction.reply({ content: errors.queueEmpty(), flags: MessageFlags.Ephemeral });
+      return interaction.reply(noticeReply(errors.queueEmpty()));
     }
 
     await interaction.reply({ ...queueView(queueInfo, interaction.options.getInteger("page") ?? 1), flags: MessageFlags.Ephemeral });

@@ -18,6 +18,7 @@ import type { Seeking } from "../../src/sources/youtube/equivalent.ts";
 import { networkError } from "../helpers/errors.ts";
 import { codedError, errorKind } from "../../src/rules/errorKind.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { plainText } from "../../src/ui/frame.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -184,12 +185,12 @@ test("조회: 결과가 없으면 no-result, 던지면 lookup-failed 와 그 오
 
 test("조회 실패의 안내문: 까닭의 문장 · 조회가 던진 오류는 그 종류로", async () => {
   const { addFailureMessage } = await import("../../src/ui/errorMessages.ts");
-  assert.equal(addFailureMessage({ code: "no-result" }), "❌ 결과를 찾을 수 없습니다!");
-  assert.equal(addFailureMessage({ code: "unsupported-link" }), "❌ 지원하지 않는 링크입니다.");
-  assert.match(addFailureMessage({ code: "nothing-playable" }), /모두 틀 수 없어요/);
-  assert.match(addFailureMessage({ code: "unsupported-soundcloud" }), /지원하지 않는 사운드클라우드 링크/);
-  assert.match(addFailureMessage({ code: "lookup-failed", kind: errorKind(networkError()) }), /네트워크 오류/);
-  assert.match(addFailureMessage({ code: "lookup-failed" }), /예상치 못한 오류/, "종류를 모르면 unknown");
+  assert.equal(plainText(addFailureMessage({ code: "no-result" })), "결과를 찾을 수 없습니다!");
+  assert.equal(plainText(addFailureMessage({ code: "unsupported-link" })), "지원하지 않는 링크입니다.");
+  assert.match(plainText(addFailureMessage({ code: "nothing-playable" })), /모두 틀 수 없어요/);
+  assert.match(plainText(addFailureMessage({ code: "unsupported-soundcloud" })), /지원하지 않는 사운드클라우드 링크/);
+  assert.match(plainText(addFailureMessage({ code: "lookup-failed", kind: errorKind(networkError()) })), /네트워크 오류/);
+  assert.match(plainText(addFailureMessage({ code: "lookup-failed" })), /예상치 못한 오류/, "종류를 모르면 unknown");
 });
 
 test("모음 이어 받기: 유튜브 재생목록 · 스포티파이 · 사운드클라우드 세트. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {

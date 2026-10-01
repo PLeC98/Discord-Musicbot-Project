@@ -1,8 +1,9 @@
 // 자동재생 입구: /autoplay 와 패널의 자동재생 버튼이 같은 절차(answerAutoplay)를 쓰고, 장르 메뉴에서 고른 것을 받는다.
 // 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
-import { EmbedBuilder, type ButtonInteraction, type GuildMember, type RepliableInteraction, type StringSelectMenuInteraction, MessageFlags } from "discord.js";
+import { EmbedBuilder, type ButtonInteraction, type GuildMember, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
@@ -23,11 +24,11 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
   if (player?.autoplay) {
     expireReply(interaction, OFF_MENU_MS);
     const r = await controls.autoplay(player, actor, false, { onAccepted: () => interaction.reply(buildAutoplayOffMenu()) });
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
+    if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
     return;
   }
   const blocked = await controls.autoplayBlocked(actor);
-  if (blocked) return interaction.reply({ content: controlMessage(blocked), flags: MessageFlags.Ephemeral });
+  if (blocked) return interaction.reply(noticeReply(controlMessage(blocked)));
   keepReply(interaction);
   return interaction.reply(buildGenreMenu());
 }
@@ -37,7 +38,7 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
 async function handleAutoplayButton(interaction: ButtonInteraction<"cached">) {
   const player = interaction.client.players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
-  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return interaction.reply({ content: errors.staleSession(), flags: MessageFlags.Ephemeral });
+  if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return interaction.reply(noticeReply(errors.staleSession()));
   return answerAutoplay(interaction, player);
 }
 
@@ -54,7 +55,7 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
       return interaction.update({ embeds: [enabledEmbed(genre, member)], components: [] });
     },
   });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
+  if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 }
 
 function enabledEmbed(genre: string, member: GuildMember) {

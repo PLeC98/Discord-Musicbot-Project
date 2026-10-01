@@ -18,7 +18,6 @@ const NO_RESPONDER: Responder = {
   },
 };
 import * as playerEvents from "../player/events.ts";
-import * as errors from "./text/errors.ts";
 import * as panelText from "./text/panel.ts";
 import * as queueText from "./text/queue.ts";
 import * as labels from "./text/labels.ts";
@@ -171,10 +170,6 @@ class NowPlayingPanel {
 
   createSearchingContainer(msg: string) {
     return new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand"))).addTextDisplayComponents(new TextDisplayBuilder().setContent(msg));
-  }
-
-  createErrorContainer(msg: string) {
-    return new ContainerBuilder().setAccentColor(resolveColor(colorOf("error"))).addTextDisplayComponents(new TextDisplayBuilder().setContent(errors.withErrorMark(msg)));
   }
 
   /**

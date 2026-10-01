@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
@@ -11,7 +12,7 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     const r = await controls.clear(client.players.get(guild.id), { member });
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
+    if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 
     const t = controlText.cleared(r.count);
     const embed = new EmbedBuilder()

@@ -17,6 +17,7 @@ import type { Loop } from "../../src/player/trackState.ts";
 import { fake, fakePlayer as asPlayer } from "../helpers/fake.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import * as genreConfig from "../../src/config/genres.ts";
+import { plainText } from "../../src/ui/frame.ts";
 
 useExampleConfig();
 
@@ -110,8 +111,8 @@ test("멈춤: 곡이 없으면 거절, 있으면 뒤집고 패널에 알린다",
 test("재개: 사람이 건 멈춤이 아닌 까닭(서버 음소거 · 혼자 남음)이 붙들고 있으면 그 까닭을 싣고 거절한다", async () => {
   const muted = fakePlayer({ paused: true, pauseReasons: new Set(["manual", "mute"]), resumeFor: () => (muted.pauseReasons.delete("manual"), false) });
   assert.deepEqual(await controls.pause(muted, DJ), { ok: false, code: "held", reason: "mute" });
-  assert.equal(controlMessage({ code: "held", reason: "mute" }).includes("음소거"), true);
-  assert.equal(controlMessage({ code: "held", reason: "alone" }).includes("아무도"), true);
+  assert.equal(plainText(controlMessage({ code: "held", reason: "mute" })).includes("음소거"), true);
+  assert.equal(plainText(controlMessage({ code: "held", reason: "alone" })).includes("아무도"), true);
   assert.equal(codeOf(await controls.pause(fakePlayer({ paused: true, resumeFor: () => false }), DJ)), "failed", "붙든 까닭이 없으면 그냥 실패");
   assert.equal(codeOf(await controls.pause(fakePlayer({ pauseReasons: new Set(["mute"]), pauseFor: () => false }), DJ)), "failed", "멈추기 실패는 붙든 까닭과 상관없다");
 });
@@ -290,7 +291,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   const [genre] = Object.keys(genreConfig.genres().genres);
   const seen = panel();
   assert.deepEqual(await controls.autoplay(null, DJ, "없는장르", { create: () => assert.fail("거절하면 만들지 않는다") }), { ok: false, code: "unknown-genre", genre: "없는장르" });
-  assert.equal(controlMessage({ code: "unknown-genre", genre: "없는장르" }), "❌ 알 수 없는 장르입니다: `없는장르`. 자동재생 버튼을 다시 눌러 선택해 주세요.");
+  assert.equal(plainText(controlMessage({ code: "unknown-genre", genre: "없는장르" })), "알 수 없는 장르입니다: `없는장르`. 자동재생 버튼을 다시 눌러 선택해 주세요.");
 
   const order: string[] = [];
   const made = fakePlayer({ currentTrack: null, setAutoplay: (g: unknown) => order.push(`set:${g}`), handleAutoplay: async () => order.push("first") });
@@ -304,11 +305,11 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.deepEqual(seen, ["refresh"]);
 });
 
-test("문장: 권한은 판정의 안내 그대로, 나머지는 코드별 문장. 대시보드는 ❌ 를 떼고 상태 코드를 붙인다", () => {
-  assert.equal(controlMessage({ code: "no-permission", permission: "not-dj" }), errors.notDj());
-  assert.equal(controlMessage({ code: "bad-position", size: 3 }), "❌ 대기열에 3개의 곡만 있습니다. (1 ~ 3 범위로 입력하세요)");
-  assert.equal(controlMessage({ code: "알 수 없음" }), "❌ 작업이 실패했습니다!");
-  assert.deepEqual(controlApiError({ code: "no-track" }), { status: 409, error: errors.withoutErrorMark(errors.noTrack()) });
+test("안내: 권한은 판정의 안내 그대로, 나머지는 코드별 안내. 대시보드는 머리 줄 · 본문의 글자에 상태 코드를 붙인다", () => {
+  assert.deepEqual(controlMessage({ code: "no-permission", permission: "not-dj" }), errors.notDj());
+  assert.equal(plainText(controlMessage({ code: "bad-position", size: 3 })), "대기열에 3개의 곡만 있습니다. (1 ~ 3 범위로 입력하세요)");
+  assert.equal(plainText(controlMessage({ code: "알 수 없음" })), "작업이 실패했습니다!");
+  assert.deepEqual(controlApiError({ code: "no-track" }), { status: 409, error: "현재 재생 중인 노래가 없습니다!" });
   assert.equal(controlApiError({ code: "no-permission", permission: "not-dj" }).status, 403);
   assert.equal(controlApiError({ code: "bad-volume" }).status, 400);
 });

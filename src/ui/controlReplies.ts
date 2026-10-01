@@ -1,37 +1,16 @@
-// 재생 조작의 응답 화면(Components V2). 명령과 패널 버튼이 같은 조작을 하면 이 화면 하나를 쓴다.
-// 머리 줄 · 본문 · 작은 글씨의 꼬리 줄(누가 했나 등). 곡에 썸네일이 있으면 머리 칸 옆에 붙인다
+// 재생 조작의 응답 화면(응답 틀 ui/frame). 명령과 패널 버튼이 같은 조작을 하면 이 화면 하나를 쓴다
 
-import { ContainerBuilder, MessageFlags, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
-import { colorOf, type Meaning } from "./colors.ts";
+import { frame } from "./frame.ts";
 import { formatMs } from "./format.ts";
 import * as controlText from "./text/controls.ts";
-import * as errors from "./text/errors.ts";
 import type { Loop } from "../player/trackState.ts";
 
 type Track = { title: string; pageUrl: string; thumbnail?: string | null };
 /** 조작한 사람. 멘션으로 보인다 */
 type Actor = { toString(): string };
-type Look = { title?: string; body?: string | null; footer?: Array<string | null>; thumbnail?: string | null; color?: Meaning };
-
-// 머리 줄 · 본문을 한 덩이로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section 은 보낼 때 거절되어 글자만 둔다
-function frame({ title, body, footer = [], thumbnail, color = "brand" }: Look) {
-  const head = [title ? `### ${title}` : null, body].filter(Boolean).join("\n");
-  const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf(color)));
-  const text = new TextDisplayBuilder().setContent(head);
-  if (thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail)));
-  else container.addTextDisplayComponents(text);
-  const small = footer.filter((line): line is string => Boolean(line)).map((line) => `-# ${line}`);
-  if (small.length) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(small.join("\n")));
-  return container;
-}
 
 // 누가 했나. 칸 이름과 멘션
 const who = (label: string, by: Actor) => `${label} ${by}`;
-
-/** 새 응답(본인에게만) */
-const reply = (container: ContainerBuilder) => ({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const });
-/** 처음부터 Components V2 로 보낸 응답을 고칠 때 */
-const edit = (container: ContainerBuilder) => ({ components: [container], flags: [MessageFlags.IsComponentsV2] as const });
 
 /** 일시정지 · 재개 */
 function paused(isPaused: boolean, track: Track, by: Actor) {
@@ -75,7 +54,4 @@ function highlighted(track: Track, ms: number) {
   return frame({ title: t.title, body: t.description, footer: [`${t.at} \`${formatMs(ms)}\``] });
 }
 
-/** 받아들인 뒤에 실패했다. notice 는 오류 문장 */
-const failed = (notice: string) => frame({ body: errors.withErrorMark(notice), color: "error" });
-
-export { reply, edit, failed, paused, skipped, previous, stopped, shuffled, loopSet, highlighting, highlighted };
+export { paused, skipped, previous, stopped, shuffled, loopSet, highlighting, highlighted };

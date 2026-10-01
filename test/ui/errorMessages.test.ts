@@ -7,6 +7,7 @@ import * as text from "../../src/ui/text/errors.ts";
 import { errorKind } from "../../src/rules/errorKind.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";
+import { plainText } from "../../src/ui/frame.ts";
 
 // [실제로 들어오는 모양의 오류, 기대 범주]. yt-dlp 는 실행하는 곳이, 우리 코드는 만든 곳이, Node · 디스코드는 저마다 이름을 단다
 const CASES: Array<[Error, string]> = [
@@ -40,25 +41,25 @@ test("classify: null/빈 입력은 unknown", () => {
   assert.equal(errorKind(""), "unknown");
 });
 
-test("getMessage: 모든 범주가 한국어 안내 문자열을 반환", () => {
+test("getMessage: 모든 범주가 머리 줄이 있는 안내를 돌려준다", () => {
   for (const [error] of CASES) {
     const out = errorMessage(error);
-    assert.equal(typeof out, "string");
-    assert.ok(out.startsWith("❌"), out.slice(0, 20));
+    assert.ok(out.title.length > 0, out.topic);
+    assert.ok(!out.title.startsWith("❌") && !out.title.startsWith("**"), out.title);
   }
 });
 
 test("handle: 던지지 않고 사용자 메시지 반환 (catch 블록 계약)", () => {
   const out = reportError(new Error("read ECONNRESET"), "test-context");
-  assert.equal(out, errorMessage(new Error("read ECONNRESET")));
+  assert.deepEqual(out, errorMessage(new Error("read ECONNRESET")));
 });
 
 test("곡을 찾거나 담지 못한 결과: 까닭의 문장이 먼저, 오류로 못 했으면 그 종류, 아니면 곡을 틀 수 없다", () => {
-  assert.equal(addFailureMessage({ code: "voice-failed", kind: "network" }), "음성 채널에 연결하지 못했습니다!", "까닭의 문장이 있으면 오류 종류보다 먼저");
-  assert.equal(addFailureMessage({ code: "play-failed", kind: "network" }), text.forKind("network"));
-  assert.equal(addFailureMessage({ code: "play-threw" }), text.forKind("unknown"), "던진 것은 종류를 몰라도 오류 문장");
-  assert.equal(addFailureMessage({ code: "lookup-failed" }), text.forKind("unknown"));
-  assert.equal(addFailureMessage({ code: "play-failed" }), "재생을 시작할 수 없습니다.");
-  assert.equal(addFailureMessage({ code: "live-ended" }), "재생을 시작할 수 없습니다.");
-  assert.equal(addFailureMessage({ code: "more-nothing-playable", skipped: 3 }), "받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(3곡).");
+  assert.equal(plainText(addFailureMessage({ code: "voice-failed", kind: "network" })), "음성 채널에 연결하지 못했습니다!", "까닭의 문장이 있으면 오류 종류보다 먼저");
+  assert.deepEqual(addFailureMessage({ code: "play-failed", kind: "network" }), text.forKind("network"));
+  assert.deepEqual(addFailureMessage({ code: "play-threw" }), text.forKind("unknown"), "던진 것은 종류를 몰라도 오류 문장");
+  assert.deepEqual(addFailureMessage({ code: "lookup-failed" }), text.forKind("unknown"));
+  assert.equal(plainText(addFailureMessage({ code: "play-failed" })), "재생을 시작할 수 없습니다.");
+  assert.equal(plainText(addFailureMessage({ code: "live-ended" })), "재생을 시작할 수 없습니다.");
+  assert.equal(plainText(addFailureMessage({ code: "more-nothing-playable", skipped: 3 })), "받을 수 없는 곡(미리듣기 · 지역 제한 등)뿐이라 넣지 못했어요(3곡).");
 });

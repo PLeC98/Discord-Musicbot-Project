@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 // 이름표와 이모지는 임베드와 같은 표에서 나온다
 import { labelOf, emojiOf } from "../src/rules/platforms.ts";
 import { progressBar } from "../src/ui/progressBar.ts";
@@ -9,16 +9,13 @@ import type { QueuedTrack } from "../src/player/track.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as infoText from "../src/ui/text/info.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 
 // 재생 패널과 같은 막대. 길이를 모르는 곡(라이브 아님)은 뺀다
 function progressField(player: Player, track: QueuedTrack, currentMs: number) {
   const live = Boolean(player.isLive ?? track.isLive);
   if (!live && !(track.duration > 0)) return null;
   return { name: infoText.nowPlaying().progress, value: progressBar(Math.floor(currentMs / 1000), track.duration || 0, { live }), inline: false };
-}
-
-function createErrorEmbed(message: string) {
-  return new EmbedBuilder().setTitle(infoText.errorTitle()).setDescription(message).setColor(colorOf("error")).setTimestamp();
 }
 
 const exported: GuildCommand = {
@@ -31,17 +28,11 @@ const exported: GuildCommand = {
 
     const player = client.players.get(guild.id);
     if (!player) {
-      return await interaction.reply({
-        embeds: [createErrorEmbed(errors.withoutErrorMark(errors.noPlayer()))],
-        flags: MessageFlags.Ephemeral,
-      });
+      return await interaction.reply(noticeReply(errors.noPlayer()));
     }
 
     if (!player.currentTrack) {
-      return await interaction.reply({
-        embeds: [createErrorEmbed(errors.withoutErrorMark(errors.noTrack()))],
-        flags: MessageFlags.Ephemeral,
-      });
+      return await interaction.reply(noticeReply(errors.noTrack()));
     }
 
     const track = player.currentTrack;
@@ -91,4 +82,3 @@ const exported: GuildCommand = {
   },
 };
 export default exported;
-export { createErrorEmbed };

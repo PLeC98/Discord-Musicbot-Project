@@ -24,9 +24,6 @@ function addedWarnings({ dropped, skipped, queueLimited, max }: { dropped: numbe
   return text;
 }
 
-/** 대기열이 차서 한 곡도 못 넣었다 */
-const full = (max: number) => `대기열이 가득 찼습니다 (최대 ${max}곡)`;
-
 /** 대기열 화면. waiting 은 다음 곡 수, total 은 지금 곡까지 센 수 */
 const view = ({ waiting, total, page, pages }: { waiting: number; total: number; page: number; pages: number }) => ({
   title: "📝 재생 대기열",
@@ -36,4 +33,4 @@ const view = ({ waiting, total, page, pages }: { waiting: number; total: number;
 /** 대기열 화면에서 지금 곡의 머리 */
 const currentHeader = () => "🎵 현재 재생 중";
 
-export { added, addedWarnings, full, view, currentHeader };
+export { added, addedWarnings, view, currentHeader };

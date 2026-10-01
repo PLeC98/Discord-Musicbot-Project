@@ -24,6 +24,7 @@ import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
 import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
+import { plainText } from "../../src/ui/frame.ts";
 
 const store = openTempStore("play-request-");
 after(() => store.close());
@@ -218,7 +219,7 @@ test("ffmpeg 가 라이브 갈래를 열 수 없으면 방송 중인 라이브�
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success ? null : result.code, "live-no-ffmpeg");
-  assert.equal(result.success ? "" : addFailureMessage(result), errors.liveNoFfmpeg());
+  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.liveNoFfmpeg()));
   assert.equal(client.embedCalls.length, 0);
 });
 
@@ -232,7 +233,7 @@ test("시작 전 방송은 거절하고 이유를 알린다", async () => {
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "https://y/soon", source: "/play" }));
 
   assert.equal(result.success ? null : result.code, "live-upcoming");
-  assert.match(result.success ? "" : addFailureMessage(result), /시작하지 않은/);
+  assert.match(result.success ? "" : plainText(addFailureMessage(result)), /시작하지 않은/);
   assert.equal(client.embedCalls.length, 0, "코어까지 가지 않는다");
 });
 
@@ -375,7 +376,7 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
   const result = await requestPlayback(client, baseArgs(client, guild, { query: "없는곡" }));
 
   assert.equal(result.success ? null : result.code, "no-result");
-  assert.equal(result.success ? "" : addFailureMessage(result), "❌ 결과를 찾을 수 없습니다!");
+  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "결과를 찾을 수 없습니다!");
   assert.equal(client.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
@@ -393,7 +394,7 @@ test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대�
   const result = await requestPlayback(client, baseArgs(client, makeGuild(), { query: "https://radio.test/live/playlist.m3u8" }));
 
   assert.equal(result.success ? null : result.code, "unsupported-link");
-  assert.equal(result.success ? "" : addFailureMessage(result), "❌ 지원하지 않는 링크입니다.");
+  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "지원하지 않는 링크입니다.");
 });
 
 // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남았다

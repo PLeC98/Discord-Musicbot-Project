@@ -6,6 +6,7 @@ import type { ChatInputCommandInteraction } from "discord.js";
 import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
@@ -40,7 +41,7 @@ const exported: GuildCommand = {
 
     if (count < min || count > max) {
       const queueCap = config.bot.maxQueueSize > 0 && max === config.bot.maxQueueSize ? config.bot.maxQueueSize : null;
-      return interaction.reply({ content: errors.playlistLimitOutOfRange(min, max, queueCap), flags: MessageFlags.Ephemeral });
+      return interaction.reply(noticeReply(errors.playlistLimitOutOfRange(min, max, queueCap)));
     }
 
     if (!(await GuildSettingsManager.setPlaylistAddMax(guildId, count))) return failed(interaction);
@@ -54,5 +55,5 @@ function card({ title, description }: { title: string; description: string }) {
 }
 
 function failed(interaction: ChatInputCommandInteraction) {
-  return interaction.reply({ content: errors.settingsSaveFailed(), flags: MessageFlags.Ephemeral });
+  return interaction.reply(noticeReply(errors.settingsSaveFailed()));
 }

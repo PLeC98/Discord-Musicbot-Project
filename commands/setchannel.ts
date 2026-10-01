@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import logger from "../src/infra/log/logger.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
@@ -7,6 +7,7 @@ import { messageOf } from "../src/rules/errorKind.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 const log = logger.child({ category: "commands" });
 
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.panels?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
@@ -55,14 +56,11 @@ const exported: GuildCommand = {
     }
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
-    if (!channel) return interaction.reply({ content: errors.channelSetFailed(), flags: MessageFlags.Ephemeral }); // 캐시에 없는 채널
+    if (!channel) return interaction.reply(noticeReply(errors.channelSetFailed())); // 캐시에 없는 채널
     const success = await GuildSettingsManager.setBotChannel(guildId, channel.id);
 
     if (!success) {
-      return await interaction.reply({
-        content: errors.channelSetFailed(),
-        flags: MessageFlags.Ephemeral,
-      });
+      return await interaction.reply(noticeReply(errors.channelSetFailed()));
     }
 
     const t = settingsText.channelSet(`${channel}`);

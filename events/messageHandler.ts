@@ -8,6 +8,7 @@ import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import { offerOnChannel } from "../src/usecases/playlistMore.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeFrame, post } from "../src/ui/frame.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import * as searchText from "../src/ui/text/search.ts";
 import type { ClientEvent } from "../src/app/main.ts";
@@ -36,7 +37,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 곡 추가 권한: 봇 동작 중에는 재적 규칙(모더레이터 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
-      const reply = await message.reply(errors.permission(permError));
+      const reply = await message.reply(post(noticeFrame(errors.permission(permError))));
       scheduleDelete(reply, 5000);
       scheduleDelete(message, 5000);
       return;
@@ -73,7 +74,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
       // 해석 실패·재생 시작 실패를 사용자에게 알림. 침묵하면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
-        const errMsg = await message.channel.send({ content: errors.withErrorMark(addFailureMessage(result)) });
+        const errMsg = await message.channel.send(post(noticeFrame(addFailureMessage(result))));
         scheduleDelete(errMsg, 8000);
       } else if (result.more) {
         await offerOnChannel(message.channel, result.more, result.player, member.id);
@@ -81,7 +82,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     } catch (error) {
       log.error({ sub: "message" }, "메시지 처리 오류:", error);
       await responder.dismissPlaceholder();
-      const errMsg = await message.channel.send({ content: errors.processingFailedInChannel() });
+      const errMsg = await message.channel.send(post(noticeFrame(errors.processingFailedInChannel())));
       scheduleDelete(errMsg, 8000);
     }
   },

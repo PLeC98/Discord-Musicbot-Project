@@ -1,4 +1,4 @@
-import { EmbedBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, type ButtonInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, type ButtonInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { SKIP_CATEGORIES, categoryLabel } from "../src/rules/sponsorCategories.ts";
 import config from "../config.ts";
@@ -6,6 +6,7 @@ import { route, type Route } from "./route.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -72,7 +73,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
   sweepPending();
 
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply({ content: errors.needManageGuild(), flags: MessageFlags.Ephemeral });
+    return interaction.reply(noticeReply(errors.needManageGuild()));
   }
 
   const mid = interaction.message.id;

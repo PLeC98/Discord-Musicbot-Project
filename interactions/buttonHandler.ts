@@ -3,6 +3,7 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeEmbed, noticeReply, type Notice } from "../src/ui/frame.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
@@ -20,7 +21,6 @@ import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as searchText from "../src/ui/text/search.ts";
-import * as infoText from "../src/ui/text/info.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -45,15 +45,15 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return interaction.reply({ content: errors.noPlayer(), flags: MessageFlags.Ephemeral });
+  if (!player) return interaction.reply(noticeReply(errors.noPlayer()));
 
   const { action, rest } = partsOf(interaction.customId);
   const sessionId = rest[0];
   if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return interaction.reply({ content: errors.staleSession(), flags: MessageFlags.Ephemeral });
+    return interaction.reply(noticeReply(errors.staleSession()));
   }
   const handle = PANEL_ACTIONS[action];
-  if (!handle) return interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral });
+  if (!handle) return interaction.reply(noticeReply(errors.unknownInteraction()));
   await handle(interaction, player);
 }
 
@@ -61,10 +61,7 @@ async function handleQueue(interaction: Press, player: Player) {
   const queueInfo = queueInfoOf(player);
 
   if (!queueInfo.current && queueInfo.queue.length === 0) {
-    return await interaction.reply({
-      content: errors.queueEmpty(),
-      flags: MessageFlags.Ephemeral,
-    });
+    return await interaction.reply(noticeReply(errors.queueEmpty()));
   }
 
   await interaction.reply({ ...queueView(queueInfo), flags: MessageFlags.Ephemeral });
@@ -75,7 +72,7 @@ async function handleQueuePage(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
   if (!info || (!info.current && info.queue.length === 0)) {
-    return interaction.update({ content: player ? errors.queueEmpty() : errors.noPlayer(), embeds: [], components: [] });
+    return interaction.update({ embeds: [noticeEmbed(player ? errors.queueEmpty() : errors.noPlayer())], components: [] });
   }
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
@@ -83,10 +80,7 @@ async function handleQueuePage(interaction: Press) {
 async function handleVolumeModal(interaction: Press) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
-    return await interaction.reply({
-      content: errors.permission(permErr),
-      flags: MessageFlags.Ephemeral,
-    });
+    return await interaction.reply(noticeReply(errors.permission(permErr)));
   }
 
   await interaction.showModal(volumeModal());
@@ -103,7 +97,7 @@ function volumeModal() {
 type Built = { embed: EmbedBuilder; row: ActionRowBuilder<ButtonBuilder> };
 
 // 새로고침 버튼: 버튼이 달린 메시지를 새 내용으로 고친다
-async function refreshMessage(interaction: Press, build: (client: Client<true>) => Built | Promise<Built>, { failed, notice }: { failed: string; notice: string }) {
+async function refreshMessage(interaction: Press, build: (client: Client<true>) => Built | Promise<Built>, { failed, notice }: { failed: string; notice: Notice }) {
   try {
     await interaction.deferUpdate();
     const { embed, row } = await build(interaction.client);
@@ -112,9 +106,9 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
     log.error(failed, error);
     try {
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ content: notice, flags: MessageFlags.Ephemeral });
+        await interaction.reply(noticeReply(notice));
       } else {
-        await interaction.followUp({ content: notice, flags: MessageFlags.Ephemeral });
+        await interaction.followUp(noticeReply(notice));
       }
     } catch (err) {
       log.error("오류 안내 전송 실패:", err);
@@ -129,7 +123,7 @@ function handleHelpRefresh(interaction: Press) {
 async function handleSystemRefresh(interaction: Press) {
   // /system과 동일하게 봇 운영자 전용
   if (interaction.user.id !== config.dashboard.ownerId) {
-    return await interaction.reply({ content: errors.ownerOnly(), flags: MessageFlags.Ephemeral });
+    return await interaction.reply(noticeReply(errors.ownerOnly()));
   }
   return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.systemRefreshFailed() });
 }
@@ -141,7 +135,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   const [userId, position, videoId = ""] = rest;
 
   if (userId !== interaction.user.id) {
-    return await interaction.reply({ content: errors.searchOwnerOnly(), flags: MessageFlags.Ephemeral });
+    return await interaction.reply(noticeReply(errors.searchOwnerOnly()));
   }
 
   if (action === "cancel") {
@@ -149,11 +143,11 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
     return await interaction.update({ embeds: [embed], components: [] });
   }
-  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral });
+  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await interaction.reply(noticeReply(errors.unknownInteraction()));
 
   // 곡 추가 경로. /play · /search 와 같은 검사
   const permErr = checkAdd(member) || checkSummon(member);
-  if (permErr) return await interaction.reply({ content: errors.permission(permErr), flags: MessageFlags.Ephemeral });
+  if (permErr) return await interaction.reply(noticeReply(errors.permission(permErr)));
 
   await interaction.deferUpdate();
 
@@ -162,10 +156,10 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
   // 여기서부터 던지면 "처리 중" 자리를 오류로 바꾼다
-  showFailureWith(interaction, (notice) => interaction.editReply({ embeds: [errorEmbed(notice)], components: [] }));
+  showFailureWith(interaction, (notice) => interaction.editReply({ embeds: [noticeEmbed(notice)], components: [] }));
 
   // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
-  // 검색 메시지는 일반 임베드라 CV2 현재 재생 메시지로 수정할 수 없다.
+  // 검색 메시지는 일반 임베드라 CV2 로 고칠 수 없어 실패도 임베드로 바꾼다.
   const responder = channelResponder(interaction.channel, () =>
     interaction.deleteReply().catch(() => {
       /* 이미 지워졌다 */
@@ -181,13 +175,11 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     responder,
     source: `/search ${position}번째`,
   });
-  if (!result.success) return await interaction.editReply({ embeds: [errorEmbed(addFailureMessage(result))], components: [] });
+  if (!result.success) return await interaction.editReply({ embeds: [noticeEmbed(addFailureMessage(result))], components: [] });
 
   // 검색 결과 메시지 제거. 현재 재생/대기열 정보는 별도로 전송됨
   await responder.dismissPlaceholder();
 }
-
-const errorEmbed = (message: string) => new EmbedBuilder().setTitle(infoText.errorTitle()).setDescription(message).setColor(colorOf("error")).setTimestamp();
 
 // custom_id 앞머리로 가른다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 자동재생 · 대기열 넘기기)과 재생 패널의 버튼.
 // 자동재생은 놀고 있을 때도 켤 수 있어 끝난 패널의 버튼도 여기로 온다

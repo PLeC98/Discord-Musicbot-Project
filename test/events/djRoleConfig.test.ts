@@ -7,6 +7,7 @@ import { PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInterac
 
 import { openTempStore, setGuild } from "../helpers/tempStore.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
+import { textOf } from "../helpers/cv2.ts";
 const temp = openTempStore("dj-role-");
 after(() => temp.close());
 const settings = await import("../../src/store/guildSettings.ts");
@@ -58,7 +59,7 @@ function fakeInteraction({ type, customId, values = [] as string[], messageId = 
 test("권한 없는 유저는 거부 (심층 방어)", async () => {
   const ix = fakeInteraction({ type: "button", customId: "djrole:save", canManage: false });
   await interactionCreate.execute(ix);
-  assert.ok(ix.repliedWith?.content.includes("서버 관리 권한"));
+  assert.match(textOf(ix.repliedWith), /서버 관리 권한/);
 });
 
 test("선택 → 저장: 보류된 선택값이 확정됨", async () => {

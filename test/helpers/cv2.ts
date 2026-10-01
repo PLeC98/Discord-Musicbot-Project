@@ -18,9 +18,11 @@ const nodesOf = (payload: Payload) => {
 
 /** 글자 칸들 */
 const textsOf = (payload: Payload) => nodesOf(payload).flatMap((n) => (n.type === TEXT && n.content !== undefined ? [n.content] : []));
+/** 글자 칸들을 줄을 바꿔 이은 것. 보낸 것을 그대로 받는다 */
+const textOf = (payload: unknown) => textsOf(payload as Payload).join("\n");
 /** 첫 글자 칸의 첫 줄. 글자 칸이 없으면 undefined */
 const headOf = (payload: Payload) => textsOf(payload)[0]?.split("\n")[0];
 /** 섹션의 썸네일 주소 */
 const thumbnailOf = (payload: Payload) => nodesOf(payload).find((n) => n.accessory?.media?.url)?.accessory?.media?.url ?? null;
 
-export { textsOf, headOf, thumbnailOf };
+export { textsOf, textOf, headOf, thumbnailOf };

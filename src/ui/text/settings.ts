@@ -24,7 +24,6 @@ const djRoleMenu = (roleIds: string[]) => ({
 const djRoleCancelled = () => ({ title: "🎧 DJ 역할 설정 취소됨", description: "변경 사항 없이 닫았어요." });
 /** 역할 없이 저장했다 */
 const djRoleCleared = () => ({ title: "🎧 DJ 역할 제한 해제됨", description: "이제 모든 유저가 재생을 제어할 수 있어요.\n(모더레이터는 설정과 무관하게 항상 가능합니다)" });
-const djRoleSaveFailed = () => ({ title: "❌ 저장 실패", description: "DJ 역할 설정 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요." });
 const djRoleSaved = (roleIds: string[]) => ({
   title: "✅ DJ 역할 설정됨",
   description: `DJ 역할: ${roleMentions(roleIds)}\n\n이제 🔒 재생 제어(스킵/정지/볼륨 등)는 이 역할 보유자만 사용할 수 있어요.\n모더레이터(서버 관리·추방·차단·타임아웃 권한 보유자)는 항상 제어할 수 있습니다.`,
@@ -54,4 +53,4 @@ const playlistLimitNow = ({ count, isDefault, min, max }: { count: number; isDef
 });
 const playlistLimitSet = (count: number) => ({ title: "✅ 재생목록 한 번에 넣는 곡 수를 바꿨어요", description: `이제 재생목록을 넣으면 한 번에 **${count}곡**씩 들어가요.\n남은 곡은 "더 넣기"로 이어 넣을 수 있어요.` });
 
-export { buttons, channelRemoved, channelSet, djRoleMenu, djRoleCancelled, djRoleCleared, djRoleSaveFailed, djRoleSaved, sponsorMenu, sponsorSummary, sponsorCancelled, sponsorSaved, playlistLimitReset, playlistLimitNow, playlistLimitSet };
+export { buttons, channelRemoved, channelSet, djRoleMenu, djRoleCancelled, djRoleCleared, djRoleSaved, sponsorMenu, sponsorSummary, sponsorCancelled, sponsorSaved, playlistLimitReset, playlistLimitNow, playlistLimitSet };

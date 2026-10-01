@@ -2,6 +2,7 @@ import { formatMs } from "../src/ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 import * as controlText from "../src/ui/text/controls.ts";
 import * as errors from "../src/ui/text/errors.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
@@ -51,10 +52,10 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member } = interaction;
     const seekMs = parseTimeInput(interaction.options.getString("time", true));
-    if (seekMs === null) return interaction.reply({ content: errors.badTime(), flags: MessageFlags.Ephemeral });
+    if (seekMs === null) return interaction.reply(noticeReply(errors.badTime()));
 
     const r = await controls.seek(client.players.get(guild.id), { member }, seekMs, { reason: "seek", onAccepted: () => interaction.deferReply({ flags: MessageFlags.Ephemeral }) });
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
+    if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 
     const t = controlText.seeked(r.track);
     const embed = new EmbedBuilder()

@@ -20,6 +20,8 @@ import { fake, fakeWith } from "../helpers/fake.ts";
 import { youtube } from "../helpers/tracks.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { fakeAdder } from "../helpers/adder.ts";
+import { textsOf } from "../helpers/cv2.ts";
+import { noticeReply, type Notice } from "../../src/ui/frame.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -27,6 +29,7 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 audioCache.initialize(path.join(TMP, "cache.db"));
 
 const errors = await import("../../src/ui/text/errors.ts");
+const moreText = await import("../../src/ui/text/more.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const lookup = await import("../../src/sources/lookup.ts");
 const yamlStore = await import("../../src/config/yamlStore.ts");
@@ -143,7 +146,11 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
 }
 
 // 채널 하나. 보낸 것과 지운 것을 모은다
-type Payload = { content?: string; components?: { searching?: string }[] };
+type Payload = { content?: string; components?: Array<{ searching?: string; toJSON?(): unknown }> };
+
+// 안내가 보인 글자(Components V2 의 글자 칸들)
+const said = (notice: Notice) => textsOf(noticeReply(notice)).join("\n");
+const textOf = (payload: Payload) => textsOf(payload as { components: Array<{ toJSON(): unknown }> }).join("\n");
 type Sent = { id: string; payload: Payload; deleted: boolean; delete(): Promise<boolean> };
 
 function channel(id = "c1") {
@@ -181,8 +188,8 @@ function message(w: World, { content = "노래 제목", channelId = "bot-channel
     deleted: false,
     replies: [] as Reply[],
     delete: async () => (msg.deleted = true),
-    reply: async (text: string) => {
-      const r: Reply = { text, deleted: false, delete: async () => (r.deleted = true) };
+    reply: async (payload: Payload) => {
+      const r: Reply = { text: textOf(payload), deleted: false, delete: async () => (r.deleted = true) };
       msg.replies.push(r);
       return r;
     },
@@ -263,7 +270,7 @@ test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시�
 
     assert.deepEqual(
       msg.replies.map((r) => r.text),
-      [errors.voiceRequired()],
+      [said(errors.voiceRequired())],
     );
     assert.equal(msg.deleted, false);
     mock.timers.tick(5000);
@@ -285,7 +292,7 @@ test("전용 채널: 봇이 쉬고 있으면 소환할 수 있는지 본다(사�
     await messageHandler.execute(msg);
     assert.deepEqual(
       msg.replies.map((r) => r.text),
-      [errors.voiceRequired()],
+      [said(errors.voiceRequired())],
     );
   } finally {
     mock.timers.reset();
@@ -304,7 +311,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
 
     const [loading, err] = msg.sent;
     assert.equal(loading.deleted, true, "자리표시자를 치운다");
-    assert.equal(err.payload.content, errors.withErrorMark("결과를 찾을 수 없습니다!"));
+    assert.equal(textOf(err.payload), said(errors.noResult()));
     mock.timers.tick(7999);
     await new Promise(setImmediate);
     assert.equal(err.deleted, false);
@@ -327,7 +334,7 @@ test("전용 채널: 코어가 던지면 일반 오류 문장", async () => {
     await settings.setBotChannel("g1", "bot-channel");
     const msg = message(w);
     await messageHandler.execute(msg);
-    assert.equal(msg.sent.at(-1)?.payload.content, "❌ 처리 중 오류가 발생했어요.");
+    assert.equal(textOf(msg.sent.at(-1)?.payload ?? {}), said(errors.processingFailedInChannel()));
   } finally {
     mock.timers.reset();
   }
@@ -361,7 +368,9 @@ const state = (extra: Partial<MoreState> = {}): MoreState => ({ kind: "ytp", lis
 
 type Entry = [string] | [string, string | undefined];
 type Menu = StringSelectMenuInteraction<"cached"> | ModalSubmitInteraction<"cached">;
-type Shown = { content?: string; embeds?: { data: { title?: string } }[] };
+type Shown = { content?: string; embeds?: { data: { title?: string } }[]; components?: Array<{ toJSON(): unknown }> };
+// 응답이 보인 글자: 글자 메시지면 그 글자, Components V2 면 글자 칸들, 임베드면 제목
+const shown = (p: Shown) => p.content ?? (p.components ? textsOf(p).join("\n") : p.embeds?.[0]?.data?.title);
 
 // 메뉴 메시지 id 는 따로 돌려준다(모달 상호작용은 메시지가 없을 수 있다)
 function moreInteraction(w: World, { select = null, modalCount = null, customState = state(), customId = undefined, userId = USER, touched = Date.now() }: { select?: string | null; modalCount?: string | null; customState?: ReturnType<typeof state>; customId?: string; userId?: string; touched?: number } = {}) {
@@ -380,7 +389,7 @@ function moreInteraction(w: World, { select = null, modalCount = null, customSta
     message: { id: messageId, createdTimestamp: touched, editedTimestamp: null },
     ...interactionKind(isSelect ? "select" : "modal"),
     isFromMessage: () => true,
-    reply: async (p: Shown) => log.push(["reply", p.content]),
+    reply: async (p: Shown) => log.push(["reply", shown(p)]),
     deferUpdate: async () => log.push(["deferUpdate"]),
     deleteReply: async () => log.push(["deleteReply"]),
     update: async (p: Shown) => log.push(["update", p.content]),
@@ -394,14 +403,14 @@ test("더 넣기: 모르는 상태는 거절한다", async () => {
   const w = world();
   const { it, log } = moreInteraction(w, { select: "10", customId: "plm:zzz:bad:1:x:b" });
   await interactionCreate.execute(it);
-  assert.deepEqual(log, [["reply", errors.withErrorMark("알 수 없는 메뉴예요.")]]);
+  assert.deepEqual(log, [["reply", said(moreText.refusal("unknown-menu"))]]);
 });
 
 test("더 넣기: 그만 넣기는 넣은 사람만. 넣은 사람이 누르면 바로 지운다", async () => {
   const w = world();
   const other = moreInteraction(w, { select: "stop", userId: OTHER });
   await interactionCreate.execute(other.it);
-  assert.deepEqual(other.log, [["reply", errors.withErrorMark("목록을 넣은 사람만 닫을 수 있어요.")]]);
+  assert.deepEqual(other.log, [["reply", said(moreText.refusal("not-requester-close"))]]);
 
   const mine = moreInteraction(w, { select: "stop" });
   await interactionCreate.execute(mine.it);
@@ -412,18 +421,18 @@ test("더 넣기: 시간이 지난 메뉴 · 권한 · 플레이어 없음은 �
   const w = world();
   const old = moreInteraction(w, { select: "10", touched: Date.now() - 31_000 });
   await interactionCreate.execute(old.it);
-  assert.deepEqual(old.log, [["reply", errors.withErrorMark("시간이 지나 닫힌 메뉴예요. 링크를 다시 넣어 주세요.")]]);
+  assert.deepEqual(old.log, [["reply", said(moreText.refusal("expired"))]]);
 
   const noVoice = world({ userVoice: "v2" });
   const denied = moreInteraction(noVoice, { select: "10" });
   await interactionCreate.execute(denied.it);
-  assert.deepEqual(denied.log, [["reply", errors.withErrorMark(errors.sameChannelRequired())]]);
+  assert.deepEqual(denied.log, [["reply", said(errors.sameChannelRequired())]]);
 
   const empty = world();
   empty.client.players.clear();
   const none = moreInteraction(empty, { select: "10" });
   await interactionCreate.execute(none.it);
-  assert.deepEqual(none.log, [["reply", errors.withErrorMark(errors.noPlayer())]]);
+  assert.deepEqual(none.log, [["reply", said(errors.noPlayer())]]);
 });
 
 test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거절", async () => {
@@ -435,7 +444,7 @@ test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거�
 
   const bad = moreInteraction(w, { modalCount: "많이" });
   await interactionCreate.execute(bad.it);
-  assert.deepEqual(bad.log, [["reply", errors.withErrorMark("넣을 곡 수를 1 이상의 숫자로 적어 주세요.")]]);
+  assert.deepEqual(bad.log, [["reply", said(moreText.refusal("bad-count"))]]);
 });
 
 test("더 넣기: 고른 수만큼 이어 받아 넣고, 결과로 메시지를 바꾼 뒤 30초 뒤 지우게 한다", async () => {
@@ -478,7 +487,7 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
     isFromMessage: () => true,
     reply: async (p: Shown) => {
       it.replied = true;
-      log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title]);
+      log.push(["reply", shown(p)]);
     },
     update: async (p: Shown) => {
       it.replied = true;
@@ -493,7 +502,7 @@ test("모달: 모르는 모달은 알린다", async () => {
   const w = world();
   const unknown = menu(w, { customId: "who_knows", select: false });
   await interactionCreate.execute(unknown.it);
-  assert.deepEqual(unknown.log, [["reply", errors.unknownInteraction()]]);
+  assert.deepEqual(unknown.log, [["reply", said(errors.unknownInteraction())]]);
 });
 
 test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async (t) => {
@@ -522,7 +531,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으�
   await settings.setDjRoles("g1", ["dj"]);
   const denied = menu(world(), { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(denied.it);
-  assert.deepEqual(denied.log, [["reply", errors.notDj()]]);
+  assert.deepEqual(denied.log, [["reply", said(errors.notDj())]]);
 });
 
 test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {
@@ -536,7 +545,7 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
     const r = menu(world(), { customId: "panel:volume", volume: bad, select: false });
     await interactionCreate.execute(r.it);
-    assert.deepEqual(r.log, [["reply", "❌ 볼륨은 0에서 100 사이의 숫자여야 합니다!"]], bad);
+    assert.deepEqual(r.log, [["reply", "### ✏️ 볼륨은 0에서 100 사이의 숫자여야 합니다!"]], bad);
   }
 });
 
@@ -556,7 +565,7 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   const fail = menu(w2, { customId: "panel:jump:S1", values: ["1"] });
   await interactionCreate.execute(fail.it);
   assert.deepEqual(w2.player.queue, [a, b, c], "되돌린다");
-  assert.deepEqual(fail.log, [["reply", "❌ 곡으로 이동하지 못했습니다!"]]);
+  assert.deepEqual(fail.log, [["reply", "### ⚠️ 곡으로 이동하지 못했습니다!"]]);
 });
 
 test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async () => {
@@ -564,10 +573,10 @@ test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async 
   w.player.queue = [{ title: "A" }];
   const stale = menu(w, { customId: "panel:jump:OLD", values: ["0"] });
   await interactionCreate.execute(stale.it);
-  assert.deepEqual(stale.log, [["reply", errors.staleSession()]]);
+  assert.deepEqual(stale.log, [["reply", said(errors.staleSession())]]);
   const bad = menu(w, { customId: "panel:jump:S1", values: ["5"] });
   await interactionCreate.execute(bad.it);
-  assert.deepEqual(bad.log, [["reply", "❌ 선택한 곡을 대기열에서 찾을 수 없습니다!"]]);
+  assert.deepEqual(bad.log, [["reply", "### ⌛ 선택한 곡을 대기열에서 찾을 수 없습니다!"]]);
 });
 
 test("모달: 처리 중 던지면 일반 오류 문장", async () => {
@@ -577,5 +586,5 @@ test("모달: 처리 중 던지면 일반 오류 문장", async () => {
   };
   const r = menu(w, { customId: "panel:volume", volume: "10", select: false });
   await interactionCreate.execute(r.it);
-  assert.deepEqual(r.log, [["reply", errors.processingFailed()]]);
+  assert.deepEqual(r.log, [["reply", said(errors.processingFailed())]]);
 });

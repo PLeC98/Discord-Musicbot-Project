@@ -2,8 +2,6 @@
 
 /** 새로고침 버튼 */
 const refresh = () => "새로고침";
-/** 정보 화면의 오류 임베드 머리 */
-const errorTitle = () => "❌ 오류";
 
 type SystemValues = {
   botUptime: string;
@@ -108,4 +106,4 @@ function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean;
   return text;
 }
 
-export { refresh, errorTitle, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };
+export { refresh, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };

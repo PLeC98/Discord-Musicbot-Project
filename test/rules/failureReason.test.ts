@@ -6,6 +6,7 @@ import { failureReason } from "../../src/rules/failureReason.ts";
 import { errorMessage } from "../../src/ui/errorMessages.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
+import { plainText } from "../../src/ui/frame.ts";
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
 const AGE = `ERROR: [youtube] hc0ZDaAZQT0: Sign in to confirm your age.${HINT}`;
@@ -21,8 +22,8 @@ test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {
-  assert.equal(errorMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`)), "❌ 연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.");
-  assert.equal(errorMessage(ytdlpError(AGE)), "❌ 연령 제한 영상은 재생할 수 없어요.");
+  assert.equal(plainText(errorMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`))), "연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.");
+  assert.equal(plainText(errorMessage(ytdlpError(AGE))), "연령 제한 영상은 재생할 수 없어요.");
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
@@ -42,7 +43,7 @@ test("봇 감지 · 요청 제한: 고치는 법(쿠키 · bgutil)은 로그 줄
   assert.match(failureReason(bot, false), /^봇 감지 \(운영자: .*COOKIES_SOURCE.*\) \(abcdefghijk\)$/);
   assert.match(failureReason(limited, false), /^요청 제한 \(운영자: .*COOKIES_SOURCE.*\) \(abcdefghijk\)$/);
   for (const error of [bot, limited]) {
-    const told = errorMessage(error);
+    const told = plainText(errorMessage(error));
     assert.doesNotMatch(told, /\.env|COOKIES_SOURCE|bgutil/, told);
     assert.match(told, /봇 운영자에게 알려 주세요/);
   }

@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 import * as controlText from "../src/ui/text/controls.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import { colorOf } from "../src/ui/colors.ts";
@@ -19,7 +20,7 @@ const exported: GuildCommand = {
     const to = interaction.options.getInteger("to", true);
     // 사람은 1부터 센다
     const r = await controls.move(client.players.get(guild.id), { member }, from - 1, to - 1);
-    if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
+    if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 
     const t = controlText.moved(r.track, from, to);
     const embed = new EmbedBuilder()

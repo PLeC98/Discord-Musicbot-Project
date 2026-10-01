@@ -14,9 +14,10 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
+import { plainText } from "../../src/ui/frame.ts";
 
 // 실패 결과에 입구가 보일 문장을 붙여 본다
-const said = (r: AddResult) => (r.success ? r : { ...r, message: addFailureMessage(r) });
+const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
 const who = { id: "u1", username: "사용자" };
@@ -112,12 +113,12 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
   const noMessage = setup({ plays: [{ ok: false }] });
   const quiet = await noMessage.add({ tracks: [track("a")] }, who);
   assert.deepEqual(quiet, { success: false, code: "play-failed" });
-  assert.equal(quiet.success ? "" : addFailureMessage(quiet), "재생을 시작할 수 없습니다.");
+  assert.equal(quiet.success ? "" : plainText(addFailureMessage(quiet)), "재생을 시작할 수 없습니다.");
 
   const thrown = setup({ plays: [networkError()] });
   const r = await thrown.add({ tracks: [track("a")] }, who);
   assert.equal(r.success, false);
-  assert.match(r.success ? "" : addFailureMessage(r), /네트워크 오류/, "던진 것은 그 오류의 문장으로");
+  assert.match(r.success ? "" : plainText(addFailureMessage(r)), /네트워크 오류/, "던진 것은 그 오류의 문장으로");
   assert.deepEqual([r.success === false && r.code, r.success === false && r.kind], ["play-threw", "network"], "로그에는 까닭과 오류 종류");
 });
 

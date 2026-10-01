@@ -8,6 +8,7 @@ import { SYSTEM, customId } from "../src/ui/customIds.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as infoText from "../src/ui/text/info.ts";
 import * as errors from "../src/ui/text/errors.ts";
+import { noticeReply } from "../src/ui/frame.ts";
 
 const UPTIME = { withSeconds: true };
 
@@ -75,7 +76,7 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     // 호스트 CPU/메모리/디스크 정보 노출. Discord 권한으로 표현할 수 없는 봇 운영자(OWNER_ID) 전용
     if (interaction.user.id !== config.dashboard.ownerId) {
-      return interaction.reply({ content: errors.ownerOnly(), flags: MessageFlags.Ephemeral });
+      return interaction.reply(noticeReply(errors.ownerOnly()));
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
