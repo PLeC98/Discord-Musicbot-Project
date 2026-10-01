@@ -32,7 +32,7 @@ function useLookup(fake: Lookup | null | undefined) {
 /**
  * 넣지 못한 까닭. 로그에 적고, 사용자 문장은 입구가 ui/errorMessages 로 고른다. 곡 찾기 · 재생이 던진 것이면 그 오류의 종류(kind)
  */
-type Refused = { code: string; kind?: string };
+type Refused = { code: string; kind?: string; skipped?: number };
 const isRefused = (x: object): x is Refused => "code" in x;
 const kindOf = (error: unknown) => (error ? { kind: errorKind(error) } : {});
 /** 로그에 적을 까닭. 오류 종류가 있으면 붙인다 */
@@ -125,7 +125,7 @@ type PlaybackRequest = {
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
 /** 곡 담기 결과. 실패면 그 까닭(code · kind), 목록이 더 남았으면 이어 받을 상태(more) */
-type PlaybackResult = { success: false; code: string; kind?: string; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: Player; more: (More & { batch: number }) | null });
+type PlaybackResult = { success: false; code: string; kind?: string; skipped?: number; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: Player; more: (More & { batch: number }) | null });
 
 /** 이어 넣은 결과. 넣은 수 · 목록의 남은 곡과 다음 위치(next) */
 type Continued = { added: number; skipped: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
@@ -198,7 +198,7 @@ async function search(player: Player | null, query: string, { single = false, so
   // 로그의 하위 이름. 입구 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/" 로 이어 붙여 track//play 가 됐다
   const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });
   // 곡 찾기가 던진 것(lookup-failed)은 곡 찾기가 원문과 함께 이미 남겼다. 여기서는 까닭과 종류만
-  if (!found.success) return { code: found.code, ...kindOf(found.error) };
+  if (!found.success) return { code: found.code, ...kindOf(found.error), ...(found.skipped ? { skipped: found.skipped } : {}) };
 
   // 자리가 모자라 덜 받았는데 뒤에 곡이 더 있으면 알린다 (총 곡 수를 모르면 요청한 만큼 왔는지로 본다)
   const more = found.total == null ? found.tracks.length >= limit : found.total > found.tracks.length;

@@ -26,7 +26,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
   // 커맨드 진입 조건과 동일 기준 재확인 (심층 방어. 원본이 에페메랄이라 실질 노출은 없음)
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply(noticeReply(errors.needManageGuild()));
+    return interaction.reply(noticeReply(errors.mustModerator()));
   }
 
   // 드롭메뉴 선택. 즉시 저장하지 않고 보류만 (저장 버튼이 확정)

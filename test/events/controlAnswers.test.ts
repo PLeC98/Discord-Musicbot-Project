@@ -73,7 +73,7 @@ test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. �
 
   const beyond = asked();
   await answerSeek(beyond.it, p, 400_000);
-  assert.deepEqual(beyond.log, [["reply", ["### ✏️ 입력한 시간이 곡 길이를 초과합니다. (최대: 5:00)"], MINE]]);
+  assert.deepEqual(beyond.log, [["reply", ["### ✏️ 곡이 그만큼 길지 않아요!\n곡 길이(5:00)보다 뒤로 이동할 수는 없어요."], MINE]]);
   assert.equal(failureShow(beyond.it), null, "받아들이지 않았으면 자리를 바꿀 안내도 없다");
 });
 
@@ -100,5 +100,5 @@ test("받아들인 뒤에 던지면 하는 중 자리를 안내로 바꾼다", a
   const show = failureShow(it);
   assert.ok(show);
   await show(errors.processingFailed());
-  assert.deepEqual(log.at(-1), ["editReply", ["### ❌ 처리 중 오류가 발생했습니다!"], CV2]);
+  assert.deepEqual(log.at(-1), ["editReply", ["### ❌ 예상치 못한 오류예요!\n처리 중에 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."], CV2]);
 });

@@ -269,7 +269,8 @@ test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시�
 
     assert.deepEqual(
       msg.replies.map((r) => r.text),
-      [said(errors.voiceRequired())],
+      [said(errors.mustBeInSameVoice())],
+      "봇이 음성 채널에 있으면 그 채널에 들어오라고 한다",
     );
     assert.equal(msg.deleted, false);
     mock.timers.tick(5000);
@@ -291,7 +292,7 @@ test("전용 채널: 봇이 쉬고 있으면 소환할 수 있는지 본다(사�
     await messageHandler.execute(msg);
     assert.deepEqual(
       msg.replies.map((r) => r.text),
-      [said(errors.voiceRequired())],
+      [said(errors.mustBeInVoice())],
     );
   } finally {
     mock.timers.reset();
@@ -310,7 +311,7 @@ test("전용 채널: 코어가 실패하면 자리표시자를 치우고 ❌ 문
 
     const [loading, err] = msg.sent;
     assert.equal(loading.deleted, true, "자리표시자를 치운다");
-    assert.equal(textOf(err.payload), said(errors.noResult()));
+    assert.equal(textOf(err.payload), said(errors.noSongResult()));
     mock.timers.tick(7999);
     await new Promise(setImmediate);
     assert.equal(err.deleted, false);
@@ -333,7 +334,7 @@ test("전용 채널: 코어가 던지면 일반 오류 문장", async () => {
     await settings.setBotChannel("g1", "bot-channel");
     const msg = message(w);
     await messageHandler.execute(msg);
-    assert.equal(textOf(msg.sent.at(-1)?.payload ?? {}), said(errors.processingFailedInChannel()));
+    assert.equal(textOf(msg.sent.at(-1)?.payload ?? {}), said(errors.processingFailed()));
   } finally {
     mock.timers.reset();
   }
@@ -425,13 +426,13 @@ test("더 넣기: 시간이 지난 메뉴 · 권한 · 플레이어 없음은 �
   const noVoice = world({ userVoice: "v2" });
   const denied = moreInteraction(noVoice, { select: "10" });
   await interactionCreate.execute(denied.it);
-  assert.deepEqual(denied.log, [["reply", said(errors.sameChannelRequired())]]);
+  assert.deepEqual(denied.log, [["reply", said(errors.mustBeInSameVoice())]]);
 
   const empty = world();
   empty.client.players.clear();
   const none = moreInteraction(empty, { select: "10" });
   await interactionCreate.execute(none.it);
-  assert.deepEqual(none.log, [["reply", said(errors.noPlayer())]]);
+  assert.deepEqual(none.log, [["reply", said(errors.noSong())]]);
 });
 
 test("더 넣기: 직접 입력은 모달을 띄운다. 숫자가 아니면 거절", async () => {
@@ -526,12 +527,12 @@ test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으�
 
   const unknown = menu(world(), { customId: "autoplay:genre", values: ["없는장르"] });
   await interactionCreate.execute(unknown.it);
-  assert.match(unknown.log[0][1] ?? "", /알 수 없는 장르입니다: `없는장르`/);
+  assert.match(unknown.log[0][1] ?? "", /`없는장르`는 없어졌어요/);
 
   await settings.setDjRoles("g1", ["dj"]);
   const denied = menu(world(), { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(denied.it);
-  assert.deepEqual(denied.log, [["reply", said(errors.notDj())]]);
+  assert.deepEqual(denied.log, [["reply", said(errors.mustDj())]]);
 });
 
 test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {
@@ -545,7 +546,7 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
     const r = menu(world(), { customId: "panel:volume", volume: bad, select: false });
     await interactionCreate.execute(r.it);
-    assert.deepEqual(r.log, [["reply", "### ✏️ 볼륨은 0에서 100 사이의 숫자여야 합니다!"]], bad);
+    assert.deepEqual(r.log, [["reply", "### ✏️ 정해진 범위의 숫자로 입력해 주세요!\n볼륨은 0에서 100 까지의 숫자로 적어야 해요."]], bad);
   }
 });
 
@@ -565,7 +566,7 @@ test("대기열 점프: 고른 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   const fail = menu(w2, { customId: "panel:jump:S1", values: ["1"] });
   await interactionCreate.execute(fail.it);
   assert.deepEqual(w2.player.queue, [a, b, c], "되돌린다");
-  assert.deepEqual(fail.log, [["reply", "### ⚠️ 노래가 건너뛰어지지 않았습니다!"]]);
+  assert.deepEqual(fail.log, [["reply", said(errors.refusal({ code: "switch-failed" }))]]);
 });
 
 test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async () => {
@@ -576,7 +577,7 @@ test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async 
   assert.deepEqual(stale.log, [["reply", said(errors.staleSession())]]);
   const bad = menu(w, { customId: "panel:jump:S1", values: ["5"] });
   await interactionCreate.execute(bad.it);
-  assert.deepEqual(bad.log, [["reply", "### ⌛ 선택한 곡을 대기열에서 찾을 수 없습니다!"]]);
+  assert.deepEqual(bad.log, [["reply", said(errors.jumpTargetGone())]]);
 });
 
 test("모달: 처리 중 던지면 일반 오류 문장", async () => {

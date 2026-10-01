@@ -96,7 +96,7 @@ test("/setplaylistlimit: 대기열 상한을 넘으면 거부하고 저장하지
     const i = interaction({ count: 150 });
     await run(command, i);
     assert.equal(stored.has(G), false);
-    assert.match(text(i.replies[0]), /1~100곡.*대기열 상한/);
+    assert.match(text(i.replies[0]), /대기열 상한치인 100곡을 넘을 수 없고, 1에서 100곡 사이여야 해요/);
   }));
 
 test("/setplaylistlimit: reset은 기본값으로 되돌린다", async () => {

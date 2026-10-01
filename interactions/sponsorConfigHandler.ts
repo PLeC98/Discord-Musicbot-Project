@@ -55,7 +55,7 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
   sweepPending();
 
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.reply(noticeReply(errors.needManageGuild()));
+    return interaction.reply(noticeReply(errors.mustModerator()));
   }
 
   const mid = interaction.message.id;

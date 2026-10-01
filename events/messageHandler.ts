@@ -79,7 +79,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     } catch (error) {
       log.error({ sub: "message" }, "메시지 처리 오류:", error);
       await responder.dismissPlaceholder();
-      const errMsg = await message.channel.send(post(noticeFrame(errors.processingFailedInChannel())));
+      const errMsg = await message.channel.send(post(noticeFrame(errors.processingFailed())));
       scheduleDelete(errMsg, 8000);
     }
   },

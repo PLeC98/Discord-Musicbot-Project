@@ -116,7 +116,7 @@ function capabilities(): Capabilities {
 
   caps = { https, hls, dash, segMaxRetry, ok: https && hls };
   if (!caps.ok) {
-    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"})`);
+    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 받은 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`);
   }
   return caps;
 }

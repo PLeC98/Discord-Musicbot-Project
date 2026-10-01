@@ -234,11 +234,11 @@ test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400,
   assert.equal(ok.json.more?.requesterId, undefined);
 });
 
-test("조작 거절은 디스코드와 같은 문장에서 ❌ 만 떼어 보낸다", async () => {
+test("조작 거절은 디스코드와 같은 안내의 머리 줄과 본문을 글자로 보낸다", async () => {
   freshPlayer().currentTrack = null;
   const r = await req("POST", `/api/guilds/${GUILD_ID}/player/pause`);
   assert.equal(r.status, 409);
-  assert.deepEqual(r.json, { error: "현재 재생 중인 노래가 없습니다!" });
+  assert.deepEqual(r.json, { error: "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요." });
 });
 
 test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {

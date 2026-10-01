@@ -94,7 +94,7 @@ test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 
   await whenSettingsBroken(() => interactionCreate.execute(save));
   assert.equal(save.updatedWith, null);
   assert.deepEqual([save.deferredUpdate, save.deleted], [true, true]);
-  assert.match(textOf(save.followedWith), /### ❌ 저장 실패/);
+  assert.match(textOf(save.followedWith), /### ❌ 저장하지 못했어요/);
 });
 
 test("선택 없이 저장: 현재 설정 유지 (no-op에 가깝게 재저장)", async () => {

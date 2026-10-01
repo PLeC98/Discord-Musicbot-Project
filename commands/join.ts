@@ -21,11 +21,11 @@ const exported: GuildCommand = {
   async execute(interaction, client) {
     const { guild, member, channel } = interaction;
 
-    if (!member.voice.channel) return interaction.reply(noticeReply(errors.voiceRequired()));
+    if (!member.voice.channel) return interaction.reply(noticeReply(errors.mustBeInVoice()));
 
     const me = guild.members.me;
     const permissions = me ? member.voice.channel.permissionsFor(me) : null;
-    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply(noticeReply(errors.botCannotJoin()));
+    if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return interaction.reply(noticeReply(errors.permissionVoice()));
 
     // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
     const existing = client.players.get(guild.id);

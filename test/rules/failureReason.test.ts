@@ -22,8 +22,8 @@ test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {
-  assert.equal(plainText(errorMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`))), "연령 제한 영상을 일시적으로 재생할 수 없어요. 오류가 계속되면 봇 운영자에게 알려주세요.");
-  assert.equal(plainText(errorMessage(ytdlpError(AGE))), "연령 제한 영상은 재생할 수 없어요.");
+  assert.equal(plainText(errorMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`))), "일시적으로 연령 제한 영상을 틀 수 없어요!\n오류가 계속되면 봇 운영자에게 알려주세요.");
+  assert.equal(plainText(errorMessage(ytdlpError(AGE))), "연령 제한 영상은 틀 수 없어요!\n제한되지 않은 곡을 틀어주세요.");
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
@@ -45,7 +45,7 @@ test("봇 감지 · 요청 제한: 고치는 법(쿠키 · bgutil)은 로그 줄
   for (const error of [bot, limited]) {
     const told = plainText(errorMessage(error));
     assert.doesNotMatch(told, /\.env|COOKIES_SOURCE|bgutil/, told);
-    assert.match(told, /봇 운영자에게 알려 주세요/);
+    assert.match(told, /봇 운영자에게 알려주세요/);
   }
 });
 

@@ -69,7 +69,7 @@ test("dj: 모더레이터 면제가 사라지므로 재적 규칙을 받는다",
   assert.equal(await checkControl(other), "must-be-in-same-voice");
 
   const nowhere = shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: null, botVoice: "vc-A" }));
-  assert.equal(checkAdd(nowhere), "must-be-in-voice");
+  assert.equal(checkAdd(nowhere), "must-be-in-same-voice");
 });
 
 test("user: DJ 역할이 설정된 서버에서는 조작이 막힌다", async () => {

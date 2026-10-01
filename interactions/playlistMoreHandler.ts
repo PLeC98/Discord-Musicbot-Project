@@ -112,7 +112,7 @@ async function handleMore(interaction: MoreInteraction) {
   if (permErr) return refuse(errors.permission(permErr));
 
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return refuse(errors.noPlayer());
+  if (!player) return refuse(errors.noSong());
 
   const count = await countOf(interaction, state, player);
   if (count) await addMore(interaction, state, count, player);

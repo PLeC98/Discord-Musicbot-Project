@@ -35,8 +35,8 @@ async function isDj(member: GuildMember) {
 
 /**
  * 재적 규칙. 모더레이터는 어디서든 면제, 그 외는:
- *  - 봇이 음성 채널에서 동작 중이면 같은 채널 재적 필수
- *  - 봇이 유휴(음성 미접속)면 채널 제약 없음
+ *  - 봇이 음성 채널에서 동작 중이면 같은 채널 재적 필수(음성 채널 밖이든 다른 채널이든 같은 까닭)
+ *  - 봇이 유휴(음성 미접속)면 채널 제약 없음. 봇을 부를 때의 음성 채널 재적은 checkSummon 이 본다
  * 통과 시 null, 거부 시 그 까닭.
  */
 function checkVoice(member: GuildMember): PermissionDenied | null {
@@ -46,7 +46,7 @@ function checkVoice(member: GuildMember): PermissionDenied | null {
   if (!botChannelId) return null;
   if (member.voice.channel?.id === botChannelId) return null;
 
-  return member.voice.channel ? "must-be-in-same-voice" : "must-be-in-voice";
+  return "must-be-in-same-voice";
 }
 
 /** 모든 재생 조작(🔒)의 단일 기준: 재적 규칙 + DJ 계층 */

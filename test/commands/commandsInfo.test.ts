@@ -113,11 +113,11 @@ function nowPlayer(track: object | null, status: Status = { playing: true, pause
 test("/nowplaying: 플레이어나 곡이 없으면 본인에게만 알린다", async () => {
   const none = interaction();
   await run(await command("nowplaying"), none.it, none.client);
-  assert.deepEqual(none.log[0][1], noticeReply(errors.noPlayer()));
+  assert.deepEqual(none.log[0][1], noticeReply(errors.noSong()));
 
   const idle = interaction({ player: nowPlayer(null) });
   await run(await command("nowplaying"), idle.it, idle.client);
-  assert.deepEqual(idle.log[0][1], noticeReply(errors.noTrack()));
+  assert.deepEqual(idle.log[0][1], noticeReply(errors.noSong()));
 });
 
 test("/nowplaying: 가수 · 앨범 · 플랫폼 · 진행 · 요청자 · 상태를 담는다", async () => {
@@ -168,7 +168,7 @@ const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack
 test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   const none = interaction();
   await run(await command("queue"), none.it, none.client);
-  assert.deepEqual(none.log[0][1], noticeReply(errors.noPlayer()));
+  assert.deepEqual(none.log[0][1], noticeReply(errors.noSong()));
   const empty = interaction({ player: queuePlayer(null, []) });
   await run(await command("queue"), empty.it, empty.client);
   assert.deepEqual(empty.log[0][1], noticeReply(errors.queueEmpty()));
@@ -251,7 +251,7 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
   try {
     const other = interaction({ userId: "u1" });
     await run(await command("system"), other.it, other.client);
-    assert.deepEqual(other.log, [["reply", noticeReply(errors.ownerOnly())]]);
+    assert.deepEqual(other.log, [["reply", noticeReply(errors.mustOwner())]]);
 
     const owner = interaction({ userId: "owner" });
     await run(await command("system"), owner.it, owner.client);
@@ -381,7 +381,7 @@ test("/sponsorblock: 지금 설정으로 화면을 띄우고 보류 상태를 �
 test("SponsorBlock 화면: 서버 관리 권한이 필요하다", async () => {
   const denied = sbInteraction({ customId: "sb:save", manage: false });
   await interactionCreate.execute(fake<Interaction>(denied.it));
-  assert.deepEqual(denied.log, [["reply", noticeReply(errors.needManageGuild())]]);
+  assert.deepEqual(denied.log, [["reply", noticeReply(errors.mustModerator())]]);
 });
 
 test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저장한다. 보류가 없으면 지금 설정에서 시작한다", async () => {

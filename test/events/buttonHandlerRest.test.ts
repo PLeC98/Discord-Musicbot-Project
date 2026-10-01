@@ -180,9 +180,9 @@ test("조작 버튼: 플레이어가 거절하면 실패 문장(일시정지 · 
   w.player.queue = [{ title: "다음" }];
   w.player.previousTracks = [{ title: "앞" }];
   const cases = [
-    ["panel:pause:S1", "### ❌ 작업이 실패했습니다!"],
-    ["panel:skip:S1", "### ⚠️ 노래가 건너뛰어지지 않았습니다!"],
-    ["panel:previous:S1", "### ⚠️ 노래가 건너뛰어지지 않았습니다!"],
+    ["panel:pause:S1", "### ❌ 작업이 실패했어요!"],
+    ["panel:skip:S1", "### ⚠️ 작업에 실패했어요!"],
+    ["panel:previous:S1", "### ⚠️ 작업에 실패했어요!"],
   ];
   for (const [id, want] of cases) {
     const { it, log } = press(w, id);
@@ -394,7 +394,7 @@ test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한�
   const idle = world({ botVoice: null, userVoice: null });
   const { it, log } = press(idle, "panel:autoplay:S1");
   await interactionCreate.execute(it);
-  assert.deepEqual(log, [["reply", said(errors.voiceRequired())]]);
+  assert.deepEqual(log, [["reply", said(errors.mustBeInVoice())]]);
 });
 
 // ── 도움말 · 시스템 새로고침 ──────────────────────────────────────────
@@ -410,7 +410,7 @@ test("도움말 새로고침: 제자리에서 다시 그린다. 실패하면 뒤
   };
   const bad = press(w, "help:refresh");
   await interactionCreate.execute(bad.it);
-  assert.deepEqual(bad.log, [["deferUpdate"], ["followUp", said(errors.helpRefreshFailed())]]);
+  assert.deepEqual(bad.log, [["deferUpdate"], ["followUp", said(errors.refreshFailed())]]);
 });
 
 test("시스템 새로고침: 봇 운영자만", async () => {
@@ -420,7 +420,7 @@ test("시스템 새로고침: 봇 운영자만", async () => {
     const w = world();
     const denied = press(w, "system:refresh");
     await interactionCreate.execute(denied.it);
-    assert.deepEqual(denied.log, [["reply", said(errors.ownerOnly())]]);
+    assert.deepEqual(denied.log, [["reply", said(errors.mustOwner())]]);
 
     config.dashboard.ownerId = USER;
     const ok = press(w, "system:refresh");
@@ -439,18 +439,18 @@ test("검색 버튼: 고르기는 곡 추가와 같은 검사. 봇이 음성에 
   const other = world({ userVoice: "v2" });
   const a = press(other, PICK);
   await interactionCreate.execute(a.it);
-  assert.deepEqual(a.log, [["reply", said(errors.sameChannelRequired())]]);
+  assert.deepEqual(a.log, [["reply", said(errors.mustBeInSameVoice())]]);
 
   const idle = world({ botVoice: null, userVoice: null });
   const b = press(idle, PICK);
   await interactionCreate.execute(b.it);
-  assert.deepEqual(b.log, [["reply", said(errors.voiceRequired())]]);
+  assert.deepEqual(b.log, [["reply", said(errors.mustBeInVoice())]]);
 
   const denied = world({ botVoice: null, userVoice: "v1" });
   denied.member.voice.channel = { id: "v1", name: "v1", permissionsFor: () => ({ has: () => false }) };
   const c = press(denied, PICK);
   await interactionCreate.execute(c.it);
-  assert.deepEqual(c.log, [["reply", said(errors.botCannotJoin())]], "봇이 연결 · 말하기 권한이 없으면 /play 처럼 막는다");
+  assert.deepEqual(c.log, [["reply", said(errors.permissionVoice())]], "봇이 연결 · 말하기 권한이 없으면 /play 처럼 막는다");
   assert.deepEqual(denied.seen, []);
 });
 

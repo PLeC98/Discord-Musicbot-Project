@@ -86,7 +86,7 @@ test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린�
   const r = await getTrackData("https://soundcloud.com/artist/preview");
   assert.equal(r.success, false);
   assert.equal(errorKind(r.error), "sc-preview-only");
-  assert.equal(r.success ? "" : plainText(addFailureMessage({ code: r.code, kind: errorKind(r.error) })), "미리듣기(30초)만 열린 곡이라 틀 수 없어요.");
+  assert.equal(r.success ? "" : plainText(addFailureMessage({ code: r.code, kind: errorKind(r.error) })), "미리듣기만 가능한 곡이라 틀 수 없어요.\n다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요.");
 });
 
 test("곡 찾기: 지역 제한은 그 까닭으로 알린다(결과 없음이 아니다)", async () => {
@@ -140,7 +140,7 @@ test("직접 링크 정보: 지원하지 않는 링크는 빈 배열, 열지 못
   assert.match(messageOf((thrown as Error).cause), /10\.0\.0\.5/, "사유는 원인에(서버 로그용)");
   // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
   const told = errorMessage(thrown);
-  assert.equal(plainText(told), "재생할 수 없는 링크예요.");
+  assert.equal(plainText(told), "재생할 수 없는 링크예요!\n해당 링크가 오디오나 영상이 맞는지, 용량이 너무 크지는 않은지, 접속이 정상적으로 가능한지 확인해주세요.");
 });
 
 test("직접 링크: icy-* 머리가 있으면 인터넷 라디오라 라이브로 담는다(길이를 추정하지 않는다)", async () => {

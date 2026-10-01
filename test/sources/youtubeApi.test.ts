@@ -149,7 +149,7 @@ test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · �
   const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.code, "lookup-failed");
   const { errorMessage } = await import("../../src/ui/errorMessages.ts");
-  assert.equal(result.success ? "" : plainText(errorMessage(result.error)), "비공개이거나 삭제된 영상은 재생할 수 없어요.");
+  assert.equal(result.success ? "" : plainText(errorMessage(result.error)), "접근할 수 없거나 존재하지 않는 영상이에요!\n비공개이거나 삭제된 콘텐츠는 틀 수 없어요.");
 });
 
 // ── 스트림 ────────────────────────────────────────────────────────────

@@ -45,7 +45,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 // 재적 · 계층 검사는 처리기가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
-  if (!player) return interaction.reply(noticeReply(errors.noPlayer()));
+  if (!player) return interaction.reply(noticeReply(errors.noSong()));
 
   const { action, rest } = partsOf(interaction.customId);
   const sessionId = rest[0];
@@ -72,7 +72,7 @@ async function handleQueuePage(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
   if (!info || (!info.current && info.queue.length === 0)) {
-    return noticeInstead(interaction, player ? errors.queueEmpty() : errors.noPlayer());
+    return noticeInstead(interaction, player ? errors.queueEmpty() : errors.noSong());
   }
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
@@ -117,15 +117,15 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
 }
 
 function handleHelpRefresh(interaction: Press) {
-  return refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: errors.helpRefreshFailed() });
+  return refreshMessage(interaction, (client) => buildHelpEmbed(client), { failed: "명령어 도움말 새로고침 실패:", notice: errors.refreshFailed() });
 }
 
 async function handleSystemRefresh(interaction: Press) {
   // /system과 동일하게 봇 운영자 전용
   if (interaction.user.id !== config.dashboard.ownerId) {
-    return await interaction.reply(noticeReply(errors.ownerOnly()));
+    return await interaction.reply(noticeReply(errors.mustOwner()));
   }
-  return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.systemRefreshFailed() });
+  return refreshMessage(interaction, (client) => buildSystemEmbed(client), { failed: "시스템 정보 새로고침 실패:", notice: errors.refreshFailed() });
 }
 
 // 검색 결과 고르기 · 취소. 검색한 사람만 누를 수 있다. 고른 영상은 다시 찾는다(받아 둔 곡이면 캐시에서)

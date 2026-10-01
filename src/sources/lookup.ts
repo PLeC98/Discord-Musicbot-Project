@@ -25,7 +25,7 @@ type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: nu
 // collectionId: 이어 받을 때 목록을 부를 id(주소만으로는 모르는 출처. 사운드클라우드 세트의 숫자 id)
 /** 곡을 찾지 못한 까닭. 로그에 적고, 사용자 문장은 ui/errorMessages 가 고른다 */
 type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "sc-unsupported" | "nothing-playable";
-type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined; skipped?: undefined };
+type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; skipped?: number; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 진짜 */
 type Sources = {
   youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; search(query: string, limit: number): Promise<FoundTrack[]> };
@@ -115,8 +115,8 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
   if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, code: "sc-unsupported" };
   try {
     const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources });
-    // 받은 구간에 틀 수 있는 곡이 하나도 없는 세트는 뺀 까닭(nothing-playable)을 알린다
-    if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable" } : { success: false, code: "no-song-result" };
+    // 받은 구간에 틀 수 있는 곡이 하나도 없는 세트는 뺀 까닭(nothing-playable)과 뺀 곡 수를 알린다
+    if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable", skipped: found.skipped } : { success: false, code: "no-song-result" };
     return { success: true, ...found };
   } catch (error) {
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다

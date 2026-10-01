@@ -87,8 +87,8 @@ test("재적 규칙: 다른 채널이면 거부", () => {
   assert.equal(checkVoice(fakeMember({ voice: "vc2", botVoice: "vc1" })), "must-be-in-same-voice");
 });
 
-test("재적 규칙: 음성 미참가면 거부", () => {
-  assert.equal(checkVoice(fakeMember({ botVoice: "vc1" })), "must-be-in-voice");
+test("재적 규칙: 봇이 음성 채널에 있으면 음성 미참가도 같은 채널에 오라고 거부", () => {
+  assert.equal(checkVoice(fakeMember({ botVoice: "vc1" })), "must-be-in-same-voice");
 });
 
 test("재적 규칙: 모더레이터는 어디서든 면제", () => {

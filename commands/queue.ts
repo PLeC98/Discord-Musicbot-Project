@@ -16,7 +16,7 @@ const exported: GuildCommand = {
 
     const player = client.players.get(guild.id);
     if (!player) {
-      return interaction.reply(noticeReply(errors.noPlayer()));
+      return interaction.reply(noticeReply(errors.noSong()));
     }
 
     const queueInfo = queueInfoOf(player);
