@@ -1,9 +1,9 @@
-// 조사 도우미(rules/josa)가 쓰는 한자 표를 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
+// 조사 도우미(rules/josa)가 쓰는 한자 표(data/kanji-finals.json)를 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-kanji-finals.ts
 //
 // 원본은 유니코드 Unihan 데이터베이스의 일본어 읽기(kJapaneseOn 음독 · kJapaneseKun 훈독, 로마자)다.
 // 한자마다 읽기가 모두 ん(로마자 끝 N)으로 끝나면 "ㄴ 받침", 모두 아니면 "받침 없음"으로 나누고, 갈리면 표에 넣지 않는다
-// (그 한자로 끝나는 말은 조사를 괄호 꼴로 둔다). 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
+// (그 한자로 끝나는 말은 조사를 괄호 꼴로 둔다). 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣고, 출처와 라이선스는 data/NOTICE 에 적는다.
 
 import fs from "fs";
 import path from "path";
@@ -11,7 +11,7 @@ import zlib from "zlib";
 
 const SOURCE = "https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip";
 const ENTRY = "Unihan_Readings.txt";
-const OUT = path.join(import.meta.dirname, "..", "src", "rules", "kanjiFinals.ts");
+const OUT = path.join(import.meta.dirname, "..", "data", "kanji-finals.json");
 
 // zip 안의 파일 하나를 꺼낸다. 중앙 디렉터리에서 크기와 위치를 읽고 deflate 를 푼다
 function unzipEntry(zip: Buffer, name: string) {
@@ -62,17 +62,7 @@ for (const [code, list] of [...readings].sort(([a], [b]) => a - b)) {
   else if (n === 0) endsVowel += String.fromCodePoint(code);
 }
 
-const out = `// 생성 파일. scripts/build-kanji-finals.ts 가 만든다. 손으로 고치지 않는다.
-// 한자의 일본어 읽기(음독 · 훈독)가 모두 ん 으로 끝나는 것과 모두 모음으로 끝나는 것. 갈리는 한자는 어느 쪽에도 없다.
-// 원본: Unicode Character Database, ${ENTRY} (Unicode ${version}, ${date}). Copyright © 1991-${date.slice(0, 4)} Unicode, Inc.
-// Unicode License v3 에 따라 쓴다. 고지는 NOTICE.md
-
-/** 읽기가 모두 ん 으로 끝나는 한자(${[...endsN].length}자) */
-const ENDS_N = ${JSON.stringify(endsN)};
-/** 읽기가 모두 모음으로 끝나는 한자(${[...endsVowel].length}자) */
-const ENDS_VOWEL = ${JSON.stringify(endsVowel)};
-
-export { ENDS_N, ENDS_VOWEL };
-`;
-fs.writeFileSync(OUT, out);
+// 판 표기는 data/NOTICE 의 출처 줄과 맞춘다
+const source = `Unicode Character Database, ${ENTRY} (Unicode ${version}, ${date})`;
+fs.writeFileSync(OUT, `${JSON.stringify({ source, endsN, endsVowel })}\n`);
 console.log(`Unicode ${version} (${date}): ん ${[...endsN].length}자 · 모음 ${[...endsVowel].length}자 → ${path.relative(process.cwd(), OUT)}`);

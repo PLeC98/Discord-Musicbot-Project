@@ -7,10 +7,11 @@
 //   영어는 발음 사전(CMU)의 마지막 소리에 외래어 표기법을 따른다(짧은 모음 뒤의 p · t · k 는 받침, 그 밖의 자음은 "으" 가 붙어 받침이 없다).
 //   사전에 없는 말은 철자로 어림하고, 사전에 없는 대문자 약어는 글자 이름(BTS 의 S 는 에스)으로 읽는다.
 //   일본어 가나는 ん 이면 ㄴ, っ 면 ㅅ, 장음 ー · 작은 가나 · 그 밖의 가나는 받침이 없다. 반복 기호는 앞 글자를 따른다.
-//   한자는 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다(rules/kanjiFinals). 갈리면 모른다.
+//   한자는 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다(data/kanji-finals.json, 유니코드 Unihan 에서 만든 표). 갈리면 모른다.
 
+import fs from "fs";
+import path from "path";
 import { createRequire } from "module";
-import { ENDS_N, ENDS_VOWEL } from "./kanjiFinals.ts";
 
 /** 끝소리. none 받침 없음, final 받침(ㄹ 아님), rieul ㄹ 받침, null 모름 */
 type Final = "none" | "final" | "rieul" | null;
@@ -74,10 +75,16 @@ function kanaFinal(ch: string): Final {
   return "んンっッ".includes(ch) ? "final" : "none";
 }
 
-// 한자. 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다
+// 한자 표. endsN 은 읽기가 모두 ん 으로, endsVowel 은 모두 모음으로 끝나는 한자. scripts/build-kanji-finals.ts 가 만든다
+const KANJI_FILE = path.join(import.meta.dirname, "..", "..", "data", "kanji-finals.json");
+let kanji: { endsN: string; endsVowel: string } | null = null;
+
+// 한자. 일본어 읽기가 모두 같은 쪽으로 끝나는 것만 안다. 표는 한자를 처음 만났을 때 한 번 읽는다
 function kanjiFinal(ch: string): Final {
-  if (ENDS_N.includes(ch)) return "final";
-  if (ENDS_VOWEL.includes(ch)) return "none";
+  if (!/\p{Script=Han}/u.test(ch)) return null;
+  kanji ??= JSON.parse(fs.readFileSync(KANJI_FILE, "utf8")) as { endsN: string; endsVowel: string };
+  if (kanji.endsN.includes(ch)) return "final";
+  if (kanji.endsVowel.includes(ch)) return "none";
   return null;
 }
 
