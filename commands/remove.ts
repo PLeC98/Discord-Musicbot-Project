@@ -1,11 +1,9 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
-import { noticeReply } from "../src/ui/frame.ts";
-import * as controlText from "../src/ui/text/controls.ts";
-import * as labels from "../src/ui/text/labels.ts";
+import * as replies from "../src/ui/controlReplies.ts";
+import { noticeReply, reply } from "../src/ui/frame.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
-import { colorOf } from "../src/ui/colors.ts";
 
 const exported: GuildCommand = {
   data: new SlashCommandBuilder()
@@ -20,17 +18,7 @@ const exported: GuildCommand = {
     const r = await controls.remove(client.players.get(guild.id), { member }, interaction.options.getInteger("position", true) - 1);
     if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
 
-    const t = controlText.removed(r.track);
-    const embed = new EmbedBuilder()
-      .setTitle(t.title)
-      .setDescription(t.description)
-      .setColor(colorOf("brand"))
-      .setTimestamp()
-      .addFields({ name: t.by, value: `${member}`, inline: true }, { name: t.left, value: labels.trackCount(r.left), inline: true });
-
-    if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
-
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    await interaction.reply(reply(replies.removed(r.track, r.left, member)));
   },
 };
 export default exported;

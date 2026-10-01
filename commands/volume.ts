@@ -1,8 +1,5 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
-import * as controls from "../src/usecases/controls.ts";
-import { controlMessage } from "../src/ui/controlMessages.ts";
-import { noticeReply } from "../src/ui/frame.ts";
-import { volumeChanged } from "../src/ui/volumeReply.ts";
+import { SlashCommandBuilder } from "discord.js";
+import { answerVolume } from "../interactions/controlAnswers.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 
 const exported: GuildCommand = {
@@ -13,11 +10,7 @@ const exported: GuildCommand = {
     .addIntegerOption((option) => option.setName("level").setDescription("Volume level (0 ~ 100)").setDescriptionLocalizations({ ko: "볼륨 크기 (0 ~ 100)" }).setRequired(true).setMinValue(0).setMaxValue(100)),
 
   async execute(interaction, client) {
-    const { guild, member } = interaction;
-    const r = await controls.volume(client.players.get(guild.id), { member }, interaction.options.getInteger("level", true));
-    if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
-
-    await interaction.reply({ embeds: [volumeChanged({ before: r.before, level: r.level, by: member })], flags: MessageFlags.Ephemeral });
+    await answerVolume(interaction, client.players.get(interaction.guild.id), interaction.options.getInteger("level", true));
   },
 };
 export default exported;

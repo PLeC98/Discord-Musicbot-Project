@@ -1,10 +1,10 @@
-import { MessageFlags, type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
+import { noticeReply, reply } from "../src/ui/frame.ts";
+import * as replies from "../src/ui/controlReplies.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
-import * as controlText from "../src/ui/text/controls.ts";
-import { volumeChanged } from "../src/ui/volumeReply.ts";
+import { answerVolume } from "./controlAnswers.ts";
 import { route, type Route } from "./route.ts";
 import { PANEL, customId, partsOf } from "../src/ui/customIds.ts";
 
@@ -19,20 +19,14 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
   if (!r.ok && r.code === "bad-position") return await interaction.reply(noticeReply(errors.jumpTargetGone()));
   if (!r.ok) return await interaction.reply(noticeReply(controlMessage(r)));
 
-  await interaction.reply({
-    content: controlText.jumped(r.track),
-    flags: MessageFlags.Ephemeral,
-  });
+  await interaction.reply(reply(replies.jumped(r.track)));
 }
 
 async function handleVolumeModal(interaction: ModalSubmitInteraction<"cached">, client: Client<true>) {
   // 숫자만 받는다. parseInt 는 "50abc" 를 50 으로 읽는다. 범위는 controls.volume 이 본다
   const raw = interaction.fields.getTextInputValue("volume_input").trim();
   const volume = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
-  const r = await controls.volume(client.players.get(interaction.guild.id), { member: interaction.member }, volume);
-  if (!r.ok) return await interaction.reply(noticeReply(controlMessage(r)));
-
-  await interaction.reply({ embeds: [volumeChanged({ before: r.before, level: r.level, by: interaction.member })], flags: MessageFlags.Ephemeral });
+  await answerVolume(interaction, client.players.get(interaction.guild.id), volume);
 }
 
 // 곡으로 건너뛰기 메뉴와 음량 입력 모달

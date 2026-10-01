@@ -21,6 +21,7 @@ import { routes as djRoleConfigHandler } from "../../interactions/djRoleConfigHa
 import { routes as modalHandler } from "../../interactions/modalHandler.ts";
 import { routes as playlistMoreHandler } from "../../interactions/playlistMoreHandler.ts";
 import { routes as sponsorConfigHandler } from "../../interactions/sponsorConfigHandler.ts";
+import { selectOf } from "../helpers/cv2.ts";
 
 useExampleConfig();
 const store = openTempStore("listeners-");
@@ -124,7 +125,7 @@ for (const [kind, customId, owner] of CASES) {
 test("봇이 만드는 모달 · 메뉴의 custom_id 는 목록의 그 경로로 간다", async () => {
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
   sameRoute("modal", volumeModal().toJSON().custom_id, "panel:volume");
-  for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", menu.components[0].toJSON().components[0].custom_id, "autoplay:genre");
+  for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
   const jump = await new NowPlayingPanel(fake({ players: new Map() })).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
 });

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
@@ -6,7 +6,8 @@ import * as playerEvents from "../src/player/events.ts";
 import { sessions } from "../src/store/playerSessions.ts";
 import { escapeMd } from "../src/ui/mentions.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
+import { noticeReply, reply } from "../src/ui/frame.ts";
+import * as replies from "../src/ui/controlReplies.ts";
 import * as controlText from "../src/ui/text/controls.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
@@ -29,7 +30,7 @@ const exported: GuildCommand = {
     // 이미 채널에 붙어 있음(붙는 중 · 끊겨 다시 붙는 중 포함)
     const existing = client.players.get(guild.id);
     if (existing?.voice.isAlive()) {
-      return interaction.reply({ content: controlText.alreadyJoined(), flags: MessageFlags.Ephemeral });
+      return interaction.reply(reply(replies.alreadyJoined()));
     }
 
     // /leave에서 저장한 세션이 있는지 확인
@@ -69,7 +70,7 @@ const exported: GuildCommand = {
       // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
       if (config.bot.leaveDelayQueueEmptyMs > 0) player.idle.scheduleEmpty("곡 없이 대기");
       playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${error?.message || error}`));
-      await interaction.reply({ content: controlText.joined(), flags: MessageFlags.Ephemeral });
+      await interaction.reply(reply(replies.joined()));
     }
   },
 };

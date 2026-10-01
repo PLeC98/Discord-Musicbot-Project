@@ -36,7 +36,8 @@ import * as storeDb from "../../src/store/db.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
-import { noticeFrame, noticeReply, post } from "../../src/ui/frame.ts";
+import { noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
+import * as replies from "../../src/ui/controlReplies.ts";
 
 useExampleConfig();
 
@@ -389,7 +390,7 @@ test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 �
   joined.player.voice = fake<Player["voice"]>({ isAlive: () => true });
   const c = interaction(joined);
   await runCommand(await command("join"), c.it, joined.client);
-  assert.deepEqual(c.log, [["reply", { content: "✅ 이미 채널에 접속해 있어요.", flags: MessageFlags.Ephemeral }]]);
+  assert.deepEqual(c.log, [["reply", reply(replies.alreadyJoined())]]);
 });
 
 test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나갈 예약을 건다", async () => {
@@ -408,7 +409,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   assert.ok(player instanceof h.Player);
   try {
     assert.ok(player.connection, "붙었다");
-    assert.deepEqual(log, [["reply", { content: "✅ 음성 채널에 접속했어요!", flags: MessageFlags.Ephemeral }]]);
+    assert.deepEqual(log, [["reply", reply(replies.joined())]]);
     assert.ok(w.seen.includes("end:joined"));
     assert.ok(player.idle.emptyTimer, "곡 없이 대기");
   } finally {

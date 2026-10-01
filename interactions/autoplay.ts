@@ -1,19 +1,17 @@
 // 자동재생 입구: /autoplay 와 패널의 자동재생 버튼이 같은 절차(answerAutoplay)를 쓰고, 장르 메뉴에서 고른 것을 받는다.
 // 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
-import { EmbedBuilder, type ButtonInteraction, type GuildMember, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../src/ui/text/errors.ts";
 import { noticeReply } from "../src/ui/frame.ts";
 import * as controls from "../src/usecases/controls.ts";
 import { ensurePlayer } from "../src/usecases/addTracks.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
-import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
+import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn, OFF_MENU_MS } from "../src/ui/genreMenu.ts";
 import { keepReply, expireReply } from "../src/ui/replyLifetime.ts";
 import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../src/ui/customIds.ts";
 import { route, type Route } from "./route.ts";
 import type { Player } from "../src/player/Player.ts";
-import { colorOf } from "../src/ui/colors.ts";
-import * as autoplayText from "../src/ui/text/autoplay.ts";
 
 /**
  * 켜져 있으면 끄고 30초 동안 장르를 다시 고를 기회를 준다(고르면 변경, 두면 종료).
@@ -52,20 +50,10 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
     create,
     onAccepted: () => {
       expireReply(interaction);
-      return interaction.update({ embeds: [enabledEmbed(genre, member)], components: [] });
+      return interaction.update(autoplayOn(genre, member));
     },
   });
   if (!r.ok) return interaction.reply(noticeReply(controlMessage(r)));
-}
-
-function enabledEmbed(genre: string, member: GuildMember) {
-  const t = autoplayText.turnedOn(genre);
-  return new EmbedBuilder()
-    .setTitle(t.title)
-    .setDescription(t.description)
-    .setColor(colorOf("brand"))
-    .setTimestamp()
-    .addFields({ name: t.by, value: `${member}`, inline: true });
 }
 
 // 앞머리가 재생 패널 버튼(panel:)보다 좁아 자동재생 버튼은 여기로 온다

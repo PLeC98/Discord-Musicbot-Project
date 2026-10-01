@@ -491,7 +491,7 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
     },
     update: async (p: Shown) => {
       it.replied = true;
-      log.push(["update", p.embeds?.[0]?.data?.title]);
+      log.push(["update", shown(p)?.split("\n")[0]]);
     },
     deleteReply: async () => log.push(["deleteReply"]),
   });
@@ -510,7 +510,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 뽑고, 틀고 있으�
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.it);
   assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
-  assert.deepEqual(pick.log, [["update", "🎲 자동 재생이 활성화되었습니다"]]);
+  assert.deepEqual(pick.log, [["update", "### 🎲 자동 재생이 활성화되었습니다"]]);
   // 메뉴를 덮은 결과(update)는 본인에게만 보이는 것으로 기록되지 않는다. 지우라고 선언해 두었으니 지운다
   t.mock.timers.enable({ apis: ["setTimeout"] });
   scheduleReplyCleanup(pick.it);
@@ -539,7 +539,7 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   const ok = menu(w, { customId: "panel:volume", volume: "35", select: false });
   await interactionCreate.execute(ok.it);
   assert.deepEqual(w.seen, ["volume:35"]);
-  assert.deepEqual(ok.log, [["reply", "🔊 볼륨이 변경되었습니다"]]);
+  assert.match(String(ok.log[0][1]), /^### 🔊 볼륨이 변경되었습니다\n\*\*\d+%\*\* → \*\*35%\*\*\n-# 👤 변경한 사람 /);
 
   // "50abc" 를 50 으로 읽지 않는다(parseInt 가 그랬다)
   for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {

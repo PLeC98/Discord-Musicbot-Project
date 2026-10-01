@@ -1,10 +1,10 @@
 // 자동재생 장르 선택 화면. 자동재생 버튼과 `/autoplay`가 같은 것을 띄운다.
 // 진입점마다 따로 만들면 한쪽만 고쳐져 갈라진다(실제로 명령 쪽은 영문 키 목록을 쓰고 있었다).
 
-import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, MessageFlags } from "discord.js";
+import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./customIds.ts";
-import { colorOf } from "./colors.ts";
+import { frame, post, reply } from "./frame.ts";
 import * as autoplayText from "./text/autoplay.ts";
 
 // 끄고 나서 장르를 다시 고를 수 있는 시간. "더 넣기" 메뉴와 같은 값으로 맞춘다.
@@ -32,25 +32,26 @@ function genreSelect(placeholder: string) {
   );
 }
 
-/** 켤 때. 장르를 고르면 그 장르로 켜진다. 고르는 동안 떠 있어야 한다(keepReply). */
-function buildGenreMenu() {
-  const t = autoplayText.pickGenre();
-  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"));
-
-  const select = genreSelect(t.placeholder);
-  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: MessageFlags.Ephemeral as const };
+// 장르 메뉴가 달린 화면. 본인에게만 보인다
+function withMenu(t: { title: string; description: string; placeholder: string }) {
+  const container = frame({ title: t.title, body: t.description });
+  container.addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(genreSelect(t.placeholder)));
+  return reply(container);
 }
+
+/** 켤 때. 장르를 고르면 그 장르로 켜진다. 고르는 동안 떠 있어야 한다(keepReply). */
+const buildGenreMenu = () => withMenu(autoplayText.pickGenre());
 
 /**
  * 끌 때. 이미 꺼진 상태를 알리면서, 30초 동안 장르를 다시 고를 기회를 준다.
  * 고르면 그 장르로 다시 켜지고(장르 변경), 그냥 두거나 닫으면 꺼진 채로 끝난다.
  */
-function buildAutoplayOffMenu() {
-  const t = autoplayText.turnedOff();
-  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand")).setTimestamp();
+const buildAutoplayOffMenu = () => withMenu(autoplayText.turnedOff());
 
-  const select = genreSelect(t.placeholder);
-  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)], flags: MessageFlags.Ephemeral as const };
+/** 장르를 골라 켰다. 메뉴 화면을 이 화면으로 고친다. by 는 고른 사람 */
+function autoplayOn(genre: string, by: { toString(): string }) {
+  const t = autoplayText.turnedOn(genre);
+  return post(frame({ title: t.title, body: t.description, footer: [`${t.by} ${by}`] }));
 }
 
-export { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS };
+export { buildGenreMenu, buildAutoplayOffMenu, autoplayOn, OFF_MENU_MS };

@@ -6,19 +6,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
-import { buildGenreMenu, buildAutoplayOffMenu, OFF_MENU_MS } from "../../src/ui/genreMenu.ts";
+import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn, OFF_MENU_MS } from "../../src/ui/genreMenu.ts";
 import * as genresModule from "../../src/config/genres.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
+import { headOf, selectOf, textsOf } from "../helpers/cv2.ts";
 
 useExampleConfig();
 const { genres } = genresModule.genres();
 
 const ids = Object.keys(genres);
-const selectOf = (payload: ReturnType<typeof buildGenreMenu>) => payload.components[0].toJSON().components[0];
+// 화면 안의 장르 메뉴
+const menuOf = (payload: ReturnType<typeof buildGenreMenu>) => {
+  const select = selectOf(payload);
+  assert.ok(select?.options, "장르 메뉴가 있다");
+  return { custom_id: select.custom_id, options: select.options };
+};
 
 test("켜기·끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () => {
-  const on = selectOf(buildGenreMenu());
-  const off = selectOf(buildAutoplayOffMenu());
+  const on = menuOf(buildGenreMenu());
+  const off = menuOf(buildAutoplayOffMenu());
 
   for (const menu of [on, off]) {
     assert.deepEqual(
@@ -42,13 +48,19 @@ test("장르 수가 디스코드 셀렉트 상한을 넘지 않는다", () => {
 
 test("끄기 화면: 이미 꺼졌음을 알리고 30초 동안 다시 고를 기회를 준다", () => {
   const off = buildAutoplayOffMenu();
-  assert.match(off.embeds[0].data.title ?? "", /비활성화/);
+  assert.match(headOf(off) ?? "", /비활성화/);
   assert.equal(OFF_MENU_MS, 30_000, '"더 넣기" 메뉴와 같은 수명');
+});
+
+test("켠 결과: 메뉴 화면을 고친다. 고른 장르와 누가 켰는지", () => {
+  const on = autoplayOn("가요", "<@1>");
+  assert.deepEqual(textsOf(on), ["### 🎲 자동 재생이 활성화되었습니다\n**가요** 장르로 자동 재생이 설정되었습니다. 대기열이 끝나면 자동으로 재생됩니다.", "-# 👤 변경한 사람 <@1>"]);
+  assert.deepEqual(on.flags, [MessageFlags.IsComponentsV2]);
 });
 
 test("두 화면 다 본인에게만 보인다", () => {
   for (const payload of [buildGenreMenu(), buildAutoplayOffMenu()]) {
-    assert.equal(payload.flags, MessageFlags.Ephemeral);
+    assert.deepEqual(payload.flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
   }
 });
 
@@ -61,7 +73,7 @@ test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
   fs.writeFileSync(path.join(dir, "genres.yaml"), ["defaults: {}", "genres:", "  팝:", '    emoji: ""', "    sources: [{ type: keyword, keywords: [pop] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", "  록:", "    emoji: 🤘", "    sources: [{ type: keyword, keywords: [rock] }]", ""].join("\n"));
   yamlStore._setConfigDir(dir);
   try {
-    const menu = selectOf(buildGenreMenu());
+    const menu = menuOf(buildGenreMenu());
     assert.deepEqual(
       menu.options.map((o) => [o.value, o.emoji?.name]),
       [

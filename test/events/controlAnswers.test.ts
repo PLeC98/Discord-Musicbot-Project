@@ -1,10 +1,12 @@
-// interactions/controlAnswers.ts — 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
+// interactions/controlAnswers.ts — 음량은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
 // 거절은 본인에게만 안내. 받아들인 뒤에 던지면 그 자리를 안내로 바꾼다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags, type Guild, type GuildMember } from "discord.js";
-import { answerReplay, answerSeek } from "../../interactions/controlAnswers.ts";
+import fs from "node:fs";
+import path from "node:path";
+import { answerReplay, answerSeek, answerVolume } from "../../interactions/controlAnswers.ts";
 import { failureShow } from "../../src/ui/failureNotice.ts";
 import * as errors from "../../src/ui/text/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
@@ -73,6 +75,18 @@ test("위치 이동: 하는 중을 먼저, 옮긴 위치를 작은 글씨로. �
   await answerSeek(beyond.it, p, 400_000);
   assert.deepEqual(beyond.log, [["reply", ["### ✏️ 입력한 시간이 곡 길이를 초과합니다. (최대: 5:00)"], MINE]]);
   assert.equal(failureShow(beyond.it), null, "받아들이지 않았으면 자리를 바꿀 안내도 없다");
+});
+
+test("음량: 바꾼 결과를 본인에게만. 명령과 패널의 입력 창이 이 하나를 부른다", async () => {
+  const { it, log } = asked();
+  const levels: number[] = [];
+  const { p } = player({ volume: 80, setVolume: (v: number) => (levels.push(v), v) });
+  await answerVolume(it, p, 35);
+  assert.deepEqual(levels, [35]);
+  assert.deepEqual(log, [["reply", ["### 🔊 볼륨이 변경되었습니다\n**80%** → **35%**", "-# 👤 변경한 사람 <@u1>"], MINE]]);
+
+  const root = path.join(import.meta.dirname, "..", "..");
+  for (const file of ["commands/volume.ts", "interactions/modalHandler.ts"]) assert.match(fs.readFileSync(path.join(root, file), "utf8"), /answerVolume\(/, file);
 });
 
 test("받아들인 뒤에 던지면 하는 중 자리를 안내로 바꾼다", async () => {

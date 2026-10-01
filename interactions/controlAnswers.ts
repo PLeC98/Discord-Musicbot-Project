@@ -47,6 +47,13 @@ async function answerShuffle(interaction: Asked, player: MaybePlayer) {
   return interaction.reply(reply(replies.shuffled(r.count, interaction.member)));
 }
 
+/** 음량. level 은 명령이 받은 수이거나 입력 창에 적은 값(맞는 값인지는 controls 가 본다) */
+async function answerVolume(interaction: Asked, player: MaybePlayer, level: unknown) {
+  const r = await controls.volume(player, { member: interaction.member }, level);
+  if (!r.ok) return refuse(interaction, r);
+  return interaction.reply(reply(replies.volumeSet(r.before, r.level, interaction.member)));
+}
+
 /** 반복 모드. mode 는 명령이 고른 값이거나 버튼의 다음 모드(맞는 값인지는 controls 가 본다) */
 async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown) {
   const r = await controls.loop(player, { member: interaction.member }, mode);
@@ -88,4 +95,4 @@ async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone
   return interaction.editReply(post(replies.highlighted(r.track, r.ms)));
 }
 
-export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerReplay, answerSeek, answerHighlight };
+export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight };

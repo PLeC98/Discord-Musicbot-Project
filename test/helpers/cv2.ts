@@ -1,9 +1,10 @@
-// Components V2 응답에서 글자 · 썸네일을 꺼낸다. 컨테이너 안의 섹션 · 글자 칸을 차례로 본다
+// Components V2 응답에서 글자 · 썸네일 · 메뉴를 꺼낸다. 컨테이너 안의 섹션 · 글자 칸 · 줄을 차례로 본다
 
-type Node = { type?: number; content?: string; components?: Node[]; accessory?: { media?: { url?: string } } };
+type Node = { type?: number; content?: string; components?: Node[]; accessory?: { media?: { url?: string } }; custom_id?: string; options?: Array<{ value: string; label: string; emoji?: { name?: string } }> };
 type Payload = { components?: Array<{ toJSON(): unknown }> };
 
 const TEXT = 10;
+const STRING_SELECT = 3;
 
 function walk(node: Node, out: Node[]) {
   out.push(node);
@@ -25,4 +26,7 @@ const headOf = (payload: Payload) => textsOf(payload)[0]?.split("\n")[0];
 /** 섹션의 썸네일 주소 */
 const thumbnailOf = (payload: Payload) => nodesOf(payload).find((n) => n.accessory?.media?.url)?.accessory?.media?.url ?? null;
 
-export { textsOf, textOf, headOf, thumbnailOf };
+/** 첫 글자 고르기 메뉴. 없으면 undefined */
+const selectOf = (payload: Payload) => nodesOf(payload).find((n) => n.type === STRING_SELECT);
+
+export { textsOf, textOf, headOf, thumbnailOf, selectOf };
