@@ -1,10 +1,11 @@
 // 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlistMore.ts).
 
-import { type ActionRowBuilder, type EmbedBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
+import { type ActionRowBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeEmbed, noticeReply, type Notice } from "../src/ui/frame.ts";
+import { noticeReply, type Notice } from "../src/ui/frame.ts";
+import { noticeInstead } from "../src/ui/failureNotice.ts";
 import * as moreText from "../src/ui/text/more.ts";
 import { addFailureMessage, errorMessage } from "../src/ui/errorMessages.ts";
 import { checkAdd } from "../src/usecases/permissions.ts";
@@ -69,8 +70,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     });
   };
 
-  // 메뉴 메시지는 글자 메시지라 실패는 임베드로 바꾼다
-  let payload: { content: string; embeds?: EmbedBuilder[]; components: ActionRowBuilder<StringSelectMenuBuilder>[] };
+  let outcome: { payload: { content: string; components: ActionRowBuilder<StringSelectMenuBuilder>[] } } | { failed: Notice };
   try {
     const result = await continueCollection(interaction.client, {
       guild: interaction.guild,
@@ -81,13 +81,18 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
       voiceChannel: interaction.member.voice?.channel ?? null,
       onProgress,
     });
-    payload = result.success ? More.resultMessage(state, result, More.roomFor(player)) : { content: "", embeds: [noticeEmbed(addFailureMessage(result))], components: [] };
+    outcome = result.success ? { payload: More.resultMessage(state, result, More.roomFor(player)) } : { failed: addFailureMessage(result) };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
-    payload = { content: "", embeds: [noticeEmbed(errorMessage(error))], components: [] };
+    outcome = { failed: errorMessage(error) };
   }
 
-  await interaction.editReply(payload).catch(closed);
+  // 실패면 메뉴 메시지(글자 메시지라 안내로 고칠 수 없다)를 지우고 본인에게만 알린다
+  if ("failed" in outcome) {
+    await noticeInstead(interaction, outcome.failed).catch(closed);
+    return;
+  }
+  await interaction.editReply(outcome.payload).catch(closed);
   if (message) More.expireLater(message.id, () => interaction.deleteReply());
 }
 

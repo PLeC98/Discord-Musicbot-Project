@@ -5,7 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInteraction } from "discord.js";
 
-import { openTempStore, setGuild } from "../helpers/tempStore.ts";
+import { openTempStore, setGuild, whenSettingsBroken } from "../helpers/tempStore.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { textOf } from "../helpers/cv2.ts";
 const temp = openTempStore("dj-role-");
@@ -43,8 +43,16 @@ function fakeInteraction({ type, customId, values = [] as string[], messageId = 
     repliedWith: null as { content: string } | null,
     updatedWith: null as Updated | null,
     deferredUpdate: false,
+    deleted: false,
+    followedWith: null as unknown,
     async reply(payload: { content: string }) {
       ix.repliedWith = payload;
+    },
+    async deleteReply() {
+      ix.deleted = true;
+    },
+    async followUp(payload: unknown) {
+      ix.followedWith = payload;
     },
     async update(payload: Updated) {
       ix.updatedWith = payload;
@@ -75,6 +83,17 @@ test("선택 → 저장: 보류된 선택값이 확정됨", async () => {
   assert.deepEqual(store.djRoles.get("g1"), ["r1", "r2"]);
   assert.equal(save.updatedWith?.components.length, 0, "저장 후 컴포넌트 제거");
   assert.ok(save.updatedWith?.embeds[0].data.title.includes("설정됨"));
+});
+
+test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 지우고 본인에게만 알린다", async () => {
+  const select = fakeInteraction({ type: "select", customId: "djrole:select", values: ["r1"], messageId: "mF" });
+  await interactionCreate.execute(select);
+  const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mF" });
+  // 저장이 실패하게 서버 설정 표를 잠깐 치운다
+  await whenSettingsBroken(() => interactionCreate.execute(save));
+  assert.equal(save.updatedWith, null);
+  assert.deepEqual([save.deferredUpdate, save.deleted], [true, true]);
+  assert.match(textOf(save.followedWith), /### ❌ 저장 실패/);
 });
 
 test("선택 없이 저장: 현재 설정 유지 (no-op에 가깝게 재저장)", async () => {

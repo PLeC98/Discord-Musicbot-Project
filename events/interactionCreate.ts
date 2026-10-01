@@ -7,9 +7,9 @@ const log = logger.child({ category: "events" });
 import { isDeadInteraction } from "../src/rules/deadInteraction.ts";
 import { errorKind, messageOf } from "../src/rules/errorKind.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeEmbed, noticeReply, type Notice } from "../src/ui/frame.ts";
+import { noticeReply, type Notice } from "../src/ui/frame.ts";
 import { errorMessage } from "../src/ui/errorMessages.ts";
-import { failureShow } from "../src/ui/failureNotice.ts";
+import { failureShow, noticeInstead } from "../src/ui/failureNotice.ts";
 import { ROUTES } from "../interactions/index.ts";
 import { componentOf, routeOf, type Route } from "../interactions/route.ts";
 import type { ClientEvent } from "../src/app/main.ts";
@@ -32,8 +32,8 @@ async function failed(interaction: RepliableInteraction, what: string, error: un
 function tell(interaction: RepliableInteraction, notice: Notice): Promise<unknown> {
   const show = failureShow(interaction);
   if (show) return show(notice);
-  // 미뤄 둔 응답은 Components V2 로 고칠 수 없어 같은 안내를 임베드로
-  if (interaction.isChatInputCommand() && interaction.deferred && !interaction.replied) return interaction.editReply({ embeds: [noticeEmbed(notice)] });
+  // 미뤄 둔 응답은 안내로 고칠 수 없다(Components V2 로 바꿀 수 없다). 그 자리를 지우고 본인에게만
+  if (interaction.isChatInputCommand() && interaction.deferred && !interaction.replied) return noticeInstead(interaction, notice);
   const payload = noticeReply(notice);
   return interaction.replied || interaction.deferred ? interaction.followUp(payload) : interaction.reply(payload);
 }

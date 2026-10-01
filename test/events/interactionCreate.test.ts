@@ -11,9 +11,9 @@ import { fake, fakeWith } from "../helpers/fake.ts";
 import { networkError } from "../helpers/errors.ts";
 import { showFailureWith } from "../../src/ui/failureNotice.ts";
 import * as errors from "../../src/ui/text/errors.ts";
-import { noticeEmbed, noticeReply } from "../../src/ui/frame.ts";
+import { noticeReply } from "../../src/ui/frame.ts";
 
-type Sent = [string, unknown];
+type Sent = [string, unknown?];
 
 function interaction({ name = "play", chat = true, commands = {} as Record<string, object>, replied = false, deferred = false, guild = true, replyFails = false } = {}) {
   const sent: Sent[] = [];
@@ -33,6 +33,7 @@ function interaction({ name = "play", chat = true, commands = {} as Record<strin
     },
     followUp: async (p: unknown) => sent.push(["followUp", p]),
     editReply: async (p: unknown) => sent.push(["editReply", p]),
+    deleteReply: async () => sent.push(["deleteReply"]),
     client: { commands: new Map(Object.entries(commands).map(([k, c]) => [k, fake<SlashCommand>(c)])) },
   });
   return { it, sent };
@@ -93,10 +94,10 @@ test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으�
   assert.equal(answered.sent[0][0], "followUp");
 });
 
-test("미뤄 두고 아직 답하지 않은 명령이 던지면 그 답 자리를 채운다", async () => {
+test("미뤄 두고 아직 답하지 않은 명령이 던지면 그 답 자리를 지우고 본인에게만 알린다", async () => {
   const { it, sent } = interaction({ commands: { play: failing(new Error("x")) }, deferred: true });
   await interactionCreate.execute(it);
-  assert.deepEqual(sent, [["editReply", { embeds: [noticeEmbed(errors.commandFailed())] }]]);
+  assert.deepEqual(sent, [["deleteReply"], ["followUp", noticeReply(errors.commandFailed())]]);
 });
 
 test("종류를 가를 수 있는 오류(네트워크 등)는 그 종류의 문장으로 알린다", async () => {

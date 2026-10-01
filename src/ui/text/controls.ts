@@ -38,9 +38,13 @@ const highlighting = () => "✨ 하이라이트로 옮기는 중...";
 /** 하이라이트로 이동 */
 const highlighted = (track: Linked) => ({ title: "✨ 하이라이트로 이동", description: link(track), at: "⏱️ 위치" });
 
+/** 처음부터 다시 트는 동안 */
+const replaying = () => "🔄 처음부터 다시 트는 중...";
 /** 처음부터 다시 */
 const replayed = (track: Linked) => ({ title: "🔄 처음부터 다시 재생", description: link(track), by: "👤 요청한 사람" });
 
+/** 위치를 옮기는 동안 */
+const seeking = () => "⏩ 위치를 옮기는 중...";
 /** 시간 이동 */
 const seeked = (track: Linked) => ({ title: "⏩ 시간 이동", description: link(track), at: "⏱️ 이동한 위치" });
 
@@ -97,4 +101,4 @@ const restoredEmpty = () => "✅ 음성 채널에 접속했어요. (세션 복�
 /** 세션을 되살리다 오류가 났다 */
 const restoreFailed = () => "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요.";
 
-export { paused, skipRestarted, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replayed, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, leftVoiceOnly, left, joined, alreadyJoined, restored, restoredEmpty, restoreFailed };
+export { paused, skipRestarted, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, leftVoiceOnly, left, joined, alreadyJoined, restored, restoredEmpty, restoreFailed };

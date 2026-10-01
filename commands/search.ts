@@ -11,7 +11,8 @@ import logger from "../src/infra/log/logger.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as searchText from "../src/ui/text/search.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeEmbed, noticeReply } from "../src/ui/frame.ts";
+import { noticeReply } from "../src/ui/frame.ts";
+import { noticeInstead } from "../src/ui/failureNotice.ts";
 const log = logger.child({ category: "player" });
 
 const MAX_RESULTS = 9;
@@ -84,7 +85,7 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
 
     if (!results || results.length === 0) {
-      return await interaction.editReply({ embeds: [noticeEmbed(errors.noSearchResults())] });
+      return await noticeInstead(interaction, errors.noSearchResults());
     }
 
     await showSearchMenu(interaction, results, query);

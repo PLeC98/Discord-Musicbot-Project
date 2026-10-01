@@ -36,7 +36,7 @@ import * as storeDb from "../../src/store/db.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
-import { noticeEmbed, noticeFrame, noticeReply, post } from "../../src/ui/frame.ts";
+import { noticeFrame, noticeReply, post } from "../../src/ui/frame.ts";
 
 useExampleConfig();
 
@@ -355,19 +355,21 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
   const none = interaction(world(), { options: { query: "x" } });
   const from = sink.buffer.length;
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.it.client, { search: async () => [] });
-  assert.deepEqual(none.log.at(-1), ["editReply", { embeds: [noticeEmbed(errors.noSearchResults())] }]);
+  assert.deepEqual(none.log.slice(-2), [["deleteReply"], ["followUp", noticeReply(errors.noSearchResults())]], "미뤄 둔 자리를 지우고 본인에게만");
   assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "x" → 결과 없음'));
 
-  // 검색이 던지면 입구가 남기고, 미뤄 둔 답 자리에 그 종류의 문장으로 알린다
+  // 검색이 던지면 입구가 남기고, 미뤄 둔 답 자리를 지운 뒤 본인에게만 그 종류의 안내로 알린다
   const offline = async () => {
     throw networkError();
   };
   const err = interaction(world(), { options: { query: "x" } });
   const offlineSearch = { ...searchCommand, execute: (i: ChatInputCommandInteraction<"cached">, c: Client<true>) => searchCommand.execute(i, c, { search: offline }) };
   await runViaEntrance(offlineSearch, err.it, err.it.client);
-  assert.equal(err.log.length, 2, err.log.map(([name]) => name).join(", "));
-  assert.equal(err.log[1][0], "editReply");
-  assert.deepEqual(err.log[1][1], { embeds: [noticeEmbed(errors.forKind("network"))] });
+  assert.deepEqual(
+    err.log.map(([name]) => name),
+    ["deferReply", "deleteReply", "followUp"],
+  );
+  assert.deepEqual(err.log[2][1], noticeReply(errors.forKind("network")));
 });
 
 // ── /join ─────────────────────────────────────────────────────────────

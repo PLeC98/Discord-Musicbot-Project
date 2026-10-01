@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags, resolveColor } from "discord.js";
-import { EMOJI, frame, noticeEmbed, noticeFrame, noticeOf, noticeReply, plainText, post, reply } from "../../src/ui/frame.ts";
+import { EMOJI, frame, noticeFrame, noticeOf, noticeReply, plainText, post, reply } from "../../src/ui/frame.ts";
 import { toApiError } from "../../dashboard/server/middleware/requireControl.ts";
 import { textsOf, thumbnailOf } from "../helpers/cv2.ts";
 
@@ -36,12 +36,6 @@ test("안내의 화면: 머리 줄에 주제의 이모지, 본문은 그 아래,
   assert.deepEqual(bare, { topic: "voice", severity: "warning", title: "음성 채널에 있어야 합니다!" }, "본문이 없으면 칸을 두지 않는다");
   assert.deepEqual(textsOf(noticeReply(bare)), ["### 🎧 음성 채널에 있어야 합니다!"]);
   assert.equal(accentOf(noticeFrame(bare)), resolveColor("#FEE75C"));
-});
-
-test("임베드로 그려도 같은 머리 줄 · 본문 · 색", () => {
-  const notice = noticeOf("warning", "stale", "오래된 버튼", "다시 불러 주세요");
-  assert.deepEqual(noticeEmbed(notice).toJSON(), { title: "⌛ 오래된 버튼", description: "다시 불러 주세요", color: resolveColor("#FEE75C") });
-  assert.equal(noticeEmbed(noticeOf("error", "failed", "실패")).toJSON().description, undefined);
 });
 
 test("대시보드는 이모지 없이 머리 줄과 본문의 글자", () => {

@@ -18,7 +18,7 @@ import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { headOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
-import { noticeEmbed, noticeReply, type Notice } from "../../src/ui/frame.ts";
+import { noticeReply, type Notice } from "../../src/ui/frame.ts";
 
 useExampleConfig();
 
@@ -330,8 +330,10 @@ test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린
 
   w.player.currentTrack = null;
   w.player.queue = [];
-  await interactionCreate.execute(press(w, "queue:page:1", { update: async (p: QueuePayload) => updates.push(p) }).it);
-  assert.deepEqual(updates[2], { embeds: [noticeEmbed(errors.queueEmpty())], components: [] });
+  const gone = press(w, "queue:page:1", { update: async (p: QueuePayload) => updates.push(p) });
+  await interactionCreate.execute(gone.it);
+  assert.equal(updates.length, 2, "대기열 화면은 안내로 고칠 수 없다");
+  assert.deepEqual(gone.log, [["deferUpdate"], ["deleteReply"], ["followUp", said(errors.queueEmpty())]], "그 화면을 지우고 본인에게만 알린다");
 });
 
 // ── 자동재생 버튼 ─────────────────────────────────────────────────────
@@ -489,11 +491,11 @@ test("검색 버튼: 고른 영상을 주소로 다시 찾아 코어에 넘기�
   assert.deepEqual(log, [["deferUpdate"], ["editReply", "🔄 처리 중..."], ["deleteReply"]]);
 });
 
-test("검색 버튼: 코어가 실패하면 그 문장, 던지면 일반 오류로 바꾼다", async () => {
+test("검색 버튼: 코어가 실패하면 그 안내, 던지면 일반 오류. 검색 메시지를 지우고 본인에게만", async () => {
   const failed = world({ handle: async () => ({ success: false, message: "대기열이 가득 찼습니다" }) });
   const a = press(failed, PICK);
   await interactionCreate.execute(a.it);
-  assert.deepEqual(a.log.at(-1), ["editReply", "❌ 재생을 시작할 수 없습니다."]);
+  assert.deepEqual(a.log.slice(-2), [["deleteReply"], ["followUp", said(errors.cannotStart())]]);
 
   const thrown = world({
     handle: async () => {
@@ -502,5 +504,5 @@ test("검색 버튼: 코어가 실패하면 그 문장, 던지면 일반 오류�
   });
   const b = press(thrown, PICK);
   await interactionCreate.execute(b.it);
-  assert.deepEqual(b.log.at(-1), ["editReply", "❌ 처리 중 오류가 발생했습니다!"]);
+  assert.deepEqual(b.log.slice(-2), [["deleteReply"], ["followUp", said(errors.processingFailed())]]);
 });

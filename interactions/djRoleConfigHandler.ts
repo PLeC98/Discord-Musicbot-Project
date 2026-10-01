@@ -4,7 +4,8 @@ import { route, type Route } from "./route.ts";
 import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeEmbed, noticeReply } from "../src/ui/frame.ts";
+import { noticeReply } from "../src/ui/frame.ts";
+import { noticeInstead } from "../src/ui/failureNotice.ts";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
 // 드롭메뉴 선택값은 셀렉트 인터랙션으로만 오므로, 저장 버튼이 읽을 수 있게
@@ -64,8 +65,8 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
     const success = await GuildSettingsManager.setDjRoles(guild.id, roleIds);
     if (!success) {
-      // 설정 화면은 임베드 메시지라 같은 안내를 임베드로
-      return interaction.update({ embeds: [noticeEmbed(errors.djRoleSaveFailed())], components: [] });
+      // 설정 화면은 임베드라 안내로 고칠 수 없다. 화면을 지우고 알린다
+      return noticeInstead(interaction, errors.djRoleSaveFailed());
     }
 
     const t = settingsText.djRoleSaved(roleIds);

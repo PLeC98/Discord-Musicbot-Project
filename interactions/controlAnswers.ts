@@ -1,7 +1,7 @@
 // 재생 조작의 입구: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
 // 권한 · 재적 · 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/controlReplies 가 한다
 
-import type { RepliableInteraction } from "discord.js";
+import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../src/usecases/controls.ts";
 import { controlMessage } from "../src/ui/controlMessages.ts";
 import * as replies from "../src/ui/controlReplies.ts";
@@ -55,19 +55,37 @@ async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown
 }
 
 /**
- * 하이라이트로. 옮기는 데 시간이 걸려 받아들인 즉시 "옮기는 중" 을 Components V2 로 보내고 결과로 고친다
- * (미뤄 둔 응답은 나중에 Components V2 로 바꿀 수 없다). 그 뒤에 던지면 그 자리를 오류로 바꾼다.
+ * 시간이 걸리는 조작(곡을 다시 연다)을 받아들였다. 곧바로 "하는 중" 을 Components V2 로 보내고 결과로 고친다
+ * (미뤄 둔 응답은 나중에 Components V2 로 바꿀 수 없다). 그 뒤에 던지면 그 자리를 오류로 바꾼다
+ */
+const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () => {
+  await interaction.reply(reply(working));
+  showFailureWith(interaction, (notice) => interaction.editReply(post(noticeFrame(notice))));
+};
+
+/** 처음부터 다시 */
+async function answerReplay(interaction: Asked, player: MaybePlayer) {
+  const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying()) });
+  if (!r.ok) return refuse(interaction, r);
+  return interaction.editReply(post(replies.replayed(r.track, interaction.member)));
+}
+
+/** 곡 안의 위치로. ms 는 옮길 위치 */
+async function answerSeek(interaction: Asked, player: MaybePlayer, ms: number) {
+  const r = await controls.seek(player, { member: interaction.member }, ms, { reason: "seek", onAccepted: acceptWith(interaction, replies.seeking()) });
+  if (!r.ok) return refuse(interaction, r);
+  return interaction.editReply(post(replies.seeked(r.track, r.ms)));
+}
+
+/**
+ * 하이라이트로.
  * onNone: 하이라이트가 없을 때 거절 대신 할 일. 패널 버튼은 하이라이트가 없으면 꺼져 있어, 곡이 바뀌기 직전의 늦은 클릭이라 조용히 넘긴다
  */
 async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone }: { onNone?: () => unknown } = {}) {
-  const accept = async () => {
-    await interaction.reply(reply(replies.highlighting()));
-    showFailureWith(interaction, (notice) => interaction.editReply(post(noticeFrame(notice))));
-  };
-  const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: accept });
+  const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.highlighting()) });
   if (!r.ok && r.code === "no-highlight" && onNone) return onNone();
   if (!r.ok) return refuse(interaction, r);
   return interaction.editReply(post(replies.highlighted(r.track, r.ms)));
 }
 
-export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight };
+export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerReplay, answerSeek, answerHighlight };

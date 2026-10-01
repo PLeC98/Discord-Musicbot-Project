@@ -1,7 +1,7 @@
 // 응답 틀. 머리 줄 · 본문 · 작은 글씨의 꼬리 줄을 한 화면(Components V2)으로 그리고, 곡에 썸네일이 있으면 머리 칸 옆에 붙인다.
 // 오류 · 경고 안내(Notice)는 무엇에 관한 것인지(topic)로 머리 줄의 이모지를, 얼마나 심각한지(severity)로 색을 고른다
 
-import { ContainerBuilder, EmbedBuilder, MessageFlags, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
+import { ContainerBuilder, MessageFlags, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import { colorOf, type Meaning } from "./colors.ts";
 
 // 사용자가 할 일이 같으면 한 이모지
@@ -48,13 +48,6 @@ const headOf = (notice: Notice) => `${EMOJI[notice.topic]} ${notice.title}`;
 /** 오류 · 경고 안내의 화면 */
 const noticeFrame = (notice: Notice) => frame({ title: headOf(notice), body: notice.body, color: notice.severity });
 
-/** 아직 Components V2 가 아닌 메시지(미뤄 둔 응답 · 임베드 화면 · 글자 메시지)를 안내로 고칠 때. 같은 머리 줄 · 본문 · 색의 임베드 */
-const noticeEmbed = (notice: Notice) =>
-  new EmbedBuilder()
-    .setTitle(headOf(notice))
-    .setDescription(notice.body ?? null)
-    .setColor(colorOf(notice.severity));
-
 /** 글자만 받는 곳(대시보드). 이모지 없이 머리 줄과 본문을 줄을 바꿔 잇는다 */
 const plainText = (notice: Notice) => (notice.body ? `${notice.title}\n${notice.body}` : notice.title);
 
@@ -65,5 +58,5 @@ const post = (container: ContainerBuilder) => ({ components: [container], flags:
 /** 오류 · 경고 안내를 새 응답으로(본인에게만) */
 const noticeReply = (notice: Notice) => reply(noticeFrame(notice));
 
-export { frame, noticeOf, noticeFrame, noticeEmbed, noticeReply, plainText, reply, post, EMOJI };
+export { frame, noticeOf, noticeFrame, noticeReply, plainText, reply, post, EMOJI };
 export type { Notice, Topic, Look };

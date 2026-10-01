@@ -3,7 +3,7 @@ import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../config.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeEmbed, noticeReply, type Notice } from "../src/ui/frame.ts";
+import { noticeReply, type Notice } from "../src/ui/frame.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
@@ -13,7 +13,7 @@ import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, ans
 import * as controlText from "../src/ui/text/controls.ts";
 
 import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
-import { showFailureWith } from "../src/ui/failureNotice.ts";
+import { noticeInstead, showFailureWith } from "../src/ui/failureNotice.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../src/ui/queueView.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
@@ -67,12 +67,12 @@ async function handleQueue(interaction: Press, player: Player) {
   await interaction.reply({ ...queueView(queueInfo), flags: MessageFlags.Ephemeral });
 }
 
-// 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그렇다고 고친다
+// 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그 메시지를 지우고 그렇다고 알린다
 async function handleQueuePage(interaction: Press) {
   const player = interaction.client.players.get(interaction.guild.id);
   const info = player ? queueInfoOf(player) : null;
   if (!info || (!info.current && info.queue.length === 0)) {
-    return interaction.update({ embeds: [noticeEmbed(player ? errors.queueEmpty() : errors.noPlayer())], components: [] });
+    return noticeInstead(interaction, player ? errors.queueEmpty() : errors.noPlayer());
   }
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
@@ -155,11 +155,10 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
   const processingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("brand")).setTimestamp();
 
   await interaction.editReply({ embeds: [processingEmbed], components: [] });
-  // 여기서부터 던지면 "처리 중" 자리를 오류로 바꾼다
-  showFailureWith(interaction, (notice) => interaction.editReply({ embeds: [noticeEmbed(notice)], components: [] }));
+  // 여기서부터 던지면 "처리 중" 자리를 지우고 본인에게만 알린다(검색 메시지는 임베드라 안내로 고칠 수 없다)
+  showFailureWith(interaction, (notice) => noticeInstead(interaction, notice));
 
   // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
-  // 검색 메시지는 일반 임베드라 CV2 로 고칠 수 없어 실패도 임베드로 바꾼다.
   const responder = channelResponder(interaction.channel, () =>
     interaction.deleteReply().catch(() => {
       /* 이미 지워졌다 */
@@ -175,7 +174,7 @@ async function handleSearchInteraction(interaction: Press, client: Client<true>)
     responder,
     source: `/search ${position}번째`,
   });
-  if (!result.success) return await interaction.editReply({ embeds: [noticeEmbed(addFailureMessage(result))], components: [] });
+  if (!result.success) return await noticeInstead(interaction, addFailureMessage(result));
 
   // 검색 결과 메시지 제거. 현재 재생/대기열 정보는 별도로 전송됨
   await responder.dismissPlaceholder();

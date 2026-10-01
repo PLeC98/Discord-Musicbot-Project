@@ -54,4 +54,20 @@ function highlighted(track: Track, ms: number) {
   return frame({ title: t.title, body: t.description, footer: [`${t.at} \`${formatMs(ms)}\``] });
 }
 
-export { paused, skipped, previous, stopped, shuffled, loopSet, highlighting, highlighted };
+/** 처음부터 다시 트는 동안 */
+const replaying = () => frame({ body: controlText.replaying() });
+/** 처음부터 다시 틀었다 */
+function replayed(track: Track, by: Actor) {
+  const t = controlText.replayed(track);
+  return frame({ title: t.title, body: t.description, footer: [who(t.by, by)], thumbnail: track.thumbnail });
+}
+
+/** 위치를 옮기는 동안 */
+const seeking = () => frame({ body: controlText.seeking() });
+/** 위치를 옮겼다. ms 는 옮긴 위치 */
+function seeked(track: Track, ms: number) {
+  const t = controlText.seeked(track);
+  return frame({ title: t.title, body: t.description, footer: [`${t.at} \`${formatMs(ms)}\``] });
+}
+
+export { paused, skipped, previous, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked };
