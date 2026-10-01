@@ -17,6 +17,7 @@ import { youtube } from "../helpers/tracks.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { fakeAdder } from "../helpers/adder.ts";
+import { headOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
 
 useExampleConfig();
 
@@ -113,7 +114,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
   return { guild, member, client, seen, player: p };
 }
 
-type Payload = { content?: string; embeds?: { data: { title?: string; description?: string } }[] };
+type Payload = { content?: string; embeds?: { data: { title?: string; description?: string } }[]; components?: Array<{ toJSON(): unknown }> };
 type Entry = [string] | [string, unknown];
 
 function press(w: World, customId: string, extra: object = {}) {
@@ -131,14 +132,14 @@ function press(w: World, customId: string, extra: object = {}) {
     ...interactionKind("button"),
     reply: async (p: Payload) => {
       it.replied = true;
-      log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title ?? "(메뉴)"]);
+      log.push(["reply", p.content ?? p.embeds?.[0]?.data?.title ?? headOf(p) ?? "(메뉴)"]);
     },
     update: async (p: Payload) => log.push(["update", p.embeds?.[0]?.data.title]),
     deferUpdate: async () => {
       it.deferred = true;
       log.push(["deferUpdate"]);
     },
-    editReply: async (p: Payload) => log.push(["editReply", p.content ?? p.embeds?.[0]?.data?.title ?? p.embeds?.[0]?.data?.description]),
+    editReply: async (p: Payload) => log.push(["editReply", p.content ?? p.embeds?.[0]?.data?.title ?? p.embeds?.[0]?.data?.description ?? headOf(p)]),
     followUp: async (p: Payload) => log.push(["followUp", p.content]),
     deleteReply: async () => log.push(["deleteReply"]),
     ...extra,
@@ -195,14 +196,76 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
   w.player.skip = () => true;
   const pause = press(w, "panel:pause:S1");
   await interactionCreate.execute(pause.it);
-  assert.deepEqual(pause.log, [["reply", "⏸️ 음악 일시정지됨"]]);
+  assert.deepEqual(pause.log, [["reply", "### ⏸️ 음악 일시정지됨"]]);
   const skip = press(w, "panel:skip:S1");
   await interactionCreate.execute(skip.it);
-  assert.deepEqual(skip.log, [["reply", "⏭️ 노래 건너뜀"]]);
+  assert.deepEqual(skip.log, [["reply", "### ⏭️ 노래 건너뜀"]]);
+  // 트랙 반복이면 건너뛰지 않고 처음부터 다시 튼다. 머리 줄 없이 그 안내만
+  w.player.loop = "track";
+  const again = press(w, "panel:skip:S1");
+  await interactionCreate.execute(again.it);
+  assert.deepEqual(again.log, [["reply", "🔂 한곡 반복 중. **곡**을(를) 처음부터 다시 재생합니다! (다음 곡으로 가려면 반복을 해제하세요)"]]);
+  w.player.loop = false;
   const loop = press(w, "panel:loop:S1");
   await interactionCreate.execute(loop.it);
   assert.equal(w.player.loop, "track");
   assert.ok(w.seen.filter((x) => x === "update").length >= 3);
+});
+
+// 같은 조작이면 명령과 패널 버튼이 같은 화면(Components V2)을 그린다
+test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정지 · 건너뛰기 · 이전 곡 · 반복)", async () => {
+  const commands = { pause: (await import("../../commands/pause.ts")).default, skip: (await import("../../commands/skip.ts")).default, previous: (await import("../../commands/previous.ts")).default, loop: (await import("../../commands/loop.ts")).default };
+  const ready = () => {
+    const w = world();
+    w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
+    w.player.queue = [{ title: "다음" }];
+    w.player.previousTracks = [{ title: "앞" }];
+    w.player.pauseFor = () => true;
+    w.player.skip = () => true;
+    w.player.previous = () => true;
+    return w;
+  };
+  for (const [name, command] of Object.entries(commands)) {
+    const sent: unknown[] = [];
+    const record = async (p: { toJSON?: unknown; components?: Array<{ toJSON(): unknown }>; flags?: unknown }) => {
+      sent.push({ components: p.components?.map((c) => c.toJSON()), flags: p.flags });
+    };
+    const b = ready();
+    await interactionCreate.execute(press(b, `panel:${name}:S1`, { reply: record }).it);
+    const c = ready();
+    const asked = fake<Parameters<typeof command.execute>[0]>({ guild: c.guild, member: c.member, options: { getString: () => null }, reply: record });
+    await command.execute(asked, fake(c.client));
+    assert.equal(sent.length, 2, name);
+    assert.deepEqual(sent[1], sent[0], name);
+  }
+});
+
+test("조작 응답: 썸네일 · 누가 했나는 Components V2 화면에 담는다", async () => {
+  const w = world();
+  w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
+  w.player.pauseFor = () => true;
+  let payload: Payload = {};
+  await interactionCreate.execute(press(w, "panel:pause:S1", { reply: async (p: Payload) => void (payload = p) }).it);
+  assert.equal(thumbnailOf(payload), "https://t.test/a.jpg");
+  assert.deepEqual(textsOf(payload), ["### ⏸️ 음악 일시정지됨\n**[곡](https://u.test)** 음악 일시정지됨!", `-# 👤 작업자 <@${USER}>`]);
+});
+
+test("하이라이트 버튼: 옮기는 중을 Components V2 로 먼저 보내고 결과로 고친다. 없으면 조용히 넘긴다", async () => {
+  const w = world();
+  w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", duration: 300 };
+  const p = w.player as typeof w.player & { sponsor?: { highlightAt: number | null }; seek?: () => Promise<void>; isLive?: boolean; isPlayStarting?: boolean };
+  p.sponsor = { highlightAt: 42 };
+  p.seek = async () => {};
+  const done = press(w, "panel:highlight:S1");
+  await interactionCreate.execute(done.it);
+  assert.deepEqual(done.log, [
+    ["reply", "✨ 하이라이트로 옮기는 중..."],
+    ["editReply", "### ✨ 하이라이트로 이동"],
+  ]);
+  p.sponsor = { highlightAt: null };
+  const none = press(w, "panel:highlight:S1");
+  await interactionCreate.execute(none.it);
+  assert.deepEqual(none.log, [["deferUpdate"]]);
 });
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────

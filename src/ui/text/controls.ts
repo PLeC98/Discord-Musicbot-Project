@@ -1,5 +1,5 @@
 // 재생 조작이 된 뒤의 응답 문장. 명령과 패널 버튼이 같은 조작을 하면 같은 함수를 부른다.
-// 임베드로 보이는 것은 { title, description, by(바꾼 사람 칸 이름) … } 로 돌려준다
+// 머리 줄과 본문이 있는 응답은 { title, description, by(누가 했나의 이름표) … } 로 돌려준다(ui/controlReplies 가 그린다)
 
 type Linked = { title: string; pageUrl: string };
 
@@ -33,9 +33,9 @@ const stopped = (track: Linked | null | undefined, cleared: number) => ({
 /** 섞기 */
 const shuffled = (count: number) => ({ title: "🔀 대기열 셔플됨", description: `${count}개의 노래가 셔플되었습니다!`, by: "👤 셔플한 사람" });
 
-/** 하이라이트로 이동. 패널 버튼 */
-const highlightButton = () => "✨ 하이라이트 지점으로 이동했어요.";
-/** 하이라이트로 이동. 명령 */
+/** 하이라이트로 옮기는 동안 */
+const highlighting = () => "✨ 하이라이트로 옮기는 중...";
+/** 하이라이트로 이동 */
 const highlighted = (track: Linked) => ({ title: "✨ 하이라이트로 이동", description: link(track), at: "⏱️ 위치" });
 
 /** 처음부터 다시 */
@@ -67,15 +67,10 @@ const LOOP: Record<string, [emoji: string, message: string]> = {
   queue: ["🔁", "반복 모드가 **대기열 반복**으로 설정되었습니다. 대기열이 끝나면 다시 시작됩니다."],
   false: ["➡️", "반복 모드가 이제 **꺼졌습니다**"],
 };
-/** 반복 모드 바꾸기. 명령 */
+/** 반복 모드 바꾸기 */
 const loopSet = (mode: string | false) => {
   const [emoji, message] = LOOP[String(mode)];
   return { title: `${emoji} 반복 모드 변경됨`, description: message, by: "👤 변경한 사람" };
-};
-/** 반복 모드 바꾸기. 패널 버튼 */
-const loopSetButton = (mode: string | false) => {
-  const [emoji, message] = LOOP[String(mode)];
-  return { title: `${emoji} 🔁 반복 모드 변경됨`, description: message, by: "👤 변경한 사람" };
 };
 
 /** 음량. before · level 은 0~100 */
@@ -102,4 +97,4 @@ const restoredEmpty = () => "✅ 음성 채널에 접속했어요. (세션 복�
 /** 세션을 되살리다 오류가 났다 */
 const restoreFailed = () => "⚠️ 이전 세션 복구 중 오류가 발생했습니다. `/play`로 다시 시작해 주세요.";
 
-export { paused, skipRestarted, skipped, previous, jumped, stopped, shuffled, highlightButton, highlighted, replayed, seeked, cleared, removed, moved, loopSet, loopSetButton, volumeSet, volumeModal, leftVoiceOnly, left, joined, alreadyJoined, restored, restoredEmpty, restoreFailed };
+export { paused, skipRestarted, skipped, previous, jumped, stopped, shuffled, highlighting, highlighted, replayed, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, leftVoiceOnly, left, joined, alreadyJoined, restored, restoredEmpty, restoreFailed };

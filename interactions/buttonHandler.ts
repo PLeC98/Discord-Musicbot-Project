@@ -8,7 +8,7 @@ import { requestPlayback } from "../src/usecases/addTracks.ts";
 import { channelResponder } from "../src/usecases/responders.ts";
 import { checkControl, checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import * as controls from "../src/usecases/controls.ts";
-import { controlMessage } from "../src/ui/controlMessages.ts";
+import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./controlAnswers.ts";
 import * as controlText from "../src/ui/text/controls.ts";
 
 import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../src/ui/customIds.ts";
@@ -29,15 +29,16 @@ const VIDEO_ID = /^[\w-]{11}$/;
 
 // 재생 패널의 버튼. custom_id 는 panel:동작:세션
 const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
-  pause: (it, player) => handlePause(it, player),
-  skip: (it, player) => handleSkip(it, player),
-  stop: (it, player) => handleStop(it, player),
+  pause: (it, player) => answerPause(it, player),
+  skip: (it, player) => answerSkip(it, player),
+  stop: (it, player) => answerStop(it, player),
   queue: (it, player) => handleQueue(it, player),
-  shuffle: (it, player) => handleShuffle(it, player),
-  highlight: (it, player) => handleHighlight(it, player),
+  shuffle: (it, player) => answerShuffle(it, player),
+  highlight: (it, player) => answerHighlight(it, player, { onNone: () => it.deferUpdate() }),
   volume: (it) => handleVolumeModal(it),
-  loop: (it, player) => handleLoop(it, player),
-  previous: (it, player) => handlePrevious(it, player),
+  // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
+  loop: (it, player) => answerLoop(it, player, controls.nextLoopMode(player.loop)),
+  previous: (it, player) => answerPrevious(it, player),
 };
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
@@ -54,74 +55,6 @@ async function handlePanelButton(interaction: Press) {
   const handle = PANEL_ACTIONS[action];
   if (!handle) return interaction.reply({ content: errors.unknownInteraction(), flags: MessageFlags.Ephemeral });
   await handle(interaction, player);
-}
-
-async function handlePause(interaction: Press, player: Player) {
-  const r = await controls.pause(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-
-  const t = controlText.paused(r.paused, r.track);
-  const embed = new EmbedBuilder()
-    .setTitle(t.title)
-    .setDescription(t.description)
-    .setColor(colorOf("brand"))
-    .setTimestamp()
-    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
-
-  if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
-
-  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-}
-
-async function handleSkip(interaction: Press, player: Player) {
-  const r = await controls.skip(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-
-  if (r.restarted) {
-    return await interaction.reply({
-      content: controlText.skipRestarted(r.track),
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
-  const t = controlText.skipped(r.track);
-  const embed = new EmbedBuilder()
-    .setTitle(t.title)
-    .setDescription(t.description)
-    .setColor(colorOf("brand"))
-    .setTimestamp()
-    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
-
-  if (r.track.thumbnail) embed.setThumbnail(r.track.thumbnail);
-
-  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-}
-
-async function handlePrevious(interaction: Press, player: Player) {
-  const r = await controls.previous(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-
-  await interaction.reply({
-    content: controlText.previous(r.restarted),
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
-async function handleStop(interaction: Press, player: Player) {
-  const r = await controls.stop(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-
-  const t = controlText.stopped(r.track, r.cleared);
-  const embed = new EmbedBuilder()
-    .setTitle(t.title)
-    .setDescription(t.description)
-    .setColor(colorOf("closed"))
-    .setTimestamp()
-    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
-
-  if (t.footer) embed.setFooter({ text: t.footer });
-
-  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleQueue(interaction: Press, player: Player) {
@@ -147,29 +80,6 @@ async function handleQueuePage(interaction: Press) {
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
 
-async function handleShuffle(interaction: Press, player: Player) {
-  const r = await controls.shuffle(player, { member: interaction.member });
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-
-  const t = controlText.shuffled(r.count);
-  const embed = new EmbedBuilder()
-    .setTitle(t.title)
-    .setDescription(t.description)
-    .setColor(colorOf("brand"))
-    .setTimestamp()
-    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
-
-  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-}
-
-async function handleHighlight(interaction: Press, player: Player) {
-  const r = await controls.highlight(player, { member: interaction.member }, { onAccepted: () => interaction.deferReply({ flags: MessageFlags.Ephemeral }) });
-  // 버튼은 하이라이트가 없으면 비활성이라 곡이 바뀌기 직전의 늦은 클릭뿐이다. 조용히 넘긴다
-  if (!r.ok && r.code === "no-highlight") return interaction.deferUpdate();
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-  await interaction.editReply({ content: controlText.highlightButton() });
-}
-
 async function handleVolumeModal(interaction: Press) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
@@ -187,24 +97,6 @@ function volumeModal() {
   const t = controlText.volumeModal();
   const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(3).setPlaceholder("50").setRequired(true);
   return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
-}
-
-async function handleLoop(interaction: Press, player: Player) {
-  // 순환: 끔 → 한곡 → 대기열 → 끔. 라이브가 있으면 "끄기"에만 응한다
-  const r = await controls.loop(player, { member: interaction.member }, controls.nextLoopMode(player.loop));
-  if (!r.ok) return interaction.reply({ content: controlMessage(r), flags: MessageFlags.Ephemeral });
-
-  const t = controlText.loopSetButton(r.mode);
-  const embed = new EmbedBuilder()
-    .setTitle(t.title)
-    .setDescription(t.description)
-    .setColor(colorOf("brand"))
-    .setTimestamp()
-    .addFields({ name: t.by, value: `${interaction.member}`, inline: true });
-
-  if (r.track?.thumbnail) embed.setThumbnail(r.track.thumbnail);
-
-  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 /** 새로 그린 화면 */
@@ -308,4 +200,4 @@ const routes: Route[] = [
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handlePause, handleSkip, handlePrevious, handleStop, handleQueue, handleQueuePage, handleShuffle, handleHighlight, handleVolumeModal, volumeModal, handleLoop, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
+export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeModal, volumeModal, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
