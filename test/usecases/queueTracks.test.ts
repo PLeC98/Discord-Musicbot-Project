@@ -16,6 +16,8 @@ import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
 import { plainText } from "../../src/ui/frame.ts";
 import { codedError } from "../../src/rules/errorKind.ts";
+import { textOf } from "../helpers/cv2.ts";
+import { addedView } from "../../src/ui/addedNotice.ts";
 
 // 실패 결과에 입구가 보일 문장을 붙여 본다
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
@@ -57,8 +59,8 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
     connection: connected ? {} : null,
     nowPlayingMessage: current ? {} : null,
     textChannel: {
-      send: async (p: { content: string }) => {
-        const m: Sent = { id: `info${sent.length}`, content: p.content, deleted: false, delete: async () => (m.deleted = true) };
+      send: async (p: unknown) => {
+        const m: Sent = { id: `info${sent.length}`, content: textOf(p), deleted: false, delete: async () => (m.deleted = true) };
         sent.push(m);
         return m;
       },
@@ -84,7 +86,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
   const mem = new RecordingPanels(client, calls);
   Object.assign(client, { panels: mem });
   const notices: string[] = [];
-  const responder = { notifyQueued: async (text: string) => notices.push(text), dismissPlaceholder: async () => {} };
+  const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
   // 이 서버에 곡을 담는다
   const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(client, "g1", data, requester, via);
   return { mem, add, player, calls, sent, notices, responder };
@@ -240,14 +242,12 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
 });
 
 test("자리가 모자라 덜 받았으면(queueLimited) 그렇다고 덧붙인다", () => {
-  const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
-  assert.equal(mem.createQueueAdditionMessage([track("a")], "playlist", false, { queueLimited: true }), `✅ 재생목록의 1개 노래가 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`);
+  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `✅ 재생목록의 1개 노래가 대기열에 추가되었습니다!\n⚠️ 대기열이 가득 차 목록의 일부만 넣었습니다 (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
 // 사운드클라우드 세트는 받을 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
 test("출처가 받을 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
-  const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
-  assert.equal(mem.createQueueAdditionMessage([track("a")], "playlist", false, { skipped: 3, total: 41 }), "✅ 재생목록 전체 41곡 중 1곡이 대기열에 추가되었습니다!\n⚠️ 받을 수 없는 3곡(미리듣기 · 지역 제한 등)은 뺐습니다");
+  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "✅ 재생목록 전체 41곡 중 1곡이 대기열에 추가되었습니다!\n⚠️ 받을 수 없는 3곡(미리듣기 · 지역 제한 등)은 뺐습니다");
 
   const { add: live, notices, responder } = setup({ current: track("now") });
   await live({ tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);

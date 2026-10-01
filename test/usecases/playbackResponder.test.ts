@@ -5,14 +5,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MessageFlags } from "discord.js";
 
 import { interactionResponder, channelResponder, silentResponder, _internals } from "../../src/usecases/responders.ts";
-import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
+import type { GuildTextBasedChannel, RepliableInteraction } from "discord.js";
+import { frame, post, reply } from "../../src/ui/frame.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
 
 // 보낸 것. 여기서 보는 칸만
-type Payload = { flags?: number; components?: unknown[]; content?: string };
+type Payload = { flags?: unknown; components?: unknown[]; content?: string };
 type Call = [name: string, payload?: Payload];
 
 function fakeInteraction({ deferred = true, replied = false } = {}) {
@@ -47,12 +47,13 @@ function fakeChannel() {
 }
 const channelOf = (partial: object) => fake<GuildTextBasedChannel>(partial);
 
-const embedManager = { createSearchingContainer: (msg: string) => fake<ContainerBuilder>({ container: msg }) };
+// 담은 안내의 화면
+const view = frame({ body: "추가됨" });
 
 // ── 공통 계약 ────────────────────────────────────────────────
 
 test("세 어댑터가 같은 계약을 만족한다 (코어는 이 둘만 호출한다)", () => {
-  const responders = [interactionResponder(fakeInteraction(), embedManager), channelResponder(fakeChannel()), silentResponder];
+  const responders = [interactionResponder(fakeInteraction()), channelResponder(fakeChannel()), silentResponder];
   for (const r of responders) {
     assert.equal(typeof r.notifyQueued, "function");
     assert.equal(typeof r.dismissPlaceholder, "function");
@@ -65,13 +66,13 @@ test("안내 실패가 재생을 망가뜨리지 않는다 — 던지지 않는�
       throw new Error("채널 권한 없음");
     },
   });
-  await channelResponder(broken).notifyQueued("x"); // 던지면 여기서 실패
+  await channelResponder(broken).notifyQueued(view); // 던지면 여기서 실패
 
   const brokenInteraction = fakeInteraction();
   brokenInteraction.editReply = async () => {
     throw new Error("만료된 토큰");
   };
-  await interactionResponder(brokenInteraction, embedManager).notifyQueued("x");
+  await interactionResponder(brokenInteraction).notifyQueued(view);
 });
 
 // ── silentResponder ──────────────────────────────────────────
@@ -80,7 +81,7 @@ test("silentResponder는 디스코드를 한 번도 건드리지 않는다 (대�
   const channel = fakeChannel();
   const interaction = fakeInteraction();
 
-  await silentResponder.notifyQueued("대기열에 추가됨");
+  await silentResponder.notifyQueued(view);
   await silentResponder.dismissPlaceholder();
 
   assert.deepEqual(channel.calls, []);
@@ -89,20 +90,25 @@ test("silentResponder는 디스코드를 한 번도 건드리지 않는다 (대�
 
 // ── interactionResponder ─────────────────────────────────────
 
-test("상호작용: 안내를 CV2 컨테이너로 보낸다 — content는 CV2 메시지에서 거부된다", async () => {
+test("상호작용: 자리표시자(CV2)를 안내로 고친다. 아직 답하지 않았으면 본인에게만 새로", async () => {
   const interaction = fakeInteraction({ deferred: true });
-  await interactionResponder(interaction, embedManager).notifyQueued("추가됨");
+  await interactionResponder(interaction).notifyQueued(view);
+  assert.deepEqual(interaction.calls[0], ["editReply", post(view)]);
 
-  const [name, payload = {}] = interaction.calls[0];
-  assert.equal(name, "editReply");
-  assert.equal(payload.flags, MessageFlags.IsComponentsV2);
-  assert.deepEqual(payload.components, [{ container: "추가됨" }]);
-  assert.ok(!("content" in payload), "CV2 메시지에 content를 넣으면 디스코드가 거부한다");
+  const fresh = fakeInteraction({ deferred: false });
+  await interactionResponder(fresh).notifyQueued(view);
+  assert.deepEqual(fresh.calls[0], ["reply", reply(view)]);
+});
+
+test("채널: 안내를 CV2 메시지로 보낸다", async () => {
+  const channel = fakeChannel();
+  await channelResponder(channel).notifyQueued(view);
+  assert.deepEqual(channel.calls, [["send", post(view)]]);
 });
 
 test("상호작용: 아직 응답 전이면 reply로 확인만 하고 지운다", async () => {
   const interaction = fakeInteraction({ deferred: false, replied: false });
-  await interactionResponder(interaction, embedManager).dismissPlaceholder();
+  await interactionResponder(interaction).dismissPlaceholder();
   assert.deepEqual(
     interaction.calls.map(([n]) => n),
     ["reply", "deleteReply"],
@@ -121,13 +127,13 @@ test("채널: 안내 전에 자리표시자를 먼저 치운다 — 별도 메�
   });
   const responder = channelResponder(channel, () => order.push("dismiss"));
 
-  await responder.notifyQueued("추가됨");
+  await responder.notifyQueued(view);
   assert.deepEqual(order, ["dismiss", "send"]);
 });
 
 test("채널: 보낼 곳이 없으면 조용히 넘어간다", async () => {
-  await channelResponder(null).notifyQueued("x");
-  await channelResponder(channelOf({})).notifyQueued("x");
+  await channelResponder(null).notifyQueued(view);
+  await channelResponder(channelOf({})).notifyQueued(view);
 });
 
 // ── 멱등성 ───────────────────────────────────────────────────
@@ -138,7 +144,7 @@ test("dismissPlaceholder는 멱등 — 코어와 진입점이 모두 불러도 �
 
   await responder.dismissPlaceholder();
   await responder.dismissPlaceholder();
-  await responder.notifyQueued("x"); // 내부에서도 부른다
+  await responder.notifyQueued(view); // 내부에서도 부른다
   assert.equal(count, 1);
 });
 

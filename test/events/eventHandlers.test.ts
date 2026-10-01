@@ -21,7 +21,7 @@ import { youtube } from "../helpers/tracks.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { textsOf } from "../helpers/cv2.ts";
-import { noticeReply, type Notice } from "../../src/ui/frame.ts";
+import { frame, type Notice, noticeReply, post } from "../../src/ui/frame.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -97,7 +97,6 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
   const handled: Handled[] = [];
   const embeds = {
     seen,
-    createSearchingContainer: (text: string) => ({ searching: text }),
     scheduleIdleRepin: async (_g: unknown, channelId: string) => seen.push({ repin: channelId }),
     updatePlaying: async () => seen.push("update"),
   };
@@ -225,7 +224,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 지우�
     mock.timers.tick(1);
     await new Promise(setImmediate);
     assert.equal(msg.deleted, true);
-    assert.deepEqual(msg.sent[0].payload, { components: [{ searching: "🔍 **노래 제목** 검색 중..." }], flags: 32768 });
+    assert.deepEqual(msg.sent[0].payload, post(frame({ body: "🔍 **노래 제목** 검색 중..." })));
     assert.equal(resolved[0].query, "노래 제목");
     assert.equal(resolved[0].context, "전용채널.resolveQuery");
     assert.equal(w.handled[0].who?.username, "사용자");
@@ -256,7 +255,7 @@ test("전용 채널: 긴 검색어는 자리표시자에서 60자로 자른다",
   await settings.setBotChannel("g1", "bot-channel");
   const msg = message(w, { content: "가".repeat(70) });
   await messageHandler.execute(msg);
-  assert.equal(msg.sent[0].payload.components?.[0].searching, `🔍 **${"가".repeat(60)}…** 검색 중...`);
+  assert.equal(textOf(msg.sent[0].payload), `🔍 **${"가".repeat(60)}…** 검색 중...`);
 });
 
 test("전용 채널: 권한이 없으면 답하고, 그 답과 사용자 메시지를 5초 뒤 지운다", async () => {

@@ -3,8 +3,9 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { scheduleDelete } from "../ui/transientMessages.ts";
 import { messageOf } from "../rules/errorKind.ts";
-import type { GuildTextBasedChannel, RepliableInteraction } from "discord.js";
-import type { NowPlayingPanel, Responder } from "../ui/nowPlayingPanel.ts";
+import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
+import type { Responder } from "../ui/nowPlayingPanel.ts";
+import { post, reply } from "../ui/frame.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터.
@@ -12,7 +13,7 @@ import type { NowPlayingPanel, Responder } from "../ui/nowPlayingPanel.ts";
  * 코어는 아래 두 메서드만 부르고 매체를 모른다. 이 경계가 없으면 "디스코드에 아무것도 보내지 않음"
  * (대시보드)을 표현할 수 없다.
  *
- *   notifyQueued(text)     대기열 추가 안내를 표시한다
+ *   notifyQueued(view)     담은 안내(ui/addedNotice 의 화면)를 표시한다
  *   dismissPlaceholder()   진입점이 띄운 "검색 중…" 자리표시자를 정리한다 (멱등)
  *
  * 둘 다 던지지 않는다. 안내 실패가 재생을 망가뜨리면 안 된다.
@@ -33,11 +34,8 @@ function onceDismiss(fn: (() => unknown) | null | undefined) {
   };
 }
 
-/**
- * 슬래시 명령. 자리표시자가 상호작용 응답 그 자체다.
- * 초기 응답이 CV2 컨테이너라 `content`로는 수정할 수 없어(디스코드가 거부) 컨테이너로 보낸다.
- */
-function interactionResponder(interaction: RepliableInteraction, embedManager: Pick<NowPlayingPanel, "createSearchingContainer">): Responder {
+/** 슬래시 명령. 자리표시자가 상호작용 응답 그 자체다(Components V2). 안내로 그 자리를 고친다 */
+function interactionResponder(interaction: RepliableInteraction): Responder {
   const dismiss = onceDismiss(async () => {
     if (interaction.deferred || interaction.replied) {
       await interaction.deleteReply();
@@ -49,19 +47,11 @@ function interactionResponder(interaction: RepliableInteraction, embedManager: P
   });
 
   return {
-    // 자리표시자를 안내 문구로 덮어쓴다. 별도 메시지를 만들지 않으므로 dismiss가 필요 없다
-    async notifyQueued(text: string) {
+    // 자리표시자를 안내로 덮어쓴다. 별도 메시지를 만들지 않으므로 dismiss가 필요 없다
+    async notifyQueued(view: ContainerBuilder) {
       try {
-        if (interaction.deferred || interaction.replied) {
-          scheduleDelete(
-            await interaction.editReply({
-              components: [embedManager.createSearchingContainer(text)],
-              flags: MessageFlags.IsComponentsV2,
-            }),
-          );
-        } else {
-          scheduleDelete(await interaction.reply({ content: text, flags: MessageFlags.Ephemeral }));
-        }
+        if (interaction.deferred || interaction.replied) scheduleDelete(await interaction.editReply(post(view)));
+        else scheduleDelete(await interaction.reply(reply(view)));
       } catch (error) {
         log.error("대기열 안내 전송 실패:", messageOf(error));
       }
@@ -80,11 +70,11 @@ function channelResponder(channel: GuildTextBasedChannel | null | undefined, onD
   const dismiss = onceDismiss(onDismiss);
 
   return {
-    async notifyQueued(text: string) {
+    async notifyQueued(view: ContainerBuilder) {
       await dismiss();
       if (!channel || typeof channel.send !== "function") return;
       try {
-        scheduleDelete(await channel.send({ content: text }));
+        scheduleDelete(await channel.send(post(view)));
       } catch (error) {
         log.error("대기열 안내 전송 실패:", messageOf(error));
       }

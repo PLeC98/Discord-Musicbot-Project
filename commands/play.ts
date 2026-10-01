@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "discord.js";
 import { showFailureWith } from "../src/ui/failureNotice.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import * as searchText from "../src/ui/text/search.ts";
@@ -7,7 +7,7 @@ import { interactionResponder } from "../src/usecases/responders.ts";
 import { offerOnInteraction } from "../src/usecases/playlistMore.ts";
 import { checkAdd, checkSummon } from "../src/usecases/permissions.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeFrame, noticeReply, post } from "../src/ui/frame.ts";
+import { frame, noticeFrame, noticeReply, post } from "../src/ui/frame.ts";
 import type { PermissionDenied } from "../src/ui/text/errors.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { GuildMember } from "discord.js";
@@ -46,10 +46,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
       if (permErr) return await interaction.reply(noticeReply(errors.permission(permErr)));
 
       // 처음부터 Components V2로 응답. 초기 메시지에 IS_COMPONENTS_V2 플래그가 서야 이후 편집이 가능하다
-      await interaction.reply({
-        components: [client.panels.createSearchingContainer(searchText.searching(query))],
-        flags: MessageFlags.IsComponentsV2,
-      });
+      await interaction.reply(post(frame({ body: searchText.searching(query) })));
       // 여기서부터 던지면 "검색 중" 자리를 오류로 바꾼다
       showFailureWith(interaction, (notice) => interaction.editReply(post(noticeFrame(notice))));
 
@@ -59,7 +56,7 @@ function playCommand({ name, description, ko, permission, insertFirst = false }:
         query,
         textChannel: channel,
         voiceChannel: member.voice.channel ?? null,
-        responder: interactionResponder(interaction, client.panels),
+        responder: interactionResponder(interaction),
         source: `/${name}`,
         insertFirst,
       });

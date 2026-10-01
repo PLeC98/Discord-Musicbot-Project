@@ -38,7 +38,7 @@ const exported: GuildCommand = {
     player.movePanel(channel);
     client.panels.stopProgressUpdate(guild.id);
 
-    await client.panels.postPlaying(player, player.currentTrack, interactionResponder(interaction, client.panels), { reuse: false });
+    await client.panels.postPlaying(player, player.currentTrack, interactionResponder(interaction), { reuse: false });
   },
 };
 export default exported;

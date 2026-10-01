@@ -13,6 +13,11 @@ import { NowPlayingPanel } from "../../src/ui/nowPlayingPanel.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import { addedView } from "../../src/ui/addedNotice.ts";
+import { post } from "../../src/ui/frame.ts";
+import { textsOf } from "../helpers/cv2.ts";
+// 담은 안내가 보인 글자(ui/addedNotice)
+const addedText = (tracks: Array<{ title?: string }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
 const EVIL_LINK = "[여기를 클릭](https://evil.example)";
@@ -62,8 +67,7 @@ test("빈 값·비문자열에도 안전하다", () => {
 
 // 실제 전송 경로 — 대기열 추가 안내는 content라 서식이 그대로 해석된다
 test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않는다", () => {
-  const mem = new NowPlayingPanel(fake<Client>({ players: new Map() }));
-  const msg = mem.createQueueAdditionMessage([{ title: EVIL_LINK }], null, false);
+  const msg = addedText([{ title: EVIL_LINK }], null, false);
 
   assert.ok(!/(^|[^\\])\[[^\]]*\]\(/.test(msg), msg);
   assert.ok(msg.includes("여기를 클릭"), "제목 텍스트 자체는 보여준다");

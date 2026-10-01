@@ -6,7 +6,7 @@ import { progressBar, emptyProgressBar } from "./progressBar.ts";
 import { labelOf } from "../rules/platforms.ts";
 
 /** 곡을 담은 결과를 알리는 매체(usecases/responders) */
-type Responder = { notifyQueued(text: string): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
+type Responder = { notifyQueued(view: ContainerBuilder): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
 
 // 알릴 곳이 없는 매체. 결과를 알리는 매체는 부르는 쪽(usecases/responders)이 넘긴다
 const NO_RESPONDER: Responder = {
@@ -19,8 +19,8 @@ const NO_RESPONDER: Responder = {
 };
 import * as playerEvents from "../player/events.ts";
 import * as panelText from "./text/panel.ts";
-import * as queueText from "./text/queue.ts";
-import * as labels from "./text/labels.ts";
+import { addedView, type AdditionNotice } from "./addedNotice.ts";
+import { post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guildSettings.ts";
 import * as trackState from "../player/trackState.ts";
@@ -43,8 +43,6 @@ const isRestTimeout = (error: unknown) => error instanceof Error && error.name =
 // 패널 메시지가 있는 채널. 웹훅으로 올린 것은 API 모양이다
 const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message.channelId : message.channel_id);
 
-/** 담은 안내에 붙일 것. dropped 상한으로 뺀 곡 수, skipped 출처가 받을 수 없어 뺀 곡 수, total 받은 것보다 많은 전체 곡 수, queueLimited 자리가 모자라 덜 받음 */
-type AdditionNotice = { dropped?: number; skipped?: number; total?: number | null; queueLimited?: boolean };
 /** 패널 내용. 채널 · 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을 붙이고, 재생 화면으로 되돌릴 때 뗀다 */
 type Payload = {
   components: Array<ContainerBuilder | ActionRowBuilder<StringSelectMenuBuilder>>;
@@ -168,21 +166,17 @@ class NowPlayingPanel {
     }
   }
 
-  createSearchingContainer(msg: string) {
-    return new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand"))).addTextDisplayComponents(new TextDisplayBuilder().setContent(msg));
-  }
-
   /**
    * 첫 번째 트랙이 재생되는 동안 남은 재생목록 트랙이 추가되었음을 메시지로 표시
    */
   async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
-    const messageText = this.createQueueAdditionMessage(queued, collection, insertFirst, notice);
+    const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략
     if (!player.textChannel || typeof player.textChannel.send !== "function") return;
 
     try {
-      const infoMessage = await player.textChannel.send({ content: messageText });
+      const infoMessage = await player.textChannel.send(post(view));
       markTransient(infoMessage?.id, 10000);
 
       // 10초 후 정보 메시지 삭제
@@ -711,15 +705,6 @@ class NowPlayingPanel {
     const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);
 
     return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-  }
-
-  /**
-   * 대기열 추가 메시지를 빌드합니다.
-   * collection 은 여러 곡을 담은 출처의 종류(sources/lookup 의 collection 값). null 이면 한 곡 안내
-   */
-  createQueueAdditionMessage(tracks: Array<Pick<QueuedTrack, "title">>, collection: string | null, insertFirst = false, { dropped = 0, skipped = 0, total = null, queueLimited = false }: AdditionNotice = {}) {
-    const max = config.bot.maxQueueSize;
-    return queueText.added({ tracks, collection: collection === null ? null : labels.collection(collection), total, first: insertFirst }) + queueText.addedWarnings({ dropped, skipped, queueLimited, max });
   }
 
   /**

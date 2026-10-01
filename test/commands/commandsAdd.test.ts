@@ -36,7 +36,7 @@ import * as storeDb from "../../src/store/db.ts";
 import { useExampleConfig } from "../helpers/exampleConfig.ts";
 import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
-import { noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
+import { frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import * as replies from "../../src/ui/controlReplies.ts";
 
 useExampleConfig();
@@ -94,7 +94,6 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
   const seen: unknown[] = [];
   const handled: Array<{ handle: TrackData; who: Requester | null }> = [];
   const embeds = {
-    createSearchingContainer: (text: string) => ({ searching: text }),
     updatePlaying: async () => seen.push("update"),
     drawEndedPanel: async (_p: unknown, { reason }: { reason: string }) => seen.push(`end:${reason}`),
     repostIdlePanel: async (_g: unknown, ch: { id: string }) => seen.push(`repost:${ch.id}`),
@@ -210,7 +209,7 @@ test("/play: 검색 중 자리표시자를 CV2 로 먼저 답하고 코어에 /p
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("play"), it, w.client);
-  assert.deepEqual(log[0], ["reply", { components: [{ searching: "**노래** 검색 중..." }], flags: MessageFlags.IsComponentsV2 }]);
+  assert.deepEqual(log[0], ["reply", post(frame({ body: "**노래** 검색 중..." }))], "처음부터 Components V2 로 답해야 결과로 고칠 수 있다");
   assert.equal(resolved[0].context, "play.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, undefined);
   assert.equal(w.handled[0].who?.username, "사용자");
@@ -234,10 +233,10 @@ test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던
 
 test("/play: 답하기 전에 던지면 입구가 본인에게만 알린다", async () => {
   const w = world();
-  w.client.panels.createSearchingContainer = () => {
+  const { it, log } = interaction(w, { options: { query: "노래" } });
+  it.options.getString = () => {
     throw new Error("무언가");
   };
-  const { it, log } = interaction(w, { options: { query: "노래" } });
   await runViaEntrance(await command("play"), it, w.client);
   assert.deepEqual(log, [["reply", noticeReply(errors.commandFailed())]]);
 });
@@ -295,10 +294,10 @@ test("/playfirst: 실패 · 오류 갈래는 /play 와 같다", async () => {
   await runViaEntrance(await command("playfirst"), thrown.it, w.client);
   assert.deepEqual(lastSent(thrown.log), post(noticeFrame(errors.forKind("network"))));
 
-  w.client.panels.createSearchingContainer = () => {
+  const early = interaction(w, { options: { query: "노래" } });
+  early.it.options.getString = () => {
     throw new Error("무언가");
   };
-  const early = interaction(w, { options: { query: "노래" } });
   await runViaEntrance(await command("playfirst"), early.it, w.client);
   assert.deepEqual(early.log[0][1]?.flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
 

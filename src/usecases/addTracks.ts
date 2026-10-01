@@ -13,6 +13,7 @@ import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/liveBlockReason.ts";
 import { errorKind, messageOf } from "../rules/errorKind.ts";
 import { canSend } from "../ui/channels.ts";
+import { addedView } from "../ui/addedNotice.ts";
 import type { Client, Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack, Requester, TrackInfo } from "../player/track.ts";
 import type { NowPlayingPanel, Responder } from "../ui/nowPlayingPanel.ts";
@@ -376,7 +377,7 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
 // ── 곡 담기 ───────────────────────────────────────────────────────────
 
 /** 곡 담기에서 부르는 패널(그리기만) */
-type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "showPlaylistAdditionMessage" | "createQueueAdditionMessage">;
+type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "showPlaylistAdditionMessage">;
 /** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
 type Opened = { success: true };
 /** 쉬던 플레이어에 첫 곡을 튼 결과. opened 패널까지 세웠다, failure 시작 실패(까닭과 안내), started 곧바로 튼 곡 */
@@ -536,7 +537,7 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
     await panel.updatePlaying(player);
   }
 
-  await responder.notifyQueued(panel.createQueueAdditionMessage(queued, collection, insertFirst, notice));
+  await responder.notifyQueued(addedView({ tracks: queued, collection, insertFirst, notice }));
 
   return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
 }

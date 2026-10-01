@@ -25,6 +25,7 @@ import logger from "../../src/infra/log/logger.ts";
 import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
 import { plainText } from "../../src/ui/frame.ts";
+import { frame } from "../../src/ui/frame.ts";
 
 const store = openTempStore("play-request-");
 after(() => store.close());
@@ -427,7 +428,7 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
   const { responder } = client.embedCalls[0];
   assert.ok(responder, "곡 요청은 늘 매체를 넘긴다");
   assert.equal(typeof responder.notifyQueued, "function");
-  await responder.notifyQueued("x"); // 무동작이므로 던지지 않는다
+  await responder.notifyQueued(frame({ body: "x" })); // 무동작이므로 던지지 않는다
 });
 
 // ── 로그: 누가 무엇을 찾아 무엇이 골라졌나 ─────────────────────

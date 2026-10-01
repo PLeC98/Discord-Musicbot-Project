@@ -11,6 +11,7 @@ import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import { addFailureMessage } from "../../src/ui/errorMessages.ts";
 import { plainText } from "../../src/ui/frame.ts";
+import { textOf } from "../helpers/cv2.ts";
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {
@@ -43,7 +44,7 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
   const client = fake<Client>({ players: new Map([["g", player]]) });
   Object.assign(client, { panels: new NoPanelRefresh(client) });
   const notices: string[] = [];
-  const responder = { notifyQueued: async (text: string) => notices.push(text), dismissPlaceholder: async () => {} };
+  const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
   const add = (tracks: QueuedTrack[], extra = {}) => queueTracks(client, "g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
   return { player, add, notices };
 }

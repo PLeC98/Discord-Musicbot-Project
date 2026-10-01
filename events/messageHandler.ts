@@ -1,4 +1,4 @@
-import { Events, MessageFlags } from "discord.js";
+import { Events } from "discord.js";
 import logger from "../src/infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
@@ -8,7 +8,7 @@ import { channelResponder } from "../src/usecases/responders.ts";
 import { scheduleDelete } from "../src/ui/transientMessages.ts";
 import { offerOnChannel } from "../src/usecases/playlistMore.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeFrame, post } from "../src/ui/frame.ts";
+import { frame, noticeFrame, post } from "../src/ui/frame.ts";
 import { addFailureMessage } from "../src/ui/errorMessages.ts";
 import * as searchText from "../src/ui/text/search.ts";
 import type { ClientEvent } from "../src/app/main.ts";
@@ -49,10 +49,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
 
     // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
-    const loadingMsg = await message.channel.send({
-      components: [client.panels.createSearchingContainer(searchText.searchingChannel(preview))],
-      flags: MessageFlags.IsComponentsV2,
-    });
+    const loadingMsg = await message.channel.send(post(frame({ body: searchText.searchingChannel(preview) })));
 
     const responder = channelResponder(message.channel, () =>
       loadingMsg.delete().catch(() => {
