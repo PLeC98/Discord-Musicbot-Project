@@ -1,12 +1,12 @@
-import { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, type ButtonInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { PermissionFlagsBits, type ButtonInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { SKIP_CATEGORIES, categoryLabel } from "../src/rules/sponsorCategories.ts";
 import config from "../config.ts";
 import { route, type Route } from "./route.ts";
-import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
+import { noticeReply, post } from "../src/ui/frame.ts";
+import * as screens from "../src/ui/settingsScreens.ts";
 
 // /sponsorblock UI(카테고리 셀렉트 + 사용 토글 + 저장/취소) 처리.
 // 셀렉트 선택값과 토글 상태를 저장 버튼이 읽을 수 있게 메시지 ID 기준으로 보류. (에페메랄이라 호출자만 조작)
@@ -23,28 +23,10 @@ function sweepPending() {
   }
 }
 
-function buildSponsorConfigMessage({ enabled, categories }: Draft) {
-  const cats = new Set(categories);
-  const t = settingsText.sponsorMenu({ enabled, globalOff: !config.sponsorblock.enabled });
-  const embed = new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"));
-
-  const select = new StringSelectMenuBuilder()
-    .setCustomId("sb:cats")
-    .setPlaceholder(t.placeholder)
-    .setMinValues(0)
-    .setMaxValues(SKIP_CATEGORIES.length)
-    .addOptions(SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: cats.has(id) })));
-
-  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("sb:toggle")
-      .setLabel(t.toggle)
-      .setStyle(enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("sb:save").setLabel(settingsText.buttons().save).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("sb:cancel").setLabel(settingsText.buttons().cancel).setStyle(ButtonStyle.Secondary),
-  );
-
-  return { embeds: [embed], components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select), buttons] };
+/** 설정 화면. 처음 띄울 때는 본인에게만(reply), 고칠 때는 그대로(post) */
+function sponsorConfigView({ enabled, categories }: Draft) {
+  const chosen = new Set(categories);
+  return screens.sponsorMenu({ enabled, globalOff: !config.sponsorblock.enabled, options: SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: chosen.has(id) })) });
 }
 
 function registerPending(messageId: string, state: Draft) {
@@ -88,25 +70,20 @@ async function handleSponsorConfig(interaction: StringSelectMenuInteraction<"cac
   if (interaction.customId === "sb:toggle") {
     state.enabled = !state.enabled;
     state.at = Date.now();
-    return interaction.update(buildSponsorConfigMessage(state));
+    return interaction.update(post(sponsorConfigView(state)));
   }
 
   if (interaction.customId === "sb:cancel") {
     pending.delete(mid);
-    const t = settingsText.sponsorCancelled();
-    return interaction.update({ embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"))], components: [] });
+    return interaction.update(post(screens.shown(settingsText.sponsorCancelled())));
   }
 
   if (interaction.customId === "sb:save") {
     pending.delete(mid);
-    const t = settingsText.sponsorSaved(state.enabled, await saveDraft(interaction.guild.id, state));
-    return interaction.update({
-      embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("done")).setTimestamp()],
-      components: [],
-    });
+    return interaction.update(post(screens.saved(settingsText.sponsorSaved(state.enabled, await saveDraft(interaction.guild.id, state)))));
   }
 }
 
 const routes: Route[] = [route("select", "sb:cats", handleSponsorConfig), route("button", "sb:", handleSponsorConfig)];
 
-export { routes, buildSponsorConfigMessage, registerPending };
+export { routes, sponsorConfigView, registerPending };

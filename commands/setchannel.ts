@@ -1,13 +1,13 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import logger from "../src/infra/log/logger.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { messageOf } from "../src/rules/errorKind.ts";
-import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
+import { noticeReply, post } from "../src/ui/frame.ts";
+import * as screens from "../src/ui/settingsScreens.ts";
 const log = logger.child({ category: "commands" });
 
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">) => interaction.client.panels?.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
@@ -49,10 +49,7 @@ const exported: GuildCommand = {
       await GuildSettingsManager.clearBotChannel(guildId);
       await movePanel(interaction);
 
-      const t = settingsText.channelRemoved();
-      return await interaction.reply({
-        embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("done")).setTimestamp()],
-      });
+      return await interaction.reply(post(screens.saved(settingsText.channelRemoved())));
     }
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
@@ -63,21 +60,7 @@ const exported: GuildCommand = {
       return await interaction.reply(noticeReply(errors.channelSetFailed()));
     }
 
-    const t = settingsText.channelSet(`${channel}`);
-    await interaction.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle(t.title)
-          .setDescription(t.description)
-          .addFields({
-            name: t.inputs,
-            value: t.inputsValue,
-            inline: false,
-          })
-          .setColor(colorOf("done"))
-          .setTimestamp(),
-      ],
-    });
+    await interaction.reply(post(screens.channelSet(`${channel}`)));
     // 안내 뒤에 올려야 패널이 맨 아래에 온다
     await movePanel(interaction);
   },

@@ -1,10 +1,10 @@
-import { EmbedBuilder, PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInteraction } from "discord.js";
+import { PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInteraction } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import { route, type Route } from "./route.ts";
-import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
+import { noticeReply, post } from "../src/ui/frame.ts";
+import * as screens from "../src/ui/settingsScreens.ts";
 import { noticeInstead } from "../src/ui/failureNotice.ts";
 
 // /setdjrole UI (드롭메뉴 + 저장/취소) 처리.
@@ -37,11 +37,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
   if (interaction.customId === "djrole:cancel") {
     pending.delete(interaction.message.id);
-    const t = settingsText.djRoleCancelled();
-    return interaction.update({
-      embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("brand"))],
-      components: [],
-    });
+    return interaction.update(post(screens.shown(settingsText.djRoleCancelled())));
   }
 
   if (interaction.customId === "djrole:save") {
@@ -56,11 +52,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
 
     if (!roleIds.length) {
       await GuildSettingsManager.clearDjRoles(guild.id);
-      const t = settingsText.djRoleCleared();
-      return interaction.update({
-        embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("done")).setTimestamp()],
-        components: [],
-      });
+      return interaction.update(post(screens.saved(settingsText.djRoleCleared())));
     }
 
     const success = await GuildSettingsManager.setDjRoles(guild.id, roleIds);
@@ -69,11 +61,7 @@ async function handleDjRoleConfig(interaction: RoleSelectMenuInteraction<"cached
       return noticeInstead(interaction, errors.djRoleSaveFailed());
     }
 
-    const t = settingsText.djRoleSaved(roleIds);
-    return interaction.update({
-      embeds: [new EmbedBuilder().setTitle(t.title).setDescription(t.description).setColor(colorOf("done")).setTimestamp()],
-      components: [],
-    });
+    return interaction.update(post(screens.saved(settingsText.djRoleSaved(roleIds))));
   }
 }
 

@@ -17,9 +17,9 @@ import { whenSettingsBroken } from "../helpers/tempStore.ts";
 import { fake, fakePlayer, fakeWith } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/Player.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
-import { noticeReply } from "../../src/ui/frame.ts";
+import { noticeReply, post } from "../../src/ui/frame.ts";
 import * as infoText from "../../src/ui/text/info.ts";
-import { headOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
+import { headOf, screenOf, textOf, thumbnailOf } from "../helpers/cv2.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audioCache.ts");
@@ -32,7 +32,7 @@ const errors = await import("../../src/ui/text/errors.ts");
 const settings = await import("../../src/store/guildSettings.ts");
 const { SKIP_CATEGORIES } = await import("../../src/rules/sponsorCategories.ts");
 const interactionCreate = (await import("../../events/interactionCreate.ts")).default;
-const { buildSponsorConfigMessage } = await import("../../interactions/sponsorConfigHandler.ts");
+const { sponsorConfigView } = await import("../../interactions/sponsorConfigHandler.ts");
 
 after(() => {
   audioCache.close();
@@ -300,7 +300,8 @@ test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 
   await run(await command("setchannel"), it, client);
   settings._reset();
   assert.equal(await settings.getBotChannel("g1"), "c5");
-  assert.equal(log[0][1].embeds[0].data.title, "✅ 봇 채널 설정됨");
+  assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["✅ 봇 채널 설정됨", true]);
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2], "모두에게 보인다");
   assert.deepEqual(seen, ["movePanel"], "안내 뒤에 옮긴다");
 
   const other = interaction({ options: { channel: { id: "c6", toString: () => "<#c6>" } } });
@@ -316,7 +317,7 @@ test("/setchannel remove: 지우고 패널을 옮긴 뒤 안내. 저장 실패�
   settings._reset();
   assert.equal(await settings.getBotChannel("g1"), null);
   assert.deepEqual(seen, ["movePanel"]);
-  assert.equal(log[0][1].embeds[0].data.title, "🔧 봇 채널 제거됨");
+  assert.deepEqual([screenOf(log[0][1]).title, screenOf(log[0][1]).done], ["🔧 봇 채널 제거됨", true], "해제도 설정을 바꾼 것이라 완료 색");
 
   // 저장이 실패하게 서버 설정 표를 잠깐 치운다
   await whenSettingsBroken(async () => {
@@ -330,22 +331,17 @@ test("/setdjrole: 서버에 남아 있는 역할만 지금 DJ 로 보이고 메�
   await settings.setDjRoles("g1", ["r1", "gone"]);
   const { it, log, client } = interaction({ guildRoles: ["r1", "r2"] });
   await run(await command("setdjrole"), it, client);
-  const payload = log[0][1];
-  assert.match(payload.embeds[0].data.description ?? "", /^현재 DJ 역할: <@&r1>\n/);
-  assert.deepEqual(
-    payload.components[0].components[0].data.default_values?.map((v) => v.id),
-    ["r1"],
-  );
-  assert.deepEqual(
-    payload.components[1].components.map((b) => b.data.custom_id),
-    ["djrole:save", "djrole:cancel"],
-  );
+  const screen = screenOf(log[0][1]);
+  assert.match(screen.body, /^현재 DJ 역할: <@&r1>\n/);
+  assert.deepEqual(screen.roles, ["r1"]);
+  assert.deepEqual(screen.buttons, ["djrole:save", "djrole:cancel"]);
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
 
   settings._reset();
   storeDb.get().exec("DELETE FROM guild_settings;");
   const none = interaction();
   await run(await command("setdjrole"), none.it, none.client);
-  assert.match(none.log[0][1].embeds[0].data.description ?? "", /모든 유저/);
+  assert.match(screenOf(none.log[0][1]).body, /모든 유저/);
 });
 
 // ── /sponsorblock 과 설정 화면 ────────────────────────────────────────
@@ -362,7 +358,10 @@ function sbInteraction({ customId, values = [], messageId = "reply-msg", manage 
     ...interactionKind(customId === "sb:cats" ? "select" : "button"),
     reply: async (p: Sent) => log.push(["reply", p]),
     deferUpdate: async () => log.push(["deferUpdate"]),
-    update: async (p: Sent) => log.push(["update", p.embeds[0].data.title ?? null, p.embeds[0].data.description ?? null, p.components.length]),
+    update: async (p: Sent) => {
+      const s = screenOf(p);
+      log.push(["update", s.title, s.body, s.rows, s.done ? "완료" : "기본"]);
+    },
   };
   return { it, log };
 }
@@ -370,11 +369,8 @@ function sbInteraction({ customId, values = [], messageId = "reply-msg", manage 
 test("/sponsorblock: 지금 설정으로 화면을 띄우고 보류 상태를 메시지 id 로 남긴다", async () => {
   const { it, log, client } = interaction();
   await run(await command("sponsorblock"), it, client);
-  assert.equal(log[0][1].flags, MessageFlags.Ephemeral);
-  assert.deepEqual(
-    log[0][1].components[1].components.map((b) => b.data.custom_id),
-    ["sb:toggle", "sb:save", "sb:cancel"],
-  );
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+  assert.deepEqual(screenOf(log[0][1]).buttons, ["sb:toggle", "sb:save", "sb:cancel"]);
 
   // 보류 상태를 이어받는지: 토글하면 사용 → 미사용
   const toggle = sbInteraction({ customId: "sb:toggle" });
@@ -397,7 +393,7 @@ test("SponsorBlock 화면: 고르고 저장하면 모르는 구간은 빼고 저
   await interactionCreate.execute(fake<Interaction>(save.it));
   settings._reset();
   assert.deepEqual(await settings.getSponsorBlock("g1"), { enabled: true, categories: ["intro", "outro"] });
-  assert.equal(save.log[0][1], "⏭️ SponsorBlock 설정 저장됨");
+  assert.deepEqual([save.log[0][1], save.log[0][4]], ["⏭️ SponsorBlock 설정 저장됨", "완료"]);
   assert.match(String(save.log[0][2]), /인트로\/무음 구간, 최종 화면 구간/);
   assert.ok(SKIP_CATEGORIES.includes("intro"));
 });
@@ -419,15 +415,15 @@ test("SponsorBlock 화면: 끄고 저장하면 미사용, 구간을 비우고 �
 
   const cancel = sbInteraction({ customId: "sb:cancel", messageId: "m-cancel" });
   await interactionCreate.execute(fake<Interaction>(cancel.it));
-  assert.deepEqual(cancel.log, [["update", "⏭️ SponsorBlock 설정 취소됨", "변경 사항 없이 닫았어요.", 0]]);
+  assert.deepEqual(cancel.log, [["update", "⏭️ SponsorBlock 설정 취소됨", "변경 사항 없이 닫았어요.", 0, "기본"]]);
 });
 
 test("SponsorBlock 화면: 전역이 꺼져 있으면 적용되지 않는다고 적는다", () => {
   const saved = config.sponsorblock.enabled;
   config.sponsorblock.enabled = false;
   try {
-    const msg = buildSponsorConfigMessage({ enabled: true, categories: [] });
-    assert.match(msg.embeds[0].data.description ?? "", /전역 설정에서 SponsorBlock이 꺼져/);
+    const view = sponsorConfigView({ enabled: true, categories: [] });
+    assert.match(screenOf(post(view)).body, /전역 설정에서 SponsorBlock이 꺼져/);
   } finally {
     config.sponsorblock.enabled = saved;
   }

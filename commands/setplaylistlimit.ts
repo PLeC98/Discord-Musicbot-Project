@@ -1,12 +1,12 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 import * as GuildSettingsManager from "../src/store/guildSettings.ts";
 import config from "../config.ts";
 import type { GuildCommand } from "../src/app/commandLoader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
-import { colorOf } from "../src/ui/colors.ts";
 import * as settingsText from "../src/ui/text/settings.ts";
 import * as errors from "../src/ui/text/errors.ts";
-import { noticeReply } from "../src/ui/frame.ts";
+import { noticeReply, post, reply } from "../src/ui/frame.ts";
+import * as screens from "../src/ui/settingsScreens.ts";
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
@@ -27,16 +27,13 @@ const exported: GuildCommand = {
 
     if (action === "reset") {
       if (!(await GuildSettingsManager.setPlaylistAddMax(guildId, null))) return failed(interaction);
-      return interaction.reply({ embeds: [card(settingsText.playlistLimitReset(GuildSettingsManager.resolvePlaylistAddMax(guildId)))] });
+      return interaction.reply(post(screens.saved(settingsText.playlistLimitReset(GuildSettingsManager.resolvePlaylistAddMax(guildId)))));
     }
 
     if (count === null) {
       const stored = await GuildSettingsManager.getPlaylistAddMax(guildId);
       const current = GuildSettingsManager.resolvePlaylistAddMax(guildId);
-      return interaction.reply({
-        embeds: [card(settingsText.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))],
-        flags: MessageFlags.Ephemeral,
-      });
+      return interaction.reply(reply(screens.shown(settingsText.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))));
     }
 
     if (count < min || count > max) {
@@ -45,14 +42,10 @@ const exported: GuildCommand = {
     }
 
     if (!(await GuildSettingsManager.setPlaylistAddMax(guildId, count))) return failed(interaction);
-    return interaction.reply({ embeds: [card(settingsText.playlistLimitSet(count))] });
+    return interaction.reply(post(screens.saved(settingsText.playlistLimitSet(count))));
   },
 };
 export default exported;
-
-function card({ title, description }: { title: string; description: string }) {
-  return new EmbedBuilder().setTitle(title).setDescription(description).setColor(colorOf("brand")).setTimestamp();
-}
 
 function failed(interaction: ChatInputCommandInteraction) {
   return interaction.reply(noticeReply(errors.settingsSaveFailed()));

@@ -5,7 +5,8 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { openTempStore } from "../helpers/tempStore.ts";
 import { command as commandNamed, run } from "../helpers/commands.ts";
-import { textOf } from "../helpers/cv2.ts";
+import { screenOf, textOf } from "../helpers/cv2.ts";
+import { MessageFlags } from "discord.js";
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());
@@ -61,7 +62,7 @@ test("실제 값: 저장 뒤 대기열 상한이 줄면 읽을 때 상한으로 
 // ── /setplaylistlimit ────────────────────────────────────────
 
 // 보낸 응답. 여기서 보는 칸만
-type Payload = { content?: string; embeds?: Array<{ data: { description?: string } }>; components?: unknown[] };
+type Payload = { content?: string; embeds?: Array<{ data: { description?: string } }>; components?: unknown[]; flags?: unknown };
 
 function interaction({ count = null, action = null }: { count?: number | null; action?: string | null } = {}) {
   const replies: Payload[] = [];
@@ -79,6 +80,7 @@ test("/setplaylistlimit: 값을 주면 저장", async () => {
   await run(command, i);
   assert.equal(stored.get(G), 30);
   assert.match(text(i.replies[0]), /30곡/);
+  assert.equal(screenOf(i.replies[0]).done, true, "저장했으면 완료 색");
 });
 
 test("/setplaylistlimit: 값 없이 부르면 지금 값만 보여 준다 (기본값 표시)", async () => {
@@ -86,6 +88,7 @@ test("/setplaylistlimit: 값 없이 부르면 지금 값만 보여 준다 (기�
   await run(command, i);
   assert.equal(stored.has(G), false);
   assert.match(text(i.replies[0]), new RegExp(`${config.bot.playlistAddDefault}곡.*기본값`));
+  assert.deepEqual([screenOf(i.replies[0]).done, i.replies[0].flags], [false, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]], "지금 값은 본인에게만");
 });
 
 test("/setplaylistlimit: 대기열 상한을 넘으면 거부하고 저장하지 않는다", () =>

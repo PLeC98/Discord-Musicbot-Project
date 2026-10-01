@@ -7,7 +7,7 @@ import { PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInterac
 
 import { openTempStore, setGuild, whenSettingsBroken } from "../helpers/tempStore.ts";
 import { interactionKind } from "../helpers/interactionKind.ts";
-import { textOf } from "../helpers/cv2.ts";
+import { screenOf, textOf } from "../helpers/cv2.ts";
 const temp = openTempStore("dj-role-");
 after(() => temp.close());
 const settings = await import("../../src/store/guildSettings.ts");
@@ -30,7 +30,7 @@ const interactionCreate = (await import("../../events/interactionCreate.ts")).de
 
 const guild = { id: "g1", roles: { cache: { has: (id: string) => ["r1", "r2"].includes(id) } } };
 
-type Updated = { components: unknown[]; embeds: { data: { title: string } }[] };
+type Updated = { components: Array<{ toJSON(): unknown }>; flags: unknown };
 
 function fakeInteraction({ type, customId, values = [] as string[], messageId = "m1", canManage = true }: { type: "select" | "button"; customId: string; values?: string[]; messageId?: string; canManage?: boolean }) {
   const ix = fakeWith<ButtonInteraction | RoleSelectMenuInteraction>()({
@@ -81,8 +81,9 @@ test("선택 → 저장: 보류된 선택값이 확정됨", async () => {
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mA" });
   await interactionCreate.execute(save);
   assert.deepEqual(store.djRoles.get("g1"), ["r1", "r2"]);
-  assert.equal(save.updatedWith?.components.length, 0, "저장 후 컴포넌트 제거");
-  assert.ok(save.updatedWith?.embeds[0].data.title.includes("설정됨"));
+  assert.equal(screenOf(save.updatedWith).rows, 0, "저장 후 메뉴 · 버튼 제거");
+  assert.match(screenOf(save.updatedWith).title, /설정됨/);
+  assert.equal(screenOf(save.updatedWith).done, true);
 });
 
 test("저장 실패: 설정 화면(임베드라 안내로 고칠 수 없다)을 지우고 본인에게만 알린다", async () => {
@@ -112,7 +113,8 @@ test("전부 해제하고 저장: 제한 해제", async () => {
   await interactionCreate.execute(save);
 
   assert.equal(store.djRoles.has("g1"), false);
-  assert.ok(save.updatedWith?.embeds[0].data.title.includes("해제"));
+  assert.match(screenOf(save.updatedWith).title, /해제/);
+  assert.equal(screenOf(save.updatedWith).done, true, "해제도 설정을 바꾼 것이라 완료 색");
 });
 
 test("선택~저장 사이 삭제된 역할은 걸러서 저장", async () => {
@@ -132,7 +134,8 @@ test("취소: 보류 선택 폐기, 설정 무변경", async () => {
   await interactionCreate.execute(cancel);
 
   assert.deepEqual(store.djRoles.get("g1"), ["r1"], "설정 무변경");
-  assert.ok(cancel.updatedWith?.embeds[0].data.title.includes("취소"));
+  assert.match(screenOf(cancel.updatedWith).title, /취소/);
+  assert.equal(screenOf(cancel.updatedWith).done, false);
 
   // 취소 후 저장을 눌러도(다른 세션 가정) 폐기된 선택이 부활하지 않음
   const save = fakeInteraction({ type: "button", customId: "djrole:save", messageId: "mE" });
